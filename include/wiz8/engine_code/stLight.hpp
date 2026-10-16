@@ -7,7 +7,6 @@
 #include "surrender/srLight.h"
 #include "surrender/srMath.h"
 #include "surrender/srNode.h"
-#include "surrender/srTypeRegistry.h"
 #include "wiz8/sr_api.h"
 
 class W8Prop;
@@ -126,18 +125,16 @@ public:
 
 // VTABLE: WIZ8 0x005ecc64 stLight
 // VTABLE: WIZ8 0x005ecc58 srVertexProcessor
-class stLight : public srClassSupport<stLight, srLight, 0x10006> {
+class stLight : public srLight {
     friend class W8GrCycle;
     friend class Trigger;
 
 public:
     virtual ~stLight() override; /* 0x0049C430 */
-    static const char* sGetClassName() { return "stLight"; }
 
     stLight() {}
     explicit stLight(Ownership ownership)
-        : srClassSupport<stLight, srLight, 0x10006>(static_cast<srNode*>(nullptr),
-                                                    srLight::PRESET_POINT, ownership)
+        : srLight(static_cast<srNode*>(nullptr), srLight::PRESET_POINT, ownership)
     {
     }
     explicit stLight(srNode* parent, Ownership ownership = Ownership::parent); /* 0x0049C2C0 */

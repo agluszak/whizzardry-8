@@ -11,7 +11,6 @@
 #include "surrender/srMeshModel.h"
 #include "surrender/srModel.h"
 #include "surrender/srModelInstance.h"
-#include "surrender/srTypeRegistry.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 
 class srGERD;
@@ -24,12 +23,9 @@ class srNode;
 /* Engine Code\stModelInstance.cpp. */
 // VTABLE: WIZ8 0x005ec7d0 stModelInstance
 /* The following are the construction-phase tables for the support base. */
-// VTABLE: WIZ8 0x005ec814 srClassSupport<stModelInstance,srModelInstance,65540>
-class stModelInstance : public srClassSupport<stModelInstance, srModelInstance, 0x10004> {
+class stModelInstance : public srModelInstance {
 public:
     enum { RENDER_LIGHTING_BAKED = 0x02u, RENDER_SHADOW = 0x08u, RENDER_NO_PICK = 0x10u };
-
-    static const char* sGetClassName() { return "stModelInstance"; }
 
     explicit stModelInstance(srNode* parent,
                              Ownership ownership = Ownership::parent); /* 0x0047EC80 */
@@ -77,11 +73,8 @@ public:
 /* Concrete 2D model instance. Slot 5 and the secondary slot-0 adjustor are
    SYNTHETIC compiler-generated deleting destructors; no source body owns
    either address. */
-// VTABLE: WIZ8 0x005ec858 srClassSupport<srModelInstance, class srNode, 4352>
-class stModelInstance2D : public srClassSupport<stModelInstance2D, srModelInstance, 0x10005> {
+class stModelInstance2D : public srModelInstance {
 public:
-    static const char* sGetClassName() { return "stModelInstance2D"; }
-
     explicit stModelInstance2D(srNode* parent); /* 0x0047F0F0 */
 
     stModelInstance2D& operator=(const stModelInstance2D& other); /* 0x0047F290 */

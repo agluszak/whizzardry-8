@@ -60,7 +60,6 @@
 #include "surrender/srPixelConvert.h"
 #include "surrender/srScene.h" // IWYU pragma: keep - complete scene type for conversion to srNode.
 #include "surrender/srShader.h"
-#include "surrender/srTypeRegistry.h"
 #include "texture_animation.h"
 #include "timer.h"
 #include "wiz8/button_interaction.h"
@@ -3402,7 +3401,7 @@ void DrawMainGameScreen(void)
         }
         if (g_node_cull_pending) {
             for (node = g_world->level->first_child_; node != 0; node = node->next_sibling_) {
-                if (sr_cast<stModelInstance>(node)) {
+                if (dynamic_cast<stModelInstance*>(node)) {
                     node->clearFlag(srNode::FLAG_DISABLE);
                 }
             }
@@ -3410,7 +3409,7 @@ void DrawMainGameScreen(void)
         RenderFrame();
         if (g_node_cull_pending) {
             for (node = g_world->level->first_child_; node != 0; node = node->next_sibling_) {
-                if (sr_cast<stModelInstance>(node)) {
+                if (dynamic_cast<stModelInstance*>(node)) {
                     if (MeasureNodeRenderWithoutPositionalOption(node) == 0) {
                         node->setFlag(srNode::FLAG_DISABLE);
                     } else {

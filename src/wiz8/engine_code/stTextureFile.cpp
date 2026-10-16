@@ -3,7 +3,6 @@
 #include <cstring>
 #include <exception>
 #include <memory>
-#include <ostream>
 #include <string>
 
 #include "compat/compiler.h"
@@ -21,11 +20,6 @@ std::unique_ptr<srColorSurface> __stdcall LoadSurface(wiz8::File* handle, w8_lon
 // VTABLE: WIZ8 0x005EC5F8
 // class stTextureFile
 
-// VTABLE: WIZ8 0x005EC63C
-// class srClassSupport<stTextureFile,srTexture,65537>
-
-/* The TGA loader instantiates srClassSupport for the imported srPalette
-   (class id 0x2900); its registry and clone slots are emitted in this TU. */
 // VTABLE: WIZ8 0x005EC5D8
 // class srClientSupport<srPalette,10496>
 
@@ -172,5 +166,3 @@ void stTextureFile::getMipmapData(const MultiRequest& request)
 }
 
 void stTextureFile::getMipmapLevelPartial(PartialRequest&) {}
-
-void stTextureFile::dump(std::ostream&) {}

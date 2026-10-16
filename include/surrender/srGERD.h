@@ -17,6 +17,7 @@
 #include "glm/ext/vector_int4_sized.hpp"
 #include "srARGB.h"
 #include "srBoundingSphere.h"
+#include "srClass.h"
 #include "srColorSurfaceIFace.h"
 #include "srDD.h"
 #include "srFlags.h"
@@ -26,7 +27,6 @@
 #include "srShader.h"
 #include "srTexture.h"
 #include "srTriMeshPipeline.h"
-#include "srTypeRegistry.h"
 #include "srVertexPipe.h"
 class srColorSurface;
 class srModelInstance;
@@ -35,7 +35,7 @@ class srVertexProcessor;
 struct srVertexArray;
 
 // VTABLE: SURRENDER 0x100766B0 srGERD
-class SR_DLL_IMPORT srGERD : public srRuntimeClass {
+class SR_DLL_IMPORT srGERD : public srClass {
 public:
     struct Pick {
         /* Normalized pick point the caller fills: x and y are the cursor's
@@ -268,7 +268,7 @@ public:
     /* clear() maps COLOR/DEPTH/STENCIL onto srDD::e_buffer and services
        ACCUM itself through accumClear. */
     enum e_buffer { BUFFER_COLOR = 1, BUFFER_DEPTH = 2, BUFFER_ACCUM = 4, BUFFER_STENCIL = 8 };
-    /* dump prints none (blit)/one (double)/two (triple) for values 1/2/3. */
+    /* One, two or three buffers for blit, double or triple buffering. */
     enum e_backBuffer { BACKBUFFER_NONE = 1, BACKBUFFER_ONE = 2, BACKBUFFER_TWO = 3 };
     /* applyRenderState translates each value to the same srDD mode. */
     enum e_polygonMode { POLYGON_POINT = 0, POLYGON_LINE = 1, POLYGON_FILL = 2 };
@@ -289,14 +289,6 @@ public:
     };
     enum e_winding { WINDING_POSITIONAL_0 = 0, WINDING_POSITIONAL_1 = 1 };
     enum e_visibility { VISIBILITY_OUTSIDE = 0 };
-    /* dump(stream, flags) section selectors: bit 0 driver/device info plus the window block, bit 1
-       the texture cache, bit 3 the statistics snapshot. */
-    enum e_info {
-        INFO_DEVICE = 0x1,
-        INFO_TEXTURE_CACHE = 0x2,
-        INFO_STATISTICS = 0x8,
-        INFO_ALL = INFO_DEVICE | INFO_TEXTURE_CACHE | INFO_STATISTICS
-    };
     enum e_hint {};
     enum e_hintMode {};
     /* 0 loads the frame buffer into the accum buffer, 1 accumulates, 4 returns the accum buffer to
@@ -313,17 +305,9 @@ public:
     using AccumPixel = glm::i16vec4;
     static_assert(sizeof(AccumPixel) == 8);
 
-    static const char* sGetClassName();
-    static srRegistry::ClassNode* sGetClassNode();
-
     srGERD(srDD* device, const char* device_name);
     virtual ~srGERD() override;
 
-    virtual const char* getClassName() const override;
-    virtual w8_ulong getClassID() const override;
-    virtual srRegistry::ClassNode* getClassNode() const override;
-    virtual void dump(std::ostream& stream) override;
-    void dump(std::ostream& stream, const srFlags<e_info>& info);
     static srGERD* getFirst();
     srGERD* getNext() const;
     /* Open-device list used by srTexture::invalidateFrameHandle. */
@@ -544,16 +528,6 @@ public:
     e_error getError();
     int isFlipped() const;
     const char* getApiVersion() const;
-    /* device.info.text[0..8] accessors. */
-    const char* getDeviceName() const;
-    const char* getDeviceVendor() const;
-    const char* getDevicePlatform() const;
-    const char* getDriverName() const;
-    const char* getDriverVendor() const;
-    const char* getDriverVersion() const;
-    const char* getHardwareChipset() const;
-    const char* getHardwareName() const;
-    const char* getHardwareVendor() const;
     srDD::e_driverID getDriverID() const;
     srDD::e_hardwareID getHardwareID() const;
     e_depthBuffer getDepthBufferType() const;
@@ -590,8 +564,6 @@ public:
     w8_long getMaxTextureWidth() const;
     w8_long getMaxTextureHeight() const;
     w8_long getMaxTextureAspectRatio() const;
-    static w8_ulong sGetClassID();
-    static void dumpDeviceList(std::ostream& stream);
 
     // FUNCTION: SURRENDER 0x1001BB80 SYMBOL
     // RECOMP: ?isPickStackEmpty@srGERD@@QBEHXZ
@@ -699,7 +671,6 @@ private:
     srGERD& operator=(const srGERD& other);
     srDD* getDD() const;
 
-    void dumpTextureCache(std::ostream& stream);
     void setDataPtr(srRendererDefs::e_vertexArray index, w8_long components,
                     srRendererDefs::e_type type, w8_ulong stride, const void* values);
 
@@ -807,7 +778,7 @@ private:
     struct Device {
         srDD* dd;
         srDD::Info info;
-        /* getDriverInfo target; getDriverID/getDriverName
+        /* getDriverInfo target; getDriverID
            (pre-context) and getApiVersion read its trailing fields. */
         srDD::DriverInfo driver_info;
         /* setHint/getHint index this by e_hint. */
@@ -972,7 +943,7 @@ private:
     Display display;
     PickState pick;
     unsigned char unknown_19f4_[4];
-    /* Snapshot getStatistics refreshes on every flipFrame; dump prints it. */
+    /* Snapshot getStatistics refreshes on every flipFrame. */
     Statistics frame_statistics;
     /* getDD counts each device access, so the live counters are mutable. */
     mutable Statistics statistics;

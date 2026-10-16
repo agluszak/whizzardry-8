@@ -1,34 +1,23 @@
 #include <cstddef>
 #include <memory>
-#include <ostream>
 #include <string>
 
 #include "compat/compiler.h"
+#include "surrender/srClass.h"
 #include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srCore.h"
-#include "surrender/srDebug.h"
 #include "surrender/srFilter.h"
 #include "surrender/srGERD.h"
 #include "surrender/srPixelConvert.h"
 #include "surrender/srTexture.h"
 #include "surrender/srTextureIFace.h"
-#include "surrender/srTypeRegistry.h"
-#include "surrender/stream_scope.h"
 
 // GLOBAL: SURRENDER 0x100A4A20
 // Lazy e_flag names, "GENERATESURFACE_FAILURE,DIRTY_DEFAULTS"
-static const char* s_flag_names3;
 
 // GLOBAL: SURRENDER 0x100A4A1C
 // srTexture::_frameHandle
 w8_ulong srTexture::_frameHandle;
-
-// FUNCTION: SURRENDER 0x1005EDE0
-const char* srTexture::sGetClassName()
-{
-    return "srTexture";
-}
-
 // FUNCTION: SURRENDER 0x1005E440
 srTexture::srTexture()
 {
@@ -42,9 +31,6 @@ srTexture::srTexture()
     texture_dimensions_.compression = srTextureIFace::COMPRESSION_DEFAULT;
     texture_dimensions_.format = srPixelConvert::pixelFormat(srPixelConvert::SURFACE_ARGB4444);
     texture_flags_ = 0;
-    if (s_flag_names3 == 0) {
-        s_flag_names3 = "GENERATESURFACE_FAILURE,DIRTY_DEFAULTS";
-    }
     mipmap_bias = 0.0f;
     packed_state = 0xe43;
     texture_priority = 0.5f;
@@ -68,107 +54,6 @@ srTexture& srTexture::operator=(const srTexture& other)
     }
     return *this;
 }
-
-static const char* filterName(srTexture::e_filter filter)
-{
-    switch (filter) {
-    case srTexture::FILTER_NONE:
-        return "NONE";
-    case srTexture::FILTER_FASTEST:
-        return "FASTEST";
-    case srTexture::FILTER_GOOD:
-        return "GOOD";
-    case srTexture::FILTER_BEST:
-        return "BEST";
-    default:
-        return "DEFAULT";
-    }
-}
-
-// FUNCTION: SURRENDER 0x1005E690
-void srTexture::dump(std::ostream& stream)
-{
-    srClass::dump(stream);
-    const srDumpStreamScope formatting(stream);
-    stream.width(0x20);
-    stream << "  Filter: " << getFilter()->getName() << '\n';
-    const char* name;
-    e_correction correction = getCorrection();
-    e_filter mag_filter = getMagFilter();
-    e_filter min_filter = getMinFilter();
-    e_mipmap mipmap = getMipmap();
-    e_wrap wrap_s = getWrapS();
-    e_wrap wrap_t = getWrapT();
-    stream.width(0x20);
-    stream << "  Correction: ";
-    switch (correction) {
-    case CORRECTION_FASTEST:
-        name = "FASTEST";
-        break;
-    case CORRECTION_GOOD:
-        name = "GOOD";
-        break;
-    case CORRECTION_BEST:
-        name = "BEST";
-        break;
-    default:
-        name = "DEFAULT";
-        break;
-    }
-    stream << name << '\n';
-    stream.width(0x20);
-    stream << "  Mag. filter: ";
-    name = filterName(mag_filter);
-    stream << name << '\n';
-    stream.width(0x20);
-    stream << "  Min. filter: ";
-    name = filterName(min_filter);
-    stream << name << '\n';
-    stream.width(0x20);
-    stream << "  Mipmap: ";
-    switch (mipmap) {
-    case MIPMAP_NONE:
-        name = "NONE";
-        break;
-    case MIPMAP_FASTEST:
-        name = "FASTEST";
-        break;
-    case MIPMAP_BEST:
-        name = "BEST";
-        break;
-    default:
-        name = "DEFAULT";
-        break;
-    }
-    stream << name << '\n';
-    stream.width(0x20);
-    stream << "  Wrap S: ";
-    if (wrap_s == WRAP_REPEAT) {
-        name = "REPEAT";
-    } else {
-        name = "CLAMP";
-    }
-    stream << name << '\n';
-    stream.width(0x20);
-    stream << "  Wrap T: ";
-    if (wrap_t == WRAP_REPEAT) {
-        name = "REPEAT";
-    } else {
-        name = "CLAMP";
-    }
-    stream << name << '\n';
-    stream.width(0x20);
-    stream << "  Mipmap bias: " << mipmap_bias << '\n';
-    stream.width(0x20);
-    stream << "  Priority: ";
-    stream.width(0x20);
-    stream << getPriority() << '\n';
-    stream.width(0x20);
-    stream << "  Flags: ";
-    srDumpFlags(stream, texture_flags_, s_flag_names3);
-    stream << '\n';
-}
-
 // FUNCTION: SURRENDER 0x1005EEF0
 w8_ulong srTexture::getNewFrameHandle()
 {

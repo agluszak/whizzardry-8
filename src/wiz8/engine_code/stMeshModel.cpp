@@ -33,7 +33,6 @@
 #include "surrender/srShader.h"
 #include "surrender/srTextureIFace.h"
 #include "surrender/srTriMeshPipeline.h"
-#include "surrender/srTypeRegistry.h"
 #include "surrender/srVertexPipe.h"
 #include "surrender/triangle_selection.h"
 #include "wiz8/engine_code/Octree.h"
@@ -57,8 +56,7 @@ int g_decompressed_mesh_bytes;
 static int g_decompressed_mesh_byte_limit = 0x800000;
 
 // FUNCTION: WIZ8 0x00470B00
-stMeshModel::stMeshModel(w8_long polygons, w8_long vertices)
-    : srClassSupport<stMeshModel, srMeshModel, 0x10003>(polygons, vertices)
+stMeshModel::stMeshModel(w8_long polygons, w8_long vertices) : srMeshModel(polygons, vertices)
 {
     vertex_lighting_ready = false;
     flags = W8_MESH_VERTEX_LIGHTING_DIRTY;
@@ -133,6 +131,7 @@ void stMeshModel::RevealVerticesNear(const glm::vec3& position, float range, con
         }
     }
 }
+
 // FUNCTION: WIZ8 0x00473190
 srBoundingBox stMeshModel::GetFrameBounds(int frame)
 {
@@ -302,7 +301,6 @@ int __fastcall IsZeroVector(const srVector3T<float>* vector)
 
 /* Copy or translate `count` vertices: a zero offset is a plain copy and a
    nonzero one goes through the vp constant-vector add. */
-// FUNCTION: WIZ8 0x00470040
 
 static bool MeshNameEquals(std::string_view left, std::string_view right)
 {

@@ -31,7 +31,6 @@
 #include "surrender/srBoundingBox.h"
 #include "surrender/srMath.h"
 #include "surrender/srNode.h"
-#include "surrender/srTypeRegistry.h"
 #include "wiz8/containers.h"
 #include "wiz8/cursor.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"

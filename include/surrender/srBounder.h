@@ -2,11 +2,8 @@
 
 #include "srNode.h"
 
-// VTABLE: SURRENDER 0x10076F64
-// class srClassSupport<srBounder, srNode, 5632>
-
 // VTABLE: SURRENDER 0x10076f30 srBounder
-class srBounder : public srClassSupport<srBounder, srNode, 0x1600> {
+class srBounder : public srNode {
 public:
     enum e_boundMode { BOUND_MODE_DYNAMIC = 0 };
 
@@ -14,12 +11,8 @@ public:
 
     srBounder& operator=(const srBounder& other);
 
-    // FUNCTION: SURRENDER 0x1004B070
-    static const char* sGetClassName() { return "srBounder"; }
-
     /* Empty derived destruction is the implicit srNode-base teardown. */
 
-    virtual void dump(std::ostream& stream) override;
     virtual void traverse(TraverseInfo& info) override;
     virtual void process(const ProcessInfo& info, e_processType type) override;
     virtual void updateBounds() override;

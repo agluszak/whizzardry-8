@@ -2,14 +2,10 @@
 
 #include "srMaterialIFace.h"
 #include "srMath.h"
-#include "srTypeRegistry.h"
 #include "srVertexPipe.h"
 
-// VTABLE: SURRENDER 0x1007556C
-// class srClassSupport<srMaterial, srMaterialIFace, 8720>
-
 // VTABLE: SURRENDER 0x10075538 srMaterial
-class SR_DLL_IMPORT srMaterial : public srClassSupport<srMaterial, srMaterialIFace, 0x2210> {
+class SR_DLL_IMPORT srMaterial : public srMaterialIFace {
 public:
     /* Bit indices, not masks. */
     enum e_oper {
@@ -23,11 +19,6 @@ public:
     // FUNCTION: SURRENDER 0x10034700 SYMBOL
     // RECOMP: ??0srMaterial@@QAE@XZ
     inline srMaterial() { reset(); }
-
-    static const char* sGetClassName();
-
-    virtual void dump(std::ostream& stream) override;
-    virtual void verify(srRuntimeClass::e_verify mode) override;
 
     virtual srVertexProcessor::MaterialInfo getMaterialInfo() override;
     virtual void preProcess(srVertexPipe& pipe) override;

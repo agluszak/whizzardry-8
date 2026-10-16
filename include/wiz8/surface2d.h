@@ -7,16 +7,12 @@
 #include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srNode.h"
 #include "surrender/srTexture.h"
-#include "surrender/srTypeRegistry.h"
 
 class srGERD;
 
 // VTABLE: WIZ8 0x005EC6C0 stTexture2D
-// VTABLE: WIZ8 0x005EC704 srClassSupport<stTexture2D, srTexture, 65551>
-class stTexture2D : public srClassSupport<stTexture2D, srTexture, 0x1000f> {
+class stTexture2D : public srTexture {
 public:
-    static const char* sGetClassName() { return "stTexture2D"; }
-
     stTexture2D();
     virtual ~stTexture2D() override;
     stTexture2D& operator=(const stTexture2D&) = default;
@@ -38,12 +34,9 @@ public:
 };
 
 // VTABLE: WIZ8 0x005EC748 stSurface2D
-// VTABLE: WIZ8 0x005EC77C srClassSupport<stSurface2D, srNode, 65550>
-class stSurface2D : public srClassSupport<stSurface2D, srNode, 0x1000e> {
+class stSurface2D : public srNode {
 public:
     enum { UPDATE_FULL_TILE = 1 };
-
-    static const char* sGetClassName() { return "stSurface2D"; }
 
     stSurface2D(std::shared_ptr<srColorSurfaceIFace> surface, int width, int height, srNode* parent,
                 int tile_size);

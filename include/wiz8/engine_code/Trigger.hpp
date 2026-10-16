@@ -4,8 +4,8 @@
 
 #include "compat/compiler.h"
 #include "compat/native.h"
+#include "surrender/srClass.h"
 #include "surrender/srMath.h"
-#include "surrender/srTypeRegistry.h"
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/sr_api.h"
 
@@ -171,10 +171,6 @@ struct W8LockState {
     int last_interaction_clock;
 };
 
-/* Engine Code\Trigger.cpp. Trigger is registered directly below srClass. It is
-   not an srNode: the temporary table installed while srClassSupport is under
-   construction has the same +0 vptr as the final Trigger table, and neither
-   table contains any srNode slots. */
 enum W8TriggerRepresentationKind {
     W8_TRIGGER_REP_NONE = 0,
     W8_TRIGGER_REP_ITEM = 1,
@@ -182,11 +178,9 @@ enum W8TriggerRepresentationKind {
     W8_TRIGGER_REP_POSITION = 3
 };
 
-class Trigger : public srClassSupport<Trigger, srClass, 0x10008> {
+class Trigger : public srClass {
 public:
     typedef bool(__cdecl* ActivationCallback)(Trigger* trigger);
-
-    static const char* sGetClassName() { return "Trigger"; }
 
     Trigger();
     virtual ~Trigger() override;

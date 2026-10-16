@@ -2,7 +2,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <ostream>
 
 #include <SDL3/SDL_log.h>
 #include <SDL3/SDL_messagebox.h>
@@ -12,44 +11,6 @@
 #include "compat/native.h"
 #include "surrender/srCore.h"
 #include "surrender/srDebug.h"
-
-void srDumpFlags(std::ostream& stream, w8_ulong flags, const char* names)
-{
-    if (flags == 0) {
-        stream << "[NONE]";
-        return;
-    }
-    stream << '[';
-    bool first = true;
-    for (w8_ulong bit = 0; bit < 0x20; ++bit) {
-        if ((flags & (w8_ulong{1} << bit)) != 0) {
-            if (first) {
-                first = false;
-            } else {
-                stream << ',';
-            }
-            if (names == 0 || *names == 0) {
-                stream << bit;
-            } else {
-                while (*names != 0 && *names != ',') {
-                    stream << *names++;
-                }
-                if (*names == ',') {
-                    ++names;
-                }
-            }
-        } else if (names != 0) {
-            while (*names != 0 && *names != ',') {
-                ++names;
-            }
-            if (*names == ',') {
-                ++names;
-            }
-        }
-    }
-    stream << ']';
-}
-
 // GLOBAL: SURRENDER 0x100A0280
 static srAssertHandler srAssertFunc = 0;
 
@@ -118,28 +79,6 @@ w8_long __cdecl srPrintf(const char* format, ...)
     SDL_LogInfo(SDL_LOG_CATEGORY_RENDER, "%s", buffer);
     return result;
 }
-
-// FUNCTION: SURRENDER 0x100333F0
-w8_long __cdecl srStreamPrintf(std::ostream& stream, const char* format, ...)
-{
-    if (format != 0) {
-        char buffer[0x404];
-        va_list args;
-        va_start(args, format);
-        w8_long result = SDL_vsnprintf(buffer, sizeof(buffer), format, args);
-        va_end(args);
-        stream << buffer;
-        return result;
-    }
-    return 0;
-}
-
-// FUNCTION: SURRENDER 0x10002E40
-const char* __cdecl srBoolToString(int value)
-{
-    return value != 0 ? "true" : "false";
-}
-
 /* The stock handler SurRender ships for hosts that want a dialog. */
 // FUNCTION: SURRENDER 0x100466A0
 void __cdecl srDefaultAssertFailFunc(const char* expression, const char* source_path, w8_long line,

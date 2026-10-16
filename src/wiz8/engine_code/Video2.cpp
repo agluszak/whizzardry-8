@@ -34,12 +34,12 @@
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "layouts/world.h"
+#include "surrender/srClass.h"
 #include "surrender/srColorSurfaceIFace.h"
 #include "surrender/srFlags.h"
 #include "surrender/srMath.h"
 #include "surrender/srNode.h"
 #include "surrender/srTextureIFace.h"
-#include "surrender/srTypeRegistry.h"
 #include "wiz8/design_rect.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/xstatus.h"
@@ -1886,11 +1886,11 @@ void PurgeInactiveSceneInstances(srScene* scene)
     while (node) {
         srNode* next = node->next_sibling_;
         unsigned char display_state = 3;
-        if (auto* instance = sr_cast<stModelInstance>(node)) {
+        if (auto* instance = dynamic_cast<stModelInstance*>(node)) {
             /* Retail also applies the 2D byte test to 3D highlight alpha.
                This representation read does not establish a 3D state member. */
             memcpy(&display_state, &instance->highlight_colour.w, sizeof(display_state));
-        } else if (auto* sprite = sr_cast<stModelInstance2D>(node)) {
+        } else if (auto* sprite = dynamic_cast<stModelInstance2D*>(node)) {
             display_state = sprite->displayState();
         }
         if (display_state != 3) {
@@ -2746,10 +2746,6 @@ void EndRenderProbe(void)
 /* 0x00424B70 calls the imported ~srTextureMap: it is the local
    ??_GsrTextureMap thunk, not the support-class deleting destructor. */
 
-/* The constructor at 0x00429D70 registers class 8720 under the 8704 class
-   node owned by srMaterialIFace through srMaterial::sGetClassNode: the
-   client layer is srClientSupport<srMaterial,8720>, whose canonical class
-   already chains that registration. */
 // VTABLE: WIZ8 0x005EBDE0
 // class srClientSupport<srMaterial,8720>
 

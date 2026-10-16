@@ -32,9 +32,8 @@ struct GroundShadowProjection {
 /* The retained registry name, class id, concrete vtable, allocation size and
    clone/factory slots identify this first-party srNode subclass. */
 // VTABLE: WIZ8 0x005ed3c4
-class stGroundShadow : public srClassSupport<stGroundShadow, srNode, 0x10010> {
+class stGroundShadow : public srNode {
 public:
-    static const char* sGetClassName() { return "stGroundShadow"; }
     stGroundShadow(srNode* parent);              /* 0x004D61B0 */
     stGroundShadow(const stGroundShadow& other); /* 0x004D6430 */
     stGroundShadow& operator=(const stGroundShadow&) = default;

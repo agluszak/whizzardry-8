@@ -37,8 +37,7 @@ public:
         /* SDL GPU defaults: 0x100; createRenderer passes it to each
            Renderer as its batch limit. */
         w8_ulong renderer_batch_limit;
-        /* Device texture RAM in bytes; dumpTextureCache prints it in kB and
-           treats 0 as "infinite" (no residency percentage). */
+        /* Device texture RAM in bytes; 0 means unlimited. */
         w8_ulong texture_ram;
         /* Texture-dimension clamps applied by evaluateTextureDimensions. */
         w8_ulong max_texture_stages;

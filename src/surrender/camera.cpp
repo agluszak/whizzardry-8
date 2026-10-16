@@ -1,7 +1,6 @@
 #include <algorithm>
 #include <cmath>
 #include <optional>
-#include <ostream>
 #include <span>
 #include <utility>
 
@@ -16,23 +15,9 @@
 #include "glm/matrix.hpp"
 #include "glm/vector_relational.hpp"
 #include "surrender/srCamera.h"
-#include "surrender/srDebug.h"
 #include "surrender/srFlags.h"
 #include "surrender/srGERD.h"
 #include "surrender/srNode.h"
-#include "surrender/srTypeRegistry.h"
-#include "surrender/stream_scope.h"
-
-/* Flag-name table; never assigned, so dump prints numeric bit indices. */
-static const char* flag_names;
-
-// FUNCTION: SURRENDER 0x10047D60
-std::ostream& operator<<(std::ostream& stream, const srCamera::Rect& rectangle)
-{
-    stream << "{{" << rectangle.left << ',' << rectangle.bottom << "},{" << rectangle.right << ','
-           << rectangle.top << "}}";
-    return stream;
-}
 
 // FUNCTION: SURRENDER 0x10047DF0
 void srCamera::process(const ProcessInfo& info, e_processType type)
@@ -117,8 +102,7 @@ double srCamera::getAspectRatio() const
 }
 
 // FUNCTION: SURRENDER 0x10048450
-srCamera::srCamera(srNode* parent)
-    : srClassSupport<srCamera, srNode, 0x1400>(static_cast<srNode*>(0))
+srCamera::srCamera(srNode* parent) : srNode(static_cast<srNode*>(0))
 {
     flags.value = 0;
     near_clip = 0.1;
@@ -292,29 +276,6 @@ void srCamera::flipHorizontal()
     double swap = view_plane.left;
     view_plane.left = view_plane.right;
     view_plane.right = swap;
-}
-
-// FUNCTION: SURRENDER 0x10048B70
-void srCamera::dump(std::ostream& stream)
-{
-    srNode::dump(stream);
-    const srDumpStreamScope formatting(stream);
-    stream.width(0x20);
-    stream << "Control flags: ";
-    srDumpFlags(stream, this->flags.value, flag_names);
-    stream << '\n';
-    stream.width(0x20);
-    stream << "  Viewplane: " << view_plane << '\n';
-    stream.width(0x20);
-    stream << "  Viewplane distance: " << view_plane_distance << '\n';
-    stream.width(0x20);
-    const auto [near_plane, far_plane] = getClipRange();
-    stream << "  Object space Clip Range (near,far): " << near_plane << ',' << far_plane << '\n';
-    stream.width(0x20);
-    const auto [near_range, far_range] = getEnvironmentRange();
-    stream << "  Environment Range (near,far): " << near_range << ',' << far_range << '\n';
-    const auto [near_scale, far_scale] = getEnvironmentScale();
-    stream << "  Environment Scale (near,far): " << near_scale << ',' << far_scale << '\n';
 }
 
 // FUNCTION: SURRENDER 0x10048E30

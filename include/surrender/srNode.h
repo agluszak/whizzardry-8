@@ -11,15 +11,12 @@
 
 #include "glm/ext/vector_double3.hpp"
 #include "model_view_scope.h"
+#include "srClass.h"
 #include "srFlags.h"
 #include "srMath.h"
-#include "srTypeRegistry.h"
-
-// VTABLE: SURRENDER 0x10077204
-// class srClassSupport<srNode, srClass, 4096>
 
 // VTABLE: SURRENDER 0x100771D0 srNode
-class srNode : public srClassSupport<srNode, srClass, 0x1000> {
+class srNode : public srClass {
 public:
     class TraverseInfo {
     public:
@@ -75,10 +72,6 @@ public:
 
     SR_DLL_IMPORT srNode& operator=(const srNode& other);
 
-    static SR_DLL_IMPORT const char* sGetClassName();
-
-    virtual SR_DLL_IMPORT void dump(std::ostream& stream) override;
-
 public:
     virtual SR_DLL_IMPORT void traverse(TraverseInfo& info);
     virtual SR_DLL_IMPORT void process(const ProcessInfo& info, e_processType type);
@@ -115,11 +108,20 @@ protected:
     SR_DLL_IMPORT int testNotify(e_notify notification) const;
 
 public:
-    SR_DLL_IMPORT void dumpHierarchy(std::ostream& stream, w8_long indent) const;
-    SR_DLL_IMPORT srNode* findChild(std::string_view name) const;
-    SR_DLL_IMPORT srNode* findChildByNameAndType(std::string_view name, w8_ulong class_id) const;
+    template<class T = srNode> T* findChild(std::string_view name) const
+    {
+        // Preserve lookup precedence: node, its siblings, then its children.
+        const auto find = [&](auto&& self, srNode* node) -> T* {
+            if (!node) return nullptr;
+            if (node->getName() == name) {
+                if (auto* match = dynamic_cast<T*>(node)) return match;
+            }
+            if (auto* match = self(self, node->getNext())) return match;
+            return self(self, node->getChild());
+        };
+        return find(find, first_child_);
+    }
     SR_DLL_IMPORT srNode* findParent(std::string_view name) const;
-    SR_DLL_IMPORT srNode* findParentByType(w8_ulong class_id) const;
     SR_DLL_IMPORT srNode* getChild() const;
     SR_DLL_IMPORT w8_long getChildCount() const;
     SR_DLL_IMPORT std::string getFullPath() const;
@@ -252,9 +254,6 @@ private:
     void setLocationComponent(unsigned component, double value);
     void turnWorldSpaceAxisToward(unsigned axis, const glm::dvec3& direction, double amount);
     SR_DLL_IMPORT void checkTransformation() const;
-    SR_DLL_IMPORT srNode* findChildByNameAndTypeInternal(std::string_view name, w8_ulong class_id);
-    SR_DLL_IMPORT srNode* findChildInternal(std::string_view name);
-    SR_DLL_IMPORT srNode* findParentByTypeInternal(w8_ulong class_id);
     SR_DLL_IMPORT srNode* findParentInternal(std::string_view name);
     SR_DLL_IMPORT void getFullPathInternal(std::string& path) const;
     SR_DLL_IMPORT void setWSDirty();

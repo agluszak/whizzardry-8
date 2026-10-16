@@ -37,7 +37,7 @@ add_executable(native_imports_test "${PROJECT_SOURCE_DIR}/tests/native/imports_t
 target_link_libraries(native_imports_test PRIVATE SURRENDER wiz8_native_settings)
 add_test(NAME native_imports COMMAND native_imports_test)
 
-foreach(fixture mesh_ownership registry_ownership renderer_ownership)
+foreach(fixture mesh_ownership renderer_ownership)
     add_executable(native_${fixture}_test native/${fixture}_test.cpp)
     target_link_libraries(native_${fixture}_test PRIVATE SURRENDER wiz8_native_settings)
     add_test(NAME native_${fixture} COMMAND native_${fixture}_test)

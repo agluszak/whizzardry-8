@@ -1,7 +1,6 @@
 #pragma once
 
 #include <memory>
-#include <ostream>
 #include <span>
 
 #include <SDL3/SDL_rect.h>
@@ -11,14 +10,10 @@
 #include "srColorSurfaceIFace.h"
 #include "srPalette.h"
 #include "surrender/srPixelConvert.h"
-#include "surrender/srTypeRegistry.h"
 #include "wiz8/surface_storage.h"
 
-// VTABLE: SURRENDER 0x100773A0
-// class srClassSupport<srColorSurface, srColorSurfaceIFace, 12560>
-
 // VTABLE: SURRENDER 0x100772D0 srColorSurface
-class srColorSurface : public srClassSupport<srColorSurface, srColorSurfaceIFace, 0x3110> {
+class srColorSurface : public srColorSurfaceIFace {
 public:
     SR_DLL_IMPORT srColorSurface(const srPixelConvert::PixelFormat& format, w8_ulong width,
                                  w8_ulong height);
@@ -33,10 +28,6 @@ public:
 
     SR_DLL_IMPORT srColorSurface(const srColorSurface& other);
     SR_DLL_IMPORT srColorSurface& operator=(const srColorSurface& other);
-
-    static SR_DLL_IMPORT const char* sGetClassName();
-
-    virtual SR_DLL_IMPORT void dump(std::ostream& stream) override;
 
     std::span<unsigned char> rawPixelRow(w8_long y, w8_long x_start, w8_long x_end);
     virtual SR_DLL_IMPORT w8_ulong getPixelRaw(w8_long x, w8_long y) override;

@@ -1,13 +1,11 @@
 #include <atomic>
 #include <cmath>
 #include <mutex>
-#include <ostream>
 #include <string>
 #include <string_view>
 
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/ext/quaternion_trigonometric.hpp>
-#include <glm/gtc/matrix_access.hpp>
 #include <glm/gtc/quaternion.hpp>
 
 #include "compat/compiler.h"
@@ -15,14 +13,12 @@
 #include "glm/geometric.hpp"
 #include "glm/matrix.hpp"
 #include "surrender/model_view_scope.h"
+#include "surrender/srClass.h"
 #include "surrender/srCore.h"
-#include "surrender/srDebug.h"
 #include "surrender/srFlags.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMath.h"
 #include "surrender/srNode.h"
-#include "surrender/srTypeRegistry.h"
-#include "surrender/stream_scope.h"
 
 // GLOBAL: SURRENDER 0x100A49E0
 std::recursive_mutex srNode::sceneGraphCSect;
@@ -41,14 +37,6 @@ static void orthonormalizeRotation(glm::dmat3& rotation)
     }
     rotation = glm::transpose(rows);
 }
-
-/* Comma-separated flag/notify name lists dumped beside the bit values; the constructor lazily
-   installs the flag names. */
-// GLOBAL: SURRENDER 0x100A4A00
-static const char* s_flag_names1;
-
-// GLOBAL: SURRENDER 0x100A4A04
-static const char* s_notify_names;
 
 // FUNCTION: SURRENDER 0x10050340
 void srNode::lockSceneGraph()
@@ -216,9 +204,6 @@ srNode::srNode(srNode* parent, Ownership ownership) : parent_owns_(ownership == 
     std::lock_guard access(sceneGraphCSect);
     world_transform0 = glm::dmat4x3(1);
     world_transform1 = glm::mat4x3(1);
-    if (s_flag_names1 == 0) {
-        s_flag_names1 = "DISABLE,TERMINATE,GLOBAL,IGNORE_TRANSFORM";
-    }
     next_sibling_ = 0;
     previous_sibling_ = 0;
     parent_ = 0;
@@ -350,57 +335,6 @@ int srNode::isParentOf(const srNode& node) const
     return target->isChildOf(*this);
 }
 
-// FUNCTION: SURRENDER 0x10055A00
-static std::ostream& operator<<(std::ostream& stream, const glm::dvec3& vector)
-{
-    return stream << '{' << vector.x << ',' << vector.y << ',' << vector.z << '}';
-}
-
-// FUNCTION: SURRENDER 0x100513C0
-void srNode::dump(std::ostream& stream)
-{
-    srClass::dump(stream);
-    const std::string path = getFullPath();
-    glm::dmat3 rotation;
-    rotation = getRotation<glm::dmat3>();
-    const auto [ws_rotation, ws_location, ws_scale] = getWorldSpaceCoordinates();
-    const srDumpStreamScope formatting(stream);
-    stream.width(0x20);
-    stream << "  FullPath: " << path << '\n';
-    stream.width(0x20);
-    stream << "  Parent: " << (parent_ == 0 ? "No Parent" : parent_->getName()) << '\n';
-    stream.width(0x20);
-    stream << "  Child count: " << getChildCount() << '\n';
-    stream.width(0x20);
-    stream << "  Local matrix: " << '{' << glm::row(rotation, 0) << ',' << glm::row(rotation, 1)
-           << ',' << glm::row(rotation, 2) << '}' << '\n';
-    stream.width(0x20);
-    const auto location = getLocation();
-    stream << "  Local translation: " << '{' << location.x << ',' << location.y << ',' << location.z
-           << '}' << '\n';
-    stream.width(0x20);
-    const auto scale = getScale();
-    stream << "  Local scale: " << '{' << scale.x << ',' << scale.y << ',' << scale.z << '}'
-           << '\n';
-    stream.width(0x20);
-    stream << "  WS matrix: " << '{' << glm::row(ws_rotation, 0) << ',' << glm::row(ws_rotation, 1)
-           << ',' << glm::row(ws_rotation, 2) << '}' << '\n';
-    stream.width(0x20);
-    stream << "  WS location: " << '{' << ws_location.x << ',' << ws_location.y << ','
-           << ws_location.z << '}' << '\n';
-    stream.width(0x20);
-    stream << "  WS scale: " << '{' << ws_scale.x << ',' << ws_scale.y << ',' << ws_scale.z << '}'
-           << '\n';
-    stream.width(0x20);
-    stream << "  Flags: ";
-    srDumpFlags(stream, this->flags.value, s_flag_names1);
-    stream << '\n';
-    stream.width(0x20);
-    stream << "  Notify: ";
-    srDumpFlags(stream, notifications.value, s_notify_names);
-    stream << '\n';
-}
-
 // FUNCTION: SURRENDER 0x10051A20
 srNode* srNode::getChild() const
 {
@@ -455,12 +389,6 @@ void srNode::clearFlag(e_flag flag)
 int srNode::testFlag(e_flag flag) const
 {
     return (flags.value & (1 << flag)) != 0;
-}
-
-// FUNCTION: SURRENDER 0x10051D30
-const char* srNode::sGetClassName()
-{
-    return "srNode";
 }
 
 // FUNCTION: SURRENDER 0x10051D40
@@ -707,76 +635,6 @@ void srNode::getFullPathInternal(std::string& path) const
     path += '/';
 }
 
-// FUNCTION: SURRENDER 0x10050B10
-void srNode::dumpHierarchy(std::ostream& stream, w8_long indent) const
-{
-    const srNode* node = this;
-    do {
-        srStreamPrintf(stream, "%*c%s (%s)\n", indent, 0x20, node->getName().c_str(),
-                       node->getClassName());
-        if (node->first_child_ != 0) {
-            node->first_child_->dumpHierarchy(stream, indent + 2);
-        }
-        node = node->next_sibling_;
-    } while (node != 0);
-}
-
-// FUNCTION: SURRENDER 0x100507B0
-srNode* srNode::findChild(std::string_view name) const
-{
-    if (first_child_ != 0) {
-        return first_child_->findChildInternal(name);
-    }
-    return 0;
-}
-
-// FUNCTION: SURRENDER 0x10050730
-srNode* srNode::findChildInternal(std::string_view name)
-{
-    if (name == getName()) {
-        return this;
-    }
-    if (next_sibling_ != 0) {
-        srNode* found = next_sibling_->findChildInternal(name);
-        if (found != 0) {
-            return found;
-        }
-    }
-    srNode* found = 0;
-    if (first_child_ != 0) {
-        found = first_child_->findChildInternal(name);
-    }
-    return found;
-}
-
-// FUNCTION: SURRENDER 0x10050860
-srNode* srNode::findChildByNameAndType(std::string_view name, w8_ulong class_id) const
-{
-    if (first_child_ != 0) {
-        return first_child_->findChildByNameAndTypeInternal(name, class_id);
-    }
-    return 0;
-}
-
-// FUNCTION: SURRENDER 0x100507D0
-srNode* srNode::findChildByNameAndTypeInternal(std::string_view name, w8_ulong class_id)
-{
-    if (name == getName() && matchClassID(class_id) != 0) {
-        return this;
-    }
-    if (next_sibling_ != 0) {
-        srNode* found = next_sibling_->findChildByNameAndTypeInternal(name, class_id);
-        if (found != 0) {
-            return found;
-        }
-    }
-    srNode* found = 0;
-    if (first_child_ != 0) {
-        found = first_child_->findChildByNameAndTypeInternal(name, class_id);
-    }
-    return found;
-}
-
 // FUNCTION: SURRENDER 0x10050930
 srNode* srNode::findParent(std::string_view name) const
 {
@@ -791,28 +649,6 @@ srNode* srNode::findParentInternal(std::string_view name)
 {
     srNode* node = this;
     while (name != node->getName()) {
-        node = node->parent_;
-        if (node == 0) {
-            return 0;
-        }
-    }
-    return node;
-}
-
-// FUNCTION: SURRENDER 0x10050990
-srNode* srNode::findParentByType(w8_ulong class_id) const
-{
-    if (parent_ == 0) {
-        return 0;
-    }
-    return parent_->findParentByTypeInternal(class_id);
-}
-
-// FUNCTION: SURRENDER 0x10050950
-srNode* srNode::findParentByTypeInternal(w8_ulong class_id)
-{
-    srNode* node = this;
-    while (node->matchClassID(class_id) == 0) {
         node = node->parent_;
         if (node == 0) {
             return 0;
