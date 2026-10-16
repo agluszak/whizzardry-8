@@ -9,7 +9,6 @@
 
 #include "compat/compiler.h"
 #include "glm/ext/vector_float3.hpp"
-#include "glm/ext/vector_float4.hpp"
 #include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/retail_geometry_types.h"
@@ -93,7 +92,9 @@ struct W8LevelFileItemRecord { /* 0x44 */
 /* A clipping plane: a 64-byte name and a four-float position. */
 struct W8LevelFileClippingPlaneRecord { /* 0x50 */
     char name0[0x40];
-    glm::vec4 serialized_position;
+    struct {
+        float x, y, z, w;
+    } serialized_position;
 };
 
 /* The fixed head of a monster placement; its path nodes follow. */
