@@ -1,6 +1,7 @@
 #include "wiz8/engine_code/OctBuildTree.h"
 
 #include <algorithm>
+#include <memory>
 #include <optional>
 #include <span>
 #include <unordered_set>
@@ -26,20 +27,6 @@
 // GLOBAL: WIZ8 0x005ec188
 const float g_octree_cell_extent_scale = 1.000100016593933f;
 
-// FUNCTION: WIZ8 0x00446330
-W8OctBuildNode::W8OctBuildNode() : children{}, region(0), leaf_kind(0), provisional_region(0) {}
-
-// FUNCTION: WIZ8 0x00446350
-W8OctBuildNode::~W8OctBuildNode()
-{
-    if (leaf_kind != 0) {
-        return;
-    }
-    for (W8OctBuildNode* child : children) {
-        delete child;
-    }
-}
-
 /* Build the cubic spatial domain used to insert processed GameData surfaces.
    The optional level bounds are expanded locally by half a leaf on every axis. */
 // FUNCTION: WIZ8 0x00446390
@@ -54,7 +41,6 @@ W8OctBuildTree::W8OctBuildTree(float leaf_size, std::optional<srBoundingBox> bou
     max_leaf_regions = 0;
     unknown_ae = 0;
     region_assignments = 0;
-    use_owned_nodes = false;
     unknown_b5[0] = 0;
     unknown_b5[1] = 0;
     unknown_b5[2] = 0;
@@ -128,14 +114,7 @@ W8OctBuildTree::W8OctBuildTree(float leaf_size, std::optional<srBoundingBox> bou
 
 /* The tree owns its nodes and stable link storage. Queries own their results. */
 // FUNCTION: WIZ8 0x004466d0
-W8OctBuildTree::~W8OctBuildTree()
-{
-    delete spatial.m_root;
-    spatial.m_triangle_vertices = nullptr;
-}
-
-/* Recursive node teardown: internal nodes delete the eight children, leaf
-   nodes (leaf_kind != 0) clear the ten link/array slots. */
+W8OctBuildTree::~W8OctBuildTree() = default;
 
 /* Reject triangles outside the build domain, lazily create the root node, and
    then hand the complete typed working record to the recursive inserter. */
@@ -150,12 +129,9 @@ unsigned char W8OctBuildTree::InsertSurface(W8GDSurface* surface, w8_ulong mode)
     const auto normal = surface->plane.normal;
     if (!triangleIntersectsBox(spatial.bounds(), *triangle, normal)) return 0;
 
-    if (spatial.m_root == 0) {
-        if (!use_owned_nodes) {
-            spatial.m_root = new W8OctBuildNode;
-        } else {
-            spatial.m_root = new W8CountedOctBuildNode;
-        }
+    if (!root) {
+        root = std::make_unique<W8OctBuildNode>();
+        spatial.m_root = root.get();
     }
     working.m_root = spatial.m_root;
     working.m_triangle_vertices = triangle->data();
@@ -168,8 +144,8 @@ unsigned char W8OctBuildTree::InsertSurface(W8GDSurface* surface, w8_ulong mode)
     return 1;
 }
 
-/* Descend through every overlapping octant.  Branch nodes own child nodes;
-   leaf nodes reuse the same eight slots as per-mode linked-list heads. */
+/* Descend through every overlapping octant; leaf surface banks retain
+   their insertion order independently of child ownership. */
 // FUNCTION: WIZ8 0x004469f0
 unsigned char W8OctBuildTree::InsertSurfaceRecursive(W8OctSpatialState* working,
                                                      W8GDSurface* surface,
@@ -198,10 +174,7 @@ unsigned char W8OctBuildTree::InsertSurfaceRecursive(W8OctSpatialState* working,
                     candidate.bounds(),
                     std::span<const glm::vec3, 3>(working->m_triangle_vertices, 3), planeNormal);
             },
-            [&]() -> W8OctBuildNode* {
-                if (use_owned_nodes) return new W8CountedOctBuildNode;
-                return new W8OctBuildNode;
-            },
+            [] { return std::make_unique<W8OctBuildNode>(); },
             [&](W8OctSpatialState& candidate) {
                 candidate.m_triangle_vertices = working->m_triangle_vertices;
                 return InsertSurfaceRecursive(&candidate, surface, planeNormal, mode);
@@ -210,8 +183,7 @@ unsigned char W8OctBuildTree::InsertSurfaceRecursive(W8OctSpatialState* working,
     return inserted;
 }
 
-/* Append `payload` to the node's `kind` link list: bump the leaf counter and
-   the tree watermark, then either extend the tail or seed the head. */
+/* Append to the leaf's surface bank and update the build statistics. */
 // FUNCTION: WIZ8 0x00446d00
 void W8OctBuildTree::AppendLink(W8OctBuildNode* node, void* payload, short kind)
 {
@@ -219,16 +191,7 @@ void W8OctBuildTree::AppendLink(W8OctBuildNode* node, void* payload, short kind)
     if (deepest_link_list < node->leaf_kind) {
         deepest_link_list = node->leaf_kind;
     }
-    W8OctBuildLink* link = &links.emplace_back(W8OctBuildLink{payload, nullptr});
-    W8OctBuildLink* head = node->links[kind];
-    if (head == nullptr) {
-        node->links[kind] = link;
-        return;
-    }
-    while (head->next != nullptr) {
-        head = head->next;
-    }
-    head->next = link;
+    node->surfaces.at(kind - 2).push_back(payload);
 }
 
 /* A query owns both ordered results and its membership index. Visit flags
@@ -327,22 +290,16 @@ void W8OctBuildTree::collectLeaf(W8OctBuildNode* node, short depth, short kind,
                                  SurfaceCollector& collector) const
 {
     if (depth != spatial.m_depth) {
-        for (auto* child : node->children)
-            if (child) collectLeaf(child, depth + 1, kind, collector);
+        for (const auto& child : node->children)
+            if (child) collectLeaf(child.get(), depth + 1, kind, collector);
         return;
     }
     const auto collect_links = [&](int list, bool mark) {
-        for (auto* link = node->links[list]; link; link = link->next)
-            collector.append(*static_cast<W8GDSurface*>(link->surface), mark);
+        for (auto* surface : node->surfaces[list - 2])
+            collector.append(*static_cast<W8GDSurface*>(surface), mark);
     };
-    if (kind == 9) {
+    if (kind == 3 || kind == 9)
         collect_links(3, true);
-        collect_links(4, false);
-    } else if (kind == 10) {
-        collect_links(7, false);
-        // No producer builds an eleventh list. The old second head aliased
-        // provisional region metadata; it cannot be a native link pointer.
-    } else if (kind >= 0 && kind < 8) {
-        collect_links(kind, kind == 3);
-    }
+    else if (kind == 2)
+        collect_links(2, false);
 }

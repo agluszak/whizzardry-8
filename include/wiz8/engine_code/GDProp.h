@@ -9,6 +9,7 @@
 #include "glm/ext/vector_int2.hpp"
 #include "surrender/srBoundingBox.h"
 #include "wiz8/engine_code/OctPath.h"
+#include "wiz8/geometry.h"
 
 class srModelInstance;
 class Trigger;
@@ -53,10 +54,6 @@ public:
         Flags initial_flags = {false, false, false, false, 0, 0};
         m_flags = initial_flags;
         m_prop_number = 0;
-        m_vertex_count = 0;
-        m_surface_count = 0;
-        m_pGDSurfaces = 0;
-        m_pVertices = 0;
         m_trigger = 0;
         m_path_range.sentinel = -10000000.0f;
         m_path_bounds.max_z = 0;
@@ -66,7 +63,10 @@ public:
     }
     GDProp(srModelInstance* instance, const char* path_name, unsigned short prop_number,
            unsigned char footstep_surface, unsigned char footstep_material); /* 0x004B6E00 */
-    ~GDProp();                                                               /* 0x004B6ED0 */
+    GDProp(GDProp&&) noexcept = default;
+    GDProp& operator=(GDProp&&) noexcept = default;
+    GDProp(const GDProp&) = delete;
+    GDProp& operator=(const GDProp&) = delete;
     void BindTrigger(Trigger* owner);
     bool ContainsPathCoordinate(unsigned short x, unsigned short y) const;
     bool HasSupportedItems();
@@ -100,19 +100,17 @@ private:
 
     Flags m_flags;                        /* 0x00 */
     unsigned short m_prop_number;         /* 0x02 */
-    unsigned int m_path_handle;           /* 0x04 */
+    unsigned int m_path_handle{};           /* 0x04 */
     std::vector<unsigned short> m_path_edges;
     std::vector<unsigned short> m_path_waypoints;
-    int m_surface_count;                  /* 0x14; m_pGDSurfaces count */
-    int m_vertex_count;                   /* 0x18; m_pVertices count */
-    W8GDSurface* m_pGDSurfaces;           /* 0x1c */
-    glm::vec3* m_pVertices;       /* 0x20 */
+    std::vector<W8GDSurface> m_pGDSurfaces;
+    std::vector<glm::vec3> m_pVertices;
     Trigger* m_trigger;                   /* 0x24: installed by 0x004B7470 */
     W8PathVerticalRange m_path_range;     /* 0x28 */
     /* Vertex AABB cached by computeBounds and tested by
        boundsOverlap. */
-    glm::vec3 m_bound_min;  /* 0x34 */
-    glm::vec3 m_bound_max;  /* 0x40 */
+    glm::vec3 m_bound_min{0.0f};  /* 0x34 */
+    glm::vec3 m_bound_max{0.0f};  /* 0x40 */
     W8PathGridBounds m_path_bounds; /* 0x4c */
     /* Owns the list buffer; item records belong to the world item list. */
     std::vector<W8WorldItem*> m_supported_items; /* 0x54 */
@@ -123,11 +121,17 @@ private:
    reads back. */
 class GDPreProp : public GDProp {
 public:
-    /* Zero-initializing default ctor at 0x004B7BC0; required for
-       `new GDPreProp[n]` in CreatePathProps. */
+    // Stop-mesh elements start with an empty collision representation.
     GDPreProp();
     unsigned short last_frame; /* 0x58 */
 }; /* 0x5c */
+
+// Build-time pathing records own their stop meshes; spatial tables borrow them.
+struct W8PreProp {
+    char name[0x40]{};
+    unsigned short first_prop_number{};
+    std::vector<GDPreProp> stop_meshes;
+};
 
 void AddItemToSector(int sector, W8WorldItem* item);      /* 0x004B7AD0 */
 void RemoveItemFromSector(int sector, W8WorldItem* item); /* 0x004B7B50 */

@@ -49,10 +49,6 @@ GDProp::GDProp(srModelInstance* instance, const char* path_name, unsigned short 
     m_flags = initial_flags;
     m_path_handle = 0;
     m_prop_number = 0;
-    m_vertex_count = 0;
-    m_surface_count = 0;
-    m_pGDSurfaces = 0;
-    m_pVertices = 0;
     m_trigger = 0;
     m_path_range.sentinel = -10000000.0f;
     m_path_bounds.max_z = 0;
@@ -73,52 +69,20 @@ GDProp::GDProp(srModelInstance* instance, const char* path_name, unsigned short 
     }
 }
 
-// FUNCTION: WIZ8 0x004b6ed0
-GDProp::~GDProp()
-{
-    free(m_pGDSurfaces);
-    if (m_pVertices != 0) {
-        delete[] m_pVertices;
-    }
-}
-
-/* Resize the two geometry tables to the complete linked mesh. Surfaces use
-   the CRT heap, while vertices retain SurRender's heap ownership. */
-// FUNCTION: WIZ8 0x004b6f30
+/* Resize geometry as one owned pair of tables, preserving existing records
+   when the linked mesh's counts are unchanged. */
 void GDProp::PrepareGeometry(srModelInstance* instance)
 {
     int surface_count = 0;
     int vertex_count = 0;
-    stMeshModel* mesh = static_cast<stMeshModel*>(instance->getModel());
-    while (mesh != 0) {
+    for (auto* mesh = static_cast<stMeshModel*>(instance->getModel()); mesh; mesh = mesh->Next()) {
         surface_count += mesh->polygon_count;
         vertex_count += mesh->vertex_location_count;
-        mesh = mesh->Next();
     }
-
-    if (m_surface_count != surface_count) {
-        m_surface_count = surface_count;
-        free(m_pGDSurfaces);
-        m_pGDSurfaces = static_cast<W8GDSurface*>(malloc(m_surface_count * sizeof(W8GDSurface)));
-        if (m_pGDSurfaces == 0) {
-            srAssertFail("m_pGDSurfaces", "C:\\Projects\\Wizardry 8\\Engine Code\\GDProp.cpp", 0xa0,
-                         0);
-        }
-        memset(m_pGDSurfaces, 0, m_surface_count * sizeof(W8GDSurface));
-    }
-
-    if (m_vertex_count != vertex_count) {
-        m_vertex_count = vertex_count;
-        if (m_pVertices != 0) {
-            delete[] m_pVertices;
-        }
-        m_pVertices = new glm::vec3[m_vertex_count]{};
-        if (m_pVertices == 0) {
-            srAssertFail("m_pVertices", "C:\\Projects\\Wizardry 8\\Engine Code\\GDProp.cpp", 0xae,
-                         0);
-        }
-        memset(m_pVertices, 0, m_vertex_count * sizeof(glm::vec3));
-    }
+    if (m_pGDSurfaces.size() != static_cast<std::size_t>(surface_count))
+        m_pGDSurfaces.assign(surface_count, W8GDSurface{});
+    if (m_pVertices.size() != static_cast<std::size_t>(vertex_count))
+        m_pVertices.assign(vertex_count, glm::vec3(0));
 }
 
 /* Rebuild the prop's collision geometry from its current linked mesh and
@@ -155,14 +119,14 @@ void GDProp::Initialize(srModelInstance* instance, bool attach, unsigned short p
 
         glm::vec3* source_vertices = mesh->getVertexLoc();
         surfaceGeometry::transformPositions(
-            {m_pVertices + vertex_base, static_cast<std::size_t>(mesh->vertex_location_count)},
+            {m_pVertices.data() + vertex_base,
+             static_cast<std::size_t>(mesh->vertex_location_count)},
             glm::mat4x3(world_matrix), [&](std::size_t vertex) { return source_vertices[vertex]; });
         vertex_base += mesh->vertex_location_count;
 
         for (int surface_index = 0; surface_index < surface_total; ++surface_index) {
             W8GDSurface* surface = &m_pGDSurfaces[surface_index];
-            surfaceGeometry::initializePropSurface(
-                *surface, {m_pVertices, static_cast<std::size_t>(m_vertex_count)});
+            surfaceGeometry::initializePropSurface(*surface, m_pVertices);
             surface->footstep_surface = footstep_surface;
             surface->footstep_material = footstep_material;
             if ((mesh_flags & W8_MESH_SORTED_RENDERING) != 0) {
@@ -258,8 +222,7 @@ void GDProp::BindTrigger(Trigger* owner)
 // FUNCTION: WIZ8 0x004b7500
 srBoundingBox GDProp::computeBounds()
 {
-    const auto bounds = boundingBox(
-        std::span<const glm::vec3>{m_pVertices, static_cast<std::size_t>(m_vertex_count)});
+    const auto bounds = boundingBox(std::span<const glm::vec3>(m_pVertices));
     m_bound_max = bounds.maximum;
     m_bound_min = bounds.minimum;
 
@@ -287,12 +250,10 @@ bool GDProp::ContainsPathCoordinate(unsigned short x, unsigned short y) const
 bool GDProp::boundsOverlap(const srBoundingBox& box)
 {
     bool hit = false;
-    for (int index = 0; index < m_surface_count && hit == 0; ++index) {
+    for (int index = 0; index < static_cast<int>(m_pGDSurfaces.size()) && hit == 0; ++index) {
         W8GDSurface* surface = &m_pGDSurfaces[index];
         hit = triangleIntersectsBox(
-            box,
-            indexedTriangle(std::span<const glm::vec3>(m_pVertices, m_vertex_count),
-                            surface->vertex_indices),
+            box, indexedTriangle(std::span<const glm::vec3>(m_pVertices), surface->vertex_indices),
             surface->plane.normal);
     }
     return hit;
@@ -384,8 +345,7 @@ bool GDProp::HasSupportedItems()
     return !m_supported_items.empty();
 }
 
-/* The array-element ctor for `new GDPreProp[n]`; the base default runs
-   inlined, then the extra frame field is zeroed. */
+/* Stop meshes begin with empty base geometry and frame zero. */
 // FUNCTION: WIZ8 0x004b7bc0
 GDPreProp::GDPreProp()
 {
@@ -394,36 +354,31 @@ GDPreProp::GDPreProp()
 
 /* Rebuild the collision geometry for one animation frame. The frame index is
    clamped against every transform channel's path count and stored as the
-   conditional frame number; the counts accumulated for allocation are then
-   reset so each transform's fill re-counts the appended geometry. */
+   conditional frame number. */
 // FUNCTION: WIZ8 0x004b7c00
 void GDProp::ApplyAnimFrame(unsigned short frame, const W8LevelFileAnimObj& anim)
 {
     frame = anim.ClampFrame(frame);
     m_prop_number = frame;
 
+    std::size_t surface_count = 0, vertex_count = 0;
     for (const auto& transform : anim.transforms) {
         const auto& mesh = transform.frames.front().mesh;
         if (mesh.HasLods()) {
             srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Engine Code\\GDProp.cpp", 0x355,
                          "Transform prop made collideable!!!");
-            m_surface_count += mesh.LodCount() * mesh.num_faces;
-            m_vertex_count += mesh.LodCount() * mesh.num_vertices;
+            surface_count += mesh.LodCount() * mesh.num_faces;
+            vertex_count += mesh.LodCount() * mesh.num_vertices;
         } else {
-            m_surface_count += mesh.num_faces;
-            m_vertex_count += mesh.num_vertices;
+            surface_count += mesh.num_faces;
+            vertex_count += mesh.num_vertices;
         }
     }
 
-    m_pVertices = new glm::vec3[m_vertex_count]{};
-    m_pGDSurfaces = static_cast<W8GDSurface*>(malloc(m_surface_count * sizeof(W8GDSurface)));
-    if (m_pGDSurfaces == 0) {
-        srAssertFail("m_pGDSurfaces", "C:\\Projects\\Wizardry 8\\Engine Code\\GDProp.cpp", 0x364,
-                     0);
-    }
-    memset(m_pGDSurfaces, 0, m_surface_count * sizeof(W8GDSurface));
-    m_vertex_count = 0;
-    m_surface_count = 0;
+    m_pVertices.clear();
+    m_pGDSurfaces.clear();
+    m_pVertices.reserve(vertex_count);
+    m_pGDSurfaces.reserve(surface_count);
 
     for (const auto& transform : anim.transforms)
         appendMeshGeometry(transform.pathAI.Node(frame), transform.frames.front().mesh);
@@ -432,7 +387,7 @@ void GDProp::ApplyAnimFrame(unsigned short frame, const W8LevelFileAnimObj& anim
 void GDProp::AppendMeshFaces(const W8LevelFileMesh& mesh, int vertex_base)
 {
     for (int face = 0; face < mesh.num_faces; ++face) {
-        auto& surface = m_pGDSurfaces[m_surface_count++];
+        auto& surface = m_pGDSurfaces.emplace_back();
         for (unsigned corner = 0; corner < 3; ++corner)
             surface.vertex_indices[corner] =
                 vertex_base + (mesh.HasCompressedFaces()
@@ -449,7 +404,7 @@ void GDProp::AppendMeshFaces(const W8LevelFileMesh& mesh, int vertex_base)
 // FUNCTION: WIZ8 0x004b7e50
 void GDProp::appendMeshGeometry(const W8LevelFileScaledPathNode& node, const W8LevelFileMesh& mesh)
 {
-    int surface_base = m_surface_count;
+    const auto surface_base = m_pGDSurfaces.size();
 
     const auto axis = node.path.axis;
     glm::mat3 rotation(1);
@@ -475,9 +430,10 @@ void GDProp::appendMeshGeometry(const W8LevelFileScaledPathNode& node, const W8L
     const bool compressed = has_lods && (mesh.flags & W8_LEVEL_MESH_SHORT_LOD_VERTICES) != 0;
     const int frame_count = has_lods ? mesh.LodCount() : 1;
     for (int frame = 0; frame < frame_count; ++frame) {
-        const int vertex_base = m_vertex_count;
+        const int vertex_base = static_cast<int>(m_pVertices.size());
+        m_pVertices.resize(vertex_base + mesh.num_vertices, glm::vec3(0));
         surfaceGeometry::transformPositions(
-            {m_pVertices + vertex_base, static_cast<std::size_t>(mesh.num_vertices)}, matrix,
+            {m_pVertices.data() + vertex_base, static_cast<std::size_t>(mesh.num_vertices)}, matrix,
             [&](std::size_t vertex) {
                 if (compressed) {
                     const auto* packed = &mesh.lod_shorts[frame][vertex * 3];
@@ -486,14 +442,12 @@ void GDProp::appendMeshGeometry(const W8LevelFileScaledPathNode& node, const W8L
                 const auto& vertices = has_lods ? mesh.lods[frame] : mesh.vertices;
                 return vertices[vertex];
             });
-        m_vertex_count += mesh.num_vertices;
         AppendMeshFaces(mesh, vertex_base);
     }
 
-    for (int index = surface_base; index < m_surface_count; ++index) {
+    for (std::size_t index = surface_base; index < m_pGDSurfaces.size(); ++index) {
         W8GDSurface* surface = &m_pGDSurfaces[index];
-        surfaceGeometry::initializePropSurface(
-            *surface, {m_pVertices, static_cast<std::size_t>(m_vertex_count)});
+        surfaceGeometry::initializePropSurface(*surface, m_pVertices);
     }
 }
 

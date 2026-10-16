@@ -44,9 +44,6 @@
 #include "wiz8/float_constants.h"
 #include "wiz8/retail_geometry_types.h"
 
-// GLOBAL: WIZ8 0x0065be60
-int g_build_node_instances;
-
 // GLOBAL: WIZ8 0x005ed034
 const float g_region_boundary_tolerance = -0.009999999776482582f;
 // GLOBAL: WIZ8 0x005ed038
@@ -55,58 +52,6 @@ const float g_region_radius_limit = 4000.0f;
 const float g_float_three = 3.0f;
 
 #define OCT_BUILD_PRE_TREE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\OctBuildPreTree.cpp"
-
-/* This zero-storage node form is constructed by OctBuildTree when its
-   pre-tree ownership mode is active.  Its immediately following conversion
-   methods and the first assertion-backed boundary at 0x004B19F0 establish
-   Engine Code\OctBuildPreTree.cpp as the owning cluster. */
-// FUNCTION: WIZ8 0x004af760
-W8CountedOctBuildNode::W8CountedOctBuildNode()
-{
-    ++g_build_node_instances;
-}
-
-// FUNCTION: WIZ8 0x004af780
-W8CountedOctBuildNode::~W8CountedOctBuildNode()
-{
-    free(children[1]);
-    if (g_build_node_instances != 0) {
-        --g_build_node_instances;
-    }
-}
-
-/* Replace the two polygon-link chains used by pre-tree leaves with compact,
-   null-terminated surface arrays. */
-// FUNCTION: WIZ8 0x004af7b0
-unsigned char W8OctBuildNode::RearrangeNodePolys(short current_depth, short target_depth)
-{
-    if (current_depth == target_depth) {
-        for (short mode = 2; mode < 4; ++mode) {
-            if (leaf_kind != 0 && links[mode] != 0) {
-                const auto collected = linkedSurfaces(current_depth, target_depth, mode);
-                void** surfaces =
-                    static_cast<void**>(malloc((collected.size() + 1) * sizeof(void*)));
-                if (surfaces == 0) {
-                    ReportBuildStatus(7, "RearrangeNodePolys: Could not allocate poly list.\n");
-                    return 0;
-                }
-                w8_ulong index;
-                for (index = 0; index < collected.size(); ++index) {
-                    surfaces[index] = collected[index];
-                }
-                surfaces[index] = 0;
-                surface_arrays[mode] = surfaces;
-            }
-        }
-    } else {
-        for (int child = 0; child != 8; ++child) {
-            if (children[child] != 0) {
-                children[child]->RearrangeNodePolys(current_depth + 1, target_depth);
-            }
-        }
-    }
-    return 1;
-}
 
 namespace {
 // The first appearance of each surface determines its emitted order.
@@ -123,7 +68,7 @@ std::vector<void*> collectBuildSurfaces(const W8OctBuildNode& root, Stop stop, A
             append(node, emit);
             return;
         }
-        for (const auto* child : node.children)
+        for (const auto& child : node.children)
             if (child) self(self, *child, depth + 1);
     };
     visit(visit, root, 0);
@@ -145,8 +90,7 @@ PackedSurfaceRun packLeafSurfaces(W8OctBuildNode& node, short mode, w8_ulong* st
         stream[cursor++] = static_cast<w8_ulong>(surfaces.size());
         for (auto* surface : surfaces) stream[cursor++] = index(surface);
     }
-    free(node.surface_arrays[mode]);
-    node.surface_arrays[mode] = nullptr;
+    node.surfaces[mode - 2].clear();
     return {offset, cursor};
 }
 }
@@ -162,7 +106,7 @@ std::vector<void*> W8OctBuildNode::linkedSurfaces(short current_depth, short tar
             return depth == static_cast<unsigned>(remaining);
         },
         [mode](const W8OctBuildNode& node, auto emit) {
-            for (auto* link = node.links[mode]; link; link = link->next) emit(link->surface);
+            for (auto* surface : node.surfaces[mode - 2]) emit(surface);
         });
 }
 
@@ -176,12 +120,11 @@ std::vector<void*> W8OctBuildNode::storedSurfaces(short mode) const
             return node.leaf_kind != 0 && node.provisional_region == 0;
         },
         [mode](const W8OctBuildNode& node, auto emit) {
-            if (auto** surfaces = node.surface_arrays[mode])
-                for (; *surfaces; ++surfaces) emit(*surfaces);
+            for (auto* surface : node.surfaces[mode - 2]) emit(surface);
         });
 }
 
-/* Consume the counted build nodes into the compact arrays owned by the
+/* Consume the owned build nodes into the compact arrays owned by the
    runtime pre-tree.  Leaf polygon pointers are deduplicated before their
    persistent surface indices are appended; branch children are converted and
    destroyed as soon as their compact indices have been recorded. */
@@ -204,17 +147,12 @@ w8_ulong W8OctBuildNode::ConvertToOctPreTree(unsigned short depth, OctPreTree* t
         tree->m_leaves[node_index].gd_polygon_offset = terrain.offset;
         tree->m_gd_surface_stream_len = terrain.end;
 
-        unsigned short* regions = region_arrays[1];
-        if (regions != 0 && *regions != 0) {
+        if (!regions.empty()) {
             tree->m_leaves[node_index].region_offset = tree->m_region_list_len;
-            while (*regions != 0) {
-                tree->m_region_index_stream[tree->m_region_list_len++] = *regions++;
-            }
+            for (const auto region_id : regions)
+                tree->m_region_index_stream[tree->m_region_list_len++] = region_id;
             tree->m_region_index_stream[tree->m_region_list_len++] = 0;
-        }
-        if (region_arrays[1] != 0) {
-            free(region_arrays[1]);
-            region_arrays[1] = 0;
+            regions.clear();
         }
     } else {
         node_index = tree->m_branch_count++;
@@ -222,8 +160,7 @@ w8_ulong W8OctBuildNode::ConvertToOctPreTree(unsigned short depth, OctPreTree* t
             if (children[child] != 0) {
                 tree->m_branches[node_index].children[child] =
                     children[child]->ConvertToOctPreTree(depth + 1, tree);
-                delete static_cast<W8CountedOctBuildNode*>(children[child]);
-                children[child] = 0;
+                children[child].reset();
             }
         }
         tree->m_branches[node_index].region = region;
@@ -241,7 +178,6 @@ OctBuildPreTree::OctBuildPreTree(float leaf_size, std::optional<srBoundingBox> b
     : W8OctBuildTree(leaf_size, bounds, item_limit, extent_mode)
 {
     mesh_linking = true;
-    use_owned_nodes = true;
     game_data = 0;
     unknown_138 = 0;
     unknown_13c = 0;
@@ -333,8 +269,8 @@ unsigned char OctBuildPreTree::InsertSurface(W8OctRegionPolygon* polygon, w8_ulo
 {
     W8OctSpatialState working(&spatial);
     if (spatial.m_root == 0) {
-        working.m_root = new W8OctBuildNode;
-        spatial.m_root = working.m_root;
+        root = std::make_unique<W8OctBuildNode>();
+        working.m_root = spatial.m_root = root.get();
     }
     if (static_cast<short>(mode) == 2) {
         ++spatial.m_polygon_count;
@@ -372,7 +308,7 @@ unsigned char OctBuildPreTree::InsertSurfaceRecursive(W8OctSpatialState* working
                 },
                 [&]() {
                     ++level_counts[working->m_depth];
-                    return new W8OctBuildNode;
+                    return std::make_unique<W8OctBuildNode>();
                 },
                 [&](W8OctSpatialState& candidate) {
                     return InsertSurfaceRecursive(&candidate, polygon, mode);
@@ -407,8 +343,8 @@ bool OctBuildPreTree::updateRegionForGeometry(const RegionGeometry& geometry, sh
 {
     W8OctSpatialState working(&spatial);
     if (!spatial.m_root) {
-        working.m_root = new W8CountedOctBuildNode;
-        spatial.m_root = working.m_root;
+        root = std::make_unique<W8OctBuildNode>();
+        working.m_root = spatial.m_root = root.get();
     }
     working.m_depth = 0;
     working.m_level_kind = 1;
@@ -546,41 +482,15 @@ unsigned short OctBuildPreTree::LoadRegionFile(const char* stem)
     return spatial.m_region_id_bound;
 }
 
-/* Fill the leaf's region-id list with every enabled region volume overlapping
-   `bounds`. The list is a malloc'd run of up to 0x32 ids terminated by a zero
-   slot; the first allocation reports failure through the build log. */
-// FUNCTION: WIZ8 0x004b1090
+/* Collect overlapping region ids in format order; the OCT writer adds the
+   terminator when it emits each leaf. */
 void OctBuildPreTree::FindLeafRegions(W8OctBuildNode* node, const srBoundingBox* bounds)
 {
     for (unsigned short region = 1; region < spatial.m_region_count; ++region) {
         if ((spatial.m_region_volumes[region].flags & 4) == 0 &&
             BoundsInsideFrustum(spatial.m_region_volumes[region], *bounds)) {
-            if (node->region_arrays[1] == 0) {
-                unsigned short* list = static_cast<unsigned short*>(malloc(50 * sizeof(*list)));
-                if (list == 0) {
-                    ReportBuildStatus(7, "Could not allocate region list in FindLeafRegions.\n");
-                    return;
-                }
-                for (int i = 0; i != 50; ++i) {
-                    list[i] = 0;
-                }
-                node->region_arrays[1] = list;
-            }
-            unsigned short* list = node->region_arrays[1];
-            unsigned short slot = 0;
-            if (list[0] != 0) {
-                do {
-                    if (0x31 < slot) {
-                        ReportBuildStatus(7, "Too many regions in FindLeafRegions.\n");
-                        return;
-                    }
-                    ++slot;
-                } while (list[slot] != 0);
-            }
-            list[slot] = region;
-            if (max_leaf_regions < slot + 1) {
-                max_leaf_regions = slot + 1;
-            }
+            node->regions.push_back(region);
+            max_leaf_regions = std::max<std::size_t>(max_leaf_regions, node->regions.size());
             ++region_assignments;
         }
     }
@@ -763,28 +673,14 @@ void OctBuildPreTree::RemapNodeRegions(W8OctBuildNode* node, int depth)
         if (static_cast<short>(depth) < spatial.m_depth) {
             for (int child_index = 0; child_index != 8; ++child_index) {
                 if (node->children[child_index] != 0) {
-                    RemapNodeRegions(node->children[child_index], depth + 1);
+                    RemapNodeRegions(node->children[child_index].get(), depth + 1);
                 }
             }
             return;
         }
-        unsigned short* list = node->region_arrays[1];
-        if (list != 0) {
-            int count = 0;
-            int kept = 0;
-            unsigned short* read = list;
-            unsigned short* write = list;
-            for (; *read != 0 && count < 0x32; ++count) {
-                unsigned short region = region_remap[*read];
-                *write = region;
-                if (region != 0) {
-                    ++kept;
-                    ++write;
-                }
-                ++read;
-            }
-            list[kept] = 0;
-        }
+        auto& regions = node->regions;
+        for (auto& region : regions) region = region_remap[region];
+        std::erase(regions, 0);
     }
 }
 
@@ -1034,7 +930,7 @@ W8OctBuildNode* OctBuildPreTree::FindNode(unsigned int path)
             if ((z & level) != 0) {
                 child += 1;
             }
-            node = node->children[child];
+            node = node->children[child].get();
         }
     }
     return node;
@@ -1474,17 +1370,13 @@ unsigned char OctBuildPreTree::BuildGeometryRegions(std::span<const W8LevelFileP
    already has runtime form, consume the counted build-node hierarchy, and
    populate the dense cell-to-leaf lookup. */
 // FUNCTION: WIZ8 0x004b4640
-OctPreTree* OctBuildPreTree::BuildOctPreTree()
+std::unique_ptr<OctPreTree> OctBuildPreTree::BuildOctPreTree()
 {
-    OctPreTree* tree = new OctPreTree;
-    if (tree == 0) {
-        return 0;
-    }
-
-    tree->m_branches.resize(g_build_node_instances + 2);
+    auto tree = std::make_unique<OctPreTree>();
+    tree->m_branches.resize(root->nodeCount() + 2);
     tree->m_leaves.resize(leaf_count + 2);
     tree->m_polygon_index_stream.resize(leaf_polygon_count * 2);
-    tree->m_region_index_stream.resize(leaf_count * 40);
+    tree->m_region_index_stream.resize(std::size_t{region_assignments} + leaf_count + 1);
     tree->m_gd_surface_index_stream.resize(gd_surface_count * 2);
 
     tree->m_spatial.m_region_count = spatial.m_region_count;
@@ -1535,9 +1427,8 @@ OctPreTree* OctBuildPreTree::BuildOctPreTree()
     tree->m_unknown_13c = 0;
     tree->m_trigger_count = 0;
 
-    W8OctBuildNode* root = spatial.m_root;
-    root->ConvertToOctPreTree(0, tree);
-    delete root;
+    root->ConvertToOctPreTree(0, tree.get());
+    root.reset();
     spatial.m_root = 0;
     if (tree->m_region_list_len == 1) {
         tree->m_region_list_len = 0;
@@ -1570,12 +1461,6 @@ OctPreTree* OctBuildPreTree::BuildOctPreTree()
     tree->m_spatial.m_leaf_grid_stride_x =
         tree->m_leaf_grid_dimensions.z * tree->m_leaf_grid_dimensions.y;
     return tree;
-}
-
-// FUNCTION: WIZ8 0x004afe90
-int GetBuildNodeInstanceCount(void)
-{
-    return g_build_node_instances;
 }
 
 /* Region-path entries have 16-bit keys and four-byte values (Lookup caller

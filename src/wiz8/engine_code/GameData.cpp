@@ -523,7 +523,8 @@ W8GDSurface* W8GameData::ProbePropsAlongMotion(glm::vec3* direction, glm::vec3* 
                 direction_zero = true;
             }
             test_direction = adjusted_direction;
-            for (surface_index = 0; surface_index < gd_prop->m_surface_count; ++surface_index) {
+            for (surface_index = 0; surface_index < static_cast<int>(gd_prop->m_pGDSurfaces.size());
+                 ++surface_index) {
                 surface = &gd_prop->m_pGDSurfaces[surface_index];
                 surface->hit_plane = 0;
                 if (direction_zero) {
@@ -532,9 +533,7 @@ W8GDSurface* W8GameData::ProbePropsAlongMotion(glm::vec3* direction, glm::vec3* 
                 if ((surface->flags & W8_GD_SURFACE_INACTIVE_MASK) != 0) continue;
                 if (const auto contact = surface->segmentContact(
                         probe, test_direction,
-                        indexedTriangle({gd_prop->m_pVertices,
-                                         static_cast<std::size_t>(gd_prop->m_vertex_count)},
-                                        surface->vertex_indices))) {
+                        indexedTriangle(gd_prop->m_pVertices, surface->vertex_indices))) {
                     if (contact->distance < *nearest_distance) {
                         *nearest_distance = contact->distance;
                         hit_point = contact->point;
@@ -1033,8 +1032,8 @@ bool W8GameData::TestProp(int prop_id, W8OctreeTrace* trace, char skip_flag, cha
     } else {
         gd_prop = g_oct_pre_tree->props[prop_id];
     }
-    const std::span surfaces(gd_prop->m_pGDSurfaces, gd_prop->m_surface_count);
-    const std::span vertices(gd_prop->m_pVertices, gd_prop->m_vertex_count);
+    const std::span surfaces(gd_prop->m_pGDSurfaces);
+    const std::span vertices(gd_prop->m_pVertices);
     if (g_oct_pre_tree == 0) {
         if (gate == 0 || !gd_prop->m_flags.unattached) {
             const auto start = trace->start;
@@ -1042,7 +1041,8 @@ bool W8GameData::TestProp(int prop_id, W8OctreeTrace* trace, char skip_flag, cha
             const auto delta = prop->GetDelta();
             end -= delta;
             W8OctreeTrace prop_trace(start, end);
-            hit = TestGeometryTrace(surfaces, vertices, gd_prop->m_surface_count, 0, &prop_trace,
+            hit = TestGeometryTrace(surfaces, vertices,
+                                    static_cast<int>(gd_prop->m_pGDSurfaces.size()), 0, &prop_trace,
                                     skip_flag, 0);
             if (hit) {
                 end = prop_trace.end + delta;
@@ -1050,8 +1050,8 @@ bool W8GameData::TestProp(int prop_id, W8OctreeTrace* trace, char skip_flag, cha
             }
         }
     } else {
-        hit =
-            TestGeometryTrace(surfaces, vertices, gd_prop->m_surface_count, 0, trace, skip_flag, 0);
+        hit = TestGeometryTrace(surfaces, vertices, static_cast<int>(gd_prop->m_pGDSurfaces.size()),
+                                0, trace, skip_flag, 0);
     }
     return hit;
 }

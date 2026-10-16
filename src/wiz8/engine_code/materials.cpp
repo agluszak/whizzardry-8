@@ -351,7 +351,7 @@ static unsigned char PreprocessLevel(wiz8::File& handle, char* stem)
     std::unique_ptr<W8LevelFile> level;
     W8GameData* value;
     OctBuildPreTree* build_tree;
-    OctPreTree* tree;
+    std::unique_ptr<OctPreTree> tree;
     std::vector<OctMeshModel> submeshes;
     unsigned char result;
     bool report;
@@ -520,7 +520,7 @@ static unsigned char PreprocessLevel(wiz8::File& handle, char* stem)
                     snprintf(message, sizeof(message),
                              "Width of auto-generated regions: %f metres\n",
                              (build_tree->spatial.m_region_grid_cell * g_float_one_five_hundredth));
-                    g_oct_node_count = GetBuildNodeInstanceCount();
+                    g_oct_node_count = build_tree->root ? build_tree->root->nodeCount() : 0;
                     g_oct_max_objects = build_tree->deepest_link_list;
                     ReportBuildStatus(3, message);
                     snprintf(message, sizeof(message), "World Minimum Corner: \t%f  \t%f  \t%f\n",
@@ -590,7 +590,6 @@ static unsigned char PreprocessLevel(wiz8::File& handle, char* stem)
                     build_tree->BuildGeometryRegions(level->props, 0, false);
                     build_tree->BuildGeometryRegions(level->bitmaps,
                                                      static_cast<int>(level->props.size()), true);
-                    build_tree->spatial.m_root->RearrangeNodePolys(0, build_tree->spatial.m_depth);
                     /* Both of these walk their count unsigned - the retail
                        guards with jbe at 0x00493D24 and 0x00493D45 and closes
                        each with jc at 0x00493D3B and 0x00493D5C - so the index
@@ -613,7 +612,7 @@ static unsigned char PreprocessLevel(wiz8::File& handle, char* stem)
                     tree->SetPathStem(stem);
                     tree->m_spatial.setWorkingBounds({g_weld_min, g_weld_max});
                     tree->m_alpha_polygon_count = alpha_polys;
-                    value->octree = tree;
+                    value->octree = tree.get();
                     snprintf(message, sizeof(message), "Poly List Len: %d\n",
                              static_cast<int>(tree->polygon_cursor));
                     ReportBuildStatus(6, message);
@@ -633,7 +632,8 @@ static unsigned char PreprocessLevel(wiz8::File& handle, char* stem)
                                          "  %d%% Complete:  %d Vertices Lit \r", mark, i);
                                 ReportStartupMessage(message);
                             }
-                            if (AccumulateVertexLight(tree, vertices + i, lights, sun_map) != 0) {
+                            if (AccumulateVertexLight(tree.get(), vertices + i, lights, sun_map) !=
+                                0) {
                                 ++lit_vertices;
                             }
                         }
@@ -703,12 +703,13 @@ static unsigned char PreprocessLevel(wiz8::File& handle, char* stem)
                             for (int* sun_entry = sun_map; sun_count-- > 0; ++sun_entry) {
                                 const auto& sun = lights[*sun_entry];
                                 for (i = 0; i < prop_count; ++i) {
-                                    if (PropReceivesLight(tree, level->props[i], sun) != 0) {
+                                    if (PropReceivesLight(tree.get(), level->props[i], sun) != 0) {
                                         SetBit(sun_bits, i);
                                     }
                                 }
                                 for (i = 0; i < static_cast<int>(level->bitmaps.size()); ++i) {
-                                    if (PropReceivesLight(tree, level->bitmaps[i], sun) != 0) {
+                                    if (PropReceivesLight(tree.get(), level->bitmaps[i], sun) !=
+                                        0) {
                                         SetBit(sun_bits, prop_count + i);
                                     }
                                 }
@@ -848,7 +849,7 @@ static unsigned char PreprocessLevel(wiz8::File& handle, char* stem)
                     if (classify != 0) {
                         free(classify);
                     }
-                    delete tree;
+                    tree.reset();
                     delete value;
                     g_missing_textures.clear();
                     if (sun_pool != 0) {

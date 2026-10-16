@@ -59,8 +59,6 @@ struct W8OctRegionPolygon {
     bool containsPoint(const srBoundingBox& bounds) const;
 };
 
-extern int g_build_node_instances;
-
 struct OctRegionObjectLinks {
     std::unordered_multimap<unsigned short, short> regions;
     std::vector<short> always_visible;
@@ -80,7 +78,7 @@ struct OctBuildPreTree : W8OctBuildTree {
     std::vector<W8OctRegionVolume> m_region_volumes;
     OctBuildPreTree(float leaf_size, std::optional<srBoundingBox> bounds, unsigned short item_limit,
                     w8_ulong path_capacity, short extent_mode);
-    OctPreTree* BuildOctPreTree();
+    std::unique_ptr<OctPreTree> BuildOctPreTree();
     unsigned short BuildRegions();
     bool assignPointToVolumes(const glm::vec3& point, short object, OctRegionObjectLinks& links);
     unsigned char BuildParticleRegions(std::span<const W8LevelFileParticleSystem> particles);
@@ -154,7 +152,5 @@ struct OctBuildPreTree : W8OctBuildTree {
     w8_ulong unknown_138;
     w8_ulong unknown_13c;
 };
-
-int GetBuildNodeInstanceCount(void);
 
 #endif

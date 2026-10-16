@@ -942,12 +942,25 @@ unsigned char OctPreTree::BuildPathLists(W8GameData* game_data, W8LevelFile& lev
                                          unsigned int min_component_percent)
 {
     std::unordered_map<unsigned int, int> node_map;
-    std::unordered_multimap<unsigned int, CondPathNode*> cond_map;
+    std::unordered_multimap<unsigned int, CondPathNode> cond_map;
     char message[0x400];
-    W8PreProp* preprops = 0;
+    auto registry = std::make_unique<W8OctreeObjectRegistry>();
+    std::vector<W8PreProp> preprops;
+    const struct RestoreBuildState {
+        OctPreTree& tree;
+        W8OctreeObjectRegistry* registry;
+        W8GameData* game_data;
+        std::size_t props;
+        ~RestoreBuildState()
+        {
+            tree.props.resize(props);
+            tree.object_registry = registry;
+            SetOctreeGameData(game_data);
+        }
+    } restore{*this, object_registry, g_octree_game_data, props.size()};
     glm::vec3 node;
 
-    object_registry = new W8OctreeObjectRegistry;
+    object_registry = registry.get();
     SetOctreeGameData(game_data);
     m_visited_object_bits.assign(m_spatial.m_item_count + 0x14, false);
     pre_pathing = std::make_unique<PrePathing>();
@@ -963,7 +976,7 @@ unsigned char OctPreTree::BuildPathLists(W8GameData* game_data, W8LevelFile& lev
                                    m_region_cell) +
                   1;
 
-    int prop_count = CreatePathProps(level, &preprops);
+    preprops = CreatePathProps(level);
     W8PrePathNode* record = pre_pathing->GetPathNode();
     W8PrePathNode* head = record;
     path_node_count = 1;
@@ -1005,9 +1018,7 @@ unsigned char OctPreTree::BuildPathLists(W8GameData* game_data, W8LevelFile& lev
                             static_cast<unsigned int>(static_cast<int>(
                                 (node.y - m_spatial.m_bounds.minimum.y) / level_height)) +
                             1;
-                        if (InsertConditionalNodes(
-                                cond_map, cell, record->level_flags,
-                                {preprops, static_cast<std::size_t>(prop_count)})) {
+                        if (InsertConditionalNodes(cond_map, cell, record->level_flags, preprops)) {
                             record->level_flags |= W8_PATH_CELL_CONDITIONAL;
                         }
                         auto slot = node_map.equal_range(cell).first;
@@ -1032,28 +1043,12 @@ unsigned char OctPreTree::BuildPathLists(W8GameData* game_data, W8LevelFile& lev
         }
         pre_pathing->ConfigureForLevel(path_node_count, m_region_cell, m_path_clearance,
                                        m_spatial.bounds(), m_path_stem.c_str());
-        /* Verified retail behavior: this early return runs only the two
-           local hash-table destructors.  preprops (and its pStopMeshes
-           arrays), object_registry and g_octree_game_data are all
-           left behind - the registry pointer and global stay live. */
         if (!pre_pathing->BuildPathList(head, &node_map)) {
             return 0;
         }
-        pre_pathing->LinkCollideableProps(prop_count, preprops, &cond_map);
+        pre_pathing->LinkCollideableProps(preprops, cond_map);
         pre_pathing->CreateAutomapNodes(level);
     }
-    for (int i = 0; i < prop_count; ++i) {
-        /* Verified retail oddity: the binary tests pStopMeshes twice around
-           the count check. */
-        if (preprops[i].pStopMeshes != 0 && preprops[i].num_stop_meshes != 0 &&
-            preprops[i].pStopMeshes != 0) {
-            delete[] preprops[i].pStopMeshes;
-        }
-    }
-    free(preprops);
-    delete object_registry;
-    object_registry = 0;
-    SetOctreeGameData(0);
     return 1;
 }
 
@@ -1151,7 +1146,7 @@ char OctPreTree::PathNodeObstructed(const glm::vec3* node)
    Blocker nodes are flagged 0x2000000. */
 // FUNCTION: WIZ8 0x0046b9d0
 unsigned char
-OctPreTree::InsertConditionalNodes(std::unordered_multimap<unsigned int, CondPathNode*>& nodes,
+OctPreTree::InsertConditionalNodes(std::unordered_multimap<unsigned int, CondPathNode>& nodes,
                                    unsigned int cell, unsigned int node,
                                    std::span<const W8PreProp> preprops)
 {
@@ -1162,22 +1157,16 @@ OctPreTree::InsertConditionalNodes(std::unordered_multimap<unsigned int, CondPat
             bool found = false;
             for (std::size_t index = 0; index < preprops.size(); ++index) {
                 const auto& prop = preprops[index];
-                if (prop.num_stop_meshes == 0 || prop_id < prop.first_prop_number ||
-                    prop_id >= prop.first_prop_number + prop.num_stop_meshes)
+                if (prop.stop_meshes.empty() || prop_id < prop.first_prop_number ||
+                    static_cast<std::size_t>(prop_id - prop.first_prop_number) >=
+                        prop.stop_meshes.size())
                     continue;
                 const unsigned key =
                     (static_cast<unsigned>(
-                         prop.pStopMeshes[prop_id - prop.first_prop_number].m_prop_number)
+                         prop.stop_meshes[prop_id - prop.first_prop_number].m_prop_number)
                      << 16) |
                     static_cast<unsigned>(index + 1);
-                auto* entry = static_cast<CondPathNode*>(malloc(sizeof(CondPathNode)));
-                if (!entry)
-                    srAssertFail(
-                        "pCondNode", OCTPRETREE_CPP, 0x7e0,
-                        "InsertConditionalNodes: Could not allocate CondPathNode stucture.");
-                entry->value = node | flags;
-                entry->cell = cell;
-                InsertIndexValue(nodes, key, entry);
+                InsertIndexValue(nodes, key, CondPathNode{node | flags, cell});
                 found = true;
                 break;
             }
@@ -1229,59 +1218,44 @@ char OctPreTree::TestPathPropBounds(const srBoundingBox& bounds)
     return 0;
 }
 
-/* Builds one W8PreProp per level prop flagged for pathing: allocates the
-   per-frame GDPreProp stop meshes, applies each anim frame to seed bounds,
-   and registers every element in props. Returns the record count and the
-   malloc'd array through `preprops`. */
+/* Own the per-frame stop meshes for each collidable prop. Their addresses stay
+   stable while the build's spatial tables borrow them. */
 // FUNCTION: WIZ8 0x0046c0f0
-int OctPreTree::CreatePathProps(const W8LevelFile& level, W8PreProp** preprops)
+std::vector<W8PreProp> OctPreTree::CreatePathProps(const W8LevelFile& level)
 {
     int count = static_cast<int>(level.props.size());
     unsigned short prop_number = 0;
-    W8PreProp* records = static_cast<W8PreProp*>(malloc(count * sizeof(W8PreProp)));
-    memset(records, 0, count * sizeof(W8PreProp));
-    if (count < 1) {
-        *preprops = records;
-    } else {
+    std::vector<W8PreProp> records(count);
+    {
         for (int i = 0; i < count; ++i) {
             const W8LevelFileProp* prop = &level.props[i];
-            W8PreProp* record = records + i;
+            W8PreProp* record = &records[i];
             if ((prop->flags & W8_PROP_COLLIDABLE) == 0) continue;
             const auto registerFrame = [&](unsigned mesh_index, unsigned short frame) {
-                auto& mesh = record->pStopMeshes[mesh_index];
+                auto& mesh = record->stop_meshes[mesh_index];
                 mesh.ApplyAnimFrame(frame, prop->anim_obj);
                 AddCollidablePropBounds(static_cast<unsigned short>(prop_number + mesh_index),
                                         mesh.computeBounds());
                 props.push_back(&mesh);
             };
             if (prop->frame_positions.empty()) {
-                record->num_stop_meshes = PropFramesDiffer(prop->anim_obj, 0, 0xffff) ? 2 : 1;
+                record->stop_meshes.resize(PropFramesDiffer(prop->anim_obj, 0, 0xffff) ? 2 : 1);
                 record->first_prop_number = prop_number;
-                record->pStopMeshes = new GDPreProp[record->num_stop_meshes];
-                if (record->pStopMeshes == 0) {
-                    srAssertFail("pPreProps[i].pStopMeshes", OCTPRETREE_CPP, 0x88e,
-                                 "CreatePathProps: Couldn't allocate GDPreProp objects.");
-                }
                 strcpy(record->name, prop->name);
                 registerFrame(0, 0);
-                if (record->num_stop_meshes == 2) {
+                if (record->stop_meshes.size() == 2) {
                     registerFrame(1, 0xffff);
                     prop_number += 2;
                 } else {
-                    record->pStopMeshes[0].m_flags.always_blocks_path = true;
-                    record->pStopMeshes[0].last_frame = prop->anim_obj.ClampFrame(0xffff);
+                    record->stop_meshes[0].m_flags.always_blocks_path = true;
+                    record->stop_meshes[0].last_frame = prop->anim_obj.ClampFrame(0xffff);
                     ++prop_number;
                 }
             } else {
-                record->num_stop_meshes = static_cast<unsigned short>(prop->frame_positions.size());
+                record->stop_meshes.resize(prop->frame_positions.size());
                 record->first_prop_number = prop_number;
                 strcpy(record->name, prop->name);
-                record->pStopMeshes = new GDPreProp[record->num_stop_meshes];
-                if (record->pStopMeshes == 0) {
-                    srAssertFail("pPreProps[i].pStopMeshes", OCTPRETREE_CPP, 0x8ad,
-                                 "CreatePathProps: Couldn't allocate GDPreProp objects.");
-                }
-                for (unsigned short j = 0; j < record->num_stop_meshes; ++j) {
+                for (unsigned short j = 0; j < record->stop_meshes.size(); ++j) {
                     unsigned short frame = prop->frame_positions[j].frame;
                     if (static_cast<unsigned short>(prop->frame_count) <= frame) {
                         srAssertFail(
@@ -1294,12 +1268,11 @@ int OctPreTree::CreatePathProps(const W8LevelFile& level, W8PreProp** preprops)
                     }
                     registerFrame(j, frame);
                 }
-                prop_number += record->num_stop_meshes;
+                prop_number += record->stop_meshes.size();
             }
         }
-        *preprops = records;
     }
-    return count;
+    return records;
 }
 
 /* Compares two animation frames across every transform channel: a prop

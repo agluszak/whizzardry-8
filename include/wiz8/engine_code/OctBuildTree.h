@@ -1,7 +1,9 @@
 #ifndef WIZ8_ENGINE_CODE_OCT_BUILD_TREE_H
 #define WIZ8_ENGINE_CODE_OCT_BUILD_TREE_H
 
-#include <deque>
+#include <array>
+#include <cstddef>
+#include <memory>
 #include <optional>
 #include <vector>
 
@@ -12,41 +14,28 @@
 
 struct W8GDSurface;
 
-struct W8OctBuildLink {
-    void* surface; /* region polygons and GD surfaces share the build links */
-    W8OctBuildLink* next;
-};
-
 class OctPreTree;
 
 struct W8OctBuildNode {
-    W8OctBuildNode();
-    ~W8OctBuildNode();
-
-    unsigned char RearrangeNodePolys(short current_depth, short target_depth);
     std::vector<void*> linkedSurfaces(short current_depth, short target_depth, short mode) const;
     std::vector<void*> storedSurfaces(short mode) const;
     w8_ulong ConvertToOctPreTree(unsigned short depth, OctPreTree* tree);
 
-    union {
-        W8OctBuildNode* children[8];
-        W8OctBuildLink* links[8];
-        void** surface_arrays[8]; /* elements follow the insert mode */
-        unsigned short* region_arrays[8];
-    };
-    unsigned short region;
-    unsigned short leaf_kind;
-    unsigned short provisional_region;
-    unsigned short positional;
-};
+    std::array<std::unique_ptr<W8OctBuildNode>, 8> children;
+    std::array<std::vector<void*>, 2> surfaces;
+    std::vector<unsigned short> regions;
+    unsigned short region{};
+    unsigned short leaf_kind{};
+    unsigned short provisional_region{};
+    unsigned short positional{};
 
-/* A zero-storage node variant with independently evidenced behavior: its
-   constructor at 0x004AF760 increments the live-node counter after invoking
-   the ordinary node constructor.  Its original spelling and source owner are
-   still unresolved. */
-struct W8CountedOctBuildNode : W8OctBuildNode {
-    W8CountedOctBuildNode();
-    ~W8CountedOctBuildNode();
+    std::size_t nodeCount() const
+    {
+        std::size_t count = 1;
+        for (const auto& child : children)
+            if (child) count += child->nodeCount();
+        return count;
+    }
 };
 
 /* Original owner: Engine Code\OctBuildTree.cpp. The original class spelling
@@ -64,19 +53,16 @@ struct W8OctBuildTree {
                                          const glm::vec3& planeNormal, w8_ulong mode);
     std::vector<W8GDSurface*> queryAlongSegment(const glm::vec3& origin, const glm::vec3& delta,
                                                 float extent, unsigned short kind);
-    /* Append `payload` to the node's `kind` link list, growing the tail and
-       raising the leaf counter plus the tree's deepest-list watermark. */
+    // Append a polygon or physical surface in insertion order.
     void AppendLink(W8OctBuildNode* node, void* payload, short kind);
     W8OctSpatialState spatial;
-    /* Deque appends preserve the addresses stored in node link chains. */
-    std::deque<W8OctBuildLink> links;
+    std::unique_ptr<W8OctBuildNode> root;
     w8_ulong leaf_polygon_count;
     w8_ulong gd_surface_count;
     w8_ulong leaf_count;
     unsigned short max_leaf_regions;
     unsigned short unknown_ae;
     w8_ulong region_assignments;
-    bool use_owned_nodes;
     unsigned char unknown_b5[3];
     w8_ulong deepest_link_list;
 

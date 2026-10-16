@@ -1257,7 +1257,7 @@ int W8Prop::BuildOrRefreshPathingRepresentation()
             g_animated_prop_present = true;
         }
     }
-    return m_gd_prop->m_surface_count;
+    return static_cast<int>(m_gd_prop->m_pGDSurfaces.size());
 }
 
 /* Run the prop's own trigger for a missile impact.  Only the three prop

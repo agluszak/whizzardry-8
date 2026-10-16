@@ -13,9 +13,9 @@ bool InsertBuildSurfaceChildren(W8OctSpatialState* parent, W8OctSpatialState& ch
     for (unsigned octant = 0; octant < 8; ++octant) {
         child.setChildBounds(*parent, octant, extent);
         if (!overlaps(child)) continue;
-        auto*& node = parent->m_root->children[octant];
+        auto& node = parent->m_root->children[octant];
         if (!node) node = create_node();
-        child.m_root = node;
+        child.m_root = node.get();
         if (insert_child(child)) inserted = true;
     }
     return inserted;
@@ -26,9 +26,9 @@ template<class Visit>
 void visitBuildChildren(const W8OctSpatialState& parent, W8OctSpatialState& child, Visit visit)
 {
     for (unsigned octant = 0; octant < 8; ++octant) {
-        if (auto* node = parent.m_root->children[octant]) {
+        if (const auto& node = parent.m_root->children[octant]) {
             child.setChildBounds(parent, octant, child.m_extent);
-            child.m_root = node;
+            child.m_root = node.get();
             visit(child, octant);
         }
     }
