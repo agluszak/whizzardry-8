@@ -21,7 +21,6 @@ set(SURRENDER_SOURCES
     triangle_culler.cpp
     model.cpp
     model_instance.cpp
-    modeler.cpp
     node.cpp
     scene.cpp
     system.cpp
@@ -31,7 +30,6 @@ set(SURRENDER_SOURCES
     texture.cpp
     texture_map.cpp
     statistics.cpp
-    triangulator.cpp
     window.cpp
 )
 

@@ -326,7 +326,7 @@ public:
     e_backBuffer getBackBufferType() const;
     int isWindowOpen() const;
     w8_ulong_ptr getWindowHandle() const;
-    void setGamma(const srVector3T<float>& gamma);
+    void setGamma(const glm::vec3& gamma);
     e_error beginFrame();
     void endFrame();
     void flush();
@@ -393,8 +393,6 @@ public:
     void setClearDepth(double depth);
     void setAmbientLight(float red, float green, float blue, float alpha);
     void setAmbientLight(const glm::vec4& light);
-    void setAmbientLight(const srVector3T<float>& light);
-    void setFogColor(const srVector3T<float>& color);
     void setFogColor(const glm::vec4& color);
     void setScissor(w8_ulong x, w8_ulong y, w8_ulong width, w8_ulong height);
     /* Dirty-rectangle pair handed to flipFrame in {x,y,width,height} form;
@@ -814,7 +812,7 @@ private:
     };
 
     struct Display {
-        srVector3T<float> gamma;
+        glm::vec3 gamma;
         w8_ulong swap_interval;
         e_antiAlias antialias;
     };

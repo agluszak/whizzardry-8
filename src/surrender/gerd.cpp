@@ -24,6 +24,7 @@
 
 #include "compat/compiler.h"
 #include "glm/common.hpp"
+#include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "glm/ext/vector_int3.hpp"
 #include "glm/ext/vector_uint4_sized.hpp"
@@ -174,7 +175,7 @@ srGERD::srGERD(srDD* device)
     state_flags = 0;
     dirty = 0xffffffff;
     setError(ERROR_NONE);
-    display.gamma = 1.0f;
+    display.gamma = glm::vec3(1.0f);
     display.swap_interval = 1;
     display.antialias = ANTIALIAS_NONE;
     fog_color = glm::vec4(0);
@@ -321,18 +322,9 @@ void srGERD::setSwapInterval(w8_ulong interval)
 }
 
 // FUNCTION: SURRENDER 0x1001AEE0
-void srGERD::setGamma(const srVector3T<float>& gamma)
+void srGERD::setGamma(const glm::vec3& gamma)
 {
-    srVector3T<float> adjusted = gamma;
-    if (adjusted.x < 0.0f) {
-        adjusted.x = 0.0f;
-    }
-    if (adjusted.y < 0.0f) {
-        adjusted.y = 0.0f;
-    }
-    if (adjusted.z < 0.0f) {
-        adjusted.z = 0.0f;
-    }
+    const auto adjusted = glm::max(gamma, glm::vec3(0));
     if (!(adjusted == display.gamma)) {
         display.gamma = adjusted;
         dirty |= DIRTY_GAMMA;
@@ -1926,12 +1918,6 @@ void srGERD::popVertexProcessor()
     }
 }
 
-// FUNCTION: SURRENDER 0x1001C640
-void srGERD::setFogColor(const srVector3T<float>& color)
-{
-    setFogColor(glm::vec4(color.glmValue(), 0));
-}
-
 /* Each component clamps through (0,1): strictly positive keeps the value, 1.0 or above saturates,
    anything else becomes 0. The color only updates (and dirties state) when a clamped component
    differs. */
@@ -1950,12 +1936,6 @@ void srGERD::setFogColor(const glm::vec4& color)
 glm::vec4 srGERD::getFogColor() const
 {
     return fog_color;
-}
-
-// FUNCTION: SURRENDER 0x1001C440
-void srGERD::setAmbientLight(const srVector3T<float>& light)
-{
-    setAmbientLight(glm::vec4(light.glmValue(), 0));
 }
 
 // FUNCTION: SURRENDER 0x1001DB20

@@ -27,7 +27,6 @@
 #include "AnimRep.hpp"
 #include "compat/compiler.h"
 #include "compat/native.h"
-#include "environment_colour.h"
 #include "glm/common.hpp" // IWYU pragma: keep
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float2.hpp"
@@ -62,7 +61,6 @@
 #include "surrender/srMaterial.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
-#include "surrender/srModeler.h"
 #include "surrender/srPixelConvert.h"
 #include "surrender/srScene.h"
 #include "surrender/srShader.h"
@@ -178,8 +176,6 @@ SDLSurfaceOwner videoSurfaceOwner{nullptr, SDL_DestroySurface};
 
 // GLOBAL: WIZ8 0x600088
 unsigned int g_color_key = 0x3def;
-// GLOBAL: WIZ8 0x65963c
-srModeler* g_modeler;
 // GLOBAL: WIZ8 0x659640
 srScene* g_scene_user;
 // GLOBAL: WIZ8 0x659644
@@ -400,10 +396,6 @@ void ShutdownVideoManager(void)
 // FUNCTION: WIZ8 0x00423f30
 void ShutdownVideoScenes(void)
 {
-    if (g_modeler) {
-        delete g_modeler;
-        g_modeler = 0;
-    }
     ReleaseRendererObject(g_scene_permanent);
     ReleaseRendererObject(g_scene_user);
     ReleaseRendererObject(g_scene_fullscreen);
@@ -672,26 +664,6 @@ unsigned char ClearPrimarySurface(void)
 
 void UpdateRenderElapsedTime(void);
 
-/* Saturate the three components of a renderer colour in place and return it.
-   The reviewed body performs these three scalar saturations in order. */
-// FUNCTION: WIZ8 0x004299b0
-srVector3T<float>* SaturateColor(srVector3T<float>* color)
-{
-    if (color->x <= 0.0f)
-        color->x = 0.0f;
-    else if (color->x >= 1.0f)
-        color->x = 1.0f;
-    if (color->y <= 0.0f)
-        color->y = 0.0f;
-    else if (color->y >= 1.0f)
-        color->y = 1.0f;
-    if (color->z <= 0.0f)
-        color->z = 0.0f;
-    else if (color->z >= 1.0f)
-        color->z = 1.0f;
-    return color;
-}
-
 /* Render one scene into either the full output or a logical 640x480 viewport.
    Scene fog follows the current world's static scene for ordinary overlays;
    the world passes retain their own fog by selecting preserve_fog. */
@@ -780,7 +752,7 @@ void RenderFrame(void)
     if (!g_flush_pending) {
         return;
     }
-    EnvironmentColour clear_color;
+    glm::vec3 clear_color(0);
     srVector3T<float> saved_world_position;
     srVector3T<float> shifted_world_position;
     unsigned int next_page;
@@ -792,8 +764,6 @@ void RenderFrame(void)
     srScene* retire_prerender;
     srScene* retire_overlay;
 
-    clear_color.SetZero();
-    SaturateColor(&clear_color);
     if (!g_video_active) {
         return;
     }
@@ -807,7 +777,7 @@ void RenderFrame(void)
         if (!IsSkyEnabled()) {
             GetWorldLightValue(g_world, &clear_color);
         } else {
-            static_cast<srVector3&>(clear_color) =
+            clear_color =
                 // NOLINTNEXTLINE(misc-include-cleaner)
                 glm::clamp(g_world->static_scene->getFogColor(), 0.0f, 1.0f);
         }
@@ -954,7 +924,7 @@ unsigned char RenderWorldToSurface(srColorSurface* target, const DesignRect* rec
                                    bool render_secondary)
 {
     srGERD* gerd = g_gerd.get();
-    EnvironmentColour clear_color;
+    glm::vec3 clear_color{0};
     gerd->beginFrame();
     gerd->setTextureReduction(g_resident_texture_policy);
     gerd->setScissor(0, 0, gerd->getWidth(), gerd->getHeight());
@@ -1005,17 +975,17 @@ void InvalidateRendererTextureCache(void)
 /* The renderer and both static scenes take the light direction as their fog
    colour. The renderer is flushed before the new colour lands. */
 // FUNCTION: WIZ8 0x00427380
-void PublishLightDirection(const EnvironmentColour* direction)
+void PublishLightDirection(const glm::vec3* direction)
 {
     if (g_gerd != 0) {
         g_gerd->flush();
-        g_gerd->setFogColor(*direction);
+        g_gerd->setFogColor(glm::vec4(*direction, 0));
     }
     if (g_world != 0) {
-        g_world->static_scene->setFogColor(direction->glmValue());
+        g_world->static_scene->setFogColor(*direction);
     }
     if (g_secondary_world != 0) {
-        g_secondary_world->static_scene->setFogColor(direction->glmValue());
+        g_secondary_world->static_scene->setFogColor(*direction);
     }
 }
 
@@ -1033,15 +1003,15 @@ void SetRendererAutoFlipEnabled(bool enabled)
 /* The static scene's fog colour clamped into 0..1 for the caller; an empty
    world reports black. */
 // FUNCTION: WIZ8 0x00427290
-void GetWorldColour(EnvironmentColour* colour)
+void GetWorldColour(glm::vec3* colour)
 {
     if (g_world != 0) {
-        static_cast<srVector3&>(*colour) =
+        *colour =
             // NOLINTNEXTLINE(misc-include-cleaner)
             glm::clamp(g_world->static_scene->getFogColor(), 0.0f, 1.0f);
         return;
     }
-    colour->SetZero();
+    *colour = glm::vec3(0);
 }
 
 // FUNCTION: WIZ8 0x00427260
@@ -1066,6 +1036,25 @@ void SetWorldModelPickingEnabled(bool enabled)
 
 /* Mouse cursor scene and rendering. */
 
+// The four sprite builders share the same clockwise quad and vertically flipped UVs.
+static void SetSpriteQuad(srMeshModel& model, float width, float height,
+                          glm::vec2 uv_scale = glm::vec2(0), glm::vec2 uv_offset = glm::vec2(0))
+{
+    if (width == 0 || height == 0) {
+        model.reset(0, 0);
+        return;
+    }
+    model.reset(2, 4);
+    model.vertex_locations = {{-0.5f * width, -0.5f * height, 0},
+                              {-0.5f * width, 0.5f * height, 0},
+                              {0.5f * width, 0.5f * height, 0},
+                              {0.5f * width, -0.5f * height, 0}};
+    model.poly_vertices = {{0, 1, 2}, {0, 2, 3}};
+    if (uv_scale != glm::vec2(0) || uv_offset != glm::vec2(0))
+        model.texcoords[0][0] = {uv_offset + glm::vec2(0, uv_scale.y), uv_offset,
+                                 uv_offset + glm::vec2(uv_scale.x, 0), uv_offset + uv_scale};
+}
+
 // FUNCTION: WIZ8 0x00424EB0
 srModelInstance* MakePolygonBrush(srNode* parent, std::shared_ptr<srColorSurfaceIFace> surface,
                                   double width, double height, float mapping_x, float mapping_y,
@@ -1078,13 +1067,8 @@ srModelInstance* MakePolygonBrush(srNode* parent, std::shared_ptr<srColorSurface
     model = std::make_shared<srMeshModel>(0L, 0L);
     model->setName("Video2DMakePolygonBrush");
 
-    g_modeler->createGrid(1, 1);
-    srModeler::MappingInfo mapping(srModeler::AXIS_X, srModeler::AXIS_Y, mapping_width,
-                                   mapping_height, mapping_x, mapping_y);
-    g_modeler->planarMap(0, 0, mapping);
-    g_modeler->scale(glm::vec3(static_cast<float>(width), static_cast<float>(height), 1.0f));
-    g_modeler->convert(*model, 1);
-    g_modeler->discard();
+    SetSpriteQuad(*model, static_cast<float>(width), static_cast<float>(height),
+                  {mapping_width, mapping_height}, {mapping_x, mapping_y});
 
     shader.value = overlay ? g_surface_alpha_blend_shader_bits : g_surface_opaque_shader_bits;
     if (!surface) {
@@ -1127,14 +1111,8 @@ stModelInstance2D* CreateSpriteFromTexture(std::shared_ptr<srTextureIFace> textu
     model->setName("Video2DMakePolygonBrush");
 
     float step = g_surface_scale * (g_float_one / w);
-    g_modeler->createGrid(1, 1);
-    srModeler::MappingInfo mapping(srModeler::AXIS_X, srModeler::AXIS_Y,
-                                   g_float_one - (step + step), g_float_one - (step + step), step,
-                                   step);
-    g_modeler->planarMap(0, 0, mapping);
-    g_modeler->scale(glm::vec3(static_cast<float>(width), static_cast<float>(height), 1.0f));
-    g_modeler->convert(*model, 1);
-    g_modeler->discard();
+    SetSpriteQuad(*model, static_cast<float>(width), static_cast<float>(height),
+                  glm::vec2(g_float_one - (step + step)), glm::vec2(step));
 
     shader.value = keep_aspect ? g_surface_alpha_blend_shader_bits : g_surface_opaque_shader_bits;
     if (!texture) {
@@ -1792,7 +1770,6 @@ unsigned char InitializeRendererSceneObjects(void)
     char renderer_name[128];
 
     InitializeMouseSurface();
-    g_modeler = new srModeler;
     g_scene_permanent = createOverlayScene("2D Permanent Overlay Scene");
 
     g_scene_user = createOverlayScene("2D User Overlay Scene");
@@ -2266,10 +2243,7 @@ stModelInstance2D* CreateColoredPolygonSprite(int width, int height, const glm::
     double scale_y = height * g_inverse_screen_height;
     auto model = std::make_shared<srMeshModel>(0L, 0L);
 
-    g_modeler->createGrid(1, 1);
-    g_modeler->scale(glm::vec3(static_cast<float>(scale_x), static_cast<float>(scale_y), 1.0f));
-    g_modeler->convert(*model, 1);
-    g_modeler->discard();
+    SetSpriteQuad(*model, static_cast<float>(scale_x), static_cast<float>(scale_y));
 
     auto material = std::make_shared<srMaterial>();
     material->setEmissive(*color);
@@ -2649,9 +2623,7 @@ std::shared_ptr<stTextureAnim> VideoVObjectToTextureAnim(const SpriteSheet& spri
 // FUNCTION: WIZ8 0x004291d0
 void SetDisplayGamma(float value)
 {
-    srVector3T<float> gamma;
-    gamma = value;
-    g_gerd->setGamma(gamma);
+    g_gerd->setGamma(glm::vec3(value));
 }
 
 /* The option-4-suppressed variant of the render probe: with the positional
@@ -2754,10 +2726,6 @@ void EndRenderProbe(void)
 /* 0x00423EB0 calls the imported ~srScene: it is the local ??_GsrScene
    thunk, not the support-class deleting destructor. */
 
-/* 0x00423EE0 calls the imported ~srModeler: it is the local ??_GsrModeler
-   thunk emitted for the g_modeler delete, not a support-class deleting
-   destructor. */
-
 /* 0x004229C0 is a bare JMP to RenderFrame: a tail-jump thunk with no
    distinct source entity. */
 
@@ -2781,13 +2749,8 @@ srNode* MakePosterQuad(std::shared_ptr<srTextureIFace> texture, float width, flo
     float extent_h = g_float_one / dimensions.height * g_surface_scale;
     model->setName("VideoMakePoster");
     texture->getDimensions();
-    g_modeler->createGrid(1, 1);
-    srModeler::MappingInfo mapping(srModeler::AXIS_X, srModeler::AXIS_Y, g_float_one - extent_w,
-                                   g_float_one - extent_h, extent_w, extent_h);
-    g_modeler->planarMap(0, 0, mapping);
-    g_modeler->scale(glm::vec3(width, height, 1.0f));
-    g_modeler->convert(*model, 1);
-    g_modeler->discard();
+    SetSpriteQuad(*model, width, height, {g_float_one - extent_w, g_float_one - extent_h},
+                  {extent_w, extent_h});
 
     shader.value = 0x100a013;
     if (additive) {

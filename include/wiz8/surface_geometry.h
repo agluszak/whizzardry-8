@@ -6,20 +6,21 @@
 #include <vector>
 
 #include "glm/ext/matrix_float4x3.hpp"
+#include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "wiz8/geometry.h"
 
 namespace surfaceGeometry {
 // Decode only at the input boundary; use one affine copy for every frame format.
 template<class PositionAt>
-void transformPositions(std::span<srVector3> destination, const glm::mat4x3& matrix,
+void transformPositions(std::span<glm::vec3> destination, const glm::mat4x3& matrix,
                         PositionAt position_at)
 {
     for (std::size_t vertex = 0; vertex < destination.size(); ++vertex)
         destination[vertex] = matrix * glm::vec4(position_at(vertex), 1);
 }
 
-inline void initializePropSurface(W8GDSurface& surface, std::span<const srVector3> vertices)
+inline void initializePropSurface(W8GDSurface& surface, std::span<const glm::vec3> vertices)
 {
     const auto triangle = indexedTriangle(vertices, surface.vertex_indices);
     surface.plane = trianglePlane(triangle[0], triangle[1], triangle[2]);

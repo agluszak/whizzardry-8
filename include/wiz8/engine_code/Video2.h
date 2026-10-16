@@ -1,3 +1,4 @@
+#include "glm/ext/vector_float3.hpp"
 #include "wiz8/design_rect.h"
 #ifndef WIZ8_VIDEO2_H
 #define WIZ8_VIDEO2_H
@@ -179,12 +180,10 @@ void EndRenderProbe(void);
 void WarpSystemCursor(int x, int y); /* 0x004280C0: fullscreen-safe */
 
 class srCamera;
-class srModeler;
 class srGERD;
 class srMaterial;
 class srScene;
 class stSurface2D;
-struct EnvironmentColour;
 
 extern int g_pixel_format;
 extern unsigned char g_fullscreen;
@@ -192,7 +191,6 @@ extern bool g_screenshot_pending;
 extern bool g_video_inspector_enabled;
 extern bool g_cursor_scene_enabled;
 extern unsigned char g_fullscreen_scene_last;
-extern srModeler* g_modeler;
 extern srScene* g_scene_user;
 extern srScene* g_scene_fullscreen;
 extern srScene* g_scene_permanent;
@@ -253,9 +251,8 @@ void RenderFrame(void);
 /* The native presentation shell also owns this opaque surface entry point. */
 SDL_Surface* BeginVideoPresentation(void);
 unsigned char FinishVideoPresentation(void);
-void PublishLightDirection(const EnvironmentColour* direction);
-void GetWorldColour(EnvironmentColour* colour); /* 0x00427290 */
-srVector3T<float>* SaturateColor(srVector3T<float>* color);
+void PublishLightDirection(const glm::vec3* direction);
+void GetWorldColour(glm::vec3* colour); /* 0x00427290 */
 void ReleaseObject(stModelInstance2D* object);
 void Initialize16BitPixelFormatMasks(void);
 unsigned char CreateWizardryWindow(void);

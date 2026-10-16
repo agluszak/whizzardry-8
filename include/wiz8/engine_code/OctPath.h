@@ -11,6 +11,7 @@
 #include "compat/compiler.h"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_int2.hpp"
+#include "glm/ext/vector_int3.hpp"
 #include "glm/ext/vector_uint2.hpp"
 #include "surrender/srBoundingBox.h"
 #include "surrender/srMath.h"
@@ -142,7 +143,7 @@ struct W8NavigatorAttachment;
 struct W8PathSurface {
     unsigned short flags;
     unsigned short index;
-    srVector3T<float> position;
+    srVector3T<float> position{0, 0, 0};
     unsigned short search_parent;
     unsigned char padding_12[0x02];
     /* Monotonic visit stamp: patrol selection picks the smallest value, and
@@ -212,8 +213,8 @@ struct GDPropCondPaths {
    participate and the third slots are zeroed. Retail does not distinguish
    this grouping from adjacent scalar storage in the original declaration. */
 struct W8PathGridWalk {
-    srVector3T<int> cell; /* 0x00: destination X/Z cells; third component zero */
-    srVector3T<int> step; /* 0x0c: +1 or -1 per active axis; third component zero */
+    glm::ivec3 cell{0}; /* 0x00: destination X/Z cells; third component zero */
+    glm::ivec3 step{0}; /* 0x0c: +1 or -1 per active axis; third component zero */
     int major_axis;       /* 0x18: 0 for X, 1 for Z */
     int minor_axis0;      /* 0x1c: (major + 1) % 2 */
     int minor_axis1;      /* 0x20: unused second secondary axis, zero */
@@ -253,7 +254,7 @@ struct W8PathSearchNode {
     float distance;
     float clearance;
     float score;
-    srVector3T<float> position;
+    srVector3T<float> position{0, 0, 0};
 };
 
 struct W8PathHeapEntry {
@@ -278,10 +279,7 @@ struct W8PathHeapHandle {
     void DeleteRoot(W8PathSearchNode* node);
 };
 
-/* The pathing service the octree builds when its file carries one. Its own
-   constructor at 0x004578E0 initialises through 0x238 and ReadOctFile allocates
-   0x240, which is what fixes the extent; only the fields those two bodies and
-   the path lookup reach are named. */
+/* Runtime navigation owns its indexed graph, search state, and decoded path tables. */
 struct PathCellCoordinates {
     glm::ivec2 coordinates;
     unsigned int key;
@@ -378,7 +376,7 @@ public:
     void BuildPathGridWalk(const glm::vec2* from, const glm::vec2* to, const glm::vec2* origin,
                            W8PathGridWalk* walk);
     bool ProbeWaypointSegment(const srVector3T<float>* from, const srVector3T<float>* to);
-    unsigned int ComputeWaypointNeighborMask(const srVector2i* cell, unsigned int path_value);
+    unsigned int ComputeWaypointNeighborMask(const glm::ivec2* cell, unsigned int path_value);
     // Return a blocked-neighbor slide direction from a live cell or the stored mask.
     std::optional<glm::vec3> neighborSlideDirection(const glm::vec3& position,
                                                     const glm::vec3& delta);
@@ -398,7 +396,7 @@ public:
        recursive result. m_probe_cell_key tracks the farthest candidate. */
     unsigned short RecurseTargetLinks(unsigned short waypoint); /* 0x004615D0 */
     unsigned short RecursePatrolLinks(unsigned short waypoint);
-    float MeasureDirectionalPath(const srVector2i* cell, int direction, unsigned int height,
+    float MeasureDirectionalPath(const glm::ivec2* cell, int direction, unsigned int height,
                                  float distance);
     float CompareDirectionalClearance(const srVector3T<float>* position,
                                       const srVector3T<float>* direction, float distance);
@@ -428,7 +426,7 @@ public:
     unsigned char ReadPathNodes(wiz8::File* handle); /* 0x00458CE0 */
     bool WritePathNodes(wiz8::File* handle);
     unsigned char SaveWaypointSnapshot(bool force);
-    unsigned char WriteWaypointFile();
+    unsigned char WriteWaypointFile(std::span<const W8FileWaypoint> snapshot);
     unsigned char ReadWaypointFile();
     void BuildWaypointFileData();
     /* Owning destructor: releases owned tables and bit sets. Single caller
@@ -443,9 +441,6 @@ public:
     /* PrePathing's CreatePathNodeArray counts edge nodes here starting from
        one, and WriteOctFile serializes it beside the node count. */
     int edge_node_count;
-    /* ReadOctFile tests this beside m_waypoint_editing before settling a portal. */
-    unsigned int m_ulNumWayPoints; /* 0x0c */
-    unsigned int m_ulNumWayPtLinks; /* 0x10 */
     int m_unknown_014;
     /* Incremented for each edge removed by the waypoint editor; never read. */
     int m_removed_edge_count;
@@ -457,16 +452,11 @@ public:
     /* Path probe-clearance height from the octree
        header; only ConfigureForLevel writes it. */
     float path_clearance; /* 0x28 */
-    W8BoundingBox level_bounds; /* 0x2c: minimum/maximum pair */
-    /* Four malloc'd tables and one polymorphic object, all released by
-       0x00457B10 - the first four with free, the last through its own
-       deleting slot. */
-    W8FilePathNode* file_path_nodes; /* 0x44: serialized cell/height-state records */
-    /* Surfaces are 0x28 bytes apart, edges 0xe; an edge names two surfaces by
-       index in its two shorts at +4 and +6. */
-    W8PathSurface* m_waypoints; /* 0x48 */
-    W8PathEdge* m_pEdges; /* 0x4c */
-    W8FileWaypoint* m_pFileWayPoints; /* 0x50 */
+    srBoundingBox level_bounds; /* 0x2c: minimum/maximum pair */
+    std::vector<W8FilePathNode> file_path_nodes; // Serialized cell/height-state records.
+    // Zero is the sentinel in both indexed graph tables.
+    std::vector<W8PathSurface> m_waypoints;
+    std::vector<W8PathEdge> m_pEdges;
     std::unique_ptr<stModelInstance> m_path_visualization;
     std::vector<std::uint16_t> m_path_scratch;
     std::vector<bool> m_marked_path_nodes;
@@ -478,11 +468,11 @@ public:
        and keeps the signed value the octree registry also instantiates. The
        template only copies and compares values, so the two instantiations are
        body-equivalent and retail's linker folds them. */
-    std::unordered_multimap<unsigned int, unsigned int>* m_pPathValues; /* 0x64 */
+    std::unique_ptr<std::unordered_multimap<unsigned int, unsigned int>> m_pPathValues;
     const char* level_name; /* 0x68 */
-    W8PathHeapHandle* path_heap; /* 0x6c */
+    std::unique_ptr<W8PathHeapHandle> path_heap;
     float m_path_cost_limit; /* 0x70: starts 1.0e10f */
-    std::unordered_map<unsigned int, int>* m_pVisitedCells; /* 0x74 */
+    std::unique_ptr<std::unordered_map<unsigned int, int>> m_pVisitedCells;
     unsigned int m_probe_cell_key; /* 0x78 */
     srVector3T<float> m_probe_position; /* 0x7c */
     unsigned int m_probe_limit; /* 0x88 */
@@ -501,9 +491,7 @@ public:
     float trace_height_offset;
     int m_trace_target_location;
     float m_trace_target_yaw;
-    W8PathSearchNode* m_search_nodes; /* 0xc8 */
-    unsigned int m_search_node_count;
-    unsigned int m_search_node_capacity;
+    std::vector<W8PathSearchNode> m_search_nodes;
     unsigned int m_path_probe_count;
     W8PathProbeVolume m_path_probes[10];
     bool m_waypoint_editing; /* 0x1c8 */
@@ -532,20 +520,14 @@ public:
     srVector3T<float> m_patrol_destination;
     unsigned char m_padding_204[0x0c];
     float m_patrol_cost;
-    W8PathParameters* m_steering_context; /* 0x214 */
+    W8PathParameters m_steering_context;
     W8NavigatorAttachment* m_linked_attachment;
-    /* The conditional path tables. ReadPathNodes at 0x00458CE0 asserts on the
-       first by name and names the other four in its own failure messages: a
-       lookup, a frame, a key and a value array, sized from the two counts.
-       FindPathHandle scans the 0x44-byte path records by name. */
-    GDPropCondPaths* m_pCondPaths; /* 0x21c */
-    int m_ulNumCondPaths; /* 0x220 */
-    int m_ulNumCondFrames; /* 0x224 */
-    int m_ulNumCondNodes; /* 0x228 */
-    unsigned int* m_pulCondLookup; /* 0x22c */
-    unsigned short* m_pusCondNodeFrames; /* 0x230 */
-    unsigned int* m_pulCondNodeKeys; /* 0x234 */
-    unsigned int* m_pulCondNodeValues; /* 0x238 */
+    // Named conditional paths and their sentinel-terminated frame/key runs.
+    std::vector<GDPropCondPaths> m_pCondPaths;
+    std::vector<unsigned int> m_pulCondLookup;
+    std::vector<unsigned short> m_pusCondNodeFrames;
+    std::vector<unsigned int> m_pulCondNodeKeys;
+    std::vector<unsigned int> m_pulCondNodeValues;
     bool span_blocked;
     unsigned char m_padding_23d[3];
 };

@@ -16,12 +16,12 @@
 
 #include "Font.h"
 #include "game_timer.h"
+#include "glm/ext/vector_int2.hpp"
 #include "himage.h"
 #include "image.h"
 #include "input.h"
 #include "local_code/CombatAttack.h"
 #include "local_code/RangeControl.h"
-#include "surrender/srMath.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_event_queue.h"
@@ -71,7 +71,7 @@ void DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out);
    header draws. Category 4 sits below the right-hand column; the others fill
    the left and right columns. */
 // GLOBAL: WIZ8 0x0064ef40
-static srVector2i g_camp_skill_category_positions[5] = {
+static glm::ivec2 g_camp_skill_category_positions[5] = {
     {0x160, 0x8}, {0x160, 0xcc}, {0x22, 0x9}, {0x22, 0x86}, {0x2a, 0x21},
 };
 // GLOBAL: WIZ8 0x0064ef68
@@ -80,7 +80,7 @@ static int g_camp_skill_category_rows[5] = {0xb, 5, 8, 0xa, 7};
 static int g_camp_skill_category_images[5] = {2, 3, 0, 1, 4};
 
 // GLOBAL: WIZ8 0x0064ef90
-static srVector2i g_character_page2_category_geometry[5] = {
+static glm::ivec2 g_character_page2_category_geometry[5] = {
     {0xf9, 0x0a}, {0xf9, 0xcd}, {0x22, 0x0a}, {0x22, 0x87}, {0xf9, 0x120},
 };
 // GLOBAL: WIZ8 0x0064efb8

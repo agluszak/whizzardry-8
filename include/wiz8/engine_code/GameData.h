@@ -148,7 +148,6 @@ struct W8EnvironRecord {
         gravity_z = 0;
         motion_step = 0.05f;
         motion_factor = 1.0f;
-        vector.SetZero();
         world_height = g_default_world_height;
         forward_scale = g_camera_level_forward_scale * g_navigator_linked_radius_scale;
         motion_limit = g_default_motion_limit;
@@ -169,7 +168,7 @@ struct W8EnvironRecord {
     float gravity_z;
     float motion_step;
     float motion_factor;
-    srVector3T<float> vector;
+    glm::vec3 vector{0};
     float world_height;
     float forward_scale;
     float motion_limit;
@@ -257,7 +256,7 @@ struct W8GameData {
     srVector3T<float> minimum;
     srVector3T<float> maximum;
     // Contiguous owned banks; counts are derived from container sizes.
-    std::vector<srVector3T<float>> m_pVertices;
+    std::vector<glm::vec3> m_pVertices;
     int trigger_surface_base;
     int trigger_surface_count;
     int integrated_surface_count;
@@ -266,7 +265,7 @@ struct W8GameData {
     int TrigVerticesCount() const noexcept { return int(m_pTrigVertices.size()); }
     int m_iNumTriggers;
     std::vector<W8GDSurface> m_pTrigSurfaces;
-    std::vector<srVector3T<float>> m_pTrigVertices;
+    std::vector<glm::vec3> m_pTrigVertices;
     std::vector<Trigger*> m_ppTriggers;
     int last_hit_surface;
     std::vector<bool> pending_trigger_bits;
@@ -330,9 +329,9 @@ struct W8GameData {
        trace_flag4_gate, flag and mode filters apply; a closer hit stores index
        into last_hit_surface, the contact into the record's end and the distance
        into hit_limit. */
-    bool TestGeometryTrace(std::span<W8GDSurface> surfaces,
-                           std::span<const srVector3T<float>> vertices, int count,
-                           w8_ulong* surface_ids, W8OctreeTrace* trace, char skip_flag, int mode);
+    bool TestGeometryTrace(std::span<W8GDSurface> surfaces, std::span<const glm::vec3> vertices,
+                           int count, w8_ulong* surface_ids, W8OctreeTrace* trace, char skip_flag,
+                           int mode);
     bool TestTraceResult(int count, w8_ulong* surface_ids, W8OctreeTrace* trace, char skip_flag,
                          int mode); /* 0x0041C330 */
 };
