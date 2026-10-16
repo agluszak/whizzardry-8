@@ -10,7 +10,6 @@
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 
-#include "Types.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/engine_code/Video2.h"
@@ -161,7 +160,7 @@ W8ButtonWidget::W8ButtonWidget(UiLayer& layer) : m_layer(layer) {}
 
 W8ButtonWidget::~W8ButtonWidget()
 {
-    Assert(m_handling_pointer == 0);
+    W8_ASSERT(m_handling_pointer == 0);
     if (m_target) {
         m_layer.remove(*m_target);
     }
