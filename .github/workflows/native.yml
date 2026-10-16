@@ -29,13 +29,16 @@ jobs:
       CCACHE_SLOPPINESS: pch_defines,time_macros
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: Install Clang 22 and Conan 2
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y clang-22 clang-tidy-22 ninja-build ccache cmake python3-venv mesa-vulkan-drivers
-          python3 -m venv "$RUNNER_TEMP/conan-venv"
-          "$RUNNER_TEMP/conan-venv/bin/pip" install 'conan==2.33.0'
-          echo "$RUNNER_TEMP/conan-venv/bin" >> "$GITHUB_PATH"
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - name: Build Linux toolchain image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          file: Dockerfile
+          load: true
+          tags: whizzardry-build:latest
+          cache-from: type=gha,scope=whizzardry-toolchain
+          cache-to: type=gha,mode=max,scope=whizzardry-toolchain
       - name: Restore Conan packages
         id: conan-cache
         uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
@@ -44,8 +47,6 @@ jobs:
           key: conan-clang22-${{ matrix.preset }}-${{ hashFiles('conanfile.py', 'conan.lock', 'conan/profiles/*') }}
           restore-keys: |
             conan-clang22-${{ matrix.preset }}-
-      - name: Select software Vulkan driver
-        run: echo "VK_DRIVER_FILES=/usr/share/vulkan/icd.d/lvp_icd.json" >> "$GITHUB_ENV"
       - name: Create cache directories
         run: mkdir -p "$CCACHE_DIR"
       - uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
@@ -56,22 +57,20 @@ jobs:
           restore-keys: |
             ccache-v2-${{ matrix.preset }}-clang22-
       - name: Reset compiler cache statistics
-        run: ccache --zero-stats
+        run: ./tools/build-container.sh ccache --zero-stats
       - name: Resolve Conan dependencies
         run: |
           build_type=Debug
           if [[ "${{ matrix.preset }}" == "linux-asan" ]]; then
             build_type=RelWithDebInfo
           fi
-          CC=clang-22 CXX=clang++-22 conan install . \
-            -pr:h conan/profiles/linux-clang22 -pr:b conan/profiles/linux-gcc15 \
-            -s:h build_type="$build_type" -c tools.system.package_manager:mode=install \
-            -c tools.system.package_manager:sudo=True \
-            --build=missing \
+          ./tools/build-container.sh conan install . \
+            -pr:h conan/profiles/linux-clang22 -pr:b conan/profiles/linux-gcc13 \
+            -s:h build_type="$build_type" --build=missing \
             -of "build/${{ matrix.preset }}/conan"
       - name: Clean Conan build intermediates
         if: github.event_name == 'push' && steps.conan-cache.outputs.cache-hit != 'true'
-        run: conan cache clean '*'
+        run: ./tools/build-container.sh conan cache clean '*'
       # Only main's native jobs publish package binaries.
       - name: Save Conan packages
         if: github.event_name == 'push' && steps.conan-cache.outputs.cache-hit != 'true'
@@ -81,24 +80,28 @@ jobs:
           key: conan-clang22-${{ matrix.preset }}-${{ hashFiles('conanfile.py', 'conan.lock', 'conan/profiles/*') }}
       - name: Configure
         run: |
-          build_type=Debug
-          if [[ "${{ matrix.preset }}" == "linux-asan" ]]; then
-            build_type=RelWithDebInfo
-          fi
-          source "build/${{ matrix.preset }}/conan/conanbuild.sh"
-          cmake --preset "${{ matrix.preset }}" \
-            -DCMAKE_TOOLCHAIN_FILE="$PWD/build/${{ matrix.preset }}/conan/conan_toolchain.cmake" \
-            -DCMAKE_BUILD_TYPE="$build_type" \
-            -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22 \
-            -DCMAKE_C_FLAGS_DEBUG="-O0 -g1" \
-            -DCMAKE_CXX_FLAGS_DEBUG="-O0 -g1 -Xclang -fno-pch-timestamp" \
-            -DCMAKE_CXX_FLAGS_RELWITHDEBINFO="-O1 -g1 -DNDEBUG -Xclang -fno-pch-timestamp" \
-            -DWIZ8_SURRENDER_UNITY_BUILD=ON -DWIZ8_WARNINGS_AS_ERRORS=ON \
-            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          ./tools/build-container.sh bash -ec '
+            build_type=Debug
+            if [[ "${{ matrix.preset }}" == "linux-asan" ]]; then
+              build_type=RelWithDebInfo
+            fi
+            source "build/${{ matrix.preset }}/conan/conanbuild.sh"
+            cmake --preset "${{ matrix.preset }}" \
+              -DCMAKE_TOOLCHAIN_FILE="$PWD/build/${{ matrix.preset }}/conan/conan_toolchain.cmake" \
+              -DCMAKE_BUILD_TYPE="$build_type" \
+              -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22 \
+              -DCMAKE_C_FLAGS_DEBUG="-O0 -g1" \
+              -DCMAKE_CXX_FLAGS_DEBUG="-O0 -g1 -Xclang -fno-pch-timestamp" \
+              -DCMAKE_CXX_FLAGS_RELWITHDEBINFO="-O1 -g1 -DNDEBUG -Xclang -fno-pch-timestamp" \
+              -DWIZ8_SURRENDER_UNITY_BUILD=ON -DWIZ8_WARNINGS_AS_ERRORS=ON \
+              -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          '
       - name: Build native game and fixtures
         run: |
-          source "build/${{ matrix.preset }}/conan/conanbuild.sh"
-          cmake --build --preset ${{ matrix.preset }} --parallel "$(nproc)"
+          ./tools/build-container.sh bash -ec '
+            source "build/${{ matrix.preset }}/conan/conanbuild.sh"
+            cmake --build --preset "${{ matrix.preset }}" --parallel "$(nproc)"
+          '
       # Publish the compiler cache as soon as main builds successfully;
       # frequent main pushes may cancel a run before its runtime tests finish.
       - uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
@@ -184,22 +187,27 @@ jobs:
             -in "$encrypted" -pass env:WIZ8_CACHE_KEY | tar -C "$game_root" -xf -
           test -d "$game_root/Data"
           test -d "$game_root/Levels"
-          source "build/${{ matrix.preset }}/conan/conanrun.sh"
           prepared_root="$RUNNER_TEMP/wiz8-native-prepared"
-          "build/${{ matrix.preset }}/wiz8_prepare_assets" "$prepared_root" "$game_root"
+          ./tools/build-container.sh bash -ec '
+            source "build/${{ matrix.preset }}/conan/conanrun.sh"
+            "build/${{ matrix.preset }}/wiz8_prepare_assets" \
+              "$RUNNER_TEMP/wiz8-native-prepared" "$RUNNER_TEMP/wiz8-native-game"
+          '
           echo "WIZ8_ASSET_ROOT=$prepared_root" >> "$GITHUB_ENV"
 
       - name: Test native contracts and licensed runtime scenarios
         run: |
-          source "build/${{ matrix.preset }}/conan/conanrun.sh"
-          if [[ '${{ matrix.preset }}' == linux-asan ]]; then
-            # SDL unloads the software Vulkan ICD before LSan scans globals.
-            # Keep Mesa and its dependencies mapped so process-lifetime driver
-            # allocations retain their real roots. Project leak checks stay on.
-            export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libvulkan_lvp.so
-          fi
-          ctest --preset ${{ matrix.preset }} --output-on-failure --parallel "$(nproc)"
-
+          ./tools/build-container.sh bash -ec '
+            source "build/${{ matrix.preset }}/conan/conanrun.sh"
+            driver=$(find /usr/share/vulkan/icd.d -maxdepth 1 -name "lvp_icd*.json" -print -quit)
+            test -n "$driver"
+            export VK_DRIVER_FILES="$driver"
+            if [[ "${{ matrix.preset }}" == linux-asan ]]; then
+              # Keep Mesa resident so LSan does not misattribute driver allocations.
+              export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libvulkan_lvp.so
+            fi
+            ctest --preset "${{ matrix.preset }}" --output-on-failure --parallel "$(nproc)"
+          '
       - name: Remove decrypted game assets
         if: always() && steps.game-assets.outputs.enabled == 'true'
         run: rm -rf "$RUNNER_TEMP/wiz8-native-game"
@@ -208,7 +216,7 @@ jobs:
         run: |
           echo '### ccache (${{ matrix.preset }})' >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
-          ccache --show-stats 2>&1 | tee -a "$GITHUB_STEP_SUMMARY" || true
+          ./tools/build-container.sh ccache --show-stats 2>&1 | tee -a "$GITHUB_STEP_SUMMARY" || true
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
   clang-tidy:
@@ -218,13 +226,16 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: Install Clang 22 and Conan 2
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y clang-22 clang-tidy-22 ninja-build ccache cmake python3-venv mesa-vulkan-drivers
-          python3 -m venv "$RUNNER_TEMP/conan-venv"
-          "$RUNNER_TEMP/conan-venv/bin/pip" install 'conan==2.33.0'
-          echo "$RUNNER_TEMP/conan-venv/bin" >> "$GITHUB_PATH"
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - name: Build Linux toolchain image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          file: Dockerfile
+          load: true
+          tags: whizzardry-build:latest
+          cache-from: type=gha,scope=whizzardry-toolchain
+          cache-to: type=gha,mode=max,scope=whizzardry-toolchain
       - name: Restore Conan packages
         id: conan-cache
         uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
@@ -243,28 +254,29 @@ jobs:
       # Include checks need direct includes, not PCH or unity sources.
       - name: Resolve Conan dependencies for analysis
         run: |
-          CC=clang-22 CXX=clang++-22 conan install . \
-            -pr:h conan/profiles/linux-clang22 -pr:b conan/profiles/linux-gcc15 \
-            -s:h build_type=Debug -c tools.system.package_manager:mode=install \
-            -c tools.system.package_manager:sudo=True \
-            --build=missing \
-            -of build/linux-tidy/conan
+          ./tools/build-container.sh conan install . \
+            -pr:h conan/profiles/linux-clang22 -pr:b conan/profiles/linux-gcc13 \
+            -s:h build_type=Debug --build=missing -of build/linux-tidy/conan
       - name: Configure analysis database
         run: |
-          source build/linux-tidy/conan/conanbuild.sh
-          cmake --preset linux -B build/linux-tidy \
-            -DCMAKE_TOOLCHAIN_FILE="$PWD/build/linux-tidy/conan/conan_toolchain.cmake" \
-            -DCMAKE_BUILD_TYPE=Debug \
-            -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22 \
-            -DWIZ8_PRECOMPILE_HEADERS=OFF -DWIZ8_SURRENDER_UNITY_BUILD=OFF
-          cmake --build build/linux-tidy --target surrender_shader_headers
+          ./tools/build-container.sh bash -ec '
+            source build/linux-tidy/conan/conanbuild.sh
+            cmake --preset linux -B build/linux-tidy \
+              -DCMAKE_TOOLCHAIN_FILE="$PWD/build/linux-tidy/conan/conan_toolchain.cmake" \
+              -DCMAKE_BUILD_TYPE=Debug \
+              -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22 \
+              -DWIZ8_PRECOMPILE_HEADERS=OFF -DWIZ8_SURRENDER_UNITY_BUILD=OFF
+            cmake --build build/linux-tidy --target surrender_shader_headers
+          '
       - name: Run clang-tidy
-        env:
-          CLANG_TIDY: clang-tidy-22
-          RUN_CLANG_TIDY: run-clang-tidy-22
         run: |
           if [[ "${{ github.event_name }}" == pull_request ]]; then
-            ./tools/run-clang-tidy.sh build/linux-tidy --changed-files "$RUNNER_TEMP/static-analysis-changed"
+            ./tools/build-container.sh env CLANG_TIDY=clang-tidy-22 \
+              RUN_CLANG_TIDY=run-clang-tidy-22 \
+              ./tools/run-clang-tidy.sh build/linux-tidy \
+                --changed-files "$RUNNER_TEMP/static-analysis-changed"
           else
-            ./tools/run-clang-tidy.sh build/linux-tidy
+            ./tools/build-container.sh env CLANG_TIDY=clang-tidy-22 \
+              RUN_CLANG_TIDY=run-clang-tidy-22 \
+              ./tools/run-clang-tidy.sh build/linux-tidy
           fi

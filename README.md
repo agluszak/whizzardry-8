@@ -7,51 +7,60 @@ Game data comes from an existing retail installation and is not distributed here
 
 ## Build
 
-Install Clang 22, CMake, Ninja, Python 3 and Conan 2. The native C/C++
-libraries and glslang are provided through Conan; you do not need distro
-SDL, FFmpeg, JPEG or zlib development packages. A host Vulkan driver is still
-required for graphics.
-
-On Linux x86-64:
+On Linux x86-64, Docker supplies the same Ubuntu 24.04/Clang 22 build
+environment used by CI. Only Docker is needed on the host; Conan 2.33.0,
+the compiler and system development packages are installed in the image.
+The source tree, build outputs and Conan cache stay on the host.
 
 ```sh
-python3 -m pip install 'conan==2.33.0'
-conan profile detect
-CC=clang-22 CXX=clang++-22 conan install . \
-    -pr:h conan/profiles/linux-clang22 -pr:b default \
-    -s:h build_type=Release --build=missing -of build/linux/conan
-. build/linux/conan/conanbuild.sh
-cmake --preset linux \
-    -DCMAKE_TOOLCHAIN_FILE="$PWD/build/linux/conan/conan_toolchain.cmake" \
-    -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22
-cmake --build --preset linux
-. build/linux/conan/conanrun.sh
-ctest --preset linux
+docker build -t whizzardry-build:latest -f Dockerfile .
+./tools/build-container.sh bash -ec '
+    conan install . \
+        -pr:h conan/profiles/linux-clang22 -pr:b conan/profiles/linux-gcc13 \
+        -s:h build_type=Release --build=missing -of build/linux/conan
+    source build/linux/conan/conanbuild.sh
+    cmake --preset linux \
+        -DCMAKE_TOOLCHAIN_FILE="$PWD/build/linux/conan/conan_toolchain.cmake" \
+        -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22
+    cmake --build --preset linux --parallel "$(nproc)"
+    source build/linux/conan/conanrun.sh
+    ctest --preset linux --output-on-failure
+'
 ```
 
-Run `conan install` again with `-s:h build_type=Debug` for `linux-dev`
-or `-s:h build_type=RelWithDebInfo` for `linux-asan`, using the
-corresponding `build/<preset>/conan` output directory and toolchain file.
-Do not reuse Conan dependencies from a different build configuration.
+The resulting `build/linux/Wiz8Native` is a normal Linux executable,
+not a container or a Snap. Launch it on the host with `./run.sh` and
+`WIZ8_ASSET_ROOT` as described below. Ubuntu 24.04 provides the build
+glibc, rather than the newer glibc on the Ubuntu 26.04 CI runner.
+The host still needs compatible runtime libraries and graphics drivers;
+inspect direct ELF dependencies with `ldd build/linux/Wiz8Native`.
+Docker is not required to run the game.
 
-SDL_mixer 3.2.4, utfcpp 4.0.6 and utf8proc 2.10.0 are still downloaded at
-CMake configure time from verified release archives; Catch2 is pinned to an
-exact Git commit. ConanCenter does not currently have the required
-SDL_mixer and utf8proc versions. The committed `conan.lock` pins Conan recipe revisions for the validated Linux
-dependency graph. The FetchContent sources remain separately pinned by their
-archive hashes or exact Git commits.
+For Debug or ASan builds, use `-s:h build_type=Debug` or
+`RelWithDebInfo` with the corresponding `linux-dev` or `linux-asan`
+CMake preset and Conan output directory. Do not reuse dependencies
+from another build type.
 
-The macOS and Windows CMake presets remain available, but their Conan host
-profiles and builds have not yet been verified. The initial Conan integration
-is validated through Linux CI only. Windows still requires Visual Studio and
+The `conan.lock` pins Conan recipe revisions. The Dockerfile pins the
+Ubuntu base image and Clang major version, but APT repository contents
+are not snapshotted. This provides a consistent build environment,
+not a bit-for-bit reproducibility guarantee.
+
+SDL_mixer 3.2.4, utfcpp 4.0.6 and utf8proc 2.10.0 are still downloaded
+at CMake configure time from verified release archives; Catch2 is
+pinned to an exact Git commit. ConanCenter does not currently have
+the required SDL_mixer and utf8proc versions.
+
+The macOS and Windows CMake presets remain available, but their Conan
+builds have not yet been verified. Windows needs Visual Studio and
 the Windows SDK with a compatible Clang frontend.
 
-The native targets include `Wiz8Native` and statically linked SurRender and
-the SDL-backed filesystem and runtime, sharing one SDL state.
+The native targets include `Wiz8Native` and statically linked SurRender
+and the SDL-backed filesystem and runtime, sharing one SDL state.
 A Vulkan-capable SDL3 GPU backend is required for graphics checks.
-Texture caching and high texture detail/cache settings default to enabled. Blurred-text
-correction defaults to disabled; these graphics options remain user-configurable.
-Native defaults do not depend on renderer names or the old 64 MiB memory tiers.
+Texture caching and high texture detail/cache settings default to enabled.
+Blurred-text correction defaults to disabled; these options remain
+user-configurable.
 
 ## Include analysis
 
