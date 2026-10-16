@@ -1196,8 +1196,7 @@ void CampSpellsScenario()
     REQUIRE(game.within_frames(4, [] { return g_camp_screen->dialog == nullptr; }));
 
     // The next automatic cast targets a character, not the remembered item.
-    // This low-level caster cannot deliver useful duration at every power:
-    // pricing a certain failure must not divide by zero or wrap its cost.
+    // Automatic power and immediate retries must respect the mana budget.
     LearnSpell(&caster, W8_SPELL_REMOVE_CURSE, false);
     caster.skills[W8_SKILL_SPELLBOOK_DIVINITY].base_level =
         caster.skills[W8_SKILL_SPELLBOOK_DIVINITY].level = 100;
@@ -1207,7 +1206,7 @@ void CampSpellsScenario()
     RefreshCampItemActions(true);
     game.frame();
     // Fix the roll sequence so successful but insufficient attempts repeat.
-    std::srand(1);
+    SeedRandom(1);
     game.click_at(286, 466);
     REQUIRE(g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_USE_ON_CHARACTER);
     const auto slot = PremadeSlot();
