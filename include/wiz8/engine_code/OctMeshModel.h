@@ -7,6 +7,7 @@ namespace wiz8 {
 class File;
 }
 struct W8MeshMaterial;
+class stMeshModel;
 
 // Metadata used while decoding one compiled OCT/PVL mesh.
 class OctMeshModel {
