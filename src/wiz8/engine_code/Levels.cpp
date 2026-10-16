@@ -28,7 +28,6 @@
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
-#include "wiz8/containers.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/3dapi.h"
 #include "wiz8/engine_code/AmbientSound.h"
@@ -556,7 +555,7 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
             ResetAndRefreshAllSight();
             AgeAllMonsterSight();
         }
-        wiz8::remove_all_and_delete(g_spell_effects);
+        g_spell_effects.clear();
     } else {
         W8SpellEffectEntry* effect = FindMonsterControlSpellEffect();
 

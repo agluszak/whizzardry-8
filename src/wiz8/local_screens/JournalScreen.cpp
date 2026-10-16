@@ -1,6 +1,7 @@
 #include "wiz8/local_screens/JournalScreen.h"
 
 #include <array>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -117,7 +118,7 @@ void RecordFactChangeForJournal(W8FactId fact_id)
     W8JournalEntry entry;
     entry.level = g_status.current_level;
     entry.fact = fact_id;
-    entry.alternate_text = GetFact(fact_id);
+    entry.alternate_text = GetFact(fact_id) != 0;
     g_fact_journal_entries.push_back(entry);
 
     if (g_fact_notifications_suppressed) {
@@ -152,6 +153,18 @@ void RecordFactChangeForJournal(W8FactId fact_id)
     wiz8::sound::play("Data\\Sound\\Misc\\Journal Entry.wav");
 }
 
+namespace {
+/* A JRNL entry on disk. Retail writes the alternate-text flag as one byte and
+   leaves the three bytes after it uninitialized. */
+struct JournalEntryRecord {
+    std::int32_t level;
+    std::int32_t fact;
+    std::uint8_t alternate_text;
+    std::array<std::uint8_t, 3> unknown_09;
+};
+static_assert(sizeof(JournalEntryRecord) == 12);
+}
+
 /* Write the JRNL format dword, entry count, then each 0x0c-byte entry. */
 // FUNCTION: WIZ8 0x00558A90
 void SaveFactJournal(wiz8::File& file)
@@ -163,7 +176,9 @@ void SaveFactJournal(wiz8::File& file)
     file.write(&format, 4);
     file.write(&count, 4);
     for (const auto& entry : g_fact_journal_entries) {
-        file.write(&entry, sizeof(entry));
+        const JournalEntryRecord record{entry.level, static_cast<std::int32_t>(entry.fact),
+                                        entry.alternate_text, entry.unknown_09};
+        file.write(&record, sizeof(record));
     }
 }
 
@@ -179,7 +194,10 @@ void LoadJournalEntries(wiz8::File& file)
     file.read_exact(&count, 4);
     g_fact_journal_entries.resize(count);
     for (auto& entry : g_fact_journal_entries) {
-        file.read_exact(&entry, sizeof(entry));
+        JournalEntryRecord record;
+        file.read_exact(&record, sizeof(record));
+        entry = {record.level, static_cast<W8FactId>(record.fact), record.alternate_text != 0,
+                 record.unknown_09};
     }
 }
 
@@ -432,6 +450,8 @@ unsigned char JournalScreenEnter(void)
 
     g_journal_entries.clear();
     for (const auto& entry : g_fact_journal_entries) {
+        // Retail saves can name a fact past the end of FACT.DBS; keep it, show nothing.
+        if (static_cast<unsigned>(entry.fact) >= gXStatus.uiFactsInDatabase) continue;
         const W8FactDatabaseRecord* fact = &g_fact_records[entry.fact];
         std::string description =
             entry.alternate_text ? fact->alternate_description : fact->description;

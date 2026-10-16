@@ -231,7 +231,7 @@ set(WIZ8_RUNTIME_SAVE_FIXTURE "${CMAKE_CURRENT_BINARY_DIR}/runtime-fixtures")
 target_compile_definitions(native_runtime_test PRIVATE
     WIZ8_RUNTIME_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/runtime/fixtures"
     WIZ8_RUNTIME_SAVE_FIXTURE="${WIZ8_RUNTIME_SAVE_FIXTURE}")
-foreach(scenario video video-seen main-menu-ui formation-ui game-start resource-lifecycle inventory-chest quick-save combat npc-dialogue load-game)
+foreach(scenario video video-seen main-menu-ui formation-ui game-start resource-lifecycle inventory-chest quick-save combat npc-dialogue load-game random-play)
     # A fixed seed makes the game's random rolls repeatable.
     add_test(NAME runtime_${scenario} COMMAND native_runtime_test ${scenario} --rng-seed 1)
     set_tests_properties(runtime_${scenario} PROPERTIES

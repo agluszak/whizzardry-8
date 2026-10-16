@@ -1,6 +1,8 @@
 #pragma once
 
 extern char g_default_level[];
+#include <array>
+#include <cstdint>
 #include <vector>
 
 #include "wiz8/fact_state.h"
@@ -9,10 +11,14 @@ namespace wiz8 {
 class File;
 }
 
+/* One fact change as the journal lists it. */
 struct W8JournalEntry {
-    int level;
-    W8FactId fact;
-    int alternate_text;
+    int level = 0;
+    W8FactId fact{};
+    /* The fact was set when it changed, so the journal shows its alternate text. */
+    bool alternate_text = false;
+    /* Retail leaves the three bytes after the flag uninitialized; saves keep them. */
+    std::array<std::uint8_t, 3> unknown_09{};
 };
 
 /* The fact journal, created lazily by the initializer below and

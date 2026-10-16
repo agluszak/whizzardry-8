@@ -1132,8 +1132,10 @@ void EndCombat(bool forced_cleanup)
         ToggleSearchMode();
     }
     ZoomRadarMapOut();
-    // A suspended main game re-arms its input when it is entered again.
-    if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
+    /* A suspended main game re-arms its input when it is entered again. While
+       quitting, the suspended main game is the current screen as it is left,
+       but its controls were already released when it was suspended. */
+    if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && PortraitControlsExist()) {
         EnablePortraitAdvanceRegions();
         g_main_game_state->combat.setEnabled(false);
     }

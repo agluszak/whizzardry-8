@@ -127,11 +127,11 @@ struct W8LevelRuntimeBlock {
     /* The applied highlight, and the hover waiting out the tooltip delay. */
     W8PortraitHighlight highlight;
     W8PortraitHighlight pending_highlight;
-    int combat_action_hover_party_slot;
+    int combat_action_hover_party_slot = -1;
     /* PortraitAssaySidebarInput hover zone — 1 upper weapon
        row, 2 lower, 3 assayable item; Screens resets it to 0. */
     int portrait_assay_hover_mode;
-    int held_item_display;
+    int held_item_display = -1;
     int text_content_region;
     int dialogue_content_region;
     unsigned int text_lines[12];
@@ -139,13 +139,13 @@ struct W8LevelRuntimeBlock {
        NPC dialogue uses box 2 for the hovered row and selected trade item. */
     int hovered_text_lines[4];
     int selected_text_lines[4];
-    int portrait_overlay_party_slot;
+    int portrait_overlay_party_slot = -1;
     /* Party slot whose condition / enchantment orb is held or
        drag-hovering; PortraitConditionOrbInput and
        PortraitEnchantmentOrbInput own them (-1 while idle). */
-    int condition_orb_party_slot;
-    int enchantment_orb_party_slot;
-    int condition_highlight_party_slot;
+    int condition_orb_party_slot = -1;
+    int enchantment_orb_party_slot = -1;
+    int condition_highlight_party_slot = -1;
     uint64_t clock;
     unsigned char portrait_flash;
     int dialogue_x;
@@ -156,7 +156,7 @@ struct W8LevelRuntimeBlock {
     int dialogue_text_x;
     int dialogue_text_width;
     int dialogue_width;
-    int highlight_row;
+    int highlight_row = -1;
     /* The dialogue highlight sprite. DrawHighlightOverlay lazily creates it
        from catalog object 0x72 through CreateSpriteFromSurface, and it is released
        through ReleaseObject whenever mode 6 ends or the tracked party
@@ -169,8 +169,8 @@ struct W8LevelRuntimeBlock {
     uint64_t countdown0;
     uint64_t countdown1;
     bool transition_active;
-    int highlighted_item;
-    int selected_item;
+    int highlighted_item = -1;
+    int selected_item = -1;
     /* Text box visible; toggled by the keyboard shortcut and raised
        by spell/item/dialogue screens that need it. */
     bool text_box_visible;
@@ -179,7 +179,7 @@ struct W8LevelRuntimeBlock {
     int pending_entry_id;
     int group_list_rows;
     int group_list_width;
-    int action_group;
+    int action_group = -1;
     /* Result of HighlightMonsterAsTarget for the current pick; [0]
        drives the group tint and the target cursor shape. */
     unsigned char target_highlight_ok[0x10];

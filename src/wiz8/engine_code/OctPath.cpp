@@ -2064,14 +2064,16 @@ unsigned short W8PathingService::PlanMovement(W8NavigatorMovementState* movement
             m_probe_cell_key = route_node;
             break;
         }
-        if (route_node == 0 || m_search_nodes[route_node].path_cost > remaining_callback) {
-            continue;
+        /* 0x00464714: the route ends at the last node before the one that
+           exceeds this move's remaining callback distance. */
+        if (m_search_nodes[route_parent].path_cost > remaining_callback) {
+            m_probe_cell_key = route_node;
+            break;
         }
-        m_probe_cell_key = route_node;
-        break;
     }
 
-    attachment->AppendPathPosition(&m_search_nodes[anchor_node].position, 0);
+    // 0x0046473A: the route ends at the last node walked, not at the last anchor.
+    attachment->AppendPathPosition(&m_search_nodes[route_node].position, 0);
     attachment->path[prop_count].value = 0;
 
     if (attachment->path_position_index > 1) {

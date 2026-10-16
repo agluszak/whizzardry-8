@@ -956,7 +956,7 @@ static void WriteGame(std::string_view name, const W8SaveScreenshot* screenshot,
         chunks.WriteValue(kCurrentSaveVersion.minor);
         chunks.WriteValue(kCurrentSaveVersion.patch);
     });
-    W8SaveScreenshot captured;
+    W8SaveScreenshot captured{};
     if (!screenshot) {
         CaptureSaveScreenshot(captured);
         screenshot = &captured;
@@ -1294,7 +1294,7 @@ void ResetLiveSessionForLoad(void)
     ResetMainGameScreenState();
     ClearNpcMessageQueue();
     ResetMainScreenStateBlock();
-    wiz8::remove_all_and_delete(g_spell_effects);
+    g_spell_effects.clear();
     ReleaseAllTriggers();
     ResetGameplayStatusBlock();
 }
@@ -1774,5 +1774,5 @@ void LoadMonsterControlSpellEffect(W8Chunk* chunks)
         else
             chunks->ReadValue(field);
     });
-    AddSpellEffect(effect.release());
+    g_spell_effects.push_back(std::move(effect));
 }

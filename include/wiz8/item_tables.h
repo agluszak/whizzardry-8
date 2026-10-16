@@ -5,12 +5,15 @@
 #include <memory>
 #include <vector>
 
+#include <glm/ext/vector_float3.hpp>
+
 #include "wiz8/layouts/item_tables.h"
 
 struct W8WorldItem;
 
 int FindItemTableByName(const char* name);
 int GenerateItemsFromTable(std::vector<std::unique_ptr<W8WorldItem>>& output_items,
-                           unsigned int table_id, unsigned int maximum_items); /* 0x004F88F0 */
+                           unsigned int table_id, unsigned int maximum_items,
+                           const glm::vec3& position);
 
 #endif

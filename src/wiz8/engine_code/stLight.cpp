@@ -2,7 +2,6 @@
 
 #include <cmath>
 #include <cstring>
-#include <string>
 #include <vector>
 
 #include "compat/compiler.h"
@@ -359,7 +358,6 @@ void stLight::Reset()
 // FUNCTION: WIZ8 0x0049D120
 void SaveLightStates(wiz8::File& handle)
 {
-    char name[0x80] = {0};
     unsigned char version = 1;
 
     handle.write(&version, sizeof(version));
@@ -374,8 +372,7 @@ void SaveLightStates(wiz8::File& handle)
     handle.write(&count, sizeof(count));
 
     for (stLight* light : marked) {
-        strcpy(name, light->getName().c_str());
-        handle.write(name, sizeof(name));
+        handle.write_padded(light->getName(), 0x80);
         unsigned char enabled = light->testFlag(srNode::FLAG_DISABLE) == 0;
         handle.write(&enabled, sizeof(enabled));
     }

@@ -90,7 +90,6 @@ void stParticle::SetParticleScale(float scale)
 void SaveParticleStates(wiz8::File& handle)
 {
     unsigned char version = 1;
-    char name[0x80] = "";
     int count = 0;
 
     handle.write(&version, sizeof(version));
@@ -105,8 +104,7 @@ void SaveParticleStates(wiz8::File& handle)
     if (g_world != 0) {
         for (const auto& particle : g_world->particles) {
             if (particle->persisted) {
-                strcpy(name, particle->getName().c_str());
-                handle.write(name, sizeof(name));
+                handle.write_padded(particle->getName(), 0x80);
                 handle.write(&particle->emitting, sizeof(particle->emitting));
             }
         }

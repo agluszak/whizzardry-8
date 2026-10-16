@@ -12,6 +12,7 @@
 // RIFF framing and scoped ownership through native file streams.
 #include "temporary_directory.h"
 #include "wiz8/chunk.h"
+#include "wiz8/filesystem.h"
 
 namespace fs = std::filesystem;
 
@@ -107,4 +108,20 @@ TEST_CASE("Native RIFF streams retain framing and scoped chunk ownership", "[fil
         chunk.Close();
         REQUIRE(visited == std::vector<unsigned>{W8ChunkId("GRP1")});
     }
+}
+
+TEST_CASE("Fixed-width save names are terminated and zero-padded", "[filesystem][io]")
+{
+    // Save records hold names in fixed fields; stale bytes after the name
+    // would leak memory into saves and make identical games save differently.
+    ScopedTemporaryDirectory directory{"wiz8-files"};
+    const auto path = directory.path / "names.bin";
+    {
+        auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
+        file->write_padded("door", 8);
+        file->write_padded("0123456789", 8);
+    }
+    REQUIRE(contents(path) == std::string("door\0\0\0\0"
+                                          "0123456\0",
+                                          16));
 }

@@ -25,6 +25,8 @@ void ToggleNumericHitPoints(void);
 void CreateConditionButtons(void);
 void DisablePortraitControls(void);
 void EnablePortraitAdvanceRegions(void);
+/* The portrait controls exist while the main game is entered (not suspended). */
+bool PortraitControlsExist(void);
 void InvalidatePortraitControl(unsigned int party_slot);
 /* The DrawMainGameScreen portrait tick: combat slots redraw their strip,
    non-combat slots keep their level-advance buttons in sync, and the

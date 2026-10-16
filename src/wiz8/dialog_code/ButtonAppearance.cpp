@@ -204,7 +204,8 @@ static void DrawTextOnButton(SDL_Surface& target, const ButtonAppearance* b, con
         ++origin.y;
     }
     TextOptions options;
-    options.colors.background = b->usFont->color(0);
+    // Palette entry 0 is the font's colour key; a zero background leaves the button art visible.
+    options.colors.background = 0;
     options.colors.foreground = b->usFont->color(static_cast<std::uint8_t>(b->sForeColor));
     if (b->sShadowColor != -1)
         options.colors.shadow = b->usFont->color(static_cast<std::uint8_t>(b->sShadowColor));
