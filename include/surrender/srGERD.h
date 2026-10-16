@@ -291,7 +291,7 @@ public:
 
     // The open native renderer, borrowed only while its window remains open.
     static srGERD* getActive();
-    e_error createContext(w8_ulong_ptr window);
+    e_error createContext(SDL_Window* window);
     int isContextCreated() const;
     void deleteContext();
     /* openWindowInternal parameter block: the current client size and the
@@ -308,7 +308,6 @@ public:
     void closeWindow(e_closeHint hint);
     e_backBuffer getBackBufferType() const;
     int isWindowOpen() const;
-    w8_ulong_ptr getWindowHandle() const;
     void setGamma(const glm::vec3& gamma);
     e_error beginFrame();
     void endFrame();
@@ -736,7 +735,7 @@ private:
         srDD::DriverInfo driver_info;
         /* setHint/getHint index this by e_hint. */
         e_hintMode hints[1];
-        w8_ulong_ptr window;
+        SDL_Window* window;
         /* Current window and backbuffer dimensions. */
         OpenInfo open_info;
         /* e_backBuffer result of srDD::openWindow; getBackBufferType reads

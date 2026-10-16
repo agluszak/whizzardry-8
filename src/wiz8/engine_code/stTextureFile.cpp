@@ -1,9 +1,9 @@
 #include "wiz8/engine_code/stTextureFile.h"
 
-#include <cstring>
 #include <exception>
 #include <memory>
 #include <string>
+#include <utility>
 
 #include "compat/compiler.h"
 #include "surrender/srColorSurfaceIFace.h"
@@ -31,13 +31,13 @@ void stTextureFile::releaseSurface()
 
 // FUNCTION: WIZ8 0x0047C630
 stTextureFile::stTextureFile(const char* file_name, int cached)
-    : cached(0), file_name(0), surface(nullptr), frame_handle(getNewFrameHandle()), has_alpha(0)
+    : cached(0), surface(nullptr), frame_handle(getNewFrameHandle()), has_alpha(0)
 {
     /* Retail stores 0 then conditionally stores 1: the authored value is the
        normalized predicate, not the raw parameter. */
     this->cached = (cached != 0);
     invalidate();
-    setFileName(file_name);
+    setFileName(file_name ? file_name : "");
     if (file_name != 0) {
         setName(file_name);
     }
@@ -80,17 +80,10 @@ void stTextureFile::setupDefaultValues()
 }
 
 // FUNCTION: WIZ8 0x0047C830
-void stTextureFile::setFileName(const char* file_name)
+void stTextureFile::setFileName(std::string file_name)
 {
     invalidate();
-    delete[] this->file_name;
-    this->file_name = 0;
-
-    if (file_name != 0 && file_name[0] != 0) {
-        this->file_name = new char[strlen(file_name) + 1];
-        strcpy(this->file_name, file_name);
-    }
-
+    this->file_name = std::move(file_name);
     texture_flags_ &= ~LOAD_FAILED;
     texture_flags_ |= DEFAULTS_PENDING;
 }
@@ -103,13 +96,10 @@ void stTextureFile::invalidate()
     texture_flags_ &= ~LOAD_FAILED;
 }
 
-/* Retail runs the invalidate sequence twice: this call is expanded inline,
-   and the setFileName(0) invalidation stays a virtual dispatch. */
 // FUNCTION: WIZ8 0x0047C8E0
 stTextureFile::~stTextureFile()
 {
     invalidate();
-    setFileName(0);
 }
 
 // FUNCTION: WIZ8 0x0047BBF0
@@ -124,7 +114,7 @@ void stTextureFile::loadSurface()
     }
     /* A missing file name lands on the same LOAD_FAILED tail as a failed
        load; retail has no silent early return here. */
-    if (file_name == 0) {
+    if (file_name.empty()) {
         texture_flags_ |= LOAD_FAILED;
         return;
     }
