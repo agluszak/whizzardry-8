@@ -27,8 +27,6 @@ static void orthonormalizeRotation(glm::dmat3& rotation)
     rotation = glm::transpose(rows);
 }
 
-
-
 // FUNCTION: SURRENDER 0x100503C0
 void srNode::notifyChildren(std::uint32_t notifications)
 {
