@@ -37,6 +37,7 @@
 #include "wiz8/engine_code/PathAI.h"
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/ReadMesh.h"
+#include "wiz8/engine_code/Spells.h"
 #include "wiz8/engine_code/octree_spatial.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/item_spawning.h"
@@ -1384,4 +1385,45 @@ TEST_CASE_METHOD(LoaderFixture, "Retail waypoint versions load without an editor
             REQUIRE(path.m_pEdges.data() == edges);
         }
     }
+}
+
+TEST_CASE_METHOD(LoaderFixture,
+                 "Spell database replacement rejects incomplete and oversized inputs",
+                 "[loader][records]")
+{
+    const struct Cleanup {
+        ~Cleanup() { ReleaseSpellDatabase(); }
+    } cleanup;
+    std::filesystem::create_directories(fixture_root / "data/databases");
+    W8SpellRuntimeRecord spell{};
+    spell.display_name = "Fixture spell";
+    spell.duration = 12;
+    std::string bytes;
+    append(bytes, 2);
+    append(bytes, 1u);
+    for (int index = 0; index < 2; ++index) {
+        bytes.append(0x101, '\0');
+        append(bytes, spell);
+    }
+    store("data/databases/spelltables.dbs", bytes);
+    REQUIRE(InitializeSpellDatabase());
+    auto* previous = g_spell_records;
+    REQUIRE(previous[1].display_name == spell.display_name);
+    REQUIRE(previous[1].duration == spell.duration);
+    for (auto end : {0u, 4u, 7u, 8u, 264u, unsigned(bytes.size() - 1)}) {
+        store("data/databases/spelltables.dbs", bytes.substr(0, end));
+        REQUIRE_FALSE(InitializeSpellDatabase());
+        REQUIRE(g_spell_records == previous);
+        REQUIRE(previous[1].display_name == spell.display_name);
+    }
+    for (const int count : {0, -1, std::numeric_limits<int>::max()}) {
+        std::string invalid;
+        append(invalid, count);
+        append(invalid, 1u);
+        store("data/databases/spelltables.dbs", invalid);
+        REQUIRE_FALSE(InitializeSpellDatabase());
+        REQUIRE(g_spell_records == previous);
+    }
+    ReleaseSpellDatabase();
+    REQUIRE(g_spell_records == nullptr);
 }

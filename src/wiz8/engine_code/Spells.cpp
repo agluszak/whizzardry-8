@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <exception>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
@@ -922,16 +923,15 @@ bool IsCombatEffectSlotSpell(int spell_id)
     }
 }
 
-/* Release the spell database and forget the version with it, so the two are
-   never out of step. */
+namespace {
+std::unique_ptr<W8SpellRuntimeRecord[]> spell_records;
+}
+
 // FUNCTION: WIZ8 0x004acd50
-void ReleaseSpellDatabase(void)
+void ReleaseSpellDatabase()
 {
-    if (g_spell_records != 0) {
-        delete[] g_spell_records;
-        g_spell_records = 0;
-        g_spell_database_version = 0;
-    }
+    g_spell_records = nullptr;
+    spell_records.reset();
 }
 
 /* The forty icon resource names under Data\Icons\MonsterSpells. Entries 8 and
@@ -1245,57 +1245,26 @@ bool CanSpellBackfire(int spell_id)
 // FUNCTION: WIZ8 0x004acc10
 unsigned char InitializeSpellDatabase(void)
 try {
-    /* Retail reads allocation_count/database_version uninitialised when the
-       header FileRead pair short-circuits; preserve that behavior. The global
-       receives the allocation count despite its older misleading name. */
-    std::unique_ptr<wiz8::File> handle;
-    unsigned int index;
-    bool ok;
-    int allocation_count;
-    unsigned int database_version;
-
-    ReleaseSpellDatabase();
-    handle = [&]() {
-        try {
-            return wiz8::open_file(wiz8::asset_path("Data\\Databases\\SpellTables.dbs"),
-                                   wiz8::OpenMode::read);
-        } catch (const std::exception&) {
-            return std::unique_ptr<wiz8::File>{};
-        }
-    }();
-    if (handle == 0) {
-        return 0;
+    auto handle = wiz8::open_file(wiz8::asset_path("data/databases/spelltables.dbs"));
+    std::int32_t count;
+    std::uint32_t version;
+    handle->read_exact(&count, sizeof(count));
+    handle->read_exact(&version, sizeof(version));
+    // Spell IDs in retail records are 16-bit. Each entry starts with a 257-byte label.
+    constexpr std::int64_t entry_bytes = 0x101 + wiz8::retail::kSpellRuntimeRecordBytes;
+    if (count <= 0 || count > std::numeric_limits<std::uint16_t>::max() ||
+        std::int64_t(count) * entry_bytes > handle->size() - handle->tell())
+        return false;
+    auto records = std::make_unique<W8SpellRuntimeRecord[]>(count);
+    for (int index = 0; index < count; ++index) {
+        handle->seek(0x101, wiz8::SeekOrigin::current);
+        if (wiz8::retail::read(*handle, records[index]).bytes !=
+            wiz8::retail::kSpellRuntimeRecordBytes)
+            return false;
     }
-    ok = false;
-    if ((handle->read(&allocation_count, 4).bytes == static_cast<std::size_t>(4)) &&
-        (handle->read(&database_version, 4).bytes == static_cast<std::size_t>(4))) {
-        ok = true;
-    }
-    g_spell_records = new W8SpellRuntimeRecord[allocation_count];
-    if (g_spell_records == 0) {
-        srAssertFail("s_pSpellTable", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x774,
-                     0);
-    }
-    for (index = 0; index < static_cast<unsigned int>(allocation_count); ++index) {
-        if (!ok) {
-            goto discard;
-        }
-        ok = false;
-        if ((handle->seek(0x101, wiz8::SeekOrigin::current), true) &&
-            (wiz8::retail::read(*handle, g_spell_records[index]).bytes ==
-             wiz8::retail::kSpellRuntimeRecordBytes)) {
-            ok = true;
-        }
-    }
-    if (!ok) {
-    discard:
-        delete[] g_spell_records;
-        g_spell_records = 0;
-    }
-    if (handle) handle->close();
-    handle.reset();
-    g_spell_database_version = allocation_count;
-    return ok;
+    spell_records = std::move(records);
+    g_spell_records = spell_records.get();
+    return true;
 } catch (const std::exception&) {
     return false;
 }
