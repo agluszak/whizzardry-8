@@ -189,8 +189,6 @@ add_library(WIZ8_GAME_CORE STATIC
     local_code/formation_state.cpp
     local_code/GroupAttacks.cpp
     local_code/CharGeneration.cpp
-    local_screens/mipe.cpp
-    local_screens/mipeEdit.cpp
     local_screens/AutomapScreen.cpp
     local_screens/screen12.cpp
     local_screens/MGSPortraitCombat.cpp

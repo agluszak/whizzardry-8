@@ -24,7 +24,6 @@ extern bool g_level_status_loading;
 extern float g_default_world_height;
 extern const float g_position_height_epsilon;
 extern unsigned char g_environment_load_flag;
-extern bool g_mipe_trigger_display;
 
 unsigned char ReloadLevelPreservingCamera(int level, int entrance);
 

@@ -78,7 +78,6 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/local_screens/Screens.h"
-#include "wiz8/local_screens/mipe.h"
 #include "wiz8/modal_content.h"
 #include "wiz8/overlay_scenes.h"
 #include "wiz8/surface_storage.h"
@@ -1507,61 +1506,6 @@ TEST_CASE("Font measurements skip glyphs outside the sprite sheet", "[font][owne
 TEST_CASE("Text input ownership", "[owner]")
 {
     text_input_ownership();
-}
-
-TEST_CASE("MIPE text editors insert committed text and keep deletion on key presses", "[owner]")
-{
-    struct RestoreEditor {
-        std::unique_ptr<W8LevelRuntimeBlock> level = std::move(g_level_block);
-        std::unique_ptr<W8MipeState> state = std::move(g_mipe_state);
-        int mode = g_mipe_mode;
-        int base = g_mipe_table_base;
-        decltype(g_current_screen_state.id) screen = g_current_screen_state.id;
-        decltype(g_status.text_line_cursor) line = g_status.text_line_cursor;
-        bool text_input = NativeTextInputEnabled();
-        ~RestoreEditor()
-        {
-            g_level_block = std::move(level);
-            g_mipe_state = std::move(state);
-            g_mipe_mode = mode;
-            g_mipe_table_base = base;
-            g_current_screen_state.id = screen;
-            g_status.text_line_cursor = line;
-            SetNativeTextInputEnabled(text_input);
-        }
-    } restore;
-    g_level_block = std::make_unique<W8LevelRuntimeBlock>();
-    g_mipe_state = std::make_unique<W8MipeState>();
-    g_current_screen_state.id = W8_SCREEN_MAIN_MENU;
-    g_status.text_line_cursor = 0;
-    g_mipe_table_base = 0;
-    W8MipeEditField field{.type = 6};
-    g_mipe_state->edit_fields = &field;
-    g_mipe_state->edit_field_count = 1;
-    g_mipe_state->edit_selection = -1;
-    g_mipe_mode = 0xe;
-    HandleMipeEditPropKey(SDLK_0);
-    const InputEvent key{.type = InputEventType::KeyDown, .key = SDLK_A};
-    HandleMipeKey(&key);
-    REQUIRE(NativeTextInputEnabled());
-    REQUIRE(field.text.empty());
-    const InputEvent text{.type = InputEventType::Text, .text = U'é'};
-    HandleMipeKey(&text);
-    REQUIRE(field.text == "é");
-    const InputEvent punctuation{.type = InputEventType::Text, .text = U'!'};
-    HandleMipeKey(&punctuation);
-    REQUIRE(field.text == "é");
-    const InputEvent backspace{.type = InputEventType::KeyDown, .key = SDLK_BACKSPACE};
-    HandleMipeKey(&backspace);
-    REQUIRE(field.text.empty());
-    MonGen generator;
-    g_mipe_state->generator = &generator;
-    g_mipe_mode = 0x19;
-    HandleMipeKey(&text);
-    HandleMipeKey(&key);
-    REQUIRE(std::string(generator.name) == "é");
-    HandleMipeKey(&backspace);
-    REQUIRE(std::string(generator.name).empty());
 }
 
 TEST_CASE("Formatting contracts", "[owner]")

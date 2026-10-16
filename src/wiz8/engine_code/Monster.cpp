@@ -117,7 +117,6 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/local_screens/mipe.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/resource_cache.h"
@@ -1363,142 +1362,140 @@ void W8Monster::Update()
         monster_info = found;
     }
 
-    if (!IsMipeActive()) {
-        if ((cycle == W8_MONSTER_CYCLE_IDLE || cycle == W8_MONSTER_CYCLE_SPICE) &&
-            m_pRep->pending_cycle == -1 && !movement_stopped && !halted) {
-            flags |= 0x100000;
-        }
+    if ((cycle == W8_MONSTER_CYCLE_IDLE || cycle == W8_MONSTER_CYCLE_SPICE) &&
+        m_pRep->pending_cycle == -1 && !movement_stopped && !halted) {
+        flags |= 0x100000;
+    }
 
-        if (monster_info == 0) {
-            UpdateNavigation(0, false);
-        } else {
-            UpdateNavigation(monster_info->highest_condition >= W8_CONDITION_WEBBED,
-                             monster_info->uiCondition[W8_CONDITION_SLOWED] != 0);
-        }
+    if (monster_info == 0) {
+        UpdateNavigation(0, false);
+    } else {
+        UpdateNavigation(monster_info->highest_condition >= W8_CONDITION_WEBBED,
+                         monster_info->uiCondition[W8_CONDITION_SLOWED] != 0);
+    }
 
-        if (cycle != W8_MONSTER_CYCLE_DIE && script != 0 && !gXStatus.fCombatMode) {
-            ProcessScript();
-            cycle = Query(W8_MONSTER_QUERY_CYCLE);
-        }
+    if (cycle != W8_MONSTER_CYCLE_DIE && script != 0 && !gXStatus.fCombatMode) {
+        ProcessScript();
+        cycle = Query(W8_MONSTER_QUERY_CYCLE);
+    }
 
-        if ((runtime_flags & W8_MONSTER_SCRIPT_WAIT) == 0 && m_pRep->pending_cycle == -1) {
-            switch (cycle) {
-            case W8_MONSTER_CYCLE_TALK:
-                if (Query(W8_MONSTER_QUERY_CYCLE_COMPLETE) != 0) {
-                    if (talk_duration < w8_get_ticks() - talk_start && IsCycleSupported(0x17)) {
-                        m_pRep->pending_cycle = 0x17;
-                    } else {
-                        m_pRep->pending_cycle = 0x18;
-                    }
+    if ((runtime_flags & W8_MONSTER_SCRIPT_WAIT) == 0 && m_pRep->pending_cycle == -1) {
+        switch (cycle) {
+        case W8_MONSTER_CYCLE_TALK:
+            if (Query(W8_MONSTER_QUERY_CYCLE_COMPLETE) != 0) {
+                if (talk_duration < w8_get_ticks() - talk_start && IsCycleSupported(0x17)) {
+                    m_pRep->pending_cycle = 0x17;
+                } else {
+                    m_pRep->pending_cycle = 0x18;
+                }
+                m_pRep->frame_direction = W8_ANIMATION_FORWARD;
+                m_pRep->pending_behaviour = W8_ANIMATION_PLAY_ONCE;
+                m_pRep->animation_playing = 1;
+                m_pRep->timer = GameClockMilliseconds();
+                m_pRep->pending_subcycle = 0;
+            }
+            break;
+        case W8_MONSTER_CYCLE_TALK_SPICE:
+            if (Query(W8_MONSTER_QUERY_CYCLE_COMPLETE) != 0) {
+                if (talking) {
+                    /* 0x004C276F..0x004C27D7: the talking path never stores
+                           pending_subcycle, so TALK keeps the current frame
+                           (clamped by ApplyPendingCycle) instead of frame 0. */
+                    talk_state = 0x17;
+                    talk_start = w8_get_ticks();
+                    talk_duration = Random(2000) + 2000;
+                    m_pRep->pending_cycle = 0x18;
                     m_pRep->frame_direction = W8_ANIMATION_FORWARD;
                     m_pRep->pending_behaviour = W8_ANIMATION_PLAY_ONCE;
                     m_pRep->animation_playing = 1;
                     m_pRep->timer = GameClockMilliseconds();
-                    m_pRep->pending_subcycle = 0;
-                }
-                break;
-            case W8_MONSTER_CYCLE_TALK_SPICE:
-                if (Query(W8_MONSTER_QUERY_CYCLE_COMPLETE) != 0) {
-                    if (talking) {
-                        /* 0x004C276F..0x004C27D7: the talking path never stores
-                           pending_subcycle, so TALK keeps the current frame
-                           (clamped by ApplyPendingCycle) instead of frame 0. */
-                        talk_state = 0x17;
-                        talk_start = w8_get_ticks();
-                        talk_duration = Random(2000) + 2000;
-                        m_pRep->pending_cycle = 0x18;
-                        m_pRep->frame_direction = W8_ANIMATION_FORWARD;
-                        m_pRep->pending_behaviour = W8_ANIMATION_PLAY_ONCE;
-                        m_pRep->animation_playing = 1;
-                        m_pRep->timer = GameClockMilliseconds();
-                    } else {
-                        m_pRep->pending_cycle = 1;
-                        m_pRep->animation_playing = 1;
-                        m_pRep->timer = GameClockMilliseconds();
-                        m_pRep->pending_subcycle = 0;
-                    }
-                }
-                break;
-            case W8_MONSTER_CYCLE_SPELL:
-                if (Query(W8_MONSTER_QUERY_CYCLE_COMPLETE) != 0) {
+                } else {
                     m_pRep->pending_cycle = 1;
-                    m_pRep->frame_direction = W8_ANIMATION_FORWARD;
                     m_pRep->animation_playing = 1;
                     m_pRep->timer = GameClockMilliseconds();
-                    m_pRep->pending_behaviour = W8_ANIMATION_NEVER_STOP;
                     m_pRep->pending_subcycle = 0;
                 }
-                break;
-            case W8_MONSTER_CYCLE_WALK:
-                if (movement_stopped || halted) {
-                    bool transition = Query(W8_MONSTER_QUERY_AT_PLAYBACK_END) != 0 || wrapped;
-                    if (!transition && !m_pRep->special_movement) {
-                        transition =
-                            Query(W8_MONSTER_QUERY_FRAME) < Query(W8_MONSTER_QUERY_FRAME_COUNT) / 2;
-                    }
-                    if (transition) {
-                        while (!sounds.empty()) {
-                            wiz8::sound::stop(sounds[0]);
-                            sounds.erase(sounds.begin());
-                        }
-                        if (!IsCycleSupported(3)) {
-                            m_pRep->pending_behaviour = W8_ANIMATION_NEVER_STOP;
-                            m_pRep->pending_cycle = 1;
-                        } else {
-                            m_pRep->pending_cycle = 3;
-                            m_pRep->frame_direction = W8_ANIMATION_REVERSE;
-                            m_pRep->pending_behaviour = W8_ANIMATION_PLAY_ONCE;
-                            m_pRep->pending_subcycle = static_cast<unsigned short>(
-                                Query(W8_MONSTER_QUERY_FRAME_COUNT) - 1);
-                            runtime_flags |= W8_MONSTER_KEEP_FRAME_DIRECTION;
-                        }
-                        m_pRep->animation_playing = 1;
-                        m_pRep->timer = GameClockMilliseconds();
-                    }
+            }
+            break;
+        case W8_MONSTER_CYCLE_SPELL:
+            if (Query(W8_MONSTER_QUERY_CYCLE_COMPLETE) != 0) {
+                m_pRep->pending_cycle = 1;
+                m_pRep->frame_direction = W8_ANIMATION_FORWARD;
+                m_pRep->animation_playing = 1;
+                m_pRep->timer = GameClockMilliseconds();
+                m_pRep->pending_behaviour = W8_ANIMATION_NEVER_STOP;
+                m_pRep->pending_subcycle = 0;
+            }
+            break;
+        case W8_MONSTER_CYCLE_WALK:
+            if (movement_stopped || halted) {
+                bool transition = Query(W8_MONSTER_QUERY_AT_PLAYBACK_END) != 0 || wrapped;
+                if (!transition && !m_pRep->special_movement) {
+                    transition =
+                        Query(W8_MONSTER_QUERY_FRAME) < Query(W8_MONSTER_QUERY_FRAME_COUNT) / 2;
                 }
-                break;
-            case W8_MONSTER_CYCLE_IDLE:
-            case W8_MONSTER_CYCLE_SPICE:
-                if (!movement_stopped && !halted &&
-                    (Query(W8_MONSTER_QUERY_AT_PLAYBACK_END) != 0 || wrapped)) {
-                    flags &= ~0x100000;
+                if (transition) {
+                    while (!sounds.empty()) {
+                        wiz8::sound::stop(sounds[0]);
+                        sounds.erase(sounds.begin());
+                    }
                     if (!IsCycleSupported(3)) {
                         m_pRep->pending_behaviour = W8_ANIMATION_NEVER_STOP;
-                        m_pRep->pending_cycle = 4;
-                    } else {
-                        m_pRep->pending_cycle = 3;
-                        m_pRep->frame_direction = W8_ANIMATION_FORWARD;
-                        m_pRep->pending_behaviour = W8_ANIMATION_PLAY_ONCE;
-                        m_pRep->pending_subcycle = 0;
-                    }
-                    m_pRep->animation_playing = 1;
-                    m_pRep->timer = GameClockMilliseconds();
-                }
-                break;
-            case W8_MONSTER_CYCLE_TRANSITION:
-                if (Query(W8_MONSTER_QUERY_CYCLE_COMPLETE) != 0) {
-                    if (m_pRep->frame_direction == W8_ANIMATION_REVERSE) {
-                        m_pRep->frame_direction = W8_ANIMATION_FORWARD;
                         m_pRep->pending_cycle = 1;
                     } else {
-                        m_pRep->pending_cycle = 4;
+                        m_pRep->pending_cycle = 3;
+                        m_pRep->frame_direction = W8_ANIMATION_REVERSE;
+                        m_pRep->pending_behaviour = W8_ANIMATION_PLAY_ONCE;
+                        m_pRep->pending_subcycle =
+                            static_cast<unsigned short>(Query(W8_MONSTER_QUERY_FRAME_COUNT) - 1);
+                        runtime_flags |= W8_MONSTER_KEEP_FRAME_DIRECTION;
                     }
                     m_pRep->animation_playing = 1;
                     m_pRep->timer = GameClockMilliseconds();
-                    m_pRep->pending_behaviour = W8_ANIMATION_NEVER_STOP;
-                    m_pRep->pending_subcycle = 0;
                 }
-                break;
-            case W8_MONSTER_CYCLE_BIRTH:
-                if (Query(W8_MONSTER_QUERY_CYCLE_COMPLETE) != 0) {
-                    m_pRep->pending_cycle = 1;
-                    m_pRep->animation_playing = 1;
-                    m_pRep->timer = GameClockMilliseconds();
-                    m_pRep->pending_behaviour = W8_ANIMATION_NEVER_STOP;
-                    m_pRep->pending_subcycle = 0;
-                }
-                break;
             }
+            break;
+        case W8_MONSTER_CYCLE_IDLE:
+        case W8_MONSTER_CYCLE_SPICE:
+            if (!movement_stopped && !halted &&
+                (Query(W8_MONSTER_QUERY_AT_PLAYBACK_END) != 0 || wrapped)) {
+                flags &= ~0x100000;
+                if (!IsCycleSupported(3)) {
+                    m_pRep->pending_behaviour = W8_ANIMATION_NEVER_STOP;
+                    m_pRep->pending_cycle = 4;
+                } else {
+                    m_pRep->pending_cycle = 3;
+                    m_pRep->frame_direction = W8_ANIMATION_FORWARD;
+                    m_pRep->pending_behaviour = W8_ANIMATION_PLAY_ONCE;
+                    m_pRep->pending_subcycle = 0;
+                }
+                m_pRep->animation_playing = 1;
+                m_pRep->timer = GameClockMilliseconds();
+            }
+            break;
+        case W8_MONSTER_CYCLE_TRANSITION:
+            if (Query(W8_MONSTER_QUERY_CYCLE_COMPLETE) != 0) {
+                if (m_pRep->frame_direction == W8_ANIMATION_REVERSE) {
+                    m_pRep->frame_direction = W8_ANIMATION_FORWARD;
+                    m_pRep->pending_cycle = 1;
+                } else {
+                    m_pRep->pending_cycle = 4;
+                }
+                m_pRep->animation_playing = 1;
+                m_pRep->timer = GameClockMilliseconds();
+                m_pRep->pending_behaviour = W8_ANIMATION_NEVER_STOP;
+                m_pRep->pending_subcycle = 0;
+            }
+            break;
+        case W8_MONSTER_CYCLE_BIRTH:
+            if (Query(W8_MONSTER_QUERY_CYCLE_COMPLETE) != 0) {
+                m_pRep->pending_cycle = 1;
+                m_pRep->animation_playing = 1;
+                m_pRep->timer = GameClockMilliseconds();
+                m_pRep->pending_behaviour = W8_ANIMATION_NEVER_STOP;
+                m_pRep->pending_subcycle = 0;
+            }
+            break;
         }
     }
 
@@ -2919,9 +2916,6 @@ bool W8Monster::IsCycleInterruptable(signed char cycle)
     const char* current_name;
     const char* requested_name;
 
-    if (IsMipeActive()) {
-        return true;
-    }
     if (m_pRep->animation_playing == 0) {
         current_cycle = static_cast<signed char>(Query(W8_MONSTER_QUERY_CYCLE));
         pending_cycle = m_pRep->pending_cycle;

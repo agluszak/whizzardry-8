@@ -340,7 +340,6 @@ void InitializeMainGameLevelBlock(void)
     g_level_block->countdown0 = w8_get_ticks() + (60000);
     g_level_block->countdown1 = w8_get_ticks() + (0);
     g_level_block->text_box_visible = true;
-    g_level_block->mipe_editing = false;
     g_level_block->tick = w8_get_ticks();
     g_level_block->group_list_rows = 0;
     g_level_block->group_list_width = 0;

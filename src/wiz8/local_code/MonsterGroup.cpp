@@ -40,7 +40,6 @@
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/mipe.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/ui_input.h"
@@ -1325,9 +1324,7 @@ void MonsterGroupEnterCombat(W8MonsterGroup* monster_group)
             !gXStatus.fCombatMode) {
             return;
         }
-        if (IsMipeActive()) {
-            return;
-        }
+
         if (monster_group->fInCombat) {
             return;
         }

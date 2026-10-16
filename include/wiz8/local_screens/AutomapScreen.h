@@ -35,12 +35,8 @@ struct AutomapButtons {
 extern std::unique_ptr<AutomapButtons> g_automap_buttons;
 extern int g_automap_zoom_mode;
 
-extern bool g_mipe_menu_active;
-extern bool g_mipe_active;
-
 bool HasAutomapLayer(int layer);
 void RestoreAutomapCameraPosition(void);
-bool CanUseCurrentAutomapTool(void);
 
 /* Recompute the automap's visible world bounds from lit cells. */
 void UpdateAutomapBounds(void);

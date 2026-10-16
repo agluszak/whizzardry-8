@@ -44,7 +44,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_screens/mipe.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/utility.h"
@@ -424,7 +423,7 @@ bool MonGen::CanGenerateEncounter(bool force)
     float distance;
 
     if (g_generator_save_flag != 0 || gXStatus.world_update_blocked || gXStatus.fCombatMode ||
-        gXStatus.fNpcDialogueMode || IsMipeActive() || generation_enabled == 0) {
+        gXStatus.fNpcDialogueMode || generation_enabled == 0) {
         return false;
     }
 

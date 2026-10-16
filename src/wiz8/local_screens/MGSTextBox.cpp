@@ -53,7 +53,6 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/Screens.h"
-#include "wiz8/local_screens/mipe.h"
 #include "wiz8/modal_content.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/unicode.h"
@@ -202,9 +201,7 @@ static short ResolveNoticeTextBox(short text_box)
         if ((gXStatus.fNpcDialogueMode && !CanOpenNpcDialogue()) || gXStatus.fCampMode) {
             return IsNpcDialogueTextBoxActive() ? 0 : 2;
         }
-        if (IsMipeActive()) {
-            return 0;
-        }
+
         return gXStatus.fCombatMode;
     }
     return text_box;
@@ -343,7 +340,6 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view, short tex
 {
     const std::string owned_text(text_view);
     const std::string_view text = owned_text;
-    IsMipeActive();
     if (g_level_block != 0 && (g_current_screen_state.id == W8_SCREEN_MAIN_GAME ||
                                (g_current_screen_state.id == W8_SCREEN_CAMP && !force_dialog) ||
                                g_current_screen_state.id == W8_SCREEN_PLEASE_WAIT ||
@@ -1084,7 +1080,7 @@ void RedrawTextBoxBody(bool skip_invalidate)
         rows = 7;
     }
 
-    if (g_level_block->action_panel_visible == 0 && !g_level_block->mipe_editing) {
+    if (g_level_block->action_panel_visible == 0) {
         can_scroll_down = scroll + static_cast<unsigned int>(GetTextBoxVisibleLineCount()) <
                           g_status.text_box_lines_shown[text_box];
         if (!can_scroll_down &&
@@ -1504,11 +1500,9 @@ void RefreshTextBoxMode(unsigned short mode)
     }
     if (mode == 0xffff) {
         if ((!gXStatus.fNpcDialogueMode || CanOpenNpcDialogue()) && !gXStatus.fCampMode) {
-            if (!IsMipeActive()) {
-                mode = gXStatus.fCombatMode;
-            } else {
-                mode = 0;
-            }
+
+            mode = gXStatus.fCombatMode;
+
         } else {
             mode = IsNpcDialogueTextBoxActive() ? 0 : 2;
         }

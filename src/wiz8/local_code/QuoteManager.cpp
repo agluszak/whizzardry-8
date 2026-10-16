@@ -67,7 +67,6 @@
 #include "wiz8/local_screens/PartySelectionScreen.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/local_screens/Screens.h"
-#include "wiz8/local_screens/mipe.h"
 #include "wiz8/mouth_gap.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_speech.h"
@@ -1136,7 +1135,7 @@ void W8CharacterEventQueue::RestartFollowUpClock(W8CharacterEvent* entry)
 // FUNCTION: WIZ8 0x0052E1C0
 void W8CharacterEventQueue::ProcessFollowUpEvents()
 {
-    if (IsMipeActive() || GetEnvironmentFlag() == 0) {
+    if (GetEnvironmentFlag() == 0) {
         return;
     }
     if ((follow_up_flags & 1) == 0) {

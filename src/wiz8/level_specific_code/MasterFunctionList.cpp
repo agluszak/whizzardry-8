@@ -56,7 +56,6 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_code/character_events.h"
-#include "wiz8/local_screens/mipe.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/save_game.h"
 #include "wiz8/string_database.h"
@@ -217,10 +216,7 @@ unsigned char DispatchWorldCursorNodeCommand(W8MonsterInfo* info, int command, .
     // Only command 4 reads context, from va_arg below. Other handlers ignore
     // the historical address of the optional argument slot.
     context = 0;
-    if (IsMipeActive()) {
-        va_end(arguments);
-        return handled;
-    }
+
     if (info == 0) {
         position = cameraLocation();
     } else {

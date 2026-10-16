@@ -151,7 +151,6 @@
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/local_screens/Screens.h"
-#include "wiz8/local_screens/mipe.h"
 #include "wiz8/modal_content.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/npc_interaction.h"
@@ -2787,7 +2786,6 @@ update_screen:
         WorldUpdateProps(GetSecondaryWorld());
     }
     SDL_Point point;
-    SDL_Point current;
     SGPMouseGetPos(&point);
     if (!IsWorldCursorVisible()) {
         if (!g_modal_owner) {
@@ -2811,40 +2809,22 @@ update_screen:
         g_level_block->hover_combat_slot = -1;
     TickAmbientFollowUpIdle(ProcessMainGameInput());
     if (!IsRecordModeActive()) {
-        if (!IsMipeActive() || IsMipeMenuActive()) {
-            HandleManualCameraHotkeys();
-        } else if (CanUseCurrentAutomapTool()) {
-            ApplyCameraMotionHotkeys();
+        HandleManualCameraHotkeys();
+    }
+    if (!g_camera_path_active && g_mouselook_active && g_mouselook_left_held) {
+        g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_FORWARD;
+        if (GetInputState().modifiers & SHIFT_DOWN) {
+            g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_FAST;
         }
     }
-    if (!g_camera_path_active) {
-        if (g_mouselook_active) {
-            if (g_mouselook_left_held) {
-                if (((GetInputState().modifiers & SHIFT_DOWN) == 0)) {
-                    g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_FORWARD;
-                } else {
-                    g_level_block->camera_motion_flags |=
-                        W8_CAMERA_MOTION_FORWARD | W8_CAMERA_MOTION_FAST;
-                }
-            }
-            if (g_mouselook_active) {
-                goto render_world;
-            }
-        }
-        if (IsLeftButtonHeld() && !g_modal_owner && IsMipeActive()) {
-            SGPMouseGetPos(&current);
-            MipeWorldViewEvent(InputEventType::MouseMove, &current);
-        }
-    }
-render_world:
     if (!IsScreenTransitionPending()) {
-        if (CanUseCurrentAutomapTool()) {
-            UpdateWorldCameraAndPaths(g_world, g_level_block->camera_motion_flags);
-            if (g_secondary_world && !g_camera_path_active) {
-                UpdateWorldCameraAndPaths(g_secondary_world, g_level_block->camera_motion_flags |
-                                                                 W8_CAMERA_MOTION_SKIP);
-            }
+
+        UpdateWorldCameraAndPaths(g_world, g_level_block->camera_motion_flags);
+        if (g_secondary_world && !g_camera_path_active) {
+            UpdateWorldCameraAndPaths(g_secondary_world,
+                                      g_level_block->camera_motion_flags | W8_CAMERA_MOTION_SKIP);
         }
+
         ApplyWorldUpdateFlags(g_world, g_level_block->world_update_flags);
         if (g_secondary_world &&
             (g_level_block->world_update_flags & W8_WORLD_CHANGE_FAR_CLIP) == 0) {
@@ -2868,18 +2848,7 @@ render_world:
             ApplyCurrentCursor();
         }
         ProcessMonsterManagerFrame();
-        if (g_debug_monster_cycle) {
-            W8Monster* monster = GetMonsterByLocationID(g_mipe_state->SelectedMonsterLocationId());
-            if (monster) {
-                ClearSurfaceRect(0x122, 0x159, 0x226, 0x168);
-                unsigned char frame = monster->m_pRep->subcycle;
-                const char* cycle = g_cycle_names[monster->Query(W8_MONSTER_QUERY_CYCLE)].name;
-                unsigned char subcycles = static_cast<unsigned char>(monster->GetNumSubCycles());
-                DrawTextAndInvalidate(GetFrameBufferSurface(), g_wiz_text_font_secondary,
-                                      {0x122, 0x159},
-                                      fmt::format("{:2d}/{:2d} {}", frame, subcycles, cycle));
-            }
-        }
+
         if (!gXStatus.fCombatMode) {
             float real_elapsed;
             float frame_elapsed;
@@ -2998,7 +2967,6 @@ unsigned char MainGameScreenLeave(int leaving)
     ReleaseConditionButtons();
     if (gXStatus.fPartyMovementUi) DisablePartyMovementRegions();
     RestoreCurrentNpcQuoteBubble();
-    if (IsMipeActive()) ToggleMipePanel();
     MoveTimer(1);
     SetEnvironmentTimeEnabled(false);
 
@@ -5381,7 +5349,6 @@ static void StopWorldMouseLook()
    toggles the mouselook latch. */
 UiResult WorldViewInput(const UiPointerEvent& event)
 {
-    SDL_Point cursor_pos;
     int cursor_x;
     int cursor_y;
     W8TargetNeed needed;
@@ -5398,11 +5365,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
                 StopWorldMouseLook();
                 return UiResult::Handled;
             }
-            if (!IsMipeActive()) {
-                return UiResult::Handled;
-            }
-            SGPMouseGetPos(&cursor_pos);
-            MipeWorldViewEvent(InputEventType::RightButtonUp, &cursor_pos);
+
             return UiResult::Handled;
         }
         if (!(event.action == UiPointerAction::Move || event.action == UiPointerAction::Enter ||
@@ -5411,30 +5374,27 @@ UiResult WorldViewInput(const UiPointerEvent& event)
         }
         cursor_y = event.position.y;
         cursor_x = event.position.x;
-        if (IsMipeActive()) {
-            UpdateMipeSelection();
+
+        int hover;
+        if (!gXStatus.fNpcDialogueMode && gXStatus.iTargetingMode != W8_TARGET_NEED_PLACE &&
+            gXStatus.iTargetingMode != W8_TARGET_NEED_CONE &&
+            gXStatus.iTargetingMode != W8_TARGET_NEED_ITEM && gXStatus.active_monster_count != 0 &&
+            !IsWorldCursorVisible() && !g_mouselook_active) {
+            hover = PickNearestMonsterUnderCursor(cursor_x, cursor_y);
         } else {
-            int hover;
-            if (!gXStatus.fNpcDialogueMode && gXStatus.iTargetingMode != W8_TARGET_NEED_PLACE &&
-                gXStatus.iTargetingMode != W8_TARGET_NEED_CONE &&
-                gXStatus.iTargetingMode != W8_TARGET_NEED_ITEM &&
-                gXStatus.active_monster_count != 0 && !IsWorldCursorVisible() &&
+            hover = -1;
+        }
+        SetCombatSelection(hover);
+        if (g_level_block->highlighted_item == -1) {
+            if (gXStatus.item_manager_pending != 0 && !IsWorldCursorVisible() &&
                 !g_mouselook_active) {
-                hover = PickNearestMonsterUnderCursor(cursor_x, cursor_y);
+                hover = PickNearestItemUnderCursor(cursor_x, cursor_y, 5000.0f);
             } else {
                 hover = -1;
             }
-            SetCombatSelection(hover);
-            if (g_level_block->highlighted_item == -1) {
-                if (gXStatus.item_manager_pending != 0 && !IsWorldCursorVisible() &&
-                    !g_mouselook_active) {
-                    hover = PickNearestItemUnderCursor(cursor_x, cursor_y, 5000.0f);
-                } else {
-                    hover = -1;
-                }
-                SetCombatTarget(hover);
-            }
+            SetCombatTarget(hover);
         }
+
         if (event.action != UiPointerAction::Leave && g_modal_owner == 0) {
             for (slot = 0; slot < 8; ++slot) {
                 if (g_status.buffers.XChar[slot].fOccupied &&
@@ -5451,11 +5411,6 @@ UiResult WorldViewInput(const UiPointerEvent& event)
     }
     if ((event.button == UiPointerButton::Right && event.action == UiPointerAction::Down)) {
 
-        if (IsMipeActive()) {
-            SGPMouseGetPos(&cursor_pos);
-            MipeWorldViewEvent(InputEventType::RightButtonDown, &cursor_pos);
-            return UiResult::Handled;
-        }
         if (g_level_block->highlighted_item != -1 && !gXStatus.fSpellCastMode &&
             !gXStatus.fNpcDialogueMode && !gXStatus.fItemSelectMode &&
             !gXStatus.fLockInteractMode && !gXStatus.fTrapInteractMode &&
@@ -5499,11 +5454,6 @@ UiResult WorldViewInput(const UiPointerEvent& event)
             return UiResult::Pass;
         }
 
-        if (!IsMipeActive()) {
-            return UiResult::Handled;
-        }
-        SGPMouseGetPos(&cursor_pos);
-        MipeWorldViewEvent(InputEventType::LeftButtonDown, &cursor_pos);
         return UiResult::Handled;
     }
     if (!(event.button == UiPointerButton::Left && event.action == UiPointerAction::Up)) {
@@ -5615,11 +5565,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
                                  true);
         }
     }
-    if (!IsMipeActive()) {
-        return UiResult::Handled;
-    }
-    SGPMouseGetPos(&cursor_pos);
-    MipeWorldViewEvent(InputEventType::LeftButtonUp, &cursor_pos);
+
     return UiResult::Handled;
 }
 

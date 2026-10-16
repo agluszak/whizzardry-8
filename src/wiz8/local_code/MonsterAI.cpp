@@ -48,7 +48,6 @@
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/local_code/Targeting.h"
-#include "wiz8/local_screens/mipe.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/ui_input.h"
@@ -264,7 +263,7 @@ W8SightState GetMonsterGroupPartySightState(W8MonsterGroup* monster_group)
     W8SightState result;
 
     result = W8_SIGHT_UNSEEN;
-    if (g_status.world_suspended || IsMipeActive()) {
+    if (g_status.world_suspended) {
         return W8_SIGHT_UNSEEN;
     }
     monster_info = FindMonster(monster_group->leader_location_id);
