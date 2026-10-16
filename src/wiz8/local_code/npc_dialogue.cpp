@@ -10,7 +10,6 @@
 #include "random.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/fact_state.h"
-#include "wiz8/integer_constants.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/local_code/Factions.h"
@@ -23,6 +22,9 @@
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_script_file.h"
 #include "wiz8/unicode.h"
+
+constexpr int kWorldActionQuoteMax = 'R';
+constexpr int kWorldActionQuoteMin = 'F';
 
 /* The NSF dialogue interpreter half of W8NpcDialogue: picks the next quote,
    runs a quote's immediate entries, resolves player replies and schedules
@@ -188,8 +190,8 @@ void W8NpcDialogue::Speak(int script_line, bool force_npc_voice)
                     }
                     break;
                 case W8_NPC_ENTRY_NPC_WORLD_ACTION:
-                    if (session_.current_quote_index < g_world_action_quote_min ||
-                        g_world_action_quote_max < session_.current_quote_index) {
+                    if (session_.current_quote_index < kWorldActionQuoteMin ||
+                        kWorldActionQuoteMax < session_.current_quote_index) {
                         std::string action_name;
                         BeginScriptedWorldAction();
                         action_name = entry->sub_entries[0].text.c_str() + 4;
@@ -213,8 +215,8 @@ void W8NpcDialogue::Speak(int script_line, bool force_npc_voice)
                     finished = true;
                     break;
                 case W8_NPC_ENTRY_SELF_GROUP_ACTION:
-                    if (session_.current_quote_index < g_world_action_quote_min ||
-                        g_world_action_quote_max < session_.current_quote_index) {
+                    if (session_.current_quote_index < kWorldActionQuoteMin ||
+                        kWorldActionQuoteMax < session_.current_quote_index) {
                         BeginScriptedWorldAction();
                         Queue(W8NpcDismiss{static_cast<int>(session_.npc->group_index)});
                     }

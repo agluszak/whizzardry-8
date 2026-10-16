@@ -50,7 +50,7 @@
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/float_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/xstatus.h"
 
@@ -1020,13 +1020,13 @@ void W8Prop::AttachAnimationInstances(W8World* world)
                 const auto first_rotation = glm::dquat(glm::quat_cast(rotation));
                 auto next_rotation = glm::dquat(glm::quat_cast(next));
                 double rotation_dot = glm::dot(first_rotation, next_rotation);
-                if (rotation_dot < g_double_zero) {
+                if (rotation_dot < 0.0) {
                     next_rotation = -next_rotation;
                     rotation_dot = -rotation_dot;
                 }
                 const auto interpolated_rotation =
-                    g_double_one - rotation_dot <= g_slerp_epsilon
-                        ? first_rotation * (g_double_one - anim_frame_fraction) +
+                    1.0 - rotation_dot <= kSlerpEpsilon
+                        ? first_rotation * (1.0 - anim_frame_fraction) +
                               next_rotation * double(anim_frame_fraction)
                         : glm::slerp(first_rotation, next_rotation, double(anim_frame_fraction));
                 rotation = glm::mat3_cast(glm::normalize(interpolated_rotation));
@@ -1034,7 +1034,7 @@ void W8Prop::AttachAnimationInstances(W8World* world)
             animation_rotation = rotation;
             current = path->nodes[Rep()->subcycle];
             next_pos = path->nodes[next_frame];
-            inv = g_float_one - anim_frame_fraction;
+            inv = 1.0f - anim_frame_fraction;
             position = current * inv + next_pos * anim_frame_fraction;
             if (!path->scales.empty()) {
                 has_scales = true;
@@ -1335,7 +1335,7 @@ bool CreateAndLoadProp(W8ReadLevelInfo* info, W8Prop** prop_out)
     if (success) {
         *prop_out = prop;
         prop->m_pTimer->SetDuration(
-            g_float_one / static_cast<W8PropRepresentation*>(prop->m_pRep)->animation_speed);
+            1.0f / static_cast<W8PropRepresentation*>(prop->m_pRep)->animation_speed);
         prop->ApplyAnimationFrame();
     }
     return success;
@@ -1437,9 +1437,9 @@ try {
             hFile->read_exact(&lx, 4);
             hFile->read_exact(&ly, 4);
             hFile->read_exact(&lz, 4);
-            lx *= g_double_five_hundred;
-            ly *= g_double_five_hundred;
-            lz *= g_double_five_hundred;
+            lx *= 500.0;
+            ly *= 500.0;
+            lz *= 500.0;
             this->local_location.x = lx;
             this->location.x = lx;
             this->local_location.y = ly;
@@ -1584,7 +1584,7 @@ try {
         bounds_min = box.minimum;
         bounds_max = box.maximum;
         const auto size = box.maximum - box.minimum;
-        bounds_extent = std::max({size.x, size.y, size.z}) * g_float_half;
+        bounds_extent = std::max({size.x, size.y, size.z}) * 0.5f;
     }
 
     if (version > 2) {

@@ -46,15 +46,12 @@
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/engine_code/stModelInstance.h"
-#include "wiz8/float_constants.h"
 #include "wiz8/geometry.h"
 
-#define THREE_D_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\3d.cpp"
+constexpr double kLightRangeAttenuationDenominator = 0.0019569471624266144;
+constexpr double kLightRangeAttenuationNumerator = 0.9980430528375734;
 
-// GLOBAL: WIZ8 0x005EC428
-const double g_light_range_attenuation_numerator = 0.9980430528375734;
-// GLOBAL: WIZ8 0x005EC430
-const double g_light_range_attenuation_denominator = 0.0019569471624266144;
+#define THREE_D_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\3d.cpp"
 
 // FUNCTION: WIZ8 0x0046DD70
 void UpdateWorldMonsters(W8World* world)
@@ -174,8 +171,8 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
             const auto* light = dynamic_cast<stLight*>(node);
             if (!light || SDL_strncasecmp(node->getName().c_str(), "Sun", 3) == 0) continue;
             const float range = static_cast<float>(
-                g_light_range_attenuation_numerator /
-                (light->opengl_attenuation.y * g_light_range_attenuation_denominator));
+                kLightRangeAttenuationNumerator /
+                (light->opengl_attenuation.y * kLightRangeAttenuationDenominator));
             const auto position = glm::vec3(light->getWorldSpaceLocation());
             if (!box.overlaps({position - range, position + range})) continue;
             mesh->flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;

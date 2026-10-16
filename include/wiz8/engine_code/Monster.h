@@ -25,6 +25,7 @@ struct W8World;
 #include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/engine_code/emitter_resources.h"
 #include "wiz8/engine_code/game_timer.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/monster_actions.h"
 #include "wiz8/monster_cycles.h"
 #include "wiz8/monster_spell_icons.h"
@@ -250,7 +251,7 @@ public:
        X term for left-handed strikes. */
     float scale_x;
     /* Y-axis scale applied while W8_MONSTER_SCALING_Y is set (decayed per
-       frame by g_float_one_tenth). */
+       frame by 0.1f). */
     float scale_y;
     float scale_z;
     /* Attack-animation frame that triggers the missile launch. */
@@ -281,7 +282,7 @@ public:
     bool disabled;
     bool nearest_to_party;
     /* 0x21c/0x220: hover base-height random range (scaled by
-       g_world_scale into movement.vertical_base). */
+       kWorldScale into movement.vertical_base). */
     float hover_base_min;
     float hover_base_max;
     /* 0x224/0x228: bob-amplitude random range (scaled into

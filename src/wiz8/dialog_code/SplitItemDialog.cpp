@@ -19,8 +19,8 @@
 #include "wiz8/dialog_code/AssayDialog.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
-#include "wiz8/float_constants.h"
 #include "wiz8/fonts.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/item_tables.h"
@@ -356,12 +356,12 @@ void W8SplitItemDialog::UpdateTotals()
     m_buttons[3].m_dirty = true;
     m_count_input->m_dirty = true;
     text = fmt::format("{:.1f}", static_cast<double>(GetItemUnitWeight(m_item) * m_remaining) *
-                                     g_item_weight_display_scale);
+                                     kItemWeightDisplayScale);
     m_texts[7]->SetText(text, g_wiz_text_font_secondary);
     m_buttons[4].m_dirty = true;
     m_texts[7]->SetGeometryDirty();
     text = fmt::format("{:.1f}", static_cast<double>(GetItemUnitWeight(m_item) * split_count) *
-                                     g_item_weight_display_scale);
+                                     kItemWeightDisplayScale);
     m_texts[9]->SetText(text, g_wiz_text_font_secondary);
     m_buttons[5].m_dirty = true;
     m_texts[9]->SetGeometryDirty();

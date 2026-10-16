@@ -29,21 +29,15 @@
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/octree_spatial.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/float_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/retail_geometry_records.h"
 #include "wiz8/retail_geometry_types.h"
 #include "wiz8/retail_text_records.h"
 
+constexpr float kSurfaceFlatNormalThreshold = 0.9959999918937683f;
+
 class Trigger;
 
-// GLOBAL: WIZ8 0x005ec1a8
-const float g_float_negative_one_third = -0.3333333432674408f;
-// GLOBAL: WIZ8 0x005ebc58
-const float g_vector_length_squared_epsilon = 1.0000000116860974e-07f;
-// GLOBAL: WIZ8 0x005ec028
-const float g_float_one_and_one_hundredth = 1.0099999904632568f;
-// GLOBAL: WIZ8 0x005ec1a0
-const float g_surface_flat_normal_threshold = 0.9959999918937683f;
 // GLOBAL: WIZ8 0x005ec1ac
 // GLOBAL: WIZ8 0x005ec1b0
 // GLOBAL: WIZ8 0x005ec1b4
@@ -194,14 +188,14 @@ unsigned char W8GameData::ReadWGDList(wiz8::File& file, int poly_type)
         }
     }
     const auto input_vertices = reader.array<wiz8::retail::Vec3f>(vertex_count);
-    if (!std::isfinite(g_world_scale) || g_world_scale <= 0)
+    if (!std::isfinite(kWorldScale) || kWorldScale <= 0)
         throw std::runtime_error("invalid world scale");
     auto bank_min =
         glm::vec3(input_vertices.front().x, input_vertices.front().y, input_vertices.front().z) *
-        g_world_scale;
+        kWorldScale;
     auto bank_max = bank_min;
     for (const auto& vertex : input_vertices) {
-        const auto transformed = glm::vec3(vertex.x, vertex.y, vertex.z) * g_world_scale;
+        const auto transformed = glm::vec3(vertex.x, vertex.y, vertex.z) * kWorldScale;
         for (int axis = 0; axis < 3; ++axis) {
             if (!std::isfinite(transformed[axis])) throw std::runtime_error("nonfinite WGD vertex");
             bank_min[axis] = std::min(bank_min[axis], transformed[axis]);
@@ -252,11 +246,11 @@ unsigned char W8GameData::ReadWGDList(wiz8::File& file, int poly_type)
     const auto lower = reader.record<glm::vec3>();
     const auto upper = reader.record<glm::vec3>();
     for (int axis = 0; axis < 3; ++axis) {
-        if (!std::isfinite(lower[axis] * g_world_scale) ||
-            !std::isfinite(upper[axis] * g_world_scale) || lower[axis] > upper[axis])
+        if (!std::isfinite(lower[axis] * kWorldScale) ||
+            !std::isfinite(upper[axis] * kWorldScale) || lower[axis] > upper[axis])
             throw std::runtime_error("nonfinite WGD bounds");
-        bank_min[axis] = std::min(bank_min[axis], lower[axis] * g_world_scale);
-        bank_max[axis] = std::max(bank_max[axis], upper[axis] * g_world_scale);
+        bank_min[axis] = std::min(bank_min[axis], lower[axis] * kWorldScale);
+        bank_max[axis] = std::max(bank_max[axis], upper[axis] * kWorldScale);
         if (VerticesCount()) {
             bank_min[axis] = std::min(bank_min[axis], minimum[axis]);
             bank_max[axis] = std::max(bank_max[axis], maximum[axis]);
@@ -398,19 +392,19 @@ unsigned char W8EnvironRecord::RescaleToReference(const W8EnvironRecord* referen
 {
     if (reference == 0) {
         float difference = static_cast<float>(fabs(g_navigator_gravity + vector.y));
-        if (g_navigator_gravity * g_camera_snap_epsilon < difference) {
+        if (g_navigator_gravity * kCameraSnapEpsilon < difference) {
             return 1;
         }
         difference = static_cast<float>(fabs(forward_scale - g_camera_level_forward_scale));
-        if (g_camera_level_forward_scale * g_camera_snap_epsilon < difference) {
+        if (g_camera_level_forward_scale * kCameraSnapEpsilon < difference) {
             return 1;
         }
         difference = static_cast<float>(fabs(motion_limit - g_default_motion_limit));
-        if (g_default_motion_limit * g_camera_snap_epsilon < difference) {
+        if (g_default_motion_limit * kCameraSnapEpsilon < difference) {
             return 1;
         }
         difference = static_cast<float>(fabs(momentum_scale - g_default_momentum_scale));
-        if (g_default_momentum_scale * g_camera_snap_epsilon < difference) {
+        if (g_default_momentum_scale * kCameraSnapEpsilon < difference) {
             return 1;
         }
         return 0;
@@ -631,30 +625,29 @@ void ClassifySurfacePlane(const glm::vec3* vertices, W8GDSurface* surface)
         surface->flags |= W8_GD_SURFACE_PATHFINDING;
     }
 
-    float upper_value = g_float_one;
-    if (g_float_half < surface->plane.normal.y) {
+    float upper_value = 1.0f;
+    if (0.5f < surface->plane.normal.y) {
         if ((surface->flags & W8_GD_SURFACE_WALKABLE) == 0 &&
-            g_surface_flat_normal_threshold < surface->plane.normal.y) {
+            kSurfaceFlatNormalThreshold < surface->plane.normal.y) {
             surface->flags |= W8_GD_SURFACE_WALKABLE;
-            surface->slope = g_float_one;
+            surface->slope = 1.0f;
         }
-        if (surface->slope < g_float_zero) {
+        if (surface->slope < 0.0f) {
             surface->flags |= W8_GD_SURFACE_EXPLICIT_SLOPE;
-            surface->slope = g_float_zero;
+            surface->slope = 0.0f;
         }
-    } else if (surface->contact_margin < g_float_one_and_one_hundredth &&
-               g_path_endpoint_scale < surface->contact_margin &&
+    } else if (surface->contact_margin < 1.01f && g_path_endpoint_scale < surface->contact_margin &&
                (surface->flags & W8_GD_SURFACE_WALKABLE) != 0) {
         surface->contact_margin = 0.1f;
     }
 
     flags = surface->flags;
-    surface->contact_margin *= g_world_scale;
+    surface->contact_margin *= kWorldScale;
     if ((flags & W8_GD_SURFACE_WALKABLE) == 0) {
-        surface->slope = g_float_zero;
-    } else if (surface->slope < g_vector_length_squared_epsilon &&
+        surface->slope = 0.0f;
+    } else if (surface->slope < kVectorLengthSquaredEpsilon &&
                (flags & W8_GD_SURFACE_EXPLICIT_SLOPE) == 0) {
-        if (surface->plane.normal.y <= g_float_three_quarters) {
+        if (surface->plane.normal.y <= 0.75f) {
             upper_value = surface->plane.normal.y;
         }
         surface->slope = upper_value;

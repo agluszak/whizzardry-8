@@ -28,7 +28,7 @@
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
-#include "wiz8/integer_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -1082,7 +1082,7 @@ unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_use
     } else if (record->quantity_kind == W8_ITEM_QUANTITY_SHOTS && item->uses_or_charges == 0) {
         PostCharacterNotice(party_slot,
                             fmt::sprintf(g_localized_strings[0x1f2], GetItemDisplayName(item)));
-        event_type = g_effect26;
+        event_type = 39;
     } else {
         if (record->equip_class == W8_ITEM_EQUIP_CLASS_INSTRUMENT &&
             character->uiCondition[W8_CONDITION_SILENCED] != 0) {
@@ -1219,8 +1219,8 @@ unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_use
         return used;
     }
 
-    QueueCharacterEvent(&g_status.buffers.Char[party_slot], event_type, 0, g_effect_argument0,
-                        g_character_event_full_volume);
+    QueueCharacterEvent(&g_status.buffers.Char[party_slot], event_type, 0, 1,
+                        kCharacterEventFullVolume);
     *out_uses = fatigue_cost;
     return used;
 }
@@ -1302,8 +1302,8 @@ bool MergeItems(W8Character* character, W8ItemInstance* destination)
             } else {
                 merged = character->skills[recipe->merge_skill].level >= recipe->merge_skill_level;
                 if (merged) {
-                    QueueCharacterEvent(character, g_learn_sound, 0, g_character_event_no_flags,
-                                        g_character_event_full_volume);
+                    QueueCharacterEvent(character, g_learn_sound, 0, kCharacterEventNoFlags,
+                                        kCharacterEventFullVolume);
                     PracticeCharacterSkill(character, static_cast<W8Skill>(recipe->merge_skill),
                                            recipe->merge_skill_level / 10, false);
                 }
@@ -2175,8 +2175,7 @@ void EquipMatchingPartnerItem(W8Character* character, W8ItemInstance* item, int 
             character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON].iItemNo)) {
         pair = &character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON];
     } else if (item_id == -1 || !FindItemOnCharacter(character, item_id, &pair, 1, 0)) {
-        QueueCharacterEvent(character, g_effect26, 0, g_character_event_no_flags,
-                            g_character_event_full_volume);
+        QueueCharacterEvent(character, 39, 0, kCharacterEventNoFlags, kCharacterEventFullVolume);
         return;
     }
 
@@ -3032,20 +3031,19 @@ void DeliverExceptionalItemReaction(W8ItemInstance* item, bool choose_character,
 
     switch (item->iItemNo) {
     case 0x239:
-        message = g_item_message10;
+        message = 132;
         break;
     case 0x242:
-        message = g_item_message2;
+        message = 46;
         break;
     case 0x243:
-        message = g_item_message3;
+        message = 47;
         break;
     case 0x244:
-        message =
-            GetFactionDispositionScore(W8_FACTION_MOOK) != 0 ? g_item_message4 : g_item_message5;
+        message = GetFactionDispositionScore(W8_FACTION_MOOK) != 0 ? 48 : 49;
         break;
     case 0x264:
-        message = g_item_message9;
+        message = 66;
         break;
     case 0x27c: {
         SetFact(W8_FACT_DIAMOND_FOUND, 1, false);
@@ -3057,8 +3055,8 @@ void DeliverExceptionalItemReaction(W8ItemInstance* item, bool choose_character,
             return;
         }
         signed char npc_slot = npc->group_index;
-        QueueCharacterEvent(&g_status.buffers.Char[npc_slot], g_item_message8, 0,
-                            g_character_event_no_flags, g_character_event_full_volume);
+        QueueCharacterEvent(&g_status.buffers.Char[npc_slot], 65, 0, kCharacterEventNoFlags,
+                            kCharacterEventFullVolume);
         return;
     }
     default:
@@ -3067,12 +3065,11 @@ void DeliverExceptionalItemReaction(W8ItemInstance* item, bool choose_character,
             !item->identified) {
             return;
         }
-        message = g_item_message6;
+        message = 55;
         break;
     }
 
-    QueueCharacterEvent(character, message, 0, g_character_event_no_flags,
-                        g_character_event_full_volume);
+    QueueCharacterEvent(character, message, 0, kCharacterEventNoFlags, kCharacterEventFullVolume);
     item->effect_used |= 1;
 }
 
@@ -3559,8 +3556,7 @@ void MergeMatchingPartnerItem(W8Character* character, W8ItemInstance* item)
         return;
     }
 
-    QueueCharacterEvent(character, g_effect26, 0, g_character_event_no_flags,
-                        g_character_event_full_volume);
+    QueueCharacterEvent(character, 39, 0, kCharacterEventNoFlags, kCharacterEventFullVolume);
     CalcAttacks(character);
 }
 

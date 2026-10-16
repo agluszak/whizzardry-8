@@ -24,7 +24,6 @@
 #include "sprite.h"
 #include "wiz8/design_rect.h"
 #include "wiz8/fonts.h"
-#include "wiz8/integer_constants.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/unicode.h"
@@ -44,6 +43,7 @@
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/filesystem.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -76,6 +76,9 @@
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 
+constexpr unsigned int kPortraitLowHealthPercent = 20;
+constexpr unsigned int kRemappedEventCount = 31;
+
 /* TU attribution follows the demo __FILE__ and quote-personality strings. */
 
 /* Re-blit each active portrait quote bubble onto the game surface. Runs when
@@ -106,7 +109,7 @@ void StartBreathCycle(int party_slot, bool force)
 {
     if ((!gXStatus.fSpellCastMode && !gXStatus.fItemSelectMode) || force) {
         QueueCharacterEvent(&g_status.buffers.Char[party_slot], g_special_event2, 0,
-                            g_character_event_no_flags, g_character_event_full_volume);
+                            kCharacterEventNoFlags, kCharacterEventFullVolume);
     }
 }
 
@@ -136,9 +139,9 @@ int PickRandomPartySpeaker(unsigned int event_type, unsigned char excluded_slot)
    five-vector dispatch queue. */
 
 // GLOBAL: WIZ8 0x0068C578
-static int g_special_event21 = g_first_remapped_event;
+static int g_special_event21 = kFirstRemappedEvent;
 // GLOBAL: WIZ8 0x0068c57c
-unsigned int g_event_range_min = g_first_remapped_event + 21;
+unsigned int g_event_range_min = kFirstRemappedEvent + 21;
 /* The shared wide buffer formatted character text lands in. The
    message reader admits at most 0x7D0 code units, so the buffer holds exactly
    the two thousand characters that reach the next global at 0x0068D520. */
@@ -152,11 +155,11 @@ const char g_quote_personality_names[9][0x14] = {
     "aggr", "intell", "burly", "chaos", "cun", "ecc", "kind", "laid", "loner",
 };
 // GLOBAL: WIZ8 0x0068c554
-unsigned int g_event_range_max = g_first_remapped_event + 23;
+unsigned int g_event_range_max = kFirstRemappedEvent + 23;
 // GLOBAL: WIZ8 0x0068C53C
-int g_trap_notice_event = g_first_remapped_event + 12;
+int g_trap_notice_event = kFirstRemappedEvent + 12;
 // GLOBAL: WIZ8 0x0068C54C
-int g_lock_notice_event = g_first_remapped_event + 11;
+int g_lock_notice_event = kFirstRemappedEvent + 11;
 /* Per-slot quote coordinates, followed by the five-by-five pose transition
    table. Pose IDs are one-based. The table ends at 0x0061CBC0, where the
    separately owned byte-per-portrait animation flags begin. */
@@ -178,7 +181,7 @@ const int g_fact_check_event = 129;
 const unsigned int g_normal_event_count = 146; /* ordinary-event count */
 
 /* Eight-byte dispatch records indexed by remapped event type.
-   The table ends at 0x005EE588 where g_effect0 begins. TryAdjustQueuedEvent
+   The table ends at 0x005EE588 where 0 begins. TryAdjustQueuedEvent
    reads coalesce_duplicates at +4; ProcessDeferredCharacterEvents reads
    defer_outside_main_game at +5. */
 struct W8CharacterEventDescriptor {
@@ -286,49 +289,49 @@ const W8CharacterEventDescriptor g_character_event_descriptors[0xb1] = {
 };
 
 // GLOBAL: WIZ8 0x0068C504
-static int g_special_event0 = g_first_remapped_event + 9;
+static int g_special_event0 = kFirstRemappedEvent + 9;
 // GLOBAL: WIZ8 0x0068C508
-static int g_special_event1 = g_first_remapped_event + 10;
+static int g_special_event1 = kFirstRemappedEvent + 10;
 // GLOBAL: WIZ8 0x0068C50C
-int g_special_event2 = g_first_remapped_event + 5;
+int g_special_event2 = kFirstRemappedEvent + 5;
 // GLOBAL: WIZ8 0x0068C514
-static int g_special_event3 = g_first_remapped_event + 1;
+static int g_special_event3 = kFirstRemappedEvent + 1;
 // GLOBAL: WIZ8 0x0068C51C
-static int g_special_event4 = g_first_remapped_event + 18;
+static int g_special_event4 = kFirstRemappedEvent + 18;
 // GLOBAL: WIZ8 0x0068C524
-int g_special_event5 = g_first_remapped_event + 27;
+int g_special_event5 = kFirstRemappedEvent + 27;
 // GLOBAL: WIZ8 0x0068C528
-int g_special_event6 = g_first_remapped_event + 28;
+int g_special_event6 = kFirstRemappedEvent + 28;
 // GLOBAL: WIZ8 0x0068C52C
-static int g_special_event7 = g_first_remapped_event + 2;
+static int g_special_event7 = kFirstRemappedEvent + 2;
 // GLOBAL: WIZ8 0x0068C530
-int g_event_target_out_of_range = g_first_remapped_event + 29;
+int g_event_target_out_of_range = kFirstRemappedEvent + 29;
 // GLOBAL: WIZ8 0x0068C534
-int g_special_event8 = g_first_remapped_event + 4;
+int g_special_event8 = kFirstRemappedEvent + 4;
 // GLOBAL: WIZ8 0x0068C538
-static int g_special_event9 = g_first_remapped_event + 8;
+static int g_special_event9 = kFirstRemappedEvent + 8;
 // GLOBAL: WIZ8 0x0068C544
-static int g_special_event11 = g_first_remapped_event + 7;
+static int g_special_event11 = kFirstRemappedEvent + 7;
 // GLOBAL: WIZ8 0x0068C540
-static int g_special_event10 = g_first_remapped_event + 19;
+static int g_special_event10 = kFirstRemappedEvent + 19;
 // GLOBAL: WIZ8 0x0068C550
-static int g_special_event12 = g_first_remapped_event + 17;
+static int g_special_event12 = kFirstRemappedEvent + 17;
 // GLOBAL: WIZ8 0x0068C558
-int g_special_event13 = g_first_remapped_event + 15;
+int g_special_event13 = kFirstRemappedEvent + 15;
 // GLOBAL: WIZ8 0x0068C55C
-int g_special_event14 = g_first_remapped_event + 3;
+int g_special_event14 = kFirstRemappedEvent + 3;
 // GLOBAL: WIZ8 0x0068C560
-int g_special_event15 = g_first_remapped_event + 25;
+int g_special_event15 = kFirstRemappedEvent + 25;
 // GLOBAL: WIZ8 0x0068C564
-static int g_special_event16 = g_first_remapped_event + 20;
+static int g_special_event16 = kFirstRemappedEvent + 20;
 // GLOBAL: WIZ8 0x0068C568
-int g_special_event17 = g_first_remapped_event + 6;
+int g_special_event17 = kFirstRemappedEvent + 6;
 // GLOBAL: WIZ8 0x0068C56C
-int g_special_event18 = g_first_remapped_event + 22;
+int g_special_event18 = kFirstRemappedEvent + 22;
 // GLOBAL: WIZ8 0x0068C570
-int g_special_event19 = g_first_remapped_event + 24;
+int g_special_event19 = kFirstRemappedEvent + 24;
 // GLOBAL: WIZ8 0x0068C574
-int g_special_event20 = g_first_remapped_event + 26;
+int g_special_event20 = kFirstRemappedEvent + 26;
 
 static bool MapEventTypeToDescriptorIndex(unsigned int event_type, unsigned int* descriptor_index)
 {
@@ -336,9 +339,9 @@ static bool MapEventTypeToDescriptorIndex(unsigned int event_type, unsigned int*
         *descriptor_index = event_type;
         return true;
     }
-    if (event_type >= g_first_remapped_event &&
-        event_type < g_first_remapped_event + g_remapped_event_count) {
-        *descriptor_index = g_normal_event_count + event_type - g_first_remapped_event;
+    if (event_type >= kFirstRemappedEvent &&
+        event_type < kFirstRemappedEvent + kRemappedEventCount) {
+        *descriptor_index = g_normal_event_count + event_type - kFirstRemappedEvent;
         return true;
     }
     return false;
@@ -653,8 +656,8 @@ static bool CanDispatchCharacterEvent(unsigned int party_slot, unsigned int even
         return false;
     }
     if (event_type >= g_normal_event_count) {
-        if (event_type < g_first_remapped_event ||
-            event_type >= g_remapped_event_count + g_first_remapped_event) {
+        if (event_type < kFirstRemappedEvent ||
+            event_type >= kRemappedEventCount + kFirstRemappedEvent) {
             return false;
         }
     }
@@ -685,8 +688,8 @@ static bool CanDispatchCharacterEvent(unsigned int party_slot, unsigned int even
         return false;
     }
     mapped_event_type = event_type;
-    if (mapped_event_type >= g_first_remapped_event) {
-        mapped_event_type += g_normal_event_count - g_first_remapped_event;
+    if (mapped_event_type >= kFirstRemappedEvent) {
+        mapped_event_type += g_normal_event_count - kFirstRemappedEvent;
     }
     slot_mask = static_cast<unsigned char>(1 << (party_slot & 31));
     return (gXStatus.character_event_queue->event_character_masks[mapped_event_type] & slot_mask) ==
@@ -838,7 +841,7 @@ unsigned char W8CharacterEvent::Dispatch()
             gXStatus.character_event_queue->RecordDispatchedEvent(event_type, party_slot);
             if (event_type < 0x92) {
                 SetPartyPortraitEventState(party_slot, true, event_type, g_character_text,
-                                           1 - ((flags & g_character_event_flags_mask) != 0));
+                                           1 - ((flags & kCharacterEventFlagsMask) != 0));
                 slot->active_character_event = this;
                 row->pending_event_type = event_type;
                 slot->pending_event_type = event_type;
@@ -991,8 +994,8 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
                width, not the mode-selected box. */
             ShowNotice(W8_FONT_PALETTE_TEXT_BOX, quote->bubble->text(), 3, GetTextBoxScrollRange());
         } else {
-            if (g_first_remapped_event <= mapped_event) {
-                mapped_event = g_normal_event_count - g_first_remapped_event + mapped_event;
+            if (kFirstRemappedEvent <= mapped_event) {
+                mapped_event = g_normal_event_count - kFirstRemappedEvent + mapped_event;
             }
             if (g_character_event_descriptors[mapped_event].log_quote_on_finish != 0) {
                 goto show_deactivate_quote;
@@ -1029,8 +1032,8 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
         pose_category = 1;
     } else {
         unsigned int mapped_event = event_type;
-        if (g_first_remapped_event <= event_type) {
-            mapped_event = g_normal_event_count - g_first_remapped_event + event_type;
+        if (kFirstRemappedEvent <= event_type) {
+            mapped_event = g_normal_event_count - kFirstRemappedEvent + event_type;
         }
         pose_category = g_character_event_descriptors[mapped_event].portrait_pose_category;
     }
@@ -1053,8 +1056,8 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
             use_modal_gate = true;
         } else {
             unsigned int mapped_event = event_type;
-            if (g_first_remapped_event <= event_type) {
-                mapped_event = g_normal_event_count - g_first_remapped_event + event_type;
+            if (kFirstRemappedEvent <= event_type) {
+                mapped_event = g_normal_event_count - kFirstRemappedEvent + event_type;
             }
             if (g_character_event_descriptors[mapped_event].defer_outside_main_game != 0 ||
                 g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
@@ -1230,8 +1233,8 @@ void W8CharacterEventQueue::SetEventCharacterMask(unsigned int event_type, unsig
 // FUNCTION: WIZ8 0x0052DD90
 bool W8CharacterEventQueue::HasEventCharacter(unsigned int event_type, unsigned int party_slot)
 {
-    if (event_type >= g_first_remapped_event) {
-        event_type += g_normal_event_count - g_first_remapped_event;
+    if (event_type >= kFirstRemappedEvent) {
+        event_type += g_normal_event_count - kFirstRemappedEvent;
     }
     return (event_character_masks[event_type] &
             static_cast<unsigned char>(1 << (party_slot & 31))) != 0;
@@ -1392,8 +1395,8 @@ W8CharacterEvent* ApplyItemEffectToRandomCharacter(unsigned int event_type, int 
     int attempts;
 
     if (event_type >= g_normal_event_count &&
-        (event_type < g_first_remapped_event ||
-         event_type >= g_remapped_event_count + g_first_remapped_event)) {
+        (event_type < kFirstRemappedEvent ||
+         event_type >= kRemappedEventCount + kFirstRemappedEvent)) {
         return 0;
     }
     character_slot = GetRandomCharacter(0, 0, excluded_slot, -1);
@@ -1411,7 +1414,7 @@ W8CharacterEvent* ApplyItemEffectToRandomCharacter(unsigned int event_type, int 
         return 0;
     }
     return QueueCharacterEvent(&g_status.buffers.Char[character_slot], event_type, flags,
-                               queue_mode, g_character_event_full_volume);
+                               queue_mode, kCharacterEventFullVolume);
 }
 
 // FUNCTION: WIZ8 0x0052E690
@@ -1463,15 +1466,15 @@ void MaybeStartIncapacitationEvent(unsigned int party_slot)
     if ((character->hp_current * 100) / static_cast<unsigned int>(character->uiHPMax) != 0) {
         return;
     }
-    effect = g_effect3;
-    if (g_portrait_low_health_percent == 0) {
-        if (g_flee_hp_fraction == 0) {
+    effect = 3;
+    if (kPortraitLowHealthPercent == 0) {
+        if (kFleeHpFraction == 0) {
             return;
         }
-        effect = Random(2) == 0 ? g_effect2 : g_effect17;
+        effect = Random(2) == 0 ? 2 : 28;
     }
-    if (effect != -1 && QueueCharacterEvent(character, effect, 0, g_character_event_no_flags,
-                                            g_character_event_full_volume) != 0) {
+    if (effect != -1 && QueueCharacterEvent(character, effect, 0, kCharacterEventNoFlags,
+                                            kCharacterEventFullVolume) != 0) {
         gXStatus.character_event_queue->SetEventCharacterMask(effect, party_slot, true);
     }
 }
@@ -1491,17 +1494,17 @@ void QueuePartyDeathReaction(unsigned int party_slot)
 
     if (party_slot < 2) {
         skip_first_two = true;
-        effect = g_effect12;
+        effect = 20;
     } else {
-        effect = g_effect10;
+        effect = 18;
         if (g_status.buffers.Char[party_slot].gender != W8_GENDER_MALE) {
-            effect = g_effect11;
+            effect = 19;
         }
     }
     remaining = GetRandomPartySlots(0, 0, party_slot, selected, 1, skip_first_two);
     for (index = 0; index < remaining; ++index) {
-        entry = QueueCharacterEvent(&g_status.buffers.Char[selected[index]], effect, 0,
-                                    g_effect_argument0, g_character_event_full_volume);
+        entry = QueueCharacterEvent(&g_status.buffers.Char[selected[index]], effect, 0, 1,
+                                    kCharacterEventFullVolume);
         if (entry != 0) {
             entry->DelayDispatch(3000);
         }
@@ -1523,26 +1526,23 @@ void QueueDamageReactionEvents(W8Character* character)
 
     hp_percent = (character->hp_current * 100) / static_cast<unsigned int>(character->uiHPMax);
     party_slot = CharacterPointerToPartySlot(character);
-    has_incapacitation_event =
-        gXStatus.character_event_queue->HasEventCharacter(g_effect3, party_slot);
-    has_flee_event = gXStatus.character_event_queue->HasEventCharacter(g_effect2, party_slot);
-    gXStatus.character_event_queue->HasEventCharacter(g_effect17, party_slot);
+    has_incapacitation_event = gXStatus.character_event_queue->HasEventCharacter(3, party_slot);
+    has_flee_event = gXStatus.character_event_queue->HasEventCharacter(2, party_slot);
+    gXStatus.character_event_queue->HasEventCharacter(28, party_slot);
     if (character->highest_condition != W8_CONDITION_ASLEEP &&
         character->highest_condition != W8_CONDITION_UNCONSCIOUS) {
-        if (g_portrait_low_health_percent <= hp_percent || has_incapacitation_event) {
-            if (g_flee_hp_fraction <= hp_percent) {
+        if (kPortraitLowHealthPercent <= hp_percent || has_incapacitation_event) {
+            if (kFleeHpFraction <= hp_percent) {
                 goto queue_follow_up_event;
             }
             if (Random(2) != 0 || has_flee_event) {
-                effect = g_effect17;
+                effect = 28;
             } else {
-                effect = g_effect2;
+                effect = 2;
             }
-            entry = QueueCharacterEvent(character, effect, g_effect_argument2, g_effect_argument1,
-                                        g_character_event_full_volume);
+            entry = QueueCharacterEvent(character, effect, 1, 2, kCharacterEventFullVolume);
         } else {
-            entry = QueueCharacterEvent(character, g_effect3, g_effect_argument2,
-                                        g_effect_argument1, g_character_event_full_volume);
+            entry = QueueCharacterEvent(character, 3, 1, 2, kCharacterEventFullVolume);
         }
         if (entry != 0) {
             entry->DelayDispatch(0x5dc);
@@ -1552,8 +1552,7 @@ queue_follow_up_event:
     follow_up_events[0] = g_special_event11;
     follow_up_events[1] = g_special_event12;
     follow_up_events[2] = g_special_event4;
-    QueueCharacterEvent(character, follow_up_events[Random(3)], g_effect_argument2,
-                        g_effect_argument0, g_character_event_full_volume);
+    QueueCharacterEvent(character, follow_up_events[Random(3)], 1, 1, kCharacterEventFullVolume);
 }
 
 /* Turn-begin path for several surviving party members: queue event 0x15 on
@@ -1567,8 +1566,8 @@ void QueueTurnReactionEvent(void)
 
     remaining = GetRandomPartySlots(0, 0, -1, selected, 1, false);
     for (index = 0; index < remaining; ++index) {
-        QueueCharacterEvent(&g_status.buffers.Char[selected[index]], g_effect13, 0,
-                            g_effect_argument0, g_character_event_full_volume);
+        QueueCharacterEvent(&g_status.buffers.Char[selected[index]], 0x15, 0, 1,
+                            kCharacterEventFullVolume);
     }
 }
 
@@ -1588,8 +1587,8 @@ void QueueLastSurvivorEvent(void)
         }
     }
     if (alive_count != 0) {
-        QueueCharacterEvent(&g_status.buffers.Char[last_alive], g_effect14, 0, g_effect_argument0,
-                            g_character_event_full_volume);
+        QueueCharacterEvent(&g_status.buffers.Char[last_alive], 0x16, 0, 1,
+                            kCharacterEventFullVolume);
     }
 }
 
@@ -1619,55 +1618,48 @@ void QueueConditionChangeReaction(W8Character* character)
         events[0] = g_special_event9;
         events[1] = g_special_event10;
         events[2] = g_special_event16;
-        QueueCharacterEvent(character, events[Random(3)], g_effect_argument2, g_effect_argument0,
-                            g_character_event_full_volume);
+        QueueCharacterEvent(character, events[Random(3)], 1, 1, kCharacterEventFullVolume);
         return;
     case 0x11:
         events[0] = g_special_event9;
         events[1] = g_special_event10;
         events[2] = g_special_event16;
-        QueueCharacterEvent(character, events[Random(3)], 0, g_character_event_no_flags,
-                            g_character_event_full_volume);
+        QueueCharacterEvent(character, events[Random(3)], 0, kCharacterEventNoFlags,
+                            kCharacterEventFullVolume);
         return;
     case 5:
-        QueueCharacterEvent(character, g_special_event13, 0, g_effect_argument0,
-                            g_character_event_full_volume);
+        QueueCharacterEvent(character, g_special_event13, 0, 1, kCharacterEventFullVolume);
         return;
     case 8:
-        QueueCharacterEvent(character, g_special_event1, 0, g_effect_argument0,
-                            g_character_event_full_volume);
+        QueueCharacterEvent(character, g_special_event1, 0, 1, kCharacterEventFullVolume);
         return;
     case 3:
     case 4:
-        QueueCharacterEvent(character, g_special_event7, 0, g_effect_argument0,
-                            g_character_event_full_volume);
+        QueueCharacterEvent(character, g_special_event7, 0, 1, kCharacterEventFullVolume);
         return;
     case 2:
     case 7:
     case 9:
     case 10:
-        reaction = g_condition_reaction;
+        reaction = kConditionReaction;
         if (Random(2) == 0) {
-            reaction = g_condition_reaction_alt;
+            reaction = kConditionReactionAlt;
         }
-        QueueCharacterEvent(character, reaction, 0, g_effect_argument0,
-                            g_character_event_full_volume);
+        QueueCharacterEvent(character, reaction, 0, 1, kCharacterEventFullVolume);
         return;
     case 0xc:
-        QueueCharacterEvent(character, g_effect5, 0, g_effect_argument0,
-                            g_character_event_full_volume);
+        QueueCharacterEvent(character, 7, 0, 1, kCharacterEventFullVolume);
         return;
     case 0xe:
     case 0x10:
-        QueueCharacterEvent(character, g_effect6, 0, g_effect_argument0,
-                            g_character_event_full_volume);
+        QueueCharacterEvent(character, 9, 0, 1, kCharacterEventFullVolume);
         return;
     case 0x13:
         excluded_slot = CharacterPointerToPartySlot(character);
-        reaction = g_effect27;
+        reaction = 40;
         if ((reaction < g_normal_event_count ||
-             (g_first_remapped_event <= reaction &&
-              reaction < g_remapped_event_count + g_first_remapped_event)) &&
+             (kFirstRemappedEvent <= reaction &&
+              reaction < kRemappedEventCount + kFirstRemappedEvent)) &&
             (slot = GetRandomCharacter(0, 0, excluded_slot, -1)) != -1) {
             attempts = 0;
             while (!CanDispatchCharacterEvent(slot, reaction, 0)) {
@@ -1677,18 +1669,16 @@ void QueueConditionChangeReaction(W8Character* character)
                 slot = GetRandomCharacter(0, 0, excluded_slot, -1);
                 ++attempts;
             }
-            QueueCharacterEvent(&g_status.buffers.Char[slot], reaction, 0, g_effect_argument0,
-                                g_character_event_full_volume);
+            QueueCharacterEvent(&g_status.buffers.Char[slot], reaction, 0, 1,
+                                kCharacterEventFullVolume);
             return;
         }
         break;
     case 6:
-        QueueCharacterEvent(character, g_special_event3, 0, g_effect_argument0,
-                            g_character_event_full_volume);
+        QueueCharacterEvent(character, g_special_event3, 0, 1, kCharacterEventFullVolume);
         return;
     case 0xb:
-        QueueCharacterEvent(character, g_special_event21, 0, g_effect_argument0,
-                            g_character_event_full_volume);
+        QueueCharacterEvent(character, g_special_event21, 0, 1, kCharacterEventFullVolume);
         break;
     default:
         break;
@@ -1710,13 +1700,11 @@ void QueueConditionClearedReaction(W8Character* character, W8Condition condition
     }
     switch (condition) {
     case W8_CONDITION_DEAD:
-        QueueCharacterEvent(character, g_effect8, 0, g_effect_argument0,
-                            g_character_event_full_volume);
+        QueueCharacterEvent(character, 12, 0, 1, kCharacterEventFullVolume);
         return;
     case W8_CONDITION_INFATUATED:
     case W8_CONDITION_MISSING:
-        QueueCharacterEvent(character, g_effect7, 0, g_effect_argument0,
-                            g_character_event_full_volume);
+        QueueCharacterEvent(character, 11, 0, 1, kCharacterEventFullVolume);
         return;
     case W8_CONDITION_DISEASED:
     case W8_CONDITION_IRRITATED:
@@ -1732,12 +1720,10 @@ void QueueConditionClearedReaction(W8Character* character, W8Condition condition
     case W8_CONDITION_PARALYZED:
     case W8_CONDITION_UNCONSCIOUS:
         if (character->highest_condition == W8_CONDITION_NONE) {
-            QueueCharacterEvent(character, g_effect35, 0, g_effect_argument0,
-                                g_character_event_full_volume);
+            QueueCharacterEvent(character, 0x55, 0, 1, kCharacterEventFullVolume);
             return;
         }
-        QueueCharacterEvent(character, g_effect34, 0, g_effect_argument0,
-                            g_character_event_full_volume);
+        QueueCharacterEvent(character, 0x54, 0, 1, kCharacterEventFullVolume);
         break;
     default:
         break;

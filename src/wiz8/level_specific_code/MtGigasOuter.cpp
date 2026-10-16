@@ -12,7 +12,7 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/stSound3D.h"
-#include "wiz8/float_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/Factions.h"
@@ -163,11 +163,10 @@ void ControlLiftGate(int command)
                 g_lift_gate = new W8IntervalGate(3.0f, false, true);
             }
             if (value > 0) {
-                g_lift_gate->SetProgress(value * g_movement_speed_step);
+                g_lift_gate->SetProgress(value * kMovementSpeedStep);
             }
             position.y =
-                (LIFT_TOP_Y - LIFT_BOTTOM_Y) * (g_float_one - value * g_movement_speed_step) +
-                LIFT_BOTTOM_Y;
+                (LIFT_TOP_Y - LIFT_BOTTOM_Y) * (1.0f - value * kMovementSpeedStep) + LIFT_BOTTOM_Y;
         } else {
             if (value == 100) {
                 position.y = LIFT_BOTTOM_Y;
@@ -187,7 +186,7 @@ void ControlLiftGate(int command)
             g_remove_current_master_function = true;
         }
         position = g_lift_prop->GetPosition();
-        position.y = (g_float_one - progress) * (LIFT_TOP_Y - LIFT_BOTTOM_Y) + LIFT_BOTTOM_Y;
+        position.y = (1.0f - progress) * (LIFT_TOP_Y - LIFT_BOTTOM_Y) + LIFT_BOTTOM_Y;
         g_lift_prop->SetPosition(&position);
     } else {
         g_remove_current_master_function = true;

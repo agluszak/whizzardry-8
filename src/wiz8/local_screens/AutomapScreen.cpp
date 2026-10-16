@@ -68,8 +68,8 @@
 #include "wiz8/engine_code/stScript.h"
 #include "wiz8/engine_code/stTextureFile.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/float_constants.h"
 #include "wiz8/fonts.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/index_algorithms.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/game_status.h"
@@ -278,7 +278,7 @@ unsigned char ZoomAutomapIn(const glm::vec2* point);
 static glm::vec2 AutomapWorldPosition(const glm::vec2& cursor)
 {
     return glm::vec2(g_automap_position.x, g_automap_position.z) +
-           (cursor - g_float_half) * glm::vec2(g_automap_zoom, -g_automap_zoom);
+           (cursor - 0.5f) * glm::vec2(g_automap_zoom, -g_automap_zoom);
 }
 void SetAutomapCameraPoint(glm::vec3* position);
 void SetAutomapButtonMode(int update);
@@ -308,7 +308,7 @@ static void SetAutomapCursorImage(int tool)
 void SetAutomapToolCursor(int tool)
 {
     if (g_automap_tool == 0 && g_automap_cursor_inside) {
-        tool = g_automap_zoom > g_float_twenty_five_thousand ? 1 : 4;
+        tool = g_automap_zoom > 2.5e+04f ? 1 : 4;
     }
     SetAutomapCursorImage(tool);
 }
@@ -383,14 +383,13 @@ void ResetAutomapView(void)
         g_automap_grid_max = bounds.maximum;
     }
     g_automap_grid_origin = g_automap_grid_min;
-    g_automap_grid_center =
-        glm::vec3((g_automap_grid_min.x + g_automap_grid_max.x) * g_float_half, 0.0f,
-                  (g_automap_grid_min.z + g_automap_grid_max.z) * g_float_half);
+    g_automap_grid_center = glm::vec3((g_automap_grid_min.x + g_automap_grid_max.x) * 0.5f, 0.0f,
+                                      (g_automap_grid_min.z + g_automap_grid_max.z) * 0.5f);
     g_automap_bounds_dirty = true;
     float span_x = g_automap_grid_max.x - g_automap_grid_min.x;
     float span_z = g_automap_grid_max.z - g_automap_grid_min.z;
     float largest = span_z < span_x ? span_x : span_z;
-    if (largest <= g_float_twenty_five_thousand) {
+    if (largest <= 2.5e+04f) {
         g_automap_top_y = 25000.0f;
     } else {
         g_automap_top_y = largest;
@@ -563,25 +562,25 @@ void AutomapLayerUpButton(void)
 
 void AutomapPanNorthButton(void)
 {
-    g_automap_position.z += g_float_thirty_five_hundredths * g_automap_zoom;
+    g_automap_position.z += 0.35f * g_automap_zoom;
     SetAutomapCameraPoint(&g_automap_position);
 }
 
 void AutomapPanSouthButton(void)
 {
-    g_automap_position.z -= g_float_thirty_five_hundredths * g_automap_zoom;
+    g_automap_position.z -= 0.35f * g_automap_zoom;
     SetAutomapCameraPoint(&g_automap_position);
 }
 
 void AutomapPanWestButton(void)
 {
-    g_automap_position.x -= g_float_thirty_five_hundredths * g_automap_zoom;
+    g_automap_position.x -= 0.35f * g_automap_zoom;
     SetAutomapCameraPoint(&g_automap_position);
 }
 
 void AutomapPanEastButton(void)
 {
-    g_automap_position.x += g_float_thirty_five_hundredths * g_automap_zoom;
+    g_automap_position.x += 0.35f * g_automap_zoom;
     SetAutomapCameraPoint(&g_automap_position);
 }
 
@@ -840,19 +839,19 @@ void AutomapScreenFrame(void)
     });
     bool moved = false;
     if (IsKeyHeld(SDLK_LEFT)) {
-        g_automap_position.x -= g_float_thirty_five_hundredths * g_automap_zoom;
+        g_automap_position.x -= 0.35f * g_automap_zoom;
         moved = true;
     }
     if (IsKeyHeld(SDLK_RIGHT)) {
-        g_automap_position.x += g_float_thirty_five_hundredths * g_automap_zoom;
+        g_automap_position.x += 0.35f * g_automap_zoom;
         moved = true;
     }
     if (IsKeyHeld(SDLK_UP)) {
-        g_automap_position.z += g_float_thirty_five_hundredths * g_automap_zoom;
+        g_automap_position.z += 0.35f * g_automap_zoom;
         moved = true;
     }
     if (IsKeyHeld(SDLK_DOWN)) {
-        g_automap_position.z -= g_float_thirty_five_hundredths * g_automap_zoom;
+        g_automap_position.z -= 0.35f * g_automap_zoom;
         moved = true;
     }
     if (moved) SetAutomapCameraPoint(&g_automap_position);
@@ -1037,7 +1036,7 @@ unsigned char ZoomAutomapIn(const glm::vec2* point)
 {
     const auto location = AutomapWorldPosition(*point);
     glm::vec3 position(location.x, g_automap_top_y, location.y);
-    glm::vec3 from(location.x, g_automap_top_y + g_world_scale, location.y);
+    glm::vec3 from(location.x, g_automap_top_y + kWorldScale, location.y);
     glm::vec3 to(location.x, g_automap_grid_min.y, location.y);
 
     float ground;
@@ -1051,8 +1050,8 @@ unsigned char ZoomAutomapIn(const glm::vec2* point)
         ground = to.y;
     }
 
-    float height = (g_automap_top_y - ground) * g_float_half;
-    float minimum = ground + g_float_twenty_five_thousand;
+    float height = (g_automap_top_y - ground) * 0.5f;
+    float minimum = ground + 2.5e+04f;
     if (g_automap_zoom_mode != 0 || g_automap_top_y <= minimum || height < minimum) {
         SetAutomapButtonMode(2);
         height = minimum;
@@ -1096,7 +1095,7 @@ static glm::vec3 GetAutomapCellPosition(unsigned int index)
     cell = glm::vec3(0);
     if (index < g_automap_cell_keys.size()) {
         SDL_Keycode key = g_automap_cell_keys[index];
-        float half = g_automap_grid_cell_size * g_float_half;
+        float half = g_automap_grid_cell_size * 0.5f;
         cell = glm::vec3((key >> 0x15) * g_automap_grid_cell_size + half,
                          (key & 0x3ff) * g_automap_grid_cell_size + half,
                          ((key >> 10) & 0x7ff) * g_automap_grid_cell_size + half);
@@ -1184,10 +1183,10 @@ void UpdateAutomapBounds(void)
                 ++bit;
             } while (bit < static_cast<unsigned int>(g_automap_cell_count));
         }
-        g_automap_bounds_min.x -= g_float_five_thousand;
-        g_automap_bounds_max.x += g_float_five_thousand;
-        g_automap_bounds_min.z -= g_float_five_thousand;
-        g_automap_bounds_max.z += g_float_five_thousand;
+        g_automap_bounds_min.x -= 5e+03f;
+        g_automap_bounds_max.x += 5e+03f;
+        g_automap_bounds_min.z -= 5e+03f;
+        g_automap_bounds_max.z += 5e+03f;
         float span = g_automap_bounds_max.x - g_automap_bounds_min.x;
         if (span <= g_automap_bounds_max.z - g_automap_bounds_min.z) {
             span = g_automap_bounds_max.z - g_automap_bounds_min.z;
@@ -1223,7 +1222,7 @@ void RenderAutomapFrame(void)
         } else {
             if (g_automap_overlay_redraw) {
                 SetResidentTexturePolicy(3);
-                float half = g_automap_zoom * g_float_half;
+                float half = g_automap_zoom * 0.5f;
                 srCamera::Rect view;
                 view.left = static_cast<double>(-half);
                 view.bottom = static_cast<double>(-half);
@@ -1292,8 +1291,8 @@ unsigned char ShowAutomapNoteTooltip(W8AutomapNote* note)
     }
     int index = FindAutomapLayerAtHeight(floor_y);
     if (index - 1 == g_automap_layer) {
-        float left = g_automap_position.x - g_automap_zoom * g_float_half;
-        float bottom = g_automap_position.z - g_automap_zoom * g_float_half;
+        float left = g_automap_position.x - g_automap_zoom * 0.5f;
+        float bottom = g_automap_position.z - g_automap_zoom * 0.5f;
         if (left <= note->position.x && note->position.x <= left + g_automap_zoom &&
             bottom <= note->position.y && note->position.y <= bottom + g_automap_zoom) {
             int screen_x = static_cast<int>((note->position.x - left) / g_automap_zoom * -455.0f);
@@ -1548,21 +1547,21 @@ void RenderAutomapMarkers(void)
 {
     bool detect_all = PartyHasCondition(0x40);
     ClearAutomapMarkers();
-    float left = g_automap_position.x - g_automap_zoom * g_float_half;
+    float left = g_automap_position.x - g_automap_zoom * 0.5f;
     glm::vec3 point(g_automap_saved_camera.position.x, 1.0f, g_automap_saved_camera.position.z);
-    float top = g_automap_position.z - g_automap_zoom * g_float_half;
+    float top = g_automap_position.z - g_automap_zoom * 0.5f;
     if (point.x < left || left + g_automap_zoom < point.x || point.z < top ||
         top + g_automap_zoom < point.z) {
         g_automap_party_marker->setFlag(srNode::FLAG_DISABLE);
     } else {
         int x = 0xc - static_cast<int>((point.x - left) / g_automap_zoom * -455.0f);
         int y = 0x20 - static_cast<int>((1.0f - (point.z - top) / g_automap_zoom) * -435.0f);
-        float factor = (g_float_one / (g_automap_zoom * 0.00004f)) * 0.44f;
+        float factor = (1.0f / (g_automap_zoom * 0.00004f)) * 0.44f;
         glm::dvec3 scale(factor, factor, factor);
         g_automap_party_marker->setScale(scale);
         if (g_automap_party_marker->GetScaledHeight() < 1) {
             g_automap_party_marker->setScale(glm::dvec3(1.0, 1.0, 1.0));
-            factor = g_float_one / g_automap_party_marker->GetScaledHeight();
+            factor = 1.0f / g_automap_party_marker->GetScaledHeight();
             scale = glm::dvec3(factor);
             g_automap_party_marker->setScale(scale);
         }
@@ -1584,8 +1583,8 @@ void RenderAutomapMarkers(void)
         FindAutomapLayerAtHeight(location.y);
         if (g_automap_show_all_monsters || detect_all ||
             (!monster->disabled && info->party_threat.sight_state == W8_SIGHT_SEEN)) {
-            left = g_automap_position.x - g_automap_zoom * g_float_half;
-            top = g_automap_position.z - g_automap_zoom * g_float_half;
+            left = g_automap_position.x - g_automap_zoom * 0.5f;
+            top = g_automap_position.z - g_automap_zoom * 0.5f;
             if (location.x < left || left + g_automap_zoom < location.x || location.z < top ||
                 top + g_automap_zoom < location.z) {
                 continue;
@@ -1625,8 +1624,8 @@ void RenderAutomapMarkers(void)
              (static_cast<W8ItemRep*>(item->m_pRep)->flags & W8_ITEM_ENTITY_RADAR_SEEN) != 0 ||
              HasCameraLineOfSight(&location)) &&
             layer - 1 == g_automap_layer) {
-            left = g_automap_position.x - g_automap_zoom * g_float_half;
-            top = g_automap_position.z - g_automap_zoom * g_float_half;
+            left = g_automap_position.x - g_automap_zoom * 0.5f;
+            top = g_automap_position.z - g_automap_zoom * 0.5f;
             if (location.x < left || left + g_automap_zoom < location.x || location.z < top ||
                 top + g_automap_zoom < location.z) {
                 continue;
@@ -1654,8 +1653,8 @@ void RenderAutomapMarkers(void)
             if (HasAutomapLayer(layer)) {
                 g_automap_layers[layer]->getLocationY();
             }
-            left = g_automap_position.x - g_automap_zoom * g_float_half;
-            top = g_automap_position.z - g_automap_zoom * g_float_half;
+            left = g_automap_position.x - g_automap_zoom * 0.5f;
+            top = g_automap_position.z - g_automap_zoom * 0.5f;
             if (note->position.x < left || left + g_automap_zoom < note->position.x ||
                 note->position.y < top || top + g_automap_zoom < note->position.y) {
                 continue;
@@ -1704,9 +1703,9 @@ void RenderAutomapMarkers(void)
 
 static void ScaleAutomapMarker(stModelInstance2D* marker, float factor)
 {
-    if (marker->GetScaledHeight() * factor < g_float_one) {
+    if (marker->GetScaledHeight() * factor < 1.0f) {
         marker->setScale(glm::dvec3(1.0, 1.0, 1.0));
-        factor = g_float_one / marker->GetScaledHeight();
+        factor = 1.0f / marker->GetScaledHeight();
     }
     marker->setScale(glm::dvec3(factor, factor, factor));
 }
@@ -1727,7 +1726,7 @@ stModelInstance2D* CreateAutomapItemMarker(int item_id)
     int y = (0x40 - properties.height) / 2;
     int x = (0x40 - properties.width) / 2;
     BlitVideoObjectToColorSurface(video_object, 0, *surface, x, y);
-    float factor = (g_float_one / (g_automap_zoom * 0.00004f)) * 0.44f;
+    float factor = (1.0f / (g_automap_zoom * 0.00004f)) * 0.44f;
     const auto width = surface->w * g_viewport_x_scale;
     const auto height = surface->h * g_viewport_y_scale;
     auto* parent = g_overlay_scenes.fullscreen.get();
@@ -1792,7 +1791,7 @@ stModelInstance2D* CreateAutomapMonsterMarker(int type)
     marker->setRenderDepth(2000);
     /* Retail scales by 0.85 as a step of its own; written as one product, VC6
        folds 0.44 * 0.85 into a single constant. */
-    float factor = (g_float_one / (g_automap_zoom * 0.00004f)) * 0.44f;
+    float factor = (1.0f / (g_automap_zoom * 0.00004f)) * 0.44f;
     factor *= 0.85f;
     ScaleAutomapMarker(marker, factor);
     return marker;
@@ -1807,7 +1806,7 @@ stModelInstance2D* CreateAutomapTextMarker(void)
     *marker = *g_automap_text_marker;
     marker->setParent(nullptr, 0);
     g_automap_markers.push_back(std::move(owned));
-    float factor = (g_float_one / (g_automap_zoom * 0.00004f)) * 0.44f * g_float_half;
+    float factor = (1.0f / (g_automap_zoom * 0.00004f)) * 0.44f * 0.5f;
     ScaleAutomapMarker(marker, factor);
     marker->SetGlowEnabled(true);
     glm::vec4 first;

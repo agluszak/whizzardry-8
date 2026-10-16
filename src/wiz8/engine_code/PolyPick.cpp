@@ -12,11 +12,6 @@
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Item.h"
 #include "wiz8/engine_code/Monster.h"
-#include "wiz8/float_constants.h"
-
-/* 0x005ED1E8: the negative quarter turn the axis-aligned heading case returns. */
-// GLOBAL: WIZ8 0x005ed1e8
-const float g_negative_quarter_turn = -1.570796012878418f;
 
 /* Heading from source to target in the x/z plane. */
 // FUNCTION: WIZ8 0x004BE420

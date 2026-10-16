@@ -33,7 +33,7 @@
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/float_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Gameloop.h"
@@ -159,22 +159,21 @@ bool W8AmbientSound::IsInsideRegion(const glm::vec3* listener)
     float scale_z;
 
     relative = *listener - region_center;
-    scale_x = g_float_one / region_scale.x;
-    scale_y = g_float_one / region_scale.y;
-    scale_z = g_float_one / region_scale.z;
-    if (scale_x != g_float_one || scale_y != g_float_one || scale_z != g_float_one) {
+    scale_x = 1.0f / region_scale.x;
+    scale_y = 1.0f / region_scale.y;
+    scale_z = 1.0f / region_scale.z;
+    if (scale_x != 1.0f || scale_y != 1.0f || scale_z != 1.0f) {
         relative.x = scale_x * relative.x;
         relative.y *= scale_y;
         relative.z *= scale_z;
     }
-    if (region_angle != g_float_zero &&
-        (region_axis.x != g_float_zero || region_axis.y != g_float_zero ||
-         region_axis.z != g_float_zero)) {
+    if (region_angle != 0.0f &&
+        (region_axis.x != 0.0f || region_axis.y != 0.0f || region_axis.z != 0.0f)) {
         glm::mat3 rotation;
         double angle = -region_angle;
 
         rotation = glm::mat3(1);
-        if (angle != g_double_zero) {
+        if (angle != 0.0) {
             rotation *= glm::mat3_cast(glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
                                                       normalizedOrZero(glm::vec3(region_axis))));
         }
@@ -223,8 +222,7 @@ void W8AmbientSound::UpdatePosition(const glm::vec3* listener)
                                     (match->volume_max * g_settings.sound_effects_volume) / 0x7f;
                                 match->current_volume =
                                     wiz8::sound::volume(sound_handle).value_or(0);
-                                match->fade_timer.SetDuration(g_float_one_and_a_half /
-                                                              match->target_volume);
+                                match->fade_timer.SetDuration(1.5f / match->target_volume);
                                 match->fade_timer.Restart();
                                 match->fade_timer.m_flags.paused = false;
                                 match->fade_timer.m_start =
@@ -243,7 +241,7 @@ void W8AmbientSound::UpdatePosition(const glm::vec3* listener)
                     {
                         unsigned int full_volume =
                             (volume_max * g_settings.sound_effects_volume) / 0x7f;
-                        fade_timer.SetDuration(g_float_one_and_a_half / full_volume);
+                        fade_timer.SetDuration(1.5f / full_volume);
                         fade_timer.Restart();
                         fade_timer.m_flags.paused = false;
                         fade_timer.m_start = fade_timer.GetTime() - fade_timer.m_start;
@@ -274,12 +272,12 @@ void W8AmbientSound::UpdatePosition(const glm::vec3* listener)
                 glm::vec3 offset = position - *listener;
                 transformed = rotation * offset;
                 wiz8::sound::set_position(sound_handle, transformed);
-                if (radius * g_navigator_mode3_scale <= distance) {
+                if (radius * kNavigatorMode3Scale <= distance) {
                     volume = current_volume;
                 } else {
                     volume = static_cast<unsigned int>(
-                        (g_float_one - (distance - radius * g_navigator_mode3_scale) /
-                                           (radius * g_ambient_sound_inner_radius_scale)) *
+                        (1.0f - (distance - radius * kNavigatorMode3Scale) /
+                                    (radius * g_ambient_sound_inner_radius_scale)) *
                         current_volume);
                 }
                 wiz8::sound::set_volume(sound_handle, volume);
@@ -290,7 +288,7 @@ void W8AmbientSound::UpdatePosition(const glm::vec3* listener)
             unsigned int full_volume = (volume_max * g_settings.sound_effects_volume) / 0x7f;
             if (target_volume != full_volume) {
                 target_volume = full_volume;
-                fade_timer.SetDuration(g_float_one_and_a_half / full_volume);
+                fade_timer.SetDuration(1.5f / full_volume);
                 fade_timer.Restart();
                 fade_timer.m_flags.paused = false;
                 fade_timer.m_start = fade_timer.GetTime() - fade_timer.m_start;
@@ -348,12 +346,12 @@ void W8AmbientSound::Service(bool entered)
                                                     g_settings.sound_effects_volume) /
                                                    0x7f);
                 current_volume = volume;
-                if (distance < radius * g_navigator_mode3_scale) {
+                if (distance < radius * kNavigatorMode3Scale) {
                     heard_volume = current_volume;
                 } else {
                     heard_volume = static_cast<unsigned int>(
-                        (g_float_one - (distance - radius * g_navigator_mode3_scale) /
-                                           (radius * g_ambient_sound_inner_radius_scale)) *
+                        (1.0f - (distance - radius * kNavigatorMode3Scale) /
+                                    (radius * g_ambient_sound_inner_radius_scale)) *
                         current_volume);
                 }
                 sound_handle = random->Fire(heard_volume, transformed);
@@ -390,7 +388,7 @@ void W8AmbientSound::Service(bool entered)
         current_volume = 0;
         target_volume = (volume_max * g_settings.sound_effects_volume) / 0x7f;
         sound_handle = wiz8::sound::play(config.wave_name, {.volume = 0, .loops = 0});
-        fade_timer.SetDuration(g_float_one_and_a_half / target_volume);
+        fade_timer.SetDuration(1.5f / target_volume);
         fade_timer.Restart();
         fade_timer.m_flags.paused = false;
         fade_timer.m_start = fade_timer.GetTime() - fade_timer.m_start;

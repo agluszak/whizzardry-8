@@ -32,7 +32,7 @@
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/World.h"
-#include "wiz8/float_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
@@ -54,6 +54,10 @@
 #include "wiz8/ui_input.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
+
+constexpr float kGroupEngagementProbeScale = 333.33333f;
+constexpr float kMonsterEngagementRangeFloor = 7500.0f;
+constexpr float kReinforcementDistanceSlack = 1.15f;
 
 #define MONSTER_AI_CPP "C:\\Projects\\Wizardry 8\\Local Code\\MonsterAI.cpp"
 
@@ -146,26 +150,6 @@ int g_combat_effect_slot_spells_and_cast_success[23] = {
 // GLOBAL: WIZ8 0x0061CC14
 static int g_spell_cast_weights[10] = {5, 5, 5, 10, 10, 10, 10, 15, 15, 15};
 
-/* 1500.0, the "close enough" distance for patrol points and heard
-   noises. */
-// GLOBAL: WIZ8 0x005EE768
-extern const double g_double_fifteen_hundred = 1500.0;
-
-/* Scales the record float into the group-engagement probe
-   distance. */
-// GLOBAL: WIZ8 0x005EE774
-extern const float g_group_engagement_probe_scale = 333.33333f;
-
-/* 7500.0, the floor added to the engagement range bound the
-   group combat checks compare nearest-member distances against. */
-// GLOBAL: WIZ8 0x005EE77C
-extern const float g_monster_engagement_range_floor = 7500.0f;
-
-/* 1.15, the slack the reinforcement check gives a hostile
-   monster's distance to the player before it counts as near the group. */
-// GLOBAL: WIZ8 0x005EE780
-extern const float g_reinforcement_distance_slack = 1.15f;
-
 /* Reported once, so a monster missing its special-attack cycle does not flood
    the log. */
 // GLOBAL: WIZ8 0x0068D525
@@ -234,7 +218,7 @@ void UpdateMonsterGroups(bool staggered)
             continue;
         }
         if (!monster_group->members_active) {
-            if (nearest_distance < WorldGetFarClip(GetWorld()) * g_float_one_and_a_half) {
+            if (nearest_distance < WorldGetFarClip(GetWorld()) * 1.5f) {
                 LoadMonsterGroupMembers(monster_group);
             }
         }
@@ -344,8 +328,8 @@ void DoMonsterRTAI(W8MonsterInfo* monster_info, bool engage)
             }
         }
         if (MonsterApproachStartupNavigator(
-                monster_info->p3D, CalcRangeDistance(static_cast<W8RangeCategory>(best_range)) *
-                                       g_float_nine_tenths) == 0) {
+                monster_info->p3D,
+                CalcRangeDistance(static_cast<W8RangeCategory>(best_range)) * 0.9f) == 0) {
             return;
         }
         monster_group = FindMonsterGroup(monster_info->monster_group_id);
@@ -418,7 +402,7 @@ void DoMonsterRTAI(W8MonsterInfo* monster_info, bool engage)
             (!monster_info->p3D->face_party || monster_info->pathing_cooldown != 0 ||
              mode != W8_RT_AI_FACE_DIRECTION || !monster_info->player_visibility.line_of_sight ||
              glm::length((((monster_info->p3D->movement.position -
-                            g_startup_world->GetPosition())))) >= g_float_five_thousand)) {
+                            g_startup_world->GetPosition())))) >= 5e+03f)) {
             monster_info->ai_mode &= ~W8_MONSTER_AI_REAPPLY_MODE;
         }
         if (decision <= W8_RT_AI_LINK_TO_PARTY || decision == W8_RT_AI_FOLLOW_LURE) {
@@ -456,7 +440,7 @@ bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, unsigned char* decision)
         glm::vec3 delta;
 
         delta = monster->movement.position - g_startup_world->GetPosition();
-        if (glm::length(delta) < g_float_five_thousand) {
+        if (glm::length(delta) < 5e+03f) {
             glm::vec3 camera;
             glm::vec3 position;
 
@@ -479,7 +463,7 @@ bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, unsigned char* decision)
 
             monster->GetPatrolPoint(&patrol);
             delta = patrol - monster->GetPosition();
-            if (glm::length(delta) >= g_double_fifteen_hundred) {
+            if (glm::length(delta) >= 1500.0) {
                 *decision = monster_info->ai_mode;
                 return true;
             }
@@ -505,7 +489,7 @@ bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, unsigned char* decision)
             glm::vec3 delta;
 
             delta = monster_info->heard_noise_position - monster->GetPosition();
-            if (glm::length(delta) < g_double_fifteen_hundred) {
+            if (glm::length(delta) < 1500.0) {
                 monster_info->heard_noise_radius = 0;
             }
         }
@@ -541,10 +525,10 @@ bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, unsigned char* decision)
                 double angle;
 
                 mode = W8_RT_AI_FACE_DIRECTION;
-                angle = (Random(0x168) << 1) * g_camera_pi * g_inverse_full_turn_degrees;
-                monster->move_direction.x = static_cast<float>(cos(angle) * g_double_five_hundred);
+                angle = (Random(0x168) << 1) * g_camera_pi * kInverseFullTurnDegrees;
+                monster->move_direction.x = static_cast<float>(cos(angle) * 500.0);
                 monster->move_direction.y = 0.0f;
-                monster->move_direction.z = static_cast<float>(sin(angle) * g_double_five_hundred);
+                monster->move_direction.z = static_cast<float>(sin(angle) * 500.0);
             } else {
                 mode = W8_RT_AI_IDLE;
             }
@@ -556,7 +540,7 @@ bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, unsigned char* decision)
 
                 monster->GetPatrolPoint(&patrol);
                 delta = patrol - monster->GetPosition();
-                if (glm::length(delta) < g_double_fifteen_hundred) {
+                if (glm::length(delta) < 1500.0) {
                     mode = W8_RT_AI_IDLE;
                 } else {
                     mode = W8_RT_AI_MOVE_TO_PATROL_POINT;
@@ -579,7 +563,7 @@ bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, unsigned char* decision)
                 mode = W8_RT_AI_MOVE_TO_PATROL_POINT;
                 monster->GetPatrolPoint(&patrol);
                 delta = patrol - monster->GetPosition();
-                if (glm::length(delta) >= g_double_fifteen_hundred) {
+                if (glm::length(delta) >= 1500.0) {
                     break;
                 }
                 count = static_cast<int>(monster->vector.size());
@@ -676,8 +660,7 @@ void ApplyMonsterRTAIDecision(W8MonsterInfo* monster_info, unsigned char decisio
             }
         }
         if (MonsterApproachStartupNavigator(
-                monster, CalcRangeDistance(static_cast<W8RangeCategory>(best_range)) *
-                             g_float_nine_tenths) == 1) {
+                monster, CalcRangeDistance(static_cast<W8RangeCategory>(best_range)) * 0.9f) == 1) {
             if (IsSightRangeOverridden()) {
                 monster_group = FindMonsterGroup(monster_info->monster_group_id);
                 MonsterGroupEnterCombat(monster_group);
@@ -991,7 +974,7 @@ members:
         }
         if (GetBestMonsterAttackRange(record, false) <= W8_RANGE_SHORT) {
             distance = member->p3D->GetDistanceToPlayer();
-            if (GetMonsterCombatMoveRange(member) * g_group_engagement_probe_scale > distance) {
+            if (GetMonsterCombatMoveRange(member) * kGroupEngagementProbeScale > distance) {
                 if (!waypoint_checked) {
                     leader = FindMonster(monster_group->leader_location_id);
                     if (leader != 0 && leader->fActive) {
@@ -2075,8 +2058,8 @@ void CheckMonsterGroupsLeaveCombat(void)
             if (GetMonsterGroupEngagementState(group->group_id) && leader != 0 && leader->fActive) {
                 nearest = GetGroupNearestDistance(group);
                 reach = CalcRangeDistance(GetMonsterBestRangeCategory(leader, true, &sight)) +
-                        GetMonsterCombatMoveRange(leader) * g_float_one_thousand;
-                minimum = GetMonsterEngagementRange() + g_monster_engagement_range_floor;
+                        GetMonsterCombatMoveRange(leader) * 1e+03f;
+                minimum = GetMonsterEngagementRange() + kMonsterEngagementRangeFloor;
                 if (reach <= minimum) {
                     reach = minimum;
                 }
@@ -2190,9 +2173,9 @@ bool MonsterHasVisibleTarget(W8MonsterInfo* monster_info, bool party_only,
 
     if (within_reach) {
         reach = CalcRangeDistance(GetMonsterBestRangeCategory(monster_info, true, &sight)) +
-                GetMonsterCombatMoveRange(monster_info) * g_float_one_thousand;
-        if (reach <= GetMonsterEngagementRange() + g_monster_engagement_range_floor) {
-            reach = GetMonsterEngagementRange() + g_monster_engagement_range_floor;
+                GetMonsterCombatMoveRange(monster_info) * 1e+03f;
+        if (reach <= GetMonsterEngagementRange() + kMonsterEngagementRangeFloor) {
+            reach = GetMonsterEngagementRange() + kMonsterEngagementRangeFloor;
         }
     }
     if (monster_info->player_visibility.sight_state == W8_SIGHT_SEEN &&
@@ -2503,7 +2486,7 @@ bool MonsterGroupHasReinforcement(W8MonsterGroup* monster_group)
                 other_distance = other->p3D->GetDistanceToPlayer();
                 monster_distance = member->p3D->GetDistanceToMonster(other->p3D);
                 if (monster_distance + member_distance <
-                        other_distance * g_reinforcement_distance_slack &&
+                        other_distance * kReinforcementDistanceSlack &&
                     (member_distance < other_distance || monster_distance < other_distance)) {
                     return true;
                 }
@@ -2667,8 +2650,8 @@ bool ShouldMonsterGroupEnterCombat(W8MonsterGroup* monster_group)
                 member->highest_condition < W8_CONDITION_DEAD &&
                 MonsterHasVisibleTarget(member, false, W8_VISIBLE_TARGET_NON_NEUTRAL, true)) {
                 reach = CalcRangeDistance(GetMonsterBestRangeCategory(leader, true, &sight)) +
-                        GetMonsterCombatMoveRange(leader) * g_float_one_thousand;
-                minimum = GetMonsterEngagementRange() + g_monster_engagement_range_floor;
+                        GetMonsterCombatMoveRange(leader) * 1e+03f;
+                minimum = GetMonsterEngagementRange() + kMonsterEngagementRangeFloor;
                 if (reach <= minimum) {
                     reach = minimum;
                 }

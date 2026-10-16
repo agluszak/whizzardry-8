@@ -10,7 +10,6 @@
 #include "Font.h"
 #include "image.h"
 #include "wiz8/engine_code/Video2.h"
-#include "wiz8/float_constants.h"
 #include "wiz8/fonts.h"
 
 // GLOBAL: WIZ8 0x005ED548
@@ -29,9 +28,6 @@ extern const unsigned int g_W8TextBufferAlignBottom = 0x20;
 extern const unsigned int g_W8TextBufferNoWrap = 0x40;
 char g_W8TextSeparator[] = " ";
 static char g_W8TextBreakCharacters[] = " \n";
-const float g_float_one = 1.0f;
-const float g_float_half = 0.5f;
-const float g_float_thirty_five_hundredths = 0.35f;
 
 W8TextBuffer::~W8TextBuffer() = default;
 

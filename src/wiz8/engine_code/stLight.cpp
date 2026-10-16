@@ -23,7 +23,6 @@
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/octree_spatial.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/float_constants.h"
 #include "wiz8/layouts/world.h"
 
 /* The previous 00497af0-004adb20 range spanned eight units that carry their
@@ -116,7 +115,7 @@ stLight& stLight::operator=(const stLight& other)
 void stLight::traverse(srNode::TraverseInfo& info)
 {
     traverseEffect(info, [&] {
-        if (fabs(intensity) <= g_double_one_ten_thousandth || (g_light_update_flags & 1) == 0)
+        if (fabs(intensity) <= 0.0001 || (g_light_update_flags & 1) == 0)
             return EffectTraversal::childrenOnly;
         return m_definition ? EffectTraversal::active : EffectTraversal::skipSubtree;
     });
@@ -125,8 +124,7 @@ void stLight::traverse(srNode::TraverseInfo& info)
 // FUNCTION: WIZ8 0x0049C8D0
 void stLight::process(const srNode::ProcessInfo& info, srNode::e_processType type)
 {
-    if ((type == PROCESS_PUSH || type == PROCESS_PUSH_GLOBAL) &&
-        g_monster_light_scale != g_float_one) {
+    if ((type == PROCESS_PUSH || type == PROCESS_PUSH_GLOBAL) && g_monster_light_scale != 1.0f) {
         float saved_scale = intensity;
         intensity = saved_scale * g_monster_light_scale;
         srLight::process(info, type);
@@ -190,13 +188,13 @@ void stLight::Update()
             const int from = definition->key_frames[index];
             const int to = definition->key_frames[index + 1];
             float span = to - from;
-            float blend = g_float_one;
-            if (span != g_float_zero) {
+            float blend = 1.0f;
+            if (span != 0.0f) {
                 blend = (time - from) / span;
             }
             const float key_from = definition->key_intensities[index];
             const float key_to = definition->key_intensities[index + 1];
-            float inverse = g_float_one - blend;
+            float inverse = 1.0f - blend;
             intensity = inverse * key_from + blend * key_to;
             index = definition->keyframe_index;
             const auto& color_to = definition->key_colors[index + 1];
@@ -204,42 +202,42 @@ void stLight::Update()
             diffuse = glm::min(glm::mix(color_from, color_to, blend), glm::vec3(1));
             return;
         }
-        intensity = g_float_zero;
+        intensity = 0.0f;
         return;
     }
 
     w8_ulong ticks = w8_get_ticks();
     W8PathAI* path = path_ai;
-    float seconds = ticks * g_float_one_thousandth;
+    float seconds = ticks * 0.001f;
     stParametricLightDefinition* definition =
         static_cast<stParametricLightDefinition*>(m_definition);
-    if (definition->period < g_float_one_ten_thousandth) {
+    if (definition->period < 0.0001f) {
         definition->period = 1.0f;
     }
     unsigned int mode = definition->flags & W8_PARAM_LIGHT_MODE_MASK;
     if (mode == W8_PARAM_LIGHT_OSCILLATE) {
         float step = (seconds - m_level_time) * definition->rate;
-        if (g_float_zero < step) {
+        if (0.0f < step) {
             float level = m_level;
-            step = (g_float_one / definition->period) * step;
+            step = (1.0f / definition->period) * step;
             if (m_direction == 0) {
                 level -= step;
-                if (level < g_float_zero) {
+                if (level < 0.0f) {
                     m_direction = 1;
                     level = step + step + level;
                 }
             } else {
                 level = step + level;
-                if (g_float_one < level) {
+                if (1.0f < level) {
                     m_direction = 0;
                     level -= step + step;
                 }
             }
-            float blend = g_float_zero;
-            if (g_float_zero < level) {
+            float blend = 0.0f;
+            if (0.0f < level) {
                 blend = level;
-                if (g_float_one <= level) {
-                    blend = g_float_one;
+                if (1.0f <= level) {
+                    blend = 1.0f;
                 }
             }
             intensity =
@@ -254,9 +252,9 @@ void stLight::Update()
         }
     } else if (mode == W8_PARAM_LIGHT_RAMP) {
         float step = (seconds - m_level_time) * definition->rate;
-        if (g_float_zero < step) {
-            float blend = (g_float_one / definition->period) * step + m_level;
-            if (blend <= g_float_one) {
+        if (0.0f < step) {
+            float blend = (1.0f / definition->period) * step + m_level;
+            if (blend <= 1.0f) {
                 float level = blend;
                 intensity = (definition->intensity_to - definition->intensity) * level +
                             definition->intensity;
@@ -304,7 +302,7 @@ void stLight::Update()
         }
     }
     if ((path == 0) || (path->nodes.size() == 0) ||
-        ((seconds - m_path_time) * definition->path_speed < g_float_one)) {
+        ((seconds - m_path_time) * definition->path_speed < 1.0f)) {
         return;
     }
     int index = static_cast<int>((seconds - m_path_time) * definition->path_speed);

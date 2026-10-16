@@ -28,7 +28,7 @@
 #include "wiz8/engine_code/PathAI.h"
 #include "wiz8/engine_code/PolyPick.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/float_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -39,10 +39,6 @@
 #include "wiz8/xstatus.h"
 
 // STRING: WIZ8 0x006081fc
-// GLOBAL: WIZ8 0x005ec2f8
-const float g_float_five_thousand = 5000.0f;
-// GLOBAL: WIZ8 0x005ec030
-const double g_double_twenty_five_hundred = 2500.0;
 
 /* The world object the navigator notifies when it leaves a location, and
    the notification itself. 0x0042E880 sits outside every assertion-backed
@@ -735,10 +731,10 @@ void W8Navigator::SetTurnRate(float turn_rate)
 // FUNCTION: WIZ8 0x00453ef0
 void W8Navigator::SetHeightRange(float minimum, float maximum)
 {
-    if (minimum >= g_float_zero) {
+    if (minimum >= 0.0f) {
         minimum_height = minimum;
     }
-    if (maximum >= g_float_zero) {
+    if (maximum >= 0.0f) {
         maximum_height = maximum;
     }
 }
@@ -774,8 +770,6 @@ const float g_navigator_default_turn_rate = 4.398229598999023f;
 
 // GLOBAL: WIZ8 0x005ec2f0
 const float g_navigator_snap_angle = 0.029999999329447746f;
-// GLOBAL: WIZ8 0x005ebca4
-const float g_navigator_mode3_scale = 0.4000000059604645f;
 // GLOBAL: WIZ8 0x006081e4
 unsigned char g_combat_inactive = 1;
 
@@ -832,8 +826,6 @@ unsigned char g_navigator_link_mode;
 const float g_navigator_linked_radius_scale = 4.0f;
 // GLOBAL: WIZ8 0x005ebcc8
 const float g_navigator_vertical_phase_step = 0.25f;
-// GLOBAL: WIZ8 0x005ec150
-extern const double g_double_five_hundred = 500.0;
 // GLOBAL: WIZ8 0x006081ec
 float g_navigator_minimum_speed = 0.5f;
 // GLOBAL: WIZ8 0x006081f0
@@ -845,9 +837,6 @@ float g_camera_sphere_radius_scale = 1.0f;
 // GLOBAL: WIZ8 0x00659bf8
 std::vector<W8Navigator*> g_navigator_group;
 
-/* 0x005EC2A8: a quarter turn, shared with the world elevation helper. */
-// GLOBAL: WIZ8 0x005ec2a8
-const float g_quarter_turn = 1.57079625f;
 // GLOBAL: WIZ8 0x005ec314
 static const float NAVIGATOR_THREE_QUARTER_TURN = 4.712389f;
 // GLOBAL: WIZ8 0x005ec310
@@ -953,7 +942,7 @@ glm::vec3* W8Navigator::AdjustPosition(glm::vec3* result, const glm::vec3* curre
        body rather than sharing the location-id early return. */
     if (navigation_mode != 4) {
         glm::vec3 probe = *current;
-        probe.y += g_world_scale;
+        probe.y += kWorldScale;
         bool hit;
         const auto ground_probe = g_octree->settleToGround(probe, 1, 500.0f);
         probe = ground_probe.position;
@@ -968,7 +957,7 @@ glm::vec3* W8Navigator::AdjustPosition(glm::vec3* result, const glm::vec3* curre
             }
             if (current->y - ground <= NAVIGATOR_MAXIMUM_DROP ||
                 (previous->x == probe.x && previous->z == probe.z)) {
-                if (g_startup_near_limit < current->y - ground) {
+                if (kStartupNearLimit < current->y - ground) {
                     glm::vec3 falling = *current;
                     float distance;
                     if (g_combat_inactive == 0) {
@@ -1028,10 +1017,10 @@ void W8Navigator::UpdateFacing(bool immediate)
     g_octree->GetPathSurfaceNormal(&movement.position, &normal);
     if (movement.pitch_enabled) {
         float angle = static_cast<float>(acos(glm::dot(normal, forward)));
-        if (angle < g_quarter_turn) {
+        if (angle < kQuarterTurn) {
             angle += NAVIGATOR_THREE_QUARTER_TURN;
         } else {
-            angle -= g_quarter_turn;
+            angle -= kQuarterTurn;
         }
         if (immediate) {
             movement.pitch = NormalizeAngle(angle);
@@ -1041,10 +1030,10 @@ void W8Navigator::UpdateFacing(bool immediate)
     if (movement.roll_enabled) {
         glm::vec3 side(-forward.z, 0.0f, forward.x);
         float angle = static_cast<float>(acos(glm::dot(side, normal)));
-        if (angle < g_quarter_turn) {
+        if (angle < kQuarterTurn) {
             angle += NAVIGATOR_THREE_QUARTER_TURN;
         } else {
-            angle -= g_quarter_turn;
+            angle -= kQuarterTurn;
         }
         if (immediate) {
             movement.roll = NormalizeAngle(angle);
@@ -1222,7 +1211,7 @@ bool W8NavigatorAttachment::AdvanceAlongPathPositions(float distance, glm::vec3*
     flags &= ~W8_NAV_ATTACHMENT_PATH_LENGTH_CACHED;
     delta = path[path_cursor].position - local;
     segment = glm::length(((glm::vec2(delta.x, delta.z))));
-    if (segment < g_double_one && path_cursor == path_position_index) {
+    if (segment < 1.0 && path_cursor == path_position_index) {
         return false;
     }
     if (segment < distance) {
@@ -1247,7 +1236,7 @@ bool W8NavigatorAttachment::AdvanceAlongPathPositions(float distance, glm::vec3*
         on_path = false;
     } else {
         t = distance / segment;
-        *position = local * static_cast<float>(g_double_one - t) + path[path_cursor].position * t;
+        *position = local * static_cast<float>(1.0 - t) + path[path_cursor].position * t;
     }
     if (path_cursor > 1) {
         for (position_cursor = 0; path_cursor + position_cursor <= path_position_index;
@@ -1279,8 +1268,8 @@ bool W8NavigatorAttachment::withinHopHeight(const glm::vec2& point, unsigned bas
         }
     }
     const auto* surfaces = g_octree->pathing->m_waypoints.data();
-    float height = (surfaces[path[base].value].flags >> 0xc) * g_world_scale;
-    const float next_height = (surfaces[path[base + 1].value].flags >> 0xc) * g_world_scale;
+    float height = (surfaces[path[base].value].flags >> 0xc) * kWorldScale;
+    const float next_height = (surfaces[path[base + 1].value].flags >> 0xc) * kWorldScale;
     if (height != next_height) height = (next_height - height) * projection.fraction + height;
     return projection.distance <= height;
 }
@@ -1319,7 +1308,7 @@ bool W8NavigatorAttachment::AdvancePositionTowardWaypoint(glm::vec3* position, f
     fraction = projection.fraction;
     dir.x = to.x - from.x;
     dir.y = to.y - from.y;
-    remainder = (g_float_one - fraction) * glm::length(dir);
+    remainder = (1.0f - fraction) * glm::length(dir);
     if (distance <= remainder) {
         reached = false;
     } else {
@@ -1335,13 +1324,13 @@ bool W8NavigatorAttachment::AdvancePositionTowardWaypoint(glm::vec3* position, f
     if (remainder < distance) {
         distance = remainder;
     }
-    if (distance <= g_float_zero) {
+    if (distance <= 0.0f) {
         position->x = point.x;
         position->z = point.y;
         return reached;
     }
     segment = glm::length(dir);
-    if (segment != g_double_zero) {
+    if (segment != 0.0) {
         distance /= segment;
         dir.x *= distance;
         dir.y *= distance;
@@ -1359,14 +1348,14 @@ bool W8NavigatorAttachment::AdvancePositionWithDirection(glm::vec3* position, fl
                                                          glm::vec3* direction)
 {
     while (path_cursor <= path_position_index) {
-        if (distance <= g_double_zero) {
+        if (distance <= 0.0) {
             break;
         }
         glm::vec3* waypoint = &path[path_cursor].position;
         *direction = *waypoint - *position;
         float length = glm::length((*direction));
-        if (g_double_zero < length) {
-            float scale = static_cast<float>(g_double_one / length);
+        if (0.0 < length) {
+            float scale = static_cast<float>(1.0 / length);
             *direction *= scale;
         }
         if (length <= distance) {
@@ -1380,7 +1369,7 @@ bool W8NavigatorAttachment::AdvancePositionWithDirection(glm::vec3* position, fl
             position->x = direction->x * distance + position->x;
             position->y = direction->y * distance + position->y;
             position->z = direction->z * distance + position->z;
-            distance = static_cast<float>(g_double_zero);
+            distance = static_cast<float>(0.0);
         }
     }
     return false;
@@ -1578,13 +1567,13 @@ bool W8Navigator::ConfigureMovement(float minimum, float maximum)
 {
     flags |= 0x20000000;
     movement.attachment->flags |= W8_NAV_ATTACHMENT_IGNORE_LINKED_NAVIGATOR;
-    if (minimum > g_float_zero) {
+    if (minimum > 0.0f) {
         minimum_height = minimum;
     }
-    if (maximum > g_float_five_thousand) {
+    if (maximum > 5e+03f) {
         maximum_height = maximum;
     }
-    if (minimum_height + g_float_five_thousand < maximum_height) {
+    if (minimum_height + 5e+03f < maximum_height) {
         movement.target_position = patrol_home;
         if (g_octree->PrepareNavigatorPatrol(&movement, minimum_height, maximum_height) != 0) {
             flags |= 6;
@@ -1772,7 +1761,7 @@ void W8Navigator::UpdateAngles()
         direction = g_negative_one;
         if (reverse_distance < distance) {
             distance = reverse_distance;
-            direction = g_float_one;
+            direction = 1.0f;
         }
         if (step <= distance) {
             movement.yaw = NormalizeAngle(step * direction + movement.yaw);
@@ -1788,7 +1777,7 @@ void W8Navigator::UpdateAngles()
     }
 
     if (navigation_mode == 3) {
-        step *= g_navigator_mode3_scale;
+        step *= kNavigatorMode3Scale;
     }
     if (movement.pitch_enabled && movement.pitch != movement.target_pitch) {
         distance = NormalizeAngle(movement.pitch - movement.target_pitch);
@@ -1796,7 +1785,7 @@ void W8Navigator::UpdateAngles()
         direction = g_negative_one;
         if (reverse_distance < distance) {
             distance = reverse_distance;
-            direction = g_float_one;
+            direction = 1.0f;
         }
         if (step <= distance) {
             movement.pitch = NormalizeAngle(step * direction + movement.pitch);
@@ -1811,7 +1800,7 @@ void W8Navigator::UpdateAngles()
         direction = g_negative_one;
         if (reverse_distance < distance) {
             distance = reverse_distance;
-            direction = g_float_one;
+            direction = 1.0f;
         }
         if (distance < step) {
             movement.roll = movement.target_roll;
@@ -1891,7 +1880,7 @@ void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
         movement.position = *AdjustPosition(&adjusted, &movement.position, &previous);
     }
 
-    if (movement.vertical_amplitude != g_float_zero) {
+    if (movement.vertical_amplitude != 0.0f) {
         if (!g_navigator_vertical_enabled) {
             movement.vertical_offset = movement.vertical_base;
         } else {
@@ -1900,7 +1889,7 @@ void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
                                                         g_navigator_vertical_phase_step;
             phase -= static_cast<float>(floor(phase));
             movement.vertical_phase = phase;
-            movement.vertical_offset = static_cast<float>(sin(phase * g_motion_full_turn_radians)) *
+            movement.vertical_offset = static_cast<float>(sin(phase * kMotionFullTurnRadians)) *
                                            movement.vertical_amplitude +
                                        movement.vertical_base;
         }
@@ -1926,7 +1915,7 @@ void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
     if (g_combat_inactive == 0) {
         movement.movement_speed = g_settings.monster_movement_speed;
         if (slowed) {
-            movement.movement_speed *= g_float_half;
+            movement.movement_speed *= 0.5f;
         }
     }
     if ((flags & 0x20000000) != 0 && (flags & 0xffffff) == 0) {
@@ -2062,7 +2051,7 @@ void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
             float minimum_speed;
 
             if (g_combat_inactive == 0) {
-                velocity.x = movement.movement_speed * movement.movement_scale * g_world_scale;
+                velocity.x = movement.movement_speed * movement.movement_scale * kWorldScale;
                 velocity.z = 0.0f;
             } else {
                 velocity.x = movement.velocity.x;
@@ -2078,7 +2067,7 @@ void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
                 minimum_speed = g_navigator_minimum_speed;
             }
             movement.movement_speed =
-                glm::length(velocity) / (movement.movement_scale * g_world_scale);
+                glm::length(velocity) / (movement.movement_scale * kWorldScale);
             if (movement.movement_speed < minimum_speed) {
                 movement.movement_speed = minimum_speed;
             }
@@ -2088,7 +2077,7 @@ void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
     UpdateAngles();
     if (!movement_stopped && g_combat_inactive == 0 && !movement_complete && flags != 0) {
         movement.callback_progress += g_game_time_accumulator->GetFrameDelta() *
-                                      movement.movement_scale * g_rate * g_world_scale;
+                                      movement.movement_scale * g_rate * kWorldScale;
         if (movement.callback_threshold <= movement.callback_progress) {
             if (movement_callback != 0) {
                 movement_callback(this);
@@ -2125,8 +2114,7 @@ int W8Navigator::ResolveMovement()
     if ((movement.attachment->flags & W8_NAV_ATTACHMENT_FOLLOW_PATH) == 0) {
         float target_motion = glm::length((target->movement.position - target_last_position));
 
-        if (target_motion > g_double_twenty_five_hundred ||
-            (target == g_startup_world && target_motion > g_double_five_hundred)) {
+        if (target_motion > 2500.0 || (target == g_startup_world && target_motion > 500.0)) {
             target_last_position = target->movement.position;
 
             if (target->radius + radius + collision_margin <
@@ -2203,5 +2191,5 @@ W8OctreeTrace::W8OctreeTrace(const glm::vec3& from, const glm::vec3& to)
 // FUNCTION: WIZ8 0x00453c70
 void W8Navigator::SetMonsterTurnSpeed(float speed)
 {
-    movement.callback_threshold = speed * g_world_scale;
+    movement.callback_threshold = speed * kWorldScale;
 }

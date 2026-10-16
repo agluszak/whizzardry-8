@@ -62,7 +62,7 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
-#include "wiz8/integer_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -101,6 +101,9 @@
 #include "wiz8/unicode.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
+
+constexpr int kSplitDialogOriginX = 0x9f;
+constexpr int kSplitDialogOriginY = 0xb8;
 
 namespace {
 // The typed-dialogue panel's keyword field, and the field scripted NPC dialogs type into.
@@ -1264,8 +1267,8 @@ void EndNpcDialogueSession(bool skip_exit_actions)
             int slot = GetRandomCharacter(1, 1, -1, -1);
             if (slot != -1) {
                 W8CharacterEvent* event = QueueCharacterEvent(
-                    &g_status.buffers.Char[slot], g_special_event8, g_character_event_no_preempt,
-                    g_character_event_no_flags, g_character_event_full_volume);
+                    &g_status.buffers.Char[slot], g_special_event8, kCharacterEventNoPreempt,
+                    kCharacterEventNoFlags, kCharacterEventFullVolume);
                 if (event != 0) {
                     event->DelayDispatch(1000);
                 }
@@ -1553,7 +1556,7 @@ static void NpcDialogueTextBoxRightUp(int x, int y)
             return;
         }
         dialog = new W8AssayDialog(item, &g_status.buffers.Char[g_status.selected_character],
-                                   {g_info_dialog_x, 0x48});
+                                   {kInfoDialogX, 0x48});
         dialog->SetText("");
 
         dialog->on_close = [] { RequestRedraw(W8_MAIN_REDRAW_ALL); };
@@ -2487,7 +2490,7 @@ static void OpenNpcItemAssay(void)
         image != CatalogArtwork::Load(0x1ac).spriteSheet()) {
         dialog = new W8AssayDialog(g_npc_interaction_state->trade_item,
                                    &g_status.buffers.Char[g_status.selected_character],
-                                   {g_info_dialog_x, 0x48});
+                                   {kInfoDialogX, 0x48});
         dialog->SetText("");
 
         dialog->on_close = [] { RequestRedraw(W8_MAIN_REDRAW_ALL); };
@@ -2545,8 +2548,8 @@ static void OpenNpcGoldAmountDialog(void)
         SetNpcActionEnabled(W8_NPC_CONTROL_OPTION_BUTTONS + index, false);
     }
     g_npc_interaction_state->ui->panels[1].dirty = true;
-    dialog = new W8SplitAmountDialog(g_status.party_gold,
-                                     {g_split_dialog_origin_x, g_split_dialog_origin_y});
+    dialog =
+        new W8SplitAmountDialog(g_status.party_gold, {kSplitDialogOriginX, kSplitDialogOriginY});
     dialog->SetText("");
 
     dialog->on_complete = [](int amount) {

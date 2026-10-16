@@ -29,9 +29,8 @@
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/stCube.h"
-#include "wiz8/float_constants.h"
 #include "wiz8/fonts.h"
-#include "wiz8/integer_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
@@ -46,6 +45,9 @@
 #include "wiz8/string_database.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
+
+constexpr int kSearchFoundItemEvent = 0x17;
+constexpr int kSearchFoundItemEventAlt = 0x18;
 
 /* Local Code\search.cpp. The assertion in RegisterSearchableTrigger at source
    line 337 establishes the original translation unit. */
@@ -122,7 +124,7 @@ W8SearchableView* CollectSearchablesInView(void)
             if (searchable->world_item == 0 && searchable->trigger != 0) {
                 g_search_view.items.push_back(searchable);
             } else {
-                float half_cone = g_search_cone_angle * g_float_half;
+                float half_cone = g_search_cone_angle * 0.5f;
                 glm::vec3 from = camera;
                 glm::vec3 to = position;
                 float yaw = GetCameraYawRadians();
@@ -246,12 +248,12 @@ void RunSearchPulse(void)
                         W8Character* character = &g_status.buffers.Char[slot];
                         if (searchable->world_item == 0) {
                             if (searchable->trigger == 0) {
-                                QueueCharacterEvent(character, g_effect16, 0, g_effect_argument0,
-                                                    g_character_event_full_volume);
+                                QueueCharacterEvent(character, 0x1a, 0, 1,
+                                                    kCharacterEventFullVolume);
                                 found = true;
                             } else {
-                                QueueCharacterEvent(character, g_effect16, 0, g_effect_argument0,
-                                                    g_character_event_full_volume);
+                                QueueCharacterEvent(character, 0x1a, 0, 1,
+                                                    kCharacterEventFullVolume);
                                 int message = searchable->trigger->m_lData1;
                                 found = true;
                                 if (message >= 0) {
@@ -270,13 +272,12 @@ void RunSearchPulse(void)
                             }
                         } else {
                             PartyAttemptsToIdentifyItem(&searchable->world_item->item, 0);
-                            unsigned int event_type = g_search_found_item_event;
+                            unsigned int event_type = kSearchFoundItemEvent;
                             if (Random(2) != 0) {
-                                event_type = g_search_found_item_event_alt;
+                                event_type = kSearchFoundItemEventAlt;
                             }
                             auto event = std::make_unique<W8CharacterEvent>(
-                                character, event_type, 0, g_effect_argument0,
-                                g_character_event_full_volume);
+                                character, event_type, 0, 1, kCharacterEventFullVolume);
                             if (searchable->world_item != 0) {
                                 event->item = searchable->world_item->item;
                             }
@@ -306,8 +307,7 @@ void RunSearchPulse(void)
             if (g_status.search_mode != 0 &&
                 (g_level_data->flags & W8_LEVEL_FLAG_FAST_MOVEMENT) == 0 && !found &&
                 Random(100) == 0) {
-                ApplyItemEffectToRandomCharacter(g_container_event, -1, 0,
-                                                 g_character_event_no_flags);
+                ApplyItemEffectToRandomCharacter(g_container_event, -1, 0, kCharacterEventNoFlags);
             }
         }
     }
@@ -372,7 +372,7 @@ int W8Searchable::PickBestSearcher()
             best_slot = slot;
         }
     }
-    float range = best_score * g_search_radius * g_movement_speed_step;
+    float range = best_score * g_search_radius * kMovementSpeedStep;
     glm::vec3 camera = cameraLocation();
     glm::vec3 position;
     GetPosition(&position);

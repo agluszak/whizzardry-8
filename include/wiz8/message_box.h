@@ -127,7 +127,7 @@ struct W8NpcPartySpeakerEvent {
     unsigned int event_type;
 };
 
-/* Queue `party_slot`'s level-up reaction (character event g_effect1). */
+/* Queue `party_slot`'s level-up reaction (character event 1). */
 struct W8NpcLevelUpReaction {
     int party_slot;
 };

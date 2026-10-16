@@ -5,7 +5,7 @@
 #include "layouts/item_instance.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/engine_code/Environment.h"
-#include "wiz8/float_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -71,7 +71,7 @@ void RebuildPartyEffectBlock(void)
         return;
     }
     SetSkyNodeVisible(true);
-    SetCameraLightIntensity(g_status.party_modifiers.light + g_environment_near_scale);
+    SetCameraLightIntensity(g_status.party_modifiers.light + kEnvironmentNearScale);
 }
 
 /* Fold the worn items into one character's equipment bonus block: the twelve

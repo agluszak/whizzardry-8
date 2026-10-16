@@ -27,7 +27,6 @@
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/stModelInstance.h"
-#include "wiz8/float_constants.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -415,8 +414,8 @@ static unsigned char PlaceRadarBlip(glm::vec3* delta, int group, bool lit)
     int left;
     int top;
 
-    if (fabs(delta->y) >= g_double_fifteen_hundred) {
-        if (delta->y > g_double_zero) {
+    if (fabs(delta->y) >= 1500.0) {
+        if (delta->y > 0.0) {
             ring = 2;
         }
     } else {

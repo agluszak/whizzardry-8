@@ -54,18 +54,11 @@
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/engine_code/stParticle.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/float_constants.h"
 #include "wiz8/ground_shadow.h"
 #include "wiz8/unicode.h"
 
-// GLOBAL: WIZ8 0x005ebc3c
-const float g_float_one_tenth = 0.10000000149011612f;
-// GLOBAL: WIZ8 0x005ec390
-const float g_float_nine_tenths = 0.8999999761581421f;
-// GLOBAL: WIZ8 0x005ec5c0
-const float g_lod_level_zero_exit_threshold = 0.30000001192092896f;
-// GLOBAL: WIZ8 0x005ec5c4
-const float g_lod_level_two_exit_threshold = 0.699999988079071f;
+constexpr float kLodLevelTwoExitThreshold = 0.699999988079071f;
+constexpr float kLodLevelZeroExitThreshold = 0.30000001192092896f;
 
 #define BEHAVIOUR_FIRST W8_ANIMATION_PLAY_ONCE
 #define BEHAVIOUR_LAST W8_ANIMATION_NEVER_STOP
@@ -73,8 +66,6 @@ const float g_lod_level_two_exit_threshold = 0.699999988079071f;
 // VTABLE: WIZ8 0x005ece78 W8GrObject
 // VTABLE: WIZ8 0x005eceb8 W8Navigator
 // class W8GrCycle
-// GLOBAL: WIZ8 0x005ecf9c
-const float g_float_two_hundred_fifty = 250.0f;
 // GLOBAL: WIZ8 0x0060da88
 static bool g_camera_shake_enabled = true;
 ShakeDefinition::ShakeDefinition(float duration, bool preset, float intensity, float distance_cap,
@@ -195,8 +186,8 @@ void UpdateShakeEffects()
         return;
     }
     const float intensity = CameraShakes().Update(cameraLocation());
-    if (intensity > g_float_zero) {
-        const float amplitude = std::min(intensity, 1.0f) * g_float_two_hundred_fifty;
+    if (intensity > 0.0f) {
+        const float amplitude = std::min(intensity, 1.0f) * 2.5e+02f;
         const int span = static_cast<int>(amplitude) << 1;
         g_trigger_action_scene_offset.x = Random(span) - amplitude;
         g_trigger_action_scene_offset.y = Random(span) - amplitude;
@@ -206,11 +197,6 @@ void UpdateShakeEffects()
         g_trigger_action_active = false;
     }
 }
-
-// GLOBAL: WIZ8 0x005ec128
-const float g_float_one_thousandth = 0.0010000000474974513f;
-// GLOBAL: WIZ8 0x005ebc64
-const float g_float_one_thousand = 1000.0f;
 
 /* Build the two paths used while reading a .mon resource, verify its one-byte
    version, and hand the open file plus its resource context to the typed cycle
@@ -462,7 +448,7 @@ void W8GrCycle::TickAnimation(float scale)
             }
 
             rate = GetCurrentAnimationScale() * scale;
-            progress = elapsed * rate * g_float_one_thousandth;
+            progress = elapsed * rate * 0.001f;
             /* A non-finite or negative rate would convert to a frame count the
                countdown loop below never reaches zero from. */
             if (!(progress >= 0.0f && progress < 1.0e6f)) {
@@ -474,7 +460,7 @@ void W8GrCycle::TickAnimation(float scale)
             if (frames != 0) {
                 glm::vec3 position;
 
-                representation->timer += static_cast<int>(frames * g_float_one_thousand / rate);
+                representation->timer += static_cast<int>(frames * 1e+03f / rate);
                 wrapped = false;
                 position = GetPosition();
                 do {
@@ -743,7 +729,7 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
             }
             psrMesh->highlight_colour = pRep->highlight_colour;
             if (pRep->apply_instance_scale) {
-                if (pRep->instance_scale == g_float_one) {
+                if (pRep->instance_scale == 1.0f) {
                     psrMesh->diffuse_scale_enabled = false;
                 } else {
                     psrMesh->diffuse_scale_enabled = true;
@@ -777,7 +763,7 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
         SetAniMeshCacheProtected(pRep->GetEmitterAniMesh(pRep->current_cycle), true);
         psrMesh->highlight_colour = pRep->highlight_colour;
         if (pRep->apply_instance_scale) {
-            if (pRep->instance_scale == g_float_one) {
+            if (pRep->instance_scale == 1.0f) {
                 psrMesh->diffuse_scale_enabled = false;
             } else {
                 psrMesh->diffuse_scale_enabled = true;
@@ -1050,20 +1036,20 @@ void W8GrCycle::SelectLOD(const glm::vec3* position)
             pRep->m_bLOD = 2;
         }
     }
-    if (g_render_fog_distance <= g_float_one_tenth && pRep->m_bLOD != 2) {
+    if (g_render_fog_distance <= 0.1f && pRep->m_bLOD != 2) {
         if (has_lod_2) {
             pRep->m_bLOD = 2;
         }
         return;
     }
-    if ((g_render_fog_distance <= g_lod_level_zero_exit_threshold && pRep->m_bLOD == 0) ||
-        (g_render_fog_distance >= g_lod_level_two_exit_threshold && pRep->m_bLOD == 2)) {
+    if ((g_render_fog_distance <= kLodLevelZeroExitThreshold && pRep->m_bLOD == 0) ||
+        (g_render_fog_distance >= kLodLevelTwoExitThreshold && pRep->m_bLOD == 2)) {
         if (has_lod_1) {
             pRep->m_bLOD = 1;
         }
         return;
     }
-    if (g_render_fog_distance >= g_float_nine_tenths && pRep->m_bLOD != 0 && has_lod_0) {
+    if (g_render_fog_distance >= 0.9f && pRep->m_bLOD != 0 && has_lod_0) {
         pRep->m_bLOD = 0;
     }
 }

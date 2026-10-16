@@ -256,9 +256,3 @@ private:
     W8ItemSplitMode m_mode; /* 0 inventory, 1 and 2 trade modes */
     W8ItemInstance* m_item;
 };
-
-extern const W8SplitDialogResult g_amount_split_confirm_result;
-extern const W8SplitDialogResult g_item_split_confirm_result;
-extern const W8ItemSplitMode g_item_split_inventory_mode;
-extern const W8ItemSplitMode g_item_split_sell_mode;
-extern const W8ItemSplitMode g_item_split_buy_mode;

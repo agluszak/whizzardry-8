@@ -31,7 +31,7 @@
 #include "wiz8/dialog_code/StatInfoDialogs.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
-#include "wiz8/integer_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -1189,8 +1189,8 @@ void W8CharacterPersonalityPage::Redraw(SDL_Surface& target, bool full_redraw)
     if (m_description_dirty) {
         W8TextBuffer text;
         W8ControlsRect bounds;
-        W8CharacterEvent element(m_character, g_effect0, 0, g_character_event_no_flags,
-                                 g_character_event_full_volume);
+        W8CharacterEvent element(m_character, 0, 0, kCharacterEventNoFlags,
+                                 kCharacterEventFullVolume);
 
         bounds.top = W8CharacterPage::bounds.y + 0x13a;
         bounds.bottom = W8CharacterPage::bounds.y + 0x16a;

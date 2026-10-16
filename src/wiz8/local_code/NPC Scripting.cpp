@@ -36,7 +36,7 @@
 #include "wiz8/file_time.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
-#include "wiz8/integer_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -66,6 +66,8 @@
 #include "wiz8/npc_speech.h"
 #include "wiz8/unicode.h"
 #include "wiz8/xstatus.h"
+
+constexpr unsigned int kCharacterEventNpcScript = 0x40;
 
 static void OnNpcTravelConfirmationClosed(bool accepted);
 
@@ -712,8 +714,8 @@ void W8NpcDialogue::RunNextAction()
             if (party_slot != -1) {
                 g_status.selected_party_member = static_cast<unsigned char>(party_slot);
                 QueueCharacterEvent(&g_status.buffers.Char[party_slot], event.event_type,
-                                    g_character_event_no_npc_defer, g_character_event_no_flags,
-                                    g_character_event_full_volume);
+                                    kCharacterEventNoNpcDefer, kCharacterEventNoFlags,
+                                    kCharacterEventFullVolume);
                 SetNpcDialoguePanelVisible(0);
                 if (g_npc_interaction_state->modal_dialog_open) {
                     g_npc_interaction_state->suppress_parting_reaction = true;
@@ -722,15 +724,15 @@ void W8NpcDialogue::RunNextAction()
         }
         void operator()(W8NpcLevelUpReaction reaction) const
         {
-            QueueCharacterEvent(&g_status.buffers.Char[reaction.party_slot], g_effect1,
-                                g_character_event_no_npc_defer, g_character_event_no_flags,
-                                g_character_event_full_volume);
+            QueueCharacterEvent(&g_status.buffers.Char[reaction.party_slot], 1,
+                                kCharacterEventNoNpcDefer, kCharacterEventNoFlags,
+                                kCharacterEventFullVolume);
         }
         void operator()(W8NpcPartyScriptLine line) const
         {
             QueueCharacterEvent(&g_status.buffers.Char[line.party_slot], 0x18,
-                                g_character_event_npc_script | g_character_event_no_npc_defer,
-                                g_character_event_no_flags, g_character_event_full_volume);
+                                kCharacterEventNpcScript | kCharacterEventNoNpcDefer,
+                                kCharacterEventNoFlags, kCharacterEventFullVolume);
         }
         void operator()(W8NpcPortraitString message) const
         {

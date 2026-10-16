@@ -27,7 +27,7 @@
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
-#include "wiz8/integer_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/item_tables.h"
@@ -668,7 +668,7 @@ void OpenUseItemAssayDialog(W8ItemInstance* item)
     W8AssayDialog* dialog;
 
     dialog = new W8AssayDialog(item, &g_status.buffers.Char[g_use_item_owner_index],
-                               {g_info_dialog_x, 0x48});
+                               {kInfoDialogX, 0x48});
     dialog->SetText("");
 
     dialog->cleanup = [cursor = gXStatus.iCurrentCursor] {
@@ -746,9 +746,9 @@ void SelectUseItemLine(int iTextLine)
     UpdateUseItemDetailPanel(g_use_item_list[iTextLine]);
     if (ValidateItemSpellUse(g_use_item_owner_index, g_use_item_list[iTextLine],
                              SpellCastingNoticeClosed)) {
-        QueueCharacterEvent(&g_status.buffers.Char[g_use_item_owner_index], g_character_event_kind2,
-                            0, g_character_event_flags_mask | g_character_event_no_flags,
-                            g_character_event_full_volume);
+        QueueCharacterEvent(&g_status.buffers.Char[g_use_item_owner_index], 0x35, 0,
+                            kCharacterEventFlagsMask | kCharacterEventNoFlags,
+                            kCharacterEventFullVolume);
         return;
     }
     g_use_item_selected = g_use_item_list[iTextLine];

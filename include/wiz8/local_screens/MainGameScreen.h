@@ -45,8 +45,6 @@ void ClearHighlightIfItIs(const int* item);
 
 extern W8MainGameResourceSlot g_main_game_resource_slots[17];
 extern DesignRect g_viewport_modes[];
-extern const float g_float_one_fiftieth;
-extern const float g_float_half_turn_degrees;
 /* String-list ids naming each trap row; Traps.cpp indexes it with the
    trigger's trap type for the disarm/spring notices. */
 extern unsigned short g_trap_name_string_ids[];

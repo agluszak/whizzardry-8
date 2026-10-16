@@ -8,7 +8,7 @@
 
 #include "timer.h"
 #include "wiz8/audio_resources.h"
-#include "wiz8/integer_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 
@@ -23,7 +23,7 @@ enum W8CharacterEventFlag {
        scripting is active. */
     W8_EVENT_NO_NPC_DEFER = 0x08,
     /* The portrait quote/subtitle is suppressed; the dispatch path tests it
-       through the g_character_event_flags_mask global. */
+       through the kCharacterEventFlagsMask global. */
     W8_EVENT_SUPPRESS_QUOTE = 0x10,
     /* Events above the ordinary range normally preempt the slot's active
        event and dispatch immediately; this bit queues them normally. */

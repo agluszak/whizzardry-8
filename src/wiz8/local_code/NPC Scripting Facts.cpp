@@ -24,7 +24,7 @@
 #include "wiz8/fact_state.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
-#include "wiz8/integer_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
@@ -190,8 +190,8 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
                     return;
                 }
                 character = GetNpcGroupCharacter(npc);
-                QueueCharacterEvent(character, 0, 0, g_character_event_no_flags,
-                                    g_character_event_full_volume);
+                QueueCharacterEvent(character, 0, 0, kCharacterEventNoFlags,
+                                    kCharacterEventFullVolume);
             }
         }
         return;
@@ -881,25 +881,25 @@ void HandleScriptedNpcDeath(unsigned int monster_list_index)
     }
     for (index = 0; index < eligible_count; ++index) {
         if (eligible_slots[index] == lead_index) {
-            QueueCharacterEvent(&g_status.buffers.Char[eligible_slots[index]], g_effect24,
-                                g_character_event_no_npc_defer, g_character_event_no_flags,
-                                g_character_event_full_volume);
+            QueueCharacterEvent(&g_status.buffers.Char[eligible_slots[index]], 36,
+                                kCharacterEventNoNpcDefer, kCharacterEventNoFlags,
+                                kCharacterEventFullVolume);
         }
     }
     if (eligible_count > 2) {
         do {
             pick = Random(eligible_count);
         } while (eligible_slots[pick] == lead_index);
-        QueueCharacterEvent(&g_status.buffers.Char[eligible_slots[pick]], g_effect24,
-                            g_character_event_no_npc_defer, g_character_event_no_flags,
-                            g_character_event_full_volume);
+        QueueCharacterEvent(&g_status.buffers.Char[eligible_slots[pick]], 36,
+                            kCharacterEventNoNpcDefer, kCharacterEventNoFlags,
+                            kCharacterEventFullVolume);
     }
     for (slot = 0; slot < 8; ++slot) {
         W8Character* character = &g_status.buffers.Char[slot];
         if (g_status.buffers.XChar[slot].fOccupied && character->hp_current != 0 &&
             character->highest_condition < W8_CONDITION_ASLEEP) {
-            QueueCharacterEvent(character, g_effect28, g_character_event_no_npc_defer,
-                                g_character_event_no_flags, g_character_event_full_volume);
+            QueueCharacterEvent(character, 42, kCharacterEventNoNpcDefer, kCharacterEventNoFlags,
+                                kCharacterEventFullVolume);
         }
     }
     if (g_status.endgame2_queued != 0 ||
@@ -957,8 +957,8 @@ void MonsterKilled(int record_id, int killer_party_slot)
                     RemoveCharacterCondition(g_status.sedexus_party_slot, W8_CONDITION_INFATUATED,
                                              false);
                 }
-                QueueCharacterEvent(&g_status.buffers.Char[g_status.sedexus_party_slot], g_effect37,
-                                    0, g_character_event_no_flags, g_character_event_full_volume);
+                QueueCharacterEvent(&g_status.buffers.Char[g_status.sedexus_party_slot], 131, 0,
+                                    kCharacterEventNoFlags, kCharacterEventFullVolume);
             }
             SetFact(W8_FACT_RAPAX_ALSEDEXUS_DEAD, 1, false);
             return;

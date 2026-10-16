@@ -47,9 +47,8 @@
 #include "wiz8/engine_code/PolyPick.h"
 #include "wiz8/engine_code/SpellVisual.h"
 #include "wiz8/engine_code/Spells.h"
-#include "wiz8/float_constants.h"
 #include "wiz8/fonts.h"
-#include "wiz8/integer_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -84,6 +83,8 @@
 #include "wiz8/startup_world.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
+
+constexpr float kGroundSettleFail = -1000000.0f;
 
 // FUNCTION: WIZ8 0x004ff3b0
 int GetProfessionCasterLevel(const W8Character* character, W8Profession profession_id)
@@ -396,8 +397,6 @@ enum { W8_PARTY_CONDITION_SLOTS = 12, W8_COMBAT_CONDITION_SLOTS = 9 };
 
 // GLOBAL: WIZ8 0x00689B58
 std::vector<W8SpellEffectEntry*> g_spell_effects;
-// GLOBAL: WIZ8 0x005ED7D0
-const float g_ground_settle_fail = -1000000.0f;
 /* Debug switch: when set, every cast except 0x76 fizzles on a forced 100
    percent failure chance. */
 // GLOBAL: WIZ8 0x00689b68
@@ -663,7 +662,7 @@ void UpdateSpellEffects(void)
                 }
                 if (missile != 0) {
                     glm::vec3 position = missile->GetPosition();
-                    position.y -= g_float_one_thousand;
+                    position.y -= 1e+03f;
                     W8SpellVisual* visual =
                         SpawnSpellEffect(&position, g_spell_records[effect->kind].resource_name,
                                          missile->definition.duration_scale, 0, 0);
@@ -1158,7 +1157,7 @@ void LearnSpell(W8Character* character, int spell_id, bool announce)
 }
 
 // GLOBAL: WIZ8 0x0068c510
-int g_learn_sound = g_first_remapped_event + 16;
+int g_learn_sound = kFirstRemappedEvent + 16;
 /* Learn the spell a scroll or book teaches, and consume it. The item has to
    carry a spell and the character has to be able to take it on; failing that the item is left alone
    and the refusal is shown.
@@ -1197,8 +1196,8 @@ void LearnSpellFromItem(W8Character* character, W8ItemInstance* item)
         }
     }
     EmptyItemRecord(item, character, true);
-    QueueCharacterEvent(character, g_learn_sound, 0, g_character_event_no_flags,
-                        g_character_event_full_volume);
+    QueueCharacterEvent(character, g_learn_sound, 0, kCharacterEventNoFlags,
+                        kCharacterEventFullVolume);
 }
 
 /* Eight is not a power level but the request to cast at the highest one the
@@ -2177,8 +2176,8 @@ bool ValidateSpellTarget(int party_slot, int spell_id, unsigned int power, bool 
     }
     if (!valid && (!gXStatus.fCombatMode || !MonsterCanAimSpell(spell_id) ||
                    gXStatus.hostile_monster_count != 0 || !g_combat_state->enemies_engaged)) {
-        QueueCharacterEvent(&g_status.buffers.Char[party_slot], g_character_event_kind2, 0,
-                            g_character_event_no_flags, g_character_event_full_volume);
+        QueueCharacterEvent(&g_status.buffers.Char[party_slot], 0x35, 0, kCharacterEventNoFlags,
+                            kCharacterEventFullVolume);
     }
     return valid;
 }
@@ -2692,8 +2691,7 @@ finish_difficulty_adjustment:
         } else {
             index = g_special_event5;
         }
-        QueueCharacterEvent(character, index, 0, g_character_event_no_flags,
-                            g_character_event_full_volume);
+        QueueCharacterEvent(character, index, 0, kCharacterEventNoFlags, kCharacterEventFullVolume);
     }
     result = CastSpellFromSource(spell_id, &source, aim, power_level, power_cast_bonus, chance,
                                  recast, &cast_result, 0, 0, 0);
@@ -2819,7 +2817,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
             wiz8::sound::play("Data\\Sound\\Misc\\Spell Fizzle 01.wav");
             if (caster_slot != -1 && Random(100) < 0x46) {
                 QueueCharacterEvent(&g_status.buffers.Char[caster_slot], g_special_event13, 0,
-                                    g_character_event_no_flags, g_character_event_full_volume);
+                                    kCharacterEventNoFlags, kCharacterEventFullVolume);
             }
         }
     }
@@ -2834,7 +2832,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                 PopulateSpellTargetMarkers(spell_id, power_level, source, target, monster_markers,
                                            party_markers, 0);
                 if (spell_id == W8_SPELL_SUMMON_ELEMENTAL) {
-                    ground_point.y = target->point.y - g_float_one_thousand;
+                    ground_point.y = target->point.y - 1e+03f;
                     target->point.y = ground_point.y;
                     ground_point.x = target->point.x;
                     ground_point.z = target->point.z;
@@ -2850,7 +2848,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                         static_cast<float>(
                             g_world_cursor_extent_table
                                 [g_spell_power_extent_index[power_level - 1] * 6 + 3]) +
-                            g_world_scale,
+                            kWorldScale,
                         1, true, false, false, 5, true);
                     ground_point = placement.source;
                     if (!placement.positions.empty()) target->point = placement.positions.front();
@@ -2935,9 +2933,9 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
             missile_index = g_spell_records[spell_id].missile_index;
             if (GetSpellTargetType(spell_id, false) == 6) {
                 ResetCombatSlot(&point_target);
-                point_target.point = glm::vec3(
-                    target->point.x, g_default_world_height * g_float_half + target->point.y,
-                    target->point.z);
+                point_target.point =
+                    glm::vec3(target->point.x, g_default_world_height * 0.5f + target->point.y,
+                              target->point.z);
                 point_target.iType = W8_TARGET_KIND_PLACE;
                 missile = FireMissileSourceToTarget(missile_index, source, &point_target, &block,
                                                     true, W8_RANGE_NONE, 9999);
@@ -2984,7 +2982,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
             case W8_TARGET_TYPE_RADIUS:
                 if (spell_id == W8_SPELL_BOILING_BLOOD_EXPLOSION) {
                     if (party_markers.empty()) {
-                        point.y = target->point.y - g_float_one_thousand;
+                        point.y = target->point.y - 1e+03f;
                         target->point.y = point.y;
                         point.x = target->point.x;
                         point.z = target->point.z;
@@ -3000,7 +2998,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                             0);
                     }
                 } else {
-                    point.y = target->point.y - g_float_one_thousand;
+                    point.y = target->point.y - 1e+03f;
                     target->point.y = point.y;
                     point.x = target->point.x;
                     point.z = target->point.z;
@@ -3047,7 +3045,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                     SpawnLureEffects(owner, power_level, target);
                 } else {
                     if (spell_id != W8_SPELL_SUMMON_ELEMENTAL) {
-                        target->point.y -= g_float_one_thousand;
+                        target->point.y -= 1e+03f;
                     }
                     point = target->point;
                     visual = SpawnSpellEffect(&point, g_spell_records[spell_id].resource_name,
@@ -3090,7 +3088,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                     break;
                 }
                 if (spell_id == W8_SPELL_NUCLEAR_BLAST) {
-                    point.y = target->point.y - g_float_one_thousand;
+                    point.y = target->point.y - 1e+03f;
                     target->point.y = point.y;
                     point.x = target->point.x;
                     point.z = target->point.z;
@@ -3171,11 +3169,10 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
             }
             if (caster_slot != -1) {
                 if (Random(2) == 0) {
-                    QueueCharacterEvent(&g_status.buffers.Char[caster_slot], g_item_message0, 0,
-                                        g_character_event_no_flags, g_character_event_full_volume);
+                    QueueCharacterEvent(&g_status.buffers.Char[caster_slot], 16, 0,
+                                        kCharacterEventNoFlags, kCharacterEventFullVolume);
                 } else {
-                    ApplyItemEffectToRandomCharacter(g_item_message1, caster_slot, 0,
-                                                     g_character_event_no_flags);
+                    ApplyItemEffectToRandomCharacter(17, caster_slot, 0, kCharacterEventNoFlags);
                 }
             }
         }
@@ -3506,16 +3503,14 @@ void ScatterSpellPointTarget(int spell_id, W8TargetSource* source, W8CombatSlot*
     }
     origin = navigator->GetPosition();
     for (attempt = 0; attempt < 5; ++attempt) {
-        point.x = static_cast<float>((Random(0x7d1) - g_monster_poster_max_distance) * range *
-                                         g_double_one_thousandth +
-                                     origin.x);
-        point.z = static_cast<float>((Random(0x7d1) - g_monster_poster_max_distance) * range *
-                                         g_double_one_thousandth +
-                                     origin.z);
-        point.y = Random(0x3e9) * range * g_double_one_thousandth + origin.y;
+        point.x = static_cast<float>(
+            (Random(0x7d1) - g_monster_poster_max_distance) * range * 0.001 + origin.x);
+        point.z = static_cast<float>(
+            (Random(0x7d1) - g_monster_poster_max_distance) * range * 0.001 + origin.z);
+        point.y = Random(0x3e9) * range * 0.001 + origin.y;
         g_octree->TraceLineOfSight(&origin, &point, true, -3, -3, true, 0);
         point.y = probeGround(point).position.y;
-        if (point.y != g_ground_settle_fail) {
+        if (point.y != kGroundSettleFail) {
             break;
         }
     }
@@ -3710,11 +3705,11 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
     case W8_TARGET_TYPE_PARTY:
         radius = (g_spell_records[spell_id].radius_per_level * power_level +
                   g_spell_records[spell_id].effect_radius) *
-                 g_world_scale;
+                 kWorldScale;
         if (TargetSourceIsCharacter(source, 0)) {
             marked = true;
             side = 2;
-            if (g_float_zero < radius) {
+            if (0.0f < radius) {
                 radius += g_startup_world->radius;
             }
         } else if (TargetSourceIsMonster(source, 0)) {
@@ -3816,10 +3811,10 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
         }
         break;
     case W8_TARGET_TYPE_RADIUS:
-        trace = glm::vec3(target_point.x, target_point.y - g_float_one_thousand, target_point.z);
+        trace = glm::vec3(target_point.x, target_point.y - 1e+03f, target_point.z);
         radius = (g_spell_records[spell_id].radius_per_level * power_level +
                   g_spell_records[spell_id].effect_radius) *
-                 g_world_scale;
+                 kWorldScale;
         if (TargetSourceIsCharacter(source, 1)) {
             side = (source->fBackfire || source->fReflection) ? 1 : 2;
         } else if (TargetSourceIsMonster(source, 1)) {

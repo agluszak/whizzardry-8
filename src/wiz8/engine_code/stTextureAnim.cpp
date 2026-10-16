@@ -10,7 +10,6 @@
 #include "random.h"
 #include "surrender/srTexture.h"
 #include "texture_animation.h"
-#include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/engine_code/stTextureFile.h"
 
 // VTABLE: WIZ8 0x005EC9C0
@@ -73,7 +72,7 @@ void stTextureAnim::UpdateFrame()
     }
 
     const int elapsed_frames =
-        static_cast<int>((w8_get_ticks() - frame_tick) * frame_rate * g_float_one_thousandth);
+        static_cast<int>((w8_get_ticks() - frame_tick) * frame_rate * 0.001f);
     if (animation_mode == W8_TEXTURE_ANIM_LOOP) {
         int next = (direction * elapsed_frames) % count;
         if (next < frame) {

@@ -44,9 +44,8 @@
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/fact_state.h"
-#include "wiz8/float_constants.h"
 #include "wiz8/fonts.h"
-#include "wiz8/integer_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
@@ -296,7 +295,7 @@ void ActivateMonster(W8MonsterInfo* monster_info, W8MonsterActivationMode mode)
         MonsterSetCycle(monster_info->p3D, 1);
     }
 
-    if (monster_info->scale < g_float_zero ||
+    if (monster_info->scale < 0.0f ||
         g_status.level_progress[g_status.current_level].visited == 0) {
         monster_info->saved_mirror_x = MonsterGetMirrorX(monster_info->p3D);
         monster_info->scale = CalculateMonsterScale(monster_info);
@@ -439,8 +438,8 @@ done:
                                 ? 1
                                 : static_cast<int>(level_total / static_cast<double>(occupied));
                 if (share + 2 <= static_cast<int>(record->effective_level)) {
-                    QueueCharacterEvent(killer, g_effect25, 0, g_character_event_no_flags,
-                                        g_character_event_full_volume);
+                    QueueCharacterEvent(killer, 37, 0, kCharacterEventNoFlags,
+                                        kCharacterEventFullVolume);
                 }
             }
         }
@@ -1592,11 +1591,10 @@ std::string FormatMonsterHealth(W8MonsterInfo* monster_info)
         monster_level = record->display_level;
         health_knowledge = GetBestPartySkillLevel(W8_SKILL_MYTHOLOGY, &best_party_slot);
         if (static_cast<int>(average_party_level) < monster_level) {
-            float adjusted_knowledge = health_knowledge -
-                                       (monster_level - average_party_level) * g_float_three +
-                                       g_float_half;
-            if (adjusted_knowledge < g_float_zero) {
-                adjusted_knowledge = g_float_zero;
+            float adjusted_knowledge =
+                health_knowledge - (monster_level - average_party_level) * 3.0f + 0.5f;
+            if (adjusted_knowledge < 0.0f) {
+                adjusted_knowledge = 0.0f;
             }
             health_knowledge = static_cast<unsigned int>(adjusted_knowledge);
         }
@@ -1766,8 +1764,7 @@ void EvaluateCombatDifficulty(void)
     unsigned int party_power = 0;
     if (eligible_count > 0) {
         party_power = static_cast<unsigned int>(
-            party_levels / pow(static_cast<double>(eligible_count) * g_float_six, g_double_half) +
-            g_double_half);
+            party_levels / pow(static_cast<double>(eligible_count) * 6.0f, 0.5) + 0.5);
     }
     int relative_strength = static_cast<int>(party_power * 100 / threat_level) - 100;
     unsigned char difficulty;
@@ -1796,16 +1793,16 @@ void EvaluateCombatDifficulty(void)
         unsigned int event_type;
         switch (difficulty) {
         case 0:
-            event_type = g_effect18;
+            event_type = 29;
             break;
         case 1:
-            event_type = g_effect19;
+            event_type = 30;
             break;
         default:
-            event_type = g_effect20;
+            event_type = 31;
             break;
         }
-        ApplyItemEffectToRandomCharacter(event_type, -1, 0, g_character_event_no_flags);
+        ApplyItemEffectToRandomCharacter(event_type, -1, 0, kCharacterEventNoFlags);
     }
     ++g_status.combat_difficulty_counts[difficulty];
     gXStatus.combat_difficulty = difficulty;

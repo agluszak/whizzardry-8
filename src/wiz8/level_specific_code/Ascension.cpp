@@ -16,7 +16,6 @@
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/fact_state.h"
-#include "wiz8/float_constants.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/MonsterGroup.h"
@@ -177,12 +176,12 @@ void AscensionAvalanche(bool command)
 
         position = glm::vec3(GetWorld()->camera->getLocation());
         FindTriggerByName("ASC40")->GetPosition(&trigger_position);
-        if (glm::length((position - trigger_position)) < g_double_twenty_five_hundred) {
+        if (glm::length((position - trigger_position)) < 2500.0) {
             SetFact(W8_FACT_LANDSLIDE_RAPAX_SIDE, 1, false);
             SetFact(W8_FACT_LANDSLIDE_WILD_SIDE, 0, false);
         } else {
             FindTriggerByName("ASC30")->GetPosition(&trigger_position);
-            if (glm::length((position - trigger_position)) < g_double_twenty_five_hundred) {
+            if (glm::length((position - trigger_position)) < 2500.0) {
                 SetFact(W8_FACT_LANDSLIDE_RAPAX_SIDE, 0, false);
                 SetFact(W8_FACT_LANDSLIDE_WILD_SIDE, 1, false);
             }

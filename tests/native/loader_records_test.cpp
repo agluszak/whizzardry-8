@@ -22,7 +22,6 @@
 #include "GDFileIO.h"
 #include "asset_paths.h"
 #include "file_faults.h"
-#include "float_constants.h"
 #include "geometry.h"
 #include "glm/ext/vector_float3.hpp"
 #include "scoped_asset_roots.h"
@@ -40,6 +39,7 @@
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/engine_code/octree_spatial.h"
 #include "wiz8/filesystem.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_tables.h"
@@ -349,12 +349,11 @@ static void wgd_banks()
         auto file = wiz8::open_file(wiz8::asset_path(path));
         return data.ReadWGDList(*file, kind);
     };
-    REQUIRE((g_world_scale != 1.0f));
+    REQUIRE((kWorldScale != 1.0f));
     REQUIRE((load("primary.wgd", 0)));
-    REQUIRE((data.minimum.x == 2 * g_world_scale && data.maximum.x == 3 * g_world_scale &&
-             data.maximum.y == 3 * g_world_scale));
-    REQUIRE(
-        (data.m_pVertices[1].x == 3 * g_world_scale && data.m_pVertices[2].z == 3 * g_world_scale));
+    REQUIRE((data.minimum.x == 2 * kWorldScale && data.maximum.x == 3 * kWorldScale &&
+             data.maximum.y == 3 * kWorldScale));
+    REQUIRE((data.m_pVertices[1].x == 3 * kWorldScale && data.m_pVertices[2].z == 3 * kWorldScale));
     REQUIRE((load("secondary.wgd", 1)));
     REQUIRE((data.VerticesCount() == 6 && data.SurfacesCount() == 2));
     REQUIRE((data.FindPointerByName("Door") == 1 && data.StatesCount() == 2));

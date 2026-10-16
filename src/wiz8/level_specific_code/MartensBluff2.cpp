@@ -31,7 +31,7 @@
 #include "wiz8/engine_code/stParticle.h"
 #include "wiz8/engine_code/stSound3D.h"
 #include "wiz8/fact_state.h"
-#include "wiz8/float_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -480,13 +480,13 @@ void MartensBluff2MonsterCrusher(int command)
             crusher_upper = crusher_bounds->maximum;
             lower = other_bounds->minimum;
             upper = other_bounds->maximum;
-            crusher_lower.y -= g_world_scale;
+            crusher_lower.y -= kWorldScale;
             crusher_upper.x = upper.x;
             g_crusher_excluded = 0;
             g_crusher_excluded_flag = false;
-            centre = glm::vec3((crusher_lower.x + crusher_upper.x) * g_double_half,
-                               (crusher_lower.y + crusher_upper.y) * g_double_half,
-                               (crusher_lower.z + crusher_upper.z) * g_double_half);
+            centre = glm::vec3((crusher_lower.x + crusher_upper.x) * 0.5,
+                               (crusher_lower.y + crusher_upper.y) * 0.5,
+                               (crusher_lower.z + crusher_upper.z) * 0.5);
             if (command != 2) {
                 g_crusher_sound =
                     CreateAndPlaySoundNode("Data\\Sound\\Ambients\\Hydraulics Squisher Loop.wav",

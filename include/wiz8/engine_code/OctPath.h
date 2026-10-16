@@ -133,7 +133,7 @@ struct W8PathSurface {
     /* Monotonic visit stamp: patrol selection picks the smallest value, and
        both mover paths write elapsed game time as each waypoint is consumed. */
     unsigned int visit_stamp;
-    /* A* heuristic: distance to the goal scaled by g_path_heuristic_scale, cached by
+    /* A* heuristic: distance to the goal scaled by kPathHeuristicScale, cached by
        FindPath while the surface is open. */
     float heuristic;
     float path_cost;
@@ -470,9 +470,6 @@ void StepPathCell(int* x, int* z, int direction);
 extern W8PathingService* g_pathing;
 extern unsigned short g_path_reserve;
 extern const float g_path_span_scale;
-extern const double g_double_one_tenth;
-/* The -1.0 no-route sentinel MeasurePathDistance returns. */
-extern const double g_double_negative_one;
 /* 0x005ED300: OctPrePath.cpp's vertical-link slack; retail Combat.cpp reads
    it directly when sizing a monster's move. */
 extern const float g_prepath_link_height;

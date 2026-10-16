@@ -92,9 +92,8 @@
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/engine_code/stTextureAnim.h" // IWYU pragma: keep - complete animation type used through the owned pointer.
 #include "wiz8/filesystem.h"
-#include "wiz8/float_constants.h"
 #include "wiz8/fonts.h"
-#include "wiz8/integer_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
@@ -266,10 +265,6 @@ static char g_trap_sprung_sound[] = "Data\\Sound\\Misc\\Trap Sprung.wav";
 // GLOBAL: WIZ8 0x006480b8
 static char g_text_enter_default_level[] = "Enter default level ?";
 
-// GLOBAL: WIZ8 0x005ec258
-const float g_float_one_fiftieth = 0.019999999552965164f;
-// GLOBAL: WIZ8 0x005ec25c
-const float g_float_half_turn_degrees = 180.0f;
 // GLOBAL: WIZ8 0x005ee998
 const float g_mouselook_yaw_scale = 0.004908738192170858f;
 // GLOBAL: WIZ8 0x005ee99c
@@ -345,7 +340,7 @@ void CancelMouselook()
 static void QueueInteractionNotice(int event_type)
 {
     W8CharacterEvent* event = ApplyItemEffectToRandomCharacter(
-        event_type, -1, g_character_event_no_preempt, g_character_event_no_flags);
+        event_type, -1, kCharacterEventNoPreempt, kCharacterEventNoFlags);
     if (event != 0) {
         event->DelayDispatch(600);
     }
@@ -839,7 +834,7 @@ void W8LockInteraction::Process()
     int i;
     int dropped;
 
-    if (m_state == 8 && m_timer.GetProgress() >= g_float_one) {
+    if (m_state == 8 && m_timer.GetProgress() >= 1.0f) {
         m_trigger->CompleteItemInteraction();
         m_trigger->Run(-1);
         m_state = 9;
@@ -1639,7 +1634,7 @@ void W8MainGameScreen::SelectTextEntry(int index)
 
     m_selected_character = slot;
     skill = GetPartySlotLocksTrapsLevel(slot);
-    hold = g_navigator_linked_radius_scale - skill * g_float_one_fiftieth;
+    hold = g_navigator_linked_radius_scale - skill * 0.02f;
     chance = m_difficulty;
     if (chance < 0) {
         chance = 0;
@@ -1657,7 +1652,7 @@ void W8MainGameScreen::SelectTextEntry(int index)
     }
     if (GetTable650434Entry(m_device_id, index) == 0) {
         m_disarm_state = 4;
-        duration = (Random(0x18) + 0x32) * g_movement_speed_step;
+        duration = (Random(0x18) + 0x32) * kMovementSpeedStep;
     } else {
         roll = static_cast<int>(Random(0x64));
         if (roll < (chance * chance) / 100) {
@@ -1666,7 +1661,7 @@ void W8MainGameScreen::SelectTextEntry(int index)
             duration = 1.0f;
         } else {
             m_disarm_state = 4;
-            duration = (Random(0x31) + 0x32) * g_movement_speed_step;
+            duration = (Random(0x31) + 0x32) * kMovementSpeedStep;
         }
     }
     m_action_controls[1]->SetEnabled(false);
@@ -1731,7 +1726,7 @@ void W8MainGameScreen::OnPrimary(int action)
     slot = g_status.selected_character;
     m_selected_character = slot;
     skill = GetPartySlotLocksTrapsLevel(slot);
-    hold = g_float_six - skill * g_camera_snap_epsilon;
+    hold = 6.0f - skill * kCameraSnapEpsilon;
     chance = GetTrapInteractionChance();
     roll = static_cast<int>(Random(0x64));
     if (roll < chance) {
@@ -1739,7 +1734,7 @@ void W8MainGameScreen::OnPrimary(int action)
         duration = 1.0f;
     } else {
         m_disarm_state = 4;
-        duration = (Random(0x18) + 0x4b) * g_movement_speed_step;
+        duration = (Random(0x18) + 0x4b) * kMovementSpeedStep;
     }
     m_action_controls[1]->SetEnabled(false);
     m_action_controls[2]->SetEnabled(false);
@@ -1757,8 +1752,7 @@ void W8MainGameScreen::Update()
     int elapsed;
     float progress;
 
-    if (m_disarm_state == 9 && m_timer.GetProgress() >= g_float_one &&
-        PartyPortraitEventsIdle() != 0) {
+    if (m_disarm_state == 9 && m_timer.GetProgress() >= 1.0f && PartyPortraitEventsIdle() != 0) {
         m_owner->Run(-1);
         m_disarm_state = 10;
     }
@@ -1841,7 +1835,7 @@ void W8MainGameScreen::Update()
         return;
     case 7:
     case 8:
-        if (m_timer.GetProgress() >= g_float_one) {
+        if (m_timer.GetProgress() >= 1.0f) {
             m_disarm_state = (m_disarm_state != 7) + 3;
         }
         break;
@@ -2041,7 +2035,7 @@ int OpenTrapInteraction(Trigger* trigger)
     if (trigger->lock_state.last_interaction_clock == -1 ||
         0x3840 < static_cast<unsigned int>(g_status.world_clock -
                                            trigger->lock_state.last_interaction_clock)) {
-        event_type = g_effect15;
+        event_type = 0x19;
         if (0x13 < Random(100)) {
             event_type = g_trap_notice_event;
         }
@@ -3572,8 +3566,8 @@ void SelectPartyCharacter(int party_slot)
         return;
     }
     if (!gXStatus.fCombatMode) {
-        QueueCharacterEvent(character, g_special_event17, 0, g_character_event_no_flags,
-                            g_character_event_full_volume);
+        QueueCharacterEvent(character, g_special_event17, 0, kCharacterEventNoFlags,
+                            kCharacterEventFullVolume);
     }
     if (g_status.selected_character != -1) {
         RequestPartySlotRedraw(g_status.selected_character);
@@ -4868,9 +4862,8 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                                     StartBreathCycle(g_status.selected_character, false);
                                 } else if (front_rank) {
                                     QueueCharacterEvent(
-                                        &g_status.buffers.Char[g_status.selected_character],
-                                        g_character_event_kind2, 0, g_character_event_no_flags,
-                                        g_character_event_full_volume);
+                                        &g_status.buffers.Char[g_status.selected_character], 0x35,
+                                        0, kCharacterEventNoFlags, kCharacterEventFullVolume);
                                     ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x7dc]);
                                 } else {
                                     AimAtCharacter(g_status.selected_character, slot,
@@ -4882,9 +4875,8 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                             }
                         } else {
                             QueueCharacterEvent(&g_status.buffers.Char[g_status.selected_character],
-                                                g_character_event_kind2, 0,
-                                                g_character_event_no_flags,
-                                                g_character_event_full_volume);
+                                                0x35, 0, kCharacterEventNoFlags,
+                                                kCharacterEventFullVolume);
                         }
                     } else if (!g_status.item_in_cursor ||
                                gXStatus.iCurrentCursor != W8_CURSOR_INVALID_TARGET ||
@@ -5851,9 +5843,9 @@ static void ApplyPendingMouselook(void)
     if (elapsed > 9 && elapsed < 0x33) {
         scale = (elapsed / 10) * g_generator_jitter_fraction;
     } else if (elapsed > 9) {
-        scale = g_float_one;
+        scale = 1.0f;
     }
-    if (g_mouselook_pending_pitch == g_float_zero && g_mouselook_pending_yaw == g_float_zero) {
+    if (g_mouselook_pending_pitch == 0.0f && g_mouselook_pending_yaw == 0.0f) {
         return;
     }
     if (g_settings.mouselook_smoothing == 0) {
@@ -6576,10 +6568,10 @@ void OpenAssayDialog(W8ItemInstance* item, int character_slot)
         g_pending_main_game_dialog = std::move(g_modal_owner);
     }
     if (character_slot != -1) {
-        dialog = new W8AssayDialog(item, &g_status.buffers.Char[character_slot],
-                                   {g_info_dialog_x, 0x48});
+        dialog =
+            new W8AssayDialog(item, &g_status.buffers.Char[character_slot], {kInfoDialogX, 0x48});
     } else {
-        dialog = new W8AssayDialog(item, 0, {g_info_dialog_x, 0x48});
+        dialog = new W8AssayDialog(item, 0, {kInfoDialogX, 0x48});
     }
     dialog->SetText("");
 
@@ -6746,8 +6738,8 @@ void ConfirmNpcTradeItem(void)
             npc = GetNpcState(npc_kind);
             if (npc != 0 && g_npc_interaction_state->trade_item != 0 &&
                 NpcWantsItem(npc, g_npc_interaction_state->trade_item)) {
-                QueueCharacterEvent(&g_status.buffers.Char[selected], g_effect36, 0,
-                                    g_effect_argument0, g_character_event_full_volume);
+                QueueCharacterEvent(&g_status.buffers.Char[selected], 109, 0, 1,
+                                    kCharacterEventFullVolume);
                 return;
             }
         }
@@ -7046,18 +7038,18 @@ void OpenNpcTradeQuantityDialog(void)
         return;
     }
     if (g_npc_interaction_state->trade_mode == W8_NPC_TRADE_SELL) {
-        dialog = new W8SplitItemDialog(g_item_split_sell_mode, g_npc_interaction_state->trade_item,
+        dialog = new W8SplitItemDialog(W8_ITEM_SPLIT_SELL, g_npc_interaction_state->trade_item,
                                        g_npc_interaction_state->trade_quantity,
-                                       {g_split_dialog_x, g_split_dialog_y});
+                                       {kSplitDialogX, kSplitDialogY});
     } else if (g_npc_interaction_state->trade_mode == W8_NPC_TRADE_BUY ||
                g_npc_interaction_state->trade_mode == W8_NPC_TRADE_SHOPLIFT) {
-        dialog = new W8SplitItemDialog(g_item_split_buy_mode, g_npc_interaction_state->trade_item,
+        dialog = new W8SplitItemDialog(W8_ITEM_SPLIT_BUY, g_npc_interaction_state->trade_item,
                                        g_npc_interaction_state->trade_quantity,
-                                       {g_split_dialog_x, g_split_dialog_y});
+                                       {kSplitDialogX, kSplitDialogY});
     } else {
-        dialog = new W8SplitItemDialog(
-            g_item_split_inventory_mode, g_npc_interaction_state->trade_item,
-            g_npc_interaction_state->trade_quantity, {g_split_dialog_x, g_split_dialog_y});
+        dialog = new W8SplitItemDialog(W8_ITEM_SPLIT_INVENTORY, g_npc_interaction_state->trade_item,
+                                       g_npc_interaction_state->trade_quantity,
+                                       {kSplitDialogX, kSplitDialogY});
     }
     dialog->SetText("");
 
@@ -7299,7 +7291,7 @@ void ReverseSurpriseFade(void)
         g_surprise_fade_in = !g_surprise_fade_in;
         if (g_surprise_fade_in) {
             g_surprise_fade_tick_base =
-                now + static_cast<int>((g_float_one - opacity) * g_fade_resume_scale);
+                now + static_cast<int>((1.0f - opacity) * g_fade_resume_scale);
         } else {
             g_surprise_fade_tick_base = now + static_cast<int>(opacity * g_fade_resume_scale);
         }
@@ -7337,9 +7329,9 @@ unsigned char UpdateSurpriseFade(void)
             g_surprise_fade_tick_base = now;
         }
     } else {
-        opacity = (now - g_surprise_fade_tick_base) * g_float_one_five_hundredth;
+        opacity = (now - g_surprise_fade_tick_base) * 0.002f;
         if (!g_surprise_fade_in) {
-            opacity = g_float_one - opacity;
+            opacity = 1.0f - opacity;
         }
     }
 

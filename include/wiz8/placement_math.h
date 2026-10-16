@@ -5,7 +5,9 @@
 
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
-#include "wiz8/float_constants.h"
+#include "wiz8/gameplay_constants.h"
+
+inline constexpr double kNavigatorVerticalSnapLimit = 5000.0;
 
 namespace wiz8::placement {
 // Grid coordinates are forward and lateral distances measured in cells.
@@ -24,7 +26,7 @@ struct Grid {
     glm::vec3 candidate(const glm::vec3& source, const glm::vec2& cell) const
     {
         const auto offset = forward * cell.x + lateral * cell.y;
-        return {source.x + offset.x, source.y + g_world_scale, source.z + offset.y};
+        return {source.x + offset.x, source.y + kWorldScale, source.z + offset.y};
     }
 };
 
@@ -32,8 +34,8 @@ inline std::optional<glm::vec3> grounded(const glm::vec3& candidate, float groun
                                          bool allow_large_drop)
 {
     const float height = std::abs(candidate.y - ground);
-    if (!(height >= 1 && height <= g_navigator_vertical_snap_limit &&
-          (allow_large_drop || height <= g_double_twenty_five_hundred)))
+    if (!(height >= 1 && height <= kNavigatorVerticalSnapLimit &&
+          (allow_large_drop || height <= 2500.0)))
         return std::nullopt;
     return glm::vec3(candidate.x, ground, candidate.z);
 }

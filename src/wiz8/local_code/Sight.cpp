@@ -27,9 +27,8 @@
 #include "wiz8/engine_code/PolyPick.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/fact_state.h"
-#include "wiz8/float_constants.h"
 #include "wiz8/fonts.h"
-#include "wiz8/integer_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -200,16 +199,16 @@ float ComputeSightThreshold(glm::vec3 observer_position, glm::vec3 target_positi
     world = GetWorld();
     far_clip = WorldGetFarClip(world);
     viewing_distance = static_cast<float>(far_clip);
-    if (viewing_distance <= g_float_zero) {
+    if (viewing_distance <= 0.0f) {
         srAssertFail("flViewingDistance > 0", SIGHT_CPP, 0x30c, 0);
     }
     heading = GetHeadingAngle(&observer_position, &target_position);
     angle_delta = ShortestAngleDistance(observer_yaw, heading);
     if (blinded && !extended_sight_active) {
-        return g_float_zero;
+        return 0.0f;
     }
     if (angle_delta < static_cast<float>(g_monster_facing_tolerance) || sight_override != 0 ||
-        skip_field_of_view != 0 || distance == g_float_zero) {
+        skip_field_of_view != 0 || distance == 0.0f) {
         sight_percent = 100;
     } else {
         float sight_factor =
@@ -229,7 +228,7 @@ float ComputeSightThreshold(glm::vec3 observer_position, glm::vec3 target_positi
         sight_percent = (static_cast<int>(ranged_bonus) + 100) * sight_percent / 100;
     }
     ClampInteger(&sight_percent, 2, 100);
-    return sight_percent * viewing_distance * g_movement_speed_step;
+    return sight_percent * viewing_distance * kMovementSpeedStep;
 }
 
 /* Drop every visibility record anyone held about one departing monster. */
@@ -405,7 +404,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
         return;
     }
     viewing_distance = static_cast<float>(WorldGetFarClip(GetWorld()));
-    if (viewing_distance <= g_float_zero) {
+    if (viewing_distance <= 0.0f) {
         srAssertFail("flViewingDistance > 0", SIGHT_CPP, 0x5e, 0);
     }
     record = GetMonsterDataForInfo(monster_info);
@@ -698,14 +697,14 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                 int party_slot = GetRandomCharacter(0, 0, -1, -1);
 
                                 if (party_slot != -1) {
-                                    int effect = g_sight_effect2;
+                                    int effect = 0x43;
 
                                     if (Random(2) == 0) {
-                                        effect = g_sight_effect3;
+                                        effect = 0x44;
                                     }
                                     W8CharacterEvent* notice = QueueCharacterEvent(
                                         &g_status.buffers.Char[party_slot], effect, 0,
-                                        g_character_event_no_flags, g_character_event_full_volume);
+                                        kCharacterEventNoFlags, kCharacterEventFullVolume);
 
                                     if (notice != 0) {
                                         notice->DelayDispatch(0x5dc);
@@ -727,16 +726,15 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                     int party_slot = GetRandomCharacter(0, 0, -1, -1);
 
                                     if (party_slot != -1) {
-                                        int effect = g_sight_effect0;
+                                        int effect = 0x26;
 
                                         if (npc->name_style == W8_NPC_VI_DOMINA &&
                                             GetFact(W8_FACT_PARTY_MET_VI) != 0) {
-                                            effect = g_sight_effect1;
+                                            effect = 0x39;
                                         }
                                         W8CharacterEvent* notice = QueueCharacterEvent(
                                             &g_status.buffers.Char[party_slot], effect, 0,
-                                            g_character_event_no_flags,
-                                            g_character_event_full_volume);
+                                            kCharacterEventNoFlags, kCharacterEventFullVolume);
 
                                         if (notice != 0) {
                                             notice->DelayDispatch(0x5dc);

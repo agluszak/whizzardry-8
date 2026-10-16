@@ -19,7 +19,7 @@
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/float_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/retail_text_records.h"
 
 #define ANIM_OBJ_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\AnimObj.cpp"
@@ -103,8 +103,8 @@ try {
         for (auto& bounds : animation->frame_bounds) {
             wiz8::retail::read_exact(*handle, bounds.minimum);
             wiz8::retail::read_exact(*handle, bounds.maximum);
-            bounds.minimum *= static_cast<float>(g_double_five_hundred);
-            bounds.maximum *= static_cast<float>(g_double_five_hundred);
+            bounds.minimum *= static_cast<float>(500.0);
+            bounds.maximum *= static_cast<float>(500.0);
             bounds.known = true;
         }
     }
@@ -127,7 +127,7 @@ try {
             wiz8::retail::read_exact(*handle, color);
             handle->read_exact(&intensity, 4);
             handle->read_exact(&range, 4);
-            position *= static_cast<float>(g_double_five_hundred);
+            position *= static_cast<float>(500.0);
             if (light_version < 3) {
                 definition_kind = light_version == 2 ? 1 : 0;
             } else {
@@ -192,7 +192,7 @@ try {
                 auto light = CreateLight(nullptr, "MonsterLight");
                 light->diffuse = color;
                 light->specular = glm::vec3(0);
-                ConfigureWorldLight(light.get(), range * g_world_scale);
+                ConfigureWorldLight(light.get(), range * kWorldScale);
                 light->intensity = intensity;
                 light->setLocation(position.x, position.y, position.z);
                 light->m_position = position;

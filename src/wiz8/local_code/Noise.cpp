@@ -8,7 +8,6 @@
 #include "glm/ext/vector_float3.hpp"
 #include "local_code/Factions.h"
 #include "random.h"
-#include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/layouts/game_status.h"
@@ -55,8 +54,8 @@ void AlertMonsterGroupsToNoise(const glm::vec3* position, int radius, int flag)
         if (remaining <= 0) {
             continue;
         }
-        if (Random(100) >= remaining * g_float_one_thousandth +
-                               record->attribute_values[W8_MONSTER_ATTRIBUTE_SENSES]) {
+        if (Random(100) >=
+            remaining * 0.001f + record->attribute_values[W8_MONSTER_ATTRIBUTE_SENSES]) {
             continue;
         }
         if (group->leader_group_id != 0) {

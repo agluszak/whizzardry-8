@@ -55,7 +55,7 @@
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/engine_code/stSound3D.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/float_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -277,7 +277,7 @@ void W8SpellVisual::UpdateRepresentation(W8World* world)
             const auto monster_position = monster->GetPosition();
             if (const auto bounds = monster->GetAnimationBounds()) {
                 position = monster_position;
-                position.y += (bounds->maximum.y - bounds->minimum.y) * g_float_half;
+                position.y += (bounds->maximum.y - bounds->minimum.y) * 0.5f;
                 SetCyclePosition(&position);
             }
         }
@@ -498,7 +498,7 @@ bool LoadSpellVisualResource(const W8GrCycleLoadContext* context, const char* na
                     sscanf(line, "%s %s %d %f %f %f", pac_command, pac_name, &frame, &intensity,
                            &duration, &distance);
                     index = FindSpellCycleByName(pac_name);
-                    ShakeDefinition effect(duration, true, intensity, distance * g_world_scale, 0);
+                    ShakeDefinition effect(duration, true, intensity, distance * kWorldScale, 0);
                     effect.cycle = index;
                     effect.frame = frame;
                     effect.subcycle = 0;
@@ -751,14 +751,14 @@ W8SpellVisual* CreateMonsterSpellEffect(std::string_view mls_name, int power_lev
         visual->host->billboard = true;
         visual->location_id = monster->location_id;
         position = monster->GetPosition();
-        position.y += (maximum.y - minimum.y) * g_float_half;
+        position.y += (maximum.y - minimum.y) * 0.5f;
         visual->SetCyclePosition(&position);
         height = maximum.y - minimum.y;
         width = maximum.x - minimum.x;
         if (height <= width) {
             height = width;
         }
-        visual->scale0 = height * g_float_one_thousandth;
+        visual->scale0 = height * 0.001f;
     }
     return visual;
 }
@@ -794,7 +794,7 @@ W8SpellVisual* CreateAttachedSpellEffect(std::string_view mls_name, int power_le
             if (height <= width) {
                 height = width;
             }
-            visual->scale0 = height * g_float_one_thousandth;
+            visual->scale0 = height * 0.001f;
             if (!parent->GetSpellPosition(&position)) {
                 parent->GetMappedPosition(&position);
             }
@@ -1032,8 +1032,8 @@ wiz8::sound::PlayOptions stSound3D::BuildSoundOptions(const glm::vec3& listener)
     const glm::vec3 node_position = glm::vec3(getLocation());
     const glm::vec3 offset = node_position - listener;
     const glm::vec3 listener_offset = listener - node_position;
-    return {.volume = static_cast<unsigned int>(
-                (g_float_one - glm::length(listener_offset) / falloff) * scaled_volume),
+    return {.volume = static_cast<unsigned int>((1.0f - glm::length(listener_offset) / falloff) *
+                                                scaled_volume),
             .position = rotation * offset};
 }
 
@@ -1096,10 +1096,9 @@ void Update3DSounds()
                         transformed = rotation * offset;
                         wiz8::sound::set_position(sound->sound_handle, transformed);
                         volume = (sound->volume * g_settings.sound_effects_volume) / 0x7f;
-                        wiz8::sound::set_volume(
-                            sound->sound_handle,
-                            static_cast<std::uint32_t>((g_float_one - distance / sound->falloff) *
-                                                       volume));
+                        wiz8::sound::set_volume(sound->sound_handle,
+                                                static_cast<std::uint32_t>(
+                                                    (1.0f - distance / sound->falloff) * volume));
                     }
                 }
             }

@@ -40,10 +40,9 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/fact_state.h"
-#include "wiz8/float_constants.h"
 #include "wiz8/fonts.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/gameplay_modifiers.h"
-#include "wiz8/integer_constants.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
@@ -79,12 +78,9 @@
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 
+constexpr float kCameraShakeIntensityBase = 0.7900000214576721f;
+
 #define MAGIC_EFFECTS_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Magic Effects.cpp"
-
-/* The duration that means "for good". */
-
-// GLOBAL: WIZ8 0x005ee838
-const float g_camera_shake_intensity_base = 0.7900000214576721f;
 
 /* Eight bytes per effect id. The leading dword is the icon the
    party and combat HUD strips show for the effect (-1 means none); the second
@@ -1657,9 +1653,8 @@ char TryCureConditionOnTargets(W8SpellEffectEntry* effect, W8Condition condition
                         }
                     }
                     if (Random(100) < 0x32) {
-                        QueueCharacterEvent(character, g_special_event14, 0,
-                                            g_character_event_no_flags,
-                                            g_character_event_full_volume);
+                        QueueCharacterEvent(character, g_special_event14, 0, kCharacterEventNoFlags,
+                                            kCharacterEventFullVolume);
                     }
                 } else {
                     all_cured = false;
@@ -2373,7 +2368,7 @@ void ApplyMonsterControlToNearbyMonsters(W8SpellEffectEntry* effect)
 
     far_clip = static_cast<float>(WorldGetFarClip(GetWorld()));
     center = effect->target.point;
-    center.y += g_default_world_height * g_float_half;
+    center.y += g_default_world_height * 0.5f;
     lower = glm::vec3(center.x - far_clip, center.y - far_clip, center.z - far_clip);
     upper = glm::vec3(center.x + far_clip, center.y + far_clip, center.z + far_clip);
 
@@ -3386,8 +3381,8 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
         point = effect->Source.point;
         level = effect->definition.duration_scale;
         {
-            ShakeDefinition shake(level * g_navigator_vertical_phase_step + g_float_half, true,
-                                  level * g_navigator_snap_angle + g_camera_shake_intensity_base,
+            ShakeDefinition shake(level * g_navigator_vertical_phase_step + 0.5f, true,
+                                  level * g_navigator_snap_angle + kCameraShakeIntensityBase,
                                   50000.0f, &point);
             shake.quadratic_falloff = false;
             shake.fade_out = false;

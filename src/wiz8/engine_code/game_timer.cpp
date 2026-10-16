@@ -7,7 +7,6 @@
 #include "wiz8/compat/native.h"
 #include "wiz8/engine_code/GameTimeAccumulator.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/float_constants.h"
 
 std::uint32_t GameClockTicks()
 {
@@ -30,9 +29,6 @@ bool g_shared_timer_paused;
 bool g_shared_timer_flag0;
 // GLOBAL: WIZ8 0x006598D2
 bool g_level_motion_resume_pending;
-
-// GLOBAL: WIZ8 0x005ec0a8
-const float g_float_ten_thousand = 10000.0f;
 
 // FUNCTION: WIZ8 0x00439bc0
 void PauseSharedGameTimers(void)
@@ -59,7 +55,7 @@ void ResumeSharedGameTimers(void)
     if (timer != 0) {
         timer->m_flags.paused = false;
         int sample = timer->ReadClock();
-        float duration = timer->m_duration_scale * timer->m_duration_seconds * g_float_ten_thousand;
+        float duration = timer->m_duration_scale * timer->m_duration_seconds * 1e+04f;
         int start = sample - timer->m_start;
         timer->m_start = start;
         timer->m_duration = static_cast<int>(duration);

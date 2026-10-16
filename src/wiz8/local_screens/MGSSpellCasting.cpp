@@ -30,7 +30,7 @@
 #include "wiz8/engine_code/Cursor3d.h"
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/fonts.h"
-#include "wiz8/integer_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -1015,10 +1015,9 @@ static void SelectSpellCastingListRow(int index)
         gpSCSV->uiSpellIndex = -1;
         ConfigureSpellTargetFilter(W8_TARGET_TYPE_NONE, W8_TARGET_NEED_NONE);
         ShowSpellCastingError(spell_id);
-        QueueCharacterEvent(&g_status.buffers.Char[g_status.selected_character],
-                            g_character_event_kind2, 0,
-                            g_character_event_flags_mask | g_character_event_no_flags,
-                            g_character_event_full_volume);
+        QueueCharacterEvent(&g_status.buffers.Char[g_status.selected_character], 0x35, 0,
+                            kCharacterEventFlagsMask | kCharacterEventNoFlags,
+                            kCharacterEventFullVolume);
         return;
     }
     SetSpellListLineColor(gpSCSV->uiSpellIndex, 3);

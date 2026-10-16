@@ -11,7 +11,6 @@
 #include "surrender/srRendererDefs.h"
 #include "surrender/srShader.h"
 #include "surrender/srTexture.h"
-#include "wiz8/float_constants.h"
 
 // FUNCTION: WIZ8 0x0047DAE0
 stSurface2D::stSurface2D(std::shared_ptr<SDL_Surface> source, int source_width, int source_height,
@@ -130,7 +129,7 @@ void stSurface2D::DrawTiles(srGERD* renderer)
 // FUNCTION: WIZ8 0x0047E560
 void stSurface2D::setScale(float new_scale)
 {
-    float factor = g_float_one / tile_size;
+    float factor = 1.0f / tile_size;
     float delta = (new_scale - scale) * factor;
 
     for (auto& texture_coordinate : texture_coordinates) {

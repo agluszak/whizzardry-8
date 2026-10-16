@@ -13,7 +13,7 @@
 #include "layouts/item_instance.h"
 #include "local_code/ConditionsAndEnchantments.h"
 #include "random.h"
-#include "wiz8/float_constants.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -244,7 +244,7 @@ static float ScaleValueByLevel(unsigned int level, float base)
         return base;
     }
     float scaled = (level * 2.0f + 60.0f) * base;
-    return scaled * g_movement_speed_step;
+    return scaled * kMovementSpeedStep;
 }
 
 /* Scale a trait's flat value by the character's level in their current
@@ -274,19 +274,18 @@ void CheatDeathRevive(int party_slot)
     W8Character* character = &g_status.buffers.Char[party_slot];
 
     PostCharacterNotice(party_slot, g_localized_strings[0x173]);
-    SetCharacterCondition(party_slot, W8_CONDITION_UNCONSCIOUS,
-                          character->uiCondition[W8_CONDITION_UNCONSCIOUS] -
-                              static_cast<int>(ScaleValueByProfessionLevel(
-                                  character, W8_TRAIT_CHEAT_DEATH, g_float_five)) +
-                              7,
-                          0, 0, 1);
+    SetCharacterCondition(
+        party_slot, W8_CONDITION_UNCONSCIOUS,
+        character->uiCondition[W8_CONDITION_UNCONSCIOUS] -
+            static_cast<int>(ScaleValueByProfessionLevel(character, W8_TRAIT_CHEAT_DEATH, 5.0f)) +
+            7,
+        0, 0, 1);
     if (g_combat_state != 0 && !g_combat_state->characters[party_slot].cheat_death_used) {
-        character->hp_current =
-            (Random(static_cast<unsigned int>(ScaleValueByProfessionLevel(
-                 character, W8_TRAIT_CHEAT_DEATH,
-                 static_cast<unsigned int>(character->uiHPMax) * g_float_half))) +
-             0x32) *
-            character->uiHPMax / 100;
+        character->hp_current = (Random(static_cast<unsigned int>(ScaleValueByProfessionLevel(
+                                     character, W8_TRAIT_CHEAT_DEATH,
+                                     static_cast<unsigned int>(character->uiHPMax) * 0.5f))) +
+                                 0x32) *
+                                character->uiHPMax / 100;
         g_combat_state->characters[party_slot].cheat_death_used = true;
     } else {
         character->hp_current = Random(static_cast<unsigned int>(ScaleValueByProfessionLevel(
