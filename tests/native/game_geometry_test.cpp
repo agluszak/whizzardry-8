@@ -1251,8 +1251,7 @@ TEST_CASE_METHOD(SurRenderTestFixture, "Animation bounds retain composite cachin
         mesh->frame_count = 1;
         mesh->bounds_minimum = index == 0 ? glm::vec3(-1, -2, -3) : glm::vec3(-4, -1, -2);
         mesh->bounds_maximum = index == 0 ? glm::vec3(4, 5, 6) : glm::vec3(2, 8, 3);
-        mesh->meshes.push_back(
-            std::make_unique<stModelInstance>(nullptr, srNode::Ownership::independent));
+        mesh->meshes.push_back(std::make_unique<stModelInstance>(nullptr));
         animation.meshes[0].push_back(std::move(mesh));
         auto path = std::make_unique<W8PathAI>();
         PathAIAddPoint(*path, glm::vec3(100, 200, 300));
@@ -2396,7 +2395,7 @@ TEST_CASE_METHOD(SurRenderTestFixture,
     stModelInstance instance(nullptr);
     instance.setModel(model);
     instance.highlight_colour = {1, 0, 0, 1};
-    srNode termination(&instance, srNode::Ownership::independent);
+    srNode termination(&instance);
     termination.setFlag(srNode::FLAG_TERMINATE);
     const glm::vec4 ambient(0.2f, 0.3f, 0.4f, 1);
     renderer.setAmbientLight(ambient);
@@ -2463,7 +2462,7 @@ TEST_CASE_METHOD(SurRenderTestFixture,
                  "[geometry][rendering]")
 {
     struct Child : srNode {
-        explicit Child(srNode& parent) : srNode(&parent, Ownership::independent) {}
+        explicit Child(srNode& parent) : srNode(&parent) {}
         bool visited = false;
         glm::mat4 view{0};
         void traverse(TraverseInfo& info) override
@@ -2956,11 +2955,11 @@ TEST_CASE_METHOD(SurRenderTestFixture,
         std::vector<stLight*> lights = g_environment_lights;
         ~RestoreLights() { g_environment_lights = lights; }
     } restore;
-    srScene scene;
     stLight light(nullptr);
     g_environment_lights = {&light};
     W8World world{};
-    world.static_scene = &scene;
+    world.static_scene = std::make_unique<srScene>();
+    auto& scene = *world.static_scene;
     const glm::vec3 colour(-0.5f, 0.5f, 2.0f);
     ApplyEnvironmentColour(&world, 0.75f, &colour);
     REQUIRE(scene.getAmbientLight() == glm::vec3(0, 0.375f, 1));

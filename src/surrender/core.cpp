@@ -13,8 +13,6 @@
 #include "surrender/srCore.h"
 #include "surrender/srDebug.h"
 #include "surrender/srMaterial.h"
-#include "surrender/srNode.h"
-#include "surrender/srScene.h"
 #include "surrender/srStatisticsManager.h"
 #include "surrender/srTexture.h"
 #include "surrender/srTextureMap.h"
@@ -54,8 +52,6 @@ int srInit()
         }
         if (!SDL_SetPaletteColors(srCore.palette.get(), colors.data(), 0, colors.size()))
             throw std::runtime_error(SDL_GetError());
-        srCore.root_node = std::make_unique<srScene>(nullptr);
-        srCore.root_node->setName("SurRender root node");
         srCore.material = std::make_unique<srMaterial>();
         srCore.material->setName("SurRender default material");
         srCore.surface = std::shared_ptr<SDL_Surface>(
@@ -85,7 +81,6 @@ int srCore::isInitialized() const
 int srExit()
 {
     if (srCore.initialized != 0) {
-        srCore.root_node.reset();
         srCore.texture.reset();
         srCore.surface.reset();
         srCore.palette.reset();
@@ -112,12 +107,6 @@ std::shared_ptr<SDL_Palette> srCore::getPalette() const
     return palette;
 }
 
-// FUNCTION: SURRENDER 0x10015B00
-srNode* srCore::getRootNode() const
-{
-    return root_node.get();
-}
-
 // FUNCTION: SURRENDER 0x10015A60
 srTexture* srCore::getTexture() const
 {
@@ -139,7 +128,6 @@ void srCore::reset()
 {
     texture.reset();
     surface.reset();
-    root_node.reset();
     palette.reset();
 }
 // GLOBAL: SURRENDER 0x100A4778

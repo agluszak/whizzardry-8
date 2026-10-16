@@ -152,14 +152,15 @@ TEST_CASE("imports_test")
     {
         const int before_destruction = destroyed_nodes;
         srScene* scene = new srScene;
-        auto child = new ClientNode;
+        auto* child = scene->adoptChild(std::make_unique<ClientNode>());
         child->setParent(scene, 0);
         REQUIRE(scene->getChildCount() == 1);
         delete scene;
         REQUIRE(destroyed_nodes == before_destruction + 1);
 
         auto parent_node = new ClientNode;
-        auto transformed_child = new ClientNode;
+        auto transformed_owner = std::make_unique<ClientNode>();
+        auto* transformed_child = transformed_owner.get();
         transformed_child->setParent(parent_node, 0);
         REQUIRE(transformed_child->getWorldSpaceLocation().x == 0);
         REQUIRE((!parent_node->transformDirty() && !transformed_child->transformDirty()));
@@ -255,9 +256,10 @@ TEST_CASE("imports_test")
         // Copied lights must own independent registry entries and scene links.
         auto parent = new ClientNode;
         auto original = new srLight(parent);
-        auto sibling = new srLight(parent);
-        auto clone = new srLight(*original);
-        REQUIRE(clone->getParent() != parent);
+        auto* sibling = parent->adoptChild(std::make_unique<srLight>());
+        auto copied = std::make_unique<srLight>(*original);
+        REQUIRE(copied->getParent() == nullptr);
+        auto* clone = parent->adoptChild(std::move(copied));
         clone->setParent(parent, 0);
         delete original;
         REQUIRE((parent->getChildCount() == 2 && clone->getParent() == parent &&

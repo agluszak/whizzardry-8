@@ -31,7 +31,6 @@
 #include "random.h"
 #include "surrender/srBoundingBox.h"
 #include "surrender/srClock.h"
-#include "surrender/srCore.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
 #include "wiz8/containers.h"
@@ -333,8 +332,7 @@ try {
     if (has_particles != 0) {
         std::vector<std::unique_ptr<stParticle>> particles;
 
-        success = ReadWorldParticles(info, g_world->dynamic_scene, &particles,
-                                     srNode::Ownership::independent);
+        success = ReadWorldParticles(info, g_world->dynamic_scene, &particles);
         if (!particles.empty()) {
             int index;
 
@@ -433,7 +431,7 @@ W8GrCycle::W8GrCycle(const W8GrCycle& other) : W8GrObject(other), W8Navigator(ot
             float x = source_light->positionalX();
             float y = source_light->positionalY();
             float z = source_light->positionalZ();
-            auto owned_light = std::make_unique<stLight>(srNode::Ownership::independent);
+            auto owned_light = std::make_unique<stLight>();
             *owned_light = *source_light;
             stLight* copied_light = AddWorldLight(g_world, std::move(owned_light));
             copied_light->ConfigureMonsterCopy();
@@ -463,8 +461,7 @@ W8GrCycle::W8GrCycle(const W8GrCycle& other) : W8GrObject(other), W8Navigator(ot
 
                 event->cycle = source_event->cycle;
                 event->subcycle = source_event->subcycle;
-                event->m_pstParticles = std::make_unique<stParticle>(
-                    *source_event->m_pstParticles, srNode::Ownership::independent);
+                event->m_pstParticles = std::make_unique<stParticle>(*source_event->m_pstParticles);
                 event->position = source_event->position;
                 event->rotation = source_event->rotation;
                 if (!event->m_pstParticles) {
@@ -664,11 +661,11 @@ void W8GrCycle::UpdateLights()
                 static_cast<stParametricLightDefinition*>(definition);
             if ((cycle_definition->flags & 3) == 3 && (cycle_definition->flags & 0x40) != 0) {
                 if (!cycle_definition->IsEnabledForSubcycle(representation->subcycle)) {
-                    if (light->parent_ != 0) {
+                    if (light->getParent() != 0) {
                         light->setParent(0, 0);
                     }
                 } else if ((representation->subcycle == 0 && cycle_definition->subcycle_min == 0) ||
-                           light->parent_ == srCore.getRootNode()) {
+                           light->getParent() == nullptr) {
                     light->setParent(g_world->dynamic_scene, 0);
                     light->m_path_index = 0;
                     light->m_path_direction = 1;
@@ -681,10 +678,10 @@ void W8GrCycle::UpdateLights()
             }
             light->SetDefinitionTime(representation->subcycle + frame_fraction);
             if (!definition->IsEnabledForSubcycle(0)) {
-                if (light->parent_ != 0) {
+                if (light->getParent() != 0) {
                     light->setParent(0, 0);
                 }
-            } else if (light->parent_ == srCore.getRootNode()) {
+            } else if (light->getParent() == nullptr) {
                 light->setParent(g_world->dynamic_scene, 0);
             }
         }
@@ -874,7 +871,7 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
         location = glm::dvec3(vecPos);
         location.y += movement.vertical_offset;
         rotation = pRep->GetRotation();
-        child = psrMesh->first_child_;
+        child = psrMesh->getChild();
         if (child == 0) {
             psrMesh->setLocation(location);
             psrMesh->setRotation(rotation);
@@ -883,7 +880,7 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
             do {
                 child->setLocation(location);
                 child->setRotation(rotation);
-                child = child->next_sibling_;
+                child = child->getNext();
             } while (child != 0);
         }
         current_model_instance = psrMesh;

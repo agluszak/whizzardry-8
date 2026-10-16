@@ -44,7 +44,6 @@
 #include "mgs_commands.h"
 #include "sight_state.h"
 #include "surrender/srCamera.h"
-#include "surrender/srClass.h"
 #include "surrender/srClipPlane.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
@@ -1501,7 +1500,7 @@ static std::unique_ptr<stModelInstance2D> CreateAutomapMarkerSprite(const char* 
     auto marker = std::unique_ptr<stModelInstance2D>(CreateSpriteFromTexture(
         texture, surface->w * g_viewport_x_scale, surface->h * g_viewport_y_scale, true, false));
     if (!marker) return {};
-    marker->detach();
+    marker->setParent(nullptr, 0);
     static_cast<srMeshModel*>(marker->getModel())->enable(srMeshModel::CONTROL_SORTED_RENDERING);
     return marker;
 }
@@ -1518,7 +1517,7 @@ void CreateAutomapMarkerSprites(void)
             g_automap_party_marker.reset(
                 CreateSpriteFromTexture(texture, surface->w * g_viewport_x_scale,
                                         surface->h * g_viewport_x_scale, true, true));
-            g_automap_party_marker->detach();
+            g_automap_party_marker->setParent(nullptr, 0);
             g_automap_party_marker->setParent(g_overlay_scenes.square.get(), 1);
             static_cast<srMeshModel*>(g_automap_party_marker->getModel())
                 ->enable(srMeshModel::CONTROL_SORTED_RENDERING);
@@ -1743,7 +1742,7 @@ stModelInstance2D* CreateAutomapItemMarker(int item_id)
     if (marker == 0) {
         return 0;
     }
-    marker->detach();
+    marker->setParent(nullptr, 0);
     static_cast<srMeshModel*>(marker->getModel())->enable(srMeshModel::CONTROL_SORTED_RENDERING);
     g_automap_markers.push_back(std::move(owned));
     marker->SetGlowEnabled(true);
@@ -1763,7 +1762,7 @@ stModelInstance2D* CreateAutomapMonsterMarker(int type)
 {
     auto owned = std::make_unique<stModelInstance2D>(nullptr);
     auto* marker = owned.get();
-    marker->detach();
+    marker->setParent(nullptr, 0);
     switch (type) {
     case 0: {
         glm::vec4 first;
@@ -1811,7 +1810,7 @@ stModelInstance2D* CreateAutomapTextMarker(void)
     auto owned = std::make_unique<stModelInstance2D>(nullptr);
     auto* marker = owned.get();
     *marker = *g_automap_text_marker;
-    marker->detach();
+    marker->setParent(nullptr, 0);
     g_automap_markers.push_back(std::move(owned));
     float factor = (g_float_one / (g_automap_zoom * 0.00004f)) * 0.44f * g_float_half;
     ScaleAutomapMarker(marker, factor);

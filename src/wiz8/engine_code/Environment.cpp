@@ -60,12 +60,12 @@ static w8_ulong g_tick;
 
 /* The static and dynamic scene fogs owned by the environment. */
 // GLOBAL: WIZ8 0x0065B9B0
-static srFog* g_environment_object0;
+static std::unique_ptr<srFog> g_environment_object0;
 /* Camera-light intensity ceiling for SetCameraLightMode; the linker
    folds it into the shared 50.0f constant Octree.cpp emits at 0x005EC02C. */
 static const float CAMERA_LIGHT_MAXIMUM_INTENSITY = 50.0f;
 // GLOBAL: WIZ8 0x0065B9B4
-static srFog* g_environment_object1;
+static std::unique_ptr<srFog> g_environment_object1;
 // GLOBAL: WIZ8 0x0065B998
 std::vector<stLight*> g_environment_lights;
 
@@ -346,8 +346,8 @@ void SetSkyEnabled(bool enabled)
             return;
         }
 
-        g_environment_object0 = new srFog(g_world->static_scene);
-        g_environment_object1 = new srFog(g_world->dynamic_scene);
+        g_environment_object0 = std::make_unique<srFog>(g_world->static_scene.get());
+        g_environment_object1 = std::make_unique<srFog>(g_world->dynamic_scene);
         g_environment_object0->density = 1.0f;
         g_environment_object1->density = 1.0f;
 
@@ -363,8 +363,8 @@ void SetSkyEnabled(bool enabled)
         return;
     }
 
-    ReleaseRendererObject(g_environment_object0);
-    ReleaseRendererObject(g_environment_object1);
+    g_environment_object0.reset();
+    g_environment_object1.reset();
 
     glm::vec3 direction(0);
     PublishLightDirection(&direction);
@@ -687,8 +687,8 @@ void GetWorldLightValue(const W8World* world, glm::vec3* pLightValue)
 // FUNCTION: WIZ8 0x004826e0
 void ReleaseEnvironmentObjects(void)
 {
-    ReleaseRendererObject(g_environment_object0);
-    ReleaseRendererObject(g_environment_object1);
+    g_environment_object0.reset();
+    g_environment_object1.reset();
     g_environment_lights.clear();
 }
 

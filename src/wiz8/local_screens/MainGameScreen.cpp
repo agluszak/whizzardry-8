@@ -3383,7 +3383,7 @@ void DrawMainGameScreen(void)
             EnsureRadarMapOverlay();
         }
         if (g_node_cull_pending) {
-            for (node = g_world->level->first_child_; node != 0; node = node->next_sibling_) {
+            for (node = g_world->level->getChild(); node != 0; node = node->getNext()) {
                 if (dynamic_cast<stModelInstance*>(node)) {
                     node->clearFlag(srNode::FLAG_DISABLE);
                 }
@@ -3391,7 +3391,7 @@ void DrawMainGameScreen(void)
         }
         RenderFrame();
         if (g_node_cull_pending) {
-            for (node = g_world->level->first_child_; node != 0; node = node->next_sibling_) {
+            for (node = g_world->level->getChild(); node != 0; node = node->getNext()) {
                 if (dynamic_cast<stModelInstance*>(node)) {
                     if (MeasureNodeRenderWithoutPositionalOption(node) == 0) {
                         node->setFlag(srNode::FLAG_DISABLE);

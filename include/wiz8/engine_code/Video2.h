@@ -137,7 +137,6 @@ void ClearNodeFlag(srNode* node);
 /* 0x00425840: rotate an srNode in degrees and invalidate the renderer mode. */
 void RotateNodeInDegrees(srNode* node, int degrees);
 /* Invalidate a 2D node's model texture and release the node. */
-void ReleaseSurfaceNode(srNode* node);
 /* 0x00427E70: surface-lock helper used while installing a drag cursor. */
 bool ClearMouseSurface(void);
 /* 0x004255F0: place a 2D node at a screen position in normalized

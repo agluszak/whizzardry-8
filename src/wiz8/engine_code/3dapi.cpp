@@ -8,6 +8,7 @@
 #include <exception>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <SDL3/SDL_stdinc.h>
@@ -161,8 +162,8 @@ unsigned char LoadWorld(W8World* world, char* level_file_name, const char* level
         }
     }
 
-    SetSceneAmbientLightWhite(world->static_scene);
-    world->camera = CreateOrSetGameCamera(world->static_scene, 0);
+    SetSceneAmbientLightWhite(world->static_scene.get());
+    world->camera = CreateOrSetGameCamera(world->static_scene.get(), 0);
     world->camera_light = CreateRangedWorldLight(world, "CameraLight");
     world->camera_light->ambient = glm::vec3(0);
     world->camera_light->diffuse = glm::vec3(1.0f, 0.85f, 0.39f);
@@ -220,14 +221,14 @@ W8World* CreateWorld()
     // The scene owns its children. Keep both allocations scoped until setup
     // succeeds, including failures while allocating nodes or assigning names.
     auto scene = std::make_unique<srScene>(nullptr);
-    world->static_scene = scene.get();
+
     scene->setName("Sir-Tech Scene Static Scene");
 
-    world->level = new stLevel(scene.get());
+    world->level = scene->adoptChild(std::make_unique<stLevel>(nullptr));
     world->level->setName("Sir-Tech Level");
     world->level->m_render_exclusion_mask = 1;
 
-    world->dynamic_scene = new srNode(scene.get());
+    world->dynamic_scene = scene->adoptChild(std::make_unique<srNode>());
     world->dynamic_scene->setName("Sir-Tech Dynamic Scene");
     SetSceneAmbientLightWhite(scene.get());
     world->environment_range_end = 1.0f;
@@ -235,7 +236,7 @@ W8World* CreateWorld()
     world->environment_range_start = 0.75f;
 
     // The existing DestroyWorld boundary takes over after successful setup.
-    scene.release();
+    world->static_scene = std::move(scene);
     return world.release();
 }
 
@@ -421,7 +422,7 @@ static void DestroyWorldResources(W8World* world)
     world->octree = nullptr;
     world->quads.reset();
 
-    ReleaseRendererObject(world->static_scene);
+    world->static_scene.reset();
 }
 
 // FUNCTION: WIZ8 0x0044FAF0

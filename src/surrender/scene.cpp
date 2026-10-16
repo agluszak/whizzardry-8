@@ -93,14 +93,9 @@ void srScene::process(const ProcessInfo& info, e_processType type)
 // FUNCTION: SURRENDER 0x100564A0
 void srScene::render(srGERD& renderer, srCamera* camera)
 {
-    srGERD* renderer_pointer = &renderer;
-    if (renderer_pointer == 0) {
-        return;
-    }
     if (testFlag(FLAG_DISABLE) || testFlag(FLAG_TERMINATE) || first_child_ == 0) {
         return;
     }
-    srNode::lockSceneGraph();
     ProcessInfo process_info;
     process_info.renderer = &renderer;
     if (camera != 0) {
@@ -110,7 +105,6 @@ void srScene::render(srGERD& renderer, srCamera* camera)
     if (camera != 0) {
         camera->process(process_info, PROCESS_POP);
     }
-    srNode::unlockSceneGraph();
 }
 
 // FUNCTION: SURRENDER 0x10056520

@@ -8,7 +8,7 @@
 class srIlluminator : public srNode, public srVertexProcessor {
 public:
     using srVertexProcessor::process;
-    srIlluminator(srNode* parent = 0, Ownership ownership = Ownership::parent);
+    srIlluminator(srNode* parent = 0);
     ~srIlluminator() override = default;
     srIlluminator(const srIlluminator&) = default;
 

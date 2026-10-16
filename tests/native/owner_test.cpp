@@ -61,6 +61,7 @@
 #include "wiz8/dialog_code/DialogTextEntry.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/engine_code/Video2.h"
+#include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/game_status.h"
@@ -2312,10 +2313,7 @@ TEST_CASE("Video scene shutdown releases owned roots and preserves independent c
     int destroyed = 0;
     struct OverlayChild : srNode {
         int& destroyed;
-        OverlayChild(srNode* parent, int& destroyed, Ownership ownership = Ownership::parent)
-            : srNode(parent, ownership), destroyed(destroyed)
-        {
-        }
+        OverlayChild(srNode* parent, int& destroyed) : srNode(parent), destroyed(destroyed) {}
         ~OverlayChild() override { ++destroyed; }
     };
     for (auto* scene :
@@ -2323,13 +2321,21 @@ TEST_CASE("Video scene shutdown releases owned roots and preserves independent c
           &g_overlay_scenes.frame[1], &g_overlay_scenes.square, &g_overlay_scenes.prerender[0],
           &g_overlay_scenes.prerender[1], &g_overlay_scenes.cursor}) {
         *scene = std::make_unique<srScene>(nullptr);
-        new OverlayChild(scene->get(), destroyed);
+        (*scene)->adoptChild(std::make_unique<OverlayChild>(nullptr, destroyed));
     }
     g_overlay_scenes.camera = std::make_unique<srCamera>(nullptr);
-    g_overlay_scenes.square_camera = new srCamera(g_overlay_scenes.square.get());
-    g_cursor_node = new srModelInstance(g_overlay_scenes.cursor.get());
-    auto independent = std::make_unique<OverlayChild>(g_overlay_scenes.user.get(), destroyed,
-                                                      srNode::Ownership::independent);
+    g_overlay_scenes.square_camera =
+        g_overlay_scenes.square->adoptChild(std::make_unique<srCamera>());
+    g_cursor_node = std::make_unique<srModelInstance>(g_overlay_scenes.cursor.get());
+    auto independent = std::make_unique<OverlayChild>(g_overlay_scenes.user.get(), destroyed);
+    auto borrowed_sprite = std::make_unique<stModelInstance2D>(g_overlay_scenes.frame[1].get());
+    borrowed_sprite->render_state.display_state = 4;
+    auto* retired =
+        g_overlay_scenes.frame[1]->adoptChild(std::make_unique<stModelInstance2D>(nullptr));
+    retired->render_state.display_state = 4;
+    PurgeInactiveSceneInstances(g_overlay_scenes.frame[1].get());
+    REQUIRE(borrowed_sprite->getParent() == nullptr);
+    REQUIRE(g_overlay_scenes.frame[1]->getChildCount() == 1); // The other adopted test child.
     ShutdownVideoScenes();
     REQUIRE(destroyed == 8);
     REQUIRE(independent->getParent() == nullptr);

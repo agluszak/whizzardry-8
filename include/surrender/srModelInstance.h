@@ -13,7 +13,7 @@
 class srModelInstance : public srNode {
 public:
     virtual ~srModelInstance() override;
-    srModelInstance(srNode* parent = nullptr, Ownership ownership = Ownership::parent);
+    srModelInstance(srNode* parent = nullptr);
 
     srModelInstance& operator=(const srModelInstance& other);
 

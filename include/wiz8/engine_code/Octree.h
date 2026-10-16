@@ -539,7 +539,6 @@ extern bool g_octree_disabled;
 bool IsNavigatorAtTarget(W8NavigatorMovementState* movement);
 
 extern w8_ulong* g_octree_state;
-extern stModelInstance* g_octree_trace_node;
 extern const float g_octree_cell_scale;
 extern w8_ulong g_octree_bytes_read;
 extern int g_prop_sun_index;

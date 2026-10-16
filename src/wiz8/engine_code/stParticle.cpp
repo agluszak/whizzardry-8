@@ -170,8 +170,7 @@ void stParticle::AllocateParticles(unsigned int count)
 }
 
 // FUNCTION: WIZ8 0x00497AF0
-stParticle::stParticle(srNode* parent, int count, Ownership ownership)
-    : srNode(static_cast<srNode*>(0), ownership)
+stParticle::stParticle(srNode* parent, int count) : srNode(static_cast<srNode*>(0))
 {
     setParent(parent, 1);
     if (count == 0) {
@@ -185,8 +184,7 @@ stParticle::stParticle(srNode* parent, int count, Ownership ownership)
 /* A copy shares material and static texture, but starts with no live
    particles, fresh animation frames and fresh timing. */
 // FUNCTION: WIZ8 0x00498180
-stParticle::stParticle(const stParticle& other, Ownership ownership)
-    : srNode(static_cast<srNode*>(0), ownership)
+stParticle::stParticle(const stParticle& other) : srNode(static_cast<srNode*>(0))
 {
     persisted = other.persisted;
     start_frame = other.start_frame;

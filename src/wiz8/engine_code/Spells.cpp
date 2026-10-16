@@ -256,7 +256,7 @@ void W8SpellVisual::UpdateRepresentation(W8World* world)
             while (instance != 0) {
                 glm::dvec3 scale(scale0, scale0, scale0);
                 instance->setScale(scale);
-                instance = static_cast<srModelInstance*>(instance->first_child_);
+                instance = static_cast<srModelInstance*>(instance->getChild());
             }
 
             const auto monster_position = monster->GetPosition();

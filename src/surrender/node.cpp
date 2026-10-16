@@ -1,7 +1,5 @@
-#include <atomic>
 #include <cmath>
 #include <cstdint>
-#include <mutex>
 
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/ext/quaternion_trigonometric.hpp>
@@ -13,16 +11,9 @@
 #include "glm/matrix.hpp"
 #include "surrender/model_view_scope.h"
 #include "surrender/srClass.h"
-#include "surrender/srCore.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMath.h"
 #include "surrender/srNode.h"
-
-// GLOBAL: SURRENDER 0x100A49E0
-std::recursive_mutex srNode::sceneGraphCSect;
-
-// GLOBAL: SURRENDER 0x100A49FC
-std::atomic<w8_long> srNode::sceneGraphLockCount{0};
 
 // The node repair step orthonormalizes rows, preserving its zero-row behavior.
 static void orthonormalizeRotation(glm::dmat3& rotation)
@@ -34,26 +25,6 @@ static void orthonormalizeRotation(glm::dmat3& rotation)
         rows[row] = glm::normalize(rows[row]);
     }
     rotation = glm::transpose(rows);
-}
-
-// FUNCTION: SURRENDER 0x10050340
-void srNode::lockSceneGraph()
-{
-    sceneGraphCSect.lock();
-    ++sceneGraphLockCount;
-}
-
-// FUNCTION: SURRENDER 0x10050360
-void srNode::unlockSceneGraph()
-{
-    --sceneGraphLockCount;
-    sceneGraphCSect.unlock();
-}
-
-// FUNCTION: SURRENDER 0x10050380
-int srNode::isSceneGraphLocked()
-{
-    return sceneGraphLockCount.load() != 0;
 }
 
 // FUNCTION: SURRENDER 0x10050390
@@ -143,7 +114,6 @@ srNode::BoundInfo srNode::getLocalBounds()
 srNode& srNode::operator=(const srNode& other)
 {
     if (this != &other) {
-        std::lock_guard access(sceneGraphCSect);
         srClass::operator=(other);
         flags = other.flags;
         location = other.location;
@@ -187,9 +157,8 @@ void srNode::signal(w8_ulong signal, void* value)
 }
 
 // FUNCTION: SURRENDER 0x10050C10
-srNode::srNode(srNode* parent, Ownership ownership) : parent_owns_(ownership == Ownership::parent)
+srNode::srNode(srNode* parent)
 {
-    std::lock_guard access(sceneGraphCSect);
     world_transform0 = glm::dmat4x3(1);
     world_transform1 = glm::mat4x3(1);
     next_sibling_ = 0;
@@ -200,32 +169,25 @@ srNode::srNode(srNode* parent, Ownership ownership) : parent_owns_(ownership == 
     rotation = glm::dmat3(1);
     scale = glm::dvec3(1);
     notifications = 0;
-    if (parent || parent_owns_) setParent(parent, 0);
+    if (parent) setParent(parent, 0);
 }
 
-/* Destroy owned children; independently owned render members are detached. */
-// FUNCTION: SURRENDER 0x10050E20
+// Links borrow; detach surviving children before destroying this node's owners.
 srNode::~srNode()
 {
-    std::lock_guard access(sceneGraphCSect);
     unlink();
-    while (first_child_ != nullptr) {
-        if (first_child_->parent_owns_) {
-            delete first_child_;
-        } else {
-            first_child_->detach();
-        }
-    }
+    while (first_child_) first_child_->setParent(nullptr, 0);
 }
 
-/* Reparenting under the scene-graph lock; preserve_world_transform decomposes
-   the current world transform into the local slots before unlinking, then
-   rebuilds them against the new parent's inverse basis (orthonormalized by
-   Gram-Schmidt) so the node's world placement survives the move. */
+void srNode::eraseOwnedChild(const srNode* child)
+{
+    std::erase_if(owned_children_, [child](const auto& owned) { return owned.get() == child; });
+}
+
+// Reparenting preserves world placement when requested, independent of ownership.
 // FUNCTION: SURRENDER 0x10050F00
 int srNode::setParent(srNode* parent, int preserve_world_transform)
 {
-    std::lock_guard access(sceneGraphCSect);
     if (parent == this) {
         return 0;
     }
@@ -238,7 +200,7 @@ int srNode::setParent(srNode* parent, int preserve_world_transform)
         scale = getWorldSpaceScale();
     }
     unlink();
-    if (parent != 0 || ((parent = srCore.getRootNode()) != this && parent != 0)) {
+    if (parent != nullptr) {
         parent_ = parent;
         next_sibling_ = parent->first_child_;
         if (next_sibling_ != 0) {
@@ -262,14 +224,6 @@ int srNode::setParent(srNode* parent, int preserve_world_transform)
         updateTransformation();
     }
     return 1;
-}
-
-void srNode::detach()
-{
-    std::lock_guard access(sceneGraphCSect);
-    unlink();
-    parent_owns_ = false;
-    setWSDirty();
 }
 
 // FUNCTION: SURRENDER 0x10050B70

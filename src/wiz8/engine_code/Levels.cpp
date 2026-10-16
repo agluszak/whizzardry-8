@@ -303,7 +303,7 @@ unsigned char LoadSkyWorld(int level, W8LevelInfo* info)
     material->m_surface_flags = 0;
     material->setMapper(&g_material_mapper);
 
-    for (srNode* node = sky_world->level->first_child_; node != 0; node = node->next_sibling_) {
+    for (srNode* node = sky_world->level->getChild(); node != 0; node = node->getNext()) {
         if (auto* instance = dynamic_cast<stModelInstance*>(node)) {
             srMeshModel* mesh = static_cast<srMeshModel*>(instance->getModel());
 

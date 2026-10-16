@@ -7,7 +7,7 @@
 #include "surrender/srScene.h"
 
 // Video owns these scene roots. Widgets and temporary models borrow parents;
-// srNode ownership decides which children a scene destroys.
+// Explicitly adopted children belong to their scene; other children are borrowed.
 struct VideoOverlayScenes {
     // Declared first so detached camera ownership outlives every scene.
     std::unique_ptr<srCamera> camera;

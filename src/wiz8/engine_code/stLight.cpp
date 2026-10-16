@@ -52,8 +52,7 @@ const float g_light_flicker_random_unit_scale = 3.0518509447574615e-05f;
    below +0x228 is stLight's own state, and both timestamps start from the same
    converted tick. */
 // FUNCTION: WIZ8 0x0049C2C0
-stLight::stLight(srNode* parent, Ownership ownership)
-    : srLight(static_cast<srNode*>(nullptr), srLight::PRESET_POINT, ownership)
+stLight::stLight(srNode* parent) : srLight(static_cast<srNode*>(nullptr), srLight::PRESET_POINT)
 {
     m_save_marked = false;
     m_prop = 0;
@@ -439,7 +438,7 @@ std::vector<stLight*>* CloneAnimationLightList(std::vector<stLight*>* source)
         const float x = light->positionalX();
         const float y = light->positionalY();
         const float z = light->positionalZ();
-        auto copied_light = std::make_unique<stLight>(srNode::Ownership::independent);
+        auto copied_light = std::make_unique<stLight>();
         *copied_light = *light;
         copied_light->ConfigureMonsterCopy();
         copied_light->setLocation(x, y, z);

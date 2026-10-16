@@ -4843,8 +4843,7 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
             poster->setParent(g_world->dynamic_scene, 1);
             m_pRep->linked_runtime_objects.push_back(poster);
 
-            auto owned_particle = std::make_unique<stParticle>(g_world->dynamic_scene, 0xa,
-                                                               srNode::Ownership::independent);
+            auto owned_particle = std::make_unique<stParticle>(g_world->dynamic_scene, 0xa);
             particle = owned_particle.get();
             auto material = std::make_shared<srMaterial>();
             colour = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);

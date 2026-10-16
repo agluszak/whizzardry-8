@@ -28,8 +28,7 @@ unsigned char ReadLevel(W8World* world, wiz8::File* handle, bool use_octree,
 unsigned char ReadWorldItems(W8ReadLevelInfo* info, W8World* world);
 // The destination owns particles; scene attachment borrows them.
 unsigned char ReadWorldParticles(W8ReadLevelInfo* info, srNode* scene,
-                                 std::vector<std::unique_ptr<stParticle>>* particles,
-                                 srNode::Ownership ownership);
+                                 std::vector<std::unique_ptr<stParticle>>* particles);
 
 // Append a complete named-position section; failure leaves the destination unchanged.
 bool ReadNamedPositions(wiz8::File* file, std::vector<W8NamedPosition>& positions);

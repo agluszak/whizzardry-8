@@ -76,7 +76,7 @@ static void shutdown_survivors()
     struct InterruptedScene : srScene {
         explicit InterruptedScene(const std::shared_ptr<stMeshModel>& model)
         {
-            auto* instance = new stModelInstance(this);
+            auto* instance = adoptChild(std::make_unique<stModelInstance>(nullptr));
             instance->setModel(model);
             throw std::runtime_error("Interrupted scene initialization");
         }
@@ -438,8 +438,8 @@ TEST_CASE_METHOD(SpellVisualFixture, "World teardown drains particles retired by
 {
     struct ObservedParticle : stParticle {
         ObservedParticle(W8World& owner, bool& destroyed, bool& scene_alive)
-            : stParticle(owner.dynamic_scene, 1, srNode::Ownership::independent), owner(owner),
-              destroyed(destroyed), scene_alive(scene_alive)
+            : stParticle(owner.dynamic_scene, 1), owner(owner), destroyed(destroyed),
+              scene_alive(scene_alive)
         {
             active_particle_count = 1;
         }
@@ -454,8 +454,9 @@ TEST_CASE_METHOD(SpellVisualFixture, "World teardown drains particles retired by
     };
     bool destroyed = false, scene_alive = false;
     auto retiring_world = std::make_unique<W8World>();
-    retiring_world->static_scene = new srScene(nullptr);
-    retiring_world->dynamic_scene = new srNode(retiring_world->static_scene);
+    retiring_world->static_scene = std::make_unique<srScene>();
+    retiring_world->dynamic_scene =
+        retiring_world->static_scene->adoptChild(std::make_unique<srNode>());
     SetCurrentWorld(retiring_world.get());
     auto visual = std::make_unique<W8SpellVisual>();
     auto attachment = std::make_unique<W8GrCycleParticleAttachment>();

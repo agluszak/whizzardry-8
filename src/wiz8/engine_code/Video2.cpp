@@ -34,7 +34,6 @@
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "layouts/world.h"
-#include "surrender/srClass.h"
 #include "surrender/srMath.h"
 #include "surrender/srNode.h"
 #include "surrender/srTextureIFace.h"
@@ -176,22 +175,12 @@ SDLSurfaceOwner videoSurfaceOwner{nullptr, SDL_DestroySurface};
 // GLOBAL: WIZ8 0x600088
 unsigned int g_color_key = 0x3def;
 VideoOverlayScenes g_overlay_scenes;
-// GLOBAL: WIZ8 0x659640
-// GLOBAL: WIZ8 0x659644
-// GLOBAL: WIZ8 0x659648
-// GLOBAL: WIZ8 0x65964c
-// GLOBAL: WIZ8 0x659650
-// GLOBAL: WIZ8 0x659654
-// GLOBAL: WIZ8 0x659658
-// GLOBAL: WIZ8 0x65965c
 // GLOBAL: WIZ8 0x659660
 std::shared_ptr<SDL_Surface> g_primary_color_surface;
 // GLOBAL: WIZ8 0x659664
 class stSurface2D* g_surface_node;
 // GLOBAL: WIZ8 0x659680
 float g_surface_scale;
-// GLOBAL: WIZ8 0x659670
-// GLOBAL: WIZ8 0x659674
 // GLOBAL: WIZ8 0x659688
 std::shared_ptr<SDL_Surface> g_mouse_surface;
 // GLOBAL: WIZ8 0x65967c
@@ -221,9 +210,6 @@ int g_video_inspector_mode;
 int g_overlay_render_mode;
 // GLOBAL: WIZ8 0x006596f0
 int g_paired_render_mode;
-// GLOBAL: WIZ8 0x659668
-// GLOBAL: WIZ8 0x65966c
-// GLOBAL: WIZ8 0x659678
 // GLOBAL: WIZ8 0x65409c
 uint64_t g_last_capture_tick;
 // GLOBAL: WIZ8 0x659704
@@ -231,13 +217,12 @@ float g_frames_per_second;
 // GLOBAL: WIZ8 0x659708
 float g_seconds_per_frame;
 
-// GLOBAL: WIZ8 0x659684
 // GLOBAL: WIZ8 0x65968c
 srMeshModel* g_cursor_model;
 // GLOBAL: WIZ8 0x659690
 std::shared_ptr<srTexture> g_cursor_texture;
 // GLOBAL: WIZ8 0x659694
-srModelInstance* g_cursor_node;
+std::unique_ptr<srModelInstance> g_cursor_node;
 // GLOBAL: WIZ8 0x659698
 uint64_t g_cursor_move_tick;
 // GLOBAL: WIZ8 0x654ad0
@@ -383,7 +368,7 @@ void ShutdownVideoManager(void)
 void ShutdownVideoScenes(void)
 {
     VideoRemoveToolTip();
-    ReleaseRendererObject(g_cursor_node);
+    g_cursor_node.reset();
     g_cursor_model = nullptr;
     g_cursor_texture.reset();
     g_overlay_scenes.cursor.reset();
@@ -675,7 +660,7 @@ void RenderScene(srScene* scene, srCamera* camera, const DesignRect* viewport, b
         g_gerd->setViewPort(rect.x, rect.y, rect.w, rect.h);
         g_gerd->setScissor(rect.x, rect.y, rect.w, rect.h);
 #ifdef WIZ8_RUNTIME_TESTS
-        if (g_world != 0 && scene == g_world->static_scene) {
+        if (g_world != 0 && scene == g_world->static_scene.get()) {
             RuntimeWorldRenderData data = ObserveWorldRenderState();
             data.applied_viewport[0] = rect.x;
             data.applied_viewport[1] = rect.y;
@@ -812,7 +797,8 @@ void RenderFrame(void)
     g_gerd->setTextureReduction(g_resident_texture_policy);
 
     if (g_render_mesh_sky && g_secondary_world != 0 && g_monster_shadow_updates_enabled) {
-        RenderScene(g_secondary_world->static_scene, g_secondary_world->camera, &g_viewport, false);
+        RenderScene(g_secondary_world->static_scene.get(), g_secondary_world->camera, &g_viewport,
+                    false);
     }
     if (g_world != 0 && g_world_render_enabled) {
 #ifdef WIZ8_RUNTIME_TESTS
@@ -824,7 +810,7 @@ void RenderFrame(void)
             g_cursor_hotspot_y + g_cursor_height < g_viewport.top ||
             g_viewport.right < g_cursor_hotspot_x + g_cursor_width ||
             g_viewport.bottom < g_cursor_hotspot_y + g_cursor_height) {
-            RenderScene(g_world->static_scene, g_world->camera, &g_viewport, true);
+            RenderScene(g_world->static_scene.get(), g_world->camera, &g_viewport, true);
         } else {
             int half_width = (g_viewport.right - g_viewport.left) / 2;
             int half_height = (g_viewport.bottom - g_viewport.top) / 2;
@@ -839,7 +825,7 @@ void RenderFrame(void)
             pick.triangle_index = 0;
             g_gerd->setPickKey(0);
             g_gerd->pushPick(pick);
-            RenderScene(g_world->static_scene, g_world->camera, &g_viewport, true);
+            RenderScene(g_world->static_scene.get(), g_world->camera, &g_viewport, true);
             pick = *g_gerd->popPick();
             SetPickedModelInstance(pick.selected_model);
             ResolvePickedProp(g_world);
@@ -1169,10 +1155,11 @@ bool ResizeMouseCursorSurface(int width, int height)
     if (extent < 0) return false;
     g_mouse_surface = std::shared_ptr<SDL_Surface>(
         CreateCpuStorage(extent, extent, g_mouse_surface->format).release(), SDL_DestroySurface);
-    delete g_cursor_node;
+    g_cursor_node.reset();
     mapping_scale = g_surface_scale / extent;
-    g_cursor_node = MakePolygonBrush(g_overlay_scenes.cursor.get(), g_mouse_surface, extent / 640.0,
-                                     extent / 480.0, mapping_scale, mapping_scale, 1.0f, 1.0f, 1);
+    g_cursor_node.reset(MakePolygonBrush(g_overlay_scenes.cursor.get(), g_mouse_surface,
+                                         extent / 640.0, extent / 480.0, mapping_scale,
+                                         mapping_scale, 1.0f, 1.0f, 1));
     g_cursor_node->setName("MouseResize");
     PositionMouseCursor(g_cursor_width, g_cursor_height, false);
     g_cursor_model = static_cast<srMeshModel*>(g_cursor_node->getModel());
@@ -1395,7 +1382,6 @@ bool IsCursorInRectangle(int left, int top, int right, int bottom)
 unsigned char InitializeMouseCursorScene(void)
 {
     auto cursor_scene = std::make_unique<srScene>(nullptr);
-    cursor_scene->detach();
     cursor_scene->setAmbientLight(0.0f, 0.0f, 0.0f);
     cursor_scene->setFogColor(0.0f, 0.0f, 0.0f);
     g_overlay_scenes.cursor = std::move(cursor_scene);
@@ -1404,9 +1390,9 @@ unsigned char InitializeMouseCursorScene(void)
         return 0;
     }
     ClearMouseSurface();
-    g_cursor_node =
-        MakePolygonBrush(g_overlay_scenes.cursor.get(), g_mouse_surface, 0.2, 0.26666666666666666,
-                         g_surface_scale / 128.0f, g_surface_scale / 128.0f, 1.0f, 1.0f, 1);
+    g_cursor_node.reset(MakePolygonBrush(g_overlay_scenes.cursor.get(), g_mouse_surface, 0.2,
+                                         0.26666666666666666, g_surface_scale / 128.0f,
+                                         g_surface_scale / 128.0f, 1.0f, 1.0f, 1));
     if (g_cursor_node) {
         g_cursor_node->setName("MouseInit");
         g_cursor_model = static_cast<srMeshModel*>(g_cursor_node->getModel());
@@ -1422,23 +1408,6 @@ unsigned char InitializeMouseCursorScene(void)
 
 // GLOBAL: WIZ8 0x65970d
 unsigned char g_world_render_enabled;
-
-/* Retire a 2D node: invalidate the texture its model exposes and release it. */
-void ReleaseSurfaceNode(srNode* node)
-{
-    if (node == 0) {
-        return;
-    }
-    srMeshModel* model =
-        static_cast<srMeshModel*>(static_cast<stModelInstance2D*>(node)->getModel());
-    if (model != 0) {
-        srTextureIFace* texture = model->getTexture(0, 0);
-        if (texture != 0) {
-            texture->invalidate();
-        }
-    }
-    delete node;
-}
 
 void InvalidateRegion(int left, int top, int right, int bottom)
 {
@@ -1718,7 +1687,6 @@ unsigned char InitializeMouseSurface(void)
 static std::unique_ptr<srScene> createOverlayScene(const char* name)
 {
     auto scene = std::make_unique<srScene>(nullptr);
-    scene->detach();
     scene->setName(name);
     scene->setAmbientLight(0.0f, 0.0f, 0.0f);
     scene->setFogColor(0.0f, 0.0f, 0.0f);
@@ -1732,9 +1700,6 @@ static std::unique_ptr<srCamera> createOverlayCamera(srNode* parent, const char*
     srCamera::Rect view;
 
     auto camera = std::make_unique<srCamera>(parent);
-    if (!parent) {
-        camera->detach();
-    }
     camera->setName(name);
     camera->setClipRange(0.01, 2.0);
     camera->setLocation(0.0, 0.0, -1.0);
@@ -1764,9 +1729,8 @@ unsigned char InitializeRendererSceneObjects(void)
     g_overlay_scenes.prerender[0] = createOverlayScene("2D Pre-render Overlay Scene (0)");
     g_overlay_scenes.prerender[1] = createOverlayScene("2D Pre-render Overlay Scene (1)");
     g_overlay_scenes.camera = createOverlayCamera(nullptr, "2D Overlay Camera", 1.0, 1.0);
-    g_overlay_scenes.square_camera =
-        createOverlayCamera(g_overlay_scenes.square.get(), "2D Square Overlay Camera", 1.0, 0.75)
-            .release();
+    g_overlay_scenes.square_camera = g_overlay_scenes.square->adoptChild(
+        createOverlayCamera(nullptr, "2D Square Overlay Camera", 1.0, 0.75));
 
     material = std::make_shared<srMaterial>();
     g_blit_material = material;
@@ -1788,8 +1752,8 @@ unsigned char InitializeRendererSceneObjects(void)
     /* Shares the CPU surface's pixels, so they outlive its recreation. */
     g_primary_color_surface = primarySurface;
 
-    g_surface_node =
-        new stSurface2D(g_primary_color_surface, 640, 480, g_overlay_scenes.frame[0].get(), 128);
+    g_surface_node = g_overlay_scenes.frame[0]->adoptChild(
+        std::make_unique<stSurface2D>(g_primary_color_surface, 640, 480, nullptr, 128));
     if (!g_surface_node) return 0;
 
     strncpy(renderer_name, g_gerd->getName().c_str(), 127);
@@ -1824,9 +1788,9 @@ void PurgeInactiveSceneInstances(srScene* scene)
     srNode* node;
 
     if (!scene) return;
-    node = scene->first_child_;
+    node = scene->getChild();
     while (node) {
-        srNode* next = node->next_sibling_;
+        srNode* next = node->getNext();
         unsigned char display_state = 3;
         if (auto* instance = dynamic_cast<stModelInstance*>(node)) {
             /* Retail also applies the 2D byte test to 3D highlight alpha.
@@ -1836,7 +1800,13 @@ void PurgeInactiveSceneInstances(srScene* scene)
             display_state = sprite->displayState();
         }
         if (display_state != 3) {
-            ReleaseSurfaceNode(node);
+            if (auto* instance = dynamic_cast<srModelInstance*>(node)) {
+                if (auto* model = dynamic_cast<srMeshModel*>(instance->getModel())) {
+                    if (auto* texture = model->getTexture(0, 0)) texture->invalidate();
+                }
+            }
+            node->setParent(nullptr, 0);
+            scene->eraseOwnedChild(node);
         }
         node = next;
     }
@@ -2649,12 +2619,10 @@ unsigned int MeasureNodeRender(srNode* node)
     g_gerd->flushRenderers();
     g_gerd->resetStatistics();
     g_gerd->beginFrame();
-    srNode::lockSceneGraph();
     process.renderer = g_gerd.get();
     g_world->camera->process(process, srNode::PROCESS_PUSH);
     node->process(process, srNode::PROCESS_RENDER);
     g_world->camera->process(process, srNode::PROCESS_POP);
-    srNode::unlockSceneGraph();
     g_gerd->endFrame();
     g_gerd->flushRenderers();
     const auto statistics = g_gerd->getStatistics();
