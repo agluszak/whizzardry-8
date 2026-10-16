@@ -2,7 +2,6 @@
 
 #include <memory>
 
-#include "srClock.h"
 #include "srStatisticsManager.h"
 
 struct SDL_Surface;
@@ -26,9 +25,6 @@ public:
     srStatisticsManager* getStatisticsManager() const { return statistics_manager.get(); }
     SDL_Surface* getSurface() const;
     srTexture* getTexture() const;
-    // FUNCTION: SURRENDER 0x100156C0
-    // RECOMP: ?getTimer@srCore@@QBEPAVsrVariableTimer@@XZ
-    srClock* getTimer() const { return timer.get(); }
     int isInitialized() const;
 
 private:
@@ -41,7 +37,6 @@ private:
 
     static int initialized;
 
-    std::unique_ptr<srClock> timer;
     std::shared_ptr<SDL_Surface> surface;
     std::unique_ptr<srStatisticsManager> statistics_manager;
     std::shared_ptr<SDL_Palette> palette;

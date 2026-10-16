@@ -1,4 +1,3 @@
-#include <chrono>
 #include <cstdio>
 #include <string_view>
 #include <thread>
@@ -7,7 +6,6 @@
 
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srBoundingSphere.h"
-#include "surrender/srClock.h"
 #include "surrender/srCore.h"
 #include "surrender/srDD.h"
 #include "surrender/srDD_SDLGPU.h"
@@ -15,13 +13,6 @@
 
 TEST_CASE("renderer platform")
 {
-    srClock timer;
-    const double before = timer.seconds();
-    std::this_thread::sleep_for(std::chrono::milliseconds(2));
-    REQUIRE(timer.seconds() > before);
-    REQUIRE(timer.milliseconds() >= 1);
-    REQUIRE(timer.ticks(10000) >= 10);
-
     for (int cycle = 0; cycle < 3; ++cycle) {
         REQUIRE((srInit() && srCore.isInitialized()));
         {
@@ -108,5 +99,5 @@ TEST_CASE("renderer platform")
         REQUIRE(srExit());
     }
 
-    puts("ok: renderer clock, owner-thread submission and core reinitialization");
+    puts("ok: renderer owner-thread submission and core reinitialization");
 }

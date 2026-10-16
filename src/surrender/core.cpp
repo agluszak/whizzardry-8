@@ -9,7 +9,6 @@
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_surface.h>
 
-#include "surrender/srClock.h"
 #include "surrender/srCore.h"
 #include "surrender/srDebug.h"
 #include "surrender/srMaterial.h"
@@ -34,7 +33,6 @@ int srInit()
 {
     if (srCore.initialized == 0) {
         srCore.reset();
-        srCore.timer = std::make_unique<srClock>();
         _srLibraryInit();
         srCore.statistics_manager = std::make_unique<srStatisticsManager>();
         srCore.statistics_manager->reset();
@@ -92,7 +90,6 @@ int srExit()
         srCore.material.reset();
         srCore.initialized = 0;
         srCore.statistics_manager.reset();
-        srCore.timer.reset();
         delete srTriMeshPipeline::pipe;
         srTriMeshPipeline::pipe = 0;
         srCore.reset();
