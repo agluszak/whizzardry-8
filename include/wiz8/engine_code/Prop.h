@@ -68,15 +68,12 @@ public:
     int frame_index;
     bool animation_running; /* 0xa4 */
     bool random_play;       /* 0xa5 */
-    unsigned char padding_0a6[2];
     float play_chance;            /* 0xa8: constructed as 0.5 */
     unsigned char saved_subcycle; /* 0xac */
     unsigned char frame_steps;    /* 0xad */
-    unsigned char padding_0ae[2];
     std::vector<W8PropAnimationSegment*> slots; /* 0xb0 */
     unsigned char footstep_surface;          /* 0xc0 */
     unsigned char footstep_material;         /* 0xc1 */
-    unsigned char padding_0c2[2];
 }; /* 0xc4 */
 
 /* Engine Code\Prop.cpp.  Prop::Prop() calls W8GrObject::W8GrObject and

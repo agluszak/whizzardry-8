@@ -55,7 +55,7 @@ find_package(glm 1.0.3 CONFIG REQUIRED)
 find_package(fmt 11.2.0 CONFIG REQUIRED)
 find_package(Threads REQUIRED)
 
-# Conan supplies SDL3, SDL3_image, GLM, fmt, FFmpeg, zlib, JPEG and glslang.
+# Conan supplies SDL3, SDL3_image, GLM, fmt, FFmpeg, zlib and glslang.
 # The remaining fetched sources are hash- or commit-pinned until their
 # exact upstream versions have ConanCenter recipes.
 include(FetchContent)

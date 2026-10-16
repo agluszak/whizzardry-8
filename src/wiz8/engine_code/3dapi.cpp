@@ -6,8 +6,10 @@
 #include <cstdlib>
 #include <cstring>
 #include <exception>
+#include <filesystem>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -107,32 +109,21 @@ bool g_world_update_requested = true;
    and ReadLevel parsers remain their original owners; this routine establishes
    their order, inputs, and rollback-visible world  */
 // FUNCTION: WIZ8 0x0044F5F0
-unsigned char LoadWorld(W8World* world, char* level_file_name, const char* level_folder,
-                        const char* asset_folder, bool use_octree)
+unsigned char LoadWorld(W8World* world, std::string_view source_path, bool use_octree)
 {
-    char extension[4];
-    char level_path[1024];
-    char pvl_path[1024];
-    char oct_path[1024];
-    char game_data_path[1024];
-    char material_path[1024];
-    char material_folder[1024];
-
-    if (world == 0) {
-        srAssertFail("pWorld", THREE_D_API_CPP, 0x15f, 0);
-    }
-
+    if (world == nullptr) srAssertFail("pWorld", THREE_D_API_CPP, 0x15f, 0);
     ResetGrObjectIdCounter();
-    sprintf(level_path, "%s\\%s", level_folder, level_file_name);
-    strcpy(extension, level_file_name + strlen(level_file_name) - 3);
-    level_file_name[strlen(level_file_name) - 4] = '\0';
-
-    strcpy(pvl_path, level_path);
-    pvl_path[strlen(pvl_path) - 3] = 'p';
-    sprintf(game_data_path, "%s\\%s.wgd", level_folder, level_file_name);
-    sprintf(oct_path, "%s\\%s.oct", level_folder, level_file_name);
-    sprintf(material_path, "%s\\%s.mat", level_folder, level_file_name);
-    sprintf(material_folder, "%s", asset_folder);
+    const auto path = wiz8::path_from_utf8(source_path);
+    std::string level_path(source_path);
+    const auto sibling = [&](const char* extension) {
+        auto result = path;
+        result.replace_extension(extension);
+        return wiz8::path_to_utf8(result);
+    };
+    const auto pvl_path = sibling(".pvl");
+    const auto oct_path = sibling(".oct");
+    const auto game_data_path = sibling(".wgd");
+    const auto material_folder = wiz8::path_to_utf8(path.parent_path() / "Bitmaps");
 
     g_worlds.push_back(world);
 
@@ -145,8 +136,8 @@ unsigned char LoadWorld(W8World* world, char* level_file_name, const char* level
 
     world->game_data = 0;
 
-    if (CheckLevelAssetSet(oct_path) >= 0) {
-        world->octree = new W8Octree(oct_path, &world->game_data);
+    if (CheckLevelAssetSet(oct_path.c_str()) >= 0) {
+        world->octree = new W8Octree(oct_path.c_str(), &world->game_data);
         if (world->octree != 0 && world->octree->HasLoadError()) {
             delete world->octree;
             world->octree = 0;
@@ -155,8 +146,8 @@ unsigned char LoadWorld(W8World* world, char* level_file_name, const char* level
         }
     }
 
-    if (game_data_path[0] != '\0' && world->game_data == 0) {
-        world->game_data = ReadGameData(game_data_path, false);
+    if (world->game_data == nullptr) {
+        world->game_data = ReadGameData(game_data_path.c_str(), false);
         if (world->game_data != 0 && InitializeGameData(world->game_data) == 0) {
             return 0;
         }
@@ -176,12 +167,11 @@ unsigned char LoadWorld(W8World* world, char* level_file_name, const char* level
     if (world->octree != nullptr && world->octree->GetMeshCount() != 0) {
         world->psrMeshes.resize(static_cast<std::size_t>(world->octree->GetMeshCount()) + 1,
                                 nullptr);
-        strcpy(level_path, pvl_path);
+        level_path = pvl_path;
     }
 
     world->quads.reset();
     world->update_mesh_source = 0;
-    memset(world->m_unknown_07c, 0, 0x10);
 
     std::unique_ptr<wiz8::File> handle = [&]() {
         try {
@@ -193,7 +183,7 @@ unsigned char LoadWorld(W8World* world, char* level_file_name, const char* level
     if (handle == 0) {
         srAssertFail("hFile", THREE_D_API_CPP, 0x1d8, "Could not open level file.");
     }
-    unsigned char success = ReadLevel(world, handle.get(), use_octree, material_folder);
+    unsigned char success = ReadLevel(world, handle.get(), use_octree, material_folder.c_str());
     if (handle) handle->close();
     handle.reset();
     if (success == 0) {
@@ -203,7 +193,6 @@ unsigned char LoadWorld(W8World* world, char* level_file_name, const char* level
     /* ReadLevel failure is assertion-only in the canonical body. LoadWorld
        still performs the mesh update and returns success. */
 
-    world->m_unknown_0d4[0] = 0;
     if (world->octree != 0) {
         UpdateWorldOctree(world);
     } else if (world->quads != 0) {
@@ -619,13 +608,6 @@ void UpdateWorldMeshAfterLoad(void)
         RequestRefreshPartyState();
         g_renderer_ready = false;
     }
-}
-
-// FUNCTION: WIZ8 0x00451110
-unsigned char ForwardLoadWorld(W8World* world, char* level_file_name, const char* level_folder,
-                               const char* asset_folder, bool use_octree)
-{
-    return LoadWorld(world, level_file_name, level_folder, asset_folder, use_octree);
 }
 
 /* Report a failed assertion with no message of its own, so the expression and

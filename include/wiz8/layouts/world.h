@@ -80,14 +80,11 @@ struct W8World {
     W8GameData* game_data;
     W8Octree* octree;
     stLight* camera_light;
-    unsigned char m_padding_058[0x11];
     bool m_loaded;
-    unsigned char m_padding_06a[2];
     std::unique_ptr<W8Quad> quads;
     srModelInstance* update_mesh_source;
     float render_range0;
     float render_range;
-    unsigned char m_unknown_07c[0x20];
     std::vector<srNode*> nodes_to_disable;
     // Lights created for this world (including monster-cycle copies); the world owns them.
     std::vector<std::unique_ptr<stLight>> transient_lights;
@@ -102,7 +99,6 @@ struct W8World {
     // Cycle particles that outlived their cycle while still emitting.
     std::vector<std::unique_ptr<stParticle>> retired_particles;
     std::vector<W8NamedPosition> named_positions;
-    unsigned char m_unknown_0d4[8];
 };
 
 extern W8World* g_world;

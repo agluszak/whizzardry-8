@@ -273,7 +273,7 @@ template<> struct Record<W8SpellRuntimeRecord> {
         text(runtime.database_name,
              bytes.subspan(offsetof(Disk, database_name), sizeof(Disk::database_name)),
              Encoding::utf8);
-        value(&runtime.unknown_040,
+        value(&runtime.serialized.unknown_040,
               bytes.subspan(offsetof(Disk, unknown_040), sizeof(Disk::unknown_040)));
         value(&runtime.duration, bytes.subspan(offsetof(Disk, duration), sizeof(Disk::duration)));
         value(&runtime.alchemy_spell,
@@ -284,7 +284,7 @@ template<> struct Record<W8SpellRuntimeRecord> {
               bytes.subspan(offsetof(Disk, duration_per_level), sizeof(Disk::duration_per_level)));
         value(&runtime.effect_dice,
               bytes.subspan(offsetof(Disk, effect_dice), sizeof(Disk::effect_dice)));
-        value(&runtime.unknown_055,
+        value(&runtime.serialized.unknown_055,
               bytes.subspan(offsetof(Disk, unknown_055), sizeof(Disk::unknown_055)));
         value(&runtime.spell_level,
               bytes.subspan(offsetof(Disk, spell_level), sizeof(Disk::spell_level)));
@@ -296,7 +296,7 @@ template<> struct Record<W8SpellRuntimeRecord> {
         text(runtime.display_name,
              bytes.subspan(offsetof(Disk, display_name), sizeof(Disk::display_name)),
              Encoding::utf16);
-        value(&runtime.unknown_11b,
+        value(&runtime.serialized.unknown_11b,
               bytes.subspan(offsetof(Disk, unknown_11b), sizeof(Disk::unknown_11b)));
         value(&runtime.divinity_spell,
               bytes.subspan(offsetof(Disk, divinity_spell), sizeof(Disk::divinity_spell)));
@@ -304,7 +304,7 @@ template<> struct Record<W8SpellRuntimeRecord> {
               bytes.subspan(offsetof(Disk, psionics_spell), sizeof(Disk::psionics_spell)));
         value(&runtime.effect_radius,
               bytes.subspan(offsetof(Disk, effect_radius), sizeof(Disk::effect_radius)));
-        value(&runtime.unknown_125,
+        value(&runtime.serialized.unknown_125,
               bytes.subspan(offsetof(Disk, unknown_125), sizeof(Disk::unknown_125)));
         value(&runtime.monster_castable,
               bytes.subspan(offsetof(Disk, monster_castable), sizeof(Disk::monster_castable)));
@@ -325,7 +325,7 @@ template<> struct Record<W8SpellRuntimeRecord> {
               bytes.subspan(offsetof(Disk, missile_index), sizeof(Disk::missile_index)));
         value(&runtime.missile_delivered,
               bytes.subspan(offsetof(Disk, missile_delivered), sizeof(Disk::missile_delivered)));
-        value(&runtime.unknown_145,
+        value(&runtime.serialized.unknown_145,
               bytes.subspan(offsetof(Disk, unknown_145), sizeof(Disk::unknown_145)));
         value(&runtime.show_effect_dice,
               bytes.subspan(offsetof(Disk, show_effect_dice), sizeof(Disk::show_effect_dice)));
@@ -914,7 +914,7 @@ template<> struct Record<W8GlobalStatus> {
                                                           sizeof(Disk::binding_reset_clock)));
         value(&runtime.binding_reset_pending, bytes.subspan(offsetof(Disk, binding_reset_pending),
                                                             sizeof(Disk::binding_reset_pending)));
-        value(&runtime.padding_242f,
+        value(&runtime.serialized.padding_242f,
               bytes.subspan(offsetof(Disk, padding_242f), sizeof(Disk::padding_242f)));
         value(&runtime.npc_restore_pending, bytes.subspan(offsetof(Disk, npc_restore_pending),
                                                           sizeof(Disk::npc_restore_pending)));
@@ -1016,7 +1016,7 @@ template<> struct Record<W8GlobalStatus> {
         value(&runtime.intro_shown,
               bytes.subspan(offsetof(Disk, intro_shown), sizeof(Disk::intro_shown)));
         value(&runtime.flag, bytes.subspan(offsetof(Disk, flag), sizeof(Disk::flag)));
-        value(&runtime.padding_49be,
+        value(&runtime.serialized.padding_49be,
               bytes.subspan(offsetof(Disk, padding_49be), sizeof(Disk::padding_49be)));
         value(&runtime.endgame_started,
               bytes.subspan(offsetof(Disk, endgame_started), sizeof(Disk::endgame_started)));

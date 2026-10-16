@@ -97,7 +97,6 @@ public:
 
     int cycle;
     signed char subcycle;
-    unsigned char padding_05[3];
     std::unique_ptr<stParticle> m_pstParticles;
     glm::vec3 position;
     /* 0x004A7E50 composes this into the model instance's own rotation with
@@ -162,7 +161,6 @@ public:
     std::deque<ShakeDefinition> shake_events;
     /* 0x1b5: the subcycle the last update pass left on the representation. */
     unsigned char last_subcycle;
-    unsigned char padding_1b6[2];
     std::vector<W8GrCycleParticleAttachment*>* m_plsParticles; /* 0x1b8 */
     /* 0x1bc: set when the frame walk wrapped to first_frame; suppresses the
        per-subcycle light reset. */

@@ -108,9 +108,7 @@ struct W8CombatHandRecord {
 /* One combat participant's row, one per character. */
 struct W8CombatCharacterRow {
     unsigned int phase;
-    unsigned char unknown_04[0x30];
     bool dead;
-    unsigned char padding_35[3];
     /* Historical offset 0x38: the two hand values GetCharacterTurnValue reuses once this row's
        turn is already set up. */
     int saved_attack_value[2];
@@ -148,7 +146,6 @@ struct W8CombatCharacterRow {
        -1 slot empty or out of the fight, 0 ready, 1 cannot switch to combat,
        2 dead or ineligible, 3 the acting combatant (portrait pulses). */
     char combat_status;
-    unsigned char padding_8d[3];
     /* Historical offset 0x90: how many times the character already rolled to notice an attacker
        this round; the first attempt always succeeds and each later one is 25
        points harder on the senses check. */
@@ -160,7 +157,6 @@ struct W8CombatCharacterRow {
        CanPartySlotPray and CanPartySlotTurnUndead. */
     bool pray_used;
     bool turn_undead_used;
-    unsigned char padding_9a[2];
     /* Historical offset 0x9c: the combat clock value when CatchUpCombatActor last advanced this
        row's phase; the spell-scaling paths read it as the character's combat
        pace. */
@@ -185,7 +181,6 @@ struct W8CombatCharacterRow {
        when the target has the skill trained; the round-end pass awards
        practice credit to exactly those three entries and clears them. */
     unsigned char skill_use_flags[0x29];
-    unsigned char padding_d1[3];
 };
 
 /* The combat state, allocated when combat starts. */
@@ -197,7 +192,6 @@ struct W8CombatState {
        cleared at the round boundary while continuous_combat is off. Gates
        party movement and the combat-sensitive UI panels. */
     bool round_active;
-    unsigned char padding_002[2];
     /* Historical offset 0x004: current round number - incremented at each round boundary,
        shown in the round notices and gating the round-one specials. */
     unsigned int round_count;
@@ -233,7 +227,6 @@ struct W8CombatState {
     /* Historical offset 0x8c4: staged hit result of the in-flight missile (0 = pending, 1 = hit, 2 = deflected) */
     char missile_hit_result; /* W8MissileHitResult */
     W8CombatSlot TargetHit;
-    unsigned char padding_8e5[3];
     int pending_deaths[8];
     int pending_death_count;
     W8PartyAction uiNextPartyAction;
@@ -263,7 +256,6 @@ struct W8CombatState {
     /* Historical offset 0xa48: the once-per-combat difficulty evaluation has run; the update
        tick calls the evaluator on the first frame it sees this clear. */
     unsigned char combat_evaluated;
-    unsigned char padding_a49[3];
     /* Historical offset 0xa4c: the in-flight breath visual for a character's special-attack
        action. The executor refuses while its `finished` flag is clear and
        hands the previous one to the world updater through `auto_release`. */
@@ -292,7 +284,6 @@ struct W8CombatState {
     /* Historical offset 0xa58: queued refusal script for NPC party slots 0 and 1, set after
        queuing events 0x3a and 0x36; event 0x36 clears it. */
     bool npc_combat_script_pending[2];
-    unsigned char padding_a5a[2];
     /* Historical offset 0xa5c: the combat updates elapsed; the engagement sweep waits for the
        third before it touches group states. */
     unsigned int combat_update_count;
@@ -304,7 +295,6 @@ struct W8CombatState {
        mode back on when it reads nonzero. */
     unsigned char search_mode_saved;
     bool combat_ready;
-    unsigned char padding_a63;
 };
 
 extern std::unique_ptr<W8CombatState> g_combat_state;

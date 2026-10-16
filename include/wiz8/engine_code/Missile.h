@@ -48,7 +48,6 @@ struct W8AIMissile : W8AIRecord {
     float elapsed{};
     float limit{};
     bool unknown_1c{};
-    unsigned char padding_1d[3];
 };
 
 unsigned char UpdateMissileAI(W8AIMissile* record);
@@ -72,7 +71,6 @@ public:
 
     unsigned int value_0ac{};
     unsigned int value_0b0{};
-    unsigned char unknown_0b4[0x24];
     EmitterResources<2> resources;
 };
 
@@ -151,7 +149,6 @@ public:
        folded into the owning spell effect by 0x00500460. */
     W8SpellEffectResult result;
     bool retargeted; /* the missile struck something other than its intended target */
-    unsigned char padding_323[5];
 };
 
 /* Secondary vftable 0x005ecdf4 keeps the W8Navigator subobject at +0x18. */

@@ -15,7 +15,6 @@ struct W8CharacterCreationState {
     int attribute_step_limit;
     int attribute_limits[7];
     bool attributes_complete; /* set once every attribute choice validates */
-    unsigned char padding_045[3];
     int attribute_baselines[7];
     int skill_points_remaining;
     int skill_points_total;
@@ -23,7 +22,6 @@ struct W8CharacterCreationState {
     int skill_step_limit;
     int skill_limits[0x29];
     bool skills_complete; /* set once every skill choice validates */
-    unsigned char padding_1b9[3];
     /* The per-skill counterpart of attribute_baselines. The
        level-up reset zeroes it, and a profession change refunds whatever each
        entry holds before the new profession's skill points are assigned. */
@@ -32,7 +30,6 @@ struct W8CharacterCreationState {
     int spell_points_total;
     int magic_skill_bonus;
     bool spells_complete;
-    unsigned char padding_26d[3];
 };
 
 void InitializeCharacterCreation(W8Character*, W8CharacterCreationState*);
