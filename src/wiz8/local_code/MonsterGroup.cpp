@@ -987,7 +987,6 @@ W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count, const g
     group->centre = *position;
     group->members_active = false;
     group->fInCombat = false;
-    group->unknown_2b = 3;
     if (use_alternate_name || (record->flags & W8_MONSTER_FLAG_ALTERNATE_NAME) != 0) {
         group->alternate_name = true;
     } else {

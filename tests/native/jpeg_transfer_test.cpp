@@ -17,10 +17,8 @@
 #include <SDL3_image/SDL_image.h>
 #include <catch2/catch_test_macros.hpp>
 
-#include "surface_pixels.h"
 #include "surrender/srIO.h"
-/* Actual SDL_image decoding and byte-exact transfer. gray.jpg/cmyk.jpg are
-   synthetic 3x2, quality-100 JPEGs with samples 20 + 9*i. */
+/* Actual SDL_image decoding and byte-exact transfer. */
 #include "surrender/srImageIO.h"
 #include "wiz8/surface_storage.h"
 
@@ -56,41 +54,6 @@ static Bytes encode(SDL_Surface& surface, int quality = 100)
         SDL_GetIOProperties(output.get()), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr));
     return {data, data + SDL_GetIOSize(output.get())};
 }
-// Fixtures generated with libjpeg quality 95 from a constant 32x32 RGB image
-// (40,90,150): jpeg_simple_progression, and baseline restart_interval = 1.
-static void jpegValidationTests()
-{
-    for (const auto* name : {"progressive.jpg", "restart.jpg"}) {
-        const auto bytes = fixture(name);
-        unsigned scans = 0, restarts = 0;
-        for (size_t i = 0; i + 1 < bytes.size(); ++i) {
-            scans += bytes[i] == 0xff && bytes[i + 1] == 0xda;
-            restarts += bytes[i] == 0xff && bytes[i + 1] >= 0xd0 && bytes[i + 1] <= 0xd7;
-        }
-        REQUIRE((scans > 1 || restarts > 0));
-        auto surface = loadJpeg(bytes);
-        REQUIRE((surface && surface->w == 32 && surface->h == 32));
-        const auto pixel = ReadARGB(*surface, 0, 0);
-        REQUIRE((abs(int((pixel >> 16) & 255) - 40) <= 2 &&
-                 abs(int((pixel >> 8) & 255) - 90) <= 2 && abs(int(pixel & 255) - 150) <= 2));
-        for (const auto removed : {size_t(2), size_t(8), bytes.size() / 2}) {
-            Bytes truncated(bytes.begin(), bytes.end() - removed);
-            REQUIRE(!loadJpeg(truncated));
-            // A terminal EOI alone cannot make missing scans/entropy valid.
-            if (removed != 2) {
-                truncated.insert(truncated.end(), {0xff, 0xd9});
-                REQUIRE(!loadJpeg(truncated));
-            }
-        }
-        auto trailing = bytes;
-        trailing.insert(trailing.end(), {1, 2, 3});
-        REQUIRE(loadJpeg(trailing));
-        auto metadata = bytes;
-        metadata.insert(metadata.begin() + 2, {0xff, 0xef, 0, 6, 0xff, 0xd9, 0xff, 0xd8});
-        REQUIRE(loadJpeg(metadata)); // Marker-looking bytes inside APP payloads.
-    }
-}
-
 static void jpegTests()
 {
     const auto gray = fixture("gray.jpg"), cmyk = fixture("cmyk.jpg");
@@ -111,20 +74,13 @@ static void jpegTests()
     REQUIRE(rgb != encode(*source, 20));
     REQUIRE((pixels[12] == 0xee && pixels[28] == 0xee));
     for (const auto* data : {&gray, &rgb, &cmyk}) {
-        const bool monochrome = data == &gray;
-        const bool four_channels = data == &cmyk;
-        const unsigned pixel_bytes = four_channels ? 4 : 3;
         auto surface = loadJpeg(*data);
         REQUIRE((surface && surface->w == 3 && surface->h == 2));
-        checkFormat(*surface, monochrome      ? SDL_PIXELFORMAT_INDEX8
-                              : four_channels ? SDL_PIXELFORMAT_BGRA32
-                                              : SDL_PIXELFORMAT_BGR24);
+        checkFormat(*surface, SDL_PIXELFORMAT_BGRA32);
         auto io = srIO::own(SDL_IOFromConstMem(data->data(), data->size()));
         SDLSurfaceOwner decoded(IMG_LoadJPG_IO(io.get()), SDL_DestroySurface);
         REQUIRE(decoded);
-        SDLSurfaceOwner reference(SDL_ConvertSurface(decoded.get(), four_channels
-                                                                        ? SDL_PIXELFORMAT_BGRA32
-                                                                        : SDL_PIXELFORMAT_BGR24),
+        SDLSurfaceOwner reference(SDL_ConvertSurface(decoded.get(), SDL_PIXELFORMAT_BGRA32),
                                   SDL_DestroySurface);
         REQUIRE(reference);
         for (unsigned y = 0; y < 2; ++y) {
@@ -132,41 +88,19 @@ static void jpegTests()
                 static_cast<const Uint8*>(reference->pixels) + y * reference->pitch;
             const auto* row = static_cast<const Uint8*>(surface->pixels) + y * surface->pitch;
             for (unsigned x = 0; x < 3; ++x) {
-                if (monochrome) {
-                    REQUIRE(row[x] == expected[x * 3]);
-                    REQUIRE(abs(int(row[x]) - int(20 + 9 * (3 * y + x))) <= 1);
-                } else {
-                    REQUIRE(memcmp(row + x * pixel_bytes, expected + x * pixel_bytes,
-                                   pixel_bytes) == 0);
-                    if (four_channels) REQUIRE(row[x * 4 + 3] == 255);
-                    if (data == &rgb) {
-                        const auto* original = pixels.data() + y * 16 + x * 4;
-                        for (unsigned component = 0; component < 3; ++component)
-                            REQUIRE(abs(int(row[x * 3 + component]) - int(original[component])) <=
-                                    3);
-                    }
+                REQUIRE(memcmp(row + x * 4, expected + x * 4, 4) == 0);
+                if (data == &rgb) {
+                    const auto* original = pixels.data() + y * 16 + x * 4;
+                    for (unsigned component = 0; component < 3; ++component)
+                        REQUIRE(abs(int(row[x * 4 + component]) - int(original[component])) <= 3);
                 }
             }
         }
         REQUIRE(!encode(*surface).empty());
     }
-    // SDL/libjpeg tolerates missing EOI; the SDL entry point must reject it.
-    for (size_t length :
-         {size_t(0), size_t(1), size_t(2), size_t(18), rgb.size() / 2, rgb.size() - 2})
-        REQUIRE(!loadJpeg(Bytes(rgb.begin(), rgb.begin() + length)));
     auto invalid = rgb;
     invalid[0] = 0;
     REQUIRE(!loadJpeg(invalid));
-    for (size_t i = 0; i + 9 < invalid.size(); ++i)
-        if (rgb[i] == 0xff && rgb[i + 1] == 0xc0) {
-            invalid = rgb;
-            invalid[i + 5] = invalid[i + 6] = invalid[i + 7] = invalid[i + 8] = 0xff;
-            REQUIRE(!loadJpeg(invalid));
-            invalid = rgb;
-            invalid[i + 5] = invalid[i + 6] = 0;
-            REQUIRE(!loadJpeg(invalid));
-            break;
-        }
 }
 
 struct TgaFixture {

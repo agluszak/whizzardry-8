@@ -37,7 +37,6 @@ public:
        selector at 0x004A7BE0. It doubles as the AnimObj list index, which is
        what makes one animation list per LOD. */
     signed char m_bLOD;
-    unsigned char padding_099[3];
     /* Two LOD switch distances, scaled by the detail slider before they
        are compared. 0x004A7BE0 reads both with fmul, which types them. */
     float lod_near;

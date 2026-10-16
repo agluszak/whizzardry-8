@@ -180,8 +180,6 @@ OctBuildPreTree::OctBuildPreTree(float leaf_size, std::optional<srBoundingBox> b
 {
     mesh_linking = true;
     game_data = 0;
-    unknown_138 = 0;
-    unknown_13c = 0;
     deepest_link_list = 0;
     memset(level_counts, 0, sizeof(level_counts));
     this->path_capacity = path_capacity;
@@ -1407,8 +1405,6 @@ std::unique_ptr<OctPreTree> OctBuildPreTree::BuildOctPreTree()
     tree->m_spatial.m_region_volumes = tree->m_region_volumes.data();
     spatial.m_region_volumes = nullptr;
     tree->game_data = game_data;
-    tree->unknown_3a8 = unknown_138;
-    tree->unknown_3ac = unknown_13c;
     tree->deepest_link_list = deepest_link_list;
     tree->m_spatial.m_item_count = spatial.m_item_count;
     tree->m_spatial.m_polygon_count = spatial.m_polygon_count;
@@ -1425,7 +1421,7 @@ std::unique_ptr<OctPreTree> OctBuildPreTree::BuildOctPreTree()
     tree->polygon_cursor = 1;
     tree->m_region_list_len = 1;
     tree->m_gd_surface_stream_len = 1;
-    tree->m_unknown_13c = 0;
+
     tree->m_trigger_count = 0;
 
     root->ConvertToOctPreTree(0, tree.get());

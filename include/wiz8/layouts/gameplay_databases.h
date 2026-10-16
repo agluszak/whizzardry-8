@@ -3,6 +3,8 @@
 
 #include <string>
 #include <vector>
+
+#include "wiz8/retail_opaque_records.h"
 struct W8NpcItemStockRule;
 
 #include <algorithm>
@@ -192,8 +194,8 @@ enum W8SpellTargetType {
 
 /* One spell, as the database holds it at run time. */
 struct W8SpellRuntimeRecord {
+    wiz8::retail::SpellOpaque serialized;
     std::string database_name;
-    unsigned char unknown_040[4];
     /* Retail offset 0x044: base duration the spell-info dialog prints. */
     int duration;
     unsigned char alchemy_spell;
@@ -201,16 +203,13 @@ struct W8SpellRuntimeRecord {
     /* Retail offset 0x04d: per-level duration added to duration on the same line. */
     int duration_per_level;
     W8Dice effect_dice;
-    unsigned char unknown_055;
     int spell_level;
     unsigned char wizardry_spell;
     std::string resource_name;
     std::string display_name;
-    unsigned char unknown_11b[4];
     unsigned char divinity_spell;
     unsigned char psionics_spell;
     float effect_radius;
-    unsigned char unknown_125;
     /* Retail offset 0x126: a monster may cast the spell at all. MonsterOKToCastSpell reports
        a spell without it by name and asserts. */
     unsigned char monster_castable;
@@ -240,7 +239,6 @@ struct W8SpellRuntimeRecord {
        Terror, Noxious Fumes, Crush, Return to Portal and the monster Special
        Attack Cone. */
     unsigned char missile_delivered;
-    unsigned char unknown_145[2];
     /* Retail offset 0x147: SpellInfoDialog prints the effect-dice line when this is set. */
     int show_effect_dice;
     std::string sound_name;

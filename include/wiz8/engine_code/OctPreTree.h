@@ -143,12 +143,10 @@ struct W8OctPreTreeVertex {
     /* Per-vertex traversal latch the shared-polygon split raises so each
        vertex's face run is walked once per pass. */
     bool m_visited;
-    unsigned char padding_0b;
     glm::vec3 position{0};
     /* Number of polygons referencing this vertex; SortGeometry counts and
        the region pass tracks the run bound. */
     short m_normal_count;
-    unsigned char padding_1a[2];
     int m_material;
     /* The polygon automesh kind SplitVertices copies onto material-split
        duplicates. */

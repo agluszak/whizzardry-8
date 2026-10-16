@@ -161,7 +161,6 @@ public:
     std::vector<float> vertex_sunlight;
     /* Set once both vertex lights and sunlight exist. */
     bool vertex_lighting_ready;
-    unsigned char padding_3ce[2];
     std::vector<Frame> frames; // Empty for a static base-class mesh.
     std::vector<Skin> skins;
     std::unordered_map<short, short> mapped_vertices; // key -> vertex

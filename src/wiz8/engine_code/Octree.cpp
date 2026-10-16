@@ -304,7 +304,6 @@ void W8Octree::UpdateVisibility()
         std::ranges::fill(m_linked_props, false);
     }
     m_projected_regions_valid = false;
-    m_location_region_matched = 0;
     view.visible_cells = projectRegionsAt(view.camera_location).cell;
     CollectVisibleCells();
     UpdatePathVisualization();
@@ -503,7 +502,6 @@ short W8Octree::ProjectLinkedRegionsForLocation(glm::vec3* location, unsigned sh
             }
         }
         if (match_count != 0) {
-            m_location_region_matched = 1;
             return match_count;
         }
     }
@@ -544,7 +542,6 @@ short W8Octree::ProjectLinkedRegionsForLocation(glm::vec3* location, unsigned sh
     if (match_count == 0) {
         return 0;
     }
-    m_location_region_matched = 1;
     return match_count;
 }
 
@@ -2619,8 +2616,7 @@ W8Octree::W8Octree(const char* path, W8GameData** game_data)
         if (header.m_path_nodes != 0) {
             pathing = new W8PathingService;
             pathing->ConfigureForLevel(header.m_path_nodes, header.m_region_cell,
-                                       header.m_path_clearance, m_spatial.bounds(),
-                                       m_path_stem.c_str());
+                                       m_spatial.bounds(), m_path_stem.c_str());
             if (!pathing->ReadPathNodes(hOctFile.get())) {
                 throw std::runtime_error("Could not read octree path nodes.");
             }
@@ -2694,7 +2690,6 @@ void W8Octree::Reset()
     m_gd_surface_stream_len = 0;
     m_trigger_count = 0;
     m_region_list_len = 0;
-    m_unknown_13c = 0;
     m_polygon_index_stream.clear();
     m_aulPolyLookup.clear();
     m_gd_surface_index_stream.clear();
@@ -2723,19 +2718,12 @@ void W8Octree::Reset()
     m_aulGDObjs.fill(0);
 
     view = {};
-    m_unknown_27c[0] = 0;
-    m_unknown_27c[1] = 0;
-    m_unknown_27c[2] = 0;
-    m_unknown_27c[3] = 0;
-    m_unknown_27c[4] = 0;
-    m_unknown_27c[5] = 0;
     m_visibility_suspended = false;
     m_reset_visibility = false;
     m_projected_regions_valid = false;
     m_region_links_ready = false;
     m_region_links_dirty = false;
     m_points_dirty = false;
-    m_unknown_299 = 0;
     m_sun_count = 0;
     prop_sun_base = 0;
     m_ulNumProps = 0;
@@ -2754,12 +2742,6 @@ void W8Octree::Initialize(const W8OctFileHeader* header)
         m_spatial.m_cell_size = header->m_cell_size;
         m_spatial.m_node_extent = header->m_node_extent;
 
-        m_unknown_27c[0] = 0;
-        m_unknown_27c[1] = 0;
-        m_unknown_27c[2] = 0;
-        m_unknown_27c[3] = 0;
-        m_unknown_27c[4] = 0;
-        m_unknown_27c[5] = 0;
         m_spatial.m_bounds.minimum = {header->m_bounds[0].x, header->m_bounds[0].y,
                                       header->m_bounds[0].z};
         m_spatial.m_bounds.maximum = {header->m_bounds[1].x, header->m_bounds[1].y,

@@ -726,7 +726,7 @@ void ToggleAmbientSoundByName(W8World* /* unused */, const char* name)
 unsigned short g_empty_ambient_name;
 
 // FUNCTION: WIZ8 0x0047ab40
-unsigned char ReadAmbientSoundListFile(char* filename)
+unsigned char ReadAmbientSoundListFile(const char* filename)
 {
     std::unique_ptr<wiz8::File> handle;
     bool more = true;

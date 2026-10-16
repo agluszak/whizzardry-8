@@ -40,7 +40,6 @@ public:
 
     float scroll_rate_u;         /* 0x04 */
     float scroll_rate_v;         /* 0x08 */
-    unsigned char padding_0c[8]; /* 0x0c */
     float scroll_u;              /* 0x14 */
     float scroll_v;              /* 0x18 */
 };
