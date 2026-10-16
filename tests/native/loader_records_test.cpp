@@ -1144,3 +1144,40 @@ TEST_CASE_METHOD(LoaderFixture, "Environment tables decode RGB bytes without run
         REQUIRE(*table == complete);
     }
 }
+
+TEST_CASE("Collision disk codecs retain vector components and unknown bytes", "[loader][records]")
+{
+    wiz8::retail::Environ environment{};
+    environment.value_00 = 17;
+    environment.ground_latch = 1;
+    environment.airborne = 3;
+    environment.pad_06[0] = 0xa5;
+    environment.pad_06[1] = 0x5a;
+    environment.scale = 2;
+    environment.vector = {3, -4, 5};
+    environment.value_40 = 11;
+    W8EnvironRecord live_environment;
+    wiz8::retail::decode_image(environment, live_environment);
+    REQUIRE(live_environment.vector == glm::vec3(3, -4, 5));
+    REQUIRE(live_environment.ground_latch);
+    REQUIRE(live_environment.scale == 2);
+    const auto encoded_environment = wiz8::retail::encode(live_environment);
+    REQUIRE(std::memcmp(encoded_environment.data(), &environment, sizeof(environment)) == 0);
+
+    wiz8::retail::RegionVolume region{};
+    region.flags = 0x10203040;
+    region.m_region = 0x1234;
+    region.positional[5] = 0x9a;
+    region.value_18 = 0x87654321;
+    for (int i = 0; i < 9; ++i) region.m_points[i] = {float(i), float(i + 10), float(i + 20)};
+    for (int i = 0; i < 6; ++i)
+        region.m_planes[i] = {{float(i + 30), float(i + 40), float(i + 50)}, float(i + 60)};
+    W8OctRegionVolume live_region{};
+    wiz8::retail::decode_image(region, live_region);
+    REQUIRE(live_region.m_region == 0x1234);
+    REQUIRE(live_region.m_points[8] == glm::vec3(8, 18, 28));
+    REQUIRE(live_region.m_planes[5].normal.glmValue() == glm::vec3(35, 45, 55));
+    REQUIRE(live_region.m_planes[5].w == 65);
+    const auto encoded_region = wiz8::retail::encode(live_region);
+    REQUIRE(std::memcmp(encoded_region.data(), &region, sizeof(region)) == 0);
+}

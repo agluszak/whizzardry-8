@@ -2857,7 +2857,7 @@ TEST_CASE("Animated prop affine geometry uses scaled paths and rotated native bo
 
 TEST_CASE("Prop surface geometry preserves walkable slope while clearing steep slope", "[geometry]")
 {
-    std::array<srVector3, 3> positions{{{0, -2, 0}, {0, -2, 2}, {2, -2, 0}}};
+    std::array<glm::vec3, 3> positions{{{0, -2, 0}, {0, -2, 2}, {2, -2, 0}}};
     W8GDSurface surface{};
     for (int corner = 0; corner < 3; ++corner) surface.vertex_indices[corner] = corner;
     surface.slope = 0.3f;

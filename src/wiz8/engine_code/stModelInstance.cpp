@@ -21,7 +21,6 @@
 #include "surrender/model_view_scope.h"
 #include "surrender/srGERD.h"
 #include "surrender/srMaterial.h"
-#include "surrender/srMath.h"
 #include "surrender/srModel.h"
 #include "surrender/srNode.h"
 #include "surrender/srShader.h"
