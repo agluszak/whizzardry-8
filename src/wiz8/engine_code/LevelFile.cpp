@@ -16,7 +16,6 @@
 #include <variant>
 #include <vector>
 
-
 #include "glm/ext/vector_float3.hpp"
 #include "materials.h"
 #include "wiz8/engine_code/OctMeshModel.h"

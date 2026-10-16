@@ -1,7 +1,5 @@
 #pragma once
 
-#include <filesystem>
-
 extern const float g_path_endpoint_scale;
 
 struct W8GameData;
