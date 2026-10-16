@@ -1146,6 +1146,7 @@ TEST_CASE_METHOD(SaveFixture, "Quality files retain reserved slots and live opti
         ~Cleanup() { InitializeRenderQuality(); }
     } cleanup;
     SetRenderOption(W8_RENDER_OPTION_RESERVED_5, 1);
+    SetRenderOption(W8_RENDER_OPTION_RESERVED_12, 1);
     EnableRenderOption(W8_RENDER_OPTION_ADDITIONAL_ANIMATIONS);
     EnableRenderOption(W8_RENDER_OPTION_FOOTSTEP_SOUND);
     const auto path = wiz8::user_path("quality.bin");
@@ -1160,6 +1161,7 @@ TEST_CASE_METHOD(SaveFixture, "Quality files retain reserved slots and live opti
     file->read_exact(options.data(), options.size());
     REQUIRE(version == 1);
     REQUIRE(options[5] == 0);
+    REQUIRE(options[12] == 0);
     REQUIRE(options[14] == 1);
     REQUIRE(options[15] == 1);
 }

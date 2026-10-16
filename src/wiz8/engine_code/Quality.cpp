@@ -37,7 +37,7 @@ void EnableRenderOption(W8RenderOption option)
 // FUNCTION: WIZ8 0x0047b630
 void SetRenderOption(W8RenderOption option, int enabled)
 {
-    if (option == W8_RENDER_OPTION_RESERVED_5) return;
+    if (option == W8_RENDER_OPTION_RESERVED_5 || option == W8_RENDER_OPTION_RESERVED_12) return;
     /* The remaining numeric cases have not been assigned reliable option names. */
     switch (static_cast<int>(option)) {
     case W8_RENDER_OPTION_BRIGHTNESS:
@@ -71,9 +71,6 @@ void SetRenderOption(W8RenderOption option, int enabled)
         break;
     case W8_RENDER_OPTION_HIGH_TEXTURE_DETAIL:
         SetResidentTexturePolicy(enabled ? 0 : 1);
-        break;
-    case W8_RENDER_OPTION_HIGH_TEXTURE_CACHE:
-        SetTextureCacheSize(enabled ? 0x2000000 : 0x1000000);
         break;
     case W8_RENDER_OPTION_VIDEO_SYNC:
         SetSwapInterval(enabled != 0);

@@ -124,10 +124,6 @@ w8_ulong stTextureAnim::getTextureFrameHandle()
 }
 
 // FUNCTION: WIZ8 0x00484D60
-float stTextureAnim::getPriority()
-{
-    return current().getPriority();
-}
 
 // FUNCTION: WIZ8 0x00484D80
 srTextureIFace::Dimensions stTextureAnim::getDimensions()

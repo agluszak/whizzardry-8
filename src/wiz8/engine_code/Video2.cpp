@@ -1536,9 +1536,6 @@ void DrawVideoInspector(int left, unsigned int top)
                 GetFrameBufferSurface(), g_smfnt_font, {text_left, text_top + 0x5a},
                 fmt::format("RM: {:d}K", g_gerd->getResidentTextureMemUsed() >> 10));
             DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font,
-                                  {text_left, text_top + 0x64},
-                                  fmt::format("TM: {:d}K", g_gerd->getTextureCacheUsed()));
-            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font,
                                   {text_left, text_top + 0x6e},
                                   fmt::format("DR: {:3d}", GetCameraYawAndRotation(0)));
             DrawTextAndInvalidate(
@@ -2438,14 +2435,6 @@ void SetSwapInterval(bool enabled)
 }
 
 // FUNCTION: WIZ8 0x00426740
-void SetTextureCacheSize(w8_ulong bytes)
-{
-    if (bytes > 0x7fffff && bytes != g_gerd->getTextureCacheSize()) {
-        g_gerd->invalidateResidentTextures();
-        g_gerd->invalidateTextureCache();
-        g_gerd->setTextureCacheSize(bytes);
-    }
-}
 
 /* Build an stTextureAnim whose frames are consecutive VObject subimages starting
    at start_frame. use_argb1555 selects SURFACE_ARGB1555 versus SURFACE_RGB555 for

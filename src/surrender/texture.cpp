@@ -30,7 +30,6 @@ srTexture::srTexture()
     texture_flags_ = 0;
     mipmap_bias = 0.0f;
     packed_state = 0xe43;
-    texture_priority = 0.5f;
     texture_flags_ |= 1 << FLAG_DIRTY_DEFAULTS;
 }
 
@@ -45,7 +44,6 @@ srTexture& srTexture::operator=(const srTexture& other)
         srClass::operator=(other);
         packed_state = other.packed_state;
         mipmap_bias = other.mipmap_bias;
-        texture_priority = other.texture_priority;
         texture_dimensions_ = other.texture_dimensions_;
         texture_flags_ = other.texture_flags_;
     }
@@ -88,22 +86,8 @@ void srTexture::setupDefaultValuesFromSurface(SDL_Surface* surface)
 }
 
 // FUNCTION: SURRENDER 0x1005EB20
-float srTexture::getPriority()
-{
-    return texture_priority;
-}
 
 // FUNCTION: SURRENDER 0x1005EAC0
-void srTexture::setPriority(float priority)
-{
-    if (priority <= 0.0f) {
-        texture_priority = 0.0f;
-    } else if (priority >= 1.0f) {
-        texture_priority = 1.0f;
-    } else {
-        texture_priority = priority;
-    }
-}
 
 // FUNCTION: SURRENDER 0x1005EB10
 float srTexture::getMipmapBias() const

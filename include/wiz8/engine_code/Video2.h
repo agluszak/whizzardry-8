@@ -211,7 +211,6 @@ extern bool g_world_blacked_out;
 
 void SetResidentTexturePolicy(int policy);
 void SetSurfaceScale(float scale);
-void SetTextureCacheSize(w8_ulong bytes);
 void SetSwapInterval(bool enabled);
 void SetViewport(const DesignRect& bounds);
 // Update the surface viewport without changing the camera view plane.

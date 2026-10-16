@@ -10,7 +10,6 @@ public:
 
     srTexture& operator=(const srTexture& other);
     virtual w8_ulong getTextureFrameHandle() override;
-    virtual float getPriority() override;
     Dimensions getDimensions() override;
     void setDimensions(const Dimensions& dimensions);
     virtual void getMipmapData(const MultiRequest& request) override;
@@ -19,7 +18,6 @@ public:
     void setMipmap(e_mipmap mipmap);
     void setMipmapBias(float bias);
     float getMipmapBias() const;
-    void setPriority(float priority);
     void setDimensionsDirty();
     e_compression getCompression() const;
     void setCompression(e_compression compression);
@@ -58,6 +56,5 @@ protected:
     w8_ulong packed_state;     /* 0x18: correction/mag/min/mipmap/wrap bits */
     float mipmap_bias;              /* 0x1c */
     Dimensions texture_dimensions_; /* 0x20 */
-    float texture_priority;         /* 0x4c: getPriority; the ctor seeds 0.5f */
     w8_ulong texture_flags_;   /* 0x50 */
 };
