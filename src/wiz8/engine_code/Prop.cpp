@@ -343,7 +343,7 @@ bool ResolvePickedProp(W8World* world)
                 (g_combat_inactive ||
                  (trigger->m_pActionData != 0 &&
                   trigger->m_pActionData->type == W8_TRIGGER_PAYLOAD_DOOR &&
-                  !static_cast<W8DoorTriggerActionData*>(trigger->m_pActionData)->open)) &&
+                  !static_cast<W8DoorTriggerActionData*>(trigger->m_pActionData.get())->open)) &&
                 representation->active != 0) {
                 if (const auto bounds = prop->GetFrameBounds()) {
                     const float distance =
@@ -840,7 +840,7 @@ bool W8Prop::CanBeUsedFrom(int path_x, int path_z, bool notify)
         return false;
     }
 
-    action = owner->m_pActionData;
+    action = owner->m_pActionData.get();
     if (action == 0 || action->type != W8_TRIGGER_PAYLOAD_DOOR) {
         action = 0;
     }

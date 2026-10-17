@@ -1,6 +1,9 @@
 #pragma once
 
+#include <memory>
+#include <optional>
 #include <source_location>
+#include <string>
 
 #include "compat/compiler.h"
 #include "glm/ext/vector_float3.hpp"
@@ -18,9 +21,7 @@ namespace wiz8 {
 class File;
 }
 
-/* Timed Trigger actions are ordinary polymorphic objects owned by Trigger.cpp.
-   The 0x38-byte event owns its embedded timer, but not m_pCountdown;
-   its destructor at 0x004409A0 tears down only timer. */
+// Trigger events own both timers; the active queue borrows event pointers.
 class W8TriggerEvent {
 public:
     W8TriggerEvent();
@@ -30,7 +31,7 @@ public:
     short action;
     unsigned short unknown_006;
     W8GameTimer timer;
-    W8GameTimer* m_pCountdown;
+    std::optional<W8GameTimer> m_pCountdown;
     Trigger* trigger;
     bool repeat;
     bool completed;
@@ -81,6 +82,7 @@ public:
         one_way = false;
         secret = false;
         found = true;
+        has_position = false;
         jammable = false;
         jammed = false;
         item = -1;
@@ -108,7 +110,7 @@ public:
 class W8StringTriggerActionData : public W8TriggerActionData {
 public:
     virtual ~W8StringTriggerActionData() override;
-    char* owned_string;
+    std::string owned_string;
 };
 
 enum W8TriggerFlag {
@@ -264,12 +266,12 @@ public:
     unsigned short action;
     unsigned char action_state;
     unsigned char unknown_233;
-    W8TriggerActionData* m_pActionData;
-    char* m_pacRecipients;
+    std::unique_ptr<W8TriggerActionData> m_pActionData;
+    std::string recipients;
     int required_item_id;
-    char* m_pacRequiredStates;
-    char* m_pacStateToMod;
-    W8TriggerEvent* m_pEvent;
+    std::string required_states;
+    std::string state_to_modify;
+    std::unique_ptr<W8TriggerEvent> m_pEvent;
     char inline_action_data[0x100];
     std::unique_ptr<W8WorldItem> world_item_group;
     unsigned char items_generated;
@@ -299,7 +301,7 @@ inline void RunNamedTrigger(const char* name, int source)
     }
 }
 
-W8TriggerActionData* ReadDoorTriggerActionData(wiz8::File* handle);
+std::unique_ptr<W8TriggerActionData> ReadDoorTriggerActionData(wiz8::File* handle);
 /* The TRES save chunk: the world's triggers, their runtime states, and their
    action data. */
 int ResetNextTriggerId(void);

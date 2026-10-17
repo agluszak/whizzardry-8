@@ -43,6 +43,7 @@
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/engine_code/Spells.h"
+#include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/octree_spatial.h"
 #include "wiz8/engine_code/stCube.h"
 #include "wiz8/engine_code/stParticle.h"
@@ -1750,4 +1751,24 @@ TEST_CASE_METHOD(LoaderFixture, "Prop loader rejects an unterminated asset name"
     prop.name = "previous";
     REQUIRE_FALSE(prop.Rep()->LoadProp(&info, &prop));
     REQUIRE(prop.name == "previous");
+}
+
+TEST_CASE_METHOD(LoaderFixture, "Trigger action loading rejects incomplete and unterminated text",
+                 "[loader][trigger]")
+{
+    std::string bytes;
+    append(bytes, 1);
+    append(bytes, 1);
+    bytes.append(128, 'x');
+    bytes.append(256, '\0');
+    const auto load = [&](const std::string& data) {
+        store("trigger-action.dat", data);
+        auto file = wiz8::open_file(wiz8::asset_path("trigger-action.dat"));
+        return LoadTriggerActionData(*file);
+    };
+    REQUIRE_FALSE(load(bytes));
+    REQUIRE_FALSE(load(bytes.substr(0, bytes.size() - 1)));
+    std::fill(bytes.begin() + 8, bytes.begin() + 136, '\0');
+    std::fill(bytes.begin() + 136, bytes.end(), 'x');
+    REQUIRE_FALSE(load(bytes));
 }

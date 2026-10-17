@@ -152,7 +152,7 @@ void GDProp::Initialize(srModelInstance* instance, bool attach, unsigned short p
 
     Trigger* owner = m_trigger;
     if (owner != 0 && attach) {
-        W8TriggerActionData* action = owner->m_pActionData;
+        W8TriggerActionData* action = owner->m_pActionData.get();
         if (action != 0 && action->type == W8_TRIGGER_PAYLOAD_DOOR) {
             unsigned int flags = W8_PATH_CELL_DOOR;
             if ((owner->lock_state.lock_type != 0 &&
@@ -181,7 +181,7 @@ void GDProp::Initialize(srModelInstance* instance, bool attach, unsigned short p
 void GDProp::BindTrigger(Trigger* owner)
 {
     m_trigger = owner;
-    W8TriggerActionData* action = owner->m_pActionData;
+    W8TriggerActionData* action = owner->m_pActionData.get();
     if (action != 0 && action->type == W8_TRIGGER_PAYLOAD_DOOR) {
         if (action != 0) {
             m_flags.door = true;

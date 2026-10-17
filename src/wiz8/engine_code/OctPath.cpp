@@ -753,7 +753,7 @@ bool W8PathingService::TestAttachmentHopDoor(W8NavigatorAttachment* attachment)
                         }
                     }
                 }
-                W8TriggerActionData* action_data = selected->m_pActionData;
+                W8TriggerActionData* action_data = selected->m_pActionData.get();
                 if (action_data == 0 || action_data->type != W8_TRIGGER_PAYLOAD_DOOR) {
                     action_data = 0;
                 }
