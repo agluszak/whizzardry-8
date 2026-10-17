@@ -26,6 +26,7 @@
 #include "surrender/srNode.h"
 #include "surrender/srShader.h"
 #include "surrender/srTexture.h" // IWYU pragma: keep - complete texture type for shared_ptr base conversion.
+#include "wiz8/asset_paths.h"
 #include "wiz8/containers.h"
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/3d.h"
@@ -145,8 +146,8 @@ void InitializeWorldCursor(void)
             material->setEmissive(colour);
             material->setDiffuse(colour);
             gp3DCursor->particle->SetMaterial(std::move(material));
-            gp3DCursor->particle->SetTexture(
-                LoadTextureFromFolder("Data\\Monsters\\Bitmaps\\", "particle.tga", true));
+            gp3DCursor->particle->SetTexture(LoadTextureFromPath(
+                wiz8::asset_path("data/monsters/bitmaps/particle.tga"), nullptr, true));
             shader.value = 0x100c433;
             gp3DCursor->particle->SetRenderFlags(shader);
             gp3DCursor->particle->rotateX(-1.5707963);

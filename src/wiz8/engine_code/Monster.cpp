@@ -4576,7 +4576,7 @@ bool W8Monster::ReplaceSkinTexture(int stage, const char* old_name, const char* 
     bool replaced = false;
 
     path = fmt::format("Data\\Monsters\\Bitmaps\\{}", new_name);
-    auto texture = LoadTextureFromPath(path.c_str(), 0, true);
+    auto texture = LoadTextureFromPath(wiz8::asset_path(path), nullptr, true);
     if (texture == 0) {
         ShutdownWithErrorBox(fmt::format("Missing skin texture: {}", new_name));
         return false;
@@ -4742,8 +4742,8 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
             material->setEmissive(colour);
             material->setDiffuse(colour);
             particle->SetMaterial(std::move(material));
-            particle->SetTexture(
-                LoadTextureFromFolder("Data\\Monsters\\Bitmaps\\", "BloodParticle.tga", true));
+            particle->SetTexture(LoadTextureFromPath(
+                wiz8::asset_path("data/monsters/bitmaps/BloodParticle.tga"), nullptr, true));
             shader.value = 0x100c4b3;
             particle->SetRenderFlags(shader);
             particle->particle_size = 20.0;
@@ -4922,7 +4922,7 @@ void W8Monster::ApplyRepresentationScale()
 // FUNCTION: WIZ8 0x004C5500
 W8Item* CreateMonsterIconItem(W8World* world, const char* path, int flag)
 {
-    auto texture = std::make_shared<stTextureFile>(path, 0);
+    auto texture = std::make_shared<stTextureFile>(wiz8::asset_path(path), false);
     texture->setWrapS(srTexture::WRAP_CLAMP);
     texture->setWrapT(srTexture::WRAP_CLAMP);
     texture->loadSurface();

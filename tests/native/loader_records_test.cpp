@@ -959,7 +959,7 @@ TEST_CASE_METHOD(LoaderFixture, "World camera paths commit only complete tables"
         REQUIRE(std::string(existing->name0) == "EXISTING");
     };
     auto read = [&](wiz8::File* file) {
-        W8ReadLevelInfo info{&world, file, nullptr, nullptr};
+        W8ReadLevelInfo info{&world, file, {}};
         return ReadWorldCameras(&info, &world);
     };
     // Every truncation must also release entries and path nodes already decoded.
@@ -1173,12 +1173,12 @@ TEST_CASE_METHOD(LoaderFixture, "World item sections reject invalid signed count
         append(bytes, count);
         store("items.bin", bytes);
         auto file = wiz8::open_file(wiz8::asset_path("items.bin"));
-        W8ReadLevelInfo info{&world, file.get(), nullptr, nullptr};
+        W8ReadLevelInfo info{&world, file.get(), {}};
         REQUIRE(bool(ReadWorldItems(&info, &world)) == (count == 0));
     }
     store("items.bin", std::string(3, '\0'));
     auto file = wiz8::open_file(wiz8::asset_path("items.bin"));
-    W8ReadLevelInfo info{&world, file.get(), nullptr, nullptr};
+    W8ReadLevelInfo info{&world, file.get(), {}};
     REQUIRE_FALSE(ReadWorldItems(&info, &world));
 }
 
@@ -1637,7 +1637,7 @@ TEST_CASE_METHOD(LoaderFixture, "Particle record versions initialize omitted fie
         bytes.append(reinterpret_cast<const char*>(&record), size);
         store("particles.bin", bytes);
         auto file = wiz8::open_file(wiz8::asset_path("particles.bin"));
-        W8ReadLevelInfo info{nullptr, file.get(), "", nullptr};
+        W8ReadLevelInfo info{nullptr, file.get(), {}};
         srNode scene;
         std::vector<std::unique_ptr<stParticle>> particles;
         REQUIRE(ReadWorldParticles(&info, &scene, &particles));
@@ -1690,7 +1690,7 @@ TEST_CASE_METHOD(LoaderFixture, "Malformed particle sections publish no scene ob
     if (truncate) bytes.pop_back();
     store("particles.bin", bytes);
     auto file = wiz8::open_file(wiz8::asset_path("particles.bin"));
-    W8ReadLevelInfo info{nullptr, file.get(), "", nullptr};
+    W8ReadLevelInfo info{nullptr, file.get(), {}};
     srNode scene;
     std::vector<std::unique_ptr<stParticle>> particles;
     particles.push_back(std::make_unique<stParticle>(nullptr, 0));

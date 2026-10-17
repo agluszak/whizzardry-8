@@ -1,5 +1,6 @@
 #pragma once
 
+#include <filesystem>
 #include <memory>
 #include <vector>
 
@@ -17,14 +18,13 @@ struct W8NamedPosition;
 class stParticle;
 
 struct W8ReadLevelInfo {
-    W8World* world = nullptr;            /* 0x00 */
-    wiz8::File* hFile = nullptr;                 /* 0x04 */
-    const char* bitmap_folder = nullptr; /* 0x08 */
-    const char* mesh_filename = nullptr; /* 0x0c */
+    W8World* world = nullptr;
+    wiz8::File* hFile = nullptr;
+    std::filesystem::path bitmap_folder;
 };
 
 unsigned char ReadLevel(W8World* world, wiz8::File* handle, bool use_octree,
-                        const char* bitmap_folder);
+                        const std::filesystem::path& texture_directory);
 unsigned char ReadWorldItems(W8ReadLevelInfo* info, W8World* world);
 // The destination owns particles; scene attachment borrows them.
 unsigned char ReadWorldParticles(W8ReadLevelInfo* info, srNode* scene,

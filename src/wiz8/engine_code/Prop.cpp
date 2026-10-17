@@ -1343,9 +1343,8 @@ try {
                 goto fail;
             }
         }
-        info->mesh_filename = 0;
-        mesh = std::make_unique<W8AniMesh>();
-        result = LoadAniMeshFromInfo(info, mesh.get(), 1);
+        mesh = ReadAnimatedMesh(*hFile, info->bitmap_folder, true);
+        result = mesh != nullptr;
         if (!result) {
             fail_line = 0xd8;
             result = false;
@@ -1367,7 +1366,6 @@ try {
         int slot_i;
 
         flag_bits = 0;
-        info->mesh_filename = 0;
         if (success) {
             hFile->read_exact(&frame_count, 1);
         }

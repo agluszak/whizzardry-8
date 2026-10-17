@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <string_view>
 
 #include "compat/compiler.h"
 #include "glm/ext/vector_float3.hpp"
@@ -11,7 +12,6 @@
 #include "wiz8/engine_code/GrObject.h"
 
 struct W8World;
-struct W8ReadLevelInfo;
 struct W8Item;
 class Trigger;
 class srModelInstance;
@@ -44,7 +44,6 @@ struct W8ItemRep : public W8AnimRepBase {
     float pulse_level; /* 0x88 */
     unsigned int flags; /* 0x90 */
 
-    bool ReadFromFile(W8ReadLevelInfo* info, W8Item* item, bool anonymous_mesh);
     void RefreshBounds();
     unsigned int SetFlags(unsigned int mask, bool enabled); /* 0x0049F310 */
 };
@@ -80,13 +79,8 @@ struct W8Item : public W8GrObject {
     bool IsRadarBlipLit();
 };
 
-/* 0x0049F350 allocates the 0x94-byte representation; 0x0049F5D0 allocates
-   the 0x20-byte item. */
-
-std::unique_ptr<W8Item> ReadItemFromFile(W8ReadLevelInfo* info, bool anonymous_mesh);
 /* Run the item's trigger, if any, and report its action state. */
 unsigned char RunItemTrigger(W8Item* item); /* 0x004A0070 */
 std::optional<srBoundingBox> GetItemWorldBounds(const W8Item* item);
 
-std::unique_ptr<W8Item> LoadItemFromFile(const W8ReadLevelInfo* context, const char* name,
-                                         bool anonymous_mesh);
+std::unique_ptr<W8Item> LoadItemFromFile(std::string_view name);

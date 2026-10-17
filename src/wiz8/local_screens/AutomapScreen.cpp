@@ -48,6 +48,7 @@
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
 #include "surrender/srTexture.h"
+#include "wiz8/asset_paths.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/chunk.h"
 #include "wiz8/cursor.h"
@@ -1449,7 +1450,7 @@ W8AutomapNote* FindAutomapNoteUnderCursor(void)
 /* Descriptive name for the common marker-texture loading operation. */
 static std::shared_ptr<stTextureFile> LoadAutomapMarkerTexture(const char* path)
 {
-    auto texture = std::make_shared<stTextureFile>(path, 0);
+    auto texture = std::make_shared<stTextureFile>(wiz8::asset_path(path), false);
 
     texture->setMipmap(srTexture::MIPMAP_NONE);
     texture->setMagFilter(srTexture::FILTER_BEST);

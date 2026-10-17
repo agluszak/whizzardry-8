@@ -1,5 +1,6 @@
 #pragma once
 
+#include <filesystem>
 #include <memory>
 #include <string_view>
 
@@ -21,7 +22,7 @@ template<class T> class ResourceCache;
 /* Combinable flags in level materials; distinct from srShader's packed word. */
 enum { W8_MATERIAL_TWO_SIDED = 1u, W8_MATERIAL_NORMAL_TEXCOORD_MASK = 0x1feu };
 
-// Applies the game's per-draw material overrides before CPU lighting.
+// Surface flags guide mesh construction; draw overrides live in the submission.
 class stMaterial : public srMaterial {
 public:
     stMaterial();
@@ -72,18 +73,15 @@ struct W8MeshMaterial {
     srShader render_flags;
 };
 
-W8MeshMaterial LoadMaterial(const char* bitmap_folder, const W8MaterialRecord& source);
-std::shared_ptr<srTexture> LoadTextureFromFolder(const char* folder, const char* name,
-                                                 bool required);
-std::shared_ptr<stTextureAnim> LoadAnimatedTexture(const char* folder, const char* name,
-                                                   const W8MaterialRecord* source, bool required);
+W8MeshMaterial LoadMaterial(const std::filesystem::path& texture_directory,
+                            const W8MaterialRecord& source);
 bool MeshHasAnimatedTexture(srMeshModel* model);
 void SetModelAnimatedTextureFrame(srModelInstance* instance, int frame);
 stTextureAnim* GetModelAnimatedTexture(srModelInstance* instance);
 
 W8MeshMaterial CreateDefaultMaterial();
-std::shared_ptr<srTexture> LoadTextureFromPath(const char* path, const W8MaterialRecord* source,
-                                               bool required);
+std::shared_ptr<srTexture> LoadTextureFromPath(const std::filesystem::path& path,
+                                               const W8MaterialRecord* source, bool required);
 
 struct W8OctRegionPolygon;
 

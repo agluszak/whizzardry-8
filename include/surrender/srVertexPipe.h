@@ -142,7 +142,7 @@ private:
     void processVertexBuffer();
     static w8_ulong scanChangeIndexed(const w8_ulong* first, w8_ulong first_count,
                                       const w8_ulong* second, w8_ulong second_count);
-    void setMaterial(srMaterial* material);
+    void setMaterial(srMaterial* material, const Record& draw);
     void setupAlpha();
     void setupDepthCue();
     void setupDiffuse();

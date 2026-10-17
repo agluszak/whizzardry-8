@@ -182,20 +182,17 @@ void srVertexPipe::processVertexBuffer()
 }
 
 // FUNCTION: SURRENDER 0x1002AE90
-void srVertexPipe::setMaterial(srMaterial* material)
+void srVertexPipe::setMaterial(srMaterial* material, const Record& draw)
 {
     if (material == 0) {
         material = &default_material;
     }
     this->material = material;
     material_info = material->getMaterialInfo();
-    if (current_record) {
-        if (current_record->diffuse_scale)
-            material_info.diffuse.w *= *current_record->diffuse_scale;
-        if (current_record->emissive_override) {
-            const auto emissive = *current_record->emissive_override;
-            material_info.emissive = glm::vec4(emissive, emissive, emissive, 1.0f);
-        }
+    if (draw.diffuse_scale) material_info.diffuse.w *= *draw.diffuse_scale;
+    if (draw.emissive_override) {
+        const auto emissive = *draw.emissive_override;
+        material_info.emissive = glm::vec4(emissive, emissive, emissive, 1.0f);
     }
 }
 
@@ -211,7 +208,8 @@ void srVertexPipe::process(const Input& input)
         }
     }
     current_record = nullptr;
-    setMaterial(0);
+    material = &default_material;
+    material_info = default_material.getMaterialInfo();
     batch_base = 0;
     w8_ulong vertex_count = static_cast<w8_ulong>(input.active_vertices.size());
     if (vertex_count == 0) return;
@@ -242,16 +240,16 @@ void srVertexPipe::process(const Input& input)
             if ((record->flags & Record::HAS_VERTEX_MATERIALS) == 0) {
                 this->vertex_count = batch_count;
                 sub_batch_offset = 0;
-                setMaterial(record->material);
+                setMaterial(record->material, *record);
                 processVertexBuffer();
             } else {
                 srMaterial* material = (*record->materials)[avt[0]].get();
-                setMaterial(material);
+                setMaterial(material, *record);
                 sub_batch_offset = 0;
                 while (sub_batch_offset < batch_count) {
                     srMaterial* next = (*record->materials)[avt[sub_batch_offset]].get();
                     if (next != material) {
-                        setMaterial(next);
+                        setMaterial(next, *record);
                         material = next;
                     }
                     {

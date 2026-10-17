@@ -42,7 +42,6 @@
 #include "wiz8/engine_code/Item.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/PolyPick.h"
-#include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/filesystem.h"
@@ -517,7 +516,6 @@ void ActivateItem(W8WorldItem* item)
 {
     glm::vec3 position;
     glm::vec3 sun_position;
-    W8ReadLevelInfo info;
     std::string zItemName;
     std::string zItemFullPath;
     std::string name;
@@ -530,10 +528,6 @@ void ActivateItem(W8WorldItem* item)
     if (item->fActive) {
         srAssertFail("!pItemInfo->fActive", ITEM_MANAGER_CPP, 0x1d5, 0);
     }
-
-    info.world = GetWorld();
-    info.hFile = 0;
-    info.bitmap_folder = "Data\\Items3D\\Bitmaps";
 
     name = g_item_records[item->item.iItemNo].internal_name;
     if (name.empty()) {
@@ -565,7 +559,7 @@ void ActivateItem(W8WorldItem* item)
         }
     }
 
-    auto entity = LoadItemFromFile(&info, zItemName.c_str(), false);
+    auto entity = LoadItemFromFile(zItemName);
     item->p3D = entity.get();
     if (!entity) {
         srAssertFail("fSuccess", ITEM_MANAGER_CPP, 0x1f2,

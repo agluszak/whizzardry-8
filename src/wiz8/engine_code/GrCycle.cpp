@@ -232,8 +232,7 @@ try {
 
     info.world = context->world;
     info.hFile = handle.get();
-    info.bitmap_folder = bitmap_path.c_str();
-    info.mesh_filename = mon_path.c_str();
+    info.bitmap_folder = wiz8::asset_path(bitmap_path);
     success = true;
 
     if ((handle->read(&version, 1).bytes == static_cast<std::size_t>(1)) == 0 || version != 1 ||

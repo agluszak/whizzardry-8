@@ -225,7 +225,6 @@ try {
         int mesh_index;
         for (mesh_index = 0; mesh_index < static_cast<signed char>(animation->group_count);
              ++mesh_index) {
-            auto mesh = std::make_unique<W8AniMesh>();
             signed char channel = 0;
 
             success = success && (handle->read(&channel, 1).bytes == static_cast<std::size_t>(1));
@@ -233,12 +232,9 @@ try {
                 channel >= static_cast<int>(std::size(animation->entries))) {
                 return false;
             }
-            mesh->list_index = channel;
-            if (!LoadAniMeshFromInfo(info, mesh.get(), load_all)) {
-                return false;
-            } else {
-                animation->entries[channel] = std::move(mesh);
-            }
+            auto mesh = ReadAnimatedMesh(*handle, info->bitmap_folder, load_all);
+            if (!mesh) return false;
+            animation->entries[channel] = std::move(mesh);
         }
     } else {
         int group;
@@ -250,9 +246,7 @@ try {
                 srAssertFail("fSuccess", ANIM_OBJ_CPP, 0x200, 0);
             }
             for (entry = 0; entry < entry_count; ++entry) {
-                auto mesh = std::make_unique<W8AniMesh>();
                 signed char channel;
-                const char* saved_filename;
 
                 if (handle->read(&channel, 1).bytes != 1) {
                     return false;
@@ -260,14 +254,8 @@ try {
                 if (channel < 0 || channel >= static_cast<int>(std::size(animation->entries))) {
                     return false;
                 }
-                mesh->list_index = channel;
-                saved_filename = info->mesh_filename;
-                info->mesh_filename = 0;
-                success = LoadAniMeshFromInfo(info, mesh.get(), 1);
-                info->mesh_filename = saved_filename;
-                if (!success) {
-                    srAssertFail("fSuccess", ANIM_OBJ_CPP, 0x20f, 0);
-                }
+                auto mesh = ReadAnimatedMesh(*handle, info->bitmap_folder, true);
+                if (!mesh) return false;
                 animation->meshes[channel].insert(animation->meshes[channel].begin() + entry,
                                                   std::move(mesh));
                 auto path = LoadPathAI(*handle);
@@ -449,13 +437,11 @@ srModelInstance* AnimObjDispatch(W8AnimObj* animation, signed char list_index, u
     if (!animation->path_lists) {
         entry = animation->entries[list_index].get();
         if (entry != nullptr) {
-            entry->list_index = list_index;
             return GetAniMeshFrame(entry, value);
         }
     } else {
         entry = AnimObjEntry(animation, list_index, 0);
         if (entry != 0) {
-            entry->list_index = list_index;
             return GetAniMeshFrame(entry, value);
         }
     }
@@ -476,7 +462,6 @@ srModelInstance* AnimObjDispatchList(W8AnimObj* animation, signed char list_inde
         if (entry_index >= 0 && std::cmp_less(entry_index, list.size())) {
             entry = list[entry_index].get();
             if (entry != 0) {
-                entry->list_index = list_index;
                 return GetAniMeshFrame(entry, 0);
             }
         }

@@ -534,7 +534,7 @@ static void animation_record_contracts()
         PathAIAddPoint(*animation->path, glm::vec3(1, 2, 3));
         animation->paths[0].push_back(std::make_unique<W8PathAI>(*animation->path));
         animation->entries[0] = std::make_unique<W8AniMesh>();
-        animation->entries[0]->filename = std::string(300, 'x');
+        animation->entries[0]->source_file = std::string(300, 'x');
         animation->entries[0]->bitmap_directory = "Textures/";
         animation->entries[0]->meshes.resize(2); // Deferred frames have no instances yet.
         animation->meshes[0].push_back(std::make_unique<W8AniMesh>(*animation->entries[0]));
@@ -546,7 +546,7 @@ static void animation_record_contracts()
         REQUIRE((copy->path != animation->path && copy->path->nodes[0].x == 1));
         REQUIRE((copy->paths[0][0] != animation->paths[0][0]));
         animation.reset();
-        REQUIRE((copy->entries[0]->filename == std::string(300, 'x')));
+        REQUIRE((copy->entries[0]->source_file == std::string(300, 'x')));
         REQUIRE((copy->meshes[0][0]->bitmap_directory == "Textures/"));
         REQUIRE((copy->paths[0][0]->nodes[0].z == 3));
         const auto copy_bounds = AnimObjGetBounds(copy.get(), 0, 0);
@@ -591,7 +591,7 @@ static void animated_mesh_cache_contracts()
     }
     {
         W8AniMesh mesh;
-        mesh.filename = filename;
+        mesh.source_file = wiz8::asset_path(filename);
         REQUIRE_FALSE(GetAniMeshBounds(&mesh));
         REQUIRE_FALSE(mesh.flags.radius_loaded);
         REQUIRE(g_animesh_cache_stamp == old_stamp + 2);
@@ -600,7 +600,7 @@ static void animated_mesh_cache_contracts()
     g_animesh_cache_stamp = old_stamp;
     {
         W8AniMesh original;
-        REQUIRE((original.meshes.empty() && original.filename.empty()));
+        REQUIRE((original.meshes.empty() && original.source_file.empty()));
         REQUIRE((original.bounds_minimum == glm::vec3(0)));
         original.flags.loaded = true;
         original.flags.keep_loaded = true;

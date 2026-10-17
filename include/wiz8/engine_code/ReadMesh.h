@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <filesystem>
 #include <memory>
 #include <vector>
 
@@ -10,7 +11,6 @@
 
 struct W8MaterialRecord;
 struct W8MeshMaterial;
-struct W8ReadLevelInfo;
 namespace wiz8 {
 class File;
 }
@@ -52,12 +52,13 @@ class stMeshModel;
 class srMeshModel;
 
 // Loaders return detached owned instances; failure returns an empty result.
-std::unique_ptr<stModelInstance> ReadSingleLevelMesh(W8ReadLevelInfo* info, const char* name,
-                                                     bool load_materials);
+std::unique_ptr<stModelInstance>
+ReadSingleLevelMesh(wiz8::File& file, const std::filesystem::path& texture_directory);
 std::vector<std::unique_ptr<stModelInstance>>
-ReadMultipleLevelMeshes(W8ReadLevelInfo* info, std::size_t expected_count, const char* name);
+ReadMultipleLevelMeshes(wiz8::File& file, std::size_t expected_count,
+                        const std::filesystem::path& texture_directory);
 // Decode and discard the record, sharing the full loader's wire-format interpretation.
-bool ReadSingleLevelMeshHasVertexFrames(W8ReadLevelInfo& info);
+bool ReadSingleLevelMeshHasVertexFrames(wiz8::File& file);
 std::shared_ptr<stMeshModel>
 BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
                      const std::vector<W8MeshMaterial>& materials, unsigned int* mesh_count,
