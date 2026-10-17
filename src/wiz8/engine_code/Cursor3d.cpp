@@ -300,7 +300,7 @@ void ApplyWorldCursorInput(void)
         camera = cameraLocation();
         camera.y -= g_default_world_height;
         rotation = glm::mat3(1);
-        rotation *= glm::mat3_cast(glm::angleAxis(float(g_gd_camera->m_yaw), glm::vec3(0, 1, 0)));
+        rotation *= glm::mat3_cast(glm::angleAxis(float(PartyCamera().m_yaw), glm::vec3(0, 1, 0)));
         delta = rotation * delta;
         delta += cursor.position;
         if (cursor.range > 0.0f && cursor.range < glm::length((camera - delta))) {
@@ -641,7 +641,7 @@ void UpdateWorldCursorPlacement(void)
     cursor = WorldCursor();
     cursor->last_published = glm::vec3(-100000000.0f);
     target =
-        camera + glm::rotateY(glm::vec3(0, 0, g_cursor_projection_distance), g_gd_camera->m_yaw);
+        camera + glm::rotateY(glm::vec3(0, 0, g_cursor_projection_distance), PartyCamera().m_yaw);
     cursor->position = camera;
     cursor->track_ground = true;
     if (MarchWorldCursorTarget(&target) == 0) {

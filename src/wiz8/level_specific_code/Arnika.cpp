@@ -938,7 +938,7 @@ int ArnikaPedestalItem(int* previous_item)
         if (info != 0) {
             position = info->p3D->movement.position;
             position.y += info->p3D->movement.height_offset;
-            g_gd_camera->LookAt(&position, false);
+            PartyCamera().LookAt(&position, false);
         }
         QueueNpcScriptNotice(npc, 0, 8, false, 0);
     }

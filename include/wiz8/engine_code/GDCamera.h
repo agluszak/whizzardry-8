@@ -9,6 +9,7 @@
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/engine_code/3dapi.h"
+#include "wiz8/engine_code/IntervalGate.h"
 #include "wiz8/engine_code/World.h"
 
 /* Orientation limits shared by the inline setters and GDCamera.cpp. */
@@ -18,7 +19,6 @@ extern const float g_camera_pitch_lower;
 
 class srNode;
 class srCamera;
-class W8IntervalGate;
 struct W8LevelDataRecord;
 
 /* Reconstructed owner with unproven TU identity. The cluster 0x476140-
@@ -94,13 +94,14 @@ public:
     float m_yaw_distance; /* 0x0b0 */
     float m_pitch_distance; /* 0x0b4 */
     float m_transition_duration; /* 0x0b8 */
-    W8IntervalGate* m_manual_input_timer; /* 0x0bc */
+    W8IntervalGate m_manual_input_timer{1.0f, false, true};
 
 private:
-    bool CanTrackTarget() const;
+    bool CanTrackTarget();
 };
 
-extern GDCamera* g_gd_camera;
+// The session camera controller (gpGDCamera), created on first use.
+GDCamera& PartyCamera();
 
 void GetCameraForwardPoint(float distance, glm::vec3* output);
 /* 0x00421170: accumulate `distance` along +Z, rotated by yaw and pitch, into

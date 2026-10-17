@@ -132,13 +132,6 @@ void UpdateSharedGameDataObject()
 // FUNCTION: WIZ8 0x0041F260
 void UpdateGameDataRuntime()
 {
-    if (g_gd_camera == 0) {
-        g_gd_camera = new GDCamera;
-        if (g_gd_camera == 0) {
-            srAssertFail("gpGDCamera", "C:\\Projects\\Wizardry 8\\Engine Code\\GameData.cpp", 2739,
-                         0);
-        }
-    }
     if (g_shared_timers_paused) {
         ResumeSharedGameTimers();
         g_shared_timers_paused = false;
@@ -171,8 +164,8 @@ CameraRotation W8GameData::cameraRotation(unsigned int flags, const glm::mat3& r
         return result;
     }
 
-    if ((g_gd_camera->m_orientation_flags & W8_CAMERA_ORIENTATION_SNAPPED) != 0) {
-        g_gd_camera->m_orientation_flags &= ~W8_CAMERA_ORIENTATION_SNAPPED;
+    if ((PartyCamera().m_orientation_flags & W8_CAMERA_ORIENTATION_SNAPPED) != 0) {
+        PartyCamera().m_orientation_flags &= ~W8_CAMERA_ORIENTATION_SNAPPED;
     }
 
     {
@@ -206,13 +199,13 @@ CameraRotation W8GameData::cameraRotation(unsigned int flags, const glm::mat3& r
     if (g_mouselook_manual) {
         BeginManualCameraControl();
     }
-    g_gd_camera->ApplyPitchInput(pitch_input);
-    g_gd_camera->ApplyYawInput(yaw_input);
-    g_gd_camera->Update(GameTimeAccumulator().GetFrameDelta());
+    PartyCamera().ApplyPitchInput(pitch_input);
+    PartyCamera().ApplyYawInput(yaw_input);
+    PartyCamera().Update(GameTimeAccumulator().GetFrameDelta());
     if ((flags & W8_CAMERA_MOTION_KEEP_ROTATION) == 0) {
-        result.rotation = g_gd_camera->rotationMatrix();
+        result.rotation = PartyCamera().rotationMatrix();
     }
-    result.movement_basis = g_gd_camera->m_yaw_rotation;
+    result.movement_basis = PartyCamera().m_yaw_rotation;
     return result;
 }
 
@@ -337,7 +330,7 @@ CameraMotion W8GameData::cameraMotion(unsigned int flags, const glm::vec3& posit
     new_position = position + delta;
     from_origin = new_position - g_world_origin;
     if (glm::dot(from_origin, from_origin) != 0) {
-        g_gd_camera->m_position = new_position;
+        PartyCamera().m_position = new_position;
     }
 
 after_move:
@@ -1947,25 +1940,25 @@ float MoveTimer(int value)
 // FUNCTION: WIZ8 0x00420DC0
 float GetCameraYawInDegrees()
 {
-    return g_gd_camera->m_yaw * kCameraRadiansToDegrees;
+    return PartyCamera().m_yaw * kCameraRadiansToDegrees;
 }
 
 // FUNCTION: WIZ8 0x00420DD0
 float GetCameraYawRadians()
 {
-    return g_gd_camera->m_yaw;
+    return PartyCamera().m_yaw;
 }
 
 // FUNCTION: WIZ8 0x00420DE0
 float GetCameraPitchInDegrees()
 {
-    return g_gd_camera->m_pitch * kCameraRadiansToDegrees;
+    return PartyCamera().m_pitch * kCameraRadiansToDegrees;
 }
 
 // FUNCTION: WIZ8 0x00420E00
 void BeginManualCameraControl()
 {
-    g_gd_camera->SetManualControlActive(true);
+    PartyCamera().SetManualControlActive(true);
 }
 
 /* 0x00420F40: camera yaw in whole degrees, plus an optional copy of the
@@ -1974,9 +1967,9 @@ void BeginManualCameraControl()
 // FUNCTION: WIZ8 0x00420F40
 int GetCameraYawAndRotation(glm::mat3* rotation)
 {
-    float degrees = g_gd_camera->m_yaw * kCameraRadiansToDegrees;
+    float degrees = PartyCamera().m_yaw * kCameraRadiansToDegrees;
     if (rotation != 0) {
-        *rotation = g_gd_camera->m_yaw_rotation;
+        *rotation = PartyCamera().m_yaw_rotation;
     }
     return static_cast<int>(degrees);
 }
@@ -1984,46 +1977,46 @@ int GetCameraYawAndRotation(glm::mat3* rotation)
 // FUNCTION: WIZ8 0x00420F70
 void LevelCamera()
 {
-    g_gd_camera->BeginLeveling();
+    PartyCamera().BeginLeveling();
     g_mouselook_manual = false;
 }
 
 // FUNCTION: WIZ8 0x00420F90
 void CameraLookAt(const glm::vec3* position)
 {
-    g_gd_camera->LookAt(position, false);
+    PartyCamera().LookAt(position, false);
 }
 
 // FUNCTION: WIZ8 0x00420FB0
 void CameraSnapToTarget(const glm::vec3* target)
 {
-    g_gd_camera->SnapToTarget(target);
+    PartyCamera().SnapToTarget(target);
 }
 
 // FUNCTION: WIZ8 0x00420FD0
 void TurnCameraToDegrees(float degrees)
 {
     double scale = g_game_data_pi * 0.0055555557f;
-    g_gd_camera->BeginOrientationTransition(0.0f, static_cast<float>(scale * degrees), false);
+    PartyCamera().BeginOrientationTransition(0.0f, static_cast<float>(scale * degrees), false);
 }
 
 // FUNCTION: WIZ8 0x00421000
 void SetCameraYawDegrees(float degrees)
 {
     double scale = g_game_data_pi * 0.0055555557f;
-    g_gd_camera->SetOrientationImmediate(0.0f, static_cast<float>(scale * degrees));
+    PartyCamera().SetOrientationImmediate(0.0f, static_cast<float>(scale * degrees));
 }
 
 // FUNCTION: WIZ8 0x00421030
 void ApplyCameraRotation(glm::mat3* rotation)
 {
-    g_gd_camera->ApplyRotationMatrix(rotation, LevelMotion());
+    PartyCamera().ApplyRotationMatrix(rotation, LevelMotion());
 }
 
 // FUNCTION: WIZ8 0x00421070
 glm::vec3 cameraLocation()
 {
-    return g_gd_camera->m_position;
+    return PartyCamera().m_position;
 }
 
 /* Zero the two six-float CamPos angle records, then store the live yaw in the
@@ -2033,8 +2026,8 @@ glm::vec3 cameraLocation()
 void GetCameraOrientation(void* angle, void* pitch)
 {
     W8CameraAngleRecord yaw_values = {}, pitch_values = {};
-    yaw_values[0] = g_gd_camera->m_yaw;
-    pitch_values[0] = g_gd_camera->m_pitch;
+    yaw_values[0] = PartyCamera().m_yaw;
+    pitch_values[0] = PartyCamera().m_pitch;
     memcpy(angle, yaw_values, sizeof(yaw_values));
     memcpy(pitch, pitch_values, sizeof(pitch_values));
 }
@@ -2045,12 +2038,12 @@ void SetCameraOrientation(void* angle, void* pitch, glm::mat3* rotation)
     float yaw_value, pitch_value;
     memcpy(&yaw_value, angle, sizeof(yaw_value));
     memcpy(&pitch_value, pitch, sizeof(pitch_value));
-    g_gd_camera->SetYaw(yaw_value);
-    g_gd_camera->SetPitch(pitch_value);
-    memcpy(angle, &g_gd_camera->m_yaw, sizeof(yaw_value));
-    memcpy(pitch, &g_gd_camera->m_pitch, sizeof(pitch_value));
+    PartyCamera().SetYaw(yaw_value);
+    PartyCamera().SetPitch(pitch_value);
+    memcpy(angle, &PartyCamera().m_yaw, sizeof(yaw_value));
+    memcpy(pitch, &PartyCamera().m_pitch, sizeof(pitch_value));
     if (rotation != 0) {
-        *rotation = g_gd_camera->rotationMatrix();
+        *rotation = PartyCamera().rotationMatrix();
     }
 }
 
@@ -2073,7 +2066,7 @@ void RestoreWorldCameraOrientation(void* angle, void* pitch)
 // FUNCTION: WIZ8 0x00421550
 int GetCameraYawDegrees(void)
 {
-    return static_cast<int>(glm::degrees(g_gd_camera->m_yaw));
+    return static_cast<int>(glm::degrees(PartyCamera().m_yaw));
 }
 
 /* Point-visibility query: returns whether the camera has line of sight to the
@@ -2100,7 +2093,7 @@ void PlacePartyAtPoint(const glm::vec3* point)
 {
     glm::vec3 delta = *point - g_world_origin;
     if (glm::dot(delta, delta) != 0) {
-        g_gd_camera->m_position = (*point);
+        PartyCamera().m_position = (*point);
     }
 }
 
@@ -2393,7 +2386,7 @@ void UpdateLevelMovementAudio(void)
     if (level == 0) {
         return;
     }
-    if ((g_gd_camera->m_orientation_flags & W8_CAMERA_YAW_MOVING) == 0 ||
+    if ((PartyCamera().m_orientation_flags & W8_CAMERA_YAW_MOVING) == 0 ||
         (level->flags & W8_LEVEL_FLAG_WALKABLE_CONTACT) == 0 ||
         level->motion_velocity.x != 0.0f || level->motion_velocity.y != 0.0f ||
         level->motion_velocity.z != 0.0f) {

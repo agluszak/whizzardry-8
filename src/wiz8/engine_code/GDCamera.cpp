@@ -86,12 +86,16 @@ float g_camera_forward_scale = 750.0f;
 // GLOBAL: WIZ8 0x0065A0FC
 
 // GLOBAL: WIZ8 0x0065a0f8
-GDCamera* g_gd_camera;
+GDCamera& PartyCamera()
+{
+    static GDCamera camera;
+    return camera;
+}
 
 // FUNCTION: WIZ8 0x00421150
 void GetCameraForwardPoint(float distance, glm::vec3* output)
 {
-    g_gd_camera->GetForwardPoint(distance, output);
+    PartyCamera().GetForwardPoint(distance, output);
 }
 
 /* Accumulate a forward offset rotated by yaw and pitch. */
@@ -126,7 +130,6 @@ GDCamera::GDCamera()
     m_yaw_distance = 0.0f;
     m_pitch_distance = 0.0f;
     m_transition_duration = 0.0f;
-    m_manual_input_timer = new W8IntervalGate(1.0f, false, true);
 
     m_rotation = m_yaw_rotation * m_pitch_rotation;
 }
@@ -150,10 +153,10 @@ void GDCamera::ApplyRotationMatrix(glm::mat3* rotation, W8LevelDataRecord* conte
     *rotation = m_rotation;
 }
 
-bool GDCamera::CanTrackTarget() const
+bool GDCamera::CanTrackTarget()
 {
     return gXStatus.fNpcDialogueMode || (!(m_orientation_flags & W8_CAMERA_MANUAL_INPUT) &&
-                                         m_manual_input_timer->PollFinished());
+                                         m_manual_input_timer.PollFinished());
 }
 
 /* Angles that aim from position at target, with yaw wrapped into one turn. Targets
@@ -340,7 +343,7 @@ void GDCamera::ApplyYawInput(float input)
     if (input != 0.0f) {
         if (!gXStatus.fNpcDialogueMode && g_status.world_cursor_gate == 0) {
             m_orientation_flags |= W8_CAMERA_MANUAL_INPUT;
-            m_manual_input_timer->Arm();
+            m_manual_input_timer.Arm();
             m_transition_active = false;
         } else {
             m_orientation_flags &= ~W8_CAMERA_MANUAL_INPUT;
@@ -387,7 +390,7 @@ void GDCamera::ApplyPitchInput(float input)
 {
     if (input != 0.0f && !gXStatus.fNpcDialogueMode && g_status.world_cursor_gate == 0) {
         m_orientation_flags |= W8_CAMERA_MANUAL_INPUT;
-        m_manual_input_timer->Arm();
+        m_manual_input_timer.Arm();
         m_transition_active = false;
     } else {
         m_orientation_flags &= ~W8_CAMERA_MANUAL_INPUT;
@@ -525,7 +528,7 @@ void GDCamera::SetManualControlActive(bool enabled)
 {
     if (enabled && !gXStatus.fNpcDialogueMode && g_status.world_cursor_gate == 0) {
         m_orientation_flags |= W8_CAMERA_MANUAL_INPUT;
-        m_manual_input_timer->Arm();
+        m_manual_input_timer.Arm();
         m_transition_active = false;
         return;
     }

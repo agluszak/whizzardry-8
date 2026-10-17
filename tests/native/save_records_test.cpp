@@ -1085,17 +1085,10 @@ static void global_status_record()
 
 static void camera_angles()
 {
-    GDCamera camera;
     const struct RestoreCamera {
-        GDCamera& camera;
-        GDCamera* previous;
-        ~RestoreCamera()
-        {
-            g_gd_camera = previous;
-            delete camera.m_manual_input_timer;
-        }
-    } restore{camera, g_gd_camera};
-    g_gd_camera = &camera;
+        GDCamera previous = std::exchange(PartyCamera(), GDCamera{});
+        ~RestoreCamera() { PartyCamera() = previous; }
+    } restore;
     W8WorldCameraState state{};
     GetCameraOrientation(state.yaw, state.pitch);
     for (unsigned i = 0; i < 6; ++i) REQUIRE((state.yaw[i] == 0 && state.pitch[i] == 0));
@@ -1105,7 +1098,7 @@ static void camera_angles()
     state.yaw[5] = 123.0f;
     state.pitch[5] = 456.0f;
     SetCameraOrientation(state.yaw, state.pitch, nullptr);
-    REQUIRE((camera.m_yaw == 0.5f && camera.m_pitch == 0.25f));
+    REQUIRE((PartyCamera().m_yaw == 0.5f && PartyCamera().m_pitch == 0.25f));
     REQUIRE((state.yaw[0] == 0.5f && state.pitch[0] == 0.25f && state.yaw[5] == 123.0f &&
              state.pitch[5] == 456.0f));
     const auto encoded = wiz8::retail::encode(state);

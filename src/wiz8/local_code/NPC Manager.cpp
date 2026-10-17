@@ -1094,7 +1094,7 @@ static void SelectStartNpcGreeting(void)
             head = glm::vec3(monster->movement.position.x,
                              monster->movement.position.y + monster->movement.height_offset,
                              monster->movement.position.z);
-            g_gd_camera->LookAt(&head, false);
+            PartyCamera().LookAt(&head, false);
             return;
         }
         npc = GetNpcStateByKind(0x18);

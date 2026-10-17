@@ -220,12 +220,11 @@ static void camera_and_throw()
     OffsetPositionByYawPitch(5, &position, 0, glm::half_pi<float>());
     REQUIRE(close(position, {11, -3, 3}));
 
-    GDCamera camera;
+    const GDCamera previous_camera = PartyCamera();
+    auto& camera = PartyCamera();
     camera.m_position = glm::vec3(3, 4, 5);
     camera.m_yaw = .25f;
     camera.m_pitch = -.5f;
-    auto* previous_camera = g_gd_camera;
-    g_gd_camera = &camera;
     W8World world{};
     const auto empty_location = cameraLocationOrZero(world);
     const auto empty_state = cameraState(world);
@@ -236,7 +235,7 @@ static void camera_and_throw()
     const auto node_location = cameraLocation(world);
     const auto state = cameraState(world);
     const auto rotation = cameraRotation(world);
-    g_gd_camera = previous_camera;
+    PartyCamera() = previous_camera;
     REQUIRE(empty_location == glm::vec3(0));
     REQUIRE(empty_state.position == glm::vec3(0, 0, 0));
     REQUIRE(live_location == glm::vec3(3, 4, 5));
@@ -264,7 +263,6 @@ static void camera_and_throw()
     REQUIRE((std::isfinite(camera.m_yaw) && std::isfinite(camera.m_pitch)));
     REQUIRE(camera.BeginOrientationTransition(-0.2f, glm::two_pi<float>() - 0.1f, true));
     REQUIRE((camera.m_yaw_velocity < 0 && camera.m_pitch_velocity < 0));
-    delete camera.m_manual_input_timer;
 
     const auto center = ItemThrowDirection({0.5f, 0.5f}, glm::mat3(1));
     const auto left = ItemThrowDirection({0, 0.5f}, glm::mat3(1));

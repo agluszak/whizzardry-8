@@ -259,7 +259,7 @@ void W8SpellVisual::UpdateRepresentation(W8World* world)
         rotation = glm::mat3(1);
         angle = GetCameraYawRadians() - g_monster_rotation_offset;
         rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
-        pitch = -g_gd_camera->m_pitch;
+        pitch = -PartyCamera().m_pitch;
         rotation *= glm::mat3_cast(glm::angleAxis(float(pitch), glm::vec3(1, 0, 0)));
         apply_rotation = true;
     } else if (mode == W8_SPELL_VISUAL_TARGET) {
@@ -287,7 +287,7 @@ void W8SpellVisual::UpdateRepresentation(W8World* world)
             camera_position = cameraLocation();
             if (location_id == 0) {
                 SetCyclePosition(&camera_position);
-                rotation = g_gd_camera->rotationMatrix();
+                rotation = PartyCamera().rotationMatrix();
                 apply_rotation = true;
             } else {
                 W8Monster* monster = GetMonsterByLocationID(location_id);
@@ -687,7 +687,7 @@ W8SpellVisual* SpawnCameraSpellEffect(std::string_view name, int power_level, in
         rotation = glm::mat3(1);
         angle = GetCameraYawRadians() - g_monster_rotation_offset;
         rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
-        pitch = -g_gd_camera->m_pitch;
+        pitch = -PartyCamera().m_pitch;
         rotation *= glm::mat3_cast(glm::angleAxis(float(pitch), glm::vec3(1, 0, 0)));
         visual->host->SetRotation(&rotation);
     }
@@ -774,7 +774,7 @@ W8SpellVisual* CreateAttachedSpellEffect(std::string_view mls_name, int power_le
             glm::mat3 rotation;
 
             position = cameraLocation();
-            rotation = g_gd_camera->rotationMatrix();
+            rotation = PartyCamera().rotationMatrix();
             visual->SetCyclePosition(&position);
             visual->host->SetRotation(&rotation);
         }

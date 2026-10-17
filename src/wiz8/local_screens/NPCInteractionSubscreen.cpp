@@ -711,7 +711,7 @@ static void BeginNpcDialogueInternal(W8NpcState* npc, W8ItemInstance* item, int 
     }
     position = info->p3D->movement.position;
     position.y += info->p3D->movement.height_offset;
-    g_gd_camera->LookAt(&position, false);
+    PartyCamera().LookAt(&position, false);
 }
 
 void BeginNpcDialogue(W8NpcState* npc, W8ItemInstance* item, int quote, unsigned char flags,
@@ -847,12 +847,12 @@ static unsigned char OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item,
     info = GetNpcMonsterInfo(npc);
     if (info != 0) {
         g_npc_interaction_state->camera_redirected = true;
-        g_npc_interaction_state->saved_camera_pitch = g_gd_camera->m_pitch;
+        g_npc_interaction_state->saved_camera_pitch = PartyCamera().m_pitch;
         dialogue_info = GetNpcMonsterInfo(g_npc_interaction_state->dialogue_npc);
         if (dialogue_info != 0) {
             position = dialogue_info->p3D->movement.position;
             position.y += dialogue_info->p3D->movement.height_offset;
-            g_gd_camera->LookAt(&position, false);
+            PartyCamera().LookAt(&position, false);
         }
         MonsterForwardReferencePosition(info->p3D, 0);
     }
@@ -1275,7 +1275,7 @@ void EndNpcDialogueSession(bool skip_exit_actions)
     }
     FlushPendingNoticeLines();
     if (g_npc_interaction_state->camera_redirected) {
-        g_gd_camera->SetPitch(g_npc_interaction_state->saved_camera_pitch);
+        PartyCamera().SetPitch(g_npc_interaction_state->saved_camera_pitch);
     }
     if (g_npc_interaction_state->dialogue_npc->name_style == 0xf &&
         GetFact(W8_FACT_ALIGNMENT_UMPANI) != 0) {
@@ -4037,7 +4037,7 @@ void LookAtDialogueNpc(void)
     if (info != 0) {
         glm::vec3 position = info->p3D->movement.position;
         position.y += info->p3D->movement.height_offset;
-        g_gd_camera->LookAt(&position, false);
+        PartyCamera().LookAt(&position, false);
     }
 }
 

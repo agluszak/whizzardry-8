@@ -292,7 +292,7 @@ void GetCharacterProjectilePosition(unsigned int character_index, glm::vec3* pos
         (character_index & 1) ? -75.0f : 75.0f,
         kCharacterProjectileHeight - character_index * 0.5f * kCharacterProjectileHeightStep, 0);
     const auto yaw = GetCameraYawRadians() - g_monster_rotation_offset;
-    const auto pitch = -g_gd_camera->m_pitch;
+    const auto pitch = -PartyCamera().m_pitch;
     *position = camera + glm::rotateY(glm::rotateX(offset, pitch), yaw);
 }
 

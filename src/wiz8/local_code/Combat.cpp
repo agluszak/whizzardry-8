@@ -3117,7 +3117,7 @@ void UpdateCombat(void)
         }
     } else {
         AutoAdvanceSelectedCharacter();
-        if (g_gd_camera->m_transition_active) {
+        if (PartyCamera().m_transition_active) {
             return;
         }
         if (AnyCombatMonsterBusy()) {

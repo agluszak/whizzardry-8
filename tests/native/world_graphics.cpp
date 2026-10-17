@@ -293,9 +293,9 @@ TEST_CASE("world graphics")
             // This diagnostic controls the actual render cameras. Scripted
             // tracking can reject SetOrientationImmediate, yielding identical
             // captures that never exercise the requested angles.
-            g_gd_camera->SetOrientation(state.yaw[0] + angle * 1.5707963f,
+            PartyCamera().SetOrientation(state.yaw[0] + angle * 1.5707963f,
                                         angle < 2 ? -0.7f : 0.5f);
-            const auto rotation = g_gd_camera->rotationMatrix();
+            const auto rotation = PartyCamera().rotationMatrix();
             world->camera->setRotation(rotation);
             if (GetSecondaryWorld()) GetSecondaryWorld()->camera->setRotation(rotation);
             RenderFrame();

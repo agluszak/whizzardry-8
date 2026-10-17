@@ -2836,7 +2836,7 @@ unsigned char W8Monster::CanEnterCycle(signed char cycle)
 {
     W8MonsterInfo* monster_info = FindMonster(location_id);
 
-    if (gXStatus.fCombatMode && g_gd_camera->m_transition_active) {
+    if (gXStatus.fCombatMode && PartyCamera().m_transition_active) {
         return 0;
     }
     if (m_pRep->animation_playing == 0) {
