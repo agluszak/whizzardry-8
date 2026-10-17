@@ -22,6 +22,7 @@
 #include "surrender/srVertexProcessor.h"
 #include "wiz8/asset_paths.h"
 #include "wiz8/engine_code/Octree.h"
+#include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/gameplay_constants.h"
@@ -145,7 +146,8 @@ void stGroundShadow::renderGroundShadow(srGERD& renderer)
     auto position = glm::vec3(getLocation());
     position.y += kWorldScale;
     const float radius = std::max(width, depth);
-    const auto polygons = g_octree->polygonsNearPoint(position, radius, radius * 2 + kWorldScale);
+    const auto polygons =
+        GetWorldOctree()->polygonsNearPoint(position, radius, radius * 2 + kWorldScale);
     if (polygons.empty()) return;
 
     const struct OffsetScope {

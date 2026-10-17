@@ -758,11 +758,11 @@ void stParticle::SetFlutter(W8ParticleFlutterMode mode)
     }
 }
 
-// A particle still emitting when its cycle dies finishes under the world's care.
-void RetireParticle(std::unique_ptr<stParticle> particle)
+// A particle still emitting when its cycle dies finishes under its world's care.
+void RetireParticle(W8World& world, std::unique_ptr<stParticle> particle)
 {
     particle->release_when_done = true;
-    GetWorld()->retired_particles.push_back(std::move(particle));
+    world.retired_particles.push_back(std::move(particle));
 }
 
 void SweepFinishedParticles(W8World* world)

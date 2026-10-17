@@ -10,16 +10,6 @@
    Engine Code\3dapi.cpp (upper 0x004511D0) and Engine Code\Navigator.cpp
    (lower 0x00452F50). */
 
-W8World* GetWorld()
-{
-    return g_world.get();
-}
-
-W8World* GetSecondaryWorld()
-{
-    return g_secondary_world.get();
-}
-
 static void VisitNodes(srNode* node, const std::function<void(srNode*)>& visit)
 {
     for (; node != 0; node = node->getNext()) {

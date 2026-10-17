@@ -2810,7 +2810,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                         disposition = W8_DISPOSITION_HOSTILE;
                     }
                     heading = HeadingTowardNearestMonster(ground_point, disposition, 0);
-                    const auto placement = g_octree->navigatorPositions(
+                    const auto placement = GetWorldOctree()->navigatorPositions(
                         ground_point, heading,
                         static_cast<float>(
                             g_world_cursor_extent_table
@@ -3332,7 +3332,7 @@ void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targ
             from = source->point;
         }
         trace = target->point;
-        g_octree->TraceLineOfSight(&from, &trace, true, -3, -3, true, 0);
+        GetWorldOctree()->TraceLineOfSight(&from, &trace, true, -3, -3, true, 0);
         target->point = trace;
         saved = source->point;
         source->point = target->point;
@@ -3469,7 +3469,7 @@ void ScatterSpellPointTarget(int spell_id, W8TargetSource* source, W8CombatSlot*
         point.z = static_cast<float>(
             (Random(0x7d1) - g_monster_poster_max_distance) * range * 0.001 + origin.z);
         point.y = Random(0x3e9) * range * 0.001 + origin.y;
-        g_octree->TraceLineOfSight(&origin, &point, true, -3, -3, true, 0);
+        GetWorldOctree()->TraceLineOfSight(&origin, &point, true, -3, -3, true, 0);
         point.y = probeGround(point).position.y;
         if (point.y != kGroundSettleFail) {
             break;
@@ -3698,7 +3698,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
                        (centre.y - player_pos.y) * (centre.y - player_pos.y) +
                        (centre.z - player_pos.z) * (centre.z - player_pos.z);
             if (sqrtf(distance) <= radius &&
-                g_octree->TraceLineOfSight(&eye, &camera, true, -3, -3, true, 0) == 0) {
+                GetWorldOctree()->TraceLineOfSight(&eye, &camera, true, -3, -3, true, 0) == 0) {
                 marked = true;
             }
         }
@@ -3764,7 +3764,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
         if (!marked &&
             TargetInRangeAndArcs(&camera, g_startup_world->radius, &eye, 0, heading, elevation,
                                  cone_range) &&
-            g_octree->TraceLineOfSight(&eye, &camera, true, -3, -3, true, 0) == 0) {
+            GetWorldOctree()->TraceLineOfSight(&eye, &camera, true, -3, -3, true, 0) == 0) {
             marked = true;
         }
         CollectConeMonsterTargets(source, &eye, heading, elevation, monster_markers,
@@ -3798,7 +3798,8 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
                        (trace.y - player_pos.y) * (trace.y - player_pos.y) +
                        (trace.z - player_pos.z) * (trace.z - player_pos.z);
             if (sqrtf(distance) <= radius &&
-                g_octree->TraceLineOfSight(&target_point, &camera, true, -3, -3, true, 0) == 0) {
+                GetWorldOctree()->TraceLineOfSight(&target_point, &camera, true, -3, -3, true, 0) ==
+                    0) {
                 marked = true;
             }
         }
@@ -3828,7 +3829,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
                        (centre.y - player_pos.y) * (centre.y - player_pos.y) +
                        (centre.z - player_pos.z) * (centre.z - player_pos.z);
             if (sqrtf(distance) <= radius &&
-                g_octree->TraceLineOfSight(&eye, &camera, true, -3, -3, true, 0) == 0) {
+                GetWorldOctree()->TraceLineOfSight(&eye, &camera, true, -3, -3, true, 0) == 0) {
                 marked = true;
             }
         }

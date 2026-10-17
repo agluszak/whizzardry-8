@@ -14,6 +14,7 @@
 #include "local_code/MonsterManager.h"
 #include "soundman.h"
 #include "wiz8/character_event_queue.h"
+#include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/combat_state.h"
@@ -283,7 +284,7 @@ static void FinishNpcVoicePlayback(bool resume_script)
 // FUNCTION: WIZ8 0x00525D90
 void TryFinishNpcVoicePlayback(bool force)
 {
-    if (g_status.world_cursor_gate == 0 || g_status.current_level != 4) {
+    if (g_status.world_cursor_gate == 0 || GetLoadedLevelID() != 4) {
         if (!force && w8_get_ticks() - g_speech.voice_started_at <= 500) {
             return;
         }

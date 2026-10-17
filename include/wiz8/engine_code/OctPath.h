@@ -1,3 +1,4 @@
+class W8Octree;
 #include <cstdint>
 #include <optional>
 #pragma once
@@ -381,7 +382,7 @@ public:
     void ConfigureForLevel(int size, float grid_scale, const srBoundingBox& bounds,
                            const char* name); /* 0x00458A50 */
     unsigned char ReadPathNodes(wiz8::File* handle); /* 0x00458CE0 */
-    unsigned char ReadWaypointFile();
+    unsigned char ReadWaypointFile(W8Octree& octree);
     /* Owning destructor: releases owned tables and bit sets. Single caller
        destroys the service at octree teardown. */
     ~W8PathingService(); /* 0x00457B10 */
@@ -454,7 +455,11 @@ public:
     bool span_blocked;
 };
 
-extern W8PathingService* g_pathing;
+/* Move an integer path cell one compass step; directions outside the
+   eight-value range wrap once. */
+void StepPathCell(int* x, int* z, int direction);
+
+W8PathingService* GetWorldPathing();
 extern unsigned short g_path_reserve;
 extern const float g_path_span_scale;
 /* 0x005ED300: OctPrePath.cpp's vertical-link slack; retail Combat.cpp reads

@@ -142,7 +142,7 @@ private:
 struct W8World;
 // A still-emitting particle outlives its cycle in the world's retired list;
 // the sweep destroys it once it has finished, never during rendering.
-void RetireParticle(std::unique_ptr<stParticle> particle);
+void RetireParticle(W8World& world, std::unique_ptr<stParticle> particle);
 void SweepFinishedParticles(W8World* world);
 
 void SaveParticleStates(wiz8::File& handle);

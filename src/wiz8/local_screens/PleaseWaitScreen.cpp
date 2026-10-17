@@ -15,12 +15,12 @@
 #include "compat/compiler.h"
 #include "compat/native.h"
 #include "layouts/levels.h"
-#include "layouts/world.h"
 #include "soundman.h"
 #include "surrender/srDebug.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Video2.h"
+#include "wiz8/engine_code/World.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
@@ -100,7 +100,7 @@ bool PleaseWaitScreenEnter(void)
             g_load_descriptor->name = g_current_screen_state.name;
             break;
         case 2:
-            g_load_descriptor->parameter = g_status.current_level;
+            g_load_descriptor->parameter = GetLoadedLevelID();
             g_load_descriptor->name = g_current_screen_state.name;
             g_load_descriptor->previous_save_name = g_current_screen_state.previous_save_name;
             g_load_descriptor->save_payload =
@@ -182,7 +182,7 @@ void PleaseWaitScreenFrame(void)
         if (!LoadGame(g_load_descriptor->name)) {
             srAssertFail("fVerify", PLEASE_WAIT_SCREEN_CPP, 293, 0);
         }
-        if (!LoadLevel(g_status.current_level, -1, true)) {
+        if (!LoadLevel(g_status.resume_level, -1, true)) {
             srAssertFail("fVerify", PLEASE_WAIT_SCREEN_CPP, 296, 0);
         }
 

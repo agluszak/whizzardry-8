@@ -50,7 +50,6 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
-#include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/layouts/world.h"
@@ -66,6 +65,7 @@
 #include "wiz8/retail_text_records.h"
 #include "wiz8/save_game.h"
 #include "wiz8/xstatus.h"
+#include "world_fixture.h"
 
 static std::filesystem::path fixture_root;
 
@@ -783,27 +783,18 @@ TEST_CASE_METHOD(LoaderFixture, "World item sections reject invalid signed count
 TEST_CASE_METHOD(LoaderFixture, "Environment tables decode RGB bytes without runtime vector layout",
                  "[loader][records]")
 {
-    const struct RestoreTables {
-        std::array<glm::vec3, 256> environment = g_environment_colours0;
-        std::array<glm::vec3, 256> light = g_environment_colours1;
-        ~RestoreTables()
-        {
-            g_environment_colours0 = environment;
-            g_environment_colours1 = light;
-        }
-    } restore;
     std::string bytes;
     for (int index = 0; index < 256; ++index) {
         bytes.push_back(static_cast<char>(index));
         bytes.push_back(static_cast<char>(255 - index));
         bytes.push_back(static_cast<char>(index / 2));
     }
-    for (const auto& [read, table] :
-         {std::pair{&ReadEnvironmentColourTable, &g_environment_colours0},
-          std::pair{&ReadLightColourTable, &g_environment_colours1}}) {
+    std::array<glm::vec3, 256> colours;
+    auto* table = &colours;
+    {
         store("colours.bin", bytes);
         auto file = wiz8::open_file(wiz8::asset_path("colours.bin"));
-        REQUIRE(read(file.get()));
+        REQUIRE(ReadEnvironmentColours(file.get(), colours));
         REQUIRE(file->tell() == 768);
         for (int index : {0, 1, 127, 255}) {
             const glm::vec3 expected(index, 255 - index, index / 2);
@@ -812,7 +803,7 @@ TEST_CASE_METHOD(LoaderFixture, "Environment tables decode RGB bytes without run
         const auto complete = *table;
         store("colours.bin", bytes.substr(0, 767));
         file = wiz8::open_file(wiz8::asset_path("colours.bin"));
-        REQUIRE_FALSE(read(file.get()));
+        REQUIRE_FALSE(ReadEnvironmentColours(file.get(), colours));
         REQUIRE(*table == complete);
     }
 }
@@ -930,6 +921,7 @@ TEST_CASE_METHOD(LoaderFixture, "World item groups transfer ownership and preser
     first.runtime_id = 17;
     first.position = {1, -2, 3};
     first.flags = W8_WORLD_ITEM_HIDDEN;
+    first.entity_flags = second.entity_flags = W8_ITEM_ENTITY_RADAR_SEEN;
     first.saved_marker = second.saved_marker = 1;
     first.next = 1;
     first.sector_id = second.sector_id = -2;
@@ -964,17 +956,17 @@ TEST_CASE_METHOD(LoaderFixture, "World item groups transfer ownership and preser
     encoded->read_exact(roundtrip.data(), roundtrip.size());
     REQUIRE(roundtrip.size() == bytes.size());
     REQUIRE(std::equal(roundtrip.begin(), roundtrip.end(), bytes.begin()));
+    file->seek(0, wiz8::SeekOrigin::begin);
+    auto defaults = ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadItem(chunk, true); });
+    REQUIRE(defaults);
+    REQUIRE((defaults->entity_flags & W8_ITEM_ENTITY_RADAR_SEEN) == 0);
+    REQUIRE((defaults->next->entity_flags & W8_ITEM_ENTITY_RADAR_SEEN) == 0);
 }
 
 TEST_CASE_METHOD(LoaderFixture, "Retail waypoint versions load without an editor writer",
                  "[loader][pathing]")
 {
     W8Octree tree(nullptr, nullptr);
-    const struct RestoreOctree {
-        W8Octree* previous;
-        ~RestoreOctree() { g_octree = previous; }
-    } restore{g_octree};
-    g_octree = &tree;
     tree.object_registry = new W8OctreeObjectRegistry;
     tree.m_spatial.m_bounds.minimum = glm::vec3(0);
     tree.m_spatial.m_node_extent = 1;
@@ -1003,7 +995,7 @@ TEST_CASE_METHOD(LoaderFixture, "Retail waypoint versions load without an editor
             }
         }
         store("waypoints.wpt", bytes);
-        REQUIRE(path.ReadWaypointFile());
+        REQUIRE(path.ReadWaypointFile(tree));
         REQUIRE(path.m_waypoints.size() == 3);
         REQUIRE(path.m_waypoints[1].position == glm::vec3(1, 2, 3));
         REQUIRE(path.m_waypoints[2].position == glm::vec3(4, 5, 6));
@@ -1015,7 +1007,7 @@ TEST_CASE_METHOD(LoaderFixture, "Retail waypoint versions load without an editor
         auto* edges = path.m_pEdges.data();
         for (std::size_t end = 0; end < bytes.size(); ++end) {
             store("waypoints.wpt", bytes.substr(0, end));
-            REQUIRE_FALSE(path.ReadWaypointFile());
+            REQUIRE_FALSE(path.ReadWaypointFile(tree));
             REQUIRE(path.m_waypoints.data() == waypoints);
             REQUIRE(path.m_pEdges.data() == edges);
         }
@@ -1112,7 +1104,7 @@ TEST_CASE_METHOD(LoaderFixture, "Path parameters accept complete CRLF and unterm
     REQUIRE(g_navigator_minimum_speed_mode23 == 0.25f);
 }
 struct LocationVariableFixture : LoaderFixture {
-    int previous_level = g_status.current_level;
+    std::unique_ptr<W8World> previous_world = ReplaceWorld(nullptr);
     LocationVariableFixture() { ClearLocationVariables(); }
     bool load_variables(const std::string& bytes, bool inject_failure = false)
     {
@@ -1136,7 +1128,7 @@ struct LocationVariableFixture : LoaderFixture {
     ~LocationVariableFixture()
     {
         ClearLocationVariables();
-        g_status.current_level = previous_level;
+        ReplaceWorld(std::move(previous_world));
     }
 };
 
@@ -1145,12 +1137,12 @@ TEST_CASE_METHOD(LocationVariableFixture,
                  "[loader][records]")
 {
     REQUIRE_FALSE(HasLocationVariables());
-    g_status.current_level = 3;
+    ReplaceWorld(std::make_unique<W8World>(3));
     CreateLocationVar("Switch", 17);
     CreateLocationVar("SWITCH", 99);
     REQUIRE(GetLocationVarValueByName("switch") == 17);
     SetTriggerVariableByName("switch", 23);
-    g_status.current_level = 4;
+    ReplaceWorld(std::make_unique<W8World>(4));
     REQUIRE(GetLocationVarIDByName("Switch") == -1);
     CreateLocationVar("Switch", -7);
     REQUIRE(HasLocationVariables());
@@ -1173,7 +1165,7 @@ TEST_CASE_METHOD(LocationVariableFixture,
     ClearLocationVariables();
     REQUIRE(load_variables(expected));
     REQUIRE(GetLocationVarValueByName("SWITCH") == -7);
-    g_status.current_level = 3;
+    ReplaceWorld(std::make_unique<W8World>(3));
     REQUIRE(GetLocationVarValueByName("switch") == 23);
 }
 
@@ -1181,7 +1173,7 @@ TEST_CASE_METHOD(LocationVariableFixture,
                  "Invalid location variable sections leave existing state intact",
                  "[loader][records]")
 {
-    g_status.current_level = 5;
+    ReplaceWorld(std::make_unique<W8World>(5));
     CreateLocationVar("Existing", 42);
     std::string bytes;
     append(bytes, std::int32_t{2});
@@ -1404,12 +1396,8 @@ TEST_CASE_METHOD(LoaderFixture, "Prop save records decode missing entries within
                  "[loader][records]")
 {
     const struct WorldScope {
-        std::unique_ptr<W8World> previous = std::exchange(g_world, std::make_unique<W8World>());
-        ~WorldScope()
-        {
-            DestroyWorld(g_world);
-            g_world = std::move(previous);
-        }
+        std::unique_ptr<W8World> previous = ReplaceWorld(std::make_unique<W8World>());
+        ~WorldScope() { ReplaceWorld(std::move(previous)); }
     } scope;
     W8World& world = *GetWorld();
     auto prop = std::make_unique<W8Prop>();

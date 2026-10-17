@@ -181,13 +181,6 @@ bool LoadCycles(const std::filesystem::path& path)
             REQUIRE(world.psrMeshes.back() == nullptr);
         }
         REQUIRE(g_mesh_models.empty());
-        // Later loads reuse the default snapshot taken by the first read.
-        if (cycle == 2) {
-            ReleaseOctMeshDefaults();
-        }
-        // Released meshes drop their references; only the default snapshot may remain.
-        REQUIRE((cycle == 2 ? !g_oct_mesh_default.material
-                            : g_oct_mesh_default.material.use_count() == 1));
     }
     return true;
 }
@@ -269,7 +262,6 @@ TEST_CASE("serialized_mesh_test")
         REQUIRE_FALSE(ReadLevel(&world, file.get(), false, ""));
         REQUIRE(destroyed == 3);
     }
-    ReleaseOctMeshDefaults();
     REQUIRE(ok);
     std::puts(
         "ok: serialized mesh loading, linked successors, unloading, reloading and invalid links");

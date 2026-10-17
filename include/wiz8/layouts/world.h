@@ -1,7 +1,11 @@
 #ifndef WIZ8_LAYOUTS_WORLD_H
 #define WIZ8_LAYOUTS_WORLD_H
 
+#include <array>
 #include <memory>
+#include <span>
+#include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 class W8AmbientSound;
@@ -17,6 +21,7 @@ class srMaterial;
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srScene.h"
 #include "wiz8/engine_code/Camera.h"
+#include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/quad.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stParticle.h"
@@ -49,16 +54,28 @@ struct W8WorldCameraState {
     W8CameraAngleRecord yaw;
 };
 
+struct W8AutomapCells {
+    float grid_cell_size = 2000.0f;
+    std::vector<bool> visited;
+    std::vector<bool> lit;
+    std::vector<unsigned int> keys;
+    std::unordered_map<unsigned int, int> index;
+};
+
 /* Runtime world, not a retail disk record. Collection storage belongs to the
    world. Destruction proceeds in three phases (stop activity, unregister borrowed indexes,
    destroy owned resources).
-   lights_to_update and collidable_props are non-owning indexes. Named positions
+   Light updates and collidable_props are non-owning indexes. Named positions
    are owned values: lookups copy their data and never retain element addresses. */
 struct W8World {
-    W8World();
+    explicit W8World(int level_id = -1, std::string source_path = {});
+    const int level_id;
+    const std::string source_path;
     ~W8World();
     W8World(const W8World&) = delete;
     W8World& operator=(const W8World&) = delete;
+    unsigned int next_trigger_id = 1;
+    W8AutomapCells automap;
     std::shared_ptr<srMaterial> cloud_material;
     std::vector<std::unique_ptr<W8Monster>> monsters;
     // Update membership borrows loaded monsters, including the visible cursor.
@@ -67,6 +84,15 @@ struct W8World {
     std::vector<std::unique_ptr<W8Prop>> plsProps;
     std::vector<std::unique_ptr<W8CameraPath>> plsCameras;
     std::vector<std::unique_ptr<W8AmbientSound>> plsAmbientSounds;
+    // Authored environment data belongs to the loaded scene, not the active session.
+    std::array<glm::vec3, 256> environment_colours = EnvironmentColourRamp();
+    std::array<glm::vec3, 256> light_colours = EnvironmentColourRamp();
+    std::vector<stLight*> environment_lights;
+    glm::vec3 environment_offset{0.0f};
+    glm::mat3 initial_camera_rotation{1.0f};
+    bool fog_enabled = false;
+    int last_light_phase = -1;
+    int last_environment_colour_phase = -1;
     float environment_range_start = 0.75f;
     float environment_range_end = 1.0f;
     float view_distance{};
@@ -84,16 +110,23 @@ struct W8World {
     std::unique_ptr<W8GameData> game_data;
     std::unique_ptr<W8Octree> octree;
     stLight* camera_light{};
-    bool m_loaded{};
     std::unique_ptr<W8Quad> quads;
     srModelInstance* update_mesh_source{};
+    bool view_dirty = true;
     float render_range{};
     std::vector<srNode*> nodes_to_disable;
     // Lights created for this world (including monster-cycle copies); the world owns them.
     std::vector<std::unique_ptr<stLight>> transient_lights;
     std::vector<std::unique_ptr<W8SpellVisual>> spell_visuals;
     std::vector<std::unique_ptr<W8Missile>> missiles;
-    std::vector<stLight*> lights_to_update;
+    std::span<stLight* const> updatingLights() const { return updating_lights_; }
+    void stopLightUpdates();
+
+private:
+    friend class stLight;
+    std::vector<stLight*> updating_lights_;
+
+public:
     std::vector<W8Prop*> collidable_props;
     std::vector<std::unique_ptr<MonGen>> monster_generators;
     std::vector<std::unique_ptr<Trigger>> triggers;
@@ -104,12 +137,6 @@ struct W8World {
     std::vector<W8NamedPosition> named_positions;
 };
 
-/* The level world and the sky world. Each slot owns its world; see
-   DestroyWorld for teardown. */
-extern std::unique_ptr<W8World> g_world;
-extern std::unique_ptr<W8World> g_secondary_world;
-W8World* GetWorld();
-W8World* GetSecondaryWorld();
 extern int g_combat_round_counter;
 
 /* Typed element access for the homogeneous world lists. */

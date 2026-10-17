@@ -407,7 +407,7 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
     glm::vec4 light;
     if (!model->vertex_lighting_ready) {
         light = glm::vec4(
-            (ambient_color * light_scale + g_environment_offset) * g_monster_light_scale, 1);
+            (ambient_color * light_scale + CurrentEnvironmentOffset()) * g_monster_light_scale, 1);
     } else {
         light = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
     }

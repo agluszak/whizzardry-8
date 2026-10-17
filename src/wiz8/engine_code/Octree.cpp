@@ -138,7 +138,6 @@ w8_ulong* g_octree_state;
 /* Draw the probe box through the world camera. */
 
 // GLOBAL: WIZ8 0x006598a4
-W8Octree* g_octree;
 
 // GLOBAL: WIZ8 0x006068a4
 static char g_region_link_extension[] = ".rlk";
@@ -201,9 +200,10 @@ void W8Octree::UpdateVisibility()
         m_reset_visibility = false;
         for (mesh_index = 0; mesh_index < m_meshCount; ++mesh_index) {
             if (GetWorld()->psrMeshes[mesh_index] != 0) {
-                m_pSubmeshes
-                    [static_cast<stModelInstance*>(GetWorld()->psrMeshes[mesh_index])->mesh_index + 1]
-                        .mesh = mesh_index;
+                m_pSubmeshes[static_cast<stModelInstance*>(GetWorld()->psrMeshes[mesh_index])
+                                 ->mesh_index +
+                             1]
+                    .mesh = mesh_index;
                 m_pSubmeshes[mesh_index + 1].flags &= 0xffffffc7;
                 stModelInstance* mesh =
                     static_cast<stModelInstance*>(GetWorld()->psrMeshes[mesh_index]);
@@ -271,7 +271,8 @@ void W8Octree::UpdateVisibility()
             W8OctSubmesh* submesh = &m_pSubmeshes[region];
             int mesh_index = submesh->mesh;
             submesh->flags |= 0x28;
-            stModelInstance* mesh = static_cast<stModelInstance*>(GetWorld()->psrMeshes[mesh_index]);
+            stModelInstance* mesh =
+                static_cast<stModelInstance*>(GetWorld()->psrMeshes[mesh_index]);
             if (mesh != 0) {
                 mesh->clearFlag(srNode::FLAG_DISABLE);
                 mesh->clearFlag(srNode::FLAG_TERMINATE);
@@ -929,8 +930,8 @@ unsigned int W8Octree::SampleRegionLinks(const glm::vec3& point, bool descend, b
                     if (!m_current_regions[cell]) {
                         continue;
                     }
-                    meshes.push_back(
-                        static_cast<stModelInstance*>(GetWorld()->psrMeshes[m_pSubmeshes[cell].mesh]));
+                    meshes.push_back(static_cast<stModelInstance*>(
+                        GetWorld()->psrMeshes[m_pSubmeshes[cell].mesh]));
                     if (!TestBit(m_projected_regions, cell)) {
                         auto slot = m_pRegionLinks->equal_range(key).first;
                         while (slot != m_pRegionLinks->end() &&
@@ -985,7 +986,8 @@ unsigned int W8Octree::SampleRegionLinks(const glm::vec3& point, bool descend, b
                                 unsigned int candidate = cells[i];
                                 if (candidate != 0) {
                                     m_pSubmeshes[candidate].flags &= 0xfffffff7;
-                                    srNode* node = GetWorld()->psrMeshes[m_pSubmeshes[candidate].mesh];
+                                    srNode* node =
+                                        GetWorld()->psrMeshes[m_pSubmeshes[candidate].mesh];
                                     if (node != 0) {
                                         node->setFlag(srNode::FLAG_DISABLE);
                                         node->setFlag(srNode::FLAG_TERMINATE);
@@ -1217,7 +1219,7 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
         stale = saved_links;
     }
     delete stale;
-    g_renderer_ready = true;
+    MarkWorldViewDirty();
 }
 
 /* Write the octree's region-link table to the .rlk companion file.
@@ -1621,7 +1623,7 @@ GroundProbe W8Octree::settleToGround(const glm::vec3& input, bool test_props, fl
                 w8_ulong before = m_gd_result_count;
                 CollectObjectsInCell(cell, W8_OCTREE_KIND_PROP);
                 if (m_gd_result_count != before) {
-                    int prop = g_octree_game_data->TestPropSurfaces(
+                    int prop = GetWorldGameData()->TestPropSurfaces(
                         m_gd_result_count, m_aulGDObjs.data(), &trace, 0, 0);
                     current_prop = prop;
                     if (prop >= 0) {
@@ -1629,11 +1631,11 @@ GroundProbe W8Octree::settleToGround(const glm::vec3& input, bool test_props, fl
                     }
                 }
             }
-            g_octree_game_data->trace_flag4_gate = true;
+            GetWorldGameData()->trace_flag4_gate = true;
             if (ProbeCellForTrace(cell) == 0) {
                 goto descend;
             }
-            hit = g_octree_game_data->TestTraceResult(m_gd_result_count, m_aulGDObjs.data(), &trace,
+            hit = GetWorldGameData()->TestTraceResult(m_gd_result_count, m_aulGDObjs.data(), &trace,
                                                       0, 0);
             if (!hit) {
             descend:
@@ -1649,7 +1651,7 @@ GroundProbe W8Octree::settleToGround(const glm::vec3& input, bool test_props, fl
             } else if (prop_hit) {
                 current_prop = -1;
             }
-            g_octree_game_data->trace_flag4_gate = false;
+            GetWorldGameData()->trace_flag4_gate = false;
         } while (-1 < cell.y);
         if (hit) {
         done:
@@ -1718,7 +1720,7 @@ short W8Octree::TraceLineOfSight(const glm::vec3* from, glm::vec3* to, bool trac
             cell, end_cell, [&] { return cellWalk((*from), (*to)); },
             [&](const glm::ivec3& current, bool adjacent) {
                 if (ProbeCellForTrace(current) != 0 || adjacent)
-                    blocked = g_octree_game_data->TestTraceResult(
+                    blocked = GetWorldGameData()->TestTraceResult(
                         m_gd_result_count, m_aulGDObjs.data(), &trace, m_trace_skip_flag, 0);
                 return !blocked;
             });
@@ -1809,7 +1811,7 @@ W8Octree::traceSphereHit(const glm::vec3& from, const glm::vec3& to, int exclude
         probe_set = pathing->CollectPathProbes(&navigator->movement, radius);
     }
 no_probes:;
-    ids = g_octree->queryObjects({low, high}, W8_OCTREE_KIND_LOCATION, -1);
+    ids = GetWorldOctree()->queryObjects({low, high}, W8_OCTREE_KIND_LOCATION, -1);
     unsigned int count = ids.size(); /* c-style-cast-ok:
             the shared query count field is stored unsigned */
     if (count != 0) {
@@ -2051,7 +2053,7 @@ W8Octree::traceProps(const glm::vec3& from, const glm::vec3& to, int skip_flag, 
             CollectObjectsInCell(current, W8_OCTREE_KIND_PROP);
             return true;
         });
-    current_prop = g_octree_game_data->TestPropSurfaces(m_gd_result_count, m_aulGDObjs.data(),
+    current_prop = GetWorldGameData()->TestPropSurfaces(m_gd_result_count, m_aulGDObjs.data(),
                                                         &trace, skip_flag, gate);
     if (current_prop < 0) {
         return std::nullopt;
@@ -2450,21 +2452,19 @@ W8Octree::W8Octree(const char* path, std::unique_ptr<W8GameData>* game_data)
             }
             pGameData->octree = this;
         }
-        g_octree_game_data = (pGameData.get());
+
         if (game_data != 0) {
             *game_data = std::move(pGameData);
         }
-        g_octree = this;
+
         m_region_links_ready = ReadRegionLinkFile(m_path_stem.c_str());
         LoadPointFiles(m_path_stem.c_str());
         if (pathing != 0) {
-            pathing->ReadWaypointFile();
+            pathing->ReadWaypointFile(*this);
         }
         return;
     } catch (const std::exception&) {
-        g_octree_game_data = 0;
-        g_octree = 0;
-        g_pathing = 0;
+
         m_spatial.flags |= 0x80000000;
     }
 }
@@ -2659,7 +2659,7 @@ void W8Octree::AddLoadedParticles(std::span<stParticle* const> particles)
     m_particles.insert(m_particles.end(), particles.begin(), particles.end());
 }
 
-/* Complete non-deleting teardown. LoadWorld and DestroyWorld both perform the
+/* Complete non-deleting teardown. World loading and destruction both perform the
    matching operator delete only after this method returns. */
 // FUNCTION: WIZ8 0x0042de60
 W8Octree::~W8Octree()
@@ -2677,8 +2677,6 @@ W8Octree::~W8Octree()
 
     delete pathing;
     pathing = 0;
-    g_octree = 0;
-    ReleaseOctMeshDefaults();
 }
 
 /* Running index into the prop-sunlight bit stream, shared across the octree
@@ -2779,8 +2777,8 @@ unsigned char W8Octree::TestBoxOccupied(const glm::vec3* lower, const glm::vec3*
     unsigned int count = objects.size();
     unsigned int index;
     for (index = 0; index < count; ++index) {
-        W8GDSurface* surface = g_octree_game_data->m_pSurfaces.data() + objects[index];
-        if (SurfaceIntersectsBox(*surface, g_octree_game_data->m_pVertices, {(*lower), (*upper)})) {
+        W8GDSurface* surface = GetWorldGameData()->m_pSurfaces.data() + objects[index];
+        if (SurfaceIntersectsBox(*surface, GetWorldGameData()->m_pVertices, {(*lower), (*upper)})) {
             return 1;
         }
     }

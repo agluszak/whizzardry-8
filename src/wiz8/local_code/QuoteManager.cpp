@@ -23,6 +23,7 @@
 #include "message_box.h"
 #include "sprite.h"
 #include "wiz8/design_rect.h"
+#include "wiz8/engine_code/Levels.h"
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/ui_layer.h"
@@ -818,7 +819,7 @@ unsigned char W8CharacterEvent::Dispatch()
                 return 1;
             }
             if (npc->name_style == W8_NPC_VI_DOMINA && event_type > 0x8b && event_type < 0x92 &&
-                g_status.current_level != 0) {
+                GetLoadedLevelID() != 0) {
                 return 0;
             }
             if ((flags & W8_EVENT_NPC_SCRIPT) != 0) {

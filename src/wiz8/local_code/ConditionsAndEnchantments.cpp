@@ -105,7 +105,7 @@ void ReleaseMonsterConditionBindings(W8MonsterInfo* monster_info)
                 W8Character* character = &g_status.buffers.Char[party_slot];
                 W8CharacterConditionRecord* record = &character->conditions[slot_kind];
                 if ((condition == W8_CONDITION_NONE || character->uiCondition[condition] != 0) &&
-                    record->level_acquired == g_status.current_level &&
+                    record->level_acquired == GetLoadedLevelID() &&
                     record->source_monster == monster_info->location_id) {
                     cleared = true;
                     record->active = false;
@@ -159,8 +159,8 @@ void RemoveCharacterCondition(int party_slot, W8Condition condition, bool announ
         }
         if (condition == W8_CONDITION_HEXED) {
             if (character->uiCondition[W8_CONDITION_INFATUATED] != 0 &&
-                GetLevelBand(g_status.current_level) != '\t' &&
-                GetLevelBand(g_status.current_level) != '\n') {
+                GetLevelBand(GetLoadedLevelID()) != '\t' &&
+                GetLevelBand(GetLoadedLevelID()) != '\n') {
                 return;
             }
         } else if (condition == W8_CONDITION_INSANE &&
@@ -1077,7 +1077,7 @@ void BindMonsterToCharacterDependence(unsigned int party_slot, unsigned int depe
     }
 
     g_status.buffers.Char[party_slot].conditions[dependence_slot].level_acquired =
-        g_status.current_level;
+        GetLoadedLevelID();
     g_status.buffers.Char[party_slot].conditions[dependence_slot].source_monster = monster_id;
     g_status.buffers.Char[party_slot].conditions[dependence_slot].active = true;
     RebuildConditionsAndDerivedStats(party_slot);

@@ -167,7 +167,7 @@ void stMeshModel::updateBakedLighting()
             ? glm::vec3(0)
             : ambient_color *
                   glm::vec3(static_cast<srMaterial*>(getMaterial(0, SIDE_FRONT))->parms.ambient);
-    const auto environment = g_environment_offset;
+    const auto environment = CurrentEnvironmentOffset();
     const bool add_environment = vertex_light_table != 1 && environment != glm::vec3(0);
     const float light_scale = g_monster_light_scale;
     const srMaterial* previous_material = nullptr;

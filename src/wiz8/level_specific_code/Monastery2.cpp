@@ -7,6 +7,7 @@
 #include "surrender/srDebug.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/Trigger.hpp"
+#include "wiz8/engine_code/World.h"
 #include "wiz8/item_spawning.h"
 
 /* Level Specific Code\Monastery2.cpp (level 9).

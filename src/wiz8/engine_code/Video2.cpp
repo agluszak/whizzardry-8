@@ -42,6 +42,7 @@
 #include "wiz8/xstatus.h"
 #ifdef WIZ8_RUNTIME_TESTS
 #include "runtime_instrumentation.h"
+#include "wiz8/engine_code/Levels.h"
 #endif
 #include <SDL3/SDL_stdinc.h>
 
@@ -180,10 +181,6 @@ int g_surface_opaque_shader_bits;
 int g_surface_alpha_blend_shader_bits;
 // GLOBAL: WIZ8 0x6595e8
 DesignRect g_viewport;
-// GLOBAL: WIZ8 0x00659AB4
-std::unique_ptr<W8World> g_world;
-// GLOBAL: WIZ8 0x00659AB8
-std::unique_ptr<W8World> g_secondary_world;
 // GLOBAL: WIZ8 0x652da4
 bool g_camera_sway_active;
 // GLOBAL: WIZ8 0x5ebb1c
@@ -604,7 +601,7 @@ static RuntimeWorldRenderData ObserveWorldRenderState()
 {
     RuntimeWorldRenderData data;
     memset(&data, 0, sizeof(data));
-    data.level = g_status.current_level;
+    data.level = GetLoadedLevelID();
     data.flags = (g_world_render_enabled ? 1UL : 0UL) | (g_world_blacked_out ? 2UL : 0UL) |
                  (g_video_active ? 4UL : 0UL) | (g_monster_shadow_updates_enabled ? 8UL : 0UL) |
                  (g_render_mesh_sky ? 16UL : 0UL) | (g_world_pick_enabled ? 32UL : 0UL);
@@ -713,8 +710,8 @@ void RenderFrame(void)
     g_gerd->setTextureReduction(g_resident_texture_policy);
 
     if (g_render_mesh_sky && GetSecondaryWorld() != 0 && g_monster_shadow_updates_enabled) {
-        RenderScene(GetSecondaryWorld()->static_scene.get(), GetSecondaryWorld()->camera, &g_viewport,
-                    false);
+        RenderScene(GetSecondaryWorld()->static_scene.get(), GetSecondaryWorld()->camera,
+                    &g_viewport, false);
     }
     if (GetWorld() != 0 && g_world_render_enabled) {
 #ifdef WIZ8_RUNTIME_TESTS
@@ -821,7 +818,7 @@ unsigned char RenderWorldToSurface(SDL_Surface* target, const DesignRect* rect,
     const DesignRect bounds = rect != nullptr ? *rect : g_viewport;
     const auto viewport = ToSurfaceRect(bounds, gerd->getWidth(), gerd->getHeight());
     gerd->setViewPort(viewport.x, viewport.y, viewport.w, viewport.h);
-    if (g_fog_enabled) {
+    if (GetWorld() && GetWorld()->fog_enabled) {
         clear_color = g_light_direction;
     } else {
         GetWorldLightValue(GetWorld(), &clear_color);
@@ -1355,7 +1352,7 @@ void SetViewport(const DesignRect& bounds)
 
     if (GetWorld() != 0 && GetWorld()->camera != 0) {
         GetWorld()->camera->setViewPlane(3.14159265358979323846 * 0.0055555557f * 85.0f,
-                                      3.14159265358979323846 * 0.0055555557f * 71.0f);
+                                         3.14159265358979323846 * 0.0055555557f * 71.0f);
         const auto view = GetWorld()->camera->getViewPlane().rectangle;
 
         plane.left = fractional_left * (view.right - view.left) + view.left;

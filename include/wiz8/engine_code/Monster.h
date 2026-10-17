@@ -143,8 +143,9 @@ class W8Monster : public W8GrCycle {
 public:
     typedef void (*CycleCallback)(W8Monster* monster);
 
-    W8Monster();
-    W8Monster(const W8Monster& rhs);
+    explicit W8Monster(W8World* owner = nullptr);
+    W8Monster(const W8Monster& rhs) : W8Monster(rhs, rhs.owner_world) {}
+    W8Monster(const W8Monster& rhs, W8World* owner);
     W8Monster& operator=(const W8Monster&) = delete;
     virtual ~W8Monster() override;
 

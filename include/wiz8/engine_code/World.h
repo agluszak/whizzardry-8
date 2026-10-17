@@ -2,7 +2,8 @@
 
 #include <functional>
 #include <initializer_list>
-#include <string_view>
+#include <memory>
+#include <string>
 
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srScene.h"
@@ -14,11 +15,18 @@ class stParticle;
 class Trigger;
 class W8Prop;
 
-unsigned char LoadWorld(W8World* world, std::string_view level_path, bool use_octree);
-void DestroyWorld(std::unique_ptr<W8World>& slot);
+W8World* GetWorld(void);
+W8World* GetSecondaryWorld(void);
+void MarkWorldViewDirty(void);
+/* Publish a loaded world, returning the previous owner. The level world's
+   activity is stopped before it is handed back. */
+std::unique_ptr<W8World> ReplaceWorld(std::unique_ptr<W8World> world);
+std::unique_ptr<W8World> ReplaceSkyWorld(std::unique_ptr<W8World> world);
+
+std::unique_ptr<W8World> LoadWorld(int level_id, std::string source_path, bool use_octree = true);
 void DetachAllWorldItems(void);
 void UpdateWorlds(void);
-void UpdateWorldMeshAfterLoad(void);
+void RefreshWorldView(void);
 W8WorldCameraState cameraState(const W8World& world);
 void SetWorldCameraState(W8World* world, W8World* source_world, W8WorldCameraState* state);
 void RestoreWorldCameraState(W8World* source_world, W8WorldCameraState* state);

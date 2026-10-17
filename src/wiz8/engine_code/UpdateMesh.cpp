@@ -21,6 +21,7 @@
 #include "surrender/srModelInstance.h"
 #include "wiz8/engine_code/3dapi.h"
 #include "wiz8/engine_code/Octree.h"
+#include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/quad.h"
 
 /* Convert the mesh view half-angle from degrees to radians. */

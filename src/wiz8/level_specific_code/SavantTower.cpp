@@ -1,6 +1,7 @@
 #include "wiz8/level_specific_code/SavantTower.h"
 
 #include "wiz8/engine_code/Prop.h"
+#include "wiz8/engine_code/World.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/layouts/world.h"
 #include "wiz8/local_code/NPCManager.h"

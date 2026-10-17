@@ -2242,7 +2242,7 @@ bool MainGameScreenEnter(void)
     g_world_render_enabled = 1;
     g_monster_shadow_updates_enabled = 1;
     ClearPrimarySurface();
-    if (g_fog_enabled) {
+    if (GetWorld() && GetWorld()->fog_enabled) {
         EnableSky();
     } else {
         DisableSky();
@@ -2749,7 +2749,7 @@ bool MainGameScreenLeave(int leaving)
     CloseMainGameOverlays();
 
     if (static_cast<unsigned char>(leaving)) {
-        if (g_status.current_level != -1) {
+        if (GetLoadedLevelID() != -1) {
             UnloadSkyWorld();
             if (!UnloadLevel("")) {
                 return 0;
@@ -5524,7 +5524,7 @@ bool LoadCurrentLevelData(void)
 {
     bool loaded = true;
 
-    if (g_status.current_level != -1) {
+    if (GetLoadedLevelID() != -1) {
         SetTargetCursor(W8_CURSOR_MAP_LOAD);
         g_world_cleanup_flag = true;
         UnloadSkyWorld();

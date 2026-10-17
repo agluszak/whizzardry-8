@@ -48,6 +48,7 @@
 #include "wiz8/engine_code/SoundEvent.h"
 #include "wiz8/engine_code/SpellVisual.h"
 #include "wiz8/engine_code/Trigger.hpp"
+#include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stMeshModel.h"
@@ -202,9 +203,8 @@ void UpdateShakeEffects()
    version, and hand the open file plus its resource context to the typed cycle
    reader. */
 // FUNCTION: WIZ8 0x004A67E0
-bool LoadGrCycle(W8World* world, std::string_view mon_name, W8GrCycle* cycle, int cycle_index,
-                 int value, const char* directory, unsigned char object_type,
-                 const char* bitmap_directory)
+bool LoadGrCycle(std::string_view mon_name, W8GrCycle* cycle, int cycle_index, int value,
+                 const char* directory, unsigned char object_type, const char* bitmap_directory)
 try {
     W8ReadLevelInfo info;
     unsigned char version;
@@ -230,7 +230,7 @@ try {
         ShutdownWithErrorBox(fmt::format("Couldn't open {}", mon_path));
     }
 
-    info.world = world;
+    info.world = cycle->owner_world;
     info.hFile = handle.get();
     info.bitmap_folder = wiz8::asset_path(bitmap_path);
     success = true;
@@ -278,7 +278,8 @@ try {
     if (has_particles != 0) {
         std::vector<std::unique_ptr<stParticle>> particles;
 
-        success = ReadWorldParticles(info, GetWorld()->dynamic_scene, &particles);
+        success = ReadWorldParticles(info, info->world ? info->world->dynamic_scene : nullptr,
+                                     &particles);
         if (!particles.empty()) {
             int index;
 
@@ -318,7 +319,7 @@ try {
 }
 
 // FUNCTION: WIZ8 0x004a5e50
-W8GrCycle::W8GrCycle()
+W8GrCycle::W8GrCycle(W8World* owner) : owner_world(owner)
 {
     current_model_instance = 0;
     m_plsLights = 0;
@@ -333,7 +334,8 @@ W8GrCycle::W8GrCycle()
 
 // Copy runtime state, particles and the shadow; representations own borrowed lights.
 // FUNCTION: WIZ8 0x004a5f20
-W8GrCycle::W8GrCycle(const W8GrCycle& other) : W8GrObject(other), W8Navigator(other)
+W8GrCycle::W8GrCycle(const W8GrCycle& other, W8World* owner)
+    : W8GrObject(other), W8Navigator(other), owner_world(owner)
 {
     current_model_instance = 0;
     m_plsLights = 0;
@@ -369,10 +371,10 @@ W8GrCycle::~W8GrCycle()
     for (auto& event : particles) {
         auto owner = std::move(event.m_pstParticles);
         if (owner) owner->CancelAnimationCallback();
-        if (owner && owner->active_particle_count != 0 && GetWorld() != nullptr) {
+        if (owner && owner->active_particle_count != 0 && owner_world != nullptr) {
             owner->SetActive(1);
             owner->emission_limit = 1;
-            RetireParticle(std::move(owner));
+            RetireParticle(*owner_world, std::move(owner));
         }
     }
 }
@@ -531,7 +533,7 @@ void W8GrCycle::UpdateLights()
                     }
                 } else if ((representation->subcycle == 0 && cycle_definition->subcycle_min == 0) ||
                            light->getParent() == nullptr) {
-                    light->setParent(GetWorld()->dynamic_scene, 0);
+                    light->setParent(owner_world ? owner_world->dynamic_scene : nullptr, 0);
                     light->m_path_index = 0;
                     light->m_path_direction = 1;
                     light->Reset();
@@ -547,7 +549,7 @@ void W8GrCycle::UpdateLights()
                     light->setParent(0, 0);
                 }
             } else if (light->getParent() == nullptr) {
-                light->setParent(GetWorld()->dynamic_scene, 0);
+                light->setParent(owner_world ? owner_world->dynamic_scene : nullptr, 0);
             }
         }
     }
@@ -656,9 +658,7 @@ void W8GrCycle::ResetRepresentation()
    representation's four-dword render block and its optional scale ride along,
    and the last instance placed becomes the cached one.
 
-   The ground shadow and the owned lights follow. The shadow deliberately
-   reparents to the global world rather than to the pWorld argument, which is
-   why both appear in one body. */
+   The ground shadow and owned lights attach to the supplied world as well. */
 // FUNCTION: WIZ8 0x004a7470
 void W8GrCycle::UpdateRepresentation(W8World* pWorld)
 {
@@ -760,7 +760,7 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
         m_ground_shadow->setLocation(location);
         m_ground_shadow->angle = GetYaw();
         m_ground_shadow->clearFlag(srNode::FLAG_TERMINATE);
-        m_ground_shadow->setParent(GetWorld()->dynamic_scene, 0);
+        m_ground_shadow->setParent(pWorld->dynamic_scene, 0);
     }
     if (m_plsLights != 0) {
         int count = static_cast<int>(m_plsLights->size());
@@ -1127,7 +1127,7 @@ void W8GrCycle::DetachCycleLights(std::vector<std::unique_ptr<stLight>>* lights)
 
             light->setParent(0, 1);
             if (light->definition() != 0) {
-                wiz8::erase_first(GetWorld()->lights_to_update, light);
+                light->SetUpdateWorld(nullptr);
             }
         }
     }
@@ -1135,13 +1135,13 @@ void W8GrCycle::DetachCycleLights(std::vector<std::unique_ptr<stLight>>* lights)
 
 void W8GrCycle::AttachCycleLights(std::vector<std::unique_ptr<stLight>>* lights)
 {
-    if (g_render_missile_lights && lights != 0) {
+    if (owner_world && g_render_missile_lights && lights != 0) {
         for (const auto& owned : *lights) {
             auto* light = owned.get();
 
-            light->setParent(GetWorld()->dynamic_scene, 1);
+            light->setParent(owner_world ? owner_world->dynamic_scene : nullptr, 1);
             if (light->definition() != 0) {
-                GetWorld()->lights_to_update.push_back(light);
+                light->SetUpdateWorld(owner_world);
             }
         }
     }

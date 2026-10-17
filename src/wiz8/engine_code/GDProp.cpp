@@ -14,6 +14,7 @@
 #include "navigation_flags.h"
 #include "surrender/srBoundingBox.h"
 #include "wiz8/containers.h"
+#include "wiz8/engine_code/World.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/surface_geometry.h"
 /* Engine Code\GDProp.cpp */
@@ -42,14 +43,15 @@ GDProp::GDProp(srModelInstance* instance, const char* path_name, unsigned short 
     m_path_bounds.max_x = 0;
     m_path_bounds.min_x = 0;
 
-    if (g_octree != 0 && g_octree->pathing != 0) {
-        m_path_handle = g_octree->pathing->FindPathHandle(path_name, &m_path_bounds, &m_path_range);
+    if (GetWorldOctree() != 0 && GetWorldOctree()->pathing != 0) {
+        m_path_handle =
+            GetWorldOctree()->pathing->FindPathHandle(path_name, &m_path_bounds, &m_path_range);
     }
 
     if (instance != 0) {
-        if (m_path_handle != 0 && g_octree->pathing != 0) {
-            g_octree->pathing->LinkSurfaces(this);
-            g_octree->pathing->LinkEdges(this);
+        if (m_path_handle != 0 && GetWorldOctree()->pathing != 0) {
+            GetWorldOctree()->pathing->LinkSurfaces(this);
+            GetWorldOctree()->pathing->LinkEdges(this);
         }
         Initialize(instance, true, prop_number, footstep_surface, footstep_material);
     }
@@ -130,7 +132,7 @@ void GDProp::Initialize(srModelInstance* instance, bool attach, unsigned short p
         mesh = mesh->Next();
     }
 
-    W8PathingService* pathing = g_octree->pathing;
+    W8PathingService* pathing = GetWorldOctree()->pathing;
     if (m_path_handle != 0 && pathing != 0) {
         if (!attach) {
             if (m_prop_number != 0xffff) {
@@ -192,7 +194,7 @@ void GDProp::BindTrigger(Trigger* owner)
                 path_flags = W8_PATH_CELL_DOOR | W8_PATH_CELL_BLOCKED;
             }
 
-            W8PathingService* pathing = g_octree->pathing;
+            W8PathingService* pathing = GetWorldOctree()->pathing;
             if (pathing != 0) {
                 pathing->UpdateConditionalPathFlags(m_path_handle, m_prop_number, path_flags);
             }

@@ -41,17 +41,11 @@ public:
    floats; the word copies below move it without reinterpreting it. */
 extern glm::vec3 g_light_direction;
 
-extern std::array<glm::vec3, 256> g_environment_colours0;
-extern std::array<glm::vec3, 256> g_environment_colours1;
-
 class stLight;
 
-void AddEnvironmentLight(stLight* light);
-
-bool ReadLightColourTable(wiz8::File* hFile);
-bool ReadEnvironmentColourTable(wiz8::File* hFile);
-void BuildEnvironmentColourRamp(void);
-void BuildLightColourRamp(void);
+bool ReadEnvironmentColours(wiz8::File* file, std::array<glm::vec3, 256>& colours);
+// The default day-phase table: a grey ramp that peaks at midday.
+std::array<glm::vec3, 256> EnvironmentColourRamp();
 void UpdateEnvironmentLight(void);
 void RefreshEnvironment(void);
 void SetWorldEnvironmentColour(glm::vec3 colour);
@@ -103,15 +97,10 @@ extern float g_frame_elapsed;
    0x00484300 and reads it from UpdateEnvironment; the exported accessor
    above still carries the address name. */
 extern int g_environment_lighting_mode;
-extern bool g_fog_enabled;
 /* 1/duration while the lighting transition body at 0x00484300 runs, zero when
    idle: UpdateEnvironment hands off to that body while it is not zero. */
 extern float g_environment_transition_rate;
 extern w8_ulong g_environment_transition_tick;
-/* Last day phase the light direction was published from. */
-extern int g_last_light_phase;
-/* Last day phase the world's environment colour was refreshed from. */
-extern int g_last_environment_colour_phase;
 /* Gates the per-frame world-colour refresh. Retail writes it nowhere and
    initialises it to 1, so that refresh always runs; the only reference is the
    read inside UpdateEnvironment. */
@@ -139,9 +128,6 @@ extern std::weak_ptr<stTextureAnim> g_sky_gradient_animations[3];
    one rests at. */
 extern glm::vec3 g_celestial_origin;
 
-/* The registered environment lights, ambient-filled by ApplyEnvironmentColour.
-   The vector count occupies 0x0065B99C. */
-extern std::vector<stLight*> g_environment_lights;
 void AdvanceEnvironmentTime(int elapsed); /* 0x00482A20 */
 void SetWorldEnvironmentIntensity(W8World* world, float value);
 /* Arm the lighting transition. Duration is in milliseconds: negative fades the

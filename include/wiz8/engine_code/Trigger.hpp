@@ -184,7 +184,7 @@ class Trigger : public srClass {
 public:
     typedef bool (*ActivationCallback)(Trigger* trigger);
 
-    Trigger();
+    explicit Trigger(W8World* world = nullptr);
     virtual ~Trigger() override;
 
     static Trigger* CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world);
@@ -205,7 +205,7 @@ public:
     void CompleteItemInteraction();
     void Activate();
     bool Save(wiz8::File& hFile);
-    bool Load(W8Chunk& hFile, char version);
+    bool Load(W8Chunk& hFile, char version, bool from_assets = false);
     void RunLinkedTriggers();
     void FinishAction();
     void GetPosition(glm::vec3* position) const;
@@ -306,8 +306,8 @@ std::unique_ptr<W8TriggerActionData> ReadDoorTriggerActionData(wiz8::File* handl
    action data. */
 int ResetNextTriggerId(void);
 void SaveWorldTriggers(wiz8::File& handle);
-bool LoadWorldTriggers(W8Chunk& handle);
-void SaveTriggerRuntimeStates(wiz8::File& handle, bool restoring);
+bool LoadWorldTriggers(W8Chunk& handle, bool from_assets = false);
+void SaveTriggerRuntimeStates(wiz8::File& handle);
 bool LoadTriggerRuntimeStates(W8Chunk& handle);
 void SaveTriggerActionData(wiz8::File& handle);
 bool LoadTriggerActionData(W8Chunk& handle);
@@ -334,3 +334,6 @@ void DestroyAllWorldTriggers(W8World* world);
 /* Walk the world's triggers for a type-0x34 RunDestination trigger whose
    annulus contains the position; answers true when one does. */
 bool InsideDestinationTrigger(float x, float y, float z);
+
+// Stop callbacks before retiring the primary world; trigger owners survive until teardown.
+void StopWorldTriggerEvents();

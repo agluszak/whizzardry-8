@@ -44,7 +44,6 @@ class GDCamera {
 public:
     GDCamera(); /* 0x00476140 */
 
-    srCamera* CreateOrAttachCamera(srNode* parent, srCamera* camera); /* 0x00476440 */
     void ApplyRotationMatrix(glm::mat3* rotation, W8LevelDataRecord* context); /* 0x00476610 */
     void SnapToTarget(const glm::vec3* target); /* 0x00476950 */
     void SetOrientationImmediate(float pitch, float angle); /* 0x00476C30 */
@@ -62,14 +61,14 @@ public:
     {
         m_pitch = glm::clamp(pitch, g_camera_pitch_lower, g_camera_pitch_upper);
         m_pitch_rotation = glm::mat3(glm::eulerAngleX(m_pitch));
-        g_renderer_ready = true;
+        MarkWorldViewDirty();
     }
     // FUNCTION: WIZ8 0x00478720
     void SetYaw(float angle)
     {
         m_yaw = glm::mod(angle, g_camera_angle_period0);
         m_yaw_rotation = glm::mat3(glm::eulerAngleY(m_yaw));
-        g_renderer_ready = true;
+        MarkWorldViewDirty();
     }
     void SetOrientation(float angle, float pitch); /* 0x004788E0 */
     glm::mat3 rotationMatrix(); /* 0x00478BD0 */
@@ -104,7 +103,6 @@ private:
 };
 
 extern GDCamera* g_gd_camera;
-extern srCamera* g_game_camera;
 
 void GetCameraForwardPoint(float distance, glm::vec3* output);
 /* 0x00421170: accumulate `distance` along +Z, rotated by yaw and pitch, into

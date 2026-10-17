@@ -9,7 +9,7 @@
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/retail_geometry_types.h"
 
-extern glm::vec3 g_environment_offset;
+glm::vec3 CurrentEnvironmentOffset();
 
 namespace wiz8 {
 class File;

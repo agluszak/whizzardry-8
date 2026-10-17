@@ -13,6 +13,7 @@
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
 #include "wiz8/chunk.h"
+#include "wiz8/containers.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/AmbientSound.h"
 #include "wiz8/engine_code/GrCycle.h"
@@ -65,7 +66,19 @@ stLight::stLight(srNode* parent) : srLight(static_cast<srNode*>(nullptr), srLigh
     m_level_time = m_path_time = w8_get_ticks() * 0.001f;
 }
 
-stLight::~stLight() = default;
+stLight::~stLight()
+{
+    SetUpdateWorld(nullptr);
+}
+
+void stLight::SetUpdateWorld(W8World* world)
+{
+    if (world == update_world_) return;
+    // Allocate first so failure leaves existing membership intact.
+    if (world) world->updating_lights_.push_back(this);
+    if (update_world_) wiz8::erase_first(update_world_->updating_lights_, this);
+    update_world_ = world;
+}
 
 /* Assignment deep-copies both owned members - the definition through its
    virtual Clone slot and the path through the PathAI clone - so a copied light

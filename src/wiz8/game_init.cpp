@@ -13,7 +13,6 @@
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
-#include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/CombatSound.h"
 #include "wiz8/local_code/Configuration.h"
@@ -89,7 +88,6 @@ unsigned char InitializeGame(size_t& initialized_screens)
         return 0;
     }
     g_pending_screen_state.id = W8_SCREEN_INTRO;
-    g_status.current_level = -1;
     if (const auto save = gfLoadAtStartup ? FindStartupQuickSave() : std::nullopt) {
         g_pending_screen_state.name = *save;
         g_pending_screen_state.mode = 1;

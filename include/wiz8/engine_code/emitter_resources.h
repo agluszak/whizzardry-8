@@ -17,7 +17,7 @@ public:
     void CloneFrom(const EmitterLights&);
     EmitterLights(EmitterLights&& other) noexcept { lights.swap(other.lights); }
     EmitterLights& operator=(const EmitterLights&) = delete;
-    ~EmitterLights();
+    ~EmitterLights() = default;
     std::vector<std::unique_ptr<stLight>> lights;
 };
 

@@ -510,8 +510,8 @@ bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, unsigned char* decision)
                 }
                 range = static_cast<float>(radius);
                 position = monster->GetPosition();
-                if (g_octree->TestNoiseLineOfSight(&position, &noise_position, &range, &hops) !=
-                        0 &&
+                if (GetWorldOctree()->TestNoiseLineOfSight(&position, &noise_position, &range,
+                                                           &hops) != 0 &&
                     NoiseHearingMargin(monster_info->heard_noise_radius, static_cast<int>(range),
                                        hops) > 0) {
                     mode = W8_RT_AI_INVESTIGATE_NOISE;
@@ -980,8 +980,8 @@ members:
                     if (leader != 0 && leader->fActive) {
                         destination = g_startup_world->GetPosition();
                         source = leader->p3D->GetPosition();
-                        waypoint_result = g_octree->pathing->TestWaypointSpan(&source, &destination,
-                                                                              false, false);
+                        waypoint_result = GetWorldOctree()->pathing->TestWaypointSpan(
+                            &source, &destination, false, false);
                     }
                     waypoint_checked = true;
                 }

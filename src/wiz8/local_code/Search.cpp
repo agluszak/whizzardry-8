@@ -130,8 +130,8 @@ W8SearchableView* CollectSearchablesInView(void)
                 float heading = GetHeadingAngle(&from, &to);
                 float ahead = NormalizeAngle(yaw - heading);
                 float behind = NormalizeAngle(heading - yaw);
-                if ((half_cone <= ahead && half_cone <= behind) || g_octree == 0 ||
-                    !g_octree->HasLineOfSight(&camera, &position, true)) {
+                if ((half_cone <= ahead && half_cone <= behind) || GetWorldOctree() == 0 ||
+                    !GetWorldOctree()->HasLineOfSight(&camera, &position, true)) {
                     continue;
                 }
                 g_search_view.items.push_back(searchable);
@@ -250,7 +250,7 @@ void RunSearchPulse(void)
                                 int message = searchable->trigger->m_lData1;
                                 found = true;
                                 if (message >= 0) {
-                                    const char* folder = GetLevelFolderName(g_status.current_level);
+                                    const char* folder = GetLevelFolderName(GetLoadedLevelID());
                                     if (folder == 0) {
                                         folder = "Test";
                                     }

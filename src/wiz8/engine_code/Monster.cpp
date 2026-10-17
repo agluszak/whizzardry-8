@@ -58,7 +58,6 @@
 #include "surrender/srShader.h"
 #include "surrender/srTexture.h"
 #include "texture_animation.h"
-#include "wiz8/containers.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/AniMesh.h"
 #include "wiz8/engine_code/AnimObj.h"
@@ -326,7 +325,7 @@ std::unique_ptr<W8Monster> MonsterReadAllCycles(W8World* world, std::string_view
     std::unique_ptr<W8Monster> monster;
     W8Monster* shared = static_cast<W8Monster*>(FindFirstGrCycleByName(monster_name));
     if (shared != 0) {
-        monster = std::make_unique<W8Monster>(*shared);
+        monster = std::make_unique<W8Monster>(*shared, world);
         if (!monster) {
             srAssertFail("*ppMonster", MONSTER_CPP, 0x4d3, 0);
         }
@@ -395,7 +394,7 @@ std::unique_ptr<W8Monster> MonsterReadAllCycles(W8World* world, std::string_view
     if (handle == 0) {
         srAssertFail("hFile", MONSTER_CPP, 0x50f, fmt::format("Couldn't open {}", path));
     }
-    monster = std::make_unique<W8Monster>();
+    monster = std::make_unique<W8Monster>(world);
     monster->id = AllocateGrObjectId();
     monster->m_pRep->current_cycle = -1;
 
@@ -546,7 +545,7 @@ std::unique_ptr<W8Monster> MonsterReadAllCycles(W8World* world, std::string_view
                             float animation_scale = -1.0f;
                             fields >> animation_scale;
 
-                            success = LoadGrCycle(world, argument, monster.get(), cycle, load_value,
+                            success = LoadGrCycle(argument, monster.get(), cycle, load_value,
                                                   "data\\monsters", 0);
                             if (!monster->particles.empty()) {
                                 for (int index = 0;
@@ -1078,14 +1077,14 @@ W8AnimRepBase* W8MonsterRep::Clone()
 int g_monster_cycle_registry_weight;
 
 // FUNCTION: WIZ8 0x004bfb00
-W8Monster::W8Monster()
-    : runtime_flags(0), value_1e0(-1), location_id(-1), scale_x(1.0f), scale_y(1.0f), scale_z(1.0f),
-      missile_frame(0), spell_frame(0), talking(0), animate_mouth(false), mouth_frame_clock(0),
-      mouth_frame(0), talk_start(0), inactive(false), pending_finalize(1), disabled(0),
-      nearest_to_party(false), spell_vertex_warned(0), missile_point_warned(0), script(0),
-      script_wait(MONSCR_NONE), trigger(0), registry_weight(0), spell_effect_armed(0),
-      sector_mesh(0), fade_state(W8_MONSTER_FADE_IDLE), target_highlighted(false),
-      hostility_preserved(false), sound(0)
+W8Monster::W8Monster(W8World* owner)
+    : W8GrCycle(owner), runtime_flags(0), value_1e0(-1), location_id(-1), scale_x(1.0f),
+      scale_y(1.0f), scale_z(1.0f), missile_frame(0), spell_frame(0), talking(0),
+      animate_mouth(false), mouth_frame_clock(0), mouth_frame(0), talk_start(0), inactive(false),
+      pending_finalize(1), disabled(0), nearest_to_party(false), spell_vertex_warned(0),
+      missile_point_warned(0), script(0), script_wait(MONSCR_NONE), trigger(0), registry_weight(0),
+      spell_effect_armed(0), sector_mesh(0), fade_state(W8_MONSTER_FADE_IDLE),
+      target_highlighted(false), hostility_preserved(false), sound(0)
 {
     formation = glm::vec3(0);
     kind = 1;
@@ -1114,8 +1113,8 @@ W8Monster::W8Monster()
 }
 
 // FUNCTION: WIZ8 0x004bfe00
-W8Monster::W8Monster(const W8Monster& rhs)
-    : W8GrCycle(rhs), runtime_flags(rhs.runtime_flags), value_1e0(rhs.value_1e0),
+W8Monster::W8Monster(const W8Monster& rhs, W8World* owner)
+    : W8GrCycle(rhs, owner), runtime_flags(rhs.runtime_flags), value_1e0(rhs.value_1e0),
       location_id(rhs.location_id), scale_x(1.0f), scale_y(1.0f), scale_z(1.0f),
       missile_frame(rhs.missile_frame), spell_frame(rhs.spell_frame), talking(0),
       animate_mouth(false), mouth_frame_clock(0), mouth_frame(0), talk_start(0),
@@ -1242,7 +1241,7 @@ void W8Monster::Update()
 
                 GetMappedPosition(&mapped_position);
                 sun_position = glm::vec3(sun_location);
-                if (g_octree->HasLineOfSight(&mapped_position, &sun_position, true)) {
+                if (GetWorldOctree()->HasLineOfSight(&mapped_position, &sun_position, true)) {
                     if (sunlit_state == W8_MONSTER_SUNLIGHT_SHADOWED) {
                         target_scale = 0.75f;
                         light_scale_timer.SetDuration(0.025f);
@@ -2373,7 +2372,7 @@ bool W8Monster::CheckLineOfSightToPlayer()
     monster_position = movement.position;
     monster_position.y += movement.height_offset;
     player_position = cameraLocation();
-    return g_octree->HasLineOfSight(&monster_position, &player_position, true);
+    return GetWorldOctree()->HasLineOfSight(&monster_position, &player_position, true);
 }
 
 /* The sight code keeps the engine trace's three outcomes as two independent
@@ -2389,8 +2388,8 @@ void W8Monster::GetPlayerSightFlags(bool* primary, bool* secondary)
     monster_position = movement.position;
     monster_position.y += movement.height_offset;
     player_position = cameraLocation();
-    result = g_octree->TraceLineOfSight(&monster_position, &player_position, true, location_id, -1,
-                                        true, 0);
+    result = GetWorldOctree()->TraceLineOfSight(&monster_position, &player_position, true,
+                                                location_id, -1, true, 0);
     if (result == -1) {
         *secondary = true;
         *primary = false;
@@ -2417,7 +2416,7 @@ bool W8Monster::IsVisibleToPlayer(bool use_bounds)
 
     glm::vec3 monster_position = movement.position;
     monster_position.y += movement.height_offset;
-    return g_octree->HasLineOfSight(&player_position, &monster_position, true);
+    return GetWorldOctree()->HasLineOfSight(&player_position, &monster_position, true);
 }
 
 // FUNCTION: WIZ8 0x004c4a20
@@ -2435,8 +2434,8 @@ void W8Monster::GetPlayerToMonsterSightFlags(bool* primary, bool* secondary,
     } else {
         player_position = *source;
     }
-    result = g_octree->TraceLineOfSight(&player_position, &monster_position, true, -1, location_id,
-                                        true, 0);
+    result = GetWorldOctree()->TraceLineOfSight(&player_position, &monster_position, true, -1,
+                                                location_id, true, 0);
     if (result == -1) {
         *secondary = true;
         *primary = false;
@@ -2459,7 +2458,7 @@ bool W8Monster::HasLineOfSightToMonster(W8Monster* monster)
     from.y += movement.height_offset;
     to = monster->movement.position;
     to.y += monster->movement.height_offset;
-    return g_octree->HasLineOfSight(&from, &to, true);
+    return GetWorldOctree()->HasLineOfSight(&from, &to, true);
 }
 
 // FUNCTION: WIZ8 0x004c4b70
@@ -2473,8 +2472,8 @@ void W8Monster::GetMonsterSightFlags(W8Monster* monster, bool* primary, bool* se
     from.y += movement.height_offset;
     to = monster->movement.position;
     to.y += monster->movement.height_offset;
-    result =
-        g_octree->TraceLineOfSight(&from, &to, true, location_id, monster->location_id, true, 0);
+    result = GetWorldOctree()->TraceLineOfSight(&from, &to, true, location_id, monster->location_id,
+                                                true, 0);
     if (result == -1) {
         *secondary = true;
         *primary = false;
@@ -2494,7 +2493,8 @@ bool W8Monster::HasLineOfSightFromPoint(glm::vec3 point)
 
     monster_position = movement.position;
     monster_position.y += movement.height_offset;
-    return g_octree->TraceLineOfSight(&point, &monster_position, true, -3, -3, true, 0) != 1;
+    return GetWorldOctree()->TraceLineOfSight(&point, &monster_position, true, -3, -3, true, 0) !=
+           1;
 }
 
 // FUNCTION: WIZ8 0x004c4ca0
@@ -2550,7 +2550,7 @@ void SetMonsterPartySlotMarker(int party_slot, int location_id, char on)
     if (on == 0) {
         item = rep->objects[party_slot].get();
         if (item != 0) {
-            item->DetachMesh(GetWorld());
+            item->DetachMesh();
             rep->objects[party_slot].reset();
             --rep->icon_count;
         }
@@ -3048,7 +3048,8 @@ void W8Monster::UpdateRepresentation(W8World* world)
     }
 
     if (position_dirty || movement.position_adjusted) {
-        g_octree->UpdateMonsterLocation(static_cast<unsigned short>(location_id), &position);
+        GetWorldOctree()->UpdateMonsterLocation(static_cast<unsigned short>(location_id),
+                                                &position);
     }
 
     /* Only a monster whose current world sector mesh is enabled (or that has
@@ -3236,7 +3237,7 @@ void W8Monster::SetCycle(signed char cycle)
 
                 light->setParent(0, 1);
                 if (light->definition() != 0) {
-                    wiz8::erase_first(GetWorld()->lights_to_update, light);
+                    light->SetUpdateWorld(nullptr);
                 }
             }
         }
@@ -3274,7 +3275,7 @@ void W8Monster::SetCycle(signed char cycle)
             light->setParent(GetWorld()->dynamic_scene, 1);
             light->Reset();
             if (light->definition() != 0) {
-                GetWorld()->lights_to_update.push_back(light);
+                light->SetUpdateWorld(owner_world);
             }
         }
     }
@@ -4205,11 +4206,10 @@ void NotifyMonsterHighlight(int party_slot, int location_id, int on)
 std::unique_ptr<W8Monster> LoadMonsterCycle(W8World* world, std::string_view mon_name, int cycle,
                                             int value)
 {
-    auto monster = std::make_unique<W8Monster>();
+    auto monster = std::make_unique<W8Monster>(world);
     monster->id = AllocateGrObjectId();
     monster->m_pRep->current_cycle = -1;
-    if (!LoadGrCycle(world, mon_name, monster.get(), cycle, value, "data\\monsters", 0))
-        return nullptr;
+    if (!LoadGrCycle(mon_name, monster.get(), cycle, value, "data\\monsters", 0)) return nullptr;
     for (auto& event : monster->particles) {
         if (event.cycle == cycle && event.subcycle == -1)
             event.subcycle = monster->m_pRep->current_subcycle;
@@ -4650,7 +4650,7 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
 
             world = glm::dmat3(rotation);
             particle->rotate(world);
-            RetireParticle(std::move(owned_particle));
+            RetireParticle(*owner_world, std::move(owned_particle));
         }
     }
 }

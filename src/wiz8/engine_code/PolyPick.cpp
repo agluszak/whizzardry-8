@@ -12,6 +12,7 @@
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Item.h"
 #include "wiz8/engine_code/Monster.h"
+#include "wiz8/engine_code/World.h"
 
 /* Heading from source to target in the x/z plane. */
 // FUNCTION: WIZ8 0x004BE420

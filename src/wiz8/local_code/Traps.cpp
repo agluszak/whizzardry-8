@@ -112,7 +112,7 @@ void WriteRecordModeEntry(void)
         line = fmt::format("{:f} {:f} {:f} {:f} {:f} {:d}\n", state.yaw[0], state.yaw[1],
                            state.yaw[2], state.yaw[3], state.yaw[4], 0);
         file->write(line.data(), line.size());
-        if (GetLevelLocationCode(g_status.current_level, location_code) == 0) {
+        if (GetLevelLocationCode(GetLoadedLevelID(), location_code) == 0) {
             strcpy(location_code, s_record_mode_default_location);
         }
         length = strlen(location_code);
@@ -365,6 +365,6 @@ void ResolveSprungTrap(Trigger* trigger)
         point = *center;
     }
     camera = cameraLocation();
-    g_octree->TraceLineOfSight(&camera, &point, true, -3, -3, true, 0);
+    GetWorldOctree()->TraceLineOfSight(&camera, &point, true, -3, -3, true, 0);
     DischargeTrapSpell(point, g_table2[type + 11], power, count);
 }

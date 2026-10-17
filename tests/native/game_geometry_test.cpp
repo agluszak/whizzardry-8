@@ -97,6 +97,7 @@
 #include "wiz8/octree_walk.h"
 #include "wiz8/placement_math.h"
 #include "wiz8/surface_geometry.h"
+#include "world_fixture.h"
 
 static bool close(const glm::vec3& actual, const glm::vec3& expected, float tolerance = 1e-4f)
 {
@@ -741,15 +742,11 @@ TEST_CASE("Ground shadow projection retains rotated scale center and coordinate 
 TEST_CASE("Ground polygon queries return owned sorted runs beyond thirty faces",
           "[geometry][octree]")
 {
-    const struct RestoreWorld {
-        std::unique_ptr<W8World> previous = std::exchange(g_world, std::make_unique<W8World>());
-        ~RestoreWorld()
-        {
-            DestroyWorld(g_world);
-            g_world = std::move(previous);
-        }
-    } restore;
-    W8World& world = *GetWorld();
+    struct RestoreWorld {
+        std::unique_ptr<W8World> previous;
+        ~RestoreWorld() { ReplaceWorld(std::move(previous)); }
+    } restore{ReplaceWorld(std::make_unique<W8World>())};
+    auto& world = *GetWorld();
     constexpr unsigned faces = 42;
     auto mesh = std::make_shared<stMeshModel>(faces, 3);
     mesh->getVertexLoc()[0] = {-1, 0, -1};
@@ -1510,25 +1507,19 @@ TEST_CASE("Plane contacts retain collision skin and occluder clearance", "[geome
 
 TEST_CASE("Surface triangles are complete values and reject invalid vertex indices", "[geometry]")
 {
-    struct RestoreGameData {
-        W8GameData* previous = g_octree_game_data;
-        ~RestoreGameData() { g_octree_game_data = previous; }
-    } restore;
-    W8GameData data(nullptr, true);
-    data.m_pVertices = {{0, 0, 0}, {0, 2, 0}, {0, 0, 2}};
-    g_octree_game_data = &data;
+    std::vector<glm::vec3> vertices = {{0, 0, 0}, {0, 2, 0}, {0, 0, 2}};
     const std::array<int, 3> indices{2, 0, 1};
-    const auto triangle = surfaceTriangle(indices);
+    const auto triangle = surfaceTriangle(vertices, indices);
     REQUIRE(triangle);
     REQUIRE((*triangle)[0] == glm::vec3(0, 0, 2));
     REQUIRE((*triangle)[1] == glm::vec3(0));
     REQUIRE((*triangle)[2] == glm::vec3(0, 2, 0));
-    data.m_pVertices[2] = {99, 99, 99};
+    vertices[2] = {99, 99, 99};
     REQUIRE((*triangle)[0] == glm::vec3(0, 0, 2));
-    REQUIRE(!surfaceTriangle(std::array<int, 3>{0, 1, 3}));
-    REQUIRE(!surfaceTriangle(std::array<int, 3>{0, -1, 2}));
-    g_octree_game_data = nullptr;
-    REQUIRE(!surfaceTriangle(indices));
+    REQUIRE(!surfaceTriangle(vertices, std::array<int, 3>{0, 1, 3}));
+    REQUIRE(!surfaceTriangle(vertices, std::array<int, 3>{0, -1, 2}));
+    vertices.clear();
+    REQUIRE(!surfaceTriangle(vertices, indices));
 }
 
 TEST_CASE("Particle activation values and billboard ordering", "[geometry]")
@@ -1638,17 +1629,17 @@ TEST_CASE("Octree adjacent queries skip walk creation and retain early exits", "
 TEST_CASE("Baked mesh colors preserve material and light-bank rules", "[geometry]")
 {
     struct RestoreLighting {
-        glm::vec3 offset = g_environment_offset;
+        std::unique_ptr<W8World> previous = ReplaceWorld(std::make_unique<W8World>());
         float scale = g_monster_light_scale;
         bool unlit = g_render_unlit;
         ~RestoreLighting()
         {
-            g_environment_offset = offset;
+            ReplaceWorld(std::move(previous));
             g_monster_light_scale = scale;
             g_render_unlit = unlit;
         }
     } restore;
-    g_environment_offset = {0.25f, 0.5f, 0.75f};
+    GetWorld()->environment_offset = {0.25f, 0.5f, 0.75f};
     g_monster_light_scale = 2;
     g_render_unlit = false;
     stMeshModel mesh(0, 4);
@@ -1667,7 +1658,7 @@ TEST_CASE("Baked mesh colors preserve material and light-bank rules", "[geometry
     const auto base = mesh.getTriMesh();
     for (unsigned vertex = 0; vertex < 4; ++vertex)
         REQUIRE(close(base.dig[0][vertex], (glm::vec3(1, 0.75f, 4) * sunlight[vertex] +
-                                            lights[vertex] + g_environment_offset) *
+                                            lights[vertex] + CurrentEnvironmentOffset()) *
                                                2.0f));
 
     auto* materials = mesh.getVertexMaterialTable(0, srMeshModel::SIDE_FRONT, true);
@@ -1679,9 +1670,9 @@ TEST_CASE("Baked mesh colors preserve material and light-bank rules", "[geometry
     const auto mixed = mesh.getTriMesh();
     const std::array<glm::vec3, 4> ambient{{{1, 0.75f, 4}, {0, 0, 0}, {2, 3, 4}, {1, 0.75f, 4}}};
     for (unsigned vertex = 0; vertex < 4; ++vertex)
-        REQUIRE(close(mixed.dig[0][vertex],
-                      (ambient[vertex] * sunlight[vertex] + lights[vertex] + g_environment_offset) *
-                          2.0f));
+        REQUIRE(close(mixed.dig[0][vertex], (ambient[vertex] * sunlight[vertex] + lights[vertex] +
+                                             CurrentEnvironmentOffset()) *
+                                                2.0f));
 
     mesh.vertex_light_table = 1;
     const auto alternate = mesh.GetVertexLights(true, 1);
@@ -1897,12 +1888,12 @@ TEST_CASE("Prop bounds return complete boxes and register inclusive octree cells
 {
     GDProp empty;
     REQUIRE(empty.computeBounds().minimum == glm::vec3(0));
-    W8Octree tree(0, 0);
-    struct RestoreOctree {
-        W8Octree* previous;
-        ~RestoreOctree() { g_octree = previous; }
-    } restore{g_octree};
-    g_octree = &tree;
+    struct RestoreWorld {
+        std::unique_ptr<W8World> previous = ReplaceWorld(std::make_unique<W8World>());
+        ~RestoreWorld() { ReplaceWorld(std::move(previous)); }
+    } restore;
+    GetWorld()->octree = std::make_unique<W8Octree>(nullptr, nullptr);
+    auto& tree = *GetWorld()->octree;
     auto mesh = std::make_shared<stMeshModel>(1, 3);
     mesh->getVertexLoc()[0] = {-2, -3, 4};
     mesh->getVertexLoc()[1] = {5, 6, -7};
@@ -2398,15 +2389,16 @@ TEST_CASE("Paused camera APIs return complete initialized values", "[geometry]")
         W8LevelDataRecord* level = g_level_data;
         unsigned int* flags = g_level_flags;
         W8GameTimeAccumulator* timer = g_game_time_accumulator;
-        W8GameData* octree = g_octree_game_data;
         bool resume = g_level_motion_resume_pending;
         ~RestoreRuntime()
         {
+            delete g_environ;
+            delete g_level_data;
+            delete g_game_time_accumulator;
             g_environ = environ;
             g_level_data = level;
             g_level_flags = flags;
             g_game_time_accumulator = timer;
-            g_octree_game_data = octree;
             g_level_motion_resume_pending = resume;
         }
     } restore;
@@ -2434,13 +2426,9 @@ TEST_CASE("Paused camera APIs return complete initialized values", "[geometry]")
 TEST_CASE("Environment ambient scales scenes and lights while retaining the source colour",
           "[geometry]")
 {
-    const struct RestoreLights {
-        std::vector<stLight*> lights = g_environment_lights;
-        ~RestoreLights() { g_environment_lights = lights; }
-    } restore;
     stLight light(nullptr);
-    g_environment_lights = {&light};
     W8World world{};
+    world.environment_lights = {&light};
     world.static_scene = std::make_unique<srScene>();
     auto& scene = *world.static_scene;
     const glm::vec3 colour(-0.5f, 0.5f, 2.0f);

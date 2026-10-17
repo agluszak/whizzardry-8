@@ -30,7 +30,6 @@
 #include "wiz8/fact_state.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
-#include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Configuration.h"
@@ -111,7 +110,7 @@ void InitializeFactJournal(void)
 void RecordFactChangeForJournal(W8FactId fact_id)
 {
     W8JournalEntry entry;
-    entry.level = g_status.current_level;
+    entry.level = GetLoadedLevelID();
     entry.fact = fact_id;
     entry.alternate_text = GetFact(fact_id) != 0;
     g_fact_journal_entries.push_back(entry);

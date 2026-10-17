@@ -33,6 +33,8 @@
 #include "wiz8/chunk.h"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/GameData.h"
+#include "wiz8/engine_code/Levels.h"
+#include "wiz8/engine_code/World.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
@@ -151,7 +153,7 @@ try {
     }
     g_encounter_names = std::move(names);
     g_encounter_tables = std::move(tables);
-    g_encounter_tables_level = g_status.current_level;
+    g_encounter_tables_level = GetLoadedLevelID();
     return 1;
 } catch (const std::exception&) {
     return 0;
@@ -434,7 +436,8 @@ bool MonGen::CanGenerateEncounter(bool force)
         if (distance > 200000.0f || distance < 35000.0f) {
             return false;
         }
-        if (g_octree != 0 && g_octree->HasLineOfSight(&camera, &spawn_position, true)) {
+        if (GetWorldOctree() != 0 &&
+            GetWorldOctree()->HasLineOfSight(&camera, &spawn_position, true)) {
             return false;
         }
     }
@@ -455,7 +458,7 @@ bool MonGen::CanGenerateEncounter(bool force)
                         spawn_position.z - 5000.0f);
         glm::vec3 upper(spawn_position.x + 5000.0f, spawn_position.y + 5000.0f,
                         spawn_position.z + 5000.0f);
-        const auto locations = g_octree->locationsInBox({lower, upper}, 0);
+        const auto locations = GetWorldOctree()->locationsInBox({lower, upper}, 0);
         if (!locations.empty()) {
             return false;
         }
@@ -499,16 +502,14 @@ void UpdateRandomEncounterBudget(bool reset_budget)
     int index;
 
     if (!reset_budget) {
-        elapsed =
-            g_status.world_clock - g_status.level_progress[g_status.current_level].sight_clock;
+        elapsed = g_status.world_clock - g_status.level_progress[GetLoadedLevelID()].sight_clock;
         g_random_encounter_budget +=
-            elapsed / g_level_records[g_status.current_level].encounter_budget_period;
+            elapsed / g_level_records[GetLoadedLevelID()].encounter_budget_period;
     } else {
-        g_random_encounter_budget =
-            g_level_records[g_status.current_level].maximum_encounter_budget;
+        g_random_encounter_budget = g_level_records[GetLoadedLevelID()].maximum_encounter_budget;
         elapsed = W8_ENCOUNTER_STALE_SECONDS + 1;
     }
-    level = &g_level_records[g_status.current_level];
+    level = &g_level_records[GetLoadedLevelID()];
     ClampRandomEncounterLimits(*level);
     if (elapsed > W8_ENCOUNTER_STALE_SECONDS) {
         RollRandomEncounters();
@@ -652,7 +653,7 @@ try {
         GetWorld()->monster_generators.push_back(std::move(generator));
     }
 
-    level = &g_level_records[g_status.current_level];
+    level = &g_level_records[GetLoadedLevelID()];
     ClampRandomEncounterLimits(*level);
     g_encounter_culling_time_seconds = level->encounter_culling_seconds;
     return success;
@@ -684,7 +685,8 @@ void LoadMonsterGenerators(W8Chunk& handle)
         handle.ReadBytes(&flags, 4);
 
         generator = 0;
-        for (search = 0; search < static_cast<int>(GetWorld()->monster_generators.size()); ++search) {
+        for (search = 0; search < static_cast<int>(GetWorld()->monster_generators.size());
+             ++search) {
             MonGen* candidate = GetWorld()->monster_generators[search].get();
             if (strncmp(name, candidate->name, sizeof(name)) == 0) {
                 generator = candidate;
@@ -745,7 +747,7 @@ void UnregisterActiveEncounterGroup(W8MonsterGroup* group)
         return;
     }
 
-    W8LevelDatabaseRecord* level = &g_level_records[g_status.current_level];
+    W8LevelDatabaseRecord* level = &g_level_records[GetLoadedLevelID()];
     --g_random_encounter_budget;
     ClampRandomEncounterLimits(*level);
 }
@@ -909,7 +911,8 @@ void RollRandomEncounters(void)
     }
 
     std::vector<MonGen*> generators;
-    for (const auto& generator : GetWorld()->monster_generators) generators.push_back(generator.get());
+    for (const auto& generator : GetWorld()->monster_generators)
+        generators.push_back(generator.get());
     int count = static_cast<int>(generators.size());
     if (count > 1) {
         for (int remaining = count; remaining > 0; --remaining) {

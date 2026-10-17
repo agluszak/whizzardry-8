@@ -34,7 +34,6 @@
 #include "surrender/srScene.h"
 #include "surrender/srShader.h"
 #include "surrender/triangle_projection.h"
-#include "wiz8/containers.h"
 #include "wiz8/engine_code/3dapi.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/Item.h"
@@ -90,7 +89,7 @@ void DetachWorldItemMeshes(W8World* world)
     for (int index = 0; index < static_cast<int>(count); ++index) {
         W8Item* item = world->plsItems[index].get();
         if (item != 0) {
-            item->DetachMesh(world);
+            item->DetachMesh();
             item->UpdateAnimation();
             item->AttachMesh(world);
         }
@@ -104,15 +103,16 @@ void DetachWorldItemMeshes(W8World* world)
 // FUNCTION: WIZ8 0x0046e4a0
 void DestroyWorldLights(W8World* world)
 {
-    world->lights_to_update.clear();
+    world->stopLightUpdates();
     world->transient_lights.clear();
 }
 
 /* Put static-scene illuminators in group one and the world's camera light in
    group two.  The scene graph access is the ordinary srNode hierarchy API. */
 // FUNCTION: WIZ8 0x0046F3A0
-void FinalizeStaticScene(srScene* scene)
+void FinalizeStaticScene(W8World& world)
 {
+    auto* scene = world.static_scene.get();
     srNode* node;
 
     for (node = scene->getChild(); node != 0; node = node->getNext()) {
@@ -120,8 +120,8 @@ void FinalizeStaticScene(srScene* scene)
             static_cast<srLight*>(node)->setGroupMask(1);
         }
     }
-    if (GetWorld() != 0 && GetWorld()->camera_light != 0) {
-        GetWorld()->camera_light->setGroupMask(2);
+    if (world.camera_light != 0) {
+        world.camera_light->setGroupMask(2);
     }
 }
 
@@ -257,7 +257,7 @@ bool targetMarkerVisible(const glm::vec3& eye, const srBoundingBox& bounds)
     for (const auto& sample : bounds.visibilitySamples()) {
         if (!projectsToCamera(sample)) continue;
         glm::vec3 point(sample);
-        if (g_octree->HasLineOfSight(&from, &point, true)) return true;
+        if (GetWorldOctree()->HasLineOfSight(&from, &point, true)) return true;
     }
     return false;
 }
@@ -268,7 +268,8 @@ bool traceLineOfSightToBounds(const glm::vec3& origin, const srBoundingBox& boun
     const glm::vec3 from(origin);
     for (const auto& sample : bounds.visibilitySamples()) {
         glm::vec3 point(sample);
-        if (g_octree->TraceLineOfSight(&from, &point, true, -3, -3, true, 0) == 0) return true;
+        if (GetWorldOctree()->TraceLineOfSight(&from, &point, true, -3, -3, true, 0) == 0)
+            return true;
     }
     return false;
 }
@@ -279,7 +280,7 @@ bool hasLineOfSightToBounds(const glm::vec3& origin, const srBoundingBox& bounds
     const glm::vec3 from(origin);
     for (const auto& sample : bounds.visibilitySamples()) {
         glm::vec3 point(sample);
-        if (g_octree->HasLineOfSight(&from, &point, true)) return true;
+        if (GetWorldOctree()->HasLineOfSight(&from, &point, true)) return true;
     }
     return false;
 }
@@ -372,7 +373,7 @@ void WorldRemoveLight(W8World* world, stLight* light)
     if (light == 0) {
         srAssertFail("pLight", THREE_D_CPP, 0x279, 0);
     }
-    wiz8::erase_first(world->lights_to_update, light);
+    light->SetUpdateWorld(nullptr);
     // The world owns the light: erasing it from the list destroys it.
     std::erase_if(world->transient_lights,
                   [light](const std::unique_ptr<stLight>& owned) { return owned.get() == light; });
@@ -415,10 +416,10 @@ void WorldUpdateProps(W8World* world)
 // FUNCTION: WIZ8 0x0046df50
 void WorldUpdateLights(W8World* world)
 {
-    int count = static_cast<int>(world->lights_to_update.size());
+    int count = static_cast<int>(world->updatingLights().size());
 
     for (int index = 0; index < count; ++index) {
-        world->lights_to_update[index]->Update();
+        world->updatingLights()[index]->Update();
     }
 }
 
@@ -533,7 +534,7 @@ void WorldSetRenderRange(W8World* world, float value)
     }
     if (value != 0.0f) {
         world->render_range = value;
-        g_renderer_ready = true;
+        MarkWorldViewDirty();
     }
 }
 
@@ -550,7 +551,7 @@ void WorldSetFarClip(W8World* world, float distance)
     if (distance > 5.9604644775390625e-008) {
         world->camera->setClipRange(62.5, distance);
         RefreshFogRanges();
-        g_renderer_ready = true;
+        MarkWorldViewDirty();
     }
 }
 
@@ -574,7 +575,6 @@ void SetSceneAmbientLightWhite(srScene* scene)
 }
 
 // GLOBAL: WIZ8 0x00652db0
-W8GameData* g_octree_game_data;
 
 // FUNCTION: WIZ8 0x0046d880
 bool PointInsideFrustum(const glm::vec3& point, std::span<const W8Plane, 6> planes)

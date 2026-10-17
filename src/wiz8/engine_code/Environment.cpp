@@ -33,6 +33,7 @@
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/Video2.h"
+#include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stTextureAnim.h"
@@ -46,9 +47,6 @@
 
 // GLOBAL: WIZ8 0x0060a3a8
 int g_environment_lighting_mode = 2;
-
-// GLOBAL: WIZ8 0x0065b9ad
-bool g_fog_enabled;
 
 // GLOBAL: WIZ8 0x0065b9ae
 bool g_sky_enabled;
@@ -66,7 +64,6 @@ static const float CAMERA_LIGHT_MAXIMUM_INTENSITY = 50.0f;
 // GLOBAL: WIZ8 0x0065B9B4
 static std::unique_ptr<srFog> g_environment_object1;
 // GLOBAL: WIZ8 0x0065B998
-std::vector<stLight*> g_environment_lights;
 
 /* 1/duration while the transition body at 0x00484300 runs, zero when idle.
    BeginWorldLightingFade stores 1/duration and sets the lighting mode to 1;
@@ -78,7 +75,7 @@ float g_environment_transition_rate;
 // GLOBAL: WIZ8 0x0065b9bc
 w8_ulong g_environment_transition_tick;
 // GLOBAL: WIZ8 0x0060a3ac
-int g_last_light_phase = -1;
+
 // GLOBAL: WIZ8 0x0060a395
 bool g_environment_colour_refresh = true;
 
@@ -269,7 +266,7 @@ static void ClampEnvironmentComponent(float& component)
 }
 
 /* The two binary colour tables differ only in their destination array. */
-static bool ReadColourTable(wiz8::File* file, std::array<glm::vec3, 256>& colours)
+bool ReadEnvironmentColours(wiz8::File* file, std::array<glm::vec3, 256>& colours)
 try {
     unsigned char components[256 * 3];
     memset(components, 0xff, sizeof(components));
@@ -289,36 +286,14 @@ try {
     return false;
 }
 
-// FUNCTION: WIZ8 0x00482F90
-bool ReadLightColourTable(wiz8::File* file)
+std::array<glm::vec3, 256> EnvironmentColourRamp()
 {
-    return ReadColourTable(file, g_environment_colours1);
-}
-
-// FUNCTION: WIZ8 0x004830D0
-bool ReadEnvironmentColourTable(wiz8::File* file)
-{
-    return ReadColourTable(file, g_environment_colours0);
-}
-
-static void BuildColourRamp(std::array<glm::vec3, 256>& colours)
-{
+    std::array<glm::vec3, 256> colours;
     for (int index = 0; index < 256; ++index) {
         const float value = (index < 128 ? index : 255 - index) * (1.0f / 127.0f);
         colours[index] = glm::vec3(value);
     }
-}
-
-// FUNCTION: WIZ8 0x00483210
-void BuildEnvironmentColourRamp(void)
-{
-    BuildColourRamp(g_environment_colours0);
-}
-
-// FUNCTION: WIZ8 0x00483360
-void BuildLightColourRamp(void)
-{
-    BuildColourRamp(g_environment_colours1);
+    return colours;
 }
 
 /* Refresh the light direction from the day-phase table when the phase turns
@@ -326,12 +301,13 @@ void BuildLightColourRamp(void)
 // FUNCTION: WIZ8 0x004834B0
 void UpdateEnvironmentLight(void)
 {
+    if (!GetWorld()) return;
     AdvanceEnvironmentClock();
     unsigned int phase = ((g_status.game_time_ms / 1000U) << 8) / 86400U;
-    if (phase != static_cast<unsigned int>(g_last_light_phase)) {
-        g_light_direction = g_environment_colours1[phase];
-        PublishLightDirection(&g_environment_colours1[phase]);
-        g_last_light_phase = static_cast<int>(phase);
+    if (phase != static_cast<unsigned int>(GetWorld()->last_light_phase)) {
+        g_light_direction = GetWorld()->light_colours[phase];
+        PublishLightDirection(&GetWorld()->light_colours[phase]);
+        GetWorld()->last_light_phase = static_cast<int>(phase);
     }
 }
 
@@ -397,19 +373,19 @@ void EnableSky(void)
 }
 
 // GLOBAL: WIZ8 0x0060a3b0
-int g_last_environment_colour_phase = -1;
 
 /* Advance the clock-driven sky and refresh the world's environment colour
    from the day-phase table when the phase turns over. */
 // FUNCTION: WIZ8 0x00483560
 void RefreshEnvironment(void)
 {
+    if (!GetWorld()) return;
     AdvanceEnvironmentClock();
     unsigned int phase = ((g_status.game_time_ms / 1000U) << 8) / 86400U;
-    if (phase != static_cast<unsigned int>(g_last_environment_colour_phase)) {
-        glm::vec3 colour = g_environment_colours0[phase];
+    if (phase != static_cast<unsigned int>(GetWorld()->last_environment_colour_phase)) {
+        glm::vec3 colour = GetWorld()->environment_colours[phase];
         SetWorldEnvironmentColour(colour);
-        g_last_environment_colour_phase = static_cast<int>(phase);
+        GetWorld()->last_environment_colour_phase = static_cast<int>(phase);
     }
 }
 
@@ -651,16 +627,10 @@ void ReleaseEnvironmentObjects(void)
 {
     g_environment_object0.reset();
     g_environment_object1.reset();
-    g_environment_lights.clear();
+    if (GetWorld()) GetWorld()->environment_lights.clear();
 }
 
 // FUNCTION: WIZ8 0x00483F30
-void AddEnvironmentLight(stLight* light)
-{
-    if (light != 0) {
-        g_environment_lights.push_back(light);
-    }
-}
 
 /* Retain the world's current intensity while replacing its environment
    colour. Retail takes the colour triple by value and forwards its address to
@@ -693,7 +663,7 @@ void ApplyEnvironmentColour(W8World* world, float intensity, const glm::vec3* co
         world->environment_colour = *colour;
         world->environment_intensity = intensity;
     }
-    for (stLight* light : g_environment_lights) {
+    for (stLight* light : world->environment_lights) {
         glm::vec3 scaled(glm::dvec3(*colour) * static_cast<double>(intensity));
         light->ambient = glm::clamp(scaled, 0.0f, 1.0f);
     }
@@ -725,7 +695,7 @@ void SetCameraLightIntensity(float value)
 
 /* Show or hide the world's camera light, which is the renderer's flag zero the
    other way round: showing it clears the flag. 0x00483E50 loads the light from
-   g_world at offset 0x54 and reaches the same two imported flag thunks, so the
+   GetWorld() at offset 0x54 and reaches the same two imported flag thunks, so the
    node here is the camera light the world setup creates, never a sky node. */
 // FUNCTION: WIZ8 0x00483e50
 void SetSkyNodeVisible(bool visible)
@@ -832,7 +802,7 @@ void InitializeLevelEnvironment(void)
     }
     AdvanceEnvironmentClock();
     unsigned int phase = ((g_status.game_time_ms / 1000U) << 8) / 86400U;
-    SetWorldEnvironmentColour(g_environment_colours0[phase]);
-    g_light_direction = g_environment_colours1[phase];
-    PublishLightDirection(&g_environment_colours1[phase]);
+    SetWorldEnvironmentColour(GetWorld()->environment_colours[phase]);
+    g_light_direction = GetWorld()->light_colours[phase];
+    PublishLightDirection(&GetWorld()->light_colours[phase]);
 }

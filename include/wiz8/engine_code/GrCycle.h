@@ -92,8 +92,11 @@ public:
 
 class W8GrCycle : public W8GrObject, public W8Navigator {
 public:
-    W8GrCycle();
-    W8GrCycle(const W8GrCycle& other); /* 0x004A5F20 */
+    explicit W8GrCycle(W8World* owner = nullptr);
+    // Borrowed lifetime: the world destroys its cycles before its scene.
+    W8World* const owner_world;
+    W8GrCycle(const W8GrCycle& other) : W8GrCycle(other, other.owner_world) {}
+    W8GrCycle(const W8GrCycle& other, W8World* owner); /* 0x004A5F20 */
     W8GrCycle& operator=(const W8GrCycle&) = delete;
     virtual ~W8GrCycle() override;
     // FUNCTION: WIZ8 0x004a7140
@@ -167,8 +170,8 @@ public:
 W8GrCycle* FindFirstGrCycleByName(std::string_view name);
 unsigned char UnregisterGrCycle(W8GrCycle* cycle);
 void RegisterGrCycle(std::string_view name, W8GrCycle* cycle);
-bool LoadGrCycle(W8World* world, std::string_view mon_name, W8GrCycle* cycle, int cycle_index,
-                 int value, const char* directory, unsigned char object_type,
+bool LoadGrCycle(std::string_view mon_name, W8GrCycle* cycle, int cycle_index, int value,
+                 const char* directory, unsigned char object_type,
                  const char* bitmap_directory = 0);
 unsigned char ReadGrCycleData(W8ReadLevelInfo* info, W8GrCycle* cycle, int cycle_index, int value,
                               unsigned char object_type);

@@ -10,7 +10,7 @@
 #include <initializer_list>
 #include <memory>
 #include <string>
-#include <string_view>
+#include <utility>
 #include <vector>
 
 #include <SDL3/SDL_stdinc.h>
@@ -45,6 +45,7 @@
 #include "wiz8/engine_code/Missile.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Navigator.h"
+#include "wiz8/engine_code/OctPath.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/PathAI.h"
 #include "wiz8/engine_code/Prop.h"
@@ -79,31 +80,38 @@ class srModelInstance;
 
 #define THREE_D_API_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\3dapi.cpp"
 
-// GLOBAL: WIZ8 0x00607d7c
-bool g_renderer_ready = true;
-
-// GLOBAL: WIZ8 0x00607d80
-static int g_game_data_runtime_pending = 1;
-
 // GLOBAL: WIZ8 0x00659757
 bool g_world_cleanup_flag;
-
+W8GameData* GetWorldGameData()
+{
+    return GetWorld() ? GetWorld()->game_data.get() : nullptr;
+}
+W8Octree* GetWorldOctree()
+{
+    return GetWorld() ? GetWorld()->octree.get() : nullptr;
+}
+W8PathingService* GetWorldPathing()
+{
+    auto* octree = GetWorldOctree();
+    return octree ? octree->pathing : nullptr;
+}
 // GLOBAL: WIZ8 0x006081f8
 bool g_navigator_vertical_enabled = true;
 
 // GLOBAL: WIZ8 0x00609c88
 float g_mesh_view_half_angle_degrees = 60.0f;
 
-/* Load the renderer-facing half of one level. The subordinate OCT, game-data,
-   and ReadLevel parsers remain their original owners; this routine establishes
-   their order, inputs, and rollback-visible world  */
+/* Build scene resources under a local owner. No active world is required;
+   malformed resources destroy only this unpublished result. */
 // FUNCTION: WIZ8 0x0044F5F0
-unsigned char LoadWorld(W8World* world, std::string_view source_path, bool use_octree)
+std::unique_ptr<W8World> LoadWorld(int level_id, std::string source_path, bool use_octree)
 {
-    if (world == nullptr) srAssertFail("pWorld", THREE_D_API_CPP, 0x15f, 0);
+    auto owner = std::make_unique<W8World>(level_id, std::move(source_path));
+    auto* world = owner.get();
+    const auto& resource_path = world->source_path;
     ResetGrObjectIdCounter();
-    const auto path = wiz8::path_from_utf8(source_path);
-    std::string level_path(source_path);
+    const auto path = wiz8::path_from_utf8(resource_path);
+    std::string level_path(resource_path);
     const auto sibling = [&](const char* extension) {
         auto result = path;
         result.replace_extension(extension);
@@ -114,33 +122,25 @@ unsigned char LoadWorld(W8World* world, std::string_view source_path, bool use_o
     const auto game_data_path = sibling(".wgd");
     const auto material_folder = wiz8::path_to_utf8(path.parent_path() / "Bitmaps");
 
-    world->m_loaded = true;
-    world->nodes_to_disable.clear();
-    world->nodes_to_disable.reserve(10);
-
-    world->transient_lights.clear();
-    world->transient_lights.reserve(10);
-
-    world->game_data = 0;
-
     if (CheckLevelAssetSet(oct_path.c_str()) >= 0) {
         world->octree = std::make_unique<W8Octree>(oct_path.c_str(), &world->game_data);
-        if (world->octree != 0 && world->octree->HasLoadError()) {
+        if (world->octree->HasLoadError())
             world->octree.reset();
-        } else if (world->octree != 0) {
+        else
             use_octree = false;
-        }
     }
 
     if (world->game_data == nullptr) {
         world->game_data = ReadGameData(game_data_path.c_str(), false);
-        if (world->game_data != 0 && InitializeGameData(world->game_data.get()) == 0) {
-            return 0;
-        }
+        if (world->game_data && InitializeGameData(world->game_data.get()) == 0) return nullptr;
     }
 
-    SetSceneAmbientLightWhite(world->static_scene.get());
-    world->camera = CreateOrSetGameCamera(world->static_scene.get(), 0);
+    world->camera = world->static_scene->adoptChild(std::make_unique<srCamera>());
+    world->camera->setName("Sirtech Camera");
+    world->camera->setLocation(glm::dvec3(0.0));
+    world->camera->setClipRange(250.0, 75000.0);
+    world->camera->setEnvironmentRange(0.0f, 1.0f);
+    world->camera->setViewPlane(std::acos(-1.0) / 2.0, std::acos(-1.0) / 2.0);
     world->camera_light = CreateRangedWorldLight(world, "CameraLight");
     world->camera_light->ambient = glm::vec3(0);
     world->camera_light->diffuse = glm::vec3(1.0f, 0.85f, 0.39f);
@@ -149,43 +149,23 @@ unsigned char LoadWorld(W8World* world, std::string_view source_path, bool use_o
     world->camera_light->setGroupMask(2);
     ConfigureWorldLight(world->camera_light, 4000.0f);
 
-    world->psrMeshes.clear();
     if (world->octree != nullptr && world->octree->GetMeshCount() != 0) {
         world->psrMeshes.resize(static_cast<std::size_t>(world->octree->GetMeshCount()) + 1,
                                 nullptr);
         level_path = pvl_path;
     }
 
-    world->quads.reset();
-    world->update_mesh_source = 0;
-
-    std::unique_ptr<wiz8::File> handle = [&]() {
-        try {
-            return wiz8::open_file(wiz8::asset_path(level_path), wiz8::OpenMode::read);
-        } catch (const std::exception&) {
-            return std::unique_ptr<wiz8::File>{};
-        }
-    }();
-    if (handle == 0) {
+    std::unique_ptr<wiz8::File> handle;
+    try {
+        handle = wiz8::open_file(wiz8::asset_path(level_path), wiz8::OpenMode::read);
+    } catch (const std::exception&) {
         srAssertFail("hFile", THREE_D_API_CPP, 0x1d8, "Could not open level file.");
     }
-    unsigned char success =
-        ReadLevel(world, handle.get(), use_octree, wiz8::asset_path(material_folder));
-    if (handle) handle->close();
-    handle.reset();
-    if (success == 0) {
+    if (!ReadLevel(world, handle.get(), use_octree, wiz8::asset_path(material_folder))) {
         srAssertFail("fSuccess", THREE_D_API_CPP, 0x1dd,
                      "Problem loading level, please check files and versions.");
     }
-    /* ReadLevel failure is assertion-only in the canonical body. LoadWorld
-       still performs the mesh update and returns success. */
-
-    if (world->octree != 0) {
-        UpdateWorldOctree(world);
-    } else if (world->quads != 0) {
-        UpdateWorldMeshFromQuads(world);
-    }
-    return 1;
+    return owner;
 }
 
 // The sky world only retires particles and disables queued nodes.
@@ -221,11 +201,12 @@ void UpdateWorlds(void)
         !(((GetInputState().modifiers & CTRL_DOWN) != 0) && g_combat_state != 0 &&
           (g_combat_state->round_active || gXStatus.fPartyMovementMode));
 
-    for (W8World* world : {GetWorld(), GetSecondaryWorld()}) {
-        if (world != 0) UpdateWorld(*world);
+    // Loading registered the sky first; preserve that update order.
+    for (W8World* world : {GetSecondaryWorld(), GetWorld()}) {
+        if (world) UpdateWorld(*world);
     }
 
-    UpdateWorldMeshAfterLoad();
+    RefreshWorldView();
 
     UpdateTimedTriggerEvents();
     UpdateShakeEffects();
@@ -313,16 +294,7 @@ void SetCameraSwayMode(srCamera* camera, int mode)
    between UnloadLevel's stages, never from inside these phases. */
 
 // Phase 1: nothing may update the world or call into its entities afterwards.
-static void StopWorldActivity(W8World* world)
-{
-    // The cursor borrows a monster owned by this world, even while hidden.
-    ReleaseWorldCursor();
-    StopAllAmbientSounds();
-    world->nodes_to_disable.clear();
-    world->lights_to_update.clear();
-}
-
-// Phase 2: drop the non-owning indexes into resources about to be destroyed.
+// Phase 2: drop the non-owning indexes and detach the world from global lookup.
 static void ClearWorldIndexes(W8World* world)
 {
     world->psrMeshes.clear();
@@ -358,9 +330,13 @@ static void DestroyWorldResources(W8World* world)
     world->static_scene.reset();
 }
 
-// Every world starts with its static scene, the level node and the dynamic scene.
+/* A world starts with its static scene, the level node and the dynamic scene.
+   Authored environment ramps are seeded before the level overrides them. */
 // FUNCTION: WIZ8 0x0044F1C0
-W8World::W8World() : static_scene(std::make_unique<srScene>(nullptr))
+W8World::W8World(int level_id, std::string path)
+    : level_id(level_id),
+      source_path(path.empty() ? std::string{} : wiz8::normalize_asset_path(path).generic_string()),
+      static_scene(std::make_unique<srScene>(nullptr))
 {
     static_scene->setName("Sir-Tech Scene Static Scene");
     level = static_scene->adoptChild(std::make_unique<stLevel>(nullptr));
@@ -371,20 +347,15 @@ W8World::W8World() : static_scene(std::make_unique<srScene>(nullptr))
     SetSceneAmbientLightWhite(static_scene.get());
 }
 
-W8World::~W8World()
+void W8World::stopLightUpdates()
 {
-    if (this == GetWorld()) StopWorldActivity(this);
-    ClearWorldIndexes(this);
-    DestroyWorldResources(this);
+    while (!updating_lights_.empty()) updating_lights_.back()->SetUpdateWorld(nullptr);
 }
 
-/* Entities consult the global world slots while they tear down, so the slot
-   keeps naming its world until the destructor has finished. */
-// FUNCTION: WIZ8 0x0044FAF0
-void DestroyWorld(std::unique_ptr<W8World>& slot)
+W8World::~W8World()
 {
-    delete slot.get();
-    static_cast<void>(slot.release());
+    ClearWorldIndexes(this);
+    DestroyWorldResources(this);
 }
 
 /* Per-frame camera / camera-path update for one world. Main-game frames the
@@ -409,10 +380,6 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
 
     RefreshDirtyAutomap();
     camera_position = cameraLocation();
-    if (g_game_data_runtime_pending != 0 && world->game_data != 0) {
-        UpdateGameDataRuntime();
-        g_game_data_runtime_pending = 0;
-    }
     if (world->game_data != 0) {
         if (g_level_flags != 0) {
             *g_level_flags &= ~W8_LEVEL_FLAG_MOVED_THIS_UPDATE;
@@ -491,6 +458,13 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
     }
 }
 
+/* Camera or geometry changes invalidate only this world's cached view. */
+// FUNCTION: WIZ8 0x00451010
+void MarkWorldViewDirty(void)
+{
+    if (auto* world = GetWorld()) world->view_dirty = true;
+}
+
 /* Resolve a particle by its runtime name from the current world's particle
    vector. Names are case-insensitive in the original registry-facing lookup. */
 // FUNCTION: WIZ8 0x00451080
@@ -545,18 +519,17 @@ void SetWorldScenePosition(W8World* world, const glm::vec3* location)
 }
 
 // FUNCTION: WIZ8 0x00451020
-void UpdateWorldMeshAfterLoad(void)
+void RefreshWorldView()
 {
-    if (g_renderer_ready) {
-        if (GetWorld()->octree != 0) {
-            UpdateWorldOctree(GetWorld());
-        } else if (GetWorld()->quads != 0) {
-            UpdateWorldMeshFromQuads(GetWorld());
-        }
-        RepositionAmbientSounds();
-        RequestRefreshPartyState();
-        g_renderer_ready = false;
-    }
+    auto* world = GetWorld();
+    if (!world || !world->view_dirty) return;
+    if (world->octree)
+        UpdateWorldOctree(world);
+    else if (world->quads)
+        UpdateWorldMeshFromQuads(world);
+    RepositionAmbientSounds();
+    RequestRefreshPartyState();
+    world->view_dirty = false;
 }
 
 /* Report a failed assertion with no message of its own, so the expression and
@@ -712,9 +685,6 @@ void ApplyWorldUpdateFlags(W8World* world, unsigned int flags)
     if ((flags & W8_WORLD_NARROW_MESH_VIEW) != 0 && g_mesh_view_half_angle_degrees > 1e+01f) {
         g_mesh_view_half_angle_degrees -= 1e+01f;
     }
-    if ((flags & W8_WORLD_TOGGLE_LOADED) != 0) {
-        world->m_loaded = !world->m_loaded;
-    }
     if ((flags & W8_WORLD_INCREASE_ENVIRONMENT) != 0) {
         SetWorldEnvironmentIntensity(GetWorld(), GetWorld()->environment_intensity + 0.02f);
     }
@@ -774,8 +744,8 @@ unsigned char AdjustWorldCollisionPosition(float radius, glm::vec3* position, bo
                            glm::dvec3(second));
         second += *position;
 
-        g_octree->TraceLineOfSight(position, &first, true, -3, -3, true, 0);
-        g_octree->TraceLineOfSight(position, &second, true, -3, -3, true, 0);
+        GetWorldOctree()->TraceLineOfSight(position, &first, true, -3, -3, true, 0);
+        GetWorldOctree()->TraceLineOfSight(position, &second, true, -3, -3, true, 0);
 
         first -= *position;
         second -= *position;
@@ -851,7 +821,7 @@ unsigned char FindNearbyFreePosition(float radius, glm::vec3* position, bool che
         candidate = offset + *position;
         glm::vec3 unblocked = candidate;
 
-        g_octree->TraceLineOfSight(position, &candidate, true, -3, -3, true, 0);
+        GetWorldOctree()->TraceLineOfSight(position, &candidate, true, -3, -3, true, 0);
         if (candidate == unblocked &&
             AdjustWorldCollisionPosition(radius, &candidate, check_items, check_monsters)) {
             *position = candidate;

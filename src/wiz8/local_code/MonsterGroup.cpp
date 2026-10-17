@@ -99,18 +99,18 @@ bool MoveMonsterGroupToPosition(W8MonsterGroup* group, const glm::vec3* position
     }
     if (proximity_check) {
         for (index = 0; index < count; ++index) {
-            g_octree->UnregisterLocationObjects(static_cast<short>(location_ids[index]));
+            GetWorldOctree()->UnregisterLocationObjects(static_cast<short>(location_ids[index]));
         }
     }
     glm::vec3 target = *position;
     if (alternate_radius) {
-        positions = g_octree
+        positions = GetWorldOctree()
                         ->navigatorPositions(target, yaw, radius + radius, count, proximity_check,
                                              flatten_y, false, 5, true)
                         .positions;
     } else {
-        positions = g_octree->scatterPositions(target, yaw, radius + radius, count, proximity_check,
-                                               flatten_y);
+        positions = GetWorldOctree()->scatterPositions(target, yaw, radius + radius, count,
+                                                       proximity_check, flatten_y);
     }
     const auto found = positions.size();
     if (found == 0) {
@@ -139,7 +139,7 @@ bool MoveMonsterGroupToPosition(W8MonsterGroup* group, const glm::vec3* position
             member->p3D->SetPositionInternal(&member_position);
         }
         glm::vec3 placed = member->p3D->GetPosition();
-        g_octree->UpdateMonsterLocation(static_cast<unsigned short>(location_id), &placed);
+        GetWorldOctree()->UpdateMonsterLocation(static_cast<unsigned short>(location_id), &placed);
     }
     return true;
 }
@@ -1018,7 +1018,8 @@ W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count, const g
                     return info->location_id == location_id;
                 });
                 if (member != monsters.end()) {
-                    g_octree->UnregisterLocationObjects(static_cast<unsigned short>(location_id));
+                    GetWorldOctree()->UnregisterLocationObjects(
+                        static_cast<unsigned short>(location_id));
                     roster.remove(member->get());
                 }
             }

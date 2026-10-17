@@ -8,6 +8,7 @@
 
 #include <glm/geometric.hpp>
 
+#include "World.h"
 #include "conditions.h"
 #include "gameplay_modifiers.h"
 #include "glm/ext/vector_float3.hpp"
@@ -23,6 +24,7 @@
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/GameTimeAccumulator.h"
+#include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/Octree.h"
@@ -317,7 +319,7 @@ unsigned int AgeAllMonsterSight(void)
     W8MonsterInfo* monster_info;
 
     elapsed = g_status.world_clock * 1000 -
-              g_status.level_progress[g_status.current_level].sight_clock * 1000;
+              g_status.level_progress[GetLoadedLevelID()].sight_clock * 1000;
     steps = elapsed / 120000;
     if (steps == 0) {
         return 0;
@@ -466,7 +468,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                 srAssertFail("fFoundMissileVertex", SIGHT_CPP, 0x1f5, 0);
                                 clear = false;
                             } else {
-                                short line = g_octree->TraceLineOfSight(
+                                short line = GetWorldOctree()->TraceLineOfSight(
                                     &trace_position, &other_position, true,
                                     monster_info->location_id, other->location_id, true, 1);
 
@@ -481,7 +483,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                 srAssertFail("fFoundSpellVertex", SIGHT_CPP, 0x1fd, 0);
                                 entry->los_flags[3] = false;
                             } else {
-                                short line = g_octree->TraceLineOfSight(
+                                short line = GetWorldOctree()->TraceLineOfSight(
                                     &trace_position, &other_position, true, -3, -3, true, 0);
 
                                 entry->los_flags[3] = line != 1;
@@ -591,8 +593,9 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                 srAssertFail("fFoundMissileVertex", SIGHT_CPP, 0x9b, 0);
                 clear = false;
             } else {
-                short line = g_octree->TraceLineOfSight(&trace_position, &camera_position, true,
-                                                        monster_info->location_id, -1, true, 1);
+                short line =
+                    GetWorldOctree()->TraceLineOfSight(&trace_position, &camera_position, true,
+                                                       monster_info->location_id, -1, true, 1);
 
                 clear = line == 0;
             }
@@ -605,8 +608,8 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                 srAssertFail("fFoundSpellVertex", SIGHT_CPP, 0xa3, 0);
                 monster_info->player_visibility.los_flags[3] = false;
             } else {
-                short line = g_octree->TraceLineOfSight(&trace_position, &camera_position, true, -3,
-                                                        -3, true, 0);
+                short line = GetWorldOctree()->TraceLineOfSight(&trace_position, &camera_position,
+                                                                true, -3, -3, true, 0);
 
                 monster_info->player_visibility.los_flags[3] = line != 1;
             }
@@ -716,7 +719,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                 delta = own_position - g_startup_world->GetPosition();
                                 if (glm::length(delta) < 25000.0f &&
                                     (npc->party_noticed = true, !gXStatus.fSurprisePossible) &&
-                                    g_status.current_level != 4) {
+                                    GetLoadedLevelID() != 4) {
                                     int party_slot = GetRandomCharacter(0, 0, -1, -1);
 
                                     if (party_slot != -1) {

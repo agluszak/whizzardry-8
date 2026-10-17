@@ -49,6 +49,7 @@
 #include "wiz8/engine_code/SoundEvent.h"
 #include "wiz8/engine_code/SpellEmitterHost.h"
 #include "wiz8/engine_code/SpellVisual.h"
+#include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/emitter_cycles.h"
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/engine_code/stLight.hpp"
@@ -420,7 +421,7 @@ std::unique_ptr<W8SpellVisual> LoadSpellVisualResource(W8World* world, std::stri
 {
     W8SpellVisual* shared = static_cast<W8SpellVisual*>(FindFirstGrCycleByName(name));
     if (shared != 0 && shared->mode == group) {
-        auto spell = std::make_unique<W8SpellVisual>(*shared);
+        auto spell = std::make_unique<W8SpellVisual>(*shared, world);
         if (spell == 0) {
             srAssertFail("pSpell", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x406, 0);
         }
@@ -442,7 +443,7 @@ std::unique_ptr<W8SpellVisual> LoadSpellVisualResource(W8World* world, std::stri
             return std::unique_ptr<wiz8::File>{};
         }
     }();
-    auto visual = std::make_unique<W8SpellVisual>();
+    auto visual = std::make_unique<W8SpellVisual>(world);
     visual->host->current_cycle = -1;
     if (handle == 0) {
         success = false;
@@ -462,8 +463,7 @@ std::unique_ptr<W8SpellVisual> LoadSpellVisualResource(W8World* world, std::stri
                         break;
                     }
 
-                    success =
-                        LoadGrCycle(world, resource, visual.get(), cycle, 1, "Data\\Spells", 2, 0);
+                    success = LoadGrCycle(resource, visual.get(), cycle, 1, "Data\\Spells", 2, 0);
                     if (success) {
                         RegisterGrCycle(resource, visual.get());
                     }
@@ -521,9 +521,9 @@ std::unique_ptr<W8SpellVisual> LoadSpellVisualResource(W8World* world, std::stri
 }
 
 // FUNCTION: WIZ8 0x004ABBB0
-W8SpellVisual::W8SpellVisual()
-    : mode(W8_SPELL_VISUAL_NONE), finished(0), flag(0), auto_release(1), fixed_transform(0),
-      scale0(1.0f), location_id(0)
+W8SpellVisual::W8SpellVisual(W8World* owner)
+    : W8GrCycle(owner), mode(W8_SPELL_VISUAL_NONE), finished(0), flag(0), auto_release(1),
+      fixed_transform(0), scale0(1.0f), location_id(0)
 {
     W8GrObject::kind = 1;
     id = AllocateGrObjectId();
@@ -940,7 +940,7 @@ void SetMonsterSpellIcon(W8Monster* monster, W8MonsterSpellIconId icon, bool add
             auto* item = entry->psrBMO;
             entry = icons.erase(entry);
             if (item) {
-                item->DetachMesh(GetWorld());
+                item->DetachMesh();
                 delete item;
             }
         }
@@ -1084,7 +1084,7 @@ void ClearMonsterSpellIcons(W8Monster* monster)
         srAssertFail("monster representation", __FILE__, __LINE__, nullptr);
     for (const auto& entry : monster->m_pRep->spell_icons) {
         if (entry.psrBMO) {
-            entry.psrBMO->DetachMesh(GetWorld());
+            entry.psrBMO->DetachMesh();
             delete entry.psrBMO;
         }
     }

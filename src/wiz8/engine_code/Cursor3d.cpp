@@ -37,6 +37,7 @@
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Video2.h"
+#include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stParticle.h"
@@ -295,7 +296,7 @@ void ApplyWorldCursorInput(void)
                 gp3DCursor->position.y = saved_y;
             }
             gp3DCursor->position =
-                g_octree->settleToGround(gp3DCursor->position, true, 500).position;
+                GetWorldOctree()->settleToGround(gp3DCursor->position, true, 500).position;
         }
     } else {
         camera = cameraLocation();
@@ -346,8 +347,8 @@ void ApplyWorldCursorInput(void)
         }
         if (gp3DCursor->dragged_info != 0) {
             gp3DCursor->dragged_info->p3D->SetPositionInternal(&gp3DCursor->position);
-            g_octree->UpdateMonsterLocation(gp3DCursor->dragged_info->location_id,
-                                            &gp3DCursor->position);
+            GetWorldOctree()->UpdateMonsterLocation(gp3DCursor->dragged_info->location_id,
+                                                    &gp3DCursor->position);
             if (((GetInputState().modifiers & SHIFT_DOWN) != 0)) {
                 MonsterForwardReferencePosition(gp3DCursor->dragged_info->p3D, 1);
             }
@@ -511,11 +512,12 @@ void UpdateWorldCursor(void)
         if (gp3DCursor->left_held && gXStatus.iTargetingMode == W8_TARGET_NEED_PLACE) {
             camera = cameraLocation();
             if (ResolveWorldCursorTarget(&resolved) != 0 &&
-                g_octree->TraceLineOfSight(&camera, &resolved, true, -3, -3, true, 0) == 0) {
+                GetWorldOctree()->TraceLineOfSight(&camera, &resolved, true, -3, -3, true, 0) ==
+                    0) {
                 box_min = resolved + gp3DCursor->extent_min;
                 box_max = resolved + gp3DCursor->extent_max;
                 if (!gp3DCursor->footprint_mode ||
-                    g_octree->TestBoxOccupied(&box_min, &box_max) == 0) {
+                    GetWorldOctree()->TestBoxOccupied(&box_min, &box_max) == 0) {
                     AimAtPlace(g_status.selected_character);
                     ToggleWorldCursor();
                     return;
@@ -587,7 +589,7 @@ char MarchWorldCursorTarget(glm::vec3* target)
                 probe = gp3DCursor->probe_offsets[i];
                 probe *= kCursorProbeShrinkScale;
                 probe += step_pos;
-                const auto ground_probe = g_octree->settleToGround(probe, 1, 500.0f);
+                const auto ground_probe = GetWorldOctree()->settleToGround(probe, 1, 500.0f);
                 probe = ground_probe.position;
                 ground = ground_probe.position.y;
                 if (ground <= step_pos.y) {
@@ -616,7 +618,8 @@ char MarchWorldCursorTarget(glm::vec3* target)
             trace_from = end_pos + gp3DCursor->probe_center;
             for (i = 0; i < 8; i++) {
                 probe = end_pos + gp3DCursor->probe_offsets[i];
-                if (g_octree->TraceLineOfSight(&trace_from, &probe, true, -3, -3, true, 0) != 0) {
+                if (GetWorldOctree()->TraceLineOfSight(&trace_from, &probe, true, -3, -3, true,
+                                                       0) != 0) {
                     *target = last_valid;
                     return 1;
                 }
@@ -713,7 +716,7 @@ int ResolveWorldCursorTarget(glm::vec3* position)
                 break;
             }
         }
-        const auto ground = g_octree->settleToGround((*position) + offset, true, 500);
+        const auto ground = GetWorldOctree()->settleToGround((*position) + offset, true, 500);
         if (best <= ground.position.y) best = ground.position.y;
     }
     if (cursor->footprint_mode &&
