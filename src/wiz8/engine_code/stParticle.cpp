@@ -159,6 +159,13 @@ void stParticle::AllocateParticles(unsigned int count)
 }
 
 // FUNCTION: WIZ8 0x00497AF0
+stParticle::~stParticle() = default;
+
+void stParticle::CancelAnimationCallback()
+{
+    callback.reset();
+}
+
 stParticle::stParticle(srNode* parent, int count) : srNode(static_cast<srNode*>(0))
 {
     setParent(parent, 1);
@@ -597,8 +604,8 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
     }
 
     if (emitting == 0 && active_particle_count == 0) {
-        if (callback != 0) {
-            callback->RestoreAnimation();
+        if (auto completed = std::move(callback)) {
+            completed->RestoreAnimation();
         }
         finished = release_when_done;
         return;

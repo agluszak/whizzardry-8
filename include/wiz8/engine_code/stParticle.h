@@ -17,7 +17,7 @@
 #include "surrender/srTexture.h"
 #include "wiz8/engine_code/particle_modes.h"
 
-class W8MonsterShakeCallback;
+struct W8MonsterShakeCallback;
 class srGERD;
 namespace wiz8 {
 class File;
@@ -27,6 +27,8 @@ class stParticle : public srNode {
 public:
     stParticle(srNode* parent, int count); /* 0x00497AF0 */
     stParticle(const stParticle& other); /* 0x00498180 */
+    ~stParticle() override;
+    void CancelAnimationCallback();
     void SetActive(unsigned char active);
     void SetTraversalEnabled(bool enabled);
     void DeactivateParticle(unsigned int index);
@@ -48,7 +50,7 @@ public:
     virtual void process(const srNode::ProcessInfo& info,
                          srNode::e_processType type) override; /* 0x00498D60 */
 
-    stParticle& operator=(const stParticle&) = default;
+    stParticle& operator=(const stParticle&) = delete;
 
     unsigned int requires_sorted_renderer = 0;
     double particle_size = 1.0; /* billboard quad scale */
@@ -128,7 +130,7 @@ public:
     short attachment_key = -1;
     int start_frame = -1;
     int end_frame = -1;
-    W8MonsterShakeCallback* callback = nullptr;
+    std::unique_ptr<W8MonsterShakeCallback> callback;
     unsigned int emission_gap = 25;
     unsigned int last_emitted_at = 0;
     float size_scale = 1.0f;
