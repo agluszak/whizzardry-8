@@ -427,8 +427,8 @@ std::unique_ptr<W8Missile> LoadMissileCycle(W8GrCycleLoadContext* context, const
         }
     }();
     if (!handle) {
-        const bool success = LoadGrCycle(context, name, output.get(), 0, 1, "Data\\Missiles", 1,
-                                         "Data\\Spells\\Bitmaps");
+        const bool success =
+            LoadGrCycle(name, output.get(), 0, 1, "Data\\Missiles", 1, "Data\\Spells\\Bitmaps");
         if (success) {
             RegisterGrCycle(name, output.get());
         }
@@ -468,7 +468,7 @@ std::unique_ptr<W8Missile> LoadMissileCycle(W8GrCycleLoadContext* context, const
                         break;
                     }
 
-                    success = LoadGrCycle(context, resource.c_str(), output.get(), cycle, 1,
+                    success = LoadGrCycle(resource.c_str(), output.get(), cycle, 1,
                                           "Data\\Missiles", 1, "Data\\Spells\\Bitmaps");
                     cycle_line = true;
                     break;

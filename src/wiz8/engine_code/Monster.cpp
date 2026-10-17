@@ -549,7 +549,7 @@ static std::unique_ptr<W8Monster> ReadOrCloneMonsterCycles(const W8GrCycleLoadCo
                             float animation_scale = -1.0f;
                             fields >> animation_scale;
 
-                            success = LoadGrCycle(context, argument.c_str(), monster.get(), cycle,
+                            success = LoadGrCycle(argument.c_str(), monster.get(), cycle,
                                                   load_value, "data\\monsters", 0);
                             if (!monster->particles.empty()) {
                                 for (int index = 0;
@@ -4287,8 +4287,7 @@ std::unique_ptr<W8Monster> LoadMonsterCycle(const W8GrCycleLoadContext* context,
     auto monster = std::make_unique<W8Monster>(context->world);
     monster->id = AllocateGrObjectId();
     monster->m_pRep->current_cycle = -1;
-    if (!LoadGrCycle(context, mon_name, monster.get(), cycle, value, "data\\monsters", 0))
-        return nullptr;
+    if (!LoadGrCycle(mon_name, monster.get(), cycle, value, "data\\monsters", 0)) return nullptr;
     for (auto& event : monster->particles) {
         if (event.cycle == cycle && event.subcycle == -1)
             event.subcycle = monster->m_pRep->current_subcycle;

@@ -181,8 +181,8 @@ public:
 W8GrCycle* FindFirstGrCycleByName(std::string_view name);
 unsigned char UnregisterGrCycle(W8GrCycle* cycle);
 void RegisterGrCycle(const char* name, W8GrCycle* cycle);
-bool LoadGrCycle(const W8GrCycleLoadContext* context, const char* mon_name, W8GrCycle* cycle,
-                 int cycle_index, int value, const char* directory, unsigned char object_type,
+bool LoadGrCycle(const char* mon_name, W8GrCycle* cycle, int cycle_index, int value,
+                 const char* directory, unsigned char object_type,
                  const char* bitmap_directory = 0);
 unsigned char ReadGrCycleData(W8ReadLevelInfo* info, W8GrCycle* cycle, int cycle_index, int value,
                               unsigned char object_type);

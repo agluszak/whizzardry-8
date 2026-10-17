@@ -203,9 +203,8 @@ void UpdateShakeEffects()
    version, and hand the open file plus its resource context to the typed cycle
    reader. */
 // FUNCTION: WIZ8 0x004A67E0
-bool LoadGrCycle(const W8GrCycleLoadContext* context, const char* mon_name, W8GrCycle* cycle,
-                 int cycle_index, int value, const char* directory, unsigned char object_type,
-                 const char* bitmap_directory)
+bool LoadGrCycle(const char* mon_name, W8GrCycle* cycle, int cycle_index, int value,
+                 const char* directory, unsigned char object_type, const char* bitmap_directory)
 try {
     W8ReadLevelInfo info;
     unsigned char version;
@@ -231,7 +230,7 @@ try {
         ShutdownWithErrorBox(fmt::format("Couldn't open {}", mon_path));
     }
 
-    info.world = context->world;
+    info.world = cycle->owner_world;
     info.hFile = handle.get();
     info.bitmap_folder = bitmap_path.c_str();
     info.mesh_filename = mon_path.c_str();

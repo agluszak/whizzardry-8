@@ -463,8 +463,8 @@ std::unique_ptr<W8SpellVisual> LoadSpellVisualResource(const W8GrCycleLoadContex
                         break;
                     }
 
-                    success = LoadGrCycle(context, resource.c_str(), visual.get(), cycle, 1,
-                                          "Data\\Spells", 2, 0);
+                    success =
+                        LoadGrCycle(resource.c_str(), visual.get(), cycle, 1, "Data\\Spells", 2, 0);
                     if (success) {
                         RegisterGrCycle(resource.c_str(), visual.get());
                     }
