@@ -7,7 +7,6 @@
 #include <string_view>
 #include <type_traits>
 #include <unordered_map>
-#include <utility>
 #include <vector>
 
 #include <catch2/catch_approx.hpp>
@@ -15,14 +14,8 @@
 
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srMeshModel.h"
-#include "surrender/srModelInstance.h"
-#include "surrender/srShader.h"
 #include "surrender/srTexture.h"
-#include "wiz8/engine_code/ReadMesh.h"
-#include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/stMeshModel.h"
-
-class srModel;
 
 static_assert(!std::is_copy_constructible_v<stMeshModel>);
 static_assert(!std::is_copy_assignable_v<stMeshModel>);
@@ -62,7 +55,7 @@ static bool frame_storage()
         const std::array<short, 9> second{4, 0, 0, 6, 0, 0, 4, 2, 0};
         auto* compressed = mesh.GetVertex(0);
         std::copy(first.begin(), first.end(), compressed);
-        mesh.InitializeVertexFrames(2); // ReadMesh repeats initialization for every frame.
+        mesh.InitializeVertexFrames(2); // Repeated initialization retains existing storage.
         REQUIRE(mesh.GetVertex(0) == compressed);
         REQUIRE(std::equal(first.begin(), first.end(), compressed));
         REQUIRE(g_mesh_models.size() == registered + 1);
@@ -248,49 +241,6 @@ static bool part_ownership()
     return true;
 }
 
-// Different materials sharing a shader take the per-vertex table path;
-// another shader adds a uniquely owned successor to the shared mesh head.
-static bool loaded_model_ownership()
-{
-    std::vector<W8MeshMaterial> materials(3);
-    for (auto& material : materials) {
-        material.material = std::make_shared<stMaterial>();
-        material.render_flags.value = 0x251b;
-    }
-    materials[2].render_flags.value = 0x2517;
-    W8ReadMeshFace faces[3]{};
-    for (int face = 0; face < 3; ++face) {
-        faces[face].material_index = face;
-        for (int corner = 0; corner < 3; ++corner) {
-            faces[face].vertices[corner] = face * 3 + corner;
-        }
-    }
-    std::vector<short> mapped_values, mapped_keys;
-    unsigned int mesh_count = 0;
-    std::vector<std::vector<int>> maps;
-    auto model = BuildSingleLevelMesh(3, faces, 9, materials, &mesh_count, maps, &mapped_values,
-                                      &mapped_keys);
-    REQUIRE((model && mesh_count == 2 && maps.size() == 2));
-    REQUIRE((model->parts.size() == 1 && model->parts[0]->head == model.get()));
-    REQUIRE((*model->getVertexMaterialTable(0, srMeshModel::SIDE_FRONT, false))[0] ==
-            materials[0].material);
-    REQUIRE(model->parts[0]->getMaterial(0, srMeshModel::SIDE_FRONT) ==
-            materials[2].material.get());
-    std::weak_ptr<srModel> lifetime = model;
-    auto* first = new srModelInstance(nullptr);
-    first->setModel(std::move(model));
-    auto* second = new srModelInstance(nullptr);
-    *second = *first;
-    delete first;
-    REQUIRE(!lifetime.expired());
-    delete second;
-    REQUIRE(lifetime.expired());
-    for (const auto& material : materials) {
-        REQUIRE(material.material.use_count() == 1);
-    }
-    return true;
-}
-
 class TestTexture : public srTexture {
 public:
     inline static int destroyed = 0;
@@ -413,13 +363,6 @@ TEST_CASE("Mesh eviction and borrowed outputs", "[mesh][ownership]")
 TEST_CASE("Mesh part ownership", "[mesh][ownership]")
 {
     REQUIRE(part_ownership());
-    REQUIRE(g_mesh_models.empty());
-    REQUIRE(g_decompressed_mesh_bytes == 0);
-}
-
-TEST_CASE("Loaded model ownership", "[mesh][ownership]")
-{
-    REQUIRE(loaded_model_ownership());
     REQUIRE(g_mesh_models.empty());
     REQUIRE(g_decompressed_mesh_bytes == 0);
 }

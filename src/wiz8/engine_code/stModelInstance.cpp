@@ -256,7 +256,7 @@ void stModelInstance2D::process(const ProcessInfo& info, e_processType)
 
     if (render_state.glow_enabled) {
         if (glow_material == 0) {
-            glow_material = std::make_shared<stMaterial>();
+            glow_material = std::make_shared<srMaterial>();
             if (mesh.materials[0][0] != 0) {
                 glow_material->srMaterial::operator=(*mesh.materials[0][0]);
             }
@@ -552,10 +552,10 @@ static const glm::vec3 g_shadow_positions[6] = {{-250.0f, 250.0f, 0.0f}, {0.0f, 
                                                 {250.0f, 250.0f, 0.0f},  {0.0f, 250.0f, -250.0f},
                                                 {0.0f, -250.0f, 0.0f},   {0.0f, 250.0f, 250.0f}};
 
-static stMaterial& ShadowMaterial()
+static srMaterial& ShadowMaterial()
 {
-    static const std::unique_ptr<stMaterial> material = [] {
-        auto created = std::make_unique<stMaterial>();
+    static const std::unique_ptr<srMaterial> material = [] {
+        auto created = std::make_unique<srMaterial>();
         glm::vec4 color;
         color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
         created->setAmbient(color);
@@ -566,7 +566,6 @@ static stMaterial& ShadowMaterial()
         created->setEmissive(color);
         color = glm::vec4(1.0f, 1.0f, 1.0f, 0.0f);
         created->setDiffuse(color);
-        created->m_surface_flags = 0;
         return created;
     }();
     return *material;

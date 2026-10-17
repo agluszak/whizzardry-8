@@ -42,6 +42,7 @@
 #include "surrender/srClipPlane.h"
 #include "surrender/srDebug.h"
 #include "surrender/srGERD.h"
+#include "surrender/srMaterial.h"
 #include "surrender/srMath.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
@@ -1172,10 +1173,9 @@ try {
                         SetModelInstanceChainExclusionMask(instance, 4);
                     }
 
-                    auto* material =
-                        dynamic_cast<stMaterial*>(mesh->getMaterial(0, srMeshModel::SIDE_FRONT));
+                    auto* material = mesh->getMaterial(0, srMeshModel::SIDE_FRONT);
                     if (material != 0) {
-                        auto copy = std::make_shared<stMaterial>(*material);
+                        auto copy = std::make_shared<srMaterial>(*material);
                         copy->setName("Unsunlit Prop Material");
                         copy->parms.ambient = glm::vec4(0.0f);
                         copy->dirty = 1;

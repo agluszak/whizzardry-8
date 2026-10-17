@@ -15,7 +15,6 @@
 
 class srGERD;
 class srMaterial;
-class stMaterial;
 class srTexture;
 class stTextureAnim;
 class srNode;
@@ -106,5 +105,5 @@ public:
     std::optional<glm::vec4> glow_color_base;
     std::optional<glm::vec4> glow_color_peak;
     /* Lazily copied from the mesh material while the glow is enabled. */
-    std::shared_ptr<stMaterial> glow_material;
+    std::shared_ptr<srMaterial> glow_material;
 };

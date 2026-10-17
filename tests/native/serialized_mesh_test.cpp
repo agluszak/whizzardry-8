@@ -1,4 +1,5 @@
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -28,11 +29,14 @@
 #include "materials.h"
 #include "quad.h"
 #include "scoped_asset_roots.h"
+#include "surrender/srMaterial.h"
+#include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
 #include "temporary_directory.h"
 #include "wiz8/asset_paths.h"
+#include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/AniMesh.h"
 #include "wiz8/engine_code/Level.h"
 #include "wiz8/engine_code/OctMeshModel.h"
@@ -303,15 +307,167 @@ TEST_CASE("Animated meshes share source geometry and keep playback independent")
     REQUIRE(first->meshes[0]->getModel() == second->meshes[0]->getModel());
     REQUIRE(first->frame_count == 2);
     REQUIRE(second->frame_count == 2);
-    REQUIRE(GetAniMeshFrame(second.get(), 0)->frame_index == 0);
+    REQUIRE(first->meshes[0]->frame_index == 0);
+    REQUIRE(second->meshes[0]->frame_index == 0);
+    const auto bounds = GetAniMeshBounds(first.get());
+    REQUIRE(bounds);
+    REQUIRE(bounds->minimum == glm::vec3(0));
+    REQUIRE(bounds->maximum == glm::vec3(3, 1, 0));
+    REQUIRE(first->radius == std::sqrt(10.0f) * 0.5f);
+    REQUIRE(first->meshes[0]->frame_index == 0);
     auto* first_frame = GetAniMeshFrame(first.get(), 1);
     REQUIRE(first_frame->frame_index == 1);
     REQUIRE(second->meshes[0]->frame_index == 0);
     REQUIRE(GetAniMeshFrame(second.get(), 0)->frame_index == 0);
     REQUIRE(first_frame->frame_index == 1);
+    REQUIRE(GetAniMeshBounds(first.get()));
+    REQUIRE(first_frame->frame_index == 1);
     REQUIRE(UnloadAniMesh(first.get(), true));
     REQUIRE(GetAniMeshFrame(first.get(), 0)); // Reopen the same physical source/offset.
     REQUIRE(first->meshes[0]->getModel() == second->meshes[0]->getModel());
+}
+
+TEST_CASE("Animated frame indices determine playback order before publication")
+{
+    ScopedTemporaryDirectory directory{"wiz8-animesh-frame-order"};
+    const auto path = directory.path / "animation.bin";
+    std::int64_t second_index = 0;
+    {
+        auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
+        Write(*file, static_cast<unsigned char>(2));
+        for (const unsigned char frame : {1, 0}) {
+            if (frame == 0) second_index = file->tell();
+            Write(*file, frame);
+            Write(*file, std::array<int, 3>{1, 3, 1});
+            const float offset = frame * 4.0f;
+            Write(*file, std::array<float, 9>{offset, 0, 0, offset + 1, 0, 0, offset, 1, 0});
+            W8SerializedMeshFace face{};
+            face.vertices[1] = 1;
+            face.vertices[2] = 2;
+            Write(*file, face);
+            Write(*file, short{1});
+            W8MaterialRecord material{};
+            material.version = 1;
+            file->write(&material, 0x11a);
+        }
+    }
+    auto file = wiz8::open_file(path);
+    auto mesh = ReadAnimatedMesh(*file, {}, true);
+    REQUIRE(mesh);
+    REQUIRE(mesh->meshes.size() == 2);
+    REQUIRE(GetAniMeshFrame(mesh.get(), 0)->getModel()->getBounds().box.minimum.x == 0);
+    REQUIRE(GetAniMeshFrame(mesh.get(), 1)->getModel()->getBounds().box.minimum.x == 2000);
+    {
+        auto writer = wiz8::open_file(path, wiz8::OpenMode::update);
+        writer->seek(second_index, wiz8::SeekOrigin::begin);
+        Write(*writer, static_cast<unsigned char>(1)); // Duplicate frame, missing frame zero.
+    }
+    file->seek(0, wiz8::SeekOrigin::begin);
+    REQUIRE_FALSE(ReadAnimatedMesh(*file, {}, true));
+    REQUIRE(GetAniMeshFrame(mesh.get(), 0)->getModel()->getBounds().box.minimum.x == 0);
+}
+
+TEST_CASE("Mesh construction finishes material partitions, UV seams and vertex markers")
+{
+    ScopedTemporaryDirectory directory{"wiz8-mesh-partitions"};
+    const auto path = directory.path / "partitions.mesh";
+    {
+        auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
+        Write(*file, std::array<int, 3>{4, 6, 5}); // Version, vertices, faces.
+        Write(*file, static_cast<unsigned char>(0));
+        Write(*file, std::array<float, 10>{0, 0, 0, 0, 0, 1, 0, 1, 1, 1});
+        Write(*file, static_cast<signed char>(2));
+        Write(*file, short{10}); // Marker key, source vertex.
+        Write(*file, short{0});
+        Write(*file, short{20});
+        Write(*file, short{3});
+        Write(*file, std::array<float, 18>{1, 0, 0, 2, 0, 0, 1, 1, 0, 4, 0, 0, 5, 0, 0, 4, 1, 0});
+        W8SerializedMeshFace face{};
+        face.vertices[1] = 1;
+        face.vertices[2] = 2;
+        face.material_index = 1;
+        Write(*file, face);
+        face.texture_coordinates[0][0] = 0.5f; // One source vertex, different UV.
+        Write(*file, face);
+        face.material_index = 2; // Same shader, distinct material.
+        Write(*file, face);
+        face.material_index = 3; // Another shader creates a second part.
+        face.vertices[0] = 3;
+        face.vertices[1] = 4;
+        face.vertices[2] = 5;
+        Write(*file, face);
+        face.material_index = 4; // Shared render state, distinct geometry sidedness.
+        face.vertices[0] = 0;
+        face.vertices[1] = 1;
+        face.vertices[2] = 2;
+        Write(*file, face);
+        Write(*file, short{5});
+        W8MaterialRecord material{};
+        material.version = 1;
+        file->write(&material, 0x11a); // Default slot.
+        material.opacity = 1;
+        material.diffuse.x = 1;
+        material.surface_flags = W8_MATERIAL_TWO_SIDED;
+        file->write(&material, 0x11a);
+        material.diffuse.x = 0;
+        material.diffuse.z = 1;
+        material.surface_flags = 0;
+        file->write(&material, 0x11a);
+        material.opacity = 0.5f;
+        file->write(&material, 0x11a);
+        material.opacity = 1;
+        material.diffuse.x = 1;
+        material.diffuse.z = 0;
+        file->write(&material, 0x11a); // Same renderer material as the two-sided record.
+    }
+    auto file = wiz8::open_file(path);
+    auto instance = ReadSingleLevelMesh(*file, {});
+    REQUIRE(instance);
+    auto* head = static_cast<stMeshModel*>(instance->getModel());
+    REQUIRE(head->parts.size() == 1);
+    REQUIRE(head->parts[0]->head == head);
+    auto* part = head->parts[0].get();
+    REQUIRE(head->polygon_count == 6); // Two two-sided faces, two single-sided.
+    REQUIRE(part->polygon_count == 1);
+    REQUIRE(head->vertex_location_count == 15); // Material split and back faces.
+    REQUIRE(head->getVertexMaterialTable(0, srMeshModel::SIDE_FRONT, false));
+    REQUIRE(head->FindMappedIndex(10) >= 0);
+    REQUIRE(head->getVertexLoc()[head->FindMappedIndex(10)] == glm::vec3(500, 0, 0));
+    REQUIRE(head->FindMappedIndex(20) == -1);
+    REQUIRE(part->FindMappedIndex(10) == -1);
+    REQUIRE(part->FindMappedIndex(20) >= 0);
+    REQUIRE(part->getVertexLoc()[part->FindMappedIndex(20)] == glm::vec3(2000, 0, 0));
+    // UV seams follow the optimized topology while retaining both authored UVs.
+    bool seam = false;
+    for (int polygon = 0; polygon < head->polygon_count; ++polygon) {
+        const int vertex = head->getPolyVertex()[polygon][0];
+        if (head->getVertexLoc()[vertex] != glm::vec3(500, 0, 0)) continue;
+        const int uv = head->getPolyUVIndex(0, 0)[polygon][0];
+        if (head->getVertexTexCoords(0, 0, 0)[uv].x == 0.5f) seam = true;
+    }
+    REQUIRE(seam);
+    std::weak_ptr<srMaterial> lifetime =
+        (*head->getVertexMaterialTable(0, srMeshModel::SIDE_FRONT, false))[0];
+    auto duplicate = DuplicateModelInstance(*instance);
+    instance.reset();
+    REQUIRE(duplicate->getModel() == head);
+    REQUIRE_FALSE(lifetime.expired());
+    duplicate.reset();
+    REQUIRE(lifetime.expired());
+}
+
+TEST_CASE("Geometry sidedness does not split shared renderer material state")
+{
+    W8MaterialRecord record{};
+    record.version = 1;
+    record.opacity = 1;
+    auto single_sided = LoadMaterial({}, record);
+    record.surface_flags = W8_MATERIAL_TWO_SIDED;
+    auto two_sided = LoadMaterial({}, record);
+    REQUIRE(single_sided.material);
+    REQUIRE(single_sided.material == two_sided.material);
+    REQUIRE_FALSE(single_sided.two_sided);
+    REQUIRE(two_sided.two_sided);
 }
 
 TEST_CASE("Mesh reuse distinguishes source files, record offsets and material directories")

@@ -10,7 +10,7 @@ class W8Monster;
 class W8Prop;
 class srNode;
 class stLight;
-class stMaterial;
+class srMaterial;
 
 #include <algorithm>
 
@@ -59,7 +59,7 @@ struct W8World {
     ~W8World();
     W8World(const W8World&) = delete;
     W8World& operator=(const W8World&) = delete;
-    std::shared_ptr<stMaterial> cloud_material;
+    std::shared_ptr<srMaterial> cloud_material;
     std::vector<std::unique_ptr<W8Monster>> monsters;
     // Update membership borrows loaded monsters, including the visible cursor.
     std::vector<W8Monster*> active_monsters;

@@ -232,7 +232,7 @@ std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file,
     }
 
     if (!g_oct_mesh_default.material) {
-        auto material = std::make_shared<stMaterial>();
+        auto material = std::make_shared<srMaterial>();
         material->srClass::operator=(*materials[0].material);
         g_oct_mesh_default = {std::move(material), materials[0].texture, materials[0].render_flags};
     }

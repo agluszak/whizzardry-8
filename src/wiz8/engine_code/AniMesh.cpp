@@ -1,7 +1,6 @@
 #include "wiz8/engine_code/AniMesh.h"
 
 #include <algorithm>
-#include <cstdio>
 #include <exception>
 #include <filesystem>
 #include <memory>
@@ -9,6 +8,7 @@
 #include <utility>
 #include <vector>
 
+#include <fmt/format.h>
 #include <glm/geometric.hpp> // NOLINT(misc-include-cleaner)
 
 #include "ReadMesh.h"
@@ -117,15 +117,6 @@ try {
     return {};
 }
 
-// FUNCTION: WIZ8 0x004b5c10
-float GetAniMeshFrameRadius(W8AniMesh* mesh, unsigned char frame)
-{
-    auto* instance = GetAniMeshFrame(mesh, frame);
-    if (!instance || !instance->getModel()) return 0.0f;
-    const auto bounds = instance->getModel()->getBounds().box;
-    return static_cast<float>(glm::distance(bounds.minimum, bounds.maximum) * 0.5);
-}
-
 namespace {
 // Decode the full frame sequence into detached ownership before publishing it.
 // Source offsets identify resources; frame/channel labels are unnecessary.
@@ -136,12 +127,13 @@ try {
     if (!count) return false;
     unsigned char first_index;
     file.read_exact(&first_index, sizeof(first_index));
+    if (first_index >= count) return false;
     auto first = ReadSingleLevelMesh(file, mesh.bitmap_directory);
     if (!first) return false;
     auto* model = static_cast<stMeshModel*>(first->getModel());
     const bool single = model->frames.size() > 1;
     std::vector<std::unique_ptr<stModelInstance>> frames(single ? 1 : count);
-    frames[0] = std::move(first);
+    frames[single ? 0 : first_index] = std::move(first);
     if (!single) {
         for (unsigned int index = 1; index < count; ++index) {
             unsigned char frame;
@@ -151,6 +143,22 @@ try {
             if (!frames[frame]) return false;
         }
     }
+    // Model bounds already include all vertex frames. Inspect the detached
+    // instances directly: selecting frames here would change playback and LRU
+    // state merely to compute this summary.
+    srBoundingBox bounds;
+    bool has_bounds = false;
+    float radius = 0;
+    for (const auto& instance : frames) {
+        const auto frame_bounds = instance->getModel()->getBounds().box;
+        radius = std::max(radius, glm::distance(frame_bounds.minimum, frame_bounds.maximum) * 0.5f);
+        if (has_bounds)
+            bounds.include(frame_bounds);
+        else
+            bounds = frame_bounds;
+        has_bounds = true;
+    }
+
     mesh.meshes = std::move(frames);
     mesh.frame_count = count;
     mesh.flags.single_instance = single;
@@ -158,20 +166,7 @@ try {
     mesh.flags.loaded = true;
     mesh.last_used = g_animesh_cache_stamp++;
     g_animesh_cache_bytes += mesh.loaded_bytes;
-
-    srBoundingBox bounds;
-    bool has_bounds = false;
-    mesh.radius = 0;
-    for (unsigned int frame = 0; frame < count; ++frame) {
-        mesh.radius = std::max(mesh.radius, GetAniMeshFrameRadius(&mesh, frame));
-        auto* instance = GetAniMeshFrame(&mesh, frame);
-        const auto frame_bounds = instance->getModel()->getBounds().box;
-        if (has_bounds)
-            bounds.include(frame_bounds);
-        else
-            bounds = frame_bounds;
-        has_bounds = true;
-    }
+    mesh.radius = radius;
     mesh.bounds_minimum = bounds.minimum;
     mesh.bounds_maximum = bounds.maximum;
     mesh.flags.radius_loaded = true;
@@ -230,19 +225,21 @@ bool UnloadAniMesh(W8AniMesh* mesh, bool force)
 // FUNCTION: WIZ8 0x004b6550
 stModelInstance* GetAniMeshFrame(W8AniMesh* mesh, unsigned char frame)
 {
-    stModelInstance* instance;
-    char message[0x80];
-
-    if (mesh == 0 || frame >= mesh->frame_count) {
-        sprintf(message, "AniMeshGetMeshForFrame error, frame %d, num %d", frame,
-                mesh->frame_count);
-        srAssertFail("0", ANI_MESH_CPP, 0x2e6, message);
-        return 0;
+    if (!mesh) {
+        srAssertFail("mesh", ANI_MESH_CPP, 0x2e6, nullptr);
+        return nullptr;
+    }
+    if (frame >= mesh->frame_count) {
+        const auto message =
+            fmt::format("AniMeshGetMeshForFrame error, frame {}, num {}", frame, mesh->frame_count);
+        srAssertFail("frame < mesh->frame_count", ANI_MESH_CPP, 0x2e6, message.c_str());
+        return nullptr;
     }
     if (!mesh->flags.loaded && !ReloadAnimatedMesh(*mesh)) {
         srAssertFail("0", ANI_MESH_CPP, 0x2ee, 0);
         return 0;
     }
+    stModelInstance* instance;
     if (mesh->flags.single_instance) {
         instance = mesh->meshes[0].get();
         instance->frame_index = frame;

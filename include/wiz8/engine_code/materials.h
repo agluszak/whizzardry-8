@@ -5,7 +5,6 @@
 #include <string_view>
 
 #include "compat/compiler.h"
-#include "surrender/srMaterial.h"
 #include "surrender/srShader.h"
 #include "surrender/srVertexProcessor.h"
 #include "wiz8/retail_geometry_types.h"
@@ -15,23 +14,11 @@ class srMaterial;
 class srMeshModel;
 class srModelInstance;
 class srTexture;
-class srTexture;
 class stTextureAnim;
 template<class T> class ResourceCache;
 
 /* Combinable flags in level materials; distinct from srShader's packed word. */
 enum { W8_MATERIAL_TWO_SIDED = 1u, W8_MATERIAL_NORMAL_TEXCOORD_MASK = 0x1feu };
-
-// Surface flags guide mesh construction; draw overrides live in the submission.
-class stMaterial : public srMaterial {
-public:
-    stMaterial();
-
-public:
-    stMaterial(const stMaterial&) = default;
-    stMaterial& operator=(const stMaterial&) = default;
-    int m_surface_flags; /* 0x78 */
-};
 
 #pragma pack(push, 1)
 
@@ -71,6 +58,7 @@ struct W8MeshMaterial {
     std::shared_ptr<srMaterial> material;
     std::shared_ptr<srTexture> texture;
     srShader render_flags;
+    bool two_sided = false; // Geometry construction, independent of shared render state.
 };
 
 W8MeshMaterial LoadMaterial(const std::filesystem::path& texture_directory,

@@ -88,18 +88,12 @@ void W8NormalTexcoordMapper::process(srVertexPipe& pipe)
     }
 }
 
-// FUNCTION: WIZ8 0x004925B0
-stMaterial::stMaterial()
-{
-    m_surface_flags = 0;
-}
-
 namespace {
 // Exact render-state identity; serialized padding and texture filenames do not
 // belong to the material state shared by separate mesh texture assignments.
 using MaterialKey = std::array<std::uint32_t, 13>;
-std::map<MaterialKey, std::weak_ptr<stMaterial>> level_materials;
-std::weak_ptr<stMaterial> default_material;
+std::map<MaterialKey, std::weak_ptr<srMaterial>> level_materials;
+std::weak_ptr<srMaterial> default_material;
 }
 static std::map<std::filesystem::path, std::weak_ptr<stTextureFile>> g_texture_files;
 ResourceCache<stTextureAnim> g_texture_animations;
@@ -110,6 +104,7 @@ W8MeshMaterial LoadMaterial(const std::filesystem::path& texture_directory,
 {
     const W8MaterialRecord* source = &record;
     W8MeshMaterial result;
+    result.two_sided = (record.surface_flags & W8_MATERIAL_TWO_SIDED) != 0;
     std::shared_ptr<srTexture>& texture = result.texture;
     srShader* render_flags = &result.render_flags;
     std::filesystem::path texture_path;
@@ -189,12 +184,12 @@ W8MeshMaterial LoadMaterial(const std::filesystem::path& texture_directory,
                           bits(textured ? source->ambient.y : source->diffuse.y),
                           bits(textured ? source->ambient.z : source->diffuse.z),
                           bits(textured ? source->emission : 0.f),
-                          source->surface_flags,
+                          source->surface_flags & W8_MATERIAL_NORMAL_TEXCOORD_MASK,
                           textured};
     auto& cached = level_materials[key];
     auto concrete = cached.lock();
     if (!concrete) {
-        concrete = std::make_shared<stMaterial>();
+        concrete = std::make_shared<srMaterial>();
         concrete->setName("Level material");
         cached = concrete;
         concrete->parms.specular =
@@ -223,7 +218,6 @@ W8MeshMaterial LoadMaterial(const std::filesystem::path& texture_directory,
                 glm::vec4(source->emission, source->emission, source->emission, 1.0f);
         }
         concrete->dirty = 1;
-        concrete->m_surface_flags = source->surface_flags;
         if ((source->surface_flags & W8_MATERIAL_NORMAL_TEXCOORD_MASK) != 0) {
             concrete->setMapper(&g_normal_texcoord_mapper);
         }
@@ -243,7 +237,7 @@ W8MeshMaterial CreateDefaultMaterial()
 
     auto concrete = default_material.lock();
     if (concrete == 0) {
-        concrete = std::make_shared<stMaterial>();
+        concrete = std::make_shared<srMaterial>();
         concrete->setName(DEFAULT_MATERIAL_NAME);
         default_material = concrete;
 
@@ -257,7 +251,6 @@ W8MeshMaterial CreateDefaultMaterial()
         concrete->parms.diffuse.w = 1.0f;
         concrete->parms.emissive = glm::vec4(0.0f);
         concrete->dirty = 1;
-        concrete->m_surface_flags = 0;
     }
     result.material = std::move(concrete);
     return result;

@@ -51,7 +51,6 @@ extern std::vector<W8AniMesh*> g_animesh_cache_list;
 void InitializeAniMeshCache(int primary_limit, int secondary_limit);
 void FreeAniMeshCache(void);
 
-float GetAniMeshFrameRadius(W8AniMesh* mesh, unsigned char frame);
 std::optional<srBoundingBox> GetAniMeshBounds(W8AniMesh* mesh);
 std::unique_ptr<W8AniMesh>
 ReadAnimatedMesh(wiz8::File& file, const std::filesystem::path& texture_directory, bool load_all);
