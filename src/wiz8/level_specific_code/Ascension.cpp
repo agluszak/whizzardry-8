@@ -380,7 +380,7 @@ bool AscensionPath1Camera(Trigger* pTrigger)
         return false;
     }
     for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
-        W8MonsterInfo* info = MonsterGetScriptPartByLocationIndex(index);
+        W8MonsterInfo* info = GetMonsterListEntry(index);
 
         if (info->fActive && info->fInCombat && info->ubDisposition == W8_DISPOSITION_HOSTILE &&
             !info->p3D->IsDying()) {

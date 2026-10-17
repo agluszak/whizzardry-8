@@ -1,7 +1,7 @@
 #pragma once
-
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <span>
 #include <vector>
 
@@ -69,6 +69,7 @@ public:
         channel_mask |= 1u << channel;
     }
     std::span<const w8_ulong> getAVT() const;
+    const srVertexProcessor::MaterialInfo& getMaterialInfo() const;
     std::span<float> getAlpha();
     std::span<const float> getDepthCue();
     std::span<glm::vec4> getDiffuse();
@@ -107,6 +108,8 @@ public:
         w8_ulong flags = 0;
         w8_ulong channels = 0;
         srMaterial* material = nullptr;
+        std::optional<float> diffuse_scale;
+        std::optional<float> emissive_override;
         struct ColorSource {
             enum e_format { FORMAT_ARGB = 0, FORMAT_VECTOR3 = 1, FORMAT_VECTOR4 = 2 };
             const void* colors = nullptr;
@@ -136,7 +139,7 @@ private:
     void processVertexBuffer();
     static w8_ulong scanChangeIndexed(const w8_ulong* first, w8_ulong first_count,
                                       const w8_ulong* second, w8_ulong second_count);
-    void setMaterial(srMaterial* material);
+    void setMaterial(srMaterial* material, const Record& draw);
     void setupAlpha();
     void setupDepthCue();
     void setupDiffuse();

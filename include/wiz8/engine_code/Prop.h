@@ -115,7 +115,10 @@ public:
     /* Restore the rep's persisted animation state: five saved bytes plus one
        discarded byte, clamped to the loaded animation's frame count, with
        path values re-synced while a running animation is active. */
-    bool LoadAnimationState(wiz8::File& hFile);        /* 0x0044DBD0 */
+    struct SavedAnimationState {
+        unsigned char subcycle, first_frame, last_frame, frame_direction, animation_playing, unused;
+    };
+    void ApplyAnimationState(const SavedAnimationState& state);        /* 0x0044DBD0 */
     int BuildOrRefreshPathingRepresentation(); /* 0x0044DEA0 */
     /* Current minus previous position when the animation advances exactly
        one frame; otherwise zero. */

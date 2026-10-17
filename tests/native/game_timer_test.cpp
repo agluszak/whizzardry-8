@@ -3,6 +3,7 @@
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
+#include "save_payload.h"
 #include "surrender/srGERD.h"
 #include "temporary_directory.h"
 #include "wiz8/engine_code/GameTimeAccumulator.h"
@@ -125,7 +126,7 @@ TEST_CASE_METHOD(TimerFixture, "Interval gates retain catch-up, one-shot and sav
     W8IntervalGate loaded(2.0f, false, false);
     {
         auto file = wiz8::open_file(path);
-        REQUIRE(loaded.Load(*file));
+        REQUIRE(ReadSavePayload(*file, [&](W8Chunk& chunk) { return loaded.Load(chunk); }));
     }
     REQUIRE(loaded.GetProgress() == Catch::Approx(0.25f));
     advance(250'000);

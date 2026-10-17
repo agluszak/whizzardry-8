@@ -751,7 +751,7 @@ void ResetMonsterGroupTurnState(void)
         GetMonsterGroupByListIndex(index)->hostility_set_at = 0;
     }
     for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
-        monster_info = MonsterGetScriptPartByLocationIndex(index);
+        monster_info = GetMonsterListEntry(index);
         monster_info->player_visibility.last_seen_clock = 0;
         monster_info->party_threat.last_seen_clock = 0;
     }
@@ -1014,13 +1014,12 @@ W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count, const g
             auto& roster = gXStatus.monster_roster;
             const auto& monsters = record->unborn ? roster.unborn() : roster.live();
             for (const int location_id : group->monsters) {
-                const auto member =
-                    std::ranges::find_if(monsters, [location_id](const W8MonsterInfo* info) {
-                        return info->location_id == location_id;
-                    });
+                const auto member = std::ranges::find_if(monsters, [location_id](const auto& info) {
+                    return info->location_id == location_id;
+                });
                 if (member != monsters.end()) {
                     g_octree->UnregisterLocationObjects(static_cast<unsigned short>(location_id));
-                    roster.remove(*member);
+                    roster.remove(member->get());
                 }
             }
             std::erase_if(*list, [group](const auto& entry) { return entry.get() == group; });

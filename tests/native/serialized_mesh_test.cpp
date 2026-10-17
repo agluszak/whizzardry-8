@@ -1,4 +1,5 @@
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -12,11 +13,13 @@
 #include <utility>
 #include <vector>
 
+#include <SDL3/SDL_surface.h>
 #include <catch2/catch_test_macros.hpp>
 
 #include "ReadMesh.h"
 #include "file_faults.h"
 #include "filesystem.h"
+#include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
@@ -24,15 +27,23 @@
 #include "layouts/world.h"
 #include "materials.h"
 #include "quad.h"
+#include "scoped_asset_roots.h"
+#include "surrender/srMaterial.h"
+#include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
 #include "temporary_directory.h"
+#include "wiz8/asset_paths.h"
+#include "wiz8/engine_code/3d.h"
+#include "wiz8/engine_code/AniMesh.h"
 #include "wiz8/engine_code/Level.h"
 #include "wiz8/engine_code/OctMeshModel.h"
 #include "wiz8/engine_code/ReadLevel.h"
+#include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/engine_code/stModelInstance.h"
+#include "wiz8/engine_code/stTextureFile.h"
 
 namespace {
 template<class T> void Write(wiz8::File& file, const T& value)
@@ -83,7 +94,7 @@ void WriteFixture(const std::filesystem::path& path, bool duplicate_successor,
     Write(*file, -1);
 }
 
-void WriteAnimatedFixture(const std::filesystem::path& path)
+void WriteAnimatedFixture(const std::filesystem::path& path, short shift = 0)
 {
     auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
     Write(*file, 3); // Format with flags and transform.
@@ -96,7 +107,7 @@ void WriteAnimatedFixture(const std::filesystem::path& path)
     Write(*file, static_cast<unsigned char>(2));
     Write(*file, short{2});
     Write(*file, 1000.0f);
-    const std::array<short, 9> first{0, 0, 0, 2, 0, 0, 0, 2, 0};
+    const std::array<short, 9> first{shift, 0, 0, 2, 0, 0, 0, 2, 0};
     const std::array<short, 9> second{4, 0, 0, 6, 0, 0, 4, 2, 0};
     Write(*file, first);
     Write(*file, second);
@@ -114,27 +125,32 @@ void WriteAnimatedFixture(const std::filesystem::path& path)
 bool LoadAnimated(const std::filesystem::path& path)
 {
     auto file = wiz8::open_file(path);
-    W8World world{};
-    W8ReadLevelInfo info{&world, file.get(), "", nullptr};
-    auto first = ReadSingleLevelMesh(&info, "animated fixture", true);
+    auto first = ReadSingleLevelMesh(*file, {});
     REQUIRE((first));
     auto* model = static_cast<stMeshModel*>(first->getModel());
     REQUIRE((model->frames.size() == 2));
     REQUIRE((model->GetVertexLocations(0, true, 0)[1].x == 1.0f));
     REQUIRE((model->GetVertexLocations(1, true, 0)[1].x == 3.0f));
-    // Cached models still consume and validate their serialized record.
-    file->seek(0, wiz8::SeekOrigin::begin);
-    auto second = ReadSingleLevelMesh(&info, "animated fixture", true);
+    // A cache hit shares geometry but reads this record's own placement.
+    {
+        auto writer = wiz8::open_file(path, wiz8::OpenMode::update);
+        writer->seek(13, wiz8::SeekOrigin::begin); // version/counts/flags
+        Write(*writer, std::array<float, 10>{2, 3, 4, .5f, 0, 1, 0, 1, 1, 1});
+    }
+    file = wiz8::open_file(path);
+    auto second = ReadSingleLevelMesh(*file, {});
     REQUIRE((second && second->getModel() == model));
+    REQUIRE(first->getLocation() == glm::dvec3(0));
+    REQUIRE(second->getLocation() == glm::dvec3(1000, 1500, 2000));
+    REQUIRE(second->getRotation() != first->getRotation());
     REQUIRE(first->getParent() == nullptr);
     REQUIRE(second->getParent() == nullptr);
-    auto truncated = ReadSingleLevelMesh(&info, "animated fixture", true);
+    auto truncated = ReadSingleLevelMesh(*file, {});
     REQUIRE_FALSE(truncated);
     REQUIRE(first->getModel() == model);
     first.reset();
     second.reset();
     REQUIRE((g_mesh_models.empty() && g_decompressed_mesh_bytes == 0));
-    ReleaseReadMeshScratch();
     return true;
 }
 
@@ -142,13 +158,9 @@ bool LoadCycles(const std::filesystem::path& path)
 {
     for (int cycle = 0; cycle != 3; ++cycle) {
         auto file = wiz8::open_file(path);
-        W8ReadLevelInfo info{};
         W8World world{};
-        info.world = &world;
-        info.bitmap_folder = "";
-        info.hFile = file.get();
         {
-            auto instances = ReadMultipleLevelMeshes(&info, 4, "serialized linked mesh");
+            auto instances = ReadMultipleLevelMeshes(*file, 4, {});
             REQUIRE(instances.size() == 4);
             REQUIRE((instances[0] && instances[1] && !instances[2] && !instances[3]));
             REQUIRE(instances[0]->getParent() == nullptr);
@@ -174,7 +186,6 @@ bool LoadCycles(const std::filesystem::path& path)
         if (cycle == 2) {
             ReleaseOctMeshDefaults();
         }
-        ReleaseReadMeshScratch();
         // Released meshes drop their references; only the default snapshot may remain.
         REQUIRE((cycle == 2 ? !g_oct_mesh_default.material
                             : g_oct_mesh_default.material.use_count() == 1));
@@ -200,27 +211,19 @@ TEST_CASE("serialized_mesh_test")
     bool ok = LoadCycles(good) && LoadAnimated(animated);
     for (const auto& path : {bad, invalid, truncated}) {
         auto file = wiz8::open_file(path);
-        W8ReadLevelInfo info{};
-        W8World world{};
-        info.world = &world;
-        info.bitmap_folder = "";
-        info.hFile = file.get();
-        auto instances = ReadMultipleLevelMeshes(&info, 4, "invalid linked mesh");
+        auto instances = ReadMultipleLevelMeshes(*file, 4, {});
         ok = ok && instances.empty();
     }
     {
-        W8World world{};
         for (std::size_t size : {0u, 3u, 5u}) {
             auto file = wiz8::open_file(good);
-            W8ReadLevelInfo info{&world, file.get(), "", nullptr};
-            REQUIRE(ReadMultipleLevelMeshes(&info, size, nullptr).empty());
+            REQUIRE(ReadMultipleLevelMeshes(*file, size, {}).empty());
         }
         std::size_t operations;
         {
             auto file = wiz8::open_file(good);
-            W8ReadLevelInfo info{&world, file.get(), "", nullptr};
             FileFaults trace;
-            auto instances = ReadMultipleLevelMeshes(&info, 4, nullptr);
+            auto instances = ReadMultipleLevelMeshes(*file, 4, {});
             REQUIRE(instances.size() == 4);
             operations = trace.operations;
         }
@@ -229,9 +232,8 @@ TEST_CASE("serialized_mesh_test")
         REQUIRE(operations >= 3);
         for (const std::size_t operation : {std::size_t{1}, operations / 2, operations}) {
             auto file = wiz8::open_file(good);
-            W8ReadLevelInfo info{&world, file.get(), "", nullptr};
             FileFaults fault(operation);
-            REQUIRE(ReadMultipleLevelMeshes(&info, 4, nullptr).empty());
+            REQUIRE(ReadMultipleLevelMeshes(*file, 4, {}).empty());
             REQUIRE(fault.fired);
             REQUIRE(g_mesh_models.empty());
         }
@@ -268,9 +270,314 @@ TEST_CASE("serialized_mesh_test")
         REQUIRE_FALSE(ReadLevel(&world, file.get(), false, ""));
         REQUIRE(destroyed == 3);
     }
-    ReleaseReadMeshScratch();
     ReleaseOctMeshDefaults();
     REQUIRE(ok);
     std::puts(
         "ok: serialized mesh loading, linked successors, unloading, reloading and invalid links");
+}
+
+TEST_CASE("Animated meshes share source geometry and keep playback independent")
+{
+    ScopedTemporaryDirectory directory{"wiz8-animesh-identity"};
+    const auto record = directory.path / "mesh.bin";
+    const auto animation = directory.path / "animation.bin";
+    WriteAnimatedFixture(record);
+    {
+        std::ifstream input(record, std::ios::binary);
+        std::ofstream output(animation, std::ios::binary);
+        output.put(2); // Two vertex frames stored in a single mesh record.
+        output.put(0); // First frame index.
+        output << input.rdbuf();
+    }
+    std::unique_ptr<W8AniMesh> first;
+    std::unique_ptr<W8AniMesh> second;
+    {
+        auto input = wiz8::open_file(animation);
+        first = ReadAnimatedMesh(*input, {}, true);
+        REQUIRE(first);
+    }
+    {
+        auto input = wiz8::open_file(animation);
+        second = ReadAnimatedMesh(*input, {}, true);
+        REQUIRE(second);
+    }
+    REQUIRE(first->meshes.size() == 1);
+    REQUIRE(second->meshes.size() == 1);
+    REQUIRE(first->meshes[0]->getModel() == second->meshes[0]->getModel());
+    REQUIRE(first->frame_count == 2);
+    REQUIRE(second->frame_count == 2);
+    REQUIRE(first->meshes[0]->frame_index == 0);
+    REQUIRE(second->meshes[0]->frame_index == 0);
+    const auto bounds = GetAniMeshBounds(first.get());
+    REQUIRE(bounds);
+    REQUIRE(bounds->minimum == glm::vec3(0));
+    REQUIRE(bounds->maximum == glm::vec3(3, 1, 0));
+    REQUIRE(first->radius == std::sqrt(10.0f) * 0.5f);
+    REQUIRE(first->meshes[0]->frame_index == 0);
+    auto* first_frame = GetAniMeshFrame(first.get(), 1);
+    REQUIRE(first_frame->frame_index == 1);
+    REQUIRE(second->meshes[0]->frame_index == 0);
+    REQUIRE(GetAniMeshFrame(second.get(), 0)->frame_index == 0);
+    REQUIRE(first_frame->frame_index == 1);
+    REQUIRE(GetAniMeshBounds(first.get()));
+    REQUIRE(first_frame->frame_index == 1);
+    REQUIRE(UnloadAniMesh(first.get(), true));
+    REQUIRE(GetAniMeshFrame(first.get(), 0)); // Reopen the same physical source/offset.
+    REQUIRE(first->meshes[0]->getModel() == second->meshes[0]->getModel());
+}
+
+TEST_CASE("Animated frame indices determine playback order before publication")
+{
+    ScopedTemporaryDirectory directory{"wiz8-animesh-frame-order"};
+    const auto path = directory.path / "animation.bin";
+    std::int64_t second_index = 0;
+    {
+        auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
+        Write(*file, static_cast<unsigned char>(2));
+        for (const unsigned char frame : {1, 0}) {
+            if (frame == 0) second_index = file->tell();
+            Write(*file, frame);
+            Write(*file, std::array<int, 3>{1, 3, 1});
+            const float offset = frame * 4.0f;
+            Write(*file, std::array<float, 9>{offset, 0, 0, offset + 1, 0, 0, offset, 1, 0});
+            W8SerializedMeshFace face{};
+            face.vertices[1] = 1;
+            face.vertices[2] = 2;
+            Write(*file, face);
+            Write(*file, short{1});
+            W8MaterialRecord material{};
+            material.version = 1;
+            file->write(&material, 0x11a);
+        }
+    }
+    auto file = wiz8::open_file(path);
+    auto mesh = ReadAnimatedMesh(*file, {}, true);
+    REQUIRE(mesh);
+    REQUIRE(mesh->meshes.size() == 2);
+    REQUIRE(GetAniMeshFrame(mesh.get(), 0)->getModel()->getBounds().box.minimum.x == 0);
+    REQUIRE(GetAniMeshFrame(mesh.get(), 1)->getModel()->getBounds().box.minimum.x == 2000);
+    {
+        auto writer = wiz8::open_file(path, wiz8::OpenMode::update);
+        writer->seek(second_index, wiz8::SeekOrigin::begin);
+        Write(*writer, static_cast<unsigned char>(1)); // Duplicate frame, missing frame zero.
+    }
+    file->seek(0, wiz8::SeekOrigin::begin);
+    REQUIRE_FALSE(ReadAnimatedMesh(*file, {}, true));
+    REQUIRE(GetAniMeshFrame(mesh.get(), 0)->getModel()->getBounds().box.minimum.x == 0);
+}
+
+TEST_CASE("Mesh construction finishes material partitions, UV seams and vertex markers")
+{
+    ScopedTemporaryDirectory directory{"wiz8-mesh-partitions"};
+    const auto path = directory.path / "partitions.mesh";
+    {
+        auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
+        Write(*file, std::array<int, 3>{4, 6, 5}); // Version, vertices, faces.
+        Write(*file, static_cast<unsigned char>(0));
+        Write(*file, std::array<float, 10>{0, 0, 0, 0, 0, 1, 0, 1, 1, 1});
+        Write(*file, static_cast<signed char>(2));
+        Write(*file, short{10}); // Marker key, source vertex.
+        Write(*file, short{0});
+        Write(*file, short{20});
+        Write(*file, short{3});
+        Write(*file, std::array<float, 18>{1, 0, 0, 2, 0, 0, 1, 1, 0, 4, 0, 0, 5, 0, 0, 4, 1, 0});
+        W8SerializedMeshFace face{};
+        face.vertices[1] = 1;
+        face.vertices[2] = 2;
+        face.material_index = 1;
+        Write(*file, face);
+        face.texture_coordinates[0][0] = 0.5f; // One source vertex, different UV.
+        Write(*file, face);
+        face.material_index = 2; // Same shader, distinct material.
+        Write(*file, face);
+        face.material_index = 3; // Another shader creates a second part.
+        face.vertices[0] = 3;
+        face.vertices[1] = 4;
+        face.vertices[2] = 5;
+        Write(*file, face);
+        face.material_index = 4; // Shared render state, distinct geometry sidedness.
+        face.vertices[0] = 0;
+        face.vertices[1] = 1;
+        face.vertices[2] = 2;
+        Write(*file, face);
+        Write(*file, short{5});
+        W8MaterialRecord material{};
+        material.version = 1;
+        file->write(&material, 0x11a); // Default slot.
+        material.opacity = 1;
+        material.diffuse.x = 1;
+        material.surface_flags = W8_MATERIAL_TWO_SIDED;
+        file->write(&material, 0x11a);
+        material.diffuse.x = 0;
+        material.diffuse.z = 1;
+        material.surface_flags = 0;
+        file->write(&material, 0x11a);
+        material.opacity = 0.5f;
+        file->write(&material, 0x11a);
+        material.opacity = 1;
+        material.diffuse.x = 1;
+        material.diffuse.z = 0;
+        file->write(&material, 0x11a); // Same renderer material as the two-sided record.
+    }
+    auto file = wiz8::open_file(path);
+    auto instance = ReadSingleLevelMesh(*file, {});
+    REQUIRE(instance);
+    auto* head = static_cast<stMeshModel*>(instance->getModel());
+    REQUIRE(head->parts.size() == 1);
+    REQUIRE(head->parts[0]->head == head);
+    auto* part = head->parts[0].get();
+    REQUIRE(head->polygon_count == 6); // Two two-sided faces, two single-sided.
+    REQUIRE(part->polygon_count == 1);
+    REQUIRE(head->vertex_location_count == 15); // Material split and back faces.
+    REQUIRE(head->getVertexMaterialTable(0, srMeshModel::SIDE_FRONT, false));
+    REQUIRE(head->FindMappedIndex(10) >= 0);
+    REQUIRE(head->getVertexLoc()[head->FindMappedIndex(10)] == glm::vec3(500, 0, 0));
+    REQUIRE(head->FindMappedIndex(20) == -1);
+    REQUIRE(part->FindMappedIndex(10) == -1);
+    REQUIRE(part->FindMappedIndex(20) >= 0);
+    REQUIRE(part->getVertexLoc()[part->FindMappedIndex(20)] == glm::vec3(2000, 0, 0));
+    // UV seams follow the optimized topology while retaining both authored UVs.
+    bool seam = false;
+    for (int polygon = 0; polygon < head->polygon_count; ++polygon) {
+        const int vertex = head->getPolyVertex()[polygon][0];
+        if (head->getVertexLoc()[vertex] != glm::vec3(500, 0, 0)) continue;
+        const int uv = head->getPolyUVIndex(0, 0)[polygon][0];
+        if (head->getVertexTexCoords(0, 0, 0)[uv].x == 0.5f) seam = true;
+    }
+    REQUIRE(seam);
+    std::weak_ptr<srMaterial> lifetime =
+        (*head->getVertexMaterialTable(0, srMeshModel::SIDE_FRONT, false))[0];
+    auto duplicate = DuplicateModelInstance(*instance);
+    instance.reset();
+    REQUIRE(duplicate->getModel() == head);
+    REQUIRE_FALSE(lifetime.expired());
+    duplicate.reset();
+    REQUIRE(lifetime.expired());
+}
+
+TEST_CASE("Geometry sidedness does not split shared renderer material state")
+{
+    W8MaterialRecord record{};
+    record.version = 1;
+    record.opacity = 1;
+    auto single_sided = LoadMaterial({}, record);
+    record.surface_flags = W8_MATERIAL_TWO_SIDED;
+    auto two_sided = LoadMaterial({}, record);
+    REQUIRE(single_sided.material);
+    REQUIRE(single_sided.material == two_sided.material);
+    REQUIRE_FALSE(single_sided.two_sided);
+    REQUIRE(two_sided.two_sided);
+}
+
+TEST_CASE("Mesh reuse distinguishes source files, record offsets and material directories")
+{
+    ScopedTemporaryDirectory directory{"wiz8-mesh-record-identity"};
+    const auto a = directory.path / "a.mesh", b = directory.path / "b.mesh";
+    const auto joined = directory.path / "joined.mesh";
+    WriteAnimatedFixture(a);
+    WriteAnimatedFixture(b, 8);
+    {
+        std::ifstream first(a, std::ios::binary), second(b, std::ios::binary);
+        std::ofstream output(joined, std::ios::binary);
+        output << first.rdbuf() << second.rdbuf();
+    }
+    auto file = wiz8::open_file(joined);
+    auto first = ReadSingleLevelMesh(*file, directory.path / "textures-a");
+    const auto second_offset = file->tell();
+    auto second = ReadSingleLevelMesh(*file, directory.path / "textures-a");
+    REQUIRE(first);
+    REQUIRE(second);
+    REQUIRE(first->getModel() != second->getModel());
+    auto* second_model = static_cast<stMeshModel*>(second->getModel());
+    REQUIRE(second_model->GetVertexLocations(0, true, 0)[0].x == 4);
+    file->seek(second_offset, wiz8::SeekOrigin::begin);
+    auto repeated = ReadSingleLevelMesh(*file, directory.path / "textures-a");
+    REQUIRE(repeated);
+    REQUIRE(repeated->getModel() == second->getModel());
+    file->seek(second_offset, wiz8::SeekOrigin::begin);
+    auto other_directory = ReadSingleLevelMesh(*file, directory.path / "textures-b");
+    REQUIRE(other_directory);
+    REQUIRE(other_directory->getModel() != second->getModel());
+    auto other_file = wiz8::open_file(b);
+    auto independent = ReadSingleLevelMesh(*other_file, directory.path / "textures-a");
+    REQUIRE(independent);
+    REQUIRE(independent->getModel() != second->getModel());
+}
+
+TEST_CASE("Texture sharing and lazy reads retain the resolved asset directory")
+{
+    ScopedTemporaryDirectory directory{"wiz8-texture-identity"};
+    const auto a = directory.path / "a", b = directory.path / "b";
+    std::filesystem::create_directories(a);
+    std::filesystem::create_directories(b);
+    for (const auto& [folder, red] : {std::pair{a, 10}, std::pair{b, 200}}) {
+        auto file = wiz8::open_file(folder / "skin.tga", wiz8::OpenMode::replace);
+        // Uncompressed 1x1, 24-bit TGA with one BGR pixel.
+        Write(*file,
+              std::array<unsigned char, 21>{0, 0, 2,  0, 0, 0, 0,
+                                            0, 0, 0,  0, 0, 1, 0,
+                                            1, 0, 24, 0, 0, 0, static_cast<unsigned char>(red)});
+    }
+    struct RestorePreload {
+        bool previous = g_texture_cache_enabled;
+        ~RestorePreload() { g_texture_cache_enabled = previous; }
+    } restore;
+    g_texture_cache_enabled = false;
+    ScopedAssetRoots roots({wiz8::path_to_utf8(a), wiz8::path_to_utf8(directory.path / "user")});
+    const auto first_path = wiz8::asset_path("skin.tga");
+    auto first = LoadTextureFromPath(first_path, nullptr, false);
+    auto same = LoadTextureFromPath(first_path, nullptr, false);
+    REQUIRE(first == same);
+    auto* first_file = dynamic_cast<stTextureFile*>(first.get());
+    REQUIRE(first_file);
+    REQUIRE_FALSE(first_file->isSurfaceLoaded());
+    roots.configure({wiz8::path_to_utf8(b), wiz8::path_to_utf8(directory.path / "user")});
+    auto second = LoadTextureFromPath(wiz8::asset_path("skin.tga"), nullptr, false);
+    REQUIRE(first != second);
+    REQUIRE(first->resolve());
+    REQUIRE(second->resolve());
+    unsigned char red, green, blue, alpha;
+    REQUIRE(SDL_ReadSurfacePixel(first_file->getSurface(), 0, 0, &red, &green, &blue, &alpha));
+    REQUIRE(red == 10); // Resolving under root B still reads the pinned file under A.
+    auto* second_file = dynamic_cast<stTextureFile*>(second.get());
+    REQUIRE(second_file);
+    REQUIRE(SDL_ReadSurfacePixel(second_file->getSurface(), 0, 0, &red, &green, &blue, &alpha));
+    REQUIRE(red == 200);
+
+    // A static head must not make a linked animated part eligible for sharing.
+    {
+        auto file = wiz8::open_file(a / "cycle.ifl", wiz8::OpenMode::replace);
+        constexpr char frames[] = "skin.tga\nskin.tga\n";
+        file->write(frames, sizeof(frames) - 1);
+    }
+    const auto mesh_path = directory.path / "linked-animation.mesh";
+    {
+        auto file = wiz8::open_file(mesh_path, wiz8::OpenMode::replace);
+        Write(*file, std::array<int, 3>{1, 3, 2}); // version, vertices, faces
+        Write(*file, std::array<float, 9>{0, 0, 0, 1, 0, 0, 0, 1, 0});
+        W8SerializedMeshFace face{};
+        face.vertices[1] = 1;
+        face.vertices[2] = 2;
+        Write(*file, face); // Default, static material in the head.
+        face.material_index = 1;
+        Write(*file, face);
+        Write(*file, short{2});
+        W8MaterialRecord material{};
+        material.version = 1;
+        file->write(&material, 0x11a);
+        std::string("cycle.ifl").copy(material.texture_names[0], 9);
+        material.opacity = 1;
+        file->write(&material, 0x11a);
+    }
+    auto stream = wiz8::open_file(mesh_path);
+    auto animated_first = ReadSingleLevelMesh(*stream, a);
+    stream->seek(0, wiz8::SeekOrigin::begin);
+    auto animated_second = ReadSingleLevelMesh(*stream, a);
+    REQUIRE(animated_first);
+    REQUIRE(animated_second);
+    auto* head = static_cast<stMeshModel*>(animated_first->getModel());
+    REQUIRE(head->parts.size() == 1);
+    REQUIRE_FALSE(MeshHasAnimatedTexture(head));
+    REQUIRE(MeshHasAnimatedTexture(head->parts[0].get()));
+    REQUIRE(animated_first->getModel() != animated_second->getModel());
 }

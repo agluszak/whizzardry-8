@@ -36,6 +36,7 @@
 #include "surrender/srTexture.h"
 #include "surrender/srTriMeshPipeline.h"
 #include "surrender/srVertexPipe.h"
+#include "wiz8/chunk.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Octree.h"
@@ -103,19 +104,19 @@ void SaveParticleStates(wiz8::File& handle)
 }
 
 // FUNCTION: WIZ8 0x0049B3B0
-void LoadParticleStates(wiz8::File& handle)
+void LoadParticleStates(W8Chunk& handle)
 {
     unsigned char version;
     int count = 0;
     char name[0x80] = "";
 
-    handle.read_exact(&version, sizeof(version));
-    handle.read_exact(&count, sizeof(count));
+    handle.ReadBytes(&version, sizeof(version));
+    handle.ReadBytes(&count, sizeof(count));
 
     for (int index = 0; index < count; ++index) {
         unsigned char active;
-        handle.read_exact(name, sizeof(name));
-        handle.read_exact(&active, sizeof(active));
+        handle.ReadBytes(name, sizeof(name));
+        handle.ReadBytes(&active, sizeof(active));
 
         stParticle* particle = FindParticleByName(name);
         if (particle != 0) {

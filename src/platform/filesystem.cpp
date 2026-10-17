@@ -318,6 +318,11 @@ FileStatus File::status() const
     if (!info) throw std::runtime_error("opened file path no longer exists");
     return *info;
 }
+const fs::path& File::physical_path() const noexcept
+{
+    return path_;
+}
+
 FileTimes File::times() const
 {
     require_stream();

@@ -170,7 +170,8 @@ unsigned char LoadWorld(W8World* world, std::string_view source_path, bool use_o
     if (handle == 0) {
         srAssertFail("hFile", THREE_D_API_CPP, 0x1d8, "Could not open level file.");
     }
-    unsigned char success = ReadLevel(world, handle.get(), use_octree, material_folder.c_str());
+    unsigned char success =
+        ReadLevel(world, handle.get(), use_octree, wiz8::asset_path(material_folder));
     if (handle) handle->close();
     handle.reset();
     if (success == 0) {
@@ -814,8 +815,8 @@ unsigned char AdjustWorldCollisionPosition(float radius, glm::vec3* position, bo
     }
 
     if (check_monsters) {
-        W8MonsterInfo* info = GetNextMonsterInfo(true);
-        while (info != 0) {
+        for (const auto& monster_owner : gXStatus.monster_roster.live()) {
+            auto* info = monster_owner.get();
             W8Monster* monster = info->p3D;
             if (monster != 0) {
                 const auto center = monster->GetAnimationCenter();
@@ -825,7 +826,6 @@ unsigned char AdjustWorldCollisionPosition(float radius, glm::vec3* position, bo
                     return 0;
                 }
             }
-            info = GetNextMonsterInfo(false);
         }
     }
     return 1;

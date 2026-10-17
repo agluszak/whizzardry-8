@@ -26,17 +26,6 @@ struct W8World;
 struct W8ReadLevelInfo;
 class W8EmitterHost;
 
-/* Callers build this trio before loading a .mon/.mls resource. The loader
-   carries world into its four-field read record and never reads the other
-   two, but callers still store into them: monster callers null
-   bitmap_directory and set directory to "Data\\Monsters", while the
-   spell factory points directory at the spell-bitmap tree. */
-struct W8GrCycleLoadContext {
-    W8World* world;
-    const char* bitmap_directory;
-    const char* directory;
-};
-
 class stLight;
 class stMeshModel;
 class stParticle;
@@ -177,9 +166,9 @@ public:
 
 W8GrCycle* FindFirstGrCycleByName(std::string_view name);
 unsigned char UnregisterGrCycle(W8GrCycle* cycle);
-void RegisterGrCycle(const char* name, W8GrCycle* cycle);
-bool LoadGrCycle(const W8GrCycleLoadContext* context, const char* mon_name, W8GrCycle* cycle,
-                 int cycle_index, int value, const char* directory, unsigned char object_type,
+void RegisterGrCycle(std::string_view name, W8GrCycle* cycle);
+bool LoadGrCycle(W8World* world, std::string_view mon_name, W8GrCycle* cycle, int cycle_index,
+                 int value, const char* directory, unsigned char object_type,
                  const char* bitmap_directory = 0);
 unsigned char ReadGrCycleData(W8ReadLevelInfo* info, W8GrCycle* cycle, int cycle_index, int value,
                               unsigned char object_type);

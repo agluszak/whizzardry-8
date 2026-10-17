@@ -1,4 +1,5 @@
 #pragma once
+struct W8Chunk;
 
 #include <memory>
 #include <optional>
@@ -157,7 +158,7 @@ struct W8LockState {
     /* Re-rolls the eight pin bytes of a pickable lock (lock_type == 1) and
        resets its difficulty-derived countdown and interaction state. */
     void Reset(); /* 0x00445730 */
-    void ReadRuntimeRecord(wiz8::File& handle, int version, int restoring);
+    void ReadRuntimeRecord(W8Chunk& handle, int version, int restoring);
     /* Spends one point of the lock countdown and reports whether one
        remained to spend. */
     bool ConsumeCountdown(); /* 0x004457A0 */
@@ -204,7 +205,7 @@ public:
     void CompleteItemInteraction();
     void Activate();
     bool Save(wiz8::File& hFile);
-    bool Load(wiz8::File& hFile, char version);
+    bool Load(W8Chunk& hFile, char version);
     void RunLinkedTriggers();
     void FinishAction();
     void GetPosition(glm::vec3* position) const;
@@ -305,11 +306,11 @@ std::unique_ptr<W8TriggerActionData> ReadDoorTriggerActionData(wiz8::File* handl
    action data. */
 int ResetNextTriggerId(void);
 void SaveWorldTriggers(wiz8::File& handle);
-bool LoadWorldTriggers(wiz8::File& handle);
+bool LoadWorldTriggers(W8Chunk& handle);
 void SaveTriggerRuntimeStates(wiz8::File& handle, bool restoring);
-bool LoadTriggerRuntimeStates(wiz8::File& handle);
+bool LoadTriggerRuntimeStates(W8Chunk& handle);
 void SaveTriggerActionData(wiz8::File& handle);
-bool LoadTriggerActionData(wiz8::File& handle);
+bool LoadTriggerActionData(W8Chunk& handle);
 
 extern bool g_trigger_feedback;
 /* Camera position cached by the per-frame trigger walk. */

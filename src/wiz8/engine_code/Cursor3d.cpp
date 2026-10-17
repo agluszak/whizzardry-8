@@ -26,6 +26,7 @@
 #include "surrender/srNode.h"
 #include "surrender/srShader.h"
 #include "surrender/srTexture.h" // IWYU pragma: keep - complete texture type for shared_ptr base conversion.
+#include "wiz8/asset_paths.h"
 #include "wiz8/containers.h"
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/3d.h"
@@ -93,7 +94,7 @@ static float g_cursor_projection_distance = 4000.0f;
 // FUNCTION: WIZ8 0x00490210
 void InitializeWorldCursor(void)
 {
-    W8GrCycleLoadContext context;
+
     glm::vec3 position;
     glm::vec3 camera_position;
     glm::vec4 colour;
@@ -113,9 +114,7 @@ void InitializeWorldCursor(void)
         gp3DCursor->march_enabled = true;
         gp3DCursor->footprint_mode = false;
         gp3DCursor->dragged_info = 0;
-        context.directory = "Data\\Monsters";
-        context.world = g_world.get();
-        auto monster = LoadMonsterCycle(&context, "3DCursor", -1, 1);
+        auto monster = LoadMonsterCycle(g_world.get(), "3DCursor", -1, 1);
         gp3DCursor->monster = monster.get();
         g_world->monsters.push_back(std::move(monster));
         MonsterSetCycle(gp3DCursor->monster, 0);
@@ -145,8 +144,8 @@ void InitializeWorldCursor(void)
             material->setEmissive(colour);
             material->setDiffuse(colour);
             gp3DCursor->particle->SetMaterial(std::move(material));
-            gp3DCursor->particle->SetTexture(
-                LoadTextureFromFolder("Data\\Monsters\\Bitmaps\\", "particle.tga", true));
+            gp3DCursor->particle->SetTexture(LoadTextureFromPath(
+                wiz8::asset_path("data/monsters/bitmaps/particle.tga"), nullptr, true));
             shader.value = 0x100c433;
             gp3DCursor->particle->SetRenderFlags(shader);
             gp3DCursor->particle->rotateX(-1.5707963);

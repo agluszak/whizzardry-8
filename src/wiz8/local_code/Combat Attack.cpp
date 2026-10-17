@@ -438,11 +438,12 @@ bool CharacterHasAttackOn(int party_slot, W8CombatSlot* target)
         if (GetMonsterDataForInfo(monster_info)->untargetable != 0) {
             return false;
         }
-        if (!CanPartyMemberAimAtMonster(party_slot, 0, monster_info,
-                                        !g_combat_state->characters[party_slot].dead
-                                            ? W8_TARGETING_CONTEXT_IN_COMBAT
-                                            : W8_TARGETING_CONTEXT_OUT_OF_COMBAT,
-                                        false)) {
+        if (!CanPartyMemberAimAtMonster(
+                party_slot, 0, monster_info,
+                SelectCombatAction(party_slot, !g_combat_state->characters[party_slot].dead
+                                                   ? W8_TARGETING_CONTEXT_IN_COMBAT
+                                                   : W8_TARGETING_CONTEXT_OUT_OF_COMBAT),
+                false)) {
             return false;
         }
     } else {
@@ -598,7 +599,7 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
     }
     for (unsigned int monster_index = 0; monster_index < gXStatus.monster_roster.live().size();
          ++monster_index) {
-        W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
+        W8MonsterInfo* monster_info = GetMonsterListEntry(monster_index);
         W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
         if (monster_info->fActive && monster_info->fInCombat && monster_info->hp_current != 0 &&
             monster_info->highest_condition < W8_CONDITION_BLIND &&
@@ -718,7 +719,8 @@ bool CanCharacterAttackItsTarget(int party_slot)
 {
     W8Character* character;
 
-    if (!TargetIsInPlay(party_slot, 0, W8_TARGETING_CONTEXT_OUT_OF_COMBAT)) {
+    if (!TargetIsInPlay(party_slot, 0,
+                        SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT))) {
         return false;
     }
     if (!IsPartySlotEligible(party_slot)) {
@@ -853,7 +855,7 @@ void ResolveSpellMissileHit(W8Missile* missile)
             ResetCombatSlot(&struck);
             struck.iType = W8_TARGET_KIND_MONSTER;
             for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
-                monster_info = MonsterGetScriptPartByLocationIndex(index);
+                monster_info = GetMonsterListEntry(index);
                 if (monster_info->fActive) {
                     location = MonsterGetLocation(monster_info->p3D);
                     glm::vec3 offset = center - location;
@@ -3012,22 +3014,25 @@ void BuildCharacterTargetList(int party_slot, int action, std::vector<W8CombatSl
             } else {
                 if ((row->target_out_of_combat.iType == W8_TARGET_KIND_CHARACTER &&
                      row->target_out_of_combat.iChar == i) ||
-                    !CharacterActionReachesSlot(party_slot, action, i,
-                                                W8_TARGETING_CONTEXT_OUT_OF_COMBAT)) {
+                    !CharacterActionReachesSlot(
+                        party_slot, action, i,
+                        SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT))) {
                     continue;
                 }
                 AppendCombatTargetEntry(out_list, W8_TARGET_KIND_CHARACTER, i, -1);
             }
         }
     }
-    for (W8MonsterInfo* monster_info : gXStatus.monster_roster.live()) {
+    for (const auto& monster_owner : gXStatus.monster_roster.live()) {
+        auto* monster_info = monster_owner.get();
         if (monster_info->fActive && monster_info->hp_current != 0 && monster_info->fInCombat &&
             (g_status.buffers.XChar[party_slot].target_out_of_combat.iType !=
                  W8_TARGET_KIND_MONSTER ||
              g_status.buffers.XChar[party_slot].target_out_of_combat.iMonsterID !=
                  monster_info->location_id) &&
-            CanPartyMemberAimAtMonster(party_slot, action, monster_info,
-                                       W8_TARGETING_CONTEXT_OUT_OF_COMBAT, false)) {
+            CanPartyMemberAimAtMonster(
+                party_slot, action, monster_info,
+                SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT), false)) {
             AppendCombatTargetEntry(out_list, W8_TARGET_KIND_MONSTER, -1,
                                     monster_info->location_id);
         }
@@ -3049,7 +3054,8 @@ void BuildMonsterTargetList(W8MonsterInfo* monster_info, W8MonsterRecord* record
             AppendCombatTargetEntry(out_list, W8_TARGET_KIND_CHARACTER, i, -1);
         }
     }
-    for (W8MonsterInfo* candidate : gXStatus.monster_roster.live()) {
+    for (const auto& monster_owner : gXStatus.monster_roster.live()) {
+        auto* candidate = monster_owner.get();
         if (candidate->fActive && candidate->hp_current != 0 && candidate->fInCombat) {
             if (candidate == monster_info) {
                 AppendCombatTargetEntry(out_list, W8_TARGET_KIND_MONSTER, -1,
@@ -3512,7 +3518,8 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
     row->hand_attack_values[hand]--;
     g_combat_state->unaware = 0;
     g_combat_state->natural_attack = 0;
-    if (!TargetIsInPlay(party_slot, hand, W8_TARGETING_CONTEXT_OUT_OF_COMBAT)) {
+    if (!TargetIsInPlay(party_slot, hand,
+                        SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT))) {
         DebugMessage(
             1, fmt::format("ERROR: {} is starting attack with invalid target!", character->name));
         return false;
@@ -3722,7 +3729,9 @@ int ResolveCharacterAttack(int party_slot)
         } else {
             outcome = 2;
         }
-    } else if (!TargetIsInPlay(party_slot, hand, W8_TARGETING_CONTEXT_OUT_OF_COMBAT)) {
+    } else if (!TargetIsInPlay(
+                   party_slot, hand,
+                   SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT))) {
         ReportInvalidAttackTarget(party_row->target_out_of_combat, source);
         return 3;
     } else {
@@ -4156,7 +4165,8 @@ int ResolveCharacterAttack(int party_slot)
         }
         if (character->Hand[hand].in_play && GetCharAttackRange(character, hand) != W8_RANGE_NONE &&
             (target == party_row->target_out_of_combat) &&
-            TargetIsInPlay(party_slot, hand, W8_TARGETING_CONTEXT_OUT_OF_COMBAT)) {
+            TargetIsInPlay(party_slot, hand,
+                           SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT))) {
             if (!verbose && (fumbled || source.target_diverted != 0)) {
                 ReportCharacterAttackResult(party_slot, report);
                 PostCharacterNotice(

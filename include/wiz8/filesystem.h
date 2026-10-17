@@ -70,6 +70,7 @@ public:
     bool is_open() const noexcept;
     FileStatus status() const;
     FileTimes times() const;
+    const std::filesystem::path& physical_path() const noexcept;
 
 private:
     File(std::filesystem::path path, OpenMode mode);

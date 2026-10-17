@@ -4,6 +4,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include <fmt/format.h>
@@ -27,9 +28,7 @@
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
 #include "timer.h"
-#include "wiz8/application.h"
 #include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/Video2.h"
@@ -171,24 +170,6 @@ W8ItemRep::W8ItemRep()
 // FUNCTION: WIZ8 0x0049F120
 W8ItemRep::~W8ItemRep() = default;
 
-// FUNCTION: WIZ8 0x0049F170
-bool W8ItemRep::ReadFromFile(W8ReadLevelInfo* info, W8Item* item, bool anonymous_mesh)
-{
-    if (!info || !info->hFile || !item) return false;
-    const char* bitmap_folder = info->bitmap_folder;
-    info->bitmap_folder = "Data\\Items3D\\Bitmaps";
-    auto mesh = ReadSingleLevelMesh(info, anonymous_mesh ? nullptr : info->mesh_filename, true);
-    info->bitmap_folder = bitmap_folder;
-    if (!mesh) return false;
-    mesh->setName("ItemRep::ReadFromFile");
-    mesh->render_flags |= stModelInstance::RENDER_SHADOW;
-    SetModelInstanceChainExclusionMask(mesh.get(), 4);
-    m_psrMesh = std::move(mesh);
-    flags |= W8_ITEM_ENTITY_MESH_LOADED;
-    RefreshBounds();
-    return true;
-}
-
 // FUNCTION: WIZ8 0x0049F2B0
 void W8ItemRep::RefreshBounds()
 {
@@ -208,52 +189,27 @@ W8Item::W8Item()
     countdown = w8_get_ticks() + (0);
 }
 
-// FUNCTION: WIZ8 0x0049F4A0
-std::unique_ptr<W8Item> LoadItemFromFile(const W8ReadLevelInfo* context, const char* name,
-                                         bool anonymous_mesh)
+// Decode the item resource directly; no level context or temporary directory mutation.
+std::unique_ptr<W8Item> LoadItemFromFile(std::string_view name)
 try {
-    if (name == 0) {
-        srAssertFail("pacName && ppItem", ITEM_CPP, 0x11a, 0);
-    }
     const auto filename = fmt::format("data/items3d/{}.itm", name);
-    std::unique_ptr<wiz8::File> file = [&]() {
-        try {
-            return wiz8::open_file(wiz8::asset_path(filename), wiz8::OpenMode::read);
-        } catch (const std::exception&) {
-            return std::unique_ptr<wiz8::File>{};
-        }
-    }();
-    if (file == 0) {
-        ShutdownWithErrorBox(fmt::format("Couldn't load {}", filename));
-        return nullptr;
-    }
-
-    W8ReadLevelInfo info;
-    info.world = context->world;
-    info.hFile = file.get();
-    info.bitmap_folder = context->bitmap_folder;
-    info.mesh_filename = name;
+    auto file = wiz8::open_file(wiz8::asset_path(filename));
     unsigned char version;
-    if (file->read(&version, 1).bytes != 1 || version != 2) return nullptr;
-    return ReadItemFromFile(&info, anonymous_mesh);
-} catch (const std::exception&) {
-    return nullptr;
-}
-
-/* Decode into temporary ownership and publish only a complete item. */
-// FUNCTION: WIZ8 0x0049F5D0
-std::unique_ptr<W8Item> ReadItemFromFile(W8ReadLevelInfo* info, bool anonymous_mesh)
-{
-    if (info == 0) {
-        srAssertFail("pInfo", ITEM_CPP, 0x15d, 0);
-    }
+    file->read_exact(&version, sizeof(version));
+    if (version != 2) return {};
+    auto mesh = ReadSingleLevelMesh(*file, wiz8::asset_path("data/items3d/bitmaps"));
+    if (!mesh) return {};
+    mesh->setName("Item mesh instance");
+    mesh->render_flags |= stModelInstance::RENDER_SHADOW;
+    SetModelInstanceChainExclusionMask(mesh.get(), 4);
     auto item = std::make_unique<W8Item>();
-    if (item == 0) {
-        srAssertFail("pItem", ITEM_CPP, 0x161, 0);
-    }
-    bool success =
-        static_cast<W8ItemRep*>(item->m_pRep)->ReadFromFile(info, item.get(), anonymous_mesh);
-    return success ? std::move(item) : nullptr;
+    auto& representation = *static_cast<W8ItemRep*>(item->m_pRep);
+    representation.m_psrMesh = std::move(mesh);
+    representation.flags |= W8_ITEM_ENTITY_MESH_LOADED;
+    representation.RefreshBounds();
+    return item;
+} catch (const std::exception&) {
+    return {};
 }
 
 // FUNCTION: WIZ8 0x0049F730

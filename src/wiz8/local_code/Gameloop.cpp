@@ -10,7 +10,6 @@
 #include "Font.h"
 #include "wiz8/application.h"
 #include "wiz8/character_event_queue.h"
-#include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
@@ -110,7 +109,6 @@ void ShutdownGame(size_t initialized_screens, bool save_configuration)
     g_screen_return_stack.clear();
     ClearLocationVariables();
     DestroyGameplayObjects();
-    ReleaseReadMeshScratch();
     ClearNpcMessageQueue();
     ClearNpcDialogueTranscript();
     ReleaseMessageStorage();

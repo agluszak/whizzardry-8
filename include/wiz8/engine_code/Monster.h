@@ -177,7 +177,7 @@ public:
     void SetDamageStage(int stage);
     int GetDamageStageCount();
     bool ReplaceSkinTexture(int stage, const char* old_name, const char* new_name);
-    int AddDamageStage(const char* base_name, int stage);
+    int AddDamageStage(std::string_view base_name, int stage);
     void RemoveCycleSkinTables();
     void RandomizeAppearanceAndMotion();
     bool IsRenderable(bool alternate);
@@ -341,14 +341,13 @@ public:
 };
 
 W8MonsterCycle ParseMonsterCycleName(const char* name, signed char* subcycle = 0);
-std::unique_ptr<W8Monster> MonsterReadAllCycles(const W8GrCycleLoadContext* context,
-                                                std::string_view monster_name, int load_value,
-                                                int location_id);
+std::unique_ptr<W8Monster> MonsterReadAllCycles(W8World* world, std::string_view monster_name,
+                                                int load_value, int location_id);
 unsigned short ChooseDifferentMonsterDirection(unsigned short previous_direction);
 
 std::optional<srBoundingBox> MonsterGetWorldAnimationBounds(W8Monster* monster);
-std::unique_ptr<W8Monster> LoadMonsterCycle(const W8GrCycleLoadContext* context,
-                                            const char* mon_name, int cycle, int value);
+std::unique_ptr<W8Monster> LoadMonsterCycle(W8World* world, std::string_view mon_name, int cycle,
+                                            int value);
 
 bool MonsterUsesCurrentModelInstance(W8GrCycle* cycle);
 glm::vec3 MonsterGetLocation(const W8Monster* monster);

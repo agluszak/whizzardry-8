@@ -35,6 +35,7 @@
 #include "surrender/srNode.h"
 #include "surrender/srShader.h"
 #include "surrender/srTexture.h"
+#include "wiz8/chunk.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Video2.h"
@@ -211,16 +212,16 @@ static void DrawWorldCursorNodeLabel(W8WorldCursorNode& entry)
 }
 
 // FUNCTION: WIZ8 0x0048e470
-unsigned int LoadWorldCursorNodeStates(wiz8::File& handle)
+unsigned int LoadWorldCursorNodeStates(W8Chunk& handle)
 try {
     std::int32_t version;
     std::uint32_t count;
-    handle.read_exact(&version, sizeof(version));
+    handle.ReadBytes(&version, sizeof(version));
     if (version == 0x21122112) version = 1;
     if (version != 1 && version != 2) return 0;
-    handle.read_exact(&count, sizeof(count));
+    handle.ReadBytes(&count, sizeof(count));
     const auto minimum_bytes = version == 1 ? 4 : 36;
-    if (count > (handle.size() - handle.tell()) / minimum_bytes) return 0;
+    if (count > (handle.RemainingBytes()) / minimum_bytes) return 0;
     std::vector<std::pair<W8WorldCursorNode*, std::vector<std::byte>>> pending;
     pending.reserve(count);
     for (std::uint32_t index = 0; index < count; ++index) {
@@ -231,7 +232,7 @@ try {
                 node = g_world_cursor_nodes[index < g_world_cursor_nodes.size() ? index : 0].get();
         } else {
             std::array<char, 32> name;
-            handle.read_exact(name.data(), name.size());
+            handle.ReadBytes(name.data(), name.size());
             const auto end = std::find(name.begin(), name.end(), '\0');
             if (end == name.end()) return 0;
             const std::string_view key(name.data(), end - name.begin());
@@ -242,10 +243,10 @@ try {
             if (match != g_world_cursor_nodes.end()) node = match->get();
         }
         std::int32_t size;
-        handle.read_exact(&size, sizeof(size));
-        if (size < 0 || size > handle.size() - handle.tell()) return 0;
+        handle.ReadBytes(&size, sizeof(size));
+        if (size < 0 || size > handle.RemainingBytes()) return 0;
         std::vector<std::byte> bytes(size);
-        handle.read_exact(bytes.data(), bytes.size());
+        handle.ReadBytes(bytes.data(), bytes.size());
         pending.emplace_back(node, std::move(bytes));
     }
     for (auto& [node, bytes] : pending) {
@@ -278,22 +279,22 @@ void SaveWorldCursorNodeStates(wiz8::File& handle)
    bounds (stored as the scale applied to the 500-unit cube), location and
    one opaque word; version 2 adds the name and version 3 the name serial. */
 // FUNCTION: WIZ8 0x0048e7b0
-void LoadWorldCursorNodes(wiz8::File& handle)
+void LoadWorldCursorNodes(W8Chunk& handle)
 {
     std::int32_t version;
     std::uint32_t count;
 
-    handle.read_exact(&version, sizeof(version));
+    handle.ReadBytes(&version, sizeof(version));
     if (static_cast<std::uint32_t>(version) == 0xdeadd00d) {
         version = 1;
     }
     int serial = 100;
     if (version > 2) {
-        handle.read_exact(&serial, sizeof(serial));
+        handle.ReadBytes(&serial, sizeof(serial));
     }
-    handle.read_exact(&count, sizeof(count));
+    handle.ReadBytes(&count, sizeof(count));
     const std::size_t record_bytes = 13 * 4 + (version >= 2 ? 0x20 : 0);
-    if (count > (handle.size() - handle.tell()) / record_bytes)
+    if (count > static_cast<std::uint64_t>(handle.RemainingBytes()) / record_bytes)
         throw std::runtime_error("truncated cursor nodes");
 
     std::vector<std::unique_ptr<W8WorldCursorNode>> loaded;
@@ -305,7 +306,7 @@ void LoadWorldCursorNodes(wiz8::File& handle)
         glm::vec3 location;
 
         if (version >= 2) {
-            handle.read_exact(cube->name, 0x20);
+            handle.ReadBytes(cube->name, 0x20);
             cube->name[0x1f] = 0;
             if (cube->name[0] == 0) {
                 wiz8::text::write_utf8_field(fmt::format("Cube{:03d}", serial++), cube->name);
@@ -313,11 +314,11 @@ void LoadWorldCursorNodes(wiz8::File& handle)
         } else {
             wiz8::text::write_utf8_field(fmt::format("Cube{:d}", index), cube->name);
         }
-        handle.read_exact(cube->parameters, sizeof(cube->parameters));
-        handle.read_exact(&minimum, sizeof(minimum));
-        handle.read_exact(&maximum, sizeof(maximum));
-        handle.read_exact(&location, sizeof(location));
-        handle.read_exact(&cube->value_08, sizeof(cube->value_08));
+        handle.ReadBytes(cube->parameters, sizeof(cube->parameters));
+        handle.ReadBytes(&minimum, sizeof(minimum));
+        handle.ReadBytes(&maximum, sizeof(maximum));
+        handle.ReadBytes(&location, sizeof(location));
+        handle.ReadBytes(&cube->value_08, sizeof(cube->value_08));
 
         const auto scale = (maximum - minimum) * static_cast<float>(g_world_cursor_scale);
         static_cast<stMeshModel*>(cube->node->getModel())->scale(scale);

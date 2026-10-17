@@ -26,6 +26,7 @@
 #include "wiz8/button_interaction.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_event_queue.h"
+#include "wiz8/chunk.h"
 #include "wiz8/cursor.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/engine_code/Cursor3d.h"
@@ -160,16 +161,16 @@ static_assert(sizeof(RetailKeyBinding) == 10);
 } // namespace
 
 // FUNCTION: WIZ8 0x0055d590
-unsigned char MGSKeyboard::Load(wiz8::File& handle, bool clear)
+unsigned char MGSKeyboard::Load(W8Chunk& handle, bool clear)
 try {
     if (clear) Clear();
     std::uint32_t count;
-    handle.read_exact(&count, sizeof(count));
+    handle.ReadBytes(&count, sizeof(count));
     count = SDL_Swap32LE(count);
-    if (count > (handle.size() - handle.tell()) / sizeof(RetailKeyBinding)) return false;
+    if (count > (handle.RemainingBytes()) / sizeof(RetailKeyBinding)) return false;
     for (std::uint32_t index = 0; index < count; ++index) {
         RetailKeyBinding record;
-        handle.read_exact(&record, sizeof(record));
+        handle.ReadBytes(&record, sizeof(record));
         const auto retail_key = SDL_Swap16LE(record.key);
         const auto key = KeyFromRetailBinding(retail_key);
         SetBinding({key, SDL_Swap16LE(record.modifiers), SDL_Swap16LE(record.active),

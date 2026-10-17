@@ -33,6 +33,7 @@
 #include "surrender/srDebug.h"
 #include "timer.h"
 #include "wiz8/catalog_artwork.h"
+#include "wiz8/chunk.h"
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
@@ -469,7 +470,7 @@ unsigned char SaveMessageStorage(wiz8::File& file)
    serialized +0x18 pointer bits are discarded. Saves older than the prepath
    link-height constant never wrote a fourth region, so its count is forced to
    zero without consuming a count slot. */
-unsigned char LoadMessageStorage(wiz8::File& file)
+unsigned char LoadMessageStorage(W8Chunk& file)
 try {
     W8MessageStorageDiskRecord disk_record;
     W8MessageStorageRecord* live_record;
@@ -478,16 +479,16 @@ try {
     unsigned int index;
 
     ReleaseMessageStorage();
-    file.read_exact(&format, 4);
+    file.ReadBytes(&format, 4);
     for (region = 0; region < 4; ++region) {
         if (g_status.buffers.save_version < g_prepath_link_height && region == 3) {
             g_status.text_box_lines_used[3] = 0;
         } else {
-            file.read_exact(&g_status.text_box_lines_used[region], 4);
+            file.ReadBytes(&g_status.text_box_lines_used[region], 4);
         }
         if (g_status.text_box_lines_used[region] > 0x15e) return 0;
         for (index = 0; index < g_status.text_box_lines_used[region]; ++index) {
-            file.read_exact(&disk_record, sizeof(disk_record));
+            file.ReadBytes(&disk_record, sizeof(disk_record));
             live_record = &g_message_storage[region][index];
             live_record->font_palette = disk_record.font_palette;
             live_record->highlight_color = disk_record.highlight_color;
@@ -501,7 +502,7 @@ try {
                    sizeof(live_record->unknown_1c));
             if (disk_record.character_count > 100000) return 0;
             std::vector<std::byte> bytes(static_cast<std::size_t>(disk_record.character_count) * 2);
-            file.read_exact(bytes.data(), bytes.size());
+            file.ReadBytes(bytes.data(), bytes.size());
             auto decoded = wiz8::text::from_utf16le(bytes);
             auto byte_offset = [&](std::size_t units) {
                 std::size_t offset = 0, count = 0;

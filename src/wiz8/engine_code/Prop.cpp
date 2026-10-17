@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <exception>
@@ -34,6 +35,7 @@
 #include "surrender/srModel.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
+#include "wiz8/chunk.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/AniMesh.h"
 #include "wiz8/engine_code/AnimObj.h"
@@ -1084,29 +1086,18 @@ void W8Prop::DetachAnimationInstances(W8World* world)
     }
 }
 
-/* Restore the rep's persisted animation state: frame, the two counters, the
-   direction flags and one byte the format no longer uses.  Each saved index
-   is clamped to the loaded animation's frame count, path values are re-synced
-   while a running animation is active, and ApplyAnimationFrame reapplies the state.
-   The read chain's success is reported even though the restore runs either
-   way. */
-// FUNCTION: WIZ8 0x0044dbd0
-bool W8Prop::LoadAnimationState(wiz8::File& hFile)
-try {
-    unsigned char unused;
+// Apply only a completely decoded record; missing props need no runtime object.
+void W8Prop::ApplyAnimationState(const SavedAnimationState& state)
+{
     unsigned int count;
     int index;
     int total;
-    bool success;
     W8PathAI* path;
-
-    success =
-        (hFile.read(&Rep()->subcycle, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
-        (hFile.read(&Rep()->first_frame, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
-        (hFile.read(&Rep()->last_frame, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
-        (hFile.read(&Rep()->frame_direction, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
-        (hFile.read(&Rep()->animation_playing, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
-        (hFile.read(&unused, 1).bytes == static_cast<std::size_t>(1)) != 0;
+    Rep()->subcycle = state.subcycle;
+    Rep()->first_frame = state.first_frame;
+    Rep()->last_frame = state.last_frame;
+    Rep()->frame_direction = state.frame_direction;
+    Rep()->animation_playing = state.animation_playing;
     if (Rep()->Animation() != 0) {
         total = static_cast<int>(AnimObjValue(Rep()->Animation(), 2));
         if (Rep()->last_frame >= total) {
@@ -1129,9 +1120,6 @@ try {
         }
         ApplyAnimationFrame();
     }
-    return success;
-} catch (const std::exception&) {
-    return false;
 }
 
 /* Union of the per-frame bounds over every frame of the rep's animation.
@@ -1317,9 +1305,8 @@ try {
                 goto fail;
             }
         }
-        info->mesh_filename = 0;
-        mesh = std::make_unique<W8AniMesh>();
-        result = LoadAniMeshFromInfo(info, mesh.get(), 1);
+        mesh = ReadAnimatedMesh(*hFile, info->bitmap_folder, true);
+        result = mesh != nullptr;
         if (!result) {
             fail_line = 0xd8;
             result = false;
@@ -1341,7 +1328,6 @@ try {
         int slot_i;
 
         flag_bits = 0;
-        info->mesh_filename = 0;
         if (success) {
             hFile->read_exact(&frame_count, 1);
         }
@@ -1665,59 +1651,42 @@ void SaveWorldProps(wiz8::File& handle)
     }
 }
 
-/* APST chunk reader. The 0xDEADD00D signature selects the name-keyed format;
-   older saves carry a bare record count followed by each prop's object key.
-   Records whose prop cannot be found are consumed by a scratch prop so the
-   stream stays aligned. */
-// FUNCTION: WIZ8 0x0044e9a0
-void LoadWorldProps(wiz8::File& handle)
+/* Both APST formats decode six animation bytes before updating a matching
+   prop. Unknown records are decoded and ignored within the chunk boundary. */
+void LoadWorldProps(W8Chunk& chunk)
 {
-    int index;
-    int count;
-    int entries;
-    int key;
-    unsigned int signature;
-    unsigned int version;
-    char name[0x40 + 1]{};
-    W8Prop* prop;
-    W8Prop* entry;
-
-    handle.read_exact(&signature, 4);
-    if (signature != 0xDEADD00D) {
-        count = signature;
-        for (index = 0; index < count; ++index) {
-            handle.read_exact(&key, 4);
-            prop = 0;
-            entries = static_cast<int>(g_world->plsProps.size());
-            for (int entry_index = 0; entry_index < entries; ++entry_index) {
-                entry = GetWorldProp(g_world.get(), entry_index);
-                if (entry->id == key) {
-                    prop = entry;
+    const auto signature = chunk.ReadValue<unsigned int>();
+    const bool named = signature == 0xDEADD00D;
+    if (named) chunk.ReadValue<unsigned int>(); // version
+    const auto count = named ? chunk.ReadValue<unsigned int>() : signature;
+    const std::size_t key_size = named ? 64 : sizeof(int);
+    if (std::uint64_t{count} * (key_size + 6) > static_cast<std::uint64_t>(chunk.RemainingBytes()))
+        throw std::runtime_error("invalid saved prop count");
+    for (unsigned int index = 0; index < count; ++index) {
+        char name[65]{};
+        int key = 0;
+        if (named) {
+            chunk.ReadBytes(name, 64);
+            if (std::find(name, name + 64, '\0') == name + 64)
+                throw std::runtime_error("unterminated saved prop name");
+        } else {
+            chunk.ReadValue(key);
+        }
+        W8Prop::SavedAnimationState state;
+        static_assert(sizeof(state) == 6);
+        chunk.ReadBytes(&state, sizeof(state));
+        W8Prop* prop = nullptr;
+        if (named) {
+            prop = FindPropByName(g_world.get(), name);
+        } else {
+            for (const auto& candidate : g_world->plsProps) {
+                if (candidate->id == key) {
+                    prop = candidate.get();
                     break;
                 }
             }
-            if (prop != 0) {
-                prop->LoadAnimationState(handle);
-            } else {
-                W8Prop scratch;
-                scratch.LoadAnimationState(handle);
-            }
         }
-    } else {
-        handle.read_exact(&version, 4);
-        handle.read_exact(&count, 4);
-        for (index = 0; index < count; ++index) {
-            handle.read_exact(name, 0x40);
-            if (std::find(name, name + 64, '\0') == name + 64)
-                throw std::runtime_error("unterminated saved prop name");
-            prop = FindPropByName(g_world.get(), name);
-            if (prop != 0) {
-                prop->LoadAnimationState(handle);
-            } else {
-                W8Prop scratch;
-                scratch.LoadAnimationState(handle);
-            }
-        }
+        if (prop) prop->ApplyAnimationState(state);
     }
 }
 

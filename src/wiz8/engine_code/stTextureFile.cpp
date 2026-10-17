@@ -1,13 +1,12 @@
 #include "wiz8/engine_code/stTextureFile.h"
 
 #include <exception>
+#include <filesystem>
 #include <memory>
-#include <string>
 #include <utility>
 
 #include <SDL3/SDL_pixels.h>
 
-#include "asset_paths.h"
 #include "surrender/srImageIO.h"
 #include "surrender/srTexture.h"
 #include "wiz8/filesystem.h"
@@ -23,25 +22,12 @@ void stTextureFile::releaseSurface()
 }
 
 // FUNCTION: WIZ8 0x0047C630
-stTextureFile::stTextureFile(const char* file_name, int preload) : has_alpha(0)
+stTextureFile::stTextureFile(std::filesystem::path file_name, bool preload)
+    : file_name(std::move(file_name)), has_alpha(false)
 {
     invalidate();
-    setFileName(file_name ? file_name : "");
-    if (file_name != 0) {
-        setName(file_name);
-    }
-    if (preload != 0 && file_name != 0) {
-        setupDefaultValues();
-    }
-}
-
-stTextureFile& stTextureFile::operator=(const stTextureFile& other)
-{
-    if (this != &other) {
-        srTexture::operator=(other);
-        setFileName(other.file_name);
-    }
-    return *this;
+    setName(wiz8::path_to_utf8(this->file_name).c_str());
+    if (preload) setupDefaultValues();
 }
 
 // FUNCTION: WIZ8 0x0047C5F0
@@ -63,15 +49,6 @@ void stTextureFile::setupDefaultValues()
         loadSurface();
     }
     setupDefaultValuesFromSurface(surface.get());
-}
-
-// FUNCTION: WIZ8 0x0047C830
-void stTextureFile::setFileName(std::string file_name)
-{
-    invalidate();
-    this->file_name = std::move(file_name);
-    texture_flags_ &= ~LOAD_FAILED;
-    texture_flags_ |= DEFAULTS_PENDING;
 }
 
 // FUNCTION: WIZ8 0x0047C8B0
@@ -104,7 +81,7 @@ void stTextureFile::loadSurface()
     surface = 0;
     std::unique_ptr<wiz8::File> handle = [&]() {
         try {
-            return wiz8::open_file(wiz8::asset_path(file_name), wiz8::OpenMode::read);
+            return wiz8::open_file(file_name, wiz8::OpenMode::read);
         } catch (const std::exception&) {
             return std::unique_ptr<wiz8::File>{};
         }

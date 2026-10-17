@@ -1,4 +1,5 @@
 #pragma once
+struct W8Chunk;
 
 #include <cstddef>
 #include <memory>
@@ -33,5 +34,5 @@ std::unique_ptr<W8WorldCursorNode> CreateWorldCursorCube();
 W8WorldCursorNode* FindWorldCursorNodeAtPoint(W8WorldCursorNode* after, glm::vec3* point);
 void SaveWorldCursorNodeStates(wiz8::File& handle);
 void SaveWorldCursorNodes(wiz8::File& handle);
-void LoadWorldCursorNodes(wiz8::File& handle);
-unsigned int LoadWorldCursorNodeStates(wiz8::File& handle);
+void LoadWorldCursorNodes(W8Chunk& handle);
+unsigned int LoadWorldCursorNodeStates(W8Chunk& handle);

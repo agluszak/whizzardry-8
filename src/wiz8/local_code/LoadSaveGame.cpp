@@ -161,10 +161,6 @@ constexpr SaveVersion kUnversionedSave{1, 0, 0};
 constexpr std::string_view kCurrentGamePath = "saves\\CurrentGame.SAV";
 constexpr std::string_view kAutoSaveName = "AutoSave";
 
-/* Monster groups and monsters beyond the live lists (encounter groups and
-   unborn monsters) are addressed from this list index on. */
-constexpr unsigned int kSecondaryListBase = 10000;
-
 /* The fixed STAT record. Only the leading counters and the status block are
    established; the tail is written as zeros and ignored on load. */
 struct W8StatusHeader {
@@ -585,9 +581,8 @@ void RestoreMonsterSpellIcons(const W8MonsterInfo& info, W8Monster* monster)
    position and yaw refreshed while the monster is live, then the script,
    unborn, movement and order sections. */
 // FUNCTION: WIZ8 0x005147a0
-void WriteMonsterRecord(W8Chunk& chunk, unsigned int list_index)
+void WriteMonsterRecord(W8Chunk& chunk, W8MonsterInfo* info)
 {
-    auto* info = MonsterGetScriptPartByLocationIndex(list_index);
     if (!info || !info->p3D) throw std::runtime_error("missing monster");
     W8Monster& monster = *info->p3D;
     if (info->fActive) {
@@ -602,7 +597,7 @@ void WriteMonsterRecord(W8Chunk& chunk, unsigned int list_index)
     chunk.WriteValue(has_script);
     if (has_script) SavedMonsterScript::Capture(monster).Write(chunk);
 
-    const unsigned char unborn = std::ranges::contains(gXStatus.monster_roster.unborn(), info);
+    const unsigned char unborn = gXStatus.monster_roster.isUnborn(info);
     chunk.WriteValue(unborn);
 
     const unsigned char has_movement =
@@ -618,13 +613,12 @@ void WriteWorldItems(W8Chunk& chunks)
     const unsigned int count = gXStatus.world_items.size();
     chunks.WriteValue(count);
     for (unsigned int index = 0; index < count; ++index)
-        RequireSection(SaveItemFile(chunks.Stream(), ItemInfo(index)), "world item");
+        RequireSection(SaveItemFile(chunks.WriteStream(), ItemInfo(index)), "world item");
 }
 
 /* Apply one child of the matching LVLS group. */
 void LoadLevelSection(W8Chunk& chunk, unsigned int chunk_id)
 {
-    auto& file = chunk.Stream();
     switch (chunk_id) {
     case W8_CHUNK_STATUS_HEADER:
         RequireSection(LoadStatusHeader(&chunk), "status header");
@@ -649,48 +643,48 @@ void LoadLevelSection(W8Chunk& chunk, unsigned int chunk_id)
         const auto count = ReadWorldItemCount(chunk);
         gXStatus.world_items.reserve(gXStatus.world_items.size() + count);
         for (unsigned index = 0; index < count; ++index)
-            RequireSection(AddWorldItem(LoadItem(file)) != nullptr, "world item");
+            RequireSection(AddWorldItem(LoadItem(chunk)) != nullptr, "world item");
         break;
     }
     case W8_CHUNK_CURSOR_NODES:
         if (!g_level_status_loading) ReleaseWorldCursorNodes();
-        LoadWorldCursorNodes(file);
-        if (g_level_status_loading) LoadWorldCursorNodeStates(file);
+        LoadWorldCursorNodes(chunk);
+        if (g_level_status_loading) LoadWorldCursorNodeStates(chunk);
         break;
     case W8_CHUNK_ENCOUNTERS:
         if (!g_level_status_loading) DestroyMonsterGenerators();
-        MonGen::LoadAll(file);
+        RequireSection(MonGen::LoadAll(chunk), "MonGen::LoadAll");
         break;
     case W8_CHUNK_TRIGGER_LOCKS:
     case W8_CHUNK_TRIGGER_STATES:
-        LoadTriggerRuntimeStates(file);
+        RequireSection(LoadTriggerRuntimeStates(chunk), "LoadTriggerRuntimeStates");
         break;
     case W8_CHUNK_TRIGGER_ACTIONS:
-        LoadTriggerActionData(file);
+        RequireSection(LoadTriggerActionData(chunk), "LoadTriggerActionData");
         break;
     case W8_CHUNK_AUTOMAP_NOTES:
-        LoadAutomapNotes(file);
+        RequireSection(LoadAutomapNotes(chunk), "LoadAutomapNotes");
         break;
     case W8_CHUNK_TRIGGERS:
-        LoadWorldTriggers(file);
+        RequireSection(LoadWorldTriggers(chunk), "LoadWorldTriggers");
         break;
     case W8_CHUNK_PROPS:
-        LoadWorldProps(file);
+        LoadWorldProps(chunk);
         break;
     case W8_CHUNK_CURSOR_NODE_STATES:
-        LoadWorldCursorNodeStates(file);
+        LoadWorldCursorNodeStates(chunk);
         break;
     case W8_CHUNK_MONSTER_GENERATORS:
-        LoadMonsterGenerators(file);
+        LoadMonsterGenerators(chunk);
         break;
     case W8_CHUNK_AMBIENT_SOUNDS:
-        LoadAmbientSoundList(file);
+        LoadAmbientSoundList(chunk);
         break;
     case W8_CHUNK_PARTICLES:
-        LoadParticleStates(file);
+        LoadParticleStates(chunk);
         break;
     case W8_CHUNK_LIGHTS:
-        LoadLightStates(file);
+        LoadLightStates(chunk);
         break;
     }
 }
@@ -942,7 +936,7 @@ static void WriteGame(std::string_view name, const W8SaveScreenshot* screenshot,
         CopyCurrentGameChunks(current_game, chunks);
         current_game.Close();
     }
-    PrepareStatusForSave(chunks.Stream());
+    PrepareStatusForSave(chunks.WriteStream());
     {
         // The text-line cursor's transient state 2 is saved as 0.
         const short cursor = g_status.text_line_cursor;
@@ -962,7 +956,7 @@ static void WriteGame(std::string_view name, const W8SaveScreenshot* screenshot,
     }
     chunks.WriteChunk(W8_CHUNK_SCREENSHOT, [&] { chunks.WriteValue(*screenshot); });
 
-    auto& file = chunks.Stream();
+    auto& file = chunks.WriteStream();
     chunks.WriteChunk(W8_CHUNK_MESSAGE_STORAGE,
                       [&] { RequireSection(SaveMessageStorage(file), "message storage"); });
     if (HasLocationVariables())
@@ -1053,7 +1047,7 @@ try {
 bool SaveStatusHeader(W8Chunk* chunks)
 try {
     DestroyUngroupedMonsters();
-    auto& file = chunks->Stream();
+    auto& file = chunks->WriteStream();
     chunks->WriteGroup(W8_CHUNK_LEVEL_STATUS, [&] {
         chunks->WriteValue(g_status.current_level);
         chunks->WriteChunk(W8_CHUNK_STATUS_HEADER,
@@ -1097,27 +1091,23 @@ try {
 // FUNCTION: WIZ8 0x005145a0
 bool SaveMonsterStatus(W8Chunk* chunks)
 try {
-    const auto list_index = [](unsigned int index, std::size_t live) {
-        return index < live ? index : static_cast<unsigned int>(index - live + kSecondaryListBase);
-    };
     const unsigned int group_count =
         gXStatus.monster_groups.size() + gXStatus.encounter_groups.size();
     const unsigned int monster_count =
         gXStatus.monster_roster.live().size() + gXStatus.monster_roster.unborn().size();
     chunks->WriteValue(group_count);
     chunks->WriteValue(monster_count);
-    for (unsigned int index = 0; index < group_count; ++index) {
-        W8MonsterGroup* group =
-            GetMonsterGroupByListIndex(list_index(index, gXStatus.monster_groups.size()));
-        if (!group) return false;
-        group->version = kMonsterGroupRecordVersion;
-        wiz8::retail::write_sized(*chunks, *group);
-        const unsigned char encountered = std::ranges::any_of(
-            gXStatus.encounter_groups, [group](const auto& owner) { return owner.get() == group; });
-        chunks->WriteValue(encountered);
+    for (const auto* partition : {&gXStatus.monster_groups, &gXStatus.encounter_groups}) {
+        const unsigned char encountered = partition == &gXStatus.encounter_groups;
+        for (const auto& group : *partition) {
+            group->version = kMonsterGroupRecordVersion;
+            wiz8::retail::write_sized(*chunks, *group);
+            chunks->WriteValue(encountered);
+        }
     }
-    for (unsigned int index = 0; index < monster_count; ++index)
-        WriteMonsterRecord(*chunks, list_index(index, gXStatus.monster_roster.live().size()));
+    for (const auto* partition :
+         {&gXStatus.monster_roster.live(), &gXStatus.monster_roster.unborn()})
+        for (const auto& monster : *partition) WriteMonsterRecord(*chunks, monster.get());
     return true;
 } catch (const std::exception&) {
     return false;
@@ -1162,20 +1152,19 @@ try {
     W8Chunk chunk;
     if (!chunk.OpenRead(wiz8::asset_path(BuildLevelStatusPath(level)))) return false;
     WithLevelGroup(chunk, std::nullopt, [&] {
-        auto& file = chunk.Stream();
         chunk.ForEachChunk([&](unsigned int section) {
             switch (section) {
             case W8_CHUNK_TRIGGER_LOCKS:
-                LoadTriggerRuntimeStates(file);
+                RequireSection(LoadTriggerRuntimeStates(chunk), "LoadTriggerRuntimeStates");
                 break;
             case W8_CHUNK_CURSOR_NODES:
-                LoadWorldCursorNodes(file);
+                LoadWorldCursorNodes(chunk);
                 break;
             case W8_CHUNK_ENCOUNTERS:
-                MonGen::LoadAll(file);
+                RequireSection(MonGen::LoadAll(chunk), "MonGen::LoadAll");
                 break;
             case W8_CHUNK_TRIGGER_ACTIONS:
-                LoadTriggerActionData(file);
+                RequireSection(LoadTriggerActionData(chunk), "LoadTriggerActionData");
                 break;
             }
         });
@@ -1332,7 +1321,7 @@ try {
    follows. The whole chain is staged before it is published to the item list
    and the search registry. */
 // FUNCTION: WIZ8 0x00514c80
-std::unique_ptr<W8WorldItem> LoadItem(wiz8::File& handle)
+std::unique_ptr<W8WorldItem> LoadItem(W8Chunk& handle)
 try {
     std::unique_ptr<W8WorldItem> head;
     auto* link = &head;
@@ -1676,7 +1665,7 @@ try {
                 throw std::runtime_error("too many world items");
             items.reserve(items.size() + count);
             for (unsigned int index = 0; index < count; ++index) {
-                auto item = LoadItem(chunk.Stream());
+                auto item = LoadItem(chunk);
                 RequireSection(item != nullptr, "world item");
                 items.push_back(std::move(item));
             }
@@ -1712,32 +1701,31 @@ try {
                     wiz8::CopyMode::replace);
     W8Chunk chunks;
     if (!chunks.OpenRead(wiz8::user_path(kCurrentGamePath))) return false;
-    auto& file = chunks.Stream();
     chunks.ForEachChunk([&](unsigned int id) {
         switch (id) {
         case W8_CHUNK_GAME_STATUS:
             LoadGameStatus(&chunks, &g_status);
             break;
         case W8_CHUNK_MESSAGE_STORAGE:
-            RequireSection(LoadMessageStorage(file), "message storage");
+            RequireSection(LoadMessageStorage(chunks), "message storage");
             break;
         case W8_CHUNK_LOCATION_VARIABLES:
             RequireSection(LoadLocationVariables(chunks), "location variables");
             break;
         case W8_CHUNK_NPC_TRANSCRIPT:
-            RequireSection(LoadNpcDialogueTranscript(file), "NPC transcript");
+            RequireSection(LoadNpcDialogueTranscript(chunks), "NPC transcript");
             break;
         case W8_CHUNK_NPC_STATES:
-            LoadNpcStates(file);
+            LoadNpcStates(chunks);
             break;
         case W8_CHUNK_FACT_STATE:
-            LoadFactState(file);
+            LoadFactState(chunks);
             break;
         case W8_CHUNK_FACTION_STATE:
-            LoadFactionState(file);
+            LoadFactionState(chunks);
             break;
         case W8_CHUNK_JOURNAL:
-            LoadJournalEntries(file);
+            LoadJournalEntries(chunks);
             break;
         case W8_CHUNK_MONSTER_CONTROL:
             LoadMonsterControlSpellEffect(&chunks);

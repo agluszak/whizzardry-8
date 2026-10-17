@@ -10,6 +10,7 @@
 
 #include "filesystem.h"
 #include "layouts/world.h"
+#include "save_payload.h"
 #include "surrender/srClipPlane.h"
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
@@ -115,7 +116,7 @@ bool nodes(const std::filesystem::path& directory)
     torch->setFlag(srNode::FLAG_DISABLE);
     {
         auto file = wiz8::open_file(path);
-        LoadLightStates(*file);
+        ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadLightStates(chunk); });
     }
     REQUIRE((lamp->testFlag(srNode::FLAG_DISABLE)));
     REQUIRE((torch->testFlag(srNode::FLAG_DISABLE)));
@@ -135,7 +136,7 @@ bool nodes(const std::filesystem::path& directory)
     gas->emitting = 1;
     {
         auto file = wiz8::open_file(path);
-        LoadParticleStates(*file);
+        ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadParticleStates(chunk); });
     }
     REQUIRE((!gas->emitting && idle->emitting));
     // Particles are owned by the world list, not the scene.

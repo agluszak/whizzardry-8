@@ -26,6 +26,7 @@
 #include "file_faults.h"
 #include "geometry.h"
 #include "glm/ext/vector_float3.hpp"
+#include "save_payload.h"
 #include "scoped_asset_roots.h"
 #include "surrender/srNode.h"
 #include "temporary_directory.h"
@@ -43,6 +44,7 @@
 #include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/engine_code/Trigger.hpp"
+#include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/octree_spatial.h"
 #include "wiz8/engine_code/stCube.h"
 #include "wiz8/engine_code/stParticle.h"
@@ -694,7 +696,7 @@ TEST_CASE_METHOD(LoaderFixture, "World camera paths commit only complete tables"
         REQUIRE(std::string(existing->name0) == "EXISTING");
     };
     auto read = [&](wiz8::File* file) {
-        W8ReadLevelInfo info{&world, file, nullptr, nullptr};
+        W8ReadLevelInfo info{&world, file, {}};
         return ReadWorldCameras(&info, &world);
     };
     // Every truncation must also release entries and path nodes already decoded.
@@ -770,12 +772,12 @@ TEST_CASE_METHOD(LoaderFixture, "World item sections reject invalid signed count
         append(bytes, count);
         store("items.bin", bytes);
         auto file = wiz8::open_file(wiz8::asset_path("items.bin"));
-        W8ReadLevelInfo info{&world, file.get(), nullptr, nullptr};
+        W8ReadLevelInfo info{&world, file.get(), {}};
         REQUIRE(bool(ReadWorldItems(&info, &world)) == (count == 0));
     }
     store("items.bin", std::string(3, '\0'));
     auto file = wiz8::open_file(wiz8::asset_path("items.bin"));
-    W8ReadLevelInfo info{&world, file.get(), nullptr, nullptr};
+    W8ReadLevelInfo info{&world, file.get(), {}};
     REQUIRE_FALSE(ReadWorldItems(&info, &world));
 }
 
@@ -940,12 +942,12 @@ TEST_CASE_METHOD(LoaderFixture, "World item groups transfer ownership and preser
     append(bytes, second);
     store("items.bin", bytes.substr(0, bytes.size() - 1));
     auto file = wiz8::open_file(wiz8::asset_path("items.bin"));
-    REQUIRE_FALSE(LoadItem(*file));
+    REQUIRE_FALSE(ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadItem(chunk); }));
     REQUIRE(g_searchables.size() == registered);
     file.reset();
     store("items.bin", bytes);
     file = wiz8::open_file(wiz8::asset_path("items.bin"));
-    auto group = LoadItem(*file);
+    auto group = ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadItem(chunk); });
     REQUIRE(group);
     REQUIRE(ItemInfoGetNumInGroup(group.get()) == 2);
     REQUIRE(g_searchables.size() == registered + 1);
@@ -1237,7 +1239,7 @@ TEST_CASE_METHOD(LoaderFixture, "Particle record versions initialize omitted fie
         bytes.append(reinterpret_cast<const char*>(&record), size);
         store("particles.bin", bytes);
         auto file = wiz8::open_file(wiz8::asset_path("particles.bin"));
-        W8ReadLevelInfo info{nullptr, file.get(), "", nullptr};
+        W8ReadLevelInfo info{nullptr, file.get(), {}};
         srNode scene;
         std::vector<std::unique_ptr<stParticle>> particles;
         REQUIRE(ReadWorldParticles(&info, &scene, &particles));
@@ -1290,7 +1292,7 @@ TEST_CASE_METHOD(LoaderFixture, "Malformed particle sections publish no scene ob
     if (truncate) bytes.pop_back();
     store("particles.bin", bytes);
     auto file = wiz8::open_file(wiz8::asset_path("particles.bin"));
-    W8ReadLevelInfo info{nullptr, file.get(), "", nullptr};
+    W8ReadLevelInfo info{nullptr, file.get(), {}};
     srNode scene;
     std::vector<std::unique_ptr<stParticle>> particles;
     particles.push_back(std::make_unique<stParticle>(nullptr, 0));
@@ -1340,7 +1342,8 @@ TEST_CASE_METHOD(LoaderFixture, "Cursor scratch replacement validates complete s
     const auto load = [&](const std::string& data) {
         store("cursor-state.dat", data);
         auto file = wiz8::open_file(wiz8::asset_path("cursor-state.dat"));
-        return LoadWorldCursorNodeStates(*file);
+        return ReadSavePayload(*file,
+                               [](W8Chunk& chunk) { return LoadWorldCursorNodeStates(chunk); });
     };
     REQUIRE(load(bytes.substr(0, bytes.size() - 1)) == 0);
     REQUIRE(first.userdata == std::vector{std::byte{7}});
@@ -1389,11 +1392,74 @@ TEST_CASE_METHOD(LoaderFixture, "Trigger action loading rejects incomplete and u
     const auto load = [&](const std::string& data) {
         store("trigger-action.dat", data);
         auto file = wiz8::open_file(wiz8::asset_path("trigger-action.dat"));
-        return LoadTriggerActionData(*file);
+        return ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadTriggerActionData(chunk); });
     };
     REQUIRE_FALSE(load(bytes));
     REQUIRE_FALSE(load(bytes.substr(0, bytes.size() - 1)));
     std::fill(bytes.begin() + 8, bytes.begin() + 136, '\0');
     std::fill(bytes.begin() + 136, bytes.end(), 'x');
     REQUIRE_FALSE(load(bytes));
+}
+
+TEST_CASE_METHOD(LoaderFixture, "Prop save records decode missing entries within their section",
+                 "[loader][records]")
+{
+    const struct WorldScope {
+        std::unique_ptr<W8World> previous = std::exchange(g_world, std::make_unique<W8World>());
+        ~WorldScope()
+        {
+            DestroyWorld(g_world);
+            g_world = std::move(previous);
+        }
+    } scope;
+    W8World& world = *g_world;
+    auto prop = std::make_unique<W8Prop>();
+    prop->name = "Present";
+    prop->id = 42;
+    auto* present = prop.get();
+    world.plsProps.push_back(std::move(prop));
+    for (bool named : {false, true}) {
+        std::string bytes;
+        if (named) {
+            append(bytes, 0xDEADD00Du);
+            append(bytes, 1u);
+        }
+        append(bytes, 2u);
+        for (bool known : {false, true}) {
+            if (named) {
+                std::array<char, 64> name{};
+                std::strcpy(name.data(), known ? "Present" : "Missing");
+                append(bytes, name);
+            } else {
+                append(bytes, known ? 42 : 99);
+            }
+            append(bytes, std::array<unsigned char, 6>{7, 2, 9, 1, 1, 0});
+        }
+        const auto path = wiz8::asset_path("props.riff");
+        W8Chunk chunk;
+        REQUIRE(chunk.OpenWrite(path));
+        chunk.WriteChunk(W8ChunkId("APST"), [&] { chunk.WriteBytes(bytes.data(), bytes.size()); });
+        chunk.Close();
+        REQUIRE(chunk.OpenRead(path));
+        chunk.ForEachChunk([&](unsigned) {
+            LoadWorldProps(chunk);
+            REQUIRE(chunk.RemainingBytes() == 0);
+        });
+        chunk.Close();
+        REQUIRE(present->Rep()->subcycle == 7);
+        REQUIRE(present->Rep()->first_frame == 2);
+        REQUIRE(present->Rep()->last_frame == 9);
+        present->Rep()->subcycle = 3;
+        bytes.pop_back();
+        REQUIRE(chunk.OpenWrite(path));
+        chunk.WriteChunk(W8ChunkId("APST"), [&] { chunk.WriteBytes(bytes.data(), bytes.size()); });
+        chunk.WriteChunk(W8ChunkId("NEXT"), [&] { chunk.WriteValue(0u); });
+        chunk.Close();
+        REQUIRE(chunk.OpenRead(path));
+        chunk.ForEachChunk([&](unsigned) {
+            REQUIRE_THROWS(LoadWorldProps(chunk));
+            return false;
+        });
+        REQUIRE(present->Rep()->subcycle == 3);
+    }
 }

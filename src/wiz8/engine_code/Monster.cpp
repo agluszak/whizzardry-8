@@ -1,7 +1,6 @@
 #include "wiz8/engine_code/Monster.h"
 
 #include <cmath>
-#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <exception>
@@ -54,7 +53,6 @@
 #include "surrender/srDebug.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srMeshModel.h"
-#include "surrender/srModel.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
 #include "surrender/srShader.h"
@@ -304,8 +302,8 @@ const char* g_monster_script_commands[MONSCR_COUNT] = {"GOTO",
 // VTABLE: WIZ8 0x005ed200
 // class W8MonsterRep
 /* Both skin directives ensure the base damage stage exists exactly once. */
-static void EnsureMonsterBaseSkin(W8Monster* monster, const char* monster_name, int& damage_stage,
-                                  bool& skins_started)
+static void EnsureMonsterBaseSkin(W8Monster* monster, std::string_view monster_name,
+                                  int& damage_stage, bool& skins_started)
 {
     if (skins_started) return;
     damage_stage = monster->AddDamageStage(monster_name, 0);
@@ -322,9 +320,8 @@ static void EnsureMonsterBaseSkin(W8Monster* monster, const char* monster_name, 
    movement settings, visual flags, sound/shake events, skin stages, lights,
    and the list of binary .mon cycles. */
 // FUNCTION: WIZ8 0x004c0300
-static std::unique_ptr<W8Monster> ReadOrCloneMonsterCycles(const W8GrCycleLoadContext* context,
-                                                           const char* monster_name, int load_value,
-                                                           int location_id)
+std::unique_ptr<W8Monster> MonsterReadAllCycles(W8World* world, std::string_view monster_name,
+                                                int load_value, int location_id)
 {
     std::unique_ptr<W8Monster> monster;
     W8Monster* shared = static_cast<W8Monster*>(FindFirstGrCycleByName(monster_name));
@@ -549,8 +546,8 @@ static std::unique_ptr<W8Monster> ReadOrCloneMonsterCycles(const W8GrCycleLoadCo
                             float animation_scale = -1.0f;
                             fields >> animation_scale;
 
-                            success = LoadGrCycle(context, argument.c_str(), monster.get(), cycle,
-                                                  load_value, "data\\monsters", 0);
+                            success = LoadGrCycle(world, argument, monster.get(), cycle, load_value,
+                                                  "data\\monsters", 0);
                             if (!monster->particles.empty()) {
                                 for (int index = 0;
                                      index < static_cast<int>(monster->particles.size()); ++index) {
@@ -650,7 +647,7 @@ static std::unique_ptr<W8Monster> ReadOrCloneMonsterCycles(const W8GrCycleLoadCo
     }
 
     W8MonsterRep* representation = monster->m_pRep;
-    representation->name = monster_name ? monster_name : "";
+    representation->name = monster_name;
     if (scale_range_start != -1.0f && scale_range_end != -1.0f) {
         representation->minimum_scale = scale_range_start;
         representation->maximum_scale = scale_range_end;
@@ -768,7 +765,6 @@ static std::unique_ptr<W8Monster> ReadOrCloneMonsterCycles(const W8GrCycleLoadCo
     monster->RandomizeAppearanceAndMotion();
     RegisterGrCycle(monster_name, monster.get());
     ResumeSharedGameTimers();
-    ReleaseReadMeshScratch();
     return success ? std::move(monster) : nullptr;
 }
 
@@ -3307,12 +3303,10 @@ void W8Monster::SetCycle(signed char cycle)
     if (cycle == W8_MONSTER_CYCLE_DIE) {
         glm::vec4 empty;
         empty = glm::vec4(0);
-        srModelInstance* instance;
-
         m_pRep->highlight_colour = empty;
-        instance = SelectCycleFrameLod(m_pRep->current_cycle, 0, m_pRep->m_bLOD);
-        if (instance != 0 && instance->getModel() != 0 &&
-            strstr(instance->getModel()->getName().c_str(), "gib") != 0) {
+        // Gib behavior belongs to the source asset, not a generated renderer label.
+        const auto* death_mesh = m_pRep->GetEmitterAniMesh(m_pRep->current_cycle);
+        if (death_mesh && wiz8::path_to_utf8(death_mesh->source_file.filename()).contains("gib")) {
             SetAngles(
                 static_cast<float>(g_monster_death_rotation_pi * 0.0055555557f * Random(0x168)));
         }
@@ -4208,21 +4202,13 @@ void NotifyMonsterHighlight(int party_slot, int location_id, int on)
     SetMonsterPartySlotMarker(party_slot, location_id, on);
 }
 
-std::unique_ptr<W8Monster> MonsterReadAllCycles(const W8GrCycleLoadContext* context,
-                                                std::string_view monster_name, int load_value,
-                                                int location_id)
-{
-    return ReadOrCloneMonsterCycles(context, std::string(monster_name).c_str(), load_value,
-                                    location_id);
-}
-
-std::unique_ptr<W8Monster> LoadMonsterCycle(const W8GrCycleLoadContext* context,
-                                            const char* mon_name, int cycle, int value)
+std::unique_ptr<W8Monster> LoadMonsterCycle(W8World* world, std::string_view mon_name, int cycle,
+                                            int value)
 {
     auto monster = std::make_unique<W8Monster>();
     monster->id = AllocateGrObjectId();
     monster->m_pRep->current_cycle = -1;
-    if (!LoadGrCycle(context, mon_name, monster.get(), cycle, value, "data\\monsters", 0))
+    if (!LoadGrCycle(world, mon_name, monster.get(), cycle, value, "data\\monsters", 0))
         return nullptr;
     for (auto& event : monster->particles) {
         if (event.cycle == cycle && event.subcycle == -1)
@@ -4471,7 +4457,7 @@ bool W8Monster::ReplaceSkinTexture(int stage, const char* old_name, const char* 
     bool replaced = false;
 
     path = fmt::format("Data\\Monsters\\Bitmaps\\{}", new_name);
-    auto texture = LoadTextureFromPath(path.c_str(), 0, true);
+    auto texture = LoadTextureFromPath(wiz8::asset_path(path), nullptr, true);
     if (texture == 0) {
         ShutdownWithErrorBox(fmt::format("Missing skin texture: {}", new_name));
         return false;
@@ -4499,19 +4485,18 @@ bool W8Monster::ReplaceSkinTexture(int stage, const char* old_name, const char* 
 /* Damage table names are the parsed skin name followed by its numeric stage.
    A frame either creates the table or attaches the already-created table. */
 // FUNCTION: WIZ8 0x004c6880
-int W8Monster::AddDamageStage(const char* base_name, int stage)
+int W8Monster::AddDamageStage(std::string_view base_name, int stage)
 {
-    char name[128];
     int result = -1;
     std::vector<stModelInstance*> instances;
 
-    snprintf(name, sizeof(name), "%s%d", base_name, stage);
+    const auto name = fmt::format("{}{}", base_name, stage);
     CollectModelInstances(instances);
     for (stModelInstance* instance : instances) {
-        if (instance->FindDamageStage(name) == -1) {
-            result = instance->AddDamageStage(name);
+        if (instance->FindDamageStage(name.c_str()) == -1) {
+            result = instance->AddDamageStage(name.c_str());
         } else {
-            result = instance->AddExistingDamageStage(name);
+            result = instance->AddExistingDamageStage(name.c_str());
         }
     }
     return result;
@@ -4637,8 +4622,8 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
             material->setEmissive(colour);
             material->setDiffuse(colour);
             particle->SetMaterial(std::move(material));
-            particle->SetTexture(
-                LoadTextureFromFolder("Data\\Monsters\\Bitmaps\\", "BloodParticle.tga", true));
+            particle->SetTexture(LoadTextureFromPath(
+                wiz8::asset_path("data/monsters/bitmaps/BloodParticle.tga"), nullptr, true));
             shader.value = 0x100c4b3;
             particle->SetRenderFlags(shader);
             particle->particle_size = 20.0;
@@ -4817,7 +4802,7 @@ void W8Monster::ApplyRepresentationScale()
 // FUNCTION: WIZ8 0x004C5500
 W8Item* CreateMonsterIconItem(const char* path, int flag)
 {
-    auto texture = std::make_shared<stTextureFile>(path, 0);
+    auto texture = std::make_shared<stTextureFile>(wiz8::asset_path(path), false);
     texture->setWrapS(srTexture::WRAP_CLAMP);
     texture->setWrapT(srTexture::WRAP_CLAMP);
     texture->loadSurface();

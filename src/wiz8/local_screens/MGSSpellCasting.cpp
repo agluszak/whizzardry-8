@@ -1023,7 +1023,7 @@ static void SelectSpellCastingListRow(int index)
     gpSCSV->iSpellPowerClass = power_class;
     gpSCSV->uiPowerLevels = levels;
     gpSCSV->uiSpellToCast = spell_id;
-    needed = GetTargetNeededForSpellFriendly(spell_id, false, W8_TARGETING_CONTEXT_CURRENT);
+    needed = GetTargetNeededForSpellFriendly(spell_id, false, g_level_block == nullptr);
     target_type = GetSpellTargetType(spell_id, false);
     ConfigureSpellTargetFilter(target_type, needed);
     SelectSpellPowerLevel(-1);
@@ -1053,7 +1053,11 @@ void TryCommitSpellCast(void)
     ready = false;
     if (gpSCSV->uiSpellToCast != 0 &&
         (gpSCSV->iSpellPower != -1 || gpSCSV->iSpellPowerClass == W8_SPELL_POWER_FIXED)) {
-        ready = IsSpellTargetOfNeededKind(g_status.selected_character, gpSCSV->uiSpellToCast);
+        ready = IsSpellTargetOfNeededKind(
+            SelectCombatAction(g_status.selected_character,
+                               GetEditedActionContext(g_status.selected_character))
+                .target,
+            gpSCSV->uiSpellToCast, g_level_block == nullptr);
     }
     if (gpSCSV->uiSpellToCast == 0x4b && !gpSCSV->dialog_confirmed) {
         if (!IsModalOpen() &&

@@ -7,6 +7,7 @@
 #include <fmt/printf.h>
 
 #include "surrender/srDebug.h"
+#include "wiz8/chunk.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
@@ -192,10 +193,8 @@ W8FactionDisposition GetFactionDispositionToward(signed char faction, signed cha
                                                                      : W8_FACTION_HOSTILE;
 }
 
-/* The faction-effect dispatcher every caller funnels through: op 1 is the
-   apply operation and skips the unaligned/party rows; mode 0 records a
-   witnessed offense (value is the victim's monster location index) while
-   modes 1..3 apply value as a direct disposition delta. */
+/* Direct disposition changes skip the unaligned/party factions. Witnessed
+   offenses use RecordFactionOffense with the victim itself. */
 // FUNCTION: WIZ8 0x00535CF0
 void ApplyFactionChange(char mode, char op, signed char faction, int value)
 {
@@ -204,8 +203,6 @@ void ApplyFactionChange(char mode, char op, signed char faction, int value)
             if (mode > 0 && mode <= 3) {
                 AdjustFactionDisposition(faction, value);
             }
-        } else {
-            RecordFactionOffense(faction, value);
         }
     }
 }
@@ -215,15 +212,13 @@ void ApplyFactionChange(char mode, char op, signed char faction, int value)
    already hostile; everyone else loses a record-scaled amount that grows as
    the offense count climbs. */
 // FUNCTION: WIZ8 0x00535D50
-void RecordFactionOffense(signed char faction, unsigned int victim_location_index)
+void RecordFactionOffense(signed char faction, W8MonsterInfo* monster_info)
 {
-    W8MonsterInfo* monster_info;
     W8MonsterRecord* record;
 
     if (g_factions[faction].offense_count < 0xfa) {
         g_factions[faction].offense_count++;
     }
-    monster_info = MonsterGetScriptPartByLocationIndex(victim_location_index);
     record = GetMonsterDataForInfo(monster_info);
     switch (faction) {
     case W8_FACTION_MOOK:
@@ -313,13 +308,13 @@ void SaveFactionState(wiz8::File& file)
 /* Read the relation matrix and runtime disposition records back from the open
    FATA chunk, then re-arm the brotherhood's fixed score. */
 // FUNCTION: WIZ8 0x00536070
-void LoadFactionState(wiz8::File& file)
+void LoadFactionState(W8Chunk& file)
 {
     unsigned char relations[W8_FACTION_COUNT][W8_FACTION_COUNT];
     W8FactionRuntimeRecord factions[W8_FACTION_COUNT];
 
-    file.read_exact(relations, sizeof(relations));
-    file.read_exact(factions, sizeof(factions));
+    file.ReadBytes(relations, sizeof(relations));
+    file.ReadBytes(factions, sizeof(factions));
     memcpy(g_faction_relations, relations, sizeof(relations));
     memcpy(g_factions, factions, sizeof(factions));
     g_factions[W8_FACTION_PARTY].disposition_score = 100;

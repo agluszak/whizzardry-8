@@ -1,16 +1,15 @@
 #pragma once
 
+#include <cstdint>
+#include <filesystem>
 #include <memory>
 #include <optional>
-#include <string>
 #include <vector>
 
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srBoundingBox.h"
 
 class stModelInstance;
-struct W8ReadLevelInfo;
-struct W8World;
 namespace wiz8 {
 class File;
 }
@@ -37,11 +36,9 @@ struct W8AniMesh {
     glm::vec3 bounds_maximum{0, 0, 0};
     float radius{};
     unsigned int loaded_bytes{};
-    signed char list_index{};
-    std::string bitmap_directory;
-    std::string filename;
-    int file_offset{};
-    W8World* world{};
+    std::filesystem::path bitmap_directory;
+    std::filesystem::path source_file;
+    std::int64_t file_offset{};
     int last_used{};
 };
 
@@ -53,10 +50,9 @@ extern std::vector<W8AniMesh*> g_animesh_cache_list;
 void InitializeAniMeshCache(int primary_limit, int secondary_limit);
 void FreeAniMeshCache(void);
 
-float GetAniMeshFrameRadius(W8AniMesh* mesh, unsigned char frame);
 std::optional<srBoundingBox> GetAniMeshBounds(W8AniMesh* mesh);
-bool LoadAniMesh(wiz8::File* file, W8AniMesh* mesh, bool load_all);
-bool LoadAniMeshFromInfo(W8ReadLevelInfo* info, W8AniMesh* mesh, bool load_all);
+std::unique_ptr<W8AniMesh>
+ReadAnimatedMesh(wiz8::File& file, const std::filesystem::path& texture_directory, bool load_all);
 bool UnloadAniMesh(W8AniMesh* mesh, bool force);
 stModelInstance* GetAniMeshFrame(W8AniMesh* mesh, unsigned char frame);
 

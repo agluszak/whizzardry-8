@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <exception>
+#include <filesystem>
 #include <iterator>
 #include <limits>
 #include <memory>
@@ -40,6 +41,7 @@
 #include "surrender/srClipPlane.h"
 #include "surrender/srDebug.h"
 #include "surrender/srGERD.h"
+#include "surrender/srMaterial.h"
 #include "surrender/srMath.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
@@ -1002,7 +1004,7 @@ try {
 
 // FUNCTION: WIZ8 0x004BAFF0
 unsigned char ReadLevel(W8World* world, wiz8::File* handle, bool use_octree,
-                        const char* bitmap_folder)
+                        const std::filesystem::path& texture_directory)
 try {
     W8ReadLevelInfo info;
     std::unique_ptr<stModelInstance> level_mesh;
@@ -1032,11 +1034,11 @@ try {
 
     info.world = world;
     info.hFile = handle;
-    info.bitmap_folder = bitmap_folder;
+    info.bitmap_folder = texture_directory;
     w8_get_ticks();
 
     if (world->psrMeshes.empty() || world->octree == 0) {
-        level_mesh = ReadSingleLevelMesh(&info, nullptr, true);
+        level_mesh = ReadSingleLevelMesh(*handle, texture_directory);
         if (!level_mesh) {
             return 0;
         }
@@ -1044,7 +1046,8 @@ try {
         SetModelInstanceChainExclusionMask(level_mesh.get(), 1);
         world->update_mesh_source = world->level->adoptChild(std::move(level_mesh), 1);
     } else {
-        auto meshes = ReadMultipleLevelMeshes(&info, world->octree->GetMeshCount(), nullptr);
+        auto meshes =
+            ReadMultipleLevelMeshes(*handle, world->octree->GetMeshCount(), texture_directory);
         if (meshes.empty()) {
             ShutdownWithErrorBox("ReadLevel: Error reading multi-meshes.");
         }
@@ -1168,10 +1171,9 @@ try {
                         SetModelInstanceChainExclusionMask(instance, 4);
                     }
 
-                    auto* material =
-                        dynamic_cast<stMaterial*>(mesh->getMaterial(0, srMeshModel::SIDE_FRONT));
+                    auto* material = mesh->getMaterial(0, srMeshModel::SIDE_FRONT);
                     if (material != 0) {
-                        auto copy = std::make_shared<stMaterial>(*material);
+                        auto copy = std::make_shared<srMaterial>(*material);
                         copy->setName("Unsunlit Prop Material");
                         copy->parms.ambient = glm::vec4(0.0f);
                         copy->dirty = 1;

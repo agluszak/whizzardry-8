@@ -49,9 +49,10 @@ public:
 
     bool IsOpen() const { return m_hFile != nullptr; }
     /* The open stream, for section payloads written by format-specific code. */
-    wiz8::File& Stream()
+    wiz8::File& WriteStream()
     {
-        if (!m_hFile) throw std::logic_error("closed RIFF");
+        if (!m_hFile || !m_fWriting)
+            throw std::logic_error("RIFF payload stream requires a writer");
         return *m_hFile;
     }
     bool OpenRead(const std::filesystem::path& path);

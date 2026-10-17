@@ -23,6 +23,7 @@
 #include "layouts/world.h"
 #include "surrender/srCamera.h" // IWYU pragma: keep - complete camera type for conversion to srNode.
 #include "surrender/srDebug.h"
+#include "surrender/srMaterial.h"
 #include "surrender/srMath.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
@@ -264,7 +265,7 @@ unsigned char LoadSkyWorld(int level, W8LevelInfo* info)
     const glm::dvec3 position(0);
     static_cast<srNode*>(sky_world->camera)->setLocation(position);
 
-    auto material = std::make_shared<stMaterial>();
+    auto material = std::make_shared<srMaterial>();
     material->setName("AnimatedCloudMaterial");
     sky_world->cloud_material = material;
     glm::vec4 colour;
@@ -277,7 +278,6 @@ unsigned char LoadSkyWorld(int level, W8LevelInfo* info)
     material->parms.diffuse.w = 1.0f;
     material->parms.emissive = glm::vec4(0.0f);
     material->dirty = 1;
-    material->m_surface_flags = 0;
     material->setMapper(&g_material_mapper);
 
     for (srNode* node = sky_world->level->getChild(); node != 0; node = node->getNext()) {
@@ -423,7 +423,6 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
 
     DisableSky();
     DestroyWorld(g_world);
-    ReleaseReadMeshScratch();
     InvalidateRendererTextureCache();
     g_world = std::make_unique<W8World>();
 
@@ -549,7 +548,6 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
     }
     g_renderer_ready = true;
     UpdateWorldMeshAfterLoad();
-    ReleaseReadMeshScratch();
     return 1;
 }
 
@@ -605,7 +603,6 @@ unsigned char UnloadLevel(const char* save_directory)
     ReleaseWorldCursor();
     DisableSky();
     DestroyWorld(g_world);
-    ReleaseReadMeshScratch();
 
     if (g_world_cleanup_flag) {
         RenderFrame();

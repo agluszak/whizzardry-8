@@ -1,6 +1,8 @@
 #ifndef WIZ8_FACT_STATE_H
 #define WIZ8_FACT_STATE_H
 
+struct W8Chunk;
+
 namespace wiz8 {
 class File;
 }
@@ -832,7 +834,7 @@ void HandleScriptedNpcDeath(unsigned int monster_list_index); /* 0x00508D70 */
 void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects);
 void SaveFactState(wiz8::File& save_handle);
 void InitializeFactState(void);
-void LoadFactState(wiz8::File& save_handle);
+void LoadFactState(W8Chunk& save_handle);
 
 void PostNewGameLoad(void);
 

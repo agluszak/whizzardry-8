@@ -20,6 +20,7 @@
 #include "surrender/srTexture.h"
 #include "surrender/srVertexPipe.h"
 #include "surrender/srVertexProcessor.h"
+#include "wiz8/asset_paths.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/stMeshModel.h"
@@ -89,8 +90,8 @@ stGroundShadow::stGroundShadow(srNode* parent) : srNode(static_cast<srNode*>(0))
     setParent(parent, 1);
 
     if (g_ground_shadow_texture == 0) {
-        g_ground_shadow_texture =
-            LoadTextureFromFolder("Data\\Monsters\\Bitmaps\\", "Shadow.tga", true);
+        g_ground_shadow_texture = LoadTextureFromPath(
+            wiz8::asset_path("data/monsters/bitmaps/Shadow.tga"), nullptr, true);
         g_ground_shadow_texture->setMipmap(srTexture::MIPMAP_NONE);
         g_ground_shadow_texture->setWrapS(srTexture::WRAP_CLAMP);
         g_ground_shadow_texture->setWrapT(srTexture::WRAP_CLAMP);

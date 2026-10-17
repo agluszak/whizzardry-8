@@ -5,6 +5,7 @@
 
 #include "surrender/srGERD.h"
 #include "surrender/srTexture.h"
+#include "wiz8/chunk.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/filesystem.h"
 
@@ -121,16 +122,16 @@ unsigned char GetRenderOptionState(W8RenderOption option)
 }
 
 // FUNCTION: WIZ8 0x0047b890
-unsigned char LoadRenderOptions(wiz8::File& handle)
+unsigned char LoadRenderOptions(W8Chunk& handle)
 try {
     int version;
     unsigned char options[W8_RENDER_OPTION_COUNT];
 
-    handle.read_exact(&version, sizeof(version));
+    handle.ReadBytes(&version, sizeof(version));
     if (version != 1) {
         return 0;
     }
-    handle.read_exact(options, sizeof(options));
+    handle.ReadBytes(options, sizeof(options));
     for (int option = 0; option < W8_RENDER_OPTION_COUNT; ++option) {
         SetRenderOption(static_cast<W8RenderOption>(option), options[option] != 0);
     }
