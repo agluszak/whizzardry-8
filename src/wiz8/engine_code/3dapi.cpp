@@ -365,9 +365,8 @@ void SetCameraSwayMode(srCamera* camera, int mode)
 // Phase 1: nothing may update the world or call into its entities afterwards.
 static void StopWorldActivity(W8World* world)
 {
-    if (IsWorldCursorVisible()) {
-        HideWorldCursor();
-    }
+    // The cursor borrows a monster owned by this world, even while hidden.
+    ReleaseWorldCursor();
     StopAllAmbientSounds();
     world->nodes_to_disable.clear();
     world->lights_to_update.clear();
