@@ -2761,7 +2761,7 @@ void Trigger::Run(int source)
         }
         monster_id = atoi(recipients.c_str());
         for (index = 0; index < static_cast<int>(gXStatus.monster_groups.size()); ++index) {
-            group = gXStatus.monster_groups[index];
+            group = gXStatus.monster_groups[index].get();
             if (group->monster_id == monster_id) {
                 int location_id = group->MemberLocationId(0);
                 monster_info = FindMonster(location_id);

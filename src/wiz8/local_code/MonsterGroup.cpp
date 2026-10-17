@@ -6,6 +6,7 @@
 #include <memory>
 #include <source_location>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <fmt/format.h>
@@ -17,7 +18,6 @@
 #include "monster_actions.h"
 #include "random.h"
 #include "surrender/srDebug.h"
-#include "wiz8/containers.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/Octree.h"
@@ -326,7 +326,7 @@ W8MonsterGroup* GetMonsterGroupByListIndex(unsigned int group_list_index)
         if (group_list_index >= gXStatus.monster_groups.size()) {
             return 0;
         }
-        result = gXStatus.monster_groups[group_list_index];
+        result = gXStatus.monster_groups[group_list_index].get();
         if (result != 0) {
             return result;
         }
@@ -958,7 +958,7 @@ W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count, const g
 {
     W8MonsterGroup* group;
     W8MonsterRecord* record;
-    std::vector<W8MonsterGroup*>* list;
+    std::vector<std::unique_ptr<W8MonsterGroup>>* list;
     unsigned int index;
     unsigned int created;
     float yaw;
@@ -970,7 +970,8 @@ W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count, const g
     if (record == 0) {
         return 0;
     }
-    group = new W8MonsterGroup{};
+    auto owner = std::make_unique<W8MonsterGroup>();
+    group = owner.get();
 
     do {
         group->group_id = g_status.next_group_id;
@@ -1005,7 +1006,7 @@ W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count, const g
     if (record->unborn != 0) {
         list = &gXStatus.encounter_groups;
     }
-    list->push_back(group);
+    list->push_back(std::move(owner));
 
     for (created = 0; created < count; ++created) {
         if (CreateMonsterInfo(group, record, const_cast<glm::vec3*>(position)) == 0) {
@@ -1022,8 +1023,7 @@ W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count, const g
                     roster.remove(*member);
                 }
             }
-            wiz8::erase_first(*list, group);
-            delete group;
+            std::erase_if(*list, [group](const auto& entry) { return entry.get() == group; });
             return 0;
         }
     }
@@ -1069,8 +1069,7 @@ W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count, const g
 bool DestroyMonsterGroup(W8MonsterGroup* monster_group, W8MonsterInfo* monster_info)
 {
     unsigned int group_list_index;
-    std::vector<W8MonsterGroup*>* list;
-    W8MonsterGroup* removed;
+    std::vector<std::unique_ptr<W8MonsterGroup>>* list;
 
     if (monster_group->members_active) {
         DetachMonsterGroup(monster_group);
@@ -1089,12 +1088,8 @@ bool DestroyMonsterGroup(W8MonsterGroup* monster_group, W8MonsterInfo* monster_i
         group_list_index -= W8_ENCOUNTER_GROUP_INDEX_BIAS;
         list = &gXStatus.encounter_groups;
     }
-    removed = (*list)[group_list_index];
+    if (group_list_index >= list->size() || !(*list)[group_list_index]) return false;
     list->erase(list->begin() + group_list_index);
-    if (removed == nullptr) {
-        return false;
-    }
-    delete removed;
     return true;
 }
 
@@ -1140,49 +1135,18 @@ W8MonsterGroup* FindFirstMonsterByID(int monster_id)
     return 0;
 }
 
-/* Resume the search after previous: the rest of the group list, then the
-   encounter list. A previous that is the last group, or that only the encounter
-   list holds, skips straight to the encounter list. */
-/* Resume the search after previous: the rest of the group list, then the
-   encounter list. A previous that only the encounter list holds resumes that
-   list after it; retail jumps past the index reset into the second loop. */
+/* Continue through live groups, then encounters, after the previous match. */
 // FUNCTION: WIZ8 0x00510bf0
 W8MonsterGroup* FindNextExistingMonsterByID(int monster_id, W8MonsterGroup* previous)
 {
-    int index = 0;
-    W8MonsterGroup* group;
-
-    if (previous != 0) {
-        index = wiz8::index_of(gXStatus.monster_groups, previous);
-        if (index >= static_cast<int>(gXStatus.monster_groups.size()) - 1) {
-            goto search_encounters;
-        }
-        if (index == -1) {
-            index = wiz8::index_of(gXStatus.encounter_groups, previous);
-            if (index == -1) {
-                return 0;
-            }
-            ++index;
-            goto resume_encounters;
-        }
-        ++index;
-    }
-    for (; static_cast<unsigned int>(index) < gXStatus.monster_groups.size(); ++index) {
-        group = GetMonsterGroupByListIndex(index);
-        if (group->monster_id == monster_id) {
-            return group;
+    bool after_previous = previous == nullptr;
+    for (const auto* groups : {&gXStatus.monster_groups, &gXStatus.encounter_groups}) {
+        for (const auto& owner : *groups) {
+            if (after_previous && owner->monster_id == monster_id) return owner.get();
+            if (owner.get() == previous) after_previous = true;
         }
     }
-search_encounters:
-    index = 0;
-resume_encounters:
-    for (; static_cast<unsigned int>(index) < gXStatus.encounter_groups.size(); ++index) {
-        group = GetMonsterGroupEncounter(index);
-        if (group->monster_id == monster_id) {
-            return group;
-        }
-    }
-    return 0;
+    return nullptr;
 }
 
 /* Pick the group's new leader member: the live member carrying the highest
@@ -1533,9 +1497,12 @@ unsigned char GiveBirthToMonster(W8MonsterGroup* monster_group)
     if (monster_group == 0) {
         srAssertFail("pMonsterGroup", MONSTER_GROUP_CPP, 0x87a, 0);
     }
-    const bool was_removed = wiz8::erase_first(gXStatus.encounter_groups, monster_group);
-    if (was_removed != 0) {
-        gXStatus.monster_groups.push_back(monster_group);
+    auto& encounters = gXStatus.encounter_groups;
+    const auto found = std::ranges::find_if(
+        encounters, [monster_group](const auto& owner) { return owner.get() == monster_group; });
+    if (found != encounters.end()) {
+        gXStatus.monster_groups.push_back(std::move(*found));
+        encounters.erase(found);
         for (index = 0; index < monster_group->MemberIds().size(); ++index) {
             location_id = monster_group->MemberLocationId(index);
             member_info = FindMonster(location_id);

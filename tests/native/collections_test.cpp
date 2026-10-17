@@ -83,16 +83,17 @@ static bool groupMemberLookup()
 
 static bool gameplayCollectionLifetime()
 {
-    W8MonsterGroup group{};
+    auto group = std::make_unique<W8MonsterGroup>();
+    auto* group_ptr = group.get();
     auto& roster = gXStatus.monster_roster;
     REQUIRE((roster.live().empty() && GetMonsterListEntry(0) == nullptr));
     auto* live = roster.add(std::make_unique<W8MonsterInfo>(), false);
     auto* unborn = roster.add(std::make_unique<W8MonsterInfo>(), true);
-    gXStatus.encounter_groups.push_back(&group);
+    gXStatus.encounter_groups.push_back(std::move(group));
     REQUIRE(GetMonsterListEntry(0) == live);
     REQUIRE((GetMonsterListEntry(-1) == nullptr && GetMonsterListEntry(1) == nullptr));
     REQUIRE((GetUnbornMonsterEntry(0) == unborn && GetUnbornMonsterEntry(1) == nullptr));
-    REQUIRE((GetMonsterGroupEncounter(0) == &group && GetMonsterGroupEncounter(1) == nullptr));
+    REQUIRE((GetMonsterGroupEncounter(0) == group_ptr && GetMonsterGroupEncounter(1) == nullptr));
 
     // Promotion moves membership only: the same record, now live, and promotion is one-way.
     REQUIRE(roster.promote(unborn));
@@ -274,7 +275,7 @@ static bool visibilityRecordLifetime()
     target.location_id = 200;
     target.fActive = true;
     REQUIRE(!FindMonToMonVisibility(&observer, &target));
-    observer.monster_visibility = new W8MonsterVisibility;
+    observer.monster_visibility = std::make_unique<W8MonsterVisibility>();
     auto& records = *observer.monster_visibility;
     auto& row = records[target.location_id];
     row.about_location_id = target.location_id;
@@ -309,10 +310,16 @@ TEST_CASE("Engagement propagates to the original leader's direct allies", "[grou
 {
     // NOLINTNEXTLINE(cppcoreguidelines-special-member-functions): local scope guard
     struct RestoreGroups {
-        std::vector<W8MonsterGroup*> saved = std::exchange(gXStatus.monster_groups, {});
+        std::vector<std::unique_ptr<W8MonsterGroup>> saved =
+            std::exchange(gXStatus.monster_groups, {});
         ~RestoreGroups() { gXStatus.monster_groups = std::move(saved); }
     } restore;
-    W8MonsterGroup leader{}, first{}, second{}, unrelated{};
+    for (int i = 0; i < 4; ++i)
+        gXStatus.monster_groups.push_back(std::make_unique<W8MonsterGroup>());
+    auto& leader = *gXStatus.monster_groups[0];
+    auto& first = *gXStatus.monster_groups[1];
+    auto& second = *gXStatus.monster_groups[2];
+    auto& unrelated = *gXStatus.monster_groups[3];
     leader.group_id = 1;
     first.group_id = 2;
     second.group_id = 3;
@@ -320,7 +327,6 @@ TEST_CASE("Engagement propagates to the original leader's direct allies", "[grou
     leader.allied_group_ids[0] = first.group_id;
     leader.allied_group_ids[2] = second.group_id;
     first.allied_group_ids[2] = unrelated.group_id;
-    gXStatus.monster_groups = {&leader, &first, &second, &unrelated};
 
     SetMonsterGroupEngagementState(leader.group_id, true);
     for (const auto* group : {&leader, &first, &second}) {
