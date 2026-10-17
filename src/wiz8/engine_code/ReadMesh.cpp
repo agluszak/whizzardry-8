@@ -171,7 +171,7 @@ static void OptimizeMeshOrder(stMeshModel& mesh)
     std::vector<w8_ulong> inverse(vertex_count);
     for (std::size_t vertex = 0; vertex < vertices.size(); ++vertex)
         inverse[vertices[vertex]] = vertex;
-    for (auto& [key, vertex] : mesh.mapped_vertices) vertex = static_cast<short>(inverse[vertex]);
+    for (auto& [key, vertex] : mesh.mapped_vertices) vertex = static_cast<int>(inverse[vertex]);
 }
 
 namespace {
@@ -188,7 +188,7 @@ std::unique_ptr<stMeshModel> BuildMeshPart(const SingleLevelMeshRecord& record,
     std::vector<glm::vec2> uvs;
     std::vector<int> first_uvs;
     std::vector<glm::ivec3> polygon_vertices, polygon_uvs;
-    std::map<short, short> mapped_vertices;
+    std::map<short, int> mapped_vertices;
 
     for (const auto& face : record.faces) {
         const auto& material = materials[face.material_index];
@@ -208,7 +208,7 @@ std::unique_ptr<stMeshModel> BuildMeshPart(const SingleLevelMeshRecord& record,
                 uvs.push_back(face.texture_coordinates[corner]);
                 for (const auto& [key, mapped_source] : record.mapped_vertices) {
                     if (mapped_source == source) {
-                        mapped_vertices.insert_or_assign(key, static_cast<short>(vertex));
+                        mapped_vertices.insert_or_assign(key, vertex);
                         break;
                     }
                 }

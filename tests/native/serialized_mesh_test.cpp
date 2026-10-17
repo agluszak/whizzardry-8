@@ -456,6 +456,48 @@ TEST_CASE("Mesh construction finishes material partitions, UV seams and vertex m
     REQUIRE(lifetime.expired());
 }
 
+TEST_CASE("Expanded geometry keeps runtime marker indices beyond the wire index range")
+{
+    ScopedTemporaryDirectory directory{"wiz8-expanded-marker"};
+    const auto path = directory.path / "expanded.mesh";
+    constexpr int split_faces = 10000;
+    constexpr int vertices = split_faces * 3 + 3;
+    {
+        auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
+        Write(*file, std::array<int, 3>{4, vertices, split_faces + 1});
+        Write(*file, static_cast<unsigned char>(0));
+        Write(*file, std::array<float, 10>{0, 0, 0, 0, 0, 1, 0, 1, 1, 1});
+        Write(*file, static_cast<signed char>(1));
+        Write(*file, short{10});
+        Write(*file, short{0}); // Wire marker points to the first source vertex.
+        std::vector<float> coordinates(vertices * 3);
+        coordinates[0] = 1;
+        file->write(coordinates.data(), coordinates.size() * sizeof(float));
+        W8SerializedMeshFace face{};
+        face.flags = 4; // Separate back-face vertices expand the runtime index space.
+        for (int index = 0; index < split_faces; ++index) {
+            for (int corner = 0; corner < 3; ++corner)
+                face.vertices[corner] = (index + 1) * 3 + corner;
+            Write(*file, face);
+        }
+        face.flags = 0;
+        for (int corner = 0; corner < 3; ++corner) face.vertices[corner] = corner;
+        Write(*file, face);
+        Write(*file, short{1});
+        W8MaterialRecord material{};
+        material.version = 1;
+        file->write(&material, 0x11a);
+    }
+    auto file = wiz8::open_file(path);
+    auto instance = ReadSingleLevelMesh(*file, {});
+    REQUIRE(instance);
+    auto* mesh = static_cast<stMeshModel*>(instance->getModel());
+    const int marker = mesh->FindMappedIndex(10);
+    REQUIRE(marker >= split_faces * 6);
+    REQUIRE(marker < mesh->vertex_location_count);
+    REQUIRE(mesh->getVertexLoc()[marker] == glm::vec3(500, 0, 0));
+}
+
 TEST_CASE("Geometry sidedness does not split shared renderer material state")
 {
     W8MaterialRecord record{};
