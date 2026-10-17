@@ -50,8 +50,6 @@ struct Font {
     void resetPalette();
     std::uint16_t createShades(std::uint32_t glow);
     std::uint16_t setShade(std::uint32_t shade);
-    SDL_Point rightAlignedPosition(const SDL_Rect& bounds, std::string_view text) const;
-    SDL_Point centeredPosition(const SDL_Rect& bounds, std::string_view text) const;
     std::uint16_t height() const;
     std::int16_t textWidth(std::string_view text) const;
     std::int16_t prefixWidth(std::string_view text, std::size_t byte_end) const;

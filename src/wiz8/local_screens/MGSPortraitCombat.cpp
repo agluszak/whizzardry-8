@@ -2,6 +2,7 @@
 
 #include "glm/ext/vector_int2.hpp"
 #include "layouts/main_game_screen.h"
+#include "local_code/Gameloop.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/layouts/combat_state.h"
@@ -17,7 +18,6 @@
 #include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/local_screens/Screens.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/xstatus.h"
@@ -148,7 +148,8 @@ void UpdateSubMenuButton(int index)
         break;
     }
     if (gXStatus.fNpcDialogueMode &&
-        (index != 0 || IsNpcDialogueCursorActive() != 0 || CanOpenNpcDialogue())) {
+        (index != 0 || IsNpcDialogueCursorActive() != 0 ||
+         (gXStatus.fNpcDialogueMode && g_npc_interaction_state->scripted_dialogue))) {
         g_main_game_state->hud_buttons.submenu[index].SetEnabled(false);
         return;
     }
@@ -279,7 +280,7 @@ static void SubMenuButtonPendingScreen(W8ButtonWidget* button)
     if (gXStatus.fNpcDialogueMode) {
         gXStatus.fCampMode = true;
     }
-    SetPendingScreenState(W8_SCREEN_JOURNAL);
+    g_pending_screen_state.id = W8_SCREEN_JOURNAL;
 }
 
 // FUNCTION: WIZ8 0x005950C0

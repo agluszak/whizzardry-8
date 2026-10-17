@@ -5,6 +5,7 @@
 #include "layouts/item_instance.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/engine_code/Environment.h"
+#include "wiz8/engine_code/Levels.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
@@ -425,7 +426,7 @@ void ApplyConditionModifiers(W8Character* character, const unsigned int* conditi
                                        W8_DEPENDENCE_SWALLOWED)) {
                 W8MonsterInfo* bound;
                 if (character->conditions[W8_DEPENDENCE_SWALLOWED].level_acquired ==
-                        g_status.current_level &&
+                        GetLoadedLevelID() &&
                     (bound = FindMonster(
                          character->conditions[W8_DEPENDENCE_SWALLOWED].source_monster)) != 0) {
                     W8MonsterRecord* monster = GetMonsterDataForInfo(bound);

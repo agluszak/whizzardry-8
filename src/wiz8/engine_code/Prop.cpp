@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <exception>
@@ -34,6 +35,7 @@
 #include "surrender/srModel.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
+#include "wiz8/chunk.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/AniMesh.h"
 #include "wiz8/engine_code/AnimObj.h"
@@ -43,6 +45,8 @@
 #include "wiz8/engine_code/GrObject.h"
 #include "wiz8/engine_code/Missile.h"
 #include "wiz8/engine_code/Navigator.h"
+#include "wiz8/engine_code/OctPath.h"
+#include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/PathAI.h"
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/Trigger.hpp"
@@ -79,8 +83,6 @@ W8Prop::W8Prop()
     m_pRep = &representation;
     animation_position = glm::vec3(0);
     previous_animation_position = glm::vec3(0);
-    previous_animation_rotation = glm::mat3(1);
-    animation_rotation = glm::mat3(1);
 }
 
 // Clone the owned animation and segment values.
@@ -122,7 +124,7 @@ void UpdateWorldProps(W8World* world)
 
         if (prop != 0 && (trigger = FindTriggerForProp(world, prop)) != 0 && prop->m_gd_prop != 0) {
             prop->flags |= W8_PROP_GD_TRIGGER_BOUND;
-            prop->m_gd_prop->BindTrigger(trigger);
+            prop->m_gd_prop->BindTrigger(trigger, world->octree ? world->octree->pathing : nullptr);
         }
     }
 }
@@ -151,7 +153,7 @@ W8Prop* FindPropByName(W8World* world, const char* name)
 // FUNCTION: WIZ8 0x0044e2c0
 glm::vec3 W8Prop::GetPosition() const
 {
-    if (AnimationIsRunning(Rep()->Animation()) == 1) {
+    if (Rep()->Animation()->path_lists == 1) {
         return animation_position;
     }
     return m_pRep->GetLocation();
@@ -239,46 +241,12 @@ static Trigger* g_selected_prop_trigger;
 // GLOBAL: WIZ8 0x00607B98
 static int g_selected_prop_index = -1;
 
-/* Whether the renderer's currently selected model instance is one of the
-   instances this prop's animation dispatches.  With a running animation every
-   list entry is checked; otherwise the single dispatched instance for the
-   current frame is compared directly. */
-// FUNCTION: WIZ8 0x0044d680
-bool W8Prop::IsPickedProp(W8World* world)
-{
-    srModelInstance* instance;
-    unsigned char frame;
-    unsigned int count;
-    int index;
-
-    if (Rep()->active == 0) {
-        return false;
-    }
-    if (AnimationIsRunning(Rep()->Animation()) == 1) {
-        count = AnimObjListCount(Rep()->Animation(), 2);
-        for (index = 0; index < static_cast<int>(count); ++index) {
-            instance = AnimObjDispatchList(Rep()->Animation(), 2, static_cast<signed char>(index));
-            if (GetPickedModelInstance() == instance) {
-                return true;
-            }
-        }
-        return false;
-    }
-    frame = Rep()->subcycle;
-    if (AnimationIsRunning(Rep()->Animation()) == 0) {
-        instance = AnimObjDispatch(Rep()->Animation(), 2, frame);
-    } else {
-        instance = AnimObjDispatchList(Rep()->Animation(), 2, 0);
-    }
-    return GetPickedModelInstance() == instance;
-}
-
 /* Resolve the renderer's picked model instance back to the prop and trigger
    that own it. A pick is accepted only while the prop is active, the trigger
    permits selection, and the prop centre lies inside the trigger's distance
    interval. */
 // FUNCTION: WIZ8 0x0044d760
-bool ResolvePickedProp(W8World* world)
+bool ResolvePickedProp()
 {
     srModelInstance* selected;
     glm::vec3 camera_position;
@@ -288,14 +256,14 @@ bool ResolvePickedProp(W8World* world)
 
     g_selected_prop_trigger = 0;
     g_selected_prop_index = -1;
-    selected = GetPickedModelInstance();
+    selected = g_current_model_instance;
     if (selected == 0) {
         return false;
     }
 
     valid = true;
     camera_position = cameraLocation();
-    prop_count = world->plsProps.size();
+    prop_count = GetWorld()->plsProps.size();
     for (prop_index = 0; prop_index < static_cast<int>(prop_count); ++prop_index) {
         W8Prop* prop;
         W8PropRepresentation* representation;
@@ -308,19 +276,19 @@ bool ResolvePickedProp(W8World* world)
         if (g_selected_prop_trigger != 0) {
             return valid;
         }
-        prop = GetWorldProp(world, prop_index);
+        prop = GetWorldProp(GetWorld(), prop_index);
         representation = prop->Rep();
         if (representation->active == 0) {
             continue;
         }
 
         instance = 0;
-        if (AnimationIsRunning(representation->Animation()) == 1) {
+        if (representation->Animation()->path_lists == 1) {
             int count = static_cast<int>(AnimObjListCount(representation->Animation(), 2));
             for (instance_index = 0; instance_index < count; ++instance_index) {
                 instance = AnimObjDispatchList(representation->Animation(), 2,
                                                static_cast<signed char>(instance_index));
-                if (GetPickedModelInstance() == instance) {
+                if (g_current_model_instance == instance) {
                     break;
                 }
             }
@@ -329,7 +297,7 @@ bool ResolvePickedProp(W8World* world)
             }
         } else {
             instance = representation->ToggleAnimation(representation->subcycle);
-            if (GetPickedModelInstance() != instance) {
+            if (g_current_model_instance != instance) {
                 continue;
             }
         }
@@ -355,7 +323,7 @@ bool ResolvePickedProp(W8World* world)
                 }
             }
             valid = false;
-            SetPickedModelInstance(0);
+            g_current_model_instance = 0;
             g_selected_prop_trigger = 0;
             g_selected_prop_index = -1;
         }
@@ -367,7 +335,7 @@ bool ResolvePickedProp(W8World* world)
 // FUNCTION: WIZ8 0x0044ba00
 srModelInstance* W8PropRepresentation::ToggleAnimation(int argument)
 {
-    if (AnimationIsRunning(Animation()) == 0) {
+    if (Animation()->path_lists == 0) {
         return AnimObjDispatch(Animation(), 2, argument);
     }
     return AnimObjDispatchList(Animation(), 2, 0);
@@ -464,7 +432,7 @@ srModelInstance* W8Prop::ToggleRepAnimation(int argument)
 {
     W8PropRepresentation* rep = Rep();
 
-    if (!AnimationIsRunning(rep->Animation())) {
+    if (!rep->Animation()->path_lists) {
         return AnimObjDispatch(rep->Animation(), 2, argument);
     }
     return AnimObjDispatchList(rep->Animation(), 2, 0);
@@ -478,7 +446,7 @@ srModelInstance* W8Prop::ToggleRepAnimationDefault()
     W8PropRepresentation* rep = Rep();
     unsigned char argument = rep->subcycle;
 
-    if (!AnimationIsRunning(rep->Animation())) {
+    if (!rep->Animation()->path_lists) {
         return AnimObjDispatch(rep->Animation(), 2, argument);
     }
     return AnimObjDispatchList(rep->Animation(), 2, 0);
@@ -576,13 +544,13 @@ void W8Prop::UpdatePropAnimation()
         if ((flags & W8_PROP_ANIMATION_GEOMETRY_DIRTY) == 0) {
             return;
         }
-        ApplyAnimationPaths(GetWorld());
-        BuildOrRefreshPathingRepresentation();
+        ApplyAnimationPaths();
+        BuildOrRefreshPathingRepresentation(GetWorldPathing());
         flags &= ~W8_PROP_ANIMATION_GEOMETRY_DIRTY;
         return;
     }
     anim_frame_fraction = timer.GetProgress();
-    BuildOrRefreshPathingRepresentation();
+    BuildOrRefreshPathingRepresentation(GetWorldPathing());
     frames = static_cast<int>(anim_frame_fraction);
     anim_frame_fraction -= frames;
     rep->frame_steps = static_cast<unsigned char>(frames);
@@ -612,15 +580,15 @@ void W8Prop::UpdatePropAnimation()
    position snapshots: the previous current becomes the old position and the
    path's location becomes the new current. */
 // FUNCTION: WIZ8 0x0044c200
-void W8Prop::ApplyAnimationPaths(W8World* world)
+void W8Prop::ApplyAnimationPaths()
 {
     unsigned int count;
     int index;
 
-    if (world == 0) {
+    if (GetWorld() == nullptr) {
         srAssertFail("pWorld", PROP_CPP, 0x3db, 0);
     }
-    if (AnimationIsRunning(Rep()->Animation()) == 1) {
+    if (Rep()->Animation()->path_lists == 1) {
         count = AnimObjListCount(Rep()->Animation(), 2);
         for (index = 0; index < static_cast<int>(count); ++index) {
             stModelInstance* mesh = static_cast<stModelInstance*>(
@@ -756,7 +724,7 @@ void W8Prop::AdvanceAnimationValue(int frames, char total)
     } else if (rep->subcycle > rep->last_frame) {
         rep->subcycle = rep->last_frame;
     }
-    if (AnimationIsRunning(rep->Animation()) == 1) {
+    if (rep->Animation()->path_lists == 1) {
         count = AnimObjListCount(rep->Animation(), 2);
         for (index = 0; index < static_cast<int>(count); ++index) {
             W8PathAI* path = AnimObjListEntry(rep->Animation(), 2, static_cast<signed char>(index));
@@ -863,18 +831,18 @@ bool W8Prop::CanBeUsedFrom(int path_x, int path_z, bool notify)
    path and, when the animation is already running, snapshot the live
    position into the prop. */
 // FUNCTION: WIZ8 0x0044c670
-void W8Prop::ApplyAnimationFrame()
+void W8Prop::ApplyAnimationFrame(W8PathingService* pathing)
 {
     unsigned int count;
     int index;
 
-    if (AnimationIsRunning(Rep()->Animation()) != 1) {
+    if (Rep()->Animation()->path_lists != 1) {
         W8PropRepresentation* rep = static_cast<W8PropRepresentation*>(m_pRep);
         unsigned char frame = rep->subcycle;
         srModelInstance* mesh;
         W8PathAI* path;
 
-        if (AnimationIsRunning(rep->Animation()) == 0) {
+        if (rep->Animation()->path_lists == 0) {
             mesh = AnimObjDispatch(rep->Animation(), 2, frame);
         } else {
             mesh = AnimObjDispatchList(rep->Animation(), 2, 0);
@@ -913,7 +881,7 @@ void W8Prop::ApplyAnimationFrame()
         }
     }
     flags |= W8_PROP_ANIMATION_GEOMETRY_DIRTY;
-    BuildOrRefreshPathingRepresentation();
+    BuildOrRefreshPathingRepresentation(pathing);
 }
 
 /* Per-frame prop update: while the animation is running this binds every
@@ -954,7 +922,7 @@ void W8Prop::AttachAnimationInstances(W8World* world)
     if (world == 0) {
         srAssertFail("pWorld", PROP_CPP, 0x5a1, 0);
     }
-    if (AnimationIsRunning(Rep()->Animation()) == 1) {
+    if (Rep()->Animation()->path_lists == 1) {
         has_scales = false;
         count = static_cast<int>(AnimObjListCount(Rep()->Animation(), 2));
         for (index = 0; index < count; ++index) {
@@ -985,7 +953,6 @@ void W8Prop::AttachAnimationInstances(W8World* world)
             }
             rotation = path->rotations[Rep()->subcycle];
             next = path->rotations[next_frame];
-            previous_animation_rotation = instance->getRotation<glm::mat3>();
             if (!(rotation == next)) {
                 const auto first_rotation = glm::dquat(glm::quat_cast(rotation));
                 auto next_rotation = glm::dquat(glm::quat_cast(next));
@@ -1001,7 +968,6 @@ void W8Prop::AttachAnimationInstances(W8World* world)
                         : glm::slerp(first_rotation, next_rotation, double(anim_frame_fraction));
                 rotation = glm::mat3_cast(glm::normalize(interpolated_rotation));
             }
-            animation_rotation = rotation;
             current = path->nodes[Rep()->subcycle];
             next_pos = path->nodes[next_frame];
             inv = 1.0f - anim_frame_fraction;
@@ -1075,7 +1041,7 @@ void W8Prop::AttachAnimationInstances(W8World* world)
         BakeInstanceVertexLightingIfNeeded(instance, world->dynamic_scene);
     }
     if (m_gd_prop == 0) {
-        BuildOrRefreshPathingRepresentation();
+        BuildOrRefreshPathingRepresentation(world->octree ? world->octree->pathing : nullptr);
     }
 }
 
@@ -1095,7 +1061,7 @@ void W8Prop::DetachAnimationInstances(W8World* world)
         srAssertFail("pWorld", PROP_CPP, 0x66b, 0);
     }
     Rep()->saved_subcycle = Rep()->subcycle;
-    if (AnimationIsRunning(Rep()->Animation()) == 1) {
+    if (Rep()->Animation()->path_lists == 1) {
         count = AnimObjListCount(Rep()->Animation(), 2);
         for (index = 0; index < static_cast<int>(count); ++index) {
             instance = static_cast<stModelInstance*>(
@@ -1109,7 +1075,7 @@ void W8Prop::DetachAnimationInstances(W8World* world)
     } else {
         unsigned char frame = Rep()->subcycle;
 
-        if (AnimationIsRunning(Rep()->Animation()) == 0) {
+        if (Rep()->Animation()->path_lists == 0) {
             instance = static_cast<stModelInstance*>(AnimObjDispatch(Rep()->Animation(), 2, frame));
         } else {
             instance = static_cast<stModelInstance*>(AnimObjDispatchList(Rep()->Animation(), 2, 0));
@@ -1129,22 +1095,17 @@ void W8Prop::DetachAnimationInstances(W8World* world)
    The read chain's success is reported even though the restore runs either
    way. */
 // FUNCTION: WIZ8 0x0044dbd0
-bool W8Prop::LoadAnimationState(wiz8::File& hFile)
-try {
-    unsigned char unused;
+void W8Prop::ApplyAnimationState(const SavedAnimationState& state, W8PathingService* pathing)
+{
     unsigned int count;
     int index;
     int total;
-    bool success;
     W8PathAI* path;
-
-    success =
-        (hFile.read(&Rep()->subcycle, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
-        (hFile.read(&Rep()->first_frame, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
-        (hFile.read(&Rep()->last_frame, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
-        (hFile.read(&Rep()->frame_direction, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
-        (hFile.read(&Rep()->animation_playing, 1).bytes == static_cast<std::size_t>(1)) != 0 &&
-        (hFile.read(&unused, 1).bytes == static_cast<std::size_t>(1)) != 0;
+    Rep()->subcycle = state.subcycle;
+    Rep()->first_frame = state.first_frame;
+    Rep()->last_frame = state.last_frame;
+    Rep()->frame_direction = state.frame_direction;
+    Rep()->animation_playing = state.animation_playing;
     if (Rep()->Animation() != 0) {
         total = static_cast<int>(AnimObjValue(Rep()->Animation(), 2));
         if (Rep()->last_frame >= total) {
@@ -1156,7 +1117,7 @@ try {
         if (Rep()->subcycle >= total) {
             Rep()->subcycle = static_cast<unsigned char>(total - 1);
         }
-        if (AnimationIsRunning(Rep()->Animation()) == 1) {
+        if (Rep()->Animation()->path_lists == 1) {
             count = AnimObjListCount(Rep()->Animation(), 2);
             for (index = 0; index < static_cast<int>(count); ++index) {
                 path = AnimObjListEntry(Rep()->Animation(), 2, static_cast<signed char>(index));
@@ -1165,11 +1126,8 @@ try {
                 }
             }
         }
-        ApplyAnimationFrame();
+        ApplyAnimationFrame(pathing);
     }
-    return success;
-} catch (const std::exception&) {
-    return false;
 }
 
 /* Union of the per-frame bounds over every frame of the rep's animation.
@@ -1194,14 +1152,14 @@ std::optional<srBoundingBox> W8Prop::GetBounds()
    requires a transitive animation with one mesh, then either constructs the
    owned GDProp or reinitializes it for the current animation frame. */
 // FUNCTION: WIZ8 0x0044dea0
-int W8Prop::BuildOrRefreshPathingRepresentation()
+int W8Prop::BuildOrRefreshPathingRepresentation(W8PathingService* pathing)
 {
     srModelInstance* instance;
 
     if ((flags & W8_PROP_COLLIDABLE) == 0) {
         return 0;
     }
-    if (AnimationIsRunning(Rep()->Animation()) != 1) {
+    if (Rep()->Animation()->path_lists != 1) {
         ShutdownWithErrorBox("Collidable props can be of Transform type only.");
     }
     if (AnimObjListCount(Rep()->Animation(), 2) != 1) {
@@ -1213,15 +1171,16 @@ int W8Prop::BuildOrRefreshPathingRepresentation()
     }
 
     if (m_gd_prop == 0) {
-        m_gd_prop = std::make_unique<GDProp>(instance, name.c_str(),
+        m_gd_prop = std::make_unique<GDProp>(pathing, instance, name.c_str(),
                                              static_cast<unsigned short>(Rep()->subcycle),
                                              Rep()->footstep_surface, Rep()->footstep_material);
     } else {
         if ((flags & W8_PROP_ANIMATION_GEOMETRY_DIRTY) != 0) {
-            m_gd_prop->Initialize(instance, true, static_cast<unsigned short>(Rep()->subcycle),
+            m_gd_prop->Initialize(pathing, instance, true,
+                                  static_cast<unsigned short>(Rep()->subcycle),
                                   Rep()->footstep_surface, Rep()->footstep_material);
         } else {
-            m_gd_prop->Initialize(instance, false, 0, Rep()->footstep_surface,
+            m_gd_prop->Initialize(pathing, instance, false, 0, Rep()->footstep_surface,
                                   Rep()->footstep_material);
         }
         if (Rep()->animation_behaviour == W8_ANIMATION_PLAY_ONCE) {
@@ -1250,7 +1209,7 @@ void W8Prop::RunMissileTrigger(W8AIMissile* record)
 // FUNCTION: WIZ8 0x0044e310
 void W8Prop::SetPosition(glm::vec3* position)
 {
-    if (AnimationIsRunning(Rep()->Animation()) == 1) {
+    if (Rep()->Animation()->path_lists == 1) {
         animation_position = *position;
         return;
     }
@@ -1286,7 +1245,7 @@ bool W8Prop::IsTriggerInView(glm::vec3* position)
     const float distance = glm::length((center - *position));
     if (!(distance < trigger->range_maximum && trigger->range_minimum <= distance)) return false;
     const std::array points{bounds->center(), bounds->minimum, bounds->maximum};
-    return g_world->camera->projectsAny(points);
+    return GetWorld()->camera->projectsAny(points);
 }
 
 // FUNCTION: WIZ8 0x0044bf50
@@ -1296,7 +1255,8 @@ std::unique_ptr<W8Prop> CreateAndLoadProp(W8ReadLevelInfo* info)
     auto prop = std::make_unique<W8Prop>();
     if (!prop->Rep()->LoadProp(info, prop.get())) return nullptr;
     prop->timer.SetDuration(1.0f / prop->Rep()->animation_speed);
-    prop->ApplyAnimationFrame();
+    prop->ApplyAnimationFrame(info->world && info->world->octree ? info->world->octree->pathing
+                                                                 : nullptr);
     return prop;
 }
 
@@ -1355,9 +1315,8 @@ try {
                 goto fail;
             }
         }
-        info->mesh_filename = 0;
-        mesh = std::make_unique<W8AniMesh>();
-        result = LoadAniMeshFromInfo(info, mesh.get(), 1);
+        mesh = ReadAnimatedMesh(*hFile, info->bitmap_folder, true);
+        result = mesh != nullptr;
         if (!result) {
             fail_line = 0xd8;
             result = false;
@@ -1379,7 +1338,6 @@ try {
         int slot_i;
 
         flag_bits = 0;
-        info->mesh_filename = 0;
         if (success) {
             hFile->read_exact(&frame_count, 1);
         }
@@ -1442,7 +1400,7 @@ try {
         }
         animation = &this->animation.emplace();
         result = AnimObjReadFromFile(info, animation, 1, 0, 1);
-        if (AnimationIsRunning(animation) == 1) {
+        if (animation->path_lists == 1) {
             animation->frame_count = frame_count;
         }
         this->play_chance = animation->play_chance;
@@ -1453,17 +1411,16 @@ try {
             stMeshModel* mesh_model;
             std::string named;
 
-            if (AnimationIsRunning(this->Animation()) == 0) {
-                instance =
-                    AnimObjDispatch(this->Animation(), 2, static_cast<unsigned char>(entry_index));
+            if (Animation()->path_lists == 0) {
+                instance = AnimObjDispatch(Animation(), 2, static_cast<unsigned char>(entry_index));
             } else {
-                instance = AnimObjDispatchList(this->Animation(), 2, 0);
+                instance = AnimObjDispatchList(Animation(), 2, 0);
             }
             named = fmt::format("Prop: {}", prop->name);
             instance->setName(named.c_str());
             mesh_model = static_cast<stMeshModel*>(instance->getModel());
             for (; mesh_model != 0; mesh_model = mesh_model->Next()) {
-                if (AnimationIsRunning(animation) == 0) {
+                if (animation->path_lists == 0) {
                     mesh_model->GetVertexSunlight(true);
                 }
             }
@@ -1552,11 +1509,11 @@ try {
                 unsigned int path_i;
 
                 this->animation_running = true;
-                if (AnimationIsRunning(this->Animation()) == 1) {
-                    path_count = AnimObjListCount(this->Animation(), 2);
+                if (Animation()->path_lists == 1) {
+                    path_count = AnimObjListCount(Animation(), 2);
                     for (path_i = 0; path_i < path_count; ++path_i) {
-                        W8PathAI* path = AnimObjListEntry(this->Animation(), 2,
-                                                          static_cast<signed char>(path_i));
+                        W8PathAI* path =
+                            AnimObjListEntry(Animation(), 2, static_cast<signed char>(path_i));
                         path->step_by_node = 1;
                     }
                 }
@@ -1640,7 +1597,7 @@ void W8Prop::CollectModelInstances(std::vector<stModelInstance*>& instances)
     if (animation == 0) {
         return;
     }
-    if (!AnimationIsRunning(animation)) {
+    if (!animation->path_lists) {
         for (const auto& entry : animation->entries) {
             W8AniMesh* mesh = entry.get();
             if (mesh == 0) {
@@ -1655,7 +1612,7 @@ void W8Prop::CollectModelInstances(std::vector<stModelInstance*>& instances)
                 }
             }
         }
-    } else if (AnimationIsRunning(animation) == 1) {
+    } else if (animation->path_lists == 1) {
         for (auto& frame_meshes : animation->meshes) {
             for (const auto& owned_mesh : frame_meshes) {
                 auto* mesh = owned_mesh.get();
@@ -1677,7 +1634,7 @@ void W8Prop::CollectModelInstances(std::vector<stModelInstance*>& instances)
    flags and the active byte). The per-prop byte writes only run while the
    previous writes succeed. */
 // FUNCTION: WIZ8 0x0044e830
-void SaveWorldProps(W8World* world, wiz8::File& handle)
+void SaveWorldProps(wiz8::File& handle)
 {
     int index;
     int count;
@@ -1689,10 +1646,10 @@ void SaveWorldProps(W8World* world, wiz8::File& handle)
     version = 1;
     handle.write(&signature, 4);
     handle.write(&version, 4);
-    count = static_cast<int>(world->plsProps.size());
+    count = static_cast<int>(GetWorld()->plsProps.size());
     handle.write(&count, 4);
     for (index = 0; index < count; ++index) {
-        prop = GetWorldProp(world, index);
+        prop = GetWorldProp(GetWorld(), index);
         handle.write_padded(prop->name.c_str(), 0x40);
         if ((handle.write(&prop->Rep()->subcycle, 1), true) != 0 &&
             (handle.write(&prop->Rep()->first_frame, 1), true) != 0 &&
@@ -1704,59 +1661,43 @@ void SaveWorldProps(W8World* world, wiz8::File& handle)
     }
 }
 
-/* APST chunk reader. The 0xDEADD00D signature selects the name-keyed format;
-   older saves carry a bare record count followed by each prop's object key.
-   Records whose prop cannot be found are consumed by a scratch prop so the
-   stream stays aligned. */
-// FUNCTION: WIZ8 0x0044e9a0
-void LoadWorldProps(W8World* world, wiz8::File& handle)
+/* Both APST formats decode six animation bytes before updating a matching
+   prop. Unknown records are decoded and ignored within the chunk boundary. */
+void LoadWorldProps(W8World* world, W8Chunk& chunk)
 {
-    int index;
-    int count;
-    int entries;
-    int key;
-    unsigned int signature;
-    unsigned int version;
-    char name[0x40 + 1]{};
-    W8Prop* prop;
-    W8Prop* entry;
-
-    handle.read_exact(&signature, 4);
-    if (signature != 0xDEADD00D) {
-        count = signature;
-        for (index = 0; index < count; ++index) {
-            handle.read_exact(&key, 4);
-            prop = 0;
-            entries = static_cast<int>(world->plsProps.size());
-            for (int entry_index = 0; entry_index < entries; ++entry_index) {
-                entry = GetWorldProp(world, entry_index);
-                if (entry->id == key) {
-                    prop = entry;
+    const auto signature = chunk.ReadValue<unsigned int>();
+    const bool named = signature == 0xDEADD00D;
+    if (named) chunk.ReadValue<unsigned int>(); // version
+    const auto count = named ? chunk.ReadValue<unsigned int>() : signature;
+    const std::size_t key_size = named ? 64 : sizeof(int);
+    if (std::uint64_t{count} * (key_size + 6) > static_cast<std::uint64_t>(chunk.RemainingBytes()))
+        throw std::runtime_error("invalid saved prop count");
+    for (unsigned int index = 0; index < count; ++index) {
+        char name[65]{};
+        int key = 0;
+        if (named) {
+            chunk.ReadBytes(name, 64);
+            if (std::find(name, name + 64, '\0') == name + 64)
+                throw std::runtime_error("unterminated saved prop name");
+        } else {
+            chunk.ReadValue(key);
+        }
+        W8Prop::SavedAnimationState state;
+        static_assert(sizeof(state) == 6);
+        chunk.ReadBytes(&state, sizeof(state));
+        W8Prop* prop = nullptr;
+        if (named) {
+            prop = FindPropByName(world, name);
+        } else {
+            for (const auto& candidate : world->plsProps) {
+                if (candidate->id == key) {
+                    prop = candidate.get();
                     break;
                 }
             }
-            if (prop != 0) {
-                prop->LoadAnimationState(handle);
-            } else {
-                W8Prop scratch;
-                scratch.LoadAnimationState(handle);
-            }
         }
-    } else {
-        handle.read_exact(&version, 4);
-        handle.read_exact(&count, 4);
-        for (index = 0; index < count; ++index) {
-            handle.read_exact(name, 0x40);
-            if (std::find(name, name + 64, '\0') == name + 64)
-                throw std::runtime_error("unterminated saved prop name");
-            prop = FindPropByName(g_world, name);
-            if (prop != 0) {
-                prop->LoadAnimationState(handle);
-            } else {
-                W8Prop scratch;
-                scratch.LoadAnimationState(handle);
-            }
-        }
+        if (prop)
+            prop->ApplyAnimationState(state, world->octree ? world->octree->pathing : nullptr);
     }
 }
 
@@ -1765,7 +1706,7 @@ void LoadWorldProps(W8World* world, wiz8::File& handle)
 // FUNCTION: WIZ8 0x0044DA60
 int GetSelectedPropIndex(void)
 {
-    if (GetPickedModelInstance() == 0) {
+    if (g_current_model_instance == 0) {
         return g_selected_prop_index = -1;
     }
     return g_selected_prop_index;
@@ -1777,7 +1718,7 @@ int GetSelectedPropIndex(void)
 // FUNCTION: WIZ8 0x0044DA20
 bool ActivateSelectedProp(void)
 {
-    if (GetPickedModelInstance() == 0) {
+    if (g_current_model_instance == 0) {
         g_selected_prop_trigger = 0;
         return false;
     }

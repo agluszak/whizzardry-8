@@ -1,5 +1,6 @@
 #include "wiz8/local_code/Sight.h"
 
+#include <algorithm>
 #include <cstring>
 #include <span>
 #include <unordered_map>
@@ -7,10 +8,12 @@
 
 #include <glm/geometric.hpp>
 
+#include "World.h"
 #include "conditions.h"
 #include "gameplay_modifiers.h"
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/levels.h"
+#include "layouts/world.h"
 #include "local_code/Factions.h"
 #include "random.h"
 #include "sight_state.h"
@@ -21,11 +24,11 @@
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/GameTimeAccumulator.h"
+#include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/PolyPick.h"
-#include "wiz8/engine_code/World.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
 #include "wiz8/gameplay_constants.h"
@@ -91,7 +94,7 @@ void RefreshOutwardSightForAllMonsters(void)
     unsigned int index;
 
     for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
-        UpdateMonsterSight(MonsterGetScriptPartByLocationIndex(index), true, false);
+        UpdateMonsterSight(GetMonsterListEntry(index), true, false);
     }
     if (gXStatus.fCombatMode) {
         RefreshFlaggedMainGameState();
@@ -106,7 +109,7 @@ void RefreshInwardSightForAllMonsters(void)
     unsigned int index;
 
     for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
-        UpdateMonsterSight(MonsterGetScriptPartByLocationIndex(index), false, false);
+        UpdateMonsterSight(GetMonsterListEntry(index), false, false);
     }
 }
 
@@ -120,7 +123,7 @@ void RefreshAllSight(void)
 
     RefreshOutwardSightForAllMonsters();
     for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
-        UpdateMonsterSight(MonsterGetScriptPartByLocationIndex(index), false, false);
+        UpdateMonsterSight(GetMonsterListEntry(index), false, false);
     }
 }
 
@@ -227,7 +230,7 @@ float ComputeSightThreshold(glm::vec3 observer_position, glm::vec3 target_positi
     if (ranged_bonus != 0) {
         sight_percent = (static_cast<int>(ranged_bonus) + 100) * sight_percent / 100;
     }
-    ClampInteger(&sight_percent, 2, 100);
+    sight_percent = std::clamp(sight_percent, 2, 100);
     return sight_percent * viewing_distance * kMovementSpeedStep;
 }
 
@@ -235,7 +238,8 @@ float ComputeSightThreshold(glm::vec3 observer_position, glm::vec3 target_positi
 // FUNCTION: WIZ8 0x00505ba0
 void ReleaseMonToMonVisibilityInfoAbout(int location_id)
 {
-    for (auto* monster : gXStatus.monster_roster.live()) {
+    for (const auto& monster_owner : gXStatus.monster_roster.live()) {
+        auto* monster = monster_owner.get();
         if (monster->fActive && monster->monster_visibility) {
             monster->monster_visibility->erase(location_id);
         }
@@ -268,13 +272,6 @@ bool MonsterGroupHasVisibleThreat(W8MonsterGroup* group)
         }
     }
     return false;
-}
-
-/* Whether projectile visibility uses the separate launch origin. */
-// FUNCTION: WIZ8 0x00505e60
-bool MonsterHasProjectileOrigin(const W8MonsterInfo* monster)
-{
-    return monster->has_projectile_origin;
 }
 
 /* Spell visibility occupies entry two or three, depending on launch origin. */
@@ -322,13 +319,13 @@ unsigned int AgeAllMonsterSight(void)
     W8MonsterInfo* monster_info;
 
     elapsed = g_status.world_clock * 1000 -
-              g_status.level_progress[g_status.current_level].sight_clock * 1000;
+              g_status.level_progress[GetLoadedLevelID()].sight_clock * 1000;
     steps = elapsed / 120000;
     if (steps == 0) {
         return 0;
     }
     for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
-        monster_info = MonsterGetScriptPartByLocationIndex(index);
+        monster_info = GetMonsterListEntry(index);
         if (monster_info->highest_condition < W8_CONDITION_DEAD) {
             AgeMonsterSight(monster_info, steps, 1);
         }
@@ -356,20 +353,20 @@ void ResetAndRefreshAllSight(void)
     unsigned int index;
 
     for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
-        W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(index);
+        W8MonsterInfo* monster_info = GetMonsterListEntry(index);
 
         memset(&monster_info->party_threat, 0, sizeof(monster_info->party_threat));
         memset(&monster_info->player_visibility, 0, sizeof(monster_info->player_visibility));
     }
     for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
-        UpdateMonsterSight(MonsterGetScriptPartByLocationIndex(index), true, false);
+        UpdateMonsterSight(GetMonsterListEntry(index), true, false);
     }
     if (gXStatus.fCombatMode) {
         RefreshFlaggedMainGameState();
         RefreshAllPartyTargets();
     }
     for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
-        UpdateMonsterSight(MonsterGetScriptPartByLocationIndex(index), false, false);
+        UpdateMonsterSight(GetMonsterListEntry(index), false, false);
     }
 }
 
@@ -418,7 +415,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
             return;
         }
         for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
-            W8MonsterInfo* other = MonsterGetScriptPartByLocationIndex(index);
+            W8MonsterInfo* other = GetMonsterListEntry(index);
 
             if (other != monster_info && other->fInCombat && other->fActive &&
                 other->hp_current != 0) {
@@ -471,7 +468,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                 srAssertFail("fFoundMissileVertex", SIGHT_CPP, 0x1f5, 0);
                                 clear = false;
                             } else {
-                                short line = g_octree->TraceLineOfSight(
+                                short line = GetWorldOctree()->TraceLineOfSight(
                                     &trace_position, &other_position, true,
                                     monster_info->location_id, other->location_id, true, 1);
 
@@ -486,7 +483,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                 srAssertFail("fFoundSpellVertex", SIGHT_CPP, 0x1fd, 0);
                                 entry->los_flags[3] = false;
                             } else {
-                                short line = g_octree->TraceLineOfSight(
+                                short line = GetWorldOctree()->TraceLineOfSight(
                                     &trace_position, &other_position, true, -3, -3, true, 0);
 
                                 entry->los_flags[3] = line != 1;
@@ -596,8 +593,9 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                 srAssertFail("fFoundMissileVertex", SIGHT_CPP, 0x9b, 0);
                 clear = false;
             } else {
-                short line = g_octree->TraceLineOfSight(&trace_position, &camera_position, true,
-                                                        monster_info->location_id, -1, true, 1);
+                short line =
+                    GetWorldOctree()->TraceLineOfSight(&trace_position, &camera_position, true,
+                                                       monster_info->location_id, -1, true, 1);
 
                 clear = line == 0;
             }
@@ -610,8 +608,8 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                 srAssertFail("fFoundSpellVertex", SIGHT_CPP, 0xa3, 0);
                 monster_info->player_visibility.los_flags[3] = false;
             } else {
-                short line = g_octree->TraceLineOfSight(&trace_position, &camera_position, true, -3,
-                                                        -3, true, 0);
+                short line = GetWorldOctree()->TraceLineOfSight(&trace_position, &camera_position,
+                                                                true, -3, -3, true, 0);
 
                 monster_info->player_visibility.los_flags[3] = line != 1;
             }
@@ -721,7 +719,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                 delta = own_position - g_startup_world->GetPosition();
                                 if (glm::length(delta) < 25000.0f &&
                                     (npc->party_noticed = true, !gXStatus.fSurprisePossible) &&
-                                    g_status.current_level != 4) {
+                                    GetLoadedLevelID() != 4) {
                                     int party_slot = GetRandomCharacter(0, 0, -1, -1);
 
                                     if (party_slot != -1) {

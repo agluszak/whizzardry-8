@@ -1,4 +1,5 @@
 #pragma once
+struct W8Chunk;
 
 #include <memory>
 #include <optional>
@@ -157,7 +158,7 @@ struct W8LockState {
     /* Re-rolls the eight pin bytes of a pickable lock (lock_type == 1) and
        resets its difficulty-derived countdown and interaction state. */
     void Reset(); /* 0x00445730 */
-    void ReadRuntimeRecord(wiz8::File& handle, int version, int restoring);
+    void ReadRuntimeRecord(W8Chunk& handle, int version, int restoring);
     /* Spends one point of the lock countdown and reports whether one
        remained to spend. */
     bool ConsumeCountdown(); /* 0x004457A0 */
@@ -183,7 +184,7 @@ class Trigger : public srClass {
 public:
     typedef bool (*ActivationCallback)(Trigger* trigger);
 
-    Trigger();
+    explicit Trigger(W8World* world = nullptr);
     virtual ~Trigger() override;
 
     static Trigger* CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world);
@@ -204,9 +205,8 @@ public:
     void CompleteItemInteraction();
     void Activate();
     bool Save(wiz8::File& hFile);
-    bool Load(wiz8::File& hFile, char version);
+    bool Load(W8Chunk& hFile, char version, bool from_assets = false);
     void RunLinkedTriggers();
-    void SetPosition(glm::vec3* position);
     void FinishAction();
     void GetPosition(glm::vec3* position) const;
     bool CanRunLinkedTriggers();
@@ -305,12 +305,12 @@ std::unique_ptr<W8TriggerActionData> ReadDoorTriggerActionData(wiz8::File* handl
 /* The TRES save chunk: the world's triggers, their runtime states, and their
    action data. */
 int ResetNextTriggerId(void);
-void SaveWorldTriggers(W8World* world, wiz8::File& handle);
-bool LoadWorldTriggers(W8World* world, wiz8::File& handle);
-void SaveTriggerRuntimeStates(W8World* world, wiz8::File& handle, bool restoring);
-bool LoadTriggerRuntimeStates(wiz8::File& handle);
-void SaveTriggerActionData(W8World* world, wiz8::File& handle);
-bool LoadTriggerActionData(wiz8::File& handle);
+void SaveWorldTriggers(wiz8::File& handle);
+bool LoadWorldTriggers(W8World* world, W8Chunk& handle, bool from_assets = false);
+void SaveTriggerRuntimeStates(wiz8::File& handle);
+bool LoadTriggerRuntimeStates(W8World& world, W8Chunk& handle);
+void SaveTriggerActionData(wiz8::File& handle);
+bool LoadTriggerActionData(W8World& world, W8Chunk& handle);
 
 extern bool g_trigger_feedback;
 /* Camera position cached by the per-frame trigger walk. */
@@ -324,8 +324,7 @@ extern int g_trap_notice_event;
 extern int g_lock_notice_event;
 extern int g_container_event;
 
-bool CreateTriggerShakeEvent(int intensity, float duration, float countdown_duration, bool reverse);
-bool AnyPropTriggerInView(W8World* world);
+bool AnyPropTriggerInView();
 
 void UpdateWorldTriggers(W8World* world);
 Trigger* FindTriggerForProp(W8World* world, W8Prop* prop);
@@ -335,3 +334,5 @@ void DestroyAllWorldTriggers(W8World* world);
 /* Walk the world's triggers for a type-0x34 RunDestination trigger whose
    annulus contains the position; answers true when one does. */
 bool InsideDestinationTrigger(float x, float y, float z);
+
+// Stop callbacks before retiring the primary world; trigger owners survive until teardown.

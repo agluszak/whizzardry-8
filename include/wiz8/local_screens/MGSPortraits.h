@@ -55,7 +55,6 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
    column pixel; the adjust flag applies the compact-display shift. */
 void GetPartySlotMenuAnchor(int party_slot, int* menu_x, int* menu_y, int* band_menu_edge,
                             int* band_portrait_edge, int* grid_row, int* column_x, int adjust);
-void TickPartyPortraitOverlayClocks(void);
 
 /* Shade the depleted tail of a vitals bar - two scanlines tall
    under numeric hit points, three otherwise. */

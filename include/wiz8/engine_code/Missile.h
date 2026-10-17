@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "glm/ext/vector_float3.hpp"
@@ -78,8 +79,9 @@ public:
    tables. The source assertion for its AI names the object `pMissile`. */
 class W8Missile : public W8GrCycle {
 public:
-    W8Missile();
-    W8Missile(const W8Missile& other); /* 0x004A3E50 */
+    explicit W8Missile(W8World* owner = nullptr);
+    W8Missile(const W8Missile& other) : W8Missile(other, other.owner_world) {}
+    W8Missile(const W8Missile& other, W8World* owner); /* 0x004A3E50 */
     W8Missile& operator=(const W8Missile&) = delete;
     virtual ~W8Missile() override;
 
@@ -189,7 +191,7 @@ extern std::vector<W8MissileTableRecord> g_missile_table;
 W8Missile* NextMissile(bool restart);
 
 W8Missile* AllocateMissile(int missile_table_index);
-std::unique_ptr<W8Missile> LoadMissileCycle(W8GrCycleLoadContext* context, const char* name);
+std::unique_ptr<W8Missile> LoadMissileCycle(W8World* world, std::string_view name);
 
 W8Missile* CreateMissile(unsigned int missile_table_index, glm::vec3* source, float heading,
                          float pitch, float flight_speed, unsigned int trace_mask,

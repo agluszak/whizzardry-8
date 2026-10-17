@@ -63,7 +63,7 @@ std::optional<std::string> ReadRetailTextLine(wiz8::File* handle)
 }
 
 // FUNCTION: WIZ8 0x005bc130
-unsigned char CreditsScreenEnter(void)
+bool CreditsScreenEnter(void)
 try {
     std::unique_ptr<wiz8::File> handle;
     std::string line;
@@ -133,7 +133,7 @@ try {
 }
 
 // FUNCTION: WIZ8 0x005bc420
-unsigned char CreditsScreenLeave(int)
+bool CreditsScreenLeave(int)
 {
     g_credit_lines.clear();
     EnableCursorScene();

@@ -50,7 +50,7 @@ void HandleGameEvent(const SDL_Event& event)
         break;
     case SDL_EVENT_WINDOW_FOCUS_GAINED:
         if (restore_pending) {
-            if (!VideoInspectorIsEnabled()) {
+            if (!g_video_inspector_enabled) {
                 RestoreVideoManager();
             }
             MoveTimer(TIMER_RESUME);
@@ -59,7 +59,7 @@ void HandleGameEvent(const SDL_Event& event)
         gfApplicationActive = true;
         break;
     case SDL_EVENT_WINDOW_FOCUS_LOST:
-        if (!VideoInspectorIsEnabled()) SuspendVideoManager();
+        if (!g_video_inspector_enabled) SuspendVideoManager();
         MoveTimer(TIMER_SUSPEND);
         gfApplicationActive = false;
         restore_pending = true;

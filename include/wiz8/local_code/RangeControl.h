@@ -15,8 +15,6 @@ public:
     W8RangeControl(const W8RangeControl&) = delete;
     void SetRange(int first, int second);
     void SetValue(int value);
-    void Decrement() { AdjustValue(1); }
-    void Increment() { AdjustValue(-1); }
     void AdjustValue(int steps);
     void SetEnabled(bool enabled);
     void SetActive(bool active);

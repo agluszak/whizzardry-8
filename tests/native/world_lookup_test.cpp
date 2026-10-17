@@ -1,59 +1,63 @@
+#include <array>
+#include <cstddef>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers.hpp>
+#include <catch2/matchers/catch_matchers_string.hpp>
 
+#include "asset_paths.h"
 #include "filesystem.h"
 #include "layouts/world.h"
+#include "save_payload.h"
+#include "scoped_asset_roots.h"
 #include "surrender/srClipPlane.h"
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
 #include "temporary_directory.h"
+#include "wiz8/chunk.h"
 #include "wiz8/engine_code/3d.h"
+#include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stParticle.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/layouts/combat_state.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/levels.h"
+#include "wiz8/local_code/GameplayCode.h"
+#include "wiz8/local_code/LoadSaveGame.h"
+#include "wiz8/local_code/PC_Item.h"
+#include "wiz8/local_code/Strings.h"
+#include "wiz8/npc_interaction.h"
+#include "world_fixture.h"
 
 namespace {
-struct TestWorld {
-    W8World world{};
-    std::vector<std::unique_ptr<Trigger>>& triggers = world.triggers;
-    std::vector<std::unique_ptr<stParticle>>& particles = world.particles;
 
-    TestWorld()
-    {
-        world.static_scene = std::make_unique<srScene>();
-        world.dynamic_scene = world.static_scene->adoptChild(std::make_unique<srNode>());
-    }
-    ~TestWorld()
-    {
-        DestroyAllWorldTriggers(&world);
-        particles.clear();
-        world.static_scene.reset();
-    }
-};
-
-Trigger* AddTrigger(TestWorld& world, const char* name)
+Trigger* AddTrigger(W8World& world, const char* name)
 {
     auto owner = std::make_unique<Trigger>();
     auto* trigger = owner.get();
     std::strcpy(trigger->name, name);
-    trigger->m_pWorld = &world.world;
+    trigger->m_pWorld = &world;
     world.triggers.push_back(std::move(owner));
     return trigger;
 }
 
 bool triggers()
 {
-    TestWorld level, sky;
-    SetCurrentWorld(&level.world);
-    SetSecondaryWorld(&sky.world);
+    ReplaceWorld(std::make_unique<W8World>());
+    ReplaceSkyWorld(std::make_unique<W8World>());
+    auto& level = *GetWorld();
+    auto& sky = *GetSecondaryWorld();
     Trigger* first = AddTrigger(level, "DOOR");
     Trigger* newest = AddTrigger(level, "DOOR");
     Trigger* in_sky = AddTrigger(sky, "SKYDOOR");
@@ -66,39 +70,40 @@ bool triggers()
     level.triggers.erase(level.triggers.begin() + 1);
     REQUIRE((FindTriggerByName("DOOR") == first));
     // Removing an owner also removes its borrowed lookup entry.
-    DestroyAllWorldTriggers(&level.world);
-    REQUIRE(level.world.triggers.empty());
+    DestroyAllWorldTriggers(&level);
+    REQUIRE(level.triggers.empty());
     REQUIRE(FindTriggerByName("DOOR") == nullptr);
     REQUIRE(FindTriggerByName("SKYDOOR") == in_sky);
     Trigger* replacement = AddTrigger(level, "DOOR");
     REQUIRE(FindTriggerByName("DOOR") == replacement);
-    SetCurrentWorld(0);
-    SetSecondaryWorld(0);
+    ReplaceWorld(nullptr);
+    ReplaceSkyWorld(nullptr);
     return true;
 }
 
 bool nodes(const std::filesystem::path& directory)
 {
-    TestWorld level, sky;
-    SetCurrentWorld(&level.world);
-    SetSecondaryWorld(&sky.world);
+    ReplaceWorld(std::make_unique<W8World>());
+    ReplaceSkyWorld(std::make_unique<W8World>());
+    auto& level = *GetWorld();
+    auto& sky = *GetSecondaryWorld();
 
-    auto* lamp = level.world.dynamic_scene->adoptChild(std::make_unique<stLight>());
+    auto* lamp = level.dynamic_scene->adoptChild(std::make_unique<stLight>());
     lamp->setName("LAMP");
-    auto* torch = level.world.static_scene->adoptChild(std::make_unique<stLight>());
+    auto* torch = level.static_scene->adoptChild(std::make_unique<stLight>());
     torch->setName("TORCH");
-    auto* sky_light = sky.world.static_scene->adoptChild(std::make_unique<stLight>());
+    auto* sky_light = sky.static_scene->adoptChild(std::make_unique<stLight>());
     sky_light->setName("SUN");
-    auto* layer = level.world.static_scene->adoptChild(std::make_unique<srClipPlane>());
+    auto* layer = level.static_scene->adoptChild(std::make_unique<srClipPlane>());
     layer->setName("LAYER 1");
 
     // Engine-light setup must keep its exact-type contract: stLight has its
     // own group configuration even though it derives from srLight.
-    auto* engine_light = level.world.static_scene->adoptChild(std::make_unique<srLight>());
+    auto* engine_light = level.static_scene->adoptChild(std::make_unique<srLight>());
     engine_light->setName("TORCH");
     engine_light->setGroupMask(7);
     torch->setGroupMask(9);
-    FinalizeStaticScene(level.world.static_scene.get());
+    FinalizeStaticScene(level);
     REQUIRE(engine_light->getGroupMask() == 1);
     REQUIRE(torch->getGroupMask() == 9);
 
@@ -130,18 +135,16 @@ bool nodes(const std::filesystem::path& directory)
     torch->setFlag(srNode::FLAG_DISABLE);
     {
         auto file = wiz8::open_file(path);
-        LoadLightStates(*file);
+        ReadSavePayload(*file, [](W8Chunk& chunk) { ApplyLightStates(ReadLightStates(chunk)); });
     }
     REQUIRE((lamp->testFlag(srNode::FLAG_DISABLE)));
     REQUIRE((torch->testFlag(srNode::FLAG_DISABLE)));
 
     auto* gas =
-        level.particles.emplace_back(std::make_unique<stParticle>(level.world.dynamic_scene, 1))
-            .get();
+        level.particles.emplace_back(std::make_unique<stParticle>(level.dynamic_scene, 1)).get();
     gas->setName("GAS");
     auto* idle =
-        level.particles.emplace_back(std::make_unique<stParticle>(level.world.dynamic_scene, 1))
-            .get();
+        level.particles.emplace_back(std::make_unique<stParticle>(level.dynamic_scene, 1)).get();
     idle->setName("IDLE");
     gas->persisted = true;
     gas->SetActive(0);
@@ -152,14 +155,15 @@ bool nodes(const std::filesystem::path& directory)
     gas->emitting = 1;
     {
         auto file = wiz8::open_file(path);
-        LoadParticleStates(*file);
+        ReadSavePayload(*file,
+                        [](W8Chunk& chunk) { ApplyParticleStates(ReadParticleStates(chunk)); });
     }
     REQUIRE((!gas->emitting && idle->emitting));
     // Particles are owned by the world list, not the scene.
     level.particles.clear();
 
-    SetCurrentWorld(0);
-    SetSecondaryWorld(0);
+    ReplaceWorld(nullptr);
+    ReplaceSkyWorld(nullptr);
     return true;
 }
 } // namespace
@@ -171,15 +175,173 @@ TEST_CASE("world_lookup_test")
     // Empty worlds need no collection initialization and can be torn down
     // without ever loading a level or publishing them as the active world.
     for (int iteration = 0; iteration < 3; ++iteration) {
-        auto* world = CreateWorld();
+        const auto world = std::make_unique<W8World>();
         REQUIRE(world->level != nullptr);
         REQUIRE(world->dynamic_scene->getParent() == world->static_scene.get());
-        REQUIRE(GetWorldProp(world, 0) == nullptr);
-        REQUIRE(GetWorldCameraPath(world, -1) == nullptr);
-        REQUIRE(GetWorldAmbientSound(world, 0) == nullptr);
-        DestroyWorld(world);
+        REQUIRE(GetWorldProp(world.get(), 0) == nullptr);
+        REQUIRE(GetWorldCameraPath(world.get(), -1) == nullptr);
+        REQUIRE(GetWorldAmbientSound(world.get(), 0) == nullptr);
     }
     std::filesystem::remove_all(directory);
     REQUIRE(passed);
     std::puts("ok: world trigger, light, clip plane and particle lookups");
+}
+
+TEST_CASE("Failed resource construction preserves the active worlds and allows retry",
+          "[levels][lifetime]")
+{
+    ScopedTemporaryDirectory directory("wiz8-failed-world-load");
+    const auto assets = directory.path / "assets";
+    const auto user = directory.path / "user";
+    std::filesystem::create_directory(assets);
+    std::filesystem::create_directory(user);
+    ScopedAssetRoots roots({assets.generic_string(), user.generic_string()});
+
+    // Both owners remain usable while replacements are constructed locally.
+    ReplaceWorld(std::make_unique<W8World>(8));
+    auto* primary = GetWorld();
+    ReplaceSkyWorld(std::make_unique<W8World>(-1, "ExistingSky.LVL"));
+    auto* sky = GetSecondaryWorld();
+    for (int attempt = 0; attempt < 2; ++attempt) {
+        REQUIRE_THROWS_WITH(LoadSkyWorld("MissingSky.LVL"),
+                            Catch::Matchers::ContainsSubstring("Could not open level file."));
+        REQUIRE(GetSecondaryWorld() == sky);
+        REQUIRE(GetWorld() == primary);
+        // Traversal must derive from the live owners after the failed load.
+        DetachAllWorldItems();
+    }
+
+    const auto level_path = wiz8::asset_path("Levels/Test/level1.LVL");
+    std::filesystem::create_directories(level_path.parent_path());
+    {
+        std::ofstream truncated(level_path);
+        truncated.put('\0');
+        REQUIRE(truncated.good());
+    }
+    W8LevelInfo info;
+    REQUIRE(LevelBuildInfoByID(47, &info));
+    // A malformed level passes path preflight, then fails before publication.
+    g_status.resume_level = 8; // A pending saved destination is not the active world.
+    for (int attempt = 0; attempt < 2; ++attempt) {
+        REQUIRE_THROWS_WITH(LoadLevel(47, -1, false),
+                            Catch::Matchers::ContainsSubstring("Problem loading level"));
+        REQUIRE(GetWorld() == primary);
+        REQUIRE(GetSecondaryWorld() == sky);
+        REQUIRE(GetLoadedLevelID() == 8);
+        REQUIRE(g_status.resume_level == 8);
+        REQUIRE(GetWorld()->static_scene != nullptr);
+        DetachAllWorldItems();
+    }
+    ReplaceWorld(nullptr);
+    ReplaceSkyWorld(nullptr);
+}
+
+TEST_CASE("Malformed level status cannot change the active level or session counters",
+          "[levels][records]")
+{
+    struct Restore {
+        std::unique_ptr<W8World> previous = ReplaceWorld(std::make_unique<W8World>(8));
+        int next_group = g_status.next_group_id;
+        ~Restore()
+        {
+            g_status.next_group_id = next_group;
+            ReplaceWorld(std::move(previous));
+        }
+    } restore;
+    ScopedTemporaryDirectory directory("wiz8-unpublished-status");
+    const auto path = directory.path / "level.sts";
+    std::array<std::byte, 0x314> header{};
+    const float version = 2.0f;
+    const int next_group = 123;
+    std::memcpy(header.data(), &version, sizeof(version));
+    std::memcpy(header.data() + 4, &next_group, sizeof(next_group));
+    W8Chunk output;
+    REQUIRE(output.OpenWrite(path));
+    output.WriteGroup(W8ChunkId("LVLS"), [&] {
+        output.WriteValue(3);
+        output.WriteChunk(W8ChunkId("STAT"),
+                          [&] { output.WriteBytes(header.data(), header.size()); });
+        output.WriteChunk(W8ChunkId("ITEM"), [&] { output.WriteValue(1u); });
+    });
+    output.Close();
+    g_status.next_group_id = 42;
+    auto pending = std::make_unique<W8World>(3);
+    REQUIRE_THROWS(ReadLevelStatus(*pending, path, 3, true));
+    REQUIRE(g_status.next_group_id == 42);
+    REQUIRE(GetLoadedLevelID() == 8);
+}
+
+TEST_CASE("Only published worlds schedule their trigger events", "[levels][events]")
+{
+    struct RestoreWorld {
+        std::unique_ptr<W8World> previous = ReplaceWorld(std::make_unique<W8World>(8));
+        ~RestoreWorld() { ReplaceWorld(std::move(previous)); }
+    } restore;
+    struct CountingEvent : W8TriggerEvent {
+        explicit CountingEvent(int& count) : count(count) {}
+        void Update() override
+        {
+            ++count;
+            completed = true;
+        }
+        int& count;
+    };
+    int active_updates = 0, pending_updates = 0;
+    auto pending = std::make_unique<W8World>(3);
+    const auto schedule = [](W8World& world, int& updates) {
+        auto trigger = std::make_unique<Trigger>(&world);
+        trigger->m_pEvent = std::make_unique<CountingEvent>(updates);
+        world.timed_events.push_back(trigger->m_pEvent.get());
+        world.triggers.push_back(std::move(trigger));
+    };
+    schedule(*GetWorld(), active_updates);
+    schedule(*pending, pending_updates);
+    UpdateTimedTriggerEvents();
+    REQUIRE(active_updates == 1);
+    REQUIRE(pending_updates == 0);
+    pending.reset();
+    REQUIRE(GetLoadedLevelID() == 8);
+    REQUIRE(GetWorld()->timed_events.empty());
+}
+
+TEST_CASE("Reward accounting follows the owned world, not a pending save destination",
+          "[levels][rewards]")
+{
+    struct Restore {
+        W8GlobalStatus status = g_status;
+        std::vector<std::string> strings = std::move(g_localized_strings);
+        ~Restore()
+        {
+            ReplaceWorld(nullptr);
+            ClearNpcMessageQueue();
+            g_status = std::move(status);
+            g_localized_strings = std::move(strings);
+        }
+    } restore;
+    std::array<W8Character, 8> characters{};
+    std::array<W8PartySlotRow, 8> rows{};
+    g_status = W8GlobalStatus{};
+    g_status.buffers.Char = characters.data();
+    g_status.buffers.XChar = rows.data();
+    rows[0].fOccupied = true;
+    characters[0].hp_current = 1;
+    g_localized_strings.resize(0x233);
+    g_localized_strings[0x232] = "%d";
+    g_status.resume_level = 8;
+    ReplaceWorld(std::make_unique<W8World>(3));
+    AddPartyGold(1, false);
+    AwardPartyExperience(1, 0);
+    REQUIRE(g_status.level_progress[3].gold_collected == 1);
+    REQUIRE(g_status.level_progress[3].experience_gained == 1);
+    REQUIRE(g_status.level_progress[8].gold_collected == 0);
+    REQUIRE(g_status.level_progress[8].experience_gained == 0);
+    ReplaceWorld(nullptr);
+    const auto suffix = std::to_array(g_status.status_header_suffix);
+    AddPartyGold(1, false);
+    AwardPartyExperience(1, 0);
+    REQUIRE(g_status.party_gold == 2);
+    REQUIRE(characters[0].experience == 2);
+    REQUIRE(g_status.level_progress[3].gold_collected == 1);
+    REQUIRE(g_status.level_progress[3].experience_gained == 1);
+    REQUIRE(std::to_array(g_status.status_header_suffix) == suffix);
 }

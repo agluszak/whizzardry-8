@@ -23,6 +23,7 @@
 #include "message_box.h"
 #include "sprite.h"
 #include "wiz8/design_rect.h"
+#include "wiz8/engine_code/Levels.h"
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/ui_layer.h"
@@ -818,7 +819,7 @@ unsigned char W8CharacterEvent::Dispatch()
                 return 1;
             }
             if (npc->name_style == W8_NPC_VI_DOMINA && event_type > 0x8b && event_type < 0x92 &&
-                g_status.current_level != 0) {
+                GetLoadedLevelID() != 0) {
                 return 0;
             }
             if ((flags & W8_EVENT_NPC_SCRIPT) != 0) {
@@ -986,12 +987,13 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
             std::string formatted;
             std::string character_name = g_status.buffers.Char[party_slot].name;
             formatted = character_name;
-            int scroll_range = GetTextBoxScrollRange();
+            int scroll_range = (g_level_block->text_box_right - g_level_block->text_box_left);
             ShowNotice(W8_FONT_PALETTE_GREEN, formatted, 3, scroll_range);
             /* Retail 0x0052fc82..0x0052fc9b: the quote line follows the
                speaker's name into the dialogue box (3) with the same scroll
                width, not the mode-selected box. */
-            ShowNotice(W8_FONT_PALETTE_TEXT_BOX, quote->bubble->text(), 3, GetTextBoxScrollRange());
+            ShowNotice(W8_FONT_PALETTE_TEXT_BOX, quote->bubble->text(), 3,
+                       (g_level_block->text_box_right - g_level_block->text_box_left));
         } else {
             if (kFirstRemappedEvent <= mapped_event) {
                 mapped_event = g_normal_event_count - kFirstRemappedEvent + mapped_event;
@@ -1135,7 +1137,7 @@ void W8CharacterEventQueue::RestartFollowUpClock(W8CharacterEvent* entry)
 // FUNCTION: WIZ8 0x0052E1C0
 void W8CharacterEventQueue::ProcessFollowUpEvents()
 {
-    if (GetEnvironmentFlag() == 0) {
+    if (g_environment_time_enabled == 0) {
         return;
     }
     if ((follow_up_flags & 1) == 0) {

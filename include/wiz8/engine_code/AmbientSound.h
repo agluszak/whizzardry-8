@@ -1,14 +1,35 @@
 #pragma once
+struct W8Chunk;
 
+#include <cstdint>
 #include <memory>
+#include <optional>
+#include <span>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/audio_resources.h"
 #include "wiz8/engine_code/game_timer.h"
 
 struct W8World;
-struct W8RandomAmbient;
+// One level-owned voice and its optional random replay schedule.
+struct W8AmbientTrack {
+    wiz8::sound::Clip clip;
+    wiz8::sound::Playback instance;
+    std::uint32_t time_min = 0, time_max = 0;
+    std::uint32_t volume_min = 0, volume_max = 0;
+    std::optional<std::pair<std::uint32_t, std::uint32_t>> speed;
+    std::optional<std::uint32_t> loops;
+    std::uint64_t next_at = 0;
+
+    ~W8AmbientTrack();
+    void Reschedule();
+    bool Due() const;
+    wiz8::sound::Playback Fire(std::uint32_t volume, std::optional<glm::vec3> position);
+    static std::uint32_t RandomRange(std::uint32_t minimum, std::uint32_t maximum);
+};
 namespace wiz8 {
 class File;
 }  // namespace wiz8
@@ -53,7 +74,7 @@ public:
     unsigned char in_range;      /* 0x0b8: listener currently inside radius/region */
     unsigned char looping;       /* 0x0b9: continuous loop vs random one-shot */
     wiz8::sound::Playback sound_handle;      // Current playback, shared during group handoff.
-    std::shared_ptr<W8RandomAmbient> random; // One-shot schedule; empty for looping sounds.
+    std::unique_ptr<W8AmbientTrack> random; // One-shot schedule; empty for looping sounds.
     unsigned char shared;  /* 0x0c4: shared 2D group sound; voices hand off by name */
     unsigned char bounded; /* 0x0c5: region test enabled (v2 trigger field) */
     glm::vec3 region_min;    /* 0x0c8 */
@@ -121,19 +142,17 @@ enum W8FootstepKind {
     W8_FOOTSTEP_KIND_SCUFF = 2,
 };
 
-/* 0x00479030: drop every random schedule and stop the ambient group */
-void StopAllAmbientSounds();
-
 void BuildFootstepPath(char* path, signed char surface, signed char material, char kind,
                        int variant);
 wiz8::sound::Playback PlayFootstep(signed char surface, signed char material, W8FootstepKind kind);
 void UpdateAmbientSounds(W8World* world);
-void RepositionAmbientSounds(W8World* world);
-unsigned char ReadAmbientSoundListFile(const char* filename);
+void RepositionAmbientSounds();
+unsigned char ReadAmbientSoundListFile(W8World& world, const char* filename);
+void StartAmbientSoundList(W8World& world);
 
 void PositionAmbientSoundByName(W8World* /* unused */, const char* name);
 void StopAmbientSoundByName(W8World* /* unused */, const char* name);
-void ToggleAmbientSoundByName(W8World* /* unused */, const char* name);
+void ToggleAmbientSoundByName(const char* name);
 unsigned char AddAmbientSound(W8World* world, const char* name, const W8AmbientSoundConfig* config,
                               const glm::vec3* position, const glm::vec3* region_min,
                               const glm::vec3* region_max, int volume_min, int volume_max,
@@ -144,10 +163,14 @@ unsigned char AddAmbientSound(W8World* world, const char* name, const W8AmbientS
                               unsigned char shared);
 
 void SaveAmbientSoundList(wiz8::File& handle);
-void LoadAmbientSoundList(wiz8::File& handle);
+struct W8AmbientSoundState {
+    std::string name;
+    bool stopped;
+};
+std::vector<W8AmbientSoundState> ReadAmbientSoundStates(W8Chunk& file);
+void ApplyAmbientSoundStates(std::span<const W8AmbientSoundState> states);
 
 bool IsSoundEffectsMuted(void);
-unsigned char GetSoundEffectsVolume(void);
 void SetSoundEffectsVolume(unsigned char volume);
 void SetSoundEffectsMuted(unsigned char muted);
 

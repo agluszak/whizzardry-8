@@ -99,18 +99,18 @@ bool MoveMonsterGroupToPosition(W8MonsterGroup* group, const glm::vec3* position
     }
     if (proximity_check) {
         for (index = 0; index < count; ++index) {
-            g_octree->UnregisterLocationObjects(static_cast<short>(location_ids[index]));
+            GetWorldOctree()->UnregisterLocationObjects(static_cast<short>(location_ids[index]));
         }
     }
     glm::vec3 target = *position;
     if (alternate_radius) {
-        positions = g_octree
+        positions = GetWorldOctree()
                         ->navigatorPositions(target, yaw, radius + radius, count, proximity_check,
                                              flatten_y, false, 5, true)
                         .positions;
     } else {
-        positions = g_octree->scatterPositions(target, yaw, radius + radius, count, proximity_check,
-                                               flatten_y);
+        positions = GetWorldOctree()->scatterPositions(target, yaw, radius + radius, count,
+                                                       proximity_check, flatten_y);
     }
     const auto found = positions.size();
     if (found == 0) {
@@ -139,7 +139,7 @@ bool MoveMonsterGroupToPosition(W8MonsterGroup* group, const glm::vec3* position
             member->p3D->SetPositionInternal(&member_position);
         }
         glm::vec3 placed = member->p3D->GetPosition();
-        g_octree->UpdateMonsterLocation(static_cast<unsigned short>(location_id), &placed);
+        GetWorldOctree()->UpdateMonsterLocation(static_cast<unsigned short>(location_id), &placed);
     }
     return true;
 }
@@ -298,7 +298,7 @@ void RefreshMonsterGroupHostility(W8MonsterGroup* monster_group)
         }
         if (static_cast<unsigned int>(monster_group->hostility_set_at) >=
             static_cast<unsigned int>(
-                GetFactionValue(static_cast<signed char>(record->faction_id)))) {
+                (g_factions[(static_cast<signed char>(record->faction_id))].band_changed_clock))) {
             return;
         }
     }
@@ -751,7 +751,7 @@ void ResetMonsterGroupTurnState(void)
         GetMonsterGroupByListIndex(index)->hostility_set_at = 0;
     }
     for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
-        monster_info = MonsterGetScriptPartByLocationIndex(index);
+        monster_info = GetMonsterListEntry(index);
         monster_info->player_visibility.last_seen_clock = 0;
         monster_info->party_threat.last_seen_clock = 0;
     }
@@ -1014,13 +1014,13 @@ W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count, const g
             auto& roster = gXStatus.monster_roster;
             const auto& monsters = record->unborn ? roster.unborn() : roster.live();
             for (const int location_id : group->monsters) {
-                const auto member =
-                    std::ranges::find_if(monsters, [location_id](const W8MonsterInfo* info) {
-                        return info->location_id == location_id;
-                    });
+                const auto member = std::ranges::find_if(monsters, [location_id](const auto& info) {
+                    return info->location_id == location_id;
+                });
                 if (member != monsters.end()) {
-                    g_octree->UnregisterLocationObjects(static_cast<unsigned short>(location_id));
-                    roster.remove(*member);
+                    GetWorldOctree()->UnregisterLocationObjects(
+                        static_cast<unsigned short>(location_id));
+                    roster.remove(member->get());
                 }
             }
             std::erase_if(*list, [group](const auto& entry) { return entry.get() == group; });

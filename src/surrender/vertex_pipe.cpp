@@ -13,7 +13,6 @@
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
-#include "glm/geometric.hpp"
 #include "glm/vector_relational.hpp"
 #include "surrender/channel_math.h"
 #include "surrender/lighting_math.h"
@@ -182,14 +181,17 @@ void srVertexPipe::processVertexBuffer()
 }
 
 // FUNCTION: SURRENDER 0x1002AE90
-void srVertexPipe::setMaterial(srMaterial* material)
+void srVertexPipe::setMaterial(srMaterial* material, const Record& draw)
 {
     if (material == 0) {
         material = &default_material;
     }
-    if (material != this->material) {
-        this->material = material;
-        material_info = material->getMaterialInfo();
+    this->material = material;
+    material_info = material->getMaterialInfo();
+    if (draw.diffuse_scale) material_info.diffuse.w *= *draw.diffuse_scale;
+    if (draw.emissive_override) {
+        const auto emissive = *draw.emissive_override;
+        material_info.emissive = glm::vec4(emissive, emissive, emissive, 1.0f);
     }
 }
 
@@ -204,7 +206,9 @@ void srVertexPipe::process(const Input& input)
             active_processors.push_back(processor);
         }
     }
-    setMaterial(0);
+    current_record = nullptr;
+    material = &default_material;
+    material_info = default_material.getMaterialInfo();
     batch_base = 0;
     w8_ulong vertex_count = static_cast<w8_ulong>(input.active_vertices.size());
     if (vertex_count == 0) return;
@@ -235,16 +239,16 @@ void srVertexPipe::process(const Input& input)
             if ((record->flags & Record::HAS_VERTEX_MATERIALS) == 0) {
                 this->vertex_count = batch_count;
                 sub_batch_offset = 0;
-                setMaterial(record->material);
+                setMaterial(record->material, *record);
                 processVertexBuffer();
             } else {
                 srMaterial* material = (*record->materials)[avt[0]].get();
-                setMaterial(material);
+                setMaterial(material, *record);
                 sub_batch_offset = 0;
                 while (sub_batch_offset < batch_count) {
                     srMaterial* next = (*record->materials)[avt[sub_batch_offset]].get();
                     if (next != material) {
-                        setMaterial(next);
+                        setMaterial(next, *record);
                         material = next;
                     }
                     {
@@ -613,14 +617,6 @@ w8_ulong srVertexPipe::getExclusionMask() const
     return input->exclusion_mask;
 }
 
-// FUNCTION: SURRENDER 0x1002C350
-int srVertexPipe::testEyeSpaceBounds(const glm::vec3& center, float radius) const
-{
-    const auto offset = center - input->eye_bounds.center;
-    const float sum = radius + input->eye_bounds.radius;
-    return glm::dot(offset, offset) < sum * sum;
-}
-
 // FUNCTION: SURRENDER 0x1002C3B0
 void srVertexPipe::setupSpecular()
 {
@@ -650,12 +646,6 @@ void srVertexPipe::setupST(w8_ulong index)
 srBoundingSphere srVertexPipe::getEyeSpaceBoundingSphere() const
 {
     return input->eye_bounds;
-}
-
-// FUNCTION: SURRENDER 0x1002C4C0
-const srVertexProcessor::MaterialInfo& srVertexPipe::getMaterialInfo() const
-{
-    return material_info;
 }
 
 // FUNCTION: SURRENDER 0x1002C500
@@ -733,23 +723,6 @@ std::span<glm::vec4> srVertexPipe::getSpecular()
     return {vertex_array->specular + batch_base + sub_batch_offset, vertex_count};
 }
 
-// FUNCTION: SURRENDER 0x1002C7F0
-float* srVertexPipe::getQ(w8_ulong index, int create)
-{
-    if ((create == 0) &&
-        ((lazy_setup_mask & (1 << (index + srVertexProcessor::CHANNEL_Q0))) == 0)) {
-        setupQ(index);
-    }
-    lazy_setup_mask |= 1 << (index + srVertexProcessor::CHANNEL_Q0);
-    return (&vertex_array->q0)[index] + batch_base + sub_batch_offset;
-}
-
-// FUNCTION: SURRENDER 0x1002C850
-void* srVertexPipe::getUserArray(w8_ulong index)
-{
-    return current_record->user[index];
-}
-
 void srVertexPipe::prepareOutputChannel(srVertexProcessor::e_channel channel, SetupChannel setup)
 {
     if ((lazy_setup_mask & (1u << channel)) == 0) (this->*setup)();
@@ -760,4 +733,9 @@ void srVertexPipe::copyColorChannel(std::span<const glm::vec4> source, glm::vec4
 {
     if (source.data() != destination) std::ranges::copy(source, destination);
     lazy_setup_mask |= 1u << channel;
+}
+
+const srVertexProcessor::MaterialInfo& srVertexPipe::getMaterialInfo() const
+{
+    return material_info;
 }

@@ -1,10 +1,10 @@
 #include "wiz8/engine_code/AniMesh.h"
 
-#include <cstdio>
+#include <algorithm>
 #include <exception>
+#include <filesystem>
 #include <memory>
 #include <optional>
-#include <string>
 #include <utility>
 #include <vector>
 
@@ -12,13 +12,11 @@
 #include <glm/geometric.hpp> // NOLINT(misc-include-cleaner)
 
 #include "ReadMesh.h"
-#include "asset_paths.h"
 #include "surrender/srBoundingBox.h"
 #include "surrender/srDebug.h"
 #include "surrender/srModel.h"
 #include "surrender/srNode.h"
 #include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/filesystem.h"
@@ -34,8 +32,6 @@ int g_animesh_cache_stamp;
 int g_animesh_cache_bytes;
 // GLOBAL: WIZ8 0x0065be88
 int g_animesh_cache_limit;
-// GLOBAL: WIZ8 0x0065be8c
-int g_animesh_cache_secondary_limit;
 // GLOBAL: WIZ8 0x0065be90
 std::vector<W8AniMesh*> g_animesh_cache_list;
 
@@ -50,9 +46,7 @@ void InitializeAniMeshCache(int primary_limit, int secondary_limit)
     if (primary_limit > 0) {
         g_animesh_cache_limit = primary_limit;
     }
-    g_animesh_cache_secondary_limit = 0x100000;
     if (secondary_limit > 0) {
-        g_animesh_cache_secondary_limit = secondary_limit;
     }
     g_animesh_cache_list.clear();
     g_animesh_cache_list.reserve(10);
@@ -71,9 +65,8 @@ W8AniMesh::W8AniMesh() = default;
 W8AniMesh::W8AniMesh(const W8AniMesh& other)
     : flags(other.flags), frame_count(other.frame_count), bounds_minimum(other.bounds_minimum),
       bounds_maximum(other.bounds_maximum), radius(other.radius), loaded_bytes(other.loaded_bytes),
-      list_index(other.list_index), bitmap_directory(other.bitmap_directory),
-      filename(other.filename), file_offset(other.file_offset), world(other.world),
-      last_used(other.last_used)
+      bitmap_directory(other.bitmap_directory), source_file(other.source_file),
+      file_offset(other.file_offset), last_used(other.last_used)
 {
     meshes.reserve(other.meshes.size());
     for (const auto& source : other.meshes) {
@@ -87,184 +80,108 @@ W8AniMesh::W8AniMesh(const W8AniMesh& other)
     }
 }
 
-bool LoadAniMeshFrameCount(wiz8::File* file, W8AniMesh* mesh);
+namespace {
+bool ReadAnimatedFrames(wiz8::File& file, W8AniMesh& mesh);
+bool ReloadAnimatedMesh(W8AniMesh& mesh);
+}
 
-// FUNCTION: WIZ8 0x004b5b30
-bool LoadAniMeshFromInfo(W8ReadLevelInfo* info, W8AniMesh* mesh, bool load_all)
-{
-    if (info == 0 || mesh == 0) {
-        srAssertFail("pInfo&&pAniMesh", ANI_MESH_CPP, 0x105, 0);
-    }
-    if (info == 0 || mesh == 0) return 0;
-    mesh->bitmap_directory = info->bitmap_folder;
-    mesh->world = info->world;
-    mesh->flags = {};
-    mesh->last_used = 0;
-    if (info->mesh_filename != 0) mesh->filename = info->mesh_filename;
-    mesh->file_offset = info->hFile->tell();
-    if (load_all == 0) {
-        bool result = LoadAniMeshFrameCount(info->hFile, mesh);
+std::unique_ptr<W8AniMesh>
+ReadAnimatedMesh(wiz8::File& file, const std::filesystem::path& texture_directory, bool load_all)
+try {
+    auto mesh = std::make_unique<W8AniMesh>();
+    mesh->bitmap_directory = texture_directory;
+    mesh->source_file = file.physical_path();
+    mesh->file_offset = file.tell();
+    if (load_all) {
+        if (!ReadAnimatedFrames(file, *mesh)) return {};
+    } else {
+        unsigned char count;
+        file.read_exact(&count, sizeof(count));
+        if (!count) return {};
+        for (unsigned int index = 0; index < count; ++index) {
+            unsigned char frame;
+            file.read_exact(&frame, sizeof(frame));
+            if (frame >= count) return {};
+            if (ReadSingleLevelMeshHasVertexFrames(file)) break;
+        }
+        mesh->frame_count = count;
         mesh->flags.frame_count_loaded = true;
         mesh->flags.keep_loaded = true;
-        return result;
     }
-    return LoadAniMesh(info->hFile, mesh, true);
+    return mesh;
+} catch (const std::exception&) {
+    return {};
 }
 
-// FUNCTION: WIZ8 0x004b5c10
-float GetAniMeshFrameRadius(W8AniMesh* mesh, unsigned char frame)
-{
-    auto* instance = GetAniMeshFrame(mesh, frame);
-    if (!instance || !instance->getModel()) return 0.0f;
-    const auto bounds = instance->getModel()->getBounds().box;
-    return static_cast<float>(glm::distance(bounds.minimum, bounds.maximum) * 0.5);
-}
-
-// FUNCTION: WIZ8 0x004b5d00
-bool LoadAniMesh(wiz8::File* file, W8AniMesh* mesh, bool load_all)
+namespace {
+// Decode the full frame sequence into detached ownership before publishing it.
+// Source offsets identify resources; frame/channel labels are unnecessary.
+bool ReadAnimatedFrames(wiz8::File& file, W8AniMesh& mesh)
 try {
-    std::unique_ptr<wiz8::File> opened;
-    wiz8::File* handle = file;
-    std::string instance_name;
-    unsigned char frame_count;
-    unsigned char frame_index;
-    unsigned char loaded_count;
-    std::unique_ptr<stModelInstance> loaded_instance;
-    W8ReadLevelInfo info;
-
-    if (handle == 0) {
-        opened = [&]() {
-            try {
-                return wiz8::open_file(wiz8::asset_path(mesh->filename.c_str()),
-                                       wiz8::OpenMode::read);
-            } catch (const std::exception&) {
-                return std::unique_ptr<wiz8::File>{};
-            }
-        }();
-        handle = opened.get();
-        if (handle == 0) {
-            srAssertFail("0", ANI_MESH_CPP, 0x199, fmt::format("Couldn't open {}", mesh->filename));
-            return 0;
+    unsigned char count;
+    file.read_exact(&count, sizeof(count));
+    if (!count) return false;
+    unsigned char first_index;
+    file.read_exact(&first_index, sizeof(first_index));
+    if (first_index >= count) return false;
+    auto first = ReadSingleLevelMesh(file, mesh.bitmap_directory);
+    if (!first) return false;
+    auto* model = static_cast<stMeshModel*>(first->getModel());
+    const bool single = model->frames.size() > 1;
+    std::vector<std::unique_ptr<stModelInstance>> frames(single ? 1 : count);
+    frames[single ? 0 : first_index] = std::move(first);
+    if (!single) {
+        for (unsigned int index = 1; index < count; ++index) {
+            unsigned char frame;
+            file.read_exact(&frame, sizeof(frame));
+            if (frame >= count || frames[frame]) return false;
+            frames[frame] = ReadSingleLevelMesh(file, mesh.bitmap_directory);
+            if (!frames[frame]) return false;
         }
     }
-
-    info.world = mesh->world;
-    info.hFile = handle;
-    info.bitmap_folder = mesh->bitmap_directory.c_str();
-    if (file == 0) {
-        handle->seek(mesh->file_offset, wiz8::SeekOrigin::begin);
-    }
-
-    if (!(handle->read(&frame_count, sizeof(frame_count)).bytes ==
-          static_cast<std::size_t>(sizeof(frame_count)))) {
-        srAssertFail("fSuccess", ANI_MESH_CPP, 0x1ad, 0);
-        if (opened) opened->close();
-        opened.reset();
-        return 0;
-    }
-    if (frame_count == 0) return false;
-    mesh->frame_count = frame_count;
-    mesh->flags.frame_count_loaded = true;
-
-    if (!mesh->filename.empty()) {
-        instance_name = mesh->filename + "::0::" + std::to_string(mesh->list_index);
-    }
-
-    if (!(handle->read(&frame_index, sizeof(frame_index)).bytes ==
-          static_cast<std::size_t>(sizeof(frame_index))) ||
-        !(loaded_instance = ReadSingleLevelMesh(
-              &info, instance_name.empty() ? nullptr : instance_name.c_str(), true))) {
-        srAssertFail("fSuccess", ANI_MESH_CPP, 0x1c5, 0);
-
-        if (opened) opened->close();
-        opened.reset();
-        return 0;
-    }
-
-    loaded_instance->setName("AniMeshReallyReadFromFile");
-    auto instance = std::move(loaded_instance);
-    stMeshModel* model = static_cast<stMeshModel*>(instance->getModel());
-
-    if (model->frames.size() > 1) {
-        mesh->flags.single_instance = true;
-        mesh->meshes.clear();
-        mesh->meshes.push_back(std::move(instance));
-    } else {
-        mesh->meshes.clear();
-        mesh->meshes.resize(frame_count);
-        mesh->meshes[0] = std::move(instance);
-
-        loaded_count = 1;
-        while (loaded_count < frame_count) {
-            loaded_instance = 0;
-            if (!instance_name.empty()) {
-                instance_name = mesh->filename + "::" + std::to_string(loaded_count) +
-                                "::" + std::to_string(mesh->list_index);
-            }
-            if (!load_all ||
-                !(handle->read(&frame_index, sizeof(frame_index)).bytes ==
-                  static_cast<std::size_t>(sizeof(frame_index))) ||
-                !(loaded_instance = ReadSingleLevelMesh(
-                      &info, instance_name.empty() ? nullptr : instance_name.c_str(), load_all))) {
-                srAssertFail("fSuccess", ANI_MESH_CPP, 0x1f1, 0);
-
-                if (opened) opened->close();
-                opened.reset();
-                return 0;
-            }
-            if (frame_index >= frame_count) {
-
-                if (opened) opened->close();
-                opened.reset();
-                return 0;
-            }
-            loaded_instance->setName("AniMeshReallyReadFromFile");
-            mesh->meshes[frame_index] = std::move(loaded_instance);
-            ++loaded_count;
-        }
-    }
-
-    mesh->flags.loaded = true;
-    mesh->last_used = g_animesh_cache_stamp++;
-    g_animesh_cache_bytes += mesh->loaded_bytes;
-
-    mesh->radius = 0.0f;
-    for (frame_index = 0; frame_index < mesh->frame_count; ++frame_index) {
-        float radius = GetAniMeshFrameRadius(mesh, frame_index);
-        if (mesh->radius <= radius) {
-            mesh->radius = radius;
-        }
-    }
-
+    // Model bounds already include all vertex frames. Inspect the detached
+    // instances directly: selecting frames here would change playback and LRU
+    // state merely to compute this summary.
     srBoundingBox bounds;
     bool has_bounds = false;
-    for (frame_index = 0; frame_index < mesh->frame_count; ++frame_index) {
-        auto* instance = GetAniMeshFrame(mesh, frame_index);
-        if (!instance || !instance->getModel()) continue;
+    float radius = 0;
+    for (const auto& instance : frames) {
         const auto frame_bounds = instance->getModel()->getBounds().box;
+        radius = std::max(radius, glm::distance(frame_bounds.minimum, frame_bounds.maximum) * 0.5f);
         if (has_bounds)
             bounds.include(frame_bounds);
         else
             bounds = frame_bounds;
         has_bounds = true;
     }
-    mesh->bounds_minimum = bounds.minimum;
-    mesh->bounds_maximum = bounds.maximum;
-    mesh->flags.radius_loaded = true;
 
-    if (file == 0) {
-        if (opened) opened->close();
-        opened.reset();
-    }
-
-    if (mesh->flags.keep_loaded) {
-        g_animesh_cache_list.push_back(mesh);
-    }
-    EnforceAniMeshMemoryLimit(mesh);
-    return 1;
+    mesh.meshes = std::move(frames);
+    mesh.frame_count = count;
+    mesh.flags.single_instance = single;
+    mesh.flags.frame_count_loaded = true;
+    mesh.flags.loaded = true;
+    mesh.last_used = g_animesh_cache_stamp++;
+    g_animesh_cache_bytes += mesh.loaded_bytes;
+    mesh.radius = radius;
+    mesh.bounds_minimum = bounds.minimum;
+    mesh.bounds_maximum = bounds.maximum;
+    mesh.flags.radius_loaded = true;
+    if (mesh.flags.keep_loaded) g_animesh_cache_list.push_back(&mesh);
+    EnforceAniMeshMemoryLimit(&mesh);
+    return true;
 } catch (const std::exception&) {
     return false;
 }
+
+bool ReloadAnimatedMesh(W8AniMesh& mesh)
+try {
+    auto file = wiz8::open_file(mesh.source_file);
+    file->seek(mesh.file_offset, wiz8::SeekOrigin::begin);
+    return ReadAnimatedFrames(*file, mesh);
+} catch (const std::exception&) {
+    return false;
+}
+} // namespace
 
 /* Hands back the mesh's cached bounding box, loading the mesh first if it has
    not been. Touching it also stamps the storage clock, so asking for bounds
@@ -272,7 +189,7 @@ try {
 // FUNCTION: WIZ8 0x004b6640
 std::optional<srBoundingBox> GetAniMeshBounds(W8AniMesh* mesh)
 {
-    if (!mesh || (!mesh->flags.radius_loaded && !LoadAniMesh(0, mesh, true))) return std::nullopt;
+    if (!mesh || (!mesh->flags.radius_loaded && !ReloadAnimatedMesh(*mesh))) return std::nullopt;
     mesh->last_used = g_animesh_cache_stamp++;
     return srBoundingBox{mesh->bounds_minimum, mesh->bounds_maximum};
 }
@@ -282,58 +199,6 @@ W8AniMesh::~W8AniMesh()
 {
     std::erase(g_animesh_cache_list, this);
     if (flags.loaded) UnloadAniMesh(this, true);
-}
-
-// FUNCTION: WIZ8 0x004b6290
-bool LoadAniMeshFrameCount(wiz8::File* file, W8AniMesh* mesh)
-try {
-    std::unique_ptr<wiz8::File> opened;
-    wiz8::File* handle = file;
-    unsigned char frame_count, frame_index, loaded_count;
-    bool success;
-    W8ReadLevelInfo info;
-    if (handle == 0) {
-        opened = [&]() {
-            try {
-                return wiz8::open_file(wiz8::asset_path(mesh->filename.c_str()),
-                                       wiz8::OpenMode::read);
-            } catch (const std::exception&) {
-                return std::unique_ptr<wiz8::File>{};
-            }
-        }();
-        handle = opened.get();
-        if (handle == 0) {
-            srAssertFail("fi.hFile", ANI_MESH_CPP, 0x23f,
-                         fmt::format("Couldn't open {}", mesh->filename));
-            return 0;
-        }
-    }
-    info.world = mesh->world;
-    info.hFile = handle;
-    info.bitmap_folder = mesh->bitmap_directory.c_str();
-    info.mesh_filename = mesh->filename.c_str();
-    if (file == 0) handle->seek(mesh->file_offset, wiz8::SeekOrigin::begin);
-    success = (handle->read(&frame_count, 1).bytes == static_cast<std::size_t>(1));
-    if (success == 0) {
-        srAssertFail("fSuccess", ANI_MESH_CPP, 0x253, 0);
-        if (opened) opened->close();
-        opened.reset();
-        return 0;
-    }
-    mesh->flags.frame_count_loaded = true;
-    mesh->frame_count = frame_count;
-    for (loaded_count = 0; loaded_count < frame_count; ++loaded_count) {
-        if (success != 0)
-            success = (handle->read(&frame_index, 1).bytes == static_cast<std::size_t>(1));
-        if (success != 0 && SkipSingleLevelMesh(&info) == 2) break;
-    }
-    if (file == 0) {
-        if (opened) opened->close();
-        opened.reset();
-    }
-    return success;
-} catch (const std::exception&) {
-    return false;
 }
 
 // FUNCTION: WIZ8 0x004b63f0
@@ -356,19 +221,21 @@ bool UnloadAniMesh(W8AniMesh* mesh, bool force)
 // FUNCTION: WIZ8 0x004b6550
 stModelInstance* GetAniMeshFrame(W8AniMesh* mesh, unsigned char frame)
 {
-    stModelInstance* instance;
-    char message[0x80];
-
-    if (mesh == 0 || frame >= mesh->frame_count) {
-        sprintf(message, "AniMeshGetMeshForFrame error, frame %d, num %d", frame,
-                mesh->frame_count);
-        srAssertFail("0", ANI_MESH_CPP, 0x2e6, message);
-        return 0;
+    if (!mesh) {
+        srAssertFail("mesh", ANI_MESH_CPP, 0x2e6, nullptr);
+        return nullptr;
     }
-    if (!mesh->flags.loaded && LoadAniMesh(0, mesh, true) == 0) {
+    if (frame >= mesh->frame_count) {
+        const auto message =
+            fmt::format("AniMeshGetMeshForFrame error, frame {}, num {}", frame, mesh->frame_count);
+        srAssertFail("frame < mesh->frame_count", ANI_MESH_CPP, 0x2e6, message.c_str());
+        return nullptr;
+    }
+    if (!mesh->flags.loaded && !ReloadAnimatedMesh(*mesh)) {
         srAssertFail("0", ANI_MESH_CPP, 0x2ee, 0);
         return 0;
     }
+    stModelInstance* instance;
     if (mesh->flags.single_instance) {
         instance = mesh->meshes[0].get();
         instance->frame_index = frame;
@@ -388,7 +255,7 @@ unsigned char AniMeshValue(W8AniMesh* mesh)
         return 0xff;
     }
     if (!mesh->flags.frame_count_loaded) {
-        if (LoadAniMesh(0, mesh, true) == 0) {
+        if (!ReloadAnimatedMesh(*mesh)) {
             srAssertFail("0", ANI_MESH_CPP, 0x2c6, 0);
             return 0xff;
         }
@@ -404,7 +271,7 @@ bool AniMeshRadius(W8AniMesh* mesh, float* radius)
     }
     if (mesh != 0 && radius != 0) {
         if (!mesh->flags.radius_loaded) {
-            if (LoadAniMesh(0, mesh, true) == 0) {
+            if (!ReloadAnimatedMesh(*mesh)) {
                 srAssertFail("0", ANI_MESH_CPP, 0x350, 0);
                 return false;
             }

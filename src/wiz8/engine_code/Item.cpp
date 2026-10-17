@@ -4,6 +4,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include <fmt/format.h>
@@ -21,15 +22,12 @@
 #include "layouts/world.h"
 #include "random.h"
 #include "surrender/srBoundingBox.h"
-#include "surrender/srCamera.h"
 #include "surrender/srDebug.h"
 #include "surrender/srModel.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
 #include "timer.h"
-#include "wiz8/application.h"
 #include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/Video2.h"
@@ -48,16 +46,12 @@ W8Item::~W8Item()
     delete m_pRep;
 }
 
-/* Detach the item's mesh from the world graph. The world parameter is asserted
-   even though the body needs no field from it. */
+/* Detach the owned mesh from its actual scene parent. */
 // FUNCTION: WIZ8 0x0049fa30
-void W8Item::DetachMesh(W8World* world)
+void W8Item::DetachMesh()
 {
     srNode* mesh;
 
-    if (world == 0) {
-        srAssertFail("pWorld", "C:\\Projects\\Wizardry 8\\Engine Code\\Item.cpp", 0x24a, 0);
-    }
     mesh = static_cast<W8ItemRep*>(m_pRep)->m_psrMesh.get();
     if (mesh == 0) {
         srAssertFail("psrMesh", "C:\\Projects\\Wizardry 8\\Engine Code\\Item.cpp", 0x24f, 0);
@@ -171,24 +165,6 @@ W8ItemRep::W8ItemRep()
 // FUNCTION: WIZ8 0x0049F120
 W8ItemRep::~W8ItemRep() = default;
 
-// FUNCTION: WIZ8 0x0049F170
-bool W8ItemRep::ReadFromFile(W8ReadLevelInfo* info, W8Item* item, bool anonymous_mesh)
-{
-    if (!info || !info->hFile || !item) return false;
-    const char* bitmap_folder = info->bitmap_folder;
-    info->bitmap_folder = "Data\\Items3D\\Bitmaps";
-    auto mesh = ReadSingleLevelMesh(info, anonymous_mesh ? nullptr : info->mesh_filename, true);
-    info->bitmap_folder = bitmap_folder;
-    if (!mesh) return false;
-    mesh->setName("ItemRep::ReadFromFile");
-    mesh->render_flags |= stModelInstance::RENDER_SHADOW;
-    SetModelInstanceChainExclusionMask(mesh.get(), 4);
-    m_psrMesh = std::move(mesh);
-    flags |= W8_ITEM_ENTITY_MESH_LOADED;
-    RefreshBounds();
-    return true;
-}
-
 // FUNCTION: WIZ8 0x0049F2B0
 void W8ItemRep::RefreshBounds()
 {
@@ -208,52 +184,27 @@ W8Item::W8Item()
     countdown = w8_get_ticks() + (0);
 }
 
-// FUNCTION: WIZ8 0x0049F4A0
-std::unique_ptr<W8Item> LoadItemFromFile(const W8ReadLevelInfo* context, const char* name,
-                                         bool anonymous_mesh)
+// Decode the item resource directly; no level context or temporary directory mutation.
+std::unique_ptr<W8Item> LoadItemFromFile(std::string_view name)
 try {
-    if (name == 0) {
-        srAssertFail("pacName && ppItem", ITEM_CPP, 0x11a, 0);
-    }
     const auto filename = fmt::format("data/items3d/{}.itm", name);
-    std::unique_ptr<wiz8::File> file = [&]() {
-        try {
-            return wiz8::open_file(wiz8::asset_path(filename), wiz8::OpenMode::read);
-        } catch (const std::exception&) {
-            return std::unique_ptr<wiz8::File>{};
-        }
-    }();
-    if (file == 0) {
-        ShutdownWithErrorBox(fmt::format("Couldn't load {}", filename));
-        return nullptr;
-    }
-
-    W8ReadLevelInfo info;
-    info.world = context->world;
-    info.hFile = file.get();
-    info.bitmap_folder = context->bitmap_folder;
-    info.mesh_filename = name;
+    auto file = wiz8::open_file(wiz8::asset_path(filename));
     unsigned char version;
-    if (file->read(&version, 1).bytes != 1 || version != 2) return nullptr;
-    return ReadItemFromFile(&info, anonymous_mesh);
-} catch (const std::exception&) {
-    return nullptr;
-}
-
-/* Decode into temporary ownership and publish only a complete item. */
-// FUNCTION: WIZ8 0x0049F5D0
-std::unique_ptr<W8Item> ReadItemFromFile(W8ReadLevelInfo* info, bool anonymous_mesh)
-{
-    if (info == 0) {
-        srAssertFail("pInfo", ITEM_CPP, 0x15d, 0);
-    }
+    file->read_exact(&version, sizeof(version));
+    if (version != 2) return {};
+    auto mesh = ReadSingleLevelMesh(*file, wiz8::asset_path("data/items3d/bitmaps"));
+    if (!mesh) return {};
+    mesh->setName("Item mesh instance");
+    mesh->render_flags |= stModelInstance::RENDER_SHADOW;
+    SetModelInstanceChainExclusionMask(mesh.get(), 4);
     auto item = std::make_unique<W8Item>();
-    if (item == 0) {
-        srAssertFail("pItem", ITEM_CPP, 0x161, 0);
-    }
-    bool success =
-        static_cast<W8ItemRep*>(item->m_pRep)->ReadFromFile(info, item.get(), anonymous_mesh);
-    return success ? std::move(item) : nullptr;
+    auto& representation = *static_cast<W8ItemRep*>(item->m_pRep);
+    representation.m_psrMesh = std::move(mesh);
+    representation.flags |= W8_ITEM_ENTITY_MESH_LOADED;
+    representation.RefreshBounds();
+    return item;
+} catch (const std::exception&) {
+    return {};
 }
 
 // FUNCTION: WIZ8 0x0049F730
@@ -369,22 +320,8 @@ void W8Item::SetHighlight(bool enabled)
 // FUNCTION: WIZ8 0x0049FF40
 bool W8Item::IsSelected()
 {
-    srModelInstance* selected = GetPickedModelInstance();
+    srModelInstance* selected = g_current_model_instance;
     return selected == static_cast<W8ItemRep*>(m_pRep)->m_psrMesh.get();
-}
-
-// FUNCTION: WIZ8 0x0049FFA0
-float W8Item::DistanceToCamera(W8World* world)
-{
-    const auto bounds = GetCachedLocalBounds();
-    glm::dvec3 camera = world->camera->getLocation();
-    glm::vec3 camera_location;
-    camera_location = glm::vec3(camera);
-    glm::vec3 center = m_pRep->location;
-    /* Unlike the selection-point helper, retail offsets Z by half the Z
-       extent here, not Y by 0.66 of the Y extent. */
-    center.z += (bounds.maximum.z - bounds.minimum.z) * 0.5f;
-    return glm::length((camera_location - center));
 }
 
 // FUNCTION: WIZ8 0x004A0030

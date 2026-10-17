@@ -261,7 +261,7 @@ void UpdateSurpriseMode(void)
             DestroyUngroupedMonsters();
             SetViewDistance(2880.0f);
             SetNavigatorLinkMode(1);
-            level_scale = g_level_records[g_status.current_level].gameplay_time_scale;
+            level_scale = g_level_records[GetLoadedLevelID()].gameplay_time_scale;
             scale = 1.0f / level_scale;
             g_game_time_accumulator->SetDurationScale(scale);
             SetMonsterGeneratorDurationScale(scale);
@@ -536,7 +536,7 @@ void AdvanceTimedEffects(unsigned int minutes)
     }
 
     for (unsigned int index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
-        W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(index);
+        W8MonsterInfo* monster_info = GetMonsterListEntry(index);
         if (monster_info->highest_condition < W8_CONDITION_DEAD) {
             AgeMonsterSight(monster_info, minutes, 0);
         }
@@ -710,8 +710,7 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
     }
 
     if (character->uiCondition[W8_CONDITION_INFATUATED] != 0) {
-        if (GetLevelBand(g_status.current_level) == 9 ||
-            GetLevelBand(g_status.current_level) == 0xa) {
+        if (GetLevelBand(GetLoadedLevelID()) == 9 || GetLevelBand(GetLoadedLevelID()) == 0xa) {
             if (character->uiCondition[W8_CONDITION_HEXED] == W8_CONDITION_INDEFINITE) {
                 RemoveCharacterCondition(party_slot, W8_CONDITION_HEXED, true);
             }
@@ -954,7 +953,8 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
 
             probe.y += 1e+03f;
             camera = cameraLocation();
-            if (projectsToCamera(probe) == 0 && !g_octree->HasLineOfSight(&camera, &probe, true)) {
+            if (projectsToCamera(probe) == 0 &&
+                !GetWorldOctree()->HasLineOfSight(&camera, &probe, true)) {
                 glm::vec3 notify_position = last_seen;
                 W8MonsterGroup* group = FindMonsterGroup(monster_info->monster_group_id);
 
@@ -994,7 +994,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                        short-move test passes; a long move leaves both alone. */
                     flags_cleared = true;
 
-                    if (!g_pathing->SnapWaypointPosition(&navigator_position, false) &&
+                    if (!GetWorldPathing()->SnapWaypointPosition(&navigator_position, false) &&
                         !monster_info->party_threat.visible_to_player) {
                         glm::vec3 next_position;
 
@@ -1008,7 +1008,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
 
                             camera = cameraLocation();
                             if (projectsToCamera(probe) == 0 &&
-                                !g_octree->HasLineOfSight(&camera, &probe, true)) {
+                                !GetWorldOctree()->HasLineOfSight(&camera, &probe, true)) {
                                 glm::vec3 notify_position = next_position;
                                 W8MonsterGroup* group =
                                     FindMonsterGroup(monster_info->monster_group_id);
@@ -1033,7 +1033,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                 /* Both on-screen tests take the representation location read at the top of
                    the watch block, not the navigator position (0x00503e90, 0x00503f40). */
                 if (projectsToCamera(location) == 0 &&
-                    !g_octree->HasLineOfSight(&camera, &probe, true)) {
+                    !GetWorldOctree()->HasLineOfSight(&camera, &probe, true)) {
                     if (monster->formation.x == 0.0f && monster->formation.y == 0.0f &&
                         monster->formation.z == 0.0f) {
                         monster->formation = monster->GetPosition();
@@ -1041,7 +1041,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                     probe = monster->formation;
                     probe.y += 1e+03f;
                     if (projectsToCamera(location) == 0 &&
-                        !g_octree->HasLineOfSight(&camera, &probe, true)) {
+                        !GetWorldOctree()->HasLineOfSight(&camera, &probe, true)) {
                         if (monster->formation.x == 0.0f && monster->formation.y == 0.0f &&
                             monster->formation.z == 0.0f) {
                             monster->formation = monster->GetPosition();

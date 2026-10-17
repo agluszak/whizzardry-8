@@ -586,7 +586,7 @@ void W8SplitAmountDialog::ActivateField()
     if (!m_split_input) {
         return;
     }
-    const SDL_Point mouse = UiPointerPosition();
+    const SDL_Point mouse = g_ui.pointer;
     SDL_Point point{mouse.x - m_x, mouse.y - m_y};
     if (!ScreenPointInRect(&g_split_amount_field_bounds, &point)) {
         return;
@@ -855,7 +855,7 @@ void W8TriggerItemPickerDialog::ScrollItemsToMouse()
     if (!thumb.IsLeftButtonHeld()) {
         return;
     }
-    SDL_Point point = UiPointerPosition();
+    SDL_Point point = g_ui.pointer;
     const int bottom = thumb.Bounds().y + 2 * m_buttons[9]->Bounds().h;
     const int top = thumb.Bounds().y + m_buttons[9]->Bounds().h + thumb.Bounds().h -
                     2 * m_buttons[10]->Bounds().h - m_buttons[11]->Bounds().h;

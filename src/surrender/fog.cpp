@@ -1,7 +1,6 @@
 #include <algorithm>
 #include <cstddef>
 #include <span>
-#include <utility>
 
 #include "compat/compiler.h"
 #include "glm/geometric.hpp"
@@ -36,12 +35,6 @@ void srFog::setRange(double start, double end)
 {
     fog_start = start;
     fog_end = end;
-}
-
-// FUNCTION: SURRENDER 0x1004C170
-std::pair<double, double> srFog::getRange() const
-{
-    return {fog_start, fog_end};
 }
 
 // FUNCTION: SURRENDER 0x1004B6F0

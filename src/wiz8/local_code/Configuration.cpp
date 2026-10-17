@@ -42,9 +42,9 @@ void LoadGameConfiguration(void)
                     loaded = true;
                 }
             } else if (id == W8_CHUNK_KEY_BINDINGS) {
-                g_mgs_keyboard->Load(file.Stream(), false);
+                g_mgs_keyboard->Load(file, false);
             } else if (id == W8_CHUNK_RENDER_OPTIONS) {
-                LoadRenderOptions(file.Stream());
+                LoadRenderOptions(file);
             }
         });
         file.Close();
@@ -79,8 +79,8 @@ try {
         return false;
     }
     file.WriteChunk(W8_CHUNK_SETTINGS, [&] { file.WriteValue(g_settings); });
-    file.WriteChunk(W8_CHUNK_RENDER_OPTIONS, [&] { SaveRenderOptions(file.Stream()); });
-    file.WriteChunk(W8_CHUNK_KEY_BINDINGS, [&] { g_mgs_keyboard->Save(file.Stream()); });
+    file.WriteChunk(W8_CHUNK_RENDER_OPTIONS, [&] { SaveRenderOptions(file.WriteStream()); });
+    file.WriteChunk(W8_CHUNK_KEY_BINDINGS, [&] { g_mgs_keyboard->Save(file.WriteStream()); });
     file.Close();
     return true;
 } catch (const std::exception&) {

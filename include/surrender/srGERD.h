@@ -43,7 +43,6 @@ public:
     struct ClipPlanes {
         glm::vec4 planes[32];
         w8_ulong mask;
-        w8_ulong mode1_mask;
     };
 
     /* pushEnvironment/popEnvironment record: {minimum, maximum, scale, inverse_scale}. */
@@ -171,9 +170,6 @@ public:
            into the output ids. */
         void assignTextureSets(w8_ulong* texture_set, const w8_ulong* indices, w8_ulong count,
                                const srTriMeshPipeline::Pass* pass);
-        /* While a vertex range is reserved (first_vertex != -1), give count accumulated vertices
-           back. */
-        void rewindVertexArray(w8_ulong count);
         /* expands/dedups the input triangles into the index and
            vertex batches, per record. */
         void expandTriangles(const TriInput& input, int sorted);
@@ -276,7 +272,6 @@ public:
     // The open native renderer, borrowed only while its window remains open.
     static srGERD* getActive();
     e_error createContext(SDL_Window* window);
-    int isContextCreated() const;
     void deleteContext();
     /* openWindowInternal parameter block: the current client size and the
        requested backbuffer size. */
@@ -379,7 +374,6 @@ public:
     void popClipPlane();
     glm::mat4 getProjectClipNearMatrix();
     glm::mat4 getNormalMatrix();
-    srRendererDefs::e_scaleType getModelViewScaleType();
 
     float getMaxModelViewScale();
     e_cullMode getCullMode() const;
@@ -400,15 +394,6 @@ public:
     // FUNCTION: SURRENDER 0x1001BB70 SYMBOL
     // RECOMP: ?getMaxTextureStages@srGERD@@QBEJXZ
     w8_long getMaxTextureStages() const { return SDLGPUDevice::max_texture_stages; }
-    // FUNCTION: SURRENDER 0x1001CF10 SYMBOL
-    // RECOMP: ?getMaxPickStackDepth@srGERD@@QBEJXZ
-    w8_long getMaxPickStackDepth() const { return 0x20; }
-    // FUNCTION: SURRENDER 0x1001CF20 SYMBOL
-    // RECOMP: ?getMaxModelviewStackDepth@srGERD@@QBEJXZ
-    w8_long getMaxModelviewStackDepth() const { return 0x20; }
-    // FUNCTION: SURRENDER 0x1001CF30 SYMBOL
-    // RECOMP: ?getMaxProjectionStackDepth@srGERD@@QBEJXZ
-    w8_long getMaxProjectionStackDepth() const { return 0x20; }
     bool pushMatrix();
     void popMatrix();
     void pushEnable();
@@ -416,7 +401,6 @@ public:
     void loadIdentity();
     void multMatrix(const glm::mat4& matrix);
     void multMatrix(const glm::dmat4& matrix);
-    void perspective(double fov_y, double aspect, double near_plane, double far_plane);
     void rotate(double angle, const glm::vec3& axis);
     void rotate(double angle, double x, double y, double z);
     void scale(double x, double y, double z);
@@ -456,7 +440,6 @@ public:
     void pushPick(const Pick& pick);
     void toggle(e_enable option);
     void invalidateResidentTextures();
-    void invalidateResidentTexture(srTexture* texture);
     void invalidateTextureCache();
     void invalidateTexture(srTexture* texture);
     /* Clears every open renderer's binding of a texture being destroyed. */
@@ -467,18 +450,7 @@ public:
 
     /* Releases every GERD on the global list. */
     e_error getError();
-    void disable(e_enable option);
-    void enable(e_enable option);
-    srShader getShader() const;
-    void drawTriangle(const glm::ivec3& triangle);
-    void setDepthRange(double minimum, double maximum);
-    double getClearDepth() const;
     void setClearStencil(w8_ulong stencil);
-    w8_ulong getClearStencil() const;
-    w8_long getTextureReduction() const;
-    w8_long getMaxTextureWidth() const;
-    w8_long getMaxTextureHeight() const;
-    w8_long getMaxTextureAspectRatio() const;
 
     // FUNCTION: SURRENDER 0x1001BB80 SYMBOL
     // RECOMP: ?isPickStackEmpty@srGERD@@QBEHXZ
@@ -517,13 +489,6 @@ public:
 
     // FUNCTION: SURRENDER 0x1001BEE0 SYMBOL
     std::uint32_t getVertexArrayMask() const { return vertex_arrays.mask; }
-
-    void setDiffusePointer(w8_long components, srRendererDefs::e_type type, w8_ulong stride,
-                           const void* values);
-    void setSpecularPointer(w8_long components, srRendererDefs::e_type type, w8_ulong stride,
-                            const void* values);
-    void setFogPointer(w8_long components, srRendererDefs::e_type type, w8_ulong stride,
-                       const void* values);
 
     // FUNCTION: SURRENDER 0x1001BFD0 SYMBOL
     // RECOMP: ?setTexCoordPointer@srGERD@@QAEXJW4e_type@srRendererDefs@@KPBXK@Z
@@ -658,8 +623,6 @@ private:
         e_winding winding;
         e_matrixMode matrix_mode;
         unsigned char unknown_12c4_[6];
-        /* Per-user-plane e_clipMode bytes written by pushClipPlane. */
-        unsigned char clip_modes[26];
         /* Plane-enable mask: bits 0..5 frustum, bits 6..31 user planes. */
         w8_ulong clip_mask;
         /* Subset of clip_mask carrying mode-1 user planes. */
@@ -670,10 +633,7 @@ private:
         glm::mat4 inverse_modelview;
         glm::mat4 project_clip_near;
         glm::mat4 normal_matrix;
-        srRendererDefs::e_scaleType modelview_scale_type;
         float max_modelview_scale;
-        /* classifyMatrix writes the per-mode projection-shape class here. */
-        srRendererDefs::e_matrixType matrix_class[2];
         unsigned char unknown_13c4_[4];
     };
 
@@ -756,8 +716,6 @@ private:
     Display display;
     PickState pick;
     unsigned char unknown_19f4_[4];
-    /* Snapshot getStatistics refreshes on every flipFrame. */
-    Statistics frame_statistics;
     Statistics statistics;
 
     ClearState clear_state;

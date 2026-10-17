@@ -6,8 +6,10 @@
 #include <memory>
 #include <optional>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include <SDL3/SDL_stdinc.h>
 #include <glm/gtc/matrix_access.hpp>
@@ -36,6 +38,7 @@
 #include "surrender/srTexture.h"
 #include "surrender/srTriMeshPipeline.h"
 #include "surrender/srVertexPipe.h"
+#include "wiz8/chunk.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Octree.h"
@@ -57,14 +60,6 @@ constexpr float kParticleRandomUnitScale = 3.0517578125e-05f;
 
 // VTABLE: WIZ8 0x005ECBD0
 // class stParticle
-
-/* Return the renderer flags as a value. VC6 lowers the four-byte class return
-   through its hidden result pointer. */
-// FUNCTION: WIZ8 0x00498A10
-srShader stParticle::GetRenderFlags() const
-{
-    return render_flags;
-}
 
 // FUNCTION: WIZ8 0x004925A0
 void stParticle::SetRenderFlags(srShader flags)
@@ -93,15 +88,15 @@ void SaveParticleStates(wiz8::File& handle)
 
     handle.write(&version, sizeof(version));
 
-    if (g_world != 0) {
-        for (const auto& particle : g_world->particles) {
+    if (GetWorld() != 0) {
+        for (const auto& particle : GetWorld()->particles) {
             count += particle->persisted;
         }
     }
     handle.write(&count, sizeof(count));
 
-    if (g_world != 0) {
-        for (const auto& particle : g_world->particles) {
+    if (GetWorld() != 0) {
+        for (const auto& particle : GetWorld()->particles) {
             if (particle->persisted) {
                 handle.write_padded(particle->getName(), 0x80);
                 handle.write(&particle->emitting, sizeof(particle->emitting));
@@ -111,24 +106,33 @@ void SaveParticleStates(wiz8::File& handle)
 }
 
 // FUNCTION: WIZ8 0x0049B3B0
-void LoadParticleStates(wiz8::File& handle)
+std::vector<W8ParticleState> ReadParticleStates(W8Chunk& file)
 {
     unsigned char version;
-    int count = 0;
-    char name[0x80] = "";
-
-    handle.read_exact(&version, sizeof(version));
-    handle.read_exact(&count, sizeof(count));
-
+    int count;
+    file.ReadBytes(&version, sizeof(version));
+    file.ReadBytes(&count, sizeof(count));
+    if (count < 0 || count > file.RemainingBytes() / 129)
+        throw std::runtime_error("invalid Particle state count");
+    std::vector<W8ParticleState> records;
+    records.reserve(count);
     for (int index = 0; index < count; ++index) {
+        char name[128];
         unsigned char active;
-        handle.read_exact(name, sizeof(name));
-        handle.read_exact(&active, sizeof(active));
+        file.ReadBytes(name, sizeof(name));
+        file.ReadBytes(&active, sizeof(active));
+        const auto end = std::find(name, name + sizeof(name), '\0');
+        if (end == name + sizeof(name)) throw std::runtime_error("unterminated Particle name");
+        records.push_back({std::string(name, end), active});
+    }
+    return records;
+}
 
-        stParticle* particle = FindParticleByName(g_world, name);
-        if (particle != 0) {
-            particle->SetActive(active);
-        }
+void ApplyParticleStates(std::span<const W8ParticleState> states)
+{
+    for (const auto& state : states) {
+        if (auto* particle = FindParticleByName(state.name.c_str()))
+            particle->SetActive(state.active);
     }
 }
 
@@ -434,8 +438,8 @@ void stParticle::Update()
                 // The octree trace still accepts packed endpoint records.
                 const glm::vec3 from(particle_positions[index]);
                 glm::vec3 to(candidate);
-                if (g_world->octree == nullptr ||
-                    !g_world->octree->HasLineOfSight(&from, &to, true)) {
+                if (GetWorld()->octree == nullptr ||
+                    !GetWorld()->octree->HasLineOfSight(&from, &to, true)) {
                     DeactivateParticle(index);
                     continue;
                 }
@@ -765,11 +769,11 @@ void stParticle::SetFlutter(W8ParticleFlutterMode mode)
     }
 }
 
-// A particle still emitting when its cycle dies finishes under the world's care.
-void RetireParticle(W8World* world, std::unique_ptr<stParticle> particle)
+// A particle still emitting when its cycle dies finishes under its world's care.
+void RetireParticle(W8World& world, std::unique_ptr<stParticle> particle)
 {
     particle->release_when_done = true;
-    world->retired_particles.push_back(std::move(particle));
+    world.retired_particles.push_back(std::move(particle));
 }
 
 void SweepFinishedParticles(W8World* world)

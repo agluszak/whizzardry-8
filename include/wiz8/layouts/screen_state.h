@@ -20,12 +20,14 @@ enum W8ScreenId {
     W8_SCREEN_COUNT = 13
 };
 
+/* A screen's lifecycle hooks. Initialize, enter and leave report failure,
+   which stops the program; absent optional hooks have nothing to do. */
 struct W8ScreenStateHandlers {
-    unsigned char (*initialize)(void);
-    unsigned char (*enter)(void);
-    void (*frame)(void);
-    unsigned char (*leave)(int leaving); /* 0 = suspend, 1 = discard */
-    unsigned char (*finalize)(void);
+    bool (*initialize)() = nullptr;
+    bool (*enter)() = nullptr;
+    void (*frame)() = nullptr;
+    bool (*leave)(int leaving) = nullptr; /* 0 = suspend, 1 = discard */
+    void (*finalize)() = nullptr;
 };
 
 /* The current and pending screen records begin at the two globals whose first

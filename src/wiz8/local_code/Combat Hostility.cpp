@@ -55,7 +55,7 @@ void RecountCombatMonsters(void)
     gXStatus.hostile_monster_count = 0;
     gXStatus.hostile_group_count = 0;
     for (unsigned int index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
-        W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
+        W8MonsterInfo* monster = GetMonsterListEntry(index);
         if (monster->fActive && monster->fInCombat) {
             if (monster->ubDisposition == W8_DISPOSITION_HOSTILE) {
                 ++gXStatus.hostile_monster_count;
@@ -459,7 +459,7 @@ bool CanPartySlotTurnUndead(int party_slot)
         return false;
     }
     for (unsigned int index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
-        W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
+        W8MonsterInfo* monster = GetMonsterListEntry(index);
         if (monster->fActive && monster->fInCombat &&
             monster->ubDisposition == W8_DISPOSITION_HOSTILE && monster->hp_current != 0 &&
             GetMonsterDataForInfo(monster)->kind == 0x14) {
@@ -529,7 +529,7 @@ bool CanPartySlotPray(int party_slot)
         return false;
     }
     for (unsigned int index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
-        W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
+        W8MonsterInfo* monster = GetMonsterListEntry(index);
         if (monster->fActive && monster->fInCombat &&
             monster->ubDisposition == W8_DISPOSITION_HOSTILE && monster->hp_current != 0) {
             return true;
@@ -772,7 +772,7 @@ int CharacterPrayAction(int party_slot)
                 CalcRangeDistance(g_spell_records[W8_SPELL_MAGIC_MISSILES].range_category);
             in_range = 0;
             for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
-                W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
+                W8MonsterInfo* monster = GetMonsterListEntry(index);
                 if (monster->fActive && monster->fInCombat &&
                     monster->ubDisposition == W8_DISPOSITION_HOSTILE && monster->hp_current != 0 &&
                     monster->p3D->GetDistanceToPlayer() <= range) {
@@ -782,7 +782,7 @@ int CharacterPrayAction(int party_slot)
             if (in_range != 0) {
                 pick = Random(in_range) + 1;
                 for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
-                    W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
+                    W8MonsterInfo* monster = GetMonsterListEntry(index);
                     if (monster->fActive && monster->fInCombat &&
                         monster->ubDisposition == W8_DISPOSITION_HOSTILE &&
                         monster->hp_current != 0 && monster->p3D->GetDistanceToPlayer() <= range &&
@@ -851,7 +851,7 @@ int CharacterPrayAction(int party_slot)
             break;
         case 0xb:
             for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
-                W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
+                W8MonsterInfo* monster = GetMonsterListEntry(index);
                 if (monster->fActive && monster->fInCombat &&
                     monster->ubDisposition == W8_DISPOSITION_HOSTILE && monster->hp_current != 0 &&
                     monster->uiCondition[W8_CONDITION_AFRAID] == 0) {
@@ -875,7 +875,7 @@ int CharacterPrayAction(int party_slot)
                 const float range =
                     CalcRangeDistance(g_spell_records[W8_SPELL_FALLING_STARS].range_category);
                 for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
-                    W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
+                    W8MonsterInfo* monster = GetMonsterListEntry(index);
                     if (monster->fActive && monster->fInCombat &&
                         monster->ubDisposition == W8_DISPOSITION_HOSTILE &&
                         monster->hp_current != 0 && monster->p3D->GetDistanceToPlayer() <= range) {

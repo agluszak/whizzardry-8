@@ -56,9 +56,7 @@ unsigned char LoadWizardry7ImportFile(std::string_view path);
 unsigned char ImportWizardry7Party(std::string_view path);
 
 extern int g_import_character_count;
-extern bool g_import_ending_record;
 extern int g_wiz7_ending; /* Ending selector */
-extern int g_import_difficulty;
 /* The 96 file flags; index 5 doubles as the unsuppress byte and
    index 0xb as the loaded marker the fact seeder reads. */
 extern unsigned char g_import_flags[0x60];

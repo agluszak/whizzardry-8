@@ -146,3 +146,16 @@ only enabled inside the editor; production input only dispatched to it while
 already active, and the sole external toggle closed it on screen exit. Gameplay
 encounter generation, script-driven table selection, compiled geometry readers,
 and serialized generator/cube fields remain supported.
+
+## Authoritative loaded worlds
+
+The primary and sky slots own their worlds. Queries borrow those owners; there
+is no separate update registry or published raw slot to synchronize. World
+identity and resource paths are immutable. Live level queries use the primary
+world; `resume_level` is decoded save data and is populated in save snapshots,
+not maintained as a second active-level field. Sky reuse follows resource identity.
+
+Primary replacement stops callbacks before ownership changes. Teardown still
+destroys entities before geometry and scenes. Loading failures use the same
+ordered retirement without rendering partial worlds. Status-loading source is
+an argument, and view invalidation belongs to the world rather than a global latch.

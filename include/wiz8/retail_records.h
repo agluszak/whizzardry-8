@@ -647,7 +647,7 @@ struct Character {
        W8GlobalStatus::pending_move_location. */
     CameraState saved_location; /* 0x17d7 */
     /* 0x1813: which level that anchor belongs to. The recall compares it
-       against g_status.current_level and takes a different path when they differ. */
+       against GetLoadedLevelID() and takes a different path when they differ. */
     int saved_level;                          /* 0x1813 */
     W8CharacterConditionRecord conditions[4]; /* 0x1817 .. 0x185a */
     /* 0x185b: the deep-fatigue effect is already on this character, which is

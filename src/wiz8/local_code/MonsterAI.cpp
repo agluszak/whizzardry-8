@@ -13,6 +13,7 @@
 #include "layouts/character.h"
 #include "layouts/gameplay_databases.h"
 #include "layouts/targeting.h"
+#include "layouts/world.h"
 #include "local_code/Factions.h"
 #include "monster_actions.h"
 #include "monster_cycles.h"
@@ -509,8 +510,8 @@ bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, unsigned char* decision)
                 }
                 range = static_cast<float>(radius);
                 position = monster->GetPosition();
-                if (g_octree->TestNoiseLineOfSight(&position, &noise_position, &range, &hops) !=
-                        0 &&
+                if (GetWorldOctree()->TestNoiseLineOfSight(&position, &noise_position, &range,
+                                                           &hops) != 0 &&
                     NoiseHearingMargin(monster_info->heard_noise_radius, static_cast<int>(range),
                                        hops) > 0) {
                     mode = W8_RT_AI_INVESTIGATE_NOISE;
@@ -761,7 +762,7 @@ void UpdateAllMonsterAI(void)
     W8MonsterInfo* monster_info;
 
     for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
-        monster_info = MonsterGetScriptPartByLocationIndex(index);
+        monster_info = GetMonsterListEntry(index);
         if (monster_info->fInCombat && monster_info->hp_current != 0) {
             UpdateMonsterAI(monster_info);
         }
@@ -979,8 +980,8 @@ members:
                     if (leader != 0 && leader->fActive) {
                         destination = g_startup_world->GetPosition();
                         source = leader->p3D->GetPosition();
-                        waypoint_result = g_octree->pathing->TestWaypointSpan(&source, &destination,
-                                                                              false, false);
+                        waypoint_result = GetWorldOctree()->pathing->TestWaypointSpan(
+                            &source, &destination, false, false);
                     }
                     waypoint_checked = true;
                 }
@@ -1043,6 +1044,7 @@ unsigned int MonsterAdvanceChance(W8MonsterInfo* monster_info, W8MonsterRecord* 
 // FUNCTION: WIZ8 0x00531CE0
 void BuildMonsterActionQueue(W8MonsterInfo* monster_info, bool target_locked, bool attack_locked)
 {
+    W8MonsterInfo* locked_monster = nullptr;
     W8MonsterInfo* other;
     W8MonsterRecord* record;
     unsigned int index;
@@ -1069,7 +1071,7 @@ void BuildMonsterActionQueue(W8MonsterInfo* monster_info, bool target_locked, bo
             Random(100) < monster_info->attributes[W8_MONSTER_ATTRIBUTE_INTELLIGENCE]) {
             monster_info->action_kind = W8_MONSTER_ACTION_PROTECT;
             for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
-                other = MonsterGetScriptPartByLocationIndex(index);
+                other = GetMonsterListEntry(index);
                 if (other != monster_info) {
                     ResetCombatSlot(&monster_info->Target);
                     monster_info->Target.iType = W8_TARGET_KIND_MONSTER;
@@ -1130,8 +1132,9 @@ void BuildMonsterActionQueue(W8MonsterInfo* monster_info, bool target_locked, bo
                 srAssertFail("pTarget->iMonsterID != BAD_INDEX", MONSTER_AI_CPP, 1519, 0);
             }
             scan_monsters = true;
-            monster_lo = MonsterGetIndexByLocationID(monster_info->Target.iMonsterID);
-            monster_hi = monster_lo + 1;
+            locked_monster = FindMonster(monster_info->Target.iMonsterID);
+            monster_lo = 0;
+            monster_hi = gXStatus.monster_roster.live().size();
             goto targets_chosen;
         } else {
             return;
@@ -1171,7 +1174,8 @@ targets_chosen:
         }
         if (scan_monsters) {
             for (index = monster_lo; index < monster_hi; ++index) {
-                other = MonsterGetScriptPartByLocationIndex(index);
+                other = GetMonsterListEntry(index);
+                if (locked_monster && other != locked_monster) continue;
                 if (other != monster_info && other->fActive && other->hp_current != 0 &&
                     GetMonsterDataForInfo(other)->untargetable == 0 && other->fInCombat &&
                     MonsterHostility(monster_info, other) == disposition_needed &&
@@ -1814,7 +1818,7 @@ static void addMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
     W8MonsterInfo* member;
 
     for (unsigned int index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
-        member = MonsterGetScriptPartByLocationIndex(index);
+        member = GetMonsterListEntry(index);
         if ((!exclude_caster || member != monster_info) && member->fActive &&
             member->hp_current != 0 && member->highest_condition < W8_CONDITION_DEAD &&
             member->fInCombat && MonsterHostility(monster_info, member) == disposition &&
@@ -1930,7 +1934,7 @@ void CollectMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
     case W8_TARGET_TYPE_CONE:
     case W8_TARGET_TYPE_RADIUS:
         for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
-            member = MonsterGetScriptPartByLocationIndex(index);
+            member = GetMonsterListEntry(index);
             if (member != monster_info && member->fActive && member->hp_current != 0 &&
                 member->highest_condition < W8_CONDITION_DEAD && member->fInCombat &&
                 MonsterHostility(monster_info, member) == W8_DISPOSITION_HOSTILE &&
@@ -2119,7 +2123,7 @@ bool MonsterHasNoVisibleEnemy(W8MonsterInfo* monster_info, bool party_only)
     }
     if (!party_only) {
         for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
-            other = MonsterGetScriptPartByLocationIndex(index);
+            other = GetMonsterListEntry(index);
             if (other != monster_info && other->fActive && other->hp_current != 0 &&
                 other->highest_condition < W8_CONDITION_DEAD && other->fInCombat &&
                 MonsterHostility(monster_info, other) == W8_DISPOSITION_HOSTILE &&
@@ -2198,7 +2202,7 @@ bool MonsterHasVisibleTarget(W8MonsterInfo* monster_info, bool party_only,
     }
     if (!party_only) {
         for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
-            other = MonsterGetScriptPartByLocationIndex(index);
+            other = GetMonsterListEntry(index);
             if (other != monster_info && other->fActive && other->hp_current != 0 &&
                 other->highest_condition < W8_CONDITION_DEAD && other->fInCombat) {
                 disposition = MonsterHostility(monster_info, other);
@@ -2478,7 +2482,7 @@ bool MonsterGroupHasReinforcement(W8MonsterGroup* monster_group)
             continue;
         }
         for (other_index = 0; other_index < gXStatus.monster_roster.live().size(); ++other_index) {
-            other = MonsterGetScriptPartByLocationIndex(other_index);
+            other = GetMonsterListEntry(other_index);
             if (other != member && other->party_threat.los_flags[1] && other->fActive &&
                 other->fInCombat && other->hp_current != 0 &&
                 other->ubDisposition == W8_DISPOSITION_HOSTILE) {

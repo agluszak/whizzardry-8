@@ -176,70 +176,6 @@ void OpenItemInfoDialog(W8ItemInstance* item)
     DisplayCampDialog(std::unique_ptr<W8DialogBase>(dialog));
 }
 
-/* The secondary-activation callbacks the seven attribute labels and four
-   secondary labels on the camp secondary panel carry: each opens the stat
-   info dialog at its own index. Note retail wires both
-   item_controls->info[2] and [3] to the index-3 thunk. */
-// FUNCTION: WIZ8 0x005BA200
-void OpenStrengthInfoDialog(void)
-{
-    OpenAttributeInfoDialog(W8_ATTRIBUTE_STRENGTH);
-}
-
-// FUNCTION: WIZ8 0x005BA210
-void OpenIntelligenceInfoDialog(void)
-{
-    OpenAttributeInfoDialog(W8_ATTRIBUTE_INTELLIGENCE);
-}
-
-// FUNCTION: WIZ8 0x005BA220
-void OpenPietyInfoDialog(void)
-{
-    OpenAttributeInfoDialog(W8_ATTRIBUTE_PIETY);
-}
-
-// FUNCTION: WIZ8 0x005BA230
-void OpenVitalityInfoDialog(void)
-{
-    OpenAttributeInfoDialog(W8_ATTRIBUTE_VITALITY);
-}
-
-// FUNCTION: WIZ8 0x005BA240
-void OpenDexterityInfoDialog(void)
-{
-    OpenAttributeInfoDialog(W8_ATTRIBUTE_DEXTERITY);
-}
-
-// FUNCTION: WIZ8 0x005BA250
-void OpenSpeedInfoDialog(void)
-{
-    OpenAttributeInfoDialog(W8_ATTRIBUTE_SPEED);
-}
-
-// FUNCTION: WIZ8 0x005BA260
-void OpenSensesInfoDialog(void)
-{
-    OpenAttributeInfoDialog(W8_ATTRIBUTE_SENSES);
-}
-
-// FUNCTION: WIZ8 0x005BA270
-void OpenSecondaryAttributeInfoDialog0(void)
-{
-    OpenSecondaryAttributeInfoDialog(0);
-}
-
-// FUNCTION: WIZ8 0x005BA280
-void OpenSecondaryAttributeInfoDialog1(void)
-{
-    OpenSecondaryAttributeInfoDialog(1);
-}
-
-// FUNCTION: WIZ8 0x005BA290
-void OpenSecondaryAttributeInfoDialog3(void)
-{
-    OpenSecondaryAttributeInfoDialog(3);
-}
-
 // FUNCTION: WIZ8 0x005BA2A0
 void OpenSecondaryAttributeInfoDialog4(void)
 {
@@ -892,7 +828,7 @@ UiResult HandleCampItem(const UiPointerEvent& event, int slot, int origin)
     if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Up ||
         event.action == UiPointerAction::Wheel) {
         SetUiHelpDelay(std::min(g_settings.tooltip_delay_ms, 300));
-        SetUiHelpForced(true);
+        g_ui_help_forced = true;
         target.setTooltip([slot, origin] { return CampItemTooltip(slot, origin); });
     }
     return UiResult::Handled;

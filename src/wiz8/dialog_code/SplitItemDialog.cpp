@@ -420,7 +420,7 @@ void W8SplitItemDialog::OnCountFieldClick()
     if (!m_count_input) {
         return;
     }
-    const SDL_Point mouse = UiPointerPosition();
+    const SDL_Point mouse = g_ui.pointer;
     SDL_Point point{mouse.x - m_x, mouse.y - m_y};
     if (!ScreenPointInRect(&g_split_count_field_bounds, &point)) {
         return;

@@ -16,6 +16,7 @@
 #include "wiz8/engine_code/AmbientSound.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Monster.h"
+#include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/xstatus.h"
 
@@ -124,7 +125,7 @@ bool W8SoundEvent::Play(const glm::vec3& position, int cycle)
         glm::vec3 transformed = rotation * offset;
         unsigned int event_volume =
             static_cast<unsigned int>((1.0f - glm::length(camera_offset) / falloff) * base_volume);
-        event_volume = (GetSoundEffectsVolume() * event_volume) / 0x7f;
+        event_volume = (g_settings.sound_effects_volume * event_volume) / 0x7f;
         if (event_volume != 0) {
 
             if (kind == W8_SOUND_EVENT_FOOTSTEP) {

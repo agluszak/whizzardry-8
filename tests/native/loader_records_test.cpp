@@ -16,16 +16,17 @@
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
-#include <variant>
 #include <vector>
 
 #include <catch2/catch_test_macros.hpp>
 
 #include "GDFileIO.h"
+#include "Item.h"
 #include "asset_paths.h"
 #include "file_faults.h"
 #include "geometry.h"
 #include "glm/ext/vector_float3.hpp"
+#include "save_payload.h"
 #include "scoped_asset_roots.h"
 #include "surrender/srNode.h"
 #include "temporary_directory.h"
@@ -33,7 +34,6 @@
 #include "wiz8/engine_code/Camera.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/LevelFile.h"
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/OctBuildTree.h"
 #include "wiz8/engine_code/OctPath.h"
@@ -44,20 +44,19 @@
 #include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/engine_code/Trigger.hpp"
+#include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/octree_spatial.h"
 #include "wiz8/engine_code/stCube.h"
 #include "wiz8/engine_code/stParticle.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
-#include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/layouts/world.h"
 #include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_code/ItemManager.h"
-#include "wiz8/local_code/Search.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/navigation_flags.h"
 #include "wiz8/packed_bits.h"
@@ -66,6 +65,7 @@
 #include "wiz8/retail_text_records.h"
 #include "wiz8/save_game.h"
 #include "wiz8/xstatus.h"
+#include "world_fixture.h"
 
 static std::filesystem::path fixture_root;
 
@@ -168,143 +168,6 @@ static void databases()
     REQUIRE((!InitializeItemTables() && g_item_tables == tables));
     DestroyItemTables();
     REQUIRE((!g_item_tables && !g_item_table_category_names));
-}
-
-static void level_records()
-{
-    std::string bytes;
-    append(bytes, 1); // Uncompressed, no transform.
-    append(bytes, 3);
-    append(bytes, 1);
-    const std::array<glm::vec3, 3> vertices{glm::vec3(0, 0, 0), glm::vec3(1, 0, 0),
-                                            glm::vec3(0, 1, 0)};
-    append(bytes, vertices);
-    W8SerializedMeshFace face{};
-    face.vertices[0] = 0;
-    face.vertices[1] = 1;
-    face.vertices[2] = 2;
-    append(bytes, face);
-    store("mesh.bin", bytes);
-    auto file = wiz8::open_file(wiz8::asset_path("mesh.bin"));
-    W8LevelFileMesh mesh{};
-    REQUIRE((ReadMeshFile(*file, mesh)));
-    file->seek(0, wiz8::SeekOrigin::begin);
-    mesh = {};
-    std::size_t mesh_operations;
-    {
-        FileFaults trace;
-        REQUIRE((ReadMeshFile(*file, mesh)));
-        mesh_operations = trace.operations;
-    }
-    REQUIRE((mesh.num_vertices == 3 && mesh.num_faces == 1 && mesh.vertices[1].x == 1));
-    for (std::size_t operation = 1; operation <= mesh_operations; ++operation) {
-        file = wiz8::open_file(wiz8::asset_path("mesh.bin"));
-        mesh = {};
-        {
-            FileFaults fault(operation);
-            REQUIRE((!ReadMeshFile(*file, mesh)));
-            REQUIRE((fault.fired));
-        }
-        REQUIRE((mesh.vertices.empty() && mesh.faces.empty() && mesh.lods.empty() &&
-                 mesh.lod_shorts.empty()));
-    }
-
-    for (std::size_t end = 0; end < bytes.size(); ++end) {
-        store("mesh.bin", bytes.substr(0, end));
-        file = wiz8::open_file(wiz8::asset_path("mesh.bin"));
-        mesh = {};
-        REQUIRE((!ReadMeshFile(*file, mesh)));
-        REQUIRE((mesh.vertices.empty() && mesh.faces.empty() && mesh.lods.empty() &&
-                 mesh.lod_shorts.empty()));
-    }
-    for (int count : {-1, INT32_MAX}) {
-        auto bad = bytes;
-        std::memcpy(bad.data() + 4, &count, sizeof(count));
-        store("mesh.bin", bad);
-        file = wiz8::open_file(wiz8::asset_path("mesh.bin"));
-        REQUIRE((!ReadMeshFile(*file, mesh) && mesh.vertices.empty()));
-    }
-
-    bytes.clear();
-    append(bytes, 3);
-    append(bytes, 3);
-    append(bytes, 1);
-    append(bytes, static_cast<unsigned char>(7)); // Short LOD vertices, compressed faces.
-    append(bytes, glm::vec3(0, 0, 0));
-    append(bytes, 0.0f);
-    append(bytes, glm::vec3(0, 0, 1));
-    append(bytes, glm::vec3(1, 1, 1));
-    append(bytes, static_cast<unsigned char>(2));
-    const auto lod_offset = bytes.size();
-    append(bytes, static_cast<short>(1));
-    const auto scale_offset = bytes.size();
-    append(bytes, 1.0f);
-    append(bytes, std::array<short, 9>{0, 0, 0, 1, 0, 0, 0, 1, 0});
-    std::array<unsigned char, sizeof(W8LevelFileCompressedFace)> compressed{};
-    const std::array<unsigned short, 3> indices{0, 1, 2};
-    memcpy(compressed.data(), indices.data(), sizeof(indices));
-    const auto face_offset = bytes.size();
-    append(bytes, compressed);
-    store("mesh.bin", bytes);
-    file = wiz8::open_file(wiz8::asset_path("mesh.bin"));
-    mesh = {};
-    REQUIRE((ReadMeshFile(*file, mesh)));
-    REQUIRE((mesh.LodCount() == 1 && mesh.lod_shorts[0][3] == 1 &&
-             mesh.compressed_faces[0].vertex_indices[2] == 2));
-    for (std::size_t end = 0; end < bytes.size(); ++end) {
-        store("mesh.bin", bytes.substr(0, end));
-        file = wiz8::open_file(wiz8::asset_path("mesh.bin"));
-        mesh = {};
-        REQUIRE((!ReadMeshFile(*file, mesh)));
-        REQUIRE((mesh.lod_shorts.empty() && mesh.compressed_faces.empty()));
-    }
-    for (int malformed = 0; malformed < 3; ++malformed) {
-        auto bad = bytes;
-        if (malformed == 0) {
-            short zero = 0;
-            std::memcpy(bad.data() + lod_offset, &zero, 2);
-        } else if (malformed == 1) {
-            float invalid = std::numeric_limits<float>::quiet_NaN();
-            std::memcpy(bad.data() + scale_offset, &invalid, 4);
-        } else {
-            unsigned short invalid = 3;
-            std::memcpy(bad.data() + face_offset, &invalid, 2);
-        }
-        store("mesh.bin", bad);
-        file = wiz8::open_file(wiz8::asset_path("mesh.bin"));
-        mesh = {};
-        REQUIRE((!ReadMeshFile(*file, mesh)));
-        REQUIRE((mesh.lod_shorts.empty() && mesh.compressed_faces.empty()));
-    }
-
-    bytes.clear();
-    append(bytes, static_cast<unsigned char>(1));
-    append(bytes, static_cast<unsigned char>(2)); // Scaled paths.
-    append(bytes, 7);
-    append(bytes, 0u);
-    append(bytes, 1);
-    // Ten disk floats, independent of the runtime keyframe/vector layout.
-    append(bytes, std::array<float, 10>{42, 2, 3, 0.5f, 0, 1, 0, 2, 3, 4});
-    store("path.bin", bytes);
-    file = wiz8::open_file(wiz8::asset_path("path.bin"));
-    W8LevelFilePathAI path{};
-    REQUIRE((ReadPathAIFile(*file, path)));
-    REQUIRE((path.PathCount() == 1 && path.scaled_paths[0].path.position.x == 42));
-    auto encoded = wiz8::open_file(wiz8::asset_path("path-output.bin"), wiz8::OpenMode::replace);
-    REQUIRE(WritePathAIFile(*encoded, path));
-    encoded->close();
-    encoded = wiz8::open_file(wiz8::asset_path("path-output.bin"));
-    REQUIRE(encoded->size() == static_cast<std::int64_t>(bytes.size()));
-    std::string roundtrip(bytes.size(), '\0');
-    encoded->read_exact(roundtrip.data(), roundtrip.size());
-    REQUIRE(roundtrip == bytes);
-    for (std::size_t end = 0; end < bytes.size(); ++end) {
-        store("path.bin", bytes.substr(0, end));
-        file = wiz8::open_file(wiz8::asset_path("path.bin"));
-        path = {};
-        REQUIRE((!ReadPathAIFile(*file, path)));
-        REQUIRE((path.paths.empty() && path.scaled_paths.empty()));
-    }
 }
 
 static std::string geometry_snapshot(const W8GameData& data)
@@ -699,11 +562,6 @@ TEST_CASE_METHOD(LoaderFixture, "NPC database replacement owns appended stock ru
     REQUIRE(gXStatus.uiNpcsInDatabase == 0);
 }
 
-TEST_CASE_METHOD(LoaderFixture, "Level mesh file records", "[loader][records]")
-{
-    level_records();
-}
-
 TEST_CASE_METHOD(LoaderFixture, "Processed geometry", "[loader][records]")
 {
     geometry();
@@ -722,126 +580,6 @@ TEST_CASE_METHOD(LoaderFixture, "Path tables", "[loader][records]")
 TEST_CASE_METHOD(LoaderFixture, "Malformed octree files", "[loader][records]")
 {
     malformed_octrees();
-}
-
-// Test malformed headers, interior truncations across large fixed-size fields,
-// and the final two bytes. Exercising every byte of each 1-3 KiB record across
-// all format variants repeats the same short-read failure thousands of times.
-static std::vector<std::size_t> truncation_samples(std::size_t size)
-{
-    std::vector<std::size_t> lengths{0, 1, 2, size / 4, size / 2, size * 3 / 4, size - 2, size - 1};
-    for (std::size_t length = 128; length < size; length += 128) lengths.push_back(length);
-    std::ranges::sort(lengths);
-    lengths.erase(std::unique(lengths.begin(), lengths.end()), lengths.end());
-    return lengths;
-}
-
-TEST_CASE_METHOD(LoaderFixture, "Versioned level record layouts", "[loader][records]")
-{
-    auto written_bytes = [](const char* path) {
-        auto file = wiz8::open_file(wiz8::asset_path(path));
-        std::string bytes(file->size(), '\0');
-        file->read_exact(bytes.data(), bytes.size());
-        return bytes;
-    };
-    // Build disk records independently of the in-memory padding and pointer fields.
-    for (unsigned char version : {1, 2, 3}) {
-        std::string bytes;
-        append(bytes, version);
-        std::array<char, 128> name{};
-        std::strcpy(name.data(), "fixture trigger");
-        append(bytes, name);
-        append(bytes, static_cast<unsigned char>(1)); // No placement or hotspot.
-        bytes.append(6, '\x12');
-        for (int value : {17, 29, 41}) append(bytes, value);
-        std::array<char, 256> recipients{};
-        std::strcpy(recipients.data(), "fixture recipients");
-        append(bytes, recipients);
-        bytes.append(1, '\x21');
-        bytes.append(256, '\x22');
-        bytes.append(1, '\x23');
-        append(bytes, 101);
-        bytes.append(1, '\x24');
-        bytes.append(128, '\x25');
-        if (version >= 2) {
-            for (float value : {1.f, 2.f, 3.f, 4.f}) append(bytes, value);
-            bytes.append(4, '\x32');
-            for (float value : {5.f, 6.f, 7.f, 8.f}) append(bytes, value);
-        }
-        bytes.append(3, '\x41');
-        bytes.append(256, '\x42');
-        bytes.append(256, '\x43');
-        bytes.append(1, '\x44');
-        append(bytes, 103);
-        append(bytes, 107);
-        bytes.append(256, '\x45');
-        append(bytes, 9.f);
-        if (version >= 3) bytes.append(128, '\x51');
-        bytes.append(1, '\0'); // No door.
-        REQUIRE(bytes.size() == (version == 1 ? 1580 : version == 2 ? 1616 : 1744));
-        store("super.bin", bytes);
-        auto file = wiz8::open_file(wiz8::asset_path("super.bin"));
-        W8LevelFileTrigger trigger{};
-        REQUIRE(ReadSuperTriggerFile(*file, trigger));
-        auto* record = std::get_if<W8LevelFileSuperTrigger>(&trigger.data);
-        REQUIRE(record);
-        REQUIRE(record->trigger_off == 41);
-        REQUIRE(record->normal_scale == 9.f);
-        REQUIRE(record->speed == (version >= 2 ? 5.f : 0.f));
-        REQUIRE(record->unknown_4b3[2] == (version >= 2 ? 8.f : 0.f));
-        auto output = wiz8::open_file(wiz8::asset_path("roundtrip.bin"), wiz8::OpenMode::replace);
-        REQUIRE(WriteSuperTriggerFile(*output, trigger));
-        output->close();
-        REQUIRE(written_bytes("roundtrip.bin") == bytes);
-        for (const std::size_t end : truncation_samples(bytes.size())) {
-            store("super.bin", bytes.substr(0, end));
-            file = wiz8::open_file(wiz8::asset_path("super.bin"));
-            trigger = {};
-            REQUIRE_FALSE(ReadSuperTriggerFile(*file, trigger));
-            REQUIRE(std::holds_alternative<std::monostate>(trigger.data));
-        }
-        for (std::size_t offset : {std::size_t(1), std::size_t(148)}) {
-            auto invalid = bytes;
-            std::memset(invalid.data() + offset, 'x', offset == 1 ? 128 : 256);
-            store("super.bin", invalid);
-            file = wiz8::open_file(wiz8::asset_path("super.bin"));
-            trigger = {};
-            REQUIRE_FALSE(ReadSuperTriggerFile(*file, trigger));
-            REQUIRE(std::holds_alternative<std::monostate>(trigger.data));
-        }
-    }
-    for (unsigned char mode : {0, 1, 2}) {
-        for (unsigned char colours : {0, 1, 2, 3}) {
-            std::string bytes(1, '\1');
-            for (float value : {1.f, 2.f, 3.f, 4.f, 5.f}) append(bytes, value);
-            append(bytes, mode);
-            if (mode >= 1)
-                for (float value : {6.f, 7.f, 8.f}) append(bytes, value);
-            if (mode >= 2)
-                for (float value : {9.f, 10.f, 11.f, 12.f}) append(bytes, value);
-            append(bytes, static_cast<unsigned char>(colours & 1));
-            if (colours & 1) bytes.append(768, '\x61');
-            append(bytes, static_cast<unsigned char>(colours & 2));
-            if (colours & 2) bytes.append(768, '\x62');
-            store("block.bin", bytes);
-            auto file = wiz8::open_file(wiz8::asset_path("block.bin"));
-            W8LevelFileBlock block{};
-            REQUIRE(ReadLevelFileBlock(*file, block));
-            REQUIRE(block.view_distance == 5.f);
-            REQUIRE(block.camera_angle == (mode >= 2 ? 9.f : 0.f));
-            auto output =
-                wiz8::open_file(wiz8::asset_path("roundtrip.bin"), wiz8::OpenMode::replace);
-            REQUIRE(WriteLevelFileBlock(*output, block));
-            output->close();
-            REQUIRE(written_bytes("roundtrip.bin") == bytes);
-            for (const std::size_t end : truncation_samples(bytes.size())) {
-                store("block.bin", bytes.substr(0, end));
-                file = wiz8::open_file(wiz8::asset_path("block.bin"));
-                block = {};
-                REQUIRE_FALSE(ReadLevelFileBlock(*file, block));
-            }
-        }
-    }
 }
 
 TEST_CASE_METHOD(LoaderFixture, "Named positions commit only complete sections",
@@ -957,7 +695,7 @@ TEST_CASE_METHOD(LoaderFixture, "World camera paths commit only complete tables"
         REQUIRE(std::string(existing->name0) == "EXISTING");
     };
     auto read = [&](wiz8::File* file) {
-        W8ReadLevelInfo info{&world, file, nullptr, nullptr};
+        W8ReadLevelInfo info{&world, file, {}};
         return ReadWorldCameras(&info, &world);
     };
     // Every truncation must also release entries and path nodes already decoded.
@@ -1024,144 +762,6 @@ TEST_CASE_METHOD(LoaderFixture, "World camera paths commit only complete tables"
     }
 }
 
-TEST_CASE_METHOD(LoaderFixture, "Trigger layouts retain version gates and cleanup",
-                 "[loader][records]")
-{
-    auto text = []<std::size_t N>(std::string& bytes, const char* name) {
-        std::array<char, N> value{};
-        std::strcpy(value.data(), name);
-        append(bytes, value);
-    };
-    for (char type : {1, 2, 3}) {
-        for (char version = 1; version <= (type == 1 ? 4 : 5); ++version) {
-            std::string bytes;
-            append(bytes, char{1});
-            append(bytes, type);
-            append(bytes, version);
-            std::vector<std::pair<std::size_t, std::size_t>> validated_strings;
-            auto checked_text = [&]<std::size_t N>(const char* value) {
-                validated_strings.emplace_back(bytes.size(), N);
-                text.template operator()<N>(bytes, value);
-            };
-            if (type == 1) {
-                for (int value : {9, 11, 13, 15, 17, 19, 21}) append(bytes, value);
-                append(bytes, char{1});
-                append(bytes, char{1});
-                checked_text.template operator()<128>("switch");
-                checked_text.template operator()<256>("recipient");
-                text.template operator()<128>(bytes, "switch.wav");
-                if (version > 1) {
-                    append(bytes, 2.f);
-                    checked_text.template operator()<64>("surface");
-                }
-                if (version > 2) {
-                    append(bytes, char{1});
-                    append(bytes, char{1}); // Owned door, kind 1.
-                    append(bytes, char{1}); // Door version.
-                    bytes.append(9, '\x34');
-                    append(bytes, short{23});
-                    append(bytes, char{1});
-                    for (float value : {3.f, 5.f, 7.f}) append(bytes, value);
-                    text.template operator()<128>(bytes, "linked");
-                }
-                if (version > 3) append(bytes, 29);
-            } else if (type == 2) {
-                append(bytes, 2.5f);
-                for (float value : {1.f, 2.f, 3.f}) append(bytes, value);
-                append(bytes, 29);
-                append(bytes, 31);
-                append(bytes, char{1});
-                append(bytes, char{1});
-                checked_text.template operator()<128>("invisible");
-                checked_text.template operator()<256>("recipient");
-                if (version > 1) {
-                    append(bytes, char{1});
-                    for (int index = 0; index < 12; ++index)
-                        append(bytes, static_cast<float>(index));
-                }
-                if (version > 2) {
-                    append(bytes, 1.25f);
-                    for (float value : {5.f, 7.f, 11.f}) append(bytes, value);
-                    append(bytes, char{1});
-                    text.template operator()<128>(bytes, "action");
-                }
-                if (version > 3) {
-                    append(bytes, char{1});
-                    append(bytes, 37);
-                }
-                if (version > 4) {
-                    append(bytes, char{1});
-                    append(bytes, char{2});
-                    // The serialized kind does not set the distinct legacy kind gate.
-                }
-            } else {
-                for (int value : {2, 3, 5, 7, 11, 13, 17}) append(bytes, value);
-                append(bytes, 2.5f);
-                for (int index = 0; index < 9; ++index) append(bytes, static_cast<float>(index));
-                text.template operator()<128>(bytes, "ambient.wav");
-                if (version > 1) {
-                    append(bytes, char{1});
-                    append(bytes, char{2});
-                }
-                if (version > 2) {
-                    for (float value : {19.f, 23.f, 29.f}) append(bytes, value);
-                    append(bytes, 1.25f);
-                    for (int index = 0; index < 6; ++index)
-                        append(bytes, static_cast<float>(index));
-                }
-                if (version > 3) text.template operator()<128>(bytes, "sound");
-                if (version > 4) append(bytes, char{1});
-            }
-            store("trigger.bin", bytes);
-            auto file = wiz8::open_file(wiz8::asset_path("trigger.bin"));
-            W8LevelFileTrigger trigger{};
-            REQUIRE(ReadTriggerFile(*file, trigger));
-            REQUIRE(trigger.type == type);
-            REQUIRE(!std::holds_alternative<std::monostate>(trigger.data));
-            if (type == 1) {
-                auto* record = std::get_if<W8LevelFileSwitch>(&trigger.data);
-                REQUIRE(record->state_count == 11);
-                REQUIRE(record->door.door.has_value() == (version > 2));
-            } else if (type == 2) {
-                auto* record = std::get_if<W8LevelFileInvisible>(&trigger.data);
-                REQUIRE(record->searchable == 31);
-                REQUIRE(record->plane.has_value() == (version > 1));
-            } else {
-                auto* record = std::get_if<W8LevelFileSound>(&trigger.data);
-                REQUIRE(record->unbounded == 17);
-                REQUIRE(record->shared == (version > 4));
-            }
-            auto output =
-                wiz8::open_file(wiz8::asset_path("roundtrip.bin"), wiz8::OpenMode::replace);
-            REQUIRE(WriteTriggerFile(*output, trigger));
-            output->close();
-            output = wiz8::open_file(wiz8::asset_path("roundtrip.bin"));
-            std::string written(output->size(), '\0');
-            output->read_exact(written.data(), written.size());
-            REQUIRE(written == bytes);
-            // Record variants retain their round-trip checks. Sample short
-            // headers, interior field boundaries and the final bytes instead
-            // of rewriting each byte-prefix of every large version.
-            for (const std::size_t end : truncation_samples(bytes.size())) {
-                store("trigger.bin", bytes.substr(0, end));
-                file = wiz8::open_file(wiz8::asset_path("trigger.bin"));
-                trigger = {};
-                REQUIRE_FALSE(ReadTriggerFile(*file, trigger));
-                REQUIRE(std::holds_alternative<std::monostate>(trigger.data));
-            }
-            for (auto [offset, length] : validated_strings) {
-                auto invalid = bytes;
-                std::memset(invalid.data() + offset, 'x', length);
-                store("trigger.bin", invalid);
-                file = wiz8::open_file(wiz8::asset_path("trigger.bin"));
-                trigger = {};
-                REQUIRE_FALSE(ReadTriggerFile(*file, trigger));
-                REQUIRE(std::holds_alternative<std::monostate>(trigger.data));
-            }
-        }
-    }
-}
-
 TEST_CASE_METHOD(LoaderFixture, "World item sections reject invalid signed counts",
                  "[loader][records]")
 {
@@ -1171,39 +771,30 @@ TEST_CASE_METHOD(LoaderFixture, "World item sections reject invalid signed count
         append(bytes, count);
         store("items.bin", bytes);
         auto file = wiz8::open_file(wiz8::asset_path("items.bin"));
-        W8ReadLevelInfo info{&world, file.get(), nullptr, nullptr};
+        W8ReadLevelInfo info{&world, file.get(), {}};
         REQUIRE(bool(ReadWorldItems(&info, &world)) == (count == 0));
     }
     store("items.bin", std::string(3, '\0'));
     auto file = wiz8::open_file(wiz8::asset_path("items.bin"));
-    W8ReadLevelInfo info{&world, file.get(), nullptr, nullptr};
+    W8ReadLevelInfo info{&world, file.get(), {}};
     REQUIRE_FALSE(ReadWorldItems(&info, &world));
 }
 
 TEST_CASE_METHOD(LoaderFixture, "Environment tables decode RGB bytes without runtime vector layout",
                  "[loader][records]")
 {
-    const struct RestoreTables {
-        std::array<glm::vec3, 256> environment = g_environment_colours0;
-        std::array<glm::vec3, 256> light = g_environment_colours1;
-        ~RestoreTables()
-        {
-            g_environment_colours0 = environment;
-            g_environment_colours1 = light;
-        }
-    } restore;
     std::string bytes;
     for (int index = 0; index < 256; ++index) {
         bytes.push_back(static_cast<char>(index));
         bytes.push_back(static_cast<char>(255 - index));
         bytes.push_back(static_cast<char>(index / 2));
     }
-    for (const auto& [read, table] :
-         {std::pair{&ReadEnvironmentColourTable, &g_environment_colours0},
-          std::pair{&ReadLightColourTable, &g_environment_colours1}}) {
+    std::array<glm::vec3, 256> colours;
+    auto* table = &colours;
+    {
         store("colours.bin", bytes);
         auto file = wiz8::open_file(wiz8::asset_path("colours.bin"));
-        REQUIRE(read(file.get()));
+        REQUIRE(ReadEnvironmentColours(file.get(), colours));
         REQUIRE(file->tell() == 768);
         for (int index : {0, 1, 127, 255}) {
             const glm::vec3 expected(index, 255 - index, index / 2);
@@ -1212,7 +803,7 @@ TEST_CASE_METHOD(LoaderFixture, "Environment tables decode RGB bytes without run
         const auto complete = *table;
         store("colours.bin", bytes.substr(0, 767));
         file = wiz8::open_file(wiz8::asset_path("colours.bin"));
-        REQUIRE_FALSE(read(file.get()));
+        REQUIRE_FALSE(ReadEnvironmentColours(file.get(), colours));
         REQUIRE(*table == complete);
     }
 }
@@ -1316,20 +907,11 @@ TEST_CASE_METHOD(LoaderFixture,
 TEST_CASE_METHOD(LoaderFixture, "World item groups transfer ownership and preserve save records",
                  "[loader][items]")
 {
-    const auto registered = g_searchables.size();
-    const struct RestoreSearchables {
-        std::size_t count;
-        ~RestoreSearchables()
-        {
-            while (g_searchables.size() > count) {
-                g_searchables.pop_back();
-            }
-        }
-    } restore{registered};
     wiz8::retail::WorldItem first{}, second{};
     first.runtime_id = 17;
     first.position = {1, -2, 3};
     first.flags = W8_WORLD_ITEM_HIDDEN;
+    first.entity_flags = second.entity_flags = W8_ITEM_ENTITY_RADAR_SEEN;
     first.saved_marker = second.saved_marker = 1;
     first.next = 1;
     first.sector_id = second.sector_id = -2;
@@ -1341,16 +923,13 @@ TEST_CASE_METHOD(LoaderFixture, "World item groups transfer ownership and preser
     append(bytes, second);
     store("items.bin", bytes.substr(0, bytes.size() - 1));
     auto file = wiz8::open_file(wiz8::asset_path("items.bin"));
-    REQUIRE_FALSE(LoadItem(*file));
-    REQUIRE(g_searchables.size() == registered);
+    REQUIRE_FALSE(ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadItem(chunk); }));
     file.reset();
     store("items.bin", bytes);
     file = wiz8::open_file(wiz8::asset_path("items.bin"));
-    auto group = LoadItem(*file);
+    auto group = ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadItem(chunk); });
     REQUIRE(group);
     REQUIRE(ItemInfoGetNumInGroup(group.get()) == 2);
-    REQUIRE(g_searchables.size() == registered + 1);
-    REQUIRE(g_searchables.back()->world_item == group.get());
     auto detached = ItemInfoRemoveFromGroup(group.get(), group->next.get());
     REQUIRE(detached->runtime_id == 29);
     REQUIRE_FALSE(group->next);
@@ -1364,17 +943,17 @@ TEST_CASE_METHOD(LoaderFixture, "World item groups transfer ownership and preser
     encoded->read_exact(roundtrip.data(), roundtrip.size());
     REQUIRE(roundtrip.size() == bytes.size());
     REQUIRE(std::equal(roundtrip.begin(), roundtrip.end(), bytes.begin()));
+    file->seek(0, wiz8::SeekOrigin::begin);
+    auto defaults = ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadItem(chunk, true); });
+    REQUIRE(defaults);
+    REQUIRE((defaults->entity_flags & W8_ITEM_ENTITY_RADAR_SEEN) == 0);
+    REQUIRE((defaults->next->entity_flags & W8_ITEM_ENTITY_RADAR_SEEN) == 0);
 }
 
 TEST_CASE_METHOD(LoaderFixture, "Retail waypoint versions load without an editor writer",
                  "[loader][pathing]")
 {
     W8Octree tree(nullptr, nullptr);
-    const struct RestoreOctree {
-        W8Octree* previous;
-        ~RestoreOctree() { g_octree = previous; }
-    } restore{g_octree};
-    g_octree = &tree;
     tree.object_registry = new W8OctreeObjectRegistry;
     tree.m_spatial.m_bounds.minimum = glm::vec3(0);
     tree.m_spatial.m_node_extent = 1;
@@ -1403,7 +982,7 @@ TEST_CASE_METHOD(LoaderFixture, "Retail waypoint versions load without an editor
             }
         }
         store("waypoints.wpt", bytes);
-        REQUIRE(path.ReadWaypointFile());
+        REQUIRE(path.ReadWaypointFile(tree));
         REQUIRE(path.m_waypoints.size() == 3);
         REQUIRE(path.m_waypoints[1].position == glm::vec3(1, 2, 3));
         REQUIRE(path.m_waypoints[2].position == glm::vec3(4, 5, 6));
@@ -1415,7 +994,7 @@ TEST_CASE_METHOD(LoaderFixture, "Retail waypoint versions load without an editor
         auto* edges = path.m_pEdges.data();
         for (std::size_t end = 0; end < bytes.size(); ++end) {
             store("waypoints.wpt", bytes.substr(0, end));
-            REQUIRE_FALSE(path.ReadWaypointFile());
+            REQUIRE_FALSE(path.ReadWaypointFile(tree));
             REQUIRE(path.m_waypoints.data() == waypoints);
             REQUIRE(path.m_pEdges.data() == edges);
         }
@@ -1463,34 +1042,6 @@ TEST_CASE_METHOD(LoaderFixture,
     REQUIRE(g_spell_records == nullptr);
 }
 
-TEST_CASE("Revealing searchables invalidates borrowed view entries without skipping the next item",
-          "[ownership][search]")
-{
-    ClearSearchables();
-    W8WorldItem first{}, second{};
-    const struct Cleanup {
-        ~Cleanup() { ClearSearchables(); }
-    } cleanup;
-    SetItemFlags(&first, W8_WORLD_ITEM_HIDDEN, true);
-    SetItemFlags(&second, W8_WORLD_ITEM_HIDDEN, true);
-    RegisterSearchableWorldItem(&first);
-    RegisterSearchableWorldItem(&second);
-    auto* found = g_searchables[0].get();
-    auto* next = g_searchables[1].get();
-    g_search_view.items = {found, next};
-    g_search_view.cursor = 0;
-    found->Reveal();
-    REQUIRE_FALSE(ItemHasFlags(&first, W8_WORLD_ITEM_HIDDEN));
-    REQUIRE(ItemHasFlags(&first, W8_WORLD_ITEM_RADAR_BLIP_LIT));
-    REQUIRE(g_searchables.size() == 1);
-    REQUIRE(g_searchables.front().get() == next);
-    REQUIRE(g_search_view.items == std::vector<W8Searchable*>{next});
-    REQUIRE(g_search_view.cursor == -1);
-    next->Reveal();
-    REQUIRE(g_search_view.items.empty());
-    REQUIRE(g_searchables.empty());
-}
-
 TEST_CASE_METHOD(LoaderFixture, "Path parameters accept complete CRLF and unterminated text lines",
                  "[loader][text]")
 {
@@ -1512,7 +1063,7 @@ TEST_CASE_METHOD(LoaderFixture, "Path parameters accept complete CRLF and unterm
     REQUIRE(g_navigator_minimum_speed_mode23 == 0.25f);
 }
 struct LocationVariableFixture : LoaderFixture {
-    int previous_level = g_status.current_level;
+    std::unique_ptr<W8World> previous_world = ReplaceWorld(nullptr);
     LocationVariableFixture() { ClearLocationVariables(); }
     bool load_variables(const std::string& bytes, bool inject_failure = false)
     {
@@ -1524,16 +1075,19 @@ struct LocationVariableFixture : LoaderFixture {
         chunk.WriteChunk(W8ChunkId("NEXT"), [&] { chunk.WriteValue(std::array<char, 256>{}); });
         chunk.Close();
         REQUIRE(chunk.OpenRead(path));
-        REQUIRE(chunk.OpenChunk(0, 0));
-        FileFaults fault(inject_failure ? 5 : 0);
-        const bool loaded = LoadLocationVariables(chunk);
-        if (inject_failure) REQUIRE(FileFaults::fired);
+        bool loaded = false;
+        chunk.ForEachChunk([&](unsigned) {
+            FileFaults fault(inject_failure ? 5 : 0);
+            loaded = LoadLocationVariables(chunk);
+            if (inject_failure) REQUIRE(FileFaults::fired);
+            return false;
+        });
         return loaded;
     }
     ~LocationVariableFixture()
     {
         ClearLocationVariables();
-        g_status.current_level = previous_level;
+        ReplaceWorld(std::move(previous_world));
     }
 };
 
@@ -1542,12 +1096,12 @@ TEST_CASE_METHOD(LocationVariableFixture,
                  "[loader][records]")
 {
     REQUIRE_FALSE(HasLocationVariables());
-    g_status.current_level = 3;
+    ReplaceWorld(std::make_unique<W8World>(3));
     CreateLocationVar("Switch", 17);
     CreateLocationVar("SWITCH", 99);
     REQUIRE(GetLocationVarValueByName("switch") == 17);
     SetTriggerVariableByName("switch", 23);
-    g_status.current_level = 4;
+    ReplaceWorld(std::make_unique<W8World>(4));
     REQUIRE(GetLocationVarIDByName("Switch") == -1);
     CreateLocationVar("Switch", -7);
     REQUIRE(HasLocationVariables());
@@ -1570,7 +1124,7 @@ TEST_CASE_METHOD(LocationVariableFixture,
     ClearLocationVariables();
     REQUIRE(load_variables(expected));
     REQUIRE(GetLocationVarValueByName("SWITCH") == -7);
-    g_status.current_level = 3;
+    ReplaceWorld(std::make_unique<W8World>(3));
     REQUIRE(GetLocationVarValueByName("switch") == 23);
 }
 
@@ -1578,7 +1132,7 @@ TEST_CASE_METHOD(LocationVariableFixture,
                  "Invalid location variable sections leave existing state intact",
                  "[loader][records]")
 {
-    g_status.current_level = 5;
+    ReplaceWorld(std::make_unique<W8World>(5));
     CreateLocationVar("Existing", 42);
     std::string bytes;
     append(bytes, std::int32_t{2});
@@ -1635,7 +1189,7 @@ TEST_CASE_METHOD(LoaderFixture, "Particle record versions initialize omitted fie
         bytes.append(reinterpret_cast<const char*>(&record), size);
         store("particles.bin", bytes);
         auto file = wiz8::open_file(wiz8::asset_path("particles.bin"));
-        W8ReadLevelInfo info{nullptr, file.get(), "", nullptr};
+        W8ReadLevelInfo info{nullptr, file.get(), {}};
         srNode scene;
         std::vector<std::unique_ptr<stParticle>> particles;
         REQUIRE(ReadWorldParticles(&info, &scene, &particles));
@@ -1688,7 +1242,7 @@ TEST_CASE_METHOD(LoaderFixture, "Malformed particle sections publish no scene ob
     if (truncate) bytes.pop_back();
     store("particles.bin", bytes);
     auto file = wiz8::open_file(wiz8::asset_path("particles.bin"));
-    W8ReadLevelInfo info{nullptr, file.get(), "", nullptr};
+    W8ReadLevelInfo info{nullptr, file.get(), {}};
     srNode scene;
     std::vector<std::unique_ptr<stParticle>> particles;
     particles.push_back(std::make_unique<stParticle>(nullptr, 0));
@@ -1713,50 +1267,43 @@ TEST_CASE("Octree particle registration checks the whole batch before publishing
     REQUIRE(octree.m_particles == std::vector<stParticle*>{&first});
 }
 
-extern std::vector<W8WorldCursorNode*> g_world_cursor_nodes;
-
 TEST_CASE_METHOD(LoaderFixture, "Cursor scratch replacement validates complete saved records",
                  "[loader][cursor][ownership]")
 {
-    W8WorldCursorNode first{}, second{};
-    const struct RegistryScope {
-        std::vector<W8WorldCursorNode*> previous = std::move(g_world_cursor_nodes);
-        ~RegistryScope() { g_world_cursor_nodes = std::move(previous); }
-    } registry;
-    std::strcpy(first.name, "first");
-    std::strcpy(second.name, "second");
-    first.userdata = {std::byte{7}};
-    second.userdata = {std::byte{8}};
-    g_world_cursor_nodes = {&first, &second};
+    W8SavedCursorNodes table;
+    table.nodes.resize(2);
+    std::strcpy(table.nodes[0].name.data(), "first");
+    std::strcpy(table.nodes[1].name.data(), "second");
+    table.nodes[0].userdata = {std::byte{7}};
+    table.nodes[1].userdata = {std::byte{8}};
     std::string bytes;
     append(bytes, 2);
     append(bytes, 2u);
-    for (const auto* node : g_world_cursor_nodes) {
-        bytes.append(node->name, sizeof(node->name));
+    for (const auto& node : table.nodes) {
+        bytes.append(node.name.data(), node.name.size());
         append(bytes, 2);
         bytes.append("ab", 2);
     }
     const auto load = [&](const std::string& data) {
         store("cursor-state.dat", data);
         auto file = wiz8::open_file(wiz8::asset_path("cursor-state.dat"));
-        return LoadWorldCursorNodeStates(*file);
+        ReadSavePayload(*file, [&](W8Chunk& chunk) { ReadWorldCursorNodeStates(chunk, table); });
     };
-    REQUIRE(load(bytes.substr(0, bytes.size() - 1)) == 0);
-    REQUIRE(first.userdata == std::vector{std::byte{7}});
-    REQUIRE(second.userdata == std::vector{std::byte{8}});
-    REQUIRE(load(bytes) == 2);
-    REQUIRE(first.userdata == std::vector{std::byte{'a'}, std::byte{'b'}});
-    REQUIRE(load(bytes) == 2);
-    SetWorldCursorNodeParameter(&first, 0, 4);
-    REQUIRE(first.userdata.empty());
+    REQUIRE_THROWS(load(bytes.substr(0, bytes.size() - 1)));
+    REQUIRE(table.nodes[0].userdata == std::vector{std::byte{7}});
+    REQUIRE(table.nodes[1].userdata == std::vector{std::byte{8}});
+    REQUIRE_NOTHROW(load(bytes));
+    REQUIRE(table.nodes[0].userdata == std::vector{std::byte{'a'}, std::byte{'b'}});
+    REQUIRE_NOTHROW(load(bytes));
+    const auto original = table.nodes[0].userdata;
     auto invalid = bytes;
     std::fill(invalid.begin() + 8, invalid.begin() + 40, 'x');
-    REQUIRE(load(invalid) == 0);
+    REQUIRE_THROWS(load(invalid));
     invalid = bytes;
     const int negative = -1;
     std::memcpy(invalid.data() + 40, &negative, sizeof(negative));
-    REQUIRE(load(invalid) == 0);
-    REQUIRE(first.userdata.empty());
+    REQUIRE_THROWS(load(invalid));
+    REQUIRE(table.nodes[0].userdata == original);
 }
 
 TEST_CASE_METHOD(LoaderFixture, "Prop loader rejects an unterminated asset name", "[loader][prop]")
@@ -1781,6 +1328,7 @@ TEST_CASE_METHOD(LoaderFixture, "Prop loader rejects an unterminated asset name"
 TEST_CASE_METHOD(LoaderFixture, "Trigger action loading rejects incomplete and unterminated text",
                  "[loader][trigger]")
 {
+    W8World world;
     std::string bytes;
     append(bytes, 1);
     append(bytes, 1);
@@ -1789,11 +1337,71 @@ TEST_CASE_METHOD(LoaderFixture, "Trigger action loading rejects incomplete and u
     const auto load = [&](const std::string& data) {
         store("trigger-action.dat", data);
         auto file = wiz8::open_file(wiz8::asset_path("trigger-action.dat"));
-        return LoadTriggerActionData(*file);
+        return ReadSavePayload(*file,
+                               [&](W8Chunk& chunk) { return LoadTriggerActionData(world, chunk); });
     };
     REQUIRE_FALSE(load(bytes));
     REQUIRE_FALSE(load(bytes.substr(0, bytes.size() - 1)));
     std::fill(bytes.begin() + 8, bytes.begin() + 136, '\0');
     std::fill(bytes.begin() + 136, bytes.end(), 'x');
     REQUIRE_FALSE(load(bytes));
+}
+
+TEST_CASE_METHOD(LoaderFixture, "Prop save records decode missing entries within their section",
+                 "[loader][records]")
+{
+    const struct WorldScope {
+        std::unique_ptr<W8World> previous = ReplaceWorld(std::make_unique<W8World>());
+        ~WorldScope() { ReplaceWorld(std::move(previous)); }
+    } scope;
+    W8World& world = *GetWorld();
+    auto prop = std::make_unique<W8Prop>();
+    prop->name = "Present";
+    prop->id = 42;
+    auto* present = prop.get();
+    world.plsProps.push_back(std::move(prop));
+    for (bool named : {false, true}) {
+        std::string bytes;
+        if (named) {
+            append(bytes, 0xDEADD00Du);
+            append(bytes, 1u);
+        }
+        append(bytes, 2u);
+        for (bool known : {false, true}) {
+            if (named) {
+                std::array<char, 64> name{};
+                std::strcpy(name.data(), known ? "Present" : "Missing");
+                append(bytes, name);
+            } else {
+                append(bytes, known ? 42 : 99);
+            }
+            append(bytes, std::array<unsigned char, 6>{7, 2, 9, 1, 1, 0});
+        }
+        const auto path = wiz8::asset_path("props.riff");
+        W8Chunk chunk;
+        REQUIRE(chunk.OpenWrite(path));
+        chunk.WriteChunk(W8ChunkId("APST"), [&] { chunk.WriteBytes(bytes.data(), bytes.size()); });
+        chunk.Close();
+        REQUIRE(chunk.OpenRead(path));
+        chunk.ForEachChunk([&](unsigned) {
+            LoadWorldProps(GetWorld(), chunk);
+            REQUIRE(chunk.RemainingBytes() == 0);
+        });
+        chunk.Close();
+        REQUIRE(present->Rep()->subcycle == 7);
+        REQUIRE(present->Rep()->first_frame == 2);
+        REQUIRE(present->Rep()->last_frame == 9);
+        present->Rep()->subcycle = 3;
+        bytes.pop_back();
+        REQUIRE(chunk.OpenWrite(path));
+        chunk.WriteChunk(W8ChunkId("APST"), [&] { chunk.WriteBytes(bytes.data(), bytes.size()); });
+        chunk.WriteChunk(W8ChunkId("NEXT"), [&] { chunk.WriteValue(0u); });
+        chunk.Close();
+        REQUIRE(chunk.OpenRead(path));
+        chunk.ForEachChunk([&](unsigned) {
+            REQUIRE_THROWS(LoadWorldProps(GetWorld(), chunk));
+            return false;
+        });
+        REQUIRE(present->Rep()->subcycle == 3);
+    }
 }

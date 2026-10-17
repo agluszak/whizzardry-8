@@ -29,8 +29,3 @@ public:
     int m_vertex_count{};
     int m_polygon_count{};
 };
-
-/* The first Read call snapshots material/texture/render-flag zero as the
-   shared default rendering state for the path and trace meshes. */
-extern W8MeshMaterial g_oct_mesh_default;
-void ReleaseOctMeshDefaults();

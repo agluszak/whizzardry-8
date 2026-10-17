@@ -21,8 +21,7 @@ extern int g_learn_sound;
 /* Whether the spell may be cast in the current situation. */
 bool SpellUsableNow(int spell_id, bool allow_out_of_combat);
 
-W8TargetNeed GetTargetNeededForSpellFriendly(int spell_id, bool normalize,
-                                             W8TargetingContext context);
+W8TargetNeed GetTargetNeededForSpellFriendly(int spell_id, bool normalize, bool needs_item_target);
 W8TargetNeed GetTargetNeededForSpellHostile(int spell_id);
 /* Whether the monster's spellcasting-blocked condition stops it
    casting this spell - everything except alchemy, and alchemy only for the

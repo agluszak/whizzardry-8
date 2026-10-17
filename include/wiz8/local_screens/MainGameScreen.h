@@ -1,6 +1,4 @@
-#include "wiz8/design_rect.h"
 #pragma once
-
 #include <array>
 #include <memory>
 #include <optional>
@@ -12,6 +10,7 @@
 #include "input.h"
 #include "layouts/targeting.h"
 #include "wiz8/audio_resources.h"
+#include "wiz8/design_rect.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/modal_content.h"
@@ -81,6 +80,10 @@ public:
     void BeginProgress(std::string_view text, float duration, float hold);
     void Redraw(SDL_Surface& target, bool full_redraw);
     void OnRangeChanged();
+    /* Enable the unselected cells the selected trap row has a device for. */
+    void RefreshCellEnables();
+    /* Show m_values' inspected devices, blanking cells with nothing to show. */
+    void RefreshCellImages();
     void InvalidateAll() { m_dirty = true; }
     void EnableInput(bool enabled)
     {
@@ -174,11 +177,6 @@ public:
     /* Clear and redraw the backdrop the transcript covers. */
     void ClearBackground();
     bool IsExpanded();
-
-    /* Catalog image ids whose measured heights seed margin and
-       line_height/scroll_height in the constructor; never read again. */
-    int margin_image;
-    int line_image;
     int visible;
     int line_height;
     int margin;
@@ -235,6 +233,10 @@ public:
     void Process();
     void ResolvePick();
     void AttemptForce();
+    /* Re-derive the control enables for the selected character: tumblers
+       need lockpick skill, the spell button a castable knock-knock and the
+       force button a force chance. The info text and actions repaint. */
+    void RefreshControls();
     void EnablePanels(int enable);
     void BeginUnlock();
     /* Knock-knock resolution: rolls the per-level chance over a shuffled pin
@@ -364,7 +366,6 @@ enum W8MainGameMode {
 
 extern W8MainGameMode g_main_game_mode;
 extern int g_selected_party_slot;
-int GetSelectedPartySlot(void);
 void RequestLevelTransition(int level, int entry, unsigned char flag);
 extern bool g_build_level_links;
 extern int g_next_link_level;
@@ -394,7 +395,6 @@ void DrawPortraitConditionOverlay(int party_slot);
 void DrawPortraitStatusOverlay(int party_slot);
 void DrawPortraitEnchantmentOverlay(int party_slot);
 void SelectPartyCharacter(int party_slot);
-void RefreshLockInteractionControls(void);
 void RefreshMainGameActionPanel(void);
 void OpenAutomapScreen(void);
 /* Clear one slot's pending portrait refresh while the screen is not in
@@ -405,7 +405,7 @@ void ClearPortraitRefreshSlot(int slot);
 inline void ClearScreenWait(void)
 {
     g_pending_screen_state.mode = 0;
-    SetPendingScreenState(W8_SCREEN_OPTIONS);
+    g_pending_screen_state.id = W8_SCREEN_OPTIONS;
 }
 /* Portrait condition / enchantment orbs (help 25 / 26): hold opens the
    mode-6 hover overlay; leave and release tear it down. */
@@ -520,9 +520,9 @@ void DestroySurpriseFade(void);
 unsigned char UpdateSurpriseFade(void);
 unsigned char OpenUseItemSelectView(int slot);
 
-unsigned char MainGameScreenEnter(void);
+bool MainGameScreenEnter(void);
 void MainGameScreenFrame(void);
-unsigned char MainGameScreenLeave(int leaving);
+bool MainGameScreenLeave(int leaving);
 void ShowMainGameNoticeLine(std::string_view text, std::function<void(bool)> callback,
                             bool confirmation, bool cancel);
 
@@ -532,3 +532,5 @@ void SelectNpcBuyMode(void);
 void ConfirmNpcTradeItem(void);
 void RestockNpcTradeStock(void);
 void OpenNpcTradeQuantityDialog(void);
+
+W8TargetingContext GetEditedActionContext(int party_slot);

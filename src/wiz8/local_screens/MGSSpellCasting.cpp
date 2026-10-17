@@ -76,14 +76,6 @@ static int g_spell_realm_help_string_ids[6] = {0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2
 // GLOBAL: WIZ8 0x0069BF3C
 std::unique_ptr<W8SpellCastingView> gpSCSV;
 
-int GetSpellCastingPowerIndex(void)
-{
-    if (!gpSCSV) {
-        return -1;
-    }
-    return gpSCSV->iSpellPower;
-}
-
 static void CreateSpellCastingViewControls(void);
 static void SelectSpellPowerPip7(void);
 static void SelectSpellPowerPip8(void);
@@ -746,12 +738,6 @@ void SpellCastingNoticeClosed(bool)
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
 }
 
-// FUNCTION: WIZ8 0x005A0300
-void InvalidateSpellCastingDescription(void)
-{
-    gpSCSV->dirty[1] = true;
-}
-
 /* Switches the view to another realm: the old realm's icon returns to its
    first frame and the new one starts its frame timer, then the whole
    selection state resets. */
@@ -1029,7 +1015,7 @@ static void SelectSpellCastingListRow(int index)
     levels = GetCharacterRealmSpellPoints(&g_status.buffers.Char[g_status.selected_character],
                                           g_spell_records[spell_id].realm) /
              cost;
-    ClampUnsignedInteger(&levels, 0, 7);
+    levels = std::clamp(levels, 0u, 7u);
     if (levels == 0) {
         gpSCSV->uiSpellIndex = -1;
         return;
@@ -1037,7 +1023,7 @@ static void SelectSpellCastingListRow(int index)
     gpSCSV->iSpellPowerClass = power_class;
     gpSCSV->uiPowerLevels = levels;
     gpSCSV->uiSpellToCast = spell_id;
-    needed = GetTargetNeededForSpellFriendly(spell_id, false, W8_TARGETING_CONTEXT_CURRENT);
+    needed = GetTargetNeededForSpellFriendly(spell_id, false, g_level_block == nullptr);
     target_type = GetSpellTargetType(spell_id, false);
     ConfigureSpellTargetFilter(target_type, needed);
     SelectSpellPowerLevel(-1);
@@ -1067,7 +1053,11 @@ void TryCommitSpellCast(void)
     ready = false;
     if (gpSCSV->uiSpellToCast != 0 &&
         (gpSCSV->iSpellPower != -1 || gpSCSV->iSpellPowerClass == W8_SPELL_POWER_FIXED)) {
-        ready = IsSpellTargetOfNeededKind(g_status.selected_character, gpSCSV->uiSpellToCast);
+        ready = IsSpellTargetOfNeededKind(
+            SelectCombatAction(g_status.selected_character,
+                               GetEditedActionContext(g_status.selected_character))
+                .target,
+            gpSCSV->uiSpellToCast, g_level_block == nullptr);
     }
     if (gpSCSV->uiSpellToCast == 0x4b && !gpSCSV->dialog_confirmed) {
         if (!IsModalOpen() &&

@@ -547,7 +547,7 @@ void MartensBluff2MonsterCrusher(int command)
     }
     left = g_squisher3_prop->m_gd_prop->computeBounds().maximum.x;
     right = g_squisher4_prop->m_gd_prop->computeBounds().minimum.x;
-    location_ids = g_octree->locationsInBox({crusher_lower, crusher_upper}, 0);
+    location_ids = GetWorldOctree()->locationsInBox({crusher_lower, crusher_upper}, 0);
     count = location_ids.size();
     if (count == 0) {
         return;
@@ -591,7 +591,7 @@ bool MartensBluff2StoneIdol(Trigger* pTrigger)
     ReplaceOrCreateItem(&g_status.item_in_hand, 0x291, false, false, false);
     SetItemCursor(0);
     ShowString(g_localized_strings[0x71d]);
-    particle = FindParticleByName(g_world, "IdolGas");
+    particle = FindParticleByName("IdolGas");
     if (particle != 0) {
         particle->SetActive(1);
     }
@@ -660,7 +660,7 @@ void MartensBluff2IdolGas(int command)
         MartensBluff2IdolGasVictim();
     }
     BeginWorldLightingFade(3000.0f);
-    particle = FindParticleByName(g_world, "IdolGas");
+    particle = FindParticleByName("IdolGas");
     if (particle != 0) {
         particle->SetActive(0);
     }

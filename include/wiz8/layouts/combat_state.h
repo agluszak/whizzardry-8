@@ -38,7 +38,7 @@ struct W8PartySlotRow {
     W8ActionKind pending_action;
     int attack_mode[4];
     /* Historical offset 0x15: the pending action's own two-word block, the same shape a chosen
-       action carries. ChooseCombatAction returns it for the out-of-combat
+       action carries. SelectCombatAction returns it for the out-of-combat
        context; its item member is restored from the saved item reference. */
     W8ActionDetailBlock pending_action_detail;
     W8CombatSlot target_out_of_combat;
@@ -53,7 +53,7 @@ struct W8PartySlotRow {
     int action_detail;
     int spell_id;
     /* The spell's two-word detail block: power level plus an unused second
-       word. ChooseCombatAction hands this block out for the spell context;
+       word. SelectCombatAction hands this block out for the spell context;
        StartCharacterSpellCast copies it through ChooseAction the same way. */
     W8ActionDetailBlock spell_detail;
     W8CombatSlot spell_target;
@@ -227,7 +227,6 @@ struct W8CombatState {
     /* Historical offset 0x8c4: staged hit result of the in-flight missile (0 = pending, 1 = hit, 2 = deflected) */
     char missile_hit_result; /* W8MissileHitResult */
     W8CombatSlot TargetHit;
-    int pending_deaths[8];
     int pending_death_count;
     W8PartyAction uiNextPartyAction;
     W8PartyAction uiCurrentPartyAction;

@@ -43,14 +43,6 @@ enum { W8_DEGREES_PER_TURN = 360, W8_DEGREES_PER_QUADRANT = 90 };
 
 extern char g_formation_row_names[5][20];
 
-/* Copy a party formation state. The 0x84-byte structure is copied as 33
-   dwords via REP MOVSD. */
-// FUNCTION: WIZ8 0x005545d0
-void CopyPartyFormationState(W8PartyFormationState* dst, const W8PartyFormationState* src)
-{
-    *dst = *src;
-}
-
 /* Reconcile an edited formation against the live one. Characters still able
    to hold a place take their edited seat - a moved slot announces its new row
    and picks up the row's facing - while characters that can no longer hold a

@@ -53,7 +53,6 @@ struct W8NavigatorAttachment {
     glm::vec3 path_destination;
     glm::vec3 start_waypoint; /* valid while W8_NAV_ATTACHMENT_START_WAYPOINT */
     glm::vec3 path_length_origin;
-    glm::vec3 recorded_position;
     struct PathEntry {
         glm::vec3 position{0.0f};
         unsigned short value = 0;
@@ -76,11 +75,7 @@ struct W8NavigatorAttachment {
     /* Also expanded in OctPath.cpp at 0x00465F63, 0x0046400A and
        0x00464820: set the recorded flag before copying the three components. */
     // FUNCTION: WIZ8 0x00456ae0
-    void RecordPosition(const glm::vec3* position)
-    {
-        flags |= W8_NAV_ATTACHMENT_POSITION_RECORDED;
-        recorded_position = *position;
-    }
+    void RecordPosition(const glm::vec3* position) { flags |= W8_NAV_ATTACHMENT_POSITION_RECORDED; }
     void GrowPathStorage();
     /* Append a waypoint and its value, reserving a spare endpoint slot. */
     void AppendPathPosition(const glm::vec3* position, unsigned short value)
@@ -308,11 +303,6 @@ public:
     void SetHalted(bool value);                        /* 0x004531F0 */
     void SetMovementStopped();                         /* 0x00453880 */
     void ClearMovementStopped();
-    /* Save the presence-gated movement state LoadMovementState
-       consumes: the flag byte, then for an ungrouped navigator with flag
-       0x20000000 set the height bounds, position and movement target. */
-    unsigned char LoadMovementState(wiz8::File* hFile); /* 0x00454AD0 */
-    unsigned char SaveMovementState(wiz8::File* hFile); /* 0x004549D0 */
     void CopyPathToGroup();
     void PropagateGroupPosition();                        /* 0x00454C80 */
     void UpdateAngles();                                  /* 0x00453990 */
@@ -352,7 +342,6 @@ public:
     bool halted;
     bool movement_complete;
     bool unknown_027;
-    glm::vec3 position2;
     float minimum_height;
     float maximum_height;
     glm::vec3 patrol_home;
@@ -388,7 +377,6 @@ public:
     float tracked_distance;
     bool tracked_dirty;
     int linked_update_time;
-    bool movement_plan_failed;
     /* Raised on combat entry for the group leader's navigator (or the monster
        itself when unlinked); SetNavigatorLinkMode uses it to re-base the group
        onto the navigator's path when free-roam resumes. */

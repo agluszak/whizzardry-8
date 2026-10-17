@@ -15,6 +15,7 @@
 #include "wiz8/engine_code/game_timer.h"
 
 class GDProp;
+class W8PathingService;
 struct W8AnimObj;
 struct W8ReadLevelInfo;
 struct W8World;
@@ -102,7 +103,7 @@ public:
     void UpdatePropAnimation();
     /* Re-apply every animation path and roll the position snapshots forward.
        `world` is only used by the pWorld assertion. */
-    void ApplyAnimationPaths(W8World* world);
+    void ApplyAnimationPaths();
     /* Advance the rep's animation value by `frames`, honouring the direction,
        bounce and wrap modes; clamps to the counter range and pushes the new
        value to every bound path. `total` is the animation's frame count. */
@@ -111,12 +112,16 @@ public:
        committing it - clamped for transitive animations, wrapping or bouncing
        for the looping kinds. */
     char NextAnimationValue();
-    void ApplyAnimationFrame(); /* 0x0044C670 */
+    void ApplyAnimationFrame(W8PathingService* pathing); /* 0x0044C670 */
     /* Restore the rep's persisted animation state: five saved bytes plus one
        discarded byte, clamped to the loaded animation's frame count, with
        path values re-synced while a running animation is active. */
-    bool LoadAnimationState(wiz8::File& hFile);        /* 0x0044DBD0 */
-    int BuildOrRefreshPathingRepresentation(); /* 0x0044DEA0 */
+    struct SavedAnimationState {
+        unsigned char subcycle, first_frame, last_frame, frame_direction, animation_playing, unused;
+    };
+    void ApplyAnimationState(const SavedAnimationState& state,
+                             W8PathingService* pathing);        /* 0x0044DBD0 */
+    int BuildOrRefreshPathingRepresentation(W8PathingService* pathing); /* 0x0044DEA0 */
     /* Current minus previous position when the animation advances exactly
        one frame; otherwise zero. */
     glm::vec3 GetDelta(); /* 0x0044E130 */
@@ -151,10 +156,6 @@ public:
     bool IsTriggerInView(glm::vec3* position);
     Trigger* GetGDPropOwnerTrigger();
     std::optional<glm::vec3> GetCenterPosition();
-    /* Whether the renderer's currently selected model instance is dispatched
-       by this prop's animation - the prop half of ResolvePickedProp's test.
-       `world` is accepted but never read. */
-    bool IsPickedProp(W8World* world); /* 0x0044D680 */
     std::optional<srBoundingBox> GetBounds();
     void CollectModelInstances(std::vector<stModelInstance*>& instances);
     /* Run trigger when its action is one of the missile-impact kinds
@@ -171,15 +172,12 @@ public:
     glm::vec3 animation_position;          /* 0x2c: written by ApplyAnimationFrame */
     std::unique_ptr<GDProp> m_gd_prop;
     glm::vec3 previous_animation_position; /* 0x3c */
-    /* Prop::Prop writes two identity bases here as nine floats each. */
-    glm::mat3 previous_animation_rotation; /* 0x48 */
-    glm::mat3 animation_rotation;          /* 0x6c */
 }; /* 0x90 */
 
 W8Prop* FindPropByName(W8World* world, const char* name);
 std::unique_ptr<W8Prop> CreateAndLoadProp(W8ReadLevelInfo* info);
 
-bool ResolvePickedProp(W8World* world);
+bool ResolvePickedProp();
 int GetSelectedPropIndex(void);
 /* Run the latched selected-prop trigger, or clear the latch when the
    renderer has no pick. */

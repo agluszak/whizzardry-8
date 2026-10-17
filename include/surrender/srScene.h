@@ -20,11 +20,8 @@ public:
     virtual void traverse(TraverseInfo& info) override;
     virtual void process(const ProcessInfo& info, e_processType type) override;
 
-    void disable(e_enable option);
-    void enable(e_enable option);
     glm::vec3 getAmbientLight() const;
     glm::vec3 getFogColor() const;
-    int isEnabled(e_enable option) const;
     void render(srGERD& renderer, class srCamera* camera);
 
     void setAmbientLight(float red, float green, float blue);

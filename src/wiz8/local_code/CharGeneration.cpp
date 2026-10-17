@@ -631,10 +631,8 @@ void FinalizeSpellPointPool(W8Character* character, W8CharacterCreationState* cr
     }
     creation_state->spell_points_remaining = creation_state->spell_points_total - spent;
     if (creation_state->spell_points_remaining > 0) {
-        creation_state->spells_complete = false;
         return;
     }
-    creation_state->spells_complete = true;
 }
 
 /* Re-checks every spell against the character's current realm skills and
@@ -706,10 +704,8 @@ int CountRemainingSpellPoints(W8Character* character, W8CharacterCreationState* 
         creation_state->spell_points_remaining = creation_state->spell_points_total - spent;
     }
     if (creation_state->spell_points_total != 0 && creation_state->spell_points_remaining != 0) {
-        creation_state->spells_complete = false;
         return available;
     }
-    creation_state->spells_complete = true;
     return available;
 }
 
@@ -832,7 +828,6 @@ void SelectCreationSpell(W8Character* character, W8CharacterCreationState* creat
         }
     }
     if (creation_state->spell_points_remaining == 0) {
-        creation_state->spells_complete = true;
     }
     RecalculateRealmSpellPoints(character);
 }
@@ -856,7 +851,6 @@ void DeselectCreationSpell(W8Character* character, W8CharacterCreationState* cre
             }
         }
         ++creation_state->spell_points_remaining;
-        creation_state->spells_complete = false;
         RecalculateRealmSpellPoints(character);
     }
 }
@@ -873,7 +867,6 @@ void ResetSpellSelections(W8Character* character, W8CharacterCreationState* crea
         }
     }
     creation_state->spell_points_remaining = creation_state->spell_points_total;
-    creation_state->spells_complete = false;
 }
 
 /* Price the profession's starting gear: stage the equipment, sum every

@@ -9,14 +9,12 @@ void SetTargetCursor(int cursor);
 void ApplyCurrentCursor(void);
 void RequestPartySlotRedraw(int bit);
 unsigned char GetPartyOrderTextColor(signed char party_order);
-unsigned char ScreenLifecycleSuccess(void); // bool-byte-ok: screen-table unsigned char (*)() slot
 W8ScreenId GetPendingScreenState(void);
-void SetPendingScreenState(W8ScreenId value);
 void RequestScreenTransition(void);
-// bool-byte-ok: screen-table unsigned char (*)() slot
+
 bool IsScreenTransitionPending(void);
 void RequestExitScreen(void);
-unsigned char ExitScreenEnter(void);
+bool ExitScreenEnter(void);
 void ExitScreenFrame(void);
 /* Dispatch one already-built line to the active screen. */
 void ShowNoticeLine(std::string_view text, std::function<void(bool)> callback, bool confirmation,

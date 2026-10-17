@@ -1,11 +1,12 @@
-#include "Font.h"
 #pragma once
-
+struct W8Chunk;
 #include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
+
+#include "Font.h"
 
 void SyncNpcDialogueTranscriptScrollButtons();
 void SetNpcDialogueInputEnabled(int group, bool enabled);
@@ -234,12 +235,10 @@ struct W8NpcInteractionState {
        the saved camera angles. */
     bool camera_redirected;
     float saved_camera_pitch;
-    float saved_camera_yaw;
     W8QuoteNotice quote_notice;
     /* A modal W8NpcDialog is up over the dialogue; transcript word clicks,
        layout keys other than Escape and layout leave paths bail. */
     bool modal_dialog_open;
-    bool farewell_queued; /* a refusal/farewell line was queued for the exit path */
     /* The dialogue session runs as queued script lines without the
        interactive panel. */
     bool scripted_dialogue;
@@ -296,7 +295,6 @@ void LookAtDialogueNpc(void);
 void CloseNpcDialogueLayout(void);
 void OpenNpcDialogueTranscriptLayout(void);
 void DispatchPendingNpcScriptNotice(void);
-bool CanOpenNpcDialogue(void);
 bool IsNpcDialogueTextInputActive(void);
 bool IsNpcDialogueTextBoxActive(void);
 unsigned char SetNpcDialoguePanelVisible(unsigned char value);
@@ -363,7 +361,7 @@ void UpdateNpcTradeSelection(int index, int, int);
 bool NpcTradeItemAllowed(W8ItemInstance* item);
 void EnableNpcTradeFilterButtons(void);
 void HandleNpcDialogueKeyEvent(const InputEvent* event);
-unsigned char LoadNpcDialogueTranscript(wiz8::File& file);
+unsigned char LoadNpcDialogueTranscript(W8Chunk& file);
 unsigned char SaveNpcDialogueTranscript(wiz8::File& file);
 void HandleNpcDialogueItemChoice(void);
 void RefreshNpcTradePartyGold(void);

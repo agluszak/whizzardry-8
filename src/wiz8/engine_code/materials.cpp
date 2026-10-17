@@ -3,10 +3,7 @@
 #include <array>
 #include <bit>
 #include <cstdint>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <exception>
+#include <filesystem>
 #include <map>
 #include <memory>
 #include <optional>
@@ -18,7 +15,6 @@
 #include <utility>
 
 #include <SDL3/SDL_filesystem.h>
-#include <SDL3/SDL_stdinc.h>
 #include <fmt/format.h>
 #include <wiz8/filesystem.h>
 
@@ -38,7 +34,6 @@
 #include "wiz8/application.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/LevelFile.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/engine_code/Video2.h"
@@ -69,15 +64,6 @@ public:
 // GLOBAL: WIZ8 0x0065BEA8
 static W8NormalTexcoordMapper g_normal_texcoord_mapper;
 
-// GLOBAL: WIZ8 0x0065BA9E
-bool g_material_diffuse_scale_enabled;
-// GLOBAL: WIZ8 0x0065BAA0
-float g_material_diffuse_scale;
-// GLOBAL: WIZ8 0x0065BAA4
-bool g_material_emissive_override_enabled;
-// GLOBAL: WIZ8 0x0065BAA8
-float g_material_emissive_override;
-
 /* Convert eye-space normals to the material's first texture-coordinate set.
    The exported srVertexPipe queries preserve the closed renderer's ownership
    of its internal workspace while expressing every operation in this body. */
@@ -101,44 +87,26 @@ void W8NormalTexcoordMapper::process(srVertexPipe& pipe)
     }
 }
 
-// FUNCTION: WIZ8 0x004925B0
-stMaterial::stMaterial()
-{
-    m_surface_flags = 0;
-}
-
-// FUNCTION: WIZ8 0x004928F0
-srVertexProcessor::MaterialInfo stMaterial::getMaterialInfo()
-{
-    auto info = srMaterial::getMaterialInfo();
-    if (g_material_diffuse_scale_enabled) {
-        info.diffuse.w *= g_material_diffuse_scale;
-    }
-    if (g_material_emissive_override_enabled) {
-        info.emissive = glm::vec4(g_material_emissive_override, g_material_emissive_override,
-                                  g_material_emissive_override, 1.0f);
-    }
-    return info;
-}
-
 namespace {
 // Exact render-state identity; serialized padding and texture filenames do not
 // belong to the material state shared by separate mesh texture assignments.
 using MaterialKey = std::array<std::uint32_t, 13>;
-std::map<MaterialKey, std::weak_ptr<stMaterial>> level_materials;
-std::weak_ptr<stMaterial> default_material;
+std::map<MaterialKey, std::weak_ptr<srMaterial>> level_materials;
+std::weak_ptr<srMaterial> default_material;
 }
-ResourceCache<stTextureFile> g_texture_files;
+static std::map<std::filesystem::path, std::weak_ptr<stTextureFile>> g_texture_files;
 ResourceCache<stTextureAnim> g_texture_animations;
 
 /* Load and share the material state used by the runtime renderer. */
-W8MeshMaterial LoadMaterial(const char* bitmap_folder, const W8MaterialRecord& record)
+W8MeshMaterial LoadMaterial(const std::filesystem::path& texture_directory,
+                            const W8MaterialRecord& record)
 {
     const W8MaterialRecord* source = &record;
     W8MeshMaterial result;
+    result.two_sided = (record.surface_flags & W8_MATERIAL_TWO_SIDED) != 0;
     std::shared_ptr<srTexture>& texture = result.texture;
     srShader* render_flags = &result.render_flags;
-    std::string texture_path;
+    std::filesystem::path texture_path;
     int texture_index = -1;
     bool has_alpha = false;
     int index;
@@ -152,8 +120,7 @@ W8MeshMaterial LoadMaterial(const char* bitmap_folder, const W8MaterialRecord& r
             if (terminator == field.npos)
                 throw std::runtime_error("Unterminated material texture name");
             const auto name = field.substr(0, terminator);
-            texture_path = bitmap_folder[0] == '\0' ? std::string(name)
-                                                    : fmt::format("{}\\{}", bitmap_folder, name);
+            texture_path = texture_directory / wiz8::normalize_asset_path(name);
             texture_index = index;
             /* Retail 0x004b8c93: a texture found only in the fourth slot marks
                the material as alpha-carrying before any texture is loaded. */
@@ -167,21 +134,7 @@ W8MeshMaterial LoadMaterial(const char* bitmap_folder, const W8MaterialRecord& r
     if (texture_path.empty()) {
         render_flags->value &= ~srShader::MASK_TEXTURING;
     } else {
-        const std::string_view path = texture_path;
-        const auto separator = path.find_last_of("\\/");
-        const std::size_t file_start = separator == std::string_view::npos ? 0 : separator + 1;
-        const std::string texture_folder(path.substr(0, file_start));
-        const std::string texture_file(path.substr(file_start));
-        const auto dot = texture_file.rfind('.');
-        const char* extension =
-            texture_file.c_str() + (dot == std::string::npos ? texture_file.size() : dot);
-
-        if (path.size() > 3 && SDL_strncasecmp(extension, ".IFL", 4) == 0) {
-            texture =
-                LoadAnimatedTexture(texture_folder.c_str(), texture_file.c_str(), source, true);
-        } else {
-            texture = LoadTextureFromFolder(texture_folder.c_str(), texture_file.c_str(), true);
-        }
+        texture = LoadTextureFromPath(texture_path, source, true);
         if (texture == 0) {
             return result;
         }
@@ -230,12 +183,12 @@ W8MeshMaterial LoadMaterial(const char* bitmap_folder, const W8MaterialRecord& r
                           bits(textured ? source->ambient.y : source->diffuse.y),
                           bits(textured ? source->ambient.z : source->diffuse.z),
                           bits(textured ? source->emission : 0.f),
-                          source->surface_flags,
+                          source->surface_flags & W8_MATERIAL_NORMAL_TEXCOORD_MASK,
                           textured};
     auto& cached = level_materials[key];
     auto concrete = cached.lock();
     if (!concrete) {
-        concrete = std::make_shared<stMaterial>();
+        concrete = std::make_shared<srMaterial>();
         concrete->setName("Level material");
         cached = concrete;
         concrete->parms.specular =
@@ -264,7 +217,6 @@ W8MeshMaterial LoadMaterial(const char* bitmap_folder, const W8MaterialRecord& r
                 glm::vec4(source->emission, source->emission, source->emission, 1.0f);
         }
         concrete->dirty = 1;
-        concrete->m_surface_flags = source->surface_flags;
         if ((source->surface_flags & W8_MATERIAL_NORMAL_TEXCOORD_MASK) != 0) {
             concrete->setMapper(&g_normal_texcoord_mapper);
         }
@@ -284,7 +236,7 @@ W8MeshMaterial CreateDefaultMaterial()
 
     auto concrete = default_material.lock();
     if (concrete == 0) {
-        concrete = std::make_shared<stMaterial>();
+        concrete = std::make_shared<srMaterial>();
         concrete->setName(DEFAULT_MATERIAL_NAME);
         default_material = concrete;
 
@@ -298,115 +250,70 @@ W8MeshMaterial CreateDefaultMaterial()
         concrete->parms.diffuse.w = 1.0f;
         concrete->parms.emissive = glm::vec4(0.0f);
         concrete->dirty = 1;
-        concrete->m_surface_flags = 0;
     }
     result.material = std::move(concrete);
     return result;
 }
 
-/* Load a texture by full path: split it into folder and file, then take the
-   animated loader for .IFL names and the plain one for everything else. */
-// FUNCTION: WIZ8 0x004B9460
-std::shared_ptr<srTexture> LoadTextureFromPath(const char* path, const W8MaterialRecord* source,
-                                               bool required)
-{
-    const std::string_view full_path(path);
-    const auto split = full_path.find_last_of("/\\:");
-    const std::string folder(full_path.substr(0, split == full_path.npos ? 0 : split + 1));
-    const std::string name(full_path.substr(split == full_path.npos ? 0 : split + 1));
-    if (name.size() >= 4 && SDL_strcasecmp(name.c_str() + name.size() - 4, ".IFL") == 0)
-        return LoadAnimatedTexture(folder.c_str(), name.c_str(), source, required);
-    return LoadTextureFromFolder(folder.c_str(), name.c_str(), required);
-}
-
-// FUNCTION: WIZ8 0x004B95D0
-std::shared_ptr<srTexture> LoadTextureFromFolder(const char* folder, const char* name,
-                                                 bool required)
-{
-    std::string path;
-
-    if (g_current_screen_state.id == W8_SCREEN_PLEASE_WAIT) {
-        UpdatePleaseWaitLoadFrame();
-    }
-    path = folder;
-    path += name;
-    const auto dot = path.find_last_of('.');
-    if (dot == std::string::npos) path += '.';
-    const auto extension = dot == std::string::npos ? path.size() : dot + 1;
-    path.resize(extension);
-
-    std::shared_ptr<stTextureFile> texture = g_texture_files.find(name);
-    if (texture == 0) {
-        path += "tga";
-        if (required) {
-            texture = std::make_shared<stTextureFile>(path.c_str(), g_texture_cache_enabled);
-            if (g_gerd != 0) {
-                g_gerd->setTexture(texture.get(), 0);
-                g_gerd->setTexture(0, 0);
-            }
-            if (texture->resolve() == 0) {
-                path.replace(extension, std::string::npos, "jpg");
-                texture->setFileName(path.c_str());
-                if (g_gerd != 0) {
-                    g_gerd->setTexture(texture.get(), 0);
-                    g_gerd->setTexture(0, 0);
-                }
-                if (texture->resolve() == 0) {
-                    ShutdownWithErrorBox(fmt::format("Missing texture file: {}", path));
-                }
-            }
-        } else {
-            if (![&]() {
-                    const auto status = wiz8::file_status(wiz8::asset_path(path));
-                    return status && status->info.type == SDL_PATHTYPE_FILE;
-                }()) {
-                path.replace(extension, std::string::npos, "jpg");
-                if (![&]() {
-                        const auto status = wiz8::file_status(wiz8::asset_path(path));
-                        return status && status->info.type == SDL_PATHTYPE_FILE;
-                    }()) {
-                    ShutdownWithErrorBox(fmt::format("Missing texture file: {}", path));
-                }
-            }
-            texture = std::make_shared<stTextureFile>(path.c_str(), g_texture_cache_enabled);
-        }
-        texture->setName(name);
-        g_texture_files.insert(name, texture);
-    }
-    return texture;
-}
-
-// FUNCTION: WIZ8 0x004B98F0
-std::shared_ptr<stTextureAnim> LoadAnimatedTexture(const char* folder, const char* name,
+namespace {
+std::shared_ptr<stTextureAnim> LoadAnimatedTexture(const std::filesystem::path& path,
                                                    const W8MaterialRecord* source, bool required)
 {
-    const auto path = std::string(folder) + name;
-    std::unique_ptr<wiz8::File> handle;
-    try {
-        handle = wiz8::open_file(wiz8::asset_path(path));
-    } catch (const std::exception&) {
-        ShutdownWithErrorBox(fmt::format("Cannot load/find material: {}", path));
-        return {};
-    }
+    auto handle = wiz8::open_file(path);
     std::istringstream frames(handle->read_text());
     auto animation = std::make_shared<stTextureAnim>();
-    animation->setName(name);
+    const auto name = wiz8::path_to_utf8(path.filename());
+    animation->setName(name.c_str());
+    // Scripts refer to animations by their authored name. Playback is per load.
     g_texture_animations.insert(name, animation);
     for (std::string frame; std::getline(frames, frame);) {
         if (frame.ends_with('\r')) frame.pop_back();
         if (frame.size() <= 2) break;
-        if (auto texture = LoadTextureFromFolder(folder, frame.c_str(), required))
-            animation->AddTexture(std::move(texture));
+        animation->AddTexture(LoadTextureFromPath(
+            path.parent_path() / wiz8::normalize_asset_path(frame), nullptr, required));
     }
     animation->setupDefaultValues();
-    if (source != 0) {
+    if (source) {
         animation->animation_mode = source->animation_mode;
-        int frame = source->animation_frame;
-        animation->initial_frame = frame;
-        animation->frame = frame;
+        animation->initial_frame = source->animation_frame;
+        animation->frame = source->animation_frame;
         animation->frame_rate = source->animation_rate;
     }
     return animation;
+}
+} // namespace
+
+// Resolve the actual file before sharing it. The texture retains this path for
+// lazy decoding; neither cache lookup nor decoding consults the current asset root.
+std::shared_ptr<srTexture> LoadTextureFromPath(const std::filesystem::path& path,
+                                               const W8MaterialRecord* source, bool required)
+{
+    if (g_current_screen_state.id == W8_SCREEN_PLEASE_WAIT) UpdatePleaseWaitLoadFrame();
+    if (path.extension() == ".ifl") return LoadAnimatedTexture(path, source, required);
+    // The authored basename is also used by skin-replacement scripts. Keep it
+    // in the resource identity; two aliases may need different runtime names.
+    if (const auto found = g_texture_files.find(path); found != g_texture_files.end()) {
+        if (auto texture = found->second.lock()) return texture;
+    }
+    for (const auto* extension : {".tga", ".jpg"}) {
+        auto candidate = path;
+        candidate.replace_extension(extension);
+        const auto status = wiz8::file_status(candidate);
+        if (!status || status->info.type != SDL_PATHTYPE_FILE) continue;
+        auto texture = std::make_shared<stTextureFile>(candidate, g_texture_cache_enabled);
+        texture->setName(wiz8::path_to_utf8(path.filename()).c_str());
+        if (required) {
+            if (g_gerd) {
+                g_gerd->setTexture(texture.get(), 0);
+                g_gerd->setTexture(nullptr, 0);
+            }
+            if (!texture->resolve()) continue;
+        }
+        g_texture_files.insert_or_assign(path, texture);
+        return texture;
+    }
+    ShutdownWithErrorBox(fmt::format("Missing texture file: {}", wiz8::path_to_utf8(path)));
+    return {};
 }
 
 /* getPolyTexture selects the layer and table up front, then returns one smart

@@ -10,9 +10,16 @@ struct W8MonsterRecord;
 
 void ChooseAction(int party_slot, W8ActionKind action, int detail, const W8ActionDetailBlock* data,
                   bool defer_execution, int notify);
-void ChooseCombatAction(int party_slot, W8TargetingContext context, W8ActionKind* out_kind,
-                        int* out_action, W8CombatSlot** out_target,
-                        W8ActionDetailBlock** out_detail);
+// A borrowed, short-lived selection; the owner retains pending, committed and
+// remembered spell/item/breath state independently.
+struct W8SelectedAction {
+    W8ActionKind kind;
+    int detail;
+    W8CombatSlot* target;
+    W8ActionDetailBlock* detail_block;
+};
+W8SelectedAction SelectCombatAction(int party_slot, W8TargetingContext context);
+
 void SetCharacterCombatAction(int party_slot, W8ActionKind action_kind, int action_detail,
                               const W8ActionDetailBlock* data, int notify);
 void EndCombat(bool forced_cleanup);

@@ -33,12 +33,13 @@ enum {
    table at +0x18, then owns one 0x37c-byte emitter host at +0x1e0. */
 class W8SpellVisual : public W8GrCycle {
 public:
-    W8SpellVisual();
+    explicit W8SpellVisual(W8World* owner = nullptr);
     /* Cloned from a registered shared visual: keeps the cycle type, the saved
        flags and the idle pacing, restarts the transient state, and gets its
        own emitter host and identity counter. Inlined at the 0x004AB580 clone
        site; no out-of-line copy constructor exists in the image. */
-    W8SpellVisual(const W8SpellVisual& other);
+    W8SpellVisual(const W8SpellVisual& other) : W8SpellVisual(other, other.owner_world) {}
+    W8SpellVisual(const W8SpellVisual& other, W8World* owner);
     W8SpellVisual& operator=(const W8SpellVisual&) = delete;
     virtual ~W8SpellVisual() override;
 
@@ -86,7 +87,8 @@ public:
 
 /* Secondary vftable 0x005ecf2c keeps the W8Navigator subobject at +0x18. */
 
-inline W8SpellVisual::W8SpellVisual(const W8SpellVisual& other) : W8GrCycle(other)
+inline W8SpellVisual::W8SpellVisual(const W8SpellVisual& other, W8World* owner)
+    : W8GrCycle(other, owner)
 {
     mode = other.mode;
     finished = false;
@@ -98,5 +100,3 @@ inline W8SpellVisual::W8SpellVisual(const W8SpellVisual& other) : W8GrCycle(othe
     host = static_cast<W8SpellEmitterHost*>(other.host->Clone());
     id = AllocateGrObjectId();
 }
-
-void DestroyAllSpellVisuals(W8World* world); /* 0x004AC3D0 */

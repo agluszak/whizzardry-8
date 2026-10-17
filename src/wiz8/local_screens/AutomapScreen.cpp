@@ -8,6 +8,7 @@
 #include <exception>
 #include <memory>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -48,13 +49,17 @@
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
 #include "surrender/srTexture.h"
+#include "wiz8/asset_paths.h"
 #include "wiz8/catalog_artwork.h"
+#include "wiz8/chunk.h"
 #include "wiz8/cursor.h"
 #include "wiz8/design_rect.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/engine_code/3d.h"
+#include "wiz8/engine_code/3dapi.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/GameData.h"
+#include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Quality.h"
@@ -72,7 +77,6 @@
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/index_algorithms.h"
 #include "wiz8/item_spawning.h"
-#include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -102,17 +106,16 @@ static std::vector<std::unique_ptr<W8AutomapNote>> g_automap_notes;
 
 /* One bit per automap cell: raised when the party camera enters the cell. */
 // GLOBAL: WIZ8 0x0068F288
-std::vector<bool> g_automap_visited_cells;
+
 /* One bit per visited cell already turned into vertex lights. */
 // GLOBAL: WIZ8 0x0068F28C
-std::vector<bool> g_automap_lit_cells;
+
 /* Packed cell keys read from the level file, indexed by cell number. */
 // GLOBAL: WIZ8 0x0068F280
-std::vector<unsigned int> g_automap_cell_keys;
 
 /* Packed cell key -> cell number + 1. */
 // GLOBAL: WIZ8 0x0068F284
-std::unordered_map<unsigned int, int> g_automap_cell_index;
+
 // GLOBAL: WIZ8 0x0068F29C
 std::unique_ptr<stModelInstance2D> g_automap_party_marker;
 // GLOBAL: WIZ8 0x0068F2A0
@@ -227,8 +230,6 @@ glm::vec3 g_automap_grid_max;
 glm::vec3 g_automap_grid_min;
 // GLOBAL: WIZ8 0x0068f1e8
 glm::vec3 g_automap_position;
-// GLOBAL: WIZ8 0x0068f1f8
-glm::vec3 g_automap_grid_center;
 // GLOBAL: WIZ8 0x0068f204
 float g_automap_top_y;
 // GLOBAL: WIZ8 0x0068f210
@@ -259,7 +260,7 @@ float g_automap_near_clip = 1.0f;
 // GLOBAL: WIZ8 0x0068f278
 int g_automap_zoom_mode;
 // GLOBAL: WIZ8 0x0068f27c
-int g_automap_cell_count;
+
 // GLOBAL: WIZ8 0x0068f290
 bool g_automap_position_initialized;
 // GLOBAL: WIZ8 0x0068f294
@@ -365,23 +366,20 @@ void ResetAutomapView(void)
     }
     ClearAutomapNotes();
     g_automap_redraw = true;
-    if (g_status.current_level == 0x18 ||
-        (g_status.current_level > 0x1a && g_status.current_level <= 0x22)) {
+    if (GetLoadedLevelID() == 0x18 || (GetLoadedLevelID() > 0x1a && GetLoadedLevelID() <= 0x22)) {
         g_automap_range = 30000.0f;
     } else {
         g_automap_range = 10000.0f;
     }
-    if (g_octree == 0) {
+    if (GetWorldOctree() == 0) {
         g_automap_grid_min = glm::vec3(-250000.0f);
         g_automap_grid_max = glm::vec3(250000.0f);
     } else {
-        const auto bounds = g_octree->m_spatial.GetClippedBounds();
+        const auto bounds = GetWorldOctree()->m_spatial.GetClippedBounds();
         g_automap_grid_min = bounds.minimum;
         g_automap_grid_max = bounds.maximum;
     }
     g_automap_grid_origin = g_automap_grid_min;
-    g_automap_grid_center = glm::vec3((g_automap_grid_min.x + g_automap_grid_max.x) * 0.5f, 0.0f,
-                                      (g_automap_grid_min.z + g_automap_grid_max.z) * 0.5f);
     g_automap_bounds_dirty = true;
     float span_x = g_automap_grid_max.x - g_automap_grid_min.x;
     float span_z = g_automap_grid_max.z - g_automap_grid_min.z;
@@ -397,16 +395,16 @@ void ResetAutomapView(void)
     glm::vec3 camera = cameraLocation();
     glm::vec3 relative = camera - g_automap_grid_origin;
     SDL_Keycode key = AutomapNodeKey(&relative);
-    int cell = LookupIndexValue(g_automap_cell_index, key);
+    int cell = LookupIndexValue(GetWorld()->automap.index, key);
     if (cell > 1) {
-        SetBit(g_automap_visited_cells, cell - 1);
+        SetBit(GetWorld()->automap.visited, cell - 1);
         return;
     }
-    relative.y = camera.y + g_automap_grid_cell_size - g_automap_grid_origin.y;
+    relative.y = camera.y + GetWorld()->automap.grid_cell_size - g_automap_grid_origin.y;
     key = AutomapNodeKey(&relative);
-    cell = LookupIndexValue(g_automap_cell_index, key);
+    cell = LookupIndexValue(GetWorld()->automap.index, key);
     if (cell > 1) {
-        SetBit(g_automap_visited_cells, cell - 1);
+        SetBit(GetWorld()->automap.visited, cell - 1);
     }
 }
 
@@ -417,18 +415,18 @@ bool AutomapHasCellAt(const glm::vec3* position)
 {
     glm::vec3 relative = *position - g_automap_grid_origin;
     SDL_Keycode key = AutomapNodeKey(&relative);
-    int cell = LookupIndexValue(g_automap_cell_index, key);
+    int cell = LookupIndexValue(GetWorld()->automap.index, key);
     if (cell > 1) {
-        if (!SetBit(g_automap_visited_cells, cell - 1)) {
+        if (!SetBit(GetWorld()->automap.visited, cell - 1)) {
             return true;
         }
         return false;
     }
-    relative.y = position->y + g_automap_grid_cell_size - g_automap_grid_origin.y;
+    relative.y = position->y + GetWorld()->automap.grid_cell_size - g_automap_grid_origin.y;
     key = AutomapNodeKey(&relative);
-    cell = LookupIndexValue(g_automap_cell_index, key);
+    cell = LookupIndexValue(GetWorld()->automap.index, key);
     if (cell > 1) {
-        if (!SetBit(g_automap_visited_cells, cell - 1)) {
+        if (!SetBit(GetWorld()->automap.visited, cell - 1)) {
             return true;
         }
     }
@@ -572,14 +570,14 @@ void AutomapExitButton(void)
     }
 }
 
-unsigned char AutomapScreenEnter(void)
+bool AutomapScreenEnter(void)
 {
     stScript script;
-    GetLightDirection(&g_automap_saved_light_direction);
-    GetWorldLightValue(g_world, &g_automap_saved_ambient_light);
+    g_automap_saved_light_direction = g_light_direction;
+    GetWorldLightValue(GetWorld(), &g_automap_saved_ambient_light);
     g_automap_saved_camera = cameraState(*GetWorld());
-    g_automap_saved_far_clip = static_cast<float>(WorldGetFarClip(g_world));
-    g_automap_saved_world_value = WorldGetRenderRange(g_world);
+    g_automap_saved_far_clip = static_cast<float>(WorldGetFarClip(GetWorld()));
+    g_automap_saved_world_value = GetWorld()->render_range;
     g_automap_saved_sky = g_sky_enabled;
     g_automap_saved_render_flags[0] = GetRenderOptionState(W8_RENDER_OPTION_HIGH_TEXTURE_DETAIL);
     g_automap_saved_render_flags[1] = GetRenderOptionState(W8_RENDER_OPTION_MESH_SKY);
@@ -588,20 +586,20 @@ unsigned char AutomapScreenEnter(void)
     g_automap_saved_texture_policy = g_resident_texture_policy;
     glm::vec3 direction(0);
     SetLightDirection(&direction);
-    SetWorldEnvironmentColour(g_world, glm::vec3(0));
+    SetWorldEnvironmentColour(glm::vec3(0));
     DisableSky();
     DisableRenderOption(W8_RENDER_OPTION_MESH_SKY);
     g_monster_shadow_updates_enabled = 1;
     g_world_render_enabled = 1;
     DisableSky();
-    g_world->camera->setClipRange(g_automap_near_clip, 1500000.0);
-    WorldSetRenderRange(g_world, 1500000.0f);
-    g_world->camera->setRotation(3.141592653589793 * (1.0f / 180.0f) * 90.0f, 0.0, 0.0);
+    GetWorld()->camera->setClipRange(g_automap_near_clip, 1500000.0);
+    WorldSetRenderRange(GetWorld(), 1500000.0f);
+    GetWorld()->camera->setRotation(3.141592653589793 * (1.0f / 180.0f) * 90.0f, 0.0, 0.0);
     int layer_number = 1;
-    g_world->camera->setProjectionType(srCamera::PROJECT_ORTHOGRAPHIC);
+    GetWorld()->camera->setProjectionType(srCamera::PROJECT_ORTHOGRAPHIC);
     RestoreAutomapCameraPosition();
-    UpdateWorldMesh(g_world);
-    SetWorldMeshVertexLightTable(g_world, 1);
+    UpdateWorldMesh();
+    SetWorldMeshVertexLightTable(1);
     g_light_update_flags &= ~1u;
     SetWorldModelPickingEnabled(false);
     if (!g_automap_state) {
@@ -627,10 +625,10 @@ unsigned char AutomapScreenEnter(void)
     unsigned int monster_count = gXStatus.monster_roster.live().size();
     for (unsigned int index = 0; index < monster_count; ++index) {
         W8MonsterInfo* monster = GetMonsterListEntry(index);
-        if (monster->p3D) monster->p3D->DetachRepresentation(g_world);
+        if (monster->p3D) monster->p3D->DetachRepresentation(GetWorld());
     }
     for (const auto& item : gXStatus.world_items) {
-        if (item->p3D) item->p3D->DetachMesh(g_world);
+        if (item->p3D) item->p3D->DetachMesh();
     }
     SetMouseMoveEventsEnabled(1);
     g_automap_cursor_inside = IsCursorInsideViewport();
@@ -670,11 +668,11 @@ unsigned char AutomapScreenEnter(void)
         std::vector<std::string_view> excluded_textures;
         int line = 0;
         int section = -1;
-        while (section < g_status.current_level && line < static_cast<int>(script.lines.size())) {
+        while (section < GetLoadedLevelID() && line < static_cast<int>(script.lines.size())) {
             if (script.lines[line].text.contains('[')) ++section;
             ++line;
         }
-        if (line < static_cast<int>(script.lines.size()) && section == g_status.current_level) {
+        if (line < static_cast<int>(script.lines.size()) && section == GetLoadedLevelID()) {
             for (; line < static_cast<int>(script.lines.size()); ++line) {
                 const auto& text = script.lines[line].text;
                 if (text.contains('[')) break;
@@ -699,9 +697,9 @@ unsigned char AutomapScreenEnter(void)
                     ++layer_number;
                 }
             }
-            for (unsigned int mesh = 0; mesh < g_world->octree->m_meshCount; ++mesh) {
+            for (unsigned int mesh = 0; mesh < GetWorld()->octree->m_meshCount; ++mesh) {
                 for (stMeshModel* model : stMeshModel::Meshes(
-                         static_cast<stMeshModel*>(g_world->psrMeshes[mesh]->getModel()))) {
+                         static_cast<stMeshModel*>(GetWorld()->psrMeshes[mesh]->getModel()))) {
                     model->ApplyAutomapPolygonFilter(excluded_textures);
                 }
             }
@@ -845,31 +843,30 @@ void AutomapScreenFrame(void)
 
 void RestoreAutomapWorldSettings(void)
 {
-    SetWorldEnvironmentColour(g_world, g_automap_saved_ambient_light);
+    SetWorldEnvironmentColour(g_automap_saved_ambient_light);
     SetLightDirection(&g_automap_saved_light_direction);
-    RestoreWorldCameraState(GetWorld(), 0, &g_automap_saved_camera);
-    WorldSetFarClip(g_world, g_automap_saved_far_clip);
-    WorldSetRenderRange(g_world, g_automap_saved_world_value);
+    RestoreWorldCameraState(0, &g_automap_saved_camera);
+    WorldSetFarClip(GetWorld(), g_automap_saved_far_clip);
+    WorldSetRenderRange(GetWorld(), g_automap_saved_world_value);
     if (g_automap_saved_sky) EnableSky();
     SetRenderOption(W8_RENDER_OPTION_HIGH_TEXTURE_DETAIL, g_automap_saved_render_flags[0]);
     SetRenderOption(W8_RENDER_OPTION_MESH_SKY, g_automap_saved_render_flags[1]);
     g_monster_shadow_updates_enabled = g_automap_saved_render_flags[2];
     g_world_render_enabled = g_automap_saved_render_flags[3];
-    g_world->camera->setRotation(0.0, 0.0, 0.0);
-    g_world->camera->flags &= ~1ul;
-    SetWorldMeshVertexLightTable(g_world, 0);
+    GetWorld()->camera->setRotation(0.0, 0.0, 0.0);
+    GetWorld()->camera->flags &= ~1ul;
+    SetWorldMeshVertexLightTable(0);
     g_light_update_flags |= 1u;
     SetResidentTexturePolicy(g_resident_texture_policy);
     SetWorldModelPickingEnabled(true);
 }
 
-unsigned char AutomapScreenLeave(int)
+bool AutomapScreenLeave(int)
 {
     if (!g_automap_state) return 1; // Already released when it was suspended.
     SetNativeTextInputEnabled(false);
     RestoreAutomapWorldSettings();
     g_automap_state.reset();
-    MarkRendererReady();
     ResumeMainGameWorld();
     SetMouseMoveEventsEnabled(0);
     g_automap_surface.reset();
@@ -878,9 +875,9 @@ unsigned char AutomapScreenLeave(int)
     g_automap_buttons.reset();
     UpdateHeldItemCursor();
     EnableCursorScene();
-    for (unsigned int mesh = 0; mesh < g_world->octree->m_meshCount; ++mesh) {
-        for (stMeshModel* model :
-             stMeshModel::Meshes(static_cast<stMeshModel*>(g_world->psrMeshes[mesh]->getModel()))) {
+    for (unsigned int mesh = 0; mesh < GetWorld()->octree->m_meshCount; ++mesh) {
+        for (stMeshModel* model : stMeshModel::Meshes(
+                 static_cast<stMeshModel*>(GetWorld()->psrMeshes[mesh]->getModel()))) {
             model->ClearAutomapPolygonFilter();
         }
     }
@@ -891,18 +888,13 @@ unsigned char AutomapScreenLeave(int)
 /* Lifecycle record 8's finalizer, the fifth slot of its record and the third
    allocate/release pair that establishes what that slot is for. Every guard is
    the original's own, and each pointer is cleared after its release. */
-unsigned char AutomapScreenFinalize(void)
+void AutomapScreenFinalize(void)
 {
-    g_automap_visited_cells.clear();
-    g_automap_lit_cells.clear();
-    g_automap_cell_keys.clear();
-    g_automap_cell_index.clear();
     g_automap_party_marker.reset();
     g_automap_friendly_marker.reset();
     g_automap_neutral_marker.reset();
     g_automap_hostile_marker.reset();
     g_automap_text_marker.reset();
-    return 1;
 }
 
 /* Select which automap buttons are enabled for the update mode, then dirty
@@ -931,17 +923,7 @@ void SetAutomapButtonMode(int update)
 }
 
 // GLOBAL: WIZ8 0x0064b914
-float g_automap_grid_cell_size = 2000.0f;
 
-void SetAutomapGridCellSize(float value)
-{
-    g_automap_grid_cell_size = value;
-}
-
-float GetAutomapGridCellSize(void)
-{
-    return g_automap_grid_cell_size;
-}
 /* Park the automap camera over the requested point with its xz clamped into
    the explored bounds, reselect the layer underneath and refresh the mesh. */
 void SetAutomapCameraPoint(glm::vec3* position)
@@ -956,14 +938,13 @@ void SetAutomapCameraPoint(glm::vec3* position)
     clamped.z = clamped.z < g_automap_bounds_max.z
                     ? (position->z < g_automap_bounds_min.z ? g_automap_bounds_min.z : position->z)
                     : g_automap_bounds_max.z;
-    g_world->camera->setLocation(glm::dvec3(clamped.x, clamped.y, clamped.z));
+    GetWorld()->camera->setLocation(glm::dvec3(clamped.x, clamped.y, clamped.z));
     g_automap_position = clamped;
     SetAutomapLayer(g_automap_layer);
     g_automap_redraw = true;
     g_automap_overlay_redraw = true;
-    if (g_world->octree != 0) {
-        MarkRendererReady();
-        UpdateWorldMeshAfterLoad();
+    if (GetWorld()->octree != 0) {
+        RefreshWorldView();
     }
 }
 
@@ -1021,7 +1002,7 @@ unsigned char ZoomAutomapIn(const glm::vec2* point)
     glm::vec3 to(location.x, g_automap_grid_min.y, location.y);
 
     float ground;
-    if (g_octree_game_data->octree->TraceLineOfSight(&from, &to, true, -3, -3, true, 0) == 0) {
+    if (GetWorldGameData()->octree->TraceLineOfSight(&from, &to, true, -3, -3, true, 0) == 0) {
         ground = g_automap_grid_min.y;
         if (!g_automap_layers.empty() && 1 < static_cast<int>(g_automap_layers.size()) &&
             g_automap_layers[1] != 0) {
@@ -1051,9 +1032,9 @@ unsigned char ZoomAutomapIn(const glm::vec2* point)
    every visited cell. */
 void ResetAutomapLighting(void)
 {
-    if (g_world->octree != 0) {
-        for (unsigned int mesh = 0; mesh < g_world->octree->m_meshCount; ++mesh) {
-            srModelInstance* instance = g_world->psrMeshes[mesh];
+    if (GetWorld()->octree != 0) {
+        for (unsigned int mesh = 0; mesh < GetWorld()->octree->m_meshCount; ++mesh) {
+            srModelInstance* instance = GetWorld()->psrMeshes[mesh];
             if (instance != 0) {
                 for (stMeshModel* model :
                      stMeshModel::Meshes(static_cast<stMeshModel*>(instance->getModel()))) {
@@ -1063,23 +1044,23 @@ void ResetAutomapLighting(void)
         }
     } else {
         for (stMeshModel* model : stMeshModel::Meshes(
-                 static_cast<stMeshModel*>(g_world->update_mesh_source->getModel()))) {
+                 static_cast<stMeshModel*>(GetWorld()->update_mesh_source->getModel()))) {
             model->ClearVertexLights();
         }
     }
-    std::ranges::fill(g_automap_lit_cells, false);
+    std::ranges::fill(GetWorld()->automap.lit, false);
 }
 
 static glm::vec3 GetAutomapCellPosition(unsigned int index)
 {
     glm::vec3 cell;
     cell = glm::vec3(0);
-    if (index < g_automap_cell_keys.size()) {
-        SDL_Keycode key = g_automap_cell_keys[index];
-        float half = g_automap_grid_cell_size * 0.5f;
-        cell = glm::vec3((key >> 0x15) * g_automap_grid_cell_size + half,
-                         (key & 0x3ff) * g_automap_grid_cell_size + half,
-                         ((key >> 10) & 0x7ff) * g_automap_grid_cell_size + half);
+    if (index < GetWorld()->automap.keys.size()) {
+        SDL_Keycode key = GetWorld()->automap.keys[index];
+        float half = GetWorld()->automap.grid_cell_size * 0.5f;
+        cell = glm::vec3((key >> 0x15) * GetWorld()->automap.grid_cell_size + half,
+                         (key & 0x3ff) * GetWorld()->automap.grid_cell_size + half,
+                         ((key >> 10) & 0x7ff) * GetWorld()->automap.grid_cell_size + half);
     }
     return cell + g_automap_grid_origin;
 }
@@ -1091,21 +1072,21 @@ unsigned int LightPendingAutomapCells(unsigned int max_count)
 {
     unsigned int lit = 0;
     unsigned int bit = 0;
-    if (g_automap_cell_count != 0) {
+    if (GetWorld()->automap.keys.size() != 0) {
         do {
             if (max_count <= lit) {
                 return lit;
             }
-            if (TestBit(g_automap_visited_cells, bit)) {
+            if (TestBit(GetWorld()->automap.visited, bit)) {
                 glm::vec3 position = GetAutomapCellPosition(bit);
-                if (!TestBit(g_automap_lit_cells, bit)) {
-                    SetBit(g_automap_lit_cells, bit);
+                if (!TestBit(GetWorld()->automap.lit, bit)) {
+                    SetBit(GetWorld()->automap.lit, bit);
                     LightAutomapCell(&position);
                     ++lit;
                 }
             }
             ++bit;
-        } while (bit < static_cast<unsigned int>(g_automap_cell_count));
+        } while (bit < static_cast<unsigned int>(GetWorld()->automap.keys.size()));
     }
     return lit;
 }
@@ -1113,12 +1094,12 @@ unsigned int LightPendingAutomapCells(unsigned int max_count)
 void RefreshDirtyAutomap(void)
 {
     if (g_automap_state != 0 && g_automap_state->pending_cell_lighting != 0) {
-        SetWorldMeshVertexLightTable(g_world, 1);
+        SetWorldMeshVertexLightTable(1);
         unsigned int lit = LightPendingAutomapCells(10);
         if (lit == 0) {
             g_automap_state->pending_cell_lighting = 0;
         }
-        SetWorldMeshVertexLightTable(g_world, 0);
+        SetWorldMeshVertexLightTable(0);
     }
 }
 
@@ -1128,7 +1109,7 @@ void UpdateAutomapBounds(void)
 {
     std::vector<stModelInstance*> models;
     PartyHasCondition(0x40);
-    if (g_world->octree != 0) {
+    if (GetWorld()->octree != 0) {
         if (g_automap_bounds_dirty) {
             ResetAutomapLighting();
             g_automap_bounds_dirty = false;
@@ -1140,9 +1121,9 @@ void UpdateAutomapBounds(void)
         g_automap_bounds_max.x = -1e+09f;
         g_automap_bounds_max.z = -1e+09f;
         unsigned int bit = 0;
-        if (g_automap_cell_count != 0) {
+        if (GetWorld()->automap.keys.size() != 0) {
             do {
-                if (TestBit(g_automap_visited_cells, bit)) {
+                if (TestBit(GetWorld()->automap.visited, bit)) {
                     glm::vec3 position = GetAutomapCellPosition(bit);
                     if (position.x <= g_automap_bounds_min.x) {
                         g_automap_bounds_min.x = position.x;
@@ -1156,13 +1137,13 @@ void UpdateAutomapBounds(void)
                     if (g_automap_bounds_max.z <= position.z) {
                         g_automap_bounds_max.z = position.z;
                     }
-                    if (!TestBit(g_automap_lit_cells, bit)) {
-                        SetBit(g_automap_lit_cells, bit);
+                    if (!TestBit(GetWorld()->automap.lit, bit)) {
+                        SetBit(GetWorld()->automap.lit, bit);
                         LightAutomapCell(&position);
                     }
                 }
                 ++bit;
-            } while (bit < static_cast<unsigned int>(g_automap_cell_count));
+            } while (bit < static_cast<unsigned int>(GetWorld()->automap.keys.size()));
         }
         g_automap_bounds_min.x -= 5e+03f;
         g_automap_bounds_max.x += 5e+03f;
@@ -1183,7 +1164,7 @@ void UpdateAutomapBounds(void)
 void LightAutomapCell(const glm::vec3* position)
 {
     const auto center = (*position);
-    const auto instances = g_world->octree->modelsNearPoint(center, g_automap_range, 0, false);
+    const auto instances = GetWorld()->octree->modelsNearPoint(center, g_automap_range, 0, false);
     for (auto* instance : instances) {
         if (!instance) continue;
         auto world = instance->getWorldSpaceMatrix<glm::mat4>();
@@ -1209,8 +1190,8 @@ void RenderAutomapFrame(void)
                 view.bottom = static_cast<double>(-half);
                 view.right = static_cast<double>(half);
                 view.top = static_cast<double>(half);
-                g_world->camera->setViewPlane(view, static_cast<double>(g_automap_near_clip));
-                g_world->camera->setClipRange(g_automap_near_clip, 1500000.0);
+                GetWorld()->camera->setViewPlane(view, static_cast<double>(g_automap_near_clip));
+                GetWorld()->camera->setClipRange(g_automap_near_clip, 1500000.0);
                 RenderWorldToSurface(g_automap_surface.get(), &g_automap_viewport, false);
                 g_automap_overlay_redraw = false;
                 SetResidentTexturePolicy(0);
@@ -1322,8 +1303,8 @@ bool SaveAutomapNotes(wiz8::File& handle)
 {
     int signature = 0xf00df00d;
     unsigned char saved;
-    if (!g_automap_visited_cells.empty()) {
-        saved = SavePackedBits(handle, g_automap_visited_cells);
+    if (!GetWorld()->automap.visited.empty()) {
+        saved = SavePackedBits(handle, GetWorld()->automap.visited);
     } else {
         saved = true;
     }
@@ -1362,44 +1343,48 @@ bool SaveAutomapNotes(wiz8::File& handle)
 
 /* Release every note, restore the visited-cell bitmap for the loaded level,
    then rebuild the notes from the saved records. */
-bool LoadAutomapNotes(wiz8::File& handle)
-try {
-    int signature = 0;
+W8SavedAutomapNotes ReadAutomapNotes(W8Chunk& file, std::size_t cells)
+{
+    W8SavedAutomapNotes result;
+    if (cells > 1 && !LoadPackedBits(file, result.visited))
+        throw std::runtime_error("invalid automap visited cells");
+    unsigned int signature, count;
+    file.ReadBytes(&signature, sizeof(signature));
+    if (signature != 0xf00df00d) throw std::runtime_error("invalid automap notes signature");
+    file.ReadBytes(&count, sizeof(count));
+    if (count > file.RemainingBytes() / 18) throw std::runtime_error("invalid automap note count");
+    result.notes.reserve(std::min(count, 200u));
+    for (unsigned int index = 0; index < count; ++index) {
+        auto note = std::make_unique<W8AutomapNote>();
+        int length;
+        file.ReadBytes(&note->position.x, sizeof(float));
+        file.ReadBytes(&note->position.y, sizeof(float));
+        file.ReadBytes(&note->layer, sizeof(note->layer));
+        file.ReadBytes(&length, sizeof(length));
+        if (length < 1 || length > 40) throw std::runtime_error("invalid automap note length");
+        std::vector<std::byte> bytes(static_cast<std::size_t>(length) * 2);
+        file.ReadBytes(bytes.data(), bytes.size());
+        note->text = wiz8::text::from_utf16le(bytes);
+        if (result.notes.size() < 200) result.notes.push_back(std::move(note));
+    }
+    file.ReadBytes(&signature, sizeof(signature));
+    if (signature != 0xf00df00d) throw std::runtime_error("invalid automap notes terminator");
+    return result;
+}
+
+void ApplyAutomapNotes(W8World& world, W8SavedAutomapNotes records)
+{
     ClearAutomapNotes();
     g_automap_redraw = true;
-    if (1 < g_automap_visited_cells.size()) {
-        LoadPackedBits(handle, g_automap_visited_cells);
-        if (g_automap_visited_cells.size() == static_cast<std::size_t>(g_automap_cell_count)) {
-            g_automap_state->pending_cell_lighting = 1;
-        } else {
-            g_automap_visited_cells.assign(g_automap_cell_count, false);
-        }
+    if (world.automap.keys.size() > 1) {
+        if (records.visited.size() == world.automap.keys.size()) {
+            world.automap.visited = std::move(records.visited);
+            if (g_automap_state) g_automap_state->pending_cell_lighting = 1;
+        } else
+            world.automap.visited.assign(world.automap.keys.size(), false);
         g_automap_bounds_dirty = true;
-        unsigned int count;
-        if ((handle.read(&signature, 4).bytes == static_cast<std::size_t>(4)) != 0 &&
-            signature == static_cast<int>(0xf00df00d) &&
-            (handle.read(&count, 4).bytes == static_cast<std::size_t>(4)) != 0) {
-            for (unsigned int index = 0; index < count; ++index) {
-                glm::vec2 position;
-                int layer = 0;
-                int length = 0;
-                /* Retail fed `length` to malloc even when the FileRead chain
-                   short-circuited before filling it; natively it starts at zero. */
-                bool ok = (handle.read(&position.x, 4).bytes == static_cast<std::size_t>(4)) != 0 &&
-                          (handle.read(&position.y, 4).bytes == static_cast<std::size_t>(4)) != 0 &&
-                          (handle.read(&layer, 4).bytes == static_cast<std::size_t>(4)) != 0 &&
-                          (handle.read(&length, 4).bytes == static_cast<std::size_t>(4)) != 0;
-                if (!ok || length < 1 || length > 40) return false;
-                std::vector<std::byte> bytes(static_cast<std::size_t>(length) * 2);
-                if (handle.read(bytes.data(), bytes.size()).bytes != bytes.size()) return false;
-                CreateAutomapNote(&position, layer, wiz8::text::from_utf16le(bytes));
-            }
-            return (handle.read(&signature, 4).bytes == static_cast<std::size_t>(4)) != 0;
-        }
     }
-    return false;
-} catch (const std::exception&) {
-    return false;
+    g_automap_notes = std::move(records.notes);
 }
 
 /* Convert the cursor position to an automap world position on the layer
@@ -1456,7 +1441,7 @@ W8AutomapNote* FindAutomapNoteUnderCursor(void)
 /* Descriptive name for the common marker-texture loading operation. */
 static std::shared_ptr<stTextureFile> LoadAutomapMarkerTexture(const char* path)
 {
-    auto texture = std::make_shared<stTextureFile>(path, 0);
+    auto texture = std::make_shared<stTextureFile>(wiz8::asset_path(path), false);
 
     texture->setMipmap(srTexture::MIPMAP_NONE);
     texture->setMagFilter(srTexture::FILTER_BEST);
@@ -1969,7 +1954,7 @@ unsigned char HandleAutomapKey(const InputEvent* input)
     case SDLK_A:
         /* Developer: reveal the whole map. */
         if (g_dev_mode) {
-            std::ranges::fill(g_automap_visited_cells, true);
+            std::ranges::fill(GetWorld()->automap.visited, true);
             g_automap_bounds_dirty = true;
             g_automap_redraw = true;
             g_automap_overlay_redraw = true;
@@ -1992,7 +1977,7 @@ unsigned char HandleAutomapKey(const InputEvent* input)
     case SDLK_C:
         /* Developer: forget the whole map. */
         if (g_dev_mode) {
-            std::ranges::fill(g_automap_visited_cells, false);
+            std::ranges::fill(GetWorld()->automap.visited, false);
             g_automap_bounds_dirty = true;
             UpdateAutomapBounds();
             return 1;
@@ -2034,36 +2019,21 @@ unsigned char HandleAutomapKey(const InputEvent* input)
    and record count. A level with no records still gets one zero cell so the
    visited-bit arrays and record table stay valid; otherwise the key list is
    read whole and every cell key is inserted with its one-based index. */
-unsigned char ReadAutomapNodes(wiz8::File* hFile)
+unsigned char ReadAutomapNodes(wiz8::File* file, W8AutomapCells& cells)
 try {
-    g_automap_visited_cells.clear();
-    g_automap_lit_cells.clear();
-    g_automap_cell_keys.clear();
-    g_automap_cell_index.clear();
-
-    hFile->read_exact(&g_automap_grid_cell_size, 4);
-    unsigned char ok = (hFile->read(&g_automap_cell_count, 4).bytes == static_cast<std::size_t>(4));
-    if (g_automap_cell_count == 0) {
-        g_automap_visited_cells.assign(1, false);
-        g_automap_lit_cells.assign(1, false);
-        g_automap_cell_keys.assign(1, 0);
-        g_automap_cell_count = 1;
-        return ok;
-    }
-
-    g_automap_visited_cells.assign(g_automap_cell_count, false);
-    g_automap_lit_cells.assign(g_automap_cell_count, false);
-    g_automap_cell_keys.assign(g_automap_cell_count, 0);
-
-    const std::size_t key_bytes = g_automap_cell_keys.size() * sizeof(unsigned int);
-    unsigned char success = 0;
-    if (ok != 0) {
-        success = hFile->read(g_automap_cell_keys.data(), key_bytes).bytes == key_bytes;
-    }
-    for (int index = 0; index < g_automap_cell_count; ++index) {
-        g_automap_cell_index.insert_or_assign(g_automap_cell_keys[index], index + 1);
-    }
-    return success;
+    W8AutomapCells decoded;
+    unsigned int count;
+    file->read_exact(&decoded.grid_cell_size, sizeof(decoded.grid_cell_size));
+    file->read_exact(&count, sizeof(count));
+    if (count > static_cast<std::uint64_t>(file->size() - file->tell()) / sizeof(unsigned int))
+        return false;
+    decoded.keys.resize(count ? count : 1, 0);
+    if (count) file->read_exact(decoded.keys.data(), count * sizeof(unsigned int));
+    decoded.visited.resize(decoded.keys.size(), false);
+    decoded.lit.resize(decoded.keys.size(), false);
+    for (unsigned int i = 0; i < count; ++i) decoded.index.insert_or_assign(decoded.keys[i], i + 1);
+    cells = std::move(decoded);
+    return true;
 } catch (const std::exception&) {
     return false;
 }
@@ -2072,19 +2042,8 @@ try {
    eleven of x, then ten of y, each scaled to grid cells. */
 unsigned int AutomapNodeKey(const glm::vec3* position)
 {
-    return ((static_cast<unsigned int>(position->z / g_automap_grid_cell_size) & 0x7ff) |
-            static_cast<unsigned int>(position->x / g_automap_grid_cell_size) << 11)
+    return ((static_cast<unsigned int>(position->z / GetWorld()->automap.grid_cell_size) & 0x7ff) |
+            static_cast<unsigned int>(position->x / GetWorld()->automap.grid_cell_size) << 11)
                << 10 |
-           (static_cast<unsigned int>(position->y / g_automap_grid_cell_size) & 0x3ff);
-}
-
-/* The large-map level set: the same levels that get the 30000-unit automap
-   range in ResetAutomapView also get 4000-unit cells instead of 2000. */
-bool AutomapLevelIsLarge(void)
-{
-    if (g_status.current_level == 0x18 ||
-        (g_status.current_level > 0x1a && g_status.current_level <= 0x22)) {
-        return true;
-    }
-    return false;
+           (static_cast<unsigned int>(position->y / GetWorld()->automap.grid_cell_size) & 0x3ff);
 }

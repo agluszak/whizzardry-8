@@ -120,12 +120,6 @@ void srModelInstance::process(const ProcessInfo& info, e_processType type)
     getModel()->render(*info.renderer);
 }
 
-// FUNCTION: SURRENDER 0x1004FF40
-double srModelInstance::getAlignAngle() const
-{
-    return (double)align_angle;
-}
-
 // FUNCTION: SURRENDER 0x1004FF50
 glm::vec3 srModelInstance::getAlignAxis() const
 {

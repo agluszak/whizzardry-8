@@ -1,4 +1,5 @@
 #pragma once
+struct W8Chunk;
 
 #include <vector>
 
@@ -9,6 +10,7 @@
 #include "surrender/srNode.h"
 
 class W8Prop;
+struct W8World;
 struct W8PathAI;
 namespace wiz8 {
 class File;
@@ -140,7 +142,6 @@ public:
         enable_flags |= 4;    /* ENABLE_BOUNDING_SPHERE */
     }
 
-public:
     /* One value, not three floats: 0x0049C690 copies it through the base-pointer
        form VC6 emits for a class type's memberwise assignment, not through three
        independent displacement loads. */
@@ -166,7 +167,12 @@ public:
 };
 
 void SaveLightStates(wiz8::File& handle);
-void LoadLightStates(wiz8::File& handle);
+struct W8LightState {
+    std::string name;
+    unsigned char enabled;
+};
+std::vector<W8LightState> ReadLightStates(W8Chunk& file);
+void ApplyLightStates(std::span<const W8LightState> states);
 
 /* Animation copies retain per-light position before assignment, detach the new
    light and register it with the world, which owns it, before adding it to the

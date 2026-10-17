@@ -55,11 +55,6 @@ struct InputEvent {
     int wheel = 0;
     SDL_MouseButtonFlags buttons = 0;
     std::uint8_t clicks = 0;
-
-    bool IsKeyPress() const
-    {
-        return type == InputEventType::KeyDown || type == InputEventType::KeyRepeat;
-    }
 };
 
 struct InputState {
@@ -71,7 +66,6 @@ struct InputState {
     std::uint64_t left_repeat_at = 0;
     std::uint64_t right_repeat_at = 0;
     bool mouse_move_events = false;
-    bool received = false;
 
 private:
     std::deque<InputEvent> events;

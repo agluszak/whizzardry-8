@@ -14,7 +14,6 @@
 #include <SDL3/SDL_stdinc.h>
 
 #include "asset_paths.h"
-#include "input.h"
 #include "random.h"
 #include "soundman.h"
 #include "wiz8/catalog_artwork.h"
@@ -107,7 +106,6 @@ void wiz8::Application::run()
         if (!gfProgramIsRunning) break;
         if (gfApplicationActive) {
             GameLoop();
-            GetInputState().received = false;
         }
     }
 }

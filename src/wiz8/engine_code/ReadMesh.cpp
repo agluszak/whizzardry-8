@@ -7,12 +7,13 @@
 #include <cstdint>
 #include <cstring>
 #include <exception>
+#include <filesystem>
 #include <functional>
 #include <map>
 #include <memory>
 #include <numeric>
 #include <stdexcept>
-#include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -21,20 +22,16 @@
 
 #include "compat/compiler.h"
 #include "glm/ext/vector_double3.hpp"
+#include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_int3.hpp"
 #include "glm/fwd.hpp"
-#include "resource_cache.h"
 #include "surrender/mesh_resources.h"
-#include "surrender/srDebug.h"
 #include "surrender/srMath.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srShader.h"
-#include "wiz8/containers.h"
 #include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/LevelFile.h"
 #include "wiz8/engine_code/OctMeshModel.h"
-#include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/engine_code/stModelInstance.h"
@@ -46,39 +43,63 @@
 class srMaterial;
 class srTexture;
 
-/* The last level material list, reused while consecutive meshes share it. */
-static std::vector<W8MaterialRecord> g_read_mesh_material_records;
-static std::vector<W8MeshMaterial> g_read_mesh_materials;
-
-/* Loaded level meshes shared by name; animated textures keep per-load state. */
-static ResourceCache<stMeshModel> g_level_meshes;
-
-static void CacheLevelMesh(const char* name, const std::shared_ptr<stMeshModel>& model)
+namespace {
+// Runtime math objects have natural alignment; disk records contain only values.
+struct W8ReadMeshFace {
+    int vertices[3];
+    glm::vec2 texture_coordinates[3];
+    int material_index;
+    unsigned char flags;
+};
+W8ReadMeshFace DecodeMeshFace(const W8SerializedMeshFace& record)
 {
-    if (name == 0 || name[0] == '\0') {
-        return;
+    W8ReadMeshFace face{};
+    for (int corner = 0; corner < 3; ++corner) {
+        face.vertices[corner] = record.vertices[corner];
+        face.texture_coordinates[corner] = {record.texture_coordinates[corner][0],
+                                            record.texture_coordinates[corner][1]};
     }
-    if (MeshHasAnimatedTexture(model.get())) {
-        g_level_meshes.erase(name);
-    } else {
-        g_level_meshes.insert(name, model);
-    }
+    face.material_index = record.material_index;
+    face.flags = record.flags;
+    return face;
 }
+
+struct SingleLevelMeshRecord {
+    std::vector<std::pair<short, short>> mapped_vertices; // marker key, source vertex
+    int version = 0;
+    unsigned char flags = 0;
+    std::vector<glm::vec3> vertices;
+    std::vector<std::vector<short>> compressed_vertices;
+    float compression_scale = 1000.0f;
+    std::vector<W8ReadMeshFace> faces;
+    glm::vec3 location{0};
+    glm::mat3 rotation{1};
+    std::vector<W8MaterialRecord> materials;
+};
+
+// A record has an identity before it is decoded. Placement and debug labels
+// cannot change which geometry resource that record denotes.
+struct MeshResourceKey {
+    std::filesystem::path source;
+    std::int64_t offset;
+    std::filesystem::path texture_directory;
+    auto operator<=>(const MeshResourceKey&) const = default;
+};
+std::map<MeshResourceKey, std::weak_ptr<stMeshModel>> level_meshes;
+} // namespace
 
 static bool ReadMeshFaceNeedsSplit(const W8ReadMeshFace& face,
                                    const std::vector<W8MeshMaterial>& materials)
 {
-    return (face.flags & 4) != 0 ||
-           (static_cast<stMaterial*>(materials[face.material_index].material.get())
-                ->m_surface_flags &
-            W8_MATERIAL_TWO_SIDED) != 0;
+    return (face.flags & 4) != 0 || materials[face.material_index].two_sided;
 }
 
 /* Reorder polygons so equal shader/texture keys are adjacent, then vertices so
    equal materials are adjacent and, within them, follow first use. */
 // FUNCTION: WIZ8 0x004867F0
-void OptimizeMeshOrder(srMeshModel* model)
+static void OptimizeMeshOrder(stMeshModel& mesh)
 {
+    auto* model = &mesh;
     const auto polygon_count = static_cast<std::size_t>(model->polygon_count);
     const auto vertex_count = static_cast<std::size_t>(model->vertex_location_count);
     if (polygon_count == 0 || vertex_count == 0) {
@@ -146,339 +167,197 @@ void OptimizeMeshOrder(srMeshModel* model)
 
     model->reindexPolygons(polygons);
     model->reindexVertices(vertices);
+    std::vector<w8_ulong> inverse(vertex_count);
+    for (std::size_t vertex = 0; vertex < vertices.size(); ++vertex)
+        inverse[vertices[vertex]] = vertex;
+    for (auto& [key, vertex] : mesh.mapped_vertices) vertex = static_cast<int>(inverse[vertex]);
 }
 
-// FUNCTION: WIZ8 0x00488650
-std::shared_ptr<stMeshModel>
-BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
-                     const std::vector<W8MeshMaterial>& materials, unsigned int* mesh_count,
-                     std::vector<std::vector<int>>& vertex_maps, std::vector<short>* mapped_values,
-                     std::vector<short>* mapped_keys)
+namespace {
+// Build one complete shader partition. Source-to-renderer indices stay local
+// to construction; callers never receive an unfinished mesh and a repair map.
+std::unique_ptr<stMeshModel> BuildMeshPart(const SingleLevelMeshRecord& record,
+                                           const std::vector<W8MeshMaterial>& materials,
+                                           srShader shader)
 {
-    std::vector<srShader> polygon_types;
-    /* Each (material, source vertex) pair becomes one vertex per polygon type. */
-    std::map<std::pair<const srMaterial*, int>, int> vertex_indices[8];
-    std::vector<int> duplicated_from[8];
-    std::vector<int> duplicated_to[8];
-    std::vector<short> mapped_meshes;
-    std::vector<short> mapped_vertices;
-    int capacities[8];
-    int polygon_counts[8];
-    int vertex_counts[8];
-    int extra_uv_counts[8];
-    std::array<std::vector<std::shared_ptr<srMaterial>>, 8> vertex_materials;
-    std::array<std::vector<std::shared_ptr<srTexture>>, 8> polygon_textures;
-    std::array<std::vector<glm::vec2>, 8> vertex_uvs;
-    std::array<std::vector<glm::vec2>, 8> extra_uvs;
-    std::array<std::vector<glm::ivec3>, 8> polygon_vertices;
-    std::array<std::vector<glm::ivec3>, 8> polygon_shades;
-    std::array<std::vector<w8_ulong>, 8> vertex_shades;
-    std::shared_ptr<stMeshModel> first_model;
-    int type;
-    int face_index;
+    std::map<std::tuple<const srMaterial*, bool, int>, int> vertex_indices;
+    std::vector<int> source_vertices;
+    std::vector<std::shared_ptr<srMaterial>> vertex_materials;
+    std::vector<std::shared_ptr<srTexture>> polygon_textures;
+    std::vector<glm::vec2> uvs;
+    std::vector<int> first_uvs;
+    std::vector<glm::ivec3> polygon_vertices, polygon_uvs;
+    std::map<short, int> mapped_vertices;
 
-    for (int index = 0; index < static_cast<int>(mapped_values->size()); ++index) {
-        mapped_meshes.push_back(-1);
-        mapped_vertices.push_back(-1);
-    }
-
-    for (const W8MeshMaterial& material : materials) {
-        if (wiz8::index_of(polygon_types, material.render_flags.value, &srShader::value) == -1) {
-            int capacity = 0;
-            for (face_index = 0; face_index < face_count; ++face_index) {
-                W8ReadMeshFace& face = faces[face_index];
-                if (materials[face.material_index].render_flags.value ==
-                    material.render_flags.value) {
-                    ++capacity;
-                    if (ReadMeshFaceNeedsSplit(face, materials)) {
-                        ++capacity;
-                    }
-                }
-            }
-            if (capacity != 0) {
-                capacities[static_cast<int>(polygon_types.size())] = capacity;
-                polygon_types.push_back(material.render_flags);
-            }
-        }
-    }
-
-    if (mesh_count != 0) {
-        *mesh_count = static_cast<int>(polygon_types.size());
-    }
-    vertex_maps.resize(static_cast<int>(polygon_types.size()));
-
-    for (type = 0; type < static_cast<int>(polygon_types.size()); ++type) {
-        polygon_counts[type] = 0;
-        vertex_counts[type] = 0;
-        extra_uv_counts[type] = 0;
-        int capacity = capacities[type];
-        vertex_materials[type].resize(capacity * 3);
-        polygon_textures[type].resize(capacity);
-        vertex_uvs[type].resize(capacity * 3);
-        extra_uvs[type].resize(capacity * 3);
-        polygon_vertices[type].resize(capacity * 3);
-        polygon_shades[type].resize(capacity);
-        vertex_shades[type].resize(capacity * 3);
-        vertex_maps[type].resize(capacity * 3);
-    }
-
-    for (face_index = 0; face_index < face_count; ++face_index) {
-        W8ReadMeshFace& face = faces[face_index];
-        const W8MeshMaterial& material = materials[face.material_index];
-        type = wiz8::index_of(polygon_types, material.render_flags.value, &srShader::value);
-        if (type < 0) {
-            srAssertFail("iPolyType >=0", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp",
-                         0x45b, 0);
-        }
-        glm::ivec3& poly = polygon_vertices[type][polygon_counts[type]];
-        glm::ivec3& shade = polygon_shades[type][polygon_counts[type]];
+    for (const auto& face : record.faces) {
+        const auto& material = materials[face.material_index];
+        if (material.render_flags.value != shader.value) continue;
+        glm::ivec3 polygon, uv;
         for (int corner = 0; corner < 3; ++corner) {
-            int original_vertex = face.vertices[corner];
-            auto [found, inserted] = vertex_indices[type].try_emplace(
-                std::pair{material.material.get(), original_vertex}, vertex_counts[type]);
-            int vertex = found->second;
+            const int source = face.vertices[corner];
+            auto [entry, inserted] = vertex_indices.try_emplace(
+                std::tuple{material.material.get(), material.two_sided, source},
+                source_vertices.size());
+            const int vertex = entry->second;
+            polygon[corner] = vertex;
             if (inserted) {
-                vertex_materials[type][vertex] = material.material;
-                vertex_uvs[type][vertex] = face.texture_coordinates[corner];
-                poly[corner] = vertex;
-                vertex_maps[type][vertex] = original_vertex;
-                vertex_shades[type][vertex] = vertex;
-                ++vertex_counts[type];
-                for (int mapped = 0; mapped < static_cast<int>(mapped_values->size()); ++mapped) {
-                    if ((*mapped_values)[mapped] == original_vertex) {
-                        mapped_vertices[mapped] = static_cast<short>(vertex);
-                        mapped_meshes[mapped] = static_cast<short>(type);
+                source_vertices.push_back(source);
+                vertex_materials.push_back(material.material);
+                first_uvs.push_back(static_cast<int>(uvs.size()));
+                uvs.push_back(face.texture_coordinates[corner]);
+                for (const auto& [key, mapped_source] : record.mapped_vertices) {
+                    if (mapped_source == source) {
+                        mapped_vertices.insert_or_assign(key, vertex);
                         break;
                     }
                 }
-            } else if (vertex_uvs[type][vertex].x == face.texture_coordinates[corner].x &&
-                       vertex_uvs[type][vertex].y == face.texture_coordinates[corner].y) {
-                poly[corner] = vertex;
+            }
+            if (uvs[first_uvs[vertex]] == face.texture_coordinates[corner]) {
+                uv[corner] = first_uvs[vertex];
             } else {
-                poly[corner] = -1 - extra_uv_counts[type];
-                extra_uvs[type][extra_uv_counts[type]] = face.texture_coordinates[corner];
-                ++extra_uv_counts[type];
+                uv[corner] = static_cast<int>(uvs.size());
+                uvs.push_back(face.texture_coordinates[corner]);
             }
-            shade[corner] = vertex;
         }
-        polygon_textures[type][polygon_counts[type]] = material.texture;
-        ++polygon_counts[type];
-
+        polygon_vertices.push_back(polygon);
+        polygon_uvs.push_back(uv);
+        polygon_textures.push_back(material.texture);
         if (ReadMeshFaceNeedsSplit(face, materials)) {
-            glm::ivec3& split_poly = polygon_vertices[type][polygon_counts[type]];
-            glm::ivec3& split_shade = polygon_shades[type][polygon_counts[type]];
+            glm::ivec3 split, split_uv;
             for (int corner = 0; corner < 3; ++corner) {
-                int source_vertex = shade[corner];
-                int vertex = vertex_counts[type];
-                vertex_materials[type][vertex] = vertex_materials[type][source_vertex];
-                vertex_shades[type][vertex] = vertex;
-                vertex_maps[type][vertex] = vertex_maps[type][source_vertex];
-                vertex_uvs[type][vertex] = face.texture_coordinates[corner];
-                duplicated_from[type].push_back(source_vertex);
-                duplicated_to[type].push_back(vertex);
-                split_poly[corner] = vertex;
-                split_shade[corner] = vertex;
-                ++vertex_counts[type];
+                split[corner] = static_cast<int>(source_vertices.size());
+                source_vertices.push_back(face.vertices[corner]);
+                vertex_materials.push_back(material.material);
+                split_uv[corner] = static_cast<int>(uvs.size());
+                first_uvs.push_back(split_uv[corner]);
+                uvs.push_back(face.texture_coordinates[corner]);
             }
-            polygon_textures[type][polygon_counts[type]] =
-                polygon_textures[type][polygon_counts[type] - 1];
-            ++polygon_counts[type];
+            polygon_vertices.push_back(split);
+            polygon_uvs.push_back(split_uv);
+            polygon_textures.push_back(material.texture);
         }
     }
+    if (polygon_vertices.empty()) return {};
 
-    for (type = 0; type < static_cast<int>(polygon_types.size()); ++type) {
-        if (capacities[type] == 0) {
-            continue;
-        }
-        auto owned_model = std::make_unique<stMeshModel>(polygon_counts[type], vertex_counts[type]);
-        stMeshModel* model = owned_model.get();
-        if (model == 0) {
-            srAssertFail("pstMeshModel[iCount]",
-                         "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x4e7, 0);
-        }
+    const auto vertex_count = source_vertices.size();
+    auto model = std::make_unique<stMeshModel>(polygon_vertices.size(), vertex_count);
+    model->mapped_vertices.insert(mapped_vertices.begin(), mapped_vertices.end());
+    auto* textures = model->getPolygonTextureTable(0, 0, true);
+    for (std::size_t polygon = 0; polygon < polygon_textures.size(); ++polygon)
+        textures->set(polygon, polygon_textures[polygon]);
 
-        for (short mapped_mesh : mapped_meshes) {
-            if (mapped_mesh == type) {
-                for (int entry = 0; entry < static_cast<int>(mapped_values->size()); ++entry) {
-                    model->SetMappedVertex(mapped_vertices[entry], (*mapped_keys)[entry]);
-                }
-                break;
+    if (std::ranges::all_of(vertex_materials, [&](const auto& material) {
+            return material == vertex_materials.front();
+        })) {
+        model->setMaterial(vertex_materials.front(), 0, srMeshModel::SIDE_FRONT);
+    } else {
+        auto* table = model->getVertexMaterialTable(0, srMeshModel::SIDE_FRONT, true);
+        for (std::size_t vertex = 0; vertex < vertex_count; ++vertex)
+            table->set(vertex, vertex_materials[vertex]);
+    }
+
+    std::ranges::copy(polygon_vertices, model->getPolyVertex());
+    model->setUVCount(uvs.size());
+    std::ranges::copy(uvs, model->getVertexTexCoords(0, 0, 1));
+    std::ranges::copy(polygon_uvs, model->getPolyUVIndex(0, 1));
+    auto* shades = model->getVertexShadeIndex(1);
+    std::iota(shades, shades + vertex_count, 0);
+    model->setShader(shader, 0);
+    if ((shader.value & 0x6000) == 0x4000) {
+        model->flags |= W8_MESH_SORTED_RENDERING;
+        model->enable(srMeshModel::CONTROL_SORTED_RENDERING);
+    }
+
+    if (record.compressed_vertices.empty()) {
+        auto* vertices = model->getVertexLoc();
+        for (std::size_t vertex = 0; vertex < vertex_count; ++vertex)
+            vertices[vertex] = record.vertices[source_vertices[vertex]];
+        OptimizeMeshOrder(*model);
+    } else {
+        model->InitializeVertexFrames(record.compressed_vertices.size());
+        model->vertex_compression_scale = 500.0f / record.compression_scale;
+        for (std::size_t frame = 0; frame < record.compressed_vertices.size(); ++frame) {
+            auto* vertices = model->GetVertex(frame);
+            for (std::size_t vertex = 0; vertex < vertex_count; ++vertex) {
+                const auto source = source_vertices[vertex];
+                std::copy_n(record.compressed_vertices[frame].data() + source * 3, 3,
+                            vertices + vertex * 3);
             }
-        }
-
-        MeshResources<srTexture>* model_textures = model->getPolygonTextureTable(0, 0, true);
-        for (int polygon = 0; polygon < polygon_counts[type]; ++polygon) {
-            model_textures->set(polygon, polygon_textures[type][polygon]);
-        }
-
-        bool one_material = true;
-        for (int vertex = 0; vertex < vertex_counts[type] - 1; ++vertex) {
-            if (vertex_materials[type][vertex].get() != vertex_materials[type][vertex + 1].get()) {
-                one_material = false;
-            }
-        }
-        if (one_material) {
-            model->setMaterial(vertex_materials[type][0], 0, srMeshModel::SIDE_FRONT);
-        } else {
-            MeshResources<srMaterial>* model_materials =
-                model->getVertexMaterialTable(0, srMeshModel::SIDE_FRONT, true);
-            for (int vertex = 0; vertex < vertex_counts[type]; ++vertex) {
-                model_materials->set(vertex, vertex_materials[type][vertex]);
-            }
-        }
-
-        glm::ivec3* model_polygons = model->getPolyVertex();
-        model->setUVCount(vertex_counts[type] + extra_uv_counts[type]);
-        glm::vec2* model_uvs = model->getVertexTexCoords(0, 0, 1);
-        memcpy(model_uvs, vertex_uvs[type].data(), vertex_counts[type] * sizeof(glm::vec2));
-        memcpy(model_uvs + vertex_counts[type], extra_uvs[type].data(),
-               extra_uv_counts[type] * sizeof(glm::vec2));
-        glm::ivec3* model_uv_indices = model->getPolyUVIndex(0, 1);
-        for (int uv_polygon = 0; uv_polygon < polygon_counts[type]; ++uv_polygon) {
-            for (int uv_corner = 0; uv_corner < 3; ++uv_corner) {
-                int index = polygon_vertices[type][uv_polygon][uv_corner];
-                if (index < 0) {
-                    index = vertex_counts[type] + (-1 - index);
-                }
-                model_uv_indices[uv_polygon][uv_corner] = index;
-            }
-        }
-        w8_ulong* model_shades = model->getVertexShadeIndex(1);
-        memcpy(model_polygons, polygon_shades[type].data(),
-               polygon_counts[type] * sizeof(glm::ivec3));
-        memcpy(model_shades, vertex_shades[type].data(), vertex_counts[type] * sizeof(w8_ulong));
-
-        srShader shader;
-        shader = polygon_types[type];
-        model->setShader(shader, 0);
-
-        model->setDirtyAll();
-        if ((polygon_types[type].value & 0x6000) == 0x4000) {
-            model->flags |= W8_MESH_SORTED_RENDERING;
-            model->enable(srMeshModel::CONTROL_SORTED_RENDERING);
-        } else {
-            model->flags &= ~W8_MESH_SORTED_RENDERING;
-        }
-        if (first_model == 0) {
-            first_model = std::move(owned_model);
-        } else {
-            first_model->AddPart(std::move(owned_model));
+            model->FinalizeVertexFrame(frame);
         }
     }
-    first_model->setDirty(srMeshModel::DIRTY_BOUNDS);
-    return first_model;
+    model->setDirtyAll();
+    return model;
 }
+} // namespace
+
+static void ValidateMeshMaterialNames(const W8MaterialRecord& material);
 
 // FUNCTION: WIZ8 0x00487E10
-static const std::vector<W8MeshMaterial>& ReadMeshMaterials(W8ReadLevelInfo* info)
+static std::vector<W8MaterialRecord> ReadMeshMaterialRecords(wiz8::File& file)
 {
-    if (!info || !info->bitmap_folder || !info->world || !info->hFile)
-        throw std::invalid_argument("Missing mesh load context");
-
     short count = 0;
     short index;
-    info->hFile->read_exact(&count, sizeof(count));
+    file.read_exact(&count, sizeof(count));
     if (count < 1) {
-        ReleaseReadMeshScratch();
-        return g_read_mesh_materials;
+        return {};
     }
 
-    if (static_cast<std::int64_t>(count) * 0x11a > info->hFile->size() - info->hFile->tell()) {
+    if (static_cast<std::int64_t>(count) * 0x11a > file.size() - file.tell()) {
         throw std::runtime_error("ReadMeshMaterials: Invalid material count.");
     }
     std::vector<W8MaterialRecord> records(count);
-    info->hFile->read_exact(records.data(), 0x11a);
+    file.read_exact(records.data(), 0x11a);
     if (records[0].version < 4) {
         for (index = 1; index < count; ++index) {
-            info->hFile->read_exact(records.data() + index, 0x11a);
+            file.read_exact(records.data() + index, 0x11a);
         }
     } else {
-        info->hFile->read_exact(records[0].texture_modes, sizeof(records[0].texture_modes));
-        info->hFile->read_exact(records.data() + 1,
-                                static_cast<std::size_t>(count - 1) * sizeof(W8MaterialRecord));
+        file.read_exact(records[0].texture_modes, sizeof(records[0].texture_modes));
+        file.read_exact(records.data() + 1,
+                        static_cast<std::size_t>(count - 1) * sizeof(W8MaterialRecord));
     }
 
     for (index = 0; index < count; ++index) {
-        ClearMaterialRecordPadding(records.data() + index);
+        ValidateMeshMaterialNames(records[index]);
     }
 
-    if (records.size() == g_read_mesh_material_records.size() &&
-        memcmp(records.data(), g_read_mesh_material_records.data(),
-               count * sizeof(W8MaterialRecord)) == 0) {
-        return g_read_mesh_materials;
-    }
+    return records;
+}
 
+static std::vector<W8MeshMaterial> LoadMeshMaterials(const std::filesystem::path& texture_directory,
+                                                     const std::vector<W8MaterialRecord>& records)
+{
+    const auto count = records.size();
+    if (count == 0) return {};
     std::vector<W8MeshMaterial> staged;
     staged.reserve(count);
     staged.push_back(CreateDefaultMaterial());
-    for (index = 1; index < count; ++index) {
-        staged.push_back(LoadMaterial(info->bitmap_folder, records[index]));
+    for (std::size_t index = 1; index < count; ++index) {
+        staged.push_back(LoadMaterial(texture_directory, records[index]));
     }
-    g_read_mesh_material_records = std::move(records);
-    g_read_mesh_materials = std::move(staged);
-    return g_read_mesh_materials;
+    return staged;
 }
 
-// FUNCTION: WIZ8 0x00485B20
-static std::unique_ptr<stModelInstance>
-ReadSingleLevelMeshBody(W8ReadLevelInfo* info, const char* name, bool load_materials);
+namespace {
 
-std::unique_ptr<stModelInstance> ReadSingleLevelMesh(W8ReadLevelInfo* info, const char* name,
-                                                     bool load_materials)
-try {
-    if (!info || !info->hFile) return {};
-    if (name != 0) {
-        if (std::shared_ptr<stMeshModel> model = g_level_meshes.find(name)) {
-            auto duplicate = CreateModelInstance(std::move(model));
-            duplicate->setName("Read Mesh Duplicate Instance");
-            if (!SkipSingleLevelMesh(info)) {
-                return {};
-            }
-            return duplicate;
-        }
-    }
-
-    return ReadSingleLevelMeshBody(info, name, load_materials);
-} catch (const std::exception&) {
-    return {};
-}
-
-// FUNCTION: WIZ8 0x00485C10
-static std::unique_ptr<stModelInstance>
-ReadSingleLevelMeshBody(W8ReadLevelInfo* info, const char* name, bool load_materials)
-try {
-    std::vector<short> mapped_values;
-    std::vector<short> mapped_keys;
-    int version = 0;
+SingleLevelMeshRecord ReadSingleLevelMeshRecord(wiz8::File& input)
+{
+    SingleLevelMeshRecord record;
+    auto& [mapped_vertices, version, flags, vertices, compressed_vertices, compression_scale, faces,
+           location, rotation, materials] = record;
     int vertex_count = 0;
     int face_count = 0;
-    unsigned char flags = 0;
-    std::vector<glm::vec3> vertices;
-    std::vector<std::vector<short>> compressed_vertices;
     short frame_count = 0;
-    float compression_scale = 1000.0f;
-    std::vector<W8ReadMeshFace> faces;
-    std::vector<std::vector<int>> vertex_maps;
-    unsigned int mesh_count = 0;
-    std::shared_ptr<stMeshModel> first_model;
-
-    if (info == 0) {
-        return {};
-    }
-    wiz8::File* file = info->hFile;
-    if (file == 0) {
-        return {};
-    }
+    auto* file = &input;
 
     file->read_exact(&version, sizeof(version));
     file->read_exact(&vertex_count, sizeof(vertex_count));
     file->read_exact(&face_count, sizeof(face_count));
     if (vertex_count < 1 || vertex_count > 100000 || face_count < 1 || face_count > 200000) {
-        return {};
+        throw std::runtime_error("invalid mesh record");
     }
 
-    glm::vec3 location(0);
-    glm::mat3 rotation;
     if (version > 2) {
         file->read_exact(&flags, sizeof(flags));
     }
@@ -495,7 +374,7 @@ try {
     if (version > 3) {
         signed char mapping_count;
         file->read_exact(&mapping_count, sizeof(mapping_count));
-        if (mapping_count < 0) return {};
+        if (mapping_count < 0) throw std::runtime_error("invalid mesh record");
         for (short index = 0; index < mapping_count; ++index) {
             short value = 0;
             short key = 0;
@@ -505,10 +384,9 @@ try {
             file->read_exact(&key, sizeof(key));
             file->read_exact(&value, sizeof(value));
             if (value < 0 || value >= vertex_count) {
-                return {};
+                throw std::runtime_error("invalid mesh record");
             }
-            mapped_values.push_back(value);
-            mapped_keys.push_back(key);
+            mapped_vertices.emplace_back(key, value);
         }
     }
 
@@ -527,16 +405,19 @@ try {
         if (compression_type == 2) {
             file->read_exact(&compression_scale, sizeof(compression_scale));
         }
-        if ((flags & W8_LEVEL_MESH_SHORT_LOD_VERTICES) == 0) {
-            srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x131,
-                         "Uncompressed mesh, please re-export level with newer plugin");
-            return {};
+        const bool shorts = (flags & W8_LEVEL_MESH_SHORT_LOD_VERTICES) != 0;
+        const std::uint64_t bytes_per_vertex = shorts ? 6 : 12;
+        if (frame_count <= 0 || !std::isfinite(compression_scale) || compression_scale <= 0 ||
+            static_cast<std::uint64_t>(frame_count) * vertex_count * bytes_per_vertex >
+                static_cast<std::uint64_t>(file->size() - file->tell()))
+            throw std::runtime_error("invalid mesh vertex frames");
+        if (!shorts) {
+            // Historical float frames can be inspected by the animation reader;
+            // runtime mesh construction still requires the short-frame format.
+            std::vector<float> legacy_frames(static_cast<std::size_t>(frame_count) * vertex_count *
+                                             3);
+            file->read_exact(legacy_frames.data(), legacy_frames.size() * sizeof(float));
         } else {
-            if (frame_count <= 0 || !std::isfinite(compression_scale) || compression_scale <= 0 ||
-                static_cast<std::uint64_t>(frame_count) * vertex_count * 6 >
-                    static_cast<std::uint64_t>(file->size() - file->tell())) {
-                return {};
-            }
             compressed_vertices.resize(frame_count);
             for (auto& frame : compressed_vertices) {
                 frame.resize(static_cast<std::size_t>(vertex_count) * 3);
@@ -552,9 +433,9 @@ try {
         for (int index = 0; index < face_count; ++index)
             faces[index] = DecodeMeshFace(records[index]);
     } else {
-        std::vector<W8LevelFileCompressedFace> compressed_faces(face_count);
+        std::vector<W8CompressedMeshFace> compressed_faces(face_count);
         file->read_exact(compressed_faces.data(),
-                         compressed_faces.size() * sizeof(W8LevelFileCompressedFace));
+                         compressed_faces.size() * sizeof(W8CompressedMeshFace));
         for (int index = 0; index < face_count; ++index) {
             for (int vertex = 0; vertex < 3; ++vertex) {
                 faces[index].vertices[vertex] = compressed_faces[index].vertex_indices[vertex];
@@ -567,117 +448,119 @@ try {
         }
     }
 
-    const std::vector<W8MeshMaterial>& materials = ReadMeshMaterials(info);
-    if (materials.empty()) {
-        srAssertFail("uiMatCount", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x16c, 0);
-    }
-    std::vector<w8_ulong> shaders;
-    for (const auto& material : materials) {
-        if (!std::ranges::contains(shaders, material.render_flags.value)) {
-            shaders.push_back(material.render_flags.value);
-        }
-    }
-    if (shaders.size() > 8) {
-        return {};
-    }
+    materials = ReadMeshMaterialRecords(input);
+    if (materials.empty()) throw std::runtime_error("mesh has no materials");
     for (const auto& face : faces) {
         if (face.material_index < 0 ||
-            static_cast<std::size_t>(face.material_index) >= materials.size()) {
-            return {};
-        }
-        for (int vertex : face.vertices) {
-            if (vertex < 0 || vertex >= vertex_count) {
-                return {};
-            }
-        }
+            static_cast<std::size_t>(face.material_index) >= materials.size())
+            throw std::runtime_error("invalid mesh material index");
+        for (const int vertex : face.vertices)
+            if (vertex < 0 || vertex >= vertex_count)
+                throw std::runtime_error("invalid mesh vertex index");
     }
-    first_model = BuildSingleLevelMesh(face_count, faces.data(), vertex_count, materials,
-                                       &mesh_count, vertex_maps, &mapped_values, &mapped_keys);
-    if ((flags & W8_LEVEL_MESH_LOD_VERTICES) == 0) {
-        int mesh_index = 0;
-        for (stMeshModel* model : stMeshModel::Meshes(first_model.get())) {
-            glm::vec3* model_vertices = model->getVertexLoc();
-            for (int index = 0; index < model->vertex_location_count; ++index) {
-                model_vertices[index] = vertices[vertex_maps[mesh_index][index]];
-            }
-            OptimizeMeshOrder(model);
-            ++mesh_index;
-        }
-    } else {
-        for (short frame = 0; frame < frame_count; ++frame) {
-            int mesh_index = 0;
-            for (stMeshModel* model : stMeshModel::Meshes(first_model.get())) {
-                model->InitializeVertexFrames(frame_count);
-                model->vertex_compression_scale = 500.0f / compression_scale;
-                short* model_vertices = model->GetVertex(frame);
-                for (int index = 0; index < model->vertex_location_count; ++index) {
-                    int source = vertex_maps[mesh_index][index];
-                    model_vertices[index * 3] = compressed_vertices[frame][source * 3];
-                    model_vertices[index * 3 + 1] = compressed_vertices[frame][source * 3 + 1];
-                    model_vertices[index * 3 + 2] = compressed_vertices[frame][source * 3 + 2];
-                }
-                model->FinalizeVertexFrame(frame);
-                ++mesh_index;
-            }
-        }
-    }
+    return record;
+}
+} // namespace
 
-    if (first_model != 0) {
-        first_model->getBounds();
+namespace {
+std::shared_ptr<stMeshModel> BuildMeshResource(const SingleLevelMeshRecord& record,
+                                               const std::filesystem::path& texture_directory)
+{
+    if ((record.flags & W8_LEVEL_MESH_LOD_VERTICES) &&
+        !(record.flags & W8_LEVEL_MESH_SHORT_LOD_VERTICES))
+        throw std::runtime_error("runtime mesh requires short vertex frames");
+    const auto materials = LoadMeshMaterials(texture_directory, record.materials);
+    std::vector<w8_ulong> shaders;
+    std::shared_ptr<stMeshModel> model;
+    for (const auto& material : materials) {
+        if (std::ranges::contains(shaders, material.render_flags.value)) continue;
+        shaders.push_back(material.render_flags.value);
+        auto part = BuildMeshPart(record, materials, material.render_flags);
+        if (!part) continue;
+        if (model)
+            model->AddPart(std::move(part));
+        else
+            model = std::move(part);
     }
-    if (first_model != 0) {
-        first_model->setName(name ? name : "");
-        auto loaded_instance = CreateModelInstance(first_model);
-        loaded_instance->setName("ReadSTMeshFromFile");
-        if (version > 1 && loaded_instance != 0) {
-            const double angle = 3.1415926;
-            rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(1, 0, 0)));
+    model->setDirty(srMeshModel::DIRTY_BOUNDS);
+    model->getBounds();
+    model->setName("Level mesh resource");
+    return model;
+}
 
-            glm::dvec3 translated(location.x * 500.0, location.y * 500.0, location.z * 500.0);
-            loaded_instance->setLocation(translated);
-            loaded_instance->setRotation(rotation);
-        }
-        CacheLevelMesh(name, first_model);
-        return loaded_instance;
+std::shared_ptr<stMeshModel> ReuseOrBuildMeshResource(const SingleLevelMeshRecord& record,
+                                                      const MeshResourceKey& key)
+{
+    auto& cached = level_meshes[key];
+    if (auto model = cached.lock()) return model;
+    auto model = BuildMeshResource(record, key.texture_directory);
+    if (!model) return {};
+    // Every part must be shareable. A static head can have an animated child.
+    for (auto* part : stMeshModel::Meshes(model.get())) {
+        if (MeshHasAnimatedTexture(part)) return model;
     }
+    cached = model;
+    return model;
+}
 
-    return {};
+std::unique_ptr<stModelInstance> PlaceMeshInstance(const SingleLevelMeshRecord& record,
+                                                   std::shared_ptr<stMeshModel> resource)
+{
+    if (!resource) return {};
+    auto instance = CreateModelInstance(std::move(resource));
+    instance->setName("Level mesh instance");
+    if (record.version > 1) {
+        const auto rotation =
+            record.rotation * glm::mat3_cast(glm::angleAxis(float(3.1415926), glm::vec3(1, 0, 0)));
+        instance->setLocation(glm::dvec3(record.location) * 500.0);
+        instance->setRotation(rotation);
+    }
+    return instance;
+}
+} // namespace
+
+bool ReadSingleLevelMeshHasVertexFrames(wiz8::File& file)
+{
+    return (ReadSingleLevelMeshRecord(file).flags & W8_LEVEL_MESH_LOD_VERTICES) != 0;
+}
+
+std::unique_ptr<stModelInstance> ReadSingleLevelMesh(wiz8::File& file,
+                                                     const std::filesystem::path& texture_directory)
+try {
+    const MeshResourceKey key{file.physical_path(), file.tell(), texture_directory};
+    auto record = ReadSingleLevelMeshRecord(file);
+    return PlaceMeshInstance(record, ReuseOrBuildMeshResource(record, key));
 } catch (const std::exception&) {
     return {};
 }
 
 // FUNCTION: WIZ8 0x00488240
 std::vector<std::unique_ptr<stModelInstance>>
-ReadMultipleLevelMeshes(W8ReadLevelInfo* info, std::size_t expected_count, const char* name)
+ReadMultipleLevelMeshes(wiz8::File& file, std::size_t expected_count,
+                        const std::filesystem::path& texture_directory)
 try {
     OctMeshModel reader;
     unsigned int mesh_count;
     unsigned int root_count;
     int terminator;
 
-    if (info == 0) {
-        return {};
-    }
     if (expected_count == 0) {
         return {};
     }
-    if (info->hFile == 0) {
-        return {};
-    }
 
-    info->hFile->read_exact(&mesh_count, sizeof(mesh_count));
-    info->hFile->read_exact(&root_count, sizeof(root_count));
+    file.read_exact(&mesh_count, sizeof(mesh_count));
+    file.read_exact(&root_count, sizeof(root_count));
     if (mesh_count != expected_count || root_count > mesh_count) {
         throw std::runtime_error("Invalid mesh or root count");
     }
 
-    const std::vector<W8MeshMaterial>& materials = ReadMeshMaterials(info);
+    const auto materials = LoadMeshMaterials(texture_directory, ReadMeshMaterialRecords(file));
     if (materials.empty()) return {};
 
-    info->hFile->read_exact(&terminator, sizeof(terminator));
+    file.read_exact(&terminator, sizeof(terminator));
     if (terminator != -1) return {};
 
-    if (mesh_count > static_cast<std::uint64_t>(info->hFile->size() - info->hFile->tell())) {
+    if (mesh_count > static_cast<std::uint64_t>(file.size() - file.tell())) {
         return {};
     }
     std::vector<stMeshModel*> meshes(mesh_count);
@@ -686,7 +569,7 @@ try {
         if (g_current_screen_state.id == W8_SCREEN_PLEASE_WAIT) {
             UpdatePleaseWaitLoadFrame();
         }
-        auto owned_model = reader.Read(info->hFile, materials);
+        auto owned_model = reader.Read(&file, materials);
         stMeshModel* model = owned_model.get();
         /* A linked mesh continues the model whose last mesh is its predecessor. */
         if (reader.m_link_index >= 0) {
@@ -707,18 +590,17 @@ try {
         model->getBounds();
     }
 
-    info->hFile->read_exact(&terminator, sizeof(terminator));
+    file.read_exact(&terminator, sizeof(terminator));
     if (terminator != -1) return {};
 
     std::vector<std::unique_ptr<stModelInstance>> pending(mesh_count);
     for (unsigned int mesh_index = 0; mesh_index < root_count; ++mesh_index) {
         stMeshModel* model = meshes[mesh_index];
-        model->setName(name ? name : "");
+        model->setName("Level mesh resource");
         if (model->head == nullptr) {
             auto instance = CreateModelInstance(roots[mesh_index]);
             instance->setName("Multi Mesh Instance");
             instance->mesh_index = mesh_index;
-            CacheLevelMesh(name, roots[mesh_index]);
             pending[mesh_index] = std::move(instance);
         }
     }
@@ -728,94 +610,10 @@ try {
     return {};
 }
 
-// FUNCTION: WIZ8 0x00489980
-void ClearMaterialRecordPadding(W8MaterialRecord* material)
+static void ValidateMeshMaterialNames(const W8MaterialRecord& material)
 {
-    if (material == 0) {
-        return;
+    for (const auto& name : material.texture_names) {
+        if (memchr(name, '\0', sizeof(name)) == nullptr)
+            throw std::runtime_error("unterminated mesh texture name");
     }
-    for (const auto& name : material->texture_names) {
-        if (memchr(name, '\0', sizeof(name)) == nullptr) {
-            throw std::runtime_error("ReadMeshMaterials: Unterminated texture name.");
-        }
-    }
-    /* Retail expands the four tail clears straight-line; VC6 does not unroll
-       a counted loop, so these are four authored statements. */
-    memset(material->texture_name, 0, sizeof(material->texture_name));
-    memset(material->texture_names[0] + strlen(material->texture_names[0]), 0,
-           sizeof(material->texture_names[0]) - strlen(material->texture_names[0]));
-    memset(material->texture_names[1] + strlen(material->texture_names[1]), 0,
-           sizeof(material->texture_names[1]) - strlen(material->texture_names[1]));
-    memset(material->texture_names[2] + strlen(material->texture_names[2]), 0,
-           sizeof(material->texture_names[2]) - strlen(material->texture_names[2]));
-    memset(material->texture_names[3] + strlen(material->texture_names[3]), 0,
-           sizeof(material->texture_names[3]) - strlen(material->texture_names[3]));
-}
-
-// FUNCTION: WIZ8 0x004881d0
-void ReleaseReadMeshScratch()
-{
-    g_read_mesh_materials.clear();
-    g_read_mesh_material_records.clear();
-}
-
-// FUNCTION: WIZ8 0x00487bd0
-unsigned char SkipSingleLevelMesh(W8ReadLevelInfo* info)
-try {
-    if (info == nullptr || info->world == nullptr || info->hFile == nullptr) {
-        return 0;
-    }
-    auto& file = *info->hFile;
-    int version, vertex_count, face_count;
-    unsigned char flags = 0;
-    file.read_exact(&version, 4);
-    file.read_exact(&vertex_count, 4);
-    file.read_exact(&face_count, 4);
-    if (vertex_count < 1 || vertex_count > 100000 || face_count < 1 || face_count > 200000) {
-        return 0;
-    }
-    if (version > 2) file.read_exact(&flags, 1);
-    std::int64_t skip = version > 1 ? 0x28 : 0;
-    if (skip > file.size() - file.tell()) return 0;
-    file.seek(skip, wiz8::SeekOrigin::current);
-    if (version > 3) {
-        signed char mapping_count;
-        file.read_exact(&mapping_count, 1);
-        if (mapping_count < 0) return 0;
-        skip = static_cast<std::int64_t>(mapping_count) * 4;
-        if (skip > file.size() - file.tell()) return 0;
-        file.seek(skip, wiz8::SeekOrigin::current);
-    }
-    skip = static_cast<std::int64_t>(vertex_count) * 12;
-    if ((flags & W8_LEVEL_MESH_LOD_VERTICES) != 0) {
-        unsigned char compression;
-        short frames;
-        file.read_exact(&compression, 1);
-        file.read_exact(&frames, 2);
-        if (frames <= 0) return 0;
-        if (compression == 2) {
-            float scale;
-            file.read_exact(&scale, 4);
-            if (!std::isfinite(scale) || scale <= 0) return 0;
-        }
-        skip = static_cast<std::int64_t>(vertex_count) * frames *
-               ((flags & W8_LEVEL_MESH_SHORT_LOD_VERTICES) != 0 ? 6 : 12);
-    }
-    skip += static_cast<std::int64_t>(face_count) *
-            ((flags & W8_LEVEL_MESH_COMPRESSED_FACES) != 0 ? 0x21 : 0x29);
-    if (skip > file.size() - file.tell()) return 0;
-    file.seek(skip, wiz8::SeekOrigin::current);
-    short material_count;
-    file.read_exact(&material_count, 2);
-    if (material_count <= 0) return 0;
-    for (short index = 0; index < material_count; ++index) {
-        unsigned char material_version;
-        file.read_exact(&material_version, 1);
-        skip = material_version > 3 ? 0x129 : 0x119;
-        if (skip > file.size() - file.tell()) return 0;
-        file.seek(skip, wiz8::SeekOrigin::current);
-    }
-    return (flags & W8_LEVEL_MESH_LOD_VERTICES) != 0 ? 2 : 1;
-} catch (const std::exception&) {
-    return false;
 }

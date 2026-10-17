@@ -13,7 +13,6 @@
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
-#include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/CombatSound.h"
 #include "wiz8/local_code/Configuration.h"
@@ -23,7 +22,6 @@
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_screens/Screens.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/ui_input.h"
@@ -54,7 +52,8 @@ unsigned char InitializeGame(size_t& initialized_screens)
     g_screen_return_stack.clear();
     for (int screen = 0; screen < W8_SCREEN_COUNT; ++screen) {
         initialized_screens = screen + 1;
-        if (!g_screen_handlers[screen].initialize()) {
+        const auto initialize = g_screen_handlers[screen].initialize;
+        if (initialize && !initialize()) {
             return 0;
         }
     }
@@ -88,13 +87,12 @@ unsigned char InitializeGame(size_t& initialized_screens)
     if (!InitializeLevelDatabase()) {
         return 0;
     }
-    SetPendingScreenState(W8_SCREEN_INTRO);
-    g_status.current_level = -1;
+    g_pending_screen_state.id = W8_SCREEN_INTRO;
     if (const auto save = gfLoadAtStartup ? FindStartupQuickSave() : std::nullopt) {
         g_pending_screen_state.name = *save;
         g_pending_screen_state.mode = 1;
         g_pending_screen_state.parameter = GetSaveGameLevel(g_pending_screen_state.name);
-        SetPendingScreenState(W8_SCREEN_PLEASE_WAIT);
+        g_pending_screen_state.id = W8_SCREEN_PLEASE_WAIT;
     }
     InitializeEncounterTables();
     if (!LoadMissileDatabase()) {

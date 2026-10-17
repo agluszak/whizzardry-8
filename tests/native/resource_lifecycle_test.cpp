@@ -20,7 +20,6 @@
 #include "glm/ext/vector_float3.hpp"
 #include "local_code/NPCScripting.h"
 #include "scoped_asset_roots.h"
-#include "surrender/srNode.h"
 #include "surrender/srScene.h"
 #include "temporary_directory.h"
 #include "wiz8/character_event_queue.h"
@@ -28,8 +27,10 @@
 #include "wiz8/engine_code/3dapi.h"
 #include "wiz8/engine_code/AniMesh.h"
 #include "wiz8/engine_code/AnimObj.h"
+#include "wiz8/engine_code/GameTimeAccumulator.h"
 #include "wiz8/engine_code/Missile.h"
 #include "wiz8/engine_code/Monster.h"
+#include "wiz8/engine_code/MonsterLight.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/Spells.h"
@@ -53,6 +54,7 @@
 #include "wiz8/npc_script_file.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/xstatus.h"
+#include "world_fixture.h"
 
 extern std::shared_ptr<SDL_Surface> g_mouse_surface;
 extern SDLSurfaceOwner g_automap_surface;
@@ -82,7 +84,7 @@ static void source_resource_owners()
     };
     try {
         auto scene = std::make_unique<InterruptedScene>(model);
-        REQUIRE((false));
+        REQUIRE(false);
     } catch (const std::runtime_error&) {
     }
 
@@ -204,28 +206,24 @@ TEST_CASE("Gameplay runtime reinitialization releases queued events", "[resource
 struct SpellVisualFixture {
     ScopedTemporaryDirectory directory{"wiz8-spell-visuals"};
     ScopedAssetRoots roots;
-    W8World* previous_world = GetWorld();
-    W8Octree* previous_octree = g_octree;
-    std::unique_ptr<W8Octree> octree;
-    W8World world{};
+    std::unique_ptr<W8World> previous_world = ReplaceWorld(std::make_unique<W8World>());
+    W8World& world = *GetWorld();
     std::vector<std::unique_ptr<W8SpellVisual>>& visuals = world.spell_visuals;
+    std::unique_ptr<W8Octree>& octree = world.octree;
 
     SpellVisualFixture()
     {
-        octree = std::make_unique<W8Octree>(nullptr, nullptr);
-        g_octree = octree.get();
+        world.octree = std::make_unique<W8Octree>(nullptr, nullptr);
         std::filesystem::create_directory(directory.path / "assets");
         std::filesystem::create_directory(directory.path / "user");
         roots.configure({(directory.path / "assets").string(), (directory.path / "user").string()});
-        SetCurrentWorld(&world);
     }
 
     ~SpellVisualFixture()
     {
         world.spell_visuals.clear();
-        octree.reset();
-        g_octree = previous_octree;
-        SetCurrentWorld(previous_world);
+        world.octree.reset();
+        ReplaceWorld(std::move(previous_world));
     }
 };
 
@@ -300,7 +298,7 @@ static void CheckEmitterCloneLifetime()
     REQUIRE(copy->resources.cycles[cycle].lights.lights.front()->positionalX() == 11);
     REQUIRE(copy->resources.cycles[cycle].lights.lights.front()->getParent() == nullptr);
     copy.reset();
-    REQUIRE(g_world->transient_lights.empty());
+    REQUIRE(GetWorld()->transient_lights.empty());
 }
 
 TEST_CASE_METHOD(SpellVisualFixture, "Emitter clones outlive their source", "[resources][spell]")
@@ -374,8 +372,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "Emitter loads publish only complete valid 
         REQUIRE(host.timer == original_timer);
         REQUIRE(host.resources.cycles[2].animation.get() == original);
         REQUIRE(visual.m_plsLights == nullptr);
-        REQUIRE(g_world->transient_lights.empty());
-        REQUIRE(g_world->lights_to_update.empty());
+        REQUIRE(GetWorld()->transient_lights.empty());
     }
     WriteEmitterFixture(2, false);
     for (int i = 0; i < 2; ++i) {
@@ -424,48 +421,55 @@ TEST_CASE("Shake instances retire before reentrant completion and can restart",
 TEST_CASE_METHOD(SpellVisualFixture, "All emitter animations release before any cycle lights",
                  "[resources][spell]")
 {
+    struct ObservedLight : stLight {
+        explicit ObservedLight(std::size_t& count) : count(count) { ++count; }
+        ~ObservedLight() override { --count; }
+        std::size_t& count;
+    };
     struct ObservedInstance : stModelInstance {
-        explicit ObservedInstance(std::vector<std::size_t>& observations)
-            : stModelInstance(nullptr), observations(observations)
+        ObservedInstance(std::vector<std::size_t>& observations, std::size_t& lights)
+            : stModelInstance(nullptr), observations(observations), lights(lights)
         {
         }
-        ~ObservedInstance() override { observations.push_back(g_world->lights_to_update.size()); }
+        ~ObservedInstance() override { observations.push_back(lights); }
         std::vector<std::size_t>& observations;
+        std::size_t& lights;
     };
+    std::size_t lights = 0;
     std::vector<std::size_t> observations;
     observations.reserve(2);
     {
         EmitterResources<2> resources;
         for (auto& cycle : resources.cycles) {
-            auto light = CreateLight(nullptr, "TeardownOrder");
-            world.lights_to_update.push_back(light.get());
+            auto light = std::make_unique<ObservedLight>(lights);
             cycle.lights.lights.push_back(std::move(light));
             cycle.animation = std::make_unique<W8AnimObj>();
             auto mesh = std::make_unique<W8AniMesh>();
-            mesh->meshes.push_back(std::make_unique<ObservedInstance>(observations));
+            mesh->meshes.push_back(std::make_unique<ObservedInstance>(observations, lights));
             cycle.animation->entries[0] = std::move(mesh);
         }
     }
     REQUIRE(observations == std::vector<std::size_t>{2, 2});
     REQUIRE(world.transient_lights.empty());
-    REQUIRE(world.lights_to_update.empty());
 }
 
 TEST_CASE_METHOD(SpellVisualFixture, "Retiring a cycle cancels borrowed monster callbacks",
                  "[resources][particles]")
 {
     {
-        W8SpellVisual cycle;
+        W8SpellVisual cycle(&world);
         auto particle = std::make_unique<stParticle>(world.dynamic_scene, 1);
         particle->active_particle_count = 1;
         particle->callback = std::make_unique<W8MonsterShakeCallback>();
         cycle.particles.emplace_back().m_pstParticles = std::move(particle);
+        cycle.RetireParticles(world);
     }
     REQUIRE(world.retired_particles.size() == 1);
     REQUIRE_FALSE(world.retired_particles.front()->callback);
 }
 
-TEST_CASE_METHOD(SpellVisualFixture, "World teardown drains particles retired by spell destruction",
+TEST_CASE_METHOD(SpellVisualFixture,
+                 "World teardown destroys cycle particles without retiring them",
                  "[resources][world]")
 {
     struct ObservedParticle : stParticle {
@@ -479,27 +483,43 @@ TEST_CASE_METHOD(SpellVisualFixture, "World teardown drains particles retired by
         ~ObservedParticle() override
         {
             destroyed = true;
-            scene_alive = owner.static_scene != nullptr;
+            // Teardown destroys particles directly while supporting scene data lives.
+            scene_alive = owner.static_scene != nullptr && owner.retired_particles.empty();
         }
         W8World& owner;
         bool& destroyed;
         bool& scene_alive;
     };
     bool destroyed = false, scene_alive = false;
-    auto retiring_world = std::make_unique<W8World>();
-    retiring_world->static_scene = std::make_unique<srScene>();
-    retiring_world->dynamic_scene =
-        retiring_world->static_scene->adoptChild(std::make_unique<srNode>());
-    SetCurrentWorld(retiring_world.get());
-    auto visual = std::make_unique<W8SpellVisual>();
+    auto previous = ReplaceWorld(std::make_unique<W8World>());
+    auto* retiring = GetWorld();
+    auto visual = std::make_unique<W8SpellVisual>(retiring);
     auto* attachment = &visual->particles.emplace_back();
     attachment->m_pstParticles =
-        std::make_unique<ObservedParticle>(*retiring_world, destroyed, scene_alive);
-    retiring_world->spell_visuals.push_back(std::move(visual));
+        std::make_unique<ObservedParticle>(*retiring, destroyed, scene_alive);
+    retiring->spell_visuals.push_back(std::move(visual));
 
-    DestroyWorld(retiring_world.release());
-    SetCurrentWorld(&world);
+    ReplaceWorld(std::move(previous));
 
     REQUIRE(destroyed);
     REQUIRE(scene_alive);
+    REQUIRE(world.retired_particles.empty());
+}
+
+TEST_CASE("Monster light resources need no gameplay clock or source scene attachment",
+          "[lights][ownership][levels]")
+{
+    struct RestoreClock {
+        W8GameTimeAccumulator* previous = std::exchange(g_game_time_accumulator, nullptr);
+        ~RestoreClock() { g_game_time_accumulator = previous; }
+    } restore;
+    srScene scene(nullptr);
+    const glm::vec3 first(1.0f), second(0.0f);
+    MonsterLight source(&scene, true, 500.0f, &first, &second);
+    MonsterLight copy(source);
+    copy.SetRange(250.0f);
+    REQUIRE(source.far_end == 500.0f);
+    REQUIRE(g_game_time_accumulator == nullptr);
+    REQUIRE(source.getParent() == &scene);
+    REQUIRE(copy.getParent() == nullptr);
 }

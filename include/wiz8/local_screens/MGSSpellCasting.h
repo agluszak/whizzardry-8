@@ -57,7 +57,6 @@ void RestoreSpellCastingRegions(void);
 void SelectSpellCastingCharacter(int party_slot);
 void BeginSpellCast(int spell_id, int location_id, W8NpcDialogueLayout interact_id);
 void SetSpellCastingPanelsActive(bool active);
-void InvalidateSpellCastingDescription(void);
 void SelectSpellPowerLevel(int power_level);
 void ResetSpellCastingSelection(void);
 void CommitSpellCastingSelection(void);
@@ -72,5 +71,3 @@ UiResult HandleSpellTextBox(const UiPointerEvent& event);
 
 /* Live spell-casting view, or null when the panel is closed. */
 extern std::unique_ptr<W8SpellCastingView> gpSCSV;
-/* gpSCSV->iSpellPower, or -1 when the view is closed. */
-int GetSpellCastingPowerIndex(void);

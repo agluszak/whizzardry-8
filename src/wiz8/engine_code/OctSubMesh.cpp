@@ -7,7 +7,6 @@
 #include <span>
 #include <stdexcept>
 #include <type_traits>
-#include <utility>
 #include <vector>
 
 #include "application.h"
@@ -17,7 +16,6 @@
 #include "glm/ext/vector_float4.hpp"
 #include "glm/ext/vector_int3.hpp"
 #include "surrender/mesh_resources.h"
-#include "surrender/srClass.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srShader.h"
@@ -32,16 +30,6 @@ class srTexture;
 /* Engine Code\OctSubMesh.cpp. Read at 0x0049E9A0 asserts this unit
    (lines 0x1ad and 0x1d2); the constructor and destructor immediately before
    it are the preceding attribution gap and stay here provisionally. */
-
-/* The first Read captures a copy of material 0, its texture and render flags as
-   the default state later used by the path visualization and trace models in
-   OctPath.cpp and GameData.cpp. */
-W8MeshMaterial g_oct_mesh_default;
-
-void ReleaseOctMeshDefaults()
-{
-    g_oct_mesh_default = {};
-}
 
 /* The loader verifies every array the same way: a null getter result and a
    failed bulk read each stop with the call site's own diagnostic. */
@@ -229,12 +217,6 @@ std::unique_ptr<stMeshModel> OctMeshModel::Read(wiz8::File* file,
         }
     } else if (!unweighted) {
         model->enable(srMeshModel::CONTROL_SORTED_RENDERING);
-    }
-
-    if (!g_oct_mesh_default.material) {
-        auto material = std::make_shared<stMaterial>();
-        material->srClass::operator=(*materials[0].material);
-        g_oct_mesh_default = {std::move(material), materials[0].texture, materials[0].render_flags};
     }
 
     return model;

@@ -99,24 +99,6 @@ void srScene::render(srGERD& renderer, srCamera* camera)
     }
 }
 
-// FUNCTION: SURRENDER 0x10056B50
-void srScene::disable(e_enable option)
-{
-    enabled &= ~(1ul << option);
-}
-
-// FUNCTION: SURRENDER 0x10056B70
-void srScene::enable(e_enable option)
-{
-    enabled |= 1ul << option;
-}
-
-// FUNCTION: SURRENDER 0x10056B90
-int srScene::isEnabled(e_enable option) const
-{
-    return (enabled & (1ul << option)) != 0;
-}
-
 // FUNCTION: SURRENDER 0x10056C40
 glm::vec3 srScene::getAmbientLight() const
 {

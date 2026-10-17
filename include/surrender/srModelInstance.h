@@ -25,7 +25,6 @@ public:
     srModel* getModel() const { return model_.get(); }
     void setModel(std::shared_ptr<srModel> model) { model_ = std::move(model); }
 
-    double getAlignAngle() const;
     glm::vec3 getAlignAxis() const;
     w8_ulong getExclusionMask() const;
     int isAligned() const;

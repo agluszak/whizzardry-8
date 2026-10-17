@@ -14,9 +14,6 @@
 class srModelInstance;
 class Trigger;
 struct W8WorldItem;
-struct W8LevelFileAnimObj;
-struct W8LevelFileMesh;
-struct W8LevelFileScaledPathNode;
 struct W8GDSurface;
 
 /* Engine Code\GDProp.cpp. Prop.cpp allocates 0x58 bytes for this object,
@@ -25,10 +22,7 @@ struct W8GDSurface;
    m_pVertices member names and establish their offsets. */
 class GDProp {
     struct Flags {
-        bool always_blocks_path : 1;
-        bool door : 1;
         bool unattached : 1;
-        bool door_usable : 1;
         unsigned char reserved : 4;
         unsigned char reserved_byte;
     };
@@ -46,8 +40,7 @@ class GDProp {
 public:
     GDProp()
     {
-        Flags initial_flags = {false, false, false, false, 0, 0};
-        m_flags = initial_flags;
+        m_flags = {};
         m_prop_number = 0;
         m_trigger = 0;
         m_path_range.sentinel = -10000000.0f;
@@ -56,19 +49,18 @@ public:
         m_path_bounds.max_x = 0;
         m_path_bounds.min_x = 0;
     }
-    GDProp(srModelInstance* instance, const char* path_name, unsigned short prop_number,
-           unsigned char footstep_surface, unsigned char footstep_material); /* 0x004B6E00 */
+    GDProp(W8PathingService* pathing, srModelInstance* instance, const char* path_name,
+           unsigned short prop_number, unsigned char footstep_surface,
+           unsigned char footstep_material); /* 0x004B6E00 */
     GDProp(GDProp&&) noexcept = default;
     GDProp& operator=(GDProp&&) noexcept = default;
     GDProp(const GDProp&) = delete;
     GDProp& operator=(const GDProp&) = delete;
-    void BindTrigger(Trigger* owner);
+    void BindTrigger(Trigger* owner, W8PathingService* pathing);
     bool ContainsPathCoordinate(unsigned short x, unsigned short y) const;
     bool HasSupportedItems();
     /* Rebuild the cached vertex and path bounds and return the complete box. */
     srBoundingBox computeBounds();
-    /* Box overlap used by path obstruction checks. */
-    bool boundsOverlap(const srBoundingBox& box);
     std::span<const unsigned short> conditionalEdges() const { return m_path_edges; }
     std::span<const unsigned short> conditionalWaypoints() const { return m_path_waypoints; }
     /* Appends the index to the waypoint list when the grid point lies inside
@@ -80,8 +72,8 @@ public:
                                      const glm::ivec2& second);
 
 private:
-    void Initialize(srModelInstance* instance, bool attach, unsigned short prop_number,
-                    unsigned char footstep_surface,
+    void Initialize(W8PathingService* pathing, srModelInstance* instance, bool attach,
+                    unsigned short prop_number, unsigned char footstep_surface,
                     unsigned char footstep_material); /* 0x004B7060 */
     void PrepareGeometry(srModelInstance* instance);
 

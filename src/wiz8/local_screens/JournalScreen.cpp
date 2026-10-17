@@ -3,6 +3,7 @@
 #include <array>
 #include <cstdint>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -21,6 +22,7 @@
 #include "soundman.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/catalog_artwork.h"
+#include "wiz8/chunk.h"
 #include "wiz8/cursor.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/engine_code/Levels.h"
@@ -28,7 +30,6 @@
 #include "wiz8/fact_state.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
-#include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Configuration.h"
@@ -36,7 +37,6 @@
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/Strings.h"
-#include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
@@ -103,12 +103,6 @@ void InitializeFactJournal(void)
     g_fact_journal_entries.clear();
 }
 
-// FUNCTION: WIZ8 0x005588e0
-void SetFactNotificationsSuppressed(bool suppressed)
-{
-    g_fact_notifications_suppressed = suppressed;
-}
-
 /* Append one changed fact to the journal and, when notices are not suppressed
    and the fact is visible at the current notice setting, post the fact's own
    description through the notice pane with its sound. */
@@ -116,7 +110,7 @@ void SetFactNotificationsSuppressed(bool suppressed)
 void RecordFactChangeForJournal(W8FactId fact_id)
 {
     W8JournalEntry entry;
-    entry.level = g_status.current_level;
+    entry.level = GetLoadedLevelID();
     entry.fact = fact_id;
     entry.alternate_text = GetFact(fact_id) != 0;
     g_fact_journal_entries.push_back(entry);
@@ -148,7 +142,7 @@ void RecordFactChangeForJournal(W8FactId fact_id)
         g_npc_dialogue.Queue(W8NpcCommand::journal_quote);
         return;
     }
-    int range = GetTextBoxScrollRange();
+    int range = (g_level_block->text_box_right - g_level_block->text_box_left);
     ShowNotice(W8_FONT_PALETTE_BLUE, g_localized_strings[0x74a], 2, range);
     wiz8::sound::play("Data\\Sound\\Misc\\Journal Entry.wav");
 }
@@ -184,18 +178,20 @@ void SaveFactJournal(wiz8::File& file)
 
 /* Resize the live journal entries before reading the JRNL records. */
 // FUNCTION: WIZ8 0x00558B20
-void LoadJournalEntries(wiz8::File& file)
+void LoadJournalEntries(W8Chunk& file)
 {
     int format;
     int count;
 
     InitializeFactJournal();
-    file.read_exact(&format, 4);
-    file.read_exact(&count, 4);
+    file.ReadBytes(&format, 4);
+    file.ReadBytes(&count, 4);
+    if (count < 0 || count > file.RemainingBytes() / std::int64_t{sizeof(JournalEntryRecord)})
+        throw std::runtime_error("invalid journal count");
     g_fact_journal_entries.resize(count);
     for (auto& entry : g_fact_journal_entries) {
         JournalEntryRecord record;
-        file.read_exact(&record, sizeof(record));
+        file.ReadBytes(&record, sizeof(record));
         entry = {record.level, static_cast<W8FactId>(record.fact), record.alternate_text != 0,
                  record.unknown_09};
     }
@@ -299,7 +295,7 @@ void JournalScreen::DrawContent(SDL_Surface& target)
         int y = 0x39;
         for (int index = 0; index < 11; ++index) {
             signed char faction = g_journal_factions[index];
-            if (GetFactionFlag(faction)) {
+            if (g_factions[faction].encountered) {
                 W8FactionDisposition disposition = GetFactionDisposition(faction);
                 std::string disposition_name;
                 switch (disposition) {
@@ -411,7 +407,7 @@ void JournalScreen::Activate(JournalAction action)
    proof that a record's fifth slot is its finalizer rather than a second
    initializer - record 10's allocate/free pair is the first. */
 // FUNCTION: WIZ8 0x005bddd0
-unsigned char JournalScreenInitialize(void)
+bool JournalScreenInitialize(void)
 {
     if (!g_journal_font.load("Data\\Journal\\journal_font.sti")) return 0;
     g_journal_font_palette = CatalogArtwork::Load(0x1b9).spriteSheet()->colors;
@@ -419,15 +415,14 @@ unsigned char JournalScreenInitialize(void)
 }
 
 // FUNCTION: WIZ8 0x005bde10
-unsigned char JournalScreenFinalize(void)
+void JournalScreenFinalize(void)
 {
     g_journal_font.clear();
     g_journal_font_palette = {};
-    return 1;
 }
 
 // FUNCTION: WIZ8 0x005bde40
-unsigned char JournalScreenEnter(void)
+bool JournalScreenEnter(void)
 {
     int maximum_visibility;
 
@@ -465,7 +460,7 @@ unsigned char JournalScreenEnter(void)
 }
 
 // FUNCTION: WIZ8 0x005be0b0
-unsigned char JournalScreenLeave(int)
+bool JournalScreenLeave(int)
 {
     if (!g_journal_panel) return 1; // Already released when it was suspended.
     g_journal_panel.reset();

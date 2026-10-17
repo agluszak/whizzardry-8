@@ -3,6 +3,7 @@
 #include <cstring>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -25,6 +26,7 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/conditions.h"
 #include "wiz8/cursor.h"
+#include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
@@ -1852,8 +1854,8 @@ void AddPartyGold(int amount, bool announce)
     sound_path = "Data\\Sound\\Misc\\ChaChing.wav";
 
     g_status.party_gold += amount;
-    if (g_status.current_level >= 0 && g_status.current_level < W8_LEVEL_COUNT) {
-        g_status.level_progress[g_status.current_level].gold_collected += amount;
+    if (GetLoadedLevelID() >= 0 && GetLoadedLevelID() < W8_LEVEL_COUNT) {
+        g_status.level_progress[GetLoadedLevelID()].gold_collected += amount;
     }
 
     if (announce) {
@@ -2767,7 +2769,15 @@ void SetHandType(W8Character* character, W8EquipSlot slot)
         }
         hand = 1;
     }
-    int item_id = character->EquippedItem[slot].iItemNo;
+    character->Hand[hand].uiHolds =
+        WeaponHandKind(character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON],
+                       character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON], hand);
+}
+
+int WeaponHandKind(const W8ItemInstance& primary, const W8ItemInstance& secondary,
+                   unsigned int hand)
+{
+    int item_id = (hand == 0 ? primary : secondary).iItemNo;
     int wield_kind;
     if (item_id == -1) {
         wield_kind = 0;
@@ -2780,10 +2790,8 @@ void SetHandType(W8Character* character, W8EquipSlot slot)
             break;
         case W8_ITEM_EQUIP_CLASS_THROWN_WEAPON:
             wield_kind = 1;
-            if (slot != W8_EQUIP_SLOT_SECONDARY_WEAPON ||
-                character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo == -1 ||
-                g_item_records[character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo]
-                        .unidentified_name_index != 0x83) {
+            if (hand != 1 || primary.iItemNo == -1 ||
+                g_item_records[primary.iItemNo].unidentified_name_index != 0x83) {
                 break;
             }
             [[fallthrough]];
@@ -2798,11 +2806,11 @@ void SetHandType(W8Character* character, W8EquipSlot slot)
                 fmt::format("SetHandType: ERROR: invalid item {:d} type {:d} in hand {:d}!",
                             item_id, g_item_records[item_id].equip_class, hand);
             srAssertFail("FALSE", PC_ITEM_CPP, 3731, message);
-            return;
+            return 0;
         }
         }
     }
-    character->Hand[hand].uiHolds = wield_kind;
+    return wield_kind;
 }
 
 /* The binding difficulty of a character's worn items: the worst identify
@@ -2894,7 +2902,9 @@ void RefreshAfterItemRecordChange(W8ItemInstance* item, W8Character* character, 
                 if (!CharacterCanSwitchTo(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, true,
                                           false)) {
                     AimByKind(party_slot, W8_TARGET_KIND_NONE, W8_TARGETING_CONTEXT_IN_COMBAT);
-                } else if (!TargetIsInPlay(party_slot, 2, W8_TARGETING_CONTEXT_IN_COMBAT)) {
+                } else if (!TargetIsInPlay(
+                               party_slot, 2,
+                               SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT))) {
                     RepickActionTarget(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, 0);
                 }
             }
@@ -3040,7 +3050,7 @@ void DeliverExceptionalItemReaction(W8ItemInstance* item, bool choose_character,
         message = 47;
         break;
     case 0x244:
-        message = GetFactionDispositionScore(W8_FACTION_MOOK) != 0 ? 48 : 49;
+        message = g_factions[W8_FACTION_MOOK].disposition_score != 0 ? 48 : 49;
         break;
     case 0x264:
         message = 66;
@@ -3089,14 +3099,12 @@ bool IsUsableItemClass(W8ItemInstance* item)
    with the out-of-combat gate alone; everything else is refused while the
    character's spellcasting is blocked and the item is a class-0x0d casting
    aid, and otherwise needs a living target for the record's spell plus a
-   spell the moment admits. The use-item view's context slot is parked on the
-   instance while the target check runs. */
+   spell the moment admits. */
 // FUNCTION: WIZ8 0x00522a30
 bool CanUseItemForAction(int party_slot, const W8ItemInstance* item)
 {
     const W8ItemDatabaseRecord* record = &g_item_records[item->iItemNo];
     W8Character* character = &g_status.buffers.Char[party_slot];
-    bool usable;
 
     if (record->equip_class == W8_ITEM_EQUIP_CLASS_KEY ||
         record->equip_class == W8_ITEM_EQUIP_CLASS_OTHER || CanCastFromItem(character, item)) {
@@ -3108,14 +3116,9 @@ bool CanUseItemForAction(int party_slot, const W8ItemInstance* item)
         return false;
     }
 
-    SetUseItemSelectOverrideItem(const_cast<W8ItemInstance*>(item));
-    usable =
-        SpellHasAnyValidTarget(party_slot, record->spell_id, ItemClassNormalizesTarget(record));
-    SetUseItemSelectOverrideItem(0);
-    if (!usable) {
-        return false;
-    }
-    return SpellUsableNow(record->spell_id, false);
+    return SpellHasAnyValidTarget(party_slot, record->spell_id,
+                                  ItemClassNormalizesTarget(record)) &&
+           SpellUsableNow(record->spell_id, false);
 }
 
 /* Validate an item's embedded spell for use now; nonzero reports use blocked
@@ -3126,7 +3129,6 @@ bool ValidateItemSpellUse(int character_index, W8ItemInstance* item,
 {
     const W8ItemDatabaseRecord* record = &g_item_records[item->iItemNo];
     W8Character* character = &g_status.buffers.Char[character_index];
-    bool has_target;
 
     if (record->equip_class == W8_ITEM_EQUIP_CLASS_KEY ||
         record->equip_class == W8_ITEM_EQUIP_CLASS_OTHER || CanCastFromItem(character, item)) {
@@ -3143,11 +3145,8 @@ bool ValidateItemSpellUse(int character_index, W8ItemInstance* item,
         return true;
     }
     if (gXStatus.fItemSelectMode) {
-        SetUseItemSelectOverrideItem(item);
-        has_target = SpellHasAnyValidTarget(character_index, record->spell_id,
-                                            ItemClassNormalizesTarget(record));
-        SetUseItemSelectOverrideItem(0);
-        if (!has_target) {
+        if (!SpellHasAnyValidTarget(character_index, record->spell_id,
+                                    ItemClassNormalizesTarget(record))) {
             ShowNoticeLine(g_localized_strings[0x7a8], callback, true, false);
             return true;
         }
@@ -3459,7 +3458,8 @@ void AimItemUseAtCurrentTarget(W8Character* character, W8ItemInstance* item)
 
     detail.item_use.item = item;
     detail.item_use.kind = -1;
-    W8CombatSlot* target = GetTargetBlockForContext(party_slot, W8_TARGETING_CONTEXT_CURRENT);
+    W8CombatSlot* target =
+        SelectCombatAction(party_slot, GetEditedActionContext(party_slot)).target;
     StagePartySlotItemUse(party_slot, item, target);
     if (g_item_records[item->iItemNo].spell_id == W8_SPELL_IDENTIFY_ITEM) {
         ChooseAction(party_slot, W8_ACTION_USE_ITEM, -1, &detail, true, 1);
@@ -3984,14 +3984,63 @@ bool RemovePartyItemByID(int item_id, bool remove_all)
    has been announced; and an item that cannot be held together with what is
    already there is left where it is, with the pair swapping around it. */
 // FUNCTION: WIZ8 0x0051d3b0
-bool SwapWeaponSetSlots(int party_slot, bool announce, bool refresh)
+void CommitWeaponSetSwap(int party_slot, W8WeaponSwap choice, bool refresh)
 {
-    W8Character* character = &g_status.buffers.Char[party_slot];
-    int notice_context = gXStatus.fNpcDialogueMode ? 0 : -1;
+    auto* character = &g_status.buffers.Char[party_slot];
+    BindEquippedItem(character, W8_EQUIP_SLOT_PRIMARY_WEAPON);
+    BindEquippedItem(character, W8_EQUIP_SLOT_SECONDARY_WEAPON);
+    if (choice.primary) {
+        SwapItemInstances(&character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON],
+                          &character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON],
+                          character, refresh);
+    }
+    if (choice.secondary) {
+        SwapItemInstances(&character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON],
+                          &character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON],
+                          character, refresh);
+    }
+}
+
+std::optional<W8WeaponSwap> PlanWeaponSetSwap(const W8Character& value)
+{
+    const auto* character = &value;
+    if (!CanUnequipSlotItem(character, W8_EQUIP_SLOT_PRIMARY_WEAPON) ||
+        !CanUnequipSlotItem(character, W8_EQUIP_SLOT_SECONDARY_WEAPON))
+        return {};
+    if (std::ranges::all_of(std::array{W8_EQUIP_SLOT_PRIMARY_WEAPON, W8_EQUIP_SLOT_SECONDARY_WEAPON,
+                                       W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON,
+                                       W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON},
+                            [&](int slot) { return character->EquippedItem[slot].iItemNo == -1; }))
+        return {};
     bool blocked_primary = false;
     bool blocked_alternate = false;
     int primary_right_item;
     int alternate_right_item;
+    primary_right_item = character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo;
+    alternate_right_item = character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON].iItemNo;
+    if (alternate_right_item == -1 &&
+        character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON].iItemNo != -1) {
+        blocked_primary = CanHoldItemsTogether(
+            primary_right_item,
+            character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON].iItemNo);
+    }
+    if (character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON].iItemNo == -1 &&
+        alternate_right_item != -1) {
+        blocked_alternate = CanHoldItemsTogether(
+            character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo, alternate_right_item);
+    }
+
+    return W8WeaponSwap{
+        (primary_right_item != -1 || alternate_right_item != -1) && !blocked_primary,
+        (character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo != -1 ||
+         character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON].iItemNo != -1) &&
+            !blocked_alternate};
+}
+
+bool SwapWeaponSetSlots(int party_slot, bool announce, bool refresh)
+{
+    W8Character* character = &g_status.buffers.Char[party_slot];
+    int notice_context = gXStatus.fNpcDialogueMode ? 0 : -1;
 
     if (character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo == -1 &&
         character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo == -1 &&
@@ -4013,34 +4062,9 @@ bool SwapWeaponSetSlots(int party_slot, bool announce, bool refresh)
         return false;
     }
 
-    primary_right_item = character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo;
-    alternate_right_item = character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON].iItemNo;
-    if (alternate_right_item == -1 &&
-        character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON].iItemNo != -1) {
-        blocked_primary = CanHoldItemsTogether(
-            primary_right_item,
-            character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON].iItemNo);
-    }
-    if (character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON].iItemNo == -1 &&
-        alternate_right_item != -1) {
-        blocked_alternate = CanHoldItemsTogether(
-            character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo, alternate_right_item);
-    }
-
-    if ((character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo != -1 ||
-         alternate_right_item != -1) &&
-        !blocked_primary) {
-        SwapItemInstances(&character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON],
-                          &character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON],
-                          character, refresh);
-    }
-    if ((character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo != -1 ||
-         character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON].iItemNo != -1) &&
-        !blocked_alternate) {
-        SwapItemInstances(&character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON],
-                          &character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON],
-                          character, refresh);
-    }
+    const auto plan = PlanWeaponSetSwap(*character);
+    if (!plan) return false;
+    CommitWeaponSetSwap(party_slot, *plan, refresh);
 
     if (refresh) {
         RequestRedraw(1 << (party_slot & 0x1f));

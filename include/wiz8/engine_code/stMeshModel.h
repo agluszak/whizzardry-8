@@ -58,7 +58,7 @@ public:
                                                 float threshold);
 
     int FindMappedIndex(short key); /* 0x004712D0 */
-    void SetMappedVertex(short vertex, short key);
+    void SetMappedVertex(int vertex, short key);
     void AddPart(std::unique_ptr<stMeshModel> part);
     /* The mesh submitted after this one in its model, or null. */
     stMeshModel* Next() const;
@@ -164,7 +164,7 @@ public:
     bool vertex_lighting_ready;
     std::vector<Frame> frames; // Empty for a static base-class mesh.
     std::list<Skin> skins;
-    std::unordered_map<short, short> mapped_vertices; // key -> vertex
+    std::unordered_map<short, int> mapped_vertices; // wire marker key -> runtime vertex index
     w8_ulong last_decompress_release_tick;
     float vertex_compression_scale;
     // m_pLerpBuffer: stable interpolation scratch, outside the cache budget.

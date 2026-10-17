@@ -47,23 +47,18 @@ public:
     virtual void process(const ProcessInfo& info, e_processType type) override;
 
     void flipHorizontal();
-    void flipVertical();
-    double getAspectRatio() const;
     void setClipRange(double near_plane, double far_plane);
     std::pair<double, double> getClipRange() const;
     std::pair<float, float> getEnvironmentRange() const;
     std::pair<float, float> getEnvironmentScale() const;
     double getHorizontalFOV() const;
     Rect getNormalizedViewPlane() const;
-    e_project getProjectionType() const;
     double getVerticalFOV() const;
     Projection project(const glm::dvec3& input);
     bool projectsAny(std::span<const glm::vec3> points);
     void setProjectionType(e_project projection);
-    void normalizeViewPlane();
 
     void setEnvironmentScale(float near_scale, float far_scale);
-    void setFocalLength(double focal_length, double aspect_ratio);
     void setFOV(double field_of_view, double aspect_ratio);
     void setViewPlane(const Rect& rectangle, double distance);
     void setViewPlane(double width, double height);

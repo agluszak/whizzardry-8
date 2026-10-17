@@ -27,7 +27,6 @@
 #include "glm/common.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
-#include "glm/ext/vector_int3.hpp"
 #include "glm/fwd.hpp"
 #include "glm/geometric.hpp"
 #include "glm/matrix.hpp"
@@ -59,9 +58,9 @@ srGERD::MatrixStack::MatrixStack() : depth(0) {}
 
 // FUNCTION: SURRENDER 0x10019320
 srGERD::srGERD()
-    : dirty(0), state_flags(0), state{}, frame_statistics{}, statistics{}, clear_state{},
-      texture_slots{}, texture_parms{}, texture_state{}, polygon_offset(0),
-      texture_default(nullptr), texture_reduction(0), vertex_arrays_dirty(0)
+    : dirty(0), state_flags(0), state{}, statistics{}, clear_state{}, texture_slots{},
+      texture_parms{}, texture_state{}, polygon_offset(0), texture_default(nullptr),
+      texture_reduction(0), vertex_arrays_dirty(0)
 {
     auto missing = CreateCpuStorage(8, 8, SDL_PIXELFORMAT_BGRA32);
     SDL_Rect square{0, 0, 4, 4};
@@ -86,7 +85,6 @@ srGERD::srGERD()
         plane = glm::vec4(0);
     }
     state.project_clip_near = glm::mat4(0);
-    state.modelview_scale_type = static_cast<srRendererDefs::e_scaleType>(0);
     state.max_modelview_scale = 0.0f;
     pick.pick_key = 0;
     exclusion_mask = 0;
@@ -173,7 +171,6 @@ void srGERD::resetStatistics()
     statistics = {};
     drainRenderers(RendererDrain::statistics);
     statistics.elapsed = static_cast<double>(w8_clock_us()) / 1'000'000;
-    frame_statistics = statistics;
 }
 
 // FUNCTION: SURRENDER 0x1001ADD0
@@ -410,12 +407,6 @@ void srGERD::invalidateResidentTextures()
     invalidateTextureCache();
 }
 
-void srGERD::invalidateResidentTexture(srTexture* texture)
-{
-    flushImmediateRenderers();
-    if (texture) invalidateTexture(texture->resolve());
-}
-
 // FUNCTION: SURRENDER 0x100180A0
 void srGERD::setTextureSubImage(srTexture* texture, w8_long mipmap, w8_long x, w8_long y,
                                 w8_long width, w8_long height)
@@ -628,7 +619,6 @@ void srGERD::flipFrame(const Rectangle* first, const Rectangle* second, w8_ulong
     device.gpu.flipFrame();
     statistics.frames += 1;
     state_flags |= STATE_FRAME_FLIPPED;
-    frame_statistics = getStatistics();
 }
 
 // FUNCTION: SURRENDER 0x1001AAB0
@@ -641,12 +631,6 @@ void srGERD::flush()
     checkAllStateChanges();
     flushImmediateRenderers();
     device.gpu.flushFrame();
-}
-
-// FUNCTION: SURRENDER 0x1001CD20
-int srGERD::isContextCreated() const
-{
-    return state_flags & STATE_CONTEXT_CREATED;
 }
 
 // FUNCTION: SURRENDER 0x1001D020
@@ -785,13 +769,6 @@ void srGERD::resetTexture()
 {
     dirty |= DIRTY_TEXTURE0;
     dirty |= DIRTY_TEXTURE1;
-}
-
-// FUNCTION: SURRENDER 0x100213A0
-srRendererDefs::e_scaleType srGERD::getModelViewScaleType()
-{
-    checkViewStateChanges();
-    return state.modelview_scale_type;
 }
 
 // FUNCTION: SURRENDER 0x100213C0
@@ -1000,58 +977,17 @@ void srGERD::recalcScissor()
 void srGERD::classifyMatrix(e_matrixMode mode)
 {
     statistics.matrix_classifications += 1;
-    if (mode == MATRIX_MODELVIEW) {
-        const auto& modelview = state.matrix_current[MATRIX_MODELVIEW];
-        glm::mat3 basis(modelview);
-        const glm::vec3 lengths(glm::length(basis[0]), glm::length(basis[1]),
-                                glm::length(basis[2]));
-        const glm::vec3 squared = lengths * lengths;
-        state.matrix_class[MATRIX_MODELVIEW] = srRendererDefs::MATRIX_TYPE_GENERAL;
-        state.inverse_modelview = glm::inverse(modelview);
-        const bool uniform =
-            std::abs(squared.x - squared.y) <= 1e-5f && std::abs(squared.x - squared.z) <= 1e-5f;
-        state.modelview_scale_type = !uniform ? srRendererDefs::SCALE_TYPE_NON_UNIFORM
-                                     : std::abs(squared.x - 1) > 1e-5f
-                                         ? srRendererDefs::SCALE_TYPE_UNIFORM
-                                         : srRendererDefs::SCALE_TYPE_UNIT;
-        state.max_modelview_scale = glm::max(lengths.x, glm::max(lengths.y, lengths.z));
-        // Lighting expects a transform with model scaling removed.
-        for (int column = 0; column < 3; ++column) basis[column] /= lengths[column];
-        state.normal_matrix = glm::mat4(glm::transpose(glm::inverse(basis)));
+    if (mode != MATRIX_MODELVIEW) {
         return;
     }
-    glm::mat4& matrix = state.matrix_current[mode];
-    w8_ulong mask = 0;
-    w8_ulong bit = 1;
-    for (w8_long row = 0; row < 4; row++) {
-        if (matrix[0][row] == 0.0f) {
-            mask |= bit;
-        }
-        if (matrix[1][row] == 0.0f) {
-            mask |= bit * 2;
-        }
-        if (matrix[2][row] == 0.0f) {
-            mask |= bit * 4;
-        }
-        if (matrix[3][row] == 0.0f) {
-            mask |= bit * 8;
-        }
-        bit *= 0x10;
-    }
-    srRendererDefs::e_matrixType type;
-    if (mask == 0x7bde && matrix[0][0] == 1.0f && matrix[1][1] == 1.0f && matrix[2][2] == 1.0f &&
-        matrix[3][3] == 1.0f) {
-        type = srRendererDefs::MATRIX_TYPE_IDENTITY;
-    } else if ((mask & 0xb39a) == 0xb39a) {
-        type = srRendererDefs::MATRIX_TYPE_PERSPECTIVE;
-    } else if ((mask & 0x7356) == 0x7356) {
-        type = srRendererDefs::MATRIX_TYPE_ORTHOGRAPHIC;
-    } else if ((mask & 0x7000) == 0x7000 && matrix[3][3] == 1.0f) {
-        type = srRendererDefs::MATRIX_TYPE_AFFINE;
-    } else {
-        type = srRendererDefs::MATRIX_TYPE_GENERAL;
-    }
-    state.matrix_class[mode] = type;
+    const auto& modelview = state.matrix_current[MATRIX_MODELVIEW];
+    glm::mat3 basis(modelview);
+    const glm::vec3 lengths(glm::length(basis[0]), glm::length(basis[1]), glm::length(basis[2]));
+    state.inverse_modelview = glm::inverse(modelview);
+    state.max_modelview_scale = glm::max(lengths.x, glm::max(lengths.y, lengths.z));
+    // Lighting expects a transform with model scaling removed.
+    for (int column = 0; column < 3; ++column) basis[column] /= lengths[column];
+    state.normal_matrix = glm::mat4(glm::transpose(glm::inverse(basis)));
 }
 
 // FUNCTION: SURRENDER 0x1001CF40
@@ -1204,15 +1140,6 @@ void srGERD::frustum(double left, double right, double bottom, double top, doubl
     frustum(bounds);
 }
 
-// FUNCTION: SURRENDER 0x10022060
-void srGERD::perspective(double fov_y, double aspect, double near_plane, double far_plane)
-{
-    if (near_plane <= 0 || far_plane <= 0) return;
-    auto& current = state.matrix_current[state.matrix_mode];
-    current *= glm::perspective(float(fov_y), float(aspect), float(near_plane), float(far_plane));
-    setMatrixDirty();
-}
-
 // FUNCTION: SURRENDER 0x1001B820
 void srGERD::applyClipPlaneChanges()
 {
@@ -1237,7 +1164,6 @@ void srGERD::pushClipPlane(const glm::vec4& plane, e_clipMode mode)
         w8_ulong bit = 1UL << (state.clip_plane_count + 6);
         state.clip_planes[state.clip_plane_count + 6] =
             glm::transpose(state.inverse_modelview) * srPlaneMath::normalized(plane);
-        state.clip_modes[state.clip_plane_count] = static_cast<unsigned char>(mode);
         state.clip_mask |= bit;
         if (mode == 1) {
             state.clip_mode1_mask |= bit;
@@ -1275,7 +1201,6 @@ srGERD::ClipPlanes srGERD::getClipPlanes()
         }
     }
     planes.mask = state.clip_mask;
-    planes.mode1_mask = state.clip_mode1_mask;
     return planes;
 }
 
@@ -1540,7 +1465,6 @@ void srGERD::initMatrices()
     state.matrix_mode = MATRIX_MODELVIEW;
     for (w8_long i = 0; i < 2; i++) {
         state.matrix_current[i] = glm::mat4(1);
-        state.matrix_class[i] = srRendererDefs::MATRIX_TYPE_IDENTITY;
         state.matrix_stacks[i].depth = 0;
     }
     state.normal_matrix = glm::mat4(1);
@@ -1813,31 +1737,6 @@ srGERD::Texture* srGERD::createNewTexture(srTexture* texture)
     }
 }
 
-// FUNCTION: SURRENDER 0x10017930
-w8_long srGERD::getMaxTextureWidth() const
-{
-    return SDLGPUDevice::texture_max_dim;
-}
-
-// FUNCTION: SURRENDER 0x10017940
-w8_long srGERD::getMaxTextureHeight() const
-{
-    return SDLGPUDevice::texture_max_dim;
-}
-
-// FUNCTION: SURRENDER 0x10017950
-w8_long srGERD::getMaxTextureAspectRatio() const
-{
-    return SDLGPUDevice::texture_max_aspect;
-}
-
-// FUNCTION: SURRENDER 0x10017960
-// FUNCTION: SURRENDER 0x10017AA0
-w8_long srGERD::getTextureReduction() const
-{
-    return texture_reduction;
-}
-
 // FUNCTION: SURRENDER 0x10017D00
 
 // FUNCTION: SURRENDER 0x10017DD0
@@ -1861,18 +1760,6 @@ void srGERD::setClearStencil(w8_ulong stencil)
     clear_state.clear_values.stencil = stencil;
 }
 
-// FUNCTION: SURRENDER 0x1001CBF0
-double srGERD::getClearDepth() const
-{
-    return clear_state.clear_values.depth;
-}
-
-// FUNCTION: SURRENDER 0x1001CC00
-w8_ulong srGERD::getClearStencil() const
-{
-    return clear_state.clear_values.stencil;
-}
-
 // FUNCTION: SURRENDER 0x1001CFD0
 
 // FUNCTION: SURRENDER 0x1001D010
@@ -1887,56 +1774,6 @@ srGERD::e_error srGERD::getError()
 
 // FUNCTION: SURRENDER 0x1001D1E0
 
-// FUNCTION: SURRENDER 0x1001D360
-void srGERD::setDepthRange(double minimum, double maximum)
-{
-    if (minimum <= 0.0) {
-        minimum = 0.0;
-    } else if (minimum >= 1.0) {
-        minimum = 1.0;
-    }
-    state.depth_min = minimum;
-    if (maximum > 0.0) {
-        if (maximum < 1.0) {
-            state.depth_max = maximum;
-        } else {
-            state.depth_max = 1.0;
-        }
-    } else {
-        state.depth_max = 0.0;
-    }
-    dirty |= DIRTY_DEPTH_RANGE;
-}
-
-// FUNCTION: SURRENDER 0x1001BB00
-srShader srGERD::getShader() const
-{
-    return shader;
-}
-
-// FUNCTION: SURRENDER 0x1001BAA0
-void srGERD::disable(e_enable option)
-{
-    if ((enable_flags & (1UL << option)) != 0) {
-        toggle(option);
-    }
-}
-
-// FUNCTION: SURRENDER 0x1001BAC0
-void srGERD::enable(e_enable option)
-{
-    if ((enable_flags & (1UL << option)) == 0) {
-        toggle(option);
-    }
-}
-
-// FUNCTION: SURRENDER 0x1001BBB0
-void srGERD::drawTriangle(const glm::ivec3& triangle)
-{
-    drawElements(static_cast<srRendererDefs::e_primitive>(3), 3, srRendererDefs::INDEX_ULONG,
-                 &triangle);
-}
-
 // FUNCTION: SURRENDER 0x1001BC30
 void srGERD::setDataPtr(srRendererDefs::e_vertexArray index, w8_long components,
                         srRendererDefs::e_type type, w8_ulong stride, const void* values)
@@ -1945,35 +1782,6 @@ void srGERD::setDataPtr(srRendererDefs::e_vertexArray index, w8_long components,
     vertex_arrays.types[index] = type;
     vertex_arrays.strides[index] = stride;
     vertex_arrays.arrays[index] = values;
-    vertex_arrays_dirty |= DIRTY_VERTEX_ARRAY_INFO;
-}
-
-// FUNCTION: SURRENDER 0x1001BF10
-void srGERD::setDiffusePointer(w8_long components, srRendererDefs::e_type type, w8_ulong stride,
-                               const void* values)
-{
-    setDataPtr(srRendererDefs::VERTEX_ARRAY_DIFFUSE, components, type, stride, values);
-}
-
-// FUNCTION: SURRENDER 0x1001BF50
-void srGERD::setSpecularPointer(w8_long components, srRendererDefs::e_type type, w8_ulong stride,
-                                const void* values)
-{
-    vertex_arrays.components[2] = components;
-    vertex_arrays.types[2] = type;
-    vertex_arrays.strides[2] = stride;
-    vertex_arrays.arrays[2] = values;
-    vertex_arrays_dirty |= DIRTY_VERTEX_ARRAY_INFO;
-}
-
-// FUNCTION: SURRENDER 0x1001BF90
-void srGERD::setFogPointer(w8_long components, srRendererDefs::e_type type, w8_ulong stride,
-                           const void* values)
-{
-    vertex_arrays.components[3] = components;
-    vertex_arrays.types[3] = type;
-    vertex_arrays.strides[3] = stride;
-    vertex_arrays.arrays[3] = values;
     vertex_arrays_dirty |= DIRTY_VERTEX_ARRAY_INFO;
 }
 

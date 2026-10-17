@@ -419,20 +419,6 @@ void srNode::updateTransformation() const
     world_transform1 = glm::mat4x3(world);
 }
 
-// FUNCTION: SURRENDER 0x10051E10
-void srNode::setWorldSpaceLocation(const glm::dvec3& location)
-{
-    if (parent_ == 0) {
-        this->location = location;
-    } else {
-        auto parent_world = parent_->getWorldSpaceMatrix<glm::dmat4>();
-        glm::dmat4 inverse;
-        inverse = glm::inverse(parent_world);
-        this->location = glm::dvec3(inverse * glm::dvec4(location, 1));
-    }
-    setWSDirty();
-}
-
 // FUNCTION: SURRENDER 0x100553A0
 srModelViewScope srNode::scopedWorldSpaceMatrix(srGERD& renderer) const
 {
@@ -478,18 +464,6 @@ void srNode::rotateX(double angle)
     rotate(angle, glm::dvec3(1, 0, 0));
 }
 
-// FUNCTION: SURRENDER 0x10054440
-void srNode::rotateY(double angle)
-{
-    rotate(angle, glm::dvec3(0, 1, 0));
-}
-
-// FUNCTION: SURRENDER 0x100545F0
-void srNode::rotateZ(double angle)
-{
-    rotate(angle, glm::dvec3(0, 0, 1));
-}
-
 // FUNCTION: SURRENDER 0x10051FB0
 void srNode::setWorldSpaceRotation(const glm::dmat3& rotation)
 {
@@ -517,15 +491,4 @@ void srNode::setWorldSpaceMatrix(const glm::dmat4& matrix)
         glm::dvec3(glm::length(rotation[0]), glm::length(rotation[1]), glm::length(rotation[2]));
     for (int column = 0; column < 3; ++column) rotation[column] /= scale[column];
     setWSDirty();
-}
-
-// FUNCTION: SURRENDER 0x10053210
-void srNode::rollUp(double amount)
-{
-    glm::dmat3 rotation;
-    rotation = getWorldSpaceRotation<glm::dmat3>();
-    const double angle = -std::atan2(rotation[0][1], rotation[1][1]) * amount;
-    rotation *= glm::mat3_cast(glm::angleAxis(angle, glm::dvec3(0, 0, 1)));
-    orthonormalizeRotation(rotation);
-    setWorldSpaceRotation(rotation);
 }

@@ -7,6 +7,7 @@
 #include "surrender/srDebug.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/Trigger.hpp"
+#include "wiz8/engine_code/World.h"
 #include "wiz8/item_spawning.h"
 
 /* Level Specific Code\Monastery2.cpp (level 9).
@@ -36,7 +37,7 @@ bool Monastery2BellButton(Trigger* pTrigger)
     W8Prop* prop;
     int slot;
 
-    prop = FindPropByName(g_world, "dial1");
+    prop = FindPropByName(GetWorld(), "dial1");
     if (prop != 0) {
         slot = prop->Rep()->FindCurrentAnimationSlot();
         if (slot == 0) {

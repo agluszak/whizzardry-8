@@ -33,6 +33,7 @@
 #include "surrender/srMath.h"
 #include "surrender/triangle_projection.h"
 #include "wiz8/engine_code/3d.h"
+#include "wiz8/engine_code/3dapi.h"
 #include "wiz8/engine_code/AmbientSound.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GDProp.h"
@@ -41,6 +42,7 @@
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/OctBuildTree.h"
+#include "wiz8/engine_code/OctPath.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/SoundEvent.h"
@@ -48,7 +50,6 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/game_timer.h"
-#include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/ground_probe.h"
 #include "wiz8/layouts/game_status.h"
@@ -90,8 +91,8 @@ bool g_mouselook_manual;
 // FUNCTION: WIZ8 0x00420bd0
 GroundProbe probeGround(const glm::vec3& position)
 {
-    if (g_octree_game_data && g_octree_game_data->octree)
-        return g_octree_game_data->octree->settleToGround(position, true, 500);
+    if (GetWorldGameData() && GetWorldGameData()->octree)
+        return GetWorldGameData()->octree->settleToGround(position, true, 500);
     return {position, false};
 }
 
@@ -102,8 +103,8 @@ GroundProbe probeGround(const glm::vec3& position)
 GroundSurfaceInfo groundSurfaceInfo(const glm::vec3& position)
 {
     GroundSurfaceInfo result{probeGround(position).position.y, 0, 0};
-    if (g_octree_game_data && g_octree_game_data->last_hit_surface != 0) {
-        const auto& hit = g_octree_game_data->m_pSurfaces[g_octree_game_data->last_hit_surface];
+    if (GetWorldGameData() && GetWorldGameData()->last_hit_surface != 0) {
+        const auto& hit = GetWorldGameData()->m_pSurfaces[GetWorldGameData()->last_hit_surface];
         result.surface = hit.footstep_surface;
         result.material = hit.footstep_material;
     }
@@ -115,12 +116,11 @@ static bool g_level_override;
 // GLOBAL: WIZ8 0x00652dce
 bool g_shared_timers_paused;
 
-/* Resolve a complete triangle from the active processed vertex table. */
+/* Resolve a complete triangle from an explicit processed vertex table. */
 // FUNCTION: WIZ8 0x004214d0
-std::optional<RuntimeTriangle> surfaceTriangle(std::span<const int, 3> vertexIndices)
+std::optional<RuntimeTriangle> surfaceTriangle(std::span<const glm::vec3> vertices,
+                                               std::span<const int, 3> vertexIndices)
 {
-    if (!g_octree_game_data) return std::nullopt;
-    const auto& vertices = g_octree_game_data->m_pVertices;
     for (const int index : vertexIndices)
         if (index < 0 || static_cast<std::size_t>(index) >= vertices.size()) return std::nullopt;
     return indexedTriangle(vertices, vertexIndices);
@@ -200,7 +200,6 @@ CameraRotation W8GameData::cameraRotation(unsigned int flags, const glm::mat3& r
 
     if ((g_gd_camera->m_orientation_flags & W8_CAMERA_ORIENTATION_SNAPPED) != 0) {
         g_gd_camera->m_orientation_flags &= ~W8_CAMERA_ORIENTATION_SNAPPED;
-        MarkRendererReady();
     }
 
     if (g_level_data != nullptr) {
@@ -370,7 +369,6 @@ CameraMotion W8GameData::cameraMotion(unsigned int flags, const glm::vec3& posit
     new_position = position + delta;
     from_origin = new_position - g_world_origin;
     if (glm::dot(from_origin, from_origin) != 0) {
-        MarkRendererReady();
         g_gd_camera->m_position = new_position;
     }
 
@@ -494,7 +492,7 @@ W8GDSurface* W8GameData::ProbePropsAlongMotion(glm::vec3* direction, glm::vec3* 
     glm::vec3 along_normal;
 
     nearest_surface = 0;
-    if (g_world->collidable_props.empty()) {
+    if (GetWorld()->collidable_props.empty()) {
         return 0;
     }
     /* Function-local static plane ResolveCollision reads through hit_plane;
@@ -503,12 +501,12 @@ W8GDSurface* W8GameData::ProbePropsAlongMotion(glm::vec3* direction, glm::vec3* 
     static W8Plane s_prop_hit_plane;
     const auto objects = octree->queryAlongSegment((*position), (*direction), 504.0f, 8);
     for (index = 0; index < objects.size(); ++index) {
-        prop = g_world->collidable_props[objects[index]];
+        prop = GetWorld()->collidable_props[objects[index]];
         if (prop->GetActivationState() != 0) {
             gd_prop = prop->m_gd_prop.get();
             prop->flags |= 0x10;
             if (gd_prop == 0) {
-                prop->BuildOrRefreshPathingRepresentation();
+                prop->BuildOrRefreshPathingRepresentation(GetWorldPathing());
                 gd_prop = prop->m_gd_prop.get();
                 if (gd_prop == 0) {
                     return 0;
@@ -621,7 +619,7 @@ unsigned char W8GameData::ProbeMonstersAlongMotion(glm::vec3* direction, glm::ve
     extent = glm::length((*direction)) + g_runtime_world_scale + kWorldScale;
     lower = (*position) - extent;
     upper = (*position) + extent;
-    objects = g_octree->queryObjects({lower, upper}, W8_OCTREE_KIND_LOCATION, -1);
+    objects = GetWorldOctree()->queryObjects({lower, upper}, W8_OCTREE_KIND_LOCATION, -1);
     count = objects.size();
     if (count == 0) {
         return 0;
@@ -1018,9 +1016,9 @@ int W8GameData::TestPropSurfaces(int count, w8_ulong* ids, W8OctreeTrace* trace,
 // FUNCTION: WIZ8 0x0041c140
 bool W8GameData::TestProp(int prop_id, W8OctreeTrace* trace, char skip_flag, char gate)
 {
-    auto* prop = g_world->collidable_props[prop_id];
+    auto* prop = GetWorld()->collidable_props[prop_id];
     prop->flags |= 0x10;
-    if (!prop->m_gd_prop) prop->BuildOrRefreshPathingRepresentation();
+    if (!prop->m_gd_prop) prop->BuildOrRefreshPathingRepresentation(GetWorldPathing());
     auto* gd_prop = prop->m_gd_prop.get();
     if (gate != 0 && gd_prop->m_flags.unattached) return false;
 
@@ -1606,8 +1604,8 @@ bool W8GDSurface::ResolveCollision(glm::vec3* origin, const glm::vec3* hit_point
 // FUNCTION: WIZ8 0x0041E8E0
 bool W8GDSurface::CentroidsDiverging(int surface_index, const glm::vec3& from, const glm::vec3& to)
 {
-    const W8GDSurface* other = g_octree_game_data->m_pSurfaces.data() + surface_index;
-    const glm::vec3* vertices = g_octree_game_data->m_pVertices.data();
+    const W8GDSurface* other = GetWorldGameData()->m_pSurfaces.data() + surface_index;
+    const glm::vec3* vertices = GetWorldGameData()->m_pVertices.data();
     glm::vec3 this_centroid(0.0f, 0.0f, 0.0f);
     glm::vec3 other_centroid(0.0f, 0.0f, 0.0f);
     for (int vertex = 0; vertex < 3; ++vertex) {
@@ -1893,7 +1891,6 @@ void W8GameData::ReleaseLevelData()
         delete g_game_time_accumulator;
     }
     g_game_time_accumulator = 0;
-    SetOctreeGameData(0);
     if (g_level_data_teardown_flag) {
         g_level_data_teardown_flag = false;
     }
@@ -1903,8 +1900,8 @@ void W8GameData::ReleaseLevelData()
 void ResetCurrentEnvironment(void)
 {
     if (g_environ != 0) {
-        if (g_octree_game_data != 0 && !g_octree_game_data->m_ppEnvirons.empty()) {
-            g_environ = g_octree_game_data->m_ppEnvirons[0].get();
+        if (GetWorldGameData() != 0 && !GetWorldGameData()->m_ppEnvirons.empty()) {
+            g_environ = GetWorldGameData()->m_ppEnvirons[0].get();
         }
         g_environ->vector = glm::vec3(0);
         if (g_environment_load_flag != 0) {
@@ -1957,19 +1954,6 @@ void ResetLevelDataVectors(void)
 // GLOBAL: WIZ8 0x005ebc18
 const double g_game_data_pi = 3.141592653589793;
 
-// FUNCTION: WIZ8 0x0041FCE0
-void GetLevelSoundEnvironment(char* environment, char* secondary)
-{
-    W8LevelDataRecord* level = g_level_data;
-    if ((level->flags & W8_LEVEL_FLAG_NO_SOUND_ENVIRONMENT) != 0) {
-        *secondary = -1;
-        *environment = -1;
-        return;
-    }
-    *environment = level->sound_environment;
-    *secondary = level->sound_environment_alt;
-}
-
 // FUNCTION: WIZ8 0x00420b40
 float MoveTimer(int value)
 {
@@ -1995,13 +1979,6 @@ float MoveTimer(int value)
 }
 
 // FUNCTION: WIZ8 0x00420D40
-srCamera* CreateOrSetGameCamera(srNode* parent, srCamera* camera)
-{
-    if (g_gd_camera == 0) {
-        g_gd_camera = new GDCamera();
-    }
-    return g_gd_camera->CreateOrAttachCamera(parent, camera);
-}
 
 // FUNCTION: WIZ8 0x00420DC0
 float GetCameraYawInDegrees()
@@ -2019,12 +1996,6 @@ float GetCameraYawRadians()
 float GetCameraPitchInDegrees()
 {
     return g_gd_camera->m_pitch * kCameraRadiansToDegrees;
-}
-
-// FUNCTION: WIZ8 0x00420DF0
-float GetCameraPitchRadians()
-{
-    return g_gd_camera->m_pitch;
 }
 
 // FUNCTION: WIZ8 0x00420E00
@@ -2130,7 +2101,7 @@ glm::vec3 ProjectVectorOntoVector(const glm::vec3& vector, const glm::vec3& onto
 
 /* Apply saved yaw and pitch after a world reload. */
 // FUNCTION: WIZ8 0x00421570
-void RestoreWorldCameraOrientation(void* angle, void* pitch, W8World*)
+void RestoreWorldCameraOrientation(void* angle, void* pitch)
 {
     SetCameraOrientation(angle, pitch, nullptr);
 }
@@ -2148,12 +2119,12 @@ int GetCameraYawDegrees(void)
 bool HasCameraLineOfSight(const glm::vec3* position)
 {
     glm::vec3 to = *position;
-    if (g_world == 0) {
+    if (GetWorld() == 0) {
         return false;
     }
     glm::vec3 from = cameraLocation();
-    if (g_world->octree != 0) {
-        return g_world->octree->HasLineOfSight(&from, &to, true);
+    if (GetWorld()->octree != 0) {
+        return GetWorld()->octree->HasLineOfSight(&from, &to, true);
     }
     return true;
 }
@@ -2165,13 +2136,12 @@ void PlacePartyAtPoint(const glm::vec3* point)
 {
     glm::vec3 delta = *point - g_world_origin;
     if (glm::dot(delta, delta) != 0) {
-        MarkRendererReady();
         g_gd_camera->m_position = (*point);
     }
 }
 
 // FUNCTION: WIZ8 0x0041FD10
-W8LevelDataRecord::W8LevelDataRecord() : interval_gate()
+W8LevelDataRecord::W8LevelDataRecord()
 {
     flags = 0;
     camera_scale = 0;
@@ -2345,12 +2315,12 @@ unsigned char W8LevelDataRecord::ToggleBoundProps()
 
     BeginPartyMovement();
     if (primary_contact_prop_id >= 0) {
-        prop = g_world->collidable_props[primary_contact_prop_id];
+        prop = GetWorld()->collidable_props[primary_contact_prop_id];
         if (prop->IsAnimationPingPong()) {
             prop->ReverseAnimationDirection();
             toggled = true;
             if (secondary_contact_prop_id >= 0) {
-                prop = g_world->collidable_props[secondary_contact_prop_id];
+                prop = GetWorld()->collidable_props[secondary_contact_prop_id];
                 if (!prop->IsAnimationPingPong()) {
                     return 0;
                 }

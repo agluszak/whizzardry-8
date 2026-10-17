@@ -359,10 +359,6 @@ void UpdateUiPointer(int x, int y)
     const UiTransaction transaction;
     State().motion(PointerMotion({x, y}));
 }
-SDL_Point UiPointerPosition()
-{
-    return g_ui.pointer;
-}
 bool UiModalActive()
 {
     return !State().modals.empty();
@@ -461,10 +457,6 @@ int UiInputOwner()
 void SetUiHelpDelay(int delay)
 {
     g_ui_help_delay = delay ? delay : g_settings.tooltip_delay_ms;
-}
-void SetUiHelpForced(bool enabled)
-{
-    g_ui_help_forced = enabled;
 }
 void UpdateUiHelp()
 {

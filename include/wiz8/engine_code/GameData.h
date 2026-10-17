@@ -95,7 +95,6 @@ struct W8LevelDataRecord {
     /* Contact surface normal and scale used by camera collision. */
     glm::vec3 contact_normal{0}; /* 0xac */
     float contact_normal_scale;       /* 0xb8 */
-    W8IntervalGate interval_gate;     /* 0xc4 */
     bool flag5;                       /* 0xec */
     bool flag6;                       /* 0xed */
     float vertical_motion; /* 0xf0 */
@@ -129,7 +128,6 @@ class stModelInstance;
 class W8Octree;
 struct W8OctreeTrace;
 struct W8World;
-struct W8LevelFilePlane;
 
 /* One environment record: seventeen dwords mixing counters and factors. */
 struct W8EnvironRecord {
@@ -267,7 +265,6 @@ struct W8GameData {
     int SurfacesCount() const noexcept { return int(m_pSurfaces.size()); }
     int InterfacesCount() const noexcept { return int(m_pInterfaces.size()); }
     int StatesCount() const noexcept { return int(m_pStates.size()); }
-    int CondPolysCount() const noexcept { return int(m_piCondPolys.size()); }
     int EnvironsCount() const noexcept { return int(m_ppEnvirons.size()); }
     std::vector<std::string> interface_names;
     std::vector<std::unique_ptr<W8EnvironRecord>> m_ppEnvirons;
@@ -316,7 +313,8 @@ extern W8EnvironRecord* g_environ;
 void ResetInactiveLevelDataVectors(void);
 void UpdateSharedGameDataObject();
 void UpdateGameDataRuntime();
-std::optional<RuntimeTriangle> surfaceTriangle(std::span<const int, 3> vertexIndices);
+std::optional<RuntimeTriangle> surfaceTriangle(std::span<const glm::vec3> vertices,
+                                               std::span<const int, 3> vertexIndices);
 
 void ClearLevelMovementStopped(void);
 void ResetLevelDataVectors(void);
@@ -334,8 +332,6 @@ void EndCameraSway(void);
 
 bool IsLevelMovementStopped(void);
 unsigned char ConsumeLevelElapsedTime(float* real_elapsed, float* frame_elapsed);
-/* Retail tests level flag 0x008; when set both outputs are -1. */
-void GetLevelSoundEnvironment(char* environment, char* secondary);
 
 /* 0x00420BD0: settle a world point onto the octree ground through the
    GameData geometry index. Without an octree, return the original position
@@ -343,11 +339,10 @@ void GetLevelSoundEnvironment(char* environment, char* secondary);
 GroundProbe probeGround(const glm::vec3& position);
 
 void ClearLevelMovementState(void); /* 0x0041F0C0 */
-srCamera* CreateOrSetGameCamera(srNode* parent, srCamera* camera);
+
 float GetCameraYawInDegrees();
 float GetCameraYawRadians();
 float GetCameraPitchInDegrees();
-float GetCameraPitchRadians();
 void GetCameraOrientation(void* angle, void* pitch);
 void BeginManualCameraControl();
 void LevelCamera();
@@ -366,7 +361,7 @@ glm::vec3 ProjectVectorOntoVector(const glm::vec3& vector, const glm::vec3& onto
 /* 0x00421570: restore a saved yaw/pitch into the game camera, reading the
    world camera node's current rotation first and fetching the updated matrix
    (both into the same dead local in retail). */
-void RestoreWorldCameraOrientation(void* angle, void* pitch, W8World* world);
+void RestoreWorldCameraOrientation(void* angle, void* pitch);
 glm::vec3 cameraLocation();
 int GetCameraYawDegrees(void);
 /* 0x004215E0: point-visibility query through the world octree; false with no

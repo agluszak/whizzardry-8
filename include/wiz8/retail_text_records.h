@@ -879,7 +879,7 @@ template<> struct Record<W8GlobalStatus> {
               bytes.subspan(offsetof(Disk, world_clock_ms), sizeof(Disk::world_clock_ms)));
         value(&runtime.party_order_slots,
               bytes.subspan(offsetof(Disk, party_order_slots), sizeof(Disk::party_order_slots)));
-        value(&runtime.current_level,
+        value(&runtime.resume_level,
               bytes.subspan(offsetof(Disk, current_level), sizeof(Disk::current_level)));
         value(&runtime.status_header_prefix, bytes.subspan(offsetof(Disk, status_header_prefix),
                                                            sizeof(Disk::status_header_prefix)));
@@ -1146,6 +1146,12 @@ template<class T> typename Record<T>::Disk read_image(File& file)
 {
     typename Record<T>::Disk image{};
     file.read_exact(&image, sizeof(image));
+    return image;
+}
+template<class T> typename Record<T>::Disk read_image(W8Chunk& chunk)
+{
+    typename Record<T>::Disk image{};
+    chunk.ReadBytes(&image, sizeof(image));
     return image;
 }
 template<class T> void decode_image(const typename Record<T>::Disk& image, T& runtime)

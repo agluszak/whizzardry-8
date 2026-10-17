@@ -367,24 +367,6 @@ void srLight::setLinearAttenuation(float range, float attenuation)
     opengl_attenuation.y = (1.0f - attenuation) / (range * attenuation);
 }
 
-// FUNCTION: SURRENDER 0x1004E630
-void srLight::enable(e_enable flag)
-{
-    enable_flags |= (1UL << srLight::ENABLE_SPOT) << flag;
-}
-
-// FUNCTION: SURRENDER 0x1004E610
-void srLight::disable(e_enable flag)
-{
-    enable_flags &= ~(1 << flag);
-}
-
-// FUNCTION: SURRENDER 0x1004E650
-int srLight::isEnabled(e_enable flag) const
-{
-    return (enable_flags & (1 << flag)) != 0;
-}
-
 // FUNCTION: SURRENDER 0x1004E760
 void srLight::setAmbient(const glm::vec3& ambient)
 {
@@ -397,58 +379,10 @@ glm::vec3 srLight::getAmbient() const
     return ambient;
 }
 
-// FUNCTION: SURRENDER 0x1004E780
-void srLight::setDiffuse(const glm::vec3& diffuse)
-{
-    this->diffuse = diffuse;
-}
-
-// FUNCTION: SURRENDER 0x1004E6A0
-glm::vec3 srLight::getDiffuse() const
-{
-    return diffuse;
-}
-
-// FUNCTION: SURRENDER 0x1004E7B0
-void srLight::setSpecular(const glm::vec3& specular)
-{
-    this->specular = specular;
-}
-
-// FUNCTION: SURRENDER 0x1004E6E0
-glm::vec3 srLight::getSpecular() const
-{
-    return specular;
-}
-
 // FUNCTION: SURRENDER 0x1004E830
 void srLight::setSpotDirection(const glm::vec3& direction)
 {
     spot_direction = normalizedOrZero(direction);
-}
-
-// FUNCTION: SURRENDER 0x1004E7D0
-void srLight::setSpotAngle(float angle)
-{
-    if (angle <= 0.0f) {
-        spot_angle = 0.0f;
-    } else if (3.141592653589793 * 0.5 <= angle) {
-        spot_angle = (float)(3.141592653589793 * 0.5);
-    } else {
-        spot_angle = angle;
-    }
-}
-
-// FUNCTION: SURRENDER 0x1004E8A0
-void srLight::setSpotExponent(float exponent)
-{
-    if (exponent <= 0.0f) {
-        spot_exponent = 0.0f;
-    } else if (exponent >= 128.0f) {
-        spot_exponent = 128.0f;
-    } else {
-        spot_exponent = exponent;
-    }
 }
 
 // FUNCTION: SURRENDER 0x1004E720
@@ -457,40 +391,10 @@ glm::vec3 srLight::getSpotDirection() const
     return spot_direction;
 }
 
-// FUNCTION: SURRENDER 0x1004E710
-float srLight::getSpotAngle() const
-{
-    return spot_angle;
-}
-
-// FUNCTION: SURRENDER 0x1004E750
-float srLight::getSpotExponent() const
-{
-    return spot_exponent;
-}
-
 // FUNCTION: SURRENDER 0x1004E7A0
 void srLight::setIntensity(float intensity)
 {
     this->intensity = intensity;
-}
-
-// FUNCTION: SURRENDER 0x1004E6D0
-float srLight::getIntensity() const
-{
-    return intensity;
-}
-
-// FUNCTION: SURRENDER 0x1004E900
-void srLight::setAttenuationModel(e_attenuationModel model)
-{
-    attenuation_model = model;
-}
-
-// FUNCTION: SURRENDER 0x1004E910
-srLight::e_attenuationModel srLight::getAttenuationModel() const
-{
-    return attenuation_model;
 }
 
 // FUNCTION: SURRENDER 0x1004E920
@@ -503,30 +407,4 @@ void srLight::setAttenuation(const glm::vec3& attenuation)
 glm::vec3 srLight::getAttenuation() const
 {
     return opengl_attenuation;
-}
-
-// FUNCTION: SURRENDER 0x1004EA60
-void srLight::setNearAttenuationRange(double start, double end)
-{
-    near_start = start;
-    near_end = end;
-}
-
-// FUNCTION: SURRENDER 0x1004EA30
-void srLight::setFarAttenuationRange(double start, double end)
-{
-    far_start = start;
-    far_end = end;
-}
-
-// FUNCTION: SURRENDER 0x1004EA90
-void srLight::setSafeRange(float range)
-{
-    safe_range = range;
-}
-
-// FUNCTION: SURRENDER 0x1004EAA0
-float srLight::getSafeRange() const
-{
-    return safe_range;
 }

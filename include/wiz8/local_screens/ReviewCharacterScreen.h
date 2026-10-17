@@ -167,7 +167,6 @@ struct W8CampScreenState {
     W8CampEffectFilter effect_filter; /* 0 all, 1 beneficial only, 2 detrimental only */
     int effect_beneficial_count;
     int effect_detrimental_count;
-    int effect_selection; /* cleared when the reviewed character changes */
     unsigned char unknown_d1c[4];
     int effect_first_visible;
     int effect_last_visible;
@@ -255,9 +254,9 @@ int CommitPartySlotItemUse(int party_slot, W8ItemInstance* item, W8CombatSlot* t
    hand - split one off into the hand, or add one onto the held stack. */
 void TakeItemUnitToHand(W8ItemInstance* item, unsigned short slot, W8ItemOrigin origin);
 
-unsigned char CampScreenEnter(void);
+bool CampScreenEnter(void);
 void CampScreenFrame(void);
-unsigned char CampScreenLeave(int leaving);
+bool CampScreenLeave(int leaving);
 
 /* Camp spell-page pieces in ReviewCharacterScreen.cpp: the character switch,
    the six realm scrollbars, the page renderer, the resistance bars and the

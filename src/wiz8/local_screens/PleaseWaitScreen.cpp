@@ -71,7 +71,7 @@ static int g_level_backdrops[W8_LEVEL_COUNT] = {
 /* The path the five assertions carry. */
 #define PLEASE_WAIT_SCREEN_CPP __FILE__
 
-unsigned char PleaseWaitScreenInitialize(void)
+bool PleaseWaitScreenInitialize(void)
 {
     return g_level_load_font.load("Data\\Level Load\\levelload_font.sti");
 }
@@ -83,7 +83,7 @@ unsigned char PleaseWaitScreenInitialize(void)
    save; modes 1 and 2 carry a name; mode 3 carries two parameters and no name.
 
    The handler accesses the shared descriptor through g_load_descriptor. */
-unsigned char PleaseWaitScreenEnter(void)
+bool PleaseWaitScreenEnter(void)
 {
     if (!g_load_descriptor) {
         g_load_descriptor = std::make_unique<W8LevelLoadDescriptor>();
@@ -100,7 +100,7 @@ unsigned char PleaseWaitScreenEnter(void)
             g_load_descriptor->name = g_current_screen_state.name;
             break;
         case 2:
-            g_load_descriptor->parameter = g_status.current_level;
+            g_load_descriptor->parameter = GetLoadedLevelID();
             g_load_descriptor->name = g_current_screen_state.name;
             g_load_descriptor->previous_save_name = g_current_screen_state.previous_save_name;
             g_load_descriptor->save_payload =
@@ -182,7 +182,7 @@ void PleaseWaitScreenFrame(void)
         if (!LoadGame(g_load_descriptor->name)) {
             srAssertFail("fVerify", PLEASE_WAIT_SCREEN_CPP, 293, 0);
         }
-        if (!LoadLevel(g_status.current_level, -1, true)) {
+        if (!LoadLevel(g_status.resume_level, -1, true)) {
             srAssertFail("fVerify", PLEASE_WAIT_SCREEN_CPP, 296, 0);
         }
 
@@ -226,11 +226,11 @@ void PleaseWaitScreenFrame(void)
     RequestScreenTransition();
     if (g_load_descriptor->mode == 1 && g_status.intro_shown) {
         SetIntroVideoIndex(4);
-        SetPendingScreenState(W8_SCREEN_INTRO);
+        g_pending_screen_state.id = W8_SCREEN_INTRO;
         return;
     }
     if (GetPendingScreenState() != 7) {
-        SetPendingScreenState(W8_SCREEN_MAIN_GAME);
+        g_pending_screen_state.id = W8_SCREEN_MAIN_GAME;
     }
 }
 
@@ -238,7 +238,7 @@ void PleaseWaitScreenFrame(void)
    allocated; the ordinary pass only tears the frame down. Both passes run the
    teardown, which is why the release sits under the flag rather than the whole
    body. */
-unsigned char PleaseWaitScreenLeave(int leaving)
+bool PleaseWaitScreenLeave(int leaving)
 {
     if (leaving) {
         g_load_descriptor.reset();

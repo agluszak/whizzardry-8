@@ -43,6 +43,7 @@
 
 #include "../native/surface_pixels.h"
 #include "random.h"
+#include "wiz8/engine_code/Levels.h"
 #include "wiz8/ui_layer.h"
 
 /* Runtime scenarios against installed retail assets.
@@ -263,7 +264,6 @@ public:
         std::array<float, 735 * 2> audio{}; // 44,100 stereo sample frames / 60.
         if (!w8_native::audio_render_for_test(audio.data(), audio.size() / 2))
             Fail("audio", "offline mixer did not advance");
-        GetInputState().received = false;
         ++frames_;
         g_runtime_test_hooks.clock_us += frame_us;
     }
@@ -901,7 +901,7 @@ fs::path QuickSave(Game& game)
     game.command(W8_MGS_COMMAND_QUICK_SAVE);
     const auto saves = SaveFiles(game.user_root());
     REQUIRE((saves.size() == 1 && fs::file_size(saves[0]) > 0));
-    REQUIRE(GetSaveGameLevel(saves[0].stem().string().c_str()) == int(g_status.current_level));
+    REQUIRE(GetSaveGameLevel(saves[0].stem().string().c_str()) == int(GetLoadedLevelID()));
     return saves[0];
 }
 
@@ -1438,7 +1438,7 @@ void ResourceLifecycleScenario()
     // painting and toggling the journal must ignore them without deleting them.
     const auto journal_size = g_fact_journal_entries.size();
     const auto invalid_fact = static_cast<W8FactId>(-1);
-    g_fact_journal_entries.push_back({g_status.current_level, invalid_fact, false});
+    g_fact_journal_entries.push_back({GetLoadedLevelID(), invalid_fact, false});
     game.command(W8_MGS_COMMAND_JOURNAL);
     game.wait_screen("journal", W8_SCREEN_JOURNAL);
     REQUIRE(g_screen_return_stack.size() == return_depth + 1);
@@ -1463,7 +1463,7 @@ void ResourceLifecycleScenario()
     REQUIRE(g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS);
     REQUIRE((GetWorld() && GetWorld()->level));
 
-    const int level = g_status.current_level;
+    const int level = GetLoadedLevelID();
     const auto anchor = Walk(game, "settle-before-save", 2.0f);
     QuickSave(game);
     { // One save/load cycle covers eviction, reconstruction and live teardown.
@@ -1496,7 +1496,7 @@ void ResourceLifecycleScenario()
             return loading && g_current_screen_state.id == W8_SCREEN_MAIN_GAME && game.settled();
         });
         Settle(game, "reload-level");
-        REQUIRE(g_status.current_level == level);
+        REQUIRE(GetLoadedLevelID() == level);
         ExpectAt("reloaded-position", anchor);
     }
     RenderFrame();
@@ -1511,7 +1511,7 @@ void WriteSaveFixture(const fs::path& output, const fs::path& save, const glm::v
     fs::copy_file(save, output / "fixture.SAV", fs::copy_options::overwrite_existing);
     std::ofstream metadata(output / "fixture.txt");
     metadata << std::setprecision(std::numeric_limits<float>::max_digits10) << anchor.x << ' '
-             << anchor.y << ' ' << anchor.z << ' ' << g_status.current_level << ' '
+             << anchor.y << ' ' << anchor.z << ' ' << GetLoadedLevelID() << ' '
              << g_status.buffers.Char[PremadeSlot()].experience << ' '
              << g_status.buffers.Char[PremadeSlot()].hp_current << '\n';
     metadata.close();
@@ -1527,10 +1527,13 @@ W8MonsterInfo* EnterCombat(Game& game)
     game.command(W8_MGS_COMMAND_TOGGLE_COMBAT);
     REQUIRE(game.within_frames(4, [] { return gXStatus.fCombatMode != 0; }));
     REQUIRE(g_combat_state);
-    W8MonsterInfo* monster = GetNextMonsterInfo(true);
-    while (monster && (!monster->fActive || !monster->p3D || !monster->hp_current ||
-                       monster->ubDisposition != W8_DISPOSITION_HOSTILE)) {
-        monster = GetNextMonsterInfo(false);
+    W8MonsterInfo* monster = nullptr;
+    for (const auto& candidate : gXStatus.monster_roster.live()) {
+        if (candidate->fActive && candidate->p3D && candidate->hp_current &&
+            candidate->ubDisposition == W8_DISPOSITION_HOSTILE) {
+            monster = candidate.get();
+            break;
+        }
     }
     REQUIRE(monster);
     if (!monster->fInCombat) {
@@ -1544,7 +1547,7 @@ void QuickSaveScenario()
     Game game(false);
     StartPremadeGame(game);
     const glm::vec3 anchor = Walk(game, "walk", 2.0f);
-    const int level = g_status.current_level;
+    const int level = GetLoadedLevelID();
     const unsigned experience = g_status.buffers.Char[PremadeSlot()].experience;
     const auto health = g_status.buffers.Char[PremadeSlot()].hp_current;
     REQUIRE(health > 1);
@@ -1572,7 +1575,7 @@ void QuickSaveScenario()
     Settle(game, "quick-load");
     ExpectAt("quick-load", anchor);
     REQUIRE(CountActiveCharacters() == 1);
-    REQUIRE(g_status.current_level == level);
+    REQUIRE(GetLoadedLevelID() == level);
     REQUIRE(g_status.buffers.Char[PremadeSlot()].experience == experience);
     REQUIRE(g_status.buffers.Char[PremadeSlot()].hp_current == health);
     REQUIRE(!gXStatus.fCombatMode);
@@ -1624,7 +1627,7 @@ void LoadGameScenario(const fs::path& fixture)
     LoadFromMenu(game, fixture / "fixture.SAV");
     ExpectAt("loaded", anchor);
     REQUIRE(CountActiveCharacters() == 1);
-    REQUIRE(g_status.current_level == level);
+    REQUIRE(GetLoadedLevelID() == level);
     REQUIRE(g_status.buffers.Char[PremadeSlot()].experience == experience);
     REQUIRE(g_status.buffers.Char[PremadeSlot()].hp_current == health);
     std::printf("load-game: loaded the fixture after %lu frames\n", game.frames());
@@ -1923,10 +1926,11 @@ void Approach(Game& game, int location_id, float stop)
 std::vector<W8MonsterInfo*> CombatMonsters()
 {
     std::vector<W8MonsterInfo*> monsters;
-    for (W8MonsterInfo* monster = GetNextMonsterInfo(true); monster;
-         monster = GetNextMonsterInfo(false))
+    for (const auto& owner : gXStatus.monster_roster.live()) {
+        auto* monster = owner.get();
         if (monster->fActive && monster->fInCombat && monster->p3D && monster->hp_current)
             monsters.push_back(monster);
+    }
     return monsters;
 }
 
@@ -2023,20 +2027,6 @@ void CombatScenario()
     game.command(W8_MGS_COMMAND_TOGGLE_COMBAT);
     game.wait("leave-combat-again", [] { return gXStatus.fCombatMode == 0; }, 10);
     REQUIRE(!g_combat_state);
-    // Awards can arrive while no level is active. Keep the party rewards, but
-    // do not index level -1 and overwrite the preceding save-header bytes.
-    const auto status_suffix = std::to_array(g_status.status_header_suffix);
-    const int level = g_status.current_level;
-    const auto gold = g_status.party_gold;
-    const auto earned_experience = fighter.experience;
-    g_status.current_level = -1;
-    AddPartyGold(1, false);
-    AwardPartyExperience(1, 0);
-    CHECK(g_status.party_gold == gold + 1);
-    CHECK(fighter.experience == earned_experience + 1);
-    CHECK(std::to_array(g_status.status_header_suffix) == status_suffix);
-    g_status.current_level = level;
-
     /* Shutting down mid-fight ends it before the interface is released, also
        while the inventory has suspended the main game and released its
        portrait controls. */
@@ -2083,10 +2073,11 @@ void PrintState(Game& game)
         const glm::vec3 at = camera.position;
         std::printf("  party at (%g %g %g) yaw %g\n", at.x, at.y, at.z, camera.yaw[0]);
         std::vector<std::pair<float, W8MonsterInfo*>> nearby;
-        for (W8MonsterInfo* monster = GetNextMonsterInfo(true); monster;
-             monster = GetNextMonsterInfo(false))
+        for (const auto& owner : gXStatus.monster_roster.live()) {
+            auto* monster = owner.get();
             if (monster->fActive && monster->p3D && monster->hp_current)
                 nearby.emplace_back(HorizontalDistance(monster->p3D->GetPosition(), at), monster);
+        }
         std::ranges::sort(nearby, {}, &std::pair<float, W8MonsterInfo*>::first);
         if (nearby.size() > 6) nearby.resize(6);
         for (const auto& [distance, monster] : nearby)

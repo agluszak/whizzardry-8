@@ -140,13 +140,6 @@ void stSurface2D::setScale(float new_scale)
     scale = new_scale;
 }
 
-void stSurface2D::invalidateTiles()
-{
-    for (auto& tile : tiles) {
-        tile->invalidate();
-    }
-}
-
 // FUNCTION: WIZ8 0x0047E370
 void stSurface2D::setAlphaTestEnabled(bool enabled)
 {
