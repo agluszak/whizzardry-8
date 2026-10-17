@@ -46,7 +46,6 @@
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/conditions.h"
-#include "wiz8/containers.h"
 #include "wiz8/cursor.h"
 #include "wiz8/dialog_code/AssayDialog.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
