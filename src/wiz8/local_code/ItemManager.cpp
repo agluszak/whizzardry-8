@@ -580,7 +580,7 @@ void ActivateItem(W8WorldItem* item)
         static_cast<float>(Random(0x168) * 2 * g_camera_pi * kInverseFullTurnDegrees));
     static_cast<W8ItemRep*>(item->p3D->m_pRep)->flags |= item->entity_flags;
     item->p3D->AttachMesh(g_world.get());
-    AddItemToWorld(std::move(entity));
+    g_world->plsItems.push_back(std::move(entity));
     item->fActive = true;
     ++gXStatus.item_manager_pending;
 
@@ -626,7 +626,7 @@ void DeactivateWorldItem(W8WorldItem* item)
     item->entity_flags = static_cast<W8ItemRep*>(item->p3D->m_pRep)->flags;
 
     item->p3D->DetachMesh(g_world.get());
-    RemoveItemFromWorld(item->p3D);
+    std::erase_if(g_world->plsItems, [item](const auto& owner) { return owner.get() == item->p3D; });
     item->p3D = 0;
     item->fActive = false;
     --gXStatus.item_manager_pending;

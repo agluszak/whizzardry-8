@@ -885,6 +885,31 @@ TEST_CASE_METHOD(LoaderFixture,
     tree.m_sample_points.clear();
     REQUIRE(tree.LoadPointFiles("sample-fixture.lvl"));
     REQUIRE(tree.m_sample_points == std::vector<glm::vec3>{{1, -2, 3.5f}, {4, 5, -6}});
+    REQUIRE_FALSE(tree.m_points_dirty);
+
+    // Matching files replace rather than concatenate, in filename order.
+    // Keep the directory prefix separate from the wildcard, including retail separators.
+    std::filesystem::create_directory(fixture_root / "points");
+    std::string bytes;
+    append(bytes, 1u);
+    append(bytes, wiz8::retail::Vec3f{7, 8, 9});
+    store("points/sample-2.pts", bytes);
+    std::filesystem::copy_file(wiz8::asset_path("sample-fixture.pts"),
+                               fixture_root / "points" / "sample-1.pts");
+    REQUIRE(tree.LoadPointFiles("points\\sample.lvl"));
+    REQUIRE(tree.m_sample_points == std::vector<glm::vec3>{{7, 8, 9}});
+    REQUIRE(tree.m_points_dirty);
+
+    // A later truncated file must not publish partial data or retain iterator state.
+    tree.m_points_dirty = false;
+    store("points/sample-3.pts", std::string(1, '\0'));
+    REQUIRE_FALSE(tree.LoadPointFiles("points/sample.lvl"));
+    REQUIRE(tree.m_sample_points == std::vector<glm::vec3>{{7, 8, 9}});
+    REQUIRE_FALSE(tree.m_points_dirty);
+    REQUIRE(tree.LoadPointFiles("sample-fixture.lvl"));
+    REQUIRE(tree.m_sample_points == std::vector<glm::vec3>{{1, -2, 3.5f}, {4, 5, -6}});
+    REQUIRE_FALSE(tree.LoadPointFiles("missing.lvl"));
+    REQUIRE(tree.m_sample_points == std::vector<glm::vec3>{{1, -2, 3.5f}, {4, 5, -6}});
 }
 
 TEST_CASE_METHOD(LoaderFixture, "World item groups transfer ownership and preserve save records",

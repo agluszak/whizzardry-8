@@ -422,28 +422,6 @@ void WorldUpdateLights(W8World* world)
     }
 }
 
-/* 0x00659AB4: the world being rendered, which the list wrappers below reach
-   through. Every one of them ignores the caller's own first argument and uses
-   this global instead. */
-
-// FUNCTION: WIZ8 0x0046e580
-void AddMonsterToWorld(W8Monster* monster)
-{
-    g_world->active_monsters.push_back(monster);
-}
-
-// FUNCTION: WIZ8 0x0046e5c0
-void AddItemToWorld(std::unique_ptr<W8Item> item)
-{
-    g_world->plsItems.push_back(std::move(item));
-}
-
-// FUNCTION: WIZ8 0x0046e5e0
-void RemoveItemFromWorld(W8Item* item)
-{
-    std::erase_if(g_world->plsItems, [item](const auto& owner) { return owner.get() == item; });
-}
-
 // FUNCTION: WIZ8 0x0046e860
 void SetWorldSceneMeshShaderLowBits(W8World* owner, int argument)
 {

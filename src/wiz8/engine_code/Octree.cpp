@@ -127,19 +127,6 @@ static unsigned short g_octree_query_id;
 // GLOBAL: WIZ8 0x00659774
 static unsigned int g_octree_query_cell;
 
-// GLOBAL: WIZ8 0x00659778
-static std::vector<std::string> g_octree_file_search;
-static std::size_t g_octree_file_search_index;
-
-// GLOBAL: WIZ8 0x006598b2
-static unsigned char g_octree_file_search_active;
-
-// GLOBAL: WIZ8 0x00606810
-static char g_octree_point_extension[] = ".pts";
-
-// GLOBAL: WIZ8 0x006068a0
-static char g_octree_file_search_wildcard[] = "*";
-
 // GLOBAL: WIZ8 0x00659890
 w8_ulong* g_octree_state;
 // GLOBAL: WIZ8 0x00659894
@@ -721,43 +708,6 @@ void W8Octree::CollectVisibleCells()
     }
 }
 
-// FUNCTION: WIZ8 0x004329a0
-static unsigned char FindNextLevelFile(std::string* name)
-{
-    if (name == 0) {
-        g_octree_file_search_active = 0;
-        g_octree_file_search.clear();
-        return 0;
-    }
-    if (!g_octree_file_search_active) {
-        std::string search = *name;
-        const auto extension_start = search.find_last_of('.');
-        const auto extension =
-            extension_start == std::string::npos ? std::string{} : search.substr(extension_start);
-        if (extension_start != std::string::npos) {
-            search.resize(extension_start);
-        }
-        search += g_octree_file_search_wildcard;
-        search += extension;
-        const auto separator = search.find_last_of("\\/");
-        g_octree_file_search = wiz8::list_directory(
-            wiz8::asset_path(separator == std::string::npos ? "." : search.substr(0, separator)),
-            separator == std::string::npos ? search : search.substr(separator + 1));
-        g_octree_file_search_index = 0;
-        g_octree_file_search_active = !g_octree_file_search.empty();
-    } else {
-        g_octree_file_search_active = ++g_octree_file_search_index < g_octree_file_search.size();
-    }
-    if (!g_octree_file_search_active) {
-        g_octree_file_search.clear();
-        return 0;
-    }
-    const auto separator = name->find_last_of("\\/");
-    name->resize(separator == std::string::npos ? 0 : separator + 1);
-    *name += g_octree_file_search[g_octree_file_search_index];
-    return 1;
-}
-
 // FUNCTION: WIZ8 0x00432b80
 bool W8Octree::LoadPointFiles(const char* level_name)
 try {
@@ -765,15 +715,18 @@ try {
     if (const auto extension = stem.find_last_of('.'); extension != std::string::npos) {
         stem.resize(extension);
     }
-    stem += g_octree_point_extension;
-    std::string name = std::move(stem);
+    const auto separator = stem.find_last_of("\\/");
+    const auto directory =
+        separator == std::string::npos ? std::string{} : stem.substr(0, separator + 1);
+    const auto pattern = stem.substr(directory.size()) + "*.pts";
+    const auto files =
+        wiz8::list_directory(wiz8::asset_path(directory.empty() ? "." : directory), pattern);
+    if (files.empty()) return false;
 
-    FindNextLevelFile(0);
     std::vector<glm::vec3> points;
-    unsigned int count = 0;
-    unsigned int files = 0;
-    while (FindNextLevelFile(&name) != 0) {
-        auto file = wiz8::open_file(wiz8::asset_path(name));
+    for (const auto& name : files) {
+        auto file = wiz8::open_file(wiz8::asset_path(directory + name));
+        unsigned int count = 0;
         file->read_exact(&count, sizeof(count));
         const auto bytes = std::uint64_t{count} * sizeof(wiz8::retail::Vec3f);
         if (bytes > static_cast<std::uint64_t>(file->size() - file->tell()) ||
@@ -784,13 +737,9 @@ try {
         std::vector<glm::vec3> next(count);
         for (auto& point : next) wiz8::retail::read_exact(*file, point);
         points = std::move(next);
-        ++files;
-    }
-    if (files == 0) {
-        return false;
     }
     m_sample_points = std::move(points);
-    m_points_dirty |= files > 1;
+    m_points_dirty |= files.size() > 1;
     return true;
 } catch (const std::exception&) {
     return false;
@@ -807,7 +756,7 @@ try {
     if (const auto extension = name.find_last_of('.'); extension != std::string::npos) {
         name.resize(extension);
     }
-    name += g_octree_point_extension;
+    name += ".pts";
     auto file = wiz8::open_file(wiz8::user_path(name), wiz8::OpenMode::replace);
     const auto count = static_cast<std::uint32_t>(m_sample_points.size());
     file->write(&count, sizeof(count));
@@ -1215,7 +1164,7 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
         if (extension != 0) {
             *extension = '\0';
         }
-        strcat(point_path, g_octree_point_extension);
+        strcat(point_path, ".pts");
         if ([&]() {
                 const auto status = wiz8::file_status(wiz8::asset_path(point_path));
                 return status && status->info.type == SDL_PATHTYPE_FILE;
