@@ -56,13 +56,14 @@ public:
         m_path_bounds.max_x = 0;
         m_path_bounds.min_x = 0;
     }
-    GDProp(srModelInstance* instance, const char* path_name, unsigned short prop_number,
-           unsigned char footstep_surface, unsigned char footstep_material); /* 0x004B6E00 */
+    GDProp(W8PathingService* pathing, srModelInstance* instance, const char* path_name,
+           unsigned short prop_number, unsigned char footstep_surface,
+           unsigned char footstep_material); /* 0x004B6E00 */
     GDProp(GDProp&&) noexcept = default;
     GDProp& operator=(GDProp&&) noexcept = default;
     GDProp(const GDProp&) = delete;
     GDProp& operator=(const GDProp&) = delete;
-    void BindTrigger(Trigger* owner);
+    void BindTrigger(Trigger* owner, W8PathingService* pathing);
     bool ContainsPathCoordinate(unsigned short x, unsigned short y) const;
     bool HasSupportedItems();
     /* Rebuild the cached vertex and path bounds and return the complete box. */
@@ -80,8 +81,8 @@ public:
                                      const glm::ivec2& second);
 
 private:
-    void Initialize(srModelInstance* instance, bool attach, unsigned short prop_number,
-                    unsigned char footstep_surface,
+    void Initialize(W8PathingService* pathing, srModelInstance* instance, bool attach,
+                    unsigned short prop_number, unsigned char footstep_surface,
                     unsigned char footstep_material); /* 0x004B7060 */
     void PrepareGeometry(srModelInstance* instance);
 

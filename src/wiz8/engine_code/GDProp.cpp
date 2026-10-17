@@ -31,8 +31,9 @@
 #include "wiz8/layouts/world.h"
 
 // FUNCTION: WIZ8 0x004b6e00
-GDProp::GDProp(srModelInstance* instance, const char* path_name, unsigned short prop_number,
-               unsigned char footstep_surface, unsigned char footstep_material)
+GDProp::GDProp(W8PathingService* pathing, srModelInstance* instance, const char* path_name,
+               unsigned short prop_number, unsigned char footstep_surface,
+               unsigned char footstep_material)
 {
     Flags initial_flags = {false, false, false, false, 0, 0};
     m_flags = initial_flags;
@@ -45,17 +46,16 @@ GDProp::GDProp(srModelInstance* instance, const char* path_name, unsigned short 
     m_path_bounds.max_x = 0;
     m_path_bounds.min_x = 0;
 
-    if (GetWorldOctree() != 0 && GetWorldOctree()->pathing != 0) {
-        m_path_handle =
-            GetWorldOctree()->pathing->FindPathHandle(path_name, &m_path_bounds, &m_path_range);
+    if (pathing != nullptr) {
+        m_path_handle = pathing->FindPathHandle(path_name, &m_path_bounds, &m_path_range);
     }
 
     if (instance != 0) {
-        if (m_path_handle != 0 && GetWorldOctree()->pathing != 0) {
-            GetWorldOctree()->pathing->LinkSurfaces(this);
-            GetWorldOctree()->pathing->LinkEdges(this);
+        if (m_path_handle != 0 && pathing != nullptr) {
+            pathing->LinkSurfaces(this);
+            pathing->LinkEdges(this);
         }
-        Initialize(instance, true, prop_number, footstep_surface, footstep_material);
+        Initialize(pathing, instance, true, prop_number, footstep_surface, footstep_material);
     }
 }
 
@@ -80,8 +80,9 @@ void GDProp::PrepareGeometry(srModelInstance* instance)
    into world space before each accumulated triangle receives its plane,
    dominant axis, slope classification and caller-provided material bytes. */
 // FUNCTION: WIZ8 0x004b7060
-void GDProp::Initialize(srModelInstance* instance, bool attach, unsigned short prop_number,
-                        unsigned char footstep_surface, unsigned char footstep_material)
+void GDProp::Initialize(W8PathingService* pathing, srModelInstance* instance, bool attach,
+                        unsigned short prop_number, unsigned char footstep_surface,
+                        unsigned char footstep_material)
 {
     if (!attach) {
         m_flags.unattached = true;
@@ -134,7 +135,6 @@ void GDProp::Initialize(srModelInstance* instance, bool attach, unsigned short p
         mesh = mesh->Next();
     }
 
-    W8PathingService* pathing = GetWorldOctree()->pathing;
     if (m_path_handle != 0 && pathing != 0) {
         if (!attach) {
             if (m_prop_number != 0xffff) {
@@ -180,7 +180,7 @@ void GDProp::Initialize(srModelInstance* instance, bool attach, unsigned short p
 /* Attach the product-side prop owner and immediately mirror its active state
    into both the local GD flags and the conditional path table. */
 // FUNCTION: WIZ8 0x004b7470
-void GDProp::BindTrigger(Trigger* owner)
+void GDProp::BindTrigger(Trigger* owner, W8PathingService* pathing)
 {
     m_trigger = owner;
     W8TriggerActionData* action = owner->m_pActionData.get();
@@ -199,7 +199,6 @@ void GDProp::BindTrigger(Trigger* owner)
                 m_flags.door_usable = false;
             }
 
-            W8PathingService* pathing = GetWorldOctree()->pathing;
             if (pathing != 0) {
                 pathing->UpdateConditionalPathFlags(m_path_handle, m_prop_number, path_flags);
             }
@@ -304,7 +303,7 @@ void AddItemToSector(int sector, W8WorldItem* item)
         W8Prop* prop = GetWorld()->collidable_props[sector];
         GDProp* gd = prop->m_gd_prop.get();
         if (gd == 0) {
-            prop->BuildOrRefreshPathingRepresentation();
+            prop->BuildOrRefreshPathingRepresentation(GetWorldPathing());
             gd = prop->m_gd_prop.get();
             if (gd == 0) {
                 return;

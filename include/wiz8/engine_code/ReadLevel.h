@@ -17,10 +17,10 @@ struct W8NamedPosition;
 class stParticle;
 
 struct W8ReadLevelInfo {
-    W8World* world;            /* 0x00 */
-    wiz8::File* hFile;                 /* 0x04 */
-    const char* bitmap_folder; /* 0x08 */
-    const char* mesh_filename; /* 0x0c */
+    W8World* world = nullptr;
+    wiz8::File* hFile = nullptr;
+    const char* bitmap_folder = nullptr;
+    const char* mesh_filename = nullptr;
 };
 
 unsigned char ReadLevel(W8World* world, wiz8::File* handle, bool use_octree,

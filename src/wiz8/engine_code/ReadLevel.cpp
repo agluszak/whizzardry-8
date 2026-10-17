@@ -940,13 +940,14 @@ try {
             particle->camera_offset = glm::vec3(particle->getLocation());
             particle->camera_relative = 1;
             particle->SetActive(1);
-        } else if (pInfo->world->octree != 0) {
+        } else if (pInfo->world && pInfo->world->octree != 0) {
             octree_particles.push_back(particle);
         }
         pending.push_back(std::move(owned));
     }
     pParticles->reserve(pParticles->size() + pending.size());
-    if (pInfo->world->octree) pInfo->world->octree->AddLoadedParticles(octree_particles);
+    if (pInfo->world && pInfo->world->octree)
+        pInfo->world->octree->AddLoadedParticles(octree_particles);
     pParticles->insert(pParticles->end(), std::make_move_iterator(pending.begin()),
                        std::make_move_iterator(pending.end()));
     return 1;

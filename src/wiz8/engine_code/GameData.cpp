@@ -41,6 +41,7 @@
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/OctBuildTree.h"
+#include "wiz8/engine_code/OctPath.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/SoundEvent.h"
@@ -504,7 +505,7 @@ W8GDSurface* W8GameData::ProbePropsAlongMotion(glm::vec3* direction, glm::vec3* 
             gd_prop = prop->m_gd_prop.get();
             prop->flags |= 0x10;
             if (gd_prop == 0) {
-                prop->BuildOrRefreshPathingRepresentation();
+                prop->BuildOrRefreshPathingRepresentation(GetWorldPathing());
                 gd_prop = prop->m_gd_prop.get();
                 if (gd_prop == 0) {
                     return 0;
@@ -1016,7 +1017,7 @@ bool W8GameData::TestProp(int prop_id, W8OctreeTrace* trace, char skip_flag, cha
 {
     auto* prop = GetWorld()->collidable_props[prop_id];
     prop->flags |= 0x10;
-    if (!prop->m_gd_prop) prop->BuildOrRefreshPathingRepresentation();
+    if (!prop->m_gd_prop) prop->BuildOrRefreshPathingRepresentation(GetWorldPathing());
     auto* gd_prop = prop->m_gd_prop.get();
     if (gate != 0 && gd_prop->m_flags.unattached) return false;
 
