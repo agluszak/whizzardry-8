@@ -53,7 +53,6 @@
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/Search.h"
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/local_screens/AutomapScreen.h"
@@ -87,7 +86,6 @@ static void StopWorldActivity(W8World* world)
 {
     // The cursor borrows a monster owned by this world, even while hidden.
     ReleaseWorldCursor();
-    StopWorldTriggerEvents();
     StopAllAmbientSounds();
     world->nodes_to_disable.clear();
 }
@@ -603,7 +601,6 @@ void UnloadLevel()
     }
 
     ReleaseWorldCursorNodes();
-    ClearSearchables();
     if (g_world_cleanup_flag) {
         RenderFrame();
     }

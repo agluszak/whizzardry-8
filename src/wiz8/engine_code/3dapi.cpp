@@ -358,6 +358,8 @@ static void ClearWorldIndexes(W8World* world)
 // referenced, then the scene itself.
 static void DestroyWorldResources(W8World* world)
 {
+    world->timed_events.clear();
+    world->standalone_trigger_events.clear();
     world->monster_generators.clear();
     world->active_monsters.clear();
     world->monsters.clear();

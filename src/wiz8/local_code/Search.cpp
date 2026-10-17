@@ -1,6 +1,5 @@
 #include "wiz8/local_code/Search.h"
 
-#include <algorithm>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -28,6 +27,7 @@
 #include "wiz8/engine_code/PolyPick.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/Trigger.hpp"
+#include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/stCube.h"
 #include "wiz8/fonts.h"
 #include "wiz8/gameplay_constants.h"
@@ -49,129 +49,80 @@
 constexpr int kSearchFoundItemEvent = 0x17;
 constexpr int kSearchFoundItemEventAlt = 0x18;
 
-/* Local Code\search.cpp. The assertion in RegisterSearchableTrigger at source
-   line 337 establishes the original translation unit. */
+/* Borrowed candidate for one search pulse, derived from hidden items and unsearched triggers. */
+struct W8Searchable {
 
-// GLOBAL: WIZ8 0x00689fa8
-std::vector<std::unique_ptr<W8Searchable>> g_searchables;
-// GLOBAL: WIZ8 0x00689fb8
-W8SearchableView g_search_view;
-// GLOBAL: WIZ8 0x00689fcc
-uint64_t g_search_pulse_clock;
+    /* Resolve this searchable's world position. */
+    void GetPosition(glm::vec3* position);
+    // Apply discovery to the item or trigger itself.
+    void Reveal();
+    /* The best searching party member within range of this
+       searchable, or -1. Practices the searching skill on a qualified pick. */
+    int PickBestSearcher();
+
+    W8WorldItem* world_item = nullptr;
+    Trigger* trigger = nullptr;
+};
+
+static uint64_t g_search_pulse_clock;
 
 /* 10000.0: the unit search radius PickBestSearcher scales by score, and the
    collector's outer range gate. */
 // GLOBAL: WIZ8 0x0061a364
-float g_search_radius = 10000.0f;
+constexpr float g_search_radius = 10000.0f;
 // GLOBAL: WIZ8 0x0061a368
-float g_search_cone_angle = 3.1415925f;
+constexpr float g_search_cone_angle = 3.1415925f;
 
 /* The view's own constructor: seeds the cursor ahead of the first element and
    builds the item vector with capacity five. */
 // FUNCTION: WIZ8 0x00517900
-W8SearchableView::W8SearchableView() : cursor(-1), items() {}
-
-// Remove borrowed entries before their registry owner is destroyed. Keeping the
-// cursor before the next entry lets an active search pulse continue after removal.
-static void InvalidateSearchView(W8Searchable* searchable)
-{
-    auto& items = g_search_view.items;
-    const auto entry = std::find(items.begin(), items.end(), searchable);
-    if (entry == items.end()) return;
-    if (entry - items.begin() <= g_search_view.cursor) --g_search_view.cursor;
-    items.erase(entry);
-}
-
-/* Searchable was detected: items shed their hidden flag and become findable,
-   triggers run; either way the record leaves the registry. */
+/* Discovery changes the same state used to select the next pulse's candidates. */
 // FUNCTION: WIZ8 0x00516ad0
 void W8Searchable::Reveal()
 {
     if (world_item ? !ItemHasFlags(world_item, W8_WORLD_ITEM_HIDDEN) : trigger == nullptr) return;
-    const auto entry = std::find_if(g_searchables.begin(), g_searchables.end(),
-                                    [this](const auto& owner) { return owner.get() == this; });
-    if (entry == g_searchables.end()) return;
-    // Retain this record across trigger callbacks, which may change the registry.
-    auto owner = std::move(*entry);
-    InvalidateSearchView(this);
-    g_searchables.erase(entry);
     if (world_item) {
         SetItemFlags(world_item, W8_WORLD_ITEM_HIDDEN, false);
         SetItemFlags(world_item, W8_WORLD_ITEM_RADAR_BLIP_LIT, true);
         SetItemAndEntityFlags(world_item, W8_ITEM_ENTITY_HIGHLIGHT_BLUE, false);
     } else {
+        if ((trigger->flags & W8_TRIGGER_SEARCHED) != 0) return;
         trigger->Run(-1);
         trigger->flags |= W8_TRIGGER_SEARCHED;
     }
 }
 
-/* Refill the view with the registered searchables inside the search radius
-   that either face the party or have a clear line of sight. Returns null when
-   nothing qualified. */
+/* Gather eligible candidates inside the radius and sight cone for one pulse. */
 // FUNCTION: WIZ8 0x00516ba0
-W8SearchableView* CollectSearchablesInView(void)
+static std::vector<W8Searchable> CollectSearchablesInView(W8World& world)
 {
-    int total = static_cast<int>(g_searchables.size());
-    glm::vec3 camera = cameraLocation();
-    g_search_view.items.clear();
-    g_search_view.cursor = -1;
-    for (int index = 0; index < total; ++index) {
-        W8Searchable* searchable = g_searchables[index].get();
+    std::vector<W8Searchable> found;
+    const glm::vec3 camera = cameraLocation();
+    const auto collect = [&](W8Searchable candidate) {
         glm::vec3 position;
-        searchable->GetPosition(&position);
-        glm::vec3 delta = camera - position;
-        if (glm::length(delta) < g_search_radius) {
-            if (searchable->world_item == 0 && searchable->trigger != 0) {
-                g_search_view.items.push_back(searchable);
-            } else {
-                float half_cone = g_search_cone_angle * 0.5f;
-                glm::vec3 from = camera;
-                glm::vec3 to = position;
-                float yaw = GetCameraYawRadians();
-                float heading = GetHeadingAngle(&from, &to);
-                float ahead = NormalizeAngle(yaw - heading);
-                float behind = NormalizeAngle(heading - yaw);
-                if ((half_cone <= ahead && half_cone <= behind) || GetWorldOctree() == 0 ||
-                    !GetWorldOctree()->HasLineOfSight(&camera, &position, true)) {
-                    continue;
-                }
-                g_search_view.items.push_back(searchable);
-            }
+        candidate.GetPosition(&position);
+        if (glm::length(camera - position) >= g_search_radius) return;
+        if (candidate.world_item) {
+            const float half_cone = g_search_cone_angle * 0.5f;
+            auto from = camera;
+            const float heading = GetHeadingAngle(&from, &position);
+            const float yaw = GetCameraYawRadians();
+            if ((half_cone <= NormalizeAngle(yaw - heading) &&
+                 half_cone <= NormalizeAngle(heading - yaw)) ||
+                !world.octree || !world.octree->HasLineOfSight(&camera, &position, true))
+                return;
         }
-    }
-    return !g_search_view.items.empty() ? &g_search_view : 0;
-}
-
-/* Register one searchable world item. The item pointer lands in the record's
-   first slot, which is what distinguishes the item entries from the trigger
-   entries registered by the sibling below. */
-// FUNCTION: WIZ8 0x00516e20
-void RegisterSearchableWorldItem(W8WorldItem* item)
-{
-    auto searchable = std::make_unique<W8Searchable>();
-    searchable->world_item = item;
-    g_searchables.push_back(std::move(searchable));
-}
-
-// FUNCTION: WIZ8 0x00516f00
-void RegisterSearchableTrigger(Trigger* trigger)
-{
-    auto searchable = std::make_unique<W8Searchable>();
-    searchable->trigger = trigger;
-    g_searchables.push_back(std::move(searchable));
-}
-
-// FUNCTION: WIZ8 0x00516fe0
-void UnregisterSearchableTrigger(Trigger* trigger)
-{
-    for (int index = 0; index < static_cast<int>(g_searchables.size()); ++index) {
-        W8Searchable* searchable = g_searchables[index].get();
-        if (searchable->trigger == trigger) {
-            InvalidateSearchView(searchable);
-            g_searchables.erase(g_searchables.begin() + index);
-            return;
-        }
-    }
+        found.push_back(candidate);
+    };
+    // Trigger definitions precede item records in level loading. Keep that search order.
+    for (const auto& trigger : world.triggers)
+        if (trigger->trigger_kind == 1 && trigger->searchable == 1 &&
+            (trigger->flags & W8_TRIGGER_SEARCHED) == 0)
+            collect({nullptr, trigger.get()});
+    for (const auto& group : gXStatus.world_items)
+        for (auto* item = group.get(); item; item = item->next.get())
+            if (ItemHasFlags(item, W8_WORLD_ITEM_HIDDEN)) collect({item, nullptr});
+    return found;
 }
 
 /* Resolve this searchable's world position: the item's rep midpoint when it
@@ -191,12 +142,6 @@ void W8Searchable::GetPosition(glm::vec3* position)
                       world_item->position.z);
         return;
     }
-    if (cursor_node != 0) {
-        if (cursor_node->GetLocation(position) == 0) {
-            *position = glm::vec3(3.4028235e+38f);
-        }
-        return;
-    }
     if (trigger != 0) {
         W8Prop* prop = trigger->GetProp();
         if (prop != 0) {
@@ -206,12 +151,6 @@ void W8Searchable::GetPosition(glm::vec3* position)
 }
 
 // FUNCTION: WIZ8 0x005171b0
-void ClearSearchables()
-{
-    g_search_view.items.clear();
-    g_searchables.clear();
-    g_search_view.cursor = -1;
-}
 
 /* The 500ms search sweep: while nothing is interacting or surprising the
    party, walk the in-view searchables, pick the best searcher for each, queue
@@ -230,19 +169,11 @@ void RunSearchPulse(void)
                 ShowNotice(W8_FONT_PALETTE_BEIGE,
                            g_localized_strings[W8_NOTICE_SEARCH_SPECIAL_LEVEL]);
             }
-            W8SearchableView* view = CollectSearchablesInView();
+            auto candidates = CollectSearchablesInView(*GetWorld());
             bool found = false;
-            if (view != 0) {
-                for (;;) {
-                    ++view->cursor;
-                    if (static_cast<int>(view->items.size()) <= view->cursor) {
-                        --view->cursor;
-                        break;
-                    }
-                    W8Searchable* searchable = view->items[view->cursor];
-                    if (searchable == 0) {
-                        break;
-                    }
+            {
+                for (auto& candidate : candidates) {
+                    auto* searchable = &candidate;
                     int slot = searchable->PickBestSearcher();
                     if (slot != -1) {
                         W8Character* character = &g_status.buffers.Char[slot];

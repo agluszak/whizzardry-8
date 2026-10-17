@@ -58,7 +58,6 @@
 #include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_code/ItemManager.h"
-#include "wiz8/local_code/Search.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/navigation_flags.h"
 #include "wiz8/packed_bits.h"
@@ -1309,16 +1308,6 @@ TEST_CASE_METHOD(LoaderFixture,
 TEST_CASE_METHOD(LoaderFixture, "World item groups transfer ownership and preserve save records",
                  "[loader][items]")
 {
-    const auto registered = g_searchables.size();
-    const struct RestoreSearchables {
-        std::size_t count;
-        ~RestoreSearchables()
-        {
-            while (g_searchables.size() > count) {
-                g_searchables.pop_back();
-            }
-        }
-    } restore{registered};
     wiz8::retail::WorldItem first{}, second{};
     first.runtime_id = 17;
     first.position = {1, -2, 3};
@@ -1336,15 +1325,12 @@ TEST_CASE_METHOD(LoaderFixture, "World item groups transfer ownership and preser
     store("items.bin", bytes.substr(0, bytes.size() - 1));
     auto file = wiz8::open_file(wiz8::asset_path("items.bin"));
     REQUIRE_FALSE(LoadItem(*file));
-    REQUIRE(g_searchables.size() == registered);
     file.reset();
     store("items.bin", bytes);
     file = wiz8::open_file(wiz8::asset_path("items.bin"));
     auto group = LoadItem(*file);
     REQUIRE(group);
     REQUIRE(ItemInfoGetNumInGroup(group.get()) == 2);
-    REQUIRE(g_searchables.size() == registered + 1);
-    REQUIRE(g_searchables.back()->world_item == group.get());
     auto detached = ItemInfoRemoveFromGroup(group.get(), group->next.get());
     REQUIRE(detached->runtime_id == 29);
     REQUIRE_FALSE(group->next);
@@ -1455,34 +1441,6 @@ TEST_CASE_METHOD(LoaderFixture,
     }
     ReleaseSpellDatabase();
     REQUIRE(g_spell_records == nullptr);
-}
-
-TEST_CASE("Revealing searchables invalidates borrowed view entries without skipping the next item",
-          "[ownership][search]")
-{
-    ClearSearchables();
-    W8WorldItem first{}, second{};
-    const struct Cleanup {
-        ~Cleanup() { ClearSearchables(); }
-    } cleanup;
-    SetItemFlags(&first, W8_WORLD_ITEM_HIDDEN, true);
-    SetItemFlags(&second, W8_WORLD_ITEM_HIDDEN, true);
-    RegisterSearchableWorldItem(&first);
-    RegisterSearchableWorldItem(&second);
-    auto* found = g_searchables[0].get();
-    auto* next = g_searchables[1].get();
-    g_search_view.items = {found, next};
-    g_search_view.cursor = 0;
-    found->Reveal();
-    REQUIRE_FALSE(ItemHasFlags(&first, W8_WORLD_ITEM_HIDDEN));
-    REQUIRE(ItemHasFlags(&first, W8_WORLD_ITEM_RADAR_BLIP_LIT));
-    REQUIRE(g_searchables.size() == 1);
-    REQUIRE(g_searchables.front().get() == next);
-    REQUIRE(g_search_view.items == std::vector<W8Searchable*>{next});
-    REQUIRE(g_search_view.cursor == -1);
-    next->Reveal();
-    REQUIRE(g_search_view.items.empty());
-    REQUIRE(g_searchables.empty());
 }
 
 TEST_CASE_METHOD(LoaderFixture, "Path parameters accept complete CRLF and unterminated text lines",

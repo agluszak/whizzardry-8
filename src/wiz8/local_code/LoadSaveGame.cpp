@@ -80,7 +80,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Search.h"
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/local_code/Strings.h"
@@ -1324,7 +1323,6 @@ try {
     std::unique_ptr<W8WorldItem> head;
     auto* link = &head;
     bool has_next;
-    std::vector<std::unique_ptr<W8Searchable>> searchables;
     do {
         const auto image = wiz8::retail::read_image<W8WorldItem>(handle);
         has_next = image.next != 0;
@@ -1334,15 +1332,8 @@ try {
         item.sector_id = -2;
         item.fActive = false;
         if (from_assets) item.entity_flags &= ~W8_ITEM_ENTITY_RADAR_SEEN;
-        if (ItemHasFlags(&item, W8_WORLD_ITEM_HIDDEN)) {
-            auto searchable = std::make_unique<W8Searchable>();
-            searchable->world_item = &item;
-            searchables.push_back(std::move(searchable));
-        }
         link = &item.next;
     } while (has_next);
-    g_searchables.reserve(g_searchables.size() + searchables.size());
-    for (auto& searchable : searchables) g_searchables.push_back(std::move(searchable));
     return head;
 } catch (const std::exception&) {
     return nullptr;

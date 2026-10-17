@@ -39,6 +39,7 @@ class stLight;
 class W8Prop;
 class W8AmbientSound;
 class Trigger;
+class W8TriggerEvent;
 class stParticle;
 struct W8PathAI;
 struct W8GameData;
@@ -126,6 +127,9 @@ struct W8World {
     std::vector<W8Prop*> collidable_props;
     std::vector<std::unique_ptr<MonGen>> monster_generators;
     std::vector<std::unique_ptr<Trigger>> triggers;
+    // Ordered scheduling borrows trigger-owned events; standalone effects have their own owners.
+    std::vector<W8TriggerEvent*> timed_events;
+    std::vector<std::unique_ptr<W8TriggerEvent>> standalone_trigger_events;
     // Level particles: the world owns them; the dynamic scene only attaches them.
     std::vector<std::unique_ptr<stParticle>> particles;
     // Cycle particles that outlived their cycle while still emitting.
