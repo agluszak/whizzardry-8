@@ -17,8 +17,10 @@ class W8Prop;
 
 W8World* GetWorld(void);
 W8World* GetSecondaryWorld(void);
-/* Publish a loaded world, returning the previous owner. The level world's
-   activity is stopped before it is handed back. */
+/* Publish a loaded world, returning the previous owner. Production loads and
+   test fixtures use the same path. */
+std::unique_ptr<W8World> ReplaceWorld(std::unique_ptr<W8World> world);
+std::unique_ptr<W8World> ReplaceSkyWorld(std::unique_ptr<W8World> world);
 
 std::unique_ptr<W8World> LoadWorld(int level_id, std::string source_path, bool use_octree = true);
 void DetachAllWorldItems(void);

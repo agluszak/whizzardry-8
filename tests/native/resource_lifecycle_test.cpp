@@ -53,7 +53,6 @@
 #include "wiz8/npc_script_file.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/xstatus.h"
-#include "world_fixture.h"
 
 extern std::shared_ptr<SDL_Surface> g_mouse_surface;
 extern SDLSurfaceOwner g_automap_surface;

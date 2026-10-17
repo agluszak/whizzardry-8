@@ -422,6 +422,8 @@ void MonsterForwardReferencePosition(W8Monster* monster, char alternate); /* 0x0
 void NotifyMonsterHighlight(int party_slot, int location_id, int on);
 
 W8Item* CreateMonsterIconItem(W8World& world, const char* path);
+/* A Monster script by name, shared through the script cache; null when missing. */
+std::shared_ptr<stScript> LoadMonsterScript(std::string_view name);
 /* One eight-byte row per animation cycle at 0x0060EA08. The parser at
    0x004C2010 reads prefix_length as a signed byte. Its optional atoi offset
    comes from the search index, which can differ from the returned cycle. */

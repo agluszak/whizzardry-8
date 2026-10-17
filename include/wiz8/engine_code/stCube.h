@@ -33,22 +33,6 @@ std::unique_ptr<W8WorldCursorNode> CreateWorldCursorCube();
 /* Answer the next table node after `after` whose world-space bounds contain
    `point`; a null `after` starts the walk at the head of the table. */
 W8WorldCursorNode* FindWorldCursorNodeAtPoint(W8WorldCursorNode* after, glm::vec3* point);
-void ScaleWorldCursorNodeX(W8WorldCursorNode* entry, double scale);
-void ScaleWorldCursorNodeY(W8WorldCursorNode* entry, double scale);
-void ScaleWorldCursorNodeZ(W8WorldCursorNode* entry, double scale);
-void SetWorldCursorNodeColorComponents(W8WorldCursorNode* entry, float red, float green,
-                                       float blue);
-/* 0x0048DCA0 forwards to the full label painter at 0x0048DCB0. */
-void RefreshWorldCursorNodeLabel(W8WorldCursorNode* entry);
-/* Return the indexed cursor node, or the first node when the index is past the end. */
-W8WorldCursorNode* GetWorldCursorNode(int index);
-void AttachWorldCursorNode(W8WorldCursorNode* entry, bool attached);
-/* 0x0048F110: copy `name` into the node's 0x20-byte name with a forced
-   terminator. */
-void SetWorldCursorNodeName(W8WorldCursorNode* entry, const char* name);
-void SetWorldCursorNodeColor(W8WorldCursorNode* entry, w8_ulong color);
-/* 0x0048E3E0: the world-cursor node under the screen point, or 0. */
-W8WorldCursorNode* PickWorldCursorNodeAtScreenPoint(int x, int y);
 void SaveWorldCursorNodeStates(wiz8::File& handle);
 void SaveWorldCursorNodes(wiz8::File& handle);
 struct W8SavedCursorNode {

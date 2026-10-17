@@ -52,10 +52,6 @@
 // FUNCTION: WIZ8 0x0048da80
 W8WorldCursorNode::~W8WorldCursorNode() = default;
 
-/* Cursor nodes are allocated separately so their addresses survive
-   changes to the node table. */
-// GLOBAL: WIZ8 0x0065ba58
-
 /* The double selection range at 0x005ECAC8: node distances below it select the
    node. Read as 75000.0, not the zero a float view would give. */
 // GLOBAL: WIZ8 0x005ecac8
@@ -243,8 +239,11 @@ void ReadWorldCursorNodeStates(W8Chunk& file, W8SavedCursorNodes& table)
         file.ReadBytes(bytes.data(), bytes.size());
         pending.emplace_back(destination, std::move(bytes));
     }
-    for (auto& [index, bytes] : pending)
+    for (auto& [index, bytes] : pending) {
+        // Version 1 matched by position; an index past the table names the first node.
+        if (version == 1 && index >= table.nodes.size()) index = 0;
         if (index < table.nodes.size()) table.nodes[index].userdata = std::move(bytes);
+    }
 }
 
 // FUNCTION: WIZ8 0x0048e6d0
@@ -314,10 +313,8 @@ void BuildWorldCursorNodes(W8World& world, W8SavedCursorNodes records)
         std::copy(record.parameters.begin(), record.parameters.end(), cube->parameters);
         const auto scale =
             (record.maximum - record.minimum) * static_cast<float>(g_world_cursor_scale);
-        auto* instance = cube->node.get();
-        if (instance && instance->getModel())
-            static_cast<stMeshModel*>(instance->getModel())->scale(scale);
-        if (cube->node) cube->node->setLocation(glm::dvec3(record.location));
+        static_cast<stMeshModel*>(cube->node->getModel())->scale(scale);
+        cube->node->setLocation(glm::dvec3(record.location));
         cube->value_08 = record.value;
         cube->userdata = std::move(record.userdata);
         DrawWorldCursorNodeLabel(*cube);
@@ -407,10 +404,4 @@ bool SelectWorldCursorNode(void)
         }
     }
     return false;
-}
-
-// FUNCTION: WIZ8 0x0048DB30
-void ReleaseWorldCursorNodes(void)
-{
-    if (GetWorld()) GetWorld()->cursor_nodes.clear();
 }

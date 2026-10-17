@@ -750,7 +750,6 @@ namespace {
 void ReadLevelSection(W8World& world, W8LoadedLevelStatus::Data& data, W8Chunk& chunk,
                       unsigned int chunk_id, bool from_assets, bool baseline = false)
 {
-    auto& file = chunk;
     switch (chunk_id) {
     case W8_CHUNK_STATUS_HEADER:
         data.header = chunk.ReadValue<W8StatusHeader>();
@@ -785,44 +784,44 @@ void ReadLevelSection(W8World& world, W8LoadedLevelStatus::Data& data, W8Chunk& 
         break;
     }
     case W8_CHUNK_CURSOR_NODES:
-        data.cursors = ReadWorldCursorNodes(file);
-        if (from_assets && !baseline) ReadWorldCursorNodeStates(file, *data.cursors);
+        data.cursors = ReadWorldCursorNodes(chunk);
+        if (from_assets && !baseline) ReadWorldCursorNodeStates(chunk, *data.cursors);
         break;
     case W8_CHUNK_ENCOUNTERS:
-        data.encounters = ReadEncounterState(file);
+        data.encounters = ReadEncounterState(chunk);
         break;
     case W8_CHUNK_TRIGGER_LOCKS:
     case W8_CHUNK_TRIGGER_STATES:
-        RequireSection(LoadTriggerRuntimeStates(world, file), "trigger runtime state");
+        RequireSection(LoadTriggerRuntimeStates(world, chunk), "trigger runtime state");
         break;
     case W8_CHUNK_TRIGGER_ACTIONS:
-        RequireSection(LoadTriggerActionData(world, file), "trigger action data");
+        RequireSection(LoadTriggerActionData(world, chunk), "trigger action data");
         break;
     case W8_CHUNK_AUTOMAP_NOTES:
-        data.automap = ReadAutomapNotes(file, world.automap.keys.size());
+        data.automap = ReadAutomapNotes(chunk, world.automap.keys.size());
         break;
     case W8_CHUNK_TRIGGERS:
-        RequireSection(LoadWorldTriggers(&world, file, from_assets), "trigger state");
+        RequireSection(LoadWorldTriggers(&world, chunk, from_assets), "trigger state");
         break;
     case W8_CHUNK_PROPS:
-        LoadWorldProps(&world, file);
+        LoadWorldProps(&world, chunk);
         break;
     case W8_CHUNK_CURSOR_NODE_STATES:
         if (!data.cursors) data.cursors.emplace();
-        ReadWorldCursorNodeStates(file, *data.cursors);
+        ReadWorldCursorNodeStates(chunk, *data.cursors);
         break;
     case W8_CHUNK_MONSTER_GENERATORS:
         if (!data.encounters) data.encounters.emplace();
-        ReadMonsterGeneratorStates(file, *data.encounters);
+        ReadMonsterGeneratorStates(chunk, *data.encounters);
         break;
     case W8_CHUNK_AMBIENT_SOUNDS:
-        std::ranges::move(ReadAmbientSoundStates(file), std::back_inserter(data.ambient));
+        std::ranges::move(ReadAmbientSoundStates(chunk), std::back_inserter(data.ambient));
         break;
     case W8_CHUNK_PARTICLES:
-        std::ranges::move(ReadParticleStates(file), std::back_inserter(data.particles));
+        std::ranges::move(ReadParticleStates(chunk), std::back_inserter(data.particles));
         break;
     case W8_CHUNK_LIGHTS:
-        std::ranges::move(ReadLightStates(file), std::back_inserter(data.lights));
+        std::ranges::move(ReadLightStates(chunk), std::back_inserter(data.lights));
         break;
     }
 }
@@ -1137,9 +1136,6 @@ std::string BuildLevelStatusPath(unsigned int level)
     return fmt::format("Levels\\Test\\Level{:c}.STS", static_cast<char>(level - 56));
 }
 
-/* Read the STAT record and publish its counters and status block. Any version
-   other than 2.0 is refused. */
-// FUNCTION: WIZ8 0x00513090
 /* Rewrite a status file with the current level's group replaced and every
    other level's group kept. */
 // FUNCTION: WIZ8 0x00513160
@@ -1274,15 +1270,11 @@ ReadLevelStatus(W8World& world, const std::filesystem::path& path, int level, bo
         info.p3D = model.get();
         world.monsters.push_back(std::move(model));
         RestoreMonsterSpellIcons(world, info, info.p3D);
-        if (group->group->encounter_registered && !info.p3D->script && !data.default_script) {
-            info.p3D->SetScript("Default.MSF", false);
-            data.default_script = info.p3D->script;
-            info.p3D->UseScript({}, false);
-        }
-        if (saved.script && saved.script->name[0] != '\0') {
-            info.p3D->SetScript(saved.script->name, false);
-            saved.script->resource = info.p3D->script;
-        }
+        // Keep the encounter default script cached until activation assigns it.
+        if (group->group->encounter_registered && !info.p3D->script && !data.default_script)
+            data.default_script = LoadMonsterScript("Default.MSF");
+        if (saved.script && saved.script->name[0] != '\0')
+            saved.script->resource = LoadMonsterScript(saved.script->name);
     }
     if (data.cursors) BuildWorldCursorNodes(world, std::move(*data.cursors));
     return status;

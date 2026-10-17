@@ -73,9 +73,6 @@ struct W8AutomapCells {
    are owned values: lookups copy their data and never retain element addresses. */
 struct W8World {
     explicit W8World(int level_id = -1, std::string source_path = {});
-    std::unique_ptr<W8WorldCursorState> cursor;
-    std::vector<std::unique_ptr<W8WorldCursorNode>> cursor_nodes;
-    int cursor_serial = 100;
     const int level_id;
     const std::string source_path;
     ~W8World();
@@ -92,6 +89,10 @@ struct W8World {
     std::vector<std::unique_ptr<W8CameraPath>> plsCameras;
     std::vector<std::unique_ptr<W8AmbientSound>> plsAmbientSounds;
     std::vector<std::unique_ptr<W8AmbientTrack>> ambient_tracks;
+    // The 3D cursor and the level's MIPE cubes; cube addresses stay stable.
+    std::unique_ptr<W8WorldCursorState> cursor;
+    std::vector<std::unique_ptr<W8WorldCursorNode>> cursor_nodes;
+    int cursor_serial = 100;
     // Authored environment data belongs to the loaded scene, not the active session.
     std::array<glm::vec3, 256> environment_colours = EnvironmentColourRamp();
     std::array<glm::vec3, 256> light_colours = EnvironmentColourRamp();

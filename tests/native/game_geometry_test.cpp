@@ -97,7 +97,6 @@
 #include "wiz8/octree_walk.h"
 #include "wiz8/placement_math.h"
 #include "wiz8/surface_geometry.h"
-#include "world_fixture.h"
 
 static bool close(const glm::vec3& actual, const glm::vec3& expected, float tolerance = 1e-4f)
 {

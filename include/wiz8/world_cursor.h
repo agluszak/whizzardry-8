@@ -89,4 +89,3 @@ void SetWorldCursorRange(float distance); /* 0x00491650 */
    offsets instead of the probe box. */
 void SetWorldCursorExtents(const glm::vec3* minimum, const glm::vec3* maximum); /* 0x00492190 */
 void ReleaseWorldCursor(void);
-void ReleaseWorldCursorNodes(void);

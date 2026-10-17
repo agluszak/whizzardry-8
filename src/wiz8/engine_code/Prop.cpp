@@ -1088,12 +1088,9 @@ void W8Prop::DetachAnimationInstances(W8World* world)
     }
 }
 
-/* Restore the rep's persisted animation state: frame, the two counters, the
-   direction flags and one byte the format no longer uses.  Each saved index
-   is clamped to the loaded animation's frame count, path values are re-synced
-   while a running animation is active, and ApplyAnimationFrame reapplies the state.
-   The read chain's success is reported even though the restore runs either
-   way. */
+/* Apply a completely decoded APST record: each saved index is clamped to the
+   loaded animation's frame count, path values are re-synced while an animation
+   runs, and ApplyAnimationFrame reapplies the frame against `pathing`. */
 // FUNCTION: WIZ8 0x0044dbd0
 void W8Prop::ApplyAnimationState(const SavedAnimationState& state, W8PathingService* pathing)
 {

@@ -919,7 +919,6 @@ const char* g_monster_spell_icon_names[40] = {
     "Element_Shield",  "Soul_Shield",  "Ring_Of_Fire",   "Charmed",        "Summoned",
 };
 
-// FUNCTION: WIZ8 0x004acd80
 void AddMonsterSpellIcon(W8World& world, W8Monster* monster, W8MonsterSpellIconId icon)
 {
     if (!monster || !monster->m_pRep || icon < 0 || icon >= SPELL_NUM_ICONS)
@@ -933,6 +932,7 @@ void AddMonsterSpellIcon(W8World& world, W8Monster* monster, W8MonsterSpellIconI
     icons.push_back({icon, item});
 }
 
+// FUNCTION: WIZ8 0x004acd80
 void SetMonsterSpellIcon(W8Monster* monster, W8MonsterSpellIconId icon, bool add)
 {
     if (!monster || !monster->m_pRep || icon < 0 || icon >= SPELL_NUM_ICONS)

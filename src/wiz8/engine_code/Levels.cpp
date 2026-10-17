@@ -583,11 +583,6 @@ void UnloadLevel()
         RenderFrame();
     }
 
-    ReleaseWorldCursorNodes();
-    if (g_world_cleanup_flag) {
-        RenderFrame();
-    }
-
     ReleaseWorldCursor();
     DisableSky();
     EndCameraSway();
@@ -598,7 +593,6 @@ void UnloadLevel()
         RenderFrame();
     }
 
-    DisableSky();
     g_runtime_world_scale = 500.0f;
     ClearActiveWorldCursorNode();
 }

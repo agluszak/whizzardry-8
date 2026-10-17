@@ -65,7 +65,6 @@
 #include "wiz8/retail_text_records.h"
 #include "wiz8/save_game.h"
 #include "wiz8/xstatus.h"
-#include "world_fixture.h"
 
 static std::filesystem::path fixture_root;
 

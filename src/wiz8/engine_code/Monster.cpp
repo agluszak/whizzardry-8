@@ -1538,9 +1538,17 @@ bool W8Monster::EvaluateScriptCondition(std::string_view expression)
 /* Monster scripts are shared by name while any monster runs them. */
 static ResourceCache<stScript> g_monster_scripts;
 
-/* Replace the current Monster script with a loaded one of the same name, or
-   load it from the Monster script directory. */
-// FUNCTION: WIZ8 0x004C7F10
+std::shared_ptr<stScript> LoadMonsterScript(std::string_view name)
+{
+    if (auto cached = g_monster_scripts.find(name)) return cached;
+    const std::string path = "Data\\Monsters\\Scripts\\" + std::string(name);
+    auto loaded = std::make_shared<stScript>();
+    if (loaded->Load(path.c_str()) == 0) return nullptr;
+    loaded->setName(std::string(name));
+    g_monster_scripts.insert(std::string(name), loaded);
+    return loaded;
+}
+
 void W8Monster::UseScript(std::shared_ptr<stScript> loaded, bool reset_orders)
 {
     script = std::move(loaded);
@@ -1553,23 +1561,15 @@ void W8Monster::UseScript(std::shared_ptr<stScript> loaded, bool reset_orders)
     }
 }
 
+/* Replace the current Monster script with the named one; a missing script
+   leaves the monster without one. */
+// FUNCTION: WIZ8 0x004C7F10
 bool W8Monster::SetScript(std::string script_name, bool reset_orders)
 {
-    UseScript({}, reset_orders);
-
-    script = g_monster_scripts.find(script_name);
-    if (script == 0) {
-        /* Retail builds the path only on a cache miss. */
-        const std::string path = "Data\\Monsters\\Scripts\\" + script_name;
-        auto loaded = std::make_shared<stScript>();
-        if (loaded->Load(path.c_str()) == 0) {
-            return false;
-        }
-        loaded->setName(script_name);
-        g_monster_scripts.insert(script_name, loaded);
-        script = std::move(loaded);
-    }
-    return true;
+    auto loaded = LoadMonsterScript(script_name);
+    const bool found = loaded != nullptr;
+    UseScript(std::move(loaded), reset_orders);
+    return found;
 }
 
 // FUNCTION: WIZ8 0x004C77F0
