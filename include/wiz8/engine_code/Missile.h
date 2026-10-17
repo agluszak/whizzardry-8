@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "glm/ext/vector_float3.hpp"
@@ -189,7 +190,7 @@ extern std::vector<W8MissileTableRecord> g_missile_table;
 W8Missile* NextMissile(bool restart);
 
 W8Missile* AllocateMissile(int missile_table_index);
-std::unique_ptr<W8Missile> LoadMissileCycle(W8GrCycleLoadContext* context, const char* name);
+std::unique_ptr<W8Missile> LoadMissileCycle(W8World* world, std::string_view name);
 
 W8Missile* CreateMissile(unsigned int missile_table_index, glm::vec3* source, float heading,
                          float pitch, float flight_speed, unsigned int trace_mask,

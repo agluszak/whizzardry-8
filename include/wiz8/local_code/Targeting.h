@@ -147,8 +147,6 @@ int CollectConeMonsterTargets(const W8TargetSource* source, const glm::vec3* eye
 /* Whether the pending item use needs a target picked. */
 bool ItemUseNeedsTarget(int party_slot);
 void RefreshSpellTargetHighlightsAtRange(void);
-void PopulateTargetMarkerForCurrentAction(const glm::vec3* position,
-                                          std::vector<int>& marker_vector, int enabled);
 void ReconcilePartyEquipmentAfterCombat(void);
 bool TargetIsInPlay(int party_slot, int hand, const W8SelectedAction& selected);
 
@@ -158,8 +156,8 @@ bool CanPartySlotParticipate(int party_slot);
 void SetTargetSourceToCharacter(int party_slot, W8TargetSource* source);
 /* What the interface has to ask the player to pick for one
    action - a fixed kind for most, the spell's answer for casts and item use. */
-W8TargetNeed GetTargetNeededForAction(W8ActionKind action, int spell_id,
-                                      const W8ActionDetailBlock* detail_block);
+W8TargetNeed GetTargetNeededForAction(const W8SelectedAction& action,
+                                      bool needs_item_target = true);
 W8TargetNeed GetTargetNeededForItem(const W8ItemInstance* item, bool needs_item_target);
 void TintHighlightedMonster(W8Monster* monster, W8TargetHighlight tint);
 /* After the selected character's action changes, drop back to no

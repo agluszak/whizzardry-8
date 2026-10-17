@@ -251,7 +251,7 @@ void ActivateMonsterInWorld(W8MonsterInfo* monster_info)
 void ActivateMonster(W8MonsterInfo* monster_info, W8MonsterActivationMode mode)
 {
     W8MonsterRecord* record;
-    W8GrCycleLoadContext context;
+
     if (monster_info == 0) {
         srAssertFail("pMonsterInfo != NULL", MONSTER_MANAGER_CPP, 0x1f5, 0);
     }
@@ -263,12 +263,9 @@ void ActivateMonster(W8MonsterInfo* monster_info, W8MonsterActivationMode mode)
     }
 
     record = GetMonsterDataForInfo(monster_info);
-    context.world = GetWorld();
-    context.bitmap_directory = 0;
-    context.directory = "Data\\Monsters";
 
     auto monster =
-        MonsterReadAllCycles(&context, record->cycle_name,
+        MonsterReadAllCycles(GetWorld(), record->cycle_name,
                              mode == W8_MONSTER_LOAD_ALL_CYCLES ? 1 : 0, monster_info->location_id);
     if (!monster) {
         srAssertFail("loaded monster", MONSTER_MANAGER_CPP, __LINE__,

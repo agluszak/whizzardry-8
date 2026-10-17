@@ -202,15 +202,15 @@ void UpdateShakeEffects()
    version, and hand the open file plus its resource context to the typed cycle
    reader. */
 // FUNCTION: WIZ8 0x004A67E0
-bool LoadGrCycle(const W8GrCycleLoadContext* context, const char* mon_name, W8GrCycle* cycle,
-                 int cycle_index, int value, const char* directory, unsigned char object_type,
+bool LoadGrCycle(W8World* world, std::string_view mon_name, W8GrCycle* cycle, int cycle_index,
+                 int value, const char* directory, unsigned char object_type,
                  const char* bitmap_directory)
 try {
     W8ReadLevelInfo info;
     unsigned char version;
     bool success;
 
-    if (mon_name == 0 || cycle == 0) {
+    if (mon_name.empty() || cycle == 0) {
         srAssertFail("pacName && ppCycle", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp",
                      0x176, 0);
     }
@@ -230,7 +230,7 @@ try {
         ShutdownWithErrorBox(fmt::format("Couldn't open {}", mon_path));
     }
 
-    info.world = context->world;
+    info.world = world;
     info.hFile = handle.get();
     info.bitmap_folder = wiz8::asset_path(bitmap_path);
     success = true;
@@ -1202,7 +1202,7 @@ unsigned char UnregisterGrCycle(W8GrCycle* cycle)
     return false;
 }
 
-void RegisterGrCycle(const char* name, W8GrCycle* cycle)
+void RegisterGrCycle(std::string_view name, W8GrCycle* cycle)
 {
     const auto entry = std::ranges::find_if(g_registered_cycles, [name](const auto& entry) {
         return CompareTextIgnoreAsciiCase(name, entry.name) == 0;
@@ -1210,7 +1210,7 @@ void RegisterGrCycle(const char* name, W8GrCycle* cycle)
     if (entry != g_registered_cycles.end()) {
         entry->cycles.push_back(cycle);
     } else {
-        g_registered_cycles.push_back({name, {cycle}});
+        g_registered_cycles.push_back({std::string(name), {cycle}});
     }
 }
 

@@ -868,9 +868,10 @@ int GetCharacterTurnValue(int party_slot)
     unsigned int hand;
     int value;
 
-    auto [chosen, ignored_action_2_1, ignored_action_2_2, ignored_action_2_3] =
+    const auto chosen =
         SelectCombatAction(party_slot, !row->dead ? W8_TARGETING_CONTEXT_IN_COMBAT
-                                                  : W8_TARGETING_CONTEXT_OUT_OF_COMBAT);
+                                                  : W8_TARGETING_CONTEXT_OUT_OF_COMBAT)
+            .kind;
     if (chosen != W8_ACTION_ATTACK && chosen != W8_ACTION_BERSERK) {
         return 1;
     }
@@ -1451,12 +1452,11 @@ bool CharacterCanSwitchTo(int party_slot, W8TargetingContext context, bool allow
     if (character->highest_condition > W8_CONDITION_TURNCOAT) {
         return false;
     }
-    auto [chosen, value_a, unused_selected_action_2_2, detail] =
-        SelectCombatAction(party_slot, context);
-    if (chosen == W8_ACTION_NONE) {
+    const auto selected = SelectCombatAction(party_slot, context);
+    if (selected.kind == W8_ACTION_NONE) {
         return false;
     }
-    switch (chosen) {
+    switch (selected.kind) {
     case W8_ACTION_ATTACK:
         if (!CanAnyHandReachTarget(party_slot)) {
             if (!allow_equipment_changes) {
@@ -1508,21 +1508,21 @@ bool CharacterCanSwitchTo(int party_slot, W8TargetingContext context, bool allow
         if (context == W8_TARGETING_CONTEXT_DIALOGUE && CharacterHasCastableSpell(character)) {
             return true;
         }
-        if (value_a == 0) {
+        if (selected.detail == 0) {
             return false;
         }
-        if (!CanCharacterCastSpell(character, value_a)) {
+        if (!CanCharacterCastSpell(character, selected.detail)) {
             return false;
         }
         break;
     case W8_ACTION_USE_ITEM:
-        if (context == W8_TARGETING_CONTEXT_DIALOGUE && detail == 0) {
+        if (context == W8_TARGETING_CONTEXT_DIALOGUE && selected.detail_block == 0) {
             return true;
         }
-        if (detail->item_use.item == 0) {
+        if (selected.detail_block->item_use.item == 0) {
             return false;
         }
-        if (!CanCharacterActivateItem(character, detail->item_use.item)) {
+        if (!CanCharacterActivateItem(character, selected.detail_block->item_use.item)) {
             return false;
         }
         break;
@@ -1539,8 +1539,7 @@ bool CharacterCanSwitchTo(int party_slot, W8TargetingContext context, bool allow
         break;
     }
     if (!allow_missing_target) {
-        W8TargetingContext validated = context;
-        if (!TargetIsInPlay(party_slot, 2, SelectCombatAction(party_slot, validated))) {
+        if (!TargetIsInPlay(party_slot, 2, selected)) {
             return false;
         }
     }
@@ -3497,8 +3496,8 @@ short GetCombatActionProgress(int* out_total)
                 W8CombatCharacterRow* row = &g_combat_state->characters[party_slot];
                 if (row->dead) {
                     int swings = 0;
-                    auto [kind, ignored_action_0_1, ignored_action_0_2, ignored_action_0_3] =
-                        SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT);
+                    const auto kind =
+                        SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT).kind;
                     if (kind == W8_ACTION_ATTACK || kind == W8_ACTION_BERSERK) {
                         for (int hand = 0; hand < 2; ++hand) {
                             swings += row->saved_attack_value[hand] - row->hand_attack_values[hand];

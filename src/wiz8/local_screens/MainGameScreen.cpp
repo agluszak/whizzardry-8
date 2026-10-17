@@ -167,15 +167,6 @@
 
 struct SDL_Surface;
 
-// Resolve the edited action at the screen boundary, before evaluating its rules.
-static W8TargetNeed GetTargetNeededForEditedAction(int party_slot)
-{
-    const auto context = GetEditedActionContext(party_slot);
-    if (context == W8_TARGETING_CONTEXT_OUT_OF_COMBAT) return W8_TARGET_NEED_NONE;
-    const auto selected = SelectCombatAction(party_slot, context);
-    return GetTargetNeededForAction(selected.kind, selected.detail, selected.detail_block);
-}
-
 /* Every redraw request checks the screen state first, so a request made from
    another screen is simply dropped. */
 
@@ -4756,17 +4747,21 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
         return UiResult::Pass;
     }
 
-    needed = GetTargetNeededForEditedAction(g_status.selected_character);
+    const auto editing_context = GetEditedActionContext(g_status.selected_character);
+    const auto selected_action =
+        g_status.selected_character < 0
+            ? W8SelectedAction{W8_ACTION_NONE, -1, nullptr, nullptr}
+            : SelectCombatAction(g_status.selected_character, editing_context);
+    needed = editing_context == W8_TARGETING_CONTEXT_OUT_OF_COMBAT
+                 ? W8_TARGET_NEED_NONE
+                 : GetTargetNeededForAction(selected_action);
     if (gXStatus.iTargetingMode == W8_TARGET_NEED_ALLY ||
         (needed == W8_TARGET_NEED_ALLY && (event.modifiers & CTRL_DOWN) != 0)) {
         targeting = true;
         if (CanPartySlotParticipate(slot)) {
             front_rank = false;
-            auto [action_kind, ignored_action_0_1, ignored_action_0_2, ignored_action_0_3] =
-                SelectCombatAction(g_status.selected_character,
-                                   GetEditedActionContext(g_status.selected_character));
             aim_ok = true;
-            if (action_kind == W8_ACTION_PROTECT) {
+            if (selected_action.kind == W8_ACTION_PROTECT) {
                 if (g_status.selected_character == slot) {
                     front_rank = false;
                     aim_ok = false;
@@ -5367,7 +5362,14 @@ UiResult WorldViewInput(const UiPointerEvent& event)
     if (gXStatus.fReviewCharacterMode || g_camera_path_active) {
         return UiResult::Pass;
     }
-    needed = GetTargetNeededForEditedAction(g_status.selected_character);
+    const auto editing_context = GetEditedActionContext(g_status.selected_character);
+    const auto selected_action =
+        g_status.selected_character < 0
+            ? W8SelectedAction{W8_ACTION_NONE, -1, nullptr, nullptr}
+            : SelectCombatAction(g_status.selected_character, editing_context);
+    needed = editing_context == W8_TARGETING_CONTEXT_OUT_OF_COMBAT
+                 ? W8_TARGET_NEED_NONE
+                 : GetTargetNeededForAction(selected_action);
     if (!(event.button == UiPointerButton::Left) &&
         !(event.button == UiPointerButton::Right && event.action == UiPointerAction::Down)) {
         if ((event.button == UiPointerButton::Right && event.action == UiPointerAction::Up)) {
@@ -5484,11 +5486,9 @@ UiResult WorldViewInput(const UiPointerEvent& event)
         if (!IsWorldCursorVisible()) {
             InitializeWorldCursor();
         }
-        const auto selected = SelectCombatAction(
-            g_status.selected_character, GetEditedActionContext(g_status.selected_character));
         SetWorldCursorRange(CalcRangeDistanceFromParty(
-            GetCharActionRange(g_status.selected_character, 0, selected)));
-        if (gpSCSV && GetActionSpellLikeId(selected) == 0x3c) {
+            GetCharActionRange(g_status.selected_character, 0, selected_action)));
+        if (gpSCSV && GetActionSpellLikeId(selected_action) == 0x3c) {
             signed char extent_index;
             glm::vec3 minimum;
             glm::vec3 maximum;
@@ -5896,10 +5896,7 @@ void SetCombatSelection(int value)
             ? W8SelectedAction{W8_ACTION_NONE, -1, nullptr, nullptr}
             : SelectCombatAction(g_status.selected_character, editing_context);
     const bool sighting = editing_context == W8_TARGETING_CONTEXT_OUT_OF_COMBAT;
-    const auto needed = sighting
-                            ? W8_TARGET_NEED_NONE
-                            : GetTargetNeededForAction(edited_action.kind, edited_action.detail,
-                                                       edited_action.detail_block);
+    const auto needed = sighting ? W8_TARGET_NEED_NONE : GetTargetNeededForAction(edited_action);
 
     int current = g_level_block->highlighted_item;
 
@@ -6033,10 +6030,7 @@ void SetCombatAction(int value)
             ? W8SelectedAction{W8_ACTION_NONE, -1, nullptr, nullptr}
             : SelectCombatAction(g_status.selected_character, editing_context);
     const bool sighting = editing_context == W8_TARGETING_CONTEXT_OUT_OF_COMBAT;
-    const auto needed = sighting
-                            ? W8_TARGET_NEED_NONE
-                            : GetTargetNeededForAction(edited_action.kind, edited_action.detail,
-                                                       edited_action.detail_block);
+    const auto needed = sighting ? W8_TARGET_NEED_NONE : GetTargetNeededForAction(edited_action);
 
     int current = g_level_block->action_group;
 
@@ -7407,8 +7401,7 @@ void AimAtTarget(int actor, W8CombatSlot* target, W8TargetingContext context)
         const auto edited_action = SelectCombatAction(actor, editing);
         const auto needed = editing == W8_TARGETING_CONTEXT_OUT_OF_COMBAT
                                 ? W8_TARGET_NEED_NONE
-                                : GetTargetNeededForAction(edited_action.kind, edited_action.detail,
-                                                           edited_action.detail_block);
+                                : GetTargetNeededForAction(edited_action);
         SetTargetingMode(TargetMatchesNeeded(edited_action.target, needed) ? W8_TARGET_NEED_NONE
                                                                            : needed);
     }

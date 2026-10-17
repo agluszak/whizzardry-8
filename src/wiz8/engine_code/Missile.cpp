@@ -7,6 +7,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -369,11 +370,7 @@ W8Missile* FireMissile(unsigned int missile_table_index, glm::vec3* source, glm:
 // FUNCTION: WIZ8 0x004A5450
 W8Missile* AllocateMissile(int missile_table_index)
 {
-    W8GrCycleLoadContext context;
-    context.world = g_world;
-    context.directory = "Data\\Spells\\Bitmaps";
-    auto owner =
-        LoadMissileCycle(&context, g_missile_table[missile_table_index].cycle_name.c_str());
+    auto owner = LoadMissileCycle(g_world, g_missile_table[missile_table_index].cycle_name);
     auto* missile = owner.get();
     if (missile == 0) {
         return 0;
@@ -404,7 +401,7 @@ W8Missile* AllocateMissile(int missile_table_index)
    gravity/velocity keywords set the missile's tail flags - and the cycle
    lines load through the ordinary GrCycle path. */
 // FUNCTION: WIZ8 0x004a3550
-std::unique_ptr<W8Missile> LoadMissileCycle(W8GrCycleLoadContext* context, const char* name)
+std::unique_ptr<W8Missile> LoadMissileCycle(W8World* world, std::string_view name)
 {
     if (auto* found = FindFirstGrCycleByName(name)) {
         auto missile = std::make_unique<W8Missile>(*static_cast<W8Missile*>(found));
@@ -426,7 +423,7 @@ std::unique_ptr<W8Missile> LoadMissileCycle(W8GrCycleLoadContext* context, const
         }
     }();
     if (!handle) {
-        const bool success = LoadGrCycle(context, name, output.get(), 0, 1, "Data\\Missiles", 1,
+        const bool success = LoadGrCycle(world, name, output.get(), 0, 1, "Data\\Missiles", 1,
                                          "Data\\Spells\\Bitmaps");
         if (success) {
             RegisterGrCycle(name, output.get());
@@ -467,8 +464,8 @@ std::unique_ptr<W8Missile> LoadMissileCycle(W8GrCycleLoadContext* context, const
                         break;
                     }
 
-                    success = LoadGrCycle(context, resource.c_str(), output.get(), cycle, 1,
-                                          "Data\\Missiles", 1, "Data\\Spells\\Bitmaps");
+                    success = LoadGrCycle(world, resource, output.get(), cycle, 1, "Data\\Missiles",
+                                          1, "Data\\Spells\\Bitmaps");
                     cycle_line = true;
                     break;
                 }

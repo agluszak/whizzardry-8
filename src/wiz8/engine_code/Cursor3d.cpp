@@ -94,7 +94,7 @@ static float g_cursor_projection_distance = 4000.0f;
 // FUNCTION: WIZ8 0x00490210
 void InitializeWorldCursor(void)
 {
-    W8GrCycleLoadContext context;
+
     glm::vec3 position;
     glm::vec3 camera_position;
     glm::vec4 colour;
@@ -114,9 +114,8 @@ void InitializeWorldCursor(void)
         gp3DCursor->march_enabled = true;
         gp3DCursor->footprint_mode = false;
         gp3DCursor->dragged_info = 0;
-        context.directory = "Data\\Monsters";
-        context.world = g_world;
-        auto monster = LoadMonsterCycle(&context, "3DCursor", -1, 1);
+
+        auto monster = LoadMonsterCycle(g_world, "3DCursor", -1, 1);
         gp3DCursor->monster = monster.get();
         g_world->monsters.push_back(std::move(monster));
         MonsterSetCycle(gp3DCursor->monster, 0);

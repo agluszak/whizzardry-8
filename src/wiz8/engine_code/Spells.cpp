@@ -415,8 +415,8 @@ static int FindSpellCycleByName(const char* name)
    requested group loads its bitmaps, SOUND_FRAME/SOUND_CYCLE rows attach timed
    sound events, and SHAKE_FRAME rows attach camera-shake effects. */
 // FUNCTION: WIZ8 0x004ab580
-std::unique_ptr<W8SpellVisual> LoadSpellVisualResource(const W8GrCycleLoadContext* context,
-                                                       const char* name, W8SpellVisualMode group)
+std::unique_ptr<W8SpellVisual> LoadSpellVisualResource(W8World* world, std::string_view name,
+                                                       W8SpellVisualMode group)
 {
     W8SpellVisual* shared = static_cast<W8SpellVisual*>(FindFirstGrCycleByName(name));
     if (shared != 0 && shared->mode == group) {
@@ -462,10 +462,10 @@ std::unique_ptr<W8SpellVisual> LoadSpellVisualResource(const W8GrCycleLoadContex
                         break;
                     }
 
-                    success = LoadGrCycle(context, resource.c_str(), visual.get(), cycle, 1,
-                                          "Data\\Spells", 2, 0);
+                    success =
+                        LoadGrCycle(world, resource, visual.get(), cycle, 1, "Data\\Spells", 2, 0);
                     if (success) {
-                        RegisterGrCycle(resource.c_str(), visual.get());
+                        RegisterGrCycle(resource, visual.get());
                     }
                 }
                 continue;
@@ -607,11 +607,8 @@ int W8SpellVisual::QueryHostStateByKind(int arg_kind)
 static W8SpellVisual* CreateSpellVisual(std::string_view name, W8SpellVisualMode mode,
                                         int power_level, int value, int flags)
 {
-    W8GrCycleLoadContext context;
-    context.world = g_world;
-    context.directory = "Data\\Spells\\Bitmaps";
     const auto load = [&](std::string_view resource) -> W8SpellVisual* {
-        auto owner = LoadSpellVisualResource(&context, std::string(resource).c_str(), mode);
+        auto owner = LoadSpellVisualResource(g_world, resource, mode);
         auto* visual = owner.get();
         if (!visual) {
             return nullptr;

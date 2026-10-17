@@ -292,31 +292,8 @@ bool CharacterActionReachesSlot(int party_slot, int hand, int target_slot,
     if (static_cast<char>(party_slot) == target_slot) {
         return true;
     }
-    W8Character* character = &g_status.buffers.Char[party_slot];
-    auto [kind, action, unused_selected_action_2_2, detail] = selected;
-    W8RangeCategory range;
-    switch (kind) {
-    case W8_ACTION_ATTACK:
-    case W8_ACTION_BERSERK:
-        range = GetCharAttackRange(character, hand);
-        break;
-    case W8_ACTION_BREATHE:
-        return true;
-    case W8_ACTION_PROTECT:
-        range = W8_RANGE_TOUCH;
-        break;
-    case W8_ACTION_CAST_SPELL:
-        if (action == 0) {
-            return false;
-        }
-        range = g_spell_records[action].range_category;
-        break;
-    case W8_ACTION_USE_ITEM:
-        range = GetItemSpellRange(detail->item_use.item);
-        break;
-    default:
-        return false;
-    }
+    if (selected.kind == W8_ACTION_BREATHE) return true;
+    const auto range = GetCharActionRange(party_slot, hand, selected);
     if (range == W8_RANGE_NONE) {
         return false;
     }
@@ -367,18 +344,17 @@ W8RangeCategory GetCharActionRange(int party_slot, int hand, const W8SelectedAct
 {
     W8Character* character = &g_status.buffers.Char[party_slot];
 
-    auto [action, detail, unused_selected_action_1_2, detail_block] = selected;
-    switch (action) {
+    switch (selected.kind) {
     case W8_ACTION_ATTACK:
     case W8_ACTION_BERSERK:
         return attack_range ? *attack_range : GetCharAttackRange(character, hand);
     case W8_ACTION_CAST_SPELL:
-        if (detail != 0) {
-            return g_spell_records[detail].range_category;
+        if (selected.detail != 0) {
+            return g_spell_records[selected.detail].range_category;
         }
         break;
     case W8_ACTION_USE_ITEM:
-        return GetItemSpellRange(detail_block->item_use.item);
+        return GetItemSpellRange(selected.detail_block->item_use.item);
     case W8_ACTION_PROTECT:
         return W8_RANGE_TOUCH;
     case W8_ACTION_BREATHE:
