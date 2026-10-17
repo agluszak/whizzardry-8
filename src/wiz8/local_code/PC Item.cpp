@@ -3098,14 +3098,12 @@ bool IsUsableItemClass(W8ItemInstance* item)
    with the out-of-combat gate alone; everything else is refused while the
    character's spellcasting is blocked and the item is a class-0x0d casting
    aid, and otherwise needs a living target for the record's spell plus a
-   spell the moment admits. The use-item view's context slot is parked on the
-   instance while the target check runs. */
+   spell the moment admits. */
 // FUNCTION: WIZ8 0x00522a30
 bool CanUseItemForAction(int party_slot, const W8ItemInstance* item)
 {
     const W8ItemDatabaseRecord* record = &g_item_records[item->iItemNo];
     W8Character* character = &g_status.buffers.Char[party_slot];
-    bool usable;
 
     if (record->equip_class == W8_ITEM_EQUIP_CLASS_KEY ||
         record->equip_class == W8_ITEM_EQUIP_CLASS_OTHER || CanCastFromItem(character, item)) {
@@ -3117,14 +3115,9 @@ bool CanUseItemForAction(int party_slot, const W8ItemInstance* item)
         return false;
     }
 
-    SetUseItemSelectOverrideItem(const_cast<W8ItemInstance*>(item));
-    usable =
-        SpellHasAnyValidTarget(party_slot, record->spell_id, ItemClassNormalizesTarget(record));
-    SetUseItemSelectOverrideItem(0);
-    if (!usable) {
-        return false;
-    }
-    return SpellUsableNow(record->spell_id, false);
+    return SpellHasAnyValidTarget(party_slot, record->spell_id,
+                                  ItemClassNormalizesTarget(record)) &&
+           SpellUsableNow(record->spell_id, false);
 }
 
 /* Validate an item's embedded spell for use now; nonzero reports use blocked
@@ -3135,7 +3128,6 @@ bool ValidateItemSpellUse(int character_index, W8ItemInstance* item,
 {
     const W8ItemDatabaseRecord* record = &g_item_records[item->iItemNo];
     W8Character* character = &g_status.buffers.Char[character_index];
-    bool has_target;
 
     if (record->equip_class == W8_ITEM_EQUIP_CLASS_KEY ||
         record->equip_class == W8_ITEM_EQUIP_CLASS_OTHER || CanCastFromItem(character, item)) {
@@ -3152,11 +3144,8 @@ bool ValidateItemSpellUse(int character_index, W8ItemInstance* item,
         return true;
     }
     if (gXStatus.fItemSelectMode) {
-        SetUseItemSelectOverrideItem(item);
-        has_target = SpellHasAnyValidTarget(character_index, record->spell_id,
-                                            ItemClassNormalizesTarget(record));
-        SetUseItemSelectOverrideItem(0);
-        if (!has_target) {
+        if (!SpellHasAnyValidTarget(character_index, record->spell_id,
+                                    ItemClassNormalizesTarget(record))) {
             ShowNoticeLine(g_localized_strings[0x7a8], callback, true, false);
             return true;
         }

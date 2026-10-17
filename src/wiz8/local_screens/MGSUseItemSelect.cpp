@@ -74,8 +74,6 @@ static int g_selected_use_item_line;
 
 // GLOBAL: WIZ8 0x0069B9A0
 W8ItemInstance* g_use_item_selected;
-// GLOBAL: WIZ8 0x0069B9A4
-W8ItemInstance* g_use_item_select_override_item;
 // GLOBAL: WIZ8 0x0069B990
 static int g_use_item_list_count;
 // GLOBAL: WIZ8 0x0069B994
@@ -200,9 +198,7 @@ unsigned char OpenUseItemSelectView(int slot)
     g_use_item_select_flags = 0;
     g_use_item_hover_row = -1;
     g_use_item_selected = 0;
-    gXStatus.shared_action_detail.item_use.item = GetSelectedOrFallbackValue();
-    g_use_item_select_override_item = 0;
-    gXStatus.shared_action_detail.item_use.item = GetSelectedOrFallbackValue();
+    gXStatus.shared_action_detail.item_use.item = g_use_item_selected;
     g_use_item_detail_item = 0;
     memset(g_use_item_list, 0, sizeof(g_use_item_list));
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
@@ -484,7 +480,7 @@ static void RebuildUseItemSelectList(int mode, W8ItemInstance* select)
     ResetEditorStatusLine(2);
     ClearSelectedTextLine(2);
     g_use_item_selected = 0;
-    gXStatus.shared_action_detail.item_use.item = GetSelectedOrFallbackValue();
+    gXStatus.shared_action_detail.item_use.item = g_use_item_selected;
     g_use_item_detail_item = 0;
     use_item->item_image.reset();
     use_item->quantity.SetText("", g_large_font);
@@ -760,7 +756,7 @@ void SelectUseItemLine(int iTextLine)
         return;
     }
     g_use_item_selected = g_use_item_list[iTextLine];
-    gXStatus.shared_action_detail.item_use.item = GetSelectedOrFallbackValue();
+    gXStatus.shared_action_detail.item_use.item = g_use_item_selected;
     if (Trynnie2UseItem(g_use_item_selected)) {
         CloseUseItemSelectView();
         return;
@@ -830,16 +826,6 @@ void UpdateUseItemDetailPanel(W8ItemInstance* item)
     g_use_item_detail_item = item;
 }
 
-// FUNCTION: WIZ8 0x0059E0D0
-W8ItemInstance* GetSelectedOrFallbackValue(void)
-{
-    W8ItemInstance* value = g_use_item_select_override_item;
-    if (value == 0) {
-        value = g_use_item_selected;
-    }
-    return value;
-}
-
 // FUNCTION: WIZ8 0x0059E0E0
 void SelectCurrentUseItemLine(void)
 {
@@ -870,18 +856,11 @@ void TakeUseItemIntoHand(void)
         for (i = 0; i < g_status.party_item_count; i++) {
             if (g_use_item_selected == &g_status.party_item_pool[i]) {
                 g_use_item_selected = &g_status.party_item_pool[i + 1];
-                gXStatus.shared_action_detail.item_use.item = GetSelectedOrFallbackValue();
+                gXStatus.shared_action_detail.item_use.item = g_use_item_selected;
                 CopyItemInstance(&g_status.item_in_hand, g_use_item_selected, 0, true);
                 return;
             }
         }
     }
     CopyItemInstance(&g_status.item_in_hand, g_use_item_selected, 0, true);
-}
-
-// FUNCTION: WIZ8 0x0059E1E0
-void SetUseItemSelectOverrideItem(W8ItemInstance* value)
-{
-    g_use_item_select_override_item = value;
-    gXStatus.shared_action_detail.item_use.item = GetSelectedOrFallbackValue();
 }
