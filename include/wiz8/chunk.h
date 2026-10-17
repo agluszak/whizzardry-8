@@ -59,16 +59,11 @@ public:
     bool OpenWrite(std::shared_ptr<wiz8::File> file);
     void Close();
     bool CopyCurrentChunkFrom(W8Chunk* source);
-    bool SkipCurrentChunk();
-    bool OpenGroup();
-    bool ReleaseGroup();
     unsigned int CurrentChunkId();
     int CurrentChunkExtent();
-    std::int64_t CurrentChunkEnd() const;
     int ChunkCount();
-    bool OpenChunk(unsigned int chunk_id, unsigned char grouped);
-    unsigned char Read(void* buffer, unsigned int size, unsigned int* transferred);
-    unsigned char Write(const void* buffer, unsigned int size, unsigned int* transferred);
+    // Seek back to the start of the active chunk's payload.
+    void RewindCurrentChunk();
 
     // Payload transfer within the active chunk. Reads never cross its extent;
     // both directions throw instead of reporting partial transfers.
@@ -93,15 +88,13 @@ public:
     }
 
     // Write one complete chunk: body transfers the payload and the header
-    // extent is patched when it returns. A body that leaves a nested chunk
-    // open is rejected. Failures throw; the caller abandons the file.
+    // extent is patched when it returns. Failures throw and leave the chunk
+    // unfinished, so Close rejects the file and the caller abandons it.
     template<class F> void WriteChunk(unsigned int chunk_id, F&& body)
     {
         if (!m_fWriting || chunk_id == 0) throw std::logic_error("invalid RIFF chunk write");
         OpenChunk(chunk_id, 0);
-        const auto depth = m_heads.size();
         std::invoke(std::forward<F>(body));
-        if (m_heads.size() != depth) throw std::logic_error("unbalanced RIFF chunk");
         ReleaseCurrentChunk();
     }
     // A grouped chunk: body writes the group's prefix and its child chunks,
@@ -119,9 +112,7 @@ public:
     template<class F> void ReadGroup(F&& body)
     {
         OpenGroup();
-        const auto depth = m_heads.size();
         std::invoke(std::forward<F>(body));
-        if (m_heads.size() != depth) throw std::logic_error("unbalanced RIFF group");
         ReleaseGroup();
     }
     // Visit each child of the innermost open group with its chunk id. Chunks
@@ -132,24 +123,25 @@ public:
     {
         for (int index = 0, count = ChunkCount(); index < count; ++index) {
             OpenChunk(0, 0);
-            const auto depth = m_heads.size();
             bool more = true;
-            if (!CurrentChunkAtEnd()) {
+            if (!CurrentHead().at_end) {
                 if constexpr (std::is_void_v<std::invoke_result_t<F&, unsigned int>>)
                     visit(CurrentChunkId());
                 else
                     more = visit(CurrentChunkId());
             }
-            if (m_heads.size() != depth) throw std::logic_error("unbalanced RIFF chunk");
             SkipCurrentChunk();
             ReleaseCurrentChunk();
             if (!more) return;
         }
     }
-    void RewindCurrentChunk();
-    bool ReleaseCurrentChunk();
-    unsigned char CurrentChunkAtEnd();
 
 private:
     W8ChunkHead& CurrentHead();
+    std::int64_t CurrentChunkEnd() const;
+    void OpenChunk(unsigned int chunk_id, unsigned char grouped);
+    void ReleaseCurrentChunk();
+    void SkipCurrentChunk();
+    void OpenGroup();
+    void ReleaseGroup();
 };

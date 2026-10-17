@@ -237,29 +237,28 @@ unsigned char DispatchWorldCursorNodeCommand(W8MonsterInfo* info, int command, .
         switch (command) {
         case 0:
             if (previous != 0 && previous != node) {
-                result = g_world_cursor_node_handlers[GetWorldCursorNodeParameter(previous, 2)](
-                    2, previous, context);
+                result =
+                    g_world_cursor_node_handlers[previous->parameters[2]](2, previous, context);
             }
             previous = g_active_cursor_node;
             if (node != 0 && previous != node) {
-                result = g_world_cursor_node_handlers[GetWorldCursorNodeParameter(node, 2)](
-                    1, node, context);
+                result = g_world_cursor_node_handlers[node->parameters[2]](1, node, context);
             }
             g_active_cursor_node = node;
             break;
         case 4:
-            if (node != 0 && GetWorldCursorNodeParameter(node, 2) == 2) {
+            if (node != 0 && node->parameters[2] == 2) {
                 result = g_world_cursor_node_handlers[2](4, node, context);
             }
             break;
         case 8:
-            if (node != 0 && GetWorldCursorNodeParameter(node, 2) == 7) {
+            if (node != 0 && node->parameters[2] == 7) {
                 result = g_world_cursor_node_handlers[7](8, node, context);
             }
             break;
         case 3:
             if (node != 0) {
-                int type = GetWorldCursorNodeParameter(node, 2);
+                int type = node->parameters[2];
                 if (type == 3) {
                     result = g_world_cursor_node_handlers[3](type, node, context);
                 }
@@ -296,10 +295,10 @@ static unsigned char WorldCursorNodeShowMessageOnce(int command, W8WorldCursorNo
     std::string text;
 
     result = false;
-    message_id = GetWorldCursorNodeParameter(node, 0);
+    message_id = node->parameters[0];
     folder = GetLevelFolderName(GetLoadedLevelID());
-    type = GetWorldCursorNodeParameter(node, 2);
-    enabled = static_cast<unsigned char>(GetWorldCursorNodeParameter(node, 1));
+    type = node->parameters[2];
+    enabled = static_cast<unsigned char>(node->parameters[1]);
     if (enabled != 0 && g_status.search_mode == 0 && g_status.party_modifiers.detect_secrets == 0) {
         for (slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
             if (g_status.buffers.XChar[slot].fOccupied &&
@@ -348,7 +347,7 @@ static unsigned char WorldCursorNodeShowContextMessage(int command, W8WorldCurso
         return 0;
     }
     if (static_cast<unsigned char>(context) != 0) {
-        message_id = GetWorldCursorNodeParameter(node, 0);
+        message_id = node->parameters[0];
         if (folder == 0) {
             folder = "Test";
         }
@@ -375,7 +374,7 @@ static unsigned char WorldCursorNodeShowMessage(int command, W8WorldCursorNode* 
     if (command != 3) {
         return 0;
     }
-    message_id = GetWorldCursorNodeParameter(node, 0);
+    message_id = node->parameters[0];
     if (folder == 0) {
         folder = "Test";
     }
@@ -542,7 +541,7 @@ static unsigned char WorldCursorNodePartyVoice(int command, W8WorldCursorNode* n
     std::byte* shown;
     int slot;
 
-    event_type = GetWorldCursorNodeParameter(node, 0);
+    event_type = node->parameters[0];
     if (command == 1) {
         if (node->userdata.empty()) node->userdata.resize(1);
         shown = node->userdata.data();

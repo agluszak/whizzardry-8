@@ -528,9 +528,8 @@ TEST_CASE("Sprite and cursor meshes preserve face winding and UV seams", "[geome
     REQUIRE(empty_quad != nullptr);
     REQUIRE(empty_quad->getPolygonCount() == 0);
     REQUIRE(empty_quad->getVertexCount() == 0);
-    std::unique_ptr<W8WorldCursorNode, decltype(&DestroyWorldCursorCube)> cursor(
-        CreateWorldCursorCube(), DestroyWorldCursorCube);
-    auto* instance = dynamic_cast<stModelInstance*>(cursor->node);
+    const auto cursor = CreateWorldCursorCube();
+    auto* instance = cursor->node.get();
     REQUIRE(instance != nullptr);
     auto* cube = dynamic_cast<srMeshModel*>(instance->getModel());
     REQUIRE(cube != nullptr);

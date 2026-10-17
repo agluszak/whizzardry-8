@@ -25,7 +25,6 @@ void DestroyWorld(W8World* world);
 void DetachAllWorldItems(void);
 void UpdateWorlds(void);
 void UpdateWorldMeshAfterLoad(void);
-void UpdateWorld(W8World* world);
 W8WorldCameraState cameraState(const W8World& world);
 void SetWorldCameraState(W8World* world, W8World* source_world, W8WorldCameraState* state);
 void RestoreWorldCameraState(W8World* world, W8World* source_world, W8WorldCameraState* state);

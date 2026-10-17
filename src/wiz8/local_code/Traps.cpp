@@ -1,5 +1,6 @@
 #include "wiz8/local_code/Traps.h"
 
+#include <algorithm>
 #include <cctype>
 #include <cstdint>
 #include <cstring>
@@ -335,7 +336,7 @@ void ResolveSprungTrap(Trigger* trigger)
     glm::vec3 camera;
 
     devices = trigger->lock_state.difficulty;
-    ClampInteger(&devices, 1, 7);
+    devices = std::clamp(devices, 1, 7);
     type = trigger->lock_state.device_id;
     if (Random(2) == 0) {
         trigger->CompleteItemInteraction();

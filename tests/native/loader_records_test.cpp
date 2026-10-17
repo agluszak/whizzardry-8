@@ -1499,10 +1499,13 @@ struct LocationVariableFixture : LoaderFixture {
         chunk.WriteChunk(W8ChunkId("NEXT"), [&] { chunk.WriteValue(std::array<char, 256>{}); });
         chunk.Close();
         REQUIRE(chunk.OpenRead(path));
-        REQUIRE(chunk.OpenChunk(0, 0));
-        FileFaults fault(inject_failure ? 5 : 0);
-        const bool loaded = LoadLocationVariables(chunk);
-        if (inject_failure) REQUIRE(FileFaults::fired);
+        bool loaded = false;
+        chunk.ForEachChunk([&](unsigned) {
+            FileFaults fault(inject_failure ? 5 : 0);
+            loaded = LoadLocationVariables(chunk);
+            if (inject_failure) REQUIRE(FileFaults::fired);
+            return false;
+        });
         return loaded;
     }
     ~LocationVariableFixture()
@@ -1688,25 +1691,24 @@ TEST_CASE("Octree particle registration checks the whole batch before publishing
     REQUIRE(octree.m_particles == std::vector<stParticle*>{&first});
 }
 
-extern std::vector<W8WorldCursorNode*> g_world_cursor_nodes;
-
 TEST_CASE_METHOD(LoaderFixture, "Cursor scratch replacement validates complete saved records",
                  "[loader][cursor][ownership]")
 {
-    W8WorldCursorNode first{}, second{};
     const struct RegistryScope {
-        std::vector<W8WorldCursorNode*> previous = std::move(g_world_cursor_nodes);
+        std::vector<std::unique_ptr<W8WorldCursorNode>> previous = std::move(g_world_cursor_nodes);
         ~RegistryScope() { g_world_cursor_nodes = std::move(previous); }
     } registry;
+    g_world_cursor_nodes.clear();
+    auto& first = *g_world_cursor_nodes.emplace_back(std::make_unique<W8WorldCursorNode>());
+    auto& second = *g_world_cursor_nodes.emplace_back(std::make_unique<W8WorldCursorNode>());
     std::strcpy(first.name, "first");
     std::strcpy(second.name, "second");
     first.userdata = {std::byte{7}};
     second.userdata = {std::byte{8}};
-    g_world_cursor_nodes = {&first, &second};
     std::string bytes;
     append(bytes, 2);
     append(bytes, 2u);
-    for (const auto* node : g_world_cursor_nodes) {
+    for (const auto& node : g_world_cursor_nodes) {
         bytes.append(node->name, sizeof(node->name));
         append(bytes, 2);
         bytes.append("ab", 2);
@@ -1722,8 +1724,7 @@ TEST_CASE_METHOD(LoaderFixture, "Cursor scratch replacement validates complete s
     REQUIRE(load(bytes) == 2);
     REQUIRE(first.userdata == std::vector{std::byte{'a'}, std::byte{'b'}});
     REQUIRE(load(bytes) == 2);
-    SetWorldCursorNodeParameter(&first, 0, 4);
-    REQUIRE(first.userdata.empty());
+    first.userdata.clear();
     auto invalid = bytes;
     std::fill(invalid.begin() + 8, invalid.begin() + 40, 'x');
     REQUIRE(load(invalid) == 0);

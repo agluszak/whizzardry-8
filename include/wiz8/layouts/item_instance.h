@@ -11,8 +11,6 @@ enum W8ItemOrigin {
     W8_ITEM_ORIGIN_NONE = 0xff
 };
 
-#pragma pack(push, 1)
-
 /* One live item stack carried by a character, party pool, or world item. */
 struct W8ItemInstance {
     /* 0x00: the Items.dbs record id. */
@@ -32,8 +30,6 @@ struct W8ItemInstance {
        item is worn and read by the predicates that refuse to take it off. */
     bool bound;
 }; /* 0x0c */
-
-#pragma pack(pop)
 
 static_assert(sizeof(W8ItemInstance) == 0x0c, "W8ItemInstance_must_be_0x0c");
 

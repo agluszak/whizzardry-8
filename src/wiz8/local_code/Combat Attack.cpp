@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <string>
@@ -1605,7 +1606,7 @@ static int GetCombatFumbleChance(const std::vector<W8CombatSlot>& targets, int a
     } else {
         chance = 0;
     }
-    ClampInteger(&chance, 0, 100);
+    chance = std::clamp(chance, 0, 100);
     return chance;
 }
 

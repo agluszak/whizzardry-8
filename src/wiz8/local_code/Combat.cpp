@@ -1,5 +1,6 @@
 #include "wiz8/local_code/Combat.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <memory>
@@ -768,7 +769,8 @@ void BeginCombatRound(void)
 void CatchUpCombatActor(W8CombatCharacterRow* row)
 {
     row->phase += g_combat_state->round_counter - row->phase_clock_stamp;
-    ClampUnsignedInteger(&row->phase, g_combat_state->round_counter, 100);
+    row->phase =
+        row->phase > 100u ? 100u : std::max<unsigned>(row->phase, g_combat_state->round_counter);
     RoundPhaseToStep(&row->phase, g_combat_state->round_counter);
     row->phase_clock_stamp = g_combat_state->round_counter;
 }
@@ -1749,7 +1751,7 @@ void AssignCombatPhases(void)
                     value += character->Hand[hand].damage_bonus;
                 }
             }
-            ClampInteger(&value, -10, 0x59);
+            value = std::clamp(value, -10, 0x59);
             row->phase = 0x5a - value;
             RoundPhaseToStep(&row->phase, 10);
             if (gXStatus.hostile_monster_count != 0 &&
@@ -1778,7 +1780,7 @@ void AssignCombatPhases(void)
                 monster_info->pCombat->active = true;
             } else {
                 int value = Random(4) + GetMonsterDataForInfo(monster_info)->initiative;
-                ClampInteger(&value, -10, 0x59);
+                value = std::clamp(value, -10, 0x59);
                 monster_info->pCombat->phase = 0x5a - value;
                 RoundPhaseToStep(&monster_info->pCombat->phase, 10);
             }
@@ -2392,7 +2394,9 @@ void ComputeCharacterActionPhase(int party_slot)
                     row->phase = character->Hand[current].damage_bonus -
                                  character->Hand[chosen].damage_bonus + phase;
                 }
-                ClampUnsignedInteger(&row->phase, g_combat_state->round_counter, 100);
+                row->phase = row->phase > 100u
+                                 ? 100u
+                                 : std::max<unsigned>(row->phase, g_combat_state->round_counter);
                 RoundPhaseToStep(&row->phase, g_combat_state->round_counter);
                 return;
             }

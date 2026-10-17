@@ -95,4 +95,3 @@ std::shared_ptr<srTexture> LoadTextureFromPath(const char* path, const W8Materia
                                                bool required);
 
 struct W8OctRegionPolygon;
-

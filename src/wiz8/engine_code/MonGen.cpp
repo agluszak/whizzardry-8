@@ -467,11 +467,15 @@ bool MonGen::CanGenerateEncounter(bool force)
 /* Restore the level's encounter budget and population bounds. */
 static void ClampRandomEncounterLimits(const W8LevelDatabaseRecord& level)
 {
-    ClampInteger(&g_random_encounter_budget, level.minimum_encounter_budget,
-                 level.maximum_encounter_budget);
+    g_random_encounter_budget =
+        g_random_encounter_budget > level.maximum_encounter_budget
+            ? level.maximum_encounter_budget
+            : std::max(g_random_encounter_budget, level.minimum_encounter_budget);
     g_random_encounter_limit = g_random_encounter_budget;
-    ClampInteger(&g_random_encounter_limit, level.minimum_random_encounters,
-                 level.maximum_random_encounters);
+    g_random_encounter_limit =
+        g_random_encounter_limit > level.maximum_random_encounters
+            ? level.maximum_random_encounters
+            : std::max(g_random_encounter_limit, level.minimum_random_encounters);
 }
 
 /* Advances the random-encounter budget for the current level.

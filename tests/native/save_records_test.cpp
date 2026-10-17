@@ -41,6 +41,7 @@
 #include <memory>
 #include <optional>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -766,12 +767,13 @@ static void current_game_character_contracts()
     REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(second));
     REQUIRE(
         (chunks.OpenRead(wiz8::user_path("saves\\CurrentGame.SAV")) && chunks.ChunkCount() == 2));
-    for (int index = 0; index < 2; ++index) {
-        REQUIRE((chunks.OpenChunk(0, 0) && chunks.CurrentChunkId() == 0x52414843));
-        REQUIRE(!chunks.CurrentChunkAtEnd());
+    int visited = 0;
+    chunks.ForEachChunk([&](unsigned id) {
+        REQUIRE(id == 0x52414843);
         REQUIRE(chunks.CurrentChunkExtent() == 64 + 4 + W8_CHARACTER_SERIALIZED_SIZE);
-        REQUIRE((chunks.SkipCurrentChunk() && chunks.ReleaseCurrentChunk()));
-    }
+        ++visited;
+    });
+    REQUIRE(visited == 2);
     chunks.Close();
     REQUIRE(!SaveCharacterToCurrentGame(std::string(64, 'x').c_str(), 0, &first));
     REQUIRE(
@@ -800,7 +802,8 @@ static void current_game_character_contracts()
         wiz8::StagedFile staged(wiz8::user_path("saves\\CurrentGame.SAV"));
         W8Chunk unfinished;
         REQUIRE(unfinished.OpenWrite(staged.file()));
-        unfinished.OpenChunk(0x52414843, 0);
+        REQUIRE_THROWS(
+            unfinished.WriteChunk(0x52414843, [] { throw std::runtime_error("abandoned"); }));
         bool rejected = false;
         try {
             unfinished.Close();
@@ -833,32 +836,31 @@ static void current_game_character_contracts()
 
     // A payload that reaches into the next chunk must leave the destination intact.
     REQUIRE(chunks.OpenWrite(wiz8::user_path("saves\\CurrentGame.SAV")));
-    REQUIRE(chunks.OpenChunk(0x52414843, 0));
     char name[64] = "vi.CHR";
-    unsigned size = W8_CHARACTER_SERIALIZED_SIZE;
-    chunks.Write(name, sizeof(name), nullptr);
-    chunks.Write(&size, sizeof(size), nullptr);
-    chunks.Write(&first, 1, nullptr);
-    chunks.ReleaseCurrentChunk();
-    chunks.OpenChunk(0x444150, 0);
-    wiz8::retail::write(chunks, second);
-    chunks.ReleaseCurrentChunk();
+    const unsigned size = W8_CHARACTER_SERIALIZED_SIZE;
+    // Only the first byte of the declared payload is present.
+    chunks.WriteChunk(0x52414843, [&] {
+        chunks.WriteValue(name);
+        chunks.WriteValue(size);
+        chunks.WriteBytes(&first, 1);
+    });
+    chunks.WriteChunk(0x444150, [&] { wiz8::retail::write(chunks, second); });
     chunks.Close();
     loaded = second;
     REQUIRE(!LoadCharacterFromCurrentGame("vi.CHR", &loaded));
     REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(second));
     // A malformed newer payload does not hide the last complete character.
     REQUIRE(chunks.OpenWrite(wiz8::user_path("saves\\CurrentGame.SAV")));
-    chunks.OpenChunk(0x52414843, 0);
-    chunks.Write(name, sizeof(name), nullptr);
-    chunks.Write(&size, sizeof(size), nullptr);
-    wiz8::retail::write(chunks, first);
-    chunks.ReleaseCurrentChunk();
-    chunks.OpenChunk(0x52414843, 0);
-    chunks.Write(name, sizeof(name), nullptr);
-    chunks.Write(&size, sizeof(size), nullptr);
-    chunks.Write(&replacement, 1, nullptr);
-    chunks.ReleaseCurrentChunk();
+    chunks.WriteChunk(0x52414843, [&] {
+        chunks.WriteValue(name);
+        chunks.WriteValue(size);
+        wiz8::retail::write(chunks, first);
+    });
+    chunks.WriteChunk(0x52414843, [&] {
+        chunks.WriteValue(name);
+        chunks.WriteValue(size);
+        chunks.WriteBytes(&replacement, 1);
+    });
     chunks.Close();
     REQUIRE(LoadCharacterFromCurrentGame("vi.CHR", &loaded));
     REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(first));
@@ -964,20 +966,18 @@ static void save_file_contracts(const std::filesystem::path& user)
     write(fallback, 7u);
     fallback.close();
     REQUIRE(FindStartupQuickSave() == "Quick");
-    std::uint32_t count = 0;
 
     const auto riff = wiz8::user_path("saves/riff.SAV");
     W8Chunk chunks;
     REQUIRE(chunks.OpenWrite(riff));
-    REQUIRE(chunks.OpenChunk(0x454d4954u, 0)); // TIME
-    REQUIRE((chunks.Write(words, sizeof(words), &count) && count == 8));
-    REQUIRE(chunks.ReleaseCurrentChunk());
+    chunks.WriteChunk(0x454d4954u, [&] { chunks.WriteValue(words); }); // TIME
     chunks.Close();
     REQUIRE((chunks.OpenRead(riff) && chunks.ChunkCount() == 1));
-    REQUIRE((chunks.OpenChunk(0, 0) && chunks.CurrentChunkId() == 0x454d4954u));
-    REQUIRE((chunks.Read(stored, sizeof(stored), &count) && count == 8));
+    chunks.ForEachChunk([&](unsigned id) {
+        REQUIRE(id == 0x454d4954u);
+        chunks.ReadValue(stored);
+    });
     REQUIRE((stored[0] == words[0] && stored[1] == words[1]));
-    REQUIRE(chunks.ReleaseCurrentChunk());
     chunks.Close();
 }
 
@@ -1010,57 +1010,63 @@ static void global_status_record()
     REQUIRE(chunks.OpenWrite(path));
     SaveGlobalStatus(&chunks, &status);
     chunks.Close();
-    REQUIRE((chunks.OpenRead(path) && chunks.OpenChunk(0, 0)));
-    REQUIRE(chunks.CurrentChunkId() == 0x41545347);
-    unsigned size = 0, count = 0;
-    REQUIRE((chunks.Read(&size, sizeof(size), &count) && count == sizeof(size) && size == 0x49c2));
-    unsigned char bytes[0x49c2];
-    REQUIRE((chunks.Read(bytes, sizeof(bytes), &count) && count == sizeof(bytes)));
     const auto status_image = wiz8::retail::encode(status);
-    REQUIRE(!memcmp(bytes, status_image.data(), sizeof(bytes)));
-    std::array<unsigned char, 0x21> expected_progress{
-        1, 0x34, 0x12, 0xf9, 0xff, 0xef, 0xcd, 0xab, 0x89, 0xf7, 0xff, 0xff, 0xff, 4, 3, 2, 1};
-    std::fill(expected_progress.begin() + 0x11, expected_progress.end(), 0xa5);
-    for (const int level : {0, W8_LEVEL_COUNT - 1})
-        REQUIRE(std::equal(expected_progress.begin(), expected_progress.end(),
-                           bytes + 0x1a04 + level * 0x21));
-    REQUIRE(bytes[0x242f] == 0xa5);
-    REQUIRE(bytes[0x49be] == 0x5a);
-    REQUIRE(bytes[0x49bf] == 0x17);
-    unsigned gold, turns;
-    memcpy(&gold, bytes + 0x19, sizeof(gold));
-    memcpy(&turns, bytes + 0x19d8, sizeof(turns));
-    REQUIRE((gold == 0x12345678 && turns == 0x87654321));
-    float position[3];
-    memcpy(position, bytes + 0x22a7, sizeof(position));
-    REQUIRE((position[0] == 1 && position[1] == 2 && position[2] == 3));
-    // Verify each record's prefix and stride independently of native sizeof.
-    for (int slot = 0; slot < 8; ++slot) {
-        REQUIRE((chunks.Read(&size, 4, &count) && size == 0x1862));
-        std::array<std::byte, 0x1862> character_bytes;
-        REQUIRE(chunks.Read(character_bytes.data(), character_bytes.size(), &count));
-    }
-    for (int slot = 0; slot < 8; ++slot) {
-        REQUIRE((chunks.Read(&size, 4, &count) && size == 0x106));
-        std::array<std::byte, 0x106> party_bytes;
-        REQUIRE(chunks.Read(party_bytes.data(), party_bytes.size(), &count));
-        int attack_mode;
-        float fatigue;
-        std::memcpy(&attack_mode, party_bytes.data() + 5, 4);
-        std::memcpy(&fatigue, party_bytes.data() + 0xf6, 4);
-        REQUIRE((party_bytes[0] == std::byte{1} && attack_mode == 100 + slot));
-        REQUIRE(fatigue == 1.25f + slot);
-        REQUIRE(party_bytes[0x105] == std::byte(slot % 2));
-    }
-    chunks.ReleaseCurrentChunk();
-    chunks.Close();
+    // Visit the single GSTA chunk.
+    const auto read_status_chunk = [&](const auto& visit) {
+        REQUIRE(chunks.OpenRead(path));
+        int visited = 0;
+        chunks.ForEachChunk([&](unsigned id) {
+            REQUIRE(id == 0x41545347);
+            visit();
+            ++visited;
+        });
+        chunks.Close();
+        REQUIRE(visited == 1);
+    };
+    read_status_chunk([&] {
+        REQUIRE(chunks.ReadValue<unsigned>() == 0x49c2);
+        unsigned char bytes[0x49c2];
+        chunks.ReadValue(bytes);
+        REQUIRE(!memcmp(bytes, status_image.data(), sizeof(bytes)));
+        std::array<unsigned char, 0x21> expected_progress{
+            1, 0x34, 0x12, 0xf9, 0xff, 0xef, 0xcd, 0xab, 0x89, 0xf7, 0xff, 0xff, 0xff, 4, 3, 2, 1};
+        std::fill(expected_progress.begin() + 0x11, expected_progress.end(), 0xa5);
+        for (const int level : {0, W8_LEVEL_COUNT - 1})
+            REQUIRE(std::equal(expected_progress.begin(), expected_progress.end(),
+                               bytes + 0x1a04 + level * 0x21));
+        REQUIRE(bytes[0x242f] == 0xa5);
+        REQUIRE(bytes[0x49be] == 0x5a);
+        REQUIRE(bytes[0x49bf] == 0x17);
+        unsigned gold, turns;
+        memcpy(&gold, bytes + 0x19, sizeof(gold));
+        memcpy(&turns, bytes + 0x19d8, sizeof(turns));
+        REQUIRE((gold == 0x12345678 && turns == 0x87654321));
+        float position[3];
+        memcpy(position, bytes + 0x22a7, sizeof(position));
+        REQUIRE((position[0] == 1 && position[1] == 2 && position[2] == 3));
+        // Verify each record's prefix and stride independently of native sizeof.
+        for (int slot = 0; slot < 8; ++slot) {
+            REQUIRE(chunks.ReadValue<unsigned>() == 0x1862);
+            chunks.ReadValue<std::array<std::byte, 0x1862>>();
+        }
+        for (int slot = 0; slot < 8; ++slot) {
+            REQUIRE(chunks.ReadValue<unsigned>() == 0x106);
+            const auto party_bytes = chunks.ReadValue<std::array<std::byte, 0x106>>();
+            int attack_mode;
+            float fatigue;
+            std::memcpy(&attack_mode, party_bytes.data() + 5, 4);
+            std::memcpy(&fatigue, party_bytes.data() + 0xf6, 4);
+            REQUIRE((party_bytes[0] == std::byte{1} && attack_mode == 100 + slot));
+            REQUIRE(fatigue == 1.25f + slot);
+            REQUIRE(party_bytes[0x105] == std::byte(slot % 2));
+        }
+    });
     W8Character restored_characters[8]{};
     W8PartySlotRow restored_rows[8]{};
     W8GlobalStatus restored{};
     restored.buffers.Char = restored_characters;
     restored.buffers.XChar = restored_rows;
-    REQUIRE((chunks.OpenRead(path) && chunks.OpenChunk(0, 0)));
-    LoadGameStatus(&chunks, &restored);
+    read_status_chunk([&] { LoadGameStatus(&chunks, &restored); });
     REQUIRE(restored.party_gold == status.party_gold);
     const auto restored_image = wiz8::retail::encode(restored);
     REQUIRE(std::equal(status_image.begin() + 0x1a04, status_image.begin() + 0x2013,
@@ -1073,8 +1079,6 @@ static void global_status_record()
         REQUIRE(restored_rows[slot].movement_fatigue == 1.25f + slot);
         REQUIRE(restored_rows[slot].weapon_swap_pending == bool(slot % 2));
     }
-    chunks.ReleaseCurrentChunk();
-    chunks.Close();
 }
 
 static void camera_angles()

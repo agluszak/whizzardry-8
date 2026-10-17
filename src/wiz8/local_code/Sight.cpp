@@ -1,5 +1,6 @@
 #include "wiz8/local_code/Sight.h"
 
+#include <algorithm>
 #include <cstring>
 #include <span>
 #include <unordered_map>
@@ -227,7 +228,7 @@ float ComputeSightThreshold(glm::vec3 observer_position, glm::vec3 target_positi
     if (ranged_bonus != 0) {
         sight_percent = (static_cast<int>(ranged_bonus) + 100) * sight_percent / 100;
     }
-    ClampInteger(&sight_percent, 2, 100);
+    sight_percent = std::clamp(sight_percent, 2, 100);
     return sight_percent * viewing_distance * kMovementSpeedStep;
 }
 

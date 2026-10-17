@@ -7,6 +7,7 @@
 #include <cstring>
 #include <exception>
 #include <filesystem>
+#include <initializer_list>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -30,7 +31,6 @@
 #include "surrender/srDebug.h"
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
-#include "wiz8/containers.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/AmbientSound.h"
 #include "wiz8/engine_code/Camera.h"
@@ -88,8 +88,6 @@ static int g_game_data_runtime_pending = 1;
 
 // GLOBAL: WIZ8 0x00659757
 bool g_world_cleanup_flag;
-// GLOBAL: WIZ8 0x00659a80
-static std::vector<W8World*> g_worlds;
 
 // GLOBAL: WIZ8 0x006081f8
 bool g_navigator_vertical_enabled = true;
@@ -116,8 +114,6 @@ unsigned char LoadWorld(W8World* world, std::string_view source_path, bool use_o
     const auto oct_path = sibling(".oct");
     const auto game_data_path = sibling(".wgd");
     const auto material_folder = wiz8::path_to_utf8(path.parent_path() / "Bitmaps");
-
-    g_worlds.push_back(world);
 
     world->m_loaded = true;
     world->nodes_to_disable.clear();
@@ -220,6 +216,32 @@ W8World* CreateWorld()
     return world.release();
 }
 
+// The sky world only retires particles and disables queued nodes.
+// FUNCTION: WIZ8 0x0044F4E0
+static void UpdateWorld(W8World& world)
+{
+    if (&world != g_secondary_world) {
+        UpdateWorldMonsters(&world);
+        UpdateWorldMissiles(&world);
+        UpdateWorldSpellVisuals(&world);
+        UpdateAmbientSounds(&world);
+        WorldUpdateLights(&world);
+        RunMonsterGenerators();
+        UpdateWorldTriggers(&world);
+        if (world.octree != 0) {
+            RunMasterFunctions();
+        }
+        UpdateSpellEffects();
+    }
+
+    SweepFinishedParticles(&world);
+
+    for (srNode* node : world.nodes_to_disable) {
+        node->setFlag(srNode::FLAG_DISABLE);
+    }
+    world.nodes_to_disable.clear();
+}
+
 // FUNCTION: WIZ8 0x0044F400
 void UpdateWorlds(void)
 {
@@ -227,11 +249,8 @@ void UpdateWorlds(void)
         !(((GetInputState().modifiers & CTRL_DOWN) != 0) && g_combat_state != 0 &&
           (g_combat_state->round_active || gXStatus.fPartyMovementMode));
 
-    {
-        int count = static_cast<int>(g_worlds.size());
-        for (int index = 0; index < count; ++index) {
-            UpdateWorld(g_worlds[index]);
-        }
+    for (W8World* world : {g_world, g_secondary_world}) {
+        if (world != 0) UpdateWorld(*world);
     }
 
     UpdateWorldMeshAfterLoad();
@@ -242,46 +261,13 @@ void UpdateWorlds(void)
     UpdateNpcEvents();
 }
 
-// FUNCTION: WIZ8 0x0044F4E0
-void UpdateWorld(W8World* world)
-{
-    if (world == 0) {
-        srAssertFail("pWorld", THREE_D_API_CPP, 0x106, 0);
-        CreateTriggerShakeEvent(0x6a4, 70.0f, 5000.0f, true);
-    }
-
-    if (world != g_secondary_world) {
-        UpdateWorldMonsters(world);
-        UpdateWorldMissiles(world);
-        UpdateWorldSpellVisuals(world);
-        UpdateAmbientSounds(world);
-        WorldUpdateLights(world);
-        RunMonsterGenerators();
-        UpdateWorldTriggers(world);
-        if (world->octree != 0) {
-            RunMasterFunctions();
-        }
-        UpdateSpellEffects();
-    }
-
-    SweepFinishedParticles(world);
-
-    auto& nodes = world->nodes_to_disable;
-    for (srNode* node : nodes) {
-        node->setFlag(srNode::FLAG_DISABLE);
-    }
-    nodes.clear();
-}
-
-/* Detach the item meshes in every registered world before the renderer-side
+/* Detach the item meshes in the level and sky worlds before the renderer-side
    resource transition. */
 // FUNCTION: WIZ8 0x0044f5b0
 void DetachAllWorldItems(void)
 {
-    int count = static_cast<int>(g_worlds.size());
-
-    for (int index = 0; index < count; ++index) {
-        DetachWorldItemMeshes(g_worlds[index]);
+    for (W8World* world : {g_world, g_secondary_world}) {
+        if (world != 0) DetachWorldItemMeshes(world);
     }
 }
 
@@ -364,13 +350,12 @@ static void StopWorldActivity(W8World* world)
     world->lights_to_update.clear();
 }
 
-// Phase 2: drop the non-owning indexes and detach the world from global lookup.
-static void UnregisterWorld(W8World* world)
+// Phase 2: drop the non-owning indexes into resources about to be destroyed.
+static void ClearWorldIndexes(W8World* world)
 {
     world->psrMeshes.clear();
     world->update_mesh_source = nullptr;
     world->collidable_props.clear();
-    wiz8::erase_first(g_worlds, world);
 }
 
 // Phase 3: destroy entities first, then the level data and spatial index they
@@ -406,7 +391,7 @@ W8World::W8World() = default;
 W8World::~W8World()
 {
     if (this == g_world) StopWorldActivity(this);
-    UnregisterWorld(this);
+    ClearWorldIndexes(this);
     DestroyWorldResources(this);
 }
 

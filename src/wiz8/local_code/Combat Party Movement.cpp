@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <optional>
 #include <vector>
 
@@ -53,7 +54,8 @@ void RoundPhaseToStep(unsigned int* phase, unsigned int base)
         if (base % 10 != 0) {
             base += 10 - base % 10;
         }
-        ClampUnsignedInteger(phase, base, W8_PHASES_PER_ROUND);
+        *phase =
+            *phase > W8_PHASES_PER_ROUND ? W8_PHASES_PER_ROUND : std::max<unsigned>(*phase, base);
     }
     if (*phase == 0 || *phase > W8_PHASES_PER_ROUND) {
         srAssertFail("( *puiPhase > 0 ) && ( *puiPhase <= PHASES_PER_ROUND )", COMBAT_MOVEMENT_CPP,
@@ -75,7 +77,7 @@ void UpdateActivePartyMovement(void)
     } else if (g_settings.continuous_combat != 0 &&
                TimeUntilDeadline(g_combat_state->party_movement_clock) == 0) {
         unsigned int step_count = g_settings.combat_delay_ms / 200 + 10;
-        ClampUnsignedInteger(&step_count, 10, 60);
+        step_count = std::clamp(step_count, 10u, 60u);
         gXStatus.party_move_distance += gXStatus.flPartyMoveDistLimit / step_count;
     } else {
         goto check_completion;
@@ -86,7 +88,7 @@ void UpdateActivePartyMovement(void)
     }
     g_level_block->move_percent = static_cast<int>(
         100.0f - gXStatus.party_move_distance * 100.0f / gXStatus.flPartyMoveDistLimit + 0.5);
-    ClampInteger(&g_level_block->move_percent, 0, 100);
+    g_level_block->move_percent = std::clamp(g_level_block->move_percent, 0, 100);
     if (g_level_block->move_percent != g_level_block->move_percent_shown) {
         InvalidatePartyMovementPanel();
         g_level_block->move_percent_shown = g_level_block->move_percent;
@@ -291,7 +293,7 @@ void InitializePartyMovementPhase(void)
             }
         }
     }
-    ClampInteger(&minimum_initiative, -10, 89);
+    minimum_initiative = std::clamp(minimum_initiative, -10, 89);
     g_combat_state->uiPartyActionPhase = 90 - minimum_initiative;
     if (g_combat_state->uiCurrentPartyAction == W8_PARTY_ACTION_WALK ||
         g_combat_state->uiCurrentPartyAction == W8_PARTY_ACTION_RUN) {

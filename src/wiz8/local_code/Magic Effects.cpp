@@ -338,7 +338,7 @@ bool MonsterResistsSpellEffect(const W8CombatSlot* target, int power)
     }
     score = (monster->effective_level - power) * 3 + monster_info->modifiers.resistance_bonus[4] +
             monster->resistances[4];
-    ClampInteger(&score, 5, 0x5f);
+    score = std::clamp(score, 5, 0x5f);
     return static_cast<int>(Random(100)) < score;
 }
 
@@ -500,7 +500,7 @@ bool TargetResistsCondition(W8CombatSlot* target, W8SpellRealm realm, unsigned i
     } else {
         ScaleValueForCharacterDifficulty(target->iChar, &chance);
     }
-    ClampInteger(&chance, 5, 95);
+    chance = std::clamp(chance, 5, 95);
     if (static_cast<int>(Random(100)) < chance) {
         if (target->iType == W8_TARGET_KIND_CHARACTER) {
             character = &g_status.buffers.Char[target->iChar];

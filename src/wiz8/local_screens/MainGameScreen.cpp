@@ -485,7 +485,7 @@ void RefreshLockInteractionControls(void)
             figure = 0xffffffff;
         } else {
             divisor = g_settings.difficulty - 1 + interaction->m_tumbler_count;
-            ClampInteger(&divisor, 2, 8);
+            divisor = std::clamp(divisor, 2, 8);
             figure = (character->attributes[W8_ATTRIBUTE_STRENGTH].effective - 0x32) /
                      IntegerPower(2, divisor - 2);
         }
@@ -701,7 +701,7 @@ void W8LockInfoPanel::RefreshInfo()
     if (IsPartySlotEligible(g_status.selected_character) && character->stamina > 0x4f &&
         character->attributes[W8_ATTRIBUTE_STRENGTH].effective > 0x32) {
         divisor = g_settings.difficulty - 1 + m_tumbler_count;
-        ClampInteger(&divisor, 2, 8);
+        divisor = std::clamp(divisor, 2, 8);
         figure = (character->attributes[W8_ATTRIBUTE_STRENGTH].effective - 0x32) /
                  IntegerPower(2, divisor - 2);
         if (static_cast<int>(figure) > -1) {
@@ -797,7 +797,7 @@ W8LockInteraction::W8LockInteraction(Trigger* trigger) : m_timer()
         figure = 0xffffffff;
     } else {
         divisor = g_settings.difficulty - 1 + m_tumbler_count;
-        ClampInteger(&divisor, 2, 8);
+        divisor = std::clamp(divisor, 2, 8);
         figure = (character->attributes[W8_ATTRIBUTE_STRENGTH].effective - 0x32) /
                  IntegerPower(2, divisor - 2);
     }
@@ -1031,7 +1031,7 @@ void W8LockInteraction::AttemptForce()
     if (IsPartySlotEligible(g_status.selected_character) && character->stamina > 0x4f &&
         character->attributes[W8_ATTRIBUTE_STRENGTH].effective > 0x32) {
         divisor = g_settings.difficulty - 1 + m_tumbler_count;
-        ClampInteger(&divisor, 2, 8);
+        divisor = std::clamp(divisor, 2, 8);
         chance = (character->attributes[W8_ATTRIBUTE_STRENGTH].effective - 0x32) /
                  IntegerPower(2, divisor - 2);
         if (static_cast<int>(chance) > -1) {
@@ -1074,7 +1074,7 @@ void W8LockInteraction::AttemptForce()
                 chance = -1;
             } else {
                 divisor = g_settings.difficulty + m_tumbler_count - 1;
-                ClampInteger(&divisor, 2, 8);
+                divisor = std::clamp(divisor, 2, 8);
                 chance = (character->attributes[W8_ATTRIBUTE_STRENGTH].effective - 0x32) /
                          IntegerPower(2, divisor - 2);
             }

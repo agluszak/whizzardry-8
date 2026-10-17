@@ -28,7 +28,6 @@
 #include "wiz8/engine_code/PolyPick.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/stCube.h"
 #include "wiz8/fonts.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
@@ -175,8 +174,8 @@ void UnregisterSearchableTrigger(Trigger* trigger)
 }
 
 /* Resolve this searchable's world position: the item's rep midpoint when it
-   has a live owner, the recorded position otherwise; cursor-node and prop
-   searchables resolve through their own objects. */
+   has a live owner, the recorded position otherwise; prop searchables
+   resolve through their trigger's prop. */
 // FUNCTION: WIZ8 0x00517080
 void W8Searchable::GetPosition(glm::vec3* position)
 {
@@ -189,12 +188,6 @@ void W8Searchable::GetPosition(glm::vec3* position)
         (*position) =
             glm::vec3(world_item->position.x, world_item->position.y + g_octree_cell_scale,
                       world_item->position.z);
-        return;
-    }
-    if (cursor_node != 0) {
-        if (cursor_node->GetLocation(position) == 0) {
-            *position = glm::vec3(3.4028235e+38f);
-        }
         return;
     }
     if (trigger != 0) {

@@ -1029,7 +1029,7 @@ static void SelectSpellCastingListRow(int index)
     levels = GetCharacterRealmSpellPoints(&g_status.buffers.Char[g_status.selected_character],
                                           g_spell_records[spell_id].realm) /
              cost;
-    ClampUnsignedInteger(&levels, 0, 7);
+    levels = std::clamp(levels, 0u, 7u);
     if (levels == 0) {
         gpSCSV->uiSpellIndex = -1;
         return;

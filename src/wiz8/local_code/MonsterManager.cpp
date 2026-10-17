@@ -712,7 +712,7 @@ void ConvertMonsterAttributes(W8MonsterInfo* monster_info)
         }
 
         value += monster_info->modifiers.attribute_adjustments[attribute_index];
-        ClampInteger(&value, 1, 125);
+        value = std::clamp(value, 1, 125);
         monster_info->attributes[monster_attribute] = static_cast<unsigned char>(value);
     }
 }

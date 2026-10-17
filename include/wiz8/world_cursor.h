@@ -85,7 +85,6 @@ bool IsWorldCursorVisible(void);
 void GetWorldCursorPosition(glm::vec3* position);
 void SetWorldCursorNodesVisible(bool visible);
 bool SelectWorldCursorNode(void);
-int GetWorldCursorNodeCount(void);
 void HideWorldCursor(void);
 void ShowWorldCursor(void);
 /* Clamp and install an action-range distance into the live world cursor, then

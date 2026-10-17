@@ -1,5 +1,6 @@
 #include "wiz8/character_skills.h"
 
+#include <algorithm>
 #include <cstring>
 #include <string>
 #include <utility>
@@ -448,7 +449,7 @@ void ResetCharacterAttributes(W8Character* character)
     for (index = 0; index < 7; ++index) {
         int value =
             character->bonus.attribute_adjustments[index] + character->attributes[index].base;
-        ClampInteger(&value, 1, 0x7d);
+        value = std::clamp(value, 1, 0x7d);
         character->attributes[index].effective = value;
         UnequipUnusableItems(character);
     }
@@ -466,7 +467,7 @@ static int GetEffectiveSkillLevel(const W8Character* character, W8Skill skill_id
         level += bonus;
     }
     level += character->bonus.skill_bonus[skill_id];
-    ClampInteger(&level, 0, 0x7d);
+    level = std::clamp(level, 0, 0x7d);
     return level;
 }
 
@@ -522,7 +523,7 @@ void ApplyAttributeChange(W8Character* character, W8Attribute attribute)
     }
     int effective = character->bonus.attribute_adjustments[attribute] +
                     static_cast<int>(character->attributes[attribute].base);
-    ClampInteger(&effective, 1, 0x7d);
+    effective = std::clamp(effective, 1, 0x7d);
     character->attributes[attribute].effective = effective;
     UnequipUnusableItems(character);
     RecalculateCharacterDerivedStats(character);

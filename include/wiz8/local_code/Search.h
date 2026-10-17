@@ -8,14 +8,11 @@
 #include "glm/ext/vector_float3.hpp"
 
 class Trigger;
-class W8WorldCursorNode;
 struct W8WorldItem;
 
 /* Local Code\search.cpp. The searchable registry owns small records whose
    members name the world item or trigger participating in a search. */
 struct W8Searchable {
-    W8Searchable() : world_item(0), cursor_node(0), trigger(0) {}
-
     /* Resolve this searchable's world position. */
     void GetPosition(glm::vec3* position);
     /* Fire the found consequence (item reveal or trigger run) and
@@ -25,11 +22,8 @@ struct W8Searchable {
        searchable, or -1. Practices the searching skill on a qualified pick. */
     int PickBestSearcher();
 
-    W8WorldItem* world_item;
-    /* Never written; the only reader resolves a world cursor node's
-       location through it. */
-    W8WorldCursorNode* cursor_node;
-    Trigger* trigger;
+    W8WorldItem* world_item = nullptr;
+    Trigger* trigger = nullptr;
 };
 
 /* The per-pulse iteration view over the registry. Its constructor
