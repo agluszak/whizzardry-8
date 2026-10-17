@@ -2594,7 +2594,7 @@ void Trigger::Run(int source)
                     srAssertFail("m_pProp && m_bRepType == TRIGGER_REP_PROP",
                                  "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0x592, 0);
                 }
-                animation = m_pProp->Rep()->animation;
+                animation = m_pProp->Rep()->Animation();
                 if (AnimationIsRunning(animation) == 1) {
                     count = AnimObjListCount(animation, 2);
                     for (index = 0; index < count; ++index) {
@@ -3250,7 +3250,7 @@ void Trigger::Run(int source)
         if (m_pProp == 0 || m_lData1 < 0) {
             return;
         }
-        count = AnimObjValue(m_pProp->Rep()->animation, 2);
+        count = AnimObjValue(m_pProp->Rep()->Animation(), 2);
         if (static_cast<int>(count) <= m_lData1) {
             return;
         }

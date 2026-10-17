@@ -1,13 +1,15 @@
 #include "wiz8/engine_code/AmbientSound.h"
 
+#include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
-#include <cstring>
 #include <exception>
 #include <memory>
 #include <optional>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -26,7 +28,6 @@
 #include "layouts/world.h"
 #include "random.h"
 #include "soundman.h"
-#include "surrender/srDebug.h"
 #include "surrender/srMath.h"
 #include "wiz8/audio_resources.h"
 #include "wiz8/containers.h"
@@ -139,13 +140,12 @@ void StopAllAmbientSounds()
 
 // FUNCTION: WIZ8 0x00479040
 W8AmbientSound::W8AmbientSound()
-    : volume_min(0), volume_max(0), current_volume(0), speed_min(0), speed_max(0), time_min(0),
-      time_max(0), radius(0), in_range(0), looping(0), sound_handle(), random(), shared(0),
-      bounded(0), region_angle(0)
+    : volume_min(0), volume_max(0), target_volume(0), current_volume(0), speed_min(0), speed_max(0),
+      time_min(0), time_max(0), radius(0), in_range(0), looping(0), sound_handle(), random(),
+      shared(0), bounded(0), region_angle(0)
 {
     config.wave_name[0] = 0;
     position = glm::vec3(0);
-    pacSoundName = 0;
     stopped = 0;
 }
 
@@ -582,35 +582,17 @@ void RepositionAmbientSounds(W8World* world)
     }
 }
 
-// FUNCTION: WIZ8 0x0047a670
-static W8AmbientSound* CreateAmbientSound()
+W8AmbientSound::~W8AmbientSound()
 {
-    W8AmbientSound* sound = new W8AmbientSound;
-
-    if (sound == 0) {
-        srAssertFail("pSound", "C:\\Projects\\Wizardry 8\\Engine Code\\AmbientSound.cpp", 0x2f5, 0);
+    if (sound_handle) wiz8::sound::stop(sound_handle);
+    if (random) {
+        random->enabled = false;
+        std::erase(g_random_ambients, random);
     }
-    sound->target_volume = 0;
-    return sound;
 }
 
-// FUNCTION: WIZ8 0x0047a700
 void DestroyAmbientSound(W8AmbientSound* ambient)
 {
-    if (ambient == 0) {
-        srAssertFail("pAmbient", "C:\\Projects\\Wizardry 8\\Engine Code\\AmbientSound.cpp", 0x2fd,
-                     0);
-    }
-    if (ambient->sound_handle != nullptr) {
-        wiz8::sound::stop(ambient->sound_handle);
-    }
-    if (ambient->random != nullptr) {
-        ambient->random->enabled = false;
-        std::erase(g_random_ambients, ambient->random);
-    }
-    if (ambient->pacSoundName != 0) {
-        delete[] ambient->pacSoundName;
-    }
     delete ambient;
 }
 
@@ -626,17 +608,9 @@ unsigned char AddAmbientSound(W8World* world, const char* name, const W8AmbientS
                               const glm::vec3* region_axis, const glm::vec3* region_scale,
                               unsigned char shared)
 {
-    W8AmbientSound* sound = CreateAmbientSound();
+    auto sound = std::make_unique<W8AmbientSound>();
 
-    if (name != 0) {
-        sound->pacSoundName = new char[strlen(name) + 1];
-        if (sound->pacSoundName == 0) {
-            srAssertFail("pSound->pacSoundName",
-                         "C:\\Projects\\Wizardry 8\\Engine Code\\AmbientSound.cpp", 0x35e,
-                         "AmbientSound.cpp: Error allocating sound name");
-        }
-        strcpy(sound->pacSoundName, name);
-    }
+    if (name) sound->name = name;
     sound->config = *config;
     sound->position = *position;
     sound->region_min = *region_min;
@@ -655,7 +629,8 @@ unsigned char AddAmbientSound(W8World* world, const char* name, const W8AmbientS
     sound->looping = looping;
     sound->bounded = bounded;
     sound->shared = shared;
-    world->plsAmbientSounds.push_back(sound);
+    world->plsAmbientSounds.push_back(sound.get());
+    (void)sound.release();
     return 1;
 }
 
@@ -669,7 +644,7 @@ static W8AmbientSound* FindAmbientSoundByName(const char* name)
 
     for (index = 0; index < count; ++index) {
         W8AmbientSound* sound = GetWorldAmbientSound(g_world, index);
-        if (sound->pacSoundName != 0 && SDL_strcasecmp(sound->pacSoundName, name) == 0) {
+        if (!sound->name.empty() && SDL_strcasecmp(sound->name.c_str(), name) == 0) {
             return sound;
         }
     }
@@ -833,76 +808,39 @@ void SetSoundEffectsMuted(unsigned char muted)
 // FUNCTION: WIZ8 0x0047b140
 void SaveAmbientSoundList(wiz8::File& handle)
 {
-    unsigned char version = 1;
-    unsigned int count;
-    unsigned char ok;
-    char empty_name[0x80]{};
-    int index;
-
-    ok = (handle.write(&version, 1), true);
-    count = g_world->plsAmbientSounds.size();
-    ok = ok && (handle.write(&count, 4), true);
-    for (index = 0; index < static_cast<int>(count); ++index) {
-        W8AmbientSound* sound = GetWorldAmbientSound(g_world, index);
-        if (sound != 0) {
-            if (sound->pacSoundName == 0) {
-                if (ok) {
-                    ok = (handle.write(empty_name, sizeof(empty_name)), true);
-                }
-            } else if (ok) {
-                // The disk record is fixed width, but live names are strlen + 1
-                // allocations.
-                char name[0x80] = {};
-                strncpy(name, sound->pacSoundName, sizeof(name) - 1);
-                ok = (handle.write(name, sizeof(name)), true);
-            }
-            if (ok) {
-                ok = (handle.write(&sound->stopped, 1), true);
-            }
-        }
+    const unsigned char version = 1;
+    const auto count = static_cast<std::uint32_t>(g_world->plsAmbientSounds.size());
+    handle.write(&version, sizeof(version));
+    handle.write(&count, sizeof(count));
+    for (const auto* sound : g_world->plsAmbientSounds) {
+        handle.write_padded(sound->name, 128);
+        handle.write(&sound->stopped, 1);
     }
 }
 
-/* The serialized per-record payload is just the 0x80-byte name and the stopped
-   byte; on load each name is matched against the live list and the matching
-   script commands are replayed — the helpers rescan the list themselves, and
-   VC6 inlines that rescan twice here. */
-// FUNCTION: WIZ8 0x0047b270
 void LoadAmbientSoundList(wiz8::File& handle)
 {
     unsigned char version;
-    unsigned char ok;
-    int count = 0;
-    int index;
-    char name[0x80];
-    unsigned char stopped_flag;
-
-    ok = (handle.read(&version, 1).bytes == static_cast<std::size_t>(1));
-    if (ok != 0) {
-        ok = (handle.read(&count, 4).bytes == static_cast<std::size_t>(4));
+    std::uint32_t count;
+    handle.read_exact(&version, sizeof(version));
+    handle.read_exact(&count, sizeof(count));
+    if (count > (handle.size() - handle.tell()) / 129)
+        throw std::runtime_error("invalid ambient sound state count");
+    std::vector<std::pair<std::string, bool>> pending;
+    pending.reserve(count);
+    for (std::uint32_t index = 0; index < count; ++index) {
+        std::array<char, 128> name;
+        unsigned char stopped;
+        handle.read_exact(name.data(), name.size());
+        handle.read_exact(&stopped, 1);
+        const auto end = std::find(name.begin(), name.end(), '\0');
+        if (end == name.end()) throw std::runtime_error("unterminated ambient sound name");
+        pending.emplace_back(std::string(name.data(), end - name.begin()), stopped != 0);
     }
-    for (index = 0; index < count; ++index) {
-        int length;
-        int scan;
-
-        if (ok != 0 && (handle.read(name, 0x80).bytes == static_cast<std::size_t>(0x80)) != 0) {
-            ok = (handle.read(&stopped_flag, 1).bytes == static_cast<std::size_t>(1));
-        } else {
-            ok = 0;
-        }
-        length = static_cast<int>(g_world->plsAmbientSounds.size());
-        for (scan = 0; scan < length; ++scan) {
-            W8AmbientSound* sound = GetWorldAmbientSound(g_world, scan);
-            if (sound->pacSoundName != 0 && SDL_strcasecmp(sound->pacSoundName, name) == 0) {
-                if (sound != 0) {
-                    if (stopped_flag == 0) {
-                        PositionAmbientSoundByName(0, name);
-                    } else {
-                        StopAmbientSoundByName(0, name);
-                    }
-                }
-                break;
-            }
-        }
+    for (const auto& [name, stopped] : pending) {
+        if (stopped)
+            StopAmbientSoundByName(nullptr, name.c_str());
+        else
+            PositionAmbientSoundByName(nullptr, name.c_str());
     }
 }

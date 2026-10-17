@@ -1191,7 +1191,7 @@ TEST_CASE("Movement queries return velocity and waypoint snapshots", "[geometry]
 TEST_CASE("Prop position and delta queries preserve animation stepping", "[geometry][animation]")
 {
     W8Prop prop;
-    prop.Rep()->animation = std::make_unique<W8AnimObj>().release();
+    prop.Rep()->animation.emplace();
     auto& animation = *prop.Rep()->animation;
     prop.m_pRep->location = {10, 20, 30};
     prop.animation_position = {3, 5, 7};
@@ -1270,7 +1270,7 @@ TEST_CASE("Prop bounds aggregate frames without changing the current frame",
           "[geometry][animation]")
 {
     W8Prop prop;
-    prop.Rep()->animation = std::make_unique<W8AnimObj>().release();
+    prop.Rep()->animation.emplace();
     auto& animation = *prop.Rep()->animation;
     animation.path_lists = true;
     animation.frame_count = 3;

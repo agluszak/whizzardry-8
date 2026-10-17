@@ -2893,7 +2893,7 @@ unsigned char W8Octree::TestBoxOccupied(const glm::vec3* lower, const glm::vec3*
     for (index = 0; index < count; ++index) {
         W8Prop* prop = g_world->collidable_props[objects[index]];
         if (prop->GetActivationState() != 0 && prop->m_gd_prop != 0) {
-            GDProp* gd_prop = prop->m_gd_prop;
+            GDProp* gd_prop = prop->m_gd_prop.get();
             for (int surface_index = 0;
                  surface_index < static_cast<int>(gd_prop->m_pGDSurfaces.size()); ++surface_index) {
                 W8GDSurface* surface = gd_prop->m_pGDSurfaces.data() + surface_index;
