@@ -1031,6 +1031,7 @@ void srTriMeshPipeline::SetMeshBounds(const srMeshModel::TriMesh& mesh)
 void srTriMeshPipeline::AppendMeshPass(const srMeshModel::TriMesh& mesh, w8_long pass,
                                        w8_long material_side, srShader pass_shader)
 {
+    current_record->material_overrides = mesh.material_overrides;
     current_record->flags = 0;
     current_pass->shaders = 0;
     current_pass->texture_tables[0] = 0;

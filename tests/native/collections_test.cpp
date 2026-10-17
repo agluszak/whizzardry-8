@@ -1,5 +1,6 @@
 #include <array>
 #include <cstdint>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <ios>
@@ -13,7 +14,9 @@
 #include <SDL3/SDL_keycode.h>
 #include <catch2/catch_test_macros.hpp>
 
+#include "chunk_payload.h"
 #include "fact_state.h"
+#include "glm/ext/vector_float3.hpp"
 #include "input.h"
 #include "layouts/item_instance.h"
 #include "layouts/npc_state.h"
@@ -21,12 +24,25 @@
 #include "scoped_asset_roots.h"
 #include "sight_state.h"
 #include "temporary_directory.h"
+#include "wiz8/character_skills.h"
+#include "wiz8/equipment_slots.h"
 #include "wiz8/filesystem.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/layouts/combat_state.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_tables.h"
+#include "wiz8/layouts/targeting.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/local_code/Combat.h"
+#include "wiz8/local_code/CombatRange.h"
+#include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Sight.h"
+#include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_screens/JournalScreen.h"
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "wiz8/npc_items.h"
@@ -97,11 +113,12 @@ static bool gameplayCollectionLifetime()
 
     // Promotion moves membership only: the same record, now live, and promotion is one-way.
     REQUIRE(roster.promote(unborn));
-    REQUIRE((roster.unborn().empty() && roster.live().size() == 2 && roster.live()[1] == unborn));
+    REQUIRE(
+        (roster.unborn().empty() && roster.live().size() == 2 && roster.live()[1].get() == unborn));
     REQUIRE(!roster.promote(unborn));
-    // Removal unindexes from whichever list holds the record, then frees it.
+    // Removal destroys the owner in whichever partition holds it.
     REQUIRE(roster.remove(live));
-    REQUIRE((roster.live().size() == 1 && roster.live()[0] == unborn));
+    REQUIRE((roster.live().size() == 1 && roster.live()[0].get() == unborn));
     REQUIRE(!roster.remove(live));
 
     // Reset destroys the owned records and leaves immediately reusable collections.
@@ -153,7 +170,7 @@ static bool keyboardBindingReplacement()
     REQUIRE(keyboard.GetBinding(0) == nullptr);
     {
         auto file = wiz8::open_file(path);
-        REQUIRE(keyboard.Load(*file, true));
+        REQUIRE(keyboard.Load(ChunkPayload(*file).get(), true));
     }
     // A duplicate command replaces its record and moves to the end of the
     // ordered bindings. The command index must refer to that replacement.
@@ -188,7 +205,7 @@ static bool keyboardBindingReplacement()
     {
         auto file = wiz8::open_file(root / "saved.bin");
         MGSKeyboard restored;
-        REQUIRE(restored.Load(*file, true));
+        REQUIRE(restored.Load(ChunkPayload(*file).get(), true));
         const InputEvent press{.type = InputEventType::KeyDown,
                                .modifiers = SHIFT_DOWN | CTRL_DOWN,
                                .key = SDLK_KP_ENTER};
@@ -231,7 +248,7 @@ static bool journalSerialization()
     }
     {
         auto file = wiz8::open_file(input_path);
-        LoadJournalEntries(*file);
+        LoadJournalEntries(ChunkPayload(*file).get());
     }
     REQUIRE(g_fact_journal_entries.size() == count);
     for (int i = 0; i < count; ++i) {
@@ -259,7 +276,7 @@ static bool journalSerialization()
     }
     {
         auto file = wiz8::open_file(input_path);
-        LoadJournalEntries(*file);
+        LoadJournalEntries(ChunkPayload(*file).get());
     }
     REQUIRE(g_fact_journal_entries.empty());
     return true;
@@ -341,4 +358,122 @@ TEST_CASE("Engagement propagates to the original leader's direct allies", "[grou
         REQUIRE_FALSE(group->engagement);
         REQUIRE(group->engagement_ticks == 0);
     }
+}
+
+TEST_CASE("Alternate weapon queries leave equipped items and derived attacks untouched",
+          "[targeting]")
+{
+    // NOLINTNEXTLINE(cppcoreguidelines-special-member-functions): test state restoration
+    struct Restore {
+        W8StatusBuffers buffers = g_status.buffers;
+        std::array<W8Character, 8> characters{};
+        std::array<W8PartySlotRow, 8> rows{};
+        std::unique_ptr<W8CombatState> combat = std::move(g_combat_state);
+        W8ItemDatabaseRecord* records = g_item_records;
+        decltype(g_settings.autoswap_weapons) autoswap = g_settings.autoswap_weapons;
+        decltype(gXStatus.uiItemsInDatabase) item_count = gXStatus.uiItemsInDatabase;
+        Restore()
+        {
+            g_status.buffers.Char = characters.data();
+            g_status.buffers.XChar = rows.data();
+        }
+        ~Restore()
+        {
+            g_status.buffers = buffers;
+            g_combat_state = std::move(combat);
+            g_item_records = records;
+            g_settings.autoswap_weapons = autoswap;
+            gXStatus.uiItemsInDatabase = item_count;
+        }
+    } restore;
+    std::array<W8ItemDatabaseRecord, 3> records{};
+    records[0].equip_class = W8_ITEM_EQUIP_CLASS_SHORT_WEAPON;
+    records[0].weapon_skill = W8_SKILL_SWORD;
+    records[0].range_category = W8_RANGE_TOUCH;
+    records[1].equip_class = W8_ITEM_EQUIP_CLASS_RANGED_WEAPON;
+    records[1].weapon_skill = W8_SKILL_BOW;
+    records[1].unidentified_name_index = 0xb;
+    records[1].range_category = W8_RANGE_LONG;
+    records[2].equip_class = W8_ITEM_EQUIP_CLASS_AMMUNITION;
+    records[2].weapon_skill = W8_SKILL_BOW;
+    records[2].unidentified_name_index = 0x16;
+    records[2].range_category = W8_RANGE_LONG;
+    g_item_records = records.data();
+    gXStatus.uiItemsInDatabase = records.size();
+    g_settings.autoswap_weapons = true;
+    g_combat_state = std::make_unique<W8CombatState>();
+    auto& character = g_status.buffers.Char[0];
+    character = {};
+    for (auto& item : character.EquippedItem) item.iItemNo = -1;
+    character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo = 0;
+    character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON].iItemNo = 1;
+    character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON].iItemNo = 2;
+    character.hp_current = 10;
+    character.fInParty = true;
+    character.Hand[0].in_play = true;
+    character.Hand[0].uiHolds = 1;
+    g_status.buffers.XChar[0] = {};
+    g_status.buffers.XChar[0].fOccupied = true;
+    const auto plan = PlanWeaponSetSwap(character);
+    REQUIRE(plan);
+    REQUIRE(plan->weapons[0] == &character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON]);
+    REQUIRE(WeaponSetAttackRanges(*plan->weapons[0], *plan->weapons[1])[0] == W8_RANGE_LONG);
+    W8ItemInstance empty{};
+    empty.iItemNo = -1;
+    REQUIRE(WeaponSetAttackRanges(*plan->weapons[0], empty)[0] == W8_RANGE_NONE);
+    const auto items = std::to_array(character.EquippedItem);
+    const auto hands = std::to_array(character.Hand);
+    W8CombatSlot target{};
+    const W8ActionSelection action{W8_ACTION_ATTACK, -1, &target, nullptr,
+                                   W8_TARGETING_CONTEXT_IN_COMBAT};
+    REQUIRE(gXStatus.monster_roster.live().empty());
+    REQUIRE_FALSE(ChooseFallbackMonsterTarget(0, action));
+    REQUIRE(std::memcmp(items.data(), character.EquippedItem, sizeof(character.EquippedItem)) == 0);
+    REQUIRE(std::memcmp(hands.data(), character.Hand, sizeof(character.Hand)) == 0);
+    REQUIRE_FALSE(g_status.buffers.XChar[0].weapon_swap_pending);
+    const auto hypothetical = WeaponSetAttackRanges(*plan->weapons[0], *plan->weapons[1]);
+    CommitWeaponSetSwap(0, *plan, false, false);
+    REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo == 1);
+    REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON].iItemNo == 0);
+    CalcAttacks(&character);
+    REQUIRE(GetCharAttackRange(&character, 0) == hypothetical[0]);
+    REQUIRE(GetCharAttackRange(&character, 1) == hypothetical[1]);
+}
+
+TEST_CASE("Selected action range and target commits work without a screen", "[targeting]")
+{
+    W8Character character{};
+    W8PartySlotRow row{};
+    // NOLINTNEXTLINE(cppcoreguidelines-special-member-functions): test state restoration
+    struct RestoreBuffers {
+        W8StatusBuffers saved = g_status.buffers;
+        ~RestoreBuffers() { g_status.buffers = saved; }
+    } restore;
+    g_status.buffers.Char = &character;
+    g_status.buffers.XChar = &row;
+    row.fOccupied = true;
+    character.hp_current = 10;
+    row.pending_action = W8_ACTION_BREATHE;
+    row.action = W8_ACTION_PROTECT;
+    const auto first = ChooseCombatAction(0, W8_TARGETING_CONTEXT_OUT_OF_COMBAT);
+    const auto second = ChooseCombatAction(0, W8_TARGETING_CONTEXT_IN_COMBAT);
+    REQUIRE(GetCharActionRange(0, 0, first) == W8_RANGE_LONG);
+    REQUIRE(GetCharActionRange(0, 0, second) == W8_RANGE_TOUCH);
+    REQUIRE(first.target == &row.target_out_of_combat);
+    REQUIRE(second.target == &row.target_in_combat);
+    W8CombatSlot chosen{};
+    chosen.iType = W8_TARGET_KIND_MONSTER;
+    chosen.iMonsterID = 123;
+    REQUIRE(CommitActionTarget(0, first, chosen));
+    REQUIRE(row.target_out_of_combat.iMonsterID == 123);
+    REQUIRE(row.target_in_combat.iType != W8_TARGET_KIND_MONSTER);
+    REQUIRE_FALSE(CommitActionTarget(0, first, chosen));
+    character.hp_current = 0;
+    const auto inactive = ChooseCombatAction(0, W8_TARGETING_CONTEXT_OUT_OF_COMBAT);
+    REQUIRE(inactive.kind == W8_ACTION_NONE);
+    // The stored aim can still be cleared after its actor becomes ineligible.
+    REQUIRE(inactive.target == first.target);
+    const glm::vec3 eye(0), target(0, 0, 2000);
+    REQUIRE_FALSE(TargetInRangeAndArcs(&target, 0, &eye, 0, 0, 0, 1000));
+    REQUIRE(TargetInRangeAndArcs(&target, 0, &eye, 0, 0, 0, 2000));
 }

@@ -36,6 +36,7 @@
 #include "surrender/srNode.h"
 #include "surrender/srShader.h"
 #include "surrender/srTexture.h"
+#include "wiz8/chunk.h"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Octree.h"
@@ -372,45 +373,41 @@ void SetWorldCursorNodeColorComponents(W8WorldCursorNode* entry, float red, floa
 }
 
 // FUNCTION: WIZ8 0x0048e470
-unsigned int LoadWorldCursorNodeStates(wiz8::File& handle)
+unsigned int LoadWorldCursorNodeStates(W8Chunk& chunk)
 try {
-    std::int32_t version;
-    std::uint32_t count;
-    handle.read_exact(&version, sizeof(version));
+    auto version = chunk.ReadValue<std::int32_t>();
     if (version == 0x21122112) version = 1;
     if (version != 1 && version != 2) return 0;
-    handle.read_exact(&count, sizeof(count));
+    const auto count = chunk.ReadValue<std::uint32_t>();
     const auto minimum_bytes = version == 1 ? 4 : 36;
-    if (count > (handle.size() - handle.tell()) / minimum_bytes) return 0;
+    if (count > chunk.RemainingBytes() / minimum_bytes) return 0;
+
     std::vector<std::pair<W8WorldCursorNode*, std::vector<std::byte>>> pending;
     pending.reserve(count);
     for (std::uint32_t index = 0; index < count; ++index) {
         W8WorldCursorNode* node = nullptr;
         if (version == 1) {
-            if (!g_world_cursor_nodes.empty()) node = GetWorldCursorNode(index);
+            if (index < g_world_cursor_nodes.size()) node = GetWorldCursorNode(index);
         } else {
             std::array<char, 32> name;
-            handle.read_exact(name.data(), name.size());
+            chunk.ReadBytes(name.data(), name.size());
             const auto end = std::find(name.begin(), name.end(), '\0');
             if (end == name.end()) return 0;
             const std::string_view key(name.data(), end - name.begin());
-            for (auto* candidate : g_world_cursor_nodes) {
+            for (auto* candidate : g_world_cursor_nodes)
                 if (key == candidate->name) {
                     node = candidate;
                     break;
                 }
-            }
         }
-        std::int32_t size;
-        handle.read_exact(&size, sizeof(size));
-        if (size < 0 || size > handle.size() - handle.tell()) return 0;
+        const auto size = chunk.ReadValue<std::int32_t>();
+        if (size < 0 || size > chunk.RemainingBytes()) return 0;
         std::vector<std::byte> bytes(size);
-        handle.read_exact(bytes.data(), bytes.size());
+        chunk.ReadBytes(bytes.data(), bytes.size());
         pending.emplace_back(node, std::move(bytes));
     }
-    for (auto& [node, bytes] : pending) {
+    for (auto& [node, bytes] : pending)
         if (node) node->userdata = std::move(bytes);
-    }
     return count;
 } catch (const std::exception&) {
     return 0;
@@ -435,104 +432,38 @@ unsigned char SaveWorldCursorNodeStates(wiz8::File& handle)
 }
 
 // FUNCTION: WIZ8 0x0048e7b0
-unsigned int LoadWorldCursorNodes(wiz8::File& handle)
+unsigned int LoadWorldCursorNodes(W8Chunk& chunk)
 {
-    int version;
-    unsigned int count;
-    unsigned int index;
-    bool success = true;
-
-    if (!(handle.read(&version, 4).bytes == static_cast<std::size_t>(4))) {
-        return 0;
-    }
-    if (static_cast<unsigned int>(version) == 0xdeadd00d) {
-        version = 1;
-    }
-    if (version > 2) {
-        handle.read_exact(&gXStatus.mipe_cube_serial, 4);
-    } else {
-        gXStatus.mipe_cube_serial = 100;
-    }
-    if (!(handle.read(&count, 4).bytes == static_cast<std::size_t>(4))) {
-        return 0;
-    }
-
-    for (index = 0; index < count; ++index) {
-        W8WorldCursorNode* cube = CreateWorldCursorCube();
-        glm::vec3 minimum;
-        glm::vec3 maximum;
-        glm::vec3 location;
-        int component;
-
-        if (version >= 2) {
-            handle.read_exact(cube->name, 0x20);
-            if (cube->name[0] == 0) {
-                wiz8::text::write_utf8_field(fmt::format("Cube{:03d}", gXStatus.mipe_cube_serial++),
-                                             cube->name);
-            }
-        } else {
-            wiz8::text::write_utf8_field(fmt::format("Cube{:d}", index), cube->name);
+    auto version = chunk.ReadValue<unsigned int>();
+    if (version == 0xdeadd00d) version = 1;
+    gXStatus.mipe_cube_serial = version > 2 ? chunk.ReadValue<int>() : 100;
+    const auto count = chunk.ReadValue<unsigned int>();
+    for (unsigned int index = 0; index < count; ++index) {
+        char name[33]{};
+        if (version >= 2) chunk.ReadBytes(name, 32);
+        float parameters[3];
+        glm::vec3 minimum, maximum, location;
+        chunk.ReadBytes(parameters, sizeof(parameters));
+        for (int component = 0; component < 3; ++component) chunk.ReadValue(minimum[component]);
+        for (int component = 0; component < 3; ++component) chunk.ReadValue(maximum[component]);
+        for (int component = 0; component < 3; ++component) chunk.ReadValue(location[component]);
+        const auto value = chunk.ReadValue<int>();
+        auto* cube = CreateWorldCursorCube();
+        if (version >= 2 && name[0])
+            wiz8::text::write_utf8_field(name, cube->name);
+        else
+            wiz8::text::write_utf8_field(
+                (version >= 2 ? fmt::format("Cube{:03d}", gXStatus.mipe_cube_serial++)
+                              : fmt::format("Cube{}", index)),
+                cube->name);
+        std::copy_n(parameters, 3, cube->parameters);
+        if (cube->node) {
+            auto* instance = static_cast<stModelInstance*>(cube->node);
+            if (auto* model = static_cast<stMeshModel*>(instance->getModel()))
+                model->scale((maximum - minimum) * static_cast<float>(g_world_cursor_scale));
+            cube->node->setLocation(glm::dvec3(location));
         }
-        for (component = 0; component < 3; ++component) {
-            if (success && (handle.read(&cube->parameters[component], 4).bytes ==
-                            static_cast<std::size_t>(4))) {
-                success = true;
-            } else {
-                success = false;
-            }
-        }
-        for (component = 0; component < 3; ++component) {
-            if (success &&
-                (handle.read(&minimum[component], 4).bytes == static_cast<std::size_t>(4))) {
-                success = true;
-            } else {
-                success = false;
-            }
-        }
-        for (component = 0; component < 3; ++component) {
-            if (success &&
-                (handle.read(&maximum[component], 4).bytes == static_cast<std::size_t>(4))) {
-                success = true;
-            } else {
-                success = false;
-            }
-        }
-
-        glm::vec3 scale((maximum.x - minimum.x) * static_cast<float>(g_world_cursor_scale),
-                        (maximum.y - minimum.y) * static_cast<float>(g_world_cursor_scale),
-                        (maximum.z - minimum.z) * static_cast<float>(g_world_cursor_scale));
-        if (cube != 0) {
-            stModelInstance* instance = static_cast<stModelInstance*>(cube->node);
-            if (instance != 0) {
-                stMeshModel* model = static_cast<stMeshModel*>(instance->getModel());
-                if (model != 0) {
-                    model->scale(scale);
-                }
-            }
-        }
-
-        for (component = 0; component < 3; ++component) {
-            if (success &&
-                (handle.read(&location[component], 4).bytes == static_cast<std::size_t>(4))) {
-                success = true;
-            } else {
-                success = false;
-            }
-        }
-        if (cube == 0) {
-            srAssertFail("pCube", ST_CUBE_CPP, 0x10b, 0);
-        }
-        if (cube->node != 0) {
-            glm::dvec3 node_location(static_cast<double>(location.x),
-                                     static_cast<double>(location.y),
-                                     static_cast<double>(location.z));
-            cube->node->setLocation(node_location);
-        }
-        if (success && (handle.read(&cube->value_08, 4).bytes == static_cast<std::size_t>(4))) {
-            success = true;
-        } else {
-            success = false;
-        }
+        cube->value_08 = value;
         DrawWorldCursorNodeLabel(cube);
     }
     return count;

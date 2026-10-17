@@ -84,7 +84,7 @@ void WriteFixture(const std::filesystem::path& path, bool duplicate_successor,
     Write(*file, -1);
 }
 
-void WriteAnimatedFixture(const std::filesystem::path& path)
+void WriteAnimatedFixture(const std::filesystem::path& path, float x = 0)
 {
     auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
     Write(*file, 3); // Format with flags and transform.
@@ -92,7 +92,7 @@ void WriteAnimatedFixture(const std::filesystem::path& path)
     Write(*file, 1); // Faces.
     Write(*file, static_cast<unsigned char>(W8_LEVEL_MESH_LOD_VERTICES |
                                             W8_LEVEL_MESH_SHORT_LOD_VERTICES));
-    const std::array<float, 10> transform{0, 0, 0, 0, 0, 1, 0, 1, 1, 1};
+    const std::array<float, 10> transform{x, 0, 0, 0, 0, 1, 0, 1, 1, 1};
     Write(*file, transform);
     Write(*file, static_cast<unsigned char>(2));
     Write(*file, short{2});
@@ -123,6 +123,20 @@ bool LoadAnimated(const std::filesystem::path& path)
     REQUIRE((model->frames.size() == 2));
     REQUIRE((model->GetVertexLocations(0, true, 0)[1].x == 1.0f));
     REQUIRE((model->GetVertexLocations(1, true, 0)[1].x == 3.0f));
+    REQUIRE(first->getLocation().x == 0);
+    // A resource hit must still apply this record's own placement.
+    const auto placed_path = path.parent_path() / "placed.mesh";
+    WriteAnimatedFixture(placed_path, 3);
+    auto placed_file = wiz8::open_file(placed_path);
+    auto placed_info = info;
+    placed_info.hFile = placed_file.get();
+    auto placed = ReadSingleLevelMesh(&placed_info, "animated fixture", true);
+    REQUIRE(placed);
+    REQUIRE(placed->getModel() == model);
+    REQUIRE(placed->getLocation().x == 1500);
+    REQUIRE(placed->getRotation() == first->getRotation());
+    REQUIRE(placed_file->tell() == placed_file->size());
+    placed.reset();
     // Cached models still consume and validate their serialized record.
     file->seek(0, wiz8::SeekOrigin::begin);
     auto second = ReadSingleLevelMesh(&info, "animated fixture", true);
@@ -135,7 +149,7 @@ bool LoadAnimated(const std::filesystem::path& path)
     first.reset();
     second.reset();
     REQUIRE((g_mesh_models.empty() && g_decompressed_mesh_bytes == 0));
-    ReleaseReadMeshScratch();
+
     return true;
 }
 
@@ -175,7 +189,7 @@ bool LoadCycles(const std::filesystem::path& path)
         if (cycle == 2) {
             ReleaseOctMeshDefaults();
         }
-        ReleaseReadMeshScratch();
+
         // Released meshes drop their references; only the default snapshot may remain.
         REQUIRE((cycle == 2 ? !g_oct_mesh_default.material
                             : g_oct_mesh_default.material.use_count() == 1));
@@ -269,7 +283,7 @@ TEST_CASE("serialized_mesh_test")
         REQUIRE_FALSE(ReadLevel(&world, file.get(), false, ""));
         REQUIRE(destroyed == 3);
     }
-    ReleaseReadMeshScratch();
+
     ReleaseOctMeshDefaults();
     REQUIRE(ok);
     std::puts(

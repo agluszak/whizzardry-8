@@ -1290,8 +1290,8 @@ W8SubMenuEntryState CheckSubMenuActionUsable(int party_slot)
         !g_level_block->selection_settled) {
         matches = 1;
     }
-    if (CharacterCanSwitchTo(party_slot, W8_TARGETING_CONTEXT_CURRENT, true, false) &&
-        SlotHasAnyValidTarget(party_slot)) {
+    if (CanEditCharacterAction(party_slot, ChooseEditedAction(party_slot), true, false) &&
+        SlotHasAnyValidTarget(party_slot, ChooseEditedAction(party_slot), IsMonsterSighting())) {
         return static_cast<W8SubMenuEntryState>(matches);
     }
     return static_cast<W8SubMenuEntryState>(matches + W8_SUBMENU_ENTRY_UNUSABLE);

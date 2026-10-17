@@ -133,7 +133,9 @@ void ClearPendingPartyMovement(int excluded_party_slot)
     g_combat_state->uiNextPartyAction = W8_PARTY_ACTION_NONE;
     for (int party_slot = 0; party_slot < W8_PARTY_SLOT_COUNT; ++party_slot) {
         if (party_slot != excluded_party_slot &&
-            CharacterCanSwitchTo(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, false, false)) {
+            CharacterCanSwitchTo(party_slot,
+                                 ChooseCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT),
+                                 false, false)) {
             RefreshCombatTargetHighlights(party_slot,
                                           &g_status.buffers.XChar[party_slot].target_in_combat);
         }
@@ -319,7 +321,7 @@ void AlignCombatantsToPartyMovementPhase(void)
     }
     unsigned int monster_count = gXStatus.monster_roster.live().size();
     for (unsigned int monster_index = 0; monster_index < monster_count; ++monster_index) {
-        W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
+        W8MonsterInfo* monster_info = GetMonsterListEntry(monster_index);
         if (monster_info->fInCombat &&
             monster_info->pCombat->phase >= g_combat_state->round_counter &&
             !monster_info->pCombat->active) {

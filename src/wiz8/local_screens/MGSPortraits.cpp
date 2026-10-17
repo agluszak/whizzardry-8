@@ -430,7 +430,8 @@ void RedrawCombatPortraits(void)
         }
         CatalogArtwork::Load(0x8a, 0).drawAndInvalidate(GetFrameBufferSurface(), portrait_image,
                                                         portrait_x, row_y + 0x44);
-        if (!CharacterCanSwitchTo(slot, W8_TARGETING_CONTEXT_IN_COMBAT, false, false)) {
+        if (!CanEditCharacterAction(slot, ChooseCombatAction(slot, W8_TARGETING_CONTEXT_IN_COMBAT),
+                                    false, false)) {
             CatalogArtwork::Load(0x8b, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, badge_x,
                                                             row_y + 0x37);
         } else if (party_row->target_in_combat.iType == W8_TARGET_KIND_CHARACTER) {

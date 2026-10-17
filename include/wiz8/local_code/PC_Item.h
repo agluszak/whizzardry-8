@@ -1,5 +1,8 @@
 #include <memory>
+#include <optional>
 #include <string>
+
+#include "wiz8/weapon_set.h"
 #pragma once
 
 void ReleaseGenericItemNames(void);
@@ -239,3 +242,8 @@ int CountUsableCharacterItems(W8Character* character);
 void SpendPartyGold(unsigned int amount);
 /* Add recharge uses to a stackable item (hourly tick, item 0x266). */
 void AddItemUses(W8ItemInstance* item, char uses);
+
+int WeaponWieldKind(const W8ItemInstance& primary, const W8ItemInstance& secondary,
+                    unsigned int hand);
+std::optional<W8WeaponSwapPlan> PlanWeaponSetSwap(const W8Character& character);
+void CommitWeaponSetSwap(int party_slot, const W8WeaponSwapPlan& plan, bool announce, bool refresh);

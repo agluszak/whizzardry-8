@@ -34,6 +34,7 @@
 #include "wiz8/level_specific_code/Trynnie2.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/Magic.h"
@@ -57,6 +58,8 @@
 struct W8NpcState;
 
 #define MGSUSEITEMSELECT_CPP "C:\\Projects\\Wizardry 8\\Local Screens\\MGSUseItemSelect.cpp"
+
+static W8ItemInstance* SelectedUseItem();
 
 // GLOBAL: WIZ8 0x0069B984
 static int g_use_item_select_flags;
@@ -200,6 +203,7 @@ unsigned char OpenUseItemSelectView(int slot)
     g_use_item_hover_row = -1;
     g_use_item_selected = 0;
     g_use_item_select_override_item = 0;
+    gXStatus.shared_action_detail.item_use.item = nullptr;
     g_use_item_detail_item = 0;
     memset(g_use_item_list, 0, sizeof(g_use_item_list));
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
@@ -443,7 +447,8 @@ void CommitSelectedItemUse(void)
 
     if (g_use_item_selected != 0 &&
         CanUseItemForAction(g_status.selected_character, g_use_item_selected) &&
-        IsItemTargetOfNeededKind(g_status.selected_character, g_use_item_selected)) {
+        IsItemTargetOfNeededKind(g_status.selected_character, g_use_item_selected,
+                                 ChooseEditedAction(g_status.selected_character))) {
         character = &g_status.buffers.Char[g_status.selected_character];
         if (g_use_item_selected != 0) {
             g_use_item_commit_active = true;
@@ -477,6 +482,7 @@ static void RebuildUseItemSelectList(int mode, W8ItemInstance* select)
     ResetEditorStatusLine(2);
     ClearSelectedTextLine(2);
     g_use_item_selected = 0;
+    gXStatus.shared_action_detail.item_use.item = SelectedUseItem();
     g_use_item_detail_item = 0;
     use_item->item_image.reset();
     use_item->quantity.SetText("", g_large_font);
@@ -752,6 +758,7 @@ void SelectUseItemLine(int iTextLine)
         return;
     }
     g_use_item_selected = g_use_item_list[iTextLine];
+    gXStatus.shared_action_detail.item_use.item = SelectedUseItem();
     if (Trynnie2UseItem(g_use_item_selected)) {
         CloseUseItemSelectView();
         return;
@@ -821,7 +828,7 @@ void UpdateUseItemDetailPanel(W8ItemInstance* item)
 }
 
 // FUNCTION: WIZ8 0x0059E0D0
-W8ItemInstance* GetSelectedOrFallbackValue(void)
+static W8ItemInstance* SelectedUseItem(void)
 {
     W8ItemInstance* value = g_use_item_select_override_item;
     if (value == 0) {
@@ -860,6 +867,7 @@ void TakeUseItemIntoHand(void)
         for (i = 0; i < g_status.party_item_count; i++) {
             if (g_use_item_selected == &g_status.party_item_pool[i]) {
                 g_use_item_selected = &g_status.party_item_pool[i + 1];
+                gXStatus.shared_action_detail.item_use.item = SelectedUseItem();
                 CopyItemInstance(&g_status.item_in_hand, g_use_item_selected, 0, true);
                 return;
             }
@@ -872,4 +880,5 @@ void TakeUseItemIntoHand(void)
 void SetUseItemSelectOverrideItem(W8ItemInstance* value)
 {
     g_use_item_select_override_item = value;
+    gXStatus.shared_action_detail.item_use.item = SelectedUseItem();
 }

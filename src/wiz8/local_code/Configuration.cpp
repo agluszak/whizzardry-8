@@ -42,9 +42,9 @@ void LoadGameConfiguration(void)
                     loaded = true;
                 }
             } else if (id == W8_CHUNK_KEY_BINDINGS) {
-                g_mgs_keyboard->Load(file.Stream(), false);
+                g_mgs_keyboard->Load(file, false);
             } else if (id == W8_CHUNK_RENDER_OPTIONS) {
-                LoadRenderOptions(file.Stream());
+                LoadRenderOptions(file);
             }
         });
         file.Close();

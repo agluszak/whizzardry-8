@@ -1,3 +1,4 @@
+struct W8Chunk;
 #pragma once
 
 #include <cstdint>
@@ -33,7 +34,7 @@ public:
     MGSKeyBinding* GetBinding(int index);
     bool IsCommandPressed(W8MGSCommand command) const;
     void Clear();
-    unsigned char Load(wiz8::File& handle, bool clear);
+    unsigned char Load(W8Chunk& handle, bool clear);
     unsigned char Save(wiz8::File& handle) const;
     unsigned char LoadDefaults(const char* path);
 

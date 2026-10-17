@@ -1,6 +1,8 @@
 #include "Font.h"
 #pragma once
 
+struct W8Chunk;
+
 #include <memory>
 #include <optional>
 #include <string>
@@ -363,7 +365,7 @@ void UpdateNpcTradeSelection(int index, int, int);
 bool NpcTradeItemAllowed(W8ItemInstance* item);
 void EnableNpcTradeFilterButtons(void);
 void HandleNpcDialogueKeyEvent(const InputEvent* event);
-unsigned char LoadNpcDialogueTranscript(wiz8::File& file);
+unsigned char LoadNpcDialogueTranscript(W8Chunk& file);
 unsigned char SaveNpcDialogueTranscript(wiz8::File& file);
 void HandleNpcDialogueItemChoice(void);
 void RefreshNpcTradePartyGold(void);

@@ -1,3 +1,5 @@
+struct W8Chunk;
+
 #ifndef WIZ8_LOCAL_CODE_FACTIONS_H
 #define WIZ8_LOCAL_CODE_FACTIONS_H
 
@@ -78,17 +80,16 @@ void ResetFactions(void);
 
 void SetFactionDispositionBand(signed char faction, signed char band);
 
-/* Faction change entry point - op 1 with a faction outside
-   unaligned/party routes mode 0 to the witnessed-offense path and modes
-   1..3 to a direct disposition delta. */
+/* Scripted disposition delta: op 1, modes 1..3, outside unaligned/party. */
 void ApplyFactionChange(char mode, char op, signed char faction, int value);
 /* Bump the faction's offense count and apply the penalty the
    victim's record and the running count select. */
-void RecordFactionOffense(signed char faction, unsigned int victim_location_index);
+struct W8MonsterInfo;
+void RecordFactionOffense(signed char faction, W8MonsterInfo& victim);
 /* Clamp disposition_score + delta to 0..99, stamp the world clock
    when the band moved, and post the worsened/improved notice. */
 void AdjustFactionDisposition(signed char faction, char delta);
 /* FATA section save and load. */
 void SaveFactionState(wiz8::File& file);
-void LoadFactionState(wiz8::File& file);
+void LoadFactionState(W8Chunk& file);
 #endif

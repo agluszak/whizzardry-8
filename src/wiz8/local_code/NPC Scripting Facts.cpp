@@ -832,9 +832,9 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
 }
 
 // FUNCTION: WIZ8 0x00508d70
-void HandleScriptedNpcDeath(unsigned int monster_list_index)
+void HandleScriptedNpcDeath(W8MonsterInfo& monster)
 {
-    W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(monster_list_index);
+    auto* monster_info = &monster;
     W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
     if (record == 0) {
         return;
@@ -910,7 +910,7 @@ void HandleScriptedNpcDeath(unsigned int monster_list_index)
     }
     for (unsigned int entry_index = 0; entry_index < gXStatus.monster_roster.live().size();
          ++entry_index) {
-        W8MonsterInfo* entry = MonsterGetScriptPartByLocationIndex(entry_index);
+        W8MonsterInfo* entry = GetMonsterListEntry(entry_index);
         if (entry->fActive && entry->ubDisposition == W8_DISPOSITION_HOSTILE &&
             !entry->p3D->IsDying()) {
             TintHighlightedMonster(entry->p3D, W8_TARGET_HIGHLIGHT_NONE);

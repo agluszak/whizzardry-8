@@ -1,5 +1,7 @@
 #pragma once
 
+struct W8Chunk;
+
 #include <algorithm>
 #include <string>
 #include <vector>
@@ -40,7 +42,7 @@ int FindEncounterTableByName(const char* name);        /* 0x0048CCA0 */
 void SaveEncounterState(wiz8::File& handle);
 void SaveMonsterGenerators(wiz8::File& handle);
 void DestroyMonsterGenerators(void);
-void LoadMonsterGenerators(wiz8::File& handle); /* 0x0048C470 */
+void LoadMonsterGenerators(W8Chunk& handle); /* 0x0048C470 */
 void RunMonsterGenerators(void);
 void DespawnAllActiveMonsterGroups(void);
 void ResetMonsterGeneratorTimers(void);

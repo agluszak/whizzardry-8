@@ -1,5 +1,7 @@
 #pragma once
 
+struct W8Chunk;
+
 #include <memory>
 #include <string>
 
@@ -144,7 +146,7 @@ unsigned char AddAmbientSound(W8World* world, const char* name, const W8AmbientS
                               unsigned char shared);
 
 void SaveAmbientSoundList(wiz8::File& handle);
-void LoadAmbientSoundList(wiz8::File& handle);
+void LoadAmbientSoundList(W8Chunk& handle);
 
 bool IsSoundEffectsMuted(void);
 unsigned char GetSoundEffectsVolume(void);

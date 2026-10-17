@@ -1,5 +1,18 @@
 #pragma once
 
+#include <array>
+
+#include "wiz8/character_skills.h"
+
+struct W8ItemInstance;
+struct W8WeaponHandUse {
+    int wield_kind;
+    W8Skill weapon_skill, combat_skill;
+    bool in_play;
+};
+std::array<W8WeaponHandUse, 2> EvaluateWeaponHands(const W8ItemInstance& primary,
+                                                   const W8ItemInstance& secondary);
+
 struct W8Character;
 
 /* W8Character::armor_class_by_location and gubLocalACPercent share this order.

@@ -1,6 +1,8 @@
 #include "wiz8/design_rect.h"
 #pragma once
 
+struct W8ActionSelection;
+
 #include <array>
 #include <memory>
 #include <optional>
@@ -532,3 +534,10 @@ void SelectNpcBuyMode(void);
 void ConfirmNpcTradeItem(void);
 void RestockNpcTradeStock(void);
 void OpenNpcTradeQuantityDialog(void);
+
+// Ordinary monster hovering uses sighting range rather than an edited action.
+bool IsMonsterSighting();
+
+W8ActionSelection ChooseSharedAction(int party_slot);
+bool CanEditCharacterAction(int party_slot, const W8ActionSelection& selection,
+                            bool allow_missing_target, bool allow_equipment_changes);

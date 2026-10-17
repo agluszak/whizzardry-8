@@ -23,6 +23,7 @@
 
 #include "GDFileIO.h"
 #include "asset_paths.h"
+#include "chunk_payload.h"
 #include "file_faults.h"
 #include "geometry.h"
 #include "glm/ext/vector_float3.hpp"
@@ -1341,12 +1342,12 @@ TEST_CASE_METHOD(LoaderFixture, "World item groups transfer ownership and preser
     append(bytes, second);
     store("items.bin", bytes.substr(0, bytes.size() - 1));
     auto file = wiz8::open_file(wiz8::asset_path("items.bin"));
-    REQUIRE_FALSE(LoadItem(*file));
+    REQUIRE_FALSE(LoadItem(ChunkPayload(*file).get()));
     REQUIRE(g_searchables.size() == registered);
     file.reset();
     store("items.bin", bytes);
     file = wiz8::open_file(wiz8::asset_path("items.bin"));
-    auto group = LoadItem(*file);
+    auto group = LoadItem(ChunkPayload(*file).get());
     REQUIRE(group);
     REQUIRE(ItemInfoGetNumInGroup(group.get()) == 2);
     REQUIRE(g_searchables.size() == registered + 1);

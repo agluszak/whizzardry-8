@@ -25,36 +25,6 @@ W8ChunkHead& W8Chunk::CurrentHead()
     return m_heads.back();
 }
 
-// FUNCTION: WIZ8 0x0055ca20
-unsigned char W8Chunk::Read(void* buffer, unsigned int size, unsigned int* transferred)
-{
-    if (transferred) *transferred = 0;
-    if (!m_hFile) throw std::logic_error("read closed RIFF");
-    if (m_fWriting) {
-        srAssertFail("!m_fWriting", CHUNK_CPP, 0x280, 0);
-    }
-    m_hFile->read_exact(buffer, size);
-    if (transferred) {
-        *transferred = size;
-    }
-    return true;
-}
-
-// FUNCTION: WIZ8 0x0055ca80
-unsigned char W8Chunk::Write(const void* buffer, unsigned int size, unsigned int* transferred)
-{
-    if (transferred) *transferred = 0;
-    if (!m_hFile) throw std::logic_error("write closed RIFF");
-    if (!m_fWriting) {
-        srAssertFail("m_fWriting", CHUNK_CPP, 0x29d, 0);
-    }
-    m_hFile->write(buffer, size);
-    if (transferred) {
-        *transferred = size;
-    }
-    return true;
-}
-
 std::int64_t W8Chunk::RemainingBytes() const
 {
     if (!m_hFile) throw std::logic_error("closed RIFF");
@@ -189,7 +159,7 @@ void W8Chunk::Close()
             RewindCurrentChunk();
             count = m_group_progress.back();
             m_group_progress.pop_back();
-            Write(&count, sizeof(count), 0);
+            m_hFile->write(&count, sizeof(count));
             m_hFile->seek(position, wiz8::SeekOrigin::begin);
         } else {
             m_group_counts.pop_back();
@@ -252,12 +222,10 @@ bool W8Chunk::SkipCurrentChunk()
 // FUNCTION: WIZ8 0x0055c3f0
 bool W8Chunk::OpenGroup()
 {
-    unsigned int transferred;
-
     if (!m_fWriting) {
         int count;
 
-        Read(&count, sizeof(count), &transferred);
+        ReadValue(count);
         const int extent = CurrentHead().extent;
         if (count < 0 || extent < static_cast<int>(sizeof(count)) ||
             static_cast<unsigned>(count) > (extent - sizeof(count)) / 10)
@@ -272,9 +240,9 @@ bool W8Chunk::OpenGroup()
         head->grouped = 1;
         m_group_progress.push_back(0);
         m_hFile->seek(m_offsets.back() - 6, wiz8::SeekOrigin::begin);
-        Write(&head->grouped, 1, &transferred);
+        m_hFile->write(&head->grouped, 1);
         m_hFile->seek(position, wiz8::SeekOrigin::begin);
-        Write(&count, sizeof(count), &transferred);
+        m_hFile->write(&count, sizeof(count));
         return true;
     }
 }
@@ -288,14 +256,13 @@ bool W8Chunk::ReleaseGroup()
         m_group_counts.pop_back();
         return true;
     } else {
-        unsigned int transferred;
         const auto position = m_hFile->tell();
         int count;
 
         RewindCurrentChunk();
         count = m_group_progress.back();
         m_group_progress.pop_back();
-        Write(&count, sizeof(count), &transferred);
+        m_hFile->write(&count, sizeof(count));
         m_hFile->seek(position, wiz8::SeekOrigin::begin);
         return true;
     }
@@ -377,7 +344,7 @@ bool W8Chunk::ReleaseCurrentChunk()
         const int extent = int(end - payload);
 
         m_hFile->seek(payload - 4, wiz8::SeekOrigin::begin);
-        Write(&extent, sizeof(extent), 0);
+        m_hFile->write(&extent, sizeof(extent));
         m_hFile->seek(end, wiz8::SeekOrigin::begin);
     } else {
         m_offsets.pop_back();
@@ -413,4 +380,11 @@ unsigned char W8Chunk::CurrentChunkAtEnd()
     W8ChunkHead* head = &CurrentHead();
 
     return head->at_end;
+}
+
+void W8Chunk::SkipBytes(std::size_t size)
+{
+    if (m_fWriting || RemainingBytes() < 0 || size > static_cast<std::uint64_t>(RemainingBytes()))
+        throw std::runtime_error("skip past RIFF chunk");
+    m_hFile->seek(size, wiz8::SeekOrigin::current);
 }

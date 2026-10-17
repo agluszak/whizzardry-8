@@ -56,8 +56,8 @@ std::unique_ptr<stModelInstance> ReadSingleLevelMesh(W8ReadLevelInfo* info, cons
                                                      bool load_materials);
 std::vector<std::unique_ptr<stModelInstance>>
 ReadMultipleLevelMeshes(W8ReadLevelInfo* info, std::size_t expected_count, const char* name);
-unsigned char SkipSingleLevelMesh(W8ReadLevelInfo* info);
-void ReleaseReadMeshScratch();
+// Consume one decoded record when counting animation frames.
+bool ReadLevelMeshHasVertexFrames(wiz8::File& file);
 std::shared_ptr<stMeshModel>
 BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
                      const std::vector<W8MeshMaterial>& materials, unsigned int* mesh_count,
@@ -65,5 +65,3 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
                      std::vector<short>* mapped_keys);
 
 void OptimizeMeshOrder(srMeshModel* model);
-
-void ClearMaterialRecordPadding(W8MaterialRecord* material);

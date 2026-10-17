@@ -111,6 +111,7 @@ public:
         w8_ulong flags = 0;
         w8_ulong channels = 0;
         srMaterial* material = nullptr;
+        srMaterial::Overrides material_overrides;
         struct ColorSource {
             enum e_format { FORMAT_ARGB = 0, FORMAT_VECTOR3 = 1, FORMAT_VECTOR4 = 2 };
             const void* colors = nullptr;

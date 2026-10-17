@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <vector>
 
+struct W8Chunk;
+
 #include "compat/compiler.h"
 #include "glm/ext/vector_float3.hpp"
 
@@ -56,5 +58,5 @@ void SetWorldCursorNodeColor(W8WorldCursorNode* entry, w8_ulong color);
 W8WorldCursorNode* PickWorldCursorNodeAtScreenPoint(int x, int y);
 unsigned char SaveWorldCursorNodeStates(wiz8::File& handle);
 unsigned char SaveWorldCursorNodes(wiz8::File& handle);
-unsigned int LoadWorldCursorNodes(wiz8::File& handle);
-unsigned int LoadWorldCursorNodeStates(wiz8::File& handle);
+unsigned int LoadWorldCursorNodes(W8Chunk& handle);
+unsigned int LoadWorldCursorNodeStates(W8Chunk& handle);

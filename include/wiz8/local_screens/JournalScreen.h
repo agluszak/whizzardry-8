@@ -1,5 +1,7 @@
 #pragma once
 
+struct W8Chunk;
+
 extern char g_default_level[];
 #include <array>
 #include <cstdint>
@@ -39,4 +41,4 @@ void JournalScreenFrame(void);
 unsigned char JournalScreenLeave(int leaving);
 unsigned char JournalScreenFinalize(void);
 /* Load the fact journal vector from the JRNL section. */
-void LoadJournalEntries(wiz8::File& file);
+void LoadJournalEntries(W8Chunk& file);

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 
 #include "srClass.h"
 #include "srMath.h"
@@ -24,7 +25,12 @@ public:
     // RECOMP: ??0srMaterial@@QAE@XZ
     inline srMaterial() { reset(); }
 
+    struct Overrides {
+        float diffuse_alpha_scale = 1.0f;
+        std::optional<float> emissive;
+    };
     virtual srVertexProcessor::MaterialInfo getMaterialInfo();
+    srVertexProcessor::MaterialInfo resolveMaterialInfo(const Overrides& overrides);
     virtual void preProcess(srVertexPipe& pipe);
     virtual void postProcess(srVertexPipe& pipe);
 

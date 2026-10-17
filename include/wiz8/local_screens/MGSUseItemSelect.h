@@ -17,7 +17,6 @@ void CloseUseItemSelection(void);
 UiResult HandleUseItemTextBox(const UiPointerEvent& event);
 /* Text-box wheel helper while use-item select is active. */
 void UseItemSelectTextBoxWheelAt(short x, unsigned short y, bool flag);
-W8ItemInstance* GetSelectedOrFallbackValue(void);
 void SelectCurrentUseItemLine(void);
 void SetUseItemSelectOverrideItem(W8ItemInstance* value);
 

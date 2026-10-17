@@ -69,14 +69,9 @@ public:
 // GLOBAL: WIZ8 0x0065BEA8
 static W8NormalTexcoordMapper g_normal_texcoord_mapper;
 
-// GLOBAL: WIZ8 0x0065BA9E
-bool g_material_diffuse_scale_enabled;
 // GLOBAL: WIZ8 0x0065BAA0
-float g_material_diffuse_scale;
 // GLOBAL: WIZ8 0x0065BAA4
-bool g_material_emissive_override_enabled;
 // GLOBAL: WIZ8 0x0065BAA8
-float g_material_emissive_override;
 
 /* Convert eye-space normals to the material's first texture-coordinate set.
    The exported srVertexPipe queries preserve the closed renderer's ownership
@@ -105,20 +100,6 @@ void W8NormalTexcoordMapper::process(srVertexPipe& pipe)
 stMaterial::stMaterial()
 {
     m_surface_flags = 0;
-}
-
-// FUNCTION: WIZ8 0x004928F0
-srVertexProcessor::MaterialInfo stMaterial::getMaterialInfo()
-{
-    auto info = srMaterial::getMaterialInfo();
-    if (g_material_diffuse_scale_enabled) {
-        info.diffuse.w *= g_material_diffuse_scale;
-    }
-    if (g_material_emissive_override_enabled) {
-        info.emissive = glm::vec4(g_material_emissive_override, g_material_emissive_override,
-                                  g_material_emissive_override, 1.0f);
-    }
-    return info;
 }
 
 namespace {

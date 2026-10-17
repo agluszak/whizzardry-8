@@ -158,8 +158,7 @@ enum W8ActionKind {
     W8_ACTION_RUN = 11
 };
 
-/* CURRENT requests resolution of the active context rather than a target
-   block. Context five selects the slot's breath-action target. */
+/* Explicit action storage: pending, committed, shared editing and remembered targets. */
 enum W8TargetingContext {
     W8_TARGETING_CONTEXT_OUT_OF_COMBAT = 0,
     W8_TARGETING_CONTEXT_IN_COMBAT = 1,
@@ -167,8 +166,14 @@ enum W8TargetingContext {
     W8_TARGETING_CONTEXT_SPELL = 3,
     W8_TARGETING_CONTEXT_ITEM = 4,
     W8_TARGETING_CONTEXT_BREATH = 5,
-    W8_TARGETING_CONTEXT_CURRENT = 6,
     W8_TARGETING_CONTEXT_DIALOGUE = 7,
     W8_TARGETING_CONTEXT_ATTACK = 8 /* fixed basic attack, without a target/detail block */
+};
+struct W8ActionSelection {
+    W8ActionKind kind;
+    int detail;
+    W8CombatSlot* target;
+    W8ActionDetailBlock* detail_block;
+    W8TargetingContext source;
 };
 #endif

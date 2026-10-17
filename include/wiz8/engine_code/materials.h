@@ -14,18 +14,16 @@ class srMaterial;
 class srMeshModel;
 class srModelInstance;
 class srTexture;
-class srTexture;
 class stTextureAnim;
 template<class T> class ResourceCache;
 
 /* Combinable flags in level materials; distinct from srShader's packed word. */
 enum { W8_MATERIAL_TWO_SIDED = 1u, W8_MATERIAL_NORMAL_TEXCOORD_MASK = 0x1feu };
 
-// Applies the game's per-draw material overrides before CPU lighting.
+// Retail surface flags used while constructing mesh passes.
 class stMaterial : public srMaterial {
 public:
     stMaterial();
-    virtual srVertexProcessor::MaterialInfo getMaterialInfo() override;
 
 public:
     stMaterial(const stMaterial&) = default;
@@ -60,13 +58,6 @@ struct W8MaterialRecord {
 #pragma pack(pop)
 
 static_assert(sizeof(W8MaterialRecord) == 0x12a, "W8MaterialRecord is a serialized record");
-
-/* Per-draw material override switches consumed by stMaterial::getMaterialInfo;
-   stModelInstance's mesh submit arms them around each chained model. */
-extern bool g_material_diffuse_scale_enabled;
-extern float g_material_diffuse_scale;
-extern bool g_material_emissive_override_enabled;
-extern float g_material_emissive_override;
 
 class stTextureFile;
 

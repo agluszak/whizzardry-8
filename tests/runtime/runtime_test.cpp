@@ -1527,11 +1527,16 @@ W8MonsterInfo* EnterCombat(Game& game)
     game.command(W8_MGS_COMMAND_TOGGLE_COMBAT);
     REQUIRE(game.within_frames(4, [] { return gXStatus.fCombatMode != 0; }));
     REQUIRE(g_combat_state);
-    W8MonsterInfo* monster = GetNextMonsterInfo(true);
-    while (monster && (!monster->fActive || !monster->p3D || !monster->hp_current ||
-                       monster->ubDisposition != W8_DISPOSITION_HOSTILE)) {
-        monster = GetNextMonsterInfo(false);
+    W8MonsterInfo* monster = nullptr;
+    for (const auto& candidate : gXStatus.monster_roster.live()) {
+        auto* current = candidate.get();
+        if (!(!current->fActive || !current->p3D || !current->hp_current ||
+              current->ubDisposition != W8_DISPOSITION_HOSTILE)) {
+            monster = current;
+            break;
+        }
     }
+
     REQUIRE(monster);
     if (!monster->fInCombat) {
         MonsterInfoEnterCombat(monster);
@@ -1923,10 +1928,11 @@ void Approach(Game& game, int location_id, float stop)
 std::vector<W8MonsterInfo*> CombatMonsters()
 {
     std::vector<W8MonsterInfo*> monsters;
-    for (W8MonsterInfo* monster = GetNextMonsterInfo(true); monster;
-         monster = GetNextMonsterInfo(false))
+    for (const auto& owned_monster : gXStatus.monster_roster.live()) {
+        auto* monster = owned_monster.get();
         if (monster->fActive && monster->fInCombat && monster->p3D && monster->hp_current)
             monsters.push_back(monster);
+    }
     return monsters;
 }
 
@@ -2083,10 +2089,11 @@ void PrintState(Game& game)
         const glm::vec3 at = camera.position;
         std::printf("  party at (%g %g %g) yaw %g\n", at.x, at.y, at.z, camera.yaw[0]);
         std::vector<std::pair<float, W8MonsterInfo*>> nearby;
-        for (W8MonsterInfo* monster = GetNextMonsterInfo(true); monster;
-             monster = GetNextMonsterInfo(false))
+        for (const auto& owned_monster : gXStatus.monster_roster.live()) {
+            auto* monster = owned_monster.get();
             if (monster->fActive && monster->p3D && monster->hp_current)
                 nearby.emplace_back(HorizontalDistance(monster->p3D->GetPosition(), at), monster);
+        }
         std::ranges::sort(nearby, {}, &std::pair<float, W8MonsterInfo*>::first);
         if (nearby.size() > 6) nearby.resize(6);
         for (const auto& [distance, monster] : nearby)

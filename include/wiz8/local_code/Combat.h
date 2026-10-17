@@ -10,9 +10,8 @@ struct W8MonsterRecord;
 
 void ChooseAction(int party_slot, W8ActionKind action, int detail, const W8ActionDetailBlock* data,
                   bool defer_execution, int notify);
-void ChooseCombatAction(int party_slot, W8TargetingContext context, W8ActionKind* out_kind,
-                        int* out_action, W8CombatSlot** out_target,
-                        W8ActionDetailBlock** out_detail);
+W8ActionSelection ChooseCombatAction(int party_slot, W8TargetingContext source);
+W8ActionSelection ChooseEditedAction(int party_slot);
 void SetCharacterCombatAction(int party_slot, W8ActionKind action_kind, int action_detail,
                               const W8ActionDetailBlock* data, int notify);
 void EndCombat(bool forced_cleanup);
@@ -81,8 +80,8 @@ void RecordCharacterDeath(int party_slot);
 void DropCharacterFromRound(int party_slot);
 /* Whether one party slot may switch to the given targeting
    context, in the two forms the target-refresh pass asks. */
-bool CharacterCanSwitchTo(int party_slot, W8TargetingContext context, bool allow_missing_target,
-                          bool allow_equipment_changes);
+bool CharacterCanSwitchTo(int party_slot, const W8ActionSelection& selection,
+                          bool allow_missing_target, bool allow_equipment_changes);
 bool TryCharacterAction(int party_slot, W8ActionKind action, bool commit);
 void NotifyNearbyMonsters(int what);
 void CombatLog(std::string_view text);

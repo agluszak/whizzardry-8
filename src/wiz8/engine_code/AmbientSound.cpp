@@ -30,6 +30,7 @@
 #include "soundman.h"
 #include "surrender/srMath.h"
 #include "wiz8/audio_resources.h"
+#include "wiz8/chunk.h"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/PolyPick.h"
@@ -814,21 +815,18 @@ void SaveAmbientSoundList(wiz8::File& handle)
     }
 }
 
-void LoadAmbientSoundList(wiz8::File& handle)
+void LoadAmbientSoundList(W8Chunk& chunk)
 {
-    unsigned char version;
-    std::uint32_t count;
-    handle.read_exact(&version, sizeof(version));
-    handle.read_exact(&count, sizeof(count));
-    if (count > (handle.size() - handle.tell()) / 129)
+    chunk.ReadValue<unsigned char>();
+    const auto count = chunk.ReadValue<std::uint32_t>();
+    if (count > chunk.RemainingBytes() / 129)
         throw std::runtime_error("invalid ambient sound state count");
     std::vector<std::pair<std::string, bool>> pending;
     pending.reserve(count);
     for (std::uint32_t index = 0; index < count; ++index) {
         std::array<char, 128> name;
-        unsigned char stopped;
-        handle.read_exact(name.data(), name.size());
-        handle.read_exact(&stopped, 1);
+        chunk.ReadBytes(name.data(), name.size());
+        const auto stopped = chunk.ReadValue<unsigned char>();
         const auto end = std::find(name.begin(), name.end(), '\0');
         if (end == name.end()) throw std::runtime_error("unterminated ambient sound name");
         pending.emplace_back(std::string(name.data(), end - name.begin()), stopped != 0);

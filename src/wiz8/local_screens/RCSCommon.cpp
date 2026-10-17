@@ -43,6 +43,7 @@
 #include "wiz8/learned_spells.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/Gameloop.h"
@@ -319,7 +320,8 @@ UiResult HandleCampPortrait(const UiPointerEvent& event, int target_slot)
                                             kCharacterEventNoFlags, kCharacterEventFullVolume);
                         return;
                     }
-                    AimAtCharacter(giReviewCharSlot, target_slot, W8_TARGETING_CONTEXT_CURRENT);
+                    AimAtCharacter(giReviewCharSlot, target_slot,
+                                   ChooseEditedAction(giReviewCharSlot));
                     StartBreathCycle(giReviewCharSlot, false);
                     return;
                 }
@@ -339,7 +341,7 @@ UiResult HandleCampPortrait(const UiPointerEvent& event, int target_slot)
                         return;
                     }
                     AimAtCharacterIndirect(giReviewCharSlot, target_slot,
-                                           W8_TARGETING_CONTEXT_CURRENT);
+                                           ChooseEditedAction(giReviewCharSlot));
                     StartBreathCycle(giReviewCharSlot, false);
                     return;
                 }

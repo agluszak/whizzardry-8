@@ -308,8 +308,7 @@ bool SpellUsableNow(int spell_id, bool allow_out_of_combat)
    the selection owner only needs a pick when there is nothing selected already
    and the caller is not in one of the two contexts that supply it. */
 // FUNCTION: WIZ8 0x005010f0
-W8TargetNeed GetTargetNeededForSpellFriendly(int spell_id, bool normalize,
-                                             W8TargetingContext context)
+W8TargetNeed GetTargetNeededForSpellFriendly(int spell_id, bool normalize, bool allow_item_target)
 {
     if (spell_id != W8_SPELL_NONE) {
         switch (GetSpellTargetType(spell_id, normalize)) {
@@ -328,8 +327,7 @@ W8TargetNeed GetTargetNeededForSpellFriendly(int spell_id, bool normalize,
         case W8_TARGET_TYPE_POINT:
             return W8_TARGET_NEED_PLACE;
         case W8_TARGET_TYPE_ITEM:
-            if (g_level_block == 0 || context == W8_TARGETING_CONTEXT_SPELL ||
-                context == W8_TARGETING_CONTEXT_ITEM) {
+            if (allow_item_target) {
                 return W8_TARGET_NEED_ITEM;
             }
             break;
@@ -433,7 +431,7 @@ W8SpellEffectEntry* FindMonsterControlSpellEffect(void)
 static void ReleaseHypnoticLureControl()
 {
     for (unsigned int index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
-        W8MonsterInfo* monster = MonsterGetScriptPartByLocationIndex(index);
+        W8MonsterInfo* monster = GetMonsterListEntry(index);
         if (monster && !monster->p3D->IsDying())
             SetMonsterControlState(monster, W8_MONSTER_CONTROL_NONE);
     }
@@ -513,8 +511,7 @@ void SetCharacterSpell(const W8Character* character, int spell_id, int power_lev
     notify.spell.unused = 0;
     ChooseAction(party_slot, W8_ACTION_CAST_SPELL, spell_id, &notify, false, 1);
 
-    SetPartySlotSpell(party_slot, spell_id, power_level,
-                      GetTargetBlockForContext(party_slot, W8_TARGETING_CONTEXT_CURRENT));
+    SetPartySlotSpell(party_slot, spell_id, power_level, ChooseEditedAction(party_slot).target);
 }
 
 /* Whether one party slot's recorded spell target is still a target it could
@@ -523,14 +520,15 @@ void SetCharacterSpell(const W8Character* character, int spell_id, int power_lev
 // FUNCTION: WIZ8 0x00501530
 bool PartySlotSpellTargetStillValid(int party_slot)
 {
-    W8TargetNeed needed = GetTargetNeededForSpellFriendly(
-        g_status.buffers.XChar[party_slot].spell_id, false, W8_TARGETING_CONTEXT_CURRENT);
+    W8TargetNeed needed =
+        GetTargetNeededForSpellFriendly(g_status.buffers.XChar[party_slot].spell_id, false, false);
 
-    if (!TargetMatchesNeeded(GetTargetBlockForContext(party_slot, W8_TARGETING_CONTEXT_SPELL),
+    if (!TargetMatchesNeeded(ChooseCombatAction(party_slot, W8_TARGETING_CONTEXT_SPELL).target,
                              needed)) {
         return false;
     }
-    return CharacterActionReachesTarget(party_slot, 0, W8_TARGETING_CONTEXT_SPELL);
+    return CharacterActionReachesTarget(party_slot, 0,
+                                        ChooseCombatAction(party_slot, W8_TARGETING_CONTEXT_SPELL));
 }
 
 /* Start one character's breath attack; the character must be able to
@@ -544,9 +542,9 @@ void StartCharacterBreathAttack(int party_slot)
         srAssertFail("CanCharReBreathe(uiChar)", MAGIC_CPP, 5320, 0);
     }
     ChooseAction(party_slot, W8_ACTION_BREATHE, -1, 0, false, 1);
-    AimAtTarget(party_slot, &row->breath_target, W8_TARGETING_CONTEXT_CURRENT);
+    AimAtTarget(party_slot, &row->breath_target, ChooseEditedAction(party_slot));
     if (IsSpellTargetStillValidIn(party_slot, W8_SPELL_SPECIAL_ATTACK_CONE,
-                                  W8_TARGETING_CONTEXT_BREATH)) {
+                                  ChooseCombatAction(party_slot, W8_TARGETING_CONTEXT_BREATH))) {
         StartBreathCycle(party_slot, false);
         return;
     }
@@ -914,7 +912,7 @@ void StartCharacterSpellCast(int party_slot, int power_level)
     const W8ActionDetailBlock* target;
 
     if (!gXStatus.fCombatMode) {
-        AimAtTarget(party_slot, &row->spell_target, W8_TARGETING_CONTEXT_CURRENT);
+        AimAtTarget(party_slot, &row->spell_target, ChooseEditedAction(party_slot));
     }
 
     if (power_level == 0) {
@@ -925,9 +923,10 @@ void StartCharacterSpellCast(int party_slot, int power_level)
         target = &named;
     }
     ChooseAction(party_slot, W8_ACTION_CAST_SPELL, row->spell_id, target, false, 1);
-    AimAtTarget(party_slot, &saved_target, W8_TARGETING_CONTEXT_CURRENT);
+    AimAtTarget(party_slot, &saved_target, ChooseEditedAction(party_slot));
 
-    if (IsSpellTargetStillValidIn(party_slot, row->spell_id, W8_TARGETING_CONTEXT_SPELL)) {
+    if (IsSpellTargetStillValidIn(party_slot, row->spell_id,
+                                  ChooseCombatAction(party_slot, W8_TARGETING_CONTEXT_SPELL))) {
         StartBreathCycle(party_slot, false);
         return;
     }
@@ -944,14 +943,14 @@ void StartCharacterItemUse(int party_slot)
     W8CombatSlot saved_target = row->item_target;
 
     if (!gXStatus.fCombatMode) {
-        AimAtTarget(party_slot, &row->item_target, W8_TARGETING_CONTEXT_CURRENT);
+        AimAtTarget(party_slot, &row->item_target, ChooseEditedAction(party_slot));
     }
     ChooseAction(party_slot, W8_ACTION_USE_ITEM, -1, &row->item_detail, false, 1);
-    AimAtTarget(party_slot, &saved_target, W8_TARGETING_CONTEXT_CURRENT);
+    AimAtTarget(party_slot, &saved_target, ChooseEditedAction(party_slot));
     FindCharacterItemAt(party_slot, row->item_origin, row->item_slot);
 
     if (IsSpellTargetStillValidIn(party_slot, GetItemSpell(row->item_detail.item_use.item),
-                                  W8_TARGETING_CONTEXT_ITEM)) {
+                                  ChooseCombatAction(party_slot, W8_TARGETING_CONTEXT_ITEM))) {
         StartBreathCycle(party_slot, false);
         return;
     }
@@ -1227,7 +1226,8 @@ bool CanPartySlotCastRecordedSpell(int party_slot)
         return false;
     }
     if (!gXStatus.fCombatMode &&
-        !IsSpellTargetStillValidIn(party_slot, spell_id, W8_TARGETING_CONTEXT_SPELL)) {
+        !IsSpellTargetStillValidIn(party_slot, spell_id,
+                                   ChooseCombatAction(party_slot, W8_TARGETING_CONTEXT_SPELL))) {
         return false;
     }
     return true;
@@ -1264,7 +1264,8 @@ int GetAffordableSpellPowerLevel(int party_slot)
         return 0;
     }
     if (!gXStatus.fCombatMode &&
-        !IsSpellTargetStillValidIn(party_slot, spell_id, W8_TARGETING_CONTEXT_SPELL)) {
+        !IsSpellTargetStillValidIn(party_slot, spell_id,
+                                   ChooseCombatAction(party_slot, W8_TARGETING_CONTEXT_SPELL))) {
         return 0;
     }
 
@@ -1328,7 +1329,8 @@ bool CanPartySlotUseRecordedItem(int party_slot)
         return false;
     }
     if (!gXStatus.fCombatMode &&
-        !IsSpellTargetStillValidIn(party_slot, spell_id, W8_TARGETING_CONTEXT_ITEM)) {
+        !IsSpellTargetStillValidIn(party_slot, spell_id,
+                                   ChooseCombatAction(party_slot, W8_TARGETING_CONTEXT_ITEM))) {
         return false;
     }
     return true;
@@ -3407,7 +3409,7 @@ int PickBackfireTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targe
     }
     index = 0;
     while (index < gXStatus.monster_roster.live().size()) {
-        monster_info = MonsterGetScriptPartByLocationIndex(index);
+        monster_info = GetMonsterListEntry(index);
         if (monster_info->fActive && monster_info->fInCombat && monster_info->hp_current != 0 &&
             (!TargetSourceIsMonster(source, 0) ||
              source->iMonsterID != monster_info->location_id)) {
@@ -3433,7 +3435,7 @@ int PickBackfireTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targe
     }
     index = 0;
     while (index < gXStatus.monster_roster.live().size()) {
-        monster_info = MonsterGetScriptPartByLocationIndex(index);
+        monster_info = GetMonsterListEntry(index);
         if (monster_info->fActive && monster_info->fInCombat && monster_info->hp_current != 0 &&
             (!TargetSourceIsMonster(source, 0) ||
              source->iMonsterID != monster_info->location_id) &&
@@ -3749,7 +3751,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
             } else if (monster_info->ubDisposition == W8_DISPOSITION_HOSTILE) {
                 side = 2;
                 if (TargetInRangeAndArcs(&camera, g_startup_world->radius, &eye, monster->radius,
-                                         heading, elevation) &&
+                                         heading, elevation, kGroundTargetRange) &&
                     monster_info->player_visibility.los_flags[sight_flag] != '\0') {
                     marked = true;
                 }
@@ -3772,17 +3774,18 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
             }
         }
         if (!marked &&
-            TargetInRangeAndArcs(&camera, g_startup_world->radius, &eye, 0, heading, elevation) &&
+            TargetInRangeAndArcs(&camera, g_startup_world->radius, &eye, 0, heading, elevation,
+                                 kGroundTargetRange) &&
             g_octree->TraceLineOfSight(&eye, &camera, true, -3, -3, true, 0) == 0) {
             marked = true;
         }
         CollectConeMonsterTargets(source, &eye, heading, elevation, monster_markers,
-                                  static_cast<unsigned char>(side), sight_flag);
+                                  static_cast<unsigned char>(side), sight_flag, kGroundTargetRange);
         if (monster_markers.empty() && (g_combat_state == 0 || !g_combat_state->enemies_engaged) &&
             TargetSourceIsCharacter(source, 0) && static_cast<char>(side) == 1 &&
             !AnyMonsterEngaged()) {
             CollectConeMonsterTargets(source, &eye, heading, elevation, monster_markers, 3,
-                                      sight_flag);
+                                      sight_flag, kGroundTargetRange);
         }
         break;
     case W8_TARGET_TYPE_RADIUS:

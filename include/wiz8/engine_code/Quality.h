@@ -1,3 +1,4 @@
+struct W8Chunk;
 #pragma once
 
 namespace wiz8 {
@@ -35,7 +36,7 @@ void DisableRenderOption(W8RenderOption option);
 void DisableAllRenderOptions(void);
 void EnableAllRenderOptions(void);
 unsigned char GetRenderOptionState(W8RenderOption option);
-unsigned char LoadRenderOptions(wiz8::File& handle);
+unsigned char LoadRenderOptions(W8Chunk& handle);
 bool SaveRenderOptions(wiz8::File& handle);
 
 extern float g_render_brightness;

@@ -1,3 +1,4 @@
+struct W8Chunk;
 #ifndef WIZ8_LOCAL_CODE_MONSTER_GENERATOR_H
 #define WIZ8_LOCAL_CODE_MONSTER_GENERATOR_H
 
@@ -34,9 +35,9 @@ struct MonGen {
     int RollEncounterGroupSize(W8MonsterRecord* record);
     /* The save pair. Both are __thiscall in the image. */
     void Save(wiz8::File& handle);
-    unsigned char Load(wiz8::File& handle);
+    unsigned char Load(W8Chunk& handle);
     /* The MONG chunk loader. */
-    static unsigned char LoadAll(wiz8::File& save_handle);
+    static unsigned char LoadAll(W8Chunk& save_handle);
     /* Select one loaded encounter table and apply its HARASSMENT flag. */
     void SetEncounterTable(int index);
     MonGen(const MonGen&) = delete;

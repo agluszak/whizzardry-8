@@ -1026,3 +1026,48 @@ TEST_CASE("Picking honors counted selections, direct indices, nearest depth and 
     REQUIRE(renderer.popPick()->triangle_index == 9);
     REQUIRE_FALSE(renderer.popPick());
 }
+
+TEST_CASE("Shared material overrides belong to each vertex submission", "[renderer]")
+{
+    class MaterialProbe : public Counter {
+    public:
+        std::vector<srVertexProcessor::MaterialInfo> seen;
+        void process(srVertexPipe& pipe) override { seen.push_back(pipe.getMaterialInfo()); }
+    } probe;
+    CoverageMaterial material;
+    std::array<srVertexPipe::Record, 3> records{};
+    for (auto& record : records) {
+        record.material = &material;
+        record.channels = 0xffffffff;
+    }
+    records[0].material_overrides = {.diffuse_alpha_scale = .25f, .emissive = .75f};
+    records[1].material_overrides = {.diffuse_alpha_scale = .5f, .emissive = .125f};
+    std::array<glm::vec3, 1> positions{glm::vec3(0, 0, -1)};
+    std::array<w8_ulong, 1> indices{0};
+    std::array<glm::vec4, 1> eye;
+    std::array<unsigned char, 1> attributes{};
+    std::array<srVertexArray, 3> arrays{};
+    for (auto& array : arrays) {
+        array.eye_locations = eye.data();
+        array.attributes = attributes.data();
+    }
+    glm::mat4 identity(1);
+    srVertexPipe::Input input(identity, identity);
+    input.positions = positions;
+    input.active_vertices = indices;
+    input.direct_vertex_indices = 1;
+    input.vertex_arrays = arrays;
+    input.records = records;
+    srVertexProcessor* processor = &probe;
+    input.processors = {&processor, 1};
+    srVertexPipe pipe;
+    pipe.process(input);
+    REQUIRE(probe.seen.size() == 3);
+    REQUIRE(probe.seen[0].diffuse.w == .25f);
+    REQUIRE(probe.seen[0].emissive == glm::vec4(.75f, .75f, .75f, 1));
+    REQUIRE(probe.seen[1].diffuse.w == .5f);
+    REQUIRE(probe.seen[1].emissive == glm::vec4(.125f, .125f, .125f, 1));
+    REQUIRE(probe.seen[2].diffuse.w == 1);
+    REQUIRE(probe.seen[2].emissive == glm::vec4(0));
+    REQUIRE(material.getMaterialInfo().diffuse.w == 1);
+}

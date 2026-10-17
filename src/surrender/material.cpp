@@ -1,6 +1,7 @@
 /* D:\srsdk1x\sources\corelib\srMaterial.cpp */
 
 #include "compat/compiler.h"
+#include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "surrender/srClass.h"
 #include "surrender/srMaterial.h"
@@ -253,4 +254,12 @@ int srMaterial::isEnabled(e_oper operation) const
 srVertexProcessor* srMaterial::getMapper() const
 {
     return mapper;
+}
+
+srVertexProcessor::MaterialInfo srMaterial::resolveMaterialInfo(const Overrides& overrides)
+{
+    auto info = getMaterialInfo();
+    info.diffuse.w *= overrides.diffuse_alpha_scale;
+    if (overrides.emissive) info.emissive = glm::vec4(glm::vec3(*overrides.emissive), 1.0f);
+    return info;
 }

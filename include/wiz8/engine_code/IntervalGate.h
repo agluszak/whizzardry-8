@@ -1,3 +1,4 @@
+struct W8Chunk;
 #pragma once
 
 #include "compat/compiler.h"
@@ -25,7 +26,7 @@ public:
         }
         return IsFinished();
     }
-    bool Load(wiz8::File& handle);
+    bool Load(W8Chunk& handle);
     bool Save(wiz8::File& handle);
 
 private:

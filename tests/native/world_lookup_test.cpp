@@ -8,13 +8,16 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include "chunk_payload.h"
 #include "filesystem.h"
 #include "layouts/world.h"
 #include "surrender/srClipPlane.h"
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
 #include "temporary_directory.h"
+#include "wiz8/chunk.h"
 #include "wiz8/engine_code/3d.h"
+#include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/stLight.hpp"
@@ -130,7 +133,7 @@ bool nodes(const std::filesystem::path& directory)
     torch->setFlag(srNode::FLAG_DISABLE);
     {
         auto file = wiz8::open_file(path);
-        LoadLightStates(*file);
+        LoadLightStates(ChunkPayload(*file).get());
     }
     REQUIRE((lamp->testFlag(srNode::FLAG_DISABLE)));
     REQUIRE((torch->testFlag(srNode::FLAG_DISABLE)));
@@ -152,7 +155,7 @@ bool nodes(const std::filesystem::path& directory)
     gas->emitting = 1;
     {
         auto file = wiz8::open_file(path);
-        LoadParticleStates(*file);
+        LoadParticleStates(ChunkPayload(*file).get());
     }
     REQUIRE((!gas->emitting && idle->emitting));
     // Particles are owned by the world list, not the scene.
@@ -182,4 +185,68 @@ TEST_CASE("world_lookup_test")
     std::filesystem::remove_all(directory);
     REQUIRE(passed);
     std::puts("ok: world trigger, light, clip plane and particle lookups");
+}
+
+TEST_CASE("Prop save records are decoded within their chunk before application", "[save]")
+{
+    ScopedTemporaryDirectory directory{"prop-records"};
+    const auto path = directory.path / "props.riff";
+    W8World world{};
+    W8Prop prop;
+    prop.id = 42;
+    prop.m_name = new char[5]{'D', 'O', 'O', 'R', 0};
+    world.plsProps = {&prop};
+    for (bool named : {false, true}) {
+        W8Chunk writer;
+        REQUIRE(writer.OpenWrite(path));
+        writer.WriteChunk(W8ChunkId("APST"), [&] {
+            if (named) {
+                writer.WriteValue(0xDEADD00Du);
+                writer.WriteValue(1u);
+            }
+            writer.WriteValue(2u);
+            for (bool missing : {true, false}) {
+                if (named) {
+                    char name[64]{};
+                    std::strcpy(name, missing ? "MISSING" : "DOOR");
+                    writer.WriteBytes(name, sizeof(name));
+                } else
+                    writer.WriteValue(missing ? 99 : 42);
+                const unsigned char state[6]{7, 2, 9, 1, 1, 0xff};
+                writer.WriteBytes(state, sizeof(state));
+            }
+        });
+        writer.Close();
+        W8Chunk reader;
+        REQUIRE(reader.OpenRead(path));
+        REQUIRE(reader.OpenChunk(0, 0));
+        prop.Rep()->subcycle = 0;
+        LoadWorldProps(&world, reader);
+        REQUIRE(prop.Rep()->subcycle == 7);
+        REQUIRE(prop.Rep()->first_frame == 2);
+        REQUIRE(prop.Rep()->last_frame == 9);
+        REQUIRE(reader.RemainingBytes() == 0);
+    }
+    W8Chunk writer;
+    REQUIRE(writer.OpenWrite(path));
+    writer.WriteChunk(W8ChunkId("APST"), [&] {
+        writer.WriteValue(1u);
+        writer.WriteValue(42);
+        const unsigned char partial[5]{3, 0, 4, 0, 0};
+        writer.WriteBytes(partial, sizeof(partial));
+    });
+    writer.WriteChunk(W8ChunkId("NEXT"), [&] { writer.WriteValue(0x12345678u); });
+    writer.Close();
+    W8Chunk reader;
+    REQUIRE(reader.OpenRead(path));
+    REQUIRE(reader.OpenChunk(0, 0));
+    REQUIRE_THROWS(LoadWorldProps(&world, reader));
+    REQUIRE(prop.Rep()->subcycle == 7);
+    REQUIRE(prop.Rep()->first_frame == 2);
+    reader.SkipCurrentChunk();
+    reader.ReleaseCurrentChunk();
+    REQUIRE(reader.OpenChunk(0, 0));
+    REQUIRE(reader.CurrentChunkId() == W8ChunkId("NEXT"));
+    REQUIRE(reader.ReadValue<unsigned>() == 0x12345678u);
+    world.plsProps.clear();
 }

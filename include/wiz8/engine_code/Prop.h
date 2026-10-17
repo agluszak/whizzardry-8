@@ -22,6 +22,10 @@ class srModelInstance;
 class stModelInstance;
 class Trigger;
 class W8Prop;
+struct W8Chunk;
+struct W8PropAnimationState {
+    unsigned char frame, first_frame, last_frame, direction, playing;
+};
 struct W8AIMissile;
 class W8GameTimer;
 namespace wiz8 {
@@ -115,7 +119,7 @@ public:
     /* Restore the rep's persisted animation state: five saved bytes plus one
        discarded byte, clamped to the loaded animation's frame count, with
        path values re-synced while a running animation is active. */
-    bool LoadAnimationState(wiz8::File& hFile);        /* 0x0044DBD0 */
+    void ApplyAnimationState(const W8PropAnimationState& state);
     int BuildOrRefreshPathingRepresentation(); /* 0x0044DEA0 */
     /* Current minus previous position when the animation advances exactly
        one frame; otherwise zero. */

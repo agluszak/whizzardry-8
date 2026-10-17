@@ -24,7 +24,6 @@
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_int3.hpp"
 #include "glm/fwd.hpp"
-#include "resource_cache.h"
 #include "surrender/mesh_resources.h"
 #include "surrender/srDebug.h"
 #include "surrender/srMath.h"
@@ -46,22 +45,19 @@
 class srMaterial;
 class srTexture;
 
-/* The last level material list, reused while consecutive meshes share it. */
-static std::vector<W8MaterialRecord> g_read_mesh_material_records;
-static std::vector<W8MeshMaterial> g_read_mesh_materials;
-
 /* Loaded level meshes shared by name; animated textures keep per-load state. */
-static ResourceCache<stMeshModel> g_level_meshes;
+static std::map<std::pair<std::string, std::string>, std::weak_ptr<stMeshModel>> g_level_meshes;
 
-static void CacheLevelMesh(const char* name, const std::shared_ptr<stMeshModel>& model)
+static void CacheLevelMesh(const char* bitmap_folder, const char* name,
+                           const std::shared_ptr<stMeshModel>& model)
 {
     if (name == 0 || name[0] == '\0') {
         return;
     }
     if (MeshHasAnimatedTexture(model.get())) {
-        g_level_meshes.erase(name);
+        g_level_meshes.erase({bitmap_folder, name});
     } else {
-        g_level_meshes.insert(name, model);
+        g_level_meshes.insert_or_assign({bitmap_folder, name}, model);
     }
 }
 
@@ -370,115 +366,79 @@ BuildSingleLevelMesh(int face_count, W8ReadMeshFace* faces, int vertex_count,
 }
 
 // FUNCTION: WIZ8 0x00487E10
-static const std::vector<W8MeshMaterial>& ReadMeshMaterials(W8ReadLevelInfo* info)
-{
-    if (!info || !info->bitmap_folder || !info->world || !info->hFile)
-        throw std::invalid_argument("Missing mesh load context");
+static void ValidateMaterialNames(const W8MaterialRecord* material);
 
+static std::vector<W8MaterialRecord> ReadMaterialRecords(wiz8::File& file)
+{
     short count = 0;
     short index;
-    info->hFile->read_exact(&count, sizeof(count));
+    file.read_exact(&count, sizeof(count));
     if (count < 1) {
-        ReleaseReadMeshScratch();
-        return g_read_mesh_materials;
+        return {};
     }
 
-    if (static_cast<std::int64_t>(count) * 0x11a > info->hFile->size() - info->hFile->tell()) {
+    if (static_cast<std::int64_t>(count) * 0x11a > file.size() - file.tell()) {
         throw std::runtime_error("ReadMeshMaterials: Invalid material count.");
     }
     std::vector<W8MaterialRecord> records(count);
-    info->hFile->read_exact(records.data(), 0x11a);
+    file.read_exact(records.data(), 0x11a);
     if (records[0].version < 4) {
         for (index = 1; index < count; ++index) {
-            info->hFile->read_exact(records.data() + index, 0x11a);
+            file.read_exact(records.data() + index, 0x11a);
         }
     } else {
-        info->hFile->read_exact(records[0].texture_modes, sizeof(records[0].texture_modes));
-        info->hFile->read_exact(records.data() + 1,
-                                static_cast<std::size_t>(count - 1) * sizeof(W8MaterialRecord));
+        file.read_exact(records[0].texture_modes, sizeof(records[0].texture_modes));
+        file.read_exact(records.data() + 1,
+                        static_cast<std::size_t>(count - 1) * sizeof(W8MaterialRecord));
     }
 
     for (index = 0; index < count; ++index) {
-        ClearMaterialRecordPadding(records.data() + index);
+        ValidateMaterialNames(records.data() + index);
     }
 
-    if (records.size() == g_read_mesh_material_records.size() &&
-        memcmp(records.data(), g_read_mesh_material_records.data(),
-               count * sizeof(W8MaterialRecord)) == 0) {
-        return g_read_mesh_materials;
-    }
-
-    std::vector<W8MeshMaterial> staged;
-    staged.reserve(count);
-    staged.push_back(CreateDefaultMaterial());
-    for (index = 1; index < count; ++index) {
-        staged.push_back(LoadMaterial(info->bitmap_folder, records[index]));
-    }
-    g_read_mesh_material_records = std::move(records);
-    g_read_mesh_materials = std::move(staged);
-    return g_read_mesh_materials;
+    return records;
 }
 
-// FUNCTION: WIZ8 0x00485B20
-static std::unique_ptr<stModelInstance>
-ReadSingleLevelMeshBody(W8ReadLevelInfo* info, const char* name, bool load_materials);
-
-std::unique_ptr<stModelInstance> ReadSingleLevelMesh(W8ReadLevelInfo* info, const char* name,
-                                                     bool load_materials)
-try {
-    if (!info || !info->hFile) return {};
-    if (name != 0) {
-        if (std::shared_ptr<stMeshModel> model = g_level_meshes.find(name)) {
-            auto duplicate = CreateModelInstance(std::move(model));
-            duplicate->setName("Read Mesh Duplicate Instance");
-            if (!SkipSingleLevelMesh(info)) {
-                return {};
-            }
-            return duplicate;
-        }
-    }
-
-    return ReadSingleLevelMeshBody(info, name, load_materials);
-} catch (const std::exception&) {
-    return {};
+static std::vector<W8MeshMaterial> LoadMeshMaterials(const char* bitmap_folder,
+                                                     const std::vector<W8MaterialRecord>& records)
+{
+    if (records.empty()) return {};
+    std::vector<W8MeshMaterial> materials;
+    materials.reserve(records.size());
+    materials.push_back(CreateDefaultMaterial());
+    for (std::size_t index = 1; index < records.size(); ++index)
+        materials.push_back(LoadMaterial(bitmap_folder, records[index]));
+    return materials;
 }
 
-// FUNCTION: WIZ8 0x00485C10
-static std::unique_ptr<stModelInstance>
-ReadSingleLevelMeshBody(W8ReadLevelInfo* info, const char* name, bool load_materials)
-try {
-    std::vector<short> mapped_values;
-    std::vector<short> mapped_keys;
-    int version = 0;
-    int vertex_count = 0;
-    int face_count = 0;
+struct DecodedLevelMesh {
+    int version = 0, vertex_count = 0, face_count = 0;
     unsigned char flags = 0;
+    std::vector<short> mapped_values, mapped_keys;
     std::vector<glm::vec3> vertices;
     std::vector<std::vector<short>> compressed_vertices;
     short frame_count = 0;
     float compression_scale = 1000.0f;
     std::vector<W8ReadMeshFace> faces;
-    std::vector<std::vector<int>> vertex_maps;
-    unsigned int mesh_count = 0;
-    std::shared_ptr<stMeshModel> first_model;
+    glm::vec3 location{0};
+    glm::mat3 rotation{1};
+    std::vector<W8MaterialRecord> material_records;
+};
 
-    if (info == 0) {
-        return {};
-    }
-    wiz8::File* file = info->hFile;
-    if (file == 0) {
-        return {};
-    }
-
+static DecodedLevelMesh ReadLevelMeshRecord(wiz8::File& input)
+{
+    DecodedLevelMesh decoded;
+    auto& [version, vertex_count, face_count, flags, mapped_values, mapped_keys, vertices,
+           compressed_vertices, frame_count, compression_scale, faces, location, rotation,
+           material_records] = decoded;
+    auto* file = &input;
     file->read_exact(&version, sizeof(version));
     file->read_exact(&vertex_count, sizeof(vertex_count));
     file->read_exact(&face_count, sizeof(face_count));
     if (vertex_count < 1 || vertex_count > 100000 || face_count < 1 || face_count > 200000) {
-        return {};
+        throw std::runtime_error("invalid level mesh record");
     }
 
-    glm::vec3 location(0);
-    glm::mat3 rotation;
     if (version > 2) {
         file->read_exact(&flags, sizeof(flags));
     }
@@ -495,7 +455,7 @@ try {
     if (version > 3) {
         signed char mapping_count;
         file->read_exact(&mapping_count, sizeof(mapping_count));
-        if (mapping_count < 0) return {};
+        if (mapping_count < 0) throw std::runtime_error("invalid level mesh record");
         for (short index = 0; index < mapping_count; ++index) {
             short value = 0;
             short key = 0;
@@ -505,7 +465,7 @@ try {
             file->read_exact(&key, sizeof(key));
             file->read_exact(&value, sizeof(value));
             if (value < 0 || value >= vertex_count) {
-                return {};
+                throw std::runtime_error("invalid level mesh record");
             }
             mapped_values.push_back(value);
             mapped_keys.push_back(key);
@@ -530,12 +490,12 @@ try {
         if ((flags & W8_LEVEL_MESH_SHORT_LOD_VERTICES) == 0) {
             srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x131,
                          "Uncompressed mesh, please re-export level with newer plugin");
-            return {};
+            throw std::runtime_error("invalid level mesh record");
         } else {
             if (frame_count <= 0 || !std::isfinite(compression_scale) || compression_scale <= 0 ||
                 static_cast<std::uint64_t>(frame_count) * vertex_count * 6 >
                     static_cast<std::uint64_t>(file->size() - file->tell())) {
-                return {};
+                throw std::runtime_error("invalid level mesh record");
             }
             compressed_vertices.resize(frame_count);
             for (auto& frame : compressed_vertices) {
@@ -567,61 +527,82 @@ try {
         }
     }
 
-    const std::vector<W8MeshMaterial>& materials = ReadMeshMaterials(info);
-    if (materials.empty()) {
-        srAssertFail("uiMatCount", "C:\\Projects\\Wizardry 8\\Engine Code\\ReadMesh.cpp", 0x16c, 0);
-    }
-    std::vector<w8_ulong> shaders;
-    for (const auto& material : materials) {
-        if (!std::ranges::contains(shaders, material.render_flags.value)) {
-            shaders.push_back(material.render_flags.value);
-        }
-    }
-    if (shaders.size() > 8) {
-        return {};
-    }
+    material_records = ReadMaterialRecords(input);
+    if (material_records.empty()) throw std::runtime_error("level mesh has no materials");
     for (const auto& face : faces) {
-        if (face.material_index < 0 ||
-            static_cast<std::size_t>(face.material_index) >= materials.size()) {
+        if (face.material_index < 0 || std::size_t(face.material_index) >= material_records.size())
+            throw std::runtime_error("invalid mesh material index");
+        for (int vertex : face.vertices)
+            if (vertex < 0 || vertex >= vertex_count)
+                throw std::runtime_error("invalid mesh vertex index");
+    }
+    return decoded;
+}
+
+bool ReadLevelMeshHasVertexFrames(wiz8::File& file)
+{
+    return (ReadLevelMeshRecord(file).flags & W8_LEVEL_MESH_LOD_VERTICES) != 0;
+}
+
+std::unique_ptr<stModelInstance> ReadSingleLevelMesh(W8ReadLevelInfo* info, const char* name,
+                                                     bool load_materials)
+try {
+    if (!info || !info->hFile || !info->bitmap_folder) return {};
+    auto decoded = ReadLevelMeshRecord(*info->hFile);
+    auto& [version, vertex_count, face_count, flags, mapped_values, mapped_keys, vertices,
+           compressed_vertices, frame_count, compression_scale, faces, location, rotation,
+           material_records] = decoded;
+    const auto key = std::pair{std::string(info->bitmap_folder), std::string(name ? name : "")};
+    std::shared_ptr<stMeshModel> first_model;
+    if (name) {
+        if (const auto cached = g_level_meshes.find(key); cached != g_level_meshes.end())
+            first_model = cached->second.lock();
+    }
+    if (!first_model) {
+        auto materials = LoadMeshMaterials(info->bitmap_folder, material_records);
+        std::vector<std::vector<int>> vertex_maps;
+        unsigned int mesh_count = 0;
+        std::vector<w8_ulong> shaders;
+        for (const auto& material : materials) {
+            if (!std::ranges::contains(shaders, material.render_flags.value)) {
+                shaders.push_back(material.render_flags.value);
+            }
+        }
+        if (shaders.size() > 8) {
             return {};
         }
-        for (int vertex : face.vertices) {
-            if (vertex < 0 || vertex >= vertex_count) {
-                return {};
-            }
-        }
-    }
-    first_model = BuildSingleLevelMesh(face_count, faces.data(), vertex_count, materials,
-                                       &mesh_count, vertex_maps, &mapped_values, &mapped_keys);
-    if ((flags & W8_LEVEL_MESH_LOD_VERTICES) == 0) {
-        int mesh_index = 0;
-        for (stMeshModel* model : stMeshModel::Meshes(first_model.get())) {
-            glm::vec3* model_vertices = model->getVertexLoc();
-            for (int index = 0; index < model->vertex_location_count; ++index) {
-                model_vertices[index] = vertices[vertex_maps[mesh_index][index]];
-            }
-            OptimizeMeshOrder(model);
-            ++mesh_index;
-        }
-    } else {
-        for (short frame = 0; frame < frame_count; ++frame) {
+        first_model = BuildSingleLevelMesh(face_count, faces.data(), vertex_count, materials,
+                                           &mesh_count, vertex_maps, &mapped_values, &mapped_keys);
+        if ((flags & W8_LEVEL_MESH_LOD_VERTICES) == 0) {
             int mesh_index = 0;
             for (stMeshModel* model : stMeshModel::Meshes(first_model.get())) {
-                model->InitializeVertexFrames(frame_count);
-                model->vertex_compression_scale = 500.0f / compression_scale;
-                short* model_vertices = model->GetVertex(frame);
+                glm::vec3* model_vertices = model->getVertexLoc();
                 for (int index = 0; index < model->vertex_location_count; ++index) {
-                    int source = vertex_maps[mesh_index][index];
-                    model_vertices[index * 3] = compressed_vertices[frame][source * 3];
-                    model_vertices[index * 3 + 1] = compressed_vertices[frame][source * 3 + 1];
-                    model_vertices[index * 3 + 2] = compressed_vertices[frame][source * 3 + 2];
+                    model_vertices[index] = vertices[vertex_maps[mesh_index][index]];
                 }
-                model->FinalizeVertexFrame(frame);
+                OptimizeMeshOrder(model);
                 ++mesh_index;
             }
+        } else {
+            for (short frame = 0; frame < frame_count; ++frame) {
+                int mesh_index = 0;
+                for (stMeshModel* model : stMeshModel::Meshes(first_model.get())) {
+                    model->InitializeVertexFrames(frame_count);
+                    model->vertex_compression_scale = 500.0f / compression_scale;
+                    short* model_vertices = model->GetVertex(frame);
+                    for (int index = 0; index < model->vertex_location_count; ++index) {
+                        int source = vertex_maps[mesh_index][index];
+                        model_vertices[index * 3] = compressed_vertices[frame][source * 3];
+                        model_vertices[index * 3 + 1] = compressed_vertices[frame][source * 3 + 1];
+                        model_vertices[index * 3 + 2] = compressed_vertices[frame][source * 3 + 2];
+                    }
+                    model->FinalizeVertexFrame(frame);
+                    ++mesh_index;
+                }
+            }
         }
-    }
 
+    } // Resource construction; every record above has already been decoded.
     if (first_model != 0) {
         first_model->getBounds();
     }
@@ -637,7 +618,7 @@ try {
             loaded_instance->setLocation(translated);
             loaded_instance->setRotation(rotation);
         }
-        CacheLevelMesh(name, first_model);
+        CacheLevelMesh(info->bitmap_folder, name, first_model);
         return loaded_instance;
     }
 
@@ -671,7 +652,8 @@ try {
         throw std::runtime_error("Invalid mesh or root count");
     }
 
-    const std::vector<W8MeshMaterial>& materials = ReadMeshMaterials(info);
+    const auto materials =
+        LoadMeshMaterials(info->bitmap_folder, ReadMaterialRecords(*info->hFile));
     if (materials.empty()) return {};
 
     info->hFile->read_exact(&terminator, sizeof(terminator));
@@ -718,7 +700,7 @@ try {
             auto instance = CreateModelInstance(roots[mesh_index]);
             instance->setName("Multi Mesh Instance");
             instance->mesh_index = mesh_index;
-            CacheLevelMesh(name, roots[mesh_index]);
+            CacheLevelMesh(info->bitmap_folder, name, roots[mesh_index]);
             pending[mesh_index] = std::move(instance);
         }
     }
@@ -728,94 +710,9 @@ try {
     return {};
 }
 
-// FUNCTION: WIZ8 0x00489980
-void ClearMaterialRecordPadding(W8MaterialRecord* material)
+static void ValidateMaterialNames(const W8MaterialRecord* material)
 {
-    if (material == 0) {
-        return;
-    }
-    for (const auto& name : material->texture_names) {
-        if (memchr(name, '\0', sizeof(name)) == nullptr) {
-            throw std::runtime_error("ReadMeshMaterials: Unterminated texture name.");
-        }
-    }
-    /* Retail expands the four tail clears straight-line; VC6 does not unroll
-       a counted loop, so these are four authored statements. */
-    memset(material->texture_name, 0, sizeof(material->texture_name));
-    memset(material->texture_names[0] + strlen(material->texture_names[0]), 0,
-           sizeof(material->texture_names[0]) - strlen(material->texture_names[0]));
-    memset(material->texture_names[1] + strlen(material->texture_names[1]), 0,
-           sizeof(material->texture_names[1]) - strlen(material->texture_names[1]));
-    memset(material->texture_names[2] + strlen(material->texture_names[2]), 0,
-           sizeof(material->texture_names[2]) - strlen(material->texture_names[2]));
-    memset(material->texture_names[3] + strlen(material->texture_names[3]), 0,
-           sizeof(material->texture_names[3]) - strlen(material->texture_names[3]));
-}
-
-// FUNCTION: WIZ8 0x004881d0
-void ReleaseReadMeshScratch()
-{
-    g_read_mesh_materials.clear();
-    g_read_mesh_material_records.clear();
-}
-
-// FUNCTION: WIZ8 0x00487bd0
-unsigned char SkipSingleLevelMesh(W8ReadLevelInfo* info)
-try {
-    if (info == nullptr || info->world == nullptr || info->hFile == nullptr) {
-        return 0;
-    }
-    auto& file = *info->hFile;
-    int version, vertex_count, face_count;
-    unsigned char flags = 0;
-    file.read_exact(&version, 4);
-    file.read_exact(&vertex_count, 4);
-    file.read_exact(&face_count, 4);
-    if (vertex_count < 1 || vertex_count > 100000 || face_count < 1 || face_count > 200000) {
-        return 0;
-    }
-    if (version > 2) file.read_exact(&flags, 1);
-    std::int64_t skip = version > 1 ? 0x28 : 0;
-    if (skip > file.size() - file.tell()) return 0;
-    file.seek(skip, wiz8::SeekOrigin::current);
-    if (version > 3) {
-        signed char mapping_count;
-        file.read_exact(&mapping_count, 1);
-        if (mapping_count < 0) return 0;
-        skip = static_cast<std::int64_t>(mapping_count) * 4;
-        if (skip > file.size() - file.tell()) return 0;
-        file.seek(skip, wiz8::SeekOrigin::current);
-    }
-    skip = static_cast<std::int64_t>(vertex_count) * 12;
-    if ((flags & W8_LEVEL_MESH_LOD_VERTICES) != 0) {
-        unsigned char compression;
-        short frames;
-        file.read_exact(&compression, 1);
-        file.read_exact(&frames, 2);
-        if (frames <= 0) return 0;
-        if (compression == 2) {
-            float scale;
-            file.read_exact(&scale, 4);
-            if (!std::isfinite(scale) || scale <= 0) return 0;
-        }
-        skip = static_cast<std::int64_t>(vertex_count) * frames *
-               ((flags & W8_LEVEL_MESH_SHORT_LOD_VERTICES) != 0 ? 6 : 12);
-    }
-    skip += static_cast<std::int64_t>(face_count) *
-            ((flags & W8_LEVEL_MESH_COMPRESSED_FACES) != 0 ? 0x21 : 0x29);
-    if (skip > file.size() - file.tell()) return 0;
-    file.seek(skip, wiz8::SeekOrigin::current);
-    short material_count;
-    file.read_exact(&material_count, 2);
-    if (material_count <= 0) return 0;
-    for (short index = 0; index < material_count; ++index) {
-        unsigned char material_version;
-        file.read_exact(&material_version, 1);
-        skip = material_version > 3 ? 0x129 : 0x119;
-        if (skip > file.size() - file.tell()) return 0;
-        file.seek(skip, wiz8::SeekOrigin::current);
-    }
-    return (flags & W8_LEVEL_MESH_LOD_VERTICES) != 0 ? 2 : 1;
-} catch (const std::exception&) {
-    return false;
+    for (const auto& name : material->texture_names)
+        if (memchr(name, '\0', sizeof(name)) == nullptr)
+            throw std::runtime_error("Unterminated material texture name");
 }

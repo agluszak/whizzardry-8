@@ -187,10 +187,8 @@ void srVertexPipe::setMaterial(srMaterial* material)
     if (material == 0) {
         material = &default_material;
     }
-    if (material != this->material) {
-        this->material = material;
-        material_info = material->getMaterialInfo();
-    }
+    this->material = material;
+    material_info = material->resolveMaterialInfo(current_record->material_overrides);
 }
 
 // FUNCTION: SURRENDER 0x1002AEC0
@@ -204,7 +202,6 @@ void srVertexPipe::process(const Input& input)
             active_processors.push_back(processor);
         }
     }
-    setMaterial(0);
     batch_base = 0;
     w8_ulong vertex_count = static_cast<w8_ulong>(input.active_vertices.size());
     if (vertex_count == 0) return;

@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/layouts/gameplay_databases.h"
@@ -26,7 +27,9 @@ void CloseFormationGap(W8MonsterInfo* monster_info, int party_slot, W8RangeCateg
    info's aim flag for the action's ranged-ness, and the band distance. A miss
    queues the slot's complaint event when `notify_failure` asks. */
 bool CanPartyMemberAimAtMonster(int party_slot, int hand, W8MonsterInfo* monster_info,
-                                W8TargetingContext context, bool notify_failure);
+                                const W8ActionSelection& selection, bool notify_failure,
+                                bool sight_only = false,
+                                const std::array<W8RangeCategory, 2>* attack_ranges = nullptr);
 /* Whether the front rank stands between two formation positions. */
 bool FrontRankScreens(unsigned int from_position, unsigned int to_position);
 /* Whether the monster's attack `attack` reaches the character in `party_slot`,
@@ -59,10 +62,12 @@ W8RangeCategory GetMonsterBestRangeCategory(W8MonsterInfo* monster_info,
    asks for the better of the two. */
 W8RangeCategory GetCharAttackRange(const W8Character* character, unsigned int hand);
 /* The range category the slot's chosen action works at. */
-W8RangeCategory GetCharActionRange(int party_slot, int hand, W8TargetingContext context);
-bool IsSlotInRangeOfGroup(int party_slot, int group_id, W8TargetingContext context, bool notify);
+W8RangeCategory GetCharActionRange(int party_slot, int hand, const W8ActionSelection& selection,
+                                   const std::array<W8RangeCategory, 2>* attack_ranges = nullptr);
+bool IsSlotInRangeOfGroup(int party_slot, int group_id, const W8ActionSelection& selection,
+                          bool notify);
 float MonsterChooseTarget(W8MonsterInfo* monster_info, W8CombatSlot* out, int kind);
-float GetGroundTargetRange(void);
+inline constexpr float kGroundTargetRange = 12500.0f;
 float GetMonsterEngagementRange(void);
 bool AnyoneStandsAhead(unsigned char position);
 void InitializeMonsterRangeCapabilities(W8MonsterInfo* monster_info, const W8MonsterRecord* record);
@@ -81,11 +86,11 @@ W8RangeCategory GetBestHandRangeCategory(const W8Character* character);
    selected target - character range and front-rank screen, monster aim, place
    distance and line of sight, or group reach. `hand` selects the attack side;
    2 asks the range helpers to use the better hand. */
-bool CharacterActionReachesTarget(int party_slot, int hand, W8TargetingContext context);
+bool CharacterActionReachesTarget(int party_slot, int hand, const W8ActionSelection& selection);
 /* The slot-vs-slot form the target-list builder uses: whether the
    slot's chosen action in `context` can strike `target_slot`. */
 bool CharacterActionReachesSlot(int party_slot, int hand, int target_slot,
-                                W8TargetingContext context);
+                                const W8ActionSelection& selection);
 /* Collect the party slots the slot could reach and strike under
    `relationship`, and pick one at random; -1 when none qualify. */
 int PickReachableSlotByDisposition(int party_slot, W8Disposition relationship);
@@ -99,4 +104,9 @@ bool SourceActionReachesTarget(W8TargetSource* source, W8CombatSlot* target);
    valid target in the scanned groups for `hand`; the condition interrupt uses
    it to tell usable attacks from merely reachable ones. `flag` == 1 skips the
    monster scan. */
-bool CanPartySlotAttackAnyTarget(int party_slot, W8TargetingContext category, int flag, bool hand);
+bool CanPartySlotAttackAnyTarget(int party_slot, const W8ActionSelection& selection, int flag,
+                                 bool hand);
+
+struct W8ItemInstance;
+std::array<W8RangeCategory, 2> WeaponSetAttackRanges(const W8ItemInstance& primary,
+                                                     const W8ItemInstance& secondary);

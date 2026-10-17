@@ -299,7 +299,7 @@ void DamageMonstersInRadius(const glm::vec3& center, float radius, const W8Dice*
     glm::vec3 offset;
 
     for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
-        monster_info = MonsterGetScriptPartByLocationIndex(index);
+        monster_info = GetMonsterListEntry(index);
         if (monster_info->fActive) {
             location = MonsterGetLocation(monster_info->p3D);
             offset = glm::vec3(center.x - location.x, center.y - location.y, center.z - location.z);

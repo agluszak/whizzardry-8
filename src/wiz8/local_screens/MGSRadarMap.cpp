@@ -310,8 +310,8 @@ void UpdateRadarBlips(void)
         }
     }
 
-    W8MonsterInfo* info = GetNextMonsterInfo(true);
-    while (info != 0) {
+    for (const auto& owned_monster : gXStatus.monster_roster.live()) {
+        auto* info = owned_monster.get();
         W8Monster* monster = info->p3D;
 
         if (monster != 0 && info->fActive && info->within_viewing_distance &&
@@ -328,7 +328,7 @@ void UpdateRadarBlips(void)
                 if (info->party_threat.sight_state == W8_SIGHT_RECENT) {
                     const auto bounds = monster->GetAnimationBounds();
                     if (!bounds) {
-                        info = GetNextMonsterInfo(false);
+
                         continue;
                     }
                     center = bounds->center();
@@ -355,7 +355,7 @@ void UpdateRadarBlips(void)
             } else {
                 const auto bounds = monster->GetAnimationBounds();
                 if (!bounds) {
-                    info = GetNextMonsterInfo(false);
+
                     continue;
                 }
                 center = bounds->center();
@@ -382,7 +382,6 @@ void UpdateRadarBlips(void)
                 }
             }
         }
-        info = GetNextMonsterInfo(false);
     }
 
     W8Missile* missile = NextMissile(true);

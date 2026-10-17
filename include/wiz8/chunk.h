@@ -48,10 +48,10 @@ public:
     ~W8Chunk() = default;
 
     bool IsOpen() const { return m_hFile != nullptr; }
-    /* The open stream, for section payloads written by format-specific code. */
+    /* Writer access for existing format encoders. Readers use bounded transfers. */
     wiz8::File& Stream()
     {
-        if (!m_hFile) throw std::logic_error("closed RIFF");
+        if (!m_hFile || !m_fWriting) throw std::logic_error("raw stream requires RIFF writer");
         return *m_hFile;
     }
     bool OpenRead(const std::filesystem::path& path);
@@ -70,13 +70,12 @@ public:
     std::int64_t CurrentChunkEnd() const;
     int ChunkCount();
     bool OpenChunk(unsigned int chunk_id, unsigned char grouped);
-    unsigned char Read(void* buffer, unsigned int size, unsigned int* transferred);
-    unsigned char Write(const void* buffer, unsigned int size, unsigned int* transferred);
 
     // Payload transfer within the active chunk. Reads never cross its extent;
     // both directions throw instead of reporting partial transfers.
     std::int64_t RemainingBytes() const;
     void ReadBytes(void* buffer, std::size_t size);
+    void SkipBytes(std::size_t size);
     void WriteBytes(const void* buffer, std::size_t size);
     template<class T> void ReadValue(T& value)
     {

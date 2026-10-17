@@ -536,7 +536,7 @@ void AdvanceTimedEffects(unsigned int minutes)
     }
 
     for (unsigned int index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
-        W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(index);
+        W8MonsterInfo* monster_info = GetMonsterListEntry(index);
         if (monster_info->highest_condition < W8_CONDITION_DEAD) {
             AgeMonsterSight(monster_info, minutes, 0);
         }

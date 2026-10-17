@@ -71,6 +71,7 @@ public:
         float bounds_radius = 0.0f;
         float sort_bias = 0.0f;
         PolygonSelection active_polygons;
+        srMaterial::Overrides material_overrides;
     };
 
     srMeshModel(w8_long polygons = 0, w8_long vertices = 0);

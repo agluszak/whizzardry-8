@@ -1,16 +1,19 @@
 #include "wiz8/packed_bits.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <exception>
 #include <utility>
 #include <vector>
 
+#include <SDL3/SDL_endian.h>
 #include <SDL3/SDL_iostream.h>
 #include <SDL3/SDL_properties.h>
 #include <SDL3/SDL_stdinc.h>
 
 #include "surrender/srHuffman.h"
 #include "surrender/srIO.h"
+#include "wiz8/chunk.h"
 #include "wiz8/filesystem.h"
 
 namespace {
@@ -23,20 +26,22 @@ std::size_t WordCount(std::size_t bit_count)
 }
 } // namespace
 
-bool LoadPackedBits(wiz8::File& handle, std::vector<bool>& bits)
+namespace {
+template<class Read> bool ReadPackedBitSet(Read read, std::int64_t remaining,
+                                           std::vector<bool>& bits)
 try {
-    auto* io = handle.io();
-    Uint32 magic, bit_count, packed_size;
-    srIO::check(SDL_ReadU32LE(io, &magic));
-    if (magic != kMagic) return false;
-    srIO::check(SDL_ReadU32LE(io, &bit_count));
-    if (!bit_count) return false;
-    srIO::check(SDL_ReadU32LE(io, &packed_size));
-    const auto position = SDL_TellIO(io), length = SDL_GetIOSize(io);
-    if (position < 0 || length < position || Uint64(packed_size) + 4 > Uint64(length - position))
-        return false;
+    const auto readWord = [&] {
+        Uint32 value;
+        read(&value, sizeof(value));
+        return SDL_Swap32LE(value);
+    };
+    if (remaining < 16 || readWord() != kMagic) return false;
+    const auto bit_count = readWord();
+    const auto packed_size = readWord();
+    if (!bit_count || packed_size > std::uint64_t(remaining - 16)) return false;
     std::vector<unsigned char> packed(packed_size);
-    srIO::readExact(io, packed.data(), packed.size());
+    read(packed.data(), packed.size());
+    Uint32 magic;
     auto stream = srIO::own(SDL_IOFromConstMem(packed.data(), packed.size()));
     srHuffman::BitIStream input(stream.get());
     srHuffman::Decompressor decoder(input);
@@ -50,12 +55,25 @@ try {
             }
         }
     }
-    srIO::check(SDL_ReadU32LE(io, &magic));
+    magic = readWord();
     if (magic != kMagic) return false;
     bits = std::move(decoded);
     return true;
 } catch (const std::exception&) {
     return false;
+}
+}
+
+bool LoadPackedBits(wiz8::File& file, std::vector<bool>& bits)
+{
+    return ReadPackedBitSet([&](void* data, std::size_t size) { file.read_exact(data, size); },
+                            file.size() - file.tell(), bits);
+}
+
+bool LoadPackedBits(W8Chunk& chunk, std::vector<bool>& bits)
+{
+    return ReadPackedBitSet([&](void* data, std::size_t size) { chunk.ReadBytes(data, size); },
+                            chunk.RemainingBytes(), bits);
 }
 
 bool SavePackedBits(wiz8::File& handle, const std::vector<bool>& bits)

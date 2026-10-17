@@ -392,23 +392,18 @@ struct W8MonsterInfo {
     unsigned char unknown_37d[0xa8];
 };
 
-W8MonsterInfo* MonsterGetScriptPartByLocationIndex(unsigned int monster_list_index);
 bool InitializeMonsterManagerState(void);
 void ActivateMonsterInWorld(W8MonsterInfo* monster_info);
 void ActivateMonster(W8MonsterInfo* monster_info, W8MonsterActivationMode mode);
 void ClearMonsterPathAndResume(W8MonsterInfo* monster_info);
 void MonsterStartsDying(W8MonsterInfo* monster_info, bool display_message);
 W8MonsterRecord* GetMonsterDataForInfo(W8MonsterInfo* monster_info);
-unsigned int
-MonsterGetIndexByLocationID(int location_id, bool assert_on_failure = true,
-                            std::source_location caller = std::source_location::current());
 W8MonsterInfo* FindMonster(int location_id, bool assert_on_failure = true,
                            std::source_location caller = std::source_location::current());
 W8MonsterRecord* GetMonsterDataByLocationID(int location_id);
 W8Monster* GetMonsterByLocationID(int location_id);
 float GetMonsterCombatMoveRange(W8MonsterInfo* monster_info);
 void UpdateMonsterDamageAppearance(W8MonsterInfo* monster_info);
-W8MonsterInfo* GetNextMonsterInfo(bool reset_iterator);
 int GetMonsterQuadrant(W8MonsterInfo* monster_info);
 int GetMonsterCycleFallbackValue(unsigned int monster_species);
 void ProcessMonstersAtCombatEnd(bool forced_cleanup);

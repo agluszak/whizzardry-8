@@ -119,7 +119,7 @@ void ReleaseMonsterConditionBindings(W8MonsterInfo* monster_info)
             if (!cleared && slot_kind == 0) {
                 for (unsigned int index = 0; index < gXStatus.monster_roster.live().size();
                      ++index) {
-                    W8MonsterInfo* bound = MonsterGetScriptPartByLocationIndex(index);
+                    W8MonsterInfo* bound = GetMonsterListEntry(index);
                     if (bound->elemental_summon == monster_info->location_id) {
                         bound->elemental_summon = -1;
                         break;
@@ -201,8 +201,10 @@ void RemoveCharacterCondition(int party_slot, W8Condition condition, bool announ
             break;
         case W8_CONDITION_TURNCOAT:
             SetTargetToCharacter(party_slot, true);
-            RepickActionTarget(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT, 0);
-            RepickActionTarget(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, 0);
+            RepickActionTarget(
+                party_slot, ChooseCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT), 0);
+            RepickActionTarget(party_slot,
+                               ChooseCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT), 0);
             break;
         default:
             break;
@@ -212,7 +214,9 @@ void RemoveCharacterCondition(int party_slot, W8Condition condition, bool announ
         if (!can_rest && party_slot > -1 && party_slot < 8 && row->fOccupied &&
             character->hp_current != 0 && character->highest_condition < W8_CONDITION_TURNCOAT &&
             gXStatus.fCombatMode &&
-            CharacterCanSwitchTo(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, false, false)) {
+            CharacterCanSwitchTo(party_slot,
+                                 ChooseCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT),
+                                 false, false)) {
             RefreshCombatTargetHighlights(party_slot, &row->target_in_combat);
         }
     }
@@ -996,7 +1000,7 @@ void RemoveConditionFromEveryone(W8Condition condition)
 
     for (monster_index = 0; monster_index < gXStatus.monster_roster.live().size();
          ++monster_index) {
-        monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
+        monster_info = GetMonsterListEntry(monster_index);
         if (monster_info->uiCondition[condition] != 0) {
             ClearMonsterCondition(monster_info->location_id, condition);
         }
@@ -1021,7 +1025,7 @@ void RemoveAllEnchantments(void)
             }
         }
         for (unsigned int index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
-            W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(index);
+            W8MonsterInfo* monster_info = GetMonsterListEntry(index);
 
             if (monster_info->enchantments[enchantment].turns != 0) {
                 ClearMonsterEnchantmentSlot(monster_info->location_id,

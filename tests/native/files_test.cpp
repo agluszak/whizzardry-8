@@ -40,13 +40,14 @@ TEST_CASE("Native RIFF streams retain framing and scoped chunk ownership", "[fil
         REQUIRE(chunk.OpenWrite(path));
         const unsigned word = 0x12345678;
         REQUIRE(chunk.OpenChunk(0x54534554, false));
-        REQUIRE(chunk.Write(&word, sizeof(word), nullptr));
+        chunk.WriteValue(word);
         REQUIRE(chunk.ReleaseCurrentChunk());
         chunk.Close();
         REQUIRE((chunk.OpenRead(path) && chunk.ChunkCount() == 1));
         REQUIRE((chunk.OpenChunk(0, false) && chunk.CurrentChunkId() == 0x54534554));
         unsigned loaded = 0;
-        REQUIRE((chunk.Read(&loaded, sizeof(loaded), nullptr) && loaded == word));
+        chunk.ReadValue(loaded);
+        REQUIRE(loaded == word);
         REQUIRE(chunk.ReleaseCurrentChunk());
         chunk.Close();
         // Destruction owns pending headers as well as the stream, even without Close.

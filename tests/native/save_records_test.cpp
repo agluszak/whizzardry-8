@@ -5,6 +5,7 @@
 
 #include "asset_paths.h"
 #include "catch2/catch_message.hpp"
+#include "chunk_payload.h"
 #include "conditions.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -326,7 +327,7 @@ static void unicode_file_contracts()
     file->read_exact(header.data(), header.size());
     for (std::size_t i = 8 + 0x18; i < 8 + 0x1c; ++i) REQUIRE(header[i] == std::byte{});
     file->seek(0, wiz8::SeekOrigin::begin);
-    REQUIRE(LoadMessageStorage(*file));
+    REQUIRE(LoadMessageStorage(ChunkPayload(*file).get()));
     REQUIRE(std::string(g_message_storage[0][0].text) == message);
     REQUIRE(g_message_storage[0][0].entries.empty());
     REQUIRE(g_message_storage[0][0].length == 6);
@@ -357,7 +358,7 @@ static void transcript_contracts()
     REQUIRE((bytes[9] == std::byte{0xe9} && bytes[10] == std::byte{0}));
     REQUIRE((bytes[13] == std::byte{0x3d} && bytes[14] == std::byte{0xd8}));
     file->seek(0, wiz8::SeekOrigin::begin);
-    REQUIRE(LoadNpcDialogueTranscript(*file));
+    REQUIRE(LoadNpcDialogueTranscript(ChunkPayload(*file).get()));
     REQUIRE(state.dialogue_transcript.size() == 1);
     REQUIRE(state.dialogue_transcript[0]->text == "é中😀");
     REQUIRE(state.dialogue_transcript[0]->category == 2);
@@ -836,9 +837,9 @@ static void current_game_character_contracts()
     REQUIRE(chunks.OpenChunk(0x52414843, 0));
     char name[64] = "vi.CHR";
     unsigned size = W8_CHARACTER_SERIALIZED_SIZE;
-    chunks.Write(name, sizeof(name), nullptr);
-    chunks.Write(&size, sizeof(size), nullptr);
-    chunks.Write(&first, 1, nullptr);
+    chunks.WriteBytes(name, sizeof(name));
+    chunks.WriteBytes(&size, sizeof(size));
+    chunks.WriteBytes(&first, 1);
     chunks.ReleaseCurrentChunk();
     chunks.OpenChunk(0x444150, 0);
     wiz8::retail::write(chunks, second);
@@ -850,14 +851,14 @@ static void current_game_character_contracts()
     // A malformed newer payload does not hide the last complete character.
     REQUIRE(chunks.OpenWrite(wiz8::user_path("saves\\CurrentGame.SAV")));
     chunks.OpenChunk(0x52414843, 0);
-    chunks.Write(name, sizeof(name), nullptr);
-    chunks.Write(&size, sizeof(size), nullptr);
+    chunks.WriteBytes(name, sizeof(name));
+    chunks.WriteBytes(&size, sizeof(size));
     wiz8::retail::write(chunks, first);
     chunks.ReleaseCurrentChunk();
     chunks.OpenChunk(0x52414843, 0);
-    chunks.Write(name, sizeof(name), nullptr);
-    chunks.Write(&size, sizeof(size), nullptr);
-    chunks.Write(&replacement, 1, nullptr);
+    chunks.WriteBytes(name, sizeof(name));
+    chunks.WriteBytes(&size, sizeof(size));
+    chunks.WriteBytes(&replacement, 1);
     chunks.ReleaseCurrentChunk();
     chunks.Close();
     REQUIRE(LoadCharacterFromCurrentGame("vi.CHR", &loaded));
@@ -964,28 +965,28 @@ static void save_file_contracts(const std::filesystem::path& user)
     write(fallback, 7u);
     fallback.close();
     REQUIRE(FindStartupQuickSave() == "Quick");
-    std::uint32_t count = 0;
 
     const auto riff = wiz8::user_path("saves/riff.SAV");
     W8Chunk chunks;
     REQUIRE(chunks.OpenWrite(riff));
     REQUIRE(chunks.OpenChunk(0x454d4954u, 0)); // TIME
-    REQUIRE((chunks.Write(words, sizeof(words), &count) && count == 8));
+    chunks.WriteBytes(words, sizeof(words));
     REQUIRE(chunks.ReleaseCurrentChunk());
     chunks.Close();
     REQUIRE(chunks.OpenAppend(riff));
     REQUIRE(chunks.OpenChunk(0x5458454eu, 0)); // NEXT
-    REQUIRE((chunks.Write("tail", 4, &count) && count == 4));
+    chunks.WriteBytes("tail", 4);
     REQUIRE(chunks.ReleaseCurrentChunk());
     chunks.Close();
     REQUIRE((chunks.OpenRead(riff) && chunks.ChunkCount() == 2));
     REQUIRE((chunks.OpenChunk(0, 0) && chunks.CurrentChunkId() == 0x454d4954u));
-    REQUIRE((chunks.Read(stored, sizeof(stored), &count) && count == 8));
+    chunks.ReadBytes(stored, sizeof(stored));
     REQUIRE((stored[0] == words[0] && stored[1] == words[1]));
     REQUIRE(chunks.ReleaseCurrentChunk());
     REQUIRE((chunks.OpenChunk(0, 0) && chunks.CurrentChunkId() == 0x5458454eu));
     char tail[4]{};
-    REQUIRE((chunks.Read(tail, sizeof(tail), &count) && count == 4 && !memcmp(tail, "tail", 4)));
+    chunks.ReadBytes(tail, sizeof(tail));
+    REQUIRE(!memcmp(tail, "tail", 4));
     REQUIRE(chunks.ReleaseCurrentChunk());
     chunks.Close();
 }
@@ -1021,10 +1022,11 @@ static void global_status_record()
     chunks.Close();
     REQUIRE((chunks.OpenRead(path) && chunks.OpenChunk(0, 0)));
     REQUIRE(chunks.CurrentChunkId() == 0x41545347);
-    unsigned size = 0, count = 0;
-    REQUIRE((chunks.Read(&size, sizeof(size), &count) && count == sizeof(size) && size == 0x49c2));
+    unsigned size = 0;
+    chunks.ReadValue(size);
+    REQUIRE(size == 0x49c2);
     unsigned char bytes[0x49c2];
-    REQUIRE((chunks.Read(bytes, sizeof(bytes), &count) && count == sizeof(bytes)));
+    chunks.ReadBytes(bytes, sizeof(bytes));
     const auto status_image = wiz8::retail::encode(status);
     REQUIRE(!memcmp(bytes, status_image.data(), sizeof(bytes)));
     std::array<unsigned char, 0x21> expected_progress{
@@ -1045,14 +1047,16 @@ static void global_status_record()
     REQUIRE((position[0] == 1 && position[1] == 2 && position[2] == 3));
     // Verify each record's prefix and stride independently of native sizeof.
     for (int slot = 0; slot < 8; ++slot) {
-        REQUIRE((chunks.Read(&size, 4, &count) && size == 0x1862));
+        chunks.ReadValue(size);
+        REQUIRE(size == 0x1862);
         std::array<std::byte, 0x1862> character_bytes;
-        REQUIRE(chunks.Read(character_bytes.data(), character_bytes.size(), &count));
+        chunks.ReadBytes(character_bytes.data(), character_bytes.size());
     }
     for (int slot = 0; slot < 8; ++slot) {
-        REQUIRE((chunks.Read(&size, 4, &count) && size == 0x106));
+        chunks.ReadValue(size);
+        REQUIRE(size == 0x106);
         std::array<std::byte, 0x106> party_bytes;
-        REQUIRE(chunks.Read(party_bytes.data(), party_bytes.size(), &count));
+        chunks.ReadBytes(party_bytes.data(), party_bytes.size());
         int attack_mode;
         float fatigue;
         std::memcpy(&attack_mode, party_bytes.data() + 5, 4);
@@ -1247,7 +1251,8 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
         out.close();
         auto file = wiz8::open_file(path);
         REQUIRE(file);
-        LoadNpcStates(*file);
+        ChunkPayload payload(*file);
+        LoadNpcStates(payload.get());
         REQUIRE(static_cast<int>(g_npc_states.size()) == 3);
         for (unsigned int i = 0; i < 3; ++i) {
             W8NpcState* npc = g_npc_states[i].get();
@@ -1261,15 +1266,16 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
             }
         }
         unsigned int trailer;
-        file->read_exact(&trailer, sizeof(trailer));
+        payload.get().ReadValue(trailer);
         REQUIRE(trailer == 0xdecafbadU);
         file.reset();
         // A filesystem failure at any NPC read preserves the previous object graph.
         file = wiz8::open_file(path);
         std::size_t operations;
+        ChunkPayload traced_payload(*file);
         {
             FileFaults trace;
-            LoadNpcStates(*file);
+            LoadNpcStates(traced_payload.get());
             operations = trace.operations;
         }
         const auto stable_states = NpcStatePointers();
@@ -1278,10 +1284,11 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
             CAPTURE(version, operation);
             file = wiz8::open_file(path);
             bool rejected = false;
+            ChunkPayload failing_payload(*file);
             {
                 FileFaults fault(operation);
                 try {
-                    LoadNpcStates(*file);
+                    LoadNpcStates(failing_payload.get());
                 } catch (const std::exception&) {
                     rejected = true;
                 }
@@ -1296,7 +1303,7 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
         REQUIRE(SaveNpcStates(*file));
         file->close();
         file = wiz8::open_file(root / "roundtrip.npct");
-        LoadNpcStates(*file);
+        LoadNpcStates(ChunkPayload(*file).get());
         REQUIRE(g_npc_states.size() == 3);
         for (int index = 0; index < 3; ++index) {
             auto* npc = g_npc_states[index].get();
@@ -1322,7 +1329,7 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
             file = wiz8::open_file(path);
             bool rejected = false;
             try {
-                LoadNpcStates(*file);
+                LoadNpcStates(ChunkPayload(*file).get());
             } catch (const std::exception&) {
                 rejected = true;
             }

@@ -1,3 +1,4 @@
+struct W8Chunk;
 #pragma once
 
 #include <vector>
@@ -166,7 +167,7 @@ public:
 };
 
 void SaveLightStates(wiz8::File& handle);
-void LoadLightStates(wiz8::File& handle);
+void LoadLightStates(W8Chunk& handle);
 
 /* Animation copies retain per-light position before assignment, detach the new
    light and register it with the world, which owns it, before adding it to the

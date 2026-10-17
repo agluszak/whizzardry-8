@@ -26,6 +26,7 @@
 #include "retail_records.h"
 #include "surrender/srDebug.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/chunk.h"
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/conditions.h"
 #include "wiz8/engine_code/AnimRep.hpp"
@@ -84,7 +85,7 @@ static bool InitializeNpcCharacter(W8NpcState* npc, W8Character& character);
 static void InitializeNpcItemTable(W8NpcState* npc);
 static bool RestoreNpcMonster(W8NpcState* npc, const char* entity_name);
 static bool SaveNpcItemLists(wiz8::File& file);
-static bool LoadNpcItemLists(wiz8::File& file);
+static bool LoadNpcItemLists(W8Chunk& file);
 static bool NpcOffersService(W8NpcState* npc, unsigned int service_id);
 
 enum { W8_NPC_TOPIC_SLOTS = 5, W8_NPC_FACT_SLOTS = 14 };
@@ -1415,7 +1416,7 @@ void ReleaseNpcBinding(int value)
    and later append the item lists through the second pass. The walk ends by
    backfilling runtime nodes for database records no loaded state claims. */
 // FUNCTION: WIZ8 0x00509FC0
-void LoadNpcStates(wiz8::File& file)
+void LoadNpcStates(W8Chunk& file)
 {
     unsigned char version = 3;
     unsigned int count;
@@ -1434,10 +1435,10 @@ void LoadNpcStates(wiz8::File& file)
             if (!committed) previous.swap(g_npc_states);
         }
     } rollback;
-    file.read_exact(&version, 1);
-    file.read_exact(&count, 4);
+    file.ReadBytes(&version, 1);
+    file.ReadBytes(&count, 4);
     if (count > static_cast<unsigned int>(std::numeric_limits<int>::max()) ||
-        count > (file.size() - file.tell()) / sizeof(wiz8::retail::NpcState)) {
+        count > (file.RemainingBytes()) / sizeof(wiz8::retail::NpcState)) {
         throw std::runtime_error("invalid NPC state count");
     }
     for (loaded = 0; loaded < count; ++loaded) {
@@ -1455,7 +1456,7 @@ void LoadNpcStates(wiz8::File& file)
         if (has_character) {
             // Version 3 sizes the character block; older saves store 0x185c bytes.
             size = 0x185c;
-            if (version >= 3) file.read_exact(&size, sizeof(size));
+            if (version >= 3) file.ReadBytes(&size, sizeof(size));
             if (size > wiz8::retail::kCharacterBytes) {
                 throw std::runtime_error("invalid NPC character size");
             }
@@ -1497,18 +1498,18 @@ void LoadNpcStates(wiz8::File& file)
 
 /* Stage all stock lists before replacing any live NPC's inventory. */
 // FUNCTION: WIZ8 0x0050AAF0
-static bool LoadNpcItemLists(wiz8::File& file)
+static bool LoadNpcItemLists(W8Chunk& file)
 try {
     std::vector<std::vector<W8NpcItemEntry>> pending(g_npc_states.size());
     for (auto& items : pending) {
         unsigned int item_count;
-        file.read_exact(&item_count, sizeof(item_count));
+        file.ReadBytes(&item_count, sizeof(item_count));
         if (item_count > static_cast<unsigned int>(std::numeric_limits<int>::max()) ||
-            item_count > (file.size() - file.tell()) / sizeof(W8NpcItemEntry)) {
+            item_count > (file.RemainingBytes()) / sizeof(W8NpcItemEntry)) {
             return false;
         }
         items.resize(item_count);
-        file.read_exact(items.data(), items.size() * sizeof(W8NpcItemEntry));
+        file.ReadBytes(items.data(), items.size() * sizeof(W8NpcItemEntry));
     }
     for (std::size_t npc_index = 0; npc_index < g_npc_states.size(); ++npc_index) {
         g_npc_states[npc_index]->items = std::move(pending[npc_index]);

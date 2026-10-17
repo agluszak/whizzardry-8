@@ -45,6 +45,7 @@
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/chunk.h"
 #include "wiz8/conditions.h"
 #include "wiz8/cursor.h"
 #include "wiz8/dialog_code/AssayDialog.h"
@@ -1248,7 +1249,7 @@ void EndNpcDialogueSession(bool skip_exit_actions)
     RequestRedrawCombatBar();
     RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
     for (unsigned int index = 0; index < gXStatus.monster_roster.live().size(); index++) {
-        ClearMonsterCharm(MonsterGetScriptPartByLocationIndex(index));
+        ClearMonsterCharm(GetMonsterListEntry(index));
     }
     GetNpcMonsterInfo(g_npc_interaction_state->dialogue_npc);
     ResumeMainGameWorld();
@@ -3488,14 +3489,14 @@ void ClearNpcDialogueTranscript(void)
     g_npc_interaction_state->dialogue_transcript.clear();
 }
 
-unsigned char LoadNpcDialogueTranscript(wiz8::File& file)
+unsigned char LoadNpcDialogueTranscript(W8Chunk& file)
 try {
     unsigned char version;
     int record_count;
-    file.read_exact(&version, sizeof(version));
-    file.read_exact(&record_count, sizeof(record_count));
+    file.ReadBytes(&version, sizeof(version));
+    file.ReadBytes(&record_count, sizeof(record_count));
     if (version < 1 || version > 2 || record_count < 0 ||
-        record_count > (file.size() - file.tell() - (version > 1 ? 2 : 0)) / 7) {
+        record_count > (file.RemainingBytes() - (version > 1 ? 2 : 0)) / 7) {
         return 0;
     }
     using RecordOwner = std::unique_ptr<W8DialogueTranscriptRecord>;
@@ -3503,23 +3504,23 @@ try {
     pending.reserve(record_count);
     for (int index = 0; index < record_count; ++index) {
         int text_length;
-        file.read_exact(&text_length, sizeof(text_length));
+        file.ReadBytes(&text_length, sizeof(text_length));
         if (text_length < 0 || text_length >= 100) return 0;
         auto record = std::make_unique<W8DialogueTranscriptRecord>();
         std::vector<std::byte> bytes((std::size_t(text_length) + 1) * 2);
-        file.read_exact(bytes.data(), bytes.size());
+        file.ReadBytes(bytes.data(), bytes.size());
         record->text = wiz8::text::from_utf16le(bytes);
         if (bytes[bytes.size() - 1] != std::byte{} || bytes[bytes.size() - 2] != std::byte{} ||
             wiz8::text::to_utf16(record->text).size() != std::size_t(text_length))
             return false;
-        file.read_exact(&record->category, sizeof(record->category));
+        file.ReadBytes(&record->category, sizeof(record->category));
         pending.push_back(std::move(record));
     }
     signed char category_filter = g_npc_interaction_state->dialogue_category_filter;
     unsigned char sorted = g_npc_interaction_state->transcript_sorted;
     if (version > 1) {
-        file.read_exact(&category_filter, sizeof(category_filter));
-        file.read_exact(&sorted, sizeof(sorted));
+        file.ReadBytes(&category_filter, sizeof(category_filter));
+        file.ReadBytes(&sorted, sizeof(sorted));
         if (category_filter < W8_DIALOGUE_CATEGORY_ALL ||
             category_filter > W8_DIALOGUE_CATEGORY_MISC || sorted > 1)
             return 0;
