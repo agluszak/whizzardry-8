@@ -421,43 +421,6 @@ void WorldUpdateLights(W8World* world)
     }
 }
 
-/* 0x00659AB4: the world being rendered, which the list wrappers below reach
-   through. Every one of them ignores the caller's own first argument and uses
-   this global instead. */
-
-// FUNCTION: WIZ8 0x0046e580
-void AddMonsterToWorld(W8World*, W8Monster* monster)
-{
-    g_world->active_monsters.push_back(monster);
-}
-
-// FUNCTION: WIZ8 0x0046e5c0
-void AddItemToWorld(W8World* world, std::unique_ptr<W8Item> item)
-{
-    world->plsItems.push_back(std::move(item));
-}
-
-// FUNCTION: WIZ8 0x0046e5e0
-void RemoveItemFromWorld(W8World* world, W8Item* item)
-{
-    std::erase_if(world->plsItems, [item](const auto& owner) { return owner.get() == item; });
-}
-
-/* How many props the world holds, and the one at a position - both answers
-   discarded by the wrapper itself, which is what makes these thin forwarders
-   rather than accessors. */
-// FUNCTION: WIZ8 0x0046e600
-int WorldGetPropCount(W8World*)
-{
-    return g_world->plsProps.size();
-}
-
-// FUNCTION: WIZ8 0x0046e620
-W8Prop* WorldGetPropAt(W8World*, int index)
-{
-    return GetWorldProp(g_world, index);
-}
-
 // FUNCTION: WIZ8 0x0046e860
 void SetWorldSceneMeshShaderLowBits(W8World* owner, int argument)
 {

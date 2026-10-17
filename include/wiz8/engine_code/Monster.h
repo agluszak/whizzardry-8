@@ -268,7 +268,7 @@ public:
     bool mouth_open;
     /* 0x215: set while the monster is deactivated (active cleared). */
     bool inactive;
-    /* 0x216: raised at construction; cleared once AddMonsterToWorld and the
+    /* 0x216: raised at construction; cleared once world registration and the
        spawn bookkeeping finish - iteration skips monsters still pending. */
     bool pending_finalize;
     /* 0x217: suppresses rendering and radar/automap display. */
