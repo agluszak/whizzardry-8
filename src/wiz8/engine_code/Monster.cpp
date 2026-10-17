@@ -3243,7 +3243,7 @@ void W8Monster::SetCycle(signed char cycle)
 
                 light->setParent(0, 1);
                 if (light->definition() != 0) {
-                    wiz8::erase_first(GetWorld()->lights_to_update, light);
+                    light->SetUpdateWorld(nullptr);
                 }
             }
         }
@@ -3281,7 +3281,7 @@ void W8Monster::SetCycle(signed char cycle)
             light->setParent(GetWorld()->dynamic_scene, 1);
             light->Reset();
             if (light->definition() != 0) {
-                GetWorld()->lights_to_update.push_back(light);
+                light->SetUpdateWorld(owner_world);
             }
         }
     }

@@ -9,6 +9,7 @@
 #include "surrender/srNode.h"
 
 class W8Prop;
+struct W8World;
 struct W8PathAI;
 namespace wiz8 {
 class File;
@@ -118,6 +119,8 @@ class stLight : public srLight {
 public:
     virtual ~stLight() override; /* 0x0049C430 */
 
+    // Scene attachment and update membership borrow the light; neither owns it.
+    void SetUpdateWorld(W8World* world);
     explicit stLight(srNode* parent = nullptr); /* 0x0049C2C0 */
     stLight& operator=(const stLight& other); /* 0x0049C690 */
 
@@ -139,6 +142,9 @@ public:
         enable_flags |= 0x10; /* ENABLE_RANGE_FAR */
         enable_flags |= 4;    /* ENABLE_BOUNDING_SPHERE */
     }
+
+private:
+    W8World* update_world_ = nullptr;
 
 public:
     /* One value, not three floats: 0x0049C690 copies it through the base-pointer

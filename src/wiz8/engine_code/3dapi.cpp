@@ -370,7 +370,7 @@ static void StopWorldActivity(W8World* world)
     StopWorldTriggerEvents();
     StopAllAmbientSounds();
     world->nodes_to_disable.clear();
-    world->lights_to_update.clear();
+    world->stopLightUpdates();
 }
 
 // Phase 2: drop the non-owning indexes and detach the world from global lookup.
@@ -412,6 +412,11 @@ static void DestroyWorldResources(W8World* world)
 W8World::W8World(int level_id, std::string source_path)
     : level_id(level_id), source_path(std::move(source_path))
 {
+}
+
+void W8World::stopLightUpdates()
+{
+    while (!updating_lights_.empty()) updating_lights_.back()->SetUpdateWorld(nullptr);
 }
 
 W8World::~W8World()

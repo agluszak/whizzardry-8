@@ -374,7 +374,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "Emitter loads publish only complete valid 
         REQUIRE(host.resources.cycles[2].animation.get() == original);
         REQUIRE(visual.m_plsLights == nullptr);
         REQUIRE(GetWorld()->transient_lights.empty());
-        REQUIRE(GetWorld()->lights_to_update.empty());
+        REQUIRE(GetWorld()->updatingLights().empty());
     }
     WriteEmitterFixture(2, false);
     for (int i = 0; i < 2; ++i) {
@@ -430,7 +430,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "All emitter animations release before any 
         }
         ~ObservedInstance() override
         {
-            observations.push_back(GetWorld()->lights_to_update.size());
+            observations.push_back(GetWorld()->updatingLights().size());
         }
         std::vector<std::size_t>& observations;
     };
@@ -440,7 +440,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "All emitter animations release before any 
         EmitterResources<2> resources;
         for (auto& cycle : resources.cycles) {
             auto light = CreateLight(nullptr, "TeardownOrder");
-            world.lights_to_update.push_back(light.get());
+            light->SetUpdateWorld(&world);
             cycle.lights.lights.push_back(std::move(light));
             cycle.animation = std::make_unique<W8AnimObj>();
             auto mesh = std::make_unique<W8AniMesh>();
@@ -450,7 +450,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "All emitter animations release before any 
     }
     REQUIRE(observations == std::vector<std::size_t>{2, 2});
     REQUIRE(world.transient_lights.empty());
-    REQUIRE(world.lights_to_update.empty());
+    REQUIRE(world.updatingLights().empty());
 }
 
 TEST_CASE_METHOD(SpellVisualFixture, "Retiring a cycle cancels borrowed monster callbacks",
@@ -494,6 +494,9 @@ TEST_CASE_METHOD(SpellVisualFixture, "World teardown drains particles retired by
         retiring_world->static_scene->adoptChild(std::make_unique<srNode>());
     auto previous = ExchangeCurrentWorld(std::move(retiring_world));
     auto* retiring = GetWorld();
+    // A borrowed update registration can outlive the world without owning it.
+    auto retained_light = CreateLight(nullptr, "RetainedAcrossWorldRetirement");
+    retained_light->SetUpdateWorld(retiring);
     auto visual = std::make_unique<W8SpellVisual>(retiring);
     auto* attachment = &visual->particles.emplace_back();
     attachment->m_pstParticles =
@@ -501,6 +504,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "World teardown drains particles retired by
     retiring->spell_visuals.push_back(std::move(visual));
 
     ExchangeCurrentWorld(std::move(previous));
+    retained_light.reset(); // Its registration must have been withdrawn before world deletion.
 
     REQUIRE(destroyed);
     REQUIRE(scene_alive);

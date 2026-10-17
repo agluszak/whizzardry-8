@@ -279,7 +279,8 @@ try {
     if (has_particles != 0) {
         std::vector<std::unique_ptr<stParticle>> particles;
 
-        success = ReadWorldParticles(info, GetWorld()->dynamic_scene, &particles);
+        success = ReadWorldParticles(info, info->world ? info->world->dynamic_scene : nullptr,
+                                     &particles);
         if (!particles.empty()) {
             int index;
 
@@ -533,7 +534,7 @@ void W8GrCycle::UpdateLights()
                     }
                 } else if ((representation->subcycle == 0 && cycle_definition->subcycle_min == 0) ||
                            light->getParent() == nullptr) {
-                    light->setParent(GetWorld()->dynamic_scene, 0);
+                    light->setParent(owner_world ? owner_world->dynamic_scene : nullptr, 0);
                     light->m_path_index = 0;
                     light->m_path_direction = 1;
                     light->Reset();
@@ -549,7 +550,7 @@ void W8GrCycle::UpdateLights()
                     light->setParent(0, 0);
                 }
             } else if (light->getParent() == nullptr) {
-                light->setParent(GetWorld()->dynamic_scene, 0);
+                light->setParent(owner_world ? owner_world->dynamic_scene : nullptr, 0);
             }
         }
     }
@@ -1127,7 +1128,7 @@ void W8GrCycle::DetachCycleLights(std::vector<std::unique_ptr<stLight>>* lights)
 
             light->setParent(0, 1);
             if (light->definition() != 0) {
-                wiz8::erase_first(GetWorld()->lights_to_update, light);
+                light->SetUpdateWorld(nullptr);
             }
         }
     }
@@ -1135,13 +1136,13 @@ void W8GrCycle::DetachCycleLights(std::vector<std::unique_ptr<stLight>>* lights)
 
 void W8GrCycle::AttachCycleLights(std::vector<std::unique_ptr<stLight>>* lights)
 {
-    if (g_render_missile_lights && lights != 0) {
+    if (owner_world && g_render_missile_lights && lights != 0) {
         for (const auto& owned : *lights) {
             auto* light = owned.get();
 
-            light->setParent(GetWorld()->dynamic_scene, 1);
+            light->setParent(owner_world ? owner_world->dynamic_scene : nullptr, 1);
             if (light->definition() != 0) {
-                GetWorld()->lights_to_update.push_back(light);
+                light->SetUpdateWorld(owner_world);
             }
         }
     }

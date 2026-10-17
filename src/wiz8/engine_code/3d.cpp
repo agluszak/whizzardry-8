@@ -103,7 +103,7 @@ void DetachWorldItemMeshes(W8World* world)
 // FUNCTION: WIZ8 0x0046e4a0
 void DestroyWorldLights(W8World* world)
 {
-    world->lights_to_update.clear();
+    world->stopLightUpdates();
     world->transient_lights.clear();
 }
 
@@ -371,7 +371,7 @@ void WorldRemoveLight(W8World* world, stLight* light)
     if (light == 0) {
         srAssertFail("pLight", THREE_D_CPP, 0x279, 0);
     }
-    wiz8::erase_first(world->lights_to_update, light);
+    light->SetUpdateWorld(nullptr);
     // The world owns the light: erasing it from the list destroys it.
     std::erase_if(world->transient_lights,
                   [light](const std::unique_ptr<stLight>& owned) { return owned.get() == light; });
@@ -414,10 +414,10 @@ void WorldUpdateProps(W8World* world)
 // FUNCTION: WIZ8 0x0046df50
 void WorldUpdateLights(W8World* world)
 {
-    int count = static_cast<int>(world->lights_to_update.size());
+    int count = static_cast<int>(world->updatingLights().size());
 
     for (int index = 0; index < count; ++index) {
-        world->lights_to_update[index]->Update();
+        world->updatingLights()[index]->Update();
     }
 }
 

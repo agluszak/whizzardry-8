@@ -2,6 +2,7 @@
 #define WIZ8_LAYOUTS_WORLD_H
 
 #include <memory>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -53,7 +54,7 @@ struct W8WorldCameraState {
 /* Runtime world, not a retail disk record. Collection storage belongs to the
    world. Destruction proceeds in three phases (stop activity, unregister borrowed indexes,
    destroy owned resources).
-   lights_to_update and collidable_props are non-owning indexes. Named positions
+   Light updates and collidable_props are non-owning indexes. Named positions
    are owned values: lookups copy their data and never retain element addresses. */
 struct W8World {
     explicit W8World(int level_id = -1, std::string source_path = {});
@@ -100,7 +101,14 @@ struct W8World {
     std::vector<std::unique_ptr<stLight>> transient_lights;
     std::vector<std::unique_ptr<W8SpellVisual>> spell_visuals;
     std::vector<std::unique_ptr<W8Missile>> missiles;
-    std::vector<stLight*> lights_to_update;
+    std::span<stLight* const> updatingLights() const { return updating_lights_; }
+    void stopLightUpdates();
+
+private:
+    friend class stLight;
+    std::vector<stLight*> updating_lights_;
+
+public:
     std::vector<W8Prop*> collidable_props;
     std::vector<std::unique_ptr<MonGen>> monster_generators;
     std::vector<std::unique_ptr<Trigger>> triggers;
