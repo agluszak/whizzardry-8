@@ -17,7 +17,6 @@ class W8Prop;
 
 W8World* GetWorld(void);
 W8World* GetSecondaryWorld(void);
-void MarkWorldViewDirty(void);
 /* Publish a loaded world, returning the previous owner. The level world's
    activity is stopped before it is handed back. */
 
