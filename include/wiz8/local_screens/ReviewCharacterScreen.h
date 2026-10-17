@@ -167,7 +167,6 @@ struct W8CampScreenState {
     W8CampEffectFilter effect_filter; /* 0 all, 1 beneficial only, 2 detrimental only */
     int effect_beneficial_count;
     int effect_detrimental_count;
-    int effect_selection; /* cleared when the reviewed character changes */
     unsigned char unknown_d1c[4];
     int effect_first_visible;
     int effect_last_visible;

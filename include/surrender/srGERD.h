@@ -43,7 +43,6 @@ public:
     struct ClipPlanes {
         glm::vec4 planes[32];
         w8_ulong mask;
-        w8_ulong mode1_mask;
     };
 
     /* pushEnvironment/popEnvironment record: {minimum, maximum, scale, inverse_scale}. */
@@ -624,8 +623,6 @@ private:
         e_winding winding;
         e_matrixMode matrix_mode;
         unsigned char unknown_12c4_[6];
-        /* Per-user-plane e_clipMode bytes written by pushClipPlane. */
-        unsigned char clip_modes[26];
         /* Plane-enable mask: bits 0..5 frustum, bits 6..31 user planes. */
         w8_ulong clip_mask;
         /* Subset of clip_mask carrying mode-1 user planes. */
@@ -636,10 +633,7 @@ private:
         glm::mat4 inverse_modelview;
         glm::mat4 project_clip_near;
         glm::mat4 normal_matrix;
-        srRendererDefs::e_scaleType modelview_scale_type;
         float max_modelview_scale;
-        /* classifyMatrix writes the per-mode projection-shape class here. */
-        srRendererDefs::e_matrixType matrix_class[2];
         unsigned char unknown_13c4_[4];
     };
 
@@ -722,8 +716,6 @@ private:
     Display display;
     PickState pick;
     unsigned char unknown_19f4_[4];
-    /* Snapshot getStatistics refreshes on every flipFrame. */
-    Statistics frame_statistics;
     Statistics statistics;
 
     ClearState clear_state;

@@ -35,8 +35,6 @@ extern const float g_negative_one = -1.0f;
 extern const float g_camera_transition_epsilon = 0.0010000000474974513f;
 // GLOBAL: WIZ8 0x005ec54c
 extern const float g_camera_angle_period0 = 6.2831854820251465f;
-// GLOBAL: WIZ8 0x005ec548
-extern const float g_camera_angle_lower = 0.0f;
 // GLOBAL: WIZ8 0x005ec550
 extern const float g_camera_pitch_upper = 0.7853981852531433f;
 // GLOBAL: WIZ8 0x005ec554

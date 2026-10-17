@@ -162,9 +162,7 @@ struct W8OctreeView {
     float horizontal_fov{};
     float vertical_fov{};
     float horizontal_fov_cosine{};
-    float vertical_fov_cosine{};
     float far_clip{};
-    glm::ivec3 visible_cells{0};
     std::array<glm::vec4, 6> frustum_planes{};
 
     void captureCamera(const srCamera& camera);
@@ -430,7 +428,6 @@ bool IsNavigatorAtTarget(W8NavigatorMovementState* movement);
 
 extern w8_ulong* g_octree_state;
 extern const float g_octree_cell_scale;
-extern w8_ulong g_octree_bytes_read;
 extern int g_prop_sun_index;
 /* Renderer switches the region-link build toggles: suppress baked vertex
    lighting, force front-face culling and strip textures while sampling. */

@@ -234,12 +234,10 @@ struct W8NpcInteractionState {
        the saved camera angles. */
     bool camera_redirected;
     float saved_camera_pitch;
-    float saved_camera_yaw;
     W8QuoteNotice quote_notice;
     /* A modal W8NpcDialog is up over the dialogue; transcript word clicks,
        layout keys other than Escape and layout leave paths bail. */
     bool modal_dialog_open;
-    bool farewell_queued; /* a refusal/farewell line was queued for the exit path */
     /* The dialogue session runs as queued script lines without the
        interactive panel. */
     bool scripted_dialogue;

@@ -34,8 +34,6 @@ int g_animesh_cache_stamp;
 int g_animesh_cache_bytes;
 // GLOBAL: WIZ8 0x0065be88
 int g_animesh_cache_limit;
-// GLOBAL: WIZ8 0x0065be8c
-int g_animesh_cache_secondary_limit;
 // GLOBAL: WIZ8 0x0065be90
 std::vector<W8AniMesh*> g_animesh_cache_list;
 
@@ -50,9 +48,7 @@ void InitializeAniMeshCache(int primary_limit, int secondary_limit)
     if (primary_limit > 0) {
         g_animesh_cache_limit = primary_limit;
     }
-    g_animesh_cache_secondary_limit = 0x100000;
     if (secondary_limit > 0) {
-        g_animesh_cache_secondary_limit = secondary_limit;
     }
     g_animesh_cache_list.clear();
     g_animesh_cache_list.reserve(10);

@@ -174,8 +174,6 @@ extern stSurface2D* g_surface_node;
 extern std::shared_ptr<srMaterial> g_blit_material;
 extern std::shared_ptr<SDL_Surface> g_mouse_surface;
 extern srModelInstance* g_current_model_instance;
-extern int g_overlay_render_mode;
-extern int g_paired_render_mode;
 extern float g_surface_scale;
 extern int g_surface_opaque_shader_bits;
 extern int g_surface_alpha_blend_shader_bits;

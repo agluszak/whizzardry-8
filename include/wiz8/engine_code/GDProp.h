@@ -22,10 +22,7 @@ struct W8GDSurface;
    m_pVertices member names and establish their offsets. */
 class GDProp {
     struct Flags {
-        bool always_blocks_path : 1;
-        bool door : 1;
         bool unattached : 1;
-        bool door_usable : 1;
         unsigned char reserved : 4;
         unsigned char reserved_byte;
     };
@@ -43,8 +40,7 @@ class GDProp {
 public:
     GDProp()
     {
-        Flags initial_flags = {false, false, false, false, 0, 0};
-        m_flags = initial_flags;
+        m_flags = {};
         m_prop_number = 0;
         m_trigger = 0;
         m_path_range.sentinel = -10000000.0f;

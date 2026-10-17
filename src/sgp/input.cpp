@@ -100,7 +100,6 @@ void handle_key(const SDL_KeyboardEvent& event)
              .key = key,
              .position = state.mouse});
         state.keys.insert(key);
-        state.received = true;
     } else if (state.keys.contains(key)) {
         state.keys.erase(key);
         PostInputEvent({.type = InputEventType::KeyUp, .key = key, .position = state.mouse});
@@ -111,7 +110,6 @@ void handle_button(const SDL_MouseButtonEvent& event)
 {
     const bool down = event.type == SDL_EVENT_MOUSE_BUTTON_DOWN;
     state.mouse = window_to_game(event.x, event.y);
-    state.received = true;
     if (event.button == SDL_BUTTON_LEFT) {
         state.left_button = down;
         PostInputEvent(
@@ -178,7 +176,6 @@ void HandleInputEvent(const SDL_Event& event)
             PostInputEvent({.type = InputEventType::Text,
                             .text = wiz8::text::next(text, offset),
                             .position = state.mouse});
-        state.received = true;
         break;
     }
     case SDL_EVENT_KEY_DOWN:
@@ -187,7 +184,6 @@ void HandleInputEvent(const SDL_Event& event)
         break;
     case SDL_EVENT_MOUSE_MOTION:
         state.mouse = window_to_game(event.motion.x, event.motion.y);
-        state.received = true;
         if (state.mouse_move_events)
             PostInputEvent({.type = InputEventType::MouseMove, .position = state.mouse});
         break;

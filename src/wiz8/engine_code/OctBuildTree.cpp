@@ -38,7 +38,6 @@ W8OctBuildTree::W8OctBuildTree(float leaf_size, std::optional<srBoundingBox> bou
         throw std::invalid_argument("Leaf Size too small--try a larger leaf size!\n");
     }
     spatial.flags = 0;
-    spatial.m_item_limit = item_limit;
     spatial.m_level_kind = 2;
     spatial.m_extent = 0.0f;
     spatial.m_root = 0;

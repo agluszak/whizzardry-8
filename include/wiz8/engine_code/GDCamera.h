@@ -13,7 +13,6 @@
 
 /* Orientation limits shared by the inline setters and GDCamera.cpp. */
 extern const float g_camera_angle_period0;
-extern const float g_camera_angle_lower;
 extern const float g_camera_pitch_upper;
 extern const float g_camera_pitch_lower;
 

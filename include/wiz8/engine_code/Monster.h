@@ -261,7 +261,6 @@ public:
     int mouth_frame;
     uint64_t talk_start;
     unsigned int talk_duration;
-    int talk_state;
     /* The mouth state the dialogue update copies out of the active
        W8MouthGapTrack; forces mouth frame 0 while open. */
     bool mouth_open;

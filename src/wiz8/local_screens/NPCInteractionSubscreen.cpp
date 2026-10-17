@@ -776,7 +776,6 @@ static unsigned char OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item,
     g_npc_dialogue.AbandonReply();
     state->dialogue_hidden = 0;
     state->modal_dialog_open = false;
-    state->farewell_queued = false;
     state->reopen_topics = false;
     state->trade_gold = 0;
     state->pending_layout = W8_DIALOGUE_LAYOUT_NONE;
@@ -848,7 +847,6 @@ static unsigned char OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item,
     if (info != 0) {
         g_npc_interaction_state->camera_redirected = true;
         g_npc_interaction_state->saved_camera_pitch = g_gd_camera->m_pitch;
-        g_npc_interaction_state->saved_camera_yaw = g_gd_camera->m_yaw;
         dialogue_info = GetNpcMonsterInfo(g_npc_interaction_state->dialogue_npc);
         if (dialogue_info != 0) {
             position = dialogue_info->p3D->movement.position;
@@ -1809,7 +1807,6 @@ static void LeaveNpcDialogueLayout(void)
     if (!g_npc_interaction_state->modal_dialog_open) {
         if (GetNpcDispositionBand(g_npc_interaction_state->dialogue_npc) == W8_NPC_BAND_FRIENDLY) {
             g_npc_interaction_state->suppress_parting_reaction = false;
-            g_npc_interaction_state->farewell_queued = true;
             g_npc_dialogue.QueueQuote(0x5c, false, false, false);
             return;
         }
@@ -3398,7 +3395,6 @@ void HandleNpcDialogueKeyEvent(const InputEvent* event)
         switch (g_npc_interaction_state->dialogue_layout) {
         case W8_DIALOGUE_LAYOUT_TRANSCRIPT:
             g_npc_interaction_state->suppress_parting_reaction = false;
-            g_npc_interaction_state->farewell_queued = true;
             g_npc_dialogue.QueueQuote(0x5c, false, false, false);
             return;
         case W8_DIALOGUE_LAYOUT_TOPIC_MENU:

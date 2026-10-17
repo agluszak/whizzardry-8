@@ -85,14 +85,8 @@ static int FindItemByLegacyNumber(short item_number)
 // GLOBAL: WIZ8 0x0068DE48
 int g_import_character_count;
 
-// GLOBAL: WIZ8 0x0068DE4C
-bool g_import_ending_record;
-
 // GLOBAL: WIZ8 0x0068DE50
 int g_wiz7_ending;
-
-// GLOBAL: WIZ8 0x0068DE54
-int g_import_difficulty;
 
 // GLOBAL: WIZ8 0x0068DE58
 unsigned char g_import_flags[0x60];
@@ -151,26 +145,10 @@ try {
             return 0;
         }
     }
-    int difficulty = -1;
-    switch (characters[0].party_tag & 0xf) {
-    case 1:
-        difficulty = 0;
-        break;
-    case 2:
-        difficulty = 1;
-        break;
-    case 4:
-        difficulty = 2;
-        break;
-    default:
-        break;
-    }
 
     memcpy(g_imported_characters, characters, sizeof(characters));
     g_import_character_count = character_count;
-    g_import_ending_record = ending_record;
     g_wiz7_ending = ending;
-    g_import_difficulty = difficulty;
     for (int index = 0; index < 0x60; ++index) {
         g_import_flags[index] = (header[0x200 + (index >> 3)] >> (index & 7)) & 1;
     }

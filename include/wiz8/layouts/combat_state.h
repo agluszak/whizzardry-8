@@ -227,7 +227,6 @@ struct W8CombatState {
     /* Historical offset 0x8c4: staged hit result of the in-flight missile (0 = pending, 1 = hit, 2 = deflected) */
     char missile_hit_result; /* W8MissileHitResult */
     W8CombatSlot TargetHit;
-    int pending_deaths[8];
     int pending_death_count;
     W8PartyAction uiNextPartyAction;
     W8PartyAction uiCurrentPartyAction;

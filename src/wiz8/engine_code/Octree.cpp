@@ -188,7 +188,6 @@ void W8OctreeView::captureCamera(const srCamera& camera)
     horizontal_fov = static_cast<float>(camera.getHorizontalFOV());
     vertical_fov = static_cast<float>(camera.getVerticalFOV());
     horizontal_fov_cosine = static_cast<float>(cos(horizontal_fov));
-    vertical_fov_cosine = static_cast<float>(cos(vertical_fov));
 }
 
 // FUNCTION: WIZ8 0x0042f7e0
@@ -256,7 +255,6 @@ void W8Octree::UpdateVisibility()
         std::ranges::fill(m_linked_props, false);
     }
     m_projected_regions_valid = false;
-    view.visible_cells = projectRegionsAt(view.camera_location).cell;
     CollectVisibleCells();
     for (std::size_t region = 0; region < m_current_regions.size(); ++region) {
         if (m_projected_regions_valid && !m_projected_regions[region]) {

@@ -33,8 +33,7 @@
 GDProp::GDProp(srModelInstance* instance, const char* path_name, unsigned short prop_number,
                unsigned char footstep_surface, unsigned char footstep_material)
 {
-    Flags initial_flags = {false, false, false, false, 0, 0};
-    m_flags = initial_flags;
+    m_flags = {};
     m_path_handle = 0;
     m_prop_number = 0;
     m_trigger = 0;
@@ -184,17 +183,14 @@ void GDProp::BindTrigger(Trigger* owner)
     W8TriggerActionData* action = owner->m_pActionData.get();
     if (action != 0 && action->type == W8_TRIGGER_PAYLOAD_DOOR) {
         if (action != 0) {
-            m_flags.door = true;
             unsigned int path_flags = W8_PATH_CELL_DOOR;
             if ((owner->lock_state.lock_type == 0 ||
                  owner->lock_state.device_state.completed != 0) &&
                 (owner->flags & W8_TRIGGER_ENABLED) != 0 &&
                 !static_cast<W8DoorTriggerActionData*>(action)->open &&
                 !static_cast<W8DoorTriggerActionData*>(action)->locked) {
-                m_flags.door_usable = true;
             } else {
                 path_flags = W8_PATH_CELL_DOOR | W8_PATH_CELL_BLOCKED;
-                m_flags.door_usable = false;
             }
 
             W8PathingService* pathing = g_octree->pathing;

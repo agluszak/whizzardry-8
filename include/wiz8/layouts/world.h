@@ -87,7 +87,6 @@ struct W8World {
     bool m_loaded{};
     std::unique_ptr<W8Quad> quads;
     srModelInstance* update_mesh_source{};
-    float render_range0{};
     float render_range{};
     std::vector<srNode*> nodes_to_disable;
     // Lights created for this world (including monster-cycle copies); the world owns them.

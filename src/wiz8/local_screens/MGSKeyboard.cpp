@@ -282,7 +282,6 @@ void DispatchMGSCommand(W8MGSCommand command)
         break;
     case W8_MGS_COMMAND_TOGGLE_FULLSCREEN:
         ResetTransientRenderScenes();
-        g_overlay_render_mode = 2;
         SetRendererModePair();
         VideoFullScreen(g_fullscreen == 0);
         break;
@@ -387,19 +386,19 @@ void DispatchMGSCommand(W8MGSCommand command)
             break;
         }
         if (IsScreenInputBlocked() != 0) {
-            ApplyMainGameModeFlag(static_cast<W8MainUiMode>((g_level_block->main_ui_mode - 1) & 1),
+            ApplyMainGameModeFlag(static_cast<W8MainUiMode>((g_settings.main_ui_mode - 1) & 1),
                                   true);
         } else {
-            ApplyMainGameModeFlag(static_cast<W8MainUiMode>((g_level_block->main_ui_mode + 1) % 3),
+            ApplyMainGameModeFlag(static_cast<W8MainUiMode>((g_settings.main_ui_mode + 1) % 3),
                                   true);
         }
         break;
     case W8_MGS_COMMAND_PREV_LAYOUT:
         if (IsScreenInputBlocked() != 0) {
-            ApplyMainGameModeFlag(static_cast<W8MainUiMode>((g_level_block->main_ui_mode - 1) & 1),
+            ApplyMainGameModeFlag(static_cast<W8MainUiMode>((g_settings.main_ui_mode - 1) & 1),
                                   true);
         } else {
-            ApplyMainGameModeFlag(static_cast<W8MainUiMode>((g_level_block->main_ui_mode + 2) % 3),
+            ApplyMainGameModeFlag(static_cast<W8MainUiMode>((g_settings.main_ui_mode + 2) % 3),
                                   true);
         }
         break;

@@ -95,7 +95,6 @@ struct W8LevelDataRecord {
     /* Contact surface normal and scale used by camera collision. */
     glm::vec3 contact_normal{0}; /* 0xac */
     float contact_normal_scale;       /* 0xb8 */
-    W8IntervalGate interval_gate;     /* 0xc4 */
     bool flag5;                       /* 0xec */
     bool flag6;                       /* 0xed */
     float vertical_motion; /* 0xf0 */

@@ -167,9 +167,6 @@ public:
     glm::vec3 animation_position;          /* 0x2c: written by ApplyAnimationFrame */
     std::unique_ptr<GDProp> m_gd_prop;
     glm::vec3 previous_animation_position; /* 0x3c */
-    /* Prop::Prop writes two identity bases here as nine floats each. */
-    glm::mat3 previous_animation_rotation; /* 0x48 */
-    glm::mat3 animation_rotation;          /* 0x6c */
 }; /* 0x90 */
 
 W8Prop* FindPropByName(W8World* world, const char* name);

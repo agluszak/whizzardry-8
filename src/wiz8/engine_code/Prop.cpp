@@ -79,8 +79,6 @@ W8Prop::W8Prop()
     m_pRep = &representation;
     animation_position = glm::vec3(0);
     previous_animation_position = glm::vec3(0);
-    previous_animation_rotation = glm::mat3(1);
-    animation_rotation = glm::mat3(1);
 }
 
 // Clone the owned animation and segment values.
@@ -951,7 +949,6 @@ void W8Prop::AttachAnimationInstances(W8World* world)
             }
             rotation = path->rotations[Rep()->subcycle];
             next = path->rotations[next_frame];
-            previous_animation_rotation = instance->getRotation<glm::mat3>();
             if (!(rotation == next)) {
                 const auto first_rotation = glm::dquat(glm::quat_cast(rotation));
                 auto next_rotation = glm::dquat(glm::quat_cast(next));
@@ -967,7 +964,6 @@ void W8Prop::AttachAnimationInstances(W8World* world)
                         : glm::slerp(first_rotation, next_rotation, double(anim_frame_fraction));
                 rotation = glm::mat3_cast(glm::normalize(interpolated_rotation));
             }
-            animation_rotation = rotation;
             current = path->nodes[Rep()->subcycle];
             next_pos = path->nodes[next_frame];
             inv = 1.0f - anim_frame_fraction;

@@ -263,7 +263,6 @@ public:
         std::array<float, 735 * 2> audio{}; // 44,100 stereo sample frames / 60.
         if (!w8_native::audio_render_for_test(audio.data(), audio.size() / 2))
             Fail("audio", "offline mixer did not advance");
-        GetInputState().received = false;
         ++frames_;
         g_runtime_test_hooks.clock_us += frame_us;
     }

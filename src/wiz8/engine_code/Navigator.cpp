@@ -137,7 +137,6 @@ W8Navigator::W8Navigator() : reactivated(0)
     movement_complete = true;
     position_dirty = false;
     unknown_027 = false;
-    position2 = glm::vec3(0);
     patrol_home = glm::vec3(0);
     unknown_048 = 0;
     linked_navigator = 0;
@@ -166,7 +165,6 @@ W8Navigator::W8Navigator() : reactivated(0)
     tracked_distance = 500.0f;
     group_linked = false;
     tracked_dirty = false;
-    movement_plan_failed = false;
     linked_update_time = 0;
     movement.Reset();
     tracked_position = glm::vec3(0);
@@ -408,11 +406,10 @@ W8NavigatorMovementState::~W8NavigatorMovementState() = default;
 // FUNCTION: WIZ8 0x00452220
 W8Navigator::W8Navigator(const W8Navigator& other)
     : flags(0), collision_margin(0.0), movement_target(0.0f, 0.0f, 0.0f), movement_stopped(true),
-      halted(false), movement_complete(true), unknown_027(0), position2(0.0f, 0.0f, 0.0f),
-      minimum_height(other.minimum_height), maximum_height(other.maximum_height),
-      patrol_home(other.patrol_home), unknown_048(0), target_navigator(0),
-      target_last_position(0.0f, 0.0f, 0.0f), linked_navigator(0), unknown_060(0), unknown_064(0),
-      path_ai(nullptr), radius(other.radius), active(true),
+      halted(false), movement_complete(true), unknown_027(0), minimum_height(other.minimum_height),
+      maximum_height(other.maximum_height), patrol_home(other.patrol_home), unknown_048(0),
+      target_navigator(0), target_last_position(0.0f, 0.0f, 0.0f), linked_navigator(0),
+      unknown_060(0), unknown_064(0), path_ai(nullptr), radius(other.radius), active(true),
       movement_callback(other.movement_callback), trace_mask(other.trace_mask),
       unknown_094(other.unknown_094), unknown_098(0), reactivated(other.reactivated),
       owned_object(nullptr), tracked_distance(other.tracked_distance),
@@ -434,7 +431,6 @@ W8Navigator::W8Navigator(const W8Navigator& other)
     position_dirty = false;
     movement.position_adjusted = false;
     tracked_dirty = false;
-    movement_plan_failed = false;
     linked_update_time = 0;
     tracked_position = glm::vec3(0);
     node = std::make_unique<srNode>(nullptr);
@@ -522,12 +518,6 @@ void W8Navigator::SetBounds(const srBoundingBox& bounds)
     maximum = bounds.maximum;
     radius = movement.alternate_radius;
 }
-
-/* The attachment the octree's navigator-target probe is currently filling in;
-   parked globally while PrepareNavigatorTarget runs so the path walk can reach
-   it, then cleared. */
-// GLOBAL: WIZ8 0x00659BF4
-W8NavigatorAttachment* g_active_navigator_attachment;
 
 // FUNCTION: WIZ8 0x004534c0
 glm::vec3 W8Navigator::GetPosition()
@@ -713,7 +703,6 @@ unsigned short W8Navigator::SetMovementTargetToNavigator(W8Navigator* target, do
     if (SetMovementTarget(&target->movement.position, false) == 0) {
         if (g_combat_inactive == 0) {
             flags = 0;
-            movement_plan_failed = true;
         }
     } else {
         flags = 5;
@@ -1068,7 +1057,6 @@ void W8NavigatorAttachment::InitializeSegment(const glm::vec3* source, const glm
     path[0].position = *source;
     path_destination = *destination;
     path[1].position = *destination;
-    recorded_position = segment_start;
     path_length_origin = segment_start;
     follow_offset = 0;
     for (auto& entry : path) entry.value = 0;
@@ -1372,7 +1360,6 @@ unsigned char W8Navigator::LinkToNavigator(W8Navigator* target, double separatio
         movement.attachment->flags |= W8_NAV_ATTACHMENT_FOLLOW_PATH;
         if (g_pathing->PlanMovementToPosition(&movement, &target->movement.position, radius,
                                               static_cast<float>(separation)) == 0) {
-            movement_plan_failed = true;
             return 0;
         }
         flags = 9;
@@ -1417,7 +1404,6 @@ unsigned short W8Navigator::ConfigureMovementToNavigator(W8Navigator* target, fl
     if (result == 0) {
         ClearMovement();
         flags = 0;
-        movement_plan_failed = true;
         return 0;
     }
     if (movement_stopped) {

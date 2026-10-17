@@ -8,10 +8,8 @@
 
 inline constexpr int UI_PRIORITY_BACKGROUND = -1;
 inline constexpr int UI_PRIORITY_LOWEST = 0;
-inline constexpr int UI_PRIORITY_LOW = 15;
 inline constexpr int UI_PRIORITY_BASE = 31;
 inline constexpr int UI_PRIORITY_NORMAL = UI_PRIORITY_BASE;
-inline constexpr int UI_PRIORITY_HIGH = 63;
 inline constexpr int UI_PRIORITY_HIGHEST = 127;
 
 extern bool g_dev_mode;

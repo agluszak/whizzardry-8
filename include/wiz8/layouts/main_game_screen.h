@@ -107,7 +107,6 @@ struct W8LevelRuntimeBlock {
     /* Owned notice/list paint scratch, reused by the monster-list formatter. */
     std::string text_paint_scratch;
     unsigned int redraw_flags;
-    W8MainUiMode main_ui_mode;
     int camera_mode;
     unsigned char portrait_refresh_pending[8];
     int portrait_refresh_image[8];

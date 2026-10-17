@@ -59,9 +59,9 @@ srGERD::MatrixStack::MatrixStack() : depth(0) {}
 
 // FUNCTION: SURRENDER 0x10019320
 srGERD::srGERD()
-    : dirty(0), state_flags(0), state{}, frame_statistics{}, statistics{}, clear_state{},
-      texture_slots{}, texture_parms{}, texture_state{}, polygon_offset(0),
-      texture_default(nullptr), texture_reduction(0), vertex_arrays_dirty(0)
+    : dirty(0), state_flags(0), state{}, statistics{}, clear_state{}, texture_slots{},
+      texture_parms{}, texture_state{}, polygon_offset(0), texture_default(nullptr),
+      texture_reduction(0), vertex_arrays_dirty(0)
 {
     auto missing = CreateCpuStorage(8, 8, SDL_PIXELFORMAT_BGRA32);
     SDL_Rect square{0, 0, 4, 4};
@@ -86,7 +86,6 @@ srGERD::srGERD()
         plane = glm::vec4(0);
     }
     state.project_clip_near = glm::mat4(0);
-    state.modelview_scale_type = static_cast<srRendererDefs::e_scaleType>(0);
     state.max_modelview_scale = 0.0f;
     pick.pick_key = 0;
     exclusion_mask = 0;
@@ -173,7 +172,6 @@ void srGERD::resetStatistics()
     statistics = {};
     drainRenderers(RendererDrain::statistics);
     statistics.elapsed = static_cast<double>(w8_clock_us()) / 1'000'000;
-    frame_statistics = statistics;
 }
 
 // FUNCTION: SURRENDER 0x1001ADD0
@@ -622,7 +620,6 @@ void srGERD::flipFrame(const Rectangle* first, const Rectangle* second, w8_ulong
     device.gpu.flipFrame();
     statistics.frames += 1;
     state_flags |= STATE_FRAME_FLIPPED;
-    frame_statistics = getStatistics();
 }
 
 // FUNCTION: SURRENDER 0x1001AAB0
@@ -981,58 +978,17 @@ void srGERD::recalcScissor()
 void srGERD::classifyMatrix(e_matrixMode mode)
 {
     statistics.matrix_classifications += 1;
-    if (mode == MATRIX_MODELVIEW) {
-        const auto& modelview = state.matrix_current[MATRIX_MODELVIEW];
-        glm::mat3 basis(modelview);
-        const glm::vec3 lengths(glm::length(basis[0]), glm::length(basis[1]),
-                                glm::length(basis[2]));
-        const glm::vec3 squared = lengths * lengths;
-        state.matrix_class[MATRIX_MODELVIEW] = srRendererDefs::MATRIX_TYPE_GENERAL;
-        state.inverse_modelview = glm::inverse(modelview);
-        const bool uniform =
-            std::abs(squared.x - squared.y) <= 1e-5f && std::abs(squared.x - squared.z) <= 1e-5f;
-        state.modelview_scale_type = !uniform ? srRendererDefs::SCALE_TYPE_NON_UNIFORM
-                                     : std::abs(squared.x - 1) > 1e-5f
-                                         ? srRendererDefs::SCALE_TYPE_UNIFORM
-                                         : srRendererDefs::SCALE_TYPE_UNIT;
-        state.max_modelview_scale = glm::max(lengths.x, glm::max(lengths.y, lengths.z));
-        // Lighting expects a transform with model scaling removed.
-        for (int column = 0; column < 3; ++column) basis[column] /= lengths[column];
-        state.normal_matrix = glm::mat4(glm::transpose(glm::inverse(basis)));
+    if (mode != MATRIX_MODELVIEW) {
         return;
     }
-    glm::mat4& matrix = state.matrix_current[mode];
-    w8_ulong mask = 0;
-    w8_ulong bit = 1;
-    for (w8_long row = 0; row < 4; row++) {
-        if (matrix[0][row] == 0.0f) {
-            mask |= bit;
-        }
-        if (matrix[1][row] == 0.0f) {
-            mask |= bit * 2;
-        }
-        if (matrix[2][row] == 0.0f) {
-            mask |= bit * 4;
-        }
-        if (matrix[3][row] == 0.0f) {
-            mask |= bit * 8;
-        }
-        bit *= 0x10;
-    }
-    srRendererDefs::e_matrixType type;
-    if (mask == 0x7bde && matrix[0][0] == 1.0f && matrix[1][1] == 1.0f && matrix[2][2] == 1.0f &&
-        matrix[3][3] == 1.0f) {
-        type = srRendererDefs::MATRIX_TYPE_IDENTITY;
-    } else if ((mask & 0xb39a) == 0xb39a) {
-        type = srRendererDefs::MATRIX_TYPE_PERSPECTIVE;
-    } else if ((mask & 0x7356) == 0x7356) {
-        type = srRendererDefs::MATRIX_TYPE_ORTHOGRAPHIC;
-    } else if ((mask & 0x7000) == 0x7000 && matrix[3][3] == 1.0f) {
-        type = srRendererDefs::MATRIX_TYPE_AFFINE;
-    } else {
-        type = srRendererDefs::MATRIX_TYPE_GENERAL;
-    }
-    state.matrix_class[mode] = type;
+    const auto& modelview = state.matrix_current[MATRIX_MODELVIEW];
+    glm::mat3 basis(modelview);
+    const glm::vec3 lengths(glm::length(basis[0]), glm::length(basis[1]), glm::length(basis[2]));
+    state.inverse_modelview = glm::inverse(modelview);
+    state.max_modelview_scale = glm::max(lengths.x, glm::max(lengths.y, lengths.z));
+    // Lighting expects a transform with model scaling removed.
+    for (int column = 0; column < 3; ++column) basis[column] /= lengths[column];
+    state.normal_matrix = glm::mat4(glm::transpose(glm::inverse(basis)));
 }
 
 // FUNCTION: SURRENDER 0x1001CF40
@@ -1209,7 +1165,6 @@ void srGERD::pushClipPlane(const glm::vec4& plane, e_clipMode mode)
         w8_ulong bit = 1UL << (state.clip_plane_count + 6);
         state.clip_planes[state.clip_plane_count + 6] =
             glm::transpose(state.inverse_modelview) * srPlaneMath::normalized(plane);
-        state.clip_modes[state.clip_plane_count] = static_cast<unsigned char>(mode);
         state.clip_mask |= bit;
         if (mode == 1) {
             state.clip_mode1_mask |= bit;
@@ -1247,7 +1202,6 @@ srGERD::ClipPlanes srGERD::getClipPlanes()
         }
     }
     planes.mask = state.clip_mask;
-    planes.mode1_mask = state.clip_mode1_mask;
     return planes;
 }
 
@@ -1512,7 +1466,6 @@ void srGERD::initMatrices()
     state.matrix_mode = MATRIX_MODELVIEW;
     for (w8_long i = 0; i < 2; i++) {
         state.matrix_current[i] = glm::mat4(1);
-        state.matrix_class[i] = srRendererDefs::MATRIX_TYPE_IDENTITY;
         state.matrix_stacks[i].depth = 0;
     }
     state.normal_matrix = glm::mat4(1);

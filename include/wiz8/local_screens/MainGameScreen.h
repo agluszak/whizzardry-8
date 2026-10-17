@@ -81,6 +81,10 @@ public:
     void BeginProgress(std::string_view text, float duration, float hold);
     void Redraw(SDL_Surface& target, bool full_redraw);
     void OnRangeChanged();
+    /* Enable the unselected cells the selected trap row has a device for. */
+    void RefreshCellEnables();
+    /* Show m_values' inspected devices, blanking cells with nothing to show. */
+    void RefreshCellImages();
     void InvalidateAll() { m_dirty = true; }
     void EnableInput(bool enabled)
     {
@@ -174,11 +178,6 @@ public:
     /* Clear and redraw the backdrop the transcript covers. */
     void ClearBackground();
     bool IsExpanded();
-
-    /* Catalog image ids whose measured heights seed margin and
-       line_height/scroll_height in the constructor; never read again. */
-    int margin_image;
-    int line_image;
     int visible;
     int line_height;
     int margin;
@@ -235,6 +234,10 @@ public:
     void Process();
     void ResolvePick();
     void AttemptForce();
+    /* Re-derive the control enables for the selected character: tumblers
+       need lockpick skill, the spell button a castable knock-knock and the
+       force button a force chance. The info text and actions repaint. */
+    void RefreshControls();
     void EnablePanels(int enable);
     void BeginUnlock();
     /* Knock-knock resolution: rolls the per-level chance over a shuffled pin
@@ -393,7 +396,6 @@ void DrawPortraitConditionOverlay(int party_slot);
 void DrawPortraitStatusOverlay(int party_slot);
 void DrawPortraitEnchantmentOverlay(int party_slot);
 void SelectPartyCharacter(int party_slot);
-void RefreshLockInteractionControls(void);
 void RefreshMainGameActionPanel(void);
 void OpenAutomapScreen(void);
 /* Clear one slot's pending portrait refresh while the screen is not in

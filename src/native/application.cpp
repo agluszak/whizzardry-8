@@ -107,7 +107,6 @@ void wiz8::Application::run()
         if (!gfProgramIsRunning) break;
         if (gfApplicationActive) {
             GameLoop();
-            GetInputState().received = false;
         }
     }
 }

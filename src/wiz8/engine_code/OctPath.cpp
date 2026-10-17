@@ -243,7 +243,6 @@ try {
     path_heap = std::move(heap);
     m_marked_path_nodes = std::move(marked);
     m_visited_path_nodes = std::move(visited_nodes);
-    edge_node_count = edge_nodes;
     for (unsigned int surface = 1; surface < waypoint_count; ++surface) {
         const auto point = g_octree->cellAt(m_waypoints[surface].position);
         g_octree->object_registry->MoveObjectToCell(W8_OCTREE_KIND_WAYPOINT, surface + 1, point);
@@ -1688,7 +1687,6 @@ unsigned short W8PathingService::PlanMovement(W8NavigatorMovementState* movement
     }
 
     m_search_nodes.resize(1);
-    planner_location = movement->location_id;
     m_probe_cell_key = 0;
     m_probe_limit = static_cast<unsigned int>(-1);
     path_heap->open = {};
@@ -2735,7 +2733,6 @@ W8PathingService::W8PathingService()
     grid_scale = 0;
     span = 0;
     path_node_count = 0;
-    edge_node_count = 0;
     m_marked_path_nodes.assign(100, false);
     m_visited_path_nodes.assign(100, false);
     level_name = 0;

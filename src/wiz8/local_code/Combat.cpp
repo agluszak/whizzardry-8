@@ -720,7 +720,6 @@ int IsPartyEngaged(void)
 void RecordCharacterDeath(int party_slot)
 {
     if (gXStatus.fCombatMode) {
-        g_combat_state->pending_deaths[g_combat_state->pending_death_count] = party_slot;
         ++g_combat_state->pending_death_count;
     }
 }

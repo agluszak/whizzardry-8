@@ -66,7 +66,6 @@ struct InputState {
     std::uint64_t left_repeat_at = 0;
     std::uint64_t right_repeat_at = 0;
     bool mouse_move_events = false;
-    bool received = false;
 
 private:
     std::deque<InputEvent> events;

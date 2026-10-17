@@ -48,7 +48,6 @@ struct W8AniMesh {
 extern int g_animesh_cache_stamp;
 extern int g_animesh_cache_bytes;
 extern int g_animesh_cache_limit;
-extern int g_animesh_cache_secondary_limit;
 extern std::vector<W8AniMesh*> g_animesh_cache_list;
 
 void InitializeAniMeshCache(int primary_limit, int secondary_limit);

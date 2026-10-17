@@ -391,15 +391,11 @@ public:
        for FindPatrolPath. */
     unsigned int navigation_filter;
     int path_node_count; /* 0x04 */
-    /* PrePathing's CreatePathNodeArray counts edge nodes here starting from
-       one, and WriteOctFile serializes it beside the node count. */
-    int edge_node_count;
     /* The grid divisor both linking walks divide by. */
     float grid_scale; /* 0x1c */
     float span; /* 0x20 */
     short cell_count; /* 0x24 */
     srBoundingBox level_bounds; /* 0x2c: minimum/maximum pair */
-    std::vector<W8FilePathNode> file_path_nodes; // Serialized cell/height-state records.
     // Zero is the sentinel in both indexed graph tables.
     std::vector<W8PathSurface> m_waypoints;
     std::vector<W8PathEdge> m_pEdges;
@@ -421,7 +417,6 @@ public:
     glm::vec3 m_probe_position; /* 0x7c */
     unsigned int m_probe_limit; /* 0x88 */
     bool m_probe_bounded; /* 0x8c */
-    unsigned int planner_location;
     std::vector<w8_ulong> m_path_candidates;
     bool explicit_target; /* 0x9c */
     unsigned int m_waypoint_neighbor_mask; /* 0xa0 */
@@ -436,7 +431,6 @@ public:
     unsigned int m_path_probe_count;
     W8PathProbeVolume m_path_probes[10];
     unsigned short start_waypoint;
-    bool path_direction_valid;
     /* Patrol-search state laid down by BuildPatrolPath and consulted by the
        recursive FindPatrolPath: the argmin-key candidate node, the accepted
        min/max start-to-destination range, the randomized target path cost,

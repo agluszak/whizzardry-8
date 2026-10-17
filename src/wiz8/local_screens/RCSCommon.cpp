@@ -143,7 +143,6 @@ void SelectCampCharacter(int slot)
         }
         break;
     case W8_CAMP_PAGE_STATS:
-        g_camp_screen->effect_selection = 0;
         RebuildCampEffectList();
         g_camp_screen->character_info->InvalidateAll();
         break;

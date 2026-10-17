@@ -197,15 +197,9 @@ extern const float g_viewport_y_scale = 1.0f / 480.0f;
 unsigned int g_active_page;
 // GLOBAL: WIZ8 0x006596d4
 int g_video_inspector_mode;
-// GLOBAL: WIZ8 0x006596ec
-int g_overlay_render_mode;
-// GLOBAL: WIZ8 0x006596f0
-int g_paired_render_mode;
 // GLOBAL: WIZ8 0x65409c
 // GLOBAL: WIZ8 0x659704
 float g_frames_per_second;
-// GLOBAL: WIZ8 0x659708
-float g_seconds_per_frame;
 
 // GLOBAL: WIZ8 0x65968c
 srMeshModel* g_cursor_model;
@@ -223,10 +217,6 @@ int g_cursor_height;
 int g_cursor_image_width;
 // GLOBAL: WIZ8 0x6596b8
 int g_cursor_image_height;
-// GLOBAL: WIZ8 0x00603c50
-double g_cursor_image_u_extent = 1.0;
-// GLOBAL: WIZ8 0x00603c58
-double g_cursor_image_v_extent = 1.0;
 // GLOBAL: WIZ8 0x6596bc
 int g_cursor_hotspot_x;
 // GLOBAL: WIZ8 0x6596c0
@@ -810,7 +800,6 @@ void RenderFrame(void)
         g_fps_window_tick = w8_get_ticks();
         g_fps_frame_count = 0;
     }
-    g_seconds_per_frame = 1.0f / frames_per_second;
     g_frames_per_second = frames_per_second;
 
     if (g_trigger_action_active && g_world != 0) {
@@ -1112,8 +1101,6 @@ bool SetMouseCursorFromVideoObject(const SpriteSheet& sprites, std::uint16_t reg
     }
     g_cursor_image_width = properties.width;
     g_cursor_image_height = properties.height;
-    g_cursor_image_u_extent = g_cursor_image_width * kInverseScreenWidth;
-    g_cursor_image_v_extent = g_cursor_image_height * kInverseScreenHeight;
     ClearMouseSurface();
     return BlitVideoObjectToColorSurface(sprites, region, *g_mouse_surface, 0, 0);
 }
@@ -1703,7 +1690,6 @@ unsigned char EnableCursorScene(void)
 void ReleaseObject(stModelInstance2D* object)
 {
     if ((object->overlay_scene_flag & 1) != 0) {
-        g_overlay_render_mode = 2;
     } else {
         SetRendererModePair();
     }
@@ -1717,18 +1703,13 @@ void RotateNodeInDegrees(srNode* node, int degrees)
 {
     node->setRotation(0.0, 0.0, 3.141592653589793 * 0.0055555557f * degrees);
     if ((static_cast<stModelInstance2D*>(node)->overlay_scene_flag & 1) != 0) {
-        g_overlay_render_mode = 2;
     } else {
         SetRendererModePair();
     }
 }
 
 // FUNCTION: WIZ8 0x00428AA0
-void SetRendererModePair(void)
-{
-    g_paired_render_mode = 2;
-    g_overlay_render_mode = 2;
-}
+void SetRendererModePair(void) {}
 
 /* Install a texture (often an stTextureAnim) on the mouse-cursor mesh. A null
    argument reuses the current cursor texture. */
@@ -1803,13 +1784,6 @@ void SaveJpegScreenshot(void)
     g_screenshot_page = (g_screenshot_page - 1) & 1;
 }
 
-/* Tooltip placement state. The left/top pair records the last position the
-   tooltip builder used; the scale participates in the texture mapping. */
-// GLOBAL: WIZ8 0x00654ab8
-int g_help_box_x;
-// GLOBAL: WIZ8 0x00654abc
-int g_help_box_y;
-
 /* Places one tooltip node at a screen position in normalized coordinates.
    With positional set, the position is snapped to the renderer's pixel grid;
    the node keeps the screen x/y in its right/bottom extent fields. */
@@ -1840,12 +1814,10 @@ void PositionToolTipNode(srNode* node, int x, int y, bool positional)
     location.z = -0.0001;
     if ((instance->overlay_scene_flag & 1U) == 0) {
         location.y = 1.0 - (half_height + position_y);
-        g_paired_render_mode = 2;
     } else {
         location.y = 0.75 - (half_height + position_y) * 0.75;
     }
     node->setLocation(location);
-    g_overlay_render_mode = 2;
     instance->render_state.position_x = static_cast<short>(x);
     instance->render_state.position_y = static_cast<short>(y);
 }
@@ -1948,9 +1920,7 @@ stModelInstance2D* CreateSpriteFromSurface(SDL_Surface& surface, const W8Control
                                           overlay);
     } else {
         node = Video2DRectToPolygon(&source_rect, surface, g_overlay_scenes.user.get(), overlay);
-        g_paired_render_mode = 2;
     }
-    g_overlay_render_mode = 2;
     instance = static_cast<stModelInstance2D*>(node);
     if (instance != 0) {
         if (mode != 0) {
@@ -2031,12 +2001,8 @@ void VideoPositionToolTip(std::int32_t x, std::int32_t y)
             PositionToolTipNode(node, offset, y, true);
             offset += node->GetScaledWidth();
         }
-        g_help_box_y = y;
-        g_help_box_x = x;
         return;
     }
-    g_help_box_x = x;
-    g_help_box_y = y;
 }
 
 /* Copies the tooltip source rectangle into a size-rounded 16-bit surface,
@@ -2234,8 +2200,6 @@ void VideoToolTip(std::string_view text)
         PositionToolTipNode(node, offset, position_y, true);
         offset += node->GetScaledWidth();
     }
-    g_help_box_x = position_x;
-    g_help_box_y = position_y;
 }
 
 /* Renderer configuration helpers reached from the video device, not the
@@ -2253,13 +2217,9 @@ void SetResidentTexturePolicy(int policy)
     }
 }
 
-// GLOBAL: WIZ8 0x659718
-bool g_swap_interval_enabled;
-
 // FUNCTION: WIZ8 0x00426710
 void SetSwapInterval(bool enabled)
 {
-    g_swap_interval_enabled = enabled;
     g_gerd->setSwapInterval(enabled ? 1 : 0);
 }
 

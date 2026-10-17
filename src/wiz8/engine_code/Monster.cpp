@@ -1085,9 +1085,9 @@ int g_monster_cycle_registry_weight;
 W8Monster::W8Monster()
     : runtime_flags(0), value_1e0(-1), location_id(-1), scale_x(1.0f), scale_y(1.0f), scale_z(1.0f),
       missile_frame(0), spell_frame(0), talking(0), animate_mouth(false), mouth_frame_clock(0),
-      mouth_frame(0), talk_start(0), talk_state(-1), inactive(false), pending_finalize(1),
-      disabled(0), nearest_to_party(false), spell_vertex_warned(0), missile_point_warned(0),
-      script(0), script_wait(MONSCR_NONE), trigger(0), registry_weight(0), spell_effect_armed(0),
+      mouth_frame(0), talk_start(0), inactive(false), pending_finalize(1), disabled(0),
+      nearest_to_party(false), spell_vertex_warned(0), missile_point_warned(0), script(0),
+      script_wait(MONSCR_NONE), trigger(0), registry_weight(0), spell_effect_armed(0),
       sector_mesh(0), fade_state(W8_MONSTER_FADE_IDLE), target_highlighted(false),
       hostility_preserved(false), sound(0)
 {
@@ -1122,7 +1122,7 @@ W8Monster::W8Monster(const W8Monster& rhs)
     : W8GrCycle(rhs), runtime_flags(rhs.runtime_flags), value_1e0(rhs.value_1e0),
       location_id(rhs.location_id), scale_x(1.0f), scale_y(1.0f), scale_z(1.0f),
       missile_frame(rhs.missile_frame), spell_frame(rhs.spell_frame), talking(0),
-      animate_mouth(false), mouth_frame_clock(0), mouth_frame(0), talk_start(0), talk_state(-1),
+      animate_mouth(false), mouth_frame_clock(0), mouth_frame(0), talk_start(0),
       inactive(rhs.inactive), pending_finalize(1), disabled(0), nearest_to_party(false),
       hover_base_min(rhs.hover_base_min), hover_base_max(rhs.hover_base_max),
       bob_amplitude_min(rhs.bob_amplitude_min), bob_amplitude_max(rhs.bob_amplitude_max),
@@ -1362,7 +1362,6 @@ void W8Monster::Update()
                     /* 0x004C276F..0x004C27D7: the talking path never stores
                            pending_subcycle, so TALK keeps the current frame
                            (clamped by ApplyPendingCycle) instead of frame 0. */
-                    talk_state = 0x17;
                     talk_start = w8_get_ticks();
                     talk_duration = Random(2000) + 2000;
                     m_pRep->pending_cycle = 0x18;
@@ -2653,7 +2652,6 @@ void W8Monster::StartTalking(bool animate_mouth)
         this->animate_mouth = animate_mouth;
         mouth_frame_clock = w8_get_ticks();
         mouth_open = false;
-        talk_state = -1;
         talk_start = w8_get_ticks();
         talk_duration = Random(2000) + 2000;
         m_pRep->pending_cycle = 0x18;

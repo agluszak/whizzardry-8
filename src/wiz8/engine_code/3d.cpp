@@ -554,7 +554,6 @@ void WorldSetRenderRange(W8World* world, float value)
         srAssertFail("pWorld", THREE_D_CPP, 0x28b, 0);
     }
     if (value != 0.0f) {
-        world->render_range0 = value;
         world->render_range = value;
         g_renderer_ready = true;
     }

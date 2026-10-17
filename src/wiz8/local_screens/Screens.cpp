@@ -123,7 +123,7 @@ void RefreshPartySlotDisplay(unsigned int party_slot)
         }
         break;
     case W8_SCREEN_MAIN_GAME:
-        if (g_level_block->main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS ||
+        if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS ||
             g_level_block->portrait_refresh_pending[party_slot] != 0) {
             switch (party_slot) {
             case 0:

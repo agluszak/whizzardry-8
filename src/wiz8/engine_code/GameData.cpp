@@ -2153,7 +2153,7 @@ void PlacePartyAtPoint(const glm::vec3* point)
 }
 
 // FUNCTION: WIZ8 0x0041FD10
-W8LevelDataRecord::W8LevelDataRecord() : interval_gate()
+W8LevelDataRecord::W8LevelDataRecord()
 {
     flags = 0;
     camera_scale = 0;

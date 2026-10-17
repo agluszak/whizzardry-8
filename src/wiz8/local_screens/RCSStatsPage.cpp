@@ -369,7 +369,6 @@ void RebuildCampEffectList(void)
     screen->effect_list.clear();
     screen->effect_beneficial_count = 0;
     screen->effect_detrimental_count = 0;
-    screen->effect_selection = 0;
     screen->effect_first_visible = 0;
     screen->effect_last_visible = 0;
     screen->effect_visible_lines = 0;

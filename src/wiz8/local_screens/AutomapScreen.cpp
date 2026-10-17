@@ -228,8 +228,6 @@ glm::vec3 g_automap_grid_max;
 glm::vec3 g_automap_grid_min;
 // GLOBAL: WIZ8 0x0068f1e8
 glm::vec3 g_automap_position;
-// GLOBAL: WIZ8 0x0068f1f8
-glm::vec3 g_automap_grid_center;
 // GLOBAL: WIZ8 0x0068f204
 float g_automap_top_y;
 // GLOBAL: WIZ8 0x0068f210
@@ -381,8 +379,6 @@ void ResetAutomapView(void)
         g_automap_grid_max = bounds.maximum;
     }
     g_automap_grid_origin = g_automap_grid_min;
-    g_automap_grid_center = glm::vec3((g_automap_grid_min.x + g_automap_grid_max.x) * 0.5f, 0.0f,
-                                      (g_automap_grid_min.z + g_automap_grid_max.z) * 0.5f);
     g_automap_bounds_dirty = true;
     float span_x = g_automap_grid_max.x - g_automap_grid_min.x;
     float span_z = g_automap_grid_max.z - g_automap_grid_min.z;
