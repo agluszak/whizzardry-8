@@ -30,7 +30,7 @@ struct TimerFixture {
         g_status.game_time_days = 0;
         g_status.game_time_ms = 0;
     }
-    ~TimerFixture() { g_game_time_accumulator = nullptr; }
+    ~TimerFixture() { ResetGameTimeAccumulator(); }
     void advance(unsigned long long micros) { g_runtime_test_hooks.clock_us += micros; }
 };
 }
@@ -74,8 +74,8 @@ TEST_CASE_METHOD(TimerFixture, "Game-day time and accelerated frame deltas keep 
     g_status.game_time_ms = 250;
     REQUIRE(game.GetProgress() == Catch::Approx(0.125f));
 
-    W8GameTimeAccumulator accumulator;
-    g_game_time_accumulator = &accumulator;
+    ResetGameTimeAccumulator();
+    auto& accumulator = GameTimeAccumulator();
     accumulator.SetDurationScale(0.5f);
     advance(25'000);
     REQUIRE(accumulator.Update() == Catch::Approx(0.5f));

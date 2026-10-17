@@ -2945,8 +2945,7 @@ unsigned int W8Octree::AdvanceNavigator(W8NavigatorMovementState* movement, floa
     vecDir = movement->target_position - movement->position;
     vecDir.y = 0.0f;
     distance = glm::length(((glm::vec2(vecDir.x, vecDir.z))));
-    step =
-        g_game_time_accumulator->GetFrameDelta() * movement->movement_scale * g_rate * kWorldScale;
+    step = GameTimeAccumulator().GetFrameDelta() * movement->movement_scale * g_rate * kWorldScale;
     if (step >= distance) {
         step = distance;
     } else {

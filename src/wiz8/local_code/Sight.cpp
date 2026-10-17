@@ -66,7 +66,7 @@ void ResetSight(void)
 {
     SetViewDistance(12.0f);
     SetNavigatorLinkMode(0);
-    g_game_time_accumulator->ResetDurationScale();
+    GameTimeAccumulator().ResetDurationScale();
     ResetMonsterGeneratorTimers();
 }
 
@@ -680,7 +680,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                             (SetFactionFlag(static_cast<signed char>(record->faction_id), true),
                              (record->flags & W8_MONSTER_FLAG_NPC) == 0)) {
                             unsigned int now =
-                                static_cast<unsigned int>(g_game_time_accumulator->GetElapsed());
+                                static_cast<unsigned int>(GameTimeAccumulator().GetElapsed());
 
                             if ((((monster_info->party_threat.last_seen_clock == 0) ||
                                   (0x78U < static_cast<unsigned int>(
@@ -744,7 +744,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                     if (monster_info->party_threat.sight_state != W8_SIGHT_SEEN &&
                         record->camouflage0 != 0) {
                         unsigned int now =
-                            static_cast<unsigned int>(g_game_time_accumulator->GetElapsed());
+                            static_cast<unsigned int>(GameTimeAccumulator().GetElapsed());
 
                         monster->BeginFadeIn(5.0f);
                         if (!gXStatus.fSurprisePossible &&
@@ -763,7 +763,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
         if (!seen_by_party) {
             if (monster_info->party_threat.sight_state == W8_SIGHT_SEEN &&
                 record->camouflage0 != 0) {
-                unsigned int now = static_cast<unsigned int>(g_game_time_accumulator->GetElapsed());
+                unsigned int now = static_cast<unsigned int>(GameTimeAccumulator().GetElapsed());
 
                 monster->BeginFadeOut(5.0f);
                 if (!gXStatus.fSurprisePossible &&

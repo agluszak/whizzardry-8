@@ -23,6 +23,9 @@ private:
     float m_elapsed;
 };
 
-extern W8GameTimeAccumulator* g_game_time_accumulator;
+/* The session game clock: created on first use, restarted when a level's data
+   is released. */
+W8GameTimeAccumulator& GameTimeAccumulator();
+void ResetGameTimeAccumulator();
 
 extern float g_rate;

@@ -130,13 +130,7 @@ std::optional<RuntimeTriangle> surfaceTriangle(std::span<const glm::vec3> vertic
 // FUNCTION: WIZ8 0x0041F1F0
 void UpdateSharedGameDataObject()
 {
-    if (g_game_time_accumulator == 0) {
-        g_game_time_accumulator = new W8GameTimeAccumulator;
-        if (g_game_time_accumulator == 0) {
-            return;
-        }
-    }
-    g_game_time_accumulator->Update();
+    GameTimeAccumulator().Update();
 }
 
 // FUNCTION: WIZ8 0x0041F260
@@ -149,18 +143,11 @@ void UpdateGameDataRuntime()
                          0);
         }
     }
-    if (g_game_time_accumulator == 0) {
-        g_game_time_accumulator = new W8GameTimeAccumulator;
-        if (g_game_time_accumulator == 0) {
-            g_game_time_accumulator->Update();
-            return;
-        }
-    }
     if (g_shared_timers_paused) {
         ResumeSharedGameTimers();
         g_shared_timers_paused = false;
     }
-    g_game_time_accumulator->Update();
+    GameTimeAccumulator().Update();
 }
 
 /* Apply world-render camera-motion flags into `rotation` and mirror the yaw
@@ -184,7 +171,7 @@ CameraRotation W8GameData::cameraRotation(unsigned int flags, const glm::mat3& r
         }
     }
 
-    timer_flags = g_game_time_accumulator->m_flags;
+    timer_flags = GameTimeAccumulator().m_flags;
     if (timer_flags.paused) {
         return result;
     }
@@ -235,7 +222,7 @@ CameraRotation W8GameData::cameraRotation(unsigned int flags, const glm::mat3& r
     }
     g_gd_camera->ApplyPitchInput(pitch_input);
     g_gd_camera->ApplyYawInput(yaw_input);
-    g_gd_camera->Update(g_game_time_accumulator->GetFrameDelta());
+    g_gd_camera->Update(GameTimeAccumulator().GetFrameDelta());
     if ((flags & W8_CAMERA_MOTION_KEEP_ROTATION) == 0) {
         result.rotation = g_gd_camera->rotationMatrix();
     }
@@ -292,7 +279,7 @@ CameraMotion W8GameData::cameraMotion(unsigned int flags, const glm::vec3& posit
         g_level_motion_fast = 0;
     }
 
-    timer_flags = g_game_time_accumulator->m_flags;
+    timer_flags = GameTimeAccumulator().m_flags;
     if (timer_flags.paused || (g_shared_timer_paused && !timer_flags.raw_time) ||
         g_shared_timer_flag0) {
         if (!g_level_motion_resume_pending) {
@@ -312,7 +299,7 @@ CameraMotion W8GameData::cameraMotion(unsigned int flags, const glm::vec3& posit
     if ((((level_flags & W8_LEVEL_FLAG_MOVEMENT_STOPPED) != 0 &&
           (level_flags & W8_LEVEL_FLAG_WALKABLE_CONTACT) != 0) &&
          ((level_flags & W8_LEVEL_FLAG_PROP_CONTACT) == 0 && !g_animated_prop_present)) ||
-        g_game_time_accumulator->m_flags.slow_scale) {
+        GameTimeAccumulator().m_flags.slow_scale) {
         return result;
     }
 
@@ -322,7 +309,7 @@ CameraMotion W8GameData::cameraMotion(unsigned int flags, const glm::vec3& posit
     forward_scale = g_camera_level_forward_scale;
     level->flags &= ~(W8_LEVEL_FLAG_PROP_CONTACT | W8_LEVEL_FLAG_PROP_NORMAL_MISMATCH |
                       W8_LEVEL_FLAG_WALKABLE_CONTACT);
-    level->camera_scale = g_game_time_accumulator->GetFrameDelta();
+    level->camera_scale = GameTimeAccumulator().GetFrameDelta();
     level->camera_position = position;
     level->motion_velocity = glm::vec3(0);
     level->motion_displacement = glm::vec3(0);
@@ -631,7 +618,7 @@ unsigned char W8GameData::ProbeMonstersAlongMotion(glm::vec3* direction, glm::ve
         monster_info = FindMonster(objects[index]);
         if (monster_info != 0 && monster_info->p3D != 0 && monster_info->p3D->active) {
             monster = monster_info->p3D;
-            time_scale = g_rate * g_game_time_accumulator->GetFrameDelta();
+            time_scale = g_rate * GameTimeAccumulator().GetFrameDelta();
             velocity = monster->GetVelocity();
             adjusted.x = direction->x - velocity.x * static_cast<float>(time_scale);
             adjusted.y = direction->z - velocity.z * static_cast<float>(time_scale);
@@ -1887,10 +1874,7 @@ void W8GameData::ReleaseLevelData()
     }
     g_level_data = 0;
     g_level_flags = 0;
-    if (g_game_time_accumulator != 0) {
-        delete g_game_time_accumulator;
-    }
-    g_game_time_accumulator = 0;
+    ResetGameTimeAccumulator();
     if (g_level_data_teardown_flag) {
         g_level_data_teardown_flag = false;
     }
@@ -1957,12 +1941,6 @@ const double g_game_data_pi = 3.141592653589793;
 // FUNCTION: WIZ8 0x00420b40
 float MoveTimer(int value)
 {
-    if (g_game_time_accumulator == 0) {
-        g_game_time_accumulator = new W8GameTimeAccumulator;
-        if (g_game_time_accumulator == 0) {
-            return 0.0f;
-        }
-    }
     if (g_shared_timers_paused) {
         if ((value == 8 && g_current_screen_state.id == W8_SCREEN_MAIN_GAME) || value == 4) {
             ResumeSharedGameTimers();
@@ -1975,7 +1953,7 @@ float MoveTimer(int value)
         PauseSharedGameTimers();
         g_shared_timers_paused = true;
     }
-    return g_game_time_accumulator->GetFrameDelta();
+    return GameTimeAccumulator().GetFrameDelta();
 }
 
 // FUNCTION: WIZ8 0x00420D40
@@ -2436,7 +2414,7 @@ void UpdateLevelMovementAudio(void)
         }
         return;
     }
-    now = g_game_time_accumulator->GetElapsed();
+    now = GameTimeAccumulator().GetElapsed();
     if (g_facing_tolerance0 < now - g_level_footstep_time &&
         (g_level_footstep_time = now,
          g_level_footstep_sound == nullptr || !wiz8::sound::is_playing(g_level_footstep_sound))) {

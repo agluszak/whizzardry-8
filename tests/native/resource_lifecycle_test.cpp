@@ -27,7 +27,6 @@
 #include "wiz8/engine_code/3dapi.h"
 #include "wiz8/engine_code/AniMesh.h"
 #include "wiz8/engine_code/AnimObj.h"
-#include "wiz8/engine_code/GameTimeAccumulator.h"
 #include "wiz8/engine_code/Missile.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/MonsterLight.h"
@@ -506,20 +505,14 @@ TEST_CASE_METHOD(SpellVisualFixture,
     REQUIRE(world.retired_particles.empty());
 }
 
-TEST_CASE("Monster light resources need no gameplay clock or source scene attachment",
-          "[lights][ownership][levels]")
+TEST_CASE("Monster light copies need no source scene attachment", "[lights][ownership][levels]")
 {
-    struct RestoreClock {
-        W8GameTimeAccumulator* previous = std::exchange(g_game_time_accumulator, nullptr);
-        ~RestoreClock() { g_game_time_accumulator = previous; }
-    } restore;
     srScene scene(nullptr);
     const glm::vec3 first(1.0f), second(0.0f);
     MonsterLight source(&scene, true, 500.0f, &first, &second);
     MonsterLight copy(source);
     copy.SetRange(250.0f);
     REQUIRE(source.far_end == 500.0f);
-    REQUIRE(g_game_time_accumulator == nullptr);
     REQUIRE(source.getParent() == &scene);
     REQUIRE(copy.getParent() == nullptr);
 }

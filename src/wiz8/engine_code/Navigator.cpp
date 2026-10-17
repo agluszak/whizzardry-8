@@ -769,7 +769,7 @@ void W8Navigator::UpdateLinkedNavigator()
         UpdateLinkedPosition();
         return;
     }
-    int tick = static_cast<int>(g_game_time_accumulator->GetElapsed());
+    int tick = static_cast<int>(GameTimeAccumulator().GetElapsed());
     if (static_cast<unsigned int>(tick - linked_update_time) <= 50) {
         return;
     }
@@ -866,17 +866,17 @@ glm::vec3* W8Navigator::AdjustPosition(glm::vec3* result, const glm::vec3* curre
                     glm::vec3 falling = *current;
                     float distance;
                     if (g_combat_inactive == 0) {
-                        movement.vertical_velocity += g_game_time_accumulator->GetFrameDelta() *
+                        movement.vertical_velocity += GameTimeAccumulator().GetFrameDelta() *
                                                       g_settings.monster_movement_speed *
                                                       g_navigator_gravity * acceleration_scale;
                         distance = movement.vertical_velocity *
-                                   g_game_time_accumulator->GetFrameDelta() *
+                                   GameTimeAccumulator().GetFrameDelta() *
                                    g_settings.monster_movement_speed;
                     } else {
-                        movement.vertical_velocity += g_game_time_accumulator->GetFrameDelta() *
+                        movement.vertical_velocity += GameTimeAccumulator().GetFrameDelta() *
                                                       g_navigator_gravity * acceleration_scale;
                         distance =
-                            movement.vertical_velocity * g_game_time_accumulator->GetFrameDelta();
+                            movement.vertical_velocity * GameTimeAccumulator().GetFrameDelta();
                     }
                     falling.y -= distance;
                     if (falling.y >= ground) {
@@ -1656,7 +1656,7 @@ void W8Navigator::UpdateAngles()
     if (!gXStatus.fCombatMode) {
         step = movement.turn_rate;
     }
-    step *= g_rate * g_game_time_accumulator->GetFrameDelta();
+    step *= g_rate * GameTimeAccumulator().GetFrameDelta();
 
     if (movement.yaw != movement.target_yaw) {
         distance = NormalizeAngle(movement.yaw - movement.target_yaw);
@@ -1787,8 +1787,7 @@ void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
         if (!g_navigator_vertical_enabled) {
             movement.vertical_offset = movement.vertical_base;
         } else {
-            float phase = movement.vertical_phase + g_rate *
-                                                        g_game_time_accumulator->GetFrameDelta() *
+            float phase = movement.vertical_phase + g_rate * GameTimeAccumulator().GetFrameDelta() *
                                                         g_navigator_vertical_phase_step;
             phase -= static_cast<float>(floor(phase));
             movement.vertical_phase = phase;
@@ -1962,7 +1961,7 @@ void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
             }
             /* Two frames within one clock tick have no elapsed time; dividing by it
                made movement_speed NaN, which then stuck (NaN fails every comparison). */
-            const float frame_time = g_rate * g_game_time_accumulator->GetFrameDelta();
+            const float frame_time = g_rate * GameTimeAccumulator().GetFrameDelta();
             velocity.y = frame_time > 0.0f ? (movement.position.y - previous.y) / frame_time : 0.0f;
             if (navigation_mode == 2 || navigation_mode == 3) {
                 minimum_speed = g_navigator_minimum_speed_mode23;
@@ -1979,8 +1978,8 @@ void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
 
     UpdateAngles();
     if (!movement_stopped && g_combat_inactive == 0 && !movement_complete && flags != 0) {
-        movement.callback_progress += g_game_time_accumulator->GetFrameDelta() *
-                                      movement.movement_scale * g_rate * kWorldScale;
+        movement.callback_progress +=
+            GameTimeAccumulator().GetFrameDelta() * movement.movement_scale * g_rate * kWorldScale;
         if (movement.callback_threshold <= movement.callback_progress) {
             if (movement_callback != 0) {
                 movement_callback(this);

@@ -73,7 +73,7 @@ void MonsterLight::SetVisible(bool visible)
 // FUNCTION: WIZ8 0x0049D990
 void MonsterLight::Update(const glm::vec3* position)
 {
-    const float now = g_game_time_accumulator->GetElapsed();
+    const float now = GameTimeAccumulator().GetElapsed();
     if (!m_start_time) m_start_time = now;
     const float elapsed = now - *m_start_time;
 
@@ -100,5 +100,5 @@ void MonsterLight::Update(const glm::vec3* position)
 void MonsterLight::StartFadeOut()
 {
     m_fade_out = true;
-    m_start_time = g_game_time_accumulator->GetElapsed();
+    m_start_time = GameTimeAccumulator().GetElapsed();
 }

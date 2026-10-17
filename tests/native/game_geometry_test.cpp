@@ -2383,26 +2383,23 @@ TEST_CASE("Paused camera APIs return complete initialized values", "[geometry]")
         W8EnvironRecord* environ = g_environ;
         W8LevelDataRecord* level = g_level_data;
         unsigned int* flags = g_level_flags;
-        W8GameTimeAccumulator* timer = g_game_time_accumulator;
         bool resume = g_level_motion_resume_pending;
         ~RestoreRuntime()
         {
             delete g_environ;
             delete g_level_data;
-            delete g_game_time_accumulator;
+            ResetGameTimeAccumulator();
             g_environ = environ;
             g_level_data = level;
             g_level_flags = flags;
-            g_game_time_accumulator = timer;
             g_level_motion_resume_pending = resume;
         }
     } restore;
     g_environ = nullptr;
     g_level_data = nullptr;
-    g_game_time_accumulator = nullptr;
     W8GameData data(nullptr, true);
-    g_game_time_accumulator = new W8GameTimeAccumulator;
-    g_game_time_accumulator->m_flags.paused = true;
+    ResetGameTimeAccumulator();
+    GameTimeAccumulator().m_flags.paused = true;
     g_level_data = new W8LevelDataRecord;
     g_level_motion_resume_pending = false;
     const auto basis = glm::mat3(glm::rotate(glm::mat4(1), .4f, glm::vec3(0, 1, 0)));
@@ -2413,7 +2410,7 @@ TEST_CASE("Paused camera APIs return complete initialized values", "[geometry]")
     REQUIRE_FALSE(motion.moved);
     REQUIRE(motion.displacement == glm::vec3(0));
     g_level_motion_resume_pending = true;
-    g_game_time_accumulator->m_flags.raw_time = true;
+    GameTimeAccumulator().m_flags.raw_time = true;
     REQUIRE(data.cameraMotion(W8_CAMERA_MOTION_FORWARD, {1, 2, 3}, basis).displacement ==
             glm::vec3(0));
 }

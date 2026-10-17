@@ -35,10 +35,10 @@ void PauseSharedGameTimers(void)
     g_shared_timer_paused = true;
     g_shared_timer_pause_time = GameClockTicks() - g_shared_timer_pause_base;
 
-    if (g_game_time_accumulator != 0 && !g_game_time_accumulator->m_flags.paused) {
-        g_game_time_accumulator->m_flags.paused = true;
-        g_game_time_accumulator->m_start =
-            g_game_time_accumulator->ReadClock() - g_game_time_accumulator->m_start;
+    auto& timer = GameTimeAccumulator();
+    if (!timer.m_flags.paused) {
+        timer.m_flags.paused = true;
+        timer.m_start = timer.ReadClock() - timer.m_start;
     }
 }
 
@@ -50,16 +50,14 @@ void ResumeSharedGameTimers(void)
     g_shared_timer_pause_base = GameClockTicks() - g_shared_timer_pause_time;
     g_shared_timer_pause_time = 0;
 
-    W8GameTimeAccumulator* timer = g_game_time_accumulator;
-    if (timer != 0) {
-        timer->m_flags.paused = false;
-        int sample = timer->ReadClock();
-        float duration = timer->m_duration_scale * timer->m_duration_seconds * 1e+04f;
-        int start = sample - timer->m_start;
-        timer->m_start = start;
-        timer->m_duration = static_cast<int>(duration);
-        timer->m_end = start + timer->m_duration;
-    }
+    auto& timer = GameTimeAccumulator();
+    timer.m_flags.paused = false;
+    int sample = timer.ReadClock();
+    float duration = timer.m_duration_scale * timer.m_duration_seconds * 1e+04f;
+    int start = sample - timer.m_start;
+    timer.m_start = start;
+    timer.m_duration = static_cast<int>(duration);
+    timer.m_end = start + timer.m_duration;
 }
 
 // FUNCTION: WIZ8 0x00439a60

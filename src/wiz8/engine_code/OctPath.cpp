@@ -2429,7 +2429,7 @@ unsigned int W8PathingService::StepAlongPath(W8NavigatorMovementState* movement,
             glm::vec3* position = &movement->position;
             glm::vec3 advanced = *position;
             bool on_path = attachment->AdvanceAlongPathPositions(
-                g_game_time_accumulator->GetFrameDelta() * movement->movement_speed *
+                GameTimeAccumulator().GetFrameDelta() * movement->movement_speed *
                     movement->movement_scale * g_rate * kWorldScale,
                 &advanced);
             arrived = !on_path;
@@ -2571,7 +2571,7 @@ transitioned: {
         if (attachment->path_cursor != attachment->path_position_index) {
             ActivateMovementTrigger(movement, true);
             m_waypoints[attachment->path[attachment->path_cursor].value].visit_stamp =
-                static_cast<unsigned int>(g_game_time_accumulator->GetElapsed());
+                static_cast<unsigned int>(GameTimeAccumulator().GetElapsed());
             ++attachment->path_cursor;
             GetWorldOctree()->UpdateMonsterLocation(movement->location_id, &movement->position);
             return arrived;
@@ -2673,7 +2673,7 @@ unsigned int W8PathingService::StepMonsterAlongPath(W8NavigatorMovementState* mo
     W8MonsterInfo* monster_info = FindMonster(movement->location_id);
     W8MonsterGroup* group = FindMonsterGroup(monster_info->monster_group_id);
     monster_info->p3D->group_linked = true;
-    float remaining = g_rate * g_game_time_accumulator->GetFrameDelta();
+    float remaining = g_rate * GameTimeAccumulator().GetFrameDelta();
     do {
         if (remaining <= 0.0f) {
             break;
@@ -2693,7 +2693,7 @@ unsigned int W8PathingService::StepMonsterAlongPath(W8NavigatorMovementState* mo
             do {
                 attachment->path_cursor = previous;
                 m_waypoints[attachment->path[attachment->path_cursor].value].visit_stamp =
-                    static_cast<unsigned int>(g_game_time_accumulator->GetElapsed());
+                    static_cast<unsigned int>(GameTimeAccumulator().GetElapsed());
                 ++previous;
             } while (previous < reached);
             attachment->path_cursor = reached;
@@ -4155,7 +4155,7 @@ void W8PathParameters::IntegrateSteering()
     float scale;
     bool snapped;
 
-    step = g_rate * g_game_time_accumulator->GetFrameDelta();
+    step = g_rate * GameTimeAccumulator().GetFrameDelta();
     if (!blocked) {
         force.y = 0.0f;
         if (speed_limit <= 0.0f) {

@@ -263,7 +263,7 @@ void UpdateSurpriseMode(void)
             SetNavigatorLinkMode(1);
             level_scale = g_level_records[GetLoadedLevelID()].gameplay_time_scale;
             scale = 1.0f / level_scale;
-            g_game_time_accumulator->SetDurationScale(scale);
+            GameTimeAccumulator().SetDurationScale(scale);
             SetMonsterGeneratorDurationScale(scale);
             gXStatus.surprise_phase = 1;
         }

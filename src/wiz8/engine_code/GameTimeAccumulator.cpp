@@ -1,5 +1,7 @@
 #include "wiz8/engine_code/GameTimeAccumulator.h"
 
+#include <optional>
+
 #include "game_timer.h"
 
 // Scales real elapsed time into accumulated game time, with a per-frame clamp.
@@ -8,7 +10,18 @@
 float g_rate = 0.1f;
 
 // GLOBAL: WIZ8 0x006598bc
-W8GameTimeAccumulator* g_game_time_accumulator;
+static std::optional<W8GameTimeAccumulator> g_game_time_accumulator;
+
+W8GameTimeAccumulator& GameTimeAccumulator()
+{
+    if (!g_game_time_accumulator) g_game_time_accumulator.emplace();
+    return *g_game_time_accumulator;
+}
+
+void ResetGameTimeAccumulator()
+{
+    g_game_time_accumulator.reset();
+}
 
 // FUNCTION: WIZ8 0x0043a910
 W8GameTimeAccumulator::W8GameTimeAccumulator()

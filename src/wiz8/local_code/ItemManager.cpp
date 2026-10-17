@@ -932,7 +932,7 @@ unsigned char AdvanceFallingWorldItem(W8WorldItem* item)
 
     previous_y = item->position.y;
     probe = glm::vec3(item->position.x, previous_y + kWorldScale, item->position.z);
-    dt = g_game_time_accumulator->GetFrameDelta();
+    dt = GameTimeAccumulator().GetFrameDelta();
     if (kCameraSnapEpsilon < item->vertical_velocity) {
         probe.y = dt * item->vertical_velocity + probe.y;
     }
