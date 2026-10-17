@@ -1,5 +1,6 @@
 #pragma once
 struct W8Chunk;
+struct W8World;
 
 #include <array>
 #include <cstddef>
@@ -27,7 +28,6 @@ struct W8WorldCursorNode {
 };
 
 extern const double g_world_cursor_scale;
-extern std::vector<std::unique_ptr<W8WorldCursorNode>> g_world_cursor_nodes;
 
 std::unique_ptr<W8WorldCursorNode> CreateWorldCursorCube();
 /* Answer the next table node after `after` whose world-space bounds contain
@@ -64,4 +64,4 @@ struct W8SavedCursorNodes {
 };
 W8SavedCursorNodes ReadWorldCursorNodes(W8Chunk& file);
 void ReadWorldCursorNodeStates(W8Chunk& file, W8SavedCursorNodes& nodes);
-void ApplyWorldCursorNodes(W8SavedCursorNodes nodes);
+void BuildWorldCursorNodes(W8World& world, W8SavedCursorNodes nodes);

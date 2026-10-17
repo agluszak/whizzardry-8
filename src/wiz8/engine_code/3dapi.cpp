@@ -56,6 +56,7 @@
 #include "wiz8/engine_code/UpdateMesh.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/World.h"
+#include "wiz8/engine_code/stCube.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stParticle.h"
 #include "wiz8/filesystem.h"
@@ -63,6 +64,7 @@
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/world_cursor.h"
 // Completes MonGen for templated world-registry destruction.
 #include "wiz8/local_code/MonsterGenerator.h" // IWYU pragma: keep
 #include "wiz8/local_code/MonsterManager.h"
@@ -72,7 +74,6 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/startup_world.h"
-#include "wiz8/world_cursor.h"
 #include "wiz8/xstatus.h"
 
 constexpr double kAutomapRefreshDistanceSquared = 250000.0;
@@ -304,16 +305,17 @@ static void DestroyWorldResources(W8World* world)
     world->timed_events.clear();
     world->standalone_trigger_events.clear();
     world->monster_generators.clear();
+    world->cursor.reset();
+    world->cursor_nodes.clear();
     world->active_monsters.clear();
     world->monsters.clear();
     world->plsItems.clear();
     world->plsProps.clear();
     DestroyAllWorldTriggers(world);
     world->plsAmbientSounds.clear();
+    world->ambient_tracks.clear();
     world->missiles.clear();
     world->spell_visuals.clear();
-    // Destroying cycles can retire their still-active particles. Drain those
-    // owners while their scene and spatial index are still alive.
     world->particles.clear();
     world->retired_particles.clear();
     DestroyWorldLights(world);
@@ -722,8 +724,10 @@ unsigned char AdjustWorldCollisionPosition(float radius, glm::vec3* position, bo
 
     do {
         glm::vec3 first(0.0f, 0.0f, radius);
-        first = glm::vec3(glm::angleAxis(std::atan2(sin(angle), cos(angle)), glm::dvec3(0, 1, 0)) *
-                          glm::dvec3(first));
+        first =
+            glm::vec3(glm::angleAxis(std::atan2(std::sin(double(angle)), std::cos(double(angle))),
+                                     glm::dvec3(0, 1, 0)) *
+                      glm::dvec3(first));
         first += *position;
 
         double opposite_angle = angle + g_camera_pi;
@@ -805,8 +809,10 @@ unsigned char FindNearbyFreePosition(float radius, glm::vec3* position, bool che
     float diameter = radius + radius;
     do {
         glm::vec3 offset(0.0f, 0.0f, diameter);
-        offset = glm::vec3(glm::angleAxis(std::atan2(sin(angle), cos(angle)), glm::dvec3(0, 1, 0)) *
-                           glm::dvec3(offset));
+        offset =
+            glm::vec3(glm::angleAxis(std::atan2(std::sin(double(angle)), std::cos(double(angle))),
+                                     glm::dvec3(0, 1, 0)) *
+                      glm::dvec3(offset));
         candidate = offset + *position;
         glm::vec3 unblocked = candidate;
 

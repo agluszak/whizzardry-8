@@ -77,8 +77,6 @@ struct W8WorldCursorState {
     W8MonsterInfo* dragged_info = nullptr;
 };
 
-/* authored name gp3DCursor - the cursor update asserts it. */
-extern W8WorldCursorState* gp3DCursor;
 /* Build the 3D cursor, light, particle and initial camera-relative bounds. */
 void InitializeWorldCursor(void);
 bool IsWorldCursorVisible(void);

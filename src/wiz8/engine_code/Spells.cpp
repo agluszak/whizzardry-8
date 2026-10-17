@@ -928,7 +928,7 @@ void AddMonsterSpellIcon(W8World& world, W8Monster* monster, W8MonsterSpellIconI
     icons.reserve(icons.size() + 1);
     const auto path =
         fmt::format("data/icons/monsterspells/{}_A.TGA", g_monster_spell_icon_names[icon]);
-    auto* item = CreateMonsterIconItem(&world, path.c_str(), 1);
+    auto* item = CreateMonsterIconItem(world, path.c_str());
     if (!item) srAssertFail("monster spell icon item", __FILE__, __LINE__, nullptr);
     icons.push_back({icon, item});
 }

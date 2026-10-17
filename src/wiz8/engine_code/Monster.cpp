@@ -2561,7 +2561,8 @@ void SetMonsterPartySlotMarker(int party_slot, int location_id, char on)
             path = fmt::format("Data\\Monsters\\Bitmaps\\{}",
                                g_party_target_marker_bitmaps[g_status.buffers.XChar[party_slot]
                                                                  .party_order_index]);
-            rep->objects[party_slot].reset(CreateMonsterIconItem(path.c_str(), 1));
+            rep->objects[party_slot].reset(
+                CreateMonsterIconItem(*info->p3D->owner_world, path.c_str()));
             ++rep->icon_count;
         }
     }
@@ -4796,7 +4797,7 @@ void W8Monster::ApplyRepresentationScale()
    enabled, wrapped in a W8Item whose mesh attachment and bounds are refreshed
    for the world. */
 // FUNCTION: WIZ8 0x004C5500
-W8Item* CreateMonsterIconItem(const char* path, int flag)
+W8Item* CreateMonsterIconItem(W8World& world, const char* path)
 {
     auto texture = std::make_shared<stTextureFile>(wiz8::asset_path(path), false);
     texture->setWrapS(srTexture::WRAP_CLAMP);
@@ -4811,7 +4812,7 @@ W8Item* CreateMonsterIconItem(const char* path, int flag)
     rep->flags |= 0x40;
     rep->m_psrMesh.reset(instance);
     rep->RefreshBounds();
-    item->AttachMesh(GetWorld());
+    item->AttachMesh(&world);
     instance->light_scale = glm::vec3(0);
     return item;
 }

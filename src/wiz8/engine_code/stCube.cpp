@@ -45,7 +45,6 @@
 #include "wiz8/surface_storage.h"
 #include "wiz8/unicode.h"
 #include "wiz8/world_cursor.h"
-#include "wiz8/xstatus.h"
 
 #define ST_CUBE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\stCube.cpp"
 
@@ -56,7 +55,6 @@ W8WorldCursorNode::~W8WorldCursorNode() = default;
 /* Cursor nodes are allocated separately so their addresses survive
    changes to the node table. */
 // GLOBAL: WIZ8 0x0065ba58
-std::vector<std::unique_ptr<W8WorldCursorNode>> g_world_cursor_nodes;
 
 /* The double selection range at 0x005ECAC8: node distances below it select the
    node. Read as 75000.0, not the zero a float view would give. */
@@ -253,10 +251,10 @@ void ReadWorldCursorNodeStates(W8Chunk& file, W8SavedCursorNodes& table)
 void SaveWorldCursorNodeStates(wiz8::File& handle)
 {
     const std::int32_t version = 2;
-    const auto count = static_cast<std::uint32_t>(g_world_cursor_nodes.size());
+    const auto count = static_cast<std::uint32_t>(GetWorld()->cursor_nodes.size());
     handle.write(&version, sizeof(version));
     handle.write(&count, sizeof(count));
-    for (const auto& node : g_world_cursor_nodes) {
+    for (const auto& node : GetWorld()->cursor_nodes) {
         if (node->userdata.size() > std::numeric_limits<std::int32_t>::max())
             throw std::length_error("cursor userdata exceeds save format");
         const auto size = static_cast<std::int32_t>(node->userdata.size());
@@ -306,10 +304,10 @@ W8SavedCursorNodes ReadWorldCursorNodes(W8Chunk& file)
     return result;
 }
 
-void ApplyWorldCursorNodes(W8SavedCursorNodes records)
+void BuildWorldCursorNodes(W8World& world, W8SavedCursorNodes records)
 {
-    ReleaseWorldCursorNodes();
-    gXStatus.mipe_cube_serial = records.next_serial;
+    world.cursor_nodes.clear();
+    world.cursor_serial = records.next_serial;
     for (auto& record : records.nodes) {
         auto cube = CreateWorldCursorCube();
         std::copy(record.name.begin(), record.name.end(), cube->name);
@@ -323,7 +321,7 @@ void ApplyWorldCursorNodes(W8SavedCursorNodes records)
         cube->value_08 = record.value;
         cube->userdata = std::move(record.userdata);
         DrawWorldCursorNodeLabel(*cube);
-        g_world_cursor_nodes.push_back(std::move(cube));
+        world.cursor_nodes.push_back(std::move(cube));
     }
 }
 
@@ -331,12 +329,12 @@ void ApplyWorldCursorNodes(W8SavedCursorNodes records)
 void SaveWorldCursorNodes(wiz8::File& handle)
 {
     const std::int32_t version = 3;
-    const auto count = static_cast<std::uint32_t>(g_world_cursor_nodes.size());
+    const auto count = static_cast<std::uint32_t>(GetWorld()->cursor_nodes.size());
 
     handle.write(&version, sizeof(version));
-    handle.write(&gXStatus.mipe_cube_serial, sizeof(gXStatus.mipe_cube_serial));
+    handle.write(&GetWorld()->cursor_serial, sizeof(GetWorld()->cursor_serial));
     handle.write(&count, sizeof(count));
-    for (const auto& node : g_world_cursor_nodes) {
+    for (const auto& node : GetWorld()->cursor_nodes) {
         handle.write(node->name, sizeof(node->name));
         handle.write(node->parameters, sizeof(node->parameters));
         const auto bounds = node->node->getLocalBounds();
@@ -354,8 +352,9 @@ void SaveWorldCursorNodes(wiz8::File& handle)
 // FUNCTION: WIZ8 0x0048ED70
 void SetWorldCursorNodesVisible(bool visible)
 {
+    if (!GetWorld()) return;
     srNode* parent = visible ? GetWorld()->dynamic_scene : nullptr;
-    for (const auto& entry : g_world_cursor_nodes) {
+    for (const auto& entry : GetWorld()->cursor_nodes) {
         entry->node->setParent(parent, 1);
     }
 }
@@ -366,13 +365,13 @@ void SetWorldCursorNodesVisible(bool visible)
 // FUNCTION: WIZ8 0x0048EDD0
 W8WorldCursorNode* FindWorldCursorNodeAtPoint(W8WorldCursorNode* after, glm::vec3* point)
 {
-    auto next = g_world_cursor_nodes.begin();
+    auto next = GetWorld()->cursor_nodes.begin();
     if (after != 0) {
-        next = std::ranges::find(g_world_cursor_nodes, after,
+        next = std::ranges::find(GetWorld()->cursor_nodes, after,
                                  &std::unique_ptr<W8WorldCursorNode>::get);
-        if (next != g_world_cursor_nodes.end()) ++next;
+        if (next != GetWorld()->cursor_nodes.end()) ++next;
     }
-    for (; next != g_world_cursor_nodes.end(); ++next) {
+    for (; next != GetWorld()->cursor_nodes.end(); ++next) {
         const auto& entry = *next;
         const auto bounds = entry->node->getLocalBounds();
         const auto location = glm::vec3(entry->node->getLocation());
@@ -396,11 +395,12 @@ bool SelectWorldCursorNode(void)
                    g_cube_effect_max_distance;
         };
         const auto selected = static_cast<std::size_t>(g_cursor_node_index);
-        if (selected < g_world_cursor_nodes.size() && in_range(*g_world_cursor_nodes[selected])) {
+        if (selected < GetWorld()->cursor_nodes.size() &&
+            in_range(*GetWorld()->cursor_nodes[selected])) {
             return true;
         }
-        for (std::size_t index = 0; index < g_world_cursor_nodes.size(); ++index) {
-            if (in_range(*g_world_cursor_nodes[index])) {
+        for (std::size_t index = 0; index < GetWorld()->cursor_nodes.size(); ++index) {
+            if (in_range(*GetWorld()->cursor_nodes[index])) {
                 g_cursor_node_index = static_cast<int>(index);
                 return true;
             }
@@ -412,5 +412,5 @@ bool SelectWorldCursorNode(void)
 // FUNCTION: WIZ8 0x0048DB30
 void ReleaseWorldCursorNodes(void)
 {
-    g_world_cursor_nodes.clear();
+    if (GetWorld()) GetWorld()->cursor_nodes.clear();
 }

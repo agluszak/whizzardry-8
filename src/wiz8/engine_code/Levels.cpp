@@ -83,17 +83,8 @@ int GetLoadedLevelID()
     return primary_world ? primary_world->level_id : -1;
 }
 
-static void StopWorldActivity(W8World* world)
-{
-    // The cursor borrows a monster owned by this world, even while hidden.
-    ReleaseWorldCursor();
-    StopAllAmbientSounds();
-    world->nodes_to_disable.clear();
-}
-
 std::unique_ptr<W8World> ReplaceWorld(std::unique_ptr<W8World> world)
 {
-    if (primary_world) StopWorldActivity(primary_world.get());
     return std::exchange(primary_world, std::move(world));
 }
 
@@ -411,8 +402,7 @@ bool LevelBuildInfoByID(int level, W8LevelInfo* info)
     return true;
 }
 
-static void EnterLevel(int level, int entrance, bool restoring_game, const W8LevelInfo& level_info,
-                       W8LoadedLevelStatus* status)
+static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLevelStatus* status)
 {
     bool first_visit = false;
     StartLevelMusic(1, 1);
@@ -477,9 +467,7 @@ static void EnterLevel(int level, int entrance, bool restoring_game, const W8Lev
         first_visit = true;
     }
 
-    auto ambient_path = wiz8::path_from_utf8(level_info.level_path);
-    ambient_path.replace_extension(".SCF");
-    ReadAmbientSoundListFile(wiz8::path_to_utf8(ambient_path).c_str());
+    StartAmbientSoundList(*GetWorld());
     if (!g_environment_load_flag) {
         ResetCurrentEnvironment();
     }
@@ -542,6 +530,9 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
 
     auto replacement = LoadWorld(level, level_info.level_path);
     if (!replacement) return 0;
+    auto ambient_path = wiz8::path_from_utf8(level_info.level_path);
+    ambient_path.replace_extension(".SCF");
+    ReadAmbientSoundListFile(*replacement, wiz8::path_to_utf8(ambient_path).c_str());
     const bool reuse_sky =
         sky_world &&
         sky_world->source_path == wiz8::normalize_asset_path(level_info.sky_path).generic_string();
@@ -556,7 +547,7 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
     InvalidateRendererTextureCache();
     ReplaceWorld(std::move(replacement));
     if (!reuse_sky) ReplaceSkyWorld(std::move(replacement_sky));
-    EnterLevel(level, entrance, restoring_game, level_info, status.get());
+    EnterLevel(level, entrance, restoring_game, status.get());
     return 1;
 }
 

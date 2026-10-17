@@ -126,7 +126,6 @@ struct W8XStatus {
     unsigned char combat_difficulty;
     bool party_moving;
     int saved_encounter_budget;
-    int mipe_cube_serial;
     int hostile_group_count;
 };
 

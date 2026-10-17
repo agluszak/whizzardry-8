@@ -739,6 +739,7 @@ struct W8LoadedLevelStatus::Data {
     std::vector<W8AmbientSoundState> ambient;
     std::vector<W8ParticleState> particles;
     std::vector<W8LightState> lights;
+    std::shared_ptr<stScript> default_script;
 };
 
 W8LoadedLevelStatus::W8LoadedLevelStatus() : data(std::make_unique<Data>()) {}
@@ -1273,11 +1274,17 @@ ReadLevelStatus(W8World& world, const std::filesystem::path& path, int level, bo
         info.p3D = model.get();
         world.monsters.push_back(std::move(model));
         RestoreMonsterSpellIcons(world, info, info.p3D);
+        if (group->group->encounter_registered) {
+            info.p3D->SetScript("Default.MSF", false);
+            data.default_script = info.p3D->script;
+            info.p3D->UseScript({}, false);
+        }
         if (saved.script && saved.script->name[0] != '\0') {
             info.p3D->SetScript(saved.script->name, false);
             saved.script->resource = info.p3D->script;
         }
     }
+    if (data.cursors) BuildWorldCursorNodes(world, std::move(*data.cursors));
     return status;
 }
 
@@ -1298,7 +1305,6 @@ void ActivateLevelStatus(W8World& world, W8LoadedLevelStatus& status)
     ReapplyMonsterGroupFormations();
     RepairMonsterGroupLeaderLinks();
     ApplyDefaultMonsterGroupSounds();
-    if (data.cursors) ApplyWorldCursorNodes(std::move(*data.cursors));
     if (data.automap) ApplyAutomapNotes(world, std::move(*data.automap));
     ApplyAmbientSoundStates(data.ambient);
     ApplyParticleStates(data.particles);
