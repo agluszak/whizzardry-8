@@ -2565,35 +2565,37 @@ unsigned int W8PathingService::StepAlongPath(W8NavigatorMovementState* movement,
             return arrived;
         }
     }
-transitioned: {
-    unsigned char transition = HandlePathEdgeTransition(movement);
-    if (transition == 1) {
-        if (attachment->path_cursor != attachment->path_position_index) {
-            ActivateMovementTrigger(movement, true);
-            m_waypoints[attachment->path[attachment->path_cursor].value].visit_stamp =
-                static_cast<unsigned int>(GameTimeAccumulator().GetElapsed());
-            ++attachment->path_cursor;
+transitioned:
+    {
+        unsigned char transition = HandlePathEdgeTransition(movement);
+        if (transition == 1) {
+            if (attachment->path_cursor != attachment->path_position_index) {
+                ActivateMovementTrigger(movement, true);
+                m_waypoints[attachment->path[attachment->path_cursor].value].visit_stamp =
+                    static_cast<unsigned int>(GameTimeAccumulator().GetElapsed());
+                ++attachment->path_cursor;
+                GetWorldOctree()->UpdateMonsterLocation(movement->location_id, &movement->position);
+                return arrived;
+            }
+            W8NavigatorAttachment* linked_attachment = m_linked_attachment;
+            if ((linked_attachment != 0) &&
+                (static_cast<float>(1.0) <=
+                 sqrt((attachment->path_destination.x - linked_attachment->path_destination.x) *
+                          (attachment->path_destination.x - linked_attachment->path_destination.x) +
+                      (attachment->path_destination.y - linked_attachment->path_destination.y) *
+                          (attachment->path_destination.y - linked_attachment->path_destination.y) +
+                      (attachment->path_destination.z - linked_attachment->path_destination.z) *
+                          (attachment->path_destination.z -
+                           linked_attachment->path_destination.z)))) {
+                PrepareLinkedNavigator(movement);
+                GetWorldOctree()->UpdateMonsterLocation(movement->location_id, &movement->position);
+                return arrived;
+            }
+        } else if (transition != 0) {
             GetWorldOctree()->UpdateMonsterLocation(movement->location_id, &movement->position);
             return arrived;
         }
-        W8NavigatorAttachment* linked_attachment = m_linked_attachment;
-        if ((linked_attachment != 0) &&
-            (static_cast<float>(1.0) <=
-             sqrt((attachment->path_destination.x - linked_attachment->path_destination.x) *
-                      (attachment->path_destination.x - linked_attachment->path_destination.x) +
-                  (attachment->path_destination.y - linked_attachment->path_destination.y) *
-                      (attachment->path_destination.y - linked_attachment->path_destination.y) +
-                  (attachment->path_destination.z - linked_attachment->path_destination.z) *
-                      (attachment->path_destination.z - linked_attachment->path_destination.z)))) {
-            PrepareLinkedNavigator(movement);
-            GetWorldOctree()->UpdateMonsterLocation(movement->location_id, &movement->position);
-            return arrived;
-        }
-    } else if (transition != 0) {
-        GetWorldOctree()->UpdateMonsterLocation(movement->location_id, &movement->position);
-        return arrived;
     }
-}
     arrived = true;
     GetWorldOctree()->UpdateMonsterLocation(movement->location_id, &movement->position);
     return arrived;

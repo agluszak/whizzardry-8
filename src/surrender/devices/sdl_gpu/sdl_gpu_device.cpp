@@ -274,7 +274,7 @@ void SDLGPUDevice::deleteTexture(Texture& texture)
     if (handle == 0 || !textures.contains(handle)) {
         return;
     }
-        /* Queued draws may still sample it; release after the next flush. */
+    /* Queued draws may still sample it; release after the next flush. */
     released.push_back(handle);
     for (int stage = 0; stage < 2; ++stage) {
         if (bound[stage] == handle) {
@@ -338,7 +338,7 @@ bool SDLGPUDevice::createContext(SDL_Window* target_window)
         return false;
     }
     if (!SDL_ClaimWindowForGPUDevice(device, window)) {
-            /* The offscreen video driver has no presentable surface; render into
+        /* The offscreen video driver has no presentable surface; render into
                the color target and skip presentation (headless tests). */
         const char* driver = SDL_GetCurrentVideoDriver();
         if (driver == 0 || SDL_strcmp(driver, "offscreen") != 0) {
@@ -407,7 +407,7 @@ void SDLGPUDevice::setCullMode(e_cullMode mode)
 
 void SDLGPUDevice::setProjectionMatrix(const glm::mat4& matrix)
 {
-        /* GLM and GLSL both store matrix columns. */
+    /* GLM and GLSL both store matrix columns. */
     projection.projection = matrix;
 }
 
@@ -708,7 +708,7 @@ SDL_GPUGraphicsPipeline* SDLGPUDevice::pipeline(const PipelineKey& key)
                                                            : SDL_GPU_CULLMODE_NONE;
     info.rasterizer_state.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
     info.rasterizer_state.enable_depth_clip = true;
-        // Surrender's positive offset pulls overlays toward the camera.
+    // Surrender's positive offset pulls overlays toward the camera.
     info.rasterizer_state.enable_depth_bias = key.offset != 0;
     info.rasterizer_state.depth_bias_constant_factor = -float(key.offset);
     info.rasterizer_state.depth_bias_slope_factor = -float(key.offset);
@@ -822,7 +822,7 @@ void SDLGPUDevice::replay(SDL_GPUCommandBuffer* command)
     for (size_t index = 0; index < commands.size(); ++index) {
         const DrawCommand& entry = commands[index];
         if (entry.kind == DrawCommand::CLEAR) {
-                /* A clear starts a fresh pass whose load operations perform it. */
+            /* A clear starts a fresh pass whose load operations perform it. */
             if (pass != 0) {
                 SDL_EndGPURenderPass(pass);
             }

@@ -66,7 +66,7 @@ void ResetSight(void)
 {
     SetViewDistance(12.0f);
     SetNavigatorLinkMode(0);
-    GameTimeAccumulator().ResetDurationScale();
+    GameTimeAccumulator().ResetTimeScale();
     ResetMonsterGeneratorTimers();
 }
 

@@ -45,6 +45,9 @@ endif()
 add_compile_options(-Wdeprecated -Wimplicit-fallthrough -Wno-unused-parameter
     $<$<COMPILE_LANGUAGE:CXX>:-Wsuggest-override>
     $<$<CXX_COMPILER_ID:Clang,AppleClang>:-Wno-missing-designated-field-initializers>)
+# Clang 23's intra-procedural lifetime analysis: dangling and use-after-free.
+add_compile_options(
+    $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:Clang>,$<VERSION_GREATER_EQUAL:$<CXX_COMPILER_VERSION>,23>>:-Wlifetime-safety-permissive>)
 # Check view bounds in Debug builds on libstdc++ versions that otherwise leave
 # these checks disabled. This does not change the container ABI.
 add_compile_definitions($<$<CONFIG:Debug>:_GLIBCXX_ASSERTIONS>)

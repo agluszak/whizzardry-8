@@ -76,7 +76,7 @@ TEST_CASE_METHOD(TimerFixture, "Game-day time and accelerated frame deltas keep 
 
     ResetGameTimeAccumulator();
     auto& accumulator = GameTimeAccumulator();
-    accumulator.SetDurationScale(0.5f);
+    accumulator.SetTimeScale(0.5f);
     advance(25'000);
     REQUIRE(accumulator.Update() == Catch::Approx(0.5f));
     PauseSharedGameTimers();
@@ -85,7 +85,7 @@ TEST_CASE_METHOD(TimerFixture, "Game-day time and accelerated frame deltas keep 
     ResumeSharedGameTimers();
     advance(25'000);
     REQUIRE(accumulator.Update() == Catch::Approx(0.5f));
-    accumulator.ResetDurationScale();
+    accumulator.ResetTimeScale();
     advance(25'000);
     REQUIRE(accumulator.Update() == Catch::Approx(0.25f));
     REQUIRE(accumulator.GetElapsed() == Catch::Approx(1.25f));
@@ -113,7 +113,7 @@ TEST_CASE_METHOD(TimerFixture, "Interval gates retain catch-up, one-shot and sav
     saved.SetDurationScale(0.5f);
     {
         auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
-        REQUIRE(saved.Save(*file));
+        REQUIRE(saved.SaveState(*file));
     }
     {
         auto file = wiz8::open_file(path);
@@ -126,7 +126,7 @@ TEST_CASE_METHOD(TimerFixture, "Interval gates retain catch-up, one-shot and sav
     W8IntervalGate loaded(2.0f, false, false);
     {
         auto file = wiz8::open_file(path);
-        REQUIRE(ReadSavePayload(*file, [&](W8Chunk& chunk) { return loaded.Load(chunk); }));
+        REQUIRE(ReadSavePayload(*file, [&](W8Chunk& chunk) { return loaded.LoadState(chunk); }));
     }
     REQUIRE(loaded.GetProgress() == Catch::Approx(0.25f));
     advance(250'000);

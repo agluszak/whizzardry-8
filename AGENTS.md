@@ -55,9 +55,13 @@ Do not reintroduce them.
   color and rendering representations. Build on the existing native direction;
   do not create another competing subsystem. Preserve the original game's
   artwork, layout, and interactions.
-- **Separate disk formats from live objects.** Exact sizes, field widths,
-  packing, offsets, and encodings matter at retail file boundaries, not in
-  ordinary runtime classes. Use explicit fixed-width serialized records and
+- **Separate disk formats from live objects.** The compatibility contract is
+  reading and writing retail data: retail saves must load, and saves we write
+  must stay loadable by the retail format. Exact sizes, field widths, packing,
+  offsets, and encodings matter only in the serialized records at those file
+  boundaries. Runtime classes may change layout, members, and ownership
+  freely; never keep a field, duplicate pointer, or ordering only to mirror
+  retail memory offsets. Use explicit fixed-width serialized records and
   conversion code; give runtime types normal C++ ownership and layout. Keep
   unknown serialized bytes intact. Runtime strings are UTF-8; decode and
   encode retail UTF-16LE explicitly.

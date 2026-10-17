@@ -263,7 +263,7 @@ void UpdateSurpriseMode(void)
             SetNavigatorLinkMode(1);
             level_scale = g_level_records[GetLoadedLevelID()].gameplay_time_scale;
             scale = 1.0f / level_scale;
-            GameTimeAccumulator().SetDurationScale(scale);
+            GameTimeAccumulator().SetTimeScale(scale);
             SetMonsterGeneratorDurationScale(scale);
             gXStatus.surprise_phase = 1;
         }
@@ -914,25 +914,19 @@ static void MoveMonsterGroupAndAllies(W8MonsterGroup* group, glm::vec3* position
     }
 }
 
-/* Advance one monster's whole aging cycle by the elapsed minutes: the
-   look-around timers, the sight bookkeeping around its last-seen position,
-   the per-turn regeneration and fatigue bookkeeping, condition, enchantment
-   and effect countdowns, and finally the combat effect slots. */
-// FUNCTION: WIZ8 0x00503990
-void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
-                     unsigned char full_health_regeneration)
+/* Out-of-combat movement aging: stay-home monsters drift back to their
+   formation point, wanderers advance their look/pause timers. Combat only
+   ticks the combat effect slots. */
+static void AgeMonsterMovement(W8MonsterInfo* monster_info, unsigned int minutes)
 {
-    W8MonsterRecord* record;
     W8Monster* monster;
-    bool frost_condition = false;
 
-    record = GetMonsterDataForInfo(monster_info);
     if (monster_info->fInCombat) {
         W8CombatSlot target;
         target.iType = static_cast<W8TargetKind>(3);
         target.iMonsterID = monster_info->location_id;
         TickCombatEffectSlots(monster_info->pCombat->combat_effects, &target);
-        goto after_early;
+        return;
     }
     monster = monster_info->p3D;
     if (monster->stay_home) {
@@ -961,10 +955,10 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                 MoveMonsterGroupAndAllies(group, &notify_position, monster->GetYaw());
             }
         }
-        goto after_early;
+        return;
     }
     if (GetViewDistance() != g_sight_default) {
-        goto after_early;
+        return;
     }
     if ((monster->linked_navigator == 0 && !monster->halted) &&
         (monster_info->movement_stall_ticks > 1 || !monster->movement_stopped)) {
@@ -1102,22 +1096,35 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
             }
         }
     }
-
-after_early: {
-    unsigned int amount = monster_info->modifiers.damage_per_minute;
-
-    if (amount != 0) {
-        W8TargetSource source;
-
-        amount *= minutes;
-        if (monster_info->fInCombat) {
-            amount += amount >> 1;
-        }
-        ResetTargetSource(&source);
-        ApplyDamageToMonster(monster_info, amount, &source, true, gXStatus.fCombatMode, 0, 0,
-                             false);
-    }
 }
+
+/* Advance one monster's whole aging cycle by the elapsed minutes: the
+   look-around timers, the sight bookkeeping around its last-seen position,
+   the per-turn regeneration and fatigue bookkeeping, condition, enchantment
+   and effect countdowns, and finally the combat effect slots. */
+// FUNCTION: WIZ8 0x00503990
+void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
+                     unsigned char full_health_regeneration)
+{
+    bool frost_condition = false;
+
+    W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
+    AgeMonsterMovement(monster_info, minutes);
+    {
+        unsigned int amount = monster_info->modifiers.damage_per_minute;
+
+        if (amount != 0) {
+            W8TargetSource source;
+
+            amount *= minutes;
+            if (monster_info->fInCombat) {
+                amount += amount >> 1;
+            }
+            ResetTargetSource(&source);
+            ApplyDamageToMonster(monster_info, amount, &source, true, gXStatus.fCombatMode, 0, 0,
+                                 false);
+        }
+    }
     if (monster_info->uiCondition[W8_CONDITION_DISEASED] != 0) {
         frost_condition = true;
     }

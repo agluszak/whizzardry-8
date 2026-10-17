@@ -46,7 +46,7 @@ unsigned int W8IntervalGate::PollElapsedIntervals()
 }
 
 // FUNCTION: WIZ8 0x0043a690
-bool W8IntervalGate::Load(W8Chunk& handle)
+bool W8IntervalGate::LoadState(W8Chunk& handle)
 try {
     if (!m_flags.one_shot) {
         return W8GameTimer::Load(handle);
@@ -63,7 +63,7 @@ try {
 }
 
 // FUNCTION: WIZ8 0x0043a770
-bool W8IntervalGate::Save(wiz8::File& handle)
+bool W8IntervalGate::SaveState(wiz8::File& handle)
 {
     float elapsed;
     if (!m_flags.one_shot) {

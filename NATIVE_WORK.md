@@ -101,7 +101,7 @@ Regenerate on Linux x86-64 using the same Conan build environment as the game
 cmake -S tools/shadercross -B build/shadercross -G Ninja \
   -DCMAKE_TOOLCHAIN_FILE="$PWD/build/linux/conan/conan_toolchain.cmake" \
   -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22
+  -DCMAKE_C_COMPILER=clang-23 -DCMAKE_CXX_COMPILER=clang++-23
 cmake --build build/shadercross --target shadercross --parallel 2
 python3 tools/shadercross/generate.py \
   --shadercross build/shadercross/_deps/shadercross-build/shadercross

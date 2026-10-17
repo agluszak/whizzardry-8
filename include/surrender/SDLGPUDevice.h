@@ -69,7 +69,7 @@ public:
     enum e_cullMode { CULL_NONE = 0, CULL_BACK = 1, CULL_FRONT = 2 };
 
 private:
-/* One interleaved vertex in the device's own stream. */
+    /* One interleaved vertex in the device's own stream. */
     struct Vertex {
         glm::vec4 position;
         glm::vec4 diffuse;
@@ -79,7 +79,7 @@ private:
         float fog;
     };
 
-// SDL vertex attributes below consume this exact packed GPU layout.
+    // SDL vertex attributes below consume this exact packed GPU layout.
     static_assert(sizeof(Vertex) == 76);
     static_assert(offsetof(Vertex, diffuse) == 16 && offsetof(Vertex, specular) == 32);
     static_assert(offsetof(Vertex, texcoord0) == 48 && offsetof(Vertex, texcoord1) == 60);
@@ -105,7 +105,7 @@ private:
         PRIMITIVE_CLASS_POINTS
     };
 
-/* Fixed-function state that SDL GPU bakes into a pipeline. */
+    /* Fixed-function state that SDL GPU bakes into a pipeline. */
     struct PipelineKey {
         static constexpr uint32_t STENCIL_REPLACE = 1u << 30;
         uint32_t value = 0;
@@ -132,7 +132,7 @@ private:
     struct DrawCommand {
         enum Kind { DRAW, CLEAR };
         Kind kind;
-    /* DRAW */
+        /* DRAW */
         PipelineKey pipeline_key;
         uint32_t first_index;
         uint32_t index_count;
@@ -140,10 +140,10 @@ private:
         SDL_GPUSampler* samplers[2];
         VertexUniforms vertex_uniforms;
         FragmentUniforms fragment_uniforms;
-    /* DRAW and CLEAR */
+        /* DRAW and CLEAR */
         SDL_Rect scissor;
         SDL_GPUViewport viewport;
-    /* CLEAR */
+        /* CLEAR */
         uint32_t clear_buffers;
         SDL_FColor clear_color;
         float clear_depth;

@@ -691,14 +691,15 @@ void RenderFrame(void)
             goto clear_viewport;
         }
     } else if (g_world_blacked_out || !g_render_mesh_sky || GetSecondaryWorld() == 0) {
-    clear_viewport: {
-        w8_ulong height = g_gerd->getHeight();
-        w8_ulong width = g_gerd->getWidth();
-        const auto rect = ToSurfaceRect(g_viewport, width, height);
-        g_gerd->setScissor(rect.x, rect.y, rect.w, rect.h);
-        g_gerd->clear(SDLGPUDevice::BUFFER_COLOR | SDLGPUDevice::BUFFER_DEPTH);
-        g_gerd->setScissor(0, 0, width, height);
-    }
+    clear_viewport:
+        {
+            w8_ulong height = g_gerd->getHeight();
+            w8_ulong width = g_gerd->getWidth();
+            const auto rect = ToSurfaceRect(g_viewport, width, height);
+            g_gerd->setScissor(rect.x, rect.y, rect.w, rect.h);
+            g_gerd->clear(SDLGPUDevice::BUFFER_COLOR | SDLGPUDevice::BUFFER_DEPTH);
+            g_gerd->setScissor(0, 0, width, height);
+        }
     }
 
     first_page =

@@ -672,7 +672,7 @@ void ReadMonsterGeneratorStates(W8Chunk& file, W8SavedEncounterState& state)
         if (version > 1) {
             W8IntervalGate timer;
             timer.m_flags.one_shot = false;
-            if (!timer.Load(file)) throw std::runtime_error("invalid generator timer");
+            if (!timer.LoadState(file)) throw std::runtime_error("invalid generator timer");
             if (generator) generator->timer = timer;
         }
     }
@@ -778,7 +778,7 @@ void SaveMonsterGenerators(wiz8::File& handle)
         handle.write(generator->name, 0x20);
         handle.write(&generator->generation_enabled, 1);
         handle.write(&generator->flags, 4);
-        generator->timer.Save(handle);
+        generator->timer.SaveState(handle);
     }
 }
 
@@ -802,7 +802,7 @@ void MonGen::Save(wiz8::File& handle)
     handle.write(&spawn_position.y, 4);
     handle.write(&spawn_position.z, 4);
     handle.write(&encounter_table_index, 4);
-    timer.Save(handle);
+    timer.SaveState(handle);
 }
 
 /* Reads one generator back. The leading byte is a record version: from 3 the
@@ -831,7 +831,7 @@ try {
     handle.ReadBytes(&encounter_table_index, 4);
     Reset(default_interval);
     if (static_cast<signed char>(version) > 1) {
-        if (!timer.Load(handle)) return false;
+        if (!timer.LoadState(handle)) return false;
         timer.Arm();
     }
     flags &= ~static_cast<unsigned int>(W8_MONGEN_ARMED);
