@@ -89,12 +89,12 @@
 namespace {
 std::vector<int> screen_leaves;
 int screen_entries, screen_frames;
-unsigned char enter()
+bool enter()
 {
     ++screen_entries;
     return 1;
 }
-unsigned char leave(int discard)
+bool leave(int discard)
 {
     screen_leaves.push_back(discard);
     return 1;

@@ -55,32 +55,32 @@ std::vector<W8ScreenStateRuntime> g_screen_return_stack;
 
 // GLOBAL: WIZ8 0x00647bc8
 W8ScreenStateHandlers g_screen_handlers[W8_SCREEN_COUNT] = {
-    {ScreenLifecycleSuccess, IntroScreenEnter, IntroScreenFrame, IntroScreenLeave,
-     ScreenLifecycleSuccess},
-    {ScreenLifecycleSuccess, MainMenuScreenEnter, MainMenuScreenFrame, MainMenuScreenLeave,
-     ScreenLifecycleSuccess},
-    {ScreenLifecycleSuccess, ScreenLifecycleSuccess, GameStartRouterFrame, GameStartRouterLeave,
-     ScreenLifecycleSuccess},
-    {ScreenLifecycleSuccess, CharacterScreenEnter, CharacterScreenFrame, CharacterScreenLeave,
-     ScreenLifecycleSuccess},
-    {PleaseWaitScreenInitialize, PleaseWaitScreenEnter, PleaseWaitScreenFrame,
-     PleaseWaitScreenLeave, ScreenLifecycleSuccess},
-    {ScreenLifecycleSuccess, PartySelectionScreenEnter, PartySelectionScreenFrame,
-     PartySelectionScreenLeave, ScreenLifecycleSuccess},
-    {ScreenLifecycleSuccess, CampScreenEnter, CampScreenFrame, CampScreenLeave,
-     ScreenLifecycleSuccess},
-    {ScreenLifecycleSuccess, MainGameScreenEnter, MainGameScreenFrame, MainGameScreenLeave,
-     ScreenLifecycleSuccess},
-    {ScreenLifecycleSuccess, AutomapScreenEnter, AutomapScreenFrame, AutomapScreenLeave,
-     AutomapScreenFinalize},
-    {ScreenLifecycleSuccess, CreditsScreenEnter, CreditsScreenFrame, CreditsScreenLeave,
-     ScreenLifecycleSuccess},
-    {ScreenLifecycleSuccess, OptionsScreenEnter, OptionsScreenFrame, OptionsScreenLeave,
-     ScreenLifecycleSuccess},
-    {JournalScreenInitialize, JournalScreenEnter, JournalScreenFrame, JournalScreenLeave,
-     JournalScreenFinalize},
-    {ScreenLifecycleSuccess, ExitScreenEnter, ExitScreenFrame, MainMenuScreenLeave,
-     ScreenLifecycleSuccess}};
+    {.enter = IntroScreenEnter, .frame = IntroScreenFrame, .leave = IntroScreenLeave},
+    {.enter = MainMenuScreenEnter, .frame = MainMenuScreenFrame, .leave = MainMenuScreenLeave},
+    {.frame = GameStartRouterFrame, .leave = GameStartRouterLeave},
+    {.enter = CharacterScreenEnter, .frame = CharacterScreenFrame, .leave = CharacterScreenLeave},
+    {.initialize = PleaseWaitScreenInitialize,
+     .enter = PleaseWaitScreenEnter,
+     .frame = PleaseWaitScreenFrame,
+     .leave = PleaseWaitScreenLeave},
+    {.enter = PartySelectionScreenEnter,
+     .frame = PartySelectionScreenFrame,
+     .leave = PartySelectionScreenLeave},
+    {.enter = CampScreenEnter, .frame = CampScreenFrame, .leave = CampScreenLeave},
+    {.enter = MainGameScreenEnter, .frame = MainGameScreenFrame, .leave = MainGameScreenLeave},
+    {.enter = AutomapScreenEnter,
+     .frame = AutomapScreenFrame,
+     .leave = AutomapScreenLeave,
+     .finalize = AutomapScreenFinalize},
+    {.enter = CreditsScreenEnter, .frame = CreditsScreenFrame, .leave = CreditsScreenLeave},
+    {.enter = OptionsScreenEnter, .frame = OptionsScreenFrame, .leave = OptionsScreenLeave},
+    {.initialize = JournalScreenInitialize,
+     .enter = JournalScreenEnter,
+     .frame = JournalScreenFrame,
+     .leave = JournalScreenLeave,
+     .finalize = JournalScreenFinalize},
+    {.enter = ExitScreenEnter, .frame = ExitScreenFrame, .leave = MainMenuScreenLeave},
+};
 // GLOBAL: WIZ8 0x00647bc0
 W8ScreenId g_previous_screen_id = W8_SCREEN_NONE;
 // GLOBAL: WIZ8 0x00647bc4
@@ -104,7 +104,7 @@ void ShutdownGame(size_t initialized_screens, bool save_configuration)
     DestroyLevelDatabase();
     g_font_state_palettes = {};
     for (index = 0; index < static_cast<int>(initialized_screens); ++index) {
-        g_screen_handlers[index].finalize();
+        if (g_screen_handlers[index].finalize) g_screen_handlers[index].finalize();
     }
     g_screen_return_stack.clear();
     ClearLocationVariables();
@@ -124,7 +124,8 @@ static bool EnterScreen(W8ScreenId state)
 {
     VideoRemoveToolTip();
     SelectUiInputOwner(state);
-    return g_screen_handlers[state].enter();
+    const auto enter = g_screen_handlers[state].enter;
+    return !enter || enter();
 }
 
 // FUNCTION: WIZ8 0x004e3340

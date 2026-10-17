@@ -245,9 +245,7 @@ static void AppendNoticeLine(unsigned char font_palette, std::string_view text, 
     record->length = -1;
     ++g_notice_line_count;
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_status.text_line_cursor == text_box) {
-        if (ScreenLifecycleSuccess()) {
-            AdvanceNoticeLine(text_box);
-        }
+        AdvanceNoticeLine(text_box);
     } else if (text_box == 3) {
         g_status.text_box_lines_shown[3] = g_status.text_box_lines_used[3];
         g_level_block->text_lines[3] = g_status.text_box_lines_used[3];

@@ -171,7 +171,7 @@ void CreateMainMenuInput()
 }
 } // namespace
 
-unsigned char MainMenuScreenEnter(void)
+bool MainMenuScreenEnter(void)
 {
     std::string text;
     std::string wide;
@@ -321,7 +321,7 @@ void MainMenuScreenFrame()
     RenderFrame();
 }
 
-unsigned char MainMenuScreenLeave(int)
+bool MainMenuScreenLeave(int)
 {
     RetireModal(std::move(main_menu_dialog), false);
     main_menu_input.reset();

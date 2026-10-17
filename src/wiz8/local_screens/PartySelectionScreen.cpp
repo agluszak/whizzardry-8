@@ -1306,7 +1306,7 @@ void W8PartySelectionController::TogglePartyMemberSelection()
     m_confirm_button->m_dirty = true;
 }
 
-unsigned char PartySelectionScreenEnter(void)
+bool PartySelectionScreenEnter(void)
 {
     SetViewport({0, 0, 0x281, 0x1e1});
     SetPrimarySurfaceTextureHint2Enabled(false);
@@ -1337,7 +1337,7 @@ unsigned char PartySelectionScreenEnter(void)
     return 1;
 }
 
-unsigned char PartySelectionScreenLeave(int leaving)
+bool PartySelectionScreenLeave(int leaving)
 {
     if (leaving) {
         g_party_selection_character_collection.reset();
@@ -1446,7 +1446,7 @@ void GameStartRouterFrame(void)
     g_pending_screen_state.id = W8_SCREEN_INTRO;
 }
 
-unsigned char GameStartRouterLeave(int leaving)
+bool GameStartRouterLeave(int leaving)
 {
     return 1;
 }

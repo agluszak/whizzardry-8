@@ -587,9 +587,6 @@ unsigned char UnloadLevel(const char* save_directory)
     if (g_world_cleanup_flag) {
         RenderFrame();
     }
-    if (ScreenLifecycleSuccess() == 0) {
-        return 0;
-    }
     if (g_world_cleanup_flag) {
         RenderFrame();
     }

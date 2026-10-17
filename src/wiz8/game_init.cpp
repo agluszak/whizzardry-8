@@ -54,7 +54,8 @@ unsigned char InitializeGame(size_t& initialized_screens)
     g_screen_return_stack.clear();
     for (int screen = 0; screen < W8_SCREEN_COUNT; ++screen) {
         initialized_screens = screen + 1;
-        if (!g_screen_handlers[screen].initialize()) {
+        const auto initialize = g_screen_handlers[screen].initialize;
+        if (initialize && !initialize()) {
             return 0;
         }
     }

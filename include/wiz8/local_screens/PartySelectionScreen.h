@@ -31,9 +31,9 @@ extern unsigned char g_portrait_frame_flags[0x50];
 void RefreshPartySelectionPortrait(unsigned int party_slot);
 /* Nonzero while the selector is reviewing an existing character. */
 bool PartySelectionInReviewMode(void);
-unsigned char PartySelectionScreenEnter(void);
+bool PartySelectionScreenEnter(void);
 void PartySelectionScreenFrame(void);
-unsigned char PartySelectionScreenLeave(int leaving);
+bool PartySelectionScreenLeave(int leaving);
 void GameStartRouterFrame(void);
 // bool-byte-ok: W8ScreenStateHandlers leave slot
-unsigned char GameStartRouterLeave(int leaving);
+bool GameStartRouterLeave(int leaving);

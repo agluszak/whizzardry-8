@@ -2219,7 +2219,7 @@ void DisableMainGamePortraitSlot(unsigned int slot)
 }
 
 /* Enter the live game screen, constructing its owned native state on first entry. */
-unsigned char MainGameScreenEnter(void)
+bool MainGameScreenEnter(void)
 {
     int display_mode;
     W8Difficulty difficulty = g_status.difficulty;
@@ -2695,7 +2695,7 @@ update_screen:
 
 /* Suspension retains the allocation and resource strip. A full leave also
    unloads the level and releases the per-screen block. */
-unsigned char MainGameScreenLeave(int leaving)
+bool MainGameScreenLeave(int leaving)
 {
     int index;
 

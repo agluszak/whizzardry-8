@@ -10,6 +10,6 @@ extern bool g_main_menu_redraw;
 extern std::string g_pending_main_menu_message;
 
 unsigned char DrawMainMenuItem(short item, short state);
-unsigned char MainMenuScreenEnter(void);
+bool MainMenuScreenEnter(void);
 void MainMenuScreenFrame(void);
-unsigned char MainMenuScreenLeave(int leaving);
+bool MainMenuScreenLeave(int leaving);

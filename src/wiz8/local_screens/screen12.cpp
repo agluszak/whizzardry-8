@@ -31,7 +31,7 @@ void RequestExitScreen(void)
    near-black 0x010101 and puts one video-object frame over it, which is the
    shape record 1's much larger main-menu entry starts with too. */
 // FUNCTION: WIZ8 0x00591790
-unsigned char ExitScreenEnter(void)
+bool ExitScreenEnter(void)
 {
     unsigned short colour;
 

@@ -60,9 +60,9 @@ void RenderAutomapMarkers(void);
 void CreateAutomapButtons(void);
 
 unsigned char ReadAutomapNodes(wiz8::File* hFile);
-unsigned char AutomapScreenEnter(void);
+bool AutomapScreenEnter(void);
 void AutomapScreenFrame(void);
-unsigned char AutomapScreenLeave(int leaving);
-unsigned char AutomapScreenFinalize(void);
+bool AutomapScreenLeave(int leaving);
+void AutomapScreenFinalize(void);
 /* Packs a world position into an automap cell key. */
 unsigned int AutomapNodeKey(const glm::vec3* position);

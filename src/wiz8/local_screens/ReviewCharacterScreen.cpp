@@ -1127,7 +1127,7 @@ static void CreateCampInput()
     }
 }
 
-unsigned char CampScreenEnter(void)
+bool CampScreenEnter(void)
 {
     ClearPrimarySurface();
     g_review_character = static_cast<W8Character*>(g_current_screen_state.parameter_3);
@@ -1320,7 +1320,7 @@ void CampScreenFrame(void)
     DrawCampScreen();
 }
 
-unsigned char CampScreenLeave(int)
+bool CampScreenLeave(int)
 {
     if (!g_camp_screen) return 1; // Already released when it was suspended.
     DeactivateCampPage();

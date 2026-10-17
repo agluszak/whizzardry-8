@@ -590,9 +590,7 @@ bool Trynnie2MeatBox(Trigger* trigger);
 bool Trynnie2UrnTrigger(Trigger* trigger);
 bool Trynnie1FountRandomFX(Trigger* trigger);
 
-/* Activation callbacks that only let the trigger run or stop it. Retail's
-   linker folded them into ScreenLifecycleSuccess and IgnoreSpellCastingInput,
-   which compile to the same bytes. */
+/* Activation callbacks that only let the trigger run or stop it. */
 static bool AllowTriggerActivation(Trigger* trigger)
 {
     return true;

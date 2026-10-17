@@ -43,7 +43,7 @@ void ContinueAfterDarkEndingVideo(void)
 W8BinkVideo* gpVideo;
 
 // FUNCTION: WIZ8 0x005ae510
-unsigned char IntroScreenEnter(void)
+bool IntroScreenEnter(void)
 {
     std::string path;
 
@@ -153,7 +153,7 @@ static void AdvanceIntroScreen(void)
 }
 
 // FUNCTION: WIZ8 0x005ae940
-unsigned char IntroScreenLeave(int)
+bool IntroScreenLeave(int)
 {
     if (gpVideo != 0) {
         FinishVideoPresentation();

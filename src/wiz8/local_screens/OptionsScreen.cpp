@@ -1745,7 +1745,7 @@ void W8OptionsScreen::OnDialogClosed(bool accepted, int)
 /* State 10 first transfers its option values back to the shared settings
    block, then releases every controller-owned control before returning the
    display and region systems to their common screen boundary. */
-unsigned char OptionsScreenLeave(int)
+bool OptionsScreenLeave(int)
 {
     if (!g_options_screen) return 1; // Already released when it was suspended.
     g_options_values.applying = 1;
@@ -1757,7 +1757,7 @@ unsigned char OptionsScreenLeave(int)
 /* State 10 creates the controller after resetting the shared 2D screen
    systems.  The selected panel is determined by the transition mode, with the
    in-game branch preserving the combat and save-state overrides. */
-unsigned char OptionsScreenEnter()
+bool OptionsScreenEnter()
 {
     int selected;
 

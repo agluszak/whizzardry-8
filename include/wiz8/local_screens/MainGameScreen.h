@@ -520,9 +520,9 @@ void DestroySurpriseFade(void);
 unsigned char UpdateSurpriseFade(void);
 unsigned char OpenUseItemSelectView(int slot);
 
-unsigned char MainGameScreenEnter(void);
+bool MainGameScreenEnter(void);
 void MainGameScreenFrame(void);
-unsigned char MainGameScreenLeave(int leaving);
+bool MainGameScreenLeave(int leaving);
 void ShowMainGameNoticeLine(std::string_view text, std::function<void(bool)> callback,
                             bool confirmation, bool cancel);
 

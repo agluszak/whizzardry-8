@@ -571,7 +571,7 @@ void AutomapExitButton(void)
     }
 }
 
-unsigned char AutomapScreenEnter(void)
+bool AutomapScreenEnter(void)
 {
     stScript script;
     g_automap_saved_light_direction = g_light_direction;
@@ -862,7 +862,7 @@ void RestoreAutomapWorldSettings(void)
     SetWorldModelPickingEnabled(true);
 }
 
-unsigned char AutomapScreenLeave(int)
+bool AutomapScreenLeave(int)
 {
     if (!g_automap_state) return 1; // Already released when it was suspended.
     SetNativeTextInputEnabled(false);
@@ -890,7 +890,7 @@ unsigned char AutomapScreenLeave(int)
 /* Lifecycle record 8's finalizer, the fifth slot of its record and the third
    allocate/release pair that establishes what that slot is for. Every guard is
    the original's own, and each pointer is cleared after its release. */
-unsigned char AutomapScreenFinalize(void)
+void AutomapScreenFinalize(void)
 {
     g_automap_visited_cells.clear();
     g_automap_lit_cells.clear();
@@ -901,7 +901,6 @@ unsigned char AutomapScreenFinalize(void)
     g_automap_neutral_marker.reset();
     g_automap_hostile_marker.reset();
     g_automap_text_marker.reset();
-    return 1;
 }
 
 /* Select which automap buttons are enabled for the update mode, then dirty

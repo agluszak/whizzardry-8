@@ -18,6 +18,6 @@ struct W8CreditLine {
 };
 
 std::optional<std::string> ReadRetailTextLine(wiz8::File* handle);
-unsigned char CreditsScreenEnter(void);
+bool CreditsScreenEnter(void);
 void CreditsScreenFrame(void);
-unsigned char CreditsScreenLeave(int leaving);
+bool CreditsScreenLeave(int leaving);

@@ -409,7 +409,7 @@ void JournalScreen::Activate(JournalAction action)
    proof that a record's fifth slot is its finalizer rather than a second
    initializer - record 10's allocate/free pair is the first. */
 // FUNCTION: WIZ8 0x005bddd0
-unsigned char JournalScreenInitialize(void)
+bool JournalScreenInitialize(void)
 {
     if (!g_journal_font.load("Data\\Journal\\journal_font.sti")) return 0;
     g_journal_font_palette = CatalogArtwork::Load(0x1b9).spriteSheet()->colors;
@@ -417,15 +417,14 @@ unsigned char JournalScreenInitialize(void)
 }
 
 // FUNCTION: WIZ8 0x005bde10
-unsigned char JournalScreenFinalize(void)
+void JournalScreenFinalize(void)
 {
     g_journal_font.clear();
     g_journal_font_palette = {};
-    return 1;
 }
 
 // FUNCTION: WIZ8 0x005bde40
-unsigned char JournalScreenEnter(void)
+bool JournalScreenEnter(void)
 {
     int maximum_visibility;
 
@@ -463,7 +462,7 @@ unsigned char JournalScreenEnter(void)
 }
 
 // FUNCTION: WIZ8 0x005be0b0
-unsigned char JournalScreenLeave(int)
+bool JournalScreenLeave(int)
 {
     if (!g_journal_panel) return 1; // Already released when it was suspended.
     g_journal_panel.reset();

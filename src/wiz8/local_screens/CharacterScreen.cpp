@@ -663,15 +663,8 @@ W8Character* W8CharacterScreen::GetOriginalCharacter()
     return m_original;
 }
 
-/* Retail's shared success return, also used by the screen lifecycle table. */
-// FUNCTION: WIZ8 0x005b1740
-unsigned char ScreenLifecycleSuccess(void)
-{
-    return 1;
-}
-
 // FUNCTION: WIZ8 0x005b1750
-unsigned char CharacterScreenEnter(void)
+bool CharacterScreenEnter(void)
 {
     SetViewport({0, 0, 0x281, 0x1e1});
     SetPrimarySurfaceTextureHint2Enabled(false);
@@ -689,7 +682,7 @@ unsigned char CharacterScreenEnter(void)
 }
 
 // FUNCTION: WIZ8 0x005b1840
-unsigned char CharacterScreenLeave(int leaving)
+bool CharacterScreenLeave(int leaving)
 {
     if (leaving) g_character_screen.reset();
     return 1;

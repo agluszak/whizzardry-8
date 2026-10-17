@@ -320,6 +320,6 @@ extern std::unique_ptr<W8OptionsScreen> g_options_screen;
 extern std::string g_options_last_save_name;
 std::string_view GetLastSaveName(void);
 
-unsigned char OptionsScreenEnter(void);
+bool OptionsScreenEnter(void);
 void OptionsScreenFrame(void);
-unsigned char OptionsScreenLeave(int leaving);
+bool OptionsScreenLeave(int leaving);
