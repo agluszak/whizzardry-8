@@ -48,7 +48,6 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/game_timer.h"
-#include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/ground_probe.h"
 #include "wiz8/layouts/game_status.h"
@@ -90,8 +89,8 @@ bool g_mouselook_manual;
 // FUNCTION: WIZ8 0x00420bd0
 GroundProbe probeGround(const glm::vec3& position)
 {
-    if (g_octree_game_data && g_octree_game_data->octree)
-        return g_octree_game_data->octree->settleToGround(position, true, 500);
+    if (GetWorldGameData() && GetWorldGameData()->octree)
+        return GetWorldGameData()->octree->settleToGround(position, true, 500);
     return {position, false};
 }
 
@@ -102,8 +101,8 @@ GroundProbe probeGround(const glm::vec3& position)
 GroundSurfaceInfo groundSurfaceInfo(const glm::vec3& position)
 {
     GroundSurfaceInfo result{probeGround(position).position.y, 0, 0};
-    if (g_octree_game_data && g_octree_game_data->last_hit_surface != 0) {
-        const auto& hit = g_octree_game_data->m_pSurfaces[g_octree_game_data->last_hit_surface];
+    if (GetWorldGameData() && GetWorldGameData()->last_hit_surface != 0) {
+        const auto& hit = GetWorldGameData()->m_pSurfaces[GetWorldGameData()->last_hit_surface];
         result.surface = hit.footstep_surface;
         result.material = hit.footstep_material;
     }
@@ -115,12 +114,11 @@ static bool g_level_override;
 // GLOBAL: WIZ8 0x00652dce
 bool g_shared_timers_paused;
 
-/* Resolve a complete triangle from the active processed vertex table. */
+/* Resolve a complete triangle from an explicit processed vertex table. */
 // FUNCTION: WIZ8 0x004214d0
-std::optional<RuntimeTriangle> surfaceTriangle(std::span<const int, 3> vertexIndices)
+std::optional<RuntimeTriangle> surfaceTriangle(std::span<const glm::vec3> vertices,
+                                               std::span<const int, 3> vertexIndices)
 {
-    if (!g_octree_game_data) return std::nullopt;
-    const auto& vertices = g_octree_game_data->m_pVertices;
     for (const int index : vertexIndices)
         if (index < 0 || static_cast<std::size_t>(index) >= vertices.size()) return std::nullopt;
     return indexedTriangle(vertices, vertexIndices);
@@ -621,7 +619,7 @@ unsigned char W8GameData::ProbeMonstersAlongMotion(glm::vec3* direction, glm::ve
     extent = glm::length((*direction)) + g_runtime_world_scale + kWorldScale;
     lower = (*position) - extent;
     upper = (*position) + extent;
-    objects = g_octree->queryObjects({lower, upper}, W8_OCTREE_KIND_LOCATION, -1);
+    objects = GetWorldOctree()->queryObjects({lower, upper}, W8_OCTREE_KIND_LOCATION, -1);
     count = objects.size();
     if (count == 0) {
         return 0;
@@ -1606,8 +1604,8 @@ bool W8GDSurface::ResolveCollision(glm::vec3* origin, const glm::vec3* hit_point
 // FUNCTION: WIZ8 0x0041E8E0
 bool W8GDSurface::CentroidsDiverging(int surface_index, const glm::vec3& from, const glm::vec3& to)
 {
-    const W8GDSurface* other = g_octree_game_data->m_pSurfaces.data() + surface_index;
-    const glm::vec3* vertices = g_octree_game_data->m_pVertices.data();
+    const W8GDSurface* other = GetWorldGameData()->m_pSurfaces.data() + surface_index;
+    const glm::vec3* vertices = GetWorldGameData()->m_pVertices.data();
     glm::vec3 this_centroid(0.0f, 0.0f, 0.0f);
     glm::vec3 other_centroid(0.0f, 0.0f, 0.0f);
     for (int vertex = 0; vertex < 3; ++vertex) {
@@ -1893,7 +1891,7 @@ void W8GameData::ReleaseLevelData()
         delete g_game_time_accumulator;
     }
     g_game_time_accumulator = 0;
-    SetOctreeGameData(0);
+
     if (g_level_data_teardown_flag) {
         g_level_data_teardown_flag = false;
     }
@@ -1903,8 +1901,8 @@ void W8GameData::ReleaseLevelData()
 void ResetCurrentEnvironment(void)
 {
     if (g_environ != 0) {
-        if (g_octree_game_data != 0 && !g_octree_game_data->m_ppEnvirons.empty()) {
-            g_environ = g_octree_game_data->m_ppEnvirons[0].get();
+        if (GetWorldGameData() != 0 && !GetWorldGameData()->m_ppEnvirons.empty()) {
+            g_environ = GetWorldGameData()->m_ppEnvirons[0].get();
         }
         g_environ->vector = glm::vec3(0);
         if (g_environment_load_flag != 0) {
@@ -1995,13 +1993,6 @@ float MoveTimer(int value)
 }
 
 // FUNCTION: WIZ8 0x00420D40
-srCamera* CreateOrSetGameCamera(srNode* parent, srCamera* camera)
-{
-    if (g_gd_camera == 0) {
-        g_gd_camera = new GDCamera();
-    }
-    return g_gd_camera->CreateOrAttachCamera(parent, camera);
-}
 
 // FUNCTION: WIZ8 0x00420DC0
 float GetCameraYawInDegrees()

@@ -67,6 +67,7 @@
 #include "wiz8/retail_text_records.h"
 #include "wiz8/save_game.h"
 #include "wiz8/xstatus.h"
+#include "world_fixture.h"
 
 static std::filesystem::path fixture_root;
 
@@ -1184,27 +1185,18 @@ TEST_CASE_METHOD(LoaderFixture, "World item sections reject invalid signed count
 TEST_CASE_METHOD(LoaderFixture, "Environment tables decode RGB bytes without runtime vector layout",
                  "[loader][records]")
 {
-    const struct RestoreTables {
-        std::array<glm::vec3, 256> environment = g_environment_colours0;
-        std::array<glm::vec3, 256> light = g_environment_colours1;
-        ~RestoreTables()
-        {
-            g_environment_colours0 = environment;
-            g_environment_colours1 = light;
-        }
-    } restore;
     std::string bytes;
     for (int index = 0; index < 256; ++index) {
         bytes.push_back(static_cast<char>(index));
         bytes.push_back(static_cast<char>(255 - index));
         bytes.push_back(static_cast<char>(index / 2));
     }
-    for (const auto& [read, table] :
-         {std::pair{&ReadEnvironmentColourTable, &g_environment_colours0},
-          std::pair{&ReadLightColourTable, &g_environment_colours1}}) {
+    std::array<glm::vec3, 256> colours;
+    auto* table = &colours;
+    {
         store("colours.bin", bytes);
         auto file = wiz8::open_file(wiz8::asset_path("colours.bin"));
-        REQUIRE(read(file.get()));
+        REQUIRE(ReadEnvironmentColours(file.get(), colours));
         REQUIRE(file->tell() == 768);
         for (int index : {0, 1, 127, 255}) {
             const glm::vec3 expected(index, 255 - index, index / 2);
@@ -1213,7 +1205,7 @@ TEST_CASE_METHOD(LoaderFixture, "Environment tables decode RGB bytes without run
         const auto complete = *table;
         store("colours.bin", bytes.substr(0, 767));
         file = wiz8::open_file(wiz8::asset_path("colours.bin"));
-        REQUIRE_FALSE(read(file.get()));
+        REQUIRE_FALSE(ReadEnvironmentColours(file.get(), colours));
         REQUIRE(*table == complete);
     }
 }
@@ -1377,11 +1369,6 @@ TEST_CASE_METHOD(LoaderFixture, "Retail waypoint versions load without an editor
                  "[loader][pathing]")
 {
     W8Octree tree(nullptr, nullptr);
-    const struct RestoreOctree {
-        W8Octree* previous;
-        ~RestoreOctree() { g_octree = previous; }
-    } restore{g_octree};
-    g_octree = &tree;
     tree.object_registry = new W8OctreeObjectRegistry;
     tree.m_spatial.m_bounds.minimum = glm::vec3(0);
     tree.m_spatial.m_node_extent = 1;
@@ -1410,7 +1397,7 @@ TEST_CASE_METHOD(LoaderFixture, "Retail waypoint versions load without an editor
             }
         }
         store("waypoints.wpt", bytes);
-        REQUIRE(path.ReadWaypointFile());
+        REQUIRE(path.ReadWaypointFile(tree));
         REQUIRE(path.m_waypoints.size() == 3);
         REQUIRE(path.m_waypoints[1].position == glm::vec3(1, 2, 3));
         REQUIRE(path.m_waypoints[2].position == glm::vec3(4, 5, 6));
@@ -1422,7 +1409,7 @@ TEST_CASE_METHOD(LoaderFixture, "Retail waypoint versions load without an editor
         auto* edges = path.m_pEdges.data();
         for (std::size_t end = 0; end < bytes.size(); ++end) {
             store("waypoints.wpt", bytes.substr(0, end));
-            REQUIRE_FALSE(path.ReadWaypointFile());
+            REQUIRE_FALSE(path.ReadWaypointFile(tree));
             REQUIRE(path.m_waypoints.data() == waypoints);
             REQUIRE(path.m_pEdges.data() == edges);
         }

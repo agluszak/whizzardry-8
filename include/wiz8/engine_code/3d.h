@@ -28,7 +28,7 @@ void UpdateWorldMonsters(W8World* world);
 void WorldUpdateProps(W8World* world);
 void SetWorldSceneMeshShaderLowBits(W8World* owner, int argument);
 void SetWorldSceneMeshShaderBit3(W8World* owner, int argument);
-void FinalizeStaticScene(srScene* scene);
+void FinalizeStaticScene(W8World& world);
 // Factories return detached instances. Scene ownership requires explicit adoption.
 std::unique_ptr<stModelInstance> CreateModelInstance(std::shared_ptr<stMeshModel> model);
 
@@ -80,5 +80,4 @@ void ConfigureWorldLight(srLight* light, float range);
 void WorldRemoveLight(W8World* world, stLight* light); /* 0x0046E250 */
 void DestroyWorldLights(W8World* world);
 void DetachWorldItemMeshes(W8World* world);
-extern W8GameData* g_octree_game_data;
-void SetOctreeGameData(W8GameData* value); /* 0x0046D7D0 */
+W8GameData* GetWorldGameData();

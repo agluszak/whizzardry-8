@@ -1,9 +1,11 @@
 #ifndef WIZ8_LAYOUTS_WORLD_H
 #define WIZ8_LAYOUTS_WORLD_H
 
+#include <array>
 #include <memory>
 #include <span>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 class W8AmbientSound;
@@ -51,6 +53,14 @@ struct W8WorldCameraState {
     W8CameraAngleRecord yaw;
 };
 
+struct W8AutomapCells {
+    float grid_cell_size = 2000.0f;
+    std::vector<bool> visited;
+    std::vector<bool> lit;
+    std::vector<unsigned int> keys;
+    std::unordered_map<unsigned int, int> index;
+};
+
 /* Runtime world, not a retail disk record. Collection storage belongs to the
    world. Destruction proceeds in three phases (stop activity, unregister borrowed indexes,
    destroy owned resources).
@@ -63,6 +73,8 @@ struct W8World {
     ~W8World();
     W8World(const W8World&) = delete;
     W8World& operator=(const W8World&) = delete;
+    unsigned int next_trigger_id = 1;
+    W8AutomapCells automap;
     std::shared_ptr<stMaterial> cloud_material;
     std::vector<std::unique_ptr<W8Monster>> monsters;
     // Update membership borrows loaded monsters, including the visible cursor.
@@ -71,6 +83,15 @@ struct W8World {
     std::vector<std::unique_ptr<W8Prop>> plsProps;
     std::vector<std::unique_ptr<W8CameraPath>> plsCameras;
     std::vector<std::unique_ptr<W8AmbientSound>> plsAmbientSounds;
+    // Authored environment data belongs to the loaded scene, not the active session.
+    std::array<glm::vec3, 256> environment_colours;
+    std::array<glm::vec3, 256> light_colours;
+    std::vector<stLight*> environment_lights;
+    glm::vec3 environment_offset{0.0f};
+    glm::mat3 initial_camera_rotation{1.0f};
+    bool fog_enabled = false;
+    int last_light_phase = -1;
+    int last_environment_colour_phase = -1;
     float environment_range_start{};
     float environment_range_end{};
     /* Third serialized environment channel (loaded from

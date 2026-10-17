@@ -472,7 +472,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                 srAssertFail("fFoundMissileVertex", SIGHT_CPP, 0x1f5, 0);
                                 clear = false;
                             } else {
-                                short line = g_octree->TraceLineOfSight(
+                                short line = GetWorldOctree()->TraceLineOfSight(
                                     &trace_position, &other_position, true,
                                     monster_info->location_id, other->location_id, true, 1);
 
@@ -487,7 +487,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                 srAssertFail("fFoundSpellVertex", SIGHT_CPP, 0x1fd, 0);
                                 entry->los_flags[3] = false;
                             } else {
-                                short line = g_octree->TraceLineOfSight(
+                                short line = GetWorldOctree()->TraceLineOfSight(
                                     &trace_position, &other_position, true, -3, -3, true, 0);
 
                                 entry->los_flags[3] = line != 1;
@@ -597,8 +597,9 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                 srAssertFail("fFoundMissileVertex", SIGHT_CPP, 0x9b, 0);
                 clear = false;
             } else {
-                short line = g_octree->TraceLineOfSight(&trace_position, &camera_position, true,
-                                                        monster_info->location_id, -1, true, 1);
+                short line =
+                    GetWorldOctree()->TraceLineOfSight(&trace_position, &camera_position, true,
+                                                       monster_info->location_id, -1, true, 1);
 
                 clear = line == 0;
             }
@@ -611,8 +612,8 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                 srAssertFail("fFoundSpellVertex", SIGHT_CPP, 0xa3, 0);
                 monster_info->player_visibility.los_flags[3] = false;
             } else {
-                short line = g_octree->TraceLineOfSight(&trace_position, &camera_position, true, -3,
-                                                        -3, true, 0);
+                short line = GetWorldOctree()->TraceLineOfSight(&trace_position, &camera_position,
+                                                                true, -3, -3, true, 0);
 
                 monster_info->player_visibility.los_flags[3] = line != 1;
             }

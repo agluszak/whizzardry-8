@@ -145,7 +145,8 @@ void stGroundShadow::renderGroundShadow(srGERD& renderer)
     auto position = glm::vec3(getLocation());
     position.y += kWorldScale;
     const float radius = std::max(width, depth);
-    const auto polygons = g_octree->polygonsNearPoint(position, radius, radius * 2 + kWorldScale);
+    const auto polygons =
+        GetWorldOctree()->polygonsNearPoint(position, radius, radius * 2 + kWorldScale);
     if (polygons.empty()) return;
 
     const struct OffsetScope {

@@ -44,7 +44,6 @@ class GDCamera {
 public:
     GDCamera(); /* 0x00476140 */
 
-    srCamera* CreateOrAttachCamera(srNode* parent, srCamera* camera); /* 0x00476440 */
     void ApplyRotationMatrix(glm::mat3* rotation, W8LevelDataRecord* context); /* 0x00476610 */
     void SnapToTarget(const glm::vec3* target); /* 0x00476950 */
     void SetOrientationImmediate(float pitch, float angle); /* 0x00476C30 */
@@ -104,7 +103,6 @@ private:
 };
 
 extern GDCamera* g_gd_camera;
-extern srCamera* g_game_camera;
 
 void GetCameraForwardPointCopy(float distance, glm::vec3* output);
 void GetCameraForwardPoint(float distance, glm::vec3* output);

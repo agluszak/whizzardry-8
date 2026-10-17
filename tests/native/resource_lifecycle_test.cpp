@@ -53,6 +53,7 @@
 #include "wiz8/npc_script_file.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/xstatus.h"
+#include "world_fixture.h"
 
 extern std::shared_ptr<SDL_Surface> g_mouse_surface;
 extern SDLSurfaceOwner g_automap_surface;
@@ -205,15 +206,13 @@ struct SpellVisualFixture {
     ScopedTemporaryDirectory directory{"wiz8-spell-visuals"};
     ScopedAssetRoots roots;
     std::unique_ptr<W8World> previous_world = ExchangeCurrentWorld(std::make_unique<W8World>());
-    W8Octree* previous_octree = g_octree;
-    std::unique_ptr<W8Octree> octree;
     W8World& world = *GetWorld();
     std::vector<std::unique_ptr<W8SpellVisual>>& visuals = world.spell_visuals;
+    std::unique_ptr<W8Octree>& octree = world.octree;
 
     SpellVisualFixture()
     {
-        octree = std::make_unique<W8Octree>(nullptr, nullptr);
-        g_octree = octree.get();
+        world.octree = std::make_unique<W8Octree>(nullptr, nullptr);
         std::filesystem::create_directory(directory.path / "assets");
         std::filesystem::create_directory(directory.path / "user");
         roots.configure({(directory.path / "assets").string(), (directory.path / "user").string()});
@@ -222,8 +221,7 @@ struct SpellVisualFixture {
     ~SpellVisualFixture()
     {
         world.spell_visuals.clear();
-        octree.reset();
-        g_octree = previous_octree;
+        world.octree.reset();
         ExchangeCurrentWorld(std::move(previous_world));
     }
 };

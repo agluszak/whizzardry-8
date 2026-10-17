@@ -3205,8 +3205,8 @@ W8Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W
     if (TargetSourceIsCharacter(source, 0)) {
         GetCharacterProjectilePosition(source->iChar, &source_position);
         if (target->iType == W8_TARGET_KIND_PLACE) {
-            if (g_octree->TraceLineOfSight(&source_position, &target_position, true, -3, -3, true,
-                                           0) == 1) {
+            if (GetWorldOctree()->TraceLineOfSight(&source_position, &target_position, true, -3, -3,
+                                                   true, 0) == 1) {
                 source_position = cameraLocation();
             }
         } else if (target->iType == W8_TARGET_KIND_MONSTER) {

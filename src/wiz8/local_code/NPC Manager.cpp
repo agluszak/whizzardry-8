@@ -1866,8 +1866,8 @@ static bool ProbeNpcPlacementNearParty(int /*party_slot*/, int /*mode*/, glm::ve
     party_position.y -= g_default_world_height;
     yaw = GetCameraYawRadians() + kTargetingQuarterPi;
     for (const int mode : {10, 20, 30}) {
-        const auto placement = g_octree->navigatorPositions(party_position, yaw, 1000.0f, 1, true,
-                                                            false, true, mode, false);
+        const auto placement = GetWorldOctree()->navigatorPositions(party_position, yaw, 1000.0f, 1,
+                                                                    true, false, true, mode, false);
         party_position = placement.source;
         if (!placement.positions.empty()) {
             *position_out = placement.positions.front();

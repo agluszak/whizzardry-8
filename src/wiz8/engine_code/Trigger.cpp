@@ -942,7 +942,7 @@ bool Trigger::HasActorWithinRadius(float radius, bool include_party)
         lower = center - extent;
         upper = center + extent;
 
-        locations = g_octree->queryObjects({lower, upper}, W8_OCTREE_KIND_LOCATION, -1);
+        locations = GetWorldOctree()->queryObjects({lower, upper}, W8_OCTREE_KIND_LOCATION, -1);
         unsigned int count = locations.size();
         for (unsigned int index = 0; index < count; ++index) {
             int location_id = locations[index];
@@ -1248,9 +1248,9 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
     handle->read_exact(&record_type, 1);
     if (record_type < 1 || record_type > 4) throw std::runtime_error("invalid level trigger type");
     if (record_type != 3) {
-        owner = std::make_unique<Trigger>();
+        owner = std::make_unique<Trigger>(world);
         trigger = owner.get();
-        trigger->trigger_id = g_status.next_trigger_id++;
+        trigger->trigger_id = world->next_trigger_id++;
         trigger->m_pWorld = world;
         trigger->flags = (trigger->flags & ~0x20U) | W8_TRIGGER_ON;
     }
@@ -1784,7 +1784,7 @@ bool Trigger::RequiresItem()
 
 // VTABLE: WIZ8 0x005ec104
 // FUNCTION: WIZ8 0x0043ba10
-Trigger::Trigger()
+Trigger::Trigger(W8World* world)
 {
     trigger_kind = 0;
     trigger_id = 0;
@@ -1832,7 +1832,7 @@ Trigger::Trigger()
     item_group_seed = static_cast<unsigned int>(w8_get_ticks() + Random(30000));
     gold = 0;
     uses_remaining = 0;
-    trigger_id = g_status.next_trigger_id++;
+    trigger_id = world ? world->next_trigger_id++ : g_status.next_trigger_id++;
 }
 
 // FUNCTION: WIZ8 0x00440d00

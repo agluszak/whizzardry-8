@@ -8,6 +8,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 
 #include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_stdinc.h>
@@ -63,6 +64,51 @@
 #include "wiz8/startup_world.h"
 #include "wiz8/world_cursor.h"
 #include "wiz8/xstatus.h"
+
+// GLOBAL: WIZ8 0x00659a80
+namespace {
+std::unique_ptr<W8World> primary_world;
+std::unique_ptr<W8World> sky_world;
+}
+
+W8World* GetWorld()
+{
+    return primary_world.get();
+}
+W8World* GetSecondaryWorld()
+{
+    return sky_world.get();
+}
+int GetLoadedLevelID()
+{
+    return primary_world ? primary_world->level_id : -1;
+}
+
+static void StopWorldActivity(W8World* world)
+{
+    // The cursor borrows a monster owned by this world, even while hidden.
+    ReleaseWorldCursor();
+    StopWorldTriggerEvents();
+    StopAllAmbientSounds();
+    world->nodes_to_disable.clear();
+    world->stopLightUpdates();
+}
+
+#ifdef WIZ8_WORLD_FIXTURES
+std::unique_ptr<W8World> ExchangeCurrentWorld(std::unique_ptr<W8World> world)
+{
+    if (primary_world) {
+        StopWorldActivity(primary_world.get());
+    }
+    return std::exchange(primary_world, std::move(world));
+}
+
+std::unique_ptr<W8World> ExchangeSkyWorld(std::unique_ptr<W8World> world)
+{
+    return std::exchange(sky_world, std::move(world));
+}
+
+#endif
 
 #define LEVELS_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Levels.cpp"
 
@@ -152,7 +198,7 @@ void StartLevelMusic(int fade, int replace_current)
 // FUNCTION: WIZ8 0x0042b3e0
 void UnloadSkyWorld(void)
 {
-    ExchangeSkyWorld(nullptr);
+    sky_world.reset();
     ResetEnvironment();
 }
 
@@ -225,24 +271,13 @@ const char* GetLevelFolderName(int level_id)
    its cloud meshes are marked for the renderer's
    control bits and every CloudsN prop's mesh chain is rebound to it. */
 // FUNCTION: WIZ8 0x0042B020
-unsigned char LoadSkyWorld(std::string_view sky_path)
+static std::unique_ptr<W8World> PrepareSkyWorld(std::string_view sky_path)
 {
-    if (sky_path.empty()) {
-        UnloadSkyWorld();
-        return 1;
-    }
-    if (GetSecondaryWorld() &&
-        GetSecondaryWorld()->source_path == wiz8::normalize_asset_path(sky_path).generic_string())
-        return 1;
-
-    UnloadSkyWorld();
-    ExchangeSkyWorld(CreateWorld(-1, std::string(sky_path)));
-    W8World* sky_world = GetSecondaryWorld();
-    try {
-        if (!LoadWorld(sky_world, false)) {
-            UnloadSkyWorld();
-            return 0;
-        }
+    if (sky_path.empty()) return nullptr;
+    auto replacement = LoadWorld(-1, std::string(sky_path), false);
+    if (!replacement) return nullptr;
+    auto* sky_world = replacement.get();
+    {
 
         const glm::dvec3 position(0);
         static_cast<srNode*>(sky_world->camera)->setLocation(position);
@@ -289,15 +324,24 @@ unsigned char LoadSkyWorld(std::string_view sky_path)
             }
         }
 
-        SetWorldSceneMeshShaderLowBits(GetSecondaryWorld(), 0);
-        SetWorldSceneMeshShaderBit3(GetSecondaryWorld(), 1);
+        SetWorldSceneMeshShaderLowBits(sky_world, 0);
+        SetWorldSceneMeshShaderBit3(sky_world, 1);
         WorldRemoveLight(sky_world, sky_world->camera_light);
         sky_world->camera_light = 0;
-        return 1;
-    } catch (...) {
-        UnloadSkyWorld();
-        throw;
     }
+    return replacement;
+}
+
+unsigned char LoadSkyWorld(std::string_view sky_path)
+{
+    if (sky_world &&
+        sky_world->source_path == wiz8::normalize_asset_path(sky_path).generic_string())
+        return 1;
+    auto replacement = PrepareSkyWorld(sky_path);
+    if (!sky_path.empty() && !replacement) return 0;
+    sky_world = std::move(replacement);
+    if (!sky_world) ResetEnvironment();
+    return 1;
 }
 
 // GLOBAL: WIZ8 0x00605820
@@ -384,10 +428,8 @@ bool LevelBuildInfoByID(int level, W8LevelInfo* info)
     return true;
 }
 
-/* Build the complete live level around the current world. The subordinate
-   loaders remain in their original units; this body owns their ordering,
-   rollback boundary, entry positioning, first-visit work and final renderer
-   publication. */
+/* Construct level and sky resources before leaving the current level. The
+   remaining work activates gameplay against the completed scenes. */
 // FUNCTION: WIZ8 0x0042A6F0
 unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
 {
@@ -403,151 +445,145 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
         return 0;
     }
 
+    auto replacement = LoadWorld(level, level_info.level_path);
+    if (!replacement) return 0;
+    const bool reuse_sky =
+        sky_world &&
+        sky_world->source_path == wiz8::normalize_asset_path(level_info.sky_path).generic_string();
+    auto replacement_sky = reuse_sky ? nullptr : PrepareSkyWorld(level_info.sky_path);
+    if (!reuse_sky && !level_info.sky_path.empty() && !replacement_sky) return 0;
     if (GetWorld() && !UnloadLevel("")) return 0;
-    DisableSky();
     ReleaseReadMeshScratch();
     InvalidateRendererTextureCache();
-    ExchangeCurrentWorld(CreateWorld(level, level_info.level_path));
-    const bool was_visited = level < W8_LEVEL_COUNT && g_status.level_progress[level].visited;
-    try {
-        StartLevelMusic(1, 1);
-        if (!LoadSkyWorld(level_info.sky_path) || !InitializeMonsterManagerState() ||
-            !InitializeItemManagerState()) {
-            UnloadLevel("", LevelExit::FailedLoad);
-            return 0;
-        }
-        ResetNextTriggerId();
-        if (!LoadWorld(GetWorld(), true)) {
-            UnloadLevel("", LevelExit::FailedLoad);
-            return 0;
-        }
-
-        SetSkyNodeVisible(false);
-        ResetAutomapView();
-        if (!LoadLevelStatus(wiz8::user_path("saves/CurrentGame.SAV"), level)) {
-            const auto status_path = BuildLevelStatusPath(level);
-            LoadLevelStatus(wiz8::asset_path(status_path), level, true);
-        }
-
-        if (!restoring_game && entrance != -1) {
-            Trigger* trigger = 0;
-
-            if (level < W8_LEVEL_COUNT) {
-                char trigger_name[8];
-                sprintf(trigger_name, "%3s%02d", g_level_folders[level].location_code, entrance);
-                trigger = FindTriggerByName(trigger_name);
-            }
-            if (trigger != 0 && ((trigger->flags & W8_TRIGGER_POSITIONED) != 0)) {
-                glm::vec3 trigger_position;
-                glm::vec3 position;
-
-                trigger->GetPosition(&trigger_position);
-                position = trigger_position;
-                position.y = probeGround(trigger_position).position.y + g_default_world_height;
-                if (fabs(position.y - trigger_position.y) > g_position_height_epsilon) {
-                    position.y = trigger_position.y;
-                }
-                SetWorldScenePosition(GetWorld(), &position);
-
-                if (trigger->trigger_kind == 2) {
-                    glm::vec3 axis;
-                    glm::mat3 rotation;
-
-                    axis = trigger->direction;
-                    rotation = glm::mat3(1);
-                    if (trigger->angle != 0.0f) {
-                        rotation *= glm::mat3_cast(glm::angleAxis(
-                            float(std::atan2(sin(trigger->angle), cos(trigger->angle))),
-                            normalizedOrZero(glm::vec3(axis))));
-                    }
-                    ApplyCameraRotation(&rotation);
-                }
-            } else {
-                glm::vec3 position;
-
-                position = glm::vec3(0.0f, g_default_world_height, 0.0f);
-                SetWorldScenePosition(GetWorld(), &position);
-            }
-        } else {
-            RestoreWorldCameraState(GetWorld(), GetSecondaryWorld(),
-                                    &g_status.pending_move_location);
-        }
-
-        if (level < W8_LEVEL_COUNT && !g_status.level_progress[level].visited) {
-            ResetMonsterGroupTurnState();
-            RebindMonsterGroupScripts();
-            g_status.level_progress[level].visited = true;
-            first_visit = true;
-        }
-
-        auto ambient_path = wiz8::path_from_utf8(level_info.level_path);
-        ambient_path.replace_extension(".SCF");
-        ReadAmbientSoundListFile(wiz8::path_to_utf8(ambient_path).c_str());
-        if (!g_environment_load_flag) {
-            ResetCurrentEnvironment();
-        }
-        g_camera_path_active = false;
-        InitializeLevelEnvironment();
-        InitializeLevelMasterFunctions(level);
-        RebindNpcLevelTriggers();
-        SetWorldCursorNodesVisible(false);
-        RebuildPartyEffectBlock();
-
-        if (!restoring_game) {
-            if (level < W8_LEVEL_COUNT) {
-                ResetNpcBindingsForParty();
-                ClearPendingNpcLevelFlags();
-                ReleaseNpcMonsterBindings();
-                RecordLevelEntryDialogueState();
-                gXStatus.combat_countdown = 0;
-            }
-            if (g_status.greeting_pending &&
-                (GetFact(W8_FACT_IMPORT_UMPANI) || GetFact(W8_FACT_IMPORT_TRANG))) {
-                DespawnAllActiveMonsterGroups();
-            } else {
-                UpdateRandomEncounterBudget(first_visit);
-            }
-            if (!first_visit) {
-                ResetAndRefreshAllSight();
-                AgeAllMonsterSight();
-            }
-            g_spell_effects.clear();
-        } else {
-            W8SpellEffectEntry* effect = FindMonsterControlSpellEffect();
-
-            if (effect != 0) {
-                SpawnLureEffects(effect, effect->definition.duration_scale, &effect->target);
-            }
-        }
-
-        if (first_visit) {
-            InitializeMonsterRuntimeStats();
-            RebuildAllWorldItemInstances();
-        }
-        MarkWorldViewDirty();
-        RefreshWorldView();
-        ReleaseReadMeshScratch();
-        return 1;
-    } catch (...) {
-        if (level < W8_LEVEL_COUNT) g_status.level_progress[level].visited = was_visited;
-        UnloadLevel("", LevelExit::FailedLoad);
-        throw;
+    primary_world = std::move(replacement);
+    if (!reuse_sky) sky_world = std::move(replacement_sky);
+    StartLevelMusic(1, 1);
+    if (!InitializeMonsterManagerState() || !InitializeItemManagerState()) return 0;
+    g_status.next_trigger_id = GetWorld()->next_trigger_id;
+    UpdateGameDataRuntime();
+    if (GetWorld()->game_data) g_environ = GetWorld()->game_data->m_ppEnvirons.front().get();
+    SetFogEnabled(GetWorld()->fog_enabled);
+    ApplyCameraRotation(&GetWorld()->initial_camera_rotation);
+    SetSkyNodeVisible(false);
+    ResetAutomapView();
+    if (!LoadLevelStatus(wiz8::user_path("saves/CurrentGame.SAV"), level)) {
+        const auto status_path = BuildLevelStatusPath(level);
+        LoadLevelStatus(wiz8::asset_path(status_path), level, true);
     }
+
+    if (!restoring_game && entrance != -1) {
+        Trigger* trigger = 0;
+
+        if (level < W8_LEVEL_COUNT) {
+            char trigger_name[8];
+            sprintf(trigger_name, "%3s%02d", g_level_folders[level].location_code, entrance);
+            trigger = FindTriggerByName(trigger_name);
+        }
+        if (trigger != 0 && ((trigger->flags & W8_TRIGGER_POSITIONED) != 0)) {
+            glm::vec3 trigger_position;
+            glm::vec3 position;
+
+            trigger->GetPosition(&trigger_position);
+            position = trigger_position;
+            position.y = probeGround(trigger_position).position.y + g_default_world_height;
+            if (fabs(position.y - trigger_position.y) > g_position_height_epsilon) {
+                position.y = trigger_position.y;
+            }
+            SetWorldScenePosition(GetWorld(), &position);
+
+            if (trigger->trigger_kind == 2) {
+                glm::vec3 axis;
+                glm::mat3 rotation;
+
+                axis = trigger->direction;
+                rotation = glm::mat3(1);
+                if (trigger->angle != 0.0f) {
+                    rotation *= glm::mat3_cast(
+                        glm::angleAxis(float(std::atan2(sin(trigger->angle), cos(trigger->angle))),
+                                       normalizedOrZero(glm::vec3(axis))));
+                }
+                ApplyCameraRotation(&rotation);
+            }
+        } else {
+            glm::vec3 position;
+
+            position = glm::vec3(0.0f, g_default_world_height, 0.0f);
+            SetWorldScenePosition(GetWorld(), &position);
+        }
+    } else {
+        RestoreWorldCameraState(GetWorld(), GetSecondaryWorld(), &g_status.pending_move_location);
+    }
+
+    if (level < W8_LEVEL_COUNT && !g_status.level_progress[level].visited) {
+        ResetMonsterGroupTurnState();
+        RebindMonsterGroupScripts();
+        g_status.level_progress[level].visited = true;
+        first_visit = true;
+    }
+
+    auto ambient_path = wiz8::path_from_utf8(level_info.level_path);
+    ambient_path.replace_extension(".SCF");
+    ReadAmbientSoundListFile(wiz8::path_to_utf8(ambient_path).c_str());
+    if (!g_environment_load_flag) {
+        ResetCurrentEnvironment();
+    }
+    g_camera_path_active = false;
+    InitializeLevelEnvironment();
+    InitializeLevelMasterFunctions(level);
+    RebindNpcLevelTriggers();
+    SetWorldCursorNodesVisible(false);
+    RebuildPartyEffectBlock();
+
+    if (!restoring_game) {
+        if (level < W8_LEVEL_COUNT) {
+            ResetNpcBindingsForParty();
+            ClearPendingNpcLevelFlags();
+            ReleaseNpcMonsterBindings();
+            RecordLevelEntryDialogueState();
+            gXStatus.combat_countdown = 0;
+        }
+        if (g_status.greeting_pending &&
+            (GetFact(W8_FACT_IMPORT_UMPANI) || GetFact(W8_FACT_IMPORT_TRANG))) {
+            DespawnAllActiveMonsterGroups();
+        } else {
+            UpdateRandomEncounterBudget(first_visit);
+        }
+        if (!first_visit) {
+            ResetAndRefreshAllSight();
+            AgeAllMonsterSight();
+        }
+        g_spell_effects.clear();
+    } else {
+        W8SpellEffectEntry* effect = FindMonsterControlSpellEffect();
+
+        if (effect != 0) {
+            SpawnLureEffects(effect, effect->definition.duration_scale, &effect->target);
+        }
+    }
+
+    if (first_visit) {
+        InitializeMonsterRuntimeStats();
+        RebuildAllWorldItemInstances();
+    }
+    MarkWorldViewDirty();
+    RefreshWorldView();
+    ReleaseReadMeshScratch();
+    return 1;
 }
 
 // FUNCTION: WIZ8 0x0042ACE0
-unsigned char UnloadLevel(const char* save_directory, LevelExit exit)
+unsigned char UnloadLevel(const char* save_directory)
 {
+    if (!primary_world) return 1;
     if (gXStatus.fCombatMode) {
         EndCombat(true);
     }
 
-    if (exit == LevelExit::Normal && GetLoadedLevelID() >= 0 &&
-        GetLoadedLevelID() < W8_LEVEL_COUNT) {
+    if (GetLoadedLevelID() >= 0 && GetLoadedLevelID() < W8_LEVEL_COUNT) {
         g_status.level_progress[GetLoadedLevelID()].sight_clock = g_status.world_clock;
     }
 
-    if (exit == LevelExit::Normal && g_world_cleanup_flag) {
+    if (g_world_cleanup_flag) {
         RenderFrame();
     }
 
@@ -556,41 +592,43 @@ unsigned char UnloadLevel(const char* save_directory, LevelExit exit)
         SaveLevelStatus("saves\\CurrentGame.SAV");
     }
 
-    if (exit == LevelExit::Normal && g_world_cleanup_flag) {
+    if (g_world_cleanup_flag) {
         RenderFrame();
     }
 
     if (ReleaseItemLists() == 0) {
         return 0;
     }
-    if (exit == LevelExit::Normal && g_world_cleanup_flag) {
+    if (g_world_cleanup_flag) {
         RenderFrame();
     }
     if (ShutdownMonsterManager() == 0) {
         return 0;
     }
-    if (exit == LevelExit::Normal && g_world_cleanup_flag) {
+    if (g_world_cleanup_flag) {
         RenderFrame();
     }
     if (ScreenLifecycleSuccess() == 0) {
         return 0;
     }
-    if (exit == LevelExit::Normal && g_world_cleanup_flag) {
+    if (g_world_cleanup_flag) {
         RenderFrame();
     }
 
     ReleaseWorldCursorNodes();
     ClearSearchables();
-    if (exit == LevelExit::Normal && g_world_cleanup_flag) {
+    if (g_world_cleanup_flag) {
         RenderFrame();
     }
 
     ReleaseWorldCursor();
     DisableSky();
-    ExchangeCurrentWorld(nullptr);
+    StopWorldActivity(primary_world.get());
+    if (primary_world->game_data) primary_world->game_data->ReleaseLevelData();
+    primary_world.reset();
     ReleaseReadMeshScratch();
 
-    if (exit == LevelExit::Normal && g_world_cleanup_flag) {
+    if (g_world_cleanup_flag) {
         RenderFrame();
     }
 

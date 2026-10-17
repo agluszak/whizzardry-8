@@ -316,7 +316,8 @@ extern W8EnvironRecord* g_environ;
 void ResetInactiveLevelDataVectors(void);
 void UpdateSharedGameDataObject();
 void UpdateGameDataRuntime();
-std::optional<RuntimeTriangle> surfaceTriangle(std::span<const int, 3> vertexIndices);
+std::optional<RuntimeTriangle> surfaceTriangle(std::span<const glm::vec3> vertices,
+                                               std::span<const int, 3> vertexIndices);
 
 void ClearLevelMovementStopped(void);
 void ResetLevelDataVectors(void);
@@ -343,7 +344,7 @@ void GetLevelSoundEnvironment(char* environment, char* secondary);
 GroundProbe probeGround(const glm::vec3& position);
 
 void ClearLevelMovementState(void); /* 0x0041F0C0 */
-srCamera* CreateOrSetGameCamera(srNode* parent, srCamera* camera);
+
 float GetCameraYawInDegrees();
 float GetCameraYawRadians();
 float GetCameraPitchInDegrees();

@@ -1246,7 +1246,7 @@ void W8Monster::Update()
 
                 GetMappedPosition(&mapped_position);
                 sun_position = glm::vec3(sun_location);
-                if (g_octree->HasLineOfSight(&mapped_position, &sun_position, true)) {
+                if (GetWorldOctree()->HasLineOfSight(&mapped_position, &sun_position, true)) {
                     if (sunlit_state == W8_MONSTER_SUNLIGHT_SHADOWED) {
                         target_scale = 0.75f;
                         light_scale_timer.SetDuration(0.025f);
@@ -2378,7 +2378,7 @@ bool W8Monster::CheckLineOfSightToPlayer()
     monster_position = movement.position;
     monster_position.y += movement.height_offset;
     player_position = cameraLocation();
-    return g_octree->HasLineOfSight(&monster_position, &player_position, true);
+    return GetWorldOctree()->HasLineOfSight(&monster_position, &player_position, true);
 }
 
 /* The sight code keeps the engine trace's three outcomes as two independent
@@ -2394,8 +2394,8 @@ void W8Monster::GetPlayerSightFlags(bool* primary, bool* secondary)
     monster_position = movement.position;
     monster_position.y += movement.height_offset;
     player_position = cameraLocation();
-    result = g_octree->TraceLineOfSight(&monster_position, &player_position, true, location_id, -1,
-                                        true, 0);
+    result = GetWorldOctree()->TraceLineOfSight(&monster_position, &player_position, true,
+                                                location_id, -1, true, 0);
     if (result == -1) {
         *secondary = true;
         *primary = false;
@@ -2422,7 +2422,7 @@ bool W8Monster::IsVisibleToPlayer(bool use_bounds)
 
     glm::vec3 monster_position = movement.position;
     monster_position.y += movement.height_offset;
-    return g_octree->HasLineOfSight(&player_position, &monster_position, true);
+    return GetWorldOctree()->HasLineOfSight(&player_position, &monster_position, true);
 }
 
 // FUNCTION: WIZ8 0x004c4a20
@@ -2440,8 +2440,8 @@ void W8Monster::GetPlayerToMonsterSightFlags(bool* primary, bool* secondary,
     } else {
         player_position = *source;
     }
-    result = g_octree->TraceLineOfSight(&player_position, &monster_position, true, -1, location_id,
-                                        true, 0);
+    result = GetWorldOctree()->TraceLineOfSight(&player_position, &monster_position, true, -1,
+                                                location_id, true, 0);
     if (result == -1) {
         *secondary = true;
         *primary = false;
@@ -2464,7 +2464,7 @@ bool W8Monster::HasLineOfSightToMonster(W8Monster* monster)
     from.y += movement.height_offset;
     to = monster->movement.position;
     to.y += monster->movement.height_offset;
-    return g_octree->HasLineOfSight(&from, &to, true);
+    return GetWorldOctree()->HasLineOfSight(&from, &to, true);
 }
 
 // FUNCTION: WIZ8 0x004c4b70
@@ -2478,8 +2478,8 @@ void W8Monster::GetMonsterSightFlags(W8Monster* monster, bool* primary, bool* se
     from.y += movement.height_offset;
     to = monster->movement.position;
     to.y += monster->movement.height_offset;
-    result =
-        g_octree->TraceLineOfSight(&from, &to, true, location_id, monster->location_id, true, 0);
+    result = GetWorldOctree()->TraceLineOfSight(&from, &to, true, location_id, monster->location_id,
+                                                true, 0);
     if (result == -1) {
         *secondary = true;
         *primary = false;
@@ -2499,7 +2499,8 @@ bool W8Monster::HasLineOfSightFromPoint(glm::vec3 point)
 
     monster_position = movement.position;
     monster_position.y += movement.height_offset;
-    return g_octree->TraceLineOfSight(&point, &monster_position, true, -3, -3, true, 0) != 1;
+    return GetWorldOctree()->TraceLineOfSight(&point, &monster_position, true, -3, -3, true, 0) !=
+           1;
 }
 
 // FUNCTION: WIZ8 0x004c4ca0
@@ -3054,7 +3055,8 @@ void W8Monster::UpdateRepresentation(W8World* world)
     }
 
     if (position_dirty || movement.position_adjusted) {
-        g_octree->UpdateMonsterLocation(static_cast<unsigned short>(location_id), &position);
+        GetWorldOctree()->UpdateMonsterLocation(static_cast<unsigned short>(location_id),
+                                                &position);
     }
 
     /* Only a monster whose current world sector mesh is enabled (or that has

@@ -20,9 +20,7 @@ W8World* GetSecondaryWorld(void);
 void MarkWorldViewDirty(void);
 
 std::unique_ptr<W8World> CreateWorld(int level_id = -1, std::string source_path = {});
-unsigned char LoadWorld(W8World* world, bool use_octree);
-// Ownership transfer; the returned previous world is no longer active.
-std::unique_ptr<W8World> ExchangeCurrentWorld(std::unique_ptr<W8World> world);
+std::unique_ptr<W8World> LoadWorld(int level_id, std::string source_path, bool use_octree = true);
 void DetachAllWorldItems(void);
 void UpdateWorlds(void);
 void RefreshWorldView(void);
@@ -40,8 +38,6 @@ unsigned char AdjustWorldCollisionPosition(float radius, glm::vec3* position, bo
                                            bool check_monsters);
 unsigned char FindNearbyFreePosition(float radius, glm::vec3* position, bool check_items,
                                      bool check_monsters);
-
-std::unique_ptr<W8World> ExchangeSkyWorld(std::unique_ptr<W8World> world);
 
 /* Scene nodes of the loaded worlds (the level world, then the sky world).
    Lookups return the first type-compatible match by exact name. */

@@ -183,7 +183,7 @@ class Trigger : public srClass {
 public:
     typedef bool (*ActivationCallback)(Trigger* trigger);
 
-    Trigger();
+    explicit Trigger(W8World* world = nullptr);
     virtual ~Trigger() override;
 
     static Trigger* CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world);

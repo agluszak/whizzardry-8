@@ -107,12 +107,13 @@ W8OctBuildTree::~W8OctBuildTree() = default;
 /* Reject triangles outside the build domain, lazily create the root node, and
    then hand the complete typed working record to the recursive inserter. */
 // FUNCTION: WIZ8 0x00446820
-unsigned char W8OctBuildTree::InsertSurface(W8GDSurface* surface, w8_ulong mode)
+unsigned char W8OctBuildTree::InsertSurface(W8GDSurface* surface,
+                                            std::span<const glm::vec3> vertices, w8_ulong mode)
 {
     W8OctSpatialState working(&spatial);
     // Only physical surfaces have a vertex table in this builder.
     if (static_cast<short>(mode) != 3) return 0;
-    const auto triangle = surfaceTriangle(surface->vertex_indices);
+    const auto triangle = surfaceTriangle(vertices, surface->vertex_indices);
     if (!triangle) return 0;
     const auto normal = surface->plane.normal;
     if (!triangleIntersectsBox(spatial.bounds(), *triangle, normal)) return 0;

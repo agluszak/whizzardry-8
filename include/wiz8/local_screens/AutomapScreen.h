@@ -4,7 +4,7 @@
 
 #include "glm/ext/vector_float3.hpp"
 
-extern float g_automap_grid_cell_size;
+struct W8AutomapCells;
 
 #include <array>
 #include <memory>
@@ -58,7 +58,7 @@ void CreateAutomapMarkerSprites(void);
 void RenderAutomapMarkers(void);
 void CreateAutomapButtons(void);
 
-unsigned char ReadAutomapNodes(wiz8::File* hFile);
+unsigned char ReadAutomapNodes(wiz8::File* hFile, W8AutomapCells& cells);
 unsigned char AutomapScreenEnter(void);
 void AutomapScreenFrame(void);
 unsigned char AutomapScreenLeave(int leaving);

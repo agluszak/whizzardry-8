@@ -440,7 +440,7 @@ public:
     unsigned short m_sun_count;
 };
 
-extern W8Octree* g_octree;
+W8Octree* GetWorldOctree();
 
 bool IsNavigatorAtTarget(W8NavigatorMovementState* movement);
 

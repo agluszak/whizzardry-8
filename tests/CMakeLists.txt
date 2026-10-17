@@ -1,3 +1,6 @@
+# Scene fixtures exercise lookups without publishing partially loaded gameplay worlds.
+target_compile_definitions(WIZ8_GAME_CORE PRIVATE WIZ8_WORLD_FIXTURES=1)
+
 link_libraries(Catch2::Catch2WithMain wiz8_asset_preparation)
 
 # Reuse the runtime clock hook for deterministic timer checks without game assets.

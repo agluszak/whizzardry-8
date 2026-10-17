@@ -222,7 +222,8 @@ bool CharacterActionReachesTarget(int party_slot, int hand, W8TargetingContext c
             return false;
         }
         if (trace) {
-            return g_octree->TraceLineOfSight(&camera_top, &point, true, -3, -3, true, 0) == 0;
+            return GetWorldOctree()->TraceLineOfSight(&camera_top, &point, true, -3, -3, true, 0) ==
+                   0;
         }
     } else if (target->iType == W8_TARGET_KIND_GROUP) {
         W8MonsterGroup* group = FindMonsterGroup(target->iGroupID, false);

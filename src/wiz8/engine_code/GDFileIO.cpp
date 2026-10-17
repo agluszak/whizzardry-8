@@ -23,7 +23,6 @@
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/GameTimeAccumulator.h"
 #include "wiz8/engine_code/LevelFile.h"
 #include "wiz8/engine_code/OctBuildTree.h"
 #include "wiz8/engine_code/Octree.h"
@@ -361,7 +360,7 @@ void W8GameData::IntegrateTriggers()
     for (int index = SurfacesCount(); index < end; ++index) {
         W8GDSurface* surface = index < SurfacesCount() ? &m_pSurfaces[index]
                                                        : &m_pTrigSurfaces[index - SurfacesCount()];
-        geometry_index->InsertSurface(surface, 3);
+        geometry_index->InsertSurface(surface, m_pVertices, 3);
     }
     pending_trigger_bits.assign(m_iNumTriggers, false);
     active_trigger_bits.assign(m_iNumTriggers, false);
@@ -502,11 +501,6 @@ void W8GameData::ReadProcessedGameData(wiz8::File* handle)
     std::vector<std::unique_ptr<W8EnvironRecord>> environment_objects;
     for (const auto& environ : environs)
         environment_objects.push_back(std::make_unique<W8EnvironRecord>(environ));
-    const auto active_environment =
-        std::find_if(m_ppEnvirons.begin(), m_ppEnvirons.end(),
-                     [](const auto& environment) { return environment.get() == g_environ; });
-    const bool replace_active_environ = active_environment != m_ppEnvirons.end();
-    const auto active_environment_index = active_environment - m_ppEnvirons.begin();
     m_pVertices.swap(vertices);
     m_pSurfaces.swap(surfaces);
 
@@ -528,20 +522,12 @@ void W8GameData::ReadProcessedGameData(wiz8::File* handle)
     pending_trigger_bits = std::move(pending_bits);
     active_trigger_bits = std::move(active_bits);
     interface_names.clear();
-    if (replace_active_environ) {
-        g_environ =
-            m_ppEnvirons.empty()
-                ? nullptr
-                : m_ppEnvirons[active_environment_index < EnvironsCount() ? active_environment_index
-                                                                          : 0]
-                      .get();
-    }
 }
 
 /* 0x0044902E is the constructor's shared body entry: the SEH wrapper at
    0x00449010 zeroes EBX and falls through into the code below. */
 // FUNCTION: WIZ8 0x00449010
-W8GameData::W8GameData(wiz8::File* handle, bool secondary)
+W8GameData::W8GameData(wiz8::File* handle, bool)
 {
     geometry_index = 0;
     octree = 0;
@@ -555,28 +541,12 @@ W8GameData::W8GameData(wiz8::File* handle, bool secondary)
     trace_flag4_gate = false;
     minimum = glm::vec3(1.0e8f);
     maximum = glm::vec3(-1.0e8f);
-    if (!secondary) {
-        MoveTimer(4);
-        if (g_game_time_accumulator == 0) {
-            g_game_time_accumulator = new W8GameTimeAccumulator();
-        }
-    }
     if (handle != 0) {
         ReadProcessedGameData(handle);
-    }
-    if (g_environ != 0) {
-        delete g_environ;
     }
     if (EnvironsCount() == 0) {
         m_ppEnvirons.push_back(std::make_unique<W8EnvironRecord>());
     }
-    W8LevelDataRecord* old_level = g_level_data;
-    g_environ = m_ppEnvirons[0].get();
-    if (old_level != 0) {
-        delete old_level;
-        g_level_data = 0;
-    }
-    SetOctreeGameData(this);
 }
 
 /* Build the processed level's spatial index once and publish every surface
@@ -597,7 +567,8 @@ unsigned char InitializeGameData(W8GameData* game_data)
     }
 
     for (int index = 0; index < game_data->SurfacesCount(); ++index) {
-        if (game_data->geometry_index->InsertSurface(&game_data->m_pSurfaces[index], 3) == 0) {
+        if (game_data->geometry_index->InsertSurface(&game_data->m_pSurfaces[index],
+                                                     game_data->m_pVertices, 3) == 0) {
             return 0;
         }
     }
@@ -657,11 +628,4 @@ void ClassifySurfacePlane(const glm::vec3* vertices, W8GDSurface* surface)
 
 /* Release level globals; member owners release the runtime banks. */
 // FUNCTION: WIZ8 0x00449BB0
-W8GameData::~W8GameData()
-{
-
-    ReleaseLevelData();
-    m_iNumTriggers = 0;
-
-    SetOctreeGameData(0);
-}
+W8GameData::~W8GameData() = default;

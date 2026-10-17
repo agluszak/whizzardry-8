@@ -150,7 +150,8 @@ W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, W8MonsterRecord* record,
     ++group->member_count;
     ++group->active_member_count;
     RequestRedrawParty();
-    g_octree->VisitPointCopy(static_cast<unsigned short>(monster_info->location_id), position);
+    GetWorldOctree()->VisitPointCopy(static_cast<unsigned short>(monster_info->location_id),
+                                     position);
     return monster_info;
 }
 
@@ -224,8 +225,8 @@ void ActivateMonsterInWorld(W8MonsterInfo* monster_info)
     camera_position = cameraLocation(*GetWorld());
     MonsterSelectLOD(monster_info->p3D, &camera_position);
     UpdateCycleRepresentation(monster_info->p3D, GetWorld());
-    g_octree->VisitPointCopy(static_cast<unsigned short>(monster_info->location_id),
-                             &monster_info->position);
+    GetWorldOctree()->VisitPointCopy(static_cast<unsigned short>(monster_info->location_id),
+                                     &monster_info->position);
     monster_info->fActive = true;
     ++gXStatus.active_monster_count;
     if (monster_info->p3D != 0) {
@@ -767,7 +768,8 @@ static void DestroyMonsterListEntry(unsigned int index)
     // Inactive (including unborn) monsters do not pass through DeactivateMonster's
     // visibility cleanup. Remove their records before freeing the script part.
     ReleaseMonToMonVisibilityList(monster_info);
-    g_octree->UnregisterLocationObjects(static_cast<unsigned short>(monster_info->location_id));
+    GetWorldOctree()->UnregisterLocationObjects(
+        static_cast<unsigned short>(monster_info->location_id));
     ReleaseNpcBinding(monster_info->bound_npc_index);
     gXStatus.monster_roster.remove(monster_info);
 }

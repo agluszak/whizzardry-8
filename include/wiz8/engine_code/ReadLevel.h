@@ -6,7 +6,7 @@
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srNode.h"
 
-extern glm::vec3 g_environment_offset;
+glm::vec3 CurrentEnvironmentOffset();
 
 namespace wiz8 {
 class File;

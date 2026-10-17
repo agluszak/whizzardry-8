@@ -35,6 +35,7 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/npc_interaction.h"
+#include "world_fixture.h"
 
 namespace {
 std::unique_ptr<W8World> TestWorld()
@@ -106,7 +107,7 @@ bool nodes(const std::filesystem::path& directory)
     engine_light->setName("TORCH");
     engine_light->setGroupMask(7);
     torch->setGroupMask(9);
-    FinalizeStaticScene(level.static_scene.get());
+    FinalizeStaticScene(level);
     REQUIRE(engine_light->getGroupMask() == 1);
     REQUIRE(torch->getGroupMask() == 9);
 
@@ -190,7 +191,8 @@ TEST_CASE("world_lookup_test")
     std::puts("ok: world trigger, light, clip plane and particle lookups");
 }
 
-TEST_CASE("Failed world asset loads release published worlds and allow retry", "[levels][lifetime]")
+TEST_CASE("Failed resource construction preserves the active worlds and allows retry",
+          "[levels][lifetime]")
 {
     ScopedTemporaryDirectory directory("wiz8-failed-world-load");
     const auto assets = directory.path / "assets";
@@ -199,21 +201,20 @@ TEST_CASE("Failed world asset loads release published worlds and allow retry", "
     std::filesystem::create_directory(user);
     ScopedAssetRoots roots({assets.generic_string(), user.generic_string()});
 
-    // A failed sky load must retire the partial sky without touching the primary world.
+    // Both owners remain usable while replacements are constructed locally.
     ExchangeCurrentWorld(CreateWorld(8));
     auto* primary = GetWorld();
+    ExchangeSkyWorld(CreateWorld(-1, "ExistingSky.LVL"));
+    auto* sky = GetSecondaryWorld();
     for (int attempt = 0; attempt < 2; ++attempt) {
         REQUIRE_THROWS_WITH(LoadSkyWorld("MissingSky.LVL"),
                             Catch::Matchers::ContainsSubstring("Could not open level file."));
-        REQUIRE(GetSecondaryWorld() == nullptr);
+        REQUIRE(GetSecondaryWorld() == sky);
         REQUIRE(GetWorld() == primary);
         // Traversal must derive from the live owners after the failed load.
         DetachAllWorldItems();
     }
-    ExchangeCurrentWorld(nullptr);
-    REQUIRE(GetWorld() == nullptr);
 
-    REQUIRE(InitializeMusicPlaylist());
     const auto level_path = wiz8::asset_path("Levels/Test/level1.LVL");
     std::filesystem::create_directories(level_path.parent_path());
     {
@@ -223,18 +224,20 @@ TEST_CASE("Failed world asset loads release published worlds and allow retry", "
     }
     W8LevelInfo info;
     REQUIRE(LevelBuildInfoByID(47, &info));
-    // Preflight succeeds, so loading reaches ReadLevel after publishing the replacement.
-    // A failed replacement cannot restore an old level ID whose world is gone.
+    // A malformed level passes path preflight, then fails before publication.
     g_status.resume_level = 8; // A pending saved destination is not the active world.
     for (int attempt = 0; attempt < 2; ++attempt) {
         REQUIRE_THROWS_WITH(LoadLevel(47, -1, false),
                             Catch::Matchers::ContainsSubstring("Problem loading level"));
-        REQUIRE(GetWorld() == nullptr);
-        REQUIRE(GetSecondaryWorld() == nullptr);
-        REQUIRE(GetLoadedLevelID() == -1);
+        REQUIRE(GetWorld() == primary);
+        REQUIRE(GetSecondaryWorld() == sky);
+        REQUIRE(GetLoadedLevelID() == 8);
         REQUIRE(g_status.resume_level == 8);
+        REQUIRE(GetWorld()->static_scene != nullptr);
         DetachAllWorldItems();
     }
+    ExchangeCurrentWorld(nullptr);
+    ExchangeSkyWorld(nullptr);
 }
 
 TEST_CASE("Reward accounting follows the owned world, not a pending save destination",

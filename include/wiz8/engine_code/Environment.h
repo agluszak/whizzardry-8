@@ -49,17 +49,10 @@ public:
    floats; the word copies below move it without reinterpreting it. */
 extern glm::vec3 g_light_direction;
 
-extern std::array<glm::vec3, 256> g_environment_colours0;
-extern std::array<glm::vec3, 256> g_environment_colours1;
-
 class stLight;
 
-void AddEnvironmentLight(stLight* light);
-
-bool ReadLightColourTable(wiz8::File* hFile);
-bool ReadEnvironmentColourTable(wiz8::File* hFile);
-void BuildEnvironmentColourRamp(void);
-void BuildLightColourRamp(void);
+bool ReadEnvironmentColours(wiz8::File* file, std::array<glm::vec3, 256>& colours);
+void BuildEnvironmentColourRamp(std::array<glm::vec3, 256>& colours);
 void UpdateEnvironmentLight(void);
 void RefreshEnvironment(void);
 void SetWorldEnvironmentColour(W8World* world, glm::vec3 colour);
@@ -121,10 +114,6 @@ extern bool g_fog_enabled;
    idle: UpdateEnvironment hands off to that body while it is not zero. */
 extern float g_environment_transition_rate;
 extern w8_ulong g_environment_transition_tick;
-/* Last day phase the light direction was published from. */
-extern int g_last_light_phase;
-/* Last day phase the world's environment colour was refreshed from. */
-extern int g_last_environment_colour_phase;
 /* Gates the per-frame world-colour refresh. Retail writes it nowhere and
    initialises it to 1, so that refresh always runs; the only reference is the
    read inside UpdateEnvironment. */
@@ -154,7 +143,6 @@ extern glm::vec3 g_celestial_origin;
 
 /* The registered environment lights, ambient-filled by ApplyEnvironmentColour.
    The vector count occupies 0x0065B99C. */
-extern std::vector<stLight*> g_environment_lights;
 
 void SetGameTimeDays(int value);
 void AdvanceEnvironmentTime(int elapsed); /* 0x00482A20 */

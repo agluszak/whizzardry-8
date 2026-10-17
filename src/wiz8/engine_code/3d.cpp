@@ -109,8 +109,9 @@ void DestroyWorldLights(W8World* world)
 /* Put static-scene illuminators in group one and the world's camera light in
    group two.  The scene graph access is the ordinary srNode hierarchy API. */
 // FUNCTION: WIZ8 0x0046F3A0
-void FinalizeStaticScene(srScene* scene)
+void FinalizeStaticScene(W8World& world)
 {
+    auto* scene = world.static_scene.get();
     srNode* node;
 
     for (node = scene->getChild(); node != 0; node = node->getNext()) {
@@ -118,8 +119,8 @@ void FinalizeStaticScene(srScene* scene)
             static_cast<srLight*>(node)->setGroupMask(1);
         }
     }
-    if (GetWorld() != 0 && GetWorld()->camera_light != 0) {
-        GetWorld()->camera_light->setGroupMask(2);
+    if (world.camera_light != 0) {
+        world.camera_light->setGroupMask(2);
     }
 }
 
@@ -255,7 +256,7 @@ bool targetMarkerVisible(const glm::vec3& eye, const srBoundingBox& bounds)
     for (const auto& sample : bounds.visibilitySamples()) {
         if (!projectsToCamera(sample)) continue;
         glm::vec3 point(sample);
-        if (g_octree->HasLineOfSight(&from, &point, true)) return true;
+        if (GetWorldOctree()->HasLineOfSight(&from, &point, true)) return true;
     }
     return false;
 }
@@ -266,7 +267,8 @@ bool traceLineOfSightToBounds(const glm::vec3& origin, const srBoundingBox& boun
     const glm::vec3 from(origin);
     for (const auto& sample : bounds.visibilitySamples()) {
         glm::vec3 point(sample);
-        if (g_octree->TraceLineOfSight(&from, &point, true, -3, -3, true, 0) == 0) return true;
+        if (GetWorldOctree()->TraceLineOfSight(&from, &point, true, -3, -3, true, 0) == 0)
+            return true;
     }
     return false;
 }
@@ -277,7 +279,7 @@ bool hasLineOfSightToBounds(const glm::vec3& origin, const srBoundingBox& bounds
     const glm::vec3 from(origin);
     for (const auto& sample : bounds.visibilitySamples()) {
         glm::vec3 point(sample);
-        if (g_octree->HasLineOfSight(&from, &point, true)) return true;
+        if (GetWorldOctree()->HasLineOfSight(&from, &point, true)) return true;
     }
     return false;
 }
@@ -584,15 +586,10 @@ void SetSceneAmbientLightWhite(srScene* scene)
 }
 
 // GLOBAL: WIZ8 0x00652db0
-W8GameData* g_octree_game_data;
 
 /* The octree builds read the level data through this slot; the recovered
    caller passes the W8GameData object it just read. */
 // FUNCTION: WIZ8 0x0046D7D0
-void SetOctreeGameData(W8GameData* value)
-{
-    g_octree_game_data = value;
-}
 
 // FUNCTION: WIZ8 0x0046d880
 bool PointInsideFrustum(const glm::vec3& point, std::span<const W8Plane, 6> planes)

@@ -589,7 +589,7 @@ void ActivateItem(W8WorldItem* item)
         sun_position = glm::vec3(sun->getLocation());
         mesh = static_cast<stModelInstance*>(item->p3D->GetMesh());
         if (mesh != 0) {
-            if (g_octree->HasLineOfSight(&position, &sun_position, true)) {
+            if (GetWorldOctree()->HasLineOfSight(&position, &sun_position, true)) {
                 mesh->light_scale = glm::vec3(1);
             } else {
                 mesh->light_scale = glm::vec3(0);
@@ -757,7 +757,7 @@ void DropHeldItem(int)
 
     glm::vec3 camera = cameraLocation();
     direction += camera;
-    g_octree->TraceLineOfSight(&camera, &direction, true, -3, -3, true, 0);
+    GetWorldOctree()->TraceLineOfSight(&camera, &direction, true, -3, -3, true, 0);
 
     glm::vec3 delta = direction - camera;
     delta = glm::dot(delta, delta) == 0
@@ -766,7 +766,7 @@ void DropHeldItem(int)
                       static_cast<float>(glm::max(glm::length(delta) - 125.0f, 0.0f));
 
     glm::vec3 position = camera + delta;
-    position.y = g_octree->settleToGround(position, true, 250).position.y + 125.0f;
+    position.y = GetWorldOctree()->settleToGround(position, true, 250).position.y + 125.0f;
     if (FindNearbyFreePosition(250.0f, &position, true, true) != 0) {
         W8WorldItem* item = AddWorldItem(CreateWorldItem(
             &g_status.item_in_hand, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
@@ -969,7 +969,7 @@ unsigned char AdvanceFallingWorldItem(W8WorldItem* item)
         probe.y = dt * item->vertical_velocity + probe.y;
     }
 
-    const auto ground_probe = g_octree->settleToGround(probe, 1, 250.0f);
+    const auto ground_probe = GetWorldOctree()->settleToGround(probe, 1, 250.0f);
     probe = ground_probe.position;
     hit = ground_probe.hit;
     ground = ground_probe.position.y;
@@ -979,7 +979,7 @@ unsigned char AdvanceFallingWorldItem(W8WorldItem* item)
         return 0;
     }
 
-    sector = g_octree->current_prop;
+    sector = GetWorldOctree()->current_prop;
     if (sector != item->sector_id) {
         if (item->sector_id >= 0) {
             RemoveItemFromSector(item->sector_id, item);
@@ -1023,14 +1023,14 @@ unsigned char SettleWorldItem(W8WorldItem* item)
     item->flags &= ~W8_WORLD_ITEM_FALLING;
     item->vertical_velocity = 0.0f;
 
-    const auto ground_probe = g_octree->settleToGround(start, 1, 250.0f);
+    const auto ground_probe = GetWorldOctree()->settleToGround(start, 1, 250.0f);
     start = ground_probe.position;
     hit = ground_probe.hit;
     if (!hit) {
         return 0;
     }
 
-    sector = g_octree->current_prop;
+    sector = GetWorldOctree()->current_prop;
     if (sector != item->sector_id) {
         if (item->sector_id >= 0) {
             RemoveItemFromSector(item->sector_id, item);

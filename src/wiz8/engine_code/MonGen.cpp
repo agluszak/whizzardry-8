@@ -434,7 +434,8 @@ bool MonGen::CanGenerateEncounter(bool force)
         if (distance > 200000.0f || distance < 35000.0f) {
             return false;
         }
-        if (g_octree != 0 && g_octree->HasLineOfSight(&camera, &spawn_position, true)) {
+        if (GetWorldOctree() != 0 &&
+            GetWorldOctree()->HasLineOfSight(&camera, &spawn_position, true)) {
             return false;
         }
     }
@@ -455,7 +456,7 @@ bool MonGen::CanGenerateEncounter(bool force)
                         spawn_position.z - 5000.0f);
         glm::vec3 upper(spawn_position.x + 5000.0f, spawn_position.y + 5000.0f,
                         spawn_position.z + 5000.0f);
-        const auto locations = g_octree->locationsInBox({lower, upper}, 0);
+        const auto locations = GetWorldOctree()->locationsInBox({lower, upper}, 0);
         if (!locations.empty()) {
             return false;
         }

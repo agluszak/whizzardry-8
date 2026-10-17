@@ -4,6 +4,7 @@
 #include <array>
 #include <memory>
 #include <optional>
+#include <span>
 #include <vector>
 
 #include "compat/compiler.h"
@@ -29,7 +30,8 @@ struct W8OctBuildTree {
                    short extent_mode);
     ~W8OctBuildTree();
 
-    unsigned char InsertSurface(W8GDSurface* surface, w8_ulong mode);
+    unsigned char InsertSurface(W8GDSurface* surface, std::span<const glm::vec3> vertices,
+                                w8_ulong mode);
     unsigned char InsertSurfaceRecursive(W8OctSpatialState* working, W8GDSurface* surface,
                                          const glm::vec3& planeNormal, w8_ulong mode);
     std::vector<W8GDSurface*> queryAlongSegment(const glm::vec3& origin, const glm::vec3& delta,

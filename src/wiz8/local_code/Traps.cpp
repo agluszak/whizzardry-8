@@ -364,6 +364,6 @@ void ResolveSprungTrap(Trigger* trigger)
         point = *center;
     }
     camera = cameraLocation();
-    g_octree->TraceLineOfSight(&camera, &point, true, -3, -3, true, 0);
+    GetWorldOctree()->TraceLineOfSight(&camera, &point, true, -3, -3, true, 0);
     DischargeTrapSpell(point, g_table2[type + 11], power, count);
 }
