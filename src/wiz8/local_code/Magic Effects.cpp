@@ -885,7 +885,7 @@ void RecallCasterToSavedLocation(W8SpellEffectEntry* pQueue)
             RestoreWorldCameraState(GetWorld(), GetSecondaryWorld(), &caster->saved_location);
             point = caster->saved_location.position;
             PlacePartyAtPoint(&point);
-            MarkRendererReady();
+            MarkWorldViewDirty();
             return;
         }
         g_status.pending_move_location = caster->saved_location;

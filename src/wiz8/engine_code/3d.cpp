@@ -533,7 +533,7 @@ void WorldSetRenderRange(W8World* world, float value)
     if (value != 0.0f) {
         world->render_range0 = value;
         world->render_range = value;
-        MarkRendererReady();
+        MarkWorldViewDirty();
     }
 }
 
@@ -561,7 +561,7 @@ void WorldSetFarClip(W8World* world, float distance)
     if (distance > 5.9604644775390625e-008) {
         world->camera->setClipRange(62.5, distance);
         RefreshFogRanges();
-        MarkRendererReady();
+        MarkWorldViewDirty();
     }
 }
 

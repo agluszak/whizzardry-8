@@ -200,7 +200,7 @@ CameraRotation W8GameData::cameraRotation(unsigned int flags, const glm::mat3& r
 
     if ((g_gd_camera->m_orientation_flags & W8_CAMERA_ORIENTATION_SNAPPED) != 0) {
         g_gd_camera->m_orientation_flags &= ~W8_CAMERA_ORIENTATION_SNAPPED;
-        MarkRendererReady();
+        MarkWorldViewDirty();
     }
 
     if (g_level_data != nullptr) {
@@ -370,7 +370,7 @@ CameraMotion W8GameData::cameraMotion(unsigned int flags, const glm::vec3& posit
     new_position = position + delta;
     from_origin = new_position - g_world_origin;
     if (glm::dot(from_origin, from_origin) != 0) {
-        MarkRendererReady();
+        MarkWorldViewDirty();
         g_gd_camera->m_position = new_position;
     }
 
@@ -2165,7 +2165,7 @@ void PlacePartyAtPoint(const glm::vec3* point)
 {
     glm::vec3 delta = *point - g_world_origin;
     if (glm::dot(delta, delta) != 0) {
-        MarkRendererReady();
+        MarkWorldViewDirty();
         g_gd_camera->m_position = (*point);
     }
 }

@@ -529,8 +529,8 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
             InitializeMonsterRuntimeStats();
             RebuildAllWorldItemInstances();
         }
-        MarkRendererReady();
-        UpdateWorldMeshAfterLoad();
+        MarkWorldViewDirty();
+        RefreshWorldView();
         ReleaseReadMeshScratch();
         return 1;
     } catch (...) {

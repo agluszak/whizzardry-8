@@ -16,7 +16,7 @@ class W8Prop;
 
 W8World* GetWorld(void);
 W8World* GetSecondaryWorld(void);
-void MarkRendererReady(void);
+void MarkWorldViewDirty(void);
 
 std::unique_ptr<W8World> CreateWorld(int level_id = -1, std::string source_path = {});
 unsigned char LoadWorld(W8World* world, bool use_octree);
@@ -24,7 +24,7 @@ unsigned char LoadWorld(W8World* world, bool use_octree);
 std::unique_ptr<W8World> ExchangeCurrentWorld(std::unique_ptr<W8World> world);
 void DetachAllWorldItems(void);
 void UpdateWorlds(void);
-void UpdateWorldMeshAfterLoad(void);
+void RefreshWorldView(void);
 void UpdateWorld(W8World* world);
 W8WorldCameraState cameraState(const W8World& world);
 void SetWorldCameraState(W8World* world, W8World* source_world, W8WorldCameraState* state);

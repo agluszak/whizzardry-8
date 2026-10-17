@@ -92,6 +92,7 @@ struct W8World {
     stLight* camera_light{};
     std::unique_ptr<W8Quad> quads;
     srModelInstance* update_mesh_source{};
+    bool view_dirty = true;
     float render_range0{};
     float render_range{};
     std::vector<srNode*> nodes_to_disable;

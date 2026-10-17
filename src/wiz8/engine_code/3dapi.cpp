@@ -80,9 +80,6 @@ class srModelInstance;
 
 #define THREE_D_API_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\3dapi.cpp"
 
-// GLOBAL: WIZ8 0x00607d7c
-bool g_renderer_ready = true;
-
 // GLOBAL: WIZ8 0x00607d80
 static int g_game_data_runtime_pending = 1;
 
@@ -110,15 +107,8 @@ int GetLoadedLevelID()
 // GLOBAL: WIZ8 0x006081f8
 bool g_navigator_vertical_enabled = true;
 
-// GLOBAL: WIZ8 0x00607d7d
-bool g_world_mesh_update_enabled = true;
-
 // GLOBAL: WIZ8 0x00609c88
 float g_mesh_view_half_angle_degrees = 60.0f;
-
-/* Retail flag 0x10 sets this latch; no reader survives in the shipped image. */
-// GLOBAL: WIZ8 0x00609c8c
-bool g_world_update_requested = true;
 
 /* Load the renderer-facing half of one level. The subordinate OCT, game-data,
    and ReadLevel parsers remain their original owners; this routine establishes
@@ -254,7 +244,7 @@ void UpdateWorlds(void)
         if (world) UpdateWorld(world);
     }
 
-    UpdateWorldMeshAfterLoad();
+    RefreshWorldView();
 
     UpdateTimedTriggerEvents();
     UpdateShakeEffects();
@@ -547,11 +537,11 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
     }
 }
 
-/* Note that the renderer is up. Eight bytes and no branch. */
+/* Camera or geometry changes invalidate only this world's cached view. */
 // FUNCTION: WIZ8 0x00451010
-void MarkRendererReady(void)
+void MarkWorldViewDirty(void)
 {
-    g_renderer_ready = true;
+    if (auto* world = GetWorld()) world->view_dirty = true;
 }
 
 /* Resolve a particle by its runtime name from the current world's particle
@@ -610,18 +600,17 @@ void SetWorldScenePosition(W8World* world, const glm::vec3* location)
 }
 
 // FUNCTION: WIZ8 0x00451020
-void UpdateWorldMeshAfterLoad(void)
+void RefreshWorldView()
 {
-    if (g_renderer_ready && g_world_mesh_update_enabled) {
-        if (GetWorld()->octree != 0) {
-            UpdateWorldOctree(GetWorld());
-        } else if (GetWorld()->quads != 0) {
-            UpdateWorldMeshFromQuads(GetWorld());
-        }
-        RepositionAmbientSounds(GetWorld());
-        RequestRefreshPartyState();
-        g_renderer_ready = false;
-    }
+    auto* world = GetWorld();
+    if (!world || !world->view_dirty) return;
+    if (world->octree)
+        UpdateWorldOctree(world);
+    else if (world->quads)
+        UpdateWorldMeshFromQuads(world);
+    RepositionAmbientSounds(world);
+    RequestRefreshPartyState();
+    world->view_dirty = false;
 }
 
 /* Report a failed assertion with no message of its own, so the expression and
@@ -776,9 +765,6 @@ void ApplyWorldUpdateFlags(W8World* world, unsigned int flags)
     }
     if ((flags & W8_WORLD_NARROW_MESH_VIEW) != 0 && g_mesh_view_half_angle_degrees > 1e+01f) {
         g_mesh_view_half_angle_degrees -= 1e+01f;
-    }
-    if ((flags & 0x10) != 0) {
-        g_world_update_requested = true;
     }
     if ((flags & W8_WORLD_INCREASE_ENVIRONMENT) != 0) {
         SetWorldEnvironmentIntensity(GetWorld(), GetWorldEnvironmentIntensity(GetWorld()) + 0.02f);
