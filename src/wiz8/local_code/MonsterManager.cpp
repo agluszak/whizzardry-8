@@ -255,22 +255,13 @@ void ActivateMonsterInWorld(W8MonsterInfo* monster_info)
    cycles are loaded or only the startup cycle; both paths share the world
    context and preserve the loader's success result for the source assertion. */
 // FUNCTION: WIZ8 0x004e4050
-void ActivateMonster(W8MonsterInfo* monster_info, W8MonsterActivationMode mode)
+std::unique_ptr<W8Monster> ReadMonsterRepresentation(W8World& world, W8MonsterInfo* monster_info,
+                                                     W8MonsterActivationMode mode)
 {
     W8MonsterRecord* record;
     W8GrCycleLoadContext context;
-    if (monster_info == 0) {
-        srAssertFail("pMonsterInfo != NULL", MONSTER_MANAGER_CPP, 0x1f5, 0);
-    }
-    if (monster_info->fActive) {
-        srAssertFail("!pMonsterInfo->fActive", MONSTER_MANAGER_CPP, 0x1f6, 0);
-    }
-    if (monster_info->p3D != 0) {
-        return;
-    }
-
     record = GetMonsterDataForInfo(monster_info);
-    context.world = GetWorld();
+    context.world = &world;
     context.bitmap_directory = 0;
     context.directory = "Data\\Monsters";
 
@@ -281,10 +272,12 @@ void ActivateMonster(W8MonsterInfo* monster_info, W8MonsterActivationMode mode)
         srAssertFail("loaded monster", MONSTER_MANAGER_CPP, __LINE__,
                      "ActivateMonster: MonsterReadAllCycles failed");
     }
-    monster_info->p3D = monster.get();
-    GetWorld()->monsters.push_back(std::move(monster));
+    return monster;
+}
 
-    if (monster_info->scale < 0.0f || g_status.level_progress[GetLoadedLevelID()].visited == 0) {
+void ConfigureMonsterRepresentation(W8World& world, W8MonsterInfo* monster_info)
+{
+    if (monster_info->scale < 0.0f || g_status.level_progress[world.level_id].visited == 0) {
         monster_info->saved_mirror_x = MonsterGetMirrorX(monster_info->p3D);
         monster_info->scale = CalculateMonsterScale(monster_info);
         MonsterSetScale(monster_info->p3D, monster_info->scale);
@@ -296,6 +289,17 @@ void ActivateMonster(W8MonsterInfo* monster_info, W8MonsterActivationMode mode)
     ApplyMonsterRepresentationScale(monster_info->p3D);
     MonsterSetCycle(monster_info->p3D, 1);
     RefreshMonsterStandingHeight(monster_info->p3D);
+}
+
+void ActivateMonster(W8MonsterInfo* monster_info, W8MonsterActivationMode mode)
+{
+    if (!monster_info || monster_info->fActive)
+        srAssertFail("inactive monster", MONSTER_MANAGER_CPP, __LINE__, nullptr);
+    if (monster_info->p3D) return;
+    auto monster = ReadMonsterRepresentation(*GetWorld(), monster_info, mode);
+    monster_info->p3D = monster.get();
+    GetWorld()->monsters.push_back(std::move(monster));
+    ConfigureMonsterRepresentation(*GetWorld(), monster_info);
 }
 
 // FUNCTION: WIZ8 0x004e4600
@@ -1058,13 +1062,12 @@ void InitializeMonsterManagerState(void)
     }
 }
 
-/* Drain both monster registries while their groups and the world are intact,
-   then release the species-indexed record cache. */
+/* Drain live records while their world is intact. Species records are shared
+   session resources and remain cached across level replacement. */
 // FUNCTION: WIZ8 0x004e3820
 void ShutdownMonsterManager(void)
 {
     DestroyAllMonsterInfos();
-    gXStatus.monster_record_cache = {};
 }
 
 // FUNCTION: WIZ8 0x004e3af0

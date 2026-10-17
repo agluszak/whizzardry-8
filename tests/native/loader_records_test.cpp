@@ -1665,50 +1665,43 @@ TEST_CASE("Octree particle registration checks the whole batch before publishing
     REQUIRE(octree.m_particles == std::vector<stParticle*>{&first});
 }
 
-extern std::vector<W8WorldCursorNode*> g_world_cursor_nodes;
-
 TEST_CASE_METHOD(LoaderFixture, "Cursor scratch replacement validates complete saved records",
                  "[loader][cursor][ownership]")
 {
-    W8WorldCursorNode first{}, second{};
-    const struct RegistryScope {
-        std::vector<W8WorldCursorNode*> previous = std::move(g_world_cursor_nodes);
-        ~RegistryScope() { g_world_cursor_nodes = std::move(previous); }
-    } registry;
-    std::strcpy(first.name, "first");
-    std::strcpy(second.name, "second");
-    first.userdata = {std::byte{7}};
-    second.userdata = {std::byte{8}};
-    g_world_cursor_nodes = {&first, &second};
+    W8SavedCursorNodes table;
+    table.nodes.resize(2);
+    std::strcpy(table.nodes[0].name.data(), "first");
+    std::strcpy(table.nodes[1].name.data(), "second");
+    table.nodes[0].userdata = {std::byte{7}};
+    table.nodes[1].userdata = {std::byte{8}};
     std::string bytes;
     append(bytes, 2);
     append(bytes, 2u);
-    for (const auto* node : g_world_cursor_nodes) {
-        bytes.append(node->name, sizeof(node->name));
+    for (const auto& node : table.nodes) {
+        bytes.append(node.name.data(), node.name.size());
         append(bytes, 2);
         bytes.append("ab", 2);
     }
     const auto load = [&](const std::string& data) {
         store("cursor-state.dat", data);
         auto file = wiz8::open_file(wiz8::asset_path("cursor-state.dat"));
-        return LoadWorldCursorNodeStates(*file);
+        ReadWorldCursorNodeStates(*file, table);
     };
-    REQUIRE(load(bytes.substr(0, bytes.size() - 1)) == 0);
-    REQUIRE(first.userdata == std::vector{std::byte{7}});
-    REQUIRE(second.userdata == std::vector{std::byte{8}});
-    REQUIRE(load(bytes) == 2);
-    REQUIRE(first.userdata == std::vector{std::byte{'a'}, std::byte{'b'}});
-    REQUIRE(load(bytes) == 2);
-    SetWorldCursorNodeParameter(&first, 0, 4);
-    REQUIRE(first.userdata.empty());
+    REQUIRE_THROWS(load(bytes.substr(0, bytes.size() - 1)));
+    REQUIRE(table.nodes[0].userdata == std::vector{std::byte{7}});
+    REQUIRE(table.nodes[1].userdata == std::vector{std::byte{8}});
+    REQUIRE_NOTHROW(load(bytes));
+    REQUIRE(table.nodes[0].userdata == std::vector{std::byte{'a'}, std::byte{'b'}});
+    REQUIRE_NOTHROW(load(bytes));
+    const auto original = table.nodes[0].userdata;
     auto invalid = bytes;
     std::fill(invalid.begin() + 8, invalid.begin() + 40, 'x');
-    REQUIRE(load(invalid) == 0);
+    REQUIRE_THROWS(load(invalid));
     invalid = bytes;
     const int negative = -1;
     std::memcpy(invalid.data() + 40, &negative, sizeof(negative));
-    REQUIRE(load(invalid) == 0);
-    REQUIRE(first.userdata.empty());
+    REQUIRE_THROWS(load(invalid));
+    REQUIRE(table.nodes[0].userdata == original);
 }
 
 TEST_CASE_METHOD(LoaderFixture, "Prop loader rejects an unterminated asset name", "[loader][prop]")
@@ -1733,6 +1726,7 @@ TEST_CASE_METHOD(LoaderFixture, "Prop loader rejects an unterminated asset name"
 TEST_CASE_METHOD(LoaderFixture, "Trigger action loading rejects incomplete and unterminated text",
                  "[loader][trigger]")
 {
+    W8World world;
     std::string bytes;
     append(bytes, 1);
     append(bytes, 1);
@@ -1741,7 +1735,7 @@ TEST_CASE_METHOD(LoaderFixture, "Trigger action loading rejects incomplete and u
     const auto load = [&](const std::string& data) {
         store("trigger-action.dat", data);
         auto file = wiz8::open_file(wiz8::asset_path("trigger-action.dat"));
-        return LoadTriggerActionData(*file);
+        return LoadTriggerActionData(world, *file);
     };
     REQUIRE_FALSE(load(bytes));
     REQUIRE_FALSE(load(bytes.substr(0, bytes.size() - 1)));

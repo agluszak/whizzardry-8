@@ -1,7 +1,9 @@
 #pragma once
 
 #include <memory>
+#include <span>
 #include <string>
+#include <vector>
 
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/audio_resources.h"
@@ -144,7 +146,12 @@ unsigned char AddAmbientSound(W8World* world, const char* name, const W8AmbientS
                               unsigned char shared);
 
 void SaveAmbientSoundList(wiz8::File& handle);
-void LoadAmbientSoundList(wiz8::File& handle);
+struct W8AmbientSoundState {
+    std::string name;
+    bool stopped;
+};
+std::vector<W8AmbientSoundState> ReadAmbientSoundStates(wiz8::File& file);
+void ApplyAmbientSoundStates(std::span<const W8AmbientSoundState> states);
 
 bool IsSoundEffectsMuted(void);
 unsigned char GetSoundEffectsVolume(void);

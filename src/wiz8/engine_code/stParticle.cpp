@@ -6,8 +6,10 @@
 #include <memory>
 #include <optional>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include <SDL3/SDL_stdinc.h>
 #include <glm/gtc/matrix_access.hpp>
@@ -111,24 +113,33 @@ void SaveParticleStates(wiz8::File& handle)
 }
 
 // FUNCTION: WIZ8 0x0049B3B0
-void LoadParticleStates(wiz8::File& handle)
+std::vector<W8ParticleState> ReadParticleStates(wiz8::File& file)
 {
     unsigned char version;
-    int count = 0;
-    char name[0x80] = "";
-
-    handle.read_exact(&version, sizeof(version));
-    handle.read_exact(&count, sizeof(count));
-
+    int count;
+    file.read_exact(&version, sizeof(version));
+    file.read_exact(&count, sizeof(count));
+    if (count < 0 || count > (file.size() - file.tell()) / 129)
+        throw std::runtime_error("invalid Particle state count");
+    std::vector<W8ParticleState> records;
+    records.reserve(count);
     for (int index = 0; index < count; ++index) {
+        char name[128];
         unsigned char active;
-        handle.read_exact(name, sizeof(name));
-        handle.read_exact(&active, sizeof(active));
+        file.read_exact(name, sizeof(name));
+        file.read_exact(&active, sizeof(active));
+        const auto end = std::find(name, name + sizeof(name), '\0');
+        if (end == name + sizeof(name)) throw std::runtime_error("unterminated Particle name");
+        records.push_back({std::string(name, end), active});
+    }
+    return records;
+}
 
-        stParticle* particle = FindParticleByName(GetWorld(), name);
-        if (particle != 0) {
-            particle->SetActive(active);
-        }
+void ApplyParticleStates(std::span<const W8ParticleState> states)
+{
+    for (const auto& state : states) {
+        if (auto* particle = FindParticleByName(GetWorld(), state.name.c_str()))
+            particle->SetActive(state.active);
     }
 }
 

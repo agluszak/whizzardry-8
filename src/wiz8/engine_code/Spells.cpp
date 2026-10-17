@@ -924,18 +924,26 @@ const char* g_monster_spell_icon_names[40] = {
 };
 
 // FUNCTION: WIZ8 0x004acd80
+void AddMonsterSpellIcon(W8World& world, W8Monster* monster, W8MonsterSpellIconId icon)
+{
+    if (!monster || !monster->m_pRep || icon < 0 || icon >= SPELL_NUM_ICONS)
+        srAssertFail("monster spell icon", __FILE__, __LINE__, nullptr);
+    auto& icons = monster->m_pRep->spell_icons;
+    icons.reserve(icons.size() + 1);
+    const auto path =
+        fmt::format("data/icons/monsterspells/{}_A.TGA", g_monster_spell_icon_names[icon]);
+    auto* item = CreateMonsterIconItem(&world, path.c_str(), 1);
+    if (!item) srAssertFail("monster spell icon item", __FILE__, __LINE__, nullptr);
+    icons.push_back({icon, item});
+}
+
 void SetMonsterSpellIcon(W8Monster* monster, W8MonsterSpellIconId icon, bool add)
 {
     if (!monster || !monster->m_pRep || icon < 0 || icon >= SPELL_NUM_ICONS)
         srAssertFail("monster spell icon", __FILE__, __LINE__, nullptr);
     auto& icons = monster->m_pRep->spell_icons;
     if (add) {
-        icons.reserve(icons.size() + 1);
-        const auto path =
-            fmt::format("data/icons/monsterspells/{}_A.TGA", g_monster_spell_icon_names[icon]);
-        auto* item = CreateMonsterIconItem(GetWorld(), path.c_str(), 1);
-        if (!item) srAssertFail("monster spell icon item", __FILE__, __LINE__, nullptr);
-        icons.push_back({icon, item});
+        AddMonsterSpellIcon(*GetWorld(), monster, icon);
     } else {
         for (auto entry = icons.begin(); entry != icons.end();) {
             if (entry->icon != icon) {

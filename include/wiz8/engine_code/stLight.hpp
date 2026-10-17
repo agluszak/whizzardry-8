@@ -166,7 +166,12 @@ public:
 };
 
 void SaveLightStates(wiz8::File& handle);
-void LoadLightStates(wiz8::File& handle);
+struct W8LightState {
+    std::string name;
+    unsigned char enabled;
+};
+std::vector<W8LightState> ReadLightStates(wiz8::File& file);
+void ApplyLightStates(std::span<const W8LightState> states);
 
 /* Animation copies retain per-light position before assignment, detach the new
    light and register it with the world, which owns it, before adding it to the

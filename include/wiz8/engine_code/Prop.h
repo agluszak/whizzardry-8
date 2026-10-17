@@ -116,7 +116,7 @@ public:
     /* Restore the rep's persisted animation state: five saved bytes plus one
        discarded byte, clamped to the loaded animation's frame count, with
        path values re-synced while a running animation is active. */
-    bool LoadAnimationState(wiz8::File& hFile);        /* 0x0044DBD0 */
+    bool LoadAnimationState(wiz8::File& hFile, W8PathingService* pathing);        /* 0x0044DBD0 */
     int BuildOrRefreshPathingRepresentation(W8PathingService* pathing); /* 0x0044DEA0 */
     /* Current minus previous position when the animation advances exactly
        one frame; otherwise zero. */

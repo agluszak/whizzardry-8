@@ -1131,7 +1131,7 @@ void W8Prop::DetachAnimationInstances(W8World* world)
    The read chain's success is reported even though the restore runs either
    way. */
 // FUNCTION: WIZ8 0x0044dbd0
-bool W8Prop::LoadAnimationState(wiz8::File& hFile)
+bool W8Prop::LoadAnimationState(wiz8::File& hFile, W8PathingService* pathing)
 try {
     unsigned char unused;
     unsigned int count;
@@ -1167,7 +1167,7 @@ try {
                 }
             }
         }
-        ApplyAnimationFrame(GetWorldPathing());
+        ApplyAnimationFrame(pathing);
     }
     return success;
 } catch (const std::exception&) {
@@ -1715,6 +1715,7 @@ void SaveWorldProps(W8World* world, wiz8::File& handle)
 // FUNCTION: WIZ8 0x0044e9a0
 void LoadWorldProps(W8World* world, wiz8::File& handle)
 {
+    auto* pathing = world->octree ? world->octree->pathing : nullptr;
     int index;
     int count;
     int entries;
@@ -1740,10 +1741,12 @@ void LoadWorldProps(W8World* world, wiz8::File& handle)
                 }
             }
             if (prop != 0) {
-                prop->LoadAnimationState(handle);
+                if (!prop->LoadAnimationState(handle, pathing))
+                    throw std::runtime_error("invalid saved prop state");
             } else {
                 W8Prop scratch;
-                scratch.LoadAnimationState(handle);
+                if (!scratch.LoadAnimationState(handle, pathing))
+                    throw std::runtime_error("invalid saved prop state");
             }
         }
     } else {
@@ -1753,12 +1756,14 @@ void LoadWorldProps(W8World* world, wiz8::File& handle)
             handle.read_exact(name, 0x40);
             if (std::find(name, name + 64, '\0') == name + 64)
                 throw std::runtime_error("unterminated saved prop name");
-            prop = FindPropByName(GetWorld(), name);
+            prop = FindPropByName(world, name);
             if (prop != 0) {
-                prop->LoadAnimationState(handle);
+                if (!prop->LoadAnimationState(handle, pathing))
+                    throw std::runtime_error("invalid saved prop state");
             } else {
                 W8Prop scratch;
-                scratch.LoadAnimationState(handle);
+                if (!scratch.LoadAnimationState(handle, pathing))
+                    throw std::runtime_error("invalid saved prop state");
             }
         }
     }

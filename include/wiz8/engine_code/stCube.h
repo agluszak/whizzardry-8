@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <vector>
 
@@ -56,5 +57,17 @@ void SetWorldCursorNodeColor(W8WorldCursorNode* entry, w8_ulong color);
 W8WorldCursorNode* PickWorldCursorNodeAtScreenPoint(int x, int y);
 unsigned char SaveWorldCursorNodeStates(wiz8::File& handle);
 unsigned char SaveWorldCursorNodes(wiz8::File& handle);
-unsigned int LoadWorldCursorNodes(wiz8::File& handle);
-unsigned int LoadWorldCursorNodeStates(wiz8::File& handle);
+struct W8SavedCursorNode {
+    std::array<char, 32> name{};
+    std::array<int, 3> parameters{};
+    glm::vec3 minimum{0.0f}, maximum{0.0f}, location{0.0f};
+    unsigned int value = 0;
+    std::vector<std::byte> userdata;
+};
+struct W8SavedCursorNodes {
+    int next_serial = 100;
+    std::vector<W8SavedCursorNode> nodes;
+};
+W8SavedCursorNodes ReadWorldCursorNodes(wiz8::File& file);
+void ReadWorldCursorNodeStates(wiz8::File& file, W8SavedCursorNodes& nodes);
+void ApplyWorldCursorNodes(W8SavedCursorNodes nodes);

@@ -203,6 +203,7 @@ public:
     float GetDistanceToMonster(W8Monster* monster);
     float GetPointDistanceToMonster(W8Monster* monster, glm::vec3 point);
     bool SetScript(std::string script_name, bool reset_orders);
+    void UseScript(std::shared_ptr<stScript> loaded, bool reset_orders);
     void ProcessScript();
     bool ResolveScriptPosition(const char* name, glm::vec3* position);
     bool GetProjectilePosition(glm::vec3* position);

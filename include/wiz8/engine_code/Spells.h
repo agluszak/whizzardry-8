@@ -43,5 +43,6 @@ int MinimumCasterLevelForSpellLevel(int spell_level);
 int GetMinimumCasterLevelForSpell(int spell_id);
 bool CanSpellBackfire(int spell_id);
 void ClearMonsterSpellIcons(W8Monster* monster); /* 0x004ACF90 */
+void AddMonsterSpellIcon(W8World& world, W8Monster* monster, W8MonsterSpellIconId icon);
 void SetMonsterSpellIcon(W8Monster* monster, W8MonsterSpellIconId icon, bool add); /* 0x004ACD80 */
 void UpdateWorldSpellVisuals(W8World* world);

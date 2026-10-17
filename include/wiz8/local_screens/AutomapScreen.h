@@ -5,6 +5,7 @@
 #include "glm/ext/vector_float3.hpp"
 
 struct W8AutomapCells;
+struct W8World;
 
 #include <array>
 #include <memory>
@@ -50,7 +51,12 @@ bool AutomapHasCellAt(const glm::vec3* position);
 
 void ResetAutomapView(void);
 bool SaveAutomapNotes(wiz8::File& handle);
-bool LoadAutomapNotes(wiz8::File& handle);
+struct W8SavedAutomapNotes {
+    std::vector<bool> visited;
+    std::vector<std::unique_ptr<W8AutomapNote>> notes;
+};
+W8SavedAutomapNotes ReadAutomapNotes(wiz8::File& file, std::size_t cells);
+void ApplyAutomapNotes(W8World& world, W8SavedAutomapNotes notes);
 unsigned char GetAutomapPositionUnderCursor(glm::vec3* position);
 void SetAutomapToolCursor(int tool);
 W8AutomapNote* FindAutomapNoteUnderCursor(void);

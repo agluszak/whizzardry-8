@@ -8,6 +8,7 @@
 #include <exception>
 #include <memory>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -1353,45 +1354,49 @@ bool SaveAutomapNotes(wiz8::File& handle)
 
 /* Release every note, restore the visited-cell bitmap for the loaded level,
    then rebuild the notes from the saved records. */
-bool LoadAutomapNotes(wiz8::File& handle)
-try {
-    int signature = 0;
+W8SavedAutomapNotes ReadAutomapNotes(wiz8::File& file, std::size_t cells)
+{
+    W8SavedAutomapNotes result;
+    if (cells > 1 && !LoadPackedBits(file, result.visited))
+        throw std::runtime_error("invalid automap visited cells");
+    unsigned int signature, count;
+    file.read_exact(&signature, sizeof(signature));
+    if (signature != 0xf00df00d) throw std::runtime_error("invalid automap notes signature");
+    file.read_exact(&count, sizeof(count));
+    if (count > (file.size() - file.tell()) / 18)
+        throw std::runtime_error("invalid automap note count");
+    result.notes.reserve(std::min(count, 200u));
+    for (unsigned int index = 0; index < count; ++index) {
+        auto note = std::make_unique<W8AutomapNote>();
+        int length;
+        file.read_exact(&note->position.x, sizeof(float));
+        file.read_exact(&note->position.y, sizeof(float));
+        file.read_exact(&note->layer, sizeof(note->layer));
+        file.read_exact(&length, sizeof(length));
+        if (length < 1 || length > 40) throw std::runtime_error("invalid automap note length");
+        std::vector<std::byte> bytes(static_cast<std::size_t>(length) * 2);
+        file.read_exact(bytes.data(), bytes.size());
+        note->text = wiz8::text::from_utf16le(bytes);
+        if (result.notes.size() < 200) result.notes.push_back(std::move(note));
+    }
+    file.read_exact(&signature, sizeof(signature));
+    if (signature != 0xf00df00d) throw std::runtime_error("invalid automap notes terminator");
+    return result;
+}
+
+void ApplyAutomapNotes(W8World& world, W8SavedAutomapNotes records)
+{
     ClearAutomapNotes();
     g_automap_redraw = true;
-    if (1 < GetWorld()->automap.visited.size()) {
-        LoadPackedBits(handle, GetWorld()->automap.visited);
-        if (GetWorld()->automap.visited.size() ==
-            static_cast<std::size_t>(GetWorld()->automap.keys.size())) {
-            g_automap_state->pending_cell_lighting = 1;
-        } else {
-            GetWorld()->automap.visited.assign(GetWorld()->automap.keys.size(), false);
-        }
+    if (world.automap.keys.size() > 1) {
+        if (records.visited.size() == world.automap.keys.size()) {
+            world.automap.visited = std::move(records.visited);
+            if (g_automap_state) g_automap_state->pending_cell_lighting = 1;
+        } else
+            world.automap.visited.assign(world.automap.keys.size(), false);
         g_automap_bounds_dirty = true;
-        unsigned int count;
-        if ((handle.read(&signature, 4).bytes == static_cast<std::size_t>(4)) != 0 &&
-            signature == static_cast<int>(0xf00df00d) &&
-            (handle.read(&count, 4).bytes == static_cast<std::size_t>(4)) != 0) {
-            for (unsigned int index = 0; index < count; ++index) {
-                glm::vec2 position;
-                int layer = 0;
-                int length = 0;
-                /* Retail fed `length` to malloc even when the FileRead chain
-                   short-circuited before filling it; natively it starts at zero. */
-                bool ok = (handle.read(&position.x, 4).bytes == static_cast<std::size_t>(4)) != 0 &&
-                          (handle.read(&position.y, 4).bytes == static_cast<std::size_t>(4)) != 0 &&
-                          (handle.read(&layer, 4).bytes == static_cast<std::size_t>(4)) != 0 &&
-                          (handle.read(&length, 4).bytes == static_cast<std::size_t>(4)) != 0;
-                if (!ok || length < 1 || length > 40) return false;
-                std::vector<std::byte> bytes(static_cast<std::size_t>(length) * 2);
-                if (handle.read(bytes.data(), bytes.size()).bytes != bytes.size()) return false;
-                CreateAutomapNote(&position, layer, wiz8::text::from_utf16le(bytes));
-            }
-            return (handle.read(&signature, 4).bytes == static_cast<std::size_t>(4)) != 0;
-        }
     }
-    return false;
-} catch (const std::exception&) {
-    return false;
+    g_automap_notes = std::move(records.notes);
 }
 
 /* Convert the cursor position to an automap world position on the layer

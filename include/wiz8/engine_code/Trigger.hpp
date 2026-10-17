@@ -308,9 +308,9 @@ int ResetNextTriggerId(void);
 void SaveWorldTriggers(W8World* world, wiz8::File& handle);
 bool LoadWorldTriggers(W8World* world, wiz8::File& handle, bool from_assets = false);
 void SaveTriggerRuntimeStates(W8World* world, wiz8::File& handle, bool restoring);
-bool LoadTriggerRuntimeStates(wiz8::File& handle);
+bool LoadTriggerRuntimeStates(W8World& world, wiz8::File& handle);
 void SaveTriggerActionData(W8World* world, wiz8::File& handle);
-bool LoadTriggerActionData(wiz8::File& handle);
+bool LoadTriggerActionData(W8World& world, wiz8::File& handle);
 
 extern bool g_trigger_feedback;
 /* Camera position cached by the per-frame trigger walk. */

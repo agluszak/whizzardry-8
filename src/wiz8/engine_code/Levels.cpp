@@ -424,38 +424,10 @@ bool LevelBuildInfoByID(int level, W8LevelInfo* info)
     return true;
 }
 
-/* Construct level and sky resources before leaving the current level. The
-   remaining work activates gameplay against the completed scenes. */
-// FUNCTION: WIZ8 0x0042A6F0
-unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
+static void EnterLevel(int level, int entrance, bool restoring_game, const W8LevelInfo& level_info,
+                       W8LoadedLevelStatus* status)
 {
-    int level = NormalizeMasterFunctionValue(requested_level);
-    W8LevelInfo level_info;
     bool first_visit = false;
-
-    if (level >= 57) {
-        srAssertFail("iLevel < TEST_LEVEL_COUNT",
-                     "C:\\Projects\\Wizardry 8\\Engine Code\\Levels.cpp", 385, 0);
-    }
-    if (!LevelBuildInfoByID(level, &level_info)) {
-        return 0;
-    }
-
-    auto replacement = LoadWorld(level, level_info.level_path);
-    if (!replacement) return 0;
-    const bool reuse_sky =
-        sky_world &&
-        sky_world->source_path == wiz8::normalize_asset_path(level_info.sky_path).generic_string();
-    auto replacement_sky = reuse_sky ? nullptr : PrepareSkyWorld(level_info.sky_path);
-    if (!reuse_sky && !level_info.sky_path.empty() && !replacement_sky) return 0;
-    if (GetWorld()) {
-        if (!SaveLevelStatus("saves\\CurrentGame.SAV")) return 0;
-        UnloadLevel();
-    }
-    ReleaseReadMeshScratch();
-    InvalidateRendererTextureCache();
-    primary_world = std::move(replacement);
-    if (!reuse_sky) sky_world = std::move(replacement_sky);
     StartLevelMusic(1, 1);
     InitializeMonsterManagerState();
     InitializeItemManagerState();
@@ -465,10 +437,7 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
     ApplyCameraRotation(&GetWorld()->initial_camera_rotation);
     SetSkyNodeVisible(false);
     ResetAutomapView();
-    if (!LoadLevelStatus(wiz8::user_path("saves/CurrentGame.SAV"), level)) {
-        const auto status_path = BuildLevelStatusPath(level);
-        LoadLevelStatus(wiz8::asset_path(status_path), level, true);
-    }
+    if (status) ActivateLevelStatus(*GetWorld(), *status);
 
     if (!restoring_game && entrance != -1) {
         Trigger* trigger = 0;
@@ -566,6 +535,42 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
     }
     RefreshWorldView();
     ReleaseReadMeshScratch();
+}
+
+/* Construct level and sky resources before leaving the current level. The
+   remaining work activates gameplay against the completed scenes. */
+// FUNCTION: WIZ8 0x0042A6F0
+unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
+{
+    int level = NormalizeMasterFunctionValue(requested_level);
+    W8LevelInfo level_info;
+
+    if (level >= 57) {
+        srAssertFail("iLevel < TEST_LEVEL_COUNT",
+                     "C:\\Projects\\Wizardry 8\\Engine Code\\Levels.cpp", 385, 0);
+    }
+    if (!LevelBuildInfoByID(level, &level_info)) {
+        return 0;
+    }
+
+    auto replacement = LoadWorld(level, level_info.level_path);
+    if (!replacement) return 0;
+    const bool reuse_sky =
+        sky_world &&
+        sky_world->source_path == wiz8::normalize_asset_path(level_info.sky_path).generic_string();
+    auto replacement_sky = reuse_sky ? nullptr : PrepareSkyWorld(level_info.sky_path);
+    if (!reuse_sky && !level_info.sky_path.empty() && !replacement_sky) return 0;
+    if (GetWorld() && !SaveLevelStatus("saves\\CurrentGame.SAV")) return 0;
+    auto status = ReadLevelStatus(*replacement, wiz8::user_path("saves/CurrentGame.SAV"), level);
+    if (!status)
+        status = ReadLevelStatus(*replacement, wiz8::asset_path(BuildLevelStatusPath(level)), level,
+                                 true);
+    if (GetWorld()) UnloadLevel();
+    ReleaseReadMeshScratch();
+    InvalidateRendererTextureCache();
+    primary_world = std::move(replacement);
+    if (!reuse_sky) sky_world = std::move(replacement_sky);
+    EnterLevel(level, entrance, restoring_game, level_info, status.get());
     return 1;
 }
 

@@ -337,8 +337,6 @@ static std::unique_ptr<W8Monster> ReadOrCloneMonsterCycles(const W8GrCycleLoadCo
         return monster;
     }
 
-    PauseSharedGameTimers();
-
     bool success = true;
     bool flies = false;
     bool swims = false;
@@ -731,7 +729,7 @@ static std::unique_ptr<W8Monster> ReadOrCloneMonsterCycles(const W8GrCycleLoadCo
 
     if (has_light && representation->monster_light == 0) {
         representation->monster_light = std::make_unique<MonsterLight>(
-            GetWorld()->dynamic_scene, light_pulsing, monster->movement.collision_radius * 3.0f,
+            context->world->dynamic_scene, light_pulsing, monster->movement.collision_radius * 3.0f,
             &light_first, &light_second);
         representation->monster_light->m_vertical_offset = monster->movement.height_offset;
     }
@@ -766,7 +764,6 @@ static std::unique_ptr<W8Monster> ReadOrCloneMonsterCycles(const W8GrCycleLoadCo
 
     monster->RandomizeAppearanceAndMotion();
     RegisterGrCycle(monster_name, monster.get());
-    ResumeSharedGameTimers();
     ReleaseReadMeshScratch();
     return success ? std::move(monster) : nullptr;
 }
@@ -1549,9 +1546,9 @@ static ResourceCache<stScript> g_monster_scripts;
 /* Replace the current Monster script with a loaded one of the same name, or
    load it from the Monster script directory. */
 // FUNCTION: WIZ8 0x004C7F10
-bool W8Monster::SetScript(std::string script_name, bool reset_orders)
+void W8Monster::UseScript(std::shared_ptr<stScript> loaded, bool reset_orders)
 {
-    script.reset();
+    script = std::move(loaded);
     runtime_flags &= ~W8_MONSTER_SCRIPT_WAIT;
     script_line = 0;
     script_wait = MONSCR_NONE;
@@ -1559,6 +1556,11 @@ bool W8Monster::SetScript(std::string script_name, bool reset_orders)
     if (reset_orders) {
         orders_finished = false;
     }
+}
+
+bool W8Monster::SetScript(std::string script_name, bool reset_orders)
+{
+    UseScript({}, reset_orders);
 
     script = g_monster_scripts.find(script_name);
     if (script == 0) {
@@ -3256,7 +3258,7 @@ void W8Monster::SetCycle(signed char cycle)
     m_pRep->frame_method = animation->frame_method;
 
     {
-        glm::dvec3 camera_location = GetWorld()->camera->getLocation();
+        glm::dvec3 camera_location = owner_world->camera->getLocation();
         glm::vec3 listener;
         listener = glm::vec3(camera_location);
         SelectLOD(&listener);
@@ -3276,7 +3278,7 @@ void W8Monster::SetCycle(signed char cycle)
         for (index = 0; index < count; ++index) {
             stLight* light = (*lights)[index].get();
 
-            light->setParent(GetWorld()->dynamic_scene, 1);
+            light->setParent(owner_world->dynamic_scene, 1);
             light->Reset();
         }
     }
