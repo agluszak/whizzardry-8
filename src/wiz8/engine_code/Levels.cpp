@@ -413,6 +413,7 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
     if (GetWorld()->game_data) g_environ = GetWorld()->game_data->m_ppEnvirons.front().get();
     if (GetWorld()->fog_enabled) UpdateEnvironmentLight();
     ApplyCameraRotation(&GetWorld()->initial_camera_rotation);
+    SetCameraSwayMode(GetWorld()->camera, GetWorld()->initial_camera_sway ? 1 : -1);
     SetSkyNodeVisible(false);
     ResetAutomapView();
     if (status) ActivateLevelStatus(*GetWorld(), *status);
@@ -589,6 +590,7 @@ void UnloadLevel()
 
     ReleaseWorldCursor();
     DisableSky();
+    EndCameraSway();
     if (primary_world->game_data) primary_world->game_data->ReleaseLevelData();
     ReplaceWorld(nullptr);
 

@@ -97,6 +97,7 @@ struct W8World {
     std::array<glm::vec3, 256> light_colours = EnvironmentColourRamp();
     std::vector<stLight*> environment_lights;
     glm::vec3 environment_offset{0.0f};
+    bool initial_camera_sway = false;
     glm::mat3 initial_camera_rotation{1.0f};
     bool fog_enabled = false;
     int last_light_phase = -1;

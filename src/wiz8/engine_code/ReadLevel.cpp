@@ -1101,7 +1101,7 @@ try {
 
     UpdateWorldProps(world);
     info.hFile->read(&camera_mode, sizeof(camera_mode));
-    SetCameraSwayMode(world->camera, camera_mode == 0 ? -1 : 1);
+    world->initial_camera_sway = camera_mode != 0;
     if (world->octree == 0 && world->level_id >= 0) {
         FinalizeWorldScenes(world->static_scene.get(), world->dynamic_scene);
     }
