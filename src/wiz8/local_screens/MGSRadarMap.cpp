@@ -291,7 +291,7 @@ void UpdateRadarBlips(void)
         W8Item* item = world_item->p3D;
 
         if (item != 0) {
-            W8ItemRep* rep = static_cast<W8ItemRep*>(item->m_pRep);
+            W8ItemRep* rep = item->m_pRep.get();
             if ((rep->flags & W8_ITEM_ENTITY_NO_PICKUP) == 0) {
                 position = rep->GetLocation();
                 const auto bounds = item->GetCachedLocalBounds();

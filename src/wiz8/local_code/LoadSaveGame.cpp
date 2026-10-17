@@ -1342,7 +1342,7 @@ try {
         item->saved_marker = 1;
         if (item->fActive) {
             item->position = item->p3D->m_pRep->GetLocation();
-            item->entity_flags = static_cast<W8ItemRep*>(item->p3D->m_pRep)->flags;
+            item->entity_flags = item->p3D->m_pRep.get()->flags;
         }
         wiz8::retail::write(handle, *item);
     }

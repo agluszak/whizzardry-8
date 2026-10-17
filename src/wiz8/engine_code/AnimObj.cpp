@@ -384,7 +384,7 @@ void TransformBounds(const glm::mat3* rotation, const glm::vec3* translation,
 /* While the object is inactive the selected owned entry supplies the value;
    once active, AnimObj keeps the live value in its own byte at 0x16. */
 // FUNCTION: WIZ8 0x004a15d0
-unsigned int AnimObjValue(W8AnimObj* animation, signed char index)
+unsigned int AnimObjValue(const W8AnimObj* animation, signed char index)
 {
     if (animation == 0) {
         srAssertFail("pao", ANIM_OBJ_CPP, 0x291, 0);

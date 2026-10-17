@@ -51,9 +51,10 @@ struct W8ItemRep : public W8AnimRepBase {
 struct W8Item : public W8GrObject {
     W8Item();
     virtual ~W8Item() override;
-    W8Item(const W8Item&) = default;
+    W8Item(const W8Item&) = delete;
     W8Item& operator=(const W8Item&) = delete;
 
+    std::unique_ptr<W8ItemRep> m_pRep = std::make_unique<W8ItemRep>();
     Trigger* trigger;
     /* 0x1c: countdown clock; IsTicking reports whether it is running. */
     uint64_t countdown;

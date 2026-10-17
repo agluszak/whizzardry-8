@@ -133,7 +133,7 @@ void SetItemAndEntityFlags(W8WorldItem* item, unsigned int mask, bool enabled)
         item->entity_flags &= ~mask;
     }
     if (item->p3D != 0) {
-        static_cast<W8ItemRep*>(item->p3D->m_pRep)->SetFlags(mask, enabled);
+        item->p3D->m_pRep.get()->SetFlags(mask, enabled);
     }
 }
 
@@ -571,7 +571,7 @@ void ActivateItem(W8WorldItem* item)
     item->p3D->SetLocation(&position);
     item->p3D->SetYaw(
         static_cast<float>(Random(0x168) * 2 * g_camera_pi * kInverseFullTurnDegrees));
-    static_cast<W8ItemRep*>(item->p3D->m_pRep)->flags |= item->entity_flags;
+    item->p3D->m_pRep.get()->flags |= item->entity_flags;
     item->p3D->AttachMesh(GetWorld());
     GetWorld()->plsItems.push_back(std::move(entity));
     item->fActive = true;
@@ -616,7 +616,7 @@ void DeactivateWorldItem(W8WorldItem* item)
 
     position = item->p3D->m_pRep->GetLocation();
     item->position = position;
-    item->entity_flags = static_cast<W8ItemRep*>(item->p3D->m_pRep)->flags;
+    item->entity_flags = item->p3D->m_pRep.get()->flags;
 
     item->p3D->DetachMesh();
     std::erase_if(GetWorld()->plsItems,
@@ -636,7 +636,7 @@ void SetWorldItemHighlight(int runtime_id, bool on)
     if (world_item == 0) {
         srAssertFail("pItem", ITEM_MANAGER_CPP, 627, 0);
     }
-    W8ItemRep* rep = static_cast<W8ItemRep*>(world_item->m_pRep);
+    W8ItemRep* rep = world_item->m_pRep.get();
     if (on) {
         rep->flags |= W8_ITEM_ENTITY_HIGHLIGHT_GREEN;
         world_item->SetHighlight(true);
@@ -665,7 +665,7 @@ int PickNearestItemUnderCursor(int cursor_x, int cursor_y, float max_distance)
         if (!item->fActive) {
             continue;
         }
-        if (static_cast<W8ItemRep*>(item->p3D->m_pRep)->flags & W8_ITEM_ENTITY_NO_PICKUP) {
+        if (item->p3D->m_pRep.get()->flags & W8_ITEM_ENTITY_NO_PICKUP) {
             continue;
         }
         if (!item->p3D->IsSelected()) {
@@ -834,7 +834,7 @@ unsigned char InteractWithWorldItem(int runtime_id)
             return result;
         }
     }
-    if ((static_cast<W8ItemRep*>(item->p3D->m_pRep)->flags & W8_ITEM_ENTITY_NO_PICKUP) == 0) {
+    if ((item->p3D->m_pRep.get()->flags & W8_ITEM_ENTITY_NO_PICKUP) == 0) {
         CopyItemInstance(&g_status.item_in_hand, &item->item, 0, true);
     }
     index = ItemIndex(runtime_id);

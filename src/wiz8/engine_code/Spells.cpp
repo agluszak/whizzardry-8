@@ -136,7 +136,7 @@ int GetMinimumCasterLevelForSpell(int spell_id)
 // FUNCTION: WIZ8 0x004ac890
 W8EmitterHost* W8SpellVisual::GetRepresentation()
 {
-    return this->host;
+    return this->host.get();
 }
 
 /* The emitter it is currently coming out of. */
@@ -206,7 +206,7 @@ void W8SpellVisual::AdvanceAnimationFrame(int value, int arg_flags)
     W8SpellEmitterHost* representation_before;
 
     host->first_frame = 0;
-    representation_before = host;
+    representation_before = host.get();
     representation_before->last_frame = GetNumSubCycles() - 1;
     W8GrCycle::AdvanceAnimationFrame(value, arg_flags);
 }
@@ -528,10 +528,6 @@ W8SpellVisual::W8SpellVisual(W8World* owner)
 {
     W8GrObject::kind = 1;
     id = AllocateGrObjectId();
-    host = new W8SpellEmitterHost;
-    if (host == 0) {
-        srAssertFail("m_pRep", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x3c0, 0);
-    }
 }
 
 /* Release the emitter host, leave the world's spell collection, and unregister
@@ -540,7 +536,7 @@ W8SpellVisual::W8SpellVisual(W8World* owner)
 W8SpellVisual::~W8SpellVisual()
 {
     SetLights(0);
-    delete host;
+    host.reset();
 
     UnregisterGrCycle(this);
 }
@@ -581,7 +577,7 @@ int W8SpellVisual::FindSupportedCycle(int group, int subcycle)
 // FUNCTION: WIZ8 0x004ac8f0
 int W8SpellVisual::QueryHostStateByKind(int arg_kind)
 {
-    W8SpellEmitterHost* host = this->host;
+    W8SpellEmitterHost* host = this->host.get();
 
     switch (arg_kind) {
     case 0:
@@ -859,14 +855,6 @@ W8AniMesh* W8SpellEmitterHost::GetEmitterAniMesh(signed char emitter)
         return 0;
     }
     return AnimObjEntry(target, this->m_bLOD, 0);
-}
-
-/* The clone slot owns both the 0x37c allocation and the copy-construction
-   call. */
-// FUNCTION: WIZ8 0x004ade70
-W8AnimRepBase* W8SpellEmitterHost::Clone()
-{
-    return new W8SpellEmitterHost(*this);
 }
 
 W8SpellEmitterHost::~W8SpellEmitterHost() = default;

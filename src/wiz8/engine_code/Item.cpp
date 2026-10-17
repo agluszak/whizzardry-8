@@ -41,10 +41,7 @@
 // class W8Item
 
 // FUNCTION: WIZ8 0x0049F440
-W8Item::~W8Item()
-{
-    delete m_pRep;
-}
+W8Item::~W8Item() = default;
 
 /* Detach the owned mesh from its actual scene parent. */
 // FUNCTION: WIZ8 0x0049fa30
@@ -52,7 +49,7 @@ void W8Item::DetachMesh()
 {
     srNode* mesh;
 
-    mesh = static_cast<W8ItemRep*>(m_pRep)->m_psrMesh.get();
+    mesh = m_pRep.get()->m_psrMesh.get();
     if (mesh == 0) {
         srAssertFail("psrMesh", "C:\\Projects\\Wizardry 8\\Engine Code\\Item.cpp", 0x24f, 0);
     }
@@ -70,11 +67,11 @@ void W8Item::ApplyRepTransform()
     glm::mat3 rotation;
     srNode* mesh;
 
-    if (static_cast<W8ItemRep*>(m_pRep)->m_psrMesh == 0) {
+    if (m_pRep.get()->m_psrMesh == 0) {
         srAssertFail("m_pRep->m_psrMesh", "C:\\Projects\\Wizardry 8\\Engine Code\\Item.cpp", 0x266,
                      0);
     }
-    mesh = static_cast<W8ItemRep*>(m_pRep)->m_psrMesh.get();
+    mesh = m_pRep.get()->m_psrMesh.get();
     location = m_pRep->GetLocation();
     widened = glm::dvec3(location);
     mesh->setLocation(widened);
@@ -94,10 +91,10 @@ void W8Item::AttachMesh(W8World* world)
     if (world == 0) {
         srAssertFail("pWorld", "C:\\Projects\\Wizardry 8\\Engine Code\\Item.cpp", 0x211, 0);
     }
-    if ((static_cast<W8ItemRep*>(m_pRep)->flags & W8_ITEM_ENTITY_MESH_LOADED) == 0) {
+    if ((m_pRep.get()->flags & W8_ITEM_ENTITY_MESH_LOADED) == 0) {
         return;
     }
-    mesh = static_cast<W8ItemRep*>(m_pRep)->m_psrMesh.get();
+    mesh = m_pRep.get()->m_psrMesh.get();
     if (mesh == 0) {
         srAssertFail("psrMesh", "C:\\Projects\\Wizardry 8\\Engine Code\\Item.cpp", 0x219, 0);
     }
@@ -125,7 +122,7 @@ void W8Item::AttachMesh(W8World* world)
 // FUNCTION: WIZ8 0x0049fb20
 srNode* W8Item::GetMesh()
 {
-    return static_cast<W8ItemRep*>(m_pRep)->m_psrMesh.get();
+    return m_pRep.get()->m_psrMesh.get();
 }
 
 // FUNCTION: WIZ8 0x0049F310
@@ -179,7 +176,6 @@ W8Item::W8Item()
 {
     trigger = 0;
     kind = 2;
-    m_pRep = new W8ItemRep;
     id = AllocateGrObjectId();
     countdown = w8_get_ticks() + (0);
 }
@@ -198,7 +194,7 @@ try {
     mesh->render_flags |= stModelInstance::RENDER_SHADOW;
     SetModelInstanceChainExclusionMask(mesh.get(), 4);
     auto item = std::make_unique<W8Item>();
-    auto& representation = *static_cast<W8ItemRep*>(item->m_pRep);
+    auto& representation = *item->m_pRep.get();
     representation.m_psrMesh = std::move(mesh);
     representation.flags |= W8_ITEM_ENTITY_MESH_LOADED;
     representation.RefreshBounds();
@@ -213,7 +209,7 @@ void W8Item::UpdateAnimation()
     if (m_pRep == 0) {
         srAssertFail("m_pRep", ITEM_CPP, 0x1ca, 0);
     }
-    W8ItemRep* rep = static_cast<W8ItemRep*>(m_pRep);
+    W8ItemRep* rep = m_pRep.get();
     if ((rep->flags & W8_ITEM_ENTITY_MESH_LOADED) == 0) {
         return;
     }
@@ -233,7 +229,7 @@ void W8Item::UpdateAnimation()
         }
     }
 
-    rep = static_cast<W8ItemRep*>(m_pRep);
+    rep = m_pRep.get();
     if ((rep->flags & W8_ITEM_ENTITY_PULSE) != 0) {
         if ((rep->flags & W8_ITEM_ENTITY_PULSE_INCREASING) != 0) {
             rep->pulse_level += 0.05f;
@@ -255,14 +251,14 @@ void W8Item::UpdateAnimation()
 // FUNCTION: WIZ8 0x0049FB30
 srBoundingBox W8Item::GetCachedLocalBounds() const
 {
-    const auto* rep = static_cast<W8ItemRep*>(m_pRep);
+    const auto* rep = m_pRep.get();
     return {rep->bounds_minimum, rep->bounds_maximum};
 }
 
 // FUNCTION: WIZ8 0x0049FB80
 float W8Item::GetBoundsRadius() const
 {
-    return static_cast<W8ItemRep*>(m_pRep)->bounds_radius;
+    return m_pRep.get()->bounds_radius;
 }
 
 /* Raise the representation location by two thirds of the cached local height.
@@ -282,7 +278,7 @@ glm::vec3 W8Item::GetSearchPosition() const
 void W8Item::SetYaw(float angle)
 {
     glm::mat3 rotation(glm::eulerAngleY(static_cast<float>(NormalizeAngle(angle))));
-    srNode* mesh = static_cast<W8ItemRep*>(m_pRep)->m_psrMesh.get();
+    srNode* mesh = m_pRep.get()->m_psrMesh.get();
     m_pRep->SetRotation(&rotation);
     if (mesh->getChild() == 0) {
         mesh->setRotation(rotation);
@@ -298,7 +294,7 @@ void W8Item::SetYaw(float angle)
 // FUNCTION: WIZ8 0x0049FDB0
 void W8Item::SetHighlight(bool enabled)
 {
-    W8ItemRep* rep = static_cast<W8ItemRep*>(m_pRep);
+    W8ItemRep* rep = m_pRep.get();
     float green = 0.0f;
     float blue = 0.0f;
     float alpha = 0.0f;
@@ -321,7 +317,7 @@ void W8Item::SetHighlight(bool enabled)
 bool W8Item::IsSelected()
 {
     srModelInstance* selected = g_current_model_instance;
-    return selected == static_cast<W8ItemRep*>(m_pRep)->m_psrMesh.get();
+    return selected == m_pRep.get()->m_psrMesh.get();
 }
 
 // FUNCTION: WIZ8 0x004A0030

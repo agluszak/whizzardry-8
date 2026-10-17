@@ -50,7 +50,7 @@ struct W8AnimObj {
 
 void TransformBounds(const glm::mat3* rotation, const glm::vec3* translation,
                      const glm::vec3* scale, glm::vec3* minimum, glm::vec3* maximum);
-unsigned int AnimObjValue(W8AnimObj* animation, signed char index);
+unsigned int AnimObjValue(const W8AnimObj* animation, signed char index);
 unsigned int AnimObjListCount(W8AnimObj* animation, signed char index);
 W8PathAI* AnimObjListEntry(W8AnimObj* animation, signed char list_index, signed char entry_index);
 bool AnimObjReadFromFile(W8ReadLevelInfo* info, W8AnimObj* animation, int load_all,

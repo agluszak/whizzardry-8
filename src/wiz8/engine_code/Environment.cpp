@@ -771,8 +771,8 @@ void InitializeLevelEnvironment(void)
             glm::vec3 sun;
             glm::vec3 moon;
 
-            sun = g_sun_prop->m_pRep->GetLocation();
-            moon = g_moon_prop->m_pRep->GetLocation();
+            sun = g_sun_prop->Rep()->GetLocation();
+            moon = g_moon_prop->Rep()->GetLocation();
             glm::vec3 delta = sun - moon;
             glm::vec3 midpoint = (sun + moon) * 0.5f;
             g_celestial_orbit_radius = glm::length(delta) * 0.5f;

@@ -1585,9 +1585,9 @@ void RenderAutomapMarkers(void)
         glm::vec3 location;
         location = item->GetSearchPosition();
         int layer = FindAutomapLayerAtHeight(location.y);
-        if ((static_cast<W8ItemRep*>(item->m_pRep)->flags & W8_ITEM_ENTITY_NO_PICKUP) == 0 &&
+        if ((item->m_pRep.get()->flags & W8_ITEM_ENTITY_NO_PICKUP) == 0 &&
             (detect_all ||
-             (static_cast<W8ItemRep*>(item->m_pRep)->flags & W8_ITEM_ENTITY_RADAR_SEEN) != 0 ||
+             (item->m_pRep.get()->flags & W8_ITEM_ENTITY_RADAR_SEEN) != 0 ||
              HasCameraLineOfSight(&location)) &&
             layer - 1 == g_automap_layer) {
             left = g_automap_position.x - g_automap_zoom * 0.5f;

@@ -53,7 +53,6 @@ public:
     W8PropRepresentation(const W8PropRepresentation& other);
     virtual ~W8PropRepresentation() override;
     W8PropRepresentation& operator=(const W8PropRepresentation&) = delete;
-    virtual W8AnimRepBase* Clone() override;
 
     srModelInstance* ToggleAnimation(int argument); /* 0x0044BA00 */
     unsigned char SelectAnimationSlot(unsigned char tag);
@@ -64,6 +63,7 @@ public:
 
     std::optional<W8AnimObj> animation;
     W8AnimObj* Animation() { return animation ? &*animation : nullptr; }
+    const W8AnimObj* Animation() const { return animation ? &*animation : nullptr; }
     float animation_speed; /* 0x9c */
     /* 0xa0: integer path position accumulator.  UpdatePropAnimation adds the elapsed
        frame count to it with a dword add, compares it against the animation's
@@ -95,7 +95,8 @@ public:
     W8Prop();                   /* 0x0044BC00 */
     virtual ~W8Prop() override; /* complete destructor 0x0044BEC0 */
 
-    W8PropRepresentation* Rep() const { return static_cast<W8PropRepresentation*>(m_pRep); }
+    W8PropRepresentation* Rep() { return &representation; }
+    const W8PropRepresentation* Rep() const { return &representation; }
 
     void DetachAnimationInstances(W8World* world);
     W8Prop(const W8Prop&) = delete;

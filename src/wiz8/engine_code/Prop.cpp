@@ -80,7 +80,6 @@ W8Prop::W8Prop()
     anim_frame_fraction = 0;
     kind = 4;
     id = AllocateGrObjectId();
-    m_pRep = &representation;
     animation_position = glm::vec3(0);
     previous_animation_position = glm::vec3(0);
 }
@@ -99,12 +98,6 @@ W8PropRepresentation::W8PropRepresentation(const W8PropRepresentation& other)
 
 // FUNCTION: WIZ8 0x0044ae30
 W8PropRepresentation::~W8PropRepresentation() = default;
-
-// FUNCTION: WIZ8 0x0044ef80
-W8AnimRepBase* W8PropRepresentation::Clone()
-{
-    return new W8PropRepresentation(*this);
-}
 
 /* Visit every prop attached to the world and activate those whose companion
    object can be resolved and whose owned GDProp exists. */
@@ -156,7 +149,7 @@ glm::vec3 W8Prop::GetPosition() const
     if (Rep()->Animation()->path_lists == 1) {
         return animation_position;
     }
-    return m_pRep->GetLocation();
+    return representation.GetLocation();
 }
 
 // FUNCTION: WIZ8 0x0044e270
@@ -463,9 +456,6 @@ std::optional<srBoundingBox> W8Prop::GetFrameBounds()
 // FUNCTION: WIZ8 0x0044e1f0
 void W8Prop::SetAnimationDirection(W8AnimationDirection direction)
 {
-    if (m_pRep == 0) {
-        srAssertFail("m_pRep", "C:\\Projects\\Wizardry 8\\Engine Code\\Prop.cpp", 2698, 0);
-    }
     Rep()->frame_direction = direction;
 }
 
@@ -837,7 +827,7 @@ void W8Prop::ApplyAnimationFrame(W8PathingService* pathing)
     int index;
 
     if (Rep()->Animation()->path_lists != 1) {
-        W8PropRepresentation* rep = static_cast<W8PropRepresentation*>(m_pRep);
+        W8PropRepresentation* rep = (&representation);
         unsigned char frame = rep->subcycle;
         srModelInstance* mesh;
         W8PathAI* path;
@@ -850,11 +840,11 @@ void W8Prop::ApplyAnimationFrame(W8PathingService* pathing)
         if (mesh == 0) {
             srAssertFail("psrMesh", PROP_CPP, 0x581, 0);
         }
-        path = static_cast<W8PropRepresentation*>(m_pRep)->animation->path.get();
+        path = (&representation)->animation->path.get();
         if (path != 0) {
             PathAISetValue(
-                path, static_cast<float>(static_cast<W8PropRepresentation*>(m_pRep)->subcycle));
-            PathAIApply(static_cast<W8PropRepresentation*>(m_pRep)->animation->path.get(), mesh);
+                path, static_cast<float>((&representation)->subcycle));
+            PathAIApply((&representation)->animation->path.get(), mesh);
         }
         return;
     }
@@ -873,7 +863,7 @@ void W8Prop::ApplyAnimationFrame(W8PathingService* pathing)
             glm::vec3 location;
 
             PathAISetValue(
-                path, static_cast<float>(static_cast<W8PropRepresentation*>(m_pRep)->subcycle));
+                path, static_cast<float>((&representation)->subcycle));
             PathAIApply(path, mesh);
             location = glm::vec3(static_cast<srNode*>(mesh)->getLocation());
             animation_position = location;
@@ -1210,7 +1200,7 @@ void W8Prop::SetPosition(glm::vec3* position)
         animation_position = *position;
         return;
     }
-    m_pRep->SetLocation(position);
+    representation.SetLocation(position);
 }
 
 // FUNCTION: WIZ8 0x0044e360
@@ -1258,7 +1248,7 @@ std::unique_ptr<W8Prop> CreateAndLoadProp(W8ReadLevelInfo* info)
 }
 
 /* Resource loader rooted at CreateAndLoadProp.  The call site loads
-   prop->m_pRep into ECX before the two stack arguments, so this is a
+   the prop representation into ECX before the two stack arguments, so this is a
    PropRep method: LoadProp(pInfo, pProp). */
 // FUNCTION: WIZ8 0x0044aee0
 bool W8PropRepresentation::LoadProp(W8ReadLevelInfo* info, W8Prop* prop)
@@ -1577,7 +1567,7 @@ fail_with_result:
 // FUNCTION: WIZ8 0x0044ebe0
 int W8Prop::GetAnimationState() const
 {
-    W8AnimObj* animation = Rep()->Animation();
+    const W8AnimObj* animation = Rep()->Animation();
     if (animation != 0) {
         return static_cast<int>(AnimObjValue(animation, 2));
     }
@@ -1590,7 +1580,7 @@ int W8Prop::GetAnimationState() const
 // FUNCTION: WIZ8 0x0044e570
 void W8Prop::CollectModelInstances(std::vector<stModelInstance*>& instances)
 {
-    W8AnimObj* animation = Rep()->Animation();
+    const W8AnimObj* animation = Rep()->Animation();
     if (animation == 0) {
         return;
     }

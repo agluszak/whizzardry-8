@@ -62,7 +62,6 @@ public:
     W8MissileRep();
     W8MissileRep(const W8MissileRep& other);
     virtual ~W8MissileRep() override;
-    virtual W8AnimRepBase* Clone() override;
     virtual srModelInstance* SetCycleFrameLod(signed char cycle, signed char frame,
                                               signed char lod) override;
     virtual unsigned int ApplyEmitterSetting(signed char emitter) override;
@@ -114,16 +113,7 @@ public:
 
 public:
     int missile_table_index;
-    /* Assertion-backed original spelling. Distinct from GrObject::m_pRep at
-       +0x14; GetRepresentation() returns this GrCycle-tail slot at +0x1dc. */
-#if defined(__clang__)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wshadow-field"
-#endif
-    W8MissileRep* m_pRep;
-#if defined(__clang__)
-#pragma clang diagnostic pop
-#endif
+    std::unique_ptr<W8MissileRep> m_pRep;
     /* Flight exhausted its duration; the world updater destroys the missile
        once block_released is also set. */
     bool flight_done;

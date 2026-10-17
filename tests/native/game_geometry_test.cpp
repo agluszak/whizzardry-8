@@ -984,7 +984,7 @@ TEST_CASE("Build bounds expand locally and region cells share typed boxes", "[ge
 TEST_CASE("Item bounds preserve local extents and report absent world items", "[geometry][item]")
 {
     W8Item item;
-    auto* rep = static_cast<W8ItemRep*>(item.m_pRep);
+    auto* rep = item.m_pRep.get();
     rep->m_psrMesh = nullptr;
     rep->bounds_minimum = {-5, -3, -1};
     rep->bounds_maximum = {7, 9, 11};
@@ -1167,7 +1167,7 @@ TEST_CASE("Prop position and delta queries preserve animation stepping", "[geome
     W8Prop prop;
     prop.Rep()->animation.emplace();
     auto& animation = *prop.Rep()->animation;
-    prop.m_pRep->location = {10, 20, 30};
+    prop.Rep()->location = {10, 20, 30};
     prop.animation_position = {3, 5, 7};
     prop.previous_animation_position = {1, 2, 3};
     const auto static_position = prop.GetPosition();

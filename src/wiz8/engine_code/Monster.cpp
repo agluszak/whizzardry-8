@@ -555,7 +555,7 @@ std::unique_ptr<W8Monster> MonsterReadAllCycles(W8World* world, std::string_view
                                 }
                             }
                             if (animation_scale > 0.0f) {
-                                W8MonsterRep* rep = monster->m_pRep;
+                                W8MonsterRep* rep = monster->m_pRep.get();
                                 int current = rep->current_subcycle;
                                 /* 0x004C128A: a missing subcycle is fatal, as in
                                    every other retail cycle lookup. */
@@ -643,7 +643,7 @@ std::unique_ptr<W8Monster> MonsterReadAllCycles(W8World* world, std::string_view
         handle.reset();
     }
 
-    W8MonsterRep* representation = monster->m_pRep;
+    W8MonsterRep* representation = monster->m_pRep.get();
     representation->name = monster_name;
     if (scale_range_start != -1.0f && scale_range_end != -1.0f) {
         representation->minimum_scale = scale_range_start;
@@ -1055,15 +1055,6 @@ void W8MonsterRep::CopyCycle(signed char cycle, const W8MonsterRep* other, signe
     }
 }
 
-/* The representation clone slot is an ordinary virtual copy operation.  The
-   allocation size and call to the copy constructor are both visible in the
-   emitted body; there is no separate representation wrapper involved. */
-// FUNCTION: WIZ8 0x004ca9e0
-W8AnimRepBase* W8MonsterRep::Clone()
-{
-    return new W8MonsterRep(*this);
-}
-
 // VTABLE: WIZ8 0x005ed22c W8GrObject
 // VTABLE: WIZ8 0x005ed218 W8Navigator
 // class W8Monster
@@ -1086,7 +1077,7 @@ W8Monster::W8Monster(W8World* owner)
     formation = glm::vec3(0);
     kind = 1;
 
-    m_pRep = new W8MonsterRep;
+    m_pRep = std::make_unique<W8MonsterRep>();
 
     trace_mask = 2;
     direction_x = 0;
@@ -1130,7 +1121,7 @@ W8Monster::W8Monster(const W8Monster& rhs, W8World* owner)
     if (rhs.m_pRep == 0) {
         srAssertFail("rhs.m_pRep", "C:\\Projects\\Wizardry 8\\Engine Code\\Monster.cpp", 1099, 0);
     }
-    m_pRep = static_cast<W8MonsterRep*>(rhs.m_pRep->Clone());
+    m_pRep = std::make_unique<W8MonsterRep>(*rhs.m_pRep);
     if (m_pRep->monster_light) m_pRep->monster_light->setParent(owner->dynamic_scene, 1);
 
     defining_orders = false;
@@ -1168,7 +1159,7 @@ W8Monster::~W8Monster()
         RemoveCycleSkinTables();
     }
     UnregisterGrCycle(this);
-    delete m_pRep;
+    m_pRep.reset();
     script.reset();
     runtime_flags &= ~W8_MONSTER_SCRIPT_WAIT;
     script_line = 0;
@@ -2549,7 +2540,7 @@ void SetMonsterPartySlotMarker(int party_slot, int location_id, char on)
     std::string path;
 
     info = FindMonster(location_id);
-    rep = info->p3D->m_pRep;
+    rep = info->p3D->m_pRep.get();
     if (on == 0) {
         item = rep->objects[party_slot].get();
         if (item != 0) {
@@ -2580,10 +2571,10 @@ void W8Monster::BeginFadeIn(float duration)
         fade_timer.SetDuration(duration);
         fade_timer.Restart();
         if (fade_state < W8_MONSTER_FADE_IDLE) {
-            W8MonsterRep* rep = m_pRep;
+            W8MonsterRep* rep = m_pRep.get();
             fade_timer.SetProgress(rep->instance_scale);
         } else {
-            W8MonsterRep* rep = m_pRep;
+            W8MonsterRep* rep = m_pRep.get();
             rep->instance_scale = 0.0f;
             rep->apply_instance_scale = true;
         }
@@ -2611,7 +2602,7 @@ void W8Monster::BeginFadeOutAndRemove(W8MonsterRemovalState state)
     if (fade_state >= W8_MONSTER_FADE_IDLE) {
         fade_timer.SetDuration(3.0f);
         fade_timer.Restart();
-        W8MonsterRep* rep = m_pRep;
+        W8MonsterRep* rep = m_pRep.get();
         if (fade_state > W8_MONSTER_FADE_IDLE) {
             fade_timer.SetProgress(1.0f - rep->instance_scale);
         } else {
@@ -2633,12 +2624,12 @@ void W8Monster::BeginFadeOut(float duration)
     fade_timer.SetDuration(duration);
     fade_timer.Restart();
     if (fade_state > W8_MONSTER_FADE_IDLE) {
-        W8MonsterRep* rep = m_pRep;
+        W8MonsterRep* rep = m_pRep.get();
         fade_timer.SetProgress(1.0f - rep->instance_scale);
         fade_state = W8_MONSTER_FADE_OUT;
         return;
     }
-    W8MonsterRep* rep = m_pRep;
+    W8MonsterRep* rep = m_pRep.get();
     rep->instance_scale = 1.0f;
     rep->apply_instance_scale = true;
     fade_state = W8_MONSTER_FADE_OUT;
@@ -3151,7 +3142,7 @@ unsigned int W8MonsterRep::ApplyEmitterSetting(signed char cycle)
 // FUNCTION: WIZ8 0x004caa40
 signed char W8Monster::GetNumSubCycles()
 {
-    W8MonsterRep* representation = m_pRep;
+    W8MonsterRep* representation = m_pRep.get();
     W8AnimObj* animation =
         representation->animations[representation->current_cycle][representation->current_subcycle]
             .get();
@@ -3202,7 +3193,7 @@ void W8Monster::SetCycle(signed char cycle)
         W8MonsterInfo* monster_info = FindMonster(location_id);
         DebugMessage(0, fmt::format("WARNING: Monster {} is missing anim cycle {}",
                                     GetMonsterName(monster_info, 0, 0), g_cycle_names[cycle].name));
-        m_pRep->CopyCycle(cycle, m_pRep, 1);
+        m_pRep->CopyCycle(cycle, m_pRep.get(), 1);
         count = static_cast<int>(animations->size());
         if (count == 0) {
             return;
@@ -3330,7 +3321,7 @@ signed char W8Monster::GetTotalAnimationCount()
 // FUNCTION: WIZ8 0x004caa90
 float W8Monster::GetCurrentAnimationScale()
 {
-    W8MonsterRep* representation = m_pRep;
+    W8MonsterRep* representation = m_pRep.get();
 
     return representation
         ->animation_scales[representation->current_cycle][representation->current_subcycle];
@@ -3339,7 +3330,7 @@ float W8Monster::GetCurrentAnimationScale()
 // FUNCTION: WIZ8 0x004cab00
 W8EmitterHost* W8Monster::GetRepresentation()
 {
-    return m_pRep;
+    return m_pRep.get();
 }
 
 // FUNCTION: WIZ8 0x004c3df0
@@ -3379,7 +3370,7 @@ std::optional<glm::vec3> W8Monster::GetAnimationCenter()
 // FUNCTION: WIZ8 0x004c3f70
 void W8Monster::UpdateAttachedObjects()
 {
-    W8MonsterRep* representation = m_pRep;
+    W8MonsterRep* representation = m_pRep.get();
     int attachment_layout = representation->icon_count;
     unsigned int linked_count = representation->spell_icons.size();
     int poster_count = static_cast<int>(representation->linked_runtime_objects.size());
@@ -3757,7 +3748,7 @@ void W8MonsterShakeCallback::RestoreAnimation()
     }
 
     m_pParticles->SetActive(0);
-    representation = m_pMonster->m_pRep;
+    representation = m_pMonster->m_pRep.get();
     if (saved_behaviour < 1 || saved_behaviour > 3) {
         srAssertFail("bBehaviour >= BEHAVIOUR_FIRST && bBehaviour <= BEHAVIOUR_LAST",
                      "..\\Engine Code\\Include\\AnimRep.hpp", 0x87, 0);
@@ -3846,7 +3837,7 @@ void W8Monster::UpdateShakeEvents(unsigned char previous_frame)
 // FUNCTION: WIZ8 0x004cab10
 W8AnimObj* W8Monster::GetCurrentAnimation()
 {
-    W8MonsterRep* representation = m_pRep;
+    W8MonsterRep* representation = m_pRep.get();
 
     return representation
         ->animations[representation->current_cycle][representation->current_subcycle]
@@ -3856,7 +3847,7 @@ W8AnimObj* W8Monster::GetCurrentAnimation()
 // FUNCTION: WIZ8 0x004caac0
 void W8Monster::SetCurrentAnimationScale(float arg_scale)
 {
-    W8MonsterRep* representation = m_pRep;
+    W8MonsterRep* representation = m_pRep.get();
 
     representation
         ->animation_scales[representation->current_cycle][representation->current_subcycle] =
@@ -3989,7 +3980,7 @@ void MonsterSetCycle(W8Monster* monster, signed char cycle)
 // FUNCTION: WIZ8 0x004c57c0
 void MonsterGetScaleRange(W8Monster* monster, float* minimum, float* maximum)
 {
-    W8MonsterRep* runtime = monster->m_pRep;
+    W8MonsterRep* runtime = monster->m_pRep.get();
 
     *minimum = runtime->minimum_scale;
     *maximum = runtime->maximum_scale;
@@ -4001,7 +3992,7 @@ void MonsterGetScaleRange(W8Monster* monster, float* minimum, float* maximum)
 unsigned char MonsterSetAnimating(W8Monster* monster, bool animating)
 {
     if (monster != 0) {
-        W8MonsterRep* runtime = monster->m_pRep;
+        W8MonsterRep* runtime = monster->m_pRep.get();
         unsigned char previous = runtime->animation_playing;
 
         runtime->animation_playing = animating;
@@ -4730,7 +4721,7 @@ void UpdateCycleRepresentation(W8GrCycle* cycle)
 // FUNCTION: WIZ8 0x004C4EF0
 void W8Monster::RefreshStandingHeight()
 {
-    W8MonsterRep* representation = m_pRep;
+    W8MonsterRep* representation = m_pRep.get();
     signed char previous_cycle = representation->current_cycle;
     SetCycle(1);
     SetSubCycle(0);
@@ -4809,7 +4800,7 @@ W8Item* CreateMonsterIconItem(W8World& world, const char* path)
     static_cast<srMeshModel*>(instance->getModel())->relocateVertices(offset);
     instance->setAlignment(1);
     W8Item* item = new W8Item();
-    W8ItemRep* rep = static_cast<W8ItemRep*>(item->m_pRep);
+    W8ItemRep* rep = item->m_pRep.get();
     rep->flags |= 0x40;
     rep->m_psrMesh.reset(instance);
     rep->RefreshBounds();

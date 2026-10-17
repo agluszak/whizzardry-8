@@ -183,7 +183,7 @@ float AdvanceMissileAI(W8AIMissile* record, glm::vec3* out, unsigned int steps)
     float pitch;
     float yaw;
 
-    representation = record->missile->m_pRep;
+    representation = record->missile->m_pRep.get();
     if (steps == 0) {
         *out = representation->location;
         return 0.0f;
@@ -633,12 +633,6 @@ W8MissileRep::W8MissileRep() = default;
 // FUNCTION: WIZ8 0x004a2db0
 W8MissileRep::W8MissileRep(const W8MissileRep& other) = default;
 
-// FUNCTION: WIZ8 0x004a5d40
-W8AnimRepBase* W8MissileRep::Clone()
-{
-    return new W8MissileRep(*this);
-}
-
 // FUNCTION: WIZ8 0x004A3300
 unsigned char W8MissileRep::ReadCycleData(W8ReadLevelInfo* info, W8Missile* missile,
                                           int cycle_index, int)
@@ -675,7 +669,7 @@ W8Missile::W8Missile(W8World* owner)
     }
     id = AllocateGrObjectId();
 
-    m_pRep = new W8MissileRep;
+    m_pRep = std::make_unique<W8MissileRep>();
     if (m_pRep == 0) {
         srAssertFail("m_pRep", MISSILE_CPP, 0x38e, 0);
     }
@@ -702,7 +696,7 @@ W8Missile::W8Missile(const W8Missile& other, W8World* owner)
 {
     W8GrObject::kind = 1;
     id = AllocateGrObjectId();
-    m_pRep = static_cast<W8MissileRep*>(other.m_pRep->Clone());
+    m_pRep = std::make_unique<W8MissileRep>(*other.m_pRep);
 
     memset(&definition, 0, sizeof(definition));
     result = {};
@@ -742,7 +736,7 @@ w8_ulong W8Missile::GetAnimationState(int mode)
 W8Missile::~W8Missile()
 {
     SetLights(0);
-    delete m_pRep;
+    m_pRep.reset();
     DetachMissileReferences(this);
     UnregisterGrCycle(this);
 }
@@ -792,7 +786,7 @@ void W8Missile::SetEffectDefinition(const W8SpellEffectDefinition* definition)
 // FUNCTION: WIZ8 0x004a45e0
 W8EmitterHost* W8Missile::GetRepresentation()
 {
-    return m_pRep;
+    return m_pRep.get();
 }
 
 /* The animation the representation is currently firing from. */
@@ -904,7 +898,7 @@ void W8Missile::AdvanceAnimationFrame(int value, int arg_flags)
     W8MissileRep* representation_before;
 
     m_pRep->first_frame = 0;
-    representation_before = m_pRep;
+    representation_before = m_pRep.get();
     representation_before->last_frame = GetNumSubCycles() - 1;
     W8GrCycle::AdvanceAnimationFrame(value, arg_flags);
 }
@@ -972,7 +966,7 @@ void W8Missile::EnterImpactCycle()
 {
     if (IsCycleSupported(1)) {
         if (GetAnimationState(6) != 1) {
-            W8MissileRep* representation = m_pRep;
+            W8MissileRep* representation = m_pRep.get();
             glm::vec3 position = representation->location;
             representation->pending_cycle = 1;
             representation->pending_behaviour = W8_ANIMATION_PLAY_ONCE;

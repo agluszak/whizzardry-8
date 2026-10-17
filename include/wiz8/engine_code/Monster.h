@@ -80,7 +80,6 @@ struct W8MonsterRep : public W8EmitterHost {
     W8MonsterRep(const W8MonsterRep& other);
     virtual ~W8MonsterRep() override;
     W8MonsterRep& operator=(const W8MonsterRep&) = delete;
-    virtual W8AnimRepBase* Clone() override; /* 0x004CA9E0 */
     virtual srModelInstance* SetCycleFrameLod(signed char cycle, signed char frame,
                                               signed char lod) override;  /* 0x004BF8C0 */
     virtual unsigned int ApplyEmitterSetting(signed char cycle) override; /* 0x004BF970 */
@@ -226,16 +225,7 @@ public:
     void RefreshStandingHeight();
 
 public:
-    /* Assertion-backed original spelling. Distinct from GrObject::m_pRep at
-       +0x14; GetRepresentation() returns this GrCycle-tail slot at +0x1d8. */
-#if defined(__clang__)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wshadow-field"
-#endif
-    W8MonsterRep* m_pRep;
-#if defined(__clang__)
-#pragma clang diagnostic pop
-#endif
+    std::unique_ptr<W8MonsterRep> m_pRep;
     unsigned int runtime_flags;
     int value_1e0;
     /* 0x1e4: the monster's location id, stored by MonsterSetLocationId and

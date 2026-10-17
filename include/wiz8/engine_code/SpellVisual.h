@@ -66,7 +66,7 @@ public:
        matches shared visuals by. */
     W8SpellVisualMode mode;
     int value_1dc;
-    W8SpellEmitterHost* host; /* 0x1e0 */
+    std::unique_ptr<W8SpellEmitterHost> host = std::make_unique<W8SpellEmitterHost>();
     /* Set once the host's animation no longer needs ticking, or forced when
        the owning effect releases it; the world updater deletes a finished
        visual as soon as auto_release also permits it. */
@@ -97,6 +97,6 @@ inline W8SpellVisual::W8SpellVisual(const W8SpellVisual& other, W8World* owner)
     fixed_transform = other.fixed_transform;
     scale0 = other.scale0;
     location_id = 0;
-    host = static_cast<W8SpellEmitterHost*>(other.host->Clone());
+    host = std::make_unique<W8SpellEmitterHost>(*other.host);
     id = AllocateGrObjectId();
 }
