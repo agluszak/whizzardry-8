@@ -719,7 +719,8 @@ bool CanCharacterAttackItsTarget(int party_slot)
     W8Character* character;
 
     if (!TargetIsInPlay(party_slot, 0,
-                        ChooseCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT))) {
+                        ChooseCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT),
+                        false)) {
         return false;
     }
     if (!IsPartySlotEligible(party_slot)) {
@@ -3518,7 +3519,8 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
     g_combat_state->unaware = 0;
     g_combat_state->natural_attack = 0;
     if (!TargetIsInPlay(party_slot, hand,
-                        ChooseCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT))) {
+                        ChooseCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT),
+                        false)) {
         DebugMessage(
             1, fmt::format("ERROR: {} is starting attack with invalid target!", character->name));
         return false;
@@ -3728,9 +3730,9 @@ int ResolveCharacterAttack(int party_slot)
         } else {
             outcome = 2;
         }
-    } else if (!TargetIsInPlay(
-                   party_slot, hand,
-                   ChooseCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT))) {
+    } else if (!TargetIsInPlay(party_slot, hand,
+                               ChooseCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT),
+                               false)) {
         ReportInvalidAttackTarget(party_row->target_out_of_combat, source);
         return 3;
     } else {
@@ -4165,7 +4167,8 @@ int ResolveCharacterAttack(int party_slot)
         if (character->Hand[hand].in_play && GetCharAttackRange(character, hand) != W8_RANGE_NONE &&
             (target == party_row->target_out_of_combat) &&
             TargetIsInPlay(party_slot, hand,
-                           ChooseCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT))) {
+                           ChooseCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT),
+                           false)) {
             if (!verbose && (fumbled || source.target_diverted != 0)) {
                 ReportCharacterAttackResult(party_slot, report);
                 PostCharacterNotice(

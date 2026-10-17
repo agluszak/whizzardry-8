@@ -2885,12 +2885,13 @@ void RefreshAfterItemRecordChange(W8ItemInstance* item, W8Character* character, 
             if (action == W8_ACTION_ATTACK || action == W8_ACTION_BERSERK) {
                 if (!CharacterCanSwitchTo(
                         party_slot, ChooseCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT),
-                        true, false)) {
+                        true, false, false)) {
                     AimByKind(party_slot, W8_TARGET_KIND_NONE,
                               ChooseCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT));
                 } else if (!TargetIsInPlay(
                                party_slot, 2,
-                               ChooseCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT))) {
+                               ChooseCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT),
+                               false)) {
                     RepickActionTarget(
                         party_slot, ChooseCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT),
                         0);
@@ -3087,10 +3088,10 @@ bool IsUsableItemClass(W8ItemInstance* item)
    with the out-of-combat gate alone; everything else is refused while the
    character's spellcasting is blocked and the item is a class-0x0d casting
    aid, and otherwise needs a living target for the record's spell plus a
-   spell the moment admits. The use-item view's context slot is parked on the
-   instance while the target check runs. */
+   spell the moment admits. Target preview receives the proposed spell directly. */
 // FUNCTION: WIZ8 0x00522a30
-bool CanUseItemForAction(int party_slot, const W8ItemInstance* item)
+bool CanUseItemForAction(int party_slot, const W8ItemInstance* item,
+                         std::optional<int> only_monster)
 {
     const W8ItemDatabaseRecord* record = &g_item_records[item->iItemNo];
     W8Character* character = &g_status.buffers.Char[party_slot];
@@ -3106,10 +3107,9 @@ bool CanUseItemForAction(int party_slot, const W8ItemInstance* item)
         return false;
     }
 
-    SetUseItemSelectOverrideItem(const_cast<W8ItemInstance*>(item));
-    usable =
-        SpellHasAnyValidTarget(party_slot, record->spell_id, ItemClassNormalizesTarget(record));
-    SetUseItemSelectOverrideItem(0);
+    usable = SpellHasAnyValidTarget(party_slot, record->spell_id, ItemClassNormalizesTarget(record),
+                                    only_monster);
+
     if (!usable) {
         return false;
     }
@@ -3120,7 +3120,7 @@ bool CanUseItemForAction(int party_slot, const W8ItemInstance* item)
    with the reason notice queued through the callback. */
 // FUNCTION: WIZ8 0x00522B80
 bool ValidateItemSpellUse(int character_index, W8ItemInstance* item,
-                          std::function<void(bool)> callback)
+                          std::function<void(bool)> callback, std::optional<int> only_monster)
 {
     const W8ItemDatabaseRecord* record = &g_item_records[item->iItemNo];
     W8Character* character = &g_status.buffers.Char[character_index];
@@ -3141,10 +3141,8 @@ bool ValidateItemSpellUse(int character_index, W8ItemInstance* item,
         return true;
     }
     if (gXStatus.fItemSelectMode) {
-        SetUseItemSelectOverrideItem(item);
         has_target = SpellHasAnyValidTarget(character_index, record->spell_id,
-                                            ItemClassNormalizesTarget(record));
-        SetUseItemSelectOverrideItem(0);
+                                            ItemClassNormalizesTarget(record), only_monster);
         if (!has_target) {
             ShowNoticeLine(g_localized_strings[0x7a8], callback, true, false);
             return true;

@@ -541,3 +541,5 @@ bool IsMonsterSighting();
 W8ActionSelection ChooseSharedAction(int party_slot);
 bool CanEditCharacterAction(int party_slot, const W8ActionSelection& selection,
                             bool allow_missing_target, bool allow_equipment_changes);
+
+std::optional<int> CampTargetMonster();

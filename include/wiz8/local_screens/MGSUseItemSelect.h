@@ -8,7 +8,6 @@ struct W8ItemInstance;
 
 extern W8MainUiMode g_use_item_select_return_mode;
 extern W8ItemInstance* g_use_item_selected;
-extern W8ItemInstance* g_use_item_select_override_item;
 
 void SetUseItemSelectInputEnabled(bool enabled);
 void InvalidateUseItemSelectPanel(void);
@@ -18,7 +17,6 @@ UiResult HandleUseItemTextBox(const UiPointerEvent& event);
 /* Text-box wheel helper while use-item select is active. */
 void UseItemSelectTextBoxWheelAt(short x, unsigned short y, bool flag);
 void SelectCurrentUseItemLine(void);
-void SetUseItemSelectOverrideItem(W8ItemInstance* value);
 
 void CommitSelectedItemUse(void); /* FItemSelectMode per-frame commit */
 void SelectUseItemLine(int line);

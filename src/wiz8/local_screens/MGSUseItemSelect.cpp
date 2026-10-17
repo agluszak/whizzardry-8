@@ -59,8 +59,6 @@ struct W8NpcState;
 
 #define MGSUSEITEMSELECT_CPP "C:\\Projects\\Wizardry 8\\Local Screens\\MGSUseItemSelect.cpp"
 
-static W8ItemInstance* SelectedUseItem();
-
 // GLOBAL: WIZ8 0x0069B984
 static int g_use_item_select_flags;
 // GLOBAL: WIZ8 0x0069b988
@@ -76,8 +74,6 @@ static int g_selected_use_item_line;
 
 // GLOBAL: WIZ8 0x0069B9A0
 W8ItemInstance* g_use_item_selected;
-// GLOBAL: WIZ8 0x0069B9A4
-W8ItemInstance* g_use_item_select_override_item;
 // GLOBAL: WIZ8 0x0069B990
 static int g_use_item_list_count;
 // GLOBAL: WIZ8 0x0069B994
@@ -202,7 +198,6 @@ unsigned char OpenUseItemSelectView(int slot)
     g_use_item_select_flags = 0;
     g_use_item_hover_row = -1;
     g_use_item_selected = 0;
-    g_use_item_select_override_item = 0;
     gXStatus.shared_action_detail.item_use.item = nullptr;
     g_use_item_detail_item = 0;
     memset(g_use_item_list, 0, sizeof(g_use_item_list));
@@ -287,11 +282,11 @@ void RefreshUseItemSelectionForSlot(int party_slot)
         gXStatus.item_drag_active = false;
         return;
     }
-    if (CanPartySlotUseRecordedItem(party_slot)) {
+    if (CanPartySlotUseRecordedItem(party_slot, CampTargetMonster())) {
         gXStatus.dragged_item = 0;
         item = FindCharacterItemAt(party_slot, g_status.buffers.XChar[party_slot].item_origin,
                                    g_status.buffers.XChar[party_slot].item_slot);
-        if (CanUseItemForAction(g_use_item_owner_index, item)) {
+        if (CanUseItemForAction(g_use_item_owner_index, item, CampTargetMonster())) {
             const bool party_pool =
                 g_status.buffers.XChar[party_slot].item_origin == W8_ITEM_ORIGIN_PARTY_POOL;
             if (party_pool && gXStatus.fCombatMode)
@@ -446,9 +441,10 @@ void CommitSelectedItemUse(void)
     W8Character* character;
 
     if (g_use_item_selected != 0 &&
-        CanUseItemForAction(g_status.selected_character, g_use_item_selected) &&
+        CanUseItemForAction(g_status.selected_character, g_use_item_selected,
+                            CampTargetMonster()) &&
         IsItemTargetOfNeededKind(g_status.selected_character, g_use_item_selected,
-                                 ChooseEditedAction(g_status.selected_character))) {
+                                 ChooseEditedAction(g_status.selected_character), !g_level_block)) {
         character = &g_status.buffers.Char[g_status.selected_character];
         if (g_use_item_selected != 0) {
             g_use_item_commit_active = true;
@@ -482,7 +478,7 @@ static void RebuildUseItemSelectList(int mode, W8ItemInstance* select)
     ResetEditorStatusLine(2);
     ClearSelectedTextLine(2);
     g_use_item_selected = 0;
-    gXStatus.shared_action_detail.item_use.item = SelectedUseItem();
+    gXStatus.shared_action_detail.item_use.item = g_use_item_selected;
     g_use_item_detail_item = 0;
     use_item->item_image.reset();
     use_item->quantity.SetText("", g_large_font);
@@ -545,7 +541,7 @@ static bool AppendUseItemListEntry(W8ItemInstance* item, W8ItemInstance* select,
     if (IsUseItemFilteredOut(item)) {
         return true;
     }
-    if (pass != 0 || !CanUseItemForAction(g_use_item_owner_index, item)) {
+    if (pass != 0 || !CanUseItemForAction(g_use_item_owner_index, item, CampTargetMonster())) {
         if (gXStatus.fCampMode) {
             return true;
         }
@@ -558,7 +554,7 @@ static bool AppendUseItemListEntry(W8ItemInstance* item, W8ItemInstance* select,
         if (pass != 1) {
             return true;
         }
-        if (CanUseItemForAction(g_use_item_owner_index, item)) {
+        if (CanUseItemForAction(g_use_item_owner_index, item, CampTargetMonster())) {
             return true;
         }
         if (g_use_item_list_count + 1U > 0x15e) {
@@ -751,14 +747,14 @@ void SelectUseItemLine(int iTextLine)
     SetTargetingMode(W8_TARGET_NEED_NONE);
     UpdateUseItemDetailPanel(g_use_item_list[iTextLine]);
     if (ValidateItemSpellUse(g_use_item_owner_index, g_use_item_list[iTextLine],
-                             SpellCastingNoticeClosed)) {
+                             SpellCastingNoticeClosed, CampTargetMonster())) {
         QueueCharacterEvent(&g_status.buffers.Char[g_use_item_owner_index], 0x35, 0,
                             kCharacterEventFlagsMask | kCharacterEventNoFlags,
                             kCharacterEventFullVolume);
         return;
     }
     g_use_item_selected = g_use_item_list[iTextLine];
-    gXStatus.shared_action_detail.item_use.item = SelectedUseItem();
+    gXStatus.shared_action_detail.item_use.item = g_use_item_selected;
     if (Trynnie2UseItem(g_use_item_selected)) {
         CloseUseItemSelectView();
         return;
@@ -780,7 +776,8 @@ void SelectUseItemLine(int iTextLine)
     target_type = GetSpellTargetType(
         GetItemSpell(g_use_item_selected),
         ItemClassNormalizesTarget(&g_item_records[g_use_item_selected->iItemNo]));
-    ConfigureSpellTargetFilter(target_type, GetTargetNeededForItem(g_use_item_selected));
+    ConfigureSpellTargetFilter(target_type,
+                               GetTargetNeededForItem(g_use_item_selected, !g_level_block));
 }
 
 /* Show the item in the detail control: its catalog icon plus a quantity line -
@@ -827,16 +824,6 @@ void UpdateUseItemDetailPanel(W8ItemInstance* item)
     g_use_item_detail_item = item;
 }
 
-// FUNCTION: WIZ8 0x0059E0D0
-static W8ItemInstance* SelectedUseItem(void)
-{
-    W8ItemInstance* value = g_use_item_select_override_item;
-    if (value == 0) {
-        value = g_use_item_selected;
-    }
-    return value;
-}
-
 // FUNCTION: WIZ8 0x0059E0E0
 void SelectCurrentUseItemLine(void)
 {
@@ -867,18 +854,11 @@ void TakeUseItemIntoHand(void)
         for (i = 0; i < g_status.party_item_count; i++) {
             if (g_use_item_selected == &g_status.party_item_pool[i]) {
                 g_use_item_selected = &g_status.party_item_pool[i + 1];
-                gXStatus.shared_action_detail.item_use.item = SelectedUseItem();
+                gXStatus.shared_action_detail.item_use.item = g_use_item_selected;
                 CopyItemInstance(&g_status.item_in_hand, g_use_item_selected, 0, true);
                 return;
             }
         }
     }
     CopyItemInstance(&g_status.item_in_hand, g_use_item_selected, 0, true);
-}
-
-// FUNCTION: WIZ8 0x0059E1E0
-void SetUseItemSelectOverrideItem(W8ItemInstance* value)
-{
-    g_use_item_select_override_item = value;
-    gXStatus.shared_action_detail.item_use.item = SelectedUseItem();
 }

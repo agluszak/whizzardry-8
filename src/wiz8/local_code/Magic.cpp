@@ -5,6 +5,7 @@
 #include <initializer_list>
 #include <iterator>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <utility>
@@ -514,23 +515,6 @@ void SetCharacterSpell(const W8Character* character, int spell_id, int power_lev
     SetPartySlotSpell(party_slot, spell_id, power_level, ChooseEditedAction(party_slot).target);
 }
 
-/* Whether one party slot's recorded spell target is still a target it could
-   reach: the target has to be of the kind the spell needs, and the slot has to
-   be in range of it. */
-// FUNCTION: WIZ8 0x00501530
-bool PartySlotSpellTargetStillValid(int party_slot)
-{
-    W8TargetNeed needed =
-        GetTargetNeededForSpellFriendly(g_status.buffers.XChar[party_slot].spell_id, false, false);
-
-    if (!TargetMatchesNeeded(ChooseCombatAction(party_slot, W8_TARGETING_CONTEXT_SPELL).target,
-                             needed)) {
-        return false;
-    }
-    return CharacterActionReachesTarget(party_slot, 0,
-                                        ChooseCombatAction(party_slot, W8_TARGETING_CONTEXT_SPELL));
-}
-
 /* Start one character's breath attack; the character must be able to
    breathe again. */
 // FUNCTION: WIZ8 0x00501880
@@ -544,7 +528,8 @@ void StartCharacterBreathAttack(int party_slot)
     ChooseAction(party_slot, W8_ACTION_BREATHE, -1, 0, false, 1);
     AimAtTarget(party_slot, &row->breath_target, ChooseEditedAction(party_slot));
     if (IsSpellTargetStillValidIn(party_slot, W8_SPELL_SPECIAL_ATTACK_CONE,
-                                  ChooseCombatAction(party_slot, W8_TARGETING_CONTEXT_BREATH))) {
+                                  ChooseCombatAction(party_slot, W8_TARGETING_CONTEXT_BREATH),
+                                  false)) {
         StartBreathCycle(party_slot, false);
         return;
     }
@@ -926,7 +911,8 @@ void StartCharacterSpellCast(int party_slot, int power_level)
     AimAtTarget(party_slot, &saved_target, ChooseEditedAction(party_slot));
 
     if (IsSpellTargetStillValidIn(party_slot, row->spell_id,
-                                  ChooseCombatAction(party_slot, W8_TARGETING_CONTEXT_SPELL))) {
+                                  ChooseCombatAction(party_slot, W8_TARGETING_CONTEXT_SPELL),
+                                  true)) {
         StartBreathCycle(party_slot, false);
         return;
     }
@@ -950,7 +936,8 @@ void StartCharacterItemUse(int party_slot)
     FindCharacterItemAt(party_slot, row->item_origin, row->item_slot);
 
     if (IsSpellTargetStillValidIn(party_slot, GetItemSpell(row->item_detail.item_use.item),
-                                  ChooseCombatAction(party_slot, W8_TARGETING_CONTEXT_ITEM))) {
+                                  ChooseCombatAction(party_slot, W8_TARGETING_CONTEXT_ITEM),
+                                  true)) {
         StartBreathCycle(party_slot, false);
         return;
     }
@@ -1227,7 +1214,8 @@ bool CanPartySlotCastRecordedSpell(int party_slot)
     }
     if (!gXStatus.fCombatMode &&
         !IsSpellTargetStillValidIn(party_slot, spell_id,
-                                   ChooseCombatAction(party_slot, W8_TARGETING_CONTEXT_SPELL))) {
+                                   ChooseCombatAction(party_slot, W8_TARGETING_CONTEXT_SPELL),
+                                   true)) {
         return false;
     }
     return true;
@@ -1265,7 +1253,8 @@ int GetAffordableSpellPowerLevel(int party_slot)
     }
     if (!gXStatus.fCombatMode &&
         !IsSpellTargetStillValidIn(party_slot, spell_id,
-                                   ChooseCombatAction(party_slot, W8_TARGETING_CONTEXT_SPELL))) {
+                                   ChooseCombatAction(party_slot, W8_TARGETING_CONTEXT_SPELL),
+                                   true)) {
         return 0;
     }
 
@@ -1292,7 +1281,7 @@ int GetAffordableSpellPowerLevel(int party_slot)
    A spell whose target type is not the self-only one may be aimed anywhere; the
    self-only one has to be aimed at the user. */
 // FUNCTION: WIZ8 0x00501660
-bool CanPartySlotUseRecordedItem(int party_slot)
+bool CanPartySlotUseRecordedItem(int party_slot, std::optional<int> only_monster)
 {
     W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
     W8ItemInstance* item;
@@ -1312,7 +1301,7 @@ bool CanPartySlotUseRecordedItem(int party_slot)
     if (item == 0 || item->iItemNo == -1 || item->iItemNo != row->item_id) {
         return false;
     }
-    if (!CanUseItemForAction(party_slot, item)) {
+    if (!CanUseItemForAction(party_slot, item, only_monster)) {
         return false;
     }
     if (!CanCharacterActivateItem(&g_status.buffers.Char[party_slot], item)) {
@@ -1330,7 +1319,8 @@ bool CanPartySlotUseRecordedItem(int party_slot)
     }
     if (!gXStatus.fCombatMode &&
         !IsSpellTargetStillValidIn(party_slot, spell_id,
-                                   ChooseCombatAction(party_slot, W8_TARGETING_CONTEXT_ITEM))) {
+                                   ChooseCombatAction(party_slot, W8_TARGETING_CONTEXT_ITEM),
+                                   true)) {
         return false;
     }
     return true;

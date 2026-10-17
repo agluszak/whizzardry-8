@@ -1252,7 +1252,7 @@ bool BuildSubMenuPanel(short notification)
         if (menu == W8_SUBMENU_ITEMS && entry == 2) {
             button->SetTooltip([] {
                 const int slot = g_status.selected_character;
-                if (!CanPartySlotUseRecordedItem(slot))
+                if (!CanPartySlotUseRecordedItem(slot, CampTargetMonster()))
                     return std::string(g_localized_strings[0x5d]);
                 const auto& row = g_status.buffers.XChar[slot];
                 const auto* item = FindCharacterItemAt(slot, row.item_origin, row.item_slot);
@@ -1290,8 +1290,13 @@ W8SubMenuEntryState CheckSubMenuActionUsable(int party_slot)
         !g_level_block->selection_settled) {
         matches = 1;
     }
-    if (CanEditCharacterAction(party_slot, ChooseEditedAction(party_slot), true, false) &&
-        SlotHasAnyValidTarget(party_slot, ChooseEditedAction(party_slot), IsMonsterSighting())) {
+    const auto action = ChooseEditedAction(party_slot);
+    const bool choosing_detail =
+        !g_level_block->selection_settled &&
+        (action.kind == W8_ACTION_CAST_SPELL || action.kind == W8_ACTION_USE_ITEM);
+    if (CanEditCharacterAction(party_slot, action, true, false) &&
+        (choosing_detail ||
+         SlotHasAnyValidTarget(party_slot, action, IsMonsterSighting(), CampTargetMonster()))) {
         return static_cast<W8SubMenuEntryState>(matches);
     }
     return static_cast<W8SubMenuEntryState>(matches + W8_SUBMENU_ENTRY_UNUSABLE);
@@ -1349,8 +1354,9 @@ W8SubMenuEntryState GetSubMenuEntryState(short menu, short item, int party_slot)
                 state = CheckSubMenuActionUsable(party_slot);
             }
         } else if (item == 2) {
-            state = CanPartySlotUseRecordedItem(party_slot) ? W8_SUBMENU_ENTRY_USABLE
-                                                            : W8_SUBMENU_ENTRY_UNAVAILABLE;
+            state = CanPartySlotUseRecordedItem(party_slot, CampTargetMonster())
+                        ? W8_SUBMENU_ENTRY_USABLE
+                        : W8_SUBMENU_ENTRY_UNAVAILABLE;
         }
         break;
     case W8_SUBMENU_SPELLS:

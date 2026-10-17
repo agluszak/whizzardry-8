@@ -477,3 +477,75 @@ TEST_CASE("Selected action range and target commits work without a screen", "[ta
     REQUIRE_FALSE(TargetInRangeAndArcs(&target, 0, &eye, 0, 0, 0, 1000));
     REQUIRE(TargetInRangeAndArcs(&target, 0, &eye, 0, 0, 0, 2000));
 }
+
+TEST_CASE("Spell and item eligibility use explicit inputs without a level UI", "[targeting]")
+{
+    std::array<W8SpellRuntimeRecord, 2> spells{};
+    std::array<W8ItemDatabaseRecord, 1> items{};
+    // NOLINTNEXTLINE(cppcoreguidelines-special-member-functions): test state restoration
+    struct RestoreRecords {
+        W8SpellRuntimeRecord* spells = g_spell_records;
+        W8ItemDatabaseRecord* items = g_item_records;
+        ~RestoreRecords()
+        {
+            g_spell_records = spells;
+            g_item_records = items;
+        }
+    } restore;
+    g_spell_records = spells.data();
+    g_item_records = items.data();
+    spells[1].target_type = W8_TARGET_TYPE_PARTY;
+    items[0].spell_id = 1;
+    W8CombatSlot target{};
+    W8ItemInstance item{};
+    W8ActionDetailBlock detail{};
+    detail.item_use.item = &item;
+    const W8ActionSelection spell{W8_ACTION_CAST_SPELL, 1, &target, nullptr,
+                                  W8_TARGETING_CONTEXT_SPELL};
+    const W8ActionSelection use_item{W8_ACTION_USE_ITEM, -1, &target, &detail,
+                                     W8_TARGETING_CONTEXT_ITEM};
+    REQUIRE(SlotHasAnyValidTarget(0, spell));
+    REQUIRE(SlotHasAnyValidTarget(0, use_item));
+
+    spells[1].target_type = W8_TARGET_TYPE_ITEM;
+    REQUIRE(GetTargetNeededForAction(spell.kind, spell.detail, spell.detail_block, true) ==
+            W8_TARGET_NEED_ITEM);
+    REQUIRE(GetTargetNeededForItem(&item, true) == W8_TARGET_NEED_ITEM);
+    REQUIRE_FALSE(IsSpellTargetOfNeededKind(0, 1, spell, true));
+    REQUIRE_FALSE(IsItemTargetOfNeededKind(0, &item, use_item, true));
+    // The world interaction may suppress inventory selection; that is a caller policy.
+    REQUIRE(IsSpellTargetOfNeededKind(0, 1, spell, false));
+    REQUIRE(IsItemTargetOfNeededKind(0, &item, use_item, false));
+    target.iType = W8_TARGET_KIND_ITEM;
+    target.pPCItem = &item;
+    REQUIRE(IsSpellTargetOfNeededKind(0, 1, spell, true));
+    REQUIRE(IsItemTargetOfNeededKind(0, &item, use_item, true));
+    item.iItemNo = -1;
+    REQUIRE_FALSE(IsSpellTargetOfNeededKind(0, 1, spell, true));
+}
+
+TEST_CASE("Monster eligibility receives the camp restriction rather than consulting dialogue",
+          "[targeting]")
+{
+    // NOLINTNEXTLINE(cppcoreguidelines-special-member-functions): test state restoration
+    struct Restore {
+        bool camp = gXStatus.fCampMode;
+        W8MonsterInfo* monster = nullptr;
+        ~Restore()
+        {
+            gXStatus.monster_roster.remove(monster);
+            gXStatus.fCampMode = camp;
+        }
+    } restore;
+    auto* monster = gXStatus.monster_roster.add(std::make_unique<W8MonsterInfo>(), false);
+    restore.monster = monster;
+    monster->location_id = 101;
+    monster->fActive = true;
+    monster->hp_current = 10;
+    const W8ActionSelection action{W8_ACTION_ATTACK, -1, nullptr, nullptr,
+                                   W8_TARGETING_CONTEXT_IN_COMBAT};
+    gXStatus.fCampMode = true;
+    REQUIRE_FALSE(CanTargetMonster(0, 101, true, false, action, false, 202));
+    gXStatus.fCampMode = false;
+    REQUIRE_FALSE(CanTargetMonster(0, 101, true, false, action, false, 202));
+}

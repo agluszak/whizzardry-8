@@ -81,7 +81,8 @@ void DropCharacterFromRound(int party_slot);
 /* Whether one party slot may switch to the given targeting
    context, in the two forms the target-refresh pass asks. */
 bool CharacterCanSwitchTo(int party_slot, const W8ActionSelection& selection,
-                          bool allow_missing_target, bool allow_equipment_changes);
+                          bool allow_missing_target, bool allow_equipment_changes,
+                          bool allow_item_target = false);
 bool TryCharacterAction(int party_slot, W8ActionKind action, bool commit);
 void NotifyNearbyMonsters(int what);
 void CombatLog(std::string_view text);

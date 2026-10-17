@@ -181,7 +181,8 @@ W8ItemInstance* FindCharacterItemAt(int party_slot, unsigned char origin, unsign
 void RemoveCharacterItem(W8Character* character, W8ItemInstance* item, bool remove_exhausted);
 bool RemovePartyItemByID(int item_id, bool remove_all);
 
-bool CanUseItemForAction(int party_slot, const W8ItemInstance* item);
+bool CanUseItemForAction(int party_slot, const W8ItemInstance* item,
+                         std::optional<int> only_monster = {});
 
 /* Camp item operations: paired hand compatibility, merge-kind lookup, and
    insertion into the party's item pool. */
@@ -235,7 +236,7 @@ bool IsUsableItemClass(W8ItemInstance* item);
 /* Validate an item's embedded spell for use now; nonzero reports
    use blocked with the reason notice queued through the callback. */
 bool ValidateItemSpellUse(int character_index, W8ItemInstance* item,
-                          std::function<void(bool)> callback);
+                          std::function<void(bool)> callback, std::optional<int> only_monster = {});
 bool CharacterHasServiceItem(W8Character* character);
 int CountUsableCharacterItems(W8Character* character);
 /* Take gold from the party, clamping at zero. */

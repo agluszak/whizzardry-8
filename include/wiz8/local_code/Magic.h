@@ -117,7 +117,7 @@ void SetCharacterSpell(const W8Character* character, int spell_id, int power_lev
    cast at; zero means the cast cannot happen at all. */
 int GetAffordableSpellPowerLevel(int party_slot);
 bool CanPartySlotCastRecordedSpell(int party_slot);
-bool CanPartySlotUseRecordedItem(int party_slot);
+bool CanPartySlotUseRecordedItem(int party_slot, std::optional<int> only_monster = {});
 /* Queue the slot's recorded spell cast; zero keeps the recorded power. */
 void StartCharacterSpellCast(int party_slot, int power_level);
 void StartCharacterItemUse(int party_slot);

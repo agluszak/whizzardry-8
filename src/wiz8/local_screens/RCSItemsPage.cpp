@@ -53,6 +53,7 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/party_encumbrance.h"
+#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/RCSCommon.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/local_screens/Screens.h"
@@ -307,7 +308,7 @@ void UseCampItem(W8ItemInstance* item)
 {
     unsigned short slot;
 
-    if (ValidateItemSpellUse(giReviewCharSlot, item, 0)) {
+    if (ValidateItemSpellUse(giReviewCharSlot, item, 0, CampTargetMonster())) {
         SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
         return;
     }

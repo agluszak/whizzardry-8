@@ -4147,7 +4147,7 @@ void FallbackFromUnreachableAction(int party_slot)
                 const int spell_id =
                     casting ? row->action_detail0 : GetItemSpell(row->action_detail1.item_use.item);
                 const W8TargetNeed needed_kind =
-                    GetTargetNeededForSpellFriendly(spell_id, false, false);
+                    GetTargetNeededForSpellFriendly(spell_id, false, !g_level_block);
                 ConfigureSpellTargetFilter(GetSpellTargetType(spell_id, false), needed_kind);
                 return;
             }
@@ -5676,7 +5676,7 @@ void UpdateWorldViewCursor(const UiPointerEvent& event, W8TargetNeed target_need
         FindMonster(g_level_block->highlighted_item);
         if (!CanTargetMonster(g_status.selected_character, g_level_block->highlighted_item, true,
                               false, ChooseEditedAction(g_status.selected_character),
-                              IsMonsterSighting())) {
+                              IsMonsterSighting(), CampTargetMonster())) {
             SetTargetCursor(cursor);
             return;
         }
@@ -5929,7 +5929,8 @@ void SetCombatSelection(int value)
                                      : W8_TARGET_HIGHLIGHT_GREEN);
             }
             CanTargetMonster(g_status.selected_character, value, true, false,
-                             ChooseEditedAction(g_status.selected_character), IsMonsterSighting());
+                             ChooseEditedAction(g_status.selected_character), IsMonsterSighting(),
+                             CampTargetMonster());
         }
         monster = GetMonsterByLocationID(value);
         monster->target_highlighted = true;
@@ -7375,7 +7376,7 @@ void AimAtTarget(int actor, W8CombatSlot* target, const W8ActionSelection& selec
             } else {
 
                 needed = GetTargetNeededForAction(edited_action.kind, edited_action.detail,
-                                                  edited_action.detail_block);
+                                                  edited_action.detail_block, !g_level_block);
             }
             if (!TargetMatchesNeeded(block, needed)) {
                 SetTargetingMode(needed);
@@ -7426,5 +7427,252 @@ bool CanEditCharacterAction(int party_slot, const W8ActionSelection& selection,
         return false;
     }
     return CharacterCanSwitchTo(party_slot, selection, allow_missing_target,
-                                allow_equipment_changes);
+                                allow_equipment_changes, !g_level_block);
+}
+
+std::optional<int> CampTargetMonster()
+{
+    if (!gXStatus.fCampMode) return std::nullopt;
+    return g_npc_interaction_state->target_location_id;
+}
+
+/* Aim at whatever the caller names, by kind. The other three fields are left
+   at BAD_INDEX, so only the kind's own field is meaningful. */
+// FUNCTION: WIZ8 0x00538620
+void AimByKind(int actor, W8TargetKind kind, const W8ActionSelection& selection)
+{
+    W8CombatSlot target;
+
+    ResetCombatSlot(&target);
+    target.iType = kind;
+    AimAtTarget(actor, &target, selection);
+}
+
+// FUNCTION: WIZ8 0x00538670
+void AimAtCharacter(int actor, int character_slot, const W8ActionSelection& selection)
+{
+    W8CombatSlot target;
+
+    ResetCombatSlot(&target);
+    target.iChar = character_slot;
+    target.iType = W8_TARGET_KIND_CHARACTER;
+    AimAtTarget(actor, &target, selection);
+}
+
+// FUNCTION: WIZ8 0x005386C0
+void AimAtCharacterIndirect(int actor, int character_slot, const W8ActionSelection& selection)
+{
+    W8CombatSlot target;
+
+    ResetCombatSlot(&target);
+    target.iChar = character_slot;
+    target.iType = W8_TARGET_KIND_CHARACTER_INDIRECT;
+    AimAtTarget(actor, &target, selection);
+}
+
+/* The target kind the slot's current action needs right now. The ordinary
+   combat-or-not context is overridden while the main game screen has a
+   pending selection - a settled spell or item pick asks through that context,
+   anything else pending reads as dialogue - and while the slot is the
+   selected character in spell or item mode the shared context applies. */
+// FUNCTION: WIZ8 0x00537380
+W8TargetNeed GetTargetNeededForCurrentAction(int party_slot)
+{
+    const auto selection = ChooseEditedAction(party_slot);
+    if (selection.source == W8_TARGETING_CONTEXT_OUT_OF_COMBAT) return W8_TARGET_NEED_NONE;
+    return GetTargetNeededForAction(selection.kind, selection.detail, selection.detail_block,
+                                    !g_level_block);
+}
+
+/* Re-check the selected character's committed target after its action has
+   changed. A slot that cannot act at all falls back to no targeting;
+   otherwise the action's needed kind is worked out again and the recorded
+   target either still satisfies it - leaving no targeting mode - or the mode
+   matching what the action now needs is entered so the player can pick. */
+// FUNCTION: WIZ8 0x00537540
+void RevalidateSelectedTarget(int party_slot)
+{
+    const auto selected_action = ChooseEditedAction(party_slot);
+    W8CombatSlot* target;
+    W8TargetNeed needed;
+
+    if (party_slot != g_status.selected_character) {
+        return;
+    }
+    if (!CanEditCharacterAction(party_slot, selected_action, true, false)) {
+        SetTargetingMode(W8_TARGET_NEED_NONE);
+        return;
+    }
+    target = selected_action.target;
+    needed = W8_TARGET_NEED_NONE;
+    if (selected_action.source != W8_TARGETING_CONTEXT_OUT_OF_COMBAT) {
+        switch (selected_action.kind) {
+        case W8_ACTION_ATTACK:
+        case W8_ACTION_BERSERK:
+            needed = W8_TARGET_NEED_ENEMY;
+            break;
+        case W8_ACTION_BREATHE:
+            needed = W8_TARGET_NEED_CONE;
+            break;
+        case W8_ACTION_PROTECT:
+            needed = W8_TARGET_NEED_ALLY;
+            break;
+        case W8_ACTION_CAST_SPELL:
+            needed = GetTargetNeededForSpellFriendly(selected_action.detail, false, !g_level_block);
+            break;
+        case W8_ACTION_USE_ITEM:
+            needed =
+                GetTargetNeededForItem(selected_action.detail_block->item_use.item, !g_level_block);
+            break;
+        default:
+            needed = W8_TARGET_NEED_NONE;
+            break;
+        }
+    }
+    if (TargetMatchesNeeded(target, needed)) {
+        SetTargetingMode(W8_TARGET_NEED_NONE);
+    } else {
+        SetTargetingMode(needed);
+    }
+}
+
+/* Re-aim a party slot whose pending action's target can no longer be used:
+   outside combat the stored target is simply cleared, while in combat a live
+   attack, spell or item action repicks the best monster, optionally trying
+   the alternate weapon set, and aims the resolved context's
+   block at it. A nonzero `arg` restarts the breath cycle. Repicking the
+   executing (out-of-combat) target also copies it to the in-combat target when
+   that one no longer matches or reaches. */
+// FUNCTION: WIZ8 0x00536570
+bool RepickActionTarget(int party_slot, const W8ActionSelection& selection, int arg)
+{
+    W8CombatSlot new_target;
+    bool is_attack_kind = false;
+    bool result = false;
+    W8TargetNeed needed;
+    W8TargetKind previous_kind;
+    int selected;
+
+    if (!CanPartySlotParticipate(party_slot)) {
+        return false;
+    }
+
+    if (selection.target == 0) {
+        srAssertFail("pTarget", __FILE__, 0xfc, 0);
+    }
+    needed = GetTargetNeededForAction(selection.kind, selection.detail, selection.detail_block,
+                                      !g_level_block);
+    previous_kind = selection.target->iType;
+    if (gXStatus.fCombatMode) {
+        if (selection.source == W8_TARGETING_CONTEXT_OUT_OF_COMBAT) {
+            ++g_combat_state->characters[party_slot].pending_action_repick_count;
+        }
+        is_attack_kind = selection.kind == W8_ACTION_ATTACK || selection.kind == W8_ACTION_BERSERK;
+        if ((is_attack_kind || selection.kind == W8_ACTION_CAST_SPELL ||
+             selection.kind == W8_ACTION_USE_ITEM) &&
+            needed == W8_TARGET_NEED_ENEMY) {
+            selected = ChooseMonsterTarget(party_slot, selection);
+            if (selected == -1 && is_attack_kind) {
+                if (const auto fallback = ChooseFallbackMonsterTarget(party_slot, selection)) {
+                    CommitFallbackWeaponChoice(party_slot, *fallback);
+                    selected = fallback->location_id;
+                }
+            }
+            if (selected != -1) {
+                memset(&new_target, 0, sizeof(new_target));
+                new_target.iChar = -1;
+                new_target.iGroupID = -1;
+                new_target.iType = W8_TARGET_KIND_MONSTER;
+                new_target.iMonsterID = selected;
+                // 0x00536876: the new target goes into the selected action's target.
+                AimAtTarget(party_slot, &new_target, selection);
+                result = true;
+                if (arg != 0) {
+                    StartBreathCycle(party_slot, false);
+                }
+                if (selection.source == W8_TARGETING_CONTEXT_OUT_OF_COMBAT) {
+                    if (g_settings.verbose_combat_messages != 0) {
+                        PostCharacterNotice(party_slot, g_localized_strings[0x26b]);
+                    }
+                    const auto selected_action =
+                        ChooseCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT);
+                    needed = GetTargetNeededForAction(selected_action.kind, selected_action.detail,
+                                                      selected_action.detail_block, !g_level_block);
+                    if (!TargetMatchesNeeded(selected_action.target, needed) ||
+                        !CharacterActionReachesTarget(party_slot, 2, selected_action)) {
+                        AimAtTarget(party_slot, selection.target, selected_action);
+                    }
+                }
+            }
+        }
+    }
+    if (!result) {
+        memset(&new_target, 0, sizeof(new_target));
+        new_target.iMonsterID = -1;
+        new_target.iChar = -1;
+        new_target.iGroupID = -1;
+        new_target.iType = W8_TARGET_KIND_NONE;
+        AimAtTarget(party_slot, &new_target, selection);
+    }
+    if (gXStatus.fCombatMode && selection.source == W8_TARGETING_CONTEXT_IN_COMBAT &&
+        selection.target->iType != previous_kind) {
+        RequestPartySlotRedraw(party_slot);
+    }
+    return result;
+}
+
+/* Re-evaluate each edited action after sight or range changes, then consider
+   the committed action's alternate equipment. */
+// FUNCTION: WIZ8 0x0053bf80
+void RefreshAllPartyTargets(void)
+{
+    for (int party_slot = 0; party_slot < W8_PARTY_SLOT_COUNT; ++party_slot) {
+        W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
+        W8Character* character = &g_status.buffers.Char[party_slot];
+
+        if (row->fOccupied &&
+            (character->hp_current != 0 || character->highest_condition < W8_CONDITION_DEAD)) {
+            const auto selected_action = ChooseEditedAction(party_slot);
+            W8CombatSlot* target = selected_action.target;
+            bool can_switch = CanEditCharacterAction(party_slot, selected_action, false, false);
+
+            if (can_switch) {
+                RefreshCombatTargetHighlights(party_slot, target);
+            } else {
+                can_switch = CanEditCharacterAction(party_slot, selected_action, true, false);
+                if (can_switch) {
+                    RepickActionTarget(party_slot, selected_action, 0);
+                } else if (target && target->iType != W8_TARGET_KIND_NONE) {
+                    W8CombatSlot action;
+
+                    memset(&action, 0, sizeof(action));
+                    action.iChar = -1;
+                    action.iMonsterID = -1;
+                    action.iGroupID = -1;
+                    AimAtTarget(party_slot, &action, selected_action);
+                }
+            }
+
+            const auto committed_action =
+                ChooseCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT);
+            if (IsPartySlotEligible(party_slot) &&
+                (row->action == W8_ACTION_ATTACK || row->action == W8_ACTION_BERSERK) &&
+                (row->weapon_swap_pending ||
+                 CharacterCanSwitchTo(party_slot, committed_action, false, false, false))) {
+                const auto fallback = ChooseFallbackMonsterTarget(party_slot, committed_action);
+                if (fallback) {
+                    CommitFallbackWeaponChoice(party_slot, *fallback);
+                    const auto selected = fallback->location_id;
+                    W8CombatSlot action;
+
+                    memset(&action, 0, sizeof(action));
+                    action.iType = W8_TARGET_KIND_MONSTER;
+                    action.iChar = -1;
+                    action.iMonsterID = selected;
+                    action.iGroupID = -1;
+                    AimAtTarget(party_slot, &action, committed_action);
+                }
+            }
+        }
+    }
 }

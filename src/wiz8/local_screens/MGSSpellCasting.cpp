@@ -536,8 +536,8 @@ static void RebuildSpellCastingList(int spell_id)
                 spell = &g_spell_records[id];
                 if (spell->spell_point_cost <= gpSCSV->caster->iSPLeft[realm] &&
                     SpellUsableNow(id, false) &&
-                    SpellHasAnyValidTarget(CharacterPointerToPartySlot(gpSCSV->caster), id,
-                                           false) &&
+                    SpellHasAnyValidTarget(CharacterPointerToPartySlot(gpSCSV->caster), id, false,
+                                           CampTargetMonster()) &&
                     !IsTeleportCastMissingAnchor(gpSCSV->caster, id)) {
                     if (IsSpellBlockedForCharacter(gpSCSV->caster, id)) {
                         if (pass == 1 &&
@@ -1037,7 +1037,7 @@ static void SelectSpellCastingListRow(int index)
     gpSCSV->iSpellPowerClass = power_class;
     gpSCSV->uiPowerLevels = levels;
     gpSCSV->uiSpellToCast = spell_id;
-    needed = GetTargetNeededForSpellFriendly(spell_id, false, false);
+    needed = GetTargetNeededForSpellFriendly(spell_id, false, !g_level_block);
     target_type = GetSpellTargetType(spell_id, false);
     ConfigureSpellTargetFilter(target_type, needed);
     SelectSpellPowerLevel(-1);
@@ -1068,7 +1068,8 @@ void TryCommitSpellCast(void)
     if (gpSCSV->uiSpellToCast != 0 &&
         (gpSCSV->iSpellPower != -1 || gpSCSV->iSpellPowerClass == W8_SPELL_POWER_FIXED)) {
         ready = IsSpellTargetOfNeededKind(g_status.selected_character, gpSCSV->uiSpellToCast,
-                                          ChooseEditedAction(g_status.selected_character));
+                                          ChooseEditedAction(g_status.selected_character),
+                                          !g_level_block);
     }
     if (gpSCSV->uiSpellToCast == 0x4b && !gpSCSV->dialog_confirmed) {
         if (!IsModalOpen() &&
@@ -1106,8 +1107,8 @@ void ShowSpellCastingError(int spell_id)
     } else if (GetCharacterRealmSpellPoints(gpSCSV->caster, gpSCSV->iSpellRealm) <
                g_spell_records[spell_id].spell_point_cost) {
         ShowMainGameNoticeLine(g_localized_strings[0x7a0], SpellCastingNoticeClosed, true, false);
-    } else if (!SpellHasAnyValidTarget(CharacterPointerToPartySlot(gpSCSV->caster), spell_id,
-                                       false)) {
+    } else if (!SpellHasAnyValidTarget(CharacterPointerToPartySlot(gpSCSV->caster), spell_id, false,
+                                       CampTargetMonster())) {
         ShowMainGameNoticeLine(g_localized_strings[0x7a1], SpellCastingNoticeClosed, true, false);
     } else if (IsTeleportCastMissingAnchor(gpSCSV->caster, spell_id)) {
         ShowMainGameNoticeLine(g_localized_strings[0x7a2], SpellCastingNoticeClosed, true, false);

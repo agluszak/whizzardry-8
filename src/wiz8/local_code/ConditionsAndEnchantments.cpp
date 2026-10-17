@@ -216,7 +216,7 @@ void RemoveCharacterCondition(int party_slot, W8Condition condition, bool announ
             gXStatus.fCombatMode &&
             CharacterCanSwitchTo(party_slot,
                                  ChooseCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT),
-                                 false, false)) {
+                                 false, false, false)) {
             RefreshCombatTargetHighlights(party_slot, &row->target_in_combat);
         }
     }
