@@ -320,7 +320,7 @@ try {
 }
 
 // FUNCTION: WIZ8 0x004a5e50
-W8GrCycle::W8GrCycle()
+W8GrCycle::W8GrCycle(W8World* owner) : owner_world(owner)
 {
     current_model_instance = 0;
     m_plsLights = 0;
@@ -335,7 +335,8 @@ W8GrCycle::W8GrCycle()
 
 // Copy runtime state, particles and the shadow; representations own borrowed lights.
 // FUNCTION: WIZ8 0x004a5f20
-W8GrCycle::W8GrCycle(const W8GrCycle& other) : W8GrObject(other), W8Navigator(other)
+W8GrCycle::W8GrCycle(const W8GrCycle& other, W8World* owner)
+    : W8GrObject(other), W8Navigator(other), owner_world(owner)
 {
     current_model_instance = 0;
     m_plsLights = 0;
@@ -371,10 +372,10 @@ W8GrCycle::~W8GrCycle()
     for (auto& event : particles) {
         auto owner = std::move(event.m_pstParticles);
         if (owner) owner->CancelAnimationCallback();
-        if (owner && owner->active_particle_count != 0 && GetWorld() != nullptr) {
+        if (owner && owner->active_particle_count != 0 && owner_world != nullptr) {
             owner->SetActive(1);
             owner->emission_limit = 1;
-            RetireParticle(GetWorld(), std::move(owner));
+            RetireParticle(owner_world, std::move(owner));
         }
     }
 }
@@ -658,9 +659,7 @@ void W8GrCycle::ResetRepresentation()
    representation's four-dword render block and its optional scale ride along,
    and the last instance placed becomes the cached one.
 
-   The ground shadow and the owned lights follow. The shadow deliberately
-   reparents to the global world rather than to the pWorld argument, which is
-   why both appear in one body. */
+   The ground shadow and owned lights attach to the supplied world as well. */
 // FUNCTION: WIZ8 0x004a7470
 void W8GrCycle::UpdateRepresentation(W8World* pWorld)
 {
@@ -762,7 +761,7 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
         m_ground_shadow->setLocation(location);
         m_ground_shadow->angle = GetYaw();
         m_ground_shadow->clearFlag(srNode::FLAG_TERMINATE);
-        m_ground_shadow->setParent(GetWorld()->dynamic_scene, 0);
+        m_ground_shadow->setParent(pWorld->dynamic_scene, 0);
     }
     if (m_plsLights != 0) {
         int count = static_cast<int>(m_plsLights->size());

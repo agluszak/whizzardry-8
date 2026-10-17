@@ -457,7 +457,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "Retiring a cycle cancels borrowed monster 
                  "[resources][particles]")
 {
     {
-        W8SpellVisual cycle;
+        W8SpellVisual cycle(&world);
         auto particle = std::make_unique<stParticle>(world.dynamic_scene, 1);
         particle->active_particle_count = 1;
         particle->callback = std::make_unique<W8MonsterShakeCallback>();
@@ -494,7 +494,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "World teardown drains particles retired by
         retiring_world->static_scene->adoptChild(std::make_unique<srNode>());
     auto previous = ExchangeCurrentWorld(std::move(retiring_world));
     auto* retiring = GetWorld();
-    auto visual = std::make_unique<W8SpellVisual>();
+    auto visual = std::make_unique<W8SpellVisual>(retiring);
     auto* attachment = &visual->particles.emplace_back();
     attachment->m_pstParticles =
         std::make_unique<ObservedParticle>(*retiring, destroyed, scene_alive);
@@ -504,4 +504,5 @@ TEST_CASE_METHOD(SpellVisualFixture, "World teardown drains particles retired by
 
     REQUIRE(destroyed);
     REQUIRE(scene_alive);
+    REQUIRE(world.retired_particles.empty());
 }

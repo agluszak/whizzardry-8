@@ -48,16 +48,12 @@ W8Item::~W8Item()
     delete m_pRep;
 }
 
-/* Detach the item's mesh from the world graph. The world parameter is asserted
-   even though the body needs no field from it. */
+/* Detach the owned mesh from its actual scene parent. */
 // FUNCTION: WIZ8 0x0049fa30
-void W8Item::DetachMesh(W8World* world)
+void W8Item::DetachMesh()
 {
     srNode* mesh;
 
-    if (world == 0) {
-        srAssertFail("pWorld", "C:\\Projects\\Wizardry 8\\Engine Code\\Item.cpp", 0x24a, 0);
-    }
     mesh = static_cast<W8ItemRep*>(m_pRep)->m_psrMesh.get();
     if (mesh == 0) {
         srAssertFail("psrMesh", "C:\\Projects\\Wizardry 8\\Engine Code\\Item.cpp", 0x24f, 0);

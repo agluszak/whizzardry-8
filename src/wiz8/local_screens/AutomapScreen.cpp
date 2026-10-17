@@ -630,7 +630,7 @@ unsigned char AutomapScreenEnter(void)
         if (monster->p3D) monster->p3D->DetachRepresentation(GetWorld());
     }
     for (const auto& item : gXStatus.world_items) {
-        if (item->p3D) item->p3D->DetachMesh(GetWorld());
+        if (item->p3D) item->p3D->DetachMesh();
     }
     SetMouseMoveEventsEnabled(1);
     g_automap_cursor_inside = IsCursorInsideViewport();

@@ -78,8 +78,9 @@ public:
    tables. The source assertion for its AI names the object `pMissile`. */
 class W8Missile : public W8GrCycle {
 public:
-    W8Missile();
-    W8Missile(const W8Missile& other); /* 0x004A3E50 */
+    explicit W8Missile(W8World* owner = nullptr);
+    W8Missile(const W8Missile& other) : W8Missile(other, other.owner_world) {}
+    W8Missile(const W8Missile& other, W8World* owner); /* 0x004A3E50 */
     W8Missile& operator=(const W8Missile&) = delete;
     virtual ~W8Missile() override;
 

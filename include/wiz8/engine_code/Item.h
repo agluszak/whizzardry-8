@@ -59,7 +59,7 @@ struct W8Item : public W8GrObject {
     /* 0x1c: countdown clock; IsTicking reports whether it is running. */
     uint64_t countdown;
 
-    void DetachMesh(W8World* world);
+    void DetachMesh();
     void ApplyRepTransform();
     void AttachMesh(W8World* world);
     void UpdateAnimation();

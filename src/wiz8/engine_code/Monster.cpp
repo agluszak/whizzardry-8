@@ -329,7 +329,7 @@ static std::unique_ptr<W8Monster> ReadOrCloneMonsterCycles(const W8GrCycleLoadCo
     std::unique_ptr<W8Monster> monster;
     W8Monster* shared = static_cast<W8Monster*>(FindFirstGrCycleByName(monster_name));
     if (shared != 0) {
-        monster = std::make_unique<W8Monster>(*shared);
+        monster = std::make_unique<W8Monster>(*shared, context->world);
         if (!monster) {
             srAssertFail("*ppMonster", MONSTER_CPP, 0x4d3, 0);
         }
@@ -398,7 +398,7 @@ static std::unique_ptr<W8Monster> ReadOrCloneMonsterCycles(const W8GrCycleLoadCo
     if (handle == 0) {
         srAssertFail("hFile", MONSTER_CPP, 0x50f, fmt::format("Couldn't open {}", path));
     }
-    monster = std::make_unique<W8Monster>();
+    monster = std::make_unique<W8Monster>(context->world);
     monster->id = AllocateGrObjectId();
     monster->m_pRep->current_cycle = -1;
 
@@ -1082,14 +1082,15 @@ W8AnimRepBase* W8MonsterRep::Clone()
 int g_monster_cycle_registry_weight;
 
 // FUNCTION: WIZ8 0x004bfb00
-W8Monster::W8Monster()
-    : runtime_flags(0), value_1e0(-1), location_id(-1), scale_x(1.0f), scale_y(1.0f), scale_z(1.0f),
-      missile_frame(0), spell_frame(0), talking(0), animate_mouth(false), mouth_frame_clock(0),
-      mouth_frame(0), talk_start(0), talk_state(-1), inactive(false), pending_finalize(1),
-      disabled(0), nearest_to_party(false), spell_vertex_warned(0), missile_point_warned(0),
-      script(0), script_wait(MONSCR_NONE), trigger(0), registry_weight(0), spell_effect_armed(0),
-      sector_mesh(0), fade_state(W8_MONSTER_FADE_IDLE), target_highlighted(false),
-      hostility_preserved(false), sound(0)
+W8Monster::W8Monster(W8World* owner)
+    : W8GrCycle(owner), runtime_flags(0), value_1e0(-1), location_id(-1), scale_x(1.0f),
+      scale_y(1.0f), scale_z(1.0f), missile_frame(0), spell_frame(0), talking(0),
+      animate_mouth(false), mouth_frame_clock(0), mouth_frame(0), talk_start(0), talk_state(-1),
+      inactive(false), pending_finalize(1), disabled(0), nearest_to_party(false),
+      spell_vertex_warned(0), missile_point_warned(0), script(0), script_wait(MONSCR_NONE),
+      trigger(0), registry_weight(0), spell_effect_armed(0), sector_mesh(0),
+      fade_state(W8_MONSTER_FADE_IDLE), target_highlighted(false), hostility_preserved(false),
+      sound(0)
 {
     formation = glm::vec3(0);
     kind = 1;
@@ -1118,8 +1119,8 @@ W8Monster::W8Monster()
 }
 
 // FUNCTION: WIZ8 0x004bfe00
-W8Monster::W8Monster(const W8Monster& rhs)
-    : W8GrCycle(rhs), runtime_flags(rhs.runtime_flags), value_1e0(rhs.value_1e0),
+W8Monster::W8Monster(const W8Monster& rhs, W8World* owner)
+    : W8GrCycle(rhs, owner), runtime_flags(rhs.runtime_flags), value_1e0(rhs.value_1e0),
       location_id(rhs.location_id), scale_x(1.0f), scale_y(1.0f), scale_z(1.0f),
       missile_frame(rhs.missile_frame), spell_frame(rhs.spell_frame), talking(0),
       animate_mouth(false), mouth_frame_clock(0), mouth_frame(0), talk_start(0), talk_state(-1),
@@ -2555,7 +2556,7 @@ void SetMonsterPartySlotMarker(int party_slot, int location_id, char on)
     if (on == 0) {
         item = rep->objects[party_slot].get();
         if (item != 0) {
-            item->DetachMesh(GetWorld());
+            item->DetachMesh();
             rep->objects[party_slot].reset();
             --rep->icon_count;
         }
@@ -4283,7 +4284,7 @@ std::unique_ptr<W8Monster> MonsterReadAllCycles(const W8GrCycleLoadContext* cont
 std::unique_ptr<W8Monster> LoadMonsterCycle(const W8GrCycleLoadContext* context,
                                             const char* mon_name, int cycle, int value)
 {
-    auto monster = std::make_unique<W8Monster>();
+    auto monster = std::make_unique<W8Monster>(context->world);
     monster->id = AllocateGrObjectId();
     monster->m_pRep->current_cycle = -1;
     if (!LoadGrCycle(context, mon_name, monster.get(), cycle, value, "data\\monsters", 0))

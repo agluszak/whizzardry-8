@@ -89,7 +89,7 @@ void DetachWorldItemMeshes(W8World* world)
     for (int index = 0; index < static_cast<int>(count); ++index) {
         W8Item* item = world->plsItems[index].get();
         if (item != 0) {
-            item->DetachMesh(world);
+            item->DetachMesh();
             item->UpdateAnimation();
             item->AttachMesh(world);
         }

@@ -408,7 +408,7 @@ W8Missile* AllocateMissile(int missile_table_index)
 std::unique_ptr<W8Missile> LoadMissileCycle(W8GrCycleLoadContext* context, const char* name)
 {
     if (auto* found = FindFirstGrCycleByName(name)) {
-        auto missile = std::make_unique<W8Missile>(*static_cast<W8Missile*>(found));
+        auto missile = std::make_unique<W8Missile>(*static_cast<W8Missile*>(found), context->world);
         auto* ai = static_cast<W8AIMissile*>(missile->m_pAI.get());
         if (ai->kind != W8_AI_RECORD_MISSILE)
             srAssertFail("missile AI", MISSILE_CPP, __LINE__, nullptr);
@@ -417,7 +417,7 @@ std::unique_ptr<W8Missile> LoadMissileCycle(W8GrCycleLoadContext* context, const
         return missile;
     }
     PauseSharedGameTimers();
-    auto output = std::make_unique<W8Missile>();
+    auto output = std::make_unique<W8Missile>(context->world);
     output->m_pRep->current_cycle = -1;
     auto handle = [&] {
         try {
@@ -656,10 +656,10 @@ unsigned char W8MissileRep::ReadCycleData(W8ReadLevelInfo* info, W8Missile* miss
    overwrites the vector and leaks its initial five-pointer allocation; the
    ordering is preserved because it is present explicitly in the product. */
 // FUNCTION: WIZ8 0x004A3C10
-W8Missile::W8Missile()
-    : missile_table_index(-1), flight_done(0), impacting(0), block_released(1), gravity(0),
-      align_camera(0), explode_ground(0), align_explosion(0), flag(1), value_1e8(0), value_1ec(0),
-      lifetime(15000.0f), flags0(0), retargeted(false)
+W8Missile::W8Missile(W8World* owner)
+    : W8GrCycle(owner), missile_table_index(-1), flight_done(0), impacting(0), block_released(1),
+      gravity(0), align_camera(0), explode_ground(0), align_explosion(0), flag(1), value_1e8(0),
+      value_1ec(0), lifetime(15000.0f), flags0(0), retargeted(false)
 {
     W8GrObject::kind = 1;
     radius = 1.0f;
@@ -693,8 +693,8 @@ W8Missile::W8Missile()
    growable vector's initial allocation exactly as the default constructor
    does. */
 // FUNCTION: WIZ8 0x004A3E50
-W8Missile::W8Missile(const W8Missile& other)
-    : W8GrCycle(other), missile_table_index(other.missile_table_index), flight_done(0),
+W8Missile::W8Missile(const W8Missile& other, W8World* owner)
+    : W8GrCycle(other, owner), missile_table_index(other.missile_table_index), flight_done(0),
       impacting(0), block_released(other.block_released), gravity(other.gravity),
       align_camera(other.align_camera), explode_ground(other.explode_ground),
       align_explosion(other.align_explosion), flag(other.flag), value_1e8(other.value_1e8),

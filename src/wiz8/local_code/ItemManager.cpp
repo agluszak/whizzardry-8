@@ -625,7 +625,7 @@ void DeactivateWorldItem(W8WorldItem* item)
     item->position = position;
     item->entity_flags = static_cast<W8ItemRep*>(item->p3D->m_pRep)->flags;
 
-    item->p3D->DetachMesh(GetWorld());
+    item->p3D->DetachMesh();
     std::erase_if(GetWorld()->plsItems,
                   [item](const auto& owner) { return owner.get() == item->p3D; });
     item->p3D = 0;
