@@ -1274,7 +1274,7 @@ ReadLevelStatus(W8World& world, const std::filesystem::path& path, int level, bo
         info.p3D = model.get();
         world.monsters.push_back(std::move(model));
         RestoreMonsterSpellIcons(world, info, info.p3D);
-        if (group->group->encounter_registered) {
+        if (group->group->encounter_registered && !info.p3D->script && !data.default_script) {
             info.p3D->SetScript("Default.MSF", false);
             data.default_script = info.p3D->script;
             info.p3D->UseScript({}, false);

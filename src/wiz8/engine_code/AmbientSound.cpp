@@ -97,7 +97,6 @@ std::unique_ptr<W8AmbientTrack> ReadRandomAmbient(const char* path, int time_min
     track->volume_max = volume_max;
     if (speed_min != -1 && speed_max != -1)
         track->speed.emplace(std::uint32_t(speed_min), std::uint32_t(speed_max));
-    track->Reschedule();
     return track;
 }
 void ServiceRandomAmbients(W8World& world)
@@ -297,6 +296,7 @@ void W8AmbientSound::Service(bool entered)
             random = ReadRandomAmbient(config.wave_name, time_min, time_max, speed_min, speed_max,
                                        (volume_min * g_settings.sound_effects_volume) / 0x7f,
                                        (volume_max * g_settings.sound_effects_volume) / 0x7f);
+            if (random) random->Reschedule();
         }
         if (random != nullptr) {
             unsigned char should_play;

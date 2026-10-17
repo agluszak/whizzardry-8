@@ -41,6 +41,8 @@
 #include "wiz8/button_interaction.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
+#include "wiz8/engine_code/AmbientSound.h"
+#include "wiz8/engine_code/World.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/CombatSound.h"
 #include "wiz8/ui_input.h"
@@ -779,4 +781,31 @@ TEST_CASE_METHOD(AudioFixture, "Button feedback preserves repeat and disabled si
     REQUIRE_FALSE(wiz8::sound::is_file_playing(press));
     REQUIRE_FALSE(wiz8::sound::is_file_playing(release));
     REQUIRE(activations == 2);
+}
+
+TEST_CASE_METHOD(AudioFixture,
+                 "Unpublished worlds are silent and stop only their own ambient voices",
+                 "[audio][world][ownership]")
+{
+    startOfflineAudio();
+    std::ofstream(asset / "ambient.scf") << ".\nTone.wav 0 0 127 127 -1 -1 0\n";
+    W8World active;
+    REQUIRE(ReadAmbientSoundListFile(active, "ambient.scf"));
+    REQUIRE(active.ambient_tracks.size() == 1);
+    REQUIRE_FALSE(active.ambient_tracks.front()->instance);
+    StartAmbientSoundList(active);
+    auto previous_voice = active.ambient_tracks.front()->instance;
+    REQUIRE(wiz8::sound::is_playing(previous_voice));
+    wiz8::sound::Playback candidate_voice;
+    {
+        W8World pending;
+        REQUIRE(ReadAmbientSoundListFile(pending, "ambient.scf"));
+        REQUIRE_FALSE(pending.ambient_tracks.front()->instance);
+        REQUIRE(wiz8::sound::is_playing(previous_voice));
+        StartAmbientSoundList(pending);
+        candidate_voice = pending.ambient_tracks.front()->instance;
+        REQUIRE(wiz8::sound::is_playing(candidate_voice));
+    }
+    REQUIRE_FALSE(wiz8::sound::is_playing(candidate_voice));
+    REQUIRE(wiz8::sound::is_playing(previous_voice));
 }
