@@ -69,6 +69,7 @@
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/GrCycle.h"
+#include "wiz8/engine_code/GrObject.h"
 #include "wiz8/engine_code/Item.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Missile.h"
