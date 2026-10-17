@@ -1738,9 +1738,16 @@ TEST_CASE_METHOD(LoaderFixture, "Cursor scratch replacement validates complete s
         bytes.append("ab", 2);
     }
     const auto load = [&](const std::string& data) {
-        store("cursor-state.dat", data);
-        auto file = wiz8::open_file(wiz8::asset_path("cursor-state.dat"));
-        return LoadWorldCursorNodeStates(*file);
+        const auto path = fixture_root / "cursor-state.riff";
+        W8Chunk writer;
+        REQUIRE(writer.OpenWrite(path));
+        writer.WriteChunk(W8ChunkId("WCST"),
+                          [&] { writer.WriteBytes(data.data(), data.size()); });
+        writer.Close();
+        W8Chunk reader;
+        REQUIRE(reader.OpenRead(path));
+        REQUIRE(reader.OpenChunk(0, 0));
+        return LoadWorldCursorNodeStates(reader);
     };
     REQUIRE(load(bytes.substr(0, bytes.size() - 1)) == 0);
     REQUIRE(first.userdata == std::vector{std::byte{7}});
@@ -1788,9 +1795,16 @@ TEST_CASE_METHOD(LoaderFixture, "Trigger action loading rejects incomplete and u
     bytes.append(128, 'x');
     bytes.append(256, '\0');
     const auto load = [&](const std::string& data) {
-        store("trigger-action.dat", data);
-        auto file = wiz8::open_file(wiz8::asset_path("trigger-action.dat"));
-        return LoadTriggerActionData(*file);
+        const auto path = fixture_root / "trigger-action.riff";
+        W8Chunk writer;
+        REQUIRE(writer.OpenWrite(path));
+        writer.WriteChunk(W8ChunkId("TACT"),
+                          [&] { writer.WriteBytes(data.data(), data.size()); });
+        writer.Close();
+        W8Chunk reader;
+        REQUIRE(reader.OpenRead(path));
+        REQUIRE(reader.OpenChunk(0, 0));
+        return LoadTriggerActionData(reader);
     };
     REQUIRE_FALSE(load(bytes));
     REQUIRE_FALSE(load(bytes.substr(0, bytes.size() - 1)));

@@ -192,10 +192,11 @@ TEST_CASE("Prop save records are decoded within their chunk before application",
     ScopedTemporaryDirectory directory{"prop-records"};
     const auto path = directory.path / "props.riff";
     W8World world{};
-    W8Prop prop;
+    auto owned_prop = std::make_unique<W8Prop>();
+    auto& prop = *owned_prop;
     prop.id = 42;
-    prop.m_name = new char[5]{'D', 'O', 'O', 'R', 0};
-    world.plsProps = {&prop};
+    prop.name = "DOOR";
+    world.plsProps.push_back(std::move(owned_prop));
     for (bool named : {false, true}) {
         W8Chunk writer;
         REQUIRE(writer.OpenWrite(path));
