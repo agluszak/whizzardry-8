@@ -8,6 +8,7 @@
 #include <vector>
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
 
 #include "filesystem.h"
@@ -24,6 +25,7 @@
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stParticle.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/levels.h"
 #include "wiz8/music_playlist.h"
 
 namespace {
@@ -193,7 +195,11 @@ TEST_CASE("world_lookup_test")
 TEST_CASE("Failed world asset loads release published worlds and allow retry", "[levels][lifetime]")
 {
     ScopedTemporaryDirectory directory("wiz8-failed-world-load");
-    ScopedAssetRoots roots({directory.path.generic_string(), directory.path.generic_string()});
+    const auto assets = directory.path / "assets";
+    const auto user = directory.path / "user";
+    std::filesystem::create_directory(assets);
+    std::filesystem::create_directory(user);
+    ScopedAssetRoots roots({assets.generic_string(), user.generic_string()});
 
     // A failed sky load must unregister the partial sky without touching the primary world.
     auto primary = std::unique_ptr<W8World>(CreateWorld());
@@ -211,9 +217,9 @@ TEST_CASE("Failed world asset loads release published worlds and allow retry", "
     REQUIRE(GetWorld() == nullptr);
 
     REQUIRE(InitializeMusicPlaylist());
-    std::filesystem::create_directories(directory.path / "Levels" / "Test");
+    std::filesystem::create_directories(assets / "Levels" / "Test");
     {
-        std::ofstream truncated(directory.path / "Levels" / "Test" / "level1.LVL");
+        std::ofstream truncated(assets / "Levels" / "Test" / "level1.LVL");
         truncated.put('\0');
         REQUIRE(truncated.good());
     }
