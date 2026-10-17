@@ -369,7 +369,7 @@ srMeshModel::PolygonSelection stMeshModel::GetActivePolygons(int table, bool che
 }
 
 // FUNCTION: WIZ8 0x00471160
-void stMeshModel::SetMappedVertex(short vertex, short key)
+void stMeshModel::SetMappedVertex(int vertex, short key)
 {
     mapped_vertices.insert_or_assign(key, vertex);
 }
