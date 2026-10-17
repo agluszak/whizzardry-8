@@ -1741,8 +1741,7 @@ TEST_CASE_METHOD(LoaderFixture, "Cursor scratch replacement validates complete s
         const auto path = fixture_root / "cursor-state.riff";
         W8Chunk writer;
         REQUIRE(writer.OpenWrite(path));
-        writer.WriteChunk(W8ChunkId("WCST"),
-                          [&] { writer.WriteBytes(data.data(), data.size()); });
+        writer.WriteChunk(W8ChunkId("WCST"), [&] { writer.WriteBytes(data.data(), data.size()); });
         writer.Close();
         W8Chunk reader;
         REQUIRE(reader.OpenRead(path));
@@ -1798,8 +1797,7 @@ TEST_CASE_METHOD(LoaderFixture, "Trigger action loading rejects incomplete and u
         const auto path = fixture_root / "trigger-action.riff";
         W8Chunk writer;
         REQUIRE(writer.OpenWrite(path));
-        writer.WriteChunk(W8ChunkId("TACT"),
-                          [&] { writer.WriteBytes(data.data(), data.size()); });
+        writer.WriteChunk(W8ChunkId("TACT"), [&] { writer.WriteBytes(data.data(), data.size()); });
         writer.Close();
         W8Chunk reader;
         REQUIRE(reader.OpenRead(path));
