@@ -55,13 +55,13 @@ float HeadingToTargetCPP(const glm::vec3* target)
    offset and the monster's GrCycle-tail rep for the centre. Used by the
    monster-list scans in Targeting.cpp. */
 // FUNCTION: WIZ8 0x004BE710
-float MonsterDistanceToCamera(W8World* world, W8Monster* monster)
+float MonsterDistanceToCamera(W8Monster* monster)
 {
     const auto bounds = monster->GetAnimationBounds();
     if (!bounds) {
         return -1.0f;
     }
-    glm::dvec3 camera = world->camera->getLocation();
+    glm::dvec3 camera = g_world->camera->getLocation();
     glm::vec3 camera_location;
     camera_location = glm::vec3(camera);
     glm::vec3 center = monster->m_pRep->location;
@@ -73,10 +73,10 @@ float MonsterDistanceToCamera(W8World* world, W8Monster* monster)
    Z-offset centre, taking the item pointer explicitly for the item-list
    scans in ItemManager.cpp. */
 // FUNCTION: WIZ8 0x004BE7C0
-float ItemDistanceToCamera(W8World* world, W8Item* item)
+float ItemDistanceToCamera(W8Item* item)
 {
     const auto bounds = item->GetCachedLocalBounds();
-    glm::dvec3 camera = world->camera->getLocation();
+    glm::dvec3 camera = g_world->camera->getLocation();
     glm::vec3 camera_location;
     camera_location = glm::vec3(camera);
     glm::vec3 center = item->m_pRep->location;

@@ -220,17 +220,17 @@ void PleaseWaitScreenFrame(void)
         AutoSaveIfAllowed(true);
     }
 
-    if (!GetWorld()) {
-        srAssertFail("GetWorld()", PLEASE_WAIT_SCREEN_CPP, 332, 0);
+    if (!g_world.get()) {
+        srAssertFail("g_world.get()", PLEASE_WAIT_SCREEN_CPP, 332, 0);
     }
     RequestScreenTransition();
     if (g_load_descriptor->mode == 1 && g_status.intro_shown) {
         SetIntroVideoIndex(4);
-        SetPendingScreenState(W8_SCREEN_INTRO);
+        g_pending_screen_state.id = W8_SCREEN_INTRO;
         return;
     }
     if (GetPendingScreenState() != 7) {
-        SetPendingScreenState(W8_SCREEN_MAIN_GAME);
+        g_pending_screen_state.id = W8_SCREEN_MAIN_GAME;
     }
 }
 

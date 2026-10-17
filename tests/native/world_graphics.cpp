@@ -118,7 +118,7 @@ TEST_CASE("world graphics")
     RunNewGameOpeningSequence(false, {});
     // Bypass only the opening movie; use the normal new-game loading screen.
     g_pending_screen_state.mode = 0;
-    SetPendingScreenState(W8_SCREEN_PLEASE_WAIT);
+    g_pending_screen_state.id = W8_SCREEN_PLEASE_WAIT;
     fprintf(stderr, "world: enter real new-game loader\n");
     for (int frame = 0; frame < 5; ++frame) {
         GameLoop();
@@ -126,7 +126,7 @@ TEST_CASE("world graphics")
                 int(g_current_screen_state.id), int(g_pending_screen_state.id));
     }
     REQUIRE(g_current_screen_state.id == W8_SCREEN_MAIN_GAME);
-    auto world = GetWorld();
+    auto world = g_world.get();
     REQUIRE((world && world->octree && world->camera && world->level && !world->psrMeshes.empty()));
     if (mode && strcmp(mode, "ui") == 0) {
         ApplyMainGameModeFlag(W8_MAIN_UI_MODE_PORTRAITS, true);

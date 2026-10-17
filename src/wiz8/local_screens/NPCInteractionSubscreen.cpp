@@ -1520,7 +1520,7 @@ static void NpcDialogueTextBoxLeftUp(int x, int y)
         return;
     case W8_DIALOGUE_LAYOUT_SERVICES:
     case W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX:
-        slot = GetHoveredTextLine(2);
+        slot = g_level_block->hovered_text_lines[2];
         if (slot == -1) {
             return;
         }
@@ -1545,7 +1545,7 @@ static void NpcDialogueTextBoxRightUp(int x, int y)
 
     switch (g_npc_interaction_state->dialogue_layout) {
     case W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX:
-        slot = GetHoveredTextLine(2);
+        slot = g_level_block->hovered_text_lines[2];
         if (slot == -1) {
             return;
         }
@@ -1614,7 +1614,7 @@ static void NpcDialogueTextBoxDoubleClick(int x, int y)
         HighlightNoticeRow(line);
         g_npc_interaction_state->hovered_text_line = line;
     }
-    slot = GetHoveredTextLine(2);
+    slot = g_level_block->hovered_text_lines[2];
     if (slot != -1) {
         g_npc_interaction_state->selected_trade_row = -1;
         UpdateNpcTradeSelection(slot, 0, 1);
@@ -2091,7 +2091,8 @@ static void RequestNpcJoinParty(void)
 {
     unsigned int slot;
 
-    ShowNotice(W8_FONT_PALETTE_BRONZE, g_localized_strings[0x748], 3, GetTextBoxScrollRange());
+    ShowNotice(W8_FONT_PALETTE_BRONZE, g_localized_strings[0x748], 3,
+               (g_level_block->text_box_right - g_level_block->text_box_left));
     if (g_npc_interaction_state->dialogue_hidden != 0) {
         SetNpcDialogueHidden(0);
     }
@@ -2112,7 +2113,8 @@ static void RequestNpcJoinParty(void)
 
 static void ShowNpcDialogueNotice(void)
 {
-    ShowNotice(W8_FONT_PALETTE_BRONZE, g_localized_strings[0x749], 3, GetTextBoxScrollRange());
+    ShowNotice(W8_FONT_PALETTE_BRONZE, g_localized_strings[0x749], 3,
+               (g_level_block->text_box_right - g_level_block->text_box_left));
     SetNpcDialogueHidden(1);
 }
 
@@ -2518,7 +2520,7 @@ static void ConfirmNpcTradeSlot(void)
     int slot;
 
     if (g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX) {
-        slot = GetSelectedTextLine(2);
+        slot = g_level_block->selected_text_lines[2];
         if (slot != -1) {
             UpdateNpcTradeSelection(slot, 0, 0);
             if (g_npc_interaction_state->trade_mode == W8_NPC_TRADE_GIVE && slot == 0) {
@@ -3097,7 +3099,8 @@ static void HandleNpcDialogueReply(std::string_view text, bool echo)
     g_npc_dialogue.Answer(text);
     if (echo) {
         notice = fmt::format("{}...", text);
-        ShowNotice(W8_FONT_PALETTE_BRONZE, notice, 3, GetTextBoxScrollRange());
+        ShowNotice(W8_FONT_PALETTE_BRONZE, notice, 3,
+                   (g_level_block->text_box_right - g_level_block->text_box_left));
     }
 }
 
@@ -3325,9 +3328,11 @@ void HandleNpcDialogueInput(void)
         const char punctuation = roll >= (plain_text ? 2u : 3u) ? '?' : '.';
         notice =
             fmt::format("{} {}{}", g_localized_strings[replies[roll]], field_text, punctuation);
-        ShowNotice(W8_FONT_PALETTE_BRONZE, notice, 3, GetTextBoxScrollRange());
+        ShowNotice(W8_FONT_PALETTE_BRONZE, notice, 3,
+                   (g_level_block->text_box_right - g_level_block->text_box_left));
     } else {
-        ShowNotice(W8_FONT_PALETTE_BRONZE, field_text, 3, GetTextBoxScrollRange());
+        ShowNotice(W8_FONT_PALETTE_BRONZE, field_text, 3,
+                   (g_level_block->text_box_right - g_level_block->text_box_left));
     }
     if (quote_id == -1) {
         g_npc_dialogue.QueueQuote(Random(2) + 0x23, false, false, false);
@@ -3917,7 +3922,8 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQu
                 error_text = "Error creating box - most likely text too large";
             }
             bubble = QuoteBubble::layout(error_text, 300, std::nullopt);
-            ShowNotice(W8_FONT_PALETTE_BEIGE, error_text, 0, GetTextBoxScrollRange());
+            ShowNotice(W8_FONT_PALETTE_BEIGE, error_text, 0,
+                       (g_level_block->text_box_right - g_level_block->text_box_left));
         }
         g_npc_interaction_state->quote_width = static_cast<short>(bubble ? bubble->width() : 0);
         g_npc_interaction_state->quote_height = static_cast<short>(bubble ? bubble->height() : 0);
@@ -4022,7 +4028,8 @@ void FlushPendingNoticeLines(void)
                 g_npc_interaction_state->last_notice_npc_kind = line->npc_kind;
             }
         }
-        ShowNotice(line->npc_kind == -1 ? 0xb : 0xf, line->text, 3, GetTextBoxScrollRange());
+        ShowNotice(line->npc_kind == -1 ? 0xb : 0xf, line->text, 3,
+                   (g_level_block->text_box_right - g_level_block->text_box_left));
     }
     g_npc_interaction_state->pending_notice_lines.clear();
 }
@@ -4422,12 +4429,6 @@ bool IsNpcDialogueTextInputActive(void)
     return gXStatus.fNpcDialogueMode &&
            g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX;
 }
-
-bool CanOpenNpcDialogue(void)
-{
-    return gXStatus.fNpcDialogueMode && g_npc_interaction_state->scripted_dialogue;
-}
-
 unsigned char SetNpcDialoguePanelVisible(unsigned char value)
 {
     W8NpcDialogueTextController* controller;

@@ -531,7 +531,7 @@ void ActivateItem(W8WorldItem* item)
         srAssertFail("!pItemInfo->fActive", ITEM_MANAGER_CPP, 0x1d5, 0);
     }
 
-    info.world = GetWorld();
+    info.world = g_world.get();
     info.hFile = 0;
     info.bitmap_folder = "Data\\Items3D\\Bitmaps";
 
@@ -579,8 +579,8 @@ void ActivateItem(W8WorldItem* item)
     item->p3D->SetYaw(
         static_cast<float>(Random(0x168) * 2 * g_camera_pi * kInverseFullTurnDegrees));
     static_cast<W8ItemRep*>(item->p3D->m_pRep)->flags |= item->entity_flags;
-    item->p3D->AttachMesh(GetWorld());
-    AddItemToWorld(GetWorld(), std::move(entity));
+    item->p3D->AttachMesh(g_world.get());
+    AddItemToWorld(std::move(entity));
     item->fActive = true;
     ++gXStatus.item_manager_pending;
 
@@ -625,8 +625,8 @@ void DeactivateWorldItem(W8WorldItem* item)
     item->position = position;
     item->entity_flags = static_cast<W8ItemRep*>(item->p3D->m_pRep)->flags;
 
-    item->p3D->DetachMesh(GetWorld());
-    RemoveItemFromWorld(GetWorld(), item->p3D);
+    item->p3D->DetachMesh(g_world.get());
+    RemoveItemFromWorld(item->p3D);
     item->p3D = 0;
     item->fActive = false;
     --gXStatus.item_manager_pending;
@@ -677,7 +677,7 @@ int PickNearestItemUnderCursor(int cursor_x, int cursor_y, float max_distance)
         if (!item->p3D->IsSelected()) {
             continue;
         }
-        distance = ItemDistanceToCamera(GetWorld(), item->p3D);
+        distance = ItemDistanceToCamera(item->p3D);
         if (distance < max_distance && distance < best_distance) {
             result = item->runtime_id;
             best_distance = distance;
@@ -696,7 +696,7 @@ void UpdateNearbyWorldItems(void)
     unsigned int index;
     unsigned int count;
 
-    camera = cameraLocation(*GetWorld());
+    camera = cameraLocation(*g_world.get());
     count = gXStatus.world_items.size();
     for (index = 0; index < count; ++index) {
         W8WorldItem* item = ItemInfo(index);

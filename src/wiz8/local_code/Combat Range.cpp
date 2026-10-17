@@ -509,7 +509,7 @@ W8RangeCategory GetBestHandRangeCategory(const W8Character* character)
 bool RangeCategoryUsesSightCondition(const W8MonsterInfo* monster, W8RangeCategory range_category)
 {
     if (range_category >= W8_RANGE_LONG && range_category <= W8_RANGE_EXTREME) {
-        return MonsterHasProjectileOrigin(monster);
+        return monster->has_projectile_origin;
     }
     return false;
 }
@@ -712,7 +712,7 @@ W8RangeCategory GetMonsterBestRangeCategory(W8MonsterInfo* monster_info,
     }
 
     if (best >= W8_RANGE_LONG && best <= W8_RANGE_EXTREME) {
-        *out_sight = MonsterHasProjectileOrigin(monster_info);
+        *out_sight = monster_info->has_projectile_origin;
     } else {
         *out_sight = 0;
     }

@@ -207,7 +207,7 @@ void ActivateMonsterInWorld(W8MonsterInfo* monster_info)
             MonsterSetAnimating(monster_info->p3D, !monster_info->fMotionless);
         }
 
-        AddMonsterToWorld(GetWorld(), monster_info->p3D);
+        AddMonsterToWorld(monster_info->p3D);
         MonsterSetFacing(monster_info->p3D, monster_info->derived);
         RebuildMonsterDerivedStats(monster_info->location_id);
         monster_info->p3D->movement.leadership_rank =
@@ -220,9 +220,9 @@ void ActivateMonsterInWorld(W8MonsterInfo* monster_info)
                                            MonsterDBFromSpecies(monster_info->monster_species));
     }
 
-    camera_position = cameraLocation(*GetWorld());
+    camera_position = cameraLocation(*g_world.get());
     MonsterSelectLOD(monster_info->p3D, &camera_position);
-    UpdateCycleRepresentation(monster_info->p3D, GetWorld());
+    UpdateCycleRepresentation(monster_info->p3D);
     g_octree->VisitPointCopy(static_cast<unsigned short>(monster_info->location_id),
                              &monster_info->position);
     monster_info->fActive = true;
@@ -268,7 +268,7 @@ void ActivateMonster(W8MonsterInfo* monster_info, W8MonsterActivationMode mode)
     }
 
     record = GetMonsterDataForInfo(monster_info);
-    context.world = GetWorld();
+    context.world = g_world.get();
     context.bitmap_directory = 0;
     context.directory = "Data\\Monsters";
 
@@ -280,16 +280,16 @@ void ActivateMonster(W8MonsterInfo* monster_info, W8MonsterActivationMode mode)
                      "ActivateMonster: MonsterReadAllCycles failed");
     }
     monster_info->p3D = monster.get();
-    GetWorld()->monsters.push_back(std::move(monster));
+    g_world->monsters.push_back(std::move(monster));
 
     if (monster_info->scale < 0.0f ||
         g_status.level_progress[g_status.current_level].visited == 0) {
-        monster_info->saved_mirror_x = MonsterGetMirrorX(monster_info->p3D);
+        monster_info->saved_mirror_x = monster_info->p3D->mirror_x;
         monster_info->scale = CalculateMonsterScale(monster_info);
-        MonsterSetScale(monster_info->p3D, monster_info->scale);
+        monster_info->p3D->m_pRep->scale = monster_info->scale;
     } else {
-        MonsterSetScale(monster_info->p3D, monster_info->scale);
-        MonsterSetMirrorX(monster_info->p3D, monster_info->saved_mirror_x);
+        monster_info->p3D->m_pRep->scale = monster_info->scale;
+        monster_info->p3D->mirror_x = monster_info->saved_mirror_x;
     }
 
     ApplyMonsterRepresentationScale(monster_info->p3D);
@@ -760,8 +760,8 @@ static void DestroyMonsterListEntry(unsigned int index)
     }
     DeactivateMonster(monster_info);
     if (monster_info->p3D != 0) {
-        DetachMonsterRepresentation(monster_info->p3D, GetWorld());
-        DestroyWorldMonster(GetWorld(), monster_info->p3D);
+        DetachMonsterRepresentation(monster_info->p3D);
+        DestroyWorldMonster(monster_info->p3D);
         monster_info->p3D = 0;
     }
     // Inactive (including unborn) monsters do not pass through DeactivateMonster's
@@ -903,7 +903,7 @@ static void InitializeMonsterRuntimeStatsFor(W8MonsterInfo* monster_info)
     monster_info->stamina = value;
     monster_info->fatigue_band = CalculateMonsterFatigueBand(value, value);
     monster_info->scale = CalculateMonsterScale(monster_info);
-    MonsterSetScale(monster_info->p3D, monster_info->scale);
+    monster_info->p3D->m_pRep->scale = monster_info->scale;
     ApplyMonsterRepresentationScale(monster_info->p3D);
     RefreshMonsterStandingHeight(monster_info->p3D);
 }
@@ -930,7 +930,7 @@ float CalculateMonsterScale(W8MonsterInfo* monster_info)
 
     MonsterGetScaleRange(monster_info->p3D, &minimum, &maximum);
     if (minimum == 0.0f || maximum == 0.0f) {
-        return MonsterGetScale(monster_info->p3D);
+        return monster_info->p3D->m_pRep->scale;
     }
 
     if (monster_info == 0) {
@@ -1167,7 +1167,7 @@ void MonsterInfoEnterCombat(W8MonsterInfo* monster_info)
         monster_info->player_visibility.last_seen_clock = g_status.world_clock;
     }
     ResetCombatSlot(&monster_info->Target);
-    MonsterSetHighlightMask(monster_info->p3D, 0);
+    monster_info->p3D->m_pRep->highlight_mask = 0;
     monster_info->p3D->flags = 0;
     if (monster_info->ubDisposition == W8_DISPOSITION_HOSTILE) {
         RecountCombatMonsters();

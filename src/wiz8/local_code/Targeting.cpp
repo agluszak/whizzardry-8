@@ -255,22 +255,10 @@ signed char FindFactionByName(const char* name)
     return -1;
 }
 
-// FUNCTION: WIZ8 0x005360f0
-int GetFactionValue(signed char faction)
-{
-    return g_factions[faction].band_changed_clock;
-}
-
 // FUNCTION: WIZ8 0x00536110
 void SetFactionFlag(signed char faction, bool flag)
 {
     g_factions[faction].encountered = flag;
-}
-
-// FUNCTION: WIZ8 0x00536130
-unsigned char GetFactionFlag(signed char faction)
-{
-    return g_factions[faction].encountered;
 }
 
 /* Build an empty target block: everything zeroed, then the two ids set to
@@ -504,7 +492,7 @@ void ApplyTarget(W8CombatSlot* target, bool in_combat)
 
     if (target->iType == W8_TARGET_KIND_MONSTER) {
         monster_info = FindMonster(target->iMonsterID);
-        MonsterSetHighlightMask(monster_info->p3D, 0);
+        monster_info->p3D->m_pRep->highlight_mask = 0;
     }
 
     for (party_slot = 0; party_slot < 8; ++party_slot) {
@@ -774,13 +762,13 @@ void SetMonsterHighlight(int party_slot, int location_id, bool on)
     }
 
     bit = static_cast<unsigned char>(1 << (party_slot & 0x1f));
-    unsigned char mask = MonsterGetHighlightMask(monster);
+    unsigned char mask = monster->m_pRep->highlight_mask;
     if (on) {
-        MonsterSetHighlightMask(monster, mask | bit);
+        monster->m_pRep->highlight_mask = (mask | bit);
         NotifyMonsterHighlight(party_slot, location_id, 1);
         return;
     }
-    MonsterSetHighlightMask(monster, mask & ~bit);
+    monster->m_pRep->highlight_mask = (mask & ~bit);
     NotifyMonsterHighlight(party_slot, location_id, 0);
 }
 
@@ -817,7 +805,7 @@ int PickNearestMonsterUnderCursor(int cursor_x, int cursor_y)
         if (!IsMonsterHoverSelectable(monster_info)) {
             continue;
         }
-        distance = MonsterDistanceToCamera(GetWorld(), monster_info->p3D);
+        distance = MonsterDistanceToCamera(monster_info->p3D);
         if (distance < best_distance) {
             result = monster_info->location_id;
             best_distance = distance;
@@ -831,7 +819,7 @@ int PickNearestMonsterUnderCursor(int cursor_x, int cursor_y)
             if (!IsMonsterHoverSelectable(monster_info)) {
                 continue;
             }
-            distance = MonsterDistanceToCamera(GetWorld(), monster_info->p3D);
+            distance = MonsterDistanceToCamera(monster_info->p3D);
             if (distance < best_distance) {
                 result = monster_info->location_id;
                 best_distance = distance;
@@ -881,7 +869,7 @@ void UpdateAllMonsterHighlights(int party_slot, int location_id)
         }
         tint = (location_id == monster_info->location_id ||
                 (overridden &&
-                 ((1 << (owner & 0x1f)) & MonsterGetHighlightMask(monster_info->p3D)) != 0))
+                 ((1 << (owner & 0x1f)) & monster_info->p3D->m_pRep->highlight_mask) != 0))
                    ? 1
                    : 0;
         HighlightMonsterAsTarget(monster_info->location_id, owner, static_cast<char>(tint));
@@ -1159,7 +1147,7 @@ void ClearAllMonsterHighlights(void)
         if (!monster_info->fActive || monster == 0) {
             continue;
         }
-        flags = MonsterGetHighlightMask(monster);
+        flags = monster->m_pRep->highlight_mask;
         if (flags == 0) {
             continue;
         }
@@ -1168,7 +1156,7 @@ void ClearAllMonsterHighlights(void)
                 NotifyMonsterHighlight(party_slot, monster_info->location_id, 0);
             }
         }
-        MonsterSetHighlightMask(monster, 0);
+        monster->m_pRep->highlight_mask = 0;
     }
 }
 
@@ -1591,11 +1579,11 @@ void ClearPartySlotMonsterHighlights(unsigned int party_slot)
         W8Monster* monster = monster_info->p3D;
 
         if (monster_info->fActive && monster != 0) {
-            unsigned char flags = MonsterGetHighlightMask(monster);
+            unsigned char flags = monster->m_pRep->highlight_mask;
             unsigned char bit = static_cast<unsigned char>(1 << (party_slot & 31));
 
             if ((flags & bit) != 0) {
-                MonsterSetHighlightMask(monster, static_cast<unsigned char>(flags & ~bit));
+                monster->m_pRep->highlight_mask = (static_cast<unsigned char>(flags & ~bit));
                 NotifyMonsterHighlight(party_slot, monster_info->location_id, 0);
             }
         }
@@ -2688,7 +2676,7 @@ bool AnyMonsterVisible(void)
     int count;
     int index;
 
-    limit = static_cast<float>(WorldGetFarClip(GetWorld())) * 1.5f;
+    limit = static_cast<float>(WorldGetFarClip(g_world.get())) * 1.5f;
     if (g_world == 0 || g_world->camera == 0) {
         return false;
     }
@@ -3117,7 +3105,7 @@ void UpdateSlotMonsterHighlights(int party_slot, bool enable)
         for (W8MonsterInfo* monster_info : gXStatus.monster_roster.live()) {
             W8Monster* monster = monster_info->p3D;
             if (monster_info->fActive && monster != 0) {
-                unsigned char flag = MonsterGetHighlightMask(monster);
+                unsigned char flag = monster->m_pRep->highlight_mask;
                 glm::vec4 block;
                 if (enable && (flag & (1 << (party_slot & 0x1f))) != 0) {
                     block = glm::vec4(0.0f, 1.0f, 0.0f, 1.0f);

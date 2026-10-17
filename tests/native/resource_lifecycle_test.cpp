@@ -82,7 +82,7 @@ static void source_resource_owners()
     };
     try {
         auto scene = std::make_unique<InterruptedScene>(model);
-        REQUIRE((false));
+        REQUIRE(false);
     } catch (const std::runtime_error&) {
     }
 
@@ -204,10 +204,10 @@ TEST_CASE("Gameplay runtime reinitialization releases queued events", "[resource
 struct SpellVisualFixture {
     ScopedTemporaryDirectory directory{"wiz8-spell-visuals"};
     ScopedAssetRoots roots;
-    W8World* previous_world = GetWorld();
+    std::unique_ptr<W8World> previous_world = std::exchange(g_world, std::make_unique<W8World>());
     W8Octree* previous_octree = g_octree;
     std::unique_ptr<W8Octree> octree;
-    W8World world{};
+    W8World& world = *g_world;
     std::vector<std::unique_ptr<W8SpellVisual>>& visuals = world.spell_visuals;
 
     SpellVisualFixture()
@@ -217,15 +217,15 @@ struct SpellVisualFixture {
         std::filesystem::create_directory(directory.path / "assets");
         std::filesystem::create_directory(directory.path / "user");
         roots.configure({(directory.path / "assets").string(), (directory.path / "user").string()});
-        SetCurrentWorld(&world);
     }
 
     ~SpellVisualFixture()
     {
         world.spell_visuals.clear();
+        DestroyWorld(g_world);
+        g_world = std::move(previous_world);
         octree.reset();
         g_octree = previous_octree;
-        SetCurrentWorld(previous_world);
     }
 };
 
@@ -486,19 +486,16 @@ TEST_CASE_METHOD(SpellVisualFixture, "World teardown drains particles retired by
         bool& scene_alive;
     };
     bool destroyed = false, scene_alive = false;
-    auto retiring_world = std::make_unique<W8World>();
-    retiring_world->static_scene = std::make_unique<srScene>();
-    retiring_world->dynamic_scene =
-        retiring_world->static_scene->adoptChild(std::make_unique<srNode>());
-    SetCurrentWorld(retiring_world.get());
+    auto fixture_world = std::exchange(g_world, std::make_unique<W8World>());
+    W8World& retiring_world = *g_world;
     auto visual = std::make_unique<W8SpellVisual>();
     auto* attachment = &visual->particles.emplace_back();
     attachment->m_pstParticles =
-        std::make_unique<ObservedParticle>(*retiring_world, destroyed, scene_alive);
-    retiring_world->spell_visuals.push_back(std::move(visual));
+        std::make_unique<ObservedParticle>(retiring_world, destroyed, scene_alive);
+    retiring_world.spell_visuals.push_back(std::move(visual));
 
-    DestroyWorld(retiring_world.release());
-    SetCurrentWorld(&world);
+    DestroyWorld(g_world);
+    g_world = std::move(fixture_world);
 
     REQUIRE(destroyed);
     REQUIRE(scene_alive);

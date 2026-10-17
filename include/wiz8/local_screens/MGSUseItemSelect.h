@@ -19,7 +19,6 @@ UiResult HandleUseItemTextBox(const UiPointerEvent& event);
 void UseItemSelectTextBoxWheelAt(short x, unsigned short y, bool flag);
 W8ItemInstance* GetSelectedOrFallbackValue(void);
 void SelectCurrentUseItemLine(void);
-void SetUseItemSelectOverrideItem(W8ItemInstance* value);
 
 void CommitSelectedItemUse(void); /* FItemSelectMode per-frame commit */
 void SelectUseItemLine(int line);

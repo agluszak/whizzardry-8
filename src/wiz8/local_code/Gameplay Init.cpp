@@ -36,6 +36,7 @@
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/FormationAndFacing.h"
+#include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -249,12 +250,12 @@ void RunNewGameOpeningSequence(bool notify, std::string_view target)
     g_status.game_started = true;
     if (!target.empty()) {
         g_status.iron_man = true;
-        SetLastSaveName(target);
+        g_options_last_save_name = target;
     }
     g_status.difficulty = g_settings.difficulty;
     gXStatus.fEncumbranceDirty = true;
     SetGameTimeMilliseconds(0x2932e00);
-    SetGameTimeDays(1);
+    g_status.game_time_days = 1;
     if (notify) {
         RequestScreenTransition();
     }
@@ -262,7 +263,7 @@ void RunNewGameOpeningSequence(bool notify, std::string_view target)
     InitializeFactJournal();
     ResetFactions();
     ResetMainScreenStateBlock();
-    SetPendingScreenState(W8_SCREEN_GAME_START_ROUTER);
+    g_pending_screen_state.id = W8_SCREEN_GAME_START_ROUTER;
 }
 
 // FUNCTION: WIZ8 0x0054b2d0

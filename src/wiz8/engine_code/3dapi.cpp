@@ -188,39 +188,11 @@ unsigned char LoadWorld(W8World* world, std::string_view source_path, bool use_o
     return 1;
 }
 
-// FUNCTION: WIZ8 0x0044F1C0
-W8World* CreateWorld()
-{
-    auto world = std::make_unique<W8World>();
-    world->environment_colour = glm::vec3(0);
-
-    // The scene owns its children. Keep both allocations scoped until setup
-    // succeeds, including failures while allocating nodes or assigning names.
-    auto scene = std::make_unique<srScene>(nullptr);
-
-    scene->setName("Sir-Tech Scene Static Scene");
-
-    world->level = scene->adoptChild(std::make_unique<stLevel>(nullptr));
-    world->level->setName("Sir-Tech Level");
-    world->level->m_render_exclusion_mask = 1;
-
-    world->dynamic_scene = scene->adoptChild(std::make_unique<srNode>());
-    world->dynamic_scene->setName("Sir-Tech Dynamic Scene");
-    SetSceneAmbientLightWhite(scene.get());
-    world->environment_range_end = 1.0f;
-    world->environment_range_blue = 1.0f;
-    world->environment_range_start = 0.75f;
-
-    // The existing DestroyWorld boundary takes over after successful setup.
-    world->static_scene = std::move(scene);
-    return world.release();
-}
-
 // The sky world only retires particles and disables queued nodes.
 // FUNCTION: WIZ8 0x0044F4E0
 static void UpdateWorld(W8World& world)
 {
-    if (&world != g_secondary_world) {
+    if (&world != g_secondary_world.get()) {
         UpdateWorldMonsters(&world);
         UpdateWorldMissiles(&world);
         UpdateWorldSpellVisuals(&world);
@@ -249,7 +221,7 @@ void UpdateWorlds(void)
         !(((GetInputState().modifiers & CTRL_DOWN) != 0) && g_combat_state != 0 &&
           (g_combat_state->round_active || gXStatus.fPartyMovementMode));
 
-    for (W8World* world : {g_world, g_secondary_world}) {
+    for (W8World* world : {g_world.get(), g_secondary_world.get()}) {
         if (world != 0) UpdateWorld(*world);
     }
 
@@ -266,7 +238,7 @@ void UpdateWorlds(void)
 // FUNCTION: WIZ8 0x0044f5b0
 void DetachAllWorldItems(void)
 {
-    for (W8World* world : {g_world, g_secondary_world}) {
+    for (W8World* world : {g_world.get(), g_secondary_world.get()}) {
         if (world != 0) DetachWorldItemMeshes(world);
     }
 }
@@ -386,22 +358,33 @@ static void DestroyWorldResources(W8World* world)
     world->static_scene.reset();
 }
 
-W8World::W8World() = default;
+// Every world starts with its static scene, the level node and the dynamic scene.
+// FUNCTION: WIZ8 0x0044F1C0
+W8World::W8World() : static_scene(std::make_unique<srScene>(nullptr))
+{
+    static_scene->setName("Sir-Tech Scene Static Scene");
+    level = static_scene->adoptChild(std::make_unique<stLevel>(nullptr));
+    level->setName("Sir-Tech Level");
+    level->m_render_exclusion_mask = 1;
+    dynamic_scene = static_scene->adoptChild(std::make_unique<srNode>());
+    dynamic_scene->setName("Sir-Tech Dynamic Scene");
+    SetSceneAmbientLightWhite(static_scene.get());
+}
 
 W8World::~W8World()
 {
-    if (this == g_world) StopWorldActivity(this);
+    if (this == g_world.get()) StopWorldActivity(this);
     ClearWorldIndexes(this);
     DestroyWorldResources(this);
 }
 
+/* Entities consult the global world slots while they tear down, so the slot
+   keeps naming its world until the destructor has finished. */
 // FUNCTION: WIZ8 0x0044FAF0
-void DestroyWorld(W8World* world)
+void DestroyWorld(std::unique_ptr<W8World>& slot)
 {
-    if (world == 0) {
-        srAssertFail("pWorld", THREE_D_API_CPP, 0x1ff, 0);
-    }
-    delete world;
+    delete slot.get();
+    static_cast<void>(slot.release());
 }
 
 /* Per-frame camera / camera-path update for one world. Main-game frames the
@@ -463,9 +446,9 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
                     camera_position.y -= g_default_world_height;
                     const glm::vec3 automap_position = camera_position;
                     if (AutomapHasCellAt(&automap_position)) {
-                        SetWorldMeshVertexLightTable(g_world, 1);
+                        SetWorldMeshVertexLightTable(1);
                         UpdateAutomapBounds();
-                        SetWorldMeshVertexLightTable(g_world, 0);
+                        SetWorldMeshVertexLightTable(0);
                     }
                 }
                 DispatchWorldCursorNodeCommand(0, 0, 0);
@@ -508,23 +491,16 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
     }
 }
 
-/* Note that the renderer is up. Eight bytes and no branch. */
-// FUNCTION: WIZ8 0x00451010
-void MarkRendererReady(void)
-{
-    g_renderer_ready = true;
-}
-
 /* Resolve a particle by its runtime name from the current world's particle
    vector. Names are case-insensitive in the original registry-facing lookup. */
 // FUNCTION: WIZ8 0x00451080
-stParticle* FindParticleByName(W8World* world, const char* name)
+stParticle* FindParticleByName(const char* name)
 {
-    if (world != 0) {
-        int count = static_cast<int>(world->particles.size());
+    if (g_world != nullptr) {
+        int count = static_cast<int>(g_world->particles.size());
 
         for (int index = 0; index < count; ++index) {
-            stParticle* particle = world->particles[index].get();
+            stParticle* particle = g_world->particles[index].get();
 
             if (SDL_strcasecmp(particle->getName().c_str(), name) == 0) {
                 return particle;
@@ -573,11 +549,11 @@ void UpdateWorldMeshAfterLoad(void)
 {
     if (g_renderer_ready) {
         if (g_world->octree != 0) {
-            UpdateWorldOctree(g_world);
+            UpdateWorldOctree(g_world.get());
         } else if (g_world->quads != 0) {
-            UpdateWorldMeshFromQuads(g_world);
+            UpdateWorldMeshFromQuads(g_world.get());
         }
-        RepositionAmbientSounds(g_world);
+        RepositionAmbientSounds();
         RequestRefreshPartyState();
         g_renderer_ready = false;
     }
@@ -607,27 +583,27 @@ glm::mat3 cameraRotation(const W8World& world)
 /* Moves the camera and its camera light together. Only the camera's move
    notifies the level; the light simply follows the view. */
 // FUNCTION: WIZ8 0x00450420
-void WorldSetCameraLocation(W8World* world, const glm::vec3* location)
+void WorldSetCameraLocation(const glm::vec3* location)
 {
     glm::dvec3 position;
 
-    if (!world) {
+    if (!g_world.get()) {
         srAssertFail("pWorld", THREE_D_API_CPP, 0x422, 0);
     }
-    if (world->camera != 0) {
+    if (g_world->camera != 0) {
         position = glm::dvec3((*location));
-        world->camera->setLocation(position);
+        g_world->camera->setLocation(position);
         PlacePartyAtPoint(location);
     }
-    if (world->camera_light != 0) {
+    if (g_world->camera_light != 0) {
         position = glm::dvec3((*location));
-        world->camera_light->setLocation(position);
+        g_world->camera_light->setLocation(position);
     }
 }
 
 /* Apply a CamPos record to the world's camera and camera light. A non-null
    source world repeats the orientation write; automap restore passes null and
-   recall / LoadLevel pass GetSecondaryWorld(). */
+   recall / LoadLevel pass g_secondary_world.get(). */
 // FUNCTION: WIZ8 0x004504B0
 void SetWorldCameraState(W8World* world, W8World* source_world, W8WorldCameraState* state)
 {
@@ -668,15 +644,15 @@ void SetWorldCameraState(W8World* world, W8World* source_world, W8WorldCameraSta
 /* Reinstall a CamPos record, then copy the resulting camera pose onto the
    startup navigator in degrees with the default world height removed. */
 // FUNCTION: WIZ8 0x00450610
-void RestoreWorldCameraState(W8World* world, W8World* source_world, W8WorldCameraState* state)
+void RestoreWorldCameraState(W8World* source_world, W8WorldCameraState* state)
 {
     glm::vec3 navigator_position;
 
-    if (world == 0) {
+    if (g_world == nullptr) {
         srAssertFail("pWorld", THREE_D_API_CPP, 0x46b, 0);
     }
-    SetWorldCameraState(world, source_world, state);
-    navigator_position = glm::vec3(world->camera->getLocation());
+    SetWorldCameraState(g_world.get(), source_world, state);
+    navigator_position = glm::vec3(g_world->camera->getLocation());
     g_startup_world->SetAngles(GetCameraYawInDegrees());
     g_startup_world->SetPitch(GetCameraPitchInDegrees());
     navigator_position.y -= g_default_world_height;
@@ -700,15 +676,6 @@ W8WorldCameraState cameraState(const W8World& world)
 glm::vec3 cameraLocation(const W8World& world)
 {
     return glm::vec3(world.camera->getLocation());
-}
-
-/* The second world, read straight out of the global with no guard. Its type is
-   settled by the viewport, which reads a camera member through the same
-   object. */
-// FUNCTION: WIZ8 0x004512a0
-W8World* GetSecondaryWorld(void)
-{
-    return g_secondary_world;
 }
 
 /* Runtime/debug adjustment dispatcher for the active world's clipping and
@@ -749,10 +716,10 @@ void ApplyWorldUpdateFlags(W8World* world, unsigned int flags)
         world->m_loaded = !world->m_loaded;
     }
     if ((flags & W8_WORLD_INCREASE_ENVIRONMENT) != 0) {
-        SetWorldEnvironmentIntensity(g_world, GetWorldEnvironmentIntensity(g_world) + 0.02f);
+        SetWorldEnvironmentIntensity(g_world.get(), g_world->environment_intensity + 0.02f);
     }
     if ((flags & W8_WORLD_DECREASE_ENVIRONMENT) != 0) {
-        SetWorldEnvironmentIntensity(g_world, GetWorldEnvironmentIntensity(g_world) - 0.02f);
+        SetWorldEnvironmentIntensity(g_world.get(), g_world->environment_intensity - 0.02f);
     }
 }
 

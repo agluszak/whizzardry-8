@@ -117,7 +117,7 @@ void LoadParticleStates(wiz8::File& handle)
         handle.read_exact(name, sizeof(name));
         handle.read_exact(&active, sizeof(active));
 
-        stParticle* particle = FindParticleByName(g_world, name);
+        stParticle* particle = FindParticleByName(name);
         if (particle != 0) {
             particle->SetActive(active);
         }
@@ -758,10 +758,10 @@ void stParticle::SetFlutter(W8ParticleFlutterMode mode)
 }
 
 // A particle still emitting when its cycle dies finishes under the world's care.
-void RetireParticle(W8World* world, std::unique_ptr<stParticle> particle)
+void RetireParticle(std::unique_ptr<stParticle> particle)
 {
     particle->release_when_done = true;
-    world->retired_particles.push_back(std::move(particle));
+    g_world->retired_particles.push_back(std::move(particle));
 }
 
 void SweepFinishedParticles(W8World* world)

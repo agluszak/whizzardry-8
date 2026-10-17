@@ -68,12 +68,6 @@ W8ScreenId GetPendingScreenState(void)
     }
     return W8_SCREEN_NONE;
 }
-
-void SetPendingScreenState(W8ScreenId value)
-{
-    g_pending_screen_state.id = value;
-}
-
 void RequestScreenTransition(void)
 {
     g_screen_return_requested = true;

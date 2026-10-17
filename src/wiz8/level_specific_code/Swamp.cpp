@@ -67,7 +67,7 @@ static bool CastSwampPlaneSpell(Trigger* pTrigger, int spell_id)
         SwampGasFireSpawn(pTrigger);
         return false;
     }
-    position = glm::vec3(GetWorld()->camera->getLocation());
+    position = glm::vec3(g_world->camera->getLocation());
     PointCastSpell(position, spell_id, 4);
     return true;
 }

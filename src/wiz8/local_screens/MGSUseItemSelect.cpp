@@ -696,7 +696,7 @@ UiResult HandleUseItemTextBox(const UiPointerEvent& event)
         g_use_item_hover_row = row;
     } else if (event.action == UiPointerAction::Up && event.inside) {
         if (event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK)) {
-            const int slot = GetHoveredTextLine(2);
+            const int slot = g_level_block->hovered_text_lines[2];
             if (slot != -1) AfterUiDispatch([slot] { SelectUseItemLine(slot); });
         }
         if (event.button == UiPointerButton::Right && (event.captured_buttons & SDL_BUTTON_RMASK)) {
@@ -866,10 +866,4 @@ void TakeUseItemIntoHand(void)
         }
     }
     CopyItemInstance(&g_status.item_in_hand, g_use_item_selected, 0, true);
-}
-
-// FUNCTION: WIZ8 0x0059E1E0
-void SetUseItemSelectOverrideItem(W8ItemInstance* value)
-{
-    g_use_item_select_override_item = value;
 }

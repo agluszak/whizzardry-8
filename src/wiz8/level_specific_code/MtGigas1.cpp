@@ -108,7 +108,7 @@ bool MtGigas1PressurePlate(Trigger* pTrigger)
     if (g_plate_prop == 0) {
         return false;
     }
-    glm::dvec3 camera_position = GetWorld()->camera->getLocation();
+    glm::dvec3 camera_position = g_world->camera->getLocation();
     position.x = static_cast<float>(camera_position.x);
     position.z = static_cast<float>(camera_position.z);
     const auto bounds = g_plate_prop->computeBounds();

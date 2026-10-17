@@ -3040,7 +3040,7 @@ void DeliverExceptionalItemReaction(W8ItemInstance* item, bool choose_character,
         message = 47;
         break;
     case 0x244:
-        message = GetFactionDispositionScore(W8_FACTION_MOOK) != 0 ? 48 : 49;
+        message = g_factions[W8_FACTION_MOOK].disposition_score != 0 ? 48 : 49;
         break;
     case 0x264:
         message = 66;
@@ -3108,10 +3108,10 @@ bool CanUseItemForAction(int party_slot, const W8ItemInstance* item)
         return false;
     }
 
-    SetUseItemSelectOverrideItem(const_cast<W8ItemInstance*>(item));
+    g_use_item_select_override_item = (const_cast<W8ItemInstance*>(item));
     usable =
         SpellHasAnyValidTarget(party_slot, record->spell_id, ItemClassNormalizesTarget(record));
-    SetUseItemSelectOverrideItem(0);
+    g_use_item_select_override_item = 0;
     if (!usable) {
         return false;
     }
@@ -3143,10 +3143,10 @@ bool ValidateItemSpellUse(int character_index, W8ItemInstance* item,
         return true;
     }
     if (gXStatus.fItemSelectMode) {
-        SetUseItemSelectOverrideItem(item);
+        g_use_item_select_override_item = item;
         has_target = SpellHasAnyValidTarget(character_index, record->spell_id,
                                             ItemClassNormalizesTarget(record));
-        SetUseItemSelectOverrideItem(0);
+        g_use_item_select_override_item = 0;
         if (!has_target) {
             ShowNoticeLine(g_localized_strings[0x7a8], callback, true, false);
             return true;

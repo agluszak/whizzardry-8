@@ -177,7 +177,7 @@ void UpdateWorldOctree(W8World* world)
 }
 
 // FUNCTION: WIZ8 0x004baf60
-void UpdateWorldMesh(W8World* world)
+void UpdateWorldMesh()
 {
     srModelInstance* source;
     srMeshModel* mesh;
@@ -185,10 +185,10 @@ void UpdateWorldMesh(W8World* world)
     w8_long polygon_count;
     w8_ulong index;
 
-    if (world == 0) {
+    if (g_world == nullptr) {
         srAssertFail("pWorld", "C:\\Projects\\Wizardry 8\\Engine Code\\UpdateMesh.cpp", 0x2a2, 0);
     }
-    source = world->update_mesh_source;
+    source = g_world->update_mesh_source;
     if (source != 0) {
         mesh = static_cast<srMeshModel*>(source->getModel());
         polygon_count = mesh->polygon_count;

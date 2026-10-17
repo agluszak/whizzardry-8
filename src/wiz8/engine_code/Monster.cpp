@@ -997,7 +997,7 @@ unsigned char W8MonsterRep::ReadCycleData(W8ReadLevelInfo* info, W8Monster* mons
         current_cycle = cycle;
     }
 
-    if (AnimationIsRunning(animation) == 1) {
+    if (animation->path_lists == 1) {
         signed char list;
 
         for (list = 0; list < 3; ++list) {
@@ -1237,7 +1237,7 @@ void W8Monster::Update()
 
     if (g_monster_shadow_updates_enabled != 0 && (move_dirty || UpdateTrackedPosition())) {
         move_dirty = false;
-        if (distance < WorldGetRenderRange(g_world)) {
+        if (distance < g_world->render_range) {
             srNode* sun = FindWorldNode<srNode>("SUN");
             if (sun != 0) {
                 glm::vec3 mapped_position;
@@ -1668,7 +1668,7 @@ bool W8Monster::GetCycleMappedPosition(signed char cycle, int mapped_index, glm:
     if (animation == 0) {
         return false;
     }
-    if (AnimationIsRunning(animation) != 0) {
+    if (animation->path_lists != 0) {
         const auto center = GetAnimationCenter();
         if (!center) return false;
         *position = *center;
@@ -2357,7 +2357,7 @@ bool W8Monster::IsWithinWorldRange()
     if (sector_mesh != 0) {
         return sector_mesh->testFlag(srNode::FLAG_DISABLE) == 0;
     } else {
-        double far_clip = WorldGetFarClip(GetWorld());
+        double far_clip = WorldGetFarClip(g_world.get());
         glm::vec3 position = GetPosition();
         glm::vec3 reference = g_startup_world->GetPosition();
         glm::vec3 delta = reference - position;
@@ -2555,7 +2555,7 @@ void SetMonsterPartySlotMarker(int party_slot, int location_id, char on)
     if (on == 0) {
         item = rep->objects[party_slot].get();
         if (item != 0) {
-            item->DetachMesh(g_world);
+            item->DetachMesh(g_world.get());
             rep->objects[party_slot].reset();
             --rep->icon_count;
         }
@@ -2564,7 +2564,7 @@ void SetMonsterPartySlotMarker(int party_slot, int location_id, char on)
             path = fmt::format("Data\\Monsters\\Bitmaps\\{}",
                                g_party_target_marker_bitmaps[g_status.buffers.XChar[party_slot]
                                                                  .party_order_index]);
-            rep->objects[party_slot].reset(CreateMonsterIconItem(g_world, path.c_str(), 1));
+            rep->objects[party_slot].reset(CreateMonsterIconItem(path.c_str(), 1));
             ++rep->icon_count;
         }
     }
@@ -2838,7 +2838,7 @@ unsigned char W8Monster::CanEnterCycle(signed char cycle)
 {
     W8MonsterInfo* monster_info = FindMonster(location_id);
 
-    if (gXStatus.fCombatMode && IsCameraTransitionActive()) {
+    if (gXStatus.fCombatMode && g_gd_camera->m_transition_active) {
         return 0;
     }
     if (m_pRep->animation_playing == 0) {
@@ -3909,7 +3909,7 @@ bool MonsterHasPendingCycle(W8Monster* monster)
 bool MonsterUsesCurrentModelInstance(W8GrCycle* cycle)
 {
     srModelInstance* current = cycle->GetCurrentModelInstance();
-    return current == GetPickedModelInstance();
+    return current == g_current_model_instance;
 }
 
 // FUNCTION: WIZ8 0x004c5730
@@ -3993,48 +3993,6 @@ void MonsterSetCycle(W8Monster* monster, signed char cycle)
     if (monster != 0) {
         monster->SetCycle(cycle);
     }
-}
-
-/* Cycle 17's third state byte is preserved by ActivateMonster while the live
-   engine object is rebuilt, then restored into the replacement. */
-// FUNCTION: WIZ8 0x004c57f0
-bool MonsterGetMirrorX(W8Monster* monster)
-{
-    return monster->mirror_x;
-}
-
-// FUNCTION: WIZ8 0x004c5800
-void MonsterSetMirrorX(W8Monster* monster, bool state)
-{
-    monster->mirror_x = state;
-}
-
-// FUNCTION: WIZ8 0x004c5820
-unsigned char MonsterGetHighlightMask(W8Monster* monster)
-{
-    return monster->m_pRep->highlight_mask;
-}
-
-// FUNCTION: WIZ8 0x004c5840
-void MonsterSetHighlightMask(W8Monster* monster, unsigned char flag)
-{
-    monster->m_pRep->highlight_mask = flag;
-}
-
-/* Cycle 18's pointee carries the scale at +0x5f0. Both accessors reach it the
-   same way - through the pointer at the cycle's +0x0c, which 0x004E60B0 also
-   reads a byte from - so the pointee is a shared engine object rather than
-   anything the cycle owns. It is not modelled: only this one field is known. */
-// FUNCTION: WIZ8 0x004c5780
-float MonsterGetScale(W8Monster* monster)
-{
-    return monster->m_pRep->scale;
-}
-
-// FUNCTION: WIZ8 0x004c57a0
-void MonsterSetScale(W8Monster* monster, float scale)
-{
-    monster->m_pRep->scale = scale;
 }
 
 // FUNCTION: WIZ8 0x004c57c0
@@ -4338,7 +4296,7 @@ unsigned char MonsterLinkToStartupNavigator(W8Monster* monster)
     if (monster != 0) {
         W8Navigator* target = g_startup_world;
 
-        return monster->LinkToNavigator(target, WorldGetFarClip(GetWorld()) * 2.0);
+        return monster->LinkToNavigator(target, WorldGetFarClip(g_world.get()) * 2.0);
     }
     return 0;
 }
@@ -4469,7 +4427,7 @@ void W8Monster::CollectModelInstances(std::vector<stModelInstance*>& instances)
                 continue;
             }
 
-            if (AnimationIsRunning(animation) == 0) {
+            if (animation->path_lists == 0) {
                 int list_index;
 
                 for (list_index = 0; list_index < 3; ++list_index) {
@@ -4488,7 +4446,7 @@ void W8Monster::CollectModelInstances(std::vector<stModelInstance*>& instances)
                         }
                     }
                 }
-            } else if (AnimationIsRunning(animation) == 1) {
+            } else if (animation->path_lists == 1) {
                 int list_index;
 
                 for (list_index = 0; list_index < 3; ++list_index) {
@@ -4709,7 +4667,7 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
 
             world = glm::dmat3(rotation);
             particle->rotate(world);
-            RetireParticle(g_world, std::move(owned_particle));
+            RetireParticle(std::move(owned_particle));
         }
     }
 }
@@ -4783,9 +4741,9 @@ void W8Monster::InitializeAnimatedTexture()
 
 /* Advance a cycle's representation through its own virtual layout. */
 // FUNCTION: WIZ8 0x004c59b0
-void UpdateCycleRepresentation(W8GrCycle* cycle, W8World* world)
+void UpdateCycleRepresentation(W8GrCycle* cycle)
 {
-    cycle->UpdateRepresentation(world);
+    cycle->UpdateRepresentation(g_world.get());
 }
 
 // FUNCTION: WIZ8 0x004C4EF0
@@ -4859,7 +4817,7 @@ void W8Monster::ApplyRepresentationScale()
    enabled, wrapped in a W8Item whose mesh attachment and bounds are refreshed
    for the world. */
 // FUNCTION: WIZ8 0x004C5500
-W8Item* CreateMonsterIconItem(W8World* world, const char* path, int flag)
+W8Item* CreateMonsterIconItem(const char* path, int flag)
 {
     auto texture = std::make_shared<stTextureFile>(path, 0);
     texture->setWrapS(srTexture::WRAP_CLAMP);
@@ -4874,7 +4832,7 @@ W8Item* CreateMonsterIconItem(W8World* world, const char* path, int flag)
     rep->flags |= 0x40;
     rep->m_psrMesh.reset(instance);
     rep->RefreshBounds();
-    item->AttachMesh(world);
+    item->AttachMesh(g_world.get());
     instance->light_scale = glm::vec3(0);
     return item;
 }
@@ -4886,17 +4844,18 @@ void ApplyMonsterRepresentationScale(W8Monster* target)
 }
 
 // FUNCTION: WIZ8 0x004C5860
-void DestroyWorldMonster(W8World* world, W8Monster* monster)
+void DestroyWorldMonster(W8Monster* monster)
 {
-    std::erase(world->active_monsters, monster);
-    std::erase_if(world->monsters, [monster](const auto& owner) { return owner.get() == monster; });
+    std::erase(g_world->active_monsters, monster);
+    std::erase_if(g_world->monsters,
+                  [monster](const auto& owner) { return owner.get() == monster; });
 }
 
 // FUNCTION: WIZ8 0x004C59C0
-void DetachMonsterRepresentation(W8Monster* monster, W8World* world)
+void DetachMonsterRepresentation(W8Monster* monster)
 {
-    if (monster != 0 && world != 0) {
-        monster->DetachRepresentation(world);
+    if (monster != 0 && g_world != nullptr) {
+        monster->DetachRepresentation(g_world.get());
     }
 }
 

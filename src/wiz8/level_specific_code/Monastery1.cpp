@@ -107,7 +107,7 @@ bool OnCoffinlidgActivated(Trigger* trigger)
 {
     glm::vec3 position;
 
-    position = glm::vec3(GetWorld()->camera->getLocation());
+    position = glm::vec3(g_world->camera->getLocation());
     PointCastSpell(position, W8_SPELL_NOXIOUS_FUMES, 3);
     return true;
 }

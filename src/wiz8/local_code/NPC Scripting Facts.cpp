@@ -714,7 +714,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
                               {.on_finished = ClearPotionExplosionSoundFlag}) != nullptr) {
             g_npc_dialogue.HoldForScene();
         }
-        particle = FindParticleByName(g_world, "FuzzBlast");
+        particle = FindParticleByName("FuzzBlast");
         if (particle != 0) {
             particle->SetActive(0);
             particle->start_frame = 0;
@@ -1059,7 +1059,7 @@ void InitializeFactState(void)
 {
     /* Retail memsets 1000 of the 1001 bytes - index 1000 stays BSS-zeroed. */
     memset(g_fact_values, 0, 1000);
-    SetFactNotificationsSuppressed(true);
+    g_fact_notifications_suppressed = true;
     if (g_status.skip_loose_character_check) {
         SetFact(W8_FACT_IMPORT, 1, false);
         switch (g_wiz7_ending) {
@@ -1078,7 +1078,7 @@ void InitializeFactState(void)
         }
         if (g_import_flags[5]) {
             SetFact(W8_FACT_RODAN_WAS_DEAD, 1, false);
-            SetFactNotificationsSuppressed(false);
+            g_fact_notifications_suppressed = false;
             return;
         }
     } else {
@@ -1087,5 +1087,5 @@ void InitializeFactState(void)
         SetFact(W8_FACT_QUEST_VIRGIN_2, 1, false);
         SetFact(W8_FACT_QUEST_VIRGIN_3, 1, false);
     }
-    SetFactNotificationsSuppressed(false);
+    g_fact_notifications_suppressed = false;
 }

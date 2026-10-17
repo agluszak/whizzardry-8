@@ -373,7 +373,7 @@ W8GrCycle::~W8GrCycle()
         if (owner && owner->active_particle_count != 0 && g_world != nullptr) {
             owner->SetActive(1);
             owner->emission_limit = 1;
-            RetireParticle(g_world, std::move(owner));
+            RetireParticle(std::move(owner));
         }
     }
 }
@@ -621,7 +621,7 @@ void W8GrCycle::AdvanceAnimationFrame(int, int)
         }
     }
 
-    if (AnimationIsRunning(animation) == 1) {
+    if (animation->path_lists == 1) {
         unsigned int count = AnimObjListCount(animation, representation->m_bLOD);
         unsigned int index;
 
@@ -677,7 +677,7 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
         return;
     }
     animation = GetCurrentAnimation();
-    if (AnimationIsRunning(animation) == 1) {
+    if (animation->path_lists == 1) {
         int count = static_cast<int>(AnimObjListCount(animation, pRep->m_bLOD));
 
         for (index = 0; index < count; ++index) {
@@ -767,7 +767,7 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
         int count = static_cast<int>(m_plsLights->size());
         glm::vec3 origin;
 
-        if (AnimationIsRunning(animation) == 1) {
+        if (animation->path_lists == 1) {
             origin = pRep->GetLocation();
         } else {
             vecPos = movement.position;
@@ -792,7 +792,7 @@ void W8GrCycle::DetachRepresentation(W8World* world)
     W8EmitterHost* representation = GetRepresentation();
     W8AnimObj* animation = GetCurrentAnimation();
 
-    if (AnimationIsRunning(animation) == 1) {
+    if (animation->path_lists == 1) {
         int count = static_cast<int>(AnimObjListCount(animation, representation->m_bLOD));
         for (int index = 0; index < count; ++index) {
             srModelInstance* mesh = AnimObjDispatchList(animation, representation->m_bLOD,
@@ -868,7 +868,7 @@ void W8GrCycle::UpdateParticleAttachments()
         W8AnimObj* animation = GetCurrentAnimation();
         W8EmitterHost* rep = GetRepresentation();
 
-        if (AnimationIsRunning(animation) == 1) {
+        if (animation->path_lists == 1) {
             psrMesh = AnimObjDispatchList(animation, rep->m_bLOD, 0);
         } else {
             psrMesh = SelectCycleFrameLod(rep->current_cycle, rep->subcycle, rep->m_bLOD);
@@ -1032,7 +1032,7 @@ srModelInstance* W8GrCycle::GetCurrentModelInstance()
 
     animation = GetCurrentAnimation();
     representation = GetRepresentation();
-    if (AnimationIsRunning(animation) == 1) {
+    if (animation->path_lists == 1) {
         return AnimObjDispatchList(animation, representation->m_bLOD, 0);
     }
 

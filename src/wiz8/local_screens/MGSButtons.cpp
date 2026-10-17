@@ -315,7 +315,7 @@ static void MainGameOptionsDiskButton(W8ButtonWidget* button)
 {
     if (CanInterruptLevelMovement()) {
         g_pending_screen_state.mode = 3;
-        SetPendingScreenState(W8_SCREEN_OPTIONS);
+        g_pending_screen_state.id = W8_SCREEN_OPTIONS;
     }
 }
 
@@ -1240,7 +1240,7 @@ bool BuildSubMenuPanel(short notification)
              .on_hover =
                  [menu, entry](bool hovered) {
                      if (menu == W8_SUBMENU_ITEMS && entry == 2 && hovered) {
-                         SetUiHelpForced(true);
+                         g_ui_help_forced = true;
                      }
                  },
              .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},

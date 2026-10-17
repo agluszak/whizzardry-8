@@ -325,7 +325,7 @@ static void MtGigas2UmpaniAlarm(int command)
         if (g_mt_gigas_alarm_gate != 0 || g_mt_gigas_alarm_sound != 0) {
             return;
         }
-        position = glm::vec3(GetWorld()->camera->getLocation());
+        position = glm::vec3(g_world->camera->getLocation());
         if (static_cast<unsigned int>(command) > 0x1e) {
             command = 0x1e;
         }

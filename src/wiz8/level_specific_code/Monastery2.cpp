@@ -36,7 +36,7 @@ bool Monastery2BellButton(Trigger* pTrigger)
     W8Prop* prop;
     int slot;
 
-    prop = FindPropByName(g_world, "dial1");
+    prop = FindPropByName(g_world.get(), "dial1");
     if (prop != 0) {
         slot = prop->Rep()->FindCurrentAnimationSlot();
         if (slot == 0) {

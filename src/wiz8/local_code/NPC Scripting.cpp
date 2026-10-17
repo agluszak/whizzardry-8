@@ -384,7 +384,8 @@ void W8NpcDialogue::Advance()
         suspended_.reset();
     }
     if (gXStatus.fNpcDialogueMode && g_status.world_cursor_gate == 0 && !gXStatus.scripted_scene &&
-        reply_ == W8NpcReplyState::none && CanOpenNpcDialogue()) {
+        reply_ == W8NpcReplyState::none &&
+        (gXStatus.fNpcDialogueMode && g_npc_interaction_state->scripted_dialogue)) {
         EndNpcDialogueSession(false);
     }
     if (reply_ == W8NpcReplyState::none && g_npc_interaction_state->dialogue_panel_hidden &&
@@ -844,7 +845,9 @@ void AuditNpcScriptQuotes(void)
                             CompareTextIgnoreAsciiCase(text, "UNKNOWN") != 0 &&
                             CompareTextIgnoreAsciiCase(text, "CLASSIFIED") != 0) {
                             display = fmt::format(" \"{}\"", text);
-                            ShowNotice(W8_FONT_PALETTE_RED, display, 0, GetTextBoxScrollRange());
+                            ShowNotice(
+                                W8_FONT_PALETTE_RED, display, 0,
+                                (g_level_block->text_box_right - g_level_block->text_box_left));
                             if (g_status.long_quote != 0) {
                                 const std::string line =
                                     "Long Quote: #" + std::to_string(record_index) +
@@ -871,10 +874,12 @@ void AuditNpcScriptQuotes(void)
         file->close();
         log_file->close();
         ShowNotice(W8_FONT_PALETTE_RED, "Quote test complete. See log file for results",
-                   W8_NOTICE_TEXT_BOX_AUTOMATIC, GetTextBoxScrollRange());
+                   W8_NOTICE_TEXT_BOX_AUTOMATIC,
+                   (g_level_block->text_box_right - g_level_block->text_box_left));
     } catch (const std::exception&) {
         ShowNotice(W8_FONT_PALETTE_RED, "Quote test failed. Could not write report",
-                   W8_NOTICE_TEXT_BOX_AUTOMATIC, GetTextBoxScrollRange());
+                   W8_NOTICE_TEXT_BOX_AUTOMATIC,
+                   (g_level_block->text_box_right - g_level_block->text_box_left));
     }
     g_status.quote_audit = 0;
 }

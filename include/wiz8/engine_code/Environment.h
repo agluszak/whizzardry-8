@@ -3,14 +3,6 @@
 #include <array>
 #include <cstdint>
 #include <memory>
-
-/* Reads g_environment_lighting_mode: 2 while the day/night cycle
-   runs, 1 while a lighting transition is in progress, 0 once a transition has
-   faded the world out. The only retail caller is in NPC Scripting, so the
-   accessor keeps its address name until that owner can be renamed with it. */
-int GetEnvironmentValue(void);
-unsigned char GetEnvironmentFlag(void); /* 0x00482A10 */
-
 #include <vector>
 
 #include "compat/compiler.h"
@@ -62,18 +54,14 @@ void BuildEnvironmentColourRamp(void);
 void BuildLightColourRamp(void);
 void UpdateEnvironmentLight(void);
 void RefreshEnvironment(void);
-void SetWorldEnvironmentColour(W8World* world, glm::vec3 colour);
+void SetWorldEnvironmentColour(glm::vec3 colour);
 
 void SetSkyEnabled(bool enabled);
 void EnableSky(void);
-void SetFogEnabled(bool enabled);
-bool IsFogEnabled(void);
 void DisableSky(void);
-bool IsSkyEnabled(void);
 /* The ambient light the world contributes, or black without a static scene. */
 void GetWorldLightValue(const W8World* world, glm::vec3* pLightValue);
 void SetLightDirection(const glm::vec3* direction);
-void GetLightDirection(glm::vec3* direction);
 extern bool g_sky_enabled;
 void ResetEnvironment(void);
 void InitializeLevelEnvironment(void);
@@ -93,7 +81,6 @@ void SetGameTimeMilliseconds(int value);
    hands off to when the bypass value is set. */
 void UpdateEnvironment(void);
 void UpdateEnvironmentLighting(void);
-float GetWorldEnvironmentIntensity(const W8World* world);
 /* Show or hide the world's camera light: 0x00483E50 loads g_world->camera_light
    (offset 0x54) and clears srNode::FLAG_DISABLE when visible, sets it when not.
    Nothing here is a sky node; the exported name is still the placeholder and one
@@ -155,8 +142,6 @@ extern glm::vec3 g_celestial_origin;
 /* The registered environment lights, ambient-filled by ApplyEnvironmentColour.
    The vector count occupies 0x0065B99C. */
 extern std::vector<stLight*> g_environment_lights;
-
-void SetGameTimeDays(int value);
 void AdvanceEnvironmentTime(int elapsed); /* 0x00482A20 */
 void SetWorldEnvironmentIntensity(W8World* world, float value);
 /* Arm the lighting transition. Duration is in milliseconds: negative fades the

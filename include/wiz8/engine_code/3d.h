@@ -25,9 +25,9 @@ struct W8OctRegionVolume;
 struct W8Plane;
 
 void SetSceneAmbientLightWhite(srScene* scene);
-void AddMonsterToWorld(W8World*, W8Monster* monster);
-void AddItemToWorld(W8World*, std::unique_ptr<W8Item> item);
-void RemoveItemFromWorld(W8World*, W8Item* item);
+void AddMonsterToWorld(W8Monster* monster);
+void AddItemToWorld(std::unique_ptr<W8Item> item);
+void RemoveItemFromWorld(W8Item* item);
 void SetModelInstanceChainExclusionMask(srModelInstance* node, int value);
 std::unique_ptr<stModelInstance> DuplicateModelInstance(const stModelInstance& instance);
 void UpdateWorldMonsters(W8World* world);
@@ -48,7 +48,7 @@ void SetSceneMeshShaderBit3(srNode* node, int argument);
 void SetSceneMeshShaderLowBits(srNode* node, int argument);
 /* 0x0046F760: assign every live world's mesh vertex-light table index and
    mark the mesh dirty for rebake (automap lighting uses table 1). */
-void SetWorldMeshVertexLightTable(W8World* world, int table);
+void SetWorldMeshVertexLightTable(int table);
 
 /* Report whether a point satisfies all six frustum planes. */
 bool PointInsideFrustum(const glm::vec3& point, std::span<const W8Plane, 6> planes);
@@ -73,7 +73,6 @@ bool hasLineOfSightToBounds(const glm::vec3& origin, const srBoundingBox& bounds
 bool targetMarkerVisible(const glm::vec3& eye, const srBoundingBox& bounds); /* 0x0046F820 */
 
 void WorldUpdateLights(W8World* world);
-float WorldGetRenderRange(W8World* world);
 double WorldGetFarClip(W8World* world);
 void WorldSetFarClip(W8World* world, float distance);
 void WorldSetRenderRange(W8World* world, float value);
@@ -87,4 +86,3 @@ void WorldRemoveLight(W8World* world, stLight* light); /* 0x0046E250 */
 void DestroyWorldLights(W8World* world);
 void DetachWorldItemMeshes(W8World* world);
 extern W8GameData* g_octree_game_data;
-void SetOctreeGameData(W8GameData* value); /* 0x0046D7D0 */

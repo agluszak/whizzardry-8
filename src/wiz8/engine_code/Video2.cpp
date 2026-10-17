@@ -183,9 +183,9 @@ int g_surface_alpha_blend_shader_bits;
 // GLOBAL: WIZ8 0x6595e8
 DesignRect g_viewport;
 // GLOBAL: WIZ8 0x00659AB4
-W8World* g_world;
+std::unique_ptr<W8World> g_world;
 // GLOBAL: WIZ8 0x00659AB8
-W8World* g_secondary_world;
+std::unique_ptr<W8World> g_secondary_world;
 // GLOBAL: WIZ8 0x652da4
 bool g_camera_sway_active;
 // GLOBAL: WIZ8 0x5ebb1c
@@ -264,7 +264,7 @@ void ResetVideoFrameState(void)
 bool InitializeVideoManager(void)
 {
     g_world_pick_enabled = true;
-    SetPickedModelInstance(0);
+    g_current_model_instance = 0;
     g_fps_frame_count = 0;
     g_fps_window_tick = w8_get_ticks();
     if (!CreateWizardryWindow()) {
@@ -521,12 +521,6 @@ void ClearVideoDirtyBlocks(void)
     ResetVideoDirtyState();
 }
 
-// FUNCTION: WIZ8 0x004277e0
-bool VideoInspectorIsEnabled(void)
-{
-    return g_video_inspector_enabled;
-}
-
 // FUNCTION: WIZ8 0x00422050
 void SuspendVideoManager(void)
 {
@@ -677,14 +671,14 @@ void RenderFrame(void)
         return;
     }
 
-    if (g_trigger_action_active && GetWorld() != 0) {
+    if (g_trigger_action_active && g_world != 0) {
         saved_world_position = cameraLocation();
         shifted_world_position = saved_world_position + g_trigger_action_scene_offset;
-        SetWorldScenePosition(GetWorld(), &shifted_world_position);
+        SetWorldScenePosition(g_world.get(), &shifted_world_position);
     }
     if (g_world != 0) {
-        if (!IsSkyEnabled()) {
-            GetWorldLightValue(g_world, &clear_color);
+        if (!g_sky_enabled) {
+            GetWorldLightValue(g_world.get(), &clear_color);
         } else {
             clear_color =
                 // NOLINTNEXTLINE(misc-include-cleaner)
@@ -761,8 +755,8 @@ void RenderFrame(void)
             g_gerd->pushPick(pick);
             RenderScene(g_world->static_scene.get(), g_world->camera, &g_viewport, true);
             pick = *g_gerd->popPick();
-            SetPickedModelInstance(pick.selected_model);
-            ResolvePickedProp(g_world);
+            g_current_model_instance = pick.selected_model;
+            ResolvePickedProp();
         }
 #ifdef WIZ8_RUNTIME_TESTS
         RuntimeObserveWorld(RUNTIME_WORLD_RENDER_END, ObserveWorldRenderState());
@@ -819,8 +813,8 @@ void RenderFrame(void)
     g_seconds_per_frame = 1.0f / frames_per_second;
     g_frames_per_second = frames_per_second;
 
-    if (g_trigger_action_active && GetWorld() != 0) {
-        SetWorldScenePosition(GetWorld(), &saved_world_position);
+    if (g_trigger_action_active && g_world != 0) {
+        SetWorldScenePosition(g_world.get(), &saved_world_position);
     }
 }
 
@@ -840,10 +834,10 @@ unsigned char RenderWorldToSurface(SDL_Surface* target, const DesignRect* rect,
     const DesignRect bounds = rect != nullptr ? *rect : g_viewport;
     const auto viewport = ToSurfaceRect(bounds, gerd->getWidth(), gerd->getHeight());
     gerd->setViewPort(viewport.x, viewport.y, viewport.w, viewport.h);
-    if (IsFogEnabled()) {
-        GetLightDirection(&clear_color);
+    if (g_fog_enabled) {
+        clear_color = g_light_direction;
     } else {
-        GetWorldLightValue(g_world, &clear_color);
+        GetWorldLightValue(g_world.get(), &clear_color);
     }
     gerd->setClearColor(clear_color.x, clear_color.y, clear_color.z, 1.0f);
     gerd->clear(SDLGPUDevice::BUFFER_COLOR | SDLGPUDevice::BUFFER_DEPTH);
@@ -913,7 +907,7 @@ void SetWorldModelPickingEnabled(bool enabled)
 {
     g_world_pick_enabled = enabled;
     if (!enabled) {
-        SetPickedModelInstance(0);
+        g_current_model_instance = 0;
     }
 }
 
@@ -1394,12 +1388,6 @@ void SetViewport(const DesignRect& bounds)
     }
 }
 
-// FUNCTION: WIZ8 0x004229d0
-void PrintScreen(void)
-{
-    g_screenshot_pending = true;
-}
-
 /* The debug stats readout drawn over the primary surface: a black band plus
    the frame-rate line always, the object/poly/vertex counters, texture and
    pagefile memory in mode 2, or the scaled camera position in mode 3. */
@@ -1694,18 +1682,6 @@ void ClearNodeFlag(srNode* node)
     }
 }
 
-// FUNCTION: WIZ8 0x00427810
-srModelInstance* GetPickedModelInstance(void)
-{
-    return g_current_model_instance;
-}
-
-// FUNCTION: WIZ8 0x00427820
-void SetPickedModelInstance(srModelInstance* value)
-{
-    g_current_model_instance = value;
-}
-
 // FUNCTION: WIZ8 0x00428010
 unsigned char DisableCursorScene(void)
 {
@@ -1727,7 +1703,7 @@ unsigned char EnableCursorScene(void)
 void ReleaseObject(stModelInstance2D* object)
 {
     if ((object->overlay_scene_flag & 1) != 0) {
-        SetOverlayRenderMode();
+        g_overlay_render_mode = 2;
     } else {
         SetRendererModePair();
     }
@@ -1741,23 +1717,17 @@ void RotateNodeInDegrees(srNode* node, int degrees)
 {
     node->setRotation(0.0, 0.0, 3.141592653589793 * 0.0055555557f * degrees);
     if ((static_cast<stModelInstance2D*>(node)->overlay_scene_flag & 1) != 0) {
-        SetOverlayRenderMode();
+        g_overlay_render_mode = 2;
     } else {
         SetRendererModePair();
     }
-}
-
-// FUNCTION: WIZ8 0x00428A90
-void SetOverlayRenderMode(void)
-{
-    g_overlay_render_mode = 2;
 }
 
 // FUNCTION: WIZ8 0x00428AA0
 void SetRendererModePair(void)
 {
     g_paired_render_mode = 2;
-    SetOverlayRenderMode();
+    g_overlay_render_mode = 2;
 }
 
 /* Install a texture (often an stTextureAnim) on the mouse-cursor mesh. A null
@@ -1792,12 +1762,6 @@ void SetFullscreenSceneLast(unsigned char value)
 }
 
 // FUNCTION: WIZ8 0x004298F0
-
-// FUNCTION: WIZ8 0x004229b0
-bool VideoIsFullScreen(void)
-{
-    return g_fullscreen;
-}
 
 // FUNCTION: WIZ8 0x00428b80
 int VideoDumpMemoryLeaks(void)
@@ -1881,7 +1845,7 @@ void PositionToolTipNode(srNode* node, int x, int y, bool positional)
         location.y = 0.75 - (half_height + position_y) * 0.75;
     }
     node->setLocation(location);
-    SetOverlayRenderMode();
+    g_overlay_render_mode = 2;
     instance->render_state.position_x = static_cast<short>(x);
     instance->render_state.position_y = static_cast<short>(y);
 }
@@ -1986,7 +1950,7 @@ stModelInstance2D* CreateSpriteFromSurface(SDL_Surface& surface, const W8Control
         node = Video2DRectToPolygon(&source_rect, surface, g_overlay_scenes.user.get(), overlay);
         g_paired_render_mode = 2;
     }
-    SetOverlayRenderMode();
+    g_overlay_render_mode = 2;
     instance = static_cast<stModelInstance2D*>(node);
     if (instance != 0) {
         if (mode != 0) {
@@ -2004,7 +1968,7 @@ stModelInstance2D* CreateSpriteFromSurface(SDL_Surface& surface, const W8Control
         instance->render_state.width = width;
     }
     /* Retail writes display_state even when the node factory returned null. */
-    SetModelInstance2DDisplayState(instance, 3);
+    instance->render_state.display_state = 3;
     return instance;
 }
 
@@ -2042,7 +2006,7 @@ stModelInstance2D* CreateColoredPolygonSprite(int width, int height, const glm::
 
     instance->render_state.width = static_cast<unsigned short>(width);
     instance->render_state.height = static_cast<unsigned short>(height);
-    SetModelInstance2DDisplayState(instance, 3);
+    instance->render_state.display_state = 3;
     if (fullscreen) {
         instance->setParent(g_overlay_scenes.fullscreen.get(), 1);
     }
@@ -2053,12 +2017,6 @@ stModelInstance2D* CreateColoredPolygonSprite(int width, int height, const glm::
 void Position2DNodeUnsnapped(srNode* node, int x, int y)
 {
     PositionToolTipNode(node, x, y, false);
-}
-
-// FUNCTION: WIZ8 0x004264F0
-void SetModelInstance2DDisplayState(stModelInstance2D* object, unsigned char state)
-{
-    object->render_state.display_state = state;
 }
 
 /* Positions every live tooltip object left to right starting at x, advancing

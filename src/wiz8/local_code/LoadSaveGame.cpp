@@ -672,10 +672,10 @@ void LoadLevelSection(W8Chunk& chunk, unsigned int chunk_id)
         LoadAutomapNotes(file);
         break;
     case W8_CHUNK_TRIGGERS:
-        LoadWorldTriggers(g_world, file);
+        LoadWorldTriggers(file);
         break;
     case W8_CHUNK_PROPS:
-        LoadWorldProps(g_world, file);
+        LoadWorldProps(file);
         break;
     case W8_CHUNK_CURSOR_NODE_STATES:
         LoadWorldCursorNodeStates(file);
@@ -790,7 +790,7 @@ try {
 void FillCurrentSaveSlot(W8SaveSlot& slot)
 {
     slot.name.clear();
-    slot.level_id = GetLoadedLevelID();
+    slot.level_id = g_status.current_level;
     slot.game_time_ms = g_status.game_time_ms;
     slot.game_time_days = g_status.game_time_days;
     slot.iron_man = g_status.iron_man;
@@ -911,7 +911,7 @@ try {
    the difficulty. Iron-man saves also record the file's masked creation time. */
 static void PrepareStatusForSave(const wiz8::File& file)
 {
-    g_status.pending_move_location = cameraState(*GetWorld());
+    g_status.pending_move_location = cameraState(*g_world.get());
     ForEachShownMessage([](auto& message) {
         message.saved_remaining_ms = std::uint32_t(TimeUntilDeadline(message.clock));
     });
@@ -1068,23 +1068,20 @@ try {
                 SaveWorldCursorNodeStates(file);
             });
             chunks->WriteChunk(W8_CHUNK_ENCOUNTERS, [&] { SaveEncounterState(file); });
-            chunks->WriteChunk(W8_CHUNK_TRIGGER_LOCKS, [&] {
-                SaveTriggerRuntimeStates(g_world, file, g_level_status_loading);
-            });
-            chunks->WriteChunk(W8_CHUNK_TRIGGER_ACTIONS,
-                               [&] { SaveTriggerActionData(g_world, file); });
+            chunks->WriteChunk(W8_CHUNK_TRIGGER_LOCKS,
+                               [&] { SaveTriggerRuntimeStates(file, g_level_status_loading); });
+            chunks->WriteChunk(W8_CHUNK_TRIGGER_ACTIONS, [&] { SaveTriggerActionData(file); });
             return;
         }
 
         chunks->WriteChunk(W8_CHUNK_AUTOMAP_NOTES, [&] { SaveAutomapNotes(file); });
         if (!g_world->triggers.empty())
-            chunks->WriteChunk(W8_CHUNK_TRIGGERS, [&] { SaveWorldTriggers(g_world, file); });
-        chunks->WriteChunk(W8_CHUNK_PROPS, [&] { SaveWorldProps(g_world, file); });
+            chunks->WriteChunk(W8_CHUNK_TRIGGERS, [&] { SaveWorldTriggers(file); });
+        chunks->WriteChunk(W8_CHUNK_PROPS, [&] { SaveWorldProps(file); });
         chunks->WriteChunk(W8_CHUNK_CURSOR_NODE_STATES, [&] { SaveWorldCursorNodeStates(file); });
         chunks->WriteChunk(W8_CHUNK_MONSTER_GENERATORS, [&] { SaveMonsterGenerators(file); });
-        chunks->WriteChunk(W8_CHUNK_TRIGGER_STATES, [&] {
-            SaveTriggerRuntimeStates(g_world, file, g_level_status_loading);
-        });
+        chunks->WriteChunk(W8_CHUNK_TRIGGER_STATES,
+                           [&] { SaveTriggerRuntimeStates(file, g_level_status_loading); });
         chunks->WriteChunk(W8_CHUNK_AMBIENT_SOUNDS, [&] { SaveAmbientSoundList(file); });
         chunks->WriteChunk(W8_CHUNK_PARTICLES, [&] { SaveParticleStates(file); });
         chunks->WriteChunk(W8_CHUNK_LIGHTS, [&] { SaveLightStates(file); });

@@ -210,16 +210,6 @@ void ApplyFactionChange(char mode, char op, signed char faction, int value)
     }
 }
 
-/* The raw score the band above is derived from. Unlike its neighbour this one
-   asserts nothing, which is what makes the checked accessor the one callers
-   outside the file are meant to use. The index arithmetic is the 14-byte
-   record stride the reviewed table already establishes. */
-// FUNCTION: WIZ8 0x00535d30
-signed char GetFactionDispositionScore(signed char faction)
-{
-    return g_factions[faction].disposition_score;
-}
-
 /* A witnessed offense against the faction: bump the running count, then weigh
    the victim. Factions that flip hostile outright do so once they were not
    already hostile; everyone else loses a record-scaled amount that grows as

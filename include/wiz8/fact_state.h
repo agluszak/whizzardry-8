@@ -833,7 +833,6 @@ void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects);
 void SaveFactState(wiz8::File& save_handle);
 void InitializeFactState(void);
 void LoadFactState(wiz8::File& save_handle);
-void SetFactNotificationsSuppressed(bool suppressed);
 
 void PostNewGameLoad(void);
 

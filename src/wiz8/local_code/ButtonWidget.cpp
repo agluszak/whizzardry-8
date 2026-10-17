@@ -52,7 +52,7 @@ void W8ButtonWidget::SetBounds(SDL_Rect bounds)
 
 SDL_Point W8ButtonWidget::GetMousePosition() const
 {
-    return UiPointerPosition();
+    return g_ui.pointer;
 }
 
 // FUNCTION: WIZ8 0x005db550
@@ -111,7 +111,7 @@ void W8ButtonWidget::SetVisible(bool visible)
                              m_setup.policy.secondary_toggle != ButtonToggle::None);
     }
     m_dirty = true;
-    const auto mouse = UiPointerPosition();
+    const auto mouse = g_ui.pointer;
     UpdateUiPointer(mouse.x, mouse.y);
 }
 

@@ -8,6 +8,7 @@
 #include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
+#include "wiz8/engine_code/3dapi.h"
 #include "wiz8/engine_code/World.h"
 
 /* Orientation limits shared by the inline setters and GDCamera.cpp. */
@@ -62,14 +63,14 @@ public:
     {
         m_pitch = glm::clamp(pitch, g_camera_pitch_lower, g_camera_pitch_upper);
         m_pitch_rotation = glm::mat3(glm::eulerAngleX(m_pitch));
-        MarkRendererReady();
+        g_renderer_ready = true;
     }
     // FUNCTION: WIZ8 0x00478720
     void SetYaw(float angle)
     {
         m_yaw = glm::mod(angle, g_camera_angle_period0);
         m_yaw_rotation = glm::mat3(glm::eulerAngleY(m_yaw));
-        MarkRendererReady();
+        g_renderer_ready = true;
     }
     void SetOrientation(float angle, float pitch); /* 0x004788E0 */
     glm::mat3 rotationMatrix(); /* 0x00478BD0 */
@@ -121,5 +122,3 @@ extern const double g_camera_pi;
 extern const float g_camera_transition_epsilon;
 extern float g_camera_default_forward_scale;
 extern float g_camera_forward_scale;
-
-bool IsCameraTransitionActive(void);

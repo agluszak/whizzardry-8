@@ -25,9 +25,6 @@ bool TargetSourceIsMonster(const W8TargetSource* source, int allow_indirect);
 char GetSourceNoticeColor(const W8TargetSource* source);
 char GetTargetNoticeColor(const W8TargetSource* source, const W8CombatSlot* target);
 
-unsigned char GetFactionFlag(signed char faction);
-/* One faction's last band-change world-clock stamp. */
-int GetFactionValue(signed char faction);
 void AimByKind(int actor, W8TargetKind kind, W8TargetingContext context);
 void SetMonsterCombatTarget(W8MonsterInfo* monster_info, int location_id);
 bool MonsterTargetMatchesSpell(W8MonsterInfo* monster_info, int spell_id);

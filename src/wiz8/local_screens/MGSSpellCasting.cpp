@@ -738,12 +738,6 @@ void SpellCastingNoticeClosed(bool)
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
 }
 
-// FUNCTION: WIZ8 0x005A0300
-void InvalidateSpellCastingDescription(void)
-{
-    gpSCSV->dirty[1] = true;
-}
-
 /* Switches the view to another realm: the old realm's icon returns to its
    first frame and the new one starts its frame timer, then the whole
    selection state resets. */

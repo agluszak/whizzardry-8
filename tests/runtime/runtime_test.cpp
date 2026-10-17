@@ -717,7 +717,7 @@ void StartGame(Game& game)
     }
     game.wait_screen("main-game", W8_SCREEN_MAIN_GAME, 60);
     REQUIRE(g_runtime_test_hooks.movie_frames_presented == 0);
-    W8World* world = GetWorld();
+    W8World* world = g_world.get();
     REQUIRE((world && world->octree && world->camera && world->level));
     for (int i = 0; i < 30; ++i) game.frame();
     Snapshot("main-game", game.read_frame());
@@ -728,7 +728,7 @@ void StartGame(Game& game)
 glm::vec3 PartyPosition()
 {
     W8WorldCameraState state{};
-    state = cameraState(*GetWorld());
+    state = cameraState(*g_world.get());
     return state.position;
 }
 
@@ -741,7 +741,7 @@ float HorizontalDistance(const glm::vec3& a, const glm::vec3& b)
 void WaitMainGame(Game& game, const char* step)
 {
     game.wait_screen(step, W8_SCREEN_MAIN_GAME, 60);
-    W8World* world = GetWorld();
+    W8World* world = g_world.get();
     REQUIRE((world && world->octree && world->camera && world->level));
 }
 
@@ -954,14 +954,14 @@ void GameStartScenario()
     Game game(false);
     StartGame(game);
     W8WorldCameraState start{};
-    start = cameraState(*GetWorld());
+    start = cameraState(*g_world.get());
     // Hold the forward key until the camera has moved, through the real binding.
     game.hold_key(SDLK_UP, true);
     W8WorldCameraState now{};
     game.wait(
         "walk",
         [&] {
-            now = cameraState(*GetWorld());
+            now = cameraState(*g_world.get());
             const float dx = now.position.x - start.position.x,
                         dz = now.position.z - start.position.z;
             return std::sqrt(dx * dx + dz * dz) > 1.0f;
@@ -980,7 +980,7 @@ void InventoryChestScenario()
     StartPremadeGame(game);
     Settle(game, "settle-before-chest");
     Trigger* chest = nullptr;
-    for (const auto& trigger : GetWorld()->triggers)
+    for (const auto& trigger : g_world->triggers)
         if (trigger->initial_action == 3 && trigger->inline_action_data[0]) {
             trigger->GenerateItemGroup();
             if (trigger->world_item_group && trigger->world_item_group->next) {
@@ -1155,12 +1155,12 @@ void InventoryChestScenario()
         20);
     game.hold_key(SDLK_DOWN, false);
     W8WorldCameraState before{}, after{};
-    before = cameraState(*GetWorld());
+    before = cameraState(*g_world.get());
     game.hold_key(SDLK_LEFT, true);
     game.wait(
         "turn-left-after-inventory",
         [&] {
-            after = cameraState(*GetWorld());
+            after = cameraState(*g_world.get());
             return std::abs(after.yaw[0] - before.yaw[0]) > 0.1f;
         },
         20);
@@ -1229,7 +1229,7 @@ void CampSpellsScenario()
 
 void CheckWorldRender(Game& game)
 {
-    W8World* world = GetWorld();
+    W8World* world = g_world.get();
     unsigned enabled = 0;
     for (unsigned i = 0; i <= world->octree->GetMeshCount(); ++i)
         if (world->psrMeshes[i] && !world->psrMeshes[i]->testFlag(srNode::FLAG_DISABLE)) ++enabled;
@@ -1461,13 +1461,13 @@ void ResourceLifecycleScenario()
     REQUIRE(g_settings.main_ui_mode == W8_MAIN_UI_MODE_RADAR);
     click_roof(0);
     REQUIRE(g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS);
-    REQUIRE((GetWorld() && GetWorld()->level));
+    REQUIRE((g_world.get() && g_world->level));
 
     const int level = g_status.current_level;
     const auto anchor = Walk(game, "settle-before-save", 2.0f);
     QuickSave(game);
     { // One save/load cycle covers eviction, reconstruction and live teardown.
-        auto* world = GetWorld();
+        auto* world = g_world.get();
         REQUIRE((world && world->octree && world->level));
         unsigned linked = 0, animated = 0;
         for (unsigned i = 0; i <= world->octree->GetMeshCount(); ++i) {
@@ -1907,7 +1907,7 @@ void Approach(Game& game, int location_id, float stop)
         held = key;
     };
     for (int frame = 0; frame < 60 * 120 && !gXStatus.fCombatMode; ++frame) {
-        const W8WorldCameraState camera = cameraState(*GetWorld());
+        const W8WorldCameraState camera = cameraState(*g_world.get());
         const glm::vec3 target = monster->p3D->GetPosition();
         if (HorizontalDistance(target, camera.position) < stop) break;
         const float wanted = std::atan2(target.x - camera.position.x, target.z - camera.position.z);
@@ -2078,8 +2078,8 @@ void PrintState(Game& game)
             std::printf("  pc %d %s hp=%u xp=%u kills=%d\n", slot, character.name.c_str(),
                         character.hp_current, character.experience, character.kill_count);
         }
-    if (GetWorld()) {
-        const W8WorldCameraState camera = cameraState(*GetWorld());
+    if (g_world.get()) {
+        const W8WorldCameraState camera = cameraState(*g_world.get());
         const glm::vec3 at = camera.position;
         std::printf("  party at (%g %g %g) yaw %g\n", at.x, at.y, at.z, camera.yaw[0]);
         std::vector<std::pair<float, W8MonsterInfo*>> nearby;

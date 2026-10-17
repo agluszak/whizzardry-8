@@ -33,6 +33,7 @@
 #include "surrender/srMath.h"
 #include "surrender/triangle_projection.h"
 #include "wiz8/engine_code/3d.h"
+#include "wiz8/engine_code/3dapi.h"
 #include "wiz8/engine_code/AmbientSound.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GDProp.h"
@@ -200,7 +201,7 @@ CameraRotation W8GameData::cameraRotation(unsigned int flags, const glm::mat3& r
 
     if ((g_gd_camera->m_orientation_flags & W8_CAMERA_ORIENTATION_SNAPPED) != 0) {
         g_gd_camera->m_orientation_flags &= ~W8_CAMERA_ORIENTATION_SNAPPED;
-        MarkRendererReady();
+        g_renderer_ready = true;
     }
 
     if (g_level_data != nullptr) {
@@ -370,7 +371,7 @@ CameraMotion W8GameData::cameraMotion(unsigned int flags, const glm::vec3& posit
     new_position = position + delta;
     from_origin = new_position - g_world_origin;
     if (glm::dot(from_origin, from_origin) != 0) {
-        MarkRendererReady();
+        g_renderer_ready = true;
         g_gd_camera->m_position = new_position;
     }
 
@@ -1893,7 +1894,7 @@ void W8GameData::ReleaseLevelData()
         delete g_game_time_accumulator;
     }
     g_game_time_accumulator = 0;
-    SetOctreeGameData(0);
+    g_octree_game_data = 0;
     if (g_level_data_teardown_flag) {
         g_level_data_teardown_flag = false;
     }
@@ -2008,12 +2009,6 @@ float GetCameraPitchInDegrees()
     return g_gd_camera->m_pitch * kCameraRadiansToDegrees;
 }
 
-// FUNCTION: WIZ8 0x00420DF0
-float GetCameraPitchRadians()
-{
-    return g_gd_camera->m_pitch;
-}
-
 // FUNCTION: WIZ8 0x00420E00
 void BeginManualCameraControl()
 {
@@ -2117,7 +2112,7 @@ glm::vec3 ProjectVectorOntoVector(const glm::vec3& vector, const glm::vec3& onto
 
 /* Apply saved yaw and pitch after a world reload. */
 // FUNCTION: WIZ8 0x00421570
-void RestoreWorldCameraOrientation(void* angle, void* pitch, W8World*)
+void RestoreWorldCameraOrientation(void* angle, void* pitch)
 {
     SetCameraOrientation(angle, pitch, nullptr);
 }
@@ -2152,7 +2147,7 @@ void PlacePartyAtPoint(const glm::vec3* point)
 {
     glm::vec3 delta = *point - g_world_origin;
     if (glm::dot(delta, delta) != 0) {
-        MarkRendererReady();
+        g_renderer_ready = true;
         g_gd_camera->m_position = (*point);
     }
 }

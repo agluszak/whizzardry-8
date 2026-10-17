@@ -402,7 +402,7 @@ try {
                   (pInfo->hFile->read(&axis.z, sizeof(axis.z)).bytes ==
                    static_cast<std::size_t>(sizeof(axis.z)));
         position = glm::vec3(stored_position.x, stored_position.y, stored_position.z) * kWorldScale;
-        SetWorldScenePosition(GetWorld(), &position);
+        SetWorldScenePosition(g_world.get(), &position);
 
         rotation = glm::mat3(1);
         if (angle != 0.0f) {
@@ -438,12 +438,11 @@ try {
     WorldSetRenderRange(pWorld, distance_scale * pWorld->view_distance);
     pWorld->environment_range_start = environment_range.x;
     pWorld->environment_range_end = environment_range.y;
-    pWorld->environment_range_blue = environment_range.z;
 
     if (fog_enabled == 0) {
-        SetFogEnabled(false);
+        g_fog_enabled = false;
     } else {
-        SetFogEnabled(true);
+        g_fog_enabled = true;
         UpdateEnvironmentLight();
     }
     return success;
@@ -1084,7 +1083,7 @@ try {
     if (section_count == 0) {
         WorldSetFarClip(world, 42500.0f);
         WorldSetRenderRange(world, 37500.0f);
-        if (!IsSkyEnabled()) {
+        if (!g_sky_enabled) {
             DisableSky();
         } else {
             EnableSky();
@@ -1113,7 +1112,7 @@ try {
     UpdateWorldProps(world);
     info.hFile->read(&camera_mode, sizeof(camera_mode));
     SetCameraSwayMode(world->camera, camera_mode == 0 ? -1 : 1);
-    if (world->octree == 0 && world != g_secondary_world) {
+    if (world->octree == 0 && world != g_secondary_world.get()) {
         FinalizeWorldScenes(world->static_scene.get(), world->dynamic_scene);
     }
 
@@ -1162,10 +1161,10 @@ try {
                 stMeshModel* mesh = static_cast<stMeshModel*>(instance->getModel());
 
                 for (; mesh != 0; mesh = mesh->Next()) {
-                    if (!AnimationIsRunning(animation)) {
+                    if (!animation->path_lists) {
                         mesh->GetVertexSunlight(true);
                         SetModelInstanceChainExclusionMask(instance, 5);
-                    } else if (AnimationIsRunning(animation) == 1) {
+                    } else if (animation->path_lists == 1) {
                         SetModelInstanceChainExclusionMask(instance, 4);
                     }
 

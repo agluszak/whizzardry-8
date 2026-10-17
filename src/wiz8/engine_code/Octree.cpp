@@ -56,6 +56,7 @@
 #include "surrender/swept_bounds.h"
 #include "wiz8/application.h"
 #include "wiz8/engine_code/3d.h"
+#include "wiz8/engine_code/3dapi.h"
 #include "wiz8/engine_code/Camera.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/GDProp.h"
@@ -193,7 +194,7 @@ void W8OctreeView::captureCamera(const srCamera& camera)
 // FUNCTION: WIZ8 0x0042f7e0
 void W8Octree::UpdateCameraVisibility()
 {
-    W8World* world = GetWorld();
+    W8World* world = g_world.get();
     if (m_visibility_suspended) {
         return;
     }
@@ -935,7 +936,7 @@ unsigned int W8Octree::SampleRegionLinks(const glm::vec3& point, bool descend, b
                                          unsigned int region_key)
 {
     bool linked = false;
-    W8World* world = GetWorld();
+    W8World* world = g_world.get();
     std::vector<stModelInstance*> meshes;
     std::vector<int> cells;
     view.camera_location = point;
@@ -1098,7 +1099,7 @@ unsigned int W8Octree::SampleRegionLinks(const glm::vec3& point, bool descend, b
 // FUNCTION: WIZ8 0x004314c0
 void W8Octree::BuildRegionLinks(bool rebuild_all)
 {
-    W8World* world = GetWorld();
+    W8World* world = g_world.get();
     bool aborted = false;
     unsigned int last_key = 0;
     time_t started = time(0);
@@ -1269,7 +1270,7 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
         stale = saved_links;
     }
     delete stale;
-    MarkRendererReady();
+    g_renderer_ready = true;
 }
 
 /* Write the octree's region-link table to the .rlk companion file.
@@ -2502,7 +2503,7 @@ W8Octree::W8Octree(const char* path, std::unique_ptr<W8GameData>* game_data)
             }
             pGameData->octree = this;
         }
-        SetOctreeGameData(pGameData.get());
+        g_octree_game_data = (pGameData.get());
         if (game_data != 0) {
             *game_data = std::move(pGameData);
         }
@@ -2514,7 +2515,7 @@ W8Octree::W8Octree(const char* path, std::unique_ptr<W8GameData>* game_data)
         }
         return;
     } catch (const std::exception&) {
-        SetOctreeGameData(0);
+        g_octree_game_data = 0;
         g_octree = 0;
         g_pathing = 0;
         m_spatial.flags |= 0x80000000;

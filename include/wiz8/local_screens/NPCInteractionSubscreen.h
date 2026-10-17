@@ -296,7 +296,6 @@ void LookAtDialogueNpc(void);
 void CloseNpcDialogueLayout(void);
 void OpenNpcDialogueTranscriptLayout(void);
 void DispatchPendingNpcScriptNotice(void);
-bool CanOpenNpcDialogue(void);
 bool IsNpcDialogueTextInputActive(void);
 bool IsNpcDialogueTextBoxActive(void);
 unsigned char SetNpcDialoguePanelVisible(unsigned char value);

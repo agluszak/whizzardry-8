@@ -128,7 +128,7 @@ static void AdvanceIntroScreen(void)
     switch (g_intro_video_index) {
     case 0:
     case 6:
-        SetPendingScreenState(W8_SCREEN_MAIN_MENU);
+        g_pending_screen_state.id = W8_SCREEN_MAIN_MENU;
         g_settings.intro_seen = true;
         break;
     case 1:
@@ -137,11 +137,11 @@ static void AdvanceIntroScreen(void)
     case 4:
         if (!g_status.intro_shown) {
             g_pending_screen_state.mode = 0;
-            SetPendingScreenState(W8_SCREEN_PLEASE_WAIT);
+            g_pending_screen_state.id = W8_SCREEN_PLEASE_WAIT;
         } else {
             g_status.intro_shown = false;
             if (GetPendingScreenState() != 7) {
-                SetPendingScreenState(W8_SCREEN_MAIN_GAME);
+                g_pending_screen_state.id = W8_SCREEN_MAIN_GAME;
             }
         }
         break;

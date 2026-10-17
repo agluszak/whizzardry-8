@@ -28,4 +28,4 @@ enum {
 };
 void ApplyWorldUpdateFlags(W8World* world, unsigned int flags);
 void SetCameraSwayMode(srCamera* camera, int mode);
-void WorldSetCameraLocation(W8World* world, const glm::vec3* location); /* 0x00450420 */
+void WorldSetCameraLocation(const glm::vec3* location); /* 0x00450420 */

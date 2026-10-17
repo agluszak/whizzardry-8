@@ -364,7 +364,6 @@ enum W8MainGameMode {
 
 extern W8MainGameMode g_main_game_mode;
 extern int g_selected_party_slot;
-int GetSelectedPartySlot(void);
 void RequestLevelTransition(int level, int entry, unsigned char flag);
 extern bool g_build_level_links;
 extern int g_next_link_level;
@@ -405,7 +404,7 @@ void ClearPortraitRefreshSlot(int slot);
 inline void ClearScreenWait(void)
 {
     g_pending_screen_state.mode = 0;
-    SetPendingScreenState(W8_SCREEN_OPTIONS);
+    g_pending_screen_state.id = W8_SCREEN_OPTIONS;
 }
 /* Portrait condition / enchantment orbs (help 25 / 26): hold opens the
    mode-6 hover overlay; leave and release tear it down. */

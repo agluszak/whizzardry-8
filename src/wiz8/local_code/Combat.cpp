@@ -270,7 +270,7 @@ bool StartCombat(int surprise)
     ResetPartyCombatRows();
     DetectMonsterGroups();
     RequestRedrawParty();
-    CopyPartyFormationState(&gXStatus.edited_formation, &g_status.formation);
+    gXStatus.edited_formation = g_status.formation;
     SaveCombatFormation();
     g_combat_state->search_mode_saved = g_status.search_mode;
     if (g_status.search_mode != 0) {
@@ -3152,7 +3152,7 @@ void UpdateCombat(void)
         }
     } else {
         AutoAdvanceSelectedCharacter();
-        if (IsCameraTransitionActive()) {
+        if (g_gd_camera->m_transition_active) {
             return;
         }
         if (AnyCombatMonsterBusy()) {

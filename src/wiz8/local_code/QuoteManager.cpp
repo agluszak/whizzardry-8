@@ -986,12 +986,13 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
             std::string formatted;
             std::string character_name = g_status.buffers.Char[party_slot].name;
             formatted = character_name;
-            int scroll_range = GetTextBoxScrollRange();
+            int scroll_range = (g_level_block->text_box_right - g_level_block->text_box_left);
             ShowNotice(W8_FONT_PALETTE_GREEN, formatted, 3, scroll_range);
             /* Retail 0x0052fc82..0x0052fc9b: the quote line follows the
                speaker's name into the dialogue box (3) with the same scroll
                width, not the mode-selected box. */
-            ShowNotice(W8_FONT_PALETTE_TEXT_BOX, quote->bubble->text(), 3, GetTextBoxScrollRange());
+            ShowNotice(W8_FONT_PALETTE_TEXT_BOX, quote->bubble->text(), 3,
+                       (g_level_block->text_box_right - g_level_block->text_box_left));
         } else {
             if (kFirstRemappedEvent <= mapped_event) {
                 mapped_event = g_normal_event_count - kFirstRemappedEvent + mapped_event;
@@ -1135,7 +1136,7 @@ void W8CharacterEventQueue::RestartFollowUpClock(W8CharacterEvent* entry)
 // FUNCTION: WIZ8 0x0052E1C0
 void W8CharacterEventQueue::ProcessFollowUpEvents()
 {
-    if (GetEnvironmentFlag() == 0) {
+    if (g_environment_time_enabled == 0) {
         return;
     }
     if ((follow_up_flags & 1) == 0) {

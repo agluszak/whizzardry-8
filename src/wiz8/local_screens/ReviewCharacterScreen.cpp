@@ -2472,8 +2472,8 @@ void PumpReviewTransition(void)
     if (g_ending_autosave) {
         if (auto name = FindFreeEndingSaveName()) {
             SaveGame(name->c_str(), 0);
-            SetMainMenuMessage(
-                fmt::format("{} {}.{}", g_localized_strings[0x78b], *name, g_save_extension));
+            g_pending_main_menu_message =
+                (fmt::format("{} {}.{}", g_localized_strings[0x78b], *name, g_save_extension));
         }
         g_ending_autosave = false;
     }
@@ -2535,7 +2535,7 @@ void EndReviewTransition(void)
     ResetMainGameMode();
     g_level_block->review_transition_active = false;
     if (g_ending_screen) {
-        SetPendingScreenState(W8_SCREEN_CREDITS);
+        g_pending_screen_state.id = W8_SCREEN_CREDITS;
         g_ending_screen = false;
         return;
     }

@@ -282,20 +282,20 @@ void DispatchMGSCommand(W8MGSCommand command)
         break;
     case W8_MGS_COMMAND_TOGGLE_FULLSCREEN:
         ResetTransientRenderScenes();
-        SetOverlayRenderMode();
+        g_overlay_render_mode = 2;
         SetRendererModePair();
-        VideoFullScreen(VideoIsFullScreen() == 0);
+        VideoFullScreen(g_fullscreen == 0);
         break;
     case W8_MGS_COMMAND_LOAD_OPTIONS:
         if (IsScreenInputBlocked() == 0 && CanInterruptLevelMovement()) {
             g_pending_screen_state.mode = 1;
-            SetPendingScreenState(W8_SCREEN_OPTIONS);
+            g_pending_screen_state.id = W8_SCREEN_OPTIONS;
         }
         break;
     case W8_MGS_COMMAND_SAVE_OPTIONS:
         if (IsScreenInputBlocked() == 0 && CanInterruptLevelMovement()) {
             g_pending_screen_state.mode = 2;
-            SetPendingScreenState(W8_SCREEN_OPTIONS);
+            g_pending_screen_state.id = W8_SCREEN_OPTIONS;
         }
         break;
     case W8_MGS_COMMAND_COMBAT_DELAY_UP: {
@@ -409,9 +409,10 @@ void DispatchMGSCommand(W8MGSCommand command)
         }
         break;
     case W8_MGS_COMMAND_OPTIONS:
-        if (gXStatus.fNpcDialogueMode || CanOpenNpcDialogue() || gXStatus.fLockInteractMode ||
-            gXStatus.fTrapInteractMode || gXStatus.fCampMode || LockInteractionSuspended() ||
-            TrapInteractionSuspended()) {
+        if (gXStatus.fNpcDialogueMode ||
+            (gXStatus.fNpcDialogueMode && g_npc_interaction_state->scripted_dialogue) ||
+            gXStatus.fLockInteractMode || gXStatus.fTrapInteractMode || gXStatus.fCampMode ||
+            LockInteractionSuspended() || TrapInteractionSuspended()) {
             break;
         }
         if (!CanInterruptLevelMovement()) {
@@ -423,7 +424,8 @@ void DispatchMGSCommand(W8MGSCommand command)
         TryMGSActionKey(W8_MGS_ACTION_JOURNAL);
         break;
     case W8_MGS_COMMAND_INVENTORY:
-        if (CanOpenNpcDialogue() || gXStatus.fCampMode || g_status.selected_character == -1 ||
+        if ((gXStatus.fNpcDialogueMode && g_npc_interaction_state->scripted_dialogue) ||
+            gXStatus.fCampMode || g_status.selected_character == -1 ||
             (gXStatus.fNpcDialogueMode &&
              g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_TRANSCRIPT)) {
             break;
@@ -473,7 +475,7 @@ void DispatchMGSCommand(W8MGSCommand command)
         }
         const auto slot_name = SelectQuickSaveSlotForWrite();
         if (slot_name && SaveGame(*slot_name, 0)) {
-            SetLastSaveName(*slot_name);
+            g_options_last_save_name = (*slot_name);
             ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x6f5]);
         } else {
             ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x6f6]);
@@ -489,14 +491,14 @@ void DispatchMGSCommand(W8MGSCommand command)
             break;
         }
         if (const auto slot_name = FindStartupQuickSave()) {
-            SetLastSaveName(*slot_name);
+            g_options_last_save_name = (*slot_name);
             ClearHeldItemDisplay();
             g_pending_screen_state.mode = 1;
             g_pending_screen_state.name = *slot_name;
             g_pending_screen_state.parameter = GetSaveGameLevel(g_pending_screen_state.name);
             CloseMainGameOverlays();
             SetMainGameMode(W8_MAIN_GAME_DEFAULT);
-            SetPendingScreenState(W8_SCREEN_PLEASE_WAIT);
+            g_pending_screen_state.id = W8_SCREEN_PLEASE_WAIT;
         } else {
             ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x786]);
         }
@@ -788,7 +790,7 @@ unsigned char BuildKeyboardMenu(void)
                 if (event.action == UiPointerAction::Enter &&
                     ((row.menu == W8_SUBMENU_ITEMS && row.item == 2) ||
                      (row.menu == W8_SUBMENU_SPELLS && row.item == 1)))
-                    SetUiHelpForced(true);
+                    g_ui_help_forced = true;
                 if ((row.enabled) &&
                     (event.action != UiPointerAction::Up || event.captured_buttons))
                     PlayButtonSound(event.action);

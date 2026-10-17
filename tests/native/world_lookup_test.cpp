@@ -21,39 +21,23 @@
 #include "wiz8/engine_code/stParticle.h"
 
 namespace {
-struct TestWorld {
-    W8World world{};
-    std::vector<std::unique_ptr<Trigger>>& triggers = world.triggers;
-    std::vector<std::unique_ptr<stParticle>>& particles = world.particles;
 
-    TestWorld()
-    {
-        world.static_scene = std::make_unique<srScene>();
-        world.dynamic_scene = world.static_scene->adoptChild(std::make_unique<srNode>());
-    }
-    ~TestWorld()
-    {
-        DestroyAllWorldTriggers(&world);
-        particles.clear();
-        world.static_scene.reset();
-    }
-};
-
-Trigger* AddTrigger(TestWorld& world, const char* name)
+Trigger* AddTrigger(W8World& world, const char* name)
 {
     auto owner = std::make_unique<Trigger>();
     auto* trigger = owner.get();
     std::strcpy(trigger->name, name);
-    trigger->m_pWorld = &world.world;
+    trigger->m_pWorld = &world;
     world.triggers.push_back(std::move(owner));
     return trigger;
 }
 
 bool triggers()
 {
-    TestWorld level, sky;
-    SetCurrentWorld(&level.world);
-    SetSecondaryWorld(&sky.world);
+    g_world = std::make_unique<W8World>();
+    g_secondary_world = std::make_unique<W8World>();
+    W8World& level = *g_world;
+    W8World& sky = *g_secondary_world;
     Trigger* first = AddTrigger(level, "DOOR");
     Trigger* newest = AddTrigger(level, "DOOR");
     Trigger* in_sky = AddTrigger(sky, "SKYDOOR");
@@ -66,39 +50,40 @@ bool triggers()
     level.triggers.erase(level.triggers.begin() + 1);
     REQUIRE((FindTriggerByName("DOOR") == first));
     // Removing an owner also removes its borrowed lookup entry.
-    DestroyAllWorldTriggers(&level.world);
-    REQUIRE(level.world.triggers.empty());
+    DestroyAllWorldTriggers(&level);
+    REQUIRE(level.triggers.empty());
     REQUIRE(FindTriggerByName("DOOR") == nullptr);
     REQUIRE(FindTriggerByName("SKYDOOR") == in_sky);
     Trigger* replacement = AddTrigger(level, "DOOR");
     REQUIRE(FindTriggerByName("DOOR") == replacement);
-    SetCurrentWorld(0);
-    SetSecondaryWorld(0);
+    DestroyWorld(g_world);
+    DestroyWorld(g_secondary_world);
     return true;
 }
 
 bool nodes(const std::filesystem::path& directory)
 {
-    TestWorld level, sky;
-    SetCurrentWorld(&level.world);
-    SetSecondaryWorld(&sky.world);
+    g_world = std::make_unique<W8World>();
+    g_secondary_world = std::make_unique<W8World>();
+    W8World& level = *g_world;
+    W8World& sky = *g_secondary_world;
 
-    auto* lamp = level.world.dynamic_scene->adoptChild(std::make_unique<stLight>());
+    auto* lamp = level.dynamic_scene->adoptChild(std::make_unique<stLight>());
     lamp->setName("LAMP");
-    auto* torch = level.world.static_scene->adoptChild(std::make_unique<stLight>());
+    auto* torch = level.static_scene->adoptChild(std::make_unique<stLight>());
     torch->setName("TORCH");
-    auto* sky_light = sky.world.static_scene->adoptChild(std::make_unique<stLight>());
+    auto* sky_light = sky.static_scene->adoptChild(std::make_unique<stLight>());
     sky_light->setName("SUN");
-    auto* layer = level.world.static_scene->adoptChild(std::make_unique<srClipPlane>());
+    auto* layer = level.static_scene->adoptChild(std::make_unique<srClipPlane>());
     layer->setName("LAYER 1");
 
     // Engine-light setup must keep its exact-type contract: stLight has its
     // own group configuration even though it derives from srLight.
-    auto* engine_light = level.world.static_scene->adoptChild(std::make_unique<srLight>());
+    auto* engine_light = level.static_scene->adoptChild(std::make_unique<srLight>());
     engine_light->setName("TORCH");
     engine_light->setGroupMask(7);
     torch->setGroupMask(9);
-    FinalizeStaticScene(level.world.static_scene.get());
+    FinalizeStaticScene(level.static_scene.get());
     REQUIRE(engine_light->getGroupMask() == 1);
     REQUIRE(torch->getGroupMask() == 9);
 
@@ -136,12 +121,10 @@ bool nodes(const std::filesystem::path& directory)
     REQUIRE((torch->testFlag(srNode::FLAG_DISABLE)));
 
     auto* gas =
-        level.particles.emplace_back(std::make_unique<stParticle>(level.world.dynamic_scene, 1))
-            .get();
+        level.particles.emplace_back(std::make_unique<stParticle>(level.dynamic_scene, 1)).get();
     gas->setName("GAS");
     auto* idle =
-        level.particles.emplace_back(std::make_unique<stParticle>(level.world.dynamic_scene, 1))
-            .get();
+        level.particles.emplace_back(std::make_unique<stParticle>(level.dynamic_scene, 1)).get();
     idle->setName("IDLE");
     gas->persisted = true;
     gas->SetActive(0);
@@ -158,8 +141,8 @@ bool nodes(const std::filesystem::path& directory)
     // Particles are owned by the world list, not the scene.
     level.particles.clear();
 
-    SetCurrentWorld(0);
-    SetSecondaryWorld(0);
+    DestroyWorld(g_world);
+    DestroyWorld(g_secondary_world);
     return true;
 }
 } // namespace
@@ -171,13 +154,12 @@ TEST_CASE("world_lookup_test")
     // Empty worlds need no collection initialization and can be torn down
     // without ever loading a level or publishing them as the active world.
     for (int iteration = 0; iteration < 3; ++iteration) {
-        auto* world = CreateWorld();
+        const auto world = std::make_unique<W8World>();
         REQUIRE(world->level != nullptr);
         REQUIRE(world->dynamic_scene->getParent() == world->static_scene.get());
-        REQUIRE(GetWorldProp(world, 0) == nullptr);
-        REQUIRE(GetWorldCameraPath(world, -1) == nullptr);
-        REQUIRE(GetWorldAmbientSound(world, 0) == nullptr);
-        DestroyWorld(world);
+        REQUIRE(GetWorldProp(world.get(), 0) == nullptr);
+        REQUIRE(GetWorldCameraPath(world.get(), -1) == nullptr);
+        REQUIRE(GetWorldAmbientSound(world.get(), 0) == nullptr);
     }
     std::filesystem::remove_all(directory);
     REQUIRE(passed);

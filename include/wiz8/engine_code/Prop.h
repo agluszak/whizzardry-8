@@ -102,7 +102,7 @@ public:
     void UpdatePropAnimation();
     /* Re-apply every animation path and roll the position snapshots forward.
        `world` is only used by the pWorld assertion. */
-    void ApplyAnimationPaths(W8World* world);
+    void ApplyAnimationPaths();
     /* Advance the rep's animation value by `frames`, honouring the direction,
        bounce and wrap modes; clamps to the counter range and pushes the new
        value to every bound path. `total` is the animation's frame count. */
@@ -175,7 +175,7 @@ public:
 W8Prop* FindPropByName(W8World* world, const char* name);
 std::unique_ptr<W8Prop> CreateAndLoadProp(W8ReadLevelInfo* info);
 
-bool ResolvePickedProp(W8World* world);
+bool ResolvePickedProp();
 int GetSelectedPropIndex(void);
 /* Run the latched selected-prop trigger, or clear the latch when the
    renderer has no pick. */

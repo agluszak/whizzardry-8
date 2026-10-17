@@ -148,7 +148,8 @@ void UpdateSubMenuButton(int index)
         break;
     }
     if (gXStatus.fNpcDialogueMode &&
-        (index != 0 || IsNpcDialogueCursorActive() != 0 || CanOpenNpcDialogue())) {
+        (index != 0 || IsNpcDialogueCursorActive() != 0 ||
+         (gXStatus.fNpcDialogueMode && g_npc_interaction_state->scripted_dialogue))) {
         g_main_game_state->hud_buttons.submenu[index].SetEnabled(false);
         return;
     }
@@ -279,7 +280,7 @@ static void SubMenuButtonPendingScreen(W8ButtonWidget* button)
     if (gXStatus.fNpcDialogueMode) {
         gXStatus.fCampMode = true;
     }
-    SetPendingScreenState(W8_SCREEN_JOURNAL);
+    g_pending_screen_state.id = W8_SCREEN_JOURNAL;
 }
 
 // FUNCTION: WIZ8 0x005950C0

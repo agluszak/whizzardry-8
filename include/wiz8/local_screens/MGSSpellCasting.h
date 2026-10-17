@@ -57,7 +57,6 @@ void RestoreSpellCastingRegions(void);
 void SelectSpellCastingCharacter(int party_slot);
 void BeginSpellCast(int spell_id, int location_id, W8NpcDialogueLayout interact_id);
 void SetSpellCastingPanelsActive(bool active);
-void InvalidateSpellCastingDescription(void);
 void SelectSpellPowerLevel(int power_level);
 void ResetSpellCastingSelection(void);
 void CommitSpellCastingSelection(void);

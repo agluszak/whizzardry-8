@@ -35,6 +35,7 @@
 #include "surrender/srShader.h"
 #include "surrender/triangle_projection.h"
 #include "wiz8/containers.h"
+#include "wiz8/engine_code/3dapi.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/Item.h"
 #include "wiz8/engine_code/Monster.h"
@@ -226,17 +227,17 @@ unsigned char BakeInstanceVertexLightingIfNeeded(stModelInstance* instance, srNo
    there is no octree) and point its vertex-light table index at `table`, then
    raise flags bit 1 so the next bake uses that table. */
 // FUNCTION: WIZ8 0x0046F760
-void SetWorldMeshVertexLightTable(W8World* world, int table)
+void SetWorldMeshVertexLightTable(int table)
 {
-    if (world->octree == 0) {
+    if (g_world->octree == 0) {
         for (stMeshModel* model : stMeshModel::Meshes(
-                 static_cast<stMeshModel*>(world->update_mesh_source->getModel()))) {
+                 static_cast<stMeshModel*>(g_world->update_mesh_source->getModel()))) {
             model->vertex_light_table = table;
             model->flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
         }
     } else {
-        for (unsigned int mesh = 0; mesh < world->octree->m_meshCount; ++mesh) {
-            srModelInstance* instance = world->psrMeshes[mesh];
+        for (unsigned int mesh = 0; mesh < g_world->octree->m_meshCount; ++mesh) {
+            srModelInstance* instance = g_world->psrMeshes[mesh];
             if (instance != 0) {
                 for (stMeshModel* model :
                      stMeshModel::Meshes(static_cast<stMeshModel*>(instance->getModel()))) {
@@ -426,21 +427,21 @@ void WorldUpdateLights(W8World* world)
    this global instead. */
 
 // FUNCTION: WIZ8 0x0046e580
-void AddMonsterToWorld(W8World*, W8Monster* monster)
+void AddMonsterToWorld(W8Monster* monster)
 {
     g_world->active_monsters.push_back(monster);
 }
 
 // FUNCTION: WIZ8 0x0046e5c0
-void AddItemToWorld(W8World* world, std::unique_ptr<W8Item> item)
+void AddItemToWorld(std::unique_ptr<W8Item> item)
 {
-    world->plsItems.push_back(std::move(item));
+    g_world->plsItems.push_back(std::move(item));
 }
 
 // FUNCTION: WIZ8 0x0046e5e0
-void RemoveItemFromWorld(W8World* world, W8Item* item)
+void RemoveItemFromWorld(W8Item* item)
 {
-    std::erase_if(world->plsItems, [item](const auto& owner) { return owner.get() == item; });
+    std::erase_if(g_world->plsItems, [item](const auto& owner) { return owner.get() == item; });
 }
 
 // FUNCTION: WIZ8 0x0046e860
@@ -555,19 +556,8 @@ void WorldSetRenderRange(W8World* world, float value)
     if (value != 0.0f) {
         world->render_range0 = value;
         world->render_range = value;
-        MarkRendererReady();
+        g_renderer_ready = true;
     }
-}
-
-/* Reads back only the second of the pair, which is what makes 0x78 the live
-   copy and 0x74 the one nothing here consumes. */
-// FUNCTION: WIZ8 0x0046e3a0
-float WorldGetRenderRange(W8World* world)
-{
-    if (!world) {
-        srAssertFail("pWorld", THREE_D_CPP, 0x297, 0);
-    }
-    return world->render_range;
 }
 
 /* Pushes the world's view distance into the camera as the far clip plane; the
@@ -583,7 +573,7 @@ void WorldSetFarClip(W8World* world, float distance)
     if (distance > 5.9604644775390625e-008) {
         world->camera->setClipRange(62.5, distance);
         RefreshFogRanges();
-        MarkRendererReady();
+        g_renderer_ready = true;
     }
 }
 
@@ -608,14 +598,6 @@ void SetSceneAmbientLightWhite(srScene* scene)
 
 // GLOBAL: WIZ8 0x00652db0
 W8GameData* g_octree_game_data;
-
-/* The octree builds read the level data through this slot; the recovered
-   caller passes the W8GameData object it just read. */
-// FUNCTION: WIZ8 0x0046D7D0
-void SetOctreeGameData(W8GameData* value)
-{
-    g_octree_game_data = value;
-}
 
 // FUNCTION: WIZ8 0x0046d880
 bool PointInsideFrustum(const glm::vec3& point, std::span<const W8Plane, 6> planes)

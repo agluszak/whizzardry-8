@@ -749,7 +749,7 @@ void W8PartySelectionController::Setup()
                      AfterUiDispatch([row] {
                          g_pending_screen_state.parameter_3 = &g_status.buffers.Char[row + 2];
                          g_pending_screen_state.mode = 2;
-                         SetPendingScreenState(W8_SCREEN_CHARACTER);
+                         g_pending_screen_state.id = W8_SCREEN_CHARACTER;
                      });
                  },
              .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
@@ -1010,13 +1010,13 @@ void W8PartySelectionController::OnPrimary(W8ButtonWidget* control)
         }
         g_pending_screen_state.parameter_2 = slot < 6 ? slot + 2 : -1;
         g_pending_screen_state.parameter_3 = m_character;
-        SetPendingScreenState(W8_SCREEN_CAMP);
+        g_pending_screen_state.id = W8_SCREEN_CAMP;
         return;
     }
     if (control == m_create_button) {
         g_pending_screen_state.mode = 0;
         g_pending_screen_state.parameter_3 = 0;
-        SetPendingScreenState(W8_SCREEN_CHARACTER);
+        g_pending_screen_state.id = W8_SCREEN_CHARACTER;
         return;
     }
 
@@ -1443,7 +1443,7 @@ void GameStartRouterFrame(void)
         }
     }
     SetIntroVideoIndex(code);
-    SetPendingScreenState(W8_SCREEN_INTRO);
+    g_pending_screen_state.id = W8_SCREEN_INTRO;
 }
 
 unsigned char GameStartRouterLeave(int leaving)

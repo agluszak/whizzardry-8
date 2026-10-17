@@ -70,8 +70,6 @@ W8FactionDisposition GetFactionDisposition(signed char faction);
    target is answered by the static relation matrix. */
 W8FactionDisposition GetFactionDispositionToward(signed char faction, signed char other);
 
-signed char GetFactionDispositionScore(signed char faction);
-
 /* Zero both faction tables and seed the starting dispositions and
    relations a fresh game begins with. */
 void ResetFactions(void);

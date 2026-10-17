@@ -161,7 +161,7 @@ Trigger* FindTriggerByName(const char* name)
     if (name == 0 || name[0] == 0) {
         return 0;
     }
-    for (W8World* world : {g_world, g_secondary_world}) {
+    for (W8World* world : {g_world.get(), g_secondary_world.get()}) {
         if (world == 0) {
             continue;
         }
@@ -293,16 +293,16 @@ bool InsideDestinationTrigger(float x, float y, float z)
 }
 
 // FUNCTION: WIZ8 0x0043cb30
-void SaveTriggerRuntimeStates(W8World* world, wiz8::File& handle, bool restoring)
+void SaveTriggerRuntimeStates(wiz8::File& handle, bool restoring)
 {
-    int trigger_count = static_cast<int>(world->triggers.size());
+    int trigger_count = static_cast<int>(g_world->triggers.size());
     int saved_count = 0;
     int index;
     int version = 2;
     int restoring_value = restoring;
 
     for (index = 0; index < trigger_count; ++index) {
-        Trigger* trigger = world->triggers[index].get();
+        Trigger* trigger = g_world->triggers[index].get();
         if (trigger->lock_state.lock_type != 0) {
             ++saved_count;
         }
@@ -313,7 +313,7 @@ void SaveTriggerRuntimeStates(W8World* world, wiz8::File& handle, bool restoring
     handle.write(&restoring_value, sizeof(restoring_value));
 
     for (index = 0; index < trigger_count; ++index) {
-        Trigger* trigger = world->triggers[index].get();
+        Trigger* trigger = g_world->triggers[index].get();
         if (trigger->lock_state.lock_type != 0) {
             handle.write(trigger->name, 0x80);
             handle.write(&version, sizeof(version));
@@ -627,16 +627,16 @@ try {
    through a scratch trigger when the name is gone, and anything else pushes
    the tag byte back and ends the walk. */
 // FUNCTION: WIZ8 0x0043c860
-bool LoadWorldTriggers(W8World* world, wiz8::File& file)
+bool LoadWorldTriggers(wiz8::File& file)
 try {
-    for (std::size_t index = 0; index < world->triggers.size(); ++index) {
+    for (std::size_t index = 0; index < g_world->triggers.size(); ++index) {
         char tag;
         file.read_exact(&tag, 1);
         if (tag < 1 || tag > 5) {
             file.seek(-1, wiz8::SeekOrigin::current);
             return true;
         }
-        Trigger* trigger = world->triggers[index].get();
+        Trigger* trigger = g_world->triggers[index].get();
         if (tag == 5) {
             int trigger_id;
             char name[128];
@@ -659,9 +659,9 @@ try {
 /* Write every trigger of a world for the save file's trigger chunk. A trigger
    whose own serialization reports failure stops the walk. */
 // FUNCTION: WIZ8 0x0043C810
-void SaveWorldTriggers(W8World* world, wiz8::File& hFile)
+void SaveWorldTriggers(wiz8::File& hFile)
 {
-    auto* triggers = &world->triggers;
+    auto* triggers = &g_world->triggers;
 
     for (int index = 0; index < static_cast<int>(triggers->size()); ++index) {
         if (!((*triggers)[index])->Save(hFile)) {
@@ -671,15 +671,15 @@ void SaveWorldTriggers(W8World* world, wiz8::File& hFile)
 }
 
 // FUNCTION: WIZ8 0x0043d120
-void SaveTriggerActionData(W8World* world, wiz8::File& handle)
+void SaveTriggerActionData(wiz8::File& handle)
 {
-    int trigger_count = static_cast<int>(world->triggers.size());
+    int trigger_count = static_cast<int>(g_world->triggers.size());
     int saved_count = 0;
     int index;
     int version = 1;
 
     for (index = 0; index < trigger_count; ++index) {
-        Trigger* trigger = world->triggers[index].get();
+        Trigger* trigger = g_world->triggers[index].get();
         if (trigger->inline_action_data[0] != '\0') {
             ++saved_count;
         }
@@ -689,7 +689,7 @@ void SaveTriggerActionData(W8World* world, wiz8::File& handle)
     handle.write(&saved_count, sizeof(saved_count));
 
     for (index = 0; index < trigger_count; ++index) {
-        Trigger* trigger = world->triggers[index].get();
+        Trigger* trigger = g_world->triggers[index].get();
         if (trigger->inline_action_data[0] != '\0') {
             handle.write(trigger->name, 0x80);
             handle.write(trigger->inline_action_data, sizeof(trigger->inline_action_data));
@@ -806,7 +806,7 @@ void UpdateWorldTriggers(W8World* world)
             }
         }
     }
-    if (world == g_world && !activated) {
+    if (world == g_world.get() && !activated) {
         g_trigger_camera = camera;
     }
 }
@@ -1062,7 +1062,7 @@ void W8TriggerEvent::Update()
         const char* name = (trigger->recipients.empty() ? nullptr : trigger->recipients.c_str());
         while (name != 0) {
             const auto recipient_name = NextTriggerRecipient(name);
-            stParticle* particle = FindParticleByName(g_world, recipient_name.c_str());
+            stParticle* particle = FindParticleByName(recipient_name.c_str());
             if (particle != 0) {
                 particle->persisted = true;
                 particle->SetActive(0);
@@ -1896,8 +1896,8 @@ void Trigger::FinishAction()
                              2822, "Trigger.cpp: Dark Area doesn't have action data");
             }
             SetWorldEnvironmentIntensity(
-                g_world, static_cast<W8EnvironmentTriggerActionData*>(m_pActionData.get())
-                             ->previous_environment);
+                g_world.get(), static_cast<W8EnvironmentTriggerActionData*>(m_pActionData.get())
+                                   ->previous_environment);
             m_pActionData.reset();
             goto finish_linked_triggers;
         }
@@ -1986,7 +1986,7 @@ void Trigger::CommitActionResult(bool apply_state_changes)
 
 show_action_message:
     if ((flags & W8_TRIGGER_CAN_RUN_LINKED) != 0) {
-        const char* level_folder = GetLevelFolderName(GetLoadedLevelID());
+        const char* level_folder = GetLevelFolderName(g_status.current_level);
         int message_id;
 
         if (action_state == 2) {
@@ -2074,7 +2074,7 @@ void Trigger::RunDestination(const char* destination)
         destination_direction = target->direction;
     }
 
-    SetWorldScenePosition(GetWorld(), &destination_position);
+    SetWorldScenePosition(g_world.get(), &destination_position);
 
     rotation = glm::mat3(1);
     if (angle != 0.0f) {
@@ -2251,13 +2251,13 @@ void Trigger::Run(int source)
             goto commit_action;
 
         case 0x22: {
-            float previous_value = GetWorldEnvironmentIntensity(g_world);
+            float previous_value = g_world->environment_intensity;
 
             m_pActionData = std::make_unique<W8EnvironmentTriggerActionData>();
             m_pActionData->type = W8_TRIGGER_PAYLOAD_ENVIRONMENT;
             static_cast<W8EnvironmentTriggerActionData*>(m_pActionData.get())
                 ->previous_environment = previous_value;
-            SetWorldEnvironmentIntensity(g_world, 0.0f);
+            SetWorldEnvironmentIntensity(g_world.get(), 0.0f);
             flags |= W8_TRIGGER_RUNNING;
             goto commit_action;
         }
@@ -2437,7 +2437,7 @@ void Trigger::Run(int source)
                                  "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0x592, 0);
                 }
                 animation = m_pProp->Rep()->Animation();
-                if (AnimationIsRunning(animation) == 1) {
+                if (animation->path_lists == 1) {
                     count = AnimObjListCount(animation, 2);
                     for (index = 0; index < count; ++index) {
                         W8PathAI* path =
@@ -2991,11 +2991,11 @@ void Trigger::Run(int source)
         while (recipient != 0) {
             const auto name = NextTriggerRecipient(recipient);
             if (action == 0x41) {
-                PositionAmbientSoundByName(g_world, name.c_str());
+                PositionAmbientSoundByName(g_world.get(), name.c_str());
             } else if (action == 0x42) {
-                StopAmbientSoundByName(g_world, name.c_str());
+                StopAmbientSoundByName(g_world.get(), name.c_str());
             } else {
-                ToggleAmbientSoundByName(g_world, name.c_str());
+                ToggleAmbientSoundByName(name.c_str());
             }
             action_succeeded = true;
         }
@@ -3011,8 +3011,7 @@ void Trigger::Run(int source)
             return;
         }
         while (recipient != 0) {
-            stParticle* particle =
-                FindParticleByName(g_world, NextTriggerRecipient(recipient).c_str());
+            stParticle* particle = FindParticleByName(NextTriggerRecipient(recipient).c_str());
             if (particle != 0) {
                 particle->persisted = true;
                 if (action == 0x44) {
@@ -3039,8 +3038,7 @@ void Trigger::Run(int source)
         }
         action_succeeded = false;
         while (recipient != 0) {
-            stParticle* particle =
-                FindParticleByName(g_world, NextTriggerRecipient(recipient).c_str());
+            stParticle* particle = FindParticleByName(NextTriggerRecipient(recipient).c_str());
             if (particle != 0) {
                 particle->persisted = true;
                 particle->SetActive(1);
@@ -3090,7 +3088,7 @@ void Trigger::Run(int source)
             return;
         }
         while (recipient != 0) {
-            W8Prop* prop = FindPropByName(g_world, NextTriggerRecipient(recipient).c_str());
+            W8Prop* prop = FindPropByName(g_world.get(), NextTriggerRecipient(recipient).c_str());
             if (prop != 0) {
                 prop->SetAnimationSpeed(static_cast<float>(m_lData1));
             }
@@ -3324,7 +3322,7 @@ int ResetNextTriggerId(void)
 void DestroyAllWorldTriggers(W8World* world)
 {
     if (world != 0) {
-        if (world == g_world) {
+        if (world == g_world.get()) {
             g_timed_events.clear();
             standalone_events.clear();
         }
@@ -3428,26 +3426,26 @@ static int s_last_prop_index = -1;
    activation range and projects onto the screen. The remembered index is
    checked first so consecutive frames start at the prop that matched. */
 // FUNCTION: WIZ8 0x00445140
-bool AnyPropTriggerInView(W8World* world)
+bool AnyPropTriggerInView()
 {
     glm::vec3 position;
     unsigned int prop_count;
     int index;
 
-    if (world == 0) {
+    if (g_world == nullptr) {
         srAssertFail("pWorld", "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0x1395, 0);
     }
     position = cameraLocation();
-    prop_count = world->plsProps.size();
+    prop_count = g_world->plsProps.size();
     if (0 <= s_last_prop_index && s_last_prop_index < static_cast<int>(prop_count)) {
-        W8Prop* prop = GetWorldProp(world, s_last_prop_index);
+        W8Prop* prop = GetWorldProp(g_world.get(), s_last_prop_index);
 
         if (prop->IsTriggerInView(&position)) {
             return true;
         }
     }
     for (index = 0; index < static_cast<int>(prop_count); ++index) {
-        W8Prop* prop = GetWorldProp(world, index);
+        W8Prop* prop = GetWorldProp(g_world.get(), index);
 
         if (prop->IsTriggerInView(&position)) {
             s_last_prop_index = index;

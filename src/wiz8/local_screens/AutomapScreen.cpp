@@ -53,6 +53,7 @@
 #include "wiz8/design_rect.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/engine_code/3d.h"
+#include "wiz8/engine_code/3dapi.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Monster.h"
@@ -575,11 +576,11 @@ void AutomapExitButton(void)
 unsigned char AutomapScreenEnter(void)
 {
     stScript script;
-    GetLightDirection(&g_automap_saved_light_direction);
-    GetWorldLightValue(g_world, &g_automap_saved_ambient_light);
-    g_automap_saved_camera = cameraState(*GetWorld());
-    g_automap_saved_far_clip = static_cast<float>(WorldGetFarClip(g_world));
-    g_automap_saved_world_value = WorldGetRenderRange(g_world);
+    g_automap_saved_light_direction = g_light_direction;
+    GetWorldLightValue(g_world.get(), &g_automap_saved_ambient_light);
+    g_automap_saved_camera = cameraState(*g_world.get());
+    g_automap_saved_far_clip = static_cast<float>(WorldGetFarClip(g_world.get()));
+    g_automap_saved_world_value = g_world->render_range;
     g_automap_saved_sky = g_sky_enabled;
     g_automap_saved_render_flags[0] = GetRenderOptionState(W8_RENDER_OPTION_HIGH_TEXTURE_DETAIL);
     g_automap_saved_render_flags[1] = GetRenderOptionState(W8_RENDER_OPTION_MESH_SKY);
@@ -588,20 +589,20 @@ unsigned char AutomapScreenEnter(void)
     g_automap_saved_texture_policy = g_resident_texture_policy;
     glm::vec3 direction(0);
     SetLightDirection(&direction);
-    SetWorldEnvironmentColour(g_world, glm::vec3(0));
+    SetWorldEnvironmentColour(glm::vec3(0));
     DisableSky();
     DisableRenderOption(W8_RENDER_OPTION_MESH_SKY);
     g_monster_shadow_updates_enabled = 1;
     g_world_render_enabled = 1;
     DisableSky();
     g_world->camera->setClipRange(g_automap_near_clip, 1500000.0);
-    WorldSetRenderRange(g_world, 1500000.0f);
+    WorldSetRenderRange(g_world.get(), 1500000.0f);
     g_world->camera->setRotation(3.141592653589793 * (1.0f / 180.0f) * 90.0f, 0.0, 0.0);
     int layer_number = 1;
     g_world->camera->setProjectionType(srCamera::PROJECT_ORTHOGRAPHIC);
     RestoreAutomapCameraPosition();
-    UpdateWorldMesh(g_world);
-    SetWorldMeshVertexLightTable(g_world, 1);
+    UpdateWorldMesh();
+    SetWorldMeshVertexLightTable(1);
     g_light_update_flags &= ~1u;
     SetWorldModelPickingEnabled(false);
     if (!g_automap_state) {
@@ -627,10 +628,10 @@ unsigned char AutomapScreenEnter(void)
     unsigned int monster_count = gXStatus.monster_roster.live().size();
     for (unsigned int index = 0; index < monster_count; ++index) {
         W8MonsterInfo* monster = GetMonsterListEntry(index);
-        if (monster->p3D) monster->p3D->DetachRepresentation(g_world);
+        if (monster->p3D) monster->p3D->DetachRepresentation(g_world.get());
     }
     for (const auto& item : gXStatus.world_items) {
-        if (item->p3D) item->p3D->DetachMesh(g_world);
+        if (item->p3D) item->p3D->DetachMesh(g_world.get());
     }
     SetMouseMoveEventsEnabled(1);
     g_automap_cursor_inside = IsCursorInsideViewport();
@@ -845,11 +846,11 @@ void AutomapScreenFrame(void)
 
 void RestoreAutomapWorldSettings(void)
 {
-    SetWorldEnvironmentColour(g_world, g_automap_saved_ambient_light);
+    SetWorldEnvironmentColour(g_automap_saved_ambient_light);
     SetLightDirection(&g_automap_saved_light_direction);
-    RestoreWorldCameraState(GetWorld(), 0, &g_automap_saved_camera);
-    WorldSetFarClip(g_world, g_automap_saved_far_clip);
-    WorldSetRenderRange(g_world, g_automap_saved_world_value);
+    RestoreWorldCameraState(0, &g_automap_saved_camera);
+    WorldSetFarClip(g_world.get(), g_automap_saved_far_clip);
+    WorldSetRenderRange(g_world.get(), g_automap_saved_world_value);
     if (g_automap_saved_sky) EnableSky();
     SetRenderOption(W8_RENDER_OPTION_HIGH_TEXTURE_DETAIL, g_automap_saved_render_flags[0]);
     SetRenderOption(W8_RENDER_OPTION_MESH_SKY, g_automap_saved_render_flags[1]);
@@ -857,7 +858,7 @@ void RestoreAutomapWorldSettings(void)
     g_world_render_enabled = g_automap_saved_render_flags[3];
     g_world->camera->setRotation(0.0, 0.0, 0.0);
     g_world->camera->flags &= ~1ul;
-    SetWorldMeshVertexLightTable(g_world, 0);
+    SetWorldMeshVertexLightTable(0);
     g_light_update_flags |= 1u;
     SetResidentTexturePolicy(g_resident_texture_policy);
     SetWorldModelPickingEnabled(true);
@@ -869,7 +870,7 @@ unsigned char AutomapScreenLeave(int)
     SetNativeTextInputEnabled(false);
     RestoreAutomapWorldSettings();
     g_automap_state.reset();
-    MarkRendererReady();
+    g_renderer_ready = true;
     ResumeMainGameWorld();
     SetMouseMoveEventsEnabled(0);
     g_automap_surface.reset();
@@ -953,7 +954,7 @@ void SetAutomapCameraPoint(glm::vec3* position)
     g_automap_redraw = true;
     g_automap_overlay_redraw = true;
     if (g_world->octree != 0) {
-        MarkRendererReady();
+        g_renderer_ready = true;
         UpdateWorldMeshAfterLoad();
     }
 }
@@ -1104,12 +1105,12 @@ unsigned int LightPendingAutomapCells(unsigned int max_count)
 void RefreshDirtyAutomap(void)
 {
     if (g_automap_state != 0 && g_automap_state->pending_cell_lighting != 0) {
-        SetWorldMeshVertexLightTable(g_world, 1);
+        SetWorldMeshVertexLightTable(1);
         unsigned int lit = LightPendingAutomapCells(10);
         if (lit == 0) {
             g_automap_state->pending_cell_lighting = 0;
         }
-        SetWorldMeshVertexLightTable(g_world, 0);
+        SetWorldMeshVertexLightTable(0);
     }
 }
 

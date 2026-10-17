@@ -343,7 +343,6 @@ srCamera* CreateOrSetGameCamera(srNode* parent, srCamera* camera);
 float GetCameraYawInDegrees();
 float GetCameraYawRadians();
 float GetCameraPitchInDegrees();
-float GetCameraPitchRadians();
 void GetCameraOrientation(void* angle, void* pitch);
 void BeginManualCameraControl();
 void LevelCamera();
@@ -362,7 +361,7 @@ glm::vec3 ProjectVectorOntoVector(const glm::vec3& vector, const glm::vec3& onto
 /* 0x00421570: restore a saved yaw/pitch into the game camera, reading the
    world camera node's current rotation first and fetching the updated matrix
    (both into the same dead local in retail). */
-void RestoreWorldCameraOrientation(void* angle, void* pitch, W8World* world);
+void RestoreWorldCameraOrientation(void* angle, void* pitch);
 glm::vec3 cameraLocation();
 int GetCameraYawDegrees(void);
 /* 0x004215E0: point-visibility query through the world octree; false with no

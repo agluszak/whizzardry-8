@@ -33,7 +33,6 @@ float ComputeSightThreshold(glm::vec3 observer_position, glm::vec3 target_positi
 
 bool MonsterGroupHasVisibleThreat(W8MonsterGroup* group);
 bool IsSightRangeOverridden(void);
-bool MonsterHasProjectileOrigin(const W8MonsterInfo* monster);
 char GetMonsterSpellSightIndex(const W8MonsterInfo* monster);
 
 extern const float g_sight_default;

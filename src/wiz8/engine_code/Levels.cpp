@@ -155,10 +155,8 @@ void StartLevelMusic(int fade, int replace_current)
 // FUNCTION: WIZ8 0x0042b3e0
 void UnloadSkyWorld(void)
 {
-    W8World* world = GetSecondaryWorld();
-    if (world != 0) {
-        DestroyWorld(world);
-        SetSecondaryWorld(0);
+    if (g_secondary_world) {
+        DestroyWorld(g_secondary_world);
         g_loaded_sky_index = 0xff;
         ResetEnvironment();
     }
@@ -228,12 +226,6 @@ const char* GetLevelFolderName(int level_id)
     return g_level_folders[level_id].folder_name;
 }
 
-// FUNCTION: WIZ8 0x0042b580
-int GetLoadedLevelID(void)
-{
-    return g_status.current_level;
-}
-
 /* Load or replace the sky world for a level. A level whose sky index already
    matches the world held in g_secondary_world reuses it; a level with no sky
    (-1) only tears the previous one down. The replacement sky receives the
@@ -244,7 +236,6 @@ unsigned char LoadSkyWorld(int level, W8LevelInfo* info)
 {
     signed char sky_index;
     W8LevelInfo local_info;
-    W8World* sky_world;
 
     if (level < W8_LEVEL_COUNT) {
         sky_index = g_level_folders[level].sky_index;
@@ -260,20 +251,12 @@ unsigned char LoadSkyWorld(int level, W8LevelInfo* info)
         }
         info = &local_info;
     }
-    if (GetSecondaryWorld() != 0) {
-        DestroyWorld(GetSecondaryWorld());
-        SetSecondaryWorld(0);
-        g_loaded_sky_index = 0xff;
-        ResetEnvironment();
-    }
+    UnloadSkyWorld();
     if (sky_index == -1 || info->sky_path.empty()) {
         return 1;
     }
-    sky_world = CreateWorld();
-    g_secondary_world = sky_world;
-    if (sky_world == 0) {
-        return 0;
-    }
+    g_secondary_world = std::make_unique<W8World>();
+    W8World* sky_world = g_secondary_world.get();
     if (!LoadWorld(sky_world, info->sky_path, false)) {
         return 0;
     }
@@ -323,8 +306,8 @@ unsigned char LoadSkyWorld(int level, W8LevelInfo* info)
         }
     }
 
-    SetWorldSceneMeshShaderLowBits(GetSecondaryWorld(), 0);
-    SetWorldSceneMeshShaderBit3(GetSecondaryWorld(), 1);
+    SetWorldSceneMeshShaderLowBits(g_secondary_world.get(), 0);
+    SetWorldSceneMeshShaderBit3(g_secondary_world.get(), 1);
     WorldRemoveLight(sky_world, sky_world->camera_light);
     sky_world->camera_light = 0;
     g_loaded_sky_index = sky_index;
@@ -439,13 +422,10 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
     }
 
     DisableSky();
-    if (GetWorld() != 0) {
-        DestroyWorld(GetWorld());
-        SetCurrentWorld(0);
-    }
+    DestroyWorld(g_world);
     ReleaseReadMeshScratch();
     InvalidateRendererTextureCache();
-    SetCurrentWorld(CreateWorld());
+    g_world = std::make_unique<W8World>();
 
     previous_level = g_status.current_level;
     g_status.current_level = level;
@@ -457,7 +437,7 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
     InitializeMonsterManagerState();
     InitializeItemManagerState();
     ResetNextTriggerId();
-    if (!LoadWorld(GetWorld(), level_info.level_path, true)) {
+    if (!LoadWorld(g_world.get(), level_info.level_path, true)) {
         /* This is the complete canonical rollback here: restore the level ID.
            The already-installed replacement world is not destroyed. */
         g_status.current_level = previous_level;
@@ -491,7 +471,7 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
             if (fabs(position.y - trigger_position.y) > g_position_height_epsilon) {
                 position.y = trigger_position.y;
             }
-            SetWorldScenePosition(GetWorld(), &position);
+            SetWorldScenePosition(g_world.get(), &position);
 
             if (trigger->trigger_kind == 2) {
                 glm::vec3 axis;
@@ -510,10 +490,10 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
             glm::vec3 position;
 
             position = glm::vec3(0.0f, g_default_world_height, 0.0f);
-            SetWorldScenePosition(GetWorld(), &position);
+            SetWorldScenePosition(g_world.get(), &position);
         }
     } else {
-        RestoreWorldCameraState(GetWorld(), GetSecondaryWorld(), &g_status.pending_move_location);
+        RestoreWorldCameraState(g_secondary_world.get(), &g_status.pending_move_location);
     }
 
     if (level < W8_LEVEL_COUNT && !g_status.level_progress[level].visited) {
@@ -567,7 +547,7 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
         InitializeMonsterRuntimeStats();
         RebuildAllWorldItemInstances();
     }
-    MarkRendererReady();
+    g_renderer_ready = true;
     UpdateWorldMeshAfterLoad();
     ReleaseReadMeshScratch();
     return 1;
@@ -624,11 +604,7 @@ unsigned char UnloadLevel(const char* save_directory)
 
     ReleaseWorldCursor();
     DisableSky();
-    W8World* world = GetWorld();
-    if (world != 0) {
-        DestroyWorld(world);
-        SetCurrentWorld(0);
-    }
+    DestroyWorld(g_world);
     ReleaseReadMeshScratch();
 
     if (g_world_cleanup_flag) {
@@ -657,7 +633,7 @@ unsigned char ReloadLevelPreservingCamera(int level, int entrance)
 
     if (entrance == -1 && level == g_status.current_level) {
         GetCameraOrientation(saved_angle, saved_pitch);
-        saved_position = cameraLocationOrZero(*GetWorld());
+        saved_position = cameraLocationOrZero(*g_world.get());
         restore = true;
     }
     if (g_status.current_level != -1) {
@@ -669,8 +645,8 @@ unsigned char ReloadLevelPreservingCamera(int level, int entrance)
         return 0;
     }
     if (restore) {
-        RestoreWorldCameraOrientation(saved_angle, saved_pitch, GetWorld());
-        SetWorldScenePosition(GetWorld(), &saved_position);
+        RestoreWorldCameraOrientation(saved_angle, saved_pitch);
+        SetWorldScenePosition(g_world.get(), &saved_position);
     }
     return 1;
 }

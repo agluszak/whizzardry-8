@@ -23,7 +23,7 @@
 // FUNCTION: WIZ8 0x005063e0
 void PostNewGameLoad(void)
 {
-    SetFactNotificationsSuppressed(true);
+    g_fact_notifications_suppressed = true;
     AddDialogueTranscriptKeyword(g_localized_strings[0x7e7], 3);
     AddDialogueTranscriptKeyword(g_localized_strings[0x7e8], 3);
     SetFact(W8_FACT_FACTION_HIGARDI_FELLOW_FRIENDLY, 1, false);
@@ -33,7 +33,7 @@ void PostNewGameLoad(void)
     SetFact(W8_FACT_DRAZIC_LOCKED_IN_CAGE, 1, false);
     SetFact(W8_FACT_NARGISST_MONITOR_OVERFLOW_ON, 1, false);
     SetFact(W8_FACT_FACTION_RATTKIN_COMMON_FRIENDLY, 1, false);
-    SetFactNotificationsSuppressed(false);
+    g_fact_notifications_suppressed = false;
 }
 
 /* Reads the fact array back, then re-applies the consequences that do not

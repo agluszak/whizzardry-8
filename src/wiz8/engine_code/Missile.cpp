@@ -289,7 +289,7 @@ void GetCharacterProjectilePosition(unsigned int character_index, glm::vec3* pos
         (character_index & 1) ? -75.0f : 75.0f,
         kCharacterProjectileHeight - character_index * 0.5f * kCharacterProjectileHeightStep, 0);
     const auto yaw = GetCameraYawRadians() - g_monster_rotation_offset;
-    const auto pitch = -GetCameraPitchRadians();
+    const auto pitch = -g_gd_camera->m_pitch;
     *position = camera + glm::rotateY(glm::rotateX(offset, pitch), yaw);
 }
 
@@ -370,7 +370,7 @@ W8Missile* FireMissile(unsigned int missile_table_index, glm::vec3* source, glm:
 W8Missile* AllocateMissile(int missile_table_index)
 {
     W8GrCycleLoadContext context;
-    context.world = g_world;
+    context.world = g_world.get();
     context.directory = "Data\\Spells\\Bitmaps";
     auto owner =
         LoadMissileCycle(&context, g_missile_table[missile_table_index].cycle_name.c_str());

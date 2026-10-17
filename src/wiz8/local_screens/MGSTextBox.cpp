@@ -198,7 +198,9 @@ void ResetEditorStatusLine(short line)
 static short ResolveNoticeTextBox(short text_box)
 {
     if (text_box == W8_NOTICE_TEXT_BOX_AUTOMATIC) {
-        if ((gXStatus.fNpcDialogueMode && !CanOpenNpcDialogue()) || gXStatus.fCampMode) {
+        if ((gXStatus.fNpcDialogueMode &&
+             !(gXStatus.fNpcDialogueMode && g_npc_interaction_state->scripted_dialogue)) ||
+            gXStatus.fCampMode) {
             return IsNpcDialogueTextBoxActive() ? 0 : 2;
         }
 
@@ -403,12 +405,6 @@ void ReleaseMessageStorage(void)
     }
 }
 
-/* How many lines the text box can still be scrolled through. */
-int GetTextBoxScrollRange(void)
-{
-    return g_level_block->text_box_right - g_level_block->text_box_left;
-}
-
 /* Write the four message runs into the open TEXT chunk: a format dword, then
    per region the used-line count followed by each 0x24-byte record and its
    wide string. The record's first word is the string count including its
@@ -526,12 +522,6 @@ try {
     return false;
 }
 
-/* The selected wrapped-line start for one text box. NPC trade uses box 2. */
-int GetSelectedTextLine(int index)
-{
-    return g_level_block->selected_text_lines[index];
-}
-
 /* Clear one box's hover or selection highlight and request a repaint. */
 void ClearHoveredTextLine(int index)
 {
@@ -549,12 +539,6 @@ void ClearSelectedTextLine(int index)
 void RedrawTextBox(void)
 {
     RequestRedraw(W8_MAIN_REDRAW_TEXT_BOX);
-}
-
-/* The font the main-game text box measures and draws with. */
-Font& GetTextBoxFont(void)
-{
-    return *g_level_block->text_box_font;
 }
 
 /* Whether the line the cursor is on has anything on it. */
@@ -1330,17 +1314,6 @@ void SetHoveredTextLine(int line, int index)
 {
     SelectWrappedTextLine(line, index, g_level_block->hovered_text_lines);
 }
-
-void ClearTextLineEntry(int index)
-{
-    g_level_block->text_lines[index] = 0;
-}
-
-int GetHoveredTextLine(int index)
-{
-    return g_level_block->hovered_text_lines[index];
-}
-
 void SetSelectedTextLine(int line, int index)
 {
     SelectWrappedTextLine(line, index, g_level_block->selected_text_lines);
@@ -1499,7 +1472,9 @@ void RefreshTextBoxMode(unsigned short mode)
         return;
     }
     if (mode == 0xffff) {
-        if ((!gXStatus.fNpcDialogueMode || CanOpenNpcDialogue()) && !gXStatus.fCampMode) {
+        if ((!gXStatus.fNpcDialogueMode ||
+             (gXStatus.fNpcDialogueMode && g_npc_interaction_state->scripted_dialogue)) &&
+            !gXStatus.fCampMode) {
 
             mode = gXStatus.fCombatMode;
 

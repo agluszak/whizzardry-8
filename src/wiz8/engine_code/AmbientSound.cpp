@@ -421,7 +421,7 @@ W8AmbientSound* W8AmbientSound::FindNextMatching(const char* match_name, W8Ambie
         }
     }
     for (; index < count; ++index) {
-        W8AmbientSound* candidate = GetWorldAmbientSound(g_world, index);
+        W8AmbientSound* candidate = GetWorldAmbientSound(g_world.get(), index);
         if (candidate != 0 && candidate != this && candidate->shared != 0 &&
             SDL_strcasecmp(candidate->config.wave_name, match_name) == 0) {
             return candidate;
@@ -566,16 +566,16 @@ void BuildFootstepPath(char* path, signed char surface, signed char material, ch
 }
 
 // FUNCTION: WIZ8 0x0047a600
-void RepositionAmbientSounds(W8World* world)
+void RepositionAmbientSounds()
 {
-    if (world != 0) {
+    if (g_world != nullptr) {
         int count;
         int index;
 
         ServiceRandomAmbients();
-        count = static_cast<int>(world->plsAmbientSounds.size());
+        count = static_cast<int>(g_world->plsAmbientSounds.size());
         for (index = 0; index < count; ++index) {
-            W8AmbientSound* sound = GetWorldAmbientSound(world, index);
+            W8AmbientSound* sound = GetWorldAmbientSound(g_world.get(), index);
             if (sound != 0) {
                 glm::vec3 position = cameraLocation();
                 sound->UpdatePosition(&position);
@@ -639,7 +639,7 @@ static W8AmbientSound* FindAmbientSoundByName(const char* name)
     int index;
 
     for (index = 0; index < count; ++index) {
-        W8AmbientSound* sound = GetWorldAmbientSound(g_world, index);
+        W8AmbientSound* sound = GetWorldAmbientSound(g_world.get(), index);
         if (!sound->name.empty() && SDL_strcasecmp(sound->name.c_str(), name) == 0) {
             return sound;
         }
@@ -681,7 +681,7 @@ void StopAmbientSoundByName(W8World* /* unused */, const char* name)
 }
 
 // FUNCTION: WIZ8 0x0047aa70
-void ToggleAmbientSoundByName(W8World* /* unused */, const char* name)
+void ToggleAmbientSoundByName(const char* name)
 {
     W8AmbientSound* sound = FindAmbientSoundByName(name);
     if (sound != 0) {
@@ -746,7 +746,7 @@ void SetSoundEffectsVolume(unsigned char volume)
     if (g_world != 0) {
         count = static_cast<int>(g_world->plsAmbientSounds.size());
         for (index = 0; index < count; ++index) {
-            W8AmbientSound* sound = GetWorldAmbientSound(g_world, index);
+            W8AmbientSound* sound = GetWorldAmbientSound(g_world.get(), index);
             if (sound != 0) {
                 if (sound->sound_handle != nullptr) {
                     unsigned int adjusted =
@@ -760,7 +760,7 @@ void SetSoundEffectsVolume(unsigned char volume)
         }
         Update3DSounds();
     }
-    world = GetWorld();
+    world = g_world.get();
     if (world != 0) {
         ServiceRandomAmbients();
         count = static_cast<int>(world->plsAmbientSounds.size());
@@ -773,12 +773,6 @@ void SetSoundEffectsVolume(unsigned char volume)
         }
         UpdateAmbientSounds(world);
     }
-}
-
-// FUNCTION: WIZ8 0x0047ae70
-unsigned char GetSoundEffectsVolume(void)
-{
-    return g_settings.sound_effects_volume;
 }
 
 // FUNCTION: WIZ8 0x0047ae80

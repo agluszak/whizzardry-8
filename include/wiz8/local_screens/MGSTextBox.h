@@ -86,18 +86,10 @@ void SetTextBoxMuteInput(bool enabled);
 
 /* Reset one editor status line; -1 selects the current line. */
 void ResetEditorStatusLine(short line);
-/* The font currently bound to the main text box. */
-Font& GetTextBoxFont(void);
-/* Clear one text_lines slot on the level block. */
-void ClearTextLineEntry(int index);
 
 void ReleaseMessageStorage(void);
 char TextBoxHandleKey(const InputEvent* event);
-int GetSelectedTextLine(int index);
 void ClearSelectedTextLine(int index);
-/* Hover and selection track one wrapped-line start per box. Set operations
-   snap a visible wrapped index back to its entry's first line. */
-int GetHoveredTextLine(int index);
 void ClearHoveredTextLine(int index);
 void SetHoveredTextLine(int line, int box);
 void SetSelectedTextLine(int line, int box);
@@ -135,8 +127,6 @@ void AppendToLastTextLine(std::string_view text, short text_box);
 /* Wrapped line count of the notice ShowNotice last displayed;
    only maintained while game_status.quote_audit is raised. */
 extern int g_notice_line_count;
-/* The number of lines the notice pane can scroll. */
-int GetTextBoxScrollRange(void);
 void PostCharacterNotice(int party_slot, std::string_view text, int context = -1);
 void PostMonsterNotice(W8MonsterInfo* monster_info, std::string_view text);
 void ScrollTextBoxTo(int line);

@@ -3,8 +3,6 @@
 #include "wiz8/layouts/levels.h"
 
 extern W8LevelFolderRecord g_level_folders[W8_LEVEL_COUNT];
-
-int GetLoadedLevelID(void);
 const char* GetLevelFolderName(int level_id);
 unsigned char GetLevelLocationCode(int level_id, char* location_code);
 int FindLevelIdByLocationCode(const char* location_code);

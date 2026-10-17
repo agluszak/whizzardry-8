@@ -318,8 +318,6 @@ public:
 
 extern std::unique_ptr<W8OptionsScreen> g_options_screen;
 extern std::string g_options_last_save_name;
-
-void SetLastSaveName(std::string_view target);
 std::string_view GetLastSaveName(void);
 
 unsigned char OptionsScreenEnter(void);

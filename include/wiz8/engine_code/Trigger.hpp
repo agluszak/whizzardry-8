@@ -304,11 +304,11 @@ std::unique_ptr<W8TriggerActionData> ReadDoorTriggerActionData(wiz8::File* handl
 /* The TRES save chunk: the world's triggers, their runtime states, and their
    action data. */
 int ResetNextTriggerId(void);
-void SaveWorldTriggers(W8World* world, wiz8::File& handle);
-bool LoadWorldTriggers(W8World* world, wiz8::File& handle);
-void SaveTriggerRuntimeStates(W8World* world, wiz8::File& handle, bool restoring);
+void SaveWorldTriggers(wiz8::File& handle);
+bool LoadWorldTriggers(wiz8::File& handle);
+void SaveTriggerRuntimeStates(wiz8::File& handle, bool restoring);
 bool LoadTriggerRuntimeStates(wiz8::File& handle);
-void SaveTriggerActionData(W8World* world, wiz8::File& handle);
+void SaveTriggerActionData(wiz8::File& handle);
 bool LoadTriggerActionData(wiz8::File& handle);
 
 extern bool g_trigger_feedback;
@@ -323,7 +323,7 @@ extern int g_trap_notice_event;
 extern int g_lock_notice_event;
 extern int g_container_event;
 
-bool AnyPropTriggerInView(W8World* world);
+bool AnyPropTriggerInView();
 
 void UpdateWorldTriggers(W8World* world);
 Trigger* FindTriggerForProp(W8World* world, W8Prop* prop);

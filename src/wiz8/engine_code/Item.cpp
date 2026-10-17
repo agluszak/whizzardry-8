@@ -369,7 +369,7 @@ void W8Item::SetHighlight(bool enabled)
 // FUNCTION: WIZ8 0x0049FF40
 bool W8Item::IsSelected()
 {
-    srModelInstance* selected = GetPickedModelInstance();
+    srModelInstance* selected = g_current_model_instance;
     return selected == static_cast<W8ItemRep*>(m_pRep)->m_psrMesh.get();
 }
 

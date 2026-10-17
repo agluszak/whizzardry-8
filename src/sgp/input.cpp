@@ -90,7 +90,7 @@ void handle_key(const SDL_KeyboardEvent& event)
     if (key == SDLK_UNKNOWN || (key >= SDLK_LCTRL && key <= SDLK_RGUI)) return;
     if (key == SDLK_PRINTSCREEN) {
         if (!down) {
-            PrintScreen();
+            g_screenshot_pending = true;
         }
         return;
     }

@@ -296,7 +296,7 @@ static unsigned char WorldCursorNodeShowMessageOnce(int command, W8WorldCursorNo
 
     result = false;
     message_id = node->parameters[0];
-    folder = GetLevelFolderName(GetLoadedLevelID());
+    folder = GetLevelFolderName(g_status.current_level);
     type = node->parameters[2];
     enabled = static_cast<unsigned char>(node->parameters[1]);
     if (enabled != 0 && g_status.search_mode == 0 && g_status.party_modifiers.detect_secrets == 0) {
@@ -342,7 +342,7 @@ static unsigned char WorldCursorNodeShowContextMessage(int command, W8WorldCurso
     std::string path;
     std::string text;
 
-    folder = GetLevelFolderName(GetLoadedLevelID());
+    folder = GetLevelFolderName(g_status.current_level);
     if (command != 4) {
         return 0;
     }
@@ -370,7 +370,7 @@ static unsigned char WorldCursorNodeShowMessage(int command, W8WorldCursorNode* 
     std::string path;
     std::string text;
 
-    folder = GetLevelFolderName(GetLoadedLevelID());
+    folder = GetLevelFolderName(g_status.current_level);
     if (command != 3) {
         return 0;
     }
@@ -504,7 +504,7 @@ void LoadAwayCampChest(void)
     W8WorldItem* pContainer;
     int index;
 
-    pChest = FindPropByName(g_world, "AwayCampChest");
+    pChest = FindPropByName(g_world.get(), "AwayCampChest");
     if (pChest == 0) {
         srAssertFail("pChest", __FILE__, __LINE__, 0);
     }
@@ -566,7 +566,7 @@ unsigned char ShowLevelMessage(int message_id)
     std::string path;
     std::string text;
 
-    folder = GetLevelFolderName(GetLoadedLevelID());
+    folder = GetLevelFolderName(g_status.current_level);
     if (folder == 0) {
         folder = "Test";
     }

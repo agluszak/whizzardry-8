@@ -135,7 +135,7 @@ void EnsureRadarMapOverlay(void)
         bounds.bottom = 0x1c2;
         g_radar_backdrop = CreateSpriteFromSurface(GetFrameBufferSurface(), &bounds, 0, 1);
         Position2DNodeUnsnapped(g_radar_backdrop, 0x17, 0x166);
-        SetModelInstance2DDisplayState(g_radar_backdrop, 4);
+        g_radar_backdrop->render_state.display_state = 4;
     }
 }
 
@@ -240,13 +240,13 @@ void RefreshRadarMap(void)
 
     g_radar_compass = CreateSpriteFromSurface(*compass_surface, 0, 1, 1);
     Position2DNodeUnsnapped(g_radar_compass, 0x1e, 0x167);
-    SetModelInstance2DDisplayState(g_radar_compass, 4);
+    g_radar_compass->render_state.display_state = 4;
     g_radar_frame = CreateSpriteFromSurface(*frame_surface, 0, 1, 1);
     Position2DNodeUnsnapped(g_radar_frame, 0x1e, 0x167);
-    SetModelInstance2DDisplayState(g_radar_frame, 4);
+    g_radar_frame->render_state.display_state = 4;
     g_radar_map = CreateSpriteFromSurface(*map_surface, 0, 1, 1);
     Position2DNodeUnsnapped(g_radar_map, 0x1e, 0x167);
-    SetModelInstance2DDisplayState(g_radar_map, 4);
+    g_radar_map->render_state.display_state = 4;
 
     for (sector = 0; sector < 18; ++sector) {
         glm::vec4 color;
@@ -321,7 +321,7 @@ void UpdateRadarBlips(void)
             if (gXStatus.fCombatMode && g_status.selected_character != -1 &&
                 g_status.buffers.XChar[g_status.selected_character].fOccupied != 0 &&
                 (static_cast<unsigned char>(1 << g_status.selected_character) &
-                 MonsterGetHighlightMask(monster)) != 0) {
+                 monster->m_pRep->highlight_mask) != 0) {
                 hostile = true;
             }
             if (!monster->IsRenderable(true) && !detect_all) {

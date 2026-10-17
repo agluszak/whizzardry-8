@@ -27,6 +27,7 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/message_box.h"
@@ -151,7 +152,8 @@ W8NpcSubquoteOutcome SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char sub
             HoldNpcSpeech(g_speech, wiz8::text::grapheme_count(display_text) * 60 + 2000);
             return W8NpcSubquoteOutcome::presented;
         }
-        ShowNotice(W8_FONT_PALETTE_TEXT_BOX, display_text, 0, GetTextBoxScrollRange());
+        ShowNotice(W8_FONT_PALETTE_TEXT_BOX, display_text, 0,
+                   (g_level_block->text_box_right - g_level_block->text_box_left));
         return W8NpcSubquoteOutcome::presented;
     }
 
@@ -235,7 +237,8 @@ W8NpcSubquoteOutcome SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char sub
     }
     prefixed_text = fmt::format("{}: {}", speaker->record->source_name, display_text);
     display_text = prefixed_text;
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, display_text, 0, GetTextBoxScrollRange());
+    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, display_text, 0,
+               (g_level_block->text_box_right - g_level_block->text_box_left));
     return W8NpcSubquoteOutcome::presented;
 }
 

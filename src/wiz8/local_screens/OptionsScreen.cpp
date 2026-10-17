@@ -538,7 +538,7 @@ void W8OptionsSaveLoadPanel::LoadSelectedSave()
     int selected_slot = m_current * 5 + 1 + m_selected;
     W8SaveSlot& slot = *g_options_screen->m_save_slots[selected_slot];
     if (slot.version_major + slot.version_minor * 0.1f + slot.version_patch * 0.01f <= 1.24f) {
-        SetLastSaveName(slot.name);
+        g_options_last_save_name = slot.name;
         if (g_status.game_started) {
             ClearHeldItemDisplay();
         }
@@ -546,7 +546,7 @@ void W8OptionsSaveLoadPanel::LoadSelectedSave()
         g_pending_screen_state.mode = 1;
         g_pending_screen_state.parameter = slot.level_id;
         g_pending_screen_state.name = slot.name;
-        SetPendingScreenState(W8_SCREEN_PLEASE_WAIT);
+        g_pending_screen_state.id = W8_SCREEN_PLEASE_WAIT;
     }
 }
 
@@ -560,7 +560,7 @@ void W8OptionsSaveLoadPanel::SaveSelectedSave(std::string_view previous_name)
         return;
     }
 
-    SetLastSaveName(slot.name);
+    g_options_last_save_name = slot.name;
     RequestScreenTransition();
     g_pending_screen_state.mode = 2;
     g_pending_screen_state.name = slot.name;
@@ -571,7 +571,7 @@ void W8OptionsSaveLoadPanel::SaveSelectedSave(std::string_view previous_name)
         SDL_strcasecmp(old_name.c_str(), slot.name.c_str()) == 0 ? std::string() : old_name;
     g_pending_screen_state.parameter_3 =
         new W8SaveScreenshot(g_options_screen->m_save_slots[0]->screenshot);
-    SetPendingScreenState(W8_SCREEN_PLEASE_WAIT);
+    g_pending_screen_state.id = W8_SCREEN_PLEASE_WAIT;
 }
 
 W8OptionsSaveRow::W8OptionsSaveRow(UiLayer& layer, W8OptionsSaveLoadPanel& owner, int index,
@@ -1804,8 +1804,8 @@ void OptionsScreenFrame()
     if (g_dev_mode) {
         RequestExitScreen();
     }
-    RepositionAmbientSounds(g_world);
-    UpdateAmbientSounds(g_world);
+    RepositionAmbientSounds();
+    UpdateAmbientSounds(g_world.get());
     ServiceMusicPlaylist();
     W8OptionsScreen* screen = g_options_screen.get();
 
@@ -1849,12 +1849,6 @@ void OptionsScreenFrame()
     }
     RenderFrame();
 }
-
-void SetLastSaveName(std::string_view target)
-{
-    g_options_last_save_name = target;
-}
-
 std::string_view GetLastSaveName(void)
 {
     return g_options_last_save_name;

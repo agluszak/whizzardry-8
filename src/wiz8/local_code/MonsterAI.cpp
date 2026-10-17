@@ -196,7 +196,7 @@ void UpdateMonsterGroups(bool staggered)
     if (!staggered) {
         UpdateMonsterSight();
     }
-    camera_position = cameraLocation(*GetWorld());
+    camera_position = cameraLocation(*g_world.get());
     for (group_list_index = 0; group_list_index < gXStatus.monster_groups.size();
          ++group_list_index) {
         if (staggered && group_list_index % 5 != g_monster_group_tick % 5) {
@@ -212,12 +212,12 @@ void UpdateMonsterGroups(bool staggered)
         }
         nearest_distance = GetGroupNearestDistance(monster_group);
         if (staggered && group_list_index % 20 != g_monster_group_tick % 20 &&
-            (WorldGetFarClip(GetWorld()) < nearest_distance ||
+            (WorldGetFarClip(g_world.get()) < nearest_distance ||
              group_list_index % 5 != g_monster_group_tick % 5)) {
             continue;
         }
         if (!monster_group->members_active) {
-            if (nearest_distance < WorldGetFarClip(GetWorld()) * 1.5f) {
+            if (nearest_distance < WorldGetFarClip(g_world.get()) * 1.5f) {
                 LoadMonsterGroupMembers(monster_group);
             }
         }
@@ -226,7 +226,7 @@ void UpdateMonsterGroups(bool staggered)
             if (monster_group->leader_group_id == 0) {
                 RefreshMonsterGroupHostility(monster_group);
             }
-            far_clip = WorldGetFarClip(GetWorld());
+            far_clip = WorldGetFarClip(g_world.get());
             if (nearest_distance <= far_clip + far_clip) {
                 if (!gXStatus.fCombatMode && MonsterGroupCanEngage(monster_group)) {
                     MonsterGroupEnterCombat(monster_group);

@@ -114,7 +114,7 @@ void InitializeWorldCursor(void)
         gp3DCursor->footprint_mode = false;
         gp3DCursor->dragged_info = 0;
         context.directory = "Data\\Monsters";
-        context.world = g_world;
+        context.world = g_world.get();
         auto monster = LoadMonsterCycle(&context, "3DCursor", -1, 1);
         gp3DCursor->monster = monster.get();
         g_world->monsters.push_back(std::move(monster));
@@ -130,9 +130,9 @@ void InitializeWorldCursor(void)
         position = gp3DCursor->position;
         MonsterSetAdjustedPosition(gp3DCursor->monster, &position);
         g_world->active_monsters.push_back(gp3DCursor->monster);
-        UpdateCycleRepresentation(gp3DCursor->monster, g_world);
+        UpdateCycleRepresentation(gp3DCursor->monster);
         MonsterSetActive(gp3DCursor->monster, false);
-        gp3DCursor->light = CreateRangedWorldLight(g_world, "3D Cursor Light");
+        gp3DCursor->light = CreateRangedWorldLight(g_world.get(), "3D Cursor Light");
         gp3DCursor->light->intensity = 1.0f;
         ConfigureWorldLight(gp3DCursor->light, 2500.0f);
         gp3DCursor->light->ambient = glm::vec3(0);
@@ -218,12 +218,12 @@ void ReleaseWorldCursor(void)
     delta = cursor->position - camera;
     g_cursor_projection_distance = glm::length(delta);
 
-    DetachMonsterRepresentation(cursor->monster, g_world);
-    DestroyWorldMonster(g_world, cursor->monster);
+    DetachMonsterRepresentation(cursor->monster);
+    DestroyWorldMonster(cursor->monster);
     ReleaseRendererObject(cursor->particle);
     ReleaseRendererObject(g_cursor_value);
     if (cursor->light != 0) {
-        WorldRemoveLight(g_world, cursor->light);
+        WorldRemoveLight(g_world.get(), cursor->light);
         cursor->light = 0;
     }
     cursor->group_bind_pending = false;
@@ -331,19 +331,19 @@ void ApplyWorldCursorInput(void)
         lifted = gp3DCursor->position;
         MonsterSetAdjustedPosition(gp3DCursor->monster, &lifted);
         if (g_cursor_node0 != 0) {
-            node_location = glm::dvec3((*(&gp3DCursor->position)));
+            node_location = glm::dvec3(gp3DCursor->position);
             g_cursor_node0->setLocation(node_location);
         }
         if (g_cursor_value != 0) {
-            node_location = glm::dvec3((*(&gp3DCursor->position)));
+            node_location = glm::dvec3(gp3DCursor->position);
             g_cursor_value->setLocation(node_location);
         }
         if (gp3DCursor->particle != 0) {
-            node_location = glm::dvec3((*(&gp3DCursor->position)));
+            node_location = glm::dvec3(gp3DCursor->position);
             gp3DCursor->particle->setLocation(node_location);
         }
         if (gp3DCursor->light != 0) {
-            node_location = glm::dvec3((*(&gp3DCursor->position)));
+            node_location = glm::dvec3(gp3DCursor->position);
             gp3DCursor->light->setLocation(node_location);
         }
         if (gp3DCursor->dragged_info != 0) {

@@ -429,15 +429,6 @@ W8PathAI* AnimObjListEntry(W8AnimObj* animation, signed char list_index, signed 
     return paths[entry_index].get();
 }
 
-// FUNCTION: WIZ8 0x004a1dc0
-bool AnimationIsRunning(W8AnimObj* animation)
-{
-    if (animation == 0) {
-        srAssertFail("pao", ANIM_OBJ_CPP, 0x3b1, 0);
-    }
-    return animation->path_lists;
-}
-
 // FUNCTION: WIZ8 0x004a14d0
 srModelInstance* AnimObjDispatch(W8AnimObj* animation, signed char list_index, unsigned char value)
 {

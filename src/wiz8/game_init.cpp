@@ -88,13 +88,13 @@ unsigned char InitializeGame(size_t& initialized_screens)
     if (!InitializeLevelDatabase()) {
         return 0;
     }
-    SetPendingScreenState(W8_SCREEN_INTRO);
+    g_pending_screen_state.id = W8_SCREEN_INTRO;
     g_status.current_level = -1;
     if (const auto save = gfLoadAtStartup ? FindStartupQuickSave() : std::nullopt) {
         g_pending_screen_state.name = *save;
         g_pending_screen_state.mode = 1;
         g_pending_screen_state.parameter = GetSaveGameLevel(g_pending_screen_state.name);
-        SetPendingScreenState(W8_SCREEN_PLEASE_WAIT);
+        g_pending_screen_state.id = W8_SCREEN_PLEASE_WAIT;
     }
     InitializeEncounterTables();
     if (!LoadMissileDatabase()) {

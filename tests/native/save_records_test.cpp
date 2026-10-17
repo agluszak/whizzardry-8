@@ -517,7 +517,7 @@ static void animation_record_contracts()
         REQUIRE((AnimObjReadFromFile(&info, animation.get(), 0, nullptr, 0)));
         REQUIRE((animation->animation_playing == (flag != 0)));
         REQUIRE((animation->random_play == (flag != 0)));
-        REQUIRE((AnimationIsRunning(animation.get()) == (flag != 0)));
+        REQUIRE((((animation.get())->path_lists) == (flag != 0)));
         REQUIRE((animation->frame_bounds.size() == 2));
         const auto bounds = AnimObjGetBounds(animation.get(), 0, 1);
         REQUIRE(bounds);
@@ -613,7 +613,7 @@ static void animated_mesh_cache_contracts()
             REQUIRE((g_animesh_cache_list.size() == 2));
             g_animesh_cache_limit = old_bytes;
             EnforceAniMeshMemoryLimit(&original); // All candidates protected: no invalid erase.
-            REQUIRE((copy.flags.loaded));
+            REQUIRE(copy.flags.loaded);
             copy.flags.cache_protected = false;
             EnforceAniMeshMemoryLimit(&original);
             REQUIRE((!copy.flags.loaded && original.flags.loaded));

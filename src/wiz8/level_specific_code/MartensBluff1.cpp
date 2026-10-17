@@ -80,7 +80,7 @@ void MartensBluff1Setup(void)
         CreateLocationVar("DialState", 0x470111);
     }
     MartensBluff1Transporter(static_cast<int>(0xEFFFFFFF));
-    position = glm::vec3(GetWorld()->camera->getLocation());
+    position = glm::vec3(g_world->camera->getLocation());
     pTrigger = FindTriggerByName("MR101");
     if (pTrigger != 0 && (pTrigger->flags & W8_TRIGGER_POSITIONED) != 0) {
         pTrigger->GetPosition(&trigger_position);
@@ -97,7 +97,7 @@ void MartensBluff1Setup(void)
         if (GetLocationVarIDByName("DialState") != -1) {
             dial_state = GetLocationVarValueByName("DialState");
         }
-        particle = FindParticleByName(g_world, "GasSpray-00");
+        particle = FindParticleByName("GasSpray-00");
         if (particle != 0) {
             if ((dial_state & 0xf0000000) == 0) {
                 particle->SetActive(0);
@@ -107,7 +107,7 @@ void MartensBluff1Setup(void)
                     "Data\\Sound\\Ambients\\Air_Escaping_Loop.wav", position, 0.3f, 30.0f, true);
             }
         }
-        particle = FindParticleByName(g_world, "GasSpray-01");
+        particle = FindParticleByName("GasSpray-01");
         if (particle != 0) {
             if ((dial_state & 0xf0000000) == 0) {
                 particle->SetActive(0);
@@ -202,11 +202,11 @@ bool MartensBluff1GasSwitch(Trigger* pTrigger)
         return true;
     }
     state = (state & 0xfff0fff) | 0x1000;
-    particle = FindParticleByName(g_world, "GasSpray-00");
+    particle = FindParticleByName("GasSpray-00");
     if (particle != 0) {
         particle->SetActive(0);
     }
-    particle = FindParticleByName(g_world, "GasSpray-01");
+    particle = FindParticleByName("GasSpray-01");
     if (particle != 0) {
         particle->SetActive(0);
     }
@@ -243,21 +243,21 @@ bool MartensBluff1JDoorController(Trigger* pTrigger)
         return false;
     }
     g_trigger_feedback = true;
-    particle = FindParticleByName(g_world, "GasSpray-00");
+    particle = FindParticleByName("GasSpray-00");
     if (particle != 0) {
         particle->SetActive(1);
         position = glm::vec3(particle->getLocation());
         g_gas_sound0 = CreateAndPlaySoundNode("Data\\Sound\\Ambients\\Air_Escaping_Loop.wav",
                                               position, 0.3f, 30.0f, true);
     }
-    particle = FindParticleByName(g_world, "GasSpray-01");
+    particle = FindParticleByName("GasSpray-01");
     if (particle != 0) {
         particle->SetActive(1);
         position = glm::vec3(particle->getLocation());
         g_gas_sound1 = CreateAndPlaySoundNode("Data\\Sound\\Ambients\\Air_Escaping_Loop.wav",
                                               position, 0.3f, 30.0f, true);
     }
-    position = glm::vec3(GetWorld()->camera->getLocation());
+    position = glm::vec3(g_world->camera->getLocation());
     PointCastSpell(position, W8_SPELL_FREEZE_FLESH, 5);
     state |= 0x10000000;
     SetTriggerVariableByName("DialState", state);

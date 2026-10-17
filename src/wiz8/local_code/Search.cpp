@@ -214,7 +214,7 @@ void RunSearchPulse(void)
 {
     if (TimeUntilDeadline(g_search_pulse_clock) == 0) {
         g_search_pulse_clock = w8_get_ticks() + (500);
-        if (GetEnvironmentFlag() != 0 && !gXStatus.world_update_blocked &&
+        if (g_environment_time_enabled != 0 && !gXStatus.world_update_blocked &&
             !gXStatus.fSurprisePossible && !gXStatus.fLockInteractMode &&
             !LockInteractionSuspended() && !gXStatus.fTrapInteractMode &&
             !TrapInteractionSuspended()) {
@@ -250,7 +250,7 @@ void RunSearchPulse(void)
                                 int message = searchable->trigger->m_lData1;
                                 found = true;
                                 if (message >= 0) {
-                                    const char* folder = GetLevelFolderName(GetLoadedLevelID());
+                                    const char* folder = GetLevelFolderName(g_status.current_level);
                                     if (folder == 0) {
                                         folder = "Test";
                                     }

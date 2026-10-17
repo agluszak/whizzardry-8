@@ -355,8 +355,8 @@ void SetSkyEnabled(bool enabled)
             return;
         }
         g_world->camera->setEnvironmentRange(
-            static_cast<float>(WorldGetFarClip(g_world)) * g_world->environment_range_start,
-            static_cast<float>(WorldGetFarClip(g_world)) * g_world->environment_range_end);
+            static_cast<float>(WorldGetFarClip(g_world.get())) * g_world->environment_range_start,
+            static_cast<float>(WorldGetFarClip(g_world.get())) * g_world->environment_range_end);
         return;
     }
 
@@ -368,7 +368,7 @@ void SetSkyEnabled(bool enabled)
     if (g_world == 0 || g_world->camera == 0) {
         return;
     }
-    g_world->camera->setEnvironmentRange(0.0f, static_cast<float>(WorldGetFarClip(g_world)));
+    g_world->camera->setEnvironmentRange(0.0f, static_cast<float>(WorldGetFarClip(g_world.get())));
 }
 
 /* The far plane the world is drawn to. */
@@ -382,31 +382,6 @@ void SetViewDistance(float distance)
 float GetViewDistance(void)
 {
     return g_view_distance;
-}
-
-// FUNCTION: WIZ8 0x00482a10
-unsigned char GetEnvironmentFlag(void)
-{
-    return g_environment_time_enabled;
-}
-
-// FUNCTION: WIZ8 0x004842f0
-int GetEnvironmentValue(void)
-{
-    return g_environment_lighting_mode;
-}
-
-/* Fog, which is a plain flag with a matched pair of accessors. */
-// FUNCTION: WIZ8 0x00482e80
-void SetFogEnabled(bool enabled)
-{
-    g_fog_enabled = enabled;
-}
-
-// FUNCTION: WIZ8 0x00482e90
-bool IsFogEnabled(void)
-{
-    return g_fog_enabled;
 }
 
 /* Turn the sky on, then catch the light direction up: advance the clock by the
@@ -433,7 +408,7 @@ void RefreshEnvironment(void)
     unsigned int phase = ((g_status.game_time_ms / 1000U) << 8) / 86400U;
     if (phase != static_cast<unsigned int>(g_last_environment_colour_phase)) {
         glm::vec3 colour = g_environment_colours0[phase];
-        SetWorldEnvironmentColour(g_world, colour);
+        SetWorldEnvironmentColour(colour);
         g_last_environment_colour_phase = static_cast<int>(phase);
     }
 }
@@ -501,14 +476,14 @@ void BeginWorldLightingFade(float duration)
         g_world_blacked_out = false;
         g_monster_light_scale = 1.0f;
 
-        world = g_world;
+        world = g_world.get();
         intensity = world->environment_base_intensity;
         if (world == 0) {
             srAssertFail("pWorld", ENVIRONMENT_CPP, 0x298, 0);
         }
         intensity = ApplyWorldLightingIntensity(world, intensity);
 
-        world = g_secondary_world;
+        world = g_secondary_world.get();
         if (world != 0) {
             intensity = world->environment_base_intensity;
             intensity = ApplyWorldLightingIntensity(world, intensity);
@@ -559,14 +534,14 @@ void UpdateEnvironmentLighting(void)
     }
     g_monster_light_scale = scale;
 
-    world = g_world;
+    world = g_world.get();
     intensity = scale * world->environment_base_intensity;
     if (world == 0) {
         srAssertFail("pWorld", ENVIRONMENT_CPP, 0x298, 0);
     }
     intensity = ApplyWorldLightingIntensity(world, intensity);
 
-    world = g_secondary_world;
+    world = g_secondary_world.get();
     if (world != 0) {
         float secondary = scale * world->environment_base_intensity;
         secondary = ApplyWorldLightingIntensity(world, secondary);
@@ -609,24 +584,20 @@ void DisableSky(void)
     g_sky_enabled = false;
 }
 
-// FUNCTION: WIZ8 0x00482f80
-bool IsSkyEnabled(void)
-{
-    return g_sky_enabled;
-}
-
 /* Refresh the two fog objects' ranges from the world's far clip. Runs after
    the camera's clip range moves, so the fog tracks the same plane. */
 // FUNCTION: WIZ8 0x004836A0
 void RefreshFogRanges(void)
 {
     if (g_environment_object0 != 0 && g_world != 0) {
-        g_environment_object0->fog_end = WorldGetFarClip(g_world) * g_world->environment_range_end;
+        g_environment_object0->fog_end =
+            WorldGetFarClip(g_world.get()) * g_world->environment_range_end;
         g_environment_object0->fog_start =
-            WorldGetFarClip(g_world) * g_world->environment_range_start;
+            WorldGetFarClip(g_world.get()) * g_world->environment_range_start;
         g_environment_object1->fog_start =
-            WorldGetFarClip(g_world) * g_world->environment_range_start;
-        g_environment_object1->fog_end = WorldGetFarClip(g_world) * g_world->environment_range_end;
+            WorldGetFarClip(g_world.get()) * g_world->environment_range_start;
+        g_environment_object1->fog_end =
+            WorldGetFarClip(g_world.get()) * g_world->environment_range_end;
     }
 }
 
@@ -651,12 +622,6 @@ void SetLightDirection(const glm::vec3* direction)
 {
     g_light_direction = *direction;
     PublishLightDirection(direction);
-}
-
-// FUNCTION: WIZ8 0x00483680
-void GetLightDirection(glm::vec3* direction)
-{
-    *direction = g_light_direction;
 }
 
 /* The ambient light the world contributes, or nothing at all when the world's
@@ -697,26 +662,16 @@ void AddEnvironmentLight(stLight* light)
     }
 }
 
-/* The world's live environment-light intensity. */
-// FUNCTION: WIZ8 0x00483ab0
-float GetWorldEnvironmentIntensity(const W8World* world)
-{
-    if (world == 0) {
-        srAssertFail("pWorld", ENVIRONMENT_CPP, 648, 0);
-    }
-    return world->environment_intensity;
-}
-
 /* Retain the world's current intensity while replacing its environment
    colour. Retail takes the colour triple by value and forwards its address to
    SetWorldEnvironment. */
 // FUNCTION: WIZ8 0x00483a60
-void SetWorldEnvironmentColour(W8World* world, glm::vec3 colour)
+void SetWorldEnvironmentColour(glm::vec3 colour)
 {
-    if (world == 0) {
+    if (g_world == nullptr) {
         srAssertFail("pWorld", ENVIRONMENT_CPP, 634, 0);
     }
-    ApplyEnvironmentColour(world, GetWorldEnvironmentIntensity(world), &colour);
+    ApplyEnvironmentColour(g_world.get(), g_world->environment_intensity, &colour);
 }
 
 // GLOBAL: WIZ8 0x005ec988
@@ -837,12 +792,6 @@ void SetGameTimeMilliseconds(int value)
     g_tick = w8_get_ticks();
 }
 
-// FUNCTION: WIZ8 0x00482740
-void SetGameTimeDays(int value)
-{
-    g_status.game_time_days = value;
-}
-
 // GLOBAL: WIZ8 0x0060a398
 const char* g_sky_gradient_names[3] = {"SkyGrad0000.ifl", "Skytop0000.ifl", "Horizon0000.ifl"};
 
@@ -854,8 +803,8 @@ const char* g_sky_gradient_names[3] = {"SkyGrad0000.ifl", "Skytop0000.ifl", "Hor
 void InitializeLevelEnvironment(void)
 {
     if (g_secondary_world != 0) {
-        g_sun_prop = FindPropByName(g_secondary_world, "Sun");
-        g_moon_prop = FindPropByName(g_secondary_world, "Moon");
+        g_sun_prop = FindPropByName(g_secondary_world.get(), "Sun");
+        g_moon_prop = FindPropByName(g_secondary_world.get(), "Moon");
     }
     if (g_celestial_orbit_radius < 0.0f) {
         if (g_sun_prop == 0 || g_moon_prop == 0) {
@@ -883,7 +832,7 @@ void InitializeLevelEnvironment(void)
     }
     AdvanceEnvironmentClock();
     unsigned int phase = ((g_status.game_time_ms / 1000U) << 8) / 86400U;
-    SetWorldEnvironmentColour(g_world, g_environment_colours0[phase]);
+    SetWorldEnvironmentColour(g_environment_colours0[phase]);
     g_light_direction = g_environment_colours1[phase];
     PublishLightDirection(&g_environment_colours1[phase]);
 }

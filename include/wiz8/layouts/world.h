@@ -67,17 +67,14 @@ struct W8World {
     std::vector<std::unique_ptr<W8Prop>> plsProps;
     std::vector<std::unique_ptr<W8CameraPath>> plsCameras;
     std::vector<std::unique_ptr<W8AmbientSound>> plsAmbientSounds;
-    float environment_range_start{};
-    float environment_range_end{};
-    /* Third serialized environment channel (loaded from
-       environment_colour.blue like the start/end fractions); never read. */
-    float environment_range_blue{};
+    float environment_range_start = 0.75f;
+    float environment_range_end = 1.0f;
     float view_distance{};
     float environment_intensity{};
     /* Snapshot of environment_intensity taken when a fade-out starts; the
        lighting transition multiplies g_light_scale by this base. */
     float environment_base_intensity{};
-    glm::vec3 environment_colour{1.0f};
+    glm::vec3 environment_colour{0.0f};
     stLevel* level{};
     std::unique_ptr<srScene> static_scene;
     srNode* dynamic_scene{};
@@ -108,8 +105,10 @@ struct W8World {
     std::vector<W8NamedPosition> named_positions;
 };
 
-extern W8World* g_world;
-extern W8World* g_secondary_world;
+/* The level world and the sky world. Each slot owns its world; see
+   DestroyWorld for teardown. */
+extern std::unique_ptr<W8World> g_world;
+extern std::unique_ptr<W8World> g_secondary_world;
 extern int g_combat_round_counter;
 
 /* Typed element access for the homogeneous world lists. */

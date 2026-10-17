@@ -1191,7 +1191,7 @@ void CreateLevelButtons()
                      AfterUiDispatch([slot] {
                          g_pending_screen_state.parameter_3 = &g_status.buffers.Char[slot];
                          g_pending_screen_state.mode = 2;
-                         SetPendingScreenState(W8_SCREEN_CHARACTER);
+                         g_pending_screen_state.id = W8_SCREEN_CHARACTER;
                      });
                  },
              .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},

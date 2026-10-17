@@ -132,7 +132,7 @@ static void NpcScriptQueueEndgame(void)
 // FUNCTION: WIZ8 0x00526E40
 static void NpcScriptTurnToBook(void)
 {
-    UpdateCameraPathStateByName(GetWorld(), "CameraPath4", 1);
+    UpdateCameraPathStateByName(g_world.get(), "CameraPath4", 1);
     BeginScreenFade(0, 1, 1000, NpcScriptQueueEndgame, false, 0);
 }
 
@@ -140,7 +140,7 @@ static void NpcScriptTurnToBook(void)
 static void NpcScriptEndgameScreen(void)
 {
     SetIntroVideoIndex(5);
-    SetPendingScreenState(W8_SCREEN_INTRO);
+    g_pending_screen_state.id = W8_SCREEN_INTRO;
 }
 
 /* Fact 0x1bf: raise the scripted-scene gate, drop the level's transient data
@@ -267,7 +267,7 @@ void UpdateSedexusScene(void)
     if (!g_sedexus_scene.capture_pending && !g_sedexus_scene.release_pending) {
         return;
     }
-    const int environment = GetEnvironmentValue();
+    const int environment = g_environment_lighting_mode;
     if (environment != 0 && environment != 2) {
         return;
     }

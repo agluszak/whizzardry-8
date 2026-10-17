@@ -575,7 +575,7 @@ W8GameData::W8GameData(wiz8::File* handle, bool secondary)
         delete old_level;
         g_level_data = 0;
     }
-    SetOctreeGameData(this);
+    g_octree_game_data = this;
 }
 
 /* Build the processed level's spatial index once and publish every surface
@@ -662,5 +662,5 @@ W8GameData::~W8GameData()
     ReleaseLevelData();
     m_iNumTriggers = 0;
 
-    SetOctreeGameData(0);
+    g_octree_game_data = 0;
 }

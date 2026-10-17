@@ -197,7 +197,7 @@ float ComputeSightThreshold(glm::vec3 observer_position, glm::vec3 target_positi
     int sight_percent;
     int penalty;
 
-    world = GetWorld();
+    world = g_world.get();
     far_clip = WorldGetFarClip(world);
     viewing_distance = static_cast<float>(far_clip);
     if (viewing_distance <= 0.0f) {
@@ -269,13 +269,6 @@ bool MonsterGroupHasVisibleThreat(W8MonsterGroup* group)
         }
     }
     return false;
-}
-
-/* Whether projectile visibility uses the separate launch origin. */
-// FUNCTION: WIZ8 0x00505e60
-bool MonsterHasProjectileOrigin(const W8MonsterInfo* monster)
-{
-    return monster->has_projectile_origin;
 }
 
 /* Spell visibility occupies entry two or three, depending on launch origin. */
@@ -403,7 +396,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
         monster_info->hp_current == 0) {
         return;
     }
-    viewing_distance = static_cast<float>(WorldGetFarClip(GetWorld()));
+    viewing_distance = static_cast<float>(WorldGetFarClip(g_world.get()));
     if (viewing_distance <= 0.0f) {
         srAssertFail("flViewingDistance > 0", SIGHT_CPP, 0x5e, 0);
     }
@@ -827,7 +820,7 @@ bool MonsterGroupCanSeeGroup(W8MonsterGroup* source, W8MonsterGroup* target)
     target_monster = target_info->p3D;
     if (!target_info->fInCombat) {
         distance = source_monster->GetDistanceToMonster(target_monster);
-        world = GetWorld();
+        world = g_world.get();
         far_clip = WorldGetFarClip(world);
         if (distance <= far_clip) {
             memset(&record, 0, sizeof(record));

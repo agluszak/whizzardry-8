@@ -763,12 +763,15 @@ TEST_CASE("Ground shadow projection retains rotated scale center and coordinate 
 TEST_CASE("Ground polygon queries return owned sorted runs beyond thirty faces",
           "[geometry][octree]")
 {
-    W8World world{};
     const struct RestoreWorld {
-        W8World* previous;
-        ~RestoreWorld() { g_world = previous; }
-    } restore{g_world};
-    g_world = &world;
+        std::unique_ptr<W8World> previous = std::exchange(g_world, std::make_unique<W8World>());
+        ~RestoreWorld()
+        {
+            DestroyWorld(g_world);
+            g_world = std::move(previous);
+        }
+    } restore;
+    W8World& world = *g_world;
     constexpr unsigned faces = 42;
     auto mesh = std::make_shared<stMeshModel>(faces, 3);
     mesh->getVertexLoc()[0] = {-1, 0, -1};

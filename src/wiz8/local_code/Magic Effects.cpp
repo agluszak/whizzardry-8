@@ -29,6 +29,7 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/conditions.h"
 #include "wiz8/engine_code/3d.h"
+#include "wiz8/engine_code/3dapi.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/engine_code/Levels.h"
@@ -882,10 +883,10 @@ void RecallCasterToSavedLocation(W8SpellEffectEntry* pQueue)
     caster = &g_status.buffers.Char[pQueue->Source.iChar];
     if (caster->has_saved_location) {
         if (caster->saved_level == g_status.current_level) {
-            RestoreWorldCameraState(GetWorld(), GetSecondaryWorld(), &caster->saved_location);
+            RestoreWorldCameraState(g_secondary_world.get(), &caster->saved_location);
             point = caster->saved_location.position;
             PlacePartyAtPoint(&point);
-            MarkRendererReady();
+            g_renderer_ready = true;
             return;
         }
         g_status.pending_move_location = caster->saved_location;
@@ -2366,7 +2367,7 @@ void ApplyMonsterControlToNearbyMonsters(W8SpellEffectEntry* effect)
     unsigned int index;
     float far_clip;
 
-    far_clip = static_cast<float>(WorldGetFarClip(GetWorld()));
+    far_clip = static_cast<float>(WorldGetFarClip(g_world.get()));
     center = effect->target.point;
     center.y += g_default_world_height * 0.5f;
     lower = glm::vec3(center.x - far_clip, center.y - far_clip, center.z - far_clip);
@@ -3341,7 +3342,7 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
             srAssertFail("SourceIsCharacter(&(pQueue->Source))", MAGIC_EFFECTS_CPP, 0xa6f, 0);
         }
         camera_state = &g_status.buffers.Char[effect->Source.iChar].saved_location;
-        world = GetWorld();
+        world = g_world.get();
         *camera_state = cameraState(*world);
         g_status.buffers.Char[effect->Source.iChar].saved_level = g_status.current_level;
         g_status.buffers.Char[effect->Source.iChar].has_saved_location = true;

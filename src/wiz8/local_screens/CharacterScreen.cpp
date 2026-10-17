@@ -372,7 +372,7 @@ void W8CharacterScreen::AdvancePage(bool forward)
                 if (m_mode == 2 && m_character.experience_goal <= m_character.experience) {
                     g_pending_screen_state.mode = 3;
                     g_pending_screen_state.parameter_3 = m_original;
-                    SetPendingScreenState(W8_SCREEN_CHARACTER);
+                    g_pending_screen_state.id = W8_SCREEN_CHARACTER;
                 }
             }
         } else if (ValidateName()) {

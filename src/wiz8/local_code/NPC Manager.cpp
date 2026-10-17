@@ -146,7 +146,7 @@ static char GetNpcDisposition(W8NpcState* npc)
     if (npc->record->faction == 0) {
         return disposition;
     }
-    faction_disposition = GetFactionDispositionScore(npc->record->faction);
+    faction_disposition = g_factions[npc->record->faction].disposition_score;
     if (npc->record->monster_bound != 0) {
         return faction_disposition;
     }

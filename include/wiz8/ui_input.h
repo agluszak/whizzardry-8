@@ -27,7 +27,6 @@ extern bool g_ui_help_forced;
 
 HitTarget* UiTargetAt(SDL_Point point);
 void UpdateUiPointer(int x, int y);
-SDL_Point UiPointerPosition();
 bool DispatchUiInput(const InputEvent* event);
 /* Make `owner`'s layers the ones that receive input and drop pointer hover,
    capture and help state. Other owners' layers keep their own state. */
@@ -42,7 +41,6 @@ unsigned char InitializeUiHelp();
 void UpdateUiHelp();
 void ResetUiHelp(bool delayed);
 void SetUiHelpDelay(int delay_ms);
-void SetUiHelpForced(bool enabled);
 
 enum class InputRoute { Pass, Handled, Stop };
 

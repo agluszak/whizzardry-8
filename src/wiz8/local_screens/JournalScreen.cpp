@@ -103,12 +103,6 @@ void InitializeFactJournal(void)
     g_fact_journal_entries.clear();
 }
 
-// FUNCTION: WIZ8 0x005588e0
-void SetFactNotificationsSuppressed(bool suppressed)
-{
-    g_fact_notifications_suppressed = suppressed;
-}
-
 /* Append one changed fact to the journal and, when notices are not suppressed
    and the fact is visible at the current notice setting, post the fact's own
    description through the notice pane with its sound. */
@@ -148,7 +142,7 @@ void RecordFactChangeForJournal(W8FactId fact_id)
         g_npc_dialogue.Queue(W8NpcCommand::journal_quote);
         return;
     }
-    int range = GetTextBoxScrollRange();
+    int range = (g_level_block->text_box_right - g_level_block->text_box_left);
     ShowNotice(W8_FONT_PALETTE_BLUE, g_localized_strings[0x74a], 2, range);
     wiz8::sound::play("Data\\Sound\\Misc\\Journal Entry.wav");
 }
@@ -299,7 +293,7 @@ void JournalScreen::DrawContent(SDL_Surface& target)
         int y = 0x39;
         for (int index = 0; index < 11; ++index) {
             signed char faction = g_journal_factions[index];
-            if (GetFactionFlag(faction)) {
+            if (g_factions[faction].encountered) {
                 W8FactionDisposition disposition = GetFactionDisposition(faction);
                 std::string disposition_name;
                 switch (disposition) {

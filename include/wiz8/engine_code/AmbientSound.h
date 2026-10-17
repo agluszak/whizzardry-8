@@ -128,12 +128,12 @@ void BuildFootstepPath(char* path, signed char surface, signed char material, ch
                        int variant);
 wiz8::sound::Playback PlayFootstep(signed char surface, signed char material, W8FootstepKind kind);
 void UpdateAmbientSounds(W8World* world);
-void RepositionAmbientSounds(W8World* world);
+void RepositionAmbientSounds();
 unsigned char ReadAmbientSoundListFile(const char* filename);
 
 void PositionAmbientSoundByName(W8World* /* unused */, const char* name);
 void StopAmbientSoundByName(W8World* /* unused */, const char* name);
-void ToggleAmbientSoundByName(W8World* /* unused */, const char* name);
+void ToggleAmbientSoundByName(const char* name);
 unsigned char AddAmbientSound(W8World* world, const char* name, const W8AmbientSoundConfig* config,
                               const glm::vec3* position, const glm::vec3* region_min,
                               const glm::vec3* region_max, int volume_min, int volume_max,
@@ -147,7 +147,6 @@ void SaveAmbientSoundList(wiz8::File& handle);
 void LoadAmbientSoundList(wiz8::File& handle);
 
 bool IsSoundEffectsMuted(void);
-unsigned char GetSoundEffectsVolume(void);
 void SetSoundEffectsVolume(unsigned char volume);
 void SetSoundEffectsMuted(unsigned char muted);
 
