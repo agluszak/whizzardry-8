@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string_view>
+
 #include "wiz8/layouts/levels.h"
 
 extern W8LevelFolderRecord g_level_folders[W8_LEVEL_COUNT];
@@ -12,7 +14,7 @@ int FindLevelIdByLocationCode(const char* location_code);
 extern unsigned short g_level_name_indices[W8_LEVEL_COUNT];
 
 bool LevelBuildInfoByID(int level_id, W8LevelInfo* info);
-unsigned char LoadSkyWorld(int level, W8LevelInfo* info);
+unsigned char LoadSkyWorld(std::string_view sky_path);
 unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game);
 enum class LevelExit { Normal, FailedLoad };
 unsigned char UnloadLevel(const char* save_directory, LevelExit exit = LevelExit::Normal);

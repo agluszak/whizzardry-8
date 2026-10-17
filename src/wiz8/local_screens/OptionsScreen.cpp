@@ -28,7 +28,6 @@
 #include "file_time.h"
 #include "himage.h"
 #include "input.h"
-#include "layouts/world.h"
 #include "mgs_commands.h"
 #include "soundman.h"
 #include "wiz8/button_interaction.h"

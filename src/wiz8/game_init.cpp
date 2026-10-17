@@ -13,7 +13,6 @@
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
-#include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/CombatSound.h"
 #include "wiz8/local_code/Configuration.h"

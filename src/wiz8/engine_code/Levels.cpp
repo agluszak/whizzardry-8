@@ -7,6 +7,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 
 #include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_stdinc.h>
@@ -219,29 +220,23 @@ const char* GetLevelFolderName(int level_id)
     return g_level_folders[level_id].folder_name;
 }
 
-/* Load or replace the sky world for a level. A level whose sky index already
-   matches the world held in GetSecondaryWorld() reuses it; a level with no sky
-   (-1) only tears the previous one down. The replacement sky receives the
-   animated-cloud material: its cloud meshes are marked for the renderer's
+/* Reuse the sky with the same canonical resource path. An empty path removes
+   the previous sky. A replacement receives the animated-cloud material:
+   its cloud meshes are marked for the renderer's
    control bits and every CloudsN prop's mesh chain is rebound to it. */
 // FUNCTION: WIZ8 0x0042B020
-unsigned char LoadSkyWorld(int level, W8LevelInfo* info)
+unsigned char LoadSkyWorld(std::string_view sky_path)
 {
-    W8LevelInfo local_info;
-    if (!info) {
-        if (!LevelBuildInfoByID(level, &local_info)) return 0;
-        info = &local_info;
-    }
-    if (info->sky_path.empty()) {
+    if (sky_path.empty()) {
         UnloadSkyWorld();
         return 1;
     }
-    if (GetSecondaryWorld() && GetSecondaryWorld()->source_path ==
-                                   wiz8::normalize_asset_path(info->sky_path).generic_string())
+    if (GetSecondaryWorld() &&
+        GetSecondaryWorld()->source_path == wiz8::normalize_asset_path(sky_path).generic_string())
         return 1;
 
     UnloadSkyWorld();
-    ExchangeSkyWorld(CreateWorld(-1, info->sky_path));
+    ExchangeSkyWorld(CreateWorld(-1, std::string(sky_path)));
     W8World* sky_world = GetSecondaryWorld();
     try {
         if (!LoadWorld(sky_world, false)) {
@@ -416,7 +411,7 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
     const bool was_visited = level < W8_LEVEL_COUNT && g_status.level_progress[level].visited;
     try {
         StartLevelMusic(1, 1);
-        if (!LoadSkyWorld(level, &level_info) || !InitializeMonsterManagerState() ||
+        if (!LoadSkyWorld(level_info.sky_path) || !InitializeMonsterManagerState() ||
             !InitializeItemManagerState()) {
             UnloadLevel("", LevelExit::FailedLoad);
             return 0;

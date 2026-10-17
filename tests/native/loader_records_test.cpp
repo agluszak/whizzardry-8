@@ -52,7 +52,6 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
-#include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/layouts/world.h"

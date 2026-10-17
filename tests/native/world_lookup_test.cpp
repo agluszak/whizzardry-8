@@ -202,9 +202,8 @@ TEST_CASE("Failed world asset loads release published worlds and allow retry", "
     // A failed sky load must retire the partial sky without touching the primary world.
     ExchangeCurrentWorld(CreateWorld(8));
     auto* primary = GetWorld();
-    W8LevelInfo missing_sky{"", "MissingSky.LVL"};
     for (int attempt = 0; attempt < 2; ++attempt) {
-        REQUIRE_THROWS_WITH(LoadSkyWorld(0, &missing_sky),
+        REQUIRE_THROWS_WITH(LoadSkyWorld("MissingSky.LVL"),
                             Catch::Matchers::ContainsSubstring("Could not open level file."));
         REQUIRE(GetSecondaryWorld() == nullptr);
         REQUIRE(GetWorld() == primary);

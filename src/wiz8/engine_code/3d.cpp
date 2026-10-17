@@ -34,7 +34,6 @@
 #include "surrender/srScene.h"
 #include "surrender/srShader.h"
 #include "surrender/triangle_projection.h"
-#include "wiz8/containers.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/Item.h"
 #include "wiz8/engine_code/Monster.h"

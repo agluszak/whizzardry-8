@@ -73,7 +73,6 @@
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/index_algorithms.h"
 #include "wiz8/item_spawning.h"
-#include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterManager.h"

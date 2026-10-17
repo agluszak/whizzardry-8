@@ -28,7 +28,6 @@
 #include "wiz8/fact_state.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
-#include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Configuration.h"

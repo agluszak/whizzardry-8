@@ -60,7 +60,6 @@
 #include "surrender/srShader.h"
 #include "surrender/srTexture.h"
 #include "texture_animation.h"
-#include "wiz8/containers.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/AniMesh.h"
 #include "wiz8/engine_code/AnimObj.h"

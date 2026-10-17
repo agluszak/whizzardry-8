@@ -38,12 +38,12 @@
 #include "surrender/srNode.h"
 #include "surrender/srTexture.h"
 #include "wiz8/design_rect.h"
-#include "wiz8/engine_code/Levels.h"
 #include "wiz8/overlay_scenes.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/xstatus.h"
 #ifdef WIZ8_RUNTIME_TESTS
 #include "runtime_instrumentation.h"
+#include "wiz8/engine_code/Levels.h"
 #endif
 #include <SDL3/SDL_stdinc.h>
 
