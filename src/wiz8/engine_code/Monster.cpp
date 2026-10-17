@@ -3725,7 +3725,7 @@ prepare_attack:
     }
     attack = &record->attacks[attack_index];
     missile_type = attack->missile_type;
-    if (static_cast<unsigned int>(missile_type) >= g_missile_table_count) {
+    if (static_cast<unsigned int>(missile_type) >= g_missile_table.size()) {
         DebugMessage(0, fmt::format("WARNING: {} has invalid missile type {:d} for attack {:d}",
                                     record->name0, missile_type, attack_index));
         missile_type = 0;

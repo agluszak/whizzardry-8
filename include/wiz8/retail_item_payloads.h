@@ -95,7 +95,7 @@ struct ItemEffects {
     unsigned char merge_skill_level; /* 0x0ca: level of merge_skill required */
     unsigned char editor_excluded;   /* hidden from the MIPE item list */
     /* 0x0cc: the missile table entry the item fires; the missile resolver
-       bounds it against g_missile_table_count. */
+       bounds it against g_missile_table.size(). */
     signed char missile_type;
 };
 #pragma pack(pop)

@@ -60,7 +60,7 @@ MonGen::MonGen()
     custom_interval_seconds = 100;
     unknown_08 = 0xffff;
     encounter_table_index = -1;
-    m_pTimer = 0;
+    timer.m_flags.one_shot = false;
     generation_enabled = 1;
     memset(name, 0, sizeof(name));
 }
@@ -533,7 +533,7 @@ void ResetMonsterGeneratorTimers(void)
 
     for (const auto& generator : *generators) {
 
-        generator->m_pTimer->ResetDurationScale();
+        generator->timer.ResetDurationScale();
     }
 }
 
@@ -636,13 +636,13 @@ try {
         save_handle.read_exact(&g_generator_interval_max, 2);
     }
 
-    success = (save_handle.read(&count, 4).bytes == static_cast<std::size_t>(4));
+    save_handle.read_exact(&count, 4);
+    if (count < 0 || count > (save_handle.size() - save_handle.tell()) / 26) return false;
+    success = true;
     for (index = 0; index < count && success != 0; ++index) {
         auto generator = std::make_unique<MonGen>();
-        if (generator == 0) {
-            srAssertFail("pMonGen", MON_GEN_CPP, 0x48a, "MonGen::LoadAll() out of memory");
-        }
         success = generator->Load(save_handle);
+        if (!success) return false;
         g_world->monster_generators.push_back(std::move(generator));
     }
 
@@ -692,8 +692,8 @@ void LoadMonsterGenerators(wiz8::File& handle)
 
         if (version > 1) {
             if (generator != 0) {
-                generator->m_pTimer->Load(handle);
-                generator->m_pTimer->Arm();
+                generator->timer.Load(handle);
+                generator->timer.Arm();
             } else {
                 // A saved timer without a generator is read and discarded.
                 W8IntervalGate timer;
@@ -716,7 +716,7 @@ void RunMonsterGenerators(void)
 
     for (index = 0; index < count; ++index) {
         generator = g_world->monster_generators[index].get();
-        if (generator->m_pTimer != 0 && generator->m_pTimer->PollElapsedIntervals() != 0) {
+        if (generator->timer.PollElapsedIntervals() != 0) {
             if (generator->CanGenerateEncounter(false)) {
                 generator->GenerateEncounter(&generator->spawn_position);
             }
@@ -786,7 +786,7 @@ void SaveMonsterGenerators(wiz8::File& handle)
         handle.write(generator->name, 0x20);
         handle.write(&generator->generation_enabled, 1);
         handle.write(&generator->flags, 4);
-        generator->m_pTimer->Save(handle);
+        generator->timer.Save(handle);
     }
 }
 
@@ -810,7 +810,7 @@ void MonGen::Save(wiz8::File& handle)
     handle.write(&spawn_position.y, 4);
     handle.write(&spawn_position.z, 4);
     handle.write(&encounter_table_index, 4);
-    m_pTimer->Save(handle);
+    timer.Save(handle);
 }
 
 /* Reads one generator back. The leading byte is a record version: from 3 the
@@ -822,11 +822,12 @@ void MonGen::Save(wiz8::File& handle)
 // FUNCTION: WIZ8 0x0048b5e0
 unsigned char MonGen::Load(wiz8::File& handle)
 try {
-    unsigned char version;
+    unsigned char version{};
     unsigned char ok;
     bool loaded;
 
-    ok = (handle.read(&version, 1).bytes == static_cast<std::size_t>(1));
+    handle.read_exact(&version, 1);
+    ok = 1;
     if (static_cast<signed char>(version) >= 3) {
         ok = ok && (handle.read(name, 0x20).bytes == static_cast<std::size_t>(0x20));
         ok = ok && (handle.read(&generation_enabled, 1).bytes == static_cast<std::size_t>(1));
@@ -841,8 +842,8 @@ try {
              (handle.read(&encounter_table_index, 4).bytes == static_cast<std::size_t>(4));
     Reset();
     if (static_cast<signed char>(version) > 1) {
-        m_pTimer->Load(handle);
-        m_pTimer->Arm();
+        timer.Load(handle);
+        timer.Arm();
     }
     flags &= ~static_cast<unsigned int>(W8_MONGEN_ARMED);
     return loaded;
@@ -850,7 +851,7 @@ try {
     return false;
 }
 
-/* Rearms the generator's timer, creating it on first use. The delay is the
+/* Rearms the generator's timer. The delay is the
    configured interval jittered by a uniform draw over twice its jitter
    fraction, so the mean is the interval itself. Bit 3 selects the shared
    default interval; a clear bit uses the generator's custom +0x06 interval. */
@@ -860,20 +861,12 @@ void MonGen::Reset()
     short interval;
     float jitter;
 
-    if (m_pTimer == 0) {
-        m_pTimer = new W8IntervalGate;
-        if (m_pTimer == 0) {
-            srAssertFail("m_pTimer", MON_GEN_CPP, 0x217,
-                         "MonGen::Reset() out of memory allocating m_pTimer");
-        }
-        m_pTimer->m_flags.one_shot = false;
-    }
     interval = (flags & W8_MONGEN_USE_DEFAULT_SETTINGS) != 0 ? g_generator_default_interval
                                                              : custom_interval_seconds;
     jitter = interval * g_generator_jitter_fraction;
-    m_pTimer->SetDuration(static_cast<float>(Random(static_cast<int>(jitter) * 2 + 1)) + interval -
-                          jitter);
-    m_pTimer->Arm();
+    timer.SetDuration(static_cast<float>(Random(static_cast<int>(jitter) * 2 + 1)) + interval -
+                      jitter);
+    timer.Arm();
 }
 
 /* Writes the encounter subsystem's own state to a save, ahead of the generator
@@ -945,13 +938,8 @@ void SetMonsterGeneratorDurationScale(float scale)
     auto* generators = &g_world->monster_generators;
 
     for (auto& generator : *generators) {
-        generator->m_pTimer->SetDurationScale(scale);
+        generator->timer.SetDurationScale(scale);
     }
-}
-
-MonGen::~MonGen()
-{
-    delete m_pTimer;
 }
 
 /* Store the table index and mark HARASSMENT tables with bit 5. Retail never

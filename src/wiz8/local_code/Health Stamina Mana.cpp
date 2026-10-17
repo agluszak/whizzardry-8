@@ -1,4 +1,5 @@
-#include <cstdlib>
+#include <algorithm>
+#include <functional>
 #include <memory>
 #include <string>
 #include <utility>
@@ -685,15 +686,6 @@ struct W8SpellPointDeficit {
     unsigned int deficit;
 };
 
-// FUNCTION: WIZ8 0x0052B8E0
-int CompareSpellPointDeficits(const void* first, const void* second)
-{
-    const W8SpellPointDeficit* a = static_cast<const W8SpellPointDeficit*>(first);
-    const W8SpellPointDeficit* b = static_cast<const W8SpellPointDeficit*>(second);
-    if (a->deficit < b->deficit) return 1;
-    return (a->deficit == b->deficit) - 1;
-}
-
 // FUNCTION: WIZ8 0x0052b910
 void RestoreCharacterSpellPointsEvenly(int party_slot, int amount)
 {
@@ -707,7 +699,7 @@ void RestoreCharacterSpellPointsEvenly(int party_slot, int amount)
         order[index].realm = index;
         order[index].deficit = character->sp_max[index] - character->iSPLeft[index];
     }
-    qsort(order, W8_SPELL_REALM_COUNT, sizeof(order[0]), CompareSpellPointDeficits);
+    std::ranges::sort(order, std::greater{}, &W8SpellPointDeficit::deficit);
 
     for (;;) {
         if (amount == 0) {
@@ -1291,7 +1283,7 @@ int RebuildRealmSpellPointCeilings(W8Character* character)
     for (index = 0; index < 4; ++index) {
         realm_skills[index] = character->skills[W8_SKILL_SPELLBOOK_WIZARDRY + index].level;
     }
-    qsort(realm_skills, 4, sizeof(realm_skills[0]), CompareUnsignedDescending);
+    std::ranges::sort(realm_skills, std::greater{});
 
     float weighted = static_cast<float>(realm_skills[0] + (realm_skills[1] >> 1) +
                                         (realm_skills[2] >> 2) + (realm_skills[3] >> 3));

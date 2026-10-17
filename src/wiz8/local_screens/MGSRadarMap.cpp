@@ -1,6 +1,7 @@
 #include "wiz8/local_screens/MGSRadarMap.h"
 
 #include <cmath>
+#include <memory>
 #include <numbers>
 #include <vector>
 
@@ -19,7 +20,6 @@
 #include "surrender/srNode.h"
 #include "surrender/srScene.h" // IWYU pragma: keep - complete scene type for conversion to srNode.
 #include "wiz8/catalog_artwork.h"
-#include "wiz8/containers.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Item.h"
 #include "wiz8/engine_code/Missile.h"
@@ -77,7 +77,7 @@ static stModelInstance2D* g_radar_compass = 0;
 // GLOBAL: WIZ8 0x0069c088
 static stModelInstance2D* g_radar_frame = 0;
 // GLOBAL: WIZ8 0x0069bf68
-static std::vector<stModelInstance2D*> g_radar_icon_pools[18];
+static std::vector<std::unique_ptr<stModelInstance2D>> g_radar_icon_pools[18];
 // GLOBAL: WIZ8 0x0069c08c
 static int g_radar_icon_cursors[18];
 // GLOBAL: WIZ8 0x0069c0d4
@@ -148,11 +148,11 @@ static stModelInstance2D* AcquireRadarBlip(int sector, bool lit)
 
     if (cursor < static_cast<int>(pool.size())) {
         g_radar_icon_cursors[sector] = cursor + 1;
-        icon = pool[cursor];
+        icon = pool[cursor].get();
     } else {
         icon = new stModelInstance2D(0);
         *icon = *pool[0];
-        pool.push_back(icon);
+        pool.emplace_back(icon);
     }
     if (icon != 0) {
         icon->clearFlag(srNode::FLAG_DISABLE);
@@ -198,7 +198,7 @@ void ReleaseRadarMap(void)
         g_radar_compass = 0;
     }
     for (auto& pool : g_radar_icon_pools) {
-        wiz8::remove_all_and_delete_in_order(pool);
+        pool.clear();
     }
     ReleaseRendererObject(g_radar_backdrop);
 }
@@ -257,7 +257,7 @@ void RefreshRadarMap(void)
         color.z = g_radar_blip_colors[sector][2];
         color.w = 1.0f;
         icon = CreateColoredPolygonSprite(2, 2, &color, false);
-        g_radar_icon_pools[sector].push_back(icon);
+        g_radar_icon_pools[sector].emplace_back(icon);
         icon->overlay_scene_flag |= 1;
     }
     UpdateRadarBlips();

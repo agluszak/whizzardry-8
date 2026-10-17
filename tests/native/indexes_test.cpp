@@ -53,15 +53,15 @@ static bool mirroredOctreeIndexes()
     REQUIRE(registry.MoveObjectToCell(W8_OCTREE_KIND_PROP, 5, first));
     REQUIRE(registry.MoveObjectToCell(W8_OCTREE_KIND_PROP, 5, first));
     const auto object = PackOctreeObjectKey(W8_OCTREE_KIND_PROP, 5);
-    REQUIRE(registry.by_object->count(object) == 1);
-    REQUIRE(registry.by_cell->size() == 1);
+    REQUIRE(registry.by_object.count(object) == 1);
+    REQUIRE(registry.by_cell.size() == 1);
     REQUIRE(registry.MoveObjectToCell(W8_OCTREE_KIND_PROP, 5, second));
-    REQUIRE(registry.by_object->count(object) == 2);
+    REQUIRE(registry.by_object.count(object) == 2);
     REQUIRE(registry.UnregisterObject(W8_OCTREE_KIND_PROP, 5));
-    REQUIRE(registry.by_object->count(object) == 1);
-    REQUIRE(registry.by_cell->count(PackOctreeCellKey(4, 5, 6)) == 0);
+    REQUIRE(registry.by_object.count(object) == 1);
+    REQUIRE(registry.by_cell.count(PackOctreeCellKey(4, 5, 6)) == 0);
     REQUIRE(registry.UnregisterObject(W8_OCTREE_KIND_PROP, 5));
-    REQUIRE((registry.by_object->empty() && registry.by_cell->empty()));
+    REQUIRE((registry.by_object.empty() && registry.by_cell.empty()));
     REQUIRE(!registry.UnregisterObject(W8_OCTREE_KIND_PROP, 5));
     return true;
 }

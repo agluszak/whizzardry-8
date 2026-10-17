@@ -7,7 +7,6 @@
 #include "wiz8/engine_code/emitter_resources.h"
 
 unsigned char LoadMissileDatabase(void);
-void ReleaseMissileDatabase(void);
 
 #include "Emitter.h"
 #include "compat/compiler.h"
@@ -159,8 +158,6 @@ W8Missile* FireMissile(unsigned int missile_table_index, glm::vec3* source, glm:
    the camera's launch point swung to the wielding side. */
 void GetCharacterProjectilePosition(unsigned int character_index, glm::vec3* position);
 
-extern unsigned int g_missile_table_count;
-
 /* One 0x1e5-byte MissileTables.dbs runtime row. Only the fields reached by
    recovered consumers are named. */
 struct W8MissileTableRecord {
@@ -187,7 +184,7 @@ struct W8MissileTableRecord {
     unsigned char unknown_169[0x7c];
 };
 
-extern W8MissileTableRecord* g_missile_table;
+extern std::vector<W8MissileTableRecord> g_missile_table;
 
 W8Missile* NextMissile(bool restart);
 

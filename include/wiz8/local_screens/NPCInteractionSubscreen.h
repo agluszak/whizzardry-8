@@ -211,7 +211,7 @@ struct W8NpcInteractionState {
     short quote_width;
     short quote_height;
     bool quote_visible;
-    std::vector<W8PendingNoticeLine*> pending_notice_lines;
+    std::vector<W8PendingNoticeLine> pending_notice_lines;
     /* The whole dialogue UI is parked (right-click hide) and the world input
        path is live until it is shown again. */
     unsigned char dialogue_hidden;

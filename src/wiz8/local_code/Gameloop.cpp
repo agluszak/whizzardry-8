@@ -10,7 +10,6 @@
 #include "Font.h"
 #include "wiz8/application.h"
 #include "wiz8/character_event_queue.h"
-#include "wiz8/engine_code/Missile.h"
 #include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/engine_code/Video2.h"
@@ -98,7 +97,6 @@ void ShutdownGame(size_t initialized_screens, bool save_configuration)
     ReleaseGenericItemNames();
     ReleaseNpcStates();
     UnloadEncounterTables();
-    ReleaseMissileDatabase();
     ReleaseSpellDatabase();
     DestroyItemDatabase();
     DestroyItemTables();

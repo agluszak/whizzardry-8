@@ -87,51 +87,6 @@ void ClampUnsignedInteger(unsigned int* value, unsigned int minimum, unsigned in
     }
 }
 
-// FUNCTION: WIZ8 0x00517a10
-int CompareUnsignedDescending(const void* first, const void* second)
-{
-    unsigned int left = *static_cast<const unsigned int*>(first);
-    unsigned int right = *static_cast<const unsigned int*>(second);
-
-    if (left > right) {
-        return -1;
-    }
-    if (left < right) {
-        return 1;
-    }
-    return 0;
-}
-
-// FUNCTION: WIZ8 0x00517a30
-int CompareSignedAscending(const void* first, const void* second)
-{
-    int left = *static_cast<const int*>(first);
-    int right = *static_cast<const int*>(second);
-
-    if (left < right) {
-        return -1;
-    }
-    if (left > right) {
-        return 1;
-    }
-    return 0;
-}
-
-// FUNCTION: WIZ8 0x00517a50
-int CompareSignedDescending(const void* first, const void* second)
-{
-    int left = *static_cast<const int*>(first);
-    int right = *static_cast<const int*>(second);
-
-    if (left > right) {
-        return -1;
-    }
-    if (left < right) {
-        return 1;
-    }
-    return 0;
-}
-
 // FUNCTION: WIZ8 0x00517af0
 std::string FormatUnsignedIntegerWithCommas(unsigned int value)
 {

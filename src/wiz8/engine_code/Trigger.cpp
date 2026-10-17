@@ -1721,7 +1721,7 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
         }
         if (trigger->initial_action == 0x0c) {
             if (trigger->m_lData1 < 0 ||
-                trigger->m_lData1 >= static_cast<int>(g_missile_table_count)) {
+                trigger->m_lData1 >= static_cast<int>(g_missile_table.size())) {
                 srAssertFail("((pTrigger->m_lData1 >= 0) && (pTrigger->m_lData1 < "
                              "Missile::GetNumTypes()))",
                              "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0xf14,

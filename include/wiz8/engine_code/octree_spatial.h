@@ -63,50 +63,50 @@ struct W8OctSpatialState {
     void Reset();
     srBoundingBox GetClippedBounds() const;
 
-    w8_ulong flags;
-    float m_extent;
-    float m_cell_size;
-    srBoundingBox m_bounds;
-    srBoundingBox m_clipped_bounds;
+    w8_ulong flags{};
+    float m_extent{};
+    float m_cell_size{};
+    srBoundingBox m_bounds{};
+    srBoundingBox m_clipped_bounds{};
     /* Mode-2 insertions increment this once per region polygon; the build
        conversion copies it to the pre-tree and sizes m_visited_polygon_bits from it. */
-    w8_ulong m_polygon_count;
-    w8_ulong m_item_count;
-    unsigned short m_depth;
-    unsigned short m_region_count;
-    unsigned short m_item_limit;
+    w8_ulong m_polygon_count{};
+    w8_ulong m_item_count{};
+    unsigned short m_depth{};
+    unsigned short m_region_count{};
+    unsigned short m_item_limit{};
     /* Packed auto-region cell coordinate bound per axis, derived from the
        leaf level when a loaded octree is initialized. */
-    unsigned short m_region_cells_per_axis;
+    unsigned short m_region_cells_per_axis{};
     /* The bottom octree level: insertion stops and masks saturate here. */
-    unsigned short m_leaf_level;
+    unsigned short m_leaf_level{};
     /* Auto-region grid pitch: packed (x<<16|y<<8|z) cell coordinates scale
        to world units through it. */
-    float m_region_grid_cell;
+    float m_region_grid_cell{};
     /* Auto-region id allocator bound: each new region takes this value and
        bumps it; m_region_count mirrors it during the build. */
-    unsigned short m_region_id_bound;
-    W8OctRegionVolume* m_region_volumes; // Borrowed from the root runtime or build tree.
+    unsigned short m_region_id_bound{};
+    W8OctRegionVolume* m_region_volumes{}; // Borrowed from the root runtime or build tree.
     /* Maximum vertex distance from its region's center across the
        auto-regions. */
-    float m_max_region_radius;
+    float m_max_region_radius{};
     /* Leaf-grid strides: dim_y*dim_z for one x step, dim_z for one y
        step. */
-    w8_ulong m_leaf_grid_stride_x;
-    w8_ulong m_leaf_grid_stride_y;
-    unsigned short m_level_kind;
-    float m_node_extent;
+    w8_ulong m_leaf_grid_stride_x{};
+    w8_ulong m_leaf_grid_stride_y{};
+    unsigned short m_level_kind{};
+    float m_node_extent{};
     /* Emitted submesh record bound: the build packs kind-0 then kind-1
        records beneath it. */
-    w8_ulong submesh_count;
-    srBoundingBox m_working_bounds;
+    w8_ulong submesh_count{};
+    srBoundingBox m_working_bounds{};
     /* The build octree root: W8OctBuildNode or the counted subclass
        when the owning build tree counts surfaces per node. */
-    W8OctBuildNode* m_root;
-    w8_ulong m_node_index;
+    W8OctBuildNode* m_root{};
+    w8_ulong m_node_index{};
     /* The working triangle's three vertices, borrowed from the inserter's
        stack for the recursion's bounds tests. */
-    const glm::vec3* m_triangle_vertices;
+    const glm::vec3* m_triangle_vertices{};
 };
 
 bool triangleIntersectsBox(const srBoundingBox& box, std::span<const glm::vec3, 3> vertices,
