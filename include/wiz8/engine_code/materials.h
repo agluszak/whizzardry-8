@@ -96,4 +96,3 @@ std::shared_ptr<srTexture> LoadTextureFromPath(const char* path, const W8Materia
 
 struct W8OctRegionPolygon;
 
-char* TrimAndLowercaseString(char* text);

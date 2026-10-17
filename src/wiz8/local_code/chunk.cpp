@@ -77,12 +77,13 @@ void W8Chunk::WriteBytes(const void* buffer, std::size_t size)
     m_hFile->write(buffer, size);
 }
 
-bool W8Chunk::OpenExistingRiff(const std::filesystem::path& path, wiz8::OpenMode mode)
+// FUNCTION: WIZ8 0x0055c000
+bool W8Chunk::OpenRead(const std::filesystem::path& path)
 try {
     if (m_hFile != 0) {
         return false;
     }
-    m_hFile = wiz8::open_file(path, mode);
+    m_hFile = wiz8::open_file(path, wiz8::OpenMode::read);
     m_fWriting = false;
     OpenChunk(0, 0);
     W8ChunkHead* head = &CurrentHead();
@@ -97,12 +98,6 @@ try {
     m_hFile.reset();
     m_fWriting = false;
     return false;
-}
-
-// FUNCTION: WIZ8 0x0055c000
-bool W8Chunk::OpenRead(const std::filesystem::path& path)
-{
-    return OpenExistingRiff(path, wiz8::OpenMode::read);
 }
 
 // FUNCTION: WIZ8 0x0055be30
@@ -130,47 +125,6 @@ try {
     m_hFile.reset();
     m_fWriting = false;
     return false;
-}
-
-/* Reopen an existing RIFF for append. Children are skipped under a temporary
-   read so the file sits at the end of the group; the original child count is
-   then pushed onto the write-side progress stack before writing is armed. */
-// FUNCTION: WIZ8 0x0055be80
-bool W8Chunk::OpenAppend(const std::filesystem::path& path)
-{
-    W8ChunkHead* head;
-    int child_count;
-    int remaining;
-    std::int64_t position;
-    std::int64_t distance;
-
-    if (!OpenExistingRiff(path, wiz8::OpenMode::update)) {
-        return false;
-    }
-    child_count = m_group_counts.back();
-    remaining = child_count;
-    if (child_count > 0) {
-        do {
-            OpenChunk(0, 0);
-            head = &CurrentHead();
-            position = m_hFile->tell();
-            distance = m_offsets.back() + (head->extent - position);
-            if (distance != 0) {
-                m_hFile->seek(distance, wiz8::SeekOrigin::current);
-            }
-            ReleaseCurrentChunk();
-            --remaining;
-        } while (remaining != 0);
-    }
-    m_group_progress.push_back(child_count);
-    m_fWriting = true;
-    return true;
-}
-
-// FUNCTION: WIZ8 0x0055c080
-bool W8Chunk::OpenReadWrite(const std::filesystem::path& path)
-{
-    return OpenExistingRiff(path, wiz8::OpenMode::update);
 }
 
 /* Close the root chunk and then its file. In write mode the root's stored
@@ -392,19 +346,6 @@ bool W8Chunk::ReleaseCurrentChunk()
 void W8Chunk::RewindCurrentChunk()
 {
     m_hFile->seek(m_offsets.back(), wiz8::SeekOrigin::begin);
-}
-
-/* Mark the active chunk's own at_end byte in the file. This is how the save
-   code invalidates a level section it has already consumed in place. */
-// FUNCTION: WIZ8 0x0055cb00
-void W8Chunk::SetCurrentChunkAtEnd()
-{
-    unsigned char value = 1;
-    const auto position = m_hFile->tell();
-
-    m_hFile->seek(m_offsets.back() - 5, wiz8::SeekOrigin::begin);
-    m_hFile->write(&value, 1);
-    m_hFile->seek(position, wiz8::SeekOrigin::begin);
 }
 
 // FUNCTION: WIZ8 0x0055cb60

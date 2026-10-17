@@ -94,15 +94,8 @@ static std::vector<W8World*> g_worlds;
 // GLOBAL: WIZ8 0x006081f8
 bool g_navigator_vertical_enabled = true;
 
-// GLOBAL: WIZ8 0x00607d7d
-bool g_world_mesh_update_enabled = true;
-
 // GLOBAL: WIZ8 0x00609c88
 float g_mesh_view_half_angle_degrees = 60.0f;
-
-/* Retail flag 0x10 sets this latch; no reader survives in the shipped image. */
-// GLOBAL: WIZ8 0x00609c8c
-bool g_world_update_requested = true;
 
 /* Load the renderer-facing half of one level. The subordinate OCT, game-data,
    and ReadLevel parsers remain their original owners; this routine establishes
@@ -556,13 +549,6 @@ stParticle* FindParticleByName(W8World* world, const char* name)
     return 0;
 }
 
-/* Two forwarders that pass their arguments through unchanged. */
-// FUNCTION: WIZ8 0x00451140
-void ForwardDestroyWorld(W8World* world)
-{
-    DestroyWorld(world);
-}
-
 /* Read the camera position when one is attached to the world. The sole
    caller preserves this value across a level reload, so a world without a
    camera contributes the zero position. */
@@ -600,7 +586,7 @@ void SetWorldScenePosition(W8World* world, const glm::vec3* location)
 // FUNCTION: WIZ8 0x00451020
 void UpdateWorldMeshAfterLoad(void)
 {
-    if (g_renderer_ready && g_world_mesh_update_enabled) {
+    if (g_renderer_ready) {
         if (g_world->octree != 0) {
             UpdateWorldOctree(g_world);
         } else if (g_world->quads != 0) {
@@ -774,9 +760,6 @@ void ApplyWorldUpdateFlags(W8World* world, unsigned int flags)
     if ((flags & W8_WORLD_NARROW_MESH_VIEW) != 0 && g_mesh_view_half_angle_degrees > 1e+01f) {
         g_mesh_view_half_angle_degrees -= 1e+01f;
     }
-    if ((flags & 0x10) != 0) {
-        g_world_update_requested = true;
-    }
     if ((flags & W8_WORLD_TOGGLE_LOADED) != 0) {
         world->m_loaded = !world->m_loaded;
     }
@@ -786,24 +769,6 @@ void ApplyWorldUpdateFlags(W8World* world, unsigned int flags)
     if ((flags & W8_WORLD_DECREASE_ENVIRONMENT) != 0) {
         SetWorldEnvironmentIntensity(g_world, GetWorldEnvironmentIntensity(g_world) - 0.02f);
     }
-}
-
-// FUNCTION: WIZ8 0x004503B0
-int ForwardSelectedPropIndex(W8World*, int, int)
-{
-    return GetSelectedPropIndex();
-}
-
-// FUNCTION: WIZ8 0x00451150
-bool ForwardActivateSelectedProp(W8World*, int, int, int)
-{
-    return ActivateSelectedProp();
-}
-
-// FUNCTION: WIZ8 0x00451100
-W8World* ForwardCreateWorld(void)
-{
-    return CreateWorld();
 }
 
 /* Resolve the PARTY alias or a named position stored with the current world. */

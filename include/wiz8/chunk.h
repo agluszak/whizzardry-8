@@ -55,10 +55,7 @@ public:
         return *m_hFile;
     }
     bool OpenRead(const std::filesystem::path& path);
-    bool OpenExistingRiff(const std::filesystem::path& path, wiz8::OpenMode mode);
     bool OpenWrite(const std::filesystem::path& path);
-    bool OpenReadWrite(const std::filesystem::path& path);
-    bool OpenAppend(const std::filesystem::path& path);
     bool OpenWrite(std::shared_ptr<wiz8::File> file);
     void Close();
     bool CopyCurrentChunkFrom(W8Chunk* source);
@@ -150,7 +147,6 @@ public:
         }
     }
     void RewindCurrentChunk();
-    void SetCurrentChunkAtEnd();
     bool ReleaseCurrentChunk();
     unsigned char CurrentChunkAtEnd();
 

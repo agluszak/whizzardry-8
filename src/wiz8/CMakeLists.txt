@@ -212,7 +212,6 @@ add_library(WIZ8_GAME_CORE STATIC
     music_playlist.cpp
     npc_items.cpp
     npc_script_file.cpp
-    engine_code/trim_string.cpp
     ../native/application.cpp
     ../native/key_bindings.cpp
     ../native/game_events.cpp

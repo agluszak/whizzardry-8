@@ -19,9 +19,7 @@ W8World* GetSecondaryWorld(void);
 void MarkRendererReady(void);
 
 W8World* CreateWorld();
-W8World* ForwardCreateWorld(void);
 unsigned char LoadWorld(W8World* world, std::string_view level_path, bool use_octree);
-void ForwardDestroyWorld(W8World* world);
 void SetCurrentWorld(W8World* world);
 void DestroyWorld(W8World* world);
 void DetachAllWorldItems(void);

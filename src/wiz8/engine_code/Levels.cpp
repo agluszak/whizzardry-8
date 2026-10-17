@@ -157,7 +157,7 @@ void UnloadSkyWorld(void)
 {
     W8World* world = GetSecondaryWorld();
     if (world != 0) {
-        ForwardDestroyWorld(world);
+        DestroyWorld(world);
         SetSecondaryWorld(0);
         g_loaded_sky_index = 0xff;
         ResetEnvironment();
@@ -261,7 +261,7 @@ unsigned char LoadSkyWorld(int level, W8LevelInfo* info)
         info = &local_info;
     }
     if (GetSecondaryWorld() != 0) {
-        ForwardDestroyWorld(GetSecondaryWorld());
+        DestroyWorld(GetSecondaryWorld());
         SetSecondaryWorld(0);
         g_loaded_sky_index = 0xff;
         ResetEnvironment();
@@ -440,7 +440,7 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
 
     DisableSky();
     if (GetWorld() != 0) {
-        ForwardDestroyWorld(GetWorld());
+        DestroyWorld(GetWorld());
         SetCurrentWorld(0);
     }
     ReleaseReadMeshScratch();
@@ -626,7 +626,7 @@ unsigned char UnloadLevel(const char* save_directory)
     DisableSky();
     W8World* world = GetWorld();
     if (world != 0) {
-        ForwardDestroyWorld(world);
+        DestroyWorld(world);
         SetCurrentWorld(0);
     }
     ReleaseReadMeshScratch();

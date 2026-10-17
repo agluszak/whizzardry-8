@@ -5498,8 +5498,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
                (needed == W8_TARGET_NEED_CONE && (event.modifiers & CTRL_DOWN) != 0)) {
         AimAtGroundTarget(g_status.selected_character);
     } else if (g_level_block->highlighted_item == -1) {
-        if (g_status.item_in_cursor &&
-            ForwardSelectedPropIndex(GetWorld(), event.position.x, event.position.y) == -1) {
+        if (g_status.item_in_cursor && GetSelectedPropIndex() == -1) {
             if (!gXStatus.world_update_blocked) {
                 DropItemInHand(1);
             }
@@ -5511,7 +5510,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
                 SetTargetingMode(W8_TARGET_NEED_NONE);
             }
         } else if (!gXStatus.world_update_blocked) {
-            ForwardActivateSelectedProp(GetWorld(), 2, event.position.x, event.position.y);
+            ActivateSelectedProp();
         }
     } else {
         W8MonsterInfo* monster_info = FindMonster(g_level_block->highlighted_item);
@@ -5647,9 +5646,7 @@ void UpdateWorldViewCursor(const UiPointerEvent& event, W8TargetNeed target_need
                 SetTargetCursor(cursor);
                 return;
             }
-            int cursor_y = event.position.y;
-            int cursor_x = event.position.x;
-            int prop_index = ForwardSelectedPropIndex(g_world, cursor_x, cursor_y);
+            int prop_index = GetSelectedPropIndex();
             if (prop_index > -1) {
                 W8Prop* prop = GetWorldProp(g_world, prop_index);
                 if (!gXStatus.world_update_blocked) {

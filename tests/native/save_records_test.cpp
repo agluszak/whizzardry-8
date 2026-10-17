@@ -973,19 +973,10 @@ static void save_file_contracts(const std::filesystem::path& user)
     REQUIRE((chunks.Write(words, sizeof(words), &count) && count == 8));
     REQUIRE(chunks.ReleaseCurrentChunk());
     chunks.Close();
-    REQUIRE(chunks.OpenAppend(riff));
-    REQUIRE(chunks.OpenChunk(0x5458454eu, 0)); // NEXT
-    REQUIRE((chunks.Write("tail", 4, &count) && count == 4));
-    REQUIRE(chunks.ReleaseCurrentChunk());
-    chunks.Close();
-    REQUIRE((chunks.OpenRead(riff) && chunks.ChunkCount() == 2));
+    REQUIRE((chunks.OpenRead(riff) && chunks.ChunkCount() == 1));
     REQUIRE((chunks.OpenChunk(0, 0) && chunks.CurrentChunkId() == 0x454d4954u));
     REQUIRE((chunks.Read(stored, sizeof(stored), &count) && count == 8));
     REQUIRE((stored[0] == words[0] && stored[1] == words[1]));
-    REQUIRE(chunks.ReleaseCurrentChunk());
-    REQUIRE((chunks.OpenChunk(0, 0) && chunks.CurrentChunkId() == 0x5458454eu));
-    char tail[4]{};
-    REQUIRE((chunks.Read(tail, sizeof(tail), &count) && count == 4 && !memcmp(tail, "tail", 4)));
     REQUIRE(chunks.ReleaseCurrentChunk());
     chunks.Close();
 }
