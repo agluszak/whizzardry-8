@@ -42,7 +42,7 @@
 #include "wiz8/character_event_queue.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/engine_code/AmbientSound.h"
-#include "wiz8/engine_code/World.h"
+#include "wiz8/layouts/world.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/CombatSound.h"
 #include "wiz8/ui_input.h"

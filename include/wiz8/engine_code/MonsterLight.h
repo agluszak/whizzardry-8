@@ -1,6 +1,7 @@
 #pragma once
 
-#include "compat/compiler.h"
+#include <optional>
+
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srLight.h"
 
@@ -18,10 +19,10 @@ public:
     void StartFadeOut();
 
 public:
-    float m_vertical_offset;          /* 0x228 */
-    glm::vec3 m_color_first;  /* 0x22c */
-    glm::vec3 m_color_second; /* 0x238 */
-    float m_start_time;               /* 0x244 */
-    bool m_cycle_color;               /* 0x248 */
-    bool m_fade_out;                  /* 0x249 */
+    float m_vertical_offset;
+    glm::vec3 m_color_first;
+    glm::vec3 m_color_second;
+    std::optional<float> m_start_time;
+    bool m_cycle_color;
+    bool m_fade_out;
 };

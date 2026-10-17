@@ -1131,6 +1131,7 @@ W8Monster::W8Monster(const W8Monster& rhs, W8World* owner)
         srAssertFail("rhs.m_pRep", "C:\\Projects\\Wizardry 8\\Engine Code\\Monster.cpp", 1099, 0);
     }
     m_pRep = static_cast<W8MonsterRep*>(rhs.m_pRep->Clone());
+    if (m_pRep->monster_light) m_pRep->monster_light->setParent(owner->dynamic_scene, 1);
 
     defining_orders = false;
     orders_finished = false;
