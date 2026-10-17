@@ -388,8 +388,8 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
             s_saved_camera_rotation = orientation.rotation;
             yaw = GetCameraYawInDegrees();
             pitch = GetCameraPitchInDegrees();
-            g_startup_world->SetAngles(yaw);
-            g_startup_world->SetPitch(pitch);
+            PartyNavigator()->SetAngles(yaw);
+            PartyNavigator()->SetPitch(pitch);
             const auto motion =
                 world->game_data->cameraMotion(flags, camera_position, orientation.movement_basis);
             if (motion.moved) {
@@ -403,7 +403,7 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
                 }
                 render_position = glm::dvec3(camera_position);
                 static_cast<srNode*>(world->camera)->setLocation(render_position);
-                g_startup_world->SetPositionInternal(&navigator_position);
+                PartyNavigator()->SetPositionInternal(&navigator_position);
                 const auto refresh_offset = camera_position - s_last_automap_refresh_position;
                 if (glm::dot(refresh_offset, refresh_offset) > kAutomapRefreshDistanceSquared) {
                     s_last_automap_refresh_position = camera_position;
@@ -618,10 +618,10 @@ void RestoreWorldCameraState(W8World* source_world, W8WorldCameraState* state)
     }
     SetWorldCameraState(GetWorld(), source_world, state);
     navigator_position = glm::vec3(GetWorld()->camera->getLocation());
-    g_startup_world->SetAngles(GetCameraYawInDegrees());
-    g_startup_world->SetPitch(GetCameraPitchInDegrees());
+    PartyNavigator()->SetAngles(GetCameraYawInDegrees());
+    PartyNavigator()->SetPitch(GetCameraPitchInDegrees());
     navigator_position.y -= g_default_world_height;
-    g_startup_world->SetPositionInternal(&navigator_position);
+    PartyNavigator()->SetPositionInternal(&navigator_position);
 }
 
 /* Snapshot the world's camera location and the live yaw/pitch into a CamPos

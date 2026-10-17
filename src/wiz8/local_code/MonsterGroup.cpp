@@ -1311,7 +1311,7 @@ void MonsterGroupEnterCombat(W8MonsterGroup* monster_group)
             }
             ++index;
         }
-        if (g_startup_world->position_dirty) {
+        if (PartyNavigator()->position_dirty) {
             return;
         }
         if (monster_group == 0) {
@@ -1409,7 +1409,7 @@ bool PositionMonsterGroupNearCamera(W8MonsterGroup* group, float distance, float
     float angle;
     unsigned int index;
 
-    camera = g_startup_world->GetPosition();
+    camera = PartyNavigator()->GetPosition();
     if (!flag) {
         target = camera;
         return MoveMonsterGroupToPosition(group, &target, 0.0f, true, true, false, true);
@@ -1429,7 +1429,7 @@ bool PositionMonsterGroupNearCamera(W8MonsterGroup* group, float distance, float
         }
     }
     if (distance <= 0.0f) {
-        distance = g_startup_world->radius + radius + 1.0f;
+        distance = PartyNavigator()->radius + radius + 1.0f;
     }
     target.y = camera.y;
     target.x = camera.x + distance * sin(angle);

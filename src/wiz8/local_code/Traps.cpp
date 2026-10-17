@@ -296,12 +296,12 @@ static void DischargeTrapSpell(glm::vec3 point, int spell_id, unsigned int power
     source.point = point;
     if (GetSpellTargetType(spell_id, false) == W8_TARGET_TYPE_POINT) {
         target.iType = W8_TARGET_KIND_PLACE;
-        target.point = g_startup_world->GetPosition();
+        target.point = PartyNavigator()->GetPosition();
         CastSpellFromSource(spell_id, &source, &target, power_level, 0, 0, false, 0, 0, 0, 0);
     } else {
         ResetCombatSlot(&target);
         target.iType = W8_TARGET_KIND_PARTY;
-        target.point = g_startup_world->GetPosition();
+        target.point = PartyNavigator()->GetPosition();
         eligible = 0;
         for (index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
             if (CanPartySlotParticipate(index)) {

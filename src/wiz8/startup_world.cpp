@@ -1,5 +1,7 @@
 #include "wiz8/startup_world.h"
 
+#include <memory>
+
 #include "wiz8/engine_code/AniMesh.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/Levels.h"
@@ -8,7 +10,12 @@
 #include "wiz8/gameplay_constants.h"
 
 // GLOBAL: WIZ8 0x00659c0c
-W8Navigator* g_startup_world;
+static std::unique_ptr<W8Navigator> party_navigator;
+
+W8Navigator* PartyNavigator()
+{
+    return party_navigator.get();
+}
 // GLOBAL: WIZ8 0x006081e8
 float g_runtime_world_scale = 500.0f;
 
@@ -16,14 +23,12 @@ float g_runtime_world_scale = 500.0f;
 // FUNCTION: WIZ8 0x0044f060
 unsigned char InitializeStartupNavigation(void)
 {
-    W8Navigator* navigator;
-
     InitializeAniMeshCache(-1, -1);
     InitializeRenderQuality();
     InitializeEnvironmentColours();
 
-    navigator = new W8Navigator;
-    g_startup_world = navigator;
+    party_navigator = std::make_unique<W8Navigator>();
+    auto* navigator = party_navigator.get();
     navigator->configureStartupRange(500.0f);
     if (g_runtime_world_scale < kWorldScale) {
         g_runtime_world_scale = 500.0f;
@@ -35,14 +40,11 @@ unsigned char InitializeStartupNavigation(void)
 }
 /* Tears down the startup navigation state InitializeStartupNavigation
    built: the ani-mesh cache, environment globals, and the
-   startup navigator itself. */
+   party navigator itself. */
 // FUNCTION: WIZ8 0x0044F190
 void ShutdownStartupNavigation(void)
 {
     FreeAniMeshCache();
     ClearEnvironmentObjects();
-    if (g_startup_world != 0) {
-        delete g_startup_world;
-    }
-    g_startup_world = 0;
+    party_navigator.reset();
 }

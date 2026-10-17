@@ -1797,7 +1797,7 @@ void W8Monster::ProcessScript()
                     break;
                 }
                 if (SDL_strcasecmp(token.c_str(), "PARTY") == 0) {
-                    SetMovementTargetToNavigator(g_startup_world, 5.0);
+                    SetMovementTargetToNavigator(PartyNavigator(), 5.0);
                 } else {
                     ConfigureMovementToPosition(&position);
                 }
@@ -2347,7 +2347,7 @@ bool W8Monster::IsWithinWorldRange()
     } else {
         double far_clip = WorldGetFarClip(GetWorld());
         glm::vec3 position = GetPosition();
-        glm::vec3 reference = g_startup_world->GetPosition();
+        glm::vec3 reference = PartyNavigator()->GetPosition();
         glm::vec3 delta = reference - position;
 
         return glm::dot(delta, delta) <=
@@ -2517,10 +2517,10 @@ int W8Monster::IsFacingPlayer()
     glm::vec3 from;
     glm::vec3 to;
 
-    if (g_startup_world == 0) {
+    if (PartyNavigator() == 0) {
         srAssertFail("pPlayer", MONSTER_CPP, 3838, 0);
     }
-    to = g_startup_world->GetPosition();
+    to = PartyNavigator()->GetPosition();
     from = GetPosition();
     bearing = NormalizeAngle(GetHeadingAngle(&from, &to));
     facing = NormalizeAngle(GetYaw());
@@ -2785,7 +2785,7 @@ float W8Monster::GetPointDistanceToPlayer(glm::vec3 point)
     player_position = cameraLocation();
     player_position.y -= g_default_world_height;
     distance = glm::length((point - player_position)) - movement.alternate_radius -
-               g_startup_world->movement.alternate_radius;
+               PartyNavigator()->movement.alternate_radius;
     if (distance < 0.0f) {
         distance = 0.0f;
     }
@@ -4254,7 +4254,7 @@ unsigned short MonsterApproachStartupNavigator(W8Monster* monster, double separa
     unsigned short result;
 
     if (monster != 0) {
-        result = monster->SetMovementTargetToNavigator(g_startup_world, separation);
+        result = monster->SetMovementTargetToNavigator(PartyNavigator(), separation);
         if (result != 0) {
             monster->movement.boundary_enabled = false;
         }
@@ -4267,7 +4267,7 @@ unsigned short MonsterApproachStartupNavigator(W8Monster* monster, double separa
 unsigned char MonsterLinkToStartupNavigator(W8Monster* monster)
 {
     if (monster != 0) {
-        W8Navigator* target = g_startup_world;
+        W8Navigator* target = PartyNavigator();
 
         return monster->LinkToNavigator(target, WorldGetFarClip(GetWorld()) * 2.0);
     }
@@ -4280,7 +4280,7 @@ unsigned short MonsterConfigureMovementToPlayer(W8Monster* monster, float separa
                                                 int trace_mode, unsigned char* probe_result)
 {
     if (monster != 0) {
-        W8Navigator* target = g_startup_world;
+        W8Navigator* target = PartyNavigator();
 
         return monster->ConfigureMovementToNavigator(target, separation, maximum_distance, position,
                                                      trace_mode, monster->GetYaw(), probe_result);

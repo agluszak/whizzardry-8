@@ -914,7 +914,7 @@ bool Trigger::HasActorWithinRadius(float radius, bool include_party)
     }
 
     if (include_party) {
-        glm::vec3 party_position = g_startup_world->GetPosition();
+        glm::vec3 party_position = PartyNavigator()->GetPosition();
         if (glm::length((party_position - center)) <= radius) {
             return true;
         }

@@ -716,7 +716,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                             } else if (!npc->party_noticed && npc->record->monster_bound == 0 &&
                                        ShowMonsterTargetMarker(monster_info) != 0) {
                                 glm::vec3 delta;
-                                delta = own_position - g_startup_world->GetPosition();
+                                delta = own_position - PartyNavigator()->GetPosition();
                                 if (glm::length(delta) < 25000.0f &&
                                     (npc->party_noticed = true, !gXStatus.fSurprisePossible) &&
                                     GetLoadedLevelID() != 4) {

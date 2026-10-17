@@ -851,7 +851,7 @@ bool ResolveTargetPoint(W8CombatSlot* target, bool sight_probe)
 
     if (target->iType == W8_TARGET_KIND_PARTY || target->iType == W8_TARGET_KIND_CHARACTER) {
         if (sight_probe) {
-            point = g_startup_world->GetPosition();
+            point = PartyNavigator()->GetPosition();
         } else {
             point = cameraLocation();
         }
@@ -2512,7 +2512,7 @@ int CollectConeMonsterTargets(const W8TargetSource* source, const glm::vec3* eye
     int start_count = static_cast<int>(found.size());
     float radius;
     if (source->iType == W8_TARGET_SOURCE_CHARACTER) {
-        radius = g_startup_world->radius;
+        radius = PartyNavigator()->radius;
     } else if (source->iType == W8_TARGET_SOURCE_MONSTER) {
         W8MonsterInfo* source_info = FindMonster(source->iMonsterID);
         radius = source_info->p3D->radius;

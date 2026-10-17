@@ -3359,7 +3359,7 @@ void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targ
     saved = source->point;
     source->point = target->point;
     if (TargetSourceIsCharacter(source, 0)) {
-        navigator = g_startup_world;
+        navigator = PartyNavigator();
     } else if (TargetSourceIsMonster(source, 0)) {
         navigator = monster_info->p3D;
     } else {
@@ -3454,7 +3454,7 @@ void ScatterSpellPointTarget(int spell_id, W8TargetSource* source, W8CombatSlot*
     int attempt;
 
     range = CalcRangeDistance(g_spell_records[spell_id].range_category);
-    navigator = g_startup_world;
+    navigator = PartyNavigator();
     if (source->iType != W8_TARGET_SOURCE_CHARACTER) {
         if (source->iType != W8_TARGET_SOURCE_MONSTER) {
             srAssertFail("pSource->iType == SOURCE_TYPE_MONSTER", MAGIC_CPP, 0xd80, 0);
@@ -3607,7 +3607,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
             source, target, W8SelectedAction{W8_ACTION_CAST_SPELL, spell_id, target, nullptr})) {
         return;
     }
-    player_pos = g_startup_world->GetPosition();
+    player_pos = PartyNavigator()->GetPosition();
     camera = cameraLocation();
     if (TargetSourceIsMonster(source, 1)) {
         if (source->iMonsterID == -1) {
@@ -3675,7 +3675,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
             marked = true;
             side = 2;
             if (0.0f < radius) {
-                radius += g_startup_world->radius;
+                radius += PartyNavigator()->radius;
             }
         } else if (TargetSourceIsMonster(source, 0)) {
             if (monster_info->ubDisposition == W8_DISPOSITION_FRIENDLY) {
@@ -3738,7 +3738,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
                 side = 1;
             } else if (monster_info->ubDisposition == W8_DISPOSITION_HOSTILE) {
                 side = 2;
-                if (TargetInRangeAndArcs(&camera, g_startup_world->radius, &eye, monster->radius,
+                if (TargetInRangeAndArcs(&camera, PartyNavigator()->radius, &eye, monster->radius,
                                          heading, elevation, cone_range) &&
                     monster_info->player_visibility.los_flags[sight_flag] != '\0') {
                     marked = true;
@@ -3762,7 +3762,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
             }
         }
         if (!marked &&
-            TargetInRangeAndArcs(&camera, g_startup_world->radius, &eye, 0, heading, elevation,
+            TargetInRangeAndArcs(&camera, PartyNavigator()->radius, &eye, 0, heading, elevation,
                                  cone_range) &&
             GetWorldOctree()->TraceLineOfSight(&eye, &camera, true, -3, -3, true, 0) == 0) {
             marked = true;

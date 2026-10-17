@@ -1481,8 +1481,8 @@ void W8PathingService::AdjustFinalPathEndpoint(W8NavigatorMovementState* movemen
     float target_radius;
     glm::vec3 target_position;
     if (target_location <= 0) {
-        target_radius = g_startup_world->movement.alternate_radius;
-        target_position = g_startup_world->GetPosition();
+        target_radius = PartyNavigator()->movement.alternate_radius;
+        target_position = PartyNavigator()->GetPosition();
     } else {
         W8MonsterInfo* info = FindMonster(target_location);
         if (info != 0 && info->p3D != 0) {
@@ -1601,10 +1601,10 @@ unsigned int W8PathingService::CollectPathProbes(W8NavigatorMovementState* movem
 
     m_path_candidates = GetWorldOctree()->locationsInBox({lower, upper}, movement->location_id);
 
-    glm::vec3 player_position = g_startup_world->GetPosition();
+    glm::vec3 player_position = PartyNavigator()->GetPosition();
     glm::vec3 delta = player_position - movement->position;
     float distance = glm::length(delta);
-    float player_radius = g_startup_world->movement.alternate_radius;
+    float player_radius = PartyNavigator()->movement.alternate_radius;
     float overlap_radius = radius;
     if (player_radius < radius) {
         overlap_radius = player_radius;
@@ -1613,7 +1613,7 @@ unsigned int W8PathingService::CollectPathProbes(W8NavigatorMovementState* movem
         W8PathProbeVolume* probe = &m_path_probes[m_path_probe_count];
         probe->tag = 0;
         probe->outer_radius = player_radius;
-        probe->center = g_startup_world->GetPosition();
+        probe->center = PartyNavigator()->GetPosition();
         ++m_path_probe_count;
     }
 
@@ -1953,7 +1953,7 @@ unsigned short W8PathingService::PlanMovement(W8NavigatorMovementState* movement
         attachment->path[attachment->path_position_index].position = movement->position;
         attachment->path_destination = attachment->path[attachment->path_position_index].position;
         GetWorldOctree()->RegisterNavigatorCell(movement->location_id, &movement->position);
-        g_startup_world->radius = g_startup_world->movement.alternate_radius;
+        PartyNavigator()->radius = PartyNavigator()->movement.alternate_radius;
         attachment->flags &= ~W8_NAV_ATTACHMENT_RESULT_MASK;
         return 0;
     }
@@ -2043,7 +2043,7 @@ unsigned short W8PathingService::PlanMovement(W8NavigatorMovementState* movement
     }
     attachment->flags &= ~W8_NAV_ATTACHMENT_RESULT_MASK;
     attachment->flags |= result;
-    g_startup_world->radius = g_startup_world->movement.alternate_radius;
+    PartyNavigator()->radius = PartyNavigator()->movement.alternate_radius;
     return result;
 }
 
@@ -2118,10 +2118,10 @@ unsigned short W8PathingService::ResolveSearchNodeCollisions(W8NavigatorMovement
 
     W8PathSearchNode* node = &m_search_nodes[node_index];
     glm::vec3 blocking_direction;
-    glm::vec3 player_position = g_startup_world->GetPosition();
+    glm::vec3 player_position = PartyNavigator()->GetPosition();
     glm::vec3 player_delta = player_position - node->position;
     float distance = glm::length(player_delta);
-    float threshold = g_startup_world->movement.alternate_radius + radius;
+    float threshold = PartyNavigator()->movement.alternate_radius + radius;
     if (movement->target_location_id == 0) {
         threshold += separation;
     }
@@ -2288,7 +2288,7 @@ unsigned short W8PathingService::ConfigureMovementSearch(
         float horizontal_clearance = glm::length(((glm::vec2(delta.x, delta.z)))) - radius;
         float target_radius;
         if (target_location == 0) {
-            target_radius = g_startup_world->movement.alternate_radius;
+            target_radius = PartyNavigator()->movement.alternate_radius;
         } else {
             W8Monster* target = GetMonsterByLocationID(target_location);
             target_radius = target->movement.alternate_radius;
@@ -4320,7 +4320,7 @@ bool W8PathParameters::PredictNavigatorCollision()
         }
     }
     if (movement->boundary_enabled) {
-        position = g_startup_world->GetPosition();
+        position = PartyNavigator()->GetPosition();
         delta = position - movement->position;
         combined = g_path_party_boundary_radius * kWorldScale;
         approach = radius * 5.0f + combined;

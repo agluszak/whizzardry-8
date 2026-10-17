@@ -193,7 +193,7 @@ bool CharacterActionReachesTarget(int party_slot, int hand, const W8SelectedActi
         float dz = point.z - camera.z;
         if (distance + 1.0f <
             sqrtf(dx * dx + (point.y - camera.y) * (point.y - camera.y) + dz * dz) -
-                g_startup_world->radius) {
+                PartyNavigator()->radius) {
             return false;
         }
         if (trace) {
@@ -741,7 +741,7 @@ float CalcRangeDistance(W8RangeCategory range_category, W8TargetSource* source)
 {
     float distance = CalcRangeDistance(range_category);
     if (TargetSourceIsCharacter(source, 0)) {
-        return g_startup_world->movement.alternate_radius + distance;
+        return PartyNavigator()->movement.alternate_radius + distance;
     }
     if (TargetSourceIsMonster(source, 0)) {
         if (source->iMonsterID == -1) {
@@ -758,7 +758,7 @@ float CalcRangeDistance(W8RangeCategory range_category, W8TargetSource* source)
 // FUNCTION: WIZ8 0x0051AB50
 float CalcRangeDistanceFromParty(W8RangeCategory range_category)
 {
-    return CalcRangeDistance(range_category) + g_startup_world->movement.collision_radius;
+    return CalcRangeDistance(range_category) + PartyNavigator()->movement.collision_radius;
 }
 
 /* Shrink a short-range category by the formation rows CountRowsBetween says

@@ -994,7 +994,7 @@ bool W8Missile::OnCollision(W8Navigator* other)
     char hit_result;
     unsigned char deflect_chance;
 
-    if (g_startup_world == other) {
+    if (PartyNavigator() == other) {
         if (TargetSourceIsCharacter(&m_Source, 0)) {
             goto miss;
         }

@@ -2747,8 +2747,8 @@ void TickRadiusBlastEffectSlots(W8EffectSlot* effect_slots)
             SetTextBoxMode(1, -1);
             {
                 float reach = CalcRangeDistance(W8_RANGE_SHORT);
-                float radius = g_startup_world->radius;
-                glm::vec3 centre = g_startup_world->GetPosition();
+                float radius = PartyNavigator()->radius;
+                glm::vec3 centre = PartyNavigator()->GetPosition();
                 CollectMonstersWithinRadius(&centre, &centre, found, radius + reach, 1, 0);
             }
             for (index = 0; index < static_cast<int>(found.size()); ++index) {

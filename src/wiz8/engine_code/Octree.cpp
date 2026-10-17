@@ -1775,8 +1775,8 @@ W8Octree::traceSphereHit(const glm::vec3& from, const glm::vec3& to, int exclude
     const glm::vec3 low(glm::mix(from, to, reversed) - inflate);
     const glm::vec3 high(glm::mix(to, from, reversed) + inflate);
     if (target == -1) {
-        radius = g_startup_world->movement.alternate_radius;
-        navigator = g_startup_world;
+        radius = PartyNavigator()->movement.alternate_radius;
+        navigator = PartyNavigator();
     } else {
         if (target < 1) {
             goto no_probes;
@@ -1839,7 +1839,7 @@ no_probes:;
     }
     if (excluded != -1 && excluded_location != -1) {
         const float distance = sphereDistance(cameraLocation());
-        const float camera_radius = g_startup_world->radius * g_camera_sphere_radius_scale;
+        const float camera_radius = PartyNavigator()->radius * g_camera_sphere_radius_scale;
         if (distance < camera_radius)
             return SphereTraceHit{sphereOffset(camera_radius, distance) + from, 0};
     }
@@ -3023,9 +3023,9 @@ std::vector<glm::vec3> W8Octree::scatterPositions(const glm::vec3& position, flo
                     } else {
                         float reach = spacing * 0.5f;
                         if (pathing->TestPathCellClearance(&candidate, reach, false)) {
-                            glm::vec3 navigator = g_startup_world->GetPosition();
+                            glm::vec3 navigator = PartyNavigator()->GetPosition();
                             const auto delta = navigator - candidate;
-                            float separation = g_startup_world->radius + reach;
+                            float separation = PartyNavigator()->radius + reach;
                             if (separation * separation <= glm::dot(delta, delta)) {
                                 if (OverlapsNearbyMonster(candidate, reach, candidates, false))
                                     goto next_cell;
@@ -3072,7 +3072,7 @@ NavigatorPlacement W8Octree::navigatorPositions(const glm::vec3& input, float ya
     int found_j = 9999;
     float source_y = source.y;
     std::vector<w8_ulong> candidates;
-    float camera_radius = g_startup_world->movement.alternate_radius;
+    float camera_radius = PartyNavigator()->movement.alternate_radius;
     bool placed = false;
     float separation = (CalcRangeDistance(W8_RANGE_TOUCH) + radius) * 0.5f + camera_radius;
     float angle = NormalizeAngle(yaw + g_monster_rotation_offset);
@@ -3132,7 +3132,7 @@ NavigatorPlacement W8Octree::navigatorPositions(const glm::vec3& input, float ya
                                                    !InsideDestinationTrigger(
                                                        candidate.x, candidate.y, candidate.z))) {
                                     if (first_only) {
-                                        glm::vec3 camera = g_startup_world->GetPosition();
+                                        glm::vec3 camera = PartyNavigator()->GetPosition();
                                         const auto delta = camera - candidate;
                                         if (glm::dot(delta, delta) < separation * separation) {
                                             goto next_cell;

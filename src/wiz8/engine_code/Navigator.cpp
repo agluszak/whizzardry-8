@@ -687,7 +687,7 @@ unsigned short W8Navigator::SetMovementTargetToNavigator(W8Navigator* target, do
     movement_target = glm::vec3(0);
     collision_margin = separation;
     target_navigator = target;
-    if (target == g_startup_world || target->movement.location_id != 0) {
+    if (target == PartyNavigator() || target->movement.location_id != 0) {
         movement.target_location_id = target->movement.location_id;
     } else {
         movement.target_location_id = -1;
@@ -971,7 +971,7 @@ W8Navigator* W8Navigator::ResolveBlockingNavigator(const glm::vec3* from, glm::v
         *to = hit->position;
         hit_location = hit->location_id;
         if (hit_location == 0) {
-            return g_startup_world;
+            return PartyNavigator();
         }
         if (hit_location > 0) {
             W8MonsterInfo* monster_info = FindMonster(hit_location);
@@ -1012,7 +1012,7 @@ double W8Navigator::MeasurePathDistance(const glm::vec3* target, float max_range
 // FUNCTION: WIZ8 0x00453480
 int W8Navigator::FindNavigatorPathDistance(float max_range, float* out_distance)
 {
-    double distance = MeasurePathDistance(&g_startup_world->movement.position, max_range, 0);
+    double distance = MeasurePathDistance(&PartyNavigator()->movement.position, max_range, 0);
 
     *out_distance = static_cast<float>(distance);
     if (distance != g_negative_one) {
@@ -1616,7 +1616,7 @@ void W8Navigator::SetPositionInternal(const glm::vec3* position)
         movement.position = *position;
         widened = glm::dvec3(*position);
         node->setLocation(widened);
-        if (movement.location_id != 0 || this == g_startup_world) {
+        if (movement.location_id != 0 || this == PartyNavigator()) {
             g_navigator_position_changed = true;
         }
         UpdateFacing(true);
@@ -2016,7 +2016,7 @@ int W8Navigator::ResolveMovement()
     if ((movement.attachment->flags & W8_NAV_ATTACHMENT_FOLLOW_PATH) == 0) {
         float target_motion = glm::length((target->movement.position - target_last_position));
 
-        if (target_motion > 2500.0 || (target == g_startup_world && target_motion > 500.0)) {
+        if (target_motion > 2500.0 || (target == PartyNavigator() && target_motion > 500.0)) {
             target_last_position = target->movement.position;
 
             if (target->radius + radius + collision_margin <

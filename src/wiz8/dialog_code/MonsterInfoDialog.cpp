@@ -415,7 +415,7 @@ bool W8MonsterInfoDialog::PopulateText()
         m_text_area.AddEntry("Range (Combat/Ground)",
                              fmt::format("{:5.2f} / {:5.2f} M", combat_range * 0.002f,
                                          glm::length((monster_info->p3D->GetPosition() -
-                                                      g_startup_world->GetPosition())) *
+                                                      PartyNavigator()->GetPosition())) *
                                              g_world_cursor_scale),
                              5, 0xf, 0);
         leader_info = FindMonster(leader_location_id);
