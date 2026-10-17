@@ -1,5 +1,6 @@
 #include "wiz8/local_code/GameplayCode.h"
 
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <cstring>

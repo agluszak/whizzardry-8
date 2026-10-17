@@ -5475,13 +5475,11 @@ UiResult WorldViewInput(const UiPointerEvent& event)
         if (!IsWorldCursorVisible()) {
             InitializeWorldCursor();
         }
-        SetWorldCursorRange(CalcRangeDistanceFromParty(GetCharActionRange(
-            g_status.selected_character, 0,
-            SelectCombatAction(g_status.selected_character,
-                               GetEditedActionContext(g_status.selected_character)))));
-        if (gpSCSV && GetActionSpellLikeId(SelectCombatAction(
-                          g_status.selected_character,
-                          GetEditedActionContext(g_status.selected_character))) == 0x3c) {
+        const auto selected = SelectCombatAction(
+            g_status.selected_character, GetEditedActionContext(g_status.selected_character));
+        SetWorldCursorRange(CalcRangeDistanceFromParty(
+            GetCharActionRange(g_status.selected_character, 0, selected)));
+        if (gpSCSV && GetActionSpellLikeId(selected) == 0x3c) {
             signed char extent_index;
             glm::vec3 minimum;
             glm::vec3 maximum;

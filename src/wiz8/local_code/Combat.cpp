@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cstring>
 #include <memory>
+#include <stdexcept>
 #include <string_view>
 #include <vector>
 

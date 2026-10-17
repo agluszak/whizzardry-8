@@ -48,7 +48,6 @@
 #include "wiz8/local_code/CombatRange.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Factions.h"
-#include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -314,10 +313,11 @@ bool IsSpellTargetStillValidIn(int party_slot, int spell_id, W8TargetingContext 
         context == W8_TARGETING_CONTEXT_SPELL || context == W8_TARGETING_CONTEXT_ITEM ||
             g_level_block == nullptr);
 
-    if (!TargetMatchesNeeded(SelectCombatAction(party_slot, context).target, needed)) {
+    const auto selected = SelectCombatAction(party_slot, context);
+    if (!TargetMatchesNeeded(selected.target, needed)) {
         return false;
     }
-    return CharacterActionReachesTarget(party_slot, 0, SelectCombatAction(party_slot, context));
+    return CharacterActionReachesTarget(party_slot, 0, selected);
 }
 
 /* The same check without the range half, and with one target kind that a
@@ -372,9 +372,8 @@ void AimAtMonsterLocation(int party_slot, int location_id, bool allow_single_tar
     if (CanTargetMonster(party_slot, location_id, edited_action, allow_single_target, true,
                          sighting)) {
         needed = W8_TARGET_NEED_UNSET;
-        if (GetEditedActionContext(party_slot) != 0) {
-            auto [action, detail, ignored_action_17_2, detail_block] =
-                SelectCombatAction(party_slot, GetEditedActionContext(party_slot));
+        if (!sighting) {
+            const auto [action, detail, unused_target, detail_block] = edited_action;
             needed = GetTargetNeededForAction(action, detail, detail_block);
             if (needed == W8_TARGET_NEED_GROUP) {
                 memset(&target, 0, sizeof(target));
@@ -382,7 +381,7 @@ void AimAtMonsterLocation(int party_slot, int location_id, bool allow_single_tar
                 target.iChar = BAD_INDEX;
                 target.iType = W8_TARGET_KIND_GROUP;
                 target.iGroupID = FindMonster(location_id)->monster_group_id;
-                AimAtTarget(party_slot, &target, GetEditedActionContext(party_slot));
+                AimAtTarget(party_slot, &target, editing_context);
                 StartBreathCycle(party_slot, false);
                 return;
             }
@@ -392,7 +391,7 @@ void AimAtMonsterLocation(int party_slot, int location_id, bool allow_single_tar
         target.iGroupID = BAD_INDEX;
         target.iType = W8_TARGET_KIND_MONSTER;
         target.iMonsterID = location_id;
-        AimAtTarget(party_slot, &target, GetEditedActionContext(party_slot));
+        AimAtTarget(party_slot, &target, editing_context);
         StartBreathCycle(party_slot, false);
     }
 }
@@ -651,12 +650,8 @@ void RepickInvalidCombatTargets(void)
             !CharacterCanSwitchTo(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, true, false)) {
             continue;
         }
-        auto [action, detail, target, detail_block] =
-            SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT);
-        W8TargetNeed needed = GetTargetNeededForAction(action, detail, detail_block);
-        if (!TargetMatchesNeeded(target, needed) ||
-            !CharacterActionReachesTarget(
-                party_slot, 2, SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT))) {
+        const auto selected = SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT);
+        if (!TargetIsInPlay(party_slot, 2, selected)) {
             RepickActionTarget(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, 0);
         }
     }
@@ -1339,21 +1334,20 @@ static int g_last_visible_monster = -1;
 // FUNCTION: WIZ8 0x00537540
 void RevalidateSelectedTarget(int party_slot)
 {
-    W8CombatSlot* target;
+    const auto context = GetEditedActionContext(party_slot);
     W8TargetNeed needed;
 
     if (party_slot != g_status.selected_character) {
         return;
     }
-    if (!CharacterCanSwitchTo(party_slot, GetEditedActionContext(party_slot), true, false)) {
+    if (!CharacterCanSwitchTo(party_slot, context, true, false)) {
         SetTargetingMode(W8_TARGET_NEED_NONE);
         return;
     }
-    target = SelectCombatAction(party_slot, GetEditedActionContext(party_slot)).target;
+    const auto selected = SelectCombatAction(party_slot, context);
     needed = W8_TARGET_NEED_NONE;
-    if (GetEditedActionContext(party_slot) != 0) {
-        auto [action, detail, unused_selected_action_14_2, detail_block] =
-            SelectCombatAction(party_slot, GetEditedActionContext(party_slot));
+    if (context != W8_TARGETING_CONTEXT_OUT_OF_COMBAT) {
+        const auto [action, detail, unused_target, detail_block] = selected;
         switch (action) {
         case W8_ACTION_ATTACK:
         case W8_ACTION_BERSERK:
@@ -1376,7 +1370,7 @@ void RevalidateSelectedTarget(int party_slot)
             break;
         }
     }
-    if (TargetMatchesNeeded(target, needed)) {
+    if (TargetMatchesNeeded(selected.target, needed)) {
         SetTargetingMode(W8_TARGET_NEED_NONE);
     } else {
         SetTargetingMode(needed);
@@ -1771,13 +1765,9 @@ bool RepickActionTarget(int party_slot, W8TargetingContext context, int arg)
                     if (g_settings.verbose_combat_messages != 0) {
                         PostCharacterNotice(party_slot, g_localized_strings[0x26b]);
                     }
-                    auto [kind_2, action_2, target_2, detail_block_2] =
+                    const auto committed =
                         SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT);
-                    needed = GetTargetNeededForAction(kind_2, action_2, detail_block_2);
-                    if (!TargetMatchesNeeded(target_2, needed) ||
-                        !CharacterActionReachesTarget(
-                            party_slot, 2,
-                            SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT))) {
+                    if (!TargetIsInPlay(party_slot, 2, committed)) {
                         AimAtTarget(party_slot, target, W8_TARGETING_CONTEXT_IN_COMBAT);
                     }
                 }
@@ -1902,8 +1892,7 @@ bool SlotHasAnyValidTarget(int party_slot)
     unsigned int index;
     unsigned int other_slot;
 
-    auto [action, detail, unused_selected_action_5_2, detail_block] =
-        SelectCombatAction(party_slot, GetEditedActionContext(party_slot));
+    const auto [action, detail, unused_target, detail_block] = edited_action;
 
     switch (action) {
     case W8_ACTION_ATTACK:

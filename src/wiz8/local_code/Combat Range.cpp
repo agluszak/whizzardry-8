@@ -1,4 +1,5 @@
 #include <cmath>
+#include <optional>
 #include <span>
 #include <vector>
 

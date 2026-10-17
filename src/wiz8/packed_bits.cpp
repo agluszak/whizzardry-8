@@ -1,6 +1,7 @@
 #include "wiz8/packed_bits.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <exception>
 #include <utility>
 #include <vector>

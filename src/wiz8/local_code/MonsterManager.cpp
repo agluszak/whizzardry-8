@@ -1,6 +1,5 @@
 #include "wiz8/local_code/MonsterManager.h"
 
-#include <algorithm>
 #include <cctype>
 #include <cmath>
 #include <cstring>

@@ -1,6 +1,5 @@
 #include "wiz8/engine_code/IntervalGate.h"
 
-#include <cstddef>
 #include <exception>
 
 #include "game_timer.h"

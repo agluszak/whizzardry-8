@@ -151,6 +151,7 @@ try {
     info.world = mesh->world;
     info.hFile = handle;
     info.bitmap_folder = mesh->bitmap_directory.c_str();
+    info.mesh_filename = mesh->filename.c_str();
     if (file == 0) {
         handle->seek(mesh->file_offset, wiz8::SeekOrigin::begin);
     }

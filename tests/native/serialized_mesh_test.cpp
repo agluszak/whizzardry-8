@@ -18,6 +18,7 @@
 #include "ReadMesh.h"
 #include "file_faults.h"
 #include "filesystem.h"
+#include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
@@ -29,6 +30,7 @@
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
 #include "temporary_directory.h"
+#include "wiz8/engine_code/AniMesh.h"
 #include "wiz8/engine_code/Level.h"
 #include "wiz8/engine_code/OctMeshModel.h"
 #include "wiz8/engine_code/ReadLevel.h"
@@ -280,6 +282,38 @@ TEST_CASE("serialized_mesh_test")
     REQUIRE(ok);
     std::puts(
         "ok: serialized mesh loading, linked successors, unloading, reloading and invalid links");
+}
+
+TEST_CASE("Animated mesh loads initialize the resource identity")
+{
+    ScopedTemporaryDirectory directory{"wiz8-animesh-identity"};
+    const auto record = directory.path / "mesh.bin";
+    const auto animation = directory.path / "animation.bin";
+    WriteAnimatedFixture(record);
+    {
+        std::ifstream input(record, std::ios::binary);
+        std::ofstream output(animation, std::ios::binary);
+        output.put(2); // Two vertex frames stored in a single mesh record.
+        output.put(0); // First frame index.
+        output << input.rdbuf();
+    }
+    W8AniMesh first;
+    first.filename = "first-animation";
+    W8AniMesh second;
+    second.filename = "second-animation";
+    {
+        auto input = wiz8::open_file(animation);
+        REQUIRE(LoadAniMesh(input.get(), &first, true));
+    }
+    {
+        auto input = wiz8::open_file(animation);
+        REQUIRE(LoadAniMesh(input.get(), &second, true));
+    }
+    REQUIRE(first.meshes.size() == 1);
+    REQUIRE(second.meshes.size() == 1);
+    REQUIRE(first.meshes[0]->getModel() != second.meshes[0]->getModel());
+    REQUIRE(first.frame_count == 2);
+    REQUIRE(second.frame_count == 2);
 }
 
 TEST_CASE("Animation frame streams retain morph and transform formats")

@@ -5,7 +5,6 @@
 
 #include "conditions.h"
 #include "wiz8/chunk.h"
-#include "wiz8/filesystem.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
