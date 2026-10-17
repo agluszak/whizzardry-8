@@ -319,7 +319,8 @@ UiResult HandleCampPortrait(const UiPointerEvent& event, int target_slot)
                                             kCharacterEventNoFlags, kCharacterEventFullVolume);
                         return;
                     }
-                    AimAtCharacter(giReviewCharSlot, target_slot, W8_TARGETING_CONTEXT_CURRENT);
+                    AimAtCharacter(giReviewCharSlot, target_slot,
+                                   GetEditedActionContext(giReviewCharSlot));
                     StartBreathCycle(giReviewCharSlot, false);
                     return;
                 }
@@ -339,7 +340,7 @@ UiResult HandleCampPortrait(const UiPointerEvent& event, int target_slot)
                         return;
                     }
                     AimAtCharacterIndirect(giReviewCharSlot, target_slot,
-                                           W8_TARGETING_CONTEXT_CURRENT);
+                                           GetEditedActionContext(giReviewCharSlot));
                     StartBreathCycle(giReviewCharSlot, false);
                     return;
                 }

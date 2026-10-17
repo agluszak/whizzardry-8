@@ -66,10 +66,11 @@ template<class T> void ForEachWorldNode(const std::function<void(T*)>& visit)
 }
 
 /* APST chunk: serialize every world prop's animation state. The record is a
-   fixed 64-byte name plus the six rep bytes LoadAnimationState reads. */
+   fixed 64-byte name plus the six saved animation bytes. */
 void SaveWorldProps(W8World* world, wiz8::File& handle);
 /* APST chunk: restore saved prop animation state. The 0xDEADD00D signature
    selects the name-keyed format; older saves carry a bare count plus the
-   object's id key. Unmatched records are consumed by a scratch prop. */
-void LoadWorldProps(W8World* world, wiz8::File& handle);
+   object's id key. Unmatched records are decoded and ignored. */
+struct W8Chunk;
+void LoadWorldProps(W8World* world, W8Chunk& chunk);
 void UpdateCameraPathStateByName(W8World* world, const char* name, int active);

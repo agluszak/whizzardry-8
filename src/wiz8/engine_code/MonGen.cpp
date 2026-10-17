@@ -29,6 +29,7 @@
 #include "local_code/Factions.h"
 #include "random.h"
 #include "surrender/srDebug.h"
+#include "wiz8/chunk.h"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/fact_state.h"
@@ -610,7 +611,7 @@ void DestroyMonsterGenerators(void)
    random-encounter budget is always clamped to the current level after loading,
    and the culling span is finally reset from that level's database row. */
 // FUNCTION: WIZ8 0x0048c110
-unsigned char MonGen::LoadAll(wiz8::File& save_handle)
+unsigned char MonGen::LoadAll(W8Chunk& save_handle)
 try {
     W8LevelDatabaseRecord* level;
     unsigned char success;
@@ -619,25 +620,25 @@ try {
     int index;
 
     DestroyMonsterGenerators();
-    save_handle.read_exact(&version, 4);
+    save_handle.ReadBytes(&version, 4);
     if (version > 4) {
-        save_handle.read_exact(&gXStatus.saved_encounter_budget, 4);
+        save_handle.ReadBytes(&gXStatus.saved_encounter_budget, 4);
     } else {
         gXStatus.saved_encounter_budget = 100;
     }
-    save_handle.read_exact(&g_random_encounter_budget, 4);
+    save_handle.ReadBytes(&g_random_encounter_budget, 4);
     if (version > 1) {
-        save_handle.read_exact(&g_encounter_culling_time_seconds, 4);
+        save_handle.ReadBytes(&g_encounter_culling_time_seconds, 4);
     }
     if (version > 2) {
-        save_handle.read_exact(&g_generator_save_flag, 1);
-        save_handle.read_exact(&g_generator_interval_min, 2);
-        save_handle.read_exact(&g_generator_default_interval, 2);
-        save_handle.read_exact(&g_generator_interval_max, 2);
+        save_handle.ReadBytes(&g_generator_save_flag, 1);
+        save_handle.ReadBytes(&g_generator_interval_min, 2);
+        save_handle.ReadBytes(&g_generator_default_interval, 2);
+        save_handle.ReadBytes(&g_generator_interval_max, 2);
     }
 
-    save_handle.read_exact(&count, 4);
-    if (count < 0 || count > (save_handle.size() - save_handle.tell()) / 26) return false;
+    save_handle.ReadBytes(&count, 4);
+    if (count < 0 || count > (save_handle.RemainingBytes()) / 26) return false;
     success = true;
     for (index = 0; index < count && success != 0; ++index) {
         auto generator = std::make_unique<MonGen>();
@@ -658,7 +659,7 @@ try {
    world. A record whose name no longer exists is still consumed completely: a
    temporary interval gate reads and discards the saved timer payload. */
 // FUNCTION: WIZ8 0x0048c470
-void LoadMonsterGenerators(wiz8::File& handle)
+void LoadMonsterGenerators(W8Chunk& handle)
 {
     char name[32];
     MonGen* generator;
@@ -669,13 +670,13 @@ void LoadMonsterGenerators(wiz8::File& handle)
     int index;
     int search;
 
-    handle.read_exact(&version, 4);
-    handle.read_exact(&g_generator_save_flag, 1);
-    handle.read_exact(&count, 4);
+    handle.ReadBytes(&version, 4);
+    handle.ReadBytes(&g_generator_save_flag, 1);
+    handle.ReadBytes(&count, 4);
     for (index = 0; index < count; ++index) {
-        handle.read_exact(name, sizeof(name));
-        handle.read_exact(&generation_enabled, 1);
-        handle.read_exact(&flags, 4);
+        handle.ReadBytes(name, sizeof(name));
+        handle.ReadBytes(&generation_enabled, 1);
+        handle.ReadBytes(&flags, 4);
 
         generator = 0;
         for (search = 0; search < static_cast<int>(g_world->monster_generators.size()); ++search) {
@@ -692,13 +693,12 @@ void LoadMonsterGenerators(wiz8::File& handle)
 
         if (version > 1) {
             if (generator != 0) {
-                generator->timer.Load(handle);
+                if (!generator->timer.Load(handle))
+                    throw std::runtime_error("invalid generator timer");
                 generator->timer.Arm();
             } else {
-                // A saved timer without a generator is read and discarded.
-                W8IntervalGate timer;
-                timer.m_flags.one_shot = false;
-                timer.Load(handle);
+                handle.ReadValue<float>(); // progress
+                handle.ReadValue<float>(); // duration scale
             }
         }
     }
@@ -820,33 +820,30 @@ void MonGen::Save(wiz8::File& handle)
    record is reported bad; the timer is rearmed either way, and the armed bit is
    always cleared on the way out so a loaded generator starts disarmed. */
 // FUNCTION: WIZ8 0x0048b5e0
-unsigned char MonGen::Load(wiz8::File& handle)
+unsigned char MonGen::Load(W8Chunk& handle)
 try {
     unsigned char version{};
-    unsigned char ok;
-    bool loaded;
 
-    handle.read_exact(&version, 1);
-    ok = 1;
+    handle.ReadBytes(&version, 1);
     if (static_cast<signed char>(version) >= 3) {
-        ok = ok && (handle.read(name, 0x20).bytes == static_cast<std::size_t>(0x20));
-        ok = ok && (handle.read(&generation_enabled, 1).bytes == static_cast<std::size_t>(1));
+        handle.ReadBytes(name, 0x20);
+        handle.ReadBytes(&generation_enabled, 1);
     }
-    loaded = ok && (handle.read(&flags, 4).bytes == static_cast<std::size_t>(4)) &&
-             (handle.read(&custom_spawn_chance, 1).bytes == static_cast<std::size_t>(1)) &&
-             (handle.read(&custom_interval_seconds, 2).bytes == static_cast<std::size_t>(2)) &&
-             (handle.read(&unknown_08, 2).bytes == static_cast<std::size_t>(2)) &&
-             (handle.read(&spawn_position.x, 4).bytes == static_cast<std::size_t>(4)) &&
-             (handle.read(&spawn_position.y, 4).bytes == static_cast<std::size_t>(4)) &&
-             (handle.read(&spawn_position.z, 4).bytes == static_cast<std::size_t>(4)) &&
-             (handle.read(&encounter_table_index, 4).bytes == static_cast<std::size_t>(4));
+    handle.ReadBytes(&flags, 4);
+    handle.ReadBytes(&custom_spawn_chance, 1);
+    handle.ReadBytes(&custom_interval_seconds, 2);
+    handle.ReadBytes(&unknown_08, 2);
+    handle.ReadBytes(&spawn_position.x, 4);
+    handle.ReadBytes(&spawn_position.y, 4);
+    handle.ReadBytes(&spawn_position.z, 4);
+    handle.ReadBytes(&encounter_table_index, 4);
     Reset();
     if (static_cast<signed char>(version) > 1) {
-        timer.Load(handle);
+        if (!timer.Load(handle)) return false;
         timer.Arm();
     }
     flags &= ~static_cast<unsigned int>(W8_MONGEN_ARMED);
-    return loaded;
+    return true;
 } catch (const std::exception&) {
     return false;
 }

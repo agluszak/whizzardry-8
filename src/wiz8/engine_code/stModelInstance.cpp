@@ -378,27 +378,10 @@ void stModelInstance::process(const ProcessInfo& info, e_processType)
     RenderMeshes(*info.renderer);
 }
 
-namespace {
-struct
-    MaterialOverrideScope { // NOLINT(cppcoreguidelines-special-member-functions) aggregate scope guard, never copied
-    const bool diffuse_enabled = g_material_diffuse_scale_enabled;
-    const bool emissive_enabled = g_material_emissive_override_enabled;
-    const float diffuse = g_material_diffuse_scale;
-    const float emissive = g_material_emissive_override;
-    ~MaterialOverrideScope()
-    {
-        g_material_diffuse_scale_enabled = diffuse_enabled;
-        g_material_emissive_override_enabled = emissive_enabled;
-        g_material_diffuse_scale = diffuse;
-        g_material_emissive_override = emissive;
-    }
-};
-} // namespace
-
 /* Submit the instance's linked mesh chain. Pass one fills a detached TriMesh
    per model — animated vertex buffers when the model requests them, the
    damage-stage texture/active-polygon tables, the lazily built highlight
-   material or the global material overrides — and pushes each mesh through
+   material or the instance material overrides — and pushes each mesh through
    RenderTriMeshWithEquations. When the highlight RGBA is configured
    the chain is submitted again inflated along its normals into a shared
    scratch buffer with reversed winding, skipping the linked "blank" skin. */
@@ -467,7 +450,6 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
         linked.RenderTriMeshWithEquations(renderer, submitted, normals);
     };
     drawLinked([&](stMeshModel* model, bool first_pass) {
-        const MaterialOverrideScope overrides;
         model->SetAmbientColor(ambient_color);
         mesh = model->getTriMesh();
         if ((render_flags & RENDER_SHADOW) != 0 && first_pass) {
@@ -498,14 +480,12 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
              (highlight_colour.z == 0.0f) && (highlight_colour.w == 0.0f)) ||
             (highlight_pass_mode != 1)) {
             if (diffuse_scale_enabled) {
-                g_material_diffuse_scale = diffuse_scale;
+                mesh.diffuse_scale = diffuse_scale;
                 mesh.shaders[0].value = (mesh.shaders[0].value & 0xffffd7bf) | 0x44a0;
                 mesh.control_flags |= (1UL << srMeshModel::CONTROL_SORTED_RENDERING);
-                g_material_diffuse_scale_enabled = true;
             }
             if (emissive_override_enabled) {
-                g_material_emissive_override = emissive_override;
-                g_material_emissive_override_enabled = true;
+                mesh.emissive_override = emissive_override;
             }
         } else {
             mesh.vertex_materials[0][0] = 0;

@@ -110,7 +110,6 @@ void ShutdownGame(size_t initialized_screens, bool save_configuration)
     g_screen_return_stack.clear();
     ClearLocationVariables();
     DestroyGameplayObjects();
-    ReleaseReadMeshScratch();
     ClearNpcMessageQueue();
     ClearNpcDialogueTranscript();
     ReleaseMessageStorage();

@@ -25,7 +25,6 @@ enum { W8_MATERIAL_TWO_SIDED = 1u, W8_MATERIAL_NORMAL_TEXCOORD_MASK = 0x1feu };
 class stMaterial : public srMaterial {
 public:
     stMaterial();
-    virtual srVertexProcessor::MaterialInfo getMaterialInfo() override;
 
 public:
     stMaterial(const stMaterial&) = default;
@@ -61,17 +60,9 @@ struct W8MaterialRecord {
 
 static_assert(sizeof(W8MaterialRecord) == 0x12a, "W8MaterialRecord is a serialized record");
 
-/* Per-draw material override switches consumed by stMaterial::getMaterialInfo;
-   stModelInstance's mesh submit arms them around each chained model. */
-extern bool g_material_diffuse_scale_enabled;
-extern float g_material_diffuse_scale;
-extern bool g_material_emissive_override_enabled;
-extern float g_material_emissive_override;
-
 class stTextureFile;
 
 /* Loaded resources by name; each lives while something renders with it. */
-extern ResourceCache<stTextureFile> g_texture_files;
 extern ResourceCache<stTextureAnim> g_texture_animations;
 
 /* A level material's shared render state. */

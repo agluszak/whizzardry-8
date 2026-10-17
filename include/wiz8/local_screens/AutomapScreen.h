@@ -1,4 +1,5 @@
 #pragma once
+struct W8Chunk;
 
 #include <string>
 
@@ -50,7 +51,7 @@ bool AutomapHasCellAt(const glm::vec3* position);
 
 void ResetAutomapView(void);
 bool SaveAutomapNotes(wiz8::File& handle);
-bool LoadAutomapNotes(wiz8::File& handle);
+bool LoadAutomapNotes(W8Chunk& handle);
 unsigned char GetAutomapPositionUnderCursor(glm::vec3* position);
 void SetAutomapToolCursor(int tool);
 W8AutomapNote* FindAutomapNoteUnderCursor(void);

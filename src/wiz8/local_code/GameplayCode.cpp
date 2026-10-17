@@ -112,7 +112,7 @@ bool AnyMonsterEngaged(void)
     const W8MonsterInfo* monster_info;
 
     for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
-        monster_info = MonsterGetScriptPartByLocationIndex(index);
+        monster_info = GetMonsterListEntry(index);
         if (monster_info->fInCombat && monster_info->ubDisposition == W8_DISPOSITION_HOSTILE &&
             monster_info->hp_current != 0 &&
             monster_info->highest_condition < W8_CONDITION_WEBBED) {
@@ -487,20 +487,18 @@ void CalcInitiative(W8Character* character)
     }
 }
 
-// FUNCTION: WIZ8 0x004ee220
-void CalcAttacks(W8Character* character)
+std::array<W8HandAttack, 2> EvaluateWeaponHands(const W8ItemInstance& primary,
+                                                const W8ItemInstance& secondary)
 {
+    std::array<W8HandAttack, 2> hands{};
     W8HandAttack* attacks[2];
-    W8ItemDatabaseRecord* records[2];
-    W8ItemInstance* equipment[2];
+    const W8ItemDatabaseRecord* records[2];
+    const W8ItemInstance* equipment[2];
     unsigned int hand;
-    int physical_experience;
-    int load_penalty = 0;
-
     for (hand = 0; hand < 2; ++hand) {
-        SetHandType(character, static_cast<W8EquipSlot>(hand + W8_EQUIP_SLOT_PRIMARY_WEAPON));
-        attacks[hand] = &character->Hand[hand];
-        equipment[hand] = &character->EquippedItem[hand + 6];
+        hands[hand].uiHolds = WeaponHandKind(primary, secondary, hand);
+        attacks[hand] = &hands[hand];
+        equipment[hand] = (hand == 0 ? &primary : &secondary);
         if (equipment[hand]->iItemNo == -1) {
             records[hand] = 0;
             attacks[hand]->weapon_skill = W8_SKILL_MARTIAL_ARTS;
@@ -557,6 +555,32 @@ void CalcAttacks(W8Character* character)
                 attacks[1]->in_play = false;
             }
         }
+    }
+
+    return hands;
+}
+
+// FUNCTION: WIZ8 0x004ee220
+void CalcAttacks(W8Character* character)
+{
+    W8HandAttack* attacks[2];
+    W8ItemDatabaseRecord* records[2];
+    W8ItemInstance* equipment[2];
+    unsigned int hand;
+    int physical_experience;
+    int load_penalty = 0;
+
+    const auto hands = EvaluateWeaponHands(character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON],
+                                           character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON]);
+    for (hand = 0; hand < 2; ++hand) {
+        attacks[hand] = &character->Hand[hand];
+        equipment[hand] = &character->EquippedItem[hand + 6];
+        records[hand] =
+            equipment[hand]->iItemNo == -1 ? nullptr : &g_item_records[equipment[hand]->iItemNo];
+        attacks[hand]->uiHolds = hands[hand].uiHolds;
+        attacks[hand]->weapon_skill = hands[hand].weapon_skill;
+        attacks[hand]->combat_skill = hands[hand].combat_skill;
+        attacks[hand]->in_play = hands[hand].in_play;
     }
 
     character->dual_wielding = attacks[0]->uiHolds == 1 && attacks[0]->in_play &&

@@ -1,5 +1,4 @@
 #pragma once
-
 #include <array>
 #include <cstdint>
 #include <memory>
@@ -70,6 +69,8 @@ public:
         glm::vec3 bounds_center{0.0f, 0.0f, 0.0f};
         float bounds_radius = 0.0f;
         float sort_bias = 0.0f;
+        std::optional<float> diffuse_scale;
+        std::optional<float> emissive_override;
         PolygonSelection active_polygons;
     };
 

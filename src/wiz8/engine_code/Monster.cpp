@@ -768,7 +768,6 @@ static std::unique_ptr<W8Monster> ReadOrCloneMonsterCycles(const W8GrCycleLoadCo
     monster->RandomizeAppearanceAndMotion();
     RegisterGrCycle(monster_name, monster.get());
     ResumeSharedGameTimers();
-    ReleaseReadMeshScratch();
     return success ? std::move(monster) : nullptr;
 }
 

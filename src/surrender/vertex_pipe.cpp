@@ -187,9 +187,15 @@ void srVertexPipe::setMaterial(srMaterial* material)
     if (material == 0) {
         material = &default_material;
     }
-    if (material != this->material) {
-        this->material = material;
-        material_info = material->getMaterialInfo();
+    this->material = material;
+    material_info = material->getMaterialInfo();
+    if (current_record) {
+        if (current_record->diffuse_scale)
+            material_info.diffuse.w *= *current_record->diffuse_scale;
+        if (current_record->emissive_override) {
+            const auto emissive = *current_record->emissive_override;
+            material_info.emissive = glm::vec4(emissive, emissive, emissive, 1.0f);
+        }
     }
 }
 
@@ -204,6 +210,7 @@ void srVertexPipe::process(const Input& input)
             active_processors.push_back(processor);
         }
     }
+    current_record = nullptr;
     setMaterial(0);
     batch_base = 0;
     w8_ulong vertex_count = static_cast<w8_ulong>(input.active_vertices.size());

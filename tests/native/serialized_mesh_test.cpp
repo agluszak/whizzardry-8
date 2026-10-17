@@ -123,10 +123,19 @@ bool LoadAnimated(const std::filesystem::path& path)
     REQUIRE((model->frames.size() == 2));
     REQUIRE((model->GetVertexLocations(0, true, 0)[1].x == 1.0f));
     REQUIRE((model->GetVertexLocations(1, true, 0)[1].x == 3.0f));
-    // Cached models still consume and validate their serialized record.
-    file->seek(0, wiz8::SeekOrigin::begin);
+    // A cache hit shares geometry but reads this record's own placement.
+    {
+        auto writer = wiz8::open_file(path, wiz8::OpenMode::update);
+        writer->seek(13, wiz8::SeekOrigin::begin); // version/counts/flags
+        Write(*writer, std::array<float, 10>{2, 3, 4, .5f, 0, 1, 0, 1, 1, 1});
+    }
+    file = wiz8::open_file(path);
+    info.hFile = file.get();
     auto second = ReadSingleLevelMesh(&info, "animated fixture", true);
     REQUIRE((second && second->getModel() == model));
+    REQUIRE(first->getLocation() == glm::dvec3(0));
+    REQUIRE(second->getLocation() == glm::dvec3(1000, 1500, 2000));
+    REQUIRE(second->getRotation() != first->getRotation());
     REQUIRE(first->getParent() == nullptr);
     REQUIRE(second->getParent() == nullptr);
     auto truncated = ReadSingleLevelMesh(&info, "animated fixture", true);
@@ -135,7 +144,6 @@ bool LoadAnimated(const std::filesystem::path& path)
     first.reset();
     second.reset();
     REQUIRE((g_mesh_models.empty() && g_decompressed_mesh_bytes == 0));
-    ReleaseReadMeshScratch();
     return true;
 }
 
@@ -175,7 +183,6 @@ bool LoadCycles(const std::filesystem::path& path)
         if (cycle == 2) {
             ReleaseOctMeshDefaults();
         }
-        ReleaseReadMeshScratch();
         // Released meshes drop their references; only the default snapshot may remain.
         REQUIRE((cycle == 2 ? !g_oct_mesh_default.material
                             : g_oct_mesh_default.material.use_count() == 1));
@@ -269,7 +276,6 @@ TEST_CASE("serialized_mesh_test")
         REQUIRE_FALSE(ReadLevel(&world, file.get(), false, ""));
         REQUIRE(destroyed == 3);
     }
-    ReleaseReadMeshScratch();
     ReleaseOctMeshDefaults();
     REQUIRE(ok);
     std::puts(

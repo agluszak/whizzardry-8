@@ -443,7 +443,6 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
         ForwardDestroyWorld(GetWorld());
         SetCurrentWorld(0);
     }
-    ReleaseReadMeshScratch();
     InvalidateRendererTextureCache();
     SetCurrentWorld(CreateWorld());
 
@@ -569,7 +568,6 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
     }
     MarkRendererReady();
     UpdateWorldMeshAfterLoad();
-    ReleaseReadMeshScratch();
     return 1;
 }
 
@@ -629,7 +627,6 @@ unsigned char UnloadLevel(const char* save_directory)
         ForwardDestroyWorld(world);
         SetCurrentWorld(0);
     }
-    ReleaseReadMeshScratch();
 
     if (g_world_cleanup_flag) {
         RenderFrame();

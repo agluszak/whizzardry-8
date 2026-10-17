@@ -1,8 +1,10 @@
 #pragma once
+#include <optional>
 
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/targeting.h"
+#include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/Factions.h"
 
 struct W8MonsterInfo;
@@ -26,7 +28,9 @@ void CloseFormationGap(W8MonsterInfo* monster_info, int party_slot, W8RangeCateg
    info's aim flag for the action's ranged-ness, and the band distance. A miss
    queues the slot's complaint event when `notify_failure` asks. */
 bool CanPartyMemberAimAtMonster(int party_slot, int hand, W8MonsterInfo* monster_info,
-                                W8TargetingContext context, bool notify_failure);
+                                const W8SelectedAction& selected, bool notify_failure,
+                                std::optional<W8RangeCategory> attack_range = {},
+                                bool sighting = false);
 /* Whether the front rank stands between two formation positions. */
 bool FrontRankScreens(unsigned int from_position, unsigned int to_position);
 /* Whether the monster's attack `attack` reaches the character in `party_slot`,
@@ -59,8 +63,10 @@ W8RangeCategory GetMonsterBestRangeCategory(W8MonsterInfo* monster_info,
    asks for the better of the two. */
 W8RangeCategory GetCharAttackRange(const W8Character* character, unsigned int hand);
 /* The range category the slot's chosen action works at. */
-W8RangeCategory GetCharActionRange(int party_slot, int hand, W8TargetingContext context);
-bool IsSlotInRangeOfGroup(int party_slot, int group_id, W8TargetingContext context, bool notify);
+W8RangeCategory GetCharActionRange(int party_slot, int hand, const W8SelectedAction& selected,
+                                   std::optional<W8RangeCategory> attack_range = {});
+bool IsSlotInRangeOfGroup(int party_slot, int group_id, const W8SelectedAction& selected,
+                          bool notify);
 float MonsterChooseTarget(W8MonsterInfo* monster_info, W8CombatSlot* out, int kind);
 float GetGroundTargetRange(void);
 float GetMonsterEngagementRange(void);
@@ -81,11 +87,11 @@ W8RangeCategory GetBestHandRangeCategory(const W8Character* character);
    selected target - character range and front-rank screen, monster aim, place
    distance and line of sight, or group reach. `hand` selects the attack side;
    2 asks the range helpers to use the better hand. */
-bool CharacterActionReachesTarget(int party_slot, int hand, W8TargetingContext context);
+bool CharacterActionReachesTarget(int party_slot, int hand, const W8SelectedAction& selected);
 /* The slot-vs-slot form the target-list builder uses: whether the
    slot's chosen action in `context` can strike `target_slot`. */
 bool CharacterActionReachesSlot(int party_slot, int hand, int target_slot,
-                                W8TargetingContext context);
+                                const W8SelectedAction& selected);
 /* Collect the party slots the slot could reach and strike under
    `relationship`, and pick one at random; -1 when none qualify. */
 int PickReachableSlotByDisposition(int party_slot, W8Disposition relationship);
@@ -94,9 +100,10 @@ int PickReachableSlotByDisposition(int party_slot, W8Disposition relationship);
 void GetMonsterAttackSourceOffset(W8Monster* monster, int kind, glm::vec3* out);
 /* Whether `source`'s queued action still reaches `target` -
    characters check their own current target, monsters check `target`. */
-bool SourceActionReachesTarget(W8TargetSource* source, W8CombatSlot* target);
+bool SourceActionReachesTarget(W8TargetSource* source, W8CombatSlot* target,
+                               const W8SelectedAction& action);
 /* Whether the slot has any attack of `category` that reaches a
    valid target in the scanned groups for `hand`; the condition interrupt uses
    it to tell usable attacks from merely reachable ones. `flag` == 1 skips the
    monster scan. */
-bool CanPartySlotAttackAnyTarget(int party_slot, W8TargetingContext category, int flag, bool hand);
+bool CanPartySlotAttackAnyTarget(int party_slot, int flag, bool hand);

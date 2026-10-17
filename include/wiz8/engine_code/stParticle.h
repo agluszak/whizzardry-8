@@ -1,4 +1,5 @@
 #pragma once
+struct W8Chunk;
 
 #include <memory>
 #include <optional>
@@ -146,4 +147,4 @@ void RetireParticle(W8World* world, std::unique_ptr<stParticle> particle);
 void SweepFinishedParticles(W8World* world);
 
 void SaveParticleStates(wiz8::File& handle);
-void LoadParticleStates(wiz8::File& handle);
+void LoadParticleStates(W8Chunk& handle);

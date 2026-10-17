@@ -252,9 +252,13 @@ TEST_CASE("world graphics")
     std::string control_path = std::string(output) + ".control.ppm";
     SaveFrame(control_path.c_str(), control);
     if (mode && strcmp(mode, "kill") == 0) {
-        W8MonsterInfo* monster = GetNextMonsterInfo(true);
-        while (monster && (!monster->fActive || !monster->p3D || !monster->hp_current))
-            monster = GetNextMonsterInfo(false);
+        W8MonsterInfo* monster = nullptr;
+        for (const auto& candidate : gXStatus.monster_roster.live()) {
+            if (candidate->fActive && candidate->p3D && candidate->hp_current) {
+                monster = candidate.get();
+                break;
+            }
+        }
         REQUIRE(monster);
         fprintf(stderr, "regression: kill monster %d species %u HP %u\n", monster->location_id,
                 monster->monster_species, monster->hp_current);

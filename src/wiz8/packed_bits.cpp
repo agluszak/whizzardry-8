@@ -11,6 +11,7 @@
 
 #include "surrender/srHuffman.h"
 #include "surrender/srIO.h"
+#include "wiz8/chunk.h"
 #include "wiz8/filesystem.h"
 
 namespace {
@@ -23,20 +24,18 @@ std::size_t WordCount(std::size_t bit_count)
 }
 } // namespace
 
-bool LoadPackedBits(wiz8::File& handle, std::vector<bool>& bits)
+template<class Read> static bool ReadPackedBits(Read read, std::int64_t remaining,
+                                                std::vector<bool>& bits)
 try {
-    auto* io = handle.io();
     Uint32 magic, bit_count, packed_size;
-    srIO::check(SDL_ReadU32LE(io, &magic));
+    read(&magic, sizeof(magic));
     if (magic != kMagic) return false;
-    srIO::check(SDL_ReadU32LE(io, &bit_count));
+    read(&bit_count, sizeof(bit_count));
     if (!bit_count) return false;
-    srIO::check(SDL_ReadU32LE(io, &packed_size));
-    const auto position = SDL_TellIO(io), length = SDL_GetIOSize(io);
-    if (position < 0 || length < position || Uint64(packed_size) + 4 > Uint64(length - position))
-        return false;
+    read(&packed_size, sizeof(packed_size));
+    if (remaining < 16 || Uint64(packed_size) + 16 > Uint64(remaining)) return false;
     std::vector<unsigned char> packed(packed_size);
-    srIO::readExact(io, packed.data(), packed.size());
+    read(packed.data(), packed.size());
     auto stream = srIO::own(SDL_IOFromConstMem(packed.data(), packed.size()));
     srHuffman::BitIStream input(stream.get());
     srHuffman::Decompressor decoder(input);
@@ -50,12 +49,24 @@ try {
             }
         }
     }
-    srIO::check(SDL_ReadU32LE(io, &magic));
+    read(&magic, sizeof(magic));
     if (magic != kMagic) return false;
     bits = std::move(decoded);
     return true;
 } catch (const std::exception&) {
     return false;
+}
+
+bool LoadPackedBits(wiz8::File& file, std::vector<bool>& bits)
+{
+    return ReadPackedBits([&](void* data, std::size_t size) { file.read_exact(data, size); },
+                          file.size() - file.tell(), bits);
+}
+
+bool LoadPackedBits(W8Chunk& chunk, std::vector<bool>& bits)
+{
+    return ReadPackedBits([&](void* data, std::size_t size) { chunk.ReadBytes(data, size); },
+                          chunk.RemainingBytes(), bits);
 }
 
 bool SavePackedBits(wiz8::File& handle, const std::vector<bool>& bits)

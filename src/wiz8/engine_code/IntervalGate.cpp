@@ -4,6 +4,7 @@
 #include <exception>
 
 #include "game_timer.h"
+#include "wiz8/chunk.h"
 #include "wiz8/filesystem.h"
 
 // FUNCTION: WIZ8 0x0043a4e0
@@ -46,19 +47,18 @@ unsigned int W8IntervalGate::PollElapsedIntervals()
 }
 
 // FUNCTION: WIZ8 0x0043a690
-bool W8IntervalGate::Load(wiz8::File& handle)
+bool W8IntervalGate::Load(W8Chunk& handle)
 try {
     if (!m_flags.one_shot) {
         return W8GameTimer::Load(handle);
     }
-    bool loaded = (handle.read(&m_duration_seconds, sizeof(m_duration_seconds)).bytes ==
-                   static_cast<std::size_t>(sizeof(m_duration_seconds)));
-    if (loaded != 0) {
+    m_duration_seconds = handle.ReadValue<float>();
+    {
         m_start = ReadClock();
         m_duration = static_cast<int>(m_duration_seconds * m_duration_scale * 10000.0f);
         m_end = m_start + m_duration;
     }
-    return loaded;
+    return true;
 } catch (const std::exception&) {
     return false;
 }

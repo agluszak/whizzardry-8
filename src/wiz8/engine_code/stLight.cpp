@@ -12,6 +12,7 @@
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
+#include "wiz8/chunk.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/AmbientSound.h"
 #include "wiz8/engine_code/GrCycle.h"
@@ -371,19 +372,19 @@ void SaveLightStates(wiz8::File& handle)
    followed by each light's 0x80-byte name and its enable flag, applied to the
    light found by name in the loaded worlds. */
 // FUNCTION: WIZ8 0x0049D390
-void LoadLightStates(wiz8::File& handle)
+void LoadLightStates(W8Chunk& handle)
 {
     char name[0x80] = {0};
     unsigned char version;
     int count = 0;
 
-    handle.read_exact(&version, sizeof(version));
-    handle.read_exact(&count, sizeof(count));
+    handle.ReadBytes(&version, sizeof(version));
+    handle.ReadBytes(&count, sizeof(count));
 
     for (int index = 0; index < count; ++index) {
         unsigned char enabled;
-        handle.read_exact(name, sizeof(name));
-        handle.read_exact(&enabled, sizeof(enabled));
+        handle.ReadBytes(name, sizeof(name));
+        handle.ReadBytes(&enabled, sizeof(enabled));
 
         stLight* light = FindWorldNode<stLight>(name);
         if (light != 0) {

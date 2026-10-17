@@ -21,6 +21,7 @@
 #include "soundman.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/catalog_artwork.h"
+#include "wiz8/chunk.h"
 #include "wiz8/cursor.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/engine_code/Levels.h"
@@ -184,18 +185,20 @@ void SaveFactJournal(wiz8::File& file)
 
 /* Resize the live journal entries before reading the JRNL records. */
 // FUNCTION: WIZ8 0x00558B20
-void LoadJournalEntries(wiz8::File& file)
+void LoadJournalEntries(W8Chunk& file)
 {
     int format;
     int count;
 
     InitializeFactJournal();
-    file.read_exact(&format, 4);
-    file.read_exact(&count, 4);
+    file.ReadBytes(&format, 4);
+    file.ReadBytes(&count, 4);
+    if (count < 0 || count > file.RemainingBytes() / std::int64_t{sizeof(JournalEntryRecord)})
+        throw std::runtime_error("invalid journal count");
     g_fact_journal_entries.resize(count);
     for (auto& entry : g_fact_journal_entries) {
         JournalEntryRecord record;
-        file.read_exact(&record, sizeof(record));
+        file.ReadBytes(&record, sizeof(record));
         entry = {record.level, static_cast<W8FactId>(record.fact), record.alternate_text != 0,
                  record.unknown_09};
     }

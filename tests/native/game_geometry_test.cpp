@@ -655,28 +655,6 @@ TEST_CASE("Model bounds are independent values", "[geometry]")
     REQUIRE(std::abs(linked_model.getBounds().sphere.radius - std::sqrt(56.0f)) < 1e-5f);
 }
 
-TEST_CASE("Material query overrides do not mutate the cache", "[geometry]")
-{
-    stMaterial material;
-    material.setDiffuse(glm::vec4(.2f, .3f, .4f, .8f));
-    material.setEmissive(glm::vec4(.1f, .2f, .3f, 1));
-    const auto original = material.getMaterialInfo();
-    g_material_diffuse_scale_enabled = true;
-    g_material_diffuse_scale = .5f;
-    g_material_emissive_override_enabled = true;
-    g_material_emissive_override = .75f;
-    const auto overridden = material.getMaterialInfo();
-    g_material_diffuse_scale_enabled = false;
-    g_material_emissive_override_enabled = false;
-    REQUIRE(overridden.diffuse == glm::vec4(.2f, .3f, .4f, .4f));
-    REQUIRE(overridden.emissive == glm::vec4(.75f, .75f, .75f, 1));
-    REQUIRE(material.getMaterialInfo().diffuse == original.diffuse);
-    REQUIRE(material.getMaterialInfo().emissive == original.emissive);
-    material.setDiffuse(glm::vec4(.5f));
-    REQUIRE(material.getMaterialInfo().diffuse == glm::vec4(.5f));
-    REQUIRE(original.diffuse == glm::vec4(.2f, .3f, .4f, .8f));
-}
-
 TEST_CASE("Baked lighting", "[geometry]")
 {
     baked_lighting();
@@ -2111,8 +2089,7 @@ TEST_CASE("Linked main and highlight draws share the instance termination bounda
     REQUIRE(renderer.getAmbientLight() == ambient);
 }
 
-TEST_CASE("Failed instance materials restore picking lighting and material overrides",
-          "[geometry][rendering]")
+TEST_CASE("Failed instance materials restore picking and lighting", "[geometry][rendering]")
 {
     struct FailingMaterial : srMaterial {
         void preProcess(srVertexPipe&) override { throw std::runtime_error("material failed"); }
@@ -2133,19 +2110,11 @@ TEST_CASE("Failed instance materials restore picking lighting and material overr
     instance.diffuse_scale = 0.75f;
     instance.emissive_override_enabled = true;
     instance.emissive_override = 0.25f;
-    const auto diffuse_enabled = g_material_diffuse_scale_enabled;
-    const auto emissive_enabled = g_material_emissive_override_enabled;
-    const auto diffuse = g_material_diffuse_scale;
-    const auto emissive = g_material_emissive_override;
     const glm::vec4 ambient(0.2f, 0.3f, 0.4f, 1);
     renderer.setAmbientLight(ambient);
     renderer.pushPick({{0, 0, 1}, nullptr, 7});
     REQUIRE_THROWS_AS(instance.RenderMeshes(renderer), std::runtime_error);
     REQUIRE(renderer.getAmbientLight() == ambient);
-    REQUIRE(g_material_diffuse_scale_enabled == diffuse_enabled);
-    REQUIRE(g_material_emissive_override_enabled == emissive_enabled);
-    REQUIRE(g_material_diffuse_scale == diffuse);
-    REQUIRE(g_material_emissive_override == emissive);
     REQUIRE_FALSE(renderer.isPickStackEmpty());
     const auto pick = renderer.popPick();
     REQUIRE(pick);

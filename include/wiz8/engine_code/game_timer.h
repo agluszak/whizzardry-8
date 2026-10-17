@@ -1,4 +1,5 @@
 #pragma once
+struct W8Chunk;
 
 #include <cstdint>
 
@@ -66,7 +67,7 @@ public:
     void SetProgress(float progress);
     void SetDurationScale(float scale);
     void ResetDurationScale();
-    bool Load(wiz8::File& handle);
+    bool Load(W8Chunk& handle);
     float GetElapsedSeconds();
 
     W8TimerClock m_clock_mode; /* 1 reads the game clock */

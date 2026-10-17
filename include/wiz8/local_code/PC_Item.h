@@ -1,6 +1,9 @@
-#include <memory>
-#include <string>
 #pragma once
+
+#include <array>
+#include <memory>
+#include <optional>
+#include <string>
 
 void ReleaseGenericItemNames(void);
 struct SpriteSheet;
@@ -28,6 +31,18 @@ extern W8Skill g_item_spell_presentation[11];
 extern int g_equip_slot_icons[12];
 int GetItemInHand(void);
 
+// The equipment-dependent inputs shared by committed and hypothetical attacks.
+struct W8HandAttack;
+std::array<W8HandAttack, 2> EvaluateWeaponHands(const W8ItemInstance& primary,
+                                                const W8ItemInstance& secondary);
+int WeaponHandKind(const W8ItemInstance& primary, const W8ItemInstance& secondary,
+                   unsigned int hand);
+struct W8WeaponSwap {
+    bool primary;
+    bool secondary;
+};
+std::optional<W8WeaponSwap> PlanWeaponSetSwap(const W8Character& character);
+void CommitWeaponSetSwap(int party_slot, W8WeaponSwap choice, bool refresh);
 void SetHandType(W8Character* character, W8EquipSlot equip_slot);
 unsigned int GetEquipmentBindingDifficulty(int character_index);
 bool CompatiblePartnerItems(int weapon_item_id, int off_hand_item_id);

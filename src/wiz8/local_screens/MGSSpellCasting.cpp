@@ -1037,7 +1037,7 @@ static void SelectSpellCastingListRow(int index)
     gpSCSV->iSpellPowerClass = power_class;
     gpSCSV->uiPowerLevels = levels;
     gpSCSV->uiSpellToCast = spell_id;
-    needed = GetTargetNeededForSpellFriendly(spell_id, false, W8_TARGETING_CONTEXT_CURRENT);
+    needed = GetTargetNeededForSpellFriendly(spell_id, false, g_level_block == nullptr);
     target_type = GetSpellTargetType(spell_id, false);
     ConfigureSpellTargetFilter(target_type, needed);
     SelectSpellPowerLevel(-1);

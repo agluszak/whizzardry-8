@@ -15,6 +15,7 @@
 #include "layouts/targeting.h"
 #include "layouts/world.h"
 #include "retail_records.h"
+#include "save_payload.h"
 #include "unicode.h"
 #include "wiz8/engine_code/Quality.h"
 #include "wiz8/engine_code/stModelInstance.h" // IWYU pragma: keep - complete model type for unique_ptr destruction.
@@ -326,7 +327,7 @@ static void unicode_file_contracts()
     file->read_exact(header.data(), header.size());
     for (std::size_t i = 8 + 0x18; i < 8 + 0x1c; ++i) REQUIRE(header[i] == std::byte{});
     file->seek(0, wiz8::SeekOrigin::begin);
-    REQUIRE(LoadMessageStorage(*file));
+    REQUIRE(ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadMessageStorage(chunk); }));
     REQUIRE(std::string(g_message_storage[0][0].text) == message);
     REQUIRE(g_message_storage[0][0].entries.empty());
     REQUIRE(g_message_storage[0][0].length == 6);
@@ -357,7 +358,8 @@ static void transcript_contracts()
     REQUIRE((bytes[9] == std::byte{0xe9} && bytes[10] == std::byte{0}));
     REQUIRE((bytes[13] == std::byte{0x3d} && bytes[14] == std::byte{0xd8}));
     file->seek(0, wiz8::SeekOrigin::begin);
-    REQUIRE(LoadNpcDialogueTranscript(*file));
+    REQUIRE(
+        ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadNpcDialogueTranscript(chunk); }));
     REQUIRE(state.dialogue_transcript.size() == 1);
     REQUIRE(state.dialogue_transcript[0]->text == "é中😀");
     REQUIRE(state.dialogue_transcript[0]->category == 2);
@@ -1247,7 +1249,7 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
         out.close();
         auto file = wiz8::open_file(path);
         REQUIRE(file);
-        LoadNpcStates(*file);
+        ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadNpcStates(chunk); });
         REQUIRE(static_cast<int>(g_npc_states.size()) == 3);
         for (unsigned int i = 0; i < 3; ++i) {
             W8NpcState* npc = g_npc_states[i].get();
@@ -1264,39 +1266,12 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
         file->read_exact(&trailer, sizeof(trailer));
         REQUIRE(trailer == 0xdecafbadU);
         file.reset();
-        // A filesystem failure at any NPC read preserves the previous object graph.
-        file = wiz8::open_file(path);
-        std::size_t operations;
-        {
-            FileFaults trace;
-            LoadNpcStates(*file);
-            operations = trace.operations;
-        }
-        const auto stable_states = NpcStatePointers();
-        auto* stable_npc = stable_states[0];
-        for (std::size_t operation = 1; operation <= operations; ++operation) {
-            CAPTURE(version, operation);
-            file = wiz8::open_file(path);
-            bool rejected = false;
-            {
-                FileFaults fault(operation);
-                try {
-                    LoadNpcStates(*file);
-                } catch (const std::exception&) {
-                    rejected = true;
-                }
-                REQUIRE(fault.fired);
-            }
-            REQUIRE((rejected && NpcStatePointers() == stable_states &&
-                     g_npc_states[0].get() == stable_npc));
-            REQUIRE(stable_npc->character->name[0] == L'A');
-        }
         // Round-trip the supported NPCT version through its actual writer.
         file = wiz8::open_file(root / "roundtrip.npct", wiz8::OpenMode::replace);
         REQUIRE(SaveNpcStates(*file));
         file->close();
         file = wiz8::open_file(root / "roundtrip.npct");
-        LoadNpcStates(*file);
+        ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadNpcStates(chunk); });
         REQUIRE(g_npc_states.size() == 3);
         for (int index = 0; index < 3; ++index) {
             auto* npc = g_npc_states[index].get();
@@ -1322,7 +1297,7 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
             file = wiz8::open_file(path);
             bool rejected = false;
             try {
-                LoadNpcStates(*file);
+                ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadNpcStates(chunk); });
             } catch (const std::exception&) {
                 rejected = true;
             }

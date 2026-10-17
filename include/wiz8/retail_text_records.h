@@ -1148,6 +1148,12 @@ template<class T> typename Record<T>::Disk read_image(File& file)
     file.read_exact(&image, sizeof(image));
     return image;
 }
+template<class T> typename Record<T>::Disk read_image(W8Chunk& chunk)
+{
+    typename Record<T>::Disk image{};
+    chunk.ReadBytes(&image, sizeof(image));
+    return image;
+}
 template<class T> void decode_image(const typename Record<T>::Disk& image, T& runtime)
 {
     decode<T>(std::as_bytes(std::span(&image, 1)), runtime);

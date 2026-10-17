@@ -1,6 +1,4 @@
-#include "wiz8/design_rect.h"
 #pragma once
-
 #include <array>
 #include <memory>
 #include <optional>
@@ -12,6 +10,7 @@
 #include "input.h"
 #include "layouts/targeting.h"
 #include "wiz8/audio_resources.h"
+#include "wiz8/design_rect.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/modal_content.h"
@@ -532,3 +531,5 @@ void SelectNpcBuyMode(void);
 void ConfirmNpcTradeItem(void);
 void RestockNpcTradeStock(void);
 void OpenNpcTradeQuantityDialog(void);
+
+W8TargetingContext GetEditedActionContext(int party_slot);

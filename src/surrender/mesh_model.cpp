@@ -1032,6 +1032,8 @@ void srTriMeshPipeline::AppendMeshPass(const srMeshModel::TriMesh& mesh, w8_long
                                        w8_long material_side, srShader pass_shader)
 {
     current_record->flags = 0;
+    current_record->diffuse_scale = mesh.diffuse_scale;
+    current_record->emissive_override = mesh.emissive_override;
     current_pass->shaders = 0;
     current_pass->texture_tables[0] = 0;
     current_pass->texture_tables[1] = 0;

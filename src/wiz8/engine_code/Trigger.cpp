@@ -122,6 +122,13 @@ template<std::size_t N> static void ReadTriggerText(wiz8::File& file, char (&tex
         throw std::runtime_error("unterminated trigger text field");
 }
 
+template<std::size_t N> static void ReadTriggerText(W8Chunk& file, char (&text)[N])
+{
+    file.ReadBytes(text, N);
+    if (std::find(std::begin(text), std::end(text), '\0') == std::end(text))
+        throw std::runtime_error("unterminated trigger text field");
+}
+
 // GLOBAL: WIZ8 0x006599B8
 static std::vector<W8TriggerEvent*> g_timed_events;
 static std::vector<std::unique_ptr<W8TriggerEvent>> standalone_events;
@@ -343,28 +350,28 @@ void SaveTriggerRuntimeStates(W8World* world, wiz8::File& handle, bool restoring
     }
 }
 
-void W8LockState::ReadRuntimeRecord(wiz8::File& handle, int version, int restoring)
+void W8LockState::ReadRuntimeRecord(W8Chunk& handle, int version, int restoring)
 {
     int record_version;
 
     if (restoring == 0 && version > 1) {
-        handle.read_exact(&record_version, sizeof(record_version));
-        handle.read_exact(&device_state.completed, sizeof(device_state.completed));
-        handle.read_exact(device_state.pins, sizeof(device_state.pins));
-        handle.read_exact(&lock_countdown, sizeof(lock_countdown));
+        handle.ReadBytes(&record_version, sizeof(record_version));
+        handle.ReadBytes(&device_state.completed, sizeof(device_state.completed));
+        handle.ReadBytes(device_state.pins, sizeof(device_state.pins));
+        handle.ReadBytes(&lock_countdown, sizeof(lock_countdown));
         if (record_version > 1) {
-            handle.read_exact(&last_interaction_clock, sizeof(last_interaction_clock));
+            handle.ReadBytes(&last_interaction_clock, sizeof(last_interaction_clock));
         }
     } else {
-        handle.read_exact(&record_version, sizeof(record_version));
-        handle.read_exact(&lock_type, sizeof(lock_type));
-        handle.read_exact(&difficulty, sizeof(difficulty));
-        handle.read_exact(&device_state.completed, sizeof(device_state.completed));
-        handle.read_exact(device_state.pins, sizeof(device_state.pins));
-        handle.read_exact(&device_id, sizeof(device_id));
-        handle.read_exact(&key_id, sizeof(key_id));
+        handle.ReadBytes(&record_version, sizeof(record_version));
+        handle.ReadBytes(&lock_type, sizeof(lock_type));
+        handle.ReadBytes(&difficulty, sizeof(difficulty));
+        handle.ReadBytes(&device_state.completed, sizeof(device_state.completed));
+        handle.ReadBytes(device_state.pins, sizeof(device_state.pins));
+        handle.ReadBytes(&device_id, sizeof(device_id));
+        handle.ReadBytes(&key_id, sizeof(key_id));
         if (record_version > 1) {
-            handle.read_exact(&lock_countdown, sizeof(lock_countdown));
+            handle.ReadBytes(&lock_countdown, sizeof(lock_countdown));
         }
     }
 }
@@ -375,16 +382,16 @@ void W8LockState::ReadRuntimeRecord(wiz8::File& handle, int version, int restori
    restoring, a state byte block is re-randomized and the type-10 action data is
    re-linked to the stored item. */
 // FUNCTION: WIZ8 0x0043ccf0
-bool LoadTriggerRuntimeStates(wiz8::File& handle)
+bool LoadTriggerRuntimeStates(W8Chunk& handle)
 try {
     int version;
     int saved_count;
     int restoring;
     int index = 0;
 
-    handle.read_exact(&version, sizeof(version));
-    handle.read_exact(&saved_count, sizeof(saved_count));
-    handle.read_exact(&restoring, sizeof(restoring));
+    handle.ReadBytes(&version, sizeof(version));
+    handle.ReadBytes(&saved_count, sizeof(saved_count));
+    handle.ReadBytes(&restoring, sizeof(restoring));
     if (saved_count < 1) {
         return true;
     }
@@ -501,11 +508,17 @@ bool Trigger::Save(wiz8::File& hFile)
 }
 
 /* One door flag is stored as a byte whose low bit is the flag. */
-template<class File>
-static bool readDoorFlag(File& file)
+static bool readDoorFlag(wiz8::File& file)
+{
+    unsigned char flag;
+    file.read_exact(&flag, 1);
+    return (flag & 1) != 0;
+}
+
+static bool readDoorFlag(W8Chunk& file)
 {
     unsigned char flag = 0;
-    file.read_exact(&flag, 1);
+    file.ReadBytes(&flag, 1);
     return (flag & 1) != 0;
 }
 
@@ -513,30 +526,24 @@ static bool readDoorFlag(File& file)
    of the trailing block is present; a type-10 action payload rebuilds its
    action data and re-queues the delayed timed event from the saved progress. */
 // FUNCTION: WIZ8 0x0043c1b0
-bool Trigger::Load(wiz8::File& hFile, char version)
+bool Trigger::Load(W8Chunk& hFile, char version)
 try {
-    bool header_ok;
     unsigned char has_action_data;
     unsigned char action_type;
     unsigned char flag_mode;
 
-    header_ok =
-        (hFile.read(&flags, sizeof(flags)).bytes == static_cast<std::size_t>(sizeof(flags))) &&
-        (hFile.read(&state_index, sizeof(state_index)).bytes ==
-         static_cast<std::size_t>(sizeof(state_index))) &&
-        (hFile.read(&state_direction, sizeof(state_direction)).bytes ==
-         static_cast<std::size_t>(sizeof(state_direction))) &&
-        (hFile.read(&action, sizeof(action)).bytes == static_cast<std::size_t>(sizeof(action))) &&
-        (hFile.read(&action_state, sizeof(action_state)).bytes ==
-         static_cast<std::size_t>(sizeof(action_state))) &&
-        (hFile.read(&required_item_id, sizeof(required_item_id)).bytes ==
-         static_cast<std::size_t>(sizeof(required_item_id)));
+    hFile.ReadValue(flags);
+    hFile.ReadValue(state_index);
+    hFile.ReadValue(state_direction);
+    hFile.ReadValue(action);
+    hFile.ReadValue(action_state);
+    hFile.ReadValue(required_item_id);
     if ((flags & W8_TRIGGER_SEARCHED) != 0) {
         UnregisterSearchableTrigger(this);
     }
-    hFile.read_exact(&has_action_data, sizeof(has_action_data));
+    hFile.ReadBytes(&has_action_data, sizeof(has_action_data));
     if (has_action_data != 0) {
-        hFile.read_exact(&action_type, sizeof(action_type));
+        hFile.ReadBytes(&action_type, sizeof(action_type));
         if (action_type == W8_TRIGGER_PAYLOAD_DOOR) {
             auto pDoorOwner = std::make_unique<W8DoorTriggerActionData>();
             auto* pDoor = pDoorOwner.get();
@@ -550,7 +557,7 @@ try {
             }
             m_pActionData = std::move(pDoorOwner);
             pDoor->type = W8_TRIGGER_PAYLOAD_DOOR;
-            hFile.read_exact(&flag_mode, 1);
+            hFile.ReadBytes(&flag_mode, 1);
             if (flag_mode == 1) {
                 pDoor->open = readDoorFlag(hFile);
                 pDoor->lockable = readDoorFlag(hFile);
@@ -564,7 +571,7 @@ try {
             } else {
                 action_flags = 0;
                 progress_delay = 0;
-                hFile.read_exact(&action_flags, 2);
+                hFile.ReadBytes(&action_flags, 2);
                 pDoor->open = (action_flags & 1) != 0;
                 pDoor->lockable = (action_flags & 2) != 0;
                 pDoor->locked = (action_flags & 4) != 0;
@@ -574,7 +581,7 @@ try {
                 pDoor->found = (action_flags & 0x40) != 0;
                 pDoor->jammable = (action_flags & 0x80) != 0;
                 pDoor->jammed = (action_flags & 0x100) != 0;
-                hFile.read_exact(&progress_delay, 2);
+                hFile.ReadBytes(&progress_delay, 2);
                 if (m_lData1 != 0 && progress_delay != 0) {
                     if (m_pEvent == 0) {
                         float duration;
@@ -596,7 +603,7 @@ try {
                         g_timed_events.push_back(m_pEvent.get());
                     }
                 }
-                hFile.read_exact(&item, 2);
+                hFile.ReadBytes(&item, 2);
                 pDoor->item = static_cast<short>(item);
             }
         }
@@ -605,19 +612,20 @@ try {
     if (version > 1) {
         unsigned char has_world_item;
 
-        hFile.read_exact(&has_world_item, sizeof(has_world_item));
+        hFile.ReadBytes(&has_world_item, sizeof(has_world_item));
         if (has_world_item != 0) {
             world_item_group = LoadItem(hFile);
         }
-        hFile.read_exact(&items_generated, sizeof(items_generated));
-        hFile.read_exact(&item_group_seed, sizeof(item_group_seed));
-        hFile.read_exact(&gold, sizeof(gold));
-        hFile.read_exact(&uses_remaining, sizeof(uses_remaining));
+        hFile.ReadBytes(&items_generated, sizeof(items_generated));
+        hFile.ReadBytes(&item_group_seed, sizeof(item_group_seed));
+        hFile.ReadBytes(&gold, sizeof(gold));
+        hFile.ReadBytes(&uses_remaining, sizeof(uses_remaining));
     }
     if (version == 3) {
-        hFile.seek(0x1d, wiz8::SeekOrigin::current);
+        std::byte unused[0x1d];
+        hFile.ReadBytes(unused, sizeof(unused));
     }
-    return header_ok;
+    return true;
 } catch (const std::exception&) {
     return false;
 }
@@ -627,20 +635,20 @@ try {
    through a scratch trigger when the name is gone, and anything else pushes
    the tag byte back and ends the walk. */
 // FUNCTION: WIZ8 0x0043c860
-bool LoadWorldTriggers(W8World* world, wiz8::File& file)
+bool LoadWorldTriggers(W8World* world, W8Chunk& file)
 try {
     for (std::size_t index = 0; index < world->triggers.size(); ++index) {
         char tag;
-        file.read_exact(&tag, 1);
+        file.ReadBytes(&tag, 1);
         if (tag < 1 || tag > 5) {
-            file.seek(-1, wiz8::SeekOrigin::current);
+            // The dispatcher skips the remainder of this completed section.
             return true;
         }
         Trigger* trigger = world->triggers[index].get();
         if (tag == 5) {
             int trigger_id;
             char name[128];
-            file.read_exact(&trigger_id, sizeof(trigger_id));
+            file.ReadBytes(&trigger_id, sizeof(trigger_id));
             ReadTriggerText(file, name);
             trigger = FindTriggerByName(name);
         }
@@ -701,19 +709,19 @@ void SaveTriggerActionData(W8World* world, wiz8::File& handle)
    a version/count header, then per record the trigger name and its 0x100-byte
    payload. Records for missing triggers are skipped with a seek. */
 // FUNCTION: WIZ8 0x0043d1f0
-bool LoadTriggerActionData(wiz8::File& handle)
+bool LoadTriggerActionData(W8Chunk& handle)
 try {
     std::int32_t version, count;
-    handle.read_exact(&version, sizeof(version));
-    handle.read_exact(&count, sizeof(count));
-    if (count < 0 || count > (handle.size() - handle.tell()) / 384) return false;
+    handle.ReadBytes(&version, sizeof(version));
+    handle.ReadBytes(&count, sizeof(count));
+    if (count < 0 || count > (handle.RemainingBytes()) / 384) return false;
     std::vector<std::pair<Trigger*, std::array<char, 256>>> pending;
     pending.reserve(count);
     for (std::int32_t index = 0; index < count; ++index) {
         char name[128];
         std::array<char, 256> action;
         ReadTriggerText(handle, name);
-        handle.read_exact(action.data(), action.size());
+        handle.ReadBytes(action.data(), action.size());
         if (std::find(action.begin(), action.end(), '\0') == action.end()) return false;
         pending.emplace_back(FindTriggerByName(name), action);
     }

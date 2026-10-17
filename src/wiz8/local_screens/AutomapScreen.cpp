@@ -49,6 +49,7 @@
 #include "surrender/srScene.h"
 #include "surrender/srTexture.h"
 #include "wiz8/catalog_artwork.h"
+#include "wiz8/chunk.h"
 #include "wiz8/cursor.h"
 #include "wiz8/design_rect.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
@@ -1362,42 +1363,34 @@ bool SaveAutomapNotes(wiz8::File& handle)
 
 /* Release every note, restore the visited-cell bitmap for the loaded level,
    then rebuild the notes from the saved records. */
-bool LoadAutomapNotes(wiz8::File& handle)
+bool LoadAutomapNotes(W8Chunk& handle)
 try {
-    int signature = 0;
     ClearAutomapNotes();
     g_automap_redraw = true;
-    if (1 < g_automap_visited_cells.size()) {
-        LoadPackedBits(handle, g_automap_visited_cells);
-        if (g_automap_visited_cells.size() == static_cast<std::size_t>(g_automap_cell_count)) {
-            g_automap_state->pending_cell_lighting = 1;
-        } else {
-            g_automap_visited_cells.assign(g_automap_cell_count, false);
-        }
-        g_automap_bounds_dirty = true;
-        unsigned int count;
-        if ((handle.read(&signature, 4).bytes == static_cast<std::size_t>(4)) != 0 &&
-            signature == static_cast<int>(0xf00df00d) &&
-            (handle.read(&count, 4).bytes == static_cast<std::size_t>(4)) != 0) {
-            for (unsigned int index = 0; index < count; ++index) {
-                glm::vec2 position;
-                int layer = 0;
-                int length = 0;
-                /* Retail fed `length` to malloc even when the FileRead chain
-                   short-circuited before filling it; natively it starts at zero. */
-                bool ok = (handle.read(&position.x, 4).bytes == static_cast<std::size_t>(4)) != 0 &&
-                          (handle.read(&position.y, 4).bytes == static_cast<std::size_t>(4)) != 0 &&
-                          (handle.read(&layer, 4).bytes == static_cast<std::size_t>(4)) != 0 &&
-                          (handle.read(&length, 4).bytes == static_cast<std::size_t>(4)) != 0;
-                if (!ok || length < 1 || length > 40) return false;
-                std::vector<std::byte> bytes(static_cast<std::size_t>(length) * 2);
-                if (handle.read(bytes.data(), bytes.size()).bytes != bytes.size()) return false;
-                CreateAutomapNote(&position, layer, wiz8::text::from_utf16le(bytes));
-            }
-            return (handle.read(&signature, 4).bytes == static_cast<std::size_t>(4)) != 0;
-        }
+    if (g_automap_visited_cells.size() <= 1) return false;
+    if (!LoadPackedBits(handle, g_automap_visited_cells)) return false;
+    if (g_automap_visited_cells.size() == static_cast<std::size_t>(g_automap_cell_count))
+        g_automap_state->pending_cell_lighting = 1;
+    else
+        g_automap_visited_cells.assign(g_automap_cell_count, false);
+    g_automap_bounds_dirty = true;
+    if (handle.ReadValue<unsigned int>() != 0xf00df00d) return false;
+    const auto count = handle.ReadValue<unsigned int>();
+    if (std::uint64_t{count} * 18 + 4 > static_cast<std::uint64_t>(handle.RemainingBytes()))
+        return false;
+    for (unsigned int index = 0; index < count; ++index) {
+        glm::vec2 position;
+        handle.ReadValue(position.x);
+        handle.ReadValue(position.y);
+        const int layer = handle.ReadValue<int>();
+        const int length = handle.ReadValue<int>();
+        if (length < 1 || length > 40) return false;
+        std::vector<std::byte> bytes(static_cast<std::size_t>(length) * 2);
+        handle.ReadBytes(bytes.data(), bytes.size());
+        CreateAutomapNote(&position, layer, wiz8::text::from_utf16le(bytes));
     }
-    return false;
+    handle.ReadValue<unsigned int>(); // trailing signature
+    return true;
 } catch (const std::exception&) {
     return false;
 }

@@ -897,8 +897,8 @@ unsigned char AdjustWorldCollisionPosition(float radius, glm::vec3* position, bo
     }
 
     if (check_monsters) {
-        W8MonsterInfo* info = GetNextMonsterInfo(true);
-        while (info != 0) {
+        for (const auto& monster_owner : gXStatus.monster_roster.live()) {
+            auto* info = monster_owner.get();
             W8Monster* monster = info->p3D;
             if (monster != 0) {
                 const auto center = monster->GetAnimationCenter();
@@ -908,7 +908,6 @@ unsigned char AdjustWorldCollisionPosition(float radius, glm::vec3* position, bo
                     return 0;
                 }
             }
-            info = GetNextMonsterInfo(false);
         }
     }
     return 1;

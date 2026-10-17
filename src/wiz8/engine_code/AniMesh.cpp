@@ -325,7 +325,7 @@ try {
     for (loaded_count = 0; loaded_count < frame_count; ++loaded_count) {
         if (success != 0)
             success = (handle->read(&frame_index, 1).bytes == static_cast<std::size_t>(1));
-        if (success != 0 && SkipSingleLevelMesh(&info) == 2) break;
+        if (success != 0 && ReadSingleLevelMeshHasVertexFrames(info)) break;
     }
     if (file == 0) {
         if (opened) opened->close();

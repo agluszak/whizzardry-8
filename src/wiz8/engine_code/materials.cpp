@@ -69,15 +69,6 @@ public:
 // GLOBAL: WIZ8 0x0065BEA8
 static W8NormalTexcoordMapper g_normal_texcoord_mapper;
 
-// GLOBAL: WIZ8 0x0065BA9E
-bool g_material_diffuse_scale_enabled;
-// GLOBAL: WIZ8 0x0065BAA0
-float g_material_diffuse_scale;
-// GLOBAL: WIZ8 0x0065BAA4
-bool g_material_emissive_override_enabled;
-// GLOBAL: WIZ8 0x0065BAA8
-float g_material_emissive_override;
-
 /* Convert eye-space normals to the material's first texture-coordinate set.
    The exported srVertexPipe queries preserve the closed renderer's ownership
    of its internal workspace while expressing every operation in this body. */
@@ -107,20 +98,6 @@ stMaterial::stMaterial()
     m_surface_flags = 0;
 }
 
-// FUNCTION: WIZ8 0x004928F0
-srVertexProcessor::MaterialInfo stMaterial::getMaterialInfo()
-{
-    auto info = srMaterial::getMaterialInfo();
-    if (g_material_diffuse_scale_enabled) {
-        info.diffuse.w *= g_material_diffuse_scale;
-    }
-    if (g_material_emissive_override_enabled) {
-        info.emissive = glm::vec4(g_material_emissive_override, g_material_emissive_override,
-                                  g_material_emissive_override, 1.0f);
-    }
-    return info;
-}
-
 namespace {
 // Exact render-state identity; serialized padding and texture filenames do not
 // belong to the material state shared by separate mesh texture assignments.
@@ -128,7 +105,7 @@ using MaterialKey = std::array<std::uint32_t, 13>;
 std::map<MaterialKey, std::weak_ptr<stMaterial>> level_materials;
 std::weak_ptr<stMaterial> default_material;
 }
-ResourceCache<stTextureFile> g_texture_files;
+static ResourceCache<stTextureFile> g_texture_files;
 ResourceCache<stTextureAnim> g_texture_animations;
 
 /* Load and share the material state used by the runtime renderer. */
@@ -335,7 +312,8 @@ std::shared_ptr<srTexture> LoadTextureFromFolder(const char* folder, const char*
     const auto extension = dot == std::string::npos ? path.size() : dot + 1;
     path.resize(extension);
 
-    std::shared_ptr<stTextureFile> texture = g_texture_files.find(name);
+    const auto resource_key = wiz8::path_to_utf8(wiz8::asset_path(std::string(folder) + name));
+    std::shared_ptr<stTextureFile> texture = g_texture_files.find(resource_key);
     if (texture == 0) {
         path += "tga";
         if (required) {
@@ -371,7 +349,7 @@ std::shared_ptr<srTexture> LoadTextureFromFolder(const char* folder, const char*
             texture = std::make_shared<stTextureFile>(path.c_str(), g_texture_cache_enabled);
         }
         texture->setName(name);
-        g_texture_files.insert(name, texture);
+        g_texture_files.insert(resource_key, texture);
     }
     return texture;
 }

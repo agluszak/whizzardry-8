@@ -1,12 +1,12 @@
-#include "Font.h"
 #pragma once
-
+struct W8Chunk;
 #include <cstddef>
 #include <cstdint>
 #include <string>
 #include <string_view>
 #include <vector>
 
+#include "Font.h"
 #include "input.h"
 #include "wiz8/ui_input.h"
 
@@ -172,7 +172,7 @@ void ResetMessageStorage(void);
 /* Write the four message runs into the open TEXT chunk. */
 unsigned char SaveMessageStorage(wiz8::File& file);
 /* Rebuild the four message runs from the open TEXT chunk. */
-unsigned char LoadMessageStorage(wiz8::File& file);
+unsigned char LoadMessageStorage(W8Chunk& file);
 /* Defaults select the live mode's text box and its available line width. */
 const short W8_NOTICE_TEXT_BOX_AUTOMATIC = -1;
 const unsigned int W8_NOTICE_WRAP_AUTOMATIC = ~0U;
