@@ -1088,8 +1088,14 @@ void W8Prop::DetachAnimationInstances(W8World* world)
     }
 }
 
-// Apply only a completely decoded record; missing props need no runtime object.
-void W8Prop::ApplyAnimationState(const SavedAnimationState& state)
+/* Restore the rep's persisted animation state: frame, the two counters, the
+   direction flags and one byte the format no longer uses.  Each saved index
+   is clamped to the loaded animation's frame count, path values are re-synced
+   while a running animation is active, and ApplyAnimationFrame reapplies the state.
+   The read chain's success is reported even though the restore runs either
+   way. */
+// FUNCTION: WIZ8 0x0044dbd0
+void W8Prop::ApplyAnimationState(const SavedAnimationState& state, W8PathingService* pathing)
 {
     unsigned int count;
     int index;
@@ -1120,7 +1126,7 @@ void W8Prop::ApplyAnimationState(const SavedAnimationState& state)
                 }
             }
         }
-        ApplyAnimationFrame(GetWorldPathing());
+        ApplyAnimationFrame(pathing);
     }
 }
 
@@ -1657,7 +1663,7 @@ void SaveWorldProps(wiz8::File& handle)
 
 /* Both APST formats decode six animation bytes before updating a matching
    prop. Unknown records are decoded and ignored within the chunk boundary. */
-void LoadWorldProps(W8Chunk& chunk)
+void LoadWorldProps(W8World* world, W8Chunk& chunk)
 {
     const auto signature = chunk.ReadValue<unsigned int>();
     const bool named = signature == 0xDEADD00D;
@@ -1681,16 +1687,17 @@ void LoadWorldProps(W8Chunk& chunk)
         chunk.ReadBytes(&state, sizeof(state));
         W8Prop* prop = nullptr;
         if (named) {
-            prop = FindPropByName(GetWorld(), name);
+            prop = FindPropByName(world, name);
         } else {
-            for (const auto& candidate : GetWorld()->plsProps) {
+            for (const auto& candidate : world->plsProps) {
                 if (candidate->id == key) {
                     prop = candidate.get();
                     break;
                 }
             }
         }
-        if (prop) prop->ApplyAnimationState(state);
+        if (prop)
+            prop->ApplyAnimationState(state, world->octree ? world->octree->pathing : nullptr);
     }
 }
 

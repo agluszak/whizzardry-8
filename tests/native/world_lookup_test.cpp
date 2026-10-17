@@ -1,4 +1,5 @@
 #include <array>
+#include <cstddef>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
@@ -21,6 +22,7 @@
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
 #include "temporary_directory.h"
+#include "wiz8/chunk.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Trigger.hpp"
@@ -32,6 +34,7 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/levels.h"
 #include "wiz8/local_code/GameplayCode.h"
+#include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/npc_interaction.h"
@@ -132,7 +135,7 @@ bool nodes(const std::filesystem::path& directory)
     torch->setFlag(srNode::FLAG_DISABLE);
     {
         auto file = wiz8::open_file(path);
-        ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadLightStates(chunk); });
+        ReadSavePayload(*file, [](W8Chunk& chunk) { ApplyLightStates(ReadLightStates(chunk)); });
     }
     REQUIRE((lamp->testFlag(srNode::FLAG_DISABLE)));
     REQUIRE((torch->testFlag(srNode::FLAG_DISABLE)));
@@ -152,7 +155,8 @@ bool nodes(const std::filesystem::path& directory)
     gas->emitting = 1;
     {
         auto file = wiz8::open_file(path);
-        ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadParticleStates(chunk); });
+        ReadSavePayload(*file,
+                        [](W8Chunk& chunk) { ApplyParticleStates(ReadParticleStates(chunk)); });
     }
     REQUIRE((!gas->emitting && idle->emitting));
     // Particles are owned by the world list, not the scene.
@@ -230,6 +234,41 @@ TEST_CASE("Failed resource construction preserves the active worlds and allows r
     }
     ReplaceWorld(nullptr);
     ReplaceSkyWorld(nullptr);
+}
+
+TEST_CASE("Malformed level status cannot change the active level or session counters",
+          "[levels][records]")
+{
+    struct Restore {
+        std::unique_ptr<W8World> previous = ReplaceWorld(std::make_unique<W8World>(8));
+        int next_group = g_status.next_group_id;
+        ~Restore()
+        {
+            g_status.next_group_id = next_group;
+            ReplaceWorld(std::move(previous));
+        }
+    } restore;
+    ScopedTemporaryDirectory directory("wiz8-unpublished-status");
+    const auto path = directory.path / "level.sts";
+    std::array<std::byte, 0x314> header{};
+    const float version = 2.0f;
+    const int next_group = 123;
+    std::memcpy(header.data(), &version, sizeof(version));
+    std::memcpy(header.data() + 4, &next_group, sizeof(next_group));
+    W8Chunk output;
+    REQUIRE(output.OpenWrite(path));
+    output.WriteGroup(W8ChunkId("LVLS"), [&] {
+        output.WriteValue(3);
+        output.WriteChunk(W8ChunkId("STAT"),
+                          [&] { output.WriteBytes(header.data(), header.size()); });
+        output.WriteChunk(W8ChunkId("ITEM"), [&] { output.WriteValue(1u); });
+    });
+    output.Close();
+    g_status.next_group_id = 42;
+    auto pending = std::make_unique<W8World>(3);
+    REQUIRE_THROWS(ReadLevelStatus(*pending, path, 3, true));
+    REQUIRE(g_status.next_group_id == 42);
+    REQUIRE(GetLoadedLevelID() == 8);
 }
 
 TEST_CASE("Only published worlds schedule their trigger events", "[levels][events]")

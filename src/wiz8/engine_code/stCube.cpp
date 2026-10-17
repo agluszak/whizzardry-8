@@ -5,8 +5,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <exception>
-#include <iterator>
 #include <limits>
 #include <memory>
 #include <stdexcept>
@@ -213,49 +211,42 @@ static void DrawWorldCursorNodeLabel(W8WorldCursorNode& entry)
 }
 
 // FUNCTION: WIZ8 0x0048e470
-unsigned int LoadWorldCursorNodeStates(W8Chunk& handle)
-try {
+void ReadWorldCursorNodeStates(W8Chunk& file, W8SavedCursorNodes& table)
+{
     std::int32_t version;
     std::uint32_t count;
-    handle.ReadBytes(&version, sizeof(version));
+    file.ReadBytes(&version, sizeof(version));
     if (version == 0x21122112) version = 1;
-    if (version != 1 && version != 2) return 0;
-    handle.ReadBytes(&count, sizeof(count));
-    const auto minimum_bytes = version == 1 ? 4 : 36;
-    if (count > (handle.RemainingBytes()) / minimum_bytes) return 0;
-    std::vector<std::pair<W8WorldCursorNode*, std::vector<std::byte>>> pending;
+    if (version != 1 && version != 2) throw std::runtime_error("invalid cursor state version");
+    file.ReadBytes(&count, sizeof(count));
+    if (count > file.RemainingBytes() / (version == 1 ? 4 : 36))
+        throw std::runtime_error("invalid cursor state count");
+    std::vector<std::pair<std::size_t, std::vector<std::byte>>> pending;
     pending.reserve(count);
     for (std::uint32_t index = 0; index < count; ++index) {
-        W8WorldCursorNode* node = nullptr;
-        if (version == 1) {
-            // Version 1 matched by position; an index past the table names the first node.
-            if (!g_world_cursor_nodes.empty())
-                node = g_world_cursor_nodes[index < g_world_cursor_nodes.size() ? index : 0].get();
-        } else {
+        auto destination = static_cast<std::size_t>(index);
+        if (version == 2) {
             std::array<char, 32> name;
-            handle.ReadBytes(name.data(), name.size());
+            file.ReadBytes(name.data(), name.size());
             const auto end = std::find(name.begin(), name.end(), '\0');
-            if (end == name.end()) return 0;
-            const std::string_view key(name.data(), end - name.begin());
-            const auto match =
-                std::ranges::find_if(g_world_cursor_nodes, [key](const auto& candidate) {
-                    return key == candidate->name;
+            if (end == name.end()) throw std::runtime_error("unterminated cursor state name");
+            const auto found =
+                std::find_if(table.nodes.begin(), table.nodes.end(), [&](const auto& node) {
+                    return std::string_view(node.name.data()) ==
+                           std::string_view(name.data(), end - name.begin());
                 });
-            if (match != g_world_cursor_nodes.end()) node = match->get();
+            destination = found - table.nodes.begin();
         }
         std::int32_t size;
-        handle.ReadBytes(&size, sizeof(size));
-        if (size < 0 || size > handle.RemainingBytes()) return 0;
+        file.ReadBytes(&size, sizeof(size));
+        if (size < 0 || size > file.RemainingBytes())
+            throw std::runtime_error("invalid cursor userdata size");
         std::vector<std::byte> bytes(size);
-        handle.ReadBytes(bytes.data(), bytes.size());
-        pending.emplace_back(node, std::move(bytes));
+        file.ReadBytes(bytes.data(), bytes.size());
+        pending.emplace_back(destination, std::move(bytes));
     }
-    for (auto& [node, bytes] : pending) {
-        if (node) node->userdata = std::move(bytes);
-    }
-    return count;
-} catch (const std::exception&) {
-    return 0;
+    for (auto& [index, bytes] : pending)
+        if (index < table.nodes.size()) table.nodes[index].userdata = std::move(bytes);
 }
 
 // FUNCTION: WIZ8 0x0048e6d0
@@ -280,55 +271,60 @@ void SaveWorldCursorNodeStates(wiz8::File& handle)
    bounds (stored as the scale applied to the 500-unit cube), location and
    one opaque word; version 2 adds the name and version 3 the name serial. */
 // FUNCTION: WIZ8 0x0048e7b0
-void LoadWorldCursorNodes(W8Chunk& handle)
+W8SavedCursorNodes ReadWorldCursorNodes(W8Chunk& file)
 {
-    std::int32_t version;
-    std::uint32_t count;
-
-    handle.ReadBytes(&version, sizeof(version));
-    if (static_cast<std::uint32_t>(version) == 0xdeadd00d) {
-        version = 1;
-    }
-    int serial = 100;
-    if (version > 2) {
-        handle.ReadBytes(&serial, sizeof(serial));
-    }
-    handle.ReadBytes(&count, sizeof(count));
-    const std::size_t record_bytes = 13 * 4 + (version >= 2 ? 0x20 : 0);
-    if (count > static_cast<std::uint64_t>(handle.RemainingBytes()) / record_bytes)
-        throw std::runtime_error("truncated cursor nodes");
-
-    std::vector<std::unique_ptr<W8WorldCursorNode>> loaded;
-    loaded.reserve(count);
-    for (std::uint32_t index = 0; index < count; ++index) {
-        auto cube = CreateWorldCursorCube();
-        glm::vec3 minimum;
-        glm::vec3 maximum;
-        glm::vec3 location;
-
+    W8SavedCursorNodes result;
+    int version;
+    unsigned int count;
+    file.ReadBytes(&version, sizeof(version));
+    if (static_cast<unsigned int>(version) == 0xdeadd00d) version = 1;
+    if (version > 2) file.ReadBytes(&result.next_serial, sizeof(result.next_serial));
+    file.ReadBytes(&count, sizeof(count));
+    if (count > file.RemainingBytes() / (version >= 2 ? 84 : 52))
+        throw std::runtime_error("invalid cursor node count");
+    result.nodes.resize(count);
+    for (unsigned int index = 0; index < count; ++index) {
+        auto& node = result.nodes[index];
         if (version >= 2) {
-            handle.ReadBytes(cube->name, 0x20);
-            cube->name[0x1f] = 0;
-            if (cube->name[0] == 0) {
-                wiz8::text::write_utf8_field(fmt::format("Cube{:03d}", serial++), cube->name);
-            }
-        } else {
-            wiz8::text::write_utf8_field(fmt::format("Cube{:d}", index), cube->name);
+            file.ReadBytes(node.name.data(), node.name.size());
+            if (std::find(node.name.begin(), node.name.end(), '\0') == node.name.end())
+                throw std::runtime_error("unterminated cursor node name");
         }
-        handle.ReadBytes(cube->parameters, sizeof(cube->parameters));
-        handle.ReadBytes(&minimum, sizeof(minimum));
-        handle.ReadBytes(&maximum, sizeof(maximum));
-        handle.ReadBytes(&location, sizeof(location));
-        handle.ReadBytes(&cube->value_08, sizeof(cube->value_08));
-
-        const auto scale = (maximum - minimum) * static_cast<float>(g_world_cursor_scale);
-        static_cast<stMeshModel*>(cube->node->getModel())->scale(scale);
-        cube->node->setLocation(glm::dvec3(location));
-        DrawWorldCursorNodeLabel(*cube);
-        loaded.push_back(std::move(cube));
+        if (node.name.front() == '\0') {
+            const auto name = version >= 2 ? fmt::format("Cube{:03d}", result.next_serial++)
+                                           : fmt::format("Cube{:d}", index);
+            wiz8::text::write_utf8_field(name, node.name);
+        }
+        for (auto& value : node.parameters) file.ReadBytes(&value, sizeof(value));
+        for (auto* vector : {&node.minimum, &node.maximum, &node.location}) {
+            file.ReadBytes(&vector->x, sizeof(float));
+            file.ReadBytes(&vector->y, sizeof(float));
+            file.ReadBytes(&vector->z, sizeof(float));
+        }
+        file.ReadBytes(&node.value, sizeof(node.value));
     }
-    gXStatus.mipe_cube_serial = serial;
-    std::ranges::move(loaded, std::back_inserter(g_world_cursor_nodes));
+    return result;
+}
+
+void ApplyWorldCursorNodes(W8SavedCursorNodes records)
+{
+    ReleaseWorldCursorNodes();
+    gXStatus.mipe_cube_serial = records.next_serial;
+    for (auto& record : records.nodes) {
+        auto cube = CreateWorldCursorCube();
+        std::copy(record.name.begin(), record.name.end(), cube->name);
+        std::copy(record.parameters.begin(), record.parameters.end(), cube->parameters);
+        const auto scale =
+            (record.maximum - record.minimum) * static_cast<float>(g_world_cursor_scale);
+        auto* instance = cube->node.get();
+        if (instance && instance->getModel())
+            static_cast<stMeshModel*>(instance->getModel())->scale(scale);
+        if (cube->node) cube->node->setLocation(glm::dvec3(record.location));
+        cube->value_08 = record.value;
+        cube->userdata = std::move(record.userdata);
+        DrawWorldCursorNodeLabel(*cube);
+        g_world_cursor_nodes.push_back(std::move(cube));
+    }
 }
 
 // FUNCTION: WIZ8 0x0048ead0

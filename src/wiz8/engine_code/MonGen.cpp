@@ -617,97 +617,82 @@ void DestroyMonsterGenerators(void)
    random-encounter budget is always clamped to the current level after loading,
    and the culling span is finally reset from that level's database row. */
 // FUNCTION: WIZ8 0x0048c110
-unsigned char MonGen::LoadAll(W8Chunk& save_handle)
-try {
-    W8LevelDatabaseRecord* level;
-    unsigned char success;
-    int version;
-    int count;
-    int index;
-
-    DestroyMonsterGenerators();
-    save_handle.ReadBytes(&version, 4);
-    if (version > 4) {
-        save_handle.ReadBytes(&gXStatus.saved_encounter_budget, 4);
-    } else {
-        gXStatus.saved_encounter_budget = 100;
-    }
-    save_handle.ReadBytes(&g_random_encounter_budget, 4);
-    if (version > 1) {
-        save_handle.ReadBytes(&g_encounter_culling_time_seconds, 4);
-    }
+W8SavedEncounterState ReadEncounterState(W8Chunk& file)
+{
+    W8SavedEncounterState state;
+    int version, count;
+    file.ReadBytes(&version, sizeof(version));
+    if (version > 4) file.ReadBytes(&state.saved_budget, sizeof(state.saved_budget));
+    file.ReadBytes(&state.random_budget, sizeof(state.random_budget));
+    if (version > 1) file.ReadBytes(&state.culling_seconds, sizeof(state.culling_seconds));
     if (version > 2) {
-        save_handle.ReadBytes(&g_generator_save_flag, 1);
-        save_handle.ReadBytes(&g_generator_interval_min, 2);
-        save_handle.ReadBytes(&g_generator_default_interval, 2);
-        save_handle.ReadBytes(&g_generator_interval_max, 2);
+        file.ReadBytes(&state.save_flag, sizeof(state.save_flag));
+        file.ReadBytes(&state.interval_min, sizeof(state.interval_min));
+        file.ReadBytes(&state.default_interval, sizeof(state.default_interval));
+        file.ReadBytes(&state.interval_max, sizeof(state.interval_max));
     }
-
-    save_handle.ReadBytes(&count, 4);
-    if (count < 0 || count > (save_handle.RemainingBytes()) / 26) return false;
-    success = true;
-    for (index = 0; index < count && success != 0; ++index) {
+    file.ReadBytes(&count, sizeof(count));
+    if (count < 0 || count > file.RemainingBytes() / 26)
+        throw std::runtime_error("invalid encounter generator count");
+    state.generators.reserve(count);
+    for (int index = 0; index < count; ++index) {
         auto generator = std::make_unique<MonGen>();
-        success = generator->Load(save_handle);
-        if (!success) return false;
-        GetWorld()->monster_generators.push_back(std::move(generator));
+        if (!generator->Load(file, state.default_interval))
+            throw std::runtime_error("invalid encounter generator");
+        state.generators.push_back(std::move(generator));
     }
-
-    level = &g_level_records[GetLoadedLevelID()];
-    ClampRandomEncounterLimits(*level);
-    g_encounter_culling_time_seconds = level->encounter_culling_seconds;
-    return success;
-} catch (const std::exception&) {
-    return false;
+    return state;
 }
 
-/* Writes one generator-independent save record back onto an already loaded
-   world. A record whose name no longer exists is still consumed completely: a
-   temporary interval gate reads and discards the saved timer payload. */
-// FUNCTION: WIZ8 0x0048c470
-void LoadMonsterGenerators(W8Chunk& handle)
+void ReadMonsterGeneratorStates(W8Chunk& file, W8SavedEncounterState& state)
 {
-    char name[32];
-    MonGen* generator;
-    unsigned char generation_enabled;
-    unsigned int flags;
-    int version;
-    int count;
-    int index;
-    int search;
-
-    handle.ReadBytes(&version, 4);
-    handle.ReadBytes(&g_generator_save_flag, 1);
-    handle.ReadBytes(&count, 4);
-    for (index = 0; index < count; ++index) {
-        handle.ReadBytes(name, sizeof(name));
-        handle.ReadBytes(&generation_enabled, 1);
-        handle.ReadBytes(&flags, 4);
-
-        generator = 0;
-        for (search = 0; search < static_cast<int>(GetWorld()->monster_generators.size());
-             ++search) {
-            MonGen* candidate = GetWorld()->monster_generators[search].get();
-            if (strncmp(name, candidate->name, sizeof(name)) == 0) {
-                generator = candidate;
+    int version, count;
+    file.ReadBytes(&version, sizeof(version));
+    file.ReadBytes(&state.save_flag, sizeof(state.save_flag));
+    file.ReadBytes(&count, sizeof(count));
+    if (count < 0 || count > file.RemainingBytes() / 37)
+        throw std::runtime_error("invalid generator state count");
+    for (int index = 0; index < count; ++index) {
+        char name[32];
+        unsigned char enabled;
+        unsigned int flags;
+        file.ReadBytes(name, sizeof(name));
+        file.ReadBytes(&enabled, sizeof(enabled));
+        file.ReadBytes(&flags, sizeof(flags));
+        MonGen* generator = nullptr;
+        for (const auto& candidate : state.generators)
+            if (std::strncmp(name, candidate->name, sizeof(name)) == 0) {
+                generator = candidate.get();
                 break;
             }
-        }
-        if (generator != 0) {
-            generator->generation_enabled = generation_enabled;
+        if (generator) {
+            generator->generation_enabled = enabled;
             generator->flags = flags;
         }
-
         if (version > 1) {
-            if (generator != 0) {
-                if (!generator->timer.Load(handle))
-                    throw std::runtime_error("invalid generator timer");
-                generator->timer.Arm();
-            } else {
-                handle.ReadValue<float>(); // progress
-                handle.ReadValue<float>(); // duration scale
-            }
+            W8IntervalGate timer;
+            timer.m_flags.one_shot = false;
+            if (!timer.Load(file)) throw std::runtime_error("invalid generator timer");
+            if (generator) generator->timer = timer;
         }
+    }
+}
+
+void ApplyEncounterState(W8World& world, W8SavedEncounterState state)
+{
+    gXStatus.saved_encounter_budget = state.saved_budget;
+    g_random_encounter_budget = state.random_budget;
+    g_encounter_culling_time_seconds = state.culling_seconds;
+    g_generator_save_flag = state.save_flag;
+    g_generator_interval_min = state.interval_min;
+    g_generator_default_interval = state.default_interval;
+    g_generator_interval_max = state.interval_max;
+    world.monster_generators = std::move(state.generators);
+    for (const auto& generator : world.monster_generators) generator->timer.Arm();
+    if (world.level_id >= 0 && world.level_id < W8_LEVEL_COUNT) {
+        auto& level = g_level_records[world.level_id];
+        ClampRandomEncounterLimits(level);
+        g_encounter_culling_time_seconds = level.encounter_culling_seconds;
     }
 }
 
@@ -727,7 +712,7 @@ void RunMonsterGenerators(void)
             if (generator->CanGenerateEncounter(false)) {
                 generator->GenerateEncounter(&generator->spawn_position);
             }
-            generator->Reset();
+            generator->Reset(g_generator_default_interval);
         }
     }
 }
@@ -827,7 +812,7 @@ void MonGen::Save(wiz8::File& handle)
    record is reported bad; the timer is rearmed either way, and the armed bit is
    always cleared on the way out so a loaded generator starts disarmed. */
 // FUNCTION: WIZ8 0x0048b5e0
-unsigned char MonGen::Load(W8Chunk& handle)
+unsigned char MonGen::Load(W8Chunk& handle, short default_interval)
 try {
     unsigned char version{};
 
@@ -844,7 +829,7 @@ try {
     handle.ReadBytes(&spawn_position.y, 4);
     handle.ReadBytes(&spawn_position.z, 4);
     handle.ReadBytes(&encounter_table_index, 4);
-    Reset();
+    Reset(default_interval);
     if (static_cast<signed char>(version) > 1) {
         if (!timer.Load(handle)) return false;
         timer.Arm();
@@ -860,13 +845,13 @@ try {
    fraction, so the mean is the interval itself. Bit 3 selects the shared
    default interval; a clear bit uses the generator's custom +0x06 interval. */
 // FUNCTION: WIZ8 0x0048b420
-void MonGen::Reset()
+void MonGen::Reset(short default_interval)
 {
     short interval;
     float jitter;
 
-    interval = (flags & W8_MONGEN_USE_DEFAULT_SETTINGS) != 0 ? g_generator_default_interval
-                                                             : custom_interval_seconds;
+    interval =
+        (flags & W8_MONGEN_USE_DEFAULT_SETTINGS) != 0 ? default_interval : custom_interval_seconds;
     jitter = interval * g_generator_jitter_fraction;
     timer.SetDuration(static_cast<float>(Random(static_cast<int>(jitter) * 2 + 1)) + interval -
                       jitter);

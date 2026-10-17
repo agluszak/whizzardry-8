@@ -1,7 +1,11 @@
 #include "wiz8/engine_code/stLight.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <memory>
+#include <span>
+#include <stdexcept>
+#include <string>
 #include <vector>
 
 #include "compat/compiler.h"
@@ -372,27 +376,36 @@ void SaveLightStates(wiz8::File& handle)
    followed by each light's 0x80-byte name and its enable flag, applied to the
    light found by name in the loaded worlds. */
 // FUNCTION: WIZ8 0x0049D390
-void LoadLightStates(W8Chunk& handle)
+std::vector<W8LightState> ReadLightStates(W8Chunk& file)
 {
-    char name[0x80] = {0};
     unsigned char version;
-    int count = 0;
-
-    handle.ReadBytes(&version, sizeof(version));
-    handle.ReadBytes(&count, sizeof(count));
-
+    int count;
+    file.ReadBytes(&version, sizeof(version));
+    file.ReadBytes(&count, sizeof(count));
+    if (count < 0 || count > file.RemainingBytes() / 129)
+        throw std::runtime_error("invalid Light state count");
+    std::vector<W8LightState> records;
+    records.reserve(count);
     for (int index = 0; index < count; ++index) {
+        char name[128];
         unsigned char enabled;
-        handle.ReadBytes(name, sizeof(name));
-        handle.ReadBytes(&enabled, sizeof(enabled));
+        file.ReadBytes(name, sizeof(name));
+        file.ReadBytes(&enabled, sizeof(enabled));
+        const auto end = std::find(name, name + sizeof(name), '\0');
+        if (end == name + sizeof(name)) throw std::runtime_error("unterminated Light name");
+        records.push_back({std::string(name, end), enabled});
+    }
+    return records;
+}
 
-        stLight* light = FindWorldNode<stLight>(name);
-        if (light != 0) {
-            if (enabled != 0) {
+void ApplyLightStates(std::span<const W8LightState> states)
+{
+    for (const auto& state : states) {
+        if (auto* light = FindWorldNode<stLight>(state.name)) {
+            if (state.enabled)
                 light->clearFlag(srNode::FLAG_DISABLE);
-            } else {
+            else
                 light->setFlag(srNode::FLAG_DISABLE);
-            }
         }
     }
 }

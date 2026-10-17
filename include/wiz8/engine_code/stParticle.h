@@ -3,6 +3,8 @@ struct W8Chunk;
 
 #include <memory>
 #include <optional>
+#include <span>
+#include <string>
 #include <vector>
 
 #include "compat/compiler.h"
@@ -146,4 +148,9 @@ void RetireParticle(W8World& world, std::unique_ptr<stParticle> particle);
 void SweepFinishedParticles(W8World* world);
 
 void SaveParticleStates(wiz8::File& handle);
-void LoadParticleStates(W8Chunk& handle);
+struct W8ParticleState {
+    std::string name;
+    unsigned char active;
+};
+std::vector<W8ParticleState> ReadParticleStates(W8Chunk& file);
+void ApplyParticleStates(std::span<const W8ParticleState> states);

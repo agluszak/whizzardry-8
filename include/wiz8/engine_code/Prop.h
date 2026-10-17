@@ -119,7 +119,8 @@ public:
     struct SavedAnimationState {
         unsigned char subcycle, first_frame, last_frame, frame_direction, animation_playing, unused;
     };
-    void ApplyAnimationState(const SavedAnimationState& state);        /* 0x0044DBD0 */
+    void ApplyAnimationState(const SavedAnimationState& state,
+                             W8PathingService* pathing);        /* 0x0044DBD0 */
     int BuildOrRefreshPathingRepresentation(W8PathingService* pathing); /* 0x0044DEA0 */
     /* Current minus previous position when the animation advances exactly
        one frame; otherwise zero. */

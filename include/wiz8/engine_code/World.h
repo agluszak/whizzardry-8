@@ -20,8 +20,6 @@ W8World* GetSecondaryWorld(void);
 void MarkWorldViewDirty(void);
 /* Publish a loaded world, returning the previous owner. The level world's
    activity is stopped before it is handed back. */
-std::unique_ptr<W8World> ReplaceWorld(std::unique_ptr<W8World> world);
-std::unique_ptr<W8World> ReplaceSkyWorld(std::unique_ptr<W8World> world);
 
 std::unique_ptr<W8World> LoadWorld(int level_id, std::string source_path, bool use_octree = true);
 void DetachAllWorldItems(void);
@@ -69,5 +67,5 @@ void SaveWorldProps(wiz8::File& handle);
    selects the name-keyed format; older saves carry a bare count plus the
    object's id key. Unmatched records are decoded and ignored. */
 struct W8Chunk;
-void LoadWorldProps(W8Chunk& chunk);
+void LoadWorldProps(W8World* world, W8Chunk& chunk);
 void UpdateCameraPathStateByName(W8World* world, const char* name, int active);

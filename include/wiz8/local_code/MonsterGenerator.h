@@ -24,7 +24,7 @@ struct MonGen {
     unsigned char generation_enabled; /* MIPE "Toggle Active"; gates CanGenerate */
 
     MonGen();
-    void Reset();
+    void Reset(short default_interval);
     /* Tests global encounter gates, range/LOS/occupancy constraints and this
        generator's chance. */
     bool CanGenerateEncounter(bool force);
@@ -36,9 +36,8 @@ struct MonGen {
     int RollEncounterGroupSize(W8MonsterRecord* record);
     /* The save pair. Both are __thiscall in the image. */
     void Save(wiz8::File& handle);
-    unsigned char Load(W8Chunk& handle);
+    unsigned char Load(W8Chunk& handle, short default_interval);
     /* The MONG chunk loader. */
-    static unsigned char LoadAll(W8Chunk& save_handle);
     /* Select one loaded encounter table and apply its HARASSMENT flag. */
     void SetEncounterTable(int index);
     MonGen(const MonGen&) = delete;

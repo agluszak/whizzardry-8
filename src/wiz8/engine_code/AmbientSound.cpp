@@ -8,6 +8,7 @@
 #include <exception>
 #include <memory>
 #include <optional>
+#include <span>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -809,7 +810,7 @@ void SaveAmbientSoundList(wiz8::File& handle)
     }
 }
 
-void LoadAmbientSoundList(W8Chunk& handle)
+std::vector<W8AmbientSoundState> ReadAmbientSoundStates(W8Chunk& handle)
 {
     unsigned char version;
     std::uint32_t count;
@@ -817,7 +818,7 @@ void LoadAmbientSoundList(W8Chunk& handle)
     handle.ReadBytes(&count, sizeof(count));
     if (count > (handle.RemainingBytes()) / 129)
         throw std::runtime_error("invalid ambient sound state count");
-    std::vector<std::pair<std::string, bool>> pending;
+    std::vector<W8AmbientSoundState> pending;
     pending.reserve(count);
     for (std::uint32_t index = 0; index < count; ++index) {
         std::array<char, 128> name;
@@ -826,9 +827,14 @@ void LoadAmbientSoundList(W8Chunk& handle)
         handle.ReadBytes(&stopped, 1);
         const auto end = std::find(name.begin(), name.end(), '\0');
         if (end == name.end()) throw std::runtime_error("unterminated ambient sound name");
-        pending.emplace_back(std::string(name.data(), end - name.begin()), stopped != 0);
+        pending.push_back({std::string(name.data(), end - name.begin()), stopped != 0});
     }
-    for (const auto& [name, stopped] : pending) {
+    return pending;
+}
+
+void ApplyAmbientSoundStates(std::span<const W8AmbientSoundState> states)
+{
+    for (const auto& [name, stopped] : states) {
         if (stopped)
             StopAmbientSoundByName(nullptr, name.c_str());
         else

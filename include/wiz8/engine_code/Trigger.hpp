@@ -306,11 +306,11 @@ std::unique_ptr<W8TriggerActionData> ReadDoorTriggerActionData(wiz8::File* handl
    action data. */
 int ResetNextTriggerId(void);
 void SaveWorldTriggers(wiz8::File& handle);
-bool LoadWorldTriggers(W8Chunk& handle, bool from_assets = false);
+bool LoadWorldTriggers(W8World* world, W8Chunk& handle, bool from_assets = false);
 void SaveTriggerRuntimeStates(wiz8::File& handle);
-bool LoadTriggerRuntimeStates(W8Chunk& handle);
+bool LoadTriggerRuntimeStates(W8World& world, W8Chunk& handle);
 void SaveTriggerActionData(wiz8::File& handle);
-bool LoadTriggerActionData(W8Chunk& handle);
+bool LoadTriggerActionData(W8World& world, W8Chunk& handle);
 
 extern bool g_trigger_feedback;
 /* Camera position cached by the per-frame trigger walk. */

@@ -2,6 +2,7 @@
 struct W8Chunk;
 
 #include <algorithm>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -41,7 +42,18 @@ int FindEncounterTableByName(const char* name);        /* 0x0048CCA0 */
 void SaveEncounterState(wiz8::File& handle);
 void SaveMonsterGenerators(wiz8::File& handle);
 void DestroyMonsterGenerators(void);
-void LoadMonsterGenerators(W8Chunk& handle); /* 0x0048C470 */
+struct W8World;
+struct W8SavedEncounterState {
+    int saved_budget = 100;
+    int random_budget = 20;
+    int culling_seconds = 180;
+    unsigned char save_flag = 0;
+    short interval_min = 100, default_interval = 10, interval_max = -1;
+    std::vector<std::unique_ptr<MonGen>> generators;
+};
+W8SavedEncounterState ReadEncounterState(W8Chunk& file);
+void ReadMonsterGeneratorStates(W8Chunk& file, W8SavedEncounterState& state);
+void ApplyEncounterState(W8World& world, W8SavedEncounterState state);
 void RunMonsterGenerators(void);
 void DespawnAllActiveMonsterGroups(void);
 void ResetMonsterGeneratorTimers(void);

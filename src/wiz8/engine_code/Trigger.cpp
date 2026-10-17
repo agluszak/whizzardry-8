@@ -161,22 +161,20 @@ const float g_trigger_progress_limit = 64.0f;
 /* Trigger names are stored uppercase. Like the retail instance registry, the
    newest trigger wins when a name repeats. */
 // FUNCTION: WIZ8 0x00443780
+static Trigger* FindTriggerInWorld(W8World& world, const char* name)
+{
+    if (!name || !*name) return nullptr;
+    for (const auto& trigger : world.triggers | std::views::reverse)
+        if (SDL_strcasecmp(trigger->name, name) == 0) return trigger.get();
+    return nullptr;
+}
+
 Trigger* FindTriggerByName(const char* name)
 {
-    if (name == 0 || name[0] == 0) {
-        return 0;
-    }
-    for (W8World* world : {GetWorld(), GetSecondaryWorld()}) {
-        if (world == 0) {
-            continue;
-        }
-        for (const auto& trigger : world->triggers | std::views::reverse) {
-            if (SDL_strcasecmp(trigger->name, name) == 0) {
-                return trigger.get();
-            }
-        }
-    }
-    return 0;
+    for (auto* world : {GetWorld(), GetSecondaryWorld()})
+        if (world)
+            if (auto* trigger = FindTriggerInWorld(*world, name)) return trigger;
+    return nullptr;
 }
 
 Trigger* FindRequiredTriggerByName(const char* name, std::source_location caller)
@@ -355,7 +353,7 @@ void W8LockState::ReadRuntimeRecord(W8Chunk& handle, int version, int restoring)
    restoring, a state byte block is re-randomized and the type-10 action data is
    re-linked to the stored item. */
 // FUNCTION: WIZ8 0x0043ccf0
-bool LoadTriggerRuntimeStates(W8Chunk& handle)
+bool LoadTriggerRuntimeStates(W8World& world, W8Chunk& handle)
 try {
     int version;
     int saved_count;
@@ -373,9 +371,9 @@ try {
         Trigger* trigger;
 
         ReadTriggerText(handle, name);
-        trigger = FindTriggerByName(name);
+        trigger = FindTriggerInWorld(world, name);
         if (trigger == 0) {
-            Trigger scratch;
+            Trigger scratch(&world);
             scratch.lock_state.ReadRuntimeRecord(handle, version, restoring);
         } else {
             W8TriggerActionData* action_data;
@@ -605,27 +603,27 @@ try {
    through a scratch trigger when the name is gone, and anything else pushes
    the tag byte back and ends the walk. */
 // FUNCTION: WIZ8 0x0043c860
-bool LoadWorldTriggers(W8Chunk& file, bool from_assets)
+bool LoadWorldTriggers(W8World* world, W8Chunk& file, bool from_assets)
 try {
-    for (std::size_t index = 0; index < GetWorld()->triggers.size(); ++index) {
+    for (std::size_t index = 0; index < world->triggers.size(); ++index) {
         char tag;
         file.ReadBytes(&tag, 1);
         if (tag < 1 || tag > 5) {
             // The dispatcher skips the remainder of this completed section.
             return true;
         }
-        Trigger* trigger = GetWorld()->triggers[index].get();
+        Trigger* trigger = world->triggers[index].get();
         if (tag == 5) {
             int trigger_id;
             char name[128];
             file.ReadBytes(&trigger_id, sizeof(trigger_id));
             ReadTriggerText(file, name);
-            trigger = FindTriggerByName(name);
+            trigger = FindTriggerInWorld(*world, name);
         }
         if (trigger) {
             if (!trigger->Load(file, tag, from_assets)) return false;
         } else {
-            Trigger scratch(GetWorld());
+            Trigger scratch(world);
             if (!scratch.Load(file, tag, from_assets)) return false;
         }
     }
@@ -679,7 +677,7 @@ void SaveTriggerActionData(wiz8::File& handle)
    a version/count header, then per record the trigger name and its 0x100-byte
    payload. Records for missing triggers are skipped with a seek. */
 // FUNCTION: WIZ8 0x0043d1f0
-bool LoadTriggerActionData(W8Chunk& handle)
+bool LoadTriggerActionData(W8World& world, W8Chunk& handle)
 try {
     std::int32_t version, count;
     handle.ReadBytes(&version, sizeof(version));
@@ -693,7 +691,7 @@ try {
         ReadTriggerText(handle, name);
         handle.ReadBytes(action.data(), action.size());
         if (std::find(action.begin(), action.end(), '\0') == action.end()) return false;
-        pending.emplace_back(FindTriggerByName(name), action);
+        pending.emplace_back(FindTriggerInWorld(world, name), action);
     }
     for (const auto& [trigger, action] : pending)
         if (trigger) std::copy(action.begin(), action.end(), trigger->inline_action_data);
@@ -1772,7 +1770,7 @@ Trigger::Trigger(W8World* world)
     item_group_seed = static_cast<unsigned int>(w8_get_ticks() + Random(30000));
     gold = 0;
     uses_remaining = 0;
-    trigger_id = world ? world->next_trigger_id++ : g_status.next_trigger_id++;
+    trigger_id = world ? world->next_trigger_id++ : 0;
 }
 
 // FUNCTION: WIZ8 0x00440d00
