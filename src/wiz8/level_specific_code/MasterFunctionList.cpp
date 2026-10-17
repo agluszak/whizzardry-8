@@ -1,6 +1,7 @@
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 
 #include <cstdarg>
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <utility>
@@ -289,7 +290,7 @@ static unsigned char WorldCursorNodeShowMessageOnce(int command, W8WorldCursorNo
     int type;
     unsigned char enabled;
     bool result;
-    char* shown;
+    std::byte* shown;
     int slot;
     std::string path;
     std::string text;
@@ -314,15 +315,12 @@ command_check:
     }
     if (type == 0) {
         result = true;
-        shown = static_cast<char*>(node->pUserdata);
-        if (shown == 0) {
-            SetWorldCursorNodeUserdataSize(node, 1);
-            shown = static_cast<char*>(node->pUserdata);
-        }
-        if (*shown != 0) {
+        if (node->userdata.empty()) node->userdata.resize(1);
+        shown = node->userdata.data();
+        if (*shown != std::byte{}) {
             return 0;
         }
-        *shown = 1;
+        *shown = std::byte{1};
         if (folder == 0) {
             folder = "Test";
         }
@@ -541,18 +539,15 @@ void LoadAwayCampChest(void)
 static unsigned char WorldCursorNodePartyVoice(int command, W8WorldCursorNode* node, int context)
 {
     int event_type;
-    char* shown;
+    std::byte* shown;
     int slot;
 
     event_type = GetWorldCursorNodeParameter(node, 0);
     if (command == 1) {
-        shown = static_cast<char*>(node->pUserdata);
-        if (shown == 0) {
-            SetWorldCursorNodeUserdataSize(node, 1);
-            shown = static_cast<char*>(node->pUserdata);
-        }
-        if (*shown == 0) {
-            *shown = 1;
+        if (node->userdata.empty()) node->userdata.resize(1);
+        shown = node->userdata.data();
+        if (*shown == std::byte{}) {
+            *shown = std::byte{1};
             slot = PickRandomPartySpeaker(event_type, 0xff);
             if (slot != -1) {
                 QueueCharacterEvent(g_status.buffers.Char + slot, event_type, 0,

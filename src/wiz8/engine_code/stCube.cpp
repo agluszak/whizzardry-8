@@ -1,11 +1,17 @@
 #include "wiz8/engine_code/stCube.h"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
-#include <cstdlib>
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
+#include <exception>
+#include <limits>
 #include <memory>
+#include <stdexcept>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -171,8 +177,6 @@ W8WorldCursorNode* CreateWorldCursorCube(void)
     PackColourToLong(&packed, 1.0, 0.0, 0.0, 0.5);
     SetWorldCursorNodeColor(entry, packed);
     DrawWorldCursorNodeLabel(entry);
-    entry->pUserdata = 0;
-    entry->userdata_size = 0;
     entry->name[0] = 0;
 
     g_world_cursor_nodes.push_back(entry);
@@ -183,11 +187,7 @@ W8WorldCursorNode* CreateWorldCursorCube(void)
 void DestroyWorldCursorCube(W8WorldCursorNode* entry)
 {
     if (entry != 0) {
-        if (entry->pUserdata != 0) {
-            free(entry->pUserdata);
-            entry->pUserdata = 0;
-        }
-        entry->userdata_size = 0;
+        entry->userdata.clear();
         entry->node->setParent(0, 1);
         delete entry->node;
         wiz8::erase_first(g_world_cursor_nodes, entry);
@@ -319,11 +319,7 @@ void SetWorldCursorNodeParameter(W8WorldCursorNode* entry, int index, int value)
 {
     if (entry != 0) {
         entry->parameters[index] = value;
-        if (entry->pUserdata != 0) {
-            free(entry->pUserdata);
-            entry->pUserdata = 0;
-        }
-        entry->userdata_size = 0;
+        entry->userdata.clear();
     }
 }
 
@@ -377,103 +373,65 @@ void SetWorldCursorNodeColorComponents(W8WorldCursorNode* entry, float red, floa
 
 // FUNCTION: WIZ8 0x0048e470
 unsigned int LoadWorldCursorNodeStates(wiz8::File& handle)
-{
-    int version;
-    unsigned int count;
-    unsigned int index;
-    bool success = true;
-
-    if (!(handle.read(&version, 4).bytes == static_cast<std::size_t>(4))) {
-        return 0;
-    }
-    if (version == 0x21122112) {
-        version = 1;
-    }
-    if (!(handle.read(&count, 4).bytes == static_cast<std::size_t>(4))) {
-        return 0;
-    }
-
-    for (index = 0; index < count; ++index) {
-        W8WorldCursorNode* cube = 0;
-        bool temporary = false;
-
-        if (version < 2) {
-            cube = GetWorldCursorNode(index);
+try {
+    std::int32_t version;
+    std::uint32_t count;
+    handle.read_exact(&version, sizeof(version));
+    if (version == 0x21122112) version = 1;
+    if (version != 1 && version != 2) return 0;
+    handle.read_exact(&count, sizeof(count));
+    const auto minimum_bytes = version == 1 ? 4 : 36;
+    if (count > (handle.size() - handle.tell()) / minimum_bytes) return 0;
+    std::vector<std::pair<W8WorldCursorNode*, std::vector<std::byte>>> pending;
+    pending.reserve(count);
+    for (std::uint32_t index = 0; index < count; ++index) {
+        W8WorldCursorNode* node = nullptr;
+        if (version == 1) {
+            if (!g_world_cursor_nodes.empty()) node = GetWorldCursorNode(index);
         } else {
-            char name[0x20];
-            int cube_index;
-
-            handle.read_exact(name, sizeof(name));
-            for (cube_index = 0; cube_index < static_cast<int>(g_world_cursor_nodes.size());
-                 ++cube_index) {
-                W8WorldCursorNode* candidate = g_world_cursor_nodes[cube_index];
-                if (strcmp(candidate->name, name) == 0) {
-                    cube = candidate;
+            std::array<char, 32> name;
+            handle.read_exact(name.data(), name.size());
+            const auto end = std::find(name.begin(), name.end(), '\0');
+            if (end == name.end()) return 0;
+            const std::string_view key(name.data(), end - name.begin());
+            for (auto* candidate : g_world_cursor_nodes) {
+                if (key == candidate->name) {
+                    node = candidate;
                     break;
                 }
             }
-            if (cube == 0) {
-                cube = new W8WorldCursorNode;
-                temporary = true;
-            }
         }
-
-        if (success &&
-            (handle.read(&cube->userdata_size, 4).bytes == static_cast<std::size_t>(4))) {
-            success = true;
-        } else {
-            success = false;
-        }
-        if (cube->userdata_size != 0) {
-            cube->pUserdata = malloc(cube->userdata_size);
-            if (cube->pUserdata == 0) {
-                srAssertFail("pCube->pUserdata", ST_CUBE_CPP, 0x3c8, 0);
-            }
-            memset(cube->pUserdata, 0, cube->userdata_size);
-            if (success && (handle.read(cube->pUserdata, cube->userdata_size).bytes ==
-                            static_cast<std::size_t>(cube->userdata_size))) {
-                success = true;
-            } else {
-                success = false;
-            }
-        }
-        if (temporary && cube != 0) {
-            if (cube->pUserdata != 0) {
-                free(cube->pUserdata);
-                cube->pUserdata = 0;
-            }
-            cube->userdata_size = 0;
-            delete cube;
-        }
+        std::int32_t size;
+        handle.read_exact(&size, sizeof(size));
+        if (size < 0 || size > handle.size() - handle.tell()) return 0;
+        std::vector<std::byte> bytes(size);
+        handle.read_exact(bytes.data(), bytes.size());
+        pending.emplace_back(node, std::move(bytes));
+    }
+    for (auto& [node, bytes] : pending) {
+        if (node) node->userdata = std::move(bytes);
     }
     return count;
+} catch (const std::exception&) {
+    return 0;
 }
 
 // FUNCTION: WIZ8 0x0048e6d0
 unsigned char SaveWorldCursorNodeStates(wiz8::File& handle)
 {
-    bool ok = true;
-    int version = 2;
-    unsigned int count;
-    unsigned int index;
-    W8WorldCursorNode* node;
-
-    if (!(handle.write(&version, 4), true)) {
-        return 0;
+    const std::int32_t version = 2;
+    const auto count = static_cast<std::uint32_t>(g_world_cursor_nodes.size());
+    handle.write(&version, sizeof(version));
+    handle.write(&count, sizeof(count));
+    for (const auto* node : g_world_cursor_nodes) {
+        if (node->userdata.size() > std::numeric_limits<std::int32_t>::max())
+            throw std::length_error("cursor userdata exceeds save format");
+        const auto size = static_cast<std::int32_t>(node->userdata.size());
+        handle.write(node->name, sizeof(node->name));
+        handle.write(&size, sizeof(size));
+        handle.write(node->userdata.data(), node->userdata.size());
     }
-    count = static_cast<int>(g_world_cursor_nodes.size());
-    if (!(handle.write(&count, 4), true)) {
-        return 0;
-    }
-    for (index = 0; index < count && ok; ++index) {
-        node = g_world_cursor_nodes[index];
-        ok = (handle.write(node->name, sizeof(node->name)), true) &&
-             (handle.write(&node->userdata_size, 4), true);
-        if (node->userdata_size != 0) {
-            ok = ok && (handle.write(node->pUserdata, node->userdata_size), true);
-        }
-    }
-    return ok;
+    return true;
 }
 
 // FUNCTION: WIZ8 0x0048e7b0
@@ -706,28 +664,6 @@ W8WorldCursorNode* FindWorldCursorNodeAtPoint(W8WorldCursorNode* after, glm::vec
         ++index;
     }
     return 0;
-}
-
-/* Allocate the node's userdata scratch, or release it when `size` is zero.
-   Retail overwrites an existing allocation without freeing it first. */
-// FUNCTION: WIZ8 0x0048EF40
-void SetWorldCursorNodeUserdataSize(W8WorldCursorNode* entry, int size)
-{
-    if (entry != 0) {
-        if (size != 0) {
-            entry->pUserdata = malloc(size);
-            if (entry->pUserdata == 0) {
-                srAssertFail("pCube->pUserdata", ST_CUBE_CPP, 0x3c8, 0);
-            }
-            memset(entry->pUserdata, 0, size);
-        } else {
-            if (entry->pUserdata != 0) {
-                free(entry->pUserdata);
-                entry->pUserdata = 0;
-            }
-        }
-        entry->userdata_size = size;
-    }
 }
 
 /* Select the cursor node nearest the camera within the selection distance,
