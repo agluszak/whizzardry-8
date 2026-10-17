@@ -1495,8 +1495,8 @@ void VideoRemoveToolTip(void)
 }
 
 // FUNCTION: WIZ8 0x00424A90
-srNode* VideoMakePoster(std::shared_ptr<SDL_Surface> surface, float width, float height,
-                        bool additive)
+std::unique_ptr<stModelInstance> VideoMakePoster(std::shared_ptr<SDL_Surface> surface, float width,
+                                                 float height, bool additive)
 {
     auto texture = std::make_shared<srTexture>();
     texture->setMipmapBias(-8.0f);
@@ -2359,7 +2359,8 @@ void EndRenderProbe(void)
 }
 
 // FUNCTION: WIZ8 0x00424BA0
-srNode* MakePosterQuad(std::shared_ptr<srTexture> texture, float width, float height, bool additive)
+std::unique_ptr<stModelInstance> MakePosterQuad(std::shared_ptr<srTexture> texture, float width,
+                                                float height, bool additive)
 {
     srShader shader;
     srTexture::Dimensions dimensions;
@@ -2382,11 +2383,9 @@ srNode* MakePosterQuad(std::shared_ptr<srTexture> texture, float width, float he
     model->setTexture(std::move(texture), 0, 0);
     model->setShader(shader, 0);
 
-    stModelInstance* instance = new stModelInstance(static_cast<srNode*>(0));
+    auto instance = std::make_unique<stModelInstance>(static_cast<srNode*>(0));
     instance->setName("VideoMakePoster");
-    if (instance != 0) {
-        instance->setModel(model);
-    }
+    instance->setModel(model);
     instance->render_flags |= stModelInstance::RENDER_NO_PICK;
     return instance;
 }

@@ -82,11 +82,12 @@ extern const float g_viewport_y_scale;
 struct SDL_Surface;
 class srModelInstance;
 class srNode;
+class stModelInstance;
 class srTexture;
 class stModelInstance2D;
 
-srNode* MakePosterQuad(std::shared_ptr<srTexture> texture, float width, float height,
-                       bool additive);
+std::unique_ptr<stModelInstance> MakePosterQuad(std::shared_ptr<srTexture> texture, float width,
+                                                float height, bool additive);
 /* 0x00425190: build a 2D marker model instance over a texture. */
 stModelInstance2D* CreateSpriteFromTexture(std::shared_ptr<srTexture> texture, double width,
                                            double height, bool keep_aspect, bool overlay);
@@ -165,8 +166,8 @@ extern bool g_cursor_scene_enabled;
 extern unsigned char g_fullscreen_scene_last;
 extern std::shared_ptr<SDL_Surface> g_primary_color_surface;
 void DrawColorSurface(SDL_Surface* surface, int x, int y);
-srNode* VideoMakePoster(std::shared_ptr<SDL_Surface> surface, float width, float height,
-                        bool additive); /* 0x00424A90 */
+std::unique_ptr<stModelInstance> VideoMakePoster(std::shared_ptr<SDL_Surface> surface, float width,
+                                                 float height, bool additive); /* 0x00424A90 */
 extern bool g_texture_cache_enabled;
 extern std::unique_ptr<srGERD> g_gerd;
 /* Secondary renderer device preferred by the offscreen world-render path. */

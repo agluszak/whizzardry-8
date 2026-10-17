@@ -68,11 +68,11 @@ extern float g_monster_light_scale;
    GrCycle copies the same 0x10 bytes onto a model instance at +0x164. */
 
 /* One spell/condition icon attached to a monster: the icon id and the
-   billboard object created for it. Field names come from the
-   SetMonsterSpellIcon asserts "pSpellMI->psrBMO" and its icon compares. */
+   billboard item it owns (retail "psrBMO"). Removing an icon detaches the
+   billboard from the scene before it is destroyed. */
 struct W8MonsterSpellIcon {
     W8MonsterSpellIconId icon;
-    W8Item* psrBMO;
+    std::unique_ptr<W8Item> item;
 };
 
 struct W8MonsterRep : public W8EmitterHost {
@@ -411,7 +411,7 @@ void SetMonsterPartySlotMarker(int party_slot, int location_id, char on);
 void MonsterForwardReferencePosition(W8Monster* monster, char alternate); /* 0x004C6240 */
 void NotifyMonsterHighlight(int party_slot, int location_id, int on);
 
-W8Item* CreateMonsterIconItem(W8World& world, const char* path);
+std::unique_ptr<W8Item> CreateMonsterIconItem(W8World& world, const char* path);
 /* A Monster script by name, shared through the script cache; null when missing. */
 std::shared_ptr<stScript> LoadMonsterScript(std::string_view name);
 /* One eight-byte row per animation cycle at 0x0060EA08. The parser at

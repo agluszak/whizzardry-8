@@ -2553,8 +2553,7 @@ void SetMonsterPartySlotMarker(int party_slot, int location_id, char on)
             path = fmt::format("Data\\Monsters\\Bitmaps\\{}",
                                g_party_target_marker_bitmaps[g_status.buffers.XChar[party_slot]
                                                                  .party_order_index]);
-            rep->objects[party_slot].reset(
-                CreateMonsterIconItem(*info->p3D->owner_world, path.c_str()));
+            rep->objects[party_slot] = CreateMonsterIconItem(*info->p3D->owner_world, path.c_str());
             ++rep->icon_count;
         }
     }
@@ -3455,7 +3454,7 @@ void W8Monster::UpdateAttachedObjects()
 
             for (chunk_index = 0; chunk_index < chunk_count; ++chunk_index, ++index) {
                 const auto* entry = &representation->spell_icons[index];
-                W8Item* item = entry->psrBMO;
+                W8Item* item = entry->item.get();
                 const W8AttachmentOffset& raw =
                     g_monster_attachment_offsets[chunk_count - 1][chunk_index];
                 glm::vec3 source(raw.x, raw.y, raw.z);
@@ -4562,7 +4561,6 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
         glm::vec4 colour;
         glm::mat3 rotation;
         glm::dmat3 world;
-        stModelInstance* poster;
         stParticle* particle;
         srShader shader;
         float distance;
@@ -4596,13 +4594,13 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
             distance = 5e+04f;
         }
         scale = (distance * 0.0002f + 1.0f) * 375.0f;
-        poster = static_cast<stModelInstance*>(VideoMakePoster(surface, scale, scale, true));
-        if (poster != 0) {
+        {
+            auto poster = VideoMakePoster(surface, scale, scale, true);
             poster->alignment_flags |= 1u;
             location = glm::dvec3(position);
             poster->setLocation(location);
             poster->setParent(GetWorld()->dynamic_scene, 1);
-            m_pRep->linked_runtime_objects.emplace_back(poster);
+            m_pRep->linked_runtime_objects.push_back(std::move(poster));
 
             auto owned_particle = std::make_unique<stParticle>(GetWorld()->dynamic_scene, 0xa);
             particle = owned_particle.get();
@@ -4789,20 +4787,21 @@ void W8Monster::ApplyRepresentationScale()
    enabled, wrapped in a W8Item whose mesh attachment and bounds are refreshed
    for the world. */
 // FUNCTION: WIZ8 0x004C5500
-W8Item* CreateMonsterIconItem(W8World& world, const char* path)
+std::unique_ptr<W8Item> CreateMonsterIconItem(W8World& world, const char* path)
 {
     auto texture = std::make_shared<stTextureFile>(wiz8::asset_path(path), false);
     texture->setWrapS(srTexture::WRAP_CLAMP);
     texture->setWrapT(srTexture::WRAP_CLAMP);
     texture->loadSurface();
-    auto* instance = static_cast<stModelInstance*>(MakePosterQuad(texture, 500.0f, 0.0f, true));
+    auto poster = MakePosterQuad(texture, 500.0f, 0.0f, true);
+    auto* instance = poster.get();
     const glm::vec3 offset(0.0f, 250.0f, 0.0f);
     static_cast<srMeshModel*>(instance->getModel())->relocateVertices(offset);
     instance->setAlignment(1);
-    W8Item* item = new W8Item();
+    auto item = std::make_unique<W8Item>();
     W8ItemRep* rep = item->m_pRep.get();
     rep->flags |= 0x40;
-    rep->m_psrMesh.reset(instance);
+    rep->m_psrMesh = std::move(poster);
     rep->RefreshBounds();
     item->AttachMesh(&world);
     instance->light_scale = glm::vec3(0);

@@ -915,9 +915,7 @@ void AddMonsterSpellIcon(W8World& world, W8Monster* monster, W8MonsterSpellIconI
     icons.reserve(icons.size() + 1);
     const auto path =
         fmt::format("data/icons/monsterspells/{}_A.TGA", g_monster_spell_icon_names[icon]);
-    auto* item = CreateMonsterIconItem(world, path.c_str());
-    if (!item) srAssertFail("monster spell icon item", __FILE__, __LINE__, nullptr);
-    icons.push_back({icon, item});
+    icons.push_back({icon, CreateMonsterIconItem(world, path.c_str())});
 }
 
 // FUNCTION: WIZ8 0x004acd80
@@ -934,12 +932,8 @@ void SetMonsterSpellIcon(W8Monster* monster, W8MonsterSpellIconId icon, bool add
                 ++entry;
                 continue;
             }
-            auto* item = entry->psrBMO;
+            entry->item->DetachMesh();
             entry = icons.erase(entry);
-            if (item) {
-                item->DetachMesh();
-                delete item;
-            }
         }
     }
 }
@@ -1080,10 +1074,7 @@ void ClearMonsterSpellIcons(W8Monster* monster)
     if (!monster || !monster->m_pRep)
         srAssertFail("monster representation", __FILE__, __LINE__, nullptr);
     for (const auto& entry : monster->m_pRep->spell_icons) {
-        if (entry.psrBMO) {
-            entry.psrBMO->DetachMesh();
-            delete entry.psrBMO;
-        }
+        entry.item->DetachMesh();
     }
     monster->m_pRep->spell_icons.clear();
 }
