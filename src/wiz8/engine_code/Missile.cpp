@@ -343,6 +343,7 @@ void UpdateWorldMissiles(W8World* world)
                 missile->UpdateRepresentation(world);
                 missile->UpdateNavigation(0, false);
             } else {
+                missile->RetireParticles(*world);
                 world->missiles.erase(world->missiles.begin() + index);
                 --index;
                 --count;

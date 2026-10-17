@@ -36,10 +36,12 @@
 #include "surrender/triangle_projection.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/Item.h"
+#include "wiz8/engine_code/Missile.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/PolyPick.h"
 #include "wiz8/engine_code/Prop.h"
+#include "wiz8/engine_code/Spells.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/octree_spatial.h"
 #include "wiz8/engine_code/stLight.hpp"
@@ -102,7 +104,6 @@ void DetachWorldItemMeshes(W8World* world)
 // FUNCTION: WIZ8 0x0046e4a0
 void DestroyWorldLights(W8World* world)
 {
-    world->stopLightUpdates();
     world->transient_lights.clear();
 }
 
@@ -372,7 +373,7 @@ void WorldRemoveLight(W8World* world, stLight* light)
     if (light == 0) {
         srAssertFail("pLight", THREE_D_CPP, 0x279, 0);
     }
-    light->SetUpdateWorld(nullptr);
+    std::erase(world->environment_lights, light);
     // The world owns the light: erasing it from the list destroys it.
     std::erase_if(world->transient_lights,
                   [light](const std::unique_ptr<stLight>& owned) { return owned.get() == light; });
@@ -415,11 +416,21 @@ void WorldUpdateProps(W8World* world)
 // FUNCTION: WIZ8 0x0046df50
 void WorldUpdateLights(W8World* world)
 {
-    int count = static_cast<int>(world->updatingLights().size());
-
-    for (int index = 0; index < count; ++index) {
-        world->updatingLights()[index]->Update();
-    }
+    // Authored lights are owned by the world. Cycle lights remain owned by
+    // their emitter and participate while attached to this world's scene.
+    for (const auto& light : world->transient_lights)
+        if (light->definition()) light->Update();
+    const auto update_cycles = [&](const auto& cycles) {
+        for (const auto& cycle : cycles) {
+            if (!cycle->m_plsLights) continue;
+            for (const auto& light : *cycle->m_plsLights)
+                if (light->definition() && light->getParent() == world->dynamic_scene)
+                    light->Update();
+        }
+    };
+    update_cycles(world->monsters);
+    update_cycles(world->missiles);
+    update_cycles(world->spell_visuals);
 }
 
 // FUNCTION: WIZ8 0x0046e860
@@ -534,7 +545,6 @@ void WorldSetRenderRange(W8World* world, float value)
     if (value != 0.0f) {
         world->render_range0 = value;
         world->render_range = value;
-        MarkWorldViewDirty();
     }
 }
 
@@ -561,8 +571,7 @@ void WorldSetFarClip(W8World* world, float distance)
     }
     if (distance > 5.9604644775390625e-008) {
         world->camera->setClipRange(62.5, distance);
-        RefreshFogRanges();
-        MarkWorldViewDirty();
+        RefreshFogRanges(*world);
     }
 }
 
@@ -584,12 +593,6 @@ void SetSceneAmbientLightWhite(srScene* scene)
     }
     scene->setAmbientLight(1.0f, 1.0f, 1.0f);
 }
-
-// GLOBAL: WIZ8 0x00652db0
-
-/* The octree builds read the level data through this slot; the recovered
-   caller passes the W8GameData object it just read. */
-// FUNCTION: WIZ8 0x0046D7D0
 
 // FUNCTION: WIZ8 0x0046d880
 bool PointInsideFrustum(const glm::vec3& point, std::span<const W8Plane, 6> planes)

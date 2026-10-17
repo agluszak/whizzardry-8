@@ -774,6 +774,13 @@ static void DestroyMonsterListEntry(unsigned int index)
     gXStatus.monster_roster.remove(monster_info);
 }
 
+static void DespawnMonsterListEntry(unsigned int index)
+{
+    auto* monster = MonsterGetScriptPartByLocationIndex(index)->p3D;
+    if (monster) monster->RetireParticles(*GetWorld());
+    DestroyMonsterListEntry(index);
+}
+
 // FUNCTION: WIZ8 0x004e5f00
 void DestroyUngroupedMonsters(void)
 {
@@ -791,7 +798,7 @@ void DestroyUngroupedMonsters(void)
                     monster->ApplyRemovalStateEffects();
                 }
             }
-            DestroyMonsterListEntry(index);
+            DespawnMonsterListEntry(index);
             --index;
         }
     }
@@ -1025,10 +1032,12 @@ static void ClearRemainingMonsterGroups()
 static void DestroyAllMonsterInfos()
 {
     while (!gXStatus.monster_roster.live().empty()) {
-        RemoveMonsterAt(0, true);
+        RemoveMonsterAt(0, false);
+        DestroyMonsterListEntry(0);
     }
     while (!gXStatus.monster_roster.unborn().empty()) {
-        RemoveMonsterAt(10000, true);
+        RemoveMonsterAt(10000, false);
+        DestroyMonsterListEntry(10000);
     }
     ClearRemainingMonsterGroups();
 }
@@ -1087,7 +1096,7 @@ static bool RemoveMonsterAt(unsigned int monster_list_index, bool destroy_monste
     }
     DeactivateMonster(monster_info);
     if (destroy_monster) {
-        DestroyMonsterListEntry(monster_list_index);
+        DespawnMonsterListEntry(monster_list_index);
     }
     return true;
 }
@@ -1378,7 +1387,7 @@ void ProcessMonsterManagerFrame(void)
                 if (monster->removal_state != W8_MONSTER_REMOVAL_NONE) {
                     monster->ApplyRemovalStateEffects();
                 }
-                DestroyMonsterListEntry(monster_list_index);
+                DespawnMonsterListEntry(monster_list_index);
                 --monster_list_index;
             }
         } else if ((monster->runtime_flags & (W8_MONSTER_REMOVE_NOW | W8_MONSTER_SCRIPT_WAIT)) !=

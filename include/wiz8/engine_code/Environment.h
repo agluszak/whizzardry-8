@@ -70,13 +70,11 @@ void GetLightDirection(glm::vec3* direction);
 extern bool g_sky_enabled;
 void ResetEnvironment(void);
 void InitializeLevelEnvironment(void);
-/* Drop the sky gradients and celestial props, release both environment
-   objects and empty the registered-light list; called by world teardown. */
+/* Reset sky presentation and the current world's fog nodes. */
 void ClearEnvironmentObjects(void);
 /* Apply one day-phase colour and intensity to the world, its environment
    lights, and the animated cloud material. */
 void ApplyEnvironmentColour(W8World* world, float intensity, const glm::vec3* colour);
-void ReleaseEnvironmentObjects(void);
 
 /* Turn the environment clock on or off; enabling resets its tick baseline. */
 void SetEnvironmentTimeEnabled(bool enabled);
@@ -96,7 +94,7 @@ void SetCameraLightIntensity(float value);
 /* Mode 0 raises the camera light's intensity, 1 lowers it, 2 disables the
    node, 3 re-enables it. */
 void SetCameraLightMode(int mode);
-void RefreshFogRanges(void);
+void RefreshFogRanges(W8World& world);
 
 void SetViewDistance(float distance);
 unsigned char InitializeEnvironmentColours(void);
@@ -109,7 +107,6 @@ extern float g_frame_elapsed;
    0x00484300 and reads it from UpdateEnvironment; the exported accessor
    above still carries the address name. */
 extern int g_environment_lighting_mode;
-extern bool g_fog_enabled;
 /* 1/duration while the lighting transition body at 0x00484300 runs, zero when
    idle: UpdateEnvironment hands off to that body while it is not zero. */
 extern float g_environment_transition_rate;
@@ -140,9 +137,6 @@ extern std::weak_ptr<stTextureAnim> g_sky_gradient_animations[3];
 /* Midpoint of the Sun and Moon, which the active prop orbits and the inactive
    one rests at. */
 extern glm::vec3 g_celestial_origin;
-
-/* The registered environment lights, ambient-filled by ApplyEnvironmentColour.
-   The vector count occupies 0x0065B99C. */
 
 void SetGameTimeDays(int value);
 void AdvanceEnvironmentTime(int elapsed); /* 0x00482A20 */

@@ -17,7 +17,6 @@ class W8Prop;
 
 W8World* GetWorld(void);
 W8World* GetSecondaryWorld(void);
-void MarkWorldViewDirty(void);
 
 std::unique_ptr<W8World> CreateWorld(int level_id = -1, std::string source_path = {});
 std::unique_ptr<W8World> LoadWorld(int level_id, std::string source_path, bool use_octree = true);

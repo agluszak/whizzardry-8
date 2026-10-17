@@ -119,8 +119,6 @@ class stLight : public srLight {
 public:
     virtual ~stLight() override; /* 0x0049C430 */
 
-    // Scene attachment and update membership borrow the light; neither owns it.
-    void SetUpdateWorld(W8World* world);
     explicit stLight(srNode* parent = nullptr); /* 0x0049C2C0 */
     stLight& operator=(const stLight& other); /* 0x0049C690 */
 
@@ -143,10 +141,6 @@ public:
         enable_flags |= 4;    /* ENABLE_BOUNDING_SPHERE */
     }
 
-private:
-    W8World* update_world_ = nullptr;
-
-public:
     /* One value, not three floats: 0x0049C690 copies it through the base-pointer
        form VC6 emits for a class type's memberwise assignment, not through three
        independent displacement loads. */

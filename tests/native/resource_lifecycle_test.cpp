@@ -372,7 +372,6 @@ TEST_CASE_METHOD(SpellVisualFixture, "Emitter loads publish only complete valid 
         REQUIRE(host.resources.cycles[2].animation.get() == original);
         REQUIRE(visual.m_plsLights == nullptr);
         REQUIRE(GetWorld()->transient_lights.empty());
-        REQUIRE(GetWorld()->updatingLights().empty());
     }
     WriteEmitterFixture(2, false);
     for (int i = 0; i < 2; ++i) {
@@ -421,34 +420,36 @@ TEST_CASE("Shake instances retire before reentrant completion and can restart",
 TEST_CASE_METHOD(SpellVisualFixture, "All emitter animations release before any cycle lights",
                  "[resources][spell]")
 {
-    struct ObservedInstance : stModelInstance {
-        explicit ObservedInstance(std::vector<std::size_t>& observations)
-            : stModelInstance(nullptr), observations(observations)
-        {
-        }
-        ~ObservedInstance() override
-        {
-            observations.push_back(GetWorld()->updatingLights().size());
-        }
-        std::vector<std::size_t>& observations;
+    struct ObservedLight : stLight {
+        explicit ObservedLight(std::size_t& count) : count(count) { ++count; }
+        ~ObservedLight() override { --count; }
+        std::size_t& count;
     };
+    struct ObservedInstance : stModelInstance {
+        ObservedInstance(std::vector<std::size_t>& observations, std::size_t& lights)
+            : stModelInstance(nullptr), observations(observations), lights(lights)
+        {
+        }
+        ~ObservedInstance() override { observations.push_back(lights); }
+        std::vector<std::size_t>& observations;
+        std::size_t& lights;
+    };
+    std::size_t lights = 0;
     std::vector<std::size_t> observations;
     observations.reserve(2);
     {
         EmitterResources<2> resources;
         for (auto& cycle : resources.cycles) {
-            auto light = CreateLight(nullptr, "TeardownOrder");
-            light->SetUpdateWorld(&world);
+            auto light = std::make_unique<ObservedLight>(lights);
             cycle.lights.lights.push_back(std::move(light));
             cycle.animation = std::make_unique<W8AnimObj>();
             auto mesh = std::make_unique<W8AniMesh>();
-            mesh->meshes.push_back(std::make_unique<ObservedInstance>(observations));
+            mesh->meshes.push_back(std::make_unique<ObservedInstance>(observations, lights));
             cycle.animation->entries[0] = std::move(mesh);
         }
     }
     REQUIRE(observations == std::vector<std::size_t>{2, 2});
     REQUIRE(world.transient_lights.empty());
-    REQUIRE(world.updatingLights().empty());
 }
 
 TEST_CASE_METHOD(SpellVisualFixture, "Retiring a cycle cancels borrowed monster callbacks",
@@ -460,12 +461,14 @@ TEST_CASE_METHOD(SpellVisualFixture, "Retiring a cycle cancels borrowed monster 
         particle->active_particle_count = 1;
         particle->callback = std::make_unique<W8MonsterShakeCallback>();
         cycle.particles.emplace_back().m_pstParticles = std::move(particle);
+        cycle.RetireParticles(world);
     }
     REQUIRE(world.retired_particles.size() == 1);
     REQUIRE_FALSE(world.retired_particles.front()->callback);
 }
 
-TEST_CASE_METHOD(SpellVisualFixture, "World teardown drains particles retired by spell destruction",
+TEST_CASE_METHOD(SpellVisualFixture,
+                 "World teardown destroys cycle particles without retiring them",
                  "[resources][world]")
 {
     struct ObservedParticle : stParticle {
@@ -479,7 +482,8 @@ TEST_CASE_METHOD(SpellVisualFixture, "World teardown drains particles retired by
         ~ObservedParticle() override
         {
             destroyed = true;
-            scene_alive = owner.static_scene != nullptr;
+            // Teardown destroys particles directly while supporting scene data lives.
+            scene_alive = owner.static_scene != nullptr && owner.retired_particles.empty();
         }
         W8World& owner;
         bool& destroyed;
@@ -492,9 +496,6 @@ TEST_CASE_METHOD(SpellVisualFixture, "World teardown drains particles retired by
         retiring_world->static_scene->adoptChild(std::make_unique<srNode>());
     auto previous = ExchangeCurrentWorld(std::move(retiring_world));
     auto* retiring = GetWorld();
-    // A borrowed update registration can outlive the world without owning it.
-    auto retained_light = CreateLight(nullptr, "RetainedAcrossWorldRetirement");
-    retained_light->SetUpdateWorld(retiring);
     auto visual = std::make_unique<W8SpellVisual>(retiring);
     auto* attachment = &visual->particles.emplace_back();
     attachment->m_pstParticles =
@@ -502,7 +503,6 @@ TEST_CASE_METHOD(SpellVisualFixture, "World teardown drains particles retired by
     retiring->spell_visuals.push_back(std::move(visual));
 
     ExchangeCurrentWorld(std::move(previous));
-    retained_light.reset(); // Its registration must have been withdrawn before world deletion.
 
     REQUIRE(destroyed);
     REQUIRE(scene_alive);

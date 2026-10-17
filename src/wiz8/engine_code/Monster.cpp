@@ -3243,9 +3243,6 @@ void W8Monster::SetCycle(signed char cycle)
                 stLight* light = (*lights)[index].get();
 
                 light->setParent(0, 1);
-                if (light->definition() != 0) {
-                    light->SetUpdateWorld(nullptr);
-                }
             }
         }
     }
@@ -3281,9 +3278,6 @@ void W8Monster::SetCycle(signed char cycle)
 
             light->setParent(GetWorld()->dynamic_scene, 1);
             light->Reset();
-            if (light->definition() != 0) {
-                light->SetUpdateWorld(owner_world);
-            }
         }
     }
 

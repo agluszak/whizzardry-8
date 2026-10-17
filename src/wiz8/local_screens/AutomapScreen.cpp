@@ -867,7 +867,6 @@ unsigned char AutomapScreenLeave(int)
     SetNativeTextInputEnabled(false);
     RestoreAutomapWorldSettings();
     g_automap_state.reset();
-    MarkWorldViewDirty();
     ResumeMainGameWorld();
     SetMouseMoveEventsEnabled(0);
     g_automap_surface.reset();
@@ -955,7 +954,6 @@ void SetAutomapCameraPoint(glm::vec3* position)
     g_automap_redraw = true;
     g_automap_overlay_redraw = true;
     if (GetWorld()->octree != 0) {
-        MarkWorldViewDirty();
         RefreshWorldView();
     }
 }

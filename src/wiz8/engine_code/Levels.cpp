@@ -58,7 +58,6 @@
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/local_screens/Screens.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/startup_world.h"
@@ -91,7 +90,6 @@ static void StopWorldActivity(W8World* world)
     StopWorldTriggerEvents();
     StopAllAmbientSounds();
     world->nodes_to_disable.clear();
-    world->stopLightUpdates();
 }
 
 #ifdef WIZ8_WORLD_FIXTURES
@@ -466,7 +464,6 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
     g_status.next_trigger_id = GetWorld()->next_trigger_id;
     UpdateGameDataRuntime();
     if (GetWorld()->game_data) g_environ = GetWorld()->game_data->m_ppEnvirons.front().get();
-    SetFogEnabled(GetWorld()->fog_enabled);
     ApplyCameraRotation(&GetWorld()->initial_camera_rotation);
     SetSkyNodeVisible(false);
     ResetAutomapView();
@@ -569,7 +566,6 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
         InitializeMonsterRuntimeStats();
         RebuildAllWorldItemInstances();
     }
-    MarkWorldViewDirty();
     RefreshWorldView();
     ReleaseReadMeshScratch();
     return 1;
@@ -624,7 +620,6 @@ void UnloadLevel()
     }
 
     DisableSky();
-    ReleaseEnvironmentObjects();
     g_runtime_world_scale = 500.0f;
     ClearActiveWorldCursorNode();
 }

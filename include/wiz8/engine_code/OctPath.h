@@ -1,7 +1,8 @@
-class W8Octree;
 #include <cstdint>
 #include <optional>
 #pragma once
+
+class W8Octree;
 
 #include <memory>
 #include <queue>
