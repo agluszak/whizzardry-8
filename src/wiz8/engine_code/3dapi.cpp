@@ -50,7 +50,6 @@
 #include "wiz8/engine_code/PathAI.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/ReadLevel.h"
-#include "wiz8/engine_code/SpellVisual.h"
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/UpdateMesh.h"
