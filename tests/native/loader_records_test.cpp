@@ -953,7 +953,7 @@ TEST_CASE_METHOD(LoaderFixture, "Retail waypoint versions load without an editor
                  "[loader][pathing]")
 {
     W8Octree tree(nullptr, nullptr);
-    tree.object_registry = new W8OctreeObjectRegistry;
+    tree.object_registry = std::make_unique<W8OctreeObjectRegistry>();
     tree.m_spatial.m_bounds.minimum = glm::vec3(0);
     tree.m_spatial.m_node_extent = 1;
     W8PathingService path;

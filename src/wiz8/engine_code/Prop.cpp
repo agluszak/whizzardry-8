@@ -117,7 +117,7 @@ void UpdateWorldProps(W8World* world)
 
         if (prop != 0 && (trigger = FindTriggerForProp(world, prop)) != 0 && prop->m_gd_prop != 0) {
             prop->flags |= W8_PROP_GD_TRIGGER_BOUND;
-            prop->m_gd_prop->BindTrigger(trigger, world->octree ? world->octree->pathing : nullptr);
+            prop->m_gd_prop->BindTrigger(trigger, WorldPathing(*world));
         }
     }
 }
@@ -1031,7 +1031,7 @@ void W8Prop::AttachAnimationInstances(W8World* world)
         BakeInstanceVertexLightingIfNeeded(instance, world->dynamic_scene);
     }
     if (m_gd_prop == 0) {
-        BuildOrRefreshPathingRepresentation(world->octree ? world->octree->pathing : nullptr);
+        BuildOrRefreshPathingRepresentation(WorldPathing(*world));
     }
 }
 
@@ -1242,8 +1242,7 @@ std::unique_ptr<W8Prop> CreateAndLoadProp(W8ReadLevelInfo* info)
     auto prop = std::make_unique<W8Prop>();
     if (!prop->Rep()->LoadProp(info, prop.get())) return nullptr;
     prop->timer.SetDuration(1.0f / prop->Rep()->animation_speed);
-    prop->ApplyAnimationFrame(info->world && info->world->octree ? info->world->octree->pathing
-                                                                 : nullptr);
+    prop->ApplyAnimationFrame(info->world ? WorldPathing(*info->world) : nullptr);
     return prop;
 }
 
@@ -1684,7 +1683,7 @@ void LoadWorldProps(W8World* world, W8Chunk& chunk)
             }
         }
         if (prop)
-            prop->ApplyAnimationState(state, world->octree ? world->octree->pathing : nullptr);
+            prop->ApplyAnimationState(state, WorldPathing(*world));
     }
 }
 

@@ -426,8 +426,8 @@ short W8Octree::ProjectLinkedRegionsForLocation(glm::vec3* location, unsigned sh
             }
             ++match_count;
             unsigned int key = region_index;
-            for (auto slot = m_pRegionLinks->equal_range(key).first; slot != m_pRegionLinks->end();
-                 slot = NextIndexValue(*m_pRegionLinks, key, slot)) {
+            for (auto slot = m_region_links.equal_range(key).first; slot != m_region_links.end();
+                 slot = NextIndexValue(m_region_links, key, slot)) {
                 SetBit(m_projected_regions, slot->second);
                 m_projected_regions_valid = true;
             }
@@ -463,8 +463,8 @@ short W8Octree::ProjectLinkedRegionsForLocation(glm::vec3* location, unsigned sh
         m_projected_regions_valid = false;
         match_count = 1;
         unsigned int key = region_index;
-        for (auto slot = m_pRegionLinks->equal_range(key).first; slot != m_pRegionLinks->end();
-             slot = NextIndexValue(*m_pRegionLinks, key, slot)) {
+        for (auto slot = m_region_links.equal_range(key).first; slot != m_region_links.end();
+             slot = NextIndexValue(m_region_links, key, slot)) {
             SetBit(m_projected_regions, slot->second);
             m_projected_regions_valid = true;
         }
@@ -547,10 +547,10 @@ OctreeCellCoordinates W8Octree::projectRegionsAt(const glm::vec3& position)
         if (level == m_spatial.m_leaf_level) {
             unsigned int key =
                 ((m_region_mask * 0x100 + link_cell.x) * 0x100 + link_cell.y) * 0x100 + link_cell.z;
-            auto slot = m_pRegionLinks->equal_range(key).first;
-            while (slot != m_pRegionLinks->end()) {
+            auto slot = m_region_links.equal_range(key).first;
+            while (slot != m_region_links.end()) {
                 SetBit(m_projected_regions, slot->second);
-                slot = NextIndexValue(*m_pRegionLinks, key, slot);
+                slot = NextIndexValue(m_region_links, key, slot);
                 m_projected_regions_valid = true;
             }
         }
@@ -782,12 +782,9 @@ try {
     std::vector<unsigned short> values(count);
     file->read_exact(keys.data(), keys.size() * sizeof(keys[0]));
     file->read_exact(values.data(), values.size() * sizeof(values[0]));
-    if (m_pRegionLinks == 0) {
-        m_pRegionLinks = new std::unordered_multimap<unsigned int, unsigned short>;
-    }
     for (unsigned int index = 0; index < count; ++index) {
-        RemoveIndexValue(*m_pRegionLinks, keys[index], values[index]);
-        InsertIndexValue(*m_pRegionLinks, keys[index], values[index]);
+        RemoveIndexValue(m_region_links, keys[index], values[index]);
+        InsertIndexValue(m_region_links, keys[index], values[index]);
     }
     m_region_links_ready = true;
     return true;
@@ -827,7 +824,7 @@ unsigned int W8Octree::RegionKeyForPoint(const glm::vec3& point)
 }
 
 /* Record `region_key` against every mesh marked in m_projected_regions:
-   unseen (region, mesh) pairs are inserted into m_pRegionLinks and the
+   unseen (region, mesh) pairs are inserted into m_region_links and the
    link list is logged once per call. */
 // FUNCTION: WIZ8 0x004327f0
 void W8Octree::RecordRegionMeshLinks(unsigned int region_key)
@@ -842,11 +839,11 @@ void W8Octree::RecordRegionMeshLinks(unsigned int region_key)
             continue;
         }
         unsigned short mesh = static_cast<unsigned short>(bit);
-        auto slot = m_pRegionLinks->equal_range(region_key).first;
-        while (slot != m_pRegionLinks->end() && slot->second != mesh) {
-            slot = NextIndexValue(*m_pRegionLinks, region_key, slot);
+        auto slot = m_region_links.equal_range(region_key).first;
+        while (slot != m_region_links.end() && slot->second != mesh) {
+            slot = NextIndexValue(m_region_links, region_key, slot);
         }
-        if (slot == m_pRegionLinks->end()) {
+        if (slot == m_region_links.end()) {
             if (!reported) {
                 if (region_key < m_spatial.m_region_count) {
                     sprintf(text, "Pre-generated Region %d linked to meshes: ", region_key);
@@ -858,7 +855,7 @@ void W8Octree::RecordRegionMeshLinks(unsigned int region_key)
                 reported = true;
             }
             sprintf(text, "%d, ", mesh);
-            InsertIndexValue(*m_pRegionLinks, region_key, mesh);
+            InsertIndexValue(m_region_links, region_key, mesh);
         }
     }
     if (reported) {
@@ -927,12 +924,12 @@ unsigned int W8Octree::SampleRegionLinks(const glm::vec3& point, bool descend, b
                     meshes.push_back(static_cast<stModelInstance*>(
                         GetWorld()->psrMeshes[m_pSubmeshes[cell].mesh]));
                     if (!TestBit(m_projected_regions, cell)) {
-                        auto slot = m_pRegionLinks->equal_range(key).first;
-                        while (slot != m_pRegionLinks->end() &&
+                        auto slot = m_region_links.equal_range(key).first;
+                        while (slot != m_region_links.end() &&
                                slot->second != static_cast<unsigned short>(cell)) {
-                            slot = NextIndexValue(*m_pRegionLinks, key, slot);
+                            slot = NextIndexValue(m_region_links, key, slot);
                         }
-                        if (slot == m_pRegionLinks->end()) {
+                        if (slot == m_region_links.end()) {
                             if (cell != 0) {
                                 m_pSubmeshes[cell].flags |= 0x28;
                                 srNode* node = GetWorld()->psrMeshes[m_pSubmeshes[cell].mesh];
@@ -1046,8 +1043,6 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
     bool aborted = false;
     unsigned int last_key = 0;
     time_t started = time(0);
-    std::unordered_multimap<unsigned int, unsigned short>* links =
-        new std::unordered_multimap<unsigned int, unsigned short>;
     unsigned short z_step = rebuild_all ? 1 : 3;
     float stride = z_step * m_region_cell;
     unsigned short rows =
@@ -1080,9 +1075,7 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
             node->setFlag(srNode::FLAG_TERMINATE);
         }
     }
-    links->clear();
-    std::unordered_multimap<unsigned int, unsigned short>* saved_links = m_pRegionLinks;
-    m_pRegionLinks = links;
+    auto saved_links = std::exchange(m_region_links, {});
     if (rows != 0) {
         for (unsigned short x_index = 0; x_index < rows; ++x_index) {
             if (aborted) {
@@ -1145,7 +1138,6 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
     }
     g_render_untextured = false;
     EnableAllRenderOptions();
-    std::unordered_multimap<unsigned int, unsigned short>* stale;
     if (!rebuild_all) {
         if (!aborted) {
             for (const auto& point : m_sample_points) {
@@ -1204,15 +1196,12 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
         minutes %= 60;
     }
     if (aborted) {
-        stale = m_pRegionLinks;
-        m_pRegionLinks = saved_links;
+        m_region_links = std::move(saved_links);
         SDL_Log("Region linking aborted");
     } else {
         SaveRegionLinks(m_path_stem.c_str());
         SDL_Log("Region linking took %u h %u min %u s", hours, minutes, elapsed % 60);
-        stale = saved_links;
     }
-    delete stale;
 }
 
 /* Write the octree's region-link table to the .rlk companion file.
@@ -1224,7 +1213,7 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
 // FUNCTION: WIZ8 0x004331f0
 bool W8Octree::SaveRegionLinks(const char* path)
 try {
-    if (m_pRegionLinks == 0 || path == 0 || m_pRegionLinks->empty()) {
+    if (path == 0 || m_region_links.empty()) {
         return false;
     }
     std::string name = path;
@@ -1235,8 +1224,8 @@ try {
     std::vector<unsigned int> keys;
     std::vector<unsigned short> values;
     for (unsigned int key = 1; key < m_spatial.m_region_count; ++key) {
-        for (auto slot = m_pRegionLinks->equal_range(key).first; slot != m_pRegionLinks->end();
-             slot = NextIndexValue(*m_pRegionLinks, key, slot)) {
+        for (auto slot = m_region_links.equal_range(key).first; slot != m_region_links.end();
+             slot = NextIndexValue(m_region_links, key, slot)) {
             keys.push_back(key);
             values.push_back(slot->second);
         }
@@ -1247,9 +1236,9 @@ try {
         for (unsigned int y = 0; y < extent; ++y) {
             for (unsigned int z = 0; z < extent; ++z) {
                 unsigned int key = (x << 16) + (y << 8) + z + base;
-                for (auto slot = m_pRegionLinks->equal_range(key).first;
-                     slot != m_pRegionLinks->end();
-                     slot = NextIndexValue(*m_pRegionLinks, key, slot)) {
+                for (auto slot = m_region_links.equal_range(key).first;
+                     slot != m_region_links.end();
+                     slot = NextIndexValue(m_region_links, key, slot)) {
                     keys.push_back(key);
                     values.push_back(slot->second);
                 }
@@ -2417,7 +2406,7 @@ W8Octree::W8Octree(const char* path, std::unique_ptr<W8GameData>* game_data)
             throw std::runtime_error("Invalid octree mesh terminator.");
         }
         if (header.m_path_nodes != 0) {
-            pathing = new W8PathingService;
+            pathing = std::make_unique<W8PathingService>();
             pathing->ConfigureForLevel(header.m_path_nodes, header.m_region_cell,
                                        m_spatial.bounds(), m_path_stem.c_str());
             if (!pathing->ReadPathNodes(hOctFile.get())) {
@@ -2496,8 +2485,8 @@ void W8Octree::Reset()
     m_region_index_stream.clear();
     m_trigger_indices.clear();
     m_pSubmeshes.clear();
-    object_registry = 0;
-    m_pRegionLinks = 0;
+    object_registry.reset();
+    m_region_links.clear();
     m_sample_points.clear();
     m_path_stem.clear();
     m_region_cell = 0;
@@ -2614,9 +2603,8 @@ void W8Octree::Initialize(const W8OctFileHeader* header)
             header->m_surface_count < 5000 ? 5000 : header->m_surface_count, false);
         m_accumulated_regions.assign(header->m_submesh_count + 1, false);
 
-        object_registry = new W8OctreeObjectRegistry;
-        m_pRegionLinks = new std::unordered_multimap<unsigned int, unsigned short>;
-        m_pRegionLinks->clear();
+        object_registry = std::make_unique<W8OctreeObjectRegistry>();
+        m_region_links.clear();
 
         m_reset_visibility = true;
     }
@@ -2653,19 +2641,8 @@ void W8Octree::AddLoadedParticles(std::span<stParticle* const> particles)
 // FUNCTION: WIZ8 0x0042de60
 W8Octree::~W8Octree()
 {
-    if (m_pRegionLinks != 0) {
-        m_pRegionLinks->clear();
-        delete m_pRegionLinks;
-        m_pRegionLinks = 0;
-    }
-
     m_particle_links = {};
     m_prop_links = {};
-
-    delete object_registry;
-
-    delete pathing;
-    pathing = 0;
 }
 
 /* Running index into the prop-sunlight bit stream, shared across the octree

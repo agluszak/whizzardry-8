@@ -788,7 +788,7 @@ TEST_CASE("Octree queries own dense results across later queries", "[geometry][o
     tree.m_spatial.m_bounds.maximum = {1000, 1000, 1000};
     tree.m_spatial.m_node_extent = 1000;
     tree.m_leaf_grid_dimensions = {1, 1, 1};
-    tree.object_registry = new W8OctreeObjectRegistry;
+    tree.object_registry = std::make_unique<W8OctreeObjectRegistry>();
     tree.m_visited_object_bits.assign(10001, false);
     const glm::ivec3 cell(0, 0, 0);
     // Populate the query index directly. RegisterObjectCell also updates the
@@ -1898,7 +1898,7 @@ TEST_CASE("Prop bounds return complete boxes and register inclusive octree cells
     REQUIRE(bounds.minimum == glm::vec3(-2, -3, -7));
     REQUIRE(bounds.maximum == glm::vec3(5, 6, 4));
     REQUIRE(prop.computeBounds().minimum == bounds.minimum);
-    tree.object_registry = new W8OctreeObjectRegistry;
+    tree.object_registry = std::make_unique<W8OctreeObjectRegistry>();
     tree.m_spatial.m_bounds.minimum = glm::vec3(10);
     tree.m_spatial.m_node_extent = 2;
     const srBoundingBox cells{{9, 10, 10}, {12, 10, 10}};

@@ -298,7 +298,7 @@ public:
        the packed auto-region key (level<<24)|cell. */
     unsigned int RegionKeyForPoint(const glm::vec3& point); /* 0x00432720 */
     /* Link `region_key` to every mesh marked in m_projected_regions,
-       inserting unseen (region, mesh) pairs into m_pRegionLinks. */
+       inserting unseen (region, mesh) pairs into m_region_links. */
     void RecordRegionMeshLinks(unsigned int region_key); /* 0x004327F0 */
     /* Sweep the camera around `point`, mark cells whose meshes still draw
        into m_projected_regions and return `point`'s region key (zero when
@@ -346,7 +346,7 @@ public:
     std::vector<w8_ulong> m_leaf_lookup;
     w8_ulong m_branch_count;
     w8_ulong m_leaf_count;
-    W8OctreeObjectRegistry* object_registry;
+    std::unique_ptr<W8OctreeObjectRegistry> object_registry;
     std::string m_path_stem;
     bool m_fAccumulating;
     w8_ulong m_vertex_count;
@@ -385,7 +385,7 @@ public:
     w8_ulong m_region_mask;
     w8_ulong m_depth_mask;
     std::vector<unsigned short> m_region_index_stream;
-    std::unordered_multimap<unsigned int, unsigned short>* m_pRegionLinks;
+    std::unordered_multimap<unsigned int, unsigned short> m_region_links;
     std::vector<bool> m_projected_regions;
     std::vector<bool> m_current_regions;
     std::vector<bool> m_previous_regions;
@@ -399,7 +399,7 @@ public:
        builder strides the x/z grid by it (times three for a sparse pass). */
     float m_region_cell;
     float m_path_clearance;
-    W8PathingService* pathing;
+    std::unique_ptr<W8PathingService> pathing;
     int prop_sun_base; /* 0x184: this octree's base index into the shared
                               prop-sunlight bit stream */
     w8_ulong m_ulNumProps;

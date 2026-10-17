@@ -460,6 +460,9 @@ public:
    eight-value range wrap once. */
 void StepPathCell(int* x, int* z, int direction);
 
+struct W8World;
+// The pathing service of `world`'s octree, or null for quad-mesh levels.
+W8PathingService* WorldPathing(const W8World& world);
 W8PathingService* GetWorldPathing();
 extern unsigned short g_path_reserve;
 extern const float g_path_span_scale;

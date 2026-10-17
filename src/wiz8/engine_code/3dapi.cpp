@@ -92,10 +92,13 @@ W8Octree* GetWorldOctree()
 {
     return GetWorld() ? GetWorld()->octree.get() : nullptr;
 }
+W8PathingService* WorldPathing(const W8World& world)
+{
+    return world.octree ? world.octree->pathing.get() : nullptr;
+}
 W8PathingService* GetWorldPathing()
 {
-    auto* octree = GetWorldOctree();
-    return octree ? octree->pathing : nullptr;
+    return GetWorld() ? WorldPathing(*GetWorld()) : nullptr;
 }
 // GLOBAL: WIZ8 0x006081f8
 bool g_navigator_vertical_enabled = true;
