@@ -418,12 +418,12 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
         StartLevelMusic(1, 1);
         if (!LoadSkyWorld(level, &level_info) || !InitializeMonsterManagerState() ||
             !InitializeItemManagerState()) {
-            UnloadLevel("", false);
+            UnloadLevel("", LevelExit::FailedLoad);
             return 0;
         }
         ResetNextTriggerId();
         if (!LoadWorld(GetWorld(), true)) {
-            UnloadLevel("", false);
+            UnloadLevel("", LevelExit::FailedLoad);
             return 0;
         }
 
@@ -535,23 +535,24 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
         return 1;
     } catch (...) {
         if (level < W8_LEVEL_COUNT) g_status.level_progress[level].visited = was_visited;
-        UnloadLevel("", false);
+        UnloadLevel("", LevelExit::FailedLoad);
         throw;
     }
 }
 
 // FUNCTION: WIZ8 0x0042ACE0
-unsigned char UnloadLevel(const char* save_directory, bool show_progress)
+unsigned char UnloadLevel(const char* save_directory, LevelExit exit)
 {
     if (gXStatus.fCombatMode) {
         EndCombat(true);
     }
 
-    if (show_progress && GetLoadedLevelID() >= 0 && GetLoadedLevelID() < W8_LEVEL_COUNT) {
+    if (exit == LevelExit::Normal && GetLoadedLevelID() >= 0 &&
+        GetLoadedLevelID() < W8_LEVEL_COUNT) {
         g_status.level_progress[GetLoadedLevelID()].sight_clock = g_status.world_clock;
     }
 
-    if (show_progress && g_world_cleanup_flag) {
+    if (exit == LevelExit::Normal && g_world_cleanup_flag) {
         RenderFrame();
     }
 
@@ -560,32 +561,32 @@ unsigned char UnloadLevel(const char* save_directory, bool show_progress)
         SaveLevelStatus("saves\\CurrentGame.SAV");
     }
 
-    if (show_progress && g_world_cleanup_flag) {
+    if (exit == LevelExit::Normal && g_world_cleanup_flag) {
         RenderFrame();
     }
 
     if (ReleaseItemLists() == 0) {
         return 0;
     }
-    if (show_progress && g_world_cleanup_flag) {
+    if (exit == LevelExit::Normal && g_world_cleanup_flag) {
         RenderFrame();
     }
     if (ShutdownMonsterManager() == 0) {
         return 0;
     }
-    if (show_progress && g_world_cleanup_flag) {
+    if (exit == LevelExit::Normal && g_world_cleanup_flag) {
         RenderFrame();
     }
     if (ScreenLifecycleSuccess() == 0) {
         return 0;
     }
-    if (show_progress && g_world_cleanup_flag) {
+    if (exit == LevelExit::Normal && g_world_cleanup_flag) {
         RenderFrame();
     }
 
     ReleaseWorldCursorNodes();
     ClearSearchables();
-    if (show_progress && g_world_cleanup_flag) {
+    if (exit == LevelExit::Normal && g_world_cleanup_flag) {
         RenderFrame();
     }
 
@@ -594,7 +595,7 @@ unsigned char UnloadLevel(const char* save_directory, bool show_progress)
     ExchangeCurrentWorld(nullptr);
     ReleaseReadMeshScratch();
 
-    if (show_progress && g_world_cleanup_flag) {
+    if (exit == LevelExit::Normal && g_world_cleanup_flag) {
         RenderFrame();
     }
 

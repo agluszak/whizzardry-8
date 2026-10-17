@@ -14,7 +14,8 @@ extern unsigned short g_level_name_indices[W8_LEVEL_COUNT];
 bool LevelBuildInfoByID(int level_id, W8LevelInfo* info);
 unsigned char LoadSkyWorld(int level, W8LevelInfo* info);
 unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game);
-unsigned char UnloadLevel(const char* save_directory, bool show_progress = true);
+enum class LevelExit { Normal, FailedLoad };
+unsigned char UnloadLevel(const char* save_directory, LevelExit exit = LevelExit::Normal);
 
 void UnloadSkyWorld(void);
 char GetLevelBand(int saved_level);

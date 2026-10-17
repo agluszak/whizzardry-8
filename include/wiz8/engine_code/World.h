@@ -2,6 +2,7 @@
 
 #include <functional>
 #include <initializer_list>
+#include <memory>
 #include <string>
 
 #include "glm/ext/vector_float3.hpp"

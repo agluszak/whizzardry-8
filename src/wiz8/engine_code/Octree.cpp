@@ -2685,7 +2685,7 @@ void W8Octree::AddLoadedParticles(std::span<stParticle* const> particles)
     m_particles.insert(m_particles.end(), particles.begin(), particles.end());
 }
 
-/* Complete non-deleting teardown. LoadWorld and DestroyWorld both perform the
+/* Complete non-deleting teardown. World loading and destruction both perform the
    matching operator delete only after this method returns. */
 // FUNCTION: WIZ8 0x0042de60
 W8Octree::~W8Octree()

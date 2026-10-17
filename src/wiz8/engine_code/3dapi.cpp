@@ -228,7 +228,7 @@ std::unique_ptr<W8World> CreateWorld(int level_id, std::string source_path)
     world->environment_range_blue = 1.0f;
     world->environment_range_start = 0.75f;
 
-    // The existing DestroyWorld boundary takes over after successful setup.
+    // Return the complete scene to its exclusive world owner.
     world->static_scene = std::move(scene);
     return world;
 }
