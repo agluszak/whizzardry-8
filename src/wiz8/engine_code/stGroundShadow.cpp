@@ -161,7 +161,7 @@ void stGroundShadow::renderGroundShadow(srGERD& renderer)
 
     for (std::size_t first = 0; first < polygons.size();) {
         const auto mesh_index = polygons[first] >> 16;
-        auto& model = *static_cast<stMeshModel*>(g_world->psrMeshes[mesh_index]->getModel());
+        auto& model = *static_cast<stMeshModel*>(GetWorld()->psrMeshes[mesh_index]->getModel());
         auto mesh = model.getTriMesh();
         auto& selected = g_ground_shadow_material_parameters.polygons;
         selected.clear();

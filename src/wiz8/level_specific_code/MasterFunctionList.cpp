@@ -504,7 +504,7 @@ void LoadAwayCampChest(void)
     W8WorldItem* pContainer;
     int index;
 
-    pChest = FindPropByName(g_world.get(), "AwayCampChest");
+    pChest = FindPropByName(GetWorld(), "AwayCampChest");
     if (pChest == 0) {
         srAssertFail("pChest", __FILE__, __LINE__, 0);
     }

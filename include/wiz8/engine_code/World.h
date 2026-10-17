@@ -39,7 +39,7 @@ void ForEachWorldNode(const std::function<void(srNode*)>& visit);
 
 template<class T> T* FindWorldNode(std::string_view name)
 {
-    for (W8World* world : {g_world.get(), g_secondary_world.get()}) {
+    for (W8World* world : {GetWorld(), GetSecondaryWorld()}) {
         if (world && world->static_scene.get()) {
             if (auto* node = world->static_scene->findChild<T>(name)) return node;
         }

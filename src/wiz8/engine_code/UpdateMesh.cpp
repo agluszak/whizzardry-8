@@ -185,10 +185,10 @@ void UpdateWorldMesh()
     w8_long polygon_count;
     w8_ulong index;
 
-    if (g_world == nullptr) {
+    if (GetWorld() == nullptr) {
         srAssertFail("pWorld", "C:\\Projects\\Wizardry 8\\Engine Code\\UpdateMesh.cpp", 0x2a2, 0);
     }
-    source = g_world->update_mesh_source;
+    source = GetWorld()->update_mesh_source;
     if (source != 0) {
         mesh = static_cast<srMeshModel*>(source->getModel());
         polygon_count = mesh->polygon_count;

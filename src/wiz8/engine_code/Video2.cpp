@@ -576,7 +576,7 @@ void RenderScene(srScene* scene, srCamera* camera, const DesignRect* viewport, b
         g_gerd->setViewPort(rect.x, rect.y, rect.w, rect.h);
         g_gerd->setScissor(rect.x, rect.y, rect.w, rect.h);
 #ifdef WIZ8_RUNTIME_TESTS
-        if (g_world != 0 && scene == g_world->static_scene.get()) {
+        if (GetWorld() != 0 && scene == GetWorld()->static_scene.get()) {
             RuntimeWorldRenderData data = ObserveWorldRenderState();
             data.applied_viewport[0] = rect.x;
             data.applied_viewport[1] = rect.y;
@@ -587,7 +587,7 @@ void RenderScene(srScene* scene, srCamera* camera, const DesignRect* viewport, b
 #endif
     }
     if (!preserve_fog) {
-        const auto fog = g_world ? g_world->static_scene->getFogColor() : glm::vec3(0);
+        const auto fog = GetWorld() ? GetWorld()->static_scene->getFogColor() : glm::vec3(0);
         // NOLINTNEXTLINE(misc-include-cleaner)
         scene->setFogColor(glm::clamp(fog, 0.0f, 1.0f));
     }
@@ -608,10 +608,10 @@ static RuntimeWorldRenderData ObserveWorldRenderState()
     data.flags = (g_world_render_enabled ? 1UL : 0UL) | (g_world_blacked_out ? 2UL : 0UL) |
                  (g_video_active ? 4UL : 0UL) | (g_monster_shadow_updates_enabled ? 8UL : 0UL) |
                  (g_render_mesh_sky ? 16UL : 0UL) | (g_world_pick_enabled ? 32UL : 0UL);
-    data.scene_children = g_world->static_scene->getChildCount();
-    if (g_world->octree != 0 && !g_world->psrMeshes.empty()) {
-        for (w8_ulong index = 0; index < g_world->octree->m_meshCount; ++index) {
-            srModelInstance* instance = g_world->psrMeshes[index];
+    data.scene_children = GetWorld()->static_scene->getChildCount();
+    if (GetWorld()->octree != 0 && !GetWorld()->psrMeshes.empty()) {
+        for (w8_ulong index = 0; index < GetWorld()->octree->m_meshCount; ++index) {
+            srModelInstance* instance = GetWorld()->psrMeshes[index];
             if (instance != 0 && !instance->testFlag(srNode::FLAG_DISABLE)) {
                 ++data.visible_meshes;
             }
@@ -659,18 +659,18 @@ void RenderFrame(void)
         return;
     }
 
-    if (g_trigger_action_active && g_world != 0) {
+    if (g_trigger_action_active && GetWorld() != 0) {
         saved_world_position = cameraLocation();
         shifted_world_position = saved_world_position + g_trigger_action_scene_offset;
-        SetWorldScenePosition(g_world.get(), &shifted_world_position);
+        SetWorldScenePosition(GetWorld(), &shifted_world_position);
     }
-    if (g_world != 0) {
+    if (GetWorld() != 0) {
         if (!g_sky_enabled) {
-            GetWorldLightValue(g_world.get(), &clear_color);
+            GetWorldLightValue(GetWorld(), &clear_color);
         } else {
             clear_color =
                 // NOLINTNEXTLINE(misc-include-cleaner)
-                glm::clamp(g_world->static_scene->getFogColor(), 0.0f, 1.0f);
+                glm::clamp(GetWorld()->static_scene->getFogColor(), 0.0f, 1.0f);
         }
     }
 
@@ -693,7 +693,7 @@ void RenderFrame(void)
         if (g_world_blacked_out) {
             goto clear_viewport;
         }
-    } else if (g_world_blacked_out || !g_render_mesh_sky || g_secondary_world == 0) {
+    } else if (g_world_blacked_out || !g_render_mesh_sky || GetSecondaryWorld() == 0) {
     clear_viewport: {
         w8_ulong height = g_gerd->getHeight();
         w8_ulong width = g_gerd->getWidth();
@@ -712,11 +712,11 @@ void RenderFrame(void)
     RenderScene(second_page, g_overlay_scenes.camera.get(), 0, false);
     g_gerd->setTextureReduction(g_resident_texture_policy);
 
-    if (g_render_mesh_sky && g_secondary_world != 0 && g_monster_shadow_updates_enabled) {
-        RenderScene(g_secondary_world->static_scene.get(), g_secondary_world->camera, &g_viewport,
+    if (g_render_mesh_sky && GetSecondaryWorld() != 0 && g_monster_shadow_updates_enabled) {
+        RenderScene(GetSecondaryWorld()->static_scene.get(), GetSecondaryWorld()->camera, &g_viewport,
                     false);
     }
-    if (g_world != 0 && g_world_render_enabled) {
+    if (GetWorld() != 0 && g_world_render_enabled) {
 #ifdef WIZ8_RUNTIME_TESTS
         RuntimeWorldRenderData world_observation = ObserveWorldRenderState();
         RuntimeObserveWorld(RUNTIME_WORLD_RENDER_BEGIN, world_observation);
@@ -726,7 +726,7 @@ void RenderFrame(void)
             g_cursor_hotspot_y + g_cursor_height < g_viewport.top ||
             g_viewport.right < g_cursor_hotspot_x + g_cursor_width ||
             g_viewport.bottom < g_cursor_hotspot_y + g_cursor_height) {
-            RenderScene(g_world->static_scene.get(), g_world->camera, &g_viewport, true);
+            RenderScene(GetWorld()->static_scene.get(), GetWorld()->camera, &g_viewport, true);
         } else {
             int half_width = (g_viewport.right - g_viewport.left) / 2;
             int half_height = (g_viewport.bottom - g_viewport.top) / 2;
@@ -741,7 +741,7 @@ void RenderFrame(void)
             pick.triangle_index = 0;
             g_gerd->setPickKey(0);
             g_gerd->pushPick(pick);
-            RenderScene(g_world->static_scene.get(), g_world->camera, &g_viewport, true);
+            RenderScene(GetWorld()->static_scene.get(), GetWorld()->camera, &g_viewport, true);
             pick = *g_gerd->popPick();
             g_current_model_instance = pick.selected_model;
             ResolvePickedProp();
@@ -800,8 +800,8 @@ void RenderFrame(void)
     }
     g_frames_per_second = frames_per_second;
 
-    if (g_trigger_action_active && g_world != 0) {
-        SetWorldScenePosition(g_world.get(), &saved_world_position);
+    if (g_trigger_action_active && GetWorld() != 0) {
+        SetWorldScenePosition(GetWorld(), &saved_world_position);
     }
 }
 
@@ -824,14 +824,14 @@ unsigned char RenderWorldToSurface(SDL_Surface* target, const DesignRect* rect,
     if (g_fog_enabled) {
         clear_color = g_light_direction;
     } else {
-        GetWorldLightValue(g_world.get(), &clear_color);
+        GetWorldLightValue(GetWorld(), &clear_color);
     }
     gerd->setClearColor(clear_color.x, clear_color.y, clear_color.z, 1.0f);
     gerd->clear(SDLGPUDevice::BUFFER_COLOR | SDLGPUDevice::BUFFER_DEPTH);
-    if (render_secondary && g_render_mesh_sky && g_secondary_world != 0) {
-        g_secondary_world->static_scene->render(*gerd, g_secondary_world->camera);
+    if (render_secondary && g_render_mesh_sky && GetSecondaryWorld() != 0) {
+        GetSecondaryWorld()->static_scene->render(*gerd, GetSecondaryWorld()->camera);
     }
-    g_world->static_scene->render(*gerd, g_world->camera);
+    GetWorld()->static_scene->render(*gerd, GetWorld()->camera);
     gerd->endFrame();
     gerd->flushRenderers();
     gerd->setTextureReduction(0);
@@ -864,11 +864,11 @@ void PublishLightDirection(const glm::vec3* direction)
         g_gerd->flush();
         g_gerd->setFogColor(glm::vec4(*direction, 0));
     }
-    if (g_world != 0) {
-        g_world->static_scene->setFogColor(*direction);
+    if (GetWorld() != 0) {
+        GetWorld()->static_scene->setFogColor(*direction);
     }
-    if (g_secondary_world != 0) {
-        g_secondary_world->static_scene->setFogColor(*direction);
+    if (GetSecondaryWorld() != 0) {
+        GetSecondaryWorld()->static_scene->setFogColor(*direction);
     }
 }
 
@@ -1353,22 +1353,22 @@ void SetViewport(const DesignRect& bounds)
     fractional_right = g_viewport.right * g_viewport_x_scale;
     fractional_bottom = g_viewport.bottom * g_viewport_y_scale;
 
-    if (g_world != 0 && g_world->camera != 0) {
-        g_world->camera->setViewPlane(3.14159265358979323846 * 0.0055555557f * 85.0f,
+    if (GetWorld() != 0 && GetWorld()->camera != 0) {
+        GetWorld()->camera->setViewPlane(3.14159265358979323846 * 0.0055555557f * 85.0f,
                                       3.14159265358979323846 * 0.0055555557f * 71.0f);
-        const auto view = g_world->camera->getViewPlane().rectangle;
+        const auto view = GetWorld()->camera->getViewPlane().rectangle;
 
         plane.left = fractional_left * (view.right - view.left) + view.left;
         plane.right = fractional_right * (view.right - view.left) + view.left;
         plane.bottom = (1.0 - fractional_bottom) * (view.top - view.bottom) + view.bottom;
         plane.top = (1.0 - fractional_top) * (view.top - view.bottom) + view.bottom;
 
-        g_world->camera->setViewPlane(plane, 1.0);
-        if (g_secondary_world != 0) {
-            g_secondary_world->camera->setViewPlane(plane, 1.0);
+        GetWorld()->camera->setViewPlane(plane, 1.0);
+        if (GetSecondaryWorld() != 0) {
+            GetSecondaryWorld()->camera->setViewPlane(plane, 1.0);
         }
         if (g_camera_sway_active) {
-            SetCameraSwayMode(g_world->camera, 1);
+            SetCameraSwayMode(GetWorld()->camera, 1);
         }
     }
 }
@@ -1417,7 +1417,7 @@ void DrawVideoInspector(int left, unsigned int top)
         if (g_video_inspector_mode == 2) {
             DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font,
                                   {text_left, text_top + 0xa},
-                                  fmt::format("OC: {:d}", g_world->level->m_submitted_polygons));
+                                  fmt::format("OC: {:d}", GetWorld()->level->m_submitted_polygons));
             DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font,
                                   {text_left, text_top + 0x14},
                                   fmt::format("PI: {:d}", statistics.input_triangles));
@@ -2342,9 +2342,9 @@ unsigned int MeasureNodeRender(srNode* node)
     g_gerd->resetStatistics();
     g_gerd->beginFrame();
     process.renderer = g_gerd.get();
-    g_world->camera->process(process, srNode::PROCESS_PUSH);
+    GetWorld()->camera->process(process, srNode::PROCESS_PUSH);
     node->process(process, srNode::PROCESS_RENDER);
-    g_world->camera->process(process, srNode::PROCESS_POP);
+    GetWorld()->camera->process(process, srNode::PROCESS_POP);
     g_gerd->endFrame();
     g_gerd->flushRenderers();
     const auto statistics = g_gerd->getStatistics();

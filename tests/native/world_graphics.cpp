@@ -125,7 +125,7 @@ TEST_CASE("world graphics")
                 int(g_current_screen_state.id), int(g_pending_screen_state.id));
     }
     REQUIRE(g_current_screen_state.id == W8_SCREEN_MAIN_GAME);
-    auto world = g_world.get();
+    auto world = GetWorld();
     REQUIRE((world && world->octree && world->camera && world->level && !world->psrMeshes.empty()));
     if (mode && strcmp(mode, "ui") == 0) {
         ApplyMainGameModeFlag(W8_MAIN_UI_MODE_PORTRAITS, true);
@@ -297,7 +297,7 @@ TEST_CASE("world graphics")
                                         angle < 2 ? -0.7f : 0.5f);
             const auto rotation = g_gd_camera->rotationMatrix();
             world->camera->setRotation(rotation);
-            if (g_secondary_world) g_secondary_world->camera->setRotation(rotation);
+            if (GetSecondaryWorld()) GetSecondaryWorld()->camera->setRotation(rotation);
             RenderFrame();
             auto pixels = ReadFrame();
             REQUIRE(pixels != previous);

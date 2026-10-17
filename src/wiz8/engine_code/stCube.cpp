@@ -357,7 +357,7 @@ void SaveWorldCursorNodes(wiz8::File& handle)
 // FUNCTION: WIZ8 0x0048ED70
 void SetWorldCursorNodesVisible(bool visible)
 {
-    srNode* parent = visible ? g_world->dynamic_scene : nullptr;
+    srNode* parent = visible ? GetWorld()->dynamic_scene : nullptr;
     for (const auto& entry : g_world_cursor_nodes) {
         entry->node->setParent(parent, 1);
     }
@@ -392,7 +392,7 @@ W8WorldCursorNode* FindWorldCursorNodeAtPoint(W8WorldCursorNode* after, glm::vec
 // FUNCTION: WIZ8 0x0048EFC0
 bool SelectWorldCursorNode(void)
 {
-    if (g_world != 0 && g_world->camera != 0) {
+    if (GetWorld() != 0 && GetWorld()->camera != 0) {
         const glm::dvec3 camera_location(cameraLocation());
         const auto in_range = [&](const W8WorldCursorNode& entry) {
             return glm::length(entry.node->getLocation() - camera_location) <

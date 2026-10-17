@@ -86,15 +86,15 @@ void SaveParticleStates(wiz8::File& handle)
 
     handle.write(&version, sizeof(version));
 
-    if (g_world != 0) {
-        for (const auto& particle : g_world->particles) {
+    if (GetWorld() != 0) {
+        for (const auto& particle : GetWorld()->particles) {
             count += particle->persisted;
         }
     }
     handle.write(&count, sizeof(count));
 
-    if (g_world != 0) {
-        for (const auto& particle : g_world->particles) {
+    if (GetWorld() != 0) {
+        for (const auto& particle : GetWorld()->particles) {
             if (particle->persisted) {
                 handle.write_padded(particle->getName(), 0x80);
                 handle.write(&particle->emitting, sizeof(particle->emitting));
@@ -427,8 +427,8 @@ void stParticle::Update()
                 // The octree trace still accepts packed endpoint records.
                 const glm::vec3 from(particle_positions[index]);
                 glm::vec3 to(candidate);
-                if (g_world->octree == nullptr ||
-                    !g_world->octree->HasLineOfSight(&from, &to, true)) {
+                if (GetWorld()->octree == nullptr ||
+                    !GetWorld()->octree->HasLineOfSight(&from, &to, true)) {
                     DeactivateParticle(index);
                     continue;
                 }
@@ -762,7 +762,7 @@ void stParticle::SetFlutter(W8ParticleFlutterMode mode)
 void RetireParticle(std::unique_ptr<stParticle> particle)
 {
     particle->release_when_done = true;
-    g_world->retired_particles.push_back(std::move(particle));
+    GetWorld()->retired_particles.push_back(std::move(particle));
 }
 
 void SweepFinishedParticles(W8World* world)

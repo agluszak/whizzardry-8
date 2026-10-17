@@ -407,14 +407,14 @@ W8AmbientSound* W8AmbientSound::FindNextMatching(const char* match_name, W8Ambie
     int count;
     int index;
 
-    if (g_world == 0) {
+    if (GetWorld() == 0) {
         return 0;
     }
-    count = static_cast<int>(g_world->plsAmbientSounds.size());
+    count = static_cast<int>(GetWorld()->plsAmbientSounds.size());
     if (previous == 0) {
         index = 0;
     } else {
-        index = wiz8::index_of(g_world->plsAmbientSounds, previous,
+        index = wiz8::index_of(GetWorld()->plsAmbientSounds, previous,
                                [](const auto& owner) { return owner.get(); }) +
                 1;
         if (index < 0 || index > count) {
@@ -422,7 +422,7 @@ W8AmbientSound* W8AmbientSound::FindNextMatching(const char* match_name, W8Ambie
         }
     }
     for (; index < count; ++index) {
-        W8AmbientSound* candidate = GetWorldAmbientSound(g_world.get(), index);
+        W8AmbientSound* candidate = GetWorldAmbientSound(GetWorld(), index);
         if (candidate != 0 && candidate != this && candidate->shared != 0 &&
             SDL_strcasecmp(candidate->config.wave_name, match_name) == 0) {
             return candidate;
@@ -569,14 +569,14 @@ void BuildFootstepPath(char* path, signed char surface, signed char material, ch
 // FUNCTION: WIZ8 0x0047a600
 void RepositionAmbientSounds()
 {
-    if (g_world != nullptr) {
+    if (GetWorld() != nullptr) {
         int count;
         int index;
 
         ServiceRandomAmbients();
-        count = static_cast<int>(g_world->plsAmbientSounds.size());
+        count = static_cast<int>(GetWorld()->plsAmbientSounds.size());
         for (index = 0; index < count; ++index) {
-            W8AmbientSound* sound = GetWorldAmbientSound(g_world.get(), index);
+            W8AmbientSound* sound = GetWorldAmbientSound(GetWorld(), index);
             if (sound != 0) {
                 glm::vec3 position = cameraLocation();
                 sound->UpdatePosition(&position);
@@ -636,11 +636,11 @@ unsigned char AddAmbientSound(W8World* world, const char* name, const W8AmbientS
    lookup has already dereferenced it. */
 static W8AmbientSound* FindAmbientSoundByName(const char* name)
 {
-    int count = static_cast<int>(g_world->plsAmbientSounds.size());
+    int count = static_cast<int>(GetWorld()->plsAmbientSounds.size());
     int index;
 
     for (index = 0; index < count; ++index) {
-        W8AmbientSound* sound = GetWorldAmbientSound(g_world.get(), index);
+        W8AmbientSound* sound = GetWorldAmbientSound(GetWorld(), index);
         if (!sound->name.empty() && SDL_strcasecmp(sound->name.c_str(), name) == 0) {
             return sound;
         }
@@ -744,10 +744,10 @@ void SetSoundEffectsVolume(unsigned char volume)
 
     g_settings.sound_effects_volume = volume;
     wiz8::sound::set_default_volume(volume);
-    if (g_world != 0) {
-        count = static_cast<int>(g_world->plsAmbientSounds.size());
+    if (GetWorld() != 0) {
+        count = static_cast<int>(GetWorld()->plsAmbientSounds.size());
         for (index = 0; index < count; ++index) {
-            W8AmbientSound* sound = GetWorldAmbientSound(g_world.get(), index);
+            W8AmbientSound* sound = GetWorldAmbientSound(GetWorld(), index);
             if (sound != 0) {
                 if (sound->sound_handle != nullptr) {
                     unsigned int adjusted =
@@ -761,7 +761,7 @@ void SetSoundEffectsVolume(unsigned char volume)
         }
         Update3DSounds();
     }
-    world = g_world.get();
+    world = GetWorld();
     if (world != 0) {
         ServiceRandomAmbients();
         count = static_cast<int>(world->plsAmbientSounds.size());
@@ -800,10 +800,10 @@ void SetSoundEffectsMuted(unsigned char muted)
 void SaveAmbientSoundList(wiz8::File& handle)
 {
     const unsigned char version = 1;
-    const auto count = static_cast<std::uint32_t>(g_world->plsAmbientSounds.size());
+    const auto count = static_cast<std::uint32_t>(GetWorld()->plsAmbientSounds.size());
     handle.write(&version, sizeof(version));
     handle.write(&count, sizeof(count));
-    for (const auto& sound : g_world->plsAmbientSounds) {
+    for (const auto& sound : GetWorld()->plsAmbientSounds) {
         handle.write_padded(sound->name, 128);
         handle.write(&sound->stopped, 1);
     }

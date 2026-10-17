@@ -197,7 +197,7 @@ float ComputeSightThreshold(glm::vec3 observer_position, glm::vec3 target_positi
     int sight_percent;
     int penalty;
 
-    world = g_world.get();
+    world = GetWorld();
     far_clip = WorldGetFarClip(world);
     viewing_distance = static_cast<float>(far_clip);
     if (viewing_distance <= 0.0f) {
@@ -397,7 +397,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
         monster_info->hp_current == 0) {
         return;
     }
-    viewing_distance = static_cast<float>(WorldGetFarClip(g_world.get()));
+    viewing_distance = static_cast<float>(WorldGetFarClip(GetWorld()));
     if (viewing_distance <= 0.0f) {
         srAssertFail("flViewingDistance > 0", SIGHT_CPP, 0x5e, 0);
     }
@@ -821,7 +821,7 @@ bool MonsterGroupCanSeeGroup(W8MonsterGroup* source, W8MonsterGroup* target)
     target_monster = target_info->p3D;
     if (!target_info->fInCombat) {
         distance = source_monster->GetDistanceToMonster(target_monster);
-        world = g_world.get();
+        world = GetWorld();
         far_clip = WorldGetFarClip(world);
         if (distance <= far_clip) {
             memset(&record, 0, sizeof(record));

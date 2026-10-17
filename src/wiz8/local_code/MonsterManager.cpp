@@ -204,7 +204,7 @@ void ActivateMonsterInWorld(W8MonsterInfo* monster_info)
             MonsterSetAnimating(monster_info->p3D, !monster_info->fMotionless);
         }
 
-        g_world->active_monsters.push_back(monster_info->p3D);
+        GetWorld()->active_monsters.push_back(monster_info->p3D);
         MonsterSetFacing(monster_info->p3D, monster_info->derived);
         RebuildMonsterDerivedStats(monster_info->location_id);
         monster_info->p3D->movement.leadership_rank =
@@ -217,7 +217,7 @@ void ActivateMonsterInWorld(W8MonsterInfo* monster_info)
                                            MonsterDBFromSpecies(monster_info->monster_species));
     }
 
-    camera_position = cameraLocation(*g_world);
+    camera_position = cameraLocation(*GetWorld());
     MonsterSelectLOD(monster_info->p3D, &camera_position);
     UpdateCycleRepresentation(monster_info->p3D);
     g_octree->VisitPointCopy(static_cast<unsigned short>(monster_info->location_id),
@@ -267,14 +267,14 @@ void ActivateMonster(W8MonsterInfo* monster_info, W8MonsterActivationMode mode)
     record = GetMonsterDataForInfo(monster_info);
 
     auto monster =
-        MonsterReadAllCycles(g_world.get(), record->cycle_name,
+        MonsterReadAllCycles(GetWorld(), record->cycle_name,
                              mode == W8_MONSTER_LOAD_ALL_CYCLES ? 1 : 0, monster_info->location_id);
     if (!monster) {
         srAssertFail("loaded monster", MONSTER_MANAGER_CPP, __LINE__,
                      "ActivateMonster: MonsterReadAllCycles failed");
     }
     monster_info->p3D = monster.get();
-    g_world->monsters.push_back(std::move(monster));
+    GetWorld()->monsters.push_back(std::move(monster));
 
     if (monster_info->scale < 0.0f ||
         g_status.level_progress[g_status.current_level].visited == 0) {

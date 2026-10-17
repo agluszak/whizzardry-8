@@ -80,7 +80,7 @@ void MartensBluff1Setup(void)
         CreateLocationVar("DialState", 0x470111);
     }
     MartensBluff1Transporter(static_cast<int>(0xEFFFFFFF));
-    position = glm::vec3(g_world->camera->getLocation());
+    position = glm::vec3(GetWorld()->camera->getLocation());
     pTrigger = FindTriggerByName("MR101");
     if (pTrigger != 0 && (pTrigger->flags & W8_TRIGGER_POSITIONED) != 0) {
         pTrigger->GetPosition(&trigger_position);
@@ -257,7 +257,7 @@ bool MartensBluff1JDoorController(Trigger* pTrigger)
         g_gas_sound1 = CreateAndPlaySoundNode("Data\\Sound\\Ambients\\Air_Escaping_Loop.wav",
                                               position, 0.3f, 30.0f, true);
     }
-    position = glm::vec3(g_world->camera->getLocation());
+    position = glm::vec3(GetWorld()->camera->getLocation());
     PointCastSpell(position, W8_SPELL_FREEZE_FLESH, 5);
     state |= 0x10000000;
     SetTriggerVariableByName("DialState", state);

@@ -51,7 +51,7 @@ bool CosmicCircleTriggerPlane1Hedra(Trigger* pTrigger)
     } else {
         QueueNpcScriptNotice(pNPC, 0, -1, false, 0);
     }
-    UpdateCameraPathStateByName(g_world.get(), "CameraPath1", 1);
+    UpdateCameraPathStateByName(GetWorld(), "CameraPath1", 1);
     return true;
 }
 

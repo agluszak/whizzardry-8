@@ -404,7 +404,7 @@ try {
                   (pInfo->hFile->read(&axis.z, sizeof(axis.z)).bytes ==
                    static_cast<std::size_t>(sizeof(axis.z)));
         position = glm::vec3(stored_position.x, stored_position.y, stored_position.z) * kWorldScale;
-        SetWorldScenePosition(g_world.get(), &position);
+        SetWorldScenePosition(GetWorld(), &position);
 
         rotation = glm::mat3(1);
         if (angle != 0.0f) {
@@ -1115,7 +1115,7 @@ try {
     UpdateWorldProps(world);
     info.hFile->read(&camera_mode, sizeof(camera_mode));
     SetCameraSwayMode(world->camera, camera_mode == 0 ? -1 : 1);
-    if (world->octree == 0 && world != g_secondary_world.get()) {
+    if (world->octree == 0 && world != GetSecondaryWorld()) {
         FinalizeWorldScenes(world->static_scene.get(), world->dynamic_scene);
     }
 

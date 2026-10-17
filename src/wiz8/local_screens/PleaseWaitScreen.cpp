@@ -220,8 +220,8 @@ void PleaseWaitScreenFrame(void)
         AutoSaveIfAllowed(true);
     }
 
-    if (!g_world) {
-        srAssertFail("g_world.get()", PLEASE_WAIT_SCREEN_CPP, 332, 0);
+    if (!GetWorld()) {
+        srAssertFail("GetWorld()", PLEASE_WAIT_SCREEN_CPP, 332, 0);
     }
     RequestScreenTransition();
     if (g_load_descriptor->mode == 1 && g_status.intro_shown) {

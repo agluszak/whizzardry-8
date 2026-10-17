@@ -133,7 +133,7 @@ static void NpcScriptQueueEndgame(void)
 // FUNCTION: WIZ8 0x00526E40
 static void NpcScriptTurnToBook(void)
 {
-    UpdateCameraPathStateByName(g_world.get(), "CameraPath4", 1);
+    UpdateCameraPathStateByName(GetWorld(), "CameraPath4", 1);
     BeginScreenFade(0, 1, 1000, NpcScriptQueueEndgame, false, 0);
 }
 

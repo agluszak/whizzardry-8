@@ -37,7 +37,7 @@ bool triggers()
 {
     g_world = std::make_unique<W8World>();
     g_secondary_world = std::make_unique<W8World>();
-    W8World& level = *g_world;
+    W8World& level = *GetWorld();
     W8World& sky = *g_secondary_world;
     Trigger* first = AddTrigger(level, "DOOR");
     Trigger* newest = AddTrigger(level, "DOOR");
@@ -66,7 +66,7 @@ bool nodes(const std::filesystem::path& directory)
 {
     g_world = std::make_unique<W8World>();
     g_secondary_world = std::make_unique<W8World>();
-    W8World& level = *g_world;
+    W8World& level = *GetWorld();
     W8World& sky = *g_secondary_world;
 
     auto* lamp = level.dynamic_scene->adoptChild(std::make_unique<stLight>());

@@ -1411,7 +1411,7 @@ TEST_CASE_METHOD(LoaderFixture, "Prop save records decode missing entries within
             g_world = std::move(previous);
         }
     } scope;
-    W8World& world = *g_world;
+    W8World& world = *GetWorld();
     auto prop = std::make_unique<W8Prop>();
     prop->name = "Present";
     prop->id = 42;

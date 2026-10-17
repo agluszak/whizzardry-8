@@ -2434,7 +2434,7 @@ void MainGameScreenFrame(void)
     if (g_build_level_links) {
         char path[512];
         W8LevelInfo info;
-        strcpy(path, g_world->octree->m_path_stem.c_str());
+        strcpy(path, GetWorld()->octree->m_path_stem.c_str());
         char* extension = strrchr(path, '.');
         if (extension) {
             *extension = '\0';
@@ -2444,7 +2444,7 @@ void MainGameScreenFrame(void)
                 const auto status = wiz8::file_status(wiz8::asset_path(path));
                 return status && status->info.type == SDL_PATHTYPE_FILE;
             }()) {
-            g_world->octree->BuildRegionLinks(true);
+            GetWorld()->octree->BuildRegionLinks(true);
         }
         for (; g_next_link_level < W8_LEVEL_COUNT; ++g_next_link_level) {
             if (LevelBuildInfoByID(g_next_link_level, &info)) {
@@ -2539,9 +2539,9 @@ update_screen:
     ProcessMainGameAutoSave();
     UpdateSharedGameDataObject();
     g_animated_prop_present = false;
-    WorldUpdateProps(g_world.get());
-    if (g_secondary_world) {
-        WorldUpdateProps(g_secondary_world.get());
+    WorldUpdateProps(GetWorld());
+    if (GetSecondaryWorld()) {
+        WorldUpdateProps(GetSecondaryWorld());
     }
     SDL_Point point;
     SGPMouseGetPos(&point);
@@ -2577,16 +2577,16 @@ update_screen:
     }
     if (!IsScreenTransitionPending()) {
 
-        UpdateWorldCameraAndPaths(g_world.get(), g_level_block->camera_motion_flags);
-        if (g_secondary_world && !g_camera_path_active) {
-            UpdateWorldCameraAndPaths(g_secondary_world.get(),
+        UpdateWorldCameraAndPaths(GetWorld(), g_level_block->camera_motion_flags);
+        if (GetSecondaryWorld() && !g_camera_path_active) {
+            UpdateWorldCameraAndPaths(GetSecondaryWorld(),
                                       g_level_block->camera_motion_flags | W8_CAMERA_MOTION_SKIP);
         }
 
-        ApplyWorldUpdateFlags(g_world.get(), g_level_block->world_update_flags);
-        if (g_secondary_world &&
+        ApplyWorldUpdateFlags(GetWorld(), g_level_block->world_update_flags);
+        if (GetSecondaryWorld() &&
             (g_level_block->world_update_flags & W8_WORLD_CHANGE_FAR_CLIP) == 0) {
-            ApplyWorldUpdateFlags(g_secondary_world.get(), g_level_block->world_update_flags);
+            ApplyWorldUpdateFlags(GetSecondaryWorld(), g_level_block->world_update_flags);
         }
         g_level_block->world_update_flags = 0;
         g_level_block->camera_motion_flags = 0;
@@ -3102,7 +3102,7 @@ void DrawMainGameScreen(void)
             EnsureRadarMapOverlay();
         }
         if (g_node_cull_pending) {
-            for (node = g_world->level->getChild(); node != 0; node = node->getNext()) {
+            for (node = GetWorld()->level->getChild(); node != 0; node = node->getNext()) {
                 if (dynamic_cast<stModelInstance*>(node)) {
                     node->clearFlag(srNode::FLAG_DISABLE);
                 }
@@ -3110,7 +3110,7 @@ void DrawMainGameScreen(void)
         }
         RenderFrame();
         if (g_node_cull_pending) {
-            for (node = g_world->level->getChild(); node != 0; node = node->getNext()) {
+            for (node = GetWorld()->level->getChild(); node != 0; node = node->getNext()) {
                 if (dynamic_cast<stModelInstance*>(node)) {
                     if (MeasureNodeRenderWithoutPositionalOption(node) == 0) {
                         node->setFlag(srNode::FLAG_DISABLE);
@@ -5433,7 +5433,7 @@ void UpdateWorldViewCursor(const UiPointerEvent& event, W8TargetNeed target_need
             }
             int prop_index = GetSelectedPropIndex();
             if (prop_index > -1) {
-                W8Prop* prop = GetWorldProp(g_world.get(), prop_index);
+                W8Prop* prop = GetWorldProp(GetWorld(), prop_index);
                 if (!gXStatus.world_update_blocked) {
                     if (prop != 0) {
                         if (prop->TriggerRequiresItem() && g_status.item_in_cursor) {

@@ -238,7 +238,7 @@ void ControlCampAlarm(int command)
         return;
     }
     if (command != 0) {
-        position = glm::vec3(g_world->camera->getLocation());
+        position = glm::vec3(GetWorld()->camera->getLocation());
         if (static_cast<unsigned int>(command) > 0x1e) {
             command = 0x1e;
         }

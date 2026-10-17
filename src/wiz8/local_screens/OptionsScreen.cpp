@@ -1805,7 +1805,7 @@ void OptionsScreenFrame()
         RequestExitScreen();
     }
     RepositionAmbientSounds();
-    UpdateAmbientSounds(g_world.get());
+    UpdateAmbientSounds(GetWorld());
     ServiceMusicPlaylist();
     W8OptionsScreen* screen = g_options_screen.get();
 

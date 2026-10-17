@@ -261,7 +261,7 @@ bool ResolvePickedProp()
 
     valid = true;
     camera_position = cameraLocation();
-    prop_count = g_world->plsProps.size();
+    prop_count = GetWorld()->plsProps.size();
     for (prop_index = 0; prop_index < static_cast<int>(prop_count); ++prop_index) {
         W8Prop* prop;
         W8PropRepresentation* representation;
@@ -274,7 +274,7 @@ bool ResolvePickedProp()
         if (g_selected_prop_trigger != 0) {
             return valid;
         }
-        prop = GetWorldProp(g_world.get(), prop_index);
+        prop = GetWorldProp(GetWorld(), prop_index);
         representation = prop->Rep();
         if (representation->active == 0) {
             continue;
@@ -583,7 +583,7 @@ void W8Prop::ApplyAnimationPaths()
     unsigned int count;
     int index;
 
-    if (g_world == nullptr) {
+    if (GetWorld() == nullptr) {
         srAssertFail("pWorld", PROP_CPP, 0x3db, 0);
     }
     if (Rep()->Animation()->path_lists == 1) {
@@ -1236,7 +1236,7 @@ bool W8Prop::IsTriggerInView(glm::vec3* position)
     const float distance = glm::length((center - *position));
     if (!(distance < trigger->range_maximum && trigger->range_minimum <= distance)) return false;
     const std::array points{bounds->center(), bounds->minimum, bounds->maximum};
-    return g_world->camera->projectsAny(points);
+    return GetWorld()->camera->projectsAny(points);
 }
 
 // FUNCTION: WIZ8 0x0044bf50
@@ -1636,10 +1636,10 @@ void SaveWorldProps(wiz8::File& handle)
     version = 1;
     handle.write(&signature, 4);
     handle.write(&version, 4);
-    count = static_cast<int>(g_world->plsProps.size());
+    count = static_cast<int>(GetWorld()->plsProps.size());
     handle.write(&count, 4);
     for (index = 0; index < count; ++index) {
-        prop = GetWorldProp(g_world.get(), index);
+        prop = GetWorldProp(GetWorld(), index);
         handle.write_padded(prop->name.c_str(), 0x40);
         if ((handle.write(&prop->Rep()->subcycle, 1), true) != 0 &&
             (handle.write(&prop->Rep()->first_frame, 1), true) != 0 &&
@@ -1677,9 +1677,9 @@ void LoadWorldProps(W8Chunk& chunk)
         chunk.ReadBytes(&state, sizeof(state));
         W8Prop* prop = nullptr;
         if (named) {
-            prop = FindPropByName(g_world.get(), name);
+            prop = FindPropByName(GetWorld(), name);
         } else {
-            for (const auto& candidate : g_world->plsProps) {
+            for (const auto& candidate : GetWorld()->plsProps) {
                 if (candidate->id == key) {
                     prop = candidate.get();
                     break;

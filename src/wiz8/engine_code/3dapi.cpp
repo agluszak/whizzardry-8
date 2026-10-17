@@ -192,7 +192,7 @@ unsigned char LoadWorld(W8World* world, std::string_view source_path, bool use_o
 // FUNCTION: WIZ8 0x0044F4E0
 static void UpdateWorld(W8World& world)
 {
-    if (&world != g_secondary_world.get()) {
+    if (&world != GetSecondaryWorld()) {
         UpdateWorldMonsters(&world);
         UpdateWorldMissiles(&world);
         UpdateWorldSpellVisuals(&world);
@@ -221,7 +221,7 @@ void UpdateWorlds(void)
         !(((GetInputState().modifiers & CTRL_DOWN) != 0) && g_combat_state != 0 &&
           (g_combat_state->round_active || gXStatus.fPartyMovementMode));
 
-    for (W8World* world : {g_world.get(), g_secondary_world.get()}) {
+    for (W8World* world : {GetWorld(), GetSecondaryWorld()}) {
         if (world != 0) UpdateWorld(*world);
     }
 
@@ -238,7 +238,7 @@ void UpdateWorlds(void)
 // FUNCTION: WIZ8 0x0044f5b0
 void DetachAllWorldItems(void)
 {
-    for (W8World* world : {g_world.get(), g_secondary_world.get()}) {
+    for (W8World* world : {GetWorld(), GetSecondaryWorld()}) {
         if (world != 0) DetachWorldItemMeshes(world);
     }
 }
@@ -373,7 +373,7 @@ W8World::W8World() : static_scene(std::make_unique<srScene>(nullptr))
 
 W8World::~W8World()
 {
-    if (this == g_world.get()) StopWorldActivity(this);
+    if (this == GetWorld()) StopWorldActivity(this);
     ClearWorldIndexes(this);
     DestroyWorldResources(this);
 }
@@ -475,8 +475,8 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
                     PlacePartyAtPoint(&party_point);
                 }
                 path_rotation = world->camera->getRotation<glm::mat3>();
-                if (g_secondary_world != 0 && g_secondary_world->camera != 0) {
-                    g_secondary_world->camera->setRotation(path_rotation);
+                if (GetSecondaryWorld() != 0 && GetSecondaryWorld()->camera != 0) {
+                    GetSecondaryWorld()->camera->setRotation(path_rotation);
                 }
                 ApplyCameraRotation(&path_rotation);
                 if (path->discrete_mode != 0) {
@@ -496,11 +496,11 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
 // FUNCTION: WIZ8 0x00451080
 stParticle* FindParticleByName(const char* name)
 {
-    if (g_world != nullptr) {
-        int count = static_cast<int>(g_world->particles.size());
+    if (GetWorld() != nullptr) {
+        int count = static_cast<int>(GetWorld()->particles.size());
 
         for (int index = 0; index < count; ++index) {
-            stParticle* particle = g_world->particles[index].get();
+            stParticle* particle = GetWorld()->particles[index].get();
 
             if (SDL_strcasecmp(particle->getName().c_str(), name) == 0) {
                 return particle;
@@ -548,10 +548,10 @@ void SetWorldScenePosition(W8World* world, const glm::vec3* location)
 void UpdateWorldMeshAfterLoad(void)
 {
     if (g_renderer_ready) {
-        if (g_world->octree != 0) {
-            UpdateWorldOctree(g_world.get());
-        } else if (g_world->quads != 0) {
-            UpdateWorldMeshFromQuads(g_world.get());
+        if (GetWorld()->octree != 0) {
+            UpdateWorldOctree(GetWorld());
+        } else if (GetWorld()->quads != 0) {
+            UpdateWorldMeshFromQuads(GetWorld());
         }
         RepositionAmbientSounds();
         RequestRefreshPartyState();
@@ -587,23 +587,23 @@ void WorldSetCameraLocation(const glm::vec3* location)
 {
     glm::dvec3 position;
 
-    if (!g_world) {
+    if (!GetWorld()) {
         srAssertFail("pWorld", THREE_D_API_CPP, 0x422, 0);
     }
-    if (g_world->camera != 0) {
+    if (GetWorld()->camera != 0) {
         position = glm::dvec3((*location));
-        g_world->camera->setLocation(position);
+        GetWorld()->camera->setLocation(position);
         PlacePartyAtPoint(location);
     }
-    if (g_world->camera_light != 0) {
+    if (GetWorld()->camera_light != 0) {
         position = glm::dvec3((*location));
-        g_world->camera_light->setLocation(position);
+        GetWorld()->camera_light->setLocation(position);
     }
 }
 
 /* Apply a CamPos record to the world's camera and camera light. A non-null
    source world repeats the orientation write; automap restore passes null and
-   recall / LoadLevel pass g_secondary_world.get(). */
+   recall / LoadLevel pass GetSecondaryWorld(). */
 // FUNCTION: WIZ8 0x004504B0
 void SetWorldCameraState(W8World* world, W8World* source_world, W8WorldCameraState* state)
 {
@@ -648,11 +648,11 @@ void RestoreWorldCameraState(W8World* source_world, W8WorldCameraState* state)
 {
     glm::vec3 navigator_position;
 
-    if (g_world == nullptr) {
+    if (GetWorld() == nullptr) {
         srAssertFail("pWorld", THREE_D_API_CPP, 0x46b, 0);
     }
-    SetWorldCameraState(g_world.get(), source_world, state);
-    navigator_position = glm::vec3(g_world->camera->getLocation());
+    SetWorldCameraState(GetWorld(), source_world, state);
+    navigator_position = glm::vec3(GetWorld()->camera->getLocation());
     g_startup_world->SetAngles(GetCameraYawInDegrees());
     g_startup_world->SetPitch(GetCameraPitchInDegrees());
     navigator_position.y -= g_default_world_height;
@@ -716,10 +716,10 @@ void ApplyWorldUpdateFlags(W8World* world, unsigned int flags)
         world->m_loaded = !world->m_loaded;
     }
     if ((flags & W8_WORLD_INCREASE_ENVIRONMENT) != 0) {
-        SetWorldEnvironmentIntensity(g_world.get(), g_world->environment_intensity + 0.02f);
+        SetWorldEnvironmentIntensity(GetWorld(), GetWorld()->environment_intensity + 0.02f);
     }
     if ((flags & W8_WORLD_DECREASE_ENVIRONMENT) != 0) {
-        SetWorldEnvironmentIntensity(g_world.get(), g_world->environment_intensity - 0.02f);
+        SetWorldEnvironmentIntensity(GetWorld(), GetWorld()->environment_intensity - 0.02f);
     }
 }
 
@@ -735,9 +735,9 @@ bool FindEntityByName(const char* name, glm::vec3* position, float* angle, glm::
         return true;
     }
 
-    int count = static_cast<int>(g_world->named_positions.size());
+    int count = static_cast<int>(GetWorld()->named_positions.size());
     for (int index = 0; index < count; ++index) {
-        const W8NamedPosition* entry = &g_world->named_positions[index];
+        const W8NamedPosition* entry = &GetWorld()->named_positions[index];
         if (SDL_strcasecmp(name, entry->name) == 0) {
             *position = entry->position;
             if (angle != 0) {

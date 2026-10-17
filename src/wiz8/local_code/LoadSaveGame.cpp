@@ -905,7 +905,7 @@ try {
    the difficulty. Iron-man saves also record the file's masked creation time. */
 static void PrepareStatusForSave(const wiz8::File& file)
 {
-    g_status.pending_move_location = cameraState(*g_world);
+    g_status.pending_move_location = cameraState(*GetWorld());
     ForEachShownMessage([](auto& message) {
         message.saved_remaining_ms = std::uint32_t(TimeUntilDeadline(message.clock));
     });
@@ -1069,7 +1069,7 @@ try {
         }
 
         chunks->WriteChunk(W8_CHUNK_AUTOMAP_NOTES, [&] { SaveAutomapNotes(file); });
-        if (!g_world->triggers.empty())
+        if (!GetWorld()->triggers.empty())
             chunks->WriteChunk(W8_CHUNK_TRIGGERS, [&] { SaveWorldTriggers(file); });
         chunks->WriteChunk(W8_CHUNK_PROPS, [&] { SaveWorldProps(file); });
         chunks->WriteChunk(W8_CHUNK_CURSOR_NODE_STATES, [&] { SaveWorldCursorNodeStates(file); });

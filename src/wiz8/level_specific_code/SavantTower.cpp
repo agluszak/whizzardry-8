@@ -20,7 +20,7 @@
 // FUNCTION: WIZ8 0x004E0510
 void SavantTowerSyncButtonBlocker(void)
 {
-    W8Prop* prop = FindPropByName(g_world.get(), "ButtonBlocker");
+    W8Prop* prop = FindPropByName(GetWorld(), "ButtonBlocker");
     if (prop != 0) {
         if (GetFact(W8_FACT_DS_BOMB_DEACTIVATED) != 0) {
             prop->SetActivationState(1);
@@ -47,7 +47,7 @@ bool SavantTowerShape(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004E05A0
 bool SavantTowerButtonBlocker(Trigger* pTrigger)
 {
-    W8Prop* blocker = FindPropByName(g_world.get(), "ButtonBlocker");
+    W8Prop* blocker = FindPropByName(GetWorld(), "ButtonBlocker");
 
     if (blocker != 0) {
         blocker->SetActivationState(1);

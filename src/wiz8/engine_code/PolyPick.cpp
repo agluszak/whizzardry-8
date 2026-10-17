@@ -61,7 +61,7 @@ float MonsterDistanceToCamera(W8Monster* monster)
     if (!bounds) {
         return -1.0f;
     }
-    glm::dvec3 camera = g_world->camera->getLocation();
+    glm::dvec3 camera = GetWorld()->camera->getLocation();
     glm::vec3 camera_location;
     camera_location = glm::vec3(camera);
     glm::vec3 center = monster->m_pRep->location;
@@ -76,7 +76,7 @@ float MonsterDistanceToCamera(W8Monster* monster)
 float ItemDistanceToCamera(W8Item* item)
 {
     const auto bounds = item->GetCachedLocalBounds();
-    glm::dvec3 camera = g_world->camera->getLocation();
+    glm::dvec3 camera = GetWorld()->camera->getLocation();
     glm::vec3 camera_location;
     camera_location = glm::vec3(camera);
     glm::vec3 center = item->m_pRep->location;
@@ -95,6 +95,6 @@ bool PointInsideBounds(const glm::vec3* point, const glm::vec3* minimum, const g
 // FUNCTION: WIZ8 0x004BE940
 bool projectsToCamera(const glm::vec3& position)
 {
-    return g_world->camera->project(glm::dvec3(position)).result ==
+    return GetWorld()->camera->project(glm::dvec3(position)).result ==
            srCamera::PROJECTION_RESULT_ACCEPTED;
 }

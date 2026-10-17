@@ -108,6 +108,8 @@ struct W8World {
    DestroyWorld for teardown. */
 extern std::unique_ptr<W8World> g_world;
 extern std::unique_ptr<W8World> g_secondary_world;
+W8World* GetWorld();
+W8World* GetSecondaryWorld();
 extern int g_combat_round_counter;
 
 /* Typed element access for the homogeneous world lists. */

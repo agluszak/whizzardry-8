@@ -883,7 +883,7 @@ void RecallCasterToSavedLocation(W8SpellEffectEntry* pQueue)
     caster = &g_status.buffers.Char[pQueue->Source.iChar];
     if (caster->has_saved_location) {
         if (caster->saved_level == g_status.current_level) {
-            RestoreWorldCameraState(g_secondary_world.get(), &caster->saved_location);
+            RestoreWorldCameraState(GetSecondaryWorld(), &caster->saved_location);
             point = caster->saved_location.position;
             PlacePartyAtPoint(&point);
             g_renderer_ready = true;
@@ -2367,7 +2367,7 @@ void ApplyMonsterControlToNearbyMonsters(W8SpellEffectEntry* effect)
     unsigned int index;
     float far_clip;
 
-    far_clip = static_cast<float>(WorldGetFarClip(g_world.get()));
+    far_clip = static_cast<float>(WorldGetFarClip(GetWorld()));
     center = effect->target.point;
     center.y += g_default_world_height * 0.5f;
     lower = glm::vec3(center.x - far_clip, center.y - far_clip, center.z - far_clip);
@@ -3342,7 +3342,7 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
             srAssertFail("SourceIsCharacter(&(pQueue->Source))", MAGIC_EFFECTS_CPP, 0xa6f, 0);
         }
         camera_state = &g_status.buffers.Char[effect->Source.iChar].saved_location;
-        world = g_world.get();
+        world = GetWorld();
         *camera_state = cameraState(*world);
         g_status.buffers.Char[effect->Source.iChar].saved_level = g_status.current_level;
         g_status.buffers.Char[effect->Source.iChar].has_saved_location = true;

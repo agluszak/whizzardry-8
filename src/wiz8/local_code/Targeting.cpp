@@ -2297,7 +2297,7 @@ bool IsMonsterVisibleWithinDistance(W8Monster* monster, const glm::vec3* positio
     auto center = monster->movement.position;
     center.y += monster->movement.height_offset;
     const std::array points{center, bounds->minimum, bounds->maximum};
-    return g_world->camera->projectsAny(points);
+    return GetWorld()->camera->projectsAny(points);
 }
 
 /* Any live monster visible to the camera within the far-clip range, resuming
@@ -2310,8 +2310,8 @@ bool AnyMonsterVisible(void)
     int count;
     int index;
 
-    limit = static_cast<float>(WorldGetFarClip(g_world.get())) * 1.5f;
-    if (g_world == 0 || g_world->camera == 0) {
+    limit = static_cast<float>(WorldGetFarClip(GetWorld())) * 1.5f;
+    if (GetWorld() == 0 || GetWorld()->camera == 0) {
         return false;
     }
     camera = cameraLocation();

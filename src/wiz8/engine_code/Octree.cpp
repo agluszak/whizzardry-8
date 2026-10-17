@@ -180,7 +180,7 @@ void W8OctreeView::captureCamera(const srCamera& camera)
 // FUNCTION: WIZ8 0x0042f7e0
 void W8Octree::UpdateCameraVisibility()
 {
-    W8World* world = g_world.get();
+    W8World* world = GetWorld();
     if (m_visibility_suspended) {
         return;
     }
@@ -200,13 +200,13 @@ void W8Octree::UpdateVisibility()
     if (m_reset_visibility) {
         m_reset_visibility = false;
         for (mesh_index = 0; mesh_index < m_meshCount; ++mesh_index) {
-            if (g_world->psrMeshes[mesh_index] != 0) {
+            if (GetWorld()->psrMeshes[mesh_index] != 0) {
                 m_pSubmeshes
-                    [static_cast<stModelInstance*>(g_world->psrMeshes[mesh_index])->mesh_index + 1]
+                    [static_cast<stModelInstance*>(GetWorld()->psrMeshes[mesh_index])->mesh_index + 1]
                         .mesh = mesh_index;
                 m_pSubmeshes[mesh_index + 1].flags &= 0xffffffc7;
                 stModelInstance* mesh =
-                    static_cast<stModelInstance*>(g_world->psrMeshes[mesh_index]);
+                    static_cast<stModelInstance*>(GetWorld()->psrMeshes[mesh_index]);
                 if (mesh != 0) {
                     mesh->setFlag(srNode::FLAG_DISABLE);
                     mesh->setFlag(srNode::FLAG_TERMINATE);
@@ -256,7 +256,7 @@ void W8Octree::UpdateVisibility()
             W8OctSubmesh* submesh = &m_pSubmeshes[region];
             submesh->flags &= 0xfffffff7;
             stModelInstance* mesh =
-                static_cast<stModelInstance*>(g_world->psrMeshes[submesh->mesh]);
+                static_cast<stModelInstance*>(GetWorld()->psrMeshes[submesh->mesh]);
             if (mesh != 0) {
                 mesh->setFlag(srNode::FLAG_DISABLE);
                 mesh->setFlag(srNode::FLAG_TERMINATE);
@@ -271,7 +271,7 @@ void W8Octree::UpdateVisibility()
             W8OctSubmesh* submesh = &m_pSubmeshes[region];
             int mesh_index = submesh->mesh;
             submesh->flags |= 0x28;
-            stModelInstance* mesh = static_cast<stModelInstance*>(g_world->psrMeshes[mesh_index]);
+            stModelInstance* mesh = static_cast<stModelInstance*>(GetWorld()->psrMeshes[mesh_index]);
             if (mesh != 0) {
                 mesh->clearFlag(srNode::FLAG_DISABLE);
                 mesh->clearFlag(srNode::FLAG_TERMINATE);
@@ -361,7 +361,7 @@ std::vector<stModelInstance*> W8Octree::modelsNearPoint(const glm::vec3& center,
         }
         if (m_current_regions[submesh] && submesh != 0) {
             stModelInstance* instance =
-                static_cast<stModelInstance*>(g_world->psrMeshes[m_pSubmeshes[submesh].mesh]);
+                static_cast<stModelInstance*>(GetWorld()->psrMeshes[m_pSubmeshes[submesh].mesh]);
             if (intersects(instance)) out.push_back(instance);
             if ((flags & 0xff) != 0) {
                 MarkMeshLinksVisible(submesh);
@@ -883,7 +883,7 @@ unsigned int W8Octree::SampleRegionLinks(const glm::vec3& point, bool descend, b
                                          unsigned int region_key)
 {
     bool linked = false;
-    W8World* world = g_world.get();
+    W8World* world = GetWorld();
     std::vector<stModelInstance*> meshes;
     std::vector<int> cells;
     view.camera_location = point;
@@ -930,7 +930,7 @@ unsigned int W8Octree::SampleRegionLinks(const glm::vec3& point, bool descend, b
                         continue;
                     }
                     meshes.push_back(
-                        static_cast<stModelInstance*>(g_world->psrMeshes[m_pSubmeshes[cell].mesh]));
+                        static_cast<stModelInstance*>(GetWorld()->psrMeshes[m_pSubmeshes[cell].mesh]));
                     if (!TestBit(m_projected_regions, cell)) {
                         auto slot = m_pRegionLinks->equal_range(key).first;
                         while (slot != m_pRegionLinks->end() &&
@@ -940,7 +940,7 @@ unsigned int W8Octree::SampleRegionLinks(const glm::vec3& point, bool descend, b
                         if (slot == m_pRegionLinks->end()) {
                             if (cell != 0) {
                                 m_pSubmeshes[cell].flags |= 0x28;
-                                srNode* node = g_world->psrMeshes[m_pSubmeshes[cell].mesh];
+                                srNode* node = GetWorld()->psrMeshes[m_pSubmeshes[cell].mesh];
                                 if (node != 0) {
                                     node->clearFlag(srNode::FLAG_DISABLE);
                                     if (descend) {
@@ -957,7 +957,7 @@ unsigned int W8Octree::SampleRegionLinks(const glm::vec3& point, bool descend, b
                     known:
                         if (cell != 0) {
                             m_pSubmeshes[cell].flags &= 0xfffffff7;
-                            srNode* node = g_world->psrMeshes[m_pSubmeshes[cell].mesh];
+                            srNode* node = GetWorld()->psrMeshes[m_pSubmeshes[cell].mesh];
                             if (node != 0) {
                                 node->setFlag(srNode::FLAG_DISABLE);
                                 node->setFlag(srNode::FLAG_TERMINATE);
@@ -985,7 +985,7 @@ unsigned int W8Octree::SampleRegionLinks(const glm::vec3& point, bool descend, b
                                 unsigned int candidate = cells[i];
                                 if (candidate != 0) {
                                     m_pSubmeshes[candidate].flags &= 0xfffffff7;
-                                    srNode* node = g_world->psrMeshes[m_pSubmeshes[candidate].mesh];
+                                    srNode* node = GetWorld()->psrMeshes[m_pSubmeshes[candidate].mesh];
                                     if (node != 0) {
                                         node->setFlag(srNode::FLAG_DISABLE);
                                         node->setFlag(srNode::FLAG_TERMINATE);
@@ -1016,7 +1016,7 @@ unsigned int W8Octree::SampleRegionLinks(const glm::vec3& point, bool descend, b
                                     child = child->getChild();
                                 }
                                 m_pSubmeshes[cell].flags &= 0xfffffff7;
-                                srNode* node = g_world->psrMeshes[m_pSubmeshes[cell].mesh];
+                                srNode* node = GetWorld()->psrMeshes[m_pSubmeshes[cell].mesh];
                                 if (node != 0) {
                                     node->setFlag(srNode::FLAG_DISABLE);
                                     node->setFlag(srNode::FLAG_TERMINATE);
@@ -1046,7 +1046,7 @@ unsigned int W8Octree::SampleRegionLinks(const glm::vec3& point, bool descend, b
 // FUNCTION: WIZ8 0x004314c0
 void W8Octree::BuildRegionLinks(bool rebuild_all)
 {
-    W8World* world = g_world.get();
+    W8World* world = GetWorld();
     bool aborted = false;
     unsigned int last_key = 0;
     time_t started = time(0);
@@ -1078,7 +1078,7 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
     world->camera->setViewPlane(2.094395102, 2.094395102);
     DisableAllRenderOptions();
     for (unsigned int mesh = 0; mesh < m_meshCount; ++mesh) {
-        srNode* node = g_world->psrMeshes[mesh];
+        srNode* node = GetWorld()->psrMeshes[mesh];
         if (node != 0) {
             node->setFlag(srNode::FLAG_DISABLE);
             node->setFlag(srNode::FLAG_TERMINATE);
@@ -1328,7 +1328,7 @@ int W8Octree::CountBadRegionMeshLinks(W8OctSpatialState* spatial)
             unsigned short link = m_branches[spatial->m_node_index].region;
             if (link != 0) {
                 stModelInstance* mesh =
-                    static_cast<stModelInstance*>(g_world->psrMeshes[m_pSubmeshes[link].mesh]);
+                    static_cast<stModelInstance*>(GetWorld()->psrMeshes[m_pSubmeshes[link].mesh]);
                 if (mesh != 0) {
                     if (auto* model = mesh->getModel()) {
                         const auto bounds = model->getBounds().box;
@@ -2145,10 +2145,10 @@ unsigned char W8Octree::TestProbeResult(W8OctreeTrace* trace)
 
     for (unsigned int index = 0; index < m_gd_result_count; ++index) {
         unsigned int mesh_index = m_aulGDObjs[index] >> 0x10;
-        if (mesh_index < m_meshCount && g_world->psrMeshes[mesh_index] != 0 &&
+        if (mesh_index < m_meshCount && GetWorld()->psrMeshes[mesh_index] != 0 &&
             !TestBit(m_alpha_bits, mesh_index)) {
             stMeshModel* model =
-                static_cast<stMeshModel*>(g_world->psrMeshes[mesh_index]->getModel());
+                static_cast<stMeshModel*>(GetWorld()->psrMeshes[mesh_index]->getModel());
             const glm::vec4* planes = model->getPolyEq();
             unsigned int polygon = m_aulGDObjs[index] & 0xffff;
             const glm::vec4* plane = planes + polygon;
@@ -2201,10 +2201,10 @@ std::vector<w8_ulong> W8Octree::polygonsNearPoint(const glm::vec3& position, flo
     polygons.reserve(m_gd_result_count);
     for (const auto key : std::span(m_aulGDObjs).first(m_gd_result_count)) {
         const auto mesh_index = key >> 16;
-        if (key == 0 || mesh_index >= m_meshCount || !g_world->psrMeshes[mesh_index] ||
+        if (key == 0 || mesh_index >= m_meshCount || !GetWorld()->psrMeshes[mesh_index] ||
             TestBit(m_alpha_bits, mesh_index))
             continue;
-        auto& model = *static_cast<stMeshModel*>(g_world->psrMeshes[mesh_index]->getModel());
+        auto& model = *static_cast<stMeshModel*>(GetWorld()->psrMeshes[mesh_index]->getModel());
         const auto polygon = key & 0xffff;
         const auto plane = model.getPolyEq()[polygon];
         if (plane.y < 0.5f) continue;
@@ -2237,7 +2237,7 @@ void W8Octree::UpdateMonsterLocation(unsigned short location_id, const glm::vec3
     if (info != 0 && info->p3D != 0) {
         monster = info->p3D;
         sector = GetSectorForPosition(position);
-        if (sector == 0 || (mesh = g_world->psrMeshes[m_pSubmeshes[sector].mesh]) == 0) {
+        if (sector == 0 || (mesh = GetWorld()->psrMeshes[m_pSubmeshes[sector].mesh]) == 0) {
             monster->sector_mesh = 0;
         } else {
             monster->sector_mesh = mesh;
@@ -2801,7 +2801,7 @@ unsigned char W8Octree::TestBoxOccupied(const glm::vec3* lower, const glm::vec3*
     objects = queryObjects({(*lower), (*upper)}, W8_OCTREE_KIND_PROP, -1);
     count = objects.size();
     for (index = 0; index < count; ++index) {
-        W8Prop* prop = g_world->collidable_props[objects[index]];
+        W8Prop* prop = GetWorld()->collidable_props[objects[index]];
         if (prop->GetActivationState() != 0 && prop->m_gd_prop != 0) {
             GDProp* gd_prop = prop->m_gd_prop.get();
             for (int surface_index = 0;

@@ -749,7 +749,7 @@ TEST_CASE("Ground polygon queries return owned sorted runs beyond thirty faces",
             g_world = std::move(previous);
         }
     } restore;
-    W8World& world = *g_world;
+    W8World& world = *GetWorld();
     constexpr unsigned faces = 42;
     auto mesh = std::make_shared<stMeshModel>(faces, 3);
     mesh->getVertexLoc()[0] = {-1, 0, -1};

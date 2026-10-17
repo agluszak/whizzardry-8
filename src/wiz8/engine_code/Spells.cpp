@@ -608,7 +608,7 @@ static W8SpellVisual* CreateSpellVisual(std::string_view name, W8SpellVisualMode
                                         int power_level, int value, int flags)
 {
     const auto load = [&](std::string_view resource) -> W8SpellVisual* {
-        auto owner = LoadSpellVisualResource(g_world.get(), resource, mode);
+        auto owner = LoadSpellVisualResource(GetWorld(), resource, mode);
         auto* visual = owner.get();
         if (!visual) {
             return nullptr;
@@ -616,14 +616,14 @@ static W8SpellVisual* CreateSpellVisual(std::string_view name, W8SpellVisualMode
         visual->SetNavigationMode(4);
         visual->active = false;
         visual->SetPitchRollEnabled(true, true);
-        g_world->spell_visuals.push_back(std::move(owner));
+        GetWorld()->spell_visuals.push_back(std::move(owner));
         return visual;
     };
 
     W8SpellVisual* visual = name.empty() ? nullptr : load(name);
     int cycle = visual ? visual->FindSupportedCycle(mode, power_level - 1) : -1;
     if (visual && cycle == -1) {
-        DestroySpellVisual(g_world.get(), visual);
+        DestroySpellVisual(GetWorld(), visual);
         visual = nullptr;
     }
     if (!visual) {
@@ -940,7 +940,7 @@ void SetMonsterSpellIcon(W8Monster* monster, W8MonsterSpellIconId icon, bool add
             auto* item = entry->psrBMO;
             entry = icons.erase(entry);
             if (item) {
-                item->DetachMesh(g_world.get());
+                item->DetachMesh(GetWorld());
                 delete item;
             }
         }
@@ -1084,7 +1084,7 @@ void ClearMonsterSpellIcons(W8Monster* monster)
         srAssertFail("monster representation", __FILE__, __LINE__, nullptr);
     for (const auto& entry : monster->m_pRep->spell_icons) {
         if (entry.psrBMO) {
-            entry.psrBMO->DetachMesh(g_world.get());
+            entry.psrBMO->DetachMesh(GetWorld());
             delete entry.psrBMO;
         }
     }

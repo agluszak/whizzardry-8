@@ -113,9 +113,9 @@ void InitializeWorldCursor(void)
         gp3DCursor->march_enabled = true;
         gp3DCursor->footprint_mode = false;
         gp3DCursor->dragged_info = 0;
-        auto monster = LoadMonsterCycle(g_world.get(), "3DCursor", -1, 1);
+        auto monster = LoadMonsterCycle(GetWorld(), "3DCursor", -1, 1);
         gp3DCursor->monster = monster.get();
-        g_world->monsters.push_back(std::move(monster));
+        GetWorld()->monsters.push_back(std::move(monster));
         MonsterSetCycle(gp3DCursor->monster, 0);
         gp3DCursor->last_published = glm::vec3(-100000000.0f);
         gp3DCursor->position = glm::vec3(0);
@@ -127,10 +127,10 @@ void InitializeWorldCursor(void)
         gp3DCursor->input_delta.z = 0;
         position = gp3DCursor->position;
         MonsterSetAdjustedPosition(gp3DCursor->monster, &position);
-        g_world->active_monsters.push_back(gp3DCursor->monster);
+        GetWorld()->active_monsters.push_back(gp3DCursor->monster);
         UpdateCycleRepresentation(gp3DCursor->monster);
         MonsterSetActive(gp3DCursor->monster, false);
-        gp3DCursor->light = CreateRangedWorldLight(g_world.get(), "3D Cursor Light");
+        gp3DCursor->light = CreateRangedWorldLight(GetWorld(), "3D Cursor Light");
         gp3DCursor->light->intensity = 1.0f;
         ConfigureWorldLight(gp3DCursor->light, 2500.0f);
         gp3DCursor->light->ambient = glm::vec3(0);
@@ -221,7 +221,7 @@ void ReleaseWorldCursor(void)
     ReleaseRendererObject(cursor->particle);
     ReleaseRendererObject(g_cursor_value);
     if (cursor->light != 0) {
-        WorldRemoveLight(g_world.get(), cursor->light);
+        WorldRemoveLight(GetWorld(), cursor->light);
         cursor->light = 0;
     }
     cursor->group_bind_pending = false;
@@ -283,10 +283,10 @@ void ApplyWorldCursorInput(void)
                         ? delta
                         : glm::normalize(delta) * static_cast<float>(gp3DCursor->range);
         }
-        rotation = g_world->dynamic_scene->getRotation<glm::mat3>();
+        rotation = GetWorld()->dynamic_scene->getRotation<glm::mat3>();
         gp3DCursor->cam_rel_offset += delta;
         gp3DCursor->position = rotation * (gp3DCursor->cam_rel_offset);
-        node_location = g_world->dynamic_scene->getLocation();
+        node_location = GetWorld()->dynamic_scene->getLocation();
         glm::vec3 scene_location;
         scene_location = glm::vec3(node_location);
         gp3DCursor->position += scene_location;

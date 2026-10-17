@@ -120,8 +120,8 @@ void FinalizeStaticScene(srScene* scene)
             static_cast<srLight*>(node)->setGroupMask(1);
         }
     }
-    if (g_world != 0 && g_world->camera_light != 0) {
-        g_world->camera_light->setGroupMask(2);
+    if (GetWorld() != 0 && GetWorld()->camera_light != 0) {
+        GetWorld()->camera_light->setGroupMask(2);
     }
 }
 
@@ -229,15 +229,15 @@ unsigned char BakeInstanceVertexLightingIfNeeded(stModelInstance* instance, srNo
 // FUNCTION: WIZ8 0x0046F760
 void SetWorldMeshVertexLightTable(int table)
 {
-    if (g_world->octree == 0) {
+    if (GetWorld()->octree == 0) {
         for (stMeshModel* model : stMeshModel::Meshes(
-                 static_cast<stMeshModel*>(g_world->update_mesh_source->getModel()))) {
+                 static_cast<stMeshModel*>(GetWorld()->update_mesh_source->getModel()))) {
             model->vertex_light_table = table;
             model->flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
         }
     } else {
-        for (unsigned int mesh = 0; mesh < g_world->octree->m_meshCount; ++mesh) {
-            srModelInstance* instance = g_world->psrMeshes[mesh];
+        for (unsigned int mesh = 0; mesh < GetWorld()->octree->m_meshCount; ++mesh) {
+            srModelInstance* instance = GetWorld()->psrMeshes[mesh];
             if (instance != 0) {
                 for (stMeshModel* model :
                      stMeshModel::Meshes(static_cast<stMeshModel*>(instance->getModel()))) {

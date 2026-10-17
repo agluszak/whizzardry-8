@@ -339,24 +339,24 @@ void UpdateEnvironmentLight(void)
 void SetSkyEnabled(bool enabled)
 {
     if (enabled) {
-        if (g_world == 0 || g_world->dynamic_scene == 0 || g_environment_object0 != 0) {
+        if (GetWorld() == 0 || GetWorld()->dynamic_scene == 0 || g_environment_object0 != 0) {
             return;
         }
 
-        g_environment_object0 = std::make_unique<srFog>(g_world->static_scene.get());
-        g_environment_object1 = std::make_unique<srFog>(g_world->dynamic_scene);
+        g_environment_object0 = std::make_unique<srFog>(GetWorld()->static_scene.get());
+        g_environment_object1 = std::make_unique<srFog>(GetWorld()->dynamic_scene);
         g_environment_object0->density = 1.0f;
         g_environment_object1->density = 1.0f;
 
         RefreshFogRanges();
 
         PublishLightDirection(&g_light_direction);
-        if (g_world == 0 || g_world->camera == 0) {
+        if (GetWorld() == 0 || GetWorld()->camera == 0) {
             return;
         }
-        g_world->camera->setEnvironmentRange(
-            static_cast<float>(WorldGetFarClip(g_world.get())) * g_world->environment_range_start,
-            static_cast<float>(WorldGetFarClip(g_world.get())) * g_world->environment_range_end);
+        GetWorld()->camera->setEnvironmentRange(
+            static_cast<float>(WorldGetFarClip(GetWorld())) * GetWorld()->environment_range_start,
+            static_cast<float>(WorldGetFarClip(GetWorld())) * GetWorld()->environment_range_end);
         return;
     }
 
@@ -365,10 +365,10 @@ void SetSkyEnabled(bool enabled)
 
     glm::vec3 direction(0);
     PublishLightDirection(&direction);
-    if (g_world == 0 || g_world->camera == 0) {
+    if (GetWorld() == 0 || GetWorld()->camera == 0) {
         return;
     }
-    g_world->camera->setEnvironmentRange(0.0f, static_cast<float>(WorldGetFarClip(g_world.get())));
+    GetWorld()->camera->setEnvironmentRange(0.0f, static_cast<float>(WorldGetFarClip(GetWorld())));
 }
 
 /* The far plane the world is drawn to. */
@@ -476,14 +476,14 @@ void BeginWorldLightingFade(float duration)
         g_world_blacked_out = false;
         g_monster_light_scale = 1.0f;
 
-        world = g_world.get();
+        world = GetWorld();
         intensity = world->environment_base_intensity;
         if (world == 0) {
             srAssertFail("pWorld", ENVIRONMENT_CPP, 0x298, 0);
         }
         intensity = ApplyWorldLightingIntensity(world, intensity);
 
-        world = g_secondary_world.get();
+        world = GetSecondaryWorld();
         if (world != 0) {
             intensity = world->environment_base_intensity;
             intensity = ApplyWorldLightingIntensity(world, intensity);
@@ -499,10 +499,10 @@ void BeginWorldLightingFade(float duration)
     g_environment_transition_tick = w8_get_ticks();
     g_environment_lighting_mode = 1;
     if (duration < 0.0f) {
-        g_world->environment_base_intensity = g_world->environment_intensity;
-        if (g_secondary_world != 0) {
-            g_secondary_world->environment_base_intensity =
-                g_secondary_world->environment_intensity;
+        GetWorld()->environment_base_intensity = GetWorld()->environment_intensity;
+        if (GetSecondaryWorld() != 0) {
+            GetSecondaryWorld()->environment_base_intensity =
+                GetSecondaryWorld()->environment_intensity;
         }
     }
 }
@@ -534,14 +534,14 @@ void UpdateEnvironmentLighting(void)
     }
     g_monster_light_scale = scale;
 
-    world = g_world.get();
+    world = GetWorld();
     intensity = scale * world->environment_base_intensity;
     if (world == 0) {
         srAssertFail("pWorld", ENVIRONMENT_CPP, 0x298, 0);
     }
     intensity = ApplyWorldLightingIntensity(world, intensity);
 
-    world = g_secondary_world.get();
+    world = GetSecondaryWorld();
     if (world != 0) {
         float secondary = scale * world->environment_base_intensity;
         secondary = ApplyWorldLightingIntensity(world, secondary);
@@ -589,15 +589,15 @@ void DisableSky(void)
 // FUNCTION: WIZ8 0x004836A0
 void RefreshFogRanges(void)
 {
-    if (g_environment_object0 != 0 && g_world != 0) {
+    if (g_environment_object0 != 0 && GetWorld() != 0) {
         g_environment_object0->fog_end =
-            WorldGetFarClip(g_world.get()) * g_world->environment_range_end;
+            WorldGetFarClip(GetWorld()) * GetWorld()->environment_range_end;
         g_environment_object0->fog_start =
-            WorldGetFarClip(g_world.get()) * g_world->environment_range_start;
+            WorldGetFarClip(GetWorld()) * GetWorld()->environment_range_start;
         g_environment_object1->fog_start =
-            WorldGetFarClip(g_world.get()) * g_world->environment_range_start;
+            WorldGetFarClip(GetWorld()) * GetWorld()->environment_range_start;
         g_environment_object1->fog_end =
-            WorldGetFarClip(g_world.get()) * g_world->environment_range_end;
+            WorldGetFarClip(GetWorld()) * GetWorld()->environment_range_end;
     }
 }
 
@@ -668,10 +668,10 @@ void AddEnvironmentLight(stLight* light)
 // FUNCTION: WIZ8 0x00483a60
 void SetWorldEnvironmentColour(glm::vec3 colour)
 {
-    if (g_world == nullptr) {
+    if (GetWorld() == nullptr) {
         srAssertFail("pWorld", ENVIRONMENT_CPP, 634, 0);
     }
-    ApplyEnvironmentColour(g_world.get(), g_world->environment_intensity, &colour);
+    ApplyEnvironmentColour(GetWorld(), GetWorld()->environment_intensity, &colour);
 }
 
 // GLOBAL: WIZ8 0x005ec988
@@ -698,8 +698,8 @@ void ApplyEnvironmentColour(W8World* world, float intensity, const glm::vec3* co
         light->ambient = glm::clamp(scaled, 0.0f, 1.0f);
     }
     {
-        if (g_secondary_world && g_secondary_world->cloud_material) {
-            auto& material = g_secondary_world->cloud_material;
+        if (GetSecondaryWorld() && GetSecondaryWorld()->cloud_material) {
+            auto& material = GetSecondaryWorld()->cloud_material;
             double brightness =
                 1.0 - fabs(g_status.game_time_ms - g_half_day_ms) * g_inverse_half_day_ms;
 
@@ -718,8 +718,8 @@ void ApplyEnvironmentColour(W8World* world, float intensity, const glm::vec3* co
 // FUNCTION: WIZ8 0x00483e30
 void SetCameraLightIntensity(float value)
 {
-    if (g_world->camera_light != 0) {
-        g_world->camera_light->intensity = value;
+    if (GetWorld()->camera_light != 0) {
+        GetWorld()->camera_light->intensity = value;
     }
 }
 
@@ -730,7 +730,7 @@ void SetCameraLightIntensity(float value)
 // FUNCTION: WIZ8 0x00483e50
 void SetSkyNodeVisible(bool visible)
 {
-    stLight* camera_light = g_world->camera_light;
+    stLight* camera_light = GetWorld()->camera_light;
 
     if (camera_light != 0) {
         if (visible) {
@@ -751,11 +751,11 @@ void SetCameraLightMode(int mode)
     stLight* camera_light;
     float intensity;
 
-    if (g_world != 0 && (camera_light = g_world->camera_light) != 0) {
+    if (GetWorld() != 0 && (camera_light = GetWorld()->camera_light) != 0) {
         switch (mode) {
         case 0:
             camera_light->clearFlag(srNode::FLAG_DISABLE);
-            camera_light = g_world->camera_light;
+            camera_light = GetWorld()->camera_light;
             intensity = 0.0f;
             if (camera_light != 0) {
                 intensity = camera_light->intensity;
@@ -802,9 +802,9 @@ const char* g_sky_gradient_names[3] = {"SkyGrad0000.ifl", "Skytop0000.ifl", "Hor
 // FUNCTION: WIZ8 0x00482410
 void InitializeLevelEnvironment(void)
 {
-    if (g_secondary_world != 0) {
-        g_sun_prop = FindPropByName(g_secondary_world.get(), "Sun");
-        g_moon_prop = FindPropByName(g_secondary_world.get(), "Moon");
+    if (GetSecondaryWorld() != 0) {
+        g_sun_prop = FindPropByName(GetSecondaryWorld(), "Sun");
+        g_moon_prop = FindPropByName(GetSecondaryWorld(), "Moon");
     }
     if (g_celestial_orbit_radius < 0.0f) {
         if (g_sun_prop == 0 || g_moon_prop == 0) {

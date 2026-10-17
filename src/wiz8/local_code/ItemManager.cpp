@@ -573,8 +573,8 @@ void ActivateItem(W8WorldItem* item)
     item->p3D->SetYaw(
         static_cast<float>(Random(0x168) * 2 * g_camera_pi * kInverseFullTurnDegrees));
     static_cast<W8ItemRep*>(item->p3D->m_pRep)->flags |= item->entity_flags;
-    item->p3D->AttachMesh(g_world.get());
-    g_world->plsItems.push_back(std::move(entity));
+    item->p3D->AttachMesh(GetWorld());
+    GetWorld()->plsItems.push_back(std::move(entity));
     item->fActive = true;
     ++gXStatus.item_manager_pending;
 
@@ -619,8 +619,8 @@ void DeactivateWorldItem(W8WorldItem* item)
     item->position = position;
     item->entity_flags = static_cast<W8ItemRep*>(item->p3D->m_pRep)->flags;
 
-    item->p3D->DetachMesh(g_world.get());
-    std::erase_if(g_world->plsItems,
+    item->p3D->DetachMesh(GetWorld());
+    std::erase_if(GetWorld()->plsItems,
                   [item](const auto& owner) { return owner.get() == item->p3D; });
     item->p3D = 0;
     item->fActive = false;
@@ -691,7 +691,7 @@ void UpdateNearbyWorldItems(void)
     unsigned int index;
     unsigned int count;
 
-    camera = cameraLocation(*g_world);
+    camera = cameraLocation(*GetWorld());
     count = gXStatus.world_items.size();
     for (index = 0; index < count; ++index) {
         W8WorldItem* item = ItemInfo(index);
@@ -746,7 +746,7 @@ glm::vec3 ItemThrowDirection(const glm::vec2& cursor, const glm::mat3& camera_ro
 void DropHeldItem(int)
 {
     glm::mat3 rotation;
-    rotation = cameraRotation(*g_world);
+    rotation = cameraRotation(*GetWorld());
     glm::vec3 direction = ItemThrowDirection(GetCursorScaledPosition(), rotation);
 
     glm::vec3 camera = cameraLocation();
@@ -894,7 +894,7 @@ bool AnyWorldItemVisible(void)
     int count;
     int index;
 
-    if (g_world == 0 || g_world->camera == 0) {
+    if (GetWorld() == 0 || GetWorld()->camera == 0) {
         return false;
     }
     camera = cameraLocation();

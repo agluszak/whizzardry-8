@@ -81,7 +81,7 @@ void SetGameTimeMilliseconds(int value);
    hands off to when the bypass value is set. */
 void UpdateEnvironment(void);
 void UpdateEnvironmentLighting(void);
-/* Show or hide the world's camera light: 0x00483E50 loads g_world->camera_light
+/* Show or hide the world's camera light: 0x00483E50 loads GetWorld()->camera_light
    (offset 0x54) and clears srNode::FLAG_DISABLE when visible, sets it when not.
    Nothing here is a sky node; the exported name is still the placeholder and one
    caller lives in a TU owned elsewhere, so the rename waits for it. */
