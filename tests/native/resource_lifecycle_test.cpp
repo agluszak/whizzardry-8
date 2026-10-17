@@ -208,7 +208,7 @@ struct SpellVisualFixture {
     W8Octree* previous_octree = g_octree;
     std::unique_ptr<W8Octree> octree;
     W8World world{};
-    std::vector<W8SpellVisual*>& visuals = world.spell_visuals;
+    std::vector<std::unique_ptr<W8SpellVisual>>& visuals = world.spell_visuals;
 
     SpellVisualFixture()
     {
@@ -222,7 +222,7 @@ struct SpellVisualFixture {
 
     ~SpellVisualFixture()
     {
-        DestroyAllSpellVisuals(&world);
+        world.spell_visuals.clear();
         octree.reset();
         g_octree = previous_octree;
         SetCurrentWorld(previous_world);
