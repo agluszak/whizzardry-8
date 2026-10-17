@@ -43,6 +43,7 @@
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/SoundEvent.h"
+#include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/emitter_cycles.h"
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/engine_code/stLight.hpp"
@@ -191,11 +192,11 @@ float AdvanceMissileAI(W8AIMissile* record, glm::vec3* out, unsigned int steps)
     position = record->missile->GetPosition();
     (*out) = glm::vec3(position.x + direction.x * advance, position.y + direction.y * advance,
                        position.z + direction.z * advance);
-    if (g_world->octree != 0) {
-        if (const auto hit = g_world->octree->traceProps(position, (*out), 0, 0)) {
+    if (GetWorld()->octree != 0) {
+        if (const auto hit = GetWorld()->octree->traceProps(position, (*out), 0, 0)) {
             *out = hit->position;
             record->limit = 1.0f;
-            prop = g_world->collidable_props[hit->prop_id];
+            prop = GetWorld()->collidable_props[hit->prop_id];
             prop->RunMissileTrigger(record);
         }
     }
@@ -308,12 +309,12 @@ W8Missile* NextMissile(bool restart)
 {
     W8Missile* missile = 0;
 
-    if (g_world != 0) {
+    if (GetWorld() != 0) {
         if (restart) {
             g_missile_iterator = 0;
         }
-        if (g_missile_iterator < static_cast<int>(g_world->missiles.size())) {
-            missile = g_world->missiles[g_missile_iterator].get();
+        if (g_missile_iterator < static_cast<int>(GetWorld()->missiles.size())) {
+            missile = GetWorld()->missiles[g_missile_iterator].get();
             ++g_missile_iterator;
         }
     }
@@ -370,7 +371,7 @@ W8Missile* FireMissile(unsigned int missile_table_index, glm::vec3* source, glm:
 W8Missile* AllocateMissile(int missile_table_index)
 {
     W8GrCycleLoadContext context;
-    context.world = g_world;
+    context.world = GetWorld();
     context.directory = "Data\\Spells\\Bitmaps";
     auto owner =
         LoadMissileCycle(&context, g_missile_table[missile_table_index].cycle_name.c_str());
@@ -392,7 +393,7 @@ W8Missile* AllocateMissile(int missile_table_index)
         }
     }
     missile->impacting = false;
-    g_world->missiles.push_back(std::move(owner));
+    GetWorld()->missiles.push_back(std::move(owner));
     missile->SetBounds({{-125.0f, -125.0f, -125.0f}, {125.0f, 125.0f, 125.0f}});
     missile->active = true;
     return missile;
@@ -559,7 +560,7 @@ W8Missile* CreateMissile(unsigned int missile_table_index, glm::vec3* source, fl
         missile->m_pRep->SetRotation(&aim);
         missile->SetAngles(heading);
         missile->SetPitch(pitch);
-        octree = g_world->octree.get();
+        octree = GetWorld()->octree.get();
         if (octree != 0) {
             end = glm::vec3(direction.x * duration, direction.y * duration, direction.z * duration);
             end = end + *source;

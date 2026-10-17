@@ -97,7 +97,7 @@ void MartensBluff1Setup(void)
         if (GetLocationVarIDByName("DialState") != -1) {
             dial_state = GetLocationVarValueByName("DialState");
         }
-        particle = FindParticleByName(g_world, "GasSpray-00");
+        particle = FindParticleByName(GetWorld(), "GasSpray-00");
         if (particle != 0) {
             if ((dial_state & 0xf0000000) == 0) {
                 particle->SetActive(0);
@@ -107,7 +107,7 @@ void MartensBluff1Setup(void)
                     "Data\\Sound\\Ambients\\Air_Escaping_Loop.wav", position, 0.3f, 30.0f, true);
             }
         }
-        particle = FindParticleByName(g_world, "GasSpray-01");
+        particle = FindParticleByName(GetWorld(), "GasSpray-01");
         if (particle != 0) {
             if ((dial_state & 0xf0000000) == 0) {
                 particle->SetActive(0);
@@ -202,11 +202,11 @@ bool MartensBluff1GasSwitch(Trigger* pTrigger)
         return true;
     }
     state = (state & 0xfff0fff) | 0x1000;
-    particle = FindParticleByName(g_world, "GasSpray-00");
+    particle = FindParticleByName(GetWorld(), "GasSpray-00");
     if (particle != 0) {
         particle->SetActive(0);
     }
-    particle = FindParticleByName(g_world, "GasSpray-01");
+    particle = FindParticleByName(GetWorld(), "GasSpray-01");
     if (particle != 0) {
         particle->SetActive(0);
     }
@@ -243,14 +243,14 @@ bool MartensBluff1JDoorController(Trigger* pTrigger)
         return false;
     }
     g_trigger_feedback = true;
-    particle = FindParticleByName(g_world, "GasSpray-00");
+    particle = FindParticleByName(GetWorld(), "GasSpray-00");
     if (particle != 0) {
         particle->SetActive(1);
         position = glm::vec3(particle->getLocation());
         g_gas_sound0 = CreateAndPlaySoundNode("Data\\Sound\\Ambients\\Air_Escaping_Loop.wav",
                                               position, 0.3f, 30.0f, true);
     }
-    particle = FindParticleByName(g_world, "GasSpray-01");
+    particle = FindParticleByName(GetWorld(), "GasSpray-01");
     if (particle != 0) {
         particle->SetActive(1);
         position = glm::vec3(particle->getLocation());

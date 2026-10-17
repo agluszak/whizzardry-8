@@ -622,7 +622,7 @@ void WriteWorldItems(W8Chunk& chunks)
 }
 
 /* Apply one child of the matching LVLS group. */
-void LoadLevelSection(W8Chunk& chunk, unsigned int chunk_id)
+void LoadLevelSection(W8Chunk& chunk, unsigned int chunk_id, bool from_assets)
 {
     auto& file = chunk.Stream();
     switch (chunk_id) {
@@ -649,16 +649,16 @@ void LoadLevelSection(W8Chunk& chunk, unsigned int chunk_id)
         const auto count = ReadWorldItemCount(chunk);
         gXStatus.world_items.reserve(gXStatus.world_items.size() + count);
         for (unsigned index = 0; index < count; ++index)
-            RequireSection(AddWorldItem(LoadItem(file)) != nullptr, "world item");
+            RequireSection(AddWorldItem(LoadItem(file, from_assets)) != nullptr, "world item");
         break;
     }
     case W8_CHUNK_CURSOR_NODES:
-        if (!g_level_status_loading) ReleaseWorldCursorNodes();
+        if (!from_assets) ReleaseWorldCursorNodes();
         LoadWorldCursorNodes(file);
-        if (g_level_status_loading) LoadWorldCursorNodeStates(file);
+        if (from_assets) LoadWorldCursorNodeStates(file);
         break;
     case W8_CHUNK_ENCOUNTERS:
-        if (!g_level_status_loading) DestroyMonsterGenerators();
+        if (!from_assets) DestroyMonsterGenerators();
         MonGen::LoadAll(file);
         break;
     case W8_CHUNK_TRIGGER_LOCKS:
@@ -672,10 +672,10 @@ void LoadLevelSection(W8Chunk& chunk, unsigned int chunk_id)
         LoadAutomapNotes(file);
         break;
     case W8_CHUNK_TRIGGERS:
-        LoadWorldTriggers(g_world, file);
+        LoadWorldTriggers(GetWorld(), file);
         break;
     case W8_CHUNK_PROPS:
-        LoadWorldProps(g_world, file);
+        LoadWorldProps(GetWorld(), file);
         break;
     case W8_CHUNK_CURSOR_NODE_STATES:
         LoadWorldCursorNodeStates(file);
@@ -702,7 +702,7 @@ void CopyCurrentGameChunks(W8Chunk& source, W8Chunk& destination)
 {
     source.ForEachChunk([&](unsigned int id) {
         if (id == W8_CHUNK_LEVEL_STATUS) {
-            if (PeekGroupLevel(source) == g_status.current_level) return;
+            if (PeekGroupLevel(source) == GetLoadedLevelID()) return;
         } else if (id != W8_CHUNK_CHARACTER) {
             return;
         }
@@ -847,7 +847,7 @@ static std::unique_ptr<W8SaveSlot> ReadSaveSlot(const std::string& name,
     slot->local_write_time = wiz8::file_time_with_legacy_local_bias(
         wiz8::file_time_from_sdl(metadata.info.modify_time), utc_offset);
     slot->timestamp = wiz8::file_time_to_utc(slot->local_write_time);
-    slot->level_id = status.current_level;
+    slot->level_id = status.resume_level;
     slot->game_time_ms = status.game_time_ms;
     slot->iron_man = status.iron_man;
     slot->game_time_days = status.game_time_days;
@@ -901,7 +901,7 @@ try {
         return false;
     });
     chunks.Close();
-    return found ? saved.status.current_level : 0;
+    return found ? saved.status.resume_level : 0;
 } catch (const std::exception&) {
     return 0;
 }
@@ -944,11 +944,11 @@ static void WriteGame(std::string_view name, const W8SaveScreenshot* screenshot,
     }
     PrepareStatusForSave(chunks.Stream());
     {
-        // The text-line cursor's transient state 2 is saved as 0.
-        const short cursor = g_status.text_line_cursor;
-        ScopeExit restore([&] { g_status.text_line_cursor = cursor; });
-        if (cursor == 2) g_status.text_line_cursor = 0;
-        SaveGlobalStatus(&chunks, &g_status);
+        auto snapshot = g_status;
+        // Normalize transient UI state in the save image, without changing the session.
+        if (snapshot.text_line_cursor == 2) snapshot.text_line_cursor = 0;
+        snapshot.resume_level = GetLoadedLevelID();
+        SaveGlobalStatus(&chunks, &snapshot);
     }
     chunks.WriteChunk(W8_CHUNK_GAME_VERSION, [&] {
         chunks.WriteValue(kCurrentSaveVersion.major);
@@ -1033,8 +1033,7 @@ try {
         W8Chunk source;
         if (!source.OpenRead(wiz8::user_path(path))) return false;
         source.ForEachChunk([&](unsigned int id) {
-            if (id == W8_CHUNK_LEVEL_STATUS && PeekGroupLevel(source) == g_status.current_level)
-                return;
+            if (id == W8_CHUNK_LEVEL_STATUS && PeekGroupLevel(source) == GetLoadedLevelID()) return;
             RequireSection(transaction.chunks.CopyCurrentChunkFrom(&source), "level status copy");
         });
         source.Close();
@@ -1055,36 +1054,21 @@ try {
     DestroyUngroupedMonsters();
     auto& file = chunks->Stream();
     chunks->WriteGroup(W8_CHUNK_LEVEL_STATUS, [&] {
-        chunks->WriteValue(g_status.current_level);
+        chunks->WriteValue(GetLoadedLevelID());
         chunks->WriteChunk(W8_CHUNK_STATUS_HEADER,
                            [&] { chunks->WriteValue(CaptureStatusHeader()); });
         chunks->WriteChunk(W8_CHUNK_MONSTERS,
                            [&] { RequireSection(SaveMonsterStatus(chunks), "monster status"); });
         chunks->WriteChunk(W8_CHUNK_WORLD_ITEMS, [&] { WriteWorldItems(*chunks); });
 
-        if (g_level_status_loading) {
-            chunks->WriteChunk(W8_CHUNK_CURSOR_NODES, [&] {
-                SaveWorldCursorNodes(file);
-                SaveWorldCursorNodeStates(file);
-            });
-            chunks->WriteChunk(W8_CHUNK_ENCOUNTERS, [&] { SaveEncounterState(file); });
-            chunks->WriteChunk(W8_CHUNK_TRIGGER_LOCKS, [&] {
-                SaveTriggerRuntimeStates(g_world, file, g_level_status_loading);
-            });
-            chunks->WriteChunk(W8_CHUNK_TRIGGER_ACTIONS,
-                               [&] { SaveTriggerActionData(g_world, file); });
-            return;
-        }
-
         chunks->WriteChunk(W8_CHUNK_AUTOMAP_NOTES, [&] { SaveAutomapNotes(file); });
-        if (!g_world->triggers.empty())
-            chunks->WriteChunk(W8_CHUNK_TRIGGERS, [&] { SaveWorldTriggers(g_world, file); });
-        chunks->WriteChunk(W8_CHUNK_PROPS, [&] { SaveWorldProps(g_world, file); });
+        if (!GetWorld()->triggers.empty())
+            chunks->WriteChunk(W8_CHUNK_TRIGGERS, [&] { SaveWorldTriggers(GetWorld(), file); });
+        chunks->WriteChunk(W8_CHUNK_PROPS, [&] { SaveWorldProps(GetWorld(), file); });
         chunks->WriteChunk(W8_CHUNK_CURSOR_NODE_STATES, [&] { SaveWorldCursorNodeStates(file); });
         chunks->WriteChunk(W8_CHUNK_MONSTER_GENERATORS, [&] { SaveMonsterGenerators(file); });
-        chunks->WriteChunk(W8_CHUNK_TRIGGER_STATES, [&] {
-            SaveTriggerRuntimeStates(g_world, file, g_level_status_loading);
-        });
+        chunks->WriteChunk(W8_CHUNK_TRIGGER_STATES,
+                           [&] { SaveTriggerRuntimeStates(GetWorld(), file, false); });
         chunks->WriteChunk(W8_CHUNK_AMBIENT_SOUNDS, [&] { SaveAmbientSoundList(file); });
         chunks->WriteChunk(W8_CHUNK_PARTICLES, [&] { SaveParticleStates(file); });
         chunks->WriteChunk(W8_CHUNK_LIGHTS, [&] { SaveLightStates(file); });
@@ -1128,11 +1112,11 @@ try {
 
 /* Apply a status file's group for `level`. */
 // FUNCTION: WIZ8 0x005135d0
-bool LoadLevelStatus(const std::filesystem::path& path, int level)
+bool LoadLevelStatus(const std::filesystem::path& path, int level, bool from_assets)
 try {
     W8Chunk chunk;
     if (!chunk.OpenRead(path)) return false;
-    const bool loaded = LoadItemStatus(&chunk, level);
+    const bool loaded = LoadItemStatus(&chunk, level, from_assets);
     chunk.Close();
     return loaded;
 } catch (const std::exception&) {
@@ -1143,11 +1127,12 @@ try {
    the level's shipped status is folded in first, so the saved sections land
    on top of the level's baseline. */
 // FUNCTION: WIZ8 0x00513650
-bool LoadItemStatus(W8Chunk* chunk, int level)
+bool LoadItemStatus(W8Chunk* chunk, int level, bool from_assets)
 try {
     return WithLevelGroup(*chunk, level, [&] {
-        if (!g_level_status_loading) LoadDefaultLevelStatus(level);
-        chunk->ForEachChunk([&](unsigned int section) { LoadLevelSection(*chunk, section); });
+        if (!from_assets) LoadDefaultLevelStatus(level);
+        chunk->ForEachChunk(
+            [&](unsigned int section) { LoadLevelSection(*chunk, section, from_assets); });
     });
 } catch (const std::exception&) {
     return false;
@@ -1286,7 +1271,7 @@ try {
 // FUNCTION: WIZ8 0x00512c40
 void ResetLiveSessionForLoad(void)
 {
-    if (g_status.current_level != -1) {
+    if (GetLoadedLevelID() != -1) {
         UnloadLevel("");
         wiz8::sound::release_cache();
     }
@@ -1323,7 +1308,6 @@ try {
             item->position = item->p3D->m_pRep->GetLocation();
             item->entity_flags = static_cast<W8ItemRep*>(item->p3D->m_pRep)->flags;
         }
-        if (g_level_status_loading) item->entity_flags &= ~W8_ITEM_ENTITY_RADAR_SEEN;
         wiz8::retail::write(handle, *item);
     }
     return true;
@@ -1335,7 +1319,7 @@ try {
    follows. The whole chain is staged before it is published to the item list
    and the search registry. */
 // FUNCTION: WIZ8 0x00514c80
-std::unique_ptr<W8WorldItem> LoadItem(wiz8::File& handle)
+std::unique_ptr<W8WorldItem> LoadItem(wiz8::File& handle, bool from_assets)
 try {
     std::unique_ptr<W8WorldItem> head;
     auto* link = &head;
@@ -1349,7 +1333,7 @@ try {
         wiz8::retail::decode_image(image, item);
         item.sector_id = -2;
         item.fActive = false;
-        if (g_level_status_loading) item.entity_flags &= ~W8_ITEM_ENTITY_RADAR_SEEN;
+        if (from_assets) item.entity_flags &= ~W8_ITEM_ENTITY_RADAR_SEEN;
         if (ItemHasFlags(&item, W8_WORLD_ITEM_HIDDEN)) {
             auto searchable = std::make_unique<W8Searchable>();
             searchable->world_item = &item;

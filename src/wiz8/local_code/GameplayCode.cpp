@@ -236,7 +236,7 @@ void RefreshLevelUpReadyNotices(void)
 {
     int party_slot;
 
-    if (g_status.greeting_pending || GetLevelBand(g_status.current_level) == 0xe) {
+    if (g_status.greeting_pending || GetLevelBand(GetLoadedLevelID()) == 0xe) {
         return;
     }
 
@@ -1186,8 +1186,8 @@ void AwardPartyExperience(int amount, int alternate_message)
             } else {
                 character->experience = static_cast<unsigned int>(-1);
             }
-            if (g_status.current_level >= 0 && g_status.current_level < W8_LEVEL_COUNT) {
-                auto& progress = g_status.level_progress[g_status.current_level];
+            if (GetLoadedLevelID() >= 0 && GetLoadedLevelID() < W8_LEVEL_COUNT) {
+                auto& progress = g_status.level_progress[GetLoadedLevelID()];
                 const unsigned int gained = progress.experience_gained;
                 total = gained + static_cast<unsigned int>(amount);
                 if (total > gained) {

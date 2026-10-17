@@ -4,13 +4,15 @@
 #include <utility>
 
 #include "wiz8/containers.h"
+#include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/layouts/world.h"
 
 EmitterLights::~EmitterLights()
 {
-    if (g_world) {
-        for (const auto& light : lights) wiz8::erase_first(g_world->lights_to_update, light.get());
+    if (GetWorld()) {
+        for (const auto& light : lights)
+            wiz8::erase_first(GetWorld()->lights_to_update, light.get());
     }
 }
 

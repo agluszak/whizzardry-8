@@ -226,23 +226,23 @@ int FindNpcNameOrPlaceQuote(W8NpcState* npc, std::string_view text)
     }
     for (index = 0; g_npc_script_region_names[index].name[0] != 0; ++index) {
         if (CompareTextIgnoreAsciiCase(text, g_npc_script_region_names[index].name) == 0) {
-            band = GetLevelBand(g_status.current_level);
+            band = GetLevelBand(GetLoadedLevelID());
             return g_npc_region_quotes[g_npc_script_region_names[index].region][band];
         }
     }
     if (CompareTextIgnoreAsciiCase(text, "Mt Gigas") == 0 ||
         CompareTextIgnoreAsciiCase(text, "Gigas") == 0) {
-        band = GetLevelBand(g_status.current_level);
+        band = GetLevelBand(GetLoadedLevelID());
         return g_npc_region_quotes[11][band];
     }
     if (CompareTextIgnoreAsciiCase(text, "the swamp") == 0) {
-        band = GetLevelBand(g_status.current_level);
+        band = GetLevelBand(GetLoadedLevelID());
         return g_npc_region_quotes[4][band];
     }
     if (CompareTextIgnoreAsciiCase(text, "the Monastery") != 0) {
         return -1;
     }
-    band = GetLevelBand(g_status.current_level);
+    band = GetLevelBand(GetLoadedLevelID());
     return g_npc_region_quotes[1][band];
 }
 
@@ -449,7 +449,7 @@ void W8NpcDialogue::RunQuoteEntry(W8NpcQuoteEntry* entry, int continuation_quote
                 }
                 if (!target->is_grouped) {
                     SelectNpcDialogueSpeaker(target, 0);
-                    if (g_status.current_level != 4 || g_status.world_cursor_gate == 0) {
+                    if (GetLoadedLevelID() != 4 || g_status.world_cursor_gate == 0) {
                         LookAtDialogueNpc();
                     }
                 } else {
@@ -470,7 +470,7 @@ void W8NpcDialogue::RunQuoteEntry(W8NpcQuoteEntry* entry, int continuation_quote
             if (target != 0) {
                 if (!target->is_grouped) {
                     SelectNpcDialogueSpeaker(target, 0);
-                    if (g_status.current_level != 4 || g_status.world_cursor_gate == 0) {
+                    if (GetLoadedLevelID() != 4 || g_status.world_cursor_gate == 0) {
                         LookAtDialogueNpc();
                     }
                 } else {

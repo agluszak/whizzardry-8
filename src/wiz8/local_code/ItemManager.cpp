@@ -752,7 +752,7 @@ glm::vec3 ItemThrowDirection(const glm::vec2& cursor, const glm::mat3& camera_ro
 void DropHeldItem(int)
 {
     glm::mat3 rotation;
-    rotation = cameraRotation(*g_world);
+    rotation = cameraRotation(*GetWorld());
     glm::vec3 direction = ItemThrowDirection(GetCursorScaledPosition(), rotation);
 
     glm::vec3 camera = cameraLocation();
@@ -924,7 +924,7 @@ bool AnyWorldItemVisible(void)
     int count;
     int index;
 
-    if (g_world == 0 || g_world->camera == 0) {
+    if (GetWorld() == 0 || GetWorld()->camera == 0) {
         return false;
     }
     camera = cameraLocation();

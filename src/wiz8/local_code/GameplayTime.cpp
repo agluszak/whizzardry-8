@@ -261,7 +261,7 @@ void UpdateSurpriseMode(void)
             DestroyUngroupedMonsters();
             SetViewDistance(2880.0f);
             SetNavigatorLinkMode(1);
-            level_scale = g_level_records[g_status.current_level].gameplay_time_scale;
+            level_scale = g_level_records[GetLoadedLevelID()].gameplay_time_scale;
             scale = 1.0f / level_scale;
             g_game_time_accumulator->SetDurationScale(scale);
             SetMonsterGeneratorDurationScale(scale);
@@ -710,8 +710,7 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
     }
 
     if (character->uiCondition[W8_CONDITION_INFATUATED] != 0) {
-        if (GetLevelBand(g_status.current_level) == 9 ||
-            GetLevelBand(g_status.current_level) == 0xa) {
+        if (GetLevelBand(GetLoadedLevelID()) == 9 || GetLevelBand(GetLoadedLevelID()) == 0xa) {
             if (character->uiCondition[W8_CONDITION_HEXED] == W8_CONDITION_INDEFINITE) {
                 RemoveCharacterCondition(party_slot, W8_CONDITION_HEXED, true);
             }

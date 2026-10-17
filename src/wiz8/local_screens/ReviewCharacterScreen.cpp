@@ -51,6 +51,7 @@
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/dialog_code/SpellInfoDialog.h"
+#include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/fact_state.h"
@@ -2477,7 +2478,7 @@ void PumpReviewTransition(void)
         }
         g_ending_autosave = false;
     }
-    if (g_status.current_level != -1) {
+    if (GetLoadedLevelID() != -1) {
         LoadCurrentLevelData();
     }
     exit_review = false;

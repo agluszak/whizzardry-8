@@ -294,7 +294,7 @@ TEST_CASE("world graphics")
                                         angle < 2 ? -0.7f : 0.5f);
             const auto rotation = g_gd_camera->rotationMatrix();
             world->camera->setRotation(rotation);
-            if (g_secondary_world) g_secondary_world->camera->setRotation(rotation);
+            if (GetSecondaryWorld()) GetSecondaryWorld()->camera->setRotation(rotation);
             RenderFrame();
             auto pixels = ReadFrame();
             REQUIRE(pixels != previous);

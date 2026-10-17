@@ -714,7 +714,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
                               {.on_finished = ClearPotionExplosionSoundFlag}) != nullptr) {
             g_npc_dialogue.HoldForScene();
         }
-        particle = FindParticleByName(g_world, "FuzzBlast");
+        particle = FindParticleByName(GetWorld(), "FuzzBlast");
         if (particle != 0) {
             particle->SetActive(0);
             particle->start_frame = 0;

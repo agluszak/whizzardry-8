@@ -2,6 +2,7 @@
 #define WIZ8_LAYOUTS_WORLD_H
 
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 class W8AmbientSound;
@@ -55,7 +56,9 @@ struct W8WorldCameraState {
    lights_to_update and collidable_props are non-owning indexes. Named positions
    are owned values: lookups copy their data and never retain element addresses. */
 struct W8World {
-    W8World();
+    explicit W8World(int level_id = -1, std::string source_path = {});
+    const int level_id;
+    const std::string source_path;
     ~W8World();
     W8World(const W8World&) = delete;
     W8World& operator=(const W8World&) = delete;
@@ -87,7 +90,6 @@ struct W8World {
     std::unique_ptr<W8GameData> game_data;
     std::unique_ptr<W8Octree> octree;
     stLight* camera_light{};
-    bool m_loaded{};
     std::unique_ptr<W8Quad> quads;
     srModelInstance* update_mesh_source{};
     float render_range0{};
@@ -108,8 +110,6 @@ struct W8World {
     std::vector<W8NamedPosition> named_positions;
 };
 
-extern W8World* g_world;
-extern W8World* g_secondary_world;
 extern int g_combat_round_counter;
 
 /* Typed element access for the homogeneous world lists. */

@@ -1286,7 +1286,7 @@ bool W8Prop::IsTriggerInView(glm::vec3* position)
     const float distance = glm::length((center - *position));
     if (!(distance < trigger->range_maximum && trigger->range_minimum <= distance)) return false;
     const std::array points{bounds->center(), bounds->minimum, bounds->maximum};
-    return g_world->camera->projectsAny(points);
+    return GetWorld()->camera->projectsAny(points);
 }
 
 // FUNCTION: WIZ8 0x0044bf50
@@ -1749,7 +1749,7 @@ void LoadWorldProps(W8World* world, wiz8::File& handle)
             handle.read_exact(name, 0x40);
             if (std::find(name, name + 64, '\0') == name + 64)
                 throw std::runtime_error("unterminated saved prop name");
-            prop = FindPropByName(g_world, name);
+            prop = FindPropByName(GetWorld(), name);
             if (prop != 0) {
                 prop->LoadAnimationState(handle);
             } else {

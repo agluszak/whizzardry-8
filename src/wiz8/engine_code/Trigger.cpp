@@ -161,7 +161,7 @@ Trigger* FindTriggerByName(const char* name)
     if (name == 0 || name[0] == 0) {
         return 0;
     }
-    for (W8World* world : {g_world, g_secondary_world}) {
+    for (W8World* world : {GetWorld(), GetSecondaryWorld()}) {
         if (world == 0) {
             continue;
         }
@@ -273,10 +273,10 @@ bool W8LockState::ConsumeCountdown()
 // FUNCTION: WIZ8 0x00445940
 bool InsideDestinationTrigger(float x, float y, float z)
 {
-    int count = static_cast<int>(g_world->triggers.size());
+    int count = static_cast<int>(GetWorld()->triggers.size());
 
     for (int index = 0; index < count; ++index) {
-        Trigger* trigger = g_world->triggers[index].get();
+        Trigger* trigger = GetWorld()->triggers[index].get();
         if (trigger->initial_action != 0x34) {
             continue;
         }
@@ -431,7 +431,7 @@ try {
 bool Trigger::Save(wiz8::File& hFile)
 {
     unsigned char version = 5;
-    int trigger_count = static_cast<int>(g_world->triggers.size());
+    int trigger_count = static_cast<int>(GetWorld()->triggers.size());
     bool header_ok;
     W8TriggerActionData* action_data;
     unsigned char has_action_data;
@@ -806,7 +806,7 @@ void UpdateWorldTriggers(W8World* world)
             }
         }
     }
-    if (world == g_world && !activated) {
+    if (world == GetWorld() && !activated) {
         g_trigger_camera = camera;
     }
 }
@@ -1088,7 +1088,7 @@ void W8TriggerEvent::Update()
         const char* name = (trigger->recipients.empty() ? nullptr : trigger->recipients.c_str());
         while (name != 0) {
             const auto recipient_name = NextTriggerRecipient(name);
-            stParticle* particle = FindParticleByName(g_world, recipient_name.c_str());
+            stParticle* particle = FindParticleByName(GetWorld(), recipient_name.c_str());
             if (particle != 0) {
                 particle->persisted = true;
                 particle->SetActive(0);
@@ -1935,8 +1935,8 @@ void Trigger::FinishAction()
                              2822, "Trigger.cpp: Dark Area doesn't have action data");
             }
             SetWorldEnvironmentIntensity(
-                g_world, static_cast<W8EnvironmentTriggerActionData*>(m_pActionData.get())
-                             ->previous_environment);
+                GetWorld(), static_cast<W8EnvironmentTriggerActionData*>(m_pActionData.get())
+                                ->previous_environment);
             m_pActionData.reset();
             goto finish_linked_triggers;
         }
@@ -2079,7 +2079,7 @@ void Trigger::RunDestination(const char* destination)
     }
 
     ResetInactiveLevelDataVectors();
-    current_location = g_status.current_level;
+    current_location = GetLoadedLevelID();
     location_id = current_location;
     named_entity =
         FindEntityByName(destination, &destination_position, &angle, &destination_direction);
@@ -2290,13 +2290,13 @@ void Trigger::Run(int source)
             goto commit_action;
 
         case 0x22: {
-            float previous_value = GetWorldEnvironmentIntensity(g_world);
+            float previous_value = GetWorldEnvironmentIntensity(GetWorld());
 
             m_pActionData = std::make_unique<W8EnvironmentTriggerActionData>();
             m_pActionData->type = W8_TRIGGER_PAYLOAD_ENVIRONMENT;
             static_cast<W8EnvironmentTriggerActionData*>(m_pActionData.get())
                 ->previous_environment = previous_value;
-            SetWorldEnvironmentIntensity(g_world, 0.0f);
+            SetWorldEnvironmentIntensity(GetWorld(), 0.0f);
             flags |= W8_TRIGGER_RUNNING;
             goto commit_action;
         }
@@ -2875,7 +2875,7 @@ void Trigger::Run(int source)
                 PlayActionSound("Data\\Sound\\misc\\fountain_magic.wav", 0);
             } else {
                 W8SpellId spell_id;
-                glm::dvec3 position = g_world->camera->getLocation();
+                glm::dvec3 position = GetWorld()->camera->getLocation();
 
                 if (action == 0x28) {
                     spell_id = W8_SPELL_HEX;
@@ -3030,11 +3030,11 @@ void Trigger::Run(int source)
         while (recipient != 0) {
             const auto name = NextTriggerRecipient(recipient);
             if (action == 0x41) {
-                PositionAmbientSoundByName(g_world, name.c_str());
+                PositionAmbientSoundByName(GetWorld(), name.c_str());
             } else if (action == 0x42) {
-                StopAmbientSoundByName(g_world, name.c_str());
+                StopAmbientSoundByName(GetWorld(), name.c_str());
             } else {
-                ToggleAmbientSoundByName(g_world, name.c_str());
+                ToggleAmbientSoundByName(GetWorld(), name.c_str());
             }
             action_succeeded = true;
         }
@@ -3051,7 +3051,7 @@ void Trigger::Run(int source)
         }
         while (recipient != 0) {
             stParticle* particle =
-                FindParticleByName(g_world, NextTriggerRecipient(recipient).c_str());
+                FindParticleByName(GetWorld(), NextTriggerRecipient(recipient).c_str());
             if (particle != 0) {
                 particle->persisted = true;
                 if (action == 0x44) {
@@ -3079,7 +3079,7 @@ void Trigger::Run(int source)
         action_succeeded = false;
         while (recipient != 0) {
             stParticle* particle =
-                FindParticleByName(g_world, NextTriggerRecipient(recipient).c_str());
+                FindParticleByName(GetWorld(), NextTriggerRecipient(recipient).c_str());
             if (particle != 0) {
                 particle->persisted = true;
                 particle->SetActive(1);
@@ -3129,7 +3129,7 @@ void Trigger::Run(int source)
             return;
         }
         while (recipient != 0) {
-            W8Prop* prop = FindPropByName(g_world, NextTriggerRecipient(recipient).c_str());
+            W8Prop* prop = FindPropByName(GetWorld(), NextTriggerRecipient(recipient).c_str());
             if (prop != 0) {
                 prop->SetAnimationSpeed(static_cast<float>(m_lData1));
             }
@@ -3359,14 +3359,16 @@ int ResetNextTriggerId(void)
     return 1;
 }
 
+void StopWorldTriggerEvents()
+{
+    g_timed_events.clear();
+    standalone_events.clear();
+}
+
 // FUNCTION: WIZ8 0x00443A60
 void DestroyAllWorldTriggers(W8World* world)
 {
     if (world != 0) {
-        if (world == g_world) {
-            g_timed_events.clear();
-            standalone_events.clear();
-        }
         world->triggers.clear();
     }
 }
@@ -3376,7 +3378,7 @@ int GetLocationVarIDByName(const char* name)
 {
     const auto found = std::find_if(location_variables.begin(), location_variables.end(),
                                     [name](const auto& variable) {
-                                        return variable.level == g_status.current_level &&
+                                        return variable.level == GetLoadedLevelID() &&
                                                SDL_strcasecmp(variable.name.c_str(), name) == 0;
                                     });
     return found == location_variables.end() ? -1
@@ -3390,7 +3392,7 @@ void CreateLocationVar(const char* name, int value)
     if (GetLocationVarIDByName(name) >= 0) return;
     if (location_variables.size() >= std::numeric_limits<std::int32_t>::max())
         throw std::length_error("Too many location variables");
-    location_variables.push_back({name, value, g_status.current_level});
+    location_variables.push_back({name, value, GetLoadedLevelID()});
 }
 
 // FUNCTION: WIZ8 0x004440d0

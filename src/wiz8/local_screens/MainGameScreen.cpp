@@ -2562,7 +2562,7 @@ static void OnEnterLevelDialogClosed(bool accepted)
         BeginLevelTransition();
         return;
     }
-    WorldSetCameraLocation(g_world, &g_trigger_camera);
+    WorldSetCameraLocation(GetWorld(), &g_trigger_camera);
 }
 
 /* Stage the level block's pending transition into the screen state and leave
@@ -2674,7 +2674,7 @@ void MainGameScreenFrame(void)
     if (g_build_level_links) {
         char path[512];
         W8LevelInfo info;
-        strcpy(path, g_world->octree->m_path_stem.c_str());
+        strcpy(path, GetWorld()->octree->m_path_stem.c_str());
         char* extension = strrchr(path, '.');
         if (extension) {
             *extension = '\0';
@@ -2684,7 +2684,7 @@ void MainGameScreenFrame(void)
                 const auto status = wiz8::file_status(wiz8::asset_path(path));
                 return status && status->info.type == SDL_PATHTYPE_FILE;
             }()) {
-            g_world->octree->BuildRegionLinks(true);
+            GetWorld()->octree->BuildRegionLinks(true);
         }
         for (; g_next_link_level < W8_LEVEL_COUNT; ++g_next_link_level) {
             if (LevelBuildInfoByID(g_next_link_level, &info)) {
@@ -2817,16 +2817,16 @@ update_screen:
     }
     if (!IsScreenTransitionPending()) {
 
-        UpdateWorldCameraAndPaths(g_world, g_level_block->camera_motion_flags);
-        if (g_secondary_world && !g_camera_path_active) {
-            UpdateWorldCameraAndPaths(g_secondary_world,
+        UpdateWorldCameraAndPaths(GetWorld(), g_level_block->camera_motion_flags);
+        if (GetSecondaryWorld() && !g_camera_path_active) {
+            UpdateWorldCameraAndPaths(GetSecondaryWorld(),
                                       g_level_block->camera_motion_flags | W8_CAMERA_MOTION_SKIP);
         }
 
-        ApplyWorldUpdateFlags(g_world, g_level_block->world_update_flags);
-        if (g_secondary_world &&
+        ApplyWorldUpdateFlags(GetWorld(), g_level_block->world_update_flags);
+        if (GetSecondaryWorld() &&
             (g_level_block->world_update_flags & W8_WORLD_CHANGE_FAR_CLIP) == 0) {
-            ApplyWorldUpdateFlags(g_secondary_world, g_level_block->world_update_flags);
+            ApplyWorldUpdateFlags(GetSecondaryWorld(), g_level_block->world_update_flags);
         }
         g_level_block->world_update_flags = 0;
         g_level_block->camera_motion_flags = 0;
@@ -2908,7 +2908,7 @@ update_screen:
         if (gXStatus.fLockInteractMode) ProcessLockInteractMode();
         if (gXStatus.fTrapInteractMode) UpdateMainGameScreen();
         int active;
-        if (!AnyPropTriggerInView(g_world) && !AnyMonsterVisible() && !AnyWorldItemVisible() &&
+        if (!AnyPropTriggerInView(GetWorld()) && !AnyMonsterVisible() && !AnyWorldItemVisible() &&
             !SelectWorldCursorNode()) {
             active = 0;
         } else {
@@ -2989,7 +2989,7 @@ unsigned char MainGameScreenLeave(int leaving)
     CloseMainGameOverlays();
 
     if (static_cast<unsigned char>(leaving)) {
-        if (g_status.current_level != -1) {
+        if (GetLoadedLevelID() != -1) {
             UnloadSkyWorld();
             if (!UnloadLevel("")) {
                 return 0;
@@ -3342,7 +3342,7 @@ void DrawMainGameScreen(void)
             EnsureRadarMapOverlay();
         }
         if (g_node_cull_pending) {
-            for (node = g_world->level->getChild(); node != 0; node = node->getNext()) {
+            for (node = GetWorld()->level->getChild(); node != 0; node = node->getNext()) {
                 if (dynamic_cast<stModelInstance*>(node)) {
                     node->clearFlag(srNode::FLAG_DISABLE);
                 }
@@ -3350,7 +3350,7 @@ void DrawMainGameScreen(void)
         }
         RenderFrame();
         if (g_node_cull_pending) {
-            for (node = g_world->level->getChild(); node != 0; node = node->getNext()) {
+            for (node = GetWorld()->level->getChild(); node != 0; node = node->getNext()) {
                 if (dynamic_cast<stModelInstance*>(node)) {
                     if (MeasureNodeRenderWithoutPositionalOption(node) == 0) {
                         node->setFlag(srNode::FLAG_DISABLE);
@@ -4292,7 +4292,7 @@ void RequestLevelTransition(int level, int entry, unsigned char flag)
                 fmt::format("Enter test level {:c} ?", normalized + 2);
         }
         if (QueueNpcDepartureEvents(normalized)) {
-            WorldSetCameraLocation(g_world, &g_trigger_camera);
+            WorldSetCameraLocation(GetWorld(), &g_trigger_camera);
             return;
         }
         SetMainGameMode(W8_MAIN_GAME_MODAL);
@@ -5649,9 +5649,9 @@ void UpdateWorldViewCursor(const UiPointerEvent& event, W8TargetNeed target_need
             }
             int cursor_y = event.position.y;
             int cursor_x = event.position.x;
-            int prop_index = ForwardSelectedPropIndex(g_world, cursor_x, cursor_y);
+            int prop_index = ForwardSelectedPropIndex(GetWorld(), cursor_x, cursor_y);
             if (prop_index > -1) {
-                W8Prop* prop = GetWorldProp(g_world, prop_index);
+                W8Prop* prop = GetWorldProp(GetWorld(), prop_index);
                 if (!gXStatus.world_update_blocked) {
                     if (prop != 0) {
                         if (prop->TriggerRequiresItem() && g_status.item_in_cursor) {
@@ -5741,7 +5741,7 @@ bool LoadCurrentLevelData(void)
 {
     bool loaded = true;
 
-    if (g_status.current_level != -1) {
+    if (GetLoadedLevelID() != -1) {
         SetTargetCursor(W8_CURSOR_MAP_LOAD);
         g_world_cleanup_flag = true;
         UnloadSkyWorld();

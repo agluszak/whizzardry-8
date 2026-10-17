@@ -335,3 +335,6 @@ void DestroyAllWorldTriggers(W8World* world);
 /* Walk the world's triggers for a type-0x34 RunDestination trigger whose
    annulus contains the position; answers true when one does. */
 bool InsideDestinationTrigger(float x, float y, float z);
+
+// Stop callbacks before retiring the primary world; trigger owners survive until teardown.
+void StopWorldTriggerEvents();

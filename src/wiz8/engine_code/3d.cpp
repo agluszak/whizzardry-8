@@ -119,8 +119,8 @@ void FinalizeStaticScene(srScene* scene)
             static_cast<srLight*>(node)->setGroupMask(1);
         }
     }
-    if (g_world != 0 && g_world->camera_light != 0) {
-        g_world->camera_light->setGroupMask(2);
+    if (GetWorld() != 0 && GetWorld()->camera_light != 0) {
+        GetWorld()->camera_light->setGroupMask(2);
     }
 }
 

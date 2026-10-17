@@ -55,6 +55,7 @@
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/GameData.h"
+#include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Quality.h"
@@ -365,8 +366,7 @@ void ResetAutomapView(void)
     }
     ClearAutomapNotes();
     g_automap_redraw = true;
-    if (g_status.current_level == 0x18 ||
-        (g_status.current_level > 0x1a && g_status.current_level <= 0x22)) {
+    if (GetLoadedLevelID() == 0x18 || (GetLoadedLevelID() > 0x1a && GetLoadedLevelID() <= 0x22)) {
         g_automap_range = 30000.0f;
     } else {
         g_automap_range = 10000.0f;
@@ -576,10 +576,10 @@ unsigned char AutomapScreenEnter(void)
 {
     stScript script;
     GetLightDirection(&g_automap_saved_light_direction);
-    GetWorldLightValue(g_world, &g_automap_saved_ambient_light);
+    GetWorldLightValue(GetWorld(), &g_automap_saved_ambient_light);
     g_automap_saved_camera = cameraState(*GetWorld());
-    g_automap_saved_far_clip = static_cast<float>(WorldGetFarClip(g_world));
-    g_automap_saved_world_value = WorldGetRenderRange(g_world);
+    g_automap_saved_far_clip = static_cast<float>(WorldGetFarClip(GetWorld()));
+    g_automap_saved_world_value = WorldGetRenderRange(GetWorld());
     g_automap_saved_sky = g_sky_enabled;
     g_automap_saved_render_flags[0] = GetRenderOptionState(W8_RENDER_OPTION_HIGH_TEXTURE_DETAIL);
     g_automap_saved_render_flags[1] = GetRenderOptionState(W8_RENDER_OPTION_MESH_SKY);
@@ -588,20 +588,20 @@ unsigned char AutomapScreenEnter(void)
     g_automap_saved_texture_policy = g_resident_texture_policy;
     glm::vec3 direction(0);
     SetLightDirection(&direction);
-    SetWorldEnvironmentColour(g_world, glm::vec3(0));
+    SetWorldEnvironmentColour(GetWorld(), glm::vec3(0));
     DisableSky();
     DisableRenderOption(W8_RENDER_OPTION_MESH_SKY);
     g_monster_shadow_updates_enabled = 1;
     g_world_render_enabled = 1;
     DisableSky();
-    g_world->camera->setClipRange(g_automap_near_clip, 1500000.0);
-    WorldSetRenderRange(g_world, 1500000.0f);
-    g_world->camera->setRotation(3.141592653589793 * (1.0f / 180.0f) * 90.0f, 0.0, 0.0);
+    GetWorld()->camera->setClipRange(g_automap_near_clip, 1500000.0);
+    WorldSetRenderRange(GetWorld(), 1500000.0f);
+    GetWorld()->camera->setRotation(3.141592653589793 * (1.0f / 180.0f) * 90.0f, 0.0, 0.0);
     int layer_number = 1;
-    g_world->camera->setProjectionType(srCamera::PROJECT_ORTHOGRAPHIC);
+    GetWorld()->camera->setProjectionType(srCamera::PROJECT_ORTHOGRAPHIC);
     RestoreAutomapCameraPosition();
-    UpdateWorldMesh(g_world);
-    SetWorldMeshVertexLightTable(g_world, 1);
+    UpdateWorldMesh(GetWorld());
+    SetWorldMeshVertexLightTable(GetWorld(), 1);
     g_light_update_flags &= ~1u;
     SetWorldModelPickingEnabled(false);
     if (!g_automap_state) {
@@ -627,10 +627,10 @@ unsigned char AutomapScreenEnter(void)
     unsigned int monster_count = gXStatus.monster_roster.live().size();
     for (unsigned int index = 0; index < monster_count; ++index) {
         W8MonsterInfo* monster = GetMonsterListEntry(index);
-        if (monster->p3D) monster->p3D->DetachRepresentation(g_world);
+        if (monster->p3D) monster->p3D->DetachRepresentation(GetWorld());
     }
     for (const auto& item : gXStatus.world_items) {
-        if (item->p3D) item->p3D->DetachMesh(g_world);
+        if (item->p3D) item->p3D->DetachMesh(GetWorld());
     }
     SetMouseMoveEventsEnabled(1);
     g_automap_cursor_inside = IsCursorInsideViewport();
@@ -670,11 +670,11 @@ unsigned char AutomapScreenEnter(void)
         std::vector<std::string_view> excluded_textures;
         int line = 0;
         int section = -1;
-        while (section < g_status.current_level && line < static_cast<int>(script.lines.size())) {
+        while (section < GetLoadedLevelID() && line < static_cast<int>(script.lines.size())) {
             if (script.lines[line].text.contains('[')) ++section;
             ++line;
         }
-        if (line < static_cast<int>(script.lines.size()) && section == g_status.current_level) {
+        if (line < static_cast<int>(script.lines.size()) && section == GetLoadedLevelID()) {
             for (; line < static_cast<int>(script.lines.size()); ++line) {
                 const auto& text = script.lines[line].text;
                 if (text.contains('[')) break;
@@ -699,9 +699,9 @@ unsigned char AutomapScreenEnter(void)
                     ++layer_number;
                 }
             }
-            for (unsigned int mesh = 0; mesh < g_world->octree->m_meshCount; ++mesh) {
+            for (unsigned int mesh = 0; mesh < GetWorld()->octree->m_meshCount; ++mesh) {
                 for (stMeshModel* model : stMeshModel::Meshes(
-                         static_cast<stMeshModel*>(g_world->psrMeshes[mesh]->getModel()))) {
+                         static_cast<stMeshModel*>(GetWorld()->psrMeshes[mesh]->getModel()))) {
                     model->ApplyAutomapPolygonFilter(excluded_textures);
                 }
             }
@@ -845,19 +845,19 @@ void AutomapScreenFrame(void)
 
 void RestoreAutomapWorldSettings(void)
 {
-    SetWorldEnvironmentColour(g_world, g_automap_saved_ambient_light);
+    SetWorldEnvironmentColour(GetWorld(), g_automap_saved_ambient_light);
     SetLightDirection(&g_automap_saved_light_direction);
     RestoreWorldCameraState(GetWorld(), 0, &g_automap_saved_camera);
-    WorldSetFarClip(g_world, g_automap_saved_far_clip);
-    WorldSetRenderRange(g_world, g_automap_saved_world_value);
+    WorldSetFarClip(GetWorld(), g_automap_saved_far_clip);
+    WorldSetRenderRange(GetWorld(), g_automap_saved_world_value);
     if (g_automap_saved_sky) EnableSky();
     SetRenderOption(W8_RENDER_OPTION_HIGH_TEXTURE_DETAIL, g_automap_saved_render_flags[0]);
     SetRenderOption(W8_RENDER_OPTION_MESH_SKY, g_automap_saved_render_flags[1]);
     g_monster_shadow_updates_enabled = g_automap_saved_render_flags[2];
     g_world_render_enabled = g_automap_saved_render_flags[3];
-    g_world->camera->setRotation(0.0, 0.0, 0.0);
-    g_world->camera->flags &= ~1ul;
-    SetWorldMeshVertexLightTable(g_world, 0);
+    GetWorld()->camera->setRotation(0.0, 0.0, 0.0);
+    GetWorld()->camera->flags &= ~1ul;
+    SetWorldMeshVertexLightTable(GetWorld(), 0);
     g_light_update_flags |= 1u;
     SetResidentTexturePolicy(g_resident_texture_policy);
     SetWorldModelPickingEnabled(true);
@@ -878,9 +878,9 @@ unsigned char AutomapScreenLeave(int)
     g_automap_buttons.reset();
     UpdateHeldItemCursor();
     EnableCursorScene();
-    for (unsigned int mesh = 0; mesh < g_world->octree->m_meshCount; ++mesh) {
-        for (stMeshModel* model :
-             stMeshModel::Meshes(static_cast<stMeshModel*>(g_world->psrMeshes[mesh]->getModel()))) {
+    for (unsigned int mesh = 0; mesh < GetWorld()->octree->m_meshCount; ++mesh) {
+        for (stMeshModel* model : stMeshModel::Meshes(
+                 static_cast<stMeshModel*>(GetWorld()->psrMeshes[mesh]->getModel()))) {
             model->ClearAutomapPolygonFilter();
         }
     }
@@ -956,12 +956,12 @@ void SetAutomapCameraPoint(glm::vec3* position)
     clamped.z = clamped.z < g_automap_bounds_max.z
                     ? (position->z < g_automap_bounds_min.z ? g_automap_bounds_min.z : position->z)
                     : g_automap_bounds_max.z;
-    g_world->camera->setLocation(glm::dvec3(clamped.x, clamped.y, clamped.z));
+    GetWorld()->camera->setLocation(glm::dvec3(clamped.x, clamped.y, clamped.z));
     g_automap_position = clamped;
     SetAutomapLayer(g_automap_layer);
     g_automap_redraw = true;
     g_automap_overlay_redraw = true;
-    if (g_world->octree != 0) {
+    if (GetWorld()->octree != 0) {
         MarkRendererReady();
         UpdateWorldMeshAfterLoad();
     }
@@ -1051,9 +1051,9 @@ unsigned char ZoomAutomapIn(const glm::vec2* point)
    every visited cell. */
 void ResetAutomapLighting(void)
 {
-    if (g_world->octree != 0) {
-        for (unsigned int mesh = 0; mesh < g_world->octree->m_meshCount; ++mesh) {
-            srModelInstance* instance = g_world->psrMeshes[mesh];
+    if (GetWorld()->octree != 0) {
+        for (unsigned int mesh = 0; mesh < GetWorld()->octree->m_meshCount; ++mesh) {
+            srModelInstance* instance = GetWorld()->psrMeshes[mesh];
             if (instance != 0) {
                 for (stMeshModel* model :
                      stMeshModel::Meshes(static_cast<stMeshModel*>(instance->getModel()))) {
@@ -1063,7 +1063,7 @@ void ResetAutomapLighting(void)
         }
     } else {
         for (stMeshModel* model : stMeshModel::Meshes(
-                 static_cast<stMeshModel*>(g_world->update_mesh_source->getModel()))) {
+                 static_cast<stMeshModel*>(GetWorld()->update_mesh_source->getModel()))) {
             model->ClearVertexLights();
         }
     }
@@ -1113,12 +1113,12 @@ unsigned int LightPendingAutomapCells(unsigned int max_count)
 void RefreshDirtyAutomap(void)
 {
     if (g_automap_state != 0 && g_automap_state->pending_cell_lighting != 0) {
-        SetWorldMeshVertexLightTable(g_world, 1);
+        SetWorldMeshVertexLightTable(GetWorld(), 1);
         unsigned int lit = LightPendingAutomapCells(10);
         if (lit == 0) {
             g_automap_state->pending_cell_lighting = 0;
         }
-        SetWorldMeshVertexLightTable(g_world, 0);
+        SetWorldMeshVertexLightTable(GetWorld(), 0);
     }
 }
 
@@ -1128,7 +1128,7 @@ void UpdateAutomapBounds(void)
 {
     std::vector<stModelInstance*> models;
     PartyHasCondition(0x40);
-    if (g_world->octree != 0) {
+    if (GetWorld()->octree != 0) {
         if (g_automap_bounds_dirty) {
             ResetAutomapLighting();
             g_automap_bounds_dirty = false;
@@ -1183,7 +1183,7 @@ void UpdateAutomapBounds(void)
 void LightAutomapCell(const glm::vec3* position)
 {
     const auto center = (*position);
-    const auto instances = g_world->octree->modelsNearPoint(center, g_automap_range, 0, false);
+    const auto instances = GetWorld()->octree->modelsNearPoint(center, g_automap_range, 0, false);
     for (auto* instance : instances) {
         if (!instance) continue;
         auto world = instance->getWorldSpaceMatrix<glm::mat4>();
@@ -1209,8 +1209,8 @@ void RenderAutomapFrame(void)
                 view.bottom = static_cast<double>(-half);
                 view.right = static_cast<double>(half);
                 view.top = static_cast<double>(half);
-                g_world->camera->setViewPlane(view, static_cast<double>(g_automap_near_clip));
-                g_world->camera->setClipRange(g_automap_near_clip, 1500000.0);
+                GetWorld()->camera->setViewPlane(view, static_cast<double>(g_automap_near_clip));
+                GetWorld()->camera->setClipRange(g_automap_near_clip, 1500000.0);
                 RenderWorldToSurface(g_automap_surface.get(), &g_automap_viewport, false);
                 g_automap_overlay_redraw = false;
                 SetResidentTexturePolicy(0);
@@ -2082,8 +2082,7 @@ unsigned int AutomapNodeKey(const glm::vec3* position)
    range in ResetAutomapView also get 4000-unit cells instead of 2000. */
 bool AutomapLevelIsLarge(void)
 {
-    if (g_status.current_level == 0x18 ||
-        (g_status.current_level > 0x1a && g_status.current_level <= 0x22)) {
+    if (GetLoadedLevelID() == 0x18 || (GetLoadedLevelID() > 0x1a && GetLoadedLevelID() <= 0x22)) {
         return true;
     }
     return false;

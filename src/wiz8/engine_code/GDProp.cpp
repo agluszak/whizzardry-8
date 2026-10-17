@@ -14,6 +14,7 @@
 #include "navigation_flags.h"
 #include "surrender/srBoundingBox.h"
 #include "wiz8/containers.h"
+#include "wiz8/engine_code/World.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/surface_geometry.h"
 /* Engine Code\GDProp.cpp */
@@ -299,7 +300,7 @@ unsigned char GDProp::RegisterPathVertex(unsigned int index, const glm::ivec2& p
 void AddItemToSector(int sector, W8WorldItem* item)
 {
     if (item != 0 && sector >= 0) {
-        W8Prop* prop = g_world->collidable_props[sector];
+        W8Prop* prop = GetWorld()->collidable_props[sector];
         GDProp* gd = prop->m_gd_prop.get();
         if (gd == 0) {
             prop->BuildOrRefreshPathingRepresentation();
@@ -319,7 +320,7 @@ void AddItemToSector(int sector, W8WorldItem* item)
 void RemoveItemFromSector(int sector, W8WorldItem* item)
 {
     if (item != 0 && sector >= 0) {
-        W8Prop* prop = g_world->collidable_props[sector];
+        W8Prop* prop = GetWorld()->collidable_props[sector];
         if (prop != 0 && prop->m_gd_prop != 0) {
             wiz8::erase_first(prop->m_gd_prop->m_supported_items, item);
         }

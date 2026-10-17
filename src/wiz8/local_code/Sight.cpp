@@ -21,6 +21,7 @@
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/GameTimeAccumulator.h"
+#include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/Octree.h"
@@ -322,7 +323,7 @@ unsigned int AgeAllMonsterSight(void)
     W8MonsterInfo* monster_info;
 
     elapsed = g_status.world_clock * 1000 -
-              g_status.level_progress[g_status.current_level].sight_clock * 1000;
+              g_status.level_progress[GetLoadedLevelID()].sight_clock * 1000;
     steps = elapsed / 120000;
     if (steps == 0) {
         return 0;
@@ -721,7 +722,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                 delta = own_position - g_startup_world->GetPosition();
                                 if (glm::length(delta) < 25000.0f &&
                                     (npc->party_noticed = true, !gXStatus.fSurprisePossible) &&
-                                    g_status.current_level != 4) {
+                                    GetLoadedLevelID() != 4) {
                                     int party_slot = GetRandomCharacter(0, 0, -1, -1);
 
                                     if (party_slot != -1) {

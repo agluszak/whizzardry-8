@@ -494,7 +494,7 @@ W8GDSurface* W8GameData::ProbePropsAlongMotion(glm::vec3* direction, glm::vec3* 
     glm::vec3 along_normal;
 
     nearest_surface = 0;
-    if (g_world->collidable_props.empty()) {
+    if (GetWorld()->collidable_props.empty()) {
         return 0;
     }
     /* Function-local static plane ResolveCollision reads through hit_plane;
@@ -503,7 +503,7 @@ W8GDSurface* W8GameData::ProbePropsAlongMotion(glm::vec3* direction, glm::vec3* 
     static W8Plane s_prop_hit_plane;
     const auto objects = octree->queryAlongSegment((*position), (*direction), 504.0f, 8);
     for (index = 0; index < objects.size(); ++index) {
-        prop = g_world->collidable_props[objects[index]];
+        prop = GetWorld()->collidable_props[objects[index]];
         if (prop->GetActivationState() != 0) {
             gd_prop = prop->m_gd_prop.get();
             prop->flags |= 0x10;
@@ -1018,7 +1018,7 @@ int W8GameData::TestPropSurfaces(int count, w8_ulong* ids, W8OctreeTrace* trace,
 // FUNCTION: WIZ8 0x0041c140
 bool W8GameData::TestProp(int prop_id, W8OctreeTrace* trace, char skip_flag, char gate)
 {
-    auto* prop = g_world->collidable_props[prop_id];
+    auto* prop = GetWorld()->collidable_props[prop_id];
     prop->flags |= 0x10;
     if (!prop->m_gd_prop) prop->BuildOrRefreshPathingRepresentation();
     auto* gd_prop = prop->m_gd_prop.get();
@@ -2148,12 +2148,12 @@ int GetCameraYawDegrees(void)
 bool HasCameraLineOfSight(const glm::vec3* position)
 {
     glm::vec3 to = *position;
-    if (g_world == 0) {
+    if (GetWorld() == 0) {
         return false;
     }
     glm::vec3 from = cameraLocation();
-    if (g_world->octree != 0) {
-        return g_world->octree->HasLineOfSight(&from, &to, true);
+    if (GetWorld()->octree != 0) {
+        return GetWorld()->octree->HasLineOfSight(&from, &to, true);
     }
     return true;
 }
@@ -2345,12 +2345,12 @@ unsigned char W8LevelDataRecord::ToggleBoundProps()
 
     BeginPartyMovement();
     if (primary_contact_prop_id >= 0) {
-        prop = g_world->collidable_props[primary_contact_prop_id];
+        prop = GetWorld()->collidable_props[primary_contact_prop_id];
         if (prop->IsAnimationPingPong()) {
             prop->ReverseAnimationDirection();
             toggled = true;
             if (secondary_contact_prop_id >= 0) {
-                prop = g_world->collidable_props[secondary_contact_prop_id];
+                prop = GetWorld()->collidable_props[secondary_contact_prop_id];
                 if (!prop->IsAnimationPingPong()) {
                     return 0;
                 }

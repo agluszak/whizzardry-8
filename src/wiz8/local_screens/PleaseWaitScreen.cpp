@@ -100,7 +100,7 @@ unsigned char PleaseWaitScreenEnter(void)
             g_load_descriptor->name = g_current_screen_state.name;
             break;
         case 2:
-            g_load_descriptor->parameter = g_status.current_level;
+            g_load_descriptor->parameter = GetLoadedLevelID();
             g_load_descriptor->name = g_current_screen_state.name;
             g_load_descriptor->previous_save_name = g_current_screen_state.previous_save_name;
             g_load_descriptor->save_payload =
@@ -182,7 +182,7 @@ void PleaseWaitScreenFrame(void)
         if (!LoadGame(g_load_descriptor->name)) {
             srAssertFail("fVerify", PLEASE_WAIT_SCREEN_CPP, 293, 0);
         }
-        if (!LoadLevel(g_status.current_level, -1, true)) {
+        if (!LoadLevel(g_status.resume_level, -1, true)) {
             srAssertFail("fVerify", PLEASE_WAIT_SCREEN_CPP, 296, 0);
         }
 

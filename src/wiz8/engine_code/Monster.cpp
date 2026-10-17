@@ -732,7 +732,7 @@ static std::unique_ptr<W8Monster> ReadOrCloneMonsterCycles(const W8GrCycleLoadCo
 
     if (has_light && representation->monster_light == 0) {
         representation->monster_light = std::make_unique<MonsterLight>(
-            g_world->dynamic_scene, light_pulsing, monster->movement.collision_radius * 3.0f,
+            GetWorld()->dynamic_scene, light_pulsing, monster->movement.collision_radius * 3.0f,
             &light_first, &light_second);
         representation->monster_light->m_vertical_offset = monster->movement.height_offset;
     }
@@ -1237,7 +1237,7 @@ void W8Monster::Update()
 
     if (g_monster_shadow_updates_enabled != 0 && (move_dirty || UpdateTrackedPosition())) {
         move_dirty = false;
-        if (distance < WorldGetRenderRange(g_world)) {
+        if (distance < WorldGetRenderRange(GetWorld())) {
             srNode* sun = FindWorldNode<srNode>("SUN");
             if (sun != 0) {
                 glm::vec3 mapped_position;
@@ -2555,7 +2555,7 @@ void SetMonsterPartySlotMarker(int party_slot, int location_id, char on)
     if (on == 0) {
         item = rep->objects[party_slot].get();
         if (item != 0) {
-            item->DetachMesh(g_world);
+            item->DetachMesh(GetWorld());
             rep->objects[party_slot].reset();
             --rep->icon_count;
         }
@@ -2564,7 +2564,7 @@ void SetMonsterPartySlotMarker(int party_slot, int location_id, char on)
             path = fmt::format("Data\\Monsters\\Bitmaps\\{}",
                                g_party_target_marker_bitmaps[g_status.buffers.XChar[party_slot]
                                                                  .party_order_index]);
-            rep->objects[party_slot].reset(CreateMonsterIconItem(g_world, path.c_str(), 1));
+            rep->objects[party_slot].reset(CreateMonsterIconItem(GetWorld(), path.c_str(), 1));
             ++rep->icon_count;
         }
     }
@@ -3242,7 +3242,7 @@ void W8Monster::SetCycle(signed char cycle)
 
                 light->setParent(0, 1);
                 if (light->definition() != 0) {
-                    wiz8::erase_first(g_world->lights_to_update, light);
+                    wiz8::erase_first(GetWorld()->lights_to_update, light);
                 }
             }
         }
@@ -3257,7 +3257,7 @@ void W8Monster::SetCycle(signed char cycle)
     m_pRep->frame_method = animation->frame_method;
 
     {
-        glm::dvec3 camera_location = g_world->camera->getLocation();
+        glm::dvec3 camera_location = GetWorld()->camera->getLocation();
         glm::vec3 listener;
         listener = glm::vec3(camera_location);
         SelectLOD(&listener);
@@ -3277,10 +3277,10 @@ void W8Monster::SetCycle(signed char cycle)
         for (index = 0; index < count; ++index) {
             stLight* light = (*lights)[index].get();
 
-            light->setParent(g_world->dynamic_scene, 1);
+            light->setParent(GetWorld()->dynamic_scene, 1);
             light->Reset();
             if (light->definition() != 0) {
-                g_world->lights_to_update.push_back(light);
+                GetWorld()->lights_to_update.push_back(light);
             }
         }
     }
@@ -3404,7 +3404,7 @@ void W8Monster::UpdateAttachedObjects()
     }
 
     elapsed = GameClockMilliseconds() - representation->timer;
-    camera_rotation = cameraRotation(*g_world);
+    camera_rotation = cameraRotation(*GetWorld());
     base_position = movement.position;
     base_position.y += movement.vertical_base + movement.vertical_amplitude;
 
@@ -4733,10 +4733,10 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
             poster->alignment_flags |= 1u;
             location = glm::dvec3(position);
             poster->setLocation(location);
-            poster->setParent(g_world->dynamic_scene, 1);
+            poster->setParent(GetWorld()->dynamic_scene, 1);
             m_pRep->linked_runtime_objects.emplace_back(poster);
 
-            auto owned_particle = std::make_unique<stParticle>(g_world->dynamic_scene, 0xa);
+            auto owned_particle = std::make_unique<stParticle>(GetWorld()->dynamic_scene, 0xa);
             particle = owned_particle.get();
             auto material = std::make_shared<srMaterial>();
             colour = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
@@ -4771,7 +4771,7 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
 
             world = glm::dmat3(rotation);
             particle->rotate(world);
-            RetireParticle(g_world, std::move(owned_particle));
+            RetireParticle(GetWorld(), std::move(owned_particle));
         }
     }
 }
@@ -4858,7 +4858,7 @@ void W8Monster::RefreshStandingHeight()
     SetCycle(1);
     SetSubCycle(0);
     glm::vec3 camera_location;
-    camera_location = glm::vec3(g_world->camera->getLocation());
+    camera_location = glm::vec3(GetWorld()->camera->getLocation());
     SelectLOD(&camera_location);
     if (const auto bounds = GetAnimationBounds())
         representation->standing_height = bounds->maximum.y;

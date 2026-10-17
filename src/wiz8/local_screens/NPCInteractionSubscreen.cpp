@@ -4402,7 +4402,7 @@ void AddDialogueTranscriptKeyword(std::string_view name, signed char category)
 void RecordLevelEntryDialogueState(void)
 {
     std::string region_name;
-    int region = GetLevelBand(g_status.current_level);
+    int region = GetLevelBand(GetLoadedLevelID());
     region_name = GetNpcScriptRegionName(region);
     if (!region_name.empty()) {
         AddDialogueTranscriptKeyword(region_name, W8_DIALOGUE_CATEGORY_PLACES);

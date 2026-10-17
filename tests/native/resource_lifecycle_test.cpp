@@ -204,10 +204,10 @@ TEST_CASE("Gameplay runtime reinitialization releases queued events", "[resource
 struct SpellVisualFixture {
     ScopedTemporaryDirectory directory{"wiz8-spell-visuals"};
     ScopedAssetRoots roots;
-    W8World* previous_world = GetWorld();
+    std::unique_ptr<W8World> previous_world = ExchangeCurrentWorld(std::make_unique<W8World>());
     W8Octree* previous_octree = g_octree;
     std::unique_ptr<W8Octree> octree;
-    W8World world{};
+    W8World& world = *GetWorld();
     std::vector<std::unique_ptr<W8SpellVisual>>& visuals = world.spell_visuals;
 
     SpellVisualFixture()
@@ -217,7 +217,6 @@ struct SpellVisualFixture {
         std::filesystem::create_directory(directory.path / "assets");
         std::filesystem::create_directory(directory.path / "user");
         roots.configure({(directory.path / "assets").string(), (directory.path / "user").string()});
-        SetCurrentWorld(&world);
     }
 
     ~SpellVisualFixture()
@@ -225,7 +224,7 @@ struct SpellVisualFixture {
         world.spell_visuals.clear();
         octree.reset();
         g_octree = previous_octree;
-        SetCurrentWorld(previous_world);
+        ExchangeCurrentWorld(std::move(previous_world));
     }
 };
 
@@ -300,7 +299,7 @@ static void CheckEmitterCloneLifetime()
     REQUIRE(copy->resources.cycles[cycle].lights.lights.front()->positionalX() == 11);
     REQUIRE(copy->resources.cycles[cycle].lights.lights.front()->getParent() == nullptr);
     copy.reset();
-    REQUIRE(g_world->transient_lights.empty());
+    REQUIRE(GetWorld()->transient_lights.empty());
 }
 
 TEST_CASE_METHOD(SpellVisualFixture, "Emitter clones outlive their source", "[resources][spell]")
@@ -374,8 +373,8 @@ TEST_CASE_METHOD(SpellVisualFixture, "Emitter loads publish only complete valid 
         REQUIRE(host.timer == original_timer);
         REQUIRE(host.resources.cycles[2].animation.get() == original);
         REQUIRE(visual.m_plsLights == nullptr);
-        REQUIRE(g_world->transient_lights.empty());
-        REQUIRE(g_world->lights_to_update.empty());
+        REQUIRE(GetWorld()->transient_lights.empty());
+        REQUIRE(GetWorld()->lights_to_update.empty());
     }
     WriteEmitterFixture(2, false);
     for (int i = 0; i < 2; ++i) {
@@ -429,7 +428,10 @@ TEST_CASE_METHOD(SpellVisualFixture, "All emitter animations release before any 
             : stModelInstance(nullptr), observations(observations)
         {
         }
-        ~ObservedInstance() override { observations.push_back(g_world->lights_to_update.size()); }
+        ~ObservedInstance() override
+        {
+            observations.push_back(GetWorld()->lights_to_update.size());
+        }
         std::vector<std::size_t>& observations;
     };
     std::vector<std::size_t> observations;
@@ -490,15 +492,15 @@ TEST_CASE_METHOD(SpellVisualFixture, "World teardown drains particles retired by
     retiring_world->static_scene = std::make_unique<srScene>();
     retiring_world->dynamic_scene =
         retiring_world->static_scene->adoptChild(std::make_unique<srNode>());
-    SetCurrentWorld(retiring_world.get());
+    auto previous = ExchangeCurrentWorld(std::move(retiring_world));
+    auto* retiring = GetWorld();
     auto visual = std::make_unique<W8SpellVisual>();
     auto* attachment = &visual->particles.emplace_back();
     attachment->m_pstParticles =
-        std::make_unique<ObservedParticle>(*retiring_world, destroyed, scene_alive);
-    retiring_world->spell_visuals.push_back(std::move(visual));
+        std::make_unique<ObservedParticle>(*retiring, destroyed, scene_alive);
+    retiring->spell_visuals.push_back(std::move(visual));
 
-    DestroyWorld(retiring_world.release());
-    SetCurrentWorld(&world);
+    ExchangeCurrentWorld(std::move(previous));
 
     REQUIRE(destroyed);
     REQUIRE(scene_alive);

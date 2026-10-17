@@ -44,6 +44,7 @@
 #include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/engine_code/Trigger.hpp"
+#include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/octree_spatial.h"
 #include "wiz8/engine_code/stCube.h"
 #include "wiz8/engine_code/stParticle.h"
@@ -1512,7 +1513,7 @@ TEST_CASE_METHOD(LoaderFixture, "Path parameters accept complete CRLF and unterm
     REQUIRE(g_navigator_minimum_speed_mode23 == 0.25f);
 }
 struct LocationVariableFixture : LoaderFixture {
-    int previous_level = g_status.current_level;
+    std::unique_ptr<W8World> previous_world = ExchangeCurrentWorld(nullptr);
     LocationVariableFixture() { ClearLocationVariables(); }
     bool load_variables(const std::string& bytes, bool inject_failure = false)
     {
@@ -1533,7 +1534,7 @@ struct LocationVariableFixture : LoaderFixture {
     ~LocationVariableFixture()
     {
         ClearLocationVariables();
-        g_status.current_level = previous_level;
+        ExchangeCurrentWorld(std::move(previous_world));
     }
 };
 
@@ -1542,12 +1543,12 @@ TEST_CASE_METHOD(LocationVariableFixture,
                  "[loader][records]")
 {
     REQUIRE_FALSE(HasLocationVariables());
-    g_status.current_level = 3;
+    ExchangeCurrentWorld(CreateWorld(3));
     CreateLocationVar("Switch", 17);
     CreateLocationVar("SWITCH", 99);
     REQUIRE(GetLocationVarValueByName("switch") == 17);
     SetTriggerVariableByName("switch", 23);
-    g_status.current_level = 4;
+    ExchangeCurrentWorld(CreateWorld(4));
     REQUIRE(GetLocationVarIDByName("Switch") == -1);
     CreateLocationVar("Switch", -7);
     REQUIRE(HasLocationVariables());
@@ -1570,7 +1571,7 @@ TEST_CASE_METHOD(LocationVariableFixture,
     ClearLocationVariables();
     REQUIRE(load_variables(expected));
     REQUIRE(GetLocationVarValueByName("SWITCH") == -7);
-    g_status.current_level = 3;
+    ExchangeCurrentWorld(CreateWorld(3));
     REQUIRE(GetLocationVarValueByName("switch") == 23);
 }
 
@@ -1578,7 +1579,7 @@ TEST_CASE_METHOD(LocationVariableFixture,
                  "Invalid location variable sections leave existing state intact",
                  "[loader][records]")
 {
-    g_status.current_level = 5;
+    ExchangeCurrentWorld(CreateWorld(5));
     CreateLocationVar("Existing", 42);
     std::string bytes;
     append(bytes, std::int32_t{2});

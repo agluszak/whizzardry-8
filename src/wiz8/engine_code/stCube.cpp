@@ -40,6 +40,7 @@
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Video2.h"
+#include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/filesystem.h"
@@ -336,7 +337,7 @@ W8WorldCursorNode* FindNearestWorldCursorNode(int x, int y)
     for (int index = 0; index < count; ++index) {
         W8WorldCursorNode* entry = g_world_cursor_nodes[index];
         if (entry != 0 && entry->node != 0 && entry->node == GetPickedModelInstance()) {
-            const auto camera = g_world->camera->getLocation();
+            const auto camera = GetWorld()->camera->getLocation();
             const auto node = entry->node->getLocation();
             float distance = static_cast<float>(
                 std::hypot(node.x - camera.x, node.y - camera.y, node.z - camera.z));
@@ -595,7 +596,7 @@ void AttachWorldCursorNode(W8WorldCursorNode* entry, bool attached)
 {
     if (entry != 0) {
         if (attached) {
-            entry->node->setParent(g_world->dynamic_scene, 1);
+            entry->node->setParent(GetWorld()->dynamic_scene, 1);
             return;
         }
         entry->node->setParent(0, 1);
@@ -625,7 +626,7 @@ void SetWorldCursorNodesVisible(bool visible)
         if (entry != 0) {
             srNode* parent = 0;
             if (visible) {
-                parent = g_world->dynamic_scene;
+                parent = GetWorld()->dynamic_scene;
             }
             entry->node->setParent(parent, 1);
         }
@@ -674,7 +675,7 @@ W8WorldCursorNode* FindWorldCursorNodeAtPoint(W8WorldCursorNode* after, glm::vec
 // FUNCTION: WIZ8 0x0048EFC0
 bool SelectWorldCursorNode(void)
 {
-    if (g_world != 0 && g_world->camera != 0) {
+    if (GetWorld() != 0 && GetWorld()->camera != 0) {
         const glm::dvec3 camera_location(cameraLocation());
         int selected = g_cursor_node_index;
         if (static_cast<std::size_t>(selected) < g_world_cursor_nodes.size()) {

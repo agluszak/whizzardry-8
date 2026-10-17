@@ -69,12 +69,12 @@ void SaveGlobalStatus(W8Chunk* chunks, W8GlobalStatus* status);
 bool LoadGame(std::string_view slot_name);
 
 bool SaveLevelStatus(const char* path);
-bool LoadLevelStatus(const std::filesystem::path& path, int level);
+bool LoadLevelStatus(const std::filesystem::path& path, int level, bool from_assets = false);
 std::string BuildLevelStatusPath(unsigned int level);
 bool LoadStatusHeader(W8Chunk* chunk);
 bool SaveStatusHeader(W8Chunk* chunks);
 /* The per-level item-section reader and the already-open level-status scan. */
-bool LoadItemStatus(W8Chunk* chunk, int level);
+bool LoadItemStatus(W8Chunk* chunk, int level, bool from_assets = false);
 
 extern bool g_save_pending;
 

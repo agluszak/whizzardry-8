@@ -14,13 +14,12 @@ extern unsigned short g_level_name_indices[W8_LEVEL_COUNT];
 bool LevelBuildInfoByID(int level_id, W8LevelInfo* info);
 unsigned char LoadSkyWorld(int level, W8LevelInfo* info);
 unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game);
-unsigned char UnloadLevel(const char* save_directory);
+unsigned char UnloadLevel(const char* save_directory, bool show_progress = true);
 
 void UnloadSkyWorld(void);
 char GetLevelBand(int saved_level);
 
 extern bool g_camera_path_active;
-extern bool g_level_status_loading;
 extern float g_default_world_height;
 extern const float g_position_height_epsilon;
 extern unsigned char g_environment_load_flag;

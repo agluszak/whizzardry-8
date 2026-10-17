@@ -21,6 +21,7 @@
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/Trigger.hpp"
+#include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/stCube.h"
 #include "wiz8/engine_code/stSound3D.h"
 #include "wiz8/fact_state.h"
@@ -505,7 +506,7 @@ void LoadAwayCampChest(void)
     W8WorldItem* pContainer;
     int index;
 
-    pChest = FindPropByName(g_world, "AwayCampChest");
+    pChest = FindPropByName(GetWorld(), "AwayCampChest");
     if (pChest == 0) {
         srAssertFail("pChest", __FILE__, __LINE__, 0);
     }

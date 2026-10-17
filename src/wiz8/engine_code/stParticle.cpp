@@ -93,15 +93,15 @@ void SaveParticleStates(wiz8::File& handle)
 
     handle.write(&version, sizeof(version));
 
-    if (g_world != 0) {
-        for (const auto& particle : g_world->particles) {
+    if (GetWorld() != 0) {
+        for (const auto& particle : GetWorld()->particles) {
             count += particle->persisted;
         }
     }
     handle.write(&count, sizeof(count));
 
-    if (g_world != 0) {
-        for (const auto& particle : g_world->particles) {
+    if (GetWorld() != 0) {
+        for (const auto& particle : GetWorld()->particles) {
             if (particle->persisted) {
                 handle.write_padded(particle->getName(), 0x80);
                 handle.write(&particle->emitting, sizeof(particle->emitting));
@@ -125,7 +125,7 @@ void LoadParticleStates(wiz8::File& handle)
         handle.read_exact(name, sizeof(name));
         handle.read_exact(&active, sizeof(active));
 
-        stParticle* particle = FindParticleByName(g_world, name);
+        stParticle* particle = FindParticleByName(GetWorld(), name);
         if (particle != 0) {
             particle->SetActive(active);
         }
@@ -434,8 +434,8 @@ void stParticle::Update()
                 // The octree trace still accepts packed endpoint records.
                 const glm::vec3 from(particle_positions[index]);
                 glm::vec3 to(candidate);
-                if (g_world->octree == nullptr ||
-                    !g_world->octree->HasLineOfSight(&from, &to, true)) {
+                if (GetWorld()->octree == nullptr ||
+                    !GetWorld()->octree->HasLineOfSight(&from, &to, true)) {
                     DeactivateParticle(index);
                     continue;
                 }

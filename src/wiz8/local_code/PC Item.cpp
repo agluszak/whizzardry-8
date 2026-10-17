@@ -25,6 +25,7 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/conditions.h"
 #include "wiz8/cursor.h"
+#include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
@@ -1852,8 +1853,8 @@ void AddPartyGold(int amount, bool announce)
     sound_path = "Data\\Sound\\Misc\\ChaChing.wav";
 
     g_status.party_gold += amount;
-    if (g_status.current_level >= 0 && g_status.current_level < W8_LEVEL_COUNT) {
-        g_status.level_progress[g_status.current_level].gold_collected += amount;
+    if (GetLoadedLevelID() >= 0 && GetLoadedLevelID() < W8_LEVEL_COUNT) {
+        g_status.level_progress[GetLoadedLevelID()].gold_collected += amount;
     }
 
     if (announce) {

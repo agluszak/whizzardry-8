@@ -37,6 +37,7 @@
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Video2.h"
+#include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stParticle.h"
@@ -114,10 +115,10 @@ void InitializeWorldCursor(void)
         gp3DCursor->footprint_mode = false;
         gp3DCursor->dragged_info = 0;
         context.directory = "Data\\Monsters";
-        context.world = g_world;
+        context.world = GetWorld();
         auto monster = LoadMonsterCycle(&context, "3DCursor", -1, 1);
         gp3DCursor->monster = monster.get();
-        g_world->monsters.push_back(std::move(monster));
+        GetWorld()->monsters.push_back(std::move(monster));
         MonsterSetCycle(gp3DCursor->monster, 0);
         gp3DCursor->last_published = glm::vec3(-100000000.0f);
         gp3DCursor->position = glm::vec3(0);
@@ -129,10 +130,10 @@ void InitializeWorldCursor(void)
         gp3DCursor->input_delta.z = 0;
         position = gp3DCursor->position;
         MonsterSetAdjustedPosition(gp3DCursor->monster, &position);
-        g_world->active_monsters.push_back(gp3DCursor->monster);
-        UpdateCycleRepresentation(gp3DCursor->monster, g_world);
+        GetWorld()->active_monsters.push_back(gp3DCursor->monster);
+        UpdateCycleRepresentation(gp3DCursor->monster, GetWorld());
         MonsterSetActive(gp3DCursor->monster, false);
-        gp3DCursor->light = CreateRangedWorldLight(g_world, "3D Cursor Light");
+        gp3DCursor->light = CreateRangedWorldLight(GetWorld(), "3D Cursor Light");
         gp3DCursor->light->intensity = 1.0f;
         ConfigureWorldLight(gp3DCursor->light, 2500.0f);
         gp3DCursor->light->ambient = glm::vec3(0);
@@ -218,12 +219,12 @@ void ReleaseWorldCursor(void)
     delta = cursor->position - camera;
     g_cursor_projection_distance = glm::length(delta);
 
-    DetachMonsterRepresentation(cursor->monster, g_world);
-    DestroyWorldMonster(g_world, cursor->monster);
+    DetachMonsterRepresentation(cursor->monster, GetWorld());
+    DestroyWorldMonster(GetWorld(), cursor->monster);
     ReleaseRendererObject(cursor->particle);
     ReleaseRendererObject(g_cursor_value);
     if (cursor->light != 0) {
-        WorldRemoveLight(g_world, cursor->light);
+        WorldRemoveLight(GetWorld(), cursor->light);
         cursor->light = 0;
     }
     cursor->group_bind_pending = false;
@@ -254,8 +255,8 @@ void ShowWorldCursor(void)
 {
     if (gp3DCursor != 0 && !gp3DCursor->enabled) {
         UpdateMonster(gp3DCursor->monster);
-        UpdateCycleRepresentation(gp3DCursor->monster, g_world);
-        g_world->active_monsters.push_back(gp3DCursor->monster);
+        UpdateCycleRepresentation(gp3DCursor->monster, GetWorld());
+        GetWorld()->active_monsters.push_back(gp3DCursor->monster);
         gp3DCursor->enabled = true;
         if (gp3DCursor->particle != 0) {
             gp3DCursor->particle->SetActive(1);
@@ -279,7 +280,7 @@ void HideWorldCursor(void)
         return;
     }
     monster = cursor->monster;
-    world = g_world;
+    world = GetWorld();
     wiz8::erase_first(world->active_monsters, monster);
     DetachMonsterRepresentation(monster, world);
     cursor->enabled = false;
@@ -350,10 +351,10 @@ void ApplyWorldCursorInput(void)
                         ? delta
                         : glm::normalize(delta) * static_cast<float>(gp3DCursor->range);
         }
-        rotation = g_world->dynamic_scene->getRotation<glm::mat3>();
+        rotation = GetWorld()->dynamic_scene->getRotation<glm::mat3>();
         gp3DCursor->cam_rel_offset += delta;
         gp3DCursor->position = rotation * (gp3DCursor->cam_rel_offset);
-        node_location = g_world->dynamic_scene->getLocation();
+        node_location = GetWorld()->dynamic_scene->getLocation();
         glm::vec3 scene_location;
         scene_location = glm::vec3(node_location);
         gp3DCursor->position += scene_location;

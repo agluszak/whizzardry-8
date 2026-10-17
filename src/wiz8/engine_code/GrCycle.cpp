@@ -48,6 +48,7 @@
 #include "wiz8/engine_code/SoundEvent.h"
 #include "wiz8/engine_code/SpellVisual.h"
 #include "wiz8/engine_code/Trigger.hpp"
+#include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stMeshModel.h"
@@ -279,7 +280,7 @@ try {
     if (has_particles != 0) {
         std::vector<std::unique_ptr<stParticle>> particles;
 
-        success = ReadWorldParticles(info, g_world->dynamic_scene, &particles);
+        success = ReadWorldParticles(info, GetWorld()->dynamic_scene, &particles);
         if (!particles.empty()) {
             int index;
 
@@ -370,10 +371,10 @@ W8GrCycle::~W8GrCycle()
     for (auto& event : particles) {
         auto owner = std::move(event.m_pstParticles);
         if (owner) owner->CancelAnimationCallback();
-        if (owner && owner->active_particle_count != 0 && g_world != nullptr) {
+        if (owner && owner->active_particle_count != 0 && GetWorld() != nullptr) {
             owner->SetActive(1);
             owner->emission_limit = 1;
-            RetireParticle(g_world, std::move(owner));
+            RetireParticle(GetWorld(), std::move(owner));
         }
     }
 }
@@ -532,7 +533,7 @@ void W8GrCycle::UpdateLights()
                     }
                 } else if ((representation->subcycle == 0 && cycle_definition->subcycle_min == 0) ||
                            light->getParent() == nullptr) {
-                    light->setParent(g_world->dynamic_scene, 0);
+                    light->setParent(GetWorld()->dynamic_scene, 0);
                     light->m_path_index = 0;
                     light->m_path_direction = 1;
                     light->Reset();
@@ -548,7 +549,7 @@ void W8GrCycle::UpdateLights()
                     light->setParent(0, 0);
                 }
             } else if (light->getParent() == nullptr) {
-                light->setParent(g_world->dynamic_scene, 0);
+                light->setParent(GetWorld()->dynamic_scene, 0);
             }
         }
     }
@@ -761,7 +762,7 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
         m_ground_shadow->setLocation(location);
         m_ground_shadow->angle = GetYaw();
         m_ground_shadow->clearFlag(srNode::FLAG_TERMINATE);
-        m_ground_shadow->setParent(g_world->dynamic_scene, 0);
+        m_ground_shadow->setParent(GetWorld()->dynamic_scene, 0);
     }
     if (m_plsLights != 0) {
         int count = static_cast<int>(m_plsLights->size());
@@ -1128,7 +1129,7 @@ void W8GrCycle::DetachCycleLights(std::vector<std::unique_ptr<stLight>>* lights)
 
             light->setParent(0, 1);
             if (light->definition() != 0) {
-                wiz8::erase_first(g_world->lights_to_update, light);
+                wiz8::erase_first(GetWorld()->lights_to_update, light);
             }
         }
     }
@@ -1140,9 +1141,9 @@ void W8GrCycle::AttachCycleLights(std::vector<std::unique_ptr<stLight>>* lights)
         for (const auto& owned : *lights) {
             auto* light = owned.get();
 
-            light->setParent(g_world->dynamic_scene, 1);
+            light->setParent(GetWorld()->dynamic_scene, 1);
             if (light->definition() != 0) {
-                g_world->lights_to_update.push_back(light);
+                GetWorld()->lights_to_update.push_back(light);
             }
         }
     }

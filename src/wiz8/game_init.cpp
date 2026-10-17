@@ -89,7 +89,6 @@ unsigned char InitializeGame(size_t& initialized_screens)
         return 0;
     }
     SetPendingScreenState(W8_SCREEN_INTRO);
-    g_status.current_level = -1;
     if (const auto save = gfLoadAtStartup ? FindStartupQuickSave() : std::nullopt) {
         g_pending_screen_state.name = *save;
         g_pending_screen_state.mode = 1;

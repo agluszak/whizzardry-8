@@ -1,3 +1,4 @@
+#include <array>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
@@ -25,44 +26,41 @@
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stParticle.h"
+#include "wiz8/layouts/character.h"
+#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/levels.h"
+#include "wiz8/local_code/GameplayCode.h"
+#include "wiz8/local_code/PC_Item.h"
+#include "wiz8/local_code/Strings.h"
 #include "wiz8/music_playlist.h"
+#include "wiz8/npc_interaction.h"
 
 namespace {
-struct TestWorld {
-    W8World world{};
-    std::vector<std::unique_ptr<Trigger>>& triggers = world.triggers;
-    std::vector<std::unique_ptr<stParticle>>& particles = world.particles;
+std::unique_ptr<W8World> TestWorld()
+{
+    auto world = std::make_unique<W8World>();
+    world->static_scene = std::make_unique<srScene>();
+    world->dynamic_scene = world->static_scene->adoptChild(std::make_unique<srNode>());
+    return world;
+}
 
-    TestWorld()
-    {
-        world.static_scene = std::make_unique<srScene>();
-        world.dynamic_scene = world.static_scene->adoptChild(std::make_unique<srNode>());
-    }
-    ~TestWorld()
-    {
-        DestroyAllWorldTriggers(&world);
-        particles.clear();
-        world.static_scene.reset();
-    }
-};
-
-Trigger* AddTrigger(TestWorld& world, const char* name)
+Trigger* AddTrigger(W8World& world, const char* name)
 {
     auto owner = std::make_unique<Trigger>();
     auto* trigger = owner.get();
     std::strcpy(trigger->name, name);
-    trigger->m_pWorld = &world.world;
+    trigger->m_pWorld = &world;
     world.triggers.push_back(std::move(owner));
     return trigger;
 }
 
 bool triggers()
 {
-    TestWorld level, sky;
-    SetCurrentWorld(&level.world);
-    SetSecondaryWorld(&sky.world);
+    ExchangeCurrentWorld(TestWorld());
+    ExchangeSkyWorld(TestWorld());
+    auto& level = *GetWorld();
+    auto& sky = *GetSecondaryWorld();
     Trigger* first = AddTrigger(level, "DOOR");
     Trigger* newest = AddTrigger(level, "DOOR");
     Trigger* in_sky = AddTrigger(sky, "SKYDOOR");
@@ -75,39 +73,40 @@ bool triggers()
     level.triggers.erase(level.triggers.begin() + 1);
     REQUIRE((FindTriggerByName("DOOR") == first));
     // Removing an owner also removes its borrowed lookup entry.
-    DestroyAllWorldTriggers(&level.world);
-    REQUIRE(level.world.triggers.empty());
+    DestroyAllWorldTriggers(&level);
+    REQUIRE(level.triggers.empty());
     REQUIRE(FindTriggerByName("DOOR") == nullptr);
     REQUIRE(FindTriggerByName("SKYDOOR") == in_sky);
     Trigger* replacement = AddTrigger(level, "DOOR");
     REQUIRE(FindTriggerByName("DOOR") == replacement);
-    SetCurrentWorld(0);
-    SetSecondaryWorld(0);
+    ExchangeCurrentWorld(nullptr);
+    ExchangeSkyWorld(nullptr);
     return true;
 }
 
 bool nodes(const std::filesystem::path& directory)
 {
-    TestWorld level, sky;
-    SetCurrentWorld(&level.world);
-    SetSecondaryWorld(&sky.world);
+    ExchangeCurrentWorld(TestWorld());
+    ExchangeSkyWorld(TestWorld());
+    auto& level = *GetWorld();
+    auto& sky = *GetSecondaryWorld();
 
-    auto* lamp = level.world.dynamic_scene->adoptChild(std::make_unique<stLight>());
+    auto* lamp = level.dynamic_scene->adoptChild(std::make_unique<stLight>());
     lamp->setName("LAMP");
-    auto* torch = level.world.static_scene->adoptChild(std::make_unique<stLight>());
+    auto* torch = level.static_scene->adoptChild(std::make_unique<stLight>());
     torch->setName("TORCH");
-    auto* sky_light = sky.world.static_scene->adoptChild(std::make_unique<stLight>());
+    auto* sky_light = sky.static_scene->adoptChild(std::make_unique<stLight>());
     sky_light->setName("SUN");
-    auto* layer = level.world.static_scene->adoptChild(std::make_unique<srClipPlane>());
+    auto* layer = level.static_scene->adoptChild(std::make_unique<srClipPlane>());
     layer->setName("LAYER 1");
 
     // Engine-light setup must keep its exact-type contract: stLight has its
     // own group configuration even though it derives from srLight.
-    auto* engine_light = level.world.static_scene->adoptChild(std::make_unique<srLight>());
+    auto* engine_light = level.static_scene->adoptChild(std::make_unique<srLight>());
     engine_light->setName("TORCH");
     engine_light->setGroupMask(7);
     torch->setGroupMask(9);
-    FinalizeStaticScene(level.world.static_scene.get());
+    FinalizeStaticScene(level.static_scene.get());
     REQUIRE(engine_light->getGroupMask() == 1);
     REQUIRE(torch->getGroupMask() == 9);
 
@@ -145,12 +144,10 @@ bool nodes(const std::filesystem::path& directory)
     REQUIRE((torch->testFlag(srNode::FLAG_DISABLE)));
 
     auto* gas =
-        level.particles.emplace_back(std::make_unique<stParticle>(level.world.dynamic_scene, 1))
-            .get();
+        level.particles.emplace_back(std::make_unique<stParticle>(level.dynamic_scene, 1)).get();
     gas->setName("GAS");
     auto* idle =
-        level.particles.emplace_back(std::make_unique<stParticle>(level.world.dynamic_scene, 1))
-            .get();
+        level.particles.emplace_back(std::make_unique<stParticle>(level.dynamic_scene, 1)).get();
     idle->setName("IDLE");
     gas->persisted = true;
     gas->SetActive(0);
@@ -167,8 +164,8 @@ bool nodes(const std::filesystem::path& directory)
     // Particles are owned by the world list, not the scene.
     level.particles.clear();
 
-    SetCurrentWorld(0);
-    SetSecondaryWorld(0);
+    ExchangeCurrentWorld(nullptr);
+    ExchangeSkyWorld(nullptr);
     return true;
 }
 } // namespace
@@ -180,13 +177,13 @@ TEST_CASE("world_lookup_test")
     // Empty worlds need no collection initialization and can be torn down
     // without ever loading a level or publishing them as the active world.
     for (int iteration = 0; iteration < 3; ++iteration) {
-        auto* world = CreateWorld();
+        auto world = CreateWorld();
         REQUIRE(world->level != nullptr);
         REQUIRE(world->dynamic_scene->getParent() == world->static_scene.get());
-        REQUIRE(GetWorldProp(world, 0) == nullptr);
-        REQUIRE(GetWorldCameraPath(world, -1) == nullptr);
-        REQUIRE(GetWorldAmbientSound(world, 0) == nullptr);
-        DestroyWorld(world);
+        REQUIRE(GetWorldProp(world.get(), 0) == nullptr);
+        REQUIRE(GetWorldCameraPath(world.get(), -1) == nullptr);
+        REQUIRE(GetWorldAmbientSound(world.get(), 0) == nullptr);
+        world.reset();
     }
     std::filesystem::remove_all(directory);
     REQUIRE(passed);
@@ -203,18 +200,18 @@ TEST_CASE("Failed world asset loads release published worlds and allow retry", "
     ScopedAssetRoots roots({assets.generic_string(), user.generic_string()});
 
     // A failed sky load must unregister the partial sky without touching the primary world.
-    auto primary = std::unique_ptr<W8World>(CreateWorld());
-    SetCurrentWorld(primary.get());
+    ExchangeCurrentWorld(CreateWorld(8));
+    auto* primary = GetWorld();
     W8LevelInfo missing_sky{"", "MissingSky.LVL"};
     for (int attempt = 0; attempt < 2; ++attempt) {
         REQUIRE_THROWS_WITH(LoadSkyWorld(0, &missing_sky),
                             Catch::Matchers::ContainsSubstring("Could not open level file."));
         REQUIRE(GetSecondaryWorld() == nullptr);
-        REQUIRE(GetWorld() == primary.get());
+        REQUIRE(GetWorld() == primary);
         // The update registry must not retain the destroyed sky.
         DetachAllWorldItems();
     }
-    primary.reset();
+    ExchangeCurrentWorld(nullptr);
     REQUIRE(GetWorld() == nullptr);
 
     REQUIRE(InitializeMusicPlaylist());
@@ -229,13 +226,56 @@ TEST_CASE("Failed world asset loads release published worlds and allow retry", "
     REQUIRE(LevelBuildInfoByID(47, &info));
     // Preflight succeeds, so loading reaches ReadLevel after publishing the replacement.
     // A failed replacement cannot restore an old level ID whose world is gone.
+    g_status.resume_level = 8; // A pending saved destination is not the active world.
     for (int attempt = 0; attempt < 2; ++attempt) {
-        g_status.current_level = 8;
         REQUIRE_THROWS_WITH(LoadLevel(47, -1, false),
                             Catch::Matchers::ContainsSubstring("Problem loading level"));
         REQUIRE(GetWorld() == nullptr);
         REQUIRE(GetSecondaryWorld() == nullptr);
-        REQUIRE(g_status.current_level == -1);
+        REQUIRE(GetLoadedLevelID() == -1);
+        REQUIRE(g_status.resume_level == 8);
         DetachAllWorldItems();
     }
+}
+
+TEST_CASE("Reward accounting follows the owned world, not a pending save destination",
+          "[levels][rewards]")
+{
+    struct Restore {
+        W8GlobalStatus status = g_status;
+        std::vector<std::string> strings = std::move(g_localized_strings);
+        ~Restore()
+        {
+            ExchangeCurrentWorld(nullptr);
+            ClearNpcMessageQueue();
+            g_status = std::move(status);
+            g_localized_strings = std::move(strings);
+        }
+    } restore;
+    std::array<W8Character, 8> characters{};
+    std::array<W8PartySlotRow, 8> rows{};
+    g_status = W8GlobalStatus{};
+    g_status.buffers.Char = characters.data();
+    g_status.buffers.XChar = rows.data();
+    rows[0].fOccupied = true;
+    characters[0].hp_current = 1;
+    g_localized_strings.resize(0x233);
+    g_localized_strings[0x232] = "%d";
+    g_status.resume_level = 8;
+    ExchangeCurrentWorld(CreateWorld(3));
+    AddPartyGold(1, false);
+    AwardPartyExperience(1, 0);
+    REQUIRE(g_status.level_progress[3].gold_collected == 1);
+    REQUIRE(g_status.level_progress[3].experience_gained == 1);
+    REQUIRE(g_status.level_progress[8].gold_collected == 0);
+    REQUIRE(g_status.level_progress[8].experience_gained == 0);
+    ExchangeCurrentWorld(nullptr);
+    const auto suffix = std::to_array(g_status.status_header_suffix);
+    AddPartyGold(1, false);
+    AwardPartyExperience(1, 0);
+    REQUIRE(g_status.party_gold == 2);
+    REQUIRE(characters[0].experience == 2);
+    REQUIRE(g_status.level_progress[3].gold_collected == 1);
+    REQUIRE(g_status.level_progress[3].experience_gained == 1);
+    REQUIRE(std::to_array(g_status.status_header_suffix) == suffix);
 }

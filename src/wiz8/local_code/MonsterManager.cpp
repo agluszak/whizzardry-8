@@ -36,6 +36,7 @@
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/AnimRep.hpp"
+#include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Missile.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Octree.h"
@@ -282,8 +283,7 @@ void ActivateMonster(W8MonsterInfo* monster_info, W8MonsterActivationMode mode)
     monster_info->p3D = monster.get();
     GetWorld()->monsters.push_back(std::move(monster));
 
-    if (monster_info->scale < 0.0f ||
-        g_status.level_progress[g_status.current_level].visited == 0) {
+    if (monster_info->scale < 0.0f || g_status.level_progress[GetLoadedLevelID()].visited == 0) {
         monster_info->saved_mirror_x = MonsterGetMirrorX(monster_info->p3D);
         monster_info->scale = CalculateMonsterScale(monster_info);
         MonsterSetScale(monster_info->p3D, monster_info->scale);
@@ -395,8 +395,8 @@ done:
                                     (monster_info->ubDisposition == W8_DISPOSITION_FRIENDLY &&
                                      monster_info->uiCondition[W8_CONDITION_TURNCOAT] != 0))) {
         ++g_combat_state->combat_result;
-        if (g_status.current_level >= 0 && g_status.current_level < W8_LEVEL_COUNT) {
-            ++g_status.level_progress[g_status.current_level].monster_kill_count;
+        if (GetLoadedLevelID() >= 0 && GetLoadedLevelID() < W8_LEVEL_COUNT) {
+            ++g_status.level_progress[GetLoadedLevelID()].monster_kill_count;
         }
         if (killer_party_slot != -1) {
             W8Character* killer = &g_status.buffers.Char[killer_party_slot];

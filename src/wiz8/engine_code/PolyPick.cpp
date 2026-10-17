@@ -12,6 +12,7 @@
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Item.h"
 #include "wiz8/engine_code/Monster.h"
+#include "wiz8/engine_code/World.h"
 
 /* Heading from source to target in the x/z plane. */
 // FUNCTION: WIZ8 0x004BE420
@@ -95,6 +96,6 @@ bool PointInsideBounds(const glm::vec3* point, const glm::vec3* minimum, const g
 // FUNCTION: WIZ8 0x004BE940
 bool projectsToCamera(const glm::vec3& position)
 {
-    return g_world->camera->project(glm::dvec3(position)).result ==
+    return GetWorld()->camera->project(glm::dvec3(position)).result ==
            srCamera::PROJECTION_RESULT_ACCEPTED;
 }

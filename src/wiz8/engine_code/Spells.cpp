@@ -49,6 +49,7 @@
 #include "wiz8/engine_code/SoundEvent.h"
 #include "wiz8/engine_code/SpellEmitterHost.h"
 #include "wiz8/engine_code/SpellVisual.h"
+#include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/emitter_cycles.h"
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/engine_code/stLight.hpp"
@@ -608,7 +609,7 @@ static W8SpellVisual* CreateSpellVisual(std::string_view name, W8SpellVisualMode
                                         int power_level, int value, int flags)
 {
     W8GrCycleLoadContext context;
-    context.world = g_world;
+    context.world = GetWorld();
     context.directory = "Data\\Spells\\Bitmaps";
     const auto load = [&](std::string_view resource) -> W8SpellVisual* {
         auto owner = LoadSpellVisualResource(&context, std::string(resource).c_str(), mode);
@@ -619,14 +620,14 @@ static W8SpellVisual* CreateSpellVisual(std::string_view name, W8SpellVisualMode
         visual->SetNavigationMode(4);
         visual->active = false;
         visual->SetPitchRollEnabled(true, true);
-        g_world->spell_visuals.push_back(std::move(owner));
+        GetWorld()->spell_visuals.push_back(std::move(owner));
         return visual;
     };
 
     W8SpellVisual* visual = name.empty() ? nullptr : load(name);
     int cycle = visual ? visual->FindSupportedCycle(mode, power_level - 1) : -1;
     if (visual && cycle == -1) {
-        DestroySpellVisual(g_world, visual);
+        DestroySpellVisual(GetWorld(), visual);
         visual = nullptr;
     }
     if (!visual) {
@@ -931,7 +932,7 @@ void SetMonsterSpellIcon(W8Monster* monster, W8MonsterSpellIconId icon, bool add
         icons.reserve(icons.size() + 1);
         const auto path =
             fmt::format("data/icons/monsterspells/{}_A.TGA", g_monster_spell_icon_names[icon]);
-        auto* item = CreateMonsterIconItem(g_world, path.c_str(), 1);
+        auto* item = CreateMonsterIconItem(GetWorld(), path.c_str(), 1);
         if (!item) srAssertFail("monster spell icon item", __FILE__, __LINE__, nullptr);
         icons.push_back({icon, item});
     } else {
@@ -943,7 +944,7 @@ void SetMonsterSpellIcon(W8Monster* monster, W8MonsterSpellIconId icon, bool add
             auto* item = entry->psrBMO;
             entry = icons.erase(entry);
             if (item) {
-                item->DetachMesh(g_world);
+                item->DetachMesh(GetWorld());
                 delete item;
             }
         }
@@ -1087,7 +1088,7 @@ void ClearMonsterSpellIcons(W8Monster* monster)
         srAssertFail("monster representation", __FILE__, __LINE__, nullptr);
     for (const auto& entry : monster->m_pRep->spell_icons) {
         if (entry.psrBMO) {
-            entry.psrBMO->DetachMesh(g_world);
+            entry.psrBMO->DetachMesh(GetWorld());
             delete entry.psrBMO;
         }
     }
