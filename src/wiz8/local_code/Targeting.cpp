@@ -34,6 +34,7 @@
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/PolyPick.h"
 #include "wiz8/engine_code/Spells.h"
+#include "wiz8/engine_code/World.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
