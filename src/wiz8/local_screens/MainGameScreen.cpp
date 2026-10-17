@@ -167,6 +167,15 @@
 
 struct SDL_Surface;
 
+// Resolve the edited action at the screen boundary, before evaluating its rules.
+static W8TargetNeed GetTargetNeededForEditedAction(int party_slot)
+{
+    const auto context = GetEditedActionContext(party_slot);
+    if (context == W8_TARGETING_CONTEXT_OUT_OF_COMBAT) return W8_TARGET_NEED_NONE;
+    const auto selected = SelectCombatAction(party_slot, context);
+    return GetTargetNeededForAction(selected.kind, selected.detail, selected.detail_block);
+}
+
 /* Every redraw request checks the screen state first, so a request made from
    another screen is simply dropped. */
 
@@ -4747,7 +4756,7 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
         return UiResult::Pass;
     }
 
-    needed = GetTargetNeededForCurrentAction(g_status.selected_character);
+    needed = GetTargetNeededForEditedAction(g_status.selected_character);
     if (gXStatus.iTargetingMode == W8_TARGET_NEED_ALLY ||
         (needed == W8_TARGET_NEED_ALLY && (event.modifiers & CTRL_DOWN) != 0)) {
         targeting = true;
@@ -5358,7 +5367,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
     if (gXStatus.fReviewCharacterMode || g_camera_path_active) {
         return UiResult::Pass;
     }
-    needed = GetTargetNeededForCurrentAction(g_status.selected_character);
+    needed = GetTargetNeededForEditedAction(g_status.selected_character);
     if (!(event.button == UiPointerButton::Left) &&
         !(event.button == UiPointerButton::Right && event.action == UiPointerAction::Down)) {
         if ((event.button == UiPointerButton::Right && event.action == UiPointerAction::Up)) {
@@ -5887,6 +5896,10 @@ void SetCombatSelection(int value)
             ? W8SelectedAction{W8_ACTION_NONE, -1, nullptr, nullptr}
             : SelectCombatAction(g_status.selected_character, editing_context);
     const bool sighting = editing_context == W8_TARGETING_CONTEXT_OUT_OF_COMBAT;
+    const auto needed = sighting
+                            ? W8_TARGET_NEED_NONE
+                            : GetTargetNeededForAction(edited_action.kind, edited_action.detail,
+                                                       edited_action.detail_block);
 
     int current = g_level_block->highlighted_item;
 
@@ -5912,7 +5925,7 @@ void SetCombatSelection(int value)
         return;
     }
     if (current != -1) {
-        if (GetTargetNeededForCurrentAction(g_status.selected_character) == W8_TARGET_NEED_GROUP) {
+        if (needed == W8_TARGET_NEED_GROUP) {
             W8MonsterInfo* monster_info = FindMonster(g_level_block->highlighted_item);
             ModifyGroupColor(monster_info->monster_group_id, W8_TARGET_HIGHLIGHT_NONE);
         } else {
@@ -5937,8 +5950,7 @@ void SetCombatSelection(int value)
             g_level_block->highlighted_item = value;
             g_level_block->target_highlight_ok[0] =
                 HighlightMonsterAsTarget(value, g_status.selected_character, 1);
-            if (GetTargetNeededForCurrentAction(g_status.selected_character) ==
-                W8_TARGET_NEED_GROUP) {
+            if (needed == W8_TARGET_NEED_GROUP) {
                 W8MonsterInfo* monster_info = FindMonster(value);
                 ModifyGroupColor(monster_info->monster_group_id,
                                  g_level_block->target_highlight_ok[0] == 0
@@ -6021,6 +6033,10 @@ void SetCombatAction(int value)
             ? W8SelectedAction{W8_ACTION_NONE, -1, nullptr, nullptr}
             : SelectCombatAction(g_status.selected_character, editing_context);
     const bool sighting = editing_context == W8_TARGETING_CONTEXT_OUT_OF_COMBAT;
+    const auto needed = sighting
+                            ? W8_TARGET_NEED_NONE
+                            : GetTargetNeededForAction(edited_action.kind, edited_action.detail,
+                                                       edited_action.detail_block);
 
     int current = g_level_block->action_group;
 
@@ -6041,10 +6057,11 @@ void SetCombatAction(int value)
         W8TargetHighlight tint = g_level_block->target_highlight_ok[0] == 0
                                      ? W8_TARGET_HIGHLIGHT_RED
                                      : W8_TARGET_HIGHLIGHT_GREEN;
-        if (GetTargetNeededForCurrentAction(g_status.selected_character) == W8_TARGET_NEED_GROUP) {
+        if (needed == W8_TARGET_NEED_GROUP) {
             ModifyGroupColor(g_level_block->action_group, tint);
         } else {
-            HighlightPickedGroupMember(g_status.selected_character, group, tint);
+            HighlightPickedGroupMember(g_status.selected_character, group, tint, edited_action,
+                                       sighting);
         }
     }
     SetTargetCursor(GetTargetingCursorForState(g_level_block->target_highlight_ok[0] != 0));

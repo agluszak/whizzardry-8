@@ -34,6 +34,7 @@
 #include "wiz8/level_specific_code/Trynnie2.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/Magic.h"
@@ -445,7 +446,11 @@ void CommitSelectedItemUse(void)
 
     if (g_use_item_selected != 0 &&
         CanUseItemForAction(g_status.selected_character, g_use_item_selected) &&
-        IsItemTargetOfNeededKind(g_status.selected_character, g_use_item_selected)) {
+        IsItemTargetOfNeededKind(
+            SelectCombatAction(g_status.selected_character,
+                               GetEditedActionContext(g_status.selected_character))
+                .target,
+            g_use_item_selected)) {
         character = &g_status.buffers.Char[g_status.selected_character];
         if (g_use_item_selected != 0) {
             g_use_item_commit_active = true;
@@ -777,7 +782,8 @@ void SelectUseItemLine(int iTextLine)
     target_type = GetSpellTargetType(
         GetItemSpell(g_use_item_selected),
         ItemClassNormalizesTarget(&g_item_records[g_use_item_selected->iItemNo]));
-    ConfigureSpellTargetFilter(target_type, GetTargetNeededForItem(g_use_item_selected));
+    ConfigureSpellTargetFilter(
+        target_type, GetTargetNeededForItem(g_use_item_selected, g_level_block == nullptr));
 }
 
 /* Show the item in the detail control: its catalog icon plus a quantity line -

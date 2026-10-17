@@ -1067,7 +1067,11 @@ void TryCommitSpellCast(void)
     ready = false;
     if (gpSCSV->uiSpellToCast != 0 &&
         (gpSCSV->iSpellPower != -1 || gpSCSV->iSpellPowerClass == W8_SPELL_POWER_FIXED)) {
-        ready = IsSpellTargetOfNeededKind(g_status.selected_character, gpSCSV->uiSpellToCast);
+        ready = IsSpellTargetOfNeededKind(
+            SelectCombatAction(g_status.selected_character,
+                               GetEditedActionContext(g_status.selected_character))
+                .target,
+            gpSCSV->uiSpellToCast, g_level_block == nullptr);
     }
     if (gpSCSV->uiSpellToCast == 0x4b && !gpSCSV->dialog_confirmed) {
         if (!IsModalOpen() &&

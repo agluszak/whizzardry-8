@@ -515,23 +515,6 @@ void SetCharacterSpell(const W8Character* character, int spell_id, int power_lev
                       SelectCombatAction(party_slot, GetEditedActionContext(party_slot)).target);
 }
 
-/* Whether one party slot's recorded spell target is still a target it could
-   reach: the target has to be of the kind the spell needs, and the slot has to
-   be in range of it. */
-// FUNCTION: WIZ8 0x00501530
-bool PartySlotSpellTargetStillValid(int party_slot)
-{
-    W8TargetNeed needed = GetTargetNeededForSpellFriendly(
-        g_status.buffers.XChar[party_slot].spell_id, false, g_level_block == nullptr);
-
-    if (!TargetMatchesNeeded(SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_SPELL).target,
-                             needed)) {
-        return false;
-    }
-    return CharacterActionReachesTarget(party_slot, 0,
-                                        SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_SPELL));
-}
-
 /* Start one character's breath attack; the character must be able to
    breathe again. */
 // FUNCTION: WIZ8 0x00501880
@@ -544,8 +527,8 @@ void StartCharacterBreathAttack(int party_slot)
     }
     ChooseAction(party_slot, W8_ACTION_BREATHE, -1, 0, false, 1);
     AimAtTarget(party_slot, &row->breath_target, GetEditedActionContext(party_slot));
-    if (IsSpellTargetStillValidIn(party_slot, W8_SPELL_SPECIAL_ATTACK_CONE,
-                                  W8_TARGETING_CONTEXT_BREATH)) {
+    if (IsSpellTargetStillValid(party_slot, W8_SPELL_SPECIAL_ATTACK_CONE,
+                                SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_BREATH))) {
         StartBreathCycle(party_slot, false);
         return;
     }
@@ -926,7 +909,8 @@ void StartCharacterSpellCast(int party_slot, int power_level)
     ChooseAction(party_slot, W8_ACTION_CAST_SPELL, row->spell_id, target, false, 1);
     AimAtTarget(party_slot, &saved_target, GetEditedActionContext(party_slot));
 
-    if (IsSpellTargetStillValidIn(party_slot, row->spell_id, W8_TARGETING_CONTEXT_SPELL)) {
+    if (IsSpellTargetStillValid(party_slot, row->spell_id,
+                                SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_SPELL))) {
         StartBreathCycle(party_slot, false);
         return;
     }
@@ -949,8 +933,8 @@ void StartCharacterItemUse(int party_slot)
     AimAtTarget(party_slot, &saved_target, GetEditedActionContext(party_slot));
     FindCharacterItemAt(party_slot, row->item_origin, row->item_slot);
 
-    if (IsSpellTargetStillValidIn(party_slot, GetItemSpell(row->item_detail.item_use.item),
-                                  W8_TARGETING_CONTEXT_ITEM)) {
+    if (IsSpellTargetStillValid(party_slot, GetItemSpell(row->item_detail.item_use.item),
+                                SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_ITEM))) {
         StartBreathCycle(party_slot, false);
         return;
     }
@@ -1226,7 +1210,8 @@ bool CanPartySlotCastRecordedSpell(int party_slot)
         return false;
     }
     if (!gXStatus.fCombatMode &&
-        !IsSpellTargetStillValidIn(party_slot, spell_id, W8_TARGETING_CONTEXT_SPELL)) {
+        !IsSpellTargetStillValid(party_slot, spell_id,
+                                 SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_SPELL))) {
         return false;
     }
     return true;
@@ -1263,7 +1248,8 @@ int GetAffordableSpellPowerLevel(int party_slot)
         return 0;
     }
     if (!gXStatus.fCombatMode &&
-        !IsSpellTargetStillValidIn(party_slot, spell_id, W8_TARGETING_CONTEXT_SPELL)) {
+        !IsSpellTargetStillValid(party_slot, spell_id,
+                                 SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_SPELL))) {
         return 0;
     }
 
@@ -1327,7 +1313,8 @@ bool CanPartySlotUseRecordedItem(int party_slot)
         return false;
     }
     if (!gXStatus.fCombatMode &&
-        !IsSpellTargetStillValidIn(party_slot, spell_id, W8_TARGETING_CONTEXT_ITEM)) {
+        !IsSpellTargetStillValid(party_slot, spell_id,
+                                 SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_ITEM))) {
         return false;
     }
     return true;

@@ -54,7 +54,7 @@ std::optional<W8WeaponTarget> ChooseFallbackMonsterTarget(int party_slot,
                                                           const W8SelectedAction& action);
 void SetFactionFlag(signed char faction, bool flag);
 unsigned char ShowMonsterTargetMarker(W8MonsterInfo* monster_info);
-bool IsSpellTargetStillValidIn(int party_slot, int spell_id, W8TargetingContext context);
+bool IsSpellTargetStillValid(int party_slot, int spell_id, const W8SelectedAction& selected);
 void ClearTargetHighlights(int party_slot, const W8CombatSlot* target);
 void ClearPartySlotMonsterHighlights(unsigned int party_slot);
 void SetTargetToCharacter(int character_slot, bool in_combat);
@@ -101,10 +101,10 @@ bool CanTargetMonsterGroup(int party_slot, W8MonsterGroup* group, const W8Select
 void ClearSlotTargeting(int party_slot);
 /* Whether the slot's current target satisfies the spell's
    needed-target kind. */
-bool IsSpellTargetOfNeededKind(int party_slot, int spell_id);
+bool IsSpellTargetOfNeededKind(const W8CombatSlot* target, int spell_id, bool needs_item_target);
 /* Whether the slot's current target satisfies the item's
    needed-target kind. */
-bool IsItemTargetOfNeededKind(int party_slot, const W8ItemInstance* item);
+bool IsItemTargetOfNeededKind(const W8CombatSlot* target, const W8ItemInstance* item);
 /* Select the party slot the spell-casting view is casting for. */
 void SelectSpellCastingPartySlot(int party_slot);
 /* Set the targeting filter for the spell being aimed. */
@@ -129,7 +129,8 @@ bool IsMonsterVisibleWithinDistance(W8Monster* monster, const glm::vec3* positio
                                     float max_distance);
 /* Pick the next targetable member of `group` and paint it with the
    `color` highlight (0 clears, 1 green, 2 red). */
-void HighlightPickedGroupMember(int party_slot, W8MonsterGroup* group, W8TargetHighlight color);
+void HighlightPickedGroupMember(int party_slot, W8MonsterGroup* group, W8TargetHighlight color,
+                                const W8SelectedAction& selected, bool sighting);
 /* Apply a highlight tint (0 clears, 1 green, 2 red) to every member
    of the group - the debug message names it ModifyGroupColor. */
 void ModifyGroupColor(int group_id, W8TargetHighlight color);
@@ -159,10 +160,7 @@ void SetTargetSourceToCharacter(int party_slot, W8TargetSource* source);
    action - a fixed kind for most, the spell's answer for casts and item use. */
 W8TargetNeed GetTargetNeededForAction(W8ActionKind action, int spell_id,
                                       const W8ActionDetailBlock* detail_block);
-/* The target kind the slot's current action needs in the effective
-   targeting context, with the main-screen selection state folded in. */
-W8TargetNeed GetTargetNeededForCurrentAction(int party_slot);
-W8TargetNeed GetTargetNeededForItem(const W8ItemInstance* item);
+W8TargetNeed GetTargetNeededForItem(const W8ItemInstance* item, bool needs_item_target);
 void TintHighlightedMonster(W8Monster* monster, W8TargetHighlight tint);
 /* After the selected character's action changes, drop back to no
    targeting when its recorded target still fits, or enter the mode the action
@@ -174,9 +172,6 @@ void AimAtMonsterGroupMember(int party_slot, W8MonsterGroup* group);
    targetable group or monster and commit it. */
 void CycleToNextTarget(int party_slot);
 bool SlotHasAnyValidTarget(int party_slot);
-/* Every monster the slot's action could aim at, angular order,
-   stepping from the currently picked monster. */
-int PickNextTargetableMonster(int party_slot);
 /* Whether the slot holds a dead character still reachable for a
    targeting mode that admits one. */
 bool IsDeadCharacterTargetable(int party_slot);
