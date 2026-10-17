@@ -1,5 +1,6 @@
 #include "wiz8/level_specific_code/Ascension.h"
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -40,7 +41,7 @@
    case 0x24, the Footsteps level, which is part of the Ascension Peak block. */
 
 // GLOBAL: WIZ8 0x0068356C
-static W8IntervalGate* g_avalanche_gate;
+static std::optional<W8IntervalGate> g_avalanche_gate;
 
 /* Count how many of the three Ascension Peak relic items (0x242, 0x243,
    0x244) are on the party; the world-cursor "seen bodies" handler requires
@@ -201,15 +202,14 @@ void AscensionLandShaker(int command)
         return;
     }
     g_remove_current_master_function = false;
-    if (g_avalanche_gate == 0) {
-        g_avalanche_gate = new W8IntervalGate(1.0f, false, true);
+    if (!g_avalanche_gate) {
+        g_avalanche_gate.emplace(1.0f, false, true);
         return;
     }
     if (!g_avalanche_gate->PollFinished()) {
         return;
     }
-    delete g_avalanche_gate;
-    g_avalanche_gate = 0;
+    g_avalanche_gate.reset();
     RunNamedTrigger("LandShaker", -1);
     g_remove_current_master_function = true;
 }

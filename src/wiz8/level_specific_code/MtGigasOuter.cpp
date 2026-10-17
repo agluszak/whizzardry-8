@@ -1,5 +1,6 @@
 #include "wiz8/level_specific_code/MtGigasOuter.h"
 
+#include <optional>
 #include <vector>
 
 #include "glm/ext/vector_float3.hpp"
@@ -35,13 +36,13 @@ struct W8NpcState;
    0x00613640 names this TU for 0x004DBEC0 and 0x004DC080. */
 
 // GLOBAL: WIZ8 0x006834fc
-static W8IntervalGate* g_lift_gate;
+static std::optional<W8IntervalGate> g_lift_gate;
 // GLOBAL: WIZ8 0x00683500
 static W8Prop* g_lift_prop;
 // GLOBAL: WIZ8 0x00683504
 static stSound3D* g_mt_gigas_outer_alarm_sound;
 // GLOBAL: WIZ8 0x00683508
-static W8IntervalGate* g_mt_gigas_outer_alarm_gate;
+static std::optional<W8IntervalGate> g_mt_gigas_outer_alarm_gate;
 
 /* Lift prop Y travel: 5228.6 at the top of the ride, -2000.0 at the bottom,
    and -5000.0 parked out of the world once the ride is spent. */
@@ -139,7 +140,7 @@ void ControlLiftGate(int command)
     if (command != 0) {
         value = 0;
         if (command == -1) {
-            if (g_lift_gate != 0) {
+            if (g_lift_gate) {
                 value = static_cast<int>(g_lift_gate->GetProgress() * 100.0f);
             }
             if (GetLocationVarIDByName("FlagPosition") == -1) {
@@ -157,10 +158,10 @@ void ControlLiftGate(int command)
         position = g_lift_prop->GetPosition();
         if (value < 100) {
             g_master_functions.push_back(ControlLiftGate);
-            if (g_lift_gate != 0) {
+            if (g_lift_gate) {
                 g_lift_gate->Arm();
             } else {
-                g_lift_gate = new W8IntervalGate(3.0f, false, true);
+                g_lift_gate.emplace(3.0f, false, true);
             }
             if (value > 0) {
                 g_lift_gate->SetProgress(value * kMovementSpeedStep);
@@ -177,7 +178,7 @@ void ControlLiftGate(int command)
         g_lift_prop->SetPosition(&position);
         return;
     }
-    if (g_lift_gate != 0) {
+    if (g_lift_gate) {
         if (!g_lift_gate->PollFinished()) {
             progress = g_lift_gate->GetProgress();
         } else {
@@ -234,7 +235,9 @@ void ControlCampAlarm(int command)
 {
     glm::vec3 position;
 
-    if (PrepareUmpaniAlarmCommand(command, "UmpaniCampAlarm", g_mt_gigas_outer_alarm_gate)) {
+    if (PrepareUmpaniAlarmCommand(command, "UmpaniCampAlarm",
+                                  g_mt_gigas_outer_alarm_gate ? &*g_mt_gigas_outer_alarm_gate
+                                                              : nullptr)) {
         return;
     }
     if (command != 0) {
@@ -246,13 +249,12 @@ void ControlCampAlarm(int command)
         g_mt_gigas_outer_alarm_sound = nullptr;
         g_mt_gigas_outer_alarm_sound = CreateAndPlaySoundNode("Data\\Sound\\Ambients\\Alarm1.wav",
                                                               position, 1.0f, 75.0f, true);
-        if (g_mt_gigas_outer_alarm_gate != 0) {
-            delete g_mt_gigas_outer_alarm_gate;
-            g_mt_gigas_outer_alarm_gate = 0;
+        if (g_mt_gigas_outer_alarm_gate) {
+            g_mt_gigas_outer_alarm_gate.reset();
         }
-        g_mt_gigas_outer_alarm_gate =
-            new W8IntervalGate(static_cast<float>(static_cast<unsigned int>(command)), false, true);
-        if (g_mt_gigas_outer_alarm_gate != 0) {
+        g_mt_gigas_outer_alarm_gate.emplace(static_cast<float>(static_cast<unsigned int>(command)),
+                                            false, true);
+        if (g_mt_gigas_outer_alarm_gate) {
             g_master_functions.push_back(ControlCampAlarm);
         }
     }
@@ -262,10 +264,7 @@ void ControlCampAlarm(int command)
     g_remove_current_master_function = true;
     if (g_mt_gigas_outer_alarm_sound) g_mt_gigas_outer_alarm_sound->Stop();
     g_mt_gigas_outer_alarm_sound = nullptr;
-    if (g_mt_gigas_outer_alarm_gate != 0) {
-        delete g_mt_gigas_outer_alarm_gate;
-    }
-    g_mt_gigas_outer_alarm_gate = 0;
+    g_mt_gigas_outer_alarm_gate.reset();
     SetTriggerVariableByName("UmpaniCampAlarm", 0);
 }
 

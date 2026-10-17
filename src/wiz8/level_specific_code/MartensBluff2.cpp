@@ -1,6 +1,7 @@
 #include "wiz8/level_specific_code/MartensBluff2.h"
 
 #include <cmath>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -64,7 +65,7 @@ static bool g_crusher_excluded_flag;
 // GLOBAL: WIZ8 0x0068352E
 static bool g_crusher_active;
 // GLOBAL: WIZ8 0x00683530
-static W8IntervalGate* g_spikeball_gate;
+static std::optional<W8IntervalGate> g_spikeball_gate;
 // GLOBAL: WIZ8 0x00683534
 static int g_spikeball_count;
 // GLOBAL: WIZ8 0x00683538
@@ -82,7 +83,7 @@ static stSound3D* g_crusher_sound;
 // GLOBAL: WIZ8 0x00683550
 static int g_crusher_state;
 // GLOBAL: WIZ8 0x00683554
-static W8IntervalGate* g_idol_gas_gate;
+static std::optional<W8IntervalGate> g_idol_gas_gate;
 
 /* Level init: creates the RavenQuest location variable, fires the Dummy
    trigger when the quest has not started, re-arms the perfume box and dummy
@@ -258,8 +259,8 @@ void MartensBluff2Spikeball(int command)
         } else if (static_cast<unsigned int>(command) <= 0xf) {
             g_spikeball_count = command;
         }
-        if (g_spikeball_gate == 0) {
-            g_spikeball_gate = new W8IntervalGate(2.0f, false, true);
+        if (!g_spikeball_gate) {
+            g_spikeball_gate.emplace(2.0f, false, true);
             g_master_functions.push_back(MartensBluff2Spikeball);
         }
     }
@@ -293,10 +294,7 @@ void MartensBluff2Spikeball(int command)
         }
         return;
     }
-    if (g_spikeball_gate != 0) {
-        delete g_spikeball_gate;
-    }
-    g_spikeball_gate = 0;
+    g_spikeball_gate.reset();
     g_spikeball_count = 0;
     if (GetLocationVarIDByName("SpikedBallLauncher") == -1) {
         CreateLocationVar("SpikedBallLauncher", g_spikeball_count);
@@ -633,20 +631,17 @@ void MartensBluff2IdolGas(int command)
     if (command != 0) {
         g_idol_gas_armed = true;
         BeginWorldLightingFade(-3000.0f);
-        if (g_idol_gas_gate != 0) {
+        if (g_idol_gas_gate) {
             g_idol_gas_gate->Arm();
             return;
         }
-        g_idol_gas_gate = new W8IntervalGate(4.0f, false, true);
+        g_idol_gas_gate.emplace(4.0f, false, true);
         return;
     }
     g_remove_current_master_function = false;
     if (!g_idol_gas_armed) {
         g_remove_current_master_function = true;
-        if (g_idol_gas_gate != 0) {
-            delete g_idol_gas_gate;
-        }
-        g_idol_gas_gate = 0;
+        g_idol_gas_gate.reset();
         g_idol_gas_armed = true;
         ResolveSurpriseWake();
         return;
