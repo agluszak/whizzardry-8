@@ -415,6 +415,9 @@ W8World::~W8World()
     if (this == g_world) StopWorldActivity(this);
     UnregisterWorld(this);
     DestroyWorldResources(this);
+    // Entity teardown may still borrow the published world. Clear it afterwards.
+    if (g_world == this) SetCurrentWorld(nullptr);
+    if (g_secondary_world == this) SetSecondaryWorld(nullptr);
 }
 
 // FUNCTION: WIZ8 0x0044FAF0

@@ -244,14 +244,13 @@ unsigned char LoadSkyWorld(int level, W8LevelInfo* info)
 {
     signed char sky_index;
     W8LevelInfo local_info;
-    W8World* sky_world;
 
     if (level < W8_LEVEL_COUNT) {
         sky_index = g_level_folders[level].sky_index;
     } else {
         sky_index = 0;
     }
-    if (sky_index == g_loaded_sky_index) {
+    if (sky_index == g_loaded_sky_index && (sky_index == -1 || GetSecondaryWorld() != nullptr)) {
         return 1;
     }
     if (info == 0) {
@@ -269,11 +268,10 @@ unsigned char LoadSkyWorld(int level, W8LevelInfo* info)
     if (sky_index == -1 || info->sky_path.empty()) {
         return 1;
     }
-    sky_world = CreateWorld();
-    g_secondary_world = sky_world;
-    if (sky_world == 0) {
-        return 0;
-    }
+    // Loaders borrow the published sky, but only a complete sky escapes this owner.
+    auto loading_sky = std::unique_ptr<W8World>(CreateWorld());
+    W8World* sky_world = loading_sky.get();
+    SetSecondaryWorld(sky_world);
     if (!LoadWorld(sky_world, info->sky_path, false)) {
         return 0;
     }
@@ -328,6 +326,7 @@ unsigned char LoadSkyWorld(int level, W8LevelInfo* info)
     WorldRemoveLight(sky_world, sky_world->camera_light);
     sky_world->camera_light = 0;
     g_loaded_sky_index = sky_index;
+    loading_sky.release();
     return 1;
 }
 
@@ -427,7 +426,6 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
 {
     int level = NormalizeMasterFunctionValue(requested_level);
     W8LevelInfo level_info;
-    int previous_level;
     bool first_visit = false;
 
     if (level >= 57) {
@@ -445,24 +443,35 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
     }
     ReleaseReadMeshScratch();
     InvalidateRendererTextureCache();
-    SetCurrentWorld(CreateWorld());
+    // The old level is gone. A failed replacement must leave an unloaded session.
+    g_status.current_level = -1;
+    auto loading_world = std::unique_ptr<W8World>(CreateWorld());
+    SetCurrentWorld(loading_world.get());
+    const auto discard_loading_world = [&] {
+        loading_world.reset();
+        ReleaseReadMeshScratch();
+        g_status.current_level = -1;
+    };
 
-    previous_level = g_status.current_level;
     g_status.current_level = level;
-    StartLevelMusic(1, 1);
-
-    if (!LoadSkyWorld(level, &level_info)) {
-        return 0;
+    try {
+        StartLevelMusic(1, 1);
+        bool loaded = LoadSkyWorld(level, &level_info) && InitializeMonsterManagerState() &&
+                      InitializeItemManagerState();
+        if (loaded) {
+            ResetNextTriggerId();
+            loaded = LoadWorld(loading_world.get(), level_info.level_path, true) != 0;
+        }
+        if (!loaded) {
+            discard_loading_world();
+            return 0;
+        }
+    } catch (...) {
+        discard_loading_world();
+        throw;
     }
-    InitializeMonsterManagerState();
-    InitializeItemManagerState();
-    ResetNextTriggerId();
-    if (!LoadWorld(GetWorld(), level_info.level_path, true)) {
-        /* This is the complete canonical rollback here: restore the level ID.
-           The already-installed replacement world is not destroyed. */
-        g_status.current_level = previous_level;
-        return 0;
-    }
+    // Gameplay initialization below takes over only after the level assets load.
+    loading_world.release();
 
     SetSkyNodeVisible(false);
     ResetAutomapView();

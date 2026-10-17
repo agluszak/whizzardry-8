@@ -1,6 +1,7 @@
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <memory>
 #include <string>
 #include <utility>
@@ -10,15 +11,19 @@
 
 #include "filesystem.h"
 #include "layouts/world.h"
+#include "scoped_asset_roots.h"
 #include "surrender/srClipPlane.h"
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
 #include "temporary_directory.h"
 #include "wiz8/engine_code/3d.h"
+#include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stParticle.h"
+#include "wiz8/layouts/game_status.h"
+#include "wiz8/music_playlist.h"
 
 namespace {
 struct TestWorld {
@@ -182,4 +187,42 @@ TEST_CASE("world_lookup_test")
     std::filesystem::remove_all(directory);
     REQUIRE(passed);
     std::puts("ok: world trigger, light, clip plane and particle lookups");
+}
+
+TEST_CASE("Failed world asset loads release published worlds and allow retry", "[levels][lifetime]")
+{
+    ScopedTemporaryDirectory directory("wiz8-failed-world-load");
+    ScopedAssetRoots roots({directory.path.generic_string(), directory.path.generic_string()});
+
+    // A failed sky load must unregister the partial sky without touching the primary world.
+    auto primary = std::unique_ptr<W8World>(CreateWorld());
+    SetCurrentWorld(primary.get());
+    W8LevelInfo missing_sky{"", "MissingSky.LVL"};
+    for (int attempt = 0; attempt < 2; ++attempt) {
+        REQUIRE_THROWS(LoadSkyWorld(0, &missing_sky));
+        REQUIRE(GetSecondaryWorld() == nullptr);
+        REQUIRE(GetWorld() == primary.get());
+        // The update registry must not retain the destroyed sky.
+        DetachAllWorldItems();
+    }
+    primary.reset();
+    REQUIRE(GetWorld() == nullptr);
+
+    REQUIRE(InitializeMusicPlaylist());
+    std::filesystem::create_directories(directory.path / "Levels" / "Test");
+    {
+        std::ofstream truncated(directory.path / "Levels" / "Test" / "level1.LVL");
+        truncated.put('\0');
+        REQUIRE(truncated.good());
+    }
+    // The path exists, so loading reaches ReadLevel after publishing the replacement.
+    // A failed replacement cannot restore an old level ID whose world is gone.
+    for (int attempt = 0; attempt < 2; ++attempt) {
+        g_status.current_level = 8;
+        REQUIRE_THROWS(LoadLevel(47, -1, false));
+        REQUIRE(GetWorld() == nullptr);
+        REQUIRE(GetSecondaryWorld() == nullptr);
+        REQUIRE(g_status.current_level == -1);
+        DetachAllWorldItems();
+    }
 }
