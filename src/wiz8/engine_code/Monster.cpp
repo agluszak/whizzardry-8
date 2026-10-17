@@ -1,7 +1,6 @@
 #include "wiz8/engine_code/Monster.h"
 
 #include <cmath>
-#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <exception>
