@@ -204,7 +204,7 @@ public:
     void CompleteItemInteraction();
     void Activate();
     bool Save(wiz8::File& hFile);
-    bool Load(wiz8::File& hFile, char version);
+    bool Load(wiz8::File& hFile, char version, bool from_assets = false);
     void RunLinkedTriggers();
     void SetPosition(glm::vec3* position);
     void FinishAction();
@@ -306,7 +306,7 @@ std::unique_ptr<W8TriggerActionData> ReadDoorTriggerActionData(wiz8::File* handl
    action data. */
 int ResetNextTriggerId(void);
 void SaveWorldTriggers(W8World* world, wiz8::File& handle);
-bool LoadWorldTriggers(W8World* world, wiz8::File& handle);
+bool LoadWorldTriggers(W8World* world, wiz8::File& handle, bool from_assets = false);
 void SaveTriggerRuntimeStates(W8World* world, wiz8::File& handle, bool restoring);
 bool LoadTriggerRuntimeStates(wiz8::File& handle);
 void SaveTriggerActionData(W8World* world, wiz8::File& handle);

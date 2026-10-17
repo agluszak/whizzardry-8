@@ -199,7 +199,7 @@ TEST_CASE("Failed world asset loads release published worlds and allow retry", "
     std::filesystem::create_directory(user);
     ScopedAssetRoots roots({assets.generic_string(), user.generic_string()});
 
-    // A failed sky load must unregister the partial sky without touching the primary world.
+    // A failed sky load must retire the partial sky without touching the primary world.
     ExchangeCurrentWorld(CreateWorld(8));
     auto* primary = GetWorld();
     W8LevelInfo missing_sky{"", "MissingSky.LVL"};
@@ -208,7 +208,7 @@ TEST_CASE("Failed world asset loads release published worlds and allow retry", "
                             Catch::Matchers::ContainsSubstring("Could not open level file."));
         REQUIRE(GetSecondaryWorld() == nullptr);
         REQUIRE(GetWorld() == primary);
-        // The update registry must not retain the destroyed sky.
+        // Traversal must derive from the live owners after the failed load.
         DetachAllWorldItems();
     }
     ExchangeCurrentWorld(nullptr);

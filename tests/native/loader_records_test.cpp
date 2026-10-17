@@ -33,6 +33,7 @@
 #include "wiz8/engine_code/Camera.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/GameData.h"
+#include "wiz8/engine_code/Item.h"
 #include "wiz8/engine_code/LevelFile.h"
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/OctBuildTree.h"
@@ -1331,6 +1332,7 @@ TEST_CASE_METHOD(LoaderFixture, "World item groups transfer ownership and preser
     first.runtime_id = 17;
     first.position = {1, -2, 3};
     first.flags = W8_WORLD_ITEM_HIDDEN;
+    first.entity_flags = second.entity_flags = W8_ITEM_ENTITY_RADAR_SEEN;
     first.saved_marker = second.saved_marker = 1;
     first.next = 1;
     first.sector_id = second.sector_id = -2;
@@ -1365,6 +1367,11 @@ TEST_CASE_METHOD(LoaderFixture, "World item groups transfer ownership and preser
     encoded->read_exact(roundtrip.data(), roundtrip.size());
     REQUIRE(roundtrip.size() == bytes.size());
     REQUIRE(std::equal(roundtrip.begin(), roundtrip.end(), bytes.begin()));
+    file->seek(0, wiz8::SeekOrigin::begin);
+    auto defaults = LoadItem(*file, true);
+    REQUIRE(defaults);
+    REQUIRE((defaults->entity_flags & W8_ITEM_ENTITY_RADAR_SEEN) == 0);
+    REQUIRE((defaults->next->entity_flags & W8_ITEM_ENTITY_RADAR_SEEN) == 0);
 }
 
 TEST_CASE_METHOD(LoaderFixture, "Retail waypoint versions load without an editor writer",

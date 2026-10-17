@@ -513,7 +513,7 @@ static bool readDoorFlag(File& file)
    of the trailing block is present; a type-10 action payload rebuilds its
    action data and re-queues the delayed timed event from the saved progress. */
 // FUNCTION: WIZ8 0x0043c1b0
-bool Trigger::Load(wiz8::File& hFile, char version)
+bool Trigger::Load(wiz8::File& hFile, char version, bool from_assets)
 try {
     bool header_ok;
     unsigned char has_action_data;
@@ -607,7 +607,7 @@ try {
 
         hFile.read_exact(&has_world_item, sizeof(has_world_item));
         if (has_world_item != 0) {
-            world_item_group = LoadItem(hFile);
+            world_item_group = LoadItem(hFile, from_assets);
         }
         hFile.read_exact(&items_generated, sizeof(items_generated));
         hFile.read_exact(&item_group_seed, sizeof(item_group_seed));
@@ -627,7 +627,7 @@ try {
    through a scratch trigger when the name is gone, and anything else pushes
    the tag byte back and ends the walk. */
 // FUNCTION: WIZ8 0x0043c860
-bool LoadWorldTriggers(W8World* world, wiz8::File& file)
+bool LoadWorldTriggers(W8World* world, wiz8::File& file, bool from_assets)
 try {
     for (std::size_t index = 0; index < world->triggers.size(); ++index) {
         char tag;
@@ -645,10 +645,10 @@ try {
             trigger = FindTriggerByName(name);
         }
         if (trigger) {
-            if (!trigger->Load(file, tag)) return false;
+            if (!trigger->Load(file, tag, from_assets)) return false;
         } else {
             Trigger scratch;
-            if (!scratch.Load(file, tag)) return false;
+            if (!scratch.Load(file, tag, from_assets)) return false;
         }
     }
     return true;

@@ -672,7 +672,7 @@ void LoadLevelSection(W8Chunk& chunk, unsigned int chunk_id, bool from_assets)
         LoadAutomapNotes(file);
         break;
     case W8_CHUNK_TRIGGERS:
-        LoadWorldTriggers(GetWorld(), file);
+        LoadWorldTriggers(GetWorld(), file, from_assets);
         break;
     case W8_CHUNK_PROPS:
         LoadWorldProps(GetWorld(), file);
