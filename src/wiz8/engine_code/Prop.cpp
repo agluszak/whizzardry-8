@@ -1733,8 +1733,8 @@ void LoadWorldProps(W8World* world, W8Chunk& chunk)
         }
         unsigned char bytes[6];
         chunk.ReadBytes(bytes, sizeof(bytes));
-        pending.emplace_back(prop, W8PropAnimationState{bytes[0], bytes[1], bytes[2],
-                                                         bytes[3], bytes[4]});
+        const W8PropAnimationState state{bytes[0], bytes[1], bytes[2], bytes[3], bytes[4]};
+        pending.emplace_back(prop, state);
     }
     for (const auto& [prop, state] : pending)
         if (prop) prop->ApplyAnimationState(state);
