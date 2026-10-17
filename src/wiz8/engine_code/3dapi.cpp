@@ -238,7 +238,8 @@ void UpdateWorlds(void)
         !(((GetInputState().modifiers & CTRL_DOWN) != 0) && g_combat_state != 0 &&
           (g_combat_state->round_active || gXStatus.fPartyMovementMode));
 
-    for (W8World* world : {GetWorld(), GetSecondaryWorld()}) {
+    // Loading registered the sky first; preserve that update order.
+    for (W8World* world : {GetSecondaryWorld(), GetWorld()}) {
         if (world) UpdateWorld(world);
     }
 
@@ -286,7 +287,7 @@ void UpdateWorld(W8World* world)
 // FUNCTION: WIZ8 0x0044f5b0
 void DetachAllWorldItems(void)
 {
-    for (W8World* world : {GetWorld(), GetSecondaryWorld()}) {
+    for (W8World* world : {GetSecondaryWorld(), GetWorld()}) {
         if (world) DetachWorldItemMeshes(world);
     }
 }
