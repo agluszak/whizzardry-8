@@ -27,7 +27,6 @@
 #include "surrender/srShader.h"
 #include "surrender/srTexture.h" // IWYU pragma: keep - complete texture type for shared_ptr base conversion.
 #include "wiz8/asset_paths.h"
-#include "wiz8/containers.h"
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/Camera.h"

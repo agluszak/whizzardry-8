@@ -20,7 +20,6 @@
 #include "glm/ext/vector_float3.hpp"
 #include "local_code/NPCScripting.h"
 #include "scoped_asset_roots.h"
-#include "surrender/srNode.h"
 #include "surrender/srScene.h"
 #include "temporary_directory.h"
 #include "wiz8/character_event_queue.h"

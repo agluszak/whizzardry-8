@@ -18,6 +18,7 @@
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/rotate_vector.hpp>
 
+#include "GDCamera.h"
 #include "GrCycle.h"
 #include "Navigator.h"
 #include "asset_paths.h"

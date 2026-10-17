@@ -2,8 +2,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstddef>
-#include <exception>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -28,13 +26,11 @@
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/PathAI.h"
 #include "wiz8/engine_code/PolyPick.h"
-#include "wiz8/filesystem.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/retail_geometry_types.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"

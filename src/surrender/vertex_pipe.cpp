@@ -13,7 +13,6 @@
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
-#include "glm/geometric.hpp"
 #include "glm/vector_relational.hpp"
 #include "surrender/channel_math.h"
 #include "surrender/lighting_math.h"

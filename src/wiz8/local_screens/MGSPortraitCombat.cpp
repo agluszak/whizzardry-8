@@ -2,6 +2,7 @@
 
 #include "glm/ext/vector_int2.hpp"
 #include "layouts/main_game_screen.h"
+#include "local_code/Gameloop.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/layouts/combat_state.h"
@@ -17,7 +18,6 @@
 #include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/local_screens/Screens.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/xstatus.h"

@@ -2540,7 +2540,7 @@ update_screen:
     UpdateSharedGameDataObject();
     g_animated_prop_present = false;
     WorldUpdateProps(g_world.get());
-    if (g_secondary_world.get()) {
+    if (g_secondary_world) {
         WorldUpdateProps(g_secondary_world.get());
     }
     SDL_Point point;

@@ -57,7 +57,6 @@
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/local_screens/Screens.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/startup_world.h"
@@ -627,7 +626,7 @@ unsigned char ReloadLevelPreservingCamera(int level, int entrance)
 
     if (entrance == -1 && level == g_status.current_level) {
         GetCameraOrientation(saved_angle, saved_pitch);
-        saved_position = cameraLocationOrZero(*g_world.get());
+        saved_position = cameraLocationOrZero(*g_world);
         restore = true;
     }
     if (g_status.current_level != -1) {

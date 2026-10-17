@@ -905,7 +905,7 @@ try {
    the difficulty. Iron-man saves also record the file's masked creation time. */
 static void PrepareStatusForSave(const wiz8::File& file)
 {
-    g_status.pending_move_location = cameraState(*g_world.get());
+    g_status.pending_move_location = cameraState(*g_world);
     ForEachShownMessage([](auto& message) {
         message.saved_remaining_ms = std::uint32_t(TimeUntilDeadline(message.clock));
     });

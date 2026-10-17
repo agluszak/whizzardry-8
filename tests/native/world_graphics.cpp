@@ -51,7 +51,6 @@
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/Screens.h"
 #include "wiz8/overlay_scenes.h"
 #include "wiz8/xstatus.h"
 

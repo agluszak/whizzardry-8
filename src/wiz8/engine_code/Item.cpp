@@ -22,7 +22,6 @@
 #include "layouts/world.h"
 #include "random.h"
 #include "surrender/srBoundingBox.h"
-#include "surrender/srCamera.h"
 #include "surrender/srDebug.h"
 #include "surrender/srModel.h"
 #include "surrender/srModelInstance.h"

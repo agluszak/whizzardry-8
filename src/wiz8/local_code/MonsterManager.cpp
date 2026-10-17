@@ -1,5 +1,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 
+#include <algorithm>
 #include <cctype>
 #include <cmath>
 #include <cstring>
@@ -23,6 +24,7 @@
 #include "layouts/character.h"
 #include "layouts/levels.h"
 #include "layouts/main_game_screen.h"
+#include "layouts/world.h"
 #include "local_code/HealthStaminaMana.h"
 #include "local_code/MagicEffects.h"
 #include "monster_actions.h"
@@ -215,7 +217,7 @@ void ActivateMonsterInWorld(W8MonsterInfo* monster_info)
                                            MonsterDBFromSpecies(monster_info->monster_species));
     }
 
-    camera_position = cameraLocation(*g_world.get());
+    camera_position = cameraLocation(*g_world);
     MonsterSelectLOD(monster_info->p3D, &camera_position);
     UpdateCycleRepresentation(monster_info->p3D);
     g_octree->VisitPointCopy(static_cast<unsigned short>(monster_info->location_id),

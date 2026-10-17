@@ -13,6 +13,7 @@
 #include "layouts/character.h"
 #include "layouts/gameplay_databases.h"
 #include "layouts/targeting.h"
+#include "layouts/world.h"
 #include "local_code/Factions.h"
 #include "monster_actions.h"
 #include "monster_cycles.h"
@@ -196,7 +197,7 @@ void UpdateMonsterGroups(bool staggered)
     if (!staggered) {
         UpdateMonsterSight();
     }
-    camera_position = cameraLocation(*g_world.get());
+    camera_position = cameraLocation(*g_world);
     for (group_list_index = 0; group_list_index < gXStatus.monster_groups.size();
          ++group_list_index) {
         if (staggered && group_list_index % 5 != g_monster_group_tick % 5) {

@@ -576,7 +576,7 @@ bool AutomapScreenEnter(void)
     stScript script;
     g_automap_saved_light_direction = g_light_direction;
     GetWorldLightValue(g_world.get(), &g_automap_saved_ambient_light);
-    g_automap_saved_camera = cameraState(*g_world.get());
+    g_automap_saved_camera = cameraState(*g_world);
     g_automap_saved_far_clip = static_cast<float>(WorldGetFarClip(g_world.get()));
     g_automap_saved_world_value = g_world->render_range;
     g_automap_saved_sky = g_sky_enabled;

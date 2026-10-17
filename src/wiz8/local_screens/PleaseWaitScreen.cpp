@@ -15,12 +15,12 @@
 #include "compat/compiler.h"
 #include "compat/native.h"
 #include "layouts/levels.h"
+#include "layouts/world.h"
 #include "soundman.h"
 #include "surrender/srDebug.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Video2.h"
-#include "wiz8/engine_code/World.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
@@ -220,7 +220,7 @@ void PleaseWaitScreenFrame(void)
         AutoSaveIfAllowed(true);
     }
 
-    if (!g_world.get()) {
+    if (!g_world) {
         srAssertFail("g_world.get()", PLEASE_WAIT_SCREEN_CPP, 332, 0);
     }
     RequestScreenTransition();

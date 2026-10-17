@@ -691,7 +691,7 @@ void UpdateNearbyWorldItems(void)
     unsigned int index;
     unsigned int count;
 
-    camera = cameraLocation(*g_world.get());
+    camera = cameraLocation(*g_world);
     count = gXStatus.world_items.size();
     for (index = 0; index < count; ++index) {
         W8WorldItem* item = ItemInfo(index);

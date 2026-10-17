@@ -1,7 +1,6 @@
 #include <algorithm>
 #include <cstddef>
 #include <span>
-#include <utility>
 
 #include "compat/compiler.h"
 #include "glm/geometric.hpp"

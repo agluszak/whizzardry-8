@@ -11,7 +11,6 @@
 #include <memory>
 #include <string>
 #include <string_view>
-#include <utility>
 #include <vector>
 
 #include <SDL3/SDL_stdinc.h>
@@ -588,7 +587,7 @@ void WorldSetCameraLocation(const glm::vec3* location)
 {
     glm::dvec3 position;
 
-    if (!g_world.get()) {
+    if (!g_world) {
         srAssertFail("pWorld", THREE_D_API_CPP, 0x422, 0);
     }
     if (g_world->camera != 0) {

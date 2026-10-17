@@ -727,7 +727,7 @@ void StartGame(Game& game)
 glm::vec3 PartyPosition()
 {
     W8WorldCameraState state{};
-    state = cameraState(*g_world.get());
+    state = cameraState(*g_world);
     return state.position;
 }
 
@@ -953,14 +953,14 @@ void GameStartScenario()
     Game game(false);
     StartGame(game);
     W8WorldCameraState start{};
-    start = cameraState(*g_world.get());
+    start = cameraState(*g_world);
     // Hold the forward key until the camera has moved, through the real binding.
     game.hold_key(SDLK_UP, true);
     W8WorldCameraState now{};
     game.wait(
         "walk",
         [&] {
-            now = cameraState(*g_world.get());
+            now = cameraState(*g_world);
             const float dx = now.position.x - start.position.x,
                         dz = now.position.z - start.position.z;
             return std::sqrt(dx * dx + dz * dz) > 1.0f;
@@ -1154,12 +1154,12 @@ void InventoryChestScenario()
         20);
     game.hold_key(SDLK_DOWN, false);
     W8WorldCameraState before{}, after{};
-    before = cameraState(*g_world.get());
+    before = cameraState(*g_world);
     game.hold_key(SDLK_LEFT, true);
     game.wait(
         "turn-left-after-inventory",
         [&] {
-            after = cameraState(*g_world.get());
+            after = cameraState(*g_world);
             return std::abs(after.yaw[0] - before.yaw[0]) > 0.1f;
         },
         20);
@@ -1909,7 +1909,7 @@ void Approach(Game& game, int location_id, float stop)
         held = key;
     };
     for (int frame = 0; frame < 60 * 120 && !gXStatus.fCombatMode; ++frame) {
-        const W8WorldCameraState camera = cameraState(*g_world.get());
+        const W8WorldCameraState camera = cameraState(*g_world);
         const glm::vec3 target = monster->p3D->GetPosition();
         if (HorizontalDistance(target, camera.position) < stop) break;
         const float wanted = std::atan2(target.x - camera.position.x, target.z - camera.position.z);
@@ -2081,8 +2081,8 @@ void PrintState(Game& game)
             std::printf("  pc %d %s hp=%u xp=%u kills=%d\n", slot, character.name.c_str(),
                         character.hp_current, character.experience, character.kill_count);
         }
-    if (g_world.get()) {
-        const W8WorldCameraState camera = cameraState(*g_world.get());
+    if (g_world) {
+        const W8WorldCameraState camera = cameraState(*g_world);
         const glm::vec3 at = camera.position;
         std::printf("  party at (%g %g %g) yaw %g\n", at.x, at.y, at.z, camera.yaw[0]);
         std::vector<std::pair<float, W8MonsterInfo*>> nearby;
