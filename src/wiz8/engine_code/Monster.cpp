@@ -972,6 +972,11 @@ unsigned char W8MonsterRep::ReadCycleData(W8ReadLevelInfo* info, W8Monster* mons
                      "C:\\Projects\\Wizardry 8\\Engine Code\\Monster.cpp", 0xc35, 0);
     }
 
+    // Reserve before publishing either resource. Models must retain their lights
+    // even if growing a cycle collection fails.
+    animations[cycle].reserve(animations[cycle].size() + 1);
+    animation_scales[cycle].reserve(animation_scales[cycle].size() + 1);
+    auto& installed = light_lists[cycle].emplace_back(std::move(lights));
     animations[cycle].push_back(std::move(owner));
     current_subcycle = static_cast<signed char>(static_cast<int>(animations[cycle].size()) - 1);
     subcycle = current_subcycle;
@@ -1010,7 +1015,6 @@ unsigned char W8MonsterRep::ReadCycleData(W8ReadLevelInfo* info, W8Monster* mons
         }
     }
 
-    auto& installed = light_lists[cycle].emplace_back(std::move(lights));
     if (!installed.lights.empty()) monster->SetLights(&installed.lights);
     return success;
 }
