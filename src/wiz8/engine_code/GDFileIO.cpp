@@ -56,16 +56,16 @@ const float g_path_endpoint_scale = 0.9900000095367432f;
 
 /* Opens a game-data file, builds its record, and pulls the polygon and
    vertex banks through the record reader. */
-static W8GameData* ReadGeometry(std::unique_ptr<wiz8::File> file, bool secondary)
+static std::unique_ptr<W8GameData> ReadGeometry(std::unique_ptr<wiz8::File> file, bool secondary)
 {
     auto game_data = std::make_unique<W8GameData>(nullptr, secondary);
     game_data->ReadWGDList(*file, 0);
     game_data->ReadWGDList(*file, 1);
-    return game_data.release();
+    return game_data;
 }
 
 // FUNCTION: WIZ8 0x00447570
-W8GameData* ReadGameData(const char* path, bool secondary)
+std::unique_ptr<W8GameData> ReadGameData(const char* path, bool secondary)
 {
     std::unique_ptr<wiz8::File> file;
     try {

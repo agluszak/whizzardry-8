@@ -550,8 +550,9 @@ try {
     }
 
     for (index = 0; index < count; ++index) {
-        prop = 0;
-        if (!success || !CreateAndLoadProp(pInfo, &prop)) {
+        auto owner = success ? CreateAndLoadProp(pInfo) : nullptr;
+        prop = owner.get();
+        if (!prop) {
             success = 0;
         } else {
             success = 1;
@@ -561,7 +562,7 @@ try {
                 }
                 g_octree->AddLoadedProp(prop);
             }
-            pWorld->plsProps.push_back(prop);
+            pWorld->plsProps.push_back(std::move(owner));
             if ((prop->flags & W8_PROP_COLLIDABLE) != 0) {
                 const auto prop_bounds = prop->GetBounds();
                 if (!prop_bounds) return false;

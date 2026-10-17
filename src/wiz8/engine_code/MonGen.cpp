@@ -68,9 +68,9 @@ MonGen::MonGen()
 // FUNCTION: WIZ8 0x0048bdc0
 MonGen* FindMonGenByName(const char* name)
 {
-    for (MonGen* generator : g_world->monster_generators) {
+    for (const auto& generator : g_world->monster_generators) {
         if (strncmp(name, generator->name, sizeof(generator->name)) == 0) {
-            return generator;
+            return generator.get();
         }
     }
     return 0;
@@ -529,9 +529,9 @@ void DespawnAllActiveMonsterGroups(void)
 void ResetMonsterGeneratorTimers(void)
 {
     g_encounter_culling_scale_fast = 1.0f;
-    std::vector<MonGen*>* generators = &g_world->monster_generators;
+    auto* generators = &g_world->monster_generators;
 
-    for (MonGen* generator : *generators) {
+    for (const auto& generator : *generators) {
 
         generator->m_pTimer->ResetDurationScale();
     }
@@ -598,18 +598,11 @@ W8EncounterTableRuntime* GetEncounterTable(int index)
     return 0;
 }
 
-/* Register a monster generator with the world. */
-// FUNCTION: WIZ8 0x0048be30
-void AddMonsterGenerator(MonGen* generator)
-{
-    g_world->monster_generators.push_back(generator);
-}
-
 /* Destroy every generator and empty the list. */
 // FUNCTION: WIZ8 0x0048bf70
 void DestroyMonsterGenerators(void)
 {
-    wiz8::remove_all_and_delete_in_order(g_world->monster_generators);
+    g_world->monster_generators.clear();
 }
 
 /* Restore the full MONG encounter state. Older save versions omit later global
@@ -645,12 +638,12 @@ try {
 
     success = (save_handle.read(&count, 4).bytes == static_cast<std::size_t>(4));
     for (index = 0; index < count && success != 0; ++index) {
-        MonGen* generator = new MonGen;
+        auto generator = std::make_unique<MonGen>();
         if (generator == 0) {
             srAssertFail("pMonGen", MON_GEN_CPP, 0x48a, "MonGen::LoadAll() out of memory");
         }
         success = generator->Load(save_handle);
-        g_world->monster_generators.push_back(generator);
+        g_world->monster_generators.push_back(std::move(generator));
     }
 
     level = &g_level_records[g_status.current_level];
@@ -686,7 +679,7 @@ void LoadMonsterGenerators(wiz8::File& handle)
 
         generator = 0;
         for (search = 0; search < static_cast<int>(g_world->monster_generators.size()); ++search) {
-            MonGen* candidate = g_world->monster_generators[search];
+            MonGen* candidate = g_world->monster_generators[search].get();
             if (strncmp(name, candidate->name, sizeof(name)) == 0) {
                 generator = candidate;
                 break;
@@ -722,7 +715,7 @@ void RunMonsterGenerators(void)
     int index;
 
     for (index = 0; index < count; ++index) {
-        generator = g_world->monster_generators[index];
+        generator = g_world->monster_generators[index].get();
         if (generator->m_pTimer != 0 && generator->m_pTimer->PollElapsedIntervals() != 0) {
             if (generator->CanGenerateEncounter(false)) {
                 generator->GenerateEncounter(&generator->spawn_position);
@@ -789,7 +782,7 @@ void SaveMonsterGenerators(wiz8::File& handle)
     handle.write(&g_generator_save_flag, 1);
     handle.write(&count, 4);
     for (index = 0; index < count; ++index) {
-        generator = g_world->monster_generators[index];
+        generator = g_world->monster_generators[index].get();
         handle.write(generator->name, 0x20);
         handle.write(&generator->generation_enabled, 1);
         handle.write(&generator->flags, 4);
@@ -920,7 +913,8 @@ void RollRandomEncounters(void)
         DespawnMonsterGroup(g_active_groups.back());
     }
 
-    std::vector<MonGen*> generators(g_world->monster_generators);
+    std::vector<MonGen*> generators;
+    for (const auto& generator : g_world->monster_generators) generators.push_back(generator.get());
     int count = static_cast<int>(generators.size());
     if (count > 1) {
         for (int remaining = count; remaining > 0; --remaining) {
@@ -948,7 +942,7 @@ void RollRandomEncounters(void)
 void SetMonsterGeneratorDurationScale(float scale)
 {
     g_encounter_culling_scale_fast = scale;
-    std::vector<MonGen*>* generators = &g_world->monster_generators;
+    auto* generators = &g_world->monster_generators;
 
     for (auto& generator : *generators) {
         generator->m_pTimer->SetDurationScale(scale);

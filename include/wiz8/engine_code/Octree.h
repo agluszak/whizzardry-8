@@ -187,7 +187,7 @@ struct W8OctreeView {
 
 class W8Octree {
 public:
-    W8Octree(const char* path, W8GameData** game_data);
+    W8Octree(const char* path, std::unique_ptr<W8GameData>* game_data);
     /* Preprocessing calls retain this receiver even when a body uses only
        global build state. */
     void Reset();

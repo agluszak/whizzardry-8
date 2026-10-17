@@ -413,7 +413,9 @@ W8AmbientSound* W8AmbientSound::FindNextMatching(const char* match_name, W8Ambie
     if (previous == 0) {
         index = 0;
     } else {
-        index = wiz8::index_of(g_world->plsAmbientSounds, previous) + 1;
+        index = wiz8::index_of(g_world->plsAmbientSounds, previous,
+                               [](const auto& owner) { return owner.get(); }) +
+                1;
         if (index < 0 || index > count) {
             return 0;
         }
@@ -591,11 +593,6 @@ W8AmbientSound::~W8AmbientSound()
     }
 }
 
-void DestroyAmbientSound(W8AmbientSound* ambient)
-{
-    delete ambient;
-}
-
 /* Build a complete ambient-sound row and attach it to the world's list. The
    twenty parameters and their widths come directly from the stack reads. */
 // FUNCTION: WIZ8 0x0047a790
@@ -629,8 +626,7 @@ unsigned char AddAmbientSound(W8World* world, const char* name, const W8AmbientS
     sound->looping = looping;
     sound->bounded = bounded;
     sound->shared = shared;
-    world->plsAmbientSounds.push_back(sound.get());
-    (void)sound.release();
+    world->plsAmbientSounds.push_back(std::move(sound));
     return 1;
 }
 
@@ -812,7 +808,7 @@ void SaveAmbientSoundList(wiz8::File& handle)
     const auto count = static_cast<std::uint32_t>(g_world->plsAmbientSounds.size());
     handle.write(&version, sizeof(version));
     handle.write(&count, sizeof(count));
-    for (const auto* sound : g_world->plsAmbientSounds) {
+    for (const auto& sound : g_world->plsAmbientSounds) {
         handle.write_padded(sound->name, 128);
         handle.write(&sound->stopped, 1);
     }

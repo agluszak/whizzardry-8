@@ -142,7 +142,7 @@ void KillTrynnieGroups(void)
                      "Can't find monster table 'Dead Trynnies'");
     }
     for (index = 0; index < static_cast<int>(g_world->monster_generators.size()); ++index) {
-        generator = g_world->monster_generators[index];
+        generator = g_world->monster_generators[index].get();
         if (generator->encounter_table_index == iOldTable) {
             generator->SetEncounterTable(iNewTable);
         }

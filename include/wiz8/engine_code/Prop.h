@@ -177,7 +177,7 @@ public:
 }; /* 0x90 */
 
 W8Prop* FindPropByName(W8World* world, const char* name);
-bool CreateAndLoadProp(W8ReadLevelInfo* info, W8Prop** prop);
+std::unique_ptr<W8Prop> CreateAndLoadProp(W8ReadLevelInfo* info);
 
 bool ResolvePickedProp(W8World* world);
 int GetSelectedPropIndex(void);

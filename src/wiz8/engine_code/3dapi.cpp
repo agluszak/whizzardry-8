@@ -137,10 +137,9 @@ unsigned char LoadWorld(W8World* world, std::string_view source_path, bool use_o
     world->game_data = 0;
 
     if (CheckLevelAssetSet(oct_path.c_str()) >= 0) {
-        world->octree = new W8Octree(oct_path.c_str(), &world->game_data);
+        world->octree = std::make_unique<W8Octree>(oct_path.c_str(), &world->game_data);
         if (world->octree != 0 && world->octree->HasLoadError()) {
-            delete world->octree;
-            world->octree = 0;
+            world->octree.reset();
         } else if (world->octree != 0) {
             use_octree = false;
         }
@@ -148,7 +147,7 @@ unsigned char LoadWorld(W8World* world, std::string_view source_path, bool use_o
 
     if (world->game_data == nullptr) {
         world->game_data = ReadGameData(game_data_path.c_str(), false);
-        if (world->game_data != 0 && InitializeGameData(world->game_data) == 0) {
+        if (world->game_data != 0 && InitializeGameData(world->game_data.get()) == 0) {
             return 0;
         }
     }
@@ -387,12 +386,12 @@ static void UnregisterWorld(W8World* world)
 // referenced, then the scene itself.
 static void DestroyWorldResources(W8World* world)
 {
-    wiz8::remove_all_and_delete_in_order(world->monster_generators);
+    world->monster_generators.clear();
     wiz8::remove_all_and_delete_in_order(world->plsMonsters);
     wiz8::remove_all_and_delete_in_order(world->plsItems);
-    wiz8::remove_all_and_delete_in_order(world->plsProps);
+    world->plsProps.clear();
     DestroyAllWorldTriggers(world);
-    wiz8::clear_and_dispose(world->plsAmbientSounds, DestroyAmbientSound);
+    world->plsAmbientSounds.clear();
     DestroyAllMissiles(world);
     DestroyAllSpellVisuals(world);
     // Destroying cycles can retire their still-active particles. Drain those
@@ -403,13 +402,20 @@ static void DestroyWorldResources(W8World* world)
     world->plsCameras.clear();
     world->named_positions.clear();
 
-    delete world->game_data;
-    world->game_data = nullptr;
-    delete world->octree;
-    world->octree = nullptr;
+    world->game_data.reset();
+    world->octree.reset();
     world->quads.reset();
 
     world->static_scene.reset();
+}
+
+W8World::W8World() = default;
+
+W8World::~W8World()
+{
+    if (this == g_world) StopWorldActivity(this);
+    UnregisterWorld(this);
+    DestroyWorldResources(this);
 }
 
 // FUNCTION: WIZ8 0x0044FAF0
@@ -418,9 +424,6 @@ void DestroyWorld(W8World* world)
     if (world == 0) {
         srAssertFail("pWorld", THREE_D_API_CPP, 0x1ff, 0);
     }
-    StopWorldActivity(world);
-    UnregisterWorld(world);
-    DestroyWorldResources(world);
     delete world;
 }
 

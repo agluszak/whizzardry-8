@@ -134,7 +134,6 @@ unsigned char ReadAmbientSoundListFile(const char* filename);
 void PositionAmbientSoundByName(W8World* /* unused */, const char* name);
 void StopAmbientSoundByName(W8World* /* unused */, const char* name);
 void ToggleAmbientSoundByName(W8World* /* unused */, const char* name);
-void DestroyAmbientSound(W8AmbientSound* ambient);
 unsigned char AddAmbientSound(W8World* world, const char* name, const W8AmbientSoundConfig* config,
                               const glm::vec3* position, const glm::vec3* region_min,
                               const glm::vec3* region_max, int volume_min, int volume_max,

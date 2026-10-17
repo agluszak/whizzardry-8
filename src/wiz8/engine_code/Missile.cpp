@@ -582,7 +582,7 @@ W8Missile* CreateMissile(unsigned int missile_table_index, glm::vec3* source, fl
         missile->m_pRep->SetRotation(&aim);
         missile->SetAngles(heading);
         missile->SetPitch(pitch);
-        octree = g_world->octree;
+        octree = g_world->octree.get();
         if (octree != 0) {
             end = glm::vec3(direction.x * duration, direction.y * duration, direction.z * duration);
             end = end + *source;
