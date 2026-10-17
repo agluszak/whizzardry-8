@@ -8,6 +8,7 @@
 #include <vector>
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_string.hpp>
 
 #include "filesystem.h"
 #include "layouts/world.h"
@@ -199,7 +200,8 @@ TEST_CASE("Failed world asset loads release published worlds and allow retry", "
     SetCurrentWorld(primary.get());
     W8LevelInfo missing_sky{"", "MissingSky.LVL"};
     for (int attempt = 0; attempt < 2; ++attempt) {
-        REQUIRE_THROWS(LoadSkyWorld(0, &missing_sky));
+        REQUIRE_THROWS_WITH(LoadSkyWorld(0, &missing_sky),
+                            Catch::Matchers::ContainsSubstring("Could not open level file."));
         REQUIRE(GetSecondaryWorld() == nullptr);
         REQUIRE(GetWorld() == primary.get());
         // The update registry must not retain the destroyed sky.
@@ -219,7 +221,8 @@ TEST_CASE("Failed world asset loads release published worlds and allow retry", "
     // A failed replacement cannot restore an old level ID whose world is gone.
     for (int attempt = 0; attempt < 2; ++attempt) {
         g_status.current_level = 8;
-        REQUIRE_THROWS(LoadLevel(47, -1, false));
+        REQUIRE_THROWS_WITH(LoadLevel(47, -1, false),
+                            Catch::Matchers::ContainsSubstring("Problem loading level"));
         REQUIRE(GetWorld() == nullptr);
         REQUIRE(GetSecondaryWorld() == nullptr);
         REQUIRE(g_status.current_level == -1);
