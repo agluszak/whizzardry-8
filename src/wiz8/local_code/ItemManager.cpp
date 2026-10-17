@@ -15,7 +15,6 @@
 #include <glm/gtx/rotate_vector.hpp>
 #include <glm/trigonometric.hpp> // NOLINT(misc-include-cleaner)
 
-#include "AnimRep.hpp"
 #include "Monster.h"
 #include "asset_paths.h"
 #include "glm/ext/matrix_float3x3.hpp"
@@ -133,7 +132,7 @@ void SetItemAndEntityFlags(W8WorldItem* item, unsigned int mask, bool enabled)
         item->entity_flags &= ~mask;
     }
     if (item->p3D != 0) {
-        item->p3D->m_pRep.get()->SetFlags(mask, enabled);
+        item->p3D->m_pRep->SetFlags(mask, enabled);
     }
 }
 
@@ -571,7 +570,7 @@ void ActivateItem(W8WorldItem* item)
     item->p3D->SetLocation(&position);
     item->p3D->SetYaw(
         static_cast<float>(Random(0x168) * 2 * g_camera_pi * kInverseFullTurnDegrees));
-    item->p3D->m_pRep.get()->flags |= item->entity_flags;
+    item->p3D->m_pRep->flags |= item->entity_flags;
     item->p3D->AttachMesh(GetWorld());
     GetWorld()->plsItems.push_back(std::move(entity));
     item->fActive = true;
@@ -616,7 +615,7 @@ void DeactivateWorldItem(W8WorldItem* item)
 
     position = item->p3D->m_pRep->GetLocation();
     item->position = position;
-    item->entity_flags = item->p3D->m_pRep.get()->flags;
+    item->entity_flags = item->p3D->m_pRep->flags;
 
     item->p3D->DetachMesh();
     std::erase_if(GetWorld()->plsItems,
@@ -665,7 +664,7 @@ int PickNearestItemUnderCursor(int cursor_x, int cursor_y, float max_distance)
         if (!item->fActive) {
             continue;
         }
-        if (item->p3D->m_pRep.get()->flags & W8_ITEM_ENTITY_NO_PICKUP) {
+        if (item->p3D->m_pRep->flags & W8_ITEM_ENTITY_NO_PICKUP) {
             continue;
         }
         if (!item->p3D->IsSelected()) {
@@ -834,7 +833,7 @@ unsigned char InteractWithWorldItem(int runtime_id)
             return result;
         }
     }
-    if ((item->p3D->m_pRep.get()->flags & W8_ITEM_ENTITY_NO_PICKUP) == 0) {
+    if ((item->p3D->m_pRep->flags & W8_ITEM_ENTITY_NO_PICKUP) == 0) {
         CopyItemInstance(&g_status.item_in_hand, &item->item, 0, true);
     }
     index = ItemIndex(runtime_id);

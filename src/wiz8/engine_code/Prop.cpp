@@ -842,8 +842,7 @@ void W8Prop::ApplyAnimationFrame(W8PathingService* pathing)
         }
         path = (&representation)->animation->path.get();
         if (path != 0) {
-            PathAISetValue(
-                path, static_cast<float>((&representation)->subcycle));
+            PathAISetValue(path, static_cast<float>((&representation)->subcycle));
             PathAIApply((&representation)->animation->path.get(), mesh);
         }
         return;
@@ -862,8 +861,7 @@ void W8Prop::ApplyAnimationFrame(W8PathingService* pathing)
         if (path != 0) {
             glm::vec3 location;
 
-            PathAISetValue(
-                path, static_cast<float>((&representation)->subcycle));
+            PathAISetValue(path, static_cast<float>((&representation)->subcycle));
             PathAIApply(path, mesh);
             location = glm::vec3(static_cast<srNode*>(mesh)->getLocation());
             animation_position = location;
@@ -1682,8 +1680,7 @@ void LoadWorldProps(W8World* world, W8Chunk& chunk)
                 }
             }
         }
-        if (prop)
-            prop->ApplyAnimationState(state, WorldPathing(*world));
+        if (prop) prop->ApplyAnimationState(state, WorldPathing(*world));
     }
 }
 

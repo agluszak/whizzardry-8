@@ -22,7 +22,6 @@
 #include <SDL3/SDL_pixels.h>
 #include <fmt/format.h>
 
-#include "AnimRep.hpp"
 #include "Item.h"
 #include "asset_paths.h"
 #include "compat/native.h"
@@ -1342,7 +1341,7 @@ try {
         item->saved_marker = 1;
         if (item->fActive) {
             item->position = item->p3D->m_pRep->GetLocation();
-            item->entity_flags = item->p3D->m_pRep.get()->flags;
+            item->entity_flags = item->p3D->m_pRep->flags;
         }
         wiz8::retail::write(handle, *item);
     }

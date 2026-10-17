@@ -163,8 +163,7 @@ void RunSearchPulse(void)
             !gXStatus.fSurprisePossible && !gXStatus.fLockInteractMode &&
             !LockInteractionSuspended() && !gXStatus.fTrapInteractMode &&
             !TrapInteractionSuspended()) {
-            if (IsLevelFastMovement() &&
-                g_status.search_mode != 0) {
+            if (IsLevelFastMovement() && g_status.search_mode != 0) {
                 ShowNotice(W8_FONT_PALETTE_BEIGE,
                            g_localized_strings[W8_NOTICE_SEARCH_SPECIAL_LEVEL]);
             }
@@ -221,8 +220,7 @@ void RunSearchPulse(void)
                     }
                 }
             }
-            if (g_status.search_mode == 0 ||
-                IsLevelFastMovement()) {
+            if (g_status.search_mode == 0 || IsLevelFastMovement()) {
                 /* Retail scans the party for a live member carrying the
                    Scouting skill and then discards the result. */
                 for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
@@ -234,9 +232,7 @@ void RunSearchPulse(void)
                     }
                 }
             }
-            if (g_status.search_mode != 0 &&
-                !IsLevelFastMovement() && !found &&
-                Random(100) == 0) {
+            if (g_status.search_mode != 0 && !IsLevelFastMovement() && !found && Random(100) == 0) {
                 ApplyItemEffectToRandomCharacter(g_container_event, -1, 0, kCharacterEventNoFlags);
             }
         }
@@ -267,8 +263,7 @@ int W8Searchable::PickBestSearcher()
                 base = level >> 2;
             }
             unsigned int score = 0;
-            if (base != 0 || (g_status.search_mode != 0 &&
-                              !IsLevelFastMovement())) {
+            if (base != 0 || (g_status.search_mode != 0 && !IsLevelFastMovement())) {
                 unsigned int attribute = character->attributes[W8_ATTRIBUTE_SENSES].effective;
                 if (attribute < 0x33) {
                     score = base + attribute / 5;

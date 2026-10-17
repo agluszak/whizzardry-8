@@ -294,7 +294,7 @@ TEST_CASE("world graphics")
             // tracking can reject SetOrientationImmediate, yielding identical
             // captures that never exercise the requested angles.
             PartyCamera().SetOrientation(state.yaw[0] + angle * 1.5707963f,
-                                        angle < 2 ? -0.7f : 0.5f);
+                                         angle < 2 ? -0.7f : 0.5f);
             const auto rotation = PartyCamera().rotationMatrix();
             world->camera->setRotation(rotation);
             if (GetSecondaryWorld()) GetSecondaryWorld()->camera->setRotation(rotation);

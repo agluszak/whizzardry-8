@@ -10,7 +10,6 @@
 #include <glm/geometric.hpp>
 #include <glm/gtc/quaternion.hpp>
 
-#include "AnimRep.hpp"
 #include "compat/compiler.h"
 #include "compat/native.h"
 #include "glm/common.hpp"

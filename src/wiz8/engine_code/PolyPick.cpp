@@ -2,7 +2,6 @@
 
 #include <glm/geometric.hpp>
 
-#include "AnimRep.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/world.h"

@@ -155,8 +155,8 @@ void GDCamera::ApplyRotationMatrix(glm::mat3* rotation, W8LevelDataRecord* conte
 
 bool GDCamera::CanTrackTarget()
 {
-    return gXStatus.fNpcDialogueMode || (!(m_orientation_flags & W8_CAMERA_MANUAL_INPUT) &&
-                                         m_manual_input_timer.PollFinished());
+    return gXStatus.fNpcDialogueMode ||
+           (!(m_orientation_flags & W8_CAMERA_MANUAL_INPUT) && m_manual_input_timer.PollFinished());
 }
 
 /* Angles that aim from position at target, with yaw wrapped into one turn. Targets

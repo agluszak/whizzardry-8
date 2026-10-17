@@ -112,7 +112,8 @@ void UpdateCameraPathState(W8World* world, W8CameraPath* path, int active)
                 target = position;
                 if (g_settings.camera_rotation_mode == W8_CAMERA_ROTATION_ALL_TARGETS) {
                     if (g_settings.camera_rotation_style == W8_CAMERA_ROTATION_SNAP) {
-                        if (PartyCamera().ComputeTrackingOrientation(&target, &angle, &pitch) == 0) {
+                        if (PartyCamera().ComputeTrackingOrientation(&target, &angle, &pitch) ==
+                            0) {
                             CameraSnapToTarget(&target);
                         }
                     } else if (g_settings.camera_rotation_style == W8_CAMERA_ROTATION_SMOOTH &&

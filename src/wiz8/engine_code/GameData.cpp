@@ -8,7 +8,6 @@
 #include <span>
 #include <vector>
 
-#include "application.h"
 #include "audio_resources.h"
 #include "camera_motion.h"
 #include "compat/compiler.h"
@@ -300,9 +299,9 @@ CameraMotion W8GameData::cameraMotion(unsigned int flags, const glm::vec3& posit
         level->integrated_motion = glm::vec3(0);
     }
 
-    motion.motion_input = cameraMotionInput(
-        flags, motion.motion_input, forward_scale, g_camera_motion_clamp,
-        g_environment_load_flag == 0, g_environment_load_flag == 0);
+    motion.motion_input =
+        cameraMotionInput(flags, motion.motion_input, forward_scale, g_camera_motion_clamp,
+                          g_environment_load_flag == 0, g_environment_load_flag == 0);
     fast_move = (flags & W8_CAMERA_MOTION_FAST) != 0;
     g_level_motion_fast =
         motion.ApplySavedMotionMatrix(*environ, g_level_motion_fast, fast_move, movement_basis);
@@ -494,7 +493,8 @@ W8GDSurface* W8GameData::ProbePropsAlongMotion(glm::vec3* direction, glm::vec3* 
                 if ((surface->flags & W8_GD_SURFACE_INACTIVE_MASK) != 0) continue;
                 if (const auto contact = surface->segmentContact(
                         probe, test_direction,
-                        indexedTriangle(gd_prop->m_pVertices, surface->vertex_indices), LiftsCrossings())) {
+                        indexedTriangle(gd_prop->m_pVertices, surface->vertex_indices),
+                        LiftsCrossings())) {
                     if (contact->distance < *nearest_distance) {
                         *nearest_distance = contact->distance;
                         hit_point = contact->point;
@@ -717,9 +717,9 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
     }
 
     environ_delta = level->motion_displacement;
-    camera_position = glm::vec3(adjusted_position.x,
-                                (kWorldScale - environ->world_height) + adjusted_position.y,
-                                adjusted_position.z);
+    camera_position =
+        glm::vec3(adjusted_position.x, (kWorldScale - environ->world_height) + adjusted_position.y,
+                  adjusted_position.z);
     motion_delta = environ_delta;
     adjusted_position.y = camera_position.y;
 
@@ -831,7 +831,8 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
                 prop_hit = false;
             } else {
                 g_environment_motion_active = nearest_surface->ResolveCollision(
-                    motion, *environ, &camera_position, &hit_position, &motion_delta, collision_count);
+                    motion, *environ, &camera_position, &hit_position, &motion_delta,
+                    collision_count);
                 probe_position = camera_position + motion_delta - adjusted_position;
                 if (collision_count < 0) {
                     collision_count = 0;
@@ -1857,7 +1858,6 @@ void EndCameraSway(void)
     g_camera_sway_active = false;
 }
 
-
 // FUNCTION: WIZ8 0x0041AA40
 void ResetCurrentEnvironment(void)
 {
@@ -2387,9 +2387,8 @@ void UpdateLevelMovementAudio(void)
         return;
     }
     if ((PartyCamera().m_orientation_flags & W8_CAMERA_YAW_MOVING) == 0 ||
-        (level->flags & W8_LEVEL_FLAG_WALKABLE_CONTACT) == 0 ||
-        level->motion_velocity.x != 0.0f || level->motion_velocity.y != 0.0f ||
-        level->motion_velocity.z != 0.0f) {
+        (level->flags & W8_LEVEL_FLAG_WALKABLE_CONTACT) == 0 || level->motion_velocity.x != 0.0f ||
+        level->motion_velocity.y != 0.0f || level->motion_velocity.z != 0.0f) {
         if (g_level_footstep_sound != nullptr) {
             wiz8::sound::stop(g_level_footstep_sound, 500);
             g_level_footstep_sound = nullptr;
@@ -2400,8 +2399,7 @@ void UpdateLevelMovementAudio(void)
     if (g_facing_tolerance0 < now - g_level_footstep_time &&
         (g_level_footstep_time = now,
          g_level_footstep_sound == nullptr || !wiz8::sound::is_playing(g_level_footstep_sound))) {
-        g_level_footstep_sound =
-            PlayFootstep(level->sound_environment, level->sound_environment_alt,
-                         W8_FOOTSTEP_KIND_SCUFF);
+        g_level_footstep_sound = PlayFootstep(level->sound_environment,
+                                              level->sound_environment_alt, W8_FOOTSTEP_KIND_SCUFF);
     }
 }
