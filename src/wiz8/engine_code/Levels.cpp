@@ -35,6 +35,7 @@
 #include "wiz8/engine_code/AmbientSound.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/GameData.h"
+#include "wiz8/engine_code/GameTimeAccumulator.h"
 #include "wiz8/engine_code/Level.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/Trigger.hpp"
@@ -410,7 +411,6 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
     InitializeItemManagerState();
     g_status.next_trigger_id = GetWorld()->next_trigger_id;
     UpdateGameDataRuntime();
-    if (GetWorld()->game_data) g_environ = GetWorld()->game_data->m_ppEnvirons.front().get();
     if (GetWorld()->fog_enabled) UpdateEnvironmentLight();
     ApplyCameraRotation(&GetWorld()->initial_camera_rotation);
     SetCameraSwayMode(GetWorld()->camera, GetWorld()->initial_camera_sway ? 1 : -1);
@@ -586,7 +586,7 @@ void UnloadLevel()
     ReleaseWorldCursor();
     DisableSky();
     EndCameraSway();
-    if (primary_world->game_data) primary_world->game_data->ReleaseLevelData();
+    ResetGameTimeAccumulator();
     ReplaceWorld(nullptr);
 
     if (g_world_cleanup_flag) {

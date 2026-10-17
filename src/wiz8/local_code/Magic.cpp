@@ -2130,7 +2130,7 @@ bool ValidateSpellTarget(int party_slot, int spell_id, unsigned int power, bool 
     }
 
     if (spell_id == W8_SPELL_SET_PORTAL &&
-        ((g_level_data->flags & W8_LEVEL_FLAG_PROP_CONTACT) != 0 || !HasLevelWalkableContact() ||
+        ((LevelMotion()->flags & W8_LEVEL_FLAG_PROP_CONTACT) != 0 || !HasLevelWalkableContact() ||
          LevelMovedThisUpdate())) {
         valid = false;
     }

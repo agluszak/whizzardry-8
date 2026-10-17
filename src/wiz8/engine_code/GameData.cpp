@@ -81,10 +81,6 @@ constexpr float kCollisionSlopeMarginScale = 150.0f;
 class srMaterial;
 class srTexture;
 
-// GLOBAL: WIZ8 0x00652da8
-unsigned int* g_level_flags;
-// GLOBAL: WIZ8 0x00652dac
-W8LevelDataRecord* g_level_data;
 // GLOBAL: WIZ8 0x00652da7
 bool g_mouselook_manual;
 
@@ -160,16 +156,6 @@ CameraRotation W8GameData::cameraRotation(unsigned int flags, const glm::mat3& r
     float pitch_input;
     float yaw_input;
     W8GameTimer::Flags timer_flags;
-    W8EnvironRecord* environ_record;
-
-    if (g_environ == 0) {
-        environ_record = new W8EnvironRecord;
-
-        g_environ = environ_record;
-        if (g_environ == 0) {
-            ShutdownWithErrorBox("TrackRotation: Could not allocate gpEnviron.\n");
-        }
-    }
 
     timer_flags = GameTimeAccumulator().m_flags;
     if (timer_flags.paused) {
@@ -189,9 +175,9 @@ CameraRotation W8GameData::cameraRotation(unsigned int flags, const glm::mat3& r
         g_gd_camera->m_orientation_flags &= ~W8_CAMERA_ORIENTATION_SNAPPED;
     }
 
-    if (g_level_data != nullptr) {
-        g_level_data->flags &= ~W8_LEVEL_FLAG_MOVED_THIS_UPDATE;
-        flags = g_level_data->resolveMotionFlags(flags, AnyCharacterEngaged());
+    {
+        motion.flags &= ~W8_LEVEL_FLAG_MOVED_THIS_UPDATE;
+        flags = motion.resolveMotionFlags(flags, AnyCharacterEngaged());
     }
 
     pitch_input = 0.0f;
@@ -214,7 +200,7 @@ CameraRotation W8GameData::cameraRotation(unsigned int flags, const glm::mat3& r
     }
 
     if ((pitch_input != 0.0f || yaw_input != 0.0f) &&
-        (g_level_data->flags & W8_LEVEL_FLAG_MOVEMENT_STOPPED) == 0) {
+        (motion.flags & W8_LEVEL_FLAG_MOVEMENT_STOPPED) == 0) {
         g_navigator_position_changed = true;
     }
     if (g_mouselook_manual) {
@@ -267,13 +253,8 @@ CameraMotion W8GameData::cameraMotion(unsigned int flags, const glm::vec3& posit
     glm::vec3 new_position;
     glm::vec3 from_origin;
 
-    if (g_level_data == 0) {
-        level = new W8LevelDataRecord;
-        g_level_flags = &level->flags;
-        g_level_data = level;
-        if (g_level_flags == 0) {
-            ShutdownWithErrorBox("TrackMovement: Could not allocate gpMovement.\n");
-        }
+    if (!motion_started) {
+        motion_started = true;
         PauseSharedGameTimers();
         g_level_motion_resume_pending = true;
         g_level_motion_fast = 0;
@@ -294,7 +275,7 @@ CameraMotion W8GameData::cameraMotion(unsigned int flags, const glm::vec3& posit
         }
     }
 
-    level = g_level_data;
+    level = &motion;
     level_flags = level->flags;
     if ((((level_flags & W8_LEVEL_FLAG_MOVEMENT_STOPPED) != 0 &&
           (level_flags & W8_LEVEL_FLAG_WALKABLE_CONTACT) != 0) &&
@@ -305,7 +286,7 @@ CameraMotion W8GameData::cameraMotion(unsigned int flags, const glm::vec3& posit
 
     flags = level->resolveMotionFlags(flags, AnyCharacterEngaged());
 
-    level = g_level_data;
+    level = &motion;
     forward_scale = g_camera_level_forward_scale;
     level->flags &= ~(W8_LEVEL_FLAG_PROP_CONTACT | W8_LEVEL_FLAG_PROP_NORMAL_MISMATCH |
                       W8_LEVEL_FLAG_WALKABLE_CONTACT);
@@ -317,33 +298,33 @@ CameraMotion W8GameData::cameraMotion(unsigned int flags, const glm::vec3& posit
     level->sound_environment = -1;
     level->sound_environment_alt = -1;
 
-    if (g_level_data->camera_scale == 0.0f) {
+    if (motion.camera_scale == 0.0f) {
         return result;
     }
 
     if (flags == 0) {
-        g_level_data->motion_input = glm::vec3(0);
+        motion.motion_input = glm::vec3(0);
         level->integrated_motion = glm::vec3(0);
     }
 
-    g_level_data->motion_input = cameraMotionInput(
-        flags, g_level_data->motion_input, forward_scale, g_camera_motion_clamp,
-        g_environment_load_flag == 0 || g_environ == nullptr, g_environment_load_flag == 0);
+    motion.motion_input = cameraMotionInput(
+        flags, motion.motion_input, forward_scale, g_camera_motion_clamp,
+        g_environment_load_flag == 0, g_environment_load_flag == 0);
     fast_move = (flags & W8_CAMERA_MOTION_FAST) != 0;
     g_level_motion_fast =
-        g_level_data->ApplySavedMotionMatrix(g_level_motion_fast, fast_move, movement_basis);
+        motion.ApplySavedMotionMatrix(*environ, g_level_motion_fast, fast_move, movement_basis);
 
     if (g_environment_load_flag == 0) {
-        delta = g_level_data->motion_displacement;
+        delta = motion.motion_displacement;
         moved = static_cast<float>(g_motion_delta_epsilon) < glm::length(delta);
-        g_level_data->UpdateMotionProgress(g_level_motion_fast, moved);
+        motion.UpdateMotionProgress(*environ, g_level_motion_fast, moved);
         if (moved == 0) {
             goto after_move;
         }
     } else {
         moved = AdvanceEnvironmentMotion();
-        g_level_data->UpdateMotionProgress(g_level_motion_fast, moved);
-        delta = g_level_data->motion_displacement;
+        motion.UpdateMotionProgress(*environ, g_level_motion_fast, moved);
+        delta = motion.motion_displacement;
         if (glm::length(delta) <= static_cast<float>(g_motion_delta_epsilon)) {
             if (moved == 0) {
                 goto after_move;
@@ -360,21 +341,21 @@ CameraMotion W8GameData::cameraMotion(unsigned int flags, const glm::vec3& posit
     }
 
 after_move:
-    if (g_environ->airborne == 0) {
+    if (environ->airborne == 0) {
         g_level_footstep_pending = true;
     } else if (g_level_footstep_pending) {
-        if (g_level_data->motion_velocity.y <= g_footstep_fall_threshold) {
-            PlayFootstep(g_level_data->sound_environment, g_level_data->sound_environment_alt,
+        if (motion.motion_velocity.y <= g_footstep_fall_threshold) {
+            PlayFootstep(motion.sound_environment, motion.sound_environment_alt,
                          W8_FOOTSTEP_KIND_JUMP);
-            g_level_data->footstep_accumulator = 0;
+            motion.footstep_accumulator = 0;
         }
         g_level_footstep_pending = false;
     }
     UpdateLevelMovementAudio();
     if (moved == 0) {
-        g_level_data->flags &= ~W8_LEVEL_FLAG_MOVED_THIS_UPDATE;
+        motion.flags &= ~W8_LEVEL_FLAG_MOVED_THIS_UPDATE;
     } else {
-        g_level_data->flags |= W8_LEVEL_FLAG_MOVED_THIS_UPDATE;
+        motion.flags |= W8_LEVEL_FLAG_MOVED_THIS_UPDATE;
     }
     result.moved = moved != 0;
     return result;
@@ -403,7 +384,8 @@ glm::vec3 W8EnvironRecord::withScaledMotion(const glm::vec3& position) const
 }
 
 // FUNCTION: WIZ8 0x0041FE20
-unsigned char W8LevelDataRecord::ClampCameraToBounds(const glm::vec3* minimum,
+unsigned char W8LevelDataRecord::ClampCameraToBounds(W8EnvironRecord& environ,
+                                                     const glm::vec3* minimum,
                                                      const glm::vec3* maximum)
 {
     bool clamped = false;
@@ -437,7 +419,7 @@ unsigned char W8LevelDataRecord::ClampCameraToBounds(const glm::vec3* minimum,
         motion_displacement.z = minimum->z - maximum->z;
     }
 
-    g_environ->vector = glm::vec3(0);
+    environ.vector = glm::vec3(0);
     if (below_min_y) {
         if (g_status.world_suspended) {
             g_level_override = false;
@@ -519,7 +501,7 @@ W8GDSurface* W8GameData::ProbePropsAlongMotion(glm::vec3* direction, glm::vec3* 
                 if ((surface->flags & W8_GD_SURFACE_INACTIVE_MASK) != 0) continue;
                 if (const auto contact = surface->segmentContact(
                         probe, test_direction,
-                        indexedTriangle(gd_prop->m_pVertices, surface->vertex_indices))) {
+                        indexedTriangle(gd_prop->m_pVertices, surface->vertex_indices), LiftsCrossings())) {
                     if (contact->distance < *nearest_distance) {
                         *nearest_distance = contact->distance;
                         hit_point = contact->point;
@@ -531,7 +513,7 @@ W8GDSurface* W8GameData::ProbePropsAlongMotion(glm::vec3* direction, glm::vec3* 
                 }
             }
         }
-        level = g_level_data;
+        level = &motion;
     }
     if (nearest_surface != 0) {
         s_prop_hit_plane = nearest_surface->plane;
@@ -550,7 +532,7 @@ W8GDSurface* W8GameData::ProbePropsAlongMotion(glm::vec3* direction, glm::vec3* 
                 along_length = -along_length;
             }
         }
-        level = g_level_data;
+        level = &motion;
         if (level->primary_contact_prop_id == -1) {
             level->primary_contact_prop_id = hit_prop_id;
         } else if (level->primary_contact_prop_id != hit_prop_id &&
@@ -692,11 +674,11 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
     glm::vec3 geometry_to;
 
     prop_hit = false;
-    if (g_level_data->ClampCameraToBounds(&minimum, &maximum) != 0) {
+    if (motion.ClampCameraToBounds(*environ, &minimum, &maximum) != 0) {
         return 0;
     }
 
-    level = g_level_data;
+    level = &motion;
     level->flags &= ~(W8_LEVEL_FLAG_PROP_CONTACT | W8_LEVEL_FLAG_PROP_NORMAL_MISMATCH);
     level->motion_velocity += level->contact_velocity;
     level->contact_displacement = level->contact_velocity * level->camera_scale;
@@ -704,7 +686,7 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
     level->residual_contact_length = 0.0f;
     level->contact_facing = 0.0f;
 
-    level = g_level_data;
+    level = &motion;
     camera_position = level->camera_position;
     adjusted_position = camera_position;
     if (geometry_index == 0 && octree == 0) {
@@ -714,7 +696,7 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
         return 0;
     }
 
-    g_environ_ground_latch = g_environ->ground_latch;
+    g_environ_ground_latch = environ->ground_latch;
     g_environment_motion_active = 1;
     if (glm::length(level->motion_velocity) <= static_cast<float>(g_motion_vector_epsilon)) {
         level->flags &= ~W8_LEVEL_FLAG_NEGLIGIBLE_MOTION;
@@ -722,7 +704,7 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
         level->flags |= W8_LEVEL_FLAG_NEGLIGIBLE_MOTION;
     }
 
-    environ_record = g_environ;
+    environ_record = environ;
     environ_record->motion_factor = environ_record->motion_step;
     environ_record->airborne = 0;
     environ_record->scale = level->camera_scale;
@@ -743,7 +725,7 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
 
     environ_delta = level->motion_displacement;
     camera_position = glm::vec3(adjusted_position.x,
-                                (kWorldScale - g_environ->world_height) + adjusted_position.y,
+                                (kWorldScale - environ->world_height) + adjusted_position.y,
                                 adjusted_position.z);
     motion_delta = environ_delta;
     adjusted_position.y = camera_position.y;
@@ -756,7 +738,7 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
         }
     }
 
-    level = g_level_data;
+    level = &motion;
     nearest_distance = 1.0e8f;
     hit_position = glm::vec3(0);
     level->secondary_contact_prop_id = -1;
@@ -812,8 +794,8 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
             exhausted = true;
             forced_exit = true;
             probe_position = camera_position;
-            if ((g_level_data->flags & W8_LEVEL_FLAG_PROP_NORMAL_MISMATCH) != 0 &&
-                g_level_data->ToggleBoundProps() == 0) {
+            if ((motion.flags & W8_LEVEL_FLAG_PROP_NORMAL_MISMATCH) != 0 &&
+                motion.ToggleBoundProps() == 0) {
                 environ_delta = glm::vec3(0);
             }
         }
@@ -833,7 +815,8 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
                         continue;
                     if (const auto contact = surface->segmentContact(
                             probe_position, motion_delta,
-                            indexedTriangle(m_pVertices, surface->vertex_indices))) {
+                            indexedTriangle(m_pVertices, surface->vertex_indices),
+                            LiftsCrossings())) {
                         if (contact->distance < nearest_distance) {
                             nearest_distance = contact->distance;
                             hit_position = contact->point;
@@ -855,7 +838,7 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
                 prop_hit = false;
             } else {
                 g_environment_motion_active = nearest_surface->ResolveCollision(
-                    &camera_position, &hit_position, &motion_delta, collision_count);
+                    motion, *environ, &camera_position, &hit_position, &motion_delta, collision_count);
                 probe_position = camera_position + motion_delta - adjusted_position;
                 if (collision_count < 0) {
                     collision_count = 0;
@@ -902,7 +885,8 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
                         (surface->flags & W8_GD_SURFACE_INACTIVE_MASK) == 0 &&
                         surface->segmentContact(
                             probe_position, motion_delta,
-                            indexedTriangle(m_pVertices, surface->vertex_indices))) {
+                            indexedTriangle(m_pVertices, surface->vertex_indices),
+                            LiftsCrossings())) {
                         if (0 < crossed_count) {
                             for (int swap = 0; swap < crossed_count; ++swap) {
                                 W8GDSurface* prior = collisions[swap];
@@ -921,7 +905,7 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
                 }
             }
 
-            level = g_level_data;
+            level = &motion;
             g_environment_motion_active = 0;
             motion_length = glm::length(environ_delta);
             if (motion_length <= 0.1f ||
@@ -932,17 +916,17 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
                 g_environment_motion_active = 1;
             }
 
-            scale = static_cast<float>(1.0) / g_level_data->camera_scale;
+            scale = static_cast<float>(1.0) / motion.camera_scale;
             level->motion_velocity = environ_delta * scale;
             level->motion_displacement = environ_delta;
             if (g_environment_motion_active == 0) {
-                if ((g_level_data->flags & W8_LEVEL_FLAG_NEGLIGIBLE_MOTION) != 0 && !forced_exit) {
+                if ((motion.flags & W8_LEVEL_FLAG_NEGLIGIBLE_MOTION) != 0 && !forced_exit) {
                     g_environ_ground_latch = true;
                 }
             } else {
                 g_environ_ground_latch = false;
             }
-            g_environ->ground_latch = g_environ_ground_latch;
+            environ->ground_latch = g_environ_ground_latch;
 
             if (m_iNumTriggers != 0) {
                 for (unsigned int trigger_index = 0; trigger_index < pending_trigger_bits.size();
@@ -1155,17 +1139,17 @@ void W8GameData::ProcessCrossedSurface(W8GDSurface* surface)
 
     if ((surface->flags & W8_GD_SURFACE_ENVIRONMENT) != 0) {
         const bool entering = surface->distance > 0.0f;
-        if (!entering && g_environ != m_ppEnvirons[surface->trigger_index].get()) return;
+        if (!entering && environ != m_ppEnvirons[surface->trigger_index].get()) return;
 
         W8EnvironRecord* record = m_ppEnvirons[entering ? surface->trigger_index : 0].get();
-        const W8EnvironRecord* current = g_environ;
+        const W8EnvironRecord* current = environ;
         record->ground_latch = current->ground_latch;
         record->airborne = current->airborne;
         record->value_08 = current->value_08;
         record->scale = current->scale;
         record->motion_factor = current->motion_factor;
         record->vector = current->vector;
-        g_environ = record;
+        environ = record;
         return;
     }
     direction = 1;
@@ -1203,7 +1187,8 @@ void W8GameData::ProcessCrossedSurface(W8GDSurface* surface)
 // FUNCTION: WIZ8 0x0041CF90
 std::optional<PlaneContact> W8GDSurface::segmentContact(const glm::vec3& from,
                                                         const glm::vec3& direction,
-                                                        std::span<const glm::vec3, 3> vertices)
+                                                        std::span<const glm::vec3, 3> vertices,
+                                                        bool lift_crossings)
 {
     unsigned int flags = this->flags;
     bool special = false;
@@ -1213,7 +1198,7 @@ std::optional<PlaneContact> W8GDSurface::segmentContact(const glm::vec3& from,
     auto point = from;
     if ((flags & W8_GD_SURFACE_CROSSING_MASK) != 0) {
         special = true;
-        if ((g_level_data->flags & W8_LEVEL_FLAG_NO_SOUND_ENVIRONMENT) != 0) {
+        if (lift_crossings) {
             point.y += kCollisionHeightLift;
         }
     }
@@ -1402,7 +1387,8 @@ std::optional<float> W8GDSurface::edgeContactLimit(const glm::vec3& point,
    continues. The crossed contact planes persist across calls in the statics
    so sequential bounces wedge the slide between them. */
 // FUNCTION: WIZ8 0x0041DC10
-bool W8GDSurface::ResolveCollision(glm::vec3* origin, const glm::vec3* hit_point,
+bool W8GDSurface::ResolveCollision(W8LevelDataRecord& level, W8EnvironRecord& environ,
+                                   glm::vec3* origin, const glm::vec3* hit_point,
                                    glm::vec3* direction, int collision_index)
 {
     /* Statics 0x652d50/0x652d68/0x652d80 carry the latched entry direction and
@@ -1422,14 +1408,14 @@ bool W8GDSurface::ResolveCollision(glm::vec3* origin, const glm::vec3* hit_point
     if ((flags & W8_GD_SURFACE_WALKABLE) != 0) {
         if ((flags & W8_GD_SURFACE_EXPLICIT_SLOPE) != 0 && g_party_has_slope_override_item != 0 &&
             g_sea_caves_slope_override_enabled) {
-            g_environ->motion_factor = 1.0f;
-        } else if (g_environ->motion_factor < slope) {
-            g_environ->motion_factor = slope;
+            environ.motion_factor = 1.0f;
+        } else if (environ.motion_factor < slope) {
+            environ.motion_factor = slope;
         }
-        g_environ->airborne = 1;
-        g_level_data->flags |= W8_LEVEL_FLAG_WALKABLE_CONTACT;
-        g_level_data->sound_environment = footstep_surface;
-        g_level_data->sound_environment_alt = footstep_material;
+        environ.airborne = 1;
+        level.flags |= W8_LEVEL_FLAG_WALKABLE_CONTACT;
+        level.sound_environment = footstep_surface;
+        level.sound_environment_alt = footstep_material;
     }
     float direction_length = glm::length((*direction));
     if (direction_length == 0.0f) {
@@ -1440,10 +1426,9 @@ bool W8GDSurface::ResolveCollision(glm::vec3* origin, const glm::vec3* hit_point
     const auto& contact_plane = hit_plane ? *hit_plane : plane;
     const auto& normal = contact_plane.normal;
     float adjusted_d = contact_plane.w - distance;
-    W8LevelDataRecord* level = g_level_data;
-    if (level->primary_contact_prop_id > -1 &&
-        glm::dot(normal, level->contact_normal) < kCollisionContactNormalThreshold) {
-        level->flags |= W8_LEVEL_FLAG_PROP_NORMAL_MISMATCH;
+    if (level.primary_contact_prop_id > -1 &&
+        glm::dot(normal, level.contact_normal) < kCollisionContactNormalThreshold) {
+        level.flags |= W8_LEVEL_FLAG_PROP_NORMAL_MISMATCH;
     }
     flags |= W8_GD_SURFACE_COLLISION_PROCESSED;
     const float depth = -(glm::dot((*origin + *direction), normal) + adjusted_d);
@@ -1465,12 +1450,12 @@ bool W8GDSurface::ResolveCollision(glm::vec3* origin, const glm::vec3* hit_point
     *origin = *hit_point;
     if (glm::dot(normal, s_entry_direction) < kCollisionOpposedNormalThreshold) {
         (*direction) = glm::vec3(0);
-        g_environ->vector = glm::vec3(0);
+        environ.vector = glm::vec3(0);
         return false;
     }
     unit = (*direction) / direction_length;
     glm::vec3 slide = (*direction) + normal * distance;
-    ApplyEnvironContact(slide);
+    ApplyEnvironContact(level, environ, slide);
     glm::vec3 slide_unit = slide;
     slide_unit = normalizedOrZero(slide_unit);
     float approach = glm::dot(slide_unit, s_entry_direction);
@@ -1613,21 +1598,21 @@ bool W8GDSurface::CentroidsDiverging(int surface_index, const glm::vec3& from, c
    motion to the environ record. Direction tests against the surface normal
    decide whether any correction applies. */
 // FUNCTION: WIZ8 0x0041EA90
-bool W8GDSurface::ApplyEnvironContact(glm::vec3& direction)
+bool W8GDSurface::ApplyEnvironContact(W8LevelDataRecord& level, W8EnvironRecord& environ,
+                                      glm::vec3& direction)
 {
-    W8LevelDataRecord* level = g_level_data;
     if ((flags & W8_GD_SURFACE_WALKABLE) == 0) {
-        level->motion_input = glm::vec3(0);
-        level->integrated_motion = glm::vec3(0);
+        level.motion_input = glm::vec3(0);
+        level.integrated_motion = glm::vec3(0);
         return false;
     }
-    level->flags |= W8_LEVEL_FLAG_WALKABLE_CONTACT;
-    level->sound_environment = footstep_surface;
-    level->sound_environment_alt = footstep_material;
+    level.flags |= W8_LEVEL_FLAG_WALKABLE_CONTACT;
+    level.sound_environment = footstep_surface;
+    level.sound_environment_alt = footstep_material;
     glm::vec3 normal;
     normal = plane.normal;
-    float factor = g_environ->motion_factor;
-    glm::vec3 slide = g_environ->vector * g_environ->scale;
+    float factor = environ.motion_factor;
+    glm::vec3 slide = environ.vector * environ.scale;
     glm::vec3 unit = slide;
     unit = normalizedOrZero(unit);
     if (glm::dot(unit, normal) >= kCollisionOpposedNormalThreshold) {
@@ -1648,14 +1633,14 @@ bool W8GDSurface::ApplyEnvironContact(glm::vec3& direction)
             slide += normal * depth;
             slide -= residual;
             direction -= residual * factor;
-            g_environ->SetScaledMotion(slide);
+            environ.SetScaledMotion(slide);
             return true;
         }
         return false;
     }
     slide = glm::vec3(0);
-    g_environ->vector = slide / g_environ->scale;
-    g_environ->airborne = 1;
+    environ.vector = slide / environ.scale;
+    environ.airborne = 1;
     return false;
 }
 
@@ -1665,7 +1650,7 @@ bool W8GDSurface::ApplyEnvironContact(glm::vec3& direction)
 // FUNCTION: WIZ8 0x0041EEE0
 void ResetLevelMovement(float movement_limit, bool reset, bool fast_move)
 {
-    W8LevelDataRecord* level = g_level_data;
+    W8LevelDataRecord* level = LevelMotion();
     if (level != 0) {
         level->movement_limit = movement_limit;
         level->real_elapsed = 0.0f;
@@ -1690,15 +1675,15 @@ void ResetLevelMovement(float movement_limit, bool reset, bool fast_move)
 // FUNCTION: WIZ8 0x0041ef50
 void ResetInactiveLevelDataVectors(void)
 {
-    W8LevelDataRecord* data = g_level_data;
+    W8LevelDataRecord* level = LevelMotion();
 
-    if (data != 0 && (data->flags & W8_LEVEL_FLAG_PROP_CONTACT) == 0) {
-        data->motion_input = glm::vec3(0);
-        data->camera_motion_velocity = glm::vec3(0);
-        data->camera_motion_displacement = glm::vec3(0);
-        data->motion_velocity = glm::vec3(0);
-        data->integrated_motion = glm::vec3(0);
-        data->motion_displacement = glm::vec3(0);
+    if (level != 0 && (level->flags & W8_LEVEL_FLAG_PROP_CONTACT) == 0) {
+        level->motion_input = glm::vec3(0);
+        level->camera_motion_velocity = glm::vec3(0);
+        level->camera_motion_displacement = glm::vec3(0);
+        level->motion_velocity = glm::vec3(0);
+        level->integrated_motion = glm::vec3(0);
+        level->motion_displacement = glm::vec3(0);
     }
 }
 
@@ -1706,8 +1691,9 @@ void ResetInactiveLevelDataVectors(void)
 // FUNCTION: WIZ8 0x0041efb0
 bool IsLevelFastMovement(void)
 {
-    if (g_level_data != 0) {
-        return (g_level_data->flags & W8_LEVEL_FLAG_FAST_MOVEMENT) != 0;
+    W8LevelDataRecord* level = LevelMotion();
+    if (level != 0) {
+        return (level->flags & W8_LEVEL_FLAG_FAST_MOVEMENT) != 0;
     }
     return false;
 }
@@ -1715,24 +1701,27 @@ bool IsLevelFastMovement(void)
 // FUNCTION: WIZ8 0x0041efd0
 void ClearLevelFastMovement(void)
 {
-    if (g_level_data != 0) {
-        g_level_data->flags &= ~W8_LEVEL_FLAG_FAST_MOVEMENT;
+    W8LevelDataRecord* level = LevelMotion();
+    if (level != 0) {
+        level->flags &= ~W8_LEVEL_FLAG_FAST_MOVEMENT;
     }
 }
 
 // FUNCTION: WIZ8 0x0041efe0
 void SetLevelFastMovement(void)
 {
-    if (g_level_data != 0) {
-        g_level_data->flags |= W8_LEVEL_FLAG_FAST_MOVEMENT;
+    W8LevelDataRecord* level = LevelMotion();
+    if (level != 0) {
+        level->flags |= W8_LEVEL_FLAG_FAST_MOVEMENT;
     }
 }
 
 // FUNCTION: WIZ8 0x0041eff0
 bool LevelMovedThisUpdate(void)
 {
-    if (g_level_data != 0) {
-        return (g_level_data->flags & W8_LEVEL_FLAG_MOVED_THIS_UPDATE) != 0;
+    W8LevelDataRecord* level = LevelMotion();
+    if (level != 0) {
+        return (level->flags & W8_LEVEL_FLAG_MOVED_THIS_UPDATE) != 0;
     }
     return false;
 }
@@ -1741,8 +1730,9 @@ bool LevelMovedThisUpdate(void)
 // FUNCTION: WIZ8 0x0041f070
 bool HasLevelWalkableContact(void)
 {
-    if (g_level_data != 0) {
-        return (g_level_data->flags & W8_LEVEL_FLAG_WALKABLE_CONTACT) != 0;
+    W8LevelDataRecord* level = LevelMotion();
+    if (level != 0) {
+        return (level->flags & W8_LEVEL_FLAG_WALKABLE_CONTACT) != 0;
     }
     return false;
 }
@@ -1751,16 +1741,18 @@ bool HasLevelWalkableContact(void)
 // FUNCTION: WIZ8 0x0041f0c0
 void ClearLevelMovementState(void)
 {
-    if (g_level_data != 0) {
-        g_level_data->flags &= ~W8_LEVEL_MOVEMENT_STATE_MASK;
+    W8LevelDataRecord* level = LevelMotion();
+    if (level != 0) {
+        level->flags &= ~W8_LEVEL_MOVEMENT_STATE_MASK;
     }
 }
 
 // FUNCTION: WIZ8 0x0041f140
 bool IsLevelMovementStopped(void)
 {
-    if (g_level_data != 0) {
-        return (g_level_data->flags & W8_LEVEL_FLAG_MOVEMENT_STOPPED) != 0;
+    W8LevelDataRecord* level = LevelMotion();
+    if (level != 0) {
+        return (level->flags & W8_LEVEL_FLAG_MOVEMENT_STOPPED) != 0;
     }
     return false;
 }
@@ -1768,8 +1760,9 @@ bool IsLevelMovementStopped(void)
 // FUNCTION: WIZ8 0x0041f160
 void ClearLevelMovementStopped(void)
 {
-    if (g_level_data != 0) {
-        g_level_data->flags &= ~W8_LEVEL_FLAG_MOVEMENT_STOPPED;
+    W8LevelDataRecord* level = LevelMotion();
+    if (level != 0) {
+        level->flags &= ~W8_LEVEL_FLAG_MOVEMENT_STOPPED;
     }
 }
 
@@ -1779,15 +1772,15 @@ void ClearLevelMovementStopped(void)
 // FUNCTION: WIZ8 0x0041f170
 unsigned char ConsumeLevelElapsedTime(float* real_elapsed, float* frame_elapsed)
 {
-    W8LevelDataRecord* record = g_level_data;
+    W8LevelDataRecord* level = LevelMotion();
     bool elapsed = false;
-    if (record != 0) {
-        *real_elapsed = record->real_elapsed;
-        *frame_elapsed = record->frame_elapsed;
-        elapsed = record->real_elapsed > g_camera_transition_epsilon ||
-                  record->frame_elapsed > g_camera_transition_epsilon;
-        record->frame_elapsed = 0.0f;
-        record->real_elapsed = 0.0f;
+    if (level != 0) {
+        *real_elapsed = level->real_elapsed;
+        *frame_elapsed = level->frame_elapsed;
+        elapsed = level->real_elapsed > g_camera_transition_epsilon ||
+                  level->frame_elapsed > g_camera_transition_epsilon;
+        level->frame_elapsed = 0.0f;
+        level->real_elapsed = 0.0f;
         g_status.real_elapsed += *real_elapsed;
         g_status.frame_elapsed += *frame_elapsed;
     }
@@ -1799,10 +1792,11 @@ unsigned char ConsumeLevelElapsedTime(float* real_elapsed, float* frame_elapsed)
 // FUNCTION: WIZ8 0x0041f090
 bool CanInterruptLevelMovement(void)
 {
-    if (g_level_data == 0) {
+    W8LevelDataRecord* level = LevelMotion();
+    if (level == 0) {
         return false;
     }
-    if ((g_level_data->flags & W8_LEVEL_FLAG_WALKABLE_CONTACT) == 0 && g_level_override) {
+    if ((level->flags & W8_LEVEL_FLAG_WALKABLE_CONTACT) == 0 && g_level_override) {
         return false;
     }
     return true;
@@ -1813,21 +1807,29 @@ bool CanInterruptLevelMovement(void)
 // FUNCTION: WIZ8 0x0041f010
 bool HasLevelDataVector(void)
 {
-    if (g_level_data == 0) {
+    W8LevelDataRecord* level = LevelMotion();
+    if (level == 0) {
         return false;
     }
-    if ((g_level_data->flags & W8_LEVEL_FLAG_PROP_CONTACT) != 0 &&
-        (g_level_data->contact_motion.x != 0.0f || g_level_data->contact_motion.y != 0.0f ||
-         g_level_data->contact_motion.z != 0.0f)) {
+    if ((level->flags & W8_LEVEL_FLAG_PROP_CONTACT) != 0 &&
+        (level->contact_motion.x != 0.0f || level->contact_motion.y != 0.0f ||
+         level->contact_motion.z != 0.0f)) {
         return true;
     }
     return false;
 }
 
-// GLOBAL: WIZ8 0x00652db4
-W8EnvironRecord* g_environ;
-// GLOBAL: WIZ8 0x00652dcc
-bool g_level_data_teardown_flag;
+W8LevelDataRecord* LevelMotion()
+{
+    auto* data = GetWorldGameData();
+    return data ? &data->motion : nullptr;
+}
+
+W8EnvironRecord* LevelEnviron()
+{
+    auto* data = GetWorldGameData();
+    return data ? data->environ : nullptr;
+}
 
 /* The camera-sway mode halves navigator gravity, mirrors it into the active
    environment record and swaps the camera forward scale; the flag guards both
@@ -1835,13 +1837,14 @@ bool g_level_data_teardown_flag;
 // FUNCTION: WIZ8 0x0041a960
 void BeginCameraSway(void)
 {
+    W8EnvironRecord* environ = LevelEnviron();
     if (g_camera_sway_active) {
         return;
     }
     g_camera_forward_scale = g_camera_level_forward_scale;
     g_navigator_gravity = 93.75f;
-    if (g_environ != 0) {
-        g_environ->gravity_y = -93.75f;
+    if (environ != 0) {
+        environ->gravity_y = -93.75f;
     }
     g_camera_sway_active = true;
 }
@@ -1849,47 +1852,28 @@ void BeginCameraSway(void)
 // FUNCTION: WIZ8 0x0041a9a0
 void EndCameraSway(void)
 {
+    W8EnvironRecord* environ = LevelEnviron();
     if (!g_camera_sway_active) {
         return;
     }
     g_camera_forward_scale = g_camera_default_forward_scale;
     g_navigator_gravity = 187.5f;
-    if (g_environ != 0) {
-        g_environ->gravity_y = -187.5f;
+    if (environ != 0) {
+        environ->gravity_y = -187.5f;
     }
     g_camera_sway_active = false;
 }
 
-/* Release the level-data record and its companion globals: free the 0xf4-byte
-   record (whose destructor only tears down the +0xc4 interval gate), drop the
-   shared game-time accumulator through its deleting destructor, and clear the
-   environ, octree-data and secondary record pointers plus the teardown flag.
-   ~W8GameData runs this first. */
-// FUNCTION: WIZ8 0x0041a9e0
-void W8GameData::ReleaseLevelData()
-{
-    g_environ = 0;
-    if (g_level_data != 0) {
-        delete g_level_data;
-    }
-    g_level_data = 0;
-    g_level_flags = 0;
-    ResetGameTimeAccumulator();
-    if (g_level_data_teardown_flag) {
-        g_level_data_teardown_flag = false;
-    }
-}
 
 // FUNCTION: WIZ8 0x0041AA40
 void ResetCurrentEnvironment(void)
 {
-    if (g_environ != 0) {
-        if (GetWorldGameData() != 0 && !GetWorldGameData()->m_ppEnvirons.empty()) {
-            g_environ = GetWorldGameData()->m_ppEnvirons[0].get();
-        }
-        g_environ->vector = glm::vec3(0);
+    auto* data = GetWorldGameData();
+    if (data != 0) {
+        data->environ = data->m_ppEnvirons.front().get();
+        data->environ->vector = glm::vec3(0);
         if (g_environment_load_flag != 0) {
-            g_environ->motion_factor = 1.0f;
+            data->environ->motion_factor = 1.0f;
         }
         g_environment_load_flag = g_environment_load_flag == 0;
         if (g_environment_load_flag == 0) {
@@ -1904,12 +1888,13 @@ void ResetCurrentEnvironment(void)
 // FUNCTION: WIZ8 0x0041AAE0
 unsigned char SetEnvironmentLoadFlag(unsigned char flag)
 {
+    W8EnvironRecord* environ = LevelEnviron();
     glm::vec3 zero_vector(0.0f, 0.0f, 0.0f);
     unsigned char previous = g_environment_load_flag;
-    if (g_environ != 0) {
-        g_environ->vector = zero_vector;
+    if (environ != 0) {
+        environ->vector = zero_vector;
         if (flag == 0) {
-            g_environ->motion_factor = 1.0f;
+            environ->motion_factor = 1.0f;
         }
         g_environment_load_flag = flag;
     }
@@ -1919,17 +1904,18 @@ unsigned char SetEnvironmentLoadFlag(unsigned char flag)
 // FUNCTION: WIZ8 0x0041F0D0
 void ResetLevelDataVectors(void)
 {
-    if (g_level_data != 0) {
-        g_level_data->flags |= W8_LEVEL_FLAG_MOVEMENT_STOPPED;
-        if ((g_level_data->flags & W8_LEVEL_FLAG_PROP_CONTACT) == 0) {
-            g_level_data->motion_input = glm::vec3(0);
-            g_level_data->camera_motion_velocity = glm::vec3(0);
-            g_level_data->motion_velocity = glm::vec3(0);
-            g_level_data->integrated_motion = glm::vec3(0);
-            g_level_data->camera_motion_displacement = glm::vec3(0);
-            g_level_data->motion_displacement = glm::vec3(0);
+    W8LevelDataRecord* level = LevelMotion();
+    if (level != 0) {
+        level->flags |= W8_LEVEL_FLAG_MOVEMENT_STOPPED;
+        if ((level->flags & W8_LEVEL_FLAG_PROP_CONTACT) == 0) {
+            level->motion_input = glm::vec3(0);
+            level->camera_motion_velocity = glm::vec3(0);
+            level->motion_velocity = glm::vec3(0);
+            level->integrated_motion = glm::vec3(0);
+            level->camera_motion_displacement = glm::vec3(0);
+            level->motion_displacement = glm::vec3(0);
         }
-        g_level_data->flags &= ~W8_LEVEL_FLAG_FAST_MOVEMENT;
+        level->flags &= ~W8_LEVEL_FLAG_FAST_MOVEMENT;
     }
 }
 
@@ -2031,7 +2017,7 @@ void SetCameraYawDegrees(float degrees)
 // FUNCTION: WIZ8 0x00421030
 void ApplyCameraRotation(glm::mat3* rotation)
 {
-    g_gd_camera->ApplyRotationMatrix(rotation, g_level_data);
+    g_gd_camera->ApplyRotationMatrix(rotation, LevelMotion());
 }
 
 // FUNCTION: WIZ8 0x00421070
@@ -2162,7 +2148,7 @@ unsigned int W8LevelDataRecord::resolveMotionFlags(unsigned int input, bool enga
 }
 
 // FUNCTION: WIZ8 0x00420470
-bool W8LevelDataRecord::IntegrateCameraForward()
+bool W8LevelDataRecord::IntegrateCameraForward(const W8EnvironRecord& environ)
 {
     float forward_length;
     float limit;
@@ -2174,13 +2160,13 @@ bool W8LevelDataRecord::IntegrateCameraForward()
 
     cleared_vector = false;
     forward_length = glm::length(camera_motion_velocity);
-    limit = g_environ->motion_limit * camera_scale;
+    limit = environ.motion_limit * camera_scale;
     if (limit <= glm::length(motion_input)) {
         adjustment = camera_motion_velocity;
         adjustment = ProjectVectorOntoVector(adjustment, integrated_motion);
         adjustment -= camera_motion_velocity;
         delta_length = glm::length(adjustment);
-        limit = g_environ->motion_factor * limit;
+        limit = environ.motion_factor * limit;
         if (delta_length <= limit) {
             if (delta_length < limit * kCameraSnapEpsilon) {
                 adjustment = glm::vec3(0);
@@ -2188,14 +2174,14 @@ bool W8LevelDataRecord::IntegrateCameraForward()
         } else {
             adjustment = normalizedOrZero(adjustment) * limit;
         }
-        scale = g_environ->momentum_scale * g_environ->motion_factor;
+        scale = environ.momentum_scale * environ.motion_factor;
         integrated_motion *= scale;
     } else {
         if (forward_length < limit) {
             motion_velocity = glm::vec3(0);
             return false;
         }
-        limit = g_environ->motion_factor * limit;
+        limit = environ.motion_factor * limit;
         adjustment = -camera_motion_velocity;
         if (limit < forward_length) {
             adjustment = normalizedOrZero(adjustment) * limit;
@@ -2217,7 +2203,8 @@ bool W8LevelDataRecord::IntegrateCameraForward()
 }
 
 // FUNCTION: WIZ8 0x00420810
-unsigned char W8LevelDataRecord::ApplySavedMotionMatrix(unsigned char prior_fast, bool fast_move,
+unsigned char W8LevelDataRecord::ApplySavedMotionMatrix(const W8EnvironRecord& environ,
+                                                        unsigned char prior_fast, bool fast_move,
                                                         const glm::mat3& saved)
 {
     float horizontal;
@@ -2228,7 +2215,7 @@ unsigned char W8LevelDataRecord::ApplySavedMotionMatrix(unsigned char prior_fast
     }
     motion_input = saved * motion_input;
     integrated_motion = motion_input * camera_scale;
-    if (!IntegrateCameraForward()) {
+    if (!IntegrateCameraForward(environ)) {
         return 0;
     }
 
@@ -2310,7 +2297,8 @@ unsigned char W8LevelDataRecord::ToggleBoundProps()
 }
 
 // FUNCTION: WIZ8 0x0041FF90
-void W8LevelDataRecord::UpdateMotionProgress(unsigned char fast_move, unsigned char moved)
+void W8LevelDataRecord::UpdateMotionProgress(W8EnvironRecord& environ, unsigned char fast_move,
+                                             unsigned char moved)
 {
     bool allow_override;
     float length;
@@ -2345,13 +2333,13 @@ void W8LevelDataRecord::UpdateMotionProgress(unsigned char fast_move, unsigned c
         camera_motion_velocity = motion_velocity - contact_velocity;
         camera_motion_displacement = camera_motion_velocity * camera_scale;
         allow_override = UpdateFootstepFromMotion();
-        camera_motion_velocity -= g_environ->vector;
+        camera_motion_velocity -= environ.vector;
         projected = contact_velocity;
-        gravity = {g_environ->gravity_x, g_environ->gravity_y, g_environ->gravity_z};
+        gravity = {environ.gravity_x, environ.gravity_y, environ.gravity_z};
         projected = ProjectVectorOntoVector(projected, gravity);
-        environ_vector = g_environ->vector;
+        environ_vector = environ.vector;
         if (glm::length(environ_vector) < glm::length(projected)) {
-            g_environ->vector = projected;
+            environ.vector = projected;
         }
         motion_input = glm::vec3(0);
         integrated_motion = glm::vec3(0);
@@ -2399,15 +2387,16 @@ void W8LevelDataRecord::UpdateMotionProgress(unsigned char fast_move, unsigned c
 // FUNCTION: WIZ8 0x00420E20
 void UpdateLevelMovementAudio(void)
 {
+    W8LevelDataRecord* level = LevelMotion();
     float now;
 
-    if (g_level_data == 0) {
+    if (level == 0) {
         return;
     }
     if ((g_gd_camera->m_orientation_flags & W8_CAMERA_YAW_MOVING) == 0 ||
-        (g_level_data->flags & W8_LEVEL_FLAG_WALKABLE_CONTACT) == 0 ||
-        g_level_data->motion_velocity.x != 0.0f || g_level_data->motion_velocity.y != 0.0f ||
-        g_level_data->motion_velocity.z != 0.0f) {
+        (level->flags & W8_LEVEL_FLAG_WALKABLE_CONTACT) == 0 ||
+        level->motion_velocity.x != 0.0f || level->motion_velocity.y != 0.0f ||
+        level->motion_velocity.z != 0.0f) {
         if (g_level_footstep_sound != nullptr) {
             wiz8::sound::stop(g_level_footstep_sound, 500);
             g_level_footstep_sound = nullptr;
@@ -2419,7 +2408,7 @@ void UpdateLevelMovementAudio(void)
         (g_level_footstep_time = now,
          g_level_footstep_sound == nullptr || !wiz8::sound::is_playing(g_level_footstep_sound))) {
         g_level_footstep_sound =
-            PlayFootstep(g_level_data->sound_environment, g_level_data->sound_environment_alt,
+            PlayFootstep(level->sound_environment, level->sound_environment_alt,
                          W8_FOOTSTEP_KIND_SCUFF);
     }
 }

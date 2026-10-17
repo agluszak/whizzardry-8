@@ -546,6 +546,7 @@ W8GameData::W8GameData(wiz8::File* handle, bool)
     if (EnvironsCount() == 0) {
         m_ppEnvirons.push_back(std::make_unique<W8EnvironRecord>());
     }
+    environ = m_ppEnvirons.front().get();
 }
 
 /* Build the processed level's spatial index once and publish every surface

@@ -61,6 +61,8 @@ extern float g_default_momentum_scale;
    Retail allocates 0xf4 and its constructor builds a W8IntervalGate at +0xc4;
    the record's destructor at 0x00421890 exists only to tear that member down.
    The bare `add ecx,0xc4` body is member teardown, not an adjustor thunk. */
+struct W8EnvironRecord;
+
 struct W8LevelDataRecord {
     unsigned int flags; /* 0x00 */
     /* 0x04/0x08: prop ids filled by the motion collision path; ToggleBoundProps
@@ -103,19 +105,21 @@ struct W8LevelDataRecord {
     /* 0x0041FE20: when the camera sits outside the game-data AABB, push
        motion_displacement toward the box, clear environ vector, and optionally start
        party movement; returns non-zero when a clamp fired. */
-    unsigned char ClampCameraToBounds(const glm::vec3* minimum, const glm::vec3* maximum);
+    unsigned char ClampCameraToBounds(W8EnvironRecord& environ, const glm::vec3* minimum,
+                                      const glm::vec3* maximum);
     /* 0x0041FF00: toggle setting-6e props referenced by
      * primary_contact_prop_id/secondary_contact_prop_id. */
     unsigned char ToggleBoundProps();
     /* 0x00420470: integrate camera_motion_velocity into motion_velocity/integrated_motion. */
     unsigned int resolveMotionFlags(unsigned int input, bool engaged);
-    bool IntegrateCameraForward();
+    bool IntegrateCameraForward(const W8EnvironRecord& environ);
     /* 0x00420810: rotate motion_input by the saved yaw matrix and refresh
        motion_displacement; returns the updated fast-move latch. */
-    unsigned char ApplySavedMotionMatrix(unsigned char prior_fast, bool fast_move,
-                                         const glm::mat3& saved);
+    unsigned char ApplySavedMotionMatrix(const W8EnvironRecord& environ, unsigned char prior_fast,
+                                         bool fast_move, const glm::mat3& saved);
     /* 0x0041FF90: advance movement progress / footstep state for one tick. */
-    void UpdateMotionProgress(unsigned char fast_move, unsigned char moved);
+    void UpdateMotionProgress(W8EnvironRecord& environ, unsigned char fast_move,
+                              unsigned char moved);
     /* 0x00420A60: accumulate footstep distance and optionally play a step. */
     bool UpdateFootstepFromMotion();
 };
@@ -210,9 +214,6 @@ struct W8GameData {
        unscaled bounds tracking, the face records, and — for the non-primary
        pass — the interface name and conditional-face records. */
     unsigned char ReadWGDList(wiz8::File& file, int poly_type);
-    /* Release the level-data record, game-time accumulator and companion
-       level-data globals; runs first in ~W8GameData. */
-    void ReleaseLevelData();
     /* Selects a switch interface's state: the matching state group's
        conditional polygons clear surface flag 0x10 while every other state's
        polygons set it. */
@@ -268,6 +269,14 @@ struct W8GameData {
     int EnvironsCount() const noexcept { return int(m_ppEnvirons.size()); }
     std::vector<std::string> interface_names;
     std::vector<std::unique_ptr<W8EnvironRecord>> m_ppEnvirons;
+    /* The environment the party currently moves through: always one of
+       m_ppEnvirons, switched by crossed environment boundaries. */
+    W8EnvironRecord* environ = nullptr;
+    /* The party's movement tracker for this level. The first camera motion
+       update restarts the shared timers so loading time is not integrated. */
+    W8LevelDataRecord motion;
+    bool motion_started = false;
+    bool LiftsCrossings() const { return (motion.flags & W8_LEVEL_FLAG_NO_SOUND_ENVIRONMENT) != 0; }
     /* Set by W8Octree::settleToGround around its TestTraceResult calls: while
        set, only flag-4 surfaces are admitted by the surface trace. */
     bool trace_flag4_gate;
@@ -300,15 +309,10 @@ struct W8GameData {
                          int mode); /* 0x0041C330 */
 };
 
-extern W8LevelDataRecord* g_level_data;
-/* Companion pointer cleared alongside g_level_data on level
-   transitions; its target's +0 flags have 0x200 masked off at 0x0044FCD0. */
-extern unsigned int* g_level_flags;
-/* Teardown flag tested and cleared by ReleaseLevelData. */
-extern bool g_level_data_teardown_flag;
-/* Read by the level-data reset and written by the GameData constructor in
-   GDFileIO.cpp. */
-extern W8EnvironRecord* g_environ;
+/* The published level's movement tracker and active environment, or null
+   when no level with game data is loaded. */
+W8LevelDataRecord* LevelMotion();
+W8EnvironRecord* LevelEnviron();
 
 void ResetInactiveLevelDataVectors(void);
 void UpdateSharedGameDataObject();

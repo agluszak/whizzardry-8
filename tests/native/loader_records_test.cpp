@@ -250,13 +250,13 @@ static void wgd_banks()
     const auto* interfaces = data.m_pInterfaces.data();
     const auto* states = data.m_pStates.data();
     const auto* polygons = data.m_piCondPolys.data();
-    const auto* environ = g_environ;
+    const auto* environ = data.environ;
     const auto names = data.interface_names;
     auto unchanged = [&] {
         REQUIRE((vertices == data.m_pVertices.data() && surfaces == data.m_pSurfaces.data()));
         REQUIRE((interfaces == data.m_pInterfaces.data() && states == data.m_pStates.data() &&
                  polygons == data.m_piCondPolys.data()));
-        REQUIRE((names == data.interface_names && environ == g_environ));
+        REQUIRE((names == data.interface_names && environ == data.environ));
         REQUIRE((geometry_snapshot(data) == snapshot));
     };
     for (std::size_t op = 1; op <= operations; ++op) {

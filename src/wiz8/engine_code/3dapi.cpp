@@ -377,10 +377,8 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
     RefreshDirtyAutomap();
     camera_position = cameraLocation();
     if (world->game_data != 0) {
-        if (g_level_flags != 0) {
-            *g_level_flags &= ~W8_LEVEL_FLAG_MOVED_THIS_UPDATE;
-        }
-        if (world->game_data != 0 && (flags & W8_CAMERA_MOTION_SKIP) == 0) {
+        world->game_data->motion.flags &= ~W8_LEVEL_FLAG_MOVED_THIS_UPDATE;
+        if ((flags & W8_CAMERA_MOTION_SKIP) == 0) {
             const auto orientation =
                 world->game_data->cameraRotation(flags, world->camera->getRotation<glm::mat3>());
             world->camera->setRotation(orientation.rotation);

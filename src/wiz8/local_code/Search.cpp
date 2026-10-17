@@ -163,7 +163,7 @@ void RunSearchPulse(void)
             !gXStatus.fSurprisePossible && !gXStatus.fLockInteractMode &&
             !LockInteractionSuspended() && !gXStatus.fTrapInteractMode &&
             !TrapInteractionSuspended()) {
-            if ((g_level_data->flags & W8_LEVEL_FLAG_FAST_MOVEMENT) != 0 &&
+            if (IsLevelFastMovement() &&
                 g_status.search_mode != 0) {
                 ShowNotice(W8_FONT_PALETTE_BEIGE,
                            g_localized_strings[W8_NOTICE_SEARCH_SPECIAL_LEVEL]);
@@ -222,7 +222,7 @@ void RunSearchPulse(void)
                 }
             }
             if (g_status.search_mode == 0 ||
-                (g_level_data->flags & W8_LEVEL_FLAG_FAST_MOVEMENT) != 0) {
+                IsLevelFastMovement()) {
                 /* Retail scans the party for a live member carrying the
                    Scouting skill and then discards the result. */
                 for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
@@ -235,7 +235,7 @@ void RunSearchPulse(void)
                 }
             }
             if (g_status.search_mode != 0 &&
-                (g_level_data->flags & W8_LEVEL_FLAG_FAST_MOVEMENT) == 0 && !found &&
+                !IsLevelFastMovement() && !found &&
                 Random(100) == 0) {
                 ApplyItemEffectToRandomCharacter(g_container_event, -1, 0, kCharacterEventNoFlags);
             }
@@ -263,12 +263,12 @@ int W8Searchable::PickBestSearcher()
         if (CharacterHasTrait(character, W8_TRAIT_SEARCH) || g_status.search_mode != 0) {
             unsigned int level = character->skills[W8_SKILL_SCOUTING].level;
             unsigned int base = level >> 1;
-            if ((g_level_data->flags & W8_LEVEL_FLAG_FAST_MOVEMENT) != 0) {
+            if (IsLevelFastMovement()) {
                 base = level >> 2;
             }
             unsigned int score = 0;
             if (base != 0 || (g_status.search_mode != 0 &&
-                              (g_level_data->flags & W8_LEVEL_FLAG_FAST_MOVEMENT) == 0)) {
+                              !IsLevelFastMovement())) {
                 unsigned int attribute = character->attributes[W8_ATTRIBUTE_SENSES].effective;
                 if (attribute < 0x33) {
                     score = base + attribute / 5;

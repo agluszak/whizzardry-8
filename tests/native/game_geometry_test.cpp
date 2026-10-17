@@ -2285,13 +2285,13 @@ TEST_CASE("Surface contacts return positions distances and edge limits without o
     surface.plane = {glm::vec3(1, 0, 0), 0};
     surface.contact_margin = 150; // Wall slope adjustment leaves a zero plane limit.
     const glm::vec3 from(3, .5f, .5f);
-    const auto hit = surface.segmentContact(from, {-5, 0, 0}, triangle);
+    const auto hit = surface.segmentContact(from, {-5, 0, 0}, triangle, false);
     REQUIRE(hit);
     REQUIRE(glm::length(hit->point - glm::vec3(0, .5f, .5f)) < 1e-6f);
     REQUIRE(std::abs(hit->distance - 3) < 1e-6f);
     REQUIRE(surface.distance == 0);
     surface.distance = 9;
-    REQUIRE_FALSE(surface.segmentContact({3, 4, 4}, {-5, 0, 0}, triangle));
+    REQUIRE_FALSE(surface.segmentContact({3, 4, 4}, {-5, 0, 0}, triangle, false));
     REQUIRE(surface.distance == 9);
     surface.flags = W8_GD_SURFACE_WALKABLE;
     const auto limit = surface.edgeContactLimit({0, .5f, -.2f}, triangle, 1);
@@ -2299,21 +2299,15 @@ TEST_CASE("Surface contacts return positions distances and edge limits without o
     REQUIRE(std::abs(*limit - std::sqrt(.96f)) < 1e-6f);
     REQUIRE_FALSE(surface.edgeContactLimit({0, 4, 4}, triangle, 1));
 
-    W8LevelDataRecord level{};
-    const struct RestoreLevel {
-        W8LevelDataRecord* previous;
-        ~RestoreLevel() { g_level_data = previous; }
-    } restore{g_level_data};
-    g_level_data = &level;
     surface.flags = W8_GD_SURFACE_CROSSING;
     surface.contact_margin = 0;
-    const auto crossing = surface.segmentContact(from, {-5, 0, 0}, triangle);
+    const auto crossing = surface.segmentContact(from, {-5, 0, 0}, triangle, false);
     REQUIRE(crossing);
     REQUIRE(crossing->point == from);
     REQUIRE(std::abs(crossing->distance - 3) < 1e-6f);
     REQUIRE(surface.distance > 0);
     const glm::vec3 reverse_from(-2, .5f, .5f);
-    const auto reverse = surface.segmentContact(reverse_from, {5, 0, 0}, triangle);
+    const auto reverse = surface.segmentContact(reverse_from, {5, 0, 0}, triangle, false);
     REQUIRE(reverse);
     REQUIRE(reverse->point == reverse_from);
     // Reverse crossings retain the full segment when the signed span is below one.
@@ -2379,27 +2373,17 @@ TEST_CASE("Camera rotation and movement share the level motion flag policy", "[g
 TEST_CASE("Paused camera APIs return complete initialized values", "[geometry]")
 {
     const struct RestoreRuntime {
-        W8EnvironRecord* environ = g_environ;
-        W8LevelDataRecord* level = g_level_data;
-        unsigned int* flags = g_level_flags;
         bool resume = g_level_motion_resume_pending;
         ~RestoreRuntime()
         {
-            delete g_environ;
-            delete g_level_data;
             ResetGameTimeAccumulator();
-            g_environ = environ;
-            g_level_data = level;
-            g_level_flags = flags;
             g_level_motion_resume_pending = resume;
         }
     } restore;
-    g_environ = nullptr;
-    g_level_data = nullptr;
     W8GameData data(nullptr, true);
     ResetGameTimeAccumulator();
     GameTimeAccumulator().m_flags.paused = true;
-    g_level_data = new W8LevelDataRecord;
+    data.motion_started = true;
     g_level_motion_resume_pending = false;
     const auto basis = glm::mat3(glm::rotate(glm::mat4(1), .4f, glm::vec3(0, 1, 0)));
     const auto orientation = data.cameraRotation(W8_CAMERA_MOTION_TURN_LEFT, basis);

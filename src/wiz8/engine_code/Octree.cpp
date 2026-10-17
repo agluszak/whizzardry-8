@@ -127,12 +127,6 @@ static unsigned short g_octree_query_id;
 // GLOBAL: WIZ8 0x00659774
 static unsigned int g_octree_query_cell;
 
-// GLOBAL: WIZ8 0x00659890
-w8_ulong* g_octree_state;
-// GLOBAL: WIZ8 0x00659894
-// GLOBAL: WIZ8 0x00659898
-// GLOBAL: WIZ8 0x00659899
-
 /* Build a packed four-byte colour from four components and answer its
    address. The receiver is the output slot. */
 /* Draw the probe box through the world camera. */
@@ -1617,7 +1611,6 @@ GroundProbe W8Octree::settleToGround(const glm::vec3& input, bool test_props, fl
                 goto done;
             }
             if (test_props != 0) {
-                g_octree_state = m_aulGDObjs.data();
                 m_gd_result_count = 0;
                 w8_ulong before = m_gd_result_count;
                 CollectObjectsInCell(cell, W8_OCTREE_KIND_PROP);
@@ -2040,7 +2033,6 @@ W8Octree::traceProps(const glm::vec3& from, const glm::vec3& to, int skip_flag, 
     glm::ivec3 end_cell;
 
     W8OctreeTrace trace(from, to);
-    g_octree_state = m_aulGDObjs.data();
     m_gd_result_count = 0;
     std::ranges::fill(m_visited_object_bits, false);
     cell = cellAt(from);
@@ -2048,7 +2040,6 @@ W8Octree::traceProps(const glm::vec3& from, const glm::vec3& to, int skip_flag, 
     visitOctreeSegment(
         cell, end_cell, [&] { return cellWalk(from, to); },
         [&](const glm::ivec3& current, bool) {
-            g_octree_state = m_aulGDObjs.data();
             CollectObjectsInCell(current, W8_OCTREE_KIND_PROP);
             return true;
         });
@@ -2484,7 +2475,6 @@ int CheckLevelAssetSet(const char* level_path)
 // FUNCTION: WIZ8 0x0042d040
 void W8Octree::Reset()
 {
-    g_octree_state = 0;
     m_spatial.Reset();
     m_region_volumes.clear();
     m_branches.clear();
@@ -2747,12 +2737,10 @@ std::vector<w8_ulong> W8Octree::queryAlongSegment(const glm::vec3& origin, const
     const auto bounds = srSegmentMath::sweptBounds(origin, delta, extent);
     const auto lower = cellCoordinates(bounds.minimum).cell;
     const auto upper = cellCoordinates(bounds.maximum).cell;
-    g_octree_state = m_aulGDObjs.data();
     m_gd_result_count = 0;
     std::ranges::fill(m_visited_object_bits, false);
     visitClippedOctreeCellBox(lower, upper, glm::ivec3(m_leaf_grid_dimensions),
                               [&](const glm::ivec3& cell) { CollectObjectsInCell(cell, kind); });
-    g_octree_state = nullptr;
     return {m_aulGDObjs.data(), m_aulGDObjs.data() + m_gd_result_count};
 }
 
@@ -2821,13 +2809,11 @@ std::vector<w8_ulong> W8Octree::queryObjects(const srBoundingBox& bounds, unsign
 {
     const auto start = cellAt(bounds.minimum);
     const auto end = cellAt(bounds.maximum);
-    g_octree_state = m_aulGDObjs.data();
     m_gd_result_count = 0;
     std::ranges::fill(m_visited_object_bits, false);
     if (excluded >= 0) SetBit(m_visited_object_bits, excluded);
     visitClippedOctreeCellBox(start, end, glm::ivec3(m_leaf_grid_dimensions),
                               [&](const glm::ivec3& cell) { CollectObjectsInCell(cell, kind); });
-    g_octree_state = nullptr;
     return {m_aulGDObjs.data(), m_aulGDObjs.data() + m_gd_result_count};
 }
 
@@ -2862,7 +2848,7 @@ unsigned int W8Octree::CollectObjectsInCell(const glm::ivec3& cell, unsigned sho
                 }
                 ++stream;
                 if (!SetBit(m_visited_object_bits, *stream)) {
-                    g_octree_state[m_gd_result_count] = *stream;
+                    m_aulGDObjs[m_gd_result_count] = *stream;
                     ++m_gd_result_count;
                 }
             }
@@ -2882,7 +2868,7 @@ unsigned int W8Octree::CollectObjectsInCell(const glm::ivec3& cell, unsigned sho
                                         entry_kind == W8_OCTREE_KIND_NAVIGATOR)
                                      : entry_kind == kind;
             if (matches && !SetBit(m_visited_object_bits, OctreeKeyId(packed) - 1)) {
-                g_octree_state[m_gd_result_count] = g_octree_query_id - 1;
+                m_aulGDObjs[m_gd_result_count] = g_octree_query_id - 1;
                 ++m_gd_result_count;
             }
             slot =
