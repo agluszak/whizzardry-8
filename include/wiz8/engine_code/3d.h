@@ -8,8 +8,6 @@ struct srBoundingBox;
 
 #include "glm/ext/vector_float3.hpp"
 
-class W8Monster;
-class W8Prop;
 struct W8World;
 class srScene;
 struct srBoundingBox;
@@ -19,21 +17,15 @@ class srLight;
 class stLight;
 class stMeshModel;
 class stModelInstance;
-struct W8Item;
 struct W8GameData;
 struct W8OctRegionVolume;
 struct W8Plane;
 
 void SetSceneAmbientLightWhite(srScene* scene);
-void AddMonsterToWorld(W8World*, W8Monster* monster);
-void AddItemToWorld(W8World*, std::unique_ptr<W8Item> item);
-void RemoveItemFromWorld(W8World*, W8Item* item);
 void SetModelInstanceChainExclusionMask(srModelInstance* node, int value);
 std::unique_ptr<stModelInstance> DuplicateModelInstance(const stModelInstance& instance);
 void UpdateWorldMonsters(W8World* world);
 void WorldUpdateProps(W8World* world);
-int WorldGetPropCount(W8World*);             /* 0x0046E600 */
-W8Prop* WorldGetPropAt(W8World*, int index); /* 0x0046E620 */
 void SetWorldSceneMeshShaderLowBits(W8World* owner, int argument);
 void SetWorldSceneMeshShaderBit3(W8World* owner, int argument);
 void FinalizeStaticScene(srScene* scene);

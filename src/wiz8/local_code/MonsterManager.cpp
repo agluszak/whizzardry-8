@@ -207,7 +207,7 @@ void ActivateMonsterInWorld(W8MonsterInfo* monster_info)
             MonsterSetAnimating(monster_info->p3D, !monster_info->fMotionless);
         }
 
-        AddMonsterToWorld(GetWorld(), monster_info->p3D);
+        GetWorld()->active_monsters.push_back(monster_info->p3D);
         MonsterSetFacing(monster_info->p3D, monster_info->derived);
         RebuildMonsterDerivedStats(monster_info->location_id);
         monster_info->p3D->movement.leadership_rank =
