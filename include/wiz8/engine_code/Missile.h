@@ -102,7 +102,6 @@ public:
 
     w8_ulong GetAnimationState(int mode);
     void DetonateMissileSpell();
-    void DestroyMissile();          /* 0x004A4180 */
     void AnnounceCollisionTarget(); /* 0x004A4AC0 */
     /* Switch the representation to its impact cycle, or end the flight when the
        missile has no such cycle. */
@@ -159,7 +158,6 @@ W8Missile* FireMissile(unsigned int missile_table_index, glm::vec3* source, glm:
 /* The world position `character_index`'s current hand fires a missile from:
    the camera's launch point swung to the wielding side. */
 void GetCharacterProjectilePosition(unsigned int character_index, glm::vec3* position);
-void DestroyAllMissiles(W8World* world); /* 0x004A4210 */
 
 extern unsigned int g_missile_table_count;
 
@@ -194,8 +192,7 @@ extern W8MissileTableRecord* g_missile_table;
 W8Missile* NextMissile(bool restart);
 
 W8Missile* AllocateMissile(int missile_table_index);
-unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name,
-                               W8Missile** ppMissile, int);
+std::unique_ptr<W8Missile> LoadMissileCycle(W8GrCycleLoadContext* context, const char* name);
 
 W8Missile* CreateMissile(unsigned int missile_table_index, glm::vec3* source, float heading,
                          float pitch, float flight_speed, unsigned int trace_mask,

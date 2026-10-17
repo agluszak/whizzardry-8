@@ -202,13 +202,11 @@ void UpdateShakeEffects()
    version, and hand the open file plus its resource context to the typed cycle
    reader. */
 // FUNCTION: WIZ8 0x004A67E0
-bool LoadGrCycle(const W8GrCycleLoadContext* context, const char* mon_name, W8GrCycle** cycle,
+bool LoadGrCycle(const W8GrCycleLoadContext* context, const char* mon_name, W8GrCycle* cycle,
                  int cycle_index, int value, const char* directory, unsigned char object_type,
                  const char* bitmap_directory)
 try {
     W8ReadLevelInfo info;
-    char mon_path[128];
-    char bitmap_path[1024];
     unsigned char version;
     bool success;
 
@@ -217,12 +215,9 @@ try {
                      0x176, 0);
     }
 
-    sprintf(mon_path, "%s\\%s.mon", directory, mon_name);
-    if (bitmap_directory == 0) {
-        sprintf(bitmap_path, "%s\\Bitmaps", directory);
-    } else {
-        strcpy(bitmap_path, bitmap_directory);
-    }
+    const auto mon_path = fmt::format("{}/{}.mon", directory, mon_name);
+    const auto bitmap_path =
+        bitmap_directory ? std::string(bitmap_directory) : fmt::format("{}/Bitmaps", directory);
 
     std::unique_ptr<wiz8::File> handle = [&]() {
         try {
@@ -237,8 +232,8 @@ try {
 
     info.world = context->world;
     info.hFile = handle.get();
-    info.bitmap_folder = bitmap_path;
-    info.mesh_filename = mon_path;
+    info.bitmap_folder = bitmap_path.c_str();
+    info.mesh_filename = mon_path.c_str();
     success = true;
 
     if ((handle->read(&version, 1).bytes == static_cast<std::size_t>(1)) == 0 || version != 1 ||
@@ -264,7 +259,7 @@ try {
    its local transform; the live cycle owns the attachment record and vector,
    while the particle node remains scene-owned. */
 // FUNCTION: WIZ8 0x004A6970
-unsigned char ReadGrCycleData(W8ReadLevelInfo* info, W8GrCycle** cycle, int cycle_index, int value,
+unsigned char ReadGrCycleData(W8ReadLevelInfo* info, W8GrCycle* cycle, int cycle_index, int value,
                               unsigned char object_type)
 try {
     unsigned char has_path;
@@ -275,34 +270,9 @@ try {
         srAssertFail("pInfo", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x1ba, 0);
     }
 
-    if (*cycle == 0) {
-        switch (object_type) {
-        case 0:
-            *cycle = new W8Monster;
-            break;
-        case 1:
-            *cycle = new W8Missile;
-            break;
-        case 2:
-            *cycle = new W8SpellVisual;
-            break;
-        default:
-            srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x1d0,
-                         "Unknown object type");
-            break;
-        }
-        if (*cycle == 0) {
-            srAssertFail("pCycle", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x1d2, 0);
-        }
-        if (object_type == 0) {
-            (*cycle)->id = AllocateGrObjectId();
-        }
-        (*cycle)->GetRepresentation()->current_cycle = -1;
-    }
-
     info->hFile->read(&has_path, 1);
     if (has_path != 0) {
-        (*cycle)->m_pAI = LoadPathAI(*info->hFile);
+        cycle->m_pAI = LoadPathAI(*info->hFile);
     }
 
     info->hFile->read(&has_particles, 1);
@@ -316,7 +286,7 @@ try {
             for (index = 0; index < static_cast<int>(particles.size()); ++index) {
                 // The attachment takes ownership below.
                 stParticle* particle = particles[index].get();
-                auto* event = &(*cycle)->particles.emplace_back();
+                auto* event = &cycle->particles.emplace_back();
                 glm::dvec3 location;
 
                 event->cycle = cycle_index;
@@ -331,16 +301,16 @@ try {
 
     switch (object_type) {
     case 0:
-        success = static_cast<W8Monster*>(*cycle)->m_pRep->ReadCycleData(
-            info, static_cast<W8Monster*>(*cycle), cycle_index, value);
+        success = static_cast<W8Monster*>(cycle)->m_pRep->ReadCycleData(
+            info, static_cast<W8Monster*>(cycle), cycle_index, value);
         break;
     case 1:
-        success = static_cast<W8Missile*>(*cycle)->m_pRep->ReadCycleData(
-            info, static_cast<W8Missile*>(*cycle), cycle_index, value);
+        success = static_cast<W8Missile*>(cycle)->m_pRep->ReadCycleData(
+            info, static_cast<W8Missile*>(cycle), cycle_index, value);
         break;
     case 2:
-        success = static_cast<W8SpellVisual*>(*cycle)->host->ReadCycleData(
-            info, static_cast<W8SpellVisual*>(*cycle), cycle_index, value);
+        success = static_cast<W8SpellVisual*>(cycle)->host->ReadCycleData(
+            info, static_cast<W8SpellVisual*>(cycle), cycle_index, value);
         break;
     }
     return success;

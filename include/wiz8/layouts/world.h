@@ -60,8 +60,10 @@ struct W8World {
     W8World(const W8World&) = delete;
     W8World& operator=(const W8World&) = delete;
     std::shared_ptr<stMaterial> cloud_material;
-    std::vector<W8Monster*> plsMonsters;
-    std::vector<W8Item*> plsItems;
+    std::vector<std::unique_ptr<W8Monster>> monsters;
+    // Update membership borrows loaded monsters, including the visible cursor.
+    std::vector<W8Monster*> active_monsters;
+    std::vector<std::unique_ptr<W8Item>> plsItems;
     std::vector<std::unique_ptr<W8Prop>> plsProps;
     std::vector<std::unique_ptr<W8CameraPath>> plsCameras;
     std::vector<std::unique_ptr<W8AmbientSound>> plsAmbientSounds;
@@ -93,8 +95,8 @@ struct W8World {
     std::vector<srNode*> nodes_to_disable;
     // Lights created for this world (including monster-cycle copies); the world owns them.
     std::vector<std::unique_ptr<stLight>> transient_lights;
-    std::vector<W8SpellVisual*> spell_visuals;
-    std::vector<W8Missile*> missiles;
+    std::vector<std::unique_ptr<W8SpellVisual>> spell_visuals;
+    std::vector<std::unique_ptr<W8Missile>> missiles;
     std::vector<stLight*> lights_to_update;
     std::vector<W8Prop*> collidable_props;
     std::vector<std::unique_ptr<MonGen>> monster_generators;

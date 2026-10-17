@@ -50,7 +50,6 @@
 #include "wiz8/engine_code/PathAI.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/ReadLevel.h"
-#include "wiz8/engine_code/SpellVisual.h"
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/UpdateMesh.h"
@@ -365,9 +364,8 @@ void SetCameraSwayMode(srCamera* camera, int mode)
 // Phase 1: nothing may update the world or call into its entities afterwards.
 static void StopWorldActivity(W8World* world)
 {
-    if (IsWorldCursorVisible()) {
-        HideWorldCursor();
-    }
+    // The cursor borrows a monster owned by this world, even while hidden.
+    ReleaseWorldCursor();
     StopAllAmbientSounds();
     world->nodes_to_disable.clear();
     world->lights_to_update.clear();
@@ -387,13 +385,14 @@ static void UnregisterWorld(W8World* world)
 static void DestroyWorldResources(W8World* world)
 {
     world->monster_generators.clear();
-    wiz8::remove_all_and_delete_in_order(world->plsMonsters);
-    wiz8::remove_all_and_delete_in_order(world->plsItems);
+    world->active_monsters.clear();
+    world->monsters.clear();
+    world->plsItems.clear();
     world->plsProps.clear();
     DestroyAllWorldTriggers(world);
     world->plsAmbientSounds.clear();
-    DestroyAllMissiles(world);
-    DestroyAllSpellVisuals(world);
+    world->missiles.clear();
+    world->spell_visuals.clear();
     // Destroying cycles can retire their still-active particles. Drain those
     // owners while their scene and spatial index are still alive.
     world->particles.clear();

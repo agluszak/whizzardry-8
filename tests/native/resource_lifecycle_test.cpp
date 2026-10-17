@@ -208,7 +208,7 @@ struct SpellVisualFixture {
     W8Octree* previous_octree = g_octree;
     std::unique_ptr<W8Octree> octree;
     W8World world{};
-    std::vector<W8SpellVisual*>& visuals = world.spell_visuals;
+    std::vector<std::unique_ptr<W8SpellVisual>>& visuals = world.spell_visuals;
 
     SpellVisualFixture()
     {
@@ -222,7 +222,7 @@ struct SpellVisualFixture {
 
     ~SpellVisualFixture()
     {
-        DestroyAllSpellVisuals(&world);
+        world.spell_visuals.clear();
         octree.reset();
         g_octree = previous_octree;
         SetCurrentWorld(previous_world);
@@ -241,7 +241,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "Spell visual fallback and registration", "
 
     // Missing resources and resources without a supported cycle both use Generic.
     for (const char* name : {"Missing", "Named"}) {
-        std::unique_ptr<W8SpellVisual> visual(SpawnSpellEffect(&position, name, 4, 17, 23));
+        auto* visual = SpawnSpellEffect(&position, name, 4, 17, 23);
         REQUIRE(visual);
         REQUIRE(visual->host->pending_cycle == first_cycle + 1);
         REQUIRE(std::string_view(visual->GetRegisteredName()) == "Generic");
@@ -249,14 +249,16 @@ TEST_CASE_METHOD(SpellVisualFixture, "Spell visual fallback and registration", "
         REQUIRE(visual->flags0 == 23);
         REQUIRE(visual->host->billboard);
         REQUIRE(visual->GetPosition() == position);
-        REQUIRE(visuals == std::vector<W8SpellVisual*>{visual.get()});
+        REQUIRE(visuals.size() == 1);
+        REQUIRE(visuals.front().get() == visual);
+        visuals.clear();
     }
     REQUIRE(visuals.empty());
     REQUIRE(FindFirstGrCycleByName("Named") == &named);
 
     // A supported named cycle takes precedence over the fallback.
     named.host->resources.cycles[first_cycle + 2].animation = std::make_unique<W8AnimObj>();
-    std::unique_ptr<W8SpellVisual> visual(SpawnSpellEffect(&position, "Named", 4, 31, 47));
+    auto* visual = SpawnSpellEffect(&position, "Named", 4, 31, 47);
     REQUIRE(visual);
     REQUIRE(visual->host->pending_cycle == first_cycle + 2);
     REQUIRE(std::string_view(visual->GetRegisteredName()) == "Named");
@@ -493,7 +495,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "World teardown drains particles retired by
     auto* attachment = &visual->particles.emplace_back();
     attachment->m_pstParticles =
         std::make_unique<ObservedParticle>(*retiring_world, destroyed, scene_alive);
-    retiring_world->spell_visuals.push_back(visual.release());
+    retiring_world->spell_visuals.push_back(std::move(visual));
 
     DestroyWorld(retiring_world.release());
     SetCurrentWorld(&world);

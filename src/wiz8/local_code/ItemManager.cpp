@@ -565,10 +565,9 @@ void ActivateItem(W8WorldItem* item)
         }
     }
 
-    W8Item* entity = item->p3D;
-    bool loaded = LoadItemFromFile(&info, zItemName.c_str(), &entity, false);
-    item->p3D = entity;
-    if (!loaded) {
+    auto entity = LoadItemFromFile(&info, zItemName.c_str(), false);
+    item->p3D = entity.get();
+    if (!entity) {
         srAssertFail("fSuccess", ITEM_MANAGER_CPP, 0x1f2,
                      fmt::format("ActivateItem: ERROR - ItemRead {} failed", zItemName));
     }
@@ -581,7 +580,7 @@ void ActivateItem(W8WorldItem* item)
         static_cast<float>(Random(0x168) * 2 * g_camera_pi * kInverseFullTurnDegrees));
     static_cast<W8ItemRep*>(item->p3D->m_pRep)->flags |= item->entity_flags;
     item->p3D->AttachMesh(GetWorld());
-    AddItemToWorld(GetWorld(), item->p3D);
+    AddItemToWorld(GetWorld(), std::move(entity));
     item->fActive = true;
     ++gXStatus.item_manager_pending;
 
@@ -628,7 +627,6 @@ void DeactivateWorldItem(W8WorldItem* item)
 
     item->p3D->DetachMesh(GetWorld());
     RemoveItemFromWorld(GetWorld(), item->p3D);
-    delete item->p3D;
     item->p3D = 0;
     item->fActive = false;
     --gXStatus.item_manager_pending;

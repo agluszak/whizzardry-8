@@ -7,6 +7,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <SDL3/SDL_stdinc.h>
@@ -28,7 +29,6 @@
 #include "random.h"
 #include "retail_records.h"
 #include "surrender/srDebug.h"
-#include "wiz8/containers.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/AmbientSound.h"
 #include "wiz8/engine_code/AnimObj.h"
@@ -329,7 +329,7 @@ W8Missile* NextMissile(bool restart)
             g_missile_iterator = 0;
         }
         if (g_missile_iterator < static_cast<int>(g_world->missiles.size())) {
-            missile = g_world->missiles[g_missile_iterator];
+            missile = g_world->missiles[g_missile_iterator].get();
             ++g_missile_iterator;
         }
     }
@@ -350,7 +350,7 @@ void UpdateWorldMissiles(W8World* world)
     int index = 0;
     int count = static_cast<int>(world->missiles.size());
     while (index < count) {
-        W8Missile* missile = world->missiles[index];
+        W8Missile* missile = world->missiles[index].get();
         if (missile != 0) {
             missile->DetachRepresentation(world);
             if (!missile->flight_done || missile->block_released == 0) {
@@ -358,8 +358,7 @@ void UpdateWorldMissiles(W8World* world)
                 missile->UpdateRepresentation(world);
                 missile->UpdateNavigation(0, false);
             } else {
-                wiz8::erase_first(world->missiles, missile);
-                missile->DestroyMissile();
+                world->missiles.erase(world->missiles.begin() + index);
                 --index;
                 --count;
             }
@@ -387,13 +386,11 @@ W8Missile* FireMissile(unsigned int missile_table_index, glm::vec3* source, glm:
 W8Missile* AllocateMissile(int missile_table_index)
 {
     W8GrCycleLoadContext context;
-    W8Missile* missile;
-
     context.world = g_world;
     context.directory = "Data\\Spells\\Bitmaps";
-    missile = 0;
-    LoadMissileCycle(&context, g_missile_table[missile_table_index].cycle_name.c_str(), &missile,
-                     1);
+    auto owner =
+        LoadMissileCycle(&context, g_missile_table[missile_table_index].cycle_name.c_str());
+    auto* missile = owner.get();
     if (missile == 0) {
         return 0;
     }
@@ -411,7 +408,7 @@ W8Missile* AllocateMissile(int missile_table_index)
         }
     }
     missile->impacting = false;
-    g_world->missiles.push_back(missile);
+    g_world->missiles.push_back(std::move(owner));
     missile->SetBounds({{-125.0f, -125.0f, -125.0f}, {125.0f, 125.0f, 125.0f}});
     missile->active = true;
     return missile;
@@ -423,21 +420,20 @@ W8Missile* AllocateMissile(int missile_table_index)
    gravity/velocity keywords set the missile's tail flags - and the cycle
    lines load through the ordinary GrCycle path. */
 // FUNCTION: WIZ8 0x004a3550
-unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name, W8Missile** output,
-                               int)
+std::unique_ptr<W8Missile> LoadMissileCycle(W8GrCycleLoadContext* context, const char* name)
 {
     if (auto* found = FindFirstGrCycleByName(name)) {
-        auto* missile = new W8Missile(*static_cast<W8Missile*>(found));
+        auto missile = std::make_unique<W8Missile>(*static_cast<W8Missile*>(found));
         auto* ai = static_cast<W8AIMissile*>(missile->m_pAI.get());
         if (ai->kind != W8_AI_RECORD_MISSILE)
             srAssertFail("missile AI", MISSILE_CPP, __LINE__, nullptr);
-        ai->missile = missile;
-        *output = missile;
-        RegisterGrCycle(name, missile);
-        return true;
+        ai->missile = missile.get();
+        RegisterGrCycle(name, missile.get());
+        return missile;
     }
     PauseSharedGameTimers();
-    *output = nullptr;
+    auto output = std::make_unique<W8Missile>();
+    output->m_pRep->current_cycle = -1;
     auto handle = [&] {
         try {
             return wiz8::open_file(wiz8::asset_path(fmt::format("data/missiles/{}.mls", name)));
@@ -446,15 +442,13 @@ unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name, 
         }
     }();
     if (!handle) {
-        W8GrCycle* loaded = nullptr;
-        const bool success =
-            LoadGrCycle(context, name, &loaded, 0, 1, "Data\\Missiles", 1, "Data\\Spells\\Bitmaps");
+        const bool success = LoadGrCycle(context, name, output.get(), 0, 1, "Data\\Missiles", 1,
+                                         "Data\\Spells\\Bitmaps");
         if (success) {
-            *output = static_cast<W8Missile*>(loaded);
-            RegisterGrCycle(name, *output);
+            RegisterGrCycle(name, output.get());
         }
         ResumeSharedGameTimers();
-        return success;
+        return success ? std::move(output) : nullptr;
     }
     bool gravity = false, align_camera = false, explode_ground = false, align_explosion = false;
     float velocity = 15000.0f;
@@ -488,10 +482,9 @@ unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name, 
                         success = false;
                         break;
                     }
-                    W8GrCycle* loaded = *output;
-                    success = LoadGrCycle(context, resource.c_str(), &loaded, cycle, 1,
+
+                    success = LoadGrCycle(context, resource.c_str(), output.get(), cycle, 1,
                                           "Data\\Missiles", 1, "Data\\Spells\\Bitmaps");
-                    if (success) *output = static_cast<W8Missile*>(loaded);
                     cycle_line = true;
                     break;
                 }
@@ -500,7 +493,7 @@ unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name, 
             std::string cycle_name;
             int frame = 0;
             if (SDL_strcasecmp(command.c_str(), "SHAKE_FRAME") == 0) {
-                if (!*output || !(fields >> cycle_name >> frame)) {
+                if (!output || !(fields >> cycle_name >> frame)) {
                     success = false;
                     break;
                 }
@@ -510,7 +503,7 @@ unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name, 
                 effect.cycle = missileCycleIndex(cycle_name.c_str());
                 effect.frame = frame;
                 effect.subcycle = 0;
-                (*output)->AddShakeEffect(effect);
+                output->AddShakeEffect(effect);
                 continue;
             }
             W8SoundEventKind kind;
@@ -521,28 +514,28 @@ unsigned char LoadMissileCycle(W8GrCycleLoadContext* context, const char* name, 
             else
                 continue;
             std::string resource, loop;
-            if (!*output || !(fields >> cycle_name >> frame >> resource)) {
+            if (!output || !(fields >> cycle_name >> frame >> resource)) {
                 success = false;
                 break;
             }
             fields >> loop;
             const auto wave = fmt::format("data/missiles/sounds/{}.WAV", resource);
-            (*output)->AddSoundEvent(std::make_unique<W8SoundEvent>(
+            output->AddSoundEvent(std::make_unique<W8SoundEvent>(
                 kind, missileCycleIndex(cycle_name.c_str()), frame, 0, wave.c_str(),
                 SDL_strcasecmp(loop.c_str(), "LOOP") == 0));
         }
     }
-    if (*output) {
-        (*output)->gravity = gravity;
-        (*output)->align_camera = align_camera;
-        (*output)->explode_ground = explode_ground;
-        (*output)->align_explosion = align_explosion;
-        (*output)->lifetime = velocity * kWorldScale;
-        if (success) RegisterGrCycle(name, *output);
+    if (output) {
+        output->gravity = gravity;
+        output->align_camera = align_camera;
+        output->explode_ground = explode_ground;
+        output->align_explosion = align_explosion;
+        output->lifetime = velocity * kWorldScale;
+        if (success) RegisterGrCycle(name, output.get());
     } else
         success = false;
     ResumeSharedGameTimers();
-    return success;
+    return success ? std::move(output) : nullptr;
 }
 
 /* Build the launch state for a fresh missile: rotate the forward direction by
@@ -798,21 +791,6 @@ void W8Missile::StartIfHostActive()
             AbsorbMissileDamage(this);
         }
     }
-}
-
-/* Remove a missile's world lights and AI allocation, then release the object. */
-// FUNCTION: WIZ8 0x004a4180
-void W8Missile::DestroyMissile()
-{
-    delete this;
-}
-
-/* Delete every missile owned by one world, unlinking the vector entry before
-   its ordinary object teardown. */
-// FUNCTION: WIZ8 0x004a4210
-void DestroyAllMissiles(W8World* world)
-{
-    wiz8::clear_and_dispose(world->missiles, [](W8Missile* missile) { missile->DestroyMissile(); });
 }
 
 W8MissileRep::~W8MissileRep() = default;

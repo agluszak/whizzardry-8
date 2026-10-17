@@ -257,8 +257,6 @@ void ActivateMonster(W8MonsterInfo* monster_info, W8MonsterActivationMode mode)
 {
     W8MonsterRecord* record;
     W8GrCycleLoadContext context;
-    bool success;
-
     if (monster_info == 0) {
         srAssertFail("pMonsterInfo != NULL", MONSTER_MANAGER_CPP, 0x1f5, 0);
     }
@@ -274,26 +272,15 @@ void ActivateMonster(W8MonsterInfo* monster_info, W8MonsterActivationMode mode)
     context.bitmap_directory = 0;
     context.directory = "Data\\Monsters";
 
-    if (mode == W8_MONSTER_LOAD_ALL_CYCLES) {
-        W8Monster* monster = monster_info->p3D;
-        success = MonsterReadAllCycles(&context, record->cycle_name, &monster, 1,
-                                       monster_info->location_id);
-        monster_info->p3D = monster;
-        if (!success) {
-            srAssertFail("fSuccess", MONSTER_MANAGER_CPP, 0x20a,
-                         "ActivateMonster: ERROR - MonsterReadAllCycles failed");
-        }
-    } else if (mode == W8_MONSTER_LOAD_STARTUP_CYCLE) {
-        W8Monster* monster = monster_info->p3D;
-        success = MonsterReadAllCycles(&context, record->cycle_name, &monster, 0,
-                                       monster_info->location_id);
-        monster_info->p3D = monster;
-        if (!success) {
-            srAssertFail("fSuccess", MONSTER_MANAGER_CPP, 0x20f,
-                         "ActivateMonster: ERROR - MonsterReadAllCycles failed");
-        }
-        MonsterSetCycle(monster_info->p3D, 1);
+    auto monster =
+        MonsterReadAllCycles(&context, record->cycle_name,
+                             mode == W8_MONSTER_LOAD_ALL_CYCLES ? 1 : 0, monster_info->location_id);
+    if (!monster) {
+        srAssertFail("loaded monster", MONSTER_MANAGER_CPP, __LINE__,
+                     "ActivateMonster: MonsterReadAllCycles failed");
     }
+    monster_info->p3D = monster.get();
+    GetWorld()->monsters.push_back(std::move(monster));
 
     if (monster_info->scale < 0.0f ||
         g_status.level_progress[g_status.current_level].visited == 0) {
@@ -774,8 +761,7 @@ static void DestroyMonsterListEntry(unsigned int index)
     DeactivateMonster(monster_info);
     if (monster_info->p3D != 0) {
         DetachMonsterRepresentation(monster_info->p3D, GetWorld());
-        RemoveMonsterFromWorldList(GetWorld(), monster_info->p3D);
-        DeleteMonster(monster_info->p3D);
+        DestroyWorldMonster(GetWorld(), monster_info->p3D);
         monster_info->p3D = 0;
     }
     // Inactive (including unborn) monsters do not pass through DeactivateMonster's
