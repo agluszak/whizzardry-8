@@ -11,6 +11,7 @@
 #include <catch2/matchers/catch_matchers.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
 
+#include "asset_paths.h"
 #include "filesystem.h"
 #include "layouts/world.h"
 #include "scoped_asset_roots.h"
@@ -217,13 +218,16 @@ TEST_CASE("Failed world asset loads release published worlds and allow retry", "
     REQUIRE(GetWorld() == nullptr);
 
     REQUIRE(InitializeMusicPlaylist());
-    std::filesystem::create_directories(assets / "Levels" / "Test");
+    const auto level_path = wiz8::asset_path("Levels/Test/level1.LVL");
+    std::filesystem::create_directories(level_path.parent_path());
     {
-        std::ofstream truncated(assets / "Levels" / "Test" / "level1.LVL");
+        std::ofstream truncated(level_path);
         truncated.put('\0');
         REQUIRE(truncated.good());
     }
-    // The path exists, so loading reaches ReadLevel after publishing the replacement.
+    W8LevelInfo info;
+    REQUIRE(LevelBuildInfoByID(47, &info));
+    // Preflight succeeds, so loading reaches ReadLevel after publishing the replacement.
     // A failed replacement cannot restore an old level ID whose world is gone.
     for (int attempt = 0; attempt < 2; ++attempt) {
         g_status.current_level = 8;
