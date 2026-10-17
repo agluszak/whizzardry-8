@@ -453,7 +453,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "Retiring a cycle cancels borrowed monster 
                  "[resources][particles]")
 {
     {
-        W8GrCycle cycle;
+        W8SpellVisual cycle;
         auto particle = std::make_unique<stParticle>(world.dynamic_scene, 1);
         particle->active_particle_count = 1;
         particle->callback = std::make_unique<W8MonsterShakeCallback>();
