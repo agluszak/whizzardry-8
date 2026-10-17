@@ -22,7 +22,6 @@
 #include <glm/gtc/quaternion.hpp>
 
 #include "Item.h"
-#include "LevelFile.h"
 #include "ReadMesh.h"
 #include "application.h"
 #include "compat/compiler.h"
@@ -194,7 +193,7 @@ struct W8LevelLightRecord {
     short version;
     unsigned char create;
     bool visible;
-    unsigned int flags;
+    unsigned int flags; /* 2: a parametric light definition follows the name */
     wiz8::retail::Vec3f location;
     wiz8::retail::Vec3f colour;
     float intensity;
@@ -262,7 +261,7 @@ try {
             hFile->read_exact(name, sizeof(name));
             SDL_strupr(name);
 
-            if ((record.flags & W8_LEVEL_LIGHT_HAS_DEFINITION) != 0) {
+            if ((record.flags & 2) != 0) {
                 definition = std::make_unique<stParametricLightDefinition>();
                 record.create = 1;
 

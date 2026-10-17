@@ -38,7 +38,6 @@
 #include "wiz8/application.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/LevelFile.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/engine_code/Video2.h"

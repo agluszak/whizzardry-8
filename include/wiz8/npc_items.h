@@ -16,7 +16,6 @@ int AddNpcItemFromInstance(W8NpcState* npc, const W8ItemInstance* item, char qua
 int AddNpcItemWithDelay(W8NpcState* npc, int item_id, unsigned int quantity, int delay);
 char RateItemIdentifyDifficulty(W8NpcState* npc, int item_id);
 int RestockNpcItems(W8NpcState* npc);
-void ClearNpcItems(W8NpcState* npc);
 void SortNpcItems(W8NpcState* npc);
 unsigned char PopulateNpcStock(W8NpcState* npc);
 unsigned char MaintainNpcStock(W8NpcState* npc, bool force);

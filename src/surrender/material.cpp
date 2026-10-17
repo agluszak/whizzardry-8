@@ -142,84 +142,10 @@ void srMaterial::reset()
     mapper = 0;
 }
 
-// FUNCTION: SURRENDER 0x10034640
-glm::vec4 srMaterial::getAmbient() const
-{
-    return parms.ambient;
-}
-
-// FUNCTION: SURRENDER 0x10034670
-glm::vec4 srMaterial::getDiffuse() const
-{
-    return parms.diffuse;
-}
-
 // FUNCTION: SURRENDER 0x100346A0
 glm::vec4 srMaterial::getEmissive() const
 {
     return parms.emissive;
-}
-
-// FUNCTION: SURRENDER 0x100346D0
-glm::vec4 srMaterial::getSpecular() const
-{
-    return parms.specular;
-}
-
-// FUNCTION: SURRENDER 0x100348B0
-float srMaterial::getShininess() const
-{
-    return parms.shininess;
-}
-
-// FUNCTION: SURRENDER 0x100348C0
-float srMaterial::getTranslucency() const
-{
-    return parms.translucency;
-}
-
-// FUNCTION: SURRENDER 0x100348D0
-float srMaterial::getOpacity() const
-{
-    return parms.diffuse.w;
-}
-
-// FUNCTION: SURRENDER 0x100348E0
-void srMaterial::setAmbientAndDiffuse(const glm::vec4& color)
-{
-    parms.ambient = color;
-    dirty = 1;
-    parms.diffuse = color;
-    dirty = 1;
-}
-
-// FUNCTION: SURRENDER 0x100349F0
-void srMaterial::setShininess(double shininess)
-{
-    parms.shininess = static_cast<float>(shininess);
-    if (static_cast<float>(shininess) < 1.0f) {
-        parms.shininess = 1.0f;
-    }
-    if (parms.shininess > 127.0f) {
-        parms.shininess = 127.0f;
-    }
-    dirty = 1;
-}
-
-// FUNCTION: SURRENDER 0x10034A30
-void srMaterial::setTranslucency(double translucency)
-{
-    float value = static_cast<float>(translucency);
-    if (value <= 0.0f) {
-        dirty = 1;
-        parms.translucency = 0.0f;
-        return;
-    }
-    if (value >= 1.0f) {
-        value = 1.0f;
-    }
-    parms.translucency = value;
-    dirty = 1;
 }
 
 // FUNCTION: SURRENDER 0x10034AA0
@@ -241,16 +167,4 @@ void srMaterial::enable(e_oper operation)
 {
     operations |= 1 << (operation & 0x1f);
     dirty = 1;
-}
-
-// FUNCTION: SURRENDER 0x10034B20
-int srMaterial::isEnabled(e_oper operation) const
-{
-    return (operations & (1 << (operation & 0x1f))) != 0;
-}
-
-// FUNCTION: SURRENDER 0x10034B50
-srVertexProcessor* srMaterial::getMapper() const
-{
-    return mapper;
 }

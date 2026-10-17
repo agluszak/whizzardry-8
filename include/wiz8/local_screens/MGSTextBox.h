@@ -92,9 +92,6 @@ Font& GetTextBoxFont(void);
 void ClearTextLineEntry(int index);
 
 void ReleaseMessageStorage(void);
-/* The TEXT section pair - the four message-storage
-   runs persisted around the game-status record. */
-unsigned char SaveTextBoxState(wiz8::File* file);
 char TextBoxHandleKey(const InputEvent* event);
 int GetSelectedTextLine(int index);
 void ClearSelectedTextLine(int index);

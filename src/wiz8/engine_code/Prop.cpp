@@ -239,40 +239,6 @@ static Trigger* g_selected_prop_trigger;
 // GLOBAL: WIZ8 0x00607B98
 static int g_selected_prop_index = -1;
 
-/* Whether the renderer's currently selected model instance is one of the
-   instances this prop's animation dispatches.  With a running animation every
-   list entry is checked; otherwise the single dispatched instance for the
-   current frame is compared directly. */
-// FUNCTION: WIZ8 0x0044d680
-bool W8Prop::IsPickedProp(W8World* world)
-{
-    srModelInstance* instance;
-    unsigned char frame;
-    unsigned int count;
-    int index;
-
-    if (Rep()->active == 0) {
-        return false;
-    }
-    if (AnimationIsRunning(Rep()->Animation()) == 1) {
-        count = AnimObjListCount(Rep()->Animation(), 2);
-        for (index = 0; index < static_cast<int>(count); ++index) {
-            instance = AnimObjDispatchList(Rep()->Animation(), 2, static_cast<signed char>(index));
-            if (GetPickedModelInstance() == instance) {
-                return true;
-            }
-        }
-        return false;
-    }
-    frame = Rep()->subcycle;
-    if (AnimationIsRunning(Rep()->Animation()) == 0) {
-        instance = AnimObjDispatch(Rep()->Animation(), 2, frame);
-    } else {
-        instance = AnimObjDispatchList(Rep()->Animation(), 2, 0);
-    }
-    return GetPickedModelInstance() == instance;
-}
-
 /* Resolve the renderer's picked model instance back to the prop and trigger
    that own it. A pick is accepted only while the prop is active, the trigger
    permits selection, and the prop centre lies inside the trigger's distance

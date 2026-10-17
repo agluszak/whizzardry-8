@@ -58,14 +58,6 @@ constexpr float kParticleRandomUnitScale = 3.0517578125e-05f;
 // VTABLE: WIZ8 0x005ECBD0
 // class stParticle
 
-/* Return the renderer flags as a value. VC6 lowers the four-byte class return
-   through its hidden result pointer. */
-// FUNCTION: WIZ8 0x00498A10
-srShader stParticle::GetRenderFlags() const
-{
-    return render_flags;
-}
-
 // FUNCTION: WIZ8 0x004925A0
 void stParticle::SetRenderFlags(srShader flags)
 {

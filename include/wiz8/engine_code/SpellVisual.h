@@ -98,5 +98,3 @@ inline W8SpellVisual::W8SpellVisual(const W8SpellVisual& other) : W8GrCycle(othe
     host = static_cast<W8SpellEmitterHost*>(other.host->Clone());
     id = AllocateGrObjectId();
 }
-
-void DestroyAllSpellVisuals(W8World* world); /* 0x004AC3D0 */

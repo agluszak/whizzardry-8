@@ -410,12 +410,6 @@ void srGERD::invalidateResidentTextures()
     invalidateTextureCache();
 }
 
-void srGERD::invalidateResidentTexture(srTexture* texture)
-{
-    flushImmediateRenderers();
-    if (texture) invalidateTexture(texture->resolve());
-}
-
 // FUNCTION: SURRENDER 0x100180A0
 void srGERD::setTextureSubImage(srTexture* texture, w8_long mipmap, w8_long x, w8_long y,
                                 w8_long width, w8_long height)
@@ -643,12 +637,6 @@ void srGERD::flush()
     device.gpu.flushFrame();
 }
 
-// FUNCTION: SURRENDER 0x1001CD20
-int srGERD::isContextCreated() const
-{
-    return state_flags & STATE_CONTEXT_CREATED;
-}
-
 // FUNCTION: SURRENDER 0x1001D020
 w8_long srGERD::getWidth() const
 {
@@ -785,13 +773,6 @@ void srGERD::resetTexture()
 {
     dirty |= DIRTY_TEXTURE0;
     dirty |= DIRTY_TEXTURE1;
-}
-
-// FUNCTION: SURRENDER 0x100213A0
-srRendererDefs::e_scaleType srGERD::getModelViewScaleType()
-{
-    checkViewStateChanges();
-    return state.modelview_scale_type;
 }
 
 // FUNCTION: SURRENDER 0x100213C0
@@ -1202,15 +1183,6 @@ void srGERD::frustum(double left, double right, double bottom, double top, doubl
     bounds.near_plane = near_plane;
     bounds.far_plane = far_plane;
     frustum(bounds);
-}
-
-// FUNCTION: SURRENDER 0x10022060
-void srGERD::perspective(double fov_y, double aspect, double near_plane, double far_plane)
-{
-    if (near_plane <= 0 || far_plane <= 0) return;
-    auto& current = state.matrix_current[state.matrix_mode];
-    current *= glm::perspective(float(fov_y), float(aspect), float(near_plane), float(far_plane));
-    setMatrixDirty();
 }
 
 // FUNCTION: SURRENDER 0x1001B820
@@ -1813,31 +1785,6 @@ srGERD::Texture* srGERD::createNewTexture(srTexture* texture)
     }
 }
 
-// FUNCTION: SURRENDER 0x10017930
-w8_long srGERD::getMaxTextureWidth() const
-{
-    return SDLGPUDevice::texture_max_dim;
-}
-
-// FUNCTION: SURRENDER 0x10017940
-w8_long srGERD::getMaxTextureHeight() const
-{
-    return SDLGPUDevice::texture_max_dim;
-}
-
-// FUNCTION: SURRENDER 0x10017950
-w8_long srGERD::getMaxTextureAspectRatio() const
-{
-    return SDLGPUDevice::texture_max_aspect;
-}
-
-// FUNCTION: SURRENDER 0x10017960
-// FUNCTION: SURRENDER 0x10017AA0
-w8_long srGERD::getTextureReduction() const
-{
-    return texture_reduction;
-}
-
 // FUNCTION: SURRENDER 0x10017D00
 
 // FUNCTION: SURRENDER 0x10017DD0
@@ -1861,18 +1808,6 @@ void srGERD::setClearStencil(w8_ulong stencil)
     clear_state.clear_values.stencil = stencil;
 }
 
-// FUNCTION: SURRENDER 0x1001CBF0
-double srGERD::getClearDepth() const
-{
-    return clear_state.clear_values.depth;
-}
-
-// FUNCTION: SURRENDER 0x1001CC00
-w8_ulong srGERD::getClearStencil() const
-{
-    return clear_state.clear_values.stencil;
-}
-
 // FUNCTION: SURRENDER 0x1001CFD0
 
 // FUNCTION: SURRENDER 0x1001D010
@@ -1887,56 +1822,6 @@ srGERD::e_error srGERD::getError()
 
 // FUNCTION: SURRENDER 0x1001D1E0
 
-// FUNCTION: SURRENDER 0x1001D360
-void srGERD::setDepthRange(double minimum, double maximum)
-{
-    if (minimum <= 0.0) {
-        minimum = 0.0;
-    } else if (minimum >= 1.0) {
-        minimum = 1.0;
-    }
-    state.depth_min = minimum;
-    if (maximum > 0.0) {
-        if (maximum < 1.0) {
-            state.depth_max = maximum;
-        } else {
-            state.depth_max = 1.0;
-        }
-    } else {
-        state.depth_max = 0.0;
-    }
-    dirty |= DIRTY_DEPTH_RANGE;
-}
-
-// FUNCTION: SURRENDER 0x1001BB00
-srShader srGERD::getShader() const
-{
-    return shader;
-}
-
-// FUNCTION: SURRENDER 0x1001BAA0
-void srGERD::disable(e_enable option)
-{
-    if ((enable_flags & (1UL << option)) != 0) {
-        toggle(option);
-    }
-}
-
-// FUNCTION: SURRENDER 0x1001BAC0
-void srGERD::enable(e_enable option)
-{
-    if ((enable_flags & (1UL << option)) == 0) {
-        toggle(option);
-    }
-}
-
-// FUNCTION: SURRENDER 0x1001BBB0
-void srGERD::drawTriangle(const glm::ivec3& triangle)
-{
-    drawElements(static_cast<srRendererDefs::e_primitive>(3), 3, srRendererDefs::INDEX_ULONG,
-                 &triangle);
-}
-
 // FUNCTION: SURRENDER 0x1001BC30
 void srGERD::setDataPtr(srRendererDefs::e_vertexArray index, w8_long components,
                         srRendererDefs::e_type type, w8_ulong stride, const void* values)
@@ -1945,35 +1830,6 @@ void srGERD::setDataPtr(srRendererDefs::e_vertexArray index, w8_long components,
     vertex_arrays.types[index] = type;
     vertex_arrays.strides[index] = stride;
     vertex_arrays.arrays[index] = values;
-    vertex_arrays_dirty |= DIRTY_VERTEX_ARRAY_INFO;
-}
-
-// FUNCTION: SURRENDER 0x1001BF10
-void srGERD::setDiffusePointer(w8_long components, srRendererDefs::e_type type, w8_ulong stride,
-                               const void* values)
-{
-    setDataPtr(srRendererDefs::VERTEX_ARRAY_DIFFUSE, components, type, stride, values);
-}
-
-// FUNCTION: SURRENDER 0x1001BF50
-void srGERD::setSpecularPointer(w8_long components, srRendererDefs::e_type type, w8_ulong stride,
-                                const void* values)
-{
-    vertex_arrays.components[2] = components;
-    vertex_arrays.types[2] = type;
-    vertex_arrays.strides[2] = stride;
-    vertex_arrays.arrays[2] = values;
-    vertex_arrays_dirty |= DIRTY_VERTEX_ARRAY_INFO;
-}
-
-// FUNCTION: SURRENDER 0x1001BF90
-void srGERD::setFogPointer(w8_long components, srRendererDefs::e_type type, w8_ulong stride,
-                           const void* values)
-{
-    vertex_arrays.components[3] = components;
-    vertex_arrays.types[3] = type;
-    vertex_arrays.strides[3] = stride;
-    vertex_arrays.arrays[3] = values;
     vertex_arrays_dirty |= DIRTY_VERTEX_ARRAY_INFO;
 }
 

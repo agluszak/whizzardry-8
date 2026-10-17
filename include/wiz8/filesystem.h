@@ -68,16 +68,8 @@ public:
     void flush();
     void close();
     bool is_open() const noexcept;
-    const std::filesystem::path& physical_path() const noexcept;
     FileStatus status() const;
     FileTimes times() const;
-
-    // SDL 3.4.12 create_time means POSIX ctime on Unix/macOS, birth on Windows.
-    // A writer snapshots it immediately after open (before writes change ctime).
-    // This is NOT portable birth time, and is never replaced with mtime.
-    // The save metadata unit must still resolve iron-man validation after
-    // close/reopen: this snapshot does not persist birth metadata across sessions.
-    std::optional<SDL_Time> opened_writer_create_time() const noexcept;
 
 private:
     File(std::filesystem::path path, OpenMode mode);

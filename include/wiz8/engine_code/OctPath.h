@@ -21,8 +21,6 @@
 class stModelInstance;
 class GDProp;
 class W8Monster;
-struct W8LevelFile;
-struct W8LevelFileNamedPosition;
 namespace wiz8 {
 class File;
 }
@@ -379,7 +377,6 @@ public:
        conditional edge whose segment box holds a door prop - and that prop's
        door-trigger action data is a type-10 record with flag bit0 clear. */
     bool TestAttachmentHopDoor(W8NavigatorAttachment* attachment); /* 0x00460680 */
-    void EditTeleportalLink(const glm::vec3* destination, const glm::vec3* source); /* 0x0045F2D0 */
     /* Configure the node count, grid pitch, bounds and level name. */
     void ConfigureForLevel(int size, float grid_scale, const srBoundingBox& bounds,
                            const char* name); /* 0x00458A50 */
@@ -462,10 +459,6 @@ public:
     std::vector<unsigned int> m_pulCondNodeValues;
     bool span_blocked;
 };
-
-/* Move an integer path cell one compass step; directions outside the
-   eight-value range wrap once. */
-void StepPathCell(int* x, int* z, int direction);
 
 extern W8PathingService* g_pathing;
 extern unsigned short g_path_reserve;

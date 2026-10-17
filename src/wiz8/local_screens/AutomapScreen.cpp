@@ -933,15 +933,6 @@ void SetAutomapButtonMode(int update)
 // GLOBAL: WIZ8 0x0064b914
 float g_automap_grid_cell_size = 2000.0f;
 
-void SetAutomapGridCellSize(float value)
-{
-    g_automap_grid_cell_size = value;
-}
-
-float GetAutomapGridCellSize(void)
-{
-    return g_automap_grid_cell_size;
-}
 /* Park the automap camera over the requested point with its xz clamped into
    the explored bounds, reselect the layer underneath and refresh the mesh. */
 void SetAutomapCameraPoint(glm::vec3* position)
@@ -2076,15 +2067,4 @@ unsigned int AutomapNodeKey(const glm::vec3* position)
             static_cast<unsigned int>(position->x / g_automap_grid_cell_size) << 11)
                << 10 |
            (static_cast<unsigned int>(position->y / g_automap_grid_cell_size) & 0x3ff);
-}
-
-/* The large-map level set: the same levels that get the 30000-unit automap
-   range in ResetAutomapView also get 4000-unit cells instead of 2000. */
-bool AutomapLevelIsLarge(void)
-{
-    if (g_status.current_level == 0x18 ||
-        (g_status.current_level > 0x1a && g_status.current_level <= 0x22)) {
-        return true;
-    }
-    return false;
 }

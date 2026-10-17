@@ -225,7 +225,6 @@ void EmptyPartyPoolEntry(int index);
 void UpgradeProfessionClassItem(W8Character* character);
 
 bool ItemPrecedesInPool(const W8ItemInstance& first, const W8ItemInstance& second);
-void UpdateGadgeteerOmnigun(W8Character* character);
 void BindEveryPartyItem(void);
 /* Whether the item's equip class is directly usable (0x17/0x19). */
 bool IsUsableItemClass(W8ItemInstance* item);

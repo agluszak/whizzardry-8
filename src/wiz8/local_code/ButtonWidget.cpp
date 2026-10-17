@@ -75,12 +75,6 @@ void W8ButtonWidget::SetText(std::string_view text)
     m_dirty = true;
 }
 
-void W8ButtonWidget::SetMultiColor(bool enabled)
-{
-    m_appearance.fMultiColor = enabled;
-    m_dirty = true;
-}
-
 // FUNCTION: WIZ8 0x005db8d0
 void W8ButtonWidget::SetEnabled(bool enabled)
 {

@@ -1957,19 +1957,6 @@ void ResetLevelDataVectors(void)
 // GLOBAL: WIZ8 0x005ebc18
 const double g_game_data_pi = 3.141592653589793;
 
-// FUNCTION: WIZ8 0x0041FCE0
-void GetLevelSoundEnvironment(char* environment, char* secondary)
-{
-    W8LevelDataRecord* level = g_level_data;
-    if ((level->flags & W8_LEVEL_FLAG_NO_SOUND_ENVIRONMENT) != 0) {
-        *secondary = -1;
-        *environment = -1;
-        return;
-    }
-    *environment = level->sound_environment;
-    *secondary = level->sound_environment_alt;
-}
-
 // FUNCTION: WIZ8 0x00420b40
 float MoveTimer(int value)
 {

@@ -32,8 +32,6 @@ void SetModelInstanceChainExclusionMask(srModelInstance* node, int value);
 std::unique_ptr<stModelInstance> DuplicateModelInstance(const stModelInstance& instance);
 void UpdateWorldMonsters(W8World* world);
 void WorldUpdateProps(W8World* world);
-int WorldGetPropCount(W8World*);             /* 0x0046E600 */
-W8Prop* WorldGetPropAt(W8World*, int index); /* 0x0046E620 */
 void SetWorldSceneMeshShaderLowBits(W8World* owner, int argument);
 void SetWorldSceneMeshShaderBit3(W8World* owner, int argument);
 void FinalizeStaticScene(srScene* scene);

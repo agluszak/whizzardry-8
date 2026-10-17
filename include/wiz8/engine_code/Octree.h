@@ -45,8 +45,6 @@ typedef std::unordered_multimap<unsigned int, int> W8OctreeIndex;
 class W8PathingService;
 class OctMeshModel;
 struct CondPathNode;
-struct W8LevelFile;
-struct W8LevelFileAnimObj;
 struct W8World;
 struct W8GameData;
 struct W8NavigatorMovementState;
@@ -114,14 +112,6 @@ inline unsigned int OctreeKeyKind(unsigned int key)
 inline unsigned int OctreeKeyId(unsigned int key)
 {
     return key & 0xffff;
-}
-inline int OctreeCellKeyX(int key)
-{
-    return (key - 1) >> 0x10;
-}
-inline int OctreeCellKeyY(int key)
-{
-    return ((key - 1) >> 8) & 0xff;
 }
 inline int OctreeCellKeyZ(int key)
 {
@@ -192,8 +182,6 @@ public:
     W8Octree& operator=(const W8Octree&) = delete;
     void AddLoadedProp(W8Prop* prop);
     void AddLoadedParticles(std::span<stParticle* const> particles);
-    /* Store the prop-sunlight bit array once it has been given a size. */
-    void SetPropSunBits(std::vector<bool> bits);
     /* Whether prop `offset` past prop_sun_base has its sunlight bit; a
        negative offset checkpoints the shared index into the base. */
     bool TestPropSunBit(int offset);
@@ -292,10 +280,6 @@ public:
     void GetPathSurfaceNormal(const glm::vec3* position, glm::vec3* normal);
     GroundProbe settleToGround(const glm::vec3& position, bool test_props,
                                float limit); /* 0x00433820 */
-    /* Clamp `position` to the clipped ceiling, probe the ground one
-       world-scale unit lower and keep the settled height on a hit. */
-    /* Returns the ground-hit flag in AL; pathing callers test it. */
-    bool SnapToGround(glm::vec3* position, char mode); /* 0x00431D20 */
     void RegisterNavigatorCell(int id, const glm::vec3* position);
     /* Owned query results remain valid across subsequent octree queries.
        IDs retain cell traversal order and the existing 10,000-entry limit. */

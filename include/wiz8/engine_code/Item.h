@@ -75,7 +75,6 @@ struct W8Item : public W8GrObject {
     void SetYaw(float angle);
     void SetHighlight(bool enabled);
     bool IsSelected();
-    float DistanceToCamera(W8World* world);
     void LightRadarBlip();
     bool IsRadarBlipLit();
 };

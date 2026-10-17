@@ -1360,50 +1360,6 @@ void W8PathingService::ReduceWaypointCosts(unsigned int waypoint, float amount)
     }
 }
 
-/* Move an integer path cell one compass step. Directions immediately outside
-   the eight-value range wrap once; values still outside it leave the cell
-   untouched. The jump-table order is north through north-west. */
-// FUNCTION: WIZ8 0x004622d0
-void StepPathCell(int* x, int* z, int direction)
-{
-    if (direction < 0) {
-        direction += 8;
-    } else if (direction > 7) {
-        direction -= 8;
-    }
-
-    switch (direction) {
-    case 0:
-        ++*z;
-        break;
-    case 1:
-        ++*x;
-        ++*z;
-        break;
-    case 2:
-        ++*x;
-        break;
-    case 3:
-        ++*x;
-        --*z;
-        break;
-    case 4:
-        --*z;
-        break;
-    case 5:
-        --*x;
-        --*z;
-        break;
-    case 6:
-        --*x;
-        break;
-    case 7:
-        --*x;
-        ++*z;
-        break;
-    }
-}
-
 /* Advance the attachment's probe cursor and accept its next stored waypoint
    only when the live path grid permits the span from the supplied position.
    W8_NAV_ATTACHMENT_START_WAYPOINT makes the first probe repeat the current path

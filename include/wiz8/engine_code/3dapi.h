@@ -3,8 +3,6 @@
 #include "compat/compiler.h"
 #include "glm/ext/vector_float3.hpp"
 
-void SetRendererReady(void);
-
 class srCamera;
 struct W8World;
 

@@ -233,20 +233,6 @@ bool GDProp::ContainsPathCoordinate(unsigned short x, unsigned short y) const
     return false;
 }
 
-/* Test each surface's runtime triangle against the query box. */
-// FUNCTION: WIZ8 0x004b7620
-bool GDProp::boundsOverlap(const srBoundingBox& box)
-{
-    bool hit = false;
-    for (int index = 0; index < static_cast<int>(m_pGDSurfaces.size()) && hit == 0; ++index) {
-        W8GDSurface* surface = &m_pGDSurfaces[index];
-        hit = triangleIntersectsBox(
-            box, indexedTriangle(std::span<const glm::vec3>(m_pVertices), surface->vertex_indices),
-            surface->plane.normal);
-    }
-    return hit;
-}
-
 /* Record a waypoint index for a grid point that lies inside the path bounds.
    The prop owns a counted waypoint list consumed by
    CheckConditionalWayPtStatus. */

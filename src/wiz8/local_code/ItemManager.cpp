@@ -868,30 +868,6 @@ unsigned char ReleaseItemLists(void)
     return 1;
 }
 
-/* Whether one world item is close enough to a point to be reached, and in
-   sight of the party's eye. The distance is compared before the trace, so a
-   far item is never traced to. */
-// FUNCTION: WIZ8 0x004f8560
-bool IsWorldItemWithinReach(W8Item* owner, const glm::vec3* from, float radius)
-{
-    glm::vec3 position;
-    glm::vec3 eye;
-
-    position = owner->m_pRep->GetLocation();
-    eye = cameraLocation();
-
-    glm::vec3 delta = position - *from;
-    if (glm::length(delta) < radius) {
-        auto bounds = owner->GetCachedLocalBounds();
-        bounds.minimum += position;
-        bounds.maximum += position;
-        if (targetMarkerVisible(eye, bounds)) {
-            return true;
-        }
-    }
-    return false;
-}
-
 /* plsItemList index that last satisfied AnyWorldItemVisible. */
 // GLOBAL: WIZ8 0x00618E70
 static int g_last_visible_world_item = -1;

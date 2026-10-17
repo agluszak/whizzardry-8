@@ -517,22 +517,6 @@ void SetCharacterSpell(const W8Character* character, int spell_id, int power_lev
                       GetTargetBlockForContext(party_slot, W8_TARGETING_CONTEXT_CURRENT));
 }
 
-/* Whether one party slot's recorded spell target is still a target it could
-   reach: the target has to be of the kind the spell needs, and the slot has to
-   be in range of it. */
-// FUNCTION: WIZ8 0x00501530
-bool PartySlotSpellTargetStillValid(int party_slot)
-{
-    W8TargetNeed needed = GetTargetNeededForSpellFriendly(
-        g_status.buffers.XChar[party_slot].spell_id, false, W8_TARGETING_CONTEXT_CURRENT);
-
-    if (!TargetMatchesNeeded(GetTargetBlockForContext(party_slot, W8_TARGETING_CONTEXT_SPELL),
-                             needed)) {
-        return false;
-    }
-    return CharacterActionReachesTarget(party_slot, 0, W8_TARGETING_CONTEXT_SPELL);
-}
-
 /* Start one character's breath attack; the character must be able to
    breathe again. */
 // FUNCTION: WIZ8 0x00501880

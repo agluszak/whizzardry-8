@@ -168,7 +168,6 @@ public:
     virtual void SetPosition(const glm::vec3* position) override;
 
     int Query(W8MonsterQueryKind query);         /* 0x004C4660 */
-    void SetForcedSubcycle(signed char value);   /* 0x004C6C00 */
     void SpawnDamageNumber(unsigned int amount); /* 0x004C6C30 */
     bool IsDying();                              /* 0x004CA4C0 */
     bool IsCycleInterruptable(signed char cycle);
@@ -420,13 +419,8 @@ void MonsterSelectLOD(W8Monster* monster, const glm::vec3* position);
    stack. */
 void UpdateCycleRepresentation(W8GrCycle* cycle, W8World* world);
 void MonsterSetNavigatorHalted(W8Monster* monster, bool value);
-W8AIRecord* MonsterGetAIRecord(W8Monster* monster);                     /* 0x004C5B30 */
-void MonsterSetNavigatorMovementScale(W8Monster* monster, float value); /* 0x004C5F50 */
-float MonsterGetNavigatorMovementScale(W8Monster* monster);             /* 0x004C5F70 */
 unsigned char MonsterConfigureMovementToPosition(W8Monster* monster,
                                                  const glm::vec3* position); /* 0x004C5F90 */
-void MonsterAddPathPoint(W8Monster* monster, const glm::vec3* argument); /* 0x004C5FB0 */
-void MonsterSetPathLooping(W8Monster* monster, char value); /* 0x004C5FD0 */
 void MonsterResumeAllNavigators(void);
 
 void SetMonsterPartySlotMarker(int party_slot, int location_id, char on);

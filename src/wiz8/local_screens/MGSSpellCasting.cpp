@@ -76,14 +76,6 @@ static int g_spell_realm_help_string_ids[6] = {0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2
 // GLOBAL: WIZ8 0x0069BF3C
 std::unique_ptr<W8SpellCastingView> gpSCSV;
 
-int GetSpellCastingPowerIndex(void)
-{
-    if (!gpSCSV) {
-        return -1;
-    }
-    return gpSCSV->iSpellPower;
-}
-
 static void CreateSpellCastingViewControls(void);
 static void SelectSpellPowerPip7(void);
 static void SelectSpellPowerPip8(void);

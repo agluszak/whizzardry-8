@@ -36,8 +36,6 @@ extern void ShutdownVideoManager(void);
 extern void ShutdownVideoScenes(void);
 extern void SuspendVideoManager(void);
 extern bool RestoreVideoManager(void);
-extern void GetCurrentVideoSettings(std::uint16_t* usWidth, std::uint16_t* usHeight,
-                                    std::uint8_t* ubBitDepth);
 /* Mark a game-space rectangle of the UI canvas for upload this frame. */
 void InvalidateRegion(int left, int top, int right, int bottom);
 inline void InvalidateRegion(SDL_Rect bounds)
@@ -56,20 +54,10 @@ bool VideoResizeWindow(void);
 void VideoInspectorEnable(void);
 bool VideoInspectorIsEnabled(void);
 int VideoDumpMemoryLeaks(void);
-void VideoGetClientRect(SDL_Rect* rect);
 SDL_Surface& GetFrameBufferSurface();
 void VideoToolTip(std::string_view text);
 extern std::int32_t g_help_box_width;
 extern std::int32_t g_help_box_height;
-/* Region code accesses these fields inline. */
-static __inline std::int32_t VideoGetToolTipWidth(void)
-{
-    return g_help_box_width;
-}
-static __inline std::int32_t VideoGetToolTipHeight(void)
-{
-    return g_help_box_height;
-}
 void VideoPositionToolTip(std::int32_t x, std::int32_t y);
 void VideoRemoveToolTip(void);
 
@@ -216,8 +204,6 @@ struct ViewportBounds {
     glm::vec2 maximum;
 };
 ViewportBounds GetScaledViewportBounds();
-/* Lock the primary GERD buffer and emit one debug wireframe line. */
-void DrawBufferLine(w8_long x0, w8_long y0, w8_long x1, w8_long y1, w8_ulong* pixel);
 unsigned char InitializeRendererSceneObjects(void);
 void PurgeInactiveSceneInstances(srScene* scene);
 void ResetVideoFrameState(void);
@@ -231,7 +217,6 @@ void RenderFrame(void);
 SDL_Surface* BeginVideoPresentation(void);
 unsigned char FinishVideoPresentation(void);
 void PublishLightDirection(const glm::vec3* direction);
-void GetWorldColour(glm::vec3* colour); /* 0x00427290 */
 void ReleaseObject(stModelInstance2D* object);
 unsigned char CreateWizardryWindow(void);
 unsigned char InitializePrimarySurface(void);

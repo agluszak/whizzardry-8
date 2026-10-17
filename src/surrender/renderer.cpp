@@ -218,14 +218,6 @@ int srGERD::Renderer::isBatchFull() const
     return 0;
 }
 
-// FUNCTION: SURRENDER 0x10024DE0
-void srGERD::Renderer::rewindVertexArray(w8_ulong count)
-{
-    if (first_vertex != -1) {
-        vertices.count -= count;
-    }
-}
-
 // FUNCTION: SURRENDER 0x10024E00
 srVertexArray srGERD::Renderer::allocVertexArray(w8_ulong count)
 {

@@ -21,7 +21,6 @@ public:
     stTextureFile& operator=(const stTextureFile& other);
 
     void setFileName(std::string file_name); /* 0x0047C830 */
-    int isSurfaceLoaded() const { return surface != 0; }
     SDL_Surface* getSurface() const { return surface.get(); }
     unsigned char hasAlpha() const { return has_alpha; }
     void loadSurface(); /* 0x0047BBF0 */

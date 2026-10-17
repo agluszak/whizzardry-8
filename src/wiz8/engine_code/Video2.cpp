@@ -564,16 +564,6 @@ bool RestoreVideoManager(void)
     return 0;
 }
 
-/* The mode the engine falls back to: 640x480 at 16bpp, reported height first.
-   Nothing here reads a configuration - the three constants are inline. */
-// FUNCTION: WIZ8 0x00422af0
-void GetCurrentVideoSettings(unsigned short* height, unsigned short* width, unsigned char* depth)
-{
-    *height = 0x1e0;
-    *width = 0x280;
-    *depth = 0x10;
-}
-
 // FUNCTION: WIZ8 0x00421ff0
 unsigned char ClearPrimarySurface(void)
 {
@@ -910,20 +900,6 @@ void SetRendererAutoFlipEnabled(bool enabled)
             g_gerd->toggle(srGERD::ENABLE_AUTO_FLIP);
         }
     }
-}
-
-/* The static scene's fog colour clamped into 0..1 for the caller; an empty
-   world reports black. */
-// FUNCTION: WIZ8 0x00427290
-void GetWorldColour(glm::vec3* colour)
-{
-    if (g_world != 0) {
-        *colour =
-            // NOLINTNEXTLINE(misc-include-cleaner)
-            glm::clamp(g_world->static_scene->getFogColor(), 0.0f, 1.0f);
-        return;
-    }
-    *colour = glm::vec3(0);
 }
 
 // FUNCTION: WIZ8 0x00427260
@@ -1834,12 +1810,6 @@ int VideoDumpMemoryLeaks(void)
    provisional. */
 // FUNCTION: WIZ8 0x0042b830
 
-// FUNCTION: WIZ8 0x00427a70
-void VideoGetClientRect(SDL_Rect* rect)
-{
-    *rect = {0, 0, 640, 480};
-}
-
 SDL_Surface& GetFrameBufferSurface()
 {
     return *primarySurface;
@@ -1875,17 +1845,6 @@ void SaveJpegScreenshot(void)
 int g_help_box_x;
 // GLOBAL: WIZ8 0x00654abc
 int g_help_box_y;
-
-/* Pack normalized alpha/red/green/blue into the surface's high-to-low
-   bytes, using the current x87 rounding mode. */
-// FUNCTION: WIZ8 0x00429700
-void PackColourBytes(unsigned char* colour, double alpha, double red, double green, double blue)
-{
-    colour[3] = static_cast<unsigned char>(srFloatToInt(alpha * kColorByteScale));
-    colour[2] = static_cast<unsigned char>(srFloatToInt(red * kColorByteScale));
-    colour[1] = static_cast<unsigned char>(srFloatToInt(green * kColorByteScale));
-    colour[0] = static_cast<unsigned char>(srFloatToInt(blue * kColorByteScale));
-}
 
 /* Places one tooltip node at a screen position in normalized coordinates.
    With positional set, the position is snapped to the renderer's pixel grid;
@@ -2524,38 +2483,6 @@ void DrawColorSurface(SDL_Surface* surface, int x, int y)
 {
     SDL_Rect destination{x, y, surface->w, surface->h};
     SDL_BlitSurface(surface, nullptr, g_primary_color_surface.get(), &destination);
-}
-
-// FUNCTION: WIZ8 0x00426490
-void DrawBufferLine(w8_long x0, w8_long y0, w8_long x1, w8_long y1, w8_ulong* pixel)
-{
-    if (x0 != 0 && y0 != 0 && x1 != 0 && y1 != 0) {
-        SDL_Surface* surface = g_gerd->lockBuffer();
-        if (surface != 0) {
-            SDL_Rect clip;
-            SDL_GetSurfaceClipRect(surface, &clip);
-            int x = x0, y = y0;
-            const int dx = std::abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
-            const int dy = -std::abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
-            int error = dx + dy;
-            while (true) {
-                if (x >= clip.x && y >= clip.y && x < clip.x + clip.w && y < clip.y + clip.h)
-                    SDL_WriteSurfacePixel(surface, x, y, (*pixel >> 16) & 255, (*pixel >> 8) & 255,
-                                          *pixel & 255, *pixel >> 24);
-                if (x == x1 && y == y1) break;
-                const int twice = 2 * error;
-                if (twice >= dy) {
-                    error += dy;
-                    x += sx;
-                }
-                if (twice <= dx) {
-                    error += dx;
-                    y += sy;
-                }
-            }
-            g_gerd->unlockBuffer(true);
-        }
-    }
 }
 
 // FUNCTION: WIZ8 0x004273F0

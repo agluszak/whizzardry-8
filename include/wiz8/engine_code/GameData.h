@@ -129,7 +129,6 @@ class stModelInstance;
 class W8Octree;
 struct W8OctreeTrace;
 struct W8World;
-struct W8LevelFilePlane;
 
 /* One environment record: seventeen dwords mixing counters and factors. */
 struct W8EnvironRecord {
@@ -267,7 +266,6 @@ struct W8GameData {
     int SurfacesCount() const noexcept { return int(m_pSurfaces.size()); }
     int InterfacesCount() const noexcept { return int(m_pInterfaces.size()); }
     int StatesCount() const noexcept { return int(m_pStates.size()); }
-    int CondPolysCount() const noexcept { return int(m_piCondPolys.size()); }
     int EnvironsCount() const noexcept { return int(m_ppEnvirons.size()); }
     std::vector<std::string> interface_names;
     std::vector<std::unique_ptr<W8EnvironRecord>> m_ppEnvirons;
@@ -334,8 +332,6 @@ void EndCameraSway(void);
 
 bool IsLevelMovementStopped(void);
 unsigned char ConsumeLevelElapsedTime(float* real_elapsed, float* frame_elapsed);
-/* Retail tests level flag 0x008; when set both outputs are -1. */
-void GetLevelSoundEnvironment(char* environment, char* secondary);
 
 /* 0x00420BD0: settle a world point onto the octree ground through the
    GameData geometry index. Without an octree, return the original position

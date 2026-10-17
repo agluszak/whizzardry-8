@@ -82,20 +82,13 @@ extern W8WorldCursorState* gp3DCursor;
 /* Build the 3D cursor, light, particle and initial camera-relative bounds. */
 void InitializeWorldCursor(void);
 bool IsWorldCursorVisible(void);
-void GetWorldCursorPosition(glm::vec3* position);
 void SetWorldCursorNodesVisible(bool visible);
 bool SelectWorldCursorNode(void);
-void HideWorldCursor(void);
-void ShowWorldCursor(void);
 /* Clamp and install an action-range distance into the live world cursor, then
    invalidate last_published so the next update republishes. */
 void SetWorldCursorRange(float distance); /* 0x00491650 */
-void SetWorldCursorGroupId(int group_id); /* 0x004916A0 */
 /* Arm footprint placement: the target resolver ground-probes the two fixed
    offsets instead of the probe box. */
 void SetWorldCursorExtents(const glm::vec3* minimum, const glm::vec3* maximum); /* 0x00492190 */
-/* 0x00490C20: copies the cursor state vector at +0x28, or zero when there is
-   no cursor. */
-void GetWorldCursorAnchor(glm::vec3* position);
 void ReleaseWorldCursor(void);
 void ReleaseWorldCursorNodes(void);

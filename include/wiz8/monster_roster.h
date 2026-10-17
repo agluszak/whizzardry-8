@@ -56,7 +56,6 @@ public:
 
     const std::vector<W8MonsterInfo*>& live() const { return live_; }
     const std::vector<W8MonsterInfo*>& unborn() const { return unborn_; }
-    bool isUnborn(const W8MonsterInfo* info) const { return std::ranges::contains(unborn_, info); }
 
 private:
     std::vector<std::unique_ptr<W8MonsterInfo>> owned_;

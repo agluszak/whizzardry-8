@@ -80,7 +80,6 @@ bool ClearMonsterCombatSlot(W8MonsterInfo* monster_info);
 
 /* Fill the slot's point from where its target is. */
 bool ResolveTargetPoint(W8CombatSlot* target, bool sight_probe);
-void AimCombatSlotAtParty(W8CombatSlot* combat_slot, int hostile);
 void ApplyTarget(W8CombatSlot* target, bool in_combat);
 /* Whether an actor aiming at `target` should drop that aim now
    that `target` has been (re)applied. An out-of-combat application always clears;

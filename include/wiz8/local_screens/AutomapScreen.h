@@ -63,9 +63,5 @@ unsigned char AutomapScreenEnter(void);
 void AutomapScreenFrame(void);
 unsigned char AutomapScreenLeave(int leaving);
 unsigned char AutomapScreenFinalize(void);
-/* Full-screen dismiss: left-up after a held press leaves the automap. */
-float GetAutomapGridCellSize(void);
-void SetAutomapGridCellSize(float value);
 /* Packs a world position into an automap cell key. */
 unsigned int AutomapNodeKey(const glm::vec3* position);
-bool AutomapLevelIsLarge(void);

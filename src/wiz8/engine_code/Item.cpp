@@ -373,20 +373,6 @@ bool W8Item::IsSelected()
     return selected == static_cast<W8ItemRep*>(m_pRep)->m_psrMesh.get();
 }
 
-// FUNCTION: WIZ8 0x0049FFA0
-float W8Item::DistanceToCamera(W8World* world)
-{
-    const auto bounds = GetCachedLocalBounds();
-    glm::dvec3 camera = world->camera->getLocation();
-    glm::vec3 camera_location;
-    camera_location = glm::vec3(camera);
-    glm::vec3 center = m_pRep->location;
-    /* Unlike the selection-point helper, retail offsets Z by half the Z
-       extent here, not Y by 0.66 of the Y extent. */
-    center.z += (bounds.maximum.z - bounds.minimum.z) * 0.5f;
-    return glm::length((camera_location - center));
-}
-
 // FUNCTION: WIZ8 0x004A0030
 void W8Item::LightRadarBlip()
 {

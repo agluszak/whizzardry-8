@@ -80,19 +80,15 @@ public:
     std::span<const glm::vec3> getEyeSpaceNormal();
     std::span<const float> getEyeSpaceZDist();
     std::span<float> getFog();
-    const srVertexProcessor::MaterialInfo& getMaterialInfo() const;
-    float* getQ(w8_ulong index, int create);
     glm::vec2* getST(w8_ulong index, int create);
     static std::uint32_t getShaderDisableMask(const srShader& shader);
     static std::uint32_t getShaderDisableMask(const srShader* shader, const w8_ulong* channels,
                                               w8_ulong channel_count);
     std::span<glm::vec4> getSpecular();
-    void* getUserArray(w8_ulong index);
     w8_ulong getVertexCount() const;
     int isChannelAvailable(srVertexProcessor::e_channel channel) const;
     void process(const Input& input);
     void swapDiffuseAndSpecular();
-    int testEyeSpaceBounds(const glm::vec3& center, float radius) const;
 
     /* Per-record render state from Input::records. flags: bit0 vertex colors present, bit1 indexed
        specular into diffuse, bit2 indexed specular into specular, bit3 indexed alpha, bits4/5

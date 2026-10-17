@@ -308,11 +308,6 @@ public:
     void SetHalted(bool value);                        /* 0x004531F0 */
     void SetMovementStopped();                         /* 0x00453880 */
     void ClearMovementStopped();
-    /* Save the presence-gated movement state LoadMovementState
-       consumes: the flag byte, then for an ungrouped navigator with flag
-       0x20000000 set the height bounds, position and movement target. */
-    unsigned char LoadMovementState(wiz8::File* hFile); /* 0x00454AD0 */
-    unsigned char SaveMovementState(wiz8::File* hFile); /* 0x004549D0 */
     void CopyPathToGroup();
     void PropagateGroupPosition();                        /* 0x00454C80 */
     void UpdateAngles();                                  /* 0x00453990 */

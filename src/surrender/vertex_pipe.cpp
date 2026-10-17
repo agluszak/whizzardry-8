@@ -613,14 +613,6 @@ w8_ulong srVertexPipe::getExclusionMask() const
     return input->exclusion_mask;
 }
 
-// FUNCTION: SURRENDER 0x1002C350
-int srVertexPipe::testEyeSpaceBounds(const glm::vec3& center, float radius) const
-{
-    const auto offset = center - input->eye_bounds.center;
-    const float sum = radius + input->eye_bounds.radius;
-    return glm::dot(offset, offset) < sum * sum;
-}
-
 // FUNCTION: SURRENDER 0x1002C3B0
 void srVertexPipe::setupSpecular()
 {
@@ -650,12 +642,6 @@ void srVertexPipe::setupST(w8_ulong index)
 srBoundingSphere srVertexPipe::getEyeSpaceBoundingSphere() const
 {
     return input->eye_bounds;
-}
-
-// FUNCTION: SURRENDER 0x1002C4C0
-const srVertexProcessor::MaterialInfo& srVertexPipe::getMaterialInfo() const
-{
-    return material_info;
 }
 
 // FUNCTION: SURRENDER 0x1002C500
@@ -731,23 +717,6 @@ std::span<glm::vec4> srVertexPipe::getSpecular()
 {
     prepareOutputChannel(srVertexProcessor::CHANNEL_SPECULAR, &srVertexPipe::setupSpecular);
     return {vertex_array->specular + batch_base + sub_batch_offset, vertex_count};
-}
-
-// FUNCTION: SURRENDER 0x1002C7F0
-float* srVertexPipe::getQ(w8_ulong index, int create)
-{
-    if ((create == 0) &&
-        ((lazy_setup_mask & (1 << (index + srVertexProcessor::CHANNEL_Q0))) == 0)) {
-        setupQ(index);
-    }
-    lazy_setup_mask |= 1 << (index + srVertexProcessor::CHANNEL_Q0);
-    return (&vertex_array->q0)[index] + batch_base + sub_batch_offset;
-}
-
-// FUNCTION: SURRENDER 0x1002C850
-void* srVertexPipe::getUserArray(w8_ulong index)
-{
-    return current_record->user[index];
 }
 
 void srVertexPipe::prepareOutputChannel(srVertexProcessor::e_channel channel, SetupChannel setup)

@@ -443,21 +443,6 @@ void RemoveItemFromWorld(W8World* world, W8Item* item)
     std::erase_if(world->plsItems, [item](const auto& owner) { return owner.get() == item; });
 }
 
-/* How many props the world holds, and the one at a position - both answers
-   discarded by the wrapper itself, which is what makes these thin forwarders
-   rather than accessors. */
-// FUNCTION: WIZ8 0x0046e600
-int WorldGetPropCount(W8World*)
-{
-    return g_world->plsProps.size();
-}
-
-// FUNCTION: WIZ8 0x0046e620
-W8Prop* WorldGetPropAt(W8World*, int index)
-{
-    return GetWorldProp(g_world, index);
-}
-
 // FUNCTION: WIZ8 0x0046e860
 void SetWorldSceneMeshShaderLowBits(W8World* owner, int argument)
 {

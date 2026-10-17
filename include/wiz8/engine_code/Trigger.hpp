@@ -206,7 +206,6 @@ public:
     bool Save(wiz8::File& hFile);
     bool Load(wiz8::File& hFile, char version);
     void RunLinkedTriggers();
-    void SetPosition(glm::vec3* position);
     void FinishAction();
     void GetPosition(glm::vec3* position) const;
     bool CanRunLinkedTriggers();
@@ -324,7 +323,6 @@ extern int g_trap_notice_event;
 extern int g_lock_notice_event;
 extern int g_container_event;
 
-bool CreateTriggerShakeEvent(int intensity, float duration, float countdown_duration, bool reverse);
 bool AnyPropTriggerInView(W8World* world);
 
 void UpdateWorldTriggers(W8World* world);

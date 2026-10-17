@@ -24,7 +24,6 @@
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/GameTimeAccumulator.h"
-#include "wiz8/engine_code/LevelFile.h"
 #include "wiz8/engine_code/OctBuildTree.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/octree_spatial.h"

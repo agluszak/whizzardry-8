@@ -857,32 +857,6 @@ void W8TriggerShakeEvent::Update()
     }
 }
 
-/* Create one shake-camera event and queue it on the world's timed-event list.
-   The caller passes the intensity, the effect duration and the optional
-   countdown duration, all scaled by the trigger unit's 0.001 factor. */
-// FUNCTION: WIZ8 0x00444F70
-bool CreateTriggerShakeEvent(int intensity, float duration, float countdown_duration, bool reverse)
-{
-    auto owner = std::make_unique<W8TriggerShakeEvent>();
-    auto* pEvent = owner.get();
-
-    if (pEvent == 0) {
-        srAssertFail("pEvent", "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0x1372,
-                     "Out of memory creating shake camera event.");
-    }
-    pEvent->repeat = true;
-    pEvent->intensity = intensity;
-    pEvent->m_pCountdown.emplace();
-    pEvent->m_pCountdown->SetDuration(countdown_duration * 0.001f);
-    pEvent->m_pCountdown->Restart();
-    pEvent->timer.SetDuration(duration * 0.001f);
-    pEvent->timer.Restart();
-    pEvent->reverse = reverse;
-    standalone_events.push_back(std::move(owner));
-    g_timed_events.push_back(pEvent);
-    return true;
-}
-
 // FUNCTION: WIZ8 0x004447F0
 void Trigger::CompleteItemInteraction()
 {
@@ -1181,19 +1155,6 @@ void Trigger::RunLinkedTriggers()
                 trigger->Run(-1);
             }
         }
-    }
-}
-
-/* Store the trigger position and flag the representation dirty; an item
-   representation is moved and re-transformed in place. */
-// FUNCTION: WIZ8 0x004416f0
-void Trigger::SetPosition(glm::vec3* position)
-{
-    flags |= W8_TRIGGER_POSITIONED;
-    this->position = *position;
-    if (rep_item != 0 && m_bRepType == W8_TRIGGER_REP_ITEM) {
-        rep_item->SetLocation(position);
-        rep_item->ApplyRepTransform();
     }
 }
 

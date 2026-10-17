@@ -235,71 +235,6 @@ void ReleaseWorldCursor(void)
     world_cursor.reset();
 }
 
-/* The tracked cursor position, or the origin while there is no cursor. */
-// FUNCTION: WIZ8 0x00490BF0
-void GetWorldCursorPosition(glm::vec3* position)
-{
-    if (gp3DCursor != 0) {
-        *position = gp3DCursor->position;
-    } else {
-        (*position) = glm::vec3(0);
-    }
-}
-
-/* Show the world cursor: reattach its monster to the world lists, mark it
-   visible, reactivate its particle, then park the system cursor and clear the
-   combat selection. */
-// FUNCTION: WIZ8 0x00490B10
-void ShowWorldCursor(void)
-{
-    if (gp3DCursor != 0 && !gp3DCursor->enabled) {
-        UpdateMonster(gp3DCursor->monster);
-        UpdateCycleRepresentation(gp3DCursor->monster, g_world);
-        g_world->active_monsters.push_back(gp3DCursor->monster);
-        gp3DCursor->enabled = true;
-        if (gp3DCursor->particle != 0) {
-            gp3DCursor->particle->SetActive(1);
-        }
-        SetMouseCursorHotspot(0, 0);
-        DisableCursorScene();
-        ClearCombatSelection();
-    }
-}
-
-/* Hide the world cursor: detach its monster from the world lists, clear the
-   visible flag, deactivate its particle, then refresh the party state. */
-// FUNCTION: WIZ8 0x00490B90
-void HideWorldCursor(void)
-{
-    W8World* world;
-    W8Monster* monster;
-    W8WorldCursorState* cursor = gp3DCursor;
-
-    if (cursor == 0 || !cursor->enabled) {
-        return;
-    }
-    monster = cursor->monster;
-    world = g_world;
-    wiz8::erase_first(world->active_monsters, monster);
-    DetachMonsterRepresentation(monster, world);
-    cursor->enabled = false;
-    if (cursor->particle != 0) {
-        cursor->particle->SetActive(0);
-    }
-    EnableCursorScene();
-    RequestRefreshPartyState();
-}
-
-// FUNCTION: WIZ8 0x00490C20
-void GetWorldCursorAnchor(glm::vec3* position)
-{
-    if (gp3DCursor != 0) {
-        *position = gp3DCursor->position;
-    } else {
-        (*position) = glm::vec3(0);
-    }
-}
-
 /* Consume the accumulated input deltas: scale them into a world-space step,
    latch the shift-dragged monster, then move the cursor. While the cursor is
    camera-locked the input feeds cam_rel_offset and position is rebuilt from the
@@ -497,15 +432,6 @@ void SetWorldCursorRange(float distance)
         }
         gp3DCursor->range = distance;
         gp3DCursor->last_published = glm::vec3(-100000000.0f);
-    }
-}
-
-/* Store the selected monster group id on the world cursor. */
-// FUNCTION: WIZ8 0x004916a0
-void SetWorldCursorGroupId(int group_id)
-{
-    if (gp3DCursor != 0) {
-        gp3DCursor->monster_group_id = group_id;
     }
 }
 

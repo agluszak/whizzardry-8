@@ -35,12 +35,6 @@ struct srBoundingBox {
                glm::all(glm::lessThan(point, maximum));
     }
 
-    bool overlapsStrict(const srBoundingBox& box) const
-    {
-        return glm::all(glm::greaterThan(maximum, box.minimum)) &&
-               glm::all(glm::greaterThan(box.maximum, minimum));
-    }
-
     bool overlaps(const srBoundingBox& box) const
     {
         return glm::all(glm::greaterThanEqual(maximum, box.minimum)) &&

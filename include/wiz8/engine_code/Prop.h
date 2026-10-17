@@ -151,10 +151,6 @@ public:
     bool IsTriggerInView(glm::vec3* position);
     Trigger* GetGDPropOwnerTrigger();
     std::optional<glm::vec3> GetCenterPosition();
-    /* Whether the renderer's currently selected model instance is dispatched
-       by this prop's animation - the prop half of ResolvePickedProp's test.
-       `world` is accepted but never read. */
-    bool IsPickedProp(W8World* world); /* 0x0044D680 */
     std::optional<srBoundingBox> GetBounds();
     void CollectModelInstances(std::vector<stModelInstance*>& instances);
     /* Run trigger when its action is one of the missile-impact kinds

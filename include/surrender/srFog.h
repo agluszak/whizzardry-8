@@ -14,7 +14,6 @@ public:
     void setDensity(float density);
     float getDensity() const;
     void setRange(double start, double end);
-    std::pair<double, double> getRange() const;
 
     virtual ~srFog() override;
 

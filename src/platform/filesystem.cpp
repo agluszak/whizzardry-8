@@ -312,10 +312,6 @@ bool File::is_open() const noexcept
 {
     return stream_ != nullptr;
 }
-const fs::path& File::physical_path() const noexcept
-{
-    return path_;
-}
 FileStatus File::status() const
 {
     const auto info = file_status(path_);
@@ -332,10 +328,6 @@ FileTimes File::times() const
     };
     return {convert(writer_create_time_.value_or(info.create_time)), convert(info.access_time),
             convert(info.modify_time)};
-}
-std::optional<SDL_Time> File::opened_writer_create_time() const noexcept
-{
-    return writer_create_time_;
 }
 std::unique_ptr<File> open_file(const fs::path& path, OpenMode mode)
 {

@@ -1714,28 +1714,6 @@ out:
     return {position, hit};
 }
 
-/* Snap a point onto the surface below: clamp it to the octree's clipped
-   ceiling, probe the ground one world-scale unit lower and keep the settled
-   height on a hit. The path builders and navigator placement use it to drop
-   points onto terrain. */
-// FUNCTION: WIZ8 0x00431d20
-bool W8Octree::SnapToGround(glm::vec3* position, char mode)
-{
-    bool hit = false;
-    if (position->y > m_spatial.m_clipped_bounds.maximum.y) {
-        position->y = m_spatial.m_clipped_bounds.maximum.y;
-    }
-    glm::vec3 probe = *position;
-    probe.y = position->y - kWorldScale;
-    const auto ground_probe = settleToGround(probe, mode, 500.0f);
-    probe = ground_probe.position;
-    hit = ground_probe.hit;
-    if (hit) {
-        position->y = probe.y;
-    }
-    return hit;
-}
-
 // FUNCTION: WIZ8 0x00434b60
 bool W8Octree::HasLineOfSight(const glm::vec3* from, glm::vec3* to, bool allow_fallback)
 {
@@ -2761,15 +2739,6 @@ W8Octree::~W8Octree()
 // GLOBAL: WIZ8 0x006598ac
 int g_prop_sun_index;
 
-/* Attach the prop-sunlight bit array, but only one that has been sized. */
-// FUNCTION: WIZ8 0x0042e3e0
-void W8Octree::SetPropSunBits(std::vector<bool> bits)
-{
-    if (!bits.empty()) {
-        m_sunlit_props = std::move(bits);
-    }
-}
-
 /* Test whether prop `offset` past the octree's base index has its sunlight
    bit set; the tested index also becomes the shared running index. A
    negative offset instead checkpoints the shared index into the base, which
@@ -3317,12 +3286,6 @@ void OctreeMeshLinks::read(wiz8::File& file, std::size_t mesh_count)
     lookup.resize(mesh_count + 1);
     file.read_exact(lookup.data(), lookup.size() * sizeof(unsigned short));
     file.read_exact(records.data(), records.size() * sizeof(unsigned short));
-}
-
-void OctreeMeshLinks::write(wiz8::File& file, std::size_t mesh_count) const
-{
-    file.write(lookup.data(), (mesh_count + 1) * sizeof(unsigned short));
-    file.write(records.data(), records.size() * sizeof(unsigned short));
 }
 
 W8OctSpatialState::W8OctSpatialState(const W8OctSpatialState* source)

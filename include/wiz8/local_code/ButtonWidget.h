@@ -57,7 +57,6 @@ public:
     void SetPosition(int x, int y);
     void Resize(int width, int height);
     void SetText(std::string_view text);
-    void SetMultiColor(bool enabled);
     SDL_Point GetMousePosition() const;
     bool IsLeftButtonHeld() const
     {

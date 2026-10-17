@@ -264,14 +264,6 @@ void SortNpcItems(W8NpcState* npc)
                              });
 }
 
-/* Release an NPC's owned item list, but only for the database records that ask
-   for it. */
-// FUNCTION: WIZ8 0x0055a5d0
-void ClearNpcItems(W8NpcState* npc)
-{
-    if (npc->record->owns_stock != 0) npc->items.clear();
-}
-
 /* Add stock described by an item instance. Only the instance's item id is used;
    the entry receives a freshly built item rather than a copy of the argument.
    Equipment, equip_class four, always takes a new entry instead of merging. The

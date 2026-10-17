@@ -4184,16 +4184,6 @@ void MonsterSelectLOD(W8Monster* monster, const glm::vec3* position)
     }
 }
 
-/* Set the forced subcycle; if no cycle is pending, use the current cycle. */
-// FUNCTION: WIZ8 0x004c6c00
-void W8Monster::SetForcedSubcycle(signed char value)
-{
-    m_pRep->forced_subcycle = value;
-    if (m_pRep->pending_cycle == -1) {
-        m_pRep->pending_cycle = m_pRep->current_cycle;
-    }
-}
-
 /* Writes the sixteen-byte block the cycle runtime carries at 0x4c, but only for
    a monster that is neither absent nor already answering the dying cycle to
    query six - the same 0x15 the death test compares against, reached the same
@@ -4206,16 +4196,6 @@ void MonsterSetHighlightColour(W8Monster* monster, glm::vec4 block)
     if (monster != 0 && monster->Query(W8_MONSTER_QUERY_CYCLE) != W8_MONSTER_CYCLE_DIE) {
         monster->m_pRep->highlight_colour = block;
     }
-}
-
-/* Return the monster's AI record, or nothing for an absent monster. */
-// FUNCTION: WIZ8 0x004c5b30
-W8AIRecord* MonsterGetAIRecord(W8Monster* monster)
-{
-    if (monster != 0) {
-        return monster->m_pAI.get();
-    }
-    return 0;
 }
 
 /* Expose Navigator yaw through the enclosing Monster. */
@@ -4312,32 +4292,6 @@ void MonsterResumeAllNavigators(void)
     ResumeAllNavigators();
 }
 
-/*
- * Six more null-guarded forwarders onto the Navigator base at +0x18, the same shape
- * MonsterClearMovement has: the guard tests the monster, the receiver is
- * derived from it with a `lea`, and a monster that is not there is simply not
- * acted on. What each one answers on the null path is the evidence for its
- * return type - a cleared AL for the byte-sized ones, a loaded 0.0f for the
- * float, and a bare return for the four that hand nothing back.
- */
-// FUNCTION: WIZ8 0x004c5f50
-void MonsterSetNavigatorMovementScale(W8Monster* monster, float value)
-{
-    if (monster != 0) {
-        monster->SetMovementScale(value);
-    }
-}
-
-// FUNCTION: WIZ8 0x004c5f70
-float MonsterGetNavigatorMovementScale(W8Monster* monster)
-{
-    if (monster != 0) {
-        float value = monster->GetMovementScale();
-        return value;
-    }
-    return 0.0f;
-}
-
 // FUNCTION: WIZ8 0x004c5f90
 unsigned char MonsterConfigureMovementToPosition(W8Monster* monster, const glm::vec3* position)
 {
@@ -4345,22 +4299,6 @@ unsigned char MonsterConfigureMovementToPosition(W8Monster* monster, const glm::
         return monster->ConfigureMovementToPosition(position);
     }
     return 0;
-}
-
-// FUNCTION: WIZ8 0x004c5fb0
-void MonsterAddPathPoint(W8Monster* monster, const glm::vec3* argument)
-{
-    if (monster != 0) {
-        monster->AddPathPoint(argument);
-    }
-}
-
-// FUNCTION: WIZ8 0x004c5fd0
-void MonsterSetPathLooping(W8Monster* monster, char value)
-{
-    if (monster != 0) {
-        monster->SetPathLooping(value);
-    }
 }
 
 /* Pass a copied position through Navigator's collision adjustment and install

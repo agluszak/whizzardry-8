@@ -14,9 +14,6 @@
 class srModelInstance;
 class Trigger;
 struct W8WorldItem;
-struct W8LevelFileAnimObj;
-struct W8LevelFileMesh;
-struct W8LevelFileScaledPathNode;
 struct W8GDSurface;
 
 /* Engine Code\GDProp.cpp. Prop.cpp allocates 0x58 bytes for this object,
@@ -67,8 +64,6 @@ public:
     bool HasSupportedItems();
     /* Rebuild the cached vertex and path bounds and return the complete box. */
     srBoundingBox computeBounds();
-    /* Box overlap used by path obstruction checks. */
-    bool boundsOverlap(const srBoundingBox& box);
     std::span<const unsigned short> conditionalEdges() const { return m_path_edges; }
     std::span<const unsigned short> conditionalWaypoints() const { return m_path_waypoints; }
     /* Appends the index to the waypoint list when the grid point lies inside

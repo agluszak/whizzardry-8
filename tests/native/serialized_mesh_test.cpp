@@ -14,7 +14,6 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include "LevelFile.h"
 #include "ReadMesh.h"
 #include "file_faults.h"
 #include "filesystem.h"
@@ -274,75 +273,4 @@ TEST_CASE("serialized_mesh_test")
     REQUIRE(ok);
     std::puts(
         "ok: serialized mesh loading, linked successors, unloading, reloading and invalid links");
-}
-
-TEST_CASE("Animation frame streams retain morph and transform formats")
-{
-    ScopedTemporaryDirectory directory{"wiz8-animation-frames"};
-    const auto input = directory.path / "input.bin", output = directory.path / "output.bin";
-    const auto bytes_at = [](const auto& path) {
-        std::ifstream file(path, std::ios::binary);
-        return std::string(std::istreambuf_iterator<char>(file), {});
-    };
-    for (bool transform : {false, true})
-        for (bool lod : {false, true}) {
-            {
-                auto file = wiz8::open_file(input, wiz8::OpenMode::replace);
-                Write(*file, std::array<unsigned char, 7>{1, 1, 1, 1, 0, 0,
-                                                          static_cast<unsigned char>(transform)});
-                Write(*file, std::array<char, 50>{});
-                Write(*file, char{1}); // Group count.
-                if (transform) Write(*file, char{1}); // Transform count.
-                Write(*file, char{0}); // Channel.
-                Write(*file, char{2}); // Frame count, including frames inside the LOD mesh.
-                const std::array<glm::vec3, 3> vertices{glm::vec3(0, 0, 0), glm::vec3(1, 0, 0),
-                                                        glm::vec3(0, 1, 0)};
-                const int serialized_frames = !transform && lod ? 1 : 2;
-                for (int frame = 0; frame < serialized_frames; ++frame) {
-                    Write(*file, static_cast<unsigned char>(frame));
-                    Write(*file, std::array<int, 3>{3, 3, 1});
-                    Write(*file, static_cast<unsigned char>(lod ? W8_LEVEL_MESH_LOD_VERTICES : 0));
-                    Write(*file, std::array<float, 10>{0, 0, 0, 0, 0, 1, 0, 1, 1, 1});
-                    if (lod) {
-                        Write(*file, char{0});
-                        Write(*file, short{2});
-                        Write(*file, vertices);
-                    }
-                    Write(*file, vertices);
-                    W8SerializedMeshFace face{};
-                    face.vertices[1] = 1;
-                    face.vertices[2] = 2;
-                    Write(*file, face);
-                    Write(*file, short{1});
-                    W8MaterialRecord material{};
-                    material.version = 1;
-                    file->write(&material, 0x11a);
-                }
-                if (transform) Write(*file, std::array<char, 14>{}); // Empty path AI record.
-            }
-            const std::string bytes = bytes_at(input);
-            W8LevelFileAnimObj animation{};
-            {
-                auto file = wiz8::open_file(input);
-                REQUIRE(ReadAnimObjFile(*file, animation));
-                REQUIRE(file->tell() == static_cast<std::int64_t>(bytes.size()));
-            }
-            {
-                auto file = wiz8::open_file(output, wiz8::OpenMode::replace);
-                REQUIRE(WriteAnimObjFile(*file, animation));
-            }
-            REQUIRE(bytes_at(output) == bytes);
-        // Every incomplete stream must fail and leave the record empty.
-            for (std::size_t end = 0; end < bytes.size(); ++end) {
-                {
-                    std::ofstream file(input, std::ios::binary | std::ios::trunc);
-                    file.write(bytes.data(), end);
-                }
-                auto file = wiz8::open_file(input);
-                W8LevelFileAnimObj partial{};
-                REQUIRE_FALSE(ReadAnimObjFile(*file, partial));
-                REQUIRE(partial.morphs.empty());
-                REQUIRE(partial.transforms.empty());
-            }
-        }
 }

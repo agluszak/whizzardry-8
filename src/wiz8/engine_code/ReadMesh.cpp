@@ -32,7 +32,6 @@
 #include "surrender/srShader.h"
 #include "wiz8/containers.h"
 #include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/LevelFile.h"
 #include "wiz8/engine_code/OctMeshModel.h"
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/materials.h"
@@ -552,9 +551,9 @@ try {
         for (int index = 0; index < face_count; ++index)
             faces[index] = DecodeMeshFace(records[index]);
     } else {
-        std::vector<W8LevelFileCompressedFace> compressed_faces(face_count);
+        std::vector<W8CompressedMeshFace> compressed_faces(face_count);
         file->read_exact(compressed_faces.data(),
-                         compressed_faces.size() * sizeof(W8LevelFileCompressedFace));
+                         compressed_faces.size() * sizeof(W8CompressedMeshFace));
         for (int index = 0; index < face_count; ++index) {
             for (int vertex = 0; vertex < 3; ++vertex) {
                 faces[index].vertices[vertex] = compressed_faces[index].vertex_indices[vertex];
