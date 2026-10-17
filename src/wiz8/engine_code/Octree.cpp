@@ -1219,7 +1219,6 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
         stale = saved_links;
     }
     delete stale;
-    MarkWorldViewDirty();
 }
 
 /* Write the octree's region-link table to the .rlk companion file.

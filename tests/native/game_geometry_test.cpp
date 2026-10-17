@@ -1888,12 +1888,7 @@ TEST_CASE("Prop bounds return complete boxes and register inclusive octree cells
 {
     GDProp empty;
     REQUIRE(empty.computeBounds().minimum == glm::vec3(0));
-    struct RestoreWorld {
-        std::unique_ptr<W8World> previous = ReplaceWorld(std::make_unique<W8World>());
-        ~RestoreWorld() { ReplaceWorld(std::move(previous)); }
-    } restore;
-    GetWorld()->octree = std::make_unique<W8Octree>(nullptr, nullptr);
-    auto& tree = *GetWorld()->octree;
+    W8Octree tree(nullptr, nullptr);
     auto mesh = std::make_shared<stMeshModel>(1, 3);
     mesh->getVertexLoc()[0] = {-2, -3, 4};
     mesh->getVertexLoc()[1] = {5, 6, -7};
@@ -1901,7 +1896,7 @@ TEST_CASE("Prop bounds return complete boxes and register inclusive octree cells
     mesh->getPolyVertex()[0] = {0, 1, 2};
     srModelInstance instance;
     instance.setModel(mesh);
-    GDProp prop(&instance, "", 4, 0, 0);
+    GDProp prop(nullptr, &instance, "", 4, 0, 0);
     const auto bounds = prop.computeBounds();
     REQUIRE(bounds.minimum == glm::vec3(-2, -3, -7));
     REQUIRE(bounds.maximum == glm::vec3(5, 6, 4));

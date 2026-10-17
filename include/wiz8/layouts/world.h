@@ -3,7 +3,6 @@
 
 #include <array>
 #include <memory>
-#include <span>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -27,6 +26,7 @@ class srMaterial;
 #include "wiz8/engine_code/stParticle.h"
 #include "wiz8/named_position.h"
 
+class srFog;
 class srCamera;
 class srModelInstance;
 class srNode;
@@ -40,6 +40,7 @@ class stLight;
 class W8Prop;
 class W8AmbientSound;
 class Trigger;
+class W8TriggerEvent;
 class stParticle;
 struct W8PathAI;
 struct W8GameData;
@@ -65,7 +66,7 @@ struct W8AutomapCells {
 /* Runtime world, not a retail disk record. Collection storage belongs to the
    world. Destruction proceeds in three phases (stop activity, unregister borrowed indexes,
    destroy owned resources).
-   Light updates and collidable_props are non-owning indexes. Named positions
+   collidable_props is a non-owning index. Light updates derive from owned lights and scene attachment. Named positions
    are owned values: lookups copy their data and never retain element addresses. */
 struct W8World {
     explicit W8World(int level_id = -1, std::string source_path = {});
@@ -103,6 +104,8 @@ struct W8World {
     glm::vec3 environment_colour{0.0f};
     stLevel* level{};
     std::unique_ptr<srScene> static_scene;
+    std::unique_ptr<srFog> static_fog;
+    std::unique_ptr<srFog> dynamic_fog;
     srNode* dynamic_scene{};
     srCamera* camera{};
     // Borrowed instances owned by the scene graph; includes the retail sentinel slot.
@@ -119,17 +122,12 @@ struct W8World {
     std::vector<std::unique_ptr<stLight>> transient_lights;
     std::vector<std::unique_ptr<W8SpellVisual>> spell_visuals;
     std::vector<std::unique_ptr<W8Missile>> missiles;
-    std::span<stLight* const> updatingLights() const { return updating_lights_; }
-    void stopLightUpdates();
-
-private:
-    friend class stLight;
-    std::vector<stLight*> updating_lights_;
-
-public:
     std::vector<W8Prop*> collidable_props;
     std::vector<std::unique_ptr<MonGen>> monster_generators;
     std::vector<std::unique_ptr<Trigger>> triggers;
+    // Ordered scheduling borrows trigger-owned events; standalone effects have their own owners.
+    std::vector<W8TriggerEvent*> timed_events;
+    std::vector<std::unique_ptr<W8TriggerEvent>> standalone_trigger_events;
     // Level particles: the world owns them; the dynamic scene only attaches them.
     std::vector<std::unique_ptr<stParticle>> particles;
     // Cycle particles that outlived their cycle while still emitting.

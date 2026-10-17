@@ -684,6 +684,13 @@ static void DestroyMonsterListEntry(W8MonsterInfo* monster_info)
     gXStatus.monster_roster.remove(monster_info);
 }
 
+// Despawning lets the monster's still-emitting particles finish in its world.
+static void DespawnMonsterListEntry(W8MonsterInfo* monster_info)
+{
+    if (monster_info->p3D) monster_info->p3D->RetireParticles(*GetWorld());
+    DestroyMonsterListEntry(monster_info);
+}
+
 // FUNCTION: WIZ8 0x004e5f00
 void DestroyUngroupedMonsters(void)
 {
@@ -701,7 +708,7 @@ void DestroyUngroupedMonsters(void)
                     monster->ApplyRemovalStateEffects();
                 }
             }
-            DestroyMonsterListEntry(monster_info);
+            DespawnMonsterListEntry(monster_info);
             --index;
         }
     }
@@ -933,30 +940,27 @@ static void ClearRemainingMonsterGroups()
 
 /* A monster belongs to exactly one of the live/unborn registries. Destroy
    registered script parts while their groups and runtime bindings still exist. */
-static bool DestroyAllMonsterInfos()
+static void DestroyAllMonsterInfos()
 {
     while (!gXStatus.monster_roster.live().empty()) {
-        if (!RemoveMonster(gXStatus.monster_roster.live().front().get(), true)) {
-            return false;
-        }
+        auto* monster_info = gXStatus.monster_roster.live().front().get();
+        RemoveMonster(monster_info, false);
+        DestroyMonsterListEntry(monster_info);
     }
     while (!gXStatus.monster_roster.unborn().empty()) {
-        if (!RemoveMonster(gXStatus.monster_roster.unborn().front().get(), true)) {
-            return false;
-        }
+        auto* monster_info = gXStatus.monster_roster.unborn().front().get();
+        RemoveMonster(monster_info, false);
+        DestroyMonsterListEntry(monster_info);
     }
     ClearRemainingMonsterGroups();
-    return true;
 }
 
 /* Dispose any previous level's live and unborn records before resetting
    runtime IDs and counters. Both registries borrow from the same owner. */
 // FUNCTION: WIZ8 0x004e3720
-bool InitializeMonsterManagerState(void)
+void InitializeMonsterManagerState(void)
 {
-    if (!DestroyAllMonsterInfos()) {
-        return false;
-    }
+    DestroyAllMonsterInfos();
     g_status.next_monster_location_id = 1;
     g_status.next_group_id = 1;
     gXStatus.active_monster_count = 0;
@@ -965,19 +969,15 @@ bool InitializeMonsterManagerState(void)
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_level_block != 0) {
         g_level_block->highlighted_item = -1;
     }
-    return true;
 }
 
 /* Drain both monster registries while their groups and the world are intact,
    then release the species-indexed record cache. */
 // FUNCTION: WIZ8 0x004e3820
-unsigned char ShutdownMonsterManager(void)
+void ShutdownMonsterManager(void)
 {
-    if (!DestroyAllMonsterInfos()) {
-        return 0;
-    }
+    DestroyAllMonsterInfos();
     gXStatus.monster_record_cache = {};
-    return 1;
 }
 
 // FUNCTION: WIZ8 0x004e3af0
@@ -1008,7 +1008,7 @@ bool RemoveMonster(W8MonsterInfo* monster_info, bool destroy_monster)
     }
     DeactivateMonster(monster_info);
     if (destroy_monster) {
-        DestroyMonsterListEntry(monster_info);
+        DespawnMonsterListEntry(monster_info);
     }
     return true;
 }
@@ -1294,7 +1294,7 @@ void ProcessMonsterManagerFrame(void)
                 if (monster->removal_state != W8_MONSTER_REMOVAL_NONE) {
                     monster->ApplyRemovalStateEffects();
                 }
-                DestroyMonsterListEntry(monster_info);
+                DespawnMonsterListEntry(monster_info);
                 --monster_list_index;
             }
         } else if ((monster->runtime_flags & (W8_MONSTER_REMOVE_NOW | W8_MONSTER_SCRIPT_WAIT)) !=

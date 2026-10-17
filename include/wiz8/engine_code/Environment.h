@@ -59,13 +59,11 @@ void SetLightDirection(const glm::vec3* direction);
 extern bool g_sky_enabled;
 void ResetEnvironment(void);
 void InitializeLevelEnvironment(void);
-/* Drop the sky gradients and celestial props, release both environment
-   objects and empty the registered-light list; called by world teardown. */
+/* Reset sky presentation and the current world's fog nodes. */
 void ClearEnvironmentObjects(void);
 /* Apply one day-phase colour and intensity to the world, its environment
    lights, and the animated cloud material. */
 void ApplyEnvironmentColour(W8World* world, float intensity, const glm::vec3* colour);
-void ReleaseEnvironmentObjects(void);
 
 /* Turn the environment clock on or off; enabling resets its tick baseline. */
 void SetEnvironmentTimeEnabled(bool enabled);
@@ -84,7 +82,7 @@ void SetCameraLightIntensity(float value);
 /* Mode 0 raises the camera light's intensity, 1 lowers it, 2 disables the
    node, 3 re-enables it. */
 void SetCameraLightMode(int mode);
-void RefreshFogRanges(void);
+void RefreshFogRanges(W8World& world);
 
 void SetViewDistance(float distance);
 unsigned char InitializeEnvironmentColours(void);

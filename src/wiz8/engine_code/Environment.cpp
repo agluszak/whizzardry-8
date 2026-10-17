@@ -5,7 +5,6 @@
 #include <cstring>
 #include <exception>
 #include <memory>
-#include <vector>
 
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/geometric.hpp>
@@ -55,15 +54,9 @@ static w8_ulong g_tick;
 /* 0x00659AB4: the world being rendered. Its sky node is the one field these
    two bodies reach, and it is the same W8World the 3d code walks. */
 
-/* The static and dynamic scene fogs owned by the environment. */
-// GLOBAL: WIZ8 0x0065B9B0
-static std::unique_ptr<srFog> g_environment_object0;
 /* Camera-light intensity ceiling for SetCameraLightMode; the linker
    folds it into the shared 50.0f constant Octree.cpp emits at 0x005EC02C. */
 static const float CAMERA_LIGHT_MAXIMUM_INTENSITY = 50.0f;
-// GLOBAL: WIZ8 0x0065B9B4
-static std::unique_ptr<srFog> g_environment_object1;
-// GLOBAL: WIZ8 0x0065B998
 
 /* 1/duration while the transition body at 0x00484300 runs, zero when idle.
    BeginWorldLightingFade stores 1/duration and sets the lighting mode to 1;
@@ -128,7 +121,10 @@ void W8MaterialMapper::process(srVertexPipe& pipe)
 void ClearEnvironmentObjects(void)
 {
     ResetEnvironment();
-    ReleaseEnvironmentObjects();
+    if (GetWorld()) {
+        GetWorld()->static_fog.reset();
+        GetWorld()->dynamic_fog.reset();
+    }
 }
 
 /* Advance the authoritative game clock and place the two celestial props on
@@ -314,17 +310,18 @@ void UpdateEnvironmentLight(void)
 // FUNCTION: WIZ8 0x00483750
 void SetSkyEnabled(bool enabled)
 {
+    if (!GetWorld()) return;
     if (enabled) {
-        if (GetWorld() == 0 || GetWorld()->dynamic_scene == 0 || g_environment_object0 != 0) {
+        if (GetWorld() == 0 || GetWorld()->dynamic_scene == 0 || GetWorld()->static_fog != 0) {
             return;
         }
 
-        g_environment_object0 = std::make_unique<srFog>(GetWorld()->static_scene.get());
-        g_environment_object1 = std::make_unique<srFog>(GetWorld()->dynamic_scene);
-        g_environment_object0->density = 1.0f;
-        g_environment_object1->density = 1.0f;
+        GetWorld()->static_fog = std::make_unique<srFog>(GetWorld()->static_scene.get());
+        GetWorld()->dynamic_fog = std::make_unique<srFog>(GetWorld()->dynamic_scene);
+        GetWorld()->static_fog->density = 1.0f;
+        GetWorld()->dynamic_fog->density = 1.0f;
 
-        RefreshFogRanges();
+        RefreshFogRanges(*GetWorld());
 
         PublishLightDirection(&g_light_direction);
         if (GetWorld() == 0 || GetWorld()->camera == 0) {
@@ -336,8 +333,8 @@ void SetSkyEnabled(bool enabled)
         return;
     }
 
-    g_environment_object0.reset();
-    g_environment_object1.reset();
+    GetWorld()->static_fog.reset();
+    GetWorld()->dynamic_fog.reset();
 
     glm::vec3 direction(0);
     PublishLightDirection(&direction);
@@ -563,17 +560,13 @@ void DisableSky(void)
 /* Refresh the two fog objects' ranges from the world's far clip. Runs after
    the camera's clip range moves, so the fog tracks the same plane. */
 // FUNCTION: WIZ8 0x004836A0
-void RefreshFogRanges(void)
+void RefreshFogRanges(W8World& world)
 {
-    if (g_environment_object0 != 0 && GetWorld() != 0) {
-        g_environment_object0->fog_end =
-            WorldGetFarClip(GetWorld()) * GetWorld()->environment_range_end;
-        g_environment_object0->fog_start =
-            WorldGetFarClip(GetWorld()) * GetWorld()->environment_range_start;
-        g_environment_object1->fog_start =
-            WorldGetFarClip(GetWorld()) * GetWorld()->environment_range_start;
-        g_environment_object1->fog_end =
-            WorldGetFarClip(GetWorld()) * GetWorld()->environment_range_end;
+    if (world.static_fog != nullptr) {
+        world.static_fog->fog_end = WorldGetFarClip(&world) * world.environment_range_end;
+        world.static_fog->fog_start = WorldGetFarClip(&world) * world.environment_range_start;
+        world.dynamic_fog->fog_start = WorldGetFarClip(&world) * world.environment_range_start;
+        world.dynamic_fog->fog_end = WorldGetFarClip(&world) * world.environment_range_end;
     }
 }
 
@@ -623,12 +616,6 @@ void GetWorldLightValue(const W8World* world, glm::vec3* pLightValue)
    that goes with them. Both releases run through one loaded import address,
    which is what makes the two globals the same class rather than two. */
 // FUNCTION: WIZ8 0x004826e0
-void ReleaseEnvironmentObjects(void)
-{
-    g_environment_object0.reset();
-    g_environment_object1.reset();
-    if (GetWorld()) GetWorld()->environment_lights.clear();
-}
 
 // FUNCTION: WIZ8 0x00483F30
 

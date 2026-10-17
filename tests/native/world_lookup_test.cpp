@@ -232,6 +232,39 @@ TEST_CASE("Failed resource construction preserves the active worlds and allows r
     ReplaceSkyWorld(nullptr);
 }
 
+TEST_CASE("Only published worlds schedule their trigger events", "[levels][events]")
+{
+    struct RestoreWorld {
+        std::unique_ptr<W8World> previous = ReplaceWorld(std::make_unique<W8World>(8));
+        ~RestoreWorld() { ReplaceWorld(std::move(previous)); }
+    } restore;
+    struct CountingEvent : W8TriggerEvent {
+        explicit CountingEvent(int& count) : count(count) {}
+        void Update() override
+        {
+            ++count;
+            completed = true;
+        }
+        int& count;
+    };
+    int active_updates = 0, pending_updates = 0;
+    auto pending = std::make_unique<W8World>(3);
+    const auto schedule = [](W8World& world, int& updates) {
+        auto trigger = std::make_unique<Trigger>(&world);
+        trigger->m_pEvent = std::make_unique<CountingEvent>(updates);
+        world.timed_events.push_back(trigger->m_pEvent.get());
+        world.triggers.push_back(std::move(trigger));
+    };
+    schedule(*GetWorld(), active_updates);
+    schedule(*pending, pending_updates);
+    UpdateTimedTriggerEvents();
+    REQUIRE(active_updates == 1);
+    REQUIRE(pending_updates == 0);
+    pending.reset();
+    REQUIRE(GetLoadedLevelID() == 8);
+    REQUIRE(GetWorld()->timed_events.empty());
+}
+
 TEST_CASE("Reward accounting follows the owned world, not a pending save destination",
           "[levels][rewards]")
 {

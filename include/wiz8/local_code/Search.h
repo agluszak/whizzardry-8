@@ -1,55 +1,5 @@
 #pragma once
 
-#include <cstdint>
-#include <memory>
-#include <vector>
-
-#include "compat/compiler.h"
-#include "glm/ext/vector_float3.hpp"
-
-class Trigger;
-struct W8WorldItem;
-
-/* Local Code\search.cpp. The searchable registry owns small records whose
-   members name the world item or trigger participating in a search. */
-struct W8Searchable {
-    /* Resolve this searchable's world position. */
-    void GetPosition(glm::vec3* position);
-    /* Fire the found consequence (item reveal or trigger run) and
-       remove this record from the registry. */
-    void Reveal();
-    /* The best searching party member within range of this
-       searchable, or -1. Practices the searching skill on a qualified pick. */
-    int PickBestSearcher();
-
-    W8WorldItem* world_item = nullptr;
-    Trigger* trigger = nullptr;
-};
-
-/* The per-pulse iteration view over the registry. Its constructor
-   seeds the cursor before the first element; CollectSearchablesInView refills
-   the item list with the in-range, in-view records. */
-struct W8SearchableView {
-    W8SearchableView();
-
-    int cursor;
-    std::vector<W8Searchable*> items;
-};
-
-extern std::vector<std::unique_ptr<W8Searchable>> g_searchables;
-extern W8SearchableView g_search_view;
-/* 500ms pulse clock arming the search-mode sweep. */
-extern uint64_t g_search_pulse_clock;
-
-void RegisterSearchableWorldItem(W8WorldItem* item);
-void RegisterSearchableTrigger(Trigger* trigger);
-void UnregisterSearchableTrigger(Trigger* trigger);
-/* Refill the view with the in-range, in-view searchables and
-   return it, or null when none qualify. */
-W8SearchableView* CollectSearchablesInView(void);
-void ClearSearchables();
-/* The 500ms sweep that picks searchers, queues their events and
-   reveals what they found. */
-void RunSearchPulse(void);
-/* Toggle the party's search mode; blocked outright in combat. */
-void ToggleSearchMode(void);
+// Run the periodic search sweep, or toggle the party's search mode.
+void RunSearchPulse();
+void ToggleSearchMode();

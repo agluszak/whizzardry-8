@@ -336,4 +336,3 @@ void DestroyAllWorldTriggers(W8World* world);
 bool InsideDestinationTrigger(float x, float y, float z);
 
 // Stop callbacks before retiring the primary world; trigger owners survive until teardown.
-void StopWorldTriggerEvents();

@@ -80,7 +80,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Search.h"
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/local_code/Strings.h"
@@ -616,6 +615,111 @@ void WriteWorldItems(W8Chunk& chunks)
         RequireSection(SaveItemFile(chunks.WriteStream(), ItemInfo(index)), "world item");
 }
 
+struct SavedMonsterGroup {
+    std::unique_ptr<W8MonsterGroup> group;
+    bool encounter;
+};
+struct SavedMonster {
+    std::unique_ptr<W8MonsterInfo> info = std::make_unique<W8MonsterInfo>();
+    bool unborn = false;
+    std::optional<SavedMonsterScript> script;
+    std::optional<SavedMonsterMovement> movement;
+    std::optional<SavedMonsterOrders> orders;
+};
+
+SavedMonsterGroup ReadMonsterGroup(W8Chunk& chunk)
+{
+    auto owner = std::make_unique<W8MonsterGroup>();
+    auto& group = *owner;
+    wiz8::retail::read_sized(chunk, group);
+    const bool is_encounter = group.version >= 2 && chunk.ReadValue<unsigned char>() != 0;
+    if (group.version < 3) group.forced_neutral = false;
+
+    if (static_cast<unsigned int>(group.monster_id) >= std::size(gXStatus.monster_record_cache))
+        throw std::runtime_error("invalid monster group species");
+
+    return {std::move(owner), is_encounter};
+}
+
+SavedMonster ReadMonster(W8Chunk& chunk)
+{
+    SavedMonster saved;
+    auto& owner = saved.info;
+    auto& info = *owner;
+    const auto version = chunk.ReadValue<unsigned int>();
+    wiz8::retail::read_sized(chunk, info);
+    auto& script = saved.script;
+    if (chunk.ReadValue<unsigned char>()) script = SavedMonsterScript::Read(chunk);
+    info.fActive = false;
+    info.p3D = nullptr;
+    info.fInCombat = false;
+    info.pCombat = nullptr;
+    saved.unborn = version >= 5 && chunk.ReadValue<unsigned char>() != 0;
+    auto& movement = saved.movement;
+    if (version >= 2 && chunk.ReadValue<unsigned char>())
+        movement = SavedMonsterMovement::Read(chunk);
+    auto& orders = saved.orders;
+    if (version >= 3) orders = SavedMonsterOrders::Read(chunk, version);
+
+    for (const auto& effect : info.effect_slots) {
+        if (effect.duration &&
+            static_cast<unsigned int>(effect.effect_id) >= std::size(g_effect_visual_table))
+            throw std::runtime_error("invalid monster status species or effect");
+    }
+    if (info.monster_species >= std::size(gXStatus.monster_record_cache))
+        throw std::runtime_error("invalid monster status species or effect");
+    return saved;
+}
+
+void ActivateMonsterGroup(SavedMonsterGroup saved)
+{
+    auto& group = *saved.group;
+    const auto* record = MonsterDBFromSpecies(group.monster_id);
+    if (!record) throw std::runtime_error("missing monster group species");
+    if (record->deleted) return;
+    auto& list = saved.encounter ? gXStatus.encounter_groups : gXStatus.monster_groups;
+    list.reserve(list.size() + 1);
+    // Members re-register as their monster records load.
+    group.monsters.clear();
+    group.member_count = 0;
+    group.active_member_count = 0;
+    group.members_active = false;
+    group.fInCombat = false;
+    list.push_back(std::move(saved.group));
+    ActivateGroupMembers(&group, W8_MONSTER_LOAD_ALL_CYCLES);
+    if (group.encounter_registered && group.leader_group_id == 0)
+        RegisterActiveEncounterGroup(&group);
+}
+
+void ActivateSavedMonster(SavedMonster saved)
+{
+    auto& info = *saved.info;
+    const auto* record = MonsterDBFromSpecies(info.monster_species);
+    if (!record) throw std::runtime_error("missing monster species");
+    if (record->deleted) return;
+    auto* group = FindMonsterGroup(info.monster_group_id);
+    if (!group) throw std::runtime_error("missing monster group");
+
+    group->monsters.reserve(group->monsters.size() + 1);
+    gXStatus.monster_roster.add(std::move(saved.info), saved.unborn);
+    group->monsters.push_back(info.location_id);
+    const auto leader = static_cast<unsigned int>(group->leader_location_id);
+    if (leader < static_cast<unsigned int>(info.location_id))
+        group->leader_location_id = info.location_id;
+    ++group->member_count;
+    RequestRedrawParty();
+    if (info.highest_condition < W8_CONDITION_TURNCOAT) ++group->active_member_count;
+
+    ActivateMonster(&info, W8_MONSTER_LOAD_ALL_CYCLES);
+    ActivateMonsterInWorld(&info);
+    W8Monster* monster = info.p3D;
+    RestoreMonsterSpellIcons(info, monster);
+    if (saved.movement) saved.movement->Apply(*monster);
+    if (saved.orders) saved.orders->Apply(info, *monster);
+    if (saved.script) saved.script->Apply(info, *monster);
+    if (info.hp_current == 0) MonsterStartsDying(&info, true);
+}
+
 /* Apply one child of the matching LVLS group. */
 void LoadLevelSection(W8Chunk& chunk, unsigned int chunk_id, bool from_assets)
 {
@@ -630,10 +734,16 @@ void LoadLevelSection(W8Chunk& chunk, unsigned int chunk_id, bool from_assets)
         if (std::uint64_t{group_count} * 4 + std::uint64_t{monster_count} * 9 >
             static_cast<std::uint64_t>(chunk.RemainingBytes()))
             throw std::runtime_error("invalid monster section counts");
+        std::vector<SavedMonsterGroup> groups;
+        std::vector<SavedMonster> monsters;
+        groups.reserve(group_count);
+        monsters.reserve(monster_count);
         for (unsigned int index = 0; index < group_count; ++index)
-            RequireSection(LoadMonsterGroup(&chunk), "monster group");
+            groups.push_back(ReadMonsterGroup(chunk));
         for (unsigned int index = 0; index < monster_count; ++index)
-            RequireSection(LoadMonster(&chunk), "monster");
+            monsters.push_back(ReadMonster(chunk));
+        for (auto& group : groups) ActivateMonsterGroup(std::move(group));
+        for (auto& monster : monsters) ActivateSavedMonster(std::move(monster));
         ReapplyMonsterGroupFormations();
         RepairMonsterGroupLeaderLinks();
         ApplyDefaultMonsterGroupSounds();
@@ -641,9 +751,15 @@ void LoadLevelSection(W8Chunk& chunk, unsigned int chunk_id, bool from_assets)
     }
     case W8_CHUNK_WORLD_ITEMS: {
         const auto count = ReadWorldItemCount(chunk);
+        std::vector<std::unique_ptr<W8WorldItem>> items;
+        items.reserve(count);
+        for (unsigned int index = 0; index < count; ++index) {
+            auto item = LoadItem(chunk, from_assets);
+            RequireSection(item != nullptr, "world item");
+            items.push_back(std::move(item));
+        }
         gXStatus.world_items.reserve(gXStatus.world_items.size() + count);
-        for (unsigned index = 0; index < count; ++index)
-            RequireSection(AddWorldItem(LoadItem(chunk, from_assets)) != nullptr, "world item");
+        for (auto& item : items) AddWorldItem(std::move(item));
         break;
     }
     case W8_CHUNK_CURSOR_NODES:
@@ -1164,102 +1280,12 @@ try {
 /* Read one saved monster group and file it under the monster or encounter
    groups. A group whose species was deleted from the database is dropped. */
 // FUNCTION: WIZ8 0x00513c20
-bool LoadMonsterGroup(W8Chunk* chunk)
-try {
-    auto owner = std::make_unique<W8MonsterGroup>();
-    auto& group = *owner;
-    wiz8::retail::read_sized(*chunk, group);
-    const bool is_encounter = group.version >= 2 && chunk->ReadValue<unsigned char>() != 0;
-    if (group.version < 3) group.forced_neutral = false;
-
-    if (static_cast<unsigned int>(group.monster_id) >= std::size(gXStatus.monster_record_cache))
-        return false;
-    const auto* record = MonsterDBFromSpecies(group.monster_id);
-    if (!record) return false;
-    if (record->deleted) return true;
-
-    auto& list = is_encounter ? gXStatus.encounter_groups : gXStatus.monster_groups;
-    list.reserve(list.size() + 1);
-    // Members re-register as their monster records load.
-    group.monsters.clear();
-    group.member_count = 0;
-    group.active_member_count = 0;
-    group.members_active = false;
-    group.fInCombat = false;
-    list.push_back(std::move(owner));
-    ActivateGroupMembers(&group, W8_MONSTER_LOAD_ALL_CYCLES);
-    if (group.encounter_registered && group.leader_group_id == 0)
-        RegisterActiveEncounterGroup(&group);
-    return true;
-} catch (const std::exception&) {
-    return false;
-}
-
-/* Read one monster record (see WriteMonsterRecord), adopt the monster into the
-   live or unborn list and its group, activate it and restore its icons,
-   movement, orders and script. A monster whose species was deleted is
-   dropped; one with no hit points starts dying. */
-// FUNCTION: WIZ8 0x00513d80
-bool LoadMonster(W8Chunk* chunk)
-try {
-    auto owner = std::make_unique<W8MonsterInfo>();
-    auto& info = *owner;
-    const auto version = chunk->ReadValue<unsigned int>();
-    wiz8::retail::read_sized(*chunk, info);
-    std::optional<SavedMonsterScript> script;
-    if (chunk->ReadValue<unsigned char>()) script = SavedMonsterScript::Read(*chunk);
-    info.fActive = false;
-    info.p3D = nullptr;
-    info.fInCombat = false;
-    info.pCombat = nullptr;
-    const bool unborn = version >= 5 && chunk->ReadValue<unsigned char>() != 0;
-    std::optional<SavedMonsterMovement> movement;
-    if (version >= 2 && chunk->ReadValue<unsigned char>())
-        movement = SavedMonsterMovement::Read(*chunk);
-    std::optional<SavedMonsterOrders> orders;
-    if (version >= 3) orders = SavedMonsterOrders::Read(*chunk, version);
-
-    for (const auto& effect : info.effect_slots) {
-        if (effect.duration &&
-            static_cast<unsigned int>(effect.effect_id) >= std::size(g_effect_visual_table))
-            return false;
-    }
-    if (info.monster_species >= std::size(gXStatus.monster_record_cache)) return false;
-    const auto* record = MonsterDBFromSpecies(info.monster_species);
-    if (!record) return false;
-    if (record->deleted) return true;
-    auto* group = FindMonsterGroup(info.monster_group_id);
-    if (!group) return false;
-
-    group->monsters.reserve(group->monsters.size() + 1);
-    gXStatus.monster_roster.add(std::move(owner), unborn);
-    group->monsters.push_back(info.location_id);
-    const auto leader = static_cast<unsigned int>(group->leader_location_id);
-    if (leader < static_cast<unsigned int>(info.location_id))
-        group->leader_location_id = info.location_id;
-    ++group->member_count;
-    RequestRedrawParty();
-    if (info.highest_condition < W8_CONDITION_TURNCOAT) ++group->active_member_count;
-
-    ActivateMonster(&info, W8_MONSTER_LOAD_ALL_CYCLES);
-    ActivateMonsterInWorld(&info);
-    W8Monster* monster = info.p3D;
-    RestoreMonsterSpellIcons(info, monster);
-    if (movement) movement->Apply(*monster);
-    if (orders) orders->Apply(info, *monster);
-    if (script) script->Apply(info, *monster);
-    if (info.hp_current == 0) MonsterStartsDying(&info, true);
-    return true;
-} catch (const std::exception&) {
-    return false;
-}
-
 /* Tear down the live session before a new game or a save load replaces it. */
 // FUNCTION: WIZ8 0x00512c40
 void ResetLiveSessionForLoad(void)
 {
     if (GetLoadedLevelID() != -1) {
-        UnloadLevel("");
+        UnloadLevel();
         wiz8::sound::release_cache();
     }
     if (gXStatus.character_event_queue) gXStatus.character_event_queue->DestroyAllEvents();
@@ -1311,7 +1337,6 @@ try {
     std::unique_ptr<W8WorldItem> head;
     auto* link = &head;
     bool has_next;
-    std::vector<std::unique_ptr<W8Searchable>> searchables;
     do {
         const auto image = wiz8::retail::read_image<W8WorldItem>(handle);
         has_next = image.next != 0;
@@ -1321,15 +1346,8 @@ try {
         item.sector_id = -2;
         item.fActive = false;
         if (from_assets) item.entity_flags &= ~W8_ITEM_ENTITY_RADAR_SEEN;
-        if (ItemHasFlags(&item, W8_WORLD_ITEM_HIDDEN)) {
-            auto searchable = std::make_unique<W8Searchable>();
-            searchable->world_item = &item;
-            searchables.push_back(std::move(searchable));
-        }
         link = &item.next;
     } while (has_next);
-    g_searchables.reserve(g_searchables.size() + searchables.size());
-    for (auto& searchable : searchables) g_searchables.push_back(std::move(searchable));
     return head;
 } catch (const std::exception&) {
     return nullptr;

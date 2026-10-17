@@ -217,11 +217,8 @@ glm::vec3 CurrentEnvironmentOffset()
 // FUNCTION: WIZ8 0x004BC060
 void AssociateWorldLights(W8World* world)
 {
-    int light_index;
-
-    for (light_index = 0; light_index < static_cast<int>(world->updatingLights().size());
-         ++light_index) {
-        stLight* light = world->updatingLights()[light_index];
+    for (const auto& owned : world->transient_lights) {
+        stLight* light = owned.get();
         stLightDefinition* definition = light->m_definition.get();
 
         if (definition != 0 && definition->kind == W8_LIGHT_DEFINITION_PARAMETRIC &&
@@ -303,7 +300,6 @@ try {
                 light = CreateRangedWorldLight(world, name);
             } else {
                 light = CreateWorldLight(world, name);
-                light->SetUpdateWorld(world);
                 if (path != 0) {
                     light->path_ai = std::move(path);
                 }

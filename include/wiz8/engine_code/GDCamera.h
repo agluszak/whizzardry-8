@@ -61,14 +61,12 @@ public:
     {
         m_pitch = glm::clamp(pitch, g_camera_pitch_lower, g_camera_pitch_upper);
         m_pitch_rotation = glm::mat3(glm::eulerAngleX(m_pitch));
-        MarkWorldViewDirty();
     }
     // FUNCTION: WIZ8 0x00478720
     void SetYaw(float angle)
     {
         m_yaw = glm::mod(angle, g_camera_angle_period0);
         m_yaw_rotation = glm::mat3(glm::eulerAngleY(m_yaw));
-        MarkWorldViewDirty();
     }
     void SetOrientation(float angle, float pitch); /* 0x004788E0 */
     glm::mat3 rotationMatrix(); /* 0x00478BD0 */

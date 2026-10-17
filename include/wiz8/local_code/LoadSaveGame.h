@@ -87,8 +87,6 @@ bool SaveMonsterStatus(W8Chunk* chunks);
 void SaveMonsterControlSpellEffect(W8Chunk* chunks);
 void LoadMonsterControlSpellEffect(W8Chunk* chunks);
 
-bool LoadMonsterGroup(W8Chunk* chunk);
-bool LoadMonster(W8Chunk* chunk);
 /* Folds the shipped per-level status file in before a save's
    section is applied. */
 bool LoadDefaultLevelStatus(unsigned int level);

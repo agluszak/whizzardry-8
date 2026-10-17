@@ -45,6 +45,8 @@
 #include "wiz8/engine_code/GrObject.h"
 #include "wiz8/engine_code/Missile.h"
 #include "wiz8/engine_code/Navigator.h"
+#include "wiz8/engine_code/OctPath.h"
+#include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/PathAI.h"
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/Trigger.hpp"
@@ -122,7 +124,7 @@ void UpdateWorldProps(W8World* world)
 
         if (prop != 0 && (trigger = FindTriggerForProp(world, prop)) != 0 && prop->m_gd_prop != 0) {
             prop->flags |= W8_PROP_GD_TRIGGER_BOUND;
-            prop->m_gd_prop->BindTrigger(trigger);
+            prop->m_gd_prop->BindTrigger(trigger, world->octree ? world->octree->pathing : nullptr);
         }
     }
 }
@@ -543,12 +545,12 @@ void W8Prop::UpdatePropAnimation()
             return;
         }
         ApplyAnimationPaths();
-        BuildOrRefreshPathingRepresentation();
+        BuildOrRefreshPathingRepresentation(GetWorldPathing());
         flags &= ~W8_PROP_ANIMATION_GEOMETRY_DIRTY;
         return;
     }
     anim_frame_fraction = timer.GetProgress();
-    BuildOrRefreshPathingRepresentation();
+    BuildOrRefreshPathingRepresentation(GetWorldPathing());
     frames = static_cast<int>(anim_frame_fraction);
     anim_frame_fraction -= frames;
     rep->frame_steps = static_cast<unsigned char>(frames);
@@ -829,7 +831,7 @@ bool W8Prop::CanBeUsedFrom(int path_x, int path_z, bool notify)
    path and, when the animation is already running, snapshot the live
    position into the prop. */
 // FUNCTION: WIZ8 0x0044c670
-void W8Prop::ApplyAnimationFrame()
+void W8Prop::ApplyAnimationFrame(W8PathingService* pathing)
 {
     unsigned int count;
     int index;
@@ -879,7 +881,7 @@ void W8Prop::ApplyAnimationFrame()
         }
     }
     flags |= W8_PROP_ANIMATION_GEOMETRY_DIRTY;
-    BuildOrRefreshPathingRepresentation();
+    BuildOrRefreshPathingRepresentation(pathing);
 }
 
 /* Per-frame prop update: while the animation is running this binds every
@@ -1039,7 +1041,7 @@ void W8Prop::AttachAnimationInstances(W8World* world)
         BakeInstanceVertexLightingIfNeeded(instance, world->dynamic_scene);
     }
     if (m_gd_prop == 0) {
-        BuildOrRefreshPathingRepresentation();
+        BuildOrRefreshPathingRepresentation(world->octree ? world->octree->pathing : nullptr);
     }
 }
 
@@ -1118,7 +1120,7 @@ void W8Prop::ApplyAnimationState(const SavedAnimationState& state)
                 }
             }
         }
-        ApplyAnimationFrame();
+        ApplyAnimationFrame(GetWorldPathing());
     }
 }
 
@@ -1144,7 +1146,7 @@ std::optional<srBoundingBox> W8Prop::GetBounds()
    requires a transitive animation with one mesh, then either constructs the
    owned GDProp or reinitializes it for the current animation frame. */
 // FUNCTION: WIZ8 0x0044dea0
-int W8Prop::BuildOrRefreshPathingRepresentation()
+int W8Prop::BuildOrRefreshPathingRepresentation(W8PathingService* pathing)
 {
     srModelInstance* instance;
 
@@ -1163,15 +1165,16 @@ int W8Prop::BuildOrRefreshPathingRepresentation()
     }
 
     if (m_gd_prop == 0) {
-        m_gd_prop = std::make_unique<GDProp>(instance, name.c_str(),
+        m_gd_prop = std::make_unique<GDProp>(pathing, instance, name.c_str(),
                                              static_cast<unsigned short>(Rep()->subcycle),
                                              Rep()->footstep_surface, Rep()->footstep_material);
     } else {
         if ((flags & W8_PROP_ANIMATION_GEOMETRY_DIRTY) != 0) {
-            m_gd_prop->Initialize(instance, true, static_cast<unsigned short>(Rep()->subcycle),
+            m_gd_prop->Initialize(pathing, instance, true,
+                                  static_cast<unsigned short>(Rep()->subcycle),
                                   Rep()->footstep_surface, Rep()->footstep_material);
         } else {
-            m_gd_prop->Initialize(instance, false, 0, Rep()->footstep_surface,
+            m_gd_prop->Initialize(pathing, instance, false, 0, Rep()->footstep_surface,
                                   Rep()->footstep_material);
         }
         if (Rep()->animation_behaviour == W8_ANIMATION_PLAY_ONCE) {
@@ -1246,7 +1249,8 @@ std::unique_ptr<W8Prop> CreateAndLoadProp(W8ReadLevelInfo* info)
     auto prop = std::make_unique<W8Prop>();
     if (!prop->Rep()->LoadProp(info, prop.get())) return nullptr;
     prop->timer.SetDuration(1.0f / prop->Rep()->animation_speed);
-    prop->ApplyAnimationFrame();
+    prop->ApplyAnimationFrame(info->world && info->world->octree ? info->world->octree->pathing
+                                                                 : nullptr);
     return prop;
 }
 

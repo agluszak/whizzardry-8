@@ -368,13 +368,17 @@ W8GrCycle::~W8GrCycle()
     for (const auto& event : shake_events) {
         CameraShakes().Stop(event);
     }
+}
+
+void W8GrCycle::RetireParticles(W8World& world)
+{
     for (auto& event : particles) {
         auto owner = std::move(event.m_pstParticles);
         if (owner) owner->CancelAnimationCallback();
-        if (owner && owner->active_particle_count != 0 && owner_world != nullptr) {
+        if (owner && owner->active_particle_count != 0) {
             owner->SetActive(1);
             owner->emission_limit = 1;
-            RetireParticle(*owner_world, std::move(owner));
+            RetireParticle(world, std::move(owner));
         }
     }
 }
@@ -1126,9 +1130,6 @@ void W8GrCycle::DetachCycleLights(std::vector<std::unique_ptr<stLight>>* lights)
             auto* light = owned.get();
 
             light->setParent(0, 1);
-            if (light->definition() != 0) {
-                light->SetUpdateWorld(nullptr);
-            }
         }
     }
 }
@@ -1140,9 +1141,6 @@ void W8GrCycle::AttachCycleLights(std::vector<std::unique_ptr<stLight>>* lights)
             auto* light = owned.get();
 
             light->setParent(owner_world ? owner_world->dynamic_scene : nullptr, 1);
-            if (light->definition() != 0) {
-                light->SetUpdateWorld(owner_world);
-            }
         }
     }
 }

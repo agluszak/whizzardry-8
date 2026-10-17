@@ -17,7 +17,7 @@ extern unsigned short g_level_name_indices[W8_LEVEL_COUNT];
 bool LevelBuildInfoByID(int level_id, W8LevelInfo* info);
 unsigned char LoadSkyWorld(std::string_view sky_path);
 unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game);
-unsigned char UnloadLevel(const char* save_directory);
+void UnloadLevel();
 
 void UnloadSkyWorld(void);
 char GetLevelBand(int saved_level);

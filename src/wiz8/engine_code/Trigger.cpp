@@ -75,7 +75,6 @@
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Search.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/MGSTextBox.h"
@@ -131,8 +130,6 @@ template<std::size_t N> static void ReadTriggerText(W8Chunk& file, char (&text)[
 }
 
 // GLOBAL: WIZ8 0x006599B8
-static std::vector<W8TriggerEvent*> g_timed_events;
-static std::vector<std::unique_ptr<W8TriggerEvent>> standalone_events;
 
 // GLOBAL: WIZ8 0x006599C8
 bool g_trigger_action_active;
@@ -454,7 +451,7 @@ bool Trigger::Save(wiz8::File& hFile)
             }
             hFile.write(&action_flags, sizeof(action_flags));
             if (m_lData1 != 0 && m_pEvent != 0 &&
-                std::ranges::contains(g_timed_events, m_pEvent.get())) {
+                std::ranges::contains(m_pWorld->timed_events, m_pEvent.get())) {
                 float progress = m_pEvent->timer.GetProgress();
                 if (progress <= g_trigger_progress_limit) {
                     progress_delay =
@@ -514,9 +511,6 @@ try {
     hFile.ReadValue(action);
     hFile.ReadValue(action_state);
     hFile.ReadValue(required_item_id);
-    if ((flags & W8_TRIGGER_SEARCHED) != 0) {
-        UnregisterSearchableTrigger(this);
-    }
     hFile.ReadBytes(&has_action_data, sizeof(has_action_data));
     if (has_action_data != 0) {
         hFile.ReadBytes(&action_type, sizeof(action_type));
@@ -575,8 +569,8 @@ try {
                         m_pEvent->repeat = true;
                     }
                     m_pEvent->timer.SetProgress(progress_delay * 0.001f);
-                    if (!std::ranges::contains(g_timed_events, m_pEvent.get())) {
-                        g_timed_events.push_back(m_pEvent.get());
+                    if (!std::ranges::contains(m_pWorld->timed_events, m_pEvent.get())) {
+                        m_pWorld->timed_events.push_back(m_pEvent.get());
                     }
                 }
                 hFile.ReadBytes(&item, 2);
@@ -631,7 +625,7 @@ try {
         if (trigger) {
             if (!trigger->Load(file, tag, from_assets)) return false;
         } else {
-            Trigger scratch;
+            Trigger scratch(GetWorld());
             if (!scratch.Load(file, tag, from_assets)) return false;
         }
     }
@@ -798,18 +792,22 @@ void UpdateWorldTriggers(W8World* world)
 // FUNCTION: WIZ8 0x00443D30
 void UpdateTimedTriggerEvents(void)
 {
-    for (int index = 0; index < static_cast<int>(g_timed_events.size()); ++index) {
-        W8TriggerEvent* event = g_timed_events[index];
-        event->Update();
-        if (event->completed) {
-            g_timed_events.erase(g_timed_events.begin() + index);
-            --index;
-            if (event->trigger != 0) {
-                event->trigger->m_pEvent.reset();
-            } else {
-                std::erase_if(standalone_events,
-                              [event](const auto& owner) { return owner.get() == event; });
+    for (auto* world : {GetSecondaryWorld(), GetWorld()}) {
+        if (!world) continue;
+        auto& events = world->timed_events;
+        for (std::size_t index = 0; index < events.size();) {
+            auto* event = events[index];
+            event->Update();
+            if (!event->completed) {
+                ++index;
+                continue;
             }
+            events.erase(events.begin() + index);
+            if (event->trigger)
+                event->trigger->m_pEvent.reset();
+            else
+                std::erase_if(world->standalone_trigger_events,
+                              [event](const auto& owner) { return owner.get() == event; });
         }
     }
 }
@@ -868,7 +866,7 @@ void Trigger::Activate()
             running = false;
         } else {
             W8TriggerEvent* event = m_pEvent.get();
-            if (event != 0 && std::ranges::contains(g_timed_events, event)) {
+            if (event != 0 && std::ranges::contains(m_pWorld->timed_events, event)) {
                 event->timer.Restart();
                 if (event->m_pCountdown.has_value()) {
                     event->m_pCountdown->Restart();
@@ -1661,9 +1659,6 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
         if (trigger->name[0] != 0) {
             trigger->setName(trigger->name);
         }
-        if (searchable == 1) {
-            RegisterSearchableTrigger(trigger);
-        }
         if (trigger->initial_action == 0x0c) {
             if (trigger->m_lData1 < 0 ||
                 trigger->m_lData1 >= static_cast<int>(g_missile_table.size())) {
@@ -1686,7 +1681,7 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
                 trigger->m_pEvent->timer.Restart();
                 trigger->m_pEvent->trigger = trigger;
                 trigger->flags |= W8_TRIGGER_RUNNING;
-                g_timed_events.push_back(trigger->m_pEvent.get());
+                world->timed_events.push_back(trigger->m_pEvent.get());
             }
         } else if (trigger->initial_action > 0x24 && trigger->initial_action < 0x2c &&
                    trigger->m_lData1 >= 0) {
@@ -1747,7 +1742,7 @@ Trigger::Trigger(W8World* world)
     m_bRepType = W8_TRIGGER_REP_NONE;
     m_pProp = 0;
     rep_item = 0;
-    m_pWorld = 0;
+    m_pWorld = world;
     initial_action = 0;
     alternate_action = 0;
     fallback_action = 0;
@@ -1842,7 +1837,7 @@ void Trigger::FinishAction()
         break;
 
     case 0x23: {
-        wiz8::erase_first(g_timed_events, m_pEvent.get());
+        wiz8::erase_first(m_pWorld->timed_events, m_pEvent.get());
         action_completed = true;
         break;
     }
@@ -2253,7 +2248,7 @@ void Trigger::Run(int source)
                 m_pEvent->action = static_cast<short>(action);
                 m_pEvent->timer.SetDuration(0.5f);
             } else {
-                if (std::ranges::contains(g_timed_events, m_pEvent.get())) {
+                if (std::ranges::contains(m_pWorld->timed_events, m_pEvent.get())) {
                     srAssertFail("glsTimedEvents.Find(m_pEvent) == -1",
                                  "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0x603, 0);
                 }
@@ -2262,7 +2257,7 @@ void Trigger::Run(int source)
             if (m_pEvent->m_pCountdown.has_value()) {
                 m_pEvent->m_pCountdown->Restart();
             }
-            g_timed_events.push_back(m_pEvent.get());
+            m_pWorld->timed_events.push_back(m_pEvent.get());
             flags |= W8_TRIGGER_RUNNING;
             goto commit_action;
 
@@ -2309,7 +2304,8 @@ void Trigger::Run(int source)
             }
 
             if (m_lData1 != 0) {
-                if (m_pEvent != 0 && std::ranges::contains(g_timed_events, m_pEvent.get())) {
+                if (m_pEvent != 0 &&
+                    std::ranges::contains(m_pWorld->timed_events, m_pEvent.get())) {
                     m_pEvent->timer.Restart();
                     if (m_pEvent->m_pCountdown.has_value()) {
                         m_pEvent->m_pCountdown->Restart();
@@ -2323,7 +2319,7 @@ void Trigger::Run(int source)
                 m_pEvent->timer.SetDuration(m_lData1 < 0 ? 10.0f : static_cast<float>(m_lData1));
                 m_pEvent->timer.Restart();
                 m_pEvent->repeat = true;
-                g_timed_events.push_back(m_pEvent.get());
+                m_pWorld->timed_events.push_back(m_pEvent.get());
             }
             goto commit_action;
         }
@@ -2760,7 +2756,7 @@ void Trigger::Run(int source)
         }
 
         if ((flags & W8_TRIGGER_RUNNING) == 0) {
-            g_timed_events.push_back(m_pEvent.get());
+            m_pWorld->timed_events.push_back(m_pEvent.get());
             if (trigger_kind == 2) {
                 flags |= W8_TRIGGER_RUNNING;
             } else if (m_lData3 == -1) {
@@ -2854,7 +2850,7 @@ void Trigger::Run(int source)
                 m_pEvent->timer.Restart();
                 m_pEvent->trigger = this;
                 m_pEvent->timer.SetMode(W8_TIMER_CLOCK_GAME);
-                g_timed_events.push_back(m_pEvent.get());
+                m_pWorld->timed_events.push_back(m_pEvent.get());
             }
         }
         if (trigger_kind == 2) {
@@ -2899,7 +2895,7 @@ void Trigger::Run(int source)
             m_pEvent->timer.Restart();
             m_pEvent->trigger = this;
             flags |= W8_TRIGGER_RUNNING;
-            g_timed_events.push_back(m_pEvent.get());
+            m_pWorld->timed_events.push_back(m_pEvent.get());
         }
         break;
 
@@ -2926,7 +2922,7 @@ void Trigger::Run(int source)
             m_pEvent->trigger = this;
             m_pEvent->repeat = true;
         } else {
-            if (std::ranges::contains(g_timed_events, m_pEvent.get())) {
+            if (std::ranges::contains(m_pWorld->timed_events, m_pEvent.get())) {
                 srAssertFail("glsTimedEvents.Find(m_pEvent) == -1",
                              "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0x8ae, 0);
             }
@@ -2935,7 +2931,7 @@ void Trigger::Run(int source)
                 m_pEvent->m_pCountdown->Restart();
             }
         }
-        g_timed_events.push_back(m_pEvent.get());
+        m_pWorld->timed_events.push_back(m_pEvent.get());
         if (trigger_kind == 2) {
             flags |= W8_TRIGGER_RUNNING;
         }
@@ -3034,7 +3030,7 @@ void Trigger::Run(int source)
         }
 
         m_pEvent = std::make_unique<W8TriggerEvent>();
-        g_timed_events.push_back(m_pEvent.get());
+        m_pWorld->timed_events.push_back(m_pEvent.get());
         m_pEvent->trigger = this;
         m_pEvent->action = static_cast<short>(action);
         m_pEvent->m_pCountdown.emplace();
@@ -3208,7 +3204,7 @@ bool Trigger::SelectAction()
         }
 
         if (linked_trigger_blocked) {
-            if (m_pEvent == 0 || !std::ranges::contains(g_timed_events, m_pEvent.get())) {
+            if (m_pEvent == 0 || !std::ranges::contains(m_pWorld->timed_events, m_pEvent.get())) {
                 return false;
             }
             m_pEvent->timer.Restart();
@@ -3285,8 +3281,7 @@ bool Trigger::SelectAction()
 // FUNCTION: WIZ8 0x0043bca0
 Trigger::~Trigger()
 {
-    UnregisterSearchableTrigger(this);
-    if (m_pEvent) wiz8::erase_first(g_timed_events, m_pEvent.get());
+    if (m_pEvent && m_pWorld) wiz8::erase_first(m_pWorld->timed_events, m_pEvent.get());
 }
 
 // FUNCTION: WIZ8 0x00445a10
@@ -3300,12 +3295,6 @@ int ResetNextTriggerId(void)
 {
     g_status.next_trigger_id = 1;
     return 1;
-}
-
-void StopWorldTriggerEvents()
-{
-    g_timed_events.clear();
-    standalone_events.clear();
 }
 
 // FUNCTION: WIZ8 0x00443A60

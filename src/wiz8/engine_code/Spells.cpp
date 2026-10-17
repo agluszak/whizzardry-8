@@ -335,6 +335,7 @@ void W8SpellVisual::UpdateRepresentation(W8World* world)
 
 static void DestroySpellVisual(W8World* world, W8SpellVisual* visual)
 {
+    visual->RetireParticles(*world);
     std::erase_if(world->spell_visuals,
                   [visual](const auto& owner) { return owner.get() == visual; });
 }

@@ -99,6 +99,8 @@ public:
     W8GrCycle(const W8GrCycle& other, W8World* owner); /* 0x004A5F20 */
     W8GrCycle& operator=(const W8GrCycle&) = delete;
     virtual ~W8GrCycle() override;
+    // Gameplay despawning lets active particles finish; level destruction does not.
+    void RetireParticles(W8World& world);
     // FUNCTION: WIZ8 0x004a7140
     virtual unsigned char CanEnterCycle(signed char) { return 1; }
     virtual void TickAnimation(float scale);           /* 0x004A6E20 */

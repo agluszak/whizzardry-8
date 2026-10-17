@@ -28,6 +28,7 @@
 #include "named_position.h"
 #include "surrender/srCamera.h"
 #include "surrender/srDebug.h"
+#include "surrender/srFog.h" // IWYU pragma: keep - completes world-owned fog nodes.
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
 #include "wiz8/engine_code/3d.h"
@@ -288,13 +289,7 @@ void SetCameraSwayMode(srCamera* camera, int mode)
             radians);
 }
 
-/* World teardown runs in three phases so ownership never depends on the
-   frame loop: stop everything that can call back into the world, drop every
-   borrowed index, then destroy what the world owns. Loading screens render
-   between UnloadLevel's stages, never from inside these phases. */
-
-// Phase 1: nothing may update the world or call into its entities afterwards.
-// Phase 2: drop the non-owning indexes and detach the world from global lookup.
+// Drop borrowed mesh indexes before destroying their scene-owned nodes.
 static void ClearWorldIndexes(W8World* world)
 {
     world->psrMeshes.clear();
@@ -306,6 +301,8 @@ static void ClearWorldIndexes(W8World* world)
 // referenced, then the scene itself.
 static void DestroyWorldResources(W8World* world)
 {
+    world->timed_events.clear();
+    world->standalone_trigger_events.clear();
     world->monster_generators.clear();
     world->active_monsters.clear();
     world->monsters.clear();
@@ -327,6 +324,8 @@ static void DestroyWorldResources(W8World* world)
     world->octree.reset();
     world->quads.reset();
 
+    world->static_fog.reset();
+    world->dynamic_fog.reset();
     world->static_scene.reset();
 }
 
@@ -345,11 +344,6 @@ W8World::W8World(int level_id, std::string path)
     dynamic_scene = static_scene->adoptChild(std::make_unique<srNode>());
     dynamic_scene->setName("Sir-Tech Dynamic Scene");
     SetSceneAmbientLightWhite(static_scene.get());
-}
-
-void W8World::stopLightUpdates()
-{
-    while (!updating_lights_.empty()) updating_lights_.back()->SetUpdateWorld(nullptr);
 }
 
 W8World::~W8World()
@@ -460,10 +454,6 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
 
 /* Camera or geometry changes invalidate only this world's cached view. */
 // FUNCTION: WIZ8 0x00451010
-void MarkWorldViewDirty(void)
-{
-    if (auto* world = GetWorld()) world->view_dirty = true;
-}
 
 /* Resolve a particle by its runtime name from the current world's particle
    vector. Names are case-insensitive in the original registry-facing lookup. */
@@ -522,14 +512,13 @@ void SetWorldScenePosition(W8World* world, const glm::vec3* location)
 void RefreshWorldView()
 {
     auto* world = GetWorld();
-    if (!world || !world->view_dirty) return;
+    if (!world || !world->camera) return;
     if (world->octree)
         UpdateWorldOctree(world);
     else if (world->quads)
         UpdateWorldMeshFromQuads(world);
     RepositionAmbientSounds();
     RequestRefreshPartyState();
-    world->view_dirty = false;
 }
 
 /* Report a failed assertion with no message of its own, so the expression and

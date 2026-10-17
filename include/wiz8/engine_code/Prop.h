@@ -15,6 +15,7 @@
 #include "wiz8/engine_code/game_timer.h"
 
 class GDProp;
+class W8PathingService;
 struct W8AnimObj;
 struct W8ReadLevelInfo;
 struct W8World;
@@ -111,7 +112,7 @@ public:
        committing it - clamped for transitive animations, wrapping or bouncing
        for the looping kinds. */
     char NextAnimationValue();
-    void ApplyAnimationFrame(); /* 0x0044C670 */
+    void ApplyAnimationFrame(W8PathingService* pathing); /* 0x0044C670 */
     /* Restore the rep's persisted animation state: five saved bytes plus one
        discarded byte, clamped to the loaded animation's frame count, with
        path values re-synced while a running animation is active. */
@@ -119,7 +120,7 @@ public:
         unsigned char subcycle, first_frame, last_frame, frame_direction, animation_playing, unused;
     };
     void ApplyAnimationState(const SavedAnimationState& state);        /* 0x0044DBD0 */
-    int BuildOrRefreshPathingRepresentation(); /* 0x0044DEA0 */
+    int BuildOrRefreshPathingRepresentation(W8PathingService* pathing); /* 0x0044DEA0 */
     /* Current minus previous position when the animation advances exactly
        one frame; otherwise zero. */
     glm::vec3 GetDelta(); /* 0x0044E130 */
