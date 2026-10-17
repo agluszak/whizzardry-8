@@ -29,7 +29,6 @@
 #include "random.h"
 #include "retail_records.h"
 #include "surrender/srDebug.h"
-#include "wiz8/containers.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/AmbientSound.h"
 #include "wiz8/engine_code/AnimObj.h"

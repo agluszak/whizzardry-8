@@ -1,7 +1,5 @@
 #include "wiz8/engine_code/Item.h"
 
-#include <cstdio>
-#include <cstring>
 #include <exception>
 #include <memory>
 #include <optional>
