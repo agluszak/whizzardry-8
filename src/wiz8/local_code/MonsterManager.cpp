@@ -1022,30 +1022,23 @@ static void ClearRemainingMonsterGroups()
 
 /* A monster belongs to exactly one of the live/unborn registries. Destroy
    registered script parts while their groups and runtime bindings still exist. */
-static bool DestroyAllMonsterInfos()
+static void DestroyAllMonsterInfos()
 {
     while (!gXStatus.monster_roster.live().empty()) {
-        if (!RemoveMonsterAt(0, true)) {
-            return false;
-        }
+        RemoveMonsterAt(0, true);
     }
     while (!gXStatus.monster_roster.unborn().empty()) {
-        if (!RemoveMonsterAt(10000, true)) {
-            return false;
-        }
+        RemoveMonsterAt(10000, true);
     }
     ClearRemainingMonsterGroups();
-    return true;
 }
 
 /* Dispose any previous level's live and unborn records before resetting
    runtime IDs and counters. Both registries borrow from the same owner. */
 // FUNCTION: WIZ8 0x004e3720
-bool InitializeMonsterManagerState(void)
+void InitializeMonsterManagerState(void)
 {
-    if (!DestroyAllMonsterInfos()) {
-        return false;
-    }
+    DestroyAllMonsterInfos();
     g_status.next_monster_location_id = 1;
     g_status.next_group_id = 1;
     gXStatus.active_monster_count = 0;
@@ -1054,19 +1047,15 @@ bool InitializeMonsterManagerState(void)
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_level_block != 0) {
         g_level_block->highlighted_item = -1;
     }
-    return true;
 }
 
 /* Drain both monster registries while their groups and the world are intact,
    then release the species-indexed record cache. */
 // FUNCTION: WIZ8 0x004e3820
-unsigned char ShutdownMonsterManager(void)
+void ShutdownMonsterManager(void)
 {
-    if (!DestroyAllMonsterInfos()) {
-        return 0;
-    }
+    DestroyAllMonsterInfos();
     gXStatus.monster_record_cache = {};
-    return 1;
 }
 
 // FUNCTION: WIZ8 0x004e3af0

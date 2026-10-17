@@ -452,13 +452,17 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
         sky_world->source_path == wiz8::normalize_asset_path(level_info.sky_path).generic_string();
     auto replacement_sky = reuse_sky ? nullptr : PrepareSkyWorld(level_info.sky_path);
     if (!reuse_sky && !level_info.sky_path.empty() && !replacement_sky) return 0;
-    if (GetWorld() && !UnloadLevel("")) return 0;
+    if (GetWorld()) {
+        if (!SaveLevelStatus("saves\\CurrentGame.SAV")) return 0;
+        UnloadLevel();
+    }
     ReleaseReadMeshScratch();
     InvalidateRendererTextureCache();
     primary_world = std::move(replacement);
     if (!reuse_sky) sky_world = std::move(replacement_sky);
     StartLevelMusic(1, 1);
-    if (!InitializeMonsterManagerState() || !InitializeItemManagerState()) return 0;
+    InitializeMonsterManagerState();
+    InitializeItemManagerState();
     g_status.next_trigger_id = GetWorld()->next_trigger_id;
     UpdateGameDataRuntime();
     if (GetWorld()->game_data) g_environ = GetWorld()->game_data->m_ppEnvirons.front().get();
@@ -572,9 +576,9 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
 }
 
 // FUNCTION: WIZ8 0x0042ACE0
-unsigned char UnloadLevel(const char* save_directory)
+void UnloadLevel()
 {
-    if (!primary_world) return 1;
+    if (!primary_world) return;
     if (gXStatus.fCombatMode) {
         EndCombat(true);
     }
@@ -588,29 +592,16 @@ unsigned char UnloadLevel(const char* save_directory)
     }
 
     ReleaseMarkedNpcBindings();
-    if (strcmp(save_directory, "") != 0) {
-        SaveLevelStatus("saves\\CurrentGame.SAV");
-    }
 
     if (g_world_cleanup_flag) {
         RenderFrame();
     }
 
-    if (ReleaseItemLists() == 0) {
-        return 0;
-    }
+    ReleaseItemLists();
     if (g_world_cleanup_flag) {
         RenderFrame();
     }
-    if (ShutdownMonsterManager() == 0) {
-        return 0;
-    }
-    if (g_world_cleanup_flag) {
-        RenderFrame();
-    }
-    if (ScreenLifecycleSuccess() == 0) {
-        return 0;
-    }
+    ShutdownMonsterManager();
     if (g_world_cleanup_flag) {
         RenderFrame();
     }
@@ -636,7 +627,6 @@ unsigned char UnloadLevel(const char* save_directory)
     ReleaseEnvironmentObjects();
     g_runtime_world_scale = 500.0f;
     ClearActiveWorldCursorNode();
-    return 1;
 }
 
 /* Unload the current level and load `level` at `entrance`. When the request
@@ -655,11 +645,6 @@ unsigned char ReloadLevelPreservingCamera(int level, int entrance)
         GetCameraOrientation(saved_angle, saved_pitch);
         saved_position = cameraLocationOrZero(*GetWorld());
         restore = true;
-    }
-    if (GetLoadedLevelID() != -1) {
-        if (UnloadLevel("saves") == 0) {
-            return 0;
-        }
     }
     if (LoadLevel(level, entrance, false) == 0) {
         return 0;

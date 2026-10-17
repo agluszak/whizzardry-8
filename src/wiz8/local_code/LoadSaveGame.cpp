@@ -1272,7 +1272,7 @@ try {
 void ResetLiveSessionForLoad(void)
 {
     if (GetLoadedLevelID() != -1) {
-        UnloadLevel("");
+        UnloadLevel();
         wiz8::sound::release_cache();
     }
     if (gXStatus.character_event_queue) gXStatus.character_event_queue->DestroyAllEvents();

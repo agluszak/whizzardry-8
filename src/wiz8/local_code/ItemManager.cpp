@@ -90,7 +90,7 @@ W8WorldItem::~W8WorldItem()
 }
 
 // FUNCTION: WIZ8 0x004f69f0
-bool InitializeItemManagerState()
+void InitializeItemManagerState()
 {
     g_status.next_world_item_id = 1;
     gXStatus.item_manager_pending = 0;
@@ -98,7 +98,6 @@ bool InitializeItemManagerState()
         g_level_block->selected_item = -1;
     }
     gXStatus.world_items.clear();
-    return true;
 }
 
 // FUNCTION: WIZ8 0x004f8130
@@ -858,7 +857,7 @@ unsigned char InteractWithWorldItem(int runtime_id)
 
 /* Detach and release all world item groups. */
 // FUNCTION: WIZ8 0x004f6a50
-unsigned char ReleaseItemLists(void)
+void ReleaseItemLists()
 {
     for (const auto& owned : gXStatus.world_items) {
         auto* item = owned.get();
@@ -866,7 +865,6 @@ unsigned char ReleaseItemLists(void)
         if (item->fActive) DeactivateWorldItem(item);
     }
     gXStatus.world_items.clear();
-    return 1;
 }
 
 /* Whether one world item is close enough to a point to be reached, and in

@@ -2991,9 +2991,7 @@ unsigned char MainGameScreenLeave(int leaving)
     if (static_cast<unsigned char>(leaving)) {
         if (GetLoadedLevelID() != -1) {
             UnloadSkyWorld();
-            if (!UnloadLevel("")) {
-                return 0;
-            }
+            UnloadLevel();
         }
         if (gXStatus.fPartyMovementUi) {
             ReleasePartyMovement();
@@ -5739,17 +5737,15 @@ void OpenAutomapScreen(void)
    whatever watches it knows. */
 bool LoadCurrentLevelData(void)
 {
-    bool loaded = true;
-
     if (GetLoadedLevelID() != -1) {
         SetTargetCursor(W8_CURSOR_MAP_LOAD);
         g_world_cleanup_flag = true;
         UnloadSkyWorld();
-        loaded = UnloadLevel("") != 0;
+        UnloadLevel();
         g_world_cleanup_flag = false;
         UpdateHeldItemCursor();
     }
-    return loaded;
+    return true;
 }
 
 /* Put the seven combat regions into their inactive mode, and the eighth with
