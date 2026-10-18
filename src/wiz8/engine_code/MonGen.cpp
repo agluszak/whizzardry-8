@@ -31,7 +31,6 @@
 #include "random.h"
 #include "surrender/srDebug.h"
 #include "wiz8/chunk.h"
-#include "wiz8/containers.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/World.h"

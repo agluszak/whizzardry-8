@@ -32,7 +32,6 @@
 #include "wiz8/engine_code/World.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
-#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/Strings.h"

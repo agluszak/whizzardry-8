@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include <cstring>
+#include <iterator>
 #include <optional>
 #include <span>
 #include <tuple>

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <vector>
@@ -408,7 +409,7 @@ static void ShowUseItemList(W8ItemInstance* select)
     // The shared text box stores at most 350 lines. Keep its rows and ours aligned.
     if (rows.size() > 350) rows.resize(350);
     use_item->selected_line = -1;
-    for (size_t index = 0; index < rows.size(); ++index) {
+    for (std::size_t index = 0; index < rows.size(); ++index) {
         const auto [item, usable] = rows[index];
         if (item == select) use_item->selected_line = static_cast<int>(index);
         if (!usable) {

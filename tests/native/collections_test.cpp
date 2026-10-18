@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <filesystem>
@@ -28,6 +29,7 @@
 #include "wiz8/chunk.h"
 #include "wiz8/conditions.h"
 #include "wiz8/engine_code/Monster.h"
+#include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/equipment_slots.h"
 #include "wiz8/filesystem.h"
@@ -42,6 +44,7 @@
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/MonsterGenerator.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -53,11 +56,13 @@
 #include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/location_variables.h"
+#include "wiz8/monster_actions.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/monster_roster.h"
 #include "wiz8/npc_items.h"
 #include "wiz8/npc_trade_price.h"
 #include "wiz8/retail_save_records.h"
+#include "wiz8/retail_text_records.h"
 #include "wiz8/xstatus.h"
 
 struct LevelWorldFixture {
