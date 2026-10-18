@@ -52,6 +52,7 @@
 #include "wiz8/level_specific_code/Swamp.h"
 #include "wiz8/level_specific_code/Trynnie2.h"
 #include "wiz8/local_code/CombatHostility.h"
+#include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
