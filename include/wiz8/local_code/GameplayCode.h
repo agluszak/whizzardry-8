@@ -51,7 +51,7 @@ int CountActiveCharacters(void);
 std::optional<unsigned int> FindFreePartySlot(unsigned int first, unsigned int last);
 
 void RefreshLevelUpReadyNotices(void);
-int AddCharacterToParty(W8Character& character, int slot);
+std::optional<int> AddCharacterToParty(W8Character& character, int slot);
 /* Remove a slot's character from the party; fSaveCharData
    persists it back to its NPC record first. */
 void RemoveCharacterFromParty(int party_slot);

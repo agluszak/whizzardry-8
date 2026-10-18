@@ -574,25 +574,25 @@ bool RecruitNpcIntoParty(W8NpcState* npc)
     if (npc->record->has_group == 0) {
         return false;
     }
-    int party_slot = AddCharacterToParty(*npc->character, npc->partner_index);
-    if (party_slot == -1) {
+    const auto party_slot = AddCharacterToParty(*npc->character, npc->partner_index);
+    if (!party_slot) {
         return false;
     }
     int index;
     for (index = 0; index < 0x29; ++index) {
-        if (g_status.buffers.Char[party_slot].skills[index].points > 0) {
-            g_status.buffers.Char[party_slot].skills[index].available = true;
+        if (g_status.buffers.Char[*party_slot].skills[index].points > 0) {
+            g_status.buffers.Char[*party_slot].skills[index].available = true;
         }
     }
-    RefreshCharacterSkillAvailability(&g_status.buffers.Char[party_slot]);
+    RefreshCharacterSkillAvailability(&g_status.buffers.Char[*party_slot]);
     if (npc->has_monster && npc->is_present) {
         W8MonsterInfo* monster = FindMonster(npc->location_id);
         if (monster != 0) {
-            CopyMonsterConditionsToCharacter(&g_status.buffers.Char[party_slot], monster);
+            CopyMonsterConditionsToCharacter(&g_status.buffers.Char[*party_slot], monster);
             RemoveMonster(monster, W8MonsterRemoval::Despawn);
         }
     }
-    npc->group_index = static_cast<signed char>(party_slot);
+    npc->group_index = static_cast<signed char>(*party_slot);
     npc->is_grouped = true;
     npc->is_present = false;
     npc->event_pending = 0;

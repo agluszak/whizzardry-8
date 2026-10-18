@@ -1275,10 +1275,10 @@ void W8PartySelectionController::TogglePartyMemberSelection()
     W8Character* character = collection->GetCharacter(selected);
     if (!character) return;
     if (!character->fInParty) {
-        int slot = AddCharacterToParty(*character, -1);
-        if (slot != -1) {
+        const auto slot = AddCharacterToParty(*character, -1);
+        if (slot) {
             delete character;
-            collection->characters[selected] = &g_status.buffers.Char[slot];
+            collection->characters[selected] = &g_status.buffers.Char[*slot];
         }
         if (selected < static_cast<int>(collection->characters.size()) - 1) {
             ++selected;

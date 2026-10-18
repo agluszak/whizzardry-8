@@ -1046,7 +1046,7 @@ unsigned int GetAveragePartyLevel(void)
    and enter it in the marching order. The band is 2..7 for a regular member
    and 0..1 for the two auxiliary slots. */
 // FUNCTION: WIZ8 0x004ef4a0
-int AddCharacterToParty(W8Character& character, int slot_kind)
+std::optional<int> AddCharacterToParty(W8Character& character, int slot_kind)
 {
     unsigned int slot;
 
@@ -1055,7 +1055,7 @@ int AddCharacterToParty(W8Character& character, int slot_kind)
         while (g_status.buffers.XChar[slot].fOccupied) {
             ++slot;
             if (slot > 7) {
-                return -1;
+                return std::nullopt;
             }
         }
     } else {
@@ -1063,14 +1063,10 @@ int AddCharacterToParty(W8Character& character, int slot_kind)
         while (g_status.buffers.XChar[slot].fOccupied) {
             ++slot;
             if (slot > 1) {
-                return -1;
+                return std::nullopt;
             }
         }
     }
-    if (static_cast<int>(slot) < 0) {
-        return -1;
-    }
-
     W8Character* destination = &g_status.buffers.Char[slot];
     *destination = character;
     destination->fInParty = true;
