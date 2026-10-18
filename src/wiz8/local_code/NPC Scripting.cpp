@@ -514,6 +514,8 @@ void W8NpcDialogue::RunQuoteEntry(W8NpcQuoteEntry* entry, int continuation_quote
     case W8_NPC_ENTRY_GIVE_EXPERIENCE:
         AwardPartyExperience(entry->operand0, 0);
         break;
+    default:
+        break;
     }
     if (session_.npc->character.has_value() && session_.npc->group_index != -1) {
         g_status.buffers.XChar[session_.npc->group_index].pending_event_type = 0;
