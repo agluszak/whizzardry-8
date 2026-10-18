@@ -378,11 +378,9 @@ void SetMonsterGroupHostility(W8MonsterGroup* group, W8Disposition hostility, bo
     group->ubDisposition = hostility;
     group->forced_neutral = false;
     if (MonsterGroupHasVisibleThreat(group)) {
-        ShowNotice(
-            9,
-            fmt::format("{} {} {}!", GetMonsterGroupName(group),
-                        g_localized_strings[0x1d7 + (group->MemberCount() != 1)],
-                        g_localized_strings[g_group_hostility_notice_ids[hostility]]));
+        ShowNotice(9, fmt::format("{} {} {}!", GetMonsterGroupName(group),
+                                  g_localized_strings[0x1d7 + (group->MemberCount() != 1)],
+                                  g_localized_strings[g_group_hostility_notice_ids[hostility]]));
     }
     group->hostility_set_at = g_status.world_clock;
     if (previous != W8_DISPOSITION_NEUTRAL) {
