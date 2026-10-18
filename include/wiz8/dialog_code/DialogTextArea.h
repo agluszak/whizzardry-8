@@ -32,13 +32,13 @@ public:
     bool TakeDirty();
     void SetFirstVisibleLine(int line);
     int GetTotalLineCount();
-    unsigned int GetLineHeight();
+    std::optional<unsigned int> GetLineHeight();
     void SetEntrySpacing(int lines);
     void SetLineHeight(unsigned int height);
     bool SelectEntry(int index);
     bool ClearSelection();
     std::optional<std::string_view> GetEntryText(unsigned int index) const;
-    unsigned int HitTestEntry(int x, int y);
+    std::optional<unsigned int> HitTestEntry(int x, int y);
     bool UpdateSelectionFromPoint(int x, int y);
     bool ClearPointSelection();
     std::optional<std::string_view> GetVisibleEntryText(unsigned int index) const;
@@ -62,7 +62,7 @@ private:
     {
         return m_all_lines[m_visible_lines[index]].get();
     }
-    unsigned int FindVisibleEntryAtLine(int target);
+    std::optional<unsigned int> FindVisibleEntryAtLine(int target);
 
     W8ControlsRect m_bounds; /* passed to entry construction */
     Font* m_font;

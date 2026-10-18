@@ -94,7 +94,7 @@ void W8ProfRaceInfoDialogBase::Configure()
 
     int x = m_x;
     m_scroll_bar.SetLayout(x + 0x159, m_y + 0x29, m_text_area.GetTotalLineCount(), 0,
-                           m_text_area.GetLineHeight(), 0xb8);
+                           m_text_area.GetLineHeight().value(), 0xb8);
 
     CreateCloseButton(m_button, 0x14f, 0xe8);
     return;

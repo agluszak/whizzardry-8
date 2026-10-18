@@ -64,7 +64,7 @@ void W8StatInfoDialogBase::Configure()
     }
 
     scrollbar.SetLayout(m_x + 299, m_y + 0x26, textarea.GetTotalLineCount(), 0,
-                        textarea.GetLineHeight(), 0xb9);
+                        textarea.GetLineHeight().value(), 0xb9);
 
     CreateCloseButton(button, 0x11a, 0xe6);
     return;

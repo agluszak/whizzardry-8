@@ -1764,6 +1764,7 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
     REQUIRE(font.load("font.sti"));
     {
         W8DialogTextArea area;
+        REQUIRE(area.GetLineHeight() == std::nullopt);
         const W8ControlsRect bounds{0, 0, 100, 100};
         area.Configure(&bounds, font, g_W8DialogTextAreaPointSelection);
         area.AddEntry("", "Z", 0, 0, 0);
@@ -1780,6 +1781,7 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         REQUIRE(area.GetEntry(2)->GetLineHeight() == 12);
         REQUIRE(area.GetTotalLineCount() == 4); // Two wrapped lines, a gap, then C.
         REQUIRE(area.HitTestEntry(1, 25) == 0);
+        REQUIRE(area.HitTestEntry(1, 1000) == std::nullopt);
         REQUIRE(area.HitTestEntry(1, 37) == 1);
         area.SetFirstVisibleLine(1);
         REQUIRE(area.HitTestEntry(1, 1) == 0);

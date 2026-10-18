@@ -113,7 +113,7 @@ W8AssayDialog::W8AssayDialog(const W8ItemInstance& item, W8Character* character,
     m_character = character;
     PopulateText();
     m_scroll_bar.SetLayout(g_assay_scroll_x_offset + m_x, g_assay_scroll_y_offset + m_y,
-                           m_text_area.GetTotalLineCount(), 0, m_text_area.GetLineHeight(),
+                           m_text_area.GetTotalLineCount(), 0, m_text_area.GetLineHeight().value(),
                            g_assay_text_area_offsets.bottom - g_assay_text_area_offsets.top);
     if (!PopulateRequirements()) throw std::runtime_error("Cannot configure assay controls");
     CreateTextBuffers();

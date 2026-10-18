@@ -78,7 +78,7 @@ W8SpellInfoDialog::W8SpellInfoDialog(unsigned int spell)
 
     int x = m_x;
     m_scroll_bar.SetLayout(x + 0x12b, m_y + 0x43, m_text_area.GetTotalLineCount(), 0,
-                           m_text_area.GetLineHeight(), 0xb9);
+                           m_text_area.GetLineHeight().value(), 0xb9);
 
     CreateCloseButton(m_button, 0x11a, 0x104);
 }

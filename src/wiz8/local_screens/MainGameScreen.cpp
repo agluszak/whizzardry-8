@@ -2002,12 +2002,12 @@ void W8NpcDialogueTextController::Collapse()
 void W8NpcDialogueTextController::Expand()
 {
     W8ControlsRect bounds;
-    int line_height;
     int text_height;
 
+    const auto line_height = text_area.GetLineHeight();
+    if (!line_height) return;
     visible = 1;
-    line_height = text_area.GetLineHeight();
-    text_height = line_height * text_area.GetTotalLineCount();
+    text_height = static_cast<int>(*line_height) * text_area.GetTotalLineCount();
     if (text_height >= 0xff) {
         text_height = 0xff;
     }
@@ -6618,22 +6618,18 @@ bool AttemptNpcItemTrade(W8ItemInstance* item, unsigned char quantity, int index
 
 void W8NpcDialogueTextController::SelectTranscriptKeywordAtPoint(int x, int y)
 {
-    unsigned int hit;
-
     if (g_npc_interaction_state->modal_dialog_open) {
         return;
     }
 
-    hit = text_area.HitTestEntry(x, y);
-    if (hit == static_cast<unsigned int>(-1)) {
-        return;
-    }
-    const auto keyword = text_area.GetVisibleEntryText(hit);
+    const auto hit = text_area.HitTestEntry(x, y);
+    if (!hit) return;
+    const auto keyword = text_area.GetVisibleEntryText(*hit);
     if (!keyword) return;
 
-    if (text_area.m_highlighted_entry == static_cast<int>(hit)) {
+    if (text_area.m_highlighted_entry == static_cast<int>(*hit)) {
         text_area.ClearEntryHighlight();
-        text_area.HighlightVisibleEntry(static_cast<int>(hit));
+        text_area.HighlightVisibleEntry(static_cast<int>(*hit));
         SetDialogueFieldKeyword(std::string(*keyword), false);
         HandleNpcDialogueInput();
         if (const auto index = text_area.GetOwningEntryIndex(static_cast<int>(hit)))
@@ -6643,7 +6639,7 @@ void W8NpcDialogueTextController::SelectTranscriptKeywordAtPoint(int x, int y)
     }
 
     text_area.ClearEntryHighlight();
-    text_area.HighlightVisibleEntry(static_cast<int>(hit));
+    text_area.HighlightVisibleEntry(static_cast<int>(*hit));
     SetDialogueFieldKeyword(std::string(*keyword), false);
     InvalidateLayout();
 }

@@ -69,18 +69,19 @@ bool W8DialogTextArea::TakeDirty()
 
 void W8DialogTextArea::Paint(SDL_Surface& target)
 {
-    unsigned int font_height = GetLineHeight();
+    const auto font_height = GetLineHeight();
+    if (!font_height) return;
     {
         W8ControlsRect bounds;
         if (m_relayout_needed) {
             bounds.left = m_bounds.left;
             bounds.right = m_bounds.right;
-            bounds.top = m_bounds.top - m_first_visible_line * font_height;
+            bounds.top = m_bounds.top - m_first_visible_line * *font_height;
         }
         for (int index = m_first_visible_entry; index < static_cast<int>(m_visible_lines.size());
              ++index) {
             if (m_relayout_needed) {
-                unsigned int height = GetLineHeight();
+                const unsigned int height = *font_height;
                 bounds.bottom = bounds.top + VisibleEntry(index)->m_lineCount * height;
                 VisibleEntry(index)->SetLayoutBounds(&bounds, false);
                 bounds.top = bounds.bottom + m_entry_spacing_lines * font_height;
@@ -121,9 +122,9 @@ int W8DialogTextArea::GetTotalLineCount()
 }
 
 // FUNCTION: WIZ8 0x005d1d30
-unsigned int W8DialogTextArea::GetLineHeight()
+std::optional<unsigned int> W8DialogTextArea::GetLineHeight()
 {
-    if (!m_layout_initialized) return static_cast<unsigned int>(-1);
+    if (!m_layout_initialized) return std::nullopt;
     return m_line_height_override ? *m_line_height_override : m_font->height();
 }
 
@@ -174,23 +175,24 @@ std::optional<std::string_view> W8DialogTextArea::GetEntryText(unsigned int inde
 
 /* Hit testing and selection share the visible-line mapping. Only the first
    entry can start partway through its wrapped lines. */
-unsigned int W8DialogTextArea::FindVisibleEntryAtLine(int target)
+std::optional<unsigned int> W8DialogTextArea::FindVisibleEntryAtLine(int target)
 {
-    if (target < 0) return static_cast<unsigned int>(-1);
+    if (target < 0) return std::nullopt;
     target += m_first_visible_line;
     for (unsigned int index = m_first_visible_entry; index < m_visible_lines.size(); ++index) {
         const int lines = VisibleEntry(index)->m_lineCount + m_entry_spacing_lines;
         if (target < lines) return index;
         target -= lines;
     }
-    return static_cast<unsigned int>(-1);
+    return std::nullopt;
 }
 
 // FUNCTION: WIZ8 0x005d1dd0
-unsigned int W8DialogTextArea::HitTestEntry(int, int y)
+std::optional<unsigned int> W8DialogTextArea::HitTestEntry(int, int y)
 {
-    int line_height = GetLineHeight();
-    int target = (y - m_bounds.top) / line_height;
+    const auto line_height = GetLineHeight();
+    if (!line_height) return std::nullopt;
+    int target = (y - m_bounds.top) / static_cast<int>(*line_height);
     return FindVisibleEntryAtLine(target);
 }
 
@@ -198,8 +200,8 @@ unsigned int W8DialogTextArea::HitTestEntry(int, int y)
 bool W8DialogTextArea::UpdateSelectionFromPoint(int x, int y)
 {
     if (!(m_behavior_flags & g_W8DialogTextAreaPointSelection)) return false;
-    const unsigned int index = HitTestEntry(x, y);
-    return index == static_cast<unsigned int>(-1) ? ClearSelection() : SelectEntry(index);
+    const auto index = HitTestEntry(x, y);
+    return index ? SelectEntry(*index) : ClearSelection();
 }
 
 // FUNCTION: WIZ8 0x005d20a0
@@ -327,14 +329,15 @@ bool W8DialogTextArea::ScrollDown(bool check_only)
 {
     int height = m_bounds.bottom - m_bounds.top;
     int visible_line = 1;
+    const auto line_height = GetLineHeight();
+    if (!line_height) return false;
     for (unsigned int index = m_first_visible_entry; index < m_visible_lines.size(); ++index) {
         for (int line = index == static_cast<unsigned int>(m_first_visible_entry)
                             ? m_first_visible_line
                             : 0;
              line < VisibleEntry(index)->m_lineCount + m_entry_spacing_lines;
              ++line, ++visible_line) {
-            unsigned int line_height = GetLineHeight();
-            if (static_cast<int>(line_height * visible_line) > height) {
+            if (static_cast<int>(*line_height * visible_line) > height) {
                 W8TextBuffer* text = VisibleEntry(m_first_visible_entry);
                 if (m_first_visible_line < text->m_lineCount - 1 + m_entry_spacing_lines) {
                     if (!check_only) ++m_first_visible_line;
