@@ -35,7 +35,6 @@ struct AutomapButtons {
     std::array<std::unique_ptr<W8ButtonWidget>, 16> buttons;
 };
 extern std::unique_ptr<AutomapButtons> g_automap_buttons;
-extern int g_automap_zoom_mode;
 
 bool HasAutomapLayer(int layer);
 void RestoreAutomapCameraPosition(void);
