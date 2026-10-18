@@ -522,7 +522,7 @@ void RunNpcStoryAction(W8NpcStoryAction action)
             monster_info->p3D->BeginFadeOutAndRemove(W8_MONSTER_REMOVAL_NONE);
         }
         if (W8MonsterGroup* group = FindFirstMonsterByID(0x15d)) {
-            SetMonsterGroupHostility(group, 1, false);
+            SetMonsterGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
         }
         break;
     }
