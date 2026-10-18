@@ -180,4 +180,4 @@ bool LoadGrCycle(std::string_view mon_name, W8GrCycle* cycle, int cycle_index, i
                  const char* bitmap_directory = 0);
 unsigned char ReadGrCycleData(W8ReadLevelInfo* info, W8GrCycle* cycle, int cycle_index, int value,
                               unsigned char object_type);
-int FindMappedIndexInMeshChain(stMeshModel** mesh, int key); /* 0x004A8D10 */
+std::optional<int> FindMappedIndexInMeshChain(stMeshModel** mesh, int key); /* 0x004A8D10 */

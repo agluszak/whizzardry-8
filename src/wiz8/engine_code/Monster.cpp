@@ -304,7 +304,7 @@ const char* g_monster_script_commands[MONSCR_COUNT] = {"GOTO",
 // class W8MonsterRep
 /* Both skin directives ensure the base damage stage exists exactly once. */
 static void EnsureMonsterBaseSkin(W8Monster* monster, std::string_view monster_name,
-                                  int& damage_stage, bool& skins_started)
+                                  std::optional<int>& damage_stage, bool& skins_started)
 {
     if (skins_started) return;
     damage_stage = monster->AddDamageStage(monster_name, 0);
@@ -378,7 +378,7 @@ std::unique_ptr<W8Monster> MonsterReadAllCycles(W8World* world, std::string_view
     glm::vec3 light_first;
     glm::vec3 light_second;
     W8SoundEvent* last_sound = 0;
-    int damage_stage = -1;
+    std::optional<int> damage_stage;
     int skin_stage = 0;
     bool skins_started = false;
 
@@ -521,8 +521,8 @@ std::unique_ptr<W8Monster> MonsterReadAllCycles(W8World* world, std::string_view
                    creates the base stage first, then swaps into that stage. */
                 EnsureMonsterBaseSkin(monster.get(), monster_name, damage_stage, skins_started);
                 fields >> old_name >> new_name;
-                if (damage_stage != -1 && !monster->ReplaceSkinTexture(
-                                              damage_stage, old_name.c_str(), new_name.c_str())) {
+                if (damage_stage && !monster->ReplaceSkinTexture(*damage_stage, old_name.c_str(),
+                                                                 new_name.c_str())) {
                     ShutdownWithErrorBox(fmt::format("The skin texture {} not found in monster {}!",
                                                      old_name, monster_name));
                 }
@@ -1667,12 +1667,12 @@ bool W8Monster::GetCycleMappedPosition(signed char cycle, int mapped_index, glm:
     srModelInstance* model = AnimObjDispatch(animation, 2, dispatch_value);
     if (model != 0) {
         stMeshModel* mesh = static_cast<stMeshModel*>(model->getModel());
-        int vertex = FindMappedIndexInMeshChain(&mesh, mapped_index);
-        if (mesh != 0 && vertex != -1) {
+        const auto vertex = FindMappedIndexInMeshChain(&mesh, mapped_index);
+        if (mesh != 0 && vertex) {
             glm::vec3* vertices = mesh->GetVertexLocations(dispatch_value, true, 0.0f);
             if (vertices != 0 && current_model != 0) {
                 auto rotation = current_model->getWorldSpaceRotation<glm::mat3>();
-                glm::vec3 local = vertices[vertex] * m_pRep->scale;
+                glm::vec3 local = vertices[*vertex] * m_pRep->scale;
                 glm::vec3 rotated = rotation * local;
                 glm::vec3 owner_position = GetPosition();
                 (*position) = glm::vec3(rotated.x + owner_position.x,
@@ -4081,9 +4081,9 @@ void W8Monster::GetMappedPosition(glm::vec3* position)
     if (instance != 0) {
         stMeshModel* mesh = static_cast<stMeshModel*>(instance->getModel());
         while (mesh != 0) {
-            int index = mesh->FindMappedIndex(0);
+            const auto index = mesh->FindMappedIndex(0);
 
-            if (index >= 0) {
+            if (index) {
                 glm::vec3* vertices;
                 if ((mesh->flags & W8_MESH_HAS_FRAME_STORAGE) == 0) {
                     vertices = mesh->getVertexLoc();
@@ -4093,7 +4093,7 @@ void W8Monster::GetMappedPosition(glm::vec3* position)
                 if (vertices != 0) {
                     glm::mat4 matrix;
 
-                    *position = vertices[index];
+                    *position = vertices[*index];
                     matrix = instance->getWorldSpaceMatrix<glm::mat4>();
                     *position = glm::vec3{glm::vec3(matrix * glm::vec4((*position), 1))};
                     return;
@@ -4454,15 +4454,15 @@ bool W8Monster::ReplaceSkinTexture(int stage, const char* old_name, const char* 
 /* Damage table names are the parsed skin name followed by its numeric stage.
    A frame either creates the table or attaches the already-created table. */
 // FUNCTION: WIZ8 0x004c6880
-int W8Monster::AddDamageStage(std::string_view base_name, int stage)
+std::optional<int> W8Monster::AddDamageStage(std::string_view base_name, int stage)
 {
-    int result = -1;
+    std::optional<int> result;
     std::vector<stModelInstance*> instances;
 
     const auto name = fmt::format("{}{}", base_name, stage);
     CollectModelInstances(instances);
     for (stModelInstance* instance : instances) {
-        if (instance->FindDamageStage(name.c_str()) == -1) {
+        if (!instance->FindDamageStage(name.c_str())) {
             result = instance->AddDamageStage(name.c_str());
         } else {
             result = instance->AddExistingDamageStage(name.c_str());

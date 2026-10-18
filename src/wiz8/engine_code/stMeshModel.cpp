@@ -336,10 +336,11 @@ void stMeshModel::ClearAutomapPolygonFilter()
    submits. Skin scans drop textures whose name starts with "blank"; a table
    not found among the skins uses the base/automap selection. */
 // FUNCTION: WIZ8 0x00473CD0
-srMeshModel::PolygonSelection stMeshModel::GetActivePolygons(int table, bool check_blanking)
+srMeshModel::PolygonSelection stMeshModel::GetActivePolygons(std::optional<int> table,
+                                                             bool check_blanking)
 {
     auto skin = std::find_if(skins.begin(), skins.end(),
-                             [table](const auto& skin) { return skin.id == table; });
+                             [table](const auto& skin) { return table && skin.id == *table; });
     auto& selection = skin != skins.end() ? skin->active_polygons : automap_polygons;
     auto& checked = skin != skins.end() ? skin->blanking_checked : automap_filter_active;
     if (!checked && check_blanking) {
@@ -375,13 +376,12 @@ void stMeshModel::SetMappedVertex(int vertex, short key)
 }
 
 // FUNCTION: WIZ8 0x004712d0
-int stMeshModel::FindMappedIndex(short key)
+std::optional<int> stMeshModel::FindMappedIndex(short key)
 {
-    if (key < 0) {
-        return -1;
-    }
+    if (key < 0) return std::nullopt;
     auto entry = mapped_vertices.find(key);
-    return entry != mapped_vertices.end() ? entry->second : -1;
+    if (entry == mapped_vertices.end()) return std::nullopt;
+    return entry->second;
 }
 
 void stMeshModel::AddPart(std::unique_ptr<stMeshModel> part)
@@ -482,7 +482,7 @@ unsigned char ReclaimDecompressedBytes(unsigned int needed, const stMeshModel* r
 }
 
 // FUNCTION: WIZ8 0x004736d0
-int stMeshModel::FindSkinTable(std::string_view name)
+std::optional<int> stMeshModel::FindSkinTable(std::string_view name)
 {
     for (const auto& skin : skins) {
         if (MeshNameEquals(name, skin.name)) {
@@ -491,7 +491,7 @@ int stMeshModel::FindSkinTable(std::string_view name)
             return skin.id;
         }
     }
-    return -1;
+    return std::nullopt;
 }
 
 // FUNCTION: WIZ8 0x00473720
@@ -505,18 +505,15 @@ MeshResources<srTexture>* stMeshModel::GetTextureTable(int table)
 /* Clone one polygon-texture table under an owned name. Table ids are the lowest
    free non-negative integer and remain stable independently of vector position. */
 // FUNCTION: WIZ8 0x00473260
-int stMeshModel::CreateSkinTable(std::string_view name, int base_table)
+std::optional<int> stMeshModel::CreateSkinTable(std::string_view name,
+                                                std::optional<int> base_table)
 {
-    if (FindSkinTable(name) != -1) {
-        return -1;
-    }
-    auto* source = GetTextureTable(base_table);
+    if (FindSkinTable(name)) return std::nullopt;
+    auto* source = base_table ? GetTextureTable(*base_table) : nullptr;
     if (source == nullptr) {
         source = getPolygonTextureTable(0, 0, false);
     }
-    if (source == nullptr) {
-        return -1;
-    }
+    if (source == nullptr) return std::nullopt;
     int table = 0;
     while (std::any_of(skins.begin(), skins.end(),
                        [table](const auto& skin) { return skin.id == table; })) {

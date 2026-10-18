@@ -41,9 +41,9 @@ public:
     void RenderShadow(srGERD& renderer, srMeshModel::TriMesh& mesh);
 
     stTextureAnim* FindMouthTexture(); /* 0x00481080 */
-    int AddDamageStage(const char* name);
-    int AddExistingDamageStage(const char* name);
-    int FindDamageStage(const char* name);
+    std::optional<int> AddDamageStage(const char* name);
+    std::optional<int> AddExistingDamageStage(const char* name);
+    std::optional<int> FindDamageStage(const char* name);
     unsigned char ReplaceDamageStageTexture(int stage, const char* old_name,
                                             const std::shared_ptr<srTexture>& replacement);
 
@@ -56,7 +56,7 @@ public:
     w8_ulong render_flags;
     w8_long mesh_index;
     unsigned int frame_index;
-    int damage_stage;
+    std::optional<int> damage_stage;
     std::vector<int> damage_stage_tables;
     int highlight_pass_mode;
     glm::vec3 light_scale;

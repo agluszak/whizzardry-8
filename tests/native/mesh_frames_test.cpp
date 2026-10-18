@@ -265,73 +265,74 @@ static bool skins_and_automap()
             base->set(1, visible);
             std::string cycle(400, 'c');
             std::string first_name = cycle + '0';
-            const int first = mesh.CreateSkinTable(first_name, -1);
-            REQUIRE(first == 0);
+            const auto first = mesh.CreateSkinTable(first_name, std::nullopt);
+            REQUIRE((first && *first == 0));
             first_name[0] = 'x';
             REQUIRE(mesh.skins.front().name ==
                     cycle + '0'); // Owned, not the caller's mutable name.
-            REQUIRE(mesh.CreateSkinTable(cycle + '0', -1) == -1);
-            const int second = mesh.CreateSkinTable("second1", first);
-            auto* second_textures = mesh.GetTextureTable(second);
-            REQUIRE((second == 1 && (*second_textures)[0] == blank));
-            const int third = mesh.CreateSkinTable("third2", second);
-            REQUIRE(!mesh.GetActivePolygons(second, false));
+            REQUIRE_FALSE(mesh.CreateSkinTable(cycle + '0', std::nullopt));
+            const auto second = mesh.CreateSkinTable("second1", *first);
+            REQUIRE((second && *second == 1));
+            auto* second_textures = mesh.GetTextureTable(*second);
+            REQUIRE((*second_textures)[0] == blank);
+            const auto third = mesh.CreateSkinTable("third2", *second);
+            REQUIRE_FALSE(mesh.GetActivePolygons(second, false));
             auto selection = mesh.GetActivePolygons(second, true);
             REQUIRE((selection && selection->size() == 2 && (*selection)[0] == 1 &&
                      (*selection)[1] == 2));
             REQUIRE(mesh.GetActivePolygons(second, true)->data() == selection->data());
-            mesh.RemoveSkinTable(0);
+            mesh.RemoveSkinTable(*first);
             REQUIRE(mesh.FindSkinTable("SECOND1") ==
                     second); // ID is no longer its vector position.
-            REQUIRE(mesh.GetTextureTable(second) == second_textures);
+            REQUIRE(mesh.GetTextureTable(*second) == second_textures);
             REQUIRE(mesh.GetActivePolygons(second, true)->data() == selection->data());
             const std::array<char, 9> bounded_name{'t', 'h', 'i', 'r', 'd', '2', 'X', 'X', 'X'};
             REQUIRE(mesh.FindSkinTable(std::string_view(bounded_name.data(), 6)) == third);
-            REQUIRE(mesh.CreateSkinTable("reused3", -1) == 0);
-            REQUIRE(mesh.GetTextureTable(second) ==
+            REQUIRE(mesh.CreateSkinTable("reused3", std::nullopt) == 0);
+            REQUIRE(mesh.GetTextureTable(*second) ==
                     second_textures); // Adding another skin does not move tables.
-            REQUIRE(mesh.CreateSkinTable("", -1) == 3);
-            REQUIRE(mesh.CreateSkinTable(cycle + '0', -1) == 4);
-            REQUIRE(mesh.CreateSkinTable(cycle + '1', -1) == 5);
+            REQUIRE(mesh.CreateSkinTable("", std::nullopt) == 3);
+            REQUIRE(mesh.CreateSkinTable(cycle + '0', std::nullopt) == 4);
+            REQUIRE(mesh.CreateSkinTable(cycle + '1', std::nullopt) == 5);
             mesh.RemoveSkinTablesForCycle(cycle);
-            REQUIRE(
-                (mesh.FindSkinTable(cycle + '0') == -1 && mesh.FindSkinTable(cycle + '1') == -1));
+            REQUIRE((!mesh.FindSkinTable(cycle + '0') && !mesh.FindSkinTable(cycle + '1')));
             REQUIRE(mesh.FindSkinTable("") ==
                     3); // Empty names must not underflow during cycle removal.
             REQUIRE(mesh.FindSkinTable("SECOND1") == second);
 
             const std::array<std::string_view, 1> excluded{visible->getName()};
             mesh.ApplyAutomapPolygonFilter(excluded);
-            selection = mesh.GetActivePolygons(-1, false);
+            selection = mesh.GetActivePolygons(std::nullopt, false);
             REQUIRE((selection && selection->size() == 2 && (*selection)[0] == 0 &&
                      (*selection)[1] == 2));
             mesh.ApplyAutomapPolygonFilter({});
-            REQUIRE(!mesh.GetActivePolygons(-1, true)); // All selected.
+            REQUIRE(!mesh.GetActivePolygons(std::nullopt, true)); // All selected.
             mesh.ClearAutomapPolygonFilter();
-            REQUIRE(!mesh.GetActivePolygons(-1, false));
-            selection = mesh.GetActivePolygons(-1, true);
+            REQUIRE(!mesh.GetActivePolygons(std::nullopt, false));
+            selection = mesh.GetActivePolygons(std::nullopt, true);
             REQUIRE((selection && selection->size() == 2 && (*selection)[0] == 1 &&
                      (*selection)[1] == 2));
             base->set(1, blank);
             base->set(2, blank);
             const std::array<std::string_view, 1> exclude_all{"BLANK-BODY"};
             mesh.ApplyAutomapPolygonFilter(exclude_all);
-            selection = mesh.GetActivePolygons(-1, true);
+            selection = mesh.GetActivePolygons(std::nullopt, true);
             REQUIRE((selection &&
                      selection->empty())); // None selected is NOT the unfiltered null case.
             REQUIRE((mesh.automap_polygons && mesh.automap_polygons->empty()));
             mesh.ClearAutomapPolygonFilter();
-            const auto empty_automap = mesh.GetActivePolygons(-1, true);
+            const auto empty_automap = mesh.GetActivePolygons(std::nullopt, true);
             REQUIRE(empty_automap);
             REQUIRE(empty_automap->empty());
-            const int all_blank = mesh.CreateSkinTable("all-blank", -1);
+            const auto all_blank = mesh.CreateSkinTable("all-blank", std::nullopt);
             const auto empty_skin = mesh.GetActivePolygons(all_blank, true);
             REQUIRE(empty_skin);
             REQUIRE(empty_skin->empty());
             mesh.SetMappedVertex(7, 10);
             mesh.SetMappedVertex(9, 10);
             REQUIRE((mesh.FindMappedIndex(10) == 9 && mesh.mapped_vertices.size() == 1));
-            REQUIRE((mesh.FindMappedIndex(-1) == -1 && mesh.FindMappedIndex(11) == -1));
+            REQUIRE_FALSE(mesh.FindMappedIndex(-1));
+            REQUIRE_FALSE(mesh.FindMappedIndex(11));
         }
         REQUIRE(blank.use_count() == 1);
     }

@@ -57,18 +57,18 @@ public:
                                                 const glm::vec3& eye, bool positive_winding,
                                                 float threshold);
 
-    int FindMappedIndex(short key); /* 0x004712D0 */
+    std::optional<int> FindMappedIndex(short key); /* 0x004712D0 */
     void SetMappedVertex(int vertex, short key);
     void AddPart(std::unique_ptr<stMeshModel> part);
     /* The mesh submitted after this one in its model, or null. */
     stMeshModel* Next() const;
     short* GetVertex(unsigned int frame); /* 0x00471AA0 */
-    int FindSkinTable(std::string_view name);
-    int CreateSkinTable(std::string_view name, int base_table);
+    std::optional<int> FindSkinTable(std::string_view name);
+    std::optional<int> CreateSkinTable(std::string_view name, std::optional<int> base_table);
     MeshResources<srTexture>* GetTextureTable(int table); /* 0x00473720 */
     /* No selection draws all polygons; an engaged empty span draws none.
        The view is borrowed until its skin or automap filter is changed. */
-    PolygonSelection GetActivePolygons(int table, bool check_blanking);
+    PolygonSelection GetActivePolygons(std::optional<int> table, bool check_blanking);
     void RemoveSkinTable(int index);
     void RemoveSkinTablesForCycle(std::string_view cycle_name);
     // Borrowed frame caches; interpolated positions reuse the model's lerp buffer.

@@ -80,8 +80,8 @@ public:
 private:
     int m_entry_spacing_lines;
     int m_behavior_flags;
-    int m_line_height_override;
-    int m_selected_visible_entry;
+    std::optional<unsigned int> m_line_height_override;
+    std::optional<int> m_selected_visible_entry;
     std::optional<int> m_highlighted_entry;
     bool m_relayout_needed;
     W8DialogueCategory m_category_filter = W8_DIALOGUE_CATEGORY_ALL;

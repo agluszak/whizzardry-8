@@ -877,7 +877,7 @@ void W8GrCycle::UpdateParticleAttachments()
     glm::dmat3 world;
     glm::vec3 offset;
     glm::vec3 placed;
-    int vertex;
+    std::optional<int> vertex;
     float scale_x;
     float scale_y;
     float scale_z;
@@ -920,23 +920,21 @@ void W8GrCycle::UpdateParticleAttachments()
             short key = particle->attachment_key;
 
             if (key < 0) {
-                vertex = -1;
+                vertex.reset();
             } else {
                 stMeshModel* scan = pMeshModel;
 
                 do {
                     vertex = scan->FindMappedIndex(key);
-                    if (vertex != -1) {
-                        break;
-                    }
+                    if (vertex) break;
                     scan = scan->Next();
                 } while (scan != 0);
                 pMeshModel = scan;
             }
         } else {
-            vertex = -1;
+            vertex.reset();
         }
-        if (pMeshModel == 0 || vertex == -1) {
+        if (pMeshModel == 0 || !vertex) {
             offset = attachment->position;
         } else {
             glm::vec3* locations;
@@ -946,10 +944,10 @@ void W8GrCycle::UpdateParticleAttachments()
             } else {
                 locations = pMeshModel->GetVertexLocations(pRep->subcycle, true, 0);
             }
-            if (vertex >= pMeshModel->vertex_location_count) {
+            if (*vertex >= pMeshModel->vertex_location_count) {
                 vertex = 0;
             }
-            offset = locations[vertex];
+            offset = locations[*vertex];
         }
         offset.x *= scale_x;
         offset.y *= scale_y;
@@ -1233,21 +1231,19 @@ void RegisterGrCycle(std::string_view name, W8GrCycle* cycle)
 }
 
 // FUNCTION: WIZ8 0x004a8d10
-int FindMappedIndexInMeshChain(stMeshModel** mesh, int key)
+std::optional<int> FindMappedIndexInMeshChain(stMeshModel** mesh, int key)
 {
-    int result;
+    std::optional<int> result;
     stMeshModel* current;
 
     if (key < 0 || mesh == 0 || *mesh == 0) {
-        return -1;
+        return std::nullopt;
     }
 
     current = *mesh;
     while (current != 0) {
         result = current->FindMappedIndex(static_cast<short>(key));
-        if (result != -1) {
-            break;
-        }
+        if (result) break;
         current = current->Next();
     }
 

@@ -421,12 +421,14 @@ TEST_CASE("Mesh construction finishes material partitions, UV seams and vertex m
     REQUIRE(part->polygon_count == 1);
     REQUIRE(head->vertex_location_count == 15); // Material split and back faces.
     REQUIRE(head->getVertexMaterialTable(0, srMeshModel::SIDE_FRONT, false));
-    REQUIRE(head->FindMappedIndex(10) >= 0);
-    REQUIRE(head->getVertexLoc()[head->FindMappedIndex(10)] == glm::vec3(500, 0, 0));
-    REQUIRE(head->FindMappedIndex(20) == -1);
-    REQUIRE(part->FindMappedIndex(10) == -1);
-    REQUIRE(part->FindMappedIndex(20) >= 0);
-    REQUIRE(part->getVertexLoc()[part->FindMappedIndex(20)] == glm::vec3(2000, 0, 0));
+    const auto head_vertex = head->FindMappedIndex(10);
+    const auto part_vertex = part->FindMappedIndex(20);
+    REQUIRE(head_vertex);
+    REQUIRE(head->getVertexLoc()[*head_vertex] == glm::vec3(500, 0, 0));
+    REQUIRE_FALSE(head->FindMappedIndex(20));
+    REQUIRE_FALSE(part->FindMappedIndex(10));
+    REQUIRE(part_vertex);
+    REQUIRE(part->getVertexLoc()[*part_vertex] == glm::vec3(2000, 0, 0));
     // UV seams follow the optimized topology while retaining both authored UVs.
     bool seam = false;
     for (int polygon = 0; polygon < head->polygon_count; ++polygon) {
@@ -482,10 +484,11 @@ TEST_CASE("Expanded geometry keeps runtime marker indices beyond the wire index 
     auto instance = ReadSingleLevelMesh(*file, {});
     REQUIRE(instance);
     auto* mesh = static_cast<stMeshModel*>(instance->getModel());
-    const int marker = mesh->FindMappedIndex(10);
-    REQUIRE(marker >= split_faces * 6);
-    REQUIRE(marker < mesh->vertex_location_count);
-    REQUIRE(mesh->getVertexLoc()[marker] == glm::vec3(500, 0, 0));
+    const auto marker = mesh->FindMappedIndex(10);
+    REQUIRE(marker);
+    REQUIRE(*marker >= split_faces * 6);
+    REQUIRE(*marker < mesh->vertex_location_count);
+    REQUIRE(mesh->getVertexLoc()[*marker] == glm::vec3(500, 0, 0));
 }
 
 TEST_CASE("Geometry sidedness does not split shared renderer material state")

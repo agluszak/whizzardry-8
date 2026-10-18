@@ -152,7 +152,7 @@ void stLevel::process(const ProcessInfo& info, e_processType)
                 mesh.poly_shaders[0] = 0;
             }
             if (!mesh.active_polygons) {
-                const auto active = model->GetActivePolygons(-1, false);
+                const auto active = model->GetActivePolygons(std::nullopt, false);
                 if (active) {
                     mesh.active_polygons = active;
                 }

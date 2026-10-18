@@ -56,8 +56,8 @@ stTextureAnim* stModelInstance::FindMouthTexture()
     stMeshModel* mesh = static_cast<stMeshModel*>(getModel());
     while (mesh != nullptr) {
         MeshResources<srTexture>* textures =
-            damage_stage == -1 ? mesh->getPolygonTextureTable(0, 0, false)
-                               : mesh->GetTextureTable(damage_stage_tables[damage_stage]);
+            damage_stage ? mesh->GetTextureTable(damage_stage_tables[*damage_stage])
+                         : mesh->getPolygonTextureTable(0, 0, false);
         if (textures != nullptr) {
             for (int polygon = 0; polygon < mesh->polygon_count; ++polygon) {
                 auto* animation = dynamic_cast<stTextureAnim*>((*textures)[polygon].get());
@@ -73,7 +73,7 @@ stTextureAnim* stModelInstance::FindMouthTexture()
 }
 
 // FUNCTION: WIZ8 0x00480790
-int stModelInstance::FindDamageStage(const char* name)
+std::optional<int> stModelInstance::FindDamageStage(const char* name)
 {
     stMeshModel* mesh = static_cast<stMeshModel*>(getModel());
     return mesh->FindSkinTable(name);
@@ -108,17 +108,18 @@ void stModelInstance::traverse(TraverseInfo& info)
 /* Add a stage by cloning the first stage's table across the complete linked
    mesh chain. The instance stores the table id shared by that chain. */
 // FUNCTION: WIZ8 0x00480560
-int stModelInstance::AddDamageStage(const char* name)
+std::optional<int> stModelInstance::AddDamageStage(const char* name)
 {
     stMeshModel* mesh = static_cast<stMeshModel*>(getModel());
 
-    if (mesh->FindSkinTable(name) != -1) {
-        return -1;
-    }
+    if (mesh->FindSkinTable(name)) return std::nullopt;
 
     int stage = static_cast<int>(damage_stage_tables.size());
-    int base_table = stage > 0 ? damage_stage_tables[0] : -1;
-    damage_stage_tables.push_back(mesh->CreateSkinTable(name, base_table));
+    std::optional<int> base_table;
+    if (stage > 0) base_table = damage_stage_tables[0];
+    const auto table = mesh->CreateSkinTable(name, base_table);
+    if (!table) return std::nullopt;
+    damage_stage_tables.push_back(*table);
     for (mesh = mesh->Next(); mesh != 0; mesh = mesh->Next()) {
         mesh->CreateSkinTable(name, base_table);
     }
@@ -126,17 +127,15 @@ int stModelInstance::AddDamageStage(const char* name)
 }
 
 // FUNCTION: WIZ8 0x00480670
-int stModelInstance::AddExistingDamageStage(const char* name)
+std::optional<int> stModelInstance::AddExistingDamageStage(const char* name)
 {
     stMeshModel* mesh = static_cast<stMeshModel*>(getModel());
-    int table = mesh->FindSkinTable(name);
+    const auto table = mesh->FindSkinTable(name);
 
-    if (table == -1) {
-        return -1;
-    }
+    if (!table) return std::nullopt;
 
     int stage = static_cast<int>(damage_stage_tables.size());
-    damage_stage_tables.push_back(table);
+    damage_stage_tables.push_back(*table);
     return stage;
 }
 
@@ -336,7 +335,7 @@ stModelInstance::stModelInstance(srNode* parent) : srModelInstance(static_cast<s
     if (parent != 0) {
         setParent(parent, 1);
     }
-    damage_stage = -1;
+    damage_stage.reset();
     light_scale = glm::vec3(1);
     diffuse_scale_enabled = false;
     diffuse_scale = 0.0f;
@@ -438,9 +437,10 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
     const auto selectPolygons = [&](stMeshModel& linked, srMeshModel::TriMesh& selected,
                                     bool replace_damage_texture) {
         if (selected.active_polygons) return;
-        const int table = damage_stage >= 0 ? damage_stage_tables.at(damage_stage) : -1;
-        if (replace_damage_texture && damage_stage >= 0)
-            selected.poly_textures[0][0] = linked.GetTextureTable(table);
+        const auto table =
+            damage_stage ? std::optional<int>{damage_stage_tables.at(*damage_stage)} : std::nullopt;
+        if (replace_damage_texture && table)
+            selected.poly_textures[0][0] = linked.GetTextureTable(*table);
         if (const auto active = linked.GetActivePolygons(table, true))
             selected.active_polygons = active;
     };

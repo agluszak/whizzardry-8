@@ -178,7 +178,7 @@ public:
     void SetDamageStage(int stage);
     int GetDamageStageCount();
     bool ReplaceSkinTexture(int stage, const char* old_name, const char* new_name);
-    int AddDamageStage(std::string_view base_name, int stage);
+    std::optional<int> AddDamageStage(std::string_view base_name, int stage);
     void RemoveCycleSkinTables();
     void RandomizeAppearanceAndMotion();
     bool IsRenderable(bool alternate);
