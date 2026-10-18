@@ -3,6 +3,7 @@
 #include <array>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "compat/compiler.h"
@@ -108,8 +109,8 @@ extern bool g_environment_colour_refresh;
 extern float g_view_distance;
 extern bool g_environment_time_enabled;
 /* Half the Sun-to-Moon distance, which is the radius of the circle the active
-   celestial prop travels; -1 until InitializeLevelEnvironment measures it. */
-extern float g_celestial_orbit_radius;
+   celestial prop travels; disengaged until InitializeLevelEnvironment measures it. */
+extern std::optional<float> g_celestial_orbit_radius;
 /* The level's "Moon" prop. */
 extern W8Prop* g_moon_prop;
 /* The level's "Sun" prop. */

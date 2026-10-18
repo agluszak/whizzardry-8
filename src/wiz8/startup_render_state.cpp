@@ -38,7 +38,7 @@ glm::vec3 g_celestial_origin;
 // GLOBAL: WIZ8 0x0060A390
 float g_view_distance = 12.0f;
 // GLOBAL: WIZ8 0x0060A3A4
-float g_celestial_orbit_radius = -1.0f;
+std::optional<float> g_celestial_orbit_radius;
 // GLOBAL: WIZ8 0x0065AD78
 glm::vec3 g_light_direction{1.0f};
 

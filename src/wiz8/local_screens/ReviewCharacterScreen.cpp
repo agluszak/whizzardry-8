@@ -396,10 +396,11 @@ void DrawCampResistances(void)
 UiResult HandleCampSpellList(const UiPointerEvent& event, int realm)
 {
 
-    int row = (event.local.y - 1) / 13;
+    std::optional<int> row;
+    const int candidate_row = (event.local.y - 1) / 13;
     const int visible = std::min(8, int(g_review_character->skill_unlocks[0x1c + realm]) -
                                         int(g_camp_screen->learned_spells.scroll[realm]));
-    if (!event.inside || row < 0 || row >= visible) row = -1;
+    if (event.inside && candidate_row >= 0 && candidate_row < visible) row = candidate_row;
     if (row != g_camp_screen->selected_spell_row || event.action == UiPointerAction::Enter ||
         event.action == UiPointerAction::Leave) {
         g_camp_screen->selected_spell_row = row;
@@ -407,10 +408,10 @@ UiResult HandleCampSpellList(const UiPointerEvent& event, int realm)
     }
     if (event.action == UiPointerAction::Wheel) {
         g_camp_screen->spell_ranges[realm]->AdjustValue(event.wheel);
-    } else if (event.action == UiPointerAction::Up && row != -1 && event.captured_buttons) {
+    } else if (event.action == UiPointerAction::Up && row && event.captured_buttons) {
         const auto spell =
             g_camp_screen->learned_spells
-                .spell_ids_by_realm[realm][g_camp_screen->learned_spells.scroll[realm] + row];
+                .spell_ids_by_realm[realm][g_camp_screen->learned_spells.scroll[realm] + *row];
         AfterUiDispatch([spell] { OpenSpellInfoDialog(spell); });
     }
     return UiResult::Handled;
@@ -1515,7 +1516,7 @@ void ActivateCampPage(void)
         g_camp_screen->spell_input.setEnabled(true);
         BuildLearnedSpellState(&state->learned_spells, g_review_character);
         RefreshCampSpellRanges();
-        state->selected_spell_row = -1;
+        state->selected_spell_row.reset();
         break;
     default:
         break;

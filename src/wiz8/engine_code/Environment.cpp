@@ -160,24 +160,24 @@ void AdvanceEnvironmentTime(int elapsed)
         angle = (g_status.game_time_ms - 79200000) * arc * 3.9682539682539686e-08;
     }
 
-    glm::vec3 direction;
-    direction = glm::vec3(0.0, g_celestial_orbit_radius, 0.0);
+    if (g_celestial_orbit_radius) {
+        glm::vec3 direction(0.0, *g_celestial_orbit_radius, 0.0);
 
-    glm::mat3 rotation;
-    rotation = glm::mat3(1);
+        glm::mat3 rotation(1);
 
-    angle -= 3.141592653589793 * (1.0f / 180.0f) * 40.0;
-    rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 0, 1)));
+        angle -= 3.141592653589793 * (1.0f / 180.0f) * 40.0;
+        rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 0, 1)));
 
-    glm::vec3 position = rotation * direction + g_celestial_origin;
+        glm::vec3 position = rotation * direction + g_celestial_origin;
 
-    W8Prop* moving = day ? g_sun_prop : g_moon_prop;
-    W8Prop* opposite = day ? g_moon_prop : g_sun_prop;
-    if (moving != 0) {
-        moving->Rep()->SetLocation(&position);
-    }
-    if (opposite != 0) {
-        opposite->Rep()->SetLocation(&g_celestial_origin);
+        W8Prop* moving = day ? g_sun_prop : g_moon_prop;
+        W8Prop* opposite = day ? g_moon_prop : g_sun_prop;
+        if (moving != 0) {
+            moving->Rep()->SetLocation(&position);
+        }
+        if (opposite != 0) {
+            opposite->Rep()->SetLocation(&g_celestial_origin);
+        }
     }
 
     unsigned int phase = ((g_status.game_time_ms / 1000U) << 8) / 86400U;
@@ -570,8 +570,7 @@ void RefreshFogRanges(W8World& world)
 }
 
 /* Clear the whole ambient block. The six stores together are what makes them one
-   group; the orbit radius last, at minus one, which is the "not measured yet"
-   value InitializeLevelEnvironment tests before re-deriving the sky. */
+   group; reset the orbit radius so InitializeLevelEnvironment can re-derive it. */
 // FUNCTION: WIZ8 0x004826b0
 void ResetEnvironment(void)
 {
@@ -580,7 +579,7 @@ void ResetEnvironment(void)
     g_sky_gradient_animations[2].reset();
     g_sun_prop = 0;
     g_moon_prop = 0;
-    g_celestial_orbit_radius = -1.0f;
+    g_celestial_orbit_radius.reset();
 }
 
 /* The direction light comes from. Setting it also hands the new direction to
@@ -759,7 +758,7 @@ void InitializeLevelEnvironment(void)
         g_sun_prop = FindPropByName(GetSecondaryWorld(), "Sun");
         g_moon_prop = FindPropByName(GetSecondaryWorld(), "Moon");
     }
-    if (g_celestial_orbit_radius < 0.0f) {
+    if (!g_celestial_orbit_radius) {
         if (g_sun_prop == 0 || g_moon_prop == 0) {
             g_sun_prop = 0;
             g_moon_prop = 0;

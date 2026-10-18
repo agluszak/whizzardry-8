@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string_view>
 #include <vector>
 
@@ -176,7 +177,7 @@ struct W8CampScreenState {
     int effect_visible_lines;
     int effect_scroll;
     std::vector<W8CampEffectEntry> effect_list; /* W8CampEffectEntry rows */
-    int selected_spell_row;
+    std::optional<int> selected_spell_row;
     unsigned char unknown_d38[7];
     W8CampItemAction item_action;
     /* 0xd40[0]: mouse is over the reviewed portrait; drives the highlight

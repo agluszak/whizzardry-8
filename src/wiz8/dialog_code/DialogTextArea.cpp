@@ -246,7 +246,7 @@ W8DialogTextEntry* W8DialogTextArea::GetEntry(unsigned int index)
 std::optional<int> W8DialogTextArea::GetOwningEntryIndex(int visible_index)
 {
     return visible_index >= 0 && visible_index < static_cast<int>(m_visible_lines.size())
-               ? m_visible_lines[visible_index]
+               ? std::optional<int>(m_visible_lines[visible_index])
                : std::nullopt;
 }
 
