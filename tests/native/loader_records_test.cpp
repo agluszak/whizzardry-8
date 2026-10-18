@@ -230,6 +230,7 @@ static void wgd_banks()
     REQUIRE((load("secondary.wgd", 1)));
     REQUIRE((data.VerticesCount() == 6 && data.SurfacesCount() == 2));
     REQUIRE((data.FindPointerByName("Door") == 1 && data.StatesCount() == 2));
+    REQUIRE(data.FindPointerByName("Missing") == std::nullopt);
     std::size_t operations;
     {
         FileFaults trace;

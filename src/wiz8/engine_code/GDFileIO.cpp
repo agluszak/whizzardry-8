@@ -270,13 +270,13 @@ unsigned char W8GameData::ReadWGDList(wiz8::File& file, int poly_type)
     return 1;
 }
 
-/* Answers the 1-based ordinal of the name-table entry matching `name`,
-   else -1. */
+/* Answers the 1-based ordinal of the name-table entry matching `name`, if any. */
 // FUNCTION: WIZ8 0x004482A0
-int W8GameData::FindPointerByName(const char* name)
+std::optional<int> W8GameData::FindPointerByName(const char* name)
 {
     const auto found = std::find(interface_names.begin(), interface_names.end(), name);
-    return found == interface_names.end() ? -1 : int(found - interface_names.begin()) + 1;
+    if (found == interface_names.end()) return std::nullopt;
+    return int(found - interface_names.begin()) + 1;
 }
 
 void W8GameData::AddTriggerTriangle(int trigger_index, int vertex_0, int vertex_1, int vertex_2)
