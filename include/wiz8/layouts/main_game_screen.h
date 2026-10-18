@@ -103,6 +103,13 @@ struct W8PortraitHighlight {
 static const unsigned int W8_MAIN_REDRAW_FRAME = 0x80000000U;
 static const unsigned int W8_MAIN_REDRAW_ALL = 0xffffffffU;
 
+enum W8PortraitAssayHoverMode : int {
+    W8_PORTRAIT_ASSAY_HOVER_NONE = 0,
+    W8_PORTRAIT_ASSAY_HOVER_PRIMARY_WEAPON = 1,
+    W8_PORTRAIT_ASSAY_HOVER_SECONDARY_WEAPON = 2,
+    W8_PORTRAIT_ASSAY_HOVER_TWO_HANDED_WEAPON = 3
+};
+
 struct W8LevelRuntimeBlock {
     /* Owned notice/list paint scratch, reused by the monster-list formatter. */
     std::string text_paint_scratch;
@@ -129,7 +136,7 @@ struct W8LevelRuntimeBlock {
     int combat_action_hover_party_slot = -1;
     /* PortraitAssaySidebarInput hover zone — 1 upper weapon
        row, 2 lower, 3 assayable item; Screens resets it to 0. */
-    int portrait_assay_hover_mode;
+    W8PortraitAssayHoverMode portrait_assay_hover_mode;
     int held_item_display = -1;
     int text_content_region;
     int dialogue_content_region;

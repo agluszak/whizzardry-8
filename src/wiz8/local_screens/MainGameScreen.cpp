@@ -4750,7 +4750,7 @@ UiResult PortraitAssaySidebarInput(const UiPointerEvent& event, HitTarget& targe
     if (event.action != UiPointerAction::Enter &&
         (event.action != UiPointerAction::Up || event.captured_buttons))
         PlayButtonSound(event.action);
-    int previous_mode = g_level_block->portrait_assay_hover_mode;
+    W8PortraitAssayHoverMode previous_mode = g_level_block->portrait_assay_hover_mode;
     int slot = id;
     W8Character* character;
     W8ItemInstance* item;
@@ -4764,12 +4764,12 @@ UiResult PortraitAssaySidebarInput(const UiPointerEvent& event, HitTarget& targe
     item_id = character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo;
     if (item_id == -1 || (g_item_records[item_id].flags & W8_ITEM_FLAG_TWO_HANDED) == 0) {
         if (event.local.y < 0x19) {
-            g_level_block->portrait_assay_hover_mode = 1;
+            g_level_block->portrait_assay_hover_mode = W8_PORTRAIT_ASSAY_HOVER_PRIMARY_WEAPON;
         } else {
-            g_level_block->portrait_assay_hover_mode = 2;
+            g_level_block->portrait_assay_hover_mode = W8_PORTRAIT_ASSAY_HOVER_SECONDARY_WEAPON;
         }
     } else {
-        g_level_block->portrait_assay_hover_mode = 3;
+        g_level_block->portrait_assay_hover_mode = W8_PORTRAIT_ASSAY_HOVER_TWO_HANDED_WEAPON;
     }
 
     if (previous_mode != g_level_block->portrait_assay_hover_mode) {
@@ -4814,13 +4814,13 @@ UiResult PortraitAssaySidebarInput(const UiPointerEvent& event, HitTarget& targe
         return UiResult::Handled;
     }
     {
-        int mode = g_level_block->portrait_assay_hover_mode;
-        if (mode != 1) {
-            if (mode == 2) {
+        W8PortraitAssayHoverMode mode = g_level_block->portrait_assay_hover_mode;
+        if (mode != W8_PORTRAIT_ASSAY_HOVER_PRIMARY_WEAPON) {
+            if (mode == W8_PORTRAIT_ASSAY_HOVER_SECONDARY_WEAPON) {
                 item = &character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON];
                 goto open_assay;
             }
-            if (mode != 3) {
+            if (mode != W8_PORTRAIT_ASSAY_HOVER_TWO_HANDED_WEAPON) {
                 return UiResult::Handled;
             }
         }

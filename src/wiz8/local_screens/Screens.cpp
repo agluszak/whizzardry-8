@@ -302,7 +302,7 @@ void InitializeMainGameLevelBlock(void)
     g_level_block->camera_mode = 7;
     g_level_block->highlight = {};
     g_level_block->combat_action_hover_party_slot = -1;
-    g_level_block->portrait_assay_hover_mode = 0;
+    g_level_block->portrait_assay_hover_mode = W8_PORTRAIT_ASSAY_HOVER_NONE;
     g_level_block->held_item_display = -1;
     g_level_block->highlight_row = -1;
     g_level_block->highlight_graphic = 0;
