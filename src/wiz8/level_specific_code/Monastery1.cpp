@@ -118,11 +118,12 @@ bool OnCoffinlidgActivated(Trigger* trigger)
 // FUNCTION: WIZ8 0x004DCB10
 bool OnWheelStarActivated(Trigger* trigger)
 {
-    if (GetItemInHand() != 0x24c) {
+    const auto item = GetItemInHand();
+    if (item != 0x24c) {
         ShowLevelMessage(0x22);
         g_trigger_feedback = true;
         return false;
     }
-    RemovePartyItemByID(GetItemInHand(), false);
+    RemovePartyItemByID(*item, false);
     return true;
 }

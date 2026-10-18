@@ -30,7 +30,7 @@ extern W8Skill g_item_spell_presentation[11];
    two alternate-set hand slots have none, which is exactly the value the
    bound-item predicates refuse to hold a binding behind. */
 extern int g_equip_slot_icons[12];
-int GetItemInHand(void);
+std::optional<int> GetItemInHand(void);
 
 // The equipment-dependent inputs shared by committed and hypothetical attacks.
 struct W8HandAttack;

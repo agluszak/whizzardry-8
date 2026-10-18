@@ -102,7 +102,7 @@ bool Trynnie2MeatBox(Trigger* pTrigger)
 {
     W8MonsterGroup* group;
     W8MonsterInfo* info;
-    int item_id;
+    std::optional<int> item_id;
 
     group = FindFirstMonsterByID(0x1d4);
     if (group == 0 || !g_status.item_in_cursor) {

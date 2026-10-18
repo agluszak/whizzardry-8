@@ -88,10 +88,10 @@ unsigned int GetItemUnitWeight(const W8ItemInstance* item)
 }
 
 // FUNCTION: WIZ8 0x0051b9e0
-int GetItemInHand(void)
+std::optional<int> GetItemInHand(void)
 {
-    if (!g_status.item_in_cursor) {
-        return -1;
+    if (!g_status.item_in_cursor || g_status.item_in_hand.iItemNo == -1) {
+        return std::nullopt;
     }
     return g_status.item_in_hand.iItemNo;
 }

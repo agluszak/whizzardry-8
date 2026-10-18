@@ -258,7 +258,7 @@ bool OnSentryTriggerActivated(Trigger* trigger)
 bool OnEwaxxDoor03Activated(Trigger* trigger)
 {
     if (g_status.item_in_cursor) {
-        int item_id = GetItemInHand();
+        const auto item_id = GetItemInHand();
         if (item_id >= 0x268 && item_id <= 0x26e) {
             return true;
         }

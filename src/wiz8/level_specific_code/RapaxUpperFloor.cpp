@@ -43,7 +43,7 @@ bool RapaxUpperFloorAirBox(Trigger* pTrigger)
     glm::vec3 entity_position;
     glm::vec3 position;
     W8WorldItem* world_item;
-    int item_id;
+    std::optional<int> item_id;
     int var_id;
 
     if (g_status.item_in_cursor) {
@@ -64,7 +64,7 @@ bool RapaxUpperFloorAirBox(Trigger* pTrigger)
                 if (FindEntityByName("NP_SlipItem", &entity_position, 0, 0)) {
                     position = entity_position;
                     world_item = AddWorldItem(SpawnItem(
-                        item_id, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+                        *item_id, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
                     if (world_item != 0) {
                         ActivateItem(world_item);
                     }
@@ -81,10 +81,10 @@ bool RapaxUpperFloorAirBox(Trigger* pTrigger)
             }
             var_id = GetLocationVarIDByName("TMakeTreasureNumber");
             if (var_id == -1) {
-                CreateLocationVar("TMakeTreasureNumber", item_id);
+                CreateLocationVar("TMakeTreasureNumber", *item_id);
                 return true;
             }
-            SetTriggerVariableByName("TMakeTreasureNumber", item_id);
+            SetTriggerVariableByName("TMakeTreasureNumber", *item_id);
             return true;
         }
         ShowString(g_localized_strings[0x96a]);

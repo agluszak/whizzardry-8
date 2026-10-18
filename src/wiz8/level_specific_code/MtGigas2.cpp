@@ -97,7 +97,7 @@ bool MtGigas2Train(Trigger* pTrigger)
 {
     W8NpcState* npc;
     W8ItemInstance* item;
-    int item_id;
+    std::optional<int> item_id;
     int value;
 
     if (gXStatus.fNpcDialogueMode) {
@@ -105,7 +105,6 @@ bool MtGigas2Train(Trigger* pTrigger)
     }
     npc = GetNpcStateByKind(0x5b);
     item = 0;
-    item_id = 0;
     if (g_status.item_in_cursor) {
         item = &g_status.item_in_hand;
         item_id = GetItemInHand();
