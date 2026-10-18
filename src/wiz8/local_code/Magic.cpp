@@ -1153,8 +1153,7 @@ void LearnSpellFromItem(W8Character* character, W8ItemInstance* item)
         }
     }
     EmptyItemRecord(item, character, true);
-    QueueCharacterEvent(character, g_learn_sound, 0, kCharacterEventNoFlags,
-                        kCharacterEventFullVolume);
+    QueueCharacterEvent(character, g_learn_sound, 0, kCharacterEventFullVolume);
 }
 
 /* Eight is not a power level but the request to cast at the highest one the
@@ -2136,8 +2135,7 @@ bool ValidateSpellTarget(int party_slot, int spell_id, unsigned int power, bool 
     if (!valid && (!gXStatus.fCombatMode || !MonsterCanAimSpell(spell_id) ||
                    CurrentLevelPopulation().monster_roster.hostileCombatCount() != 0 ||
                    !g_combat_state->enemies_engaged)) {
-        QueueCharacterEvent(&g_status.buffers.Char[party_slot], 0x35, 0, kCharacterEventNoFlags,
-                            kCharacterEventFullVolume);
+        QueueCharacterEvent(&g_status.buffers.Char[party_slot], 0x35, 0, kCharacterEventFullVolume);
     }
     return valid;
 }
@@ -2656,7 +2654,7 @@ finish_difficulty_adjustment:
         } else {
             index = g_special_event5;
         }
-        QueueCharacterEvent(character, index, 0, kCharacterEventNoFlags, kCharacterEventFullVolume);
+        QueueCharacterEvent(character, index, 0, kCharacterEventFullVolume);
     }
     // Immediate effects can recursively cast again. Pay for this attempt
     // before they see the available mana, and refund a cancelled attempt.
@@ -2788,7 +2786,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
             wiz8::sound::play("Data\\Sound\\Misc\\Spell Fizzle 01.wav");
             if (caster_slot != -1 && Random(100) < 0x46) {
                 QueueCharacterEvent(&g_status.buffers.Char[caster_slot], g_special_event13, 0,
-                                    kCharacterEventNoFlags, kCharacterEventFullVolume);
+                                    kCharacterEventFullVolume);
             }
         }
     }
@@ -3136,9 +3134,9 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
             if (caster_slot != -1) {
                 if (Random(2) == 0) {
                     QueueCharacterEvent(&g_status.buffers.Char[caster_slot], 16, 0,
-                                        kCharacterEventNoFlags, kCharacterEventFullVolume);
+                                        kCharacterEventFullVolume);
                 } else {
-                    ApplyItemEffectToRandomCharacter(17, caster_slot, 0, kCharacterEventNoFlags);
+                    ApplyItemEffectToRandomCharacter(17, caster_slot, 0);
                 }
             }
         }

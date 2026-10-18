@@ -355,8 +355,7 @@ void EndSurprise(void)
         g_status.skip_next_condition_reaction = 1;
         int party_slot = g_status.pending_condition_party_slot;
         RemoveCharacterCondition(party_slot, W8_CONDITION_MISSING, false);
-        QueueCharacterEvent(&g_status.buffers.Char[party_slot], 52, 0, kCharacterEventNoFlags,
-                            kCharacterEventFullVolume);
+        QueueCharacterEvent(&g_status.buffers.Char[party_slot], 52, 0, kCharacterEventFullVolume);
         SetFact(W8_FACT_MOOK_MOOK_PC_SWAP_COMPLETE, 1, false);
     }
 }

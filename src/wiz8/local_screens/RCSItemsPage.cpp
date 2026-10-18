@@ -333,7 +333,7 @@ void UseHeldItemOnItem(W8ItemInstance* item)
                 OpenItemInfoDialog(item);
                 if (!item->identified) {
                     QueueCharacterEvent(g_status.buffers.Char + giCasterCharSlot, 0x35, 0,
-                                        kCharacterEventNoFlags, kCharacterEventFullVolume);
+                                        kCharacterEventFullVolume);
                 }
             }
             RebuildCampItemList();
@@ -343,7 +343,7 @@ void UseHeldItemOnItem(W8ItemInstance* item)
             return;
         }
         QueueCharacterEvent(g_status.buffers.Char + giCasterCharSlot, 0x35, 0,
-                            kCharacterEventNoFlags, kCharacterEventFullVolume);
+                            kCharacterEventFullVolume);
     }
 }
 

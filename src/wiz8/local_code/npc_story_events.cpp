@@ -210,8 +210,7 @@ void EndScriptedPortraitPick(int party_slot)
     character = &g_status.buffers.Char[party_slot];
     if (character->gender == W8_GENDER_FEMALE && other_gender_present) {
         SetFact(W8_FACT_ALSEDEXUS_SACRIFICE_WOMAN, 1, false);
-        QueueCharacterEvent(character, 43, kCharacterEventNoNpcDefer, kCharacterEventNoFlags,
-                            kCharacterEventFullVolume);
+        QueueCharacterEvent(character, 43, kCharacterEventNoNpcDefer, kCharacterEventFullVolume);
         return;
     }
     if (g_status.buffers.XChar[party_slot].npc_index == -1 &&
@@ -224,8 +223,7 @@ void EndScriptedPortraitPick(int party_slot)
             g_status.sedexus_party_slot = party_slot;
             g_status.rpc_active = true;
             g_status.infatuation_pending = true;
-            QueueCharacterEvent(character, g_special_event2, 0, kCharacterEventNoFlags,
-                                kCharacterEventFullVolume);
+            QueueCharacterEvent(character, g_special_event2, 0, kCharacterEventFullVolume);
         } else {
             SetFact(W8_FACT_ALSEDEXUS_SACRIFICE_NOT_DRESSED, 1, false);
         }
@@ -291,8 +289,7 @@ void UpdateSedexusScene(void)
         }
         W8Character* character = &g_status.buffers.Char[sedexus_party_slot];
         if (character->gender == W8_GENDER_MALE) {
-            QueueCharacterEvent(character, 43, 0, kCharacterEventNoFlags,
-                                kCharacterEventFullVolume);
+            QueueCharacterEvent(character, 43, 0, kCharacterEventFullVolume);
         }
         g_sedexus_scene.capture_active = false;
         if (g_sedexus_scene.moaning != nullptr) {
@@ -499,7 +496,7 @@ void RunNpcStoryAction(W8NpcStoryAction action)
                     character->iRace == W8_RACE_MOOK &&
                     character->highest_condition < W8_CONDITION_ASLEEP) {
                     QueueCharacterEvent(character, 51, kCharacterEventNoNpcDefer,
-                                        kCharacterEventNoFlags, kCharacterEventFullVolume);
+                                        kCharacterEventFullVolume);
                     break;
                 }
             }

@@ -264,3 +264,12 @@ Level master callbacks return completion directly. Nested trigger callbacks
 cannot overwrite a global removal decision. The dispatcher processes its initial
 batch; callbacks appended during an update wait until the next frame. Save
 capture remains a separate observational callback.
+
+Character-event producers no longer pass a queue category that has no consumer.
+Quote resolution returns text directly; voice timing and subtitles use the same
+local value, and the character sheet does not create an event just to read text.
+Ambient exchanges hold one next-speaker schedule. Pending, deferred and active
+events supply the playback wait directly, removing the unsigned -1 timestamp
+(which the signed countdown interpreted as already expired). Completion schedules
+the response or next exchange; rejected and discarded lines remain retryable.
+Cancelling the schedule prevents late completions from restarting idle dialogue.

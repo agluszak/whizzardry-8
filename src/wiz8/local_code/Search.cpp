@@ -178,12 +178,10 @@ void RunSearchPulse(void)
                         W8Character* character = &g_status.buffers.Char[slot];
                         if (searchable->world_item == 0) {
                             if (searchable->trigger == 0) {
-                                QueueCharacterEvent(character, 0x1a, 0, 1,
-                                                    kCharacterEventFullVolume);
+                                QueueCharacterEvent(character, 0x1a, 0, kCharacterEventFullVolume);
                                 found = true;
                             } else {
-                                QueueCharacterEvent(character, 0x1a, 0, 1,
-                                                    kCharacterEventFullVolume);
+                                QueueCharacterEvent(character, 0x1a, 0, kCharacterEventFullVolume);
                                 int message = searchable->trigger->m_lData1;
                                 found = true;
                                 if (message >= 0) {
@@ -207,7 +205,7 @@ void RunSearchPulse(void)
                                 event_type = kSearchFoundItemEventAlt;
                             }
                             auto event = std::make_unique<W8CharacterEvent>(
-                                character, event_type, 0, 1, kCharacterEventFullVolume);
+                                character, event_type, 0, kCharacterEventFullVolume);
                             if (searchable->world_item != 0) {
                                 event->item = searchable->world_item->item;
                             }
@@ -234,7 +232,7 @@ void RunSearchPulse(void)
                 }
             }
             if (g_status.search_mode != 0 && !IsLevelFastMovement() && !found && Random(100) == 0) {
-                ApplyItemEffectToRandomCharacter(g_container_event, -1, 0, kCharacterEventNoFlags);
+                ApplyItemEffectToRandomCharacter(g_container_event, -1, 0);
             }
         }
     }

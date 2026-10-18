@@ -948,7 +948,6 @@ static void SelectSpellCastingListRow(int index)
         ConfigureSpellTargetFilter(W8_TARGET_TYPE_NONE, W8_TARGET_NEED_NONE);
         ShowSpellCastingError(spell_id);
         QueueCharacterEvent(&g_status.buffers.Char[g_status.selected_character], 0x35, 0,
-                            kCharacterEventFlagsMask | kCharacterEventNoFlags,
                             kCharacterEventFullVolume);
         return;
     }

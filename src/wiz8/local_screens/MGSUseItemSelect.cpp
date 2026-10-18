@@ -571,7 +571,6 @@ void SelectUseItemLine(int iTextLine)
     if (ValidateItemSpellUse(use_item->owner, use_item->rows[iTextLine].item,
                              SpellCastingNoticeClosed)) {
         QueueCharacterEvent(&g_status.buffers.Char[use_item->owner], 0x35, 0,
-                            kCharacterEventFlagsMask | kCharacterEventNoFlags,
                             kCharacterEventFullVolume);
         return;
     }

@@ -700,9 +700,9 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                     if (Random(2) == 0) {
                                         effect = 0x44;
                                     }
-                                    W8CharacterEvent* notice = QueueCharacterEvent(
-                                        &g_status.buffers.Char[party_slot], effect, 0,
-                                        kCharacterEventNoFlags, kCharacterEventFullVolume);
+                                    W8CharacterEvent* notice =
+                                        QueueCharacterEvent(&g_status.buffers.Char[party_slot],
+                                                            effect, 0, kCharacterEventFullVolume);
 
                                     if (notice != 0) {
                                         notice->DelayDispatch(0x5dc);
@@ -732,7 +732,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                         }
                                         W8CharacterEvent* notice = QueueCharacterEvent(
                                             &g_status.buffers.Char[party_slot], effect, 0,
-                                            kCharacterEventNoFlags, kCharacterEventFullVolume);
+                                            kCharacterEventFullVolume);
 
                                         if (notice != 0) {
                                             notice->DelayDispatch(0x5dc);

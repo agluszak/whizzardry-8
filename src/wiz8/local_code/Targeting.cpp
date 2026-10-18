@@ -353,7 +353,7 @@ void AimAtMonsterLocation(int party_slot, int location_id, bool allow_single_tar
                                                                 : -1;
         if (event != -1)
             QueueCharacterEvent(&g_status.buffers.Char[party_slot], event, 0,
-                                kCharacterEventNoFlags, kCharacterEventFullVolume);
+                                kCharacterEventFullVolume);
     }
     if (assessment) {
         needed = W8_TARGET_NEED_UNSET;

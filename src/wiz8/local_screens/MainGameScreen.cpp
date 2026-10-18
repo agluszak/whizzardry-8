@@ -346,8 +346,8 @@ void CancelMouselook()
 
 static void QueueInteractionNotice(int event_type)
 {
-    W8CharacterEvent* event = ApplyItemEffectToRandomCharacter(
-        event_type, -1, kCharacterEventNoPreempt, kCharacterEventNoFlags);
+    W8CharacterEvent* event =
+        ApplyItemEffectToRandomCharacter(event_type, -1, kCharacterEventNoPreempt);
     if (event != 0) {
         event->DelayDispatch(600);
     }
@@ -2339,16 +2339,10 @@ void TickAmbientFollowUpIdle(unsigned char input_handled)
         } else {
             g_level_block->countdown0 = w8_get_ticks() + (60000);
         }
-        if ((gXStatus.character_event_queue->follow_up_flags & 1) != 0) {
-            gXStatus.character_event_queue->follow_up_flags &= ~3;
-            return;
-        }
     } else {
         g_level_block->countdown0 = w8_get_ticks() + (60000);
-        if ((gXStatus.character_event_queue->follow_up_flags & 1) != 0) {
-            gXStatus.character_event_queue->follow_up_flags &= ~3;
-        }
     }
+    gXStatus.character_event_queue->follow_up.reset();
 }
 
 /* Leave one main-game mode for another: mode 3 ends a live NPC dialogue
@@ -3231,8 +3225,7 @@ void SelectPartyCharacter(int party_slot)
         return;
     }
     if (!gXStatus.fCombatMode) {
-        QueueCharacterEvent(character, g_special_event17, 0, kCharacterEventNoFlags,
-                            kCharacterEventFullVolume);
+        QueueCharacterEvent(character, g_special_event17, 0, kCharacterEventFullVolume);
     }
     if (g_status.selected_character != -1) {
         RequestPartySlotRedraw(g_status.selected_character);
@@ -4501,7 +4494,7 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                                 } else if (front_rank) {
                                     QueueCharacterEvent(
                                         &g_status.buffers.Char[g_status.selected_character], 0x35,
-                                        0, kCharacterEventNoFlags, kCharacterEventFullVolume);
+                                        0, kCharacterEventFullVolume);
                                     ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x7dc]);
                                 } else {
                                     AimAtCharacter(
@@ -4514,8 +4507,7 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                             }
                         } else {
                             QueueCharacterEvent(&g_status.buffers.Char[g_status.selected_character],
-                                                0x35, 0, kCharacterEventNoFlags,
-                                                kCharacterEventFullVolume);
+                                                0x35, 0, kCharacterEventFullVolume);
                         }
                     } else if (!g_status.item_in_cursor ||
                                gXStatus.iCurrentCursor != W8_CURSOR_INVALID_TARGET ||
@@ -6304,7 +6296,7 @@ void ConfirmNpcTradeItem(void)
             auto* npc = owner == -1 ? nullptr : GetNpcState(owner);
             auto* item = ResolveTradeSelection(state.dialogue_npc, selection);
             if (npc && item && NpcWantsItem(npc, item)) {
-                QueueCharacterEvent(&g_status.buffers.Char[selection.character], 109, 0, 1,
+                QueueCharacterEvent(&g_status.buffers.Char[selection.character], 109, 0,
                                     kCharacterEventFullVolume);
                 return;
             }
@@ -6334,7 +6326,7 @@ void ConfirmNpcTradeItem(void)
             g_npc_dialogue.QueueQuote(0x14, false, false, false);
             break;
         case W8TradeOutcome::WantedByOwner:
-            QueueCharacterEvent(&g_status.buffers.Char[selection.character], 109, 0, 1,
+            QueueCharacterEvent(&g_status.buffers.Char[selection.character], 109, 0,
                                 kCharacterEventFullVolume);
             break;
         case W8TradeOutcome::InvalidSelection:

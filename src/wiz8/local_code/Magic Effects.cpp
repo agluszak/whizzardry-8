@@ -1655,7 +1655,7 @@ char TryCureConditionOnTargets(W8SpellEffectEntry* effect, W8Condition condition
                         }
                     }
                     if (Random(100) < 0x32) {
-                        QueueCharacterEvent(character, g_special_event14, 0, kCharacterEventNoFlags,
+                        QueueCharacterEvent(character, g_special_event14, 0,
                                             kCharacterEventFullVolume);
                     }
                 } else {

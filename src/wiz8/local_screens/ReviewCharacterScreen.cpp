@@ -1277,7 +1277,7 @@ void CampScreenFrame(void)
                                                                 g_camp_character->name);
                                 ShowCampNoticeLine(text, 0, true, false);
                             } else {
-                                QueueCharacterEvent(g_camp_character, 109, 0, 1,
+                                QueueCharacterEvent(g_camp_character, 109, 0,
                                                     kCharacterEventFullVolume);
                             }
                         }
@@ -1348,7 +1348,7 @@ void DismissSelectedPartyCharacter(void)
     if (g_camp_character_pending) {
         SelectCampCharacter(CharacterPointerToPartySlot(g_camp_character));
         if (IsPartySlotEligible(giReviewCharSlot)) {
-            QueueCharacterEvent(g_camp_character, 109, 0, 1, kCharacterEventFullVolume);
+            QueueCharacterEvent(g_camp_character, 109, 0, kCharacterEventFullVolume);
             return;
         }
         std::string text = fmt::sprintf(g_localized_strings[0x931], g_camp_character->name);
@@ -1688,7 +1688,7 @@ static void SelectPendingCampCharacter()
 {
     SelectCampCharacter(CharacterPointerToPartySlot(g_camp_character));
     if (IsPartySlotEligible(giReviewCharSlot)) {
-        QueueCharacterEvent(g_camp_character, 109, 0, 1, kCharacterEventFullVolume);
+        QueueCharacterEvent(g_camp_character, 109, 0, kCharacterEventFullVolume);
     } else {
         std::string text = fmt::sprintf(g_localized_strings[0x931], g_camp_character->name);
         ShowCampNoticeLine(text, 0, true, false);
@@ -1827,7 +1827,7 @@ void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOr
     if (g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_IDENTIFY_SPELL) {
         party_slot = CharacterPointerToPartySlot(g_camp_identifying_character);
         if (!CanItemLeaveItsSlot(item)) {
-            QueueCharacterEvent(&g_status.buffers.Char[party_slot], 0x35, 0, kCharacterEventNoFlags,
+            QueueCharacterEvent(&g_status.buffers.Char[party_slot], 0x35, 0,
                                 kCharacterEventFullVolume);
             return;
         }
@@ -1864,7 +1864,7 @@ void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOr
             OpenItemInfoDialog(item);
             if (!item->identified) {
                 QueueCharacterEvent(&g_status.buffers.Char[party_slot], 0x35, 0,
-                                    kCharacterEventNoFlags, kCharacterEventFullVolume);
+                                    kCharacterEventFullVolume);
             }
         }
         SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
@@ -2026,7 +2026,7 @@ void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOr
                             g_review_character->backpack[slot_index].iItemNo != -1 &&
                             Random(100) < 5) {
                             QueueCharacterEvent(g_review_character, g_special_event14, 0,
-                                                kCharacterEventNoFlags, kCharacterEventFullVolume);
+                                                kCharacterEventFullVolume);
                         }
                     }
                 } else {
@@ -2140,7 +2140,7 @@ bool ResolvePendingCampCharacter(bool force)
         slot = CharacterPointerToPartySlot(g_camp_character);
         SelectCampCharacter(slot);
         if (IsPartySlotEligible(giReviewCharSlot)) {
-            QueueCharacterEvent(g_camp_character, 109, 0, 1, kCharacterEventFullVolume);
+            QueueCharacterEvent(g_camp_character, 109, 0, kCharacterEventFullVolume);
             return false;
         }
         text = fmt::sprintf(g_localized_strings[0x931], g_camp_character->name);

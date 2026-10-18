@@ -22,18 +22,15 @@ extern int g_special_event14;
 extern int g_special_event17;
 int UpdateCharacterEventState(void);
 W8CharacterEvent* QueueCharacterEvent(W8Character* character, int event_type, unsigned int flags,
-                                      int queue_mode, unsigned int volume);
+                                      unsigned int volume);
 
 /* PC quotes and voice samples use character identity, without a party slot. */
 std::string GetCharacterQuoteText(const W8Character& character, unsigned int event_type,
                                   unsigned int* metadata = nullptr);
 std::string GetCharacterVoicePath(const W8Character& character, unsigned int event_type);
 
-/* Format one character quote for the given event type into the
-   shared wide text buffer. Returns zero and empties it when the type has no
-   quote. */
-bool FormatCharacterQuoteText(W8Character* character, unsigned int event_type,
-                              unsigned int* metadata);
+// Resolve the current party/NPC quote as a value, without shared text storage.
+std::string GetPartyQuoteText(const W8Character& character, unsigned int event_type);
 /* First entry of a -1-terminated event-id table. */
 extern const int g_fact_check_event;
 
@@ -41,7 +38,7 @@ extern const int g_fact_check_event;
 unsigned char PartyPortraitEventsIdle(void);
 int PickRandomPartySpeaker(unsigned int event_type, unsigned char excluded_slot);
 W8CharacterEvent* ApplyItemEffectToRandomCharacter(unsigned int event_type, int excluded_slot,
-                                                   unsigned int flags, int queue_mode);
+                                                   unsigned int flags);
 void MaybeStartIncapacitationEvent(unsigned int party_slot);
 void QueueDamageReactionEvents(W8Character* character);
 /* After a character dies, pick one other party member and queue

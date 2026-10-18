@@ -1089,7 +1089,7 @@ void MonsterGroupEnterCombat(W8MonsterGroup* monster_group)
                     ++group_list_index;
                 }
                 if (live_groups > 1) {
-                    ApplyItemEffectToRandomCharacter(33, -1, 0, kCharacterEventNoFlags);
+                    ApplyItemEffectToRandomCharacter(33, -1, 0);
                 }
             }
             int* allies = monster_group->allied_group_ids;

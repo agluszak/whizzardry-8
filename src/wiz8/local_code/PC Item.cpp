@@ -1218,7 +1218,7 @@ unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_use
         return used;
     }
 
-    QueueCharacterEvent(&g_status.buffers.Char[party_slot], event_type, 0, 1,
+    QueueCharacterEvent(&g_status.buffers.Char[party_slot], event_type, 0,
                         kCharacterEventFullVolume);
     *out_uses = fatigue_cost;
     return used;
@@ -1300,8 +1300,7 @@ bool MergeItems(W8Character* character, W8ItemInstance* destination)
             } else {
                 merged = character->skills[recipe->merge_skill].level >= recipe->merge_skill_level;
                 if (merged) {
-                    QueueCharacterEvent(character, g_learn_sound, 0, kCharacterEventNoFlags,
-                                        kCharacterEventFullVolume);
+                    QueueCharacterEvent(character, g_learn_sound, 0, kCharacterEventFullVolume);
                     PracticeCharacterSkill(character, static_cast<W8Skill>(recipe->merge_skill),
                                            recipe->merge_skill_level / 10, false);
                 }
@@ -2173,7 +2172,7 @@ void EquipMatchingPartnerItem(W8Character* character, W8ItemInstance* item, int 
             character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON].iItemNo)) {
         pair = &character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON];
     } else if (item_id == -1 || !FindItemOnCharacter(character, item_id, &pair, 1, 0)) {
-        QueueCharacterEvent(character, 39, 0, kCharacterEventNoFlags, kCharacterEventFullVolume);
+        QueueCharacterEvent(character, 39, 0, kCharacterEventFullVolume);
         return;
     }
 
@@ -3141,8 +3140,7 @@ void DeliverExceptionalItemReaction(W8ItemInstance* item, bool choose_character,
             return;
         }
         signed char npc_slot = npc->group_index;
-        QueueCharacterEvent(&g_status.buffers.Char[npc_slot], 65, 0, kCharacterEventNoFlags,
-                            kCharacterEventFullVolume);
+        QueueCharacterEvent(&g_status.buffers.Char[npc_slot], 65, 0, kCharacterEventFullVolume);
         return;
     }
     default:
@@ -3155,7 +3153,7 @@ void DeliverExceptionalItemReaction(W8ItemInstance* item, bool choose_character,
         break;
     }
 
-    QueueCharacterEvent(character, message, 0, kCharacterEventNoFlags, kCharacterEventFullVolume);
+    QueueCharacterEvent(character, message, 0, kCharacterEventFullVolume);
     item->effect_used |= 1;
 }
 
@@ -3632,7 +3630,7 @@ void MergeMatchingPartnerItem(W8Character* character, W8ItemInstance* item)
         return;
     }
 
-    QueueCharacterEvent(character, 39, 0, kCharacterEventNoFlags, kCharacterEventFullVolume);
+    QueueCharacterEvent(character, 39, 0, kCharacterEventFullVolume);
     CalcAttacks(character);
 }
 

@@ -4,6 +4,8 @@
 
 #include <array>
 #include <memory>
+#include <optional>
+#include <string_view>
 #include <vector>
 
 #include "timer.h"
@@ -38,15 +40,13 @@ enum W8CharacterEventFlag {
    original type name is unknown. */
 struct W8CharacterEvent {
     W8CharacterEvent(W8Character* character, unsigned int event_type, unsigned int flags,
-                     int queue_mode, int volume);
+                     int volume);
     ~W8CharacterEvent();
     W8CharacterEvent(const W8CharacterEvent&) = delete;
     W8CharacterEvent& operator=(const W8CharacterEvent&) = delete;
 
     W8Character* character;
     unsigned int event_type;
-    /* 0x0c: queue category passed as the fourth argument. */
-    int queue_mode;
     /* 0x10: event flags passed as the third argument. */
     unsigned int flags;
     /* 0x14: the 0-127 multiplier applied to the voice volume. */
@@ -58,7 +58,7 @@ struct W8CharacterEvent {
     int trigger_value_2;
     /* 0x20: the original event type TryAdjustQueuedEvent stores before
        rewriting event_type to the shared follow-up id 10. */
-    unsigned int original_event_type;
+    unsigned int original_event_type = 0;
     /* 0x24: an embedded item instance: the event consumer passes it to
        GetItemDisplayName, which reads both the id and the identified flag.
        Only the id is ever established here; the remaining bytes keep whatever
@@ -79,14 +79,18 @@ struct W8CharacterEvent {
         dispatch_delay_start = w8_get_ticks();
     }
 
-    void Complete(); /* 0x0052CED0 */
+    bool IsAmbientExchange() const
+    {
+        const auto type = event_type == 10 ? original_event_type : event_type;
+        return type == 14 || type == 15;
+    }
 
-    std::string GetQuoteText(); /* 0x0052D240 */
+    void Complete(); /* 0x0052CED0 */
 
     unsigned char Dispatch(); /* 0x0052CA60 */
 
     unsigned char IsConditionMet(unsigned int event_type); /* 0x0052C910 */
-    unsigned char PlayEventSound();                        /* 0x0052D260 */
+    unsigned char PlayEventSound(std::string_view quote);                        /* 0x0052D260 */
 };
 
 /* The character-event queue. Construction is at 0x0052D460; QueueEntry and the
@@ -107,11 +111,13 @@ struct W8CharacterEventQueue {
        it ticks, active_event_type/active_party_slot still describe the last
        dispatched event for duplicate coalescing. */
     uint64_t recent_event_clock;
-    int follow_up_flags;
-    uint64_t follow_up_clock;
-    /* 0x64: the party slot that spoke the last follow-up event; the response
-       pick excludes it. */
-    int follow_up_speaker_slot;
+    // No schedule means idle dialogue is disabled. Queue membership supplies
+    // the wait for playback; this stores only the next speaker and deadline.
+    struct FollowUp {
+        int excluded_slot = -1;
+        uint64_t ready_at = 0;
+    };
+    std::optional<FollowUp> follow_up;
     /* One party-slot bit mask per (remapped) event type. */
     std::array<unsigned char, 0xb1> event_character_masks{};
 

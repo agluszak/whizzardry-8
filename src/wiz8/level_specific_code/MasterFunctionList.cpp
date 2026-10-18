@@ -387,7 +387,7 @@ static unsigned char WorldCursorNodeApplyItemEffect(int command, W8WorldCursorNo
                                                     int context)
 {
     if (command == 1) {
-        ApplyItemEffectToRandomCharacter(g_character_event_kind0, -1, 0, kCharacterEventNoFlags);
+        ApplyItemEffectToRandomCharacter(g_character_event_kind0, -1, 0);
     }
     return 1;
 }
@@ -403,8 +403,7 @@ static unsigned char WorldCursorNodeMaleCharacterEvent(int command, W8WorldCurso
     if (command == 1 && g_status.rpc_active) {
         character = g_status.buffers.Char + g_status.sedexus_party_slot;
         if (character->gender == W8_GENDER_MALE) {
-            QueueCharacterEvent(character, g_character_event_kind1, 0, kCharacterEventNoFlags,
-                                kCharacterEventFullVolume);
+            QueueCharacterEvent(character, g_character_event_kind1, 0, kCharacterEventFullVolume);
         }
     }
     return 1;
@@ -429,8 +428,7 @@ static unsigned char WorldCursorNodeSeenBodies(int command, W8WorldCursorNode* n
             if (CountAscensionPeakItems() == 3) {
                 if (GetFact(W8_FACT_TMISSION_MEET_ZANT_AT_AP) != 0 ||
                     GetFact(W8_FACT_UMISSION_MEET_AP_ASSIGN) != 0) {
-                    ApplyItemEffectToRandomCharacter(g_character_event_kind3, -1, 0,
-                                                     kCharacterEventNoFlags);
+                    ApplyItemEffectToRandomCharacter(g_character_event_kind3, -1, 0);
                     CreateLocationVar("AP_SeenBodies", 1);
                     if (GetFact(W8_FACT_QUEST_PEACE_GOTO_AP) != 0) {
                         SetFact(W8_FACT_QUEST_PEACE_GOTO_AP, 0, false);
@@ -452,7 +450,7 @@ static unsigned char WorldCursorNodeApplyType6ItemEffect(int command, W8WorldCur
                                                          int context)
 {
     if (command == 1) {
-        ApplyItemEffectToRandomCharacter(g_character_event_kind3, -1, 0, kCharacterEventNoFlags);
+        ApplyItemEffectToRandomCharacter(g_character_event_kind3, -1, 0);
     }
     return 1;
 }
@@ -543,7 +541,7 @@ static unsigned char WorldCursorNodePartyVoice(int command, W8WorldCursorNode* n
             slot = PickRandomPartySpeaker(event_type, 0xff);
             if (slot != -1) {
                 QueueCharacterEvent(g_status.buffers.Char + slot, event_type, 0,
-                                    kCharacterEventNoFlags, kCharacterEventFullVolume);
+                                    kCharacterEventFullVolume);
             }
         }
     }

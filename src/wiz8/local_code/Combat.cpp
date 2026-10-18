@@ -503,9 +503,9 @@ void ApplyCombatEndEffects(void)
                 W8Character* character = &g_status.buffers.Char[slot];
                 if (character->highest_condition == W8_CONDITION_DEAD) {
                     if (npc->healer_assist) {
-                        ApplyItemEffectToRandomCharacter(13, -1, 0, kCharacterEventNoFlags);
+                        ApplyItemEffectToRandomCharacter(13, -1, 0);
                     } else if (npc->item_assist) {
-                        ApplyItemEffectToRandomCharacter(20, -1, 0, kCharacterEventNoFlags);
+                        ApplyItemEffectToRandomCharacter(20, -1, 0);
                     }
                 }
             }
@@ -518,7 +518,7 @@ void ApplyCombatEndEffects(void)
             character->uiCondition[W8_CONDITION_MISSING] != 0 &&
             !gXStatus.monster_manager_entries[slot].condition_19_latch &&
             (!g_status.condition13_clock || g_status.pending_condition_party_slot != slot)) {
-            ApplyItemEffectToRandomCharacter(40, slot, 0, kCharacterEventNoFlags);
+            ApplyItemEffectToRandomCharacter(40, slot, 0);
         }
     }
 }
@@ -912,7 +912,7 @@ bool TryPanicWoundedCharacter(const W8CombatSlot* target)
     if (Random(100) >= kFleeChance) {
         return false;
     }
-    QueueCharacterEvent(character, 34, 0, kCharacterEventNoFlags, kCharacterEventFullVolume);
+    QueueCharacterEvent(character, 34, 0, kCharacterEventFullVolume);
     return true;
 }
 
@@ -1222,7 +1222,7 @@ void ChooseAction(int party_slot, W8ActionKind action, int detail, const W8Actio
         return;
     case W8_ACTION_WALK:
     case W8_ACTION_RUN:
-        ApplyItemEffectToRandomCharacter(g_special_event2, -1, 0, kCharacterEventNoFlags);
+        ApplyItemEffectToRandomCharacter(g_special_event2, -1, 0);
         break;
     default:
         break;
@@ -1947,7 +1947,7 @@ int CheckCombatEnd(unsigned int end_if_no_hostiles)
             StartLevelMusic(1, 0);
             if (gXStatus.combat_difficulty != 0 &&
                 GetRandomPartySlots(0, 0, -1, &party_slot, 1, false) != 0 &&
-                (event = QueueCharacterEvent(&g_status.buffers.Char[party_slot], 35, 2, 1,
+                (event = QueueCharacterEvent(&g_status.buffers.Char[party_slot], 35, 2,
                                              kCharacterEventFullVolume),
                  event != 0)) {
                 event->DelayDispatch(0x5dc);
