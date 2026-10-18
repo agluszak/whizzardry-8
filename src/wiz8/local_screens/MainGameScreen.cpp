@@ -6632,7 +6632,7 @@ void W8NpcDialogueTextController::SelectTranscriptKeywordAtPoint(int x, int y)
         text_area.HighlightVisibleEntry(static_cast<int>(*hit));
         SetDialogueFieldKeyword(std::string(*keyword), false);
         HandleNpcDialogueInput();
-        if (const auto index = text_area.GetOwningEntryIndex(static_cast<int>(hit)))
+        if (const auto index = text_area.GetOwningEntryIndex(static_cast<int>(*hit)))
             text_area.SetEntryMarked(*index, false);
         InvalidateLayout();
         return;
