@@ -19,9 +19,10 @@ void require_sdl(bool result)
 SDLSurfaceOwner CreateCpuStorage(int width, int height, SDL_PixelFormat format, void* pixels,
                                  std::optional<int> pitch)
 {
-    SDLSurfaceOwner result{pitch ? SDL_CreateSurfaceFrom(width, height, format, pixels, *pitch)
-                                      : SDL_CreateSurface(width, height, format),
-                           SDL_DestroySurface};
+    SDL_Surface* surface =
+        pitch ? SDL_CreateSurfaceFrom(width, height, format, pixels, *pitch)
+              : SDL_CreateSurface(width, height, format);
+    SDLSurfaceOwner result{surface, SDL_DestroySurface};
     require_sdl(bool(result));
     require_sdl(SDL_SetSurfaceBlendMode(result.get(), SDL_BLENDMODE_NONE));
     if (SDL_ISPIXELFORMAT_INDEXED(format))

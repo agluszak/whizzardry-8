@@ -387,8 +387,10 @@ W8AmbientSound* W8AmbientSound::FindNextMatching(const char* match_name, W8Ambie
     auto& sounds = GetWorld()->plsAmbientSounds;
     auto current = sounds.begin();
     if (previous) {
-        current = std::ranges::find(sounds, previous,
-                                    [](const auto& owner) { return owner.get(); });
+        const auto matches_previous = [previous](const auto& sound) {
+            return sound.get() == previous;
+        };
+        current = std::ranges::find_if(sounds, matches_previous);
         if (current == sounds.end()) return nullptr;
         ++current;
     }

@@ -119,7 +119,7 @@ void StartBreathCycle(int party_slot, bool force)
    character can actually speak `event_type`, then pick one at random. */
 // FUNCTION: WIZ8 0x0052FEE0
 std::optional<int> PickRandomPartySpeaker(unsigned int event_type,
-                                          std::optional<int> excluded_slot)
+                                         std::optional<int> excluded_slot)
 {
     int eligible[8];
     unsigned int count = 0;
@@ -1069,9 +1069,11 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
 void W8CharacterEventQueue::RestartFollowUpClock(W8CharacterEvent* entry)
 {
     if (follow_up && entry->IsAmbientExchange()) {
-        follow_up->ready_at =
-            w8_get_ticks() +
-            (follow_up->excluded_slot ? Random(6000) + 2000 : Random(60000) + 300000);
+        if (follow_up->excluded_slot) {
+            follow_up->ready_at = w8_get_ticks() + Random(6000) + 2000;
+        } else {
+            follow_up->ready_at = w8_get_ticks() + Random(60000) + 300000;
+        }
     }
 }
 
