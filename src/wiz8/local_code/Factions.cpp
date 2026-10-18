@@ -148,7 +148,7 @@ static unsigned short g_faction_name_ids[W8_FACTION_COUNT] = {
    band actually moved, stamp the world clock and post the worsened/improved
    notice naming the faction. */
 // FUNCTION: WIZ8 0x00535B40
-void SetFactionDispositionBand(signed char faction, signed char band)
+void SetFactionDispositionBand(signed char faction, W8FactionDisposition band)
 {
     std::string notice;
     W8FactionDisposition old_band;
@@ -156,13 +156,13 @@ void SetFactionDispositionBand(signed char faction, signed char band)
 
     old_band = GetFactionDisposition(faction);
     switch (band) {
-    case 0:
+    case W8_FACTION_HOSTILE:
         g_factions[faction].disposition_score = 0x19;
         break;
-    case 1:
+    case W8_FACTION_NEUTRAL:
         g_factions[faction].disposition_score = 0x37;
         break;
-    case 2:
+    case W8_FACTION_FRIENDLY:
         g_factions[faction].disposition_score = 0x4b;
         break;
     }
