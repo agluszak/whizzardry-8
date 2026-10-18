@@ -398,7 +398,7 @@ unsigned char W8SpellEmitterHost::ReadCycleData(W8ReadLevelInfo* info, W8SpellVi
     return ReadEmitterCycle(*this, resources.cycles, info, *visual, emitter_index, true);
 }
 
-static int FindSpellCycleByName(const char* name)
+static std::optional<int> FindSpellCycleByName(const char* name)
 {
     if (name == 0) {
         srAssertFail("pacName", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x532, 0);
@@ -409,7 +409,7 @@ static int FindSpellCycleByName(const char* name)
             return index;
         }
     }
-    return -1;
+    return std::nullopt;
 }
 
 /* Load one named spell visual resource. When a shared visual of the same
@@ -456,16 +456,16 @@ std::unique_ptr<W8SpellVisual> LoadSpellVisualResource(W8World* world, std::stri
             std::istringstream fields(line);
             std::string command;
             if (!(fields >> command) || command.starts_with('#') || line.size() <= 2) continue;
-            const int cycle = FindSpellCycleByName(command.c_str());
-            if (cycle != -1) {
-                if (cycle / SPELL_CYCLES_PER_GROUP == group) {
+            const auto cycle = FindSpellCycleByName(command.c_str());
+            if (cycle) {
+                if (*cycle / SPELL_CYCLES_PER_GROUP == group) {
                     std::string resource;
                     if (!(fields >> resource)) {
                         success = false;
                         break;
                     }
 
-                    success = LoadGrCycle(resource, visual.get(), cycle, 1, "Data\\Spells", 2, 0);
+                    success = LoadGrCycle(resource, visual.get(), *cycle, 1, "Data\\Spells", 2, 0);
                     if (success) {
                         RegisterGrCycle(resource, visual.get());
                     }
@@ -481,8 +481,13 @@ std::unique_ptr<W8SpellVisual> LoadSpellVisualResource(W8World* world, std::stri
                 }
                 float intensity = 1.0f, duration = 1.0f, distance = 10.0f;
                 fields >> intensity >> duration >> distance;
+                const auto cycle = FindSpellCycleByName(cycle_name.c_str());
+                if (!cycle) {
+                    success = false;
+                    break;
+                }
                 ShakeDefinition effect(duration, true, intensity, distance * kWorldScale, 0);
-                effect.cycle = FindSpellCycleByName(cycle_name.c_str());
+                effect.cycle = *cycle;
                 effect.frame = frame;
                 effect.subcycle = 0;
                 visual->AddShakeEffect(effect);
@@ -502,10 +507,11 @@ std::unique_ptr<W8SpellVisual> LoadSpellVisualResource(W8World* world, std::stri
             }
             fields >> loop;
             const auto sound_cycle = FindSpellCycleByName(cycle_name.c_str());
-            if (visual && visual->IsCycleSupported(static_cast<signed char>(sound_cycle))) {
+            if (visual && sound_cycle &&
+                visual->IsCycleSupported(static_cast<signed char>(*sound_cycle))) {
                 const auto wave = fmt::format("data/spells/sounds/{}.WAV", resource);
                 visual->AddSoundEvent(
-                    std::make_unique<W8SoundEvent>(kind, sound_cycle, frame, 0, wave.c_str(),
+                    std::make_unique<W8SoundEvent>(kind, *sound_cycle, frame, 0, wave.c_str(),
                                                    SDL_strcasecmp(loop.c_str(), "LOOP") == 0));
             }
         }
@@ -559,9 +565,9 @@ void W8SpellVisual::StartIfHostActive()
 }
 
 /* Search backward from a subcycle for the first cycle this visual supports,
-   seven cycles per group; -1 when none does. */
+   seven cycles per group. */
 // FUNCTION: WIZ8 0x004ac530
-int W8SpellVisual::FindSupportedCycle(int group, int subcycle)
+std::optional<int> W8SpellVisual::FindSupportedCycle(int group, int subcycle)
 {
     for (int index = subcycle; index >= 0; --index) {
         int cycle = group * SPELL_CYCLES_PER_GROUP + index;
@@ -570,7 +576,7 @@ int W8SpellVisual::FindSupportedCycle(int group, int subcycle)
             return cycle;
         }
     }
-    return -1;
+    return std::nullopt;
 }
 
 /* Kind-indexed query over the host's emitter state; the only call site asks
@@ -619,8 +625,9 @@ static W8SpellVisual* CreateSpellVisual(std::string_view name, W8SpellVisualMode
     };
 
     W8SpellVisual* visual = name.empty() ? nullptr : load(name);
-    int cycle = visual ? visual->FindSupportedCycle(mode, power_level - 1) : -1;
-    if (visual && cycle == -1) {
+    std::optional<int> cycle =
+        visual ? visual->FindSupportedCycle(mode, power_level - 1) : std::nullopt;
+    if (visual && !cycle) {
         DestroySpellVisual(GetWorld(), visual);
         visual = nullptr;
     }
@@ -630,12 +637,15 @@ static W8SpellVisual* CreateSpellVisual(std::string_view name, W8SpellVisualMode
             cycle = visual->FindSupportedCycle(mode, power_level - 1);
         }
     }
-    if (visual) {
-        visual->mode = mode;
-        visual->host->pending_cycle = static_cast<signed char>(cycle);
-        visual->effect_value = value;
-        visual->flags0 = flags;
+    if (!visual) return nullptr;
+    if (!cycle) {
+        DestroySpellVisual(GetWorld(), visual);
+        return nullptr;
     }
+    visual->mode = mode;
+    visual->host->pending_cycle = static_cast<signed char>(*cycle);
+    visual->effect_value = value;
+    visual->flags0 = flags;
     return visual;
 }
 
