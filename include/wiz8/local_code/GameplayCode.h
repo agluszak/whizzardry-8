@@ -1,5 +1,7 @@
 #pragma once
 
+#include <optional>
+
 struct W8Character;
 
 /* W8Character::armor_class_by_location and gubLocalACPercent share this order.
@@ -46,7 +48,7 @@ void CalcCharacterLevelBand(W8Character* character);
 
 void CalcCharacterTableValue(W8Character* character);
 int CountActiveCharacters(void);
-unsigned int FindFreePartySlot(unsigned int first, unsigned int last);
+std::optional<unsigned int> FindFreePartySlot(unsigned int first, unsigned int last);
 
 void RefreshLevelUpReadyNotices(void);
 int AddCharacterToParty(W8Character& character, int slot);

@@ -318,7 +318,7 @@ bool IsCharacterReadyToAdvance(int party_slot)
 
 /* The first free party slot in a range, or -1 when the range is full. */
 // FUNCTION: WIZ8 0x004ef460
-unsigned int FindFreePartySlot(unsigned int first, unsigned int last)
+std::optional<unsigned int> FindFreePartySlot(unsigned int first, unsigned int last)
 {
     unsigned int slot;
 
@@ -327,7 +327,7 @@ unsigned int FindFreePartySlot(unsigned int first, unsigned int last)
             return slot;
         }
     }
-    return static_cast<unsigned int>(-1);
+    return std::nullopt;
 }
 
 /* Recompute the eight-band ladder over the character's level in their current

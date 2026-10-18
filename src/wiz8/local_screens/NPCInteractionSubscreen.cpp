@@ -2074,16 +2074,13 @@ static void CloseNpcDialogueTranscriptLayout(void)
 
 static void RequestNpcJoinParty(void)
 {
-    unsigned int slot;
-
     ShowNotice(W8_FONT_PALETTE_BRONZE, g_localized_strings[0x748], 3,
                (g_level_block->text_box_right - g_level_block->text_box_left));
     if (g_npc_interaction_state->dialogue_hidden != 0) {
         SetNpcDialogueHidden(0);
     }
     if (g_npc_interaction_state->dialogue_npc->record->has_group != 0) {
-        slot = FindFreePartySlot(0, 2);
-        if (slot == 0xffffffff) {
+        if (!FindFreePartySlot(0, 2)) {
             g_npc_dialogue.QueueQuote(0xc, false, false, false);
             return;
         }

@@ -968,7 +968,7 @@ void W8PartySelectionController::SetSelection(int selection, bool party_slot, bo
     m_delete_button->m_dirty = true;
     m_review_button->SetEnabled(have_character);
     m_review_button->m_dirty = true;
-    if (m_character && !m_character->fInParty && FindFreePartySlot(2, 8) == 0xffffffff) {
+    if (m_character && !m_character->fInParty && !FindFreePartySlot(2, 8)) {
         m_add_remove_button->SetEnabled(false);
     }
 }
