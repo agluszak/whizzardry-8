@@ -4283,7 +4283,7 @@ void RefreshMainGameLayout()
         if (action) SetActionPanelVisible(true);
     }
     ClearUiHover();
-    if (g_level_block->portrait_mode == 0) {
+    if (!g_level_block->portrait_mode) {
         g_level_block->portrait_hover_x_origin = 0x69;
     } else {
         g_level_block->portrait_hover_x_origin = 0;
