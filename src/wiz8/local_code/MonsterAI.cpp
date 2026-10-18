@@ -535,6 +535,8 @@ bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, unsigned char* decision)
             }
         } else {
             switch (monster->order_mode) {
+            case W8_MONSTER_ORDER_NONE:
+                break;
             case W8_MONSTER_ORDER_GUARD: {
                 glm::vec3 delta;
                 glm::vec3 patrol;
@@ -2195,7 +2197,7 @@ bool MonsterHasVisibleTarget(W8MonsterInfo* monster_info, bool party_only,
                 if (hostility == W8_VISIBLE_TARGET_ANY) {
                     return true;
                 }
-                if (disposition == hostility) {
+                if (static_cast<W8VisibleTargetFilter>(disposition) == hostility) {
                     return true;
                 }
                 if (hostility == W8_VISIBLE_TARGET_NON_NEUTRAL &&
@@ -2211,7 +2213,7 @@ bool MonsterHasVisibleTarget(W8MonsterInfo* monster_info, bool party_only,
             if (other != monster_info && other->fActive && other->hp_current != 0 &&
                 other->highest_condition < W8_CONDITION_DEAD && other->pCombat) {
                 disposition = MonsterHostility(monster_info, other);
-                if (hostility == W8_VISIBLE_TARGET_ANY || disposition == hostility ||
+                if (hostility == W8_VISIBLE_TARGET_ANY || static_cast<W8VisibleTargetFilter>(disposition) == hostility ||
                     (hostility == W8_VISIBLE_TARGET_NON_NEUTRAL &&
                      disposition != W8_DISPOSITION_NEUTRAL)) {
                     record = FindMonToMonVisibility(monster_info, other);
