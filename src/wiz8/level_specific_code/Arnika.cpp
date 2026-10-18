@@ -164,6 +164,9 @@ static void RestoreArnikaElevator(W8Elevator& elevator, const ElevatorStateBindi
     }
     if (elevator.moving != 0) {
         switch (elevator.state) {
+        case W8_ARNIKA_ELEVATOR_STEP_3:
+        case W8_ARNIKA_ELEVATOR_STEP_7:
+            break;
         case W8_ARNIKA_ELEVATOR_STEP_1:
         case W8_ARNIKA_ELEVATOR_STEP_5:
             elevator.pProp = elevator.pLift->GetProp();
