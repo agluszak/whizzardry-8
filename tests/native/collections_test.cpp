@@ -295,7 +295,7 @@ static bool keyboardBindingReplacement()
                                .key = SDLK_KP_ENTER};
         REQUIRE(restored.FindCommandForEvent(&press) == W8_MGS_COMMAND_MOVE_FORWARD);
         const auto* restored_cancel = restored.FindBinding(W8_MGS_COMMAND_CANCEL);
-        REQUIRE(restored_cancel && restored_cancel->key == SDLK_UNKNOWN);
+        REQUIRE((restored_cancel && restored_cancel->key == SDLK_UNKNOWN));
         REQUIRE(restored_cancel->unmapped_retail_key == 0x1234);
         const InputEvent no_key{.type = InputEventType::KeyDown};
         REQUIRE(restored.FindCommandForEvent(&no_key) == W8_MGS_COMMAND_NONE);
