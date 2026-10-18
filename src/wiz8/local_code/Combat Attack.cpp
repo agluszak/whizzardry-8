@@ -587,7 +587,7 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
             character->Hand[0].in_play && TryCharacterAction(slot, W8_ACTION_PROTECT, false) &&
             row->interception_count < character->Hand[0].attacks) {
             W8CombatSlot* guarded =
-                !row->dead ? &party_row->target_in_combat : &party_row->target_out_of_combat;
+                !row->dead ? &party_row->committed_action.target : &party_row->target_out_of_combat;
             if ((*target == *guarded) && CharacterHasAttackOn(slot, target)) {
                 SetTargetSourceToCharacter(slot, &guardian);
                 candidates.push_back(guardian);

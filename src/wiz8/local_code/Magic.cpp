@@ -510,12 +510,12 @@ void SetCharacterSpell(const W8Character* character, const W8Action& spell)
     const int party_slot = CharacterPointerToPartySlot(character);
     auto& row = g_status.buffers.XChar[party_slot];
     row.spell = spell;
-    // Publish the accepted target before ChooseAction validates the new action.
-    if (gXStatus.fCombatMode)
-        row.target_in_combat = spell.target;
-    else
+    if (gXStatus.fCombatMode) {
+        SetCharacterCombatAction(party_slot, spell, 1);
+    } else {
         row.target_out_of_combat = spell.target;
-    ChooseAction(party_slot, spell.kind, spell.detail, &spell.detail_block, false, 1);
+        ChooseAction(party_slot, spell.kind, spell.detail, &spell.detail_block, false, 1);
+    }
     StartBreathCycle(party_slot, true);
 }
 
@@ -886,32 +886,21 @@ unsigned char g_profession_spellbooks[15] = {
     0, 2, 2, 4, 1, 4, 8, 0, 0, 0, 2, 4, 15, 8, 1,
 };
 
-/* Begin one character's spell. The recorded target is copied to the stack
-   first because choosing the action overwrites it, and out of combat the
-   original target is re-aimed at before that happens. The spell is always the
-   slot's own; the argument overrides only the strength it goes off at, and
-   zero means keep the recorded one. */
+/* Repeat the remembered choice. A power override belongs to this cast;
+   it does not rewrite the remembered power. */
 // FUNCTION: WIZ8 0x00501590
 void StartCharacterSpellCast(int party_slot, int power_level)
 {
     W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
-    W8CombatSlot saved_target = row->spell.target;
-    W8ActionDetailBlock named;
-    const W8ActionDetailBlock* target;
-
-    if (!gXStatus.fCombatMode) {
-        AimAtTarget(party_slot, &row->spell.target, GetEditedActionContext(party_slot));
-    }
-
-    if (power_level == 0) {
-        target = &row->spell.detail_block;
+    auto choice = row->spell;
+    if (power_level != 0) choice.detail_block.spell.power_level = power_level;
+    if (gXStatus.fCombatMode) {
+        SetCharacterCombatAction(party_slot, choice, 1);
     } else {
-        named.spell.power_level = power_level;
-        named.spell.unused = 0;
-        target = &named;
+        AimAtTarget(party_slot, &choice.target, GetEditedActionContext(party_slot));
+        ChooseAction(party_slot, choice.kind, choice.detail, &choice.detail_block, false, 1);
     }
-    ChooseAction(party_slot, W8_ACTION_CAST_SPELL, row->spell.detail, target, false, 1);
-    AimAtTarget(party_slot, &saved_target, GetEditedActionContext(party_slot));
+    AimAtTarget(party_slot, &choice.target, GetEditedActionContext(party_slot));
 
     if (IsSpellTargetStillValid(party_slot, row->spell.detail,
                                 SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_SPELL))) {
@@ -3309,8 +3298,9 @@ void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targ
     if (source->fBackfire) {
         srAssertFail("!pSource->fBackfire", MAGIC_CPP, 0xc7c, 0);
     }
+    const bool monster_source = TargetSourceIsMonster(source, 0);
     monster_info = 0;
-    if (TargetSourceIsMonster(source, 0)) {
+    if (monster_source) {
         monster_info = FindMonster(source->iMonsterID);
     }
     target_type = GetSpellTargetType(spell_id, false);
@@ -3334,7 +3324,7 @@ void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targ
     case 5:
         if (TargetSourceIsCharacter(source, 0)) {
             from = cameraLocation();
-        } else if (TargetSourceIsMonster(source, 0)) {
+        } else if (monster_source) {
             if (!monster_info->p3D->GetSpellPosition(&from)) {
                 monster_info->p3D->GetMappedPosition(&from);
             }
@@ -3349,7 +3339,7 @@ void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targ
         if (TargetSourceIsCharacter(source, 0)) {
             from = cameraLocation();
             target->point = from;
-        } else if (TargetSourceIsMonster(source, 0)) {
+        } else if (monster_source) {
             navigator = monster_info->p3D;
             target->point = navigator->movement.position;
             target->point.y += navigator->movement.height_offset;
@@ -3370,7 +3360,7 @@ void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targ
     source->point = target->point;
     if (TargetSourceIsCharacter(source, 0)) {
         navigator = PartyNavigator();
-    } else if (TargetSourceIsMonster(source, 0)) {
+    } else if (monster_source) {
         navigator = monster_info->p3D;
     } else {
         target->point = saved;

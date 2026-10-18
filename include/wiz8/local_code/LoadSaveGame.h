@@ -40,7 +40,7 @@ bool SaveGame(std::string_view name, const W8SaveScreenshot* screenshot);
 
 struct W8Character;
 
-bool SaveCharacter(W8Character* character, int slot);
+bool SaveCharacter(const W8Character* character, int slot);
 
 bool AutoSaveIfAllowed(bool forced);
 
@@ -80,7 +80,7 @@ bool SaveStatusHeader(W8Chunk* chunks);
 extern bool g_save_pending;
 
 /* Replace one character record in Saves\\CurrentGame.SAV. `slot` is unused. */
-bool SaveCharacterToCurrentGame(std::string_view path, int slot, W8Character* character);
+bool SaveCharacterToCurrentGame(std::string_view path, int slot, const W8Character* character);
 bool LoadCharacterFromCurrentGame(std::string_view path, W8Character* character);
 /* Deferred main-game autosave: notice first, then SaveGame on the next tick. */
 void ProcessMainGameAutoSave(void);

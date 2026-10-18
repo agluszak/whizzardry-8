@@ -12,8 +12,7 @@ void ChooseAction(int party_slot, W8ActionKind action, int detail, const W8Actio
                   bool defer_execution, int notify);
 W8Action SelectCombatAction(int party_slot, W8TargetingContext context);
 
-void SetCharacterCombatAction(int party_slot, W8ActionKind action_kind, int action_detail,
-                              const W8ActionDetailBlock* data, int notify);
+void SetCharacterCombatAction(int party_slot, W8Action action, int notify);
 void EndCombat(bool forced_cleanup);
 void BeginCombatExecution(void);
 void AssignCombatPhases(void);

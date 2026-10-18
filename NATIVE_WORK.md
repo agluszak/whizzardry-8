@@ -164,7 +164,9 @@ an argument, and view invalidation belongs to the world rather than a global lat
 
 Equipment replacement writes its completed arrangement before rebuilding hands,
 effects and action validity. Spell pickers own an action draft; cancellation
-discards it, and acceptance installs the choice and remembers it. Target
+discards it. Committed and remembered choices also own action values; acceptance
+copies the completed draft, while a repeat-cast power override changes only that
+cast. Target
 assessment consumes action contents, while controllers choose the storage and
 present failures. Preview and execution share target geometry, with explicit
 sight rules and without sharing random power or damage results.

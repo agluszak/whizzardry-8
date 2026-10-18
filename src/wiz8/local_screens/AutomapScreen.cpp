@@ -144,10 +144,6 @@ struct W8AutomapState {
 // GLOBAL: WIZ8 0x0068f268
 static std::unique_ptr<W8AutomapState> g_automap_state;
 
-bool IsAutomapOpen()
-{
-    return g_automap_state != nullptr;
-}
 // GLOBAL: WIZ8 0x0068f274
 SDLSurfaceOwner g_automap_surface{nullptr, SDL_DestroySurface};
 

@@ -3819,7 +3819,7 @@ void FallbackFromUnreachableAction(int party_slot)
     if (!row->fOccupied || g_combat_state->characters[party_slot].dead) {
         return;
     }
-    switch (row->action) {
+    switch (row->committed_action.kind) {
     case W8_ACTION_ATTACK:
     case W8_ACTION_BERSERK:
         if (CanAnyHandReachTarget(party_slot) &&
@@ -3833,9 +3833,9 @@ void FallbackFromUnreachableAction(int party_slot)
         break;
     case W8_ACTION_CAST_SPELL:
     case W8_ACTION_USE_ITEM: {
-        const bool casting = row->action == W8_ACTION_CAST_SPELL;
+        const bool casting = row->committed_action.kind == W8_ACTION_CAST_SPELL;
         if (!(casting ? CharacterHasCastableSpell(&g_status.buffers.Char[party_slot]) &&
-                            ActionNeedsExplicitTarget(party_slot)
+                            ActionNeedsExplicitTarget(row->committed_action, gXStatus.fCampMode)
                       : ItemUseNeedsTarget(party_slot))) {
             break;
         }
@@ -3843,7 +3843,8 @@ void FallbackFromUnreachableAction(int party_slot)
             if (gXStatus.fPartyMovementMode &&
                 (SelectPartyCharacter(party_slot), party_slot == g_status.selected_character)) {
                 const int spell_id =
-                    casting ? row->action_detail0 : GetItemSpell(row->action_detail1.item_use.item);
+                    casting ? row->committed_action.detail
+                            : GetItemSpell(row->committed_action.detail_block.item_use.item);
                 const W8TargetNeed needed_kind =
                     GetTargetNeededForSpellFriendly(spell_id, false, g_level_block == nullptr);
                 ConfigureSpellTargetFilter(GetSpellTargetType(spell_id, false), needed_kind);
@@ -3854,7 +3855,7 @@ void FallbackFromUnreachableAction(int party_slot)
             if (party_slot == g_status.selected_character) {
                 if (casting) {
                     OpenSpellCastingView(party_slot);
-                    SelectSpellPowerLevel(row->action_detail1.spell.power_level - 1);
+                    SelectSpellPowerLevel(row->committed_action.detail_block.spell.power_level - 1);
                 } else {
                     OpenUseItemSelectView(party_slot);
                     SelectCurrentUseItemLine();
@@ -4084,7 +4085,8 @@ void UpdateCombatPortraitStatus(void)
             } else {
                 status = 3;
             }
-            image = GetCombatPortraitImage(row->action, row->action_detail0, status, slot);
+            image = GetCombatPortraitImage(row->committed_action.kind, row->committed_action.detail,
+                                           status, slot);
             alternate = image;
             if (status == 3) {
                 if (combat_row->combat_status == 3) {
@@ -4931,22 +4933,23 @@ UiResult PartyCombatActionInput(const UiPointerEvent& event, HitTarget& target, 
         }
         {
             W8PartySlotRow* row = &g_status.buffers.XChar[slot];
-            if (row->action == W8_ACTION_CAST_SPELL) {
+            if (row->committed_action.kind == W8_ACTION_CAST_SPELL) {
 
                 target.setTooltip(
                     [text = fmt::format("{}: {} ({:d})", g_localized_strings[0x68],
-                                        g_spell_records[row->action_detail0].display_name,
-                                        row->action_detail1.spell.power_level)] {
+                                        g_spell_records[row->committed_action.detail].display_name,
+                                        row->committed_action.detail_block.spell.power_level)] {
                         return std::string(text);
                     });
                 return UiResult::Pass;
             }
-            if (row->action == W8_ACTION_USE_ITEM) {
+            if (row->committed_action.kind == W8_ACTION_USE_ITEM) {
 
-                target.setTooltip([text = fmt::format("{}: {}", g_localized_strings[0x69],
-                                                      FormatItemDisplayName(
-                                                          row->action_detail1.item_use.item,
-                                                          false))] { return std::string(text); });
+                target.setTooltip(
+                    [text = fmt::format(
+                         "{}: {}", g_localized_strings[0x69],
+                         FormatItemDisplayName(row->committed_action.detail_block.item_use.item,
+                                               false))] { return std::string(text); });
                 return UiResult::Pass;
             }
         }
@@ -6052,14 +6055,19 @@ unsigned char HandleMouselookInput(const InputEvent* input)
     return 0;
 }
 
-bool WorldAdvancementBlocked()
+static bool InteractionBlocksWorldAdvancement()
 {
     return g_current_screen_state.id != W8_SCREEN_MAIN_GAME || IsScreenTransitionPending() ||
-           gXStatus.world_paused || gXStatus.fSpellCastMode || gXStatus.fItemSelectMode ||
-           gXStatus.fNpcDialogueMode || gXStatus.fReviewCharacterMode || IsModalOpen() ||
-           IsAutomapOpen() || !IsVideoActive() || gXStatus.iTargetingMode == W8_TARGET_NEED_CONE ||
+           gXStatus.fSpellCastMode || gXStatus.fItemSelectMode || gXStatus.fNpcDialogueMode ||
+           gXStatus.fReviewCharacterMode || IsModalOpen() || !IsVideoActive() ||
+           gXStatus.iTargetingMode == W8_TARGET_NEED_CONE ||
            (g_level_block &&
             (g_level_block->transition_active || g_level_block->review_transition_active));
+}
+
+bool WorldAdvancementBlocked()
+{
+    return gXStatus.world_paused || InteractionBlocksWorldAdvancement();
 }
 
 // Apply only policy edges. UI animation and the scheduled sight/item passes
@@ -6069,7 +6077,8 @@ void SyncWorldAdvancement()
     static W8World* applied_world = nullptr;
     static bool applied_environment_blocked = false;
     static bool applied_user_pause = false;
-    const bool blocked = WorldAdvancementBlocked();
+    const bool interaction_blocked = InteractionBlocksWorldAdvancement();
+    const bool blocked = gXStatus.world_paused || interaction_blocked;
     const bool environment_blocked = blocked || gXStatus.fCombatMode;
     auto* world = GetWorld();
     const bool changed = blocked != gXStatus.world_update_blocked;
@@ -6078,10 +6087,10 @@ void SyncWorldAdvancement()
     gXStatus.world_update_blocked = blocked;
     applied_world = world;
     applied_environment_blocked = environment_blocked;
+    SetWorldResumeInput(gXStatus.world_paused && !interaction_blocked);
     if (applied_user_pause != gXStatus.world_paused) {
         applied_user_pause = gXStatus.world_paused;
         MoveTimer(applied_user_pause ? 1 : 4);
-        SetWorldResumeInput(applied_user_pause);
     }
     if (!world) return;
     if (blocked && changed && gXStatus.fPartyMovementUi) DisablePartyMovementRegions();
@@ -6931,7 +6940,8 @@ void ConfigureSpellTargetFilter(W8SpellTargetType target_type, W8TargetNeed need
                    RepickActionTarget(selected, W8_TARGETING_CONTEXT_SHARED, 0)) {
             W8TargetSource source;
             SetTargetSourceToCharacter(selected, &source);
-            PointCameraAtCombatTarget(&source, &g_status.buffers.XChar[selected].target_in_combat);
+            PointCameraAtCombatTarget(&source,
+                                      &g_status.buffers.XChar[selected].committed_action.target);
         }
         goto aim_done;
     case W8_TARGET_TYPE_ALL_ENEMIES:

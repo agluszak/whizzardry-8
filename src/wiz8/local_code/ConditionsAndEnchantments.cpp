@@ -191,7 +191,7 @@ void RemoveCharacterCondition(int party_slot, W8Condition condition, bool announ
             break;
         case W8_CONDITION_INSANE:
             if (gXStatus.fCombatMode && g_combat_state->characters[party_slot].berserk) {
-                row->target_out_of_combat = row->target_in_combat;
+                row->target_out_of_combat = row->committed_action.target;
             }
             break;
         case W8_CONDITION_TURNCOAT:

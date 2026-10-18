@@ -2195,12 +2195,12 @@ bool IsCampActionAllowed(int party_slot)
             if (g_combat_state->characters[party_slot].dead) {
                 if (row->pending_action == W8_ACTION_EQUIP) {
                     message = g_localized_strings[0x903];
-                } else if (row->action == W8_ACTION_EQUIP) {
+                } else if (row->committed_action.kind == W8_ACTION_EQUIP) {
                     message = g_localized_strings[0x904];
                 } else {
                     message = g_localized_strings[0x902];
                 }
-            } else if (row->action == W8_ACTION_EQUIP) {
+            } else if (row->committed_action.kind == W8_ACTION_EQUIP) {
                 message = g_localized_strings[0x903];
             } else {
                 message = g_localized_strings[0x902];
@@ -2209,7 +2209,7 @@ bool IsCampActionAllowed(int party_slot)
             if (row->pending_action == W8_ACTION_EQUIP) {
                 return true;
             }
-            if (row->action == W8_ACTION_EQUIP) {
+            if (row->committed_action.kind == W8_ACTION_EQUIP) {
                 message = g_localized_strings[0x904];
             } else {
                 message = g_localized_strings[0x902];

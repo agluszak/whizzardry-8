@@ -839,18 +839,19 @@ void DrawSubMenuCharacterAction(void)
         }
         text = g_localized_strings[g_condition_notices[character->highest_condition].name];
     } else {
-        action = row->action;
+        action = row->committed_action.kind;
         switch (action) {
         case W8_ACTION_CAST_SPELL:
             text = fmt::format("{} - {} ({:d})", g_localized_strings[g_action_kind_message_ids[7]],
-                               g_spell_records[row->action_detail0].display_name,
-                               row->action_detail1.spell.power_level);
+                               g_spell_records[row->committed_action.detail].display_name,
+                               row->committed_action.detail_block.spell.power_level);
             break;
         case W8_ACTION_USE_ITEM:
-            text = fmt::format(
-                "{} - {}", g_localized_strings[g_action_kind_message_ids[8]],
-                g_spell_records[g_item_records[row->action_detail1.item_use.item->iItemNo].spell_id]
-                    .display_name);
+            text = fmt::format("{} - {}", g_localized_strings[g_action_kind_message_ids[8]],
+                               g_spell_records[g_item_records[row->committed_action.detail_block
+                                                                  .item_use.item->iItemNo]
+                                                   .spell_id]
+                                   .display_name);
             break;
         case W8_ACTION_ATTACK:
             text = fmt::format("{} - ", g_localized_strings[g_action_kind_message_ids[0]]);
@@ -889,11 +890,11 @@ void DrawSubMenuCharacterAction(void)
             }
             break;
         case W8_ACTION_PROTECT:
-            if (row->target_in_combat.iType == W8_TARGET_KIND_CHARACTER) {
+            if (row->committed_action.target.iType == W8_TARGET_KIND_CHARACTER) {
                 text = fmt::format("{} - {}", g_localized_strings[g_action_kind_message_ids[5]],
-                                   g_status.buffers.Char[row->target_in_combat.iChar].name);
-            } else if (row->target_in_combat.iType == W8_TARGET_KIND_MONSTER) {
-                monster_info = FindMonster(row->target_in_combat.iMonsterID);
+                                   g_status.buffers.Char[row->committed_action.target.iChar].name);
+            } else if (row->committed_action.target.iType == W8_TARGET_KIND_MONSTER) {
+                monster_info = FindMonster(row->committed_action.target.iMonsterID);
                 name = GetMonsterName(monster_info, 0, 0);
                 text =
                     fmt::format("{} - {}", g_localized_strings[g_action_kind_message_ids[5]], name);
@@ -1290,7 +1291,7 @@ W8SubMenuEntryState CheckSubMenuActionUsable(int party_slot)
     unsigned char matches;
 
     matches = 0;
-    if (g_level_block->selection_kind == g_status.buffers.XChar[party_slot].action &&
+    if (g_level_block->selection_kind == g_status.buffers.XChar[party_slot].committed_action.kind &&
         !g_level_block->selection_settled) {
         matches = 1;
     }

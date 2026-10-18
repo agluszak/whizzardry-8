@@ -2950,7 +2950,8 @@ static void RefreshChangedItems(W8Character* character, std::span<W8ItemInstance
     RebuildEquipmentAndDerivedStatsForSlot(party_slot);
 
     W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
-    if (row->action == W8_ACTION_USE_ITEM && contains(row->action_detail1.item_use.item)) {
+    if (row->committed_action.kind == W8_ACTION_USE_ITEM &&
+        contains(row->committed_action.detail_block.item_use.item)) {
         DropCharacterFromRound(party_slot);
     }
 
@@ -2959,20 +2960,20 @@ static void RefreshChangedItems(W8Character* character, std::span<W8ItemInstance
         if (action_kind == W8_ACTION_BERSERK) {
             if (!CanCharacterBerserk(party_slot)) {
                 row->action_kind = W8_ACTION_ATTACK;
-                if (row->action == W8_ACTION_BERSERK) {
-                    row->action = W8_ACTION_ATTACK;
+                if (row->committed_action.kind == W8_ACTION_BERSERK) {
+                    row->committed_action.kind = W8_ACTION_ATTACK;
                 }
             }
         } else if (action_kind == W8_ACTION_ATTACK && row->action_is_berserk &&
                    CanCharacterBerserk(party_slot)) {
             row->action_kind = W8_ACTION_BERSERK;
-            if (row->action == W8_ACTION_ATTACK) {
-                row->action = W8_ACTION_BERSERK;
+            if (row->committed_action.kind == W8_ACTION_ATTACK) {
+                row->committed_action.kind = W8_ACTION_BERSERK;
             }
         }
 
         if (gXStatus.fCombatMode) {
-            W8ActionKind action = row->action;
+            W8ActionKind action = row->committed_action.kind;
             if (action == W8_ACTION_ATTACK || action == W8_ACTION_BERSERK) {
                 if (!CharacterCanSwitchTo(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, true,
                                           false)) {

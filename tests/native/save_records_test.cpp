@@ -124,12 +124,15 @@ static void character_file_contracts(const std::filesystem::path& assets,
     for (const char* name : {"A", "Vi", "Sir Bob", "Ninechars", "é中😀", "中文名字测试"}) {
         W8Character character = {};
         character.name = name;
+        character.record_version = 2;
         character.uiExpLevel = 7;
         std::string path;
         path = BuildCharacterPath(name, -1);
         const std::string filename = std::string(name) + ".CHR";
         REQUIRE(SaveCharacter(&character, -1));
-        REQUIRE(character.record_version == 1);
+        REQUIRE(character.record_version == 2);
+        auto expected = character;
+        expected.record_version = 1;
         const auto saved = wiz8::user_path(path);
         REQUIRE(std::filesystem::file_size(saved) == 4 + wiz8::retail::kCharacterBytes);
         REQUIRE(!std::filesystem::exists(assets / "saves" / "characters" / filename));
@@ -140,7 +143,7 @@ static void character_file_contracts(const std::filesystem::path& assets,
         encoded.close();
         W8Character loaded = {};
         REQUIRE(LoadCharacter(filename.c_str(), &loaded, -1));
-        REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(character));
+        REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(expected));
         std::size_t operations;
         {
             FileFaults trace;
@@ -156,12 +159,13 @@ static void character_file_contracts(const std::filesystem::path& assets,
                 REQUIRE(fault.fired);
             }
             REQUIRE(LoadCharacter(filename.c_str(), &loaded, -1));
-            REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(character));
+            REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(expected));
         }
         character.uiExpLevel = 8;
+        expected.uiExpLevel = 8;
         REQUIRE(SaveCharacter(&character, -1));
         REQUIRE(LoadCharacter(filename.c_str(), &loaded, -1));
-        REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(character));
+        REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(expected));
     }
 
     // I/O errors report failure. A directory at the destination cannot be opened as a file.
@@ -998,6 +1002,11 @@ static void global_status_record()
     for (int slot = 0; slot < 8; ++slot) {
         rows[slot].fOccupied = true;
         rows[slot].pending_action = W8_ACTION_ATTACK;
+        rows[slot].committed_action = {W8_ACTION_CAST_SPELL, 20 + slot};
+        rows[slot].committed_action.detail_block.spell.power_level = slot % 7 + 1;
+        rows[slot].committed_action.target = {W8_TARGET_KIND_CHARACTER, slot, -1, -1, {}, nullptr};
+        rows[slot].spell = {W8_ACTION_CAST_SPELL, 40 + slot};
+        rows[slot].spell.detail_block.spell.power_level = 7;
         rows[slot].attack_mode[0] = 100 + slot;
         rows[slot].movement_fatigue = 1.25f + slot;
         rows[slot].party_order_index = slot;
@@ -1082,6 +1091,14 @@ static void global_status_record()
         REQUIRE(restored_image[offset] == status_image[offset]);
     for (int slot = 0; slot < 8; ++slot) {
         REQUIRE(restored_rows[slot].fOccupied);
+        const auto& action = restored_rows[slot].committed_action;
+        REQUIRE(action.kind == W8_ACTION_CAST_SPELL);
+        REQUIRE(action.detail == 20 + slot);
+        REQUIRE(action.detail_block.spell.power_level == slot % 7 + 1);
+        REQUIRE(action.target.iType == W8_TARGET_KIND_CHARACTER);
+        REQUIRE(action.target.iChar == slot);
+        REQUIRE(restored_rows[slot].spell.detail == 40 + slot);
+        REQUIRE(restored_rows[slot].spell.detail_block.spell.power_level == 7);
         REQUIRE(restored_rows[slot].attack_mode[0] == 100 + slot);
         REQUIRE(restored_rows[slot].movement_fatigue == 1.25f + slot);
         REQUIRE(restored_rows[slot].weapon_swap_pending == bool(slot % 2));

@@ -479,8 +479,7 @@ void SetTargetToGroup(int group_id, bool in_combat)
 }
 
 /* Walk every party slot and every live monster: anyone already aiming at
-   `target` drops that aim when the combat flag and their action say so. A
-   monster target also clears its highlight bit before the walk. */
+   `target` drops that aim when combat and their action require it. */
 // FUNCTION: WIZ8 0x00538E00
 void ApplyTarget(W8CombatSlot* target, bool in_combat)
 {
@@ -499,12 +498,13 @@ void ApplyTarget(W8CombatSlot* target, bool in_combat)
         }
         SetTargetSourceToCharacter(party_slot, &source);
         if (gXStatus.fCombatMode) {
-            if ((row->target_in_combat == *target)) {
+            if ((row->committed_action.target == *target)) {
                 action_targets_enemies = CharacterActionTargetsEnemies(
-                    character, row->action, row->action_detail0, &row->action_detail1);
+                    character, row->committed_action.kind, row->committed_action.detail,
+                    &row->committed_action.detail_block);
                 if (ShouldClearAimForAppliedTarget(&source, target, in_combat,
                                                    action_targets_enemies)) {
-                    if (row->action == W8_ACTION_PROTECT) {
+                    if (row->committed_action.kind == W8_ACTION_PROTECT) {
                         DropCharacterFromRound(party_slot);
                     } else {
                         RepickActionTarget(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, 0);
@@ -1008,13 +1008,13 @@ int GetTargetingCursorForState(int alternate)
     }
 }
 
-/* Whether the pending spell in one party row needs an explicit target. */
+/* Whether this spell choice needs an explicit target in the interaction. */
 // FUNCTION: WIZ8 0x0053A700
-bool ActionNeedsExplicitTarget(int party_slot)
+bool ActionNeedsExplicitTarget(const W8Action& action, bool camping)
 {
-    switch (GetSpellTargetType(g_status.buffers.XChar[party_slot].spell.detail, false)) {
+    switch (GetSpellTargetType(action.detail, false)) {
     case W8_TARGET_TYPE_ENEMY:
-        if (gXStatus.fCampMode) {
+        if (camping) {
             return false;
         }
         return g_settings.autotarget_spells == 0;
@@ -1139,9 +1139,7 @@ bool IsTargetSourceInRangeOfGroup(const W8TargetSource* source, W8MonsterGroup* 
     return false;
 }
 
-/* Select the party member whose spell-targeting state is being edited. Any
-   monster highlights owned by that slot and its shared targeting record are
-   cleared before the ordinary targeting UI is restored. */
+/* Clear the current draft target before restoring the ordinary targeting UI. */
 // FUNCTION: WIZ8 0x0053AF40
 void SelectSpellCastingPartySlot(int party_slot)
 {
@@ -1319,9 +1317,8 @@ bool TargetIsInPlay(int party_slot, int hand, const W8Action& selected)
            CharacterActionReachesTarget(party_slot, hand, selected);
 }
 
-/* Whether a party slot's chosen action can be aimed at one monster. The
-   monster has to be live, standing and reachable; while the camp screen is up
-   only the monster it is showing can be aimed at at all.
+/* Whether the supplied action can be aimed at a live, standing and reachable
+   monster.
 
    What the action needs decides the rest: a group need is answered against the
    monster's group, a single-monster need only when the caller allows one, and
@@ -1797,7 +1794,8 @@ void RefreshAllPartyTargets(void)
             }
 
             if (IsPartySlotEligible(party_slot) &&
-                (row->action == W8_ACTION_ATTACK || row->action == W8_ACTION_BERSERK) &&
+                (row->committed_action.kind == W8_ACTION_ATTACK ||
+                 row->committed_action.kind == W8_ACTION_BERSERK) &&
                 (row->weapon_swap_pending ||
                  CharacterCanSwitchTo(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, false, false))) {
                 const auto fallback = ChooseFallbackMonsterTarget(
@@ -1935,7 +1933,7 @@ void CommitActionTarget(int actor, W8TargetingContext context, const W8CombatSlo
         row.target_out_of_combat = target;
         break;
     case W8_TARGETING_CONTEXT_IN_COMBAT:
-        row.target_in_combat = target;
+        row.committed_action.target = target;
         break;
     case W8_TARGETING_CONTEXT_SHARED:
         if (gXStatus.fSpellCastMode)

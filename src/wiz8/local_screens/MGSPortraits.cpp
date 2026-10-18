@@ -433,10 +433,10 @@ void RedrawCombatPortraits(void)
         if (!CharacterCanSwitchTo(slot, W8_TARGETING_CONTEXT_IN_COMBAT, false, false)) {
             CatalogArtwork::Load(0x8b, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, badge_x,
                                                             row_y + 0x37);
-        } else if (party_row->target_in_combat.iType == W8_TARGET_KIND_CHARACTER) {
+        } else if (party_row->committed_action.target.iType == W8_TARGET_KIND_CHARACTER) {
             CatalogArtwork::Load(0x8c, 0).drawAndInvalidate(
                 GetFrameBufferSurface(),
-                g_status.buffers.XChar[party_row->target_in_combat.iChar].party_order_index,
+                g_status.buffers.XChar[party_row->committed_action.target.iChar].party_order_index,
                 badge_x, row_y + 0x38);
         }
         entry->combat_portrait_dirty = false;

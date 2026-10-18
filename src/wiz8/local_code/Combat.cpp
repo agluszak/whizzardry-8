@@ -303,13 +303,15 @@ void ResetPartyCombatRows(void)
         g_status.buffers.XChar[slot].attack_mode[1] = -1;
         ResetCombatSlot(&g_status.buffers.XChar[slot].target_out_of_combat);
 
-        ResetCombatSlot(&g_status.buffers.XChar[slot].target_in_combat);
+        ResetCombatSlot(&g_status.buffers.XChar[slot].committed_action.target);
         RequestPartySlotRedraw(slot);
         if (slot == static_cast<unsigned int>(g_status.selected_character)) {
             RequestRedrawParty();
         }
-        SetCharacterCombatAction(slot, g_status.buffers.XChar[slot].action_kind,
-                                 g_status.buffers.XChar[slot].action_detail, 0, 0);
+        SetCharacterCombatAction(
+            slot,
+            {g_status.buffers.XChar[slot].action_kind, g_status.buffers.XChar[slot].action_detail},
+            0);
         g_combat_state->characters[slot].combat_status = -1;
         g_combat_state->characters[slot].portrait_image = -1;
         g_combat_state->characters[slot].portrait_image_alternate = -1;
@@ -357,8 +359,9 @@ bool CombatMayAdvanceContinuously(void)
         W8Character* character = &g_status.buffers.Char[slot];
         if (row->fOccupied && character->hp_current != 0 &&
             CharacterCanSwitchTo(slot, W8_TARGETING_CONTEXT_IN_COMBAT, false, false) &&
-            CharacterActionTargetsEnemies(character, row->action, row->action_detail0,
-                                          &row->action_detail1)) {
+            CharacterActionTargetsEnemies(character, row->committed_action.kind,
+                                          row->committed_action.detail,
+                                          &row->committed_action.detail_block)) {
             return true;
         }
     }
@@ -636,17 +639,18 @@ void BeginCombatExecution(void)
                 !CharacterCanSwitchTo(slot, W8_TARGETING_CONTEXT_IN_COMBAT, false, false)) {
                 continue;
             }
-            if (party->action == W8_ACTION_DEFEND) {
+            if (party->committed_action.kind == W8_ACTION_DEFEND) {
                 PostCharacterNotice(slot, g_localized_strings[0x228]);
             }
-            if (party->action == W8_ACTION_PROTECT) {
-                if (party->target_in_combat.iType == W8_TARGET_KIND_CHARACTER) {
+            if (party->committed_action.kind == W8_ACTION_PROTECT) {
+                if (party->committed_action.target.iType == W8_TARGET_KIND_CHARACTER) {
                     PostCharacterNotice(
                         slot,
-                        fmt::sprintf(g_localized_strings[0x229],
-                                     g_status.buffers.Char[party->target_in_combat.iChar].name));
-                } else if (party->target_in_combat.iType == W8_TARGET_KIND_MONSTER) {
-                    W8MonsterInfo* target = FindMonster(party->target_in_combat.iMonsterID);
+                        fmt::sprintf(
+                            g_localized_strings[0x229],
+                            g_status.buffers.Char[party->committed_action.target.iChar].name));
+                } else if (party->committed_action.target.iType == W8_TARGET_KIND_MONSTER) {
+                    W8MonsterInfo* target = FindMonster(party->committed_action.target.iMonsterID);
                     PostCharacterNotice(slot, fmt::sprintf(g_localized_strings[0x229],
                                                            GetMonsterName(target, 0, 0)));
                 } else {
@@ -798,12 +802,12 @@ void DropCharacterFromRound(int party_slot)
 {
     W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
 
-    ResetCombatSlot(&row->target_in_combat);
+    ResetCombatSlot(&row->committed_action.target);
     RequestPartySlotRedraw(party_slot);
     if (party_slot == g_status.selected_character) {
         RequestRedrawParty();
     }
-    SetCharacterCombatAction(party_slot, row->action_kind, row->action_detail, 0, 0);
+    SetCharacterCombatAction(party_slot, {row->action_kind, row->action_detail}, 0);
 }
 
 /* Tell every monster within short range about something. A monster has to be
@@ -1028,7 +1032,7 @@ bool TryCharacterAction(int party_slot, W8ActionKind action, bool commit)
     if (g_combat_state->characters[party_slot].dead) {
         return g_status.buffers.XChar[party_slot].pending_action == action;
     }
-    if (g_status.buffers.XChar[party_slot].action != action) {
+    if (g_status.buffers.XChar[party_slot].committed_action.kind != action) {
         if (action != W8_ACTION_DEFEND) {
             return false;
         }
@@ -1060,11 +1064,11 @@ void SwitchCharacterTo(int party_slot, W8ActionKind action)
     row->attack_mode[0] = -1;
     row->attack_mode[1] = -1;
     if (action == W8_ACTION_PROTECT) {
-        row->target_out_of_combat = row->target_in_combat;
+        row->target_out_of_combat = row->committed_action.target;
     }
     g_combat_state->characters[party_slot].dead = true;
     RequestRedraw(1 << party_slot | W8_MAIN_REDRAW_COMBAT_PROGRESS);
-    if (action == W8_ACTION_DEFEND && row->action != action) {
+    if (action == W8_ACTION_DEFEND && row->committed_action.kind != action) {
         g_combat_state->characters[party_slot].defend_switched = true;
     }
 }
@@ -1205,9 +1209,7 @@ void ChooseAction(int party_slot, W8ActionKind action, int detail, const W8Actio
             row->action_is_berserk = (action == W8_ACTION_BERSERK);
             break;
         default:
-            if (action != W8_ACTION_WALK && action != W8_ACTION_RUN) {
-                row->queued_action = static_cast<signed char>(action);
-            }
+            break;
         }
     }
     switch (action) {
@@ -1237,7 +1239,11 @@ void ApplyPartyCombatAction(int party_slot, W8ActionKind action, int detail,
     W8CombatCharacterRow* row;
 
     if (action != W8_ACTION_WALK && action != W8_ACTION_RUN) {
-        SetCharacterCombatAction(party_slot, action, detail, data, notify);
+        W8Action choice{action, detail};
+        if (data) choice.detail_block = *data;
+        if (gXStatus.fSpellCastMode || gXStatus.fItemSelectMode)
+            choice.target = g_status.buffers.XChar[party_slot].committed_action.target;
+        SetCharacterCombatAction(party_slot, choice, notify);
         return;
     }
     if (g_combat_state->execution_active == 0 ||
@@ -1281,14 +1287,11 @@ void ApplyPartyCombatAction(int party_slot, W8ActionKind action, int detail,
 /* Record the chosen in-combat action on the slot row, copy its detail block,
    then aim and validate that choice for a still-active character. */
 // FUNCTION: WIZ8 0x004e8000
-void SetCharacterCombatAction(int party_slot, W8ActionKind action_kind, int action_detail,
-                              const W8ActionDetailBlock* data, int notify)
+void SetCharacterCombatAction(int party_slot, W8Action next, int notify)
 {
-    W8ActionKind previous_action = g_status.buffers.XChar[party_slot].action;
-    if (!gXStatus.fSpellCastMode && !gXStatus.fItemSelectMode) {
-        g_status.buffers.XChar[party_slot].action = W8_ACTION_NONE;
-        AimByKind(party_slot, W8_TARGET_KIND_NONE, GetEditedActionContext(party_slot));
-    }
+    auto& committed = g_status.buffers.XChar[party_slot].committed_action;
+    const auto previous_action = committed.kind;
+    const auto action_kind = next.kind;
     W8TargetSource source;
     W8CombatCharacterRow* row = &g_combat_state->characters[party_slot];
     SetTargetSourceToCharacter(party_slot, &source);
@@ -1296,15 +1299,11 @@ void SetCharacterCombatAction(int party_slot, W8ActionKind action_kind, int acti
         srAssertFail("iAction < CHAR_ACTION_COUNT",
                      "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x484, 0);
     }
-    g_status.buffers.XChar[party_slot].action = action_kind;
-    g_status.buffers.XChar[party_slot].action_detail0 = action_detail;
-    if (data == 0) {
-        memset(&g_status.buffers.XChar[party_slot].action_detail1, 0,
-               sizeof(g_status.buffers.XChar[party_slot].action_detail1));
-    } else {
-        memcpy(&g_status.buffers.XChar[party_slot].action_detail1, data,
-               sizeof(g_status.buffers.XChar[party_slot].action_detail1));
-    }
+    committed = next;
+    if (action_kind != W8_ACTION_ATTACK && action_kind != W8_ACTION_BERSERK &&
+        action_kind != W8_ACTION_DEFEND && action_kind != W8_ACTION_PROTECT &&
+        action_kind != W8_ACTION_WALK && action_kind != W8_ACTION_RUN)
+        g_status.buffers.XChar[party_slot].queued_action = static_cast<signed char>(action_kind);
     row->action_changed = true;
     W8Character* character = &g_status.buffers.Char[party_slot];
     if (character->hp_current != 0 && character->highest_condition < W8_CONDITION_TURNCOAT &&
@@ -1315,8 +1314,8 @@ void SetCharacterCombatAction(int party_slot, W8ActionKind action_kind, int acti
             if (!TargetIsInPlay(party_slot, 2,
                                 SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT)) &&
                 RepickActionTarget(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, notify)) {
-                PointCameraAtCombatTarget(&source,
-                                          &g_status.buffers.XChar[party_slot].target_in_combat);
+                PointCameraAtCombatTarget(
+                    &source, &g_status.buffers.XChar[party_slot].committed_action.target);
             }
             if (notify != 0) {
                 RevalidateSelectedTarget(party_slot);
@@ -1354,7 +1353,7 @@ W8Action SelectCombatAction(int party_slot, W8TargetingContext context)
                   row.pending_action_detail};
         break;
     case W8_TARGETING_CONTEXT_IN_COMBAT:
-        action = {row.action, row.action_detail0, row.target_in_combat, row.action_detail1};
+        action = row.committed_action;
         break;
     case W8_TARGETING_CONTEXT_SHARED:
         if (gXStatus.fSpellCastMode) {
@@ -1669,7 +1668,7 @@ void AssignCombatPhases(void)
             row->dead = true;
         } else {
             int value = Random(4) + character->initiative;
-            W8ActionKind action = party_row->action;
+            W8ActionKind action = party_row->committed_action.kind;
             if (action == W8_ACTION_ATTACK || action == W8_ACTION_BERSERK) {
                 int hand = ChooseCharacterAttackHand(party_slot);
                 if (hand != -1) {
@@ -2071,11 +2070,11 @@ void ExecuteCharacterAction(int party_slot)
     if (gXStatus.fCombatMode) {
         saved_dead = g_combat_state->characters[party_slot].dead;
         if (!saved_dead) {
-            slot->pending_action = slot->action;
-            slot->attack_mode[0] = slot->action_detail0;
+            slot->pending_action = slot->committed_action.kind;
+            slot->attack_mode[0] = slot->committed_action.detail;
             slot->attack_mode[1] = -1;
-            slot->pending_action_detail = slot->action_detail1;
-            slot->target_out_of_combat = slot->target_in_combat;
+            slot->pending_action_detail = slot->committed_action.detail_block;
+            slot->target_out_of_combat = slot->committed_action.target;
             g_combat_state->characters[party_slot].action_changed = false;
             if ((slot->pending_action == W8_ACTION_ATTACK ||
                  slot->pending_action == W8_ACTION_BERSERK) &&
@@ -3201,7 +3200,7 @@ void UpdateCombat(void)
         if (slot != -1) {
             if (!g_combat_state->characters[slot].action_changed) {
                 W8PartySlotRow* row = &g_status.buffers.XChar[slot];
-                switch (row->action) {
+                switch (row->committed_action.kind) {
                 case W8_ACTION_ATTACK:
                 case W8_ACTION_BERSERK:
                 case W8_ACTION_DEFEND:
@@ -3209,12 +3208,12 @@ void UpdateCombat(void)
                     break;
                 default:
 
-                    ResetCombatSlot(&row->target_in_combat);
+                    ResetCombatSlot(&row->committed_action.target);
                     RequestPartySlotRedraw(slot);
                     if (slot == g_status.selected_character) {
                         RequestRedrawParty();
                     }
-                    SetCharacterCombatAction(slot, row->action_kind, row->action_detail, 0, 0);
+                    SetCharacterCombatAction(slot, {row->action_kind, row->action_detail}, 0);
                 }
             }
             ComputeCharacterActionPhase(slot);
@@ -3346,7 +3345,7 @@ void ScheduleCombatActor(void)
                     W8TargetingContext context;
                     W8ActionKind action;
                     if (!g_combat_state->characters[slot].dead) {
-                        action = g_status.buffers.XChar[slot].action;
+                        action = g_status.buffers.XChar[slot].committed_action.kind;
                         context = W8_TARGETING_CONTEXT_IN_COMBAT;
                     } else {
                         action = g_status.buffers.XChar[slot].pending_action;

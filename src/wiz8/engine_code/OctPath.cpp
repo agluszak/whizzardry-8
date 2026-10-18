@@ -2677,9 +2677,7 @@ unsigned int W8PathingService::StepMonsterAlongPath(W8NavigatorMovementState* mo
     bool arrived = false;
     W8NavigatorAttachment* attachment = movement->attachment.get();
     W8MonsterInfo* monster_info =
-        (owner_octree->owner_world
-             ? owner_octree->owner_world->population->findMonster(movement->location_id)
-             : nullptr);
+        owner_octree->owner_world->population->findMonster(movement->location_id);
     W8MonsterGroup* group =
         owner_octree->owner_world->population->findGroup(monster_info->monster_group_id);
     monster_info->p3D->group_linked = true;

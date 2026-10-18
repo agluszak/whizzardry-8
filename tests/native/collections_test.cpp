@@ -52,6 +52,7 @@
 #include "wiz8/location_variables.h"
 #include "wiz8/monster_roster.h"
 #include "wiz8/npc_items.h"
+#include "wiz8/npc_trade_price.h"
 #include "wiz8/xstatus.h"
 
 struct LevelWorldFixture {
@@ -503,7 +504,7 @@ TEST_CASE("Target eligibility uses the supplied action and target without a scre
     auto& row = rows[0];
     auto& character = characters[0];
     row.fOccupied = true;
-    row.action = W8_ACTION_NONE;
+    row.committed_action.kind = W8_ACTION_NONE;
     character.hp_current = 1;
     character.highest_condition = W8_CONDITION_NONE;
     W8CombatSlot target{};
@@ -536,8 +537,10 @@ TEST_CASE("Spell drafts cancel without changing committed or remembered choices"
     g_status.buffers.Char = characters.data();
     rows[0].fOccupied = true;
     characters[0].hp_current = 1;
-    rows[0].action = W8_ACTION_CAST_SPELL;
-    rows[0].action_detail0 = 5;
+    rows[0].committed_action.kind = W8_ACTION_CAST_SPELL;
+    rows[0].committed_action.detail = 5;
+    rows[0].committed_action.detail_block.spell.power_level = 2;
+    rows[0].committed_action.target = {W8_TARGET_KIND_MONSTER, -1, 17, -1, {}, nullptr};
     rows[0].spell = {W8_ACTION_CAST_SPELL, 7};
     gpSCSV = std::make_unique<W8SpellCastingView>();
     gpSCSV->draft = rows[0].spell;
@@ -552,7 +555,9 @@ TEST_CASE("Spell drafts cancel without changing committed or remembered choices"
     gpSCSV->draft.target.iType = W8_TARGET_KIND_NONE;
     REQUIRE(assessed.target == target);
     gpSCSV.reset();
-    REQUIRE(rows[0].action_detail0 == 5);
+    REQUIRE(rows[0].committed_action.detail == 5);
+    REQUIRE(rows[0].committed_action.detail_block.spell.power_level == 2);
+    REQUIRE(rows[0].committed_action.target.iMonsterID == 17);
     REQUIRE(rows[0].spell.detail == 7);
     REQUIRE(rows[0].spell.target.iType == W8_TARGET_KIND_NONE);
 }

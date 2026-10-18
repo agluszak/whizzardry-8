@@ -72,5 +72,3 @@ bool AutomapScreenLeave(int leaving);
 void AutomapScreenFinalize(void);
 /* Packs a world position into an automap cell key. */
 unsigned int AutomapNodeKey(const glm::vec3* position);
-
-bool IsAutomapOpen();

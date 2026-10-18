@@ -149,8 +149,9 @@ template<> struct Record<W8PartySlotRow> {
               bytes.subspan(offsetof(Disk, pending_action), sizeof(Disk::pending_action)));
         value(&runtime.attack_mode,
               bytes.subspan(offsetof(Disk, attack_mode), sizeof(Disk::attack_mode)));
-        value(&runtime.action, bytes.subspan(offsetof(Disk, action), sizeof(Disk::action)));
-        value(&runtime.action_detail0,
+        value(&runtime.committed_action.kind,
+              bytes.subspan(offsetof(Disk, action), sizeof(Disk::action)));
+        value(&runtime.committed_action.detail,
               bytes.subspan(offsetof(Disk, action_detail0), sizeof(Disk::action_detail0)));
         value(&runtime.action_kind,
               bytes.subspan(offsetof(Disk, action_kind), sizeof(Disk::action_kind)));
@@ -197,14 +198,15 @@ template<> struct Record<W8PartySlotRow> {
         detail(runtime.pending_action_detail,
                bytes.subspan(offsetof(Disk, pending_action_detail), 8),
                runtime.pending_action == W8_ACTION_USE_ITEM);
-        detail(runtime.action_detail1, bytes.subspan(offsetof(Disk, action_detail1), 8),
-               runtime.action == W8_ACTION_USE_ITEM);
+        detail(runtime.committed_action.detail_block,
+               bytes.subspan(offsetof(Disk, action_detail1), 8),
+               runtime.committed_action.kind == W8_ACTION_USE_ITEM);
         detail(runtime.spell.detail_block, bytes.subspan(offsetof(Disk, spell_detail), 8), false);
         detail(runtime.item_detail, bytes.subspan(offsetof(Disk, item_detail), 8), true);
         auto target = [&](auto& live, auto field) { nested(live, field, value, nullptr); };
         target(runtime.target_out_of_combat,
                bytes.subspan(offsetof(Disk, target_out_of_combat), sizeof(CombatTarget)));
-        target(runtime.target_in_combat,
+        target(runtime.committed_action.target,
                bytes.subspan(offsetof(Disk, target_in_combat), sizeof(CombatTarget)));
         target(runtime.spell.target,
                bytes.subspan(offsetof(Disk, spell_target), sizeof(CombatTarget)));

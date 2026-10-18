@@ -1114,7 +1114,7 @@ void CharacterDies(int party_slot)
     character->stamina = 0;
 
     ResetCombatSlot(&row->target_out_of_combat);
-    ResetCombatSlot(&row->target_in_combat);
+    ResetCombatSlot(&row->committed_action.target);
     if (gXStatus.fCombatMode) {
         RecordCharacterDeath(party_slot);
     }

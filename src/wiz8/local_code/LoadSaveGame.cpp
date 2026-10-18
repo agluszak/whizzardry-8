@@ -1445,19 +1445,20 @@ bool SaveGameExists(void)
 /* Write a character record. Before the game starts it is a loose file (its
    read-only bit cleared first); afterwards a CHAR chunk of the current save. */
 // FUNCTION: WIZ8 0x00515090
-bool SaveCharacter(W8Character* character, int slot)
+bool SaveCharacter(const W8Character* character, int slot)
 try {
-    character->record_version = 1;
+    auto snapshot = *character;
+    snapshot.record_version = 1;
     const auto path = BuildCharacterPath(character->name, slot);
     bool saved = false;
     try {
         if (g_status.game_started) {
-            saved = SaveCharacterToCurrentGame(path, slot, character);
+            saved = SaveCharacterToCurrentGame(path, slot, &snapshot);
         } else {
             const auto status = wiz8::file_status(wiz8::user_path(path));
             if (status && status->read_only) wiz8::clear_read_only(wiz8::user_path(path));
             wiz8::StagedFile staged(wiz8::user_path(path));
-            wiz8::retail::write_sized(*staged.file(), *character);
+            wiz8::retail::write_sized(*staged.file(), snapshot);
             staged.commit();
             saved = true;
         }
@@ -1472,7 +1473,7 @@ try {
 /* Replace every CHAR chunk with this name in the current save by one new
    record. Malformed CHAR payloads are skipped by loading and can be replaced. */
 // FUNCTION: WIZ8 0x005155b0
-bool SaveCharacterToCurrentGame(std::string_view path, int /*slot*/, W8Character* character)
+bool SaveCharacterToCurrentGame(std::string_view path, int /*slot*/, const W8Character* character)
 try {
     if (path.empty() || !character || path.size() >= kCharacterNameBytes) return false;
     W8Chunk source;
@@ -1712,7 +1713,7 @@ void LoadGameStatus(W8Chunk* chunks, W8GlobalStatus* status)
                                        static_cast<unsigned short>(item_slot));
         }
         party_row.pending_action_detail.item_use.item = item;
-        party_row.action_detail1.item_use.item = nullptr;
+        party_row.committed_action.detail_block.item_use.item = nullptr;
         party_row.spell.target.pPCItem = nullptr;
         party_row.item_target.pPCItem = nullptr;
         party_row.breath_target.pPCItem = nullptr;
