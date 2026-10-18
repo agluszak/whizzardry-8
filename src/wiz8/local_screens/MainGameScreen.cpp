@@ -6273,16 +6273,16 @@ void W8NpcDialogueTextController::ClearTranscriptEntries()
 
 void W8NpcDialogueTextController::RemoveSelectedTranscriptEntry()
 {
-    if (text_area.m_highlighted_entry != -1) {
-        int index = text_area.GetOwningEntryIndex(text_area.m_highlighted_entry);
-        if (index != -1) {
-            text_area.RemoveEntry(index);
+    if (text_area.m_highlighted_entry) {
+        const auto index = text_area.GetOwningEntryIndex(*text_area.m_highlighted_entry);
+        if (index) {
+            text_area.RemoveEntry(*index);
             InvalidateAll();
         }
     }
 }
 
-int W8NpcDialogueTextController::GetSelectedTranscriptEntryIndex()
+std::optional<int> W8NpcDialogueTextController::GetSelectedTranscriptEntryIndex()
 {
     return text_area.m_highlighted_entry;
 }
@@ -6641,7 +6641,8 @@ void W8NpcDialogueTextController::SelectTranscriptKeywordAtPoint(int x, int y)
         text_area.HighlightVisibleEntry(static_cast<int>(hit));
         SetDialogueFieldKeyword(std::string(*keyword), false);
         HandleNpcDialogueInput();
-        text_area.SetEntryMarked(text_area.GetOwningEntryIndex(static_cast<int>(hit)), false);
+        if (const auto index = text_area.GetOwningEntryIndex(static_cast<int>(hit)))
+            text_area.SetEntryMarked(*index, false);
         InvalidateLayout();
         return;
     }

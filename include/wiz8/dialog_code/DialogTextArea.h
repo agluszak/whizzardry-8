@@ -45,7 +45,7 @@ public:
     bool HighlightVisibleEntry(int index);
     bool ClearEntryHighlight();
     W8DialogTextEntry* GetEntry(unsigned int index);
-    int GetOwningEntryIndex(int visible_index);
+    std::optional<int> GetOwningEntryIndex(int visible_index);
     void SetEntryMarked(int index, bool state);
     int AddEntry(std::string_view prefix, std::string_view text, unsigned int prefix_palette,
                  unsigned int text_palette, unsigned char category);
@@ -82,7 +82,7 @@ private:
     int m_behavior_flags;
     int m_line_height_override;
     int m_selected_visible_entry;
-    int m_highlighted_entry; /* visible entry index, -1 when clear */
+    std::optional<int> m_highlighted_entry;
     bool m_relayout_needed;
     W8DialogueCategory m_category_filter = W8_DIALOGUE_CATEGORY_ALL;
     bool m_sorted;

@@ -168,7 +168,7 @@ public:
     void HighlightFirstEntry() { text_area.SelectEntry(text_area.m_first_visible_entry); }
     /* Drop every transcript line from the text area and invalidate. */
     void ClearTranscriptEntries();
-    int GetSelectedTranscriptEntryIndex();
+    std::optional<int> GetSelectedTranscriptEntryIndex();
     void SetTranscriptSorted(bool sorted);
     void RemoveSelectedTranscriptEntry();
     /* Open the transcript upward to fit its lines (capped at 0xff pixels)

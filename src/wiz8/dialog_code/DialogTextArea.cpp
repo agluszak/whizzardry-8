@@ -230,7 +230,8 @@ bool W8DialogTextArea::HighlightVisibleEntry(int index)
 // FUNCTION: WIZ8 0x005d21a0
 bool W8DialogTextArea::ClearEntryHighlight()
 {
-    if (std::exchange(m_highlighted_entry, -1) == -1) return false;
+    if (!m_highlighted_entry) return false;
+    m_highlighted_entry.reset();
     m_dirty = true;
     return true;
 }
@@ -243,11 +244,11 @@ W8DialogTextEntry* W8DialogTextArea::GetEntry(unsigned int index)
 }
 
 // FUNCTION: WIZ8 0x005d2440
-int W8DialogTextArea::GetOwningEntryIndex(int visible_index)
+std::optional<int> W8DialogTextArea::GetOwningEntryIndex(int visible_index)
 {
     return visible_index >= 0 && visible_index < static_cast<int>(m_visible_lines.size())
                ? m_visible_lines[visible_index]
-               : -1;
+               : std::nullopt;
 }
 
 // FUNCTION: WIZ8 0x005d24a0
@@ -384,12 +385,10 @@ bool W8DialogTextArea::ScrollUp(bool check_only)
 // FUNCTION: WIZ8 0x005d14d0
 W8DialogTextArea::W8DialogTextArea()
 {
-    int invalid;
-
-    invalid = -1;
+    int invalid = -1;
     m_line_height_override = invalid;
     m_selected_visible_entry = invalid;
-    m_highlighted_entry = invalid;
+    m_highlighted_entry.reset();
     m_category_filter = W8_DIALOGUE_CATEGORY_ALL;
     m_first_visible_entry = 0;
     m_first_visible_line = 0;

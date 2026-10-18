@@ -1141,8 +1141,9 @@ void ServiceNpcDialogue(void)
             SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_12, true);
             g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_12].dirty = true;
         }
-        int selection = g_npc_interaction_state->ui->transcript->GetSelectedTranscriptEntryIndex();
-        if (selection == -1) {
+        const auto selection =
+            g_npc_interaction_state->ui->transcript->GetSelectedTranscriptEntryIndex();
+        if (!selection) {
             if (g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_13].enabled) {
                 SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_13, false);
                 g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_13].dirty = true;
