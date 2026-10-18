@@ -1183,7 +1183,6 @@ try {
     unsigned int flag_bits = 0;
     W8AnimObj* animation = 0;
     bool result = false;
-    w8_long fail_line;
 
     if (info == 0 || info->hFile == 0 || prop == 0) {
         Fail("pInfo && pInfo->hFile && pProp");
@@ -1208,24 +1207,20 @@ try {
         if (version < 2) {
             playback_scale = 15.0f;
             if (!ok) {
-                fail_line = 0xcb;
                 goto fail;
             }
         } else {
             if (!ok) {
-                fail_line = 0xcb;
                 goto fail;
             }
             success = (hFile->read(&playback_scale, 4).bytes == static_cast<std::size_t>(4));
             if (!success) {
-                fail_line = 0xcb;
                 goto fail;
             }
         }
         mesh = ReadAnimatedMesh(*hFile, info->bitmap_folder, true);
         result = mesh != nullptr;
         if (!result) {
-            fail_line = 0xd8;
             result = false;
             goto fail_with_result;
         }
