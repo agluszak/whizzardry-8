@@ -1138,7 +1138,7 @@ void ResetNpcStates(void)
     unsigned int npc_id;
 
     ReleaseNpcStates();
-    for (npc_id = 0; npc_id < gXStatus.uiNpcsInDatabase; ++npc_id) {
+    for (npc_id = 0; npc_id < g_npc_records.size(); ++npc_id) {
         if (g_npc_records[npc_id].monster_bound == 0) {
             CreateNpcRuntimeNode(npc_id);
         }
@@ -1447,7 +1447,7 @@ void LoadNpcStates(W8Chunk& file)
         W8NpcState disk_state;
         wiz8::retail::decode_image(image, disk_state);
         const unsigned int record_id = disk_state.name_style == 0 ? loaded : disk_state.name_style;
-        if (record_id >= gXStatus.uiNpcsInDatabase ||
+        if (record_id >= g_npc_records.size() ||
             record_id > std::numeric_limits<unsigned char>::max()) {
             throw std::runtime_error("invalid NPC database index");
         }
@@ -1488,7 +1488,7 @@ void LoadNpcStates(W8Chunk& file)
             throw std::runtime_error("invalid NPC stock lists");
         }
     }
-    for (npc_id = 0; npc_id < gXStatus.uiNpcsInDatabase; ++npc_id) {
+    for (npc_id = 0; npc_id < g_npc_records.size(); ++npc_id) {
         if (g_npc_records[npc_id].monster_bound == 0 && GetNpcStateByKind(npc_id) == 0) {
             CreateNpcRuntimeNode(npc_id);
         }
@@ -1946,25 +1946,14 @@ void UpdateNpcEvents(void)
     }
 
     if (g_status.npc_restore_pending) {
-        W8NpcState* partner = 0;
-
         for (int slot = 0; slot < static_cast<int>(g_npc_states.size()); ++slot) {
             npc = g_npc_states[slot].get();
             if (npc->binding_unavailable != 0 || !npc->restored) {
                 g_status.npc_restore_pending = false;
                 continue;
             }
-            unsigned int kind = npc->name_style;
-
-            partner = 0;
-            for (const auto& state_owner : g_npc_states) {
-                auto* candidate = state_owner.get();
-                if (static_cast<unsigned int>(candidate->record->kind) == kind) {
-                    partner = candidate;
-                    break;
-                }
-            }
-            if (!partner->has_monster) {
+            W8NpcState* partner = GetNpcStateByKind(npc->name_style);
+            if (partner == nullptr || !partner->has_monster) {
                 g_status.npc_restore_pending = false;
                 continue;
             }
@@ -2251,7 +2240,7 @@ void HandleMarkedNpcEvent(W8NpcState* npc, char mode)
 
         if (GetLocationVarIDByName("CODESgtRubbleTeleport") == -1 ||
             GetLocationVarValueByName("CODESgtRubbleTeleport") == 0) {
-            if (FindEntityByName("RubbleCovert", &position, 0, 0)) {
+            if (monster_info != nullptr && FindEntityByName("RubbleCovert", &position, 0, 0)) {
                 monster_info->p3D->SetPosition(&position);
                 if (GetLocationVarIDByName("CODESgtRubbleTeleport") == -1) {
                     CreateLocationVar("CODESgtRubbleTeleport", 1);
@@ -2266,7 +2255,7 @@ void HandleMarkedNpcEvent(W8NpcState* npc, char mode)
             return;
         }
         if (GetLocationVarValueByName("CODESgtRubbleTeleport") == 1) {
-            if (FindEntityByName("rubbleUnderWater", &position, 0, 0)) {
+            if (monster_info != nullptr && FindEntityByName("rubbleUnderWater", &position, 0, 0)) {
                 monster_info->p3D->SetPosition(&position);
                 SetTriggerVariableByName("CODESgtRubbleTeleport", 2);
             }

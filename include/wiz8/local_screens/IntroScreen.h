@@ -2,10 +2,6 @@
 
 #include "compat/compiler.h"
 
-class W8BinkVideo;
-
-extern W8BinkVideo* gpVideo;
-
 void ContinueAfterDarkEndingVideo(void);
 bool IntroScreenEnter(void);
 void IntroScreenFrame(void);

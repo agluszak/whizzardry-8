@@ -270,8 +270,8 @@ static void OpenLevelUpCharacterScreen(void)
                      "C:\\Projects\\Wizardry 8\\Local Screens\\RCSCommon.cpp", 0x888, 0);
     }
     g_current_screen_state.parameter_2 = giReviewCharSlot;
-    g_current_screen_state.parameter_3 = g_review_character;
-    g_pending_screen_state.parameter_3 = &g_status.buffers.Char[giReviewCharSlot];
+    g_current_screen_state.character = g_review_character;
+    g_pending_screen_state.character = &g_status.buffers.Char[giReviewCharSlot];
     g_pending_screen_state.mode = 2;
     g_pending_screen_state.id = W8_SCREEN_CHARACTER;
 }
@@ -361,10 +361,10 @@ UiResult HandleCampCharacterHeader(const UiPointerEvent& event)
     if (event.action == UiPointerAction::Up && event.inside &&
         event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK)) {
         AfterUiDispatch([] {
-            g_current_screen_state.parameter_3 = g_review_character;
+            g_current_screen_state.character = g_review_character;
             g_current_screen_state.parameter_2 = giReviewCharSlot;
             g_pending_screen_state.mode = 1;
-            g_pending_screen_state.parameter_3 = g_review_character;
+            g_pending_screen_state.character = g_review_character;
             g_pending_screen_state.id = W8_SCREEN_CHARACTER;
         });
     }

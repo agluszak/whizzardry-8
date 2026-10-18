@@ -570,9 +570,10 @@ struct W8RaceResistanceProfile {
 
 /* Borrowed views of database records. Loaders retain the owning storage;
    replacing or releasing a database invalidates its borrowed pointers. */
-extern W8FactDatabaseRecord* g_fact_records;
-extern W8LevelDatabaseRecord* g_level_records;
-extern W8NpcDatabaseRecord* g_npc_records;
-extern W8SpellRuntimeRecord* g_spell_records;
+// The loaded retail databases; each vector owns its records.
+extern std::vector<W8FactDatabaseRecord> g_fact_records;
+extern std::vector<W8LevelDatabaseRecord> g_level_records;
+extern std::vector<W8NpcDatabaseRecord> g_npc_records;
+extern std::vector<W8SpellRuntimeRecord> g_spell_records;
 
 #endif

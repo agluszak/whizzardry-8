@@ -8,6 +8,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -971,7 +972,7 @@ void W8LockInteraction::AttemptForce()
    are then re-derived and the interaction enters state 7. */
 void W8LockInteraction::ApplyKnockKnock(int level, int /*flag*/, char backfire)
 {
-    int order[8];
+    std::array<int, 8> order{0, 1, 2, 3, 4, 5, 6, 7};
     int slot;
     int pins;
     int i;
@@ -986,15 +987,10 @@ void W8LockInteraction::ApplyKnockKnock(int level, int /*flag*/, char backfire)
     count = m_tumbler_count;
     rolled = false;
     for (i = 0; i < static_cast<int>(count); ++i) {
-        order[i] = i;
-    }
-    for (i = 0; i < static_cast<int>(count); ++i) {
         unsigned int first = Random(count);
         unsigned int second = Random(m_tumbler_count);
         if (first != second) {
-            int swap = order[first];
-            order[first] = order[second];
-            order[second] = swap;
+            std::swap(order[first], order[second]);
         }
         count = m_tumbler_count;
     }
@@ -6329,9 +6325,8 @@ void OpenCharacterScreenForPartySlot(unsigned int party_slot, bool flag)
         CloseNpcDialogueForCamp();
     }
     g_pending_screen_state.parameter_2 = party_slot;
-    g_pending_screen_state.parameter_3 = g_status.buffers.Char + party_slot;
-    g_pending_screen_state.parameter_4 =
-        flag ? static_cast<W8Character*>(g_pending_screen_state.parameter_3) : 0;
+    g_pending_screen_state.character = &g_status.buffers.Char[party_slot];
+    g_pending_screen_state.parameter_4 = flag ? g_pending_screen_state.character : nullptr;
     SetMainGameMode(W8_MAIN_GAME_DEFAULT);
     g_pending_screen_state.id = W8_SCREEN_CAMP;
     UpdateScreenOverlays(1);
@@ -6493,6 +6488,9 @@ void ConfirmNpcTradeItem(void)
         HandleNpcDialogueItemChoice();
         break;
     case W8_NPC_TRADE_SELL:
+        if (g_npc_interaction_state->trade_item == nullptr) {
+            throw std::logic_error("ConfirmNpcTradeItem: selling without a validated item");
+        }
         wants = NpcHasTopic(g_npc_interaction_state->dialogue_npc,
                             g_npc_interaction_state->trade_item->iItemNo);
         if (SellItemToNpc(
@@ -6959,7 +6957,7 @@ unsigned char HandleWorldResumeInput(const InputEvent* event)
         }
     }
 
-    if (g_mgs_keyboard->FindCommandForEvent(event) == W8_MGS_COMMAND_NONE) {
+    if (g_mgs_keyboard.FindCommandForEvent(event) == W8_MGS_COMMAND_NONE) {
         return 0;
     }
 

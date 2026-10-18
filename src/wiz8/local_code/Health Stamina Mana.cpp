@@ -1201,7 +1201,7 @@ void RecalculateCharacterHitPoints(W8Character* character)
    Retail compares the penalty with JNC and divides the scaled pool with DIV,
    so the ceiling and its delta are unsigned values even though the stored
    fields are ints. The divisor is unguarded in retail; a zero ceiling would
-   trap there too. */
+   trap there, so here it is treated as full fatigue. */
 // FUNCTION: WIZ8 0x0052a3e0
 void RecalculateCharacterStamina(W8Character* character)
 {
@@ -1223,8 +1223,12 @@ void RecalculateCharacterStamina(W8Character* character)
     if (value != previous) {
         character->stamina += value - previous;
     }
-    int fatigue =
-        100 - static_cast<int>(static_cast<unsigned int>(character->stamina) * 100 / value);
+    // A penalty that consumes the whole ceiling leaves the character fully
+    // fatigued instead of dividing by zero.
+    int fatigue = 100;
+    if (value != 0) {
+        fatigue -= static_cast<int>(static_cast<unsigned int>(character->stamina) * 100 / value);
+    }
     if (fatigue < 0x32) {
         character->fatigue_band = 0;
         return;

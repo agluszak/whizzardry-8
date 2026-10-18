@@ -22,7 +22,6 @@
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Strings.h"
-#include "xstatus.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
 
@@ -225,7 +224,7 @@ unsigned char PopulateNpcStock(W8NpcState* npc)
     for (rule_index = 0; rule_index < rule_count; ++rule_index) {
         rule = &npc->record->item_stock_rules[rule_index];
         item_id = rule->item_id;
-        if (item_id < static_cast<int>(gXStatus.uiItemsInDatabase)) {
+        if (item_id < static_cast<int>(g_item_records.size())) {
             persistent = rule->persistent;
             added = 0;
             if (rule->quantity != 0) {

@@ -707,7 +707,7 @@ float HeadingTowardNearestMonster(glm::vec3 point, W8Disposition disposition, in
 // FUNCTION: WIZ8 0x005500c0
 void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
 {
-    W8MonsterInfo* target_info;
+    W8MonsterInfo* source_monster = nullptr;
     W8MonsterInfo* summon;
     W8MonsterInfo* member;
     W8MonsterGroup* group;
@@ -736,8 +736,8 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
         return;
     }
     if (TargetSourceIsMonster(&effect->Source, 0)) {
-        target_info = FindMonster(effect->Source.iMonsterID);
-        if (target_info->elemental_summon != -1) {
+        source_monster = FindMonster(effect->Source.iMonsterID);
+        if (source_monster->elemental_summon != -1) {
             return;
         }
     }
@@ -768,8 +768,8 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
         disposition =
             (g_status.buffers.Char[effect->Source.iChar].uiCondition[W8_CONDITION_TURNCOAT] == 0) +
             1;
-    } else if (TargetSourceIsMonster(&effect->Source, 0)) {
-        disposition = target_info->ubDisposition;
+    } else if (source_monster != nullptr) {
+        disposition = source_monster->ubDisposition;
     } else {
         disposition = W8_DISPOSITION_HOSTILE;
     }
@@ -799,8 +799,8 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
     if (TargetSourceIsCharacter(&effect->Source, 0)) {
         BindMonsterToCharacterDependence(effect->Source.iChar, W8_DEPENDENCE_SUMMON,
                                          summon->location_id);
-    } else if (TargetSourceIsMonster(&effect->Source, 0)) {
-        target_info->elemental_summon = summon->location_id;
+    } else if (source_monster != nullptr) {
+        source_monster->elemental_summon = summon->location_id;
     }
     if (effect->definition.percent != 0 && Random(100) < effect->definition.percent) {
         ClearAttackBlock(&attack_block);
@@ -1964,7 +1964,7 @@ void ApplyCombatEffectSlot(W8SpellEffectEntry* effect)
     W8EffectSlot* slot;
     unsigned int duration;
     const int* table;
-    int source_character;
+    int source_character = -1;
     int spell_id;
     int slot_index;
     int index;

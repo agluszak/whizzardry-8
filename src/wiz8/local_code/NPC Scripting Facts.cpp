@@ -1016,7 +1016,7 @@ void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects)
     previous_value = g_fact_values[fact_id];
     g_fact_values[fact_id] = value;
 
-    if (fact_id < static_cast<int>(gXStatus.uiFactsInDatabase)) {
+    if (fact_id < static_cast<int>(g_fact_records.size())) {
         if (value) {
             display_value = "TRUE";
         } else {

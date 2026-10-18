@@ -384,7 +384,7 @@ static const std::array<std::string_view, 145> g_item_video_object_fallback_name
 // FUNCTION: WIZ8 0x0055ce80
 std::shared_ptr<const SpriteSheet> ItemSprites(int item_id)
 {
-    if (item_id < 0 || static_cast<unsigned int>(item_id) >= gXStatus.uiItemsInDatabase)
+    if (item_id < 0 || static_cast<unsigned int>(item_id) >= g_item_records.size())
         throw std::out_of_range(fmt::format("Item {} has no record", item_id));
     const auto& record = g_item_records[item_id];
     std::string_view name = record.video_object_name;
@@ -623,13 +623,13 @@ bool GetItemMergeKind(int item_id, short* related_kind)
 // FUNCTION: WIZ8 0x0051c8f0
 bool CompatiblePartnerItems(int ranged_item_id, int other_item_id)
 {
-    if (static_cast<unsigned int>(ranged_item_id) >= gXStatus.uiItemsInDatabase) {
-        srAssertFail("uiRangedItem < gXStatus.uiItemsInDatabase", PC_ITEM_CPP, 0x3fd,
+    if (static_cast<unsigned int>(ranged_item_id) >= g_item_records.size()) {
+        srAssertFail("uiRangedItem < g_item_records.size()", PC_ITEM_CPP, 0x3fd,
                      fmt::format("CompatiblePartnerItems: ERROR - Illegal RANGED item index {:d}",
                                  ranged_item_id));
     }
-    if (static_cast<unsigned int>(other_item_id) >= gXStatus.uiItemsInDatabase) {
-        srAssertFail("uiOtherItem < gXStatus.uiItemsInDatabase", PC_ITEM_CPP, 0x3fe,
+    if (static_cast<unsigned int>(other_item_id) >= g_item_records.size()) {
+        srAssertFail("uiOtherItem < g_item_records.size()", PC_ITEM_CPP, 0x3fe,
                      fmt::format("CompatiblePartnerItems: ERROR - Illegal OTHER item index {:d}",
                                  other_item_id));
     }
@@ -907,10 +907,9 @@ bool CanCharacterActivateItem(W8Character* character, const W8ItemInstance* item
     if (item->iItemNo < -1) {
         srAssertFail("pPCItem->iItemNo >= -1", PC_ITEM_CPP, 0x76b, 0);
     }
-    if (item->iItemNo >= static_cast<int>(gXStatus.uiItemsInDatabase)) {
+    if (item->iItemNo >= static_cast<int>(g_item_records.size())) {
         // c-style-cast-ok: verbatim retail assert string
-        srAssertFail("pPCItem->iItemNo < (INT32) gXStatus.uiItemsInDatabase", PC_ITEM_CPP, 0x76c,
-                     0);
+        srAssertFail("pPCItem->iItemNo < (INT32) g_item_records.size()", PC_ITEM_CPP, 0x76c, 0);
     }
     if (item->iItemNo == -1) {
         return false;
@@ -1046,11 +1045,6 @@ W8Skill GetItemSpellPresentation(const W8ItemDatabaseRecord* record)
    hard the attempt is. `out_uses` receives the fatigue cost of the attempt, and
    stays -1 when nothing was attempted; a casting aid's attempt costs eight per
    level of its spell plus twenty, even when it fails. */
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored                                                                   \
-    "-Wsometimes-uninitialized" // uninit-ok: retail returns the unset used byte on rejected/spent-item paths; callers observe that indeterminate result.
-#pragma clang diagnostic ignored                                                                   \
-    "-Wuninitialized" // uninit-ok: retail returns the unset used byte on rejected/spent-item paths; callers observe that indeterminate result.
 // FUNCTION: WIZ8 0x0051dde0
 unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_uses)
 {
@@ -1062,7 +1056,8 @@ unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_use
     int event_type;
     int fatigue_cost = -1;
     W8TargetSource target;
-    unsigned char used;
+    // Retail returned an unset byte for a spent item; nothing was used.
+    unsigned char used = 0;
 
     if (!CanCharacterUseItem(character, item->iItemNo)) {
         PostCharacterNotice(party_slot,
@@ -1226,7 +1221,6 @@ unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_use
     *out_uses = fatigue_cost;
     return used;
 }
-#pragma clang diagnostic pop
 
 /* Whether the item worn in one slot may be taken off. A binding that has not
    yet been announced holds it in place, unless the slot is not a real
@@ -1292,7 +1286,7 @@ bool MergeItems(W8Character* character, W8ItemInstance* destination)
         return false;
     }
 
-    for (result_item_id = 0; result_item_id < gXStatus.uiItemsInDatabase; ++result_item_id) {
+    for (result_item_id = 0; result_item_id < g_item_records.size(); ++result_item_id) {
         recipe = &g_item_records[result_item_id];
         if ((recipe->merge_component_a == held->iItemNo &&
              recipe->merge_component_b == destination->iItemNo) ||
@@ -1874,8 +1868,8 @@ void AddPartyGold(int amount, bool announce)
 void ReplaceOrCreateItem(W8ItemInstance* item, int item_id, bool maximum_quantity,
                          bool force_identified, bool mark_special)
 {
-    if (static_cast<unsigned int>(item_id) >= gXStatus.uiItemsInDatabase) {
-        srAssertFail("uiItemNo < gXStatus.uiItemsInDatabase", PC_ITEM_CPP, 564,
+    if (static_cast<unsigned int>(item_id) >= g_item_records.size()) {
+        srAssertFail("uiItemNo < g_item_records.size()", PC_ITEM_CPP, 564,
                      fmt::format("InitNewItem: error, invalid item # {:d} specified", item_id));
     }
 
@@ -1945,7 +1939,7 @@ void BindEquippedItem(W8Character* character, W8EquipSlot equip_slot)
 }
 
 /* The spell an item carries, with both bounds on the item id asserted - the
-   second names the database count as gXStatus.uiItemsInDatabase. */
+   second names the database count as g_item_records.size(). */
 // FUNCTION: WIZ8 0x00520880
 int GetItemSpell(const W8ItemInstance* item)
 {
@@ -1955,8 +1949,8 @@ int GetItemSpell(const W8ItemInstance* item)
     if (item->iItemNo == -1) {
         srAssertFail("pPCItem->iItemNo != -1", PC_ITEM_CPP, 4003, 0);
     }
-    if (item->iItemNo >= static_cast<int>(gXStatus.uiItemsInDatabase)) {
-        srAssertFail("pPCItem->iItemNo < (INT32) gXStatus.uiItemsInDatabase", PC_ITEM_CPP, 4004, 0);
+    if (item->iItemNo >= static_cast<int>(g_item_records.size())) {
+        srAssertFail("pPCItem->iItemNo < (INT32) g_item_records.size()", PC_ITEM_CPP, 4004, 0);
     }
     return g_item_records[item->iItemNo].spell_id;
 }

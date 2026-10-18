@@ -2,6 +2,7 @@
 
 #include <array>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -527,7 +528,7 @@ void GetPartySlotMenuAnchor(int party_slot, int* menu_x, int* menu_y, int* band_
         *band_portrait_edge = *menu_x;
         break;
     default:
-        break;
+        throw std::logic_error("GetPartySlotMenuAnchor: party slot out of range");
     }
     if (adjust != 0 && g_settings.main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS &&
         static_cast<unsigned int>(g_settings.main_ui_mode) <=
@@ -1188,7 +1189,7 @@ void CreateLevelButtons()
             {.on_click =
                  [slot](auto*) {
                      AfterUiDispatch([slot] {
-                         g_pending_screen_state.parameter_3 = &g_status.buffers.Char[slot];
+                         g_pending_screen_state.character = &g_status.buffers.Char[slot];
                          g_pending_screen_state.mode = 2;
                          g_pending_screen_state.id = W8_SCREEN_CHARACTER;
                      });

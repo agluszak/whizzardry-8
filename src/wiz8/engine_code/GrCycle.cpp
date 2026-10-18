@@ -6,6 +6,7 @@
 #include <cstring>
 #include <deque>
 #include <exception>
+#include <functional>
 #include <list>
 #include <memory>
 #include <optional>
@@ -147,7 +148,7 @@ bool ShakeSystem::Instance::Evaluate(const glm::vec3& camera, float& amount)
 float ShakeSystem::Update(const glm::vec3& camera)
 {
     float intensity = 0.0f;
-    std::vector<void (*)()> callbacks;
+    std::vector<std::function<void()>> callbacks;
     callbacks.reserve(active.size());
     std::erase_if(active, [&](const auto& instance) {
         float amount;
@@ -156,13 +157,13 @@ float ShakeSystem::Update(const glm::vec3& camera)
             return false;
         }
         if (instance->definition.completion_callback) {
-            callbacks.push_back(instance->definition.completion_callback);
+            callbacks.push_back(std::move(instance->definition.completion_callback));
         }
         return true;
     });
     // Callbacks may start/stop shakes or destroy the definitions that keyed
     // them. Retire all completed instances before invoking any callback.
-    for (auto callback : callbacks) {
+    for (const auto& callback : callbacks) {
         callback();
     }
     return intensity;
@@ -263,7 +264,7 @@ unsigned char ReadGrCycleData(W8ReadLevelInfo* info, W8GrCycle* cycle, int cycle
 try {
     unsigned char has_path;
     unsigned char has_particles;
-    unsigned char success;
+    unsigned char success = 0;
 
     if (info == 0) {
         srAssertFail("pInfo", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x1ba, 0);
@@ -847,7 +848,7 @@ void W8GrCycle::UpdateParticleAttachments()
     int index;
     srModelInstance* psrMesh;
     W8EmitterHost* pRep;
-    stMeshModel* pMeshModel;
+    stMeshModel* pMeshModel = nullptr;
     glm::mat3 rotation;
     glm::dvec3 scale;
     glm::dvec3 location;

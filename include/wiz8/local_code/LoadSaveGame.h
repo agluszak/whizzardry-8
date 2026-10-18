@@ -9,20 +9,11 @@
 
 #include "compat/compiler.h"
 #include "wiz8/file_time.h"
+#include "wiz8/layouts/save_screenshot.h"
 
 bool VerifyDataSubdirs(void);
 std::optional<std::string> FindStartupQuickSave();
 int GetSaveGameLevel(std::string_view slot_name);
-
-/* The SHOT record. SaveGame writes 0x2588 bytes; the save-screen producer
-   copy-constructs one complete record, including its trailing padding.
-   The 80 by 60 16-bit surface begins at offset 6. */
-struct W8SaveScreenshot {
-    float version;
-    unsigned char capture_result;
-    unsigned char padding_05;
-    unsigned short pixels[60][80];
-};
 
 /* Save-list entries are allocated as 0x2640 bytes by both the enumerator and
    the Options controller. The SHOT chunk occupies the embedded screenshot. */
@@ -45,7 +36,7 @@ void CaptureSaveScreenshot(W8SaveScreenshot& screenshot);
 void FillCurrentSaveSlot(W8SaveSlot& slot);
 bool EnumerateSaveSlots(std::vector<std::unique_ptr<W8SaveSlot>>& slots);
 
-bool SaveGame(std::string_view name, W8SaveScreenshot* screenshot);
+bool SaveGame(std::string_view name, const W8SaveScreenshot* screenshot);
 
 struct W8Character;
 

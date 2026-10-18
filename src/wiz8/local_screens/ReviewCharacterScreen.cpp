@@ -1131,7 +1131,7 @@ static void CreateCampInput()
 bool CampScreenEnter(void)
 {
     ClearPrimarySurface();
-    g_review_character = static_cast<W8Character*>(g_current_screen_state.parameter_3);
+    g_review_character = g_current_screen_state.character;
     giReviewCharSlot = g_current_screen_state.parameter_2;
     unsigned char initial_item_action;
     if (g_current_screen_state.parameter_4 == 0) {
@@ -2472,7 +2472,7 @@ void PumpReviewTransition(void)
     }
     if (g_ending_autosave) {
         if (auto name = FindFreeEndingSaveName()) {
-            SaveGame(name->c_str(), 0);
+            SaveGame(name->c_str(), nullptr);
             g_pending_main_menu_message =
                 (fmt::format("{} {}.{}", g_localized_strings[0x78b], *name, g_save_extension));
         }

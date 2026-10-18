@@ -81,7 +81,7 @@ struct W8ItemInstance;
    MGSKeyboard::LoadDefaults moved to Local Code\InputMapper.cpp. */
 
 // GLOBAL: WIZ8 0x0069b7e4
-MGSKeyboard* g_mgs_keyboard;
+MGSKeyboard g_mgs_keyboard;
 
 // Retail set 0x26, regions 180-193.
 
@@ -200,12 +200,8 @@ unsigned char MGSKeyboard::Save(wiz8::File& handle) const
 // FUNCTION: WIZ8 0x00592BE0
 void ResetMGSKeyboardBindings()
 {
-    if (g_mgs_keyboard == 0) {
-        g_mgs_keyboard = new MGSKeyboard;
-    } else {
-        g_mgs_keyboard->Clear();
-    }
-    g_mgs_keyboard->LoadDefaults("Data\\Strings\\MGSKeyboard.ini");
+    g_mgs_keyboard.Clear();
+    g_mgs_keyboard.LoadDefaults("Data\\Strings\\MGSKeyboard.ini");
 }
 
 /* Route one non-mouse input atom: text entry, NPC dialogue and the trap text
@@ -236,7 +232,7 @@ unsigned char HandleMainGameInputEvent(const InputEvent* input)
             return 1;
         }
     } else {
-        DispatchMGSCommand(g_mgs_keyboard->FindCommandForEvent(input));
+        DispatchMGSCommand(g_mgs_keyboard.FindCommandForEvent(input));
     }
     return 1;
 }
@@ -473,7 +469,7 @@ void DispatchMGSCommand(W8MGSCommand command)
             }
         }
         const auto slot_name = SelectQuickSaveSlotForWrite();
-        if (slot_name && SaveGame(*slot_name, 0)) {
+        if (slot_name && SaveGame(*slot_name, nullptr)) {
             g_options_last_save_name = (*slot_name);
             ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x6f5]);
         } else {
@@ -1002,7 +998,7 @@ static void KeyboardMenuUseRecordedItem(void)
 void HandleManualCameraHotkeys(void)
 {
     if (g_modal_owner == 0 && !gXStatus.fNpcDialogueMode) {
-        if (g_mgs_keyboard->IsCommandPressed(W8_MGS_COMMAND_CAMERA_LOCK)) {
+        if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_CAMERA_LOCK)) {
             BeginManualCameraControl();
         }
         ApplyCameraMotionHotkeys();
@@ -1012,42 +1008,42 @@ void HandleManualCameraHotkeys(void)
 // FUNCTION: WIZ8 0x00592a10
 void ApplyCameraMotionHotkeys(void)
 {
-    if (g_mgs_keyboard->IsCommandPressed(W8_MGS_COMMAND_TURN_LEFT) ||
-        g_mgs_keyboard->IsCommandPressed(W8_MGS_COMMAND_TURN_LEFT_ALT)) {
+    if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_TURN_LEFT) ||
+        g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_TURN_LEFT_ALT)) {
         g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_TURN_LEFT;
     }
-    if (g_mgs_keyboard->IsCommandPressed(W8_MGS_COMMAND_TURN_RIGHT) ||
-        g_mgs_keyboard->IsCommandPressed(W8_MGS_COMMAND_TURN_RIGHT_ALT)) {
+    if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_TURN_RIGHT) ||
+        g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_TURN_RIGHT_ALT)) {
         g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_TURN_RIGHT;
     }
-    if (g_mgs_keyboard->IsCommandPressed(W8_MGS_COMMAND_MOVE_FORWARD)) {
+    if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_MOVE_FORWARD)) {
         g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_FORWARD;
     }
-    if (g_mgs_keyboard->IsCommandPressed(W8_MGS_COMMAND_MOVE_FORWARD_RUN)) {
+    if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_MOVE_FORWARD_RUN)) {
         g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_FORWARD | W8_CAMERA_MOTION_FAST;
     }
-    if (g_mgs_keyboard->IsCommandPressed(W8_MGS_COMMAND_MOVE_BACKWARD)) {
+    if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_MOVE_BACKWARD)) {
         g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_BACKWARD;
     }
-    if (g_mgs_keyboard->IsCommandPressed(W8_MGS_COMMAND_MOVE_BACKWARD_RUN)) {
+    if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_MOVE_BACKWARD_RUN)) {
         g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_BACKWARD | W8_CAMERA_MOTION_FAST;
     }
-    if (g_mgs_keyboard->IsCommandPressed(W8_MGS_COMMAND_LOOK_UP)) {
+    if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_LOOK_UP)) {
         g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_LOOK_UP;
     }
-    if (g_mgs_keyboard->IsCommandPressed(W8_MGS_COMMAND_LOOK_DOWN)) {
+    if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_LOOK_DOWN)) {
         g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_LOOK_DOWN;
     }
-    if (g_mgs_keyboard->IsCommandPressed(W8_MGS_COMMAND_STRAFE_LEFT)) {
+    if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_STRAFE_LEFT)) {
         g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_STRAFE_LEFT;
     }
-    if (g_mgs_keyboard->IsCommandPressed(W8_MGS_COMMAND_STRAFE_RIGHT)) {
+    if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_STRAFE_RIGHT)) {
         g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_STRAFE_RIGHT;
     }
-    if (g_mgs_keyboard->IsCommandPressed(W8_MGS_COMMAND_STRAFE_LEFT_RUN)) {
+    if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_STRAFE_LEFT_RUN)) {
         g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_STRAFE_LEFT | W8_CAMERA_MOTION_FAST;
     }
-    if (g_mgs_keyboard->IsCommandPressed(W8_MGS_COMMAND_STRAFE_RIGHT_RUN)) {
+    if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_STRAFE_RIGHT_RUN)) {
         g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_STRAFE_RIGHT | W8_CAMERA_MOTION_FAST;
     }
 }

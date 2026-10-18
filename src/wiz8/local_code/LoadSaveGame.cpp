@@ -1110,7 +1110,7 @@ static void WriteGame(std::string_view name, const W8SaveScreenshot* screenshot,
 }
 
 // FUNCTION: WIZ8 0x005123F0
-bool SaveGame(std::string_view name, W8SaveScreenshot* screenshot)
+bool SaveGame(std::string_view name, const W8SaveScreenshot* screenshot)
 try {
     if (name.empty()) return false;
     SaveTransaction transaction(SaveSlotPath(name));

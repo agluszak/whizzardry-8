@@ -27,8 +27,6 @@ struct MGSKeyBinding {
 // VTABLE: WIZ8 0x005ee8f0
 class MGSKeyboard {
 public:
-    virtual ~MGSKeyboard() = default;
-
     int FindBinding(W8MGSCommand command) const;
     /* Match a live InputEvent against the binding table; returns command or -1. */
     W8MGSCommand FindCommandForEvent(const InputEvent* event) const;
@@ -44,7 +42,7 @@ private:
     std::vector<MGSKeyBinding> m_bindings;
 };
 
-extern MGSKeyboard* g_mgs_keyboard;
+extern MGSKeyboard g_mgs_keyboard;
 
 void ResetMGSKeyboardBindings();
 

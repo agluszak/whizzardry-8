@@ -448,8 +448,8 @@ public:
        press can switch screens and with them the active key bindings. */
     void command(W8MGSCommand command)
     {
-        const int index = g_mgs_keyboard ? g_mgs_keyboard->FindBinding(command) : -1;
-        const MGSKeyBinding* bound = index >= 0 ? g_mgs_keyboard->GetBinding(index) : nullptr;
+        const int index = g_mgs_keyboard.FindBinding(command);
+        const MGSKeyBinding* bound = index >= 0 ? g_mgs_keyboard.GetBinding(index) : nullptr;
         if (!bound || !bound->key)
             Fail("command", "no key bound to command " + std::to_string(int(command)));
         const MGSKeyBinding binding = *bound;
@@ -1024,7 +1024,7 @@ void InventoryChestScenario()
     const auto original_item = picker->entries.front().item->item;
     const auto picker_count = picker->entries.size();
     int stack_id = -1, nonstack_id = -1;
-    for (unsigned i = 0; i < gXStatus.uiItemsInDatabase; ++i) {
+    for (unsigned i = 0; i < g_item_records.size(); ++i) {
         const auto& record = g_item_records[i];
         if (record.quantity_kind == W8_ITEM_QUANTITY_STACK && record.maximum_quantity >= 5)
             stack_id = i;
@@ -1121,7 +1121,7 @@ void InventoryChestScenario()
     // Use a real healing consumable through inventory. It must reach gameplay,
     // heal the user and consume exactly one unit from the carried stack.
     int healing_potion = -1;
-    for (unsigned id = 0; id < gXStatus.uiItemsInDatabase; ++id)
+    for (unsigned id = 0; id < g_item_records.size(); ++id)
         if (g_item_records[id].equip_class == W8_ITEM_EQUIP_CLASS_POTION &&
             g_item_records[id].spell_id == W8_SPELL_HEAL_WOUNDS &&
             g_item_records[id].quantity_kind == W8_ITEM_QUANTITY_STACK) {
@@ -2178,8 +2178,8 @@ int Monkey(Game& game, int steps, unsigned seed)
                 // Bound commands only reach the game on the main-game screen.
                 const W8MGSCommand command = commands[pick(int(std::size(commands)))];
                 std::printf("  monkey %d: command %d\n", step, int(command));
-                const int binding = g_mgs_keyboard ? g_mgs_keyboard->FindBinding(command) : -1;
-                if (binding >= 0 && g_mgs_keyboard->GetBinding(binding)->key) game.command(command);
+                const int binding = g_mgs_keyboard.FindBinding(command);
+                if (binding >= 0 && g_mgs_keyboard.GetBinding(binding)->key) game.command(command);
                 break;
             }
             std::fflush(stdout);
@@ -2225,10 +2225,10 @@ bool RunScriptCommand(Game& game, const std::string& line)
     } else if (unsigned seed = 0; op == "monkey" && in >> x >> seed) {
         Monkey(game, x, seed);
     } else if (op == "journal") {
-        std::printf("  journal: %zu entries, %u facts\n", g_fact_journal_entries.size(),
-                    gXStatus.uiFactsInDatabase);
+        std::printf("  journal: %zu entries, %zu facts\n", g_fact_journal_entries.size(),
+                    g_fact_records.size());
         for (const W8JournalEntry& entry : g_fact_journal_entries)
-            if (unsigned(entry.fact) >= gXStatus.uiFactsInDatabase)
+            if (unsigned(entry.fact) >= g_fact_records.size())
                 std::printf("  journal entry level %d fact %d alternate %d out of range\n",
                             entry.level, int(entry.fact), entry.alternate_text);
     } else if (op == "items" || op == "spells") {

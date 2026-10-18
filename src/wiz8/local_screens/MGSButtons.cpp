@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -1012,6 +1013,9 @@ void ScrollSubMenuCharacter(char direction)
     short selected;
     short slot;
 
+    if (g_status.selected_character < 0 || g_status.selected_character >= 8) {
+        throw std::logic_error("ScrollSubMenuCharacter: selected character is not a party slot");
+    }
     current = static_cast<short>(g_status.selected_character);
     selected = current;
     switch (direction) {

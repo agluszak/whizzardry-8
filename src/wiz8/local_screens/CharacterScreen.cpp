@@ -371,7 +371,7 @@ void W8CharacterScreen::AdvancePage(bool forward)
                 RequestScreenTransition();
                 if (m_mode == 2 && m_character.experience_goal <= m_character.experience) {
                     g_pending_screen_state.mode = 3;
-                    g_pending_screen_state.parameter_3 = m_original;
+                    g_pending_screen_state.character = m_original;
                     g_pending_screen_state.id = W8_SCREEN_CHARACTER;
                 }
             }
@@ -671,8 +671,8 @@ bool CharacterScreenEnter(void)
     UpdateHeldItemCursor();
     g_wiz_text_font_secondary.resetPalette();
     g_wiz_text_bold_font.resetPalette();
-    g_character_screen = std::make_unique<W8CharacterScreen>(
-        g_current_screen_state.mode, static_cast<W8Character*>(g_current_screen_state.parameter_3));
+    g_character_screen = std::make_unique<W8CharacterScreen>(g_current_screen_state.mode,
+                                                             g_current_screen_state.character);
     g_character_screen->BuildControls();
     if (!g_status.game_started &&
         (g_current_screen_state.mode == 0 || g_current_screen_state.mode == 2)) {

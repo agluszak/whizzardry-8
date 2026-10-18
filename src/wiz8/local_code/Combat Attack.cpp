@@ -948,7 +948,6 @@ void ResolveMissileHit(W8Missile* missile, bool deflected)
 {
     W8TargetSource* source = &missile->m_Source;
     W8CombatSlot* target = &missile->combat_slot;
-    W8MonsterInfo* monster_info;
     W8MonsterRecord* record;
     std::string text;
     std::string location_name;
@@ -965,11 +964,12 @@ void ResolveMissileHit(W8Missile* missile, bool deflected)
     if (!IsTargetStillPresent(target)) {
         return;
     }
+    const bool target_is_monster = target->iType == W8_TARGET_KIND_MONSTER;
+    W8MonsterInfo* monster_info = target_is_monster ? FindMonster(target->iMonsterID) : nullptr;
     TargetSourceIsCharacter(source, 0);
     text = fmt::format("{} ", g_localized_strings[0x1bf]);
     target_start = text.size();
-    if (target->iType == W8_TARGET_KIND_MONSTER) {
-        monster_info = FindMonster(target->iMonsterID);
+    if (target_is_monster) {
         text += GetMonsterName(monster_info, 0, 0);
     } else {
         text += g_status.buffers.Char[target->iChar].name;
@@ -990,8 +990,7 @@ void ResolveMissileHit(W8Missile* missile, bool deflected)
         return;
     }
 
-    if (target->iType == W8_TARGET_KIND_MONSTER) {
-        monster_info = FindMonster(target->iMonsterID);
+    if (target_is_monster) {
         record = GetMonsterDataForInfo(monster_info);
         hit_location = RollMonsterHitLocation(record);
         if (record->hit_location_chances[hit_location] < 100) {
@@ -1018,7 +1017,7 @@ void ResolveMissileHit(W8Missile* missile, bool deflected)
         magnitude = RollEffectMagnitude(&missile->definition);
         if (magnitude > 0) {
             MakePCHitSound(missile, target, hit_location, -1);
-            if (target->iType == W8_TARGET_KIND_MONSTER) {
+            if (target_is_monster) {
                 ApplyDamageToMonster(monster_info, magnitude, source, false, 1, 1, 0, false);
             } else {
                 ApplyDamageToCharacter(target->iChar, magnitude, false, true, true, 0, false);
@@ -2382,8 +2381,9 @@ int ResolveCharacterAttackDamage(int party_slot, int hand, W8AttackMode attack_m
     unsigned char out_of_formation;
     bool target_defending;
     bool target_moving;
+    const bool target_is_monster = g_combat_state->TargetHit.iType == W8_TARGET_KIND_MONSTER;
 
-    if (g_combat_state->TargetHit.iType == W8_TARGET_KIND_MONSTER) {
+    if (target_is_monster) {
         if (g_combat_state->TargetHit.iMonsterID == -1) {
             srAssertFail("gpCombat->TargetHit.iMonsterID != BAD_INDEX", COMBAT_ATTACK_CPP, 0xbf0,
                          0);
@@ -2426,8 +2426,7 @@ int ResolveCharacterAttackDamage(int party_slot, int hand, W8AttackMode attack_m
     if (dice_count > 1 && target_defending && g_combat_state->unaware == 0) {
         dice_count -= 1;
     }
-    if (g_combat_state->TargetHit.iType == W8_TARGET_KIND_MONSTER &&
-        pPC->Hand[hand].uiHolds != HOLDS_NOTHING) {
+    if (target_is_monster && pPC->Hand[hand].uiHolds != HOLDS_NOTHING) {
         if (g_item_records[pPC->EquippedItem[row->current_equip_slot].iItemNo].slays_kind != 0xff &&
             g_item_records[pPC->EquippedItem[row->current_equip_slot].iItemNo].slays_kind ==
                 record->kind) {
@@ -2512,7 +2511,7 @@ int ResolveCharacterAttackDamage(int party_slot, int hand, W8AttackMode attack_m
     if (damage < 1) {
         damage = 1;
     }
-    if (g_combat_state->TargetHit.iType == W8_TARGET_KIND_MONSTER) {
+    if (target_is_monster) {
         damage = ApplyDamageReduction(monster_info, record, damage);
     } else {
         damage = ApplyCharacterDamageReduction(target, damage);
@@ -2616,8 +2615,9 @@ int ResolveMonsterAttackDamage(W8MonsterInfo* monster_info, W8MonsterAttack* att
     unsigned char out_of_formation;
     bool target_defending;
     bool target_moving;
+    const bool target_is_character = g_combat_state->TargetHit.iType == W8_TARGET_KIND_CHARACTER;
 
-    if (g_combat_state->TargetHit.iType == W8_TARGET_KIND_CHARACTER) {
+    if (target_is_character) {
         if (g_combat_state->TargetHit.iChar == -1) {
             srAssertFail("gpCombat->TargetHit.iChar != BAD_INDEX", COMBAT_ATTACK_CPP, 0xd3b, 0);
         }
@@ -2669,10 +2669,10 @@ int ResolveMonsterAttackDamage(W8MonsterInfo* monster_info, W8MonsterAttack* att
     if (rolled <= 0) {
         rolled = 1;
     }
-    if (g_combat_state->TargetHit.iType == W8_TARGET_KIND_MONSTER) {
-        rolled = ApplyDamageReduction(target_info, record, rolled);
-    } else {
+    if (target_is_character) {
         rolled = ApplyCharacterDamageReduction(target, rolled);
+    } else {
+        rolled = ApplyDamageReduction(target_info, record, rolled);
     }
     if (rolled < 0) {
         *out_dice_count = dice_count;

@@ -39,6 +39,7 @@
 #include "local_code/RangeControl.h"
 #include "local_screens/RCSStatsPage.h"
 #include "scoped_asset_roots.h"
+#include "scoped_records.h"
 #include "surrender/srCamera.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
@@ -126,12 +127,12 @@ void screen_stack()
     g_pending_screen_state.id = W8_SCREEN_NONE;
     g_screen_return_requested = false;
     REQUIRE(GetPendingScreenState() == W8_SCREEN_NONE);
-    int payload;
+    W8Character payload{};
     for (int index = 0; index < 40; ++index) {
         g_pending_screen_state = {};
         g_pending_screen_state.id = index % 2 ? W8_SCREEN_OPTIONS : W8_SCREEN_INTRO;
         g_pending_screen_state.parameter = index;
-        g_pending_screen_state.parameter_3 = &payload;
+        g_pending_screen_state.character = &payload;
         g_pending_screen_state.name = "screen " + std::to_string(index);
         REQUIRE(GetPendingScreenState() == g_pending_screen_state.id);
         GameLoop();
@@ -145,7 +146,7 @@ void screen_stack()
         RequestScreenTransition();
         GameLoop();
         REQUIRE(g_current_screen_state.parameter == index);
-        REQUIRE(g_current_screen_state.parameter_3 == &payload);
+        REQUIRE(g_current_screen_state.character == &payload);
         REQUIRE(g_current_screen_state.name == std::string("screen ") + std::to_string(index));
         REQUIRE(g_screen_return_stack.size() == static_cast<size_t>(index));
         REQUIRE(screen_leaves.back() == 1);
@@ -2060,25 +2061,20 @@ TEST_CASE("Item images come from the shared image cache", "[owner][catalog]")
     const auto assets = directory.path / "assets";
     const auto previous_roots = w8_native::path_roots();
     button_image_fixture(assets, "data/items/icon.sti", 1);
-    std::vector<W8ItemDatabaseRecord> records(1005);
+    const ScopedRecords items(g_item_records, 1005);
+    auto& records = g_item_records;
     for (auto& record : records) record.video_object_name = "icon.sti";
     struct Restore {
-        W8ItemDatabaseRecord* records;
-        unsigned int count;
         w8_native::Roots roots;
         ~Restore()
         {
             g_image_assets.clear();
-            g_item_records = records;
-            gXStatus.uiItemsInDatabase = count;
             w8_native::configure_paths(roots);
         }
-    } restore{g_item_records, gXStatus.uiItemsInDatabase, previous_roots};
+    } restore{previous_roots};
 
     g_image_assets.clear();
     w8_native::configure_paths({assets.string(), (directory.path / "user").string()});
-    g_item_records = records.data();
-    gXStatus.uiItemsInDatabase = static_cast<unsigned int>(records.size());
     REQUIRE_THROWS_AS(ItemSprites(-1), std::out_of_range);
     REQUIRE_THROWS_AS(ItemSprites(static_cast<int>(records.size())), std::out_of_range);
     records[0].video_object_name = "missing.sti";

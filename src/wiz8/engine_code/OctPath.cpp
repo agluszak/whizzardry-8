@@ -463,13 +463,13 @@ void W8PathingService::SetConditionalPathFrame(unsigned int path_handle, unsigne
     }
 
     if (frame_missing) {
-        unsigned int current_value;
         lookup_index = path_handle;
         while (m_pulCondLookup[lookup_index] != 0) {
             unsigned int key_index = m_pulCondLookup[lookup_index];
             while (m_pulCondNodeKeys[key_index] != 0) {
                 unsigned int key = m_pulCondNodeKeys[key_index];
-                current_value = FindConditionalPathValue(key, m_pulCondNodeValues[key_index]);
+                unsigned int current_value =
+                    FindConditionalPathValue(key, m_pulCondNodeValues[key_index]);
                 if ((m_pulCondNodeValues[key_index] & W8_PATH_CELL_BLOCKING_FRAME) != 0 &&
                     (current_value & W8_PATH_CELL_INACTIVE) != 0) {
                     RemoveIndexValue(*index, key, current_value);
@@ -485,9 +485,11 @@ void W8PathingService::SetConditionalPathFrame(unsigned int path_handle, unsigne
         while (m_pulCondLookup[lookup_index] != 0) {
             unsigned int key_index = m_pulCondLookup[lookup_index];
             while (m_pulCondNodeKeys[key_index] != 0) {
+                unsigned int key = m_pulCondNodeKeys[key_index];
+                unsigned int current_value =
+                    FindConditionalPathValue(key, m_pulCondNodeValues[key_index]);
                 if ((m_pulCondNodeValues[key_index] & W8_PATH_CELL_BLOCKING_FRAME) == 0 &&
                     (current_value & W8_PATH_CELL_INACTIVE) == 0) {
-                    unsigned int key = m_pulCondNodeKeys[key_index];
                     RemoveIndexValue(*index, key, current_value);
                     current_value |= W8_PATH_CELL_INACTIVE;
                     InsertIndexValue(*index, key, current_value);
@@ -1459,14 +1461,6 @@ bool W8PathingService::CanReachSearchNode(const glm::vec3* position, unsigned sh
 /* Pull the last planned point onto the requested contact shell when it only
    overshoots that shell by less than half a path cell. The adjusted point is
    also made the attachment's current point and republished to the octree. */
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored                                                                   \
-    "-Wsometimes-uninitialized" // uninit-ok: retail uses an unset target radius/position when
-// monster info or its model is absent; this can alter the published
-// endpoint.
-#pragma clang diagnostic ignored                                                                   \
-    "-Wuninitialized" // uninit-ok: retail uses an unset target radius/position when monster info or
-// its model is absent; this can alter the published endpoint.
 // FUNCTION: WIZ8 0x00465D70
 void W8PathingService::AdjustFinalPathEndpoint(W8NavigatorMovementState* movement, float radius,
                                                float separation)
@@ -1476,20 +1470,18 @@ void W8PathingService::AdjustFinalPathEndpoint(W8NavigatorMovementState* movemen
         return;
     }
 
-    /* Retail leaves the target radius and position unset when the monster
-       info or model is absent. */
-    float target_radius;
-    glm::vec3 target_position;
-    if (target_location <= 0) {
-        target_radius = PartyNavigator()->movement.alternate_radius;
-        target_position = PartyNavigator()->GetPosition();
-    } else {
+    /* Retail read an unset target radius and position when the monster info
+       or model is absent; without a target there is no shell to pull onto. */
+    W8Navigator* target = PartyNavigator();
+    if (target_location > 0) {
         W8MonsterInfo* info = FindMonster(target_location);
-        if (info != 0 && info->p3D != 0) {
-            target_radius = info->p3D->movement.alternate_radius;
-            target_position = info->p3D->GetPosition();
+        if (info == nullptr || info->p3D == nullptr) {
+            return;
         }
+        target = info->p3D;
     }
+    const float target_radius = target->movement.alternate_radius;
+    const glm::vec3 target_position = target->GetPosition();
 
     W8NavigatorAttachment* attachment = movement->attachment.get();
     glm::vec3* endpoint = &attachment->path[attachment->path_position_index].position;
@@ -1513,7 +1505,6 @@ void W8PathingService::AdjustFinalPathEndpoint(W8NavigatorMovementState* movemen
         }
     }
 }
-#pragma clang diagnostic pop
 
 /* Select one conditional frame for a GD prop's path cells. Entries belonging
    to every other frame first lose both prop-state bits. Entries belonging to

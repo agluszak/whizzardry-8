@@ -395,7 +395,7 @@ int CanCharacterUseItemEntry(W8Character* character, W8ItemInstance* item)
 // FUNCTION: WIZ8 0x005BAA50
 bool CanSplitItemStack(const W8ItemInstance* item)
 {
-    const W8ItemDatabaseRecord* record = g_item_records + item->iItemNo;
+    const W8ItemDatabaseRecord* record = &g_item_records[item->iItemNo];
     if ((record->flags & W8_ITEM_FLAG_NO_DISCARD) != 0) {
         return false;
     }
@@ -526,7 +526,7 @@ void UpdateItemCursorForState(int flag, W8ItemInstance* item, int slot)
             return;
         }
         if (g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_SPLIT_STACK) {
-            const W8ItemDatabaseRecord* record = g_item_records + item->iItemNo;
+            const W8ItemDatabaseRecord* record = &g_item_records[item->iItemNo];
             if ((record->flags & W8_ITEM_FLAG_NO_DISCARD) != 0 ||
                 record->quantity_kind != W8_ITEM_QUANTITY_STACK) {
                 return;

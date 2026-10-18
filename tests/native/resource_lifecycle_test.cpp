@@ -383,26 +383,17 @@ TEST_CASE_METHOD(SpellVisualFixture, "Emitter loads publish only complete valid 
     }
 }
 
-static ShakeSystem* callback_system;
-static const ShakeDefinition* callback_key;
-static int shake_callbacks;
-static void RestartShakeFromCompletion()
-{
-    ++shake_callbacks;
-    REQUIRE_FALSE(callback_system->IsActive(*callback_key));
-    ShakeDefinition next(10, false, 1, 0, nullptr);
-    callback_system->Start(next, callback_key);
-}
-
 TEST_CASE("Shake instances retire before reentrant completion and can restart",
           "[resources][shake]")
 {
     ShakeSystem system;
     ShakeDefinition definition(0, false, 1, 0, nullptr);
-    definition.completion_callback = RestartShakeFromCompletion;
-    callback_system = &system;
-    callback_key = &definition;
-    shake_callbacks = 0;
+    int shake_callbacks = 0;
+    definition.completion_callback = [&] {
+        ++shake_callbacks;
+        REQUIRE_FALSE(system.IsActive(definition));
+        system.Start(ShakeDefinition(10, false, 1, 0, nullptr), &definition);
+    };
     system.Start(definition, &definition);
     system.Start(definition, &definition); // A restart cannot duplicate the keyed instance.
     REQUIRE(system.IsActive(definition));

@@ -748,15 +748,14 @@ static W8Prop* RunElevatorLift(Trigger* lift)
 void ArnikaElevatorAdvance(int which)
 {
     W8Elevator* el;
-    W8Prop* prop;
+    /* An invalid state runs nothing and leaves no prop to wait on. */
+    W8Prop* prop = nullptr;
 
     if (which == 1) {
         el = &gEl01;
     } else {
         el = &gEl02;
     }
-    /* Invalid state leaves `prop` unset; retail reused the `which` register
-       for the out-prop slot, which is not authored source. */
     switch (el->state) {
     case 1:
         prop = RunElevatorDoor(el->pTopDoor, el->pTopDoorCollide);

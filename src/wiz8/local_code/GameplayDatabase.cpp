@@ -35,27 +35,26 @@ W8XStatus gXStatus;
    the PE image base; the first four-byte count read consequently targeted a
    read-only header instead of game state. */
 // GLOBAL: WIZ8 0x006836AC
-W8FactDatabaseRecord* g_fact_records;
+std::vector<W8FactDatabaseRecord> g_fact_records;
 // GLOBAL: WIZ8 0x0068516C
-W8ItemDatabaseRecord* g_item_records;
+std::vector<W8ItemDatabaseRecord> g_item_records;
 /* The six item stacks granted by the new-game status reset. */
 // GLOBAL: WIZ8 0x006164DC
 unsigned int g_starting_item_ids[6] = {0x14f, 0x14f, 0x15a, 0x15a, 0x15b, 0x155};
 // GLOBAL: WIZ8 0x006836A4
-W8LevelDatabaseRecord* g_level_records;
+std::vector<W8LevelDatabaseRecord> g_level_records;
 // GLOBAL: WIZ8 0x006836A0
-W8NpcDatabaseRecord* g_npc_records;
+std::vector<W8NpcDatabaseRecord> g_npc_records;
 // GLOBAL: WIZ8 0x006836B0
 W8ItemTableRecord* g_item_tables;
 // GLOBAL: WIZ8 0x006836B4
 std::string* g_item_table_category_names;
 // GLOBAL: WIZ8 0x0065BE1C
-W8SpellRuntimeRecord* g_spell_records;
+std::vector<W8SpellRuntimeRecord> g_spell_records;
 // GLOBAL: WIZ8 0x0065BE18
 #define GAMEPLAY_DATABASE_CPP "C:\\Projects\\Wizardry 8\\Local Code\\GameplayDatabase.cpp"
 
 namespace {
-std::unique_ptr<W8ItemDatabaseRecord[]> item_records;
 std::vector<std::string> item_table_categories;
 std::vector<W8ItemTableRecord> item_tables;
 }
@@ -65,11 +64,7 @@ bool InitializeItemDatabase(void)
 try {
     auto handle =
         wiz8::open_file(wiz8::asset_path("Data\\Databases\\Items.DBS"), wiz8::OpenMode::read);
-    unsigned int count;
-    auto records = wiz8::retail::read_database<W8ItemDatabaseRecord>(*handle, count);
-    item_records = std::move(records);
-    g_item_records = item_records.get();
-    gXStatus.uiItemsInDatabase = count;
+    g_item_records = wiz8::retail::read_database<W8ItemDatabaseRecord>(*handle);
     return true;
 } catch (const std::exception&) {
     return false;
@@ -147,9 +142,7 @@ try {
 // FUNCTION: WIZ8 0x0054a4f0
 void DestroyItemDatabase(void)
 {
-    item_records.reset();
-    g_item_records = nullptr;
-    gXStatus.uiItemsInDatabase = 0;
+    g_item_records = {};
 }
 
 // FUNCTION: WIZ8 0x0054a6e0

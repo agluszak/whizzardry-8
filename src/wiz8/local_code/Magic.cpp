@@ -1762,12 +1762,18 @@ static unsigned int ChooseSpellPowerLevelForTarget(W8Character* caster, int spel
         target_character = &g_status.buffers.Char[target.iChar];
         conditions = target_character->uiCondition;
     } else if (target.iType == W8_TARGET_KIND_MONSTER) {
-        W8MonsterInfo* monster_info = FindMonster(target.iMonsterID);
-        conditions = monster_info->uiCondition;
+        if (const W8MonsterInfo* monster_info = FindMonster(target.iMonsterID)) {
+            conditions = monster_info->uiCondition;
+        }
     }
 
     switch (GetSpellTargetType(spell_id, false)) {
     case W8_TARGET_TYPE_ALLY:
+        /* Every ally spell reads the target's conditions or character; a target
+           without them (no character, no live monster) gets the minimum. */
+        if (conditions == nullptr) {
+            return 1;
+        }
         switch (spell_id) {
         case W8_SPELL_HEAL_WOUNDS:
         case W8_SPELL_STAMINA:
@@ -3589,7 +3595,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
     float elevation;
     float distance;
     W8SpellTargetType target_type;
-    int side;
+    int side = 0;
     int sight_flag;
     int slot;
     unsigned int index;
@@ -3615,13 +3621,21 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
             return;
         }
         monster_info = FindMonster(source->iMonsterID);
+        if (monster_info == nullptr) {
+            ReportInvalidMagicReference("InvalidMagicSource", spell_id, *source, *target);
+            return;
+        }
         GetMonsterDataForInfo(monster_info);
         monster = monster_info->p3D;
     }
+    /* A monster source, direct or (for backfire and reflection) indirect, was
+       resolved above; a direct one is also where the spell starts from. */
+    const bool monster_source = monster_info != nullptr;
+    const bool direct_monster_source = monster_source && TargetSourceIsMonster(source, 0);
     if (TargetSourceIsCharacter(source, 0)) {
         centre = player_pos;
         eye = camera;
-    } else if (TargetSourceIsMonster(source, 0)) {
+    } else if (direct_monster_source) {
         centre = monster->GetPosition();
         fVertextAvail = false;
         if (source->point_source == 0 && spell_id != W8_SPELL_SPECIAL_ATTACK_CONE &&
@@ -3677,7 +3691,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
             if (0.0f < radius) {
                 radius += PartyNavigator()->radius;
             }
-        } else if (TargetSourceIsMonster(source, 0)) {
+        } else if (direct_monster_source) {
             if (monster_info->ubDisposition == W8_DISPOSITION_FRIENDLY) {
                 distance = (centre.x - player_pos.x) * (centre.x - player_pos.x) +
                            (centre.y - player_pos.y) * (centre.y - player_pos.y) +
@@ -3733,7 +3747,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
         elevation = GetElevationAngle(&eye, &target_point);
         if (TargetSourceIsCharacter(source, 0)) {
             side = 1;
-        } else if (TargetSourceIsMonster(source, 0)) {
+        } else if (direct_monster_source) {
             if (monster_info->ubDisposition == W8_DISPOSITION_FRIENDLY) {
                 side = 1;
             } else if (monster_info->ubDisposition == W8_DISPOSITION_HOSTILE) {
@@ -3783,7 +3797,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
                  kWorldScale;
         if (TargetSourceIsCharacter(source, 1)) {
             side = (source->fBackfire || source->fReflection) ? 1 : 2;
-        } else if (TargetSourceIsMonster(source, 1)) {
+        } else if (monster_source) {
             if (monster_info->ubDisposition != W8_DISPOSITION_FRIENDLY &&
                 monster_info->ubDisposition != W8_DISPOSITION_HOSTILE) {
                 ReportInvalidMagicReference("InvalidMagicSource", spell_id, *source, *target);
@@ -3816,10 +3830,9 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
         target->point = eye;
         radius = CalcRangeDistance(g_spell_records[spell_id].range_category, source);
         if (TargetSourceIsCharacter(source, 1) ||
-            (TargetSourceIsMonster(source, 1) &&
-             monster_info->ubDisposition == W8_DISPOSITION_FRIENDLY)) {
+            (monster_source && monster_info->ubDisposition == W8_DISPOSITION_FRIENDLY)) {
             side = (source->fBackfire || source->fReflection) ? 2 : 1;
-        } else if (TargetSourceIsMonster(source, 1)) {
+        } else if (monster_source) {
             side = (source->fBackfire || source->fReflection) ? 1 : 2;
         } else {
             side = 3;

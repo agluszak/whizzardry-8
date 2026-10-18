@@ -1,6 +1,9 @@
+#pragma once
+
+#include <optional>
 #include <string>
-#ifndef WIZ8_LAYOUTS_SCREEN_STATE_H
-#define WIZ8_LAYOUTS_SCREEN_STATE_H
+
+#include "wiz8/layouts/save_screenshot.h"
 
 enum W8ScreenId {
     W8_SCREEN_NONE = -1,
@@ -37,15 +40,16 @@ struct W8ScreenStateHandlers {
    handler reads out of this record to fill its own descriptor; the four bytes
    before the name and everything past it stay positional, and the name's bound
    is the record's end rather than a proved one. */
-/* 0x10 payload, discriminated by id/mode: a character handoff for the camp and
-   review-character transitions, the save screenshot the Please Wait screen's
-   mode 2 hands to SaveGame. */
 struct W8ScreenStateRuntime {
     W8ScreenId id;     /* 0x00 */
     int mode;          /* 0x04 */
     int parameter;     /* 0x08 */
     int parameter_2;   /* 0x0c */
-    void* parameter_3; /* 0x10: destination screen interprets by id and mode */
+    /* The character the camp and review-character transitions hand to the
+       character screen. */
+    struct W8Character* character = nullptr;
+    /* The screenshot the Please Wait screen's save mode hands to SaveGame. */
+    std::optional<W8SaveScreenshot> save_screenshot;
     /* 0x14: identifying PC for camp entry (gpIdentifyingPC); null when
        camp opens without an identify/use-item handoff. Not the entry mode —
        that lives on W8CampScreenState::item_action. */
@@ -54,5 +58,3 @@ struct W8ScreenStateRuntime {
     /* Previous user save slot, removed only after a successful renamed save. */
     std::string previous_save_name;
 };
-
-#endif

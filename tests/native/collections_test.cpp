@@ -20,6 +20,7 @@
 #include "mgs_commands.h"
 #include "save_payload.h"
 #include "scoped_asset_roots.h"
+#include "scoped_records.h"
 #include "sight_state.h"
 #include "temporary_directory.h"
 #include "wiz8/character_skills.h"
@@ -127,11 +128,10 @@ static bool gameplayCollectionLifetime()
 
 static bool npcStockOrdering()
 {
-    std::array<W8ItemDatabaseRecord, 2> records{};
+    const ScopedRecords items(g_item_records, 2);
+    auto& records = g_item_records;
     records[0].unidentified_name_index = 20;
     records[1].unidentified_name_index = 10;
-    auto* previous_records = g_item_records;
-    g_item_records = records.data();
 
     W8NpcState npc{};
     npc.items.resize(3);
@@ -144,7 +144,6 @@ static bool npcStockOrdering()
     REQUIRE((npc.items[1].available_at == 100 && npc.items[2].available_at == 200));
     REQUIRE((GetNpcItemAt(&npc, -1) == nullptr && GetNpcItemAt(&npc, 3) == nullptr));
     REQUIRE(GetNpcItemAt(&npc, 0) == &npc.items[0]);
-    g_item_records = previous_records;
     return true;
 }
 
@@ -359,12 +358,8 @@ TEST_CASE("Engagement propagates to the original leader's direct allies", "[grou
 
 TEST_CASE("Proposed weapons use the same hand rules without changing equipment", "[equipment]")
 {
-    struct RestoreItems {
-        W8ItemDatabaseRecord* previous = g_item_records;
-        ~RestoreItems() { g_item_records = previous; }
-    } restore;
-    std::array<W8ItemDatabaseRecord, 3> records{};
-    g_item_records = records.data();
+    const ScopedRecords items(g_item_records, 3);
+    auto& records = g_item_records;
     records[0].equip_class = W8_ITEM_EQUIP_CLASS_SHORT_WEAPON;
     records[0].weapon_skill = W8_SKILL_SWORD;
     records[1].equip_class = W8_ITEM_EQUIP_CLASS_THROWN_WEAPON;
@@ -397,17 +392,16 @@ TEST_CASE("A failed alternate-weapon search leaves equipment and binding state u
 {
     std::array<W8Character, 8> characters{};
     std::array<W8PartySlotRow, 8> rows{};
-    std::array<W8ItemDatabaseRecord, 2> records{};
+    const ScopedRecords items(g_item_records, 2);
+    auto& records = g_item_records;
     struct RestoreState {
         W8StatusBuffers buffers = g_status.buffers;
-        W8ItemDatabaseRecord* items = g_item_records;
         unsigned char autoswap = g_settings.autoswap_weapons;
         bool swapping = gXStatus.monster_manager_entries[0].item_swap_in_progress;
         std::unique_ptr<W8CombatState> combat = std::move(g_combat_state);
         ~RestoreState()
         {
             g_status.buffers = buffers;
-            g_item_records = items;
             g_settings.autoswap_weapons = autoswap;
             gXStatus.monster_manager_entries[0].item_swap_in_progress = swapping;
             g_combat_state = std::move(combat);
@@ -415,7 +409,6 @@ TEST_CASE("A failed alternate-weapon search leaves equipment and binding state u
     } restore;
     g_status.buffers.Char = characters.data();
     g_status.buffers.XChar = rows.data();
-    g_item_records = records.data();
     g_settings.autoswap_weapons = true;
     gXStatus.monster_manager_entries[0].item_swap_in_progress = false;
     g_combat_state = std::make_unique<W8CombatState>();

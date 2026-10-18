@@ -2959,14 +2959,13 @@ static float g_scatter_column_offsets[5] = {0.0f, 1.0f, -1.0f, 2.0f, -2.0f};
 static bool OverlapsNearbyMonster(const glm::vec3& point, float reach,
                                   std::span<const w8_ulong> locations, bool alternate_radius)
 {
-    for (const auto id : locations) {
+    return std::ranges::any_of(locations, [&](w8_ulong id) {
         auto* monster = GetMonsterByLocationID(id);
         const auto delta = monster->GetPosition() - point;
         const float clearance =
             (alternate_radius ? monster->movement.alternate_radius : monster->radius) + reach;
-        if (glm::dot(delta, delta) < clearance * clearance) return true;
-    }
-    return false;
+        return glm::dot(delta, delta) < clearance * clearance;
+    });
 }
 
 // FUNCTION: WIZ8 0x00437980

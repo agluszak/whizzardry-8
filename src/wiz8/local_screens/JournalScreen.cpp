@@ -446,7 +446,7 @@ bool JournalScreenEnter(void)
     g_journal_entries.clear();
     for (const auto& entry : g_fact_journal_entries) {
         // Retail saves can name a fact past the end of FACT.DBS; keep it, show nothing.
-        if (static_cast<unsigned>(entry.fact) >= gXStatus.uiFactsInDatabase) continue;
+        if (static_cast<unsigned>(entry.fact) >= g_fact_records.size()) continue;
         const W8FactDatabaseRecord* fact = &g_fact_records[entry.fact];
         std::string description =
             entry.alternate_text ? fact->alternate_description : fact->description;

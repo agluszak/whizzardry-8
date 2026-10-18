@@ -2104,7 +2104,7 @@ void ExecuteCharacterAction(int party_slot)
     int interrupt = -1;
     int fatigue_cost = -1;
     unsigned char result = 1;
-    bool saved_dead;
+    bool saved_dead = false; /* only combat tracks whether the slot already acted */
     W8ActionKind action;
     int detail;
 

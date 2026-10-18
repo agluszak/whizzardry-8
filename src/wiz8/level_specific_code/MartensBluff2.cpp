@@ -380,27 +380,21 @@ bool MartensBluff2PerfumeBox(Trigger* pTrigger)
 }
 
 /* "DoorControls": while the control trigger is off, fires the two squisher
-   doors whose type-10 action data has flag 1 set. The action-data pointers
-   are dereferenced unconditionally - the retail null path is preserved. */
+   doors whose door action data is open. */
 // FUNCTION: WIZ8 0x004DDEB0
 bool MartensBluff2DoorControls(Trigger* pTrigger)
 {
     if (pTrigger->state_index == 0) {
-        Trigger* pDoor = FindTriggerByName("SquisherDoor");
-        W8TriggerActionData* action = pDoor->m_pActionData.get();
-        if (action == 0 || action->type != W8_TRIGGER_PAYLOAD_DOOR) {
-            action = 0;
-        }
-        if (static_cast<W8DoorTriggerActionData*>(action)->open) {
-            pDoor->Run(-1);
-        }
-        pDoor = FindTriggerByName("SquisherDoor1");
-        action = pDoor->m_pActionData.get();
-        if (action == 0 || action->type != W8_TRIGGER_PAYLOAD_DOOR) {
-            action = 0;
-        }
-        if (static_cast<W8DoorTriggerActionData*>(action)->open) {
-            pDoor->Run(-1);
+        for (const char* name : {"SquisherDoor", "SquisherDoor1"}) {
+            Trigger* pDoor = FindTriggerByName(name);
+            if (pDoor == nullptr) {
+                continue;
+            }
+            W8TriggerActionData* action = pDoor->m_pActionData.get();
+            if (action != nullptr && action->type == W8_TRIGGER_PAYLOAD_DOOR &&
+                static_cast<W8DoorTriggerActionData*>(action)->open) {
+                pDoor->Run(-1);
+            }
         }
     }
     return true;

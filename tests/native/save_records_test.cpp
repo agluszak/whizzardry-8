@@ -214,12 +214,11 @@ static void unicode_database_contracts()
     }
     items->close();
     REQUIRE(InitializeItemDatabase());
-    REQUIRE(gXStatus.uiItemsInDatabase == 2);
+    REQUIRE(g_item_records.size() == 2);
     REQUIRE(std::string(g_item_records[0].display_name) == "Épée");
     REQUIRE((std::string(g_item_records[1].display_name) == "药水😀" &&
              g_item_records[1].value == 101));
     DestroyItemDatabase();
-    g_item_records = nullptr;
     auto monsters =
         wiz8::open_file(wiz8::asset_path("data/databases/monsters.dbs"), wiz8::OpenMode::replace);
     monsters->write(&count, 4);
@@ -1115,25 +1114,23 @@ static void camera_angles()
 
 // NOLINTNEXTLINE(cppcoreguidelines-special-member-functions): local scope guard
 struct NpcGlobalGuard {
-    decltype(g_npc_records) previous_records = g_npc_records;
-    decltype(gXStatus.uiNpcsInDatabase) previous_count = gXStatus.uiNpcsInDatabase;
+    std::vector<W8NpcDatabaseRecord> previous_records = std::exchange(g_npc_records, {});
 
     ~NpcGlobalGuard()
     {
         ReleaseNpcStates();
-        g_npc_records = previous_records;
-        gXStatus.uiNpcsInDatabase = previous_count;
+        g_npc_records = std::move(previous_records);
     }
 };
 
 // NOLINTNEXTLINE(cppcoreguidelines-special-member-functions): local scope guard
 struct CombatRecordGuard {
-    decltype(g_spell_records) previous_spells = g_spell_records;
+    std::vector<W8SpellRuntimeRecord> previous_spells = std::exchange(g_spell_records, {});
     decltype(g_status.buffers.Char) previous_characters = g_status.buffers.Char;
 
     ~CombatRecordGuard()
     {
-        g_spell_records = previous_spells;
+        g_spell_records = std::move(previous_spells);
         g_status.buffers.Char = previous_characters;
     }
 };
@@ -1196,11 +1193,9 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
 {
     NpcGlobalGuard globals;
     const auto path = root / wiz8::path_from_utf8("npc-雪.bin");
-    W8NpcDatabaseRecord database[3] = {};
-    for (unsigned char index = 0; index < 3; ++index) database[index].kind = index;
-    g_npc_records = database;
     // All three database nodes are supplied by the serialized states below.
-    gXStatus.uiNpcsInDatabase = 3;
+    g_npc_records.resize(3);
+    for (unsigned char index = 0; index < 3; ++index) g_npc_records[index].kind = index;
     // A small word that a process-local handle table could have resolved.
     const unsigned int live_handle = 1;
     const unsigned char version =
@@ -1241,7 +1236,7 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
         REQUIRE(static_cast<int>(g_npc_states.size()) == 3);
         for (unsigned int i = 0; i < 3; ++i) {
             W8NpcState* npc = g_npc_states[i].get();
-            REQUIRE(npc->record == &database[i]);
+            REQUIRE(npc->record == &g_npc_records[i]);
             REQUIRE((npc->items.empty() && npc->script_file == 0));
             if (i < 2) {
                 REQUIRE(npc->character.has_value());
@@ -1263,7 +1258,7 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
         REQUIRE(g_npc_states.size() == 3);
         for (int index = 0; index < 3; ++index) {
             auto* npc = g_npc_states[index].get();
-            REQUIRE((npc->record == &database[index] && npc->items.empty()));
+            REQUIRE((npc->record == &g_npc_records[index] && npc->items.empty()));
             if (index < 2)
                 REQUIRE((npc->character && npc->character->name[0] == L'A' + index));
             else
@@ -1308,9 +1303,6 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
         ReleaseNpcStates();
         REQUIRE(g_npc_states.empty());
     }
-
-    g_npc_records = nullptr;
-    gXStatus.uiNpcsInDatabase = 0;
 }
 
 TEST_CASE_METHOD(SaveFixture, "Character file records", "[save][records]")
@@ -1404,9 +1396,8 @@ TEST_CASE_METHOD(SaveFixture, "AI conditions and save slot naming", "[save][reco
     CombatRecordGuard globals;
     // The AI used to decay the odd-offset condition array into unsigned int*.
     alignas(16) W8Character character = {};
-    static W8SpellRuntimeRecord spells[W8_SPELL_COUNT] = {};
-    g_spell_records = spells;
-    spells[W8_SPELL_SLEEP].target_type = W8_TARGET_TYPE_ENEMY;
+    g_spell_records.resize(W8_SPELL_COUNT);
+    g_spell_records[W8_SPELL_SLEEP].target_type = W8_TARGET_TYPE_ENEMY;
     g_status.buffers.Char = &character;
     W8CombatSlot target = {};
     target.iType = W8_TARGET_KIND_CHARACTER;
@@ -1416,7 +1407,6 @@ TEST_CASE_METHOD(SaveFixture, "AI conditions and save slot naming", "[save][reco
     character.uiCondition[W8_CONDITION_ASLEEP] = 1;
     REQUIRE(!MonsterSpellTargetOK(nullptr, W8_SPELL_SLEEP, &target));
     g_status.buffers.Char = nullptr;
-    g_spell_records = nullptr;
     REQUIRE(BuildLevelStatusPath(56) == "Levels\\Test\\DefaultLevel.STS");
     for (int index = 0; index < 10; ++index) {
         const auto name = index == 0 ? std::string("Ending") : "Ending" + std::to_string(index);

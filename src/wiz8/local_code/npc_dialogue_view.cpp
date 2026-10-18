@@ -10,7 +10,6 @@
 
 #include "compat/native.h"
 #include "cursor.h"
-#include "layouts/screen_state.h"
 #include "local_code/MonsterManager.h"
 #include "soundman.h"
 #include "wiz8/character_event_queue.h"

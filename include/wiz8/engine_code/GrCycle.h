@@ -1,6 +1,7 @@
 #pragma once
 
 #include <deque>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string_view>
@@ -50,7 +51,7 @@ struct ShakeDefinition {
     int cycle = 0;
     int frame = 0;
     int subcycle = 0;
-    void (*completion_callback)() = nullptr;
+    std::function<void()> completion_callback;
 };
 
 class ShakeSystem {

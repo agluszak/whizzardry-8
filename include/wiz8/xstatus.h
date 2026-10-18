@@ -33,12 +33,9 @@ struct W8WorldItem;
 // Live gameplay state, not a disk record.
 struct W8XStatus {
     W8MonsterManagerEntry monster_manager_entries[8];
-    unsigned int uiItemsInDatabase;
     unsigned int uiItemTablesInDatabase;
     unsigned int uiItemTableCategories;
     unsigned int uiMonstersInDatabase;
-    unsigned int uiNpcsInDatabase;
-    unsigned int uiFactsInDatabase;
     bool fCombatMode;
     bool fSpellCastMode;
     bool fItemSelectMode;

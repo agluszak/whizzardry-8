@@ -57,22 +57,17 @@ bool W8NavigatorAttachment::TruncatePathAtRadius(const glm::vec3* target, float 
 {
     unsigned int index = path_cursor;
     float distance = glm::length((path[index].position - *target));
-    /* Retail leaves this slot cold when path[path_cursor].position is already
-       outside the radius, so the interpolation below reads whatever occupied
-       the stack. Preserved intentionally. */
-    float previous_distance;
+    float previous_distance = distance;
 
-    if (distance < radius) {
-        do {
-            if (path_position_index <= index) {
-                break;
-            }
-            previous_distance = distance;
-            ++index;
-            distance = glm::length((path[index].position - *target));
-        } while (distance < radius);
+    while (distance < radius && index < path_position_index) {
+        previous_distance = distance;
+        ++index;
+        distance = glm::length((path[index].position - *target));
     }
-    if (distance > radius) {
+    /* Interpolation needs a previous point inside the radius. When the cursor
+       point is already outside, retail interpolated against an uninitialized
+       distance (and the point before the cursor); leave the route untouched. */
+    if (index != path_cursor && distance > radius) {
         float fraction = (distance - radius) / (distance - previous_distance);
         path_destination =
             glm::vec3((path[index].position.x - path[index - 1].position.x) * fraction +

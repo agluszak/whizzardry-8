@@ -2152,20 +2152,20 @@ void AddNpcDialogueKeyword(std::string text, signed char category, int play_chim
     controller = g_npc_interaction_state->ui->transcript.get();
     StripNpcKeywordPunctuation(text);
     if (category == W8_DIALOGUE_CATEGORY_ALL) {
-        for (index = 0; index < gXStatus.uiItemsInDatabase; ++index) {
+        for (index = 0; index < g_item_records.size(); ++index) {
             if (CompareTextIgnoreAsciiCase(text, g_item_records[index].display_name) == 0) {
                 break;
             }
         }
-        if (index < gXStatus.uiItemsInDatabase) {
+        if (index < g_item_records.size()) {
             category = W8_DIALOGUE_CATEGORY_ITEMS;
         } else {
-            for (index = 0; index < gXStatus.uiNpcsInDatabase; ++index) {
+            for (index = 0; index < g_npc_records.size(); ++index) {
                 if (CompareTextIgnoreAsciiCase(text, g_npc_records[index].source_name) == 0) {
                     break;
                 }
             }
-            if (index < gXStatus.uiNpcsInDatabase) {
+            if (index < g_npc_records.size()) {
                 category = W8_DIALOGUE_CATEGORY_PEOPLE;
             } else {
                 for (index = 0; g_dialogue_person_keywords[index][0] != 0; ++index) {
@@ -3254,26 +3254,15 @@ void HandleNpcDialogueInput(void)
     /* Try each adjacent word pair. */
     if (quote_id == -1) {
         cursor = field_text;
-        word.clear();
-        while (!cursor.empty()) {
-            if (word.size() == 0) {
-                has_word = ReadNextWord(cursor, word);
-            } else {
-                word = word2;
-            }
-            if (!has_word) {
-                break;
-            }
-            has_word = ReadNextWord(cursor, word2);
-            if (!has_word) {
-                break;
-            }
+        has_word = ReadNextWord(cursor, word);
+        while (has_word && ReadNextWord(cursor, word2)) {
             buf = fmt::format("{} {}", word, word2);
             quote = FindNpcScriptQuoteByKeyword(TranslateDialogueKeyword(buf), 0, 0);
             if (quote != -1) {
                 quote_id = quote;
                 break;
             }
+            word = word2;
         }
     }
 
@@ -3438,7 +3427,7 @@ void HandleNpcDialogueKeyEvent(const InputEvent* event)
         }
         return;
     default:
-        command = g_mgs_keyboard->FindCommandForEvent(event);
+        command = g_mgs_keyboard.FindCommandForEvent(event);
         if (command == W8_MGS_COMMAND_JOURNAL) {
             DispatchMGSCommand(command);
             return;
@@ -4363,14 +4352,14 @@ void AddDialogueTranscriptKeyword(std::string_view name, signed char category)
     StripNpcKeywordPunctuation(keyword);
     if (category == -1) {
         unsigned int index;
-        for (index = 0; index < gXStatus.uiItemsInDatabase; ++index) {
+        for (index = 0; index < g_item_records.size(); ++index) {
             if (CompareTextIgnoreAsciiCase(keyword, g_item_records[index].display_name) == 0) {
                 category = W8_DIALOGUE_CATEGORY_ITEMS;
                 break;
             }
         }
         if (category == -1) {
-            for (index = 0; index < gXStatus.uiNpcsInDatabase; ++index) {
+            for (index = 0; index < g_npc_records.size(); ++index) {
                 if (CompareTextIgnoreAsciiCase(keyword, g_npc_records[index].source_name) == 0) {
                     category = W8_DIALOGUE_CATEGORY_PEOPLE;
                     break;

@@ -3,6 +3,7 @@
 #include <chrono>
 #include <exception>
 #include <memory>
+#include <optional>
 #include <string>
 #include <thread>
 #include <vector>
@@ -25,6 +26,7 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/save_screenshot.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/LoadSaveGame.h"
@@ -45,7 +47,7 @@ struct W8LevelLoadDescriptor {
     int parameter_2;
     std::string name; /* 0x0fd, bounded only by the next field */
     std::string previous_save_name;
-    W8SaveScreenshot* save_payload;
+    std::optional<W8SaveScreenshot> save_screenshot;
     w8_ulong entered_tick;
     int caption_y;
 };
@@ -103,8 +105,7 @@ bool PleaseWaitScreenEnter(void)
             g_load_descriptor->parameter = GetLoadedLevelID();
             g_load_descriptor->name = g_current_screen_state.name;
             g_load_descriptor->previous_save_name = g_current_screen_state.previous_save_name;
-            g_load_descriptor->save_payload =
-                static_cast<W8SaveScreenshot*>(g_current_screen_state.parameter_3);
+            g_load_descriptor->save_screenshot = g_current_screen_state.save_screenshot;
             break;
         case 3:
             g_load_descriptor->parameter = g_current_screen_state.parameter;
@@ -188,7 +189,8 @@ void PleaseWaitScreenFrame(void)
 
         break;
     case 2: {
-        bool saved = SaveGame(g_load_descriptor->name, g_load_descriptor->save_payload);
+        const auto& screenshot = g_load_descriptor->save_screenshot;
+        const bool saved = SaveGame(g_load_descriptor->name, screenshot ? &*screenshot : nullptr);
         // Do not destroy the previous save until the new one has been committed.
         if (saved && !g_load_descriptor->previous_save_name.empty() &&
             g_load_descriptor->previous_save_name != g_load_descriptor->name) {
@@ -204,9 +206,6 @@ void PleaseWaitScreenFrame(void)
         }
         ShowNotice(W8_FONT_PALETTE_BEIGE,
                    saved ? g_localized_strings[0x6f4] : g_localized_strings[0x6f6]);
-        if (g_load_descriptor->save_payload) {
-            delete g_load_descriptor->save_payload;
-        }
         // Keep the saving notice up for at least half a second, without spinning.
         if (const auto shown = w8_get_ticks() - g_load_descriptor->entered_tick; shown < 500)
             std::this_thread::sleep_for(std::chrono::milliseconds(500 - shown));

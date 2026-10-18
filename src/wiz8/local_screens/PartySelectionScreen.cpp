@@ -747,7 +747,7 @@ void W8PartySelectionController::Setup()
             {.on_click =
                  [row](auto*) {
                      AfterUiDispatch([row] {
-                         g_pending_screen_state.parameter_3 = &g_status.buffers.Char[row + 2];
+                         g_pending_screen_state.character = &g_status.buffers.Char[row + 2];
                          g_pending_screen_state.mode = 2;
                          g_pending_screen_state.id = W8_SCREEN_CHARACTER;
                      });
@@ -1009,13 +1009,13 @@ void W8PartySelectionController::OnPrimary(W8ButtonWidget* control)
             }
         }
         g_pending_screen_state.parameter_2 = slot < 6 ? slot + 2 : -1;
-        g_pending_screen_state.parameter_3 = m_character;
+        g_pending_screen_state.character = m_character;
         g_pending_screen_state.id = W8_SCREEN_CAMP;
         return;
     }
     if (control == m_create_button) {
         g_pending_screen_state.mode = 0;
-        g_pending_screen_state.parameter_3 = 0;
+        g_pending_screen_state.character = nullptr;
         g_pending_screen_state.id = W8_SCREEN_CHARACTER;
         return;
     }

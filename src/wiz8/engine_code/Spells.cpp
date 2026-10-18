@@ -882,15 +882,10 @@ bool IsCombatEffectSlotSpell(int spell_id)
     }
 }
 
-namespace {
-std::unique_ptr<W8SpellRuntimeRecord[]> spell_records;
-}
-
 // FUNCTION: WIZ8 0x004acd50
 void ReleaseSpellDatabase()
 {
-    g_spell_records = nullptr;
-    spell_records.reset();
+    g_spell_records = {};
 }
 
 /* The forty icon resource names under Data\Icons\MonsterSpells. Entries 8 and
@@ -1143,15 +1138,14 @@ try {
     if (count <= 0 || count > std::numeric_limits<std::uint16_t>::max() ||
         std::int64_t(count) * entry_bytes > handle->size() - handle->tell())
         return false;
-    auto records = std::make_unique<W8SpellRuntimeRecord[]>(count);
+    std::vector<W8SpellRuntimeRecord> records(count);
     for (int index = 0; index < count; ++index) {
         handle->seek(0x101, wiz8::SeekOrigin::current);
         if (wiz8::retail::read(*handle, records[index]).bytes !=
             wiz8::retail::kSpellRuntimeRecordBytes)
             return false;
     }
-    spell_records = std::move(records);
-    g_spell_records = spell_records.get();
+    g_spell_records = std::move(records);
     return true;
 } catch (const std::exception&) {
     return false;

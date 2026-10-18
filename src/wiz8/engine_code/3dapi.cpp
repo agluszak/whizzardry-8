@@ -572,35 +572,26 @@ void WorldSetCameraLocation(const glm::vec3* location)
 // FUNCTION: WIZ8 0x004504B0
 void SetWorldCameraState(W8World* world, W8World* source_world, W8WorldCameraState* state)
 {
-    glm::vec3 location;
-    glm::dvec3 position;
-    glm::mat3 rotation;
-
-    if (!world) {
+    if (world == nullptr) {
         srAssertFail("pWorld", THREE_D_API_CPP, 0x43f, 0);
-    } else {
-        if (state == 0) {
-            srAssertFail("CamPos", THREE_D_API_CPP, 0x444, 0);
-        }
-        location = state->position;
-        if (world->camera != 0) {
-            position = glm::dvec3(location);
-            ((srNode*)world->camera)->setLocation(position);
-            PlacePartyAtPoint(&location);
-        }
-        if (world->camera_light != 0) {
-            position = glm::dvec3(location);
-            ((srNode*)world->camera_light)->setLocation(position);
-        }
-        rotation = world->camera->getRotation<glm::mat3>();
-        SetCameraOrientation(state->yaw, state->pitch, &rotation);
-        world->camera->setRotation(rotation);
     }
-    if (source_world != 0) {
-        if (state == 0) {
-            srAssertFail("CamPos", THREE_D_API_CPP, 0x44e, 0);
-        }
-        rotation = world->camera->getRotation<glm::mat3>();
+    if (state == nullptr) {
+        srAssertFail("CamPos", THREE_D_API_CPP, 0x444, 0);
+    }
+    if (world->camera == nullptr) {
+        srAssertFail("pWorld->pCamera", THREE_D_API_CPP, 0x444, 0);
+    }
+
+    glm::vec3 location = state->position;
+    world->camera->setLocation(glm::dvec3(location));
+    PlacePartyAtPoint(&location);
+    if (world->camera_light != nullptr) {
+        world->camera_light->setLocation(glm::dvec3(location));
+    }
+
+    const int orientation_writes = source_world != nullptr ? 2 : 1;
+    for (int write = 0; write < orientation_writes; ++write) {
+        auto rotation = world->camera->getRotation<glm::mat3>();
         SetCameraOrientation(state->yaw, state->pitch, &rotation);
         world->camera->setRotation(rotation);
     }

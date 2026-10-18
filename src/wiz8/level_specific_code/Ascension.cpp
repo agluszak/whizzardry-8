@@ -77,8 +77,7 @@ unsigned char AscensionPeakInit(void)
 
     if (count > 1) {
         if (GetLocationVarIDByName("AP_AtLeast2of3Items") == -1) {
-            W8MonsterGroup* group = 0;
-            W8MonsterInfo* info;
+            W8MonsterGroup* group = nullptr;
 
             AscensionAvalanche(true);
             if (FindEntityByName("NP_Rapax01", &position, 0, 0)) {
@@ -87,8 +86,12 @@ unsigned char AscensionPeakInit(void)
             if (FindEntityByName("NP_Rapax04", &position, 0, 0)) {
                 SpawnMonsters(0xf, 4, &position, 1, true, false, false);
             }
-            info = FindMonster(group->leader_location_id);
-            info->p3D->SetScript("proximitylandslide.msf", true);
+            if (group != nullptr) {
+                W8MonsterInfo* info = FindMonster(group->leader_location_id);
+                if (info != nullptr && info->p3D != nullptr) {
+                    info->p3D->SetScript("proximitylandslide.msf", true);
+                }
+            }
             SpawnAscensionAmbush();
             CreateLocationVar("AP_AtLeast2of3Items", 1);
         }

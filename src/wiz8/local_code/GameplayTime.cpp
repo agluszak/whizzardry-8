@@ -105,7 +105,7 @@ void UpdateGameClock(int elapsed)
     g_status.world_clock_ms = (g_status.world_clock_ms + elapsed) % 1000;
 
     g_status.aging_accumulator += elapsed;
-    unsigned int aging_ticks;
+    unsigned int aging_ticks = 0; /* no turns pass while an item is being dragged */
     if (!gXStatus.item_drag_active) {
         aging_ticks = g_status.aging_accumulator / 120000;
         if (aging_ticks != 0) {

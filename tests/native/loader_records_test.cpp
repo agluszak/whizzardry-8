@@ -101,26 +101,26 @@ static void databases()
         REQUIRE((InitializeItemDatabase()));
         item_operations = trace.operations;
     }
-    auto* records = g_item_records;
+    const auto* records = g_item_records.data();
     for (std::size_t operation = 1; operation <= item_operations; ++operation) {
         {
             FileFaults fault(operation);
             REQUIRE((!InitializeItemDatabase()));
             REQUIRE((fault.fired));
         }
-        REQUIRE((g_item_records == records && gXStatus.uiItemsInDatabase == 1));
+        REQUIRE((g_item_records.data() == records && g_item_records.size() == 1));
     }
     for (std::size_t end = 0; end < bytes.size(); ++end) {
         store("data/databases/items.dbs", bytes.substr(0, end));
         REQUIRE((!InitializeItemDatabase()));
-        REQUIRE((g_item_records == records && gXStatus.uiItemsInDatabase == 1));
+        REQUIRE((g_item_records.data() == records && g_item_records.size() == 1));
     }
     std::string excessive;
     append(excessive, UINT32_MAX);
     store("data/databases/items.dbs", excessive);
-    REQUIRE((!InitializeItemDatabase() && g_item_records == records));
+    REQUIRE((!InitializeItemDatabase() && g_item_records.data() == records));
     DestroyItemDatabase();
-    REQUIRE((g_item_records == nullptr && gXStatus.uiItemsInDatabase == 0));
+    REQUIRE(g_item_records.empty());
 
     std::array<char, 256> category{};
     std::strcpy(category.data(), "Weapons");
@@ -532,8 +532,8 @@ TEST_CASE_METHOD(LoaderFixture, "NPC database replacement owns appended stock ru
     append(bytes, 0u);
     store("data/databases/npc.dbs", bytes);
     REQUIRE(InitializeNpcDatabase());
-    auto* original = g_npc_records;
-    REQUIRE(gXStatus.uiNpcsInDatabase == 2);
+    const auto* original = g_npc_records.data();
+    REQUIRE(g_npc_records.size() == 2);
     REQUIRE(original[0].item_stock_rules.size() == 2);
     REQUIRE(original[0].item_stock_rules[1].item_id == 29);
     REQUIRE(original[1].item_stock_rules.empty());
@@ -543,8 +543,8 @@ TEST_CASE_METHOD(LoaderFixture, "NPC database replacement owns appended stock ru
     append(truncated, 1u); // A second stock list whose payload is missing.
     store("data/databases/npc.dbs", truncated);
     REQUIRE_FALSE(InitializeNpcDatabase());
-    REQUIRE(g_npc_records == original);
-    REQUIRE(gXStatus.uiNpcsInDatabase == 2);
+    REQUIRE(g_npc_records.data() == original);
+    REQUIRE(g_npc_records.size() == 2);
     REQUIRE(original[0].item_stock_rules[0].quantity == 3);
 
     npc.no_item_stock = 1;
@@ -553,12 +553,11 @@ TEST_CASE_METHOD(LoaderFixture, "NPC database replacement owns appended stock ru
     append(bytes, npc);
     store("data/databases/npc.dbs", bytes);
     REQUIRE(InitializeNpcDatabase());
-    REQUIRE(gXStatus.uiNpcsInDatabase == 1);
+    REQUIRE(g_npc_records.size() == 1);
     REQUIRE(g_npc_records[0].item_stock_rules.empty());
     DestroyNpcDatabase();
     DestroyNpcDatabase();
-    REQUIRE(g_npc_records == nullptr);
-    REQUIRE(gXStatus.uiNpcsInDatabase == 0);
+    REQUIRE(g_npc_records.empty());
 }
 
 TEST_CASE_METHOD(LoaderFixture, "Processed geometry", "[loader][records]")
@@ -685,8 +684,7 @@ TEST_CASE_METHOD(LoaderFixture, "World camera paths commit only complete tables"
         }
     }
     W8World world{};
-    world.plsCameras.push_back(std::make_unique<W8CameraPath>());
-    auto* existing = GetWorldCameraPath(&world, 0);
+    auto* existing = world.plsCameras.emplace_back(std::make_unique<W8CameraPath>()).get();
     std::strcpy(existing->name0, "EXISTING");
     auto unchanged = [&] {
         REQUIRE(world.plsCameras.size() == 1);
@@ -1020,13 +1018,13 @@ TEST_CASE_METHOD(LoaderFixture,
     }
     store("data/databases/spelltables.dbs", bytes);
     REQUIRE(InitializeSpellDatabase());
-    auto* previous = g_spell_records;
+    const auto* previous = g_spell_records.data();
     REQUIRE(previous[1].display_name == spell.display_name);
     REQUIRE(previous[1].duration == spell.duration);
     for (auto end : {0u, 4u, 7u, 8u, 264u, unsigned(bytes.size() - 1)}) {
         store("data/databases/spelltables.dbs", bytes.substr(0, end));
         REQUIRE_FALSE(InitializeSpellDatabase());
-        REQUIRE(g_spell_records == previous);
+        REQUIRE(g_spell_records.data() == previous);
         REQUIRE(previous[1].display_name == spell.display_name);
     }
     for (const int count : {0, -1, std::numeric_limits<int>::max()}) {
@@ -1035,10 +1033,10 @@ TEST_CASE_METHOD(LoaderFixture,
         append(invalid, 1u);
         store("data/databases/spelltables.dbs", invalid);
         REQUIRE_FALSE(InitializeSpellDatabase());
-        REQUIRE(g_spell_records == previous);
+        REQUIRE(g_spell_records.data() == previous);
     }
     ReleaseSpellDatabase();
-    REQUIRE(g_spell_records == nullptr);
+    REQUIRE(g_spell_records.empty());
 }
 
 TEST_CASE_METHOD(LoaderFixture, "Path parameters accept complete CRLF and unterminated text lines",

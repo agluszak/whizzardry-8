@@ -70,7 +70,7 @@ static int g_profession_starting_spells[15][6] = {
 static int FindItemByLegacyNumber(short item_number)
 {
     unsigned int index = 0;
-    while (index < gXStatus.uiItemsInDatabase) {
+    while (index < g_item_records.size()) {
         if (g_item_records[index].legacy_item_number == item_number) {
             return index;
         }
