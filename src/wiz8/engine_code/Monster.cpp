@@ -3662,6 +3662,7 @@ void W8Monster::HandleAnimationThreshold()
     W8TargetSource source;
     W8SpellEffectDefinition attack_block;
     W8MonsterAttack* attack;
+    std::optional<int> party_slot;
     unsigned int attack_index;
     W8RangeCategory range_category;
     int missile_type;
@@ -3681,7 +3682,7 @@ void W8Monster::HandleAnimationThreshold()
         goto prepare_attack;
     }
 
-    const auto party_slot = GetRandomCharacter(1, 1);
+    party_slot = GetRandomCharacter(1, 1);
     if (!party_slot) return;
     monster_info->Target.iType = W8_TARGET_KIND_CHARACTER;
     monster_info->Target.iChar = *party_slot;
