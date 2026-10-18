@@ -3182,14 +3182,14 @@ void W8Monster::SetCycle(signed char cycle)
     count = static_cast<int>(animations->size());
     if (count == 0) {
         if (static_cast<int>(m_pRep->animations[1].size()) < 1) {
-            W8MonsterInfo* monster_info = FindMonster(location_id);
+            W8MonsterInfo* monster_info = owner_world->population->findMonster(location_id);
             srAssertFail("FALSE", MONSTER_CPP, 0xb26,
                          fmt::format("ERROR: Monster {} has no IDLE cycle!",
                                      GetMonsterName(monster_info, 0, 0)));
             return;
         }
 
-        W8MonsterInfo* monster_info = FindMonster(location_id);
+        W8MonsterInfo* monster_info = owner_world->population->findMonster(location_id);
         DebugMessage(0, fmt::format("WARNING: Monster {} is missing anim cycle {}",
                                     GetMonsterName(monster_info, 0, 0), g_cycle_names[cycle].name));
         m_pRep->CopyCycle(cycle, m_pRep.get(), 1);
@@ -4649,7 +4649,7 @@ bool W8Monster::IsRenderable(bool alternate)
         return true;
     }
 
-    monster_info = FindMonster(location_id);
+    monster_info = owner_world->population->findMonster(location_id);
     record = GetMonsterDataForInfo(monster_info);
     if (record->camouflage0 > 0) {
         return monster_info->party_threat.party_detected;

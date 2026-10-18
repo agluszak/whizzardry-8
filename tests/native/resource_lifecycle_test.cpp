@@ -46,7 +46,9 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/world.h"
+#include "wiz8/level_population.h"
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
@@ -558,4 +560,30 @@ TEST_CASE_METHOD(
     REQUIRE(ground.position.y == 1500);
     REQUIRE(world.game_data->trace_flag4_gate);
     REQUIRE_FALSE(replacement.game_data->trace_flag4_gate);
+}
+
+TEST_CASE_METHOD(SpellVisualFixture,
+                 "Prepared monster visibility resolves records in its owning population",
+                 "[resources][levels][rendering]")
+{
+    struct RestoreRecord {
+        std::unique_ptr<W8MonsterRecord> previous =
+            std::exchange(gXStatus.monster_record_cache[0], std::make_unique<W8MonsterRecord>());
+        ~RestoreRecord() { gXStatus.monster_record_cache[0] = std::move(previous); }
+    } restore;
+    auto active = std::make_unique<W8MonsterInfo>();
+    active->location_id = 7;
+    active->within_viewing_distance = false;
+    world.population->monster_roster.add(std::move(active), false);
+    W8World replacement;
+    auto record = std::make_unique<W8MonsterInfo>();
+    record->location_id = 7;
+    record->within_viewing_distance = true;
+    record->party_threat.visible_to_player = false;
+    replacement.population->monster_roster.add(std::move(record), false);
+    W8Monster prepared(&replacement);
+    prepared.location_id = 7;
+    REQUIRE(prepared.IsRenderable(false));
+    REQUIRE_FALSE(prepared.IsRenderable(true));
+    REQUIRE_FALSE(world.population->findMonster(7)->within_viewing_distance);
 }

@@ -983,7 +983,8 @@ W8Navigator* W8Navigator::ResolveBlockingNavigator(const glm::vec3* from, glm::v
             return PartyNavigator();
         }
         if (hit_location > 0) {
-            W8MonsterInfo* monster_info = FindMonster(hit_location);
+            auto* world = owner_world ? owner_world : GetWorld();
+            W8MonsterInfo* monster_info = world->population->findMonster(hit_location);
             if (monster_info->p3D != 0) {
                 return monster_info->p3D;
             }
@@ -1353,7 +1354,8 @@ void W8Navigator::SetPitchRollEnabled(bool pitch, bool roll)
 unsigned char W8Navigator::LinkToNavigator(W8Navigator* target, double separation)
 {
     unsigned char result = 0;
-    if (GetWorldPathing() == 0) {
+    auto* octree = NavigationOctree();
+    if (!octree || !octree->pathing) {
         return 0;
     }
     movement_target = glm::vec3(0);
@@ -1365,8 +1367,8 @@ unsigned char W8Navigator::LinkToNavigator(W8Navigator* target, double separatio
     movement.attachment->InitializeSegment(&movement.position, &target->movement.position);
     if (NavigationCombatActive(*this)) {
         movement.attachment->flags |= W8_NAV_ATTACHMENT_FOLLOW_PATH;
-        if (GetWorldPathing()->PlanMovementToPosition(&movement, &target->movement.position, radius,
-                                                      static_cast<float>(separation)) == 0) {
+        if (octree->pathing->PlanMovementToPosition(&movement, &target->movement.position, radius,
+                                                    static_cast<float>(separation)) == 0) {
             return 0;
         }
         flags = 9;
@@ -1389,7 +1391,8 @@ unsigned short W8Navigator::ConfigureMovementToNavigator(W8Navigator* target, fl
                                                          int trace_mode, float facing,
                                                          unsigned char* probe_result)
 {
-    if (GetWorldPathing() == 0) {
+    auto* octree = NavigationOctree();
+    if (!octree || !octree->pathing) {
         return 0;
     }
     if (!NavigationCombatActive(*this)) {
@@ -1404,7 +1407,7 @@ unsigned short W8Navigator::ConfigureMovementToNavigator(W8Navigator* target, fl
     movement.target_position = target->movement.position;
     PathAIClearOwned(path_ai.get());
     radius = movement.alternate_radius;
-    unsigned short result = GetWorldPathing()->ConfigureMovementSearch(
+    unsigned short result = octree->pathing->ConfigureMovementSearch(
         &movement, target->movement.location_id, radius, separation, maximum_distance, position,
         trace_mode, target->movement.height_offset, facing, probe_result);
     target_last_position = target->movement.position;
@@ -1602,7 +1605,8 @@ void W8Navigator::SetFacingToward(const glm::vec3* target)
             UpdateFacing(true);
         }
         if (movement.location_id != 0) {
-            W8MonsterInfo* monster_info = FindMonster(movement.location_id);
+            auto* world = owner_world ? owner_world : GetWorld();
+            W8MonsterInfo* monster_info = world->population->findMonster(movement.location_id);
             if (monster_info->fInCombat) {
                 monster_info->pCombat->sight_refresh_pending = true;
             }
@@ -1739,7 +1743,8 @@ void W8Navigator::AimAtPosition(const glm::vec3* target)
         }
 
         if (movement.location_id != 0) {
-            W8MonsterInfo* monster_info = FindMonster(movement.location_id);
+            auto* world = owner_world ? owner_world : GetWorld();
+            W8MonsterInfo* monster_info = world->population->findMonster(movement.location_id);
             if (monster_info->fInCombat) {
                 monster_info->pCombat->sight_refresh_pending = true;
             }
