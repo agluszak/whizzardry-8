@@ -741,7 +741,7 @@ struct GlobalStatus {
        pass sums them against zero. */
     float real_elapsed;
     float frame_elapsed;
-    unsigned int wait_state;
+    W8GameWaitState wait_state;
     unsigned int item_recharge_ms;
     W8PartyFormationState formation;
     int game_time_days;

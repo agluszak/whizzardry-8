@@ -504,16 +504,18 @@ static bool AgePartyEffectSlot(W8EffectSlot* slot, unsigned int minutes)
 void AdvanceTimedEffects(unsigned int minutes)
 {
     if (g_status.real_elapsed + g_status.frame_elapsed == 0.0f) {
-        if (g_status.wait_state == 1 || g_status.wait_state == 0) {
-            g_status.wait_state = 2;
+        if (g_status.wait_state == W8_GAME_WAIT_STATE_FAST_MOVEMENT ||
+            g_status.wait_state == W8_GAME_WAIT_STATE_MOVING) {
+            g_status.wait_state = W8_GAME_WAIT_STATE_INITIAL_REST;
             for (unsigned int slot = 0; slot < 8; ++slot) {
                 g_status.buffers.XChar[slot].movement_fatigue = 0;
             }
-        } else if (g_status.wait_state == 2) {
-            g_status.wait_state = 3;
+        } else if (g_status.wait_state == W8_GAME_WAIT_STATE_INITIAL_REST) {
+            g_status.wait_state = W8_GAME_WAIT_STATE_RESTING;
         }
     } else {
-        g_status.wait_state = g_status.frame_elapsed != 0.0f ? 1 : 0;
+        g_status.wait_state = g_status.frame_elapsed != 0.0f ? W8_GAME_WAIT_STATE_FAST_MOVEMENT
+                                                             : W8_GAME_WAIT_STATE_MOVING;
         g_status.real_elapsed = 0.0f;
         g_status.frame_elapsed = 0.0f;
     }
@@ -607,7 +609,7 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
     unsigned int damage = character->bonus.damage_per_minute;
     if (damage != 0) {
         damage *= minutes;
-        if (g_status.wait_state != 3 || gXStatus.fCombatMode) {
+        if (g_status.wait_state != W8_GAME_WAIT_STATE_RESTING || gXStatus.fCombatMode) {
             damage += damage >> 1;
         }
         ApplyDamageToCharacter(party_slot, damage, true, true, false,
@@ -789,7 +791,7 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
     float health_scale;
     if (gXStatus.fSurprisePossible) {
         health_scale = 1.0f;
-    } else if (g_status.wait_state == 3 && !gXStatus.fCombatMode) {
+    } else if (g_status.wait_state == W8_GAME_WAIT_STATE_RESTING && !gXStatus.fCombatMode) {
         health_scale = 0.5f;
     } else {
         health_scale = 0.0f;
@@ -1329,9 +1331,10 @@ void UpdateCampFatigue(int ticks)
 void UpdatePartyStamina(int ticks)
 {
     if (IsLevelFastMovement()) {
-        g_status.wait_state = 1;
+        g_status.wait_state = W8_GAME_WAIT_STATE_FAST_MOVEMENT;
     } else {
-        g_status.wait_state = LevelMovedThisUpdate() ? 0 : 3;
+        g_status.wait_state =
+            LevelMovedThisUpdate() ? W8_GAME_WAIT_STATE_MOVING : W8_GAME_WAIT_STATE_RESTING;
     }
 
     for (unsigned int slot = 0; slot < 8; ++slot) {
@@ -1375,9 +1378,10 @@ void RegenCharacterStamina(int party_slot, unsigned int elapsed)
     float scale = 1.0f;
     if (!gXStatus.fSurprisePossible) {
         scale = 0.5f;
-        if (g_status.wait_state != 3) {
+        if (g_status.wait_state != W8_GAME_WAIT_STATE_RESTING) {
             scale = 0.1f;
-            if (g_status.wait_state != 0 && g_status.wait_state != 2) {
+            if (g_status.wait_state != W8_GAME_WAIT_STATE_MOVING &&
+                g_status.wait_state != W8_GAME_WAIT_STATE_INITIAL_REST) {
                 scale = 0.0f;
             }
         }
