@@ -89,7 +89,7 @@ bool PleaseWaitScreenEnter(void)
 {
     if (!g_load_descriptor) {
         g_load_descriptor = std::make_unique<W8LevelLoadDescriptor>();
-        g_load_descriptor->mode = static_cast<W8PleaseWaitMode>(g_current_screen_state.mode);
+        g_load_descriptor->mode = std::get<W8PleaseWaitMode>(g_current_screen_state.mode);
         switch (g_load_descriptor->mode) {
         case W8_PLEASE_WAIT_NEW_GAME:
             InitializeFactState();

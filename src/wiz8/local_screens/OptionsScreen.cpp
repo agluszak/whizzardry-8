@@ -1759,7 +1759,7 @@ bool OptionsScreenLeave(int)
 bool OptionsScreenEnter()
 {
     int selected;
-    const W8OptionsMode mode = static_cast<W8OptionsMode>(g_current_screen_state.mode);
+    const W8OptionsMode mode = std::get<W8OptionsMode>(g_current_screen_state.mode);
 
     SetViewport({0, 0, 0x281, 0x1e1});
     SetPrimarySurfaceTextureHint2Enabled(false);

@@ -668,17 +668,16 @@ W8Character* W8CharacterScreen::GetOriginalCharacter()
 // FUNCTION: WIZ8 0x005b1750
 bool CharacterScreenEnter(void)
 {
+    const W8CharacterScreenMode mode = std::get<W8CharacterScreenMode>(g_current_screen_state.mode);
     SetViewport({0, 0, 0x281, 0x1e1});
     SetPrimarySurfaceTextureHint2Enabled(false);
     UpdateHeldItemCursor();
     g_wiz_text_font_secondary.resetPalette();
     g_wiz_text_bold_font.resetPalette();
     g_character_screen = std::make_unique<W8CharacterScreen>(
-        static_cast<W8CharacterScreenMode>(g_current_screen_state.mode),
-        g_current_screen_state.character);
+        mode, g_current_screen_state.character);
     g_character_screen->BuildControls();
-    if (!g_status.game_started && (g_current_screen_state.mode == W8_CHARACTER_CREATE ||
-                                   g_current_screen_state.mode == W8_CHARACTER_LEVEL_UP)) {
+    if (!g_status.game_started && (mode == W8_CHARACTER_CREATE || mode == W8_CHARACTER_LEVEL_UP)) {
         StartMusicResource("Menus.MPL", 1, 1);
     }
     return 1;
