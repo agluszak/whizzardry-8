@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <string_view>
 
 #include "wiz8/layouts/levels.h"
@@ -10,7 +11,7 @@ int GetLoadedLevelID(void);
 extern W8LevelFolderRecord g_level_folders[W8_LEVEL_COUNT];
 const char* GetLevelFolderName(int level_id);
 unsigned char GetLevelLocationCode(int level_id, char* location_code);
-int FindLevelIdByLocationCode(const char* location_code);
+std::optional<int> FindLevelIdByLocationCode(const char* location_code);
 
 extern unsigned short g_level_name_indices[W8_LEVEL_COUNT];
 

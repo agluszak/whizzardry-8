@@ -1,4 +1,5 @@
 #include <cstring>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -85,7 +86,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
     glm::vec3 position;
     unsigned char fact_value;
     unsigned int added;
-    int location_id;
+    std::optional<int> location_id;
     int slot;
     const char* trigger_name;
 
@@ -668,7 +669,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         RunNamedTrigger("greenLightEwaxx02", -1);
         RunNamedTrigger("greenLightEwaxx03", -1);
         location_id = GetLocationVarIDByName("ObstacleDoors");
-        if (location_id != -1) {
+        if (location_id) {
             SetTriggerVariableByName("ObstacleDoors",
                                      GetLocationVarValueByName("ObstacleDoors") | 2);
             return;
@@ -683,7 +684,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         RunNamedTrigger("greenLightEwaxx", -1);
         RunNamedTrigger("greenLightEwaxx01", -1);
         location_id = GetLocationVarIDByName("ObstacleDoors");
-        if (location_id != -1) {
+        if (location_id) {
             SetTriggerVariableByName("ObstacleDoors",
                                      GetLocationVarValueByName("ObstacleDoors") | 1);
             return;
@@ -936,7 +937,7 @@ void MonsterKilled(int record_id, int killer_party_slot)
         return;
     }
     if (record_id == 0x14f || record_id == 0xdd) {
-        if (GetLocationVarIDByName("NumberRattkinBreedersKilled") == -1) {
+        if (!GetLocationVarIDByName("NumberRattkinBreedersKilled")) {
             CreateLocationVar("NumberRattkinBreedersKilled", 1);
             return;
         }

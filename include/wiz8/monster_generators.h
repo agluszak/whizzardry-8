@@ -3,6 +3,7 @@ struct W8Chunk;
 
 #include <algorithm>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -37,7 +38,7 @@ struct MonGen;
 
 /* MonGen.cpp's generator registry accessors. */
 W8EncounterTableRuntime* GetEncounterTable(int index); /* 0x0048AD00 */
-int FindEncounterTableByName(const char* name);        /* 0x0048CCA0 */
+std::optional<int> FindEncounterTableByName(const char* name); /* 0x0048CCA0 */
 
 void SaveEncounterState(wiz8::File& handle);
 void SaveMonsterGenerators(wiz8::File& handle);

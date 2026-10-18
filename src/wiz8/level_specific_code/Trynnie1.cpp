@@ -56,7 +56,7 @@ void EnsureTrynnie1KilledVar(void)
     W8MonsterGroup* group;
 
     if (GetFact(W8_FACT_TRYNNIE_SHAMAN_DIES) == 1) {
-        if (GetLocationVarIDByName("Trynnie1Killed") == -1) {
+        if (!GetLocationVarIDByName("Trynnie1Killed")) {
             KillTrynnieGroups();
             if (!FindEntityByName("VOC_SHAMAN_DYING", &vPos, 0, 0)) {
                 srAssertFail("WorldGetNamedPosition(\"VOC_SHAMAN_DYING\", vPos)", TRYNNIE1_CPP,
@@ -120,8 +120,6 @@ void KillTrynnieGroups(void)
     W8MonsterGroup* group;
     W8MonsterRecord* record;
     MonGen* generator;
-    int iOldTable;
-    int iNewTable;
     int index;
 
     for (index = 0; index < static_cast<int>(CurrentLevelPopulation().monster_groups.size());
@@ -133,19 +131,19 @@ void KillTrynnieGroups(void)
             RemoveAllGroupMembers(group);
         }
     }
-    iOldTable = FindEncounterTableByName("Trynnies");
-    iNewTable = FindEncounterTableByName("Dead Trynnies");
-    if (iOldTable == -1) {
+    const auto old_table = FindEncounterTableByName("Trynnies");
+    const auto new_table = FindEncounterTableByName("Dead Trynnies");
+    if (!old_table) {
         srAssertFail("iOldTable!=(-1)", TRYNNIE1_CPP, 0x68, "Can't find monster table 'Trynnies'");
     }
-    if (iNewTable == -1) {
+    if (!new_table) {
         srAssertFail("iNewTable!=(-1)", TRYNNIE1_CPP, 0x69,
                      "Can't find monster table 'Dead Trynnies'");
     }
     for (index = 0; index < static_cast<int>(GetWorld()->encounters.generators.size()); ++index) {
         generator = GetWorld()->encounters.generators[index].get();
-        if (generator->encounter_table_index == iOldTable) {
-            generator->SetEncounterTable(iNewTable);
+        if (generator->encounter_table_index == *old_table) {
+            generator->SetEncounterTable(*new_table);
         }
     }
 }

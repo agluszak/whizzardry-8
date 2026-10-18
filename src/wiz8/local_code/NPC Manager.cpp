@@ -2324,11 +2324,11 @@ void HandleMarkedNpcEvent(W8NpcState* npc, char mode)
     if (npc->name_style == ')' && GetLoadedLevelID() == 0xd) {
         glm::vec3 position;
 
-        if (GetLocationVarIDByName("CODESgtRubbleTeleport") == -1 ||
+        if (!GetLocationVarIDByName("CODESgtRubbleTeleport") ||
             GetLocationVarValueByName("CODESgtRubbleTeleport") == 0) {
             if (monster_info != nullptr && FindEntityByName("RubbleCovert", &position, 0, 0)) {
                 monster_info->p3D->SetPosition(&position);
-                if (GetLocationVarIDByName("CODESgtRubbleTeleport") == -1) {
+                if (!GetLocationVarIDByName("CODESgtRubbleTeleport")) {
                     CreateLocationVar("CODESgtRubbleTeleport", 1);
                 } else {
                     SetTriggerVariableByName("CODESgtRubbleTeleport", 1);

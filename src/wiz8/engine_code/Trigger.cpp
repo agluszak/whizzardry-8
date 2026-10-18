@@ -1096,9 +1096,9 @@ void InitializeStateDrivenPropVariables(Trigger* trigger)
 // FUNCTION: WIZ8 0x00444030
 void SetTriggerVariableByName(const char* name, int value)
 {
-    const int index = GetLocationVarIDByName(name);
-    if (index < 0) srAssertFail("Unknown location variable", __FILE__, __LINE__, "%s", name);
-    location_variables[index].value = value;
+    const auto index = GetLocationVarIDByName(name);
+    if (!index) srAssertFail("Unknown location variable", __FILE__, __LINE__, "%s", name);
+    location_variables[*index].value = value;
 }
 
 // VTABLE: WIZ8 0x005ec138
@@ -1914,12 +1914,12 @@ reactivate_linked_triggers:
 /* The location variable a state-changing action writes. A missing variable is a retail assert. */
 static int FindModifiedLocationVar(const char* name, int line)
 {
-    const int id = GetLocationVarIDByName(name);
-    if (id == -1) {
+    const auto id = GetLocationVarIDByName(name);
+    if (!id) {
         srAssertFail("iVar != BAD_INDEX", "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp",
                      line, 0);
     }
-    return id;
+    return *id;
 }
 
 // FUNCTION: WIZ8 0x004409b0
@@ -2029,10 +2029,9 @@ void Trigger::RunDestination(const char* destination)
 
         strncpy(location_code, destination, 3);
         location_code[3] = '\0';
-        location_id = FindLevelIdByLocationCode(location_code);
-        if (location_id == -1) {
-            return;
-        }
+        const auto destination_id = FindLevelIdByLocationCode(location_code);
+        if (!destination_id) return;
+        location_id = *destination_id;
         strncpy(entrance_code, destination + 3, 2);
         entrance_code[2] = '\0';
         entrance = atoi(entrance_code);
@@ -3307,22 +3306,22 @@ void DestroyAllWorldTriggers(W8World* world)
 }
 
 // FUNCTION: WIZ8 0x00444170
-int GetLocationVarIDByName(const char* name)
+std::optional<int> GetLocationVarIDByName(const char* name)
 {
     const auto found = std::find_if(location_variables.begin(), location_variables.end(),
                                     [name](const auto& variable) {
                                         return variable.level == GetLoadedLevelID() &&
                                                SDL_strcasecmp(variable.name.c_str(), name) == 0;
                                     });
-    return found == location_variables.end() ? -1
-                                             : static_cast<int>(found - location_variables.begin());
+    if (found == location_variables.end()) return std::nullopt;
+    return static_cast<int>(found - location_variables.begin());
 }
 
 // FUNCTION: WIZ8 0x00443dc0
 void CreateLocationVar(const char* name, int value)
 {
     if (!name) throw std::invalid_argument("null location variable name");
-    if (GetLocationVarIDByName(name) >= 0) return;
+    if (GetLocationVarIDByName(name)) return;
     if (location_variables.size() >= std::numeric_limits<std::int32_t>::max())
         throw std::length_error("Too many location variables");
     location_variables.push_back({name, value, GetLoadedLevelID()});
@@ -3331,9 +3330,9 @@ void CreateLocationVar(const char* name, int value)
 // FUNCTION: WIZ8 0x004440d0
 int GetLocationVarValueByName(const char* name)
 {
-    const int index = GetLocationVarIDByName(name);
-    if (index < 0) srAssertFail("Unknown location variable", __FILE__, __LINE__, "%s", name);
-    return location_variables[index].value;
+    const auto index = GetLocationVarIDByName(name);
+    if (!index) srAssertFail("Unknown location variable", __FILE__, __LINE__, "%s", name);
+    return location_variables[*index].value;
 }
 
 // Retail records contain a four-byte value, a 128-byte C string, and a four-byte level.

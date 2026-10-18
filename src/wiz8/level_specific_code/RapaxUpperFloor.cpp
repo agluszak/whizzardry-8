@@ -1,5 +1,6 @@
 #include "wiz8/level_specific_code/RapaxUpperFloor.h"
 
+#include <optional>
 #include <vector>
 
 #include "Item.h"
@@ -44,7 +45,7 @@ bool RapaxUpperFloorAirBox(Trigger* pTrigger)
     glm::vec3 position;
     W8WorldItem* world_item;
     std::optional<int> item_id;
-    int var_id;
+    std::optional<int> var_id;
 
     if (g_status.item_in_cursor) {
         item_id = GetItemInHand();
@@ -60,7 +61,7 @@ bool RapaxUpperFloorAirBox(Trigger* pTrigger)
                 item_id = (item_id == 0x1cc) ? 0x1ca : 0x51;
             }
             var_id = GetLocationVarIDByName("TdoorOpen");
-            if (var_id == -1 || GetLocationVarValueByName("TdoorOpen") == 0) {
+            if (!var_id || GetLocationVarValueByName("TdoorOpen") == 0) {
                 if (FindEntityByName("NP_SlipItem", &entity_position, 0, 0)) {
                     position = entity_position;
                     world_item = AddWorldItem(SpawnItem(
@@ -74,13 +75,13 @@ bool RapaxUpperFloorAirBox(Trigger* pTrigger)
             }
             RunTreasureDoor();
             var_id = GetLocationVarIDByName("TMakeTreasure");
-            if (var_id == -1) {
+            if (!var_id) {
                 CreateLocationVar("TMakeTreasure", 1);
             } else {
                 SetTriggerVariableByName("TMakeTreasure", 1);
             }
             var_id = GetLocationVarIDByName("TMakeTreasureNumber");
-            if (var_id == -1) {
+            if (!var_id) {
                 CreateLocationVar("TMakeTreasureNumber", *item_id);
                 return true;
             }
@@ -104,9 +105,9 @@ bool RapaxUpperFloorDoorDone(Trigger* pTrigger)
     W8WorldItem* world_item;
     int item_id;
 
-    if (GetLocationVarIDByName("TMakeTreasure") != -1) {
+    if (GetLocationVarIDByName("TMakeTreasure")) {
         if (GetLocationVarValueByName("TMakeTreasure") != 0) {
-            if (GetLocationVarIDByName("TdoorOpen") != -1) {
+            if (GetLocationVarIDByName("TdoorOpen")) {
                 if (GetLocationVarValueByName("TdoorOpen") == 0) {
                     item_id = GetLocationVarValueByName("TMakeTreasureNumber");
                     if (FindEntityByName("NP_SlipItem", &entity_position, 0, 0)) {

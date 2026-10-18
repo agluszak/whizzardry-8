@@ -38,7 +38,7 @@ bool OnRoachTriggerActivated(Trigger* trigger)
 {
     glm::vec3 positions[3];
 
-    if (GetLocationVarIDByName("RoachesSpawned") != -1) {
+    if (GetLocationVarIDByName("RoachesSpawned")) {
         return false;
     }
     if (!FindEntityByName("location_roach01", &positions[0], 0, 0)) {
@@ -93,7 +93,7 @@ bool OnCoffinlideActivated(Trigger* trigger)
 {
     glm::vec3 position;
 
-    if (GetLocationVarIDByName("HeadSpawned") == -1 && FindEntityByName("Head", &position, 0, 0)) {
+    if (!GetLocationVarIDByName("HeadSpawned") && FindEntityByName("Head", &position, 0, 0)) {
         SpawnMonsters(0x12d, 1, &position, 1, true, false, false);
         CreateLocationVar("HeadSpawned", 1);
     }

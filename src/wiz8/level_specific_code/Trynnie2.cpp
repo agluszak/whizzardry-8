@@ -44,7 +44,7 @@ class Trigger;
 void EnsureTrynnie2KilledVar(void)
 {
     if (GetFact(W8_FACT_TRYNNIE_SHAMAN_DIES) == 1) {
-        if (GetLocationVarIDByName("Trynnie2Killed") == -1) {
+        if (!GetLocationVarIDByName("Trynnie2Killed")) {
             KillTrynnieGroups();
             CreateLocationVar("Trynnie2Killed", 1);
         }
@@ -122,7 +122,7 @@ bool Trynnie2MeatBox(Trigger* pTrigger)
         info->p3D->SetScript("MoveHogar.msf", true);
     } else {
         info->p3D->SetScript("MoveHogarDrugged.msf", true);
-        if (GetLocationVarIDByName("HogarDruggedGivenExp") == -1) {
+        if (!GetLocationVarIDByName("HogarDruggedGivenExp")) {
             AwardPartyExperience(500, false);
             CreateLocationVar("HogarDruggedGivenExp", 1);
         }

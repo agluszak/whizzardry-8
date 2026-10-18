@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <span>
 #include <string>
 #include <utility>
@@ -13,7 +14,7 @@ namespace wiz8 {
 class File;
 }
 
-int GetLocationVarIDByName(const char* name);
+std::optional<int> GetLocationVarIDByName(const char* name);
 void SetTriggerVariableByName(const char* name, int value);
 void CreateLocationVar(const char* name, int value); /* 0x00443DC0 */
 int GetLocationVarValueByName(const char* name);     /* 0x004440D0 */

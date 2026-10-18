@@ -1103,7 +1103,7 @@ TEST_CASE_METHOD(LocationVariableFixture,
     REQUIRE(GetLocationVarValueByName("switch") == 17);
     SetTriggerVariableByName("switch", 23);
     ReplaceWorld(std::make_unique<W8World>(4));
-    REQUIRE(GetLocationVarIDByName("Switch") == -1);
+    REQUIRE_FALSE(GetLocationVarIDByName("Switch"));
     CreateLocationVar("Switch", -7);
     REQUIRE(HasLocationVariables());
 
@@ -1169,8 +1169,8 @@ TEST_CASE_METHOD(LocationVariableFixture,
     }
     REQUIRE_FALSE(load_variables(bytes, inject_failure));
     REQUIRE(GetLocationVarValueByName("Existing") == 42);
-    REQUIRE(GetLocationVarIDByName("First") == -1);
-    REQUIRE(GetLocationVarIDByName("Second") == -1);
+    REQUIRE_FALSE(GetLocationVarIDByName("First"));
+    REQUIRE_FALSE(GetLocationVarIDByName("Second"));
 }
 
 TEST_CASE_METHOD(LoaderFixture, "Particle record versions initialize omitted fields",

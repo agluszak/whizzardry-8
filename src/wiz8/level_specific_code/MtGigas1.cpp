@@ -60,7 +60,7 @@ void MtGigas1Setup(void)
             g_plate_prop = prop->m_gd_prop.get();
         }
     }
-    if (GetLocationVarIDByName("PPlateDown") == -1) {
+    if (!GetLocationVarIDByName("PPlateDown")) {
         CreateLocationVar("PPlateDown", 0);
         return;
     }

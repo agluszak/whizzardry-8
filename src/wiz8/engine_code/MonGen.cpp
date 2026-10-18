@@ -887,7 +887,7 @@ void MonGen::SetEncounterTable(int index)
 /* Return the first table whose name starts with the complete caller string,
    ignoring case as the retail _strnicmp import does. */
 // FUNCTION: WIZ8 0x0048cca0
-int FindEncounterTableByName(const char* name)
+std::optional<int> FindEncounterTableByName(const char* name)
 {
     for (int index = 0; index < static_cast<int>(g_encounter_tables.size()); ++index) {
         W8EncounterTableRuntime* table = &g_encounter_tables[index];
@@ -895,5 +895,5 @@ int FindEncounterTableByName(const char* name)
             return index;
         }
     }
-    return -1;
+    return std::nullopt;
 }

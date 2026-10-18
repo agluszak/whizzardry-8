@@ -201,7 +201,7 @@ unsigned char GetLevelLocationCode(int level_id, char* location_code)
     return 1;
 }
 
-static int LevelFindIDByLocationCode(const char* location_code)
+static std::optional<int> LevelFindIDByLocationCode(const char* location_code)
 {
     int level_id;
 
@@ -210,33 +210,33 @@ static int LevelFindIDByLocationCode(const char* location_code)
             return level_id;
         }
     }
-    return -1;
+    return std::nullopt;
 }
 
 // FUNCTION: WIZ8 0x0042b410
-int FindLevelIdByLocationCode(const char* location_code)
+std::optional<int> FindLevelIdByLocationCode(const char* location_code)
 {
     W8LevelInfo info;
-    int level_id;
+    std::optional<int> level_id;
 
     if (!location_code) {
-        return -1;
+        return std::nullopt;
     }
     level_id = LevelFindIDByLocationCode(location_code);
-    if (level_id == -1) {
+    if (!level_id) {
         return level_id;
     }
-    if (level_id >= 57) {
-        return -1;
+    if (*level_id >= 57) {
+        return std::nullopt;
     }
-    if (level_id < W8_LEVEL_COUNT) {
-        if (strlen(g_level_folders[level_id].folder_name) == 0 ||
-            strlen(g_level_folders[level_id].level_name) == 0) {
-            return -1;
+    if (*level_id < W8_LEVEL_COUNT) {
+        if (strlen(g_level_folders[*level_id].folder_name) == 0 ||
+            strlen(g_level_folders[*level_id].level_name) == 0) {
+            return std::nullopt;
         }
     }
-    if (!LevelBuildInfoByID(level_id, &info)) {
-        return -1;
+    if (!LevelBuildInfoByID(*level_id, &info)) {
+        return std::nullopt;
     }
     return level_id;
 }

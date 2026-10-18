@@ -74,7 +74,7 @@ void MartensBluff1Setup(void)
     g_gas_sound0 = 0;
     g_gas_sound1 = 0;
     g_teleport_running = false;
-    if (g_door_controller != 0 && GetLocationVarIDByName("DialState") == -1) {
+    if (g_door_controller != 0 && !GetLocationVarIDByName("DialState")) {
         Random(8);
         Random(8);
         Random(8);
@@ -87,7 +87,7 @@ void MartensBluff1Setup(void)
         pTrigger->GetPosition(&trigger_position);
         if (glm::length((trigger_position - position)) < 500.0) {
             FindTriggerByName("Lift2Marten2");
-            if (GetLocationVarIDByName("LiftArrived") == -1) {
+            if (!GetLocationVarIDByName("LiftArrived")) {
                 CreateLocationVar("LiftArrived", 1);
                 ShowString(g_localized_strings[0x71b]);
             }
@@ -95,7 +95,7 @@ void MartensBluff1Setup(void)
     }
     if (g_door_controller != 0) {
         dial_state = 0;
-        if (GetLocationVarIDByName("DialState") != -1) {
+        if (GetLocationVarIDByName("DialState")) {
             dial_state = GetLocationVarValueByName("DialState");
         }
         particle = FindParticleByName("GasSpray-00");
@@ -341,7 +341,7 @@ bool MartensBluff1Transporter(int command)
             } else {
                 g_transport_gate.emplace(60.0f, false, true);
             }
-            if (GetLocationVarIDByName("TransportSpawn") != -1) {
+            if (GetLocationVarIDByName("TransportSpawn")) {
                 g_transport_gate->SetProgress(GetLocationVarValueByName("TransportSpawn") *
                                               kMovementSpeedStep);
             }
@@ -371,7 +371,7 @@ bool MartensBluff1Teleporter(Trigger* pTrigger)
 {
     int state;
 
-    if (GetLocationVarIDByName("TeleporterState") == -1) {
+    if (!GetLocationVarIDByName("TeleporterState")) {
         CreateLocationVar("TeleporterState", 0);
         state = 0;
     } else {
@@ -447,7 +447,7 @@ bool MartensBluff1TeleportState(int new_state)
     int state;
 
     FindRequiredTriggerByName("MR109");
-    if (GetLocationVarIDByName("TeleporterState") == -1) {
+    if (!GetLocationVarIDByName("TeleporterState")) {
         CreateLocationVar("TeleporterState", 0);
         return false;
     }
@@ -492,7 +492,7 @@ bool MartensBluff1WireTrigger(Trigger* pTrigger)
 
     g_trigger_feedback = true;
     pTelTrigger = FindRequiredTriggerByName("MR109");
-    if (GetLocationVarIDByName("TeleporterState") == -1) {
+    if (!GetLocationVarIDByName("TeleporterState")) {
         CreateLocationVar("TeleporterState", 1);
     } else {
         if (GetLocationVarValueByName("TeleporterState") != 0) {

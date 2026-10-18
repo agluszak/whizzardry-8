@@ -426,7 +426,7 @@ static unsigned char IsMasterFunctionTypeEight(int command, W8WorldCursorNode* n
 static unsigned char WorldCursorNodeSeenBodies(int command, W8WorldCursorNode* node, int context)
 {
     if (command == 1) {
-        if (GetLocationVarIDByName("AP_SeenBodies") == -1) {
+        if (!GetLocationVarIDByName("AP_SeenBodies")) {
             if (CountAscensionPeakItems() == 3) {
                 if (GetFact(W8_FACT_TMISSION_MEET_ZANT_AT_AP) != 0 ||
                     GetFact(W8_FACT_UMISSION_MEET_AP_ASSIGN) != 0) {

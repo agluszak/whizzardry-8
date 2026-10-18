@@ -39,7 +39,7 @@ bool ConnectiveTissueLiche(Trigger* pTrigger)
         return false;
     }
     ShowLevelMessage(7);
-    if (GetLocationVarIDByName("LicheDead") == -1) {
+    if (!GetLocationVarIDByName("LicheDead")) {
         CreateLocationVar("LicheDead", 1);
         AwardPartyExperience(0x3e8, false);
     }

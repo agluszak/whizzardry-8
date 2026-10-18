@@ -59,7 +59,7 @@ static float LIFT_PARKED_Y = -5000.0f;
 // FUNCTION: WIZ8 0x004DBE70
 void ProcessFlagPosition(void)
 {
-    if (GetLocationVarIDByName("FlagPosition") != -1) {
+    if (GetLocationVarIDByName("FlagPosition")) {
         int value = GetLocationVarValueByName("FlagPosition");
         ControlLiftGate(value);
         if (value >= 1000) {
@@ -87,7 +87,7 @@ bool OnCrankTriggerActivated(Trigger* trigger)
     if (g_status.item_in_cursor) {
         return false;
     }
-    if (GetLocationVarIDByName("FlagPosition") == -1) {
+    if (!GetLocationVarIDByName("FlagPosition")) {
         CreateLocationVar("FlagPosition", 0);
         npc = GetNpcStateByKind(0x2a);
         QueueNpcScriptNotice(npc, 0, 0x90, true, 0);
@@ -195,7 +195,7 @@ bool ControlLiftGate(int command)
 bool OnSecurityButtonActivated(Trigger* trigger)
 {
     g_trigger_feedback = true;
-    if (GetLocationVarIDByName("UmpaniCampAlarm") != -1) {
+    if (GetLocationVarIDByName("UmpaniCampAlarm")) {
         return false;
     }
     SetFactionDispositionBand(4, W8_FACTION_HOSTILE);
@@ -213,8 +213,7 @@ bool ControlCampAlarm(int command)
     glm::vec3 position;
 
     if (command != 0) {
-        if (GetLocationVarIDByName("UmpaniCampAlarm") == -1)
-            CreateLocationVar("UmpaniCampAlarm", 30);
+        if (!GetLocationVarIDByName("UmpaniCampAlarm")) CreateLocationVar("UmpaniCampAlarm", 30);
         position = glm::vec3(GetWorld()->camera->getLocation());
         if (static_cast<unsigned int>(command) > 0x1e) {
             command = 0x1e;

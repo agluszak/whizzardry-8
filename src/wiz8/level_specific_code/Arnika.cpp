@@ -141,7 +141,7 @@ static void RestoreArnikaElevator(W8Elevator& elevator, const ElevatorStateBindi
     elevator.state = bindings.initial_state;
     elevator.moving = 0;
     elevator.button_down = 0;
-    if (GetLocationVarIDByName(bindings.state_variable) == -1) {
+    if (!GetLocationVarIDByName(bindings.state_variable)) {
         CreateLocationVar(bindings.state_variable, elevator.state);
         if (bindings.open_bottom_on_first_load) {
             elevator.pBottomDoor->Run(-1);
@@ -151,13 +151,13 @@ static void RestoreArnikaElevator(W8Elevator& elevator, const ElevatorStateBindi
         elevator.state =
             static_cast<W8ArnikaElevatorState>(GetLocationVarValueByName(bindings.state_variable));
     }
-    if (GetLocationVarIDByName(bindings.moving_variable) == -1) {
+    if (!GetLocationVarIDByName(bindings.moving_variable)) {
         CreateLocationVar(bindings.moving_variable, elevator.moving);
     } else {
         elevator.moving = GetLocationVarValueByName(bindings.moving_variable);
     }
     SetTriggerVariableByName(bindings.moving_variable, 0);
-    if (GetLocationVarIDByName(bindings.button_variable) == -1) {
+    if (!GetLocationVarIDByName(bindings.button_variable)) {
         CreateLocationVar(bindings.button_variable, elevator.button_down);
     } else {
         elevator.button_down = GetLocationVarValueByName(bindings.button_variable);
@@ -253,7 +253,7 @@ void ArnikaLevelSetup(void)
     ArnikaElevator1Setup();
     ArnikaElevator2Setup();
     g_running_trigger_from_script = false;
-    if (GetLocationVarIDByName("LaserScanning") != -1 &&
+    if (GetLocationVarIDByName("LaserScanning") &&
         GetLocationVarValueByName("LaserScanning") != 0) {
         pTrigger = FindTriggerByName("LazerScanner");
         if (pTrigger != 0) {
@@ -263,14 +263,13 @@ void ArnikaLevelSetup(void)
             g_master_functions.push_back({ArnikaLaserScanMaster, CaptureLaserScan});
         }
     }
-    if (GetLocationVarIDByName("WarningSound") != -1) {
+    if (GetLocationVarIDByName("WarningSound")) {
         int value = GetLocationVarValueByName("WarningSound");
         if (value != 0) {
             ArnikaWarningSound(value);
         }
     }
-    if (GetLocationVarIDByName("ScregActive") != -1 &&
-        GetLocationVarValueByName("ScregActive") == 1) {
+    if (GetLocationVarIDByName("ScregActive") && GetLocationVarValueByName("ScregActive") == 1) {
         npc = GetNpcStateByKind(0x17);
         if (npc != 0 && (monster_info = GetNpcMonsterInfo(npc)) != 0 && monster_info->p3D != 0) {
             return;
@@ -298,7 +297,7 @@ bool ArnikaLazerScanner(Trigger* pTrigger)
     if (g_lazer_prop->Rep()->animation_playing != 0) {
         return false;
     }
-    if (GetLocationVarIDByName("HLLDoorOpen") != -1) {
+    if (GetLocationVarIDByName("HLLDoorOpen")) {
         return false;
     }
     g_laser_scanning = 1;
@@ -337,7 +336,7 @@ bool ArnikaScannerDoor(Trigger* pTrigger)
     if (!FindItemOnParty(0x27b, 0, 0, 2, 0)) {
         return false;
     }
-    if (GetLocationVarIDByName("HLLDoorOpen") == -1) {
+    if (!GetLocationVarIDByName("HLLDoorOpen")) {
         CreateLocationVar("HLLDoorOpen", 1);
     }
     return true;
@@ -352,7 +351,7 @@ bool ArnikaWarningSound(int command)
     glm::vec3 position;
 
     if (command != 0) {
-        if (GetLocationVarIDByName("WarningSound") == -1) {
+        if (!GetLocationVarIDByName("WarningSound")) {
             CreateLocationVar("WarningSound", 0x1e);
         }
         if (!FindEntityByName("ULLspawn", &position, 0, 0)) {
@@ -407,17 +406,15 @@ bool ArnikaMookholo(Trigger* pTrigger)
     if (gXStatus.fCombatMode) {
         return false;
     }
-    if (GetLocationVarIDByName("ScregActive") != -1 &&
-        GetLocationVarValueByName("ScregActive") != 0) {
+    if (GetLocationVarIDByName("ScregActive") && GetLocationVarValueByName("ScregActive") != 0) {
         return false;
     }
-    if (GetLocationVarIDByName("MookDoorOpen") != -1 &&
-        GetLocationVarValueByName("MookDoorOpen") != 0) {
+    if (GetLocationVarIDByName("MookDoorOpen") && GetLocationVarValueByName("MookDoorOpen") != 0) {
         return false;
     }
     if (FindEntityByName("Mookholo", &position, 0, 0)) {
         group = SpawnMonsters(0xb, 1, &position, 0, true, false, false);
-        if (GetLocationVarIDByName("ScregActive") != -1) {
+        if (GetLocationVarIDByName("ScregActive")) {
             SetTriggerVariableByName("ScregActive", 1);
         } else {
             CreateLocationVar("ScregActive", 1);
@@ -466,7 +463,7 @@ bool ArnikaMookholoWatch(int command)
 bool ArnikaMookFrontDoor(Trigger* pTrigger)
 {
     FindRequiredTriggerByName("Mookholo");
-    if (GetLocationVarIDByName("MookDoorOpen") != -1) {
+    if (GetLocationVarIDByName("MookDoorOpen")) {
         SetTriggerVariableByName("MookDoorOpen", 1);
     } else {
         CreateLocationVar("MookDoorOpen", 1);
@@ -520,7 +517,7 @@ bool ArnikaExitButton(Trigger* pTrigger)
 {
     g_exit_door_trigger = pTrigger;
     g_exit_door_prop = pTrigger->GetProp();
-    if (GetLocationVarIDByName("Teleporting") != -1) {
+    if (GetLocationVarIDByName("Teleporting")) {
         if (GetLocationVarValueByName("Teleporting") == 0) {
             SetTriggerVariableByName("Teleporting", 1);
             g_master_functions.push_back({ArnikaTeleportWatch});
@@ -559,7 +556,7 @@ bool ArnikaGenVaultDoor(Trigger* pTrigger)
     glm::vec3 position;
 
     if (FindEntityByName("Golem", &position, 0, 0)) {
-        if (GetLocationVarIDByName("GolemSpawned") != -1) {
+        if (GetLocationVarIDByName("GolemSpawned")) {
             return false;
         }
         CreateLocationVar("GolemSpawned", 1);
@@ -829,7 +826,7 @@ bool ArnikaChaosMolori(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004E2360
 bool ArnikaMaddmook(Trigger* pTrigger)
 {
-    if (GetLocationVarIDByName("WarnedAboutEntry") != -1 &&
+    if (GetLocationVarIDByName("WarnedAboutEntry") &&
         GetLocationVarValueByName("WarnedAboutEntry") == 1 &&
         GetFactionDisposition(W8_FACTION_MOOK) != W8_FACTION_NEUTRAL) {
         W8NpcState* npc = GetNpcStateByKind(0x69);
@@ -909,21 +906,20 @@ int ArnikaPedestalItem(int* previous_item)
     if (item > -1) {
         ClearHeldItemDisplay();
     }
-    if (GetLocationVarIDByName("PedestalItem") != -1 &&
-        GetLocationVarIDByName("WarnedAboutEntry") != -1 &&
+    if (GetLocationVarIDByName("PedestalItem") && GetLocationVarIDByName("WarnedAboutEntry") &&
         GetLocationVarValueByName("WarnedAboutEntry") == 1) {
         previous = GetLocationVarValueByName("PedestalItem");
         if (item == -1) {
             return previous | item;
         }
         SetTriggerVariableByName("PedestalItem", item);
-        if (GetLocationVarIDByName("WarnedAboutEntry") != -1) {
+        if (GetLocationVarIDByName("WarnedAboutEntry")) {
             SetTriggerVariableByName("WarnedAboutEntry", 0);
         }
         *previous_item = previous;
         return item;
     }
-    if (GetLocationVarIDByName("PedestalItem") == -1) {
+    if (!GetLocationVarIDByName("PedestalItem")) {
         CreateLocationVar("PedestalItem", -1);
         previous = 0x244;
         if (item == -1) {
@@ -950,7 +946,7 @@ int ArnikaPedestalItem(int* previous_item)
         }
         QueueNpcScriptNotice(npc, 0, 8, false, 0);
     }
-    if (GetLocationVarIDByName("WarnedAboutEntry") == -1) {
+    if (!GetLocationVarIDByName("WarnedAboutEntry")) {
         CreateLocationVar("WarnedAboutEntry", 1);
     } else {
         SetTriggerVariableByName("WarnedAboutEntry", 1);
@@ -967,7 +963,7 @@ bool ArnikaBallSlot(Trigger* pTrigger)
     W8ItemInstance item;
     W8NpcState* npc;
 
-    if (GetLocationVarIDByName("BallInserted") == -1) {
+    if (!GetLocationVarIDByName("BallInserted")) {
         CreateLocationVar("BallInserted", 1);
         npc = GetNpcStateByKind(0x16);
         ReplaceOrCreateItem(&item, 0x240, true, true, false);

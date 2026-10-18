@@ -105,7 +105,7 @@ void MartensBluff2Setup(void)
     quest_state = 0;
     g_crusher_active = false;
     if (pTrigger != 0) {
-        if (GetLocationVarIDByName("RavenQuest") == -1) {
+        if (!GetLocationVarIDByName("RavenQuest")) {
             CreateLocationVar("RavenQuest", 0);
             g_running_trigger_from_script = true;
             FindTriggerByName("Dummy")->Run(-1);
@@ -141,13 +141,13 @@ void MartensBluff2Setup(void)
             pTrigger->flags &= ~W8_TRIGGER_ENABLED;
         }
     }
-    if (GetLocationVarIDByName("SpikedBallLauncher") != -1) {
+    if (GetLocationVarIDByName("SpikedBallLauncher")) {
         value = GetLocationVarValueByName("SpikedBallLauncher");
         if (value != 0) {
             MartensBluff2Spikeball(value);
         }
     }
-    if (GetLocationVarIDByName("MonsterCrusher") != -1) {
+    if (GetLocationVarIDByName("MonsterCrusher")) {
         value = GetLocationVarValueByName("MonsterCrusher");
         if (value != 0) {
             MartensBluff2MonsterCrusher(value);
@@ -289,7 +289,7 @@ bool MartensBluff2Spikeball(int command)
     }
     g_spikeball_gate.reset();
     g_spikeball_count = 0;
-    if (GetLocationVarIDByName("SpikedBallLauncher") == -1) {
+    if (!GetLocationVarIDByName("SpikedBallLauncher")) {
         CreateLocationVar("SpikedBallLauncher", g_spikeball_count);
     } else {
         SetTriggerVariableByName("SpikedBallLauncher", g_spikeball_count);

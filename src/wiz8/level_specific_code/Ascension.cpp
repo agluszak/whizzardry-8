@@ -77,7 +77,7 @@ unsigned char AscensionPeakInit(void)
     int count = CountAscensionPeakItems();
 
     if (count > 1) {
-        if (GetLocationVarIDByName("AP_AtLeast2of3Items") == -1) {
+        if (!GetLocationVarIDByName("AP_AtLeast2of3Items")) {
             W8MonsterGroup* group = nullptr;
 
             AscensionAvalanche(true);
@@ -96,7 +96,7 @@ unsigned char AscensionPeakInit(void)
             SpawnAscensionAmbush();
             CreateLocationVar("AP_AtLeast2of3Items", 1);
         }
-        if (GetLocationVarIDByName("AP_SpawnDaughter") == -1) {
+        if (!GetLocationVarIDByName("AP_SpawnDaughter")) {
             W8NpcState* npc = GetNpcStateByKind(0x31);
 
             if (npc != 0 && npc->greeting_pending && npc->spawned == 0 && !npc->party_noticed &&
@@ -110,7 +110,7 @@ unsigned char AscensionPeakInit(void)
         }
     }
     if (count == 3) {
-        if (GetLocationVarIDByName("AP_All3Items") == -1) {
+        if (!GetLocationVarIDByName("AP_All3Items")) {
             if (FindEntityByName("NP_Savants01", &position, 0, 0)) {
                 SpawnMonsters(0x1a0, 6, &position, 1, true, false, false);
             }
@@ -261,7 +261,7 @@ static bool armAletheidesPartner(const char* partner, const char* active_var)
     if (partner_trigger != 0) {
         partner_trigger->flags |= W8_TRIGGER_ENABLED;
     }
-    if (GetLocationVarIDByName(active_var) != -1 && GetLocationVarValueByName(active_var) != 0) {
+    if (GetLocationVarIDByName(active_var) && GetLocationVarValueByName(active_var) != 0) {
         RemoveAletheides();
         SetTriggerVariableByName(active_var, 0);
     }
@@ -274,7 +274,7 @@ static bool armAletheidesPartner(const char* partner, const char* active_var)
 static bool answerAletheides(Trigger* pTrigger, const char* active_var, int relic_item,
                              W8NpcStoryAction spawn)
 {
-    if (GetLocationVarIDByName(active_var) == -1) {
+    if (!GetLocationVarIDByName(active_var)) {
         CreateLocationVar(active_var, 0);
     }
     if (GetLocationVarValueByName(active_var) != 0) {
@@ -365,7 +365,7 @@ bool AscensionDarkSavantSpawn(Trigger* pTrigger)
     if (FindEntityByName("NP_Bela", &position, 0, 0)) {
         SpawnMonsters(0x18c, 1, &position, 0, true, false, false);
     }
-    if (GetLocationVarIDByName("AP_DSSpawned") == -1) {
+    if (!GetLocationVarIDByName("AP_DSSpawned")) {
         CreateLocationVar("AP_DSSpawned", 1);
     }
     return true;
@@ -379,7 +379,7 @@ bool AscensionPath1Camera(Trigger* pTrigger)
 {
     unsigned int index;
 
-    if (GetLocationVarIDByName("AP_DSSpawned") == -1) {
+    if (!GetLocationVarIDByName("AP_DSSpawned")) {
         return false;
     }
     for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {

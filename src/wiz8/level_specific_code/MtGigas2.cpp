@@ -54,7 +54,7 @@ static bool MtGigas2UmpaniAlarm(int command);
 // FUNCTION: WIZ8 0x004DB200
 void MtGigas2Setup(void)
 {
-    if (GetLocationVarIDByName("WirePanel") != -1) {
+    if (GetLocationVarIDByName("WirePanel")) {
         if (GetLocationVarValueByName("WirePanel") == 3) {
             RunNamedTrigger("redwire", -1);
             RunNamedTrigger("bluewire", -1);
@@ -63,14 +63,14 @@ void MtGigas2Setup(void)
     } else {
         CreateLocationVar("WirePanel", -1);
     }
-    if (GetLocationVarIDByName("UmpaniAlarm") != -1) {
+    if (GetLocationVarIDByName("UmpaniAlarm")) {
         int alarm = GetLocationVarValueByName("UmpaniAlarm");
         if (alarm != 0) {
             MtGigas2UmpaniAlarm(alarm);
         }
     }
     if (GetFact(W8_FACT_UMISSION_IUFPASS_LEVEL4) == 0 &&
-        GetLocationVarIDByName("CODESgtRubbleTeleport") != -1 &&
+        GetLocationVarIDByName("CODESgtRubbleTeleport") &&
         GetLocationVarValueByName("CODESgtRubbleTeleport") == 2) {
         W8NpcState* npc;
         W8MonsterInfo* info;
@@ -257,7 +257,7 @@ static bool ActivateMtGigasOfficer(int door_bit, const char* door_name, int npc_
         return false;
     }
     int doors = 0;
-    if (GetLocationVarIDByName("ObstacleDoors") != -1) {
+    if (GetLocationVarIDByName("ObstacleDoors")) {
         doors = GetLocationVarValueByName("ObstacleDoors");
     }
     if ((doors & door_bit) != 0) {
@@ -299,7 +299,7 @@ bool MtGigas2LaserAlarm(Trigger* pTrigger)
     if (GetFact(W8_FACT_LOCATION_GIGAS_MOTION_SENSORS_OFF) != 0) {
         return false;
     }
-    if (GetLocationVarIDByName("UmpaniAlarm") != -1) {
+    if (GetLocationVarIDByName("UmpaniAlarm")) {
         return false;
     }
     SetFactionDispositionBand(4, W8_FACTION_HOSTILE);
@@ -326,7 +326,7 @@ static bool MtGigas2UmpaniAlarm(int command)
     glm::vec3 position;
 
     if (command != 0) {
-        if (GetLocationVarIDByName("UmpaniAlarm") == -1) CreateLocationVar("UmpaniAlarm", 30);
+        if (!GetLocationVarIDByName("UmpaniAlarm")) CreateLocationVar("UmpaniAlarm", 30);
         if (g_mt_gigas_alarm_gate || g_mt_gigas_alarm_sound != 0) {
             return false;
         }
