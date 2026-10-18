@@ -19,7 +19,7 @@
    Local Screens\MGSKeyboard.cpp (lower 0x00591960). */
 
 // GLOBAL: WIZ8 0x0064c1c8
-int g_selected_party_slot = -1;
+std::optional<int> g_selected_party_slot;
 
 // FUNCTION: WIZ8 0x00591780
 void RequestExitScreen(void)

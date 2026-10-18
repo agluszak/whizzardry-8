@@ -399,7 +399,7 @@ enum W8MainGameMode {
 };
 
 extern W8MainGameMode g_main_game_mode;
-extern int g_selected_party_slot;
+extern std::optional<int> g_selected_party_slot;
 void RequestLevelTransition(int level, int entry, unsigned char flag);
 extern bool g_build_level_links;
 extern int g_next_link_level;

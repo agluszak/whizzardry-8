@@ -3278,7 +3278,8 @@ void SelectPartyCharacter(int party_slot)
     if (g_level_block->combat_end_notification) {
         ResetSubMenuPanel();
     }
-    if (g_level_block->keyboard_menu_open && party_slot != g_selected_party_slot) {
+    if (g_level_block->keyboard_menu_open &&
+        (!g_selected_party_slot || party_slot != *g_selected_party_slot)) {
         CloseKeyboardMenu();
     }
     SetTargetingMode(W8_TARGET_NEED_NONE);
@@ -3293,8 +3294,8 @@ void RefreshSelectedPartyPortrait(unsigned int party_slot)
         g_level_block->portrait_refresh_pending[party_slot] != 0) {
         return;
     }
-    if (g_level_block->keyboard_menu_open &&
-        party_slot == static_cast<unsigned int>(g_selected_party_slot) &&
+    if (g_level_block->keyboard_menu_open && g_selected_party_slot &&
+        party_slot == static_cast<unsigned int>(*g_selected_party_slot) &&
         !gXStatus.monster_manager_entries[party_slot].effect_icon_active &&
         !gXStatus.monster_manager_entries[party_slot].damage_splat_active) {
         if (!gXStatus.monster_manager_entries[party_slot].quote.bubble ||
@@ -4160,10 +4161,7 @@ void UpdateKeyboardMenu(void)
         } else {
             if (KeyboardMenuContainsCursor()) {
                 g_level_block->countdown3 = w8_get_ticks() + (0);
-                if (g_selected_party_slot >= 0)
-                    g_level_block->combat_slot = g_selected_party_slot;
-                else
-                    g_level_block->combat_slot.reset();
+                g_level_block->combat_slot = g_selected_party_slot;
                 g_level_block->cursor_grace = 0;
             } else if (TimeUntilDeadline(g_level_block->countdown3) == 0) {
                 CloseKeyboardMenu();
