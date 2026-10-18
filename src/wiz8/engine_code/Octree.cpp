@@ -1768,8 +1768,8 @@ W8Octree::traceSphereHit(const glm::vec3& from, const glm::vec3& to, int exclude
         return glm::vec3(glm::dvec3(direction) * fraction);
     };
     inflate = g_position_height_epsilon;
-    if (g_runtime_world_scale > inflate) {
-        inflate = g_runtime_world_scale;
+    if (max_navigation_radius > inflate) {
+        inflate = max_navigation_radius;
     }
     const auto reversed = glm::greaterThan(from, to);
     const glm::vec3 low(glm::mix(from, to, reversed) - inflate);

@@ -1582,7 +1582,7 @@ unsigned int W8PathingService::CollectPathProbes(W8NavigatorMovementState* movem
 {
     m_path_probe_count = 0;
 
-    float extent = g_runtime_world_scale + radius;
+    float extent = GetWorldOctree()->max_navigation_radius + radius;
     glm::vec3 lower;
     glm::vec3 upper;
     glm::vec3 half_extent;
@@ -1709,7 +1709,7 @@ unsigned short W8PathingService::PlanMovement(W8NavigatorMovementState* movement
         if (search_extent < remaining_callback) {
             search_extent = remaining_callback;
         }
-        search_extent += g_runtime_world_scale + radius;
+        search_extent += GetWorldOctree()->max_navigation_radius + radius;
         glm::vec3 lower;
         glm::vec3 upper;
         glm::vec3 half_extent;
@@ -2736,8 +2736,6 @@ W8PathingService::W8PathingService()
     m_trace_mode = 0;
     trace_height_offset = 0;
     m_trace_target_yaw = 0;
-
-    g_runtime_world_scale = 500.0f;
 }
 
 /* Take the octree's own minimum/maximum bounds pair and level name. The span is the vertical extent

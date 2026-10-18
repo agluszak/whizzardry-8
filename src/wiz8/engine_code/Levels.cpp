@@ -605,7 +605,6 @@ void LeaveLevel()
         RenderFrame();
     }
 
-    g_runtime_world_scale = 500.0f;
     ClearActiveWorldCursorNode();
 }
 

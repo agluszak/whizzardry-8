@@ -1308,7 +1308,7 @@ void PrepareLevelPopulation(W8World& world, W8LoadedLevelStatus& status)
         for (int id : group->MemberIds()) {
             auto* member = population.findMonster(id)->p3D;
             member->LinkGroupNavigator(
-                member == formation_leader->p3D ? nullptr : formation_leader->p3D, 0.0, 0);
+                member == formation_leader->p3D ? nullptr : formation_leader->p3D, false);
         }
     }
     for (const auto& group : population.monster_groups) {

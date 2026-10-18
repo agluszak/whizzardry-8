@@ -320,7 +320,7 @@ try {
 }
 
 // FUNCTION: WIZ8 0x004a5e50
-W8GrCycle::W8GrCycle(W8World* owner) : owner_world(owner)
+W8GrCycle::W8GrCycle(W8World* owner) : W8Navigator(owner)
 {
     current_model_instance = 0;
     m_plsLights = 0;
@@ -336,7 +336,7 @@ W8GrCycle::W8GrCycle(W8World* owner) : owner_world(owner)
 // Copy runtime state, particles and the shadow; representations own borrowed lights.
 // FUNCTION: WIZ8 0x004a5f20
 W8GrCycle::W8GrCycle(const W8GrCycle& other, W8World* owner)
-    : W8GrObject(other), W8Navigator(other), owner_world(owner)
+    : W8GrObject(other), W8Navigator(other, owner)
 {
     current_model_instance = 0;
     m_plsLights = 0;

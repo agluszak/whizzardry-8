@@ -658,15 +658,15 @@ std::unique_ptr<W8Monster> MonsterReadAllCycles(W8World* world, std::string_view
     if (walk_radius != 0.0f) {
         walk_radius *= kWorldScale;
         monster->movement.collision_radius = walk_radius;
-        if (g_runtime_world_scale < walk_radius) {
-            g_runtime_world_scale = walk_radius;
+        if (world->octree && world->octree->max_navigation_radius < walk_radius) {
+            world->octree->max_navigation_radius = walk_radius;
         }
     }
     if (fight_radius != 0.0f) {
         fight_radius *= kWorldScale;
         monster->movement.alternate_radius = fight_radius;
-        if (g_runtime_world_scale < fight_radius) {
-            g_runtime_world_scale = fight_radius;
+        if (world->octree && world->octree->max_navigation_radius < fight_radius) {
+            world->octree->max_navigation_radius = fight_radius;
         }
     }
     if (target_height != 0.0f) {

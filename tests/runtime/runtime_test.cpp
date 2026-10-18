@@ -1312,8 +1312,8 @@ void CheckGameplayUi(Game& game)
     LearnSpell(&character, W8_SPELL_LIGHT, false);
     const auto realm = g_spell_records[W8_SPELL_LIGHT].realm;
     character.sp_max[realm] = character.iSPLeft[realm] = 100;
-    ToggleMainGamePause();
-    REQUIRE(gXStatus.world_paused);
+    gXStatus.world_paused = true;
+    SyncWorldAdvancement();
     REQUIRE(OpenSpellCastingView(slot));
     game.frame();
     const auto realm_bounds = gpSCSV->realm_buttons[realm]->Bounds();

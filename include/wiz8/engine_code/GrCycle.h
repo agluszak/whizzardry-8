@@ -95,7 +95,6 @@ class W8GrCycle : public W8GrObject, public W8Navigator {
 public:
     explicit W8GrCycle(W8World* owner = nullptr);
     // Borrowed lifetime: the world destroys its cycles before its scene.
-    W8World* const owner_world;
     W8GrCycle(const W8GrCycle& other) : W8GrCycle(other, other.owner_world) {}
     W8GrCycle(const W8GrCycle& other, W8World* owner); /* 0x004A5F20 */
     W8GrCycle& operator=(const W8GrCycle&) = delete;

@@ -159,3 +159,45 @@ Primary replacement stops callbacks before ownership changes. Teardown still
 destroys entities before geometry and scenes. Loading failures use the same
 ordered retirement without rendering partial worlds. Status-loading source is
 an argument, and view invalidation belongs to the world rather than a global latch.
+
+## Gameplay operation boundaries
+
+Equipment replacement writes its completed arrangement before rebuilding hands,
+effects and action validity. Spell pickers own an action draft; cancellation
+discards it, and acceptance installs the choice and remembers it. Target
+assessment consumes action contents, while controllers choose the storage and
+present failures. Preview and execution share target geometry, with explicit
+sight rules and without sharing random power or damage results.
+
+Trade rows retain a source location and expected item contents. Inventory
+compaction or changed contents invalidates the selection. Identical stacks are
+fungible; no global item identity is added. Purchasing prepares stack merges,
+capacity and overflow placement before committing stock and payment.
+
+Selection tints and target membership are replaceable outputs shared by the
+scene, radar and combat list. Layout preferences persist while interactions
+constrain the effective mode. Advancement policy reads the actual interaction
+state and explicit user pause, applying environment and navigator edges in one
+place. UI, combat, sight observation and nearby-item clocks retain their separate
+cadences. Last-seen positions and remembered actions remain gameplay history.
+
+A world owns its monster records, groups and world items. Individual removal
+owns combat, group, visibility, spatial and NPC relationship cleanup before the
+roster can erase a record. Member count projects membership; active and observed
+counts describe different sets and retain their existing observation cadence.
+Navigators use their owning world's indexes, and global movement commands visit
+only the active world and persistent navigation. Failed preparation cannot
+unregister a matching monster identity from the active world's octree.
+
+Level reconstruction assembles records, representations, NPC bindings and group
+links against the unpublished replacement. Entry then starts encounter clocks,
+restored death activity, music, dialogue and first-visit effects. This distinction
+does not promise allocation-free entry or a universal atomic transition.
+
+The old level snapshot precedes departure. Departure explicitly ends transient
+combat, records the session sight stamp and captures script state into session
+location variables before releasing runtime resources. Per-level snapshots do
+not persist combat scheduling. Whole-game saves capture script/location,
+message-countdown and status images without advancing scripts or modifying live
+records; successful saving alone resets autosave pacing. Resource destruction
+performs no departure gameplay bookkeeping.

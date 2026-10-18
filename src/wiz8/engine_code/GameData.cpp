@@ -578,7 +578,7 @@ unsigned char W8GameData::ProbeMonstersAlongMotion(glm::vec3* direction, glm::ve
     bool hit;
 
     hit = false;
-    extent = glm::length((*direction)) + g_runtime_world_scale + kWorldScale;
+    extent = glm::length((*direction)) + GetWorldOctree()->max_navigation_radius + kWorldScale;
     lower = (*position) - extent;
     upper = (*position) + extent;
     objects = GetWorldOctree()->queryObjects({lower, upper}, W8_OCTREE_KIND_LOCATION, -1);

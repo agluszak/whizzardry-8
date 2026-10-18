@@ -30,6 +30,7 @@
 #include "wiz8/engine_code/Missile.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/MonsterLight.h"
+#include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/Spells.h"
@@ -505,4 +506,35 @@ TEST_CASE("Monster light copies need no source scene attachment", "[lights][owne
     REQUIRE(source.far_end == 500.0f);
     REQUIRE(source.getParent() == &scene);
     REQUIRE(copy.getParent() == nullptr);
+}
+
+TEST_CASE_METHOD(SpellVisualFixture,
+                 "Unpublished navigation cannot change the active world's movement or indexes",
+                 "[resources][levels][navigation]")
+{
+    world.octree->object_registry = std::make_unique<W8OctreeObjectRegistry>();
+    W8Navigator published(&world);
+    published.movement.location_id = 7;
+    world.octree->object_registry->RegisterObjectCell(W8_OCTREE_KIND_NAVIGATOR, 8, {0, 0, 0});
+    W8World replacement;
+    replacement.octree = std::make_unique<W8Octree>(nullptr, nullptr);
+    replacement.octree->object_registry = std::make_unique<W8OctreeObjectRegistry>();
+    {
+        W8Navigator prepared(&replacement);
+        prepared.movement.location_id = 7;
+        replacement.octree->object_registry->RegisterObjectCell(W8_OCTREE_KIND_NAVIGATOR, 8,
+                                                                {0, 0, 0});
+        prepared.SetScale(3.0f);
+        REQUIRE(replacement.octree->max_navigation_radius == 1500.0f);
+        REQUIRE(world.octree->max_navigation_radius == 500.0f);
+        StopAllNavigators();
+        REQUIRE(published.halted);
+        REQUIRE_FALSE(prepared.halted);
+        prepared.halted = true;
+        ResumeAllNavigators();
+        REQUIRE_FALSE(published.halted);
+        REQUIRE(prepared.halted);
+    }
+    REQUIRE(replacement.octree->object_registry->by_object.empty());
+    REQUIRE(world.octree->object_registry->by_object.size() == 1);
 }

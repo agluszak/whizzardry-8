@@ -656,17 +656,8 @@ W8Missile::W8Missile(W8World* owner)
 {
     W8GrObject::kind = 1;
     radius = 1.0f;
-    if (g_runtime_world_scale < 1.0f) {
-        g_runtime_world_scale = 1.0f;
-    }
     movement.collision_radius = 1.0f;
-    if (g_runtime_world_scale < 1.0f) {
-        g_runtime_world_scale = 1.0f;
-    }
     movement.alternate_radius = 1.0f;
-    if (g_runtime_world_scale < 1.0f) {
-        g_runtime_world_scale = 1.0f;
-    }
     id = AllocateGrObjectId();
 
     m_pRep = std::make_unique<W8MissileRep>();
