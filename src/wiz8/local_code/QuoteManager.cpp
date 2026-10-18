@@ -1085,13 +1085,14 @@ void W8CharacterEventQueue::ProcessFollowUpEvents()
         if (std::ranges::any_of(*events, ambient)) return;
     if (TimeUntilDeadline(follow_up->ready_at) != 0) return;
 
-    const int speaker = GetRandomCharacter(0, 0, follow_up->excluded_slot.value_or(-1), -1);
-    if (speaker == -1) return;
-    if (!QueueCharacterEvent(&g_status.buffers.Char[speaker], Random(2) + 0xe, 1, 0x7f)) return;
+    const unsigned int event_type = Random(2) + 0xe;
+    const auto speaker = PickRandomPartySpeaker(event_type, follow_up->excluded_slot);
+    if (!speaker) return;
+    if (!QueueCharacterEvent(&g_status.buffers.Char[*speaker], event_type, 1, 0x7f)) return;
     if (follow_up->excluded_slot) {
         follow_up->excluded_slot.reset();
     } else {
-        follow_up->excluded_slot = speaker;
+        follow_up->excluded_slot = *speaker;
     }
 }
 
