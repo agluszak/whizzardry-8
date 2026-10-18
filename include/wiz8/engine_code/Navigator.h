@@ -13,6 +13,8 @@ struct srBoundingBox;
 #include "glm/geometric.hpp"
 
 class srNode;
+class W8Octree;
+struct W8World;
 struct W8PathAI;
 namespace wiz8 {
 class File;
@@ -205,9 +207,12 @@ struct W8NavigatorMovementState {
    below. It is GrCycle's ordinary second base, not a representation object. */
 class W8Navigator {
 public:
-    W8Navigator();                         /* 0x00451EC0 */
-    W8Navigator(const W8Navigator& other); /* 0x00452220 */
+    explicit W8Navigator(W8World* owner = nullptr);                         /* 0x00451EC0 */
+    W8Navigator(const W8Navigator& other) : W8Navigator(other, other.owner_world) {}
+    W8Navigator(const W8Navigator& other, W8World* owner); /* 0x00452220 */
     W8Navigator& operator=(const W8Navigator&) = delete;
+    W8Octree* NavigationOctree() const;
+    W8World* const owner_world; // Null for persistent navigation, such as the party.
     virtual ~W8Navigator();                /* 0x00452120 */
     /* Takes ownership, releasing the previous path. Null clears it;
        assigning the current path preserves it. GetPathAI only borrows. */
@@ -279,7 +284,7 @@ public:
        moving mode; the result is nonzero once the target was accepted. */
     unsigned short SetMovementTargetToNavigator(W8Navigator* target,
                                                 double separation); /* 0x004526C0 */
-    void LinkGroupNavigator(W8Navigator* target, double separation, int value);
+    void LinkGroupNavigator(W8Navigator* target, bool combat_active);
     /* Whether `other` belongs to this navigator's link group: either side may
        nominate the shared linked navigator directly. */
     bool IsLinkedToNavigator(W8Navigator* other); /* 0x00452E10 */
@@ -309,7 +314,7 @@ public:
     bool ConfigureMovement(float minimum, float maximum); /* 0x00453D20 */
     unsigned char SetMovementTarget(const glm::vec3* target, bool propagate); /* 0x00454170 */
     glm::vec3* AdjustPosition(glm::vec3* result, const glm::vec3* current,
-                              const glm::vec3* previous); /* 0x00454440 */
+                              const glm::vec3* previous, W8Octree& octree); /* 0x00454440 */
     void UpdateFacing(bool immediate);                                    /* 0x00454780 */
     void UpdateLinkedNavigator();                                         /* 0x00454D70 */
     bool UpdateLinkedPosition();

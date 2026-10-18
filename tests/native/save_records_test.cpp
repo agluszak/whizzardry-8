@@ -17,6 +17,7 @@
 #include "retail_records.h"
 #include "save_payload.h"
 #include "unicode.h"
+#include "wiz8/compat/native.h"
 #include "wiz8/engine_code/Quality.h"
 #include "wiz8/engine_code/stModelInstance.h" // IWYU pragma: keep - complete model type for unique_ptr destruction.
 #include "wiz8/local_code/GameplayDatabase.h"
@@ -89,7 +90,6 @@ static std::vector<W8NpcState*> NpcStatePointers()
     for (const auto& state : g_npc_states) pointers.push_back(state.get());
     return pointers;
 }
-extern void SaveGlobalStatus(W8Chunk* chunks, W8GlobalStatus* status);
 
 template<class T> static void write(std::ofstream& out, const T& value)
 {
@@ -124,12 +124,15 @@ static void character_file_contracts(const std::filesystem::path& assets,
     for (const char* name : {"A", "Vi", "Sir Bob", "Ninechars", "é中😀", "中文名字测试"}) {
         W8Character character = {};
         character.name = name;
+        character.record_version = 2;
         character.uiExpLevel = 7;
         std::string path;
         path = BuildCharacterPath(name, -1);
         const std::string filename = std::string(name) + ".CHR";
         REQUIRE(SaveCharacter(&character, -1));
-        REQUIRE(character.record_version == 1);
+        REQUIRE(character.record_version == 2);
+        auto expected = character;
+        expected.record_version = 1;
         const auto saved = wiz8::user_path(path);
         REQUIRE(std::filesystem::file_size(saved) == 4 + wiz8::retail::kCharacterBytes);
         REQUIRE(!std::filesystem::exists(assets / "saves" / "characters" / filename));
@@ -140,7 +143,7 @@ static void character_file_contracts(const std::filesystem::path& assets,
         encoded.close();
         W8Character loaded = {};
         REQUIRE(LoadCharacter(filename.c_str(), &loaded, -1));
-        REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(character));
+        REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(expected));
         std::size_t operations;
         {
             FileFaults trace;
@@ -156,12 +159,13 @@ static void character_file_contracts(const std::filesystem::path& assets,
                 REQUIRE(fault.fired);
             }
             REQUIRE(LoadCharacter(filename.c_str(), &loaded, -1));
-            REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(character));
+            REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(expected));
         }
         character.uiExpLevel = 8;
+        expected.uiExpLevel = 8;
         REQUIRE(SaveCharacter(&character, -1));
         REQUIRE(LoadCharacter(filename.c_str(), &loaded, -1));
-        REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(character));
+        REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(expected));
     }
 
     // I/O errors report failure. A directory at the destination cannot be opened as a file.
@@ -311,12 +315,16 @@ static void unicode_file_contracts()
     const std::string message = "é 中 😀";
     auto& line = g_message_storage[0][0];
     line.text = message;
+    g_status.text_box_lines_shown[0] = 1;
+    line.clock = w8_get_ticks() + 600000;
+    line.saved_remaining_ms = 87;
     line.entries.push_back({0, 1, 0, 5, W8_NOTICE_WORD_SELECTED, true});
     line.length = 6; // Prefix through 中, stored as three UTF-16 units.
     line.highlight_start = 3; // two UTF-16 units
     line.highlight_stop = 6; // three UTF-16 units
     file = wiz8::open_file(wiz8::user_path("saves/text.bin"), wiz8::OpenMode::replace);
     REQUIRE(SaveMessageStorage(*file));
+    REQUIRE(line.saved_remaining_ms == 87);
     file->close();
     ReleaseMessageStorage();
     g_status.buffers.save_version = 9.0f;
@@ -329,6 +337,8 @@ static void unicode_file_contracts()
     file->seek(0, wiz8::SeekOrigin::begin);
     REQUIRE(ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadMessageStorage(chunk); }));
     REQUIRE(std::string(g_message_storage[0][0].text) == message);
+    REQUIRE(g_message_storage[0][0].saved_remaining_ms > 87);
+    g_status.text_box_lines_shown[0] = 0;
     REQUIRE(g_message_storage[0][0].entries.empty());
     REQUIRE(g_message_storage[0][0].length == 6);
     REQUIRE((g_message_storage[0][0].highlight_start == 3 &&
@@ -992,6 +1002,11 @@ static void global_status_record()
     for (int slot = 0; slot < 8; ++slot) {
         rows[slot].fOccupied = true;
         rows[slot].pending_action = W8_ACTION_ATTACK;
+        rows[slot].committed_action = {W8_ACTION_CAST_SPELL, 20 + slot};
+        rows[slot].committed_action.detail_block.spell.power_level = slot % 7 + 1;
+        rows[slot].committed_action.target = {W8_TARGET_KIND_CHARACTER, slot, -1, -1, {}, nullptr};
+        rows[slot].spell = {W8_ACTION_CAST_SPELL, 40 + slot};
+        rows[slot].spell.detail_block.spell.power_level = 7;
         rows[slot].attack_mode[0] = 100 + slot;
         rows[slot].movement_fatigue = 1.25f + slot;
         rows[slot].party_order_index = slot;
@@ -1076,6 +1091,14 @@ static void global_status_record()
         REQUIRE(restored_image[offset] == status_image[offset]);
     for (int slot = 0; slot < 8; ++slot) {
         REQUIRE(restored_rows[slot].fOccupied);
+        const auto& action = restored_rows[slot].committed_action;
+        REQUIRE(action.kind == W8_ACTION_CAST_SPELL);
+        REQUIRE(action.detail == 20 + slot);
+        REQUIRE(action.detail_block.spell.power_level == slot % 7 + 1);
+        REQUIRE(action.target.iType == W8_TARGET_KIND_CHARACTER);
+        REQUIRE(action.target.iChar == slot);
+        REQUIRE(restored_rows[slot].spell.detail == 40 + slot);
+        REQUIRE(restored_rows[slot].spell.detail_block.spell.power_level == 7);
         REQUIRE(restored_rows[slot].attack_mode[0] == 100 + slot);
         REQUIRE(restored_rows[slot].movement_fatigue == 1.25f + slot);
         REQUIRE(restored_rows[slot].weapon_swap_pending == bool(slot % 2));

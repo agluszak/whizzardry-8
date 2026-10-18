@@ -35,7 +35,6 @@
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/NPCManager.h"
@@ -62,7 +61,6 @@ struct W8NpcState;
 // GLOBAL: WIZ8 0x0069B984
 static int g_use_item_select_flags;
 // GLOBAL: WIZ8 0x0069b988
-W8MainUiMode g_use_item_select_return_mode;
 // GLOBAL: WIZ8 0x0069B98C
 static int g_use_item_select_mode;
 
@@ -176,7 +174,6 @@ static void CreateUseItemSelectControls(void)
 // FUNCTION: WIZ8 0x0059C930
 unsigned char OpenUseItemSelectView(int slot)
 {
-    W8MainUiMode mode;
 
     g_use_item_commit_active = false;
     UpdateScreenOverlays(0);
@@ -186,9 +183,7 @@ unsigned char OpenUseItemSelectView(int slot)
     }
     CloseNpcDialogueIfActive();
     CloseMainGameOverlays();
-    mode = g_settings.main_ui_mode;
-    SetMainGameOverlayViewport(mode);
-    g_use_item_select_return_mode = mode;
+    RefreshMainGameLayout();
     RestoreSpellCastingRegions();
     SelectTextBox(2);
     ResetEditorStatusLine(-1);
@@ -198,7 +193,7 @@ unsigned char OpenUseItemSelectView(int slot)
     g_use_item_select_flags = 0;
     g_use_item_hover_row = -1;
     g_use_item_selected = 0;
-    gXStatus.shared_action_detail.item_use.item = g_use_item_selected;
+    gXStatus.item_selection_detail.item_use.item = g_use_item_selected;
     g_use_item_detail_item = 0;
     memset(g_use_item_list, 0, sizeof(g_use_item_list));
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
@@ -207,7 +202,7 @@ unsigned char OpenUseItemSelectView(int slot)
     g_use_item_owner_index = -1;
     RefreshUseItemSelectionForSlot(slot);
     SelectSpellCastingPartySlot(slot);
-    PauseMainGameWorld();
+    SyncWorldAdvancement();
     return 1;
 }
 
@@ -224,11 +219,11 @@ void CloseUseItemSelectView(void)
         SelectTextBox(gXStatus.fCombatMode);
         use_item.reset();
         gXStatus.fItemSelectMode = false;
-        ApplyMainGameModeFlag(g_use_item_select_return_mode, true);
+        RefreshMainGameLayout();
         RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
         RequestRedrawCombatBar();
         RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
-        ResumeMainGameWorld();
+        SyncWorldAdvancement();
         ClearItemDrag();
         if (LockInteractionSuspended() && !IsScreenTransitionPending()) {
             OpenLockInteraction(0);
@@ -442,15 +437,15 @@ void CommitSelectedItemUse(void)
 
     if (g_use_item_selected != 0 &&
         CanUseItemForAction(g_status.selected_character, g_use_item_selected) &&
-        IsItemTargetOfNeededKind(
-            SelectCombatAction(g_status.selected_character,
-                               GetEditedActionContext(g_status.selected_character))
-                .target,
-            g_use_item_selected)) {
+        IsItemTargetOfNeededKind(&gXStatus.item_selection_target, g_use_item_selected)) {
         character = &g_status.buffers.Char[g_status.selected_character];
         if (g_use_item_selected != 0) {
             g_use_item_commit_active = true;
-            CommitSelectedSpellTarget();
+            CommitActionTarget(g_status.selected_character,
+                               gXStatus.fCombatMode ? W8_TARGETING_CONTEXT_IN_COMBAT
+                                                    : W8_TARGETING_CONTEXT_OUT_OF_COMBAT,
+                               gXStatus.item_selection_target, false);
+            StartBreathCycle(g_status.selected_character, true);
             g_use_item_commit_active = false;
             AimItemUseAtCurrentTarget(character, g_use_item_selected);
             if (g_use_item_selected != 0 && g_use_item_selected->iItemNo != -1 &&
@@ -480,7 +475,7 @@ static void RebuildUseItemSelectList(int mode, W8ItemInstance* select)
     ResetEditorStatusLine(2);
     ClearSelectedTextLine(2);
     g_use_item_selected = 0;
-    gXStatus.shared_action_detail.item_use.item = g_use_item_selected;
+    gXStatus.item_selection_detail.item_use.item = g_use_item_selected;
     g_use_item_detail_item = 0;
     use_item->item_image.reset();
     use_item->quantity.SetText("", g_large_font);
@@ -756,7 +751,7 @@ void SelectUseItemLine(int iTextLine)
         return;
     }
     g_use_item_selected = g_use_item_list[iTextLine];
-    gXStatus.shared_action_detail.item_use.item = g_use_item_selected;
+    gXStatus.item_selection_detail.item_use.item = g_use_item_selected;
     if (Trynnie2UseItem(g_use_item_selected)) {
         CloseUseItemSelectView();
         return;
@@ -856,7 +851,7 @@ void TakeUseItemIntoHand(void)
         for (i = 0; i < g_status.party_item_count; i++) {
             if (g_use_item_selected == &g_status.party_item_pool[i]) {
                 g_use_item_selected = &g_status.party_item_pool[i + 1];
-                gXStatus.shared_action_detail.item_use.item = g_use_item_selected;
+                gXStatus.item_selection_detail.item_use.item = g_use_item_selected;
                 CopyItemInstance(&g_status.item_in_hand, g_use_item_selected, 0, true);
                 return;
             }

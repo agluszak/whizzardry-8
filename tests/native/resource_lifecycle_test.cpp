@@ -27,9 +27,11 @@
 #include "wiz8/engine_code/3dapi.h"
 #include "wiz8/engine_code/AniMesh.h"
 #include "wiz8/engine_code/AnimObj.h"
+#include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Missile.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/MonsterLight.h"
+#include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/Spells.h"
@@ -44,7 +46,9 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/world.h"
+#include "wiz8/level_population.h"
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
@@ -211,7 +215,7 @@ struct SpellVisualFixture {
 
     SpellVisualFixture()
     {
-        world.octree = std::make_unique<W8Octree>(nullptr, nullptr);
+        world.octree = std::make_unique<W8Octree>(nullptr, nullptr, &world);
         std::filesystem::create_directory(directory.path / "assets");
         std::filesystem::create_directory(directory.path / "user");
         roots.configure({(directory.path / "assets").string(), (directory.path / "user").string()});
@@ -505,4 +509,81 @@ TEST_CASE("Monster light copies need no source scene attachment", "[lights][owne
     REQUIRE(source.far_end == 500.0f);
     REQUIRE(source.getParent() == &scene);
     REQUIRE(copy.getParent() == nullptr);
+}
+
+TEST_CASE_METHOD(SpellVisualFixture,
+                 "Unpublished navigation cannot change the active world's movement or indexes",
+                 "[resources][levels][navigation]")
+{
+    world.octree->object_registry = std::make_unique<W8OctreeObjectRegistry>();
+    W8Navigator published(&world);
+    published.movement.location_id = 7;
+    world.octree->object_registry->RegisterObjectCell(W8_OCTREE_KIND_NAVIGATOR, 8, {0, 0, 0});
+    W8World replacement;
+    replacement.octree = std::make_unique<W8Octree>(nullptr, nullptr, &replacement);
+    replacement.octree->object_registry = std::make_unique<W8OctreeObjectRegistry>();
+    {
+        W8Navigator prepared(&replacement);
+        prepared.movement.location_id = 7;
+        replacement.octree->object_registry->RegisterObjectCell(W8_OCTREE_KIND_NAVIGATOR, 8,
+                                                                {0, 0, 0});
+        prepared.SetScale(3.0f);
+        REQUIRE(replacement.octree->max_navigation_radius == 1500.0f);
+        REQUIRE(world.octree->max_navigation_radius == 500.0f);
+        StopAllNavigators();
+        REQUIRE(published.halted);
+        REQUIRE_FALSE(prepared.halted);
+        prepared.halted = true;
+        ResumeAllNavigators();
+        REQUIRE_FALSE(published.halted);
+        REQUIRE(prepared.halted);
+    }
+    REQUIRE(replacement.octree->object_registry->by_object.empty());
+    REQUIRE(world.octree->object_registry->by_object.size() == 1);
+}
+
+TEST_CASE_METHOD(
+    SpellVisualFixture,
+    "Prepared ground placement uses replacement geometry without changing active geometry",
+    "[resources][levels][geometry]")
+{
+    world.game_data = std::make_unique<W8GameData>(nullptr, false);
+    world.game_data->trace_flag4_gate = true;
+    W8World replacement;
+    replacement.game_data = std::make_unique<W8GameData>(nullptr, false);
+    replacement.octree = std::make_unique<W8Octree>(nullptr, nullptr, &replacement);
+    auto& spatial = replacement.octree->m_spatial;
+    spatial.m_bounds.minimum = glm::vec3(0);
+    spatial.m_clipped_bounds.maximum = glm::vec3(10000);
+    spatial.m_node_extent = 1000;
+    const auto ground = replacement.octree->settleToGround({0, 1500, 0}, false, 0);
+    REQUIRE(ground.position.y == 1500);
+    REQUIRE(world.game_data->trace_flag4_gate);
+    REQUIRE_FALSE(replacement.game_data->trace_flag4_gate);
+}
+
+TEST_CASE_METHOD(SpellVisualFixture,
+                 "Prepared monster visibility resolves records in its owning population",
+                 "[resources][levels][rendering]")
+{
+    struct RestoreRecord {
+        std::unique_ptr<W8MonsterRecord> previous =
+            std::exchange(gXStatus.monster_record_cache[0], std::make_unique<W8MonsterRecord>());
+        ~RestoreRecord() { gXStatus.monster_record_cache[0] = std::move(previous); }
+    } restore;
+    auto active = std::make_unique<W8MonsterInfo>();
+    active->location_id = 7;
+    active->within_viewing_distance = false;
+    world.population->monster_roster.add(std::move(active), false);
+    W8World replacement;
+    auto record = std::make_unique<W8MonsterInfo>();
+    record->location_id = 7;
+    record->within_viewing_distance = true;
+    record->party_threat.visible_to_player = false;
+    replacement.population->monster_roster.add(std::move(record), false);
+    W8Monster prepared(&replacement);
+    prepared.location_id = 7;
+    REQUIRE(prepared.IsRenderable(false));
+    REQUIRE_FALSE(prepared.IsRenderable(true));
+    REQUIRE_FALSE(world.population->findMonster(7)->within_viewing_distance);
 }

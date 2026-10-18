@@ -36,6 +36,7 @@
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/layouts/screen_state.h"
+#include "wiz8/level_population.h"
 #include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/Configuration.h"
@@ -112,7 +113,7 @@ bool AnyMonsterEngaged(void)
     unsigned int index;
     const W8MonsterInfo* monster_info;
 
-    for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
+    for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
         monster_info = GetMonsterListEntry(index);
         if (monster_info->fInCombat && monster_info->ubDisposition == W8_DISPOSITION_HOSTILE &&
             monster_info->hp_current != 0 &&

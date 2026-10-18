@@ -824,13 +824,13 @@ unsigned char W8CharacterEvent::Dispatch()
             }
             if ((flags & W8_EVENT_NPC_SCRIPT) != 0) {
                 SetNpcScriptEventActive(1);
-                ReloadNpcScriptResources(npc);
+                ReloadNpcScriptResources(npc, GetNpcMonster(npc));
             }
             g_npc_dialogue.Begin(npc, true);
             g_npc_dialogue.Speak(event_type, (flags & W8_EVENT_NPC_SCRIPT) != 0);
             if ((flags & W8_EVENT_NPC_SCRIPT) != 0) {
                 SetNpcScriptEventActive(0);
-                ReloadNpcScriptResources(npc);
+                ReloadNpcScriptResources(npc, GetNpcMonster(npc));
             }
             slot->active_character_event = this;
             gXStatus.character_event_queue->RecordDispatchedEvent(event_type, party_slot);

@@ -263,10 +263,11 @@ bool InitializeVideoManager(void)
     InitializeRendererSceneObjects();
     if (!g_video_active) {
         if (gXStatus.world_update_blocked) {
-            ResumeMainGameWorld();
+            SyncWorldAdvancement();
         }
         if (ghWindow && g_gerd) {
             g_video_active = true;
+            SyncWorldAdvancement();
             if (g_gerd->isWindowOpen() == 0) {
                 if (!OpenRendererWindow()) {
                     goto done;
@@ -506,11 +507,16 @@ void ClearVideoDirtyBlocks(void)
 }
 
 // FUNCTION: WIZ8 0x00422050
+bool IsVideoActive()
+{
+    return g_video_active;
+}
+
 void SuspendVideoManager(void)
 {
     if (g_video_active) {
-        PauseMainGameWorld();
         g_video_active = false;
+        SyncWorldAdvancement();
         if (g_gerd) {
             g_flush_pending = false;
             g_gerd->closeWindow(static_cast<srGERD::e_closeHint>(0));
@@ -527,10 +533,11 @@ bool RestoreVideoManager(void)
         return 1;
     }
     if (gXStatus.world_update_blocked) {
-        ResumeMainGameWorld();
+        SyncWorldAdvancement();
     }
     if (ghWindow && g_gerd) {
         g_video_active = true;
+        SyncWorldAdvancement();
         SDL_ShowWindow(ghWindow);
         SDL_RestoreWindow(ghWindow);
         if (g_gerd->isWindowOpen() != 0 || OpenRendererWindow()) {

@@ -38,6 +38,7 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
@@ -73,8 +74,9 @@ constexpr float kFastMagicRecoveryScale = 1.25f;
 
 static void BeginPartyCamping()
 {
+    gXStatus.world_paused = false;
     if (gXStatus.world_update_blocked) {
-        ResumeMainGameWorld();
+        SyncWorldAdvancement();
     }
     if (!AnyCharacterEngaged()) {
         gXStatus.surprise_unengaged = true;
@@ -535,7 +537,8 @@ void AdvanceTimedEffects(unsigned int minutes)
         TickRadiusBlastEffectSlots(g_combat_state->effect_slots0);
     }
 
-    for (unsigned int index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
+    for (unsigned int index = 0; index < CurrentLevelPopulation().monster_roster.live().size();
+         ++index) {
         W8MonsterInfo* monster_info = GetMonsterListEntry(index);
         if (monster_info->highest_condition < W8_CONDITION_DEAD) {
             AgeMonsterSight(monster_info, minutes, 0);

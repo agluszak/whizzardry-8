@@ -115,6 +115,7 @@ bool PlaceItemOnCursor(int item_id, bool maximum_quantity, bool force_identified
                        bool mark_special);
 void SwapItemInstances(W8ItemInstance* item, W8ItemInstance* destination, W8Character* character,
                        bool refresh);
+bool EquipHeldItemAndStowPartner(W8Character& character, W8EquipSlot slot);
 void NormalizeItemStack(W8ItemInstance* item);
 bool MergeItemStacks(W8ItemInstance* destination, W8ItemInstance* source, bool* partially_merged);
 void MergeItemUses(W8Character* character, W8ItemInstance* into, W8ItemInstance* from);

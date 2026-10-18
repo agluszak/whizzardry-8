@@ -209,6 +209,7 @@ add_library(WIZ8_GAME_CORE STATIC
     dialog_code/DialogNumericInput.cpp
     engine_code/MonGen.cpp
     music_playlist.cpp
+    targeting_presentation.cpp
     npc_items.cpp
     npc_script_file.cpp
     ../native/application.cpp

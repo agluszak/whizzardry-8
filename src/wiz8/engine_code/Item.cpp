@@ -291,7 +291,7 @@ void W8Item::SetYaw(float angle)
 /* The receiver is the item, not its representation. Blue takes precedence
    over green, and retail does not multiply either colour by pulse_level. */
 // FUNCTION: WIZ8 0x0049FDB0
-void W8Item::SetHighlight(bool enabled)
+void W8Item::SetHighlight(bool enabled, bool hovered)
 {
     W8ItemRep* rep = m_pRep.get();
     float green = 0.0f;
@@ -301,7 +301,7 @@ void W8Item::SetHighlight(bool enabled)
         if ((rep->flags & W8_ITEM_ENTITY_HIGHLIGHT_BLUE) != 0) {
             blue = 1.0f;
             alpha = 1.0f;
-        } else if ((rep->flags & W8_ITEM_ENTITY_HIGHLIGHT_GREEN) != 0) {
+        } else if (hovered) {
             green = 1.0f;
             alpha = 1.0f;
         }

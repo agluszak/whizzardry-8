@@ -316,9 +316,15 @@ bool MartensBluff1TransportSpawn(void)
     return true;
 }
 
-/* The TransportSpawn master function. A nonzero command services it: -1
-   persists the gate progress into the TransportSpawn location variable and
-   0xEFFFFFFF re-arms the minute gate and registers the run. The command-0 run
+static void CaptureTransporter(W8SavedLocationState& state)
+{
+    state.emplace_back("TransportSpawn",
+                       g_transport_gate
+                           ? static_cast<int>(g_transport_gate->GetProgress() * g_octree_cell_scale)
+                           : 0);
+}
+
+/* The TransportSpawn master function. The 0xEFFFFFFF command re-arms the minute gate and registers the run. The command-0 run
    fires the transporter spawn each time the gate elapses until the spawn
    reports the fact already set, then deletes the gate and unregisters. */
 // FUNCTION: WIZ8 0x004DF260
@@ -326,7 +332,6 @@ void MartensBluff1Transporter(int command)
 {
     g_remove_current_master_function = false;
     if (command != 0) {
-        int progress = 0;
 
         if (command == static_cast<int>(0xEFFFFFFF)) {
             if (GetFact(W8_FACT_TRANG_TELEPORTER_TOAST)) {
@@ -341,21 +346,9 @@ void MartensBluff1Transporter(int command)
                 g_transport_gate->SetProgress(GetLocationVarValueByName("TransportSpawn") *
                                               kMovementSpeedStep);
             }
-            g_master_functions.push_back(MartensBluff1Transporter);
+            g_master_functions.push_back({MartensBluff1Transporter, CaptureTransporter});
             return;
         }
-        if (command != -1) {
-            return;
-        }
-        if (g_transport_gate) {
-            progress = static_cast<int>(g_transport_gate->GetProgress() * g_octree_cell_scale);
-        }
-        if (GetLocationVarIDByName("TransportSpawn") == -1) {
-            CreateLocationVar("TransportSpawn", progress);
-        } else {
-            SetTriggerVariableByName("TransportSpawn", progress);
-        }
-        return;
     }
     if (!g_transport_gate) {
         g_remove_current_master_function = true;

@@ -138,7 +138,7 @@ static bool SwampGasFireSpawn(Trigger* pTrigger)
             look_target.y += monster_info->p3D->movement.height_offset;
             PartyCamera().LookAt(&look_target, false);
             g_npc_dialogue_closed = false;
-            g_master_functions.push_back(SwampGasFireItemDrop);
+            g_master_functions.push_back({SwampGasFireItemDrop});
         }
     }
     npc = FindNpcBindingForMonster(FindMonster(index));
@@ -160,7 +160,7 @@ static void SwampGasFireItemDrop(int command)
     if (command != 0) {
         if (command == static_cast<int>(0xEFFFFFFF)) {
             g_npc_dialogue_closed = false;
-            g_master_functions.push_back(SwampGasFireItemDrop);
+            g_master_functions.push_back({SwampGasFireItemDrop});
         }
         return;
     }

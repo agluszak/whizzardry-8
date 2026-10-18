@@ -4,6 +4,7 @@
 
 /* Local Code\Gameplay Mods.cpp. */
 
+struct W8MonsterInfo;
 struct W8Character;
 struct W8Enchantment;
 
@@ -22,6 +23,7 @@ void RebuildConditionsAndDerivedStats(int party_slot);
    from its conditions, enchantments and effect slots, then refresh its
    derived attributes and regeneration rates. */
 void RebuildMonsterDerivedStats(int location_id);
+void RebuildMonsterDerivedStats(W8MonsterInfo& monster);
 
 /* The unit's block-fold helpers. Each folds its source into the shared
    modifier block; the party-wide block is their usual target. */

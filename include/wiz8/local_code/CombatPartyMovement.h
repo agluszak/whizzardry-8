@@ -13,7 +13,7 @@ void EndPartyMovementPhase(void);
 void CancelPartyMovement(void);
 void InterruptActivePartyMovement(void);
 bool CanPartyMove(void);
-void ClearPendingPartyMovement(int excluded_party_slot);
+void ClearPendingPartyMovement();
 void StartPartyMovementAction(W8PartyAction move_kind);
 void UpdateActivePartyMovement(void);
 void UpdatePartyMovementControl(void);

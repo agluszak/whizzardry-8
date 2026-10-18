@@ -193,6 +193,7 @@ void GameLoop(void)
         gfProgramIsRunning = 0;
         return;
     }
+    SyncWorldAdvancement();
     g_screen_handlers[state].frame();
 }
 

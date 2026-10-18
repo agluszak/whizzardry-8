@@ -17,6 +17,7 @@
 #include "wiz8/fonts.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/combat_state.h"
+#include "wiz8/level_population.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatPartyMovement.h"
 #include "wiz8/local_code/Configuration.h"
@@ -127,19 +128,12 @@ void SetPendingMoveKind(W8ActionKind kind)
    combat target. The excluded slot is the character currently being edited;
    -1 refreshes the whole party. */
 // FUNCTION: WIZ8 0x004f0560
-void ClearPendingPartyMovement(int excluded_party_slot)
+void ClearPendingPartyMovement()
 {
     if (!gXStatus.fCombatMode) {
         srAssertFail("gXStatus.fCombatMode", COMBAT_MOVEMENT_CPP, 470, 0);
     }
     g_combat_state->uiNextPartyAction = W8_PARTY_ACTION_NONE;
-    for (int party_slot = 0; party_slot < W8_PARTY_SLOT_COUNT; ++party_slot) {
-        if (party_slot != excluded_party_slot &&
-            CharacterCanSwitchTo(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, false, false)) {
-            RefreshCombatTargetHighlights(
-                party_slot, SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT));
-        }
-    }
     UpdatePartyMovementControl();
 }
 
@@ -319,7 +313,7 @@ void AlignCombatantsToPartyMovementPhase(void)
             RoundPhaseToStep(&row->phase, g_combat_state->round_counter);
         }
     }
-    unsigned int monster_count = gXStatus.monster_roster.live().size();
+    unsigned int monster_count = CurrentLevelPopulation().monster_roster.live().size();
     for (unsigned int monster_index = 0; monster_index < monster_count; ++monster_index) {
         W8MonsterInfo* monster_info = GetMonsterListEntry(monster_index);
         if (monster_info->fInCombat &&
@@ -327,7 +321,7 @@ void AlignCombatantsToPartyMovementPhase(void)
             !monster_info->pCombat->active) {
             RoundPhaseToStep(&monster_info->pCombat->phase, g_combat_state->round_counter);
         }
-        monster_count = gXStatus.monster_roster.live().size();
+        monster_count = CurrentLevelPopulation().monster_roster.live().size();
     }
 }
 
@@ -411,7 +405,7 @@ void CancelPartyMovement(void)
     if (g_combat_state->uiNextPartyAction == W8_PARTY_ACTION_NONE) {
         return;
     }
-    ClearPendingPartyMovement(-1);
+    ClearPendingPartyMovement();
 }
 
 /* Interrupt a move that has entered its first phase. Bring every unfinished

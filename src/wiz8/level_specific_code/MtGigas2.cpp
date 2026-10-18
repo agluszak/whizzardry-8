@@ -308,6 +308,13 @@ bool MtGigas2LaserAlarm(Trigger* pTrigger)
     return true;
 }
 
+static void CaptureUmpaniAlarm(W8SavedLocationState& state)
+{
+    state.emplace_back(
+        "UmpaniAlarm",
+        g_mt_gigas_alarm_gate ? static_cast<int>(g_mt_gigas_alarm_gate->GetElapsedSeconds()) : 0);
+}
+
 /* The Umpani alarm's master function, same shape as ControlCampAlarm in
    MtGigasOuter.cpp: command zero ticks the alarm gate while registered, -1
    writes the remaining seconds into UmpaniAlarm, and any other command plays
@@ -319,11 +326,9 @@ static void MtGigas2UmpaniAlarm(int command)
 {
     glm::vec3 position;
 
-    if (PrepareUmpaniAlarmCommand(command, "UmpaniAlarm",
-                                  g_mt_gigas_alarm_gate ? &*g_mt_gigas_alarm_gate : nullptr)) {
-        return;
-    }
+    g_remove_current_master_function = false;
     if (command != 0) {
+        if (GetLocationVarIDByName("UmpaniAlarm") == -1) CreateLocationVar("UmpaniAlarm", 30);
         if (g_mt_gigas_alarm_gate || g_mt_gigas_alarm_sound != 0) {
             return;
         }
@@ -337,7 +342,7 @@ static void MtGigas2UmpaniAlarm(int command)
             CreateAndPlaySoundNode("Data\\Sound\\VOCs\\VOC_HLLIntruder\\VOC_HLLIntruder_003.wav",
                                    position, 1.0f, 75.0f, true);
         if (g_mt_gigas_alarm_sound != 0 && g_mt_gigas_alarm_gate) {
-            g_master_functions.push_back(MtGigas2UmpaniAlarm);
+            g_master_functions.push_back({MtGigas2UmpaniAlarm, CaptureUmpaniAlarm});
         }
     }
     if (!g_mt_gigas_alarm_gate->PollFinished()) {

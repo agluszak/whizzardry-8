@@ -33,6 +33,7 @@
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/layouts/npc_state.h"
+#include "wiz8/level_population.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
@@ -298,7 +299,7 @@ void DamageMonstersInRadius(const glm::vec3& center, float radius, const W8Dice*
     glm::vec3 location;
     glm::vec3 offset;
 
-    for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
+    for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
         monster_info = GetMonsterListEntry(index);
         if (monster_info->fActive) {
             location = MonsterGetLocation(monster_info->p3D);
@@ -1113,7 +1114,7 @@ void CharacterDies(int party_slot)
     character->stamina = 0;
 
     ResetCombatSlot(&row->target_out_of_combat);
-    ResetCombatSlot(&row->target_in_combat);
+    ResetCombatSlot(&row->committed_action.target);
     if (gXStatus.fCombatMode) {
         RecordCharacterDeath(party_slot);
     }

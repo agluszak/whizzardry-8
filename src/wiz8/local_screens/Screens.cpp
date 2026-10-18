@@ -20,7 +20,6 @@
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/screen_state.h"
-#include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/PC_Item.h"
@@ -123,7 +122,7 @@ void RefreshPartySlotDisplay(unsigned int party_slot)
         }
         break;
     case W8_SCREEN_MAIN_GAME:
-        if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS ||
+        if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS ||
             g_level_block->portrait_refresh_pending[party_slot] != 0) {
             switch (party_slot) {
             case 0:
@@ -295,7 +294,6 @@ void ShowNoticeLine(std::string_view text, std::function<void(bool)> callback, b
    reset message storage. */
 void InitializeMainGameLevelBlock(void)
 {
-    W8MainUiMode previous_mode;
     int slot;
 
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_level_block != 0) {
@@ -326,9 +324,7 @@ void InitializeMainGameLevelBlock(void)
         g_level_block->portrait_refresh_image[slot] = 0;
     }
     g_level_block->combat_end_notification = -1;
-    previous_mode = g_settings.main_ui_mode;
-    g_settings.main_ui_mode = W8_MAIN_UI_MODE_NONE;
-    ApplyMainGameModeFlag(previous_mode, true);
+    RefreshMainGameLayout();
     g_level_block->character_update_timer = w8_get_ticks() + (0);
     g_level_block->world_update_timer = w8_get_ticks() + (0);
     g_level_block->countdown0 = w8_get_ticks() + (60000);
@@ -342,7 +338,6 @@ void InitializeMainGameLevelBlock(void)
     g_level_block->text_lines[4 + g_status.text_line_cursor] = FindStoppedTextLine();
     g_level_block->refresh_combat_panel = 1;
     g_level_block->combat_panel_timer = w8_get_ticks() + (0);
-    g_level_block->refresh_party_panel = 1;
     g_level_block->text_scroll_drag_idle = 1;
     SetTextBoxRegionBounds(0xa8, 0x16e, 0x1c4, 0x1ba);
     for (unsigned int& text_line : g_level_block->text_lines) {

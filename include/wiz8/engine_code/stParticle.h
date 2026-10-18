@@ -153,4 +153,4 @@ struct W8ParticleState {
     unsigned char active;
 };
 std::vector<W8ParticleState> ReadParticleStates(W8Chunk& file);
-void ApplyParticleStates(std::span<const W8ParticleState> states);
+void ApplyParticleStates(W8World& world, std::span<const W8ParticleState> states);

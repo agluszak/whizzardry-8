@@ -34,6 +34,7 @@ extern SDL_Window* ghWindow;
 extern bool InitializeVideoManager(void);
 extern void ShutdownVideoManager(void);
 extern void ShutdownVideoScenes(void);
+bool IsVideoActive();
 extern void SuspendVideoManager(void);
 extern bool RestoreVideoManager(void);
 /* Mark a game-space rectangle of the UI canvas for upload this frame. */

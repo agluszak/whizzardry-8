@@ -29,6 +29,7 @@
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/layouts/screen_state.h"
+#include "wiz8/level_population.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/Gameloop.h"
@@ -117,8 +118,8 @@ void ReleaseMonsterConditionBindings(W8MonsterInfo* monster_info)
                 }
             }
             if (!cleared && slot_kind == 0) {
-                for (unsigned int index = 0; index < gXStatus.monster_roster.live().size();
-                     ++index) {
+                for (unsigned int index = 0;
+                     index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
                     W8MonsterInfo* bound = GetMonsterListEntry(index);
                     if (bound->elemental_summon == monster_info->location_id) {
                         bound->elemental_summon = -1;
@@ -139,7 +140,6 @@ void RemoveCharacterCondition(int party_slot, W8Condition condition, bool announ
     W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
     W8ItemInstance* found_item;
     W8Character* found_character;
-    bool can_rest;
 
     if (character->uiCondition[condition] != 0 || !g_status.world_suspended) {
         if (!row->fOccupied) {
@@ -151,11 +151,6 @@ void RemoveCharacterCondition(int party_slot, W8Condition condition, bool announ
             srAssertFail("gStatus.Char[uiChar].uiCondition[uiCondition] > 0",
                          "C:\\Projects\\Wizardry 8\\Local Code\\Conditions & Enchantments.cpp",
                          0xf5, 0);
-        }
-        if (party_slot >= 0 && party_slot < 8 && row->fOccupied && character->hp_current != 0) {
-            can_rest = character->highest_condition < W8_CONDITION_TURNCOAT;
-        } else {
-            can_rest = false;
         }
         if (condition == W8_CONDITION_HEXED) {
             if (character->uiCondition[W8_CONDITION_INFATUATED] != 0 &&
@@ -196,7 +191,7 @@ void RemoveCharacterCondition(int party_slot, W8Condition condition, bool announ
             break;
         case W8_CONDITION_INSANE:
             if (gXStatus.fCombatMode && g_combat_state->characters[party_slot].berserk) {
-                row->target_out_of_combat = row->target_in_combat;
+                row->target_out_of_combat = row->committed_action.target;
             }
             break;
         case W8_CONDITION_TURNCOAT:
@@ -209,13 +204,6 @@ void RemoveCharacterCondition(int party_slot, W8Condition condition, bool announ
         }
         RebuildConditionsAndDerivedStats(party_slot);
         QueueConditionClearedReaction(character, condition);
-        if (!can_rest && party_slot > -1 && party_slot < 8 && row->fOccupied &&
-            character->hp_current != 0 && character->highest_condition < W8_CONDITION_TURNCOAT &&
-            gXStatus.fCombatMode &&
-            CharacterCanSwitchTo(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, false, false)) {
-            RefreshCombatTargetHighlights(
-                party_slot, SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT));
-        }
     }
 }
 
@@ -801,11 +789,7 @@ unsigned char SetCharacterCondition(int party_slot, W8Condition condition, int d
                 fmt::format("{}!", g_localized_strings[g_condition_notices[condition].singular]));
         }
     }
-    if ((party_slot < 0 || party_slot > 7 || !row->fOccupied || character->hp_current == 0 ||
-         character->highest_condition > W8_CONDITION_BLIND) &&
-        gXStatus.fCombatMode) {
-        ClearPartySlotMonsterHighlights(party_slot);
-    }
+
     return 1;
 }
 
@@ -995,7 +979,7 @@ void RemoveConditionFromEveryone(W8Condition condition)
 
     RemoveConditionFromParty(condition);
 
-    for (monster_index = 0; monster_index < gXStatus.monster_roster.live().size();
+    for (monster_index = 0; monster_index < CurrentLevelPopulation().monster_roster.live().size();
          ++monster_index) {
         monster_info = GetMonsterListEntry(monster_index);
         if (monster_info->uiCondition[condition] != 0) {
@@ -1021,7 +1005,8 @@ void RemoveAllEnchantments(void)
                                               static_cast<W8EnchantmentSlot>(enchantment));
             }
         }
-        for (unsigned int index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
+        for (unsigned int index = 0; index < CurrentLevelPopulation().monster_roster.live().size();
+             ++index) {
             W8MonsterInfo* monster_info = GetMonsterListEntry(index);
 
             if (monster_info->enchantments[enchantment].turns != 0) {

@@ -17,6 +17,7 @@
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/fact_state.h"
+#include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/MonsterGroup.h"
@@ -190,7 +191,7 @@ void AscensionAvalanche(bool command)
                 SetFact(W8_FACT_LANDSLIDE_WILD_SIDE, 1, false);
             }
         }
-        g_master_functions.push_back(AscensionLandShaker);
+        g_master_functions.push_back({AscensionLandShaker});
     }
 }
 
@@ -382,7 +383,7 @@ bool AscensionPath1Camera(Trigger* pTrigger)
     if (GetLocationVarIDByName("AP_DSSpawned") == -1) {
         return false;
     }
-    for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
+    for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
         W8MonsterInfo* info = GetMonsterListEntry(index);
 
         if (info->fActive && info->fInCombat && info->ubDisposition == W8_DISPOSITION_HOSTILE &&
@@ -409,7 +410,7 @@ void RemoveAletheides(void)
     if (npc != 0) {
         info = GetNpcMonsterInfo(npc);
         if (info != 0) {
-            RemoveMonster(info, true);
+            RemoveMonster(info, W8MonsterRemoval::Despawn);
             return;
         }
     }
@@ -417,7 +418,7 @@ void RemoveAletheides(void)
     if (npc != 0) {
         info = GetNpcMonsterInfo(npc);
         if (info != 0) {
-            RemoveMonster(info, true);
+            RemoveMonster(info, W8MonsterRemoval::Despawn);
             return;
         }
     }
@@ -425,7 +426,7 @@ void RemoveAletheides(void)
     if (npc != 0) {
         info = GetNpcMonsterInfo(npc);
         if (info != 0) {
-            RemoveMonster(info, true);
+            RemoveMonster(info, W8MonsterRemoval::Despawn);
         }
     }
 }

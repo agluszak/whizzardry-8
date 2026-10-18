@@ -40,7 +40,7 @@ bool SaveGame(std::string_view name, const W8SaveScreenshot* screenshot);
 
 struct W8Character;
 
-bool SaveCharacter(W8Character* character, int slot);
+bool SaveCharacter(const W8Character* character, int slot);
 
 bool AutoSaveIfAllowed(bool forced);
 
@@ -55,7 +55,7 @@ std::string BuildCharacterFilePath(std::string_view filename, int slot);
 std::string BuildCharacterPath(std::string_view name, int slot);
 bool SaveGameExists(void);
 void LoadGameStatus(W8Chunk* chunks, W8GlobalStatus* status);
-void SaveGlobalStatus(W8Chunk* chunks, W8GlobalStatus* status);
+void SaveGlobalStatus(W8Chunk* chunks, const W8GlobalStatus* status);
 /* Load a save slot by name; the Please Wait screen drives it. */
 bool LoadGame(std::string_view slot_name);
 
@@ -71,14 +71,16 @@ struct W8LoadedLevelStatus {
 std::unique_ptr<W8LoadedLevelStatus> ReadLevelStatus(W8World& world,
                                                      const std::filesystem::path& path, int level,
                                                      bool from_assets = false);
-void ActivateLevelStatus(W8World& world, W8LoadedLevelStatus& status);
+void PrepareLevelPopulation(W8World& world, W8LoadedLevelStatus& status);
+void InstallLevelSessionState(W8World& world, W8LoadedLevelStatus* status);
+void BeginRestoredLevelActivity(W8World& world, W8LoadedLevelStatus* status);
 std::string BuildLevelStatusPath(unsigned int level);
 bool SaveStatusHeader(W8Chunk* chunks);
 
 extern bool g_save_pending;
 
 /* Replace one character record in Saves\\CurrentGame.SAV. `slot` is unused. */
-bool SaveCharacterToCurrentGame(std::string_view path, int slot, W8Character* character);
+bool SaveCharacterToCurrentGame(std::string_view path, int slot, const W8Character* character);
 bool LoadCharacterFromCurrentGame(std::string_view path, W8Character* character);
 /* Deferred main-game autosave: notice first, then SaveGame on the next tick. */
 void ProcessMainGameAutoSave(void);

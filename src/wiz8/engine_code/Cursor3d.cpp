@@ -43,6 +43,7 @@
 #include "wiz8/engine_code/stParticle.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/level_population.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/Targeting.h"
@@ -228,7 +229,7 @@ void ReleaseWorldCursor(void)
     g_cursor_saved_group_id = cursor->monster_group_id;
     EnableCursorScene();
     RequestRefreshPartyState();
-    ClearTargetMarker();
+
     GetWorld()->cursor.reset();
 }
 
@@ -385,7 +386,7 @@ void BindCursorMonsterToGroup(void)
         position = cursor.position;
         monster_group = FindMonsterGroup(cursor.monster_group_id, false);
         if (monster_group == 0) {
-            if (gXStatus.monster_groups.empty()) {
+            if (CurrentLevelPopulation().monster_groups.empty()) {
                 return;
             }
             monster_group = GetMonsterGroupByListIndex(0);
@@ -525,9 +526,6 @@ void UpdateWorldCursor(void)
         if (cursor.detached) {
             position.y += kCursorSightProbeHeight;
             PointCameraAtTarget(&position, true, false);
-        }
-        if (gXStatus.iTargetingMode == W8_TARGET_NEED_PLACE) {
-            RefreshTargetMarker();
         }
     }
 }

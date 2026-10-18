@@ -2,26 +2,38 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
+#include <memory>
+#include <optional>
 #include <utility>
 #include <vector>
 
 #include "character_skills.h"
+#include "glm/ext/vector_float3.hpp"
 #include "local_code/ConditionsAndEnchantments.h"
 #include "npc_trade_price.h"
 #include "random.h"
 #include "soundman.h"
+#include "wiz8/cursor.h"
+#include "wiz8/engine_code/Item.h"
 #include "wiz8/fact_state.h"
+#include "wiz8/item_spawning.h"
+#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/layouts/npc_state.h"
+#include "wiz8/level_population.h"
 #include "wiz8/local_code/GameplayCode.h"
+#include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_code/party_encumbrance.h"
+#include "wiz8/xstatus.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
 
@@ -440,21 +452,20 @@ unsigned int GetNpcItemCount(W8NpcState* npc)
 static char g_sound_cash_transaction[] = "Data\\Sound\\misc\\Cash Transaction.wav";
 
 // FUNCTION: WIZ8 0x0055B730
-unsigned char SellItemToNpc(W8NpcState* npc, W8ItemInstance* item, unsigned char quantity,
-                            bool suppress_payment)
+static unsigned char SellItemToNpc(W8NpcState* npc, W8ItemInstance* item, unsigned char quantity,
+                                   bool suppress_payment)
 {
     W8ItemInstance stack;
     int amount;
 
     if ((g_item_records[item->iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) == 0) {
         if (NpcAcceptsTradeItemClass(npc, item)) {
-            ReplaceOrCreateItem(&stack, item->iItemNo, false, item->identified, false);
+            stack = *item;
             stack.stack_count = quantity;
             amount = CalculateTradeStackPrice(npc, &stack, W8_TRADE_PRICE_PARTY_SELLS);
             if (!suppress_payment) {
                 AddPartyGold(amount, false);
             }
-            wiz8::sound::play(g_sound_cash_transaction);
             if (item->stack_count == 0) {
                 item->stack_count = 1;
             }
@@ -463,6 +474,63 @@ unsigned char SellItemToNpc(W8NpcState* npc, W8ItemInstance* item, unsigned char
         }
     }
     return 0;
+}
+
+W8ItemInstance* ResolveTradeSelection(W8NpcState* npc, const W8TradeSelection& selection)
+{
+    W8ItemInstance* item = nullptr;
+    switch (selection.source) {
+    case W8TradeSource::Backpack:
+        if (selection.character < 0 || selection.character >= 8 ||
+            !g_status.buffers.XChar[selection.character].fOccupied || selection.slot < 0 ||
+            selection.slot >= 8)
+            return nullptr;
+        item = &g_status.buffers.Char[selection.character].backpack[selection.slot];
+        break;
+    case W8TradeSource::PartyPool:
+        if (selection.slot < 0 || std::cmp_greater_equal(selection.slot, g_status.party_item_count))
+            return nullptr;
+        item = &g_status.party_item_pool[selection.slot];
+        break;
+    case W8TradeSource::NpcStock: {
+        auto* entry = npc ? GetNpcItemAt(npc, selection.slot) : nullptr;
+        if (!entry || entry->available_at != 0 || entry->quantity != selection.stock_quantity)
+            return nullptr;
+        item = &entry->item;
+        break;
+    }
+    case W8TradeSource::Gold:
+        return nullptr;
+    }
+    return item->iItemNo != -1 && *item == selection.expected ? item : nullptr;
+}
+
+W8TradeResult CompleteNpcTrade(W8NpcState* npc, const W8TradeSelection& selection,
+                               unsigned char quantity)
+{
+    auto* item = ResolveTradeSelection(npc, selection);
+    if (!item || !npc || quantity == 0) return {W8TradeOutcome::InvalidSelection};
+    if (selection.source == W8TradeSource::NpcStock) {
+        return CompleteNpcItemPurchase(npc, selection.slot, quantity, false);
+    }
+    const auto available = item->stack_count ? item->stack_count : 1;
+    if (quantity > available) return {W8TradeOutcome::InvalidSelection};
+    if (selection.source == W8TradeSource::Backpack) {
+        const int owner = g_status.buffers.XChar[selection.character].npc_index;
+        auto* owner_npc = owner == -1 ? nullptr : GetNpcState(owner);
+        if (owner_npc && NpcWantsItem(owner_npc, item)) return {W8TradeOutcome::WantedByOwner};
+    }
+    if (!NpcAcceptsTradeItem(npc, item)) return {W8TradeOutcome::Refused};
+    const bool wanted = NpcHasTopic(npc, item->iItemNo);
+    if (!SellItemToNpc(npc, item, quantity, wanted)) return {W8TradeOutcome::Refused};
+    if (item->stack_count > quantity)
+        item->stack_count -= quantity;
+    else if (selection.source == W8TradeSource::Backpack)
+        EmptyBackpackSlot(&g_status.buffers.Char[selection.character], selection.slot);
+    else
+        EmptyPartyPoolEntry(selection.slot);
+    wiz8::sound::play(g_sound_cash_transaction);
+    return {W8TradeOutcome::Complete, wanted};
 }
 
 // FUNCTION: WIZ8 0x0055b290
@@ -486,9 +554,12 @@ bool NpcAcceptsTradeItem(W8NpcState* npc, W8ItemInstance* item)
 int CalculateNpcTradeStackPrice(W8NpcState* npc, int item_id, W8TradePriceKind price_kind,
                                 unsigned char stack_count, bool identified)
 {
-    W8ItemInstance item;
-    ReplaceOrCreateItem(&item, item_id, false, identified, false);
-    item.stack_count = stack_count;
+    // A price query observes contents; constructing random gameplay items here
+    // made merely drawing a trade row advance the shared random sequence.
+    W8ItemInstance item{.iItemNo = item_id,
+                        .stack_count = stack_count,
+                        .identified = identified || (g_item_records[item_id].flags &
+                                                     W8_ITEM_FLAG_AUTO_IDENTIFY) != 0};
     return CalculateTradeStackPrice(npc, &item, price_kind);
 }
 
@@ -538,66 +609,109 @@ int CalculateTradeStackPrice(W8NpcState* npc, W8ItemInstance* item, char price_k
    accumulated stack then leaves the party purse and the stock entry shrinks.
    The trailing pass drops entries whose remaining count hit zero. */
 // FUNCTION: WIZ8 0x0055B7E0
-bool CompleteNpcItemPurchase(W8NpcState* npc, int index, unsigned char quantity, bool no_payment,
-                             int* remaining_out)
+W8TradeResult CompleteNpcItemPurchase(W8NpcState* npc, int index, unsigned char quantity,
+                                      bool no_payment)
 {
-    unsigned char available;
-    unsigned char moved;
-    unsigned char unit;
-    unsigned int price;
-    W8ItemInstance hand;
-    W8ItemInstance stack;
-    W8NpcItemEntry* entry;
+    auto* entry = GetNpcItemAt(npc, index);
+    if (!entry || quantity == 0 || entry->available_at != 0)
+        return {W8TradeOutcome::InvalidSelection};
+    const auto stock = entry->item;
+    const auto& record = g_item_records[stock.iItemNo];
+    const auto available =
+        record.quantity_kind == W8_ITEM_QUANTITY_STACK ? stock.stack_count : entry->quantity;
+    if (quantity > available) return {W8TradeOutcome::InvalidSelection};
+    const auto price =
+        CalculateNpcTradeStackPrice(npc, stock.iItemNo, W8_TRADE_PRICE_PARTY_BUYS, quantity, true);
+    if (!no_payment && std::cmp_greater(price, g_status.party_gold))
+        return {W8TradeOutcome::InsufficientGold};
 
-    moved = 0;
-    entry = GetNpcItemAt(npc, index);
-    if (entry == 0) {
-        return false;
-    }
-    available = entry->item.stack_count;
-    for (;;) {
-        ReplaceOrCreateItem(&hand, entry->item.iItemNo, true, true, false);
-        if (g_item_records[hand.iItemNo].quantity_kind == W8_ITEM_QUANTITY_NONE) {
-            unit = 1;
-        } else if (g_item_records[hand.iItemNo].quantity_kind != W8_ITEM_QUANTITY_STACK) {
-            hand.uses_or_charges = entry->item.uses_or_charges;
-            unit = 1;
-        } else {
-            unit = quantity - moved;
-            if (g_item_records[hand.iItemNo].maximum_quantity < unit) {
-                unit = g_item_records[hand.iItemNo].maximum_quantity;
-            }
+    // Plan the destination too. No acquisition callback can observe paid-for
+    // stock that has not yet reached its final pool, cursor or world location.
+    std::vector<W8ItemInstance> pool(g_status.party_item_pool,
+                                     g_status.party_item_pool + g_status.party_item_count);
+    std::vector<std::size_t> acquired;
+    std::vector<W8ItemInstance> overflow;
+    unsigned int moved = 0;
+    while (moved < quantity) {
+        W8ItemInstance hand;
+        ReplaceOrCreateItem(&hand, stock.iItemNo, true, true, false);
+        unsigned int unit = 1;
+        if (record.quantity_kind == W8_ITEM_QUANTITY_STACK) {
+            if (record.maximum_quantity == 0) return {W8TradeOutcome::Refused};
+            unit = std::min<unsigned int>(quantity - moved, record.maximum_quantity);
             hand.stack_count = unit;
-            if (unit == 0) {
-                unit = 1;
-                hand.stack_count = unit;
+            for (std::size_t slot = 0; slot < pool.size() && hand.stack_count; ++slot) {
+                auto& destination = pool[slot];
+                if (destination.iItemNo != hand.iItemNo ||
+                    destination.identified != hand.identified)
+                    continue;
+                const auto count =
+                    destination.stack_count ? destination.stack_count : destination.uses_or_charges;
+                if (count > record.maximum_quantity) return {W8TradeOutcome::Refused};
+                const auto merged =
+                    std::min<unsigned int>(hand.stack_count, record.maximum_quantity - count);
+                if (!merged) continue;
+                destination.stack_count = count + merged;
+                destination.uses_or_charges = 0;
+                hand.stack_count -= merged;
+                acquired.push_back(slot);
             }
+        } else if (record.quantity_kind != W8_ITEM_QUANTITY_NONE) {
+            hand.uses_or_charges = stock.uses_or_charges;
         }
-        if (!AddItemToPartyOrDrop(&hand, false) && !g_status.item_in_cursor) {
-            DisplayNpcQuote(g_localized_strings[0x6b1], false);
+        if (record.quantity_kind != W8_ITEM_QUANTITY_STACK || hand.stack_count) {
+            if (pool.size() < 500) {
+                for (auto& slot : acquired) ++slot;
+                pool.insert(pool.begin(), hand);
+                acquired.push_back(0);
+            } else
+                overflow.push_back(hand);
         }
         moved += unit;
-        if (quantity <= moved) {
-            if (moved == 0) {
-                return false;
-            }
-            ReplaceOrCreateItem(&stack, entry->item.iItemNo, false, true, false);
-            stack.stack_count = moved;
-            price = CalculateTradeStackPrice(npc, &stack, W8_TRADE_PRICE_PARTY_BUYS);
-            wiz8::sound::play(g_sound_cash_transaction);
-            if (ConsumeNpcItemQuantity(npc, index, moved) == 0) {
-                return false;
-            }
-            if (!no_payment) {
-                SpendPartyGold(price);
-            }
-            if (remaining_out != 0) {
-                *remaining_out = available - moved;
-            }
-            RemoveDepletedNpcStock(npc);
-            return true;
+    }
+    std::optional<W8ItemInstance> held;
+    std::optional<glm::vec3> drop_position;
+    if (!overflow.empty()) {
+        if ((record.flags & W8_ITEM_FLAG_NO_DISCARD) != 0) {
+            if (g_status.item_in_cursor || overflow.size() != 1) return {W8TradeOutcome::Refused};
+            held = overflow.front();
+            overflow.clear();
+        } else {
+            drop_position = FindItemDropPosition();
+            if (!drop_position) return {W8TradeOutcome::Refused};
         }
     }
+    std::vector<std::unique_ptr<W8WorldItem>> drops;
+    for (auto& item : overflow)
+        drops.push_back(
+            CreateWorldItem(&item, &*drop_position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+    if (!drops.empty()) {
+        auto& items = CurrentLevelPopulation().world_items;
+        items.reserve(items.size() + drops.size());
+    }
+    // Publish the complete transfer before encumbrance, reactions or presentation.
+    std::ranges::copy(pool, g_status.party_item_pool);
+    g_status.party_item_count = pool.size();
+    ConsumeNpcItemQuantity(npc, index, quantity);
+    RemoveDepletedNpcStock(npc);
+    if (!no_payment) SpendPartyGold(price);
+    for (auto& drop : drops) AddWorldItem(std::move(drop));
+    if (held) {
+        g_status.item_in_hand = *held;
+        g_status.item_in_cursor = true;
+        gXStatus.held_item_source = -1;
+        gXStatus.held_item_origin = W8_ITEM_ORIGIN_NONE;
+        gXStatus.held_item_slot = 0xffff;
+        SetItemCursor(0);
+    }
+    RedistributePartyEncumbrance();
+    for (std::size_t slot : acquired) {
+        auto* item = &g_status.party_item_pool[slot];
+        UpdateFactsAfterAcquiringItem(item);
+        DeliverExceptionalItemReaction(item, true, nullptr);
+    }
+    wiz8::sound::play(g_sound_cash_transaction);
+    return {W8TradeOutcome::Complete, false, !drops.empty()};
 }
 
 // FUNCTION: WIZ8 0x0055ae00

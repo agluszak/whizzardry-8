@@ -27,6 +27,7 @@
 #include "glm/ext/matrix_double3x3.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_float4.hpp"
 #include "layouts/world.h"
 #include "particle_modes.h"
 #include "random.h"
@@ -320,7 +321,7 @@ try {
 }
 
 // FUNCTION: WIZ8 0x004a5e50
-W8GrCycle::W8GrCycle(W8World* owner) : owner_world(owner)
+W8GrCycle::W8GrCycle(W8World* owner) : W8Navigator(owner)
 {
     current_model_instance = 0;
     m_plsLights = 0;
@@ -336,7 +337,7 @@ W8GrCycle::W8GrCycle(W8World* owner) : owner_world(owner)
 // Copy runtime state, particles and the shadow; representations own borrowed lights.
 // FUNCTION: WIZ8 0x004a5f20
 W8GrCycle::W8GrCycle(const W8GrCycle& other, W8World* owner)
-    : W8GrObject(other), W8Navigator(other), owner_world(owner)
+    : W8GrObject(other), W8Navigator(other, owner)
 {
     current_model_instance = 0;
     m_plsLights = 0;
@@ -665,6 +666,24 @@ void W8GrCycle::ResetRepresentation()
 
    The ground shadow and owned lights attach to the supplied world as well. */
 // FUNCTION: WIZ8 0x004a7470
+void W8GrCycle::SetPresentationColour(glm::vec4 colour)
+{
+    auto* rep = GetRepresentation();
+    if (!rep->active) return;
+    auto* animation = GetCurrentAnimation();
+    if (!animation) return;
+    if (animation->path_lists == 1) {
+        const int count = static_cast<int>(AnimObjListCount(animation, rep->m_bLOD));
+        for (int index = 0; index < count; ++index) {
+            auto* model = static_cast<stModelInstance*>(
+                AnimObjDispatchList(animation, rep->m_bLOD, static_cast<signed char>(index)));
+            if (model) model->highlight_colour = colour;
+        }
+    } else if (auto* model = static_cast<stModelInstance*>(GetCurrentModelInstance())) {
+        model->highlight_colour = colour;
+    }
+}
+
 void W8GrCycle::UpdateRepresentation(W8World* pWorld)
 {
     W8EmitterHost* pRep = GetRepresentation();

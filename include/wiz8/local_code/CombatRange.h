@@ -25,12 +25,12 @@ char CountRowsBetween(int party_slot, W8MonsterInfo* monster_info);
 void CloseFormationGap(W8MonsterInfo* monster_info, int party_slot, W8RangeCategory* range);
 /* Whether `party_slot` may aim at `monster_info`: live threat, the
    resolved action's range category (less the rows between in combat), the
-   info's aim flag for the action's ranged-ness, and the band distance. A miss
-   queues the slot's complaint event when `notify_failure` asks. */
-bool CanPartyMemberAimAtMonster(int party_slot, int hand, W8MonsterInfo* monster_info,
-                                const W8SelectedAction& selected, bool notify_failure,
-                                std::optional<W8RangeCategory> attack_range = {},
-                                bool sighting = false);
+   info's aim flag for the action's ranged-ness, and the band distance. Assessment
+   returns a reason; the controller decides whether to report it. */
+W8TargetAssessment AssessMonsterAim(int party_slot, int hand, W8MonsterInfo* monster_info,
+                                    const W8Action& selected,
+                                    std::optional<W8RangeCategory> attack_range = {},
+                                    bool sighting = false);
 /* Whether the front rank stands between two formation positions. */
 bool FrontRankScreens(unsigned int from_position, unsigned int to_position);
 /* Whether the monster's attack `attack` reaches the character in `party_slot`,
@@ -63,10 +63,9 @@ W8RangeCategory GetMonsterBestRangeCategory(W8MonsterInfo* monster_info,
    asks for the better of the two. */
 W8RangeCategory GetCharAttackRange(const W8Character* character, unsigned int hand);
 /* The range category the slot's chosen action works at. */
-W8RangeCategory GetCharActionRange(int party_slot, int hand, const W8SelectedAction& selected,
+W8RangeCategory GetCharActionRange(int party_slot, int hand, const W8Action& selected,
                                    std::optional<W8RangeCategory> attack_range = {});
-bool IsSlotInRangeOfGroup(int party_slot, int group_id, const W8SelectedAction& selected,
-                          bool notify);
+W8TargetAssessment AssessGroupRange(int party_slot, int group_id, const W8Action& selected);
 float MonsterChooseTarget(W8MonsterInfo* monster_info, W8CombatSlot* out, int kind);
 float GetGroundTargetRange(void);
 float GetMonsterEngagementRange(void);
@@ -87,11 +86,11 @@ W8RangeCategory GetBestHandRangeCategory(const W8Character* character);
    selected target - character range and front-rank screen, monster aim, place
    distance and line of sight, or group reach. `hand` selects the attack side;
    2 asks the range helpers to use the better hand. */
-bool CharacterActionReachesTarget(int party_slot, int hand, const W8SelectedAction& selected);
+bool CharacterActionReachesTarget(int party_slot, int hand, const W8Action& selected);
 /* The slot-vs-slot form the target-list builder uses: whether the
    slot's chosen action in `context` can strike `target_slot`. */
 bool CharacterActionReachesSlot(int party_slot, int hand, int target_slot,
-                                const W8SelectedAction& selected);
+                                const W8Action& selected);
 /* Collect the party slots the slot could reach and strike under
    `relationship`, and pick one at random; -1 when none qualify. */
 int PickReachableSlotByDisposition(int party_slot, W8Disposition relationship);
@@ -101,7 +100,7 @@ void GetMonsterAttackSourceOffset(W8Monster* monster, int kind, glm::vec3* out);
 /* Whether `source`'s queued action still reaches `target` -
    characters check their own current target, monsters check `target`. */
 bool SourceActionReachesTarget(W8TargetSource* source, W8CombatSlot* target,
-                               const W8SelectedAction& action);
+                               const W8Action& action);
 /* Whether the slot has any attack of `category` that reaches a
    valid target in the scanned groups for `hand`; the condition interrupt uses
    it to tell usable attacks from merely reachable ones. `flag` == 1 skips the

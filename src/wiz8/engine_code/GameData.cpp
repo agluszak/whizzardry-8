@@ -63,7 +63,6 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/packed_bits.h"
-#include "wiz8/startup_world.h"
 #include "wiz8/xstatus.h"
 
 constexpr float kCameraRadiansToDegrees = 57.295784f;
@@ -578,7 +577,7 @@ unsigned char W8GameData::ProbeMonstersAlongMotion(glm::vec3* direction, glm::ve
     bool hit;
 
     hit = false;
-    extent = glm::length((*direction)) + g_runtime_world_scale + kWorldScale;
+    extent = glm::length((*direction)) + GetWorldOctree()->max_navigation_radius + kWorldScale;
     lower = (*position) - extent;
     upper = (*position) + extent;
     objects = GetWorldOctree()->queryObjects({lower, upper}, W8_OCTREE_KIND_LOCATION, -1);
@@ -981,9 +980,9 @@ int W8GameData::TestPropSurfaces(int count, w8_ulong* ids, W8OctreeTrace* trace,
 // FUNCTION: WIZ8 0x0041c140
 bool W8GameData::TestProp(int prop_id, W8OctreeTrace* trace, char skip_flag, char gate)
 {
-    auto* prop = GetWorld()->collidable_props[prop_id];
+    auto* prop = octree->owner_world->collidable_props[prop_id];
     prop->flags |= 0x10;
-    if (!prop->m_gd_prop) prop->BuildOrRefreshPathingRepresentation(GetWorldPathing());
+    if (!prop->m_gd_prop) prop->BuildOrRefreshPathingRepresentation(octree->pathing.get());
     auto* gd_prop = prop->m_gd_prop.get();
     if (gate != 0 && gd_prop->m_flags.unattached) return false;
 

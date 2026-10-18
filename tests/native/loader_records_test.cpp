@@ -933,7 +933,11 @@ TEST_CASE_METHOD(LoaderFixture, "World item groups transfer ownership and preser
     ItemInfoAddToGroup(group.get(), std::move(detached));
     const auto roundtrip_path = wiz8::user_path("items-roundtrip.bin");
     auto output = wiz8::open_file(roundtrip_path, wiz8::OpenMode::replace);
+    group->saved_marker = 23;
+    group->next->saved_marker = 24;
     REQUIRE(SaveItemFile(*output, group.get()));
+    REQUIRE(group->saved_marker == 23);
+    REQUIRE(group->next->saved_marker == 24);
     output.reset();
     auto encoded = wiz8::open_file(roundtrip_path);
     std::string roundtrip(encoded->size(), '\0');
@@ -1105,7 +1109,7 @@ TEST_CASE_METHOD(LocationVariableFixture,
 
     std::string expected;
     append(expected, std::int32_t{2});
-    for (const auto [value, level] : {std::pair{23, 3}, std::pair{-7, 4}}) {
+    for (const auto [value, level] : {std::pair{23, 3}, std::pair{31, 4}}) {
         append(expected, std::int32_t{value});
         std::array<char, 128> name{};
         std::strcpy(name.data(), "Switch");
@@ -1114,13 +1118,14 @@ TEST_CASE_METHOD(LocationVariableFixture,
     }
     {
         auto file = wiz8::open_file(wiz8::asset_path("variables.bin"), wiz8::OpenMode::replace);
-        SaveLocationVariables(*file);
+        SaveLocationVariables(*file, W8SavedLocationState{{"SWITCH", 31}});
+        REQUIRE(GetLocationVarValueByName("Switch") == -7);
     }
     std::ifstream saved(fixture_root / "variables.bin", std::ios::binary);
     REQUIRE(std::string(std::istreambuf_iterator<char>(saved), {}) == expected);
     ClearLocationVariables();
     REQUIRE(load_variables(expected));
-    REQUIRE(GetLocationVarValueByName("SWITCH") == -7);
+    REQUIRE(GetLocationVarValueByName("SWITCH") == 31);
     ReplaceWorld(std::make_unique<W8World>(3));
     REQUIRE(GetLocationVarValueByName("switch") == 23);
 }

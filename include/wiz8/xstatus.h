@@ -25,7 +25,6 @@ struct W8WorldItem;
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/monster_roster.h"
 
 struct W8MonsterGroup;
 struct W8WorldItem;
@@ -55,11 +54,6 @@ struct W8XStatus {
        Compared unsigned. */
     unsigned int hostile_monster_count;
     int item_manager_pending;
-    /* Live and unborn monster lists plus their owning storage. */
-    W8MonsterRoster monster_roster;
-    std::vector<std::unique_ptr<W8MonsterGroup>> monster_groups;
-    std::vector<std::unique_ptr<W8WorldItem>> world_items;
-    std::vector<std::unique_ptr<W8MonsterGroup>> encounter_groups;
     bool fSurprisePossible;
     /* Set when surprise starts with no character engaged; phase 1 waits
        only while this is clear. */
@@ -83,18 +77,15 @@ struct W8XStatus {
        live formation here on open, edits the copy, and either reconciles it
        back or diffs it against live on accept. */
     W8PartyFormationState edited_formation;
-    std::vector<int> target_markers;
-    glm::vec3 target_position;
-    W8CombatSlot shared_target;
-    W8ActionDetailBlock shared_action_detail;
+    W8CombatSlot item_selection_target;
+    W8ActionDetailBlock item_selection_detail;
     int picked_monster;
     int picked_group;
     /* One-shot latch set when the combat/party panels refresh; the next
        UpdateMonsterSight pass consumes and clears it. */
     bool sight_refresh_pending;
     bool world_update_blocked;
-    /* User-pause latch set by ToggleMainGamePause alongside
-       PauseMainGameWorld; cleared by the resume paths. */
+    /* Explicit user-pause choice; closing an interaction does not clear it. */
     bool world_paused;
     unsigned short review_character_slot;
     int held_item_source;
@@ -138,37 +129,13 @@ inline void ClearItemDrag(void)
     gXStatus.dragged_character_slot = -1;
 }
 
-/* Typed element access for the homogeneous gXStatus lists. */
-inline W8MonsterInfo* GetMonsterListEntry(int index)
-{
-    if (index < 0 || std::cmp_greater_equal(index, gXStatus.monster_roster.live().size())) {
-        return nullptr;
-    }
-    return gXStatus.monster_roster.live()[index].get();
-}
+/* Bounded queries into the current level; absent levels resolve to null. */
+W8MonsterInfo* GetMonsterListEntry(int index);
 
-inline W8MonsterInfo* GetUnbornMonsterEntry(int index)
-{
-    if (index < 0 || std::cmp_greater_equal(index, gXStatus.monster_roster.unborn().size())) {
-        return nullptr;
-    }
-    return gXStatus.monster_roster.unborn()[index].get();
-}
+W8MonsterInfo* GetUnbornMonsterEntry(int index);
 
-inline W8WorldItem* GetWorldItemListEntry(int index)
-{
-    if (index < 0 || std::cmp_greater_equal(index, gXStatus.world_items.size())) {
-        return nullptr;
-    }
-    return gXStatus.world_items[index].get();
-}
+W8WorldItem* GetWorldItemListEntry(int index);
 
-inline W8MonsterGroup* GetMonsterGroupEncounter(int index)
-{
-    if (index < 0 || std::cmp_greater_equal(index, gXStatus.encounter_groups.size())) {
-        return nullptr;
-    }
-    return gXStatus.encounter_groups[index].get();
-}
+W8MonsterGroup* GetMonsterGroupEncounter(int index);
 
 #endif

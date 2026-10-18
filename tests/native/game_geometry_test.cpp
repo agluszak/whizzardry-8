@@ -753,7 +753,7 @@ TEST_CASE("Ground polygon queries return owned sorted runs beyond thirty faces",
     stModelInstance instance(nullptr);
     instance.setModel(mesh);
     world.psrMeshes = {nullptr, &instance};
-    W8Octree tree(nullptr, nullptr);
+    W8Octree tree(nullptr, nullptr, &world);
     tree.m_meshCount = 2;
     tree.m_alpha_bits.assign(2, false);
     tree.m_current_regions.assign(2, false);

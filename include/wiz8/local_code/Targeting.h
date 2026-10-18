@@ -27,47 +27,39 @@ char GetTargetNoticeColor(const W8TargetSource* source, const W8CombatSlot* targ
 void AimByKind(int actor, W8TargetKind kind, W8TargetingContext context);
 void SetMonsterCombatTarget(W8MonsterInfo* monster_info, int location_id);
 bool MonsterTargetMatchesSpell(W8MonsterInfo* monster_info, int spell_id);
-void ClearTargetMarker(void);
-void RefreshTargetMarker(void);
+
 void RefreshAllPartyTargets(void);
 bool RepickActionTarget(int party_slot, W8TargetingContext context, int arg);
-void AimAtTarget(int actor, W8CombatSlot* target, W8TargetingContext context);
+void AimAtTarget(int actor, const W8CombatSlot* target, W8TargetingContext context);
 void AimAtCharacter(int actor, int character_slot, W8TargetingContext context);
 void AimAtCharacterIndirect(int actor, int character_slot, W8TargetingContext context);
 void AimAtMonsterLocation(int party_slot, int location_id, bool allow_single_target);
 void AimAtPlace(int actor);
 void AimAtGroundTarget(int party_slot);
-/* Raise or clear per-monster highlight bits for a party slot. */
-void UpdateSlotMonsterHighlights(int party_slot, bool enable);
-void RefreshCombatTargetHighlights(int party_slot, const W8SelectedAction& action);
-void HighlightSpellTargetsAtCachedPosition(void);
+
 /* Pick an attack fallback, allowing the character's alternate weapon set when
    the ordinary group selection has no usable monster. */
 struct W8WeaponTarget {
     int location_id;
     W8WeaponSwap equipment;
 };
-std::optional<W8WeaponTarget> ChooseFallbackMonsterTarget(int party_slot,
-                                                          const W8SelectedAction& action);
+std::optional<W8WeaponTarget> ChooseFallbackMonsterTarget(int party_slot, const W8Action& action);
 void SetFactionFlag(signed char faction, bool flag);
 unsigned char ShowMonsterTargetMarker(W8MonsterInfo* monster_info);
-bool IsSpellTargetStillValid(int party_slot, int spell_id, const W8SelectedAction& selected);
-void ClearTargetHighlights(int party_slot, const W8CombatSlot* target);
-void ClearPartySlotMonsterHighlights(unsigned int party_slot);
+bool IsSpellTargetStillValid(int party_slot, int spell_id, const W8Action& selected);
+
 void SetTargetToCharacter(int character_slot, bool in_combat);
 
 void SetTargetingMode(W8TargetNeed state);
-void SetMonsterHighlight(int party_slot, int location_id, bool on);
-void SetGroupHighlight(int party_slot, int group_id, bool on);
+
 /* Location id of the nearest hovered live monster, or -1. */
 int PickNearestMonsterUnderCursor(int cursor_x, int cursor_y);
-char HighlightMonsterAsTarget(int location_id, int party_slot, char highlight);
-void UpdateAllMonsterHighlights(int party_slot, int location_id);
+
 /* Cursor-table index for SetTargetCursor, including slots 10..12. Not a
    W8TargetingContext. */
 int GetTargetingCursorForState(int alternate);
-bool ActionNeedsExplicitTarget(int party_slot);
-unsigned int GetActionSpellLikeId(const W8SelectedAction& selected);
+bool ActionNeedsExplicitTarget(const W8Action& action, bool camping);
+unsigned int GetActionSpellLikeId(const W8Action& selected);
 void ResetTargetSource(W8TargetSource* source);
 void SetTargetSourceToMonster(const W8MonsterInfo* monster_info, W8TargetSource* source);
 bool TargetMatchesNeeded(const W8CombatSlot* target, W8TargetNeed needed);
@@ -90,9 +82,9 @@ bool IsTargetStillPresent(const W8CombatSlot* target);
 bool IsTargetSourceInRangeOfGroup(const W8TargetSource* source, W8MonsterGroup* group,
                                   W8RangeCategory range);
 
-bool CanTargetMonster(int party_slot, int location_id, const W8SelectedAction& selected,
-                      bool allow_single_target, bool notify_failure, bool sighting = false);
-bool CanTargetMonsterGroup(int party_slot, W8MonsterGroup* group, const W8SelectedAction& selected,
+W8TargetAssessment AssessMonsterTarget(int party_slot, int location_id, const W8Action& selected,
+                                       bool allow_single_target, bool sighting = false);
+bool CanTargetMonsterGroup(int party_slot, W8MonsterGroup* group, const W8Action& selected,
                            bool sighting = false);
 void ClearSlotTargeting(int party_slot);
 /* Whether the slot's current target satisfies the spell's
@@ -105,17 +97,14 @@ bool IsItemTargetOfNeededKind(const W8CombatSlot* target, const W8ItemInstance* 
 void SelectSpellCastingPartySlot(int party_slot);
 /* Set the targeting filter for the spell being aimed. */
 void ConfigureSpellTargetFilter(W8SpellTargetType target_type, W8TargetNeed needed_kind);
-/* Commit the chosen spell target. */
-void CommitSelectedSpellTarget(void);
 void RefreshMonsterTargetCounts(void);
 bool AnyMonsterVisible(void);
-void UpdateTargetMarkerHighlight(void);
-/* Fill `found` with the location ids of monsters within `radius`
-   of `centre` that are visible from `eye` (unless highlighting is on, which
-   takes them without the sight check and tints instead). */
+
+/* Collect eligible monsters within the radius, with an explicit choice
+   between line of sight and geometry-only preview rules. */
 void CollectMonstersWithinRadius(const glm::vec3* centre, const glm::vec3* eye,
                                  std::vector<int>& found, float radius, char side,
-                                 char highlighting);
+                                 W8AreaSightRule sight_rule);
 
 class W8Monster;
 
@@ -123,13 +112,7 @@ class W8Monster;
    still projects on screen. `position` is unused. */
 bool IsMonsterVisibleWithinDistance(W8Monster* monster, const glm::vec3* position,
                                     float max_distance);
-/* Pick the next targetable member of `group` and paint it with the
-   `color` highlight (0 clears, 1 green, 2 red). */
-void HighlightPickedGroupMember(int party_slot, W8MonsterGroup* group, W8TargetHighlight color,
-                                const W8SelectedAction& selected, bool sighting);
-/* Apply a highlight tint (0 clears, 1 green, 2 red) to every member
-   of the group - the debug message names it ModifyGroupColor. */
-void ModifyGroupColor(int group_id, W8TargetHighlight color);
+
 /* Whether `target` lies within the combined radii of `eye` and
    `bonus`, inside the heading and elevation arcs. */
 bool TargetInRangeAndArcs(const glm::vec3* target, float bonus, const glm::vec3* eye,
@@ -142,20 +125,18 @@ int CollectConeMonsterTargets(const W8TargetSource* source, const glm::vec3* eye
                               int sight_flag, float range);
 /* Whether the pending item use needs a target picked. */
 bool ItemUseNeedsTarget(int party_slot);
-void RefreshSpellTargetHighlightsAtRange(void);
-void ReconcilePartyEquipmentAfterCombat(void);
-bool TargetIsInPlay(int party_slot, int hand, const W8SelectedAction& selected);
 
-void ClearAllMonsterHighlights(void);
+void ReconcilePartyEquipmentAfterCombat(void);
+bool TargetIsInPlay(int party_slot, int hand, const W8Action& selected);
+
 /* Combat action-selection helpers used across the combat units. */
 bool CanPartySlotParticipate(int party_slot);
 void SetTargetSourceToCharacter(int party_slot, W8TargetSource* source);
 /* What the interface has to ask the player to pick for one
    action - a fixed kind for most, the spell's answer for casts and item use. */
-W8TargetNeed GetTargetNeededForAction(const W8SelectedAction& action,
-                                      bool needs_item_target = true);
+W8TargetNeed GetTargetNeededForAction(const W8Action& action, bool needs_item_target = true);
 W8TargetNeed GetTargetNeededForItem(const W8ItemInstance* item, bool needs_item_target);
-void TintHighlightedMonster(W8Monster* monster, W8TargetHighlight tint);
+
 /* After the selected character's action changes, drop back to no
    targeting when its recorded target still fits, or enter the mode the action
    now needs. */
@@ -175,5 +156,8 @@ signed char FindFactionByName(const char* name);
 void RepickInvalidCombatTargets(void);
 
 // Commit gameplay state only. Presentation belongs to the interaction controller.
-void CommitActionTarget(int actor, const W8SelectedAction& action, const W8CombatSlot& target,
+void CommitActionTarget(int actor, W8TargetingContext context, const W8CombatSlot& target,
                         bool remember_action_target);
+
+int PickNextTargetableGroupMember(int party_slot, const W8MonsterGroup* group,
+                                  const W8Action& action, bool sighting);

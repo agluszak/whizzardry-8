@@ -17,7 +17,6 @@ W8Navigator* PartyNavigator()
     return party_navigator.get();
 }
 // GLOBAL: WIZ8 0x006081e8
-float g_runtime_world_scale = 500.0f;
 
 /* Original translation-unit ownership of startup navigation and its globals is unknown. */
 // FUNCTION: WIZ8 0x0044f060
@@ -30,9 +29,6 @@ unsigned char InitializeStartupNavigation(void)
     party_navigator = std::make_unique<W8Navigator>();
     auto* navigator = party_navigator.get();
     navigator->configureStartupRange(500.0f);
-    if (g_runtime_world_scale < kWorldScale) {
-        g_runtime_world_scale = 500.0f;
-    }
     navigator->configureStartupDepth(
         g_default_world_height < kStartupNearLimit ? kStartupNearLimit : g_default_world_height,
         g_default_world_height);

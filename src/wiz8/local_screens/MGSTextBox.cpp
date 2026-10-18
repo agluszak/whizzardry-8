@@ -437,7 +437,10 @@ unsigned char SaveMessageStorage(wiz8::File& file)
                          std::string_view(live_record->text).substr(0, live_record->highlight_stop))
                          .size()));
             disk_record.clock = static_cast<std::uint32_t>(live_record->clock);
-            disk_record.saved_remaining_ms = live_record->saved_remaining_ms;
+            disk_record.saved_remaining_ms =
+                index < g_status.text_box_lines_shown[region]
+                    ? static_cast<std::uint32_t>(TimeUntilDeadline(live_record->clock))
+                    : live_record->saved_remaining_ms;
             disk_record.link = live_record->link;
             disk_record.length =
                 live_record->length < 0

@@ -24,6 +24,7 @@ void HideNpcQuoteBubbleRegion();
 #include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/message_box.h"
+#include "wiz8/npc_items.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/xstatus.h"
 
@@ -175,7 +176,6 @@ enum W8NpcDialogueControlSlot {
 struct W8NpcInteractionState {
     short value_000; /* cleared while the dialogue opens */
     unsigned char unknown_002[0xee];
-    W8MainUiMode saved_main_ui_mode; /* the pre-dialogue display mode */
     /* The dialogue's leading speaker: the occupied row whose character leads
        skill 0x16. */
     int dialogue_speaker;
@@ -184,7 +184,10 @@ struct W8NpcInteractionState {
     W8NpcTradeMode trade_mode;
     /* The layout the current one replaced; back-out paths reopen it. */
     W8NpcDialogueLayout previous_dialogue_layout;
+    // Borrowed preview only; confirmation resolves trade_selection.
     W8ItemInstance* trade_item;
+    std::vector<W8TradeSelection> trade_rows;
+    std::optional<W8TradeSelection> trade_selection;
     std::unique_ptr<NpcDialogueUi> ui;
     /* The cursor position of the last mouse event the region handler acted
        on; repeat events at the same point are dropped. */
@@ -221,7 +224,6 @@ struct W8NpcInteractionState {
     bool reopen_topics;
     int trade_gold; /* gold put on the trade table */
     /* g_settings.main_ui_mode saved while the NPC dialogue is suppressed. */
-    W8MainUiMode saved_mode;
     /* The next UpdateNpcDialogueSubMode must reapply the trade_pc_items
        toggle state. */
     bool pending_trade_toggle;

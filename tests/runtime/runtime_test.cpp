@@ -44,6 +44,7 @@
 #include "../native/surface_pixels.h"
 #include "random.h"
 #include "wiz8/engine_code/Levels.h"
+#include "wiz8/level_population.h"
 #include "wiz8/ui_layer.h"
 
 /* Runtime scenarios against installed retail assets.
@@ -1222,8 +1223,8 @@ void CampSpellsScenario()
     REQUIRE(caster.iSPLeft[curse_realm] < 100);
     REQUIRE(caster.iSPLeft[curse_realm] >= 0);
     REQUIRE(g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_NONE);
-    REQUIRE(g_status.buffers.XChar[slot].spell_target.iType == W8_TARGET_KIND_CHARACTER);
-    REQUIRE(g_status.buffers.XChar[slot].spell_target.iChar == slot);
+    REQUIRE(g_status.buffers.XChar[slot].spell.target.iType == W8_TARGET_KIND_CHARACTER);
+    REQUIRE(g_status.buffers.XChar[slot].spell.target.iChar == slot);
     caster.uiCondition[W8_CONDITION_HEXED] = 0;
 }
 
@@ -1311,6 +1312,8 @@ void CheckGameplayUi(Game& game)
     LearnSpell(&character, W8_SPELL_LIGHT, false);
     const auto realm = g_spell_records[W8_SPELL_LIGHT].realm;
     character.sp_max[realm] = character.iSPLeft[realm] = 100;
+    gXStatus.world_paused = true;
+    SyncWorldAdvancement();
     REQUIRE(OpenSpellCastingView(slot));
     game.frame();
     const auto realm_bounds = gpSCSV->realm_buttons[realm]->Bounds();
@@ -1323,17 +1326,21 @@ void CheckGameplayUi(Game& game)
     REQUIRE(gpSCSV->iSpellRealm == realm);
     REQUIRE(gpSCSV->uiSpellsInList == 1);
     game.click_at(250, 372); // First spell in the ordinary text-box list.
-    REQUIRE(gpSCSV->uiSpellToCast == W8_SPELL_LIGHT);
+    REQUIRE(gpSCSV->draft.detail == W8_SPELL_LIGHT);
     game.click_at(0x1f4, 0x172);
     if (gpSCSV) {
-        REQUIRE(gpSCSV->iSpellPower == 1);
+        REQUIRE(gpSCSV->draft.detail_block.spell.power_level == 2);
         game.click_at(0x247, 0x179);
         REQUIRE(!gpSCSV);
     } else {
         // Target-free spells may commit in the same frame as power selection.
-        REQUIRE(g_status.buffers.XChar[slot].spell_id == W8_SPELL_LIGHT);
-        REQUIRE(g_status.buffers.XChar[slot].spell_detail.spell.power_level == 2);
+        REQUIRE(g_status.buffers.XChar[slot].spell.detail == W8_SPELL_LIGHT);
+        REQUIRE(g_status.buffers.XChar[slot].spell.detail_block.spell.power_level == 2);
     }
+    REQUIRE(gXStatus.world_paused);
+    REQUIRE(WorldAdvancementBlocked());
+    ToggleMainGamePause();
+    REQUIRE_FALSE(gXStatus.world_paused);
     character = original_character;
 
     const auto original_effect = g_status.effect_slots[0];
@@ -1528,7 +1535,7 @@ W8MonsterInfo* EnterCombat(Game& game)
     REQUIRE(game.within_frames(4, [] { return gXStatus.fCombatMode != 0; }));
     REQUIRE(g_combat_state);
     W8MonsterInfo* monster = nullptr;
-    for (const auto& candidate : gXStatus.monster_roster.live()) {
+    for (const auto& candidate : CurrentLevelPopulation().monster_roster.live()) {
         if (candidate->fActive && candidate->p3D && candidate->hp_current &&
             candidate->ubDisposition == W8_DISPOSITION_HOSTILE) {
             monster = candidate.get();
@@ -1926,7 +1933,7 @@ void Approach(Game& game, int location_id, float stop)
 std::vector<W8MonsterInfo*> CombatMonsters()
 {
     std::vector<W8MonsterInfo*> monsters;
-    for (const auto& owner : gXStatus.monster_roster.live()) {
+    for (const auto& owner : CurrentLevelPopulation().monster_roster.live()) {
         auto* monster = owner.get();
         if (monster->fActive && monster->fInCombat && monster->p3D && monster->hp_current)
             monsters.push_back(monster);
@@ -2073,7 +2080,7 @@ void PrintState(Game& game)
         const glm::vec3 at = camera.position;
         std::printf("  party at (%g %g %g) yaw %g\n", at.x, at.y, at.z, camera.yaw[0]);
         std::vector<std::pair<float, W8MonsterInfo*>> nearby;
-        for (const auto& owner : gXStatus.monster_roster.live()) {
+        for (const auto& owner : CurrentLevelPopulation().monster_roster.live()) {
             auto* monster = owner.get();
             if (monster->fActive && monster->p3D && monster->hp_current)
                 nearby.emplace_back(HorizontalDistance(monster->p3D->GetPosition(), at), monster);

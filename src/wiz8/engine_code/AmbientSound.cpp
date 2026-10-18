@@ -810,12 +810,9 @@ std::vector<W8AmbientSoundState> ReadAmbientSoundStates(W8Chunk& handle)
     return pending;
 }
 
-void ApplyAmbientSoundStates(std::span<const W8AmbientSoundState> states)
+void ApplyAmbientSoundStates(W8World& world, std::span<const W8AmbientSoundState> states)
 {
-    for (const auto& [name, stopped] : states) {
-        if (stopped)
-            StopAmbientSoundByName(nullptr, name.c_str());
-        else
-            PositionAmbientSoundByName(nullptr, name.c_str());
-    }
+    for (const auto& [name, stopped] : states)
+        for (const auto& sound : world.plsAmbientSounds)
+            if (sound->name == name) sound->stopped = stopped;
 }

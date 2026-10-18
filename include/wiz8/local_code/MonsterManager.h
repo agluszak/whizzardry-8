@@ -104,7 +104,6 @@ struct W8MonsterManagerEntry {
        the 1..0xc brightness phase. */
     uint64_t acting_portrait_pulse_clock;
     unsigned short acting_portrait_pulse;
-    std::vector<int> highlighted_monsters;
     /* The character has reached its experience goal; set once to post
        the level-up notice line and cleared when the character is no longer
        ready to advance. */
@@ -116,9 +115,6 @@ struct W8MonsterManagerEntry {
     /* Per-skill "increased" notice flags posted by PracticeCharacterSkill
        and drained into queued skill-notice portrait messages. */
     bool skill_notice_pending[W8_SKILL_COUNT];
-    /* Set around SwapItemInstances so the autoswap-weapons check does
-       not fire on the intermediate item states. */
-    bool item_swap_in_progress;
     unsigned int pending_event_type; /* last queued portrait event type */
 };
 
@@ -392,7 +388,7 @@ struct W8MonsterInfo {
     unsigned char unknown_37d[0xa8];
 };
 
-void InitializeMonsterManagerState(void);
+void PrepareMonsterInWorld(W8World& world, W8MonsterInfo& info, bool unborn);
 void ActivateMonsterInWorld(W8MonsterInfo* monster_info);
 std::unique_ptr<W8Monster> ReadMonsterRepresentation(W8World& world, W8MonsterInfo* monster_info,
                                                      W8MonsterActivationMode mode);
@@ -438,7 +434,8 @@ void ShutdownMonsterManager(void);
 
 std::string GetMonsterName(W8MonsterInfo* monster_info, W8MonsterRecord* record,
                            unsigned char name_form);
-bool RemoveMonster(W8MonsterInfo* monster_info, bool destroy_monster);
+enum class W8MonsterRemoval { Deactivate, Despawn, Unload };
+bool RemoveMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal);
 void MonsterInfoEnterCombat(W8MonsterInfo* monster_info);
 void DeactivateMonster(W8MonsterInfo* monster_info);
 void ToggleCombatMode(void);

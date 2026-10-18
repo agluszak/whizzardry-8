@@ -101,6 +101,7 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/level_population.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/CombatHostility.h"
@@ -657,15 +658,15 @@ std::unique_ptr<W8Monster> MonsterReadAllCycles(W8World* world, std::string_view
     if (walk_radius != 0.0f) {
         walk_radius *= kWorldScale;
         monster->movement.collision_radius = walk_radius;
-        if (g_runtime_world_scale < walk_radius) {
-            g_runtime_world_scale = walk_radius;
+        if (world->octree && world->octree->max_navigation_radius < walk_radius) {
+            world->octree->max_navigation_radius = walk_radius;
         }
     }
     if (fight_radius != 0.0f) {
         fight_radius *= kWorldScale;
         monster->movement.alternate_radius = fight_radius;
-        if (g_runtime_world_scale < fight_radius) {
-            g_runtime_world_scale = fight_radius;
+        if (world->octree && world->octree->max_navigation_radius < fight_radius) {
+            world->octree->max_navigation_radius = fight_radius;
         }
     }
     if (target_height != 0.0f) {
@@ -926,9 +927,9 @@ W8MonsterCycle ParseMonsterCycleName(const char* name, signed char* subcycle)
 
 // FUNCTION: WIZ8 0x004bea20
 W8MonsterRep::W8MonsterRep()
-    : highlight_mask(0), standing_height(0), scale(1.0f), minimum_scale(0.0f), maximum_scale(0.0f),
-      death_scale(1.0f), random_idle(0), special_movement(0), idle_playback_scale(10.0f),
-      random_idle_fps_min(0), random_idle_fps_max(0), left_handed(0)
+    : standing_height(0), scale(1.0f), minimum_scale(0.0f), maximum_scale(0.0f), death_scale(1.0f),
+      random_idle(0), special_movement(0), idle_playback_scale(10.0f), random_idle_fps_min(0),
+      random_idle_fps_max(0), left_handed(0)
 {
     icon_count = 0;
 }
@@ -1013,7 +1014,7 @@ unsigned char W8MonsterRep::ReadCycleData(W8ReadLevelInfo* info, W8Monster* mons
 
 // FUNCTION: WIZ8 0x004bebd0
 W8MonsterRep::W8MonsterRep(const W8MonsterRep& other)
-    : W8EmitterHost(other), highlight_mask(other.highlight_mask), name(other.name), spell_icons(0),
+    : W8EmitterHost(other), name(other.name), spell_icons(0),
       standing_height(other.standing_height), scale(other.scale),
       minimum_scale(other.minimum_scale), maximum_scale(other.maximum_scale),
       death_scale(other.death_scale), random_idle(other.random_idle),
@@ -1072,7 +1073,7 @@ W8Monster::W8Monster(W8World* owner)
       pending_finalize(1), disabled(0), nearest_to_party(false), spell_vertex_warned(0),
       missile_point_warned(0), script(0), script_wait(MONSCR_NONE), trigger(0), registry_weight(0),
       spell_effect_armed(0), sector_mesh(0), fade_state(W8_MONSTER_FADE_IDLE),
-      target_highlighted(false), hostility_preserved(false), sound(0)
+      hostility_preserved(false), sound(0)
 {
     formation = glm::vec3(0);
     kind = 1;
@@ -1115,7 +1116,6 @@ W8Monster::W8Monster(const W8Monster& rhs, W8World* owner)
 {
     formation = glm::vec3(0);
     fade_state = W8_MONSTER_FADE_IDLE;
-    target_highlighted = false;
     hostility_preserved = rhs.hostility_preserved;
 
     if (rhs.m_pRep == 0) {
@@ -2610,7 +2610,7 @@ void W8Monster::BeginFadeOutAndRemove(W8MonsterRemovalState state)
         }
         fade_state = W8_MONSTER_FADE_OUT;
     }
-    RemoveMonster(FindMonster(location_id), false);
+    RemoveMonster(FindMonster(location_id), W8MonsterRemoval::Deactivate);
     removal_state = state;
 }
 
@@ -2738,7 +2738,8 @@ void UpdateNearestMonsterGroupMembers()
     unsigned int group_index;
 
     player_position = cameraLocation();
-    for (group_index = 0; group_index < gXStatus.monster_groups.size(); ++group_index) {
+    for (group_index = 0; group_index < CurrentLevelPopulation().monster_groups.size();
+         ++group_index) {
         W8MonsterGroup* group = GetMonsterGroupByListIndex(group_index);
 
         if (group != 0) {
@@ -3042,8 +3043,7 @@ void W8Monster::UpdateRepresentation(W8World* world)
     }
 
     if (position_dirty || movement.position_adjusted) {
-        GetWorldOctree()->UpdateMonsterLocation(static_cast<unsigned short>(location_id),
-                                                &position);
+        world->octree->UpdateMonsterLocation(static_cast<unsigned short>(location_id), &position);
     }
 
     /* Only a monster whose current world sector mesh is enabled (or that has
@@ -3182,14 +3182,14 @@ void W8Monster::SetCycle(signed char cycle)
     count = static_cast<int>(animations->size());
     if (count == 0) {
         if (static_cast<int>(m_pRep->animations[1].size()) < 1) {
-            W8MonsterInfo* monster_info = FindMonster(location_id);
+            W8MonsterInfo* monster_info = owner_world->population->findMonster(location_id);
             srAssertFail("FALSE", MONSTER_CPP, 0xb26,
                          fmt::format("ERROR: Monster {} has no IDLE cycle!",
                                      GetMonsterName(monster_info, 0, 0)));
             return;
         }
 
-        W8MonsterInfo* monster_info = FindMonster(location_id);
+        W8MonsterInfo* monster_info = owner_world->population->findMonster(location_id);
         DebugMessage(0, fmt::format("WARNING: Monster {} is missing anim cycle {}",
                                     GetMonsterName(monster_info, 0, 0), g_cycle_names[cycle].name));
         m_pRep->CopyCycle(cycle, m_pRep.get(), 1);
@@ -3367,7 +3367,7 @@ std::optional<glm::vec3> W8Monster::GetAnimationCenter()
 /* Keep equipped items, spell icons, and temporary poster model instances in
    the camera-facing attachment layout selected by the representation. */
 // FUNCTION: WIZ8 0x004c3f70
-void W8Monster::UpdateAttachedObjects()
+void W8Monster::UpdateAttachedObjects(bool hovered)
 {
     W8MonsterRep* representation = m_pRep.get();
     int attachment_layout = representation->icon_count;
@@ -3392,7 +3392,7 @@ void W8Monster::UpdateAttachedObjects()
     party_position = cameraLocation();
     party_position -= base_position;
     distance_scale = glm::length(party_position) * g_monster_attachment_distance_scale;
-    if (!target_highlighted && distance_scale > 1.0f) {
+    if (!hovered && distance_scale > 1.0f) {
         distance_scale = 1.0f;
     }
 
@@ -4123,20 +4123,6 @@ void MonsterSelectLOD(W8Monster* monster, const glm::vec3* position)
     }
 }
 
-/* Writes the sixteen-byte block the cycle runtime carries at 0x4c, but only for
-   a monster that is neither absent nor already answering the dying cycle to
-   query six - the same 0x15 the death test compares against, reached the same
-   way. Both guards leave through one shared exit, which is why the body has a
-   single epilogue despite testing two things. The block arrives by value and is
-   stored as one assignment. */
-// FUNCTION: WIZ8 0x004c5ad0
-void MonsterSetHighlightColour(W8Monster* monster, glm::vec4 block)
-{
-    if (monster != 0 && monster->Query(W8_MONSTER_QUERY_CYCLE) != W8_MONSTER_CYCLE_DIE) {
-        monster->m_pRep->highlight_colour = block;
-    }
-}
-
 /* Expose Navigator yaw through the enclosing Monster. */
 // FUNCTION: WIZ8 0x004c5770
 float MonsterGetYaw(W8Monster* monster)
@@ -4182,13 +4168,6 @@ void MonsterSetCycleSubCycle(W8GrCycle* cycle, unsigned char subcycle)
     if (cycle != 0) {
         cycle->SetSubCycle(subcycle);
     }
-}
-
-/* Attach or detach the TriRed target marker for one party slot on a monster. */
-// FUNCTION: WIZ8 0x004c5eb0
-void NotifyMonsterHighlight(int party_slot, int location_id, int on)
-{
-    SetMonsterPartySlotMarker(party_slot, location_id, on);
 }
 
 std::unique_ptr<W8Monster> LoadMonsterCycle(W8World* world, std::string_view mon_name, int cycle,
@@ -4242,7 +4221,8 @@ void MonsterSetAdjustedPosition(W8Monster* monster, const glm::vec3* position)
     glm::vec3 result;
 
     current = *position;
-    adjusted_position = monster->AdjustPosition(&adjusted, &current, &current);
+    adjusted_position =
+        monster->AdjustPosition(&adjusted, &current, &current, *monster->owner_world->octree);
     result = *adjusted_position;
     monster->SetPositionInternal(&result);
 }
@@ -4669,7 +4649,7 @@ bool W8Monster::IsRenderable(bool alternate)
         return true;
     }
 
-    monster_info = FindMonster(location_id);
+    monster_info = owner_world->population->findMonster(location_id);
     record = GetMonsterDataForInfo(monster_info);
     if (record->camouflage0 > 0) {
         return monster_info->party_threat.party_detected;
@@ -4724,7 +4704,7 @@ void W8Monster::RefreshStandingHeight()
     SetCycle(1);
     SetSubCycle(0);
     glm::vec3 camera_location;
-    camera_location = glm::vec3(GetWorld()->camera->getLocation());
+    camera_location = glm::vec3(owner_world->camera->getLocation());
     SelectLOD(&camera_location);
     if (const auto bounds = GetAnimationBounds())
         representation->standing_height = bounds->maximum.y;

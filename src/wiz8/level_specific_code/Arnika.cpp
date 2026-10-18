@@ -87,6 +87,33 @@ static std::optional<W8IntervalGate> g_warning_gate;
 // GLOBAL: WIZ8 0x006835E8
 static W8Monster* g_mookholo_monster;
 
+static void CaptureEl1Moving(W8SavedLocationState& state)
+{
+    state.emplace_back("El01Moving", 1);
+}
+static void CaptureEl2Moving(W8SavedLocationState& state)
+{
+    state.emplace_back("El02Moving", 1);
+}
+static void CaptureEl1Button(W8SavedLocationState& state)
+{
+    state.emplace_back("RedButtonDown", gEl01.button_down);
+}
+static void CaptureEl2Button(W8SavedLocationState& state)
+{
+    state.emplace_back("GreenButtonDown", gEl02.button_down);
+}
+static void CaptureLaserScan(W8SavedLocationState& state)
+{
+    state.emplace_back("LaserScanning", g_laser_scanning);
+}
+static void CaptureWarningSound(W8SavedLocationState& state)
+{
+    state.emplace_back("WarningSound", g_warning_gate
+                                           ? static_cast<int>(g_warning_gate->GetElapsedSeconds())
+                                           : 0x3e8);
+}
+
 struct ElevatorStateBindings {
     int which;
     int initial_state;
@@ -96,12 +123,30 @@ struct ElevatorStateBindings {
     void (*moving_master)(int);
     void (*button_master)(int);
     bool open_bottom_on_first_load;
+    void (*moving_state)(W8SavedLocationState&);
+    void (*button_state)(W8SavedLocationState&);
 };
 
-static constexpr ElevatorStateBindings g_el01_bindings{
-    1, 1, "El01State", "El01Moving", "RedButtonDown", ArnikaEl1Moving, ArnikaEl1Button, false};
-static constexpr ElevatorStateBindings g_el02_bindings{
-    2, 7, "El02State", "El02Moving", "GreenButtonDown", ArnikaEl2Moving, ArnikaEl2Button, true};
+static constexpr ElevatorStateBindings g_el01_bindings{1,
+                                                       1,
+                                                       "El01State",
+                                                       "El01Moving",
+                                                       "RedButtonDown",
+                                                       ArnikaEl1Moving,
+                                                       ArnikaEl1Button,
+                                                       false,
+                                                       CaptureEl1Moving,
+                                                       CaptureEl1Button};
+static constexpr ElevatorStateBindings g_el02_bindings{2,
+                                                       7,
+                                                       "El02State",
+                                                       "El02Moving",
+                                                       "GreenButtonDown",
+                                                       ArnikaEl2Moving,
+                                                       ArnikaEl2Button,
+                                                       true,
+                                                       CaptureEl2Moving,
+                                                       CaptureEl2Button};
 
 static void RestoreArnikaElevator(W8Elevator& elevator, const ElevatorStateBindings& bindings)
 {
@@ -143,7 +188,7 @@ static void RestoreArnikaElevator(W8Elevator& elevator, const ElevatorStateBindi
             elevator.pProp = elevator.pBottomDoor->GetProp();
             break;
         }
-        g_master_functions.push_back(bindings.moving_master);
+        g_master_functions.push_back({bindings.moving_master, bindings.moving_state});
     }
     if (elevator.button_down != 0) {
         bindings.button_master(elevator.button_down);
@@ -154,15 +199,11 @@ static void RunArnikaElevatorButton(W8Elevator& elevator, W8Prop*& button_prop,
                                     const ElevatorStateBindings& bindings, int command)
 {
     if (command != 0) {
-        if (command == -1) {
-            SetTriggerVariableByName(bindings.button_variable, elevator.button_down);
-            return;
-        }
         button_prop = elevator.pButton->GetProp();
         if (button_prop == 0) {
             return;
         }
-        g_master_functions.push_back(bindings.button_master);
+        g_master_functions.push_back({bindings.button_master, bindings.button_state});
         if (command != static_cast<int>(0xEFFFFFFF)) {
             elevator.button_down = command;
         } else {
@@ -193,10 +234,6 @@ static void RunArnikaElevatorMoving(W8Elevator& elevator, const ElevatorStateBin
                                     int command)
 {
     if (command != 0) {
-        if (command == -1) {
-            SetTriggerVariableByName(bindings.moving_variable, 1);
-            return;
-        }
     }
     g_remove_current_master_function = false;
     if (elevator.pProp == 0) {
@@ -236,7 +273,7 @@ void ArnikaLevelSetup(void)
             g_lazer_prop = pTrigger->GetProp();
             g_laser_scanning = 1;
             BeginScriptedWorldAction();
-            g_master_functions.push_back(ArnikaLaserScanMaster);
+            g_master_functions.push_back({ArnikaLaserScanMaster, CaptureLaserScan});
         }
     }
     if (GetLocationVarIDByName("WarningSound") != -1) {
@@ -279,28 +316,19 @@ bool ArnikaLazerScanner(Trigger* pTrigger)
     }
     g_laser_scanning = 1;
     BeginScriptedWorldAction();
-    g_master_functions.push_back(ArnikaLaserScanMaster);
+    g_master_functions.push_back({ArnikaLaserScanMaster, CaptureLaserScan});
     return true;
 }
 
-/* Laser-scan master: a positive command re-arms the scan, -1 persists the
-   state into LaserScanning, and a zero tick drops the scan once the prop's
+/* Laser-scan master: a positive command re-arms the scan; a zero tick drops it once the prop's
    rep stops animating. */
 // FUNCTION: WIZ8 0x004E0960
 void ArnikaLaserScanMaster(int command)
 {
     if (command != 0) {
-        if (command == -1) {
-            if (GetLocationVarIDByName("LaserScanning") == -1) {
-                CreateLocationVar("LaserScanning", g_laser_scanning);
-            } else {
-                SetTriggerVariableByName("LaserScanning", g_laser_scanning);
-            }
-            return;
-        }
         g_laser_scanning = 1;
         BeginScriptedWorldAction();
-        g_master_functions.push_back(ArnikaLaserScanMaster);
+        g_master_functions.push_back({ArnikaLaserScanMaster, CaptureLaserScan});
         return;
     }
     g_remove_current_master_function = false;
@@ -330,8 +358,7 @@ bool ArnikaScannerDoor(Trigger* pTrigger)
 }
 
 /* Warning-sound master: a positive command starts the ULLspawn alarm for
-   that many seconds (or just the one-shot above 0x1e), -1 persists the
-   remaining time into WarningSound, and a zero tick runs the countdown and
+   that many seconds (or just the one-shot above 0x1e); a zero tick runs the countdown and
    stops the looped VOC when it expires. */
 // FUNCTION: WIZ8 0x004E0AC0
 void ArnikaWarningSound(int command)
@@ -342,15 +369,6 @@ void ArnikaWarningSound(int command)
     if (command != 0) {
         if (GetLocationVarIDByName("WarningSound") == -1) {
             CreateLocationVar("WarningSound", 0x1e);
-        }
-        if (command == -1) {
-            if (g_warning_gate) {
-                SetTriggerVariableByName("WarningSound",
-                                         static_cast<int>(g_warning_gate->GetElapsedSeconds()));
-            } else {
-                SetTriggerVariableByName("WarningSound", 0x3e8);
-            }
-            return;
         }
         if (!FindEntityByName("ULLspawn", &position, 0, 0)) {
             return;
@@ -367,7 +385,7 @@ void ArnikaWarningSound(int command)
             CreateAndPlaySoundNode("Data\\Sound\\VOCs\\VOC_HLLIntruder\\VOC_HLLIntruder_003.wav",
                                    position, 1.0f, 75.0f, true);
         if (g_warning_loop != 0 || g_warning_oneshot != 0) {
-            g_master_functions.push_back(ArnikaWarningSound);
+            g_master_functions.push_back({ArnikaWarningSound, CaptureWarningSound});
         }
     }
     if (g_warning_oneshot != 0) {
@@ -424,7 +442,7 @@ bool ArnikaMookholo(Trigger* pTrigger)
             if (info != 0) {
                 g_mookholo_monster = info->p3D;
                 g_npc_dialogue_closed = false;
-                g_master_functions.push_back(ArnikaMookholoWatch);
+                g_master_functions.push_back({ArnikaMookholoWatch});
             }
             QueueNpcScriptNotice(FindNpcBindingForMonster(FindMonster(location_id)), 0, -1, false,
                                  0);
@@ -442,7 +460,7 @@ void ArnikaMookholoWatch(int command)
     if (command != 0) {
         if (command == static_cast<int>(0xEFFFFFFF)) {
             g_npc_dialogue_closed = false;
-            g_master_functions.push_back(ArnikaMookholoWatch);
+            g_master_functions.push_back({ArnikaMookholoWatch});
         }
         return;
     }
@@ -519,13 +537,13 @@ bool ArnikaExitButton(Trigger* pTrigger)
     if (GetLocationVarIDByName("Teleporting") != -1) {
         if (GetLocationVarValueByName("Teleporting") == 0) {
             SetTriggerVariableByName("Teleporting", 1);
-            g_master_functions.push_back(ArnikaTeleportWatch);
+            g_master_functions.push_back({ArnikaTeleportWatch});
         } else {
             SetTriggerVariableByName("Teleporting", 0);
         }
     } else {
         CreateLocationVar("Teleporting", 1);
-        g_master_functions.push_back(ArnikaTeleportWatch);
+        g_master_functions.push_back({ArnikaTeleportWatch});
     }
     g_trigger_feedback = true;
     SetFact(W8_FACT_ARNIKA_VAULT_TELEPORT, 1, false);
@@ -794,13 +812,13 @@ void ArnikaElevatorAdvance(int which)
         SetTriggerVariableByName("El01State", el->state);
         gEl01.pProp = prop;
         if (prop != 0) {
-            g_master_functions.push_back(ArnikaEl1Moving);
+            g_master_functions.push_back({ArnikaEl1Moving, CaptureEl1Moving});
         }
     } else {
         SetTriggerVariableByName("El02State", el->state);
         gEl02.pProp = prop;
         if (prop != 0) {
-            g_master_functions.push_back(ArnikaEl2Moving);
+            g_master_functions.push_back({ArnikaEl2Moving, CaptureEl2Moving});
         }
     }
 }

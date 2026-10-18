@@ -208,7 +208,7 @@ void RecordCharacterDamage(int party_slot, unsigned int amount)
         }
         entry->damage_splat_frame = 0;
         splat_started = true;
-        if (g_settings.main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS &&
+        if (GetEffectiveMainUiMode() != W8_MAIN_UI_MODE_PORTRAITS &&
             g_level_block->portrait_refresh_pending[party_slot] == 0) {
             RefreshSelectedPartyPortrait(party_slot);
             entry->auto_portrait_refresh = true;
@@ -304,7 +304,7 @@ void DrawPortraitEffectIcon(unsigned int party_slot)
         case 3:
             top = 0x111;
         }
-        if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS ||
+        if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS ||
             g_level_block->portrait_refresh_pending[party_slot] != 0) {
             CatalogArtwork::Load(gXStatus.monster_manager_entries[party_slot].effect_icon_catalog,
                                  0)
@@ -418,7 +418,7 @@ void RedrawCombatPortraits(void)
             badge_x = 0x25b;
         }
         row_y = (slot >> 1) * 0x55;
-        if (g_settings.main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS &&
+        if (GetEffectiveMainUiMode() != W8_MAIN_UI_MODE_PORTRAITS &&
             g_level_block->portrait_refresh_pending[slot] == 0) {
             EraseRegion(portrait_x, row_y + 0x37, portrait_x + 0x14, row_y + 0x58);
         }
@@ -433,10 +433,10 @@ void RedrawCombatPortraits(void)
         if (!CharacterCanSwitchTo(slot, W8_TARGETING_CONTEXT_IN_COMBAT, false, false)) {
             CatalogArtwork::Load(0x8b, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, badge_x,
                                                             row_y + 0x37);
-        } else if (party_row->target_in_combat.iType == W8_TARGET_KIND_CHARACTER) {
+        } else if (party_row->committed_action.target.iType == W8_TARGET_KIND_CHARACTER) {
             CatalogArtwork::Load(0x8c, 0).drawAndInvalidate(
                 GetFrameBufferSurface(),
-                g_status.buffers.XChar[party_row->target_in_combat.iChar].party_order_index,
+                g_status.buffers.XChar[party_row->committed_action.target.iChar].party_order_index,
                 badge_x, row_y + 0x38);
         }
         entry->combat_portrait_dirty = false;
@@ -530,8 +530,8 @@ void GetPartySlotMenuAnchor(int party_slot, int* menu_x, int* menu_y, int* band_
     default:
         throw std::logic_error("GetPartySlotMenuAnchor: party slot out of range");
     }
-    if (adjust != 0 && g_settings.main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS &&
-        static_cast<unsigned int>(g_settings.main_ui_mode) <=
+    if (adjust != 0 && GetEffectiveMainUiMode() != W8_MAIN_UI_MODE_PORTRAITS &&
+        static_cast<unsigned int>(GetEffectiveMainUiMode()) <=
             static_cast<unsigned int>(W8_MAIN_UI_MODE_RADAR)) {
         if ((party_slot & 1) == 0) {
             *menu_x -= 0x69;
@@ -676,7 +676,7 @@ void StageMonsterCastIcon(unsigned int party_slot, W8SpellRealm realm, bool alte
             ? fmt::format("Data\\Spells\\Sounds\\{}.wav", g_spell_records[spell_id].sound_name)
             : s_general_magic_sound;
     wiz8::sound::play(sound);
-    if (g_settings.main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS &&
+    if (GetEffectiveMainUiMode() != W8_MAIN_UI_MODE_PORTRAITS &&
         g_level_block->portrait_refresh_pending[party_slot] == 0) {
         RefreshSelectedPartyPortrait(party_slot);
         entry->auto_portrait_refresh = true;
@@ -700,8 +700,8 @@ bool PreparePartyPortraitOverlay(unsigned int party_slot, unsigned int left, uns
         return false;
     }
     if ((g_level_block == 0 ||
-         (g_settings.main_ui_mode != W8_MAIN_UI_MODE_FORMATION &&
-          g_settings.main_ui_mode != W8_MAIN_UI_MODE_RADAR) ||
+         (GetEffectiveMainUiMode() != W8_MAIN_UI_MODE_FORMATION &&
+          GetEffectiveMainUiMode() != W8_MAIN_UI_MODE_RADAR) ||
          g_level_block->portrait_refresh_pending[party_slot] != 0) &&
         g_status.buffers.XChar[party_slot].fOccupied) {
         W8Character* character = &g_status.buffers.Char[party_slot];
@@ -802,7 +802,7 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
 
     if (party_row->fOccupied) {
         if (overlay_ready) {
-            if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS ||
+            if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS ||
                 g_level_block->portrait_refresh_pending[party_slot] != 0) {
                 main_hand_item_id = character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo;
                 if (main_hand_item_id == -1 ||
@@ -869,7 +869,7 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
                                                menu_y);
             RedrawPartyPortraitBars(party_slot, slot_enabled);
 
-            if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS ||
+            if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS ||
                 g_level_block->portrait_refresh_pending[party_slot] != 0) {
                 text = fmt::format("{:d}", character->armor_class_average);
                 if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
@@ -913,8 +913,8 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
         }
 
         if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME &&
-            (g_settings.main_ui_mode == W8_MAIN_UI_MODE_FORMATION ||
-             g_settings.main_ui_mode == W8_MAIN_UI_MODE_RADAR) &&
+            (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_FORMATION ||
+             GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_RADAR) &&
             g_level_block->portrait_refresh_pending[party_slot] == 0) {
             int highlight_x;
             int highlight_y;
@@ -1002,13 +1002,13 @@ draw_condition_icons:
         }
 
         if (g_level_block->highlight.SlotFor(W8_HIGHLIGHT_NAME) == static_cast<int>(party_slot) &&
-            (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS ||
+            (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS ||
              g_level_block->portrait_refresh_pending[party_slot] != 0)) {
             CatalogArtwork::Load(0x62, 0).draw(GetFrameBufferSurface(), 0, menu_x + 0x13,
                                                menu_y + 0x48);
         }
 
-        if ((g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS ||
+        if ((GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS ||
              g_level_block->portrait_refresh_pending[party_slot] != 0) &&
             g_level_block->highlight.SlotFor(W8_HIGHLIGHT_ASSAY) == static_cast<int>(party_slot)) {
             int assay_y;
@@ -1074,7 +1074,7 @@ portrait_fx:
         DrawPortraitStatusOverlay(g_level_block->condition_highlight_party_slot);
     }
 
-    if (g_settings.main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS &&
+    if (GetEffectiveMainUiMode() != W8_MAIN_UI_MODE_PORTRAITS &&
         g_level_block->portrait_refresh_pending[party_slot] != 0 &&
         (g_level_block->condition_highlight_party_slot != -1 ||
          g_level_block->portrait_overlay_party_slot != -1)) {

@@ -134,7 +134,8 @@ bool nodes(const std::filesystem::path& directory)
     torch->setFlag(srNode::FLAG_DISABLE);
     {
         auto file = wiz8::open_file(path);
-        ReadSavePayload(*file, [](W8Chunk& chunk) { ApplyLightStates(ReadLightStates(chunk)); });
+        ReadSavePayload(
+            *file, [&level](W8Chunk& chunk) { ApplyLightStates(level, ReadLightStates(chunk)); });
     }
     REQUIRE((lamp->testFlag(srNode::FLAG_DISABLE)));
     REQUIRE((torch->testFlag(srNode::FLAG_DISABLE)));
@@ -154,8 +155,9 @@ bool nodes(const std::filesystem::path& directory)
     gas->emitting = 1;
     {
         auto file = wiz8::open_file(path);
-        ReadSavePayload(*file,
-                        [](W8Chunk& chunk) { ApplyParticleStates(ReadParticleStates(chunk)); });
+        ReadSavePayload(*file, [&level](W8Chunk& chunk) {
+            ApplyParticleStates(level, ReadParticleStates(chunk));
+        });
     }
     REQUIRE((!gas->emitting && idle->emitting));
     // Particles are owned by the world list, not the scene.

@@ -30,6 +30,7 @@
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/level_population.h"
 #include "wiz8/local_code/CombatRange.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/Magic.h"
@@ -37,6 +38,7 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/overlay_scenes.h"
 #include "wiz8/startup_world.h"
+#include "wiz8/targeting_presentation.h"
 #include "wiz8/xstatus.h"
 
 /* The blip palette, six classes of three distance rings. Items
@@ -260,11 +262,11 @@ void RefreshRadarMap(void)
         g_radar_icon_pools[sector].emplace_back(icon);
         icon->overlay_scene_flag |= 1;
     }
-    UpdateRadarBlips();
+    UpdateRadarBlips({});
 }
 
 // FUNCTION: WIZ8 0x005a2800
-void UpdateRadarBlips(void)
+void UpdateRadarBlips(const W8TargetingPresentation& presentation)
 {
     glm::vec3 camera;
     glm::vec3 position;
@@ -287,7 +289,7 @@ void UpdateRadarBlips(void)
     camera = cameraLocation();
     detect_all = PartyHasCondition(0x40);
 
-    for (const auto& world_item : gXStatus.world_items) {
+    for (const auto& world_item : CurrentLevelPopulation().world_items) {
         W8Item* item = world_item->p3D;
 
         if (item != 0) {
@@ -310,7 +312,7 @@ void UpdateRadarBlips(void)
         }
     }
 
-    for (const auto& monster_owner : gXStatus.monster_roster.live()) {
+    for (const auto& monster_owner : CurrentLevelPopulation().monster_roster.live()) {
         auto* info = monster_owner.get();
         W8Monster* monster = info->p3D;
 
@@ -318,10 +320,12 @@ void UpdateRadarBlips(void)
             (!monster->disabled || detect_all)) {
             bool hostile = false;
 
+            const auto mark = presentation.monsters.find(info->location_id);
             if (gXStatus.fCombatMode && g_status.selected_character != -1 &&
+                mark != presentation.monsters.end() &&
                 g_status.buffers.XChar[g_status.selected_character].fOccupied != 0 &&
                 (static_cast<unsigned char>(1 << g_status.selected_character) &
-                 monster->m_pRep->highlight_mask) != 0) {
+                 mark->second.party_targets) != 0) {
                 hostile = true;
             }
             if (!monster->IsRenderable(true) && !detect_all) {

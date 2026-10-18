@@ -1,3 +1,4 @@
+#include <bit>
 #pragma once
 
 #include <cstring>
@@ -141,20 +142,23 @@ template<> struct Record<W8PartySlotRow> {
     template<class Runtime, class Bytes, class Value, class Text>
     static void fields(Runtime& runtime, Bytes bytes, Value value, Text)
     {
+        if constexpr (!std::is_const_v<Runtime>) runtime.spell.kind = W8_ACTION_CAST_SPELL;
         value(&runtime.fOccupied,
               bytes.subspan(offsetof(Disk, fOccupied), sizeof(Disk::fOccupied)));
         value(&runtime.pending_action,
               bytes.subspan(offsetof(Disk, pending_action), sizeof(Disk::pending_action)));
         value(&runtime.attack_mode,
               bytes.subspan(offsetof(Disk, attack_mode), sizeof(Disk::attack_mode)));
-        value(&runtime.action, bytes.subspan(offsetof(Disk, action), sizeof(Disk::action)));
-        value(&runtime.action_detail0,
+        value(&runtime.committed_action.kind,
+              bytes.subspan(offsetof(Disk, action), sizeof(Disk::action)));
+        value(&runtime.committed_action.detail,
               bytes.subspan(offsetof(Disk, action_detail0), sizeof(Disk::action_detail0)));
         value(&runtime.action_kind,
               bytes.subspan(offsetof(Disk, action_kind), sizeof(Disk::action_kind)));
         value(&runtime.action_detail,
               bytes.subspan(offsetof(Disk, action_detail), sizeof(Disk::action_detail)));
-        value(&runtime.spell_id, bytes.subspan(offsetof(Disk, spell_id), sizeof(Disk::spell_id)));
+        value(&runtime.spell.detail,
+              bytes.subspan(offsetof(Disk, spell_id), sizeof(Disk::spell_id)));
         value(&runtime.item_id, bytes.subspan(offsetof(Disk, item_id), sizeof(Disk::item_id)));
         value(&runtime.item_origin,
               bytes.subspan(offsetof(Disk, item_origin), sizeof(Disk::item_origin)));
@@ -194,16 +198,17 @@ template<> struct Record<W8PartySlotRow> {
         detail(runtime.pending_action_detail,
                bytes.subspan(offsetof(Disk, pending_action_detail), 8),
                runtime.pending_action == W8_ACTION_USE_ITEM);
-        detail(runtime.action_detail1, bytes.subspan(offsetof(Disk, action_detail1), 8),
-               runtime.action == W8_ACTION_USE_ITEM);
-        detail(runtime.spell_detail, bytes.subspan(offsetof(Disk, spell_detail), 8), false);
+        detail(runtime.committed_action.detail_block,
+               bytes.subspan(offsetof(Disk, action_detail1), 8),
+               runtime.committed_action.kind == W8_ACTION_USE_ITEM);
+        detail(runtime.spell.detail_block, bytes.subspan(offsetof(Disk, spell_detail), 8), false);
         detail(runtime.item_detail, bytes.subspan(offsetof(Disk, item_detail), 8), true);
         auto target = [&](auto& live, auto field) { nested(live, field, value, nullptr); };
         target(runtime.target_out_of_combat,
                bytes.subspan(offsetof(Disk, target_out_of_combat), sizeof(CombatTarget)));
-        target(runtime.target_in_combat,
+        target(runtime.committed_action.target,
                bytes.subspan(offsetof(Disk, target_in_combat), sizeof(CombatTarget)));
-        target(runtime.spell_target,
+        target(runtime.spell.target,
                bytes.subspan(offsetof(Disk, spell_target), sizeof(CombatTarget)));
         target(runtime.item_target,
                bytes.subspan(offsetof(Disk, item_target), sizeof(CombatTarget)));
@@ -1085,6 +1090,10 @@ template<class T> auto encode(const T& runtime)
                     source, std::span(reinterpret_cast<char*>(bytes.data()), bytes.size()));
         });
     return image;
+}
+template<class T> typename Record<T>::Disk encode_image(const T& runtime)
+{
+    return std::bit_cast<typename Record<T>::Disk>(encode(runtime));
 }
 template<class T> void read_exact(File& file, T& runtime,
                                   std::size_t bytes = sizeof(typename Record<T>::Disk))

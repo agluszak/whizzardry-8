@@ -26,7 +26,6 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/conditions.h"
 #include "wiz8/dialog_code/DialogInterface.h"
-#include "wiz8/engine_code/Camera.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Levels.h"
@@ -47,7 +46,6 @@
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/PC_Item.h"
@@ -346,20 +344,15 @@ std::string FormatNpcVoiceSoundPath(W8NpcState* npc)
 }
 
 // FUNCTION: WIZ8 0x00524CA0
-void ReloadNpcScriptResources(W8NpcState* npc)
+void ReloadNpcScriptResources(W8NpcState* npc, W8Monster* monster)
 {
     const std::string script_name = FormatNpcVoiceSoundPath(npc);
     std::string resource_name = fmt::format("Data\\NPC Scripts\\{}.nsf", script_name);
     npc->script_file = LoadNpcScriptFile(resource_name);
     if (npc->script_file != 0) {
-        W8Monster* monster = GetNpcMonster(npc);
         if (monster != 0) {
             resource_name = fmt::format("{}.msf", script_name);
             monster->SetScript(resource_name.c_str(), true);
-            W8MonsterInfo* monster_info = FindMonster(monster->location_id);
-            if (monster_info != 0) {
-                GetMonsterDataForInfo(monster_info);
-            }
         }
     }
 }

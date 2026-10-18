@@ -6,7 +6,6 @@
 
 struct W8ItemInstance;
 
-extern W8MainUiMode g_use_item_select_return_mode;
 extern W8ItemInstance* g_use_item_selected;
 
 void SetUseItemSelectInputEnabled(bool enabled);

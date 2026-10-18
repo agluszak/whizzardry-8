@@ -94,7 +94,6 @@ struct W8MonsterRep : public W8EmitterHost {
     std::vector<float> animation_scales[W8_MONSTER_CYCLE_COUNT];
     /* 0x5bc: per-party-member highlight bitmask - bit N set while party
        member N has the monster highlighted/targeted. */
-    unsigned char highlight_mask;
     std::string name;
     /* 0x5c4: number of populated party-icon entries in objects; the
        attachment layout read by UpdateAttachedObjects. */
@@ -186,7 +185,7 @@ public:
     void HandleAnimationFrame(unsigned char frame);
     void UpdateShakeEvents(unsigned char frame);
     void SetShakeEventVisibility(signed char cycle);
-    void UpdateAttachedObjects();
+    void UpdateAttachedObjects(bool hovered = false);
     void BeginFadeIn(float duration);
     void BeginDelayedRemoval();
     void BeginFadeOutAndRemove(W8MonsterRemovalState state);
@@ -324,7 +323,6 @@ public:
     W8MonsterFadeState fade_state;
     /* 0x331: this monster is the highlighted target; exempt from the
        attachment distance-scale clamp. */
-    bool target_highlighted;
     /* 0x332: copied from the source monster; blocks hostility recompute in
        Targeting and Combat Hostility. */
     bool hostility_preserved;
@@ -383,7 +381,7 @@ struct W8MonsterShakeCallback {
 };
 
 void MonsterStopAllNavigators(void);
-void MonsterSetHighlightColour(W8Monster* monster, glm::vec4 block);
+
 unsigned char MonsterSetAnimating(W8Monster* monster, bool animating);
 unsigned char MonsterIsAnimating(W8Monster* monster);
 bool MonsterHasPendingCycle(W8Monster* monster); /* 0x004C5710 */
@@ -409,7 +407,6 @@ void MonsterResumeAllNavigators(void);
 
 void SetMonsterPartySlotMarker(int party_slot, int location_id, char on);
 void MonsterForwardReferencePosition(W8Monster* monster, char alternate); /* 0x004C6240 */
-void NotifyMonsterHighlight(int party_slot, int location_id, int on);
 
 std::unique_ptr<W8Item> CreateMonsterIconItem(W8World& world, const char* path);
 /* A Monster script by name, shared through the script cache; null when missing. */

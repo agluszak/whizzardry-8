@@ -40,7 +40,6 @@
 #include "wiz8/learned_spells.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
@@ -209,7 +208,6 @@ static void CreateSpellCastingViewControls(void)
 // FUNCTION: WIZ8 0x0059F0E0
 unsigned char OpenSpellCastingView(int party_slot)
 {
-    W8MainUiMode mode;
 
     if (!IsPartySlotEligible(party_slot)) {
         return 0;
@@ -225,9 +223,7 @@ unsigned char OpenSpellCastingView(int party_slot)
     gpSCSV->location_id = -1;
     gpSCSV->interact_id = W8_DIALOGUE_LAYOUT_UNSET;
     CloseMainGameOverlays();
-    mode = g_settings.main_ui_mode;
-    SetMainGameOverlayViewport(mode);
-    gpSCSV->saved_game_mode = mode;
+    RefreshMainGameLayout();
     CreateSpellCastingViewControls();
     RestoreSpellCastingRegions();
     gpSCSV->input.setEnabled(true);
@@ -242,14 +238,13 @@ unsigned char OpenSpellCastingView(int party_slot)
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
     RequestRedrawCombatBar();
     RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
-    PauseMainGameWorld();
+    SyncWorldAdvancement();
     gpSCSV->override_spell = 0;
     return 1;
 }
 
-/* Tears the spell-casting view down: restores the regions and game mode,
-   frees the view state, and resumes the world. A pending interact id picks
-   its NPC interaction back up. */
+/* Discard the picker, recompute layout and advancement policy, and resume
+   its suspended NPC interaction when one exists. */
 // FUNCTION: WIZ8 0x0059F2B0
 void CloseSpellCastingView(void)
 {
@@ -257,40 +252,39 @@ void CloseSpellCastingView(void)
     W8NpcDialogueLayout interact_id;
     W8NpcState* npc;
 
-    if (!gpSCSV->closing) {
-        gpSCSV->input.setEnabled(false);
-        SetTextBoxScrollInput(false);
-        g_level_block->action_panel_visible = 0;
-        SetTargetingMode(W8_TARGET_NEED_NONE);
-        if (!gXStatus.fCampMode) {
-            ResetEditorStatusLine(-1);
-        }
-        g_level_block->text_box_visible = true;
-        SelectTextBox(gXStatus.fCombatMode);
-        SetTextBoxRegionBounds(0xa8, 0x16e, 0x1c4, 0x1ba);
-        gXStatus.fSpellCastMode = false;
-        ApplyMainGameModeFlag(gpSCSV->saved_game_mode, true);
-        RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
-        RequestRedrawCombatBar();
-        RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
-        location_id = gpSCSV->location_id;
-        interact_id = gpSCSV->interact_id;
-        gpSCSV.reset();
-        ResumeMainGameWorld();
-        if (IsWorldCursorVisible()) {
-            ToggleWorldCursor();
-        }
-        if (LockInteractionSuspended() && !IsScreenTransitionPending()) {
-            OpenLockInteraction(0);
-        }
-        if (TrapInteractionSuspended() && !IsScreenTransitionPending()) {
-            OpenTrapInteraction(0);
-        }
-        if (interact_id != W8_DIALOGUE_LAYOUT_UNSET && !IsScreenTransitionPending()) {
-            npc = FindNpcBindingForMonster(FindMonster(location_id));
-            BeginNpcDialogue(npc, 0, -1, 0, 1);
-            SwitchNpcDialogueLayout(interact_id);
-        }
+    if (!gpSCSV) return;
+    gpSCSV->input.setEnabled(false);
+    SetTextBoxScrollInput(false);
+    g_level_block->action_panel_visible = 0;
+    SetTargetingMode(W8_TARGET_NEED_NONE);
+    if (!gXStatus.fCampMode) {
+        ResetEditorStatusLine(-1);
+    }
+    g_level_block->text_box_visible = true;
+    SelectTextBox(gXStatus.fCombatMode);
+    SetTextBoxRegionBounds(0xa8, 0x16e, 0x1c4, 0x1ba);
+    gXStatus.fSpellCastMode = false;
+    RefreshMainGameLayout();
+    RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
+    RequestRedrawCombatBar();
+    RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
+    location_id = gpSCSV->location_id;
+    interact_id = gpSCSV->interact_id;
+    gpSCSV.reset();
+    SyncWorldAdvancement();
+    if (IsWorldCursorVisible()) {
+        ToggleWorldCursor();
+    }
+    if (LockInteractionSuspended() && !IsScreenTransitionPending()) {
+        OpenLockInteraction(0);
+    }
+    if (TrapInteractionSuspended() && !IsScreenTransitionPending()) {
+        OpenTrapInteraction(0);
+    }
+    if (interact_id != W8_DIALOGUE_LAYOUT_UNSET && !IsScreenTransitionPending()) {
+        npc = FindNpcBindingForMonster(FindMonster(location_id));
+        BeginNpcDialogue(npc, 0, -1, 0, 1);
+        SwitchNpcDialogueLayout(interact_id);
     }
 }
 
@@ -309,7 +303,7 @@ void RestoreSpellCastingRegions(void)
    This descriptive helper keeps the view open and retains callback order. */
 static void ClearSpellCastingChoice()
 {
-    gpSCSV->uiSpellToCast = 0;
+    gpSCSV->draft.detail = 0;
     gpSCSV->iSpellPowerClass = W8_SPELL_POWER_CLASS_NONE;
     gpSCSV->uiSpellIndex = -1;
     SelectSpellCastingRow(-1);
@@ -340,7 +334,7 @@ void SelectSpellCastingCharacter(int party_slot)
     UpdateSpellRealmPointDisplays();
     ClearSpellCastingChoice();
     if (GetAffordableSpellPowerLevel(party_slot) != 0) {
-        int spell_id = g_status.buffers.XChar[party_slot].spell_id;
+        int spell_id = g_status.buffers.XChar[party_slot].spell.detail;
         SelectSpellCastingRealm(g_spell_records[spell_id].realm);
         if (spell_id == W8_SPELL_IDENTIFY_ITEM) {
             gpSCSV->uiSpellIndex = -1;
@@ -432,11 +426,11 @@ static void UpdateSpellPowerPips(void)
     if (gpSCSV->iSpellPowerClass == W8_SPELL_POWER_MAXIMUM) {
         if (gpSCSV->uiPowerLevels != 0) {
             for (pip = 0; pip < gpSCSV->uiPowerLevels; ++pip) {
-                if (gpSCSV->uiSpellToCast == 0) {
-                    srAssertFail("gpSCSV->uiSpellToCast != SPELL_NONE", SPELLCASTING_CPP, 0x338, 0);
+                if (gpSCSV->draft.detail == 0) {
+                    srAssertFail("gpSCSV->draft.detail != SPELL_NONE", SPELLCASTING_CPP, 0x338, 0);
                 }
                 gpSCSV->power_controls[pip]->SetEnabled(false);
-                rating = GetSpellCastRating(gpSCSV->caster, gpSCSV->uiSpellToCast, pip + 1);
+                rating = GetSpellCastRating(gpSCSV->caster, gpSCSV->draft.detail, pip + 1);
                 gpSCSV->power_frames[pip][0] = (pip + rating * 9) * 6;
             }
         }
@@ -462,8 +456,8 @@ static void RefreshSpellPowerPip(int pip)
     int level;
     int frame;
 
-    if (gpSCSV->uiSpellToCast == 0) {
-        srAssertFail("gpSCSV->uiSpellToCast != SPELL_NONE", SPELLCASTING_CPP, 0x303, 0);
+    if (gpSCSV->draft.detail == 0) {
+        srAssertFail("gpSCSV->draft.detail != SPELL_NONE", SPELLCASTING_CPP, 0x303, 0);
     }
     if (pip == 7 || pip == 8) {
         level = 8;
@@ -471,7 +465,7 @@ static void RefreshSpellPowerPip(int pip)
         level = pip + 1;
     }
     gpSCSV->power_controls[pip]->SetEnabled(true);
-    rating = GetSpellCastRating(gpSCSV->caster, gpSCSV->uiSpellToCast, level);
+    rating = GetSpellCastRating(gpSCSV->caster, gpSCSV->draft.detail, level);
     frame = (pip + rating * 9) * 6;
     auto& frames = gpSCSV->power_frames[pip];
     frames[1] = frame;
@@ -783,13 +777,13 @@ static void SelectSpellPowerPip7(void)
         }
         gpSCSV->spell_name.SetRenderMode(4);
         gpSCSV->spell_name.SetText("?", g_wiz_text_font_secondary);
-        gpSCSV->iSpellPower = 7;
+        gpSCSV->draft.detail_block.spell.power_level = 8;
         gpSCSV->dirty[2] = true;
         return;
     }
     gpSCSV->spell_name.SetRenderMode(4);
     gpSCSV->spell_name.SetText("", g_wiz_text_font_secondary);
-    gpSCSV->iSpellPower = -1;
+    gpSCSV->draft.detail_block.spell.power_level = 0;
     gpSCSV->dirty[2] = true;
 }
 
@@ -801,7 +795,7 @@ static void SelectSpellPowerPip8(void)
     if (gpSCSV->power_controls[8]->IsPressed()) {
         gpSCSV->spell_name.SetRenderMode(4);
         gpSCSV->spell_name.SetText("?", g_wiz_text_font_secondary);
-        gpSCSV->iSpellPower = 7;
+        gpSCSV->draft.detail_block.spell.power_level = 8;
         gpSCSV->dirty[2] = true;
         return;
     }
@@ -819,11 +813,11 @@ void SelectSpellPowerLevel(int power_level)
 
     gpSCSV->dirty[2] = true;
     if (power_level == -1 || (gpSCSV->power_controls[power_level]->IsPressed() == 0 &&
-                              gpSCSV->iSpellPower == power_level)) {
+                              gpSCSV->draft.detail_block.spell.power_level == power_level + 1)) {
         for (pip = 0; pip < 7; ++pip) {
             gpSCSV->power_controls[pip]->SetPressed(false);
         }
-        gpSCSV->iSpellPower = -1;
+        gpSCSV->draft.detail_block.spell.power_level = 0;
         if (gpSCSV->iSpellPowerClass == W8_SPELL_POWER_MAXIMUM) {
             gpSCSV->power_controls[8]->SetPressed(true);
             if (gpSCSV->power_controls[8]->IsPressed() == 0) {
@@ -831,19 +825,20 @@ void SelectSpellPowerLevel(int power_level)
             } else {
                 gpSCSV->spell_name.SetRenderMode(4);
                 gpSCSV->spell_name.SetText("?", g_wiz_text_font_secondary);
-                gpSCSV->iSpellPower = 7;
+                gpSCSV->draft.detail_block.spell.power_level = 8;
             }
             gpSCSV->dirty[2] = true;
             return;
         }
         gpSCSV->spell_name.SetRenderMode(4);
         if (gpSCSV->iSpellPowerClass == W8_SPELL_POWER_FIXED) {
-            text = fmt::format("{:d}", g_spell_records[gpSCSV->uiSpellToCast].spell_point_cost);
+            gpSCSV->draft.detail_block.spell.power_level = 1;
+            text = fmt::format("{:d}", g_spell_records[gpSCSV->draft.detail].spell_point_cost);
         } else {
             text = "";
         }
     } else {
-        gpSCSV->iSpellPower = power_level;
+        gpSCSV->draft.detail_block.spell.power_level = power_level + 1;
         if (power_level >= 0) {
             for (pip = 0; pip <= power_level; ++pip) {
                 gpSCSV->power_controls[pip]->SetPressed(true);
@@ -856,7 +851,7 @@ void SelectSpellPowerLevel(int power_level)
         }
         gpSCSV->spell_name.SetRenderMode(4);
         text = fmt::format("{:d}", (power_level + 1) *
-                                       g_spell_records[gpSCSV->uiSpellToCast].spell_point_cost);
+                                       g_spell_records[gpSCSV->draft.detail].spell_point_cost);
     }
     gpSCSV->spell_name.SetText(text, g_wiz_text_font_secondary);
 }
@@ -877,18 +872,18 @@ static void PreviewSpellPowerPipHover(int power_level)
             gpSCSV->dirty[2] = true;
             if (power_level != -1) {
                 gpSCSV->spell_name.SetRenderMode(6);
-                text = fmt::format("{:d}",
-                                   (power_level + 1) *
-                                       g_spell_records[gpSCSV->uiSpellToCast].spell_point_cost);
+                text =
+                    fmt::format("{:d}", (power_level + 1) *
+                                            g_spell_records[gpSCSV->draft.detail].spell_point_cost);
                 gpSCSV->spell_name.SetText(text, g_wiz_text_font_secondary);
                 return;
             }
             if (gpSCSV->iSpellPowerClass == W8_SPELL_POWER_SELECTABLE) {
                 gpSCSV->spell_name.SetRenderMode(4);
-                if (gpSCSV->iSpellPower != -1) {
+                if (gpSCSV->draft.detail_block.spell.power_level != 0) {
                     text = fmt::format("{:d}",
-                                       (gpSCSV->iSpellPower + 1) *
-                                           g_spell_records[gpSCSV->uiSpellToCast].spell_point_cost);
+                                       gpSCSV->draft.detail_block.spell.power_level *
+                                           g_spell_records[gpSCSV->draft.detail].spell_point_cost);
                     gpSCSV->spell_name.SetText(text, g_wiz_text_font_secondary);
                     return;
                 }
@@ -921,7 +916,6 @@ void ResetSpellCastingSelection(void)
         ResetEditorStatusLine(-1);
     }
     CloseSpellCastingView();
-    ClearSlotTargeting(g_status.selected_character);
 }
 
 /* Per-frame spell-casting pump: advances the selected realm's icon animation
@@ -1022,7 +1016,7 @@ static void SelectSpellCastingListRow(int index)
     }
     gpSCSV->iSpellPowerClass = power_class;
     gpSCSV->uiPowerLevels = levels;
-    gpSCSV->uiSpellToCast = spell_id;
+    gpSCSV->draft.detail = spell_id;
     needed = GetTargetNeededForSpellFriendly(spell_id, false, g_level_block == nullptr);
     target_type = GetSpellTargetType(spell_id, false);
     ConfigureSpellTargetFilter(target_type, needed);
@@ -1038,7 +1032,7 @@ int GetSpellCastingSelection(void)
 
     result = gpSCSV->override_spell;
     if (result == 0) {
-        result = gpSCSV->uiSpellToCast;
+        result = gpSCSV->draft.detail;
     }
     return result;
 }
@@ -1051,32 +1045,26 @@ void TryCommitSpellCast(void)
     bool ready;
 
     ready = false;
-    if (gpSCSV->uiSpellToCast != 0 &&
-        (gpSCSV->iSpellPower != -1 || gpSCSV->iSpellPowerClass == W8_SPELL_POWER_FIXED)) {
-        ready = IsSpellTargetOfNeededKind(
-            SelectCombatAction(g_status.selected_character,
-                               GetEditedActionContext(g_status.selected_character))
-                .target,
-            gpSCSV->uiSpellToCast, g_level_block == nullptr);
+    if (gpSCSV->draft.detail != 0 && (gpSCSV->draft.detail_block.spell.power_level != 0 ||
+                                      gpSCSV->iSpellPowerClass == W8_SPELL_POWER_FIXED)) {
+        ready = IsSpellTargetOfNeededKind(&gpSCSV->draft.target, gpSCSV->draft.detail,
+                                          g_level_block == nullptr);
     }
-    if (gpSCSV->uiSpellToCast == 0x4b && !gpSCSV->dialog_confirmed) {
+    if (gpSCSV->draft.detail == 0x4b && !gpSCSV->dialog_confirmed) {
         if (!IsModalOpen() &&
             g_status.buffers.Char[g_status.selected_character].has_saved_location) {
             ShowMainGameNoticeLine(g_localized_strings[0x7a4], SpellCastingDialogResult, true,
                                    true);
         }
-    } else if (gpSCSV->uiSpellToCast == 0x49 && !gpSCSV->dialog_confirmed && !IsModalOpen()) {
+    } else if (gpSCSV->draft.detail == 0x49 && !gpSCSV->dialog_confirmed && !IsModalOpen()) {
         ShowMainGameNoticeLine(g_localized_strings[0x7a5], SpellCastingDialogResult, true, true);
     }
     if (ready && !IsModalOpen()) {
-        gpSCSV->closing = true;
-        CommitSelectedSpellTarget();
-        gpSCSV->closing = false;
-        if (gpSCSV->uiSpellToCast != 0x17) {
+        if (gpSCSV->draft.detail != 0x17) {
             if (gXStatus.fCampMode) {
                 ResetEditorStatusLine(-1);
             }
-            SetCharacterSpell(gpSCSV->caster, gpSCSV->uiSpellToCast, gpSCSV->iSpellPower + 1);
+            SetCharacterSpell(gpSCSV->caster, gpSCSV->draft);
             CloseSpellCastingView();
             return;
         }

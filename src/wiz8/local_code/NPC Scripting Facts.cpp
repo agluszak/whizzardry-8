@@ -31,6 +31,7 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/npc_state.h"
+#include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
@@ -183,7 +184,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         if (value != 0) {
             npc = GetNpcStateByKind(0x20);
             if (npc != 0) {
-                ReloadNpcScriptResources(npc);
+                ReloadNpcScriptResources(npc, GetNpcMonster(npc));
                 if (!npc->is_grouped) {
                     g_npc_dialogue.Cancel();
                     g_npc_dialogue.QueueQuote(0, false, false, false);
@@ -908,12 +909,12 @@ void HandleScriptedNpcDeath(unsigned int monster_list_index)
     } else if (g_status.endgame3_queued != 0) {
         g_npc_dialogue.Queue(W8NpcStoryAction::phoonzang_notice);
     }
-    for (unsigned int entry_index = 0; entry_index < gXStatus.monster_roster.live().size();
-         ++entry_index) {
+    for (unsigned int entry_index = 0;
+         entry_index < CurrentLevelPopulation().monster_roster.live().size(); ++entry_index) {
         W8MonsterInfo* entry = GetMonsterListEntry(entry_index);
         if (entry->fActive && entry->ubDisposition == W8_DISPOSITION_HOSTILE &&
             !entry->p3D->IsDying()) {
-            TintHighlightedMonster(entry->p3D, W8_TARGET_HIGHLIGHT_NONE);
+
             MonsterStartsDying(entry, true);
         }
     }

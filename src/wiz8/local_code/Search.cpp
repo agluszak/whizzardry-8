@@ -34,6 +34,7 @@
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Strings.h"
@@ -118,7 +119,7 @@ static std::vector<W8Searchable> CollectSearchablesInView(W8World& world)
         if (trigger->trigger_kind == 1 && trigger->searchable == 1 &&
             (trigger->flags & W8_TRIGGER_SEARCHED) == 0)
             collect({nullptr, trigger.get()});
-    for (const auto& group : gXStatus.world_items)
+    for (const auto& group : CurrentLevelPopulation().world_items)
         for (auto* item = group.get(); item; item = item->next.get())
             if (ItemHasFlags(item, W8_WORLD_ITEM_HIDDEN)) collect({item, nullptr});
     return found;
