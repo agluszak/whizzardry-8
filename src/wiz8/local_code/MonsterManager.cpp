@@ -1294,7 +1294,8 @@ void ProcessMonsterManagerFrame(void)
             if ((monster->runtime_flags & W8_MONSTER_PARKED) == 0) {
                 const auto query_state = MonsterQuery(monster, W8_MONSTER_QUERY_CYCLE);
                 TryStartMonsterCycle2(monster_info, monster, query_state);
-                if (MonsterQuery(monster, W8_MONSTER_QUERY_CYCLE_COMPLETE) != 0) {
+                const auto cycle_complete = MonsterQuery(monster, W8_MONSTER_QUERY_CYCLE_COMPLETE);
+                if (cycle_complete && *cycle_complete != 0) {
                     if (gXStatus.fCombatMode && query_state == 0x12) {
                         monster_info->pCombat->special_ready = true;
                     }

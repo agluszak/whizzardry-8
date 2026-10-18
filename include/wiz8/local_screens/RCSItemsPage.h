@@ -1,5 +1,6 @@
 #include "wiz8/ui_layer.h"
 #pragma once
+#include <optional>
 #include <string>
 
 #include "input.h"
@@ -21,7 +22,7 @@ enum W8CampItemFilterButton {
 };
 
 /* The caster slot the use-item-on-character path aims from. */
-extern int giCasterCharSlot;
+extern std::optional<int> giCasterCharSlot;
 
 /* The stack being split while the split-stack dialog is open; set by
    OpenSplitStackDialog and consumed by SplitStackDialogResult. */

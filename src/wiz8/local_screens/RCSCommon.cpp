@@ -1229,7 +1229,11 @@ static void OnCampCastSpell(void)
 static void OnCampUseItemOnItem(void)
 {
     if (camp_buttons->actions[W8_CAMP_ACTION_BUTTON_USE_ON_ITEM]->IsPressed()) {
-        giCasterCharSlot = giReviewCharSlot;
+        if (giReviewCharSlot >= 0) {
+            giCasterCharSlot = giReviewCharSlot;
+        } else {
+            giCasterCharSlot.reset();
+        }
         if (g_status.item_in_cursor) {
             UseHeldItemOnItem(&g_status.item_in_hand);
             camp_buttons->actions[W8_CAMP_ACTION_BUTTON_USE_ON_ITEM]->SetPressed(false);
@@ -1246,7 +1250,11 @@ static void OnCampUseItemOnItem(void)
 static void OnCampUseItemOnCharacter(void)
 {
     if (camp_buttons->actions[W8_CAMP_ACTION_BUTTON_USE_ON_CHARACTER]->IsPressed()) {
-        giCasterCharSlot = giReviewCharSlot;
+        if (giReviewCharSlot >= 0) {
+            giCasterCharSlot = giReviewCharSlot;
+        } else {
+            giCasterCharSlot.reset();
+        }
         SetCampItemActionMode(W8_CAMP_ITEM_ACTION_USE_ON_CHARACTER);
         return;
     }

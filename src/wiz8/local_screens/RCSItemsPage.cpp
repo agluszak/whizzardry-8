@@ -93,7 +93,7 @@ void SetCampItemHelp(std::string text)
 static void DrawCampItemLabel(W8ItemInstance* item, int left, int top, char flag);
 
 // GLOBAL: WIZ8 0x0069C0EC
-int giCasterCharSlot;
+std::optional<int> giCasterCharSlot;
 
 // GLOBAL: WIZ8 0x0069C424
 W8ItemInstance* g_split_item_source;
@@ -311,37 +311,41 @@ void UseHeldItemOnItem(W8ItemInstance* item)
 {
     W8CombatSlot target;
 
-    if (giCasterCharSlot < 0) {
+    if (!giCasterCharSlot) {
         srAssertFail("giCasterCharSlot >= 0",
                      "C:\\Projects\\Wizardry 8\\Local Screens\\RCSItemsPage.cpp", 0x668, 0);
+        return;
     }
-    if (giCasterCharSlot > 7) {
+    const int caster_slot = *giCasterCharSlot;
+    if (caster_slot < 0 || caster_slot > 7) {
         srAssertFail("giCasterCharSlot < MAX_CHARS",
                      "C:\\Projects\\Wizardry 8\\Local Screens\\RCSItemsPage.cpp", 0x669, 0);
+        return;
     }
-    if (!g_status.buffers.XChar[giCasterCharSlot].fOccupied) {
+    if (!g_status.buffers.XChar[caster_slot].fOccupied) {
         srAssertFail("fCHAR_OCCUPIED(giCasterCharSlot)",
                      "C:\\Projects\\Wizardry 8\\Local Screens\\RCSItemsPage.cpp", 0x66a, 0);
+        return;
     }
     if (item->iItemNo != -1) {
         if (CanItemLeaveItsSlot(item)) {
             ResetCombatSlot(&target);
             target.iType = W8_TARGET_KIND_ITEM;
             target.pPCItem = item;
-            if (CommitPartySlotSpell(giCasterCharSlot, W8_SPELL_IDENTIFY_ITEM, 8, &target) == 1) {
+            if (CommitPartySlotSpell(caster_slot, W8_SPELL_IDENTIFY_ITEM, 8, &target) == 1) {
                 OpenItemInfoDialog(item);
                 if (!item->identified) {
-                    QueueCharacterEvent(g_status.buffers.Char + giCasterCharSlot, 0x35, 0,
+                    QueueCharacterEvent(g_status.buffers.Char + caster_slot, 0x35, 0,
                                         kCharacterEventFullVolume);
                 }
             }
             RebuildCampItemList();
             g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_ALL;
             SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
-            giCasterCharSlot = -1;
+            giCasterCharSlot.reset();
             return;
         }
-        QueueCharacterEvent(g_status.buffers.Char + giCasterCharSlot, 0x35, 0,
+        QueueCharacterEvent(g_status.buffers.Char + caster_slot, 0x35, 0,
                             kCharacterEventFullVolume);
     }
 }
@@ -359,26 +363,30 @@ void TargetCharacterWithHeldItem(unsigned int uiTargetChar)
         srAssertFail("fCHAR_OCCUPIED(uiTargetChar)",
                      "C:\\Projects\\Wizardry 8\\Local Screens\\RCSItemsPage.cpp", 0x693, 0);
     }
-    if (giCasterCharSlot < 0) {
+    if (!giCasterCharSlot) {
         srAssertFail("giCasterCharSlot >= 0",
                      "C:\\Projects\\Wizardry 8\\Local Screens\\RCSItemsPage.cpp", 0x694, 0);
+        return;
     }
-    if (giCasterCharSlot > 7) {
+    const int caster_slot = *giCasterCharSlot;
+    if (caster_slot < 0 || caster_slot > 7) {
         srAssertFail("giCasterCharSlot < MAX_CHARS",
                      "C:\\Projects\\Wizardry 8\\Local Screens\\RCSItemsPage.cpp", 0x695, 0);
+        return;
     }
-    if (!g_status.buffers.XChar[giCasterCharSlot].fOccupied) {
+    if (!g_status.buffers.XChar[caster_slot].fOccupied) {
         srAssertFail("fCHAR_OCCUPIED(giCasterCharSlot)",
                      "C:\\Projects\\Wizardry 8\\Local Screens\\RCSItemsPage.cpp", 0x696, 0);
+        return;
     }
     ResetCombatSlot(&target);
     target.iType = W8_TARGET_KIND_CHARACTER;
     target.iChar = uiTargetChar;
-    CommitPartySlotSpell(giCasterCharSlot, W8_SPELL_REMOVE_CURSE, 8, &target);
+    CommitPartySlotSpell(caster_slot, W8_SPELL_REMOVE_CURSE, 8, &target);
     RebuildCampItemList();
     g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_ALL;
     SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
-    giCasterCharSlot = -1;
+    giCasterCharSlot.reset();
 }
 
 // FUNCTION: WIZ8 0x005BAA10

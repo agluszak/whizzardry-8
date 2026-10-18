@@ -4,6 +4,7 @@ struct W8Chunk;
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "Font.h"
@@ -165,7 +166,7 @@ struct W8NpcInteractionState {
     /* The dialogue's leading speaker: the occupied row whose character leads
        skill 0x16. */
     int dialogue_speaker;
-    int target_location_id;
+    std::optional<int> target_location_id;
     W8NpcDialogueLayout dialogue_layout;
     W8NpcTradeMode trade_mode;
     /* The layout the current one replaced; back-out paths reopen it. */
@@ -177,10 +178,9 @@ struct W8NpcInteractionState {
     std::unique_ptr<NpcDialogueUi> ui;
     /* The cursor position of the last mouse event the region handler acted
        on; repeat events at the same point are dropped. */
-    int last_mouse_x;
-    int last_mouse_y;
-    /* The text-box line the mouse/wheel handlers last selected, -1 for none. */
-    int hovered_text_line;
+    std::optional<std::pair<int, int>> last_mouse_position;
+    /* The text-box line the mouse/wheel handlers last selected. */
+    std::optional<int> hovered_text_line;
     W8NpcTradeFilter trade_filter = W8_NPC_TRADE_FILTER_NONE;
     W8NpcState* dialogue_npc;
     W8DialogueCategory dialogue_category_filter = W8_DIALOGUE_CATEGORY_ALL;
@@ -231,7 +231,7 @@ struct W8NpcInteractionState {
        interactive panel. */
     bool scripted_dialogue;
     int trade_quantity;
-    int selected_trade_row; /* -1 for none */
+    std::optional<int> selected_trade_row;
     /* How many times the transcript layout has opened this session; the
        first open queues the greeting lines. */
     int transcript_open_count;

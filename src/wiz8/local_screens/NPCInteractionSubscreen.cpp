@@ -547,14 +547,12 @@ std::string TranslateDialogueKeyword(std::string_view source)
    clear the keyword status byte, and reload the keyword lists. */
 void ResetMainScreenStateBlock(void)
 {
-    int unset = -1;
-
     ClearNpcDialogueTranscript();
     *g_npc_interaction_state = {};
     g_npc_interaction_state->dialogue_category_filter = W8_DIALOGUE_CATEGORY_ALL;
     g_npc_interaction_state->transcript_sorted = false;
     g_npc_interaction_state->pending_trade_toggle = false;
-    g_npc_interaction_state->selected_trade_row = unset;
+    g_npc_interaction_state->selected_trade_row.reset();
     g_npc_interaction_state->trade_pc_items = true;
     g_status.selected_party_member = 0xff;
     g_pending_notice_queued = false;
@@ -768,9 +766,8 @@ static unsigned char OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item,
     state->dialogue_panel_hidden = false;
     state->scripted_dialogue = false;
     state->trade_item = 0;
-    state->last_mouse_x = -1;
-    state->last_mouse_y = -1;
-    state->hovered_text_line = -1;
+    state->last_mouse_position.reset();
+    state->hovered_text_line.reset();
     state->trade_filter = W8_NPC_TRADE_FILTER_NONE;
     state->value_000 = 0;
     state->where_is_query = false;
@@ -782,7 +779,7 @@ static unsigned char OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item,
     state->trade_gold = 0;
     state->pending_layout = W8_DIALOGUE_LAYOUT_NONE;
     state->suppress_parting_reaction = true;
-    state->selected_trade_row = -1;
+    state->selected_trade_row.reset();
     state->transcript_open_count = 0;
     RefreshMainGameLayout();
     CreateNpcDialogueControls();
@@ -875,7 +872,7 @@ void SelectNpcDialogueSpeaker(W8NpcState* npc, int flags)
 
     state = g_npc_interaction_state;
     speaker = -1;
-    state->target_location_id = -1;
+    state->target_location_id.reset();
     best = 0xffffffff;
     state->dialogue_npc = 0;
     info = GetNpcMonsterInfo(npc);
@@ -1411,11 +1408,12 @@ UiResult HandleNpcTextBox(const UiPointerEvent& event)
     if (event.action == UiPointerAction::Leave) {
         ClearNoticeWordHover(3, true);
         ClearHoveredTextLine(2);
+        g_npc_interaction_state->hovered_text_line.reset();
         return UiResult::Handled;
     }
     if (event.action == UiPointerAction::Enter) {
-        g_npc_interaction_state->last_mouse_x = event.position.x;
-        g_npc_interaction_state->last_mouse_y = event.position.y;
+        g_npc_interaction_state->last_mouse_position =
+            std::pair{event.position.x, event.position.y};
         if (g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX) {
             y = event.position.y;
             if (y >= g_level_block->text_box_top && y <= g_level_block->text_box_bottom) {
@@ -1426,12 +1424,11 @@ UiResult HandleNpcTextBox(const UiPointerEvent& event)
         }
         return UiResult::Handled;
     }
-    if (event.position.x == g_npc_interaction_state->last_mouse_x &&
-        event.position.y == g_npc_interaction_state->last_mouse_y) {
+    if (g_npc_interaction_state->last_mouse_position ==
+        std::pair{event.position.x, event.position.y}) {
         return UiResult::Handled;
     }
-    g_npc_interaction_state->last_mouse_x = event.position.x;
-    g_npc_interaction_state->last_mouse_y = event.position.y;
+    g_npc_interaction_state->last_mouse_position = std::pair{event.position.x, event.position.y};
     if (g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_TRANSCRIPT) {
         HighlightNoticeWordAt(3, event.position.x, event.position.y);
         return UiResult::Handled;
@@ -1601,7 +1598,7 @@ static void NpcDialogueTextBoxDoubleClick(int x, int y)
         g_npc_interaction_state->hovered_text_line = line;
     }
     if (const auto slot = g_level_block->hovered_text_lines[2]) {
-        g_npc_interaction_state->selected_trade_row = -1;
+        g_npc_interaction_state->selected_trade_row.reset();
         UpdateNpcTradeSelection(*slot, 0, 1);
         if (g_npc_interaction_state->trade_item != 0) {
             ConfirmNpcTradeItem();
@@ -1737,7 +1734,7 @@ void ResetNpcDialogueItemEditor(void)
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_36].text.SetText(
         "", g_wiz_text_font_secondary);
     SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_31, false);
-    g_npc_interaction_state->selected_trade_row = -1;
+    g_npc_interaction_state->selected_trade_row.reset();
     g_npc_interaction_state->trade_quantity = 1;
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_37].text.SetFontStateIndex(-1);
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_37].text.SetGeometryDirty();
@@ -2893,24 +2890,26 @@ static void CloseNpcDialogueMode1Layout(void)
 
 static void RequestNpcSpellService3(void)
 {
-    int location = g_npc_interaction_state->target_location_id;
+    const auto location = g_npc_interaction_state->target_location_id;
     W8NpcDialogueLayout mode = g_npc_interaction_state->dialogue_layout;
+    if (!location) return;
 
     gXStatus.fCampMode = true;
     CloseNpcDialogueMode1Layout();
     EndNpcDialogueSession(false);
-    BeginSpellCast(W8_SPELL_CHARM, location, mode);
+    BeginSpellCast(W8_SPELL_CHARM, *location, mode);
 }
 
 static void RequestNpcSpellService41(void)
 {
-    int location = g_npc_interaction_state->target_location_id;
+    const auto location = g_npc_interaction_state->target_location_id;
     W8NpcDialogueLayout mode = g_npc_interaction_state->dialogue_layout;
+    if (!location) return;
 
     gXStatus.fCampMode = true;
     CloseNpcDialogueMode1Layout();
     EndNpcDialogueSession(false);
-    BeginSpellCast(W8_SPELL_MINDREAD, location, mode);
+    BeginSpellCast(W8_SPELL_MINDREAD, *location, mode);
 }
 
 static void RequestNpcCharacterService(void)
