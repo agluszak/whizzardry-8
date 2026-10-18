@@ -426,7 +426,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                     } else if (entry->last_seen_clock == 0) {
                         entry->sight_state = W8_SIGHT_UNSEEN;
                     } else {
-                        entry->sight_state = static_cast<unsigned char>(
+                        entry->sight_state = static_cast<W8SightState>(
                             (0xf0U < static_cast<unsigned int>(g_status.world_clock -
                                                                entry->last_seen_clock))
                                 ? W8_SIGHT_UNSEEN
@@ -485,7 +485,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
             if (monster_info->player_visibility.last_seen_clock == 0) {
                 monster_info->player_visibility.sight_state = W8_SIGHT_UNSEEN;
             } else {
-                monster_info->player_visibility.sight_state = static_cast<unsigned char>(
+                monster_info->player_visibility.sight_state = static_cast<W8SightState>(
                     (0xf0U <
                      static_cast<unsigned int>(g_status.world_clock -
                                                monster_info->player_visibility.last_seen_clock))
@@ -752,7 +752,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
             if (monster_info->party_threat.last_seen_clock == 0) {
                 monster_info->party_threat.sight_state = W8_SIGHT_UNSEEN;
             } else {
-                monster_info->party_threat.sight_state = static_cast<unsigned char>(
+                monster_info->party_threat.sight_state = static_cast<W8SightState>(
                     (0x78U < static_cast<unsigned int>(g_status.world_clock -
                                                        monster_info->party_threat.last_seen_clock))
                         ? W8_SIGHT_UNSEEN

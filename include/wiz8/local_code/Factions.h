@@ -54,13 +54,17 @@ struct W8FactionRuntimeRecord {
 
 #pragma pack(pop)
 
-typedef unsigned char W8FactionDisposition;
+enum W8FactionDisposition : unsigned char {
+    W8_FACTION_HOSTILE = 0,
+    W8_FACTION_NEUTRAL = 1,
+    W8_FACTION_FRIENDLY = 2
+};
 
-enum { W8_FACTION_HOSTILE = 0, W8_FACTION_NEUTRAL = 1, W8_FACTION_FRIENDLY = 2 };
-
-typedef unsigned char W8Disposition;
-
-enum { W8_DISPOSITION_NEUTRAL = 0, W8_DISPOSITION_HOSTILE = 1, W8_DISPOSITION_FRIENDLY = 2 };
+enum W8Disposition : unsigned char {
+    W8_DISPOSITION_NEUTRAL = 0,
+    W8_DISPOSITION_HOSTILE = 1,
+    W8_DISPOSITION_FRIENDLY = 2
+};
 
 extern W8FactionRuntimeRecord g_factions[W8_FACTION_COUNT];
 /* The 21x21 byte relation matrix, one row per faction, saved and
@@ -76,7 +80,7 @@ W8FactionDisposition GetFactionDispositionToward(signed char faction, signed cha
    relations a fresh game begins with. */
 void ResetFactions(void);
 
-void SetFactionDispositionBand(signed char faction, signed char band);
+void SetFactionDispositionBand(signed char faction, W8FactionDisposition band);
 
 /* Faction change entry point - op 1 with a faction outside
    unaligned/party routes mode 0 to the witnessed-offense path and modes

@@ -290,7 +290,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
     case W8_FACT_ARNIKA_MYLES_TROOPERS_HOSTILE:
         group = FindFirstMonsterByID(0x13);
         if (group != 0) {
-            SetMonsterGroupHostility(group, 1, false);
+            SetMonsterGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
         }
         return;
     case W8_FACT_ARNIKA_SAFETY_DEPOSIT_OPEN:
@@ -298,31 +298,31 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         return;
     case W8_FACT_FACTION_HIGARDI_HLL_FRIENDLY:
         if (value == 0) {
-            SetFactionDispositionBand(0xb, 0);
+            SetFactionDispositionBand(0xb, W8_FACTION_HOSTILE);
             return;
         }
-        SetFactionDispositionBand(0xb, 2);
+        SetFactionDispositionBand(0xb, W8_FACTION_FRIENDLY);
         return;
     case W8_FACT_FACTION_HIGARDI_COMMON_FRIENDLY:
         if (value == 0) {
-            SetFactionDispositionBand(0xc, 0);
+            SetFactionDispositionBand(0xc, W8_FACTION_HOSTILE);
             return;
         }
-        SetFactionDispositionBand(0xc, 2);
+        SetFactionDispositionBand(0xc, W8_FACTION_FRIENDLY);
         return;
     case W8_FACT_FACTION_HIGARDI_BANK_FRIENDLY:
         if (value == 0) {
-            SetFactionDispositionBand(10, 0);
+            SetFactionDispositionBand(10, W8_FACTION_HOSTILE);
             return;
         }
-        SetFactionDispositionBand(10, 2);
+        SetFactionDispositionBand(10, W8_FACTION_FRIENDLY);
         return;
     case W8_FACT_FACTION_HIGARDI_FELLOW_FRIENDLY:
         if (value == 0) {
-            SetFactionDispositionBand(9, 0);
+            SetFactionDispositionBand(9, W8_FACTION_HOSTILE);
             return;
         }
-        SetFactionDispositionBand(9, 2);
+        SetFactionDispositionBand(9, W8_FACTION_FRIENDLY);
         return;
     case W8_FACT_ARNIKA_VAULT_TELEPORT:
     case W8_FACT_ARNIKA_VAULT_ENTERED:
@@ -360,10 +360,10 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         return;
     case W8_FACT_FACTION_TRANG_COMMON_FRIENDLY:
         if (value == 0) {
-            SetFactionDispositionBand(5, 0);
+            SetFactionDispositionBand(5, W8_FACTION_HOSTILE);
             return;
         }
-        SetFactionDispositionBand(5, 2);
+        SetFactionDispositionBand(5, W8_FACTION_FRIENDLY);
         return;
     case W8_FACT_AP_GOLEM_ATTACK:
         g_npc_dialogue.Queue(W8NpcStoryAction::move_golem);
@@ -428,10 +428,10 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         return;
     case W8_FACT_FACTION_UMPANI_COMMON_FRIENDLY:
         if (value == 0) {
-            SetFactionDispositionBand(4, 0);
+            SetFactionDispositionBand(4, W8_FACTION_HOSTILE);
             return;
         }
-        SetFactionDispositionBand(4, 2);
+        SetFactionDispositionBand(4, W8_FACTION_FRIENDLY);
         return;
     case W8_FACT_LOCATION_GIGAS_TELEPORT_OPEN:
         if (value == 0) {
@@ -491,10 +491,10 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         return;
     case W8_FACT_FACTION_RAPAX_COMMON_FRIENDLY:
         if (value == 0) {
-            SetFactionDispositionBand(0xf, 0);
+            SetFactionDispositionBand(0xf, W8_FACTION_HOSTILE);
             return;
         }
-        SetFactionDispositionBand(0xf, 2);
+        SetFactionDispositionBand(0xf, W8_FACTION_FRIENDLY);
         return;
     case W8_FACT_RAPAX_RIDDLE1:
         if (value == 0) {
@@ -782,26 +782,26 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         g_status.vi_event_stage = 1;
         group = FindFirstMonsterByID(0x234);
         if (group != 0) {
-            SetMonsterGroupHostility(group, 2, false);
+            SetMonsterGroupHostility(group, W8_DISPOSITION_FRIENDLY, false);
         }
         group = FindFirstMonsterByID(0x1b4);
         if (group != 0) {
-            SetMonsterGroupHostility(group, 1, false);
+            SetMonsterGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
         }
         group = FindFirstMonsterByID(0x1b9);
         if (group != 0) {
-            SetMonsterGroupHostility(group, 1, false);
+            SetMonsterGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
         }
         GetNpcStateByKind(0x89);
         return;
     case W8_FACT_FACTION_RAPAX_TEMPLAR_FRIENDLY:
         if (value == 0) {
-            SetFactionDispositionBand(0x10, 0);
-            SetFactionDispositionBand(0xf, 0);
+            SetFactionDispositionBand(0x10, W8_FACTION_HOSTILE);
+            SetFactionDispositionBand(0xf, W8_FACTION_HOSTILE);
             return;
         }
-        SetFactionDispositionBand(0x10, 2);
-        SetFactionDispositionBand(0xf, 2);
+        SetFactionDispositionBand(0x10, W8_FACTION_FRIENDLY);
+        SetFactionDispositionBand(0xf, W8_FACTION_FRIENDLY);
         return;
     case W8_FACT_ENDGAME_QUE_CONGRAT_TWO:
     case W8_FACT_ENDGAME_QUE_CONGRAT_THREE:
@@ -937,7 +937,7 @@ void MonsterKilled(int record_id, int killer_party_slot)
         }
         SetTriggerVariableByName("NumberRattkinBreedersKilled", 2);
         SetFact(W8_FACT_TRYNNIE_KILL_RATS_DONE, 1, false);
-        SetFactionDispositionBand(7, 0);
+        SetFactionDispositionBand(7, W8_FACTION_HOSTILE);
     } else {
         if (record_id == 0x22b) {
             value = GetFact(W8_FACT_ALSEDEXUS_ATTACK);

@@ -26,7 +26,7 @@ bool MonsterCanAimSpell(int spell_id);
 bool CombatAllowsLiveGroups(void);
 void SetMonsterHostility(W8MonsterInfo* monster, W8Disposition hostility);
 void RefreshCombatEngagement(void);
-void SetMonsterGroupHostility(W8MonsterGroup* group, unsigned int hostility, bool recurse);
+void SetMonsterGroupHostility(W8MonsterGroup* group, W8Disposition hostility, bool recurse);
 
 /* The disposition two party slots hold toward each other from
    their turncoat state - same side is friendly, split is hostile. */
@@ -47,7 +47,7 @@ void AlertSameFactionGroups(W8MonsterGroup* monster_group);
    side and enters combat when it was not already. */
 void MakeTargetGroupHostile(W8TargetSource* source, W8CombatSlot* target);
 /* SetMonsterGroupHostility looked up by group id. */
-void SetMonsterGroupHostilityByID(int group_id, unsigned int hostility, bool recurse);
+void SetMonsterGroupHostilityByID(int group_id, W8Disposition hostility, bool recurse);
 /* Write the fatigue the slot's pending pray costs, or -1 when it
    cannot be paid; the flag picks the check flavor. */
 int TurnUndead(int party_slot, int* out_cost, bool check);

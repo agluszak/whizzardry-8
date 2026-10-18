@@ -39,6 +39,7 @@
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
+#include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/NPCManager.h"
@@ -511,7 +512,7 @@ void RunNpcStoryAction(W8NpcStoryAction action)
             monster_info->p3D->BeginFadeOutAndRemove(W8_MONSTER_REMOVAL_NONE);
         }
         if (W8MonsterGroup* group = FindFirstMonsterByID(0x15d)) {
-            SetMonsterGroupHostility(group, 1, false);
+            SetMonsterGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
         }
         break;
     }

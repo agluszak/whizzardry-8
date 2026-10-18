@@ -2056,7 +2056,7 @@ void ExecuteCharacterAction(int party_slot)
         SetTargetSourceToCharacter(party_slot, &source);
         interrupt = GetConditionInterrupt(&source);
         if (interrupt != -1) {
-            char relationship = 0;
+            W8Disposition relationship = W8_DISPOSITION_NEUTRAL;
             PostCharacterNotice(party_slot,
                                 g_localized_strings[g_condition_interrupt_notices[interrupt]]);
             switch (interrupt) {
@@ -2078,10 +2078,10 @@ void ExecuteCharacterAction(int party_slot)
                 break;
             case 8:
                 g_combat_state->characters[party_slot].berserk = true;
-                relationship = 2;
+                relationship = W8_DISPOSITION_FRIENDLY;
                 break;
             case 9:
-                relationship = 1;
+                relationship = W8_DISPOSITION_HOSTILE;
                 break;
             }
             /* Berserk and confused characters turn on a reachable character:

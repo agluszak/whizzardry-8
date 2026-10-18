@@ -107,6 +107,7 @@
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/Magic.h"
@@ -1914,15 +1915,15 @@ void W8Monster::ProcessScript()
                 }
                 break;
             case MONSCR_DISPOSITION: {
-                unsigned char disposition = 0xff;
+                W8Disposition disposition = static_cast<W8Disposition>(0xff);
                 tokens >> token;
                 if (tokens) {
                     if (SDL_strcasecmp(token.c_str(), "DISP_NEUTRAL") == 0)
-                        disposition = 0;
+                        disposition = W8_DISPOSITION_NEUTRAL;
                     else if (SDL_strcasecmp(token.c_str(), "DISP_HOSTILE") == 0)
-                        disposition = 1;
+                        disposition = W8_DISPOSITION_HOSTILE;
                     else if (SDL_strcasecmp(token.c_str(), "DISP_FRIENDLY") == 0)
-                        disposition = 2;
+                        disposition = W8_DISPOSITION_FRIENDLY;
                     monster_info = FindMonster(location_id);
                     if (monster_info != 0) {
                         W8MonsterGroup* group =
@@ -1999,10 +2000,11 @@ void W8Monster::ProcessScript()
                     if (SDL_strcasecmp(token.c_str(), "STARTGOLEMATTACK") == 0) {
                         ClearMainGameTargetState();
                         W8MonsterGroup* group = FindFirstMonsterByID(0x68);
-                        if (group != 0) SetMonsterGroupHostility(group, 1, false);
+                        if (group != 0)
+                            SetMonsterGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
                         group = FindFirstMonsterByID(0x13e);
                         if (group != 0) {
-                            SetMonsterGroupHostility(group, 1, false);
+                            SetMonsterGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
                             MonsterGroupEnterCombat(group);
                         }
                     } else if (SDL_strcasecmp(token.c_str(), "ENDSAVANTWALK") == 0) {
@@ -2820,6 +2822,8 @@ void W8Monster::ApplyRemovalStateEffects()
     glm::vec3 position;
 
     switch (removal_state) {
+    case W8_MONSTER_REMOVAL_NONE:
+        break;
     case W8_MONSTER_REMOVAL_RETURN_BALBRAK_HOME:
         if (FindEntityByName("NP_Balbrakhome", &position, 0, 0)) {
             SetPosition(&position);

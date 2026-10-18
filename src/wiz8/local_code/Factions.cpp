@@ -140,7 +140,7 @@ static unsigned short g_faction_name_ids[W8_FACTION_COUNT] = {
 /* Snap a faction's score onto the requested band's anchor (25/55/75). When the
    band actually moved, stamp the world clock and post the worsened/improved
    notice naming the faction. */
-void SetFactionDispositionBand(signed char faction, signed char band)
+void SetFactionDispositionBand(signed char faction, W8FactionDisposition band)
 {
     std::string notice;
     W8FactionDisposition old_band;
@@ -148,13 +148,13 @@ void SetFactionDispositionBand(signed char faction, signed char band)
 
     old_band = GetFactionDisposition(faction);
     switch (band) {
-    case 0:
+    case W8_FACTION_HOSTILE:
         g_factions[faction].disposition_score = 0x19;
         break;
-    case 1:
+    case W8_FACTION_NEUTRAL:
         g_factions[faction].disposition_score = 0x37;
         break;
-    case 2:
+    case W8_FACTION_FRIENDLY:
         g_factions[faction].disposition_score = 0x4b;
         break;
     }
@@ -222,7 +222,7 @@ void RecordFactionOffense(signed char faction, W8MonsterInfo* monster_info)
             Fail("bFaction < FACTION_COUNT");
         }
         if (g_factions[faction].disposition_score >= 34) {
-            SetFactionDispositionBand(faction, 0);
+            SetFactionDispositionBand(faction, W8_FACTION_HOSTILE);
             return;
         }
     }
