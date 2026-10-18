@@ -62,7 +62,7 @@ public:
     virtual std::optional<int> FindSupportedCycle(int group, int subcycle);
     /* Kind-indexed query over the emitter host's current state; only ever
        called with kind 7 by StartIfHostActive. */
-    int QueryHostStateByKind(int kind);
+    std::optional<int> QueryHostStateByKind(int kind);
 
     /* Selects the update mode and the cycle group the resource loader
        matches shared visuals by. */

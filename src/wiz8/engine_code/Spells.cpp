@@ -554,7 +554,8 @@ void W8SpellVisual::StartIfHostActive()
     if (this->host->active == 0) {
         return;
     }
-    if (QueryHostStateByKind(7) != 0) {
+    const auto host_state = QueryHostStateByKind(7);
+    if (!host_state || *host_state != 0) {
         this->finished = true;
         return;
     }
@@ -579,7 +580,7 @@ std::optional<int> W8SpellVisual::FindSupportedCycle(int group, int subcycle)
 /* Kind-indexed query over the host's emitter state; the only call site asks
    kind 7. */
 // FUNCTION: WIZ8 0x004ac8f0
-int W8SpellVisual::QueryHostStateByKind(int arg_kind)
+std::optional<int> W8SpellVisual::QueryHostStateByKind(int arg_kind)
 {
     W8SpellEmitterHost* host = this->host.get();
 
@@ -601,7 +602,7 @@ int W8SpellVisual::QueryHostStateByKind(int arg_kind)
     case 7:
         return host->animation_playing == 0;
     default:
-        return -1;
+        return std::nullopt;
     }
 }
 
