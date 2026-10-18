@@ -2213,7 +2213,8 @@ bool MonsterHasVisibleTarget(W8MonsterInfo* monster_info, bool party_only,
             if (other != monster_info && other->fActive && other->hp_current != 0 &&
                 other->highest_condition < W8_CONDITION_DEAD && other->pCombat) {
                 disposition = MonsterHostility(monster_info, other);
-                if (hostility == W8_VISIBLE_TARGET_ANY || static_cast<W8VisibleTargetFilter>(disposition) == hostility ||
+                if (hostility == W8_VISIBLE_TARGET_ANY ||
+                    static_cast<W8VisibleTargetFilter>(disposition) == hostility ||
                     (hostility == W8_VISIBLE_TARGET_NON_NEUTRAL &&
                      disposition != W8_DISPOSITION_NEUTRAL)) {
                     record = FindMonToMonVisibility(monster_info, other);
