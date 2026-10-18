@@ -16,6 +16,7 @@ class File;
 
 /* Quote-entry opcodes with recovered consumers; unknown values remain unnamed. */
 enum W8NpcQuoteEntryKind : unsigned char {
+    W8_NPC_ENTRY_UNSPECIFIED = 0,
     W8_NPC_ENTRY_NEXT_QUOTE = 2,
     W8_NPC_ENTRY_FACT_CONDITIONAL_QUOTE = 3,
     W8_NPC_ENTRY_KEYWORD = 4,
@@ -43,7 +44,11 @@ enum W8NpcQuoteEntryKind : unsigned char {
     W8_NPC_ENTRY_ITEM_KEYWORD = 26,
     W8_NPC_ENTRY_PLACE_KEYWORD = 27,
     W8_NPC_ENTRY_MISC_KEYWORD = 28,
-    W8_NPC_ENTRY_ALWAYS_PRICE_CHECK = 30
+    W8_NPC_ENTRY_ALWAYS_PRICE_CHECK = 30,
+    W8_NPC_ENTRY_PERSON_KEYWORD_ALT = 31,
+    W8_NPC_ENTRY_ITEM_KEYWORD_ALT = 32,
+    W8_NPC_ENTRY_PLACE_KEYWORD_ALT = 33,
+    W8_NPC_ENTRY_MISC_KEYWORD_ALT = 34
 };
 
 // Retail NSF structures describe bytes only. Pointer words select optional
@@ -83,7 +88,7 @@ struct W8NpcQuoteSubEntry {
     std::string text;
 };
 struct W8NpcQuoteEntry {
-    W8NpcQuoteEntryKind kind{};
+    W8NpcQuoteEntryKind kind = W8_NPC_ENTRY_UNSPECIFIED;
     int operand0{}, operand1{}, operand2{};
     unsigned char sub_entry_count{};
     std::vector<W8NpcQuoteSubEntry> sub_entries;
