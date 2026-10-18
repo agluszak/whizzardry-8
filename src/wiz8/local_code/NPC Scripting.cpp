@@ -538,7 +538,7 @@ void W8NpcDialogue::RunNextAction()
 
     auto current = queue_.begin();
     W8MessageBoxLine& line = *current;
-    npc = line.npc_kind != -1 ? GetNpcStateByKind(line.npc_kind) : 0;
+    npc = line.npc_kind ? GetNpcStateByKind(*line.npc_kind) : nullptr;
     if (auto* quote_line = std::get_if<W8NpcQueuedQuote>(&line.action)) {
         if (npc != 0 && npc != session_.npc) {
             Begin(npc, true);
@@ -705,11 +705,11 @@ void W8NpcDialogue::RunNextAction()
         }
         void operator()(W8NpcPartySpeakerEvent event) const
         {
-            int party_slot =
+            const auto party_slot =
                 PickRandomPartySpeaker(event.event_type, g_status.selected_party_member);
-            if (party_slot != -1) {
-                g_status.selected_party_member = static_cast<unsigned char>(party_slot);
-                QueueCharacterEvent(&g_status.buffers.Char[party_slot], event.event_type,
+            if (party_slot) {
+                g_status.selected_party_member = static_cast<unsigned char>(*party_slot);
+                QueueCharacterEvent(&g_status.buffers.Char[*party_slot], event.event_type,
                                     kCharacterEventNoNpcDefer, kCharacterEventFullVolume);
                 SetNpcDialoguePanelVisible(0);
                 if (g_npc_interaction_state->modal_dialog_open) {

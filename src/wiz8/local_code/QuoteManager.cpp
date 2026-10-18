@@ -118,14 +118,15 @@ void StartBreathCycle(int party_slot, bool force)
 /* Collect every occupied living slot other than `excluded_slot` whose
    character can actually speak `event_type`, then pick one at random. */
 // FUNCTION: WIZ8 0x0052FEE0
-int PickRandomPartySpeaker(unsigned int event_type, unsigned char excluded_slot)
+std::optional<int> PickRandomPartySpeaker(unsigned int event_type,
+                                          std::optional<int> excluded_slot)
 {
     int eligible[8];
     unsigned int count = 0;
 
     for (int slot = 0; slot < 8; ++slot) {
         W8Character* character = &g_status.buffers.Char[slot];
-        if (g_status.buffers.XChar[slot].fOccupied && slot != excluded_slot &&
+        if (g_status.buffers.XChar[slot].fOccupied && (!excluded_slot || slot != *excluded_slot) &&
             character->hp_current != 0 && character->highest_condition < W8_CONDITION_ASLEEP &&
             !GetPartyQuoteText(*character, event_type).empty()) {
             eligible[count++] = slot;
@@ -134,7 +135,7 @@ int PickRandomPartySpeaker(unsigned int event_type, unsigned char excluded_slot)
     if (count != 0) {
         return eligible[Random(count)];
     }
-    return -1;
+    return std::nullopt;
 }
 
 /* Character-event subsystem: the event descriptor table, event object, and the
@@ -1070,7 +1071,7 @@ void W8CharacterEventQueue::RestartFollowUpClock(W8CharacterEvent* entry)
     if (follow_up && entry->IsAmbientExchange()) {
         follow_up->ready_at =
             w8_get_ticks() +
-            (follow_up->excluded_slot != -1 ? Random(6000) + 2000 : Random(60000) + 300000);
+            (follow_up->excluded_slot ? Random(6000) + 2000 : Random(60000) + 300000);
     }
 }
 
@@ -1083,10 +1084,14 @@ void W8CharacterEventQueue::ProcessFollowUpEvents()
         if (std::ranges::any_of(*events, ambient)) return;
     if (TimeUntilDeadline(follow_up->ready_at) != 0) return;
 
-    const int speaker = GetRandomCharacter(0, 0, follow_up->excluded_slot, -1);
+    const int speaker = GetRandomCharacter(0, 0, follow_up->excluded_slot.value_or(-1), -1);
     if (speaker == -1) return;
     if (!QueueCharacterEvent(&g_status.buffers.Char[speaker], Random(2) + 0xe, 1, 0x7f)) return;
-    follow_up->excluded_slot = follow_up->excluded_slot == -1 ? speaker : -1;
+    if (follow_up->excluded_slot) {
+        follow_up->excluded_slot.reset();
+    } else {
+        follow_up->excluded_slot = speaker;
+    }
 }
 
 // FUNCTION: WIZ8 0x0052D610
@@ -1918,11 +1923,11 @@ bool BlitPortraitAnimation(SDL_Surface& target, int portrait, int left, int top,
         }
         artwork.draw(target, state->pose, left, top, options);
         drawn = true;
-        if (state->rendered_pose != -1) {
-            const SDL_Point previous_size = artwork.size(state->rendered_pose);
+        if (state->rendered_pose) {
+            const SDL_Point previous_size = artwork.size(*state->rendered_pose);
             width = previous_size.x;
             height = previous_size.y;
-            const SDL_Point image_position = artwork.position(state->rendered_pose);
+            const SDL_Point image_position = artwork.position(*state->rendered_pose);
             image_x = image_position.x;
             image_y = image_position.y;
             other.left = image_x + left;
@@ -1956,11 +1961,11 @@ bool BlitPortraitAnimation(SDL_Surface& target, int portrait, int left, int top,
         rect.right = width + rect.left;
         rect.bottom = height + rect.top;
         drawn = true;
-        if (state->rendered_frame != -1) {
-            const SDL_Point previous_size = artwork.size(state->rendered_frame);
+        if (state->rendered_frame) {
+            const SDL_Point previous_size = artwork.size(*state->rendered_frame);
             width = previous_size.x;
             height = previous_size.y;
-            const SDL_Point image_position = artwork.position(state->rendered_frame);
+            const SDL_Point image_position = artwork.position(*state->rendered_frame);
             image_x = image_position.x;
             image_y = image_position.y;
             other.left = image_x + left;

@@ -285,7 +285,8 @@ void W8NpcDialogue::Speak(int script_line, bool force_npc_voice)
 
 void W8NpcDialogue::Push(W8NpcAction action, bool prepend)
 {
-    W8MessageBoxLine line{session_.npc != 0 ? session_.npc->record->kind : -1, std::move(action)};
+    W8MessageBoxLine line{{}, std::move(action)};
+    if (session_.npc) line.npc_kind = session_.npc->record->kind;
     if (!prepend) {
         queue_.push_back(std::move(line));
     } else {

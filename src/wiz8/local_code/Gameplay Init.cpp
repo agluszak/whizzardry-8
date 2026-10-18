@@ -275,7 +275,7 @@ void ResetGameplaySlot(unsigned int slot)
     *record = {};
     record->portrait_event_active = false;
     record->voice_sound_handle = nullptr;
-    record->portrait.rendered_frame = -1;
+    record->portrait.rendered_frame.reset();
     record->portrait.frame = 6;
     record->portrait.blink_closing = false;
     tier = 1;
@@ -284,7 +284,7 @@ void ResetGameplaySlot(unsigned int slot)
     }
     record->portrait.pose = tier;
     record->portrait.target_pose = tier;
-    record->portrait.rendered_pose = -1;
+    record->portrait.rendered_pose.reset();
     record->portrait.pose_dirty = false;
     record->portrait.frame_dirty = false;
     record->portrait.frame_clock = w8_get_ticks() + (0);

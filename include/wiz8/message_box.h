@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <string>
 #include <variant>
 
@@ -165,6 +166,6 @@ using W8NpcAction =
 
 /* One queued action and the speaker it was queued for. */
 struct W8MessageBoxLine {
-    int npc_kind; /* record kind of the speaking NPC, or -1; resolved when the line runs */
+    std::optional<int> npc_kind; // Empty when no speaker is associated with the line.
     W8NpcAction action;
 };

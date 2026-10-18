@@ -114,7 +114,7 @@ struct W8CharacterEventQueue {
     // No schedule means idle dialogue is disabled. Queue membership supplies
     // the wait for playback; this stores only the next speaker and deadline.
     struct FollowUp {
-        int excluded_slot = -1;
+        std::optional<int> excluded_slot;
         uint64_t ready_at = 0;
     };
     std::optional<FollowUp> follow_up;

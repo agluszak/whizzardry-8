@@ -3,6 +3,7 @@
 #include <cstdarg>
 #include <cstddef>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -531,7 +532,6 @@ static unsigned char WorldCursorNodePartyVoice(int command, W8WorldCursorNode* n
 {
     int event_type;
     std::byte* shown;
-    int slot;
 
     event_type = node->parameters[0];
     if (command == 1) {
@@ -539,9 +539,8 @@ static unsigned char WorldCursorNodePartyVoice(int command, W8WorldCursorNode* n
         shown = node->userdata.data();
         if (*shown == std::byte{}) {
             *shown = std::byte{1};
-            slot = PickRandomPartySpeaker(event_type, 0xff);
-            if (slot != -1) {
-                QueueCharacterEvent(g_status.buffers.Char + slot, event_type, 0,
+            if (const auto slot = PickRandomPartySpeaker(event_type, std::nullopt)) {
+                QueueCharacterEvent(g_status.buffers.Char + *slot, event_type, 0,
                                     kCharacterEventFullVolume);
             }
         }

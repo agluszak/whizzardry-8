@@ -2,6 +2,7 @@
 
 struct SDL_Surface;
 
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -36,7 +37,8 @@ extern const int g_fact_check_event;
 
 /* True when no occupied party slot has an active portrait/voice record. */
 unsigned char PartyPortraitEventsIdle(void);
-int PickRandomPartySpeaker(unsigned int event_type, unsigned char excluded_slot);
+std::optional<int> PickRandomPartySpeaker(unsigned int event_type,
+                                          std::optional<int> excluded_slot);
 W8CharacterEvent* ApplyItemEffectToRandomCharacter(unsigned int event_type, int excluded_slot,
                                                    unsigned int flags);
 void MaybeStartIncapacitationEvent(unsigned int party_slot);
