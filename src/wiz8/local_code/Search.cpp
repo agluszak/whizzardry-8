@@ -303,8 +303,8 @@ std::optional<int> W8Searchable::PickBestSearcher()
     GetPosition(&position);
     glm::vec3 delta = camera - position;
     if (glm::length(delta) < range) {
-        if (earned) {
-            PracticeCharacterSkill(&g_status.buffers.Char[best_slot], W8_SKILL_SCOUTING, 5, false);
+        if (earned && best_slot) {
+            PracticeCharacterSkill(&g_status.buffers.Char[*best_slot], W8_SKILL_SCOUTING, 5, false);
         }
         return best_slot;
     }
