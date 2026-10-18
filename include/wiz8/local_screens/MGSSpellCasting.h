@@ -3,6 +3,7 @@
 #include <array>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "compat/compiler.h"
@@ -31,8 +32,8 @@ struct W8SpellCastingView {
     uint64_t realm_anim_timer;
     unsigned int realm_anim_frame;
     W8LearnedSpellState learned;
-    int uiSpellIndex; /* clicked list row */
-    int selected_spell_index;
+    std::optional<int> uiSpellIndex; /* clicked list row */
+    std::optional<int> selected_spell_index;
     std::array<std::unique_ptr<W8ButtonWidget>, 6> realm_buttons;
     std::array<W8TextBuffer, 6> realm_text;
     std::array<std::unique_ptr<W8ButtonWidget>, 9> power_controls;

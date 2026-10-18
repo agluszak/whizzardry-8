@@ -99,9 +99,9 @@ static void UpdateSpellPowerPips(void);
 static void RefreshSpellPowerPip(int pip);
 static void RebuildSpellCastingList(int spell_id);
 static void SetSpellListLineColor(int index, char color);
-static void SelectSpellCastingRow(int index);
+static void SelectSpellCastingRow(std::optional<int> index);
 static void SelectSpellCastingRealm(W8SpellRealm realm);
-static void SelectSpellCastingListRow(int index);
+static void SelectSpellCastingListRow(std::optional<int> index);
 void TryCommitSpellCast(void);
 void ShowSpellCastingError(int spell_id);
 
@@ -244,7 +244,7 @@ unsigned char OpenSpellCastingView(int party_slot)
     SetTextBoxRegionBounds(0xea, 0x16e, 0x18c, 0x1ba);
     gpSCSV->iSpellRealm = W8_SPELL_REALM_NONE;
     SelectSpellCastingPartySlot(party_slot);
-    gpSCSV->selected_spell_index = -1;
+    gpSCSV->selected_spell_index.reset();
     SelectSpellCastingCharacter(party_slot);
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
     RequestRedrawCombatBar();
@@ -313,8 +313,8 @@ void RestoreSpellCastingRegions(void)
 static void ClearSpellCastingChoice()
 {
     gpSCSV->draft.detail = 0;
-    gpSCSV->uiSpellIndex = -1;
-    SelectSpellCastingRow(-1);
+    gpSCSV->uiSpellIndex.reset();
+    SelectSpellCastingRow(std::nullopt);
     SelectSpellPowerLevel(-1);
     gpSCSV->dialog_confirmed = false;
     UpdateSpellPowerPips();
@@ -344,7 +344,7 @@ void SelectSpellCastingCharacter(int party_slot)
         int spell_id = g_status.buffers.XChar[party_slot].spell.detail;
         SelectSpellCastingRealm(g_spell_records[spell_id].realm);
         if (spell_id == W8_SPELL_IDENTIFY_ITEM) {
-            gpSCSV->uiSpellIndex = -1;
+            gpSCSV->uiSpellIndex.reset();
             return;
         }
         RebuildSpellCastingList(spell_id);
@@ -486,8 +486,8 @@ static void RefreshSpellPowerPip(int pip)
 static void RebuildSpellCastingList(int spell_id)
 {
     ResetEditorStatusLine(-1);
-    gpSCSV->uiSpellIndex = -1;
-    gpSCSV->selected_spell_index = -1;
+    gpSCSV->uiSpellIndex.reset();
+    gpSCSV->selected_spell_index.reset();
     auto& rows = gpSCSV->spells;
     rows.clear();
     const auto realm = gpSCSV->iSpellRealm;
@@ -508,7 +508,7 @@ static void RebuildSpellCastingList(int spell_id)
         rows.push_back({id, color});
     }
     std::ranges::stable_partition(rows, [](const auto& row) { return row.color == 15; });
-    int selected = -1;
+    std::optional<int> selected;
     for (std::size_t index = 0; index < rows.size(); ++index) {
         const auto& row = rows[index];
         const auto& spell = g_spell_records[row.spell];
@@ -521,11 +521,11 @@ static void RebuildSpellCastingList(int spell_id)
         if (row.color != 15) SetSpellListLineColor(index, row.color);
         if (row.spell == spell_id && row.color == 15) selected = index;
     }
-    if (selected == -1) {
+    if (!selected) {
         ScrollTextBoxTo(0);
     } else {
         SelectSpellCastingListRow(selected);
-        ScrollTextBoxTo(selected);
+        ScrollTextBoxTo(*selected);
     }
     RequestRedraw(W8_MAIN_REDRAW_TEXT_BOX);
 }
@@ -555,23 +555,21 @@ static void SetSpellListLineColor(int index, char color)
 /* Marks one spell-list row as selected, restoring the previous row's own
    color first; -1 just clears the selection. */
 // FUNCTION: WIZ8 0x005A0040
-static void SelectSpellCastingRow(int index)
+static void SelectSpellCastingRow(std::optional<int> index)
 {
-    int previous;
-
-    if (index == -1) {
-        if (gpSCSV->selected_spell_index != -1) {
-            SetSpellListLineColor(gpSCSV->selected_spell_index, -1);
-            gpSCSV->selected_spell_index = -1;
+    if (!index) {
+        if (gpSCSV->selected_spell_index) {
+            SetSpellListLineColor(*gpSCSV->selected_spell_index, -1);
+            gpSCSV->selected_spell_index.reset();
             RequestRedraw(W8_MAIN_REDRAW_TEXT_BOX);
             return;
         }
     } else {
-        previous = gpSCSV->selected_spell_index;
-        if (index != previous && previous != -1) {
-            SetSpellListLineColor(previous, -1);
+        const auto previous = gpSCSV->selected_spell_index;
+        if (previous && index != previous) {
+            SetSpellListLineColor(*previous, -1);
         }
-        SetSpellListLineColor(index, 5);
+        SetSpellListLineColor(*index, 5);
         gpSCSV->selected_spell_index = index;
     }
     RequestRedraw(W8_MAIN_REDRAW_TEXT_BOX);
@@ -850,15 +848,13 @@ static void PreviewSpellPowerPipHover(int power_level)
 // FUNCTION: WIZ8 0x005A0AE0
 static void SpellCastingDialogResult(bool accepted)
 {
-    int index;
-
-    index = gpSCSV->uiSpellIndex;
+    const auto selected_index = gpSCSV->uiSpellIndex;
     if (accepted) {
         gpSCSV->dialog_confirmed = true;
         return;
     }
     ClearSpellCastingChoice();
-    SetSpellListLineColor(index, -1);
+    if (selected_index) SetSpellListLineColor(*selected_index, -1);
 }
 
 // FUNCTION: WIZ8 0x005A0B90
@@ -894,14 +890,16 @@ UiResult HandleSpellTextBox(const UiPointerEvent& event)
 {
     if (g_status.selected_character == -1 || gpSCSV->iSpellRealm == W8_SPELL_REALM_NONE)
         return UiResult::Handled;
-    int line = g_level_block->text_lines[g_status.text_line_cursor] + event.local.y / 11;
-    if (!event.inside || line < 0 || line >= static_cast<int>(gpSCSV->spells.size())) line = -1;
+    std::optional<int> line =
+        g_level_block->text_lines[g_status.text_line_cursor] + event.local.y / 11;
+    if (!event.inside || *line < 0 || *line >= static_cast<int>(gpSCSV->spells.size()))
+        line.reset();
     if (line != gpSCSV->selected_spell_index) SelectSpellCastingRow(line);
-    if (line != -1 && event.action == UiPointerAction::Up) {
+    if (line && event.action == UiPointerAction::Up) {
         if (event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK))
-            AfterUiDispatch([line] { SelectSpellCastingListRow(line); });
+            AfterUiDispatch([line = *line] { SelectSpellCastingListRow(line); });
         if (event.button == UiPointerButton::Right && (event.captured_buttons & SDL_BUTTON_RMASK)) {
-            const auto spell = gpSCSV->spells[line].spell;
+            const auto spell = gpSCSV->spells[*line].spell;
             AfterUiDispatch([spell] {
                 auto dialog = std::make_unique<W8SpellInfoDialog>(spell);
                 dialog->SetText("");
@@ -919,39 +917,36 @@ UiResult HandleSpellTextBox(const UiPointerEvent& event)
 /* The spell-list row click: re-colors the rows, remembers the spell, then
    either prices its power levels or reports why it cannot be cast. */
 // FUNCTION: WIZ8 0x005A1150
-static void SelectSpellCastingListRow(int index)
+static void SelectSpellCastingListRow(std::optional<int> index)
 {
     char color;
     int cost;
     W8SpellPowerClass power_class;
-    int previous;
     int spell_id;
     W8SpellTargetType target_type;
     unsigned int levels;
     W8TargetNeed needed;
 
-    previous = gpSCSV->uiSpellIndex;
-    if (index == -1) {
-        return;
-    }
+    if (!index) return;
+    const auto previous = gpSCSV->uiSpellIndex;
     gpSCSV->uiSpellIndex = index;
-    if (previous != -1) {
-        SetSpellListLineColor(previous, -1);
+    if (previous) {
+        SetSpellListLineColor(*previous, -1);
     }
-    spell_id = gpSCSV->spells[gpSCSV->uiSpellIndex].spell;
+    spell_id = gpSCSV->spells[*gpSCSV->uiSpellIndex].spell;
     if (spell_id == W8_SPELL_NONE) {
         return;
     }
-    color = gpSCSV->spells[index].color;
+    color = gpSCSV->spells[*index].color;
     if (color == 0 || color == 4) {
-        gpSCSV->uiSpellIndex = -1;
+        gpSCSV->uiSpellIndex.reset();
         ConfigureSpellTargetFilter(W8_TARGET_TYPE_NONE, W8_TARGET_NEED_NONE);
         ShowSpellCastingError(spell_id);
         QueueCharacterEvent(&g_status.buffers.Char[g_status.selected_character], 0x35, 0,
                             kCharacterEventFullVolume);
         return;
     }
-    SetSpellListLineColor(gpSCSV->uiSpellIndex, 3);
+    SetSpellListLineColor(*gpSCSV->uiSpellIndex, 3);
     power_class = g_spell_records[spell_id].power_class;
     if (power_class == W8_SPELL_POWER_CLASS_NONE) {
         srAssertFail("iSpellPowerClass != BAD_INDEX", SPELLCASTING_CPP, 0x834, 0);
@@ -962,7 +957,7 @@ static void SelectSpellCastingListRow(int index)
              cost;
     levels = std::clamp(levels, 0u, 7u);
     if (levels == 0) {
-        gpSCSV->uiSpellIndex = -1;
+        gpSCSV->uiSpellIndex.reset();
         return;
     }
     gpSCSV->draft.detail = spell_id;

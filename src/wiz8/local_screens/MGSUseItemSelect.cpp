@@ -4,6 +4,7 @@
 #include <array>
 #include <cstddef>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -68,9 +69,9 @@ struct UseItemView {
     };
     W8Action draft{W8_ACTION_USE_ITEM, -1};
     ItemPool pool = ItemPool::Character;
-    int selected_line = -1;
+    std::optional<int> selected_line;
     int owner = -1;
-    int hover_row = -1;
+    std::optional<int> hover_row;
     W8ItemInstance* detail_item = nullptr;
     std::vector<Row> rows;
     UiLayer input{UiLayerOrder::ItemSelection};
@@ -240,10 +241,10 @@ void RefreshUseItemSelectionForSlot(int party_slot)
         } else {
             RebuildUseItemSelectList(ItemPool::Hand, &g_status.item_in_hand);
         }
-        if (use_item->selected_line == -1) {
+        if (!use_item->selected_line) {
             srAssertFail("giReuseItemLineNumber != -1", MGSUSEITEMSELECT_CPP, 0x1fe, 0);
         }
-        ScrollTextBoxTo(use_item->selected_line);
+        ScrollTextBoxTo(*use_item->selected_line);
         gXStatus.dragged_character_slot.reset();
         return;
     }
@@ -257,11 +258,11 @@ void RefreshUseItemSelectionForSlot(int party_slot)
             if (party_pool && gXStatus.fCombatMode)
                 srAssertFail("!gXStatus.fCombatMode", MGSUSEITEMSELECT_CPP, 0x216, 0);
             RebuildUseItemSelectList(party_pool ? ItemPool::Party : ItemPool::Character, item);
-            if (use_item->selected_line == -1) {
+            if (!use_item->selected_line) {
                 srAssertFail("giReuseItemLineNumber != -1", MGSUSEITEMSELECT_CPP, 0x221, 0);
             }
-            ScrollTextBoxTo(use_item->selected_line);
-            SetHoveredTextLine(use_item->selected_line, 2);
+            ScrollTextBoxTo(*use_item->selected_line);
+            SetHoveredTextLine(*use_item->selected_line, 2);
             RedrawTextBox();
             return;
         }
@@ -408,7 +409,7 @@ static void ShowUseItemList(W8ItemInstance* select)
     std::stable_partition(rows.begin(), rows.end(), [](const auto& row) { return row.usable; });
     // The shared text box stores at most 350 lines. Keep its rows and ours aligned.
     if (rows.size() > 350) rows.resize(350);
-    use_item->selected_line = -1;
+    use_item->selected_line.reset();
     for (std::size_t index = 0; index < rows.size(); ++index) {
         const auto [item, usable] = rows[index];
         if (item == select) use_item->selected_line = static_cast<int>(index);
@@ -514,11 +515,12 @@ UiResult HandleUseItemTextBox(const UiPointerEvent& event)
 {
     if (event.action == UiPointerAction::Leave) {
         ClearHoveredTextLine(2);
-        use_item->hover_row = -1;
+        use_item->hover_row.reset();
     } else if (event.action == UiPointerAction::Move || event.action == UiPointerAction::Enter) {
         const int row = event.local.y / 11;
         if (event.inside && row != use_item->hover_row) HighlightNoticeRow(row);
-        use_item->hover_row = row;
+        if (event.inside) use_item->hover_row = row;
+        else use_item->hover_row.reset();
     } else if (event.action == UiPointerAction::Up && event.inside) {
         if (event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK)) {
             if (const auto slot = g_level_block->hovered_text_lines[2])
@@ -653,7 +655,7 @@ void UpdateUseItemDetailPanel(W8ItemInstance* item)
 // FUNCTION: WIZ8 0x0059E0E0
 void SelectCurrentUseItemLine(void)
 {
-    SelectUseItemLine(use_item->selected_line);
+    if (use_item->selected_line) SelectUseItemLine(*use_item->selected_line);
 }
 
 /* Move the selected item into the cursor hand. When the hand is already
