@@ -15,9 +15,7 @@ class File;
 /* NSF disk records and owning runtime script data have independent layouts. */
 
 /* Quote-entry opcodes with recovered consumers; unknown values remain unnamed. */
-typedef unsigned char W8NpcQuoteEntryKind;
-
-enum {
+enum W8NpcQuoteEntryKind : unsigned char {
     W8_NPC_ENTRY_NEXT_QUOTE = 2,
     W8_NPC_ENTRY_FACT_CONDITIONAL_QUOTE = 3,
     W8_NPC_ENTRY_KEYWORD = 4,
