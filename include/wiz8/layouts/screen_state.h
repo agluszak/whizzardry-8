@@ -48,8 +48,8 @@ enum W8CharacterScreenMode {
     W8_CHARACTER_LEVEL_UP_NOTICE = 3
 };
 
-using W8ScreenMode = std::variant<std::monostate, W8PleaseWaitMode, W8OptionsMode,
-                                  W8CharacterScreenMode>;
+using W8ScreenMode =
+    std::variant<std::monostate, W8PleaseWaitMode, W8OptionsMode, W8CharacterScreenMode>;
 
 /* A screen's lifecycle hooks. Initialize, enter and leave report failure,
    which stops the program; absent optional hooks have nothing to do. */

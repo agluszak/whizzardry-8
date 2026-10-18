@@ -674,8 +674,8 @@ bool CharacterScreenEnter(void)
     UpdateHeldItemCursor();
     g_wiz_text_font_secondary.resetPalette();
     g_wiz_text_bold_font.resetPalette();
-    g_character_screen = std::make_unique<W8CharacterScreen>(
-        mode, g_current_screen_state.character);
+    g_character_screen =
+        std::make_unique<W8CharacterScreen>(mode, g_current_screen_state.character);
     g_character_screen->BuildControls();
     if (!g_status.game_started && (mode == W8_CHARACTER_CREATE || mode == W8_CHARACTER_LEVEL_UP)) {
         StartMusicResource("Menus.MPL", 1, 1);
