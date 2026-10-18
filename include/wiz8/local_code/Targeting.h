@@ -152,7 +152,7 @@ bool SlotHasAnyValidTarget(int party_slot);
 bool IsDeadCharacterTargetable(int party_slot);
 
 /* The faction table index for a name, -1 when none matches. */
-signed char FindFactionByName(const char* name);
+std::optional<signed char> FindFactionByName(const char* name);
 void RepickInvalidCombatTargets(void);
 
 // Commit gameplay state only. Presentation belongs to the interaction controller.

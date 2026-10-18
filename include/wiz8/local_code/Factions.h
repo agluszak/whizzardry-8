@@ -31,9 +31,7 @@ enum W8Faction : int {
     W8_FACTION_KINGS_ASSASINS = 18,
     W8_FACTION_FILLER_19 = 19,
     W8_FACTION_FILLER_20 = 20,
-    W8_FACTION_COUNT = 21,
-    /* FindFactionByName answers this for a name no faction carries. */
-    W8_FACTION_INVALID = -1
+    W8_FACTION_COUNT = 21
 };
 
 #pragma pack(push, 1)

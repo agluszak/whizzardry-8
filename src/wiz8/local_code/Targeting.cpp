@@ -242,7 +242,7 @@ static char g_faction_names[W8_FACTION_COUNT][0x1e] = {
 /* Look a faction up by name, case-insensitively. -1 for a name that is not one
    of the twenty-one. */
 // FUNCTION: WIZ8 0x005360b0
-signed char FindFactionByName(const char* name)
+std::optional<signed char> FindFactionByName(const char* name)
 {
     signed char faction;
 
@@ -251,7 +251,7 @@ signed char FindFactionByName(const char* name)
             return faction;
         }
     }
-    return -1;
+    return std::nullopt;
 }
 
 // FUNCTION: WIZ8 0x00536110

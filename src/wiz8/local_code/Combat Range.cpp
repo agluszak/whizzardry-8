@@ -859,7 +859,7 @@ bool FrontRankScreens(unsigned int from_position, unsigned int to_position)
    them is picked at random, or -1 when nobody qualifies. The berserk and
    turncoat paths use it to pick a victim. */
 // FUNCTION: WIZ8 0x0051b0a0
-int PickReachableSlotByDisposition(int party_slot, W8Disposition relationship)
+std::optional<int> PickReachableSlotByDisposition(int party_slot, W8Disposition relationship)
 {
     int candidates[8];
     int* next = candidates;
@@ -885,7 +885,7 @@ int PickReachableSlotByDisposition(int party_slot, W8Disposition relationship)
         }
     }
     if (count == 0) {
-        return -1;
+        return std::nullopt;
     }
     return candidates[Random(count)];
 }
@@ -1021,9 +1021,9 @@ bool MonsterActionReachesTarget(W8MonsterInfo* monster_info, W8MonsterRecord* re
 }
 
 // FUNCTION: WIZ8 0x0051ad60
-int FindNearestVisibleGroupMonster(W8MonsterInfo* monster_info, int group_id, int kind)
+std::optional<int> FindNearestVisibleGroupMonster(W8MonsterInfo* monster_info, int group_id, int kind)
 {
-    int best_id = -1;
+    std::optional<int> best_id;
     float best = 999999.0f;
     W8MonsterGroup* group = FindMonsterGroup(group_id);
     for (unsigned int index = 0; index < group->MemberIds().size(); ++index) {

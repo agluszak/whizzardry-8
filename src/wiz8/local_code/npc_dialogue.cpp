@@ -117,7 +117,6 @@ void W8NpcDialogue::Speak(int script_line, bool force_npc_voice)
     W8NpcQuoteEntry* entry;
     W8Monster* monster;
     W8NpcState* target;
-    signed char faction;
     char response_count;
     int response;
     int entry_index;
@@ -230,9 +229,9 @@ void W8NpcDialogue::Speak(int script_line, bool force_npc_voice)
                     }
                 } break;
                 case W8_NPC_ENTRY_FACTION_CHANGE:
-                    faction = FindFactionByName(entry->sub_entries[0].text.c_str());
-                    if (faction != -1) {
-                        ApplyFactionChange(3, 1, faction, entry->operand0);
+                    if (const auto faction =
+                            FindFactionByName(entry->sub_entries[0].text.c_str())) {
+                        ApplyFactionChange(3, 1, *faction, entry->operand0);
                     }
                     break;
                 case W8_NPC_ENTRY_PARTY_SPEAKER_EVENT:

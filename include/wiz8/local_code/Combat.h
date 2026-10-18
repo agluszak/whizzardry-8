@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <string_view>
 
 #include "wiz8/layouts/targeting.h"
@@ -60,7 +61,7 @@ void ComputeCharacterActionPhase(int party_slot);
 void SetUpMonsterTurn(W8MonsterInfo* monster_info);
 /* The condition interrupt that fires before the actor's action;
    returns the interrupt kind, or -1 when none fires. */
-int GetConditionInterrupt(W8TargetSource* source);
+std::optional<int> GetConditionInterrupt(W8TargetSource* source);
 /* The monster's breathe/special-attack action step. */
 bool MonsterFleeAction(W8MonsterInfo* monster_info, W8MonsterRecord* record);
 /* Run the monster's committed special attack against its marker
