@@ -482,10 +482,7 @@ std::unique_ptr<W8SpellVisual> LoadSpellVisualResource(W8World* world, std::stri
                 float intensity = 1.0f, duration = 1.0f, distance = 10.0f;
                 fields >> intensity >> duration >> distance;
                 const auto cycle = FindSpellCycleByName(cycle_name.c_str());
-                if (!cycle) {
-                    success = false;
-                    break;
-                }
+                if (!cycle) continue;
                 ShakeDefinition effect(duration, true, intensity, distance * kWorldScale, 0);
                 effect.cycle = *cycle;
                 effect.frame = frame;
