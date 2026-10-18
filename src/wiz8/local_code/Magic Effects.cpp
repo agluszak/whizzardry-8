@@ -767,15 +767,17 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
     }
     if (TargetSourceIsCharacter(&effect->Source, 0)) {
         disposition =
-            (g_status.buffers.Char[effect->Source.iChar].uiCondition[W8_CONDITION_TURNCOAT] == 0) +
-            1;
+            g_status.buffers.Char[effect->Source.iChar].uiCondition[W8_CONDITION_TURNCOAT] == 0
+                ? W8_DISPOSITION_FRIENDLY
+                : W8_DISPOSITION_HOSTILE;
     } else if (source_monster != nullptr) {
         disposition = source_monster->ubDisposition;
     } else {
         disposition = W8_DISPOSITION_HOSTILE;
     }
     if (effect->Source.fBackfire) {
-        disposition = (disposition == W8_DISPOSITION_HOSTILE) + 1;
+        disposition = disposition == W8_DISPOSITION_HOSTILE ? W8_DISPOSITION_FRIENDLY
+                                                            : W8_DISPOSITION_HOSTILE;
     }
     group = CreateGroup(g_elemental_summon_group_ids[effect->definition.duration_scale][tier], 1,
                         &effect->target.point, true, false, true);
