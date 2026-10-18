@@ -46,7 +46,7 @@
 void W8ListBoxDialog::ClearLines()
 {
     m_lines.clear();
-    m_selected_line = -1;
+    m_selected_line.reset();
     m_scrollable = false;
     m_first_visible_line = 0;
 }
@@ -93,16 +93,20 @@ void W8ListBoxDialog::SetFirstVisibleLine(int requested)
 }
 
 // FUNCTION: WIZ8 0x005CCB80
-void W8ListBoxDialog::SetCurrentLine(int line)
+void W8ListBoxDialog::SetCurrentLine(std::optional<int> line)
 {
     if (m_selected_line == line) {
         return;
     }
-    if (line == -1) {
-        m_selected_line = -1;
+    if (!line) {
+        m_selected_line.reset();
         return;
     }
-    int target = line < 0 ? 0 : line;
+    if (m_lines.empty()) {
+        m_selected_line.reset();
+        return;
+    }
+    int target = *line < 0 ? 0 : *line;
     if (static_cast<int>(m_lines.size()) - 1 < target) {
         target = static_cast<int>(m_lines.size()) - 1;
     }
@@ -125,28 +129,30 @@ bool W8ListBoxDialog::HandleInputEvent(const InputEvent* input)
     }
 
     if (IsKeyHeld(SDLK_UP)) {
-        if (m_selected_line > 0) {
-            SetCurrentLine(m_selected_line - 1);
+        if (m_selected_line && *m_selected_line > 0) {
+            SetCurrentLine(*m_selected_line - 1);
         }
-    } else if (IsKeyHeld(SDLK_DOWN) && m_selected_line < static_cast<int>(m_lines.size())) {
-        SetCurrentLine(m_selected_line + 1);
+    } else if (IsKeyHeld(SDLK_DOWN) &&
+               (!m_selected_line || *m_selected_line < static_cast<int>(m_lines.size()))) {
+        SetCurrentLine(m_selected_line ? *m_selected_line + 1 : 0);
     }
 
     switch (input->key) {
     case SDLK_ESCAPE:
-        m_selected_line = -1;
+        m_selected_line.reset();
         m_keep_open = false;
         return false;
     case SDLK_RETURN:
-        if (m_selected_line != -1) {
+        if (m_selected_line) {
             m_keep_open = false;
         }
         return m_keep_open;
     case SDLK_PAGEUP:
-        SetCurrentLine(m_selected_line - GetVisibleLineCount());
+        SetCurrentLine(m_selected_line ? *m_selected_line - GetVisibleLineCount() : 0);
         return m_keep_open;
     case SDLK_PAGEDOWN:
-        SetCurrentLine(m_selected_line + GetVisibleLineCount());
+        SetCurrentLine(m_selected_line ? *m_selected_line + GetVisibleLineCount()
+                                       : GetVisibleLineCount() - 1);
         return m_keep_open;
     case SDLK_HOME:
         SetCurrentLine(0);
@@ -237,7 +243,7 @@ void W8ListBoxDialog::Configure()
                 m_area_button.Resize(m_heading_bounds.w, -6 - m_heading_bounds.y -
                                                              m_heading_bounds.h +
                                                              m_footer_bounds.y);
-                int selected = m_selected_line;
+                const auto selected = m_selected_line;
                 m_selected_line = 0;
                 SetCurrentLine(selected);
                 UpdateLayout();
@@ -283,7 +289,7 @@ void W8ListBoxDialog::Draw(SDL_Surface& target)
     for (int row = 0; row < visible; ++row) {
         const int line = m_first_visible_line + row;
         const int y = rect.y + 2 + g_wiz_dialog_font.height() * row;
-        if (line == m_selected_line) {
+        if (m_selected_line == line) {
             const SDL_Rect selection{rect.x + 3, y, rect.w - 6, g_wiz_dialog_font.height() - 2};
             SDL_FillSurfaceRect(&target, &selection, Get16BPPColor(m_fill_colour));
         }
@@ -313,7 +319,7 @@ void W8ListBoxDialog::UpdateLayout()
         m_slider_button.SetPosition(m_x + dx + 4 + width, m_area_button.Bounds().h +
                                                               ((height - m_up_button.Bounds().h -
                                                                 m_down_button.Bounds().h - 7) *
-                                                               m_selected_line) /
+                                                               (m_selected_line ? *m_selected_line : 0)) /
                                                                   static_cast<int>(m_lines.size()) +
                                                               m_y + 3 + dy);
         m_third_text_button.SetPosition(m_x + dx + width, m_y + dy);
@@ -340,7 +346,8 @@ bool W8ListBoxDialog::ProcessInput()
         .unhandled =
             [&](const InputEvent& input) {
                 if (input.type == InputEventType::MouseWheel) {
-                    SetCurrentLine(m_selected_line - input.wheel);
+                    SetCurrentLine(m_selected_line ? *m_selected_line - input.wheel
+                                                   : -input.wheel);
                 } else {
                     HandleInputEvent(&input);
                 }

@@ -5,6 +5,7 @@
 
 #include <array>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -74,7 +75,7 @@ private:
     /* Text-area button height divided by the dialog font height. */
     int GetVisibleLineCount();
     /* Select a text line and scroll it into the visible range. */
-    void SetCurrentLine(int line);
+    void SetCurrentLine(std::optional<int> line);
     void SetFirstVisibleLine(int line);
     void ClearLines();
     /* Keyboard handling for the visible text list. */
@@ -104,7 +105,7 @@ public:
     W8ButtonWidget m_cancel_button{InputLayer()};
     bool m_scrollable; /* scrolling area is scrollable */
     int m_first_visible_line;
-    int m_selected_line;
+    std::optional<int> m_selected_line;
     GenericButtonImage edge_inlay; /* DialogEdge inlay for the text buttons */
     short flags;
 };

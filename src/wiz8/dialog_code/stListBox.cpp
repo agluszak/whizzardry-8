@@ -33,13 +33,13 @@ void W8ListBoxDialog::OnTextAreaClick()
 // FUNCTION: WIZ8 0x005ccf30
 void W8ListBoxDialog::OnUp()
 {
-    SetCurrentLine(m_selected_line - 1);
+    SetCurrentLine(m_selected_line ? *m_selected_line - 1 : 0);
 }
 
 // FUNCTION: WIZ8 0x005ccfe0
 void W8ListBoxDialog::OnDown()
 {
-    SetCurrentLine(m_selected_line + 1);
+    SetCurrentLine(m_selected_line ? *m_selected_line + 1 : 0);
 }
 
 // FUNCTION: WIZ8 0x005cd090
@@ -53,7 +53,7 @@ void W8ListBoxDialog::OnOk()
 void W8ListBoxDialog::OnCancel()
 {
     m_keep_open = false;
-    SetCurrentLine(-1);
+    SetCurrentLine(std::nullopt);
     m_dirty = true;
 }
 
