@@ -313,7 +313,7 @@ void ResetPartyCombatRows(void)
             slot,
             {g_status.buffers.XChar[slot].action_kind, g_status.buffers.XChar[slot].action_detail},
             0);
-        g_combat_state->characters[slot].combat_status = -1;
+        g_combat_state->characters[slot].combat_status = W8_COMBAT_PORTRAIT_EMPTY;
         g_combat_state->characters[slot].portrait_image = -1;
         g_combat_state->characters[slot].portrait_image_alternate = -1;
         g_combat_state->characters[slot].dead =

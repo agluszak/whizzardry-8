@@ -1255,9 +1255,9 @@ void AttemptTrapDisarm(int level, int /*flag*/, char backfire)
         chance = level * 5 + 0x32 + screen->m_difficulty * -6;
     }
     if (static_cast<int>(Random(100)) < chance) {
-        screen->m_disarm_state = 7;
+        screen->m_disarm_state = W8_TRAP_DISARM_KNOCK_KNOCK_SUCCESS;
     } else {
-        screen->m_disarm_state = 8;
+        screen->m_disarm_state = W8_TRAP_DISARM_KNOCK_KNOCK_FAILURE;
     }
     screen->m_text_panel->EnableInput(false);
     screen->m_text_panel->m_key_handler->m_range.SetActive(false);

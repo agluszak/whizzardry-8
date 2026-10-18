@@ -223,6 +223,19 @@ public:
     std::array<W8TextBuffer, 7> text;
 };
 
+enum W8LockInteractionState {
+    W8_LOCK_STATE_IDLE = 0,
+    W8_LOCK_STATE_PICK_TUMBLER = 1,
+    W8_LOCK_STATE_FORCE = 2,
+    W8_LOCK_STATE_PREPARE_SPELL = 3,
+    W8_LOCK_STATE_RELEASE_FOR_SPELL = 4,
+    W8_LOCK_STATE_CANCEL = 5,
+    W8_LOCK_STATE_RELEASE_FOR_ITEM = 6,
+    W8_LOCK_STATE_CHECK_PICK_SUCCESS = 7,
+    W8_LOCK_STATE_WAIT_FOR_UNLOCK = 8,
+    W8_LOCK_STATE_EXIT = 9
+};
+
 class W8LockInteraction {
 public:
     W8LockInteraction(Trigger* trigger);
@@ -258,18 +271,40 @@ public:
     W8ButtonWidget* m_cancel_button;    /* OnPrimary target, state 5 (cancel) */
     int m_selected_slot;               /* party slot owning the raised pins */
     int m_picked_tumbler;              /* index OnTumblerPicked recorded */
-    int m_state;                       /* Process() state */
+    W8LockInteractionState m_state;      /* Process() state */
     int m_tumbler_owner[8];            /* owning party slot per pin, -1 unset */
     unsigned char m_tumbler_locked[8]; /* pin kept when the slot is released */
     int m_slot_attempts[8];            /* pick attempts per party slot */
     W8GameTimer m_timer;               /* state-8 completion delay */
 };
 
+enum W8TrapInteractionAction {
+    W8_TRAP_ACTION_EXIT = 0,
+    W8_TRAP_ACTION_CAST_SPELL = 1,
+    W8_TRAP_ACTION_TRIGGER = 2,
+    W8_TRAP_ACTION_USE_ITEM = 3,
+    W8_TRAP_ACTION_DISARM = 4
+};
+
+enum W8TrapDisarmState {
+    W8_TRAP_DISARM_IDLE = 0,
+    W8_TRAP_DISARM_INSPECT_SUCCESS = 1,
+    W8_TRAP_DISARM_COLUMN_SUCCESS = 2,
+    W8_TRAP_DISARM_COMPLETE = 3,
+    W8_TRAP_DISARM_SPRUNG = 4,
+    W8_TRAP_DISARM_CAST_SPELL = 5,
+    W8_TRAP_DISARM_USE_ITEM = 6,
+    W8_TRAP_DISARM_KNOCK_KNOCK_SUCCESS = 7,
+    W8_TRAP_DISARM_KNOCK_KNOCK_FAILURE = 8,
+    W8_TRAP_DISARM_WAIT_FOR_TRAP = 9,
+    W8_TRAP_DISARM_EXIT = 10
+};
+
 class W8MainGameScreen {
 public:
     W8MainGameScreen(Trigger* owner);
     void SelectTextEntry(int index);
-    void OnPrimary(int action);
+    void OnPrimary(W8TrapInteractionAction action);
     void DrawActions(SDL_Surface& target);
     void Update();
     void RefreshActionPanel();
@@ -284,7 +319,7 @@ public:
     Trigger* m_owner;
     std::unique_ptr<W8MainGameTextPanel> m_text_panel;
     std::unique_ptr<W8MainGameStatusPanel> m_status_panel;
-    int m_disarm_state;
+    W8TrapDisarmState m_disarm_state;
     int m_selected_character;
     std::array<std::unique_ptr<W8ButtonWidget>, 5> m_action_controls;
     int m_device_id;

@@ -47,7 +47,7 @@ void TargetCharacterWithHeldItem(unsigned int uiTargetChar);
 int CanCharacterUseItemEntry(W8Character* character, W8ItemInstance* item);
 bool CanSplitItemStack(const W8ItemInstance* item);
 void SplitStackDialogResult(int count);
-void UpdateItemCursorForState(int flag, W8ItemInstance* item, int slot);
+void UpdateItemCursorForState(bool alternate, W8ItemInstance* item, int slot);
 void SetHandCursors();
 void UnequipBothHands(void);
 void TogglePartyRowFlag(void);
