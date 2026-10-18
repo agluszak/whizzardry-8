@@ -141,7 +141,7 @@ static void NpcScriptTurnToBook(void)
 // FUNCTION: WIZ8 0x00526E70
 static void NpcScriptEndgameScreen(void)
 {
-    SetIntroVideoIndex(5);
+    SetIntroVideoIndex(W8_INTRO_VIDEO_DARK_ENDING);
     g_pending_screen_state.id = W8_SCREEN_INTRO;
 }
 
