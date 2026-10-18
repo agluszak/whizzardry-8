@@ -45,21 +45,21 @@ static W8NpcItemEntry MakeNpcItemEntry(int item_id)
     return entry;
 }
 
-static int FindNpcStockItem(W8NpcState* npc, int item_id)
+static std::optional<int> FindNpcStockItem(W8NpcState* npc, int item_id)
 {
     unsigned int count = npc->items.size();
     for (unsigned int index = 0; index < count; ++index) {
         if (npc->items[index].item.iItemNo == item_id) {
-            return index;
+            return static_cast<int>(index);
         }
     }
-    return -1;
+    return std::nullopt;
 }
 
 static unsigned char GetNpcStockQuantity(W8NpcState* npc, int item_id)
 {
-    const int index = FindNpcStockItem(npc, item_id);
-    return index >= 0 ? npc->items[index].quantity : 0;
+    const auto index = FindNpcStockItem(npc, item_id);
+    return index ? npc->items[*index].quantity : 0;
 }
 
 static unsigned char GetNpcConfiguredStockQuantity(W8NpcState* npc, int item_id)
@@ -117,7 +117,7 @@ int AddNpcItem(W8NpcState* npc, int item_id, unsigned int quantity)
     W8NpcItemEntry* entry;
     unsigned int repeats;
     unsigned int added;
-    int index;
+    std::optional<int> index;
 
     if (npc == 0) {
         return -1;
@@ -133,15 +133,15 @@ int AddNpcItem(W8NpcState* npc, int item_id, unsigned int quantity)
     }
     added = 0;
     for (; added < repeats; ++added) {
-        index = -1;
+        index.reset();
         if (record->equip_class != W8_ITEM_EQUIP_CLASS_AMMUNITION) {
             index = FindNpcStockItem(npc, item_id);
         }
-        if (index == -1) {
+        if (!index) {
             index = static_cast<int>(npc->items.size());
             npc->items.push_back(MakeNpcItemEntry(item_id));
         }
-        entry = &npc->items[index];
+        entry = &npc->items[*index];
         if (record->equip_class == W8_ITEM_EQUIP_CLASS_AMMUNITION) {
             entry->item.stack_count = 0x19;
             entry->quantity = 1;
@@ -153,7 +153,7 @@ int AddNpcItem(W8NpcState* npc, int item_id, unsigned int quantity)
             entry->quantity += quantity;
         }
     }
-    return index;
+    return *index;
 }
 
 // FUNCTION: WIZ8 0x0055afa0
@@ -285,7 +285,7 @@ int AddNpcItemFromInstance(W8NpcState* npc, const W8ItemInstance* item, char qua
 {
     W8NpcItemEntry* entry;
     int item_id;
-    int index;
+    std::optional<int> index;
 
     if (npc == 0) {
         return -1;
@@ -294,28 +294,27 @@ int AddNpcItemFromInstance(W8NpcState* npc, const W8ItemInstance* item, char qua
         return -1;
     }
     item_id = item->iItemNo;
-    index = -1;
     if (g_item_records[item_id].equip_class != W8_ITEM_EQUIP_CLASS_AMMUNITION) {
         index = FindNpcStockItem(npc, item_id);
     }
-    if (index == -1) {
+    if (!index) {
         item_id = item->iItemNo;
         index = static_cast<int>(npc->items.size());
         npc->items.push_back(MakeNpcItemEntry(item_id));
     }
-    entry = &npc->items[index];
+    entry = &npc->items[*index];
     if (g_item_records[entry->item.iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK) {
         if (entry->quantity == 0) {
             entry->quantity = 1;
         }
         entry->item.stack_count += quantity;
-        return index;
+        return *index;
     }
     if (entry->item.stack_count == 0) {
         entry->item.stack_count = 1;
     }
     entry->quantity += quantity;
-    return index;
+    return *index;
 }
 
 /* Top up an NPC's stock from its database rules. A rule restocks only while it
