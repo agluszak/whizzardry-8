@@ -622,6 +622,7 @@ TEST_CASE("Ambient exchanges wait for completion and choose a different responde
     REQUIRE(queue.pending_events.empty()); // No eligible speaker: retry later.
     for (int i : {0, 1}) {
         slots[i].fOccupied = true;
+        slots[i].npc_index = -1;
         characters[i].fInParty = true;
         characters[i].hp_current = 10;
     }

@@ -390,7 +390,7 @@ void text_input_ownership()
         outer.Remove(first);
         outer.Remove(3);
         outer.Remove(last);
-        REQUIRE(outer.FocusedId() == -1);
+        REQUIRE(outer.FocusedId() == std::nullopt);
     }
     REQUIRE(TextFieldGroup::Focused() == nullptr);
 }

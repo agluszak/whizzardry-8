@@ -36,8 +36,9 @@ TEST_CASE("resource_text_test")
     REQUIRE((script.lines[0].text == "  " + long_line));
     REQUIRE((script.lines[1].text == "end"));
     REQUIRE((script.GetSourceLine(0) == 4 && script.GetSourceLine(1) == 6));
-    REQUIRE((script.GetSourceLine(-1) == -1 && script.GetSourceLine(2) == -1));
-    REQUIRE((script.FindLabelLine("start") == 0 && script.FindLabelLine("missing") == -1));
+    REQUIRE((script.GetSourceLine(-1) == std::nullopt && script.GetSourceLine(2) == std::nullopt));
+    REQUIRE(
+        (script.FindLabelLine("start") == 0 && script.FindLabelLine("missing") == std::nullopt));
     script.Clear();
     REQUIRE((script.lines.empty() && script.labels.empty()));
     // Labels sharing a long prefix remain distinct; they have no disk width.
