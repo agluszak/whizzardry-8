@@ -460,13 +460,12 @@ static unsigned char SellItemToNpc(W8NpcState* npc, W8ItemInstance* item, unsign
 
     if ((g_item_records[item->iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) == 0) {
         if (NpcAcceptsTradeItemClass(npc, item)) {
-            ReplaceOrCreateItem(&stack, item->iItemNo, false, item->identified, false);
+            stack = *item;
             stack.stack_count = quantity;
             amount = CalculateTradeStackPrice(npc, &stack, W8_TRADE_PRICE_PARTY_SELLS);
             if (!suppress_payment) {
                 AddPartyGold(amount, false);
             }
-            wiz8::sound::play(g_sound_cash_transaction);
             if (item->stack_count == 0) {
                 item->stack_count = 1;
             }
@@ -511,15 +510,7 @@ W8TradeResult CompleteNpcTrade(W8NpcState* npc, const W8TradeSelection& selectio
 {
     auto* item = ResolveTradeSelection(npc, selection);
     if (!item || !npc || quantity == 0) return {W8TradeOutcome::InvalidSelection};
-    const auto& record = g_item_records[item->iItemNo];
     if (selection.source == W8TradeSource::NpcStock) {
-        auto* entry = GetNpcItemAt(npc, selection.slot);
-        const auto available =
-            record.quantity_kind == W8_ITEM_QUANTITY_STACK ? item->stack_count : entry->quantity;
-        if (quantity > available) return {W8TradeOutcome::InvalidSelection};
-        const auto price = CalculateNpcTradeStackPrice(npc, item->iItemNo,
-                                                       W8_TRADE_PRICE_PARTY_BUYS, quantity, true);
-        if (std::cmp_greater(price, g_status.party_gold)) return {W8TradeOutcome::InsufficientGold};
         return CompleteNpcItemPurchase(npc, selection.slot, quantity, false);
     }
     const auto available = item->stack_count ? item->stack_count : 1;
@@ -538,6 +529,7 @@ W8TradeResult CompleteNpcTrade(W8NpcState* npc, const W8TradeSelection& selectio
         EmptyBackpackSlot(&g_status.buffers.Char[selection.character], selection.slot);
     else
         EmptyPartyPoolEntry(selection.slot);
+    wiz8::sound::play(g_sound_cash_transaction);
     return {W8TradeOutcome::Complete, wanted};
 }
 
@@ -562,9 +554,12 @@ bool NpcAcceptsTradeItem(W8NpcState* npc, W8ItemInstance* item)
 int CalculateNpcTradeStackPrice(W8NpcState* npc, int item_id, W8TradePriceKind price_kind,
                                 unsigned char stack_count, bool identified)
 {
-    W8ItemInstance item;
-    ReplaceOrCreateItem(&item, item_id, false, identified, false);
-    item.stack_count = stack_count;
+    // A price query observes contents; constructing random gameplay items here
+    // made merely drawing a trade row advance the shared random sequence.
+    W8ItemInstance item{.iItemNo = item_id,
+                        .stack_count = stack_count,
+                        .identified = identified || (g_item_records[item_id].flags &
+                                                     W8_ITEM_FLAG_AUTO_IDENTIFY) != 0};
     return CalculateTradeStackPrice(npc, &item, price_kind);
 }
 

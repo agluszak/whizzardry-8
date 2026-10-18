@@ -44,6 +44,11 @@
    interval, so it keeps an address-qualified name. */
 
 namespace {
+bool NavigationCombatActive(const W8Navigator& navigator)
+{
+    return g_combat_inactive == 0 &&
+           (!navigator.owner_world || navigator.owner_world == GetWorld());
+}
 
 // GLOBAL: WIZ8 0x00659b30
 std::vector<W8Navigator*> g_registered_navigators;
@@ -560,7 +565,7 @@ void W8Navigator::SetMovementStopped()
 void W8Navigator::ClearMovementStopped()
 {
     movement_stopped = false;
-    if (g_combat_inactive != 0 && linked_navigator == 0) {
+    if (!NavigationCombatActive(*this) && linked_navigator == 0) {
         g_navigator_group.clear();
         CollectGroupNavigators(g_navigator_group);
         for (auto& index : g_navigator_group) {
@@ -588,7 +593,7 @@ void W8Navigator::CopyPathToGroup()
 // FUNCTION: WIZ8 0x00454c80
 void W8Navigator::PropagateGroupPosition()
 {
-    if (g_combat_inactive != 0) {
+    if (!NavigationCombatActive(*this)) {
         CopyPathToGroup();
     }
     if (!movement_stopped) {
@@ -697,17 +702,17 @@ unsigned short W8Navigator::SetMovementTargetToNavigator(W8Navigator* target, do
         movement.target_location_id = -1;
     }
     PathAIClearOwned(path_ai.get());
-    if (g_combat_inactive == 0) {
+    if (NavigationCombatActive(*this)) {
         movement.attachment->flags |= W8_NAV_ATTACHMENT_FOLLOW_PATH;
     }
     if (SetMovementTarget(&target->movement.position, false) == 0) {
-        if (g_combat_inactive == 0) {
+        if (NavigationCombatActive(*this)) {
             flags = 0;
         }
     } else {
         flags = 5;
         result = 1;
-        if (g_combat_inactive == 0) {
+        if (NavigationCombatActive(*this)) {
             result = static_cast<unsigned short>(movement.attachment->flags & 7);
         }
     }
@@ -869,7 +874,7 @@ glm::vec3* W8Navigator::AdjustPosition(glm::vec3* result, const glm::vec3* curre
                 if (kStartupNearLimit < current->y - ground) {
                     glm::vec3 falling = *current;
                     float distance;
-                    if (g_combat_inactive == 0) {
+                    if (NavigationCombatActive(*this)) {
                         movement.vertical_velocity += GameTimeAccumulator().GetFrameDelta() *
                                                       g_settings.monster_movement_speed *
                                                       g_navigator_gravity * acceleration_scale;
@@ -893,7 +898,7 @@ glm::vec3* W8Navigator::AdjustPosition(glm::vec3* result, const glm::vec3* curre
                 position_dirty = false;
             } else {
                 movement.velocity = glm::vec3(0);
-                if (g_combat_inactive == 0) {
+                if (NavigationCombatActive(*this)) {
                     ClearMovement();
                 }
                 *result = *previous;
@@ -905,7 +910,7 @@ glm::vec3* W8Navigator::AdjustPosition(glm::vec3* result, const glm::vec3* curre
         }
     }
     movement.velocity = glm::vec3(0);
-    if (g_combat_inactive == 0) {
+    if (NavigationCombatActive(*this)) {
         ClearMovement();
     }
     *result = *previous;
@@ -1000,7 +1005,7 @@ double W8Navigator::MeasurePathDistance(const glm::vec3* target, float max_range
     movement.position = this->movement.position;
     movement.target_position = *target;
     attachment.InitializeSegment(&this->movement.position, target);
-    if (g_combat_inactive == 0) {
+    if (NavigationCombatActive(*this)) {
         attachment.flags |= 0xc010000;
     } else {
         attachment.flags &= 0xf3feffff;
@@ -1358,7 +1363,7 @@ unsigned char W8Navigator::LinkToNavigator(W8Navigator* target, double separatio
     movement.target_location_id = target->movement.location_id;
     PathAIClearOwned(path_ai.get());
     movement.attachment->InitializeSegment(&movement.position, &target->movement.position);
-    if (g_combat_inactive == 0) {
+    if (NavigationCombatActive(*this)) {
         movement.attachment->flags |= W8_NAV_ATTACHMENT_FOLLOW_PATH;
         if (GetWorldPathing()->PlanMovementToPosition(&movement, &target->movement.position, radius,
                                                       static_cast<float>(separation)) == 0) {
@@ -1387,7 +1392,7 @@ unsigned short W8Navigator::ConfigureMovementToNavigator(W8Navigator* target, fl
     if (GetWorldPathing() == 0) {
         return 0;
     }
-    if (g_combat_inactive != 0) {
+    if (!NavigationCombatActive(*this)) {
         return SetMovementTargetToNavigator(target, separation);
     }
     movement.attachment->flags |= W8_NAV_ATTACHMENT_FOLLOW_PATH;
@@ -1450,12 +1455,12 @@ void W8Navigator::ResetMovementAndGroupState()
     target_navigator = 0;
     if (linked != 0) {
         movement.flags |= 2;
-        if (g_combat_inactive == 0) {
+        if (NavigationCombatActive(*this)) {
             return;
         }
         flags = 0x201;
     } else {
-        if (g_combat_inactive == 0) {
+        if (NavigationCombatActive(*this)) {
             return;
         }
         flags &= 0xfffffdfe;
@@ -1465,7 +1470,7 @@ void W8Navigator::ResetMovementAndGroupState()
         }
         PropagateGroupPosition();
     }
-    if (g_combat_inactive != 0) {
+    if (!NavigationCombatActive(*this)) {
         movement.attachment->flags &= ~W8_NAV_ATTACHMENT_FOLLOW_PATH;
     }
 }
@@ -1490,7 +1495,7 @@ bool W8Navigator::ConfigureMovement(float minimum, float maximum)
             halted = false;
             movement_target = movement.attachment->path_destination;
             movement.attachment->separation = 0.0f;
-            if (g_combat_inactive != 0) {
+            if (!NavigationCombatActive(*this)) {
                 CopyPathToGroup();
             }
             return true;
@@ -1506,7 +1511,7 @@ unsigned char W8Navigator::SetMovementTarget(const glm::vec3* target, bool propa
     movement.target_position = *target;
     movement_target = *target;
     unsigned char result;
-    if (g_combat_inactive == 0) {
+    if (NavigationCombatActive(*this)) {
         radius = movement.alternate_radius;
         result = NavigationOctree()->PrepareNavigatorTarget(&movement, radius,
                                                             static_cast<float>(collision_margin));
@@ -1531,7 +1536,7 @@ unsigned char W8Navigator::SetMovementTarget(const glm::vec3* target, bool propa
     }
     if (!propagate && result != 0 && movement.attachment != 0 &&
         (movement.attachment->flags & W8_NAV_ATTACHMENT_FOLLOW_PATH) == 0 &&
-        g_combat_inactive != 0) {
+        !NavigationCombatActive(*this)) {
         CopyPathToGroup();
     }
     return result;
@@ -1814,7 +1819,7 @@ void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
     if (skip_movement != 0) {
         return;
     }
-    if (g_combat_inactive == 0 && movement_complete) {
+    if (NavigationCombatActive(*this) && movement_complete) {
         UpdateAngles();
         return;
     }
@@ -1828,7 +1833,7 @@ void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
         movement.attachment->flags |= W8_NAV_ATTACHMENT_IGNORE_LINKED_NAVIGATOR;
     }
 
-    if (g_combat_inactive == 0) {
+    if (NavigationCombatActive(*this)) {
         movement.movement_speed = g_settings.monster_movement_speed;
         if (slowed) {
             movement.movement_speed *= 0.5f;
@@ -1902,7 +1907,7 @@ void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
         break;
 
     case 0x201:
-        if (linked_navigator != 0 && g_combat_inactive != 0) {
+        if (linked_navigator != 0 && !NavigationCombatActive(*this)) {
             if (linked_navigator->movement_stopped) {
                 glm::vec3 delta = linked_navigator->movement.position - movement.position;
                 if (glm::length(delta) <
@@ -1916,7 +1921,7 @@ void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
             if (linked_update_time == 0 || !movement_stopped) {
                 if (movement_stopped) {
                     movement_stopped = false;
-                    if (g_combat_inactive != 0 && linked_navigator == 0) {
+                    if (!NavigationCombatActive(*this) && linked_navigator == 0) {
                         int index;
                         g_navigator_group.clear();
                         CollectGroupNavigators(g_navigator_group);
@@ -1952,7 +1957,7 @@ void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
     }
 
     if (!was_stopped || !movement_stopped) {
-        if (g_combat_inactive == 0 && !movement_stopped) {
+        if (NavigationCombatActive(*this) && !movement_stopped) {
             if (!(movement.target_position == movement.position)) {
                 glm::vec3 target;
                 target = movement.target_position;
@@ -1967,7 +1972,7 @@ void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
             glm::vec3 velocity;
             float minimum_speed;
 
-            if (g_combat_inactive == 0) {
+            if (NavigationCombatActive(*this)) {
                 velocity.x = movement.movement_speed * movement.movement_scale * kWorldScale;
                 velocity.z = 0.0f;
             } else {
@@ -1992,7 +1997,7 @@ void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
     }
 
     UpdateAngles();
-    if (!movement_stopped && g_combat_inactive == 0 && !movement_complete && flags != 0) {
+    if (!movement_stopped && NavigationCombatActive(*this) && !movement_complete && flags != 0) {
         movement.callback_progress +=
             GameTimeAccumulator().GetFrameDelta() * movement.movement_scale * g_rate * kWorldScale;
         if (movement.callback_threshold <= movement.callback_progress) {
@@ -2019,7 +2024,7 @@ int W8Navigator::ResolveMovement()
     if (target == 0) {
         return 0;
     }
-    if (g_combat_inactive == 0) {
+    if (NavigationCombatActive(*this)) {
         int result = NavigationOctree()->AdvanceNavigator(&movement, radius,
                                                           static_cast<float>(collision_margin));
         if (result == 1) {

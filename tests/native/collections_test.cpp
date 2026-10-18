@@ -18,6 +18,7 @@
 #include "layouts/item_instance.h"
 #include "layouts/npc_state.h"
 #include "mgs_commands.h"
+#include "random.h"
 #include "save_payload.h"
 #include "scoped_asset_roots.h"
 #include "scoped_records.h"
@@ -615,6 +616,9 @@ TEST_CASE("A refused purchase leaves stock, payment and a full destination uncha
     g_status.buffers = {0, characters.data(), rows.data()};
     const ScopedRecords items(g_item_records, 2);
     g_item_records[0].flags = W8_ITEM_FLAG_NO_DISCARD;
+    g_item_records[0].quantity_kind = W8_ITEM_QUANTITY_STACK;
+    g_item_records[0].maximum_quantity = 10;
+    g_item_records[0].initial_quantity = {0, 1, 6};
     g_item_records[0].value = 10;
     g_status.party_gold = 100;
     g_status.party_item_count = 500;
@@ -625,7 +629,10 @@ TEST_CASE("A refused purchase leaves stock, payment and a full destination uncha
     record.sell_price_factor = 1.0f;
     W8NpcState npc{};
     npc.record = &record;
-    npc.items = {{0, {.iItemNo = 0}, 1}};
+    npc.items = {{0, {.iItemNo = 0, .stack_count = 1}, 1}};
+    SeedRandom(1);
+    REQUIRE(CalculateNpcTradeStackPrice(&npc, 0, W8_TRADE_PRICE_PARTY_BUYS, 1, true) == 10);
+    REQUIRE(Random15() == 41); // Drawing a price must not roll an item quantity.
     const auto result = CompleteNpcItemPurchase(&npc, 0, 1, false);
     REQUIRE(result.outcome == W8TradeOutcome::Refused);
     REQUIRE(g_status.party_gold == 100);

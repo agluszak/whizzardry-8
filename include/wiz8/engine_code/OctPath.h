@@ -271,7 +271,8 @@ struct PathCellCoordinates {
 class W8PathingService {
 public:
     PathCellCoordinates pathCell(const glm::vec3& position) const;
-    W8PathingService(); /* 0x004578E0 */
+    W8Octree* const owner_octree;
+    explicit W8PathingService(W8Octree* owner = nullptr); /* 0x004578E0 */
     unsigned int FindPathHandle(const char* path_name, W8PathGridBounds* path_bounds,
                                 W8PathVerticalRange* path_range); /* 0x00457CF0 */
     /* Neither takes a prop: both walk the service's own surface and edge

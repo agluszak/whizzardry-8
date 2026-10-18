@@ -1605,7 +1605,7 @@ GroundProbe W8Octree::settleToGround(const glm::vec3& input, bool test_props, fl
                 w8_ulong before = m_gd_result_count;
                 CollectObjectsInCell(cell, W8_OCTREE_KIND_PROP);
                 if (m_gd_result_count != before) {
-                    int prop = owner_world->game_data.get()->TestPropSurfaces(
+                    int prop = owner_world->game_data->TestPropSurfaces(
                         m_gd_result_count, m_aulGDObjs.data(), &trace, 0, 0);
                     current_prop = prop;
                     if (prop >= 0) {
@@ -1613,12 +1613,12 @@ GroundProbe W8Octree::settleToGround(const glm::vec3& input, bool test_props, fl
                     }
                 }
             }
-            owner_world->game_data.get()->trace_flag4_gate = true;
+            owner_world->game_data->trace_flag4_gate = true;
             if (ProbeCellForTrace(cell) == 0) {
                 goto descend;
             }
-            hit = owner_world->game_data.get()->TestTraceResult(m_gd_result_count,
-                                                                m_aulGDObjs.data(), &trace, 0, 0);
+            hit = owner_world->game_data->TestTraceResult(m_gd_result_count, m_aulGDObjs.data(),
+                                                          &trace, 0, 0);
             if (!hit) {
             descend:
                 if (prop_hit) {
@@ -1633,7 +1633,7 @@ GroundProbe W8Octree::settleToGround(const glm::vec3& input, bool test_props, fl
             } else if (prop_hit) {
                 current_prop = -1;
             }
-            owner_world->game_data.get()->trace_flag4_gate = false;
+            owner_world->game_data->trace_flag4_gate = false;
         } while (-1 < cell.y);
         if (hit) {
         done:
@@ -1702,7 +1702,7 @@ short W8Octree::TraceLineOfSight(const glm::vec3* from, glm::vec3* to, bool trac
             cell, end_cell, [&] { return cellWalk((*from), (*to)); },
             [&](const glm::ivec3& current, bool adjacent) {
                 if (ProbeCellForTrace(current) != 0 || adjacent)
-                    blocked = owner_world->game_data.get()->TestTraceResult(
+                    blocked = owner_world->game_data->TestTraceResult(
                         m_gd_result_count, m_aulGDObjs.data(), &trace, m_trace_skip_flag, 0);
                 return !blocked;
             });
@@ -2035,8 +2035,8 @@ W8Octree::traceProps(const glm::vec3& from, const glm::vec3& to, int skip_flag, 
             CollectObjectsInCell(current, W8_OCTREE_KIND_PROP);
             return true;
         });
-    current_prop = owner_world->game_data.get()->TestPropSurfaces(
-        m_gd_result_count, m_aulGDObjs.data(), &trace, skip_flag, gate);
+    current_prop = owner_world->game_data->TestPropSurfaces(m_gd_result_count, m_aulGDObjs.data(),
+                                                            &trace, skip_flag, gate);
     if (current_prop < 0) {
         return std::nullopt;
     }
@@ -2410,7 +2410,7 @@ W8Octree::W8Octree(const char* path, std::unique_ptr<W8GameData>* game_data, W8W
             throw std::runtime_error("Invalid octree mesh terminator.");
         }
         if (header.m_path_nodes != 0) {
-            pathing = std::make_unique<W8PathingService>();
+            pathing = std::make_unique<W8PathingService>(this);
             pathing->ConfigureForLevel(header.m_path_nodes, header.m_region_cell,
                                        m_spatial.bounds(), m_path_stem.c_str());
             if (!pathing->ReadPathNodes(hOctFile.get())) {
@@ -2745,8 +2745,8 @@ unsigned char W8Octree::TestBoxOccupied(const glm::vec3* lower, const glm::vec3*
     unsigned int count = objects.size();
     unsigned int index;
     for (index = 0; index < count; ++index) {
-        W8GDSurface* surface = owner_world->game_data.get()->m_pSurfaces.data() + objects[index];
-        if (SurfaceIntersectsBox(*surface, owner_world->game_data.get()->m_pVertices,
+        W8GDSurface* surface = owner_world->game_data->m_pSurfaces.data() + objects[index];
+        if (SurfaceIntersectsBox(*surface, owner_world->game_data->m_pVertices,
                                  {(*lower), (*upper)})) {
             return 1;
         }
