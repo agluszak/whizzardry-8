@@ -1,5 +1,7 @@
 #include "wiz8/local_code/party_encumbrance.h"
 
+#include <optional>
+
 #include "conditions.h"
 #include "gameplay_modifiers.h"
 #include "layouts/gameplay_databases.h"
@@ -193,7 +195,7 @@ void RedistributePartyEncumbrance(void)
     }
 
     for (party_weight >>= 1; party_weight != 0; --party_weight) {
-        unsigned int best_slot = static_cast<unsigned int>(-1);
+        std::optional<unsigned int> best_slot;
         float best_ratio = -999999.0f;
         for (slot = 0; slot < 8; ++slot) {
             W8Character* character = &characters[slot];
@@ -203,13 +205,11 @@ void RedistributePartyEncumbrance(void)
                 best_slot = slot;
             }
         }
-        if (best_slot == static_cast<unsigned int>(-1)) {
-            return;
-        }
-        W8Character* character = &characters[best_slot];
+        if (!best_slot) return;
+        W8Character* character = &characters[*best_slot];
         ++character->party_weight_share;
-        --unassigned[best_slot];
-        load_ratio[best_slot] = unassigned[best_slot] * 100.0f / capacity[best_slot];
+        --unassigned[*best_slot];
+        load_ratio[*best_slot] = unassigned[*best_slot] * 100.0f / capacity[*best_slot];
     }
 
     for (slot = 0; slot < 8; ++slot) {
