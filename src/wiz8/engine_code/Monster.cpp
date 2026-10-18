@@ -3524,12 +3524,12 @@ void W8Monster::UpdateAttachedObjects(bool hovered)
 }
 
 /* Query the current animation state. The selector is an internal ten-entry
-   interface used by MonsterManager and the animation driver; selector eight is
-   intentionally unsupported and returns -1 with out-of-range selectors. */
+   interface used by MonsterManager and the animation driver; unsupported
+   selectors and queries without a result return no value. */
 // FUNCTION: WIZ8 0x004c4660
-int W8Monster::Query(W8MonsterQueryKind query)
+std::optional<int> W8Monster::Query(W8MonsterQueryKind query)
 {
-    int result = -1;
+    std::optional<int> result;
     unsigned int animation_value;
 
     switch (query) {
@@ -3591,6 +3591,7 @@ int W8Monster::Query(W8MonsterQueryKind query)
     default:
         break;
     }
+    if (!result || *result == -1) return std::nullopt;
     return result;
 }
 
@@ -4057,15 +4058,14 @@ void MonsterSetActive(W8Monster* monster, bool state)
     }
 }
 
-/* Named by the MonsterManager assertions. A null monster answers -1 rather than
-   forwarding, which is how the callers tell "no monster" from a real result. */
+/* Forward a query when the monster exists and the query has a result. */
 // FUNCTION: WIZ8 0x004c5b40
-int MonsterQuery(W8Monster* monster, W8MonsterQueryKind query)
+std::optional<int> MonsterQuery(W8Monster* monster, W8MonsterQueryKind query)
 {
     if (monster != nullptr) {
         return monster->Query(query);
     }
-    return -1;
+    return std::nullopt;
 }
 
 // FUNCTION: WIZ8 0x004ca4c0

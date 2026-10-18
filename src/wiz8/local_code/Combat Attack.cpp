@@ -1742,11 +1742,12 @@ int ContinueMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record)
         }
     } else {
         if (!monster_info->fMissileReleased) {
+            const auto cycle = MonsterQuery(monster_info->p3D, W8_MONSTER_QUERY_CYCLE);
             srAssertFail("pMonsterInfo->fMissileReleased", COMBAT_ATTACK_CPP, 0x80b,
                          fmt::format("ContinueMonsterAttack: ERROR - Missile not released, ID "
-                                     "{:d}, cycle {:d}, pending {:d}",
+                                     "{:d}, cycle {:s}, pending {:d}",
                                      monster_info->location_id,
-                                     MonsterQuery(monster_info->p3D, W8_MONSTER_QUERY_CYCLE),
+                                     cycle ? std::to_string(*cycle) : "none",
                                      monster_info->p3D->m_pRep->pending_cycle));
         }
         if (g_combat_state->missile_hit_result == W8_MISSILE_HIT) {

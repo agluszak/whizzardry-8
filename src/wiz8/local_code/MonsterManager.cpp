@@ -198,8 +198,8 @@ void PrepareMonsterInWorld(W8World& world, W8MonsterInfo& info, bool unborn)
             }
             MonsterSetCycleBehaviour(monster_info->p3D, W8_ANIMATION_PLAY_ONCE);
             MonsterSetCycle(monster_info->p3D, 0);
-            if (MonsterQuery(monster_info->p3D, W8_MONSTER_QUERY_FRAME_COUNT) == -1) {
-                srAssertFail("MonsterQuery(pMonsterInfo->p3D, QUERY_NUM_FRAMES) != -1",
+            if (!MonsterQuery(monster_info->p3D, W8_MONSTER_QUERY_FRAME_COUNT)) {
+                srAssertFail("MonsterQuery(pMonsterInfo->p3D, QUERY_NUM_FRAMES).has_value()",
                              MONSTER_MANAGER_CPP, 0x196, 0);
             }
             MonsterSetCycleSubCycle(monster_info->p3D, 0);
@@ -209,13 +209,12 @@ void PrepareMonsterInWorld(W8World& world, W8MonsterInfo& info, bool unborn)
         } else {
             MonsterSetCycle(monster_info->p3D, 1);
             MonsterSetCycleBehaviour(monster_info->p3D, W8_ANIMATION_NEVER_STOP);
-            if (MonsterQuery(monster_info->p3D, W8_MONSTER_QUERY_FRAME_COUNT) == -1) {
-                srAssertFail("MonsterQuery(pMonsterInfo->p3D, QUERY_NUM_FRAMES) != -1",
+            const auto frame_count = MonsterQuery(monster_info->p3D, W8_MONSTER_QUERY_FRAME_COUNT);
+            if (!frame_count) {
+                srAssertFail("MonsterQuery(pMonsterInfo->p3D, QUERY_NUM_FRAMES).has_value()",
                              MONSTER_MANAGER_CPP, 0x1a4, 0);
             }
-            MonsterSetCycleSubCycle(
-                monster_info->p3D,
-                Random(MonsterQuery(monster_info->p3D, W8_MONSTER_QUERY_FRAME_COUNT)));
+            MonsterSetCycleSubCycle(monster_info->p3D, Random(*frame_count));
             MonsterSetAnimating(monster_info->p3D, !monster_info->fMotionless);
         }
 
@@ -307,8 +306,6 @@ void ActivateMonster(W8MonsterInfo* monster_info, W8MonsterActivationMode mode)
 // FUNCTION: WIZ8 0x004e4600
 void ClearMonsterPathAndResume(W8MonsterInfo* monster_info)
 {
-    int result;
-
     if (monster_info == 0) {
         srAssertFail("pMonsterInfo != NULL", MONSTER_MANAGER_CPP, 0x2f7, 0);
     }
@@ -316,8 +313,9 @@ void ClearMonsterPathAndResume(W8MonsterInfo* monster_info)
     monster_info->p3D->flags &= 0xdfffffff;
     MonsterClearMovement(monster_info->p3D);
     if (!monster_info->fMotionless) {
-        result = MonsterQuery(monster_info->p3D, W8_MONSTER_QUERY_CYCLE);
-        if (result != 1 && result != 2 && monster_info->p3D->m_pRep->pending_cycle == -1) {
+        const auto result = MonsterQuery(monster_info->p3D, W8_MONSTER_QUERY_CYCLE);
+        if ((!result || (*result != 1 && *result != 2)) &&
+            monster_info->p3D->m_pRep->pending_cycle == -1) {
             StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_IDLE, W8_ANIMATION_NEVER_STOP);
         }
     }
@@ -859,12 +857,13 @@ float CalculateMonsterScale(W8MonsterInfo* monster_info)
 }
 
 // FUNCTION: WIZ8 0x004e67a0
-void TryStartMonsterCycle2(W8MonsterInfo* monster_info, W8Monster* monster, int query_state)
+void TryStartMonsterCycle2(W8MonsterInfo* monster_info, W8Monster* monster,
+                           std::optional<int> query_state)
 {
     if (monster_info->fActive && monster_info->hp_current > 0 &&
         monster_info->uiCondition[W8_CONDITION_DEAD] == 0 &&
         monster_info->within_viewing_distance && query_state == 1) {
-        int result = MonsterQuery(monster, W8_MONSTER_QUERY_AT_PLAYBACK_END);
+        const auto result = MonsterQuery(monster, W8_MONSTER_QUERY_AT_PLAYBACK_END);
 
         if (result != 0 && !monster_info->fMotionless) {
             monster->runtime_flags |= 0x80;
@@ -1293,31 +1292,38 @@ void ProcessMonsterManagerFrame(void)
             --monster_list_index;
         } else {
             if ((monster->runtime_flags & W8_MONSTER_PARKED) == 0) {
-                int query_state = MonsterQuery(monster, W8_MONSTER_QUERY_CYCLE);
+                const auto query_state = MonsterQuery(monster, W8_MONSTER_QUERY_CYCLE);
                 TryStartMonsterCycle2(monster_info, monster, query_state);
                 if (MonsterQuery(monster, W8_MONSTER_QUERY_CYCLE_COMPLETE) != 0) {
                     if (gXStatus.fCombatMode && query_state == 0x12) {
                         monster_info->pCombat->special_ready = true;
                     }
-                    switch (query_state) {
-                    case 1:
-                    case 3:
-                    case 4:
-                    case 0x17:
-                    case 0x18:
-                        break;
-                    case 0x15:
-                        if ((monster->runtime_flags & W8_MONSTER_REMOVE_AFTER_FADE) == 0) {
-                            monster_info = GetMonsterListEntry(monster_list_index);
-                            HandleScriptedNpcDeath(monster_list_index);
-                            if (monster_info->monster_group_id != 0) {
-                                RemoveMonster(monster_info, W8MonsterRemoval::Deactivate);
+                    bool use_default_cycle = !query_state;
+                    if (query_state) {
+                        switch (*query_state) {
+                        case 1:
+                        case 3:
+                        case 4:
+                        case 0x17:
+                        case 0x18:
+                            break;
+                        case 0x15:
+                            if ((monster->runtime_flags & W8_MONSTER_REMOVE_AFTER_FADE) == 0) {
+                                monster_info = GetMonsterListEntry(monster_list_index);
+                                HandleScriptedNpcDeath(monster_list_index);
+                                if (monster_info->monster_group_id != 0) {
+                                    RemoveMonster(monster_info, W8MonsterRemoval::Deactivate);
+                                }
+                                DropMonsterLoot(monster_info, -1);
+                                monster_info->p3D->BeginDelayedRemoval();
                             }
-                            DropMonsterLoot(monster_info, -1);
-                            monster_info->p3D->BeginDelayedRemoval();
+                            break;
+                        default:
+                            use_default_cycle = true;
+                            break;
                         }
-                        break;
-                    default:
+                    }
+                    if (use_default_cycle) {
                         if (!monster_info->fMotionless) {
                             /* pending_cycle is signed char; the rest of this
                                unit and the representation compare the empty
@@ -1330,7 +1336,6 @@ void ProcessMonsterManagerFrame(void)
                         } else if (MonsterIsAnimating(monster) != 0) {
                             MonsterSetAnimating(monster, false);
                         }
-                        break;
                     }
                 }
             }

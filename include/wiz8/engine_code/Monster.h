@@ -168,7 +168,8 @@ public:
     virtual std::optional<glm::vec3> GetAnimationCenter();
     virtual void SetPosition(const glm::vec3* position) override;
 
-    int Query(W8MonsterQueryKind query);         /* 0x004C4660 */
+    // No value is returned when this selector has no result or is unsupported.
+    std::optional<int> Query(W8MonsterQueryKind query); /* 0x004C4660 */
     void SpawnDamageNumber(unsigned int amount); /* 0x004C6C30 */
     bool IsDying();                              /* 0x004CA4C0 */
     bool IsCycleInterruptable(signed char cycle);
@@ -389,7 +390,7 @@ unsigned char MonsterIsAnimating(W8Monster* monster);
 bool MonsterHasPendingCycle(W8Monster* monster); /* 0x004C5710 */
 bool MonsterIsScalingY(W8Monster* monster);      /* 0x004C5EE0 */
 void MonsterSetPendingCycle(W8Monster* monster, int cycle);
-int MonsterQuery(W8Monster* monster, W8MonsterQueryKind query);
+std::optional<int> MonsterQuery(W8Monster* monster, W8MonsterQueryKind query);
 void MonsterClearMovement(W8Monster* monster);
 void MonsterSetRuntimeBehaviour(W8Monster* monster, W8AnimationBehaviour behaviour);
 void MonsterSubmitTargetValue(W8Monster* monster);

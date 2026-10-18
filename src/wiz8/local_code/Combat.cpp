@@ -1568,9 +1568,8 @@ bool AnyCombatMonsterBusy(void)
     for (unsigned int monster_index = 0; monster_index < monster_count; ++monster_index) {
         W8MonsterInfo* monster_info = GetMonsterListEntry(monster_index);
         W8Monster* monster = monster_info->p3D;
-        W8MonsterCycle cycle =
-            static_cast<W8MonsterCycle>(MonsterQuery(monster, W8_MONSTER_QUERY_CYCLE));
-        if (cycle == W8_MONSTER_CYCLE_DIE &&
+        const auto cycle_query = MonsterQuery(monster, W8_MONSTER_QUERY_CYCLE);
+        if (cycle_query && *cycle_query == W8_MONSTER_CYCLE_DIE &&
             GetMonsterDataForInfo(monster_info)->record_id == 0x234) {
             return true;
         }
@@ -1578,24 +1577,28 @@ bool AnyCombatMonsterBusy(void)
             if (MonsterHasPendingCycle(monster) || MonsterIsScalingY(monster)) {
                 return true;
             }
-            if (MonsterIsAnimating(monster) != 0 && cycle != W8_MONSTER_CYCLE_IDLE &&
-                cycle != W8_MONSTER_CYCLE_SPICE && cycle != W8_MONSTER_CYCLE_WALK &&
-                cycle != W8_MONSTER_CYCLE_DIE) {
-                if (g_combat_state->eCombatActionStatus != 2) {
-                    return true;
-                }
-                if (g_combat_state->pActionMonsterInfo != monster_info) {
-                    return true;
-                }
-                if (NormalizeMonsterCycle(cycle) != W8_MONSTER_CYCLE_ATTACK_CLOSE) {
-                    if (NormalizeMonsterCycle(cycle) != W8_MONSTER_CYCLE_ATTACK_RANGED) {
+            if (MonsterIsAnimating(monster) != 0) {
+                if (!cycle_query) return true;
+                const auto cycle = static_cast<W8MonsterCycle>(*cycle_query);
+                if (cycle != W8_MONSTER_CYCLE_IDLE && cycle != W8_MONSTER_CYCLE_SPICE &&
+                    cycle != W8_MONSTER_CYCLE_WALK && cycle != W8_MONSTER_CYCLE_DIE) {
+                    if (g_combat_state->eCombatActionStatus != 2) {
                         return true;
                     }
-                    return !monster_info->fMissileReleased;
-                }
-                if (MonsterQuery(monster, W8_MONSTER_QUERY_FRAME) <
-                    MonsterQuery(monster, W8_MONSTER_QUERY_FRAME_COUNT) / 2) {
-                    return true;
+                    if (g_combat_state->pActionMonsterInfo != monster_info) {
+                        return true;
+                    }
+                    if (NormalizeMonsterCycle(cycle) != W8_MONSTER_CYCLE_ATTACK_CLOSE) {
+                        if (NormalizeMonsterCycle(cycle) != W8_MONSTER_CYCLE_ATTACK_RANGED) {
+                            return true;
+                        }
+                        return !monster_info->fMissileReleased;
+                    }
+                    const auto frame = MonsterQuery(monster, W8_MONSTER_QUERY_FRAME);
+                    const auto frame_count = MonsterQuery(monster, W8_MONSTER_QUERY_FRAME_COUNT);
+                    if (!frame || !frame_count || *frame < *frame_count / 2) {
+                        return true;
+                    }
                 }
             }
             if (fabsf(monster->movement.target_yaw - monster->movement.yaw) >=
