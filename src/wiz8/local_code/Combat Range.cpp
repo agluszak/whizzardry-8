@@ -1021,7 +1021,8 @@ bool MonsterActionReachesTarget(W8MonsterInfo* monster_info, W8MonsterRecord* re
 }
 
 // FUNCTION: WIZ8 0x0051ad60
-std::optional<int> FindNearestVisibleGroupMonster(W8MonsterInfo* monster_info, int group_id, int kind)
+std::optional<int> FindNearestVisibleGroupMonster(W8MonsterInfo* monster_info, int group_id,
+                                                  int kind)
 {
     std::optional<int> best_id;
     float best = 999999.0f;
