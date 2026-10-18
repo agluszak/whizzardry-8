@@ -248,6 +248,8 @@ void W8NpcDialogue::Speak(int script_line, bool force_npc_voice)
                 case 34:
                     ApplyScriptedDialogueKeyword(entry->kind, entry->sub_entries[0].text.c_str());
                     break;
+                default:
+                    break;
                 }
                 if (finished) {
                     break;
