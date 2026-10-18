@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "wiz8/message_box.h"
+#include "wiz8/npc_script_file.h"
 struct W8NpcState;
 struct W8NpcScriptFile;
 struct W8NpcQuoteEntry;
@@ -122,7 +123,7 @@ enum class W8NpcSubquoteOutcome : unsigned char { presented, unknown, classified
 W8NpcSubquoteOutcome SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char subquote_index,
                                       bool notice_only, bool force_npc_voice);
 /* Add a keyword a quote entry of `kind` teaches to the dialogue keyword lists. */
-void ApplyScriptedDialogueKeyword(int kind, const char* text);
+void ApplyScriptedDialogueKeyword(W8NpcQuoteEntryKind kind, const char* text);
 /* The first argument is a pointer into a character or party item
    slot - the slot whose address matches is the one removed. */
 void RemoveNpcScriptItem(W8ItemInstance* item, int match_item_id, int item_id);

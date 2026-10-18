@@ -175,12 +175,12 @@ struct W8CampScreenState {
     std::vector<W8CampEffectEntry> effect_list; /* W8CampEffectEntry rows */
     int selected_spell_row;
     unsigned char unknown_d38[7];
-    unsigned char item_action;
+    W8CampItemAction item_action;
     /* 0xd40[0]: mouse is over the reviewed portrait; drives the highlight
        frame and a redraw. */
     unsigned char portrait_hovered[4];
     std::unique_ptr<W8DialogBase> dialog;
-    unsigned char info_page;
+    W8CampInfoPage info_page;
     unsigned char padding_d49[3];
     std::unique_ptr<W8CampCharacterInfo> character_info;
     /* The camp item icons were drawn while the monster/combat

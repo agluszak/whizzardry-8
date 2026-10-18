@@ -2903,12 +2903,12 @@ unsigned int W8Octree::AdvanceNavigator(W8NavigatorMovementState* movement, floa
     bool reached = true;
 
     if (pathing != 0) {
-        if (g_navigator_link_mode == 0) {
+        if (g_navigator_link_mode == W8_NAVIGATOR_LINK_MODE_DEFAULT) {
             return pathing->StepAlongPath(movement, radius, separation);
         }
         return pathing->StepMonsterAlongPath(movement, radius, separation);
     }
-    if (g_navigator_link_mode != 0) {
+    if (g_navigator_link_mode != W8_NAVIGATOR_LINK_MODE_DEFAULT) {
         return 1;
     }
     vecDir = movement->target_position - movement->position;

@@ -269,7 +269,8 @@ int W8DialogTextArea::AddEntry(std::string_view prefix, std::string_view text,
         layout_mode |= g_dialog_text_layout_mask;
     }
     auto entry = std::make_unique<W8DialogTextEntry>(
-        prefix, text, prefix_palette, text_palette, &m_bounds, *m_font, category, layout_mode,
+        prefix, text, prefix_palette, text_palette, &m_bounds, *m_font,
+        static_cast<W8DialogueCategory>(category), layout_mode,
         m_behavior_flags & g_W8DialogTextAreaShortenText);
     if (m_line_height_override != -1) entry->SetLineHeight(m_line_height_override);
     int index = static_cast<int>(m_all_lines.size());
@@ -294,8 +295,8 @@ void W8DialogTextArea::RebuildVisibleEntries()
     ClearSelection();
     m_visible_lines.clear();
     for (int index = 0; index < static_cast<int>(m_all_lines.size()); ++index)
-        if (m_category_filter == -1 ||
-            m_all_lines[index]->m_category == static_cast<unsigned char>(m_category_filter))
+        if (m_category_filter == W8_DIALOGUE_CATEGORY_ALL ||
+            m_all_lines[index]->m_category == m_category_filter)
             m_visible_lines.push_back(index);
     if (m_sorted)
         std::stable_sort(m_visible_lines.begin(), m_visible_lines.end(), [this](int a, int b) {
@@ -307,7 +308,7 @@ void W8DialogTextArea::RebuildVisibleEntries()
 }
 
 // FUNCTION: WIZ8 0x005d2400
-void W8DialogTextArea::SetCategoryFilter(signed char category)
+void W8DialogTextArea::SetCategoryFilter(W8DialogueCategory category)
 {
     m_category_filter = category;
     RebuildVisibleEntries();
@@ -388,7 +389,7 @@ W8DialogTextArea::W8DialogTextArea()
     m_line_height_override = invalid;
     m_selected_visible_entry = invalid;
     m_highlighted_entry = invalid;
-    m_category_filter = invalid;
+    m_category_filter = W8_DIALOGUE_CATEGORY_ALL;
     m_first_visible_entry = 0;
     m_first_visible_line = 0;
     m_font = 0;

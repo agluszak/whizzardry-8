@@ -51,7 +51,7 @@ public:
                  unsigned int text_palette, unsigned char category);
     void RemoveEntry(unsigned int index);
     void RebuildVisibleEntries();
-    void SetCategoryFilter(signed char category);
+    void SetCategoryFilter(W8DialogueCategory category);
     void SetSorted(bool sorted);
     bool ScrollDown(bool check_only);
     bool ScrollUp(bool check_only);
@@ -84,6 +84,6 @@ private:
     int m_selected_visible_entry;
     int m_highlighted_entry; /* visible entry index, -1 when clear */
     bool m_relayout_needed;
-    signed char m_category_filter;
+    W8DialogueCategory m_category_filter = W8_DIALOGUE_CATEGORY_ALL;
     bool m_sorted;
 };

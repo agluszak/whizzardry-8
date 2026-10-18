@@ -6,6 +6,8 @@
 class srCamera;
 struct W8World;
 
+enum class W8CameraSwayMode : signed char { Stop = -1, Reset = 0, Start = 1 };
+
 extern bool g_world_cleanup_flag;
 extern bool g_navigator_vertical_enabled;
 extern float g_mesh_view_half_angle_degrees;
@@ -25,5 +27,5 @@ enum {
     W8_WORLD_CHANGE_FAR_CLIP = W8_WORLD_INCREASE_FAR_CLIP | W8_WORLD_DECREASE_FAR_CLIP
 };
 void ApplyWorldUpdateFlags(W8World* world, unsigned int flags);
-void SetCameraSwayMode(srCamera* camera, int mode);
+void SetCameraSwayMode(srCamera* camera, W8CameraSwayMode mode);
 void WorldSetCameraLocation(const glm::vec3* location); /* 0x00450420 */

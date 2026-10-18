@@ -1372,7 +1372,7 @@ void SetViewport(const DesignRect& bounds)
             GetSecondaryWorld()->camera->setViewPlane(plane, 1.0);
         }
         if (g_camera_sway_active) {
-            SetCameraSwayMode(GetWorld()->camera, 1);
+            SetCameraSwayMode(GetWorld()->camera, W8CameraSwayMode::Start);
         }
     }
 }

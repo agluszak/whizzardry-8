@@ -181,7 +181,7 @@ unsigned short GetItemUnidentifiedNameIndex(const W8ItemInstance* item);
 
 /* Gold price of a stack in the active trade context. price_kind uses
    W8TradePriceKind values. */
-int CalculateTradeStackPrice(W8NpcState* npc, W8ItemInstance* item, char price_kind);
+int CalculateTradeStackPrice(W8NpcState* npc, W8ItemInstance* item, W8TradePriceKind price_kind);
 /* Whether any occupied, conscious party member can use the item. */
 bool AnyPartyMemberCanUseItem(int item_id);
 

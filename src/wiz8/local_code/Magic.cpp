@@ -2072,7 +2072,7 @@ void ReportSpellResult(W8SpellEffectEntry* effect)
         auto report = std::move(effect->result.reports.front());
         effect->result.reports.erase(effect->result.reports.begin());
         if (report != 0) {
-            if (report->kind == 1) {
+            if (report->kind == W8_SPELL_DAMAGE_REPORT_CHARACTER_DEATH) {
                 SetTextBoxMode(0, -1);
                 PostCharacterNotice(
                     report->value,
@@ -2080,7 +2080,7 @@ void ReportSpellResult(W8SpellEffectEntry* effect)
                         "{}!",
                         g_localized_strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
                 effect->reported = true;
-            } else if (report->kind == 3) {
+            } else if (report->kind == W8_SPELL_DAMAGE_REPORT_MONSTER_DEATH) {
                 SetTextBoxMode(0, -1);
                 ShowNotice(
                     W8_FONT_PALETTE_RUST,

@@ -1133,7 +1133,7 @@ bool CampScreenEnter(void)
     ClearPrimarySurface();
     g_review_character = g_current_screen_state.character;
     giReviewCharSlot = g_current_screen_state.parameter_2;
-    unsigned char initial_item_action;
+    W8CampItemAction initial_item_action;
     if (g_current_screen_state.parameter_4 == 0) {
         g_camp_identifying_character = 0;
         initial_item_action = W8_CAMP_ITEM_ACTION_NONE;
@@ -1966,7 +1966,7 @@ void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOr
                         DropHeldCampItem();
                         RebuildCampItemList();
                     } else if (g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_MOVE) {
-                        SetHandCursors(0);
+                        SetHandCursors();
                         RebuildCampItemList();
                     } else {
                         RebuildCampItemList();
@@ -2037,7 +2037,7 @@ void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOr
                 DropHeldCampItem();
             } else if (g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_MOVE &&
                        g_status.item_in_cursor) {
-                SetHandCursors(0);
+                SetHandCursors();
             }
             if (changed) {
                 RefreshCampItemOrigin(origin, equip_slot);

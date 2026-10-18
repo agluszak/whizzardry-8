@@ -262,7 +262,7 @@ void UpdateSurpriseMode(void)
             gXStatus.surprise_deadline_turns = g_status.world_clock + 0x7080;
             DestroyUngroupedMonsters();
             SetViewDistance(2880.0f);
-            SetNavigatorLinkMode(1);
+            SetNavigatorLinkMode(W8_NAVIGATOR_LINK_MODE_STOPPED);
             level_scale = g_level_records[GetLoadedLevelID()].gameplay_time_scale;
             scale = 1.0f / level_scale;
             GameTimeAccumulator().SetTimeScale(scale);

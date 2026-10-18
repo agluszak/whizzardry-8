@@ -1184,13 +1184,13 @@ static void ReportSpellDeaths(W8SpellEffectEntry* effect)
         auto report = std::move(effect->result.reports.front());
         effect->result.reports.erase(effect->result.reports.begin());
         if (report != 0) {
-            if (report->kind == 1) {
+            if (report->kind == W8_SPELL_DAMAGE_REPORT_CHARACTER_DEATH) {
                 PostCharacterNotice(
                     report->value,
                     fmt::format(
                         "{}!",
                         g_localized_strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
-            } else if (report->kind == 3) {
+            } else if (report->kind == W8_SPELL_DAMAGE_REPORT_MONSTER_DEATH) {
                 ShowNotice(
                     W8_FONT_PALETTE_RUST,
                     fmt::format(
@@ -2794,14 +2794,14 @@ void TickRadiusBlastEffectSlots(W8EffectSlot* effect_slots)
                     auto report = std::move(local_result.reports.front());
                     local_result.reports.erase(local_result.reports.begin());
                     if (report != 0) {
-                        if (report->kind == 1) {
+                        if (report->kind == W8_SPELL_DAMAGE_REPORT_CHARACTER_DEATH) {
                             PostCharacterNotice(
                                 report->value,
                                 fmt::format(
                                     "{}!",
                                     g_localized_strings[g_condition_notices[W8_CONDITION_DEAD]
                                                             .singular]));
-                        } else if (report->kind == 3) {
+                        } else if (report->kind == W8_SPELL_DAMAGE_REPORT_MONSTER_DEATH) {
                             ShowNotice(
                                 W8_FONT_PALETTE_RUST,
                                 fmt::format(

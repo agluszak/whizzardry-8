@@ -126,7 +126,7 @@ void W8NavigatorAttachment::GrowPathStorage()
 // FUNCTION: WIZ8 0x00451ec0
 W8Navigator::W8Navigator(W8World* owner) : owner_world(owner), reactivated(0)
 {
-    navigation_mode = 0;
+    navigation_mode = W8_NAVIGATOR_MODE_DEFAULT;
     flags = 0;
     collision_margin = 0.0;
     movement_target = glm::vec3(0);
@@ -189,13 +189,13 @@ void NavigatorDefaultCallback(W8Navigator* navigator)
    monster group already following a navigator onto that navigator's path and
    position; every other mode stops them and clears their velocity. */
 // FUNCTION: WIZ8 0x00452F50
-void SetNavigatorLinkMode(unsigned char mode)
+void SetNavigatorLinkMode(W8NavigatorLinkMode mode)
 {
     if (g_navigator_link_mode == mode) {
         return;
     }
     g_navigator_link_mode = mode;
-    if (mode == 0) {
+    if (mode == W8_NAVIGATOR_LINK_MODE_DEFAULT) {
         for (auto navigator : g_registered_navigators) {
             if (navigator->owner_world && navigator->owner_world != GetWorld()) continue;
             navigator->halted = false;
@@ -479,31 +479,31 @@ bool W8Navigator::IsLinkedToNavigator(W8Navigator* other)
    pair: mode one and four clear both, two, three and five enable pitch, and six
    enables pitch and roll. */
 // FUNCTION: WIZ8 0x00452e50
-void W8Navigator::SetNavigationMode(int mode)
+void W8Navigator::SetNavigationMode(W8NavigatorMode mode)
 {
     std::unique_ptr<W8PathAI> path;
 
     navigation_mode = mode;
     switch (mode) {
-    case 1:
+    case W8_NAVIGATOR_MODE_GROUNDED:
         path = std::make_unique<W8PathAI>();
         path->animated = true;
         SetPathAI(std::move(path));
         /* Falls into mode four's body: the retail block ends where mode four's
            jump-table entry lands. */
         [[fallthrough]];
-    case 4:
+    case W8_NAVIGATOR_MODE_PATH_ONLY:
         SetPitchRollEnabled(false, false);
         break;
-    case 2:
-    case 3:
-    case 5:
+    case W8_NAVIGATOR_MODE_FLYING:
+    case W8_NAVIGATOR_MODE_SWIMMING:
+    case W8_NAVIGATOR_MODE_QUADRUPED:
         path = std::make_unique<W8PathAI>();
         path->animated = true;
         SetPathAI(std::move(path));
         SetPitchRollEnabled(true, false);
         break;
-    case 6:
+    case W8_NAVIGATOR_MODE_CRAWLING:
         path = std::make_unique<W8PathAI>();
         path->animated = true;
         SetPathAI(std::move(path));
@@ -553,7 +553,8 @@ void W8Navigator::SetMovementStopped()
 {
     if (!movement_stopped) {
         movement_stopped = true;
-        if (navigation_mode != 5 && navigation_mode != 6) {
+        if (navigation_mode != W8_NAVIGATOR_MODE_QUADRUPED &&
+            navigation_mode != W8_NAVIGATOR_MODE_CRAWLING) {
             movement.target_pitch = NormalizeAngle(0.0f);
         }
     }
@@ -735,7 +736,7 @@ bool W8Navigator::StartPatrol(const glm::vec3* home, float distance, float varia
     return navigator->ConfigureMovement(distance, variation);
 }
 // GLOBAL: WIZ8 0x00659c10
-unsigned char g_navigator_link_mode;
+W8NavigatorLinkMode g_navigator_link_mode;
 // GLOBAL: WIZ8 0x005ebc98
 const float g_navigator_linked_radius_scale = 4.0f;
 // GLOBAL: WIZ8 0x005ebcc8
@@ -854,7 +855,7 @@ glm::vec3* W8Navigator::AdjustPosition(glm::vec3* result, const glm::vec3* curre
     /* 0x0045445D skips the whole settle-and-drop body when navigation_mode is
        4 and falls into the shared stop path below, so the mode test guards the
        body rather than sharing the location-id early return. */
-    if (navigation_mode != 4) {
+    if (navigation_mode != W8_NAVIGATOR_MODE_PATH_ONLY) {
         glm::vec3 probe = *current;
         probe.y += kWorldScale;
         bool hit;
@@ -1598,10 +1599,12 @@ void W8Navigator::SetFacingToward(const glm::vec3* target)
     if (target->x != current.x || target->y != current.y || target->z != current.z) {
         float angle = GetHeadingAngle(&current, target);
         SetAngles(angle);
-        if (navigation_mode == 2 || navigation_mode == 3) {
+        if (navigation_mode == W8_NAVIGATOR_MODE_FLYING ||
+            navigation_mode == W8_NAVIGATOR_MODE_SWIMMING) {
             angle = -GetElevationAngle(&current, target);
             SetPitch(angle);
-        } else if (navigation_mode == 5 || navigation_mode == 6) {
+        } else if (navigation_mode == W8_NAVIGATOR_MODE_QUADRUPED ||
+                   navigation_mode == W8_NAVIGATOR_MODE_CRAWLING) {
             UpdateFacing(true);
         }
         if (movement.location_id != 0) {
@@ -1695,7 +1698,7 @@ void W8Navigator::UpdateAngles()
         }
     }
 
-    if (navigation_mode == 3) {
+    if (navigation_mode == W8_NAVIGATOR_MODE_SWIMMING) {
         step *= kNavigatorMode3Scale;
     }
     if (movement.pitch_enabled && movement.pitch != movement.target_pitch) {
@@ -1736,9 +1739,11 @@ void W8Navigator::AimAtPosition(const glm::vec3* target)
     current.y += movement.height_offset;
     if (target->x != current.x || target->y != current.y || target->z != current.z) {
         movement.target_yaw = NormalizeAngle(GetHeadingAngle(&current, target));
-        if (navigation_mode == 2 || navigation_mode == 3) {
+        if (navigation_mode == W8_NAVIGATOR_MODE_FLYING ||
+            navigation_mode == W8_NAVIGATOR_MODE_SWIMMING) {
             movement.target_pitch = NormalizeAngle(-GetElevationAngle(&current, target));
-        } else if (navigation_mode == 5 || navigation_mode == 6) {
+        } else if (navigation_mode == W8_NAVIGATOR_MODE_QUADRUPED ||
+                   navigation_mode == W8_NAVIGATOR_MODE_CRAWLING) {
             UpdateFacing(false);
         }
 
@@ -1831,7 +1836,7 @@ void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
     if ((flags & 0x200000) != 0) {
         return;
     }
-    if (g_navigator_link_mode != 0 && linked_navigator != 0) {
+    if (g_navigator_link_mode != W8_NAVIGATOR_LINK_MODE_DEFAULT && linked_navigator != 0) {
         return;
     }
     if (linked_navigator == 0) {
@@ -1847,7 +1852,7 @@ void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
     if ((flags & 0x20000000) != 0 && (flags & 0xffffff) == 0) {
         ConfigureMovement(-1.0f, -1.0f);
     }
-    if (halted && g_navigator_link_mode == 0) {
+    if (halted && g_navigator_link_mode == W8_NAVIGATOR_LINK_MODE_DEFAULT) {
         UpdateAngles();
         return;
     }
@@ -1988,7 +1993,8 @@ void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
                made movement_speed NaN, which then stuck (NaN fails every comparison). */
             const float frame_time = g_rate * GameTimeAccumulator().GetFrameDelta();
             velocity.y = frame_time > 0.0f ? (movement.position.y - previous.y) / frame_time : 0.0f;
-            if (navigation_mode == 2 || navigation_mode == 3) {
+            if (navigation_mode == W8_NAVIGATOR_MODE_FLYING ||
+                navigation_mode == W8_NAVIGATOR_MODE_SWIMMING) {
                 minimum_speed = g_navigator_minimum_speed_mode23;
             } else {
                 minimum_speed = g_navigator_minimum_speed;

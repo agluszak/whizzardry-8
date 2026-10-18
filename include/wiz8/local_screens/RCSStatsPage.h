@@ -6,18 +6,25 @@
 
 #include "compat/compiler.h"
 #include "input.h"
+#include "wiz8/character_skills.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/RangeControl.h"
 #include "wiz8/ui_input.h"
 
 /* One row of the stats page's effect list: a character condition, an
    enchantment, or the modifiers of one equipped item. */
+enum W8CampEffectKind {
+    W8_CAMP_EFFECT_CONDITION,
+    W8_CAMP_EFFECT_ENCHANTMENT,
+    W8_CAMP_EFFECT_EQUIPMENT
+};
+
 struct W8CampEffectEntry {
     bool items;          /* row lists an equipped item */
     bool visible;        /* passes the current filter */
     bool beneficial;
     bool detrimental;
-    int kind;        /* 0 condition, 1 enchantment, 2 equipment */
+    W8CampEffectKind kind;
     int index;       /* condition, enchantment or equipment-slot index */
     int enchantment; /* the enchantment id for kind 1 */
     int turns;       /* remaining turns; 9999 is permanent */
@@ -53,4 +60,4 @@ void FilterCampEffectList(void);
    2; DisableCampSkillRegions releases them on camp leave. */
 void CreateCampSkillRegions(void);
 void DisableCampSkillRegions(void);
-UiResult HandleCampSkillList(const UiPointerEvent& event, int category);
+UiResult HandleCampSkillList(const UiPointerEvent& event, W8SkillCategory category);

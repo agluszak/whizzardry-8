@@ -1896,7 +1896,7 @@ void W8NpcDialogueTextController::Redraw(SDL_Surface& target, bool full_redraw)
 }
 
 unsigned char W8NpcDialogueTextController::AddTranscriptEntry(std::string_view text,
-                                                              signed char category, char mark)
+                                                              W8DialogueCategory category, char mark)
 {
     int index;
     int added;
@@ -1906,7 +1906,7 @@ unsigned char W8NpcDialogueTextController::AddTranscriptEntry(std::string_view t
             return 0;
         }
     }
-    added = text_area.AddEntry({}, text, 0, 7, category);
+    added = text_area.AddEntry({}, text, 0, 7, static_cast<unsigned char>(category));
     InvalidateLayout();
     if (mark != 0) {
         text_area.SetEntryMarked(added, true);
@@ -2051,7 +2051,7 @@ bool W8NpcDialogueTextController::IsExpanded()
     return scroll_height == 0xff;
 }
 
-void W8NpcDialogueTextController::SetTranscriptCategoryFilter(signed char category)
+void W8NpcDialogueTextController::SetTranscriptCategoryFilter(W8DialogueCategory category)
 {
     text_area.SetCategoryFilter(category);
     Collapse();

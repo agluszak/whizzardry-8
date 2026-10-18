@@ -50,6 +50,7 @@ extern unsigned short g_trap_name_string_ids[];
 #include "wiz8/dialog_code/DialogTextArea.h"
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/layouts/screen_state.h"
+#include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/Gameloop.h"
@@ -146,7 +147,7 @@ public:
     /* Add one keyword line to the transcript unless the text is already
        present; a nonzero mark puts the new entry in state 0x60, and any
        leftover "[No Keywords]" placeholder is removed afterwards. */
-    unsigned char AddTranscriptEntry(std::string_view text, signed char category, char mark);
+    unsigned char AddTranscriptEntry(std::string_view text, W8DialogueCategory category, char mark);
     /* Whether the expanded transcript's top edge reaches above the portrait
        band for an odd party slot (1 -> 0x67, 3 -> 0xbc, 5 -> 0x111, 7 ->
        always covered). Callers use it to skip portrait work on rows the
@@ -154,7 +155,7 @@ public:
     bool IsSlotPortraitTranscriptCovered(unsigned int party_slot);
     /* Re-apply the category filter, rebuild the expansion and restate the
        scroll widgets. */
-    void SetTranscriptCategoryFilter(signed char category);
+    void SetTranscriptCategoryFilter(W8DialogueCategory category);
     /* Replay every saved dialogue_transcript record into the text area,
        adding the "[No Keywords]" placeholder and forcing the all filter
        when nothing was saved. */

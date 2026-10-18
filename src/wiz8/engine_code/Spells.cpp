@@ -610,7 +610,7 @@ static W8SpellVisual* CreateSpellVisual(std::string_view name, W8SpellVisualMode
         if (!visual) {
             return nullptr;
         }
-        visual->SetNavigationMode(4);
+        visual->SetNavigationMode(W8_NAVIGATOR_MODE_PATH_ONLY);
         visual->active = false;
         visual->SetPitchRollEnabled(true, true);
         GetWorld()->spell_visuals.push_back(std::move(owner));

@@ -118,25 +118,10 @@ enum W8NpcTradeMode {
     W8_NPC_TRADE_SHOPLIFT = 5
 };
 
-/* Transcript keyword categories stored in
-   W8NpcInteractionState::dialogue_category_filter and on each
-   W8DialogTextEntry::m_category. The five filter buttons spell them
-   "Items", "People", "Places", "Misc" and "All". A keyword is classified by
-   scanning the item records, the NPC records plus the
-   named-monster table and the fixed place-name string table, in that
-   order. -1 shows every category. */
-enum W8DialogueCategory {
-    W8_DIALOGUE_CATEGORY_ALL = -1,
-    W8_DIALOGUE_CATEGORY_ITEMS = 0,
-    W8_DIALOGUE_CATEGORY_PEOPLE = 1,
-    W8_DIALOGUE_CATEGORY_PLACES = 2,
-    W8_DIALOGUE_CATEGORY_MISC = 3
-};
-
 /* One saved transcript keyword. */
 struct W8DialogueTranscriptRecord {
     std::string text;
-    signed char category;
+    W8DialogueCategory category;
 };
 
 enum W8NpcDialogueControlSlot {
@@ -197,7 +182,7 @@ struct W8NpcInteractionState {
     int hovered_text_line;
     int trade_filter; /* W8NpcTradeFilter bits */
     W8NpcState* dialogue_npc;
-    signed char dialogue_category_filter; /* W8DialogueCategory */
+    W8DialogueCategory dialogue_category_filter = W8_DIALOGUE_CATEGORY_ALL;
     /* Raised while the "Where Is" submit path runs, so the typed text is
        wrapped in the "Where is %s" template instead of a plain keyword lookup. */
     bool where_is_query;
@@ -286,7 +271,7 @@ void ClearKeywordLists(void);
 
 void SyncDialogueNpcState(void);
 /* Store a transcript keyword, inferring its category when category is -1. */
-void AddDialogueTranscriptKeyword(std::string_view name, signed char category);
+void AddDialogueTranscriptKeyword(std::string_view name, W8DialogueCategory category);
 void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQuote* quote,
                               int quote_id, unsigned int font_palette);
 void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQuote* quote,
@@ -325,7 +310,7 @@ void OpenNpcDialog(W8NpcQuoteEntry* request, int aux_data);
 /* Learn one keyword into the dialogue transcript. category -1
    auto-classifies the text against items, NPC/named-monster names and the
    place-name table; a nonzero play_chime rings the keyword chime. */
-void AddNpcDialogueKeyword(std::string text, signed char category, int play_chime);
+void AddNpcDialogueKeyword(std::string text, W8DialogueCategory category, int play_chime);
 void ClearNpcDialogueTranscript(void);
 void CloseNpcDialogueForCamp(void);
 void UpdateNpcDialogueSubMode(void);

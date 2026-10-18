@@ -24,8 +24,8 @@
 void PostNewGameLoad(void)
 {
     g_fact_notifications_suppressed = true;
-    AddDialogueTranscriptKeyword(g_localized_strings[0x7e7], 3);
-    AddDialogueTranscriptKeyword(g_localized_strings[0x7e8], 3);
+    AddDialogueTranscriptKeyword(g_localized_strings[0x7e7], W8_DIALOGUE_CATEGORY_MISC);
+    AddDialogueTranscriptKeyword(g_localized_strings[0x7e8], W8_DIALOGUE_CATEGORY_MISC);
     SetFact(W8_FACT_FACTION_HIGARDI_FELLOW_FRIENDLY, 1, false);
     SetFact(W8_FACT_NARGISST_MONITOR_OVERFLOW_ON, 1, false);
     SetFact(W8_FACT_RAPAX_QUEEN_LOCKED_UP, 1, false);

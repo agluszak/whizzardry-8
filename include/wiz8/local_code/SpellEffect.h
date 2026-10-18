@@ -17,11 +17,16 @@
 class W8SpellVisual;
 class W8Missile;
 
-/* One pending condition report. Kind 1 names a character by party slot and
-   carries no text; kind 3 carries its own inline text. The message pass
-   owns it until posting. */
+enum W8SpellDamageReportKind {
+    W8_SPELL_DAMAGE_REPORT_CHARACTER_DEATH = 1,
+    W8_SPELL_DAMAGE_REPORT_MONSTER_DEATH = 3
+};
+
+/* One pending death report. Character reports identify a party slot, while
+   monster reports carry their own inline text. The message pass owns each
+   report until posting. */
 struct W8SpellDamageReport {
-    int kind;
+    W8SpellDamageReportKind kind;
     int value;
     std::string text;
 };

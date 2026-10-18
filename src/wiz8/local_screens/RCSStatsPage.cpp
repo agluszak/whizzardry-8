@@ -376,7 +376,7 @@ void RebuildCampEffectList(void)
     for (int condition = 0x13; condition >= 0; --condition) {
         if (character->uiCondition[condition] != 0) {
             W8CampEffectEntry entry{};
-            entry.kind = 0;
+            entry.kind = W8_CAMP_EFFECT_CONDITION;
             entry.detrimental = true;
             entry.turns = character->uiCondition[condition];
             entry.lines = 1;
@@ -398,7 +398,7 @@ void RebuildCampEffectList(void)
     for (int index = 7; index >= 0; --index) {
         if (character->enchantments[index].turns != 0) {
             W8CampEffectEntry entry{};
-            entry.kind = 1;
+            entry.kind = W8_CAMP_EFFECT_ENCHANTMENT;
             entry.beneficial = true;
             entry.enchantment = character->enchantments[index].power;
             entry.turns = character->enchantments[index].turns;
@@ -418,7 +418,7 @@ void RebuildCampEffectList(void)
                 entry.detrimental = detrimental != 0;
                 entry.lines = detrimental + beneficial + 1;
                 entry.items = true;
-                entry.kind = 2;
+                entry.kind = W8_CAMP_EFFECT_EQUIPMENT;
                 entry.turns = W8_CONDITION_INDEFINITE;
                 entry.index = slot;
                 AddCampEffectEntry(screen, &entry);
@@ -499,13 +499,13 @@ void DrawCampEffectList(void)
 
 /* Renders one effect-list entry at `line` (in 0xe-pixel rows from
    y 0xbf) and advances the counter past its height plus one row of spacing.
-   Kind 0 is a condition, kind 1 an enchantment, kind 2 an equipped item. */
+   The kind selects conditions, enchantments or equipped items. */
 // FUNCTION: WIZ8 0x005c54a0
 void DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out)
 {
     int index;
     int line = *line_out;
-    if (entry->kind == 0) {
+    if (entry->kind == W8_CAMP_EFFECT_CONDITION) {
         g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_GREEN]);
         DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x15e, line * 0xe + 0xbf},
                  fmt::format("{} {}", g_localized_strings[0x8d1],
@@ -534,7 +534,7 @@ void DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out)
                 ++line;
             }
         }
-    } else if (entry->kind == 1) {
+    } else if (entry->kind == W8_CAMP_EFFECT_ENCHANTMENT) {
         g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_GREEN]);
         DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x15e, line * 0xe + 0xbf},
                  fmt::format("{} {} ({:d})", g_localized_strings[0x8d4],
@@ -546,7 +546,7 @@ void DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out)
                  fmt::format("{:d} {}", entry->turns, g_localized_strings[0x8d3]));
         *line_out = line + 3;
         return;
-    } else if (entry->kind == 2) {
+    } else if (entry->kind == W8_CAMP_EFFECT_EQUIPMENT) {
         W8ItemDatabaseRecord* record =
             &g_item_records[g_review_character->EquippedItem[entry->index].iItemNo];
         g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_GREEN]);
@@ -687,16 +687,19 @@ void DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out)
 void CreateCampSkillRegions(void)
 {
     g_camp_screen->skill_input = std::make_unique<UiLayer>();
-    for (unsigned int category = 0; category < 5; ++category) {
-        int x = g_camp_skill_category_positions[category].x;
-        int y = g_camp_skill_category_positions[category].y;
-        if (category == 4) {
+    for (auto category : {W8_SKILL_CATEGORY_WEAPON, W8_SKILL_CATEGORY_MISCELLANEOUS,
+                          W8_SKILL_CATEGORY_COMBAT, W8_SKILL_CATEGORY_MAGIC,
+                          W8_SKILL_CATEGORY_EXPERT}) {
+        const auto category_index = static_cast<unsigned int>(category);
+        int x = g_camp_skill_category_positions[category_index].x;
+        int y = g_camp_skill_category_positions[category_index].y;
+        if (category == W8_SKILL_CATEGORY_EXPERT) {
             x += 0x136;
         } else {
             y += 0xa5;
         }
         auto& target = g_camp_screen->skill_input->add(
-            SDL_Rect{x, y, 110, g_camp_skill_category_rows[category] * 14 + 1},
+            SDL_Rect{x, y, 110, g_camp_skill_category_rows[category_index] * 14 + 1},
             [category](const UiPointerEvent& event) {
                 return HandleCampSkillList(event, category);
             });
@@ -736,7 +739,7 @@ void DrawCampSkillsPage(void)
         for (skill = 0; skill < 0x29; ++skill) {
             if ((g_review_character->skills[skill].active ||
                  g_review_character->skills[skill].level != 0) &&
-                g_skill_attributes[skill].category == 4) {
+                g_skill_attributes[skill].category == W8_SKILL_CATEGORY_EXPERT) {
                 has_fifth = true;
                 break;
             }
@@ -762,15 +765,16 @@ void DrawCampSkillsPage(void)
         for (skill = 0; skill < 0x29; ++skill) {
             W8CharacterSkill* value = &g_review_character->skills[skill];
             if (value->active || value->points != 0 || value->level != 0) {
-                int category = g_skill_attributes[skill].category;
-                int left = g_camp_skill_category_positions[category].x;
-                int top = g_camp_skill_category_positions[category].y;
-                if (category == 4) {
+                W8SkillCategory category = g_skill_attributes[skill].category;
+                const int category_index = static_cast<int>(category);
+                int left = g_camp_skill_category_positions[category_index].x;
+                int top = g_camp_skill_category_positions[category_index].y;
+                if (category == W8_SKILL_CATEGORY_EXPERT) {
                     left += 0x136;
                 } else {
                     top += 0xa5;
                 }
-                top += category_count[category] * 0xe;
+                top += category_count[category_index] * 0xe;
                 CatalogArtwork::Load(0x141, 0).draw(GetFrameBufferSurface(), 3, left, top);
                 unsigned int level = value->level;
                 unsigned int base = value->points;
@@ -847,7 +851,7 @@ void DrawCampSkillsPage(void)
                                       fmt::format("{:d}", value->level));
                 g_wiz_text_font_secondary.resetPalette();
                 g_wiz_text_font_secondary.setShade(Font::kNormalShade);
-                ++category_count[category];
+                ++category_count[category_index];
             }
         }
     }
@@ -858,7 +862,7 @@ void DrawCampSkillsPage(void)
    dialog's second argument is raised when the character's level is the best
    among the occupied party slots. */
 // FUNCTION: WIZ8 0x005c6230
-UiResult HandleCampSkillList(const UiPointerEvent& event, int category)
+UiResult HandleCampSkillList(const UiPointerEvent& event, W8SkillCategory category)
 {
     int row = (event.local.y - 1) / 0xe;
     int skill = -1;
@@ -1418,18 +1422,19 @@ void W8CharacterSkillsPage::UpdateEntries()
     for (int skill = 0; skill < 0x29; ++skill) {
         W8CharacterSkill* value = &m_character->skills[skill];
         if (value->active || value->points != 0) {
-            int category = g_skill_attributes[skill].category;
+            const auto category = g_skill_attributes[skill].category;
+            const int category_index = static_cast<int>(category);
             int entry_index = 0;
             int occurrence = 0;
             for (; entry_index < 0x29; ++entry_index) {
                 if (g_skill_attributes[entry_index].category == category &&
-                    occurrence++ == category_count[category]) {
+                    occurrence++ == category_count[category_index]) {
                     break;
                 }
             }
             W8CharacterPageEntry* entry = m_entries[entry_index].get();
-            ++category_count[category];
-            if (category == 4) m_show_fifth_category = true;
+            ++category_count[category_index];
+            if (category == W8_SKILL_CATEGORY_EXPERT) m_show_fifth_category = true;
             entry->SetContent(skill, g_localized_strings[g_character_skill_name_ids[skill]],
                               &value->points, &m_creation_state->skill_points_spent[skill],
                               &m_creation_state->skill_limits[skill], 0x101);

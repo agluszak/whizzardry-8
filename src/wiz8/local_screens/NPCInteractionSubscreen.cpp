@@ -551,7 +551,7 @@ void ResetMainScreenStateBlock(void)
 
     ClearNpcDialogueTranscript();
     *g_npc_interaction_state = {};
-    g_npc_interaction_state->dialogue_category_filter = unset;
+    g_npc_interaction_state->dialogue_category_filter = W8_DIALOGUE_CATEGORY_ALL;
     g_npc_interaction_state->transcript_sorted = false;
     g_npc_interaction_state->pending_trade_toggle = false;
     g_npc_interaction_state->selected_trade_row = unset;
@@ -1559,7 +1559,7 @@ static void NpcDialogueTextBoxRightUp(int x, int y)
             return;
         }
         word_text = CopyNoticeWordText(word, 3, line);
-        AddNpcDialogueKeyword(word_text, -1, 0);
+        AddNpcDialogueKeyword(word_text, W8_DIALOGUE_CATEGORY_ALL, 0);
         return;
     default:
         break;
@@ -2132,10 +2132,10 @@ static void SubmitNpcDialogueKeyword(void)
     std::string keyword;
 
     keyword = NpcFieldText();
-    AddNpcDialogueKeyword(keyword, -1, 0);
+    AddNpcDialogueKeyword(keyword, W8_DIALOGUE_CATEGORY_ALL, 0);
 }
 
-void AddNpcDialogueKeyword(std::string text, signed char category, int play_chime)
+void AddNpcDialogueKeyword(std::string text, W8DialogueCategory category, int play_chime)
 {
     W8NpcDialogueTextController* controller;
     unsigned int index;
@@ -3409,7 +3409,7 @@ try {
         file.ReadBytes(&record->category, sizeof(record->category));
         pending.push_back(std::move(record));
     }
-    signed char category_filter = g_npc_interaction_state->dialogue_category_filter;
+    W8DialogueCategory category_filter = g_npc_interaction_state->dialogue_category_filter;
     unsigned char sorted = g_npc_interaction_state->transcript_sorted;
     if (version > 1) {
         file.ReadBytes(&category_filter, sizeof(category_filter));
@@ -3460,7 +3460,7 @@ try {
    dialogue_category_filter's button shows its secondary state. */
 void SyncDialogueCategoryButtons(void)
 {
-    int category = g_npc_interaction_state->dialogue_category_filter;
+    W8DialogueCategory category = g_npc_interaction_state->dialogue_category_filter;
     switch (category) {
     case W8_DIALOGUE_CATEGORY_ITEMS:
     case W8_DIALOGUE_CATEGORY_PEOPLE:
@@ -4193,14 +4193,15 @@ static void HandleNpcDialogueDeparture(unsigned char value)
             }
             if (gXStatus.fNpcDialogueMode && !g_npc_interaction_state->scripted_dialogue) {
                 AddNpcDialogueKeyword(g_npc_interaction_state->dialogue_npc->record->source_name,
-                                      -1, 1);
+                                      W8_DIALOGUE_CATEGORY_ALL, 1);
                 return;
             }
             if (g_npc_interaction_state->dialogue_npc->record->monster_bound == 0 &&
                 (g_npc_interaction_state->dialogue_npc->record->voice_script == 0 ||
                  g_npc_interaction_state->dialogue_npc->is_present)) {
                 AddDialogueTranscriptKeyword(
-                    g_npc_interaction_state->dialogue_npc->record->source_name, -1);
+                    g_npc_interaction_state->dialogue_npc->record->source_name,
+                    W8_DIALOGUE_CATEGORY_ALL);
             }
         }
     }
@@ -4251,12 +4252,12 @@ void FlushInputWhileWorldCursorGate(void)
     }
 }
 
-void AddDialogueTranscriptKeyword(std::string_view name, signed char category)
+void AddDialogueTranscriptKeyword(std::string_view name, W8DialogueCategory category)
 {
     std::string keyword;
     keyword = name;
     StripNpcKeywordPunctuation(keyword);
-    if (category == -1) {
+    if (category == W8_DIALOGUE_CATEGORY_ALL) {
         unsigned int index;
         for (index = 0; index < g_item_records.size(); ++index) {
             if (CompareTextIgnoreAsciiCase(keyword, g_item_records[index].display_name) == 0) {
@@ -4264,7 +4265,7 @@ void AddDialogueTranscriptKeyword(std::string_view name, signed char category)
                 break;
             }
         }
-        if (category == -1) {
+        if (category == W8_DIALOGUE_CATEGORY_ALL) {
             for (index = 0; index < g_npc_records.size(); ++index) {
                 if (CompareTextIgnoreAsciiCase(keyword, g_npc_records[index].source_name) == 0) {
                     category = W8_DIALOGUE_CATEGORY_PEOPLE;
@@ -4272,7 +4273,7 @@ void AddDialogueTranscriptKeyword(std::string_view name, signed char category)
                 }
             }
         }
-        if (category == -1) {
+        if (category == W8_DIALOGUE_CATEGORY_ALL) {
             for (index = 0; g_dialogue_person_keywords[index][0] != 0; ++index) {
                 if (CompareTextIgnoreAsciiCase(keyword, g_dialogue_person_keywords[index]) == 0) {
                     category = W8_DIALOGUE_CATEGORY_PEOPLE;
@@ -4280,7 +4281,7 @@ void AddDialogueTranscriptKeyword(std::string_view name, signed char category)
                 }
             }
         }
-        if (category == -1) {
+        if (category == W8_DIALOGUE_CATEGORY_ALL) {
             category = IsDialoguePlaceKeyword(keyword) ? W8_DIALOGUE_CATEGORY_PLACES
                                                        : W8_DIALOGUE_CATEGORY_MISC;
         }

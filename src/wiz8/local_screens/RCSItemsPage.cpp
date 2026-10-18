@@ -122,7 +122,7 @@ void ShowCampCharacterPage(void)
 /* The items page swaps two control panels in and out: mode zero shows the
    item page, mode one the character page. */
 // FUNCTION: WIZ8 0x005B9FD0
-void SetCampInfoPageMode(char mode)
+void SetCampInfoPageMode(W8CampInfoPage mode)
 {
     int index;
 
@@ -576,23 +576,14 @@ void UpdateItemCursorForState(int flag, W8ItemInstance* item, int slot)
 }
 
 // FUNCTION: WIZ8 0x005BAFC0
-void SetHandCursors(char mode)
+void SetHandCursors()
 {
-    if (mode == 0) {
-        if (g_status.item_in_cursor) {
-            SetTargetCursor(0xf);
-            SetItemCursor(0xe);
-            return;
-        }
-        SetTargetCursor(3);
-        return;
-    }
     if (g_status.item_in_cursor) {
-        SetTargetCursor(0xe);
-        SetItemCursor(0xf);
+        SetTargetCursor(0xf);
+        SetItemCursor(0xe);
         return;
     }
-    SetTargetCursor(4);
+    SetTargetCursor(3);
 }
 
 /* Unequips both weapon slots of the selected character; refused outright in

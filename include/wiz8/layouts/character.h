@@ -330,7 +330,7 @@ enum W8SkillImportPolicy {
 };
 
 struct W8SkillAttributes {
-    int category;
+    W8SkillCategory category;
     W8SkillImportPolicy import_policy;
     /* Retail offset 0x08/0x0c: governing attributes averaged into base_level and
        listed in the stat-info dialog. */

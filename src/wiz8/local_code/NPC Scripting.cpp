@@ -93,9 +93,9 @@ static W8NpcScriptRegionName g_npc_script_region_names[] = {{"Monastery", 1},
                                                             {"Cosmic Circle", 14},
                                                             {"", 0}};
 
-void ApplyScriptedDialogueKeyword(int kind, const char* text)
+void ApplyScriptedDialogueKeyword(W8NpcQuoteEntryKind kind, const char* text)
 {
-    signed char category;
+    W8DialogueCategory category;
     switch (kind) {
     case W8_NPC_ENTRY_PERSON_KEYWORD:
     case W8_NPC_ENTRY_PERSON_KEYWORD_ALT:

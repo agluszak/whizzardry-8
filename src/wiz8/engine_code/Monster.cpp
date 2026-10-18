@@ -743,15 +743,15 @@ std::unique_ptr<W8Monster> MonsterReadAllCycles(W8World* world, std::string_view
     monster->SetMovementScale(movement_rate);
     monster->SetTurnRate(rotation_rate * static_cast<float>(kMotionFullTurnRadians));
 
-    int navigation_mode = 1;
+    W8NavigatorMode navigation_mode = W8_NAVIGATOR_MODE_GROUNDED;
     if (flies)
-        navigation_mode = 2;
+        navigation_mode = W8_NAVIGATOR_MODE_FLYING;
     else if (swims)
-        navigation_mode = 3;
+        navigation_mode = W8_NAVIGATOR_MODE_SWIMMING;
     else if (quadruped)
-        navigation_mode = 5;
+        navigation_mode = W8_NAVIGATOR_MODE_QUADRUPED;
     else if (crawls)
-        navigation_mode = 6;
+        navigation_mode = W8_NAVIGATOR_MODE_CRAWLING;
     monster->SetNavigationMode(navigation_mode);
     if (spice_monster) {
         /* 0x004C1CC5..0x004C1CD7: byte stores to +0x332, +0xa0 (navigator
