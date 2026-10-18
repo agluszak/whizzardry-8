@@ -519,8 +519,10 @@ UiResult HandleUseItemTextBox(const UiPointerEvent& event)
     } else if (event.action == UiPointerAction::Move || event.action == UiPointerAction::Enter) {
         const int row = event.local.y / 11;
         if (event.inside && row != use_item->hover_row) HighlightNoticeRow(row);
-        if (event.inside) use_item->hover_row = row;
-        else use_item->hover_row.reset();
+        if (event.inside)
+            use_item->hover_row = row;
+        else
+            use_item->hover_row.reset();
     } else if (event.action == UiPointerAction::Up && event.inside) {
         if (event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK)) {
             if (const auto slot = g_level_block->hovered_text_lines[2])

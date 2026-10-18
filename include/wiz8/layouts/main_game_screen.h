@@ -117,8 +117,7 @@ struct W8PortraitHighlight {
     /* The target and formation highlights light the whole portrait. */
     bool LightsPortrait(int party_slot) const
     {
-        return slot && *slot == party_slot &&
-               (kind == W8_HIGHLIGHT_TARGET || IsFormation());
+        return slot && *slot == party_slot && (kind == W8_HIGHLIGHT_TARGET || IsFormation());
     }
 };
 

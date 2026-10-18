@@ -857,8 +857,8 @@ void W8OptionsKeyboardPanel::ClearDuplicateBinding(SDL_Keycode key)
             binding->key = SDLK_UNKNOWN;
             binding->unmapped_retail_key = 0;
             if (g_options_key_rows[row_index].secondary_binding != W8_MGS_COMMAND_NONE) {
-                binding = g_mgs_keyboard.FindBinding(
-                    g_options_key_rows[row_index].secondary_binding);
+                binding =
+                    g_mgs_keyboard.FindBinding(g_options_key_rows[row_index].secondary_binding);
                 if (binding != 0) {
                     binding->key = SDLK_UNKNOWN;
                     binding->unmapped_retail_key = 0;

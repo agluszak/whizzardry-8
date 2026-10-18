@@ -952,8 +952,8 @@ void UpdateSubMenuPanelButtons(void)
 static void UpdateSubMenuScrollButtons()
 {
 
-    const bool enabled = !g_level_block->combat_end_notification &&
-                         !gXStatus.fNpcDialogueMode && !gXStatus.fCampMode;
+    const bool enabled = !g_level_block->combat_end_notification && !gXStatus.fNpcDialogueMode &&
+                         !gXStatus.fCampMode;
     for (auto& button : g_main_game_state->hud_buttons.submenu_scroll) {
         button.SetEnabled(enabled);
     }

@@ -114,8 +114,7 @@ W8MGSCommand MGSKeyboard::FindCommandForEvent(const InputEvent* event) const
 bool MGSKeyboard::IsCommandPressed(W8MGSCommand command) const
 {
     const auto* binding = FindBinding(command);
-    return binding && IsKeyHeld(binding->key) &&
-           binding->modifiers == GetInputState().modifiers;
+    return binding && IsKeyHeld(binding->key) && binding->modifiers == GetInputState().modifiers;
 }
 
 /* Discard every queued input atom. MainGameScreenEnter calls this so stale

@@ -1779,10 +1779,10 @@ void W8Monster::ProcessScript()
             case MONSCR_GOTO: {
                 tokens >> token;
                 if (tokens) {
-                    int line_number = script->FindLabelLine(token);
-                    if (line_number != -1) {
+                    const auto line_number = script->FindLabelLine(token);
+                    if (line_number) {
                         script_conditions.clear();
-                        script_line = line_number;
+                        script_line = *line_number;
                     }
                 }
                 stop = true;
@@ -2323,12 +2323,10 @@ bool W8Monster::CanContinueScript()
 // FUNCTION: WIZ8 0x004CA260
 bool W8Monster::SetScriptLabel(const char* label)
 {
-    int line;
-
     if (script != 0) {
-        line = script->FindLabelLine(label);
-        if (line >= 0) {
-            script_line = line;
+        const auto line = script->FindLabelLine(label);
+        if (line) {
+            script_line = *line;
             return true;
         }
     }

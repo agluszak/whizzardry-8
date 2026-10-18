@@ -1583,8 +1583,8 @@ static std::optional<int> SelectNextGroupMemberByAngle(const std::vector<int>& c
    monster. Every live monster the slot could aim at becomes a candidate and
    the angular sweep steps on from whichever monster is currently picked. */
 // FUNCTION: WIZ8 0x00538140
-static std::optional<int> PickNextTargetableMonster(int party_slot,
-                                                    const W8Action& edited_action, bool sighting)
+static std::optional<int> PickNextTargetableMonster(int party_slot, const W8Action& edited_action,
+                                                    bool sighting)
 {
     std::vector<int> targetable;
     unsigned int index;
@@ -1671,8 +1671,8 @@ void AimAtMonsterGroupMember(int party_slot, W8MonsterGroup* group)
    will do. A picked group that has since gone away resets the starting point
    rather than ending the sweep. */
 // FUNCTION: WIZ8 0x00537ed0
-static std::optional<int> PickNextTargetableGroup(int party_slot,
-                                                  const W8Action& edited_action, bool sighting)
+static std::optional<int> PickNextTargetableGroup(int party_slot, const W8Action& edited_action,
+                                                  bool sighting)
 {
     const auto& groups = CurrentLevelPopulation().monster_groups;
     if (groups.empty()) return std::nullopt;
@@ -1877,8 +1877,7 @@ bool AnyMonsterVisible(void)
     }
     camera = cameraLocation();
     count = CurrentLevelPopulation().monster_roster.live().size();
-    if (g_last_visible_monster && 0 <= *g_last_visible_monster &&
-        *g_last_visible_monster < count) {
+    if (g_last_visible_monster && 0 <= *g_last_visible_monster && *g_last_visible_monster < count) {
         W8MonsterInfo* monster_info = GetMonsterListEntry(*g_last_visible_monster);
         if (monster_info->p3D != 0 &&
             IsMonsterVisibleWithinDistance(monster_info->p3D, &camera, limit)) {

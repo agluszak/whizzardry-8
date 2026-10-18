@@ -40,7 +40,7 @@ try {
                                (stop == text.npos ? text.size() : stop) - start);
         if (token.ends_with(':')) {
             token.remove_suffix(1);
-            if (FindLabelLine(token) == -1 && pending.FindLabelLine(token) == -1)
+            if (!FindLabelLine(token) && !pending.FindLabelLine(token))
                 pending.labels.push_back(
                     {std::string(token), static_cast<int>(lines.size() + pending.lines.size())});
         } else {
@@ -60,11 +60,11 @@ try {
 }
 
 // FUNCTION: WIZ8 0x004CF730
-int stScript::FindLabelLine(std::string_view label) const
+std::optional<int> stScript::FindLabelLine(std::string_view label) const
 {
     for (const auto& entry : labels)
         if (CompareTextIgnoreAsciiCase(entry.name, label) == 0) return entry.line;
-    return -1;
+    return std::nullopt;
 }
 
 // FUNCTION: WIZ8 0x004CF790

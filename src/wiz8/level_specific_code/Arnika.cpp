@@ -899,8 +899,8 @@ int ArnikaPedestalItem(int* previous_item)
 
     if (g_status.item_in_cursor) {
         const auto held_item_id = GetItemInHand();
-        if (!held_item_id || (*held_item_id != 0x244 && *held_item_id != 0x242 &&
-                              *held_item_id != 0x264)) {
+        if (!held_item_id ||
+            (*held_item_id != 0x244 && *held_item_id != 0x242 && *held_item_id != 0x264)) {
             return -2;
         }
         item = *held_item_id;

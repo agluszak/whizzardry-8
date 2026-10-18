@@ -316,12 +316,13 @@ void W8ListBoxDialog::UpdateLayout()
         m_up_button.SetPosition(m_x + dx + 4 + width, m_y + 4 + dy);
         m_down_button.SetPosition(m_x + dx + 4 + width,
                                   m_y + dy + height - m_down_button.Bounds().h - 4);
-        m_slider_button.SetPosition(m_x + dx + 4 + width, m_area_button.Bounds().h +
-                                                              ((height - m_up_button.Bounds().h -
-                                                                m_down_button.Bounds().h - 7) *
-                                                               (m_selected_line ? *m_selected_line : 0)) /
-                                                                  static_cast<int>(m_lines.size()) +
-                                                              m_y + 3 + dy);
+        m_slider_button.SetPosition(
+            m_x + dx + 4 + width,
+            m_area_button.Bounds().h +
+                ((height - m_up_button.Bounds().h - m_down_button.Bounds().h - 7) *
+                 (m_selected_line ? *m_selected_line : 0)) /
+                    static_cast<int>(m_lines.size()) +
+                m_y + 3 + dy);
         m_third_text_button.SetPosition(m_x + dx + width, m_y + dy);
         m_third_text_button.Resize(m_up_button.Bounds().w + 7, height);
     }
@@ -346,8 +347,7 @@ bool W8ListBoxDialog::ProcessInput()
         .unhandled =
             [&](const InputEvent& input) {
                 if (input.type == InputEventType::MouseWheel) {
-                    SetCurrentLine(m_selected_line ? *m_selected_line - input.wheel
-                                                   : -input.wheel);
+                    SetCurrentLine(m_selected_line ? *m_selected_line - input.wheel : -input.wheel);
                 } else {
                     HandleInputEvent(&input);
                 }

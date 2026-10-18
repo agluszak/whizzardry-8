@@ -1223,8 +1223,7 @@ void CreateConditionButtons()
                 if (event.action == UiPointerAction::Leave ||
                     (event.action == UiPointerAction::Up &&
                      event.button == UiPointerButton::Left)) {
-                    if (g_level_block->condition_highlight_party_slot)
-                        ClearConditionHighlight();
+                    if (g_level_block->condition_highlight_party_slot) ClearConditionHighlight();
                 } else if (event.action == UiPointerAction::Down &&
                            event.button == UiPointerButton::Left) {
                     g_level_block->condition_highlight_party_slot = slot;

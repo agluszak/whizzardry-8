@@ -1511,8 +1511,8 @@ static void NpcDialogueTextBoxLeftUp(int x, int y)
     case W8_DIALOGUE_LAYOUT_SERVICES:
     case W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX:
         if (const auto slot = g_level_block->hovered_text_lines[2])
-            UpdateNpcTradeSelection(*slot,
-                                    ((GetInputState().modifiers & SHIFT_DOWN) != 0) ? 1 : 0, 1);
+            UpdateNpcTradeSelection(*slot, ((GetInputState().modifiers & SHIFT_DOWN) != 0) ? 1 : 0,
+                                    1);
         return;
     default:
         break;

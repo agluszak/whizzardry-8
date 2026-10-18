@@ -1512,8 +1512,8 @@ int W8MainGameScreen::GetTrapInteractionChance() const
     if (chance < 0) {
         chance = 0;
     }
-    const int skill_score = skill ? *skill + m_target_difficulty * 6 - g_table2[chance]
-                                  : -1 - g_table2[chance];
+    const int skill_score =
+        skill ? *skill + m_target_difficulty * 6 - g_table2[chance] : -1 - g_table2[chance];
     chance = (skill_score * 3) / 2 + (11 - g_settings.difficulty) * 10;
     if (chance < 0) {
         chance = 0;
@@ -1553,8 +1553,7 @@ void W8MainGameScreen::OnPrimary(W8TrapInteractionAction action)
     slot = g_status.selected_character;
     m_selected_character = slot;
     skill = GetPartySlotLocksTrapsLevel(slot);
-    hold = skill ? 6.0f - *skill * kCameraSnapEpsilon
-                 : 6.0f + kCameraSnapEpsilon;
+    hold = skill ? 6.0f - *skill * kCameraSnapEpsilon : 6.0f + kCameraSnapEpsilon;
     chance = GetTrapInteractionChance();
     roll = static_cast<int>(Random(0x64));
     if (roll < chance) {
@@ -2822,8 +2821,7 @@ void ApplyMainGameRedrawFlags(const W8TargetingPresentation& presentation)
     }
     if (gXStatus.fReviewCharacterMode) {
         if (((g_level_block->redraw_flags & W8_MAIN_REDRAW_PORTRAIT_PANEL) == 0) ||
-            g_level_block->condition_orb_party_slot ||
-            g_level_block->enchantment_orb_party_slot ||
+            g_level_block->condition_orb_party_slot || g_level_block->enchantment_orb_party_slot ||
             g_level_block->portrait_overlay_party_slot) {
             show_portraits = false;
         } else {
@@ -5633,8 +5631,7 @@ void SetCombatTarget(std::optional<int> value)
         g_level_block->countdown1 = w8_get_ticks() + (delay);
         return;
     }
-    if (current && !TimeUntilDeadline(g_level_block->countdown1) &&
-        !HasScreenTransitionObjects()) {
+    if (current && !TimeUntilDeadline(g_level_block->countdown1) && !HasScreenTransitionObjects()) {
         SDL_Point point;
         W8WorldItem* item;
 

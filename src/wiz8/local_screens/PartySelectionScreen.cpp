@@ -695,8 +695,10 @@ void W8PartySelectionController::Setup()
                     PlayButtonSound(event.action);
                 if (event.action == UiPointerAction::Enter ||
                     event.action == UiPointerAction::Leave) {
-                    if (event.action == UiPointerAction::Enter) hovered_row = row;
-                    else hovered_row.reset();
+                    if (event.action == UiPointerAction::Enter)
+                        hovered_row = row;
+                    else
+                        hovered_row.reset();
                     rows_dirty = true;
                 } else if (event.action == UiPointerAction::Wheel)
                     m_range.AdjustValue(event.wheel);
@@ -725,8 +727,10 @@ void W8PartySelectionController::Setup()
                     PlayButtonSound(event.action);
                 if (event.action == UiPointerAction::Enter ||
                     event.action == UiPointerAction::Leave) {
-                    if (event.action == UiPointerAction::Enter) hovered_slot = row;
-                    else hovered_slot.reset();
+                    if (event.action == UiPointerAction::Enter)
+                        hovered_slot = row;
+                    else
+                        hovered_slot.reset();
                     slots_dirty = true;
                 } else if ((event.action == UiPointerAction::Up && event.inside &&
                             (event.captured_buttons &
@@ -945,8 +949,10 @@ void W8PartySelectionController::SetSelection(int selection, bool party_slot, bo
             SetSelectedRow(character_index);
         }
         if (refresh_other) {
-            if (selection >= 0) selected_slot = selection;
-            else selected_slot.reset();
+            if (selection >= 0)
+                selected_slot = selection;
+            else
+                selected_slot.reset();
             slots_dirty = true;
         }
     }

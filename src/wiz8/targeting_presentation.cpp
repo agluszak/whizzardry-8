@@ -43,8 +43,7 @@ bool CurrentCombatSubjectIsValid()
     const auto action = SelectCombatAction(actor, context);
     const bool sighting = context == W8_TARGETING_CONTEXT_OUT_OF_COMBAT;
     if (g_level_block->highlighted_item)
-        return AssessMonsterTarget(actor, *g_level_block->highlighted_item, action, true,
-                                  sighting);
+        return AssessMonsterTarget(actor, *g_level_block->highlighted_item, action, true, sighting);
     if (g_level_block->action_group) {
         if (auto* group = FindMonsterGroup(*g_level_block->action_group, false))
             return CanTargetMonsterGroup(actor, group, action, sighting);
