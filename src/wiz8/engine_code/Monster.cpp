@@ -1973,11 +1973,11 @@ void W8Monster::ProcessScript()
                 tokens >> token;
                 if (tokens) {
                     if (SDL_strcasecmp(token.c_str(), "DISP_NEUTRAL") == 0)
-                        disposition = 0;
+                        disposition = W8_DISPOSITION_NEUTRAL;
                     else if (SDL_strcasecmp(token.c_str(), "DISP_HOSTILE") == 0)
-                        disposition = 1;
+                        disposition = W8_DISPOSITION_HOSTILE;
                     else if (SDL_strcasecmp(token.c_str(), "DISP_FRIENDLY") == 0)
-                        disposition = 2;
+                        disposition = W8_DISPOSITION_FRIENDLY;
                     monster_info = FindMonster(location_id);
                     if (monster_info != 0) {
                         W8MonsterGroup* group =
