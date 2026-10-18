@@ -2911,6 +2911,8 @@ void W8Monster::ApplyRemovalStateEffects()
     glm::vec3 position;
 
     switch (removal_state) {
+    case W8_MONSTER_REMOVAL_NONE:
+        break;
     case W8_MONSTER_REMOVAL_RETURN_BALBRAK_HOME:
         if (FindEntityByName("NP_Balbrakhome", &position, 0, 0)) {
             SetPosition(&position);
