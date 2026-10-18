@@ -788,6 +788,10 @@ void W8LockInteraction::Process()
         return;
     }
     switch (m_state) {
+    case W8_LOCK_STATE_IDLE:
+    case W8_LOCK_STATE_WAIT_FOR_UNLOCK:
+    case W8_LOCK_STATE_EXIT:
+        break;
     case W8_LOCK_STATE_PICK_TUMBLER:
         m_state = W8_LOCK_STATE_IDLE;
         ResolvePick();
@@ -1612,6 +1616,10 @@ void W8MainGameScreen::Update()
     }
 
     switch (m_disarm_state) {
+    case W8_TRAP_DISARM_IDLE:
+    case W8_TRAP_DISARM_WAIT_FOR_TRAP:
+    case W8_TRAP_DISARM_EXIT:
+        break;
     case W8_TRAP_DISARM_INSPECT_SUCCESS:
         m_disarm_state = W8_TRAP_DISARM_IDLE;
         ApplyInspectSuccess();
