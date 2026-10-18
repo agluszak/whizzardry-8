@@ -203,3 +203,22 @@ not persist combat scheduling. Whole-game saves capture script/location,
 message-countdown and status images without advancing scripts or modifying live
 records; successful saving alone resets autosave pacing. Resource destruction
 performs no departure gameplay bookkeeping.
+
+## Derived selection and population state
+
+A spell picker is open exactly while its view is owned. Layout, input, targeting,
+and advancement consult that owner; there is no separate spell-mode flag to
+reset on screen changes. Close releases the owner before recomputing policy.
+The draft identifies the spell, so its power class and affordable levels are
+queries over the spell database and caster. Availability queries take the spell
+explicitly; no temporary selection override is installed. Each list row holds
+its spell and availability color together, and the collection supplies its size.
+Item targeting likewise constructs an action from the selected item rather than
+maintaining another copy of that pointer in a global action-detail block.
+
+Monster-group active counts are queries over membership in the owning population.
+Condition changes, control changes, birth, removal and level preparation no longer
+maintain a count. Both loaded and newly changed lured monsters are excluded by
+the same rule. The retail count is retained as decoded disk data for round trips;
+level saves replace it in the output image with the derived value without editing
+the live group. Visibility counts remain observations of a visibility pass.

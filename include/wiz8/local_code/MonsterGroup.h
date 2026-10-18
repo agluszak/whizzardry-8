@@ -38,7 +38,6 @@ struct W8MonsterGroup {
     /* Refreshed together by the targeting visibility pass. */
     int visible_member_count;
     int selectable_member_count;
-    int active_member_count; /* recomputed from member conditions */
     int monster_id;
     /* The mean of the live members' positions, recomputed on demand. */
     glm::vec3 centre;
@@ -139,7 +138,6 @@ bool MoveMonsterGroupToPosition(W8MonsterGroup* group, const glm::vec3* position
    widened to the largest allied-group radius. Answers the movement call's
    result so callers can branch on success. */
 bool PositionMonsterGroupNearCamera(W8MonsterGroup* group, float distance, float yaw, bool flag);
-void RecountActiveMonsterGroupMembers(W8MonsterGroup* monster_group);
 /* Refresh the group's cached centre; a null centre out-pointer
    keeps only the cache update, which is how SpawnMonsters uses it. */
 void GetMonsterGroupCentre(W8MonsterGroup* monster_group, glm::vec3* centre);

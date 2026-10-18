@@ -147,7 +147,6 @@ W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, W8MonsterRecord* record,
     CurrentLevelPopulation().monster_roster.add(std::move(owner), record->unborn);
     group->monsters.push_back(monster_info->location_id);
 
-    ++group->active_member_count;
     RequestRedrawParty();
     GetWorldOctree()->VisitPointCopy(static_cast<unsigned short>(monster_info->location_id),
                                      position);
@@ -720,7 +719,7 @@ void SetMonsterControlState(W8MonsterInfo* monster_info, W8MonsterControlState c
         break;
     }
     monster_info->control_state = control_state;
-    RecountActiveMonsterGroupMembers(FindMonsterGroup(monster_info->monster_group_id));
+    RequestRedrawParty();
 }
 
 // FUNCTION: WIZ8 0x004e60b0
@@ -976,7 +975,6 @@ bool RemoveMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal)
         if (monster_group->MemberCount() == 0) {
             DestroyMonsterGroup(monster_group, monster_info);
         } else {
-            RecountActiveMonsterGroupMembers(monster_group);
             if (monster_group->leader_location_id == monster_info->location_id) {
                 ElectGroupLeaderMember(monster_group);
                 if (monster_group->leader_group_id == 0) {

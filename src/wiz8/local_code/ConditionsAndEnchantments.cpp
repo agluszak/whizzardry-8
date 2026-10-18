@@ -462,8 +462,7 @@ static void RefreshMonsterConditionState(W8MonsterInfo* monster_info)
         --slot;
     }
     monster_info->highest_condition = static_cast<W8Condition>(slot);
-    W8MonsterGroup* monster_group = FindMonsterGroup(monster_info->monster_group_id);
-    RecountActiveMonsterGroupMembers(monster_group);
+    RequestRedrawParty();
     if (monster_info->fActive) {
         MonsterInfoSetMotionless(monster_info,
                                  monster_info->highest_condition < W8_CONDITION_WEBBED ? 0 : 1);

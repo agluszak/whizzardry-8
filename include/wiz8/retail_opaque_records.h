@@ -3,6 +3,8 @@
 namespace wiz8::retail {
 // Unidentified disk fields retained for lossless saves/database edits.
 struct MonsterGroupOpaque {
+    // Retail cache retained on decode; level saves replace it with the derived count.
+    int active_member_count = 0;
     // Freshly spawned groups write 3; loaded groups retain their saved value.
     unsigned char unknown_2b = 3;
     unsigned char unknown_d4[0x57]{};

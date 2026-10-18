@@ -87,6 +87,7 @@
 #include "wiz8/local_code/party_encumbrance.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/MGSPortraits.h"
+#include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/MainMenuScreen.h"
 #include "wiz8/local_screens/PartySelectionScreen.h"
@@ -262,8 +263,7 @@ void DrawCampSpellPages(void)
     unsigned int visible;
     Palette16 palette;
 
-    if ((g_camp_screen->redraw_flags & W8_CAMP_REDRAW_RESISTANCES) != 0 &&
-        !gXStatus.fSpellCastMode) {
+    if ((g_camp_screen->redraw_flags & W8_CAMP_REDRAW_RESISTANCES) != 0 && !gpSCSV) {
         DrawCampResistances();
     }
     if (g_camp_screen->redraw_flags == W8_CAMP_REDRAW_ALL) {
@@ -1513,7 +1513,6 @@ void ActivateCampPage(void)
         g_camp_screen->spell_input.setEnabled(true);
         BuildLearnedSpellState(&state->learned_spells, g_review_character);
         RefreshCampSpellRanges();
-        gXStatus.fSpellCastMode = false;
         state->selected_spell_row = -1;
         break;
     default:

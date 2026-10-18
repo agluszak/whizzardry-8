@@ -1324,7 +1324,7 @@ void CheckGameplayUi(Game& game)
     REQUIRE(HasScreenTransitionObjects());
     game.click_at(realm_bounds.x + realm_bounds.w / 2, realm_bounds.y + realm_bounds.h / 2);
     REQUIRE(gpSCSV->iSpellRealm == realm);
-    REQUIRE(gpSCSV->uiSpellsInList == 1);
+    REQUIRE(gpSCSV->spells.size() == 1);
     game.click_at(250, 372); // First spell in the ordinary text-box list.
     REQUIRE(gpSCSV->draft.detail == W8_SPELL_LIGHT);
     game.click_at(0x1f4, 0x172);

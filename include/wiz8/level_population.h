@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <memory>
 #include <vector>
 
@@ -21,6 +22,14 @@ struct W8LevelPopulation {
             for (const auto& info : *partition)
                 if (info->location_id == id) return info.get();
         return nullptr;
+    }
+    int activeMemberCount(const W8MonsterGroup& group) const
+    {
+        return std::ranges::count_if(group.MemberIds(), [this](int id) {
+            const auto* member = findMonster(id);
+            return member->highest_condition < W8_CONDITION_TURNCOAT &&
+                   member->control_state != W8_MONSTER_CONTROL_LURED;
+        });
     }
     W8MonsterGroup* findGroup(int id) const
     {

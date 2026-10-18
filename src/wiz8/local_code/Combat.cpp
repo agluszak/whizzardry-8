@@ -188,7 +188,7 @@ bool StartCombat(int surprise)
     AutoSaveIfAllowed(true);
     ResetLevelDataVectors();
     SetCombatInactiveFlag(0);
-    if (!gXStatus.fNpcDialogueMode && !gXStatus.fSpellCastMode && !gXStatus.fItemSelectMode) {
+    if (!gXStatus.fNpcDialogueMode && !gpSCSV && !gXStatus.fItemSelectMode) {
         SelectTextBox(1);
     }
     ResetEditorStatusLine(1);
@@ -1151,7 +1151,7 @@ void EndCombat(bool forced_cleanup)
                       W8_MAIN_REDRAW_PORTRAIT_6 | W8_MAIN_REDRAW_PORTRAIT_7 |
                       W8_MAIN_REDRAW_SUBMENU_BUTTONS | W8_MAIN_REDRAW_COMBAT_STANCE);
     }
-    if (!gXStatus.fNpcDialogueMode && !gXStatus.fSpellCastMode && !gXStatus.fItemSelectMode) {
+    if (!gXStatus.fNpcDialogueMode && !gpSCSV && !gXStatus.fItemSelectMode) {
         SelectTextBox(0);
     }
     g_combat_state.reset();
@@ -1241,7 +1241,7 @@ void ApplyPartyCombatAction(int party_slot, W8ActionKind action, int detail,
     if (action != W8_ACTION_WALK && action != W8_ACTION_RUN) {
         W8Action choice{action, detail};
         if (data) choice.detail_block = *data;
-        if (gXStatus.fSpellCastMode || gXStatus.fItemSelectMode)
+        if (gpSCSV || gXStatus.fItemSelectMode)
             choice.target = g_status.buffers.XChar[party_slot].committed_action.target;
         SetCharacterCombatAction(party_slot, choice, notify);
         return;
@@ -1356,12 +1356,13 @@ W8Action SelectCombatAction(int party_slot, W8TargetingContext context)
         action = row.committed_action;
         break;
     case W8_TARGETING_CONTEXT_SHARED:
-        if (gXStatus.fSpellCastMode) {
+        if (gpSCSV) {
             action = gpSCSV->draft;
-            action.detail = GetSpellCastingSelection();
         } else {
-            action = {W8_ACTION_USE_ITEM, -1, gXStatus.item_selection_target,
-                      gXStatus.item_selection_detail};
+            action = {W8_ACTION_USE_ITEM,
+                      -1,
+                      gXStatus.item_selection_target,
+                      {.item_use = {0, g_use_item_selected}}};
         }
         break;
     case W8_TARGETING_CONTEXT_SPELL:
@@ -1615,8 +1616,8 @@ bool AnyCombatMonsterBusy(void)
 void AutoAdvanceSelectedCharacter(void)
 {
     if (g_settings.auto_advance_character == 0 || g_level_block->pick_changed ||
-        !g_combat_state->round_active || gXStatus.iTargetingMode != W8_TARGET_NEED_NONE ||
-        gXStatus.fSpellCastMode || gXStatus.fItemSelectMode) {
+        !g_combat_state->round_active || gXStatus.iTargetingMode != W8_TARGET_NEED_NONE || gpSCSV ||
+        gXStatus.fItemSelectMode) {
         return;
     }
     int selected = g_status.selected_character;

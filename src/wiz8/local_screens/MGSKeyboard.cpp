@@ -246,7 +246,7 @@ void DispatchMGSCommand(W8MGSCommand command)
             ToggleWorldCursor();
         } else if (gXStatus.fSurprisePossible) {
             AcknowledgeSurprise();
-        } else if (gXStatus.fSpellCastMode) {
+        } else if (gpSCSV) {
             ResetSpellCastingSelection();
         } else if (gXStatus.fLockInteractMode) {
             EndLockInteractMode(0);
@@ -553,12 +553,12 @@ void DispatchMGSCommand(W8MGSCommand command)
         ScrollDialogueTextBoxToLine();
         break;
     case W8_MGS_COMMAND_TEXTBOX_CLEAR:
-        if (!gXStatus.fSpellCastMode && !gXStatus.fItemSelectMode) {
+        if (!gpSCSV && !gXStatus.fItemSelectMode) {
             ResetEditorStatusLine(-1);
         }
         break;
     case W8_MGS_COMMAND_START_COMBAT_ROUND:
-        if (!gXStatus.fCombatMode || gXStatus.fSpellCastMode || gXStatus.fItemSelectMode) {
+        if (!gXStatus.fCombatMode || gpSCSV || gXStatus.fItemSelectMode) {
             break;
         }
         if (g_combat_state->execution_active == 0) {
@@ -950,7 +950,7 @@ static void KeyboardMenuOpenSpellView(void)
 {
 
     CloseKeyboardMenu();
-    if (!gXStatus.fSpellCastMode) {
+    if (!gpSCSV) {
         OpenSpellCastingView(g_selected_party_slot);
     }
 }

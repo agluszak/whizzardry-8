@@ -405,29 +405,6 @@ W8MonsterRecord* MonsterGroupGetRecord(W8MonsterGroup* monster_group)
     return MonsterDBFromSpecies(monster_group->monster_id);
 }
 
-/* Recounts how many of a group's members are still active and, only if that
-   changed, publishes the new count. The list length is re-read every iteration
-   because removing a member during the walk is possible. */
-// FUNCTION: WIZ8 0x00510350
-void RecountActiveMonsterGroupMembers(W8MonsterGroup* monster_group)
-{
-    unsigned int index;
-    int active = 0;
-    W8MonsterInfo* monster_info;
-
-    for (index = 0; index < monster_group->MemberIds().size(); ++index) {
-        monster_info = FindMonster(monster_group->MemberLocationId(index));
-        if (monster_info->highest_condition < W8_CONDITION_TURNCOAT &&
-            monster_info->control_state != W8_MONSTER_CONTROL_LURED) {
-            ++active;
-        }
-    }
-    if (active != monster_group->active_member_count) {
-        monster_group->active_member_count = active;
-        RequestRedrawParty();
-    }
-}
-
 /* Destroys every member of a group, back to front so that the shrinking list
    does not move an entry past the cursor. It stops at the first removal that
    fails and reports that, which is why the loop is a do/while on the result
@@ -932,7 +909,6 @@ W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count, const g
     group->allied_group_ids[2] = 0;
     group->allied_group_ids[3] = 0;
 
-    group->active_member_count = 0;
     group->monster_id = monster_id;
     group->centre = *position;
     group->members_active = false;
@@ -1375,7 +1351,8 @@ void ShowMonsterGroupInfoNotice(int group_id)
         ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x1c5]);
     }
     ShowNotice(W8_FONT_PALETTE_BEIGE,
-               fmt::sprintf(g_localized_strings[0x1c6], group->active_member_count));
+               fmt::sprintf(g_localized_strings[0x1c6],
+                            CurrentLevelPopulation().activeMemberCount(*group)));
     ShowNotice(W8_FONT_PALETTE_BEIGE,
                fmt::sprintf(g_localized_strings[0x1c7], group->selectable_member_count));
     ShowNotice(W8_FONT_PALETTE_BEIGE,

@@ -36,7 +36,6 @@ struct W8XStatus {
     unsigned int uiItemTableCategories;
     unsigned int uiMonstersInDatabase;
     bool fCombatMode;
-    bool fSpellCastMode;
     bool fItemSelectMode;
     bool fNpcDialogueMode;
     bool fLockInteractMode;
@@ -78,7 +77,6 @@ struct W8XStatus {
        back or diffs it against live on accept. */
     W8PartyFormationState edited_formation;
     W8CombatSlot item_selection_target;
-    W8ActionDetailBlock item_selection_detail;
     int picked_monster;
     int picked_group;
     /* One-shot latch set when the combat/party panels refresh; the next

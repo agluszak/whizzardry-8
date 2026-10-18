@@ -3,6 +3,7 @@
 #include <array>
 #include <cstdint>
 #include <memory>
+#include <vector>
 
 #include "compat/compiler.h"
 #include "input.h"
@@ -25,9 +26,8 @@ struct W8SpellCastingView {
     W8Character* caster;
     W8SpellRealm iSpellRealm; /* selected realm, -1 when none */
     W8Action draft{W8_ACTION_CAST_SPELL, 0};
-    int override_spell;                 /* detail/commit override spell */
-    W8SpellPowerClass iSpellPowerClass; /* the spell record's power class */
-    unsigned int uiPowerLevels;         /* affordable power-level count */
+    W8SpellPowerClass PowerClass() const;
+    unsigned int AffordablePowerLevels() const;
     uint64_t realm_anim_timer;
     unsigned int realm_anim_frame;
     W8LearnedSpellState learned;
@@ -42,9 +42,11 @@ struct W8SpellCastingView {
     std::array<bool, 3> dirty{true, true, true};
     W8NpcDialogueLayout interact_id;
     int location_id;
-    unsigned int uiSpellsInList;
-    int uiSpells[0x15e];
-    signed char alt_colors[0x15e];
+    struct SpellRow {
+        int spell;
+        signed char color;
+    };
+    std::vector<SpellRow> spells;
     bool dialog_confirmed;
 };
 
@@ -57,7 +59,6 @@ void SetSpellCastingPanelsActive(bool active);
 void SelectSpellPowerLevel(int power_level);
 void ResetSpellCastingSelection(void);
 void CommitSpellCastingSelection(void);
-int GetSpellCastingSelection(void);
 
 class W8DialogBase;
 

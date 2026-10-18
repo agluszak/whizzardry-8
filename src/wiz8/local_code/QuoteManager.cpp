@@ -26,6 +26,7 @@
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/ButtonSound.h"
+#include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/unicode.h"
 #ifdef WIZ8_RUNTIME_TESTS
@@ -107,7 +108,7 @@ void RedrawPortraitQuoteBubbles(void)
 // FUNCTION: WIZ8 0x0052fe80
 void StartBreathCycle(int party_slot, bool force)
 {
-    if ((!gXStatus.fSpellCastMode && !gXStatus.fItemSelectMode) || force) {
+    if ((!gpSCSV && !gXStatus.fItemSelectMode) || force) {
         QueueCharacterEvent(&g_status.buffers.Char[party_slot], g_special_event2, 0,
                             kCharacterEventNoFlags, kCharacterEventFullVolume);
     }

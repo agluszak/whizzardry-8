@@ -1936,7 +1936,7 @@ void CommitActionTarget(int actor, W8TargetingContext context, const W8CombatSlo
         row.committed_action.target = target;
         break;
     case W8_TARGETING_CONTEXT_SHARED:
-        if (gXStatus.fSpellCastMode)
+        if (gpSCSV)
             gpSCSV->draft.target = target;
         else
             gXStatus.item_selection_target = target;

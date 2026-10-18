@@ -1156,6 +1156,7 @@ try {
         for (const auto& group : *partition) {
             auto image = wiz8::retail::encode_image(*group);
             image.version = kMonsterGroupRecordVersion;
+            image.active_member_count = CurrentLevelPopulation().activeMemberCount(*group);
             chunks->WriteValue(static_cast<std::uint32_t>(sizeof(image)));
             chunks->WriteBytes(&image, sizeof(image));
             chunks->WriteValue(encountered);
@@ -1239,7 +1240,6 @@ void PrepareLevelPopulation(W8World& world, W8LoadedLevelStatus& status)
         auto& group = *saved.group;
         if (MonsterDBFromSpecies(group.monster_id)->deleted) continue;
         group.monsters.clear();
-        group.active_member_count = 0;
         group.members_active = false;
         group.fInCombat = false;
         auto& list = saved.encounter ? population.encounter_groups : population.monster_groups;
@@ -1262,7 +1262,6 @@ void PrepareLevelPopulation(W8World& world, W8LoadedLevelStatus& status)
         if (static_cast<unsigned int>(group->leader_location_id) <
             static_cast<unsigned int>(info->location_id))
             group->leader_location_id = info->location_id;
-        if (info->highest_condition < W8_CONDITION_TURNCOAT) ++group->active_member_count;
         records.push_back(population.monster_roster.add(std::move(saved.info), saved.unborn));
     }
     for (size_t index = 0; index < records.size(); ++index) {

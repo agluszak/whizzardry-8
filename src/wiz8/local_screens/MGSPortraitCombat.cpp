@@ -161,7 +161,7 @@ void UpdateSubMenuButton(int index)
         g_main_game_state->hud_buttons.submenu[index].SetEnabled(false);
         return;
     }
-    if (gXStatus.fSpellCastMode && index != 4) {
+    if (gpSCSV && index != 4) {
         g_main_game_state->hud_buttons.submenu[index].SetEnabled(false);
         return;
     }
@@ -235,10 +235,10 @@ void UpdateSubMenuButton(int index)
         g_main_game_state->hud_buttons.submenu[4].SetEnabled(
             IsPartySlotEligible(g_status.selected_character) &&
             CharacterHasCastableSpell(&g_status.buffers.Char[g_status.selected_character]));
-        /* As case 2, with fSpellCastMode: 0x00594FA0/0x00594FB5 then
+        /* As case 2, with the spell picker open: 0x00594FA0/0x00594FB5 then
            0x00594FBC/0x00594FCD. This case's SetEnabled stays a single call -
            the retail's `? :` collapses into one at 0x00594F8C. */
-        if (gXStatus.fSpellCastMode) {
+        if (gpSCSV) {
             if (g_main_game_state->hud_buttons.submenu[4].IsPressed() == 0) {
                 g_main_game_state->hud_buttons.submenu[4].SetPressed(true);
             }
@@ -319,7 +319,7 @@ static void SubMenuButtonUseItem(W8ButtonWidget* button)
 static void SubMenuButtonSpellView(W8ButtonWidget* button)
 {
     if (CharacterHasCastableSpell(&g_status.buffers.Char[g_status.selected_character])) {
-        if (gXStatus.fSpellCastMode) {
+        if (gpSCSV) {
             CloseSpellCastingView();
         } else {
             OpenSpellCastingView(g_status.selected_character);

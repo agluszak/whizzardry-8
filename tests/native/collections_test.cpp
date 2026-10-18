@@ -113,6 +113,53 @@ static bool groupMemberLookup()
     return true;
 }
 
+TEST_CASE("Group activity is derived from its own population without recounts", "[collections]")
+{
+    W8LevelPopulation population;
+    W8MonsterGroup group{};
+    auto* first = population.monster_roster.add(std::make_unique<W8MonsterInfo>(), false);
+    auto* second = population.monster_roster.add(std::make_unique<W8MonsterInfo>(), true);
+    first->location_id = 101;
+    second->location_id = 202;
+    group.monsters = {101, 202};
+    REQUIRE(population.activeMemberCount(group) == 2);
+    second->control_state = W8_MONSTER_CONTROL_LURED;
+    REQUIRE(population.activeMemberCount(group) == 1);
+    first->highest_condition = W8_CONDITION_TURNCOAT;
+    REQUIRE(population.activeMemberCount(group) == 0);
+    second->control_state = W8_MONSTER_CONTROL_NONE;
+    REQUIRE(population.activeMemberCount(group) == 1);
+    group.monsters.pop_back();
+    REQUIRE(population.activeMemberCount(group) == 0);
+}
+
+TEST_CASE("Spell picker metadata follows its draft and caster", "[targeting]")
+{
+    const ScopedRecords spells(g_spell_records, 3);
+    W8Character caster{};
+    W8SpellCastingView view{};
+    view.caster = &caster;
+    auto& spell = g_spell_records[1];
+    spell.power_class = W8_SPELL_POWER_SELECTABLE;
+    spell.realm = W8_SPELL_REALM_FIRE;
+    spell.spell_point_cost = 5;
+    caster.iSPLeft[spell.realm] = 20;
+    view.draft.detail = 1;
+    REQUIRE(view.PowerClass() == W8_SPELL_POWER_SELECTABLE);
+    REQUIRE(view.AffordablePowerLevels() == 4);
+    caster.iSPLeft[spell.realm] = 5;
+    REQUIRE(view.AffordablePowerLevels() == 1);
+    g_spell_records[2] = spell;
+    g_spell_records[2].power_class = W8_SPELL_POWER_FIXED;
+    g_spell_records[2].spell_point_cost = 10;
+    view.draft.detail = 2;
+    REQUIRE(view.PowerClass() == W8_SPELL_POWER_FIXED);
+    REQUIRE(view.AffordablePowerLevels() == 0);
+    view.draft.detail = 0;
+    REQUIRE(view.PowerClass() == W8_SPELL_POWER_CLASS_NONE);
+    REQUIRE(view.AffordablePowerLevels() == 0);
+}
+
 static bool gameplayCollectionLifetime()
 {
     auto group = std::make_unique<W8MonsterGroup>();
@@ -524,12 +571,10 @@ TEST_CASE("Spell drafts cancel without changing committed or remembered choices"
     std::array<W8Character, 8> characters{};
     struct RestoreState {
         W8StatusBuffers buffers = g_status.buffers;
-        bool casting = gXStatus.fSpellCastMode;
         std::unique_ptr<W8SpellCastingView> view = std::move(gpSCSV);
         ~RestoreState()
         {
             gpSCSV = std::move(view);
-            gXStatus.fSpellCastMode = casting;
             g_status.buffers = buffers;
         }
     } restore;
@@ -546,7 +591,6 @@ TEST_CASE("Spell drafts cancel without changing committed or remembered choices"
     gpSCSV->draft = rows[0].spell;
     gpSCSV->draft.detail = 9;
     gpSCSV->draft.detail_block.spell.power_level = 3;
-    gXStatus.fSpellCastMode = true;
     W8CombatSlot target{W8_TARGET_KIND_CHARACTER, 0, -1, -1, {}, nullptr};
     CommitActionTarget(0, W8_TARGETING_CONTEXT_SHARED, target, false);
     const auto assessed = SelectCombatAction(0, W8_TARGETING_CONTEXT_SHARED);
@@ -593,20 +637,20 @@ TEST_CASE("Trade confirmation rejects changed inventory and stock sources", "[tr
 TEST_CASE("A picker constrains layout without restoring an obsolete preference", "[layout]")
 {
     struct Restore {
+        std::unique_ptr<W8SpellCastingView> view = std::move(gpSCSV);
         W8MainUiMode mode = g_settings.main_ui_mode;
-        bool casting = gXStatus.fSpellCastMode;
         ~Restore()
         {
+            gpSCSV = std::move(view);
             g_settings.main_ui_mode = mode;
-            gXStatus.fSpellCastMode = casting;
         }
     } restore;
+    gpSCSV = std::make_unique<W8SpellCastingView>();
     g_settings.main_ui_mode = W8_MAIN_UI_MODE_RADAR;
-    gXStatus.fSpellCastMode = true;
     REQUIRE(GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_FORMATION);
     REQUIRE(g_settings.main_ui_mode == W8_MAIN_UI_MODE_RADAR);
     g_settings.main_ui_mode = W8_MAIN_UI_MODE_PORTRAITS;
-    gXStatus.fSpellCastMode = false;
+    gpSCSV.reset();
     REQUIRE(GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS);
 }
 

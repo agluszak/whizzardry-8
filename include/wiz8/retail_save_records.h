@@ -385,7 +385,7 @@ template<> struct Record<W8MonsterGroup> {
               field(offsetof(Disk, visible_member_count), sizeof(Disk::visible_member_count)));
         value(&runtime.selectable_member_count, field(offsetof(Disk, selectable_member_count),
                                                       sizeof(Disk::selectable_member_count)));
-        value(&runtime.active_member_count,
+        value(&runtime.serialized.active_member_count,
               field(offsetof(Disk, active_member_count), sizeof(Disk::active_member_count)));
         value(&runtime.monster_id, field(offsetof(Disk, monster_id), sizeof(Disk::monster_id)));
         nested(runtime.centre, field(offsetof(Disk, centre), sizeof(Disk::centre)), value, text);
