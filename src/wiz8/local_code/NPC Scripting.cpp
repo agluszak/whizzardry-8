@@ -557,7 +557,7 @@ void W8NpcDialogue::RunNextAction()
                         const W8NpcScriptQuote& quote =
                             session_.npc->script_file->quotes[queued->quote_index];
                         if (std::ranges::none_of(quote.entries, [](const W8NpcQuoteEntry& entry) {
-                                return entry.kind == 0x1d;
+                                return entry.kind == W8_NPC_ENTRY_UNNAMED_29;
                             })) {
                             Speak(0x1f, false);
                             return;
