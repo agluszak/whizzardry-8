@@ -754,7 +754,7 @@ static void encounter_table_contracts()
     }
     REQUIRE(!InitializeEncounterTables());
     REQUIRE((g_encounter_tables.empty() && g_encounter_names.empty()));
-    REQUIRE(g_encounter_tables_level == -1);
+    REQUIRE(g_encounter_tables_level == std::nullopt);
     UnloadEncounterTables();
     REQUIRE(wiz8::remove_file(wiz8::asset_path(path)));
 }

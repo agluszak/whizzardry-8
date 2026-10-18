@@ -83,7 +83,7 @@ std::vector<W8EncounterTableRuntime> g_encounter_tables;
 // GLOBAL: WIZ8 0x0065ba38
 std::vector<std::string> g_encounter_names;
 // GLOBAL: WIZ8 0x0060a6bc
-int g_encounter_tables_level = -1;
+std::optional<int> g_encounter_tables_level;
 
 // FUNCTION: WIZ8 0x0048a7a0
 unsigned int InitializeEncounterTables(void)
@@ -124,7 +124,7 @@ try {
     }
     g_encounter_names = std::move(names);
     g_encounter_tables = std::move(tables);
-    g_encounter_tables_level = GetRequiredLoadedLevelID();
+    g_encounter_tables_level = GetLoadedLevelID();
     return 1;
 } catch (const std::exception&) {
     return 0;
@@ -697,7 +697,7 @@ void UnloadEncounterTables(void)
 {
     g_encounter_tables.clear();
     g_encounter_names.clear();
-    g_encounter_tables_level = -1;
+    g_encounter_tables_level.reset();
 }
 
 /* Writes the world's generators to a save. The record version goes out first,

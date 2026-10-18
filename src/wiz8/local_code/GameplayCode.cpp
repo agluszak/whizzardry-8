@@ -238,7 +238,8 @@ void RefreshLevelUpReadyNotices(void)
 {
     int party_slot;
 
-    if (g_status.greeting_pending || GetLevelBand(GetRequiredLoadedLevelID()) == 0xe) {
+    const auto level = GetLoadedLevelID();
+    if (g_status.greeting_pending || (level && GetLevelBand(*level) == 0xe)) {
         return;
     }
 

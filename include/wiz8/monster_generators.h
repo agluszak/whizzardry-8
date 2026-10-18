@@ -31,7 +31,7 @@ void UnloadEncounterTables(void);
 
 extern std::vector<W8EncounterTableRuntime> g_encounter_tables;
 extern std::vector<std::string> g_encounter_names;
-extern int g_encounter_tables_level;
+extern std::optional<int> g_encounter_tables_level;
 
 struct W8MonsterGroup;
 struct MonGen;
