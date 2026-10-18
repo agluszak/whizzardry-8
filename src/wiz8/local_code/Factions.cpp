@@ -235,7 +235,7 @@ void RecordFactionOffense(signed char faction, W8MonsterInfo* monster_info)
                          "C:\\Projects\\Wizardry 8\\Local Code\\Factions.cpp", 0xb0, 0);
         }
         if (g_factions[faction].disposition_score >= 34) {
-            SetFactionDispositionBand(faction, 0);
+            SetFactionDispositionBand(faction, W8_FACTION_HOSTILE);
             return;
         }
     }
