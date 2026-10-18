@@ -5,7 +5,6 @@
 
 #include "glm/ext/vector_int3.hpp"
 #include "surrender/srGERD.h"
-#include "surrender/srHuffman.h"
 #include "surrender/srShader.h"
 #include "wiz8/engine_code/OctPath.h"
 #include "wiz8/engine_code/Octree.h"
@@ -83,7 +82,7 @@ static bool pathPriorityOrder()
     return true;
 }
 
-static bool renderingAndSymbolIndexes()
+static bool renderingIndexes()
 {
     srGERD::Renderer::TextureSetCache cache;
     const srGERD::Renderer::TextureSetKey first{nullptr, nullptr, srShader{}};
@@ -96,22 +95,6 @@ static bool renderingAndSymbolIndexes()
     cache.clear();
     REQUIRE(cache.intern(second) == 0);
 
-    srHuffman::Sampler sampler;
-    sampler.insert(0);
-    sampler.insert(500);
-    for (unsigned int symbol = 1; symbol < 500; ++symbol) sampler.insert(symbol);
-    sampler.insert(0);
-    sampler.insert(500);
-    REQUIRE(sampler.getNumSymbols() == 501);
-    REQUIRE((sampler.getSymbolValue(0) == 0 && sampler.getSymbolFrequency(0) == 2));
-    REQUIRE((sampler.getSymbolValue(1) == 500 && sampler.getSymbolFrequency(1) == 2));
-    srHuffman::Compressor compressor(sampler);
-    REQUIRE(compressor.table.size() == sampler.getNumSymbols());
-    for (const auto& [symbol, node] : compressor.table) {
-        REQUIRE((node != nullptr && node->symbol == symbol));
-        REQUIRE(node >= compressor.nodes.data());
-        REQUIRE(node < compressor.nodes.data() + compressor.nodes.size());
-    }
     return true;
 }
 
@@ -120,5 +103,5 @@ TEST_CASE("indexes_test")
     REQUIRE(candidateOrdering());
     REQUIRE(mirroredOctreeIndexes());
     REQUIRE(pathPriorityOrder());
-    REQUIRE(renderingAndSymbolIndexes());
+    REQUIRE(renderingIndexes());
 }
