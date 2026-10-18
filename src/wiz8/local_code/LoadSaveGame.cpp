@@ -40,7 +40,6 @@
 #include "retail_records.h"
 #include "soundman.h"
 #include "surrender/srDebug.h"
-#include "timer.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/chunk.h"
 #include "wiz8/cursor.h"

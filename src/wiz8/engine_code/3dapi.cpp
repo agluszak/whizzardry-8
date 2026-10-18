@@ -130,7 +130,8 @@ std::unique_ptr<W8World> LoadWorld(int level_id, std::string source_path, bool u
     const auto material_folder = wiz8::path_to_utf8(path.parent_path() / "Bitmaps");
 
     if (CheckLevelAssetSet(oct_path.c_str()) >= 0) {
-        world->octree = std::make_unique<W8Octree>(oct_path.c_str(), &world->game_data);
+        world->octree =
+            std::make_unique<W8Octree>(oct_path.c_str(), &world->game_data, world.get());
         if (world->octree->HasLoadError())
             world->octree.reset();
         else

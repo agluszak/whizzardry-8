@@ -316,12 +316,6 @@ bool MartensBluff1TransportSpawn(void)
     return true;
 }
 
-/* The TransportSpawn master function. A nonzero command services it: -1
-   persists the gate progress into the TransportSpawn location variable and
-   0xEFFFFFFF re-arms the minute gate and registers the run. The command-0 run
-   fires the transporter spawn each time the gate elapses until the spawn
-   reports the fact already set, then deletes the gate and unregisters. */
-// FUNCTION: WIZ8 0x004DF260
 static void CaptureTransporter(W8SavedLocationState& state)
 {
     state.emplace_back("TransportSpawn",
@@ -330,6 +324,10 @@ static void CaptureTransporter(W8SavedLocationState& state)
                            : 0);
 }
 
+/* The TransportSpawn master function. The 0xEFFFFFFF command re-arms the minute gate and registers the run. The command-0 run
+   fires the transporter spawn each time the gate elapses until the spawn
+   reports the fact already set, then deletes the gate and unregisters. */
+// FUNCTION: WIZ8 0x004DF260
 void MartensBluff1Transporter(int command)
 {
     g_remove_current_master_function = false;

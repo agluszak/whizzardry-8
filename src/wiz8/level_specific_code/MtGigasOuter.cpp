@@ -122,13 +122,6 @@ bool OnCrankTriggerActivated(Trigger* trigger)
     return false;
 }
 
-/* The lift's master function. Registered while the gate runs so the
-   dispatcher ticks it every frame with command zero; other callers command
-   it directly: a positive command moves the lift that many percent of the
-   ride, 0xEFFFFFFF re-arms the ride from the top, and -1 persists the current
-   progress into the FlagPosition location variable. The prop slides from
-   5228.6 down to -2000.0 while the gate runs; -5000.0 parks it below. */
-// FUNCTION: WIZ8 0x004DC080
 static void CaptureLiftGate(W8SavedLocationState& state)
 {
     state.emplace_back("FlagPosition",
@@ -142,6 +135,12 @@ static void CaptureCampAlarm(W8SavedLocationState& state)
                            : 0);
 }
 
+/* The lift's master function. Registered while the gate runs so the
+   dispatcher ticks it every frame with command zero; other callers command
+   it directly: a positive command moves the lift that many percent of the
+   ride; 0xEFFFFFFF re-arms the ride from the top. The prop slides from
+   5228.6 down to -2000.0 while the gate runs; -5000.0 parks it below. */
+// FUNCTION: WIZ8 0x004DC080
 void ControlLiftGate(int command)
 {
     glm::vec3 position;
@@ -212,8 +211,7 @@ bool OnSecurityButtonActivated(Trigger* trigger)
 }
 
 /* The camp alarm's master function, same shape as ControlLiftGate: command
-   zero ticks the alarm gate while registered, -1 writes the remaining
-   seconds into UmpaniCampAlarm, and any other command plays Alarm1.wav at
+   zero ticks the alarm gate while registered; any other command plays Alarm1.wav at
    the camera and re-arms the gate (clamped to 30 seconds). When the gate
    finishes the sound is released and the variable is reset to zero. */
 // FUNCTION: WIZ8 0x004DC3D0

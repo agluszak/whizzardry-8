@@ -27,6 +27,7 @@
 #include "wiz8/engine_code/3dapi.h"
 #include "wiz8/engine_code/AniMesh.h"
 #include "wiz8/engine_code/AnimObj.h"
+#include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Missile.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/MonsterLight.h"
@@ -212,7 +213,7 @@ struct SpellVisualFixture {
 
     SpellVisualFixture()
     {
-        world.octree = std::make_unique<W8Octree>(nullptr, nullptr);
+        world.octree = std::make_unique<W8Octree>(nullptr, nullptr, &world);
         std::filesystem::create_directory(directory.path / "assets");
         std::filesystem::create_directory(directory.path / "user");
         roots.configure({(directory.path / "assets").string(), (directory.path / "user").string()});
@@ -517,7 +518,7 @@ TEST_CASE_METHOD(SpellVisualFixture,
     published.movement.location_id = 7;
     world.octree->object_registry->RegisterObjectCell(W8_OCTREE_KIND_NAVIGATOR, 8, {0, 0, 0});
     W8World replacement;
-    replacement.octree = std::make_unique<W8Octree>(nullptr, nullptr);
+    replacement.octree = std::make_unique<W8Octree>(nullptr, nullptr, &replacement);
     replacement.octree->object_registry = std::make_unique<W8OctreeObjectRegistry>();
     {
         W8Navigator prepared(&replacement);
@@ -537,4 +538,24 @@ TEST_CASE_METHOD(SpellVisualFixture,
     }
     REQUIRE(replacement.octree->object_registry->by_object.empty());
     REQUIRE(world.octree->object_registry->by_object.size() == 1);
+}
+
+TEST_CASE_METHOD(
+    SpellVisualFixture,
+    "Prepared ground placement uses replacement geometry without changing active geometry",
+    "[resources][levels][geometry]")
+{
+    world.game_data = std::make_unique<W8GameData>(nullptr, false);
+    world.game_data->trace_flag4_gate = true;
+    W8World replacement;
+    replacement.game_data = std::make_unique<W8GameData>(nullptr, false);
+    replacement.octree = std::make_unique<W8Octree>(nullptr, nullptr, &replacement);
+    auto& spatial = replacement.octree->m_spatial;
+    spatial.m_bounds.minimum = glm::vec3(0);
+    spatial.m_clipped_bounds.maximum = glm::vec3(10000);
+    spatial.m_node_extent = 1000;
+    const auto ground = replacement.octree->settleToGround({0, 1500, 0}, false, 0);
+    REQUIRE(ground.position.y == 1500);
+    REQUIRE(world.game_data->trace_flag4_gate);
+    REQUIRE_FALSE(replacement.game_data->trace_flag4_gate);
 }

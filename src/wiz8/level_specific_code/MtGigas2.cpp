@@ -308,13 +308,6 @@ bool MtGigas2LaserAlarm(Trigger* pTrigger)
     return true;
 }
 
-/* The Umpani alarm's master function, same shape as ControlCampAlarm in
-   MtGigasOuter.cpp: command zero ticks the alarm gate while registered, -1
-   writes the remaining seconds into UmpaniAlarm, and any other command plays
-   the intruder warning at the camera and arms the gate (clamped to 30
-   seconds). Unlike ControlCampAlarm the gate and sound are only created when
-   both are absent, and finishing stops the sound but keeps its node. */
-// FUNCTION: WIZ8 0x004DB860
 static void CaptureUmpaniAlarm(W8SavedLocationState& state)
 {
     state.emplace_back(
@@ -322,6 +315,13 @@ static void CaptureUmpaniAlarm(W8SavedLocationState& state)
         g_mt_gigas_alarm_gate ? static_cast<int>(g_mt_gigas_alarm_gate->GetElapsedSeconds()) : 0);
 }
 
+/* The Umpani alarm's master function, same shape as ControlCampAlarm in
+   MtGigasOuter.cpp: command zero ticks the alarm gate while registered, -1
+   writes the remaining seconds into UmpaniAlarm, and any other command plays
+   the intruder warning at the camera and arms the gate (clamped to 30
+   seconds). Unlike ControlCampAlarm the gate and sound are only created when
+   both are absent, and finishing stops the sound but keeps its node. */
+// FUNCTION: WIZ8 0x004DB860
 static void MtGigas2UmpaniAlarm(int command)
 {
     glm::vec3 position;

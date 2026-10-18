@@ -62,7 +62,6 @@
 #include "wiz8/location_variables.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/music_playlist.h"
-#include "wiz8/startup_world.h"
 #include "wiz8/world_cursor.h"
 #include "wiz8/xstatus.h"
 

@@ -320,8 +320,7 @@ bool ArnikaLazerScanner(Trigger* pTrigger)
     return true;
 }
 
-/* Laser-scan master: a positive command re-arms the scan, -1 persists the
-   state into LaserScanning, and a zero tick drops the scan once the prop's
+/* Laser-scan master: a positive command re-arms the scan; a zero tick drops it once the prop's
    rep stops animating. */
 // FUNCTION: WIZ8 0x004E0960
 void ArnikaLaserScanMaster(int command)
@@ -359,8 +358,7 @@ bool ArnikaScannerDoor(Trigger* pTrigger)
 }
 
 /* Warning-sound master: a positive command starts the ULLspawn alarm for
-   that many seconds (or just the one-shot above 0x1e), -1 persists the
-   remaining time into WarningSound, and a zero tick runs the countdown and
+   that many seconds (or just the one-shot above 0x1e); a zero tick runs the countdown and
    stops the looped VOC when it expires. */
 // FUNCTION: WIZ8 0x004E0AC0
 void ArnikaWarningSound(int command)

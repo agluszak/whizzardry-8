@@ -222,17 +222,17 @@ bool MartensBluff2Spikeballtrigger(Trigger* pTrigger)
     return true;
 }
 
+static void CaptureSpikeball(W8SavedLocationState& state)
+{
+    state.emplace_back("SpikedBallLauncher", g_spikeball_count > 0xf ? 0 : g_spikeball_count);
+}
+
 /* The registered spikeball master function. A nonzero command arms it: -1
    persists the shot count, 0xEFFFFFFF toggles the sequence off or on, and any
    other small value is the starting shot count. Command 0 is the per-frame
    run; it fires the four Spikeball-launcher entities every two seconds until
    the count reaches sixteen, then unregisters and saves the reset. */
 // FUNCTION: WIZ8 0x004DD3F0
-static void CaptureSpikeball(W8SavedLocationState& state)
-{
-    state.emplace_back("SpikedBallLauncher", g_spikeball_count > 0xf ? 0 : g_spikeball_count);
-}
-
 void MartensBluff2Spikeball(int command)
 {
     W8SpellEffectDefinition effect;
@@ -405,8 +405,13 @@ bool MartensBluff2SquisherControls(Trigger* pTrigger)
     return false;
 }
 
+static void CaptureCrusher(W8SavedLocationState& state)
+{
+    state.emplace_back("MonsterCrusher", g_crusher_state);
+}
+
 /* The MonsterCrusher master function. A nonzero command looks up the two
-   squisher props and arms the sequence: -1 persists the state, 0xEFFFFFFF is
+   squisher props and arms the sequence; 0xEFFFFFFF is
    the toggle from SquisherControls, and 2 suppresses the hydraulics loop. The
    command-0 run tracks the animation: while the squisher plays it sweeps the
    kill box between the two props' facing planes for monsters, shoving those
@@ -414,11 +419,6 @@ bool MartensBluff2SquisherControls(Trigger* pTrigger)
    AwardPartyExperience); once the squisher finishes it runs the Dummy and DummyRope
    triggers, and once those props finish it unregisters. */
 // FUNCTION: WIZ8 0x004DDF40
-static void CaptureCrusher(W8SavedLocationState& state)
-{
-    state.emplace_back("MonsterCrusher", g_crusher_state);
-}
-
 void MartensBluff2MonsterCrusher(int command)
 {
     /* The bounds box the octree query below sweeps; function-local statics,
