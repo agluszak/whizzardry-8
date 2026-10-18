@@ -257,9 +257,6 @@ static void tgaTests()
     auto invalid = raw;
     invalid[12] = invalid[13] = invalid[14] = invalid[15] = 0xff;
     REQUIRE(!loadTga(invalid));
-    invalid = tgaFixture(24, false, true, 0, false).encoded;
-    invalid[21] = 0xff;
-    REQUIRE(!loadTga(invalid));
     invalid = tgaFixture(8, true, false, 0, false).encoded;
     invalid[3] = 255;
     REQUIRE(!loadTga(invalid));

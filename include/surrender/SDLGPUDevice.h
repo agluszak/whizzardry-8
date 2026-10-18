@@ -155,6 +155,7 @@ private:
         uint32_t level;
         uint32_t x, y, width, height;
         size_t offset;
+        bool generate_mipmaps;
     };
 
 public:

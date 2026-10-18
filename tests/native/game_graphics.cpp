@@ -121,7 +121,7 @@ TEST_CASE("game graphics")
         g_gerd->clear(SDLGPUDevice::BUFFER_COLOR | SDLGPUDevice::BUFFER_DEPTH);
         g_gerd->matrixMode(srGERD::MATRIX_MODELVIEW);
         g_gerd->loadIdentity();
-        g_surface_node->DrawTiles(g_gerd.get());
+        g_surface_node->draw(g_gerd.get());
         RenderScene(g_overlay_scenes.cursor.get(), g_overlay_scenes.camera.get(), nullptr, false);
         g_gerd->endFrame();
     }

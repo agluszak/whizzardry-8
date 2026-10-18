@@ -3,7 +3,6 @@
 #include <memory>
 
 #include <SDL3/SDL_pixels.h>
-#include <SDL3/SDL_rect.h>
 
 #include "srClass.h"
 struct SDL_Surface;
@@ -15,6 +14,8 @@ public:
         w8_ulong height;
         SDL_PixelFormat format;
         bool generate_mipmaps = true;
+        // UI canvases must bypass power-of-two rounding and world texture reduction.
+        bool native_size = false;
     };
     /* Texture filtering quality.
        setTextureDefaultMagFilter remaps DEFAULT (4) to GOOD. */
@@ -57,7 +58,6 @@ public:
     virtual void invalidate();
     void setSurfacePtr(std::shared_ptr<SDL_Surface> pixels);
     SDL_Surface* getSurfacePtr() const { return surface.get(); }
-    SDL_Rect source_region{};
     std::shared_ptr<SDL_Surface> surface;
 
 protected:
@@ -67,7 +67,6 @@ public:
     /* Bit indices into texture_flags_. */
     enum e_flag { FLAG_GENERATESURFACE_FAILURE = 0, FLAG_DIRTY_DEFAULTS = 1 };
 
-    friend class stSurface2D;
     void setupDefaultValuesFromSurface(SDL_Surface* surface);
 
     Parameters parameters;

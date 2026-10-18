@@ -252,3 +252,46 @@ TEST_CASE("Texture updates preserve pixels sampled by earlier queued draws")
     REQUIRE((right & 0xffffff) == 0x00ff00);
     fixture.device->deleteTexture(texture);
 }
+
+TEST_CASE("GPU mipmaps follow base uploads and updates before minified draws")
+{
+    Fixture fixture;
+    auto texture = fixture.device->createTexture(4, 4, 3);
+    std::array<unsigned, 16> pixels;
+    for (unsigned i = 0; i < pixels.size(); ++i) pixels[i] = i % 2 ? 0xffff0000 : 0xff0000ff;
+    const auto update = [&] {
+        fixture.device->uploadTexture(
+            texture, 0, {0, 0, 4, 4},
+            {reinterpret_cast<const unsigned char*>(pixels.data()), sizeof(pixels)}, 16);
+    };
+    update();
+    fixture.device->bindTexture(0, texture);
+    fixture.device->setTextureParameters(0, {.max_lod = 2});
+    srShader shader;
+    shader.value = srShader::PASS_ALWAYS | srShader::MASK_COLOR_WRITE | srShader::MASK_TEXTURING |
+                   (srShader::SRCBLEND_ONE << srShader::SRCBLEND_SHIFT);
+    fixture.device->setShader(shader);
+    const float positions[]{-1, -1, 0, 1, 3, -1, 0, 1, -1, 3, 0, 1};
+    const float uv[]{0, 0, 1, 64, 0, 1, 0, 64, 1};
+    auto arrays = float_vertex_arrays((1 << srRendererDefs::VERTEX_ARRAY_POSITIONS) |
+                                      (1 << srRendererDefs::VERTEX_ARRAY_TEXCOORD0));
+    arrays.components[0] = 4;
+    arrays.components[4] = 3;
+    arrays.arrays[0] = positions;
+    arrays.arrays[4] = uv;
+    fixture.device->setVertexArrayInfo(&arrays);
+    fixture.device->setScissor({0, 0, 32, 64});
+    fixture.device->drawArrays(srRendererDefs::PRIMITIVE_TRIANGLES, 0, 3);
+    pixels.fill(0xff00ff00);
+    update();
+    fixture.device->setScissor({32, 0, 64, 64});
+    fixture.device->drawArrays(srRendererDefs::PRIMITIVE_TRIANGLES, 0, 3);
+    const auto purple = fixture.pixel(16, 32);
+    REQUIRE(((purple >> 16) & 255) >= 127);
+    REQUIRE(((purple >> 16) & 255) <= 128);
+    REQUIRE((purple & 255) >= 127);
+    REQUIRE((purple & 255) <= 128);
+    REQUIRE((purple & 0xff00) == 0);
+    REQUIRE(fixture.pixel(48, 32) == 0x00ff00);
+    fixture.device->deleteTexture(texture);
+}

@@ -71,7 +71,7 @@ struct W8NativeVideo::State {
     std::deque<Frame> queued;
     Frame current{};
     std::shared_ptr<SDL_Surface> presentation_surface;
-    std::unique_ptr<stSurface2D> presentation_tiles;
+    std::unique_ptr<stSurface2D> presentation_overlay;
     ~State()
     {
         voice.reset();
@@ -317,20 +317,18 @@ void W8NativeVideo::present(SDL_Surface* target)
     if (!state->presentation_surface || state->presentation_surface.get() != target) {
         ++target->refcount;
         state->presentation_surface = std::shared_ptr<SDL_Surface>(target, SDL_DestroySurface);
-        state->presentation_tiles = std::make_unique<stSurface2D>(
-            state->presentation_surface, description.w, description.h, nullptr, 128);
-        state->presentation_tiles->setAlphaTestEnabled(false);
+        state->presentation_overlay =
+            std::make_unique<stSurface2D>(state->presentation_surface, nullptr);
+        state->presentation_overlay->setAlphaTestEnabled(false);
     }
     if (!description.pixels) throw std::runtime_error("Movie presentation surface has no pixels");
-    // stSurface2D uploads from its source surface, not updateRectangle's ABI
-    // pixel argument.
-    state->presentation_tiles->updateRectangle(g_gerd.get(), 0, 0, description.w, description.h);
+    state->presentation_overlay->updateRectangle(g_gerd.get(), 0, 0, description.w, description.h);
     if (g_gerd->beginFrame() != srGERD::ERROR_NONE)
         throw std::runtime_error("Cannot begin movie presentation");
     g_gerd->setClearColor(0, 0, 0, 1);
     g_gerd->clear(SDLGPUDevice::BUFFER_COLOR | SDLGPUDevice::BUFFER_DEPTH);
     g_gerd->matrixMode(srGERD::MATRIX_MODELVIEW);
     g_gerd->loadIdentity();
-    state->presentation_tiles->DrawTiles(g_gerd.get());
+    state->presentation_overlay->draw(g_gerd.get());
     g_gerd->endFrame();
 }

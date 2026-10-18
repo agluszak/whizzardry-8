@@ -315,9 +315,14 @@ void SDLGPUDevice::uploadTexture(const Texture& texture, w8_ulong level, Texture
                    (draw.textures[0] == texture.handle || draw.textures[1] == texture.handle);
         }))
         flush(false);
-    PendingUpload pending{
-        texture.handle,      level, region.x, region.y, region.width, region.height,
-        upload_pixels.size()};
+    PendingUpload pending{texture.handle,
+                          level,
+                          region.x,
+                          region.y,
+                          region.width,
+                          region.height,
+                          upload_pixels.size(),
+                          level == 0 && texture.levels > 1};
     upload_pixels.resize(upload_pixels.size() + size_t(region.width) * region.height);
     for (w8_ulong row = 0; row < region.height; ++row) {
         memcpy(upload_pixels.data() + pending.offset + size_t(row) * region.width,
@@ -474,6 +479,7 @@ SDLGPUDevice::Texture SDLGPUDevice::createDeviceTexture(uint32_t texture_width,
     info.type = SDL_GPU_TEXTURETYPE_2D;
     info.format = SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM;
     info.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
+    if (levels > 1) info.usage |= SDL_GPU_TEXTUREUSAGE_COLOR_TARGET;
     info.width = texture_width;
     info.height = texture_height;
     info.layer_count_or_depth = 1;
@@ -812,6 +818,9 @@ void SDLGPUDevice::uploadPending(SDL_GPUCommandBuffer* command)
     }
     SDL_EndGPUCopyPass(copy);
     SDL_ReleaseGPUTransferBuffer(device, transfer);
+    // Generation must follow the base-level copies and precede draws that sample them.
+    for (const auto& upload : uploads)
+        if (upload.generate_mipmaps) SDL_GenerateMipmapsForGPUTexture(command, upload.texture);
     uploads.clear();
     upload_pixels.clear();
 }
