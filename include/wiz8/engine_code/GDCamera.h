@@ -8,17 +8,17 @@
 #include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
+#include "wiz8/engine_code/3dapi.h"
+#include "wiz8/engine_code/IntervalGate.h"
 #include "wiz8/engine_code/World.h"
 
 /* Orientation limits shared by the inline setters and GDCamera.cpp. */
 extern const float g_camera_angle_period0;
-extern const float g_camera_angle_lower;
 extern const float g_camera_pitch_upper;
 extern const float g_camera_pitch_lower;
 
 class srNode;
 class srCamera;
-class W8IntervalGate;
 struct W8LevelDataRecord;
 
 /* Reconstructed owner with unproven TU identity. The cluster 0x476140-
@@ -44,7 +44,6 @@ class GDCamera {
 public:
     GDCamera(); /* 0x00476140 */
 
-    srCamera* CreateOrAttachCamera(srNode* parent, srCamera* camera); /* 0x00476440 */
     void ApplyRotationMatrix(glm::mat3* rotation, W8LevelDataRecord* context); /* 0x00476610 */
     void SnapToTarget(const glm::vec3* target); /* 0x00476950 */
     void SetOrientationImmediate(float pitch, float angle); /* 0x00476C30 */
@@ -62,14 +61,12 @@ public:
     {
         m_pitch = glm::clamp(pitch, g_camera_pitch_lower, g_camera_pitch_upper);
         m_pitch_rotation = glm::mat3(glm::eulerAngleX(m_pitch));
-        MarkRendererReady();
     }
     // FUNCTION: WIZ8 0x00478720
     void SetYaw(float angle)
     {
         m_yaw = glm::mod(angle, g_camera_angle_period0);
         m_yaw_rotation = glm::mat3(glm::eulerAngleY(m_yaw));
-        MarkRendererReady();
     }
     void SetOrientation(float angle, float pitch); /* 0x004788E0 */
     glm::mat3 rotationMatrix(); /* 0x00478BD0 */
@@ -97,16 +94,15 @@ public:
     float m_yaw_distance; /* 0x0b0 */
     float m_pitch_distance; /* 0x0b4 */
     float m_transition_duration; /* 0x0b8 */
-    W8IntervalGate* m_manual_input_timer; /* 0x0bc */
+    W8IntervalGate m_manual_input_timer{1.0f, false, true};
 
 private:
-    bool CanTrackTarget() const;
+    bool CanTrackTarget();
 };
 
-extern GDCamera* g_gd_camera;
-extern srCamera* g_game_camera;
+// The session camera controller (gpGDCamera), created on first use.
+GDCamera& PartyCamera();
 
-void GetCameraForwardPointCopy(float distance, glm::vec3* output);
 void GetCameraForwardPoint(float distance, glm::vec3* output);
 /* 0x00421170: accumulate `distance` along +Z, rotated by yaw and pitch, into
    `position`. */
@@ -122,5 +118,3 @@ extern const double g_camera_pi;
 extern const float g_camera_transition_epsilon;
 extern float g_camera_default_forward_scale;
 extern float g_camera_forward_scale;
-
-bool IsCameraTransitionActive(void);

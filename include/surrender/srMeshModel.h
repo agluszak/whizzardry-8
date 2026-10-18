@@ -1,5 +1,4 @@
 #pragma once
-
 #include <array>
 #include <cstdint>
 #include <memory>
@@ -70,6 +69,8 @@ public:
         glm::vec3 bounds_center{0.0f, 0.0f, 0.0f};
         float bounds_radius = 0.0f;
         float sort_bias = 0.0f;
+        std::optional<float> diffuse_scale;
+        std::optional<float> emissive_override;
         PolygonSelection active_polygons;
     };
 
@@ -78,14 +79,11 @@ public:
 
     void reset(w8_long polygons, w8_long vertices);
     void scale(const glm::vec3& scale);
-    void applyMatrix(const glm::mat3& matrix);
     void relocateVertices(const glm::vec3& offset);
-    void centerVertices();
     double getAverageRadius();
     double getMaxRadius();
     void scaleToAverageRadius(double radius);
     void scaleToMaxRadius(double radius);
-    void flipFaces();
     w8_long findClosestVertex(const glm::vec3& point);
     srMeshModel& operator=(const srMeshModel&) = delete;
 
@@ -123,9 +121,6 @@ public:
     // FUNCTION: SURRENDER 0x10041750 SYMBOL
     // RECOMP: ?clearDirty@srMeshModel@@QAEXW4e_flags@1@@Z
     void clearDirty(e_flags flag) { dirty_flags &= ~(1u << flag); }
-    // FUNCTION: SURRENDER 0x10041770 SYMBOL
-    // RECOMP: ?testDirty@srMeshModel@@QBEHW4e_flags@1@@Z
-    int testDirty(e_flags flag) const { return (dirty_flags & (1 << flag)) != 0; }
     srShader* getPolyShader(w8_long polygon, int layer);
     srShader getShader(w8_long polygon) const;
     void setShader(srShader shader, w8_long pass);
@@ -151,7 +146,6 @@ public:
         render_control |= 1u << control;
         setDirty(DIRTY_TRI_MESH);
     }
-    int isEnabled(e_control control) const;
     // FUNCTION: SURRENDER 0x10041660
     void setDirtyAll()
     {
@@ -160,8 +154,6 @@ public:
         setDirty(DIRTY_VERTEX_NORMALS);
         setDirty(DIRTY_TRI_MESH);
     }
-    void setDirtyBounds();
-    void setDirtyNormals();
     w8_ulong* getActivePolygonTable(int table);
     glm::vec3* getVertexLoc();
     /* Fills the cached AABB/sphere (bounds_minimum..bounds_radius)

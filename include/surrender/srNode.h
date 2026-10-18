@@ -170,12 +170,9 @@ public:
     void move(const glm::dvec3& offset);
     void offsetLocation(const glm::dvec3& offset);
     void offsetLocation(double x, double y, double z);
-    void rollUp(double amount);
     void rotate(const glm::dmat3& rotation);
     void rotate(double angle, const glm::dvec3& axis);
     void rotateX(double angle);
-    void rotateY(double angle);
-    void rotateZ(double angle);
     // Parent and sibling links borrow. Reparenting never transfers ownership;
     // nullptr detaches the node from traversal.
     int setParent(srNode* parent, int preserve_world_transform);
@@ -189,7 +186,6 @@ public:
     void setRotation(double x, double y, double z);
     void setScale(const glm::dvec3& scale);
     void setScale(double scale);
-    void setWorldSpaceLocation(const glm::dvec3& location);
     void setWorldSpaceMatrix(const glm::dmat4& matrix);
     void setWorldSpaceRotation(const glm::dmat3& rotation);
     void setFlag(e_flag flag);

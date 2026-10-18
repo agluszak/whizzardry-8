@@ -68,8 +68,8 @@ void AlertMonsterGroupsToNoise(const glm::vec3* position, int radius, int flag)
         if (flag == 1 && gXStatus.fCombatMode) {
             float range = static_cast<float>(radius);
             int hops;
-            if (g_octree->TestNoiseLineOfSight(&monster_position, &noise_position, &range, &hops) ==
-                0) {
+            if (GetWorldOctree()->TestNoiseLineOfSight(&monster_position, &noise_position, &range,
+                                                       &hops) == 0) {
                 continue;
             }
             // Truncate the float move-range to int before scaling, matching retail.
@@ -92,7 +92,7 @@ void AlertMonsterGroupsToNoise(const glm::vec3* position, int radius, int flag)
 // FUNCTION: WIZ8 0x004F1100
 void AlertWorldNoise(void)
 {
-    glm::vec3 position = g_startup_world->GetPosition();
+    glm::vec3 position = PartyNavigator()->GetPosition();
     AlertMonsterGroupsToNoise(&position, 50000, 1);
 }
 
@@ -102,6 +102,6 @@ void AlertCombatNoise(bool large_radius)
     if (g_status.world_suspended) {
         return;
     }
-    glm::vec3 position = g_startup_world->GetPosition();
+    glm::vec3 position = PartyNavigator()->GetPosition();
     AlertMonsterGroupsToNoise(&position, large_radius ? 0x927c : 25000, 0);
 }

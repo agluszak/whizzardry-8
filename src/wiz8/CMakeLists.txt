@@ -133,7 +133,6 @@ add_library(WIZ8_GAME_CORE STATIC
     engine_code/PolyPick.cpp
     engine_code/Monster.cpp
     engine_code/stScript.cpp
-    engine_code/LevelFile.cpp
     local_code/Targeting.cpp
     engine_code/3d.cpp
     engine_code/mouth_gap.cpp
@@ -212,7 +211,6 @@ add_library(WIZ8_GAME_CORE STATIC
     music_playlist.cpp
     npc_items.cpp
     npc_script_file.cpp
-    engine_code/trim_string.cpp
     ../native/application.cpp
     ../native/key_bindings.cpp
     ../native/game_events.cpp

@@ -27,7 +27,6 @@ struct OctreeMeshLinks {
                                                          : std::span<const unsigned short>{};
     }
     void read(wiz8::File& file, std::size_t mesh_count);
-    void write(wiz8::File& file, std::size_t mesh_count) const;
 
     template<class Object>
     void markVisible(std::size_t mesh, std::span<Object* const> loaded,

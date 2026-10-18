@@ -46,7 +46,6 @@ W8NpcDialog::W8NpcDialog(W8NpcQuoteEntry* message, int aux_data,
 
     m_input_group = std::make_unique<TextFieldGroup>(m_input, g_wiz_text_mono_font);
     m_message = message;
-    m_aux_data = aux_data;
 
     char opcode = message->kind;
     if (opcode == W8_NPC_ENTRY_OPTIONS) {

@@ -47,7 +47,6 @@ private:
     signed char m_selected_option = -1;
     bool m_cancelled = false;
     W8NpcQuoteEntry* m_message;
-    int m_aux_data;
     bool m_compact_options = false; /* option list may size under 200 wide */
     unsigned short m_text_width; /* widest option text + 6 */
     int m_input_field = -1;

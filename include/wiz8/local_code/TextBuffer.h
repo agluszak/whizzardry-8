@@ -63,7 +63,6 @@ public:
         m_clipBounds = m_layoutBounds;
     }
 
-    bool HasBuffer() const { return !m_buffer.empty(); }
     void SetGeometryDirty() { m_geometryDirty = true; }
     void SetRenderMode(int mode) { m_renderMode = mode; }
     void SetFontStateIndex(int index) { m_fontStateIndex = index; }

@@ -33,6 +33,7 @@
 #include "surrender/srDebug.h"
 #include "timer.h"
 #include "wiz8/catalog_artwork.h"
+#include "wiz8/chunk.h"
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
@@ -198,7 +199,9 @@ void ResetEditorStatusLine(short line)
 static short ResolveNoticeTextBox(short text_box)
 {
     if (text_box == W8_NOTICE_TEXT_BOX_AUTOMATIC) {
-        if ((gXStatus.fNpcDialogueMode && !CanOpenNpcDialogue()) || gXStatus.fCampMode) {
+        if ((gXStatus.fNpcDialogueMode &&
+             !(gXStatus.fNpcDialogueMode && g_npc_interaction_state->scripted_dialogue)) ||
+            gXStatus.fCampMode) {
             return IsNpcDialogueTextBoxActive() ? 0 : 2;
         }
 
@@ -242,9 +245,7 @@ static void AppendNoticeLine(unsigned char font_palette, std::string_view text, 
     record->length = -1;
     ++g_notice_line_count;
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_status.text_line_cursor == text_box) {
-        if (ScreenLifecycleSuccess()) {
-            AdvanceNoticeLine(text_box);
-        }
+        AdvanceNoticeLine(text_box);
     } else if (text_box == 3) {
         g_status.text_box_lines_shown[3] = g_status.text_box_lines_used[3];
         g_level_block->text_lines[3] = g_status.text_box_lines_used[3];
@@ -403,12 +404,6 @@ void ReleaseMessageStorage(void)
     }
 }
 
-/* How many lines the text box can still be scrolled through. */
-int GetTextBoxScrollRange(void)
-{
-    return g_level_block->text_box_right - g_level_block->text_box_left;
-}
-
 /* Write the four message runs into the open TEXT chunk: a format dword, then
    per region the used-line count followed by each 0x24-byte record and its
    wide string. The record's first word is the string count including its
@@ -473,7 +468,7 @@ unsigned char SaveMessageStorage(wiz8::File& file)
    serialized +0x18 pointer bits are discarded. Saves older than the prepath
    link-height constant never wrote a fourth region, so its count is forced to
    zero without consuming a count slot. */
-unsigned char LoadMessageStorage(wiz8::File& file)
+unsigned char LoadMessageStorage(W8Chunk& file)
 try {
     W8MessageStorageDiskRecord disk_record;
     W8MessageStorageRecord* live_record;
@@ -482,16 +477,16 @@ try {
     unsigned int index;
 
     ReleaseMessageStorage();
-    file.read_exact(&format, 4);
+    file.ReadBytes(&format, 4);
     for (region = 0; region < 4; ++region) {
         if (g_status.buffers.save_version < g_prepath_link_height && region == 3) {
             g_status.text_box_lines_used[3] = 0;
         } else {
-            file.read_exact(&g_status.text_box_lines_used[region], 4);
+            file.ReadBytes(&g_status.text_box_lines_used[region], 4);
         }
         if (g_status.text_box_lines_used[region] > 0x15e) return 0;
         for (index = 0; index < g_status.text_box_lines_used[region]; ++index) {
-            file.read_exact(&disk_record, sizeof(disk_record));
+            file.ReadBytes(&disk_record, sizeof(disk_record));
             live_record = &g_message_storage[region][index];
             live_record->font_palette = disk_record.font_palette;
             live_record->highlight_color = disk_record.highlight_color;
@@ -505,7 +500,7 @@ try {
                    sizeof(live_record->unknown_1c));
             if (disk_record.character_count > 100000) return 0;
             std::vector<std::byte> bytes(static_cast<std::size_t>(disk_record.character_count) * 2);
-            file.read_exact(bytes.data(), bytes.size());
+            file.ReadBytes(bytes.data(), bytes.size());
             auto decoded = wiz8::text::from_utf16le(bytes);
             auto byte_offset = [&](std::size_t units) {
                 std::size_t offset = 0, count = 0;
@@ -526,12 +521,6 @@ try {
     return false;
 }
 
-/* The selected wrapped-line start for one text box. NPC trade uses box 2. */
-int GetSelectedTextLine(int index)
-{
-    return g_level_block->selected_text_lines[index];
-}
-
 /* Clear one box's hover or selection highlight and request a repaint. */
 void ClearHoveredTextLine(int index)
 {
@@ -549,12 +538,6 @@ void ClearSelectedTextLine(int index)
 void RedrawTextBox(void)
 {
     RequestRedraw(W8_MAIN_REDRAW_TEXT_BOX);
-}
-
-/* The font the main-game text box measures and draws with. */
-Font& GetTextBoxFont(void)
-{
-    return *g_level_block->text_box_font;
 }
 
 /* Whether the line the cursor is on has anything on it. */
@@ -1330,17 +1313,6 @@ void SetHoveredTextLine(int line, int index)
 {
     SelectWrappedTextLine(line, index, g_level_block->hovered_text_lines);
 }
-
-void ClearTextLineEntry(int index)
-{
-    g_level_block->text_lines[index] = 0;
-}
-
-int GetHoveredTextLine(int index)
-{
-    return g_level_block->hovered_text_lines[index];
-}
-
 void SetSelectedTextLine(int line, int index)
 {
     SelectWrappedTextLine(line, index, g_level_block->selected_text_lines);
@@ -1499,7 +1471,9 @@ void RefreshTextBoxMode(unsigned short mode)
         return;
     }
     if (mode == 0xffff) {
-        if ((!gXStatus.fNpcDialogueMode || CanOpenNpcDialogue()) && !gXStatus.fCampMode) {
+        if ((!gXStatus.fNpcDialogueMode ||
+             (gXStatus.fNpcDialogueMode && g_npc_interaction_state->scripted_dialogue)) &&
+            !gXStatus.fCampMode) {
 
             mode = gXStatus.fCombatMode;
 

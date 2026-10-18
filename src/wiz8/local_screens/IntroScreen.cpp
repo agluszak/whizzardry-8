@@ -1,7 +1,9 @@
 #include "wiz8/local_screens/IntroScreen.h"
 
-#include <optional>
+#include <array>
+#include <memory>
 #include <string>
+#include <string_view>
 
 #include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_keycode.h>
@@ -10,7 +12,6 @@
 #include "asset_paths.h"
 #include "compat/compiler.h"
 #include "input.h"
-#include "surrender/srDebug.h"
 #include "wiz8/bink_video.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/filesystem.h"
@@ -19,8 +20,7 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/music_playlist.h"
 
-/* Local Screens\IntroScreen.cpp is named by the gpVideo assertion at line 98.
-   The canonical state-zero row owns this enter/frame/leave bundle. */
+/* The canonical state-zero row owns this enter/frame/leave bundle. */
 
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/Configuration.h"
@@ -29,7 +29,7 @@
 // GLOBAL: WIZ8 0x0064d8ac
 w8_ulong g_intro_video_index = 6;
 // GLOBAL: WIZ8 0x0064D8B0
-static char g_intro_video_names[7][40] = {
+static constexpr std::array<std::string_view, 7> g_intro_video_names = {
     "Wizardry8.bik", "unaligned.bik", "Umpani.bik",  "T'Rang.bik",
     "virgin.bik",    "darkend.bik",   "sirtech.bik",
 };
@@ -40,10 +40,10 @@ void ContinueAfterDarkEndingVideo(void)
     BeginEndgameSequence();
 }
 // GLOBAL: WIZ8 0x0069C258
-W8BinkVideo* gpVideo;
+static std::unique_ptr<W8BinkVideo> g_intro_video;
 
 // FUNCTION: WIZ8 0x005ae510
-unsigned char IntroScreenEnter(void)
+bool IntroScreenEnter(void)
 {
     std::string path;
 
@@ -60,14 +60,10 @@ unsigned char IntroScreenEnter(void)
     }
     StopMusicPlaylist(true);
     DisableCursorScene();
-    gpVideo = new W8BinkVideo();
-    if (gpVideo == 0) {
-        srAssertFail("gpVideo", "C:\\Projects\\Wizardry 8\\Local Screens\\IntroScreen.cpp", 98, 0);
-    }
-    gpVideo->SetTarget(BeginVideoPresentation());
-    if (!gpVideo->Open(path.c_str(), 0)) {
-        delete gpVideo;
-        gpVideo = 0;
+    g_intro_video = std::make_unique<W8BinkVideo>();
+    g_intro_video->SetTarget(BeginVideoPresentation());
+    if (!g_intro_video->Open(path.c_str(), 0)) {
+        g_intro_video.reset();
         /* Hand presentation back, or a failed race intro leaves rendering off
            for the rest of the game. */
         FinishVideoPresentation();
@@ -96,7 +92,7 @@ void IntroScreenFrame(void)
             break;
         }
     }
-    if (gpVideo == 0 || gpVideo->UpdateFrame()) {
+    if (!g_intro_video || g_intro_video->UpdateFrame()) {
         AdvanceIntroScreen();
     }
 }
@@ -114,21 +110,20 @@ static void AdvanceIntroScreen(void)
             const auto status = wiz8::file_status(wiz8::asset_path(path));
             return status && status->info.type == SDL_PATHTYPE_FILE;
         }();
-        if (first_video_available && gpVideo != 0 && gpVideo->Open(path.c_str(), 0)) {
+        if (first_video_available && g_intro_video && g_intro_video->Open(path.c_str(), 0)) {
             return;
         }
     }
-    /* A valid first-video path also closes the presentation when gpVideo is null. */
-    if (gpVideo != 0 || first_video_available) {
+    /* A valid first-video path also closes the presentation when no video is open. */
+    if (g_intro_video || first_video_available) {
         FinishVideoPresentation();
     }
-    delete gpVideo;
-    gpVideo = 0;
+    g_intro_video.reset();
     RequestScreenTransition();
     switch (g_intro_video_index) {
     case 0:
     case 6:
-        SetPendingScreenState(W8_SCREEN_MAIN_MENU);
+        g_pending_screen_state.id = W8_SCREEN_MAIN_MENU;
         g_settings.intro_seen = true;
         break;
     case 1:
@@ -137,11 +132,11 @@ static void AdvanceIntroScreen(void)
     case 4:
         if (!g_status.intro_shown) {
             g_pending_screen_state.mode = 0;
-            SetPendingScreenState(W8_SCREEN_PLEASE_WAIT);
+            g_pending_screen_state.id = W8_SCREEN_PLEASE_WAIT;
         } else {
             g_status.intro_shown = false;
             if (GetPendingScreenState() != 7) {
-                SetPendingScreenState(W8_SCREEN_MAIN_GAME);
+                g_pending_screen_state.id = W8_SCREEN_MAIN_GAME;
             }
         }
         break;
@@ -153,13 +148,12 @@ static void AdvanceIntroScreen(void)
 }
 
 // FUNCTION: WIZ8 0x005ae940
-unsigned char IntroScreenLeave(int)
+bool IntroScreenLeave(int)
 {
-    if (gpVideo != 0) {
+    if (g_intro_video) {
         FinishVideoPresentation();
-        delete gpVideo;
+        g_intro_video.reset();
     }
-    gpVideo = 0;
     return 1;
 }
 

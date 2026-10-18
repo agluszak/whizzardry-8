@@ -1,5 +1,6 @@
 #include "wiz8/local_code/GroupAttacks.h"
 
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -177,6 +178,9 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
         } else if (g_special_attack_table[1][0] == 5) {
             uiBounds[1] = uiBounds[0] * 2;
         }
+    } else {
+        throw std::logic_error(
+            "ResolveMonsterGroupAttack: source is neither character nor monster");
     }
 
     if (g_special_attack_table[special_attack_kind][0] == 6) {

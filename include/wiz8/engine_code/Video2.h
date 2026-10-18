@@ -36,8 +36,6 @@ extern void ShutdownVideoManager(void);
 extern void ShutdownVideoScenes(void);
 extern void SuspendVideoManager(void);
 extern bool RestoreVideoManager(void);
-extern void GetCurrentVideoSettings(std::uint16_t* usWidth, std::uint16_t* usHeight,
-                                    std::uint8_t* ubBitDepth);
 /* Mark a game-space rectangle of the UI canvas for upload this frame. */
 void InvalidateRegion(int left, int top, int right, int bottom);
 inline void InvalidateRegion(SDL_Rect bounds)
@@ -46,30 +44,16 @@ inline void InvalidateRegion(SDL_Rect bounds)
 }
 /* The pending UI upload rectangle, cleared by the call. */
 SDL_Rect TakeUiUpload();
-extern void PrintScreen(void);
 
 enum { INVAL_SRC_TRANS = 1, PIXEL_DEPTH = 16, SCREEN_WIDTH = 640, SCREEN_HEIGHT = 480 };
-
-bool VideoIsFullScreen(void);
 void VideoFullScreen(bool enabled);
 bool VideoResizeWindow(void);
 void VideoInspectorEnable(void);
-bool VideoInspectorIsEnabled(void);
 int VideoDumpMemoryLeaks(void);
-void VideoGetClientRect(SDL_Rect* rect);
 SDL_Surface& GetFrameBufferSurface();
 void VideoToolTip(std::string_view text);
 extern std::int32_t g_help_box_width;
 extern std::int32_t g_help_box_height;
-/* Region code accesses these fields inline. */
-static __inline std::int32_t VideoGetToolTipWidth(void)
-{
-    return g_help_box_width;
-}
-static __inline std::int32_t VideoGetToolTipHeight(void)
-{
-    return g_help_box_height;
-}
 void VideoPositionToolTip(std::int32_t x, std::int32_t y);
 void VideoRemoveToolTip(void);
 
@@ -98,11 +82,12 @@ extern const float g_viewport_y_scale;
 struct SDL_Surface;
 class srModelInstance;
 class srNode;
+class stModelInstance;
 class srTexture;
 class stModelInstance2D;
 
-srNode* MakePosterQuad(std::shared_ptr<srTexture> texture, float width, float height,
-                       bool additive);
+std::unique_ptr<stModelInstance> MakePosterQuad(std::shared_ptr<srTexture> texture, float width,
+                                                float height, bool additive);
 /* 0x00425190: build a 2D marker model instance over a texture. */
 stModelInstance2D* CreateSpriteFromTexture(std::shared_ptr<srTexture> texture, double width,
                                            double height, bool keep_aspect, bool overlay);
@@ -125,8 +110,6 @@ stModelInstance2D* CreateSpriteFromSurface(SDL_Surface& surface, const W8Control
                                            int square, int overlay);
 /* 0x004257D0: position a 2D node without pixel snapping. */
 void Position2DNodeUnsnapped(srNode* node, int x, int y);
-/* 0x004264F0: write the display-state byte of a 2D model instance. */
-void SetModelInstance2DDisplayState(stModelInstance2D* object, unsigned char state);
 /* 0x00425820: set FLAG_DISABLE on a node; the overlay drawers call it to hide
    the highlight sprite before redrawing the panel contents. */
 void ClearNodeFlag(srNode* node);
@@ -159,8 +142,6 @@ std::shared_ptr<stTextureAnim> VideoVObjectToTextureAnim(const SpriteSheet& spri
                                                          unsigned short start_frame,
                                                          unsigned short frame_count,
                                                          bool use_argb1555);
-/* 0x00428A90: mark the primary renderer mode word dirty. */
-void SetOverlayRenderMode(void);
 /* 0x00428AA0: mark both renderer mode words dirty. */
 void SetRendererModePair(void);
 /* 0x00428910 / 0x004289C0 / 0x004289E0: the render-probe bracket the region
@@ -185,8 +166,8 @@ extern bool g_cursor_scene_enabled;
 extern unsigned char g_fullscreen_scene_last;
 extern std::shared_ptr<SDL_Surface> g_primary_color_surface;
 void DrawColorSurface(SDL_Surface* surface, int x, int y);
-srNode* VideoMakePoster(std::shared_ptr<SDL_Surface> surface, float width, float height,
-                        bool additive); /* 0x00424A90 */
+std::unique_ptr<stModelInstance> VideoMakePoster(std::shared_ptr<SDL_Surface> surface, float width,
+                                                 float height, bool additive); /* 0x00424A90 */
 extern bool g_texture_cache_enabled;
 extern std::unique_ptr<srGERD> g_gerd;
 /* Secondary renderer device preferred by the offscreen world-render path. */
@@ -194,8 +175,6 @@ extern stSurface2D* g_surface_node;
 extern std::shared_ptr<srMaterial> g_blit_material;
 extern std::shared_ptr<SDL_Surface> g_mouse_surface;
 extern srModelInstance* g_current_model_instance;
-extern int g_overlay_render_mode;
-extern int g_paired_render_mode;
 extern float g_surface_scale;
 extern int g_surface_opaque_shader_bits;
 extern int g_surface_alpha_blend_shader_bits;
@@ -216,8 +195,6 @@ struct ViewportBounds {
     glm::vec2 maximum;
 };
 ViewportBounds GetScaledViewportBounds();
-/* Lock the primary GERD buffer and emit one debug wireframe line. */
-void DrawBufferLine(w8_long x0, w8_long y0, w8_long x1, w8_long y1, w8_ulong* pixel);
 unsigned char InitializeRendererSceneObjects(void);
 void PurgeInactiveSceneInstances(srScene* scene);
 void ResetVideoFrameState(void);
@@ -231,7 +208,6 @@ void RenderFrame(void);
 SDL_Surface* BeginVideoPresentation(void);
 unsigned char FinishVideoPresentation(void);
 void PublishLightDirection(const glm::vec3* direction);
-void GetWorldColour(glm::vec3* colour); /* 0x00427290 */
 void ReleaseObject(stModelInstance2D* object);
 unsigned char CreateWizardryWindow(void);
 unsigned char InitializePrimarySurface(void);
@@ -245,8 +221,6 @@ unsigned char EnableCursorScene(void);
 void SetWorldModelPickingEnabled(bool enabled);
 bool RendererBufferIsLockable(void);
 void SetRendererAutoFlipEnabled(bool enabled);
-srModelInstance* GetPickedModelInstance(void);
-void SetPickedModelInstance(srModelInstance* value);
 bool IsCursorInsideViewport(void);      /* 0x00428070 */
 bool IsCursorImageInsideViewport(void); /* 0x00428030 */
 

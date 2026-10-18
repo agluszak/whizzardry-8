@@ -11,6 +11,9 @@
 #include "glm/geometric.hpp"
 #include "surrender/plane_math.h"
 
+struct W8EnvironRecord;
+struct W8LevelDataRecord;
+
 /* Physical-surface masks recovered from retail collision/build consumers.
    WALKABLE/PATHFINDING also agree with Cosmic Forge's face editor. */
 enum W8GDSurfaceFlags {
@@ -26,8 +29,8 @@ enum W8GDSurfaceFlags {
     W8_GD_SURFACE_QUERY_VISITED = 0x00002000u,
     W8_GD_SURFACE_SKIP_FILTERED_TRACE = 0x00008000u,
     W8_GD_SURFACE_CROSSING_MASK = W8_GD_SURFACE_CROSSING | W8_GD_SURFACE_ENVIRONMENT,
-    W8_GD_SURFACE_INACTIVE_MASK =
-        W8_GD_SURFACE_COLLISION_PROCESSED | W8_GD_SURFACE_CONDITIONAL_DISABLED
+    W8_GD_SURFACE_INACTIVE_MASK = W8_GD_SURFACE_COLLISION_PROCESSED |
+        W8_GD_SURFACE_CONDITIONAL_DISABLED
 };
 
 /* Plane equation record n·p + w = 0: a unit normal plus the signed origin
@@ -65,22 +68,26 @@ struct W8GDSurface {
 
     /* The returned contact carries the position and travelled distance.
        A hit also stores the surface's contact limit in distance. */
+    /* `lift_crossings` raises the start of crossing-surface tests by the
+       collision height while the party has no sound environment. */
     std::optional<PlaneContact> segmentContact(const glm::vec3& from, const glm::vec3& direction,
-                                               std::span<const glm::vec3, 3> vertices);
+                                               std::span<const glm::vec3, 3> vertices,
+                                               bool lift_crossings);
     /* Shrink the limit against the nearest edge, if it improves the contact. */
     std::optional<float> edgeContactLimit(const glm::vec3& point,
                                           std::span<const glm::vec3, 3> vertices,
                                           float limit) const;
     /* 0x0041DC10: collision response for a hit surface; `origin` is advanced
        to `hit_point` and `direction` is bent along the contact plane. */
-    bool ResolveCollision(glm::vec3* origin, const glm::vec3* hit_point, glm::vec3* direction,
-                          int collision_index);
+    bool ResolveCollision(W8LevelDataRecord& level, W8EnvironRecord& environ, glm::vec3* origin,
+                          const glm::vec3* hit_point, glm::vec3* direction, int collision_index);
     /* 0x0041E8E0: whether moving `from` to `to` pushes this surface's
        centroid away from surface `surface_index`'s centroid. */
     bool CentroidsDiverging(int surface_index, const glm::vec3& from, const glm::vec3& to);
     /* 0x0041EA90: environment response for a walkable contact surface;
        adjusts `direction` and the active environ record. */
-    bool ApplyEnvironContact(glm::vec3& direction);
+    bool ApplyEnvironContact(W8LevelDataRecord& level, W8EnvironRecord& environ,
+                             glm::vec3& direction);
 };
 
 using RuntimeTriangle = std::array<glm::vec3, 3>;

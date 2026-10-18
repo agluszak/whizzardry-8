@@ -12,10 +12,7 @@
 #include <utility>
 #include <vector>
 
-#include "surrender/srDebug.h"
 #include "wiz8/filesystem.h"
-
-#define CHUNK_CPP "C:\\Projects\\Wizardry 8\\Local Code\\chunk.cpp"
 
 enum { W8_RIFF_CHUNK_ID = 0x46464952 };
 
@@ -23,36 +20,6 @@ W8ChunkHead& W8Chunk::CurrentHead()
 {
     if (m_heads.empty()) throw std::logic_error("no current RIFF chunk");
     return m_heads.back();
-}
-
-// FUNCTION: WIZ8 0x0055ca20
-unsigned char W8Chunk::Read(void* buffer, unsigned int size, unsigned int* transferred)
-{
-    if (transferred) *transferred = 0;
-    if (!m_hFile) throw std::logic_error("read closed RIFF");
-    if (m_fWriting) {
-        srAssertFail("!m_fWriting", CHUNK_CPP, 0x280, 0);
-    }
-    m_hFile->read_exact(buffer, size);
-    if (transferred) {
-        *transferred = size;
-    }
-    return true;
-}
-
-// FUNCTION: WIZ8 0x0055ca80
-unsigned char W8Chunk::Write(const void* buffer, unsigned int size, unsigned int* transferred)
-{
-    if (transferred) *transferred = 0;
-    if (!m_hFile) throw std::logic_error("write closed RIFF");
-    if (!m_fWriting) {
-        srAssertFail("m_fWriting", CHUNK_CPP, 0x29d, 0);
-    }
-    m_hFile->write(buffer, size);
-    if (transferred) {
-        *transferred = size;
-    }
-    return true;
 }
 
 std::int64_t W8Chunk::RemainingBytes() const
@@ -77,12 +44,13 @@ void W8Chunk::WriteBytes(const void* buffer, std::size_t size)
     m_hFile->write(buffer, size);
 }
 
-bool W8Chunk::OpenExistingRiff(const std::filesystem::path& path, wiz8::OpenMode mode)
+// FUNCTION: WIZ8 0x0055c000
+bool W8Chunk::OpenRead(const std::filesystem::path& path)
 try {
     if (m_hFile != 0) {
         return false;
     }
-    m_hFile = wiz8::open_file(path, mode);
+    m_hFile = wiz8::open_file(path, wiz8::OpenMode::read);
     m_fWriting = false;
     OpenChunk(0, 0);
     W8ChunkHead* head = &CurrentHead();
@@ -97,12 +65,6 @@ try {
     m_hFile.reset();
     m_fWriting = false;
     return false;
-}
-
-// FUNCTION: WIZ8 0x0055c000
-bool W8Chunk::OpenRead(const std::filesystem::path& path)
-{
-    return OpenExistingRiff(path, wiz8::OpenMode::read);
 }
 
 // FUNCTION: WIZ8 0x0055be30
@@ -132,47 +94,6 @@ try {
     return false;
 }
 
-/* Reopen an existing RIFF for append. Children are skipped under a temporary
-   read so the file sits at the end of the group; the original child count is
-   then pushed onto the write-side progress stack before writing is armed. */
-// FUNCTION: WIZ8 0x0055be80
-bool W8Chunk::OpenAppend(const std::filesystem::path& path)
-{
-    W8ChunkHead* head;
-    int child_count;
-    int remaining;
-    std::int64_t position;
-    std::int64_t distance;
-
-    if (!OpenExistingRiff(path, wiz8::OpenMode::update)) {
-        return false;
-    }
-    child_count = m_group_counts.back();
-    remaining = child_count;
-    if (child_count > 0) {
-        do {
-            OpenChunk(0, 0);
-            head = &CurrentHead();
-            position = m_hFile->tell();
-            distance = m_offsets.back() + (head->extent - position);
-            if (distance != 0) {
-                m_hFile->seek(distance, wiz8::SeekOrigin::current);
-            }
-            ReleaseCurrentChunk();
-            --remaining;
-        } while (remaining != 0);
-    }
-    m_group_progress.push_back(child_count);
-    m_fWriting = true;
-    return true;
-}
-
-// FUNCTION: WIZ8 0x0055c080
-bool W8Chunk::OpenReadWrite(const std::filesystem::path& path)
-{
-    return OpenExistingRiff(path, wiz8::OpenMode::update);
-}
-
 /* Close the root chunk and then its file. In write mode the root's stored
    child count is patched before the ordinary current-chunk finalizer writes
    the root extent. */
@@ -189,7 +110,7 @@ void W8Chunk::Close()
             RewindCurrentChunk();
             count = m_group_progress.back();
             m_group_progress.pop_back();
-            Write(&count, sizeof(count), 0);
+            m_hFile->write(&count, sizeof(count));
             m_hFile->seek(position, wiz8::SeekOrigin::begin);
         } else {
             m_group_counts.pop_back();
@@ -232,72 +153,52 @@ bool W8Chunk::CopyCurrentChunkFrom(W8Chunk* source)
 /* Move past the unread remainder of the current head. Its absolute extent is
    combined with the active group's base offset and the current file position. */
 // FUNCTION: WIZ8 0x0055c390
-bool W8Chunk::SkipCurrentChunk()
+void W8Chunk::SkipCurrentChunk()
 {
-    W8ChunkHead* head = &CurrentHead();
-    std::int64_t position;
-    std::int64_t distance;
-
-    position = m_hFile->tell();
-    distance = m_offsets.back() + (head->extent - position);
-    if (distance != 0) {
-        m_hFile->seek(distance, wiz8::SeekOrigin::current);
-    }
-    return true;
+    m_hFile->seek(CurrentChunkEnd(), wiz8::SeekOrigin::begin);
 }
 
 /* A grouped chunk begins with its child count. Readers retain that count for
    the group walk. Writers mark the active head as grouped, reserve the count,
    and retain a zero completed-child counter until ReleaseGroup patches it. */
 // FUNCTION: WIZ8 0x0055c3f0
-bool W8Chunk::OpenGroup()
+void W8Chunk::OpenGroup()
 {
-    unsigned int transferred;
-
     if (!m_fWriting) {
-        int count;
-
-        Read(&count, sizeof(count), &transferred);
+        const auto count = ReadValue<int>();
         const int extent = CurrentHead().extent;
         if (count < 0 || extent < static_cast<int>(sizeof(count)) ||
             static_cast<unsigned>(count) > (extent - sizeof(count)) / 10)
             throw std::runtime_error("invalid RIFF group count");
         m_group_counts.push_back(count);
-        return true;
     } else {
-        W8ChunkHead* head = &CurrentHead();
+        W8ChunkHead& head = CurrentHead();
         const auto position = m_hFile->tell();
-        int count = 0;
 
-        head->grouped = 1;
+        head.grouped = 1;
         m_group_progress.push_back(0);
         m_hFile->seek(m_offsets.back() - 6, wiz8::SeekOrigin::begin);
-        Write(&head->grouped, 1, &transferred);
+        m_hFile->write(&head.grouped, 1);
         m_hFile->seek(position, wiz8::SeekOrigin::begin);
-        Write(&count, sizeof(count), &transferred);
-        return true;
+        WriteValue(0);
     }
 }
 
 /* Finish one grouped walk. Readers discard its retained child count. Writers
    patch the reserved word with the number of released children. */
 // FUNCTION: WIZ8 0x0055c5a0
-bool W8Chunk::ReleaseGroup()
+void W8Chunk::ReleaseGroup()
 {
     if (!m_fWriting) {
         m_group_counts.pop_back();
-        return true;
     } else {
-        unsigned int transferred;
         const auto position = m_hFile->tell();
-        int count;
+        const int count = m_group_progress.back();
 
         RewindCurrentChunk();
-        count = m_group_progress.back();
         m_group_progress.pop_back();
-        Write(&count, sizeof(count), &transferred);
+        m_hFile->write(&count, sizeof(count));
         m_hFile->seek(position, wiz8::SeekOrigin::begin);
-        return true;
     }
 }
 
@@ -334,13 +235,11 @@ int W8Chunk::ChunkCount()
    read mode asks the stream to populate the header; write mode requires the
    caller to supply the tag. */
 // FUNCTION: WIZ8 0x0055c6d0
-bool W8Chunk::OpenChunk(unsigned int chunk_id, unsigned char grouped)
+void W8Chunk::OpenChunk(unsigned int chunk_id, unsigned char grouped)
 {
     W8ChunkHead head{};
     if (m_fWriting) {
-        if (chunk_id == 0) {
-            srAssertFail("chunkID!=0", CHUNK_CPP, 0x22d, 0);
-        }
+        if (chunk_id == 0) throw std::logic_error("RIFF chunk without an id");
         head.chunk_id = chunk_id;
         head.extent = 0;
         head.grouped = grouped;
@@ -358,14 +257,13 @@ bool W8Chunk::OpenChunk(unsigned int chunk_id, unsigned char grouped)
     }
     m_offsets.push_back(m_hFile->tell());
     m_heads.push_back(head);
-    return true;
 }
 
 /* Remove the active header. Writers patch its extent in place; readers only
    discard the saved payload offset. A nested group advances its parent's
    completed-child count. */
 // FUNCTION: WIZ8 0x0055c930
-bool W8Chunk::ReleaseCurrentChunk()
+void W8Chunk::ReleaseCurrentChunk()
 {
     m_heads.pop_back();
     if (m_fWriting) {
@@ -377,7 +275,7 @@ bool W8Chunk::ReleaseCurrentChunk()
         const int extent = int(end - payload);
 
         m_hFile->seek(payload - 4, wiz8::SeekOrigin::begin);
-        Write(&extent, sizeof(extent), 0);
+        m_hFile->write(&extent, sizeof(extent));
         m_hFile->seek(end, wiz8::SeekOrigin::begin);
     } else {
         m_offsets.pop_back();
@@ -385,32 +283,10 @@ bool W8Chunk::ReleaseCurrentChunk()
     if (!m_group_progress.empty()) {
         ++m_group_progress.back();
     }
-    return true;
 }
 
 // FUNCTION: WIZ8 0x0055cae0
 void W8Chunk::RewindCurrentChunk()
 {
     m_hFile->seek(m_offsets.back(), wiz8::SeekOrigin::begin);
-}
-
-/* Mark the active chunk's own at_end byte in the file. This is how the save
-   code invalidates a level section it has already consumed in place. */
-// FUNCTION: WIZ8 0x0055cb00
-void W8Chunk::SetCurrentChunkAtEnd()
-{
-    unsigned char value = 1;
-    const auto position = m_hFile->tell();
-
-    m_hFile->seek(m_offsets.back() - 5, wiz8::SeekOrigin::begin);
-    m_hFile->write(&value, 1);
-    m_hFile->seek(position, wiz8::SeekOrigin::begin);
-}
-
-// FUNCTION: WIZ8 0x0055cb60
-unsigned char W8Chunk::CurrentChunkAtEnd()
-{
-    W8ChunkHead* head = &CurrentHead();
-
-    return head->at_end;
 }

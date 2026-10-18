@@ -2,8 +2,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstddef>
-#include <exception>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -28,13 +26,11 @@
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/PathAI.h"
 #include "wiz8/engine_code/PolyPick.h"
-#include "wiz8/filesystem.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/retail_geometry_types.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
@@ -61,22 +57,17 @@ bool W8NavigatorAttachment::TruncatePathAtRadius(const glm::vec3* target, float 
 {
     unsigned int index = path_cursor;
     float distance = glm::length((path[index].position - *target));
-    /* Retail leaves this slot cold when path[path_cursor].position is already
-       outside the radius, so the interpolation below reads whatever occupied
-       the stack. Preserved intentionally. */
-    float previous_distance;
+    float previous_distance = distance;
 
-    if (distance < radius) {
-        do {
-            if (path_position_index <= index) {
-                break;
-            }
-            previous_distance = distance;
-            ++index;
-            distance = glm::length((path[index].position - *target));
-        } while (distance < radius);
+    while (distance < radius && index < path_position_index) {
+        previous_distance = distance;
+        ++index;
+        distance = glm::length((path[index].position - *target));
     }
-    if (distance > radius) {
+    /* Interpolation needs a previous point inside the radius. When the cursor
+       point is already outside, retail interpolated against an uninitialized
+       distance (and the point before the cursor); leave the route untouched. */
+    if (index != path_cursor && distance > radius) {
         float fraction = (distance - radius) / (distance - previous_distance);
         path_destination =
             glm::vec3((path[index].position.x - path[index - 1].position.x) * fraction +
@@ -137,7 +128,6 @@ W8Navigator::W8Navigator() : reactivated(0)
     movement_complete = true;
     position_dirty = false;
     unknown_027 = false;
-    position2 = glm::vec3(0);
     patrol_home = glm::vec3(0);
     unknown_048 = 0;
     linked_navigator = 0;
@@ -166,7 +156,6 @@ W8Navigator::W8Navigator() : reactivated(0)
     tracked_distance = 500.0f;
     group_linked = false;
     tracked_dirty = false;
-    movement_plan_failed = false;
     linked_update_time = 0;
     movement.Reset();
     tracked_position = glm::vec3(0);
@@ -408,11 +397,10 @@ W8NavigatorMovementState::~W8NavigatorMovementState() = default;
 // FUNCTION: WIZ8 0x00452220
 W8Navigator::W8Navigator(const W8Navigator& other)
     : flags(0), collision_margin(0.0), movement_target(0.0f, 0.0f, 0.0f), movement_stopped(true),
-      halted(false), movement_complete(true), unknown_027(0), position2(0.0f, 0.0f, 0.0f),
-      minimum_height(other.minimum_height), maximum_height(other.maximum_height),
-      patrol_home(other.patrol_home), unknown_048(0), target_navigator(0),
-      target_last_position(0.0f, 0.0f, 0.0f), linked_navigator(0), unknown_060(0), unknown_064(0),
-      path_ai(nullptr), radius(other.radius), active(true),
+      halted(false), movement_complete(true), unknown_027(0), minimum_height(other.minimum_height),
+      maximum_height(other.maximum_height), patrol_home(other.patrol_home), unknown_048(0),
+      target_navigator(0), target_last_position(0.0f, 0.0f, 0.0f), linked_navigator(0),
+      unknown_060(0), unknown_064(0), path_ai(nullptr), radius(other.radius), active(true),
       movement_callback(other.movement_callback), trace_mask(other.trace_mask),
       unknown_094(other.unknown_094), unknown_098(0), reactivated(other.reactivated),
       owned_object(nullptr), tracked_distance(other.tracked_distance),
@@ -434,7 +422,6 @@ W8Navigator::W8Navigator(const W8Navigator& other)
     position_dirty = false;
     movement.position_adjusted = false;
     tracked_dirty = false;
-    movement_plan_failed = false;
     linked_update_time = 0;
     tracked_position = glm::vec3(0);
     node = std::make_unique<srNode>(nullptr);
@@ -452,8 +439,8 @@ W8Navigator::~W8Navigator()
 {
     wiz8::erase_first(g_registered_navigators, this);
     owned_object.reset();
-    if (movement.location_id != 0 && g_octree != 0) {
-        g_octree->UnregisterLocationObject(movement.location_id, W8_OCTREE_KIND_NAVIGATOR);
+    if (movement.location_id != 0 && GetWorldOctree() != 0) {
+        GetWorldOctree()->UnregisterLocationObject(movement.location_id, W8_OCTREE_KIND_NAVIGATOR);
     }
     node.reset();
 }
@@ -523,12 +510,6 @@ void W8Navigator::SetBounds(const srBoundingBox& bounds)
     radius = movement.alternate_radius;
 }
 
-/* The attachment the octree's navigator-target probe is currently filling in;
-   parked globally while PrepareNavigatorTarget runs so the path walk can reach
-   it, then cleared. */
-// GLOBAL: WIZ8 0x00659BF4
-W8NavigatorAttachment* g_active_navigator_attachment;
-
 // FUNCTION: WIZ8 0x004534c0
 glm::vec3 W8Navigator::GetPosition()
 {
@@ -577,82 +558,6 @@ void W8Navigator::ClearMovementStopped()
             index->movement_stopped = false;
         }
     }
-}
-
-/* Save the movement state LoadMovementState consumes: a presence
-   byte, then for an ungrouped navigator whose 0x20000000 movement flag is set
-   the height bounds, the position and the attachment's segment target. */
-// FUNCTION: WIZ8 0x004549d0
-unsigned char W8Navigator::SaveMovementState(wiz8::File* hFile)
-{
-    unsigned char has_state = 0;
-    unsigned char ok;
-    wiz8::retail::Vec3f position;
-    wiz8::retail::Vec3f target;
-
-    if (hFile == 0) {
-        return 0;
-    }
-    if (linked_navigator == 0 && (flags & 0x20000000) != 0) {
-        has_state = 1;
-        ok = (hFile->write(&has_state, 1), true);
-        ok &= (hFile->write(&minimum_height, 4), true);
-        ok &= (hFile->write(&maximum_height, 4), true);
-        position = {patrol_home.x, patrol_home.y, patrol_home.z};
-        ok &= (hFile->write(&position, 0xc), true);
-        target = {movement.attachment->path_destination.x, movement.attachment->path_destination.y,
-                  movement.attachment->path_destination.z};
-        ok &= (hFile->write(&target, 0xc), true);
-        return ok;
-    }
-    ok = (hFile->write(&has_state, 1), true);
-    return ok;
-}
-
-/* Load the movement state saved by 0x004549D0: a presence byte, the height
-   bounds, the position and the movement target. A present state re-primes the
-   attachment for a segment toward the saved target, raises the movement flags,
-   accepts the target through SetMovementTarget and releases the navigator and
-   its group to move again. */
-// FUNCTION: WIZ8 0x00454ad0
-unsigned char W8Navigator::LoadMovementState(wiz8::File* hFile)
-try {
-    wiz8::retail::Vec3f loaded{};
-    glm::vec3 target;
-    unsigned char has_state;
-    unsigned char ok;
-
-    if (hFile == 0) {
-        return 0;
-    }
-    ok = (hFile->read(&has_state, 1).bytes == static_cast<std::size_t>(1));
-    if (has_state == 0) {
-        return 0;
-    }
-    ok &= (hFile->read(&minimum_height, 4).bytes == static_cast<std::size_t>(4));
-    ok &= (hFile->read(&maximum_height, 4).bytes == static_cast<std::size_t>(4));
-    ok &= (hFile->read(&loaded, 0xc).bytes == static_cast<std::size_t>(0xc));
-    patrol_home = {loaded.x, loaded.y, loaded.z};
-    ok &= (hFile->read(&loaded, 0xc).bytes == static_cast<std::size_t>(0xc));
-    target = {loaded.x, loaded.y, loaded.z};
-    if (ok == 0) {
-        return 0;
-    }
-    movement.attachment->InitializeSegment(&movement.position, &target);
-    movement_target = target;
-    flags |= 0x20000000;
-    movement.attachment->flags |= W8_NAV_ATTACHMENT_IGNORE_LINKED_NAVIGATOR;
-    movement.target_position = patrol_home;
-    if (SetMovementTarget(&movement_target, true) == 0) {
-        return 0;
-    }
-    flags |= 0x6;
-    ClearMovementStopped();
-    halted = false;
-    movement_target = movement.attachment->path_destination;
-    return 1;
-} catch (const std::exception&) {
-    return false;
 }
 
 void W8Navigator::CopyPathToGroup()
@@ -777,7 +682,7 @@ unsigned short W8Navigator::SetMovementTargetToNavigator(W8Navigator* target, do
     movement_target = glm::vec3(0);
     collision_margin = separation;
     target_navigator = target;
-    if (target == g_startup_world || target->movement.location_id != 0) {
+    if (target == PartyNavigator() || target->movement.location_id != 0) {
         movement.target_location_id = target->movement.location_id;
     } else {
         movement.target_location_id = -1;
@@ -789,7 +694,6 @@ unsigned short W8Navigator::SetMovementTargetToNavigator(W8Navigator* target, do
     if (SetMovementTarget(&target->movement.position, false) == 0) {
         if (g_combat_inactive == 0) {
             flags = 0;
-            movement_plan_failed = true;
         }
     } else {
         flags = 5;
@@ -860,7 +764,7 @@ void W8Navigator::UpdateLinkedNavigator()
         UpdateLinkedPosition();
         return;
     }
-    int tick = static_cast<int>(g_game_time_accumulator->GetElapsed());
+    int tick = static_cast<int>(GameTimeAccumulator().GetElapsed());
     if (static_cast<unsigned int>(tick - linked_update_time) <= 50) {
         return;
     }
@@ -883,7 +787,7 @@ void W8Navigator::UpdateLinkedNavigator()
         return;
     }
 follow_path:
-    if (g_octree->pathing->PrepareLinkedNavigator(&movement)) {
+    if (GetWorldOctree()->pathing->PrepareLinkedNavigator(&movement)) {
         if (movement_stopped) {
             ClearMovementStopped();
         }
@@ -901,7 +805,7 @@ bool W8Navigator::UpdateLinkedPosition()
     }
     glm::vec3 position;
     if (linked_navigator->movement_stopped) {
-        const auto placement = g_octree->navigatorPositions(
+        const auto placement = GetWorldOctree()->navigatorPositions(
             linked_navigator->movement.position, linked_navigator->movement.yaw,
             movement.collision_radius + movement.collision_radius, 1, true, false, false, 5, true);
         linked_navigator->movement.position = placement.source;
@@ -919,7 +823,7 @@ bool W8Navigator::UpdateLinkedPosition()
     movement.yaw = linked_navigator->movement.yaw;
     movement.velocity = linked_navigator->movement.velocity * 0.5f;
     SetPosition(&position);
-    g_octree->RegisterNavigatorCell(movement.location_id, &position);
+    GetWorldOctree()->RegisterNavigatorCell(movement.location_id, &position);
     linked_update_time = 0;
     return true;
 }
@@ -940,12 +844,12 @@ glm::vec3* W8Navigator::AdjustPosition(glm::vec3* result, const glm::vec3* curre
         glm::vec3 probe = *current;
         probe.y += kWorldScale;
         bool hit;
-        const auto ground_probe = g_octree->settleToGround(probe, 1, 500.0f);
+        const auto ground_probe = GetWorldOctree()->settleToGround(probe, 1, 500.0f);
         probe = ground_probe.position;
         hit = ground_probe.hit;
         float ground = ground_probe.position.y;
         if (hit) {
-            if (g_octree->current_prop < 0) {
+            if (GetWorldOctree()->current_prop < 0) {
                 movement.position_adjusted = false;
             } else {
                 movement.position_adjusted = true;
@@ -957,17 +861,17 @@ glm::vec3* W8Navigator::AdjustPosition(glm::vec3* result, const glm::vec3* curre
                     glm::vec3 falling = *current;
                     float distance;
                     if (g_combat_inactive == 0) {
-                        movement.vertical_velocity += g_game_time_accumulator->GetFrameDelta() *
+                        movement.vertical_velocity += GameTimeAccumulator().GetFrameDelta() *
                                                       g_settings.monster_movement_speed *
                                                       g_navigator_gravity * acceleration_scale;
                         distance = movement.vertical_velocity *
-                                   g_game_time_accumulator->GetFrameDelta() *
+                                   GameTimeAccumulator().GetFrameDelta() *
                                    g_settings.monster_movement_speed;
                     } else {
-                        movement.vertical_velocity += g_game_time_accumulator->GetFrameDelta() *
+                        movement.vertical_velocity += GameTimeAccumulator().GetFrameDelta() *
                                                       g_navigator_gravity * acceleration_scale;
                         distance =
-                            movement.vertical_velocity * g_game_time_accumulator->GetFrameDelta();
+                            movement.vertical_velocity * GameTimeAccumulator().GetFrameDelta();
                     }
                     falling.y -= distance;
                     if (falling.y >= ground) {
@@ -1010,7 +914,7 @@ void W8Navigator::UpdateFacing(bool immediate)
     forward = glm::vec3(
         glm::angleAxis(std::atan2(sin(movement.yaw), cos(movement.yaw)), glm::dvec3(0, 1, 0)) *
         glm::dvec3(forward));
-    g_octree->GetPathSurfaceNormal(&movement.position, &normal);
+    GetWorldOctree()->GetPathSurfaceNormal(&movement.position, &normal);
     if (movement.pitch_enabled) {
         float angle = static_cast<float>(acos(glm::dot(normal, forward)));
         if (angle < kQuarterTurn) {
@@ -1057,12 +961,12 @@ W8Navigator* W8Navigator::ResolveBlockingNavigator(const glm::vec3* from, glm::v
     if (include_target && target_navigator != 0) {
         location = target_navigator->movement.location_id;
     }
-    if (const auto hit = g_octree->traceSphereHit(*from, *to, movement.location_id, hit_location,
-                                                  location, trace_mask, false)) {
+    if (const auto hit = GetWorldOctree()->traceSphereHit(
+            *from, *to, movement.location_id, hit_location, location, trace_mask, false)) {
         *to = hit->position;
         hit_location = hit->location_id;
         if (hit_location == 0) {
-            return g_startup_world;
+            return PartyNavigator();
         }
         if (hit_location > 0) {
             W8MonsterInfo* monster_info = FindMonster(hit_location);
@@ -1092,7 +996,7 @@ double W8Navigator::MeasurePathDistance(const glm::vec3* target, float max_range
     } else {
         attachment.flags &= 0xf3feffff;
     }
-    ready = g_octree->PrepareNavigatorTarget(&movement, max_range, radius);
+    ready = GetWorldOctree()->PrepareNavigatorTarget(&movement, max_range, radius);
     if (ready != 0 &&
         ((attachment.flags & W8_NAV_ATTACHMENT_FOLLOW_PATH) == 0 || (attachment.flags & 7) != 3)) {
         return attachment.MeasurePathLength();
@@ -1103,7 +1007,7 @@ double W8Navigator::MeasurePathDistance(const glm::vec3* target, float max_range
 // FUNCTION: WIZ8 0x00453480
 int W8Navigator::FindNavigatorPathDistance(float max_range, float* out_distance)
 {
-    double distance = MeasurePathDistance(&g_startup_world->movement.position, max_range, 0);
+    double distance = MeasurePathDistance(&PartyNavigator()->movement.position, max_range, 0);
 
     *out_distance = static_cast<float>(distance);
     if (distance != g_negative_one) {
@@ -1144,7 +1048,6 @@ void W8NavigatorAttachment::InitializeSegment(const glm::vec3* source, const glm
     path[0].position = *source;
     path_destination = *destination;
     path[1].position = *destination;
-    recorded_position = segment_start;
     path_length_origin = segment_start;
     follow_offset = 0;
     for (auto& entry : path) entry.value = 0;
@@ -1263,7 +1166,7 @@ bool W8NavigatorAttachment::withinHopHeight(const glm::vec2& point, unsigned bas
             projection = next;
         }
     }
-    const auto* surfaces = g_octree->pathing->m_waypoints.data();
+    const auto* surfaces = GetWorldOctree()->pathing->m_waypoints.data();
     float height = (surfaces[path[base].value].flags >> 0xc) * kWorldScale;
     const float next_height = (surfaces[path[base + 1].value].flags >> 0xc) * kWorldScale;
     if (height != next_height) height = (next_height - height) * projection.fraction + height;
@@ -1428,13 +1331,13 @@ void W8Navigator::SetPitchRollEnabled(bool pitch, bool roll)
 }
 
 /* 0x004527AD is a split address inside this body: it resumes at the
-   g_pathing nonnull branch with the call registers still live, not a
+   GetWorldPathing() nonnull branch with the call registers still live, not a
    separate authored function. */
 // FUNCTION: WIZ8 0x004527a0
 unsigned char W8Navigator::LinkToNavigator(W8Navigator* target, double separation)
 {
     unsigned char result = 0;
-    if (g_pathing == 0) {
+    if (GetWorldPathing() == 0) {
         return 0;
     }
     movement_target = glm::vec3(0);
@@ -1446,17 +1349,16 @@ unsigned char W8Navigator::LinkToNavigator(W8Navigator* target, double separatio
     movement.attachment->InitializeSegment(&movement.position, &target->movement.position);
     if (g_combat_inactive == 0) {
         movement.attachment->flags |= W8_NAV_ATTACHMENT_FOLLOW_PATH;
-        if (g_pathing->PlanMovementToPosition(&movement, &target->movement.position, radius,
-                                              static_cast<float>(separation)) == 0) {
-            movement_plan_failed = true;
+        if (GetWorldPathing()->PlanMovementToPosition(&movement, &target->movement.position, radius,
+                                                      static_cast<float>(separation)) == 0) {
             return 0;
         }
         flags = 9;
         target_last_position = target->movement.position;
         result = static_cast<unsigned char>(movement.attachment->flags & 7);
         ClearMovementStopped();
-    } else if (g_octree->LinkNavigatorTarget(&movement, &target->movement.position,
-                                             static_cast<float>(separation)) != 0) {
+    } else if (GetWorldOctree()->LinkNavigatorTarget(&movement, &target->movement.position,
+                                                     static_cast<float>(separation)) != 0) {
         flags = 9;
         target_last_position = target->movement.position;
         ClearMovementStopped();
@@ -1471,7 +1373,7 @@ unsigned short W8Navigator::ConfigureMovementToNavigator(W8Navigator* target, fl
                                                          int trace_mode, float facing,
                                                          unsigned char* probe_result)
 {
-    if (g_pathing == 0) {
+    if (GetWorldPathing() == 0) {
         return 0;
     }
     if (g_combat_inactive != 0) {
@@ -1486,14 +1388,13 @@ unsigned short W8Navigator::ConfigureMovementToNavigator(W8Navigator* target, fl
     movement.target_position = target->movement.position;
     PathAIClearOwned(path_ai.get());
     radius = movement.alternate_radius;
-    unsigned short result = g_pathing->ConfigureMovementSearch(
+    unsigned short result = GetWorldPathing()->ConfigureMovementSearch(
         &movement, target->movement.location_id, radius, separation, maximum_distance, position,
         trace_mode, target->movement.height_offset, facing, probe_result);
     target_last_position = target->movement.position;
     if (result == 0) {
         ClearMovement();
         flags = 0;
-        movement_plan_failed = true;
         return 0;
     }
     if (movement_stopped) {
@@ -1571,7 +1472,8 @@ bool W8Navigator::ConfigureMovement(float minimum, float maximum)
     }
     if (minimum_height + 5e+03f < maximum_height) {
         movement.target_position = patrol_home;
-        if (g_octree->PrepareNavigatorPatrol(&movement, minimum_height, maximum_height) != 0) {
+        if (GetWorldOctree()->PrepareNavigatorPatrol(&movement, minimum_height, maximum_height) !=
+            0) {
             flags |= 6;
             ClearMovementStopped();
             halted = false;
@@ -1595,16 +1497,16 @@ unsigned char W8Navigator::SetMovementTarget(const glm::vec3* target, bool propa
     unsigned char result;
     if (g_combat_inactive == 0) {
         radius = movement.alternate_radius;
-        result = g_octree->PrepareNavigatorTarget(&movement, radius,
-                                                  static_cast<float>(collision_margin));
+        result = GetWorldOctree()->PrepareNavigatorTarget(&movement, radius,
+                                                          static_cast<float>(collision_margin));
     } else {
         radius = movement.collision_radius;
         if ((flags & 4) != 0 && (flags & 1) != 0) {
-            result = g_octree->PrepareNavigatorTarget(
+            result = GetWorldOctree()->PrepareNavigatorTarget(
                 &movement, radius, static_cast<float>(target_navigator->radius + collision_margin));
         } else {
-            result = g_octree->PrepareNavigatorTarget(&movement, radius,
-                                                      static_cast<float>(collision_margin));
+            result = GetWorldOctree()->PrepareNavigatorTarget(&movement, radius,
+                                                              static_cast<float>(collision_margin));
         }
     }
     if (result == 0 || IsNavigatorAtTarget(&movement)) {
@@ -1709,7 +1611,7 @@ void W8Navigator::SetPositionInternal(const glm::vec3* position)
         movement.position = *position;
         widened = glm::dvec3(*position);
         node->setLocation(widened);
-        if (movement.location_id != 0 || this == g_startup_world) {
+        if (movement.location_id != 0 || this == PartyNavigator()) {
             g_navigator_position_changed = true;
         }
         UpdateFacing(true);
@@ -1734,7 +1636,7 @@ void W8Navigator::ClearMovement()
         flags = 0;
     }
     movement.attachment->RecordPosition(&movement.position);
-    g_octree->RegisterNavigatorCell(movement.location_id, &movement.position);
+    GetWorldOctree()->RegisterNavigatorCell(movement.location_id, &movement.position);
     movement_complete = true;
 }
 
@@ -1749,7 +1651,7 @@ void W8Navigator::UpdateAngles()
     if (!gXStatus.fCombatMode) {
         step = movement.turn_rate;
     }
-    step *= g_rate * g_game_time_accumulator->GetFrameDelta();
+    step *= g_rate * GameTimeAccumulator().GetFrameDelta();
 
     if (movement.yaw != movement.target_yaw) {
         distance = NormalizeAngle(movement.yaw - movement.target_yaw);
@@ -1880,8 +1782,7 @@ void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
         if (!g_navigator_vertical_enabled) {
             movement.vertical_offset = movement.vertical_base;
         } else {
-            float phase = movement.vertical_phase + g_rate *
-                                                        g_game_time_accumulator->GetFrameDelta() *
+            float phase = movement.vertical_phase + g_rate * GameTimeAccumulator().GetFrameDelta() *
                                                         g_navigator_vertical_phase_step;
             phase -= static_cast<float>(floor(phase));
             movement.vertical_phase = phase;
@@ -1946,7 +1847,7 @@ void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
     case 10: {
         glm::vec3 next(0);
 
-        movement_result = g_octree->AdvanceNavigator(&movement, radius, 0.0f);
+        movement_result = GetWorldOctree()->AdvanceNavigator(&movement, radius, 0.0f);
         if (movement_result == 1) {
             if (PathAINextPoint(path_ai.get(), &next) != 0) {
                 glm::vec3 target;
@@ -1971,8 +1872,8 @@ void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
                navigator's collision margin (the value LinkToNavigator stored),
                narrowed to float. The linked navigator's radius load at
                0x004559A2 belongs to the 0x201 case below. */
-            movement_result =
-                g_octree->AdvanceNavigator(&movement, radius, static_cast<float>(collision_margin));
+            movement_result = GetWorldOctree()->AdvanceNavigator(
+                &movement, radius, static_cast<float>(collision_margin));
             if (movement_result == 1 ||
                 (movement_result == 3 &&
                  LinkToNavigator(target_navigator, collision_margin) == 0)) {
@@ -2006,7 +1907,7 @@ void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
                         }
                     }
                 }
-                g_octree->AdvanceNavigator(&movement, radius, linked_navigator->radius);
+                GetWorldOctree()->AdvanceNavigator(&movement, radius, linked_navigator->radius);
             }
             UpdateLinkedNavigator();
         }
@@ -2055,7 +1956,7 @@ void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
             }
             /* Two frames within one clock tick have no elapsed time; dividing by it
                made movement_speed NaN, which then stuck (NaN fails every comparison). */
-            const float frame_time = g_rate * g_game_time_accumulator->GetFrameDelta();
+            const float frame_time = g_rate * GameTimeAccumulator().GetFrameDelta();
             velocity.y = frame_time > 0.0f ? (movement.position.y - previous.y) / frame_time : 0.0f;
             if (navigation_mode == 2 || navigation_mode == 3) {
                 minimum_speed = g_navigator_minimum_speed_mode23;
@@ -2072,8 +1973,8 @@ void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
 
     UpdateAngles();
     if (!movement_stopped && g_combat_inactive == 0 && !movement_complete && flags != 0) {
-        movement.callback_progress += g_game_time_accumulator->GetFrameDelta() *
-                                      movement.movement_scale * g_rate * kWorldScale;
+        movement.callback_progress +=
+            GameTimeAccumulator().GetFrameDelta() * movement.movement_scale * g_rate * kWorldScale;
         if (movement.callback_threshold <= movement.callback_progress) {
             if (movement_callback != 0) {
                 movement_callback(this);
@@ -2099,8 +2000,8 @@ int W8Navigator::ResolveMovement()
         return 0;
     }
     if (g_combat_inactive == 0) {
-        int result =
-            g_octree->AdvanceNavigator(&movement, radius, static_cast<float>(collision_margin));
+        int result = GetWorldOctree()->AdvanceNavigator(&movement, radius,
+                                                        static_cast<float>(collision_margin));
         if (result == 1) {
             ClearMovement();
         }
@@ -2110,7 +2011,7 @@ int W8Navigator::ResolveMovement()
     if ((movement.attachment->flags & W8_NAV_ATTACHMENT_FOLLOW_PATH) == 0) {
         float target_motion = glm::length((target->movement.position - target_last_position));
 
-        if (target_motion > 2500.0 || (target == g_startup_world && target_motion > 500.0)) {
+        if (target_motion > 2500.0 || (target == PartyNavigator() && target_motion > 500.0)) {
             target_last_position = target->movement.position;
 
             if (target->radius + radius + collision_margin <
@@ -2132,8 +2033,8 @@ int W8Navigator::ResolveMovement()
         }
 
         if (!halted && !movement_stopped) {
-            int result =
-                g_octree->AdvanceNavigator(&movement, radius, static_cast<float>(collision_margin));
+            int result = GetWorldOctree()->AdvanceNavigator(&movement, radius,
+                                                            static_cast<float>(collision_margin));
             if (result != 1) {
                 if (result == 3 && SetMovementTarget(&target->movement.position, false) == 0) {
                     ClearMovement();
@@ -2151,7 +2052,7 @@ int W8Navigator::ResolveMovement()
                 flags = 0;
             }
             movement.attachment->RecordPosition(&movement.position);
-            g_octree->RegisterNavigatorCell(movement.location_id, &movement.position);
+            GetWorldOctree()->RegisterNavigatorCell(movement.location_id, &movement.position);
             flags |= 5;
             movement_complete = true;
             return 1;

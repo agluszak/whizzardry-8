@@ -33,12 +33,9 @@ struct W8WorldItem;
 // Live gameplay state, not a disk record.
 struct W8XStatus {
     W8MonsterManagerEntry monster_manager_entries[8];
-    unsigned int uiItemsInDatabase;
     unsigned int uiItemTablesInDatabase;
     unsigned int uiItemTableCategories;
     unsigned int uiMonstersInDatabase;
-    unsigned int uiNpcsInDatabase;
-    unsigned int uiFactsInDatabase;
     bool fCombatMode;
     bool fSpellCastMode;
     bool fItemSelectMode;
@@ -126,7 +123,6 @@ struct W8XStatus {
     unsigned char combat_difficulty;
     bool party_moving;
     int saved_encounter_budget;
-    int mipe_cube_serial;
     int hostile_group_count;
 };
 
@@ -148,7 +144,7 @@ inline W8MonsterInfo* GetMonsterListEntry(int index)
     if (index < 0 || std::cmp_greater_equal(index, gXStatus.monster_roster.live().size())) {
         return nullptr;
     }
-    return gXStatus.monster_roster.live()[index];
+    return gXStatus.monster_roster.live()[index].get();
 }
 
 inline W8MonsterInfo* GetUnbornMonsterEntry(int index)
@@ -156,7 +152,7 @@ inline W8MonsterInfo* GetUnbornMonsterEntry(int index)
     if (index < 0 || std::cmp_greater_equal(index, gXStatus.monster_roster.unborn().size())) {
         return nullptr;
     }
-    return gXStatus.monster_roster.unborn()[index];
+    return gXStatus.monster_roster.unborn()[index].get();
 }
 
 inline W8WorldItem* GetWorldItemListEntry(int index)

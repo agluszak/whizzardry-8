@@ -51,7 +51,6 @@
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/Screens.h"
 #include "wiz8/overlay_scenes.h"
 #include "wiz8/xstatus.h"
 
@@ -118,7 +117,7 @@ TEST_CASE("world graphics")
     RunNewGameOpeningSequence(false, {});
     // Bypass only the opening movie; use the normal new-game loading screen.
     g_pending_screen_state.mode = 0;
-    SetPendingScreenState(W8_SCREEN_PLEASE_WAIT);
+    g_pending_screen_state.id = W8_SCREEN_PLEASE_WAIT;
     fprintf(stderr, "world: enter real new-game loader\n");
     for (int frame = 0; frame < 5; ++frame) {
         GameLoop();
@@ -252,9 +251,13 @@ TEST_CASE("world graphics")
     std::string control_path = std::string(output) + ".control.ppm";
     SaveFrame(control_path.c_str(), control);
     if (mode && strcmp(mode, "kill") == 0) {
-        W8MonsterInfo* monster = GetNextMonsterInfo(true);
-        while (monster && (!monster->fActive || !monster->p3D || !monster->hp_current))
-            monster = GetNextMonsterInfo(false);
+        W8MonsterInfo* monster = nullptr;
+        for (const auto& candidate : gXStatus.monster_roster.live()) {
+            if (candidate->fActive && candidate->p3D && candidate->hp_current) {
+                monster = candidate.get();
+                break;
+            }
+        }
         REQUIRE(monster);
         fprintf(stderr, "regression: kill monster %d species %u HP %u\n", monster->location_id,
                 monster->monster_species, monster->hp_current);
@@ -290,11 +293,11 @@ TEST_CASE("world graphics")
             // This diagnostic controls the actual render cameras. Scripted
             // tracking can reject SetOrientationImmediate, yielding identical
             // captures that never exercise the requested angles.
-            g_gd_camera->SetOrientation(state.yaw[0] + angle * 1.5707963f,
-                                        angle < 2 ? -0.7f : 0.5f);
-            const auto rotation = g_gd_camera->rotationMatrix();
+            PartyCamera().SetOrientation(state.yaw[0] + angle * 1.5707963f,
+                                         angle < 2 ? -0.7f : 0.5f);
+            const auto rotation = PartyCamera().rotationMatrix();
             world->camera->setRotation(rotation);
-            if (g_secondary_world) g_secondary_world->camera->setRotation(rotation);
+            if (GetSecondaryWorld()) GetSecondaryWorld()->camera->setRotation(rotation);
             RenderFrame();
             auto pixels = ReadFrame();
             REQUIRE(pixels != previous);

@@ -47,7 +47,6 @@ void SetFormationPosition(W8PartyFormationState* formation, int slot, signed cha
 void CompactFormationRow(W8PartyFormationState* formation, unsigned char row);
 
 void InitializePartyFormation(W8PartyFormationState* state);
-void CopyPartyFormationState(W8PartyFormationState* dst, const W8PartyFormationState* src);
 /* Remember the formation combat started with. */
 void SaveCombatFormation(void);
 /* Reconcile an edited formation against the live one, re-seating

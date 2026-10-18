@@ -1,5 +1,6 @@
 #include "wiz8/local_code/Traps.h"
 
+#include <algorithm>
 #include <cctype>
 #include <cstdint>
 #include <cstring>
@@ -111,7 +112,7 @@ void WriteRecordModeEntry(void)
         line = fmt::format("{:f} {:f} {:f} {:f} {:f} {:d}\n", state.yaw[0], state.yaw[1],
                            state.yaw[2], state.yaw[3], state.yaw[4], 0);
         file->write(line.data(), line.size());
-        if (GetLevelLocationCode(g_status.current_level, location_code) == 0) {
+        if (GetLevelLocationCode(GetLoadedLevelID(), location_code) == 0) {
             strcpy(location_code, s_record_mode_default_location);
         }
         length = strlen(location_code);
@@ -295,12 +296,12 @@ static void DischargeTrapSpell(glm::vec3 point, int spell_id, unsigned int power
     source.point = point;
     if (GetSpellTargetType(spell_id, false) == W8_TARGET_TYPE_POINT) {
         target.iType = W8_TARGET_KIND_PLACE;
-        target.point = g_startup_world->GetPosition();
+        target.point = PartyNavigator()->GetPosition();
         CastSpellFromSource(spell_id, &source, &target, power_level, 0, 0, false, 0, 0, 0, 0);
     } else {
         ResetCombatSlot(&target);
         target.iType = W8_TARGET_KIND_PARTY;
-        target.point = g_startup_world->GetPosition();
+        target.point = PartyNavigator()->GetPosition();
         eligible = 0;
         for (index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
             if (CanPartySlotParticipate(index)) {
@@ -335,7 +336,7 @@ void ResolveSprungTrap(Trigger* trigger)
     glm::vec3 camera;
 
     devices = trigger->lock_state.difficulty;
-    ClampInteger(&devices, 1, 7);
+    devices = std::clamp(devices, 1, 7);
     type = trigger->lock_state.device_id;
     if (Random(2) == 0) {
         trigger->CompleteItemInteraction();
@@ -364,6 +365,6 @@ void ResolveSprungTrap(Trigger* trigger)
         point = *center;
     }
     camera = cameraLocation();
-    g_octree->TraceLineOfSight(&camera, &point, true, -3, -3, true, 0);
+    GetWorldOctree()->TraceLineOfSight(&camera, &point, true, -3, -3, true, 0);
     DischargeTrapSpell(point, g_table2[type + 11], power, count);
 }

@@ -36,7 +36,7 @@ enum {
     W8_LEVEL_FLAG_MOVEMENT_STOPPED = 0x040,
     W8_LEVEL_FLAG_MOVEMENT_RESET = 0x080,
     W8_LEVEL_MOVEMENT_STATE_MASK = W8_LEVEL_FLAG_MOVEMENT_ACTIVE | W8_LEVEL_FLAG_MOVEMENT_STOPPED |
-                                   W8_LEVEL_FLAG_MOVEMENT_RESET,
+        W8_LEVEL_FLAG_MOVEMENT_RESET,
     W8_LEVEL_FLAG_FAST_MOVEMENT = 0x100,
     W8_LEVEL_FLAG_MOVED_THIS_UPDATE = 0x200
 };
@@ -61,6 +61,8 @@ extern float g_default_momentum_scale;
    Retail allocates 0xf4 and its constructor builds a W8IntervalGate at +0xc4;
    the record's destructor at 0x00421890 exists only to tear that member down.
    The bare `add ecx,0xc4` body is member teardown, not an adjustor thunk. */
+struct W8EnvironRecord;
+
 struct W8LevelDataRecord {
     unsigned int flags; /* 0x00 */
     /* 0x04/0x08: prop ids filled by the motion collision path; ToggleBoundProps
@@ -95,7 +97,6 @@ struct W8LevelDataRecord {
     /* Contact surface normal and scale used by camera collision. */
     glm::vec3 contact_normal{0}; /* 0xac */
     float contact_normal_scale;       /* 0xb8 */
-    W8IntervalGate interval_gate;     /* 0xc4 */
     bool flag5;                       /* 0xec */
     bool flag6;                       /* 0xed */
     float vertical_motion; /* 0xf0 */
@@ -104,19 +105,21 @@ struct W8LevelDataRecord {
     /* 0x0041FE20: when the camera sits outside the game-data AABB, push
        motion_displacement toward the box, clear environ vector, and optionally start
        party movement; returns non-zero when a clamp fired. */
-    unsigned char ClampCameraToBounds(const glm::vec3* minimum, const glm::vec3* maximum);
+    unsigned char ClampCameraToBounds(W8EnvironRecord& environ, const glm::vec3* minimum,
+                                      const glm::vec3* maximum);
     /* 0x0041FF00: toggle setting-6e props referenced by
      * primary_contact_prop_id/secondary_contact_prop_id. */
     unsigned char ToggleBoundProps();
     /* 0x00420470: integrate camera_motion_velocity into motion_velocity/integrated_motion. */
     unsigned int resolveMotionFlags(unsigned int input, bool engaged);
-    bool IntegrateCameraForward();
+    bool IntegrateCameraForward(const W8EnvironRecord& environ);
     /* 0x00420810: rotate motion_input by the saved yaw matrix and refresh
        motion_displacement; returns the updated fast-move latch. */
-    unsigned char ApplySavedMotionMatrix(unsigned char prior_fast, bool fast_move,
-                                         const glm::mat3& saved);
+    unsigned char ApplySavedMotionMatrix(const W8EnvironRecord& environ, unsigned char prior_fast,
+                                         bool fast_move, const glm::mat3& saved);
     /* 0x0041FF90: advance movement progress / footstep state for one tick. */
-    void UpdateMotionProgress(unsigned char fast_move, unsigned char moved);
+    void UpdateMotionProgress(W8EnvironRecord& environ, unsigned char fast_move,
+                              unsigned char moved);
     /* 0x00420A60: accumulate footstep distance and optionally play a step. */
     bool UpdateFootstepFromMotion();
 };
@@ -129,7 +132,6 @@ class stModelInstance;
 class W8Octree;
 struct W8OctreeTrace;
 struct W8World;
-struct W8LevelFilePlane;
 
 /* One environment record: seventeen dwords mixing counters and factors. */
 struct W8EnvironRecord {
@@ -212,9 +214,6 @@ struct W8GameData {
        unscaled bounds tracking, the face records, and — for the non-primary
        pass — the interface name and conditional-face records. */
     unsigned char ReadWGDList(wiz8::File& file, int poly_type);
-    /* Release the level-data record, game-time accumulator and companion
-       level-data globals; runs first in ~W8GameData. */
-    void ReleaseLevelData();
     /* Selects a switch interface's state: the matching state group's
        conditional polygons clear surface flag 0x10 while every other state's
        polygons set it. */
@@ -267,10 +266,17 @@ struct W8GameData {
     int SurfacesCount() const noexcept { return int(m_pSurfaces.size()); }
     int InterfacesCount() const noexcept { return int(m_pInterfaces.size()); }
     int StatesCount() const noexcept { return int(m_pStates.size()); }
-    int CondPolysCount() const noexcept { return int(m_piCondPolys.size()); }
     int EnvironsCount() const noexcept { return int(m_ppEnvirons.size()); }
     std::vector<std::string> interface_names;
     std::vector<std::unique_ptr<W8EnvironRecord>> m_ppEnvirons;
+    /* The environment the party currently moves through: always one of
+       m_ppEnvirons, switched by crossed environment boundaries. */
+    W8EnvironRecord* environ = nullptr;
+    /* The party's movement tracker for this level. The first camera motion
+       update restarts the shared timers so loading time is not integrated. */
+    W8LevelDataRecord motion;
+    bool motion_started = false;
+    bool LiftsCrossings() const { return (motion.flags & W8_LEVEL_FLAG_NO_SOUND_ENVIRONMENT) != 0; }
     /* Set by W8Octree::settleToGround around its TestTraceResult calls: while
        set, only flag-4 surfaces are admitted by the surface trace. */
     bool trace_flag4_gate;
@@ -303,20 +309,16 @@ struct W8GameData {
                          int mode); /* 0x0041C330 */
 };
 
-extern W8LevelDataRecord* g_level_data;
-/* Companion pointer cleared alongside g_level_data on level
-   transitions; its target's +0 flags have 0x200 masked off at 0x0044FCD0. */
-extern unsigned int* g_level_flags;
-/* Teardown flag tested and cleared by ReleaseLevelData. */
-extern bool g_level_data_teardown_flag;
-/* Read by the level-data reset and written by the GameData constructor in
-   GDFileIO.cpp. */
-extern W8EnvironRecord* g_environ;
+/* The published level's movement tracker and active environment, or null
+   when no level with game data is loaded. */
+W8LevelDataRecord* LevelMotion();
+W8EnvironRecord* LevelEnviron();
 
 void ResetInactiveLevelDataVectors(void);
 void UpdateSharedGameDataObject();
 void UpdateGameDataRuntime();
-std::optional<RuntimeTriangle> surfaceTriangle(std::span<const int, 3> vertexIndices);
+std::optional<RuntimeTriangle> surfaceTriangle(std::span<const glm::vec3> vertices,
+                                               std::span<const int, 3> vertexIndices);
 
 void ClearLevelMovementStopped(void);
 void ResetLevelDataVectors(void);
@@ -334,8 +336,6 @@ void EndCameraSway(void);
 
 bool IsLevelMovementStopped(void);
 unsigned char ConsumeLevelElapsedTime(float* real_elapsed, float* frame_elapsed);
-/* Retail tests level flag 0x008; when set both outputs are -1. */
-void GetLevelSoundEnvironment(char* environment, char* secondary);
 
 /* 0x00420BD0: settle a world point onto the octree ground through the
    GameData geometry index. Without an octree, return the original position
@@ -343,11 +343,10 @@ void GetLevelSoundEnvironment(char* environment, char* secondary);
 GroundProbe probeGround(const glm::vec3& position);
 
 void ClearLevelMovementState(void); /* 0x0041F0C0 */
-srCamera* CreateOrSetGameCamera(srNode* parent, srCamera* camera);
+
 float GetCameraYawInDegrees();
 float GetCameraYawRadians();
 float GetCameraPitchInDegrees();
-float GetCameraPitchRadians();
 void GetCameraOrientation(void* angle, void* pitch);
 void BeginManualCameraControl();
 void LevelCamera();
@@ -366,7 +365,7 @@ glm::vec3 ProjectVectorOntoVector(const glm::vec3& vector, const glm::vec3& onto
 /* 0x00421570: restore a saved yaw/pitch into the game camera, reading the
    world camera node's current rotation first and fetching the updated matrix
    (both into the same dead local in retail). */
-void RestoreWorldCameraOrientation(void* angle, void* pitch, W8World* world);
+void RestoreWorldCameraOrientation(void* angle, void* pitch);
 glm::vec3 cameraLocation();
 int GetCameraYawDegrees(void);
 /* 0x004215E0: point-visibility query through the world octree; false with no

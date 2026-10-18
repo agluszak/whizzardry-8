@@ -34,13 +34,15 @@
 #include "surrender/srScene.h"
 #include "surrender/srShader.h"
 #include "surrender/triangle_projection.h"
-#include "wiz8/containers.h"
+#include "wiz8/engine_code/3dapi.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/Item.h"
+#include "wiz8/engine_code/Missile.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/PolyPick.h"
 #include "wiz8/engine_code/Prop.h"
+#include "wiz8/engine_code/Spells.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/octree_spatial.h"
 #include "wiz8/engine_code/stLight.hpp"
@@ -89,7 +91,7 @@ void DetachWorldItemMeshes(W8World* world)
     for (int index = 0; index < static_cast<int>(count); ++index) {
         W8Item* item = world->plsItems[index].get();
         if (item != 0) {
-            item->DetachMesh(world);
+            item->DetachMesh();
             item->UpdateAnimation();
             item->AttachMesh(world);
         }
@@ -103,15 +105,15 @@ void DetachWorldItemMeshes(W8World* world)
 // FUNCTION: WIZ8 0x0046e4a0
 void DestroyWorldLights(W8World* world)
 {
-    world->lights_to_update.clear();
     world->transient_lights.clear();
 }
 
 /* Put static-scene illuminators in group one and the world's camera light in
    group two.  The scene graph access is the ordinary srNode hierarchy API. */
 // FUNCTION: WIZ8 0x0046F3A0
-void FinalizeStaticScene(srScene* scene)
+void FinalizeStaticScene(W8World& world)
 {
+    auto* scene = world.static_scene.get();
     srNode* node;
 
     for (node = scene->getChild(); node != 0; node = node->getNext()) {
@@ -119,8 +121,8 @@ void FinalizeStaticScene(srScene* scene)
             static_cast<srLight*>(node)->setGroupMask(1);
         }
     }
-    if (g_world != 0 && g_world->camera_light != 0) {
-        g_world->camera_light->setGroupMask(2);
+    if (world.camera_light != 0) {
+        world.camera_light->setGroupMask(2);
     }
 }
 
@@ -226,17 +228,17 @@ unsigned char BakeInstanceVertexLightingIfNeeded(stModelInstance* instance, srNo
    there is no octree) and point its vertex-light table index at `table`, then
    raise flags bit 1 so the next bake uses that table. */
 // FUNCTION: WIZ8 0x0046F760
-void SetWorldMeshVertexLightTable(W8World* world, int table)
+void SetWorldMeshVertexLightTable(int table)
 {
-    if (world->octree == 0) {
+    if (GetWorld()->octree == 0) {
         for (stMeshModel* model : stMeshModel::Meshes(
-                 static_cast<stMeshModel*>(world->update_mesh_source->getModel()))) {
+                 static_cast<stMeshModel*>(GetWorld()->update_mesh_source->getModel()))) {
             model->vertex_light_table = table;
             model->flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
         }
     } else {
-        for (unsigned int mesh = 0; mesh < world->octree->m_meshCount; ++mesh) {
-            srModelInstance* instance = world->psrMeshes[mesh];
+        for (unsigned int mesh = 0; mesh < GetWorld()->octree->m_meshCount; ++mesh) {
+            srModelInstance* instance = GetWorld()->psrMeshes[mesh];
             if (instance != 0) {
                 for (stMeshModel* model :
                      stMeshModel::Meshes(static_cast<stMeshModel*>(instance->getModel()))) {
@@ -256,7 +258,7 @@ bool targetMarkerVisible(const glm::vec3& eye, const srBoundingBox& bounds)
     for (const auto& sample : bounds.visibilitySamples()) {
         if (!projectsToCamera(sample)) continue;
         glm::vec3 point(sample);
-        if (g_octree->HasLineOfSight(&from, &point, true)) return true;
+        if (GetWorldOctree()->HasLineOfSight(&from, &point, true)) return true;
     }
     return false;
 }
@@ -267,7 +269,8 @@ bool traceLineOfSightToBounds(const glm::vec3& origin, const srBoundingBox& boun
     const glm::vec3 from(origin);
     for (const auto& sample : bounds.visibilitySamples()) {
         glm::vec3 point(sample);
-        if (g_octree->TraceLineOfSight(&from, &point, true, -3, -3, true, 0) == 0) return true;
+        if (GetWorldOctree()->TraceLineOfSight(&from, &point, true, -3, -3, true, 0) == 0)
+            return true;
     }
     return false;
 }
@@ -278,7 +281,7 @@ bool hasLineOfSightToBounds(const glm::vec3& origin, const srBoundingBox& bounds
     const glm::vec3 from(origin);
     for (const auto& sample : bounds.visibilitySamples()) {
         glm::vec3 point(sample);
-        if (g_octree->HasLineOfSight(&from, &point, true)) return true;
+        if (GetWorldOctree()->HasLineOfSight(&from, &point, true)) return true;
     }
     return false;
 }
@@ -371,7 +374,7 @@ void WorldRemoveLight(W8World* world, stLight* light)
     if (light == 0) {
         srAssertFail("pLight", THREE_D_CPP, 0x279, 0);
     }
-    wiz8::erase_first(world->lights_to_update, light);
+    std::erase(world->environment_lights, light);
     // The world owns the light: erasing it from the list destroys it.
     std::erase_if(world->transient_lights,
                   [light](const std::unique_ptr<stLight>& owned) { return owned.get() == light; });
@@ -414,11 +417,21 @@ void WorldUpdateProps(W8World* world)
 // FUNCTION: WIZ8 0x0046df50
 void WorldUpdateLights(W8World* world)
 {
-    int count = static_cast<int>(world->lights_to_update.size());
-
-    for (int index = 0; index < count; ++index) {
-        world->lights_to_update[index]->Update();
-    }
+    // Authored lights are owned by the world. Cycle lights remain owned by
+    // their emitter and participate while attached to this world's scene.
+    for (const auto& light : world->transient_lights)
+        if (light->definition()) light->Update();
+    const auto update_cycles = [&](const auto& cycles) {
+        for (const auto& cycle : cycles) {
+            if (!cycle->m_plsLights) continue;
+            for (const auto& light : *cycle->m_plsLights)
+                if (light->definition() && light->getParent() == world->dynamic_scene)
+                    light->Update();
+        }
+    };
+    update_cycles(world->monsters);
+    update_cycles(world->missiles);
+    update_cycles(world->spell_visuals);
 }
 
 // FUNCTION: WIZ8 0x0046e860
@@ -531,21 +544,8 @@ void WorldSetRenderRange(W8World* world, float value)
         srAssertFail("pWorld", THREE_D_CPP, 0x28b, 0);
     }
     if (value != 0.0f) {
-        world->render_range0 = value;
         world->render_range = value;
-        MarkRendererReady();
     }
-}
-
-/* Reads back only the second of the pair, which is what makes 0x78 the live
-   copy and 0x74 the one nothing here consumes. */
-// FUNCTION: WIZ8 0x0046e3a0
-float WorldGetRenderRange(W8World* world)
-{
-    if (!world) {
-        srAssertFail("pWorld", THREE_D_CPP, 0x297, 0);
-    }
-    return world->render_range;
 }
 
 /* Pushes the world's view distance into the camera as the far clip plane; the
@@ -560,8 +560,7 @@ void WorldSetFarClip(W8World* world, float distance)
     }
     if (distance > 5.9604644775390625e-008) {
         world->camera->setClipRange(62.5, distance);
-        RefreshFogRanges();
-        MarkRendererReady();
+        RefreshFogRanges(*world);
     }
 }
 
@@ -582,17 +581,6 @@ void SetSceneAmbientLightWhite(srScene* scene)
         srAssertFail("psrScene", THREE_D_CPP, 0xf1, 0);
     }
     scene->setAmbientLight(1.0f, 1.0f, 1.0f);
-}
-
-// GLOBAL: WIZ8 0x00652db0
-W8GameData* g_octree_game_data;
-
-/* The octree builds read the level data through this slot; the recovered
-   caller passes the W8GameData object it just read. */
-// FUNCTION: WIZ8 0x0046D7D0
-void SetOctreeGameData(W8GameData* value)
-{
-    g_octree_game_data = value;
 }
 
 // FUNCTION: WIZ8 0x0046d880

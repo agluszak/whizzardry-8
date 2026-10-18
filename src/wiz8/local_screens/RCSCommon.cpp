@@ -61,7 +61,6 @@
 #include "wiz8/local_screens/RCSItemsPage.h"
 #include "wiz8/local_screens/RCSStatsPage.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
-#include "wiz8/local_screens/Screens.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/ui_input.h"
@@ -143,7 +142,6 @@ void SelectCampCharacter(int slot)
         }
         break;
     case W8_CAMP_PAGE_STATS:
-        g_camp_screen->effect_selection = 0;
         RebuildCampEffectList();
         g_camp_screen->character_info->InvalidateAll();
         break;
@@ -272,10 +270,10 @@ static void OpenLevelUpCharacterScreen(void)
                      "C:\\Projects\\Wizardry 8\\Local Screens\\RCSCommon.cpp", 0x888, 0);
     }
     g_current_screen_state.parameter_2 = giReviewCharSlot;
-    g_current_screen_state.parameter_3 = g_review_character;
-    g_pending_screen_state.parameter_3 = &g_status.buffers.Char[giReviewCharSlot];
+    g_current_screen_state.character = g_review_character;
+    g_pending_screen_state.character = &g_status.buffers.Char[giReviewCharSlot];
     g_pending_screen_state.mode = 2;
-    SetPendingScreenState(W8_SCREEN_CHARACTER);
+    g_pending_screen_state.id = W8_SCREEN_CHARACTER;
 }
 
 UiResult HandleCampDismissPortrait(const UiPointerEvent& event)
@@ -319,7 +317,8 @@ UiResult HandleCampPortrait(const UiPointerEvent& event, int target_slot)
                                             kCharacterEventNoFlags, kCharacterEventFullVolume);
                         return;
                     }
-                    AimAtCharacter(giReviewCharSlot, target_slot, W8_TARGETING_CONTEXT_CURRENT);
+                    AimAtCharacter(giReviewCharSlot, target_slot,
+                                   GetEditedActionContext(giReviewCharSlot));
                     StartBreathCycle(giReviewCharSlot, false);
                     return;
                 }
@@ -339,7 +338,7 @@ UiResult HandleCampPortrait(const UiPointerEvent& event, int target_slot)
                         return;
                     }
                     AimAtCharacterIndirect(giReviewCharSlot, target_slot,
-                                           W8_TARGETING_CONTEXT_CURRENT);
+                                           GetEditedActionContext(giReviewCharSlot));
                     StartBreathCycle(giReviewCharSlot, false);
                     return;
                 }
@@ -362,11 +361,11 @@ UiResult HandleCampCharacterHeader(const UiPointerEvent& event)
     if (event.action == UiPointerAction::Up && event.inside &&
         event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK)) {
         AfterUiDispatch([] {
-            g_current_screen_state.parameter_3 = g_review_character;
+            g_current_screen_state.character = g_review_character;
             g_current_screen_state.parameter_2 = giReviewCharSlot;
             g_pending_screen_state.mode = 1;
-            g_pending_screen_state.parameter_3 = g_review_character;
-            SetPendingScreenState(W8_SCREEN_CHARACTER);
+            g_pending_screen_state.character = g_review_character;
+            g_pending_screen_state.id = W8_SCREEN_CHARACTER;
         });
     }
     return UiResult::Handled;

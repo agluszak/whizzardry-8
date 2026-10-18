@@ -1,5 +1,6 @@
 #include "wiz8/level_specific_code/MtGigas2.h"
 
+#include <optional>
 #include <vector>
 
 #include "glm/ext/vector_float3.hpp"
@@ -41,7 +42,7 @@ struct W8NpcState;
 // GLOBAL: WIZ8 0x006834e8
 static stSound3D* g_mt_gigas_alarm_sound;
 // GLOBAL: WIZ8 0x006834ec
-static W8IntervalGate* g_mt_gigas_alarm_gate;
+static std::optional<W8IntervalGate> g_mt_gigas_alarm_gate;
 
 static void MtGigas2WireShock(void);
 static void MtGigas2UmpaniAlarm(int command);
@@ -318,23 +319,24 @@ static void MtGigas2UmpaniAlarm(int command)
 {
     glm::vec3 position;
 
-    if (PrepareUmpaniAlarmCommand(command, "UmpaniAlarm", g_mt_gigas_alarm_gate)) {
+    if (PrepareUmpaniAlarmCommand(command, "UmpaniAlarm",
+                                  g_mt_gigas_alarm_gate ? &*g_mt_gigas_alarm_gate : nullptr)) {
         return;
     }
     if (command != 0) {
-        if (g_mt_gigas_alarm_gate != 0 || g_mt_gigas_alarm_sound != 0) {
+        if (g_mt_gigas_alarm_gate || g_mt_gigas_alarm_sound != 0) {
             return;
         }
         position = glm::vec3(GetWorld()->camera->getLocation());
         if (static_cast<unsigned int>(command) > 0x1e) {
             command = 0x1e;
         }
-        g_mt_gigas_alarm_gate =
-            new W8IntervalGate(static_cast<float>(static_cast<unsigned int>(command)), false, true);
+        g_mt_gigas_alarm_gate.emplace(static_cast<float>(static_cast<unsigned int>(command)), false,
+                                      true);
         g_mt_gigas_alarm_sound =
             CreateAndPlaySoundNode("Data\\Sound\\VOCs\\VOC_HLLIntruder\\VOC_HLLIntruder_003.wav",
                                    position, 1.0f, 75.0f, true);
-        if (g_mt_gigas_alarm_sound != 0 && g_mt_gigas_alarm_gate != 0) {
+        if (g_mt_gigas_alarm_sound != 0 && g_mt_gigas_alarm_gate) {
             g_master_functions.push_back(MtGigas2UmpaniAlarm);
         }
     }
@@ -343,10 +345,7 @@ static void MtGigas2UmpaniAlarm(int command)
     }
     g_remove_current_master_function = true;
     g_mt_gigas_alarm_sound->Stop();
-    if (g_mt_gigas_alarm_gate != 0) {
-        delete g_mt_gigas_alarm_gate;
-    }
-    g_mt_gigas_alarm_gate = 0;
+    g_mt_gigas_alarm_gate.reset();
     SetTriggerVariableByName("UmpaniAlarm", 0);
 }
 

@@ -879,7 +879,7 @@ template<> struct Record<W8GlobalStatus> {
               bytes.subspan(offsetof(Disk, world_clock_ms), sizeof(Disk::world_clock_ms)));
         value(&runtime.party_order_slots,
               bytes.subspan(offsetof(Disk, party_order_slots), sizeof(Disk::party_order_slots)));
-        value(&runtime.current_level,
+        value(&runtime.resume_level,
               bytes.subspan(offsetof(Disk, current_level), sizeof(Disk::current_level)));
         value(&runtime.status_header_prefix, bytes.subspan(offsetof(Disk, status_header_prefix),
                                                            sizeof(Disk::status_header_prefix)));
@@ -1096,20 +1096,19 @@ template<class T> void read_exact(File& file, T& runtime,
     decode<T>(std::span(image).first(bytes), runtime);
 }
 // Read a count-prefixed table without publishing partially decoded records.
-template<class T> std::unique_ptr<T[]>
-read_database(File& file, unsigned int& count,
-              std::size_t maximum = std::numeric_limits<unsigned int>::max())
+template<class T>
+std::vector<T> read_database(File& file,
+                             std::size_t maximum = std::numeric_limits<unsigned int>::max())
 {
+    unsigned int count;
     file.read_exact(&count, sizeof(count));
     const auto remaining = file.size() - file.tell();
     if (count > maximum || remaining < 0 ||
         count > static_cast<std::uint64_t>(remaining) / sizeof(typename Record<T>::Disk)) {
         throw std::runtime_error("Invalid retail database record count");
     }
-    auto records = count ? std::make_unique<T[]>(count) : nullptr;
-    for (unsigned int i = 0; i < count; ++i) {
-        read_exact(file, records[i]);
-    }
+    std::vector<T> records(count);
+    for (auto& record : records) read_exact(file, record);
     return records;
 }
 
@@ -1146,6 +1145,12 @@ template<class T> typename Record<T>::Disk read_image(File& file)
 {
     typename Record<T>::Disk image{};
     file.read_exact(&image, sizeof(image));
+    return image;
+}
+template<class T> typename Record<T>::Disk read_image(W8Chunk& chunk)
+{
+    typename Record<T>::Disk image{};
+    chunk.ReadBytes(&image, sizeof(image));
     return image;
 }
 template<class T> void decode_image(const typename Record<T>::Disk& image, T& runtime)

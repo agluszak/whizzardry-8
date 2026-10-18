@@ -1,5 +1,6 @@
 #include "wiz8/level_specific_code/Arnika.h"
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -82,7 +83,7 @@ static stSound3D* g_warning_loop;
 // GLOBAL: WIZ8 0x006835E0
 static stSound3D* g_warning_oneshot;
 // GLOBAL: WIZ8 0x006835E4
-static W8IntervalGate* g_warning_gate;
+static std::optional<W8IntervalGate> g_warning_gate;
 // GLOBAL: WIZ8 0x006835E8
 static W8Monster* g_mookholo_monster;
 
@@ -343,7 +344,7 @@ void ArnikaWarningSound(int command)
             CreateLocationVar("WarningSound", 0x1e);
         }
         if (command == -1) {
-            if (g_warning_gate != 0) {
+            if (g_warning_gate) {
                 SetTriggerVariableByName("WarningSound",
                                          static_cast<int>(g_warning_gate->GetElapsedSeconds()));
             } else {
@@ -354,9 +355,9 @@ void ArnikaWarningSound(int command)
         if (!FindEntityByName("ULLspawn", &position, 0, 0)) {
             return;
         }
-        g_warning_gate = 0;
+        g_warning_gate.reset();
         if (command <= 0x1e) {
-            g_warning_gate = new W8IntervalGate(static_cast<float>(command), false, true);
+            g_warning_gate.emplace(static_cast<float>(command), false, true);
         } else {
             g_warning_oneshot = CreateAndPlaySoundNode(
                 "Data\\Sound\\VOCs\\VOC_HLLIntruder\\VOC_HLLIntruder_002.wav", position, 1.0f,
@@ -375,8 +376,8 @@ void ArnikaWarningSound(int command)
         }
         g_warning_oneshot = 0;
     }
-    if (g_warning_gate == 0) {
-        g_warning_gate = new W8IntervalGate(30.0f, false, true);
+    if (!g_warning_gate) {
+        g_warning_gate.emplace(30.0f, false, true);
         return;
     }
     if (!g_warning_gate->PollFinished()) {
@@ -384,8 +385,7 @@ void ArnikaWarningSound(int command)
     }
     g_remove_current_master_function = true;
     g_warning_loop->Stop();
-    delete g_warning_gate;
-    g_warning_gate = 0;
+    g_warning_gate.reset();
     SetTriggerVariableByName("WarningSound", 0);
 }
 
@@ -748,15 +748,14 @@ static W8Prop* RunElevatorLift(Trigger* lift)
 void ArnikaElevatorAdvance(int which)
 {
     W8Elevator* el;
-    W8Prop* prop;
+    /* An invalid state runs nothing and leaves no prop to wait on. */
+    W8Prop* prop = nullptr;
 
     if (which == 1) {
         el = &gEl01;
     } else {
         el = &gEl02;
     }
-    /* Invalid state leaves `prop` unset; retail reused the `which` register
-       for the out-prop slot, which is not authored source. */
     switch (el->state) {
     case 1:
         prop = RunElevatorDoor(el->pTopDoor, el->pTopDoorCollide);
@@ -938,7 +937,7 @@ int ArnikaPedestalItem(int* previous_item)
         if (info != 0) {
             position = info->p3D->movement.position;
             position.y += info->p3D->movement.height_offset;
-            g_gd_camera->LookAt(&position, false);
+            PartyCamera().LookAt(&position, false);
         }
         QueueNpcScriptNotice(npc, 0, 8, false, 0);
     }

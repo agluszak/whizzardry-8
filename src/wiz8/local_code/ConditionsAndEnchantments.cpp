@@ -105,7 +105,7 @@ void ReleaseMonsterConditionBindings(W8MonsterInfo* monster_info)
                 W8Character* character = &g_status.buffers.Char[party_slot];
                 W8CharacterConditionRecord* record = &character->conditions[slot_kind];
                 if ((condition == W8_CONDITION_NONE || character->uiCondition[condition] != 0) &&
-                    record->level_acquired == g_status.current_level &&
+                    record->level_acquired == GetLoadedLevelID() &&
                     record->source_monster == monster_info->location_id) {
                     cleared = true;
                     record->active = false;
@@ -119,7 +119,7 @@ void ReleaseMonsterConditionBindings(W8MonsterInfo* monster_info)
             if (!cleared && slot_kind == 0) {
                 for (unsigned int index = 0; index < gXStatus.monster_roster.live().size();
                      ++index) {
-                    W8MonsterInfo* bound = MonsterGetScriptPartByLocationIndex(index);
+                    W8MonsterInfo* bound = GetMonsterListEntry(index);
                     if (bound->elemental_summon == monster_info->location_id) {
                         bound->elemental_summon = -1;
                         break;
@@ -159,8 +159,8 @@ void RemoveCharacterCondition(int party_slot, W8Condition condition, bool announ
         }
         if (condition == W8_CONDITION_HEXED) {
             if (character->uiCondition[W8_CONDITION_INFATUATED] != 0 &&
-                GetLevelBand(g_status.current_level) != '\t' &&
-                GetLevelBand(g_status.current_level) != '\n') {
+                GetLevelBand(GetLoadedLevelID()) != '\t' &&
+                GetLevelBand(GetLoadedLevelID()) != '\n') {
                 return;
             }
         } else if (condition == W8_CONDITION_INSANE &&
@@ -213,7 +213,8 @@ void RemoveCharacterCondition(int party_slot, W8Condition condition, bool announ
             character->hp_current != 0 && character->highest_condition < W8_CONDITION_TURNCOAT &&
             gXStatus.fCombatMode &&
             CharacterCanSwitchTo(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, false, false)) {
-            RefreshCombatTargetHighlights(party_slot, &row->target_in_combat);
+            RefreshCombatTargetHighlights(
+                party_slot, SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT));
         }
     }
 }
@@ -996,7 +997,7 @@ void RemoveConditionFromEveryone(W8Condition condition)
 
     for (monster_index = 0; monster_index < gXStatus.monster_roster.live().size();
          ++monster_index) {
-        monster_info = MonsterGetScriptPartByLocationIndex(monster_index);
+        monster_info = GetMonsterListEntry(monster_index);
         if (monster_info->uiCondition[condition] != 0) {
             ClearMonsterCondition(monster_info->location_id, condition);
         }
@@ -1021,7 +1022,7 @@ void RemoveAllEnchantments(void)
             }
         }
         for (unsigned int index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
-            W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(index);
+            W8MonsterInfo* monster_info = GetMonsterListEntry(index);
 
             if (monster_info->enchantments[enchantment].turns != 0) {
                 ClearMonsterEnchantmentSlot(monster_info->location_id,
@@ -1076,7 +1077,7 @@ void BindMonsterToCharacterDependence(unsigned int party_slot, unsigned int depe
     }
 
     g_status.buffers.Char[party_slot].conditions[dependence_slot].level_acquired =
-        g_status.current_level;
+        GetLoadedLevelID();
     g_status.buffers.Char[party_slot].conditions[dependence_slot].source_monster = monster_id;
     g_status.buffers.Char[party_slot].conditions[dependence_slot].active = true;
     RebuildConditionsAndDerivedStats(party_slot);

@@ -256,7 +256,7 @@ void stModelInstance2D::process(const ProcessInfo& info, e_processType)
 
     if (render_state.glow_enabled) {
         if (glow_material == 0) {
-            glow_material = std::make_shared<stMaterial>();
+            glow_material = std::make_shared<srMaterial>();
             if (mesh.materials[0][0] != 0) {
                 glow_material->srMaterial::operator=(*mesh.materials[0][0]);
             }
@@ -378,27 +378,10 @@ void stModelInstance::process(const ProcessInfo& info, e_processType)
     RenderMeshes(*info.renderer);
 }
 
-namespace {
-struct
-    MaterialOverrideScope { // NOLINT(cppcoreguidelines-special-member-functions) aggregate scope guard, never copied
-    const bool diffuse_enabled = g_material_diffuse_scale_enabled;
-    const bool emissive_enabled = g_material_emissive_override_enabled;
-    const float diffuse = g_material_diffuse_scale;
-    const float emissive = g_material_emissive_override;
-    ~MaterialOverrideScope()
-    {
-        g_material_diffuse_scale_enabled = diffuse_enabled;
-        g_material_emissive_override_enabled = emissive_enabled;
-        g_material_diffuse_scale = diffuse;
-        g_material_emissive_override = emissive;
-    }
-};
-} // namespace
-
 /* Submit the instance's linked mesh chain. Pass one fills a detached TriMesh
    per model — animated vertex buffers when the model requests them, the
    damage-stage texture/active-polygon tables, the lazily built highlight
-   material or the global material overrides — and pushes each mesh through
+   material or the instance material overrides — and pushes each mesh through
    RenderTriMeshWithEquations. When the highlight RGBA is configured
    the chain is submitted again inflated along its normals into a shared
    scratch buffer with reversed winding, skipping the linked "blank" skin. */
@@ -424,7 +407,7 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
     glm::vec4 light;
     if (!model->vertex_lighting_ready) {
         light = glm::vec4(
-            (ambient_color * light_scale + g_environment_offset) * g_monster_light_scale, 1);
+            (ambient_color * light_scale + CurrentEnvironmentOffset()) * g_monster_light_scale, 1);
     } else {
         light = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
     }
@@ -467,7 +450,6 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
         linked.RenderTriMeshWithEquations(renderer, submitted, normals);
     };
     drawLinked([&](stMeshModel* model, bool first_pass) {
-        const MaterialOverrideScope overrides;
         model->SetAmbientColor(ambient_color);
         mesh = model->getTriMesh();
         if ((render_flags & RENDER_SHADOW) != 0 && first_pass) {
@@ -498,14 +480,12 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
              (highlight_colour.z == 0.0f) && (highlight_colour.w == 0.0f)) ||
             (highlight_pass_mode != 1)) {
             if (diffuse_scale_enabled) {
-                g_material_diffuse_scale = diffuse_scale;
+                mesh.diffuse_scale = diffuse_scale;
                 mesh.shaders[0].value = (mesh.shaders[0].value & 0xffffd7bf) | 0x44a0;
                 mesh.control_flags |= (1UL << srMeshModel::CONTROL_SORTED_RENDERING);
-                g_material_diffuse_scale_enabled = true;
             }
             if (emissive_override_enabled) {
-                g_material_emissive_override = emissive_override;
-                g_material_emissive_override_enabled = true;
+                mesh.emissive_override = emissive_override;
             }
         } else {
             mesh.vertex_materials[0][0] = 0;
@@ -572,10 +552,10 @@ static const glm::vec3 g_shadow_positions[6] = {{-250.0f, 250.0f, 0.0f}, {0.0f, 
                                                 {250.0f, 250.0f, 0.0f},  {0.0f, 250.0f, -250.0f},
                                                 {0.0f, -250.0f, 0.0f},   {0.0f, 250.0f, 250.0f}};
 
-static stMaterial& ShadowMaterial()
+static srMaterial& ShadowMaterial()
 {
-    static const std::unique_ptr<stMaterial> material = [] {
-        auto created = std::make_unique<stMaterial>();
+    static const std::unique_ptr<srMaterial> material = [] {
+        auto created = std::make_unique<srMaterial>();
         glm::vec4 color;
         color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
         created->setAmbient(color);
@@ -586,7 +566,6 @@ static stMaterial& ShadowMaterial()
         created->setEmissive(color);
         color = glm::vec4(1.0f, 1.0f, 1.0f, 0.0f);
         created->setDiffuse(color);
-        created->m_surface_flags = 0;
         return created;
     }();
     return *material;

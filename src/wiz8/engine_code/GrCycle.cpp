@@ -6,6 +6,7 @@
 #include <cstring>
 #include <deque>
 #include <exception>
+#include <functional>
 #include <list>
 #include <memory>
 #include <optional>
@@ -48,6 +49,7 @@
 #include "wiz8/engine_code/SoundEvent.h"
 #include "wiz8/engine_code/SpellVisual.h"
 #include "wiz8/engine_code/Trigger.hpp"
+#include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stMeshModel.h"
@@ -146,7 +148,7 @@ bool ShakeSystem::Instance::Evaluate(const glm::vec3& camera, float& amount)
 float ShakeSystem::Update(const glm::vec3& camera)
 {
     float intensity = 0.0f;
-    std::vector<void (*)()> callbacks;
+    std::vector<std::function<void()>> callbacks;
     callbacks.reserve(active.size());
     std::erase_if(active, [&](const auto& instance) {
         float amount;
@@ -155,13 +157,13 @@ float ShakeSystem::Update(const glm::vec3& camera)
             return false;
         }
         if (instance->definition.completion_callback) {
-            callbacks.push_back(instance->definition.completion_callback);
+            callbacks.push_back(std::move(instance->definition.completion_callback));
         }
         return true;
     });
     // Callbacks may start/stop shakes or destroy the definitions that keyed
     // them. Retire all completed instances before invoking any callback.
-    for (auto callback : callbacks) {
+    for (const auto& callback : callbacks) {
         callback();
     }
     return intensity;
@@ -202,15 +204,14 @@ void UpdateShakeEffects()
    version, and hand the open file plus its resource context to the typed cycle
    reader. */
 // FUNCTION: WIZ8 0x004A67E0
-bool LoadGrCycle(const W8GrCycleLoadContext* context, const char* mon_name, W8GrCycle* cycle,
-                 int cycle_index, int value, const char* directory, unsigned char object_type,
-                 const char* bitmap_directory)
+bool LoadGrCycle(std::string_view mon_name, W8GrCycle* cycle, int cycle_index, int value,
+                 const char* directory, unsigned char object_type, const char* bitmap_directory)
 try {
     W8ReadLevelInfo info;
     unsigned char version;
     bool success;
 
-    if (mon_name == 0 || cycle == 0) {
+    if (mon_name.empty() || cycle == 0) {
         srAssertFail("pacName && ppCycle", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp",
                      0x176, 0);
     }
@@ -230,10 +231,9 @@ try {
         ShutdownWithErrorBox(fmt::format("Couldn't open {}", mon_path));
     }
 
-    info.world = context->world;
+    info.world = cycle->owner_world;
     info.hFile = handle.get();
-    info.bitmap_folder = bitmap_path.c_str();
-    info.mesh_filename = mon_path.c_str();
+    info.bitmap_folder = wiz8::asset_path(bitmap_path);
     success = true;
 
     if ((handle->read(&version, 1).bytes == static_cast<std::size_t>(1)) == 0 || version != 1 ||
@@ -264,7 +264,7 @@ unsigned char ReadGrCycleData(W8ReadLevelInfo* info, W8GrCycle* cycle, int cycle
 try {
     unsigned char has_path;
     unsigned char has_particles;
-    unsigned char success;
+    unsigned char success = 0;
 
     if (info == 0) {
         srAssertFail("pInfo", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x1ba, 0);
@@ -279,7 +279,8 @@ try {
     if (has_particles != 0) {
         std::vector<std::unique_ptr<stParticle>> particles;
 
-        success = ReadWorldParticles(info, g_world->dynamic_scene, &particles);
+        success = ReadWorldParticles(info, info->world ? info->world->dynamic_scene : nullptr,
+                                     &particles);
         if (!particles.empty()) {
             int index;
 
@@ -319,7 +320,7 @@ try {
 }
 
 // FUNCTION: WIZ8 0x004a5e50
-W8GrCycle::W8GrCycle()
+W8GrCycle::W8GrCycle(W8World* owner) : owner_world(owner)
 {
     current_model_instance = 0;
     m_plsLights = 0;
@@ -334,7 +335,8 @@ W8GrCycle::W8GrCycle()
 
 // Copy runtime state, particles and the shadow; representations own borrowed lights.
 // FUNCTION: WIZ8 0x004a5f20
-W8GrCycle::W8GrCycle(const W8GrCycle& other) : W8GrObject(other), W8Navigator(other)
+W8GrCycle::W8GrCycle(const W8GrCycle& other, W8World* owner)
+    : W8GrObject(other), W8Navigator(other), owner_world(owner)
 {
     current_model_instance = 0;
     m_plsLights = 0;
@@ -367,13 +369,17 @@ W8GrCycle::~W8GrCycle()
     for (const auto& event : shake_events) {
         CameraShakes().Stop(event);
     }
+}
+
+void W8GrCycle::RetireParticles(W8World& world)
+{
     for (auto& event : particles) {
         auto owner = std::move(event.m_pstParticles);
         if (owner) owner->CancelAnimationCallback();
-        if (owner && owner->active_particle_count != 0 && g_world != nullptr) {
+        if (owner && owner->active_particle_count != 0) {
             owner->SetActive(1);
             owner->emission_limit = 1;
-            RetireParticle(g_world, std::move(owner));
+            RetireParticle(world, std::move(owner));
         }
     }
 }
@@ -532,7 +538,7 @@ void W8GrCycle::UpdateLights()
                     }
                 } else if ((representation->subcycle == 0 && cycle_definition->subcycle_min == 0) ||
                            light->getParent() == nullptr) {
-                    light->setParent(g_world->dynamic_scene, 0);
+                    light->setParent(owner_world ? owner_world->dynamic_scene : nullptr, 0);
                     light->m_path_index = 0;
                     light->m_path_direction = 1;
                     light->Reset();
@@ -548,7 +554,7 @@ void W8GrCycle::UpdateLights()
                     light->setParent(0, 0);
                 }
             } else if (light->getParent() == nullptr) {
-                light->setParent(g_world->dynamic_scene, 0);
+                light->setParent(owner_world ? owner_world->dynamic_scene : nullptr, 0);
             }
         }
     }
@@ -621,7 +627,7 @@ void W8GrCycle::AdvanceAnimationFrame(int, int)
         }
     }
 
-    if (AnimationIsRunning(animation) == 1) {
+    if (animation->path_lists == 1) {
         unsigned int count = AnimObjListCount(animation, representation->m_bLOD);
         unsigned int index;
 
@@ -657,9 +663,7 @@ void W8GrCycle::ResetRepresentation()
    representation's four-dword render block and its optional scale ride along,
    and the last instance placed becomes the cached one.
 
-   The ground shadow and the owned lights follow. The shadow deliberately
-   reparents to the global world rather than to the pWorld argument, which is
-   why both appear in one body. */
+   The ground shadow and owned lights attach to the supplied world as well. */
 // FUNCTION: WIZ8 0x004a7470
 void W8GrCycle::UpdateRepresentation(W8World* pWorld)
 {
@@ -677,7 +681,7 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
         return;
     }
     animation = GetCurrentAnimation();
-    if (AnimationIsRunning(animation) == 1) {
+    if (animation->path_lists == 1) {
         int count = static_cast<int>(AnimObjListCount(animation, pRep->m_bLOD));
 
         for (index = 0; index < count; ++index) {
@@ -761,13 +765,13 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
         m_ground_shadow->setLocation(location);
         m_ground_shadow->angle = GetYaw();
         m_ground_shadow->clearFlag(srNode::FLAG_TERMINATE);
-        m_ground_shadow->setParent(g_world->dynamic_scene, 0);
+        m_ground_shadow->setParent(pWorld->dynamic_scene, 0);
     }
     if (m_plsLights != 0) {
         int count = static_cast<int>(m_plsLights->size());
         glm::vec3 origin;
 
-        if (AnimationIsRunning(animation) == 1) {
+        if (animation->path_lists == 1) {
             origin = pRep->GetLocation();
         } else {
             vecPos = movement.position;
@@ -792,7 +796,7 @@ void W8GrCycle::DetachRepresentation(W8World* world)
     W8EmitterHost* representation = GetRepresentation();
     W8AnimObj* animation = GetCurrentAnimation();
 
-    if (AnimationIsRunning(animation) == 1) {
+    if (animation->path_lists == 1) {
         int count = static_cast<int>(AnimObjListCount(animation, representation->m_bLOD));
         for (int index = 0; index < count; ++index) {
             srModelInstance* mesh = AnimObjDispatchList(animation, representation->m_bLOD,
@@ -844,7 +848,7 @@ void W8GrCycle::UpdateParticleAttachments()
     int index;
     srModelInstance* psrMesh;
     W8EmitterHost* pRep;
-    stMeshModel* pMeshModel;
+    stMeshModel* pMeshModel = nullptr;
     glm::mat3 rotation;
     glm::dvec3 scale;
     glm::dvec3 location;
@@ -868,7 +872,7 @@ void W8GrCycle::UpdateParticleAttachments()
         W8AnimObj* animation = GetCurrentAnimation();
         W8EmitterHost* rep = GetRepresentation();
 
-        if (AnimationIsRunning(animation) == 1) {
+        if (animation->path_lists == 1) {
             psrMesh = AnimObjDispatchList(animation, rep->m_bLOD, 0);
         } else {
             psrMesh = SelectCycleFrameLod(rep->current_cycle, rep->subcycle, rep->m_bLOD);
@@ -1032,7 +1036,7 @@ srModelInstance* W8GrCycle::GetCurrentModelInstance()
 
     animation = GetCurrentAnimation();
     representation = GetRepresentation();
-    if (AnimationIsRunning(animation) == 1) {
+    if (animation->path_lists == 1) {
         return AnimObjDispatchList(animation, representation->m_bLOD, 0);
     }
 
@@ -1127,23 +1131,17 @@ void W8GrCycle::DetachCycleLights(std::vector<std::unique_ptr<stLight>>* lights)
             auto* light = owned.get();
 
             light->setParent(0, 1);
-            if (light->definition() != 0) {
-                wiz8::erase_first(g_world->lights_to_update, light);
-            }
         }
     }
 }
 
 void W8GrCycle::AttachCycleLights(std::vector<std::unique_ptr<stLight>>* lights)
 {
-    if (g_render_missile_lights && lights != 0) {
+    if (owner_world && g_render_missile_lights && lights != 0) {
         for (const auto& owned : *lights) {
             auto* light = owned.get();
 
-            light->setParent(g_world->dynamic_scene, 1);
-            if (light->definition() != 0) {
-                g_world->lights_to_update.push_back(light);
-            }
+            light->setParent(owner_world ? owner_world->dynamic_scene : nullptr, 1);
         }
     }
 }
@@ -1203,7 +1201,7 @@ unsigned char UnregisterGrCycle(W8GrCycle* cycle)
     return false;
 }
 
-void RegisterGrCycle(const char* name, W8GrCycle* cycle)
+void RegisterGrCycle(std::string_view name, W8GrCycle* cycle)
 {
     const auto entry = std::ranges::find_if(g_registered_cycles, [name](const auto& entry) {
         return CompareTextIgnoreAsciiCase(name, entry.name) == 0;
@@ -1211,7 +1209,7 @@ void RegisterGrCycle(const char* name, W8GrCycle* cycle)
     if (entry != g_registered_cycles.end()) {
         entry->cycles.push_back(cycle);
     } else {
-        g_registered_cycles.push_back({name, {cycle}});
+        g_registered_cycles.push_back({std::string(name), {cycle}});
     }
 }
 

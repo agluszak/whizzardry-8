@@ -26,6 +26,7 @@
 #include "retail_records.h"
 #include "surrender/srDebug.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/chunk.h"
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/conditions.h"
 #include "wiz8/engine_code/AnimRep.hpp"
@@ -84,7 +85,7 @@ static bool InitializeNpcCharacter(W8NpcState* npc, W8Character& character);
 static void InitializeNpcItemTable(W8NpcState* npc);
 static bool RestoreNpcMonster(W8NpcState* npc, const char* entity_name);
 static bool SaveNpcItemLists(wiz8::File& file);
-static bool LoadNpcItemLists(wiz8::File& file);
+static bool LoadNpcItemLists(W8Chunk& file);
 static bool NpcOffersService(W8NpcState* npc, unsigned int service_id);
 
 enum { W8_NPC_TOPIC_SLOTS = 5, W8_NPC_FACT_SLOTS = 14 };
@@ -146,7 +147,7 @@ static char GetNpcDisposition(W8NpcState* npc)
     if (npc->record->faction == 0) {
         return disposition;
     }
-    faction_disposition = GetFactionDispositionScore(npc->record->faction);
+    faction_disposition = g_factions[npc->record->faction].disposition_score;
     if (npc->record->monster_bound != 0) {
         return faction_disposition;
     }
@@ -549,7 +550,7 @@ void UpdateNpcPartyMember(int party_slot)
         ShowNotice(W8_FONT_PALETTE_RED, g_localized_strings[0x7d5]);
         return;
     }
-    if (NpcOffersService(npc, GetLevelBand(g_status.current_level))) {
+    if (NpcOffersService(npc, GetLevelBand(GetLoadedLevelID()))) {
         if (character->highest_condition > W8_CONDITION_WEBBED) {
             npc->event_pending = 1;
             BeginScriptedWorldAction();
@@ -727,7 +728,7 @@ bool CanNpcJoinParty(W8NpcState* npc)
     }
     /* The service ids are the GetLevelBand region numbering: an NPC who offers
        the current region's service stays on duty and refuses to join. */
-    if (NpcOffersService(npc, GetLevelBand(g_status.current_level))) {
+    if (NpcOffersService(npc, GetLevelBand(GetLoadedLevelID()))) {
         return false;
     }
     if (npc->name_style == W8_NPC_GLUMPH && GetFact(W8_FACT_UMISSION_SCUBA_DONE) != 0) {
@@ -901,7 +902,7 @@ void ProcessNpcPendingEvents(void)
             if (flagged) {
                 g_status.infatuation_pending = false;
             } else {
-                char band = GetLevelBand(g_status.current_level);
+                char band = GetLevelBand(GetLoadedLevelID());
                 if (band != 9 && band != 0xa) {
                     W8Character* character = &g_status.buffers.Char[g_status.sedexus_party_slot];
                     if (character->gender == W8_GENDER_MALE) {
@@ -920,7 +921,7 @@ void ProcessNpcPendingEvents(void)
             int service = 0;
             if (g_npc_services[0].service_id != 0xffffffff) {
                 while (g_npc_services[service].service_id !=
-                       static_cast<unsigned int>(GetLevelBand(g_status.current_level))) {
+                       static_cast<unsigned int>(GetLevelBand(GetLoadedLevelID()))) {
                     ++service;
                     if (g_npc_services[service].service_id == 0xffffffff) {
                         g_status.binding_reset_pending = false;
@@ -936,7 +937,7 @@ void ProcessNpcPendingEvents(void)
                     W8NpcState* npc = GetNpcState(row->npc_index);
                     if (character->highest_condition < W8_CONDITION_ASLEEP) {
                         int event = 0;
-                        if (GetLevelBand(g_status.current_level) != 0xd) {
+                        if (GetLevelBand(GetLoadedLevelID()) != 0xd) {
                             if (npc->name_style == W8_NPC_RODAN &&
                                 (!g_status.buffers.XChar[0].fOccupied ||
                                  GetNpcState(g_status.buffers.XChar[0].npc_index)->name_style !=
@@ -964,7 +965,7 @@ void ProcessNpcPendingEvents(void)
                         W8NpcState* bound = GetNpcState(row->npc_index);
                         if (bound != 0 && bound->service_flags[service] == 0) {
                             bound->service_flags[service] = 1;
-                            if (!NpcOffersService(bound, GetLevelBand(g_status.current_level)) &&
+                            if (!NpcOffersService(bound, GetLevelBand(GetLoadedLevelID())) &&
                                 service != 0xc && service != 0xd) {
                                 QueueCharacterEvent(
                                     character,
@@ -974,7 +975,7 @@ void ProcessNpcPendingEvents(void)
                         }
                         bound = GetNpcState(row->npc_index);
                         if (bound != 0) {
-                            char band = GetLevelBand(g_status.current_level);
+                            char band = GetLevelBand(GetLoadedLevelID());
                             for (int index = 0; g_npc_services[index].service_id != 0xffffffff;
                                  ++index) {
                                 if (g_npc_services[index].service_id ==
@@ -1093,7 +1094,7 @@ static void SelectStartNpcGreeting(void)
             head = glm::vec3(monster->movement.position.x,
                              monster->movement.position.y + monster->movement.height_offset,
                              monster->movement.position.z);
-            g_gd_camera->LookAt(&head, false);
+            PartyCamera().LookAt(&head, false);
             return;
         }
         npc = GetNpcStateByKind(0x18);
@@ -1137,7 +1138,7 @@ void ResetNpcStates(void)
     unsigned int npc_id;
 
     ReleaseNpcStates();
-    for (npc_id = 0; npc_id < gXStatus.uiNpcsInDatabase; ++npc_id) {
+    for (npc_id = 0; npc_id < g_npc_records.size(); ++npc_id) {
         if (g_npc_records[npc_id].monster_bound == 0) {
             CreateNpcRuntimeNode(npc_id);
         }
@@ -1279,8 +1280,8 @@ void BindNpcToMonster(unsigned char npc_id, bool has_monster, int location_id)
     npc->location_id = location_id;
     npc->is_present = has_monster;
     npc->has_monster = true;
-    npc->level_band = GetLevelBand(g_status.current_level);
-    npc->bound_level = static_cast<unsigned char>(g_status.current_level);
+    npc->level_band = GetLevelBand(GetLoadedLevelID());
+    npc->bound_level = static_cast<unsigned char>(GetLoadedLevelID());
     ReloadNpcScriptResources(npc);
 }
 
@@ -1415,7 +1416,7 @@ void ReleaseNpcBinding(int value)
    and later append the item lists through the second pass. The walk ends by
    backfilling runtime nodes for database records no loaded state claims. */
 // FUNCTION: WIZ8 0x00509FC0
-void LoadNpcStates(wiz8::File& file)
+void LoadNpcStates(W8Chunk& file)
 {
     unsigned char version = 3;
     unsigned int count;
@@ -1434,10 +1435,10 @@ void LoadNpcStates(wiz8::File& file)
             if (!committed) previous.swap(g_npc_states);
         }
     } rollback;
-    file.read_exact(&version, 1);
-    file.read_exact(&count, 4);
+    file.ReadBytes(&version, 1);
+    file.ReadBytes(&count, 4);
     if (count > static_cast<unsigned int>(std::numeric_limits<int>::max()) ||
-        count > (file.size() - file.tell()) / sizeof(wiz8::retail::NpcState)) {
+        count > (file.RemainingBytes()) / sizeof(wiz8::retail::NpcState)) {
         throw std::runtime_error("invalid NPC state count");
     }
     for (loaded = 0; loaded < count; ++loaded) {
@@ -1446,7 +1447,7 @@ void LoadNpcStates(wiz8::File& file)
         W8NpcState disk_state;
         wiz8::retail::decode_image(image, disk_state);
         const unsigned int record_id = disk_state.name_style == 0 ? loaded : disk_state.name_style;
-        if (record_id >= gXStatus.uiNpcsInDatabase ||
+        if (record_id >= g_npc_records.size() ||
             record_id > std::numeric_limits<unsigned char>::max()) {
             throw std::runtime_error("invalid NPC database index");
         }
@@ -1455,7 +1456,7 @@ void LoadNpcStates(wiz8::File& file)
         if (has_character) {
             // Version 3 sizes the character block; older saves store 0x185c bytes.
             size = 0x185c;
-            if (version >= 3) file.read_exact(&size, sizeof(size));
+            if (version >= 3) file.ReadBytes(&size, sizeof(size));
             if (size > wiz8::retail::kCharacterBytes) {
                 throw std::runtime_error("invalid NPC character size");
             }
@@ -1474,8 +1475,8 @@ void LoadNpcStates(wiz8::File& file)
         if (npc->is_grouped) {
             npc->is_present = false;
             npc->has_monster = true;
-            npc->level_band = GetLevelBand(g_status.current_level);
-            npc->bound_level = g_status.current_level;
+            npc->level_band = GetLevelBand(GetLoadedLevelID());
+            npc->bound_level = GetLoadedLevelID();
             ReloadNpcScriptResources(npc);
         }
         if (npc->spawned == 0xffff) {
@@ -1487,7 +1488,7 @@ void LoadNpcStates(wiz8::File& file)
             throw std::runtime_error("invalid NPC stock lists");
         }
     }
-    for (npc_id = 0; npc_id < gXStatus.uiNpcsInDatabase; ++npc_id) {
+    for (npc_id = 0; npc_id < g_npc_records.size(); ++npc_id) {
         if (g_npc_records[npc_id].monster_bound == 0 && GetNpcStateByKind(npc_id) == 0) {
             CreateNpcRuntimeNode(npc_id);
         }
@@ -1497,18 +1498,18 @@ void LoadNpcStates(wiz8::File& file)
 
 /* Stage all stock lists before replacing any live NPC's inventory. */
 // FUNCTION: WIZ8 0x0050AAF0
-static bool LoadNpcItemLists(wiz8::File& file)
+static bool LoadNpcItemLists(W8Chunk& file)
 try {
     std::vector<std::vector<W8NpcItemEntry>> pending(g_npc_states.size());
     for (auto& items : pending) {
         unsigned int item_count;
-        file.read_exact(&item_count, sizeof(item_count));
+        file.ReadBytes(&item_count, sizeof(item_count));
         if (item_count > static_cast<unsigned int>(std::numeric_limits<int>::max()) ||
-            item_count > (file.size() - file.tell()) / sizeof(W8NpcItemEntry)) {
+            item_count > (file.RemainingBytes()) / sizeof(W8NpcItemEntry)) {
             return false;
         }
         items.resize(item_count);
-        file.read_exact(items.data(), items.size() * sizeof(W8NpcItemEntry));
+        file.ReadBytes(items.data(), items.size() * sizeof(W8NpcItemEntry));
     }
     for (std::size_t npc_index = 0; npc_index < g_npc_states.size(); ++npc_index) {
         g_npc_states[npc_index]->items = std::move(pending[npc_index]);
@@ -1866,8 +1867,8 @@ static bool ProbeNpcPlacementNearParty(int /*party_slot*/, int /*mode*/, glm::ve
     party_position.y -= g_default_world_height;
     yaw = GetCameraYawRadians() + kTargetingQuarterPi;
     for (const int mode : {10, 20, 30}) {
-        const auto placement = g_octree->navigatorPositions(party_position, yaw, 1000.0f, 1, true,
-                                                            false, true, mode, false);
+        const auto placement = GetWorldOctree()->navigatorPositions(party_position, yaw, 1000.0f, 1,
+                                                                    true, false, true, mode, false);
         party_position = placement.source;
         if (!placement.positions.empty()) {
             *position_out = placement.positions.front();
@@ -1945,25 +1946,14 @@ void UpdateNpcEvents(void)
     }
 
     if (g_status.npc_restore_pending) {
-        W8NpcState* partner = 0;
-
         for (int slot = 0; slot < static_cast<int>(g_npc_states.size()); ++slot) {
             npc = g_npc_states[slot].get();
             if (npc->binding_unavailable != 0 || !npc->restored) {
                 g_status.npc_restore_pending = false;
                 continue;
             }
-            unsigned int kind = npc->name_style;
-
-            partner = 0;
-            for (const auto& state_owner : g_npc_states) {
-                auto* candidate = state_owner.get();
-                if (static_cast<unsigned int>(candidate->record->kind) == kind) {
-                    partner = candidate;
-                    break;
-                }
-            }
-            if (!partner->has_monster) {
+            W8NpcState* partner = GetNpcStateByKind(npc->name_style);
+            if (partner == nullptr || !partner->has_monster) {
                 g_status.npc_restore_pending = false;
                 continue;
             }
@@ -2092,7 +2082,7 @@ void RestoreNamedNpcAtLevel(int kind, char level, std::string_view entity_name)
     if (npc == 0) {
         npc = CreateNpcRuntimeNode(kind);
     }
-    if (level == g_status.current_level) {
+    if (level == GetLoadedLevelID()) {
         RestoreNpcMonster(npc, std::string(entity_name).c_str());
         npc->restored = false;
         return;
@@ -2111,7 +2101,7 @@ void ClearPendingNpcLevelFlags(void)
     for (std::size_t index = 0; index < g_npc_states.size(); ++index) {
         auto* npc = g_npc_states[index].get();
         if (npc->pending_restore && npc->binding_unavailable == 0 &&
-            npc->pending_restore_level == g_status.current_level) {
+            npc->pending_restore_level == GetLoadedLevelID()) {
             if (RestoreNpcMonster(npc, npc->restore_entity_name)) {
                 npc->pending_restore = false;
             }
@@ -2142,7 +2132,7 @@ void ReleaseNpcMonsterBindings(void)
     for (std::size_t index = 0; index < g_npc_states.size(); ++index) {
         auto* npc = g_npc_states[index].get();
         if (npc->pending_release && npc->binding_unavailable == 0 &&
-            npc->pending_release_level == g_status.current_level) {
+            npc->pending_release_level == GetLoadedLevelID()) {
             W8NpcState* companion = GetNpcStateByKind(npc->name_style);
             ReleaseNpcCompanionMonster(companion);
         }
@@ -2155,7 +2145,7 @@ void ReleaseNpcMonsterBindings(void)
 // FUNCTION: WIZ8 0x0050C440
 void ReleaseNpcMonsterBinding(W8NpcState* npc, char level)
 {
-    if (level == g_status.current_level) {
+    if (level == GetLoadedLevelID()) {
         W8NpcState* companion = GetNpcStateByKind(npc->name_style);
         ReleaseNpcCompanionMonster(companion);
     } else {
@@ -2245,12 +2235,12 @@ void HandleMarkedNpcEvent(W8NpcState* npc, char mode)
     if (npc->name_style == W8_NPC_VI_DOMINA) {
         SetFact(W8_FACT_INTRO_VI_DISAPPEARS, 0, false);
     }
-    if (npc->name_style == ')' && g_status.current_level == 0xd) {
+    if (npc->name_style == ')' && GetLoadedLevelID() == 0xd) {
         glm::vec3 position;
 
         if (GetLocationVarIDByName("CODESgtRubbleTeleport") == -1 ||
             GetLocationVarValueByName("CODESgtRubbleTeleport") == 0) {
-            if (FindEntityByName("RubbleCovert", &position, 0, 0)) {
+            if (monster_info != nullptr && FindEntityByName("RubbleCovert", &position, 0, 0)) {
                 monster_info->p3D->SetPosition(&position);
                 if (GetLocationVarIDByName("CODESgtRubbleTeleport") == -1) {
                     CreateLocationVar("CODESgtRubbleTeleport", 1);
@@ -2265,7 +2255,7 @@ void HandleMarkedNpcEvent(W8NpcState* npc, char mode)
             return;
         }
         if (GetLocationVarValueByName("CODESgtRubbleTeleport") == 1) {
-            if (FindEntityByName("rubbleUnderWater", &position, 0, 0)) {
+            if (monster_info != nullptr && FindEntityByName("rubbleUnderWater", &position, 0, 0)) {
                 monster_info->p3D->SetPosition(&position);
                 SetTriggerVariableByName("CODESgtRubbleTeleport", 2);
             }
@@ -2390,8 +2380,8 @@ void RebindNpcLevelTriggers(void)
                 trigger->activation_callback = NotifyNpcTriggerActivation;
                 trigger->m_lData1 = static_cast<int>(npc_index);
                 npc->has_monster = true;
-                npc->level_band = static_cast<unsigned char>(GetLevelBand(g_status.current_level));
-                npc->bound_level = static_cast<unsigned char>(g_status.current_level);
+                npc->level_band = static_cast<unsigned char>(GetLevelBand(GetLoadedLevelID()));
+                npc->bound_level = static_cast<unsigned char>(GetLoadedLevelID());
                 ReloadNpcScriptResources(npc);
                 npc->is_present = false;
             }
@@ -2471,8 +2461,7 @@ bool QueueNpcDepartureEvents(int destination_level)
                         if (g_npc_services[0].service_id != 0xffffffff) {
                             while (g_npc_services[other].service_id != 0xffffffff) {
                                 if (g_npc_services[other].service_id ==
-                                    static_cast<unsigned int>(
-                                        GetLevelBand(g_status.current_level))) {
+                                    static_cast<unsigned int>(GetLevelBand(GetLoadedLevelID()))) {
                                     if ((npc->record->service_flags & g_npc_services[other].bit) !=
                                         0) {
                                         serves_here = true;
@@ -2505,7 +2494,7 @@ bool QueueNpcDepartureEvents(int destination_level)
                 ++service;
             }
         }
-        if (GetLevelBand(g_status.current_level) == 0xd) {
+        if (GetLevelBand(GetLoadedLevelID()) == 0xd) {
             int event = 0;
             if (npc->name_style == W8_NPC_RODAN) {
                 bool paired = HasHealthyNpcPartner(W8_NPC_DRAZIC);

@@ -1,6 +1,6 @@
 #include "wiz8/engine_code/Camera.h"
 
-#include <vector>
+#include <memory>
 
 #include <SDL3/SDL_stdinc.h>
 
@@ -48,14 +48,10 @@ static int g_saved_environment_flag = 1;
 // FUNCTION: WIZ8 0x0048F280
 void UpdateCameraPathStateByName(W8World* world, const char* name, int active)
 {
-    unsigned int count = world->plsCameras.size();
-    if (count != 0) {
-        for (int index = 0; index < static_cast<int>(count); ++index) {
-            W8CameraPath* path = GetWorldCameraPath(world, index);
-            if (SDL_strcasecmp(path->name0, name) == 0) {
-                UpdateCameraPathState(world, path, active);
-                return;
-            }
+    for (const std::unique_ptr<W8CameraPath>& path : world->plsCameras) {
+        if (SDL_strcasecmp(path->name0, name) == 0) {
+            UpdateCameraPathState(world, path.get(), active);
+            return;
         }
     }
 }
@@ -92,7 +88,7 @@ void UpdateCameraPathState(W8World* world, W8CameraPath* path, int active)
     ApplyCameraRotation(&rotation);
     path->active = false;
     SetEnvironmentLoadFlag(g_saved_environment_flag);
-    if (g_status.current_level == 1) {
+    if (GetLoadedLevelID() == 1) {
         if (SDL_strcasecmp(path->name0, "Camera01") == 0) {
             g_npc_dialogue.Queue(W8NpcPortraitString{0x721});
             g_npc_dialogue.Queue(W8NpcStoryAction::path2_trigger);
@@ -112,13 +108,14 @@ void UpdateCameraPathState(W8World* world, W8CameraPath* path, int active)
                 target = position;
                 if (g_settings.camera_rotation_mode == W8_CAMERA_ROTATION_ALL_TARGETS) {
                     if (g_settings.camera_rotation_style == W8_CAMERA_ROTATION_SNAP) {
-                        if (g_gd_camera->ComputeTrackingOrientation(&target, &angle, &pitch) == 0) {
+                        if (PartyCamera().ComputeTrackingOrientation(&target, &angle, &pitch) ==
+                            0) {
                             CameraSnapToTarget(&target);
                         }
                     } else if (g_settings.camera_rotation_style == W8_CAMERA_ROTATION_SMOOTH &&
-                               g_gd_camera->ComputeTrackingOrientation(&target, &angle, &pitch) ==
+                               PartyCamera().ComputeTrackingOrientation(&target, &angle, &pitch) ==
                                    0) {
-                        g_gd_camera->BeginOrientationTransition(pitch, angle, false);
+                        PartyCamera().BeginOrientationTransition(pitch, angle, false);
                     }
                 }
                 MonsterForwardReferencePosition(monster_info->p3D, 0);
@@ -130,7 +127,7 @@ void UpdateCameraPathState(W8World* world, W8CameraPath* path, int active)
         }
         return;
     }
-    if (g_status.current_level == 4 && SDL_strcasecmp(path->name0, "CameraPath2") != 0) {
+    if (GetLoadedLevelID() == 4 && SDL_strcasecmp(path->name0, "CameraPath2") != 0) {
         if (SDL_strcasecmp(path->name0, "CameraPath3") == 0) {
             ClearMainGameTargetState();
             group = FindFirstMonsterByID(0x1b4);
@@ -188,8 +185,8 @@ void PointCameraAtMonster(W8MonsterInfo* monster_info, bool force, bool animate)
             CameraSnapToTarget(&position);
             return;
         }
-        if (g_gd_camera->ComputeTrackingOrientation(&position, &angle, &pitch) == 0) {
-            g_gd_camera->BeginOrientationTransition(pitch, angle, false);
+        if (PartyCamera().ComputeTrackingOrientation(&position, &angle, &pitch) == 0) {
+            PartyCamera().BeginOrientationTransition(pitch, angle, false);
         }
         return;
     }
@@ -197,11 +194,11 @@ void PointCameraAtMonster(W8MonsterInfo* monster_info, bool force, bool animate)
         return;
     }
     if (g_settings.camera_rotation_style == W8_CAMERA_ROTATION_SMOOTH) {
-        if (g_gd_camera->ComputeTrackingOrientation(&position, &angle, &pitch) == 0) {
-            g_gd_camera->BeginOrientationTransition(pitch, angle, false);
+        if (PartyCamera().ComputeTrackingOrientation(&position, &angle, &pitch) == 0) {
+            PartyCamera().BeginOrientationTransition(pitch, angle, false);
         }
     } else if (g_settings.camera_rotation_style == W8_CAMERA_ROTATION_SNAP &&
-               g_gd_camera->ComputeTrackingOrientation(&position, &pitch, &angle) == 0) {
+               PartyCamera().ComputeTrackingOrientation(&position, &pitch, &angle) == 0) {
         CameraSnapToTarget(&position);
     }
 }
@@ -221,8 +218,8 @@ void PointCameraAtTarget(glm::vec3* position, bool force, bool animate)
             CameraSnapToTarget(position);
             return;
         }
-        if (g_gd_camera->ComputeTrackingOrientation(position, &angle, &pitch) == 0) {
-            g_gd_camera->BeginOrientationTransition(pitch, angle, false);
+        if (PartyCamera().ComputeTrackingOrientation(position, &angle, &pitch) == 0) {
+            PartyCamera().BeginOrientationTransition(pitch, angle, false);
         }
         return;
     }
@@ -231,12 +228,12 @@ void PointCameraAtTarget(glm::vec3* position, bool force, bool animate)
     }
     switch (g_settings.camera_rotation_style) {
     case W8_CAMERA_ROTATION_SMOOTH:
-        if (g_gd_camera->ComputeTrackingOrientation(position, &angle, &pitch) == 0) {
-            g_gd_camera->BeginOrientationTransition(pitch, angle, false);
+        if (PartyCamera().ComputeTrackingOrientation(position, &angle, &pitch) == 0) {
+            PartyCamera().BeginOrientationTransition(pitch, angle, false);
         }
         break;
     case W8_CAMERA_ROTATION_SNAP:
-        if (g_gd_camera->ComputeTrackingOrientation(position, &pitch, &angle) == 0) {
+        if (PartyCamera().ComputeTrackingOrientation(position, &pitch, &angle) == 0) {
             CameraSnapToTarget(position);
         }
         break;

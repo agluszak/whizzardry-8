@@ -29,10 +29,10 @@ jobs:
       CCACHE_SLOPPINESS: pch_defines,time_macros
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: Install Clang 22 and Conan 2
+      - name: Install Clang 23 and Conan 2
         run: |
-          sudo apt-get update
-          sudo apt-get install -y clang-22 clang-tidy-22 ninja-build ccache cmake python3-venv mesa-vulkan-drivers
+          tools/install-llvm.sh 23 clang clang-tidy
+          sudo apt-get install -y ninja-build ccache cmake python3-venv mesa-vulkan-drivers
           python3 -m venv "$RUNNER_TEMP/conan-venv"
           "$RUNNER_TEMP/conan-venv/bin/pip" install 'conan==2.33.0'
           echo "$RUNNER_TEMP/conan-venv/bin" >> "$GITHUB_PATH"
@@ -41,9 +41,9 @@ jobs:
         uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
         with:
           path: ~/.conan2/p
-          key: conan-clang22-${{ matrix.preset }}-${{ hashFiles('conanfile.py', 'conan.lock', 'conan/profiles/*', 'conan/recipes/**') }}
+          key: conan-clang23-${{ matrix.preset }}-${{ hashFiles('conanfile.py', 'conan.lock', 'conan/profiles/*', 'conan/recipes/**') }}
           restore-keys: |
-            conan-clang22-${{ matrix.preset }}-
+            conan-clang23-${{ matrix.preset }}-
       - name: Select software Vulkan driver
         run: echo "VK_DRIVER_FILES=/usr/share/vulkan/icd.d/lvp_icd.json" >> "$GITHUB_ENV"
       - name: Create cache directories
@@ -52,9 +52,9 @@ jobs:
         id: ccache-cache
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: ccache-v2-${{ matrix.preset }}-clang22-${{ github.run_id }}
+          key: ccache-v2-${{ matrix.preset }}-clang23-${{ github.run_id }}
           restore-keys: |
-            ccache-v2-${{ matrix.preset }}-clang22-
+            ccache-v2-${{ matrix.preset }}-clang23-
       - name: Reset compiler cache statistics
         run: ccache --zero-stats
       - name: Resolve Conan dependencies
@@ -64,8 +64,8 @@ jobs:
             build_type=RelWithDebInfo
           fi
           conan export conan/recipes/libalsa
-          CC=clang-22 CXX=clang++-22 conan install . \
-            -pr:h conan/profiles/linux-clang22 -pr:b conan/profiles/linux-gcc15 \
+          CC=clang-23 CXX=clang++-23 conan install . \
+            -pr:h conan/profiles/linux-clang23 -pr:b conan/profiles/linux-gcc15 \
             -s:h build_type="$build_type" -c tools.system.package_manager:mode=install \
             -c tools.system.package_manager:sudo=True \
             --build=missing \
@@ -79,7 +79,7 @@ jobs:
         uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
         with:
           path: ~/.conan2/p
-          key: conan-clang22-${{ matrix.preset }}-${{ hashFiles('conanfile.py', 'conan.lock', 'conan/profiles/*', 'conan/recipes/**') }}
+          key: conan-clang23-${{ matrix.preset }}-${{ hashFiles('conanfile.py', 'conan.lock', 'conan/profiles/*', 'conan/recipes/**') }}
       - name: Configure
         run: |
           build_type=Debug
@@ -90,7 +90,7 @@ jobs:
           cmake --preset "${{ matrix.preset }}" \
             -DCMAKE_TOOLCHAIN_FILE="$PWD/build/${{ matrix.preset }}/conan/conan_toolchain.cmake" \
             -DCMAKE_BUILD_TYPE="$build_type" \
-            -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22 \
+            -DCMAKE_C_COMPILER=clang-23 -DCMAKE_CXX_COMPILER=clang++-23 \
             -DCMAKE_C_FLAGS_DEBUG="-O0 -g1" \
             -DCMAKE_CXX_FLAGS_DEBUG="-O0 -g1 -Xclang -fno-pch-timestamp" \
             -DCMAKE_CXX_FLAGS_RELWITHDEBINFO="-O1 -g1 -DNDEBUG -Xclang -fno-pch-timestamp" \
@@ -107,7 +107,7 @@ jobs:
         if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: ccache-v2-${{ matrix.preset }}-clang22-${{ github.run_id }}
+          key: ccache-v2-${{ matrix.preset }}-clang23-${{ github.run_id }}
       # The canonical GOG installer is stored in the decomp project's private
       # wiz8-ci-inputs release. Never put decrypted game files in Actions cache.
       - name: Check access to licensed game assets
@@ -219,10 +219,10 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: Install Clang 22 and Conan 2
+      - name: Install Clang 23 and Conan 2
         run: |
-          sudo apt-get update
-          sudo apt-get install -y clang-22 clang-tidy-22 ninja-build ccache cmake python3-venv mesa-vulkan-drivers
+          tools/install-llvm.sh 23 clang clang-tidy
+          sudo apt-get install -y ninja-build ccache cmake python3-venv mesa-vulkan-drivers
           python3 -m venv "$RUNNER_TEMP/conan-venv"
           "$RUNNER_TEMP/conan-venv/bin/pip" install 'conan==2.33.0'
           echo "$RUNNER_TEMP/conan-venv/bin" >> "$GITHUB_PATH"
@@ -231,9 +231,9 @@ jobs:
         uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
         with:
           path: ~/.conan2/p
-          key: conan-clang22-linux-${{ hashFiles('conanfile.py', 'conan.lock', 'conan/profiles/*', 'conan/recipes/**') }}
+          key: conan-clang23-linux-${{ hashFiles('conanfile.py', 'conan.lock', 'conan/profiles/*', 'conan/recipes/**') }}
           restore-keys: |
-            conan-clang22-linux-
+            conan-clang23-linux-
       - name: Determine analysis scope
         if: github.event_name == 'pull_request'
         env:
@@ -245,8 +245,8 @@ jobs:
       - name: Resolve Conan dependencies for analysis
         run: |
           conan export conan/recipes/libalsa
-          CC=clang-22 CXX=clang++-22 conan install . \
-            -pr:h conan/profiles/linux-clang22 -pr:b conan/profiles/linux-gcc15 \
+          CC=clang-23 CXX=clang++-23 conan install . \
+            -pr:h conan/profiles/linux-clang23 -pr:b conan/profiles/linux-gcc15 \
             -s:h build_type=Debug -c tools.system.package_manager:mode=install \
             -c tools.system.package_manager:sudo=True \
             --build=missing \
@@ -257,7 +257,7 @@ jobs:
           cmake --preset linux -B build/linux-tidy \
             -DCMAKE_TOOLCHAIN_FILE="$PWD/build/linux-tidy/conan/conan_toolchain.cmake" \
             -DCMAKE_BUILD_TYPE=Debug \
-            -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22 \
+            -DCMAKE_C_COMPILER=clang-23 -DCMAKE_CXX_COMPILER=clang++-23 \
             -DWIZ8_PRECOMPILE_HEADERS=OFF -DWIZ8_SURRENDER_UNITY_BUILD=OFF
           cmake --build build/linux-tidy --target surrender_shader_headers
       - name: Verify offline Metal and Direct3D shaders
@@ -266,14 +266,14 @@ jobs:
           cmake -S tools/shadercross -B build/shadercross -G Ninja \
             -DCMAKE_TOOLCHAIN_FILE="$PWD/build/linux-tidy/conan/conan_toolchain.cmake" \
             -DCMAKE_BUILD_TYPE=Debug \
-            -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22
+            -DCMAKE_C_COMPILER=clang-23 -DCMAKE_CXX_COMPILER=clang++-23
           cmake --build build/shadercross --target shadercross --parallel 2
           python3 tools/shadercross/generate.py --check \
             --shadercross build/shadercross/_deps/shadercross-build/shadercross
       - name: Run clang-tidy
         env:
-          CLANG_TIDY: clang-tidy-22
-          RUN_CLANG_TIDY: run-clang-tidy-22
+          CLANG_TIDY: clang-tidy-23
+          RUN_CLANG_TIDY: run-clang-tidy-23
         run: |
           if [[ "${{ github.event_name }}" == pull_request ]]; then
             ./tools/run-clang-tidy.sh build/linux-tidy --changed-files "$RUNNER_TEMP/static-analysis-changed"

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <deque>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string_view>
@@ -26,17 +27,6 @@ struct W8World;
 struct W8ReadLevelInfo;
 class W8EmitterHost;
 
-/* Callers build this trio before loading a .mon/.mls resource. The loader
-   carries world into its four-field read record and never reads the other
-   two, but callers still store into them: monster callers null
-   bitmap_directory and set directory to "Data\\Monsters", while the
-   spell factory points directory at the spell-bitmap tree. */
-struct W8GrCycleLoadContext {
-    W8World* world;
-    const char* bitmap_directory;
-    const char* directory;
-};
-
 class stLight;
 class stMeshModel;
 class stParticle;
@@ -61,7 +51,7 @@ struct ShakeDefinition {
     int cycle = 0;
     int frame = 0;
     int subcycle = 0;
-    void (*completion_callback)() = nullptr;
+    std::function<void()> completion_callback;
 };
 
 class ShakeSystem {
@@ -103,10 +93,15 @@ public:
 
 class W8GrCycle : public W8GrObject, public W8Navigator {
 public:
-    W8GrCycle();
-    W8GrCycle(const W8GrCycle& other); /* 0x004A5F20 */
+    explicit W8GrCycle(W8World* owner = nullptr);
+    // Borrowed lifetime: the world destroys its cycles before its scene.
+    W8World* const owner_world;
+    W8GrCycle(const W8GrCycle& other) : W8GrCycle(other, other.owner_world) {}
+    W8GrCycle(const W8GrCycle& other, W8World* owner); /* 0x004A5F20 */
     W8GrCycle& operator=(const W8GrCycle&) = delete;
     virtual ~W8GrCycle() override;
+    // Gameplay despawning lets active particles finish; level destruction does not.
+    void RetireParticles(W8World& world);
     // FUNCTION: WIZ8 0x004a7140
     virtual unsigned char CanEnterCycle(signed char) { return 1; }
     virtual void TickAnimation(float scale);           /* 0x004A6E20 */
@@ -177,9 +172,9 @@ public:
 
 W8GrCycle* FindFirstGrCycleByName(std::string_view name);
 unsigned char UnregisterGrCycle(W8GrCycle* cycle);
-void RegisterGrCycle(const char* name, W8GrCycle* cycle);
-bool LoadGrCycle(const W8GrCycleLoadContext* context, const char* mon_name, W8GrCycle* cycle,
-                 int cycle_index, int value, const char* directory, unsigned char object_type,
+void RegisterGrCycle(std::string_view name, W8GrCycle* cycle);
+bool LoadGrCycle(std::string_view mon_name, W8GrCycle* cycle, int cycle_index, int value,
+                 const char* directory, unsigned char object_type,
                  const char* bitmap_directory = 0);
 unsigned char ReadGrCycleData(W8ReadLevelInfo* info, W8GrCycle* cycle, int cycle_index, int value,
                               unsigned char object_type);

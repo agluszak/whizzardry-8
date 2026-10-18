@@ -37,31 +37,13 @@ public:
 
 public:
     void setLinearAttenuation(float range, float attenuation);
-    void disable(e_enable option);
-    void enable(e_enable option);
-    int isEnabled(e_enable option) const;
     glm::vec3 getAmbient() const;
-    glm::vec3 getDiffuse() const;
-    float getIntensity() const;
-    glm::vec3 getSpecular() const;
-    float getSpotAngle() const;
     glm::vec3 getSpotDirection() const;
-    float getSpotExponent() const;
     void setAmbient(const glm::vec3& color);
-    void setDiffuse(const glm::vec3& color);
     void setIntensity(float intensity);
-    void setSpecular(const glm::vec3& color);
-    void setSpotAngle(float angle);
     void setSpotDirection(const glm::vec3& direction);
-    void setSpotExponent(float exponent);
-    void setAttenuationModel(e_attenuationModel model);
-    e_attenuationModel getAttenuationModel() const;
     void setAttenuation(const glm::vec3& attenuation);
     glm::vec3 getAttenuation() const;
-    void setFarAttenuationRange(double start, double end);
-    void setNearAttenuationRange(double start, double end);
-    void setSafeRange(float range);
-    float getSafeRange() const;
 
     e_attenuationModel attenuation_model; /* 0x150 */
     double near_start;                    /* 0x158 */

@@ -1,4 +1,5 @@
 #include <array>
+#include <cstdint>
 #include <cstring>
 #include <memory>
 
@@ -16,6 +17,16 @@
 #include "surrender/srShader.h"
 
 namespace {
+srRendererDefs::VertexArrayInfo float_vertex_arrays(std::uint32_t mask)
+{
+    constexpr auto float_type = srRendererDefs::TYPE_FLOAT;
+    return {.mask = mask,
+            .count = 0,
+            .clip = 0,
+            .components = {},
+            .types = {float_type, float_type, float_type, float_type, float_type, float_type}};
+}
+
 struct Fixture {
     std::unique_ptr<SDLGPUDevice> device;
     Fixture()
@@ -41,10 +52,9 @@ struct Fixture {
         const float uv[]{u, v, 1, u, v, 1, u, v, 1};
         const std::array colors{color, color, color};
         const std::array weights{weight, weight, weight};
-        srRendererDefs::VertexArrayInfo arrays{};
-        arrays.mask = (1 << srRendererDefs::VERTEX_ARRAY_POSITIONS) |
-                      (1 << srRendererDefs::VERTEX_ARRAY_DIFFUSE) |
-                      (1 << srRendererDefs::VERTEX_ARRAY_TEXCOORD0);
+        auto arrays = float_vertex_arrays((1 << srRendererDefs::VERTEX_ARRAY_POSITIONS) |
+                                          (1 << srRendererDefs::VERTEX_ARRAY_DIFFUSE) |
+                                          (1 << srRendererDefs::VERTEX_ARRAY_TEXCOORD0));
         arrays.components[0] = arrays.components[1] = 4;
         arrays.components[4] = 3;
         arrays.arrays[0] = positions;
@@ -187,9 +197,8 @@ TEST_CASE("Indexed draws reuse corners and snapshot mutable source streams")
     std::array<std::array<float, 4>, 4> colors;
     colors.fill({1, 0, 0, 1});
     const std::array<w8_ulong, 6> indices{0, 1, 2, 2, 1, 3};
-    srRendererDefs::VertexArrayInfo arrays{};
-    arrays.mask =
-        (1 << srRendererDefs::VERTEX_ARRAY_POSITIONS) | (1 << srRendererDefs::VERTEX_ARRAY_DIFFUSE);
+    auto arrays = float_vertex_arrays((1 << srRendererDefs::VERTEX_ARRAY_POSITIONS) |
+                                      (1 << srRendererDefs::VERTEX_ARRAY_DIFFUSE));
     arrays.components[0] = arrays.components[1] = 4;
     arrays.arrays[0] = positions.data();
     arrays.arrays[1] = colors.data();

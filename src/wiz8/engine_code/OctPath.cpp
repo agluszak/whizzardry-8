@@ -92,7 +92,6 @@ const float g_patrol_cost_limit = 250000.0f;
 const float g_obstacle_radius_average_scale = 0.3333333f;
 
 // GLOBAL: WIZ8 0x00659c60
-W8PathingService* g_pathing;
 
 /* Engine Code\OctPath.cpp. The unit is named by its own assertions, which
    place every one of these bodies in OctPath.cpp rather than in Octree.cpp
@@ -169,7 +168,7 @@ void W8PathHeapHandle::DeleteRoot(W8PathSearchNode* node)
    Version one stores the four persistent edge fields separately; later files
    contain the complete packed 0x0e-byte edge record. */
 // FUNCTION: WIZ8 0x00459650
-unsigned char W8PathingService::ReadWaypointFile()
+unsigned char W8PathingService::ReadWaypointFile(W8Octree& octree)
 try {
     if (path_node_count == 0) {
         return false;
@@ -235,7 +234,7 @@ try {
     std::vector<bool> visited_nodes(waypoint_count);
 
     for (unsigned int surface = 1; surface < m_waypoints.size(); ++surface) {
-        g_octree->object_registry->UnregisterObject(W8_OCTREE_KIND_WAYPOINT, surface + 1);
+        octree.object_registry->UnregisterObject(W8_OCTREE_KIND_WAYPOINT, surface + 1);
     }
     m_waypoints = std::move(waypoints);
     m_pEdges = std::move(edges);
@@ -243,10 +242,9 @@ try {
     path_heap = std::move(heap);
     m_marked_path_nodes = std::move(marked);
     m_visited_path_nodes = std::move(visited_nodes);
-    edge_node_count = edge_nodes;
     for (unsigned int surface = 1; surface < waypoint_count; ++surface) {
-        const auto point = g_octree->cellAt(m_waypoints[surface].position);
-        g_octree->object_registry->MoveObjectToCell(W8_OCTREE_KIND_WAYPOINT, surface + 1, point);
+        const auto point = octree.cellAt(m_waypoints[surface].position);
+        octree.object_registry->MoveObjectToCell(W8_OCTREE_KIND_WAYPOINT, surface + 1, point);
     }
 
     if (version <= 2) {
@@ -465,13 +463,13 @@ void W8PathingService::SetConditionalPathFrame(unsigned int path_handle, unsigne
     }
 
     if (frame_missing) {
-        unsigned int current_value;
         lookup_index = path_handle;
         while (m_pulCondLookup[lookup_index] != 0) {
             unsigned int key_index = m_pulCondLookup[lookup_index];
             while (m_pulCondNodeKeys[key_index] != 0) {
                 unsigned int key = m_pulCondNodeKeys[key_index];
-                current_value = FindConditionalPathValue(key, m_pulCondNodeValues[key_index]);
+                unsigned int current_value =
+                    FindConditionalPathValue(key, m_pulCondNodeValues[key_index]);
                 if ((m_pulCondNodeValues[key_index] & W8_PATH_CELL_BLOCKING_FRAME) != 0 &&
                     (current_value & W8_PATH_CELL_INACTIVE) != 0) {
                     RemoveIndexValue(*index, key, current_value);
@@ -487,9 +485,11 @@ void W8PathingService::SetConditionalPathFrame(unsigned int path_handle, unsigne
         while (m_pulCondLookup[lookup_index] != 0) {
             unsigned int key_index = m_pulCondLookup[lookup_index];
             while (m_pulCondNodeKeys[key_index] != 0) {
+                unsigned int key = m_pulCondNodeKeys[key_index];
+                unsigned int current_value =
+                    FindConditionalPathValue(key, m_pulCondNodeValues[key_index]);
                 if ((m_pulCondNodeValues[key_index] & W8_PATH_CELL_BLOCKING_FRAME) == 0 &&
                     (current_value & W8_PATH_CELL_INACTIVE) == 0) {
-                    unsigned int key = m_pulCondNodeKeys[key_index];
                     RemoveIndexValue(*index, key, current_value);
                     current_value |= W8_PATH_CELL_INACTIVE;
                     InsertIndexValue(*index, key, current_value);
@@ -726,11 +726,11 @@ bool W8PathingService::TestAttachmentHopDoor(W8NavigatorAttachment* attachment)
             bounds.include(m_waypoints[destination].position);
             std::vector<w8_ulong> candidates;
             Trigger* selected = 0;
-            candidates = g_octree->queryObjects(bounds, W8_OCTREE_KIND_PROP, -1);
+            candidates = GetWorldOctree()->queryObjects(bounds, W8_OCTREE_KIND_PROP, -1);
             int count = candidates.size();
             if (count > 0) {
                 if (count == 1) {
-                    W8Prop* prop = g_world->collidable_props[candidates[0]];
+                    W8Prop* prop = GetWorld()->collidable_props[candidates[0]];
                     selected = prop->GetGDPropOwnerTrigger();
                     if (selected == 0) {
                         return false;
@@ -739,7 +739,7 @@ bool W8PathingService::TestAttachmentHopDoor(W8NavigatorAttachment* attachment)
                     double nearest_distance = 1e32;
                     const glm::vec3 center = bounds.center();
                     for (int index = 0; index < count; ++index) {
-                        W8Prop* prop = g_world->collidable_props[candidates[index]];
+                        W8Prop* prop = GetWorld()->collidable_props[candidates[index]];
                         Trigger* trigger = prop->GetGDPropOwnerTrigger();
                         if (trigger != 0) {
                             const glm::vec3 position = prop->GetPosition();
@@ -1360,50 +1360,6 @@ void W8PathingService::ReduceWaypointCosts(unsigned int waypoint, float amount)
     }
 }
 
-/* Move an integer path cell one compass step. Directions immediately outside
-   the eight-value range wrap once; values still outside it leave the cell
-   untouched. The jump-table order is north through north-west. */
-// FUNCTION: WIZ8 0x004622d0
-void StepPathCell(int* x, int* z, int direction)
-{
-    if (direction < 0) {
-        direction += 8;
-    } else if (direction > 7) {
-        direction -= 8;
-    }
-
-    switch (direction) {
-    case 0:
-        ++*z;
-        break;
-    case 1:
-        ++*x;
-        ++*z;
-        break;
-    case 2:
-        ++*x;
-        break;
-    case 3:
-        ++*x;
-        --*z;
-        break;
-    case 4:
-        --*z;
-        break;
-    case 5:
-        --*x;
-        --*z;
-        break;
-    case 6:
-        --*x;
-        break;
-    case 7:
-        --*x;
-        ++*z;
-        break;
-    }
-}
-
 /* Advance the attachment's probe cursor and accept its next stored waypoint
    only when the live path grid permits the span from the supplied position.
    W8_NAV_ATTACHMENT_START_WAYPOINT makes the first probe repeat the current path
@@ -1505,14 +1461,6 @@ bool W8PathingService::CanReachSearchNode(const glm::vec3* position, unsigned sh
 /* Pull the last planned point onto the requested contact shell when it only
    overshoots that shell by less than half a path cell. The adjusted point is
    also made the attachment's current point and republished to the octree. */
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored                                                                   \
-    "-Wsometimes-uninitialized" // uninit-ok: retail uses an unset target radius/position when
-// monster info or its model is absent; this can alter the published
-// endpoint.
-#pragma clang diagnostic ignored                                                                   \
-    "-Wuninitialized" // uninit-ok: retail uses an unset target radius/position when monster info or
-// its model is absent; this can alter the published endpoint.
 // FUNCTION: WIZ8 0x00465D70
 void W8PathingService::AdjustFinalPathEndpoint(W8NavigatorMovementState* movement, float radius,
                                                float separation)
@@ -1522,20 +1470,18 @@ void W8PathingService::AdjustFinalPathEndpoint(W8NavigatorMovementState* movemen
         return;
     }
 
-    /* Retail leaves the target radius and position unset when the monster
-       info or model is absent. */
-    float target_radius;
-    glm::vec3 target_position;
-    if (target_location <= 0) {
-        target_radius = g_startup_world->movement.alternate_radius;
-        target_position = g_startup_world->GetPosition();
-    } else {
+    /* Retail read an unset target radius and position when the monster info
+       or model is absent; without a target there is no shell to pull onto. */
+    W8Navigator* target = PartyNavigator();
+    if (target_location > 0) {
         W8MonsterInfo* info = FindMonster(target_location);
-        if (info != 0 && info->p3D != 0) {
-            target_radius = info->p3D->movement.alternate_radius;
-            target_position = info->p3D->GetPosition();
+        if (info == nullptr || info->p3D == nullptr) {
+            return;
         }
+        target = info->p3D;
     }
+    const float target_radius = target->movement.alternate_radius;
+    const glm::vec3 target_position = target->GetPosition();
 
     W8NavigatorAttachment* attachment = movement->attachment.get();
     glm::vec3* endpoint = &attachment->path[attachment->path_position_index].position;
@@ -1555,11 +1501,10 @@ void W8PathingService::AdjustFinalPathEndpoint(W8NavigatorMovementState* movemen
 
         if ((attachment->flags & 0x08000000) == 0) {
             attachment->RecordPosition(&adjusted);
-            g_octree->RegisterNavigatorCell(movement->location_id, &adjusted);
+            GetWorldOctree()->RegisterNavigatorCell(movement->location_id, &adjusted);
         }
     }
 }
-#pragma clang diagnostic pop
 
 /* Select one conditional frame for a GD prop's path cells. Entries belonging
    to every other frame first lose both prop-state bits. Entries belonging to
@@ -1615,10 +1560,10 @@ int W8PathingService::ProcessSearchNodeProps(unsigned short node_index, bool fir
     lower = node->position - lower_extent;
     upper = node->position + upper_extent;
 
-    const auto candidates = g_octree->queryObjects({lower, upper}, W8_OCTREE_KIND_PROP, -1);
+    const auto candidates = GetWorldOctree()->queryObjects({lower, upper}, W8_OCTREE_KIND_PROP, -1);
     unsigned int count = candidates.size();
     for (unsigned int index = 0; index < count; ++index) {
-        W8Prop* prop = g_world->collidable_props[candidates[index]];
+        W8Prop* prop = GetWorld()->collidable_props[candidates[index]];
         prop->CanBeUsedFrom(node->cell_x, node->cell_z, true);
         if (first_only) {
             return candidates[index];
@@ -1645,12 +1590,12 @@ unsigned int W8PathingService::CollectPathProbes(W8NavigatorMovementState* movem
     lower = movement->position - half_extent;
     upper = movement->position + half_extent;
 
-    m_path_candidates = g_octree->locationsInBox({lower, upper}, movement->location_id);
+    m_path_candidates = GetWorldOctree()->locationsInBox({lower, upper}, movement->location_id);
 
-    glm::vec3 player_position = g_startup_world->GetPosition();
+    glm::vec3 player_position = PartyNavigator()->GetPosition();
     glm::vec3 delta = player_position - movement->position;
     float distance = glm::length(delta);
-    float player_radius = g_startup_world->movement.alternate_radius;
+    float player_radius = PartyNavigator()->movement.alternate_radius;
     float overlap_radius = radius;
     if (player_radius < radius) {
         overlap_radius = player_radius;
@@ -1659,7 +1604,7 @@ unsigned int W8PathingService::CollectPathProbes(W8NavigatorMovementState* movem
         W8PathProbeVolume* probe = &m_path_probes[m_path_probe_count];
         probe->tag = 0;
         probe->outer_radius = player_radius;
-        probe->center = g_startup_world->GetPosition();
+        probe->center = PartyNavigator()->GetPosition();
         ++m_path_probe_count;
     }
 
@@ -1710,7 +1655,7 @@ short W8PathingService::TraceSearchNodeToTarget(unsigned short node,
     float bearing = NormalizeAngle(GetHeadingAngle(&m_search_nodes[node].position, &trace_target));
     glm::vec3 transformed = GetSearchTraceOffset(bearing);
     glm::vec3 trace_source = m_search_nodes[node].position + transformed;
-    return g_octree->TraceLineOfSight(&trace_source, &trace_target, true, -3, -3, true, 0);
+    return GetWorldOctree()->TraceLineOfSight(&trace_source, &trace_target, true, -3, -3, true, 0);
 }
 
 /* Build a bounded grid route from the navigator's current position to its
@@ -1732,7 +1677,6 @@ unsigned short W8PathingService::PlanMovement(W8NavigatorMovementState* movement
     }
 
     m_search_nodes.resize(1);
-    planner_location = movement->location_id;
     m_probe_cell_key = 0;
     m_probe_limit = static_cast<unsigned int>(-1);
     path_heap->open = {};
@@ -1773,7 +1717,7 @@ unsigned short W8PathingService::PlanMovement(W8NavigatorMovementState* movement
         lower = start - half_extent;
         upper = start + half_extent;
         CollectPathProbes(movement, radius);
-        m_path_candidates = g_octree->locationsInBox({lower, upper}, movement->location_id);
+        m_path_candidates = GetWorldOctree()->locationsInBox({lower, upper}, movement->location_id);
 
     } else {
         m_path_probe_count = 0;
@@ -1999,8 +1943,8 @@ unsigned short W8PathingService::PlanMovement(W8NavigatorMovementState* movement
         attachment->RecordPosition(&movement->position);
         attachment->path[attachment->path_position_index].position = movement->position;
         attachment->path_destination = attachment->path[attachment->path_position_index].position;
-        g_octree->RegisterNavigatorCell(movement->location_id, &movement->position);
-        g_startup_world->radius = g_startup_world->movement.alternate_radius;
+        GetWorldOctree()->RegisterNavigatorCell(movement->location_id, &movement->position);
+        PartyNavigator()->radius = PartyNavigator()->movement.alternate_radius;
         attachment->flags &= ~W8_NAV_ATTACHMENT_RESULT_MASK;
         return 0;
     }
@@ -2082,15 +2026,15 @@ unsigned short W8PathingService::PlanMovement(W8NavigatorMovementState* movement
     }
     if ((attachment->flags & 0x08000000) == 0) {
         attachment->RecordPosition(&m_search_nodes[m_probe_cell_key].position);
-        g_octree->RegisterNavigatorCell(movement->location_id,
-                                        &m_search_nodes[m_probe_cell_key].position);
+        GetWorldOctree()->RegisterNavigatorCell(movement->location_id,
+                                                &m_search_nodes[m_probe_cell_key].position);
     }
     if (movement->target_location_id >= 0 && !explicit_target) {
         AdjustFinalPathEndpoint(movement, radius, separation);
     }
     attachment->flags &= ~W8_NAV_ATTACHMENT_RESULT_MASK;
     attachment->flags |= result;
-    g_startup_world->radius = g_startup_world->movement.alternate_radius;
+    PartyNavigator()->radius = PartyNavigator()->movement.alternate_radius;
     return result;
 }
 
@@ -2165,10 +2109,10 @@ unsigned short W8PathingService::ResolveSearchNodeCollisions(W8NavigatorMovement
 
     W8PathSearchNode* node = &m_search_nodes[node_index];
     glm::vec3 blocking_direction;
-    glm::vec3 player_position = g_startup_world->GetPosition();
+    glm::vec3 player_position = PartyNavigator()->GetPosition();
     glm::vec3 player_delta = player_position - node->position;
     float distance = glm::length(player_delta);
-    float threshold = g_startup_world->movement.alternate_radius + radius;
+    float threshold = PartyNavigator()->movement.alternate_radius + radius;
     if (movement->target_location_id == 0) {
         threshold += separation;
     }
@@ -2292,9 +2236,9 @@ bool W8PathingService::TestSearchPositionVisibility(const glm::vec3* position,
     if (CalcRangeDistance(W8_RANGE_TOUCH) < distance && m_trace_mode == 1) {
         range_mode = 1;
     }
-    short trace =
-        g_octree->TraceLineOfSight(&trace_source, &trace_target, true, movement->location_id,
-                                   m_trace_target_location, true, range_mode);
+    short trace = GetWorldOctree()->TraceLineOfSight(&trace_source, &trace_target, true,
+                                                     movement->location_id, m_trace_target_location,
+                                                     true, range_mode);
     if (trace != 1 && (trace != -1 || TraceModeRejectsNoHit(m_trace_mode) != 0)) {
         return true;
     }
@@ -2325,7 +2269,7 @@ unsigned short W8PathingService::ConfigureMovementSearch(
     }
 
     movement->target_position =
-        g_octree->settleToGround(movement->target_position, true, 500).position;
+        GetWorldOctree()->settleToGround(movement->target_position, true, 500).position;
 
     unsigned short result = 0;
     W8NavigatorAttachment* attachment = movement->attachment.get();
@@ -2335,7 +2279,7 @@ unsigned short W8PathingService::ConfigureMovementSearch(
         float horizontal_clearance = glm::length(((glm::vec2(delta.x, delta.z)))) - radius;
         float target_radius;
         if (target_location == 0) {
-            target_radius = g_startup_world->movement.alternate_radius;
+            target_radius = PartyNavigator()->movement.alternate_radius;
         } else {
             W8Monster* target = GetMonsterByLocationID(target_location);
             target_radius = target->movement.alternate_radius;
@@ -2476,7 +2420,7 @@ unsigned int W8PathingService::StepAlongPath(W8NavigatorMovementState* movement,
             glm::vec3* position = &movement->position;
             glm::vec3 advanced = *position;
             bool on_path = attachment->AdvanceAlongPathPositions(
-                g_game_time_accumulator->GetFrameDelta() * movement->movement_speed *
+                GameTimeAccumulator().GetFrameDelta() * movement->movement_speed *
                     movement->movement_scale * g_rate * kWorldScale,
                 &advanced);
             arrived = !on_path;
@@ -2491,7 +2435,7 @@ unsigned int W8PathingService::StepAlongPath(W8NavigatorMovementState* movement,
                 attachment->path_length_origin = attachment->path[0].position;
                 attachment->segment_start = attachment->path[0].position;
                 movement->target_position = target;
-                g_octree->UpdateMonsterLocation(movement->location_id, &advanced);
+                GetWorldOctree()->UpdateMonsterLocation(movement->location_id, &advanced);
             }
         }
         return arrived;
@@ -2568,7 +2512,7 @@ unsigned int W8PathingService::StepAlongPath(W8NavigatorMovementState* movement,
             }
         }
         ActivateMovementTrigger(movement, false);
-        g_octree->UpdateMonsterLocation(movement->location_id, &movement->position);
+        GetWorldOctree()->UpdateMonsterLocation(movement->location_id, &movement->position);
         return arrived;
     }
     bool ignore_linked_navigator =
@@ -2608,41 +2552,43 @@ unsigned int W8PathingService::StepAlongPath(W8NavigatorMovementState* movement,
             limit = static_cast<float>(g_monster_poster_max_distance);
         }
         if (limit <= distance) {
-            g_octree->UpdateMonsterLocation(movement->location_id, &movement->position);
+            GetWorldOctree()->UpdateMonsterLocation(movement->location_id, &movement->position);
             return arrived;
         }
     }
-transitioned: {
-    unsigned char transition = HandlePathEdgeTransition(movement);
-    if (transition == 1) {
-        if (attachment->path_cursor != attachment->path_position_index) {
-            ActivateMovementTrigger(movement, true);
-            m_waypoints[attachment->path[attachment->path_cursor].value].visit_stamp =
-                static_cast<unsigned int>(g_game_time_accumulator->GetElapsed());
-            ++attachment->path_cursor;
-            g_octree->UpdateMonsterLocation(movement->location_id, &movement->position);
+transitioned:
+    {
+        unsigned char transition = HandlePathEdgeTransition(movement);
+        if (transition == 1) {
+            if (attachment->path_cursor != attachment->path_position_index) {
+                ActivateMovementTrigger(movement, true);
+                m_waypoints[attachment->path[attachment->path_cursor].value].visit_stamp =
+                    static_cast<unsigned int>(GameTimeAccumulator().GetElapsed());
+                ++attachment->path_cursor;
+                GetWorldOctree()->UpdateMonsterLocation(movement->location_id, &movement->position);
+                return arrived;
+            }
+            W8NavigatorAttachment* linked_attachment = m_linked_attachment;
+            if ((linked_attachment != 0) &&
+                (static_cast<float>(1.0) <=
+                 sqrt((attachment->path_destination.x - linked_attachment->path_destination.x) *
+                          (attachment->path_destination.x - linked_attachment->path_destination.x) +
+                      (attachment->path_destination.y - linked_attachment->path_destination.y) *
+                          (attachment->path_destination.y - linked_attachment->path_destination.y) +
+                      (attachment->path_destination.z - linked_attachment->path_destination.z) *
+                          (attachment->path_destination.z -
+                           linked_attachment->path_destination.z)))) {
+                PrepareLinkedNavigator(movement);
+                GetWorldOctree()->UpdateMonsterLocation(movement->location_id, &movement->position);
+                return arrived;
+            }
+        } else if (transition != 0) {
+            GetWorldOctree()->UpdateMonsterLocation(movement->location_id, &movement->position);
             return arrived;
         }
-        W8NavigatorAttachment* linked_attachment = m_linked_attachment;
-        if ((linked_attachment != 0) &&
-            (static_cast<float>(1.0) <=
-             sqrt((attachment->path_destination.x - linked_attachment->path_destination.x) *
-                      (attachment->path_destination.x - linked_attachment->path_destination.x) +
-                  (attachment->path_destination.y - linked_attachment->path_destination.y) *
-                      (attachment->path_destination.y - linked_attachment->path_destination.y) +
-                  (attachment->path_destination.z - linked_attachment->path_destination.z) *
-                      (attachment->path_destination.z - linked_attachment->path_destination.z)))) {
-            PrepareLinkedNavigator(movement);
-            g_octree->UpdateMonsterLocation(movement->location_id, &movement->position);
-            return arrived;
-        }
-    } else if (transition != 0) {
-        g_octree->UpdateMonsterLocation(movement->location_id, &movement->position);
-        return arrived;
     }
-}
     arrived = true;
-    g_octree->UpdateMonsterLocation(movement->location_id, &movement->position);
+    GetWorldOctree()->UpdateMonsterLocation(movement->location_id, &movement->position);
     return arrived;
 }
 
@@ -2720,7 +2666,7 @@ unsigned int W8PathingService::StepMonsterAlongPath(W8NavigatorMovementState* mo
     W8MonsterInfo* monster_info = FindMonster(movement->location_id);
     W8MonsterGroup* group = FindMonsterGroup(monster_info->monster_group_id);
     monster_info->p3D->group_linked = true;
-    float remaining = g_rate * g_game_time_accumulator->GetFrameDelta();
+    float remaining = g_rate * GameTimeAccumulator().GetFrameDelta();
     do {
         if (remaining <= 0.0f) {
             break;
@@ -2740,7 +2686,7 @@ unsigned int W8PathingService::StepMonsterAlongPath(W8NavigatorMovementState* mo
             do {
                 attachment->path_cursor = previous;
                 m_waypoints[attachment->path[attachment->path_cursor].value].visit_stamp =
-                    static_cast<unsigned int>(g_game_time_accumulator->GetElapsed());
+                    static_cast<unsigned int>(GameTimeAccumulator().GetElapsed());
                 ++previous;
             } while (previous < reached);
             attachment->path_cursor = reached;
@@ -2762,24 +2708,19 @@ unsigned int W8PathingService::StepMonsterAlongPath(W8NavigatorMovementState* mo
 
 /* Containers own the graph and search tables; retire the global service slot. */
 // FUNCTION: WIZ8 0x00457b10
-W8PathingService::~W8PathingService()
-{
-    g_pathing = 0;
-}
+W8PathingService::~W8PathingService() = default;
 
 /* Build the pathing service.
 
    Everything starts cleared except three hundred-bit sets, a reserve table
-   sized from the shared bound, and one state object. The service registers
-   itself in the global slot as it is built, which is what lets the rest of the
-   engine reach it without the octree handing it over. */
+   sized from the shared bound, and one state object. The containing octree owns the service; construction does not change the
+   active world. */
 // FUNCTION: WIZ8 0x004578e0
 W8PathingService::W8PathingService()
 {
     grid_scale = 0;
     span = 0;
     path_node_count = 0;
-    edge_node_count = 0;
     m_marked_path_nodes.assign(100, false);
     m_visited_path_nodes.assign(100, false);
     level_name = 0;
@@ -2795,7 +2736,7 @@ W8PathingService::W8PathingService()
     m_trace_mode = 0;
     trace_height_offset = 0;
     m_trace_target_yaw = 0;
-    g_pathing = this;
+
     g_runtime_world_scale = 500.0f;
 }
 
@@ -3796,7 +3737,7 @@ unsigned short W8PathingService::FindWaypoint(const glm::vec3& position, bool ex
     lower = query - half_extent;
     upper = query + half_extent;
 
-    auto candidates = g_octree->queryObjects({lower, upper}, W8_OCTREE_KIND_WAYPOINT, -1);
+    auto candidates = GetWorldOctree()->queryObjects({lower, upper}, W8_OCTREE_KIND_WAYPOINT, -1);
     int count = candidates.size();
     if (count == 0) {
         return result;
@@ -4006,7 +3947,7 @@ void W8PathingService::ActivateMovementTrigger(W8NavigatorMovementState* movemen
         upper.z = temporary;
     }
 
-    const auto candidates = g_octree->queryObjects({lower, upper}, W8_OCTREE_KIND_PROP, -1);
+    const auto candidates = GetWorldOctree()->queryObjects({lower, upper}, W8_OCTREE_KIND_PROP, -1);
     int count = candidates.size();
     if (count <= 0) {
         return;
@@ -4014,7 +3955,7 @@ void W8PathingService::ActivateMovementTrigger(W8NavigatorMovementState* movemen
 
     Trigger* selected = 0;
     if (count == 1) {
-        W8Prop* prop = g_world->collidable_props[candidates[0]];
+        W8Prop* prop = GetWorld()->collidable_props[candidates[0]];
         Trigger* trigger = prop->GetGDPropOwnerTrigger();
         if (prop->GetActivationState() == 0 || trigger == 0 ||
             (trigger->flags & W8_TRIGGER_ENABLED) == 0) {
@@ -4027,7 +3968,7 @@ void W8PathingService::ActivateMovementTrigger(W8NavigatorMovementState* movemen
         double nearest_distance = 1e32;
 
         for (int index = 0; index < count; ++index) {
-            W8Prop* prop = g_world->collidable_props[candidates[index]];
+            W8Prop* prop = GetWorld()->collidable_props[candidates[index]];
             Trigger* trigger = prop->GetGDPropOwnerTrigger();
             if (prop->GetActivationState() != 0 && trigger != 0 &&
                 (trigger->flags & W8_TRIGGER_ENABLED) != 0) {
@@ -4191,7 +4132,7 @@ bool W8PathParameters::QueryNearbyNavigators()
                       movement->position.z - extent);
     upper = glm::vec3(extent + movement->position.x, extent + movement->position.y,
                       extent + movement->position.z);
-    nearby_locations = g_octree->locationsInBox({lower, upper}, movement->location_id);
+    nearby_locations = GetWorldOctree()->locationsInBox({lower, upper}, movement->location_id);
 
     return !nearby_locations.empty();
 }
@@ -4207,7 +4148,7 @@ void W8PathParameters::IntegrateSteering()
     float scale;
     bool snapped;
 
-    step = g_rate * g_game_time_accumulator->GetFrameDelta();
+    step = g_rate * GameTimeAccumulator().GetFrameDelta();
     if (!blocked) {
         force.y = 0.0f;
         if (speed_limit <= 0.0f) {
@@ -4243,11 +4184,11 @@ void W8PathParameters::IntegrateSteering()
         }
         position = movement->position + velocity * step;
         delta = position;
-        snapped = g_octree->pathing->SnapWaypointPosition(&position, false);
+        snapped = GetWorldOctree()->pathing->SnapWaypointPosition(&position, false);
         if (!snapped) {
             delta = position - movement->position;
             const auto slide_direction =
-                g_octree->pathing->neighborSlideDirection(movement->position, delta);
+                GetWorldOctree()->pathing->neighborSlideDirection(movement->position, delta);
             if (!slide_direction) {
                 blocked = true;
             } else {
@@ -4255,7 +4196,7 @@ void W8PathParameters::IntegrateSteering()
                 scale = glm::dot(*slide_direction, delta);
                 delta += slide * scale;
                 position = movement->position + delta;
-                snapped = g_octree->pathing->SnapWaypointPosition(&position, false);
+                snapped = GetWorldOctree()->pathing->SnapWaypointPosition(&position, false);
                 if (!snapped) {
                     movement->target_yaw =
                         NormalizeAngle(static_cast<float>(atan2(slide.x, slide.z)));
@@ -4273,7 +4214,7 @@ void W8PathParameters::IntegrateSteering()
     }
     velocity = glm::vec3(0);
     position = movement->position;
-    g_octree->pathing->FindPathCell(&position, 0, true);
+    GetWorldOctree()->pathing->FindPathCell(&position, 0, true);
     movement->velocity = velocity;
     movement->position = position;
 }
@@ -4372,14 +4313,14 @@ bool W8PathParameters::PredictNavigatorCollision()
         }
     }
     if (movement->boundary_enabled) {
-        position = g_startup_world->GetPosition();
+        position = PartyNavigator()->GetPosition();
         delta = position - movement->position;
         combined = g_path_party_boundary_radius * kWorldScale;
         approach = radius * 5.0f + combined;
         if (approach * approach > glm::dot(delta, delta)) {
             approach = glm::dot(delta, direction);
             if (approach > 0.0f) {
-                relative = movement->velocity - g_level_data->camera_motion_velocity;
+                relative = movement->velocity - LevelMotion()->camera_motion_velocity;
                 relative = normalizedOrZero(relative);
                 approach = glm::dot(delta, relative);
                 approach = approach - (combined * approach) / glm::length(delta);
@@ -4426,7 +4367,7 @@ bool W8PathParameters::HandleObstacleAhead()
 
     if (velocity_length == 0.0f) {
         if (const auto slide =
-                g_octree->pathing->neighborSlideDirection(movement->position, direction)) {
+                GetWorldOctree()->pathing->neighborSlideDirection(movement->position, direction)) {
             escape = *slide;
             waypoint = movement->attachment->GetNextPosition();
             waypoint -= movement->position;
@@ -4445,7 +4386,7 @@ bool W8PathParameters::HandleObstacleAhead()
     } else {
         reach = g_path_prediction_time * velocity_length + radius;
         ahead = movement->position + direction * reach;
-        if (!g_octree->pathing->TestWaypointSpan(&movement->position, &ahead, true, true)) {
+        if (!GetWorldOctree()->pathing->TestWaypointSpan(&movement->position, &ahead, true, true)) {
             ahead -= movement->position;
             distance = glm::length(ahead);
             if (distance <= reach) {
@@ -4459,7 +4400,8 @@ bool W8PathParameters::HandleObstacleAhead()
                     steer = (1.0f - distance / reach) * acceleration;
                     brake = g_path_obstacle_braking_factor * steer;
                     steer = g_path_obstacle_steering_factor * steer;
-                    if (const auto slide = g_octree->pathing->obstacleDirection(direction)) {
+                    if (const auto slide =
+                            GetWorldOctree()->pathing->obstacleDirection(direction)) {
                         escape = *slide;
                         side = glm::dot(escape, perpendicular);
                         if (kObstacleSlideSideThreshold <= fabs(side)) {
@@ -4485,8 +4427,8 @@ bool W8PathParameters::HandleObstacleAhead()
                 return true;
             }
         } else if (kWorldScale < radius) {
-            clearance = g_octree->pathing->CompareDirectionalClearance(&movement->position,
-                                                                       &direction, radius);
+            clearance = GetWorldOctree()->pathing->CompareDirectionalClearance(&movement->position,
+                                                                               &direction, radius);
             if (1.0f < static_cast<float>(fabs(clearance))) {
                 force += perpendicular * clearance;
                 return true;

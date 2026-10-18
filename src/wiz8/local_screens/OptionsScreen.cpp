@@ -28,7 +28,6 @@
 #include "file_time.h"
 #include "himage.h"
 #include "input.h"
-#include "layouts/world.h"
 #include "mgs_commands.h"
 #include "soundman.h"
 #include "wiz8/button_interaction.h"
@@ -40,6 +39,7 @@
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Quality.h"
 #include "wiz8/engine_code/Video2.h"
+#include "wiz8/engine_code/World.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/screen_state.h"
@@ -538,7 +538,7 @@ void W8OptionsSaveLoadPanel::LoadSelectedSave()
     int selected_slot = m_current * 5 + 1 + m_selected;
     W8SaveSlot& slot = *g_options_screen->m_save_slots[selected_slot];
     if (slot.version_major + slot.version_minor * 0.1f + slot.version_patch * 0.01f <= 1.24f) {
-        SetLastSaveName(slot.name);
+        g_options_last_save_name = slot.name;
         if (g_status.game_started) {
             ClearHeldItemDisplay();
         }
@@ -546,7 +546,7 @@ void W8OptionsSaveLoadPanel::LoadSelectedSave()
         g_pending_screen_state.mode = 1;
         g_pending_screen_state.parameter = slot.level_id;
         g_pending_screen_state.name = slot.name;
-        SetPendingScreenState(W8_SCREEN_PLEASE_WAIT);
+        g_pending_screen_state.id = W8_SCREEN_PLEASE_WAIT;
     }
 }
 
@@ -560,7 +560,7 @@ void W8OptionsSaveLoadPanel::SaveSelectedSave(std::string_view previous_name)
         return;
     }
 
-    SetLastSaveName(slot.name);
+    g_options_last_save_name = slot.name;
     RequestScreenTransition();
     g_pending_screen_state.mode = 2;
     g_pending_screen_state.name = slot.name;
@@ -569,9 +569,8 @@ void W8OptionsSaveLoadPanel::SaveSelectedSave(std::string_view previous_name)
     // new file when a rename changes only capitalization.
     g_pending_screen_state.previous_save_name =
         SDL_strcasecmp(old_name.c_str(), slot.name.c_str()) == 0 ? std::string() : old_name;
-    g_pending_screen_state.parameter_3 =
-        new W8SaveScreenshot(g_options_screen->m_save_slots[0]->screenshot);
-    SetPendingScreenState(W8_SCREEN_PLEASE_WAIT);
+    g_pending_screen_state.save_screenshot = g_options_screen->m_save_slots[0]->screenshot;
+    g_pending_screen_state.id = W8_SCREEN_PLEASE_WAIT;
 }
 
 W8OptionsSaveRow::W8OptionsSaveRow(UiLayer& layer, W8OptionsSaveLoadPanel& owner, int index,
@@ -677,13 +676,13 @@ void W8OptionsKeyButton::SetKey(SDL_Keycode key)
     }
 
     MGSKeyBinding* binding =
-        g_mgs_keyboard->GetBinding(g_mgs_keyboard->FindBinding(m_primary_binding));
+        g_mgs_keyboard.GetBinding(g_mgs_keyboard.FindBinding(m_primary_binding));
     if (binding != 0) {
         binding->key = key;
         binding->unmapped_retail_key = 0;
     }
     if (m_secondary_binding != W8_MGS_COMMAND_NONE) {
-        binding = g_mgs_keyboard->GetBinding(g_mgs_keyboard->FindBinding(m_secondary_binding));
+        binding = g_mgs_keyboard.GetBinding(g_mgs_keyboard.FindBinding(m_secondary_binding));
         if (binding != 0) {
             binding->key = key;
             binding->unmapped_retail_key = 0;
@@ -809,7 +808,7 @@ void W8OptionsKeyboardPanel::RefreshBindingLabels()
     for (auto& key : m_keys) {
         if (key->m_primary_binding == W8_MGS_COMMAND_NONE) continue;
         auto* binding =
-            g_mgs_keyboard->GetBinding(g_mgs_keyboard->FindBinding(key->m_primary_binding));
+            g_mgs_keyboard.GetBinding(g_mgs_keyboard.FindBinding(key->m_primary_binding));
         if (binding) key->SetKeyText(binding->key);
     }
     InvalidateAll();
@@ -856,13 +855,13 @@ void W8OptionsKeyboardPanel::ClearDuplicateBinding(SDL_Keycode key)
     W8OptionsKeyRow* row = g_options_key_rows;
     for (;;) {
         MGSKeyBinding* binding =
-            g_mgs_keyboard->GetBinding(g_mgs_keyboard->FindBinding(row->primary_binding));
+            g_mgs_keyboard.GetBinding(g_mgs_keyboard.FindBinding(row->primary_binding));
         if (binding != 0 && binding->key == key) {
             binding->key = SDLK_UNKNOWN;
             binding->unmapped_retail_key = 0;
             if (g_options_key_rows[row_index].secondary_binding != W8_MGS_COMMAND_NONE) {
-                binding = g_mgs_keyboard->GetBinding(
-                    g_mgs_keyboard->FindBinding(g_options_key_rows[row_index].secondary_binding));
+                binding = g_mgs_keyboard.GetBinding(
+                    g_mgs_keyboard.FindBinding(g_options_key_rows[row_index].secondary_binding));
                 if (binding != 0) {
                     binding->key = SDLK_UNKNOWN;
                     binding->unmapped_retail_key = 0;
@@ -1745,7 +1744,7 @@ void W8OptionsScreen::OnDialogClosed(bool accepted, int)
 /* State 10 first transfers its option values back to the shared settings
    block, then releases every controller-owned control before returning the
    display and region systems to their common screen boundary. */
-unsigned char OptionsScreenLeave(int)
+bool OptionsScreenLeave(int)
 {
     if (!g_options_screen) return 1; // Already released when it was suspended.
     g_options_values.applying = 1;
@@ -1757,7 +1756,7 @@ unsigned char OptionsScreenLeave(int)
 /* State 10 creates the controller after resetting the shared 2D screen
    systems.  The selected panel is determined by the transition mode, with the
    in-game branch preserving the combat and save-state overrides. */
-unsigned char OptionsScreenEnter()
+bool OptionsScreenEnter()
 {
     int selected;
 
@@ -1804,8 +1803,8 @@ void OptionsScreenFrame()
     if (g_dev_mode) {
         RequestExitScreen();
     }
-    RepositionAmbientSounds(g_world);
-    UpdateAmbientSounds(g_world);
+    RepositionAmbientSounds();
+    UpdateAmbientSounds(GetWorld());
     ServiceMusicPlaylist();
     W8OptionsScreen* screen = g_options_screen.get();
 
@@ -1849,12 +1848,6 @@ void OptionsScreenFrame()
     }
     RenderFrame();
 }
-
-void SetLastSaveName(std::string_view target)
-{
-    g_options_last_save_name = target;
-}
-
 std::string_view GetLastSaveName(void)
 {
     return g_options_last_save_name;

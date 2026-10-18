@@ -29,7 +29,6 @@ struct W8CharacterCreationState {
     int spell_points_remaining;
     int spell_points_total;
     int magic_skill_bonus;
-    bool spells_complete;
 };
 
 void InitializeCharacterCreation(W8Character*, W8CharacterCreationState*);

@@ -15,8 +15,6 @@ void SetDice(W8Dice* dice, unsigned char count, unsigned char sides, short base)
 int RollDice(const W8Dice* dice);
 int RollDice(const W8Dice* dice, unsigned int rolls);
 int IntegerPower(int base, unsigned int exponent);
-void ClampInteger(int* value, int minimum, int maximum);
-void ClampUnsignedInteger(unsigned int* value, unsigned int minimum, unsigned int maximum);
 std::string FormatUnsignedIntegerWithCommas(unsigned int value);
 char* TitleCaseString(char* string);
 float ShortestAngleDistance(float first, float second);

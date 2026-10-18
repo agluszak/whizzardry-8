@@ -135,7 +135,7 @@ void EnsureRadarMapOverlay(void)
         bounds.bottom = 0x1c2;
         g_radar_backdrop = CreateSpriteFromSurface(GetFrameBufferSurface(), &bounds, 0, 1);
         Position2DNodeUnsnapped(g_radar_backdrop, 0x17, 0x166);
-        SetModelInstance2DDisplayState(g_radar_backdrop, 4);
+        g_radar_backdrop->render_state.display_state = 4;
     }
 }
 
@@ -240,13 +240,13 @@ void RefreshRadarMap(void)
 
     g_radar_compass = CreateSpriteFromSurface(*compass_surface, 0, 1, 1);
     Position2DNodeUnsnapped(g_radar_compass, 0x1e, 0x167);
-    SetModelInstance2DDisplayState(g_radar_compass, 4);
+    g_radar_compass->render_state.display_state = 4;
     g_radar_frame = CreateSpriteFromSurface(*frame_surface, 0, 1, 1);
     Position2DNodeUnsnapped(g_radar_frame, 0x1e, 0x167);
-    SetModelInstance2DDisplayState(g_radar_frame, 4);
+    g_radar_frame->render_state.display_state = 4;
     g_radar_map = CreateSpriteFromSurface(*map_surface, 0, 1, 1);
     Position2DNodeUnsnapped(g_radar_map, 0x1e, 0x167);
-    SetModelInstance2DDisplayState(g_radar_map, 4);
+    g_radar_map->render_state.display_state = 4;
 
     for (sector = 0; sector < 18; ++sector) {
         glm::vec4 color;
@@ -291,13 +291,13 @@ void UpdateRadarBlips(void)
         W8Item* item = world_item->p3D;
 
         if (item != 0) {
-            W8ItemRep* rep = static_cast<W8ItemRep*>(item->m_pRep);
+            W8ItemRep* rep = item->m_pRep.get();
             if ((rep->flags & W8_ITEM_ENTITY_NO_PICKUP) == 0) {
                 position = rep->GetLocation();
                 const auto bounds = item->GetCachedLocalBounds();
                 center = bounds.center();
                 position += center;
-                party = g_startup_world->GetPosition();
+                party = PartyNavigator()->GetPosition();
                 delta = position - party;
                 if ((detect_all || (rep->flags & W8_ITEM_ENTITY_RADAR_SEEN) != 0 ||
                      HasCameraLineOfSight(&position)) &&
@@ -310,8 +310,8 @@ void UpdateRadarBlips(void)
         }
     }
 
-    W8MonsterInfo* info = GetNextMonsterInfo(true);
-    while (info != 0) {
+    for (const auto& monster_owner : gXStatus.monster_roster.live()) {
+        auto* info = monster_owner.get();
         W8Monster* monster = info->p3D;
 
         if (monster != 0 && info->fActive && info->within_viewing_distance &&
@@ -321,19 +321,19 @@ void UpdateRadarBlips(void)
             if (gXStatus.fCombatMode && g_status.selected_character != -1 &&
                 g_status.buffers.XChar[g_status.selected_character].fOccupied != 0 &&
                 (static_cast<unsigned char>(1 << g_status.selected_character) &
-                 MonsterGetHighlightMask(monster)) != 0) {
+                 monster->m_pRep->highlight_mask) != 0) {
                 hostile = true;
             }
             if (!monster->IsRenderable(true) && !detect_all) {
                 if (info->party_threat.sight_state == W8_SIGHT_RECENT) {
                     const auto bounds = monster->GetAnimationBounds();
                     if (!bounds) {
-                        info = GetNextMonsterInfo(false);
+
                         continue;
                     }
                     center = bounds->center();
                     position = center + info->party_threat.own_position;
-                    party = g_startup_world->GetPosition();
+                    party = PartyNavigator()->GetPosition();
                     delta = position - party;
                     float distance = glm::length(delta);
                     if (distance - monster->radius < g_radar_outer_radius) {
@@ -355,13 +355,13 @@ void UpdateRadarBlips(void)
             } else {
                 const auto bounds = monster->GetAnimationBounds();
                 if (!bounds) {
-                    info = GetNextMonsterInfo(false);
+
                     continue;
                 }
                 center = bounds->center();
                 party = monster->GetPosition();
                 position = center + party;
-                party = g_startup_world->GetPosition();
+                party = PartyNavigator()->GetPosition();
                 delta = position - party;
                 float distance = glm::length(delta);
                 if (distance - monster->radius < g_radar_outer_radius) {
@@ -382,7 +382,6 @@ void UpdateRadarBlips(void)
                 }
             }
         }
-        info = GetNextMonsterInfo(false);
     }
 
     W8Missile* missile = NextMissile(true);
@@ -396,7 +395,7 @@ void UpdateRadarBlips(void)
             center = bounds->center();
             party = missile->GetPosition();
             position = center + party;
-            party = g_startup_world->GetPosition();
+            party = PartyNavigator()->GetPosition();
             delta = position - party;
             if (glm::length(delta) < g_radar_outer_radius) {
                 PlaceRadarBlip(&delta, 5, false);
@@ -459,7 +458,7 @@ static unsigned char PlaceRadarBlip(glm::vec3* delta, int group, bool lit)
 void ToggleRadarMapZoom(void)
 {
     if (!g_radar_zoomed) {
-        float radius = g_startup_world->radius;
+        float radius = PartyNavigator()->radius;
 
         g_radar_zoomed = true;
         g_radar_map_scale = 13.0f;
@@ -476,15 +475,15 @@ void ZoomRadarMapIn(void)
 {
     g_radar_zoomed = true;
     g_radar_map_scale = 13.0f;
-    g_radar_inner_radius = CalcRangeDistance(W8_RANGE_TOUCH) + g_startup_world->radius;
-    g_radar_outer_radius = CalcRangeDistance(W8_RANGE_LONG) + g_startup_world->radius;
+    g_radar_inner_radius = CalcRangeDistance(W8_RANGE_TOUCH) + PartyNavigator()->radius;
+    g_radar_outer_radius = CalcRangeDistance(W8_RANGE_LONG) + PartyNavigator()->radius;
     RefreshRadarMap();
 }
 
 // FUNCTION: WIZ8 0x005a3470
 void ZoomRadarMapOut(void)
 {
-    float radius = g_startup_world->radius;
+    float radius = PartyNavigator()->radius;
 
     g_radar_zoomed = false;
     g_radar_map_scale = 2.0f;

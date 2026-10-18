@@ -1,6 +1,8 @@
 #ifndef WIZ8_LOCAL_CODE_FACTIONS_H
 #define WIZ8_LOCAL_CODE_FACTIONS_H
 
+struct W8Chunk;
+
 namespace wiz8 {
 class File;
 }
@@ -70,8 +72,6 @@ W8FactionDisposition GetFactionDisposition(signed char faction);
    target is answered by the static relation matrix. */
 W8FactionDisposition GetFactionDispositionToward(signed char faction, signed char other);
 
-signed char GetFactionDispositionScore(signed char faction);
-
 /* Zero both faction tables and seed the starting dispositions and
    relations a fresh game begins with. */
 void ResetFactions(void);
@@ -84,11 +84,12 @@ void SetFactionDispositionBand(signed char faction, signed char band);
 void ApplyFactionChange(char mode, char op, signed char faction, int value);
 /* Bump the faction's offense count and apply the penalty the
    victim's record and the running count select. */
-void RecordFactionOffense(signed char faction, unsigned int victim_location_index);
+struct W8MonsterInfo;
+void RecordFactionOffense(signed char faction, W8MonsterInfo* monster_info);
 /* Clamp disposition_score + delta to 0..99, stamp the world clock
    when the band moved, and post the worsened/improved notice. */
 void AdjustFactionDisposition(signed char faction, char delta);
 /* FATA section save and load. */
 void SaveFactionState(wiz8::File& file);
-void LoadFactionState(wiz8::File& file);
+void LoadFactionState(W8Chunk& file);
 #endif

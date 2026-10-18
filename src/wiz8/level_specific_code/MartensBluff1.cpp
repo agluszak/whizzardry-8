@@ -1,5 +1,6 @@
 #include "wiz8/level_specific_code/MartensBluff1.h"
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -52,7 +53,7 @@ static stSound3D* g_gas_sound0;
 // GLOBAL: WIZ8 0x00683564
 static stSound3D* g_gas_sound1;
 // GLOBAL: WIZ8 0x00683568
-static W8IntervalGate* g_transport_gate;
+static std::optional<W8IntervalGate> g_transport_gate;
 
 /* The level-5 entry point called from InitializeLevelMasterFunctions:
    caches the J-Doorcontroller trigger, seeds DialState, kicks the Trang
@@ -97,7 +98,7 @@ void MartensBluff1Setup(void)
         if (GetLocationVarIDByName("DialState") != -1) {
             dial_state = GetLocationVarValueByName("DialState");
         }
-        particle = FindParticleByName(g_world, "GasSpray-00");
+        particle = FindParticleByName("GasSpray-00");
         if (particle != 0) {
             if ((dial_state & 0xf0000000) == 0) {
                 particle->SetActive(0);
@@ -107,7 +108,7 @@ void MartensBluff1Setup(void)
                     "Data\\Sound\\Ambients\\Air_Escaping_Loop.wav", position, 0.3f, 30.0f, true);
             }
         }
-        particle = FindParticleByName(g_world, "GasSpray-01");
+        particle = FindParticleByName("GasSpray-01");
         if (particle != 0) {
             if ((dial_state & 0xf0000000) == 0) {
                 particle->SetActive(0);
@@ -202,11 +203,11 @@ bool MartensBluff1GasSwitch(Trigger* pTrigger)
         return true;
     }
     state = (state & 0xfff0fff) | 0x1000;
-    particle = FindParticleByName(g_world, "GasSpray-00");
+    particle = FindParticleByName("GasSpray-00");
     if (particle != 0) {
         particle->SetActive(0);
     }
-    particle = FindParticleByName(g_world, "GasSpray-01");
+    particle = FindParticleByName("GasSpray-01");
     if (particle != 0) {
         particle->SetActive(0);
     }
@@ -243,14 +244,14 @@ bool MartensBluff1JDoorController(Trigger* pTrigger)
         return false;
     }
     g_trigger_feedback = true;
-    particle = FindParticleByName(g_world, "GasSpray-00");
+    particle = FindParticleByName("GasSpray-00");
     if (particle != 0) {
         particle->SetActive(1);
         position = glm::vec3(particle->getLocation());
         g_gas_sound0 = CreateAndPlaySoundNode("Data\\Sound\\Ambients\\Air_Escaping_Loop.wav",
                                               position, 0.3f, 30.0f, true);
     }
-    particle = FindParticleByName(g_world, "GasSpray-01");
+    particle = FindParticleByName("GasSpray-01");
     if (particle != 0) {
         particle->SetActive(1);
         position = glm::vec3(particle->getLocation());
@@ -331,10 +332,10 @@ void MartensBluff1Transporter(int command)
             if (GetFact(W8_FACT_TRANG_TELEPORTER_TOAST)) {
                 return;
             }
-            if (g_transport_gate != 0) {
+            if (g_transport_gate) {
                 g_transport_gate->Arm();
             } else {
-                g_transport_gate = new W8IntervalGate(60.0f, false, true);
+                g_transport_gate.emplace(60.0f, false, true);
             }
             if (GetLocationVarIDByName("TransportSpawn") != -1) {
                 g_transport_gate->SetProgress(GetLocationVarValueByName("TransportSpawn") *
@@ -346,7 +347,7 @@ void MartensBluff1Transporter(int command)
         if (command != -1) {
             return;
         }
-        if (g_transport_gate != 0) {
+        if (g_transport_gate) {
             progress = static_cast<int>(g_transport_gate->GetProgress() * g_octree_cell_scale);
         }
         if (GetLocationVarIDByName("TransportSpawn") == -1) {
@@ -356,7 +357,7 @@ void MartensBluff1Transporter(int command)
         }
         return;
     }
-    if (g_transport_gate == 0) {
+    if (!g_transport_gate) {
         g_remove_current_master_function = true;
         return;
     }
@@ -367,8 +368,7 @@ void MartensBluff1Transporter(int command)
         g_transport_gate->Arm();
         return;
     }
-    delete g_transport_gate;
-    g_transport_gate = 0;
+    g_transport_gate.reset();
     g_remove_current_master_function = true;
 }
 

@@ -34,7 +34,6 @@
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "layouts/world.h"
-#include "surrender/srMath.h"
 #include "surrender/srNode.h"
 #include "surrender/srTexture.h"
 #include "wiz8/design_rect.h"
@@ -43,6 +42,7 @@
 #include "wiz8/xstatus.h"
 #ifdef WIZ8_RUNTIME_TESTS
 #include "runtime_instrumentation.h"
+#include "wiz8/engine_code/Levels.h"
 #endif
 #include <SDL3/SDL_stdinc.h>
 
@@ -79,8 +79,6 @@
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/engine_code/stTextureAnim.h"
 #include "wiz8/fonts.h"
-#include "wiz8/gameplay_constants.h"
-#include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/MainGameScreen.h"
@@ -182,10 +180,6 @@ int g_surface_opaque_shader_bits;
 int g_surface_alpha_blend_shader_bits;
 // GLOBAL: WIZ8 0x6595e8
 DesignRect g_viewport;
-// GLOBAL: WIZ8 0x00659AB4
-W8World* g_world;
-// GLOBAL: WIZ8 0x00659AB8
-W8World* g_secondary_world;
 // GLOBAL: WIZ8 0x652da4
 bool g_camera_sway_active;
 // GLOBAL: WIZ8 0x5ebb1c
@@ -197,15 +191,9 @@ extern const float g_viewport_y_scale = 1.0f / 480.0f;
 unsigned int g_active_page;
 // GLOBAL: WIZ8 0x006596d4
 int g_video_inspector_mode;
-// GLOBAL: WIZ8 0x006596ec
-int g_overlay_render_mode;
-// GLOBAL: WIZ8 0x006596f0
-int g_paired_render_mode;
 // GLOBAL: WIZ8 0x65409c
 // GLOBAL: WIZ8 0x659704
 float g_frames_per_second;
-// GLOBAL: WIZ8 0x659708
-float g_seconds_per_frame;
 
 // GLOBAL: WIZ8 0x65968c
 srMeshModel* g_cursor_model;
@@ -223,10 +211,6 @@ int g_cursor_height;
 int g_cursor_image_width;
 // GLOBAL: WIZ8 0x6596b8
 int g_cursor_image_height;
-// GLOBAL: WIZ8 0x00603c50
-double g_cursor_image_u_extent = 1.0;
-// GLOBAL: WIZ8 0x00603c58
-double g_cursor_image_v_extent = 1.0;
 // GLOBAL: WIZ8 0x6596bc
 int g_cursor_hotspot_x;
 // GLOBAL: WIZ8 0x6596c0
@@ -264,7 +248,7 @@ void ResetVideoFrameState(void)
 bool InitializeVideoManager(void)
 {
     g_world_pick_enabled = true;
-    SetPickedModelInstance(0);
+    g_current_model_instance = 0;
     g_fps_frame_count = 0;
     g_fps_window_tick = w8_get_ticks();
     if (!CreateWizardryWindow()) {
@@ -521,12 +505,6 @@ void ClearVideoDirtyBlocks(void)
     ResetVideoDirtyState();
 }
 
-// FUNCTION: WIZ8 0x004277e0
-bool VideoInspectorIsEnabled(void)
-{
-    return g_video_inspector_enabled;
-}
-
 // FUNCTION: WIZ8 0x00422050
 void SuspendVideoManager(void)
 {
@@ -564,16 +542,6 @@ bool RestoreVideoManager(void)
     return 0;
 }
 
-/* The mode the engine falls back to: 640x480 at 16bpp, reported height first.
-   Nothing here reads a configuration - the three constants are inline. */
-// FUNCTION: WIZ8 0x00422af0
-void GetCurrentVideoSettings(unsigned short* height, unsigned short* width, unsigned char* depth)
-{
-    *height = 0x1e0;
-    *width = 0x280;
-    *depth = 0x10;
-}
-
 // FUNCTION: WIZ8 0x00421ff0
 unsigned char ClearPrimarySurface(void)
 {
@@ -604,7 +572,7 @@ void RenderScene(srScene* scene, srCamera* camera, const DesignRect* viewport, b
         g_gerd->setViewPort(rect.x, rect.y, rect.w, rect.h);
         g_gerd->setScissor(rect.x, rect.y, rect.w, rect.h);
 #ifdef WIZ8_RUNTIME_TESTS
-        if (g_world != 0 && scene == g_world->static_scene.get()) {
+        if (GetWorld() != 0 && scene == GetWorld()->static_scene.get()) {
             RuntimeWorldRenderData data = ObserveWorldRenderState();
             data.applied_viewport[0] = rect.x;
             data.applied_viewport[1] = rect.y;
@@ -615,7 +583,7 @@ void RenderScene(srScene* scene, srCamera* camera, const DesignRect* viewport, b
 #endif
     }
     if (!preserve_fog) {
-        const auto fog = g_world ? g_world->static_scene->getFogColor() : glm::vec3(0);
+        const auto fog = GetWorld() ? GetWorld()->static_scene->getFogColor() : glm::vec3(0);
         // NOLINTNEXTLINE(misc-include-cleaner)
         scene->setFogColor(glm::clamp(fog, 0.0f, 1.0f));
     }
@@ -632,14 +600,14 @@ static RuntimeWorldRenderData ObserveWorldRenderState()
 {
     RuntimeWorldRenderData data;
     memset(&data, 0, sizeof(data));
-    data.level = g_status.current_level;
+    data.level = GetLoadedLevelID();
     data.flags = (g_world_render_enabled ? 1UL : 0UL) | (g_world_blacked_out ? 2UL : 0UL) |
                  (g_video_active ? 4UL : 0UL) | (g_monster_shadow_updates_enabled ? 8UL : 0UL) |
                  (g_render_mesh_sky ? 16UL : 0UL) | (g_world_pick_enabled ? 32UL : 0UL);
-    data.scene_children = g_world->static_scene->getChildCount();
-    if (g_world->octree != 0 && !g_world->psrMeshes.empty()) {
-        for (w8_ulong index = 0; index < g_world->octree->m_meshCount; ++index) {
-            srModelInstance* instance = g_world->psrMeshes[index];
+    data.scene_children = GetWorld()->static_scene->getChildCount();
+    if (GetWorld()->octree != 0 && !GetWorld()->psrMeshes.empty()) {
+        for (w8_ulong index = 0; index < GetWorld()->octree->m_meshCount; ++index) {
+            srModelInstance* instance = GetWorld()->psrMeshes[index];
             if (instance != 0 && !instance->testFlag(srNode::FLAG_DISABLE)) {
                 ++data.visible_meshes;
             }
@@ -692,13 +660,13 @@ void RenderFrame(void)
         shifted_world_position = saved_world_position + g_trigger_action_scene_offset;
         SetWorldScenePosition(GetWorld(), &shifted_world_position);
     }
-    if (g_world != 0) {
-        if (!IsSkyEnabled()) {
-            GetWorldLightValue(g_world, &clear_color);
+    if (GetWorld() != 0) {
+        if (!g_sky_enabled) {
+            GetWorldLightValue(GetWorld(), &clear_color);
         } else {
             clear_color =
                 // NOLINTNEXTLINE(misc-include-cleaner)
-                glm::clamp(g_world->static_scene->getFogColor(), 0.0f, 1.0f);
+                glm::clamp(GetWorld()->static_scene->getFogColor(), 0.0f, 1.0f);
         }
     }
 
@@ -721,15 +689,16 @@ void RenderFrame(void)
         if (g_world_blacked_out) {
             goto clear_viewport;
         }
-    } else if (g_world_blacked_out || !g_render_mesh_sky || g_secondary_world == 0) {
-    clear_viewport: {
-        w8_ulong height = g_gerd->getHeight();
-        w8_ulong width = g_gerd->getWidth();
-        const auto rect = ToSurfaceRect(g_viewport, width, height);
-        g_gerd->setScissor(rect.x, rect.y, rect.w, rect.h);
-        g_gerd->clear(SDLGPUDevice::BUFFER_COLOR | SDLGPUDevice::BUFFER_DEPTH);
-        g_gerd->setScissor(0, 0, width, height);
-    }
+    } else if (g_world_blacked_out || !g_render_mesh_sky || GetSecondaryWorld() == 0) {
+    clear_viewport:
+        {
+            w8_ulong height = g_gerd->getHeight();
+            w8_ulong width = g_gerd->getWidth();
+            const auto rect = ToSurfaceRect(g_viewport, width, height);
+            g_gerd->setScissor(rect.x, rect.y, rect.w, rect.h);
+            g_gerd->clear(SDLGPUDevice::BUFFER_COLOR | SDLGPUDevice::BUFFER_DEPTH);
+            g_gerd->setScissor(0, 0, width, height);
+        }
     }
 
     first_page =
@@ -740,11 +709,11 @@ void RenderFrame(void)
     RenderScene(second_page, g_overlay_scenes.camera.get(), 0, false);
     g_gerd->setTextureReduction(g_resident_texture_policy);
 
-    if (g_render_mesh_sky && g_secondary_world != 0 && g_monster_shadow_updates_enabled) {
-        RenderScene(g_secondary_world->static_scene.get(), g_secondary_world->camera, &g_viewport,
-                    false);
+    if (g_render_mesh_sky && GetSecondaryWorld() != 0 && g_monster_shadow_updates_enabled) {
+        RenderScene(GetSecondaryWorld()->static_scene.get(), GetSecondaryWorld()->camera,
+                    &g_viewport, false);
     }
-    if (g_world != 0 && g_world_render_enabled) {
+    if (GetWorld() != 0 && g_world_render_enabled) {
 #ifdef WIZ8_RUNTIME_TESTS
         RuntimeWorldRenderData world_observation = ObserveWorldRenderState();
         RuntimeObserveWorld(RUNTIME_WORLD_RENDER_BEGIN, world_observation);
@@ -754,7 +723,7 @@ void RenderFrame(void)
             g_cursor_hotspot_y + g_cursor_height < g_viewport.top ||
             g_viewport.right < g_cursor_hotspot_x + g_cursor_width ||
             g_viewport.bottom < g_cursor_hotspot_y + g_cursor_height) {
-            RenderScene(g_world->static_scene.get(), g_world->camera, &g_viewport, true);
+            RenderScene(GetWorld()->static_scene.get(), GetWorld()->camera, &g_viewport, true);
         } else {
             int half_width = (g_viewport.right - g_viewport.left) / 2;
             int half_height = (g_viewport.bottom - g_viewport.top) / 2;
@@ -769,10 +738,10 @@ void RenderFrame(void)
             pick.triangle_index = 0;
             g_gerd->setPickKey(0);
             g_gerd->pushPick(pick);
-            RenderScene(g_world->static_scene.get(), g_world->camera, &g_viewport, true);
+            RenderScene(GetWorld()->static_scene.get(), GetWorld()->camera, &g_viewport, true);
             pick = *g_gerd->popPick();
-            SetPickedModelInstance(pick.selected_model);
-            ResolvePickedProp(g_world);
+            g_current_model_instance = pick.selected_model;
+            ResolvePickedProp();
         }
 #ifdef WIZ8_RUNTIME_TESTS
         RuntimeObserveWorld(RUNTIME_WORLD_RENDER_END, ObserveWorldRenderState());
@@ -826,7 +795,6 @@ void RenderFrame(void)
         g_fps_window_tick = w8_get_ticks();
         g_fps_frame_count = 0;
     }
-    g_seconds_per_frame = 1.0f / frames_per_second;
     g_frames_per_second = frames_per_second;
 
     if (g_trigger_action_active && GetWorld() != 0) {
@@ -850,17 +818,17 @@ unsigned char RenderWorldToSurface(SDL_Surface* target, const DesignRect* rect,
     const DesignRect bounds = rect != nullptr ? *rect : g_viewport;
     const auto viewport = ToSurfaceRect(bounds, gerd->getWidth(), gerd->getHeight());
     gerd->setViewPort(viewport.x, viewport.y, viewport.w, viewport.h);
-    if (IsFogEnabled()) {
-        GetLightDirection(&clear_color);
+    if (GetWorld() && GetWorld()->fog_enabled) {
+        clear_color = g_light_direction;
     } else {
-        GetWorldLightValue(g_world, &clear_color);
+        GetWorldLightValue(GetWorld(), &clear_color);
     }
     gerd->setClearColor(clear_color.x, clear_color.y, clear_color.z, 1.0f);
     gerd->clear(SDLGPUDevice::BUFFER_COLOR | SDLGPUDevice::BUFFER_DEPTH);
-    if (render_secondary && g_render_mesh_sky && g_secondary_world != 0) {
-        g_secondary_world->static_scene->render(*gerd, g_secondary_world->camera);
+    if (render_secondary && g_render_mesh_sky && GetSecondaryWorld() != 0) {
+        GetSecondaryWorld()->static_scene->render(*gerd, GetSecondaryWorld()->camera);
     }
-    g_world->static_scene->render(*gerd, g_world->camera);
+    GetWorld()->static_scene->render(*gerd, GetWorld()->camera);
     gerd->endFrame();
     gerd->flushRenderers();
     gerd->setTextureReduction(0);
@@ -893,11 +861,11 @@ void PublishLightDirection(const glm::vec3* direction)
         g_gerd->flush();
         g_gerd->setFogColor(glm::vec4(*direction, 0));
     }
-    if (g_world != 0) {
-        g_world->static_scene->setFogColor(*direction);
+    if (GetWorld() != 0) {
+        GetWorld()->static_scene->setFogColor(*direction);
     }
-    if (g_secondary_world != 0) {
-        g_secondary_world->static_scene->setFogColor(*direction);
+    if (GetSecondaryWorld() != 0) {
+        GetSecondaryWorld()->static_scene->setFogColor(*direction);
     }
 }
 
@@ -912,20 +880,6 @@ void SetRendererAutoFlipEnabled(bool enabled)
     }
 }
 
-/* The static scene's fog colour clamped into 0..1 for the caller; an empty
-   world reports black. */
-// FUNCTION: WIZ8 0x00427290
-void GetWorldColour(glm::vec3* colour)
-{
-    if (g_world != 0) {
-        *colour =
-            // NOLINTNEXTLINE(misc-include-cleaner)
-            glm::clamp(g_world->static_scene->getFogColor(), 0.0f, 1.0f);
-        return;
-    }
-    *colour = glm::vec3(0);
-}
-
 // FUNCTION: WIZ8 0x00427260
 bool RendererBufferIsLockable(void)
 {
@@ -937,7 +891,7 @@ void SetWorldModelPickingEnabled(bool enabled)
 {
     g_world_pick_enabled = enabled;
     if (!enabled) {
-        SetPickedModelInstance(0);
+        g_current_model_instance = 0;
     }
 }
 
@@ -1142,8 +1096,6 @@ bool SetMouseCursorFromVideoObject(const SpriteSheet& sprites, std::uint16_t reg
     }
     g_cursor_image_width = properties.width;
     g_cursor_image_height = properties.height;
-    g_cursor_image_u_extent = g_cursor_image_width * kInverseScreenWidth;
-    g_cursor_image_v_extent = g_cursor_image_height * kInverseScreenHeight;
     ClearMouseSurface();
     return BlitVideoObjectToColorSurface(sprites, region, *g_mouse_surface, 0, 0);
 }
@@ -1398,30 +1350,24 @@ void SetViewport(const DesignRect& bounds)
     fractional_right = g_viewport.right * g_viewport_x_scale;
     fractional_bottom = g_viewport.bottom * g_viewport_y_scale;
 
-    if (g_world != 0 && g_world->camera != 0) {
-        g_world->camera->setViewPlane(3.14159265358979323846 * 0.0055555557f * 85.0f,
-                                      3.14159265358979323846 * 0.0055555557f * 71.0f);
-        const auto view = g_world->camera->getViewPlane().rectangle;
+    if (GetWorld() != 0 && GetWorld()->camera != 0) {
+        GetWorld()->camera->setViewPlane(3.14159265358979323846 * 0.0055555557f * 85.0f,
+                                         3.14159265358979323846 * 0.0055555557f * 71.0f);
+        const auto view = GetWorld()->camera->getViewPlane().rectangle;
 
         plane.left = fractional_left * (view.right - view.left) + view.left;
         plane.right = fractional_right * (view.right - view.left) + view.left;
         plane.bottom = (1.0 - fractional_bottom) * (view.top - view.bottom) + view.bottom;
         plane.top = (1.0 - fractional_top) * (view.top - view.bottom) + view.bottom;
 
-        g_world->camera->setViewPlane(plane, 1.0);
-        if (g_secondary_world != 0) {
-            g_secondary_world->camera->setViewPlane(plane, 1.0);
+        GetWorld()->camera->setViewPlane(plane, 1.0);
+        if (GetSecondaryWorld() != 0) {
+            GetSecondaryWorld()->camera->setViewPlane(plane, 1.0);
         }
         if (g_camera_sway_active) {
-            SetCameraSwayMode(g_world->camera, 1);
+            SetCameraSwayMode(GetWorld()->camera, 1);
         }
     }
-}
-
-// FUNCTION: WIZ8 0x004229d0
-void PrintScreen(void)
-{
-    g_screenshot_pending = true;
 }
 
 /* The debug stats readout drawn over the primary surface: a black band plus
@@ -1468,7 +1414,7 @@ void DrawVideoInspector(int left, unsigned int top)
         if (g_video_inspector_mode == 2) {
             DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font,
                                   {text_left, text_top + 0xa},
-                                  fmt::format("OC: {:d}", g_world->level->m_submitted_polygons));
+                                  fmt::format("OC: {:d}", GetWorld()->level->m_submitted_polygons));
             DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font,
                                   {text_left, text_top + 0x14},
                                   fmt::format("PI: {:d}", statistics.input_triangles));
@@ -1549,8 +1495,8 @@ void VideoRemoveToolTip(void)
 }
 
 // FUNCTION: WIZ8 0x00424A90
-srNode* VideoMakePoster(std::shared_ptr<SDL_Surface> surface, float width, float height,
-                        bool additive)
+std::unique_ptr<stModelInstance> VideoMakePoster(std::shared_ptr<SDL_Surface> surface, float width,
+                                                 float height, bool additive)
 {
     auto texture = std::make_shared<srTexture>();
     texture->setMipmapBias(-8.0f);
@@ -1718,18 +1664,6 @@ void ClearNodeFlag(srNode* node)
     }
 }
 
-// FUNCTION: WIZ8 0x00427810
-srModelInstance* GetPickedModelInstance(void)
-{
-    return g_current_model_instance;
-}
-
-// FUNCTION: WIZ8 0x00427820
-void SetPickedModelInstance(srModelInstance* value)
-{
-    g_current_model_instance = value;
-}
-
 // FUNCTION: WIZ8 0x00428010
 unsigned char DisableCursorScene(void)
 {
@@ -1751,7 +1685,6 @@ unsigned char EnableCursorScene(void)
 void ReleaseObject(stModelInstance2D* object)
 {
     if ((object->overlay_scene_flag & 1) != 0) {
-        SetOverlayRenderMode();
     } else {
         SetRendererModePair();
     }
@@ -1765,24 +1698,13 @@ void RotateNodeInDegrees(srNode* node, int degrees)
 {
     node->setRotation(0.0, 0.0, 3.141592653589793 * 0.0055555557f * degrees);
     if ((static_cast<stModelInstance2D*>(node)->overlay_scene_flag & 1) != 0) {
-        SetOverlayRenderMode();
     } else {
         SetRendererModePair();
     }
 }
 
-// FUNCTION: WIZ8 0x00428A90
-void SetOverlayRenderMode(void)
-{
-    g_overlay_render_mode = 2;
-}
-
 // FUNCTION: WIZ8 0x00428AA0
-void SetRendererModePair(void)
-{
-    g_paired_render_mode = 2;
-    SetOverlayRenderMode();
-}
+void SetRendererModePair(void) {}
 
 /* Install a texture (often an stTextureAnim) on the mouse-cursor mesh. A null
    argument reuses the current cursor texture. */
@@ -1817,12 +1739,6 @@ void SetFullscreenSceneLast(unsigned char value)
 
 // FUNCTION: WIZ8 0x004298F0
 
-// FUNCTION: WIZ8 0x004229b0
-bool VideoIsFullScreen(void)
-{
-    return g_fullscreen;
-}
-
 // FUNCTION: WIZ8 0x00428b80
 int VideoDumpMemoryLeaks(void)
 {
@@ -1833,12 +1749,6 @@ int VideoDumpMemoryLeaks(void)
    0x42B830 address sits past the proven Video2 hull, so its placement stays
    provisional. */
 // FUNCTION: WIZ8 0x0042b830
-
-// FUNCTION: WIZ8 0x00427a70
-void VideoGetClientRect(SDL_Rect* rect)
-{
-    *rect = {0, 0, 640, 480};
-}
 
 SDL_Surface& GetFrameBufferSurface()
 {
@@ -1867,24 +1777,6 @@ void SaveJpegScreenshot(void)
         g_gerd->unlockBuffer();
     }
     g_screenshot_page = (g_screenshot_page - 1) & 1;
-}
-
-/* Tooltip placement state. The left/top pair records the last position the
-   tooltip builder used; the scale participates in the texture mapping. */
-// GLOBAL: WIZ8 0x00654ab8
-int g_help_box_x;
-// GLOBAL: WIZ8 0x00654abc
-int g_help_box_y;
-
-/* Pack normalized alpha/red/green/blue into the surface's high-to-low
-   bytes, using the current x87 rounding mode. */
-// FUNCTION: WIZ8 0x00429700
-void PackColourBytes(unsigned char* colour, double alpha, double red, double green, double blue)
-{
-    colour[3] = static_cast<unsigned char>(srFloatToInt(alpha * kColorByteScale));
-    colour[2] = static_cast<unsigned char>(srFloatToInt(red * kColorByteScale));
-    colour[1] = static_cast<unsigned char>(srFloatToInt(green * kColorByteScale));
-    colour[0] = static_cast<unsigned char>(srFloatToInt(blue * kColorByteScale));
 }
 
 /* Places one tooltip node at a screen position in normalized coordinates.
@@ -1917,12 +1809,10 @@ void PositionToolTipNode(srNode* node, int x, int y, bool positional)
     location.z = -0.0001;
     if ((instance->overlay_scene_flag & 1U) == 0) {
         location.y = 1.0 - (half_height + position_y);
-        g_paired_render_mode = 2;
     } else {
         location.y = 0.75 - (half_height + position_y) * 0.75;
     }
     node->setLocation(location);
-    SetOverlayRenderMode();
     instance->render_state.position_x = static_cast<short>(x);
     instance->render_state.position_y = static_cast<short>(y);
 }
@@ -2025,9 +1915,7 @@ stModelInstance2D* CreateSpriteFromSurface(SDL_Surface& surface, const W8Control
                                           overlay);
     } else {
         node = Video2DRectToPolygon(&source_rect, surface, g_overlay_scenes.user.get(), overlay);
-        g_paired_render_mode = 2;
     }
-    SetOverlayRenderMode();
     instance = static_cast<stModelInstance2D*>(node);
     if (instance != 0) {
         if (mode != 0) {
@@ -2045,7 +1933,7 @@ stModelInstance2D* CreateSpriteFromSurface(SDL_Surface& surface, const W8Control
         instance->render_state.width = width;
     }
     /* Retail writes display_state even when the node factory returned null. */
-    SetModelInstance2DDisplayState(instance, 3);
+    instance->render_state.display_state = 3;
     return instance;
 }
 
@@ -2083,7 +1971,7 @@ stModelInstance2D* CreateColoredPolygonSprite(int width, int height, const glm::
 
     instance->render_state.width = static_cast<unsigned short>(width);
     instance->render_state.height = static_cast<unsigned short>(height);
-    SetModelInstance2DDisplayState(instance, 3);
+    instance->render_state.display_state = 3;
     if (fullscreen) {
         instance->setParent(g_overlay_scenes.fullscreen.get(), 1);
     }
@@ -2094,12 +1982,6 @@ stModelInstance2D* CreateColoredPolygonSprite(int width, int height, const glm::
 void Position2DNodeUnsnapped(srNode* node, int x, int y)
 {
     PositionToolTipNode(node, x, y, false);
-}
-
-// FUNCTION: WIZ8 0x004264F0
-void SetModelInstance2DDisplayState(stModelInstance2D* object, unsigned char state)
-{
-    object->render_state.display_state = state;
 }
 
 /* Positions every live tooltip object left to right starting at x, advancing
@@ -2114,12 +1996,8 @@ void VideoPositionToolTip(std::int32_t x, std::int32_t y)
             PositionToolTipNode(node, offset, y, true);
             offset += node->GetScaledWidth();
         }
-        g_help_box_y = y;
-        g_help_box_x = x;
         return;
     }
-    g_help_box_x = x;
-    g_help_box_y = y;
 }
 
 /* Copies the tooltip source rectangle into a size-rounded 16-bit surface,
@@ -2317,8 +2195,6 @@ void VideoToolTip(std::string_view text)
         PositionToolTipNode(node, offset, position_y, true);
         offset += node->GetScaledWidth();
     }
-    g_help_box_x = position_x;
-    g_help_box_y = position_y;
 }
 
 /* Renderer configuration helpers reached from the video device, not the
@@ -2336,13 +2212,9 @@ void SetResidentTexturePolicy(int policy)
     }
 }
 
-// GLOBAL: WIZ8 0x659718
-bool g_swap_interval_enabled;
-
 // FUNCTION: WIZ8 0x00426710
 void SetSwapInterval(bool enabled)
 {
-    g_swap_interval_enabled = enabled;
     g_gerd->setSwapInterval(enabled ? 1 : 0);
 }
 
@@ -2467,9 +2339,9 @@ unsigned int MeasureNodeRender(srNode* node)
     g_gerd->resetStatistics();
     g_gerd->beginFrame();
     process.renderer = g_gerd.get();
-    g_world->camera->process(process, srNode::PROCESS_PUSH);
+    GetWorld()->camera->process(process, srNode::PROCESS_PUSH);
     node->process(process, srNode::PROCESS_RENDER);
-    g_world->camera->process(process, srNode::PROCESS_POP);
+    GetWorld()->camera->process(process, srNode::PROCESS_POP);
     g_gerd->endFrame();
     g_gerd->flushRenderers();
     const auto statistics = g_gerd->getStatistics();
@@ -2487,7 +2359,8 @@ void EndRenderProbe(void)
 }
 
 // FUNCTION: WIZ8 0x00424BA0
-srNode* MakePosterQuad(std::shared_ptr<srTexture> texture, float width, float height, bool additive)
+std::unique_ptr<stModelInstance> MakePosterQuad(std::shared_ptr<srTexture> texture, float width,
+                                                float height, bool additive)
 {
     srShader shader;
     srTexture::Dimensions dimensions;
@@ -2510,11 +2383,9 @@ srNode* MakePosterQuad(std::shared_ptr<srTexture> texture, float width, float he
     model->setTexture(std::move(texture), 0, 0);
     model->setShader(shader, 0);
 
-    stModelInstance* instance = new stModelInstance(static_cast<srNode*>(0));
+    auto instance = std::make_unique<stModelInstance>(static_cast<srNode*>(0));
     instance->setName("VideoMakePoster");
-    if (instance != 0) {
-        instance->setModel(model);
-    }
+    instance->setModel(model);
     instance->render_flags |= stModelInstance::RENDER_NO_PICK;
     return instance;
 }
@@ -2524,38 +2395,6 @@ void DrawColorSurface(SDL_Surface* surface, int x, int y)
 {
     SDL_Rect destination{x, y, surface->w, surface->h};
     SDL_BlitSurface(surface, nullptr, g_primary_color_surface.get(), &destination);
-}
-
-// FUNCTION: WIZ8 0x00426490
-void DrawBufferLine(w8_long x0, w8_long y0, w8_long x1, w8_long y1, w8_ulong* pixel)
-{
-    if (x0 != 0 && y0 != 0 && x1 != 0 && y1 != 0) {
-        SDL_Surface* surface = g_gerd->lockBuffer();
-        if (surface != 0) {
-            SDL_Rect clip;
-            SDL_GetSurfaceClipRect(surface, &clip);
-            int x = x0, y = y0;
-            const int dx = std::abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
-            const int dy = -std::abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
-            int error = dx + dy;
-            while (true) {
-                if (x >= clip.x && y >= clip.y && x < clip.x + clip.w && y < clip.y + clip.h)
-                    SDL_WriteSurfacePixel(surface, x, y, (*pixel >> 16) & 255, (*pixel >> 8) & 255,
-                                          *pixel & 255, *pixel >> 24);
-                if (x == x1 && y == y1) break;
-                const int twice = 2 * error;
-                if (twice >= dy) {
-                    error += dy;
-                    x += sx;
-                }
-                if (twice <= dx) {
-                    error += dx;
-                    y += sy;
-                }
-            }
-            g_gerd->unlockBuffer(true);
-        }
-    }
 }
 
 // FUNCTION: WIZ8 0x004273F0

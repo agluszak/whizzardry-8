@@ -20,7 +20,9 @@
 #include "surrender/srTexture.h"
 #include "surrender/srVertexPipe.h"
 #include "surrender/srVertexProcessor.h"
+#include "wiz8/asset_paths.h"
 #include "wiz8/engine_code/Octree.h"
+#include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/materials.h"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/gameplay_constants.h"
@@ -89,8 +91,8 @@ stGroundShadow::stGroundShadow(srNode* parent) : srNode(static_cast<srNode*>(0))
     setParent(parent, 1);
 
     if (g_ground_shadow_texture == 0) {
-        g_ground_shadow_texture =
-            LoadTextureFromFolder("Data\\Monsters\\Bitmaps\\", "Shadow.tga", true);
+        g_ground_shadow_texture = LoadTextureFromPath(
+            wiz8::asset_path("data/monsters/bitmaps/Shadow.tga"), nullptr, true);
         g_ground_shadow_texture->setMipmap(srTexture::MIPMAP_NONE);
         g_ground_shadow_texture->setWrapS(srTexture::WRAP_CLAMP);
         g_ground_shadow_texture->setWrapT(srTexture::WRAP_CLAMP);
@@ -144,7 +146,8 @@ void stGroundShadow::renderGroundShadow(srGERD& renderer)
     auto position = glm::vec3(getLocation());
     position.y += kWorldScale;
     const float radius = std::max(width, depth);
-    const auto polygons = g_octree->polygonsNearPoint(position, radius, radius * 2 + kWorldScale);
+    const auto polygons =
+        GetWorldOctree()->polygonsNearPoint(position, radius, radius * 2 + kWorldScale);
     if (polygons.empty()) return;
 
     const struct OffsetScope {
@@ -160,7 +163,7 @@ void stGroundShadow::renderGroundShadow(srGERD& renderer)
 
     for (std::size_t first = 0; first < polygons.size();) {
         const auto mesh_index = polygons[first] >> 16;
-        auto& model = *static_cast<stMeshModel*>(g_world->psrMeshes[mesh_index]->getModel());
+        auto& model = *static_cast<stMeshModel*>(GetWorld()->psrMeshes[mesh_index]->getModel());
         auto mesh = model.getTriMesh();
         auto& selected = g_ground_shadow_material_parameters.polygons;
         selected.clear();

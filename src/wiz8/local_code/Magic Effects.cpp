@@ -29,6 +29,7 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/conditions.h"
 #include "wiz8/engine_code/3d.h"
+#include "wiz8/engine_code/3dapi.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/engine_code/Levels.h"
@@ -338,7 +339,7 @@ bool MonsterResistsSpellEffect(const W8CombatSlot* target, int power)
     }
     score = (monster->effective_level - power) * 3 + monster_info->modifiers.resistance_bonus[4] +
             monster->resistances[4];
-    ClampInteger(&score, 5, 0x5f);
+    score = std::clamp(score, 5, 0x5f);
     return static_cast<int>(Random(100)) < score;
 }
 
@@ -373,7 +374,7 @@ void ResetCombatEffects(void)
             ResetPartyEffectBlock(&g_combat_state->effect_slots[i]);
         }
         for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
-            monster_info = MonsterGetScriptPartByLocationIndex(index);
+            monster_info = GetMonsterListEntry(index);
             if (monster_info->fActive && monster_info->fInCombat) {
                 slot = &monster_info->pCombat->combat_effects[i];
                 if (slot->active) {
@@ -387,7 +388,7 @@ void ResetCombatEffects(void)
             ResetPartyEffectBlock(&g_combat_state->effect_slots0[i]);
         }
         for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
-            monster_info = MonsterGetScriptPartByLocationIndex(index);
+            monster_info = GetMonsterListEntry(index);
             if (monster_info->fActive && monster_info->fInCombat) {
                 slot = &monster_info->pCombat->combat_effects_2[i];
                 if (slot->active) {
@@ -500,7 +501,7 @@ bool TargetResistsCondition(W8CombatSlot* target, W8SpellRealm realm, unsigned i
     } else {
         ScaleValueForCharacterDifficulty(target->iChar, &chance);
     }
-    ClampInteger(&chance, 5, 95);
+    chance = std::clamp(chance, 5, 95);
     if (static_cast<int>(Random(100)) < chance) {
         if (target->iType == W8_TARGET_KIND_CHARACTER) {
             character = &g_status.buffers.Char[target->iChar];
@@ -678,7 +679,8 @@ float HeadingTowardNearestMonster(glm::vec3 point, W8Disposition disposition, in
     upper.y += range;
     upper.z += range;
 
-    location_ids = g_octree->locationsInBox({lower, upper}, static_cast<unsigned short>(exclusion));
+    location_ids =
+        GetWorldOctree()->locationsInBox({lower, upper}, static_cast<unsigned short>(exclusion));
     count = location_ids.size();
     if (count == 0) {
         return HeadingToTargetCPP(&point);
@@ -705,7 +707,7 @@ float HeadingTowardNearestMonster(glm::vec3 point, W8Disposition disposition, in
 // FUNCTION: WIZ8 0x005500c0
 void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
 {
-    W8MonsterInfo* target_info;
+    W8MonsterInfo* source_monster = nullptr;
     W8MonsterInfo* summon;
     W8MonsterInfo* member;
     W8MonsterGroup* group;
@@ -734,8 +736,8 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
         return;
     }
     if (TargetSourceIsMonster(&effect->Source, 0)) {
-        target_info = FindMonster(effect->Source.iMonsterID);
-        if (target_info->elemental_summon != -1) {
+        source_monster = FindMonster(effect->Source.iMonsterID);
+        if (source_monster->elemental_summon != -1) {
             return;
         }
     }
@@ -766,8 +768,8 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
         disposition =
             (g_status.buffers.Char[effect->Source.iChar].uiCondition[W8_CONDITION_TURNCOAT] == 0) +
             1;
-    } else if (TargetSourceIsMonster(&effect->Source, 0)) {
-        disposition = target_info->ubDisposition;
+    } else if (source_monster != nullptr) {
+        disposition = source_monster->ubDisposition;
     } else {
         disposition = W8_DISPOSITION_HOSTILE;
     }
@@ -797,8 +799,8 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
     if (TargetSourceIsCharacter(&effect->Source, 0)) {
         BindMonsterToCharacterDependence(effect->Source.iChar, W8_DEPENDENCE_SUMMON,
                                          summon->location_id);
-    } else if (TargetSourceIsMonster(&effect->Source, 0)) {
-        target_info->elemental_summon = summon->location_id;
+    } else if (source_monster != nullptr) {
+        source_monster->elemental_summon = summon->location_id;
     }
     if (effect->definition.percent != 0 && Random(100) < effect->definition.percent) {
         ClearAttackBlock(&attack_block);
@@ -881,11 +883,10 @@ void RecallCasterToSavedLocation(W8SpellEffectEntry* pQueue)
     }
     caster = &g_status.buffers.Char[pQueue->Source.iChar];
     if (caster->has_saved_location) {
-        if (caster->saved_level == g_status.current_level) {
-            RestoreWorldCameraState(GetWorld(), GetSecondaryWorld(), &caster->saved_location);
+        if (caster->saved_level == GetLoadedLevelID()) {
+            RestoreWorldCameraState(GetSecondaryWorld(), &caster->saved_location);
             point = caster->saved_location.position;
             PlacePartyAtPoint(&point);
-            MarkRendererReady();
             return;
         }
         g_status.pending_move_location = caster->saved_location;
@@ -1963,7 +1964,7 @@ void ApplyCombatEffectSlot(W8SpellEffectEntry* effect)
     W8EffectSlot* slot;
     unsigned int duration;
     const int* table;
-    int source_character;
+    int source_character = -1;
     int spell_id;
     int slot_index;
     int index;
@@ -2372,7 +2373,7 @@ void ApplyMonsterControlToNearbyMonsters(W8SpellEffectEntry* effect)
     lower = glm::vec3(center.x - far_clip, center.y - far_clip, center.z - far_clip);
     upper = glm::vec3(center.x + far_clip, center.y + far_clip, center.z + far_clip);
 
-    location_ids = g_octree->locationsInBox({lower, upper}, 0);
+    location_ids = GetWorldOctree()->locationsInBox({lower, upper}, 0);
     count = location_ids.size();
     for (index = 0; index < count; ++index) {
         monster_info = FindMonster(location_ids[index]);
@@ -2385,7 +2386,7 @@ void ApplyMonsterControlToNearbyMonsters(W8SpellEffectEntry* effect)
         }
         eye = monster_info->p3D->movement.position;
         eye.y += monster_info->p3D->movement.height_offset;
-        if (!g_octree->HasLineOfSight(&eye, &center, true)) {
+        if (!GetWorldOctree()->HasLineOfSight(&eye, &center, true)) {
             continue;
         }
         if (monster_info->control_state < W8_MONSTER_CONTROL_NONE ||
@@ -2746,8 +2747,8 @@ void TickRadiusBlastEffectSlots(W8EffectSlot* effect_slots)
             SetTextBoxMode(1, -1);
             {
                 float reach = CalcRangeDistance(W8_RANGE_SHORT);
-                float radius = g_startup_world->radius;
-                glm::vec3 centre = g_startup_world->GetPosition();
+                float radius = PartyNavigator()->radius;
+                glm::vec3 centre = PartyNavigator()->GetPosition();
                 CollectMonstersWithinRadius(&centre, &centre, found, radius + reach, 1, 0);
             }
             for (index = 0; index < static_cast<int>(found.size()); ++index) {
@@ -3343,7 +3344,7 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
         camera_state = &g_status.buffers.Char[effect->Source.iChar].saved_location;
         world = GetWorld();
         *camera_state = cameraState(*world);
-        g_status.buffers.Char[effect->Source.iChar].saved_level = g_status.current_level;
+        g_status.buffers.Char[effect->Source.iChar].saved_level = GetLoadedLevelID();
         g_status.buffers.Char[effect->Source.iChar].has_saved_location = true;
         effect->applied = true;
         break;

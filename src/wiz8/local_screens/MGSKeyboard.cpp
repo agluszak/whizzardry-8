@@ -26,6 +26,7 @@
 #include "wiz8/button_interaction.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_event_queue.h"
+#include "wiz8/chunk.h"
 #include "wiz8/cursor.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/engine_code/Cursor3d.h"
@@ -65,7 +66,6 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/OptionsScreen.h"
-#include "wiz8/local_screens/Screens.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"
@@ -81,7 +81,7 @@ struct W8ItemInstance;
    MGSKeyboard::LoadDefaults moved to Local Code\InputMapper.cpp. */
 
 // GLOBAL: WIZ8 0x0069b7e4
-MGSKeyboard* g_mgs_keyboard;
+MGSKeyboard g_mgs_keyboard;
 
 // Retail set 0x26, regions 180-193.
 
@@ -160,16 +160,16 @@ static_assert(sizeof(RetailKeyBinding) == 10);
 } // namespace
 
 // FUNCTION: WIZ8 0x0055d590
-unsigned char MGSKeyboard::Load(wiz8::File& handle, bool clear)
+unsigned char MGSKeyboard::Load(W8Chunk& handle, bool clear)
 try {
     if (clear) Clear();
     std::uint32_t count;
-    handle.read_exact(&count, sizeof(count));
+    handle.ReadBytes(&count, sizeof(count));
     count = SDL_Swap32LE(count);
-    if (count > (handle.size() - handle.tell()) / sizeof(RetailKeyBinding)) return false;
+    if (count > (handle.RemainingBytes()) / sizeof(RetailKeyBinding)) return false;
     for (std::uint32_t index = 0; index < count; ++index) {
         RetailKeyBinding record;
-        handle.read_exact(&record, sizeof(record));
+        handle.ReadBytes(&record, sizeof(record));
         const auto retail_key = SDL_Swap16LE(record.key);
         const auto key = KeyFromRetailBinding(retail_key);
         SetBinding({key, SDL_Swap16LE(record.modifiers), SDL_Swap16LE(record.active),
@@ -200,12 +200,8 @@ unsigned char MGSKeyboard::Save(wiz8::File& handle) const
 // FUNCTION: WIZ8 0x00592BE0
 void ResetMGSKeyboardBindings()
 {
-    if (g_mgs_keyboard == 0) {
-        g_mgs_keyboard = new MGSKeyboard;
-    } else {
-        g_mgs_keyboard->Clear();
-    }
-    g_mgs_keyboard->LoadDefaults("Data\\Strings\\MGSKeyboard.ini");
+    g_mgs_keyboard.Clear();
+    g_mgs_keyboard.LoadDefaults("Data\\Strings\\MGSKeyboard.ini");
 }
 
 /* Route one non-mouse input atom: text entry, NPC dialogue and the trap text
@@ -236,7 +232,7 @@ unsigned char HandleMainGameInputEvent(const InputEvent* input)
             return 1;
         }
     } else {
-        DispatchMGSCommand(g_mgs_keyboard->FindCommandForEvent(input));
+        DispatchMGSCommand(g_mgs_keyboard.FindCommandForEvent(input));
     }
     return 1;
 }
@@ -282,20 +278,19 @@ void DispatchMGSCommand(W8MGSCommand command)
         break;
     case W8_MGS_COMMAND_TOGGLE_FULLSCREEN:
         ResetTransientRenderScenes();
-        SetOverlayRenderMode();
         SetRendererModePair();
-        VideoFullScreen(VideoIsFullScreen() == 0);
+        VideoFullScreen(g_fullscreen == 0);
         break;
     case W8_MGS_COMMAND_LOAD_OPTIONS:
         if (IsScreenInputBlocked() == 0 && CanInterruptLevelMovement()) {
             g_pending_screen_state.mode = 1;
-            SetPendingScreenState(W8_SCREEN_OPTIONS);
+            g_pending_screen_state.id = W8_SCREEN_OPTIONS;
         }
         break;
     case W8_MGS_COMMAND_SAVE_OPTIONS:
         if (IsScreenInputBlocked() == 0 && CanInterruptLevelMovement()) {
             g_pending_screen_state.mode = 2;
-            SetPendingScreenState(W8_SCREEN_OPTIONS);
+            g_pending_screen_state.id = W8_SCREEN_OPTIONS;
         }
         break;
     case W8_MGS_COMMAND_COMBAT_DELAY_UP: {
@@ -387,19 +382,19 @@ void DispatchMGSCommand(W8MGSCommand command)
             break;
         }
         if (IsScreenInputBlocked() != 0) {
-            ApplyMainGameModeFlag(static_cast<W8MainUiMode>((g_level_block->main_ui_mode - 1) & 1),
+            ApplyMainGameModeFlag(static_cast<W8MainUiMode>((g_settings.main_ui_mode - 1) & 1),
                                   true);
         } else {
-            ApplyMainGameModeFlag(static_cast<W8MainUiMode>((g_level_block->main_ui_mode + 1) % 3),
+            ApplyMainGameModeFlag(static_cast<W8MainUiMode>((g_settings.main_ui_mode + 1) % 3),
                                   true);
         }
         break;
     case W8_MGS_COMMAND_PREV_LAYOUT:
         if (IsScreenInputBlocked() != 0) {
-            ApplyMainGameModeFlag(static_cast<W8MainUiMode>((g_level_block->main_ui_mode - 1) & 1),
+            ApplyMainGameModeFlag(static_cast<W8MainUiMode>((g_settings.main_ui_mode - 1) & 1),
                                   true);
         } else {
-            ApplyMainGameModeFlag(static_cast<W8MainUiMode>((g_level_block->main_ui_mode + 2) % 3),
+            ApplyMainGameModeFlag(static_cast<W8MainUiMode>((g_settings.main_ui_mode + 2) % 3),
                                   true);
         }
         break;
@@ -409,9 +404,10 @@ void DispatchMGSCommand(W8MGSCommand command)
         }
         break;
     case W8_MGS_COMMAND_OPTIONS:
-        if (gXStatus.fNpcDialogueMode || CanOpenNpcDialogue() || gXStatus.fLockInteractMode ||
-            gXStatus.fTrapInteractMode || gXStatus.fCampMode || LockInteractionSuspended() ||
-            TrapInteractionSuspended()) {
+        if (gXStatus.fNpcDialogueMode ||
+            (gXStatus.fNpcDialogueMode && g_npc_interaction_state->scripted_dialogue) ||
+            gXStatus.fLockInteractMode || gXStatus.fTrapInteractMode || gXStatus.fCampMode ||
+            LockInteractionSuspended() || TrapInteractionSuspended()) {
             break;
         }
         if (!CanInterruptLevelMovement()) {
@@ -423,7 +419,8 @@ void DispatchMGSCommand(W8MGSCommand command)
         TryMGSActionKey(W8_MGS_ACTION_JOURNAL);
         break;
     case W8_MGS_COMMAND_INVENTORY:
-        if (CanOpenNpcDialogue() || gXStatus.fCampMode || g_status.selected_character == -1 ||
+        if ((gXStatus.fNpcDialogueMode && g_npc_interaction_state->scripted_dialogue) ||
+            gXStatus.fCampMode || g_status.selected_character == -1 ||
             (gXStatus.fNpcDialogueMode &&
              g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_TRANSCRIPT)) {
             break;
@@ -472,8 +469,8 @@ void DispatchMGSCommand(W8MGSCommand command)
             }
         }
         const auto slot_name = SelectQuickSaveSlotForWrite();
-        if (slot_name && SaveGame(*slot_name, 0)) {
-            SetLastSaveName(*slot_name);
+        if (slot_name && SaveGame(*slot_name, nullptr)) {
+            g_options_last_save_name = (*slot_name);
             ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x6f5]);
         } else {
             ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x6f6]);
@@ -489,14 +486,14 @@ void DispatchMGSCommand(W8MGSCommand command)
             break;
         }
         if (const auto slot_name = FindStartupQuickSave()) {
-            SetLastSaveName(*slot_name);
+            g_options_last_save_name = (*slot_name);
             ClearHeldItemDisplay();
             g_pending_screen_state.mode = 1;
             g_pending_screen_state.name = *slot_name;
             g_pending_screen_state.parameter = GetSaveGameLevel(g_pending_screen_state.name);
             CloseMainGameOverlays();
             SetMainGameMode(W8_MAIN_GAME_DEFAULT);
-            SetPendingScreenState(W8_SCREEN_PLEASE_WAIT);
+            g_pending_screen_state.id = W8_SCREEN_PLEASE_WAIT;
         } else {
             ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x786]);
         }
@@ -788,7 +785,7 @@ unsigned char BuildKeyboardMenu(void)
                 if (event.action == UiPointerAction::Enter &&
                     ((row.menu == W8_SUBMENU_ITEMS && row.item == 2) ||
                      (row.menu == W8_SUBMENU_SPELLS && row.item == 1)))
-                    SetUiHelpForced(true);
+                    g_ui_help_forced = true;
                 if ((row.enabled) &&
                     (event.action != UiPointerAction::Up || event.captured_buttons))
                     PlayButtonSound(event.action);
@@ -1001,7 +998,7 @@ static void KeyboardMenuUseRecordedItem(void)
 void HandleManualCameraHotkeys(void)
 {
     if (g_modal_owner == 0 && !gXStatus.fNpcDialogueMode) {
-        if (g_mgs_keyboard->IsCommandPressed(W8_MGS_COMMAND_CAMERA_LOCK)) {
+        if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_CAMERA_LOCK)) {
             BeginManualCameraControl();
         }
         ApplyCameraMotionHotkeys();
@@ -1011,42 +1008,42 @@ void HandleManualCameraHotkeys(void)
 // FUNCTION: WIZ8 0x00592a10
 void ApplyCameraMotionHotkeys(void)
 {
-    if (g_mgs_keyboard->IsCommandPressed(W8_MGS_COMMAND_TURN_LEFT) ||
-        g_mgs_keyboard->IsCommandPressed(W8_MGS_COMMAND_TURN_LEFT_ALT)) {
+    if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_TURN_LEFT) ||
+        g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_TURN_LEFT_ALT)) {
         g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_TURN_LEFT;
     }
-    if (g_mgs_keyboard->IsCommandPressed(W8_MGS_COMMAND_TURN_RIGHT) ||
-        g_mgs_keyboard->IsCommandPressed(W8_MGS_COMMAND_TURN_RIGHT_ALT)) {
+    if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_TURN_RIGHT) ||
+        g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_TURN_RIGHT_ALT)) {
         g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_TURN_RIGHT;
     }
-    if (g_mgs_keyboard->IsCommandPressed(W8_MGS_COMMAND_MOVE_FORWARD)) {
+    if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_MOVE_FORWARD)) {
         g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_FORWARD;
     }
-    if (g_mgs_keyboard->IsCommandPressed(W8_MGS_COMMAND_MOVE_FORWARD_RUN)) {
+    if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_MOVE_FORWARD_RUN)) {
         g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_FORWARD | W8_CAMERA_MOTION_FAST;
     }
-    if (g_mgs_keyboard->IsCommandPressed(W8_MGS_COMMAND_MOVE_BACKWARD)) {
+    if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_MOVE_BACKWARD)) {
         g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_BACKWARD;
     }
-    if (g_mgs_keyboard->IsCommandPressed(W8_MGS_COMMAND_MOVE_BACKWARD_RUN)) {
+    if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_MOVE_BACKWARD_RUN)) {
         g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_BACKWARD | W8_CAMERA_MOTION_FAST;
     }
-    if (g_mgs_keyboard->IsCommandPressed(W8_MGS_COMMAND_LOOK_UP)) {
+    if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_LOOK_UP)) {
         g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_LOOK_UP;
     }
-    if (g_mgs_keyboard->IsCommandPressed(W8_MGS_COMMAND_LOOK_DOWN)) {
+    if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_LOOK_DOWN)) {
         g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_LOOK_DOWN;
     }
-    if (g_mgs_keyboard->IsCommandPressed(W8_MGS_COMMAND_STRAFE_LEFT)) {
+    if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_STRAFE_LEFT)) {
         g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_STRAFE_LEFT;
     }
-    if (g_mgs_keyboard->IsCommandPressed(W8_MGS_COMMAND_STRAFE_RIGHT)) {
+    if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_STRAFE_RIGHT)) {
         g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_STRAFE_RIGHT;
     }
-    if (g_mgs_keyboard->IsCommandPressed(W8_MGS_COMMAND_STRAFE_LEFT_RUN)) {
+    if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_STRAFE_LEFT_RUN)) {
         g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_STRAFE_LEFT | W8_CAMERA_MOTION_FAST;
     }
-    if (g_mgs_keyboard->IsCommandPressed(W8_MGS_COMMAND_STRAFE_RIGHT_RUN)) {
+    if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_STRAFE_RIGHT_RUN)) {
         g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_STRAFE_RIGHT | W8_CAMERA_MOTION_FAST;
     }
 }

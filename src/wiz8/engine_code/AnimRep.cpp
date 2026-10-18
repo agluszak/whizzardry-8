@@ -99,14 +99,6 @@ W8AnimRep::W8AnimRep()
     timer = GameClockMilliseconds();
 }
 
-/* Vtable 0x005EC1D8's clone slot allocates exactly the root's 0x64-byte
-   extent, then invokes the copy constructor above. */
-// FUNCTION: WIZ8 0x0044edf0
-W8AnimRepBase* W8AnimRepBase::Clone()
-{
-    return new W8AnimRepBase(*this);
-}
-
 /* Copies persistent animation state, then timestamps the new representation. */
 // FUNCTION: WIZ8 0x004b54a0
 W8AnimRep::W8AnimRep(const W8AnimRep& other)

@@ -147,10 +147,10 @@ void RefreshFormationBoard(void)
     DrawFormationSlotMarkers(*board_image);
     g_level_block->formation_compass_sprite = CreateSpriteFromSurface(*compass_image, 0, 1, 1);
     Position2DNodeUnsnapped(g_level_block->formation_compass_sprite, 0x207, 0x167);
-    SetModelInstance2DDisplayState(g_level_block->formation_compass_sprite, 4);
+    g_level_block->formation_compass_sprite->render_state.display_state = 4;
     g_level_block->formation_board_sprite = CreateSpriteFromSurface(*board_image, 0, 1, 1);
     Position2DNodeUnsnapped(g_level_block->formation_board_sprite, 0x207, 0x167);
-    SetModelInstance2DDisplayState(g_level_block->formation_board_sprite, 4);
+    g_level_block->formation_board_sprite->render_state.display_state = 4;
     UpdateFormationCompass();
 }
 
@@ -180,7 +180,7 @@ void CreateFormationBoardOverlay(void)
         g_level_block->formation_overlay_sprite =
             CreateSpriteFromSurface(GetFrameBufferSurface(), &bounds, 0, 1);
         Position2DNodeUnsnapped(g_level_block->formation_overlay_sprite, 0x200, 0x166);
-        SetModelInstance2DDisplayState(g_level_block->formation_overlay_sprite, 4);
+        g_level_block->formation_overlay_sprite->render_state.display_state = 4;
     }
 }
 
@@ -312,7 +312,7 @@ void OpenFormationPanel(void)
     g_formation_drag_clock = w8_get_ticks() + (0);
     gXStatus.fReviewCharacterMode = true;
     RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
-    CopyPartyFormationState(&gXStatus.edited_formation, &g_status.formation);
+    gXStatus.edited_formation = g_status.formation;
     PauseMainGameWorld();
     UpdateFormationCells();
 }
@@ -373,7 +373,7 @@ static void AcceptFormationChanges(void)
 // FUNCTION: WIZ8 0x005b2960
 static void ResetFormationPanel(void)
 {
-    CopyPartyFormationState(&gXStatus.edited_formation, &g_status.formation);
+    gXStatus.edited_formation = g_status.formation;
     UpdateFormationCells();
 }
 

@@ -1,12 +1,11 @@
 #include "wiz8/engine_code/game_timer.h"
 
-#include <cstddef>
 #include <cstdint>
 #include <exception>
 
+#include "wiz8/chunk.h"
 #include "wiz8/compat/native.h"
 #include "wiz8/engine_code/GameTimeAccumulator.h"
-#include "wiz8/filesystem.h"
 
 std::uint32_t GameClockTicks()
 {
@@ -36,10 +35,10 @@ void PauseSharedGameTimers(void)
     g_shared_timer_paused = true;
     g_shared_timer_pause_time = GameClockTicks() - g_shared_timer_pause_base;
 
-    if (g_game_time_accumulator != 0 && !g_game_time_accumulator->m_flags.paused) {
-        g_game_time_accumulator->m_flags.paused = true;
-        g_game_time_accumulator->m_start =
-            g_game_time_accumulator->ReadClock() - g_game_time_accumulator->m_start;
+    auto& timer = GameTimeAccumulator();
+    if (!timer.m_flags.paused) {
+        timer.m_flags.paused = true;
+        timer.m_start = timer.ReadClock() - timer.m_start;
     }
 }
 
@@ -51,16 +50,14 @@ void ResumeSharedGameTimers(void)
     g_shared_timer_pause_base = GameClockTicks() - g_shared_timer_pause_time;
     g_shared_timer_pause_time = 0;
 
-    W8GameTimeAccumulator* timer = g_game_time_accumulator;
-    if (timer != 0) {
-        timer->m_flags.paused = false;
-        int sample = timer->ReadClock();
-        float duration = timer->m_duration_scale * timer->m_duration_seconds * 1e+04f;
-        int start = sample - timer->m_start;
-        timer->m_start = start;
-        timer->m_duration = static_cast<int>(duration);
-        timer->m_end = start + timer->m_duration;
-    }
+    auto& timer = GameTimeAccumulator();
+    timer.m_flags.paused = false;
+    int sample = timer.ReadClock();
+    float duration = timer.m_duration_scale * timer.m_duration_seconds * 1e+04f;
+    int start = sample - timer.m_start;
+    timer.m_start = start;
+    timer.m_duration = static_cast<int>(duration);
+    timer.m_end = start + timer.m_duration;
 }
 
 // FUNCTION: WIZ8 0x00439a60
@@ -170,15 +167,12 @@ void W8GameTimer::SetProgress(float progress)
 }
 
 // FUNCTION: WIZ8 0x0043a330
-bool W8GameTimer::Load(wiz8::File& handle)
+bool W8GameTimer::Load(W8Chunk& handle)
 try {
-    float progress;
-    // Retail performs both reads and combines their results with bitwise OR.
-    bool loaded = (handle.read(&progress, sizeof(progress)).bytes ==
-                   static_cast<std::size_t>(sizeof(progress)));
-    loaded |= (handle.read(&m_duration_scale, sizeof(m_duration_scale)).bytes ==
-               static_cast<std::size_t>(sizeof(m_duration_scale)));
-    if (loaded != 0) {
+    const auto progress = handle.ReadValue<float>();
+    const auto scale = handle.ReadValue<float>();
+    m_duration_scale = scale;
+    {
         m_duration = static_cast<int>(m_duration_seconds * m_duration_scale * 10000.0f);
         m_end = m_start + m_duration;
         unsigned int sample = ReadClock();
@@ -187,7 +181,7 @@ try {
         m_start = sample < elapsed ? 0 : sample - elapsed;
         m_end = m_start + m_duration;
     }
-    return loaded;
+    return true;
 } catch (const std::exception&) {
     return false;
 }

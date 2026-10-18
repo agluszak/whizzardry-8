@@ -56,6 +56,7 @@
 #include "surrender/swept_bounds.h"
 #include "wiz8/application.h"
 #include "wiz8/engine_code/3d.h"
+#include "wiz8/engine_code/3dapi.h"
 #include "wiz8/engine_code/Camera.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/GDProp.h"
@@ -126,18 +127,11 @@ static unsigned short g_octree_query_id;
 // GLOBAL: WIZ8 0x00659774
 static unsigned int g_octree_query_cell;
 
-// GLOBAL: WIZ8 0x00659890
-w8_ulong* g_octree_state;
-// GLOBAL: WIZ8 0x00659894
-// GLOBAL: WIZ8 0x00659898
-// GLOBAL: WIZ8 0x00659899
-
 /* Build a packed four-byte colour from four components and answer its
    address. The receiver is the output slot. */
 /* Draw the probe box through the world camera. */
 
 // GLOBAL: WIZ8 0x006598a4
-W8Octree* g_octree;
 
 // GLOBAL: WIZ8 0x006068a4
 static char g_region_link_extension[] = ".rlk";
@@ -174,7 +168,6 @@ void W8OctreeView::captureCamera(const srCamera& camera)
     horizontal_fov = static_cast<float>(camera.getHorizontalFOV());
     vertical_fov = static_cast<float>(camera.getVerticalFOV());
     horizontal_fov_cosine = static_cast<float>(cos(horizontal_fov));
-    vertical_fov_cosine = static_cast<float>(cos(vertical_fov));
 }
 
 // FUNCTION: WIZ8 0x0042f7e0
@@ -200,13 +193,14 @@ void W8Octree::UpdateVisibility()
     if (m_reset_visibility) {
         m_reset_visibility = false;
         for (mesh_index = 0; mesh_index < m_meshCount; ++mesh_index) {
-            if (g_world->psrMeshes[mesh_index] != 0) {
-                m_pSubmeshes
-                    [static_cast<stModelInstance*>(g_world->psrMeshes[mesh_index])->mesh_index + 1]
-                        .mesh = mesh_index;
+            if (GetWorld()->psrMeshes[mesh_index] != 0) {
+                m_pSubmeshes[static_cast<stModelInstance*>(GetWorld()->psrMeshes[mesh_index])
+                                 ->mesh_index +
+                             1]
+                    .mesh = mesh_index;
                 m_pSubmeshes[mesh_index + 1].flags &= 0xffffffc7;
                 stModelInstance* mesh =
-                    static_cast<stModelInstance*>(g_world->psrMeshes[mesh_index]);
+                    static_cast<stModelInstance*>(GetWorld()->psrMeshes[mesh_index]);
                 if (mesh != 0) {
                     mesh->setFlag(srNode::FLAG_DISABLE);
                     mesh->setFlag(srNode::FLAG_TERMINATE);
@@ -242,7 +236,6 @@ void W8Octree::UpdateVisibility()
         std::ranges::fill(m_linked_props, false);
     }
     m_projected_regions_valid = false;
-    view.visible_cells = projectRegionsAt(view.camera_location).cell;
     CollectVisibleCells();
     for (std::size_t region = 0; region < m_current_regions.size(); ++region) {
         if (m_projected_regions_valid && !m_projected_regions[region]) {
@@ -257,7 +250,7 @@ void W8Octree::UpdateVisibility()
             W8OctSubmesh* submesh = &m_pSubmeshes[region];
             submesh->flags &= 0xfffffff7;
             stModelInstance* mesh =
-                static_cast<stModelInstance*>(g_world->psrMeshes[submesh->mesh]);
+                static_cast<stModelInstance*>(GetWorld()->psrMeshes[submesh->mesh]);
             if (mesh != 0) {
                 mesh->setFlag(srNode::FLAG_DISABLE);
                 mesh->setFlag(srNode::FLAG_TERMINATE);
@@ -272,7 +265,8 @@ void W8Octree::UpdateVisibility()
             W8OctSubmesh* submesh = &m_pSubmeshes[region];
             int mesh_index = submesh->mesh;
             submesh->flags |= 0x28;
-            stModelInstance* mesh = static_cast<stModelInstance*>(g_world->psrMeshes[mesh_index]);
+            stModelInstance* mesh =
+                static_cast<stModelInstance*>(GetWorld()->psrMeshes[mesh_index]);
             if (mesh != 0) {
                 mesh->clearFlag(srNode::FLAG_DISABLE);
                 mesh->clearFlag(srNode::FLAG_TERMINATE);
@@ -362,7 +356,7 @@ std::vector<stModelInstance*> W8Octree::modelsNearPoint(const glm::vec3& center,
         }
         if (m_current_regions[submesh] && submesh != 0) {
             stModelInstance* instance =
-                static_cast<stModelInstance*>(g_world->psrMeshes[m_pSubmeshes[submesh].mesh]);
+                static_cast<stModelInstance*>(GetWorld()->psrMeshes[m_pSubmeshes[submesh].mesh]);
             if (intersects(instance)) out.push_back(instance);
             if ((flags & 0xff) != 0) {
                 MarkMeshLinksVisible(submesh);
@@ -432,8 +426,8 @@ short W8Octree::ProjectLinkedRegionsForLocation(glm::vec3* location, unsigned sh
             }
             ++match_count;
             unsigned int key = region_index;
-            for (auto slot = m_pRegionLinks->equal_range(key).first; slot != m_pRegionLinks->end();
-                 slot = NextIndexValue(*m_pRegionLinks, key, slot)) {
+            for (auto slot = m_region_links.equal_range(key).first; slot != m_region_links.end();
+                 slot = NextIndexValue(m_region_links, key, slot)) {
                 SetBit(m_projected_regions, slot->second);
                 m_projected_regions_valid = true;
             }
@@ -469,8 +463,8 @@ short W8Octree::ProjectLinkedRegionsForLocation(glm::vec3* location, unsigned sh
         m_projected_regions_valid = false;
         match_count = 1;
         unsigned int key = region_index;
-        for (auto slot = m_pRegionLinks->equal_range(key).first; slot != m_pRegionLinks->end();
-             slot = NextIndexValue(*m_pRegionLinks, key, slot)) {
+        for (auto slot = m_region_links.equal_range(key).first; slot != m_region_links.end();
+             slot = NextIndexValue(m_region_links, key, slot)) {
             SetBit(m_projected_regions, slot->second);
             m_projected_regions_valid = true;
         }
@@ -553,10 +547,10 @@ OctreeCellCoordinates W8Octree::projectRegionsAt(const glm::vec3& position)
         if (level == m_spatial.m_leaf_level) {
             unsigned int key =
                 ((m_region_mask * 0x100 + link_cell.x) * 0x100 + link_cell.y) * 0x100 + link_cell.z;
-            auto slot = m_pRegionLinks->equal_range(key).first;
-            while (slot != m_pRegionLinks->end()) {
+            auto slot = m_region_links.equal_range(key).first;
+            while (slot != m_region_links.end()) {
                 SetBit(m_projected_regions, slot->second);
-                slot = NextIndexValue(*m_pRegionLinks, key, slot);
+                slot = NextIndexValue(m_region_links, key, slot);
                 m_projected_regions_valid = true;
             }
         }
@@ -788,12 +782,9 @@ try {
     std::vector<unsigned short> values(count);
     file->read_exact(keys.data(), keys.size() * sizeof(keys[0]));
     file->read_exact(values.data(), values.size() * sizeof(values[0]));
-    if (m_pRegionLinks == 0) {
-        m_pRegionLinks = new std::unordered_multimap<unsigned int, unsigned short>;
-    }
     for (unsigned int index = 0; index < count; ++index) {
-        RemoveIndexValue(*m_pRegionLinks, keys[index], values[index]);
-        InsertIndexValue(*m_pRegionLinks, keys[index], values[index]);
+        RemoveIndexValue(m_region_links, keys[index], values[index]);
+        InsertIndexValue(m_region_links, keys[index], values[index]);
     }
     m_region_links_ready = true;
     return true;
@@ -833,7 +824,7 @@ unsigned int W8Octree::RegionKeyForPoint(const glm::vec3& point)
 }
 
 /* Record `region_key` against every mesh marked in m_projected_regions:
-   unseen (region, mesh) pairs are inserted into m_pRegionLinks and the
+   unseen (region, mesh) pairs are inserted into m_region_links and the
    link list is logged once per call. */
 // FUNCTION: WIZ8 0x004327f0
 void W8Octree::RecordRegionMeshLinks(unsigned int region_key)
@@ -848,11 +839,11 @@ void W8Octree::RecordRegionMeshLinks(unsigned int region_key)
             continue;
         }
         unsigned short mesh = static_cast<unsigned short>(bit);
-        auto slot = m_pRegionLinks->equal_range(region_key).first;
-        while (slot != m_pRegionLinks->end() && slot->second != mesh) {
-            slot = NextIndexValue(*m_pRegionLinks, region_key, slot);
+        auto slot = m_region_links.equal_range(region_key).first;
+        while (slot != m_region_links.end() && slot->second != mesh) {
+            slot = NextIndexValue(m_region_links, region_key, slot);
         }
-        if (slot == m_pRegionLinks->end()) {
+        if (slot == m_region_links.end()) {
             if (!reported) {
                 if (region_key < m_spatial.m_region_count) {
                     sprintf(text, "Pre-generated Region %d linked to meshes: ", region_key);
@@ -864,7 +855,7 @@ void W8Octree::RecordRegionMeshLinks(unsigned int region_key)
                 reported = true;
             }
             sprintf(text, "%d, ", mesh);
-            InsertIndexValue(*m_pRegionLinks, region_key, mesh);
+            InsertIndexValue(m_region_links, region_key, mesh);
         }
     }
     if (reported) {
@@ -930,18 +921,18 @@ unsigned int W8Octree::SampleRegionLinks(const glm::vec3& point, bool descend, b
                     if (!m_current_regions[cell]) {
                         continue;
                     }
-                    meshes.push_back(
-                        static_cast<stModelInstance*>(g_world->psrMeshes[m_pSubmeshes[cell].mesh]));
+                    meshes.push_back(static_cast<stModelInstance*>(
+                        GetWorld()->psrMeshes[m_pSubmeshes[cell].mesh]));
                     if (!TestBit(m_projected_regions, cell)) {
-                        auto slot = m_pRegionLinks->equal_range(key).first;
-                        while (slot != m_pRegionLinks->end() &&
+                        auto slot = m_region_links.equal_range(key).first;
+                        while (slot != m_region_links.end() &&
                                slot->second != static_cast<unsigned short>(cell)) {
-                            slot = NextIndexValue(*m_pRegionLinks, key, slot);
+                            slot = NextIndexValue(m_region_links, key, slot);
                         }
-                        if (slot == m_pRegionLinks->end()) {
+                        if (slot == m_region_links.end()) {
                             if (cell != 0) {
                                 m_pSubmeshes[cell].flags |= 0x28;
-                                srNode* node = g_world->psrMeshes[m_pSubmeshes[cell].mesh];
+                                srNode* node = GetWorld()->psrMeshes[m_pSubmeshes[cell].mesh];
                                 if (node != 0) {
                                     node->clearFlag(srNode::FLAG_DISABLE);
                                     if (descend) {
@@ -958,7 +949,7 @@ unsigned int W8Octree::SampleRegionLinks(const glm::vec3& point, bool descend, b
                     known:
                         if (cell != 0) {
                             m_pSubmeshes[cell].flags &= 0xfffffff7;
-                            srNode* node = g_world->psrMeshes[m_pSubmeshes[cell].mesh];
+                            srNode* node = GetWorld()->psrMeshes[m_pSubmeshes[cell].mesh];
                             if (node != 0) {
                                 node->setFlag(srNode::FLAG_DISABLE);
                                 node->setFlag(srNode::FLAG_TERMINATE);
@@ -986,7 +977,8 @@ unsigned int W8Octree::SampleRegionLinks(const glm::vec3& point, bool descend, b
                                 unsigned int candidate = cells[i];
                                 if (candidate != 0) {
                                     m_pSubmeshes[candidate].flags &= 0xfffffff7;
-                                    srNode* node = g_world->psrMeshes[m_pSubmeshes[candidate].mesh];
+                                    srNode* node =
+                                        GetWorld()->psrMeshes[m_pSubmeshes[candidate].mesh];
                                     if (node != 0) {
                                         node->setFlag(srNode::FLAG_DISABLE);
                                         node->setFlag(srNode::FLAG_TERMINATE);
@@ -1017,7 +1009,7 @@ unsigned int W8Octree::SampleRegionLinks(const glm::vec3& point, bool descend, b
                                     child = child->getChild();
                                 }
                                 m_pSubmeshes[cell].flags &= 0xfffffff7;
-                                srNode* node = g_world->psrMeshes[m_pSubmeshes[cell].mesh];
+                                srNode* node = GetWorld()->psrMeshes[m_pSubmeshes[cell].mesh];
                                 if (node != 0) {
                                     node->setFlag(srNode::FLAG_DISABLE);
                                     node->setFlag(srNode::FLAG_TERMINATE);
@@ -1051,8 +1043,6 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
     bool aborted = false;
     unsigned int last_key = 0;
     time_t started = time(0);
-    std::unordered_multimap<unsigned int, unsigned short>* links =
-        new std::unordered_multimap<unsigned int, unsigned short>;
     unsigned short z_step = rebuild_all ? 1 : 3;
     float stride = z_step * m_region_cell;
     unsigned short rows =
@@ -1079,15 +1069,13 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
     world->camera->setViewPlane(2.094395102, 2.094395102);
     DisableAllRenderOptions();
     for (unsigned int mesh = 0; mesh < m_meshCount; ++mesh) {
-        srNode* node = g_world->psrMeshes[mesh];
+        srNode* node = GetWorld()->psrMeshes[mesh];
         if (node != 0) {
             node->setFlag(srNode::FLAG_DISABLE);
             node->setFlag(srNode::FLAG_TERMINATE);
         }
     }
-    links->clear();
-    std::unordered_multimap<unsigned int, unsigned short>* saved_links = m_pRegionLinks;
-    m_pRegionLinks = links;
+    auto saved_links = std::exchange(m_region_links, {});
     if (rows != 0) {
         for (unsigned short x_index = 0; x_index < rows; ++x_index) {
             if (aborted) {
@@ -1150,7 +1138,6 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
     }
     g_render_untextured = false;
     EnableAllRenderOptions();
-    std::unordered_multimap<unsigned int, unsigned short>* stale;
     if (!rebuild_all) {
         if (!aborted) {
             for (const auto& point : m_sample_points) {
@@ -1209,16 +1196,12 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
         minutes %= 60;
     }
     if (aborted) {
-        stale = m_pRegionLinks;
-        m_pRegionLinks = saved_links;
+        m_region_links = std::move(saved_links);
         SDL_Log("Region linking aborted");
     } else {
         SaveRegionLinks(m_path_stem.c_str());
         SDL_Log("Region linking took %u h %u min %u s", hours, minutes, elapsed % 60);
-        stale = saved_links;
     }
-    delete stale;
-    MarkRendererReady();
 }
 
 /* Write the octree's region-link table to the .rlk companion file.
@@ -1230,7 +1213,7 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
 // FUNCTION: WIZ8 0x004331f0
 bool W8Octree::SaveRegionLinks(const char* path)
 try {
-    if (m_pRegionLinks == 0 || path == 0 || m_pRegionLinks->empty()) {
+    if (path == 0 || m_region_links.empty()) {
         return false;
     }
     std::string name = path;
@@ -1241,8 +1224,8 @@ try {
     std::vector<unsigned int> keys;
     std::vector<unsigned short> values;
     for (unsigned int key = 1; key < m_spatial.m_region_count; ++key) {
-        for (auto slot = m_pRegionLinks->equal_range(key).first; slot != m_pRegionLinks->end();
-             slot = NextIndexValue(*m_pRegionLinks, key, slot)) {
+        for (auto slot = m_region_links.equal_range(key).first; slot != m_region_links.end();
+             slot = NextIndexValue(m_region_links, key, slot)) {
             keys.push_back(key);
             values.push_back(slot->second);
         }
@@ -1253,9 +1236,9 @@ try {
         for (unsigned int y = 0; y < extent; ++y) {
             for (unsigned int z = 0; z < extent; ++z) {
                 unsigned int key = (x << 16) + (y << 8) + z + base;
-                for (auto slot = m_pRegionLinks->equal_range(key).first;
-                     slot != m_pRegionLinks->end();
-                     slot = NextIndexValue(*m_pRegionLinks, key, slot)) {
+                for (auto slot = m_region_links.equal_range(key).first;
+                     slot != m_region_links.end();
+                     slot = NextIndexValue(m_region_links, key, slot)) {
                     keys.push_back(key);
                     values.push_back(slot->second);
                 }
@@ -1329,7 +1312,7 @@ int W8Octree::CountBadRegionMeshLinks(W8OctSpatialState* spatial)
             unsigned short link = m_branches[spatial->m_node_index].region;
             if (link != 0) {
                 stModelInstance* mesh =
-                    static_cast<stModelInstance*>(g_world->psrMeshes[m_pSubmeshes[link].mesh]);
+                    static_cast<stModelInstance*>(GetWorld()->psrMeshes[m_pSubmeshes[link].mesh]);
                 if (mesh != 0) {
                     if (auto* model = mesh->getModel()) {
                         const auto bounds = model->getBounds().box;
@@ -1617,12 +1600,11 @@ GroundProbe W8Octree::settleToGround(const glm::vec3& input, bool test_props, fl
                 goto done;
             }
             if (test_props != 0) {
-                g_octree_state = m_aulGDObjs.data();
                 m_gd_result_count = 0;
                 w8_ulong before = m_gd_result_count;
                 CollectObjectsInCell(cell, W8_OCTREE_KIND_PROP);
                 if (m_gd_result_count != before) {
-                    int prop = g_octree_game_data->TestPropSurfaces(
+                    int prop = GetWorldGameData()->TestPropSurfaces(
                         m_gd_result_count, m_aulGDObjs.data(), &trace, 0, 0);
                     current_prop = prop;
                     if (prop >= 0) {
@@ -1630,11 +1612,11 @@ GroundProbe W8Octree::settleToGround(const glm::vec3& input, bool test_props, fl
                     }
                 }
             }
-            g_octree_game_data->trace_flag4_gate = true;
+            GetWorldGameData()->trace_flag4_gate = true;
             if (ProbeCellForTrace(cell) == 0) {
                 goto descend;
             }
-            hit = g_octree_game_data->TestTraceResult(m_gd_result_count, m_aulGDObjs.data(), &trace,
+            hit = GetWorldGameData()->TestTraceResult(m_gd_result_count, m_aulGDObjs.data(), &trace,
                                                       0, 0);
             if (!hit) {
             descend:
@@ -1650,7 +1632,7 @@ GroundProbe W8Octree::settleToGround(const glm::vec3& input, bool test_props, fl
             } else if (prop_hit) {
                 current_prop = -1;
             }
-            g_octree_game_data->trace_flag4_gate = false;
+            GetWorldGameData()->trace_flag4_gate = false;
         } while (-1 < cell.y);
         if (hit) {
         done:
@@ -1661,28 +1643,6 @@ GroundProbe W8Octree::settleToGround(const glm::vec3& input, bool test_props, fl
     trace.end.y = position.y;
 out:
     return {position, hit};
-}
-
-/* Snap a point onto the surface below: clamp it to the octree's clipped
-   ceiling, probe the ground one world-scale unit lower and keep the settled
-   height on a hit. The path builders and navigator placement use it to drop
-   points onto terrain. */
-// FUNCTION: WIZ8 0x00431d20
-bool W8Octree::SnapToGround(glm::vec3* position, char mode)
-{
-    bool hit = false;
-    if (position->y > m_spatial.m_clipped_bounds.maximum.y) {
-        position->y = m_spatial.m_clipped_bounds.maximum.y;
-    }
-    glm::vec3 probe = *position;
-    probe.y = position->y - kWorldScale;
-    const auto ground_probe = settleToGround(probe, mode, 500.0f);
-    probe = ground_probe.position;
-    hit = ground_probe.hit;
-    if (hit) {
-        position->y = probe.y;
-    }
-    return hit;
 }
 
 // FUNCTION: WIZ8 0x00434b60
@@ -1741,7 +1701,7 @@ short W8Octree::TraceLineOfSight(const glm::vec3* from, glm::vec3* to, bool trac
             cell, end_cell, [&] { return cellWalk((*from), (*to)); },
             [&](const glm::ivec3& current, bool adjacent) {
                 if (ProbeCellForTrace(current) != 0 || adjacent)
-                    blocked = g_octree_game_data->TestTraceResult(
+                    blocked = GetWorldGameData()->TestTraceResult(
                         m_gd_result_count, m_aulGDObjs.data(), &trace, m_trace_skip_flag, 0);
                 return !blocked;
             });
@@ -1815,8 +1775,8 @@ W8Octree::traceSphereHit(const glm::vec3& from, const glm::vec3& to, int exclude
     const glm::vec3 low(glm::mix(from, to, reversed) - inflate);
     const glm::vec3 high(glm::mix(to, from, reversed) + inflate);
     if (target == -1) {
-        radius = g_startup_world->movement.alternate_radius;
-        navigator = g_startup_world;
+        radius = PartyNavigator()->movement.alternate_radius;
+        navigator = PartyNavigator();
     } else {
         if (target < 1) {
             goto no_probes;
@@ -1832,7 +1792,7 @@ W8Octree::traceSphereHit(const glm::vec3& from, const glm::vec3& to, int exclude
         probe_set = pathing->CollectPathProbes(&navigator->movement, radius);
     }
 no_probes:;
-    ids = g_octree->queryObjects({low, high}, W8_OCTREE_KIND_LOCATION, -1);
+    ids = GetWorldOctree()->queryObjects({low, high}, W8_OCTREE_KIND_LOCATION, -1);
     unsigned int count = ids.size(); /* c-style-cast-ok:
             the shared query count field is stored unsigned */
     if (count != 0) {
@@ -1879,7 +1839,7 @@ no_probes:;
     }
     if (excluded != -1 && excluded_location != -1) {
         const float distance = sphereDistance(cameraLocation());
-        const float camera_radius = g_startup_world->radius * g_camera_sphere_radius_scale;
+        const float camera_radius = PartyNavigator()->radius * g_camera_sphere_radius_scale;
         if (distance < camera_radius)
             return SphereTraceHit{sphereOffset(camera_radius, distance) + from, 0};
     }
@@ -2062,7 +2022,6 @@ W8Octree::traceProps(const glm::vec3& from, const glm::vec3& to, int skip_flag, 
     glm::ivec3 end_cell;
 
     W8OctreeTrace trace(from, to);
-    g_octree_state = m_aulGDObjs.data();
     m_gd_result_count = 0;
     std::ranges::fill(m_visited_object_bits, false);
     cell = cellAt(from);
@@ -2070,11 +2029,10 @@ W8Octree::traceProps(const glm::vec3& from, const glm::vec3& to, int skip_flag, 
     visitOctreeSegment(
         cell, end_cell, [&] { return cellWalk(from, to); },
         [&](const glm::ivec3& current, bool) {
-            g_octree_state = m_aulGDObjs.data();
             CollectObjectsInCell(current, W8_OCTREE_KIND_PROP);
             return true;
         });
-    current_prop = g_octree_game_data->TestPropSurfaces(m_gd_result_count, m_aulGDObjs.data(),
+    current_prop = GetWorldGameData()->TestPropSurfaces(m_gd_result_count, m_aulGDObjs.data(),
                                                         &trace, skip_flag, gate);
     if (current_prop < 0) {
         return std::nullopt;
@@ -2168,10 +2126,10 @@ unsigned char W8Octree::TestProbeResult(W8OctreeTrace* trace)
 
     for (unsigned int index = 0; index < m_gd_result_count; ++index) {
         unsigned int mesh_index = m_aulGDObjs[index] >> 0x10;
-        if (mesh_index < m_meshCount && g_world->psrMeshes[mesh_index] != 0 &&
+        if (mesh_index < m_meshCount && GetWorld()->psrMeshes[mesh_index] != 0 &&
             !TestBit(m_alpha_bits, mesh_index)) {
             stMeshModel* model =
-                static_cast<stMeshModel*>(g_world->psrMeshes[mesh_index]->getModel());
+                static_cast<stMeshModel*>(GetWorld()->psrMeshes[mesh_index]->getModel());
             const glm::vec4* planes = model->getPolyEq();
             unsigned int polygon = m_aulGDObjs[index] & 0xffff;
             const glm::vec4* plane = planes + polygon;
@@ -2224,10 +2182,10 @@ std::vector<w8_ulong> W8Octree::polygonsNearPoint(const glm::vec3& position, flo
     polygons.reserve(m_gd_result_count);
     for (const auto key : std::span(m_aulGDObjs).first(m_gd_result_count)) {
         const auto mesh_index = key >> 16;
-        if (key == 0 || mesh_index >= m_meshCount || !g_world->psrMeshes[mesh_index] ||
+        if (key == 0 || mesh_index >= m_meshCount || !GetWorld()->psrMeshes[mesh_index] ||
             TestBit(m_alpha_bits, mesh_index))
             continue;
-        auto& model = *static_cast<stMeshModel*>(g_world->psrMeshes[mesh_index]->getModel());
+        auto& model = *static_cast<stMeshModel*>(GetWorld()->psrMeshes[mesh_index]->getModel());
         const auto polygon = key & 0xffff;
         const auto plane = model.getPolyEq()[polygon];
         if (plane.y < 0.5f) continue;
@@ -2260,7 +2218,7 @@ void W8Octree::UpdateMonsterLocation(unsigned short location_id, const glm::vec3
     if (info != 0 && info->p3D != 0) {
         monster = info->p3D;
         sector = GetSectorForPosition(position);
-        if (sector == 0 || (mesh = g_world->psrMeshes[m_pSubmeshes[sector].mesh]) == 0) {
+        if (sector == 0 || (mesh = GetWorld()->psrMeshes[m_pSubmeshes[sector].mesh]) == 0) {
             monster->sector_mesh = 0;
         } else {
             monster->sector_mesh = mesh;
@@ -2448,7 +2406,7 @@ W8Octree::W8Octree(const char* path, std::unique_ptr<W8GameData>* game_data)
             throw std::runtime_error("Invalid octree mesh terminator.");
         }
         if (header.m_path_nodes != 0) {
-            pathing = new W8PathingService;
+            pathing = std::make_unique<W8PathingService>();
             pathing->ConfigureForLevel(header.m_path_nodes, header.m_region_cell,
                                        m_spatial.bounds(), m_path_stem.c_str());
             if (!pathing->ReadPathNodes(hOctFile.get())) {
@@ -2473,21 +2431,19 @@ W8Octree::W8Octree(const char* path, std::unique_ptr<W8GameData>* game_data)
             }
             pGameData->octree = this;
         }
-        SetOctreeGameData(pGameData.get());
+
         if (game_data != 0) {
             *game_data = std::move(pGameData);
         }
-        g_octree = this;
+
         m_region_links_ready = ReadRegionLinkFile(m_path_stem.c_str());
         LoadPointFiles(m_path_stem.c_str());
         if (pathing != 0) {
-            pathing->ReadWaypointFile();
+            pathing->ReadWaypointFile(*this);
         }
         return;
     } catch (const std::exception&) {
-        SetOctreeGameData(0);
-        g_octree = 0;
-        g_pathing = 0;
+
         m_spatial.flags |= 0x80000000;
     }
 }
@@ -2508,7 +2464,6 @@ int CheckLevelAssetSet(const char* level_path)
 // FUNCTION: WIZ8 0x0042d040
 void W8Octree::Reset()
 {
-    g_octree_state = 0;
     m_spatial.Reset();
     m_region_volumes.clear();
     m_branches.clear();
@@ -2530,8 +2485,8 @@ void W8Octree::Reset()
     m_region_index_stream.clear();
     m_trigger_indices.clear();
     m_pSubmeshes.clear();
-    object_registry = 0;
-    m_pRegionLinks = 0;
+    object_registry.reset();
+    m_region_links.clear();
     m_sample_points.clear();
     m_path_stem.clear();
     m_region_cell = 0;
@@ -2648,9 +2603,8 @@ void W8Octree::Initialize(const W8OctFileHeader* header)
             header->m_surface_count < 5000 ? 5000 : header->m_surface_count, false);
         m_accumulated_regions.assign(header->m_submesh_count + 1, false);
 
-        object_registry = new W8OctreeObjectRegistry;
-        m_pRegionLinks = new std::unordered_multimap<unsigned int, unsigned short>;
-        m_pRegionLinks->clear();
+        object_registry = std::make_unique<W8OctreeObjectRegistry>();
+        m_region_links.clear();
 
         m_reset_visibility = true;
     }
@@ -2682,26 +2636,13 @@ void W8Octree::AddLoadedParticles(std::span<stParticle* const> particles)
     m_particles.insert(m_particles.end(), particles.begin(), particles.end());
 }
 
-/* Complete non-deleting teardown. LoadWorld and DestroyWorld both perform the
+/* Complete non-deleting teardown. World loading and destruction both perform the
    matching operator delete only after this method returns. */
 // FUNCTION: WIZ8 0x0042de60
 W8Octree::~W8Octree()
 {
-    if (m_pRegionLinks != 0) {
-        m_pRegionLinks->clear();
-        delete m_pRegionLinks;
-        m_pRegionLinks = 0;
-    }
-
     m_particle_links = {};
     m_prop_links = {};
-
-    delete object_registry;
-
-    delete pathing;
-    pathing = 0;
-    g_octree = 0;
-    ReleaseOctMeshDefaults();
 }
 
 /* Running index into the prop-sunlight bit stream, shared across the octree
@@ -2709,15 +2650,6 @@ W8Octree::~W8Octree()
 
 // GLOBAL: WIZ8 0x006598ac
 int g_prop_sun_index;
-
-/* Attach the prop-sunlight bit array, but only one that has been sized. */
-// FUNCTION: WIZ8 0x0042e3e0
-void W8Octree::SetPropSunBits(std::vector<bool> bits)
-{
-    if (!bits.empty()) {
-        m_sunlit_props = std::move(bits);
-    }
-}
 
 /* Test whether prop `offset` past the octree's base index has its sunlight
    bit set; the tested index also becomes the shared running index. A
@@ -2782,12 +2714,10 @@ std::vector<w8_ulong> W8Octree::queryAlongSegment(const glm::vec3& origin, const
     const auto bounds = srSegmentMath::sweptBounds(origin, delta, extent);
     const auto lower = cellCoordinates(bounds.minimum).cell;
     const auto upper = cellCoordinates(bounds.maximum).cell;
-    g_octree_state = m_aulGDObjs.data();
     m_gd_result_count = 0;
     std::ranges::fill(m_visited_object_bits, false);
     visitClippedOctreeCellBox(lower, upper, glm::ivec3(m_leaf_grid_dimensions),
                               [&](const glm::ivec3& cell) { CollectObjectsInCell(cell, kind); });
-    g_octree_state = nullptr;
     return {m_aulGDObjs.data(), m_aulGDObjs.data() + m_gd_result_count};
 }
 
@@ -2811,8 +2741,8 @@ unsigned char W8Octree::TestBoxOccupied(const glm::vec3* lower, const glm::vec3*
     unsigned int count = objects.size();
     unsigned int index;
     for (index = 0; index < count; ++index) {
-        W8GDSurface* surface = g_octree_game_data->m_pSurfaces.data() + objects[index];
-        if (SurfaceIntersectsBox(*surface, g_octree_game_data->m_pVertices, {(*lower), (*upper)})) {
+        W8GDSurface* surface = GetWorldGameData()->m_pSurfaces.data() + objects[index];
+        if (SurfaceIntersectsBox(*surface, GetWorldGameData()->m_pVertices, {(*lower), (*upper)})) {
             return 1;
         }
     }
@@ -2833,7 +2763,7 @@ unsigned char W8Octree::TestBoxOccupied(const glm::vec3* lower, const glm::vec3*
     objects = queryObjects({(*lower), (*upper)}, W8_OCTREE_KIND_PROP, -1);
     count = objects.size();
     for (index = 0; index < count; ++index) {
-        W8Prop* prop = g_world->collidable_props[objects[index]];
+        W8Prop* prop = GetWorld()->collidable_props[objects[index]];
         if (prop->GetActivationState() != 0 && prop->m_gd_prop != 0) {
             GDProp* gd_prop = prop->m_gd_prop.get();
             for (int surface_index = 0;
@@ -2856,13 +2786,11 @@ std::vector<w8_ulong> W8Octree::queryObjects(const srBoundingBox& bounds, unsign
 {
     const auto start = cellAt(bounds.minimum);
     const auto end = cellAt(bounds.maximum);
-    g_octree_state = m_aulGDObjs.data();
     m_gd_result_count = 0;
     std::ranges::fill(m_visited_object_bits, false);
     if (excluded >= 0) SetBit(m_visited_object_bits, excluded);
     visitClippedOctreeCellBox(start, end, glm::ivec3(m_leaf_grid_dimensions),
                               [&](const glm::ivec3& cell) { CollectObjectsInCell(cell, kind); });
-    g_octree_state = nullptr;
     return {m_aulGDObjs.data(), m_aulGDObjs.data() + m_gd_result_count};
 }
 
@@ -2897,7 +2825,7 @@ unsigned int W8Octree::CollectObjectsInCell(const glm::ivec3& cell, unsigned sho
                 }
                 ++stream;
                 if (!SetBit(m_visited_object_bits, *stream)) {
-                    g_octree_state[m_gd_result_count] = *stream;
+                    m_aulGDObjs[m_gd_result_count] = *stream;
                     ++m_gd_result_count;
                 }
             }
@@ -2917,7 +2845,7 @@ unsigned int W8Octree::CollectObjectsInCell(const glm::ivec3& cell, unsigned sho
                                         entry_kind == W8_OCTREE_KIND_NAVIGATOR)
                                      : entry_kind == kind;
             if (matches && !SetBit(m_visited_object_bits, OctreeKeyId(packed) - 1)) {
-                g_octree_state[m_gd_result_count] = g_octree_query_id - 1;
+                m_aulGDObjs[m_gd_result_count] = g_octree_query_id - 1;
                 ++m_gd_result_count;
             }
             slot =
@@ -2980,8 +2908,7 @@ unsigned int W8Octree::AdvanceNavigator(W8NavigatorMovementState* movement, floa
     vecDir = movement->target_position - movement->position;
     vecDir.y = 0.0f;
     distance = glm::length(((glm::vec2(vecDir.x, vecDir.z))));
-    step =
-        g_game_time_accumulator->GetFrameDelta() * movement->movement_scale * g_rate * kWorldScale;
+    step = GameTimeAccumulator().GetFrameDelta() * movement->movement_scale * g_rate * kWorldScale;
     if (step >= distance) {
         step = distance;
     } else {
@@ -3032,14 +2959,13 @@ static float g_scatter_column_offsets[5] = {0.0f, 1.0f, -1.0f, 2.0f, -2.0f};
 static bool OverlapsNearbyMonster(const glm::vec3& point, float reach,
                                   std::span<const w8_ulong> locations, bool alternate_radius)
 {
-    for (const auto id : locations) {
+    return std::ranges::any_of(locations, [&](w8_ulong id) {
         auto* monster = GetMonsterByLocationID(id);
         const auto delta = monster->GetPosition() - point;
         const float clearance =
             (alternate_radius ? monster->movement.alternate_radius : monster->radius) + reach;
-        if (glm::dot(delta, delta) < clearance * clearance) return true;
-    }
-    return false;
+        return glm::dot(delta, delta) < clearance * clearance;
+    });
 }
 
 // FUNCTION: WIZ8 0x00437980
@@ -3096,9 +3022,9 @@ std::vector<glm::vec3> W8Octree::scatterPositions(const glm::vec3& position, flo
                     } else {
                         float reach = spacing * 0.5f;
                         if (pathing->TestPathCellClearance(&candidate, reach, false)) {
-                            glm::vec3 navigator = g_startup_world->GetPosition();
+                            glm::vec3 navigator = PartyNavigator()->GetPosition();
                             const auto delta = navigator - candidate;
-                            float separation = g_startup_world->radius + reach;
+                            float separation = PartyNavigator()->radius + reach;
                             if (separation * separation <= glm::dot(delta, delta)) {
                                 if (OverlapsNearbyMonster(candidate, reach, candidates, false))
                                     goto next_cell;
@@ -3145,7 +3071,7 @@ NavigatorPlacement W8Octree::navigatorPositions(const glm::vec3& input, float ya
     int found_j = 9999;
     float source_y = source.y;
     std::vector<w8_ulong> candidates;
-    float camera_radius = g_startup_world->movement.alternate_radius;
+    float camera_radius = PartyNavigator()->movement.alternate_radius;
     bool placed = false;
     float separation = (CalcRangeDistance(W8_RANGE_TOUCH) + radius) * 0.5f + camera_radius;
     float angle = NormalizeAngle(yaw + g_monster_rotation_offset);
@@ -3205,7 +3131,7 @@ NavigatorPlacement W8Octree::navigatorPositions(const glm::vec3& input, float ya
                                                    !InsideDestinationTrigger(
                                                        candidate.x, candidate.y, candidate.z))) {
                                     if (first_only) {
-                                        glm::vec3 camera = g_startup_world->GetPosition();
+                                        glm::vec3 camera = PartyNavigator()->GetPosition();
                                         const auto delta = camera - candidate;
                                         if (glm::dot(delta, delta) < separation * separation) {
                                             goto next_cell;
@@ -3266,12 +3192,6 @@ void OctreeMeshLinks::read(wiz8::File& file, std::size_t mesh_count)
     lookup.resize(mesh_count + 1);
     file.read_exact(lookup.data(), lookup.size() * sizeof(unsigned short));
     file.read_exact(records.data(), records.size() * sizeof(unsigned short));
-}
-
-void OctreeMeshLinks::write(wiz8::File& file, std::size_t mesh_count) const
-{
-    file.write(lookup.data(), (mesh_count + 1) * sizeof(unsigned short));
-    file.write(records.data(), records.size() * sizeof(unsigned short));
 }
 
 W8OctSpatialState::W8OctSpatialState(const W8OctSpatialState* source)

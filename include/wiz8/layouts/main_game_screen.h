@@ -62,9 +62,9 @@ enum W8MainGameRedrawFlag {
     W8_MAIN_REDRAW_CHARACTER_ACTION = 0x200000,
     W8_MAIN_REDRAW_COMBAT_EFFECTS = 0x800000,
     W8_MAIN_REDRAW_CHROME = W8_MAIN_REDRAW_RADAR | W8_MAIN_REDRAW_TEXT_BOX |
-                            W8_MAIN_REDRAW_SUBMENU_BUTTONS | W8_MAIN_REDRAW_SUBMENU_PANEL |
-                            W8_MAIN_REDRAW_FORMATION | W8_MAIN_REDRAW_OPTIONS_BUTTON |
-                            W8_MAIN_REDRAW_COMBAT_STANCE | W8_MAIN_REDRAW_CHARACTER_ACTION
+        W8_MAIN_REDRAW_SUBMENU_BUTTONS | W8_MAIN_REDRAW_SUBMENU_PANEL | W8_MAIN_REDRAW_FORMATION |
+        W8_MAIN_REDRAW_OPTIONS_BUTTON | W8_MAIN_REDRAW_COMBAT_STANCE |
+        W8_MAIN_REDRAW_CHARACTER_ACTION
 };
 
 /* What a delayed portrait hover highlights. The value also indexes the
@@ -107,7 +107,6 @@ struct W8LevelRuntimeBlock {
     /* Owned notice/list paint scratch, reused by the monster-list formatter. */
     std::string text_paint_scratch;
     unsigned int redraw_flags;
-    W8MainUiMode main_ui_mode;
     int camera_mode;
     unsigned char portrait_refresh_pending[8];
     int portrait_refresh_image[8];

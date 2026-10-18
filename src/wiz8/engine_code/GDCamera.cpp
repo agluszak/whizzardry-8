@@ -5,16 +5,13 @@
 #include <cstdlib>
 #include <memory>
 #include <optional>
-#include <string>
 
 #include <glm/gtx/rotate_vector.hpp>
 
 #include "glm/common.hpp"
-#include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/geometric.hpp"
 #include "layouts/main_game_screen.h"
-#include "surrender/srCamera.h"
 #include "wiz8/direction_angles.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/IntervalGate.h"
@@ -35,8 +32,6 @@ extern const float g_negative_one = -1.0f;
 extern const float g_camera_transition_epsilon = 0.0010000000474974513f;
 // GLOBAL: WIZ8 0x005ec54c
 extern const float g_camera_angle_period0 = 6.2831854820251465f;
-// GLOBAL: WIZ8 0x005ec548
-extern const float g_camera_angle_lower = 0.0f;
 // GLOBAL: WIZ8 0x005ec550
 extern const float g_camera_pitch_upper = 0.7853981852531433f;
 // GLOBAL: WIZ8 0x005ec554
@@ -89,23 +84,18 @@ float g_camera_default_forward_scale = 750.0f;
 float g_camera_forward_scale = 750.0f;
 
 // GLOBAL: WIZ8 0x0065A0FC
-srCamera* g_game_camera;
-// GLOBAL: WIZ8 0x0065a0f8
-GDCamera* g_gd_camera;
 
-/* Two thin GDCamera wrappers over GetForwardPoint, placed here because their
-   GameData.cpp ownership was never evidence-backed.  The copy-through variant
-   remains a distinct recovered identity even though both expose the same operation. */
-// FUNCTION: WIZ8 0x00421100
-void GetCameraForwardPointCopy(float distance, glm::vec3* output)
+// GLOBAL: WIZ8 0x0065a0f8
+GDCamera& PartyCamera()
 {
-    GetCameraForwardPoint(distance, output);
+    static GDCamera camera;
+    return camera;
 }
 
 // FUNCTION: WIZ8 0x00421150
 void GetCameraForwardPoint(float distance, glm::vec3* output)
 {
-    g_gd_camera->GetForwardPoint(distance, output);
+    PartyCamera().GetForwardPoint(distance, output);
 }
 
 /* Accumulate a forward offset rotated by yaw and pitch. */
@@ -140,7 +130,6 @@ GDCamera::GDCamera()
     m_yaw_distance = 0.0f;
     m_pitch_distance = 0.0f;
     m_transition_duration = 0.0f;
-    m_manual_input_timer = new W8IntervalGate(1.0f, false, true);
 
     m_rotation = m_yaw_rotation * m_pitch_rotation;
 }
@@ -149,40 +138,6 @@ GDCamera::GDCamera()
    updates a caller-provided camera. Both paths finish by applying the game
    camera owner's current rotation. */
 // FUNCTION: WIZ8 0x00476440
-srCamera* GDCamera::CreateOrAttachCamera(srNode* parent, srCamera* camera)
-{
-    if (parent != 0) {
-        glm::dvec3 position;
-
-        g_game_camera = parent->adoptChild(std::make_unique<srCamera>());
-        g_game_camera->setName("Sirtech Camera");
-        position = glm::dvec3(m_position);
-        g_game_camera->setLocation(position);
-        g_game_camera->setClipRange(250.0, 75000.0);
-        g_game_camera->setRotation(0.0, 0.0, 0.0);
-        g_game_camera->setEnvironmentRange(0.0f, 1.0f);
-        double view = g_camera_view_factor2 * kCameraViewFactor0 * g_camera_view_factor1;
-        g_game_camera->setViewPlane(view, view);
-    } else {
-        glm::dvec3 position;
-
-        if (camera == 0) {
-            if (g_game_camera == 0) {
-                return 0;
-            }
-        } else {
-            g_game_camera = camera;
-        }
-        position = glm::dvec3(m_position);
-        g_game_camera->setLocation(position);
-        g_game_camera->setRotation(0.0, 0.0, 0.0);
-    }
-
-    m_transition_active = false;
-    m_forced_transition = false;
-    g_game_camera->setRotation(m_rotation);
-    return g_game_camera;
-}
 
 // FUNCTION: WIZ8 0x00476610
 void GDCamera::ApplyRotationMatrix(glm::mat3* rotation, W8LevelDataRecord* context)
@@ -198,10 +153,10 @@ void GDCamera::ApplyRotationMatrix(glm::mat3* rotation, W8LevelDataRecord* conte
     *rotation = m_rotation;
 }
 
-bool GDCamera::CanTrackTarget() const
+bool GDCamera::CanTrackTarget()
 {
-    return gXStatus.fNpcDialogueMode || (!(m_orientation_flags & W8_CAMERA_MANUAL_INPUT) &&
-                                         m_manual_input_timer->PollFinished());
+    return gXStatus.fNpcDialogueMode ||
+           (!(m_orientation_flags & W8_CAMERA_MANUAL_INPUT) && m_manual_input_timer.PollFinished());
 }
 
 /* Angles that aim from position at target, with yaw wrapped into one turn. Targets
@@ -388,7 +343,7 @@ void GDCamera::ApplyYawInput(float input)
     if (input != 0.0f) {
         if (!gXStatus.fNpcDialogueMode && g_status.world_cursor_gate == 0) {
             m_orientation_flags |= W8_CAMERA_MANUAL_INPUT;
-            m_manual_input_timer->Arm();
+            m_manual_input_timer.Arm();
             m_transition_active = false;
         } else {
             m_orientation_flags &= ~W8_CAMERA_MANUAL_INPUT;
@@ -435,7 +390,7 @@ void GDCamera::ApplyPitchInput(float input)
 {
     if (input != 0.0f && !gXStatus.fNpcDialogueMode && g_status.world_cursor_gate == 0) {
         m_orientation_flags |= W8_CAMERA_MANUAL_INPUT;
-        m_manual_input_timer->Arm();
+        m_manual_input_timer.Arm();
         m_transition_active = false;
     } else {
         m_orientation_flags &= ~W8_CAMERA_MANUAL_INPUT;
@@ -573,7 +528,7 @@ void GDCamera::SetManualControlActive(bool enabled)
 {
     if (enabled && !gXStatus.fNpcDialogueMode && g_status.world_cursor_gate == 0) {
         m_orientation_flags |= W8_CAMERA_MANUAL_INPUT;
-        m_manual_input_timer->Arm();
+        m_manual_input_timer.Arm();
         m_transition_active = false;
         return;
     }

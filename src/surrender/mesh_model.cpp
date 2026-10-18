@@ -8,8 +8,6 @@
 #include <vector>
 
 #include "compat/compiler.h"
-#include "glm/ext/matrix_float3x3.hpp"
-#include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
@@ -336,19 +334,6 @@ w8_ulong* srMeshModel::getVertexShadeIndex(int table)
     return vertex_shade_indices.empty() ? nullptr : vertex_shade_indices.data();
 }
 
-// FUNCTION: SURRENDER 0x10041B60
-void srMeshModel::setDirtyBounds()
-{
-    setDirty(DIRTY_BOUNDS);
-}
-
-// FUNCTION: SURRENDER 0x10041B90
-void srMeshModel::setDirtyNormals()
-{
-    setDirty(DIRTY_POLYGON_NORMALS);
-    setDirty(DIRTY_VERTEX_NORMALS);
-}
-
 // FUNCTION: SURRENDER 0x1003CF30
 srMeshModel::srMeshModel(w8_long polygons, w8_long vertices)
 {
@@ -456,14 +441,6 @@ void srMeshModel::scale(const glm::vec3& scale)
     setDirtyAll();
 }
 
-// FUNCTION: SURRENDER 0x1003E780
-void srMeshModel::applyMatrix(const glm::mat3& matrix)
-{
-    auto* vertices = getVertexLoc();
-    for (w8_long i = 0; i < vertex_location_count; ++i) vertices[i] = matrix * vertices[i];
-    setDirtyAll();
-}
-
 // FUNCTION: SURRENDER 0x1003E8C0
 void srMeshModel::relocateVertices(const glm::vec3& offset)
 {
@@ -472,16 +449,6 @@ void srMeshModel::relocateVertices(const glm::vec3& offset)
         vertices[index] += offset;
     }
     setDirtyAll();
-}
-
-// FUNCTION: SURRENDER 0x1003E9B0
-void srMeshModel::centerVertices()
-{
-    if (vertex_location_count == 0) return;
-    glm::dvec3 sum(0);
-    for (const auto& vertex : std::span(getVertexLoc(), vertex_location_count))
-        sum += glm::dvec3(vertex);
-    relocateVertices(glm::vec3(-sum / double(vertex_location_count)));
 }
 
 // FUNCTION: SURRENDER 0x1003EA90
@@ -514,20 +481,6 @@ void srMeshModel::scaleToMaxRadius(double radius)
 {
     const double current_radius = getMaxRadius();
     if (current_radius > 0) scale(glm::vec3(static_cast<float>(radius / current_radius)));
-}
-
-// FUNCTION: SURRENDER 0x1003EC30
-void srMeshModel::flipFaces()
-{
-    if (polygon_count != 0) {
-        glm::ivec3* polygons = getPolyVertex();
-        for (w8_long polygon = 0; polygon < polygon_count; polygon++) {
-            w8_long first = polygons[polygon].x;
-            polygons[polygon].x = polygons[polygon].y;
-            polygons[polygon].y = first;
-        }
-        setDirtyAll();
-    }
 }
 
 // FUNCTION: SURRENDER 0x1003ED20
@@ -1032,6 +985,8 @@ void srTriMeshPipeline::AppendMeshPass(const srMeshModel::TriMesh& mesh, w8_long
                                        w8_long material_side, srShader pass_shader)
 {
     current_record->flags = 0;
+    current_record->diffuse_scale = mesh.diffuse_scale;
+    current_record->emissive_override = mesh.emissive_override;
     current_pass->shaders = 0;
     current_pass->texture_tables[0] = 0;
     current_pass->texture_tables[1] = 0;
@@ -1131,12 +1086,6 @@ void srMeshModel::disable(e_control control)
 {
     render_control &= ~(1u << control);
     setDirty(DIRTY_TRI_MESH);
-}
-
-// FUNCTION: SURRENDER 0x10041870
-int srMeshModel::isEnabled(e_control control) const
-{
-    return (render_control & (1 << control)) != 0;
 }
 
 // FUNCTION: SURRENDER 0x10041890

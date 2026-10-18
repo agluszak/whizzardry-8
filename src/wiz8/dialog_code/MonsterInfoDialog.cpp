@@ -1,5 +1,6 @@
 #include "wiz8/dialog_code/MonsterInfoDialog.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <memory>
@@ -171,7 +172,7 @@ bool W8MonsterInfoDialog::PopulateText()
         entry_text = g_localized_strings[0x13a];
     } else {
         int level_class = static_cast<int>(monster_level / average_level * 5.0f - 1.5f);
-        ClampInteger(&level_class, 0, 6);
+        level_class = std::clamp(level_class, 0, 6);
         entry_text = fmt::format("{:d} ({})", monster_level,
                                  g_localized_strings[g_monster_level_name_ids[level_class]]);
         prefix = g_localized_strings[0x13b];
@@ -414,7 +415,7 @@ bool W8MonsterInfoDialog::PopulateText()
         m_text_area.AddEntry("Range (Combat/Ground)",
                              fmt::format("{:5.2f} / {:5.2f} M", combat_range * 0.002f,
                                          glm::length((monster_info->p3D->GetPosition() -
-                                                      g_startup_world->GetPosition())) *
+                                                      PartyNavigator()->GetPosition())) *
                                              g_world_cursor_scale),
                              5, 0xf, 0);
         leader_info = FindMonster(leader_location_id);

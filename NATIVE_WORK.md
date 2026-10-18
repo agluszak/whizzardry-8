@@ -101,7 +101,7 @@ Regenerate on Linux x86-64 using the same Conan build environment as the game
 cmake -S tools/shadercross -B build/shadercross -G Ninja \
   -DCMAKE_TOOLCHAIN_FILE="$PWD/build/linux/conan/conan_toolchain.cmake" \
   -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22
+  -DCMAKE_C_COMPILER=clang-23 -DCMAKE_CXX_COMPILER=clang++-23
 cmake --build build/shadercross --target shadercross --parallel 2
 python3 tools/shadercross/generate.py \
   --shadercross build/shadercross/_deps/shadercross-build/shadercross
@@ -146,3 +146,16 @@ only enabled inside the editor; production input only dispatched to it while
 already active, and the sole external toggle closed it on screen exit. Gameplay
 encounter generation, script-driven table selection, compiled geometry readers,
 and serialized generator/cube fields remain supported.
+
+## Authoritative loaded worlds
+
+The primary and sky slots own their worlds. Queries borrow those owners; there
+is no separate update registry or published raw slot to synchronize. World
+identity and resource paths are immutable. Live level queries use the primary
+world; `resume_level` is decoded save data and is populated in save snapshots,
+not maintained as a second active-level field. Sky reuse follows resource identity.
+
+Primary replacement stops callbacks before ownership changes. Teardown still
+destroys entities before geometry and scenes. Loading failures use the same
+ordered retirement without rendering partial worlds. Status-loading source is
+an argument, and view invalidation belongs to the world rather than a global latch.

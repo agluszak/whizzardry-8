@@ -3,6 +3,7 @@
 #include <chrono>
 #include <exception>
 #include <memory>
+#include <optional>
 #include <string>
 #include <thread>
 #include <vector>
@@ -25,6 +26,7 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/save_screenshot.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/LoadSaveGame.h"
@@ -45,7 +47,7 @@ struct W8LevelLoadDescriptor {
     int parameter_2;
     std::string name; /* 0x0fd, bounded only by the next field */
     std::string previous_save_name;
-    W8SaveScreenshot* save_payload;
+    std::optional<W8SaveScreenshot> save_screenshot;
     w8_ulong entered_tick;
     int caption_y;
 };
@@ -71,7 +73,7 @@ static int g_level_backdrops[W8_LEVEL_COUNT] = {
 /* The path the five assertions carry. */
 #define PLEASE_WAIT_SCREEN_CPP __FILE__
 
-unsigned char PleaseWaitScreenInitialize(void)
+bool PleaseWaitScreenInitialize(void)
 {
     return g_level_load_font.load("Data\\Level Load\\levelload_font.sti");
 }
@@ -83,7 +85,7 @@ unsigned char PleaseWaitScreenInitialize(void)
    save; modes 1 and 2 carry a name; mode 3 carries two parameters and no name.
 
    The handler accesses the shared descriptor through g_load_descriptor. */
-unsigned char PleaseWaitScreenEnter(void)
+bool PleaseWaitScreenEnter(void)
 {
     if (!g_load_descriptor) {
         g_load_descriptor = std::make_unique<W8LevelLoadDescriptor>();
@@ -100,11 +102,10 @@ unsigned char PleaseWaitScreenEnter(void)
             g_load_descriptor->name = g_current_screen_state.name;
             break;
         case 2:
-            g_load_descriptor->parameter = g_status.current_level;
+            g_load_descriptor->parameter = GetLoadedLevelID();
             g_load_descriptor->name = g_current_screen_state.name;
             g_load_descriptor->previous_save_name = g_current_screen_state.previous_save_name;
-            g_load_descriptor->save_payload =
-                static_cast<W8SaveScreenshot*>(g_current_screen_state.parameter_3);
+            g_load_descriptor->save_screenshot = g_current_screen_state.save_screenshot;
             break;
         case 3:
             g_load_descriptor->parameter = g_current_screen_state.parameter;
@@ -182,13 +183,14 @@ void PleaseWaitScreenFrame(void)
         if (!LoadGame(g_load_descriptor->name)) {
             srAssertFail("fVerify", PLEASE_WAIT_SCREEN_CPP, 293, 0);
         }
-        if (!LoadLevel(g_status.current_level, -1, true)) {
+        if (!LoadLevel(g_status.resume_level, -1, true)) {
             srAssertFail("fVerify", PLEASE_WAIT_SCREEN_CPP, 296, 0);
         }
 
         break;
     case 2: {
-        bool saved = SaveGame(g_load_descriptor->name, g_load_descriptor->save_payload);
+        const auto& screenshot = g_load_descriptor->save_screenshot;
+        const bool saved = SaveGame(g_load_descriptor->name, screenshot ? &*screenshot : nullptr);
         // Do not destroy the previous save until the new one has been committed.
         if (saved && !g_load_descriptor->previous_save_name.empty() &&
             g_load_descriptor->previous_save_name != g_load_descriptor->name) {
@@ -204,9 +206,6 @@ void PleaseWaitScreenFrame(void)
         }
         ShowNotice(W8_FONT_PALETTE_BEIGE,
                    saved ? g_localized_strings[0x6f4] : g_localized_strings[0x6f6]);
-        if (g_load_descriptor->save_payload) {
-            delete g_load_descriptor->save_payload;
-        }
         // Keep the saving notice up for at least half a second, without spinning.
         if (const auto shown = w8_get_ticks() - g_load_descriptor->entered_tick; shown < 500)
             std::this_thread::sleep_for(std::chrono::milliseconds(500 - shown));
@@ -226,11 +225,11 @@ void PleaseWaitScreenFrame(void)
     RequestScreenTransition();
     if (g_load_descriptor->mode == 1 && g_status.intro_shown) {
         SetIntroVideoIndex(4);
-        SetPendingScreenState(W8_SCREEN_INTRO);
+        g_pending_screen_state.id = W8_SCREEN_INTRO;
         return;
     }
     if (GetPendingScreenState() != 7) {
-        SetPendingScreenState(W8_SCREEN_MAIN_GAME);
+        g_pending_screen_state.id = W8_SCREEN_MAIN_GAME;
     }
 }
 
@@ -238,7 +237,7 @@ void PleaseWaitScreenFrame(void)
    allocated; the ordinary pass only tears the frame down. Both passes run the
    teardown, which is why the release sits under the flag rather than the whole
    body. */
-unsigned char PleaseWaitScreenLeave(int leaving)
+bool PleaseWaitScreenLeave(int leaving)
 {
     if (leaving) {
         g_load_descriptor.reset();

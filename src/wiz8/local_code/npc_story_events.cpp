@@ -11,6 +11,8 @@
 #include "layouts/item_instance.h"
 #include "layouts/screen_state.h"
 #include "layouts/targeting.h"
+#include "layouts/world.h"
+#include "local_code/Gameloop.h"
 #include "local_code/MonsterManager.h"
 #include "monster_actions.h"
 #include "soundman.h"
@@ -49,7 +51,6 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
-#include "wiz8/local_screens/Screens.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/message_box.h"
 #include "wiz8/monster_cycles.h"
@@ -140,7 +141,7 @@ static void NpcScriptTurnToBook(void)
 static void NpcScriptEndgameScreen(void)
 {
     SetIntroVideoIndex(5);
-    SetPendingScreenState(W8_SCREEN_INTRO);
+    g_pending_screen_state.id = W8_SCREEN_INTRO;
 }
 
 /* Fact 0x1bf: raise the scripted-scene gate, drop the level's transient data
@@ -267,7 +268,7 @@ void UpdateSedexusScene(void)
     if (!g_sedexus_scene.capture_pending && !g_sedexus_scene.release_pending) {
         return;
     }
-    const int environment = GetEnvironmentValue();
+    const int environment = g_environment_lighting_mode;
     if (environment != 0 && environment != 2) {
         return;
     }

@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -49,7 +50,6 @@
 #include "wiz8/local_screens/MGSPortraitCombat.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/Screens.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
@@ -315,7 +315,7 @@ static void MainGameOptionsDiskButton(W8ButtonWidget* button)
 {
     if (CanInterruptLevelMovement()) {
         g_pending_screen_state.mode = 3;
-        SetPendingScreenState(W8_SCREEN_OPTIONS);
+        g_pending_screen_state.id = W8_SCREEN_OPTIONS;
     }
 }
 
@@ -1013,6 +1013,9 @@ void ScrollSubMenuCharacter(char direction)
     short selected;
     short slot;
 
+    if (g_status.selected_character < 0 || g_status.selected_character >= 8) {
+        throw std::logic_error("ScrollSubMenuCharacter: selected character is not a party slot");
+    }
     current = static_cast<short>(g_status.selected_character);
     selected = current;
     switch (direction) {
@@ -1240,7 +1243,7 @@ bool BuildSubMenuPanel(short notification)
              .on_hover =
                  [menu, entry](bool hovered) {
                      if (menu == W8_SUBMENU_ITEMS && entry == 2 && hovered) {
-                         SetUiHelpForced(true);
+                         g_ui_help_forced = true;
                      }
                  },
              .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
@@ -1290,7 +1293,7 @@ W8SubMenuEntryState CheckSubMenuActionUsable(int party_slot)
         !g_level_block->selection_settled) {
         matches = 1;
     }
-    if (CharacterCanSwitchTo(party_slot, W8_TARGETING_CONTEXT_CURRENT, true, false) &&
+    if (CharacterCanSwitchTo(party_slot, GetEditedActionContext(party_slot), true, false) &&
         SlotHasAnyValidTarget(party_slot)) {
         return static_cast<W8SubMenuEntryState>(matches);
     }

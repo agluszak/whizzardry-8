@@ -308,7 +308,7 @@ struct W8Character {
        W8GlobalStatus::pending_move_location. */
     W8WorldCameraState saved_location;
     /* Retail offset 0x1813: which level that anchor belongs to. The recall compares it
-       against g_status.current_level and takes a different path when they differ. */
+       against GetLoadedLevelID() and takes a different path when they differ. */
     int saved_level;
     W8CharacterConditionRecord conditions[4];
     /* Retail offset 0x185b: the deep-fatigue effect is already on this character, which is

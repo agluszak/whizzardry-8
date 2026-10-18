@@ -1,5 +1,7 @@
 #pragma once
 
+struct W8Chunk;
+
 #include <cstdint>
 #include <vector>
 
@@ -25,15 +27,13 @@ struct MGSKeyBinding {
 // VTABLE: WIZ8 0x005ee8f0
 class MGSKeyboard {
 public:
-    virtual ~MGSKeyboard() = default;
-
     int FindBinding(W8MGSCommand command) const;
     /* Match a live InputEvent against the binding table; returns command or -1. */
     W8MGSCommand FindCommandForEvent(const InputEvent* event) const;
     MGSKeyBinding* GetBinding(int index);
     bool IsCommandPressed(W8MGSCommand command) const;
     void Clear();
-    unsigned char Load(wiz8::File& handle, bool clear);
+    unsigned char Load(W8Chunk& handle, bool clear);
     unsigned char Save(wiz8::File& handle) const;
     unsigned char LoadDefaults(const char* path);
 
@@ -42,7 +42,7 @@ private:
     std::vector<MGSKeyBinding> m_bindings;
 };
 
-extern MGSKeyboard* g_mgs_keyboard;
+extern MGSKeyboard g_mgs_keyboard;
 
 void ResetMGSKeyboardBindings();
 

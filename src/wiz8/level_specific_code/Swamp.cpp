@@ -136,7 +136,7 @@ static bool SwampGasFireSpawn(Trigger* pTrigger)
             g_swamp_spawned_monster->GetMappedPosition(&mapped);
             look_target = monster_info->p3D->movement.position;
             look_target.y += monster_info->p3D->movement.height_offset;
-            g_gd_camera->LookAt(&look_target, false);
+            PartyCamera().LookAt(&look_target, false);
             g_npc_dialogue_closed = false;
             g_master_functions.push_back(SwampGasFireItemDrop);
         }

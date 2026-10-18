@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <span>
@@ -1025,4 +1026,55 @@ TEST_CASE("Picking honors counted selections, direct indices, nearest depth and 
     REQUIRE_THROWS_AS(performPick(), std::invalid_argument);
     REQUIRE(renderer.popPick()->triangle_index == 9);
     REQUIRE_FALSE(renderer.popPick());
+}
+
+TEST_CASE("Draw material overrides stay local across passes sharing one material", "[renderer]")
+{
+    struct Capture : srVertexProcessor {
+        std::vector<MaterialInfo> seen;
+        int isActive(srVertexPipe&) override { return 1; }
+        void process(srVertexPipe& pipe) override { seen.push_back(pipe.getMaterialInfo()); }
+    } capture;
+    struct Material : TestMaterial {
+        srVertexProcessor::MaterialInfo getMaterialInfo() override
+        {
+            auto info = TestMaterial::getMaterialInfo();
+            info.diffuse.w = .8f;
+            return info;
+        }
+    } material;
+    std::array<srVertexPipe::Record, 3> records;
+    for (auto& record : records) {
+        record.material = &material;
+        record.channels = 0xffffffff;
+    }
+    records[0].diffuse_scale = .25f;
+    records[0].emissive_override = .75f;
+    records[1].emissive_override = .5f;
+    const glm::mat4 identity(1);
+    const std::array<glm::vec3, 1> positions{glm::vec3(0, 0, 1)};
+    const std::array<w8_ulong, 1> indices{0};
+    std::array<glm::vec4, 3> eye;
+    std::array<unsigned char, 3> attributes{};
+    std::array<srVertexArray, 3> arrays{};
+    for (std::size_t pass = 0; pass < arrays.size(); ++pass) {
+        arrays[pass].eye_locations = &eye[pass];
+        arrays[pass].attributes = &attributes[pass];
+    }
+    std::array<srVertexProcessor*, 1> processors{&capture};
+    srVertexPipe::Input input(identity, identity);
+    input.positions = positions;
+    input.active_vertices = indices;
+    input.records = records;
+    input.vertex_arrays = arrays;
+    input.processors = processors;
+    srVertexPipe pipe;
+    pipe.process(input);
+    REQUIRE(capture.seen.size() == 3);
+    REQUIRE(capture.seen[0].diffuse.w == .2f);
+    REQUIRE(capture.seen[1].diffuse.w == .8f);
+    REQUIRE(capture.seen[2].diffuse.w == .8f);
+    REQUIRE(capture.seen[0].emissive == glm::vec4(.75f, .75f, .75f, 1));
+    REQUIRE(capture.seen[1].emissive == glm::vec4(.5f, .5f, .5f, 1));
+    REQUIRE(capture.seen[2].emissive == material.getMaterialInfo().emissive);
 }

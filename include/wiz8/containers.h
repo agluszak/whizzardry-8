@@ -24,15 +24,4 @@ bool erase_first(std::vector<T>& values, const U& value)
     return true;
 }
 
-// Unlink before deletion: destructors can remove and destroy other list entries.
-template<class T>
-void remove_all_and_delete(std::vector<T*>& values)
-{
-    while (!values.empty()) {
-        T* value = values.back();
-        values.pop_back();
-        delete value;
-    }
-}
-
 } // namespace wiz8

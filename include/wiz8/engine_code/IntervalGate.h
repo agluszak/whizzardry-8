@@ -1,4 +1,5 @@
 #pragma once
+struct W8Chunk;
 
 #include "compat/compiler.h"
 #include "wiz8/engine_code/game_timer.h"
@@ -25,8 +26,9 @@ public:
         }
         return IsFinished();
     }
-    bool Load(wiz8::File& handle);
-    bool Save(wiz8::File& handle);
+    // Gate persistence: one-shot gates store only their duration.
+    bool LoadState(W8Chunk& handle);
+    bool SaveState(wiz8::File& handle);
 
 private:
     bool m_finished;

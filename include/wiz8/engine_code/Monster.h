@@ -68,11 +68,11 @@ extern float g_monster_light_scale;
    GrCycle copies the same 0x10 bytes onto a model instance at +0x164. */
 
 /* One spell/condition icon attached to a monster: the icon id and the
-   billboard object created for it. Field names come from the
-   SetMonsterSpellIcon asserts "pSpellMI->psrBMO" and its icon compares. */
+   billboard item it owns (retail "psrBMO"). Removing an icon detaches the
+   billboard from the scene before it is destroyed. */
 struct W8MonsterSpellIcon {
     W8MonsterSpellIconId icon;
-    W8Item* psrBMO;
+    std::unique_ptr<W8Item> item;
 };
 
 struct W8MonsterRep : public W8EmitterHost {
@@ -80,7 +80,6 @@ struct W8MonsterRep : public W8EmitterHost {
     W8MonsterRep(const W8MonsterRep& other);
     virtual ~W8MonsterRep() override;
     W8MonsterRep& operator=(const W8MonsterRep&) = delete;
-    virtual W8AnimRepBase* Clone() override; /* 0x004CA9E0 */
     virtual srModelInstance* SetCycleFrameLod(signed char cycle, signed char frame,
                                               signed char lod) override;  /* 0x004BF8C0 */
     virtual unsigned int ApplyEmitterSetting(signed char cycle) override; /* 0x004BF970 */
@@ -143,8 +142,9 @@ class W8Monster : public W8GrCycle {
 public:
     typedef void (*CycleCallback)(W8Monster* monster);
 
-    W8Monster();
-    W8Monster(const W8Monster& rhs);
+    explicit W8Monster(W8World* owner = nullptr);
+    W8Monster(const W8Monster& rhs) : W8Monster(rhs, rhs.owner_world) {}
+    W8Monster(const W8Monster& rhs, W8World* owner);
     W8Monster& operator=(const W8Monster&) = delete;
     virtual ~W8Monster() override;
 
@@ -168,7 +168,6 @@ public:
     virtual void SetPosition(const glm::vec3* position) override;
 
     int Query(W8MonsterQueryKind query);         /* 0x004C4660 */
-    void SetForcedSubcycle(signed char value);   /* 0x004C6C00 */
     void SpawnDamageNumber(unsigned int amount); /* 0x004C6C30 */
     bool IsDying();                              /* 0x004CA4C0 */
     bool IsCycleInterruptable(signed char cycle);
@@ -178,7 +177,7 @@ public:
     void SetDamageStage(int stage);
     int GetDamageStageCount();
     bool ReplaceSkinTexture(int stage, const char* old_name, const char* new_name);
-    int AddDamageStage(const char* base_name, int stage);
+    int AddDamageStage(std::string_view base_name, int stage);
     void RemoveCycleSkinTables();
     void RandomizeAppearanceAndMotion();
     bool IsRenderable(bool alternate);
@@ -202,6 +201,7 @@ public:
     float GetDistanceToMonster(W8Monster* monster);
     float GetPointDistanceToMonster(W8Monster* monster, glm::vec3 point);
     bool SetScript(std::string script_name, bool reset_orders);
+    void UseScript(std::shared_ptr<stScript> loaded, bool reset_orders);
     void ProcessScript();
     bool ResolveScriptPosition(const char* name, glm::vec3* position);
     bool GetProjectilePosition(glm::vec3* position);
@@ -225,16 +225,7 @@ public:
     void RefreshStandingHeight();
 
 public:
-    /* Assertion-backed original spelling. Distinct from GrObject::m_pRep at
-       +0x14; GetRepresentation() returns this GrCycle-tail slot at +0x1d8. */
-#if defined(__clang__)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wshadow-field"
-#endif
-    W8MonsterRep* m_pRep;
-#if defined(__clang__)
-#pragma clang diagnostic pop
-#endif
+    std::unique_ptr<W8MonsterRep> m_pRep;
     unsigned int runtime_flags;
     int value_1e0;
     /* 0x1e4: the monster's location id, stored by MonsterSetLocationId and
@@ -262,7 +253,6 @@ public:
     int mouth_frame;
     uint64_t talk_start;
     unsigned int talk_duration;
-    int talk_state;
     /* The mouth state the dialogue update copies out of the active
        W8MouthGapTrack; forces mouth frame 0 while open. */
     bool mouth_open;
@@ -343,14 +333,13 @@ public:
 };
 
 W8MonsterCycle ParseMonsterCycleName(const char* name, signed char* subcycle = 0);
-std::unique_ptr<W8Monster> MonsterReadAllCycles(const W8GrCycleLoadContext* context,
-                                                std::string_view monster_name, int load_value,
-                                                int location_id);
+std::unique_ptr<W8Monster> MonsterReadAllCycles(W8World* world, std::string_view monster_name,
+                                                int load_value, int location_id);
 unsigned short ChooseDifferentMonsterDirection(unsigned short previous_direction);
 
 std::optional<srBoundingBox> MonsterGetWorldAnimationBounds(W8Monster* monster);
-std::unique_ptr<W8Monster> LoadMonsterCycle(const W8GrCycleLoadContext* context,
-                                            const char* mon_name, int cycle, int value);
+std::unique_ptr<W8Monster> LoadMonsterCycle(W8World* world, std::string_view mon_name, int cycle,
+                                            int value);
 
 bool MonsterUsesCurrentModelInstance(W8GrCycle* cycle);
 glm::vec3 MonsterGetLocation(const W8Monster* monster);
@@ -362,10 +351,6 @@ bool MonsterIsCycleSupported(W8Monster* monster, signed char cycle);
 unsigned char MonsterReplacePath(W8Monster* monster, W8PathAI* path);
 unsigned char MonsterGetAnimationRadius(W8Monster* monster, float* radius);
 void MonsterSetFacing(W8Monster* monster, float angle);
-bool MonsterGetMirrorX(W8Monster* monster);
-void MonsterSetMirrorX(W8Monster* monster, bool state);
-float MonsterGetScale(W8Monster* monster);
-void MonsterSetScale(W8Monster* monster, float scale);
 void MonsterGetScaleRange(W8Monster* monster, float* minimum, float* maximum);
 void MonsterSetAdjustedPosition(W8Monster* monster, const glm::vec3* position);
 unsigned short MonsterApproachStartupNavigator(W8Monster* monster, double separation);
@@ -398,8 +383,6 @@ struct W8MonsterShakeCallback {
 };
 
 void MonsterStopAllNavigators(void);
-unsigned char MonsterGetHighlightMask(W8Monster* monster);
-void MonsterSetHighlightMask(W8Monster* monster, unsigned char flag);
 void MonsterSetHighlightColour(W8Monster* monster, glm::vec4 block);
 unsigned char MonsterSetAnimating(W8Monster* monster, bool animating);
 unsigned char MonsterIsAnimating(W8Monster* monster);
@@ -410,30 +393,27 @@ int MonsterQuery(W8Monster* monster, W8MonsterQueryKind query);
 void MonsterClearMovement(W8Monster* monster);
 void MonsterSetRuntimeBehaviour(W8Monster* monster, signed char behaviour);
 void MonsterSubmitTargetValue(W8Monster* monster);
-void DetachMonsterRepresentation(W8Monster* monster, W8World* world);
-void DestroyWorldMonster(W8World* world, W8Monster* monster);
+void DetachMonsterRepresentation(W8Monster* monster);
+void DestroyWorldMonster(W8Monster* monster);
 void RefreshMonsterStandingHeight(W8Monster* monster);
 void MonsterSetLocationId(W8Monster* monster, int value);
 void MonsterSelectLOD(W8Monster* monster, const glm::vec3* position);
 /* The shared forwarder four call sites use to advance a cycle's
    representation; it stays free because its callers pass the object on the
    stack. */
-void UpdateCycleRepresentation(W8GrCycle* cycle, W8World* world);
+void UpdateCycleRepresentation(W8GrCycle* cycle);
 void MonsterSetNavigatorHalted(W8Monster* monster, bool value);
-W8AIRecord* MonsterGetAIRecord(W8Monster* monster);                     /* 0x004C5B30 */
-void MonsterSetNavigatorMovementScale(W8Monster* monster, float value); /* 0x004C5F50 */
-float MonsterGetNavigatorMovementScale(W8Monster* monster);             /* 0x004C5F70 */
 unsigned char MonsterConfigureMovementToPosition(W8Monster* monster,
                                                  const glm::vec3* position); /* 0x004C5F90 */
-void MonsterAddPathPoint(W8Monster* monster, const glm::vec3* argument); /* 0x004C5FB0 */
-void MonsterSetPathLooping(W8Monster* monster, char value); /* 0x004C5FD0 */
 void MonsterResumeAllNavigators(void);
 
 void SetMonsterPartySlotMarker(int party_slot, int location_id, char on);
 void MonsterForwardReferencePosition(W8Monster* monster, char alternate); /* 0x004C6240 */
 void NotifyMonsterHighlight(int party_slot, int location_id, int on);
 
-W8Item* CreateMonsterIconItem(W8World* world, const char* path, int flag);
+std::unique_ptr<W8Item> CreateMonsterIconItem(W8World& world, const char* path);
+/* A Monster script by name, shared through the script cache; null when missing. */
+std::shared_ptr<stScript> LoadMonsterScript(std::string_view name);
 /* One eight-byte row per animation cycle at 0x0060EA08. The parser at
    0x004C2010 reads prefix_length as a signed byte. Its optional atoi offset
    comes from the search index, which can differ from the returned cycle. */

@@ -4,7 +4,7 @@
 #include <vector>
 
 #include "conditions.h"
-#include "wiz8/filesystem.h"
+#include "wiz8/chunk.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -23,7 +23,7 @@
 // FUNCTION: WIZ8 0x005063e0
 void PostNewGameLoad(void)
 {
-    SetFactNotificationsSuppressed(true);
+    g_fact_notifications_suppressed = true;
     AddDialogueTranscriptKeyword(g_localized_strings[0x7e7], 3);
     AddDialogueTranscriptKeyword(g_localized_strings[0x7e8], 3);
     SetFact(W8_FACT_FACTION_HIGARDI_FELLOW_FRIENDLY, 1, false);
@@ -33,18 +33,18 @@ void PostNewGameLoad(void)
     SetFact(W8_FACT_DRAZIC_LOCKED_IN_CAGE, 1, false);
     SetFact(W8_FACT_NARGISST_MONITOR_OVERFLOW_ON, 1, false);
     SetFact(W8_FACT_FACTION_RATTKIN_COMMON_FRIENDLY, 1, false);
-    SetFactNotificationsSuppressed(false);
+    g_fact_notifications_suppressed = false;
 }
 
 /* Reads the fact array back, then re-applies the consequences that do not
    survive a save. */
 // FUNCTION: WIZ8 0x005064a0
-void LoadFactState(wiz8::File& save_handle)
+void LoadFactState(W8Chunk& save_handle)
 {
     W8NpcState* npc;
     unsigned char values[sizeof(g_fact_values)];
 
-    save_handle.read_exact(values, sizeof(values));
+    save_handle.ReadBytes(values, sizeof(values));
     memcpy(g_fact_values, values, sizeof(values));
     if (GetFact(W8_FACT_RFS81_HAS_BEEN_FIXED)) {
         npc = GetNpcStateByKind(0x20);

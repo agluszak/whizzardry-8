@@ -371,8 +371,8 @@ void W8CharacterScreen::AdvancePage(bool forward)
                 RequestScreenTransition();
                 if (m_mode == 2 && m_character.experience_goal <= m_character.experience) {
                     g_pending_screen_state.mode = 3;
-                    g_pending_screen_state.parameter_3 = m_original;
-                    SetPendingScreenState(W8_SCREEN_CHARACTER);
+                    g_pending_screen_state.character = m_original;
+                    g_pending_screen_state.id = W8_SCREEN_CHARACTER;
                 }
             }
         } else if (ValidateName()) {
@@ -663,23 +663,16 @@ W8Character* W8CharacterScreen::GetOriginalCharacter()
     return m_original;
 }
 
-/* Retail's shared success return, also used by the screen lifecycle table. */
-// FUNCTION: WIZ8 0x005b1740
-unsigned char ScreenLifecycleSuccess(void)
-{
-    return 1;
-}
-
 // FUNCTION: WIZ8 0x005b1750
-unsigned char CharacterScreenEnter(void)
+bool CharacterScreenEnter(void)
 {
     SetViewport({0, 0, 0x281, 0x1e1});
     SetPrimarySurfaceTextureHint2Enabled(false);
     UpdateHeldItemCursor();
     g_wiz_text_font_secondary.resetPalette();
     g_wiz_text_bold_font.resetPalette();
-    g_character_screen = std::make_unique<W8CharacterScreen>(
-        g_current_screen_state.mode, static_cast<W8Character*>(g_current_screen_state.parameter_3));
+    g_character_screen = std::make_unique<W8CharacterScreen>(g_current_screen_state.mode,
+                                                             g_current_screen_state.character);
     g_character_screen->BuildControls();
     if (!g_status.game_started &&
         (g_current_screen_state.mode == 0 || g_current_screen_state.mode == 2)) {
@@ -689,7 +682,7 @@ unsigned char CharacterScreenEnter(void)
 }
 
 // FUNCTION: WIZ8 0x005b1840
-unsigned char CharacterScreenLeave(int leaving)
+bool CharacterScreenLeave(int leaving)
 {
     if (leaving) g_character_screen.reset();
     return 1;

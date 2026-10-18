@@ -2,6 +2,8 @@
 #include <optional>
 #pragma once
 
+class W8Octree;
+
 #include <memory>
 #include <queue>
 #include <span>
@@ -21,8 +23,6 @@
 class stModelInstance;
 class GDProp;
 class W8Monster;
-struct W8LevelFile;
-struct W8LevelFileNamedPosition;
 namespace wiz8 {
 class File;
 }
@@ -379,12 +379,11 @@ public:
        conditional edge whose segment box holds a door prop - and that prop's
        door-trigger action data is a type-10 record with flag bit0 clear. */
     bool TestAttachmentHopDoor(W8NavigatorAttachment* attachment); /* 0x00460680 */
-    void EditTeleportalLink(const glm::vec3* destination, const glm::vec3* source); /* 0x0045F2D0 */
     /* Configure the node count, grid pitch, bounds and level name. */
     void ConfigureForLevel(int size, float grid_scale, const srBoundingBox& bounds,
                            const char* name); /* 0x00458A50 */
     unsigned char ReadPathNodes(wiz8::File* handle); /* 0x00458CE0 */
-    unsigned char ReadWaypointFile();
+    unsigned char ReadWaypointFile(W8Octree& octree);
     /* Owning destructor: releases owned tables and bit sets. Single caller
        destroys the service at octree teardown. */
     ~W8PathingService(); /* 0x00457B10 */
@@ -394,15 +393,11 @@ public:
        for FindPatrolPath. */
     unsigned int navigation_filter;
     int path_node_count; /* 0x04 */
-    /* PrePathing's CreatePathNodeArray counts edge nodes here starting from
-       one, and WriteOctFile serializes it beside the node count. */
-    int edge_node_count;
     /* The grid divisor both linking walks divide by. */
     float grid_scale; /* 0x1c */
     float span; /* 0x20 */
     short cell_count; /* 0x24 */
     srBoundingBox level_bounds; /* 0x2c: minimum/maximum pair */
-    std::vector<W8FilePathNode> file_path_nodes; // Serialized cell/height-state records.
     // Zero is the sentinel in both indexed graph tables.
     std::vector<W8PathSurface> m_waypoints;
     std::vector<W8PathEdge> m_pEdges;
@@ -424,7 +419,6 @@ public:
     glm::vec3 m_probe_position; /* 0x7c */
     unsigned int m_probe_limit; /* 0x88 */
     bool m_probe_bounded; /* 0x8c */
-    unsigned int planner_location;
     std::vector<w8_ulong> m_path_candidates;
     bool explicit_target; /* 0x9c */
     unsigned int m_waypoint_neighbor_mask; /* 0xa0 */
@@ -439,7 +433,6 @@ public:
     unsigned int m_path_probe_count;
     W8PathProbeVolume m_path_probes[10];
     unsigned short start_waypoint;
-    bool path_direction_valid;
     /* Patrol-search state laid down by BuildPatrolPath and consulted by the
        recursive FindPatrolPath: the argmin-key candidate node, the accepted
        min/max start-to-destination range, the randomized target path cost,
@@ -467,7 +460,10 @@ public:
    eight-value range wrap once. */
 void StepPathCell(int* x, int* z, int direction);
 
-extern W8PathingService* g_pathing;
+struct W8World;
+// The pathing service of `world`'s octree, or null for quad-mesh levels.
+W8PathingService* WorldPathing(const W8World& world);
+W8PathingService* GetWorldPathing();
 extern unsigned short g_path_reserve;
 extern const float g_path_span_scale;
 /* 0x005ED300: OctPrePath.cpp's vertical-link slack; retail Combat.cpp reads

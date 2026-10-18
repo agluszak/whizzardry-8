@@ -67,7 +67,8 @@ struct W8GlobalStatus {
     int world_clock;
     unsigned int world_clock_ms;
     unsigned int party_order_slots[8];
-    int current_level;
+    // Decoded save destination. Live identity belongs to the primary world.
+    int resume_level = -1;
     /* Retail offset 0x1904..0x1a03: the 0x100-byte STAT header block. */
     unsigned char status_header_prefix[0xd4];
     unsigned int uiTurnsElapsed;

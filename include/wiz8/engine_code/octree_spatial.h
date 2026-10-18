@@ -74,7 +74,6 @@ struct W8OctSpatialState {
     w8_ulong m_item_count{};
     unsigned short m_depth{};
     unsigned short m_region_count{};
-    unsigned short m_item_limit{};
     /* Packed auto-region cell coordinate bound per axis, derived from the
        leaf level when a loaded octree is initialized. */
     unsigned short m_region_cells_per_axis{};

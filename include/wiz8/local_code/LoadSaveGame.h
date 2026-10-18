@@ -9,20 +9,11 @@
 
 #include "compat/compiler.h"
 #include "wiz8/file_time.h"
+#include "wiz8/layouts/save_screenshot.h"
 
 bool VerifyDataSubdirs(void);
 std::optional<std::string> FindStartupQuickSave();
 int GetSaveGameLevel(std::string_view slot_name);
-
-/* The SHOT record. SaveGame writes 0x2588 bytes; the save-screen producer
-   copy-constructs one complete record, including its trailing padding.
-   The 80 by 60 16-bit surface begins at offset 6. */
-struct W8SaveScreenshot {
-    float version;
-    unsigned char capture_result;
-    unsigned char padding_05;
-    unsigned short pixels[60][80];
-};
 
 /* Save-list entries are allocated as 0x2640 bytes by both the enumerator and
    the Options controller. The SHOT chunk occupies the embedded screenshot. */
@@ -45,7 +36,7 @@ void CaptureSaveScreenshot(W8SaveScreenshot& screenshot);
 void FillCurrentSaveSlot(W8SaveSlot& slot);
 bool EnumerateSaveSlots(std::vector<std::unique_ptr<W8SaveSlot>>& slots);
 
-bool SaveGame(std::string_view name, W8SaveScreenshot* screenshot);
+bool SaveGame(std::string_view name, const W8SaveScreenshot* screenshot);
 
 struct W8Character;
 
@@ -69,12 +60,20 @@ void SaveGlobalStatus(W8Chunk* chunks, W8GlobalStatus* status);
 bool LoadGame(std::string_view slot_name);
 
 bool SaveLevelStatus(const char* path);
-bool LoadLevelStatus(const std::filesystem::path& path, int level);
+struct W8World;
+// Decoded level data. Its implementation stays with the existing retail codecs.
+struct W8LoadedLevelStatus {
+    struct Data;
+    std::unique_ptr<Data> data;
+    W8LoadedLevelStatus();
+    ~W8LoadedLevelStatus();
+};
+std::unique_ptr<W8LoadedLevelStatus> ReadLevelStatus(W8World& world,
+                                                     const std::filesystem::path& path, int level,
+                                                     bool from_assets = false);
+void ActivateLevelStatus(W8World& world, W8LoadedLevelStatus& status);
 std::string BuildLevelStatusPath(unsigned int level);
-bool LoadStatusHeader(W8Chunk* chunk);
 bool SaveStatusHeader(W8Chunk* chunks);
-/* The per-level item-section reader and the already-open level-status scan. */
-bool LoadItemStatus(W8Chunk* chunk, int level);
 
 extern bool g_save_pending;
 
@@ -86,12 +85,6 @@ void ProcessMainGameAutoSave(void);
 bool SaveMonsterStatus(W8Chunk* chunks);
 void SaveMonsterControlSpellEffect(W8Chunk* chunks);
 void LoadMonsterControlSpellEffect(W8Chunk* chunks);
-
-bool LoadMonsterGroup(W8Chunk* chunk);
-bool LoadMonster(W8Chunk* chunk);
-/* Folds the shipped per-level status file in before a save's
-   section is applied. */
-bool LoadDefaultLevelStatus(unsigned int level);
 
 void ResetLiveSessionForLoad(void);
 

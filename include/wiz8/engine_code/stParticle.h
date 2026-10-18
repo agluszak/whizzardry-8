@@ -1,7 +1,10 @@
 #pragma once
+struct W8Chunk;
 
 #include <memory>
 #include <optional>
+#include <span>
+#include <string>
 #include <vector>
 
 #include "compat/compiler.h"
@@ -44,7 +47,6 @@ public:
        by the submitted batch. Their retail names remain unavailable. */
     void Update(); /* 0x00499FA0 */
     void PrepareRenderer(const glm::mat4& view); /* 0x00498DD0 */
-    srShader GetRenderFlags() const;
     unsigned char ReplaceTexture(const char* old_name, std::shared_ptr<srTexture> replacement);
     virtual void traverse(srNode::TraverseInfo& info) override; /* 0x00498C40 */
     virtual void process(const srNode::ProcessInfo& info,
@@ -142,8 +144,13 @@ private:
 struct W8World;
 // A still-emitting particle outlives its cycle in the world's retired list;
 // the sweep destroys it once it has finished, never during rendering.
-void RetireParticle(W8World* world, std::unique_ptr<stParticle> particle);
+void RetireParticle(W8World& world, std::unique_ptr<stParticle> particle);
 void SweepFinishedParticles(W8World* world);
 
 void SaveParticleStates(wiz8::File& handle);
-void LoadParticleStates(wiz8::File& handle);
+struct W8ParticleState {
+    std::string name;
+    unsigned char active;
+};
+std::vector<W8ParticleState> ReadParticleStates(W8Chunk& file);
+void ApplyParticleStates(std::span<const W8ParticleState> states);

@@ -330,6 +330,8 @@ void srHuffman::Compressor::buildSymbolTree()
                     which = 1;
                 }
                 Node* picked = heads[which];
+                // n symbols take n - 1 merges, so both queues never run dry here.
+                if (picked == nullptr) throw std::logic_error("Huffman merge queue exhausted");
                 *slot = picked;
                 heads[which] = picked->next;
                 if (heads[which] == 0) {

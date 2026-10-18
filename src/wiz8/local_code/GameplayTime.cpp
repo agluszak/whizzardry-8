@@ -105,7 +105,7 @@ void UpdateGameClock(int elapsed)
     g_status.world_clock_ms = (g_status.world_clock_ms + elapsed) % 1000;
 
     g_status.aging_accumulator += elapsed;
-    unsigned int aging_ticks;
+    unsigned int aging_ticks = 0; /* no turns pass while an item is being dragged */
     if (!gXStatus.item_drag_active) {
         aging_ticks = g_status.aging_accumulator / 120000;
         if (aging_ticks != 0) {
@@ -261,9 +261,9 @@ void UpdateSurpriseMode(void)
             DestroyUngroupedMonsters();
             SetViewDistance(2880.0f);
             SetNavigatorLinkMode(1);
-            level_scale = g_level_records[g_status.current_level].gameplay_time_scale;
+            level_scale = g_level_records[GetLoadedLevelID()].gameplay_time_scale;
             scale = 1.0f / level_scale;
-            g_game_time_accumulator->SetDurationScale(scale);
+            GameTimeAccumulator().SetTimeScale(scale);
             SetMonsterGeneratorDurationScale(scale);
             gXStatus.surprise_phase = 1;
         }
@@ -536,7 +536,7 @@ void AdvanceTimedEffects(unsigned int minutes)
     }
 
     for (unsigned int index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
-        W8MonsterInfo* monster_info = MonsterGetScriptPartByLocationIndex(index);
+        W8MonsterInfo* monster_info = GetMonsterListEntry(index);
         if (monster_info->highest_condition < W8_CONDITION_DEAD) {
             AgeMonsterSight(monster_info, minutes, 0);
         }
@@ -710,8 +710,7 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
     }
 
     if (character->uiCondition[W8_CONDITION_INFATUATED] != 0) {
-        if (GetLevelBand(g_status.current_level) == 9 ||
-            GetLevelBand(g_status.current_level) == 0xa) {
+        if (GetLevelBand(GetLoadedLevelID()) == 9 || GetLevelBand(GetLoadedLevelID()) == 0xa) {
             if (character->uiCondition[W8_CONDITION_HEXED] == W8_CONDITION_INDEFINITE) {
                 RemoveCharacterCondition(party_slot, W8_CONDITION_HEXED, true);
             }
@@ -915,25 +914,19 @@ static void MoveMonsterGroupAndAllies(W8MonsterGroup* group, glm::vec3* position
     }
 }
 
-/* Advance one monster's whole aging cycle by the elapsed minutes: the
-   look-around timers, the sight bookkeeping around its last-seen position,
-   the per-turn regeneration and fatigue bookkeeping, condition, enchantment
-   and effect countdowns, and finally the combat effect slots. */
-// FUNCTION: WIZ8 0x00503990
-void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
-                     unsigned char full_health_regeneration)
+/* Out-of-combat movement aging: stay-home monsters drift back to their
+   formation point, wanderers advance their look/pause timers. Combat only
+   ticks the combat effect slots. */
+static void AgeMonsterMovement(W8MonsterInfo* monster_info, unsigned int minutes)
 {
-    W8MonsterRecord* record;
     W8Monster* monster;
-    bool frost_condition = false;
 
-    record = GetMonsterDataForInfo(monster_info);
     if (monster_info->fInCombat) {
         W8CombatSlot target;
         target.iType = static_cast<W8TargetKind>(3);
         target.iMonsterID = monster_info->location_id;
         TickCombatEffectSlots(monster_info->pCombat->combat_effects, &target);
-        goto after_early;
+        return;
     }
     monster = monster_info->p3D;
     if (monster->stay_home) {
@@ -954,17 +947,18 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
 
             probe.y += 1e+03f;
             camera = cameraLocation();
-            if (projectsToCamera(probe) == 0 && !g_octree->HasLineOfSight(&camera, &probe, true)) {
+            if (projectsToCamera(probe) == 0 &&
+                !GetWorldOctree()->HasLineOfSight(&camera, &probe, true)) {
                 glm::vec3 notify_position = last_seen;
                 W8MonsterGroup* group = FindMonsterGroup(monster_info->monster_group_id);
 
                 MoveMonsterGroupAndAllies(group, &notify_position, monster->GetYaw());
             }
         }
-        goto after_early;
+        return;
     }
     if (GetViewDistance() != g_sight_default) {
-        goto after_early;
+        return;
     }
     if ((monster->linked_navigator == 0 && !monster->halted) &&
         (monster_info->movement_stall_ticks > 1 || !monster->movement_stopped)) {
@@ -994,7 +988,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                        short-move test passes; a long move leaves both alone. */
                     flags_cleared = true;
 
-                    if (!g_pathing->SnapWaypointPosition(&navigator_position, false) &&
+                    if (!GetWorldPathing()->SnapWaypointPosition(&navigator_position, false) &&
                         !monster_info->party_threat.visible_to_player) {
                         glm::vec3 next_position;
 
@@ -1008,7 +1002,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
 
                             camera = cameraLocation();
                             if (projectsToCamera(probe) == 0 &&
-                                !g_octree->HasLineOfSight(&camera, &probe, true)) {
+                                !GetWorldOctree()->HasLineOfSight(&camera, &probe, true)) {
                                 glm::vec3 notify_position = next_position;
                                 W8MonsterGroup* group =
                                     FindMonsterGroup(monster_info->monster_group_id);
@@ -1033,7 +1027,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                 /* Both on-screen tests take the representation location read at the top of
                    the watch block, not the navigator position (0x00503e90, 0x00503f40). */
                 if (projectsToCamera(location) == 0 &&
-                    !g_octree->HasLineOfSight(&camera, &probe, true)) {
+                    !GetWorldOctree()->HasLineOfSight(&camera, &probe, true)) {
                     if (monster->formation.x == 0.0f && monster->formation.y == 0.0f &&
                         monster->formation.z == 0.0f) {
                         monster->formation = monster->GetPosition();
@@ -1041,7 +1035,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                     probe = monster->formation;
                     probe.y += 1e+03f;
                     if (projectsToCamera(location) == 0 &&
-                        !g_octree->HasLineOfSight(&camera, &probe, true)) {
+                        !GetWorldOctree()->HasLineOfSight(&camera, &probe, true)) {
                         if (monster->formation.x == 0.0f && monster->formation.y == 0.0f &&
                             monster->formation.z == 0.0f) {
                             monster->formation = monster->GetPosition();
@@ -1102,22 +1096,35 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
             }
         }
     }
-
-after_early: {
-    unsigned int amount = monster_info->modifiers.damage_per_minute;
-
-    if (amount != 0) {
-        W8TargetSource source;
-
-        amount *= minutes;
-        if (monster_info->fInCombat) {
-            amount += amount >> 1;
-        }
-        ResetTargetSource(&source);
-        ApplyDamageToMonster(monster_info, amount, &source, true, gXStatus.fCombatMode, 0, 0,
-                             false);
-    }
 }
+
+/* Advance one monster's whole aging cycle by the elapsed minutes: the
+   look-around timers, the sight bookkeeping around its last-seen position,
+   the per-turn regeneration and fatigue bookkeeping, condition, enchantment
+   and effect countdowns, and finally the combat effect slots. */
+// FUNCTION: WIZ8 0x00503990
+void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
+                     unsigned char full_health_regeneration)
+{
+    bool frost_condition = false;
+
+    W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
+    AgeMonsterMovement(monster_info, minutes);
+    {
+        unsigned int amount = monster_info->modifiers.damage_per_minute;
+
+        if (amount != 0) {
+            W8TargetSource source;
+
+            amount *= minutes;
+            if (monster_info->fInCombat) {
+                amount += amount >> 1;
+            }
+            ResetTargetSource(&source);
+            ApplyDamageToMonster(monster_info, amount, &source, true, gXStatus.fCombatMode, 0, 0,
+                                 false);
+        }
+    }
     if (monster_info->uiCondition[W8_CONDITION_DISEASED] != 0) {
         frost_condition = true;
     }

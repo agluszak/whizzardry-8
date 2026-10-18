@@ -51,6 +51,7 @@
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/dialog_code/SpellInfoDialog.h"
+#include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/fact_state.h"
@@ -1127,10 +1128,10 @@ static void CreateCampInput()
     }
 }
 
-unsigned char CampScreenEnter(void)
+bool CampScreenEnter(void)
 {
     ClearPrimarySurface();
-    g_review_character = static_cast<W8Character*>(g_current_screen_state.parameter_3);
+    g_review_character = g_current_screen_state.character;
     giReviewCharSlot = g_current_screen_state.parameter_2;
     unsigned char initial_item_action;
     if (g_current_screen_state.parameter_4 == 0) {
@@ -1320,7 +1321,7 @@ void CampScreenFrame(void)
     DrawCampScreen();
 }
 
-unsigned char CampScreenLeave(int)
+bool CampScreenLeave(int)
 {
     if (!g_camp_screen) return 1; // Already released when it was suspended.
     DeactivateCampPage();
@@ -2471,13 +2472,13 @@ void PumpReviewTransition(void)
     }
     if (g_ending_autosave) {
         if (auto name = FindFreeEndingSaveName()) {
-            SaveGame(name->c_str(), 0);
-            SetMainMenuMessage(
-                fmt::format("{} {}.{}", g_localized_strings[0x78b], *name, g_save_extension));
+            SaveGame(name->c_str(), nullptr);
+            g_pending_main_menu_message =
+                (fmt::format("{} {}.{}", g_localized_strings[0x78b], *name, g_save_extension));
         }
         g_ending_autosave = false;
     }
-    if (g_status.current_level != -1) {
+    if (GetLoadedLevelID() != -1) {
         LoadCurrentLevelData();
     }
     exit_review = false;
@@ -2535,7 +2536,7 @@ void EndReviewTransition(void)
     ResetMainGameMode();
     g_level_block->review_transition_active = false;
     if (g_ending_screen) {
-        SetPendingScreenState(W8_SCREEN_CREDITS);
+        g_pending_screen_state.id = W8_SCREEN_CREDITS;
         g_ending_screen = false;
         return;
     }

@@ -10,10 +10,10 @@
 
 #include "compat/native.h"
 #include "cursor.h"
-#include "layouts/screen_state.h"
 #include "local_code/MonsterManager.h"
 #include "soundman.h"
 #include "wiz8/character_event_queue.h"
+#include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/combat_state.h"
@@ -27,6 +27,7 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/message_box.h"
@@ -151,7 +152,8 @@ W8NpcSubquoteOutcome SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char sub
             HoldNpcSpeech(g_speech, wiz8::text::grapheme_count(display_text) * 60 + 2000);
             return W8NpcSubquoteOutcome::presented;
         }
-        ShowNotice(W8_FONT_PALETTE_TEXT_BOX, display_text, 0, GetTextBoxScrollRange());
+        ShowNotice(W8_FONT_PALETTE_TEXT_BOX, display_text, 0,
+                   (g_level_block->text_box_right - g_level_block->text_box_left));
         return W8NpcSubquoteOutcome::presented;
     }
 
@@ -235,7 +237,8 @@ W8NpcSubquoteOutcome SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char sub
     }
     prefixed_text = fmt::format("{}: {}", speaker->record->source_name, display_text);
     display_text = prefixed_text;
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, display_text, 0, GetTextBoxScrollRange());
+    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, display_text, 0,
+               (g_level_block->text_box_right - g_level_block->text_box_left));
     return W8NpcSubquoteOutcome::presented;
 }
 
@@ -280,7 +283,7 @@ static void FinishNpcVoicePlayback(bool resume_script)
 // FUNCTION: WIZ8 0x00525D90
 void TryFinishNpcVoicePlayback(bool force)
 {
-    if (g_status.world_cursor_gate == 0 || g_status.current_level != 4) {
+    if (g_status.world_cursor_gate == 0 || GetLoadedLevelID() != 4) {
         if (!force && w8_get_ticks() - g_speech.voice_started_at <= 500) {
             return;
         }

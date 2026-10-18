@@ -19,7 +19,7 @@
 // FUNCTION: WIZ8 0x005cce70
 void W8ListBoxDialog::OnTextAreaClick()
 {
-    const SDL_Point cursor = UiPointerPosition();
+    const SDL_Point cursor = g_ui.pointer;
     const int height = g_wiz_dialog_font.height();
     if (height == 0) return;
     const int line = (cursor.y - m_area_button.Bounds().y) / height + m_first_visible_line;
@@ -60,7 +60,7 @@ void W8ListBoxDialog::OnCancel()
 // FUNCTION: WIZ8 0x005cd1e0
 void W8ListBoxDialog::OnSliderTrackClick()
 {
-    SDL_Point cursor = UiPointerPosition();
+    SDL_Point cursor = g_ui.pointer;
     const int top = m_third_text_button.Bounds().y + m_up_button.Bounds().h;
     const int bottom =
         m_third_text_button.Bounds().y + m_third_text_button.Bounds().h - m_down_button.Bounds().h;

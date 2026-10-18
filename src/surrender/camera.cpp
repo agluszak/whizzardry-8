@@ -28,12 +28,6 @@ void srCamera::process(const ProcessInfo& info, e_processType type)
     processPop(info.renderer);
 }
 
-// FUNCTION: SURRENDER 0x10047E10
-srCamera::e_project srCamera::getProjectionType() const
-{
-    return static_cast<e_project>(flags & (1UL << FLAG_PROJECTION_TYPE));
-}
-
 // FUNCTION: SURRENDER 0x10047E20
 void srCamera::setProjectionType(e_project projection)
 {
@@ -94,12 +88,6 @@ void srCamera::processPop(srGERD* renderer)
     renderer->popEnvironment();
 }
 
-// FUNCTION: SURRENDER 0x10048430
-double srCamera::getAspectRatio() const
-{
-    return (view_plane.right - view_plane.left) / (view_plane.top - view_plane.bottom);
-}
-
 // FUNCTION: SURRENDER 0x10048450
 srCamera::srCamera(srNode* parent) : srNode(static_cast<srNode*>(0))
 {
@@ -121,16 +109,6 @@ srCamera::Rect srCamera::getNormalizedViewPlane() const
 {
     return {view_plane.left / view_plane_distance, view_plane.bottom / view_plane_distance,
             view_plane.right / view_plane_distance, view_plane.top / view_plane_distance};
-}
-
-// FUNCTION: SURRENDER 0x100485F0
-void srCamera::normalizeViewPlane()
-{
-    view_plane.left /= view_plane_distance;
-    view_plane.bottom /= view_plane_distance;
-    view_plane.right /= view_plane_distance;
-    view_plane.top /= view_plane_distance;
-    view_plane_distance = 1.0;
 }
 
 // FUNCTION: SURRENDER 0x10048650
@@ -201,19 +179,6 @@ void srCamera::setViewPlane(const Rect& rectangle, double distance)
     }
 }
 
-// FUNCTION: SURRENDER 0x100488A0
-void srCamera::setFocalLength(double focal_length, double aspect_ratio)
-{
-    if (focal_length < 5.9604644775390625e-08) {
-        focal_length = 5.9604644775390625e-08;
-    }
-    if (aspect_ratio < 5.9604644775390625e-08) {
-        aspect_ratio = 5.9604644775390625e-08;
-    }
-    double angle = atan(0.018 / focal_length);
-    setViewPlane((angle + angle) * aspect_ratio, angle + angle);
-}
-
 // FUNCTION: SURRENDER 0x10048920
 void srCamera::setViewPlane(double width, double height)
 {
@@ -259,14 +224,6 @@ double srCamera::getVerticalFOV() const
 {
     return atan(view_plane.top / view_plane_distance) -
            atan(view_plane.bottom / view_plane_distance);
-}
-
-// FUNCTION: SURRENDER 0x10048B10
-void srCamera::flipVertical()
-{
-    double swap = view_plane.bottom;
-    view_plane.bottom = view_plane.top;
-    view_plane.top = swap;
 }
 
 // FUNCTION: SURRENDER 0x10048B40

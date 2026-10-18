@@ -6,8 +6,6 @@
 #include <memory>
 #include <vector>
 
-class W8AnimRepBase;
-
 /* The sound events GrObject.cpp calls `pse`/`m_plsSoundEvents`. The class
    itself belongs to Engine Code\SoundEvent.cpp, which owns its whole
    lifecycle; only the pointer is needed here. */
@@ -34,8 +32,6 @@ public:
     int id;
     std::unique_ptr<W8AIRecord> m_pAI;
     std::vector<std::unique_ptr<W8SoundEvent>> sound_events;
-    // Prop and Item own their representation; the base never copies it.
-    W8AnimRepBase* m_pRep;
 };
 
 /* The shared object-id counter both lifecycle callers advance. */

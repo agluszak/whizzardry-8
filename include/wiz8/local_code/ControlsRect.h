@@ -11,11 +11,6 @@ struct W8ControlsRect {
     int bottom;
 };
 
-inline SDL_Rect ToSDLRect(const W8ControlsRect& edges)
-{
-    return {edges.left, edges.top, edges.right - edges.left, edges.bottom - edges.top};
-}
-
 inline W8ControlsRect ToEdges(const SDL_Rect& rect)
 {
     return {rect.x, rect.y, rect.x + rect.w, rect.y + rect.h};

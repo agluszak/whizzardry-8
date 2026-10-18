@@ -1,5 +1,6 @@
-#include <string_view>
 #pragma once
+struct W8Chunk;
+#include <string_view>
 
 #include "surrender/srMath.h"
 #include "wiz8/fact_state.h"
@@ -156,7 +157,7 @@ void ReleaseNpcMonsterByKind(int kind);
 /* Record that the NPC has told the party the given fact. */
 void TellNpcFact(W8NpcState* npc, short fact);
 bool SaveNpcStates(wiz8::File& file);
-void LoadNpcStates(wiz8::File& file);
+void LoadNpcStates(W8Chunk& file);
 char AttemptNpcItemTheft(W8Character* character, W8NpcState* npc, int item_id, int count);
 void UpdateNpcPartyMember(int party_slot);
 bool QueueNpcDepartureEvents(int destination_level);

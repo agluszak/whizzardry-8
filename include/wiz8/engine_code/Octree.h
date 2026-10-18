@@ -45,8 +45,6 @@ typedef std::unordered_multimap<unsigned int, int> W8OctreeIndex;
 class W8PathingService;
 class OctMeshModel;
 struct CondPathNode;
-struct W8LevelFile;
-struct W8LevelFileAnimObj;
 struct W8World;
 struct W8GameData;
 struct W8NavigatorMovementState;
@@ -115,14 +113,6 @@ inline unsigned int OctreeKeyId(unsigned int key)
 {
     return key & 0xffff;
 }
-inline int OctreeCellKeyX(int key)
-{
-    return (key - 1) >> 0x10;
-}
-inline int OctreeCellKeyY(int key)
-{
-    return ((key - 1) >> 8) & 0xff;
-}
 inline int OctreeCellKeyZ(int key)
 {
     return (key - 1) & 0xff;
@@ -172,9 +162,7 @@ struct W8OctreeView {
     float horizontal_fov{};
     float vertical_fov{};
     float horizontal_fov_cosine{};
-    float vertical_fov_cosine{};
     float far_clip{};
-    glm::ivec3 visible_cells{0};
     std::array<glm::vec4, 6> frustum_planes{};
 
     void captureCamera(const srCamera& camera);
@@ -192,8 +180,6 @@ public:
     W8Octree& operator=(const W8Octree&) = delete;
     void AddLoadedProp(W8Prop* prop);
     void AddLoadedParticles(std::span<stParticle* const> particles);
-    /* Store the prop-sunlight bit array once it has been given a size. */
-    void SetPropSunBits(std::vector<bool> bits);
     /* Whether prop `offset` past prop_sun_base has its sunlight bit; a
        negative offset checkpoints the shared index into the base. */
     bool TestPropSunBit(int offset);
@@ -292,10 +278,6 @@ public:
     void GetPathSurfaceNormal(const glm::vec3* position, glm::vec3* normal);
     GroundProbe settleToGround(const glm::vec3& position, bool test_props,
                                float limit); /* 0x00433820 */
-    /* Clamp `position` to the clipped ceiling, probe the ground one
-       world-scale unit lower and keep the settled height on a hit. */
-    /* Returns the ground-hit flag in AL; pathing callers test it. */
-    bool SnapToGround(glm::vec3* position, char mode); /* 0x00431D20 */
     void RegisterNavigatorCell(int id, const glm::vec3* position);
     /* Owned query results remain valid across subsequent octree queries.
        IDs retain cell traversal order and the existing 10,000-entry limit. */
@@ -316,7 +298,7 @@ public:
        the packed auto-region key (level<<24)|cell. */
     unsigned int RegionKeyForPoint(const glm::vec3& point); /* 0x00432720 */
     /* Link `region_key` to every mesh marked in m_projected_regions,
-       inserting unseen (region, mesh) pairs into m_pRegionLinks. */
+       inserting unseen (region, mesh) pairs into m_region_links. */
     void RecordRegionMeshLinks(unsigned int region_key); /* 0x004327F0 */
     /* Sweep the camera around `point`, mark cells whose meshes still draw
        into m_projected_regions and return `point`'s region key (zero when
@@ -364,7 +346,7 @@ public:
     std::vector<w8_ulong> m_leaf_lookup;
     w8_ulong m_branch_count;
     w8_ulong m_leaf_count;
-    W8OctreeObjectRegistry* object_registry;
+    std::unique_ptr<W8OctreeObjectRegistry> object_registry;
     std::string m_path_stem;
     bool m_fAccumulating;
     w8_ulong m_vertex_count;
@@ -403,7 +385,7 @@ public:
     w8_ulong m_region_mask;
     w8_ulong m_depth_mask;
     std::vector<unsigned short> m_region_index_stream;
-    std::unordered_multimap<unsigned int, unsigned short>* m_pRegionLinks;
+    std::unordered_multimap<unsigned int, unsigned short> m_region_links;
     std::vector<bool> m_projected_regions;
     std::vector<bool> m_current_regions;
     std::vector<bool> m_previous_regions;
@@ -417,7 +399,7 @@ public:
        builder strides the x/z grid by it (times three for a sparse pass). */
     float m_region_cell;
     float m_path_clearance;
-    W8PathingService* pathing;
+    std::unique_ptr<W8PathingService> pathing;
     int prop_sun_base; /* 0x184: this octree's base index into the shared
                               prop-sunlight bit stream */
     w8_ulong m_ulNumProps;
@@ -440,13 +422,11 @@ public:
     unsigned short m_sun_count;
 };
 
-extern W8Octree* g_octree;
+W8Octree* GetWorldOctree();
 
 bool IsNavigatorAtTarget(W8NavigatorMovementState* movement);
 
-extern w8_ulong* g_octree_state;
 extern const float g_octree_cell_scale;
-extern w8_ulong g_octree_bytes_read;
 extern int g_prop_sun_index;
 /* Renderer switches the region-link build toggles: suppress baked vertex
    lighting, force front-face culling and strip textures while sampling. */

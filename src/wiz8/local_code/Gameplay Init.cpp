@@ -36,6 +36,7 @@
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/FormationAndFacing.h"
+#include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -52,9 +53,6 @@
 /* TU attribution follows the 2001-08-14 demo __FILE__ and link-order evidence. */
 
 namespace {
-std::unique_ptr<W8NpcDatabaseRecord[]> npc_records;
-std::unique_ptr<W8FactDatabaseRecord[]> fact_records;
-std::unique_ptr<W8LevelDatabaseRecord[]> level_records;
 }
 
 /* NPC.DBS records carry an optional sub-list, stored after the record when its
@@ -71,9 +69,9 @@ try {
         (handle->size() - handle->tell()) / std::int64_t(wiz8::retail::kNpcDatabaseRecordBytes)) {
         return 0;
     }
-    auto records = std::make_unique<W8NpcDatabaseRecord[]>(count);
+    std::vector<W8NpcDatabaseRecord> records(count);
     for (unsigned int index = 0; index < count; ++index) {
-        auto& record = records.get()[index];
+        auto& record = records[index];
         wiz8::retail::read_exact(*handle, record);
         if (record.no_item_stock == 0 && record.version > 1) {
             unsigned int entry_count;
@@ -91,9 +89,7 @@ try {
             for (auto& rule : record.item_stock_rules) handle->read_exact(&rule, sizeof(rule));
         }
     }
-    npc_records = std::move(records);
-    g_npc_records = npc_records.get();
-    gXStatus.uiNpcsInDatabase = count;
+    g_npc_records = std::move(records);
     return 1;
 } catch (const std::exception&) {
     return 0;
@@ -101,9 +97,7 @@ try {
 
 void DestroyNpcDatabase(void)
 {
-    npc_records.reset();
-    g_npc_records = nullptr;
-    gXStatus.uiNpcsInDatabase = 0;
+    g_npc_records = {};
 }
 
 // FUNCTION: WIZ8 0x0054ad00
@@ -111,12 +105,8 @@ unsigned char InitializeFactDatabase(void)
 try {
     auto handle =
         wiz8::open_file(wiz8::asset_path("Data\\Databases\\FACT.DBS"), wiz8::OpenMode::read);
-    unsigned int count;
-    auto records =
-        wiz8::retail::read_database<W8FactDatabaseRecord>(*handle, count, std::size(g_fact_values));
-    fact_records = std::move(records);
-    g_fact_records = fact_records.get();
-    gXStatus.uiFactsInDatabase = count;
+    g_fact_records =
+        wiz8::retail::read_database<W8FactDatabaseRecord>(*handle, std::size(g_fact_values));
     return 1;
 } catch (const std::exception&) {
     return 0;
@@ -125,9 +115,7 @@ try {
 // FUNCTION: WIZ8 0x0054ae00
 void DestroyFactDatabase(void)
 {
-    fact_records.reset();
-    g_fact_records = nullptr;
-    gXStatus.uiFactsInDatabase = 0;
+    g_fact_records = {};
 }
 
 // FUNCTION: WIZ8 0x0054ae20
@@ -135,10 +123,7 @@ unsigned char InitializeLevelDatabase(void)
 try {
     auto handle =
         wiz8::open_file(wiz8::asset_path("Data\\Databases\\LEVELS.DBS"), wiz8::OpenMode::read);
-    unsigned int count;
-    auto records = wiz8::retail::read_database<W8LevelDatabaseRecord>(*handle, count);
-    level_records = std::move(records);
-    g_level_records = level_records.get();
+    g_level_records = wiz8::retail::read_database<W8LevelDatabaseRecord>(*handle);
     return 1;
 } catch (const std::exception&) {
     return 0;
@@ -147,8 +132,7 @@ try {
 // FUNCTION: WIZ8 0x0054af10
 void DestroyLevelDatabase(void)
 {
-    level_records.reset();
-    g_level_records = nullptr;
+    g_level_records = {};
 }
 
 /* Reset the status and its fixed eight-slot character banks. */
@@ -233,7 +217,6 @@ void ResetForNewGame(void)
     } while (id < g_starting_item_ids + 6);
     g_status.party_gold = 500;
     g_status.selected_character = GetNextCharacter(1, 1, -1);
-    g_status.current_level = -1;
     InitializePartyFormation(&g_status.formation);
     for (index = 0; index < 8; ++index) {
         g_status.party_order_slots[index] = 0xffffffff;
@@ -249,12 +232,12 @@ void RunNewGameOpeningSequence(bool notify, std::string_view target)
     g_status.game_started = true;
     if (!target.empty()) {
         g_status.iron_man = true;
-        SetLastSaveName(target);
+        g_options_last_save_name = target;
     }
     g_status.difficulty = g_settings.difficulty;
     gXStatus.fEncumbranceDirty = true;
     SetGameTimeMilliseconds(0x2932e00);
-    SetGameTimeDays(1);
+    g_status.game_time_days = 1;
     if (notify) {
         RequestScreenTransition();
     }
@@ -262,7 +245,7 @@ void RunNewGameOpeningSequence(bool notify, std::string_view target)
     InitializeFactJournal();
     ResetFactions();
     ResetMainScreenStateBlock();
-    SetPendingScreenState(W8_SCREEN_GAME_START_ROUTER);
+    g_pending_screen_state.id = W8_SCREEN_GAME_START_ROUTER;
 }
 
 // FUNCTION: WIZ8 0x0054b2d0

@@ -7,6 +7,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -17,6 +18,7 @@
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/rotate_vector.hpp>
 
+#include "GDCamera.h"
 #include "GrCycle.h"
 #include "Navigator.h"
 #include "asset_paths.h"
@@ -43,6 +45,7 @@
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/SoundEvent.h"
+#include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/emitter_cycles.h"
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/engine_code/stLight.hpp"
@@ -180,7 +183,7 @@ float AdvanceMissileAI(W8AIMissile* record, glm::vec3* out, unsigned int steps)
     float pitch;
     float yaw;
 
-    representation = record->missile->m_pRep;
+    representation = record->missile->m_pRep.get();
     if (steps == 0) {
         *out = representation->location;
         return 0.0f;
@@ -191,11 +194,11 @@ float AdvanceMissileAI(W8AIMissile* record, glm::vec3* out, unsigned int steps)
     position = record->missile->GetPosition();
     (*out) = glm::vec3(position.x + direction.x * advance, position.y + direction.y * advance,
                        position.z + direction.z * advance);
-    if (g_world->octree != 0) {
-        if (const auto hit = g_world->octree->traceProps(position, (*out), 0, 0)) {
+    if (GetWorld()->octree != 0) {
+        if (const auto hit = GetWorld()->octree->traceProps(position, (*out), 0, 0)) {
             *out = hit->position;
             record->limit = 1.0f;
-            prop = g_world->collidable_props[hit->prop_id];
+            prop = GetWorld()->collidable_props[hit->prop_id];
             prop->RunMissileTrigger(record);
         }
     }
@@ -289,7 +292,7 @@ void GetCharacterProjectilePosition(unsigned int character_index, glm::vec3* pos
         (character_index & 1) ? -75.0f : 75.0f,
         kCharacterProjectileHeight - character_index * 0.5f * kCharacterProjectileHeightStep, 0);
     const auto yaw = GetCameraYawRadians() - g_monster_rotation_offset;
-    const auto pitch = -GetCameraPitchRadians();
+    const auto pitch = -PartyCamera().m_pitch;
     *position = camera + glm::rotateY(glm::rotateX(offset, pitch), yaw);
 }
 
@@ -308,12 +311,12 @@ W8Missile* NextMissile(bool restart)
 {
     W8Missile* missile = 0;
 
-    if (g_world != 0) {
+    if (GetWorld() != 0) {
         if (restart) {
             g_missile_iterator = 0;
         }
-        if (g_missile_iterator < static_cast<int>(g_world->missiles.size())) {
-            missile = g_world->missiles[g_missile_iterator].get();
+        if (g_missile_iterator < static_cast<int>(GetWorld()->missiles.size())) {
+            missile = GetWorld()->missiles[g_missile_iterator].get();
             ++g_missile_iterator;
         }
     }
@@ -342,6 +345,7 @@ void UpdateWorldMissiles(W8World* world)
                 missile->UpdateRepresentation(world);
                 missile->UpdateNavigation(0, false);
             } else {
+                missile->RetireParticles(*world);
                 world->missiles.erase(world->missiles.begin() + index);
                 --index;
                 --count;
@@ -369,11 +373,7 @@ W8Missile* FireMissile(unsigned int missile_table_index, glm::vec3* source, glm:
 // FUNCTION: WIZ8 0x004A5450
 W8Missile* AllocateMissile(int missile_table_index)
 {
-    W8GrCycleLoadContext context;
-    context.world = g_world;
-    context.directory = "Data\\Spells\\Bitmaps";
-    auto owner =
-        LoadMissileCycle(&context, g_missile_table[missile_table_index].cycle_name.c_str());
+    auto owner = LoadMissileCycle(GetWorld(), g_missile_table[missile_table_index].cycle_name);
     auto* missile = owner.get();
     if (missile == 0) {
         return 0;
@@ -392,7 +392,7 @@ W8Missile* AllocateMissile(int missile_table_index)
         }
     }
     missile->impacting = false;
-    g_world->missiles.push_back(std::move(owner));
+    GetWorld()->missiles.push_back(std::move(owner));
     missile->SetBounds({{-125.0f, -125.0f, -125.0f}, {125.0f, 125.0f, 125.0f}});
     missile->active = true;
     return missile;
@@ -404,10 +404,10 @@ W8Missile* AllocateMissile(int missile_table_index)
    gravity/velocity keywords set the missile's tail flags - and the cycle
    lines load through the ordinary GrCycle path. */
 // FUNCTION: WIZ8 0x004a3550
-std::unique_ptr<W8Missile> LoadMissileCycle(W8GrCycleLoadContext* context, const char* name)
+std::unique_ptr<W8Missile> LoadMissileCycle(W8World* world, std::string_view name)
 {
     if (auto* found = FindFirstGrCycleByName(name)) {
-        auto missile = std::make_unique<W8Missile>(*static_cast<W8Missile*>(found));
+        auto missile = std::make_unique<W8Missile>(*static_cast<W8Missile*>(found), world);
         auto* ai = static_cast<W8AIMissile*>(missile->m_pAI.get());
         if (ai->kind != W8_AI_RECORD_MISSILE)
             srAssertFail("missile AI", MISSILE_CPP, __LINE__, nullptr);
@@ -416,7 +416,7 @@ std::unique_ptr<W8Missile> LoadMissileCycle(W8GrCycleLoadContext* context, const
         return missile;
     }
     PauseSharedGameTimers();
-    auto output = std::make_unique<W8Missile>();
+    auto output = std::make_unique<W8Missile>(world);
     output->m_pRep->current_cycle = -1;
     auto handle = [&] {
         try {
@@ -426,8 +426,8 @@ std::unique_ptr<W8Missile> LoadMissileCycle(W8GrCycleLoadContext* context, const
         }
     }();
     if (!handle) {
-        const bool success = LoadGrCycle(context, name, output.get(), 0, 1, "Data\\Missiles", 1,
-                                         "Data\\Spells\\Bitmaps");
+        const bool success =
+            LoadGrCycle(name, output.get(), 0, 1, "Data\\Missiles", 1, "Data\\Spells\\Bitmaps");
         if (success) {
             RegisterGrCycle(name, output.get());
         }
@@ -467,8 +467,8 @@ std::unique_ptr<W8Missile> LoadMissileCycle(W8GrCycleLoadContext* context, const
                         break;
                     }
 
-                    success = LoadGrCycle(context, resource.c_str(), output.get(), cycle, 1,
-                                          "Data\\Missiles", 1, "Data\\Spells\\Bitmaps");
+                    success = LoadGrCycle(resource, output.get(), cycle, 1, "Data\\Missiles", 1,
+                                          "Data\\Spells\\Bitmaps");
                     cycle_line = true;
                     break;
                 }
@@ -559,7 +559,7 @@ W8Missile* CreateMissile(unsigned int missile_table_index, glm::vec3* source, fl
         missile->m_pRep->SetRotation(&aim);
         missile->SetAngles(heading);
         missile->SetPitch(pitch);
-        octree = g_world->octree.get();
+        octree = GetWorld()->octree.get();
         if (octree != 0) {
             end = glm::vec3(direction.x * duration, direction.y * duration, direction.z * duration);
             end = end + *source;
@@ -633,12 +633,6 @@ W8MissileRep::W8MissileRep() = default;
 // FUNCTION: WIZ8 0x004a2db0
 W8MissileRep::W8MissileRep(const W8MissileRep& other) = default;
 
-// FUNCTION: WIZ8 0x004a5d40
-W8AnimRepBase* W8MissileRep::Clone()
-{
-    return new W8MissileRep(*this);
-}
-
 // FUNCTION: WIZ8 0x004A3300
 unsigned char W8MissileRep::ReadCycleData(W8ReadLevelInfo* info, W8Missile* missile,
                                           int cycle_index, int)
@@ -655,10 +649,10 @@ unsigned char W8MissileRep::ReadCycleData(W8ReadLevelInfo* info, W8Missile* miss
    overwrites the vector and leaks its initial five-pointer allocation; the
    ordering is preserved because it is present explicitly in the product. */
 // FUNCTION: WIZ8 0x004A3C10
-W8Missile::W8Missile()
-    : missile_table_index(-1), flight_done(0), impacting(0), block_released(1), gravity(0),
-      align_camera(0), explode_ground(0), align_explosion(0), flag(1), value_1e8(0), value_1ec(0),
-      lifetime(15000.0f), flags0(0), retargeted(false)
+W8Missile::W8Missile(W8World* owner)
+    : W8GrCycle(owner), missile_table_index(-1), flight_done(0), impacting(0), block_released(1),
+      gravity(0), align_camera(0), explode_ground(0), align_explosion(0), flag(1), value_1e8(0),
+      value_1ec(0), lifetime(15000.0f), flags0(0), retargeted(false)
 {
     W8GrObject::kind = 1;
     radius = 1.0f;
@@ -675,7 +669,7 @@ W8Missile::W8Missile()
     }
     id = AllocateGrObjectId();
 
-    m_pRep = new W8MissileRep;
+    m_pRep = std::make_unique<W8MissileRep>();
     if (m_pRep == 0) {
         srAssertFail("m_pRep", MISSILE_CPP, 0x38e, 0);
     }
@@ -692,8 +686,8 @@ W8Missile::W8Missile()
    growable vector's initial allocation exactly as the default constructor
    does. */
 // FUNCTION: WIZ8 0x004A3E50
-W8Missile::W8Missile(const W8Missile& other)
-    : W8GrCycle(other), missile_table_index(other.missile_table_index), flight_done(0),
+W8Missile::W8Missile(const W8Missile& other, W8World* owner)
+    : W8GrCycle(other, owner), missile_table_index(other.missile_table_index), flight_done(0),
       impacting(0), block_released(other.block_released), gravity(other.gravity),
       align_camera(other.align_camera), explode_ground(other.explode_ground),
       align_explosion(other.align_explosion), flag(other.flag), value_1e8(other.value_1e8),
@@ -702,7 +696,7 @@ W8Missile::W8Missile(const W8Missile& other)
 {
     W8GrObject::kind = 1;
     id = AllocateGrObjectId();
-    m_pRep = static_cast<W8MissileRep*>(other.m_pRep->Clone());
+    m_pRep = std::make_unique<W8MissileRep>(*other.m_pRep);
 
     memset(&definition, 0, sizeof(definition));
     result = {};
@@ -742,7 +736,7 @@ w8_ulong W8Missile::GetAnimationState(int mode)
 W8Missile::~W8Missile()
 {
     SetLights(0);
-    delete m_pRep;
+    m_pRep.reset();
     DetachMissileReferences(this);
     UnregisterGrCycle(this);
 }
@@ -792,7 +786,7 @@ void W8Missile::SetEffectDefinition(const W8SpellEffectDefinition* definition)
 // FUNCTION: WIZ8 0x004a45e0
 W8EmitterHost* W8Missile::GetRepresentation()
 {
-    return m_pRep;
+    return m_pRep.get();
 }
 
 /* The animation the representation is currently firing from. */
@@ -904,7 +898,7 @@ void W8Missile::AdvanceAnimationFrame(int value, int arg_flags)
     W8MissileRep* representation_before;
 
     m_pRep->first_frame = 0;
-    representation_before = m_pRep;
+    representation_before = m_pRep.get();
     representation_before->last_frame = GetNumSubCycles() - 1;
     W8GrCycle::AdvanceAnimationFrame(value, arg_flags);
 }
@@ -972,7 +966,7 @@ void W8Missile::EnterImpactCycle()
 {
     if (IsCycleSupported(1)) {
         if (GetAnimationState(6) != 1) {
-            W8MissileRep* representation = m_pRep;
+            W8MissileRep* representation = m_pRep.get();
             glm::vec3 position = representation->location;
             representation->pending_cycle = 1;
             representation->pending_behaviour = W8_ANIMATION_PLAY_ONCE;
@@ -1000,7 +994,7 @@ bool W8Missile::OnCollision(W8Navigator* other)
     char hit_result;
     unsigned char deflect_chance;
 
-    if (g_startup_world == other) {
+    if (PartyNavigator() == other) {
         if (TargetSourceIsCharacter(&m_Source, 0)) {
             goto miss;
         }

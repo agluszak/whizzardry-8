@@ -9,6 +9,7 @@
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/layouts/screen_state.h"
+#include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/ui_input.h"
 
@@ -23,20 +24,14 @@ int g_selected_party_slot = -1;
 // FUNCTION: WIZ8 0x00591780
 void RequestExitScreen(void)
 {
-    SetPendingScreenState(W8_SCREEN_EXIT);
-}
-
-// FUNCTION: WIZ8 0x00593320
-int GetSelectedPartySlot(void)
-{
-    return g_selected_party_slot;
+    g_pending_screen_state.id = W8_SCREEN_EXIT;
 }
 
 /* Lifecycle record 12's entry handler. It paints the whole 640x480 frame in the
    near-black 0x010101 and puts one video-object frame over it, which is the
    shape record 1's much larger main-menu entry starts with too. */
 // FUNCTION: WIZ8 0x00591790
-unsigned char ExitScreenEnter(void)
+bool ExitScreenEnter(void)
 {
     unsigned short colour;
 

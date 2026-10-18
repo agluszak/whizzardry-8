@@ -14,6 +14,7 @@
 #include "navigation_flags.h"
 #include "surrender/srBoundingBox.h"
 #include "wiz8/containers.h"
+#include "wiz8/engine_code/World.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/surface_geometry.h"
 /* Engine Code\GDProp.cpp */
@@ -23,18 +24,17 @@
 #include "wiz8/engine_code/OctPath.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Prop.h"
-#include "wiz8/engine_code/ReadMesh.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/octree_spatial.h"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/layouts/world.h"
 
 // FUNCTION: WIZ8 0x004b6e00
-GDProp::GDProp(srModelInstance* instance, const char* path_name, unsigned short prop_number,
-               unsigned char footstep_surface, unsigned char footstep_material)
+GDProp::GDProp(W8PathingService* pathing, srModelInstance* instance, const char* path_name,
+               unsigned short prop_number, unsigned char footstep_surface,
+               unsigned char footstep_material)
 {
-    Flags initial_flags = {false, false, false, false, 0, 0};
-    m_flags = initial_flags;
+    m_flags = {};
     m_path_handle = 0;
     m_prop_number = 0;
     m_trigger = 0;
@@ -44,16 +44,16 @@ GDProp::GDProp(srModelInstance* instance, const char* path_name, unsigned short 
     m_path_bounds.max_x = 0;
     m_path_bounds.min_x = 0;
 
-    if (g_octree != 0 && g_octree->pathing != 0) {
-        m_path_handle = g_octree->pathing->FindPathHandle(path_name, &m_path_bounds, &m_path_range);
+    if (pathing != nullptr) {
+        m_path_handle = pathing->FindPathHandle(path_name, &m_path_bounds, &m_path_range);
     }
 
     if (instance != 0) {
-        if (m_path_handle != 0 && g_octree->pathing != 0) {
-            g_octree->pathing->LinkSurfaces(this);
-            g_octree->pathing->LinkEdges(this);
+        if (m_path_handle != 0 && pathing != nullptr) {
+            pathing->LinkSurfaces(this);
+            pathing->LinkEdges(this);
         }
-        Initialize(instance, true, prop_number, footstep_surface, footstep_material);
+        Initialize(pathing, instance, true, prop_number, footstep_surface, footstep_material);
     }
 }
 
@@ -78,8 +78,9 @@ void GDProp::PrepareGeometry(srModelInstance* instance)
    into world space before each accumulated triangle receives its plane,
    dominant axis, slope classification and caller-provided material bytes. */
 // FUNCTION: WIZ8 0x004b7060
-void GDProp::Initialize(srModelInstance* instance, bool attach, unsigned short prop_number,
-                        unsigned char footstep_surface, unsigned char footstep_material)
+void GDProp::Initialize(W8PathingService* pathing, srModelInstance* instance, bool attach,
+                        unsigned short prop_number, unsigned char footstep_surface,
+                        unsigned char footstep_material)
 {
     if (!attach) {
         m_flags.unattached = true;
@@ -132,7 +133,6 @@ void GDProp::Initialize(srModelInstance* instance, bool attach, unsigned short p
         mesh = mesh->Next();
     }
 
-    W8PathingService* pathing = g_octree->pathing;
     if (m_path_handle != 0 && pathing != 0) {
         if (!attach) {
             if (m_prop_number != 0xffff) {
@@ -178,26 +178,22 @@ void GDProp::Initialize(srModelInstance* instance, bool attach, unsigned short p
 /* Attach the product-side prop owner and immediately mirror its active state
    into both the local GD flags and the conditional path table. */
 // FUNCTION: WIZ8 0x004b7470
-void GDProp::BindTrigger(Trigger* owner)
+void GDProp::BindTrigger(Trigger* owner, W8PathingService* pathing)
 {
     m_trigger = owner;
     W8TriggerActionData* action = owner->m_pActionData.get();
     if (action != 0 && action->type == W8_TRIGGER_PAYLOAD_DOOR) {
         if (action != 0) {
-            m_flags.door = true;
             unsigned int path_flags = W8_PATH_CELL_DOOR;
             if ((owner->lock_state.lock_type == 0 ||
                  owner->lock_state.device_state.completed != 0) &&
                 (owner->flags & W8_TRIGGER_ENABLED) != 0 &&
                 !static_cast<W8DoorTriggerActionData*>(action)->open &&
                 !static_cast<W8DoorTriggerActionData*>(action)->locked) {
-                m_flags.door_usable = true;
             } else {
                 path_flags = W8_PATH_CELL_DOOR | W8_PATH_CELL_BLOCKED;
-                m_flags.door_usable = false;
             }
 
-            W8PathingService* pathing = g_octree->pathing;
             if (pathing != 0) {
                 pathing->UpdateConditionalPathFlags(m_path_handle, m_prop_number, path_flags);
             }
@@ -231,20 +227,6 @@ bool GDProp::ContainsPathCoordinate(unsigned short x, unsigned short y) const
         return true;
     }
     return false;
-}
-
-/* Test each surface's runtime triangle against the query box. */
-// FUNCTION: WIZ8 0x004b7620
-bool GDProp::boundsOverlap(const srBoundingBox& box)
-{
-    bool hit = false;
-    for (int index = 0; index < static_cast<int>(m_pGDSurfaces.size()) && hit == 0; ++index) {
-        W8GDSurface* surface = &m_pGDSurfaces[index];
-        hit = triangleIntersectsBox(
-            box, indexedTriangle(std::span<const glm::vec3>(m_pVertices), surface->vertex_indices),
-            surface->plane.normal);
-    }
-    return hit;
 }
 
 /* Record a waypoint index for a grid point that lies inside the path bounds.
@@ -299,10 +281,10 @@ unsigned char GDProp::RegisterPathVertex(unsigned int index, const glm::ivec2& p
 void AddItemToSector(int sector, W8WorldItem* item)
 {
     if (item != 0 && sector >= 0) {
-        W8Prop* prop = g_world->collidable_props[sector];
+        W8Prop* prop = GetWorld()->collidable_props[sector];
         GDProp* gd = prop->m_gd_prop.get();
         if (gd == 0) {
-            prop->BuildOrRefreshPathingRepresentation();
+            prop->BuildOrRefreshPathingRepresentation(GetWorldPathing());
             gd = prop->m_gd_prop.get();
             if (gd == 0) {
                 return;
@@ -319,7 +301,7 @@ void AddItemToSector(int sector, W8WorldItem* item)
 void RemoveItemFromSector(int sector, W8WorldItem* item)
 {
     if (item != 0 && sector >= 0) {
-        W8Prop* prop = g_world->collidable_props[sector];
+        W8Prop* prop = GetWorld()->collidable_props[sector];
         if (prop != 0 && prop->m_gd_prop != 0) {
             wiz8::erase_first(prop->m_gd_prop->m_supported_items, item);
         }

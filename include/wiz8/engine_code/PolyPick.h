@@ -17,10 +17,10 @@ struct W8Item;
 class W8Monster;
 
 /* 0x004BE710: the monster twin - animation bounds and the GrCycle-tail rep. */
-float MonsterDistanceToCamera(W8World* world, W8Monster* monster);
+float MonsterDistanceToCamera(W8Monster* monster);
 /* 0x004BE7C0: free-function twin of W8Item::DistanceToCamera for the item-list
    scans in ItemManager.cpp. */
-float ItemDistanceToCamera(W8World* world, W8Item* item);
+float ItemDistanceToCamera(W8Item* item);
 bool PointInsideBounds(const glm::vec3* point, const glm::vec3* minimum, const glm::vec3* maximum);
 bool projectsToCamera(const glm::vec3& position);
 

@@ -39,15 +39,15 @@ TEST_CASE("Native RIFF streams retain framing and scoped chunk ownership", "[fil
         REQUIRE((!chunk.OpenRead(path) && !chunk.IsOpen()));
         REQUIRE(chunk.OpenWrite(path));
         const unsigned word = 0x12345678;
-        REQUIRE(chunk.OpenChunk(0x54534554, false));
-        REQUIRE(chunk.Write(&word, sizeof(word), nullptr));
-        REQUIRE(chunk.ReleaseCurrentChunk());
+        chunk.WriteChunk(0x54534554, [&] { chunk.WriteValue(word); });
         chunk.Close();
         REQUIRE((chunk.OpenRead(path) && chunk.ChunkCount() == 1));
-        REQUIRE((chunk.OpenChunk(0, false) && chunk.CurrentChunkId() == 0x54534554));
         unsigned loaded = 0;
-        REQUIRE((chunk.Read(&loaded, sizeof(loaded), nullptr) && loaded == word));
-        REQUIRE(chunk.ReleaseCurrentChunk());
+        chunk.ForEachChunk([&](unsigned id) {
+            REQUIRE(id == 0x54534554);
+            chunk.ReadValue(loaded);
+        });
+        REQUIRE(loaded == word);
         chunk.Close();
         // Destruction owns pending headers as well as the stream, even without Close.
         REQUIRE(chunk.OpenRead(path));
@@ -56,15 +56,6 @@ TEST_CASE("Native RIFF streams retain framing and scoped chunk ownership", "[fil
         // Scoped chunk writers patch extents and group counts; the bytes are
         // the established RIFF framing, independent of the helper API.
         const auto path = user / "scoped.sav";
-        {
-            // A body that leaves a nested chunk open cannot be finalized.
-            W8Chunk unbalanced;
-            REQUIRE(unbalanced.OpenWrite(path));
-            REQUIRE_THROWS_AS(
-                unbalanced.WriteChunk(W8ChunkId("BUNK"),
-                                      [&] { unbalanced.OpenChunk(W8ChunkId("BUNK"), 0); }),
-                std::logic_error);
-        }
         W8Chunk chunk;
         REQUIRE(chunk.OpenWrite(path));
         chunk.WriteGroup(W8ChunkId("GRP1"), [&] {

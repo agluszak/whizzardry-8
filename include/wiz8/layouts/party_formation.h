@@ -3,8 +3,6 @@
 
 #include <stddef.h>
 
-#pragma pack(push, 1)
-
 struct W8PartyFormationPosition {
     /* The row the slot stands in, -1 while unseated. */
     signed char bQuadrant;
@@ -23,8 +21,6 @@ struct W8PartyFormationState {
     W8PartyFormationPosition positions[8];
     unsigned char unknown_74[0x10];
 };
-
-#pragma pack(pop)
 
 static_assert(sizeof(W8PartyFormationPosition) == 0x0c, "W8PartyFormationPosition_must_be_0x0c");
 static_assert(sizeof(W8PartyFormationState) == 0x84, "W8PartyFormationState_must_be_0x84");

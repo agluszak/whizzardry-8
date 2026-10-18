@@ -22,14 +22,13 @@ unsigned char InteractWithWorldItem(int runtime_id);
 void SetWorldItemFalling(W8WorldItem* item, bool enabled);
 void RebuildAllWorldItemInstances(void);
 
-bool InitializeItemManagerState();
+void InitializeItemManagerState();
 
-unsigned char ReleaseItemLists(void);
+void ReleaseItemLists();
 
 void DropHeldItem(int);
 void UpdateNearbyWorldItems(void);
 unsigned char AdvanceFallingWorldItem(W8WorldItem* item);
-bool IsWorldItemWithinReach(W8Item* owner, const glm::vec3* from, float radius);
 bool AnyWorldItemVisible(void);
 void DropMonsterLoot(W8MonsterInfo* monster_info, int value);
 

@@ -1,6 +1,7 @@
 #include "wiz8/level_specific_code/MartensBluff2.h"
 
 #include <cmath>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -64,7 +65,7 @@ static bool g_crusher_excluded_flag;
 // GLOBAL: WIZ8 0x0068352E
 static bool g_crusher_active;
 // GLOBAL: WIZ8 0x00683530
-static W8IntervalGate* g_spikeball_gate;
+static std::optional<W8IntervalGate> g_spikeball_gate;
 // GLOBAL: WIZ8 0x00683534
 static int g_spikeball_count;
 // GLOBAL: WIZ8 0x00683538
@@ -82,7 +83,7 @@ static stSound3D* g_crusher_sound;
 // GLOBAL: WIZ8 0x00683550
 static int g_crusher_state;
 // GLOBAL: WIZ8 0x00683554
-static W8IntervalGate* g_idol_gas_gate;
+static std::optional<W8IntervalGate> g_idol_gas_gate;
 
 /* Level init: creates the RavenQuest location variable, fires the Dummy
    trigger when the quest has not started, re-arms the perfume box and dummy
@@ -258,8 +259,8 @@ void MartensBluff2Spikeball(int command)
         } else if (static_cast<unsigned int>(command) <= 0xf) {
             g_spikeball_count = command;
         }
-        if (g_spikeball_gate == 0) {
-            g_spikeball_gate = new W8IntervalGate(2.0f, false, true);
+        if (!g_spikeball_gate) {
+            g_spikeball_gate.emplace(2.0f, false, true);
             g_master_functions.push_back(MartensBluff2Spikeball);
         }
     }
@@ -293,10 +294,7 @@ void MartensBluff2Spikeball(int command)
         }
         return;
     }
-    if (g_spikeball_gate != 0) {
-        delete g_spikeball_gate;
-    }
-    g_spikeball_gate = 0;
+    g_spikeball_gate.reset();
     g_spikeball_count = 0;
     if (GetLocationVarIDByName("SpikedBallLauncher") == -1) {
         CreateLocationVar("SpikedBallLauncher", g_spikeball_count);
@@ -382,27 +380,21 @@ bool MartensBluff2PerfumeBox(Trigger* pTrigger)
 }
 
 /* "DoorControls": while the control trigger is off, fires the two squisher
-   doors whose type-10 action data has flag 1 set. The action-data pointers
-   are dereferenced unconditionally - the retail null path is preserved. */
+   doors whose door action data is open. */
 // FUNCTION: WIZ8 0x004DDEB0
 bool MartensBluff2DoorControls(Trigger* pTrigger)
 {
     if (pTrigger->state_index == 0) {
-        Trigger* pDoor = FindTriggerByName("SquisherDoor");
-        W8TriggerActionData* action = pDoor->m_pActionData.get();
-        if (action == 0 || action->type != W8_TRIGGER_PAYLOAD_DOOR) {
-            action = 0;
-        }
-        if (static_cast<W8DoorTriggerActionData*>(action)->open) {
-            pDoor->Run(-1);
-        }
-        pDoor = FindTriggerByName("SquisherDoor1");
-        action = pDoor->m_pActionData.get();
-        if (action == 0 || action->type != W8_TRIGGER_PAYLOAD_DOOR) {
-            action = 0;
-        }
-        if (static_cast<W8DoorTriggerActionData*>(action)->open) {
-            pDoor->Run(-1);
+        for (const char* name : {"SquisherDoor", "SquisherDoor1"}) {
+            Trigger* pDoor = FindTriggerByName(name);
+            if (pDoor == nullptr) {
+                continue;
+            }
+            W8TriggerActionData* action = pDoor->m_pActionData.get();
+            if (action != nullptr && action->type == W8_TRIGGER_PAYLOAD_DOOR &&
+                static_cast<W8DoorTriggerActionData*>(action)->open) {
+                pDoor->Run(-1);
+            }
         }
     }
     return true;
@@ -547,7 +539,7 @@ void MartensBluff2MonsterCrusher(int command)
     }
     left = g_squisher3_prop->m_gd_prop->computeBounds().maximum.x;
     right = g_squisher4_prop->m_gd_prop->computeBounds().minimum.x;
-    location_ids = g_octree->locationsInBox({crusher_lower, crusher_upper}, 0);
+    location_ids = GetWorldOctree()->locationsInBox({crusher_lower, crusher_upper}, 0);
     count = location_ids.size();
     if (count == 0) {
         return;
@@ -591,7 +583,7 @@ bool MartensBluff2StoneIdol(Trigger* pTrigger)
     ReplaceOrCreateItem(&g_status.item_in_hand, 0x291, false, false, false);
     SetItemCursor(0);
     ShowString(g_localized_strings[0x71d]);
-    particle = FindParticleByName(g_world, "IdolGas");
+    particle = FindParticleByName("IdolGas");
     if (particle != 0) {
         particle->SetActive(1);
     }
@@ -633,20 +625,17 @@ void MartensBluff2IdolGas(int command)
     if (command != 0) {
         g_idol_gas_armed = true;
         BeginWorldLightingFade(-3000.0f);
-        if (g_idol_gas_gate != 0) {
+        if (g_idol_gas_gate) {
             g_idol_gas_gate->Arm();
             return;
         }
-        g_idol_gas_gate = new W8IntervalGate(4.0f, false, true);
+        g_idol_gas_gate.emplace(4.0f, false, true);
         return;
     }
     g_remove_current_master_function = false;
     if (!g_idol_gas_armed) {
         g_remove_current_master_function = true;
-        if (g_idol_gas_gate != 0) {
-            delete g_idol_gas_gate;
-        }
-        g_idol_gas_gate = 0;
+        g_idol_gas_gate.reset();
         g_idol_gas_armed = true;
         ResolveSurpriseWake();
         return;
@@ -660,7 +649,7 @@ void MartensBluff2IdolGas(int command)
         MartensBluff2IdolGasVictim();
     }
     BeginWorldLightingFade(3000.0f);
-    particle = FindParticleByName(g_world, "IdolGas");
+    particle = FindParticleByName("IdolGas");
     if (particle != 0) {
         particle->SetActive(0);
     }

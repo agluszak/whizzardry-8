@@ -10,7 +10,7 @@ This repository does **not** include game assets. You'll need your own retail co
 
 ## Build on Linux
 
-You'll need Clang 22, CMake, Ninja, Python 3, [Conan 2](https://conan.io/) and a working Vulkan driver. Conan handles the C/C++ library dependencies.
+You'll need Clang 23, CMake, Ninja, Python 3, [Conan 2](https://conan.io/) and a working Vulkan driver. Conan handles the C/C++ library dependencies.
 
 From the repository root:
 
@@ -19,14 +19,14 @@ python3 -m pip install 'conan==2.33.0'
 conan profile detect
 conan export conan/recipes/libalsa
 
-CC=clang-22 CXX=clang++-22 conan install . \
-    -pr:h conan/profiles/linux-clang22 -pr:b default \
+CC=clang-23 CXX=clang++-23 conan install . \
+    -pr:h conan/profiles/linux-clang23 -pr:b default \
     -s:h build_type=Release --build=missing -of build/linux/conan
 
 . build/linux/conan/conanbuild.sh
 cmake --preset linux \
     -DCMAKE_TOOLCHAIN_FILE="$PWD/build/linux/conan/conan_toolchain.cmake" \
-    -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22
+    -DCMAKE_C_COMPILER=clang-23 -DCMAKE_CXX_COMPILER=clang++-23
 cmake --build --preset linux
 . build/linux/conan/conanrun.sh
 ```
@@ -69,4 +69,4 @@ Some runtime tests also need prepared retail assets:
 WIZ8_ASSET_ROOT=/path/to/prepared-assets ctest --preset linux -L runtime
 ```
 
-C and C++ changes should use the repository's `.clang-format` configuration (clang-format 22).
+C and C++ changes should use the repository's `.clang-format` configuration (clang-format 23).

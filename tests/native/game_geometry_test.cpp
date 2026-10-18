@@ -220,12 +220,11 @@ static void camera_and_throw()
     OffsetPositionByYawPitch(5, &position, 0, glm::half_pi<float>());
     REQUIRE(close(position, {11, -3, 3}));
 
-    GDCamera camera;
+    const GDCamera previous_camera = PartyCamera();
+    auto& camera = PartyCamera();
     camera.m_position = glm::vec3(3, 4, 5);
     camera.m_yaw = .25f;
     camera.m_pitch = -.5f;
-    auto* previous_camera = g_gd_camera;
-    g_gd_camera = &camera;
     W8World world{};
     const auto empty_location = cameraLocationOrZero(world);
     const auto empty_state = cameraState(world);
@@ -236,7 +235,7 @@ static void camera_and_throw()
     const auto node_location = cameraLocation(world);
     const auto state = cameraState(world);
     const auto rotation = cameraRotation(world);
-    g_gd_camera = previous_camera;
+    PartyCamera() = previous_camera;
     REQUIRE(empty_location == glm::vec3(0));
     REQUIRE(empty_state.position == glm::vec3(0, 0, 0));
     REQUIRE(live_location == glm::vec3(3, 4, 5));
@@ -264,7 +263,6 @@ static void camera_and_throw()
     REQUIRE((std::isfinite(camera.m_yaw) && std::isfinite(camera.m_pitch)));
     REQUIRE(camera.BeginOrientationTransition(-0.2f, glm::two_pi<float>() - 0.1f, true));
     REQUIRE((camera.m_yaw_velocity < 0 && camera.m_pitch_velocity < 0));
-    delete camera.m_manual_input_timer;
 
     const auto center = ItemThrowDirection({0.5f, 0.5f}, glm::mat3(1));
     const auto left = ItemThrowDirection({0, 0.5f}, glm::mat3(1));
@@ -528,9 +526,8 @@ TEST_CASE("Sprite and cursor meshes preserve face winding and UV seams", "[geome
     REQUIRE(empty_quad != nullptr);
     REQUIRE(empty_quad->getPolygonCount() == 0);
     REQUIRE(empty_quad->getVertexCount() == 0);
-    std::unique_ptr<W8WorldCursorNode, decltype(&DestroyWorldCursorCube)> cursor(
-        CreateWorldCursorCube(), DestroyWorldCursorCube);
-    auto* instance = dynamic_cast<stModelInstance*>(cursor->node);
+    const auto cursor = CreateWorldCursorCube();
+    auto* instance = cursor->node.get();
     REQUIRE(instance != nullptr);
     auto* cube = dynamic_cast<srMeshModel*>(instance->getModel());
     REQUIRE(cube != nullptr);
@@ -655,28 +652,6 @@ TEST_CASE("Model bounds are independent values", "[geometry]")
     REQUIRE(std::abs(linked_model.getBounds().sphere.radius - std::sqrt(56.0f)) < 1e-5f);
 }
 
-TEST_CASE("Material query overrides do not mutate the cache", "[geometry]")
-{
-    stMaterial material;
-    material.setDiffuse(glm::vec4(.2f, .3f, .4f, .8f));
-    material.setEmissive(glm::vec4(.1f, .2f, .3f, 1));
-    const auto original = material.getMaterialInfo();
-    g_material_diffuse_scale_enabled = true;
-    g_material_diffuse_scale = .5f;
-    g_material_emissive_override_enabled = true;
-    g_material_emissive_override = .75f;
-    const auto overridden = material.getMaterialInfo();
-    g_material_diffuse_scale_enabled = false;
-    g_material_emissive_override_enabled = false;
-    REQUIRE(overridden.diffuse == glm::vec4(.2f, .3f, .4f, .4f));
-    REQUIRE(overridden.emissive == glm::vec4(.75f, .75f, .75f, 1));
-    REQUIRE(material.getMaterialInfo().diffuse == original.diffuse);
-    REQUIRE(material.getMaterialInfo().emissive == original.emissive);
-    material.setDiffuse(glm::vec4(.5f));
-    REQUIRE(material.getMaterialInfo().diffuse == glm::vec4(.5f));
-    REQUIRE(original.diffuse == glm::vec4(.2f, .3f, .4f, .8f));
-}
-
 TEST_CASE("Baked lighting", "[geometry]")
 {
     baked_lighting();
@@ -764,12 +739,11 @@ TEST_CASE("Ground shadow projection retains rotated scale center and coordinate 
 TEST_CASE("Ground polygon queries return owned sorted runs beyond thirty faces",
           "[geometry][octree]")
 {
-    W8World world{};
-    const struct RestoreWorld {
-        W8World* previous;
-        ~RestoreWorld() { g_world = previous; }
-    } restore{g_world};
-    g_world = &world;
+    struct RestoreWorld {
+        std::unique_ptr<W8World> previous;
+        ~RestoreWorld() { ReplaceWorld(std::move(previous)); }
+    } restore{ReplaceWorld(std::make_unique<W8World>())};
+    auto& world = *GetWorld();
     constexpr unsigned faces = 42;
     auto mesh = std::make_shared<stMeshModel>(faces, 3);
     mesh->getVertexLoc()[0] = {-1, 0, -1};
@@ -814,7 +788,7 @@ TEST_CASE("Octree queries own dense results across later queries", "[geometry][o
     tree.m_spatial.m_bounds.maximum = {1000, 1000, 1000};
     tree.m_spatial.m_node_extent = 1000;
     tree.m_leaf_grid_dimensions = {1, 1, 1};
-    tree.object_registry = new W8OctreeObjectRegistry;
+    tree.object_registry = std::make_unique<W8OctreeObjectRegistry>();
     tree.m_visited_object_bits.assign(10001, false);
     const glm::ivec3 cell(0, 0, 0);
     // Populate the query index directly. RegisterObjectCell also updates the
@@ -1010,7 +984,7 @@ TEST_CASE("Build bounds expand locally and region cells share typed boxes", "[ge
 TEST_CASE("Item bounds preserve local extents and report absent world items", "[geometry][item]")
 {
     W8Item item;
-    auto* rep = static_cast<W8ItemRep*>(item.m_pRep);
+    auto* rep = item.m_pRep.get();
     rep->m_psrMesh = nullptr;
     rep->bounds_minimum = {-5, -3, -1};
     rep->bounds_maximum = {7, 9, 11};
@@ -1193,7 +1167,7 @@ TEST_CASE("Prop position and delta queries preserve animation stepping", "[geome
     W8Prop prop;
     prop.Rep()->animation.emplace();
     auto& animation = *prop.Rep()->animation;
-    prop.m_pRep->location = {10, 20, 30};
+    prop.Rep()->location = {10, 20, 30};
     prop.animation_position = {3, 5, 7};
     prop.previous_animation_position = {1, 2, 3};
     const auto static_position = prop.GetPosition();
@@ -1530,25 +1504,19 @@ TEST_CASE("Plane contacts retain collision skin and occluder clearance", "[geome
 
 TEST_CASE("Surface triangles are complete values and reject invalid vertex indices", "[geometry]")
 {
-    struct RestoreGameData {
-        W8GameData* previous = g_octree_game_data;
-        ~RestoreGameData() { g_octree_game_data = previous; }
-    } restore;
-    W8GameData data(nullptr, true);
-    data.m_pVertices = {{0, 0, 0}, {0, 2, 0}, {0, 0, 2}};
-    g_octree_game_data = &data;
+    std::vector<glm::vec3> vertices = {{0, 0, 0}, {0, 2, 0}, {0, 0, 2}};
     const std::array<int, 3> indices{2, 0, 1};
-    const auto triangle = surfaceTriangle(indices);
+    const auto triangle = surfaceTriangle(vertices, indices);
     REQUIRE(triangle);
     REQUIRE((*triangle)[0] == glm::vec3(0, 0, 2));
     REQUIRE((*triangle)[1] == glm::vec3(0));
     REQUIRE((*triangle)[2] == glm::vec3(0, 2, 0));
-    data.m_pVertices[2] = {99, 99, 99};
+    vertices[2] = {99, 99, 99};
     REQUIRE((*triangle)[0] == glm::vec3(0, 0, 2));
-    REQUIRE(!surfaceTriangle(std::array<int, 3>{0, 1, 3}));
-    REQUIRE(!surfaceTriangle(std::array<int, 3>{0, -1, 2}));
-    g_octree_game_data = nullptr;
-    REQUIRE(!surfaceTriangle(indices));
+    REQUIRE(!surfaceTriangle(vertices, std::array<int, 3>{0, 1, 3}));
+    REQUIRE(!surfaceTriangle(vertices, std::array<int, 3>{0, -1, 2}));
+    vertices.clear();
+    REQUIRE(!surfaceTriangle(vertices, indices));
 }
 
 TEST_CASE("Particle activation values and billboard ordering", "[geometry]")
@@ -1658,17 +1626,17 @@ TEST_CASE("Octree adjacent queries skip walk creation and retain early exits", "
 TEST_CASE("Baked mesh colors preserve material and light-bank rules", "[geometry]")
 {
     struct RestoreLighting {
-        glm::vec3 offset = g_environment_offset;
+        std::unique_ptr<W8World> previous = ReplaceWorld(std::make_unique<W8World>());
         float scale = g_monster_light_scale;
         bool unlit = g_render_unlit;
         ~RestoreLighting()
         {
-            g_environment_offset = offset;
+            ReplaceWorld(std::move(previous));
             g_monster_light_scale = scale;
             g_render_unlit = unlit;
         }
     } restore;
-    g_environment_offset = {0.25f, 0.5f, 0.75f};
+    GetWorld()->environment_offset = {0.25f, 0.5f, 0.75f};
     g_monster_light_scale = 2;
     g_render_unlit = false;
     stMeshModel mesh(0, 4);
@@ -1687,7 +1655,7 @@ TEST_CASE("Baked mesh colors preserve material and light-bank rules", "[geometry
     const auto base = mesh.getTriMesh();
     for (unsigned vertex = 0; vertex < 4; ++vertex)
         REQUIRE(close(base.dig[0][vertex], (glm::vec3(1, 0.75f, 4) * sunlight[vertex] +
-                                            lights[vertex] + g_environment_offset) *
+                                            lights[vertex] + CurrentEnvironmentOffset()) *
                                                2.0f));
 
     auto* materials = mesh.getVertexMaterialTable(0, srMeshModel::SIDE_FRONT, true);
@@ -1699,9 +1667,9 @@ TEST_CASE("Baked mesh colors preserve material and light-bank rules", "[geometry
     const auto mixed = mesh.getTriMesh();
     const std::array<glm::vec3, 4> ambient{{{1, 0.75f, 4}, {0, 0, 0}, {2, 3, 4}, {1, 0.75f, 4}}};
     for (unsigned vertex = 0; vertex < 4; ++vertex)
-        REQUIRE(close(mixed.dig[0][vertex],
-                      (ambient[vertex] * sunlight[vertex] + lights[vertex] + g_environment_offset) *
-                          2.0f));
+        REQUIRE(close(mixed.dig[0][vertex], (ambient[vertex] * sunlight[vertex] + lights[vertex] +
+                                             CurrentEnvironmentOffset()) *
+                                                2.0f));
 
     mesh.vertex_light_table = 1;
     const auto alternate = mesh.GetVertexLights(true, 1);
@@ -1917,12 +1885,7 @@ TEST_CASE("Prop bounds return complete boxes and register inclusive octree cells
 {
     GDProp empty;
     REQUIRE(empty.computeBounds().minimum == glm::vec3(0));
-    W8Octree tree(0, 0);
-    struct RestoreOctree {
-        W8Octree* previous;
-        ~RestoreOctree() { g_octree = previous; }
-    } restore{g_octree};
-    g_octree = &tree;
+    W8Octree tree(nullptr, nullptr);
     auto mesh = std::make_shared<stMeshModel>(1, 3);
     mesh->getVertexLoc()[0] = {-2, -3, 4};
     mesh->getVertexLoc()[1] = {5, 6, -7};
@@ -1930,12 +1893,12 @@ TEST_CASE("Prop bounds return complete boxes and register inclusive octree cells
     mesh->getPolyVertex()[0] = {0, 1, 2};
     srModelInstance instance;
     instance.setModel(mesh);
-    GDProp prop(&instance, "", 4, 0, 0);
+    GDProp prop(nullptr, &instance, "", 4, 0, 0);
     const auto bounds = prop.computeBounds();
     REQUIRE(bounds.minimum == glm::vec3(-2, -3, -7));
     REQUIRE(bounds.maximum == glm::vec3(5, 6, 4));
     REQUIRE(prop.computeBounds().minimum == bounds.minimum);
-    tree.object_registry = new W8OctreeObjectRegistry;
+    tree.object_registry = std::make_unique<W8OctreeObjectRegistry>();
     tree.m_spatial.m_bounds.minimum = glm::vec3(10);
     tree.m_spatial.m_node_extent = 2;
     const srBoundingBox cells{{9, 10, 10}, {12, 10, 10}};
@@ -2111,8 +2074,7 @@ TEST_CASE("Linked main and highlight draws share the instance termination bounda
     REQUIRE(renderer.getAmbientLight() == ambient);
 }
 
-TEST_CASE("Failed instance materials restore picking lighting and material overrides",
-          "[geometry][rendering]")
+TEST_CASE("Failed instance materials restore picking and lighting", "[geometry][rendering]")
 {
     struct FailingMaterial : srMaterial {
         void preProcess(srVertexPipe&) override { throw std::runtime_error("material failed"); }
@@ -2133,19 +2095,11 @@ TEST_CASE("Failed instance materials restore picking lighting and material overr
     instance.diffuse_scale = 0.75f;
     instance.emissive_override_enabled = true;
     instance.emissive_override = 0.25f;
-    const auto diffuse_enabled = g_material_diffuse_scale_enabled;
-    const auto emissive_enabled = g_material_emissive_override_enabled;
-    const auto diffuse = g_material_diffuse_scale;
-    const auto emissive = g_material_emissive_override;
     const glm::vec4 ambient(0.2f, 0.3f, 0.4f, 1);
     renderer.setAmbientLight(ambient);
     renderer.pushPick({{0, 0, 1}, nullptr, 7});
     REQUIRE_THROWS_AS(instance.RenderMeshes(renderer), std::runtime_error);
     REQUIRE(renderer.getAmbientLight() == ambient);
-    REQUIRE(g_material_diffuse_scale_enabled == diffuse_enabled);
-    REQUIRE(g_material_emissive_override_enabled == emissive_enabled);
-    REQUIRE(g_material_diffuse_scale == diffuse);
-    REQUIRE(g_material_emissive_override == emissive);
     REQUIRE_FALSE(renderer.isPickStackEmpty());
     const auto pick = renderer.popPick();
     REQUIRE(pick);
@@ -2329,13 +2283,13 @@ TEST_CASE("Surface contacts return positions distances and edge limits without o
     surface.plane = {glm::vec3(1, 0, 0), 0};
     surface.contact_margin = 150; // Wall slope adjustment leaves a zero plane limit.
     const glm::vec3 from(3, .5f, .5f);
-    const auto hit = surface.segmentContact(from, {-5, 0, 0}, triangle);
+    const auto hit = surface.segmentContact(from, {-5, 0, 0}, triangle, false);
     REQUIRE(hit);
     REQUIRE(glm::length(hit->point - glm::vec3(0, .5f, .5f)) < 1e-6f);
     REQUIRE(std::abs(hit->distance - 3) < 1e-6f);
     REQUIRE(surface.distance == 0);
     surface.distance = 9;
-    REQUIRE_FALSE(surface.segmentContact({3, 4, 4}, {-5, 0, 0}, triangle));
+    REQUIRE_FALSE(surface.segmentContact({3, 4, 4}, {-5, 0, 0}, triangle, false));
     REQUIRE(surface.distance == 9);
     surface.flags = W8_GD_SURFACE_WALKABLE;
     const auto limit = surface.edgeContactLimit({0, .5f, -.2f}, triangle, 1);
@@ -2343,21 +2297,15 @@ TEST_CASE("Surface contacts return positions distances and edge limits without o
     REQUIRE(std::abs(*limit - std::sqrt(.96f)) < 1e-6f);
     REQUIRE_FALSE(surface.edgeContactLimit({0, 4, 4}, triangle, 1));
 
-    W8LevelDataRecord level{};
-    const struct RestoreLevel {
-        W8LevelDataRecord* previous;
-        ~RestoreLevel() { g_level_data = previous; }
-    } restore{g_level_data};
-    g_level_data = &level;
     surface.flags = W8_GD_SURFACE_CROSSING;
     surface.contact_margin = 0;
-    const auto crossing = surface.segmentContact(from, {-5, 0, 0}, triangle);
+    const auto crossing = surface.segmentContact(from, {-5, 0, 0}, triangle, false);
     REQUIRE(crossing);
     REQUIRE(crossing->point == from);
     REQUIRE(std::abs(crossing->distance - 3) < 1e-6f);
     REQUIRE(surface.distance > 0);
     const glm::vec3 reverse_from(-2, .5f, .5f);
-    const auto reverse = surface.segmentContact(reverse_from, {5, 0, 0}, triangle);
+    const auto reverse = surface.segmentContact(reverse_from, {5, 0, 0}, triangle, false);
     REQUIRE(reverse);
     REQUIRE(reverse->point == reverse_from);
     // Reverse crossings retain the full segment when the signed span is below one.
@@ -2423,29 +2371,17 @@ TEST_CASE("Camera rotation and movement share the level motion flag policy", "[g
 TEST_CASE("Paused camera APIs return complete initialized values", "[geometry]")
 {
     const struct RestoreRuntime {
-        W8EnvironRecord* environ = g_environ;
-        W8LevelDataRecord* level = g_level_data;
-        unsigned int* flags = g_level_flags;
-        W8GameTimeAccumulator* timer = g_game_time_accumulator;
-        W8GameData* octree = g_octree_game_data;
         bool resume = g_level_motion_resume_pending;
         ~RestoreRuntime()
         {
-            g_environ = environ;
-            g_level_data = level;
-            g_level_flags = flags;
-            g_game_time_accumulator = timer;
-            g_octree_game_data = octree;
+            ResetGameTimeAccumulator();
             g_level_motion_resume_pending = resume;
         }
     } restore;
-    g_environ = nullptr;
-    g_level_data = nullptr;
-    g_game_time_accumulator = nullptr;
     W8GameData data(nullptr, true);
-    g_game_time_accumulator = new W8GameTimeAccumulator;
-    g_game_time_accumulator->m_flags.paused = true;
-    g_level_data = new W8LevelDataRecord;
+    ResetGameTimeAccumulator();
+    GameTimeAccumulator().m_flags.paused = true;
+    data.motion_started = true;
     g_level_motion_resume_pending = false;
     const auto basis = glm::mat3(glm::rotate(glm::mat4(1), .4f, glm::vec3(0, 1, 0)));
     const auto orientation = data.cameraRotation(W8_CAMERA_MOTION_TURN_LEFT, basis);
@@ -2455,7 +2391,7 @@ TEST_CASE("Paused camera APIs return complete initialized values", "[geometry]")
     REQUIRE_FALSE(motion.moved);
     REQUIRE(motion.displacement == glm::vec3(0));
     g_level_motion_resume_pending = true;
-    g_game_time_accumulator->m_flags.raw_time = true;
+    GameTimeAccumulator().m_flags.raw_time = true;
     REQUIRE(data.cameraMotion(W8_CAMERA_MOTION_FORWARD, {1, 2, 3}, basis).displacement ==
             glm::vec3(0));
 }
@@ -2463,13 +2399,9 @@ TEST_CASE("Paused camera APIs return complete initialized values", "[geometry]")
 TEST_CASE("Environment ambient scales scenes and lights while retaining the source colour",
           "[geometry]")
 {
-    const struct RestoreLights {
-        std::vector<stLight*> lights = g_environment_lights;
-        ~RestoreLights() { g_environment_lights = lights; }
-    } restore;
     stLight light(nullptr);
-    g_environment_lights = {&light};
     W8World world{};
+    world.environment_lights = {&light};
     world.static_scene = std::make_unique<srScene>();
     auto& scene = *world.static_scene;
     const glm::vec3 colour(-0.5f, 0.5f, 2.0f);

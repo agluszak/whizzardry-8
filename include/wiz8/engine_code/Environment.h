@@ -3,14 +3,6 @@
 #include <array>
 #include <cstdint>
 #include <memory>
-
-/* Reads g_environment_lighting_mode: 2 while the day/night cycle
-   runs, 1 while a lighting transition is in progress, 0 once a transition has
-   faded the world out. The only retail caller is in NPC Scripting, so the
-   accessor keeps its address name until that owner can be renamed with it. */
-int GetEnvironmentValue(void);
-unsigned char GetEnvironmentFlag(void); /* 0x00482A10 */
-
 #include <vector>
 
 #include "compat/compiler.h"
@@ -49,41 +41,29 @@ public:
    floats; the word copies below move it without reinterpreting it. */
 extern glm::vec3 g_light_direction;
 
-extern std::array<glm::vec3, 256> g_environment_colours0;
-extern std::array<glm::vec3, 256> g_environment_colours1;
-
 class stLight;
 
-void AddEnvironmentLight(stLight* light);
-
-bool ReadLightColourTable(wiz8::File* hFile);
-bool ReadEnvironmentColourTable(wiz8::File* hFile);
-void BuildEnvironmentColourRamp(void);
-void BuildLightColourRamp(void);
+bool ReadEnvironmentColours(wiz8::File* file, std::array<glm::vec3, 256>& colours);
+// The default day-phase table: a grey ramp that peaks at midday.
+std::array<glm::vec3, 256> EnvironmentColourRamp();
 void UpdateEnvironmentLight(void);
 void RefreshEnvironment(void);
-void SetWorldEnvironmentColour(W8World* world, glm::vec3 colour);
+void SetWorldEnvironmentColour(glm::vec3 colour);
 
 void SetSkyEnabled(bool enabled);
 void EnableSky(void);
-void SetFogEnabled(bool enabled);
-bool IsFogEnabled(void);
 void DisableSky(void);
-bool IsSkyEnabled(void);
 /* The ambient light the world contributes, or black without a static scene. */
 void GetWorldLightValue(const W8World* world, glm::vec3* pLightValue);
 void SetLightDirection(const glm::vec3* direction);
-void GetLightDirection(glm::vec3* direction);
 extern bool g_sky_enabled;
 void ResetEnvironment(void);
 void InitializeLevelEnvironment(void);
-/* Drop the sky gradients and celestial props, release both environment
-   objects and empty the registered-light list; called by world teardown. */
+/* Reset sky presentation and the current world's fog nodes. */
 void ClearEnvironmentObjects(void);
 /* Apply one day-phase colour and intensity to the world, its environment
    lights, and the animated cloud material. */
 void ApplyEnvironmentColour(W8World* world, float intensity, const glm::vec3* colour);
-void ReleaseEnvironmentObjects(void);
 
 /* Turn the environment clock on or off; enabling resets its tick baseline. */
 void SetEnvironmentTimeEnabled(bool enabled);
@@ -93,8 +73,7 @@ void SetGameTimeMilliseconds(int value);
    hands off to when the bypass value is set. */
 void UpdateEnvironment(void);
 void UpdateEnvironmentLighting(void);
-float GetWorldEnvironmentIntensity(const W8World* world);
-/* Show or hide the world's camera light: 0x00483E50 loads g_world->camera_light
+/* Show or hide the world's camera light: 0x00483E50 loads GetWorld()->camera_light
    (offset 0x54) and clears srNode::FLAG_DISABLE when visible, sets it when not.
    Nothing here is a sky node; the exported name is still the placeholder and one
    caller lives in a TU owned elsewhere, so the rename waits for it. */
@@ -103,7 +82,7 @@ void SetCameraLightIntensity(float value);
 /* Mode 0 raises the camera light's intensity, 1 lowers it, 2 disables the
    node, 3 re-enables it. */
 void SetCameraLightMode(int mode);
-void RefreshFogRanges(void);
+void RefreshFogRanges(W8World& world);
 
 void SetViewDistance(float distance);
 unsigned char InitializeEnvironmentColours(void);
@@ -116,15 +95,10 @@ extern float g_frame_elapsed;
    0x00484300 and reads it from UpdateEnvironment; the exported accessor
    above still carries the address name. */
 extern int g_environment_lighting_mode;
-extern bool g_fog_enabled;
 /* 1/duration while the lighting transition body at 0x00484300 runs, zero when
    idle: UpdateEnvironment hands off to that body while it is not zero. */
 extern float g_environment_transition_rate;
 extern w8_ulong g_environment_transition_tick;
-/* Last day phase the light direction was published from. */
-extern int g_last_light_phase;
-/* Last day phase the world's environment colour was refreshed from. */
-extern int g_last_environment_colour_phase;
 /* Gates the per-frame world-colour refresh. Retail writes it nowhere and
    initialises it to 1, so that refresh always runs; the only reference is the
    read inside UpdateEnvironment. */
@@ -152,11 +126,6 @@ extern std::weak_ptr<stTextureAnim> g_sky_gradient_animations[3];
    one rests at. */
 extern glm::vec3 g_celestial_origin;
 
-/* The registered environment lights, ambient-filled by ApplyEnvironmentColour.
-   The vector count occupies 0x0065B99C. */
-extern std::vector<stLight*> g_environment_lights;
-
-void SetGameTimeDays(int value);
 void AdvanceEnvironmentTime(int elapsed); /* 0x00482A20 */
 void SetWorldEnvironmentIntensity(W8World* world, float value);
 /* Arm the lighting transition. Duration is in milliseconds: negative fades the

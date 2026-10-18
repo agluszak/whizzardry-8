@@ -24,18 +24,11 @@
 #include "wiz8/key_bindings.h"
 
 SDL_Window* ghWindow = nullptr;
-static int screenshots = 0, suspensions = 0, restorations = 0, resizes = 0;
+bool g_screenshot_pending = false;
+bool g_video_inspector_enabled = false;
+static int suspensions = 0, restorations = 0, resizes = 0;
 static std::thread::id dispatch_thread;
 static std::vector<int> clock_actions;
-void PrintScreen()
-{
-    ++screenshots;
-}
-
-bool VideoInspectorIsEnabled()
-{
-    return false;
-}
 void SuspendVideoManager()
 {
     ++suspensions;
@@ -231,11 +224,10 @@ TEST_CASE("events_test")
     expect(events[0], InputEventType::KeyDown, SDLK_B, CTRL_DOWN);
     expect(events[1], InputEventType::KeyUp, SDLK_B, CTRL_DOWN);
 
-    key(SDL_EVENT_KEY_UP, SDLK_PRINTSCREEN);
     key(SDL_EVENT_KEY_UP, SDLK_PRINTSCREEN, SDL_KMOD_LCTRL);
     key(SDL_EVENT_KEY_UP, SDLK_LCTRL);
     drain_events();
-    REQUIRE((screenshots == 2 && input().empty()));
+    REQUIRE((g_screenshot_pending && input().empty()));
 
     key(SDL_EVENT_KEY_DOWN, SDLK_A, SDL_KMOD_LSHIFT);
     key(SDL_EVENT_KEY_UP, SDLK_A, SDL_KMOD_LSHIFT);

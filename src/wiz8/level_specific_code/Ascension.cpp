@@ -1,5 +1,6 @@
 #include "wiz8/level_specific_code/Ascension.h"
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -40,7 +41,7 @@
    case 0x24, the Footsteps level, which is part of the Ascension Peak block. */
 
 // GLOBAL: WIZ8 0x0068356C
-static W8IntervalGate* g_avalanche_gate;
+static std::optional<W8IntervalGate> g_avalanche_gate;
 
 /* Count how many of the three Ascension Peak relic items (0x242, 0x243,
    0x244) are on the party; the world-cursor "seen bodies" handler requires
@@ -76,8 +77,7 @@ unsigned char AscensionPeakInit(void)
 
     if (count > 1) {
         if (GetLocationVarIDByName("AP_AtLeast2of3Items") == -1) {
-            W8MonsterGroup* group = 0;
-            W8MonsterInfo* info;
+            W8MonsterGroup* group = nullptr;
 
             AscensionAvalanche(true);
             if (FindEntityByName("NP_Rapax01", &position, 0, 0)) {
@@ -86,8 +86,12 @@ unsigned char AscensionPeakInit(void)
             if (FindEntityByName("NP_Rapax04", &position, 0, 0)) {
                 SpawnMonsters(0xf, 4, &position, 1, true, false, false);
             }
-            info = FindMonster(group->leader_location_id);
-            info->p3D->SetScript("proximitylandslide.msf", true);
+            if (group != nullptr) {
+                W8MonsterInfo* info = FindMonster(group->leader_location_id);
+                if (info != nullptr && info->p3D != nullptr) {
+                    info->p3D->SetScript("proximitylandslide.msf", true);
+                }
+            }
             SpawnAscensionAmbush();
             CreateLocationVar("AP_AtLeast2of3Items", 1);
         }
@@ -201,15 +205,14 @@ void AscensionLandShaker(int command)
         return;
     }
     g_remove_current_master_function = false;
-    if (g_avalanche_gate == 0) {
-        g_avalanche_gate = new W8IntervalGate(1.0f, false, true);
+    if (!g_avalanche_gate) {
+        g_avalanche_gate.emplace(1.0f, false, true);
         return;
     }
     if (!g_avalanche_gate->PollFinished()) {
         return;
     }
-    delete g_avalanche_gate;
-    g_avalanche_gate = 0;
+    g_avalanche_gate.reset();
     RunNamedTrigger("LandShaker", -1);
     g_remove_current_master_function = true;
 }
@@ -380,7 +383,7 @@ bool AscensionPath1Camera(Trigger* pTrigger)
         return false;
     }
     for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
-        W8MonsterInfo* info = MonsterGetScriptPartByLocationIndex(index);
+        W8MonsterInfo* info = GetMonsterListEntry(index);
 
         if (info->fActive && info->fInCombat && info->ubDisposition == W8_DISPOSITION_HOSTILE &&
             !info->p3D->IsDying()) {

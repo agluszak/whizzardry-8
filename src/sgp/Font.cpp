@@ -297,16 +297,6 @@ std::int16_t GetIndex(char32_t siChar)
                : static_cast<std::int16_t>(fallback - font_translation.begin());
 }
 
-SDL_Point Font::rightAlignedPosition(const SDL_Rect& bounds, std::string_view text) const
-{
-    return {bounds.x + bounds.w - textWidth(text), bounds.y + (bounds.h - height()) / 2};
-}
-
-SDL_Point Font::centeredPosition(const SDL_Rect& bounds, std::string_view text) const
-{
-    return {bounds.x + (bounds.w - textWidth(text) + 1) / 2, bounds.y + (bounds.h - height()) / 2};
-}
-
 void DrawText(SDL_Surface& target, Font& font, SDL_Point at, std::string_view text,
               TextOptions options)
 {

@@ -2,14 +2,10 @@
 
 #include "compat/compiler.h"
 
-class W8BinkVideo;
-
-extern W8BinkVideo* gpVideo;
-
 void ContinueAfterDarkEndingVideo(void);
-unsigned char IntroScreenEnter(void);
+bool IntroScreenEnter(void);
 void IntroScreenFrame(void);
-unsigned char IntroScreenLeave(int leaving);
+bool IntroScreenLeave(int leaving);
 void SetIntroVideoIndex(w8_ulong value);
 /* Which intro video the intro screen shows next; the router and
    the menu paths select it through SetIntroVideoIndex. */

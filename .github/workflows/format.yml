@@ -16,12 +16,10 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - name: Install clang-format 22
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y clang-format-22
+      - name: Install clang-format 23
+        run: tools/install-llvm.sh 23 clang-format
       - name: Check C and C++ files
         run: |
           git ls-files -z -- include src tests \
             | grep -zE '\.(c|cc|cxx|cpp|h|hpp)$' \
-            | xargs -0 clang-format-22 --dry-run --Werror
+            | xargs -0 clang-format-23 --dry-run --Werror

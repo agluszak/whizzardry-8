@@ -65,28 +65,6 @@ int IntegerPower(int base, unsigned int exponent)
     return result;
 }
 
-// FUNCTION: WIZ8 0x005179d0
-void ClampInteger(int* value, int minimum, int maximum)
-{
-    int current = *value;
-
-    if (current > maximum) {
-        *value = maximum;
-    } else if (current < minimum) {
-        *value = minimum;
-    }
-}
-
-// FUNCTION: WIZ8 0x005179f0
-void ClampUnsignedInteger(unsigned int* value, unsigned int minimum, unsigned int maximum)
-{
-    if (*value > maximum) {
-        *value = maximum;
-    } else if (*value < minimum) {
-        *value = minimum;
-    }
-}
-
 // FUNCTION: WIZ8 0x00517af0
 std::string FormatUnsignedIntegerWithCommas(unsigned int value)
 {

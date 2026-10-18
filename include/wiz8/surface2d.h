@@ -26,7 +26,6 @@ public:
     /* The ortho tile render pass; process() forwards the renderer to it. */
     void DrawTiles(srGERD* renderer); /* 0x0047E100 */
     void setAlphaTestEnabled(bool enabled);
-    void invalidateTiles();
     void updateRectangle(srGERD* renderer, int left, int top, int right, int bottom);
 
     int vertex_array_mask;               /* 0x13c */

@@ -8,11 +8,10 @@
 #include "wiz8/engine_code/SoundEvent.h"
 
 // FUNCTION: WIZ8 0x004b6900
-W8GrObject::W8GrObject() : kind(0), id(-1), m_pAI(nullptr), m_pRep(nullptr) {}
+W8GrObject::W8GrObject() : kind(0), id(-1), m_pAI(nullptr) {}
 
 // FUNCTION: WIZ8 0x004b69a0
-W8GrObject::W8GrObject(const W8GrObject& other)
-    : kind(other.kind), id(other.id), m_pAI(nullptr), m_pRep(nullptr)
+W8GrObject::W8GrObject(const W8GrObject& other) : kind(other.kind), id(other.id), m_pAI(nullptr)
 {
     sound_events.reserve(other.sound_events.size());
     for (const auto& event : other.sound_events) {

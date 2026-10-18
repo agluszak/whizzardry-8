@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <exception>
+#include <filesystem>
 #include <iterator>
 #include <limits>
 #include <memory>
@@ -22,11 +23,12 @@
 #include <glm/gtc/quaternion.hpp>
 
 #include "Item.h"
-#include "LevelFile.h"
 #include "ReadMesh.h"
 #include "application.h"
 #include "compat/compiler.h"
 #include "compat/native.h"
+#include "glm/common.hpp"
+#include "glm/ext/matrix_double3x3.hpp"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -41,6 +43,7 @@
 #include "surrender/srClipPlane.h"
 #include "surrender/srDebug.h"
 #include "surrender/srGERD.h"
+#include "surrender/srMaterial.h"
 #include "surrender/srMath.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
@@ -194,7 +197,7 @@ struct W8LevelLightRecord {
     short version;
     unsigned char create;
     bool visible;
-    unsigned int flags;
+    unsigned int flags; /* 2: a parametric light definition follows the name */
     wiz8::retail::Vec3f location;
     wiz8::retail::Vec3f colour;
     float intensity;
@@ -206,16 +209,16 @@ static_assert(sizeof(W8LevelLightRecord) == 40);
 } // namespace
 
 // GLOBAL: WIZ8 0x00659cd0
-glm::vec3 g_environment_offset{0};
+glm::vec3 CurrentEnvironmentOffset()
+{
+    return GetWorld() ? GetWorld()->environment_offset : glm::vec3(0.0f);
+}
 
 // FUNCTION: WIZ8 0x004BC060
 void AssociateWorldLights(W8World* world)
 {
-    int light_index;
-
-    for (light_index = 0; light_index < static_cast<int>(world->lights_to_update.size());
-         ++light_index) {
-        stLight* light = world->lights_to_update[light_index];
+    for (const auto& owned : world->transient_lights) {
+        stLight* light = owned.get();
         stLightDefinition* definition = light->m_definition.get();
 
         if (definition != 0 && definition->kind == W8_LIGHT_DEFINITION_PARAMETRIC &&
@@ -262,7 +265,7 @@ try {
             hFile->read_exact(name, sizeof(name));
             SDL_strupr(name);
 
-            if ((record.flags & W8_LEVEL_LIGHT_HAS_DEFINITION) != 0) {
+            if ((record.flags & 2) != 0) {
                 definition = std::make_unique<stParametricLightDefinition>();
                 record.create = 1;
 
@@ -297,7 +300,6 @@ try {
                 light = CreateRangedWorldLight(world, name);
             } else {
                 light = CreateWorldLight(world, name);
-                world->lights_to_update.push_back(light);
                 if (path != 0) {
                     light->path_ai = std::move(path);
                 }
@@ -330,7 +332,7 @@ try {
                 light->diffuse = glm::vec3(0);
                 light->ambient = {record.colour.x, record.colour.y, record.colour.z};
                 light->setGroupMask(light->getGroupMask() | 4);
-                AddEnvironmentLight(light);
+                world->environment_lights.push_back(light);
             } else {
                 light->diffuse = {record.colour.x, record.colour.y, record.colour.z};
                 light->ambient = glm::vec3(0);
@@ -389,7 +391,7 @@ try {
         success = success && (pInfo->hFile->read(&stored_position, sizeof(stored_position)).bytes ==
                               static_cast<std::size_t>(sizeof(stored_position)));
         position = glm::vec3(stored_position.x, stored_position.y, stored_position.z) * kWorldScale;
-        SetWorldScenePosition(pWorld, &position);
+        pWorld->camera->setLocation(glm::dvec3(position));
     } else if (camera_mode == 2) {
         success = success &&
                   (pInfo->hFile->read(&stored_position, sizeof(stored_position)).bytes ==
@@ -403,50 +405,39 @@ try {
                   (pInfo->hFile->read(&axis.z, sizeof(axis.z)).bytes ==
                    static_cast<std::size_t>(sizeof(axis.z)));
         position = glm::vec3(stored_position.x, stored_position.y, stored_position.z) * kWorldScale;
-        SetWorldScenePosition(GetWorld(), &position);
+        pWorld->camera->setLocation(glm::dvec3(position));
 
         rotation = glm::mat3(1);
         if (angle != 0.0f) {
             rotation *= glm::mat3_cast(glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
                                                       normalizedOrZero(glm::vec3(axis))));
         }
-        ApplyCameraRotation(&rotation);
+        pWorld->initial_camera_rotation = rotation;
+        pWorld->camera->setRotation(glm::dmat3(rotation));
     }
 
-    success = success && (pInfo->hFile->read(&has_light_colours, sizeof(has_light_colours)).bytes ==
-                          static_cast<std::size_t>(sizeof(has_light_colours)));
-    if (has_light_colours != 0) {
-        ReadLightColourTable(pInfo->hFile);
-    } else {
-        BuildLightColourRamp();
-    }
+    // Absent tables keep the default ramps the world was constructed with.
+    const auto read_flag = [&](unsigned char& flag) {
+        return pInfo->hFile->read(&flag, sizeof(flag)).bytes == sizeof(flag);
+    };
+    success = success && read_flag(has_light_colours);
+    if (has_light_colours != 0)
+        success = success && ReadEnvironmentColours(pInfo->hFile, pWorld->light_colours);
+    success = success && read_flag(has_environment_colours);
+    if (has_environment_colours != 0)
+        success = success && ReadEnvironmentColours(pInfo->hFile, pWorld->environment_colours);
 
-    success =
-        success &&
-        (pInfo->hFile->read(&has_environment_colours, sizeof(has_environment_colours)).bytes ==
-         static_cast<std::size_t>(sizeof(has_environment_colours)));
-    if (has_environment_colours != 0) {
-        ReadEnvironmentColourTable(pInfo->hFile);
-    } else {
-        BuildEnvironmentColourRamp();
-    }
-
-    g_environment_offset = glm::vec3(0);
     pWorld->view_distance = view_distance * kWorldScale;
-    ApplyEnvironmentColour(pWorld, intensity, &white);
+    pWorld->environment_intensity = intensity;
+    pWorld->environment_colour = white;
+    pWorld->static_scene->setAmbientLight(glm::clamp(white * intensity, 0.0f, 1.0f));
     WorldSetFarClip(pWorld, pWorld->view_distance);
     distance_scale = view_distance < g_octree_cell_scale ? kEnvironmentNearScale : 1.5f;
     WorldSetRenderRange(pWorld, distance_scale * pWorld->view_distance);
     pWorld->environment_range_start = environment_range.x;
     pWorld->environment_range_end = environment_range.y;
-    pWorld->environment_range_blue = environment_range.z;
 
-    if (fog_enabled == 0) {
-        SetFogEnabled(false);
-    } else {
-        SetFogEnabled(true);
-        UpdateEnvironmentLight();
-    }
+    pWorld->fog_enabled = fog_enabled != 0;
     return success;
 } catch (const std::exception&) {
     return false;
@@ -556,11 +547,11 @@ try {
             success = 0;
         } else {
             success = 1;
-            if (g_octree != 0) {
-                if (!g_octree->TestPropSunBit(index)) {
+            if (pWorld->octree != 0) {
+                if (!pWorld->octree->TestPropSunBit(index)) {
                     prop->flags |= W8_PROP_NO_DIRECT_SUN;
                 }
-                g_octree->AddLoadedProp(prop);
+                pWorld->octree->AddLoadedProp(prop);
             }
             pWorld->plsProps.push_back(std::move(owner));
             if ((prop->flags & W8_PROP_COLLIDABLE) != 0) {
@@ -585,8 +576,8 @@ try {
             }
         }
     }
-    if (g_octree != 0) {
-        g_octree->TestPropSunBit(-1);
+    if (pWorld->octree != 0) {
+        pWorld->octree->TestPropSunBit(-1);
     }
     return success;
 } catch (const std::exception&) {
@@ -770,6 +761,7 @@ unsigned char ReadWorldParticles(W8ReadLevelInfo* pInfo, srNode* pScene,
                                  std::vector<std::unique_ptr<stParticle>>* pParticles)
 try {
     if (!pInfo || !pInfo->hFile || !pParticles) return false;
+    W8Octree* const octree = pInfo->world ? pInfo->world->octree.get() : nullptr;
     auto& file = *pInfo->hFile;
     std::int32_t count;
     file.read_exact(&count, sizeof(count));
@@ -942,13 +934,13 @@ try {
             particle->camera_offset = glm::vec3(particle->getLocation());
             particle->camera_relative = 1;
             particle->SetActive(1);
-        } else if (g_octree != 0) {
+        } else if (octree) {
             octree_particles.push_back(particle);
         }
         pending.push_back(std::move(owned));
     }
     pParticles->reserve(pParticles->size() + pending.size());
-    if (g_octree) g_octree->AddLoadedParticles(octree_particles);
+    if (octree) octree->AddLoadedParticles(octree_particles);
     pParticles->insert(pParticles->end(), std::make_move_iterator(pending.begin()),
                        std::make_move_iterator(pending.end()));
     return 1;
@@ -1004,7 +996,7 @@ try {
 
 // FUNCTION: WIZ8 0x004BAFF0
 unsigned char ReadLevel(W8World* world, wiz8::File* handle, bool use_octree,
-                        const char* bitmap_folder)
+                        const std::filesystem::path& texture_directory)
 try {
     W8ReadLevelInfo info;
     std::unique_ptr<stModelInstance> level_mesh;
@@ -1034,11 +1026,11 @@ try {
 
     info.world = world;
     info.hFile = handle;
-    info.bitmap_folder = bitmap_folder;
+    info.bitmap_folder = texture_directory;
     w8_get_ticks();
 
     if (world->psrMeshes.empty() || world->octree == 0) {
-        level_mesh = ReadSingleLevelMesh(&info, nullptr, true);
+        level_mesh = ReadSingleLevelMesh(*handle, texture_directory);
         if (!level_mesh) {
             return 0;
         }
@@ -1046,7 +1038,8 @@ try {
         SetModelInstanceChainExclusionMask(level_mesh.get(), 1);
         world->update_mesh_source = world->level->adoptChild(std::move(level_mesh), 1);
     } else {
-        auto meshes = ReadMultipleLevelMeshes(&info, world->octree->GetMeshCount(), nullptr);
+        auto meshes =
+            ReadMultipleLevelMeshes(*handle, world->octree->GetMeshCount(), texture_directory);
         if (meshes.empty()) {
             ShutdownWithErrorBox("ReadLevel: Error reading multi-meshes.");
         }
@@ -1085,11 +1078,6 @@ try {
     if (section_count == 0) {
         WorldSetFarClip(world, 42500.0f);
         WorldSetRenderRange(world, 37500.0f);
-        if (!IsSkyEnabled()) {
-            DisableSky();
-        } else {
-            EnableSky();
-        }
     } else {
         success = ReadWorldEnvironment(&info, world);
     }
@@ -1113,8 +1101,8 @@ try {
 
     UpdateWorldProps(world);
     info.hFile->read(&camera_mode, sizeof(camera_mode));
-    SetCameraSwayMode(world->camera, camera_mode == 0 ? -1 : 1);
-    if (world->octree == 0 && world != g_secondary_world) {
+    world->initial_camera_sway = camera_mode != 0;
+    if (world->octree == 0 && world->level_id >= 0) {
         FinalizeWorldScenes(world->static_scene.get(), world->dynamic_scene);
     }
 
@@ -1129,16 +1117,10 @@ try {
         const auto [minimum, maximum] = model->getBounds().box;
         world->quads = BuildWorldQuad(world->update_mesh_source, minimum, maximum);
     }
-    RefreshEnvironment();
-    FinalizeStaticScene(world->static_scene.get());
+    FinalizeStaticScene(*world);
 
-    if (!success ||
-        !(handle->read(&environment_offset.x, sizeof(environment_offset.x)).bytes ==
-          static_cast<std::size_t>(sizeof(environment_offset.x))) ||
-        !(handle->read(&environment_offset.y, sizeof(environment_offset.y)).bytes ==
-          static_cast<std::size_t>(sizeof(environment_offset.y))) ||
-        !(handle->read(&environment_offset.z, sizeof(environment_offset.z)).bytes ==
-          static_cast<std::size_t>(sizeof(environment_offset.z)))) {
+    if (!success || handle->read(&environment_offset, sizeof(environment_offset)).bytes !=
+                        sizeof(environment_offset)) {
         success = 0;
     } else {
         success = ReadWorldParticles(&info, world->dynamic_scene, &world->particles);
@@ -1146,10 +1128,11 @@ try {
     CHECK_PVL_OFFSET("Wrong offset in .pvl file after particles.");
     success = success && ReadNamedPositions(info.hFile, world->named_positions);
     CHECK_PVL_OFFSET("Wrong offset in .pvl file after named position points.");
-    success = success && ReadAutomapNodes(handle);
+    success = success && ReadAutomapNodes(handle, world->automap);
     CHECK_PVL_OFFSET("Wrong offset in .pvl file after automap nodes.");
 
-    g_environment_offset = environment_offset;
+    world->environment_offset = environment_offset;
+
     prop_count = world->plsProps.size();
     for (index = 0; index < static_cast<int>(prop_count); ++index) {
         W8Prop* prop = GetWorldProp(world, index);
@@ -1163,21 +1146,20 @@ try {
                 stMeshModel* mesh = static_cast<stMeshModel*>(instance->getModel());
 
                 for (; mesh != 0; mesh = mesh->Next()) {
-                    if (!AnimationIsRunning(animation)) {
+                    if (!animation->path_lists) {
                         mesh->GetVertexSunlight(true);
                         SetModelInstanceChainExclusionMask(instance, 5);
-                    } else if (AnimationIsRunning(animation) == 1) {
+                    } else if (animation->path_lists == 1) {
                         SetModelInstanceChainExclusionMask(instance, 4);
                     }
 
-                    auto* material =
-                        dynamic_cast<stMaterial*>(mesh->getMaterial(0, srMeshModel::SIDE_FRONT));
+                    auto* material = mesh->getMaterial(0, srMeshModel::SIDE_FRONT);
                     if (material != 0) {
-                        auto copy = std::make_shared<stMaterial>(*material);
+                        auto copy = std::make_shared<srMaterial>(*material);
                         copy->setName("Unsunlit Prop Material");
                         copy->parms.ambient = glm::vec4(0.0f);
                         copy->dirty = 1;
-                        copy->parms.emissive += glm::vec4(g_environment_offset, 0);
+                        copy->parms.emissive += glm::vec4(environment_offset, 0);
                         copy->dirty = 1;
                         mesh->setMaterial(std::move(copy), 0, srMeshModel::SIDE_FRONT);
                     }
@@ -1185,8 +1167,8 @@ try {
             }
         }
     }
-    if (g_octree != 0) {
-        g_octree->m_fAccumulating = false;
+    if (world->octree != 0) {
+        world->octree->m_fAccumulating = false;
     }
     return success;
 } catch (const std::exception&) {

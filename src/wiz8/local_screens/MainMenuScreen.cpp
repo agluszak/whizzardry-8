@@ -103,19 +103,19 @@ void ActivateMainMenuItem(short item)
         RequestScreenTransition();
         g_settings.intro_seen = false;
         SetIntroVideoIndex(0);
-        SetPendingScreenState(W8_SCREEN_INTRO);
+        g_pending_screen_state.id = W8_SCREEN_INTRO;
         break;
     case 1:
-        SetPendingScreenState(W8_SCREEN_PARTY_SELECTION);
+        g_pending_screen_state.id = W8_SCREEN_PARTY_SELECTION;
         break;
     case 2:
         if (g_main_menu_has_save_games) {
             g_pending_screen_state.mode = 1;
-            SetPendingScreenState(W8_SCREEN_OPTIONS);
+            g_pending_screen_state.id = W8_SCREEN_OPTIONS;
         }
         break;
     case 3:
-        SetPendingScreenState(W8_SCREEN_CREDITS);
+        g_pending_screen_state.id = W8_SCREEN_CREDITS;
         break;
     case 4:
         ClearScreenWait();
@@ -171,7 +171,7 @@ void CreateMainMenuInput()
 }
 } // namespace
 
-unsigned char MainMenuScreenEnter(void)
+bool MainMenuScreenEnter(void)
 {
     std::string text;
     std::string wide;
@@ -321,15 +321,10 @@ void MainMenuScreenFrame()
     RenderFrame();
 }
 
-unsigned char MainMenuScreenLeave(int)
+bool MainMenuScreenLeave(int)
 {
     RetireModal(std::move(main_menu_dialog), false);
     main_menu_input.reset();
     ReleaseCatalogArtwork();
     return 1;
-}
-
-void SetMainMenuMessage(std::string_view message)
-{
-    g_pending_main_menu_message = message;
 }
