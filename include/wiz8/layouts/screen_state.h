@@ -23,6 +23,15 @@ enum W8ScreenId {
     W8_SCREEN_COUNT = 13
 };
 
+/* The shared screen mode field carries different domains for each destination.
+   These four values belong specifically to the Please Wait screen. */
+enum W8PleaseWaitMode {
+    W8_PLEASE_WAIT_NEW_GAME = 0,
+    W8_PLEASE_WAIT_LOAD_GAME = 1,
+    W8_PLEASE_WAIT_SAVE_GAME = 2,
+    W8_PLEASE_WAIT_CHANGE_LEVEL = 3
+};
+
 /* A screen's lifecycle hooks. Initialize, enter and leave report failure,
    which stops the program; absent optional hooks have nothing to do. */
 struct W8ScreenStateHandlers {
