@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -586,7 +587,7 @@ bool RecruitNpcIntoParty(W8NpcState* npc)
         W8MonsterInfo* monster = FindMonster(npc->location_id);
         if (monster != 0) {
             CopyMonsterConditionsToCharacter(&g_status.buffers.Char[party_slot], monster);
-            RemoveMonster(monster, true);
+            RemoveMonster(monster, W8MonsterRemoval::Despawn);
         }
     }
     npc->group_index = static_cast<signed char>(party_slot);
@@ -594,7 +595,7 @@ bool RecruitNpcIntoParty(W8NpcState* npc)
     npc->is_present = false;
     npc->event_pending = 0;
     npc->pending_restore = false;
-    ReloadNpcScriptResources(npc);
+    ReloadNpcScriptResources(npc, GetNpcMonster(npc));
 
     /* Retail writes the race into this initially populated list, then tests
        the value just written. Preserve that assignment and early exit. */
@@ -1200,14 +1201,10 @@ try {
 /* Build one runtime NPC state, reusing an unavailable slot or appending a new
    one. Save records and monster bindings refer to these stable slot indices. */
 // FUNCTION: WIZ8 0x00509aa0
-W8NpcState* CreateNpcRuntimeNode(int npc_id)
+static std::unique_ptr<W8NpcState> MakeNpcRuntimeNode(int npc_id)
 {
-    W8NpcState* npc;
-    W8NpcState* released;
-    int index;
-
     auto owner = std::make_unique<W8NpcState>();
-    npc = owner.get();
+    auto* npc = owner.get();
     npc->name_style = npc_id;
     npc->record = &g_npc_records[npc_id];
     if (npc->record->has_group != 0) {
@@ -1224,6 +1221,15 @@ W8NpcState* CreateNpcRuntimeNode(int npc_id)
     npc->greeting_pending = true;
     npc->trade_pool = g_npc_records[npc_id].trade_pool;
 
+    return owner;
+}
+
+W8NpcState* CreateNpcRuntimeNode(int npc_id)
+{
+    auto owner = MakeNpcRuntimeNode(npc_id);
+    auto* npc = owner.get();
+    W8NpcState* released;
+    int index;
     for (index = 0; index < static_cast<int>(g_npc_states.size()); ++index) {
         released = g_npc_states[index].get();
         if (released != 0 && released->binding_unavailable != 0) {
@@ -1236,6 +1242,88 @@ W8NpcState* CreateNpcRuntimeNode(int npc_id)
     g_npc_states.push_back(std::move(owner));
     npc->partner_index = static_cast<unsigned char>(static_cast<int>(g_npc_states.size()) - 1);
     return npc;
+}
+
+W8PreparedNpcBindings PrepareNpcBindings(W8World& world)
+{
+    W8PreparedNpcBindings pending;
+    std::vector<bool> reserved(g_npc_states.size(), false);
+    const auto prepare = [&](W8MonsterInfo& info) {
+        const auto* record = GetMonsterDataForInfo(&info);
+        if ((record->flags & W8_MONSTER_FLAG_NPC) == 0) {
+            info.bound_npc_index = -1;
+            return;
+        }
+        const int kind = record->npc_kind;
+        W8NpcState* source = nullptr;
+        if (!g_npc_records[kind].monster_bound)
+            source = GetNpcStateByKind(kind);
+        else if (info.bound_npc_index > 0) {
+            auto* candidate = GetNpcState(info.bound_npc_index);
+            if (candidate && candidate->location_id == info.location_id &&
+                candidate->name_style == kind)
+                source = candidate;
+        }
+        int slot = source ? source->partner_index : -1;
+        if (slot == -1) {
+            for (size_t index = 0; index < reserved.size(); ++index) {
+                if (!reserved[index] && g_npc_states[index]->binding_unavailable) {
+                    slot = static_cast<int>(index);
+                    break;
+                }
+            }
+            if (slot == -1) {
+                slot = static_cast<int>(reserved.size());
+                reserved.push_back(false);
+            }
+        }
+        if (slot > 255) throw std::runtime_error("too many NPC bindings");
+        auto existing = std::ranges::find(pending.records, slot, &W8PreparedNpcBinding::slot);
+        W8NpcState* npc;
+        if (existing != pending.records.end())
+            npc = existing->state.get();
+        else {
+            std::unique_ptr<W8NpcState> owner;
+            if (source) {
+                owner = std::make_unique<W8NpcState>();
+                wiz8::retail::decode<W8NpcState>(wiz8::retail::encode(*source), *owner);
+                owner->record = source->record;
+                owner->items = source->items;
+                owner->character = source->character;
+            } else
+                owner = MakeNpcRuntimeNode(kind);
+            npc = owner.get();
+            pending.records.push_back({slot, std::move(owner)});
+        }
+        reserved[slot] = true;
+        npc->partner_index = static_cast<unsigned char>(slot);
+        npc->location_id = info.location_id;
+        npc->is_present = true;
+        npc->has_monster = true;
+        npc->binding_unavailable = false;
+        npc->level_band = GetLevelBand(world.level_id);
+        npc->bound_level = static_cast<unsigned char>(world.level_id);
+        info.bound_npc_index = slot;
+        ReloadNpcScriptResources(npc, info.p3D);
+    };
+    for (const auto* list :
+         {&world.population->monster_roster.live(), &world.population->monster_roster.unborn()})
+        for (const auto& info : *list) prepare(*info);
+    g_npc_states.reserve(reserved.size());
+    g_retired_npc_states.reserve(g_retired_npc_states.size() + pending.records.size());
+    return pending;
+}
+
+void InstallNpcBindings(W8PreparedNpcBindings pending)
+{
+    for (auto& binding : pending.records) {
+        if (static_cast<size_t>(binding.slot) == g_npc_states.size())
+            g_npc_states.push_back(std::move(binding.state));
+        else {
+            g_retired_npc_states.push_back(std::move(g_npc_states[binding.slot]));
+            g_npc_states[binding.slot] = std::move(binding.state);
+        }
+    }
 }
 
 /* Bind an NPC runtime state to a monster location, creating the state when the
@@ -1282,7 +1370,7 @@ void BindNpcToMonster(unsigned char npc_id, bool has_monster, int location_id)
     npc->has_monster = true;
     npc->level_band = GetLevelBand(GetLoadedLevelID());
     npc->bound_level = static_cast<unsigned char>(GetLoadedLevelID());
-    ReloadNpcScriptResources(npc);
+    ReloadNpcScriptResources(npc, GetNpcMonster(npc));
 }
 
 /* Expand the record's character block into a fresh group-member character:
@@ -1477,7 +1565,7 @@ void LoadNpcStates(W8Chunk& file)
             npc->has_monster = true;
             npc->level_band = GetLevelBand(GetLoadedLevelID());
             npc->bound_level = GetLoadedLevelID();
-            ReloadNpcScriptResources(npc);
+            ReloadNpcScriptResources(npc, GetNpcMonster(npc));
         }
         if (npc->spawned == 0xffff) {
             npc->spawned = 0;
@@ -1960,7 +2048,7 @@ void UpdateNpcEvents(void)
             if (partner->is_present) {
                 monster_info = FindMonster(partner->location_id);
                 if (monster_info != 0) {
-                    RemoveMonster(monster_info, true);
+                    RemoveMonster(monster_info, W8MonsterRemoval::Despawn);
                 }
             }
             ReleaseNpcBinding(partner->partner_index);
@@ -2115,7 +2203,7 @@ static void ReleaseNpcCompanionMonster(W8NpcState* npc)
         if (npc->is_present) {
             W8MonsterInfo* monster = FindMonster(npc->location_id);
             if (monster != 0) {
-                RemoveMonster(monster, true);
+                RemoveMonster(monster, W8MonsterRemoval::Despawn);
             }
         }
         ReleaseNpcBinding(npc->partner_index);
@@ -2382,7 +2470,7 @@ void RebindNpcLevelTriggers(void)
                 npc->has_monster = true;
                 npc->level_band = static_cast<unsigned char>(GetLevelBand(GetLoadedLevelID()));
                 npc->bound_level = static_cast<unsigned char>(GetLoadedLevelID());
-                ReloadNpcScriptResources(npc);
+                ReloadNpcScriptResources(npc, GetNpcMonster(npc));
                 npc->is_present = false;
             }
         }

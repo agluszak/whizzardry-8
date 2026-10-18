@@ -81,7 +81,7 @@ static W8MonsterInfo* FindNpcKindMonster(int npc_kind)
 
 static void RemoveMonsterNow(W8MonsterInfo* monster_info)
 {
-    RemoveMonster(monster_info, true);
+    RemoveMonster(monster_info, W8MonsterRemoval::Despawn);
 }
 
 /* Fade an active NPC monster out of the world; one that is not active is

@@ -398,10 +398,10 @@ std::vector<W8LightState> ReadLightStates(W8Chunk& file)
     return records;
 }
 
-void ApplyLightStates(std::span<const W8LightState> states)
+void ApplyLightStates(W8World& world, std::span<const W8LightState> states)
 {
     for (const auto& state : states) {
-        if (auto* light = FindWorldNode<stLight>(state.name)) {
+        if (auto* light = world.static_scene->findChild<stLight>(state.name)) {
             if (state.enabled)
                 light->clearFlag(srNode::FLAG_DISABLE);
             else

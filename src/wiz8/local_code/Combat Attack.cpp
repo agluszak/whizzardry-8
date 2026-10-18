@@ -47,6 +47,7 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_tables.h"
+#include "wiz8/level_population.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/CombatHostility.h"
@@ -596,8 +597,8 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
             }
         }
     }
-    for (unsigned int monster_index = 0; monster_index < gXStatus.monster_roster.live().size();
-         ++monster_index) {
+    for (unsigned int monster_index = 0;
+         monster_index < CurrentLevelPopulation().monster_roster.live().size(); ++monster_index) {
         W8MonsterInfo* monster_info = GetMonsterListEntry(monster_index);
         W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
         if (monster_info->fActive && monster_info->fInCombat && monster_info->hp_current != 0 &&
@@ -853,7 +854,8 @@ void ResolveSpellMissileHit(W8Missile* missile)
             glm::vec3 center = monster_info->p3D->GetPosition();
             ResetCombatSlot(&struck);
             struck.iType = W8_TARGET_KIND_MONSTER;
-            for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
+            for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size();
+                 ++index) {
                 monster_info = GetMonsterListEntry(index);
                 if (monster_info->fActive) {
                     location = MonsterGetLocation(monster_info->p3D);
@@ -3022,7 +3024,7 @@ void BuildCharacterTargetList(int party_slot, int action, std::vector<W8CombatSl
             }
         }
     }
-    for (const auto& monster_owner : gXStatus.monster_roster.live()) {
+    for (const auto& monster_owner : CurrentLevelPopulation().monster_roster.live()) {
         auto* monster_info = monster_owner.get();
         if (monster_info->fActive && monster_info->hp_current != 0 && monster_info->fInCombat &&
             (g_status.buffers.XChar[party_slot].target_out_of_combat.iType !=
@@ -3052,7 +3054,7 @@ void BuildMonsterTargetList(W8MonsterInfo* monster_info, W8MonsterRecord* record
             AppendCombatTargetEntry(out_list, W8_TARGET_KIND_CHARACTER, i, -1);
         }
     }
-    for (const auto& monster_owner : gXStatus.monster_roster.live()) {
+    for (const auto& monster_owner : CurrentLevelPopulation().monster_roster.live()) {
         auto* candidate = monster_owner.get();
         if (candidate->fActive && candidate->hp_current != 0 && candidate->fInCombat) {
             if (candidate == monster_info) {

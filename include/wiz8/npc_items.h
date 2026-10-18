@@ -24,6 +24,7 @@ enum class W8TradeOutcome { Complete, InvalidSelection, Refused, WantedByOwner, 
 struct W8TradeResult {
     W8TradeOutcome outcome;
     bool accepted_topic = false;
+    bool dropped_overflow = false;
 };
 W8TradeResult CompleteNpcTrade(W8NpcState* npc, const W8TradeSelection& selection,
                                unsigned char quantity);
@@ -53,7 +54,7 @@ unsigned char ConsumeNpcItemQuantity(W8NpcState* npc, int index, unsigned char q
    unless suppressed (the item being a dialogue topic the NPC wants). */
 /* 0x0055B7E0: the stock mutation a completed trade applies for one slot. */
 void DecayNpcInventory(W8NpcState* npc);
-bool CompleteNpcItemPurchase(W8NpcState* npc, int index, unsigned char quantity, bool no_payment,
-                             int* remaining_out);
+W8TradeResult CompleteNpcItemPurchase(W8NpcState* npc, int index, unsigned char quantity,
+                                      bool no_payment);
 
 #endif

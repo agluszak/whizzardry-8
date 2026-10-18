@@ -25,9 +25,9 @@ struct W8MainGameResourceSlot {
     unsigned short hotspot_y;
 };
 
-/* Main-game chrome mode ApplyMainGameModeFlag writes into both the level block
+/* Main-game chrome mode RefreshMainGameLayout writes into both the level block
    and g_settings. NONE is settings-only: Screens parks it at -1 while
-   ApplyMainGameModeFlag re-raises panels during main-game enter. */
+   RefreshMainGameLayout re-raises panels during main-game enter. */
 enum W8MainUiMode {
     W8_MAIN_UI_MODE_NONE = -1,
     W8_MAIN_UI_MODE_PORTRAITS = 0,
@@ -120,7 +120,7 @@ struct W8LevelRuntimeBlock {
     /* The x origin the mode-6 hover panel anchors the slot's portrait
        column position against. */
     int portrait_hover_x_origin;
-    /* Portrait hover-panel y offset ApplyMainGameModeFlag sets to 0x76 while the
+    /* Portrait hover-panel y offset RefreshMainGameLayout sets to 0x76 while the
        action panel is down and clears while it is up. */
     int portrait_y_shift;
     /* The applied highlight, and the hover waiting out the tooltip delay. */
@@ -181,7 +181,6 @@ struct W8LevelRuntimeBlock {
     int action_group = -1;
     /* Result of HighlightMonsterAsTarget for the current pick; [0]
        drives the group tint and the target cursor shape. */
-    unsigned char target_highlight_ok[0x10];
     /* The formation board's three stModelInstance2D-family
        sprites - the board art with slot markers baked in, the rotating compass
        needle tracking party_facing against party_heading, and a lazily
@@ -192,7 +191,6 @@ struct W8LevelRuntimeBlock {
     stModelInstance2D* formation_overlay_sprite;
     unsigned char refresh_combat_panel;
     uint64_t combat_panel_timer;
-    unsigned char refresh_party_panel;
     short combat_end_notification;
     int text_box_left;
     int text_box_top;

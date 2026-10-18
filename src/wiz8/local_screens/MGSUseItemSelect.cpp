@@ -62,7 +62,6 @@ struct W8NpcState;
 // GLOBAL: WIZ8 0x0069B984
 static int g_use_item_select_flags;
 // GLOBAL: WIZ8 0x0069b988
-W8MainUiMode g_use_item_select_return_mode;
 // GLOBAL: WIZ8 0x0069B98C
 static int g_use_item_select_mode;
 
@@ -176,7 +175,6 @@ static void CreateUseItemSelectControls(void)
 // FUNCTION: WIZ8 0x0059C930
 unsigned char OpenUseItemSelectView(int slot)
 {
-    W8MainUiMode mode;
 
     g_use_item_commit_active = false;
     UpdateScreenOverlays(0);
@@ -186,9 +184,7 @@ unsigned char OpenUseItemSelectView(int slot)
     }
     CloseNpcDialogueIfActive();
     CloseMainGameOverlays();
-    mode = g_settings.main_ui_mode;
-    SetMainGameOverlayViewport(mode);
-    g_use_item_select_return_mode = mode;
+    RefreshMainGameLayout();
     RestoreSpellCastingRegions();
     SelectTextBox(2);
     ResetEditorStatusLine(-1);
@@ -207,7 +203,7 @@ unsigned char OpenUseItemSelectView(int slot)
     g_use_item_owner_index = -1;
     RefreshUseItemSelectionForSlot(slot);
     SelectSpellCastingPartySlot(slot);
-    PauseMainGameWorld();
+    SyncWorldAdvancement();
     return 1;
 }
 
@@ -224,11 +220,11 @@ void CloseUseItemSelectView(void)
         SelectTextBox(gXStatus.fCombatMode);
         use_item.reset();
         gXStatus.fItemSelectMode = false;
-        ApplyMainGameModeFlag(g_use_item_select_return_mode, true);
+        RefreshMainGameLayout();
         RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
         RequestRedrawCombatBar();
         RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
-        ResumeMainGameWorld();
+        SyncWorldAdvancement();
         ClearItemDrag();
         if (LockInteractionSuspended() && !IsScreenTransitionPending()) {
             OpenLockInteraction(0);

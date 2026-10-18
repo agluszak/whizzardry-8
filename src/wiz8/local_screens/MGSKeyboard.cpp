@@ -382,20 +382,16 @@ void DispatchMGSCommand(W8MGSCommand command)
             break;
         }
         if (IsScreenInputBlocked() != 0) {
-            ApplyMainGameModeFlag(static_cast<W8MainUiMode>((g_settings.main_ui_mode - 1) & 1),
-                                  true);
+            SetMainUiPreference(static_cast<W8MainUiMode>((GetEffectiveMainUiMode() - 1) & 1));
         } else {
-            ApplyMainGameModeFlag(static_cast<W8MainUiMode>((g_settings.main_ui_mode + 1) % 3),
-                                  true);
+            SetMainUiPreference(static_cast<W8MainUiMode>((GetEffectiveMainUiMode() + 1) % 3));
         }
         break;
     case W8_MGS_COMMAND_PREV_LAYOUT:
         if (IsScreenInputBlocked() != 0) {
-            ApplyMainGameModeFlag(static_cast<W8MainUiMode>((g_settings.main_ui_mode - 1) & 1),
-                                  true);
+            SetMainUiPreference(static_cast<W8MainUiMode>((GetEffectiveMainUiMode() - 1) & 1));
         } else {
-            ApplyMainGameModeFlag(static_cast<W8MainUiMode>((g_settings.main_ui_mode + 2) % 3),
-                                  true);
+            SetMainUiPreference(static_cast<W8MainUiMode>((GetEffectiveMainUiMode() + 2) % 3));
         }
         break;
     case W8_MGS_COMMAND_AUTOMAP:
@@ -533,7 +529,7 @@ void DispatchMGSCommand(W8MGSCommand command)
             SelectPartyCharacter(slot);
             break;
         }
-        if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS) {
+        if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS) {
             break;
         }
         if (g_level_block->portrait_refresh_pending[slot] != 0) {

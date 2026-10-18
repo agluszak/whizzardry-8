@@ -53,7 +53,7 @@ struct W8SavedEncounterState {
 };
 W8SavedEncounterState ReadEncounterState(W8Chunk& file);
 void ReadMonsterGeneratorStates(W8Chunk& file, W8SavedEncounterState& state);
-void ApplyEncounterState(W8World& world, W8SavedEncounterState state);
+void StartLevelEncounters(W8World& world, const W8SavedEncounterState& state);
 void RunMonsterGenerators(void);
 void DespawnAllActiveMonsterGroups(void);
 void ResetMonsterGeneratorTimers(void);
@@ -67,7 +67,6 @@ void UpdateRandomEncounterBudget(bool reset_budget);
 
 extern int g_random_encounter_budget;
 extern int g_random_encounter_limit;
-extern std::vector<W8MonsterGroup*> g_active_groups;
 extern unsigned char g_generator_save_flag;
 extern short g_generator_default_interval;
 extern short g_generator_interval_min;

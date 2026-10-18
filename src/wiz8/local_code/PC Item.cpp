@@ -2740,6 +2740,77 @@ void SwapItemInstances(W8ItemInstance* item, W8ItemInstance* destination, W8Char
     }
 }
 
+bool EquipHeldItemAndStowPartner(W8Character& character, W8EquipSlot slot)
+{
+    const auto partner_slot = GetPairedEquipSlot(slot);
+    if (partner_slot == W8_EQUIP_SLOT_NONE || !g_status.item_in_cursor ||
+        g_status.item_in_hand.iItemNo == -1 || !CanUnequipSlotItem(&character, slot) ||
+        !CanUnequipSlotItem(&character, partner_slot))
+        return false;
+    auto proposed = character;
+    proposed.EquippedItem[partner_slot].iItemNo = -1;
+    if (!CanEquipItemInSlot(&proposed, g_status.item_in_hand.iItemNo, slot, false)) return false;
+    auto& destination = character.EquippedItem[slot];
+    auto& partner = character.EquippedItem[partner_slot];
+    const bool replace = destination.iItemNo != -1;
+    W8ItemInstance* storage = nullptr;
+    int backpack_slot = -1;
+    bool pool = false;
+    const auto actor = CharacterPointerToPartySlot(&character);
+    if (replace) {
+        for (int index = 0; index < 8; ++index) {
+            if (character.backpack[index].iItemNo == -1) {
+                storage = &character.backpack[index];
+                backpack_slot = index;
+                break;
+            }
+        }
+        if (!storage) {
+            auto* npc = actor < 2 ? GetNpcState(g_status.buffers.XChar[actor].npc_index) : nullptr;
+            if ((npc && NpcWantsItem(npc, &partner)) || g_status.party_item_count >= 500)
+                return false;
+            pool = true;
+        }
+    }
+    // Every destination and gameplay restriction is known before the first write.
+    auto displaced = partner;
+    displaced.bound = true;
+    displaced.bind_announced = false;
+    const auto held_origin = replace ? slot : partner_slot;
+    const auto new_held = replace ? destination : displaced;
+    destination = g_status.item_in_hand;
+    destination.bind_announced = false;
+    partner = {};
+    partner.iItemNo = -1;
+    g_status.item_in_hand = new_held;
+    g_status.item_in_hand.bind_announced = false;
+    if (replace) {
+        if (pool) {
+            std::move_backward(g_status.party_item_pool,
+                               g_status.party_item_pool + g_status.party_item_count,
+                               g_status.party_item_pool + g_status.party_item_count + 1);
+            storage = &g_status.party_item_pool[0];
+            ++g_status.party_item_count;
+        }
+        *storage = displaced;
+    }
+    if (RecalculateCarriedWeight(&character) || pool) RedistributePartyEncumbrance();
+    RefreshChangedItems(&character, std::array{&destination, &partner}, true);
+    gXStatus.held_item_source = actor;
+    gXStatus.held_item_origin = W8_ITEM_ORIGIN_EQUIPPED;
+    gXStatus.held_item_slot = held_origin;
+    SetItemCursor(0);
+    if (storage) {
+        UpdateFactsAfterAcquiringItem(storage);
+        DeliverExceptionalItemReaction(storage, pool, pool ? nullptr : &character);
+        if (g_current_screen_state.id == W8_SCREEN_CAMP && g_camp_screen)
+            g_camp_screen->item_redraw_flags |= pool ? W8_CAMP_ITEM_REDRAW_POOL
+                                                     : W8_CAMP_ITEM_REDRAW_BACKPACK_CELL_FIRST
+                                                           << backpack_slot;
+    }
+    return true;
+}
+
 /* Set the wield kind for one primary hand from the item it holds. An empty
    hand wields nothing; otherwise the item's equipment class selects the kind,
    with class two in the off hand deferring to the primary hand's item unless
@@ -4077,7 +4148,6 @@ bool SwapWeaponSetSlots(int party_slot, bool announce, bool refresh)
 
     if (refresh) {
         RequestRedraw(1 << (party_slot & 0x1f));
-        RebuildEquipmentAndDerivedStatsForSlot(party_slot);
     }
     if (announce) {
         PostCharacterNotice(party_slot, g_localized_strings[0x1ec], notice_context);

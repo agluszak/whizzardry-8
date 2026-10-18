@@ -71,7 +71,9 @@ struct W8LoadedLevelStatus {
 std::unique_ptr<W8LoadedLevelStatus> ReadLevelStatus(W8World& world,
                                                      const std::filesystem::path& path, int level,
                                                      bool from_assets = false);
-void ActivateLevelStatus(W8World& world, W8LoadedLevelStatus& status);
+void PrepareLevelPopulation(W8World& world, W8LoadedLevelStatus& status);
+void InstallLevelSessionState(W8World& world, W8LoadedLevelStatus* status);
+void BeginRestoredLevelActivity(W8World& world, W8LoadedLevelStatus* status);
 std::string BuildLevelStatusPath(unsigned int level);
 bool SaveStatusHeader(W8Chunk* chunks);
 

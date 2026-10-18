@@ -328,7 +328,12 @@ void RebuildConditionsAndDerivedStats(int party_slot)
 // FUNCTION: WIZ8 0x0050e8c0
 void RebuildMonsterDerivedStats(int location_id)
 {
-    W8MonsterInfo* monster_info = FindMonster(location_id);
+    RebuildMonsterDerivedStats(*FindMonster(location_id));
+}
+
+void RebuildMonsterDerivedStats(W8MonsterInfo& monster)
+{
+    auto* monster_info = &monster;
     W8GameplayModifierBlock* modifiers = &monster_info->modifiers;
 
     memset(modifiers, 0, sizeof(W8GameplayModifierBlock));

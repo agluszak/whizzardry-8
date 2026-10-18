@@ -12,6 +12,7 @@
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/level_population.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/startup_world.h"
@@ -34,7 +35,7 @@ void AlertMonsterGroupsToNoise(const glm::vec3* position, int radius, int flag)
         return;
     }
     glm::vec3 noise_position = *position;
-    for (unsigned int group_index = 0; group_index < gXStatus.monster_groups.size();
+    for (unsigned int group_index = 0; group_index < CurrentLevelPopulation().monster_groups.size();
          ++group_index) {
         W8MonsterGroup* group = GetMonsterGroupByListIndex(group_index);
         W8MonsterInfo* info = FindMonster(group->leader_location_id);

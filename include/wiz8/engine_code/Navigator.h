@@ -13,6 +13,7 @@ struct srBoundingBox;
 #include "glm/geometric.hpp"
 
 class srNode;
+class W8Octree;
 struct W8PathAI;
 namespace wiz8 {
 class File;
@@ -309,7 +310,7 @@ public:
     bool ConfigureMovement(float minimum, float maximum); /* 0x00453D20 */
     unsigned char SetMovementTarget(const glm::vec3* target, bool propagate); /* 0x00454170 */
     glm::vec3* AdjustPosition(glm::vec3* result, const glm::vec3* current,
-                              const glm::vec3* previous); /* 0x00454440 */
+                              const glm::vec3* previous, W8Octree& octree); /* 0x00454440 */
     void UpdateFacing(bool immediate);                                    /* 0x00454780 */
     void UpdateLinkedNavigator();                                         /* 0x00454D70 */
     bool UpdateLinkedPosition();

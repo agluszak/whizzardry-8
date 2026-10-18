@@ -28,6 +28,7 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/item_tables.h"
+#include "wiz8/level_population.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/CombatHostility.h"
@@ -85,7 +86,7 @@ bool CanPartySlotAttackAnyTarget(int party_slot, int flag, bool hand)
     bool live_groups = CombatAllowsLiveGroups();
     if (flag != 1) {
         unsigned int index;
-        for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
+        for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
             W8MonsterInfo* monster_info = GetMonsterListEntry(index);
             if (monster_info->fActive && monster_info->hp_current != 0 &&
                 monster_info->highest_condition < W8_CONDITION_DEAD &&
@@ -427,7 +428,7 @@ bool MonsterAttackReachesAnyone(W8MonsterInfo* monster_info, unsigned int attack
         }
     }
 
-    count = gXStatus.monster_roster.live().size();
+    count = CurrentLevelPopulation().monster_roster.live().size();
     for (index = 0; index < count; ++index) {
         other = GetMonsterListEntry(index);
         GetMonsterDataForInfo(other);
@@ -437,7 +438,7 @@ bool MonsterAttackReachesAnyone(W8MonsterInfo* monster_info, unsigned int attack
             MonsterAttackReachesMonster(monster_info, record, attack, other)) {
             return true;
         }
-        count = gXStatus.monster_roster.live().size();
+        count = CurrentLevelPopulation().monster_roster.live().size();
     }
     return false;
 }
@@ -957,7 +958,7 @@ float MonsterChooseTarget(W8MonsterInfo* monster_info, W8CombatSlot* out, int ki
         out->iType = W8_TARGET_KIND_CHARACTER;
     }
     if (out->iType == W8_TARGET_KIND_NONE || !monster_info->pCombat->reconsider_action) {
-        unsigned int count = gXStatus.monster_roster.live().size();
+        unsigned int count = CurrentLevelPopulation().monster_roster.live().size();
 
         for (unsigned int index = 0; index < count; ++index) {
             W8MonsterInfo* other = GetMonsterListEntry(index);
@@ -975,7 +976,7 @@ float MonsterChooseTarget(W8MonsterInfo* monster_info, W8CombatSlot* out, int ki
                     }
                 }
             }
-            count = gXStatus.monster_roster.live().size();
+            count = CurrentLevelPopulation().monster_roster.live().size();
         }
     }
     return best;

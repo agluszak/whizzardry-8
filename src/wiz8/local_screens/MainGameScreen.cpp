@@ -8,7 +8,6 @@
 #include <functional>
 #include <memory>
 #include <optional>
-#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -103,6 +102,7 @@
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/layouts/screen_state.h"
+#include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/Combat.h"
@@ -135,6 +135,7 @@
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/npc_story_events.h"
 #include "wiz8/local_code/party_encumbrance.h"
+#include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/local_screens/MGSFormation.h"
@@ -158,6 +159,7 @@
 #include "wiz8/spell_ids.h"
 #include "wiz8/string_database.h"
 #include "wiz8/surface2d.h"
+#include "wiz8/targeting_presentation.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
@@ -394,8 +396,7 @@ int OpenLockInteraction(Trigger* trigger)
         DestroySubMenuControls();
     }
     CloseMainGameOverlays();
-    const W8MainUiMode mode = g_settings.main_ui_mode;
-    SetMainGameOverlayViewport(mode);
+    RefreshMainGameLayout();
     SelectTextBox(2);
     ResetEditorStatusLine(-1);
     ResetLevelDataVectors();
@@ -410,7 +411,6 @@ int OpenLockInteraction(Trigger* trigger)
         wiz8::sound::play(s_lock_open_fail);
         g_lock_interaction = std::make_unique<W8LockInteraction>(trigger);
     }
-    g_lock_interaction->return_mode = mode;
     return 1;
 }
 
@@ -433,7 +433,6 @@ void RedrawLockInteractionPanels(void)
    opened from and repaints the portrait, status and action regions. */
 void EndLockInteractMode(char suspend)
 {
-    const W8MainUiMode return_mode = g_lock_interaction->return_mode;
     gXStatus.fLockInteractMode = false;
     if (suspend != 0) {
         g_lock_interaction->EnablePanels(0);
@@ -442,7 +441,7 @@ void EndLockInteractMode(char suspend)
         ClearLevelMovementStopped();
     }
     SelectTextBox(0);
-    ApplyMainGameModeFlag(return_mode, true);
+    RefreshMainGameLayout();
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
     RequestRedrawCombatBar();
     RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
@@ -1768,8 +1767,7 @@ int OpenTrapInteraction(Trigger* trigger)
         DestroySubMenuControls();
     }
     CloseMainGameOverlays();
-    const W8MainUiMode mode = g_settings.main_ui_mode;
-    SetMainGameOverlayViewport(mode);
+    RefreshMainGameLayout();
     SelectTextBox(2);
     ResetEditorStatusLine(-1);
     ResetLevelDataVectors();
@@ -1779,14 +1777,12 @@ int OpenTrapInteraction(Trigger* trigger)
         g_main_game_screen->EnablePanelInput(true);
         g_main_game_screen->m_text_panel->InvalidateAll();
         g_main_game_screen->RefreshActionPanel();
-        g_main_game_screen->return_mode = mode;
         return 1;
     }
     if (trigger->lock_state.device_id == -1) {
         SelectTrapType(trigger);
     }
     g_main_game_screen = std::make_unique<W8MainGameScreen>(trigger);
-    g_main_game_screen->return_mode = mode;
     if (trigger->lock_state.last_interaction_clock == -1 ||
         0x3840 < static_cast<unsigned int>(g_status.world_clock -
                                            trigger->lock_state.last_interaction_clock)) {
@@ -1820,7 +1816,6 @@ void RedrawTrapInteractionPanels(void)
    opened from and repaints the affected regions. */
 void EndTrapInteractMode(char suspend)
 {
-    const W8MainUiMode return_mode = g_main_game_screen->return_mode;
     gXStatus.fTrapInteractMode = false;
     if (suspend != 0) {
         g_main_game_screen->EnablePanelInput(false);
@@ -1829,7 +1824,7 @@ void EndTrapInteractMode(char suspend)
         ClearLevelMovementStopped();
     }
     SelectTextBox(0);
-    ApplyMainGameModeFlag(return_mode, true);
+    RefreshMainGameLayout();
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
     RequestRedrawCombatBar();
     RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
@@ -2264,9 +2259,7 @@ bool MainGameScreenEnter(void)
     }
     ResetTransientRenderScenes();
     MoveTimer(4);
-    if (!gXStatus.world_update_blocked && !gXStatus.fCombatMode) {
-        SetEnvironmentTimeEnabled(true);
-    }
+    SyncWorldAdvancement();
     {
         W8GameTimer* timer = gXStatus.gameplay_timer.get();
         if (timer->m_flags.paused || (g_shared_timer_paused && !timer->m_flags.raw_time) ||
@@ -2424,6 +2417,7 @@ unsigned char ProcessMainGameInput(void)
 /* The active screen's frame, including modal input and pending transitions. */
 void MainGameScreenFrame(void)
 {
+    SyncWorldAdvancement();
     if (g_dev_mode) {
         RequestExitScreen();
     }
@@ -2457,45 +2451,8 @@ void MainGameScreenFrame(void)
 update_screen:
     ApplyPendingMouselook();
     ApplyPendingTooltip();
-    if (g_modal_owner) {
-        CancelMouselook();
-        UpdateHeldItemCursor();
-    }
-    if (!g_level_block->review_transition_done) {
-        if (g_level_block->review_transition_active) {
-            PumpReviewTransition();
-            return;
-        }
-    } else if (UpdateScreenFade()) {
-        return;
-    }
-    if (!AnyCharacterActive() || gXStatus.party_moving) {
-        BeginPartyDeath();
-    }
-    if (gXStatus.review_character_slot != 0xffff) {
-        UpdateNpcPartyMember(static_cast<short>(gXStatus.review_character_slot));
-        gXStatus.review_character_slot = 0xffff;
-    }
-    if (gXStatus.dialogue_sync_pending) {
-        gXStatus.dialogue_sync_pending = false;
-        SyncDialogueNpcStateAndMarkPending();
-    }
-    if (!IsScreenBusy()) {
-        FlushDeferredSkillNotices();
-    }
-    if (!g_level_block->transition_active && !gXStatus.fCombatMode && gXStatus.fEncumbranceDirty) {
-        RedistributePartyEncumbrance();
-    }
-    SyncPartyPortraitVitalsBars();
-    if (g_modal_owner) {
-        if (!gXStatus.world_update_blocked) {
-            PauseMainGameWorld();
-        }
-        if (ProcessModalOwner()) {
-            RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
-            ResumeMainGameWorld();
-        }
-    }
+    if (g_modal_owner && ProcessModalOwner()) RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
+    SyncWorldAdvancement();
     DrainNpcDialogueDeferralInput();
     FlushInputWhileWorldCursorGate();
     gXStatus.character_event_queue->ProcessDeferredCharacterEvents();
@@ -2632,7 +2589,6 @@ update_screen:
                     if (gXStatus.fCombatMode) {
                         g_level_block->refresh_combat_panel = 1;
                     }
-                    g_level_block->refresh_party_panel = 1;
                 }
                 gXStatus.sight_refresh_pending = true;
             }
@@ -2642,16 +2598,6 @@ update_screen:
             RefreshMonsterTargetCounts();
             g_level_block->combat_panel_timer = w8_get_ticks() + (500);
             g_level_block->refresh_combat_panel = 0;
-        }
-        if (gXStatus.iTargetingMode == W8_TARGET_NEED_CONE) {
-            RefreshSpellTargetHighlightsAtRange();
-        } else if (gXStatus.iTargetingMode == W8_TARGET_NEED_PLACE && IsWorldCursorVisible()) {
-            UpdateTargetMarkerHighlight();
-        } else if (gXStatus.iTargetingMode != W8_TARGET_NEED_GROUP &&
-                   g_level_block->refresh_party_panel) {
-            UpdateAllMonsterHighlights(g_status.selected_character,
-                                       g_level_block->highlighted_item);
-            g_level_block->refresh_party_panel = 0;
         }
         if (!TimeUntilDeadline(g_level_block->world_update_timer)) {
             UpdateNearbyWorldItems();
@@ -2722,7 +2668,6 @@ bool MainGameScreenLeave(int leaving)
     if (gXStatus.fPartyMovementUi) DisablePartyMovementRegions();
     RestoreCurrentNpcQuoteBubble();
     MoveTimer(1);
-    SetEnvironmentTimeEnabled(false);
 
     if (!gXStatus.gameplay_timer->m_flags.paused) {
         gXStatus.gameplay_timer->m_flags.paused = true;
@@ -2747,7 +2692,7 @@ bool MainGameScreenLeave(int leaving)
     if (static_cast<unsigned char>(leaving)) {
         if (GetLoadedLevelID() != -1) {
             UnloadSkyWorld();
-            UnloadLevel();
+            LeaveLevel();
         }
         if (gXStatus.fPartyMovementUi) {
             ReleasePartyMovement();
@@ -2804,7 +2749,7 @@ void RequestRedraw(unsigned int mask)
 
 /* Consume the live redraw_flags word: clear the primary surface, refresh the
    chrome panels the current UI mode owns, and repaint any dirty party slots. */
-void ApplyMainGameRedrawFlags(void)
+void ApplyMainGameRedrawFlags(const W8TargetingPresentation& presentation)
 {
     unsigned int redraw_flags;
     bool keyboard_menu_invalidate;
@@ -2854,7 +2799,7 @@ void ApplyMainGameRedrawFlags(void)
         }
     }
     if ((g_level_block->redraw_flags & W8_MAIN_REDRAW_MONSTER_LIST) != 0) {
-        RedrawCombatMonsterList();
+        RedrawCombatMonsterList(presentation.subject_valid);
     }
     if ((g_level_block->redraw_flags & W8_MAIN_REDRAW_ROOF_AND_SPELL_ICONS) != 0) {
         g_level_block->redraw_flags |= W8_MAIN_REDRAW_COMBAT_PROGRESS;
@@ -3030,7 +2975,9 @@ void DrawMainGameScreen(void)
     srNode* node;
 
     SyncPartyFacingFromCamera();
-    UpdateRadarBlips();
+    const auto presentation = BuildTargetingPresentation();
+    ApplyTargetingPresentation(presentation);
+    UpdateRadarBlips(presentation);
     if (g_level_block->action_panel_visible == 0 && !gXStatus.fNpcDialogueMode &&
         !gXStatus.fLockInteractMode && !gXStatus.fTrapInteractMode && !gXStatus.fSpellCastMode &&
         !gXStatus.fItemSelectMode) {
@@ -3043,7 +2990,7 @@ void DrawMainGameScreen(void)
     }
     const unsigned int requested = g_level_block->redraw_flags;
     if (requested != 0) {
-        ApplyMainGameRedrawFlags();
+        ApplyMainGameRedrawFlags(presentation);
     }
     // A layout repaint draws the chrome panels, which invalidate themselves.
     unsigned int invalidated = requested;
@@ -3159,7 +3106,7 @@ void RequestRedrawParty(void)
 /* Redraw the combat monster-group list at the left edge of the main screen:
    clear the previous rows, walk live groups, format each line, tint the
    hovered action group and current target, and resize input region 0xe5. */
-void RedrawCombatMonsterList(void)
+void RedrawCombatMonsterList(bool subject_valid)
 {
     unsigned int group_list_index;
     unsigned int live_row_count;
@@ -3187,13 +3134,13 @@ void RedrawCombatMonsterList(void)
     }
     if (gXStatus.active_monster_count != 0) {
         group_list_index = 0;
-        list_length = gXStatus.monster_groups.size();
+        list_length = CurrentLevelPopulation().monster_groups.size();
         if (list_length != 0) {
             do {
                 monster_group = GetMonsterGroupByListIndex(group_list_index);
                 if (IsMonsterGroupLive(monster_group)) {
                     scratch_text = fmt::format(
-                        "{:d} {} ({:d}/{:d}/{:d})", monster_group->member_count,
+                        "{:d} {} ({:d}/{:d}/{:d})", monster_group->MemberCount(),
                         GetMonsterGroupName(monster_group), monster_group->active_member_count,
                         monster_group->selectable_member_count,
                         monster_group->visible_member_count);
@@ -3225,7 +3172,7 @@ void RedrawCombatMonsterList(void)
                     }
                     if (is_action_group) {
                         palette = g_font_state_palettes[W8_FONT_PALETTE_RED];
-                        if (g_level_block->target_highlight_ok[0] != 0) {
+                        if (subject_valid) {
                             palette = g_font_state_palettes[W8_FONT_PALETTE_GREEN];
                         }
                     } else {
@@ -3247,7 +3194,7 @@ void RedrawCombatMonsterList(void)
                     }
                 }
                 ++group_list_index;
-                list_length = gXStatus.monster_groups.size();
+                list_length = CurrentLevelPopulation().monster_groups.size();
             } while (group_list_index < list_length);
         }
     }
@@ -3306,7 +3253,6 @@ void SelectPartyCharacter(int party_slot)
         if (gXStatus.fCombatMode) {
             g_level_block->refresh_combat_panel = 1;
         }
-        g_level_block->refresh_party_panel = 1;
     }
     FaceCameraToSelection(party_slot);
     if (gXStatus.fSpellCastMode) {
@@ -3341,7 +3287,7 @@ void SelectPartyCharacter(int party_slot)
 
 void RefreshSelectedPartyPortrait(unsigned int party_slot)
 {
-    if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS ||
+    if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS ||
         g_level_block->portrait_refresh_pending[party_slot] != 0) {
         return;
     }
@@ -3865,7 +3811,6 @@ void RequestRefreshPartyState(void)
     if (gXStatus.fCombatMode) {
         g_level_block->refresh_combat_panel = 1;
     }
-    g_level_block->refresh_party_panel = 1;
 }
 
 /* The party slot's chosen action turned out unreachable: re-arm the matching
@@ -4285,83 +4230,50 @@ void SetTooltipSubject(W8PortraitHighlightKind kind, int subject)
 /* Apply a main-game UI mode: drop any raised formation/radar/action panels,
    optionally re-raise them from settings prefs, clear portrait refresh when
    entering portrait mode, refresh tooltip kind, and sync region/layout state. */
-void ApplyMainGameModeFlag(W8MainUiMode mode, bool enable)
+W8MainUiMode GetEffectiveMainUiMode()
 {
-    unsigned int slot;
+    if (gXStatus.fNpcDialogueMode && g_npc_interaction_state &&
+        !g_npc_interaction_state->scripted_dialogue)
+        return W8_MAIN_UI_MODE_PORTRAITS;
+    const bool picker = gXStatus.fSpellCastMode || gXStatus.fItemSelectMode ||
+                        gXStatus.fLockInteractMode || gXStatus.fTrapInteractMode;
+    return picker && g_settings.main_ui_mode == W8_MAIN_UI_MODE_RADAR ? W8_MAIN_UI_MODE_FORMATION
+                                                                      : g_settings.main_ui_mode;
+}
 
-    if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS) {
-        SetTooltipSubject(W8_HIGHLIGHT_VITALS, -1);
-    }
-    if (mode == W8_MAIN_UI_MODE_PORTRAITS) {
-        SetTooltipSubject(W8_HIGHLIGHT_TARGET, -1);
-    }
-    CloseMainGameOverlays();
-    if (!enable || gXStatus.fSpellCastMode ||
-        (gXStatus.fNpcDialogueMode &&
-         !(gXStatus.fNpcDialogueMode && g_npc_interaction_state->scripted_dialogue)) ||
-        gXStatus.fLockInteractMode || gXStatus.fTrapInteractMode || gXStatus.fItemSelectMode) {
-        if (mode == W8_MAIN_UI_MODE_PORTRAITS) {
-            for (slot = 0; slot < 8; ++slot) {
-                ClearPortraitRefreshSlot(slot);
-            }
-            g_level_block->portrait_mode = 1;
-            goto apply_mode_tail;
-        }
-    } else {
-        if (mode == W8_MAIN_UI_MODE_PORTRAITS) {
-            g_level_block->radar_map_visible = 1;
-            g_level_block->action_panel_visible = g_settings.portraits_action_panel_preference;
-            g_level_block->formation_board_visible = true;
-            if (g_level_block->formation_board_visible) {
-                SetFormationBoardVisible(true);
-            }
-            if (g_level_block->radar_map_visible != 0) {
-                SetRadarMapVisible(true);
-            }
-            if (g_level_block->action_panel_visible != 0) {
-                SetActionPanelVisible(true);
-            }
-            for (slot = 0; slot < 8; ++slot) {
-                ClearPortraitRefreshSlot(slot);
-            }
-            g_level_block->portrait_mode = 1;
-            goto apply_mode_tail;
-        }
-        if (mode == W8_MAIN_UI_MODE_FORMATION) {
-            g_level_block->radar_map_visible = g_settings.formation_radar_map_preference;
-            g_level_block->action_panel_visible = g_settings.formation_action_panel_preference;
-            g_level_block->formation_board_visible = g_settings.formation_board_preference;
-            if (g_level_block->formation_board_visible) {
-                SetFormationBoardVisible(true);
-            }
-            if (g_level_block->radar_map_visible != 0) {
-                SetRadarMapVisible(true);
-            }
-            if (g_level_block->action_panel_visible != 0) {
-                SetActionPanelVisible(true);
-            }
-        } else if (mode == W8_MAIN_UI_MODE_RADAR) {
-            g_level_block->radar_map_visible = 0;
-            g_level_block->action_panel_visible = 0;
-            g_level_block->formation_board_visible = false;
-        }
-    }
-    g_level_block->portrait_mode = 0;
-apply_mode_tail:
+void SetMainUiPreference(W8MainUiMode mode)
+{
     g_settings.main_ui_mode = mode;
-    ClearUiHover();
-    // The open view or interaction returns to the mode selected while it is up.
-    if (gXStatus.fSpellCastMode) {
-        gpSCSV->saved_game_mode = mode;
-    } else if (!gXStatus.fNpcDialogueMode) {
-        if (gXStatus.fItemSelectMode) {
-            g_use_item_select_return_mode = mode;
-        } else if (gXStatus.fLockInteractMode && g_lock_interaction) {
-            g_lock_interaction->return_mode = mode;
-        } else if (gXStatus.fTrapInteractMode && g_main_game_screen) {
-            g_main_game_screen->return_mode = mode;
-        }
+    RefreshMainGameLayout();
+}
+
+void RefreshMainGameLayout()
+{
+    const auto mode = GetEffectiveMainUiMode();
+    const bool portraits = mode == W8_MAIN_UI_MODE_PORTRAITS;
+    const bool constrained =
+        gXStatus.fSpellCastMode || gXStatus.fItemSelectMode || gXStatus.fLockInteractMode ||
+        gXStatus.fTrapInteractMode ||
+        (gXStatus.fNpcDialogueMode && !g_npc_interaction_state->scripted_dialogue);
+    SetTooltipSubject(portraits ? W8_HIGHLIGHT_TARGET : W8_HIGHLIGHT_VITALS, -1);
+    CloseMainGameOverlays();
+    g_level_block->portrait_mode = portraits;
+    if (portraits) {
+        for (unsigned int slot = 0; slot < 8; ++slot) ClearPortraitRefreshSlot(slot);
     }
+    if (constrained) {
+        // The open interaction supplies the bottom panel instead of the action bar.
+        g_level_block->action_panel_visible = true;
+    } else if (mode != W8_MAIN_UI_MODE_RADAR) {
+        const bool formation = portraits || g_settings.formation_board_preference;
+        const bool radar = portraits || g_settings.formation_radar_map_preference;
+        const bool action = portraits ? g_settings.portraits_action_panel_preference
+                                      : g_settings.formation_action_panel_preference;
+        if (formation) SetFormationBoardVisible(true);
+        if (radar) SetRadarMapVisible(true);
+        if (action) SetActionPanelVisible(true);
+    }
+    ClearUiHover();
     if (g_level_block->portrait_mode == 0) {
         g_level_block->portrait_hover_x_origin = 0x69;
     } else {
@@ -4379,7 +4291,6 @@ apply_mode_tail:
     if (gXStatus.fCombatMode) {
         g_level_block->refresh_combat_panel = 1;
     }
-    g_level_block->refresh_party_panel = 1;
     RequestRedrawCombatBar();
     SyncMainGameModeInput();
 }
@@ -4412,6 +4323,7 @@ bool ProcessModalOwner()
 void OpenModal(std::unique_ptr<ModalContent> owner)
 {
     RetireModal(std::exchange(g_modal_owner, std::move(owner)), false);
+    SyncWorldAdvancement();
 }
 
 /* Re-sync each party slot's region set and portrait hit region with the
@@ -4424,7 +4336,7 @@ void RefreshPartySlotRegions(void)
     for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
         const bool available = g_status.buffers.XChar[slot].fOccupied &&
                                !gXStatus.monster_manager_entries[slot].keyboard_menu_open;
-        const bool full = g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS ||
+        const bool full = GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS ||
                           g_level_block->portrait_refresh_pending[slot] != 0;
         g_main_game_state->portraits[slot]->setEnabled(available && full);
         g_main_game_state->edge_targets[slot]->setEnabled(available && !full);
@@ -4436,7 +4348,7 @@ void RefreshPartySlotRegions(void)
 void SyncMainGameModeInput(void)
 {
     auto& state = *g_main_game_state;
-    const W8MainUiMode mode = g_settings.main_ui_mode;
+    const W8MainUiMode mode = GetEffectiveMainUiMode();
     const bool panels = mode != W8_MAIN_UI_MODE_RADAR;
     const bool npc_view =
         gXStatus.fNpcDialogueMode &&
@@ -4694,7 +4606,7 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                     if (IsNpcDialogueCursorActive() == 0) {
                         SetTooltipSubject(W8_HIGHLIGHT_TARGET, slot);
                         if (gXStatus.iTargetingMode == W8_TARGET_NEED_NONE) {
-                            UpdateSlotMonsterHighlights(slot, true);
+
                             return UiResult::Pass;
                         }
                     }
@@ -4704,9 +4616,6 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                 if (IsNpcDialogueCursorActive() == 0) {
                     SetTooltipSubject(W8_HIGHLIGHT_TARGET, -1);
                     SetTargetCursor(GetTargetingCursorForState(0));
-                    if (gXStatus.iTargetingMode == W8_TARGET_NEED_NONE) {
-                        UpdateSlotMonsterHighlights(slot, false);
-                    }
                 }
                 if (g_level_block->portrait_overlay_party_slot == slot) {
                     g_level_block->portrait_overlay_party_slot = -1;
@@ -5369,7 +5278,7 @@ UiResult MonsterListInput(const UiPointerEvent& event)
     }
     if (event.button == UiPointerButton::Left && event.action == UiPointerAction::Up) {
         if ((event.captured_buttons & SDL_BUTTON_LMASK) != 0 && g_status.selected_character != -1 &&
-            group_id != -1 && g_level_block->target_highlight_ok[0] != 0) {
+            group_id != -1 && CurrentCombatSubjectIsValid()) {
             AimAtMonsterGroupMember(g_status.selected_character, group);
         }
         return UiResult::Handled;
@@ -5521,7 +5430,7 @@ bool LoadCurrentLevelData(void)
         SetTargetCursor(W8_CURSOR_MAP_LOAD);
         g_world_cleanup_flag = true;
         UnloadSkyWorld();
-        UnloadLevel();
+        LeaveLevel();
         g_world_cleanup_flag = false;
         UpdateHeldItemCursor();
     }
@@ -5643,14 +5552,6 @@ static void PositionSelectionToolTip(SDL_Point point)
    with the selection marker. */
 void SetCombatSelection(int value)
 {
-    const auto editing_context = GetEditedActionContext(g_status.selected_character);
-    const auto edited_action =
-        g_status.selected_character < 0
-            ? W8Action{W8_ACTION_NONE, -1, {}, {}}
-            : SelectCombatAction(g_status.selected_character, editing_context);
-    const bool sighting = editing_context == W8_TARGETING_CONTEXT_OUT_OF_COMBAT;
-    const auto needed = sighting ? W8_TARGET_NEED_NONE : GetTargetNeededForAction(edited_action);
-
     int current = g_level_block->highlighted_item;
 
     if (value == current) {
@@ -5674,43 +5575,14 @@ void SetCombatSelection(int value)
         }
         return;
     }
-    if (current != -1) {
-        if (needed == W8_TARGET_NEED_GROUP) {
-            W8MonsterInfo* monster_info = FindMonster(g_level_block->highlighted_item);
-            ModifyGroupColor(monster_info->monster_group_id, W8_TARGET_HIGHLIGHT_NONE);
-        } else {
-            HighlightMonsterAsTarget(g_level_block->highlighted_item, g_status.selected_character,
-                                     0);
+    g_level_block->highlighted_item = -1;
+    if (value != -1) {
+        auto* info = FindMonster(value, false);
+        if (info && info->p3D) {
+            const auto bounds = MonsterGetWorldAnimationBounds(info->p3D);
+            if (bounds && traceLineOfSightToBounds(cameraLocation(), *bounds))
+                g_level_block->highlighted_item = value;
         }
-        W8Monster* monster = GetMonsterByLocationID(g_level_block->highlighted_item);
-        if (monster != 0) {
-            monster->target_highlighted = false;
-        }
-    }
-    if (value == -1) {
-        g_level_block->highlighted_item = -1;
-    } else {
-        glm::vec3 camera;
-        W8Monster* monster;
-
-        camera = cameraLocation();
-        monster = GetMonsterByLocationID(value);
-        const auto bounds = MonsterGetWorldAnimationBounds(monster);
-        if (bounds && traceLineOfSightToBounds(camera, *bounds) != 0) {
-            g_level_block->highlighted_item = value;
-            g_level_block->target_highlight_ok[0] =
-                HighlightMonsterAsTarget(value, g_status.selected_character, 1);
-            if (needed == W8_TARGET_NEED_GROUP) {
-                W8MonsterInfo* monster_info = FindMonster(value);
-                ModifyGroupColor(monster_info->monster_group_id,
-                                 g_level_block->target_highlight_ok[0] == 0
-                                     ? W8_TARGET_HIGHLIGHT_RED
-                                     : W8_TARGET_HIGHLIGHT_GREEN);
-            }
-            AssessMonsterTarget(g_status.selected_character, value, edited_action, true, sighting);
-        }
-        monster = GetMonsterByLocationID(value);
-        monster->target_highlighted = true;
     }
     RequestRedraw(W8_MAIN_REDRAW_MONSTER_LIST);
     VideoRemoveToolTip();
@@ -5729,9 +5601,7 @@ void SetCombatTarget(int value)
     int current = g_level_block->selected_item;
 
     if (value != current) {
-        if (current != -1) {
-            SetWorldItemHighlight(current, false);
-        }
+        g_level_block->selected_item = -1;
         if (value == -1) {
             g_level_block->selected_item = -1;
         } else {
@@ -5741,7 +5611,6 @@ void SetCombatTarget(int value)
                     const glm::vec3 camera(cameraLocation());
                     if (traceLineOfSightToBounds(camera, *bounds) != 0) {
                         g_level_block->selected_item = value;
-                        SetWorldItemHighlight(value, true);
                     }
                 }
             }
@@ -5776,41 +5645,9 @@ void SetCombatTarget(int value)
    whole group when it wants the group. The cursor follows the result. */
 void SetCombatAction(int value)
 {
-    const auto editing_context = GetEditedActionContext(g_status.selected_character);
-    const auto edited_action =
-        g_status.selected_character < 0
-            ? W8Action{W8_ACTION_NONE, -1, {}, {}}
-            : SelectCombatAction(g_status.selected_character, editing_context);
-    const bool sighting = editing_context == W8_TARGETING_CONTEXT_OUT_OF_COMBAT;
-    const auto needed = sighting ? W8_TARGET_NEED_NONE : GetTargetNeededForAction(edited_action);
-
-    int current = g_level_block->action_group;
-
-    if (value == current) {
-        return;
-    }
-    if (current != -1) {
-        ModifyGroupColor(current, W8_TARGET_HIGHLIGHT_NONE);
-    }
+    if (g_level_block->action_group == value) return;
     g_level_block->action_group = value;
-    if (value == -1) {
-        g_level_block->target_highlight_ok[0] = 0;
-    } else {
-        W8MonsterGroup* group = FindMonsterGroup(value);
-
-        g_level_block->target_highlight_ok[0] =
-            CanTargetMonsterGroup(g_status.selected_character, group, edited_action, sighting);
-        W8TargetHighlight tint = g_level_block->target_highlight_ok[0] == 0
-                                     ? W8_TARGET_HIGHLIGHT_RED
-                                     : W8_TARGET_HIGHLIGHT_GREEN;
-        if (needed == W8_TARGET_NEED_GROUP) {
-            ModifyGroupColor(g_level_block->action_group, tint);
-        } else {
-            HighlightPickedGroupMember(g_status.selected_character, group, tint, edited_action,
-                                       sighting);
-        }
-    }
-    SetTargetCursor(GetTargetingCursorForState(g_level_block->target_highlight_ok[0] != 0));
+    SetTargetCursor(GetTargetingCursorForState(CurrentCombatSubjectIsValid()));
     RequestRedraw(W8_MAIN_REDRAW_MONSTER_LIST);
 }
 
@@ -6218,64 +6055,64 @@ unsigned char HandleMouselookInput(const InputEvent* input)
     return 0;
 }
 
-void PauseMainGameWorld(void)
+bool WorldAdvancementBlocked()
 {
-    gXStatus.world_update_blocked = true;
-    if (gXStatus.fPartyMovementUi) {
-        DisablePartyMovementRegions();
-    }
-    if (!gXStatus.fCombatMode) {
-        if (gXStatus.world_paused) {
-            MoveTimer(1);
-            SetWorldResumeInput(true);
-        }
-        SetEnvironmentTimeEnabled(false);
-        MonsterStopAllNavigators();
-        ResetLevelDataVectors();
-    }
-    RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
+    return g_current_screen_state.id != W8_SCREEN_MAIN_GAME || IsScreenTransitionPending() ||
+           gXStatus.world_paused || gXStatus.fSpellCastMode || gXStatus.fItemSelectMode ||
+           gXStatus.fNpcDialogueMode || gXStatus.fReviewCharacterMode || IsModalOpen() ||
+           IsAutomapOpen() || !IsVideoActive() || gXStatus.iTargetingMode == W8_TARGET_NEED_CONE ||
+           (g_level_block &&
+            (g_level_block->transition_active || g_level_block->review_transition_active));
 }
 
-void ResumeMainGameWorld(void)
+// Apply only policy edges. UI animation and the scheduled sight/item passes
+// retain their existing clocks and frame-loop gates.
+void SyncWorldAdvancement()
 {
-    if (!gXStatus.fSpellCastMode && !gXStatus.fNpcDialogueMode && !gXStatus.fItemSelectMode &&
-        !gXStatus.fReviewCharacterMode) {
-        if (!gXStatus.fCombatMode) {
-            if (gXStatus.world_paused) {
-                MoveTimer(4);
-                SetWorldResumeInput(false);
-            }
-            SetEnvironmentTimeEnabled(true);
+    static W8World* applied_world = nullptr;
+    static bool applied_environment_blocked = false;
+    static bool applied_user_pause = false;
+    const bool blocked = WorldAdvancementBlocked();
+    const bool environment_blocked = blocked || gXStatus.fCombatMode;
+    auto* world = GetWorld();
+    const bool changed = blocked != gXStatus.world_update_blocked;
+    const bool environment_changed =
+        world != applied_world || environment_blocked != applied_environment_blocked;
+    gXStatus.world_update_blocked = blocked;
+    applied_world = world;
+    applied_environment_blocked = environment_blocked;
+    if (applied_user_pause != gXStatus.world_paused) {
+        applied_user_pause = gXStatus.world_paused;
+        MoveTimer(applied_user_pause ? 1 : 4);
+        SetWorldResumeInput(applied_user_pause);
+    }
+    if (!world) return;
+    if (blocked && changed && gXStatus.fPartyMovementUi) DisablePartyMovementRegions();
+    if (environment_changed) {
+        SetEnvironmentTimeEnabled(!environment_blocked);
+        if (environment_blocked) {
+            MonsterStopAllNavigators();
+            ResetLevelDataVectors();
+        } else {
             MonsterResumeAllNavigators();
-            if (!g_lock_interaction && !g_main_game_screen) {
-                ClearLevelMovementStopped();
-            }
+            if (!g_lock_interaction && !g_main_game_screen) ClearLevelMovementStopped();
         }
-        gXStatus.world_update_blocked = false;
-        gXStatus.world_paused = false;
-        if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME &&
-            !g_level_block->review_transition_active) {
-            if (gXStatus.fPartyMovementUi) {
-                UpdatePartyMovementPanel();
-            }
+    }
+    if (!changed && !environment_changed) return;
+    if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_level_block) {
+        if (!blocked && !g_level_block->review_transition_active) {
+            if (gXStatus.fPartyMovementUi) UpdatePartyMovementPanel();
             EraseRegion(0xb1, 0x13f, 0x1cf, 0x153);
-            RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
         }
+        RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
     }
 }
 
-/* The pause-key command: resume the world when it was paused this way,
-   otherwise mark the pause and freeze the world. */
-void ToggleMainGamePause(void)
+void ToggleMainGamePause()
 {
-    if (gXStatus.world_paused) {
-        ResumeMainGameWorld();
-        gXStatus.world_paused = false;
-        return;
-    }
-    if (!gXStatus.world_update_blocked) {
-        gXStatus.world_paused = true;
-        PauseMainGameWorld();
+    if (gXStatus.world_paused || !WorldAdvancementBlocked()) {
+        gXStatus.world_paused = !gXStatus.world_paused;
+        SyncWorldAdvancement();
     }
 }
 
@@ -6345,7 +6182,7 @@ short GetMainGameViewportMode(void)
         !gXStatus.fLockInteractMode && !gXStatus.fTrapInteractMode && !gXStatus.fItemSelectMode &&
         g_level_block->action_panel_visible == 0 && g_level_block->formation_board_visible &&
         g_level_block->radar_map_visible != 0 &&
-        g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS) {
+        GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS) {
         return 4;
     }
     if (!gXStatus.fSpellCastMode &&
@@ -6480,6 +6317,7 @@ void ConfirmNpcTradeItem(void)
                                              static_cast<unsigned char>(state.trade_quantity));
         switch (result.outcome) {
         case W8TradeOutcome::Complete:
+            if (result.dropped_overflow) DisplayNpcQuote(g_localized_strings[0x6b1], false);
             SortNpcItems(state.dialogue_npc);
             RebuildNpcTradeItemList(false);
             SetSelectedTextLine(row, 2);
@@ -6743,7 +6581,10 @@ bool AttemptNpcItemTrade(W8ItemInstance* item, unsigned char quantity, int index
         if (g_item_records[item->iItemNo].identify_difficulty != 0 && quantity == 1) {
             AddNpcTopic(g_npc_interaction_state->dialogue_npc, item->iItemNo);
         }
-        CompleteNpcItemPurchase(g_npc_interaction_state->dialogue_npc, index, quantity, true, 0);
+        const auto purchase =
+            CompleteNpcItemPurchase(g_npc_interaction_state->dialogue_npc, index, quantity, true);
+        if (purchase.outcome != W8TradeOutcome::Complete) return false;
+        if (purchase.dropped_overflow) DisplayNpcQuote(g_localized_strings[0x6b1], false);
         RebuildNpcTradeItemList(false);
         return true;
     }
@@ -6827,7 +6668,8 @@ resume_world:
     if (!gXStatus.world_paused) {
         return 1;
     }
-    ResumeMainGameWorld();
+    gXStatus.world_paused = false;
+    SyncWorldAdvancement();
     return 1;
 }
 
@@ -6998,14 +6840,11 @@ void AimAtTarget(int actor, const W8CombatSlot* target, W8TargetingContext conte
     const auto action = SelectCombatAction(actor, context);
     const auto chosen = *target; // The caller may borrow one of the remembered blocks.
     if (action.target != chosen) {
-        if (context != W8_TARGETING_CONTEXT_OUT_OF_COMBAT)
-            ClearTargetHighlights(actor, &action.target);
+
         CommitActionTarget(actor, context, chosen,
                            context == W8_TARGETING_CONTEXT_IN_COMBAT && gXStatus.fCombatMode);
         if (context != W8_TARGETING_CONTEXT_OUT_OF_COMBAT) {
-            if (GetEditedActionContext(actor) == context &&
-                TargetIsInPlay(actor, 2, SelectCombatAction(actor, context)))
-                RefreshCombatTargetHighlights(actor, SelectCombatAction(actor, context));
+
             RequestPartySlotRedraw(actor);
             if (actor == g_status.selected_character) {
                 RequestRedrawParty();
@@ -7060,70 +6899,12 @@ void SetTargetingMode(W8TargetNeed state)
     RequestRefreshPartyState();
     if (state == W8_TARGET_NEED_CONE) {
         SetTargetConeEnabled(true);
-        PauseMainGameWorld();
+        SyncWorldAdvancement();
     } else {
         SetTargetConeEnabled(false);
         if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
-            ResumeMainGameWorld();
+            SyncWorldAdvancement();
         }
-    }
-}
-
-void RefreshCombatTargetHighlights(int party_slot, const W8Action& selected)
-{
-    unsigned int spell_id;
-    W8MonsterManagerEntry* entry = &gXStatus.monster_manager_entries[party_slot];
-
-    entry->highlighted_monsters.clear();
-    const auto action = selected.kind;
-    const auto detail = selected.detail;
-    const auto* target = &selected.target;
-    const auto* detail_block = &selected.detail_block;
-    spell_id = W8_SPELL_NONE;
-    if (action == W8_ACTION_BREATHE) {
-        spell_id = W8_SPELL_SPECIAL_ATTACK_CONE;
-    } else if (action == W8_ACTION_CAST_SPELL) {
-        spell_id = detail;
-    } else if (action == W8_ACTION_USE_ITEM) {
-        spell_id = GetItemSpell(detail_block->item_use.item);
-    }
-
-    if (spell_id != W8_SPELL_NONE) {
-        if (target == 0) {
-            srAssertFail("pSource != NULL", __FILE__, 0xcc9, 0);
-        }
-
-        {
-            W8TargetSource source;
-            std::vector<int> scratch;
-
-            memset(&source, 0, sizeof(source));
-            source.iType = W8_TARGET_SOURCE_CHARACTER;
-            source.iChar = party_slot;
-            auto marker_target = *target;
-            PopulateSpellTargetMarkers(spell_id, 1, &source, &marker_target,
-                                       entry->highlighted_monsters, scratch,
-                                       W8AreaSightRule::RequireLineOfSight);
-        }
-
-        ClearPartySlotMonsterHighlights(party_slot);
-
-        unsigned int count = static_cast<int>(entry->highlighted_monsters.size());
-        if (count > 0) {
-            for (int highlight_index = 0; highlight_index < static_cast<int>(count);
-                 ++highlight_index) {
-                SetMonsterHighlight(party_slot, entry->highlighted_monsters[highlight_index], true);
-            }
-        }
-        return;
-    }
-
-    if (target->iType == W8_TARGET_KIND_MONSTER && target->iMonsterID != -1) {
-        SetMonsterHighlight(party_slot, target->iMonsterID, true);
-    }
-
-    if (target->iType == W8_TARGET_KIND_GROUP && target->iGroupID != -1) {
-        SetGroupHighlight(party_slot, target->iGroupID, true);
     }
 }
 
@@ -7200,18 +6981,18 @@ aim_done:
     RequestRefreshPartyState();
     if (needed_kind == W8_TARGET_NEED_CONE) {
         SetTargetConeEnabled(true);
-        PauseMainGameWorld();
+        SyncWorldAdvancement();
         return;
     }
     SetTargetConeEnabled(false);
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
-        ResumeMainGameWorld();
+        SyncWorldAdvancement();
     }
 }
 
 void ClearSlotTargeting(int party_slot)
 {
-    ClearPartySlotMonsterHighlights(party_slot);
+
     gXStatus.iTargetingMode = W8_TARGET_NEED_NONE;
     if (gXStatus.iCurrentCursor != W8_CURSOR_NONE) {
         SetTargetCursor(W8_CURSOR_NONE);
@@ -7220,11 +7001,6 @@ void ClearSlotTargeting(int party_slot)
     RequestRefreshPartyState();
     SetTargetConeEnabled(false);
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
-        ResumeMainGameWorld();
-    }
-    if (gXStatus.fCombatMode &&
-        CharacterCanSwitchTo(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, false, false)) {
-        RefreshCombatTargetHighlights(
-            party_slot, SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT));
+        SyncWorldAdvancement();
     }
 }

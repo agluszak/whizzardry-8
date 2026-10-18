@@ -128,10 +128,10 @@ std::vector<W8ParticleState> ReadParticleStates(W8Chunk& file)
     return records;
 }
 
-void ApplyParticleStates(std::span<const W8ParticleState> states)
+void ApplyParticleStates(W8World& world, std::span<const W8ParticleState> states)
 {
     for (const auto& state : states) {
-        if (auto* particle = FindParticleByName(state.name.c_str()))
+        if (auto* particle = world.static_scene->findChild<stParticle>(state.name))
             particle->SetActive(state.active);
     }
 }

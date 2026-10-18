@@ -2004,48 +2004,22 @@ void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOr
                             BindEquippedItem(g_review_character, paired_slot);
                             return;
                         }
-                        paired->bound = true;
                         if (item->iItemNo == -1) {
-                            SwapItemInstances(item, &g_status.item_in_hand, g_review_character,
-                                              true);
                             g_camp_character_pending = false;
-                            if (paired->iItemNo != -1 &&
-                                (giReviewCharSlot == 0 || giReviewCharSlot == 1)) {
+                            if (paired->iItemNo != -1 && giReviewCharSlot < 2) {
                                 npc =
                                     GetNpcState(g_status.buffers.XChar[giReviewCharSlot].npc_index);
-                                if (npc != 0 && NpcWantsItem(npc, paired)) {
+                                if (npc && NpcWantsItem(npc, paired)) {
                                     g_camp_character_pending = true;
                                     g_camp_character = g_review_character;
                                 }
                             }
-                            SwapItemInstances(paired, &g_status.item_in_hand, g_review_character,
-                                              true);
-                            changed = true;
-                        } else if (AddItemToCharacter(g_review_character, paired, false, false,
-                                                      true)) {
-                            SwapItemInstances(item, &g_status.item_in_hand, g_review_character,
-                                              true);
-                            changed = true;
-                        } else {
-                            if (giReviewCharSlot == 0 || giReviewCharSlot == 1) {
-                                if (NpcWantsItem(
-                                        GetNpcState(
-                                            g_status.buffers.XChar[giReviewCharSlot].npc_index),
-                                        paired)) {
-                                    text = g_localized_strings[0x90c];
-                                    ShowCampNoticeLine(text, 0, true, false);
-                                    return;
-                                }
-                            }
-                            if (!AddItemToParty(paired, false, true)) {
-                                text = g_localized_strings[0x90c];
-                                ShowCampNoticeLine(text, 0, true, false);
-                                return;
-                            }
-                            SwapItemInstances(item, &g_status.item_in_hand, g_review_character,
-                                              true);
-                            changed = true;
                         }
+                        if (!EquipHeldItemAndStowPartner(*g_review_character, equip_slot)) {
+                            ShowCampNoticeLine(g_localized_strings[0x90c], 0, true, false);
+                            return;
+                        }
+                        changed = true;
                     } else {
                         SwapItemInstances(item, &g_status.item_in_hand, g_review_character, true);
                         changed = true;

@@ -407,8 +407,6 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
 {
     bool first_visit = false;
     StartLevelMusic(1, 1);
-    InitializeMonsterManagerState();
-    InitializeItemManagerState();
     g_status.next_trigger_id = GetWorld()->next_trigger_id;
     UpdateGameDataRuntime();
     if (GetWorld()->fog_enabled) UpdateEnvironmentLight();
@@ -416,7 +414,7 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
     SetCameraSwayMode(GetWorld()->camera, GetWorld()->initial_camera_sway ? 1 : -1);
     SetSkyNodeVisible(false);
     ResetAutomapView();
-    if (status) ActivateLevelStatus(*GetWorld(), *status);
+    BeginRestoredLevelActivity(*GetWorld(), status);
 
     if (!restoring_game && entrance != -1) {
         Trigger* trigger = 0;
@@ -516,6 +514,19 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
 /* Construct level and sky resources before leaving the current level. The
    remaining work activates gameplay against the completed scenes. */
 // FUNCTION: WIZ8 0x0042A6F0
+static void FinishLevelDeparture()
+{
+    // Combat state is transient on restore. End it after saving the level;
+    // sight age is session history recorded at the actual departure boundary.
+    if (gXStatus.fCombatMode) {
+        EndCombat(true);
+    }
+
+    if (GetLoadedLevelID() >= 0 && GetLoadedLevelID() < W8_LEVEL_COUNT) {
+        g_status.level_progress[GetLoadedLevelID()].sight_clock = g_status.world_clock;
+    }
+}
+
 unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
 {
     int level = NormalizeMasterFunctionValue(requested_level);
@@ -544,26 +555,20 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
     if (!status)
         status = ReadLevelStatus(*replacement, wiz8::asset_path(BuildLevelStatusPath(level)), level,
                                  true);
-    if (GetWorld()) UnloadLevel();
+    if (GetWorld()) LeaveLevel();
     InvalidateRendererTextureCache();
     ReplaceWorld(std::move(replacement));
     if (!reuse_sky) ReplaceSkyWorld(std::move(replacement_sky));
+    InstallLevelSessionState(*GetWorld(), status.get());
     EnterLevel(level, entrance, restoring_game, status.get());
     return 1;
 }
 
 // FUNCTION: WIZ8 0x0042ACE0
-void UnloadLevel()
+void LeaveLevel()
 {
     if (!primary_world) return;
-    if (gXStatus.fCombatMode) {
-        EndCombat(true);
-    }
-
-    if (GetLoadedLevelID() >= 0 && GetLoadedLevelID() < W8_LEVEL_COUNT) {
-        g_status.level_progress[GetLoadedLevelID()].sight_clock = g_status.world_clock;
-    }
-
+    FinishLevelDeparture();
     if (g_world_cleanup_flag) {
         RenderFrame();
     }

@@ -176,7 +176,6 @@ enum W8NpcDialogueControlSlot {
 struct W8NpcInteractionState {
     short value_000; /* cleared while the dialogue opens */
     unsigned char unknown_002[0xee];
-    W8MainUiMode saved_main_ui_mode; /* the pre-dialogue display mode */
     /* The dialogue's leading speaker: the occupied row whose character leads
        skill 0x16. */
     int dialogue_speaker;
@@ -225,7 +224,6 @@ struct W8NpcInteractionState {
     bool reopen_topics;
     int trade_gold; /* gold put on the trade table */
     /* g_settings.main_ui_mode saved while the NPC dialogue is suppressed. */
-    W8MainUiMode saved_mode;
     /* The next UpdateNpcDialogueSubMode must reapply the trade_pc_items
        toggle state. */
     bool pending_trade_toggle;

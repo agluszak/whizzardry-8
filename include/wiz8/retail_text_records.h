@@ -1,3 +1,4 @@
+#include <bit>
 #pragma once
 
 #include <cstring>
@@ -1087,6 +1088,10 @@ template<class T> auto encode(const T& runtime)
                     source, std::span(reinterpret_cast<char*>(bytes.data()), bytes.size()));
         });
     return image;
+}
+template<class T> typename Record<T>::Disk encode_image(const T& runtime)
+{
+    return std::bit_cast<typename Record<T>::Disk>(encode(runtime));
 }
 template<class T> void read_exact(File& file, T& runtime,
                                   std::size_t bytes = sizeof(typename Record<T>::Disk))

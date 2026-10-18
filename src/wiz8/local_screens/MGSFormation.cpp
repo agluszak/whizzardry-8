@@ -313,7 +313,7 @@ void OpenFormationPanel(void)
     gXStatus.fReviewCharacterMode = true;
     RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
     gXStatus.edited_formation = g_status.formation;
-    PauseMainGameWorld();
+    SyncWorldAdvancement();
     UpdateFormationCells();
 }
 
@@ -552,5 +552,5 @@ void CloseFormationPanel(void)
     UpdateHeldItemCursor();
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
     EraseRegion(0xd6, 0x3c, 0x1ab, 0x12f);
-    ResumeMainGameWorld();
+    SyncWorldAdvancement();
 }

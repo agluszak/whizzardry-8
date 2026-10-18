@@ -9,6 +9,7 @@
 #include <vector>
 class W8AmbientSound;
 struct W8AmbientTrack;
+struct W8LevelPopulation;
 struct W8WorldCursorState;
 struct W8WorldCursorNode;
 struct W8Item;
@@ -78,6 +79,7 @@ struct W8World {
     ~W8World();
     W8World(const W8World&) = delete;
     W8World& operator=(const W8World&) = delete;
+    std::unique_ptr<W8LevelPopulation> population;
     unsigned int next_trigger_id = 1;
     W8AutomapCells automap;
     std::shared_ptr<srMaterial> cloud_material;

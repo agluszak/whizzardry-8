@@ -106,6 +106,7 @@ public:
     virtual unsigned char CanEnterCycle(signed char) { return 1; }
     virtual void TickAnimation(float scale);           /* 0x004A6E20 */
     virtual unsigned char ApplyPendingCycle();         /* 0x004A6FC0 */
+    void SetPresentationColour(glm::vec4 colour);
     virtual void UpdateRepresentation(W8World* world); /* 0x004A7470 */
     virtual signed char GetNumSubCycles() = 0;
     virtual bool IsCycleSupported(signed char cycle) = 0;

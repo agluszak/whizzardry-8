@@ -89,13 +89,6 @@ enum W8TargetNeed {
     W8_TARGET_NEED_CASTER = 8
 };
 
-/* The three highlight colors: clear, green and red. */
-enum W8TargetHighlight {
-    W8_TARGET_HIGHLIGHT_NONE = 0,
-    W8_TARGET_HIGHLIGHT_GREEN = 1,
-    W8_TARGET_HIGHLIGHT_RED = 2
-};
-
 /* The shorter form a combatant carries inline, with one more field reset to
    -1 and no room for the tail. Its disk form is wiz8::retail::CombatTarget. */
 struct W8CombatSlot {

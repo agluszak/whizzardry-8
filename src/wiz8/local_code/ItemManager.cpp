@@ -49,6 +49,7 @@
 #include "wiz8/item_tables.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/screen_state.h"
+#include "wiz8/level_population.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -88,15 +89,6 @@ W8WorldItem::~W8WorldItem()
 }
 
 // FUNCTION: WIZ8 0x004f69f0
-void InitializeItemManagerState()
-{
-    g_status.next_world_item_id = 1;
-    gXStatus.item_manager_pending = 0;
-    if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_level_block != 0) {
-        g_level_block->selected_item = -1;
-    }
-    gXStatus.world_items.clear();
-}
 
 // FUNCTION: WIZ8 0x004f8130
 bool ItemHasFlags(const W8WorldItem* item, unsigned int mask)
@@ -326,15 +318,16 @@ W8WorldItem* ItemInfo(unsigned int item_list_index)
 {
     W8WorldItem* item;
 
-    if (item_list_index >= gXStatus.world_items.size()) {
-        srAssertFail("uiItemListIndex < (UINT32) gXStatus.world_items.size()", ITEM_MANAGER_CPP,
-                     961, 0);
+    if (item_list_index >= CurrentLevelPopulation().world_items.size()) {
+        srAssertFail("uiItemListIndex < (UINT32) CurrentLevelPopulation().world_items.size()",
+                     ITEM_MANAGER_CPP, 961, 0);
     }
     item = GetWorldItemListEntry(item_list_index);
     if (item == 0) {
         srAssertFail("pItemInfo != NULL", ITEM_MANAGER_CPP, 965,
                      fmt::format("ItemInfo: ERROR - missing entry, index {:d}, pList {}",
-                                 item_list_index, static_cast<const void*>(&gXStatus.world_items)));
+                                 item_list_index,
+                                 static_cast<const void*>(&CurrentLevelPopulation().world_items)));
     }
     return item;
 }
@@ -344,7 +337,7 @@ unsigned int ItemIndex(int runtime_id)
 {
     unsigned int index;
 
-    for (index = 0; index < gXStatus.world_items.size(); ++index) {
+    for (index = 0; index < CurrentLevelPopulation().world_items.size(); ++index) {
         if (ItemInfo(index)->runtime_id == runtime_id) {
             return index;
         }
@@ -625,26 +618,6 @@ void DeactivateWorldItem(W8WorldItem* item)
     --gXStatus.item_manager_pending;
 }
 
-/* Highlight or un-highlight a world item by runtime id: the rep's highlight
-   bit tracks the SetHighlight call so the marker and the flag stay in step. */
-// FUNCTION: WIZ8 0x004F71E0
-void SetWorldItemHighlight(int runtime_id, bool on)
-{
-    W8WorldItem* item = ItemInfo(ItemIndex(runtime_id));
-    W8Item* world_item = item->p3D;
-    if (world_item == 0) {
-        srAssertFail("pItem", ITEM_MANAGER_CPP, 627, 0);
-    }
-    W8ItemRep* rep = world_item->m_pRep.get();
-    if (on) {
-        rep->flags |= W8_ITEM_ENTITY_HIGHLIGHT_GREEN;
-        world_item->SetHighlight(true);
-        return;
-    }
-    rep->flags &= ~W8_ITEM_ENTITY_HIGHLIGHT_GREEN;
-    world_item->SetHighlight(false);
-}
-
 /* The runtime id of the nearest active world item the cursor is hovering over
    and whose screen distance stays inside `max_distance`, or -1. The cursor
    coordinates are carried but unused - the hover test is IsSelected. */
@@ -657,7 +630,7 @@ int PickNearestItemUnderCursor(int cursor_x, int cursor_y, float max_distance)
 
     result = -1;
     best_distance = 999999.0f;
-    for (index = 0; index < gXStatus.world_items.size(); ++index) {
+    for (index = 0; index < CurrentLevelPopulation().world_items.size(); ++index) {
         W8WorldItem* item = ItemInfo(index);
         float distance;
 
@@ -690,7 +663,7 @@ void UpdateNearbyWorldItems(void)
     unsigned int count;
 
     camera = cameraLocation(*GetWorld());
-    count = gXStatus.world_items.size();
+    count = CurrentLevelPopulation().world_items.size();
     for (index = 0; index < count; ++index) {
         W8WorldItem* item = ItemInfo(index);
 
@@ -722,7 +695,7 @@ void UpdateNearbyWorldItems(void)
             }
         }
     next_item:
-        count = gXStatus.world_items.size();
+        count = CurrentLevelPopulation().world_items.size();
     }
 }
 
@@ -741,7 +714,7 @@ glm::vec3 ItemThrowDirection(const glm::vec2& cursor, const glm::mat3& camera_ro
    ground and lifted back up. When the spot is free the held instance becomes
    a world item; otherwise the refusal sound plays. */
 // FUNCTION: WIZ8 0x004F7610
-void DropHeldItem(int)
+std::optional<glm::vec3> FindItemDropPosition()
 {
     glm::mat3 rotation;
     rotation = cameraRotation(*GetWorld());
@@ -759,18 +732,17 @@ void DropHeldItem(int)
 
     glm::vec3 position = camera + delta;
     position.y = GetWorldOctree()->settleToGround(position, true, 250).position.y + 125.0f;
-    if (FindNearbyFreePosition(250.0f, &position, true, true) != 0) {
-        W8WorldItem* item = AddWorldItem(CreateWorldItem(
-            &g_status.item_in_hand, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
-        if (item == 0) {
-            // Retail passes the NULL item pointer as the assert message.
-            // reinterpret-ok: pointer-valued assert message argument.
-            const char* failed_item = reinterpret_cast<const char*>(item);
-            srAssertFail("pItemInfo != NULL", ITEM_MANAGER_CPP, 0x339, failed_item);
-        }
-        return;
-    }
-    wiz8::sound::play("Data\\Sound\\Misc\\CantDrop.WAV");
+    if (FindNearbyFreePosition(250.0f, &position, true, true) != 0) return position;
+    return std::nullopt;
+}
+
+void DropHeldItem(int)
+{
+    if (const auto position = FindItemDropPosition()) {
+        AddWorldItem(CreateWorldItem(&g_status.item_in_hand, &*position,
+                                     W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+    } else
+        wiz8::sound::play("Data\\Sound\\Misc\\CantDrop.WAV");
 }
 
 /* The item picker returns its remaining items as a group chain. A two-item group returns the picked
@@ -801,7 +773,8 @@ static void OnItemPickerClosed(W8WorldItem* group)
     if (item->fActive) {
         DeactivateWorldItem(item);
     }
-    gXStatus.world_items.erase(gXStatus.world_items.begin() + index);
+    CurrentLevelPopulation().world_items.erase(CurrentLevelPopulation().world_items.begin() +
+                                               index);
 }
 
 /* Interact with one world item by runtime id. Records flagged 0x20 open the
@@ -844,7 +817,8 @@ unsigned char InteractWithWorldItem(int runtime_id)
     if (item->fActive) {
         DeactivateWorldItem(item);
     }
-    gXStatus.world_items.erase(gXStatus.world_items.begin() + index);
+    CurrentLevelPopulation().world_items.erase(CurrentLevelPopulation().world_items.begin() +
+                                               index);
     return result;
 }
 
@@ -852,12 +826,12 @@ unsigned char InteractWithWorldItem(int runtime_id)
 // FUNCTION: WIZ8 0x004f6a50
 void ReleaseItemLists()
 {
-    for (const auto& owned : gXStatus.world_items) {
+    for (const auto& owned : CurrentLevelPopulation().world_items) {
         auto* item = owned.get();
         if (item->sector_id >= 0) RemoveItemFromSector(item->sector_id, item);
         if (item->fActive) DeactivateWorldItem(item);
     }
-    gXStatus.world_items.clear();
+    CurrentLevelPopulation().world_items.clear();
 }
 
 /* plsItemList index that last satisfied AnyWorldItemVisible. */
@@ -895,7 +869,7 @@ bool AnyWorldItemVisible(void)
         return false;
     }
     camera = cameraLocation();
-    count = gXStatus.world_items.size();
+    count = CurrentLevelPopulation().world_items.size();
     if (0 <= g_last_visible_world_item && g_last_visible_world_item < count) {
         W8WorldItem* item = GetWorldItemListEntry(g_last_visible_world_item);
         if (IsWorldItemMarkerVisible(item, camera)) {
@@ -1022,7 +996,7 @@ void RebuildAllWorldItemInstances(void)
     unsigned int index;
     W8WorldItem* item;
 
-    for (index = 0; index < gXStatus.world_items.size(); ++index) {
+    for (index = 0; index < CurrentLevelPopulation().world_items.size(); ++index) {
         item = ItemInfo(index);
         ReplaceOrCreateItem(&item->item, item->item.iItemNo, false, false, false);
     }
@@ -1046,7 +1020,7 @@ std::unique_ptr<W8WorldItem> CreateWorldItem(W8ItemInstance* item, const glm::ve
 W8WorldItem* AddWorldItem(std::unique_ptr<W8WorldItem> item)
 {
     auto* result = item.get();
-    if (item) gXStatus.world_items.push_back(std::move(item));
+    if (item) CurrentLevelPopulation().world_items.push_back(std::move(item));
     return result;
 }
 
@@ -1189,4 +1163,13 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
             }
         }
     }
+}
+
+W8WorldItem* GetWorldItemListEntry(int index)
+{
+    if (!GetWorld() || index < 0 ||
+        std::cmp_greater_equal(index, CurrentLevelPopulation().world_items.size())) {
+        return nullptr;
+    }
+    return CurrentLevelPopulation().world_items[index].get();
 }

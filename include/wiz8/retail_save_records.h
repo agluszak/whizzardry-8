@@ -378,8 +378,8 @@ template<> struct Record<W8MonsterGroup> {
             return bytes.subspan(offset, size);
         };
         value(&runtime.group_id, field(offsetof(Disk, group_id), sizeof(Disk::group_id)));
-        value(&runtime.member_count,
-              field(offsetof(Disk, member_count), sizeof(Disk::member_count)));
+        auto member_count = runtime.MemberCount();
+        value(&member_count, field(offsetof(Disk, member_count), sizeof(Disk::member_count)));
         presence_slot(runtime.monsters, field(offsetof(Disk, monsters), sizeof(Disk::monsters)));
         value(&runtime.visible_member_count,
               field(offsetof(Disk, visible_member_count), sizeof(Disk::visible_member_count)));

@@ -36,7 +36,7 @@ void EnableMainGamePortraitSlot(unsigned int slot);
 void DisableMainGamePortraitSlot(unsigned int slot);
 
 void RequestRedrawParty(void);
-void RedrawCombatMonsterList(void);
+void RedrawCombatMonsterList(bool subject_valid);
 void RefreshSelectedPartyPortrait(unsigned int party_slot);
 void ClearHighlightIfItIs(const int* item);
 
@@ -262,7 +262,6 @@ public:
     unsigned char m_tumbler_locked[8]; /* pin kept when the slot is released */
     int m_slot_attempts[8];            /* pick attempts per party slot */
     W8GameTimer m_timer;               /* state-8 completion delay */
-    W8MainUiMode return_mode = W8_MAIN_UI_MODE_PORTRAITS;
 };
 
 class W8MainGameScreen {
@@ -295,7 +294,6 @@ public:
     int m_target_difficulty;
     wiz8::sound::Playback m_sound_handle;
     W8GameTimer m_timer;
-    W8MainUiMode return_mode = W8_MAIN_UI_MODE_PORTRAITS;
 };
 
 extern std::unique_ptr<W8LevelRuntimeBlock> g_level_block;
@@ -329,8 +327,8 @@ void OpenAssayDialog(const W8ItemInstance& item, int character_slot);
 void OnQuitGameDialogClosed(bool accepted);
 void OnLeaveGameConfirmClosed(bool accepted);
 
-void PauseMainGameWorld(void);
-void ResumeMainGameWorld(void);
+bool WorldAdvancementBlocked();
+void SyncWorldAdvancement();
 void ResetMainGameScreenState(void);
 
 void RefreshTrackedPortraitOverlay(void);
@@ -343,7 +341,8 @@ bool IsScreenIdle(void);
 bool IsModalOpen(void);
 
 void RequestRedraw(unsigned int mask);
-void ApplyMainGameRedrawFlags(void);
+struct W8TargetingPresentation;
+void ApplyMainGameRedrawFlags(const W8TargetingPresentation& presentation);
 void DrawMainGameScreen(void);
 void CancelMouselook();
 void SetTooltipSubject(W8PortraitHighlightKind kind, int subject);
@@ -375,7 +374,9 @@ void SetViewportMode(int mode);
 /* Apply a main-game UI mode (0=portraits, 1=formation, 2=radar): drop raised
    panels, optionally re-raise them from settings prefs, refresh tooltip and
    region state, and sync both settings and the level-block mode field. */
-void ApplyMainGameModeFlag(W8MainUiMode mode, bool enable);
+W8MainUiMode GetEffectiveMainUiMode();
+void SetMainUiPreference(W8MainUiMode mode);
+void RefreshMainGameLayout();
 unsigned char ProcessMainGameInput(void);
 void TickAmbientFollowUpIdle(unsigned char input_handled);
 /* Re-sync the eight party slots' region sets and portrait hit
@@ -461,17 +462,6 @@ void RunMGSActionKey(unsigned short command);
 void LoadMainGameCursorResources(void);
 short GetMainGameViewportMode(void);
 void CloseMainGameOverlays(void);
-/* Overlay entry points share the radar-mode fallback. The caller captures and
-   stores its return mode before or after this operation as its own path requires. */
-inline void SetMainGameOverlayViewport(W8MainUiMode mode)
-{
-    if (mode == W8_MAIN_UI_MODE_RADAR) {
-        ApplyMainGameModeFlag(W8_MAIN_UI_MODE_FORMATION, false);
-    } else {
-        SetViewportMode(GetMainGameViewportMode());
-    }
-}
-
 void SetRadarMapVisible(bool visible);
 void SetActionPanelVisible(bool visible);
 void OpenCharacterScreenForPartySlot(unsigned int party_slot, bool flag);

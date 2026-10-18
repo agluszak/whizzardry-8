@@ -168,7 +168,7 @@ struct W8AmbientSoundState {
     bool stopped;
 };
 std::vector<W8AmbientSoundState> ReadAmbientSoundStates(W8Chunk& file);
-void ApplyAmbientSoundStates(std::span<const W8AmbientSoundState> states);
+void ApplyAmbientSoundStates(W8World& world, std::span<const W8AmbientSoundState> states);
 
 bool IsSoundEffectsMuted(void);
 void SetSoundEffectsVolume(unsigned char volume);

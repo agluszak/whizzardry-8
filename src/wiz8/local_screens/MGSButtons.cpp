@@ -464,21 +464,21 @@ static void CreateCombatStanceButtons()
 // FUNCTION: WIZ8 0x00598270
 static void MainGameRoofButton0(W8ButtonWidget* button)
 {
-    ApplyMainGameModeFlag(W8_MAIN_UI_MODE_PORTRAITS, true);
+    SetMainUiPreference(W8_MAIN_UI_MODE_PORTRAITS);
     RequestRedraw(W8_MAIN_REDRAW_ROOF_AND_SPELL_ICONS | W8_MAIN_REDRAW_LAYOUT);
 }
 
 // FUNCTION: WIZ8 0x00598290
 static void MainGameRoofButton1(W8ButtonWidget* button)
 {
-    ApplyMainGameModeFlag(W8_MAIN_UI_MODE_FORMATION, true);
+    SetMainUiPreference(W8_MAIN_UI_MODE_FORMATION);
     RequestRedraw(W8_MAIN_REDRAW_ROOF_AND_SPELL_ICONS | W8_MAIN_REDRAW_LAYOUT);
 }
 
 // FUNCTION: WIZ8 0x005982B0
 static void MainGameRoofButton2(W8ButtonWidget* button)
 {
-    ApplyMainGameModeFlag(W8_MAIN_UI_MODE_RADAR, true);
+    SetMainUiPreference(W8_MAIN_UI_MODE_RADAR);
     RequestRedraw(W8_MAIN_REDRAW_ROOF_AND_SPELL_ICONS | W8_MAIN_REDRAW_LAYOUT);
 }
 
@@ -502,11 +502,11 @@ static void CreateRoofButtons()
         {.on_click = MainGameRoofButton2,
          .policy = {.primary_toggle = ButtonToggle::Press},
          .tooltip = 0x3a});
-    if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS) {
+    if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS) {
         g_main_game_state->hud_buttons.roof[0].SetPressed(true);
-    } else if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_FORMATION) {
+    } else if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_FORMATION) {
         g_main_game_state->hud_buttons.roof[1].SetPressed(true);
-    } else if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_RADAR) {
+    } else if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_RADAR) {
         g_main_game_state->hud_buttons.roof[2].SetPressed(true);
     }
     for (index = 0; index < 3; ++index) {
@@ -558,12 +558,12 @@ void UpdateRoofButtons(void)
     }
 }
 
-/* Mirror g_settings.main_ui_mode onto the three roof buttons' pressed
+/* Mirror GetEffectiveMainUiMode() onto the three roof buttons' pressed
    state (portraits / formation / radar). */
 // FUNCTION: WIZ8 0x00598150
 void SyncRoofButtonPressedState(void)
 {
-    if (g_settings.main_ui_mode == 0) {
+    if (GetEffectiveMainUiMode() == 0) {
         if (g_main_game_state->hud_buttons.roof[0].IsPressed() == 0) {
             g_main_game_state->hud_buttons.roof[0].SetPressed(true);
         }
@@ -573,7 +573,7 @@ void SyncRoofButtonPressedState(void)
         if (g_main_game_state->hud_buttons.roof[2].IsPressed()) {
             g_main_game_state->hud_buttons.roof[2].SetPressed(false);
         }
-    } else if (g_settings.main_ui_mode == 1) {
+    } else if (GetEffectiveMainUiMode() == 1) {
         if (g_main_game_state->hud_buttons.roof[1].IsPressed() == 0) {
             g_main_game_state->hud_buttons.roof[1].SetPressed(true);
         }
@@ -583,7 +583,7 @@ void SyncRoofButtonPressedState(void)
         if (g_main_game_state->hud_buttons.roof[2].IsPressed()) {
             g_main_game_state->hud_buttons.roof[2].SetPressed(false);
         }
-    } else if (g_settings.main_ui_mode == 2) {
+    } else if (GetEffectiveMainUiMode() == 2) {
         if (g_main_game_state->hud_buttons.roof[2].IsPressed() == 0) {
             g_main_game_state->hud_buttons.roof[2].SetPressed(true);
         }
@@ -601,7 +601,7 @@ static void MainGameLayoutRadarButton(W8ButtonWidget* button)
 {
     if (g_level_block->radar_map_visible != 0) {
         if (!g_level_block->formation_board_visible && g_level_block->action_panel_visible == 0) {
-            ApplyMainGameModeFlag(W8_MAIN_UI_MODE_RADAR, true);
+            SetMainUiPreference(W8_MAIN_UI_MODE_RADAR);
             return;
         }
         g_settings.formation_radar_map_preference = 0;
@@ -609,10 +609,10 @@ static void MainGameLayoutRadarButton(W8ButtonWidget* button)
         return;
     }
     g_settings.formation_radar_map_preference = 1;
-    if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_RADAR) {
+    if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_RADAR) {
         g_settings.formation_action_panel_preference = 0;
         g_settings.formation_board_preference = 0;
-        ApplyMainGameModeFlag(W8_MAIN_UI_MODE_FORMATION, true);
+        SetMainUiPreference(W8_MAIN_UI_MODE_FORMATION);
         return;
     }
     SetRadarMapVisible(true);
@@ -622,28 +622,28 @@ static void MainGameLayoutRadarButton(W8ButtonWidget* button)
 static void MainGameLayoutActionPanelButton(W8ButtonWidget* button)
 {
     if (g_level_block->action_panel_visible != 0) {
-        if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_FORMATION) {
+        if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_FORMATION) {
             if (g_level_block->radar_map_visible == 0 && !g_level_block->formation_board_visible) {
-                ApplyMainGameModeFlag(W8_MAIN_UI_MODE_RADAR, true);
+                SetMainUiPreference(W8_MAIN_UI_MODE_RADAR);
             }
             g_settings.formation_action_panel_preference = 0;
             SetActionPanelVisible(false);
             return;
         }
-        if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS) {
+        if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS) {
             g_settings.portraits_action_panel_preference = 0;
         }
         SetActionPanelVisible(false);
         return;
     }
-    if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_RADAR) {
+    if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_RADAR) {
         g_settings.formation_radar_map_preference = 0;
         g_settings.formation_action_panel_preference = 1;
         g_settings.formation_board_preference = 0;
-        ApplyMainGameModeFlag(W8_MAIN_UI_MODE_FORMATION, true);
+        SetMainUiPreference(W8_MAIN_UI_MODE_FORMATION);
         return;
     }
-    if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS) {
+    if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS) {
         g_settings.portraits_action_panel_preference = 1;
         SetActionPanelVisible(true);
         return;
@@ -657,7 +657,7 @@ static void MainGameLayoutFormationButton(W8ButtonWidget* button)
 {
     if (g_level_block->formation_board_visible) {
         if (g_level_block->radar_map_visible == 0 && g_level_block->action_panel_visible == 0) {
-            ApplyMainGameModeFlag(W8_MAIN_UI_MODE_RADAR, true);
+            SetMainUiPreference(W8_MAIN_UI_MODE_RADAR);
             return;
         }
         g_settings.formation_board_preference = 0;
@@ -665,10 +665,10 @@ static void MainGameLayoutFormationButton(W8ButtonWidget* button)
         return;
     }
     g_settings.formation_board_preference = 1;
-    if (g_settings.main_ui_mode == W8_MAIN_UI_MODE_RADAR) {
+    if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_RADAR) {
         g_settings.formation_radar_map_preference = 0;
         g_settings.formation_action_panel_preference = 0;
-        ApplyMainGameModeFlag(W8_MAIN_UI_MODE_FORMATION, true);
+        SetMainUiPreference(W8_MAIN_UI_MODE_FORMATION);
         return;
     }
     SetFormationBoardVisible(true);
@@ -695,7 +695,7 @@ void RedrawLayoutArrowButtons(void)
         return;
     }
 
-    enabled = g_settings.main_ui_mode != 0;
+    enabled = GetEffectiveMainUiMode() != 0;
     if (enabled) {
         g_main_game_state->hud_buttons.layout_arrows[0].SetEnabled(true);
     } else {

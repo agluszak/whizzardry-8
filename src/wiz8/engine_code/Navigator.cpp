@@ -830,7 +830,7 @@ bool W8Navigator::UpdateLinkedPosition()
 
 // FUNCTION: WIZ8 0x00454440
 glm::vec3* W8Navigator::AdjustPosition(glm::vec3* result, const glm::vec3* current,
-                                       const glm::vec3* previous)
+                                       const glm::vec3* previous, W8Octree& octree)
 {
     float acceleration_scale = 0.25f;
     if (movement.location_id == 0) {
@@ -844,12 +844,12 @@ glm::vec3* W8Navigator::AdjustPosition(glm::vec3* result, const glm::vec3* curre
         glm::vec3 probe = *current;
         probe.y += kWorldScale;
         bool hit;
-        const auto ground_probe = GetWorldOctree()->settleToGround(probe, 1, 500.0f);
+        const auto ground_probe = octree.settleToGround(probe, 1, 500.0f);
         probe = ground_probe.position;
         hit = ground_probe.hit;
         float ground = ground_probe.position.y;
         if (hit) {
-            if (GetWorldOctree()->current_prop < 0) {
+            if (octree.current_prop < 0) {
                 movement.position_adjusted = false;
             } else {
                 movement.position_adjusted = true;
@@ -1745,7 +1745,7 @@ void W8Navigator::CollectGroupNavigators(std::vector<W8Navigator*>& navigators)
     monster_info = FindMonster(movement.location_id);
     group = FindMonsterGroup(monster_info->monster_group_id);
 
-    for (member = 0; member < group->member_count; ++member) {
+    for (member = 0; member < group->MemberCount(); ++member) {
         int location_id = group->MemberLocationId(member);
         if (location_id != movement.location_id) {
             monster_info = FindMonster(location_id);
@@ -1756,7 +1756,7 @@ void W8Navigator::CollectGroupNavigators(std::vector<W8Navigator*>& navigators)
     for (ally = 0; ally < 4; ++ally) {
         if (group->allied_group_ids[ally] != 0) {
             W8MonsterGroup* allied_group = FindMonsterGroup(group->allied_group_ids[ally]);
-            for (member = 0; member < allied_group->member_count; ++member) {
+            for (member = 0; member < allied_group->MemberCount(); ++member) {
                 monster_info = FindMonster(allied_group->MemberLocationId(member));
                 navigators.push_back(monster_info->p3D);
             }
@@ -1775,7 +1775,8 @@ void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
 
     tracked_dirty = false;
     if (position_dirty || movement.position_adjusted) {
-        movement.position = *AdjustPosition(&adjusted, &movement.position, &previous);
+        movement.position =
+            *AdjustPosition(&adjusted, &movement.position, &previous, *GetWorldOctree());
     }
 
     if (movement.vertical_amplitude != 0.0f) {
@@ -1941,7 +1942,8 @@ void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
             }
         }
 
-        movement.position = *AdjustPosition(&adjusted, &movement.position, &previous);
+        movement.position =
+            *AdjustPosition(&adjusted, &movement.position, &previous, *GetWorldOctree());
         UpdateFacing(false);
         if (!movement_stopped) {
             glm::vec3 velocity;

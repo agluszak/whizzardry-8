@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <initializer_list>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -63,6 +64,7 @@
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/combat_state.h"
+#include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/world_cursor.h"
 // Completes MonGen for templated world-registry destruction.
@@ -311,6 +313,7 @@ static void DestroyWorldResources(W8World* world)
     world->cursor.reset();
     world->cursor_nodes.clear();
     world->active_monsters.clear();
+    world->population.reset();
     world->monsters.clear();
     world->plsItems.clear();
     world->plsProps.clear();
@@ -337,9 +340,16 @@ static void DestroyWorldResources(W8World* world)
 /* A world starts with its static scene, the level node and the dynamic scene.
    Authored environment ramps are seeded before the level overrides them. */
 // FUNCTION: WIZ8 0x0044F1C0
+W8LevelPopulation& CurrentLevelPopulation()
+{
+    if (!GetWorld()) throw std::logic_error("no gameplay level is loaded");
+    return *GetWorld()->population;
+}
+
 W8World::W8World(int level_id, std::string path)
     : level_id(level_id),
       source_path(path.empty() ? std::string{} : wiz8::normalize_asset_path(path).generic_string()),
+      population(std::make_unique<W8LevelPopulation>()),
       static_scene(std::make_unique<srScene>(nullptr))
 {
     static_scene->setName("Sir-Tech Scene Static Scene");
@@ -754,7 +764,7 @@ unsigned char AdjustWorldCollisionPosition(float radius, glm::vec3* position, bo
     } while (angle < g_camera_pi);
 
     if (check_items) {
-        for (const auto& item : gXStatus.world_items) {
+        for (const auto& item : CurrentLevelPopulation().world_items) {
             W8Item* owner = item->p3D;
             if (owner != 0) {
                 glm::vec3 center;
@@ -769,7 +779,7 @@ unsigned char AdjustWorldCollisionPosition(float radius, glm::vec3* position, bo
     }
 
     if (check_monsters) {
-        for (const auto& monster_owner : gXStatus.monster_roster.live()) {
+        for (const auto& monster_owner : CurrentLevelPopulation().monster_roster.live()) {
             auto* info = monster_owner.get();
             W8Monster* monster = info->p3D;
             if (monster != 0) {

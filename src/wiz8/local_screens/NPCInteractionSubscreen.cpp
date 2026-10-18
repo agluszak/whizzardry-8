@@ -71,6 +71,7 @@
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/layouts/screen_state.h"
+#include "wiz8/level_population.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
@@ -700,10 +701,10 @@ static void BeginNpcDialogueInternal(W8NpcState* npc, W8ItemInstance* item, int 
             MonsterForwardReferencePosition(info->p3D, 0);
         }
     }
-    PauseMainGameWorld();
     state = g_npc_interaction_state;
     state->scripted_dialogue = true;
     gXStatus.fNpcDialogueMode = true;
+    SyncWorldAdvancement();
     state->transcript_open_count = 0;
     info = GetNpcMonsterInfo(state->dialogue_npc);
     if (info == 0) {
@@ -783,14 +784,7 @@ static unsigned char OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item,
     state->suppress_parting_reaction = true;
     state->selected_trade_row = -1;
     state->transcript_open_count = 0;
-    if (g_settings.main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS) {
-        ApplyMainGameModeFlag(W8_MAIN_UI_MODE_PORTRAITS, false);
-    } else {
-        SetViewportMode(GetMainGameViewportMode());
-    }
-    if (!gXStatus.fCampMode) {
-        g_npc_interaction_state->saved_main_ui_mode = g_settings.main_ui_mode;
-    }
+    RefreshMainGameLayout();
     CreateNpcDialogueControls();
     g_level_block->text_box_visible = false;
     EnableDialogueTextBoxRegions();
@@ -856,7 +850,7 @@ static unsigned char OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item,
         }
         MonsterForwardReferencePosition(info->p3D, 0);
     }
-    PauseMainGameWorld();
+    SyncWorldAdvancement();
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
     g_npc_interaction_state->text_box_collapsed = true;
     space = " ";
@@ -1215,7 +1209,7 @@ void EndNpcDialogueSession(bool skip_exit_actions)
     }
     if (g_npc_interaction_state->scripted_dialogue) {
         gXStatus.fNpcDialogueMode = false;
-        ResumeMainGameWorld();
+        SyncWorldAdvancement();
         return;
     }
     if (gXStatus.fCampMode) {
@@ -1239,18 +1233,17 @@ void EndNpcDialogueSession(bool skip_exit_actions)
     SetNpcDialogueInputEnabled(2, false);
     SelectTextBox(0);
     g_level_block->text_box_visible = true;
-    ApplyMainGameModeFlag(gXStatus.fCampMode ? g_settings.main_ui_mode
-                                             : g_npc_interaction_state->saved_main_ui_mode,
-                          true);
+    RefreshMainGameLayout();
     g_npc_text_fields.reset();
     g_npc_interaction_state->ui.reset();
     RequestRedrawCombatBar();
     RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
-    for (unsigned int index = 0; index < gXStatus.monster_roster.live().size(); index++) {
+    for (unsigned int index = 0; index < CurrentLevelPopulation().monster_roster.live().size();
+         index++) {
         ClearMonsterCharm(GetMonsterListEntry(index));
     }
     GetNpcMonsterInfo(g_npc_interaction_state->dialogue_npc);
-    ResumeMainGameWorld();
+    SyncWorldAdvancement();
     if (!skip_exit_actions) {
         if (!g_npc_interaction_state->held_item_pending) {
             SetTargetCursor(W8_CURSOR_NONE);
@@ -3954,8 +3947,7 @@ static void SetNpcDialogueHidden(char value)
     int index;
 
     if (value != 0) {
-        g_npc_interaction_state->saved_mode = g_settings.main_ui_mode;
-        ApplyMainGameModeFlag(W8_MAIN_UI_MODE_PORTRAITS, false);
+        RefreshMainGameLayout();
         SetNpcPanelActive(2, false);
         g_npc_interaction_state->ui->transcript->Collapse();
         SetNpcPanelActive(3, false);
@@ -3976,7 +3968,7 @@ static void SetNpcDialogueHidden(char value)
         DisableNpcTradeActions();
         SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_6, false);
     } else {
-        ApplyMainGameModeFlag(g_npc_interaction_state->saved_mode, false);
+        RefreshMainGameLayout();
         for (index = 0; index < 8; ++index) {
             if (g_status.buffers.XChar[index].fOccupied) {
                 DisableMainGamePortraitSlot(index);

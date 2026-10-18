@@ -40,7 +40,6 @@
 #include "wiz8/learned_spells.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
@@ -209,7 +208,6 @@ static void CreateSpellCastingViewControls(void)
 // FUNCTION: WIZ8 0x0059F0E0
 unsigned char OpenSpellCastingView(int party_slot)
 {
-    W8MainUiMode mode;
 
     if (!IsPartySlotEligible(party_slot)) {
         return 0;
@@ -225,9 +223,7 @@ unsigned char OpenSpellCastingView(int party_slot)
     gpSCSV->location_id = -1;
     gpSCSV->interact_id = W8_DIALOGUE_LAYOUT_UNSET;
     CloseMainGameOverlays();
-    mode = g_settings.main_ui_mode;
-    SetMainGameOverlayViewport(mode);
-    gpSCSV->saved_game_mode = mode;
+    RefreshMainGameLayout();
     CreateSpellCastingViewControls();
     RestoreSpellCastingRegions();
     gpSCSV->input.setEnabled(true);
@@ -242,14 +238,13 @@ unsigned char OpenSpellCastingView(int party_slot)
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
     RequestRedrawCombatBar();
     RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
-    PauseMainGameWorld();
+    SyncWorldAdvancement();
     gpSCSV->override_spell = 0;
     return 1;
 }
 
-/* Tears the spell-casting view down: restores the regions and game mode,
-   frees the view state, and resumes the world. A pending interact id picks
-   its NPC interaction back up. */
+/* Discard the picker, recompute layout and advancement policy, and resume
+   its suspended NPC interaction when one exists. */
 // FUNCTION: WIZ8 0x0059F2B0
 void CloseSpellCastingView(void)
 {
@@ -257,40 +252,39 @@ void CloseSpellCastingView(void)
     W8NpcDialogueLayout interact_id;
     W8NpcState* npc;
 
-    if (!gpSCSV->closing) {
-        gpSCSV->input.setEnabled(false);
-        SetTextBoxScrollInput(false);
-        g_level_block->action_panel_visible = 0;
-        SetTargetingMode(W8_TARGET_NEED_NONE);
-        if (!gXStatus.fCampMode) {
-            ResetEditorStatusLine(-1);
-        }
-        g_level_block->text_box_visible = true;
-        SelectTextBox(gXStatus.fCombatMode);
-        SetTextBoxRegionBounds(0xa8, 0x16e, 0x1c4, 0x1ba);
-        gXStatus.fSpellCastMode = false;
-        ApplyMainGameModeFlag(gpSCSV->saved_game_mode, true);
-        RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
-        RequestRedrawCombatBar();
-        RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
-        location_id = gpSCSV->location_id;
-        interact_id = gpSCSV->interact_id;
-        gpSCSV.reset();
-        ResumeMainGameWorld();
-        if (IsWorldCursorVisible()) {
-            ToggleWorldCursor();
-        }
-        if (LockInteractionSuspended() && !IsScreenTransitionPending()) {
-            OpenLockInteraction(0);
-        }
-        if (TrapInteractionSuspended() && !IsScreenTransitionPending()) {
-            OpenTrapInteraction(0);
-        }
-        if (interact_id != W8_DIALOGUE_LAYOUT_UNSET && !IsScreenTransitionPending()) {
-            npc = FindNpcBindingForMonster(FindMonster(location_id));
-            BeginNpcDialogue(npc, 0, -1, 0, 1);
-            SwitchNpcDialogueLayout(interact_id);
-        }
+    if (!gpSCSV) return;
+    gpSCSV->input.setEnabled(false);
+    SetTextBoxScrollInput(false);
+    g_level_block->action_panel_visible = 0;
+    SetTargetingMode(W8_TARGET_NEED_NONE);
+    if (!gXStatus.fCampMode) {
+        ResetEditorStatusLine(-1);
+    }
+    g_level_block->text_box_visible = true;
+    SelectTextBox(gXStatus.fCombatMode);
+    SetTextBoxRegionBounds(0xa8, 0x16e, 0x1c4, 0x1ba);
+    gXStatus.fSpellCastMode = false;
+    RefreshMainGameLayout();
+    RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
+    RequestRedrawCombatBar();
+    RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
+    location_id = gpSCSV->location_id;
+    interact_id = gpSCSV->interact_id;
+    gpSCSV.reset();
+    SyncWorldAdvancement();
+    if (IsWorldCursorVisible()) {
+        ToggleWorldCursor();
+    }
+    if (LockInteractionSuspended() && !IsScreenTransitionPending()) {
+        OpenLockInteraction(0);
+    }
+    if (TrapInteractionSuspended() && !IsScreenTransitionPending()) {
+        OpenTrapInteraction(0);
+    }
+    if (interact_id != W8_DIALOGUE_LAYOUT_UNSET && !IsScreenTransitionPending()) {
+        npc = FindNpcBindingForMonster(FindMonster(location_id));
+        BeginNpcDialogue(npc, 0, -1, 0, 1);
+        SwitchNpcDialogueLayout(interact_id);
     }
 }
 

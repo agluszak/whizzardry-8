@@ -49,6 +49,7 @@
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/layouts/screen_state.h"
+#include "wiz8/level_population.h"
 #include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/CombatRange.h"
@@ -373,7 +374,7 @@ void ResetCombatEffects(void)
         if (g_combat_state->effect_slots[i].active) {
             ResetPartyEffectBlock(&g_combat_state->effect_slots[i]);
         }
-        for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
+        for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
             monster_info = GetMonsterListEntry(index);
             if (monster_info->fActive && monster_info->fInCombat) {
                 slot = &monster_info->pCombat->combat_effects[i];
@@ -387,7 +388,7 @@ void ResetCombatEffects(void)
         if (g_combat_state->effect_slots0[i].active) {
             ResetPartyEffectBlock(&g_combat_state->effect_slots0[i]);
         }
-        for (index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
+        for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
             monster_info = GetMonsterListEntry(index);
             if (monster_info->fActive && monster_info->fInCombat) {
                 slot = &monster_info->pCombat->combat_effects_2[i];
@@ -787,7 +788,7 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
     SetMonsterGroupHostility(group, disposition, false);
     const auto summoned_state = disposition == W8_DISPOSITION_FRIENDLY ? W8_MONSTER_SUMMON_FRIENDLY
                                                                        : W8_MONSTER_SUMMON_HOSTILE;
-    for (index = 0; index < group->member_count; ++index) {
+    for (index = 0; index < group->MemberCount(); ++index) {
         member = FindMonster(group->MemberLocationId(index));
         if (member == 0) srAssertFail("pMonsterInfo", MAGIC_EFFECTS_CPP, 0xfdc, 0);
         if (member->summoned == W8_MONSTER_SUMMON_NONE) {
@@ -2749,7 +2750,8 @@ void TickRadiusBlastEffectSlots(W8EffectSlot* effect_slots)
                 float reach = CalcRangeDistance(W8_RANGE_SHORT);
                 float radius = PartyNavigator()->radius;
                 glm::vec3 centre = PartyNavigator()->GetPosition();
-                CollectMonstersWithinRadius(&centre, &centre, found, radius + reach, 1, W8AreaSightRule::RequireLineOfSight);
+                CollectMonstersWithinRadius(&centre, &centre, found, radius + reach, 1,
+                                            W8AreaSightRule::RequireLineOfSight);
             }
             for (index = 0; index < static_cast<int>(found.size()); ++index) {
                 monster_info = FindMonster(found[index]);

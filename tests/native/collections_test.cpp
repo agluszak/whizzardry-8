@@ -25,6 +25,7 @@
 #include "temporary_directory.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/conditions.h"
+#include "wiz8/engine_code/World.h"
 #include "wiz8/equipment_slots.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/layouts/combat_state.h"
@@ -32,6 +33,7 @@
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/layouts/targeting.h"
+#include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/Configuration.h"
@@ -43,9 +45,15 @@
 #include "wiz8/local_screens/JournalScreen.h"
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
+#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/monster_roster.h"
 #include "wiz8/npc_items.h"
 #include "wiz8/xstatus.h"
+
+struct LevelWorldFixture {
+    std::unique_ptr<W8World> previous = ReplaceWorld(std::make_unique<W8World>());
+    ~LevelWorldFixture() { ReplaceWorld(std::move(previous)); }
+};
 
 static std::vector<int> masterCalls;
 
@@ -100,15 +108,27 @@ static bool gameplayCollectionLifetime()
 {
     auto group = std::make_unique<W8MonsterGroup>();
     auto* group_ptr = group.get();
-    auto& roster = gXStatus.monster_roster;
+    auto& roster = CurrentLevelPopulation().monster_roster;
     REQUIRE((roster.live().empty() && GetMonsterListEntry(0) == nullptr));
     auto* live = roster.add(std::make_unique<W8MonsterInfo>(), false);
     auto* unborn = roster.add(std::make_unique<W8MonsterInfo>(), true);
-    gXStatus.encounter_groups.push_back(std::move(group));
+    CurrentLevelPopulation().encounter_groups.push_back(std::move(group));
     REQUIRE(GetMonsterListEntry(0) == live);
     REQUIRE((GetMonsterListEntry(-1) == nullptr && GetMonsterListEntry(1) == nullptr));
     REQUIRE((GetUnbornMonsterEntry(0) == unborn && GetUnbornMonsterEntry(1) == nullptr));
     REQUIRE((GetMonsterGroupEncounter(0) == group_ptr && GetMonsterGroupEncounter(1) == nullptr));
+
+    // Preparing and abandoning another population cannot publish its identities.
+    live->location_id = 7;
+    {
+        W8World replacement;
+        auto* candidate =
+            replacement.population->monster_roster.add(std::make_unique<W8MonsterInfo>(), false);
+        candidate->location_id = 7;
+        REQUIRE(replacement.population->findMonster(7) == candidate);
+        REQUIRE(FindMonster(7, false) == live);
+    }
+    REQUIRE(FindMonster(7, false) == live);
 
     // Promotion moves membership only: the same record, now live, and promotion is one-way.
     REQUIRE(roster.promote(unborn));
@@ -116,12 +136,13 @@ static bool gameplayCollectionLifetime()
         (roster.unborn().empty() && roster.live().size() == 2 && roster.live()[1].get() == unborn));
     REQUIRE(!roster.promote(unborn));
     // Removal unindexes from whichever list holds the record, then frees it.
-    REQUIRE(roster.remove(live));
+    REQUIRE(RemoveMonster(live, W8MonsterRemoval::Unload));
     REQUIRE((roster.live().size() == 1 && roster.live()[0].get() == unborn));
-    REQUIRE(!roster.remove(live));
+    REQUIRE(!RemoveMonster(live, W8MonsterRemoval::Unload));
 
     // Reset destroys the owned records and leaves immediately reusable collections.
     gXStatus = {};
+    *GetWorld()->population = {};
     REQUIRE((GetMonsterListEntry(0) == nullptr && GetUnbornMonsterEntry(0) == nullptr));
     REQUIRE(GetMonsterGroupEncounter(0) == nullptr);
     return true;
@@ -281,7 +302,7 @@ static bool journalSerialization()
 
 static bool visibilityRecordLifetime()
 {
-    auto& roster = gXStatus.monster_roster;
+    auto& roster = CurrentLevelPopulation().monster_roster;
     auto& observer = *roster.add(std::make_unique<W8MonsterInfo>(), false);
     auto& target = *roster.add(std::make_unique<W8MonsterInfo>(), false);
     observer.location_id = 100;
@@ -309,7 +330,7 @@ static bool visibilityRecordLifetime()
     return true;
 }
 
-TEST_CASE("collections_test")
+TEST_CASE_METHOD(LevelWorldFixture, "collections_test")
 {
     REQUIRE(gameplayCollectionLifetime());
     REQUIRE(masterFunctionMutation());
@@ -320,20 +341,21 @@ TEST_CASE("collections_test")
     REQUIRE(visibilityRecordLifetime());
 }
 
-TEST_CASE("Engagement propagates to the original leader's direct allies", "[groups]")
+TEST_CASE_METHOD(LevelWorldFixture, "Engagement propagates to the original leader's direct allies",
+                 "[groups]")
 {
     // NOLINTNEXTLINE(cppcoreguidelines-special-member-functions): local scope guard
     struct RestoreGroups {
         std::vector<std::unique_ptr<W8MonsterGroup>> saved =
-            std::exchange(gXStatus.monster_groups, {});
-        ~RestoreGroups() { gXStatus.monster_groups = std::move(saved); }
+            std::exchange(CurrentLevelPopulation().monster_groups, {});
+        ~RestoreGroups() { CurrentLevelPopulation().monster_groups = std::move(saved); }
     } restore;
     for (int i = 0; i < 4; ++i)
-        gXStatus.monster_groups.push_back(std::make_unique<W8MonsterGroup>());
-    auto& leader = *gXStatus.monster_groups[0];
-    auto& first = *gXStatus.monster_groups[1];
-    auto& second = *gXStatus.monster_groups[2];
-    auto& unrelated = *gXStatus.monster_groups[3];
+        CurrentLevelPopulation().monster_groups.push_back(std::make_unique<W8MonsterGroup>());
+    auto& leader = *CurrentLevelPopulation().monster_groups[0];
+    auto& first = *CurrentLevelPopulation().monster_groups[1];
+    auto& second = *CurrentLevelPopulation().monster_groups[2];
+    auto& unrelated = *CurrentLevelPopulation().monster_groups[3];
     leader.group_id = 1;
     first.group_id = 2;
     second.group_id = 3;
@@ -415,8 +437,9 @@ TEST_CASE("Weapon-set replacement derives both hands from the completed arrangem
     REQUIRE(character.Hand[1].uiHolds == 1);
 }
 
-TEST_CASE("A failed alternate-weapon search leaves equipment and binding state untouched",
-          "[equipment]")
+TEST_CASE_METHOD(LevelWorldFixture,
+                 "A failed alternate-weapon search leaves equipment and binding state untouched",
+                 "[equipment]")
 {
     std::array<W8Character, 8> characters{};
     std::array<W8PartySlotRow, 8> rows{};
@@ -437,7 +460,7 @@ TEST_CASE("A failed alternate-weapon search leaves equipment and binding state u
     g_status.buffers.XChar = rows.data();
     g_settings.autoswap_weapons = true;
     g_combat_state = std::make_unique<W8CombatState>();
-    REQUIRE(gXStatus.monster_roster.live().empty());
+    REQUIRE(CurrentLevelPopulation().monster_roster.live().empty());
     auto& character = characters[0];
     for (auto& item : character.EquippedItem) item.iItemNo = -1;
     character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo = 0;
@@ -538,17 +561,70 @@ TEST_CASE("Trade confirmation rejects changed inventory and stock sources", "[tr
     g_status.buffers.Char = characters.data();
     rows[0].fOccupied = true;
     auto& item = characters[0].backpack[3];
-    item = {17, 4};
+    item = {.iItemNo = 17, .stack_count = 4};
     const W8TradeSelection selected{W8TradeSource::Backpack, 0, 3, item};
     REQUIRE(ResolveTradeSelection(nullptr, selected) == &item);
     item.uses_or_charges = 2;
     REQUIRE_FALSE(ResolveTradeSelection(nullptr, selected));
     W8NpcState npc{};
-    npc.items = {{0, {17, 4}, 1}, {0, {18, 3}, 1}};
+    npc.items = {{0, {.iItemNo = 17, .stack_count = 4}, 1},
+                 {0, {.iItemNo = 18, .stack_count = 3}, 1}};
     const W8TradeSelection stock{W8TradeSource::NpcStock, -1, 0, npc.items[0].item, 1};
     REQUIRE(ResolveTradeSelection(&npc, stock) == &npc.items[0].item);
     std::swap(npc.items[0], npc.items[1]);
     REQUIRE_FALSE(ResolveTradeSelection(&npc, stock));
     REQUIRE(CompleteNpcTrade(&npc, stock, 1).outcome == W8TradeOutcome::InvalidSelection);
     REQUIRE(npc.items[0].item.stack_count == 3);
+}
+
+TEST_CASE("A picker constrains layout without restoring an obsolete preference", "[layout]")
+{
+    struct Restore {
+        W8MainUiMode mode = g_settings.main_ui_mode;
+        bool casting = gXStatus.fSpellCastMode;
+        ~Restore()
+        {
+            g_settings.main_ui_mode = mode;
+            gXStatus.fSpellCastMode = casting;
+        }
+    } restore;
+    g_settings.main_ui_mode = W8_MAIN_UI_MODE_RADAR;
+    gXStatus.fSpellCastMode = true;
+    REQUIRE(GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_FORMATION);
+    REQUIRE(g_settings.main_ui_mode == W8_MAIN_UI_MODE_RADAR);
+    g_settings.main_ui_mode = W8_MAIN_UI_MODE_PORTRAITS;
+    gXStatus.fSpellCastMode = false;
+    REQUIRE(GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS);
+}
+
+TEST_CASE("A refused purchase leaves stock, payment and a full destination unchanged", "[trade]")
+{
+    std::array<W8PartySlotRow, 8> rows{};
+    std::array<W8Character, 8> characters{};
+    struct Restore {
+        W8GlobalStatus previous = g_status;
+        ~Restore() { g_status = std::move(previous); }
+    } restore;
+    g_status.buffers = {0, characters.data(), rows.data()};
+    const ScopedRecords items(g_item_records, 2);
+    g_item_records[0].flags = W8_ITEM_FLAG_NO_DISCARD;
+    g_item_records[0].value = 10;
+    g_status.party_gold = 100;
+    g_status.party_item_count = 500;
+    for (auto& item : g_status.party_item_pool) item = {.iItemNo = 1};
+    g_status.item_in_cursor = true;
+    g_status.item_in_hand = {.iItemNo = 1};
+    W8NpcDatabaseRecord record{};
+    record.sell_price_factor = 1.0f;
+    W8NpcState npc{};
+    npc.record = &record;
+    npc.items = {{0, {.iItemNo = 0}, 1}};
+    const auto result = CompleteNpcItemPurchase(&npc, 0, 1, false);
+    REQUIRE(result.outcome == W8TradeOutcome::Refused);
+    REQUIRE(g_status.party_gold == 100);
+    REQUIRE(g_status.party_item_count == 500);
+    REQUIRE(g_status.party_item_pool[0].iItemNo == 1);
+    REQUIRE(g_status.item_in_hand.iItemNo == 1);
+    REQUIRE(npc.items.size() == 1);
+    REQUIRE(npc.items[0].quantity == 1);
 }

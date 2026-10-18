@@ -24,6 +24,7 @@ bool DestroyMonsterGroup(W8MonsterGroup* monster_group, W8MonsterInfo* monster_i
 struct W8MonsterGroup {
     wiz8::retail::MonsterGroupOpaque serialized;
     std::span<const int> MemberIds() const { return monsters; }
+    unsigned int MemberCount() const { return static_cast<unsigned int>(monsters.size()); }
 
     int MemberLocationId(std::size_t index) const
     {
@@ -33,7 +34,6 @@ struct W8MonsterGroup {
     }
 
     int group_id;              /* GroupIndex ID lookup key */
-    unsigned int member_count; /* decremented when members leave */
     std::vector<int> monsters; /* location IDs of live members */
     /* Refreshed together by the targeting visibility pass. */
     int visible_member_count;
@@ -197,8 +197,5 @@ void RetireMonsterGroupAndAllies(W8MonsterGroup* monster_group);
 void MonsterGroupLeaveCombat(W8MonsterGroup* monster_group);
 
 void SetMonsterGroupFormation(W8MonsterGroup* monster_group, const glm::vec3* formation);
-void ReapplyMonsterGroupFormations(void);
-void RepairMonsterGroupLeaderLinks(void);
-void ApplyDefaultMonsterGroupSounds(void);
 
 #endif

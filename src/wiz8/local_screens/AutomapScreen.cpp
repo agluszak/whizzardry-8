@@ -77,6 +77,7 @@
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/index_algorithms.h"
 #include "wiz8/item_spawning.h"
+#include "wiz8/level_population.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -142,6 +143,11 @@ struct W8AutomapState {
 };
 // GLOBAL: WIZ8 0x0068f268
 static std::unique_ptr<W8AutomapState> g_automap_state;
+
+bool IsAutomapOpen()
+{
+    return g_automap_state != nullptr;
+}
 // GLOBAL: WIZ8 0x0068f274
 SDLSurfaceOwner g_automap_surface{nullptr, SDL_DestroySurface};
 
@@ -610,7 +616,7 @@ bool AutomapScreenEnter(void)
     g_automap_viewport.top = 32;
     g_automap_viewport.right = 467;
     g_automap_viewport.bottom = 467;
-    PauseMainGameWorld();
+    SyncWorldAdvancement();
     g_automap_layers.clear();
     g_automap_layers.push_back(0);
     std::string layer_name;
@@ -622,12 +628,12 @@ bool AutomapScreenEnter(void)
         layer_name = fmt::format("LAYER {:d}", layer_number);
         layer = FindWorldNode<srClipPlane>(layer_name.c_str());
     }
-    unsigned int monster_count = gXStatus.monster_roster.live().size();
+    unsigned int monster_count = CurrentLevelPopulation().monster_roster.live().size();
     for (unsigned int index = 0; index < monster_count; ++index) {
         W8MonsterInfo* monster = GetMonsterListEntry(index);
         if (monster->p3D) monster->p3D->DetachRepresentation(GetWorld());
     }
-    for (const auto& item : gXStatus.world_items) {
+    for (const auto& item : CurrentLevelPopulation().world_items) {
         if (item->p3D) item->p3D->DetachMesh();
     }
     SetMouseMoveEventsEnabled(1);
@@ -867,7 +873,7 @@ bool AutomapScreenLeave(int)
     SetNativeTextInputEnabled(false);
     RestoreAutomapWorldSettings();
     g_automap_state.reset();
-    ResumeMainGameWorld();
+    SyncWorldAdvancement();
     SetMouseMoveEventsEnabled(0);
     g_automap_surface.reset();
     ClearAutomapMarkers();
@@ -1540,7 +1546,7 @@ void RenderAutomapMarkers(void)
         g_automap_party_marker->setParent(0, 1);
         g_automap_party_marker->setParent(g_overlay_scenes.square.get(), 1);
     }
-    unsigned int count = gXStatus.monster_roster.live().size();
+    unsigned int count = CurrentLevelPopulation().monster_roster.live().size();
     for (unsigned int index = 0; index < count; ++index) {
         W8MonsterInfo* info = GetMonsterListEntry(index);
         W8Monster* monster = info->p3D;
@@ -1577,7 +1583,7 @@ void RenderAutomapMarkers(void)
             Position2DNodeUnsnapped(marker, x, y);
         }
     }
-    for (const auto& world_item : gXStatus.world_items) {
+    for (const auto& world_item : CurrentLevelPopulation().world_items) {
         W8Item* item = world_item->p3D;
         if (item == 0) {
             continue;

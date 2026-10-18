@@ -73,7 +73,7 @@ struct W8Item : public W8GrObject {
        the cached local Y extent. */
     glm::vec3 GetSearchPosition() const;
     void SetYaw(float angle);
-    void SetHighlight(bool enabled);
+    void SetHighlight(bool enabled, bool hovered = false);
     bool IsSelected();
     void LightRadarBlip();
     bool IsRadarBlipLit();

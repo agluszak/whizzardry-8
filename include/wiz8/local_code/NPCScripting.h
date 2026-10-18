@@ -147,4 +147,4 @@ void QueueDialogueNpcRefusal(void);
 void AuditNpcScriptQuotes(void);
 /* The NPC-side rebinding pass; reloads the NPC's .nsf script
    file and rebuilds its runtime bindings. */
-void ReloadNpcScriptResources(W8NpcState* npc);
+void ReloadNpcScriptResources(W8NpcState* npc, W8Monster* monster);

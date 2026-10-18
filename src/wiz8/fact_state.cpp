@@ -49,7 +49,7 @@ void LoadFactState(W8Chunk& save_handle)
     if (GetFact(W8_FACT_RFS81_HAS_BEEN_FIXED)) {
         npc = GetNpcStateByKind(0x20);
         if (npc && npc->has_monster) {
-            ReloadNpcScriptResources(npc);
+            ReloadNpcScriptResources(npc, GetNpcMonster(npc));
         }
     }
     if (!GetFact(W8_FACT_IMPORT_TRANG)) {

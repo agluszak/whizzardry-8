@@ -40,13 +40,11 @@ struct W8SpellCastingView {
     std::unique_ptr<W8ButtonWidget> cancel;
     W8TextBuffer spell_name;
     std::array<bool, 3> dirty{true, true, true};
-    W8MainUiMode saved_game_mode;
     W8NpcDialogueLayout interact_id;
     int location_id;
     unsigned int uiSpellsInList;
     int uiSpells[0x15e];
     signed char alt_colors[0x15e];
-    bool closing; /* close already in progress */
     bool dialog_confirmed;
 };
 

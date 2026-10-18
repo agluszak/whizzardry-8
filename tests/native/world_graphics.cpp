@@ -15,6 +15,7 @@
 #include <wiz8/filesystem.h>
 
 #include "surface_pixels.h"
+#include "wiz8/level_population.h"
 
 /* Installed character and level assets through the recovered game loop. */
 #include <SDL3/SDL_surface.h>
@@ -128,7 +129,7 @@ TEST_CASE("world graphics")
     auto world = GetWorld();
     REQUIRE((world && world->octree && world->camera && world->level && !world->psrMeshes.empty()));
     if (mode && strcmp(mode, "ui") == 0) {
-        ApplyMainGameModeFlag(W8_MAIN_UI_MODE_PORTRAITS, true);
+        SetMainUiPreference(W8_MAIN_UI_MODE_PORTRAITS);
         for (int frame = 0; frame < 100; ++frame) {
             SDL_Delay(16);
             GameLoop();
@@ -252,7 +253,7 @@ TEST_CASE("world graphics")
     SaveFrame(control_path.c_str(), control);
     if (mode && strcmp(mode, "kill") == 0) {
         W8MonsterInfo* monster = nullptr;
-        for (const auto& candidate : gXStatus.monster_roster.live()) {
+        for (const auto& candidate : CurrentLevelPopulation().monster_roster.live()) {
             if (candidate->fActive && candidate->p3D && candidate->hp_current) {
                 monster = candidate.get();
                 break;

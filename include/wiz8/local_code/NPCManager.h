@@ -161,3 +161,14 @@ void LoadNpcStates(W8Chunk& file);
 char AttemptNpcItemTheft(W8Character* character, W8NpcState* npc, int item_id, int count);
 void UpdateNpcPartyMember(int party_slot);
 bool QueueNpcDepartureEvents(int destination_level);
+
+struct W8World;
+struct W8PreparedNpcBinding {
+    int slot;
+    std::unique_ptr<W8NpcState> state;
+};
+struct W8PreparedNpcBindings {
+    std::vector<W8PreparedNpcBinding> records;
+};
+W8PreparedNpcBindings PrepareNpcBindings(W8World& world);
+void InstallNpcBindings(W8PreparedNpcBindings pending);

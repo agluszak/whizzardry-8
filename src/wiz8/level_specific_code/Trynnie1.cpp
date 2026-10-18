@@ -14,6 +14,7 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/world.h"
+#include "wiz8/level_population.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/MonsterGenerator.h"
@@ -124,7 +125,8 @@ void KillTrynnieGroups(void)
     int iNewTable;
     int index;
 
-    for (index = 0; index < static_cast<int>(gXStatus.monster_groups.size()); ++index) {
+    for (index = 0; index < static_cast<int>(CurrentLevelPopulation().monster_groups.size());
+         ++index) {
         group = GetMonsterGroupByListIndex(index);
         if (group != 0 && group->members_active &&
             (record = MonsterGroupGetRecord(group), record->faction_id == 0xd) &&

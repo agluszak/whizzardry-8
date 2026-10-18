@@ -6,11 +6,13 @@
 #include <utility>
 #include <vector>
 
+enum class W8MonsterRemoval;
+
 #include "wiz8/local_code/MonsterManager.h"
 
 // The ordered live and unborn partitions own their records. Promotion moves
-// ownership without moving the monster. Callers must unregister borrowed world,
-// visibility and NPC references before removal.
+// ownership without moving the monster. Only the complete gameplay removal
+// operation can erase an individual record.
 class W8MonsterRoster {
 public:
     W8MonsterInfo* add(std::unique_ptr<W8MonsterInfo> info, bool unborn)
@@ -33,8 +35,16 @@ public:
         return true;
     }
 
-    // The caller has already removed external references.
-    bool remove(W8MonsterInfo* info)
+    const std::vector<std::unique_ptr<W8MonsterInfo>>& live() const { return live_; }
+    const std::vector<std::unique_ptr<W8MonsterInfo>>& unborn() const { return unborn_; }
+    bool isUnborn(const W8MonsterInfo* info) const
+    {
+        return std::ranges::contains(unborn_, info, &std::unique_ptr<W8MonsterInfo>::get);
+    }
+
+private:
+    friend bool RemoveMonster(W8MonsterInfo*, W8MonsterRemoval);
+    bool erase(W8MonsterInfo* info)
     {
         for (auto* partition : {&live_, &unborn_}) {
             const auto it =
@@ -47,14 +57,6 @@ public:
         return false;
     }
 
-    const std::vector<std::unique_ptr<W8MonsterInfo>>& live() const { return live_; }
-    const std::vector<std::unique_ptr<W8MonsterInfo>>& unborn() const { return unborn_; }
-    bool isUnborn(const W8MonsterInfo* info) const
-    {
-        return std::ranges::contains(unborn_, info, &std::unique_ptr<W8MonsterInfo>::get);
-    }
-
-private:
     std::vector<std::unique_ptr<W8MonsterInfo>> live_;
     std::vector<std::unique_ptr<W8MonsterInfo>> unborn_;
 };

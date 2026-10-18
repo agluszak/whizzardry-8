@@ -68,6 +68,7 @@
 #include "wiz8/item_spawning.h"
 #include "wiz8/item_tables.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/level_population.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
@@ -2697,8 +2698,9 @@ void Trigger::Run(int source)
             return;
         }
         monster_id = atoi(recipients.c_str());
-        for (index = 0; index < static_cast<int>(gXStatus.monster_groups.size()); ++index) {
-            group = gXStatus.monster_groups[index].get();
+        for (index = 0; index < static_cast<int>(CurrentLevelPopulation().monster_groups.size());
+             ++index) {
+            group = CurrentLevelPopulation().monster_groups[index].get();
             if (group->monster_id == monster_id) {
                 int location_id = group->MemberLocationId(0);
                 monster_info = FindMonster(location_id);
