@@ -1424,21 +1424,21 @@ void PartySelectionScreenFrame(void)
 
 void GameStartRouterFrame(void)
 {
-    w8_ulong code;
+    W8IntroVideo code;
 
     RequestScreenTransition();
     if (!g_status.skip_loose_character_check) {
-        code = 4;
+        code = W8_INTRO_VIDEO_VIRGIN;
     } else {
         switch (g_wiz7_ending) {
         case 1:
-            code = 2;
+            code = W8_INTRO_VIDEO_UMPANI;
             break;
         case 2:
-            code = 3;
+            code = W8_INTRO_VIDEO_TRANG;
             break;
         default:
-            code = 1;
+            code = W8_INTRO_VIDEO_UNALIGNED;
             break;
         }
     }
