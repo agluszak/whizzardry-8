@@ -267,7 +267,11 @@ template<> struct Record<W8MonsterInfo> {
         pointer_slot(runtime.p3D, field(offsetof(Disk, p3D), sizeof(Disk::p3D)));
         pointer_slot(runtime.pCombat, field(offsetof(Disk, pCombat), sizeof(Disk::pCombat)));
         value(&runtime.fActive, field(offsetof(Disk, fActive), sizeof(Disk::fActive)));
-        value(&runtime.fInCombat, field(offsetof(Disk, fInCombat), sizeof(Disk::fInCombat)));
+        // Saved combat state is transient; loading never reconstructs a fight.
+        if constexpr (std::is_const_v<Runtime>) {
+            const bool in_combat = bool(runtime.pCombat);
+            value(&in_combat, field(offsetof(Disk, fInCombat), sizeof(Disk::fInCombat)));
+        }
         value(&runtime.ubDisposition,
               field(offsetof(Disk, ubDisposition), sizeof(Disk::ubDisposition)));
         nested(runtime.position, field(offsetof(Disk, position), sizeof(Disk::position)), value,

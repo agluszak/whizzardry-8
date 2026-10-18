@@ -154,7 +154,7 @@ bool StartCombat(int surprise)
     if (!gXStatus.npc_combat_notice_pending) {
         for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
             monster_info = GetMonsterListEntry(index);
-            if (monster_info->fInCombat && monster_info->ubDisposition == W8_DISPOSITION_HOSTILE &&
+            if (monster_info->pCombat && monster_info->ubDisposition == W8_DISPOSITION_HOSTILE &&
                 monster_info->hp_current > 0 &&
                 monster_info->highest_condition < W8_CONDITION_PARALYZED) {
                 npc = GetNpcStateForMonsterInfo(monster_info, false);
@@ -188,7 +188,7 @@ bool StartCombat(int surprise)
     AutoSaveIfAllowed(true);
     ResetLevelDataVectors();
     SetCombatInactiveFlag(0);
-    if (!gXStatus.fNpcDialogueMode && !gpSCSV && !gXStatus.fItemSelectMode) {
+    if (!gXStatus.fNpcDialogueMode && !gpSCSV && !ItemUseDraft()) {
         SelectTextBox(1);
     }
     ResetEditorStatusLine(1);
@@ -197,7 +197,8 @@ bool StartCombat(int surprise)
     g_combat_state->combat_result = 0;
     g_combat_state->experience_pool = 0;
     g_combat_state->experience_bonus = 0;
-    g_combat_state->enemies_engaged = gXStatus.hostile_monster_count > 0;
+    g_combat_state->enemies_engaged =
+        CurrentLevelPopulation().monster_roster.hostileCombatCount() > 0;
     g_combat_state->execution_active = 0;
     g_combat_state->round_active = true;
     g_combat_state->action_clock = w8_get_ticks();
@@ -232,7 +233,7 @@ bool StartCombat(int surprise)
     nearest_info = 0;
     for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
         monster_info = GetMonsterListEntry(index);
-        if (monster_info->fActive && monster_info->fInCombat && monster_info->hp_current > 0 &&
+        if (monster_info->fActive && monster_info->pCombat && monster_info->hp_current > 0 &&
             monster_info->ubDisposition == W8_DISPOSITION_HOSTILE) {
             float distance = monster_info->p3D->GetDistanceToPlayer();
             if (distance < nearest_distance) {
@@ -247,7 +248,7 @@ bool StartCombat(int surprise)
     RefreshAllSight();
     for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
         monster_info = GetMonsterListEntry(index);
-        if (monster_info->fInCombat) {
+        if (monster_info->pCombat) {
             monster_info->action_kind = W8_MONSTER_ACTION_NONE;
             monster_info->action_detail = 0;
             monster_info->pCombat->phase = 0;
@@ -375,7 +376,7 @@ static bool AnyCombatMonster(Predicate predicate)
     for (unsigned int index = 0; index < CurrentLevelPopulation().monster_roster.live().size();
          ++index) {
         const W8MonsterInfo* monster = GetMonsterListEntry(index);
-        if (monster->fActive && monster->fInCombat && predicate(monster)) {
+        if (monster->fActive && monster->pCombat && predicate(monster)) {
             return true;
         }
     }
@@ -610,7 +611,7 @@ void BeginCombatExecution(void)
 
     for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
         W8MonsterInfo* monster = GetMonsterListEntry(index);
-        if (monster->fInCombat) {
+        if (monster->pCombat) {
             W8MonsterCombatState* state = monster->pCombat.get();
             state->berserk = false;
             state->spot_attempts = 0;
@@ -662,7 +663,7 @@ void BeginCombatExecution(void)
     }
     for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
         W8MonsterInfo* monster = GetMonsterListEntry(index);
-        if (!monster->fInCombat || monster->hp_current == 0 ||
+        if (!monster->pCombat || monster->hp_current == 0 ||
             monster->highest_condition >= W8_CONDITION_WEBBED) {
             continue;
         }
@@ -821,7 +822,7 @@ void NotifyNearbyMonsters(int what)
 
     for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
         monster_info = GetMonsterListEntry(index);
-        if (monster_info->fInCombat && monster_info->hp_current != 0 &&
+        if (monster_info->pCombat && monster_info->hp_current != 0 &&
             monster_info->highest_condition < W8_CONDITION_WEBBED &&
             monster_info->uiCondition[W8_CONDITION_BLIND] == 0 &&
             monster_info->ubDisposition == W8_DISPOSITION_HOSTILE) {
@@ -1151,7 +1152,7 @@ void EndCombat(bool forced_cleanup)
                       W8_MAIN_REDRAW_PORTRAIT_6 | W8_MAIN_REDRAW_PORTRAIT_7 |
                       W8_MAIN_REDRAW_SUBMENU_BUTTONS | W8_MAIN_REDRAW_COMBAT_STANCE);
     }
-    if (!gXStatus.fNpcDialogueMode && !gpSCSV && !gXStatus.fItemSelectMode) {
+    if (!gXStatus.fNpcDialogueMode && !gpSCSV && !ItemUseDraft()) {
         SelectTextBox(0);
     }
     g_combat_state.reset();
@@ -1241,7 +1242,7 @@ void ApplyPartyCombatAction(int party_slot, W8ActionKind action, int detail,
     if (action != W8_ACTION_WALK && action != W8_ACTION_RUN) {
         W8Action choice{action, detail};
         if (data) choice.detail_block = *data;
-        if (gpSCSV || gXStatus.fItemSelectMode)
+        if (gpSCSV || ItemUseDraft())
             choice.target = g_status.buffers.XChar[party_slot].committed_action.target;
         SetCharacterCombatAction(party_slot, choice, notify);
         return;
@@ -1359,10 +1360,7 @@ W8Action SelectCombatAction(int party_slot, W8TargetingContext context)
         if (gpSCSV) {
             action = gpSCSV->draft;
         } else {
-            action = {W8_ACTION_USE_ITEM,
-                      -1,
-                      gXStatus.item_selection_target,
-                      {.item_use = {0, g_use_item_selected}}};
+            action = ItemUseDraft() ? *ItemUseDraft() : W8Action{W8_ACTION_USE_ITEM, -1};
         }
         break;
     case W8_TARGETING_CONTEXT_SPELL:
@@ -1574,7 +1572,7 @@ bool AnyCombatMonsterBusy(void)
             GetMonsterDataForInfo(monster_info)->record_id == 0x234) {
             return true;
         }
-        if (monster_info->fInCombat) {
+        if (monster_info->pCombat) {
             if (MonsterHasPendingCycle(monster) || MonsterIsScalingY(monster)) {
                 return true;
             }
@@ -1617,7 +1615,7 @@ void AutoAdvanceSelectedCharacter(void)
 {
     if (g_settings.auto_advance_character == 0 || g_level_block->pick_changed ||
         !g_combat_state->round_active || gXStatus.iTargetingMode != W8_TARGET_NEED_NONE || gpSCSV ||
-        gXStatus.fItemSelectMode) {
+        ItemUseDraft()) {
         return;
     }
     int selected = g_status.selected_character;
@@ -1679,7 +1677,7 @@ void AssignCombatPhases(void)
             value = std::clamp(value, -10, 0x59);
             row->phase = 0x5a - value;
             RoundPhaseToStep(&row->phase, 10);
-            if (gXStatus.hostile_monster_count != 0 &&
+            if (CurrentLevelPopulation().monster_roster.hostileCombatCount() != 0 &&
                 character->skills[W8_SKILL_SNAKESPEED].active && Random(5) == 0) {
                 PracticeCharacterSkill(character, W8_SKILL_SNAKESPEED, 1, false);
             }
@@ -1691,7 +1689,7 @@ void AssignCombatPhases(void)
     unsigned int monster_count = CurrentLevelPopulation().monster_roster.live().size();
     for (unsigned int monster_index = 0; monster_index < monster_count; ++monster_index) {
         W8MonsterInfo* monster_info = GetMonsterListEntry(monster_index);
-        if (monster_info->fInCombat) {
+        if (monster_info->pCombat) {
             bool side_done;
             if (monster_info->ubDisposition == W8_DISPOSITION_HOSTILE) {
                 side_done = g_combat_state->monsters_surprised;
@@ -1778,7 +1776,7 @@ void AdvanceCombatRound(void)
         ClearPendingPartyMovement();
     }
     ReconcilePartyFormation(&gXStatus.edited_formation, &g_status.formation);
-    if (gXStatus.hostile_monster_count != 0) {
+    if (CurrentLevelPopulation().monster_roster.hostileCombatCount() != 0) {
         ShowNotice(W8_FONT_PALETTE_BEIGE,
                    fmt::sprintf(g_localized_strings[0x22b], g_combat_state->round_count));
         wiz8::sound::play("Data\\Sound\\Misc\\EndTurnChime.wav");
@@ -1850,7 +1848,7 @@ void AdvanceCombatRound(void)
     index = 0;
     while (index < CurrentLevelPopulation().monster_roster.live().size()) {
         W8MonsterInfo* monster_info = GetMonsterListEntry(index);
-        if (monster_info->fInCombat) {
+        if (monster_info->pCombat) {
             if (monster_info->action_kind == W8_MONSTER_ACTION_WAIT ||
                 monster_info->highest_condition == W8_CONDITION_ASLEEP ||
                 monster_info->highest_condition == W8_CONDITION_UNCONSCIOUS) {
@@ -1883,7 +1881,7 @@ void AdvanceCombatRound(void)
     index = 0;
     while (index < CurrentLevelPopulation().monster_roster.live().size()) {
         W8MonsterInfo* monster_info = GetMonsterListEntry(index);
-        if (monster_info->fInCombat && monster_info->hp_current != 0 &&
+        if (monster_info->pCombat && monster_info->hp_current != 0 &&
             monster_info->highest_condition < W8_CONDITION_WEBBED &&
             monster_info->uiCondition[W8_CONDITION_BLIND] == 0) {
             W8CombatSlot chosen;
@@ -1906,7 +1904,7 @@ void AdvanceCombatRound(void)
 int CheckCombatEnd(unsigned int end_if_no_hostiles)
 {
     bool any_active = AnyCharacterActive();
-    RecountCombatMonsters();
+    RefreshCombatEngagement();
     if (!any_active) {
         ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x230], 0);
         for (int party_slot = 0; party_slot < 8; ++party_slot) {
@@ -1918,8 +1916,8 @@ int CheckCombatEnd(unsigned int end_if_no_hostiles)
             }
         }
     } else {
-        if (((end_if_no_hostiles == 0 || gXStatus.hostile_monster_count != 0) ||
-             gXStatus.hostile_group_count != 0) &&
+        if ((end_if_no_hostiles == 0 ||
+             CurrentLevelPopulation().monster_roster.hostileCombatCount() != 0) &&
             g_combat_state->unengaged_rounds < 2) {
             return 0;
         }
@@ -1987,7 +1985,7 @@ void RollCombatSurprise(char party_cannot_be_surprised)
             for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size();
                  ++index) {
                 monster_info = GetMonsterListEntry(index);
-                if (monster_info->fActive && monster_info->fInCombat &&
+                if (monster_info->fActive && monster_info->pCombat &&
                     monster_info->hp_current != 0 &&
                     monster_info->highest_condition < W8_CONDITION_PARALYZED &&
                     monster_info->ubDisposition == W8_DISPOSITION_HOSTILE &&
@@ -2016,7 +2014,7 @@ void RollCombatSurprise(char party_cannot_be_surprised)
     found = false;
     for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
         monster_info = GetMonsterListEntry(index);
-        if (monster_info->fActive && monster_info->fInCombat && monster_info->hp_current != 0 &&
+        if (monster_info->fActive && monster_info->pCombat && monster_info->hp_current != 0 &&
             monster_info->highest_condition < W8_CONDITION_PARALYZED &&
             monster_info->ubDisposition == W8_DISPOSITION_HOSTILE &&
             monster_info->player_visibility.sight_state == W8_SIGHT_SEEN) {
@@ -2200,7 +2198,7 @@ void ExecuteCharacterAction(int party_slot)
         }
         break;
     case W8_ACTION_TURN_UNDEAD:
-        if (gXStatus.hostile_monster_count == 0) {
+        if (CurrentLevelPopulation().monster_roster.hostileCombatCount() == 0) {
             result = 0;
         } else {
             TurnUndead(party_slot, &fatigue_cost, true);
@@ -2492,7 +2490,7 @@ void ExecuteMonsterAction(W8MonsterInfo* monster_info, W8MonsterRecord* record)
         case W8_MONSTER_ACTION_RETURN_TO_START:
             if (monster_info->summoned != W8_MONSTER_SUMMON_NONE ||
                 (monster_info->ubDisposition == W8_DISPOSITION_FRIENDLY &&
-                 gXStatus.hostile_monster_count == 0)) {
+                 CurrentLevelPopulation().monster_roster.hostileCombatCount() == 0)) {
                 ShowNotice(W8_FONT_PALETTE_RUST,
                            fmt::sprintf(g_localized_strings[0x23c],
                                         GetMonsterName(monster_info, nullptr, 0)));
@@ -3061,7 +3059,8 @@ void UpdateCombat(void)
     if (gXStatus.fSurprisePossible) {
         return;
     }
-    if (g_combat_state->combat_evaluated == 0 && gXStatus.hostile_monster_count != 0) {
+    if (g_combat_state->combat_evaluated == 0 &&
+        CurrentLevelPopulation().monster_roster.hostileCombatCount() != 0) {
         EvaluateCombatDifficulty();
         g_combat_state->combat_evaluated = 1;
     }
@@ -3115,7 +3114,7 @@ void UpdateCombat(void)
     for (unsigned int monster_index = 0;
          monster_index < CurrentLevelPopulation().monster_roster.live().size(); ++monster_index) {
         W8MonsterInfo* monster_info = GetMonsterListEntry(monster_index);
-        if (monster_info->fActive && monster_info->fInCombat && monster_info->hp_current != 0 &&
+        if (monster_info->fActive && monster_info->pCombat && monster_info->hp_current != 0 &&
             monster_info->pCombat->sight_refresh_pending) {
             RefreshMonsterSight(monster_info);
             monster_info->pCombat->sight_refresh_pending = false;
@@ -3293,7 +3292,7 @@ void ScheduleCombatActor(void)
                  monster_index < CurrentLevelPopulation().monster_roster.live().size();
                  ++monster_index) {
                 W8MonsterInfo* monster_info = GetMonsterListEntry(monster_index);
-                if (!monster_info->fInCombat) {
+                if (!monster_info->pCombat) {
                     continue;
                 }
                 W8MonsterCombatState* combat = monster_info->pCombat.get();
@@ -3375,8 +3374,7 @@ void ScheduleCombatActor(void)
                     apply_delay = true;
                 }
             }
-            if (apply_delay &&
-                (gXStatus.hostile_monster_count != 0 || gXStatus.hostile_group_count != 0) &&
+            if (apply_delay && CurrentLevelPopulation().monster_roster.hostileCombatCount() != 0 &&
                 IsLevelMovementStopped()) {
                 unsigned int delay = g_settings.combat_delay_ms;
                 if (g_combat_state->pacing_latch &&
@@ -3480,7 +3478,7 @@ short GetCombatActionProgress(int* out_total)
     for (unsigned int index = 0; index < CurrentLevelPopulation().monster_roster.live().size();
          ++index) {
         W8MonsterInfo* monster_info = GetMonsterListEntry(index);
-        if (monster_info->fInCombat && monster_info->hp_current != 0 &&
+        if (monster_info->pCombat && monster_info->hp_current != 0 &&
             monster_info->highest_condition < W8_CONDITION_ASLEEP && !monster_info->fMotionless &&
             monster_info->action_kind != W8_MONSTER_ACTION_WAIT &&
             monster_info->action_kind != W8_MONSTER_ACTION_PROTECT &&

@@ -656,7 +656,6 @@ SavedMonster ReadMonster(W8Chunk& chunk)
     if (chunk.ReadValue<unsigned char>()) script = SavedMonsterScript::Read(chunk);
     info.fActive = false;
     info.p3D = nullptr;
-    info.fInCombat = false;
     info.pCombat = nullptr;
     saved.unborn = version >= 5 && chunk.ReadValue<unsigned char>() != 0;
     auto& movement = saved.movement;
@@ -1331,12 +1330,6 @@ void InstallLevelSessionState(W8World& world, W8LoadedLevelStatus* status)
 {
     g_status.next_group_id = g_status.next_monster_location_id = g_status.next_world_item_id = 1;
     g_status.next_trigger_id = world.next_trigger_id;
-    gXStatus.active_monster_count = 0;
-    for (const auto* list :
-         {&world.population->monster_roster.live(), &world.population->monster_roster.unborn()})
-        for (const auto& info : *list)
-            if (info->fActive) ++gXStatus.active_monster_count;
-    gXStatus.hostile_monster_count = gXStatus.hostile_group_count = 0;
     gXStatus.item_manager_pending = 0;
     if (g_level_block) g_level_block->highlighted_item = g_level_block->selected_item = -1;
     if (!status) return;

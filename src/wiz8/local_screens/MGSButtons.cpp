@@ -49,6 +49,7 @@
 #include "wiz8/local_screens/MGSFormation.h"
 #include "wiz8/local_screens/MGSPortraitCombat.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
+#include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/ui_input.h"
@@ -377,7 +378,7 @@ void UpdateCombatStanceButtons(void)
     for (index = 0; index < 5; ++index) {
         g_main_game_state->hud_buttons.combat_stance[index].SetVisible(index == stance);
     }
-    if (!gpSCSV && !gXStatus.fItemSelectMode && !gXStatus.fReviewCharacterMode) {
+    if (!gpSCSV && !ItemUseDraft() && !gXStatus.fReviewCharacterMode) {
         enabled = true;
     } else {
         enabled = false;
@@ -537,8 +538,8 @@ void UpdateRoofButtons(void)
     bool visible;
     bool enabled;
 
-    if (!gXStatus.fNpcDialogueMode && !gpSCSV && !gXStatus.fItemSelectMode &&
-        !gXStatus.fLockInteractMode && !gXStatus.fTrapInteractMode) {
+    if (!gXStatus.fNpcDialogueMode && !gpSCSV && !ItemUseDraft() && !gXStatus.fLockInteractMode &&
+        !gXStatus.fTrapInteractMode) {
         visible = true;
     } else {
         visible = false;
@@ -687,8 +688,8 @@ void RedrawLayoutArrowButtons(void)
     for (auto& button : g_main_game_state->hud_buttons.layout_arrows) {
         button.m_dirty = true;
     }
-    if (gXStatus.fNpcDialogueMode || gpSCSV || gXStatus.fItemSelectMode ||
-        gXStatus.fLockInteractMode || gXStatus.fTrapInteractMode) {
+    if (gXStatus.fNpcDialogueMode || gpSCSV || ItemUseDraft() || gXStatus.fLockInteractMode ||
+        gXStatus.fTrapInteractMode) {
         for (auto& button : g_main_game_state->hud_buttons.layout_arrows) {
             button.SetVisible(false);
         }
@@ -923,7 +924,7 @@ void UpdateSubMenuPanelButtons(void)
 
     if (!gXStatus.fCombatMode || !g_combat_state->round_active || gXStatus.fSurprisePossible ||
         gXStatus.fLockInteractMode || gXStatus.fTrapInteractMode || gXStatus.fNpcDialogueMode ||
-        gpSCSV || gXStatus.fItemSelectMode || g_level_block->combat_end_notification != -1) {
+        gpSCSV || ItemUseDraft() || g_level_block->combat_end_notification != -1) {
         enabled = false;
     } else {
         enabled = AnyCharacterEngaged();
@@ -931,7 +932,7 @@ void UpdateSubMenuPanelButtons(void)
     g_main_game_state->hud_buttons.submenu_panel[0].SetEnabled(enabled);
 
     if (!gXStatus.fSurprisePossible && !gXStatus.fLockInteractMode && !gXStatus.fTrapInteractMode &&
-        !gXStatus.fNpcDialogueMode && !gpSCSV && !gXStatus.fItemSelectMode &&
+        !gXStatus.fNpcDialogueMode && !gpSCSV && !ItemUseDraft() &&
         g_level_block->combat_end_notification == -1 && AnyCharacterEngaged()) {
         g_main_game_state->hud_buttons.submenu_panel[1].SetEnabled(true);
         if (!gXStatus.fReviewCharacterMode) {

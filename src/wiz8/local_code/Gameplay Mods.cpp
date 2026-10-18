@@ -341,7 +341,7 @@ void RebuildMonsterDerivedStats(W8MonsterInfo& monster)
                             modifiers);
     ApplyEnchantmentModifiers(monster_info->enchantments, modifiers);
     ApplyPartyEffectSlots(monster_info->effect_slots, modifiers);
-    if (monster_info->fInCombat) {
+    if (monster_info->pCombat) {
         W8EffectSlot* slot = monster_info->pCombat->combat_effects;
         for (int index = 9; index != 0; --index, ++slot) {
             if (slot->active && slot->effect_id == 0x31) {

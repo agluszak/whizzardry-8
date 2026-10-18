@@ -924,7 +924,7 @@ static void AgeMonsterMovement(W8MonsterInfo* monster_info, unsigned int minutes
 {
     W8Monster* monster;
 
-    if (monster_info->fInCombat) {
+    if (monster_info->pCombat) {
         W8CombatSlot target;
         target.iType = static_cast<W8TargetKind>(3);
         target.iMonsterID = monster_info->location_id;
@@ -1120,7 +1120,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
             W8TargetSource source;
 
             amount *= minutes;
-            if (monster_info->fInCombat) {
+            if (monster_info->pCombat) {
                 amount += amount >> 1;
             }
             ResetTargetSource(&source);
@@ -1165,7 +1165,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
         float heal_scale;
 
         if (!gXStatus.fSurprisePossible && full_health_regeneration == 0) {
-            if (!monster_info->fInCombat) {
+            if (!monster_info->pCombat) {
                 heal_scale = 0.5f;
             } else {
                 heal_scale = 0.0f;
@@ -1239,7 +1239,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
             ++slot;
         }
     }
-    if (monster_info->fInCombat) {
+    if (monster_info->pCombat) {
         for (auto& combat_effect : monster_info->pCombat->combat_effects) {
             W8EffectSlot* slot = &combat_effect;
 

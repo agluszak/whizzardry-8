@@ -55,6 +55,7 @@
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/npc_interaction.h"
@@ -789,7 +790,7 @@ static int ChooseMonsterTarget(int party_slot, const W8Action& action,
     for (unsigned index = 0; index < CurrentLevelPopulation().monster_roster.live().size();
          ++index) {
         W8MonsterInfo* monster_info = GetMonsterListEntry(index);
-        if (!monster_info->fActive || !monster_info->fInCombat || monster_info->hp_current == 0 ||
+        if (!monster_info->fActive || !monster_info->pCombat || monster_info->hp_current == 0 ||
             MonsterVsCharDisposition(party_slot, monster_info) != W8_DISPOSITION_HOSTILE ||
             !AssessMonsterAim(party_slot, 2, monster_info, action, attack_range)) {
             continue;
@@ -1916,8 +1917,8 @@ void CommitActionTarget(int actor, W8TargetingContext context, const W8CombatSlo
     case W8_TARGETING_CONTEXT_SHARED:
         if (gpSCSV)
             gpSCSV->draft.target = target;
-        else
-            gXStatus.item_selection_target = target;
+        else if (auto* draft = ItemUseDraft())
+            draft->target = target;
         break;
     case W8_TARGETING_CONTEXT_SPELL:
         row.spell.target = target;

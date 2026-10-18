@@ -141,14 +141,13 @@ static void CaptureCampAlarm(W8SavedLocationState& state)
    ride; 0xEFFFFFFF re-arms the ride from the top. The prop slides from
    5228.6 down to -2000.0 while the gate runs; -5000.0 parks it below. */
 // FUNCTION: WIZ8 0x004DC080
-void ControlLiftGate(int command)
+bool ControlLiftGate(int command)
 {
     glm::vec3 position;
     Trigger* pFlagTrigger;
     float progress;
     int value;
 
-    g_remove_current_master_function = false;
     if (command != 0) {
         value = 0;
         if (command != static_cast<int>(0xEFFFFFFF)) {
@@ -177,22 +176,16 @@ void ControlLiftGate(int command)
             }
         }
         g_lift_prop->SetPosition(&position);
-        return;
+        return false;
     }
-    if (g_lift_gate) {
-        if (!g_lift_gate->PollFinished()) {
-            progress = g_lift_gate->GetProgress();
-        } else {
-            progress = 1.0f;
-            SetTriggerVariableByName("FlagPosition", 100);
-            g_remove_current_master_function = true;
-        }
-        position = g_lift_prop->GetPosition();
-        position.y = (1.0f - progress) * (LIFT_TOP_Y - LIFT_BOTTOM_Y) + LIFT_BOTTOM_Y;
-        g_lift_prop->SetPosition(&position);
-    } else {
-        g_remove_current_master_function = true;
-    }
+    if (!g_lift_gate) return true;
+    const bool finished = g_lift_gate->PollFinished();
+    progress = finished ? 1.0f : g_lift_gate->GetProgress();
+    if (finished) SetTriggerVariableByName("FlagPosition", 100);
+    position = g_lift_prop->GetPosition();
+    position.y = (1.0f - progress) * (LIFT_TOP_Y - LIFT_BOTTOM_Y) + LIFT_BOTTOM_Y;
+    g_lift_prop->SetPosition(&position);
+    return finished;
 }
 
 /* Activation callback installed on the "Security Button" trigger. The first
@@ -215,11 +208,10 @@ bool OnSecurityButtonActivated(Trigger* trigger)
    the camera and re-arms the gate (clamped to 30 seconds). When the gate
    finishes the sound is released and the variable is reset to zero. */
 // FUNCTION: WIZ8 0x004DC3D0
-void ControlCampAlarm(int command)
+bool ControlCampAlarm(int command)
 {
     glm::vec3 position;
 
-    g_remove_current_master_function = false;
     if (command != 0) {
         if (GetLocationVarIDByName("UmpaniCampAlarm") == -1)
             CreateLocationVar("UmpaniCampAlarm", 30);
@@ -241,13 +233,13 @@ void ControlCampAlarm(int command)
         }
     }
     if (!g_mt_gigas_outer_alarm_gate->PollFinished()) {
-        return;
+        return false;
     }
-    g_remove_current_master_function = true;
     if (g_mt_gigas_outer_alarm_sound) g_mt_gigas_outer_alarm_sound->Stop();
     g_mt_gigas_outer_alarm_sound = nullptr;
     g_mt_gigas_outer_alarm_gate.reset();
     SetTriggerVariableByName("UmpaniCampAlarm", 0);
+    return true;
 }
 
 /* Activation callback on VOC_EWAXXSENTRYtrig: hands the sentry NPC (kind

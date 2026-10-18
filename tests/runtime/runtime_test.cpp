@@ -45,6 +45,7 @@
 #include "random.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/level_population.h"
+#include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/ui_layer.h"
 
 /* Runtime scenarios against installed retail assets.
@@ -1141,13 +1142,13 @@ void InventoryChestScenario()
     game.click_at(83, 219);
     game.wait_screen("use-potion-return", W8_SCREEN_MAIN_GAME);
     const bool healed = game.within_frames(600, [&] { return caster.hp_current > 1; });
-    CAPTURE(gXStatus.fItemSelectMode, gXStatus.iTargetingMode, g_status.item_in_cursor,
-            potion.stack_count, g_status.buffers.XChar[slot].pending_action);
+    CAPTURE(ItemUseDraft(), gXStatus.iTargetingMode, g_status.item_in_cursor, potion.stack_count,
+            g_status.buffers.XChar[slot].pending_action);
     Snapshot("potion-use", game.read_frame());
     REQUIRE(healed);
     REQUIRE(potion.iItemNo == healing_potion);
     REQUIRE(potion.stack_count == 1);
-    REQUIRE_FALSE(gXStatus.fItemSelectMode);
+    REQUIRE_FALSE(ItemUseDraft());
     Walk(game, "walk-after-inventory", 5);
     const auto start = PartyPosition();
     game.hold_key(SDLK_DOWN, true);
@@ -1543,7 +1544,7 @@ W8MonsterInfo* EnterCombat(Game& game)
         }
     }
     REQUIRE(monster);
-    if (!monster->fInCombat) {
+    if (!monster->pCombat) {
         MonsterInfoEnterCombat(monster);
     }
     return monster;
@@ -1935,7 +1936,7 @@ std::vector<W8MonsterInfo*> CombatMonsters()
     std::vector<W8MonsterInfo*> monsters;
     for (const auto& owner : CurrentLevelPopulation().monster_roster.live()) {
         auto* monster = owner.get();
-        if (monster->fActive && monster->fInCombat && monster->p3D && monster->hp_current)
+        if (monster->fActive && monster->pCombat && monster->p3D && monster->hp_current)
             monsters.push_back(monster);
     }
     return monsters;
@@ -2090,7 +2091,7 @@ void PrintState(Game& game)
         for (const auto& [distance, monster] : nearby)
             std::printf("  monster %d %s hp=%u disposition=%d combat=%d at %.0f (%g %g)\n",
                         monster->location_id, GetMonsterName(monster, nullptr, false).c_str(),
-                        monster->hp_current, int(monster->ubDisposition), int(monster->fInCombat),
+                        monster->hp_current, int(monster->ubDisposition), bool(monster->pCombat),
                         distance, monster->p3D->GetPosition().x, monster->p3D->GetPosition().z);
     }
     std::fflush(stdout);

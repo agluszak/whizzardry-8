@@ -3220,7 +3220,7 @@ bool ValidateItemSpellUse(int character_index, W8ItemInstance* item,
         ShowNoticeLine(g_localized_strings[0x7a7], callback, true, false);
         return true;
     }
-    if (gXStatus.fItemSelectMode) {
+    if (ItemUseDraft()) {
         if (!SpellHasAnyValidTarget(character_index, record->spell_id,
                                     ItemClassNormalizesTarget(record))) {
             ShowNoticeLine(g_localized_strings[0x7a8], callback, true, false);
@@ -3523,22 +3523,23 @@ unsigned int GetItemUseDifficulty(const W8Character* character, W8Skill skill,
     return failure;
 }
 
-/* Aim the item in an instance at whoever the slot is currently targeting, then
-   start the use as that slot's action. The one spell that needs a caster
-   picked before it can be used also opens the character screen. */
+/* Publish the complete selected item action before executing it. Identify
+   opens its second selection step instead of executing immediately. */
 // FUNCTION: WIZ8 0x0051db60
-void AimItemUseAtCurrentTarget(W8Character* character, W8ItemInstance* item)
+void SetCharacterItemUse(int party_slot, const W8Action& action)
 {
-    unsigned int party_slot = CharacterPointerToPartySlot(character);
-    W8ActionDetailBlock detail;
-
-    detail.item_use.item = item;
+    auto* item = action.detail_block.item_use.item;
+    auto detail = action.detail_block;
     detail.item_use.kind = -1;
-    const auto action = SelectCombatAction(party_slot, GetEditedActionContext(party_slot));
+    auto& row = g_status.buffers.XChar[party_slot];
+    if (gXStatus.fCombatMode)
+        row.committed_action.target = action.target;
+    else
+        row.target_out_of_combat = action.target;
     StagePartySlotItemUse(party_slot, item, &action.target);
     if (g_item_records[item->iItemNo].spell_id == W8_SPELL_IDENTIFY_ITEM) {
         ChooseAction(party_slot, W8_ACTION_USE_ITEM, -1, &detail, true, 1);
-        OpenCharacterScreenForPartySlot(CharacterPointerToPartySlot(character), true);
+        OpenCharacterScreenForPartySlot(party_slot, true);
         return;
     }
     ChooseAction(party_slot, W8_ACTION_USE_ITEM, -1, &detail, false, 1);

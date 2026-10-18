@@ -2712,7 +2712,7 @@ unsigned int W8PathingService::StepMonsterAlongPath(W8NavigatorMovementState* mo
         if (group->ubDisposition == W8_DISPOSITION_HOSTILE) {
             UpdateMonsterSight(monster_info, true, false);
             DoMonsterRTAI(monster_info, true);
-            if (monster_info->fInCombat) {
+            if (monster_info->pCombat) {
                 break;
             }
         }

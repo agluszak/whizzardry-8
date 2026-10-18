@@ -71,11 +71,8 @@ static W8WorldCursorNode* g_active_cursor_node;
 
 // GLOBAL: WIZ8 0x006834d8
 std::vector<W8LevelMaster> g_master_functions;
-// GLOBAL: WIZ8 0x006834dc
-bool g_remove_current_master_function;
 
-/* Run every registered master function once with argument zero, dropping the
-   ones that set the removal flag while it runs. */
+// Capture the batch size: callbacks may append work for the next frame.
 // FUNCTION: WIZ8 0x004D8E40
 void RunMasterFunctions(void)
 {
@@ -83,8 +80,7 @@ void RunMasterFunctions(void)
 
     for (int index = 0; index < count; ++index) {
         const auto update = g_master_functions[index].update;
-        update(0);
-        if (g_remove_current_master_function) {
+        if (update(0)) {
             g_master_functions.erase(g_master_functions.begin() + index);
             --count;
             --index;

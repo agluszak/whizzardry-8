@@ -1607,7 +1607,7 @@ void W8Navigator::SetFacingToward(const glm::vec3* target)
         if (movement.location_id != 0) {
             auto* world = owner_world ? owner_world : GetWorld();
             W8MonsterInfo* monster_info = world->population->findMonster(movement.location_id);
-            if (monster_info->fInCombat) {
+            if (monster_info->pCombat) {
                 monster_info->pCombat->sight_refresh_pending = true;
             }
         }
@@ -1745,7 +1745,7 @@ void W8Navigator::AimAtPosition(const glm::vec3* target)
         if (movement.location_id != 0) {
             auto* world = owner_world ? owner_world : GetWorld();
             W8MonsterInfo* monster_info = world->population->findMonster(movement.location_id);
-            if (monster_info->fInCombat) {
+            if (monster_info->pCombat) {
                 monster_info->pCombat->sight_refresh_pending = true;
             }
         }

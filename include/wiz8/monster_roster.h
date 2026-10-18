@@ -42,6 +42,19 @@ public:
         return std::ranges::contains(unborn_, info, &std::unique_ptr<W8MonsterInfo>::get);
     }
 
+    bool hasActiveMonsters() const
+    {
+        const auto active = [](const auto& info) { return info->fActive; };
+        return std::ranges::any_of(live_, active) || std::ranges::any_of(unborn_, active);
+    }
+
+    unsigned int hostileCombatCount() const
+    {
+        return std::ranges::count_if(live_, [](const auto& info) {
+            return info->fActive && info->pCombat && info->ubDisposition == W8_DISPOSITION_HOSTILE;
+        });
+    }
+
 private:
     friend bool RemoveMonster(W8MonsterInfo*, W8MonsterRemoval);
     bool erase(W8MonsterInfo* info)

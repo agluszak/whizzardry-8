@@ -14,23 +14,20 @@ class stSound3D;
 
 /* One level-specific per-frame entry point, registered by the level's own
    master function and run every world update. */
-typedef void (*W8MasterFunction)(int);
+using W8MasterFunction = bool (*)(int);
 
-/* The registered master functions, and the flag a callback sets to ask the
-   dispatcher to drop it after this run. */
+// An update returns true when complete. Capture never advances gameplay.
 struct W8LevelMaster {
     W8MasterFunction update;
     void (*capture)(W8SavedLocationState&) = nullptr;
     bool operator==(const W8LevelMaster&) const = default;
 };
 extern std::vector<W8LevelMaster> g_master_functions;
-extern bool g_remove_current_master_function;
 extern bool g_running_trigger_from_script;
 
 void ClearActiveWorldCursorNode(void);
 int NormalizeMasterFunctionValue(int value);
-/* Run every registered master function once with argument zero, dropping the
-   ones that set the removal flag while it runs. */
+// Run the current batch once; completed entries leave and new entries wait until next frame.
 void RunMasterFunctions(void);
 // Capture only registered persistence callbacks; never step gameplay while saving.
 W8SavedLocationState CaptureMasterFunctionState();

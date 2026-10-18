@@ -57,6 +57,7 @@
 #include "wiz8/monster_roster.h"
 #include "wiz8/npc_items.h"
 #include "wiz8/npc_trade_price.h"
+#include "wiz8/retail_save_records.h"
 #include "wiz8/xstatus.h"
 
 struct LevelWorldFixture {
@@ -66,32 +67,34 @@ struct LevelWorldFixture {
 
 static std::vector<int> masterCalls;
 
-static void laterMaster(int command)
+static bool laterMaster(int command)
 {
     masterCalls.push_back(30 + command);
-    g_remove_current_master_function = false;
+    return false;
 }
 
-static void firstMaster(int command)
+static bool firstMaster(int command)
 {
     masterCalls.push_back(10 + command);
-    g_remove_current_master_function = false;
     if (command == 0) {
         g_master_functions.push_back({laterMaster});
     }
+    return false;
 }
 
-static void removingMaster(int command)
+static bool removingMaster(int command)
 {
     masterCalls.push_back(20 + command);
-    g_remove_current_master_function = true;
+    // A nested script's result cannot overwrite this callback's completion.
+    laterMaster(1);
+    return true;
 }
 
 static bool masterFunctionMutation()
 {
     g_master_functions = {{firstMaster}, {removingMaster}};
     RunMasterFunctions();
-    REQUIRE((masterCalls == std::vector<int>{10, 20}));
+    REQUIRE((masterCalls == std::vector<int>{10, 20, 31}));
     REQUIRE((g_master_functions == std::vector<W8LevelMaster>{{firstMaster}, {laterMaster}}));
     masterCalls.clear();
     g_master_functions[0].capture = [](W8SavedLocationState& state) {
@@ -867,4 +870,49 @@ TEST_CASE_METHOD(LevelWorldFixture,
     REQUIRE(GetLiveMonsterGroupAtIndex(0) == displayed);
     REQUIRE(GetLiveMonsterGroupAtIndex(1) == nullptr);
     REQUIRE(GetLiveMonsterGroupAtIndex(-1) == nullptr);
+}
+
+TEST_CASE("Threat queries follow roster membership and owned combat state", "[collections]")
+{
+    W8LevelPopulation population;
+    auto& roster = population.monster_roster;
+    auto* live = roster.add(std::make_unique<W8MonsterInfo>(), false);
+    auto* unborn = roster.add(std::make_unique<W8MonsterInfo>(), true);
+    REQUIRE_FALSE(roster.hasActiveMonsters());
+    unborn->fActive = true;
+    unborn->ubDisposition = W8_DISPOSITION_HOSTILE;
+    unborn->pCombat = std::make_unique<W8MonsterCombatState>();
+    REQUIRE(roster.hasActiveMonsters());
+    REQUIRE(roster.hostileCombatCount() == 0);
+    REQUIRE(roster.promote(unborn));
+    REQUIRE(roster.hostileCombatCount() == 1);
+    live->fActive = true;
+    live->ubDisposition = W8_DISPOSITION_HOSTILE;
+    live->pCombat = std::make_unique<W8MonsterCombatState>();
+    REQUIRE(roster.hostileCombatCount() == 2);
+    live->ubDisposition = W8_DISPOSITION_FRIENDLY;
+    REQUIRE(roster.hostileCombatCount() == 1);
+    unborn->fActive = false;
+    REQUIRE(roster.hostileCombatCount() == 0);
+    live->ubDisposition = W8_DISPOSITION_HOSTILE;
+    live->pCombat.reset();
+    REQUIRE(roster.hostileCombatCount() == 0);
+    live->fActive = false;
+    REQUIRE_FALSE(roster.hasActiveMonsters());
+}
+
+TEST_CASE("Retail monster combat markers describe ownership without restoring a fight", "[save]")
+{
+    W8MonsterInfo monster{};
+    monster.location_id = 42;
+    monster.pCombat = std::make_unique<W8MonsterCombatState>();
+    auto image = wiz8::retail::encode_image(monster);
+    REQUIRE(image.fInCombat);
+    W8MonsterInfo restored{};
+    wiz8::retail::decode_image(image, restored);
+    REQUIRE(restored.location_id == 42);
+    REQUIRE_FALSE(restored.pCombat);
+    REQUIRE(monster.pCombat);
+    monster.pCombat.reset();
+    REQUIRE_FALSE(wiz8::retail::encode_image(monster).fInCombat);
 }

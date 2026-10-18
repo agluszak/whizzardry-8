@@ -6,7 +6,11 @@
 
 struct W8ItemInstance;
 
-extern W8ItemInstance* g_use_item_selected;
+struct W8Action;
+
+// The draft exists exactly while the item picker is open.
+W8Action* ItemUseDraft();
+void ResetUseItemSelection();
 
 void SetUseItemSelectInputEnabled(bool enabled);
 void InvalidateUseItemSelectPanel(void);

@@ -313,7 +313,7 @@ void DoMonsterRTAI(W8MonsterInfo* monster_info, bool engage)
         unsigned char best_range;
         unsigned int attack;
 
-        if (monster_info->fInCombat) {
+        if (monster_info->pCombat) {
             return;
         }
         if (monster_info == 0) {
@@ -343,7 +343,7 @@ void DoMonsterRTAI(W8MonsterInfo* monster_info, bool engage)
         }
         return;
     }
-    if (monster_info->fInCombat) {
+    if (monster_info->pCombat) {
         return;
     }
     if (monster_info->hp_current != 0 && monster_info->highest_condition < W8_CONDITION_WEBBED) {
@@ -764,7 +764,7 @@ void UpdateAllMonsterAI(void)
 
     for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
         monster_info = GetMonsterListEntry(index);
-        if (monster_info->fInCombat && monster_info->hp_current != 0) {
+        if (monster_info->pCombat && monster_info->hp_current != 0) {
             UpdateMonsterAI(monster_info);
         }
     }
@@ -1009,8 +1009,8 @@ unsigned int MonsterAdvanceChance(W8MonsterInfo* monster_info, W8MonsterRecord* 
     float distance;
 
     hp_percent = monster_info->hp_current * 100 / monster_info->uiHPMax;
-    if (!monster_info->fInCombat) {
-        srAssertFail("pMonsterInfo->fInCombat", MONSTER_AI_CPP, 1272, 0);
+    if (!monster_info->pCombat) {
+        srAssertFail("pMonsterInfo->pCombat", MONSTER_AI_CPP, 1272, 0);
     }
     if ((record->flags & W8_MONSTER_FLAG_NPC) != 0 &&
         monster_info->ubDisposition != W8_DISPOSITION_HOSTILE && hp_percent <= 33) {
@@ -1148,7 +1148,7 @@ void BuildMonsterActionQueue(W8MonsterInfo* monster_info, bool target_locked, bo
         }
     }
 targets_chosen:
-    friendly_targets = monster_info->fInCombat && monster_info->pCombat->berserk;
+    friendly_targets = monster_info->pCombat && monster_info->pCombat->berserk;
     disposition_needed = friendly_targets ? W8_DISPOSITION_FRIENDLY : W8_DISPOSITION_HOSTILE;
     for (attack = attack_lo; attack < attack_hi; ++attack) {
         if (RateMonsterAttack(monster_info, record, attack, 1, friendly_targets) != 0) {
@@ -1179,7 +1179,7 @@ targets_chosen:
                 other = GetMonsterListEntry(index);
                 if (locked_monster && other != locked_monster) continue;
                 if (other != monster_info && other->fActive && other->hp_current != 0 &&
-                    GetMonsterDataForInfo(other)->untargetable == 0 && other->fInCombat &&
+                    GetMonsterDataForInfo(other)->untargetable == 0 && other->pCombat &&
                     MonsterHostility(monster_info, other) == disposition_needed &&
                     MonsterAttackReachesMonster(monster_info, record, attack, other)) {
                     for (mode_bit = 0; mode_bit < 9; ++mode_bit) {
@@ -1390,7 +1390,7 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
         condition_turns = target->uiCondition;
         enchantments = target->enchantments;
         if (monster_info->ubDisposition == W8_DISPOSITION_HOSTILE &&
-            target->ubDisposition == W8_DISPOSITION_FRIENDLY && monster_info->fInCombat &&
+            target->ubDisposition == W8_DISPOSITION_FRIENDLY && monster_info->pCombat &&
             monster_info->pCombat->reconsider_action) {
             return false;
         }
@@ -1444,7 +1444,7 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
                 if (combat_slot->iType == W8_TARGET_KIND_CHARACTER) {
                     duration = g_combat_state->effect_slots0[index].duration;
                 } else {
-                    if (!target->fInCombat) {
+                    if (!target->pCombat) {
                         continue;
                     }
                     duration = target->pCombat->combat_effects_2[index].duration;
@@ -1610,7 +1610,7 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
                 if (combat_slot->iType == W8_TARGET_KIND_CHARACTER) {
                     duration = g_combat_state->effect_slots[index].duration;
                 } else {
-                    if (!target->fInCombat) {
+                    if (!target->pCombat) {
                         continue;
                     }
                     duration = target->pCombat->combat_effects[index].duration;
@@ -1655,7 +1655,7 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
                 if (combat_slot->iType == W8_TARGET_KIND_CHARACTER) {
                     duration = g_combat_state->effect_slots[index].duration;
                 } else {
-                    if (!target->fInCombat) {
+                    if (!target->pCombat) {
                         continue;
                     }
                     duration = target->pCombat->combat_effects[index].duration;
@@ -1824,7 +1824,7 @@ static void addMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
         member = GetMonsterListEntry(index);
         if ((!exclude_caster || member != monster_info) && member->fActive &&
             member->hp_current != 0 && member->highest_condition < W8_CONDITION_DEAD &&
-            member->fInCombat && MonsterHostility(monster_info, member) == disposition &&
+            member->pCombat && MonsterHostility(monster_info, member) == disposition &&
             MonsterAttackReachesMonster(monster_info, record, 0, member)) {
             ResetCombatSlot(&slot);
             slot.iType = W8_TARGET_KIND_MONSTER;
@@ -1939,7 +1939,7 @@ void CollectMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
         for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
             member = GetMonsterListEntry(index);
             if (member != monster_info && member->fActive && member->hp_current != 0 &&
-                member->highest_condition < W8_CONDITION_DEAD && member->fInCombat &&
+                member->highest_condition < W8_CONDITION_DEAD && member->pCombat &&
                 MonsterHostility(monster_info, member) == W8_DISPOSITION_HOSTILE &&
                 MonsterAttackReachesMonster(monster_info, record, 0, member)) {
                 ResetCombatSlot(&slot);
@@ -2130,7 +2130,7 @@ bool MonsterHasNoVisibleEnemy(W8MonsterInfo* monster_info, bool party_only)
         for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
             other = GetMonsterListEntry(index);
             if (other != monster_info && other->fActive && other->hp_current != 0 &&
-                other->highest_condition < W8_CONDITION_DEAD && other->fInCombat &&
+                other->highest_condition < W8_CONDITION_DEAD && other->pCombat &&
                 MonsterHostility(monster_info, other) == W8_DISPOSITION_HOSTILE &&
                 (record = FindMonToMonVisibility(monster_info, other)) != 0 &&
                 record->sight_state != W8_SIGHT_UNSEEN) {
@@ -2209,7 +2209,7 @@ bool MonsterHasVisibleTarget(W8MonsterInfo* monster_info, bool party_only,
         for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
             other = GetMonsterListEntry(index);
             if (other != monster_info && other->fActive && other->hp_current != 0 &&
-                other->highest_condition < W8_CONDITION_DEAD && other->fInCombat) {
+                other->highest_condition < W8_CONDITION_DEAD && other->pCombat) {
                 disposition = MonsterHostility(monster_info, other);
                 if (hostility == W8_VISIBLE_TARGET_ANY || disposition == hostility ||
                     (hostility == W8_VISIBLE_TARGET_NON_NEUTRAL &&
@@ -2417,7 +2417,7 @@ bool MonsterGroupHalfSpellTargetsValid(W8MonsterInfo* monster_info, int spell_id
         int location_id = target_group->MemberLocationId(index);
         member = FindMonster(location_id);
         if (member->fActive && member->hp_current != 0 &&
-            member->highest_condition < W8_CONDITION_DEAD && member->fInCombat &&
+            member->highest_condition < W8_CONDITION_DEAD && member->pCombat &&
             MonsterHostility(monster_info, member) == W8_DISPOSITION_HOSTILE) {
             ++eligible;
             ResetCombatSlot(&slot);
@@ -2472,7 +2472,7 @@ bool MonsterGroupHasReinforcement(W8MonsterGroup* monster_group)
     float other_distance;
     float monster_distance;
 
-    if (gXStatus.hostile_monster_count == 0) {
+    if (CurrentLevelPopulation().monster_roster.hostileCombatCount() == 0) {
         return false;
     }
     for (index = 0; index < monster_group->MemberIds().size(); ++index) {
@@ -2490,7 +2490,7 @@ bool MonsterGroupHasReinforcement(W8MonsterGroup* monster_group)
              ++other_index) {
             other = GetMonsterListEntry(other_index);
             if (other != member && other->party_threat.los_flags[1] && other->fActive &&
-                other->fInCombat && other->hp_current != 0 &&
+                other->pCombat && other->hp_current != 0 &&
                 other->ubDisposition == W8_DISPOSITION_HOSTILE) {
                 other_distance = other->p3D->GetDistanceToPlayer();
                 monster_distance = member->p3D->GetDistanceToMonster(other->p3D);
@@ -2544,7 +2544,7 @@ void UpdateMonsterGroupEngagement(void)
         member_starting = 0;
         for (index = 0; index < group->MemberIds().size(); ++index) {
             member = FindMonster(group->MemberLocationId(index));
-            if (member->fActive && member->fInCombat &&
+            if (member->fActive && member->pCombat &&
                 static_cast<unsigned int>(member->pCombat->settle_ticks) < 3) {
                 member_starting = 1;
                 break;
@@ -2555,7 +2555,7 @@ void UpdateMonsterGroupEngagement(void)
                 allied = FindMonsterGroup(group->allied_group_ids[allied_index]);
                 for (index = 0; index < allied->MemberIds().size(); ++index) {
                     member = FindMonster(allied->MemberLocationId(index));
-                    if (member->fActive && member->fInCombat &&
+                    if (member->fActive && member->pCombat &&
                         static_cast<unsigned int>(member->pCombat->settle_ticks) < 3) {
                         member_starting = 1;
                         break;

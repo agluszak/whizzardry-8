@@ -1,7 +1,7 @@
 #include "wiz8/local_screens/MGSUseItemSelect.h"
 
+#include <algorithm>
 #include <array>
-#include <cstring>
 #include <memory>
 #include <string>
 #include <vector>
@@ -58,40 +58,20 @@ struct W8NpcState;
 
 #define MGSUSEITEMSELECT_CPP "C:\\Projects\\Wizardry 8\\Local Screens\\MGSUseItemSelect.cpp"
 
-// GLOBAL: WIZ8 0x0069B984
-static int g_use_item_select_flags;
-// GLOBAL: WIZ8 0x0069b988
-// GLOBAL: WIZ8 0x0069B98C
-static int g_use_item_select_mode;
-
-// GLOBAL: WIZ8 0x0069B950
-
-// GLOBAL: WIZ8 0x0069B95C
-static int g_selected_use_item_line;
-// GLOBAL: WIZ8 0x0069B960
-
-// GLOBAL: WIZ8 0x0069B9A0
-W8ItemInstance* g_use_item_selected;
-// GLOBAL: WIZ8 0x0069B990
-static int g_use_item_list_count;
-// GLOBAL: WIZ8 0x0069B994
-
-// GLOBAL: WIZ8 0x0069B9B0
-static int g_use_item_owner_index;
-// GLOBAL: WIZ8 0x0069B9B4
-static W8ItemInstance* g_use_item_list[0x15e];
-// GLOBAL: WIZ8 0x0069BF2C
-static W8ItemInstance* g_use_item_detail_item;
-// GLOBAL: WIZ8 0x0069BF34
-static int g_use_item_hover_row;
-/* Held while CommitSelectedSpellTarget runs for a use-item
-   commit; CloseUseItemSelectView early-outs on it so the commit's side
-   effects cannot tear the view down mid-call. */
-// GLOBAL: WIZ8 0x0069BF38
-static bool g_use_item_commit_active;
-
 namespace {
+enum class ItemPool { Character, Party, Hand };
 struct UseItemView {
+    struct Row {
+        W8ItemInstance* item;
+        bool usable;
+    };
+    W8Action draft{W8_ACTION_USE_ITEM, -1};
+    ItemPool pool = ItemPool::Character;
+    int selected_line = -1;
+    int owner = -1;
+    int hover_row = -1;
+    W8ItemInstance* detail_item = nullptr;
+    std::vector<Row> rows;
     UiLayer input{UiLayerOrder::ItemSelection};
     std::array<std::unique_ptr<W8ButtonWidget>, 2> pools;
     std::unique_ptr<W8ButtonWidget> filter;
@@ -104,25 +84,32 @@ struct UseItemView {
 std::unique_ptr<UseItemView> use_item;
 }
 
+W8Action* ItemUseDraft()
+{
+    return use_item ? &use_item->draft : nullptr;
+}
+
+void ResetUseItemSelection()
+{
+    use_item.reset();
+}
+
 void SetUseItemSelectInputEnabled(bool enabled)
 {
     if (use_item) use_item->input.setEnabled(enabled);
 }
 
 void UpdateUseItemScrollButtons(void);
-static void SelectUseItemScrollMode(int mode);
-static void RebuildUseItemSelectList(int mode, W8ItemInstance* select);
-static bool AppendUseItemListEntry(W8ItemInstance* item, W8ItemInstance* select,
-                                   unsigned char pass);
-bool IsUseItemFilteredOut(W8ItemInstance* item);
-static void UseItemSelectScrollUp(void);
-static void UseItemSelectFilterToggle(void);
+static void SelectUseItemPool(ItemPool pool);
+static void RebuildUseItemSelectList(ItemPool pool, W8ItemInstance* select);
+static void AppendUseItemListEntry(W8ItemInstance* item);
+static void ShowUseItemList(W8ItemInstance* select);
+static bool IsUseItemFilteredOut(W8ItemInstance* item);
 static void UseItemSelectAssayButton(void);
 static void CreateUseItemSelectControls(void);
 
 static void CreateUseItemSelectControls(void)
 {
-    use_item = std::make_unique<UseItemView>();
     const auto make_button = [](int artwork, int normal, int pressed, int hover, int pressed_hover,
                                 int disabled, SDL_Rect bounds, int help, void (*action)()) {
         auto button = std::make_unique<W8ButtonWidget>(use_item->input);
@@ -140,14 +127,16 @@ static void CreateUseItemSelectControls(void)
     };
     for (int index = 0; index < 2; ++index) {
         const int base = index * 5;
-        use_item->pools[index] =
-            make_button(0x98, base, base + 2, base + 1, base + 4, base + 3,
-                        {0x17 + (index ? 0x48 : 0x24), 0x183, 32, 32}, 96 + index,
-                        index ? +[] { SelectUseItemScrollMode(1); } : UseItemSelectScrollUp);
+        use_item->pools[index] = make_button(
+            0x98, base, base + 2, base + 1, base + 4, base + 3,
+            {0x17 + (index ? 0x48 : 0x24), 0x183, 32, 32}, 96 + index,
+            index ? +[] { SelectUseItemPool(ItemPool::Party); }
+                  : +[] { SelectUseItemPool(ItemPool::Character); });
         use_item->pools[index]->Policy().primary_toggle = ButtonToggle::Release;
     }
-    use_item->filter = make_button(0x1ab, 10, 11, 12, 14, 13, {0x234, 0x16c, 14, 14}, 99,
-                                   UseItemSelectFilterToggle);
+    use_item->filter = make_button(
+        0x1ab, 10, 11, 12, 14, 13, {0x234, 0x16c, 14, 14}, 99,
+        +[] { use_item->filter->SetPressed(true); });
     use_item->filter->Policy().primary_toggle = ButtonToggle::Release;
     use_item->filter->SetEnabled(false);
     use_item->close =
@@ -175,9 +164,8 @@ static void CreateUseItemSelectControls(void)
 unsigned char OpenUseItemSelectView(int slot)
 {
 
-    g_use_item_commit_active = false;
     UpdateScreenOverlays(0);
-    gXStatus.fItemSelectMode = true;
+    use_item = std::make_unique<UseItemView>();
     if (g_level_block->combat_end_notification != -1) {
         DestroySubMenuControls();
     }
@@ -189,16 +177,9 @@ unsigned char OpenUseItemSelectView(int slot)
     ResetEditorStatusLine(-1);
     g_level_block->text_box_visible = false;
     CreateUseItemSelectControls();
-    g_use_item_select_mode = -1;
-    g_use_item_select_flags = 0;
-    g_use_item_hover_row = -1;
-    g_use_item_selected = 0;
-    g_use_item_detail_item = 0;
-    memset(g_use_item_list, 0, sizeof(g_use_item_list));
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
     RequestRedrawCombatBar();
     RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
-    g_use_item_owner_index = -1;
     RefreshUseItemSelectionForSlot(slot);
     SelectSpellCastingPartySlot(slot);
     SyncWorldAdvancement();
@@ -208,7 +189,7 @@ unsigned char OpenUseItemSelectView(int slot)
 // FUNCTION: WIZ8 0x0059CAC0
 void CloseUseItemSelectView(void)
 {
-    if (!g_use_item_commit_active) {
+    if (use_item) {
         SetTextBoxScrollInput(false);
         SetTextBoxEnabled(false);
         g_level_block->action_panel_visible = 0;
@@ -217,7 +198,6 @@ void CloseUseItemSelectView(void)
         g_level_block->text_box_visible = true;
         SelectTextBox(gXStatus.fCombatMode);
         use_item.reset();
-        gXStatus.fItemSelectMode = false;
         RefreshMainGameLayout();
         RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
         RequestRedrawCombatBar();
@@ -238,10 +218,7 @@ void CloseUseItemSelectView(void)
     }
 }
 
-/* Rebuild the list for the character the open use-item view now targets. A
-   dragged item switches the list to that item's usable/unusable passes; a
-   recorded item on the party slot re-selects its line; otherwise the current
-   mode is rebuilt or the scroll buttons resynced for an idle list. */
+// Retarget the picker, preferring a dragged item or the character's remembered use.
 // FUNCTION: WIZ8 0x0059CC40
 void RefreshUseItemSelectionForSlot(int party_slot)
 {
@@ -251,28 +228,21 @@ void RefreshUseItemSelectionForSlot(int party_slot)
         CloseUseItemSelectView();
         return;
     }
-    g_use_item_owner_index = party_slot;
+    use_item->owner = party_slot;
     if (gXStatus.item_drag_active) {
         if (!g_status.item_in_cursor) {
             const bool party_pool = gXStatus.dragged_item_origin == W8_ITEM_ORIGIN_PARTY_POOL;
             if (party_pool && gXStatus.fCombatMode)
                 srAssertFail("!gXStatus.fCombatMode", MGSUSEITEMSELECT_CPP, 0x1f0, 0);
-            use_item->pools[party_pool ? 1 : 0]->SetPressed(true);
-            use_item->pools[party_pool ? 0 : 1]->SetPressed(false);
-            RebuildUseItemSelectList(party_pool ? 1 : 0, gXStatus.dragged_item);
+            RebuildUseItemSelectList(party_pool ? ItemPool::Party : ItemPool::Character,
+                                     gXStatus.dragged_item);
         } else {
-            ResetEditorStatusLine(2);
-            use_item->filter->SetEnabled(true);
-            UseItemSelectFilterToggle();
-            g_use_item_list_count = 0;
-            g_selected_use_item_line = -1;
-            AppendUseItemListEntry(&g_status.item_in_hand, &g_status.item_in_hand, 0);
-            AppendUseItemListEntry(&g_status.item_in_hand, &g_status.item_in_hand, 1);
+            RebuildUseItemSelectList(ItemPool::Hand, &g_status.item_in_hand);
         }
-        if (g_selected_use_item_line == -1) {
+        if (use_item->selected_line == -1) {
             srAssertFail("giReuseItemLineNumber != -1", MGSUSEITEMSELECT_CPP, 0x1fe, 0);
         }
-        ScrollTextBoxTo(g_selected_use_item_line);
+        ScrollTextBoxTo(use_item->selected_line);
         gXStatus.item_drag_active = false;
         return;
     }
@@ -280,30 +250,23 @@ void RefreshUseItemSelectionForSlot(int party_slot)
         gXStatus.dragged_item = 0;
         item = FindCharacterItemAt(party_slot, g_status.buffers.XChar[party_slot].item_origin,
                                    g_status.buffers.XChar[party_slot].item_slot);
-        if (CanUseItemForAction(g_use_item_owner_index, item)) {
+        if (CanUseItemForAction(use_item->owner, item)) {
             const bool party_pool =
                 g_status.buffers.XChar[party_slot].item_origin == W8_ITEM_ORIGIN_PARTY_POOL;
             if (party_pool && gXStatus.fCombatMode)
                 srAssertFail("!gXStatus.fCombatMode", MGSUSEITEMSELECT_CPP, 0x216, 0);
-            use_item->pools[party_pool ? 1 : 0]->SetPressed(true);
-            use_item->pools[party_pool ? 0 : 1]->SetPressed(false);
-            RebuildUseItemSelectList(party_pool ? 1 : 0, item);
-            if (g_selected_use_item_line == -1) {
+            RebuildUseItemSelectList(party_pool ? ItemPool::Party : ItemPool::Character, item);
+            if (use_item->selected_line == -1) {
                 srAssertFail("giReuseItemLineNumber != -1", MGSUSEITEMSELECT_CPP, 0x221, 0);
             }
-            ScrollTextBoxTo(g_selected_use_item_line);
-            SetHoveredTextLine(g_selected_use_item_line, 2);
+            ScrollTextBoxTo(use_item->selected_line);
+            SetHoveredTextLine(use_item->selected_line, 2);
             RedrawTextBox();
             return;
         }
     }
     gXStatus.dragged_item = 0;
-    if (g_use_item_select_mode != -1) {
-        RebuildUseItemSelectList(g_use_item_select_mode, 0);
-        return;
-    }
-    use_item->pools[0]->SetPressed(true);
-    UseItemSelectScrollUp();
+    RebuildUseItemSelectList(use_item->pool, nullptr);
 }
 
 // FUNCTION: WIZ8 0x0059CF40
@@ -312,7 +275,7 @@ void InvalidateUseItemSelectPanel(void)
     use_item->dirty[1] = true;
 }
 
-/* fItemSelectMode per-frame update: keep the scroll buttons synced, run the
+/* Per-frame update: keep the scroll buttons synced, run the
    dirty panels' redraw pass, then re-check the pending commit through the
    shared helper. */
 // FUNCTION: WIZ8 0x0059CF50
@@ -353,279 +316,145 @@ void UpdateUseItemSelect(bool active)
 }
 
 /* The two scroll buttons are mutually exclusive views of the same list. */
-static void SelectUseItemScrollMode(int mode)
+static void SelectUseItemPool(ItemPool pool)
 {
-    auto* selected = use_item->pools[mode].get();
-    auto* other = use_item->pools[1 - mode].get();
-    if (selected->IsPressed()) {
-        if (other->IsPressed()) {
-            other->SetPressed(false);
-            other->m_dirty = true;
-        }
-        RebuildUseItemSelectList(mode, 0);
-    } else {
-        selected->SetPressed(true);
-    }
+    if (use_item->pool != pool) RebuildUseItemSelectList(pool, nullptr);
+    UpdateUseItemScrollButtons();
 }
 
-// FUNCTION: WIZ8 0x0059D790
-static void UseItemSelectScrollUp(void)
-{
-    SelectUseItemScrollMode(0);
-}
-
-/* Keep the scroll buttons' enabled and secondary states in step with the
-   list: a single-entry list locks both, combat shows the secondary-state
-   paging instead of plain enabling. */
-// FUNCTION: WIZ8 0x0059D070
+// Both controls project the selected source. Their pressed states never select a source.
 void UpdateUseItemScrollButtons(void)
 {
-    if (g_use_item_select_mode == -1 && g_use_item_list_count == 1) {
-        use_item->pools[0]->SetEnabled(false);
-        use_item->pools[1]->SetEnabled(false);
-        return;
-    }
-    if (gXStatus.fCombatMode) {
-        if (use_item->pools[0]->IsPressed() == 0) {
-            use_item->pools[0]->SetPressed(true);
-            use_item->pools[0]->m_dirty = true;
-            UseItemSelectScrollUp();
-        }
-        if (use_item->pools[1]->IsEnabled()) {
-            use_item->pools[1]->SetEnabled(false);
-            use_item->pools[1]->m_dirty = true;
-        }
-        return;
-    }
-    if (!use_item->pools[1]->IsEnabled()) {
-        use_item->pools[1]->SetEnabled(true);
-        use_item->pools[1]->m_dirty = true;
-    }
-    if (!use_item->pools[0]->IsEnabled()) {
-        use_item->pools[0]->SetEnabled(true);
-        use_item->pools[0]->m_dirty = true;
-    }
-}
-
-// FUNCTION: WIZ8 0x0059D830
-static void UseItemSelectFilterToggle(void)
-{
-    if (use_item->filter->IsPressed() == 0) {
-        use_item->filter->SetPressed(true);
-        use_item->filter->m_dirty = true;
-    }
-    g_use_item_select_flags |= 1;
+    if (gXStatus.fCombatMode && use_item->pool == ItemPool::Party)
+        RebuildUseItemSelectList(ItemPool::Character, nullptr);
+    const bool hand = use_item->pool == ItemPool::Hand;
+    use_item->pools[0]->SetEnabled(!hand);
+    use_item->pools[1]->SetEnabled(!hand && !gXStatus.fCombatMode);
+    use_item->pools[0]->SetPressed(use_item->pool == ItemPool::Character);
+    use_item->pools[1]->SetPressed(use_item->pool == ItemPool::Party);
 }
 
 // FUNCTION: WIZ8 0x0059D860
 static void UseItemSelectAssayButton(void)
 {
-    if (g_use_item_detail_item != 0 && use_item->item_image) {
-        OpenUseItemAssayDialog(g_use_item_detail_item);
+    if (use_item->detail_item != 0 && use_item->item_image) {
+        OpenUseItemAssayDialog(use_item->detail_item);
     }
 }
 
-/* Commit the pending use-item action: while the selected item is still usable
-   by the owner and its recorded target suits it, commit the target and aim
-   the item use. Spell 0x17 keeps the view open for the follow-up pick;
-   anything else closes it. */
+// Commit a copy of the draft; execution may close the picker. Identify keeps
+// the view available for its second selection step.
 // FUNCTION: WIZ8 0x0059D180
 void CommitSelectedItemUse(void)
 {
-    W8Character* character;
+    const auto draft = use_item->draft;
+    auto* item = draft.detail_block.item_use.item;
+    const int slot = use_item->owner;
+    if (!item || !CanUseItemForAction(slot, item) || !IsItemTargetOfNeededKind(&draft.target, item))
+        return;
 
-    if (g_use_item_selected != 0 &&
-        CanUseItemForAction(g_status.selected_character, g_use_item_selected) &&
-        IsItemTargetOfNeededKind(&gXStatus.item_selection_target, g_use_item_selected)) {
-        character = &g_status.buffers.Char[g_status.selected_character];
-        if (g_use_item_selected != 0) {
-            g_use_item_commit_active = true;
-            CommitActionTarget(g_status.selected_character,
-                               gXStatus.fCombatMode ? W8_TARGETING_CONTEXT_IN_COMBAT
-                                                    : W8_TARGETING_CONTEXT_OUT_OF_COMBAT,
-                               gXStatus.item_selection_target, false);
-            StartBreathCycle(g_status.selected_character, true);
-            g_use_item_commit_active = false;
-            AimItemUseAtCurrentTarget(character, g_use_item_selected);
-            if (g_use_item_selected != 0 && g_use_item_selected->iItemNo != -1 &&
-                GetItemSpell(g_use_item_selected) == 0x17) {
-                return;
-            }
-            CloseUseItemSelectView();
-        }
-    }
+    StartBreathCycle(slot, true);
+    SetCharacterItemUse(slot, draft);
+    if (item->iItemNo != -1 && GetItemSpell(item) == 0x17) return;
+    CloseUseItemSelectView();
 }
 
-/* Reset the detail control and rebuild the use-item list for a mode:
-   -1 clears the view state and disables the action controls, 0 lists the
-   owning character's equipment then backpack, and any other mode lists the
-   party item pool. Each mode appends entries in two passes (usable first,
-   then the rest) through AppendUseItemListEntry; select re-highlights
-   the line holding that item. */
+// Rebuild from the selected inventory source; usable entries retain inventory order.
 // FUNCTION: WIZ8 0x0059D230
-static void RebuildUseItemSelectList(int mode, W8ItemInstance* select)
+static void RebuildUseItemSelectList(ItemPool pool, W8ItemInstance* select)
 {
-    W8Character* character;
-    unsigned char pass;
-    unsigned int i;
-    int slot;
-
-    slot = g_status.selected_character;
     ResetEditorStatusLine(2);
     ClearSelectedTextLine(2);
-    g_use_item_selected = 0;
-    g_use_item_detail_item = 0;
+    use_item->draft.detail_block.item_use.item = 0;
+    use_item->detail_item = 0;
     use_item->item_image.reset();
     use_item->quantity.SetText("", g_large_font);
     use_item->dirty[2] = true;
     SelectSpellCastingPartySlot(g_status.selected_character);
-    g_use_item_select_mode = mode;
-    if (mode == -1) {
-        use_item->filter->SetEnabled(false);
-        return;
-    }
+    use_item->pool = pool;
     use_item->filter->SetEnabled(true);
-    UseItemSelectFilterToggle();
-    g_use_item_list_count = 0;
-    g_selected_use_item_line = -1;
-    if (mode != 0) {
-        for (pass = 0; pass < 2; pass++) {
-            for (i = 0; i < g_status.party_item_count; i++) {
-                if (!AppendUseItemListEntry(&g_status.party_item_pool[i], select, pass)) {
-                    return;
-                }
-            }
-            ScrollTextBoxTo(0);
-        }
-        InvalidateUseItemSelectPanel();
-        return;
+    use_item->filter->SetPressed(true);
+    use_item->rows.clear();
+    if (pool == ItemPool::Hand) {
+        AppendUseItemListEntry(&g_status.item_in_hand);
+    } else if (pool == ItemPool::Character) {
+        auto& character = g_status.buffers.Char[use_item->owner];
+        for (auto& item : character.EquippedItem) AppendUseItemListEntry(&item);
+        for (auto& item : character.backpack) AppendUseItemListEntry(&item);
+    } else {
+        for (unsigned int i = 0; i < g_status.party_item_count; ++i)
+            AppendUseItemListEntry(&g_status.party_item_pool[i]);
     }
-    character = &g_status.buffers.Char[slot];
-    for (pass = 0; pass < 2; pass++) {
-        for (i = 0; i < 12; i++) {
-            if (!AppendUseItemListEntry(&character->EquippedItem[i], select, pass)) {
-                return;
-            }
-        }
-        for (i = 0; i < 8; i++) {
-            if (!AppendUseItemListEntry(&character->backpack[i], select, pass)) {
-                return;
-            }
-        }
-    }
+    ShowUseItemList(select);
+    UpdateUseItemScrollButtons();
     ScrollTextBoxTo(0);
     InvalidateUseItemSelectPanel();
 }
 
-/* Append one item to the use-item list under the active filter. Pass 0 takes
-   items the owner can use; pass 1 takes the rest outside camp/lock/trap
-   contexts (where only the usable pass runs). Entries store the item, select
-   it when it matches select, and show a display name with stack/charge counts
-   or the unidentified "(?)". Returns false when the list is full. */
-// FUNCTION: WIZ8 0x0059D450
-static bool AppendUseItemListEntry(W8ItemInstance* item, W8ItemInstance* select, unsigned char pass)
+// Classify once; stable partition preserves inventory order within each band.
+static void AppendUseItemListEntry(W8ItemInstance* item)
 {
-    std::string text;
-    unsigned int color;
-    short count;
-    bool charged;
-
-    if (item->iItemNo == -1) {
-        return true;
-    }
-    if (IsUseItemFilteredOut(item)) {
-        return true;
-    }
-    if (pass != 0 || !CanUseItemForAction(g_use_item_owner_index, item)) {
-        if (gXStatus.fCampMode) {
-            return true;
-        }
-        if (LockInteractionSuspended()) {
-            return true;
-        }
-        if (TrapInteractionSuspended()) {
-            return true;
-        }
-        if (pass != 1) {
-            return true;
-        }
-        if (CanUseItemForAction(g_use_item_owner_index, item)) {
-            return true;
-        }
-        if (g_use_item_list_count + 1U > 0x15e) {
-            g_selected_use_item_line = g_use_item_list_count;
-            return false;
-        }
-        if (select != 0 && select == item) {
-            g_selected_use_item_line = g_use_item_list_count;
-        }
-        g_use_item_list[g_use_item_list_count] = item;
-        if (g_item_records[item->iItemNo].equip_class != W8_ITEM_EQUIP_CLASS_INSTRUMENT ||
-            g_status.buffers.Char[g_use_item_owner_index].uiCondition[W8_CONDITION_SILENCED] == 0) {
-            color = 0;
-        } else {
-            color = 4;
-        }
-        ShowNotice(color, FormatItemDisplayName(item, true), 2);
-        ++g_use_item_list_count;
-        return true;
-    }
-    if (g_use_item_list_count + 1U > 0x15e) {
-        g_selected_use_item_line = g_use_item_list_count;
-        return false;
-    }
-    if (select != 0 && select == item) {
-        g_selected_use_item_line = g_use_item_list_count;
-    }
-    g_use_item_list[g_use_item_list_count] = item;
-    charged = false;
-    switch (g_item_records[item->iItemNo].quantity_kind) {
-    case W8_ITEM_QUANTITY_STACK:
-        count = item->stack_count;
-        break;
-    case W8_ITEM_QUANTITY_CHARGES:
-    case W8_ITEM_QUANTITY_USES:
-        if (!item->identified) {
-            ShowNotice(0xf, fmt::format("{} (?)", FormatItemDisplayName(item, false)), 2);
-            ++g_use_item_list_count;
-            return true;
-        }
-        charged = true;
-        count = item->uses_or_charges;
-        break;
-    case W8_ITEM_QUANTITY_SHOTS:
-        charged = true;
-        count = item->uses_or_charges;
-        break;
-    default:
-        ShowNotice(W8_FONT_PALETTE_TEXT_BOX, FormatItemDisplayName(item, false), 2);
-        ++g_use_item_list_count;
-        return true;
-    }
-    if (count == -1) {
-        text = fmt::format("{} (?)", FormatItemDisplayName(item, false));
-    } else if (count > 1 || charged) {
-        text = fmt::format("{} ({:d})", FormatItemDisplayName(item, false), count);
-    } else {
-        text = FormatItemDisplayName(item, false);
-    }
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, text, 2);
-    ++g_use_item_list_count;
-    return true;
+    if (item->iItemNo == -1 || IsUseItemFilteredOut(item)) return;
+    const bool usable = CanUseItemForAction(use_item->owner, item);
+    if (!usable && (gXStatus.fCampMode || LockInteractionSuspended() || TrapInteractionSuspended()))
+        return;
+    use_item->rows.push_back({item, usable});
 }
 
-/* Filter predicate for AppendUseItemListEntry: while the select flags
-   are set, entries the character cannot activate or cast from are dropped,
+static void ShowUseItemList(W8ItemInstance* select)
+{
+    auto& rows = use_item->rows;
+    std::stable_partition(rows.begin(), rows.end(), [](const auto& row) { return row.usable; });
+    // The shared text box stores at most 350 lines. Keep its rows and ours aligned.
+    if (rows.size() > 350) rows.resize(350);
+    use_item->selected_line = -1;
+    for (size_t index = 0; index < rows.size(); ++index) {
+        const auto [item, usable] = rows[index];
+        if (item == select) use_item->selected_line = static_cast<int>(index);
+        if (!usable) {
+            const bool silenced =
+                g_item_records[item->iItemNo].equip_class == W8_ITEM_EQUIP_CLASS_INSTRUMENT &&
+                g_status.buffers.Char[use_item->owner].uiCondition[W8_CONDITION_SILENCED];
+            ShowNotice(silenced ? 4 : 0, FormatItemDisplayName(item, true), 2);
+            continue;
+        }
+        int count = 0;
+        bool charged = false;
+        switch (g_item_records[item->iItemNo].quantity_kind) {
+        case W8_ITEM_QUANTITY_STACK:
+            count = item->stack_count;
+            break;
+        case W8_ITEM_QUANTITY_CHARGES:
+        case W8_ITEM_QUANTITY_USES:
+            if (!item->identified) {
+                ShowNotice(0xf, fmt::format("{} (?)", FormatItemDisplayName(item, false)), 2);
+                continue;
+            }
+            [[fallthrough]];
+        case W8_ITEM_QUANTITY_SHOTS:
+            charged = true;
+            count = item->uses_or_charges;
+            break;
+        default:
+            break;
+        }
+        auto text = FormatItemDisplayName(item, false);
+        if (count == -1)
+            text = fmt::format("{} (?)", text);
+        else if (count > 1 || charged)
+            text = fmt::format("{} ({:d})", text, count);
+        ShowNotice(W8_FONT_PALETTE_TEXT_BOX, text, 2);
+    }
+}
+
+/* Entries the character cannot activate or cast from are dropped,
    except usable-class items stay unless the slot's bound NPC wants the
    item. */
 // FUNCTION: WIZ8 0x0059D6B0
-bool IsUseItemFilteredOut(W8ItemInstance* item)
+static bool IsUseItemFilteredOut(W8ItemInstance* item)
 {
     W8NpcState* npc;
 
-    if (g_use_item_select_flags == 0) {
-        return false;
-    }
     if (item->iItemNo == -1) {
         return true;
     }
@@ -651,10 +480,8 @@ bool IsUseItemFilteredOut(W8ItemInstance* item)
 // FUNCTION: WIZ8 0x0059D690
 void RefreshUseItemSelection(void)
 {
-    if (g_use_item_select_mode != -1) {
-        RebuildUseItemSelectList(g_use_item_select_mode, 0);
-        RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
-    }
+    RebuildUseItemSelectList(use_item->pool, nullptr);
+    RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
 }
 
 /* Right release on the use-item text box: open the assay dialog for the item
@@ -664,8 +491,8 @@ void OpenUseItemAssayDialog(W8ItemInstance* item)
 {
     W8AssayDialog* dialog;
 
-    dialog = new W8AssayDialog(*item, &g_status.buffers.Char[g_use_item_owner_index],
-                               {kInfoDialogX, 0x48});
+    dialog =
+        new W8AssayDialog(*item, &g_status.buffers.Char[use_item->owner], {kInfoDialogX, 0x48});
     dialog->SetText("");
 
     dialog->cleanup = [cursor = gXStatus.iCurrentCursor] {
@@ -686,11 +513,11 @@ UiResult HandleUseItemTextBox(const UiPointerEvent& event)
 {
     if (event.action == UiPointerAction::Leave) {
         ClearHoveredTextLine(2);
-        g_use_item_hover_row = -1;
+        use_item->hover_row = -1;
     } else if (event.action == UiPointerAction::Move || event.action == UiPointerAction::Enter) {
         const int row = event.local.y / 11;
-        if (event.inside && row != g_use_item_hover_row) HighlightNoticeRow(row);
-        g_use_item_hover_row = row;
+        if (event.inside && row != use_item->hover_row) HighlightNoticeRow(row);
+        use_item->hover_row = row;
     } else if (event.action == UiPointerAction::Up && event.inside) {
         if (event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK)) {
             const int slot = g_level_block->hovered_text_lines[2];
@@ -699,7 +526,7 @@ UiResult HandleUseItemTextBox(const UiPointerEvent& event)
         if (event.button == UiPointerButton::Right && (event.captured_buttons & SDL_BUTTON_RMASK)) {
             const int row = event.local.y / 11;
             if (row >= 0 && row < static_cast<int>(g_status.text_box_lines_shown[2])) {
-                const auto item = g_use_item_list[g_level_block->text_lines[2] + row];
+                const auto item = use_item->rows[g_level_block->text_lines[2] + row].item;
                 if (item) AfterUiDispatch([item] { OpenUseItemAssayDialog(item); });
             }
         }
@@ -718,10 +545,10 @@ void UseItemSelectTextBoxWheelAt(short x, unsigned short y, bool flag)
         return;
     }
     row = (y - g_level_block->text_box_top) / 0xb;
-    if (row != g_use_item_hover_row || flag) {
+    if (row != use_item->hover_row || flag) {
         HighlightNoticeRow(row);
     }
-    g_use_item_hover_row = row;
+    use_item->hover_row = row;
 }
 
 /* Left-click commit of a use-item list row: validate the item's spell for
@@ -735,32 +562,33 @@ void SelectUseItemLine(int iTextLine)
     if (iTextLine < 0) {
         srAssertFail("iTextLine >= 0", MGSUSEITEMSELECT_CPP, 0x61d, 0);
     }
-    if (iTextLine >= g_use_item_list_count) {
+    if (iTextLine >= static_cast<int>(use_item->rows.size())) {
         // c-style-cast-ok: the assertion text itself spells (INT32)
         srAssertFail("iTextLine < (INT32) guiNumItemsInList", MGSUSEITEMSELECT_CPP, 0x61e, 0);
     }
     SetTargetingMode(W8_TARGET_NEED_NONE);
-    UpdateUseItemDetailPanel(g_use_item_list[iTextLine]);
-    if (ValidateItemSpellUse(g_use_item_owner_index, g_use_item_list[iTextLine],
+    UpdateUseItemDetailPanel(use_item->rows[iTextLine].item);
+    if (ValidateItemSpellUse(use_item->owner, use_item->rows[iTextLine].item,
                              SpellCastingNoticeClosed)) {
-        QueueCharacterEvent(&g_status.buffers.Char[g_use_item_owner_index], 0x35, 0,
+        QueueCharacterEvent(&g_status.buffers.Char[use_item->owner], 0x35, 0,
                             kCharacterEventFlagsMask | kCharacterEventNoFlags,
                             kCharacterEventFullVolume);
         return;
     }
-    g_use_item_selected = g_use_item_list[iTextLine];
-    if (Trynnie2UseItem(g_use_item_selected)) {
+    use_item->draft.detail_block.item_use.item = use_item->rows[iTextLine].item;
+    if (Trynnie2UseItem(use_item->draft.detail_block.item_use.item)) {
         CloseUseItemSelectView();
         return;
     }
-    if (IsUsableItemClass(g_use_item_selected)) {
+    if (IsUsableItemClass(use_item->draft.detail_block.item_use.item)) {
         TakeUseItemIntoHand();
         CloseUseItemSelectView();
         return;
     }
-    if (CanCastFromItem(&g_status.buffers.Char[g_status.selected_character], g_use_item_selected)) {
+    if (CanCastFromItem(&g_status.buffers.Char[g_status.selected_character],
+                        use_item->draft.detail_block.item_use.item)) {
         LearnSpellFromItem(&g_status.buffers.Char[g_status.selected_character],
-                           g_use_item_selected);
+                           use_item->draft.detail_block.item_use.item);
         CloseUseItemSelectView();
         return;
     }
@@ -768,10 +596,12 @@ void SelectUseItemLine(int iTextLine)
     ClearHoveredTextLine(2);
     RedrawTextBox();
     target_type = GetSpellTargetType(
-        GetItemSpell(g_use_item_selected),
-        ItemClassNormalizesTarget(&g_item_records[g_use_item_selected->iItemNo]));
-    ConfigureSpellTargetFilter(
-        target_type, GetTargetNeededForItem(g_use_item_selected, g_level_block == nullptr));
+        GetItemSpell(use_item->draft.detail_block.item_use.item),
+        ItemClassNormalizesTarget(
+            &g_item_records[use_item->draft.detail_block.item_use.item->iItemNo]));
+    ConfigureSpellTargetFilter(target_type,
+                               GetTargetNeededForItem(use_item->draft.detail_block.item_use.item,
+                                                      g_level_block == nullptr));
 }
 
 /* Show the item in the detail control: its catalog icon plus a quantity line -
@@ -815,13 +645,13 @@ void UpdateUseItemDetailPanel(W8ItemInstance* item)
     }
     use_item->quantity.SetText(value, g_wiz_text_font_secondary);
     use_item->dirty[2] = true;
-    g_use_item_detail_item = item;
+    use_item->detail_item = item;
 }
 
 // FUNCTION: WIZ8 0x0059E0E0
 void SelectCurrentUseItemLine(void)
 {
-    SelectUseItemLine(g_selected_use_item_line);
+    SelectUseItemLine(use_item->selected_line);
 }
 
 /* Move the selected item into the cursor hand. When the hand is already
@@ -835,23 +665,25 @@ void TakeUseItemIntoHand(void)
     unsigned int old_count;
 
     if (!g_status.item_in_cursor) {
-        CopyItemInstance(&g_status.item_in_hand, g_use_item_selected, 0, true);
+        CopyItemInstance(&g_status.item_in_hand, use_item->draft.detail_block.item_use.item, 0,
+                         true);
         return;
     }
-    if (g_use_item_owner_index == -1) {
+    if (use_item->owner == -1) {
         srAssertFail("giUseItemChar != BAD_INDEX", MGSUSEITEMSELECT_CPP, 0x6c1, 0);
     }
     old_count = g_status.party_item_count;
-    GiveItemToCharacterOrParty(g_use_item_owner_index, &g_status.item_in_hand, true);
-    if (g_use_item_select_mode == 1 && old_count != g_status.party_item_count &&
+    GiveItemToCharacterOrParty(use_item->owner, &g_status.item_in_hand, true);
+    if (use_item->pool == ItemPool::Party && old_count != g_status.party_item_count &&
         g_status.party_item_count != 0) {
         for (i = 0; i < g_status.party_item_count; i++) {
-            if (g_use_item_selected == &g_status.party_item_pool[i]) {
-                g_use_item_selected = &g_status.party_item_pool[i + 1];
-                CopyItemInstance(&g_status.item_in_hand, g_use_item_selected, 0, true);
+            if (use_item->draft.detail_block.item_use.item == &g_status.party_item_pool[i]) {
+                use_item->draft.detail_block.item_use.item = &g_status.party_item_pool[i + 1];
+                CopyItemInstance(&g_status.item_in_hand, use_item->draft.detail_block.item_use.item,
+                                 0, true);
                 return;
             }
         }
     }
-    CopyItemInstance(&g_status.item_in_hand, g_use_item_selected, 0, true);
+    CopyItemInstance(&g_status.item_in_hand, use_item->draft.detail_block.item_use.item, 0, true);
 }

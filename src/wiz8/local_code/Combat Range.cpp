@@ -402,7 +402,7 @@ bool MonsterAttackReachesAnyone(W8MonsterInfo* monster_info, unsigned int attack
     unsigned int count;
     W8MonsterInfo* other;
 
-    if (!monster_info->fInCombat || !monster_info->pCombat->berserk) {
+    if (!monster_info->pCombat || !monster_info->pCombat->berserk) {
         disposition_needed = friendly_targets ? W8_DISPOSITION_FRIENDLY : W8_DISPOSITION_HOSTILE;
     } else {
         disposition_needed = W8_DISPOSITION_FRIENDLY;
@@ -432,7 +432,7 @@ bool MonsterAttackReachesAnyone(W8MonsterInfo* monster_info, unsigned int attack
     for (index = 0; index < count; ++index) {
         other = GetMonsterListEntry(index);
         GetMonsterDataForInfo(other);
-        if (other != monster_info && other->fActive && other->fInCombat && other->hp_current != 0 &&
+        if (other != monster_info && other->fActive && other->pCombat && other->hp_current != 0 &&
             other->highest_condition < W8_CONDITION_DEAD &&
             MonsterHostility(monster_info, other) == disposition_needed &&
             MonsterAttackReachesMonster(monster_info, record, attack, other)) {
@@ -964,8 +964,7 @@ float MonsterChooseTarget(W8MonsterInfo* monster_info, W8CombatSlot* out, int ki
             W8MonsterInfo* other = GetMonsterListEntry(index);
 
             if (other != monster_info && other->fActive && other->hp_current != 0 &&
-                other->fInCombat &&
-                MonsterHostility(monster_info, other) == W8_DISPOSITION_HOSTILE) {
+                other->pCombat && MonsterHostility(monster_info, other) == W8_DISPOSITION_HOSTILE) {
                 W8VisibilityRecord* row = FindMonToMonVisibility(monster_info, other);
                 if (IsVisibleUnderConditions(monster_info, row, kind)) {
                     float distance = monster_info->p3D->GetDistanceToMonster(other->p3D);
@@ -1030,7 +1029,7 @@ int FindNearestVisibleGroupMonster(W8MonsterInfo* monster_info, int group_id, in
     for (unsigned int index = 0; index < group->MemberIds().size(); ++index) {
         int location_id = group->MemberLocationId(index);
         W8MonsterInfo* target = FindMonster(location_id);
-        if (target->fActive && target->hp_current != 0 && target->fInCombat) {
+        if (target->fActive && target->hp_current != 0 && target->pCombat) {
             W8VisibilityRecord* row = FindMonToMonVisibility(monster_info, target);
             if (IsVisibleUnderConditions(monster_info, row, kind)) {
                 float distance = monster_info->p3D->GetDistanceToMonster(target->p3D);

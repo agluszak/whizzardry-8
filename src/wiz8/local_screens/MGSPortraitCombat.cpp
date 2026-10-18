@@ -157,7 +157,7 @@ void UpdateSubMenuButton(int index)
         g_main_game_state->hud_buttons.submenu[index].SetEnabled(false);
         return;
     }
-    if (gXStatus.fItemSelectMode && index != 3) {
+    if (ItemUseDraft() && index != 3) {
         g_main_game_state->hud_buttons.submenu[index].SetEnabled(false);
         return;
     }
@@ -219,9 +219,9 @@ void UpdateSubMenuButton(int index)
             break;
         }
         g_main_game_state->hud_buttons.submenu[3].SetEnabled(true);
-        /* As case 2, with fItemSelectMode: 0x00594F07/0x00594F1C then
+        /* As case 2, with an item draft: 0x00594F07/0x00594F1C then
            0x00594F23/0x00594F38. */
-        if (gXStatus.fItemSelectMode) {
+        if (ItemUseDraft()) {
             if (g_main_game_state->hud_buttons.submenu[3].IsPressed() == 0) {
                 g_main_game_state->hud_buttons.submenu[3].SetPressed(true);
             }
@@ -303,7 +303,7 @@ static void SubMenuButtonToggleFlag(W8ButtonWidget* button)
 // FUNCTION: WIZ8 0x00595110
 static void SubMenuButtonUseItem(W8ButtonWidget* button)
 {
-    if (gXStatus.fItemSelectMode) {
+    if (ItemUseDraft()) {
         CloseUseItemSelectView();
         return;
     }

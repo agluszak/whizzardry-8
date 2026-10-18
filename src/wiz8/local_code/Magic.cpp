@@ -2134,7 +2134,8 @@ bool ValidateSpellTarget(int party_slot, int spell_id, unsigned int power, bool 
         valid = false;
     }
     if (!valid && (!gXStatus.fCombatMode || !MonsterCanAimSpell(spell_id) ||
-                   gXStatus.hostile_monster_count != 0 || !g_combat_state->enemies_engaged)) {
+                   CurrentLevelPopulation().monster_roster.hostileCombatCount() != 0 ||
+                   !g_combat_state->enemies_engaged)) {
         QueueCharacterEvent(&g_status.buffers.Char[party_slot], 0x35, 0, kCharacterEventNoFlags,
                             kCharacterEventFullVolume);
     }
@@ -2204,7 +2205,8 @@ bool SpellAffectedTarget(W8Character* character, int spell_id, W8CombatSlot* aim
     case W8_SPELL_ELEMENT_SHIELD:
     case W8_SPELL_SOUL_SHIELD:
     case W8_SPELL_RING_OF_FIRE:
-        if (gXStatus.fCombatMode && gXStatus.hostile_monster_count > 0) {
+        if (gXStatus.fCombatMode &&
+            CurrentLevelPopulation().monster_roster.hostileCombatCount() > 0) {
             for (index = 0; index < 9; ++index) {
                 if (g_combat_effect_slot_spells_and_cast_success[index] == spell_id) {
                     affected = g_combat_state->effect_slots0[index].duration /
@@ -2223,7 +2225,8 @@ bool SpellAffectedTarget(W8Character* character, int spell_id, W8CombatSlot* aim
     case W8_SPELL_EYE_FOR_AN_EYE:
     case W8_SPELL_SUPERMAN:
     case W8_SPELL_BODY_OF_STONE:
-        if (gXStatus.fCombatMode && gXStatus.hostile_monster_count > 0) {
+        if (gXStatus.fCombatMode &&
+            CurrentLevelPopulation().monster_roster.hostileCombatCount() > 0) {
             if (aim->iType == W8_TARGET_KIND_CHARACTER) {
                 enchantments = g_status.buffers.Char[aim->iChar].enchantments;
             } else {
@@ -2238,7 +2241,8 @@ bool SpellAffectedTarget(W8Character* character, int spell_id, W8CombatSlot* aim
         affected = false;
         break;
     case W8_SPELL_HASTE:
-        if (gXStatus.fCombatMode && gXStatus.hostile_monster_count > 0) {
+        if (gXStatus.fCombatMode &&
+            CurrentLevelPopulation().monster_roster.hostileCombatCount() > 0) {
             if (aim->iType != W8_TARGET_KIND_PARTY) {
                 return true;
             }
@@ -2417,7 +2421,8 @@ bool SpellAffectedTarget(W8Character* character, int spell_id, W8CombatSlot* aim
         break;
     case W8_SPELL_SONIC_BOOM:
     case W8_SPELL_HYPNOTIC_LURE:
-        if (g_combat_state != 0 && gXStatus.hostile_monster_count > 0) {
+        if (g_combat_state != 0 &&
+            CurrentLevelPopulation().monster_roster.hostileCombatCount() > 0) {
             return true;
         }
         [[fallthrough]];
@@ -3394,7 +3399,7 @@ int PickBackfireTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targe
     index = 0;
     while (index < CurrentLevelPopulation().monster_roster.live().size()) {
         monster_info = GetMonsterListEntry(index);
-        if (monster_info->fActive && monster_info->fInCombat && monster_info->hp_current != 0 &&
+        if (monster_info->fActive && monster_info->pCombat && monster_info->hp_current != 0 &&
             (!TargetSourceIsMonster(source, 0) ||
              source->iMonsterID != monster_info->location_id)) {
             ++candidates;
@@ -3420,7 +3425,7 @@ int PickBackfireTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targe
     index = 0;
     while (index < CurrentLevelPopulation().monster_roster.live().size()) {
         monster_info = GetMonsterListEntry(index);
-        if (monster_info->fActive && monster_info->fInCombat && monster_info->hp_current != 0 &&
+        if (monster_info->fActive && monster_info->pCombat && monster_info->hp_current != 0 &&
             (!TargetSourceIsMonster(source, 0) ||
              source->iMonsterID != monster_info->location_id) &&
             (--pick == 0)) {

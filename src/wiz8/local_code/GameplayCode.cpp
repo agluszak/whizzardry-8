@@ -115,7 +115,7 @@ bool AnyMonsterEngaged(void)
 
     for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
         monster_info = GetMonsterListEntry(index);
-        if (monster_info->fInCombat && monster_info->ubDisposition == W8_DISPOSITION_HOSTILE &&
+        if (monster_info->pCombat && monster_info->ubDisposition == W8_DISPOSITION_HOSTILE &&
             monster_info->hp_current != 0 &&
             monster_info->highest_condition < W8_CONDITION_WEBBED) {
             return true;

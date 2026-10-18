@@ -185,8 +185,8 @@ cadences. Last-seen positions and remembered actions remain gameplay history.
 
 A world owns its monster records, groups and world items. Individual removal
 owns combat, group, visibility, spatial and NPC relationship cleanup before the
-roster can erase a record. Member count projects membership; active and observed
-counts describe different sets and retain their existing observation cadence.
+roster can erase a record. Member and active counts project membership; visibility
+counts retain their separate observation cadence.
 Navigators use their owning world's indexes, and global movement commands visit
 only the active world and persistent navigation. Failed preparation cannot
 unregister a matching monster identity from the active world's octree.
@@ -213,8 +213,11 @@ The draft identifies the spell, so its power class and affordable levels are
 queries over the spell database and caster. Availability queries take the spell
 explicitly; no temporary selection override is installed. Each list row holds
 its spell and availability color together, and the collection supplies its size.
-Item targeting likewise constructs an action from the selected item rather than
-maintaining another copy of that pointer in a global action-detail block.
+The item picker also owns its draft and lifetime. It classifies each inventory
+entry once, partitions usable entries first, and derives list size from rows.
+The always-enabled filter flag and commit suppression latch are gone. Committing
+passes the complete item action; there is no write-target/read-current-target
+protocol between the picker and inventory subsystem.
 
 Monster-group active counts are queries over membership in the owning population.
 Condition changes, control changes, birth, removal and level preparation no longer
@@ -248,3 +251,16 @@ use the owning collections; the synthetic 10,000-biased index domain and its
 conversion/checking APIs are removed from combat, targeting, AI and level scripts.
 Only displayed combat groups can be selected by a combat-list row; out-of-range
 rows return no group.
+
+Monster combat membership is the lifetime of its owned combat state. There is no
+second boolean to maintain. Active-monster presence and hostile-combat counts
+are roster queries, including unborn monsters only for active presence. Load,
+activation, death, hostility changes and promotion require no counter repair.
+The retail combat marker is encoded from ownership and ignored when loading,
+since level restoration starts outside combat. Combat's engagement-history latch
+remains distinct from the current threat count.
+
+Level master callbacks return completion directly. Nested trigger callbacks
+cannot overwrite a global removal decision. The dispatcher processes its initial
+batch; callbacks appended during an update wait until the next frame. Save
+capture remains a separate observational callback.

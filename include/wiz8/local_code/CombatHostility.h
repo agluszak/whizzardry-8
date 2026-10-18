@@ -25,7 +25,7 @@ bool MonsterActionTargetsEnemies(W8MonsterActionKind action_kind, int action_det
 bool MonsterCanAimSpell(int spell_id);
 bool CombatAllowsLiveGroups(void);
 void SetMonsterHostility(W8MonsterInfo* monster, W8Disposition hostility);
-void RecountCombatMonsters(void);
+void RefreshCombatEngagement(void);
 void SetMonsterGroupHostility(W8MonsterGroup* group, unsigned int hostility, bool recurse);
 
 /* The disposition two party slots hold toward each other from

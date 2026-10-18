@@ -372,7 +372,7 @@ unsigned int ApplyDamageToMonster(W8MonsterInfo* monster_info, unsigned int amou
         }
         if (!source->fBackfire && !source->fReflection && source->target_diverted == 0 && !quiet) {
             monster_info->condition_target = *source;
-            if (monster_info->fInCombat && TargetSourceIsCharacter(source, 0) &&
+            if (monster_info->pCombat && TargetSourceIsCharacter(source, 0) &&
                 source->iChar != -1) {
                 monster_info->pCombat->character_hate[source->iChar] += amount;
             }

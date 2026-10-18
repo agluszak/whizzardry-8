@@ -233,7 +233,7 @@ static void CaptureSpikeball(W8SavedLocationState& state)
    run; it fires the four Spikeball-launcher entities every two seconds until
    the count reaches sixteen, then unregisters and saves the reset. */
 // FUNCTION: WIZ8 0x004DD3F0
-void MartensBluff2Spikeball(int command)
+bool MartensBluff2Spikeball(int command)
 {
     W8SpellEffectDefinition effect;
     glm::vec3 position;
@@ -258,7 +258,6 @@ void MartensBluff2Spikeball(int command)
             g_master_functions.push_back({MartensBluff2Spikeball, CaptureSpikeball});
         }
     }
-    g_remove_current_master_function = false;
     if (g_spikeball_count < 0x10) {
         if (g_spikeball_count == 0 || g_spikeball_gate->IsFinished() ||
             (g_spikeball_gate->PollElapsedIntervals(), g_spikeball_gate->IsFinished())) {
@@ -286,7 +285,7 @@ void MartensBluff2Spikeball(int command)
                                        1.0f, 15000.0f, false);
             }
         }
-        return;
+        return false;
     }
     g_spikeball_gate.reset();
     g_spikeball_count = 0;
@@ -295,7 +294,7 @@ void MartensBluff2Spikeball(int command)
     } else {
         SetTriggerVariableByName("SpikedBallLauncher", g_spikeball_count);
     }
-    g_remove_current_master_function = true;
+    return true;
 }
 
 /* "DoorBolt": re-arms the side-gate text trigger when the bolt opens. */
@@ -419,7 +418,7 @@ static void CaptureCrusher(W8SavedLocationState& state)
    AwardPartyExperience); once the squisher finishes it runs the Dummy and DummyRope
    triggers, and once those props finish it unregisters. */
 // FUNCTION: WIZ8 0x004DDF40
-void MartensBluff2MonsterCrusher(int command)
+bool MartensBluff2MonsterCrusher(int command)
 {
     /* The bounds box the octree query below sweeps; function-local statics,
        with the compiler's atexit destructor thunks at 0x004DE500/0x004DE510. */
@@ -458,7 +457,7 @@ void MartensBluff2MonsterCrusher(int command)
         if (g_squisher3_prop != 0 && g_squisher4_prop != 0) {
             const auto crusher_bounds = g_squisher3_prop->GetFrameBounds();
             const auto other_bounds = g_squisher4_prop->GetFrameBounds();
-            if (!crusher_bounds || !other_bounds) return;
+            if (!crusher_bounds || !other_bounds) return false;
             crusher_lower = crusher_bounds->minimum;
             crusher_upper = crusher_bounds->maximum;
             lower = other_bounds->minimum;
@@ -485,26 +484,25 @@ void MartensBluff2MonsterCrusher(int command)
             FindTriggerByName("DummyRope")->Run(-1);
             g_running_trigger_from_script = false;
         }
-        return;
+        return false;
     }
-    g_remove_current_master_function = false;
     if (g_squisher3_prop == 0) {
-        return;
+        return false;
     }
     if (g_squisher4_prop == 0) {
-        return;
+        return false;
     }
     if (g_dummy_prop != 0) {
         if (g_dummy_prop->Rep()->animation_playing != 0) {
-            return;
+            return false;
         }
         if (g_dummy_rope_prop->Rep()->animation_playing != 0) {
-            return;
+            return false;
         }
-        g_remove_current_master_function = true;
+
         g_crusher_active = false;
         g_crusher_state = 0;
-        return;
+        return true;
     }
     if (g_squisher3_prop->Rep()->animation_playing == 0) {
         if (g_crusher_sound != 0) {
@@ -513,10 +511,10 @@ void MartensBluff2MonsterCrusher(int command)
         g_crusher_sound = 0;
         pTrigger = FindTriggerByName("Dummy");
         if (GetLocationVarValueByName("RavenQuest") == 0) {
-            g_remove_current_master_function = true;
+
             g_crusher_active = false;
             g_crusher_state = 0;
-            return;
+            return true;
         }
         g_running_trigger_from_script = true;
         pTrigger->Run(-1);
@@ -526,14 +524,14 @@ void MartensBluff2MonsterCrusher(int command)
         g_dummy_rope_prop = pTrigger->GetProp();
         g_running_trigger_from_script = false;
         g_crusher_state = 2;
-        return;
+        return false;
     }
     left = g_squisher3_prop->m_gd_prop->computeBounds().maximum.x;
     right = g_squisher4_prop->m_gd_prop->computeBounds().minimum.x;
     location_ids = GetWorldOctree()->locationsInBox({crusher_lower, crusher_upper}, 0);
     count = location_ids.size();
     if (count == 0) {
-        return;
+        return false;
     }
     for (i = 0; i < count; i++) {
         info = FindMonster(location_ids[i]);
@@ -559,6 +557,7 @@ void MartensBluff2MonsterCrusher(int command)
             }
         }
     }
+    return false;
 }
 
 /* "StoneIdol": while the cursor is free, puts item 0x291 in hand, posts the
@@ -609,7 +608,7 @@ bool MartensBluff2BlueFlowers(Trigger* pTrigger)
    no kind-0x1e NPC is around and stops the particle; the following run
    unregisters. */
 // FUNCTION: WIZ8 0x004DE660
-void MartensBluff2IdolGas(int command)
+bool MartensBluff2IdolGas(int command)
 {
     stParticle* particle;
 
@@ -618,21 +617,20 @@ void MartensBluff2IdolGas(int command)
         BeginWorldLightingFade(-3000.0f);
         if (g_idol_gas_gate) {
             g_idol_gas_gate->Arm();
-            return;
+            return false;
         }
         g_idol_gas_gate.emplace(4.0f, false, true);
-        return;
+        return false;
     }
-    g_remove_current_master_function = false;
     if (!g_idol_gas_armed) {
-        g_remove_current_master_function = true;
+
         g_idol_gas_gate.reset();
         g_idol_gas_armed = true;
         ResolveSurpriseWake();
-        return;
+        return true;
     }
     if (!g_idol_gas_gate->PollFinished()) {
-        return;
+        return false;
     }
     g_idol_gas_gate->Arm();
     g_idol_gas_armed = false;
@@ -644,6 +642,7 @@ void MartensBluff2IdolGas(int command)
     if (particle != 0) {
         particle->SetActive(0);
     }
+    return false;
 }
 
 /* The IdolGas victim picker: scores the eight party slots by profession
