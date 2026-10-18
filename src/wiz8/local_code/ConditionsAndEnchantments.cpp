@@ -462,8 +462,7 @@ static void RefreshMonsterConditionState(W8MonsterInfo* monster_info)
         --slot;
     }
     monster_info->highest_condition = static_cast<W8Condition>(slot);
-    W8MonsterGroup* monster_group = FindMonsterGroup(monster_info->monster_group_id);
-    RecountActiveMonsterGroupMembers(monster_group);
+    RequestRedrawParty();
     if (monster_info->fActive) {
         MonsterInfoSetMotionless(monster_info,
                                  monster_info->highest_condition < W8_CONDITION_WEBBED ? 0 : 1);
@@ -542,7 +541,7 @@ void SetMonsterCondition(int location_id, W8Condition condition, int duration, i
             SetMonsterSpellIcon(monster_info->p3D, static_cast<W8MonsterSpellIconId>(condition - 1),
                                 true);
         }
-        if (monster_info->fInCombat && TargetSourceIsCharacter(target, 0) && target->iChar != -1) {
+        if (monster_info->pCombat && TargetSourceIsCharacter(target, 0) && target->iChar != -1) {
             w8_unaligned_int* hate = &monster_info->pCombat->character_hate[target->iChar];
             record = GetMonsterDataForInfo(monster_info);
             *hate += (record->effective_level * static_cast<unsigned int>(condition)) / 3;
@@ -624,7 +623,7 @@ void ClearMonsterCondition(int location_id, W8Condition condition)
             RebuildMonsterDerivedStats(location_id);
             return;
         case W8_CONDITION_AFRAID:
-            if (monster_info->fInCombat) {
+            if (monster_info->pCombat) {
                 monster_info->pCombat->advancing = false;
             }
             break;

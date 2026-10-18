@@ -11,7 +11,7 @@ unsigned char SpawnAlfieChaos(int);               /* 0x004DFAE0 */
 unsigned char SpawnAlfieLife(int);                /* 0x004DFB40 */
 unsigned char SpawnAlfieKnow(int);                /* 0x004DFB80 */
 void AscensionAvalanche(bool command);            /* 0x004DFBC0 */
-void AscensionLandShaker(int command);            /* 0x004DFD70 */
+bool AscensionLandShaker(int command);            /* 0x004DFD70 */
 bool AscensionRampUp(Trigger* pTrigger);          /* 0x004DFE60 */
 unsigned char SpawnAscensionAmbush(void);         /* 0x004DFEA0 */
 bool AscensionChaosBTrigger(Trigger* pTrigger);   /* 0x004DFF90 */

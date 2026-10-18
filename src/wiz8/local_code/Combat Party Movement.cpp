@@ -316,7 +316,7 @@ void AlignCombatantsToPartyMovementPhase(void)
     unsigned int monster_count = CurrentLevelPopulation().monster_roster.live().size();
     for (unsigned int monster_index = 0; monster_index < monster_count; ++monster_index) {
         W8MonsterInfo* monster_info = GetMonsterListEntry(monster_index);
-        if (monster_info->fInCombat &&
+        if (monster_info->pCombat &&
             monster_info->pCombat->phase >= g_combat_state->round_counter &&
             !monster_info->pCombat->active) {
             RoundPhaseToStep(&monster_info->pCombat->phase, g_combat_state->round_counter);

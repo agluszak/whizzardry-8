@@ -314,7 +314,7 @@ UiResult HandleCampPortrait(const UiPointerEvent& event, int target_slot)
                      g_camp_screen->item_action != W8_CAMP_ITEM_ACTION_USE_ON_CHARACTER)) {
                     if (!CanPartySlotParticipate(target_slot)) {
                         QueueCharacterEvent(&g_status.buffers.Char[giReviewCharSlot], 0x35, 0,
-                                            kCharacterEventNoFlags, kCharacterEventFullVolume);
+                                            kCharacterEventFullVolume);
                         return;
                     }
                     AimAtCharacter(giReviewCharSlot, target_slot,
@@ -334,7 +334,7 @@ UiResult HandleCampPortrait(const UiPointerEvent& event, int target_slot)
                 if (gXStatus.iTargetingMode == W8_TARGET_NEED_CHARACTER_INDIRECT) {
                     if (!IsDeadCharacterTargetable(target_slot)) {
                         QueueCharacterEvent(&g_status.buffers.Char[giReviewCharSlot], 0x35, 0,
-                                            kCharacterEventNoFlags, kCharacterEventFullVolume);
+                                            kCharacterEventFullVolume);
                         return;
                     }
                     AimAtCharacterIndirect(giReviewCharSlot, target_slot,

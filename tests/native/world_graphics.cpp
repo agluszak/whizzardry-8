@@ -269,7 +269,7 @@ TEST_CASE("world graphics")
             }
         }
         if (!gXStatus.fCombatMode) REQUIRE(StartCombat(0));
-        if (!monster->fInCombat) MonsterInfoEnterCombat(monster);
+        if (!monster->pCombat) MonsterInfoEnterCombat(monster);
         W8TargetSource attacker{};
         attacker.iType = W8_TARGET_SOURCE_CHARACTER;
         attacker.iChar = 0;

@@ -45,7 +45,7 @@ static stSound3D* g_mt_gigas_alarm_sound;
 static std::optional<W8IntervalGate> g_mt_gigas_alarm_gate;
 
 static void MtGigas2WireShock(void);
-static void MtGigas2UmpaniAlarm(int command);
+static bool MtGigas2UmpaniAlarm(int command);
 
 /* Level-load restore. Recreates the wire-panel location variable (armed but
    untouched reads back -1), re-runs the three wire triggers when the panel
@@ -322,15 +322,14 @@ static void CaptureUmpaniAlarm(W8SavedLocationState& state)
    seconds). Unlike ControlCampAlarm the gate and sound are only created when
    both are absent, and finishing stops the sound but keeps its node. */
 // FUNCTION: WIZ8 0x004DB860
-static void MtGigas2UmpaniAlarm(int command)
+static bool MtGigas2UmpaniAlarm(int command)
 {
     glm::vec3 position;
 
-    g_remove_current_master_function = false;
     if (command != 0) {
         if (GetLocationVarIDByName("UmpaniAlarm") == -1) CreateLocationVar("UmpaniAlarm", 30);
         if (g_mt_gigas_alarm_gate || g_mt_gigas_alarm_sound != 0) {
-            return;
+            return false;
         }
         position = glm::vec3(GetWorld()->camera->getLocation());
         if (static_cast<unsigned int>(command) > 0x1e) {
@@ -346,12 +345,13 @@ static void MtGigas2UmpaniAlarm(int command)
         }
     }
     if (!g_mt_gigas_alarm_gate->PollFinished()) {
-        return;
+        return false;
     }
-    g_remove_current_master_function = true;
+
     g_mt_gigas_alarm_sound->Stop();
     g_mt_gigas_alarm_gate.reset();
     SetTriggerVariableByName("UmpaniAlarm", 0);
+    return true;
 }
 
 /* Activation callback on wiringMalfunction: plays the short spark sound. */

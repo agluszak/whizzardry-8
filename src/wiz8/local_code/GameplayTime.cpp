@@ -355,8 +355,7 @@ void EndSurprise(void)
         g_status.skip_next_condition_reaction = 1;
         int party_slot = g_status.pending_condition_party_slot;
         RemoveCharacterCondition(party_slot, W8_CONDITION_MISSING, false);
-        QueueCharacterEvent(&g_status.buffers.Char[party_slot], 52, 0, kCharacterEventNoFlags,
-                            kCharacterEventFullVolume);
+        QueueCharacterEvent(&g_status.buffers.Char[party_slot], 52, 0, kCharacterEventFullVolume);
         SetFact(W8_FACT_MOOK_MOOK_PC_SWAP_COMPLETE, 1, false);
     }
 }
@@ -924,7 +923,7 @@ static void AgeMonsterMovement(W8MonsterInfo* monster_info, unsigned int minutes
 {
     W8Monster* monster;
 
-    if (monster_info->fInCombat) {
+    if (monster_info->pCombat) {
         W8CombatSlot target;
         target.iType = static_cast<W8TargetKind>(3);
         target.iMonsterID = monster_info->location_id;
@@ -1120,7 +1119,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
             W8TargetSource source;
 
             amount *= minutes;
-            if (monster_info->fInCombat) {
+            if (monster_info->pCombat) {
                 amount += amount >> 1;
             }
             ResetTargetSource(&source);
@@ -1165,7 +1164,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
         float heal_scale;
 
         if (!gXStatus.fSurprisePossible && full_health_regeneration == 0) {
-            if (!monster_info->fInCombat) {
+            if (!monster_info->pCombat) {
                 heal_scale = 0.5f;
             } else {
                 heal_scale = 0.0f;
@@ -1239,7 +1238,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
             ++slot;
         }
     }
-    if (monster_info->fInCombat) {
+    if (monster_info->pCombat) {
         for (auto& combat_effect : monster_info->pCombat->combat_effects) {
             W8EffectSlot* slot = &combat_effect;
 

@@ -1512,6 +1512,7 @@ TEST_CASE("Monster group opaque disk fields survive gameplay edits and old saves
     auto bytes = wiz8::retail::encode(group);
     REQUIRE(bytes[0x2b] == std::byte{3});
     bytes[0x2b] = std::byte{0xa5};
+    bytes[offsetof(wiz8::retail::MonsterGroup, active_member_count)] = std::byte{7};
     for (std::size_t i = 0xd4; i < bytes.size(); ++i) bytes[i] = std::byte(i);
     wiz8::retail::decode<W8MonsterGroup>(bytes, group);
     REQUIRE(wiz8::retail::encode(group) == bytes);

@@ -51,22 +51,9 @@
 enum { W8_NEUTRAL_SPECIES_224 = 0x224 };
 
 // FUNCTION: WIZ8 0x00546e70
-void RecountCombatMonsters(void)
+void RefreshCombatEngagement(void)
 {
-    gXStatus.hostile_monster_count = 0;
-    gXStatus.hostile_group_count = 0;
-    for (unsigned int index = 0; index < CurrentLevelPopulation().monster_roster.live().size();
-         ++index) {
-        W8MonsterInfo* monster = GetMonsterListEntry(index);
-        if (monster->fActive && monster->fInCombat) {
-            if (monster->ubDisposition == W8_DISPOSITION_HOSTILE) {
-                ++gXStatus.hostile_monster_count;
-            }
-            if (monster->uiCondition[W8_CONDITION_TURNCOAT] != 0) {
-            }
-        }
-    }
-    if (gXStatus.fCombatMode && gXStatus.hostile_monster_count != 0) {
+    if (gXStatus.fCombatMode && CurrentLevelPopulation().monster_roster.hostileCombatCount() != 0) {
         g_combat_state->enemies_engaged = true;
     }
     RequestRefreshPartyState();
@@ -430,14 +417,14 @@ void SetMonsterHostility(W8MonsterInfo* monster, W8Disposition hostility)
         return;
     }
     monster->ubDisposition = hostility;
-    if (monster->fInCombat &&
+    if (monster->pCombat &&
         (hostility == W8_DISPOSITION_HOSTILE || previous == W8_DISPOSITION_HOSTILE)) {
-        RecountCombatMonsters();
+        RefreshCombatEngagement();
     }
     if (previous != W8_DISPOSITION_NEUTRAL) {
         SetTargetToMonster(monster->location_id, true);
     }
-    if (monster->fInCombat && monster->hp_current > 0 &&
+    if (monster->pCombat && monster->hp_current > 0 &&
         monster->ubDisposition != W8_DISPOSITION_NEUTRAL) {
         if (gXStatus.fCombatMode && g_combat_state->eCombatActionStatus != 1 &&
             g_combat_state->pActionMonsterInfo == monster) {
@@ -463,7 +450,7 @@ bool CanPartySlotTurnUndead(int party_slot)
     for (unsigned int index = 0; index < CurrentLevelPopulation().monster_roster.live().size();
          ++index) {
         W8MonsterInfo* monster = GetMonsterListEntry(index);
-        if (monster->fActive && monster->fInCombat &&
+        if (monster->fActive && monster->pCombat &&
             monster->ubDisposition == W8_DISPOSITION_HOSTILE && monster->hp_current != 0 &&
             GetMonsterDataForInfo(monster)->kind == 0x14) {
             return true;
@@ -535,7 +522,7 @@ bool CanPartySlotPray(int party_slot)
     for (unsigned int index = 0; index < CurrentLevelPopulation().monster_roster.live().size();
          ++index) {
         W8MonsterInfo* monster = GetMonsterListEntry(index);
-        if (monster->fActive && monster->fInCombat &&
+        if (monster->fActive && monster->pCombat &&
             monster->ubDisposition == W8_DISPOSITION_HOSTILE && monster->hp_current != 0) {
             return true;
         }
@@ -779,7 +766,7 @@ int CharacterPrayAction(int party_slot)
             for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size();
                  ++index) {
                 W8MonsterInfo* monster = GetMonsterListEntry(index);
-                if (monster->fActive && monster->fInCombat &&
+                if (monster->fActive && monster->pCombat &&
                     monster->ubDisposition == W8_DISPOSITION_HOSTILE && monster->hp_current != 0 &&
                     monster->p3D->GetDistanceToPlayer() <= range) {
                     ++in_range;
@@ -790,7 +777,7 @@ int CharacterPrayAction(int party_slot)
                 for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size();
                      ++index) {
                     W8MonsterInfo* monster = GetMonsterListEntry(index);
-                    if (monster->fActive && monster->fInCombat &&
+                    if (monster->fActive && monster->pCombat &&
                         monster->ubDisposition == W8_DISPOSITION_HOSTILE &&
                         monster->hp_current != 0 && monster->p3D->GetDistanceToPlayer() <= range &&
                         --pick == 0) {
@@ -860,7 +847,7 @@ int CharacterPrayAction(int party_slot)
             for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size();
                  ++index) {
                 W8MonsterInfo* monster = GetMonsterListEntry(index);
-                if (monster->fActive && monster->fInCombat &&
+                if (monster->fActive && monster->pCombat &&
                     monster->ubDisposition == W8_DISPOSITION_HOSTILE && monster->hp_current != 0 &&
                     monster->uiCondition[W8_CONDITION_AFRAID] == 0) {
                     AppendToLastTextLine(
@@ -885,7 +872,7 @@ int CharacterPrayAction(int party_slot)
                 for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size();
                      ++index) {
                     W8MonsterInfo* monster = GetMonsterListEntry(index);
-                    if (monster->fActive && monster->fInCombat &&
+                    if (monster->fActive && monster->pCombat &&
                         monster->ubDisposition == W8_DISPOSITION_HOSTILE &&
                         monster->hp_current != 0 && monster->p3D->GetDistanceToPlayer() <= range) {
                         AppendToLastTextLine(g_localized_strings[0x179], -1);
@@ -914,7 +901,7 @@ void AlertSameFactionGroups(W8MonsterGroup* monster_group)
     if (record->faction_id != 0) {
         for (unsigned int index = 0; index < CurrentLevelPopulation().monster_groups.size();
              ++index) {
-            W8MonsterGroup* other = GetMonsterGroupByListIndex(index);
+            W8MonsterGroup* other = CurrentLevelPopulation().monster_groups[index].get();
             W8MonsterRecord* other_record = MonsterGroupGetRecord(other);
             if (other != monster_group &&
                 ((other_record->flags & W8_MONSTER_FLAG_NPC) == 0 || !other->forced_neutral) &&

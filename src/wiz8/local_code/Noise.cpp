@@ -37,7 +37,7 @@ void AlertMonsterGroupsToNoise(const glm::vec3* position, int radius, int flag)
     glm::vec3 noise_position = *position;
     for (unsigned int group_index = 0; group_index < CurrentLevelPopulation().monster_groups.size();
          ++group_index) {
-        W8MonsterGroup* group = GetMonsterGroupByListIndex(group_index);
+        W8MonsterGroup* group = CurrentLevelPopulation().monster_groups[group_index].get();
         W8MonsterInfo* info = FindMonster(group->leader_location_id);
         if (info->p3D->deaf) {
             continue;

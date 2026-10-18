@@ -24,14 +24,12 @@
 #include "local_code/RangeControl.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/catalog_artwork.h"
-#include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/conditions.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/StatInfoDialogs.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
-#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -45,6 +43,7 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
+#include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/RCSCommon.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
@@ -1188,8 +1187,6 @@ void W8CharacterPersonalityPage::Redraw(SDL_Surface& target, bool full_redraw)
     if (m_description_dirty) {
         W8TextBuffer text;
         W8ControlsRect bounds;
-        W8CharacterEvent element(m_character, 0, 0, kCharacterEventNoFlags,
-                                 kCharacterEventFullVolume);
 
         bounds.top = W8CharacterPage::bounds.y + 0x13a;
         bounds.bottom = W8CharacterPage::bounds.y + 0x16a;
@@ -1197,7 +1194,7 @@ void W8CharacterPersonalityPage::Redraw(SDL_Surface& target, bool full_redraw)
         bounds.right = W8CharacterPage::bounds.x + 0x150;
         text.SetClipBounds(bounds);
         text.SetLayoutBounds(&bounds, true);
-        text.SetText(element.GetQuoteText(), g_wiz_text_font_secondary);
+        text.SetText(GetPartyQuoteText(*m_character, 0), g_wiz_text_font_secondary);
         text.FillBounds(target, 0x8000);
         text.RenderToTarget(0, true, target);
         m_description_dirty = false;

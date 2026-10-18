@@ -199,23 +199,22 @@ void AscensionAvalanche(bool command)
    lazily created one-second gate runs the LandShaker trigger once it elapses;
    -1 returns early without touching the scripted-sequence flag. */
 // FUNCTION: WIZ8 0x004DFD70
-void AscensionLandShaker(int command)
+bool AscensionLandShaker(int command)
 {
 
     if (command == -1) {
-        return;
+        return false;
     }
-    g_remove_current_master_function = false;
     if (!g_avalanche_gate) {
         g_avalanche_gate.emplace(1.0f, false, true);
-        return;
+        return false;
     }
     if (!g_avalanche_gate->PollFinished()) {
-        return;
+        return false;
     }
     g_avalanche_gate.reset();
     RunNamedTrigger("LandShaker", -1);
-    g_remove_current_master_function = true;
+    return true;
 }
 
 /* The RampUp activation callback: spawn the daughter monster (0x18d) at the
@@ -386,7 +385,7 @@ bool AscensionPath1Camera(Trigger* pTrigger)
     for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
         W8MonsterInfo* info = GetMonsterListEntry(index);
 
-        if (info->fActive && info->fInCombat && info->ubDisposition == W8_DISPOSITION_HOSTILE &&
+        if (info->fActive && info->pCombat && info->ubDisposition == W8_DISPOSITION_HOSTILE &&
             !info->p3D->IsDying()) {
             MonsterStartsDying(info, true);
         }

@@ -708,8 +708,7 @@ void W8NpcDialogue::RunNextAction()
             if (party_slot != -1) {
                 g_status.selected_party_member = static_cast<unsigned char>(party_slot);
                 QueueCharacterEvent(&g_status.buffers.Char[party_slot], event.event_type,
-                                    kCharacterEventNoNpcDefer, kCharacterEventNoFlags,
-                                    kCharacterEventFullVolume);
+                                    kCharacterEventNoNpcDefer, kCharacterEventFullVolume);
                 SetNpcDialoguePanelVisible(0);
                 if (g_npc_interaction_state->modal_dialog_open) {
                     g_npc_interaction_state->suppress_parting_reaction = true;
@@ -719,14 +718,13 @@ void W8NpcDialogue::RunNextAction()
         void operator()(W8NpcLevelUpReaction reaction) const
         {
             QueueCharacterEvent(&g_status.buffers.Char[reaction.party_slot], 1,
-                                kCharacterEventNoNpcDefer, kCharacterEventNoFlags,
-                                kCharacterEventFullVolume);
+                                kCharacterEventNoNpcDefer, kCharacterEventFullVolume);
         }
         void operator()(W8NpcPartyScriptLine line) const
         {
             QueueCharacterEvent(&g_status.buffers.Char[line.party_slot], 0x18,
                                 kCharacterEventNpcScript | kCharacterEventNoNpcDefer,
-                                kCharacterEventNoFlags, kCharacterEventFullVolume);
+                                kCharacterEventFullVolume);
         }
         void operator()(W8NpcPortraitString message) const
         {

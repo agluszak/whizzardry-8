@@ -246,11 +246,11 @@ void DispatchMGSCommand(W8MGSCommand command)
             ToggleWorldCursor();
         } else if (gXStatus.fSurprisePossible) {
             AcknowledgeSurprise();
-        } else if (gXStatus.fSpellCastMode) {
+        } else if (gpSCSV) {
             ResetSpellCastingSelection();
         } else if (gXStatus.fLockInteractMode) {
             EndLockInteractMode(0);
-        } else if (gXStatus.fItemSelectMode) {
+        } else if (ItemUseDraft()) {
             CloseUseItemSelection();
         } else if (gXStatus.iTargetingMode != W8_TARGET_NEED_NONE) {
             SetTargetingMode(W8_TARGET_NEED_NONE);
@@ -553,12 +553,12 @@ void DispatchMGSCommand(W8MGSCommand command)
         ScrollDialogueTextBoxToLine();
         break;
     case W8_MGS_COMMAND_TEXTBOX_CLEAR:
-        if (!gXStatus.fSpellCastMode && !gXStatus.fItemSelectMode) {
+        if (!gpSCSV && !ItemUseDraft()) {
             ResetEditorStatusLine(-1);
         }
         break;
     case W8_MGS_COMMAND_START_COMBAT_ROUND:
-        if (!gXStatus.fCombatMode || gXStatus.fSpellCastMode || gXStatus.fItemSelectMode) {
+        if (!gXStatus.fCombatMode || gpSCSV || ItemUseDraft()) {
             break;
         }
         if (g_combat_state->execution_active == 0) {
@@ -950,7 +950,7 @@ static void KeyboardMenuOpenSpellView(void)
 {
 
     CloseKeyboardMenu();
-    if (!gXStatus.fSpellCastMode) {
+    if (!gpSCSV) {
         OpenSpellCastingView(g_selected_party_slot);
     }
 }
@@ -978,7 +978,7 @@ static void KeyboardMenuOpenUseItemView(void)
 {
 
     CloseKeyboardMenu();
-    if (!gXStatus.fItemSelectMode) {
+    if (!ItemUseDraft()) {
         OpenUseItemSelectView(g_selected_party_slot);
     }
 }

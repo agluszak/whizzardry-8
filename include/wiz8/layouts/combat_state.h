@@ -262,7 +262,7 @@ struct W8CombatState {
     bool party_surprised;
     bool monsters_surprised;
     /* Historical offset 0xa54: hostile monsters are engaged in this combat; latched at start
-       from hostile_monster_count and re-raised by hostility events. */
+       from current roster threats and re-raised by hostility events. */
     bool enemies_engaged;
     /* Historical offset 0xa55: no aggressive action has resolved this round; the round-end
        pass counts it toward unengaged_rounds. */

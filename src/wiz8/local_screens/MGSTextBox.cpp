@@ -581,8 +581,7 @@ void ScrollDialogueTextBoxToLine(void)
     if (gXStatus.fNpcDialogueMode) {
         offset = g_npc_interaction_state->text_box_collapsed ? 1 : 7;
     } else {
-        offset =
-            !gXStatus.fSpellCastMode && !gXStatus.fItemSelectMode && !gXStatus.fCampMode ? 1 : 7;
+        offset = !gpSCSV && !ItemUseDraft() && !gXStatus.fCampMode ? 1 : 7;
     }
     ScrollTextBoxTo(g_status.text_box_lines_shown[g_status.text_line_cursor] - offset);
 }
@@ -703,7 +702,7 @@ int GetTextBoxVisibleLineCount(void)
             return 1;
         }
     }
-    if (!gXStatus.fSpellCastMode && !dialogue && !gXStatus.fItemSelectMode && !gXStatus.fCampMode) {
+    if (!gpSCSV && !dialogue && !ItemUseDraft() && !gXStatus.fCampMode) {
         return 1;
     }
     return 7;
@@ -756,8 +755,8 @@ void AdvanceNoticeLine(short text_box)
         if (gXStatus.fNpcDialogueMode && g_npc_interaction_state->text_box_collapsed) {
             ScrollTextBoxTo(shown);
             g_npc_interaction_state->text_box_collapsed = false;
-        } else if (!gXStatus.fSpellCastMode && !gXStatus.fNpcDialogueMode &&
-                   !gXStatus.fItemSelectMode && !gXStatus.fCampMode) {
+        } else if (!gpSCSV && !gXStatus.fNpcDialogueMode && !ItemUseDraft() &&
+                   !gXStatus.fCampMode) {
             if (gXStatus.fCombatMode && g_combat_state->notice_scroll_pending) {
                 ScrollTextBoxTo(shown);
                 g_combat_state->notice_scroll_pending = false;
@@ -935,13 +934,13 @@ UiResult HandleTextBody(const UiPointerEvent& event)
             ScrollTextBoxUp(event.wheel);
         if (gXStatus.fNpcDialogueMode)
             NpcDialogueTextBoxWheelAt(event.position.x, event.position.y, true);
-        else if (gXStatus.fItemSelectMode)
+        else if (ItemUseDraft())
             UseItemSelectTextBoxWheelAt(event.position.x, event.position.y, true);
         return UiResult::Handled;
     }
     if (gXStatus.fNpcDialogueMode) return HandleNpcTextBox(event);
-    if (gXStatus.fSpellCastMode) return HandleSpellTextBox(event);
-    if (gXStatus.fItemSelectMode) return HandleUseItemTextBox(event);
+    if (gpSCSV) return HandleSpellTextBox(event);
+    if (ItemUseDraft()) return HandleUseItemTextBox(event);
     return UiResult::Handled;
 }
 

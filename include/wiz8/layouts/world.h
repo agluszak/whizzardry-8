@@ -28,6 +28,7 @@ class srMaterial;
 #include "wiz8/engine_code/quad.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stParticle.h"
+#include "wiz8/monster_generators.h"
 #include "wiz8/named_position.h"
 
 class srFog;
@@ -133,7 +134,7 @@ struct W8World {
     std::vector<std::unique_ptr<W8SpellVisual>> spell_visuals;
     std::vector<std::unique_ptr<W8Missile>> missiles;
     std::vector<W8Prop*> collidable_props;
-    std::vector<std::unique_ptr<MonGen>> monster_generators;
+    W8EncounterState encounters;
     std::vector<std::unique_ptr<Trigger>> triggers;
     // Ordered scheduling borrows trigger-owned events; standalone effects have their own owners.
     std::vector<W8TriggerEvent*> timed_events;

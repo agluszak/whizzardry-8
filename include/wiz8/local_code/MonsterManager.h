@@ -277,7 +277,6 @@ struct W8MonsterInfo {
     /* Combat state exists only during the fight, and owns its action queue. */
     std::unique_ptr<W8MonsterCombatState> pCombat;
     bool fActive;
-    bool fInCombat;
     /* Copied from the group's ubDisposition when the entry is created. */
     W8Disposition ubDisposition;
     /* The spawn position; the facing yaw toward the camera follows. */

@@ -36,8 +36,6 @@ struct W8XStatus {
     unsigned int uiItemTableCategories;
     unsigned int uiMonstersInDatabase;
     bool fCombatMode;
-    bool fSpellCastMode;
-    bool fItemSelectMode;
     bool fNpcDialogueMode;
     bool fLockInteractMode;
     bool fTrapInteractMode;
@@ -48,11 +46,6 @@ struct W8XStatus {
     /* Re-check level-up notices when the UI is idle again. */
     bool level_up_notice;
     bool fEncumbranceDirty; /* Pending party-weight recalc */
-    int active_monster_count;
-    /* Active in-combat monsters with DISP_HOSTILE, recomputed by
-       RecountCombatMonsters; nonzero starts combat and blocks ending it.
-       Compared unsigned. */
-    unsigned int hostile_monster_count;
     int item_manager_pending;
     bool fSurprisePossible;
     /* Set when surprise starts with no character engaged; phase 1 waits
@@ -77,8 +70,6 @@ struct W8XStatus {
        live formation here on open, edits the copy, and either reconciles it
        back or diffs it against live on accept. */
     W8PartyFormationState edited_formation;
-    W8CombatSlot item_selection_target;
-    W8ActionDetailBlock item_selection_detail;
     int picked_monster;
     int picked_group;
     /* One-shot latch set when the combat/party panels refresh; the next
@@ -113,8 +104,6 @@ struct W8XStatus {
     uint64_t combat_countdown;
     unsigned char combat_difficulty;
     bool party_moving;
-    int saved_encounter_budget;
-    int hostile_group_count;
 };
 
 extern W8XStatus gXStatus;
@@ -135,7 +124,5 @@ W8MonsterInfo* GetMonsterListEntry(int index);
 W8MonsterInfo* GetUnbornMonsterEntry(int index);
 
 W8WorldItem* GetWorldItemListEntry(int index);
-
-W8MonsterGroup* GetMonsterGroupEncounter(int index);
 
 #endif

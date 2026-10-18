@@ -2216,9 +2216,8 @@ void Trigger::Run(int source)
             if (recipients.empty() || SDL_strcasecmp(recipients.c_str(), "party") != 0) {
                 break;
             }
-            ApplyItemEffectToRandomCharacter(Random(2) != 0 ? kConditionReaction
-                                                            : kConditionReactionAlt,
-                                             -1, 0, kCharacterEventNoFlags);
+            ApplyItemEffectToRandomCharacter(
+                Random(2) != 0 ? kConditionReaction : kConditionReactionAlt, -1, 0);
             flags |= W8_TRIGGER_RUNNING;
             goto commit_action;
 
@@ -2578,9 +2577,8 @@ void Trigger::Run(int source)
 
                 if (item_count == 0) {
                     if (m_pProp->Rep()->subcycle == 0) {
-                        ApplyItemEffectToRandomCharacter(Random(2) != 0 ? g_container_event
-                                                                        : g_container_event_alt,
-                                                         -1, 0, kCharacterEventNoFlags);
+                        ApplyItemEffectToRandomCharacter(
+                            Random(2) != 0 ? g_container_event : g_container_event_alt, -1, 0);
                     }
                 } else if (item_count == 1 && !g_status.item_in_cursor) {
                     item = world_item_group->next.get();

@@ -155,7 +155,7 @@ bool CanMonsterSeeMonster(W8MonsterInfo* source, W8MonsterInfo* target, W8Visibi
     target_position = target_monster->movement.position;
     target_position.y += target_monster->movement.height_offset;
     observer_yaw = source_monster->GetYaw();
-    if (!target->fInCombat) {
+    if (!target->pCombat) {
         penalty_modifier = target_record->camouflage0;
     } else {
         penalty_modifier = 0;
@@ -418,7 +418,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
         for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
             W8MonsterInfo* other = GetMonsterListEntry(index);
 
-            if (other != monster_info && other->fInCombat && other->fActive &&
+            if (other != monster_info && other->pCombat && other->fActive &&
                 other->hp_current != 0) {
                 auto* entry = &(*monster_info->monster_visibility)[other->location_id];
                 entry->about_location_id = other->location_id;
@@ -641,7 +641,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                 yaw = GetCameraYawRadians();
                 distance = monster->GetDistanceToPlayer();
                 npc_fade_flag = 0;
-                if (!monster_info->fInCombat) {
+                if (!monster_info->pCombat) {
                     npc_fade_flag = record->camouflage0;
                 }
                 seen_by_party = false;
@@ -700,9 +700,9 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                     if (Random(2) == 0) {
                                         effect = 0x44;
                                     }
-                                    W8CharacterEvent* notice = QueueCharacterEvent(
-                                        &g_status.buffers.Char[party_slot], effect, 0,
-                                        kCharacterEventNoFlags, kCharacterEventFullVolume);
+                                    W8CharacterEvent* notice =
+                                        QueueCharacterEvent(&g_status.buffers.Char[party_slot],
+                                                            effect, 0, kCharacterEventFullVolume);
 
                                     if (notice != 0) {
                                         notice->DelayDispatch(0x5dc);
@@ -732,7 +732,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                         }
                                         W8CharacterEvent* notice = QueueCharacterEvent(
                                             &g_status.buffers.Char[party_slot], effect, 0,
-                                            kCharacterEventNoFlags, kCharacterEventFullVolume);
+                                            kCharacterEventFullVolume);
 
                                         if (notice != 0) {
                                             notice->DelayDispatch(0x5dc);
@@ -823,7 +823,7 @@ bool MonsterGroupCanSeeGroup(W8MonsterGroup* source, W8MonsterGroup* target)
     target_info = FindMonster(target->leader_location_id);
     source_monster = source_info->p3D;
     target_monster = target_info->p3D;
-    if (!target_info->fInCombat) {
+    if (!target_info->pCombat) {
         distance = source_monster->GetDistanceToMonster(target_monster);
         world = GetWorld();
         far_clip = WorldGetFarClip(world);

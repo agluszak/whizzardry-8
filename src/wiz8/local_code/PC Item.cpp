@@ -1218,7 +1218,7 @@ unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_use
         return used;
     }
 
-    QueueCharacterEvent(&g_status.buffers.Char[party_slot], event_type, 0, 1,
+    QueueCharacterEvent(&g_status.buffers.Char[party_slot], event_type, 0,
                         kCharacterEventFullVolume);
     *out_uses = fatigue_cost;
     return used;
@@ -1300,8 +1300,7 @@ bool MergeItems(W8Character* character, W8ItemInstance* destination)
             } else {
                 merged = character->skills[recipe->merge_skill].level >= recipe->merge_skill_level;
                 if (merged) {
-                    QueueCharacterEvent(character, g_learn_sound, 0, kCharacterEventNoFlags,
-                                        kCharacterEventFullVolume);
+                    QueueCharacterEvent(character, g_learn_sound, 0, kCharacterEventFullVolume);
                     PracticeCharacterSkill(character, static_cast<W8Skill>(recipe->merge_skill),
                                            recipe->merge_skill_level / 10, false);
                 }
@@ -2173,7 +2172,7 @@ void EquipMatchingPartnerItem(W8Character* character, W8ItemInstance* item, int 
             character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON].iItemNo)) {
         pair = &character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON];
     } else if (item_id == -1 || !FindItemOnCharacter(character, item_id, &pair, 1, 0)) {
-        QueueCharacterEvent(character, 39, 0, kCharacterEventNoFlags, kCharacterEventFullVolume);
+        QueueCharacterEvent(character, 39, 0, kCharacterEventFullVolume);
         return;
     }
 
@@ -3141,8 +3140,7 @@ void DeliverExceptionalItemReaction(W8ItemInstance* item, bool choose_character,
             return;
         }
         signed char npc_slot = npc->group_index;
-        QueueCharacterEvent(&g_status.buffers.Char[npc_slot], 65, 0, kCharacterEventNoFlags,
-                            kCharacterEventFullVolume);
+        QueueCharacterEvent(&g_status.buffers.Char[npc_slot], 65, 0, kCharacterEventFullVolume);
         return;
     }
     default:
@@ -3155,7 +3153,7 @@ void DeliverExceptionalItemReaction(W8ItemInstance* item, bool choose_character,
         break;
     }
 
-    QueueCharacterEvent(character, message, 0, kCharacterEventNoFlags, kCharacterEventFullVolume);
+    QueueCharacterEvent(character, message, 0, kCharacterEventFullVolume);
     item->effect_used |= 1;
 }
 
@@ -3220,7 +3218,7 @@ bool ValidateItemSpellUse(int character_index, W8ItemInstance* item,
         ShowNoticeLine(g_localized_strings[0x7a7], callback, true, false);
         return true;
     }
-    if (gXStatus.fItemSelectMode) {
+    if (ItemUseDraft()) {
         if (!SpellHasAnyValidTarget(character_index, record->spell_id,
                                     ItemClassNormalizesTarget(record))) {
             ShowNoticeLine(g_localized_strings[0x7a8], callback, true, false);
@@ -3523,22 +3521,23 @@ unsigned int GetItemUseDifficulty(const W8Character* character, W8Skill skill,
     return failure;
 }
 
-/* Aim the item in an instance at whoever the slot is currently targeting, then
-   start the use as that slot's action. The one spell that needs a caster
-   picked before it can be used also opens the character screen. */
+/* Publish the complete selected item action before executing it. Identify
+   opens its second selection step instead of executing immediately. */
 // FUNCTION: WIZ8 0x0051db60
-void AimItemUseAtCurrentTarget(W8Character* character, W8ItemInstance* item)
+void SetCharacterItemUse(int party_slot, const W8Action& action)
 {
-    unsigned int party_slot = CharacterPointerToPartySlot(character);
-    W8ActionDetailBlock detail;
-
-    detail.item_use.item = item;
+    auto* item = action.detail_block.item_use.item;
+    auto detail = action.detail_block;
     detail.item_use.kind = -1;
-    const auto action = SelectCombatAction(party_slot, GetEditedActionContext(party_slot));
+    auto& row = g_status.buffers.XChar[party_slot];
+    if (gXStatus.fCombatMode)
+        row.committed_action.target = action.target;
+    else
+        row.target_out_of_combat = action.target;
     StagePartySlotItemUse(party_slot, item, &action.target);
     if (g_item_records[item->iItemNo].spell_id == W8_SPELL_IDENTIFY_ITEM) {
         ChooseAction(party_slot, W8_ACTION_USE_ITEM, -1, &detail, true, 1);
-        OpenCharacterScreenForPartySlot(CharacterPointerToPartySlot(character), true);
+        OpenCharacterScreenForPartySlot(party_slot, true);
         return;
     }
     ChooseAction(party_slot, W8_ACTION_USE_ITEM, -1, &detail, false, 1);
@@ -3631,7 +3630,7 @@ void MergeMatchingPartnerItem(W8Character* character, W8ItemInstance* item)
         return;
     }
 
-    QueueCharacterEvent(character, 39, 0, kCharacterEventNoFlags, kCharacterEventFullVolume);
+    QueueCharacterEvent(character, 39, 0, kCharacterEventFullVolume);
     CalcAttacks(character);
 }
 

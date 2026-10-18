@@ -11,13 +11,6 @@
 
 struct W8NpcState;
 
-/* Level Specific Code\SeaCaves.cpp (level 0x16).
-
-   Attribution evidence: 0x004DAF70 passes this file's path string to
-   GetMonsterGroupIndexByID. The level-0x16 block in
-   InitializeLevelMasterFunctions registers the surrounding cluster
-   (HigardiChest01-05, doortomb). */
-
 /* Spawns one hostile spirit at the named entity, if it exists. */
 static bool spawnSpiritAt(const char* entity)
 {

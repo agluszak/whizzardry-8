@@ -328,14 +328,13 @@ static void CaptureTransporter(W8SavedLocationState& state)
    fires the transporter spawn each time the gate elapses until the spawn
    reports the fact already set, then deletes the gate and unregisters. */
 // FUNCTION: WIZ8 0x004DF260
-void MartensBluff1Transporter(int command)
+bool MartensBluff1Transporter(int command)
 {
-    g_remove_current_master_function = false;
     if (command != 0) {
 
         if (command == static_cast<int>(0xEFFFFFFF)) {
             if (GetFact(W8_FACT_TRANG_TELEPORTER_TOAST)) {
-                return;
+                return false;
             }
             if (g_transport_gate) {
                 g_transport_gate->Arm();
@@ -347,22 +346,21 @@ void MartensBluff1Transporter(int command)
                                               kMovementSpeedStep);
             }
             g_master_functions.push_back({MartensBluff1Transporter, CaptureTransporter});
-            return;
+            return false;
         }
     }
     if (!g_transport_gate) {
-        g_remove_current_master_function = true;
-        return;
+        return true;
     }
     if (!g_transport_gate->PollFinished()) {
-        return;
+        return false;
     }
     if (MartensBluff1TransportSpawn()) {
         g_transport_gate->Arm();
-        return;
+        return false;
     }
     g_transport_gate.reset();
-    g_remove_current_master_function = true;
+    return true;
 }
 
 /* "MR109": the teleporter pad. Sends the party to the destination indexed by

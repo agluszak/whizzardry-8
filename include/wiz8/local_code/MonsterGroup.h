@@ -38,7 +38,6 @@ struct W8MonsterGroup {
     /* Refreshed together by the targeting visibility pass. */
     int visible_member_count;
     int selectable_member_count;
-    int active_member_count; /* recomputed from member conditions */
     int monster_id;
     /* The mean of the live members' positions, recomputed on demand. */
     glm::vec3 centre;
@@ -82,9 +81,8 @@ struct W8MonsterGroup {
        is re-applied. Unaligned inside this packed record, which is why the copy
        comes out as twelve byte moves rather than three dword ones. */
     glm::vec3 formation;
-    /* Set by MonGen when the group is spawned as an active encounter;
-       cleared by UnregisterActiveEncounterGroup, which also raises
-       encounter_ended. */
+    /* Random encounter participation. A participating group with no leader
+       consumes one encounter slot. Retirement clears this and sets encounter_ended. */
     bool encounter_registered;
     /* 0xc4 is a saved-record version: at 2 and above the loader reads one more
        byte, and below 3 it clears forced_neutral that older saves never wrote. */
@@ -107,10 +105,6 @@ struct W8MonsterGroup {
     bool encounter_ended;
 };
 
-unsigned int
-GetMonsterGroupIndexByID(int group_id, bool assert_on_failure = true,
-                         std::source_location caller = std::source_location::current());
-W8MonsterGroup* GetMonsterGroupByListIndex(unsigned int group_list_index);
 W8MonsterGroup* FindMonsterGroup(int group_id, bool assert_on_failure = true,
                                  std::source_location caller = std::source_location::current());
 bool GetMonsterGroupEngagementState(int group_id);
@@ -139,7 +133,6 @@ bool MoveMonsterGroupToPosition(W8MonsterGroup* group, const glm::vec3* position
    widened to the largest allied-group radius. Answers the movement call's
    result so callers can branch on success. */
 bool PositionMonsterGroupNearCamera(W8MonsterGroup* group, float distance, float yaw, bool flag);
-void RecountActiveMonsterGroupMembers(W8MonsterGroup* monster_group);
 /* Refresh the group's cached centre; a null centre out-pointer
    keeps only the cache update, which is how SpawnMonsters uses it. */
 void GetMonsterGroupCentre(W8MonsterGroup* monster_group, glm::vec3* centre);
@@ -193,6 +186,7 @@ bool MonsterGroupHasIncapacitatedMember(int group_id);
 /* Retire a group and its allies from the encounter budget,
    following the leader chain first. */
 void RetireMonsterGroupAndAllies(W8MonsterGroup* monster_group);
+bool LinkMonsterGroupToLeader(W8MonsterGroup* leader, W8MonsterGroup* group);
 
 void MonsterGroupLeaveCombat(W8MonsterGroup* monster_group);
 

@@ -389,7 +389,7 @@ void BindCursorMonsterToGroup(void)
             if (CurrentLevelPopulation().monster_groups.empty()) {
                 return;
             }
-            monster_group = GetMonsterGroupByListIndex(0);
+            monster_group = CurrentLevelPopulation().monster_groups[0].get();
         }
         cursor.monster_group_id = monster_group->group_id;
         if (monster_group != 0) {

@@ -55,7 +55,7 @@ bool SwampOilPool(Trigger* pTrigger)
 }
 
 static bool SwampGasFireSpawn(Trigger* pTrigger); /* 0x004DAA70 */
-static void SwampGasFireItemDrop(int command);    /* 0x004DACD0 */
+static bool SwampGasFireItemDrop(int command);    /* 0x004DACD0 */
 
 /* Casts a spell at the camera position once the savant party has met; before
    that, spawns the gas fire. */
@@ -151,7 +151,7 @@ static bool SwampGasFireSpawn(Trigger* pTrigger)
    queued NPC script notice completes - then drops an unidentified item 0x264
    at the spawned monster and fades it out for removal. */
 // FUNCTION: WIZ8 0x004DACD0
-static void SwampGasFireItemDrop(int command)
+static bool SwampGasFireItemDrop(int command)
 {
     glm::vec3 position;
     glm::vec3 drop_position;
@@ -162,11 +162,9 @@ static void SwampGasFireItemDrop(int command)
             g_npc_dialogue_closed = false;
             g_master_functions.push_back({SwampGasFireItemDrop});
         }
-        return;
+        return false;
     }
-    g_remove_current_master_function = false;
     if (g_npc_dialogue_closed) {
-        g_remove_current_master_function = true;
         if (g_swamp_spawned_monster != 0) {
             position = g_swamp_spawned_monster->GetPosition();
             drop_position = position;
@@ -176,7 +174,9 @@ static void SwampGasFireItemDrop(int command)
             ActivateItem(item);
             g_swamp_spawned_monster->BeginFadeOutAndRemove(W8_MONSTER_REMOVAL_NONE);
         }
+        return true;
     }
+    return false;
 }
 
 /* "onelid": once fact 0x33 is set and an npc of kind 0x1e exists, advance the

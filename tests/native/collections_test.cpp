@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <filesystem>
@@ -25,7 +26,10 @@
 #include "sight_state.h"
 #include "temporary_directory.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/chunk.h"
 #include "wiz8/conditions.h"
+#include "wiz8/engine_code/Monster.h"
+#include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/equipment_slots.h"
 #include "wiz8/filesystem.h"
@@ -40,6 +44,8 @@
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/Factions.h"
+#include "wiz8/local_code/MonsterGenerator.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/PC_Item.h"
@@ -50,9 +56,13 @@
 #include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/location_variables.h"
+#include "wiz8/monster_actions.h"
+#include "wiz8/monster_generators.h"
 #include "wiz8/monster_roster.h"
 #include "wiz8/npc_items.h"
 #include "wiz8/npc_trade_price.h"
+#include "wiz8/retail_save_records.h"
+#include "wiz8/retail_text_records.h"
 #include "wiz8/xstatus.h"
 
 struct LevelWorldFixture {
@@ -62,32 +72,34 @@ struct LevelWorldFixture {
 
 static std::vector<int> masterCalls;
 
-static void laterMaster(int command)
+static bool laterMaster(int command)
 {
     masterCalls.push_back(30 + command);
-    g_remove_current_master_function = false;
+    return false;
 }
 
-static void firstMaster(int command)
+static bool firstMaster(int command)
 {
     masterCalls.push_back(10 + command);
-    g_remove_current_master_function = false;
     if (command == 0) {
         g_master_functions.push_back({laterMaster});
     }
+    return false;
 }
 
-static void removingMaster(int command)
+static bool removingMaster(int command)
 {
     masterCalls.push_back(20 + command);
-    g_remove_current_master_function = true;
+    // A nested script's result cannot overwrite this callback's completion.
+    laterMaster(1);
+    return true;
 }
 
 static bool masterFunctionMutation()
 {
     g_master_functions = {{firstMaster}, {removingMaster}};
     RunMasterFunctions();
-    REQUIRE((masterCalls == std::vector<int>{10, 20}));
+    REQUIRE((masterCalls == std::vector<int>{10, 20, 31}));
     REQUIRE((g_master_functions == std::vector<W8LevelMaster>{{firstMaster}, {laterMaster}}));
     masterCalls.clear();
     g_master_functions[0].capture = [](W8SavedLocationState& state) {
@@ -113,6 +125,53 @@ static bool groupMemberLookup()
     return true;
 }
 
+TEST_CASE("Group activity is derived from its own population without recounts", "[collections]")
+{
+    W8LevelPopulation population;
+    W8MonsterGroup group{};
+    auto* first = population.monster_roster.add(std::make_unique<W8MonsterInfo>(), false);
+    auto* second = population.monster_roster.add(std::make_unique<W8MonsterInfo>(), true);
+    first->location_id = 101;
+    second->location_id = 202;
+    group.monsters = {101, 202};
+    REQUIRE(population.activeMemberCount(group) == 2);
+    second->control_state = W8_MONSTER_CONTROL_LURED;
+    REQUIRE(population.activeMemberCount(group) == 1);
+    first->highest_condition = W8_CONDITION_TURNCOAT;
+    REQUIRE(population.activeMemberCount(group) == 0);
+    second->control_state = W8_MONSTER_CONTROL_NONE;
+    REQUIRE(population.activeMemberCount(group) == 1);
+    group.monsters.pop_back();
+    REQUIRE(population.activeMemberCount(group) == 0);
+}
+
+TEST_CASE("Spell picker metadata follows its draft and caster", "[targeting]")
+{
+    const ScopedRecords spells(g_spell_records, 3);
+    W8Character caster{};
+    W8SpellCastingView view{};
+    view.caster = &caster;
+    auto& spell = g_spell_records[1];
+    spell.power_class = W8_SPELL_POWER_SELECTABLE;
+    spell.realm = W8_SPELL_REALM_FIRE;
+    spell.spell_point_cost = 5;
+    caster.iSPLeft[spell.realm] = 20;
+    view.draft.detail = 1;
+    REQUIRE(view.PowerClass() == W8_SPELL_POWER_SELECTABLE);
+    REQUIRE(view.AffordablePowerLevels() == 4);
+    caster.iSPLeft[spell.realm] = 5;
+    REQUIRE(view.AffordablePowerLevels() == 1);
+    g_spell_records[2] = spell;
+    g_spell_records[2].power_class = W8_SPELL_POWER_FIXED;
+    g_spell_records[2].spell_point_cost = 10;
+    view.draft.detail = 2;
+    REQUIRE(view.PowerClass() == W8_SPELL_POWER_FIXED);
+    REQUIRE(view.AffordablePowerLevels() == 0);
+    view.draft.detail = 0;
+    REQUIRE(view.PowerClass() == W8_SPELL_POWER_CLASS_NONE);
+    REQUIRE(view.AffordablePowerLevels() == 0);
+}
+
 static bool gameplayCollectionLifetime()
 {
     auto group = std::make_unique<W8MonsterGroup>();
@@ -125,7 +184,7 @@ static bool gameplayCollectionLifetime()
     REQUIRE(GetMonsterListEntry(0) == live);
     REQUIRE((GetMonsterListEntry(-1) == nullptr && GetMonsterListEntry(1) == nullptr));
     REQUIRE((GetUnbornMonsterEntry(0) == unborn && GetUnbornMonsterEntry(1) == nullptr));
-    REQUIRE((GetMonsterGroupEncounter(0) == group_ptr && GetMonsterGroupEncounter(1) == nullptr));
+    REQUIRE(CurrentLevelPopulation().encounter_groups.front().get() == group_ptr);
 
     // Preparing and abandoning another population cannot publish its identities.
     live->location_id = 7;
@@ -153,7 +212,7 @@ static bool gameplayCollectionLifetime()
     gXStatus = {};
     *GetWorld()->population = {};
     REQUIRE((GetMonsterListEntry(0) == nullptr && GetUnbornMonsterEntry(0) == nullptr));
-    REQUIRE(GetMonsterGroupEncounter(0) == nullptr);
+    REQUIRE(CurrentLevelPopulation().encounter_groups.empty());
     return true;
 }
 
@@ -524,12 +583,10 @@ TEST_CASE("Spell drafts cancel without changing committed or remembered choices"
     std::array<W8Character, 8> characters{};
     struct RestoreState {
         W8StatusBuffers buffers = g_status.buffers;
-        bool casting = gXStatus.fSpellCastMode;
         std::unique_ptr<W8SpellCastingView> view = std::move(gpSCSV);
         ~RestoreState()
         {
             gpSCSV = std::move(view);
-            gXStatus.fSpellCastMode = casting;
             g_status.buffers = buffers;
         }
     } restore;
@@ -546,7 +603,6 @@ TEST_CASE("Spell drafts cancel without changing committed or remembered choices"
     gpSCSV->draft = rows[0].spell;
     gpSCSV->draft.detail = 9;
     gpSCSV->draft.detail_block.spell.power_level = 3;
-    gXStatus.fSpellCastMode = true;
     W8CombatSlot target{W8_TARGET_KIND_CHARACTER, 0, -1, -1, {}, nullptr};
     CommitActionTarget(0, W8_TARGETING_CONTEXT_SHARED, target, false);
     const auto assessed = SelectCombatAction(0, W8_TARGETING_CONTEXT_SHARED);
@@ -593,20 +649,20 @@ TEST_CASE("Trade confirmation rejects changed inventory and stock sources", "[tr
 TEST_CASE("A picker constrains layout without restoring an obsolete preference", "[layout]")
 {
     struct Restore {
+        std::unique_ptr<W8SpellCastingView> view = std::move(gpSCSV);
         W8MainUiMode mode = g_settings.main_ui_mode;
-        bool casting = gXStatus.fSpellCastMode;
         ~Restore()
         {
+            gpSCSV = std::move(view);
             g_settings.main_ui_mode = mode;
-            gXStatus.fSpellCastMode = casting;
         }
     } restore;
+    gpSCSV = std::make_unique<W8SpellCastingView>();
     g_settings.main_ui_mode = W8_MAIN_UI_MODE_RADAR;
-    gXStatus.fSpellCastMode = true;
     REQUIRE(GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_FORMATION);
     REQUIRE(g_settings.main_ui_mode == W8_MAIN_UI_MODE_RADAR);
     g_settings.main_ui_mode = W8_MAIN_UI_MODE_PORTRAITS;
-    gXStatus.fSpellCastMode = false;
+    gpSCSV.reset();
     REQUIRE(GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS);
 }
 
@@ -646,4 +702,222 @@ TEST_CASE("A refused purchase leaves stock, payment and a full destination uncha
     REQUIRE(g_status.item_in_hand.iItemNo == 1);
     REQUIRE(npc.items.size() == 1);
     REQUIRE(npc.items[0].quantity == 1);
+}
+
+TEST_CASE("Encounter retirement spends one budget unit per formation, without registration",
+          "[groups]")
+{
+    struct Restore {
+        std::unique_ptr<W8World> world = ReplaceWorld(std::make_unique<W8World>(0));
+        bool combat = std::exchange(gXStatus.fCombatMode, true);
+        ~Restore()
+        {
+            gXStatus.fCombatMode = combat;
+            ReplaceWorld(std::move(world));
+        }
+    } restore;
+    const ScopedRecords levels(g_level_records, 1);
+    g_level_records[0].minimum_encounter_budget = 1;
+    g_level_records[0].maximum_encounter_budget = 20;
+    GetWorld()->encounters.random_budget = 8;
+    W8MonsterGroup unowned{};
+    unowned.encounter_registered = true;
+    REQUIRE_FALSE(DestroyMonsterGroup(&unowned, nullptr));
+    REQUIRE(GetWorld()->encounters.random_budget == 8);
+
+    auto& population = CurrentLevelPopulation();
+    for (int id : {1, 2}) {
+        auto group = std::make_unique<W8MonsterGroup>();
+        group->group_id = id;
+        group->encounter_registered = true;
+        population.monster_groups.push_back(std::move(group));
+    }
+    auto* leader = population.monster_groups[0].get();
+    auto* ally = population.monster_groups[1].get();
+    leader->allied_group_ids[0] = ally->group_id;
+    ally->leader_group_id = leader->group_id;
+    REQUIRE(population.activeEncounterLeaders() == std::vector{leader});
+    REQUIRE(FindMonsterGroup(leader->group_id) == leader);
+    REQUIRE(FindMonsterGroup(999, false) == nullptr);
+
+    RetireMonsterGroupAndAllies(ally);
+    REQUIRE(population.activeEncounterLeaders().empty());
+    REQUIRE(GetWorld()->encounters.random_budget == 7);
+    RetireMonsterGroupAndAllies(leader);
+    REQUIRE(GetWorld()->encounters.random_budget == 7);
+    REQUIRE(DestroyMonsterGroup(ally, nullptr));
+    REQUIRE(DestroyMonsterGroup(leader, nullptr));
+    REQUIRE(GetWorld()->encounters.random_budget == 7);
+}
+
+TEST_CASE("Encounter state prepares independently and retains the retail save fields",
+          "[groups][save]")
+{
+    struct Restore {
+        std::unique_ptr<W8World> world = ReplaceWorld(std::make_unique<W8World>(0));
+        ~Restore() { ReplaceWorld(std::move(world)); }
+    } restore;
+    const ScopedRecords levels(g_level_records, 2);
+    g_level_records[1].minimum_encounter_budget = 2;
+    g_level_records[1].maximum_encounter_budget = 9;
+    g_level_records[1].encounter_culling_seconds = 123;
+    auto& live = GetWorld()->encounters;
+    live.random_budget = 6;
+    live.saved_budget = 77;
+    live.interval_min = 31;
+    live.default_interval = 17;
+    live.interval_max = 44;
+    live.save_flag = 1;
+    W8World replacement(1);
+    replacement.encounters.random_budget = 100;
+    StartLevelEncounters(replacement);
+    REQUIRE(replacement.encounters.random_budget == 9);
+    REQUIRE(replacement.encounters.culling_seconds == 123);
+    REQUIRE(live.random_budget == 6);
+    REQUIRE(live.culling_seconds == 180);
+
+    const ScopedTemporaryDirectory directory("encounter-state");
+    W8Chunk chunk;
+    REQUIRE(chunk.OpenWrite(directory.path / "state.riff"));
+    chunk.WriteChunk(W8ChunkId("ENCT"), [&] { SaveEncounterState(chunk.WriteStream()); });
+    chunk.Close();
+    REQUIRE(chunk.OpenRead(directory.path / "state.riff"));
+    chunk.ForEachChunk([&](unsigned) {
+        const auto loaded = ReadEncounterState(chunk);
+        REQUIRE(loaded.random_budget == 6);
+        REQUIRE(loaded.saved_budget == 77);
+        REQUIRE(loaded.culling_seconds == 180);
+        REQUIRE(loaded.interval_min == 31);
+        REQUIRE(loaded.default_interval == 17);
+        REQUIRE(loaded.interval_max == 44);
+        REQUIRE(loaded.save_flag == 1);
+        REQUIRE(chunk.RemainingBytes() == 0);
+    });
+}
+
+TEST_CASE_METHOD(LevelWorldFixture, "Full formations reject a link before detaching its source",
+                 "[groups]")
+{
+    W8MonsterGroup destination{}, source{};
+    destination.group_id = 1;
+    std::ranges::fill(destination.allied_group_ids, 99);
+    source.group_id = 2;
+    source.leader_group_id = 17;
+    REQUIRE_FALSE(LinkMonsterGroupToLeader(&destination, &source));
+    REQUIRE(source.leader_group_id == 17);
+    REQUIRE(std::ranges::all_of(destination.allied_group_ids, [](int id) { return id == 99; }));
+}
+
+TEST_CASE("Allied leader election preserves one encounter with zero leadership ranks", "[groups]")
+{
+    struct Restore {
+        std::unique_ptr<W8World> world = ReplaceWorld(std::make_unique<W8World>(0));
+        decltype(g_combat_inactive) inactive = std::exchange(g_combat_inactive, 0);
+        bool combat = std::exchange(gXStatus.fCombatMode, true);
+        ~Restore()
+        {
+            g_combat_inactive = inactive;
+            gXStatus.fCombatMode = combat;
+            ReplaceWorld(std::move(world));
+        }
+    } restore;
+    const ScopedRecords levels(g_level_records, 1);
+    g_level_records[0].minimum_encounter_budget = 1;
+    g_level_records[0].maximum_encounter_budget = 20;
+    GetWorld()->encounters.random_budget = 8;
+    auto& population = CurrentLevelPopulation();
+    std::array<std::unique_ptr<W8Monster>, 3> representations;
+    for (int index = 0; index < 3; ++index) {
+        auto group = std::make_unique<W8MonsterGroup>();
+        group->group_id = index + 1;
+        group->leader_location_id = index + 1;
+        group->encounter_registered = true;
+        group->monsters = {index + 1};
+        population.monster_groups.push_back(std::move(group));
+        auto record = std::make_unique<W8MonsterInfo>();
+        record->location_id = index + 1;
+        auto& monster = representations[index];
+        monster = std::make_unique<W8Monster>(GetWorld());
+        monster->location_id = index + 1;
+        monster->movement.leadership_rank = 0;
+        record->p3D = monster.get();
+        population.monster_roster.add(std::move(record), false);
+    }
+    auto* old = population.monster_groups[0].get();
+    auto* first = population.monster_groups[1].get();
+    auto* second = population.monster_groups[2].get();
+    old->allied_group_ids[0] = 2;
+    old->allied_group_ids[1] = 3;
+    first->leader_group_id = second->leader_group_id = 1;
+    old->monsters.clear(); // Final member removal owns group retirement.
+    REQUIRE(DestroyMonsterGroup(old, population.findMonster(1)));
+    REQUIRE(population.activeEncounterLeaders() == std::vector{first});
+    REQUIRE(GetWorld()->encounters.random_budget == 7);
+    REQUIRE(first->leader_group_id == 0);
+    REQUIRE(first->allied_group_ids[0] == 3);
+    REQUIRE(second->leader_group_id == 2);
+    REQUIRE(representations[2]->linked_navigator == representations[1].get());
+}
+
+TEST_CASE_METHOD(LevelWorldFixture,
+                 "Combat list rows cannot select a group outside the displayed list",
+                 "[groups][targeting]")
+{
+    auto& groups = CurrentLevelPopulation().monster_groups;
+    auto group = std::make_unique<W8MonsterGroup>();
+    group->members_active = true;
+    group->fInCombat = true;
+    group->ubDisposition = W8_DISPOSITION_HOSTILE;
+    group->monsters = {1};
+    auto* displayed = group.get();
+    groups.push_back(std::move(group));
+    groups.push_back(std::make_unique<W8MonsterGroup>()); // Not displayed.
+    REQUIRE(GetLiveMonsterGroupAtIndex(0) == displayed);
+    REQUIRE(GetLiveMonsterGroupAtIndex(1) == nullptr);
+    REQUIRE(GetLiveMonsterGroupAtIndex(-1) == nullptr);
+}
+
+TEST_CASE("Threat queries follow roster membership and owned combat state", "[collections]")
+{
+    W8LevelPopulation population;
+    auto& roster = population.monster_roster;
+    auto* live = roster.add(std::make_unique<W8MonsterInfo>(), false);
+    auto* unborn = roster.add(std::make_unique<W8MonsterInfo>(), true);
+    REQUIRE_FALSE(roster.hasActiveMonsters());
+    unborn->fActive = true;
+    unborn->ubDisposition = W8_DISPOSITION_HOSTILE;
+    unborn->pCombat = std::make_unique<W8MonsterCombatState>();
+    REQUIRE(roster.hasActiveMonsters());
+    REQUIRE(roster.hostileCombatCount() == 0);
+    REQUIRE(roster.promote(unborn));
+    REQUIRE(roster.hostileCombatCount() == 1);
+    live->fActive = true;
+    live->ubDisposition = W8_DISPOSITION_HOSTILE;
+    live->pCombat = std::make_unique<W8MonsterCombatState>();
+    REQUIRE(roster.hostileCombatCount() == 2);
+    live->ubDisposition = W8_DISPOSITION_FRIENDLY;
+    REQUIRE(roster.hostileCombatCount() == 1);
+    unborn->fActive = false;
+    REQUIRE(roster.hostileCombatCount() == 0);
+    live->ubDisposition = W8_DISPOSITION_HOSTILE;
+    live->pCombat.reset();
+    REQUIRE(roster.hostileCombatCount() == 0);
+    live->fActive = false;
+    REQUIRE_FALSE(roster.hasActiveMonsters());
+}
+
+TEST_CASE("Retail monster combat markers describe ownership without restoring a fight", "[save]")
+{
+    W8MonsterInfo monster{};
+    monster.location_id = 42;
+    monster.pCombat = std::make_unique<W8MonsterCombatState>();
+    auto image = wiz8::retail::encode_image(monster);
+    REQUIRE(image.fInCombat);
+    W8MonsterInfo restored{};
+    wiz8::retail::decode_image(image, restored);
+    REQUIRE(restored.location_id == 42);
+    REQUIRE_FALSE(restored.pCombat);
+    REQUIRE(monster.pCombat);
+    monster.pCombat.reset();
+    REQUIRE_FALSE(wiz8::retail::encode_image(monster).fInCombat);
 }

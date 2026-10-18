@@ -603,7 +603,7 @@ unsigned char W8GameData::ProbeMonstersAlongMotion(glm::vec3* direction, glm::ve
             delta.z = monster_position.z - (adjusted.y + position->z);
             planar = sqrtf(delta.z * delta.z + delta.x * delta.x);
             radius = monster->radius;
-            if (monster_info->fInCombat) {
+            if (monster_info->pCombat) {
                 radius += kWorldScale;
             }
             const float abs_dy = std::abs(delta.y);

@@ -1882,7 +1882,7 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         character.fInParty = true; // Quote access must still use the previewed character directly.
         gXStatus.character_event_queue = std::make_unique<W8CharacterEventQueue>();
         auto& queue = *gXStatus.character_event_queue;
-        queue.active_events.push_back(std::make_unique<W8CharacterEvent>(&character, 0, 0, 0, 127));
+        queue.active_events.push_back(std::make_unique<W8CharacterEvent>(&character, 0, 0, 127));
         auto* unrelated = queue.active_events.front().get();
         g_status.buffers.Char = nullptr;
         g_status.buffers.XChar = nullptr;

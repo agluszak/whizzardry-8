@@ -13,7 +13,7 @@ bool MartensBluff1GasSwitch(Trigger* pTrigger);
 bool MartensBluff1JDoorController(Trigger* pTrigger);
 bool MartensBluff1Controller(Trigger* pTrigger);
 bool MartensBluff1TransportSpawn(void);
-void MartensBluff1Transporter(int command);
+bool MartensBluff1Transporter(int command);
 bool MartensBluff1Teleporter(Trigger* pTrigger);
 bool MartensBluff1ButtonGigas(Trigger* pTrigger);
 bool MartensBluff1ButtonTrang(Trigger* pTrigger);

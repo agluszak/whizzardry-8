@@ -19,6 +19,7 @@ std::shared_ptr<const SpriteSheet> ItemSprites(int item_id);
 struct W8ItemDatabaseRecord;
 struct W8NpcState;
 struct W8CombatSlot;
+struct W8Action;
 
 #include "wiz8/equipment_slots.h"
 
@@ -230,7 +231,7 @@ unsigned int GetItemUseDifficulty(const W8Character* character, W8Skill skill,
                                   unsigned int power);
 int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int power);
 
-void AimItemUseAtCurrentTarget(W8Character* character, W8ItemInstance* item);
+void SetCharacterItemUse(int party_slot, const W8Action& action);
 bool SwapWeaponSetSlots(int party_slot, bool announce, bool refresh);
 void SplitThrowableStackBetweenHands(W8Character* character, W8EquipSlot equip_slot);
 void RemovePartyPoolEntry(unsigned int index);

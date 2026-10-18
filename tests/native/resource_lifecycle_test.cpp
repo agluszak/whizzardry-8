@@ -23,10 +23,12 @@
 #include "surrender/srScene.h"
 #include "temporary_directory.h"
 #include "wiz8/character_event_queue.h"
+#include "wiz8/compat/native.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/3dapi.h"
 #include "wiz8/engine_code/AniMesh.h"
 #include "wiz8/engine_code/AnimObj.h"
+#include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Missile.h"
 #include "wiz8/engine_code/Monster.h"
@@ -45,6 +47,7 @@
 #include "wiz8/engine_code/stParticle.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/layouts/character.h"
+#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/world.h"
@@ -172,7 +175,7 @@ TEST_CASE("A dead character's events leave every queue", "[resources][lifecycle]
     const auto queues = {&queue.pending_events, &queue.npc_deferred_events, &queue.active_events};
     for (auto* events : queues) {
         for (auto* character : {&party[0], &party[1]})
-            events->push_back(std::make_unique<W8CharacterEvent>(character, 0, 0, 0, 0));
+            events->push_back(std::make_unique<W8CharacterEvent>(character, 0, 0, 0));
     }
     gXStatus.monster_manager_entries[0].active_character_event = queue.active_events.front().get();
 
@@ -192,7 +195,7 @@ TEST_CASE("Gameplay runtime reinitialization releases queued events", "[resource
     } cleanup;
     InitializeGameplayRuntimeObjects();
     gXStatus.character_event_queue->pending_events.push_back(
-        std::make_unique<W8CharacterEvent>(&character, 0, 0, 0, 0));
+        std::make_unique<W8CharacterEvent>(&character, 0, 0, 0));
     gXStatus.gameplay_timer->SetDuration(1.0f);
 
     // Replacing the status must destroy the old owners, including their nested events.
@@ -586,4 +589,88 @@ TEST_CASE_METHOD(SpellVisualFixture,
     REQUIRE(prepared.IsRenderable(false));
     REQUIRE_FALSE(prepared.IsRenderable(true));
     REQUIRE_FALSE(world.population->findMonster(7)->within_viewing_distance);
+}
+
+TEST_CASE("Ambient exchanges wait for completion and choose a different respondent", "[events]")
+{
+    std::array<W8Character, 8> characters{};
+    std::array<W8PartySlotRow, 8> slots{};
+    struct Restore {
+        W8Character* characters = g_status.buffers.Char;
+        W8PartySlotRow* slots = g_status.buffers.XChar;
+        bool environment = g_environment_time_enabled;
+        bool greeting = g_status.greeting_pending;
+        std::unique_ptr<W8CharacterEventQueue> queue = std::move(gXStatus.character_event_queue);
+        ~Restore()
+        {
+            gXStatus.character_event_queue.reset();
+            g_status.buffers.Char = characters;
+            g_status.buffers.XChar = slots;
+            g_environment_time_enabled = environment;
+            g_status.greeting_pending = greeting;
+            gXStatus.character_event_queue = std::move(queue);
+        }
+    } restore;
+    g_status.buffers.Char = characters.data();
+    g_status.buffers.XChar = slots.data();
+    g_environment_time_enabled = true;
+    g_status.greeting_pending = false;
+    gXStatus.character_event_queue = std::make_unique<W8CharacterEventQueue>();
+    auto& queue = *gXStatus.character_event_queue;
+    queue.ProcessFollowUpEvents();
+    REQUIRE(queue.pending_events.empty()); // No eligible speaker: retry later.
+    for (int i : {0, 1}) {
+        slots[i].fOccupied = true;
+        characters[i].fInParty = true;
+        characters[i].hp_current = 10;
+    }
+    g_status.greeting_pending = true;
+    queue.ProcessFollowUpEvents();
+    REQUIRE(queue.pending_events.empty()); // Rejection must not disarm the exchange.
+    g_status.greeting_pending = false;
+    queue.ProcessFollowUpEvents();
+    REQUIRE(queue.pending_events.size() == 1);
+    const auto* first = queue.pending_events.front()->character;
+    queue.ProcessFollowUpEvents();
+    REQUIRE(queue.pending_events.size() == 1); // No new line until completion.
+
+    queue.npc_deferred_events.push_back(std::move(queue.pending_events.front()));
+    queue.pending_events.clear();
+    queue.ProcessFollowUpEvents();
+    REQUIRE(queue.pending_events.empty());
+    queue.active_events.push_back(std::move(queue.npc_deferred_events.front()));
+    queue.npc_deferred_events.clear();
+    auto& active = *queue.active_events.front();
+    active.original_event_type = active.event_type;
+    active.event_type = 10; // Coalescing changes the spoken line, not the exchange.
+    queue.ProcessFollowUpEvents();
+    REQUIRE(queue.pending_events.empty());
+    const auto now = w8_get_ticks();
+    auto completed = std::move(queue.active_events.front());
+    queue.active_events.clear();
+    queue.RestartFollowUpClock(completed.get());
+    REQUIRE(queue.follow_up->ready_at >= now + 2000);
+    REQUIRE(queue.follow_up->ready_at <= w8_get_ticks() + 8000);
+    queue.follow_up->ready_at = 0; // Expire the response delay without sleeping.
+    queue.ProcessFollowUpEvents();
+    REQUIRE(queue.pending_events.size() == 1);
+    REQUIRE(queue.pending_events.back()->character != first);
+    queue.ProcessFollowUpEvents();
+    REQUIRE(queue.pending_events.size() == 1);
+    completed = std::move(queue.pending_events.back());
+    queue.pending_events.clear();
+    queue.RestartFollowUpClock(completed.get());
+    REQUIRE(queue.follow_up->ready_at >= now + 300000);
+    REQUIRE(queue.follow_up->ready_at <= w8_get_ticks() + 360000);
+    queue.ProcessFollowUpEvents();
+    REQUIRE(queue.pending_events.empty());
+    queue.follow_up->ready_at = 0;
+    queue.ProcessFollowUpEvents();
+    REQUIRE(queue.pending_events.size() == 1);
+    queue.pending_events.clear(); // A discarded line does not leave a waiting latch behind.
+    queue.ProcessFollowUpEvents();
+    REQUIRE(queue.pending_events.size() == 1);
+    queue.follow_up.reset();
+    queue.RestartFollowUpClock(queue.pending_events.back().get());
+    REQUIRE_FALSE(queue.follow_up); // A late completion cannot re-enable idle dialogue.
 }

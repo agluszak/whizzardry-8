@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include <cstring>
+#include <iterator>
 #include <optional>
 #include <span>
 #include <tuple>
@@ -55,6 +56,7 @@
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/npc_interaction.h"
@@ -352,7 +354,7 @@ void AimAtMonsterLocation(int party_slot, int location_id, bool allow_single_tar
                                                                 : -1;
         if (event != -1)
             QueueCharacterEvent(&g_status.buffers.Char[party_slot], event, 0,
-                                kCharacterEventNoFlags, kCharacterEventFullVolume);
+                                kCharacterEventFullVolume);
     }
     if (assessment) {
         needed = W8_TARGET_NEED_UNSET;
@@ -789,7 +791,7 @@ static int ChooseMonsterTarget(int party_slot, const W8Action& action,
     for (unsigned index = 0; index < CurrentLevelPopulation().monster_roster.live().size();
          ++index) {
         W8MonsterInfo* monster_info = GetMonsterListEntry(index);
-        if (!monster_info->fActive || !monster_info->fInCombat || monster_info->hp_current == 0 ||
+        if (!monster_info->fActive || !monster_info->pCombat || monster_info->hp_current == 0 ||
             MonsterVsCharDisposition(party_slot, monster_info) != W8_DISPOSITION_HOSTILE ||
             !AssessMonsterAim(party_slot, 2, monster_info, action, attack_range)) {
             continue;
@@ -1494,7 +1496,7 @@ bool SpellHasAnyValidTarget(int party_slot, int spell_id, bool normalize)
 
     case W8_TARGET_NEED_GROUP:
         for (index = 0; index < CurrentLevelPopulation().monster_groups.size(); ++index) {
-            W8MonsterGroup* group = GetMonsterGroupByListIndex(index);
+            W8MonsterGroup* group = CurrentLevelPopulation().monster_groups[index].get();
 
             if (group->members_active &&
                 CanTargetMonsterGroup(party_slot, group, edited_action, sighting)) {
@@ -1672,42 +1674,20 @@ void AimAtMonsterGroupMember(int party_slot, W8MonsterGroup* group)
 // FUNCTION: WIZ8 0x00537ed0
 static int PickNextTargetableGroup(int party_slot, const W8Action& edited_action, bool sighting)
 {
-    unsigned int count = CurrentLevelPopulation().monster_groups.size();
-    unsigned int start;
-    unsigned int index;
-
-    if (count == 0) {
-        return BAD_INDEX;
-    }
-
-    if (gXStatus.picked_group == BAD_INDEX) {
-        start = 0;
-    } else {
-        start = GetMonsterGroupIndexByID(gXStatus.picked_group, false);
-        if (start == 0xffffffff) {
-            start = 0;
-            gXStatus.picked_group = BAD_INDEX;
-        } else {
-            ++start;
-            if (start == CurrentLevelPopulation().monster_groups.size()) {
-                start = 0;
-            }
-        }
-    }
-
-    index = start;
-    do {
-        W8MonsterGroup* group = GetMonsterGroupByListIndex(index);
-
-        if (CanTargetMonsterGroup(party_slot, group, edited_action, sighting)) {
+    const auto& groups = CurrentLevelPopulation().monster_groups;
+    if (groups.empty()) return BAD_INDEX;
+    const auto current = std::ranges::find_if(
+        groups, [](const auto& group) { return group->group_id == gXStatus.picked_group; });
+    std::size_t start = 0;
+    if (current == groups.end())
+        gXStatus.picked_group = BAD_INDEX;
+    else
+        start = (std::distance(groups.begin(), current) + 1) % groups.size();
+    for (std::size_t offset = 0; offset < groups.size(); ++offset) {
+        auto* group = groups[(start + offset) % groups.size()].get();
+        if (CanTargetMonsterGroup(party_slot, group, edited_action, sighting))
             return group->group_id;
-        }
-        ++index;
-        if (index == CurrentLevelPopulation().monster_groups.size()) {
-            index = 0;
-        }
-    } while (index != start);
-
+    }
     return BAD_INDEX;
 }
 
@@ -1828,7 +1808,7 @@ void RefreshMonsterTargetCounts(void)
 
     for (group_index = 0; group_index < CurrentLevelPopulation().monster_groups.size();
          ++group_index) {
-        W8MonsterGroup* group = GetMonsterGroupByListIndex(group_index);
+        W8MonsterGroup* group = CurrentLevelPopulation().monster_groups[group_index].get();
         int on_screen_count;
         int selectable_count;
 
@@ -1936,10 +1916,10 @@ void CommitActionTarget(int actor, W8TargetingContext context, const W8CombatSlo
         row.committed_action.target = target;
         break;
     case W8_TARGETING_CONTEXT_SHARED:
-        if (gXStatus.fSpellCastMode)
+        if (gpSCSV)
             gpSCSV->draft.target = target;
-        else
-            gXStatus.item_selection_target = target;
+        else if (auto* draft = ItemUseDraft())
+            draft->target = target;
         break;
     case W8_TARGETING_CONTEXT_SPELL:
         row.spell.target = target;

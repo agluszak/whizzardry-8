@@ -120,8 +120,8 @@ struct ElevatorStateBindings {
     const char* state_variable;
     const char* moving_variable;
     const char* button_variable;
-    void (*moving_master)(int);
-    void (*button_master)(int);
+    W8MasterFunction moving_master;
+    W8MasterFunction button_master;
     bool open_bottom_on_first_load;
     void (*moving_state)(W8SavedLocationState&);
     void (*button_state)(W8SavedLocationState&);
@@ -195,13 +195,13 @@ static void RestoreArnikaElevator(W8Elevator& elevator, const ElevatorStateBindi
     }
 }
 
-static void RunArnikaElevatorButton(W8Elevator& elevator, W8Prop*& button_prop,
+static bool RunArnikaElevatorButton(W8Elevator& elevator, W8Prop*& button_prop,
                                     const ElevatorStateBindings& bindings, int command)
 {
     if (command != 0) {
         button_prop = elevator.pButton->GetProp();
         if (button_prop == 0) {
-            return;
+            return false;
         }
         g_master_functions.push_back({bindings.button_master, bindings.button_state});
         if (command != static_cast<int>(0xEFFFFFFF)) {
@@ -209,42 +209,37 @@ static void RunArnikaElevatorButton(W8Elevator& elevator, W8Prop*& button_prop,
         } else {
             elevator.button_down = 1;
         }
-        return;
+        return false;
     }
-    g_remove_current_master_function = false;
     if (button_prop == 0) {
-        g_remove_current_master_function = true;
-        return;
+        return true;
     }
     if (button_prop->Rep()->animation_playing != 0) {
-        return;
+        return false;
     }
     if (elevator.button_down == 1) {
         elevator.button_down = 2;
         elevator.pButton->Run(-1);
         elevator.button_down = 3;
-        return;
+        return false;
     }
     elevator.button_down = 0;
     SetTriggerVariableByName(bindings.button_variable, 0);
-    g_remove_current_master_function = true;
+    return true;
 }
 
-static void RunArnikaElevatorMoving(W8Elevator& elevator, const ElevatorStateBindings& bindings,
+static bool RunArnikaElevatorMoving(W8Elevator& elevator, const ElevatorStateBindings& bindings,
                                     int command)
 {
-    if (command != 0) {
-    }
-    g_remove_current_master_function = false;
     if (elevator.pProp == 0) {
-        g_remove_current_master_function = true;
-        return;
+        return true;
     }
     if (elevator.pProp->Rep()->animation_playing != 0) {
-        return;
+        return false;
     }
-    g_remove_current_master_function = true;
+
     ArnikaElevatorAdvance(bindings.which);
+    return true;
 }
 
 /* Level init: clears the laser-scanner and exit-door caches, runs both
@@ -323,25 +318,24 @@ bool ArnikaLazerScanner(Trigger* pTrigger)
 /* Laser-scan master: a positive command re-arms the scan; a zero tick drops it once the prop's
    rep stops animating. */
 // FUNCTION: WIZ8 0x004E0960
-void ArnikaLaserScanMaster(int command)
+bool ArnikaLaserScanMaster(int command)
 {
     if (command != 0) {
         g_laser_scanning = 1;
         BeginScriptedWorldAction();
         g_master_functions.push_back({ArnikaLaserScanMaster, CaptureLaserScan});
-        return;
+        return false;
     }
-    g_remove_current_master_function = false;
     if (g_lazer_prop == 0) {
-        g_remove_current_master_function = true;
-        return;
+        return true;
     }
     if (g_lazer_prop->Rep()->animation_playing != 0) {
-        return;
+        return false;
     }
-    g_remove_current_master_function = true;
+
     ClearMainGameTargetState();
     g_laser_scanning = 0;
+    return true;
 }
 
 /* ScannerDoor trigger: the 0x27b key item opens the HLL door once. */
@@ -361,17 +355,16 @@ bool ArnikaScannerDoor(Trigger* pTrigger)
    that many seconds (or just the one-shot above 0x1e); a zero tick runs the countdown and
    stops the looped VOC when it expires. */
 // FUNCTION: WIZ8 0x004E0AC0
-void ArnikaWarningSound(int command)
+bool ArnikaWarningSound(int command)
 {
     glm::vec3 position;
 
-    g_remove_current_master_function = false;
     if (command != 0) {
         if (GetLocationVarIDByName("WarningSound") == -1) {
             CreateLocationVar("WarningSound", 0x1e);
         }
         if (!FindEntityByName("ULLspawn", &position, 0, 0)) {
-            return;
+            return false;
         }
         g_warning_gate.reset();
         if (command <= 0x1e) {
@@ -390,21 +383,22 @@ void ArnikaWarningSound(int command)
     }
     if (g_warning_oneshot != 0) {
         if (g_warning_oneshot->IsPlaying()) {
-            return;
+            return false;
         }
         g_warning_oneshot = 0;
     }
     if (!g_warning_gate) {
         g_warning_gate.emplace(30.0f, false, true);
-        return;
+        return false;
     }
     if (!g_warning_gate->PollFinished()) {
-        return;
+        return false;
     }
-    g_remove_current_master_function = true;
+
     g_warning_loop->Stop();
     g_warning_gate.reset();
     SetTriggerVariableByName("WarningSound", 0);
+    return true;
 }
 
 /* Mookholo trigger: spawns the Screg ambush once while neither ScregActive
@@ -455,23 +449,23 @@ bool ArnikaMookholo(Trigger* pTrigger)
    fades the spawned monster out once g_npc_dialogue_closed signals the NPC notice
    finished. */
 // FUNCTION: WIZ8 0x004E0F70
-void ArnikaMookholoWatch(int command)
+bool ArnikaMookholoWatch(int command)
 {
     if (command != 0) {
         if (command == static_cast<int>(0xEFFFFFFF)) {
             g_npc_dialogue_closed = false;
             g_master_functions.push_back({ArnikaMookholoWatch});
         }
-        return;
+        return false;
     }
-    g_remove_current_master_function = false;
     if (g_npc_dialogue_closed) {
-        g_remove_current_master_function = true;
         if (g_mookholo_monster != 0) {
             g_mookholo_monster->BeginFadeOutAndRemove(W8_MONSTER_REMOVAL_CLEAR_SCREG_ACTIVE);
             g_mookholo_monster = 0;
         }
+        return true;
     }
+    return false;
 }
 
 /* MookFrontDoor trigger: asserts the Mookholo trigger exists and opens the
@@ -554,15 +548,15 @@ bool ArnikaExitButton(Trigger* pTrigger)
 /* Teleport watch: once the exit-door prop's rep finishes animating, runs
    the cached trigger and teleports the party to ARN11. */
 // FUNCTION: WIZ8 0x004E1300
-void ArnikaTeleportWatch(int command)
+bool ArnikaTeleportWatch(int command)
 {
-    g_remove_current_master_function = false;
     if (g_exit_door_prop->Rep()->animation_playing != 0) {
-        return;
+        return false;
     }
-    g_remove_current_master_function = true;
+
     g_exit_door_trigger->Run(-1);
     g_exit_door_trigger->RunDestination("ARN11");
+    return true;
 }
 
 /* GenVault-2-door trigger: spawns the vault golem once at the Golem
@@ -640,9 +634,9 @@ bool ArnikaRedButton(Trigger* pTrigger)
    value is the pending press. The command-0 run waits for the button prop's
    rep to finish, then runs the button trigger once and clears the press. */
 // FUNCTION: WIZ8 0x004E17C0
-void ArnikaEl1Button(int command)
+bool ArnikaEl1Button(int command)
 {
-    RunArnikaElevatorButton(gEl01, g_el01_button_prop, g_el01_bindings, command);
+    return RunArnikaElevatorButton(gEl01, g_el01_button_prop, g_el01_bindings, command);
 }
 
 /* "El1-TopButtons": advances the lift while no button run is pending and the
@@ -668,9 +662,9 @@ bool ArnikaEl1BottomButtons(Trigger* pTrigger)
    command-0 run advances the elevator once the watched door or lift prop's
    rep has finished playing. */
 // FUNCTION: WIZ8 0x004E19B0
-void ArnikaEl1Moving(int command)
+bool ArnikaEl1Moving(int command)
 {
-    RunArnikaElevatorMoving(gEl01, g_el01_bindings, command);
+    return RunArnikaElevatorMoving(gEl01, g_el01_bindings, command);
 }
 
 /* Elevator-02 setup: resolves its triggers, restores El02State, El02Moving
@@ -714,9 +708,9 @@ bool ArnikaGreenButton(Trigger* pTrigger)
 /* The elevator-2 button master function, mirroring ArnikaEl1Button
    against GreenButtonDown. */
 // FUNCTION: WIZ8 0x004E1E10
-void ArnikaEl2Button(int command)
+bool ArnikaEl2Button(int command)
 {
-    RunArnikaElevatorButton(gEl02, g_el02_button_prop, g_el02_bindings, command);
+    return RunArnikaElevatorButton(gEl02, g_el02_button_prop, g_el02_bindings, command);
 }
 
 /* "Elevator-02": steps the lift while no button run is pending and the
@@ -736,9 +730,9 @@ bool ArnikaElevator02Trigger(Trigger* pTrigger)
 
 /* The El02Moving master function, mirroring ArnikaEl1Moving. */
 // FUNCTION: WIZ8 0x004E1FB0
-void ArnikaEl2Moving(int command)
+bool ArnikaEl2Moving(int command)
 {
-    RunArnikaElevatorMoving(gEl02, g_el02_bindings, command);
+    return RunArnikaElevatorMoving(gEl02, g_el02_bindings, command);
 }
 
 /* Runs a door and its collide trigger for one elevator step and returns the door's prop. */

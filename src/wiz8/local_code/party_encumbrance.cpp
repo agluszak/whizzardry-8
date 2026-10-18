@@ -151,8 +151,7 @@ bool RecalculateCarriedWeight(W8Character* character)
         if (g_current_screen_state.id != W8_SCREEN_CAMP) {
             effect = g_special_event13;
         }
-        QueueCharacterEvent(character, effect, 0, kCharacterEventNoFlags,
-                            kCharacterEventFullVolume);
+        QueueCharacterEvent(character, effect, 0, kCharacterEventFullVolume);
     }
     return previous != character->inventory_weight;
 }

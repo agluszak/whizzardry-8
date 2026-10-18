@@ -376,7 +376,7 @@ void ResetCombatEffects(void)
         }
         for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
             monster_info = GetMonsterListEntry(index);
-            if (monster_info->fActive && monster_info->fInCombat) {
+            if (monster_info->fActive && monster_info->pCombat) {
                 slot = &monster_info->pCombat->combat_effects[i];
                 if (slot->active) {
                     ClearEffectSlot(monster_info, slot);
@@ -390,7 +390,7 @@ void ResetCombatEffects(void)
         }
         for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
             monster_info = GetMonsterListEntry(index);
-            if (monster_info->fActive && monster_info->fInCombat) {
+            if (monster_info->fActive && monster_info->pCombat) {
                 slot = &monster_info->pCombat->combat_effects_2[i];
                 if (slot->active) {
                     ClearEffectSlot(monster_info, slot);
@@ -1655,7 +1655,7 @@ char TryCureConditionOnTargets(W8SpellEffectEntry* effect, W8Condition condition
                         }
                     }
                     if (Random(100) < 0x32) {
-                        QueueCharacterEvent(character, g_special_event14, 0, kCharacterEventNoFlags,
+                        QueueCharacterEvent(character, g_special_event14, 0,
                                             kCharacterEventFullVolume);
                     }
                 } else {
@@ -2000,9 +2000,9 @@ void ApplyCombatEffectSlot(W8SpellEffectEntry* effect)
         }
         for (index = 0; index < static_cast<int>(effect->monster_ids.size()); ++index) {
             monster_info = GetEffectMonsterTarget(effect->monster_ids[index], 0x342, 0x343);
-            if (!monster_info->fInCombat) {
+            if (!monster_info->pCombat) {
                 MonsterGroupEnterCombat(FindMonsterGroup(monster_info->monster_group_id));
-                if (!monster_info->fInCombat) {
+                if (!monster_info->pCombat) {
                     continue;
                 }
             }
@@ -2070,9 +2070,9 @@ void ApplyDefenseEffectSlot(W8SpellEffectEntry* effect)
     }
     for (index = 0; index < static_cast<int>(effect->monster_ids.size()); ++index) {
         monster_info = GetEffectMonsterTarget(effect->monster_ids[index], 0x3d8, 0x3d9);
-        if (!monster_info->fInCombat) {
+        if (!monster_info->pCombat) {
             MonsterGroupEnterCombat(FindMonsterGroup(monster_info->monster_group_id));
-            if (!monster_info->fInCombat) {
+            if (!monster_info->pCombat) {
                 continue;
             }
         }

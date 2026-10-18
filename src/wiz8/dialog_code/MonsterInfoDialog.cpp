@@ -231,7 +231,7 @@ bool W8MonsterInfoDialog::PopulateText()
             ++count;
         }
     }
-    if (monster_info->fInCombat) {
+    if (monster_info->pCombat) {
         for (index = 0; index < 9; ++index) {
             if (monster_info->pCombat->combat_effects[index].active) {
                 if (count > 0) {
@@ -288,7 +288,7 @@ bool W8MonsterInfoDialog::PopulateText()
             ++count;
         }
     }
-    if (monster_info->fInCombat) {
+    if (monster_info->pCombat) {
         for (index = 0; index < 6; ++index) {
             if (monster_info->pCombat->combat_effects_2[index].active) {
                 if (count > 0) {
