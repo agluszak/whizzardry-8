@@ -490,7 +490,7 @@ bool ArnikaVaultAlarmDoor(Trigger* pTrigger)
     wiz8::sound::play("Data\\Sound\\Ambients\\VaultAlarm.wav");
     group = FindNextExistingMonsterByID(0xc, 0);
     while (group != 0) {
-        SetMonsterGroupHostility(group, 1, false);
+        SetMonsterGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
         group = FindNextExistingMonsterByID(0xc, group);
     }
     SetFact(W8_FACT_ARNIKA_VAULT_ENTERED, 1, false);
@@ -796,7 +796,7 @@ bool ArnikaMaddmook(Trigger* pTrigger)
 {
     if (GetLocationVarIDByName("WarnedAboutEntry") != -1 &&
         GetLocationVarValueByName("WarnedAboutEntry") == 1 &&
-        GetFactionDisposition(W8_FACTION_MOOK) != W8_DISPOSITION_NEUTRAL) {
+        GetFactionDisposition(W8_FACTION_MOOK) != W8_FACTION_NEUTRAL) {
         W8NpcState* npc = GetNpcStateByKind(0x69);
         if (npc != 0) {
             QueueNpcScriptNotice(npc, 0, 7, false, 0);

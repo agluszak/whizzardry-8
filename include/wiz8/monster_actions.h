@@ -25,9 +25,7 @@ enum W8MonsterControlState {
 };
 
 /* BEGINORDERS scripts and save records store this signed byte. */
-typedef signed char W8MonsterOrderMode;
-
-enum {
+enum W8MonsterOrderMode : signed char {
     W8_MONSTER_ORDER_NONE = -1,
     W8_MONSTER_ORDER_GUARD = 0,
     W8_MONSTER_ORDER_PATROL = 1,
@@ -107,8 +105,7 @@ enum W8MonsterScriptCommand {
 };
 
 /* Fade direction is signed; delayed removal precedes the outward fade. */
-typedef signed char W8MonsterFadeState;
-enum {
+enum W8MonsterFadeState : signed char {
     W8_MONSTER_FADE_DELAYED_REMOVAL = -2,
     W8_MONSTER_FADE_OUT = -1,
     W8_MONSTER_FADE_IDLE = 0,
@@ -116,8 +113,7 @@ enum {
 };
 
 /* Completion effects for monsters removed by level/NPC scripts. */
-typedef signed char W8MonsterRemovalState;
-enum {
+enum W8MonsterRemovalState : signed char {
     W8_MONSTER_REMOVAL_NONE = 0,
     W8_MONSTER_REMOVAL_RETURN_BALBRAK_HOME = 2,
     W8_MONSTER_REMOVAL_CLEAR_SCREG_ACTIVE = 3

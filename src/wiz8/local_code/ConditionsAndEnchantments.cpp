@@ -504,7 +504,9 @@ void SetMonsterCondition(int location_id, W8Condition condition, int duration, i
                     return;
                 }
                 SetMonsterHostility(monster_info,
-                                    (monster_info->ubDisposition == W8_DISPOSITION_HOSTILE) + 1);
+                                    monster_info->ubDisposition == W8_DISPOSITION_HOSTILE
+                                        ? W8_DISPOSITION_FRIENDLY
+                                        : W8_DISPOSITION_HOSTILE);
             }
         }
         RefreshMonsterConditionState(monster_info);
