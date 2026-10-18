@@ -191,7 +191,7 @@ void AscensionAvalanche(bool command)
                 SetFact(W8_FACT_LANDSLIDE_WILD_SIDE, 1, false);
             }
         }
-        g_master_functions.push_back(AscensionLandShaker);
+        g_master_functions.push_back({AscensionLandShaker});
     }
 }
 

@@ -59,6 +59,7 @@
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
+#include "wiz8/location_variables.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/startup_world.h"
@@ -522,6 +523,12 @@ static void FinishLevelDeparture()
         EndCombat(true);
     }
 
+    // These values become durable session history at departure. Saving only
+    // observes them; releasing the old world's resources never captures gameplay.
+    for (const auto& [name, value] : CaptureMasterFunctionState()) {
+        CreateLocationVar(name.c_str(), value);
+        SetTriggerVariableByName(name.c_str(), value);
+    }
     if (GetLoadedLevelID() >= 0 && GetLoadedLevelID() < W8_LEVEL_COUNT) {
         g_status.level_progress[GetLoadedLevelID()].sight_clock = g_status.world_clock;
     }

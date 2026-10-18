@@ -55,7 +55,7 @@ std::string BuildCharacterFilePath(std::string_view filename, int slot);
 std::string BuildCharacterPath(std::string_view name, int slot);
 bool SaveGameExists(void);
 void LoadGameStatus(W8Chunk* chunks, W8GlobalStatus* status);
-void SaveGlobalStatus(W8Chunk* chunks, W8GlobalStatus* status);
+void SaveGlobalStatus(W8Chunk* chunks, const W8GlobalStatus* status);
 /* Load a save slot by name; the Please Wait screen drives it. */
 bool LoadGame(std::string_view slot_name);
 

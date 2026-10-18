@@ -23,6 +23,17 @@
 #include "wiz8/world_cursor.h"
 #include "wiz8/xstatus.h"
 
+namespace {
+int PreviewPower(const W8Action& action)
+{
+    const int requested =
+        action.kind == W8_ACTION_CAST_SPELL ? action.detail_block.spell.power_level : 1;
+    // Automatic power is resolved when the action executes. Its preview keeps
+    // the historical base-power geometry and never consumes a gameplay roll.
+    return requested >= 1 && requested <= 7 ? requested : 1;
+}
+}
+
 bool CurrentCombatSubjectIsValid()
 {
     if (!g_level_block) return false;
@@ -61,8 +72,8 @@ W8TargetingPresentation BuildTargetingPresentation()
             W8TargetSource source;
             SetTargetSourceToCharacter(selected, &source);
             std::vector<int> party;
-            PopulateSpellTargetMarkers(spell, 1, &source, &target, result.area_targets, party,
-                                       W8AreaSightRule::RequireLineOfSight);
+            PopulateSpellTargetMarkers(spell, PreviewPower(action), &source, &target,
+                                       result.area_targets, party, W8AreaSightRule::GeometryOnly);
             for (int id : result.area_targets) result.monsters[id].tint = {0, 1, 0, 1};
         }
     }
@@ -76,8 +87,8 @@ W8TargetingPresentation BuildTargetingPresentation()
             W8TargetSource source;
             SetTargetSourceToCharacter(actor, &source);
             std::vector<int> party;
-            PopulateSpellTargetMarkers(spell, 1, &source, &action.target, targets, party,
-                                       W8AreaSightRule::RequireLineOfSight);
+            PopulateSpellTargetMarkers(spell, PreviewPower(action), &source, &action.target,
+                                       targets, party, W8AreaSightRule::RequireLineOfSight);
         } else if (action.target.iType == W8_TARGET_KIND_MONSTER) {
             if (FindMonster(action.target.iMonsterID, false))
                 targets.push_back(action.target.iMonsterID);

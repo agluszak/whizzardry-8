@@ -228,6 +228,11 @@ bool MartensBluff2Spikeballtrigger(Trigger* pTrigger)
    run; it fires the four Spikeball-launcher entities every two seconds until
    the count reaches sixteen, then unregisters and saves the reset. */
 // FUNCTION: WIZ8 0x004DD3F0
+static void CaptureSpikeball(W8SavedLocationState& state)
+{
+    state.emplace_back("SpikedBallLauncher", g_spikeball_count > 0xf ? 0 : g_spikeball_count);
+}
+
 void MartensBluff2Spikeball(int command)
 {
     W8SpellEffectDefinition effect;
@@ -239,17 +244,6 @@ void MartensBluff2Spikeball(int command)
     W8Missile* missile;
 
     if (command != 0) {
-        if (command == -1) {
-            if (g_spikeball_count > 0xf) {
-                g_spikeball_count = 0;
-            }
-            if (GetLocationVarIDByName("SpikedBallLauncher") == -1) {
-                CreateLocationVar("SpikedBallLauncher", g_spikeball_count);
-            } else {
-                SetTriggerVariableByName("SpikedBallLauncher", g_spikeball_count);
-            }
-            return;
-        }
         if (command == static_cast<int>(0xEFFFFFFF)) {
             if (g_spikeball_count == 0 || g_spikeball_count > 0xf) {
                 g_spikeball_count = 0;
@@ -261,7 +255,7 @@ void MartensBluff2Spikeball(int command)
         }
         if (!g_spikeball_gate) {
             g_spikeball_gate.emplace(2.0f, false, true);
-            g_master_functions.push_back(MartensBluff2Spikeball);
+            g_master_functions.push_back({MartensBluff2Spikeball, CaptureSpikeball});
         }
     }
     g_remove_current_master_function = false;
@@ -420,6 +414,11 @@ bool MartensBluff2SquisherControls(Trigger* pTrigger)
    AwardPartyExperience); once the squisher finishes it runs the Dummy and DummyRope
    triggers, and once those props finish it unregisters. */
 // FUNCTION: WIZ8 0x004DDF40
+static void CaptureCrusher(W8SavedLocationState& state)
+{
+    state.emplace_back("MonsterCrusher", g_crusher_state);
+}
+
 void MartensBluff2MonsterCrusher(int command)
 {
     /* The bounds box the octree query below sweeps; function-local statics,
@@ -441,14 +440,6 @@ void MartensBluff2MonsterCrusher(int command)
     float radius;
 
     if (command != 0) {
-        if (command == -1) {
-            if (GetLocationVarIDByName("MonsterCrusher") == -1) {
-                CreateLocationVar("MonsterCrusher", g_crusher_state);
-            } else {
-                SetTriggerVariableByName("MonsterCrusher", g_crusher_state);
-            }
-            return;
-        }
         g_squisher3_prop = 0;
         g_squisher4_prop = 0;
         g_dummy_prop = 0;
@@ -486,7 +477,7 @@ void MartensBluff2MonsterCrusher(int command)
             }
             g_crusher_active = true;
             g_crusher_state = 1;
-            g_master_functions.push_back(MartensBluff2MonsterCrusher);
+            g_master_functions.push_back({MartensBluff2MonsterCrusher, CaptureCrusher});
         }
         if (command != 1 && GetLocationVarValueByName("RavenQuest") != 0) {
             g_running_trigger_from_script = true;
@@ -589,7 +580,7 @@ bool MartensBluff2StoneIdol(Trigger* pTrigger)
     }
     BeginSurprise();
     MartensBluff2IdolGas(1);
-    g_master_functions.push_back(MartensBluff2IdolGas);
+    g_master_functions.push_back({MartensBluff2IdolGas});
     pTrigger->flags &= ~W8_TRIGGER_ENABLED;
     g_running_trigger_from_script = true;
     SetFact(W8_FACT_QUEST_MARTEN_IDOL, 1, false);

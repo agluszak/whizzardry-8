@@ -129,6 +129,19 @@ bool OnCrankTriggerActivated(Trigger* trigger)
    progress into the FlagPosition location variable. The prop slides from
    5228.6 down to -2000.0 while the gate runs; -5000.0 parks it below. */
 // FUNCTION: WIZ8 0x004DC080
+static void CaptureLiftGate(W8SavedLocationState& state)
+{
+    state.emplace_back("FlagPosition",
+                       g_lift_gate ? static_cast<int>(g_lift_gate->GetProgress() * 100.0f) : 0);
+}
+static void CaptureCampAlarm(W8SavedLocationState& state)
+{
+    state.emplace_back("UmpaniCampAlarm",
+                       g_mt_gigas_outer_alarm_gate
+                           ? static_cast<int>(g_mt_gigas_outer_alarm_gate->GetElapsedSeconds())
+                           : 0);
+}
+
 void ControlLiftGate(int command)
 {
     glm::vec3 position;
@@ -139,17 +152,6 @@ void ControlLiftGate(int command)
     g_remove_current_master_function = false;
     if (command != 0) {
         value = 0;
-        if (command == -1) {
-            if (g_lift_gate) {
-                value = static_cast<int>(g_lift_gate->GetProgress() * 100.0f);
-            }
-            if (GetLocationVarIDByName("FlagPosition") == -1) {
-                CreateLocationVar("FlagPosition", value);
-            } else {
-                SetTriggerVariableByName("FlagPosition", value);
-            }
-            return;
-        }
         if (command != static_cast<int>(0xEFFFFFFF)) {
             value = command;
         }
@@ -157,7 +159,7 @@ void ControlLiftGate(int command)
         g_lift_prop = pFlagTrigger->GetProp();
         position = g_lift_prop->GetPosition();
         if (value < 100) {
-            g_master_functions.push_back(ControlLiftGate);
+            g_master_functions.push_back({ControlLiftGate, CaptureLiftGate});
             if (g_lift_gate) {
                 g_lift_gate->Arm();
             } else {
@@ -209,22 +211,6 @@ bool OnSecurityButtonActivated(Trigger* trigger)
     return true;
 }
 
-bool PrepareUmpaniAlarmCommand(int command, const char* variable, W8IntervalGate* gate)
-{
-    g_remove_current_master_function = false;
-    if (command == 0) {
-        return false;
-    }
-    if (GetLocationVarIDByName(variable) == -1) {
-        CreateLocationVar(variable, 30);
-    }
-    if (command != -1) {
-        return false;
-    }
-    SetTriggerVariableByName(variable, gate ? static_cast<int>(gate->GetElapsedSeconds()) : 0);
-    return true;
-}
-
 /* The camp alarm's master function, same shape as ControlLiftGate: command
    zero ticks the alarm gate while registered, -1 writes the remaining
    seconds into UmpaniCampAlarm, and any other command plays Alarm1.wav at
@@ -235,12 +221,10 @@ void ControlCampAlarm(int command)
 {
     glm::vec3 position;
 
-    if (PrepareUmpaniAlarmCommand(command, "UmpaniCampAlarm",
-                                  g_mt_gigas_outer_alarm_gate ? &*g_mt_gigas_outer_alarm_gate
-                                                              : nullptr)) {
-        return;
-    }
+    g_remove_current_master_function = false;
     if (command != 0) {
+        if (GetLocationVarIDByName("UmpaniCampAlarm") == -1)
+            CreateLocationVar("UmpaniCampAlarm", 30);
         position = glm::vec3(GetWorld()->camera->getLocation());
         if (static_cast<unsigned int>(command) > 0x1e) {
             command = 0x1e;
@@ -255,7 +239,7 @@ void ControlCampAlarm(int command)
         g_mt_gigas_outer_alarm_gate.emplace(static_cast<float>(static_cast<unsigned int>(command)),
                                             false, true);
         if (g_mt_gigas_outer_alarm_gate) {
-            g_master_functions.push_back(ControlCampAlarm);
+            g_master_functions.push_back({ControlCampAlarm, CaptureCampAlarm});
         }
     }
     if (!g_mt_gigas_outer_alarm_gate->PollFinished()) {

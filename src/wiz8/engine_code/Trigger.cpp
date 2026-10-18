@@ -3337,11 +3337,24 @@ int GetLocationVarValueByName(const char* name)
 
 // Retail records contain a four-byte value, a 128-byte C string, and a four-byte level.
 // FUNCTION: WIZ8 0x004441e0
-void SaveLocationVariables(wiz8::File& handle)
+void SaveLocationVariables(wiz8::File& handle,
+                           std::span<const std::pair<std::string, int>> script_state)
 {
-    const auto count = static_cast<std::int32_t>(location_variables.size());
+    auto snapshot = location_variables;
+    const int current_level = GetLoadedLevelID();
+    for (const auto& [name, value] : script_state) {
+        const auto found = std::ranges::find_if(snapshot, [&](const auto& variable) {
+            return variable.level == current_level &&
+                   CompareTextIgnoreAsciiCase(variable.name, name) == 0;
+        });
+        if (found == snapshot.end())
+            snapshot.push_back({name, value, current_level});
+        else
+            found->value = value;
+    }
+    const auto count = static_cast<std::int32_t>(snapshot.size());
     handle.write(&count, sizeof(count));
-    for (const auto& variable : location_variables) {
+    for (const auto& variable : snapshot) {
         const std::int32_t value = variable.value;
         const std::int32_t level = variable.level;
         handle.write(&value, sizeof(value));

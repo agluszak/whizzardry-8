@@ -16,4 +16,3 @@ bool OnDummyTriggerActivated(Trigger* trigger);   /* 0x004DC670 */
 
 class W8IntervalGate;
 // Initialize the saved countdown; return true when the save command is handled.
-bool PrepareUmpaniAlarmCommand(int command, const char* variable, W8IntervalGate* gate);

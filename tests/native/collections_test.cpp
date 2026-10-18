@@ -68,7 +68,7 @@ static void firstMaster(int command)
     masterCalls.push_back(10 + command);
     g_remove_current_master_function = false;
     if (command == 0) {
-        g_master_functions.push_back(laterMaster);
+        g_master_functions.push_back({laterMaster});
     }
 }
 
@@ -80,13 +80,17 @@ static void removingMaster(int command)
 
 static bool masterFunctionMutation()
 {
-    g_master_functions = {firstMaster, removingMaster};
+    g_master_functions = {{firstMaster}, {removingMaster}};
     RunMasterFunctions();
     REQUIRE((masterCalls == std::vector<int>{10, 20}));
-    REQUIRE((g_master_functions == std::vector<W8MasterFunction>{firstMaster, laterMaster}));
+    REQUIRE((g_master_functions == std::vector<W8LevelMaster>{{firstMaster}, {laterMaster}}));
     masterCalls.clear();
-    SaveMasterFunctions();
-    REQUIRE((masterCalls == std::vector<int>{9, 29}));
+    g_master_functions[0].capture = [](W8SavedLocationState& state) {
+        state.emplace_back("SavedScript", 17);
+    };
+    const auto saved = CaptureMasterFunctionState();
+    REQUIRE(masterCalls.empty());
+    REQUIRE((saved == W8SavedLocationState{{"SavedScript", 17}}));
     g_master_functions.clear();
     return true;
 }

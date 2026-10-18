@@ -77,7 +77,6 @@ struct W8XStatus {
        live formation here on open, edits the copy, and either reconciles it
        back or diffs it against live on accept. */
     W8PartyFormationState edited_formation;
-    glm::vec3 target_position;
     W8CombatSlot item_selection_target;
     W8ActionDetailBlock item_selection_detail;
     int picked_monster;

@@ -6,6 +6,7 @@ extern bool g_sea_caves_slope_override_enabled;
 #include <vector>
 
 #include "glm/ext/vector_float3.hpp"
+#include "wiz8/location_variables.h"
 
 struct W8MonsterInfo;
 struct W8MonsterGroup;
@@ -17,7 +18,12 @@ typedef void (*W8MasterFunction)(int);
 
 /* The registered master functions, and the flag a callback sets to ask the
    dispatcher to drop it after this run. */
-extern std::vector<W8MasterFunction> g_master_functions;
+struct W8LevelMaster {
+    W8MasterFunction update;
+    void (*capture)(W8SavedLocationState&) = nullptr;
+    bool operator==(const W8LevelMaster&) const = default;
+};
+extern std::vector<W8LevelMaster> g_master_functions;
 extern bool g_remove_current_master_function;
 extern bool g_running_trigger_from_script;
 
@@ -26,10 +32,8 @@ int NormalizeMasterFunctionValue(int value);
 /* Run every registered master function once with argument zero, dropping the
    ones that set the removal flag while it runs. */
 void RunMasterFunctions(void);
-/* Run every registered master function once with argument -1, the persist
-   command the level masters answer by writing their live state into the
-   location variables. */
-void SaveMasterFunctions(void);
+// Capture only registered persistence callbacks; never step gameplay while saving.
+W8SavedLocationState CaptureMasterFunctionState();
 /* Dispatch one world-cursor-node command against the nodes covering `info`'s
    ground-settled position (the camera's when info is null). */
 unsigned char DispatchWorldCursorNodeCommand(W8MonsterInfo* info, int command, ...);

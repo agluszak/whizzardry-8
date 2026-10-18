@@ -70,7 +70,7 @@ constexpr float kSoundNodeFullVolume = 127.0f;
 static W8WorldCursorNode* g_active_cursor_node;
 
 // GLOBAL: WIZ8 0x006834d8
-std::vector<W8MasterFunction> g_master_functions;
+std::vector<W8LevelMaster> g_master_functions;
 // GLOBAL: WIZ8 0x006834dc
 bool g_remove_current_master_function;
 
@@ -82,7 +82,8 @@ void RunMasterFunctions(void)
     int count = static_cast<int>(g_master_functions.size());
 
     for (int index = 0; index < count; ++index) {
-        g_master_functions[index](0);
+        const auto update = g_master_functions[index].update;
+        update(0);
         if (g_remove_current_master_function) {
             g_master_functions.erase(g_master_functions.begin() + index);
             --count;
@@ -91,17 +92,12 @@ void RunMasterFunctions(void)
     }
 }
 
-/* Run every registered master function once with argument -1, the persist
-   command the level masters answer by writing their live state into the
-   location variables. */
-// FUNCTION: WIZ8 0x004D8EC0
-void SaveMasterFunctions(void)
+W8SavedLocationState CaptureMasterFunctionState()
 {
-    int count = static_cast<int>(g_master_functions.size());
-
-    for (int index = 0; index < count; ++index) {
-        g_master_functions[index](-1);
-    }
+    W8SavedLocationState state;
+    for (const auto& master : g_master_functions)
+        if (master.capture) master.capture(state);
+    return state;
 }
 
 /* The level callbacks' scripted spawn: settle the requested point onto the

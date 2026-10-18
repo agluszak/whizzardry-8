@@ -311,12 +311,16 @@ static void unicode_file_contracts()
     const std::string message = "é 中 😀";
     auto& line = g_message_storage[0][0];
     line.text = message;
+    g_status.text_box_lines_shown[0] = 1;
+    line.clock = w8_get_ticks() + 600000;
+    line.saved_remaining_ms = 87;
     line.entries.push_back({0, 1, 0, 5, W8_NOTICE_WORD_SELECTED, true});
     line.length = 6; // Prefix through 中, stored as three UTF-16 units.
     line.highlight_start = 3; // two UTF-16 units
     line.highlight_stop = 6; // three UTF-16 units
     file = wiz8::open_file(wiz8::user_path("saves/text.bin"), wiz8::OpenMode::replace);
     REQUIRE(SaveMessageStorage(*file));
+    REQUIRE(line.saved_remaining_ms == 87);
     file->close();
     ReleaseMessageStorage();
     g_status.buffers.save_version = 9.0f;
@@ -329,6 +333,8 @@ static void unicode_file_contracts()
     file->seek(0, wiz8::SeekOrigin::begin);
     REQUIRE(ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadMessageStorage(chunk); }));
     REQUIRE(std::string(g_message_storage[0][0].text) == message);
+    REQUIRE(g_message_storage[0][0].saved_remaining_ms > 87);
+    g_status.text_box_lines_shown[0] = 0;
     REQUIRE(g_message_storage[0][0].entries.empty());
     REQUIRE(g_message_storage[0][0].length == 6);
     REQUIRE((g_message_storage[0][0].highlight_start == 3 &&

@@ -349,9 +349,6 @@ void SetTooltipSubject(W8PortraitHighlightKind kind, int subject);
 int IsScreenInputBlocked(void);
 void DisableCombatRegions(void);
 
-extern bool g_radar_panel_shown;
-extern bool g_action_panel_shown;
-extern bool g_formation_panel_shown;
 extern bool g_mouselook_active;
 extern bool g_mouselook_left_held;
 extern bool g_node_cull_pending;

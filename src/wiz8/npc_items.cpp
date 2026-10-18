@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -9,11 +10,13 @@
 #include <vector>
 
 #include "character_skills.h"
+#include "glm/ext/vector_float3.hpp"
 #include "local_code/ConditionsAndEnchantments.h"
 #include "npc_trade_price.h"
 #include "random.h"
 #include "soundman.h"
 #include "wiz8/cursor.h"
+#include "wiz8/engine_code/Item.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/combat_state.h"
@@ -29,7 +32,7 @@
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_code/party_encumbrance.h"
 #include "wiz8/xstatus.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
@@ -631,7 +634,7 @@ W8TradeResult CompleteNpcItemPurchase(W8NpcState* npc, int index, unsigned char 
     // stock that has not yet reached its final pool, cursor or world location.
     std::vector<W8ItemInstance> pool(g_status.party_item_pool,
                                      g_status.party_item_pool + g_status.party_item_count);
-    std::vector<size_t> acquired;
+    std::vector<std::size_t> acquired;
     std::vector<W8ItemInstance> overflow;
     unsigned int moved = 0;
     while (moved < quantity) {
@@ -642,7 +645,7 @@ W8TradeResult CompleteNpcItemPurchase(W8NpcState* npc, int index, unsigned char 
             if (record.maximum_quantity == 0) return {W8TradeOutcome::Refused};
             unit = std::min<unsigned int>(quantity - moved, record.maximum_quantity);
             hand.stack_count = unit;
-            for (size_t slot = 0; slot < pool.size() && hand.stack_count; ++slot) {
+            for (std::size_t slot = 0; slot < pool.size() && hand.stack_count; ++slot) {
                 auto& destination = pool[slot];
                 if (destination.iItemNo != hand.iItemNo ||
                     destination.identified != hand.identified)
@@ -707,7 +710,7 @@ W8TradeResult CompleteNpcItemPurchase(W8NpcState* npc, int index, unsigned char 
         SetItemCursor(0);
     }
     RedistributePartyEncumbrance();
-    for (size_t slot : acquired) {
+    for (std::size_t slot : acquired) {
         auto* item = &g_status.party_item_pool[slot];
         UpdateFactsAfterAcquiringItem(item);
         DeliverExceptionalItemReaction(item, true, nullptr);

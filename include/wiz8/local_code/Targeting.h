@@ -97,13 +97,11 @@ bool IsItemTargetOfNeededKind(const W8CombatSlot* target, const W8ItemInstance* 
 void SelectSpellCastingPartySlot(int party_slot);
 /* Set the targeting filter for the spell being aimed. */
 void ConfigureSpellTargetFilter(W8SpellTargetType target_type, W8TargetNeed needed_kind);
-/* Commit the chosen spell target. */
 void RefreshMonsterTargetCounts(void);
 bool AnyMonsterVisible(void);
 
-/* Fill `found` with the location ids of monsters within `radius`
-   of `centre` that are visible from `eye` (unless highlighting is on, which
-   takes them without the sight check and tints instead). */
+/* Collect eligible monsters within the radius, with an explicit choice
+   between line of sight and geometry-only preview rules. */
 void CollectMonstersWithinRadius(const glm::vec3* centre, const glm::vec3* eye,
                                  std::vector<int>& found, float radius, char side,
                                  W8AreaSightRule sight_rule);

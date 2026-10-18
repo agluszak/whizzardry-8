@@ -989,24 +989,18 @@ try {
     return 0;
 }
 
-/* Fold the live session into g_status before it is written: the camera
-   anchor, each shown message's remaining countdown, the master functions and
-   the difficulty. Iron-man saves also record the file's masked creation time. */
-static void PrepareStatusForSave(const wiz8::File& file)
+static W8GlobalStatus CaptureStatusForSave(const wiz8::File& file)
 {
-    g_status.pending_move_location = cameraState(*GetWorld());
-    ForEachShownMessage([](auto& message) {
-        message.saved_remaining_ms = std::uint32_t(TimeUntilDeadline(message.clock));
-    });
-    gXStatus.gameplay_timer->Restart();
-    SaveMasterFunctions();
-    g_status.buffers.save_version = 1.1f;
-    g_status.difficulty = g_settings.difficulty;
-    if (g_status.iron_man) {
+    auto snapshot = g_status;
+    snapshot.pending_move_location = cameraState(*GetWorld());
+    snapshot.buffers.save_version = 1.1f;
+    snapshot.difficulty = g_settings.difficulty;
+    if (snapshot.iron_man) {
         const auto creation_time = file.times().created;
-        g_status.save_filetime_xor[0] = creation_time.low ^ g_save_filetime_xor_low;
-        g_status.save_filetime_xor[1] = creation_time.high ^ g_save_filetime_xor_high;
+        snapshot.save_filetime_xor[0] = creation_time.low ^ g_save_filetime_xor_low;
+        snapshot.save_filetime_xor[1] = creation_time.high ^ g_save_filetime_xor_high;
     }
+    return snapshot;
 }
 
 /* Write one whole save: the CHAR and other-level chunks carried over from
@@ -1024,9 +1018,9 @@ static void WriteGame(std::string_view name, const W8SaveScreenshot* screenshot,
         CopyCurrentGameChunks(current_game, chunks);
         current_game.Close();
     }
-    PrepareStatusForSave(chunks.WriteStream());
+    const auto script_state = CaptureMasterFunctionState();
     {
-        auto snapshot = g_status;
+        auto snapshot = CaptureStatusForSave(chunks.WriteStream());
         // Normalize transient UI state in the save image, without changing the session.
         if (snapshot.text_line_cursor == 2) snapshot.text_line_cursor = 0;
         snapshot.resume_level = GetLoadedLevelID();
@@ -1047,8 +1041,9 @@ static void WriteGame(std::string_view name, const W8SaveScreenshot* screenshot,
     auto& file = chunks.WriteStream();
     chunks.WriteChunk(W8_CHUNK_MESSAGE_STORAGE,
                       [&] { RequireSection(SaveMessageStorage(file), "message storage"); });
-    if (HasLocationVariables())
-        chunks.WriteChunk(W8_CHUNK_LOCATION_VARIABLES, [&] { SaveLocationVariables(file); });
+    if (HasLocationVariables() || !script_state.empty())
+        chunks.WriteChunk(W8_CHUNK_LOCATION_VARIABLES,
+                          [&] { SaveLocationVariables(file, script_state); });
     chunks.WriteChunk(W8_CHUNK_NPC_TRANSCRIPT,
                       [&] { RequireSection(SaveNpcDialogueTranscript(file), "NPC transcript"); });
     chunks.WriteChunk(W8_CHUNK_NPC_STATES,
@@ -1069,6 +1064,7 @@ try {
     SaveTransaction transaction(SaveSlotPath(name));
     WriteGame(name, screenshot, transaction.chunks);
     transaction.commit();
+    if (gXStatus.gameplay_timer) gXStatus.gameplay_timer->Restart();
     return true;
 } catch (const std::exception&) {
     return false;
@@ -1727,7 +1723,7 @@ void LoadGameStatus(W8Chunk* chunks, W8GlobalStatus* status)
 
 /* Write the GSTA section; see LoadGameStatus. */
 // FUNCTION: WIZ8 0x00515fa0
-void SaveGlobalStatus(W8Chunk* chunks, W8GlobalStatus* status)
+void SaveGlobalStatus(W8Chunk* chunks, const W8GlobalStatus* status)
 {
     chunks->WriteChunk(W8_CHUNK_GAME_STATUS, [&] {
         wiz8::retail::write_sized(*chunks, *status);

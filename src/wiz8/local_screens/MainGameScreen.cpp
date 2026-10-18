@@ -186,7 +186,6 @@ static uint64_t g_mouselook_last_tick;
 // GLOBAL: WIZ8 0x0068edb4
 static bool g_mouselook_tick_init;
 // GLOBAL: WIZ8 0x0068edbc
-bool g_radar_panel_shown;
 
 // GLOBAL: WIZ8 0x0068ede0
 static float g_mouselook_pending_yaw;
@@ -199,10 +198,8 @@ const float g_mouselook_smooth_max = 0.39269906f;
 const float g_mouselook_smooth_min = 0.006135923f;
 
 // GLOBAL: WIZ8 0x0068edc8
-bool g_action_panel_shown;
 
 // GLOBAL: WIZ8 0x0068edc9
-bool g_formation_panel_shown;
 
 // GLOBAL: WIZ8 0x0068edd8
 bool g_mouselook_active;
@@ -5677,6 +5674,7 @@ static void DrawMainGamePrompt(void)
    raise latch changes. */
 void SetRadarMapVisible(bool visible)
 {
+    const bool was_visible = g_level_block->radar_map_visible;
     if (visible) {
         g_level_block->radar_map_visible = visible;
         g_level_block->radar_map_alternate = 0;
@@ -5697,16 +5695,16 @@ void SetRadarMapVisible(bool visible)
         ReleaseRadarMap();
         RequestRedraw(W8_MAIN_REDRAW_LAYOUT | W8_MAIN_REDRAW_PORTRAIT_PANEL);
     }
-    if (visible != g_radar_panel_shown) {
+    if (visible != was_visible) {
         SetViewportMode(GetMainGameViewportMode());
     }
-    g_radar_panel_shown = visible;
 }
 
 /* Raise or drop the combat action panel and restore the viewport mode when the
    raise latch changes. */
 void SetActionPanelVisible(bool visible)
 {
+    const bool was_visible = g_level_block->action_panel_visible;
     if (visible) {
         g_level_block->action_panel_visible = visible;
         EnableActionPanelRegions();
@@ -5716,16 +5714,16 @@ void SetActionPanelVisible(bool visible)
         DisableCombatRegions();
         RequestRedraw(W8_MAIN_REDRAW_LAYOUT | W8_MAIN_REDRAW_PORTRAIT_PANEL);
     }
-    if (visible != g_action_panel_shown) {
+    if (visible != was_visible) {
         SetViewportMode(GetMainGameViewportMode());
     }
-    g_action_panel_shown = visible;
 }
 
 /* Raise or drop the formation board and restore the viewport mode when the
    raise latch changes. */
 void SetFormationBoardVisible(bool visible)
 {
+    const bool was_visible = g_level_block->formation_board_visible;
     if (visible) {
         g_level_block->formation_board_visible = true;
         g_level_block->formation_board_alternate = 0;
@@ -5737,10 +5735,9 @@ void SetFormationBoardVisible(bool visible)
         ReleaseFormationBoard();
     }
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT | W8_MAIN_REDRAW_PORTRAIT_PANEL);
-    if (visible != g_formation_panel_shown) {
+    if (visible != was_visible) {
         SetViewportMode(GetMainGameViewportMode());
     }
-    g_formation_panel_shown = visible;
 }
 
 /* Hand one frame to whichever overlays are up. Each is independent, so more
@@ -6895,7 +6892,6 @@ void SetTargetingMode(W8TargetNeed state)
     if (cursor != gXStatus.iCurrentCursor) {
         SetTargetCursor(cursor);
     }
-    gXStatus.target_position = glm::vec3(0);
     RequestRefreshPartyState();
     if (state == W8_TARGET_NEED_CONE) {
         SetTargetConeEnabled(true);
@@ -6977,7 +6973,6 @@ aim_done:
     if (cursor != gXStatus.iCurrentCursor) {
         SetTargetCursor(cursor);
     }
-    gXStatus.target_position = glm::vec3(0);
     RequestRefreshPartyState();
     if (needed_kind == W8_TARGET_NEED_CONE) {
         SetTargetConeEnabled(true);
@@ -6997,7 +6992,6 @@ void ClearSlotTargeting(int party_slot)
     if (gXStatus.iCurrentCursor != W8_CURSOR_NONE) {
         SetTargetCursor(W8_CURSOR_NONE);
     }
-    gXStatus.target_position = glm::vec3(0);
     RequestRefreshPartyState();
     SetTargetConeEnabled(false);
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
