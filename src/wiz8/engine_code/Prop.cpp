@@ -232,7 +232,7 @@ std::optional<glm::vec3> W8Prop::GetCenterPosition()
 // GLOBAL: WIZ8 0x00659A60
 static Trigger* g_selected_prop_trigger;
 // GLOBAL: WIZ8 0x00607B98
-static int g_selected_prop_index = -1;
+static std::optional<int> g_selected_prop_index;
 
 /* Resolve the renderer's picked model instance back to the prop and trigger
    that own it. A pick is accepted only while the prop is active, the trigger
@@ -248,7 +248,7 @@ bool ResolvePickedProp()
     bool valid;
 
     g_selected_prop_trigger = 0;
-    g_selected_prop_index = -1;
+    g_selected_prop_index.reset();
     selected = g_current_model_instance;
     if (selected == 0) {
         return false;
@@ -318,7 +318,7 @@ bool ResolvePickedProp()
             valid = false;
             g_current_model_instance = 0;
             g_selected_prop_trigger = 0;
-            g_selected_prop_index = -1;
+            g_selected_prop_index.reset();
         }
     }
     return valid;
@@ -1687,10 +1687,11 @@ void LoadWorldProps(W8World* world, W8Chunk& chunk)
 /* The renderer owns the selected model instance. Without one, retail also
    resets the cached prop index to -1 before returning it. */
 // FUNCTION: WIZ8 0x0044DA60
-int GetSelectedPropIndex(void)
+std::optional<int> GetSelectedPropIndex(void)
 {
     if (g_current_model_instance == 0) {
-        return g_selected_prop_index = -1;
+        g_selected_prop_index.reset();
+        return std::nullopt;
     }
     return g_selected_prop_index;
 }

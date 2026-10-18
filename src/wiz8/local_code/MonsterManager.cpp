@@ -555,13 +555,13 @@ int GetMonsterQuadrant(W8MonsterInfo* monster_info)
 }
 
 // FUNCTION: WIZ8 0x004e5b50
-int GetMonsterCycleFallbackValue(unsigned int monster_species)
+std::optional<int> GetMonsterCycleFallbackValue(unsigned int monster_species)
 {
     W8MonsterRecord* record;
 
     record = MonsterDBFromSpecies(monster_species);
     if (record == 0) {
-        return -1;
+        return std::nullopt;
     }
     if (FindFirstGrCycleByName(record->cycle_name) != 0) {
         return 0;

@@ -304,12 +304,17 @@ unsigned char MonGen::GenerateEncounter(const glm::vec3* position)
 
     /* Retail computes this total even though the surviving release path never
        reads it afterwards; the external calls can still populate cycle data. */
-    encounter_weight = GetMonsterCycleFallbackValue(species);
+    if (const auto fallback = GetMonsterCycleFallbackValue(species)) {
+        encounter_weight = *fallback;
+    }
     for (index = 0; index < 2; ++index) {
         companion_records[index] = record->companions[index];
         if (companion_records[index].species > 0 && Chance(companion_records[index].chance)) {
             companion_active[index] = true;
-            encounter_weight += GetMonsterCycleFallbackValue(companion_records[index].species);
+            if (const auto fallback =
+                    GetMonsterCycleFallbackValue(companion_records[index].species)) {
+                encounter_weight += *fallback;
+            }
         }
     }
     static_cast<void>(encounter_weight);

@@ -406,7 +406,7 @@ float GetMonsterCombatMoveRange(W8MonsterInfo* monster_info);
 void UpdateMonsterDamageAppearance(W8MonsterInfo* monster_info);
 
 int GetMonsterQuadrant(W8MonsterInfo* monster_info);
-int GetMonsterCycleFallbackValue(unsigned int monster_species);
+std::optional<int> GetMonsterCycleFallbackValue(unsigned int monster_species);
 void ProcessMonstersAtCombatEnd(bool forced_cleanup);
 void ConvertMonsterAttributes(W8MonsterInfo* monster_info);
 W8MonsterInfo* FindMonsterInfoBySpecies(unsigned int monster_species);

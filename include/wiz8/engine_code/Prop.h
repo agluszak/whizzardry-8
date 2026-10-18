@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -184,7 +185,7 @@ W8Prop* FindPropByName(W8World* world, const char* name);
 std::unique_ptr<W8Prop> CreateAndLoadProp(W8ReadLevelInfo* info);
 
 bool ResolvePickedProp();
-int GetSelectedPropIndex(void);
+std::optional<int> GetSelectedPropIndex(void);
 /* Run the latched selected-prop trigger, or clear the latch when the
    renderer has no pick. */
 bool ActivateSelectedProp(void);

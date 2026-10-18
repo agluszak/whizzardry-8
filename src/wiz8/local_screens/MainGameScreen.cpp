@@ -5189,7 +5189,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
                (needed == W8_TARGET_NEED_CONE && (event.modifiers & CTRL_DOWN) != 0)) {
         AimAtGroundTarget(g_status.selected_character);
     } else if (!g_level_block->highlighted_item) {
-        if (g_status.item_in_cursor && GetSelectedPropIndex() == -1) {
+        if (g_status.item_in_cursor && !GetSelectedPropIndex()) {
             if (!gXStatus.world_update_blocked) {
                 DropItemInHand(1);
             }
@@ -5347,9 +5347,9 @@ void UpdateWorldViewCursor(const UiPointerEvent& event, W8TargetNeed target_need
                 SetTargetCursor(cursor);
                 return;
             }
-            int prop_index = GetSelectedPropIndex();
-            if (prop_index > -1) {
-                W8Prop* prop = GetWorldProp(GetWorld(), prop_index);
+            const auto prop_index = GetSelectedPropIndex();
+            if (prop_index) {
+                W8Prop* prop = GetWorldProp(GetWorld(), *prop_index);
                 if (!gXStatus.world_update_blocked) {
                     if (prop != 0) {
                         if (prop->TriggerRequiresItem() && g_status.item_in_cursor) {
