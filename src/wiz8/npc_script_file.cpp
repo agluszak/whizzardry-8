@@ -57,7 +57,7 @@ try {
         wiz8::retail::nsf::Entry stored;
         file->read_exact(&stored, sizeof(stored));
         W8NpcQuoteEntry entry;
-        entry.kind = stored.kind;
+        entry.kind = static_cast<W8NpcQuoteEntryKind>(stored.kind);
         entry.operand0 = stored.operand0;
         entry.operand1 = stored.operand1;
         entry.operand2 = stored.operand2;

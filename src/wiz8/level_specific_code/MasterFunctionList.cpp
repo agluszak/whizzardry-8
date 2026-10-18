@@ -52,6 +52,7 @@
 #include "wiz8/level_specific_code/Swamp.h"
 #include "wiz8/level_specific_code/Trynnie2.h"
 #include "wiz8/local_code/CombatHostility.h"
+#include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -112,7 +113,7 @@ W8MonsterGroup* SpawnMonsters(int monster_id, int count, glm::vec3* position, in
     position_copy = *position;
     group = CreateGroup(monster_id, count, &position_copy, a, b, settle);
     if (group != 0) {
-        SetMonsterGroupHostility(group, hostility, false);
+        SetMonsterGroupHostility(group, static_cast<W8Disposition>(hostility), false);
         GetMonsterGroupCentre(group, 0);
         RefreshOutwardSightForAllMonsters();
     }

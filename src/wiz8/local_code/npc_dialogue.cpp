@@ -242,11 +242,13 @@ void W8NpcDialogue::Speak(int script_line, bool force_npc_voice)
                 case W8_NPC_ENTRY_ITEM_KEYWORD:
                 case W8_NPC_ENTRY_PLACE_KEYWORD:
                 case W8_NPC_ENTRY_MISC_KEYWORD:
-                case 31:
-                case 32:
-                case 33:
-                case 34:
+                case W8_NPC_ENTRY_PERSON_KEYWORD_ALT:
+                case W8_NPC_ENTRY_ITEM_KEYWORD_ALT:
+                case W8_NPC_ENTRY_PLACE_KEYWORD_ALT:
+                case W8_NPC_ENTRY_MISC_KEYWORD_ALT:
                     ApplyScriptedDialogueKeyword(entry->kind, entry->sub_entries[0].text.c_str());
+                    break;
+                default:
                     break;
                 }
                 if (finished) {

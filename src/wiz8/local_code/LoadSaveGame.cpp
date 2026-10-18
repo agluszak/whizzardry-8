@@ -468,7 +468,7 @@ struct SavedMonsterMovement {
    (version 4) and the face-party (6) and stay-home (7) flags. */
 struct SavedMonsterOrders {
     bool defining_orders = false;
-    W8MonsterOrderMode order_mode = 0;
+    W8MonsterOrderMode order_mode{};
     bool orders_finished = false;
     bool deaf = false;
     float patrol_distance = 0;

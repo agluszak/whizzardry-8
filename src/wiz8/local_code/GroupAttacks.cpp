@@ -465,7 +465,7 @@ void SpawnSummonedMonsterGroup(int special_attack_kind, W8TargetSource* pSource,
     glm::vec3* position;
     W8MonsterGroup* group;
     W8MonsterInfo* monster_info;
-    int disposition;
+    W8Disposition disposition;
     bool placed;
     float yaw;
 
@@ -505,9 +505,9 @@ void SpawnSummonedMonsterGroup(int special_attack_kind, W8TargetSource* pSource,
     FindMonster(group->leader_location_id);
     monster_info = FindMonster(pAttackerSlot->iMonsterID);
     if (monster_info->ubDisposition == W8_DISPOSITION_FRIENDLY) {
-        disposition = 2;
+        disposition = W8_DISPOSITION_FRIENDLY;
     } else {
-        disposition = 1;
+        disposition = W8_DISPOSITION_HOSTILE;
     }
     SetMonsterGroupHostility(group, disposition, false);
     if (monster_info->player_visibility.sight_state == W8_SIGHT_SEEN) {

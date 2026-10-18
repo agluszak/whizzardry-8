@@ -193,7 +193,7 @@ void ProvokeListedMonsterGroups(W8TargetSource* source, const std::vector<int>& 
 void MakeTargetGroupHostile(W8TargetSource* source, W8CombatSlot* target)
 {
     W8Disposition hostility = GetOppositeDisposition(source);
-    if (hostility == 0 || !IsTargetStillPresent(target)) {
+    if (hostility == W8_DISPOSITION_NEUTRAL || !IsTargetStillPresent(target)) {
         return;
     }
     int group_id;
@@ -355,14 +355,14 @@ int g_monster_special_attack_name_ids[12] = {0,    1598, 1599, 1600, 1601, 1602,
                                              1603, 1604, 1605, 1606, 1607, 1608};
 
 // FUNCTION: WIZ8 0x00547540
-void SetMonsterGroupHostilityByID(int group_id, unsigned int hostility, bool recurse)
+void SetMonsterGroupHostilityByID(int group_id, W8Disposition hostility, bool recurse)
 {
     W8MonsterGroup* group = FindMonsterGroup(group_id);
     SetMonsterGroupHostility(group, hostility, recurse);
 }
 
 // FUNCTION: WIZ8 0x00547570
-void SetMonsterGroupHostility(W8MonsterGroup* group, unsigned int hostility, bool recurse)
+void SetMonsterGroupHostility(W8MonsterGroup* group, W8Disposition hostility, bool recurse)
 {
     if (MonsterGroupAllMembersDying(group)) {
         return;
@@ -372,27 +372,24 @@ void SetMonsterGroupHostility(W8MonsterGroup* group, unsigned int hostility, boo
         return;
     }
     W8Disposition previous = group->ubDisposition;
-    if (previous == static_cast<unsigned char>(hostility)) {
+    if (previous == hostility) {
         return;
     }
-    group->ubDisposition = static_cast<unsigned char>(hostility);
+    group->ubDisposition = hostility;
     group->forced_neutral = false;
     if (MonsterGroupHasVisibleThreat(group)) {
-        ShowNotice(
-            9,
-            fmt::format("{} {} {}!", GetMonsterGroupName(group),
-                        g_localized_strings[0x1d7 + (group->MemberCount() != 1)],
-                        g_localized_strings[g_group_hostility_notice_ids[static_cast<unsigned char>(
-                            hostility)]]));
+        ShowNotice(9, fmt::format("{} {} {}!", GetMonsterGroupName(group),
+                                  g_localized_strings[0x1d7 + (group->MemberCount() != 1)],
+                                  g_localized_strings[g_group_hostility_notice_ids[hostility]]));
     }
     group->hostility_set_at = g_status.world_clock;
-    if (previous != 0) {
+    if (previous != W8_DISPOSITION_NEUTRAL) {
         SetTargetToGroup(group->group_id, true);
     }
     for (unsigned int index = 0; index < group->MemberIds().size(); ++index) {
         int location_id = group->MemberLocationId(index);
         W8MonsterInfo* monster = FindMonster(location_id);
-        SetMonsterHostility(monster, static_cast<unsigned char>(hostility));
+        SetMonsterHostility(monster, hostility);
     }
     if (group->leader_group_id != 0) {
         SetMonsterGroupHostility(FindMonsterGroup(group->leader_group_id), hostility, false);

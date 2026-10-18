@@ -183,11 +183,11 @@ bool MonsterGroupAllMembersDying(W8MonsterGroup* monster_group)
    Each of the three multi-way tests is a switch rather than a comparison chain:
    the original emits the dec/je ladder VC6 produces for small dense cases. */
 // FUNCTION: WIZ8 0x00511250
-static unsigned char MonsterGroupCalcDefaultDisposition(W8MonsterGroup* monster_group)
+static W8Disposition MonsterGroupCalcDefaultDisposition(W8MonsterGroup* monster_group)
 {
     W8MonsterRecord* record;
     W8NpcState* npc_record;
-    unsigned char disposition = W8_DISPOSITION_NEUTRAL;
+    W8Disposition disposition = W8_DISPOSITION_NEUTRAL;
 
     if (monster_group == 0) {
         srAssertFail("pMonsterGroup != NULL", MONSTER_GROUP_CPP, 0x3bd, 0);
@@ -218,9 +218,7 @@ static unsigned char MonsterGroupCalcDefaultDisposition(W8MonsterGroup* monster_
     } else {
         switch (record->faction_id) {
         case W8_FACTION_UNALIGNED:
-            if (record->hostility_radius != -1) {
-                disposition = record->hostility_radius == 0;
-            }
+            if (record->hostility_radius == 0) disposition = W8_DISPOSITION_HOSTILE;
             break;
         case W8_FACTION_PARTY:
             disposition = W8_DISPOSITION_FRIENDLY;

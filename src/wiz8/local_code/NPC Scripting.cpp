@@ -98,15 +98,15 @@ void ApplyScriptedDialogueKeyword(int kind, const char* text)
     signed char category;
     switch (kind) {
     case W8_NPC_ENTRY_PERSON_KEYWORD:
-    case 31:
+    case W8_NPC_ENTRY_PERSON_KEYWORD_ALT:
         category = W8_DIALOGUE_CATEGORY_PEOPLE;
         break;
     case W8_NPC_ENTRY_ITEM_KEYWORD:
-    case 32:
+    case W8_NPC_ENTRY_ITEM_KEYWORD_ALT:
         category = W8_DIALOGUE_CATEGORY_ITEMS;
         break;
     case W8_NPC_ENTRY_PLACE_KEYWORD:
-    case 33:
+    case W8_NPC_ENTRY_PLACE_KEYWORD_ALT:
         category = W8_DIALOGUE_CATEGORY_PLACES;
         break;
     default:
@@ -513,6 +513,8 @@ void W8NpcDialogue::RunQuoteEntry(W8NpcQuoteEntry* entry, int continuation_quote
         break;
     case W8_NPC_ENTRY_GIVE_EXPERIENCE:
         AwardPartyExperience(entry->operand0, 0);
+        break;
+    default:
         break;
     }
     if (session_.npc->character.has_value() && session_.npc->group_index != -1) {

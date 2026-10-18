@@ -303,7 +303,7 @@ bool MtGigas2LaserAlarm(Trigger* pTrigger)
     if (GetLocationVarIDByName("UmpaniAlarm") != -1) {
         return false;
     }
-    SetFactionDispositionBand(4, 0);
+    SetFactionDispositionBand(4, W8_FACTION_HOSTILE);
     MtGigas2UmpaniAlarm(0xEFFFFFFF);
     return true;
 }
