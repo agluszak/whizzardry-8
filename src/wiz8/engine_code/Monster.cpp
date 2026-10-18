@@ -110,6 +110,7 @@
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/Magic.h"
+#include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
