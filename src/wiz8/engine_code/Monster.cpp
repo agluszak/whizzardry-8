@@ -2754,7 +2754,7 @@ void UpdateNearestMonsterGroupMembers()
             unsigned int member_index;
 
             for (member_index = 0; member_index < group->MemberIds().size(); ++member_index) {
-                W8MonsterInfo* member = FindMonster(group->MemberLocationId(member_index));
+                W8MonsterInfo* member = FindMonster(group->MemberLocationId(member_index).value());
 
                 if (member != 0 && member->p3D != 0) {
                     glm::vec3 position = member->p3D->GetPosition();

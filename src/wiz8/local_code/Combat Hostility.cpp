@@ -218,7 +218,7 @@ void MakeTargetGroupHostile(W8TargetSource* source, W8CombatSlot* target)
             return;
         }
         while (true) {
-            int monster_id = group->MemberLocationId(index);
+            int monster_id = group->MemberLocationId(index).value();
             W8MonsterInfo* monster_info = FindMonster(monster_id);
             if (monster_info->uiCondition[W8_CONDITION_TURNCOAT] == 0) {
                 break;
@@ -388,7 +388,7 @@ void SetMonsterGroupHostility(W8MonsterGroup* group, W8Disposition hostility, bo
         SetTargetToGroup(group->group_id, true);
     }
     for (unsigned int index = 0; index < group->MemberIds().size(); ++index) {
-        int location_id = group->MemberLocationId(index);
+        int location_id = group->MemberLocationId(index).value();
         W8MonsterInfo* monster = FindMonster(location_id);
         SetMonsterHostility(monster, hostility);
     }

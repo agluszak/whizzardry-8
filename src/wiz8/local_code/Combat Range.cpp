@@ -1029,7 +1029,7 @@ std::optional<int> FindNearestVisibleGroupMonster(W8MonsterInfo* monster_info, i
     float best = 999999.0f;
     W8MonsterGroup* group = FindMonsterGroup(group_id);
     for (unsigned int index = 0; index < group->MemberIds().size(); ++index) {
-        int location_id = group->MemberLocationId(index);
+        int location_id = group->MemberLocationId(index).value();
         W8MonsterInfo* target = FindMonster(location_id);
         if (target->fActive && target->hp_current != 0 && target->pCombat) {
             W8VisibilityRecord* row = FindMonToMonVisibility(monster_info, target);

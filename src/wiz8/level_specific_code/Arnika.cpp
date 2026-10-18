@@ -419,7 +419,7 @@ bool ArnikaMookholo(Trigger* pTrigger)
         } else {
             CreateLocationVar("ScregActive", 1);
         }
-        location_id = group->MemberLocationId(0);
+        location_id = group->MemberLocationId(0).value();
         if (location_id != 0) {
             info = FindMonster(location_id);
             if (info != 0) {

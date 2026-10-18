@@ -2704,7 +2704,7 @@ void Trigger::Run(int source)
              ++index) {
             group = CurrentLevelPopulation().monster_groups[index].get();
             if (group->monster_id == monster_id) {
-                int location_id = group->MemberLocationId(0);
+                int location_id = group->MemberLocationId(0).value();
                 monster_info = FindMonster(location_id);
                 break;
             }

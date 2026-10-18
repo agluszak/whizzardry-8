@@ -306,7 +306,7 @@ bool MartensBluff1TransportSpawn(void)
     CreateAndPlaySoundNode("Data\\Sound\\Ambients\\TrangTransporter.wav", position_a, 0.7f, 30.0f,
                            false);
     group = SpawnMonsters(0x177, 1, &position_a, 0, true, false, false);
-    location_id = group->MemberLocationId(0);
+    location_id = group->MemberLocationId(0).value();
     if (location_id != 0) {
         info = FindMonster(location_id);
         if (info != 0 && info->p3D != 0) {

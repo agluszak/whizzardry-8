@@ -1778,7 +1778,7 @@ void W8Navigator::CollectGroupNavigators(std::vector<W8Navigator*>& navigators)
     if (!group) return;
 
     for (member = 0; member < group->MemberCount(); ++member) {
-        int location_id = group->MemberLocationId(member);
+        int location_id = group->MemberLocationId(member).value();
         if (location_id != movement.location_id) {
             monster_info = population.findMonster(location_id);
             navigators.push_back(monster_info->p3D);
@@ -1790,7 +1790,8 @@ void W8Navigator::CollectGroupNavigators(std::vector<W8Navigator*>& navigators)
             W8MonsterGroup* allied_group = population.findGroup(group->allied_group_ids[ally]);
             if (!allied_group) continue;
             for (member = 0; member < allied_group->MemberCount(); ++member) {
-                monster_info = population.findMonster(allied_group->MemberLocationId(member));
+                monster_info =
+                    population.findMonster(allied_group->MemberLocationId(member).value());
                 navigators.push_back(monster_info->p3D);
             }
         }

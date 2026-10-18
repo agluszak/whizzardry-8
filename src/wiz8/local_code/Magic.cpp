@@ -3729,7 +3729,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
             }
             index = 0;
             while (index < group->MemberIds().size()) {
-                slot = group->MemberLocationId(index);
+                slot = group->MemberLocationId(index).value();
                 member = FindMonster(slot);
                 if (member->ubDisposition == group->ubDisposition) {
                     monster_markers.push_back(slot);

@@ -125,7 +125,7 @@ static bool SwampGasFireSpawn(Trigger* pTrigger)
                       0.25);
     position = center;
     group = SpawnMonsters(0x1b5, 1, &position, 0, true, false, false);
-    index = group->MemberLocationId(0);
+    index = group->MemberLocationId(0).value();
     if (index != 0) {
         monster_info = FindMonster(index);
         if (monster_info != 0) {

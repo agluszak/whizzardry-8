@@ -1120,7 +1120,7 @@ bool IsTargetSourceInRangeOfGroup(const W8TargetSource* source, W8MonsterGroup* 
     }
     max_distance = CalcRangeDistance(range);
     for (index = 0; index < group->MemberIds().size(); ++index) {
-        W8Monster* member = GetMonsterByLocationID(group->MemberLocationId(index));
+        W8Monster* member = GetMonsterByLocationID(group->MemberLocationId(index).value());
 
         if (source->iType == W8_TARGET_SOURCE_CHARACTER) {
             if (source->iChar == BAD_INDEX) {
@@ -1217,7 +1217,7 @@ bool CanTargetMonsterGroup(int party_slot, W8MonsterGroup* group, const W8Action
 
     reachable = 0;
     for (index = 0; index < group->MemberIds().size(); ++index) {
-        W8MonsterInfo* monster_info = FindMonster(group->MemberLocationId(index));
+        W8MonsterInfo* monster_info = FindMonster(group->MemberLocationId(index).value());
 
         if (AssessMonsterAim(party_slot, 2, monster_info, selected)) {
             ++reachable;
@@ -1608,7 +1608,7 @@ std::optional<int> PickNextTargetableGroupMember(int party_slot, const W8Monster
     unsigned int index;
 
     for (index = 0; index < group->MemberIds().size(); ++index) {
-        int location_id = group->MemberLocationId(index);
+        int location_id = group->MemberLocationId(index).value();
 
         if (AssessMonsterTarget(party_slot, location_id, edited_action, true, sighting)) {
             targetable.push_back(location_id);
@@ -1814,7 +1814,7 @@ void RefreshMonsterTargetCounts(void)
         on_screen_count = 0;
         selectable_count = 0;
         for (unsigned int index = 0; index < group->MemberIds().size(); ++index) {
-            int location_id = group->MemberLocationId(index);
+            int location_id = group->MemberLocationId(index).value();
             W8MonsterInfo* monster_info = FindMonster(location_id);
 
             if (!monster_info->p3D->IsWithinWorldRange()) {

@@ -265,7 +265,7 @@ bool MonsterGroupHasVisibleThreat(W8MonsterGroup* group)
     W8MonsterInfo* monster_info;
 
     for (index = 0; index < group->MemberIds().size(); ++index) {
-        monster_info = FindMonster(group->MemberLocationId(index));
+        monster_info = FindMonster(group->MemberLocationId(index).value());
         if (monster_info->fActive && !monster_info->p3D->IsDying() &&
             monster_info->hp_current != 0 && monster_info->highest_condition < W8_CONDITION_BLIND &&
             monster_info->party_threat.sight_state == W8_SIGHT_SEEN) {

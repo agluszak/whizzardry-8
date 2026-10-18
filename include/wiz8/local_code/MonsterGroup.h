@@ -27,10 +27,11 @@ struct W8MonsterGroup {
     std::span<const int> MemberIds() const { return monsters; }
     unsigned int MemberCount() const { return static_cast<unsigned int>(monsters.size()); }
 
-    int MemberLocationId(std::size_t index) const
+    // Nullopt means the requested member index is outside this group's population.
+    std::optional<int> MemberLocationId(std::size_t index) const
     {
         const auto ids = MemberIds();
-        if (index >= ids.size()) return -1;
+        if (index >= ids.size()) return std::nullopt;
         return ids[index];
     }
 

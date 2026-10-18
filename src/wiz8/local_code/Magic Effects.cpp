@@ -791,7 +791,7 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
     const auto summoned_state = disposition == W8_DISPOSITION_FRIENDLY ? W8_MONSTER_SUMMON_FRIENDLY
                                                                        : W8_MONSTER_SUMMON_HOSTILE;
     for (index = 0; index < group->MemberCount(); ++index) {
-        member = FindMonster(group->MemberLocationId(index));
+        member = FindMonster(group->MemberLocationId(index).value());
         if (member == 0) srAssertFail("pMonsterInfo", MAGIC_EFFECTS_CPP, 0xfdc, 0);
         if (member->summoned == W8_MONSTER_SUMMON_NONE) {
             member->summoned = summoned_state;

@@ -276,7 +276,7 @@ W8SightState GetMonsterGroupPartySightState(W8MonsterGroup* monster_group)
     for (index = 0; index < monster_group->MemberIds().size(); ++index) {
         int location_id;
 
-        location_id = monster_group->MemberLocationId(index);
+        location_id = monster_group->MemberLocationId(index).value();
         monster_info = FindMonster(location_id);
         if (monster_info->fActive && !monster_info->p3D->IsDying() &&
             monster_info->hp_current != 0 && monster_info->highest_condition < W8_CONDITION_BLIND) {
@@ -732,7 +732,7 @@ void ApplyMonsterRTAIDecision(W8MonsterInfo* monster_info, unsigned char decisio
         monster_info->pathing_cooldown = 0x1e;
         monster_group = FindMonsterGroup(monster_info->monster_group_id);
         for (index = 0; index < monster_group->MemberIds().size(); ++index) {
-            member = FindMonster(monster_group->MemberLocationId(index));
+            member = FindMonster(monster_group->MemberLocationId(index).value());
             member->p3D->AimAtPosition(&position);
         }
         break;
@@ -947,7 +947,7 @@ bool MonsterGroupCanEngage(W8MonsterGroup* monster_group)
     return false;
 members:
     for (index = 0; index < monster_group->MemberIds().size(); ++index) {
-        member = FindMonster(monster_group->MemberLocationId(index));
+        member = FindMonster(monster_group->MemberLocationId(index).value());
         record = GetMonsterDataForInfo(member);
         if (!member->fActive || member->fMotionless || member->p3D->IsDying() ||
             member->hp_current == 0 || member->highest_condition >= W8_CONDITION_BLIND) {
@@ -2054,7 +2054,7 @@ void CheckMonsterGroupsLeaveCombat(void)
             srAssertFail("pMonsterGroup", MONSTER_AI_CPP, 0xc06, 0);
         }
         for (index = 0; index < group->MemberIds().size(); ++index) {
-            member = FindMonster(group->MemberLocationId(index));
+            member = FindMonster(group->MemberLocationId(index).value());
             if (!member->fActive || member->hp_current == 0 ||
                 member->highest_condition >= W8_CONDITION_DEAD ||
                 MonsterHasNoVisibleEnemy(member, false)) {
@@ -2081,7 +2081,7 @@ void CheckMonsterGroupsLeaveCombat(void)
                 srAssertFail("pMonsterGroup", MONSTER_AI_CPP, 0xc06, 0);
             }
             for (member_index = 0; member_index < group->MemberIds().size(); ++member_index) {
-                other = FindMonster(group->MemberLocationId(member_index));
+                other = FindMonster(group->MemberLocationId(member_index).value());
                 if (other->fActive && other->hp_current != 0 &&
                     other->highest_condition < W8_CONDITION_DEAD &&
                     !MonsterHasNoVisibleEnemy(other, true)) {
@@ -2359,7 +2359,7 @@ float GetGroupNearestDistance(W8MonsterGroup* group)
     }
 
     for (index = 0; index < group->MemberIds().size(); ++index) {
-        location_id = group->MemberLocationId(index);
+        location_id = group->MemberLocationId(index).value();
         monster_info = FindMonster(location_id);
         distance = monster_info->p3D->GetDistanceToPlayer();
         if (distance < furthest) {
@@ -2417,7 +2417,7 @@ bool MonsterGroupHalfSpellTargetsValid(W8MonsterInfo* monster_info, int spell_id
         srAssertFail("pTargetMonsterGroup", MONSTER_AI_CPP, 0xdc4, 0);
     }
     for (index = 0; index < target_group->MemberIds().size(); ++index) {
-        int location_id = target_group->MemberLocationId(index);
+        int location_id = target_group->MemberLocationId(index).value();
         member = FindMonster(location_id);
         if (member->fActive && member->hp_current != 0 &&
             member->highest_condition < W8_CONDITION_DEAD && member->pCombat &&
@@ -2479,7 +2479,7 @@ bool MonsterGroupHasReinforcement(W8MonsterGroup* monster_group)
         return false;
     }
     for (index = 0; index < monster_group->MemberIds().size(); ++index) {
-        member = FindMonster(monster_group->MemberLocationId(index));
+        member = FindMonster(monster_group->MemberLocationId(index).value());
         if ((member->ubDisposition == W8_DISPOSITION_NEUTRAL &&
              GetMonsterDataForInfo(member)->camouflage1 != 0) ||
             !member->party_threat.los_flags[1]) {
@@ -2516,7 +2516,7 @@ static W8MonsterInfo* GetGroupMemberInfo(W8MonsterGroup* group, unsigned int ind
     if (group == 0) {
         srAssertFail("pMonsterGroup", MONSTER_AI_CPP, 3199, 0);
     }
-    return FindMonster(group->MemberLocationId(index));
+    return FindMonster(group->MemberLocationId(index).value());
 }
 
 /* Recompute each unled hostile group's engagement byte once the combat state
@@ -2546,7 +2546,7 @@ void UpdateMonsterGroupEngagement(void)
         }
         member_starting = 0;
         for (index = 0; index < group->MemberIds().size(); ++index) {
-            member = FindMonster(group->MemberLocationId(index));
+            member = FindMonster(group->MemberLocationId(index).value());
             if (member->fActive && member->pCombat &&
                 static_cast<unsigned int>(member->pCombat->settle_ticks) < 3) {
                 member_starting = 1;
@@ -2557,7 +2557,7 @@ void UpdateMonsterGroupEngagement(void)
             if (group->allied_group_ids[allied_index] != 0) {
                 allied = FindMonsterGroup(group->allied_group_ids[allied_index]);
                 for (index = 0; index < allied->MemberIds().size(); ++index) {
-                    member = FindMonster(allied->MemberLocationId(index));
+                    member = FindMonster(allied->MemberLocationId(index).value());
                     if (member->fActive && member->pCombat &&
                         static_cast<unsigned int>(member->pCombat->settle_ticks) < 3) {
                         member_starting = 1;

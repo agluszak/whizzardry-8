@@ -122,7 +122,7 @@ void MartensBluff2Setup(void)
             if (quest_state == 2) {
                 if (FindEntityByName("Ravenz", &position, 0, 0)) {
                     group = SpawnMonsters(0x183, 1, &position, 0, true, false, false);
-                    location_id = group->MemberLocationId(0);
+                    location_id = group->MemberLocationId(0).value();
                     if (location_id != 0) {
                         info = FindMonster(location_id);
                         if (info != 0 && info->p3D != 0) {
@@ -358,7 +358,7 @@ bool MartensBluff2PerfumeBox(Trigger* pTrigger)
     quest_state = 2;
     if (FindEntityByName("Ravenz", &position, 0, 0)) {
         group = SpawnMonsters(0x183, 1, &position, 0, true, false, false);
-        location_id = group->MemberLocationId(0);
+        location_id = group->MemberLocationId(0).value();
         if (location_id != 0) {
             info = FindMonster(location_id);
             if (info != 0 && info->p3D != 0) {

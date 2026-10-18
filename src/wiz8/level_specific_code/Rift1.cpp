@@ -61,7 +61,7 @@ bool Rift1Hotstuff(Trigger* pTrigger)
         if (FindEntityByName("Hotstuff", &position, 0, 0)) {
             group = SpawnMonsters(0x175, 1, &position, 0, true, false, false);
             if (group != 0) {
-                monster = GetMonsterByLocationID(group->MemberLocationId(0));
+                monster = GetMonsterByLocationID(group->MemberLocationId(0).value());
                 if (monster != 0 && monster->SetScript("MoveLavalord.MSF", true)) {
                     BeginScriptedWorldAction();
                 }

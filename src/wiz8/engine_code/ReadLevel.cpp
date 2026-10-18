@@ -695,7 +695,7 @@ try {
         const glm::vec3 origin(0);
         auto* group = CreateGroup(monster_id, 1, &origin, true, false, true);
         if (!group) return false;
-        auto* monster_info = FindMonster(group->MemberLocationId(0));
+        auto* monster_info = FindMonster(group->MemberLocationId(0).value());
         ActivateMonster(monster_info, W8_MONSTER_LOAD_ALL_CYCLES);
         auto* monster = monster_info->p3D;
         const glm::vec3 camera_position(world->camera->getLocation());

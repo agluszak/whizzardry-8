@@ -5,6 +5,7 @@
 #include <fstream>
 #include <ios>
 #include <iterator> // IWYU pragma: keep - public header for std::istreambuf_iterator.
+#include <limits>
 #include <memory>
 #include <span>
 #include <unordered_map>
@@ -115,11 +116,12 @@ static bool masterFunctionMutation()
 static bool groupMemberLookup()
 {
     W8MonsterGroup group{};
-    REQUIRE((group.MemberIds().empty() && group.MemberLocationId(0) == -1));
+    REQUIRE((group.MemberIds().empty() && group.MemberLocationId(0) == std::nullopt));
     group.monsters = {101, 202};
     REQUIRE(group.MemberIds().size() == 2);
     REQUIRE((group.MemberLocationId(0) == 101 && group.MemberLocationId(1) == 202));
-    REQUIRE((group.MemberLocationId(2) == -1 && group.MemberLocationId(-1) == -1));
+    REQUIRE((group.MemberLocationId(2) == std::nullopt &&
+             group.MemberLocationId(std::numeric_limits<std::size_t>::max()) == std::nullopt));
     group.monsters.erase(group.monsters.begin());
     REQUIRE(group.MemberLocationId(0) == 202);
     return true;
