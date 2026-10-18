@@ -78,11 +78,10 @@ bool PleaseWaitScreenInitialize(void)
     return g_level_load_font.load("Data\\Level Load\\levelload_font.sti");
 }
 
-/* The entry handler. It builds the descriptor once and fills the tail from the
-   screen-state record it was entered with, which is what establishes that
-   record's leading fields: mode at 0x04, then three parameters, then a name at
-   0x18. Mode 0 is the new game - it clears the fact state and deletes the running
-   save; modes 1 and 2 carry a name; mode 3 carries two parameters and no name.
+/* The entry handler. It builds the descriptor once and fills it from the
+   screen-state record it was entered with. New-game mode clears the fact state
+   and deletes the running save; load and save modes carry a name; level-change
+   mode carries two parameters.
 
    The handler accesses the shared descriptor through g_load_descriptor. */
 bool PleaseWaitScreenEnter(void)
