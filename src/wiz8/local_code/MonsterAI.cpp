@@ -204,7 +204,7 @@ void UpdateMonsterGroups(bool staggered)
         if (staggered && group_list_index % 5 != g_monster_group_tick % 5) {
             continue;
         }
-        monster_group = GetMonsterGroupByListIndex(group_list_index);
+        monster_group = CurrentLevelPopulation().monster_groups[group_list_index].get();
         if (MonsterGroupAllMembersDying(monster_group)) {
             continue;
         }
@@ -1911,7 +1911,7 @@ void CollectMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
         break;
     case W8_TARGET_TYPE_ENEMY_GROUP:
         for (index = 0; index < CurrentLevelPopulation().monster_groups.size(); ++index) {
-            monster_group = GetMonsterGroupByListIndex(index);
+            monster_group = CurrentLevelPopulation().monster_groups[index].get();
             if (monster_group->group_id != monster_info->monster_group_id &&
                 monster_group->members_active && monster_group->fInCombat &&
                 !MonsterGroupAllMembersDying(monster_group) &&
@@ -2038,7 +2038,7 @@ void CheckMonsterGroupsLeaveCombat(void)
     RefreshOutwardSightForAllMonsters();
     for (group_index = 0; group_index < CurrentLevelPopulation().monster_groups.size();
          ++group_index) {
-        group = GetMonsterGroupByListIndex(group_index);
+        group = CurrentLevelPopulation().monster_groups[group_index].get();
         if (!group->members_active || !group->fInCombat || MonsterGroupAllMembersDying(group)) {
             continue;
         }
@@ -2098,7 +2098,7 @@ void CheckMonsterGroupsLeaveCombat(void)
     }
     for (group_index = 0; group_index < CurrentLevelPopulation().monster_groups.size();
          ++group_index) {
-        group = GetMonsterGroupByListIndex(group_index);
+        group = CurrentLevelPopulation().monster_groups[group_index].get();
         if (group->members_active && group->fInCombat && !MonsterGroupAllMembersDying(group)) {
             MonsterGroupLeaveCombat(group);
         }
@@ -2536,7 +2536,7 @@ void UpdateMonsterGroupEngagement(void)
     }
     for (group_index = 0; group_index < CurrentLevelPopulation().monster_groups.size();
          ++group_index) {
-        group = GetMonsterGroupByListIndex(group_index);
+        group = CurrentLevelPopulation().monster_groups[group_index].get();
         if (!group->members_active || !group->fInCombat ||
             group->ubDisposition != W8_DISPOSITION_HOSTILE || group->leader_group_id != 0) {
             continue;
@@ -2599,13 +2599,13 @@ void CheckMonsterGroupsEnterCombat(void)
 
     RefreshAllSight();
     for (index = 0; index < CurrentLevelPopulation().monster_groups.size(); ++index) {
-        group = GetMonsterGroupByListIndex(index);
+        group = CurrentLevelPopulation().monster_groups[index].get();
         if (group->fInCombat && group->ubDisposition == W8_DISPOSITION_HOSTILE) {
             AlertSameFactionGroups(group);
         }
     }
     for (index = 0; index < CurrentLevelPopulation().monster_groups.size(); ++index) {
-        group = GetMonsterGroupByListIndex(index);
+        group = CurrentLevelPopulation().monster_groups[index].get();
         if (!group->fInCombat) {
             if (ShouldMonsterGroupEnterCombat(group)) {
                 MonsterGroupEnterCombat(group);

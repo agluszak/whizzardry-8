@@ -405,7 +405,7 @@ bool QueueNpcCombatScript(void)
         if (faction != 0 && faction != 1) {
             for (unsigned int index = 0; index < CurrentLevelPopulation().monster_groups.size();
                  ++index) {
-                W8MonsterGroup* group = GetMonsterGroupByListIndex(index);
+                W8MonsterGroup* group = CurrentLevelPopulation().monster_groups[index].get();
                 if (group->members_active && group->fInCombat &&
                     group->ubDisposition == W8_DISPOSITION_HOSTILE &&
                     MonsterGroupGetRecord(group)->faction_id == faction) {
@@ -417,7 +417,7 @@ bool QueueNpcCombatScript(void)
         if (!hostile_group_present && npc->name_style == W8_NPC_SPARKLE) {
             for (unsigned int index = 0; index < CurrentLevelPopulation().monster_groups.size();
                  ++index) {
-                W8MonsterGroup* group = GetMonsterGroupByListIndex(index);
+                W8MonsterGroup* group = CurrentLevelPopulation().monster_groups[index].get();
                 if (group->members_active && group->fInCombat &&
                     group->ubDisposition == W8_DISPOSITION_HOSTILE &&
                     MonsterGroupGetRecord(group)->faction_id == 4) {
@@ -1097,7 +1097,7 @@ void EndCombat(bool forced_cleanup)
     ProcessMonstersAtCombatEnd(forced_cleanup);
     unsigned int group_count = CurrentLevelPopulation().monster_groups.size();
     for (unsigned int group_index = 0; group_index < group_count; ++group_index) {
-        W8MonsterGroup* group = GetMonsterGroupByListIndex(group_index);
+        W8MonsterGroup* group = CurrentLevelPopulation().monster_groups[group_index].get();
         if (group->fInCombat) {
             MonsterGroupLeaveCombat(group);
         }
@@ -1791,7 +1791,7 @@ void AdvanceCombatRound(void)
         bool engaged = false;
 
         for (index = 0; index < CurrentLevelPopulation().monster_groups.size(); ++index) {
-            W8MonsterGroup* monster_group = GetMonsterGroupByListIndex(index);
+            W8MonsterGroup* monster_group = CurrentLevelPopulation().monster_groups[index].get();
             if (monster_group->members_active && monster_group->fInCombat &&
                 MonsterGroupCanEngage(monster_group)) {
                 engaged = true;

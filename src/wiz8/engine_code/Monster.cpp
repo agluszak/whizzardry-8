@@ -2740,7 +2740,7 @@ void UpdateNearestMonsterGroupMembers()
     player_position = cameraLocation();
     for (group_index = 0; group_index < CurrentLevelPopulation().monster_groups.size();
          ++group_index) {
-        W8MonsterGroup* group = GetMonsterGroupByListIndex(group_index);
+        W8MonsterGroup* group = CurrentLevelPopulation().monster_groups[group_index].get();
 
         if (group != 0) {
             double nearest_distance = 1e11;

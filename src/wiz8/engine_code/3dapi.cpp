@@ -309,7 +309,7 @@ static void DestroyWorldResources(W8World* world)
 {
     world->timed_events.clear();
     world->standalone_trigger_events.clear();
-    world->monster_generators.clear();
+    world->encounters.generators.clear();
     world->cursor.reset();
     world->cursor_nodes.clear();
     world->active_monsters.clear();

@@ -914,7 +914,7 @@ void AlertSameFactionGroups(W8MonsterGroup* monster_group)
     if (record->faction_id != 0) {
         for (unsigned int index = 0; index < CurrentLevelPopulation().monster_groups.size();
              ++index) {
-            W8MonsterGroup* other = GetMonsterGroupByListIndex(index);
+            W8MonsterGroup* other = CurrentLevelPopulation().monster_groups[index].get();
             W8MonsterRecord* other_record = MonsterGroupGetRecord(other);
             if (other != monster_group &&
                 ((other_record->flags & W8_MONSTER_FLAG_NPC) == 0 || !other->forced_neutral) &&

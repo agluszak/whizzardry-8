@@ -3134,7 +3134,7 @@ void RedrawCombatMonsterList(bool subject_valid)
         list_length = CurrentLevelPopulation().monster_groups.size();
         if (list_length != 0) {
             do {
-                monster_group = GetMonsterGroupByListIndex(group_list_index);
+                monster_group = CurrentLevelPopulation().monster_groups[group_list_index].get();
                 if (IsMonsterGroupLive(monster_group)) {
                     scratch_text =
                         fmt::format("{:d} {} ({:d}/{:d}/{:d})", monster_group->MemberCount(),

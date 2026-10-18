@@ -222,3 +222,29 @@ maintain a count. Both loaded and newly changed lured monsters are excluded by
 the same rule. The retail count is retained as decoded disk data for round trips;
 level saves replace it in the output image with the derived value without editing
 the live group. Visibility counts remain observations of a visibility pass.
+
+## Encounter ownership and group relationships
+
+Each world owns one encounter state: generators, budget and saved settings move
+into the replacement together. Entry arms that world's generators; it no longer
+copies settings into session globals. The population limit is derived from the
+budget and level rules at generation time.
+
+An active encounter is a participating group with no leader. Traversal takes a
+short-lived snapshot from the owning group collections. There is no persistent
+active-encounter registry, registration API, or load-time reconstruction pass.
+Culling walks a snapshot so removal cannot skip the next candidate. Combat budget
+loss is explicit at retirement or leader destruction, and repeated retirement
+cannot spend again. Companion linking and successor election do not spend budget.
+
+Formation linking reserves a destination before changing either relationship;
+a full formation leaves the source attached. Leader election selects from the
+intact formation, including the first ally when every leadership rank is zero,
+then publishes the new links before navigation/hostility refresh. It no longer
+turns every ally into an independent group and repairs their registrations.
+
+Group IDs resolve directly in the owning population. Runtime traversal and removal
+use the owning collections; the synthetic 10,000-biased index domain and its
+conversion/checking APIs are removed from combat, targeting, AI and level scripts.
+Only displayed combat groups can be selected by a combat-list row; out-of-range
+rows return no group.

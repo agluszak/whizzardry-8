@@ -683,7 +683,7 @@ struct W8LoadedLevelStatus::Data {
     std::vector<SavedMonster> monsters;
     std::vector<std::unique_ptr<W8WorldItem>> items;
     std::optional<W8SavedCursorNodes> cursors;
-    std::optional<W8SavedEncounterState> encounters;
+    std::optional<W8EncounterState> encounters;
     std::optional<W8SavedAutomapNotes> automap;
     std::vector<W8AmbientSoundState> ambient;
     std::vector<W8ParticleState> particles;
@@ -1244,8 +1244,6 @@ void PrepareLevelPopulation(W8World& world, W8LoadedLevelStatus& status)
         group.fInCombat = false;
         auto& list = saved.encounter ? population.encounter_groups : population.monster_groups;
         list.push_back(std::move(saved.group));
-        if (group.encounter_registered && group.leader_group_id == 0)
-            population.active_encounters.push_back(&group);
     }
     population.world_items = std::move(data.items);
     std::vector<W8MonsterInfo*> records;
@@ -1320,7 +1318,7 @@ void PrepareLevelPopulation(W8World& world, W8LoadedLevelStatus& status)
                 if (member->p3D->linked_navigator == leader) member->p3D->movement_stopped = false;
         }
     }
-    if (data.encounters) world.monster_generators = std::move(data.encounters->generators);
+    if (data.encounters) world.encounters = std::move(*data.encounters);
     if (data.automap) ApplyAutomapNotes(world, std::move(*data.automap));
     ApplyAmbientSoundStates(world, data.ambient);
     ApplyParticleStates(world, data.particles);
@@ -1349,9 +1347,9 @@ void InstallLevelSessionState(W8World& world, W8LoadedLevelStatus* status)
 
 void BeginRestoredLevelActivity(W8World& world, W8LoadedLevelStatus* status)
 {
+    StartLevelEncounters(world);
     if (!status) return;
     auto& data = *status->data;
-    if (data.encounters) StartLevelEncounters(world, *data.encounters);
     for (int id : data.pending_deaths)
         if (auto* info = FindMonster(id, false)) MonsterStartsDying(info, true);
 }

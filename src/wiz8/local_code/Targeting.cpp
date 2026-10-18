@@ -1494,7 +1494,7 @@ bool SpellHasAnyValidTarget(int party_slot, int spell_id, bool normalize)
 
     case W8_TARGET_NEED_GROUP:
         for (index = 0; index < CurrentLevelPopulation().monster_groups.size(); ++index) {
-            W8MonsterGroup* group = GetMonsterGroupByListIndex(index);
+            W8MonsterGroup* group = CurrentLevelPopulation().monster_groups[index].get();
 
             if (group->members_active &&
                 CanTargetMonsterGroup(party_slot, group, edited_action, sighting)) {
@@ -1672,42 +1672,20 @@ void AimAtMonsterGroupMember(int party_slot, W8MonsterGroup* group)
 // FUNCTION: WIZ8 0x00537ed0
 static int PickNextTargetableGroup(int party_slot, const W8Action& edited_action, bool sighting)
 {
-    unsigned int count = CurrentLevelPopulation().monster_groups.size();
-    unsigned int start;
-    unsigned int index;
-
-    if (count == 0) {
-        return BAD_INDEX;
-    }
-
-    if (gXStatus.picked_group == BAD_INDEX) {
-        start = 0;
-    } else {
-        start = GetMonsterGroupIndexByID(gXStatus.picked_group, false);
-        if (start == 0xffffffff) {
-            start = 0;
-            gXStatus.picked_group = BAD_INDEX;
-        } else {
-            ++start;
-            if (start == CurrentLevelPopulation().monster_groups.size()) {
-                start = 0;
-            }
-        }
-    }
-
-    index = start;
-    do {
-        W8MonsterGroup* group = GetMonsterGroupByListIndex(index);
-
-        if (CanTargetMonsterGroup(party_slot, group, edited_action, sighting)) {
+    const auto& groups = CurrentLevelPopulation().monster_groups;
+    if (groups.empty()) return BAD_INDEX;
+    const auto current = std::ranges::find_if(
+        groups, [](const auto& group) { return group->group_id == gXStatus.picked_group; });
+    std::size_t start = 0;
+    if (current == groups.end())
+        gXStatus.picked_group = BAD_INDEX;
+    else
+        start = (std::distance(groups.begin(), current) + 1) % groups.size();
+    for (std::size_t offset = 0; offset < groups.size(); ++offset) {
+        auto* group = groups[(start + offset) % groups.size()].get();
+        if (CanTargetMonsterGroup(party_slot, group, edited_action, sighting))
             return group->group_id;
-        }
-        ++index;
-        if (index == CurrentLevelPopulation().monster_groups.size()) {
-            index = 0;
-        }
-    } while (index != start);
-
+    }
     return BAD_INDEX;
 }
 
@@ -1828,7 +1806,7 @@ void RefreshMonsterTargetCounts(void)
 
     for (group_index = 0; group_index < CurrentLevelPopulation().monster_groups.size();
          ++group_index) {
-        W8MonsterGroup* group = GetMonsterGroupByListIndex(group_index);
+        W8MonsterGroup* group = CurrentLevelPopulation().monster_groups[group_index].get();
         int on_screen_count;
         int selectable_count;
 

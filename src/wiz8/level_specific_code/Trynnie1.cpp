@@ -127,7 +127,7 @@ void KillTrynnieGroups(void)
 
     for (index = 0; index < static_cast<int>(CurrentLevelPopulation().monster_groups.size());
          ++index) {
-        group = GetMonsterGroupByListIndex(index);
+        group = CurrentLevelPopulation().monster_groups[index].get();
         if (group != 0 && group->members_active &&
             (record = MonsterGroupGetRecord(group), record->faction_id == 0xd) &&
             ReplaceMonsterGroupSpecies(group, 0x1be) != 0) {
@@ -143,8 +143,8 @@ void KillTrynnieGroups(void)
         srAssertFail("iNewTable!=(-1)", TRYNNIE1_CPP, 0x69,
                      "Can't find monster table 'Dead Trynnies'");
     }
-    for (index = 0; index < static_cast<int>(GetWorld()->monster_generators.size()); ++index) {
-        generator = GetWorld()->monster_generators[index].get();
+    for (index = 0; index < static_cast<int>(GetWorld()->encounters.generators.size()); ++index) {
+        generator = GetWorld()->encounters.generators[index].get();
         if (generator->encounter_table_index == iOldTable) {
             generator->SetEncounterTable(iNewTable);
         }

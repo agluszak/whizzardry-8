@@ -25,7 +25,9 @@
 #include "sight_state.h"
 #include "temporary_directory.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/chunk.h"
 #include "wiz8/conditions.h"
+#include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/equipment_slots.h"
 #include "wiz8/filesystem.h"
@@ -40,6 +42,7 @@
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/MonsterGenerator.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/PC_Item.h"
@@ -50,6 +53,7 @@
 #include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/location_variables.h"
+#include "wiz8/monster_generators.h"
 #include "wiz8/monster_roster.h"
 #include "wiz8/npc_items.h"
 #include "wiz8/npc_trade_price.h"
@@ -172,7 +176,7 @@ static bool gameplayCollectionLifetime()
     REQUIRE(GetMonsterListEntry(0) == live);
     REQUIRE((GetMonsterListEntry(-1) == nullptr && GetMonsterListEntry(1) == nullptr));
     REQUIRE((GetUnbornMonsterEntry(0) == unborn && GetUnbornMonsterEntry(1) == nullptr));
-    REQUIRE((GetMonsterGroupEncounter(0) == group_ptr && GetMonsterGroupEncounter(1) == nullptr));
+    REQUIRE(CurrentLevelPopulation().encounter_groups.front().get() == group_ptr);
 
     // Preparing and abandoning another population cannot publish its identities.
     live->location_id = 7;
@@ -200,7 +204,7 @@ static bool gameplayCollectionLifetime()
     gXStatus = {};
     *GetWorld()->population = {};
     REQUIRE((GetMonsterListEntry(0) == nullptr && GetUnbornMonsterEntry(0) == nullptr));
-    REQUIRE(GetMonsterGroupEncounter(0) == nullptr);
+    REQUIRE(CurrentLevelPopulation().encounter_groups.empty());
     return true;
 }
 
@@ -690,4 +694,177 @@ TEST_CASE("A refused purchase leaves stock, payment and a full destination uncha
     REQUIRE(g_status.item_in_hand.iItemNo == 1);
     REQUIRE(npc.items.size() == 1);
     REQUIRE(npc.items[0].quantity == 1);
+}
+
+TEST_CASE("Encounter retirement spends one budget unit per formation, without registration",
+          "[groups]")
+{
+    struct Restore {
+        std::unique_ptr<W8World> world = ReplaceWorld(std::make_unique<W8World>(0));
+        bool combat = std::exchange(gXStatus.fCombatMode, true);
+        ~Restore()
+        {
+            gXStatus.fCombatMode = combat;
+            ReplaceWorld(std::move(world));
+        }
+    } restore;
+    const ScopedRecords levels(g_level_records, 1);
+    g_level_records[0].minimum_encounter_budget = 1;
+    g_level_records[0].maximum_encounter_budget = 20;
+    GetWorld()->encounters.random_budget = 8;
+    W8MonsterGroup unowned{};
+    unowned.encounter_registered = true;
+    REQUIRE_FALSE(DestroyMonsterGroup(&unowned, nullptr));
+    REQUIRE(GetWorld()->encounters.random_budget == 8);
+
+    auto& population = CurrentLevelPopulation();
+    for (int id : {1, 2}) {
+        auto group = std::make_unique<W8MonsterGroup>();
+        group->group_id = id;
+        group->encounter_registered = true;
+        population.monster_groups.push_back(std::move(group));
+    }
+    auto* leader = population.monster_groups[0].get();
+    auto* ally = population.monster_groups[1].get();
+    leader->allied_group_ids[0] = ally->group_id;
+    ally->leader_group_id = leader->group_id;
+    REQUIRE(population.activeEncounterLeaders() == std::vector{leader});
+    REQUIRE(FindMonsterGroup(leader->group_id) == leader);
+    REQUIRE(FindMonsterGroup(999, false) == nullptr);
+
+    RetireMonsterGroupAndAllies(ally);
+    REQUIRE(population.activeEncounterLeaders().empty());
+    REQUIRE(GetWorld()->encounters.random_budget == 7);
+    RetireMonsterGroupAndAllies(leader);
+    REQUIRE(GetWorld()->encounters.random_budget == 7);
+    REQUIRE(DestroyMonsterGroup(ally, nullptr));
+    REQUIRE(DestroyMonsterGroup(leader, nullptr));
+    REQUIRE(GetWorld()->encounters.random_budget == 7);
+}
+
+TEST_CASE("Encounter state prepares independently and retains the retail save fields",
+          "[groups][save]")
+{
+    struct Restore {
+        std::unique_ptr<W8World> world = ReplaceWorld(std::make_unique<W8World>(0));
+        ~Restore() { ReplaceWorld(std::move(world)); }
+    } restore;
+    const ScopedRecords levels(g_level_records, 2);
+    g_level_records[1].minimum_encounter_budget = 2;
+    g_level_records[1].maximum_encounter_budget = 9;
+    g_level_records[1].encounter_culling_seconds = 123;
+    auto& live = GetWorld()->encounters;
+    live.random_budget = 6;
+    live.saved_budget = 77;
+    live.interval_min = 31;
+    live.default_interval = 17;
+    live.interval_max = 44;
+    live.save_flag = 1;
+    W8World replacement(1);
+    replacement.encounters.random_budget = 100;
+    StartLevelEncounters(replacement);
+    REQUIRE(replacement.encounters.random_budget == 9);
+    REQUIRE(replacement.encounters.culling_seconds == 123);
+    REQUIRE(live.random_budget == 6);
+    REQUIRE(live.culling_seconds == 180);
+
+    const ScopedTemporaryDirectory directory("encounter-state");
+    W8Chunk chunk;
+    REQUIRE(chunk.OpenWrite(directory.path / "state.riff"));
+    chunk.WriteChunk(W8ChunkId("ENCT"), [&] { SaveEncounterState(chunk.WriteStream()); });
+    chunk.Close();
+    REQUIRE(chunk.OpenRead(directory.path / "state.riff"));
+    chunk.ForEachChunk([&](unsigned) {
+        const auto loaded = ReadEncounterState(chunk);
+        REQUIRE(loaded.random_budget == 6);
+        REQUIRE(loaded.saved_budget == 77);
+        REQUIRE(loaded.culling_seconds == 180);
+        REQUIRE(loaded.interval_min == 31);
+        REQUIRE(loaded.default_interval == 17);
+        REQUIRE(loaded.interval_max == 44);
+        REQUIRE(loaded.save_flag == 1);
+        REQUIRE(chunk.RemainingBytes() == 0);
+    });
+}
+
+TEST_CASE_METHOD(LevelWorldFixture, "Full formations reject a link before detaching its source",
+                 "[groups]")
+{
+    W8MonsterGroup destination{}, source{};
+    destination.group_id = 1;
+    std::ranges::fill(destination.allied_group_ids, 99);
+    source.group_id = 2;
+    source.leader_group_id = 17;
+    REQUIRE_FALSE(LinkMonsterGroupToLeader(&destination, &source));
+    REQUIRE(source.leader_group_id == 17);
+    REQUIRE(std::ranges::all_of(destination.allied_group_ids, [](int id) { return id == 99; }));
+}
+
+TEST_CASE("Allied leader election preserves one encounter with zero leadership ranks", "[groups]")
+{
+    struct Restore {
+        std::unique_ptr<W8World> world = ReplaceWorld(std::make_unique<W8World>(0));
+        decltype(g_combat_inactive) inactive = std::exchange(g_combat_inactive, 0);
+        bool combat = std::exchange(gXStatus.fCombatMode, true);
+        ~Restore()
+        {
+            g_combat_inactive = inactive;
+            gXStatus.fCombatMode = combat;
+            ReplaceWorld(std::move(world));
+        }
+    } restore;
+    const ScopedRecords levels(g_level_records, 1);
+    g_level_records[0].minimum_encounter_budget = 1;
+    g_level_records[0].maximum_encounter_budget = 20;
+    GetWorld()->encounters.random_budget = 8;
+    auto& population = CurrentLevelPopulation();
+    std::array<std::unique_ptr<W8Monster>, 3> representations;
+    for (int index = 0; index < 3; ++index) {
+        auto group = std::make_unique<W8MonsterGroup>();
+        group->group_id = index + 1;
+        group->leader_location_id = index + 1;
+        group->encounter_registered = true;
+        group->monsters = {index + 1};
+        population.monster_groups.push_back(std::move(group));
+        auto record = std::make_unique<W8MonsterInfo>();
+        record->location_id = index + 1;
+        auto& monster = representations[index];
+        monster = std::make_unique<W8Monster>(GetWorld());
+        monster->location_id = index + 1;
+        monster->movement.leadership_rank = 0;
+        record->p3D = monster.get();
+        population.monster_roster.add(std::move(record), false);
+    }
+    auto* old = population.monster_groups[0].get();
+    auto* first = population.monster_groups[1].get();
+    auto* second = population.monster_groups[2].get();
+    old->allied_group_ids[0] = 2;
+    old->allied_group_ids[1] = 3;
+    first->leader_group_id = second->leader_group_id = 1;
+    old->monsters.clear(); // Final member removal owns group retirement.
+    REQUIRE(DestroyMonsterGroup(old, population.findMonster(1)));
+    REQUIRE(population.activeEncounterLeaders() == std::vector{first});
+    REQUIRE(GetWorld()->encounters.random_budget == 7);
+    REQUIRE(first->leader_group_id == 0);
+    REQUIRE(first->allied_group_ids[0] == 3);
+    REQUIRE(second->leader_group_id == 2);
+    REQUIRE(representations[2]->linked_navigator == representations[1].get());
+}
+
+TEST_CASE_METHOD(LevelWorldFixture,
+                 "Combat list rows cannot select a group outside the displayed list",
+                 "[groups][targeting]")
+{
+    auto& groups = CurrentLevelPopulation().monster_groups;
+    auto group = std::make_unique<W8MonsterGroup>();
+    group->members_active = true;
+    group->fInCombat = true;
+    group->ubDisposition = W8_DISPOSITION_HOSTILE;
+    group->monsters = {1};
+    auto* displayed = group.get();
+    groups.push_back(std::move(group));
+    groups.push_back(std::make_unique<W8MonsterGroup>()); // Not displayed.
+    REQUIRE(GetLiveMonsterGroupAtIndex(0) == displayed);
+    REQUIRE(GetLiveMonsterGroupAtIndex(1) == nullptr);
+    REQUIRE(GetLiveMonsterGroupAtIndex(-1) == nullptr);
 }

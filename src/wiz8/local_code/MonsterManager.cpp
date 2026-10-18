@@ -1180,7 +1180,7 @@ void ToggleCombatMode(void)
         for (group_list_index = 0;
              group_list_index < CurrentLevelPopulation().monster_groups.size();
              ++group_list_index) {
-            monster_group = GetMonsterGroupByListIndex(group_list_index);
+            monster_group = CurrentLevelPopulation().monster_groups[group_list_index].get();
             if (monster_group->members_active && monster_group->fInCombat &&
                 MonsterGroupCanEngage(monster_group)) {
                 ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_COMBAT_CANNOT_END]);
@@ -1487,7 +1487,7 @@ void DetectMonsterGroups(void)
 
     for (unsigned int group_index = 0; group_index < CurrentLevelPopulation().monster_groups.size();
          ++group_index) {
-        W8MonsterGroup* group = GetMonsterGroupByListIndex(group_index);
+        W8MonsterGroup* group = CurrentLevelPopulation().monster_groups[group_index].get();
         if (!group->members_active || (group->alternate_name && group->group_state[0] != 0) ||
             (gXStatus.fCombatMode && !group->fInCombat) ||
             !MonsterGroupHasRenderableMember(group, false)) {
@@ -1605,7 +1605,8 @@ void EvaluateCombatDifficulty(void)
                     for (unsigned int group_index = 0;
                          group_index < CurrentLevelPopulation().monster_groups.size();
                          ++group_index) {
-                        W8MonsterGroup* group = GetMonsterGroupByListIndex(group_index);
+                        W8MonsterGroup* group =
+                            CurrentLevelPopulation().monster_groups[group_index].get();
                         if (group->members_active && group->fInCombat &&
                             group->ubDisposition == W8_DISPOSITION_HOSTILE &&
                             MonsterGroupGetRecord(group)->faction_id == faction) {

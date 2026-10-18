@@ -111,7 +111,6 @@ struct W8XStatus {
     uint64_t combat_countdown;
     unsigned char combat_difficulty;
     bool party_moving;
-    int saved_encounter_budget;
     int hostile_group_count;
 };
 
@@ -133,7 +132,5 @@ W8MonsterInfo* GetMonsterListEntry(int index);
 W8MonsterInfo* GetUnbornMonsterEntry(int index);
 
 W8WorldItem* GetWorldItemListEntry(int index);
-
-W8MonsterGroup* GetMonsterGroupEncounter(int index);
 
 #endif

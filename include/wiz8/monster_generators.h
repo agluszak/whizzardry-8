@@ -43,7 +43,7 @@ void SaveEncounterState(wiz8::File& handle);
 void SaveMonsterGenerators(wiz8::File& handle);
 void DestroyMonsterGenerators(void);
 struct W8World;
-struct W8SavedEncounterState {
+struct W8EncounterState {
     int saved_budget = 100;
     int random_budget = 20;
     int culling_seconds = 180;
@@ -51,27 +51,18 @@ struct W8SavedEncounterState {
     short interval_min = 100, default_interval = 10, interval_max = -1;
     std::vector<std::unique_ptr<MonGen>> generators;
 };
-W8SavedEncounterState ReadEncounterState(W8Chunk& file);
-void ReadMonsterGeneratorStates(W8Chunk& file, W8SavedEncounterState& state);
-void StartLevelEncounters(W8World& world, const W8SavedEncounterState& state);
+W8EncounterState ReadEncounterState(W8Chunk& file);
+void ReadMonsterGeneratorStates(W8Chunk& file, W8EncounterState& state);
+void StartLevelEncounters(W8World& world);
 void RunMonsterGenerators(void);
 void DespawnAllActiveMonsterGroups(void);
 void ResetMonsterGeneratorTimers(void);
 void SetMonsterGeneratorDurationScale(float scale); /* 0x0048CB80 */
 
-/* The encounter-budget registry used by random groups. */
-void UnregisterActiveEncounterGroup(W8MonsterGroup* group); /* 0x0048C670 */
-void RegisterActiveEncounterGroup(W8MonsterGroup* group);   /* 0x0048C750 */
+void SpendRandomEncounterBudget();
 
 void UpdateRandomEncounterBudget(bool reset_budget);
 
-extern int g_random_encounter_budget;
-extern int g_random_encounter_limit;
-extern unsigned char g_generator_save_flag;
-extern short g_generator_default_interval;
-extern short g_generator_interval_min;
-extern short g_generator_interval_max;
-extern int g_encounter_culling_time_seconds;
 extern const float g_generator_jitter_fraction;
 extern float g_encounter_culling_scale_fast;
 extern const float g_encounter_culling_rate;
