@@ -2,9 +2,12 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <cstring>
 #include <exception>
+#include <functional>
 #include <memory>
+#include <ranges>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -62,50 +65,47 @@
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 
+/* One roster row: either a party member, borrowed from its party buffer, or
+   a character read from disk that the roster owns. */
+class W8PartySelectionCharacterEntry {
+public:
+    explicit W8PartySelectionCharacterEntry(W8Character& party_member) : m_character(&party_member)
+    {
+    }
+    explicit W8PartySelectionCharacterEntry(std::unique_ptr<W8Character> loaded)
+        : m_loaded(std::move(loaded)), m_character(m_loaded.get())
+    {
+    }
+    W8Character* get() const { return m_character; }
+
+private:
+    std::unique_ptr<W8Character> m_loaded;
+    W8Character* m_character;
+};
+
 struct W8PartySelectionCharacterCollection {
-    W8PartySelectionCharacterCollection() : first_visible(0) {}
-    ~W8PartySelectionCharacterCollection();
-    W8PartySelectionCharacterCollection(const W8PartySelectionCharacterCollection&) = delete;
     W8Character* GetCharacter(int index);
     int FindPartySlot(int index);
     void DetachFromParty(int index);
     void DeleteAt(int index);
-    void ClearCharacters();
     void ReloadCharacters();
     void LoadExternalCharacters();
     void SortCharactersByWriteTime();
 
-    std::vector<W8Character*> characters;
+    std::vector<W8PartySelectionCharacterEntry> characters;
     std::vector<std::string> names;
-    int first_visible;
+    int first_visible = 0;
 };
 
 static std::unique_ptr<W8PartySelectionCharacterCollection> g_party_selection_character_collection;
 
-W8PartySelectionCharacterCollection::~W8PartySelectionCharacterCollection()
-{
-    ClearCharacters();
-}
-
-void W8PartySelectionCharacterCollection::ClearCharacters()
-{
-    int index;
-    for (index = 0; index < static_cast<int>(characters.size()); ++index) {
-        W8Character* character = GetCharacter(index);
-        if (!character->fInParty) {
-            delete character;
-        }
-    }
-    characters.clear();
-}
-
 void W8PartySelectionCharacterCollection::ReloadCharacters()
 {
-    ClearCharacters();
+    characters.clear();
     W8PartySlotRow* rows = g_status.buffers.XChar;
     for (int slot = 2; slot < 8; ++slot) {
         if (rows[slot].fOccupied) {
-            characters.push_back(&g_status.buffers.Char[slot]);
+            characters.emplace_back(g_status.buffers.Char[slot]);
         }
     }
     LoadExternalCharacters();
@@ -115,7 +115,7 @@ void W8PartySelectionCharacterCollection::ReloadCharacters()
 W8Character* W8PartySelectionCharacterCollection::GetCharacter(int index)
 {
     if (static_cast<std::size_t>(index) < characters.size()) {
-        return characters[index];
+        return characters[index].get();
     }
     return 0;
 }
@@ -124,15 +124,15 @@ void W8PartySelectionCharacterCollection::DetachFromParty(int index)
 {
     W8Character* previous = GetCharacter(index);
     int slot = FindPartySlot(index);
-    W8Character* replacement = new W8Character;
+    auto replacement = std::make_unique<W8Character>();
     std::string path;
     path = BuildCharacterPath(previous->name, -1);
-    if (!LoadCharacter(path, replacement, -1)) {
+    if (!LoadCharacter(path, replacement.get(), -1)) {
         *replacement = *previous;
     }
     RemoveCharacterFromParty(slot + 2);
     replacement->fInParty = false;
-    characters[index] = replacement;
+    characters[index] = W8PartySelectionCharacterEntry(std::move(replacement));
 }
 
 int W8PartySelectionCharacterCollection::FindPartySlot(int index)
@@ -152,9 +152,7 @@ int W8PartySelectionCharacterCollection::FindPartySlot(int index)
 void W8PartySelectionCharacterCollection::DeleteAt(int index)
 {
     if (index >= 0 && std::cmp_less(index, characters.size())) {
-        auto* object = characters[index];
         characters.erase(characters.begin() + index);
-        delete object;
     }
 }
 
@@ -167,104 +165,41 @@ void W8PartySelectionCharacterCollection::LoadExternalCharacters()
     const auto separator = pattern.find_last_of("\\/");
     for (const auto& entry :
          wiz8::list_directory(wiz8::user_path(pattern.substr(0, separator)), "*.CHR")) {
-        W8Character* character = new W8Character;
-        if (!LoadCharacter(entry.c_str(), character, -1)) {
-            delete character;
-        } else {
-            int slot;
-            for (slot = 2; slot < 8; ++slot) {
-                if (g_status.buffers.XChar[slot].fOccupied &&
-                    strcmp(g_status.buffers.Char[slot].name.c_str(), character->name.c_str()) ==
-                        0) {
-                    break;
-                }
-            }
-            if (slot < 8) {
-                delete character;
-            } else {
-                characters.push_back(character);
-            }
-        }
+        auto character = std::make_unique<W8Character>();
+        if (!LoadCharacter(entry.c_str(), character.get(), -1)) continue;
+        const bool in_party = std::ranges::any_of(std::views::iota(2, 8), [&](int slot) {
+            return g_status.buffers.XChar[slot].fOccupied &&
+                   g_status.buffers.Char[slot].name == character->name;
+        });
+        if (!in_party) characters.emplace_back(std::move(character));
     }
 }
 
-static void SortPartySelectionCharactersByTime(W8Character** characters, wiz8::DiskFileTime* times,
-                                               int first, int last)
-{
-    if (last - first < 9) {
-        for (int next = first + 1; next <= last; ++next) {
-            wiz8::DiskFileTime time = times[next];
-            W8Character* character = characters[next];
-            int insert = next;
-            while (insert > first && times[insert - 1].ticks() < time.ticks()) {
-                times[insert] = times[insert - 1];
-                characters[insert] = characters[insert - 1];
-                --insert;
-            }
-            times[insert] = time;
-            characters[insert] = character;
-        }
-        return;
-    }
-
-    wiz8::DiskFileTime pivot = times[last];
-    int left = first - 1;
-    int right = last;
-    for (;;) {
-        do {
-            ++left;
-        } while (left < last && times[left].ticks() > pivot.ticks());
-        do {
-            --right;
-        } while (right > first && times[right].ticks() < pivot.ticks());
-        if (left >= right) {
-            break;
-        }
-        wiz8::DiskFileTime time = times[left];
-        times[left] = times[right];
-        times[right] = time;
-        W8Character* character = characters[left];
-        characters[left] = characters[right];
-        characters[right] = character;
-    }
-    times[last] = times[left];
-    times[left] = pivot;
-    W8Character* character = characters[left];
-    characters[left] = characters[last];
-    characters[last] = character;
-    if (first < left - 1) {
-        SortPartySelectionCharactersByTime(characters, times, first, left - 1);
-    }
-    if (left + 1 < last) {
-        SortPartySelectionCharactersByTime(characters, times, left + 1, last);
-    }
-}
-
+/* Newest character file first. */
 void W8PartySelectionCharacterCollection::SortCharactersByWriteTime()
 {
-    if (static_cast<int>(characters.size()) <= 1) {
-        return;
-    }
-
-    std::vector<wiz8::DiskFileTime> times(characters.size());
-    for (int index = 0; index < static_cast<int>(characters.size()); ++index) {
-        std::string path;
-        path = BuildCharacterPath(characters[index]->name, -1);
-        std::unique_ptr<wiz8::File> handle = [&]() {
+    struct TimedEntry {
+        std::uint64_t modified;
+        W8PartySelectionCharacterEntry entry;
+    };
+    std::vector<TimedEntry> timed;
+    timed.reserve(characters.size());
+    for (auto& entry : characters) {
+        const std::string path = BuildCharacterPath(entry.get()->name, -1);
+        const std::uint64_t modified = [&]() -> std::uint64_t {
             try {
-                return wiz8::open_file(wiz8::user_path(path), wiz8::OpenMode::read);
+                return wiz8::open_file(wiz8::user_path(path), wiz8::OpenMode::read)
+                    ->times()
+                    .modified.ticks();
             } catch (const std::exception&) {
-                return std::unique_ptr<wiz8::File>{};
+                return 0;
             }
         }();
-        if (handle) {
-            times[index] = handle->times().modified;
-            if (handle) handle->close();
-            handle.reset();
-        }
+        timed.push_back({modified, std::move(entry)});
     }
-    SortPartySelectionCharactersByTime(characters.data(), times.data(), 0,
-                                       static_cast<int>(characters.size()) - 1);
+    std::ranges::stable_sort(timed, std::ranges::greater{}, &TimedEntry::modified);
+    characters.clear();
+    for (auto& [modified, entry] : timed) characters.push_back(std::move(entry));
 }
 
 class W8PartySelectionController {
@@ -313,7 +248,7 @@ public:
     std::array<std::unique_ptr<W8ButtonWidget>, 7> actions;
     W8ButtonWidget *m_create_button, *m_add_remove_button, *m_delete_button, *m_review_button,
         *m_reset_button, *m_confirm_button, *m_back_button;
-    std::vector<std::unique_ptr<W8TextBuffer>> option_text;
+    std::vector<W8TextBuffer> option_text;
     W8TextBuffer title;
     std::unique_ptr<TextFieldGroup> name_input;
     std::unique_ptr<W8MessageDialogBase> m_dialog;
@@ -557,7 +492,7 @@ void W8PartySelectionController::DrawOptions(SDL_Surface& target)
     if (options_dirty) {
         options_dirty = false;
         CatalogArtwork::Load(0x102, 0).drawAndInvalidate(target, 0, 0x78, 0x28);
-        for (auto& entry : option_text) entry->RenderToTarget(0, true, target);
+        for (auto& entry : option_text) entry.RenderToTarget(0, true, target);
         for (auto& button : difficulty_buttons) button->m_dirty = true;
         npc_toggle->m_dirty = ironman_toggle->m_dirty = true;
         if (creation_page == W8_PARTY_CREATION_SAVE_NAME) {
@@ -595,58 +530,43 @@ void W8PartySelectionController::SetOptionPanelMode(W8PartyCreationPage page)
     ironman_toggle->SetVisible(page == W8_PARTY_CREATION_OPTIONS);
 
     W8ControlsRect bounds = {0x78 + 0x22, 0x28 + 0x12, 0x78 + 0x16e, 0x28 + 0x171};
+    const auto add_text = [&](int message, unsigned int alignment) {
+        option_text.emplace_back(&bounds, g_localized_strings[message], g_options_detail_font,
+                                 alignment | g_W8TextBufferAlignTop, 4);
+    };
+    const auto add_centered_text = [&](int message) {
+        add_text(message, g_W8TextBufferAlignCenter);
+        option_text.back().SetLineHeight(0x16);
+    };
 
     if (page == W8_PARTY_CREATION_OPTIONS) {
-        option_text.emplace_back(
-            new W8TextBuffer(&bounds, g_localized_strings[0x7f7], g_options_detail_font,
-                             g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4));
+        add_text(0x7f7, g_W8TextBufferAlignLeft);
 
         bounds.right = 0x78 + 0x155;
-        option_text.emplace_back(
-            new W8TextBuffer(&bounds, g_localized_strings[0x7f8], g_options_detail_font,
-                             g_W8TextBufferAlignRight | g_W8TextBufferAlignTop, 4));
+        add_text(0x7f8, g_W8TextBufferAlignRight);
         bounds.top += 0x16;
-        option_text.emplace_back(
-            new W8TextBuffer(&bounds, g_localized_strings[0x7f9], g_options_detail_font,
-                             g_W8TextBufferAlignRight | g_W8TextBufferAlignTop, 4));
+        add_text(0x7f9, g_W8TextBufferAlignRight);
         bounds.top += 0x16;
-        option_text.emplace_back(
-            new W8TextBuffer(&bounds, g_localized_strings[0x7fa], g_options_detail_font,
-                             g_W8TextBufferAlignRight | g_W8TextBufferAlignTop, 4));
+        add_text(0x7fa, g_W8TextBufferAlignRight);
 
         bounds.right = 0x78 + 0x16e;
         bounds.top += 0x2c;
-        option_text.emplace_back(
-            new W8TextBuffer(&bounds, g_localized_strings[0x80b], g_options_detail_font,
-                             g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4));
+        add_text(0x80b, g_W8TextBufferAlignLeft);
 
         bounds.top += 0x2c;
-        W8TextBuffer* text =
-            new W8TextBuffer(&bounds, g_localized_strings[0x6cd], g_options_detail_font,
-                             g_W8TextBufferAlignCenter | g_W8TextBufferAlignTop, 4);
-        text->SetLineHeight(0x16);
-        option_text.emplace_back(text);
+        add_centered_text(0x6cd);
 
         bounds.top += 0x42;
-        option_text.emplace_back(
-            new W8TextBuffer(&bounds, g_localized_strings[0x6ce], g_options_detail_font,
-                             g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4));
+        add_text(0x6ce, g_W8TextBufferAlignLeft);
 
         bounds.top += 0x2c;
-        text = new W8TextBuffer(&bounds, g_localized_strings[0x6cf], g_options_detail_font,
-                                g_W8TextBufferAlignCenter | g_W8TextBufferAlignTop, 4);
-        text->SetLineHeight(0x16);
-        option_text.emplace_back(text);
+        add_centered_text(0x6cf);
         return;
     }
 
     if (page == W8_PARTY_CREATION_NOTICE) {
         bounds.top += 0x2c;
-        W8TextBuffer* text =
-            new W8TextBuffer(&bounds, g_localized_strings[0x6d0], g_options_detail_font,
-                             g_W8TextBufferAlignCenter | g_W8TextBufferAlignTop, 4);
-        text->SetLineHeight(0x16);
-        option_text.emplace_back(text);
+        add_centered_text(0x6d0);
         return;
     }
 
@@ -656,11 +576,7 @@ void W8PartySelectionController::SetOptionPanelMode(W8PartyCreationPage page)
 
     bounds.left = 0x78 + 0x2c;
     bounds.right = 0x78 + 0x164;
-    W8TextBuffer* text =
-        new W8TextBuffer(&bounds, g_localized_strings[0x6d1], g_options_detail_font,
-                         g_W8TextBufferAlignCenter | g_W8TextBufferAlignTop, 4);
-    text->SetLineHeight(0x16);
-    option_text.emplace_back(text);
+    add_centered_text(0x6d1);
 
     if (!name_input) {
         const auto size = CatalogArtwork::Load(0x102, 0).size(1);
@@ -1267,8 +1183,8 @@ void W8PartySelectionController::TogglePartyMemberSelection()
     if (!character->fInParty) {
         int slot = AddCharacterToParty(*character, -1);
         if (slot != -1) {
-            delete character;
-            collection->characters[selected] = &g_status.buffers.Char[slot];
+            collection->characters[selected] =
+                W8PartySelectionCharacterEntry(g_status.buffers.Char[slot]);
         }
         if (selected < static_cast<int>(collection->characters.size()) - 1) {
             ++selected;

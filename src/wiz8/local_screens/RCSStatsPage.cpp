@@ -1256,12 +1256,6 @@ void W8CharacterPersonalityPage::ChangePortrait(int action)
     }
 }
 
-// FUNCTION: WIZ8 0x005c73f0
-W8CharacterPersonalityPage* CreateCharacterPersonalityPage()
-{
-    return new W8CharacterPersonalityPage;
-}
-
 // VTABLE: WIZ8 0x005ef5c8 W8CharacterPage
 // VTABLE: WIZ8 0x005ef5c0 W8CharacterPageEntryListener
 // class W8CharacterSkillsPage
@@ -1273,12 +1267,11 @@ void W8CharacterSkillsPage::SetCharacter(W8Character* character,
     int category_count[5] = {0, 0, 0, 0, 0};
     for (auto& skill_attribute : g_skill_attributes) {
         int category = skill_attribute.category;
-        W8CharacterPageEntry* entry = new W8CharacterPageEntry(
-            input, g_character_page2_category_geometry[category].x,
+        W8CharacterPageEntry& entry = AddEntry(
+            g_character_page2_category_geometry[category].x,
             g_character_page2_category_geometry[category].y + category_count[category] * 0xe, true);
-        AddEntry(entry);
-        entry->on_adjust = [this, entry](int delta) { AdjustEntry(entry, delta); };
-        entry->on_info = [this, entry] { ShowEntryInfo(entry); };
+        entry.on_adjust = [this, &entry](int delta) { AdjustEntry(&entry, delta); };
+        entry.on_info = [this, &entry] { ShowEntryInfo(&entry); };
         ++category_count[category];
     }
     nav_next_state = false;
@@ -1438,12 +1431,6 @@ void W8CharacterSkillsPage::UpdateEntries()
                 skill == g_profession_bonus_skills[m_character->iProfession] ? 3 : -1);
         }
     }
-}
-
-// FUNCTION: WIZ8 0x005c7cc0
-W8CharacterSkillsPage* CreateCharacterSkillsPage()
-{
-    return new W8CharacterSkillsPage;
 }
 
 // FUNCTION: WIZ8 0x005c7d30

@@ -281,9 +281,9 @@ void W8CharacterPage::Prepare()
 }
 
 // FUNCTION: WIZ8 0x005affc0
-void W8CharacterPage::AddEntry(W8CharacterPageEntry* entry)
+W8CharacterPageEntry& W8CharacterPage::AddEntry(int x, int y, bool compact)
 {
-    m_entries.emplace_back(entry);
+    return *m_entries.emplace_back(std::make_unique<W8CharacterPageEntry>(input, x, y, compact));
 }
 
 void W8CharacterPage::HandleInput(const InputEvent*) {}

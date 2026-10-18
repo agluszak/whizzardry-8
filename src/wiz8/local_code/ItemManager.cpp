@@ -55,7 +55,6 @@
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/modal_content.h"
 #include "wiz8/unicode.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
@@ -819,12 +818,10 @@ unsigned char InteractWithWorldItem(int runtime_id)
         srAssertFail("pItemInfo != NULL", ITEM_MANAGER_CPP, 857, 0);
     }
     if (g_item_records[item->item.iItemNo].flags & W8_ITEM_FLAG_CONTAINER) {
-        W8TriggerItemPickerDialog* dialog = new W8TriggerItemPickerDialog;
-        if (dialog != 0) {
-            dialog->SetItemGroup(item);
-            dialog->on_complete = OnItemPickerClosed;
-        }
-        OpenModal(std::unique_ptr<ModalContent>(dialog));
+        auto dialog = std::make_unique<W8TriggerItemPickerDialog>();
+        dialog->SetItemGroup(item);
+        dialog->on_complete = OnItemPickerClosed;
+        OpenModal(std::move(dialog));
         return 1;
     }
     if (item->p3D->trigger != 0) {

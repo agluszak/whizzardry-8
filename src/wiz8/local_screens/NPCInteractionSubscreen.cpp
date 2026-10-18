@@ -90,7 +90,6 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/local_screens/Screens.h"
-#include "wiz8/modal_content.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_items.h"
 #include "wiz8/npc_script_file.h"
@@ -1540,7 +1539,6 @@ static void NpcDialogueTextBoxRightUp(int x, int y)
     W8NoticeWord* word;
     int slot;
     W8ItemInstance* item;
-    W8AssayDialog* dialog;
 
     switch (g_npc_interaction_state->dialogue_layout) {
     case W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX:
@@ -1553,12 +1551,15 @@ static void NpcDialogueTextBoxRightUp(int x, int y)
         if (item == 0) {
             return;
         }
-        dialog = new W8AssayDialog(*item, &g_status.buffers.Char[g_status.selected_character],
-                                   {kInfoDialogX, 0x48});
-        dialog->SetText("");
+        {
+            auto dialog = std::make_unique<W8AssayDialog>(
+                *item, &g_status.buffers.Char[g_status.selected_character],
+                SDL_Point{kInfoDialogX, 0x48});
+            dialog->SetText("");
 
-        dialog->on_close = [] { RequestRedraw(W8_MAIN_REDRAW_ALL); };
-        OpenModal(std::unique_ptr<ModalContent>(dialog));
+            dialog->on_close = [] { RequestRedraw(W8_MAIN_REDRAW_ALL); };
+            OpenModal(std::move(dialog));
+        }
         return;
     case W8_DIALOGUE_LAYOUT_TRANSCRIPT:
         word = HitTestNoticeWord(3, x, y, &line);
@@ -1818,11 +1819,11 @@ static void LeaveNpcDialogueLayout(void)
 
 static void PromptNpcDispositionChange(void)
 {
-    W8MessageDialogBase* dialog = CreateMessageDialog();
+    auto dialog = CreateMessageDialog();
 
-    SetDialogPrompt(dialog, g_localized_strings[0x798]);
+    SetDialogPrompt(*dialog, g_localized_strings[0x798]);
     dialog->on_complete = OnNpcDispositionPromptClosed;
-    OpenModal(std::unique_ptr<ModalContent>(dialog));
+    OpenModal(std::move(dialog));
 }
 
 static void OnNpcDispositionPromptClosed(bool accepted)
@@ -2482,18 +2483,17 @@ void CloseNpcDialogueOptionLayout(void)
 
 static void OpenNpcItemAssay(void)
 {
-    W8AssayDialog* dialog;
     const auto& image = g_npc_interaction_state->ui->item_preview;
 
     if (g_npc_interaction_state->trade_item != 0 && image &&
         image != CatalogArtwork::Load(0x1ac).spriteSheet()) {
-        dialog = new W8AssayDialog(*g_npc_interaction_state->trade_item,
-                                   &g_status.buffers.Char[g_status.selected_character],
-                                   {kInfoDialogX, 0x48});
+        auto dialog = std::make_unique<W8AssayDialog>(
+            *g_npc_interaction_state->trade_item,
+            &g_status.buffers.Char[g_status.selected_character], SDL_Point{kInfoDialogX, 0x48});
         dialog->SetText("");
 
         dialog->on_close = [] { RequestRedraw(W8_MAIN_REDRAW_ALL); };
-        OpenModal(std::unique_ptr<ModalContent>(dialog));
+        OpenModal(std::move(dialog));
     }
 }
 
@@ -2538,8 +2538,6 @@ static void ConfirmNpcTradeSlot(void)
    result lands back through OnNpcTradeSplitDialogDestroy. */
 static void OpenNpcGoldAmountDialog(void)
 {
-    W8SplitAmountDialog* dialog;
-
     ResetNpcDialogueItemEditor();
     SetNpcActionPressed(W8_NPC_CONTROL_TEXT_1, false);
     SetNpcActionPressed(W8_NPC_CONTROL_TEXT_2, false);
@@ -2547,15 +2545,15 @@ static void OpenNpcGoldAmountDialog(void)
         SetNpcActionEnabled(W8_NPC_CONTROL_OPTION_BUTTONS + index, false);
     }
     g_npc_interaction_state->ui->panels[1].dirty = true;
-    dialog =
-        new W8SplitAmountDialog(g_status.party_gold, {kSplitDialogOriginX, kSplitDialogOriginY});
+    auto dialog = std::make_unique<W8SplitAmountDialog>(
+        g_status.party_gold, SDL_Point{kSplitDialogOriginX, kSplitDialogOriginY});
     dialog->SetText("");
 
     dialog->on_complete = [](int amount) {
         g_npc_interaction_state->trade_gold = amount;
         ShowNpcTradeGold();
     };
-    OpenModal(std::unique_ptr<ModalContent>(dialog));
+    OpenModal(std::move(dialog));
 }
 
 static void HighlightNpcTradeQuantity()
@@ -3638,7 +3636,6 @@ static void ConfirmNpcTradePurchase(void)
 
 static unsigned char HandleNpcDialogueItem(W8ItemInstance* item)
 {
-    W8MessageDialogBase* dialog;
     std::string message;
     bool result;
 
@@ -3648,12 +3645,12 @@ static unsigned char HandleNpcDialogueItem(W8ItemInstance* item)
             ConfirmNpcTradePurchase();
             return 1;
         }
-        dialog = CreateMessageDialog();
+        auto dialog = CreateMessageDialog();
         dialog->SetClientExtent(0xfa, 200);
         message = g_localized_strings[0x7d6];
         dialog->SetMessage(message, 1, 0x32, true, true, true, true, 0, 0x15e);
         dialog->on_complete = OnNpcTradeDialogClosed;
-        OpenModal(std::unique_ptr<ModalContent>(dialog));
+        OpenModal(std::move(dialog));
         return 1;
     }
     if (GetNpcDispositionBand(g_npc_interaction_state->dialogue_npc) == W8_NPC_BAND_FRIENDLY ||

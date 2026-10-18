@@ -880,50 +880,50 @@ void W8OptionsKeyboardPanel::ClearDuplicateBinding(SDL_Keycode key)
     }
 }
 
-W8OptionsPanel* CreateOptionsPanel(int panel, unsigned char* compact,
-                                   unsigned char* hide_navigation)
+std::unique_ptr<W8OptionsPanel> CreateOptionsPanel(int panel, unsigned char* compact,
+                                                   unsigned char* hide_navigation)
 {
     switch (panel) {
     case 0:
-        return new W8OptionsGamePanel();
+        return std::make_unique<W8OptionsGamePanel>();
     case 1:
-        return new W8OptionsMousePanel();
+        return std::make_unique<W8OptionsMousePanel>();
     case 2:
-        return new W8OptionsInterfacePanel();
+        return std::make_unique<W8OptionsInterfacePanel>();
     case 3:
-        return new W8OptionsAudioPanel();
+        return std::make_unique<W8OptionsAudioPanel>();
     case 4:
-        return new W8OptionsGraphicsPanel();
+        return std::make_unique<W8OptionsGraphicsPanel>();
     case 5:
-        return new W8OptionsAdvancedGraphicsPanel();
+        return std::make_unique<W8OptionsAdvancedGraphicsPanel>();
     case 6:
     case 7:
     case 8:
     case 9:
     case 10:
-        return new W8OptionsKeyboardPanel(panel);
+        return std::make_unique<W8OptionsKeyboardPanel>(panel);
     case 11:
         if (g_status.game_started && g_status.iron_man) {
             *hide_navigation = 1;
-            return new W8OptionsUnavailablePanel(0x82c);
+            return std::make_unique<W8OptionsUnavailablePanel>(0x82c);
         }
         *compact = 1;
-        return new W8OptionsSaveLoadPanel(11);
+        return std::make_unique<W8OptionsSaveLoadPanel>(11);
     case 12:
         if (g_status.game_started) {
             if (g_status.iron_man) {
                 *hide_navigation = 1;
-                return new W8OptionsUnavailablePanel(0x82c);
+                return std::make_unique<W8OptionsUnavailablePanel>(0x82c);
             }
             if (gXStatus.fCombatMode) {
                 *hide_navigation = 1;
-                return new W8OptionsUnavailablePanel(0x82b);
+                return std::make_unique<W8OptionsUnavailablePanel>(0x82b);
             }
         }
         *compact = 1;
-        return new W8OptionsSaveLoadPanel(12);
+        return std::make_unique<W8OptionsSaveLoadPanel>(12);
     }
-    return 0;
+    return nullptr;
 }
 
 void W8OptionsGamePanel::Populate()
@@ -1153,10 +1153,9 @@ void W8OptionsUnavailablePanel::Populate()
     m_content_top += 44;
     W8ControlsRect bounds = {ScreenBounds().x + 30, ScreenBounds().y + m_content_top,
                              ToEdges(ScreenBounds()).right - 30, ToEdges(ScreenBounds()).bottom};
-    W8TextBuffer* text =
-        new W8TextBuffer(&bounds, g_localized_strings[m_message], g_options_detail_font,
-                         g_W8TextBufferAlignTop | g_W8TextBufferAlignCenter, 4);
-    m_text_buffers.emplace_back(text);
+    m_text_buffers.push_back(std::make_unique<W8TextBuffer>(
+        &bounds, g_localized_strings[m_message], g_options_detail_font,
+        g_W8TextBufferAlignTop | g_W8TextBufferAlignCenter, 4));
     m_text_buffers[0]->SetLineHeight(22);
 }
 
@@ -1268,10 +1267,10 @@ void W8OptionsScreen::SelectPanel(int selected)
             W8OptionsPanelSet* created = m_panel[m_selected_panel].get();
             for (int index = g_options_panel_ranges[m_selected_panel].first;
                  index <= g_options_panel_ranges[m_selected_panel].last; ++index) {
-                W8OptionsPanel* panel = CreateOptionsPanel(index, &created->m_compact_layout,
-                                                           &created->m_hide_navigation);
+                auto panel = CreateOptionsPanel(index, &created->m_compact_layout,
+                                                &created->m_hide_navigation);
                 panel->Populate();
-                created->m_panels.emplace_back(panel);
+                created->m_panels.push_back(std::move(panel));
             }
         }
         W8OptionsPanelSet* current = m_panel[m_selected_panel].get();
@@ -1296,7 +1295,7 @@ void W8OptionsScreen::SelectPanel(int selected)
 void W8OptionsScreen::ShowNotification(bool allow_cancel, int message,
                                        std::function<void(bool)> closed)
 {
-    auto dialog = std::unique_ptr<W8MessageDialogBase>(CreateMessageDialog());
+    auto dialog = CreateMessageDialog();
     dialog->SetClientExtent(250, 200);
     dialog->SetMessage(g_localized_strings[message], 1, 50, true, allow_cancel, true, true, 0, 350);
     dialog->InputLayer().setModal(true);
@@ -1599,9 +1598,9 @@ static void AddOptionsLabel(W8OptionsPanel& panel, int label)
     W8ControlsRect bounds = {
         panel.ScreenBounds().x + 20, panel.ScreenBounds().y + panel.m_content_top,
         ToEdges(panel.ScreenBounds()).right, panel.ScreenBounds().y + panel.m_content_top + 22};
-    panel.m_text_buffers.emplace_back(
-        new W8TextBuffer(&bounds, g_localized_strings[label], g_options_detail_font,
-                         g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4));
+    panel.m_text_buffers.push_back(
+        std::make_unique<W8TextBuffer>(&bounds, g_localized_strings[label], g_options_detail_font,
+                                       g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4));
 }
 
 void W8OptionsPanel::AddCheckbox(int label, int* value)

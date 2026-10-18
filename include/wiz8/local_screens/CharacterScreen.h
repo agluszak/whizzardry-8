@@ -21,6 +21,7 @@
 #include "wiz8/ui_layer.h"
 
 class W8DialogBase;
+class W8MessageDialogBase;
 class W8CharacterScreen;
 class W8CharacterPageEntry;
 
@@ -90,7 +91,7 @@ public:
     bool m_prepared;
     bool m_contentDirty; /* page-specific content needs repainting */
 
-    void AddEntry(W8CharacterPageEntry* entry);
+    W8CharacterPageEntry& AddEntry(int x, int y, bool compact);
 };
 
 class W8CharacterStatsRow;
@@ -259,11 +260,6 @@ private:
     std::optional<TextFieldGroup> m_text_fields;
 };
 
-W8CharacterStatsPage* CreateCharacterStatsPage();
-W8CharacterSpellsPage* CreateCharacterSpellsPage();
-W8CharacterSkillsPage* CreateCharacterSkillsPage();
-W8CharacterPersonalityPage* CreateCharacterPersonalityPage();
-
 /* Realm animation records shared by the stats page's resistance icons and the
    spells page's realm list. The stats page reads only initial_frame, through
    the realm-1 offset the spells page's array lays out. */
@@ -309,6 +305,7 @@ public:
     bool CommitCharacter();
     void DrawHeader();
     void ShowMessage(std::string_view text, int confirmation, int response);
+    void ShowDialog(std::unique_ptr<W8DialogBase> dialog);
     void HandleDialogResult(int response, unsigned char accepted);
     bool ValidateName();
 
@@ -346,10 +343,11 @@ public:
     std::unique_ptr<W8ButtonWidget> m_reset;
     bool m_page_enabled[4];
     std::unique_ptr<W8CharacterPage> m_pages[4];
-    W8DialogBase* m_dialog;
+    std::unique_ptr<W8DialogBase> m_dialog;
+    /* The open dialog when it is a ShowMessage notice, whose answer reaches
+       HandleDialogResult. */
+    W8MessageDialogBase* m_message_dialog = nullptr;
     unsigned int m_dialog_response;
-    bool m_capture_dialog_result;
-    unsigned char pad_1b25[3];
 };
 
 extern std::unique_ptr<W8CharacterScreen> g_character_screen;

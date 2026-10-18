@@ -214,7 +214,7 @@ bool MainMenuScreenEnter(void)
 
     pending = g_pending_main_menu_message;
     if (!pending.empty()) {
-        main_menu_dialog.reset(CreateMessageDialog());
+        main_menu_dialog = CreateMessageDialog();
         dialog = main_menu_dialog.get();
         dialog->SetClientExtent(0xfa, 200);
         dialog->SetMessage(pending, 1, 0x32, true, false, true, true, 0, 0x15e);

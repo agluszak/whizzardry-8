@@ -163,17 +163,13 @@ void SetCampInfoPageMode(char mode)
 // FUNCTION: WIZ8 0x005BA110
 void OpenItemInfoDialog(W8ItemInstance* item)
 {
-    W8DialogBase* dialog;
-
-    if (!IsItemWornByCharacter(g_review_character, item) &&
-        !IsItemCarriedByCharacter(g_review_character, item)) {
-        dialog = new W8AssayDialog(*item, 0, {kInfoDialogX, kInfoDialogY});
-    } else {
-        dialog = new W8AssayDialog(*item, g_review_character, {kInfoDialogX, kInfoDialogY});
-    }
+    const bool owned = IsItemWornByCharacter(g_review_character, item) ||
+                       IsItemCarriedByCharacter(g_review_character, item);
+    auto dialog = std::make_unique<W8AssayDialog>(*item, owned ? g_review_character : nullptr,
+                                                  SDL_Point{kInfoDialogX, kInfoDialogY});
     dialog->SetText("");
 
-    DisplayCampDialog(std::unique_ptr<W8DialogBase>(dialog));
+    DisplayCampDialog(std::move(dialog));
 }
 
 // FUNCTION: WIZ8 0x005BA2A0
@@ -221,19 +217,17 @@ void DropHeldCampItem(void)
 // FUNCTION: WIZ8 0x005BA400
 void OpenSplitStackDialog(W8ItemInstance* item)
 {
-    W8SplitItemDialog* dialog;
-
     g_split_item_source = 0;
     if (item->iItemNo != -1 && item->stack_count > 1 &&
         (g_item_records[item->iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) == 0 &&
         g_item_records[item->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK) {
         g_split_item_source = item;
-        dialog = new W8SplitItemDialog(W8_ITEM_SPLIT_INVENTORY, item, -1,
-                                       {kSplitDialogX, kSplitDialogY});
+        auto dialog = std::make_unique<W8SplitItemDialog>(W8_ITEM_SPLIT_INVENTORY, item, -1,
+                                                          SDL_Point{kSplitDialogX, kSplitDialogY});
         dialog->SetText("");
 
         dialog->on_complete = SplitStackDialogResult;
-        DisplayCampDialog(std::unique_ptr<W8DialogBase>(dialog));
+        DisplayCampDialog(std::move(dialog));
         SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
     }
 }
@@ -894,7 +888,6 @@ static void DrawCampItemLabel(W8ItemInstance* item, int left, int top, char flag
 {
     std::string name;
     W8ControlsRect bounds;
-    W8TextBuffer* text;
     int width;
     int height;
 
@@ -904,35 +897,31 @@ static void DrawCampItemLabel(W8ItemInstance* item, int left, int top, char flag
     bounds.top = top;
     bounds.right = left + 0xfa;
     bounds.bottom = top + 0xfa;
-    text = new W8TextBuffer(&bounds, g_camp_screen->text_buffer, g_font10arial,
-                            g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4);
-    if (text != 0) {
-        height = text->m_lineCount;
-        width = text->m_maxLineWidth + 4;
-        height = g_font10arial.height() * height + 2;
-        if (flag != 0) {
-            bounds.right -= width;
-            bounds.left -= width;
-            text->SetClipBounds(bounds);
-            text->SetLayoutBounds(&bounds, true);
-        }
-        SDL_Surface& framebuffer = GetFrameBufferSurface();
-        const SDL_Rect fill{bounds.left, bounds.top, width, height};
-        SDL_FillSurfaceRect(&framebuffer, &fill, 0x8000);
-        if (framebuffer.pixels != nullptr) {
-            // reinterpret-ok: SGP frame-buffer bytes to W8TextBuffer's byte view
-            text->RenderText(framebuffer, 2, 1, true);
-            const Uint16 outline = static_cast<Uint16>(-0x6613);
-            const SDL_Rect top_edge{bounds.left, bounds.top, width + 1, 1};
-            const SDL_Rect right_edge{bounds.left + width, bounds.top, 1, height + 1};
-            const SDL_Rect bottom_edge{bounds.left, bounds.top + height, width + 1, 1};
-            const SDL_Rect left_edge{bounds.left, bounds.top, 1, height + 1};
-            SDL_FillSurfaceRect(&framebuffer, &top_edge, outline);
-            SDL_FillSurfaceRect(&framebuffer, &right_edge, outline);
-            SDL_FillSurfaceRect(&framebuffer, &bottom_edge, outline);
-            SDL_FillSurfaceRect(&framebuffer, &left_edge, outline);
-            delete text;
-        }
+    W8TextBuffer text(&bounds, g_camp_screen->text_buffer, g_font10arial,
+                      g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4);
+    height = text.m_lineCount;
+    width = text.m_maxLineWidth + 4;
+    height = g_font10arial.height() * height + 2;
+    if (flag != 0) {
+        bounds.right -= width;
+        bounds.left -= width;
+        text.SetClipBounds(bounds);
+        text.SetLayoutBounds(&bounds, true);
+    }
+    SDL_Surface& framebuffer = GetFrameBufferSurface();
+    const SDL_Rect fill{bounds.left, bounds.top, width, height};
+    SDL_FillSurfaceRect(&framebuffer, &fill, 0x8000);
+    if (framebuffer.pixels != nullptr) {
+        text.RenderText(framebuffer, 2, 1, true);
+        const Uint16 outline = static_cast<Uint16>(-0x6613);
+        const SDL_Rect top_edge{bounds.left, bounds.top, width + 1, 1};
+        const SDL_Rect right_edge{bounds.left + width, bounds.top, 1, height + 1};
+        const SDL_Rect bottom_edge{bounds.left, bounds.top + height, width + 1, 1};
+        const SDL_Rect left_edge{bounds.left, bounds.top, 1, height + 1};
+        SDL_FillSurfaceRect(&framebuffer, &top_edge, outline);
+        SDL_FillSurfaceRect(&framebuffer, &right_edge, outline);
+        SDL_FillSurfaceRect(&framebuffer, &bottom_edge, outline);
+        SDL_FillSurfaceRect(&framebuffer, &left_edge, outline);
     }
 }
 

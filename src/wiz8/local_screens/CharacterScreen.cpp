@@ -51,7 +51,6 @@
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
-#include "wiz8/modal_content.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
@@ -123,7 +122,7 @@ std::unique_ptr<W8CharacterScreen> g_character_screen;
 // FUNCTION: WIZ8 0x005b0040
 W8CharacterScreen::W8CharacterScreen(int mode, W8Character* character)
     : m_mode(mode), m_original(character), m_block_advance(0), m_confirm_profession(0),
-      m_force_transition(0), m_dialog(0), m_capture_dialog_result(0)
+      m_force_transition(0)
 {
     if (character != 0) {
         m_character = *character;
@@ -207,12 +206,9 @@ void W8CharacterScreen::UpdateDialog()
             m_navigation_dirty = true;
             m_pages[m_page_index]->Prepare();
             m_header_dirty = true;
-            bool accepted = false;
-            if (m_capture_dialog_result) {
-                accepted = static_cast<W8MessageDialogBase*>(m_dialog)->accepted;
-                m_capture_dialog_result = false;
-            }
-            RetireModal(std::unique_ptr<ModalContent>(std::exchange(m_dialog, nullptr)), false);
+            const bool accepted = m_message_dialog != nullptr && m_message_dialog->accepted;
+            m_message_dialog = nullptr;
+            RetireModal(std::move(m_dialog), false);
             HandleDialogResult(m_dialog_response, accepted);
         }
     }
@@ -237,62 +233,64 @@ void W8CharacterScreen::UpdateNavigation(W8CharacterPage* page)
     }
 }
 
+/* Make the dialog the screen's modal one. A replaced dialog may still be
+   dispatching input, so it retires after the dispatch. */
+void W8CharacterScreen::ShowDialog(std::unique_ptr<W8DialogBase> dialog)
+{
+    dialog->InputLayer().setModal(true);
+    m_message_dialog = nullptr;
+    RetireModal(std::exchange(m_dialog, std::move(dialog)), false);
+}
+
+/* The info dialogs all open with empty title text. */
+static std::unique_ptr<W8DialogBase> UntitledDialog(std::unique_ptr<W8DialogBase> dialog)
+{
+    dialog->SetText("");
+    return dialog;
+}
+
 // FUNCTION: WIZ8 0x005b0610
 void W8CharacterScreen::ShowSpellInfo(int value)
 {
     m_dialog_response = 0;
-    m_dialog = new W8SpellInfoDialog(value);
-    m_dialog->SetText("");
-    m_dialog->InputLayer().setModal(true);
+    ShowDialog(UntitledDialog(std::make_unique<W8SpellInfoDialog>(value)));
 }
 
 // FUNCTION: WIZ8 0x005b06a0
 void W8CharacterScreen::ShowProfessionInfo(W8Profession profession)
 {
     m_dialog_response = 0;
-    m_dialog = new W8ProfessionInfoDialog(profession);
-    m_dialog->SetText("");
-    m_dialog->InputLayer().setModal(true);
+    ShowDialog(UntitledDialog(std::make_unique<W8ProfessionInfoDialog>(profession)));
 }
 
 // FUNCTION: WIZ8 0x005b0730
 void W8CharacterScreen::ShowRaceInfo(W8Race race)
 {
     m_dialog_response = 0;
-    m_dialog = new W8RaceInfoDialog(race);
-    m_dialog->SetText("");
-    m_dialog->InputLayer().setModal(true);
+    ShowDialog(UntitledDialog(std::make_unique<W8RaceInfoDialog>(race)));
 }
 
 // FUNCTION: WIZ8 0x005b07c0
 void W8CharacterScreen::ShowPrimaryAttributeInfo(W8Attribute attribute)
 {
     m_dialog_response = 0;
-    m_dialog = new W8AttributeInfoDialog(attribute);
-    m_dialog->SetText("");
-    m_dialog->InputLayer().setModal(true);
+    ShowDialog(UntitledDialog(std::make_unique<W8AttributeInfoDialog>(attribute)));
 }
 
 // FUNCTION: WIZ8 0x005b0850
 void W8CharacterScreen::ShowSecondaryAttributeInfo(unsigned int attribute)
 {
     m_dialog_response = 0;
-    m_dialog = new W8SecondaryAttributeInfoDialog(attribute);
-    m_dialog->SetText("");
-    m_dialog->InputLayer().setModal(true);
+    ShowDialog(UntitledDialog(std::make_unique<W8SecondaryAttributeInfoDialog>(attribute)));
 }
 
 // FUNCTION: WIZ8 0x005b08e0
 void W8CharacterScreen::ShowSkillInfo(W8Skill value)
 {
     m_dialog_response = 0;
-    if (value == g_profession_bonus_skills[m_character.iProfession]) {
-        m_dialog = new W8SkillInfoDialog(value, false, false, true);
-    } else {
-        m_dialog = new W8SkillInfoDialog(value, false, false, false);
-    }
-    m_dialog->SetText("");
-    m_dialog->InputLayer().setModal(true);
+    const bool bonus_skill = value == g_profession_bonus_skills[m_character.iProfession];
+    ShowDialog(
+        UntitledDialog(std::make_unique<W8SkillInfoDialog>(value, false, false, bonus_skill)));
 }
 
 void W8CharacterScreen::DrawNavigation(SDL_Surface& target)
@@ -320,8 +318,7 @@ void W8CharacterScreen::ShowDescription(int first, int second)
 void W8CharacterScreen::ShowCharacterSummary()
 {
     m_dialog_response = 1;
-    m_dialog = CreateCharacterSummaryDialog(&m_character);
-    m_dialog->InputLayer().setModal(true);
+    ShowDialog(CreateCharacterSummaryDialog(&m_character));
 }
 
 // FUNCTION: WIZ8 0x005b0b50
@@ -390,24 +387,24 @@ void W8CharacterScreen::SelectPage(int index)
     }
     SyncCharacterForPage(index);
     if (!m_pages[index]) {
-        W8CharacterPage* page = 0;
+        std::unique_ptr<W8CharacterPage> page;
         switch (index) {
         case 0:
-            page = CreateCharacterStatsPage();
+            page = std::make_unique<W8CharacterStatsPage>();
             break;
         case 1:
-            page = CreateCharacterSpellsPage();
+            page = std::make_unique<W8CharacterSpellsPage>();
             break;
         case 2:
-            page = CreateCharacterSkillsPage();
+            page = std::make_unique<W8CharacterSkillsPage>();
             break;
         case 3:
-            page = CreateCharacterPersonalityPage();
+            page = std::make_unique<W8CharacterPersonalityPage>();
             break;
         }
         page->m_screen = this;
         page->SetCharacter(&m_character, &m_creation_state, m_mode);
-        m_pages[index].reset(page);
+        m_pages[index] = std::move(page);
     }
     m_page_index = index;
     W8CharacterPage* page = m_pages[index].get();
@@ -563,17 +560,15 @@ void RefundCharacterScreenSkill(W8Skill skill_id)
 void W8CharacterScreen::ShowMessage(std::string_view text, int confirmation, int response)
 {
     m_dialog_response = response;
-    m_dialog = new W8MessageDialogBase;
-    if (m_dialog != 0) {
-        m_dialog->SetExtent(0xf0, 0xbe);
-        m_dialog->SetOrigin(0xa0, 100);
-        m_dialog->SetBackground("Data\\Dialogs\\DialogBackground.sti", 0);
-        static_cast<W8MessageDialogBase*>(m_dialog)->SetClientExtent(0xfa, 200);
-        static_cast<W8MessageDialogBase*>(m_dialog)->SetMessage(text, 1, 0x32, true, confirmation,
-                                                                true, true, 0, 0x15e);
-        m_dialog->InputLayer().setModal(true);
-        m_capture_dialog_result = true;
-    }
+    auto dialog = std::make_unique<W8MessageDialogBase>();
+    dialog->SetExtent(0xf0, 0xbe);
+    dialog->SetOrigin(0xa0, 100);
+    dialog->SetBackground("Data\\Dialogs\\DialogBackground.sti", 0);
+    dialog->SetClientExtent(0xfa, 200);
+    dialog->SetMessage(text, 1, 0x32, true, confirmation, true, true, 0, 0x15e);
+    W8MessageDialogBase* const message_dialog = dialog.get();
+    ShowDialog(std::move(dialog));
+    m_message_dialog = message_dialog;
 }
 
 // FUNCTION: WIZ8 0x005b1520

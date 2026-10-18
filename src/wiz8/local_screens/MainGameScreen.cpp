@@ -3844,14 +3844,12 @@ void RequestRedrawCombatBar(void)
 void ShowMainGameNoticeLine(std::string_view text, std::function<void(bool)> callback,
                             bool confirmation, bool cancel)
 {
-    W8MessageDialogBase* dialog;
-
     SetMainGameMode(W8_MAIN_GAME_MODAL);
-    dialog = CreateMessageDialog();
+    auto dialog = CreateMessageDialog();
     dialog->SetClientExtent(0xfa, 200);
     dialog->SetMessage(text, 1, 0x32, confirmation, cancel, true, true, 0, 0x15e);
-    dialog->on_complete = callback;
-    OpenModal(std::unique_ptr<ModalContent>(dialog));
+    dialog->on_complete = std::move(callback);
+    OpenModal(std::move(dialog));
 }
 
 /* Note that the party's state changed. The combat half is only asked for while
@@ -4051,12 +4049,12 @@ void RequestLevelTransition(int level, int entry, unsigned char flag)
             return;
         }
         SetMainGameMode(W8_MAIN_GAME_MODAL);
-        W8MessageDialogBase* dialog = CreateMessageDialog();
+        auto dialog = CreateMessageDialog();
         dialog->SetClientExtent(0xfa, 0xc8);
         dialog->SetMessage(g_level_block->text_paint_scratch, 1, 0x32, true, true, true, true, 0,
                            0x15e);
         dialog->on_complete = OnEnterLevelDialogClosed;
-        OpenModal(std::unique_ptr<ModalContent>(dialog));
+        OpenModal(std::move(dialog));
         return;
     }
     BeginLevelTransition();
@@ -5820,7 +5818,6 @@ void SetCombatAction(int value)
 static void DrawMainGamePrompt(void)
 {
     W8ControlsRect bounds;
-    W8TextBuffer* buffer;
 
     if (g_modal_owner == 0 && !gXStatus.fNpcDialogueMode) {
         CatalogArtwork::Load(0xa9, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0xb1, 0x13f);
@@ -5828,11 +5825,10 @@ static void DrawMainGamePrompt(void)
         bounds.top = 0x13f;
         bounds.right = 0x1cf;
         bounds.bottom = 0x153;
-        buffer = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary,
-                                  g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
-        buffer->RenderString(g_localized_strings[gXStatus.fCombatMode ? 0x780 : 0x77f],
-                             g_wiz_text_font_secondary, false, GetFrameBufferSurface());
-        delete buffer;
+        W8TextBuffer buffer(&bounds, {}, g_wiz_text_font_secondary,
+                            g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
+        buffer.RenderString(g_localized_strings[gXStatus.fCombatMode ? 0x780 : 0x77f],
+                            g_wiz_text_font_secondary, false, GetFrameBufferSurface());
     }
 }
 
@@ -6288,31 +6284,26 @@ void OpenMonsterInfoDialog(int location_id)
     if (!monster_info->fActive || monster_info->p3D->IsDying() || monster_info->hp_current == 0) {
         return;
     }
-    W8MonsterInfoDialog* dialog = new W8MonsterInfoDialog(location_id);
+    auto dialog = std::make_unique<W8MonsterInfoDialog>(location_id);
     dialog->SetText("");
     dialog->on_close = [] { RequestRedraw(W8_MAIN_REDRAW_ALL); };
-    OpenModal(std::unique_ptr<ModalContent>(dialog));
+    OpenModal(std::move(dialog));
 }
 
 /* Open the assay dialog over the main game screen. A live modal dialog is
    parked in the pending slot so it resumes when this one closes. */
 void OpenAssayDialog(const W8ItemInstance& item, int character_slot)
 {
-    W8DialogBase* dialog;
-
     if (g_modal_owner != 0) {
         g_pending_main_game_dialog = std::move(g_modal_owner);
     }
-    if (character_slot != -1) {
-        dialog =
-            new W8AssayDialog(item, &g_status.buffers.Char[character_slot], {kInfoDialogX, 0x48});
-    } else {
-        dialog = new W8AssayDialog(item, 0, {kInfoDialogX, 0x48});
-    }
+    W8Character* const character =
+        character_slot != -1 ? &g_status.buffers.Char[character_slot] : nullptr;
+    auto dialog = std::make_unique<W8AssayDialog>(item, character, SDL_Point{kInfoDialogX, 0x48});
     dialog->SetText("");
 
     dialog->on_close = [] { RequestRedraw(W8_MAIN_REDRAW_ALL); };
-    OpenModal(std::unique_ptr<ModalContent>(dialog));
+    OpenModal(std::move(dialog));
 }
 
 /* Queue `party_slot` for the pending screen and unwind whichever main-game
@@ -6775,30 +6766,24 @@ void PopulateNpcTradeList(void)
 
 void OpenNpcTradeQuantityDialog(void)
 {
-    W8SplitItemDialog* dialog;
-
     if (g_npc_interaction_state->trade_item == 0 ||
         g_npc_interaction_state->trade_item->stack_count < 2) {
         return;
     }
+    W8ItemSplitMode mode = W8_ITEM_SPLIT_INVENTORY;
     if (g_npc_interaction_state->trade_mode == W8_NPC_TRADE_SELL) {
-        dialog = new W8SplitItemDialog(W8_ITEM_SPLIT_SELL, g_npc_interaction_state->trade_item,
-                                       g_npc_interaction_state->trade_quantity,
-                                       {kSplitDialogX, kSplitDialogY});
+        mode = W8_ITEM_SPLIT_SELL;
     } else if (g_npc_interaction_state->trade_mode == W8_NPC_TRADE_BUY ||
                g_npc_interaction_state->trade_mode == W8_NPC_TRADE_SHOPLIFT) {
-        dialog = new W8SplitItemDialog(W8_ITEM_SPLIT_BUY, g_npc_interaction_state->trade_item,
-                                       g_npc_interaction_state->trade_quantity,
-                                       {kSplitDialogX, kSplitDialogY});
-    } else {
-        dialog = new W8SplitItemDialog(W8_ITEM_SPLIT_INVENTORY, g_npc_interaction_state->trade_item,
-                                       g_npc_interaction_state->trade_quantity,
-                                       {kSplitDialogX, kSplitDialogY});
+        mode = W8_ITEM_SPLIT_BUY;
     }
+    auto dialog = std::make_unique<W8SplitItemDialog>(mode, g_npc_interaction_state->trade_item,
+                                                      g_npc_interaction_state->trade_quantity,
+                                                      SDL_Point{kSplitDialogX, kSplitDialogY});
     dialog->SetText("");
 
     dialog->on_complete = NpcTradeSplitDialogResult;
-    OpenModal(std::unique_ptr<ModalContent>(dialog));
+    OpenModal(std::move(dialog));
 }
 
 void SelectNpcBuyMode(void)

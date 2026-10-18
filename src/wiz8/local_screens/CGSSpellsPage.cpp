@@ -393,9 +393,3 @@ void W8CharacterSpellsPage::ShowSpellInfo(unsigned int entry)
 {
     m_screen->ShowSpellInfo(m_SpellData[entry].spell);
 }
-
-// FUNCTION: WIZ8 0x005C8DE0
-W8CharacterSpellsPage* CreateCharacterSpellsPage()
-{
-    return new W8CharacterSpellsPage();
-}

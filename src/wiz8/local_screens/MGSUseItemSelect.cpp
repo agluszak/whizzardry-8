@@ -4,6 +4,7 @@
 #include <cstring>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <SDL3/SDL_mouse.h>
@@ -49,7 +50,6 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/Screens.h"
-#include "wiz8/modal_content.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
@@ -669,17 +669,15 @@ void RefreshUseItemSelection(void)
 // FUNCTION: WIZ8 0x0059D880
 void OpenUseItemAssayDialog(W8ItemInstance* item)
 {
-    W8AssayDialog* dialog;
-
-    dialog = new W8AssayDialog(*item, &g_status.buffers.Char[g_use_item_owner_index],
-                               {kInfoDialogX, 0x48});
+    auto dialog = std::make_unique<W8AssayDialog>(
+        *item, &g_status.buffers.Char[g_use_item_owner_index], SDL_Point{kInfoDialogX, 0x48});
     dialog->SetText("");
 
     dialog->cleanup = [cursor = gXStatus.iCurrentCursor] {
         SetTargetCursor(cursor);
         RequestRedraw(W8_MAIN_REDRAW_ALL);
     };
-    OpenModal(std::unique_ptr<ModalContent>(dialog));
+    OpenModal(std::move(dialog));
 }
 
 // FUNCTION: WIZ8 0x0059D950

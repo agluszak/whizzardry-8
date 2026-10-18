@@ -540,17 +540,15 @@ void W8CharacterStatsPage::SetCharacter(W8Character* character,
     }
 
     for (int attribute_index = 0; attribute_index < 7; ++attribute_index) {
-        W8CharacterPageEntry* entry =
-            new W8CharacterPageEntry(input, 0xe5, 0x1b + attribute_index * 0xe, false);
-        AddEntry(entry);
-        entry->on_adjust = [this, entry](int delta) { AdjustEntry(entry, delta); };
-        entry->on_info = [this, entry] { ShowEntryInfo(entry); };
-        entry->SetContent(attribute_index,
-                          g_localized_strings[g_character_description_first_ids[attribute_index]],
-                          &character->attributes[attribute_index].base,
-                          &creation_state->attribute_values[attribute_index],
-                          &creation_state->attribute_limits[attribute_index], 0x101);
-        entry->SetEnabled(false);
+        W8CharacterPageEntry& entry = AddEntry(0xe5, 0x1b + attribute_index * 0xe, false);
+        entry.on_adjust = [this, &entry](int delta) { AdjustEntry(&entry, delta); };
+        entry.on_info = [this, &entry] { ShowEntryInfo(&entry); };
+        entry.SetContent(attribute_index,
+                         g_localized_strings[g_character_description_first_ids[attribute_index]],
+                         &character->attributes[attribute_index].base,
+                         &creation_state->attribute_values[attribute_index],
+                         &creation_state->attribute_limits[attribute_index], 0x101);
+        entry.SetEnabled(false);
     }
     nav_next_state = false;
     m_rows_initialized = false;
@@ -855,12 +853,4 @@ void W8CharacterStatsPage::Redraw(SDL_Surface& target, bool full_redraw)
     m_profession_row->DrawChoices(target);
     m_race_row->DrawChoices(target);
     m_gender_row->DrawChoices(target);
-}
-
-/* Factory for the stats page; the render target comes from the base
-   constructor. */
-// FUNCTION: WIZ8 0x005cba90
-W8CharacterStatsPage* CreateCharacterStatsPage()
-{
-    return new W8CharacterStatsPage;
 }

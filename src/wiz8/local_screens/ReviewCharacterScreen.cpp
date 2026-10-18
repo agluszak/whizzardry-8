@@ -1672,12 +1672,12 @@ void DisplayCampDialog(std::unique_ptr<W8DialogBase> dialog)
 void ShowCampNoticeLine(std::string_view text, std::function<void(bool)> callback,
                         bool confirmation, bool cancel)
 {
-    W8MessageDialogBase* dialog = CreateMessageDialog();
+    auto dialog = CreateMessageDialog();
 
     dialog->SetClientExtent(0xfa, 200);
     dialog->SetMessage(text, 1, 0x32, confirmation, cancel, true, true, 0, 0x15e);
-    dialog->on_complete = callback;
-    DisplayCampDialog(std::unique_ptr<W8DialogBase>(dialog));
+    dialog->on_complete = std::move(callback);
+    DisplayCampDialog(std::move(dialog));
 }
 
 /* The shared click handler for the camp item regions: a backpack slot arrives
