@@ -1,6 +1,7 @@
 #pragma once
 #include <cstddef>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -50,7 +51,7 @@ public:
     void SetBlocksMouse(int id, bool blocks);
 
     void Focus(int id);
-    int FocusedId() const;
+    std::optional<int> FocusedId() const;
     void FocusNext();
     void ClearFocus();
     bool Editing() const { return editing_; }

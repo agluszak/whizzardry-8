@@ -23,7 +23,7 @@ public:
     void setName(std::string name) { this->name = std::move(name); }
 
     std::optional<int> FindLabelLine(std::string_view label) const;
-    int GetSourceLine(int line) const;
+    std::optional<int> GetSourceLine(int line) const;
     bool Load(const char* path);
     void Clear();
 

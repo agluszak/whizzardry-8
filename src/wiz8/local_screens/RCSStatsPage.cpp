@@ -1053,7 +1053,7 @@ void W8CharacterPersonalityPage::HandleInput(const InputEvent* input)
     }
     if (!m_text_fields->HandleInput(*input)) return;
 
-    const int field = m_text_fields->FocusedId();
+    const auto field = m_text_fields->FocusedId();
     if (field == 0) {
         m_character->name_part_2 = m_text_fields->Text(0);
     } else if (field == 1) {

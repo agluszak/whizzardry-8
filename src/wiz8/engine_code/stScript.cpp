@@ -68,8 +68,8 @@ std::optional<int> stScript::FindLabelLine(std::string_view label) const
 }
 
 // FUNCTION: WIZ8 0x004CF790
-int stScript::GetSourceLine(int line) const
+std::optional<int> stScript::GetSourceLine(int line) const
 {
-    return line >= 0 && static_cast<std::size_t>(line) < lines.size() ? lines[line].source_line
-                                                                      : -1;
+    if (line < 0 || static_cast<std::size_t>(line) >= lines.size()) return std::nullopt;
+    return lines[line].source_line;
 }

@@ -331,9 +331,10 @@ void TextFieldGroup::Focus(int id)
     FocusField(*field);
 }
 
-int TextFieldGroup::FocusedId() const
+std::optional<int> TextFieldGroup::FocusedId() const
 {
-    return focused_ ? focused_->id : -1;
+    if (!focused_) return std::nullopt;
+    return focused_->id;
 }
 
 void TextFieldGroup::FocusNext()

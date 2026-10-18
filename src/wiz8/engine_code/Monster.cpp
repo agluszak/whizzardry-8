@@ -1697,6 +1697,12 @@ bool W8Monster::ResolveScriptPosition(const char* name, glm::vec3* position)
     return true;
 }
 
+static std::string ScriptSourceLineLabel(const stScript& script, int line)
+{
+    if (const auto source_line = script.GetSourceLine(line)) return std::to_string(*source_line);
+    return "unknown";
+}
+
 /* Execute source lines until a command starts an asynchronous operation, ends
    the script, or the runaway-command guard trips. The two command modes share
    the original table: normal mode performs actions, while BEGINORDERS records
@@ -1768,9 +1774,9 @@ void W8Monster::ProcessScript()
 
         const auto resolveNamedPosition = [&](glm::vec3& position) {
             if (ResolveScriptPosition(token.c_str(), &position)) return true;
-            ShutdownWithErrorBox(fmt::format("MonScript {} Line {:d}: Unknown location {}",
-                                             script->getName(),
-                                             script->GetSourceLine(script_line - 1), token));
+            ShutdownWithErrorBox(
+                fmt::format("MonScript {} Line {}: Unknown location {}", script->getName(),
+                            ScriptSourceLineLabel(*script, script_line - 1), token));
             return false;
         };
 
@@ -1875,9 +1881,9 @@ void W8Monster::ProcessScript()
                             stop = true;
                         }
                     } else {
-                        ShutdownWithErrorBox(fmt::format(
-                            "MonScript {} Line {:d}: Unknown cycle {}", script->getName(),
-                            script->GetSourceLine(script_line - 1), token));
+                        ShutdownWithErrorBox(
+                            fmt::format("MonScript {} Line {}: Unknown cycle {}", script->getName(),
+                                        ScriptSourceLineLabel(*script, script_line - 1), token));
                     }
                 }
                 break;
@@ -1955,18 +1961,18 @@ void W8Monster::ProcessScript()
                 if (!script_conditions.empty()) {
                     script_conditions[0] = !(script_conditions[0]);
                 } else {
-                    ShutdownWithErrorBox(
-                        fmt::format("MonScript {} Line {:d}: ELSE without matching IF",
-                                    script->getName(), script->GetSourceLine(script_line - 1)));
+                    ShutdownWithErrorBox(fmt::format(
+                        "MonScript {} Line {}: ELSE without matching IF", script->getName(),
+                        ScriptSourceLineLabel(*script, script_line - 1)));
                 }
                 break;
             case MONSCR_ENDIF:
                 if (!script_conditions.empty()) {
                     script_conditions.erase(script_conditions.begin());
                 } else {
-                    ShutdownWithErrorBox(
-                        fmt::format("MonScript {} Line {:d}: ENDIF without matching IF",
-                                    script->getName(), script->GetSourceLine(script_line - 1)));
+                    ShutdownWithErrorBox(fmt::format(
+                        "MonScript {} Line {}: ENDIF without matching IF", script->getName(),
+                        ScriptSourceLineLabel(*script, script_line - 1)));
                 }
                 break;
             case MONSCR_DISPOSITION: {
@@ -2154,8 +2160,8 @@ void W8Monster::ProcessScript()
                         direction_z = static_cast<float>(sin(angle) * 500.0);
                     } else {
                         ShutdownWithErrorBox(fmt::format(
-                            "MonScript {} Line {:d}: Unknown direction {}", script->getName(),
-                            script->GetSourceLine(script_line - 1), token));
+                            "MonScript {} Line {}: Unknown direction {}", script->getName(),
+                            ScriptSourceLineLabel(*script, script_line - 1), token));
                     }
                 }
                 break;
@@ -2229,14 +2235,14 @@ void W8Monster::ProcessScript()
                     if (tokens) {
                         look_duration = atoi(token.c_str());
                     } else {
-                        ShutdownWithErrorBox(
-                            fmt::format("MonScript {} Line {:d}: Missing lookabout duration",
-                                        script->getName(), script->GetSourceLine(script_line - 1)));
+                        ShutdownWithErrorBox(fmt::format(
+                            "MonScript {} Line {}: Missing lookabout duration", script->getName(),
+                            ScriptSourceLineLabel(*script, script_line - 1)));
                     }
                 } else {
-                    ShutdownWithErrorBox(
-                        fmt::format("MonScript {} Line {:d}: Missing lookabout frequency",
-                                    script->getName(), script->GetSourceLine(script_line - 1)));
+                    ShutdownWithErrorBox(fmt::format(
+                        "MonScript {} Line {}: Missing lookabout frequency", script->getName(),
+                        ScriptSourceLineLabel(*script, script_line - 1)));
                 }
                 break;
             case MONSCR_STAYHOME:
