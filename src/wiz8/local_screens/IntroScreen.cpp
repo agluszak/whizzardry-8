@@ -48,7 +48,8 @@ bool IntroScreenEnter(void)
     std::string path;
 
     ClearSurfaceRect(0, 0, 0x280, 0x1e0);
-    if (g_intro_video_index == W8_INTRO_VIDEO_WIZARDRY && g_settings.intro_seen && !g_status.intro_shown) {
+    if (g_intro_video_index == W8_INTRO_VIDEO_WIZARDRY && g_settings.intro_seen &&
+        !g_status.intro_shown) {
         return 1;
     }
     path = fmt::format("Data\\Flics\\Intro\\{}", g_intro_video_names[g_intro_video_index]);
