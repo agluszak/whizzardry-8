@@ -1398,6 +1398,15 @@ void ResourceLifecycleScenario()
             g_automap_buttons->buttons[index]->m_dirty = true;
             g_automap_buttons->buttons[index]->Draw(GetFrameBufferSurface());
         }
+        // Walk the selected layer to the top of the list. The upper layers come
+        // from the level's map filters and are released when the screen leaves,
+        // so the next visit must rebuild them rather than reselect them.
+        const auto* layer_up = g_automap_buttons->buttons[9].get();
+        for (int step = 0; layer_up->IsEnabled() && step != 16; ++step) {
+            const auto bounds = layer_up->Bounds();
+            game.click_at(bounds.x + bounds.w / 2, bounds.y + bounds.h / 2);
+        }
+        REQUIRE(!layer_up->IsEnabled());
         game.key(SDLK_ESCAPE);
         game.wait_screen("automap-buttons-released", W8_SCREEN_MAIN_GAME);
         REQUIRE(!g_automap_buttons);

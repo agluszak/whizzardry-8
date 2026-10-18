@@ -882,6 +882,10 @@ bool AutomapScreenLeave(int)
         }
     }
     g_automap_created_layers.clear();
+    /* g_automap_layers borrows the world's clip planes and the ones just
+       released above. Drop the whole list with them so a later enter cannot
+       reselect a layer that this leave freed. */
+    g_automap_layers.clear();
     return 1;
 }
 
