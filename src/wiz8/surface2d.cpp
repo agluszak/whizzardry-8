@@ -3,6 +3,8 @@
 #include <memory>
 #include <utility>
 
+#include <SDL3/SDL_surface.h>
+
 #include "surrender/srGERD.h"
 #include "surrender/srNode.h"
 #include "surrender/srRendererDefs.h"
