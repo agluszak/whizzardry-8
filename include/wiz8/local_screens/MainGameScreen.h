@@ -477,7 +477,6 @@ void SetActionPanelVisible(bool visible);
 void OpenCharacterScreenForPartySlot(unsigned int party_slot, bool flag);
 void RebuildNpcTradeItemList(bool scroll_to_top);
 /* The trade-stock index behind a visible NPC item row. */
-int ResolveNpcTradeStockIndex(int index);
 /* Append one NPC stock item's name and price lines to the trade
    text box. */
 void ShowNpcTradeItemNotice(W8ItemInstance* item);
@@ -486,7 +485,6 @@ void ShowNpcTradeItemNotice(W8ItemInstance* item);
 void PopulateNpcTradeList(void);
 /* Validate the pending trade selection; queues a refusal quote and
    fails when the NPC declines the item or the party cannot pay. */
-bool ValidateNpcTradeSelection(void);
 /* Run one NPC trade offer; the result selects the accepted,
    refused or offended script path. */
 bool AttemptNpcItemTrade(W8ItemInstance* item, unsigned char quantity, int index);

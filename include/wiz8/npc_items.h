@@ -1,11 +1,32 @@
 #ifndef WIZ8_NPC_ITEMS_H
 #define WIZ8_NPC_ITEMS_H
 
+#include "wiz8/layouts/item_instance.h"
 #include "wiz8/npc_trade_price.h"
 
 struct W8ItemInstance;
 struct W8NpcItemEntry;
 struct W8NpcState;
+
+enum class W8TradeSource { Backpack, PartyPool, NpcStock, Gold };
+// A selection names a source location with expected contents. Replacing or
+// compacting its contents invalidates the choice instead of redirecting it.
+// Identical item stacks are fungible; no persistent item identity is invented.
+struct W8TradeSelection {
+    W8TradeSource source;
+    int character = -1;
+    int slot = -1;
+    W8ItemInstance expected{};
+    unsigned char stock_quantity = 0;
+};
+W8ItemInstance* ResolveTradeSelection(W8NpcState* npc, const W8TradeSelection& selection);
+enum class W8TradeOutcome { Complete, InvalidSelection, Refused, WantedByOwner, InsufficientGold };
+struct W8TradeResult {
+    W8TradeOutcome outcome;
+    bool accepted_topic = false;
+};
+W8TradeResult CompleteNpcTrade(W8NpcState* npc, const W8TradeSelection& selection,
+                               unsigned char quantity);
 
 /* NPC stock and trade interface. The implementing source, src/wiz8/
    npc_items.cpp, sits in an unresolved-fragment gap, so original-TU ownership
@@ -30,8 +51,6 @@ int CalculateNpcTradeStackPrice(W8NpcState* npc, int item_id, W8TradePriceKind p
 unsigned char ConsumeNpcItemQuantity(W8NpcState* npc, int index, unsigned char quantity);
 /* 0x0055B730: move a sold/given party item into NPC stock, paying party gold
    unless suppressed (the item being a dialogue topic the NPC wants). */
-unsigned char SellItemToNpc(W8NpcState* npc, W8ItemInstance* item, unsigned char quantity,
-                            bool suppress_payment);
 /* 0x0055B7E0: the stock mutation a completed trade applies for one slot. */
 void DecayNpcInventory(W8NpcState* npc);
 bool CompleteNpcItemPurchase(W8NpcState* npc, int index, unsigned char quantity, bool no_payment,

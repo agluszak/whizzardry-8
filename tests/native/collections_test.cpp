@@ -525,3 +525,30 @@ TEST_CASE("Spell drafts cancel without changing committed or remembered choices"
     REQUIRE(rows[0].spell.detail == 7);
     REQUIRE(rows[0].spell.target.iType == W8_TARGET_KIND_NONE);
 }
+
+TEST_CASE("Trade confirmation rejects changed inventory and stock sources", "[trade]")
+{
+    std::array<W8PartySlotRow, 8> rows{};
+    std::array<W8Character, 8> characters{};
+    struct RestoreBuffers {
+        W8StatusBuffers previous = g_status.buffers;
+        ~RestoreBuffers() { g_status.buffers = previous; }
+    } restore;
+    g_status.buffers.XChar = rows.data();
+    g_status.buffers.Char = characters.data();
+    rows[0].fOccupied = true;
+    auto& item = characters[0].backpack[3];
+    item = {17, 4};
+    const W8TradeSelection selected{W8TradeSource::Backpack, 0, 3, item};
+    REQUIRE(ResolveTradeSelection(nullptr, selected) == &item);
+    item.uses_or_charges = 2;
+    REQUIRE_FALSE(ResolveTradeSelection(nullptr, selected));
+    W8NpcState npc{};
+    npc.items = {{0, {17, 4}, 1}, {0, {18, 3}, 1}};
+    const W8TradeSelection stock{W8TradeSource::NpcStock, -1, 0, npc.items[0].item, 1};
+    REQUIRE(ResolveTradeSelection(&npc, stock) == &npc.items[0].item);
+    std::swap(npc.items[0], npc.items[1]);
+    REQUIRE_FALSE(ResolveTradeSelection(&npc, stock));
+    REQUIRE(CompleteNpcTrade(&npc, stock, 1).outcome == W8TradeOutcome::InvalidSelection);
+    REQUIRE(npc.items[0].item.stack_count == 3);
+}

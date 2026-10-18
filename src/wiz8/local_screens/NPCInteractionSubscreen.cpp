@@ -1741,6 +1741,7 @@ void ResetNpcDialogueItemEditor(void)
 {
     ClearSelectedTextLine(2);
     g_npc_interaction_state->trade_item = 0;
+    g_npc_interaction_state->trade_selection.reset();
     SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_37, false);
     g_npc_interaction_state->ui->item_preview.reset();
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_24].text.SetText("", g_large_font);
@@ -2501,16 +2502,16 @@ static void SelectNpcPartyItems(void)
 {
     ResetNpcDialogueItemEditor();
     SelectNpcTradePoolControls(W8_NPC_CONTROL_TEXT_6, W8_NPC_CONTROL_TEXT_5);
-    RebuildNpcTradeItemList(true);
     g_npc_interaction_state->trade_pc_items = true;
+    RebuildNpcTradeItemList(true);
 }
 
 static void SelectNpcStockItems(void)
 {
     ResetNpcDialogueItemEditor();
     SelectNpcTradePoolControls(W8_NPC_CONTROL_TEXT_5, W8_NPC_CONTROL_TEXT_6);
-    RebuildNpcTradeItemList(true);
     g_npc_interaction_state->trade_pc_items = false;
+    RebuildNpcTradeItemList(true);
 }
 
 static void ConfirmNpcTradeSlot(void)
@@ -2615,123 +2616,32 @@ static void UpdatePartyTradeQuantity(const W8ItemInstance* item, int row, bool d
 
 static W8ItemInstance* ResolveNpcTradeRow(int index, bool pick, char decrement, char commit)
 {
-    W8NpcItemEntry* entry;
-    int selected;
-    int hit;
-    int i;
-
-    selected = g_status.selected_character;
-    hit = 0;
-    if (g_npc_interaction_state->trade_mode != W8_NPC_TRADE_BUY &&
-        g_npc_interaction_state->trade_mode != W8_NPC_TRADE_SHOPLIFT) {
-        if (g_npc_interaction_state->trade_mode == W8_NPC_TRADE_GIVE) {
-            g_npc_interaction_state->trade_gold = 0;
-            if (index == 0) {
-                g_npc_interaction_state->trade_gold = g_status.party_gold;
-                g_npc_interaction_state->ui->item_preview =
-                    CatalogArtwork::Load(0x1ac).spriteSheet();
-                g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_24].text.SetText(
-                    "", g_wiz_text_font_secondary);
-                return 0;
-            }
-            --index;
-        }
-        if (g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_5].interaction.selected == 0) {
-            if (g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_6].interaction.selected &&
-                g_status.party_item_count != 0) {
-                i = 0;
-                do {
-                    if (g_status.party_item_pool[i].iItemNo != -1 &&
-                        !NpcTradeItemAllowed(&g_status.party_item_pool[i])) {
-                        if (index == hit) {
-                            if (!pick) {
-                                return &g_status.party_item_pool[i];
-                            }
-                            if (commit != 0) {
-                                UpdatePartyTradeQuantity(&g_status.party_item_pool[i], hit,
-                                                         decrement != 0);
-                            }
-                            g_npc_interaction_state->selected_trade_row = hit;
-                            if (commit != 0) {
-                                wiz8::sound::play(g_button_click_1);
-                            }
-                            ShowSelectedNpcTradeItem(&g_status.party_item_pool[i]);
-                            return &g_status.party_item_pool[i];
-                        }
-                        ++hit;
-                    }
-                    ++i;
-                    if (g_status.party_item_count <= static_cast<unsigned int>(i)) {
-                        return 0;
-                    }
-                } while (true);
-            }
-        } else {
-            W8Character* character = &g_status.buffers.Char[selected];
-            for (i = 0; i < 8; ++i) {
-                if (character->backpack[i].iItemNo != -1 &&
-                    !NpcTradeItemAllowed(&character->backpack[i])) {
-                    if (index == hit) {
-                        if (!pick) {
-                            return &character->backpack[i];
-                        }
-                        if (commit != 0) {
-                            UpdatePartyTradeQuantity(&character->backpack[i], hit, decrement != 0);
-                        }
-                        g_npc_interaction_state->selected_trade_row = hit;
-                        if (commit != 0) {
-                            wiz8::sound::play(g_button_click_1);
-                        }
-                        ShowSelectedNpcTradeItem(&character->backpack[i]);
-                        return &character->backpack[i];
-                    }
-                    ++hit;
-                }
-            }
-        }
-        return 0;
+    auto& state = *g_npc_interaction_state;
+    if (index < 0 || std::cmp_greater_equal(index, state.trade_rows.size())) return nullptr;
+    const auto selection = state.trade_rows[index];
+    if (pick) state.trade_selection = selection;
+    if (selection.source == W8TradeSource::Gold) {
+        state.trade_gold = g_status.party_gold;
+        return nullptr;
     }
-    i = ResolveNpcTradeStockIndex(index);
-    if (i == -1) {
-        return 0;
+    auto* item = ResolveTradeSelection(state.dialogue_npc, selection);
+    if (!item) {
+        if (pick) state.trade_selection.reset();
+        return nullptr;
     }
-    entry = GetNpcItemAt(g_npc_interaction_state->dialogue_npc, i);
-    if (entry == 0) {
-        return 0;
-    }
-    if (commit != 0) {
-        if (g_item_records[entry->item.iItemNo].equip_class == W8_ITEM_EQUIP_CLASS_AMMUNITION) {
-            g_npc_interaction_state->trade_quantity = entry->item.stack_count;
-        } else if (g_npc_interaction_state->selected_trade_row == i) {
-            if (decrement == 0) {
-                if (g_item_records[entry->item.iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK) {
-                    ++g_npc_interaction_state->trade_quantity;
-                    if (entry->item.stack_count < g_npc_interaction_state->trade_quantity) {
-                        g_npc_interaction_state->trade_quantity = entry->item.stack_count;
-                    } else if (entry->item.stack_count != 0) {
-                        HighlightNpcTradeQuantity();
-                    }
-                }
-            } else {
-                --g_npc_interaction_state->trade_quantity;
-                if (g_npc_interaction_state->trade_quantity == 0) {
-                    g_npc_interaction_state->trade_quantity = 1;
-                } else if (entry->item.stack_count != 0) {
-                    HighlightNpcTradeQuantity();
-                }
-            }
-        } else {
-            g_npc_interaction_state->trade_quantity = 1;
-        }
-    }
-    g_npc_interaction_state->selected_trade_row = i;
     if (pick) {
-        if (commit != 0) {
-            wiz8::sound::play(g_button_click_1);
+        if (commit) {
+            const int previous_quantity = state.trade_quantity;
+            UpdatePartyTradeQuantity(item, index, decrement != 0);
+            if (selection.source == W8TradeSource::NpcStock && item->stack_count &&
+                state.trade_quantity != previous_quantity)
+                HighlightNpcTradeQuantity();
         }
-        ShowSelectedNpcTradeItem(&entry->item);
+        state.selected_trade_row = index;
+        if (commit) wiz8::sound::play(g_button_click_1);
+        ShowSelectedNpcTradeItem(item);
     }
-    return &entry->item;
+    return item;
 }
 
 /* Whether the current trade filter rejects `item`: the Zant NPC hides item
@@ -3745,7 +3655,11 @@ static void SubmitNpcDialogueInput(void)
 
 void HandleNpcDialogueItemChoice(void)
 {
-    HandleNpcDialogueItem(g_npc_interaction_state->trade_item);
+    auto& state = *g_npc_interaction_state;
+    if (!state.trade_selection) return;
+    auto* item = ResolveTradeSelection(state.dialogue_npc, *state.trade_selection);
+    if (state.trade_selection->source != W8TradeSource::Gold && !item) return;
+    HandleNpcDialogueItem(item);
     if (g_npc_interaction_state->reopen_topics &&
         GetNpcDispositionBand(g_npc_interaction_state->dialogue_npc) == W8_NPC_BAND_FRIENDLY) {
         CloseNpcDialogueOptionLayout();

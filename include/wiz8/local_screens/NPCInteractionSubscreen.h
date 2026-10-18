@@ -24,6 +24,7 @@ void HideNpcQuoteBubbleRegion();
 #include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/message_box.h"
+#include "wiz8/npc_items.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/xstatus.h"
 
@@ -184,7 +185,10 @@ struct W8NpcInteractionState {
     W8NpcTradeMode trade_mode;
     /* The layout the current one replaced; back-out paths reopen it. */
     W8NpcDialogueLayout previous_dialogue_layout;
+    // Borrowed preview only; confirmation resolves trade_selection.
     W8ItemInstance* trade_item;
+    std::vector<W8TradeSelection> trade_rows;
+    std::optional<W8TradeSelection> trade_selection;
     std::unique_ptr<NpcDialogueUi> ui;
     /* The cursor position of the last mouse event the region handler acted
        on; repeat events at the same point are dropped. */
