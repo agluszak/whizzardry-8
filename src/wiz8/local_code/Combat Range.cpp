@@ -227,7 +227,7 @@ W8TargetAssessment AssessMonsterAim(int party_slot, int hand, W8MonsterInfo* mon
                                     const W8Action& selected,
                                     std::optional<W8RangeCategory> attack_range, bool sighting)
 {
-    if (monster_info->party_threat.sight_state != W8_SIGHT_SEEN)
+    if (!monster_info || monster_info->party_threat.sight_state != W8_SIGHT_SEEN)
         return {W8TargetFailure::Unavailable};
     bool spell_sight = true;
     auto range = W8_RANGE_TOUCH;

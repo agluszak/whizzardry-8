@@ -91,8 +91,8 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
 void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* target);
 /* Resolve valid spell targets for one cast and append location ids to the
    caller's vectors. The party and monster vectors are separate outputs; the
-   final flag enables radius highlighting rather than plain line-of-sight
-   collection. */
+   sight rule explicitly chooses geometry-only preview or line-of-sight
+   eligibility. The query never changes presentation. */
 void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* source,
                                 W8CombatSlot* target, std::vector<int>& monster_markers,
                                 std::vector<int>& party_markers, W8AreaSightRule sight_rule);

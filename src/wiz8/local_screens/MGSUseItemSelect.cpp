@@ -35,7 +35,6 @@
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/NPCManager.h"

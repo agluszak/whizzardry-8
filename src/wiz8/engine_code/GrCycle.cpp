@@ -27,6 +27,7 @@
 #include "glm/ext/matrix_double3x3.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_float4.hpp"
 #include "layouts/world.h"
 #include "particle_modes.h"
 #include "random.h"

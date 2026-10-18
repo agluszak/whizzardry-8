@@ -17,6 +17,7 @@
 #include "retail_records.h"
 #include "save_payload.h"
 #include "unicode.h"
+#include "wiz8/compat/native.h"
 #include "wiz8/engine_code/Quality.h"
 #include "wiz8/engine_code/stModelInstance.h" // IWYU pragma: keep - complete model type for unique_ptr destruction.
 #include "wiz8/local_code/GameplayDatabase.h"
@@ -89,7 +90,6 @@ static std::vector<W8NpcState*> NpcStatePointers()
     for (const auto& state : g_npc_states) pointers.push_back(state.get());
     return pointers;
 }
-extern void SaveGlobalStatus(W8Chunk* chunks, W8GlobalStatus* status);
 
 template<class T> static void write(std::ofstream& out, const T& value)
 {

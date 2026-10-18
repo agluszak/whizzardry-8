@@ -20,7 +20,6 @@
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/screen_state.h"
-#include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/PC_Item.h"

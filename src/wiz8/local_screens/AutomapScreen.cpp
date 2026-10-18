@@ -1574,6 +1574,8 @@ void RenderAutomapMarkers(void)
             case W8_DISPOSITION_FRIENDLY:
                 marker = CreateAutomapMonsterMarker(0);
                 break;
+            default:
+                continue;
             }
             unsigned short width = marker->GetScaledWidth();
             x -= width >> 1;

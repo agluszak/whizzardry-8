@@ -675,10 +675,6 @@ bool IsItemTargetOfNeededKind(const W8CombatSlot* target, const W8ItemInstance* 
     return TargetMatchesNeeded(target, needed);
 }
 
-/* Tint one monster for whoever is highlighting it. Three tints are named -
-   clear, green and red. Bug: other values leave the color uninitialized. */
-// FUNCTION: WIZ8 0x00539480
-
 static bool IsMonsterHoverSelectable(W8MonsterInfo* monster_info)
 {
     if (!monster_info->fActive || monster_info->p3D->IsDying() ||
@@ -924,10 +920,8 @@ enum { W8_SIDE_ANY = 3 };
    subtraction is; a distance of the "no distance given" constant gathers
    nothing at all rather than everything.
 
-   The highlighting caller and the line-of-sight caller share the body: with
-   highlighting on, a monster out of range has its tint cleared and one in
-   range is taken without looking, and with it off nothing is tinted and a
-   monster in range still has to be visible from the given eye point. */
+   Geometry-only preview and line-of-sight eligibility are explicit rules;
+   collecting targets never changes their presentation. */
 // FUNCTION: WIZ8 0x00539e70
 void CollectMonstersWithinRadius(const glm::vec3* centre, const glm::vec3* eye,
                                  std::vector<int>& found, float radius, char side,
@@ -1338,11 +1332,11 @@ bool TargetIsInPlay(int party_slot, int hand, const W8Action& selected)
 W8TargetAssessment AssessMonsterTarget(int party_slot, int location_id, const W8Action& selected,
                                        bool allow_single_target, bool sighting)
 {
-    W8MonsterInfo* monster_info = FindMonster(location_id);
+    W8MonsterInfo* monster_info = FindMonster(location_id, false);
     W8MonsterRecord* record;
     W8TargetNeed needed;
 
-    if (!monster_info->fActive) {
+    if (!monster_info || !monster_info->fActive) {
         return {W8TargetFailure::Unavailable};
     }
     if (monster_info->hp_current == 0) {
