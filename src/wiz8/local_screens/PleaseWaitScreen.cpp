@@ -224,7 +224,7 @@ void PleaseWaitScreenFrame(void)
     }
     RequestScreenTransition();
     if (g_load_descriptor->mode == W8_PLEASE_WAIT_LOAD_GAME && g_status.intro_shown) {
-        SetIntroVideoIndex(4);
+        SetIntroVideoIndex(W8_INTRO_VIDEO_VIRGIN);
         g_pending_screen_state.id = W8_SCREEN_INTRO;
         return;
     }
