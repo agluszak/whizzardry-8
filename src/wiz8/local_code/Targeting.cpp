@@ -2600,7 +2600,6 @@ std::optional<W8WeaponTarget> ChooseFallbackMonsterTarget(int party_slot,
     const auto& row = g_status.buffers.XChar[party_slot];
     const auto& character = g_status.buffers.Char[party_slot];
     if (!g_settings.autoswap_weapons ||
-        gXStatus.monster_manager_entries[party_slot].item_swap_in_progress ||
         row.item_action_pending ||
         (g_combat_state->execution_active && g_combat_state->characters[party_slot].dead &&
          g_combat_state->characters[party_slot].phase != 0) ||

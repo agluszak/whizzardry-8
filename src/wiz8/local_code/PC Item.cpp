@@ -4,9 +4,11 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <vector>
 
 #include <fmt/format.h>
@@ -2665,6 +2667,9 @@ bool MergeItemStacks(W8ItemInstance* destination, W8ItemInstance* source, bool* 
     return false;
 }
 
+static void RefreshChangedItems(W8Character* character,
+                                std::span<W8ItemInstance* const> changed, bool refresh);
+
 /* Move a complete live item into an empty destination and clear its old slot.
    Moving into the held-item slot also remembers the character/slot origin so
    the cursor can return it later. */
@@ -2672,10 +2677,6 @@ bool MergeItemStacks(W8ItemInstance* destination, W8ItemInstance* source, bool* 
 void CopyItemInstance(W8ItemInstance* destination, W8ItemInstance* source, W8Character* character,
                       bool refresh)
 {
-    unsigned int held_character = static_cast<unsigned int>(-1);
-    unsigned char held_origin = W8_ITEM_ORIGIN_NONE;
-    unsigned short held_slot = 0xffff;
-
     if (destination == source) {
         srAssertFail("pToPCItem != pFromPCItem", PC_ITEM_CPP, 3558, 0);
     }
@@ -2685,56 +2686,57 @@ void CopyItemInstance(W8ItemInstance* destination, W8ItemInstance* source, W8Cha
     if (source->iItemNo == -1) {
         srAssertFail("pFromPCItem->iItemNo != -1", PC_ITEM_CPP, 3561, 0);
     }
-    if (source->bind_announced) {
-        source->bind_announced = false;
-    }
-    memmove(destination, source, sizeof(*destination));
-
-    if (destination == &g_status.item_in_hand && character != 0) {
-        held_character = CharacterPointerToPartySlot(character);
-        GetOriginOfCharacterItem(held_character, source, &held_origin, &held_slot);
-    }
-
-    EmptyItemRecord(source, character, refresh);
-
-    RefreshAfterItemRecordChange(destination, character, refresh);
-    if (destination == &g_status.item_in_hand) {
-        gXStatus.held_item_source = held_character;
-        gXStatus.held_item_origin = held_origin;
-        gXStatus.held_item_slot = held_slot;
-        SetItemCursor(0);
-    }
+    SwapItemInstances(source, destination, character, refresh);
 }
 
-/* Move an item into an empty peer slot, or exchange two occupied slots through
-   a temporary empty record. The party-row guard prevents observers from
-   reacting to the intermediate empty states. */
+/* Publish both records before running equipment, targeting or cursor behavior.
+   Legality (including bindings and paired hands) is checked by the operation
+   choosing the arrangement; this primitive also serves forced item removal. */
 // FUNCTION: WIZ8 0x0051FD20
 void SwapItemInstances(W8ItemInstance* item, W8ItemInstance* destination, W8Character* character,
                        bool refresh)
 {
-    W8ItemInstance temporary;
-    unsigned int party_slot;
-
+    if (item == destination) return;
     if (item->iItemNo == -1 && destination->iItemNo == -1) {
         srAssertFail("(pPCItem1->iItemNo != -1) || (pPCItem2->iItemNo != -1)", PC_ITEM_CPP, 0xdbc,
                      0);
     }
-    party_slot = CharacterPointerToPartySlot(character);
-    gXStatus.monster_manager_entries[party_slot].item_swap_in_progress = true;
-    if (item->iItemNo == -1) {
-        CopyItemInstance(item, destination, character, refresh);
-    } else if (destination->iItemNo == -1) {
-        CopyItemInstance(destination, item, character, refresh);
-    } else {
-        memset(&temporary, 0, sizeof(temporary));
-        temporary.iItemNo = -1;
-        RefreshAfterItemRecordChange(&temporary, 0, refresh);
-        CopyItemInstance(&temporary, item, character, refresh);
-        CopyItemInstance(item, destination, character, refresh);
-        CopyItemInstance(destination, &temporary, character, refresh);
+    auto* held_source = item == &g_status.item_in_hand ? destination
+                        : destination == &g_status.item_in_hand ? item : nullptr;
+    unsigned int held_character = -1;
+    unsigned char held_origin = W8_ITEM_ORIGIN_NONE;
+    unsigned short held_slot = 0xffff;
+    if (held_source && character) {
+        held_character = CharacterPointerToPartySlot(character);
+        GetOriginOfCharacterItem(held_character, held_source, &held_origin, &held_slot);
     }
-    gXStatus.monster_manager_entries[party_slot].item_swap_in_progress = false;
+    std::swap(*item, *destination);
+    item->bind_announced = false;
+    destination->bind_announced = false;
+
+    // Compact the pool only after the destination has its complete item.
+    for (auto* changed : {item, destination}) {
+        for (unsigned int index = 0; index < g_status.party_item_count; ++index) {
+            if (changed == &g_status.party_item_pool[index] && changed->iItemNo == -1) {
+                RemovePartyPoolEntry(index);
+                break;
+            }
+        }
+    }
+    RefreshChangedItems(character, std::array{item, destination}, refresh);
+    if (held_source) {
+        if (g_status.item_in_hand.iItemNo == -1) {
+            gXStatus.held_item_source = -1;
+            gXStatus.held_item_origin = W8_ITEM_ORIGIN_NONE;
+            gXStatus.held_item_slot = 0xffff;
+            ClearHeldItemDisplay();
+        } else {
+            gXStatus.held_item_source = held_character;
+            gXStatus.held_item_origin = held_origin;
+            gXStatus.held_item_slot = held_slot;
+            SetItemCursor(0);
+        }
+    }
 }
 
 /* Set the wield kind for one primary hand from the item it holds. An empty
@@ -2838,16 +2840,23 @@ unsigned int GetEquipmentBindingDifficulty(int character_index)
 // FUNCTION: WIZ8 0x00520d10
 void RefreshAfterItemRecordChange(W8ItemInstance* item, W8Character* character, bool refresh)
 {
+    RefreshChangedItems(character, std::array{item}, refresh);
+}
+
+static void RefreshChangedItems(W8Character* character,
+                                std::span<W8ItemInstance* const> changed, bool refresh)
+{
     if (!character) {
         return;
     }
 
-    bool primary_right = item == &character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON];
-    if (primary_right) {
+    const auto contains = [&](W8ItemInstance* item) {
+        return std::ranges::find(changed, item) != changed.end();
+    };
+    bool hands_changed = contains(&character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON]) ||
+                         contains(&character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON]);
+    if (hands_changed) {
         SetHandType(character, W8_EQUIP_SLOT_PRIMARY_WEAPON);
-    }
-    bool primary_left = item == &character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON];
-    if (primary_left) {
         SetHandType(character, W8_EQUIP_SLOT_SECONDARY_WEAPON);
     }
 
@@ -2856,24 +2865,24 @@ void RefreshAfterItemRecordChange(W8ItemInstance* item, W8Character* character, 
     }
 
     unsigned int party_slot = CharacterPointerToPartySlot(character);
-    if (primary_right || primary_left) {
+    if (hands_changed) {
         CalcAttacks(character);
     }
     if (!refresh) {
         return;
     }
 
-    if (item == &character->EquippedItem[W8_EQUIP_SLOT_FEET]) {
+    if (contains(&character->EquippedItem[W8_EQUIP_SLOT_FEET])) {
         g_party_has_slope_override_item = FindItemOnParty(0x254, 0, 0, 0, 0);
     }
     RebuildEquipmentAndDerivedStatsForSlot(party_slot);
 
     W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
-    if (row->action == W8_ACTION_USE_ITEM && row->action_detail1.item_use.item == item) {
+    if (row->action == W8_ACTION_USE_ITEM && contains(row->action_detail1.item_use.item)) {
         DropCharacterFromRound(party_slot);
     }
 
-    if (primary_right || primary_left) {
+    if (hands_changed) {
         W8ActionKind action_kind = row->action_kind;
         if (action_kind == W8_ACTION_BERSERK) {
             if (!CanCharacterBerserk(party_slot)) {
@@ -3983,16 +3992,22 @@ void CommitWeaponSetSwap(int party_slot, W8WeaponSwap choice, bool refresh)
     auto* character = &g_status.buffers.Char[party_slot];
     BindEquippedItem(character, W8_EQUIP_SLOT_PRIMARY_WEAPON);
     BindEquippedItem(character, W8_EQUIP_SLOT_SECONDARY_WEAPON);
-    if (choice.primary) {
-        SwapItemInstances(&character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON],
-                          &character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON],
-                          character, refresh);
+    std::array<W8ItemInstance*, 4> changed;
+    size_t count = 0;
+    for (auto [swap, active, alternate] : {
+             std::tuple{choice.primary, W8_EQUIP_SLOT_PRIMARY_WEAPON,
+                        W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON},
+             std::tuple{choice.secondary, W8_EQUIP_SLOT_SECONDARY_WEAPON,
+                        W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON}}) {
+        if (!swap) continue;
+        auto& first = character->EquippedItem[active];
+        auto& second = character->EquippedItem[alternate];
+        std::swap(first, second);
+        first.bind_announced = second.bind_announced = false;
+        changed[count++] = &first;
+        changed[count++] = &second;
     }
-    if (choice.secondary) {
-        SwapItemInstances(&character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON],
-                          &character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON],
-                          character, refresh);
-    }
+    if (count) RefreshChangedItems(character, std::span(changed).first(count), refresh);
 }
 
 std::optional<W8WeaponSwap> PlanWeaponSetSwap(const W8Character& value)

@@ -387,6 +387,33 @@ TEST_CASE("Proposed weapons use the same hand rules without changing equipment",
     REQUIRE_FALSE(character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].bound);
 }
 
+TEST_CASE("Weapon-set replacement derives both hands from the completed arrangement", "[equipment]")
+{
+    std::array<W8Character, 8> characters{};
+    struct RestoreBuffers {
+        W8StatusBuffers previous = g_status.buffers;
+        ~RestoreBuffers() { g_status.buffers = previous; }
+    } restore;
+    g_status.buffers.Char = characters.data();
+    const ScopedRecords items(g_item_records, 3);
+    g_item_records[0].equip_class = W8_ITEM_EQUIP_CLASS_RANGED_WEAPON;
+    g_item_records[0].unidentified_name_index = 0x83;
+    g_item_records[1].equip_class = W8_ITEM_EQUIP_CLASS_SHORT_WEAPON;
+    g_item_records[2].equip_class = W8_ITEM_EQUIP_CLASS_THROWN_WEAPON;
+    auto& character = characters[0];
+    for (auto& item : character.EquippedItem) item.iItemNo = -1;
+    character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo = 0;
+    character.EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo = 2;
+    character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON].iItemNo = 1;
+    SetHandType(&character, W8_EQUIP_SLOT_SECONDARY_WEAPON);
+    REQUIRE(character.Hand[1].uiHolds == 3);
+    CommitWeaponSetSwap(0, {true, false}, false);
+    REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo == 1);
+    REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON].iItemNo == 0);
+    REQUIRE(character.Hand[0].uiHolds == 1);
+    REQUIRE(character.Hand[1].uiHolds == 1);
+}
+
 TEST_CASE("A failed alternate-weapon search leaves equipment and binding state untouched",
           "[equipment]")
 {
@@ -397,20 +424,17 @@ TEST_CASE("A failed alternate-weapon search leaves equipment and binding state u
     struct RestoreState {
         W8StatusBuffers buffers = g_status.buffers;
         unsigned char autoswap = g_settings.autoswap_weapons;
-        bool swapping = gXStatus.monster_manager_entries[0].item_swap_in_progress;
         std::unique_ptr<W8CombatState> combat = std::move(g_combat_state);
         ~RestoreState()
         {
             g_status.buffers = buffers;
             g_settings.autoswap_weapons = autoswap;
-            gXStatus.monster_manager_entries[0].item_swap_in_progress = swapping;
             g_combat_state = std::move(combat);
         }
     } restore;
     g_status.buffers.Char = characters.data();
     g_status.buffers.XChar = rows.data();
     g_settings.autoswap_weapons = true;
-    gXStatus.monster_manager_entries[0].item_swap_in_progress = false;
     g_combat_state = std::make_unique<W8CombatState>();
     REQUIRE(gXStatus.monster_roster.live().empty());
     auto& character = characters[0];
