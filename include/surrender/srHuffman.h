@@ -64,7 +64,6 @@ public:
             w8_ulong frequency;
         };
 
-        // FUNCTION: SURRENDER 0x10001840
         Sampler() = default;
 
         void insert(w8_ulong symbol);
@@ -94,7 +93,6 @@ public:
         void buildSymbolTree();
         void collectSymbols(const Sampler& sampler);
 
-        // FUNCTION: SURRENDER 0x10001430
         void compressSymbol(BitOStream& stream, w8_ulong symbol)
         {
             const auto found = table.find(symbol);

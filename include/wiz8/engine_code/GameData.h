@@ -286,7 +286,7 @@ struct W8GameData {
     void IntegrateTriggers();
     void AddTriggerPlane(const glm::vec3* vertices, Trigger* trigger);
     /* 1-based ordinal of the interface_names entry whose name matches, else -1. */
-    int FindPointerByName(const char* name); /* 0x004482A0 */
+    int FindPointerByName(std::string_view name);
     /* Loop the buffered prop ids through TestProp and return the id of the
        last prop that reported a hit, or -1. */
     int TestPropSurfaces(int count, w8_ulong* ids, W8OctreeTrace* trace, char skip_flag,

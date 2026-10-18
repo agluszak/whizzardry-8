@@ -51,7 +51,6 @@ static void TransformGeometry(const srVertexPipe::Input& input, std::span<const 
             Vector(matrix * glm::vec4(source[input.geometryIndex(processed_base + index)], 1.0f));
 }
 
-// FUNCTION: SURRENDER 0x1002AA50
 std::uint32_t srVertexPipe::getShaderDisableMask(const srShader& shader)
 {
     w8_ulong disable = 0;
@@ -85,7 +84,6 @@ std::uint32_t srVertexPipe::getShaderDisableMask(const srShader& shader)
     return disable;
 }
 
-// FUNCTION: SURRENDER 0x1002AAD0
 std::uint32_t srVertexPipe::getShaderDisableMask(const srShader* shaders, const w8_ulong* channels,
                                                  w8_ulong channel_count)
 {
@@ -115,7 +113,6 @@ std::uint32_t srVertexPipe::getShaderDisableMask(const srShader* shaders, const 
     return ~available;
 }
 
-// FUNCTION: SURRENDER 0x1002AB80
 w8_ulong srVertexPipe::scanChangeIndexed(const w8_ulong* table, w8_ulong value,
                                          const w8_ulong* indices, w8_ulong index_count)
 {
@@ -127,7 +124,6 @@ w8_ulong srVertexPipe::scanChangeIndexed(const w8_ulong* table, w8_ulong value,
     return index_count;
 }
 
-// FUNCTION: SURRENDER 0x1002AC10
 srVertexPipe::srVertexPipe()
     : channel_mask(0), lazy_setup_mask(0), material_info(), material(nullptr), input(nullptr),
       avt(nullptr), current_record(nullptr), vertex_array(nullptr), eye_space_locations(nullptr),
@@ -135,7 +131,6 @@ srVertexPipe::srVertexPipe()
 {
 }
 
-// FUNCTION: SURRENDER 0x1002ACF0
 void srVertexPipe::processVertexBuffer()
 {
     lazy_setup_mask = 0;
@@ -180,7 +175,6 @@ void srVertexPipe::processVertexBuffer()
     std::fill_n(vertex_array->attributes + batch_base + sub_batch_offset, vertex_count, packed);
 }
 
-// FUNCTION: SURRENDER 0x1002AE90
 void srVertexPipe::setMaterial(srMaterial* material, const Record& draw)
 {
     if (material == 0) {
@@ -195,7 +189,6 @@ void srVertexPipe::setMaterial(srMaterial* material, const Record& draw)
     }
 }
 
-// FUNCTION: SURRENDER 0x1002AEC0
 void srVertexPipe::process(const Input& input)
 {
     this->input = &input;
@@ -281,7 +274,6 @@ void srVertexPipe::process(const Input& input)
     }
 }
 
-// FUNCTION: SURRENDER 0x1002B200
 void srVertexPipe::finishDiffuseAlpha()
 {
     if ((channel_mask & ((1 << srVertexProcessor::CHANNEL_DIFFUSE) |
@@ -361,7 +353,6 @@ void srVertexPipe::finishDiffuseAlpha()
                               {avt + sub_batch_offset, vertex_count});
 }
 
-// FUNCTION: SURRENDER 0x1002B5F0
 void srVertexPipe::finishSpecularFog()
 {
     w8_ulong specular = channel_mask & (1 << srVertexProcessor::CHANNEL_SPECULAR);
@@ -408,7 +399,6 @@ void srVertexPipe::finishSpecularFog()
                               {avt + sub_batch_offset, vertex_count});
 }
 
-// FUNCTION: SURRENDER 0x1002B860
 void srVertexPipe::setupEyeSpaceNormal()
 {
     if (input->normals.empty()) {
@@ -420,7 +410,6 @@ void srVertexPipe::setupEyeSpaceNormal()
     scratch.flags |= srVertexPipe::Scratch::READY_EYE_NORMALS;
 }
 
-// FUNCTION: SURRENDER 0x1002B910
 void srVertexPipe::setupEyeSpaceDirAndDist()
 {
     for (std::size_t i = 0; i < batch_count; ++i) {
@@ -434,7 +423,6 @@ void srVertexPipe::setupEyeSpaceDirAndDist()
     scratch.flags |= srVertexPipe::Scratch::READY_EYE_DISTANCE;
 }
 
-// FUNCTION: SURRENDER 0x1002B970
 void srVertexPipe::setupEyeSpaceZDist()
 {
     const glm::vec4* locations = eye_space_locations + batch_base;
@@ -444,7 +432,6 @@ void srVertexPipe::setupEyeSpaceZDist()
     scratch.flags |= srVertexPipe::Scratch::READY_EYE_Z_DISTANCE;
 }
 
-// FUNCTION: SURRENDER 0x1002BA20
 void srVertexPipe::setupAlpha()
 {
     if ((lazy_setup_mask & (1UL << srVertexProcessor::CHANNEL_ALPHA)) == 0) {
@@ -453,7 +440,6 @@ void srVertexPipe::setupAlpha()
     }
 }
 
-// FUNCTION: SURRENDER 0x1002BA70
 void srVertexPipe::setupFog()
 {
     if ((lazy_setup_mask & (1UL << srVertexProcessor::CHANNEL_FOG)) == 0) {
@@ -464,7 +450,6 @@ void srVertexPipe::setupFog()
     }
 }
 
-// FUNCTION: SURRENDER 0x1002BAB0
 void srVertexPipe::applyFog(std::span<const float> values)
 {
     assert(values.size() >= vertex_count);
@@ -482,7 +467,6 @@ void srVertexPipe::applyFog(std::span<const float> values)
     lazy_setup_mask |= (1UL << srVertexProcessor::CHANNEL_FOG);
 }
 
-// FUNCTION: SURRENDER 0x1002BCC0
 void srVertexPipe::applyDiffuseLight(std::span<const float> values, const glm::vec4& light)
 {
     assert(values.size() >= vertex_count);
@@ -490,21 +474,18 @@ void srVertexPipe::applyDiffuseLight(std::span<const float> values, const glm::v
     srLightingMath::accumulateLight(diffuse, light, values.first(vertex_count));
 }
 
-// FUNCTION: SURRENDER 0x1002BD30
 void srVertexPipe::copySpecularToDiffuse()
 {
     copyColorChannel(getSpecular(), vertex_array->diffuse + batch_base + sub_batch_offset,
                      srVertexProcessor::CHANNEL_DIFFUSE);
 }
 
-// FUNCTION: SURRENDER 0x1002BDB0
 void srVertexPipe::copyDiffuseToSpecular()
 {
     copyColorChannel(getDiffuse(), vertex_array->specular + batch_base + sub_batch_offset,
                      srVertexProcessor::CHANNEL_SPECULAR);
 }
 
-// FUNCTION: SURRENDER 0x1002BE30
 void srVertexPipe::swapDiffuseAndSpecular()
 {
     const auto specular = getSpecular();
@@ -512,14 +493,12 @@ void srVertexPipe::swapDiffuseAndSpecular()
     std::ranges::swap_ranges(diffuse, specular);
 }
 
-// FUNCTION: SURRENDER 0x1002BEC0
 void srVertexPipe::applyDiffuseLight(const glm::vec4& light)
 {
     const auto diffuse = getDiffuse();
     srLightingMath::accumulateLight(diffuse, light);
 }
 
-// FUNCTION: SURRENDER 0x1002BF20
 void srVertexPipe::Record::ColorSource::copyDiffuseColors(glm::vec4* destination,
                                                           const w8_ulong* indices,
                                                           w8_ulong count) const
@@ -549,7 +528,6 @@ void srVertexPipe::Record::ColorSource::copyDiffuseColors(glm::vec4* destination
     }
 }
 
-// FUNCTION: SURRENDER 0x1002BFB0
 void srVertexPipe::setupDiffuse()
 {
     if ((lazy_setup_mask & (1UL << srVertexProcessor::CHANNEL_DIFFUSE)) == 0) {
@@ -572,7 +550,6 @@ void srVertexPipe::setupDiffuse()
 }
 
 /* Depth cue is cached for the whole batch, shared by all material sub-batches. */
-// FUNCTION: SURRENDER 0x1002C0D0
 void srVertexPipe::setupDepthCue()
 {
     float* depth_cue = this->scratch.depth_cue;
@@ -611,13 +588,11 @@ void srVertexPipe::setupDepthCue()
     scratch.flags |= srVertexPipe::Scratch::READY_DEPTH_CUE;
 }
 
-// FUNCTION: SURRENDER 0x1002C300
 w8_ulong srVertexPipe::getExclusionMask() const
 {
     return input->exclusion_mask;
 }
 
-// FUNCTION: SURRENDER 0x1002C3B0
 void srVertexPipe::setupSpecular()
 {
     if ((lazy_setup_mask & (1UL << srVertexProcessor::CHANNEL_SPECULAR)) == 0) {
@@ -627,7 +602,6 @@ void srVertexPipe::setupSpecular()
     }
 }
 
-// FUNCTION: SURRENDER 0x1002C400
 void srVertexPipe::setupST(w8_ulong index)
 {
     if (((current_record->flags & (srVertexPipe::Record::HAS_TEXCOORD0 << index)) != 0)) {
@@ -642,81 +616,69 @@ void srVertexPipe::setupST(w8_ulong index)
     lazy_setup_mask |= 1 << (index + srVertexProcessor::CHANNEL_ST0);
 }
 
-// FUNCTION: SURRENDER 0x1002C480
 srBoundingSphere srVertexPipe::getEyeSpaceBoundingSphere() const
 {
     return input->eye_bounds;
 }
 
-// FUNCTION: SURRENDER 0x1002C500
 void srVertexPipe::setupQ(w8_ulong index)
 {
     std::fill_n((&vertex_array->q0)[index] + batch_base + sub_batch_offset, vertex_count, 1.0f);
     lazy_setup_mask |= 1 << (index + srVertexProcessor::CHANNEL_Q0);
 }
 
-// FUNCTION: SURRENDER 0x1002C560
 std::span<const w8_ulong> srVertexPipe::getAVT() const
 {
     return {avt + sub_batch_offset, vertex_count};
 }
 
-// FUNCTION: SURRENDER 0x1002C570
 std::span<const glm::vec4> srVertexPipe::getEyeSpaceLocation()
 {
     return {eye_space_locations + batch_base + sub_batch_offset, vertex_count};
 }
 
-// FUNCTION: SURRENDER 0x1002C590
 std::span<const float> srVertexPipe::getDepthCue()
 {
     return scratchChannel(scratch.depth_cue, Scratch::READY_DEPTH_CUE,
                           &srVertexPipe::setupDepthCue);
 }
 
-// FUNCTION: SURRENDER 0x1002C5F0
 std::span<const glm::vec3> srVertexPipe::getEyeSpaceDir()
 {
     return scratchChannel(scratch.dir, Scratch::READY_EYE_DIRECTION,
                           &srVertexPipe::setupEyeSpaceDirAndDist);
 }
 
-// FUNCTION: SURRENDER 0x1002C620
 std::span<const float> srVertexPipe::getEyeSpaceDist()
 {
     return scratchChannel(scratch.dist, Scratch::READY_EYE_DISTANCE,
                           &srVertexPipe::setupEyeSpaceDirAndDist);
 }
 
-// FUNCTION: SURRENDER 0x1002C650
 std::span<const float> srVertexPipe::getEyeSpaceZDist()
 {
     return scratchChannel(scratch.z_dist, Scratch::READY_EYE_Z_DISTANCE,
                           &srVertexPipe::setupEyeSpaceZDist);
 }
 
-// FUNCTION: SURRENDER 0x1002C680
 std::span<float> srVertexPipe::getFog()
 {
     prepareOutputChannel(srVertexProcessor::CHANNEL_FOG, &srVertexPipe::setupFog);
     return {scratch.fog + sub_batch_offset, vertex_count};
 }
 
-// FUNCTION: SURRENDER 0x1002C6C0
 std::span<float> srVertexPipe::getAlpha()
 {
     prepareOutputChannel(srVertexProcessor::CHANNEL_ALPHA, &srVertexPipe::setupAlpha);
     return {scratch.alpha + sub_batch_offset, vertex_count};
 }
 
-// FUNCTION: SURRENDER 0x1002C700
 std::span<glm::vec4> srVertexPipe::getDiffuse()
 {
     prepareOutputChannel(srVertexProcessor::CHANNEL_DIFFUSE, &srVertexPipe::setupDiffuse);
     return {vertex_array->diffuse + batch_base + sub_batch_offset, vertex_count};
 }
 
-// FUNCTION: SURRENDER 0x1002C740
 std::span<glm::vec4> srVertexPipe::getSpecular()
 {
     prepareOutputChannel(srVertexProcessor::CHANNEL_SPECULAR, &srVertexPipe::setupSpecular);

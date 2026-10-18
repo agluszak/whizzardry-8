@@ -12,7 +12,6 @@
 #include "surrender/srShader.h"
 #include "surrender/srTexture.h"
 
-// FUNCTION: WIZ8 0x0047DAE0
 stSurface2D::stSurface2D(std::shared_ptr<SDL_Surface> source, int source_width, int source_height,
                          srNode* parent, int tile_extent)
     : srNode(static_cast<srNode*>(0)),
@@ -50,7 +49,6 @@ stSurface2D::stSurface2D(std::shared_ptr<SDL_Surface> source, int source_width, 
     texture_coordinates[3][1] = 1.0f;
 }
 
-// FUNCTION: WIZ8 0x004D6540
 void stSurface2D::traverse(TraverseInfo& info)
 {
     if (next_sibling_ != 0) {
@@ -66,7 +64,6 @@ void stSurface2D::traverse(TraverseInfo& info)
     }
 }
 
-// FUNCTION: WIZ8 0x0047E0F0
 void stSurface2D::process(const ProcessInfo& info, e_processType)
 {
     DrawTiles(info.renderer);
@@ -74,7 +71,6 @@ void stSurface2D::process(const ProcessInfo& info, e_processType)
 
 /* The tile render pass, entered from process(): ortho projection, vertex
    array state, then one triangle strip per tile in row-major order. */
-// FUNCTION: WIZ8 0x0047E100
 void stSurface2D::DrawTiles(srGERD* renderer)
 {
     glm::vec3 location;
@@ -126,7 +122,6 @@ void stSurface2D::DrawTiles(srGERD* renderer)
     renderer->popMatrix();
 }
 
-// FUNCTION: WIZ8 0x0047E560
 void stSurface2D::setScale(float new_scale)
 {
     float factor = 1.0f / tile_size;
@@ -140,7 +135,6 @@ void stSurface2D::setScale(float new_scale)
     scale = new_scale;
 }
 
-// FUNCTION: WIZ8 0x0047E370
 void stSurface2D::setAlphaTestEnabled(bool enabled)
 {
     if (enabled)
@@ -150,7 +144,6 @@ void stSurface2D::setAlphaTestEnabled(bool enabled)
 }
 
 /* Dirty rectangles update only the intersecting GPU tiles. */
-// FUNCTION: WIZ8 0x0047E450
 void stSurface2D::updateRectangle(srGERD* renderer, int left, int top, int right, int bottom)
 {
     int x = left;

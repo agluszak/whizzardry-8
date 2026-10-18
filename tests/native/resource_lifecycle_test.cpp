@@ -218,7 +218,7 @@ struct SpellVisualFixture {
 
     SpellVisualFixture()
     {
-        world.octree = std::make_unique<W8Octree>(nullptr, nullptr, &world);
+        world.octree = std::make_unique<W8Octree>("", nullptr, &world);
         std::filesystem::create_directory(directory.path / "assets");
         std::filesystem::create_directory(directory.path / "user");
         roots.configure({(directory.path / "assets").string(), (directory.path / "user").string()});
@@ -317,7 +317,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "Cycle registration owns stable names and o
 {
     W8SpellVisual first, second, other;
     RegisterGrCycle("MixedCase", &first);
-    const char* borrowed_name = first.GetRegisteredName();
+    const std::string_view borrowed_name = first.GetRegisteredName();
     RegisterGrCycle("mixedcase", &second);
     RegisterGrCycle("AnotherName", &other);
     REQUIRE(std::string_view(borrowed_name) == "MixedCase");
@@ -328,7 +328,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "Cycle registration owns stable names and o
     REQUIRE(second.IsSoleRegisteredCycleForName());
     REQUIRE(UnregisterGrCycle(&second));
     REQUIRE(FindFirstGrCycleByName("mixedcase") == nullptr);
-    REQUIRE(first.GetRegisteredName() == nullptr);
+    REQUIRE(first.GetRegisteredName().empty());
     REQUIRE(FindFirstGrCycleByName("anothername") == &other);
 }
 
@@ -523,7 +523,7 @@ TEST_CASE_METHOD(SpellVisualFixture,
     published.movement.location_id = 7;
     world.octree->object_registry->RegisterObjectCell(W8_OCTREE_KIND_NAVIGATOR, 8, {0, 0, 0});
     W8World replacement;
-    replacement.octree = std::make_unique<W8Octree>(nullptr, nullptr, &replacement);
+    replacement.octree = std::make_unique<W8Octree>("", nullptr, &replacement);
     replacement.octree->object_registry = std::make_unique<W8OctreeObjectRegistry>();
     {
         W8Navigator prepared(&replacement);
@@ -554,7 +554,7 @@ TEST_CASE_METHOD(
     world.game_data->trace_flag4_gate = true;
     W8World replacement;
     replacement.game_data = std::make_unique<W8GameData>(nullptr, false);
-    replacement.octree = std::make_unique<W8Octree>(nullptr, nullptr, &replacement);
+    replacement.octree = std::make_unique<W8Octree>("", nullptr, &replacement);
     auto& spatial = replacement.octree->m_spatial;
     spatial.m_bounds.minimum = glm::vec3(0);
     spatial.m_clipped_bounds.maximum = glm::vec3(10000);

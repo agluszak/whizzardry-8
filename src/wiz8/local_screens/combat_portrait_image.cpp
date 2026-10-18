@@ -9,7 +9,6 @@
 /* The combat-strip portrait catalog index for one slot's chosen action and
    status. Most actions map to a fixed base; attacks pick per weapon skill and
    spells per realm, and the status selects the frame variant beside it. */
-// FUNCTION: WIZ8 0x0059A180
 short GetCombatPortraitImage(W8ActionKind action, int detail, char status, short slot)
 {
     int image;

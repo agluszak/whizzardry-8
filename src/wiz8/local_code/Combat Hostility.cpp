@@ -44,13 +44,10 @@
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 
-// STRING: WIZ8 0x0061DC60
-
 /* Species 0x224 never counts: both directions answer zero before anything
    else is read. */
 enum { W8_NEUTRAL_SPECIES_224 = 0x224 };
 
-// FUNCTION: WIZ8 0x00546e70
 void RefreshCombatEngagement(void)
 {
     if (gXStatus.fCombatMode && CurrentLevelPopulation().monster_roster.hostileCombatCount() != 0) {
@@ -63,7 +60,6 @@ void RefreshCombatEngagement(void)
    either band clear answers zero; otherwise the faction records decide, and
    only matching non-zero factions fall through to the condition-thirteen
    presence test. */
-// FUNCTION: WIZ8 0x00546F80
 W8Disposition MonsterHostility(W8MonsterInfo* first, W8MonsterInfo* second)
 {
     W8MonsterRecord* first_record;
@@ -102,7 +98,6 @@ W8Disposition MonsterHostility(W8MonsterInfo* first, W8MonsterInfo* second)
 /* Map a monster's disposition band onto the party character: while the
    character carries condition thirteen the hostile and friendly bands swap;
    otherwise the monster's band is returned unchanged. */
-// FUNCTION: WIZ8 0x00546f10
 W8Disposition MonsterVsCharDisposition(int character_slot, W8MonsterInfo* monster_info)
 {
     W8Disposition disposition;
@@ -119,13 +114,11 @@ W8Disposition MonsterVsCharDisposition(int character_slot, W8MonsterInfo* monste
     case W8_DISPOSITION_FRIENDLY:
         return W8_DISPOSITION_HOSTILE;
     default:
-        srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Local Code\\Combat Hostility.cpp", 0x69,
-                     "MonsterVsCharDisposition: ERROR - Invalid attack mode");
+        Fail("FALSE", "MonsterVsCharDisposition: ERROR - Invalid attack mode");
         return W8_DISPOSITION_NEUTRAL;
     }
 }
 
-// FUNCTION: WIZ8 0x00547010
 W8Disposition CharacterVsCharacterDisposition(int first, int second)
 {
     W8Character* characters = g_status.buffers.Char;
@@ -139,7 +132,6 @@ W8Disposition CharacterVsCharacterDisposition(int first, int second)
     return W8_DISPOSITION_FRIENDLY;
 }
 
-// FUNCTION: WIZ8 0x00547080
 W8Disposition GetOppositeDisposition(W8TargetSource* source)
 {
     if (TargetSourceIsCharacter(source, 0)) {
@@ -164,7 +156,6 @@ W8Disposition GetOppositeDisposition(W8TargetSource* source)
     return W8_DISPOSITION_NEUTRAL;
 }
 
-// FUNCTION: WIZ8 0x00547120
 void ProvokeListedMonsterGroups(W8TargetSource* source, const std::vector<int>& monsters)
 {
     int own_monster_id = -1;
@@ -189,7 +180,6 @@ void ProvokeListedMonsterGroups(W8TargetSource* source, const std::vector<int>& 
     }
 }
 
-// FUNCTION: WIZ8 0x005471d0
 void MakeTargetGroupHostile(W8TargetSource* source, W8CombatSlot* target)
 {
     W8Disposition hostility = GetOppositeDisposition(source);
@@ -241,7 +231,6 @@ void MakeTargetGroupHostile(W8TargetSource* source, W8CombatSlot* target)
 
 /* Whether a party action aims at enemies: the four melee kinds do, as do
    spells (and item-spells) whose target type sits in the enemy band. */
-// FUNCTION: WIZ8 0x00547310
 bool CharacterActionTargetsEnemies(W8Character* character, W8ActionKind action_kind,
                                    int action_detail, W8ActionDetailBlock* detail)
 {
@@ -257,8 +246,7 @@ bool CharacterActionTargetsEnemies(W8Character* character, W8ActionKind action_k
         return true;
     case W8_ACTION_CAST_SPELL:
         if (action_detail > 0x95) {
-            srAssertFail("iType < SPELL_COUNT",
-                         "C:\\Projects\\Wizardry 8\\Local Code\\Combat Hostility.cpp", 0x1c2, 0);
+            Fail("iType < SPELL_COUNT");
         }
         if (action_detail != 3 && action_detail != 0x29) {
             target_type = GetSpellTargetType(action_detail, false);
@@ -273,9 +261,7 @@ bool CharacterActionTargetsEnemies(W8Character* character, W8ActionKind action_k
             spell_id = g_item_records[item->iItemNo].spell_id;
             if (spell_id != W8_SPELL_NONE) {
                 if (spell_id > 0x95) {
-                    srAssertFail("iType < SPELL_COUNT",
-                                 "C:\\Projects\\Wizardry 8\\Local Code\\Combat Hostility.cpp",
-                                 0x1c2, 0);
+                    Fail("iType < SPELL_COUNT");
                 }
                 if (spell_id != W8_SPELL_CHARM && spell_id != W8_SPELL_MINDREAD) {
                     target_type = GetSpellTargetType(spell_id, false);
@@ -293,7 +279,6 @@ bool CharacterActionTargetsEnemies(W8Character* character, W8ActionKind action_k
 }
 
 /* Monster actions 0 and 3 always count as enemy-aimed; action 2 is a spell id. */
-// FUNCTION: WIZ8 0x00547440
 bool MonsterActionTargetsEnemies(W8MonsterActionKind action_kind, int action_detail,
                                  unsigned int* spell_power_level)
 {
@@ -304,8 +289,7 @@ bool MonsterActionTargetsEnemies(W8MonsterActionKind action_kind, int action_det
         return true;
     case W8_MONSTER_ACTION_SPELL:
         if (action_detail > 0x95) {
-            srAssertFail("iType < SPELL_COUNT",
-                         "C:\\Projects\\Wizardry 8\\Local Code\\Combat Hostility.cpp", 0x1c2, 0);
+            Fail("iType < SPELL_COUNT");
         }
         if (action_detail != 3 && action_detail != 0x29) {
             target_type = GetSpellTargetType(action_detail, false);
@@ -323,12 +307,10 @@ bool MonsterActionTargetsEnemies(W8MonsterActionKind action_kind, int action_det
 
 /* Whether a spell id can be aimed by monster AI: inside the spell table, not
    one of the two self-only kinds, and carrying a middle target type. */
-// FUNCTION: WIZ8 0x005474B0
 bool MonsterCanAimSpell(int spell_id)
 {
     if (spell_id > 0x95) {
-        srAssertFail("iType < SPELL_COUNT",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\Combat Hostility.cpp", 0x1c2, 0);
+        Fail("iType < SPELL_COUNT");
     }
     if (spell_id != W8_SPELL_CHARM && spell_id != W8_SPELL_MINDREAD) {
         W8SpellTargetType target_type = GetSpellTargetType(spell_id, false);
@@ -340,28 +322,23 @@ bool MonsterCanAimSpell(int spell_id)
     return false;
 }
 
-// FUNCTION: WIZ8 0x00547510
 bool CombatAllowsLiveGroups(void)
 {
     return gXStatus.fCombatMode && !g_combat_state->enemies_engaged &&
            g_combat_state->round_count <= 1;
 }
 
-// GLOBAL: WIZ8 0x0061ec0c
 static unsigned short g_group_hostility_notice_ids[3] = {511, 512, 513};
 
-// GLOBAL: WIZ8 0x0061ec14
 int g_monster_special_attack_name_ids[12] = {0,    1598, 1599, 1600, 1601, 1602,
                                              1603, 1604, 1605, 1606, 1607, 1608};
 
-// FUNCTION: WIZ8 0x00547540
 void SetMonsterGroupHostilityByID(int group_id, unsigned int hostility, bool recurse)
 {
     W8MonsterGroup* group = FindMonsterGroup(group_id);
     SetMonsterGroupHostility(group, hostility, recurse);
 }
 
-// FUNCTION: WIZ8 0x00547570
 void SetMonsterGroupHostility(W8MonsterGroup* group, unsigned int hostility, bool recurse)
 {
     if (MonsterGroupAllMembersDying(group)) {
@@ -409,7 +386,6 @@ void SetMonsterGroupHostility(W8MonsterGroup* group, unsigned int hostility, boo
     RequestRedrawParty();
 }
 
-// FUNCTION: WIZ8 0x005477d0
 void SetMonsterHostility(W8MonsterInfo* monster, W8Disposition hostility)
 {
     W8Disposition previous = monster->ubDisposition;
@@ -440,7 +416,6 @@ void SetMonsterHostility(W8MonsterInfo* monster, W8Disposition hostility)
     }
 }
 
-// FUNCTION: WIZ8 0x00547bf0
 bool CanPartySlotTurnUndead(int party_slot)
 {
     if (!CharacterHasTrait(&g_status.buffers.Char[party_slot], W8_TRAIT_TURN_UNDEAD) ||
@@ -459,7 +434,6 @@ bool CanPartySlotTurnUndead(int party_slot)
     return false;
 }
 
-// FUNCTION: WIZ8 0x00547cb0
 int TurnUndead(int party_slot, int* out_cost, bool check)
 {
     std::vector<int> monsters;
@@ -512,7 +486,6 @@ int TurnUndead(int party_slot, int* out_cost, bool check)
     return static_cast<int>(monsters.size());
 }
 
-// FUNCTION: WIZ8 0x00547f40
 bool CanPartySlotPray(int party_slot)
 {
     if (!CharacterHasTrait(&g_status.buffers.Char[party_slot], W8_TRAIT_PRAY) ||
@@ -530,16 +503,13 @@ bool CanPartySlotPray(int party_slot)
     return false;
 }
 
-// GLOBAL: WIZ8 0x0061DD38
 static int g_pray_roll_weights[14] = {5, 5, 10, 10, 10, 20, 10, 10, 10, 5, 5, 5, 5, 5};
 
 /* Fourteen cumulative weights followed by their grand total (0x0068D84C).
    Retail folds the table with one walk to the end of this single block. */
 #define PRAY_ROLL_TIERS 14
-// GLOBAL: WIZ8 0x0068D814
 static int g_pray_roll_sums[PRAY_ROLL_TIERS + 1];
 
-// GLOBAL: WIZ8 0x00619788
 static char g_pray_dash[] = " -- ";
 
 /* Pray: the trait-eleven once-per-combat divine intervention. The flat
@@ -547,7 +517,6 @@ static char g_pray_dash[] = " -- ";
    last slot is the grand total - and the roll is biased by
    how long the fight has run and by the combat difficulty. The selected tier
    retries downward through the table until an action lands. */
-// FUNCTION: WIZ8 0x00547FE0
 int CharacterPrayAction(int party_slot)
 {
     W8Character* character = &g_status.buffers.Char[party_slot];
@@ -894,7 +863,6 @@ int CharacterPrayAction(int party_slot)
     return cost;
 }
 
-// FUNCTION: WIZ8 0x005478A0
 void AlertSameFactionGroups(W8MonsterGroup* monster_group)
 {
     W8MonsterRecord* record = MonsterGroupGetRecord(monster_group);

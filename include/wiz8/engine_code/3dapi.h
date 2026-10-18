@@ -10,9 +10,6 @@ extern bool g_world_cleanup_flag;
 extern bool g_navigator_vertical_enabled;
 extern float g_mesh_view_half_angle_degrees;
 
-/* 0x00450780: the three-argument assert the main-game code paths use; it
-   forwards to the four-argument SurRender export. */
-void ReportAssertion(const char* expression, const char* source_path, w8_long line);
 void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags);
 /* Debug world controls combine these bits in unsigned int storage. */
 enum {

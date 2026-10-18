@@ -857,7 +857,7 @@ TEST_CASE_METHOD(LoaderFixture,
                  "Octree sample points transfer float triples independently of GLM layout",
                  "[loader][records]")
 {
-    W8Octree tree(nullptr, nullptr);
+    W8Octree tree("", nullptr);
     tree.m_sample_points = {{1, -2, 3.5f}, {4, 5, -6}};
     REQUIRE(tree.SavePoints("sample-fixture.lvl"));
     auto file = wiz8::open_file(wiz8::user_path("sample-fixture.pts"));
@@ -954,7 +954,7 @@ TEST_CASE_METHOD(LoaderFixture, "World item groups transfer ownership and preser
 TEST_CASE_METHOD(LoaderFixture, "Retail waypoint versions load without an editor writer",
                  "[loader][pathing]")
 {
-    W8Octree tree(nullptr, nullptr);
+    W8Octree tree("", nullptr);
     tree.object_registry = std::make_unique<W8OctreeObjectRegistry>();
     tree.m_spatial.m_bounds.minimum = glm::vec3(0);
     tree.m_spatial.m_node_extent = 1;
@@ -1258,7 +1258,7 @@ TEST_CASE_METHOD(LoaderFixture, "Malformed particle sections publish no scene ob
 TEST_CASE("Octree particle registration checks the whole batch before publishing",
           "[loader][records]")
 {
-    W8Octree octree(nullptr, nullptr);
+    W8Octree octree("", nullptr);
     octree.m_fAccumulating = true;
     octree.m_ulNumParticles = 1;
     stParticle first(nullptr, 0), second(nullptr, 0);
@@ -1323,7 +1323,7 @@ TEST_CASE_METHOD(LoaderFixture, "Prop loader rejects an unterminated asset name"
     info.hFile = file.get();
     W8Prop prop;
     prop.name = "previous";
-    REQUIRE_FALSE(prop.Rep()->LoadProp(&info, &prop));
+    REQUIRE_FALSE(prop.LoadProp(&info, &prop));
     REQUIRE(prop.name == "previous");
 }
 
@@ -1390,10 +1390,10 @@ TEST_CASE_METHOD(LoaderFixture, "Prop save records decode missing entries within
             REQUIRE(chunk.RemainingBytes() == 0);
         });
         chunk.Close();
-        REQUIRE(present->Rep()->subcycle == 7);
-        REQUIRE(present->Rep()->first_frame == 2);
-        REQUIRE(present->Rep()->last_frame == 9);
-        present->Rep()->subcycle = 3;
+        REQUIRE(present->subcycle == 7);
+        REQUIRE(present->first_frame == 2);
+        REQUIRE(present->last_frame == 9);
+        present->subcycle = 3;
         bytes.pop_back();
         REQUIRE(chunk.OpenWrite(path));
         chunk.WriteChunk(W8ChunkId("APST"), [&] { chunk.WriteBytes(bytes.data(), bytes.size()); });
@@ -1404,6 +1404,6 @@ TEST_CASE_METHOD(LoaderFixture, "Prop save records decode missing entries within
             REQUIRE_THROWS(LoadWorldProps(GetWorld(), chunk));
             return false;
         });
-        REQUIRE(present->Rep()->subcycle == 3);
+        REQUIRE(present->subcycle == 3);
     }
 }

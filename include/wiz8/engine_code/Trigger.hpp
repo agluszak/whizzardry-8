@@ -5,10 +5,10 @@ struct W8Chunk;
 #include <optional>
 #include <source_location>
 #include <string>
+#include <variant>
 
 #include "compat/compiler.h"
 #include "glm/ext/vector_float3.hpp"
-#include "surrender/srClass.h"
 #include "surrender/srDebug.h"
 #include "wiz8/engine_code/game_timer.h"
 
@@ -40,7 +40,6 @@ public:
 
 void UpdateTimedTriggerEvents(void);
 
-/* Payload tags remain signed bytes in the common prefix and on disk. */
 enum W8TriggerPayloadKind {
     W8_TRIGGER_PAYLOAD_NONE = -1,
     W8_TRIGGER_PAYLOAD_ENVIRONMENT = 5,
@@ -48,71 +47,32 @@ enum W8TriggerPayloadKind {
     W8_TRIGGER_PAYLOAD_DOOR = 10
 };
 
-/* The common polymorphic prefix of the trigger action payload family. */
-class W8TriggerActionData {
-public:
-    W8TriggerActionData();
-    virtual ~W8TriggerActionData();
-
-    signed char type; /* W8TriggerPayloadKind */
+struct W8EnvironmentTriggerActionData {
+    float previous_environment = 0.0f;
 };
 
-/* Type 5 installs its own final table and retains the previous environment value. */
-class W8EnvironmentTriggerActionData : public W8TriggerActionData {
-public:
-    float previous_environment;
+struct W8DoorTriggerActionData {
+    bool open : 1 = false;
+    bool lockable : 1 = false;
+    bool locked : 1 = false;
+    bool auto_locking : 1 = false;
+    bool one_way : 1 = false;
+    bool secret : 1 = false;
+    bool found : 1 = true;
+    bool jammable : 1 = false;
+    bool jammed : 1 = false;
+    bool has_position : 1 = false;
+    short item = -1; /* key item id; -1 for none */
+    char linked_trigger[0x80]{};
+    glm::vec3 position{0.0f};
 };
 
-/* The level loader allocates 0x98 bytes for type 10. Its first twelve bytes
-   are the common polymorphic payload above; the remaining bytes are the
-   linked trigger name and optional world position read from the save.
-   The door state is a run of one-bit fields: retail stores them with VC6's
-   single-bit insert sequences, and mipe's editor table labels the first nine
-   in order (Open .. Jammed) with the key id as the tenth field. */
-class W8DoorTriggerActionData : public W8TriggerActionData {
-public:
-    /* Both allocation sites (0x0043C1B0 and 0x004417C0) expand this body; the
-       eight leading bits fold to one 0x40 byte store and has_position stays
-       uninitialized. */
-    W8DoorTriggerActionData()
-    {
-        open = false;
-        lockable = false;
-        locked = false;
-        auto_locking = false;
-        one_way = false;
-        secret = false;
-        found = true;
-        has_position = false;
-        jammable = false;
-        jammed = false;
-        item = -1;
-        type = W8_TRIGGER_PAYLOAD_DOOR;
-        position = glm::vec3(0);
-        linked_trigger[0] = 0;
-    }
-
-    bool open : 1;
-    bool lockable : 1;
-    bool locked : 1;
-    bool auto_locking : 1;
-    bool one_way : 1;
-    bool secret : 1;
-    bool found : 1;
-    bool jammable : 1;
-    bool jammed : 1;
-    bool has_position : 1;
-    short item; /* key item id; -1 for none */
-    char linked_trigger[0x80];
-    glm::vec3 position;
-};
-
-/* Type 6 (built for action 17) owns a copy of the trigger's action string. */
-class W8StringTriggerActionData : public W8TriggerActionData {
-public:
-    virtual ~W8StringTriggerActionData() override;
+struct W8StringTriggerActionData {
     std::string owned_string;
 };
+
+using W8TriggerActionPayload = std::variant<std::monostate, W8EnvironmentTriggerActionData,
+                                            W8StringTriggerActionData, W8DoorTriggerActionData>;
 
 enum W8TriggerFlag {
     W8_TRIGGER_ANIMATE_STATES = 0x1,
@@ -180,26 +140,48 @@ enum W8TriggerRepresentationKind {
     W8_TRIGGER_REP_POSITION = 3
 };
 
-class Trigger : public srClass {
+class Trigger {
 public:
     typedef bool (*ActivationCallback)(Trigger* trigger);
 
     explicit Trigger(W8World* world = nullptr);
-    virtual ~Trigger() override;
+    ~Trigger();
+
+    W8DoorTriggerActionData* doorData()
+    {
+        return std::get_if<W8DoorTriggerActionData>(&action_payload);
+    }
+    const W8DoorTriggerActionData* doorData() const
+    {
+        return std::get_if<W8DoorTriggerActionData>(&action_payload);
+    }
+    bool hasActionPayload() const
+    {
+        return !std::holds_alternative<std::monostate>(action_payload);
+    }
+    W8TriggerPayloadKind actionPayloadKind() const
+    {
+        if (std::holds_alternative<W8DoorTriggerActionData>(action_payload))
+            return W8_TRIGGER_PAYLOAD_DOOR;
+        if (std::holds_alternative<W8EnvironmentTriggerActionData>(action_payload))
+            return W8_TRIGGER_PAYLOAD_ENVIRONMENT;
+        if (std::holds_alternative<W8StringTriggerActionData>(action_payload))
+            return W8_TRIGGER_PAYLOAD_STRING;
+        return W8_TRIGGER_PAYLOAD_NONE;
+    }
 
     static Trigger* CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world);
 
     W8Prop* GetProp() const
     {
         if (m_bRepType != W8_TRIGGER_REP_PROP) {
-            srAssertFail("m_bRepType == TRIGGER_REP_PROP", "..\\Engine Code\\Include\\Trigger.hpp",
-                         0x3ed, 0);
+            Fail("m_bRepType == TRIGGER_REP_PROP");
         }
         return m_pProp;
     }
 
     bool HasActorWithinRadius(float radius, bool include_party);
-    bool PlayActionSound(const char* sound_name, int volume);
+    bool PlayActionSound(std::string_view sound_name, int volume);
     void UpdateActionAnimation();
     void CommitActionResult(bool apply_state_changes);
     void CompleteItemInteraction();
@@ -222,7 +204,7 @@ public:
     /* After a selected-prop Run: while g_trigger_feedback is clear, post either
        the special-item notice (required_item_id != -1) or the nothing-happened notice. */
     void PrintNothingHappenedOrSpecialItemRequired(); /* 0x004456E0 */
-    void RunDestination(const char* destination);
+    void RunDestination(std::string_view destination);
     void Run(int source);
 
     int trigger_kind;
@@ -266,7 +248,7 @@ public:
     unsigned short action;
     unsigned char action_state;
     unsigned char unknown_233;
-    std::unique_ptr<W8TriggerActionData> m_pActionData;
+    W8TriggerActionPayload action_payload;
     std::string recipients;
     int required_item_id;
     std::string required_states;
@@ -289,11 +271,11 @@ public:
 
 void InitializeStateDrivenPropVariables(Trigger* trigger);
 
-Trigger* FindTriggerByName(const char* name);
-Trigger* FindRequiredTriggerByName(const char* name,
+Trigger* FindTriggerByName(std::string_view name);
+Trigger* FindRequiredTriggerByName(std::string_view name,
                                    std::source_location caller = std::source_location::current());
 
-inline void RunNamedTrigger(const char* name, int source)
+inline void RunNamedTrigger(std::string_view name, int source)
 {
     Trigger* trigger = FindTriggerByName(name);
     if (trigger != 0) {
@@ -301,7 +283,7 @@ inline void RunNamedTrigger(const char* name, int source)
     }
 }
 
-std::unique_ptr<W8TriggerActionData> ReadDoorTriggerActionData(wiz8::File* handle);
+W8DoorTriggerActionData ReadDoorTriggerActionData(wiz8::File* handle);
 /* The TRES save chunk: the world's triggers, their runtime states, and their
    action data. */
 int ResetNextTriggerId(void);
@@ -329,7 +311,7 @@ bool AnyPropTriggerInView();
 void UpdateWorldTriggers(W8World* world);
 Trigger* FindTriggerForProp(W8World* world, W8Prop* prop);
 
-stLight* FindLightByName(const char* name);
+stLight* FindLightByName(std::string_view name);
 void DestroyAllWorldTriggers(W8World* world);
 /* Walk the world's triggers for a type-0x34 RunDestination trigger whose
    annulus contains the position; answers true when one does. */

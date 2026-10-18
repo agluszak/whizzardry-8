@@ -24,35 +24,30 @@ static bool spawnSpiritAt(const char* entity)
 
 /* "HigardiChest01": spawn one spirit monster (0x1f2, hostile) at the
    NP_Spirit01 entity. */
-// FUNCTION: WIZ8 0x004DAE30
 bool SeaCavesHigardiChest01(Trigger* pTrigger)
 {
     return spawnSpiritAt("NP_Spirit01");
 }
 
 /* "HigardiChest02": spawn one spirit monster at NP_Spirit02. */
-// FUNCTION: WIZ8 0x004DAE70
 bool SeaCavesHigardiChest02(Trigger* pTrigger)
 {
     return spawnSpiritAt("NP_Spirit02");
 }
 
 /* "HigardiChest03": spawn one spirit monster at NP_Spirit03. */
-// FUNCTION: WIZ8 0x004DAEB0
 bool SeaCavesHigardiChest03(Trigger* pTrigger)
 {
     return spawnSpiritAt("NP_Spirit03");
 }
 
 /* "HigardiChest04": spawn one spirit monster at NP_Spirit04. */
-// FUNCTION: WIZ8 0x004DAEF0
 bool SeaCavesHigardiChest04(Trigger* pTrigger)
 {
     return spawnSpiritAt("NP_Spirit04");
 }
 
 /* "HigardiChest05": spawn one spirit monster at NP_Spirit05. */
-// FUNCTION: WIZ8 0x004DAF30
 bool SeaCavesHigardiChest05(Trigger* pTrigger)
 {
     return spawnSpiritAt("NP_Spirit05");
@@ -60,7 +55,6 @@ bool SeaCavesHigardiChest05(Trigger* pTrigger)
 
 /* "doortomb": NPC kind 0x64's monster entry gets a fresh group member when
    its group still exists and the monster answers query 6 false. */
-// FUNCTION: WIZ8 0x004DAF70
 bool SeaCavesDoorTomb(Trigger* pTrigger)
 {
     W8NpcState* npc;

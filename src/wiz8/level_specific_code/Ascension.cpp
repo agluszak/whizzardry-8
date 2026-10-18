@@ -41,13 +41,11 @@
    the Ascension Peak level. 0x004E0560 and 0x004E05A0 are registered under
    case 0x24, the Footsteps level, which is part of the Ascension Peak block. */
 
-// GLOBAL: WIZ8 0x0068356C
 static std::optional<W8IntervalGate> g_avalanche_gate;
 
 /* Count how many of the three Ascension Peak relic items (0x242, 0x243,
    0x244) are on the party; the world-cursor "seen bodies" handler requires
    all three. */
-// FUNCTION: WIZ8 0x004DF810
 int CountAscensionPeakItems(void)
 {
     int count = 0;
@@ -70,7 +68,6 @@ int CountAscensionPeakItems(void)
    and fire the "Bodies" trigger once. */
 /* Standalone JMP thunk onto AscensionPeakInit. */
 
-// FUNCTION: WIZ8 0x004DF870
 unsigned char AscensionPeakInit(void)
 {
     glm::vec3 position;
@@ -136,7 +133,6 @@ static void spawnAlfieAt(const char* entity, int monster_id)
 
 /* Spawn the Alfie "chaos" monster (0xae) at the NP_AlfieChaos entity once the
    party carries the Astral Dominae (0x244). */
-// FUNCTION: WIZ8 0x004DFAE0
 unsigned char SpawnAlfieChaos(int)
 {
     if (!FindItemOnParty(0x244, 0, 0, 2, 0)) {
@@ -148,7 +144,6 @@ unsigned char SpawnAlfieChaos(int)
 
 /* Spawn the Alfie "life" monster (0xaf) at the NP_AlfieLife entity when it is
    present in the level. */
-// FUNCTION: WIZ8 0x004DFB40
 unsigned char SpawnAlfieLife(int)
 {
     spawnAlfieAt("NP_AlfieLife", 0xaf);
@@ -157,7 +152,6 @@ unsigned char SpawnAlfieLife(int)
 
 /* Spawn the Alfie "know" monster (0xb0) at the NP_AlfieKnow entity when it is
    present in the level. */
-// FUNCTION: WIZ8 0x004DFB80
 unsigned char SpawnAlfieKnow(int)
 {
     glm::vec3 position;
@@ -171,7 +165,6 @@ unsigned char SpawnAlfieKnow(int)
 /* Fire the "Avalanche" trigger and, when asked, update the 0x15d/0x15e
    proximity facts by measuring the camera against the ASC40 and ASC30
    positions, then arm the periodic land-shaker master. */
-// FUNCTION: WIZ8 0x004DFBC0
 void AscensionAvalanche(bool command)
 {
     RunNamedTrigger("Avalanche", -1);
@@ -198,7 +191,6 @@ void AscensionAvalanche(bool command)
 /* The land-shaker master function, registered by AscensionAvalanche. The
    lazily created one-second gate runs the LandShaker trigger once it elapses;
    -1 returns early without touching the scripted-sequence flag. */
-// FUNCTION: WIZ8 0x004DFD70
 bool AscensionLandShaker(int command)
 {
 
@@ -219,7 +211,6 @@ bool AscensionLandShaker(int command)
 
 /* The RampUp activation callback: spawn the daughter monster (0x18d) at the
    NP_DarkSavant entity. */
-// FUNCTION: WIZ8 0x004DFE60
 bool AscensionRampUp(Trigger* pTrigger)
 {
     glm::vec3 position;
@@ -232,7 +223,6 @@ bool AscensionRampUp(Trigger* pTrigger)
 
 /* Spawn the Rapax ambush and the prince once two relics are brought to the
    peak. */
-// FUNCTION: WIZ8 0x004DFEA0
 unsigned char SpawnAscensionAmbush(void)
 {
     glm::vec3 position;
@@ -297,7 +287,6 @@ static bool answerAletheides(Trigger* pTrigger, const char* active_var, int reli
 /* The ChaosBTrigger activation callback: arm ChaosATrigger, and once
    AlethidiesChaosActive is set dismiss the bound Aletheides monster and clear
    the variable. */
-// FUNCTION: WIZ8 0x004DFF90
 bool AscensionChaosBTrigger(Trigger* pTrigger)
 {
     return armAletheidesPartner("ChaosATrigger", "AlethidiesChaosActive");
@@ -307,7 +296,6 @@ bool AscensionChaosBTrigger(Trigger* pTrigger)
    the trigger is inert. Otherwise Aletheides answers, and the party carrying
    the Astral Dominae (0x244) gets the relic exchange and the chaos Alfie
    spawn. */
-// FUNCTION: WIZ8 0x004DFFF0
 bool AscensionChaosATrigger(Trigger* pTrigger)
 {
     return answerAletheides(pTrigger, "AlethidiesChaosActive", 0x244,
@@ -317,7 +305,6 @@ bool AscensionChaosATrigger(Trigger* pTrigger)
 /* The LifeBTrigger activation callback: arm LifeATrigger, and once
    AlethidiesLifeActive is set dismiss the bound Aletheides monster and clear
    the variable. */
-// FUNCTION: WIZ8 0x004E00B0
 bool AscensionLifeBTrigger(Trigger* pTrigger)
 {
     return armAletheidesPartner("LifeATrigger", "AlethidiesLifeActive");
@@ -326,7 +313,6 @@ bool AscensionLifeBTrigger(Trigger* pTrigger)
 /* The LifeATrigger activation callback: while AlethidiesLifeActive is set the
    trigger is inert. Otherwise Aletheides answers, and the party carrying the
    relic (0x242) gets the relic exchange and the life Alfie spawn. */
-// FUNCTION: WIZ8 0x004E0110
 bool AscensionLifeATrigger(Trigger* pTrigger)
 {
     return answerAletheides(pTrigger, "AlethidiesLifeActive", 0x242,
@@ -336,7 +322,6 @@ bool AscensionLifeATrigger(Trigger* pTrigger)
 /* The KnowBTrigger activation callback: arm KnowATrigger, and once
    AlethidiesKnowActive is set dismiss the bound Aletheides monster and clear
    the variable. */
-// FUNCTION: WIZ8 0x004E01D0
 bool AscensionKnowBTrigger(Trigger* pTrigger)
 {
     return armAletheidesPartner("KnowATrigger", "AlethidiesKnowActive");
@@ -345,7 +330,6 @@ bool AscensionKnowBTrigger(Trigger* pTrigger)
 /* The KnowATrigger activation callback: while AlethidiesKnowActive is set the
    trigger is inert. Otherwise Aletheides answers, and the party carrying the
    relic (0x243) gets the relic exchange and the know Alfie spawn. */
-// FUNCTION: WIZ8 0x004E0230
 bool AscensionKnowATrigger(Trigger* pTrigger)
 {
     return answerAletheides(pTrigger, "AlethidiesKnowActive", 0x243,
@@ -354,7 +338,6 @@ bool AscensionKnowATrigger(Trigger* pTrigger)
 
 /* The second RampUp activation callback: spawn the Dark Savant (0xc2) and
    Bela (0x18c) and latch AP_DSSpawned so Path1Camera knows they arrived. */
-// FUNCTION: WIZ8 0x004E02F0
 bool AscensionDarkSavantSpawn(Trigger* pTrigger)
 {
     glm::vec3 position;
@@ -374,7 +357,6 @@ bool AscensionDarkSavantSpawn(Trigger* pTrigger)
 /* The Path1Camera activation callback: once the Dark Savant is spawned, kill
    every live hostile monster, end combat and hand control to the scripted
    world action. */
-// FUNCTION: WIZ8 0x004E0390
 bool AscensionPath1Camera(Trigger* pTrigger)
 {
     unsigned int index;
@@ -400,7 +382,6 @@ bool AscensionPath1Camera(Trigger* pTrigger)
 
 /* Remove the monster bound to whichever Aletheides NPC kind (0x2d, 0x2e or
    0x2f) is present, first match wins. */
-// FUNCTION: WIZ8 0x004E0430
 void RemoveAletheides(void)
 {
     W8NpcState* npc = GetNpcStateByKind(0x2d);
@@ -431,7 +412,6 @@ void RemoveAletheides(void)
 }
 
 /* The Shaker activation callback: play the avalanche rumble. */
-// FUNCTION: WIZ8 0x004E04F0
 bool AscensionShaker(Trigger* pTrigger)
 {
     wiz8::sound::play("Data\\Sound\\Ambients\\Rumble 01.wav");

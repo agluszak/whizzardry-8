@@ -6,10 +6,8 @@
 #include "wiz8/chunk.h"
 #include "wiz8/filesystem.h"
 
-// FUNCTION: WIZ8 0x0043a4e0
 W8IntervalGate::W8IntervalGate() : W8GameTimer(1.0f, 0), m_finished(0) {}
 
-// FUNCTION: WIZ8 0x0043a500
 W8IntervalGate::W8IntervalGate(float duration, bool raw_time, bool one_shot)
     : W8GameTimer(duration, raw_time), m_finished(0)
 {
@@ -18,7 +16,6 @@ W8IntervalGate::W8IntervalGate(float duration, bool raw_time, bool one_shot)
     }
 }
 
-// FUNCTION: WIZ8 0x0043A530
 void W8IntervalGate::Arm()
 {
     m_finished = false;
@@ -26,7 +23,6 @@ void W8IntervalGate::Arm()
     m_end = m_duration + m_start;
 }
 
-// FUNCTION: WIZ8 0x0043A5D0
 unsigned int W8IntervalGate::PollElapsedIntervals()
 {
     if (m_finished) {
@@ -45,7 +41,6 @@ unsigned int W8IntervalGate::PollElapsedIntervals()
     return intervals;
 }
 
-// FUNCTION: WIZ8 0x0043a690
 bool W8IntervalGate::LoadState(W8Chunk& handle)
 try {
     if (!m_flags.one_shot) {
@@ -62,7 +57,6 @@ try {
     return false;
 }
 
-// FUNCTION: WIZ8 0x0043a770
 bool W8IntervalGate::SaveState(wiz8::File& handle)
 {
     float elapsed;

@@ -116,7 +116,6 @@ static void SetMonsterGroupScript(int species, const char* script)
 /* The fade-completion callback NpcScriptTurnToBook schedules: while either
    queued endgame stage is pending - and stage three still finds PHOONZANG -
    ENDGAME2's script notice runs the book sequence. */
-// FUNCTION: WIZ8 0x00526DF0
 static void NpcScriptQueueEndgame(void)
 {
     if (g_status.endgame2_queued != 0 ||
@@ -130,14 +129,12 @@ static void NpcScriptQueueEndgame(void)
 
 /* CameraPath4 swings the view to the ascension book; the endgame queue runs
    when the fade completes. */
-// FUNCTION: WIZ8 0x00526E40
 static void NpcScriptTurnToBook(void)
 {
     UpdateCameraPathStateByName(GetWorld(), "CameraPath4", 1);
     BeginScreenFade(0, 1, 1000, NpcScriptQueueEndgame, false, 0);
 }
 
-// FUNCTION: WIZ8 0x00526E70
 static void NpcScriptEndgameScreen(void)
 {
     SetIntroVideoIndex(5);
@@ -147,7 +144,6 @@ static void NpcScriptEndgameScreen(void)
 /* Fact 0x1bf: raise the scripted-scene gate, drop the level's transient data
    vectors, force the single-target mode, and reopen the party-member region
    sets (7 + slot, member region 0x5a + slot) for every occupied slot. */
-// FUNCTION: WIZ8 0x00529BE0
 void BeginNpcScriptedScene(void)
 {
     int party_slot;
@@ -170,7 +166,6 @@ void BeginNpcScriptedScene(void)
    tested for the three 0x1fd-0x1ff items (success leaves fact 0x1c1 at zero
    and fills the alternate-name display), and anything else falls back to
    facts 0x1c1 or 0x227. The party-member region sets reopen on the way out. */
-// FUNCTION: WIZ8 0x00529C40
 void EndScriptedPortraitPick(int party_slot)
 {
     W8ItemInstance* found;
@@ -248,7 +243,6 @@ struct W8SedexusScene {
 };
 static W8SedexusScene g_sedexus_scene;
 
-// FUNCTION: WIZ8 0x0052A070
 bool IsSedexusCaptureActive(void)
 {
     return g_sedexus_scene.capture_active;
@@ -304,7 +298,6 @@ void UpdateSedexusScene(void)
 /* Al-Sedexus takes her pick: the scripted scene opens, the lighting fades,
    and every still-living occupied slot other than the selected character is
    put under condition 0x11. */
-// FUNCTION: WIZ8 0x00529EF0
 void BeginSedexusCapture(void)
 {
     unsigned int party_slot;
@@ -328,7 +321,6 @@ void BeginSedexusCapture(void)
    released, the LezboDemonAppeared trigger variable drops, monster 0xd8 is
    spawned on np_al-adryian51 and given proximitytemplar.msf, and the two
    gate triggers fire while the lighting fades back up. */
-// FUNCTION: WIZ8 0x00529F90
 static void ResolveSedexusCapture(void)
 {
     W8MonsterGroup* group;
@@ -359,7 +351,6 @@ static void ResolveSedexusCapture(void)
    waypoint and its first member's bound NPC gets the script notice; the
    callback monster itself is parked at the origin with its position flagged
    dirty either way. */
-// FUNCTION: WIZ8 0x0052A080
 static void NpcScriptHenchmanArrives(W8Monster* monster)
 {
     glm::vec3 position;
@@ -386,7 +377,6 @@ static void NpcScriptHenchmanArrives(W8Monster* monster)
 
 /* Cycle-0x12 departure callback: park the monster at the origin and flag its
    position dirty. */
-// FUNCTION: WIZ8 0x0052A150
 static void NpcScriptHenchmanDeparted(W8Monster* monster)
 {
     glm::vec3 origin;
@@ -398,7 +388,6 @@ static void NpcScriptHenchmanDeparted(W8Monster* monster)
 
 /* Cycle-0x19 completion callback: stamping savant_hack_tick lets
    UpdateNpcEvents retire NPC group 0x1b3 fifty ticks later. */
-// FUNCTION: WIZ8 0x0052A190
 static void NpcScriptSavantHackDone(W8Monster* monster)
 {
     g_status.savant_hack_tick = int(uint32_t(w8_get_ticks()));

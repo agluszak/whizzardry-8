@@ -13,56 +13,32 @@
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
 
-// GLOBAL: WIZ8 0x0065beaf
 bool g_texture_cache_enabled;
 
-// GLOBAL: WIZ8 0x006835f4
 Font g_calligraphy_shadow_font;
-// GLOBAL: WIZ8 0x006835f8
 Font g_calligraphy_font;
-// GLOBAL: WIZ8 0x00683600
 Font g_engraved_font;
-// GLOBAL: WIZ8 0x00683608
 Font g_monster_damage_font;
-// GLOBAL: WIZ8 0x00683614
 Font g_options_detail_font;
-// GLOBAL: WIZ8 0x00683630
 Font g_wiz_text_mono_font;
-// GLOBAL: WIZ8 0x00683640
 Font g_wiz_text_font;
-// GLOBAL: WIZ8 0x00683644
 Font g_embossed_font;
-// GLOBAL: WIZ8 0x00683648
 Font g_font12point1;
-// GLOBAL: WIZ8 0x00683654
 Font g_wiz_dialog_font;
-// GLOBAL: WIZ8 0x00683658
 Font g_profession_font;
-// GLOBAL: WIZ8 0x00683660
 Font g_wiz_text_font_secondary;
-// GLOBAL: WIZ8 0x00683664
 Font g_wiz_text_bold_font;
-// GLOBAL: WIZ8 0x00683668
 Font g_font10arial;
-// GLOBAL: WIZ8 0x0068366C
 Font g_small_font_secondary;
-// GLOBAL: WIZ8 0x00683670
 Font g_button_font;
-// GLOBAL: WIZ8 0x00683674
 Font g_large_font;
-// GLOBAL: WIZ8 0x00683678
 Font g_small_font;
-// GLOBAL: WIZ8 0x0068368C
 Font g_options_title_font;
-// GLOBAL: WIZ8 0x00683690
 Font ghTinyMonoFont;
-// GLOBAL: WIZ8 0x00683694
 Font g_smfnt_font;
 
-// GLOBAL: WIZ8 0x0068EE1C
 std::array<Palette16, 15> g_font_state_palettes;
 
-// FUNCTION: WIZ8 0x004e27a0
 unsigned char InitializeMenuFonts(void)
 {
     const std::array fonts{

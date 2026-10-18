@@ -26,23 +26,18 @@
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 
-// GLOBAL: WIZ8 0x0064d8ac
 w8_ulong g_intro_video_index = 6;
-// GLOBAL: WIZ8 0x0064D8B0
 static constexpr std::array<std::string_view, 7> g_intro_video_names = {
     "Wizardry8.bik", "unaligned.bik", "Umpani.bik",  "T'Rang.bik",
     "virgin.bik",    "darkend.bik",   "sirtech.bik",
 };
 
-// FUNCTION: WIZ8 0x005AE770
 void ContinueAfterDarkEndingVideo(void)
 {
     BeginEndgameSequence();
 }
-// GLOBAL: WIZ8 0x0069C258
 static std::unique_ptr<W8BinkVideo> g_intro_video;
 
-// FUNCTION: WIZ8 0x005ae510
 bool IntroScreenEnter(void)
 {
     std::string path;
@@ -73,7 +68,6 @@ bool IntroScreenEnter(void)
 
 static void AdvanceIntroScreen(void);
 
-// FUNCTION: WIZ8 0x005ae6f0
 void IntroScreenFrame(void)
 {
 
@@ -97,7 +91,6 @@ void IntroScreenFrame(void)
     }
 }
 
-// FUNCTION: WIZ8 0x005ae780
 static void AdvanceIntroScreen(void)
 {
     std::string path;
@@ -147,7 +140,6 @@ static void AdvanceIntroScreen(void)
     EnableCursorScene();
 }
 
-// FUNCTION: WIZ8 0x005ae940
 bool IntroScreenLeave(int)
 {
     if (g_intro_video) {
@@ -157,7 +149,6 @@ bool IntroScreenLeave(int)
     return 1;
 }
 
-// FUNCTION: WIZ8 0x005AE9C0
 void SetIntroVideoIndex(w8_ulong value)
 {
     g_intro_video_index = value;

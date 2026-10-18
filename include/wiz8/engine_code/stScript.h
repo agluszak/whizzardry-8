@@ -23,7 +23,7 @@ public:
 
     int FindLabelLine(std::string_view label) const;
     int GetSourceLine(int line) const;
-    bool Load(const char* path);
+    bool Load(std::string_view path);
     void Clear();
 
     std::string name;

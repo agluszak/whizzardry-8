@@ -22,13 +22,11 @@
 
 /* The remaining audibility of a noise after distance and the per-hop region
    penalty: positive means the monster group still hears it. */
-// FUNCTION: WIZ8 0x004F0E50
 int NoiseHearingMargin(int radius, int range, int hops)
 {
     return radius + hops * -25000 - range;
 }
 
-// FUNCTION: WIZ8 0x004F0E80
 void AlertMonsterGroupsToNoise(const glm::vec3* position, int radius, int flag)
 {
     if (g_status.world_suspended) {
@@ -90,14 +88,12 @@ void AlertMonsterGroupsToNoise(const glm::vec3* position, int radius, int flag)
     }
 }
 
-// FUNCTION: WIZ8 0x004F1100
 void AlertWorldNoise(void)
 {
     glm::vec3 position = PartyNavigator()->GetPosition();
     AlertMonsterGroupsToNoise(&position, 50000, 1);
 }
 
-// FUNCTION: WIZ8 0x004F1150
 void AlertCombatNoise(bool large_radius)
 {
     if (g_status.world_suspended) {

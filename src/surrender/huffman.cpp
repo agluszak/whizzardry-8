@@ -18,7 +18,6 @@
 
 static void sortSymbolPairs(srHuffman::Sampler::Symbol* pairs, w8_ulong count);
 
-// FUNCTION: SURRENDER 0x100013D0
 void srHuffman::BitIStream::fetchCache(Sint64 position)
 {
     if (position < 0 || position > bit_end / 8)
@@ -33,7 +32,6 @@ void srHuffman::BitIStream::fetchCache(Sint64 position)
         throw std::runtime_error(SDL_GetError());
 }
 
-// FUNCTION: SURRENDER 0x100015C0
 w8_ulong srHuffman::BitIStream::getByte(Sint64 position)
 {
     const auto distance = position - cache_base;
@@ -46,7 +44,6 @@ w8_ulong srHuffman::BitIStream::getByte(Sint64 position)
     return cache[offset];
 }
 
-// FUNCTION: SURRENDER 0x10001490
 w8_ulong srHuffman::BitIStream::getDWord(Sint64 position)
 {
     const auto distance = position - cache_base;
@@ -60,7 +57,6 @@ w8_ulong srHuffman::BitIStream::getDWord(Sint64 position)
     return SDL_Swap32LE(value);
 }
 
-// FUNCTION: SURRENDER 0x10001340
 w8_ulong srHuffman::BitIStream::getWordOrLess(w8_ulong bits)
 {
     Sint64 position = bit_pos / 8;
@@ -72,7 +68,6 @@ w8_ulong srHuffman::BitIStream::getWordOrLess(w8_ulong bits)
     return (data & ((1 << (shift + bits)) - 1)) >> shift;
 }
 
-// FUNCTION: SURRENDER 0x100010A0
 srHuffman::BitIStream::BitIStream(SDL_IOStream* stream)
 {
     this->stream = stream;
@@ -89,7 +84,6 @@ void srHuffman::BitIStream::requireBits(w8_ulong bits) const
     if (bits > bit_end - bit_pos) throw std::out_of_range("Truncated Huffman bits");
 }
 
-// FUNCTION: SURRENDER 0x100010E0
 w8_ulong srHuffman::BitIStream::get(w8_ulong bits)
 {
     if (bits == 0) return 0;
@@ -108,7 +102,6 @@ w8_ulong srHuffman::BitIStream::peekByte()
     return (getDWord(bit_pos / 8) >> (bit_pos & 7)) & 0xff;
 }
 
-// FUNCTION: SURRENDER 0x10001290
 w8_ulong srHuffman::BitIStream::getBit()
 {
     requireBits(1);
@@ -118,7 +111,6 @@ w8_ulong srHuffman::BitIStream::getBit()
     return bit;
 }
 
-// FUNCTION: SURRENDER 0x10001320
 void srHuffman::BitIStream::rewind(w8_long bits)
 {
     if (bits < 0 || bits > bit_pos - bit_begin)
@@ -126,13 +118,11 @@ void srHuffman::BitIStream::rewind(w8_long bits)
     bit_pos -= bits;
 }
 
-// FUNCTION: SURRENDER 0x10001420
 srHuffman::BitOStream& srHuffman::BitOStream::operator=(const BitOStream& stream)
 {
     return *this;
 }
 
-// FUNCTION: SURRENDER 0x100016D0
 srHuffman::BitOStream::BitOStream(SDL_IOStream* stream)
 {
     this->stream = stream;
@@ -142,7 +132,6 @@ srHuffman::BitOStream::BitOStream(SDL_IOStream* stream)
     buffered = 0;
 }
 
-// FUNCTION: SURRENDER 0x10001730
 srHuffman::BitOStream::~BitOStream()
 {
     try {
@@ -151,7 +140,6 @@ srHuffman::BitOStream::~BitOStream()
     }
 }
 
-// FUNCTION: SURRENDER 0x10001760
 void srHuffman::BitOStream::put(w8_ulong value, w8_ulong bits)
 {
     for (; bits > 0; --bits) {
@@ -160,14 +148,12 @@ void srHuffman::BitOStream::put(w8_ulong value, w8_ulong bits)
     }
 }
 
-// FUNCTION: SURRENDER 0x10001790
 void srHuffman::BitOStream::flush()
 {
     flushByte();
     flushBuffer();
 }
 
-// FUNCTION: SURRENDER 0x100017B0
 void srHuffman::BitOStream::flushByte()
 {
     if (bit_count != 0) {
@@ -182,7 +168,6 @@ void srHuffman::BitOStream::flushByte()
     }
 }
 
-// FUNCTION: SURRENDER 0x100017F0
 void srHuffman::BitOStream::flushBuffer()
 {
     if (buffered != 0) {
@@ -191,7 +176,6 @@ void srHuffman::BitOStream::flushBuffer()
     }
 }
 
-// FUNCTION: SURRENDER 0x10001810
 void srHuffman::BitOStream::putBit(w8_ulong bit)
 {
     pending |= (bit & 1) << bit_count;
@@ -201,7 +185,6 @@ void srHuffman::BitOStream::putBit(w8_ulong bit)
     }
 }
 
-// FUNCTION: SURRENDER 0x10001990
 void srHuffman::Sampler::insert(w8_ulong symbol)
 {
     const auto found = table.find(symbol);
@@ -220,25 +203,21 @@ void srHuffman::Sampler::insert(w8_ulong symbol)
     }
 }
 
-// FUNCTION: SURRENDER 0x10001BA0
 w8_ulong srHuffman::Sampler::getNumSymbols() const
 {
     return static_cast<w8_ulong>(symbols.size());
 }
 
-// FUNCTION: SURRENDER 0x10001BB0
 w8_ulong srHuffman::Sampler::getSymbolValue(w8_ulong index) const
 {
     return symbols[index].symbol;
 }
 
-// FUNCTION: SURRENDER 0x10001BC0
 w8_ulong srHuffman::Sampler::getSymbolFrequency(w8_ulong index) const
 {
     return symbols[index].frequency;
 }
 
-// FUNCTION: SURRENDER 0x10001BD0
 srHuffman::Compressor::Compressor(const Sampler& sampler)
 {
     num_symbols = sampler.getNumSymbols();
@@ -268,13 +247,11 @@ srHuffman::Compressor::Compressor(const Sampler& sampler)
     }
 }
 
-// FUNCTION: SURRENDER 0x10001E40
 void srHuffman::Compressor::storeSymbolTable(BitOStream& stream)
 {
     dumpNode(stream, root);
 }
 
-// FUNCTION: SURRENDER 0x10001E60
 void srHuffman::Compressor::dumpNode(BitOStream& stream, Node* node)
 {
     while (node != 0 && node->children[0] != 0) {
@@ -288,7 +265,6 @@ void srHuffman::Compressor::dumpNode(BitOStream& stream, Node* node)
     }
 }
 
-// FUNCTION: SURRENDER 0x10001EC0
 void srHuffman::Compressor::setupPath(Node* node, w8_ulong code, w8_ulong depth)
 {
     if (node != 0) {
@@ -308,7 +284,6 @@ void srHuffman::Compressor::setupPath(Node* node, w8_ulong code, w8_ulong depth)
     }
 }
 
-// FUNCTION: SURRENDER 0x10001F90
 void srHuffman::Compressor::buildSymbolTree()
 {
     if (num_symbols != 1) {
@@ -356,7 +331,6 @@ void srHuffman::Compressor::buildSymbolTree()
     }
 }
 
-// FUNCTION: SURRENDER 0x10002080
 void srHuffman::Compressor::collectSymbols(const Sampler& sampler)
 {
     std::vector<Sampler::Symbol> pairs(num_symbols);
@@ -407,7 +381,6 @@ void srHuffman::Compressor::collectSymbols(const Sampler& sampler)
     }
 }
 
-// FUNCTION: SURRENDER 0x10002340
 srHuffman::Decompressor::Decompressor(BitIStream& stream)
 {
     next_node = 0;
@@ -437,13 +410,11 @@ srHuffman::Decompressor::Decompressor(BitIStream& stream)
     }
 }
 
-// FUNCTION: SURRENDER 0x10002500
 w8_ulong srHuffman::Decompressor::getDataCount() const
 {
     return data_count;
 }
 
-// FUNCTION: SURRENDER 0x10002510
 w8_ulong srHuffman::Decompressor::decompressSymbol()
 {
     BitIStream* stream = this->stream;
@@ -456,7 +427,6 @@ w8_ulong srHuffman::Decompressor::decompressSymbol()
     return node->symbol;
 }
 
-// FUNCTION: SURRENDER 0x10002630
 void srHuffman::Decompressor::setupSymbolTable(Symbol* node)
 {
     while (true) {
@@ -475,7 +445,6 @@ void srHuffman::Decompressor::setupSymbolTable(Symbol* node)
     node->children[1] = 0;
 }
 
-// FUNCTION: SURRENDER 0x100027F0
 static void sortSymbolPairs(srHuffman::Sampler::Symbol* pairs, w8_ulong count)
 {
     if (count <= 1) {

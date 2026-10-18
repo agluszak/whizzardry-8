@@ -753,7 +753,7 @@ TEST_CASE("Ground polygon queries return owned sorted runs beyond thirty faces",
     stModelInstance instance(nullptr);
     instance.setModel(mesh);
     world.psrMeshes = {nullptr, &instance};
-    W8Octree tree(nullptr, nullptr, &world);
+    W8Octree tree("", nullptr, &world);
     tree.m_meshCount = 2;
     tree.m_alpha_bits.assign(2, false);
     tree.m_current_regions.assign(2, false);
@@ -783,7 +783,7 @@ TEST_CASE("Ground polygon queries return owned sorted runs beyond thirty faces",
 
 TEST_CASE("Octree queries own dense results across later queries", "[geometry][octree]")
 {
-    W8Octree tree(nullptr, nullptr);
+    W8Octree tree("", nullptr);
     tree.m_spatial.m_bounds.minimum = {0, 0, 0};
     tree.m_spatial.m_bounds.maximum = {1000, 1000, 1000};
     tree.m_spatial.m_node_extent = 1000;
@@ -825,7 +825,7 @@ TEST_CASE("Octree queries own dense results across later queries", "[geometry][o
 TEST_CASE("Octree walks retain ordered crossings, early exits and coordinate rounding",
           "[geometry][octree]")
 {
-    W8Octree tree(nullptr, nullptr);
+    W8Octree tree("", nullptr);
     tree.m_spatial.m_bounds.minimum = {0, 0, 0};
     tree.m_spatial.m_node_extent = 100;
     const std::vector<glm::ivec3> diagonal{{0, 0, 0}, {1, 0, 0}, {1, 0, 1}, {1, 1, 1},
@@ -944,7 +944,7 @@ TEST_CASE("Build-tree queries own uncapped ordered results and independent state
 TEST_CASE("Swept query coordinates retain negative-cell policy and complete offsets",
           "[geometry][octree]")
 {
-    W8Octree tree(nullptr, nullptr);
+    W8Octree tree("", nullptr);
     tree.m_spatial.m_bounds.minimum = {0, 0, 0};
     tree.m_spatial.m_bounds.maximum = {100, 100, 100};
     tree.m_spatial.m_node_extent = 100;
@@ -984,12 +984,11 @@ TEST_CASE("Build bounds expand locally and region cells share typed boxes", "[ge
 TEST_CASE("Item bounds preserve local extents and report absent world items", "[geometry][item]")
 {
     W8Item item;
-    auto* rep = item.m_pRep.get();
-    rep->m_psrMesh = nullptr;
-    rep->bounds_minimum = {-5, -3, -1};
-    rep->bounds_maximum = {7, 9, 11};
-    rep->bounds_radius = 12;
-    rep->location = {100, 200, 300};
+    item.m_psrMesh = nullptr;
+    item.bounds_minimum = {-5, -3, -1};
+    item.bounds_maximum = {7, 9, 11};
+    item.bounds_radius = 12;
+    item.location = {100, 200, 300};
 
     const auto local = item.GetCachedLocalBounds();
     const auto radius = item.GetBoundsRadius();
@@ -1006,8 +1005,8 @@ TEST_CASE("Item bounds preserve local extents and report absent world items", "[
 
     const auto search = item.GetSearchPosition();
     REQUIRE(close(search, {100, 207.92f, 300}));
-    rep->bounds_minimum = glm::vec3(0);
-    rep->bounds_radius = 0;
+    item.bounds_minimum = glm::vec3(0);
+    item.bounds_radius = 0;
     REQUIRE(item.GetCachedLocalBounds().minimum == glm::vec3(0));
     REQUIRE(item.GetBoundsRadius() == 0);
     REQUIRE(local.minimum == glm::vec3(-5, -3, -1));
@@ -1065,38 +1064,21 @@ TEST_CASE("Representation transform queries preserve local and parent coordinate
     REQUIRE(local_copy == local);
 }
 
-TEST_CASE("Navigator releases replaced and cleared paths", "[geometry][navigation]")
+TEST_CASE("Navigator owns its replaceable path", "[geometry][navigation]")
 {
-    struct TrackedPath : W8PathAI {
-        explicit TrackedPath(int& releases) : releases(releases) {}
-        ~TrackedPath() override { ++releases; }
-        int& releases;
-    };
+    W8Navigator navigator;
+    auto first = std::make_unique<W8PathAI>();
+    const auto* borrowed = first.get();
+    navigator.SetPathAI(std::move(first));
+    REQUIRE(navigator.GetPathAI() == borrowed);
 
-    int releases = 0;
-    {
-        W8Navigator navigator;
-        auto first = std::make_unique<TrackedPath>(releases);
-        const auto* borrowed = first.get();
-        navigator.SetPathAI(std::move(first));
-        REQUIRE(releases == 0);
-        REQUIRE(navigator.GetPathAI() == borrowed);
+    navigator.SetNavigationMode(1);
+    REQUIRE(navigator.GetPathAI()->animated);
 
-        navigator.SetPathAI(std::make_unique<TrackedPath>(releases));
-        REQUIRE(releases == 1);
-        navigator.SetNavigationMode(1);
-        REQUIRE(releases == 2);
-        REQUIRE(navigator.GetPathAI()->animated);
-        navigator.SetPathAI(std::make_unique<TrackedPath>(releases));
-        navigator.SetPathAI(nullptr);
-        REQUIRE(releases == 3);
-        REQUIRE(navigator.GetPathAI() == nullptr);
-        navigator.SetPathAI(nullptr);
-        REQUIRE(releases == 3);
-
-        navigator.SetPathAI(std::make_unique<TrackedPath>(releases));
-    }
-    REQUIRE(releases == 4);
+    navigator.SetPathAI(std::make_unique<W8PathAI>());
+    REQUIRE(navigator.GetPathAI() != nullptr);
+    navigator.SetPathAI(nullptr);
+    REQUIRE(navigator.GetPathAI() == nullptr);
 }
 
 TEST_CASE("Light assignment replaces owned definitions and copies paths independently",
@@ -1165,9 +1147,9 @@ TEST_CASE("Movement queries return velocity and waypoint snapshots", "[geometry]
 TEST_CASE("Prop position and delta queries preserve animation stepping", "[geometry][animation]")
 {
     W8Prop prop;
-    prop.Rep()->animation.emplace();
-    auto& animation = *prop.Rep()->animation;
-    prop.Rep()->location = {10, 20, 30};
+    prop.animation.emplace();
+    auto& animation = *prop.animation;
+    prop.location = {10, 20, 30};
     prop.animation_position = {3, 5, 7};
     prop.previous_animation_position = {1, 2, 3};
     const auto static_position = prop.GetPosition();
@@ -1175,23 +1157,23 @@ TEST_CASE("Prop position and delta queries preserve animation stepping", "[geome
     animation.path_lists = true;
     REQUIRE(prop.GetPosition() == prop.animation_position);
     REQUIRE(static_position == glm::vec3(10, 20, 30));
-    prop.Rep()->animation_behaviour = W8_ANIMATION_PLAY_ONCE;
-    prop.Rep()->frame_direction = W8_ANIMATION_FORWARD;
-    prop.Rep()->first_frame = 0;
-    prop.Rep()->last_frame = 3;
-    prop.Rep()->subcycle = 1;
+    prop.animation_behaviour = W8_ANIMATION_PLAY_ONCE;
+    prop.frame_direction = W8_ANIMATION_FORWARD;
+    prop.first_frame = 0;
+    prop.last_frame = 3;
+    prop.subcycle = 1;
     const auto delta = prop.GetDelta();
     REQUIRE(delta == glm::vec3(2, 3, 4));
-    REQUIRE(prop.Rep()->subcycle == 1);
-    prop.Rep()->subcycle = 3;
+    REQUIRE(prop.subcycle == 1);
+    prop.subcycle = 3;
     REQUIRE(prop.GetDelta() == glm::vec3(0, 0, 0));
-    prop.Rep()->animation_behaviour = W8_ANIMATION_REPEAT;
-    prop.Rep()->frame_method = W8_ANIMATION_WRAP;
+    prop.animation_behaviour = W8_ANIMATION_REPEAT;
+    prop.frame_method = W8_ANIMATION_WRAP;
     REQUIRE(prop.GetDelta() == glm::vec3(0, 0, 0));
-    prop.Rep()->frame_method = W8_ANIMATION_PING_PONG;
+    prop.frame_method = W8_ANIMATION_PING_PONG;
     REQUIRE(prop.GetDelta() == delta);
-    prop.Rep()->frame_direction = W8_ANIMATION_REVERSE;
-    prop.Rep()->subcycle = 1;
+    prop.frame_direction = W8_ANIMATION_REVERSE;
+    prop.subcycle = 1;
     REQUIRE(prop.GetDelta() == delta);
 }
 
@@ -1244,14 +1226,14 @@ TEST_CASE("Prop bounds aggregate frames without changing the current frame",
           "[geometry][animation]")
 {
     W8Prop prop;
-    prop.Rep()->animation.emplace();
-    auto& animation = *prop.Rep()->animation;
+    prop.animation.emplace();
+    auto& animation = *prop.animation;
     animation.path_lists = true;
     animation.frame_count = 3;
     animation.frame_bounds = {{true, {-4, -2, -8}, {3, 5, 6}},
                               {true, {-1, -9, -3}, {12, 2, 5}},
                               {true, {-3, -5, -6}, {4, 8, 9}}};
-    prop.Rep()->subcycle = 1;
+    prop.subcycle = 1;
     const auto center = prop.GetCenterPosition();
     REQUIRE(center);
     REQUIRE(*center == glm::vec3(5.5f, -3.5f, 1));
@@ -1259,10 +1241,10 @@ TEST_CASE("Prop bounds aggregate frames without changing the current frame",
     REQUIRE(bounds);
     REQUIRE(bounds->minimum == glm::vec3(-4, -9, -8));
     REQUIRE(bounds->maximum == glm::vec3(12, 8, 9));
-    REQUIRE(prop.Rep()->subcycle == 1);
+    REQUIRE(prop.subcycle == 1);
     animation.frame_bounds[2].known = false;
     REQUIRE_FALSE(prop.GetBounds());
-    REQUIRE(prop.Rep()->subcycle == 1);
+    REQUIRE(prop.subcycle == 1);
     animation.frame_bounds[1].known = false;
     REQUIRE_FALSE(prop.GetFrameBounds());
     REQUIRE_FALSE(prop.GetCenterPosition());
@@ -1885,7 +1867,7 @@ TEST_CASE("Prop bounds return complete boxes and register inclusive octree cells
 {
     GDProp empty;
     REQUIRE(empty.computeBounds().minimum == glm::vec3(0));
-    W8Octree tree(nullptr, nullptr);
+    W8Octree tree("", nullptr);
     auto mesh = std::make_shared<stMeshModel>(1, 3);
     mesh->getVertexLoc()[0] = {-2, -3, 4};
     mesh->getVertexLoc()[1] = {5, 6, -7};
@@ -2424,14 +2406,14 @@ TEST_CASE("Positional sound copies register each live node once", "[scene][sound
 {
     const auto initial = g_sound3d_instances.size();
     {
-        stSound3D source("source.wav", nullptr);
-        stSound3D assigned("assigned.wav", nullptr);
+        stSound3D source("source.wav");
+        stSound3D assigned("assigned.wav");
         assigned = source;
         assigned = source;
         stSound3D copied(source);
-        auto owned = std::make_unique<stSound3D>("service.wav", nullptr);
+        auto owned = std::make_unique<stSound3D>("service.wav");
         auto* borrowed = Retain3DSound(std::move(owned));
-        REQUIRE(borrowed->getParent() == nullptr);
+        REQUIRE(borrowed != nullptr);
         REQUIRE(g_sound3d_instances.size() == initial + 4);
         Release3DSounds();
         Release3DSounds();

@@ -31,7 +31,6 @@ void StopNpcVoice(W8NpcSpeech& speech)
     speech.gap_track = {};
 }
 
-// FUNCTION: WIZ8 0x00525E60
 int ComputePortraitMessageDuration(std::string_view text)
 {
     return static_cast<int>(wiz8::text::to_utf16(text).size() * 0x3c + 2000);

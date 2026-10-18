@@ -24,7 +24,6 @@ struct MGSKeyBinding {
     std::uint16_t unmapped_retail_key = 0;
 };
 
-// VTABLE: WIZ8 0x005ee8f0
 class MGSKeyboard {
 public:
     int FindBinding(W8MGSCommand command) const;

@@ -66,7 +66,6 @@ void DrawPortraitEffectIcon(unsigned int party_slot);
 
 /* Dead-character portrait catalog ids, two per race - the small
    party-strip image at [race][0] and the large header portrait at [race][1]. */
-// GLOBAL: WIZ8 0x006488D0
 int g_dead_portrait_catalog_ids[W8_RACE_COUNT][2] = {
     {20, 31}, {20, 31}, {20, 31}, {20, 31}, {20, 31}, {20, 31}, {23, 34}, {21, 32},
     {22, 33}, {25, 36}, {24, 35}, {27, 38}, {26, 37}, {28, 39}, {29, 40}, {30, 41},
@@ -75,13 +74,11 @@ int g_dead_portrait_catalog_ids[W8_RACE_COUNT][2] = {
 /* Empty-hand catalog ids when a primary hand slot is bare. Each race
    stores the right-hand id at +0 and the left-hand id at +4 (retail also reaches
    the left id through 0x00649DD8). */
-// GLOBAL: WIZ8 0x00649DD4
 int g_empty_hand_catalog_ids[32] = {
     103, 102, 103, 102, 103, 102, 103, 102, 103, 102, 105, 104, 109, 108, 109, 108,
     107, 106, 107, 106, 107, 106, 107, 106, 109, 108, 103, 102, 109, 108, 111, 110,
 };
 
-// GLOBAL: WIZ8 0x0069B940
 namespace {
 struct PortraitButtons {
     UiLayer input{UiLayerOrder::PortraitButtons};
@@ -101,12 +98,10 @@ struct ConditionIcons {
 };
 std::unique_ptr<ConditionIcons> condition_icons;
 }
-// GLOBAL: WIZ8 0x0064C664
 char s_general_magic_sound[] = "Data\\Spells\\Sounds\\GeneralMagic.wav";
 
 /* Refresh cached HP/stamina/spell portrait bar widths; dirty + redraw when
    any slot's displayed fraction (or numeric HP) changes. */
-// FUNCTION: WIZ8 0x0059A3A0
 void SyncPartyPortraitVitalsBars(void)
 {
     int slot;
@@ -182,7 +177,6 @@ void SyncPartyPortraitVitalsBars(void)
    0x92-catalog animation when the character's hit points are gone, a forced
    portrait refresh defers the frame to -1, and a still-playing effect icon
    defers it likewise. */
-// FUNCTION: WIZ8 0x0059AC40
 void RecordCharacterDamage(int party_slot, unsigned int amount)
 {
     bool splat_started = false;
@@ -238,7 +232,6 @@ void RecordCharacterDamage(int party_slot, unsigned int amount)
    damage total in bold text for the first six frames. Frame -1 means the
    splat is deferred behind a portrait refresh or a still-playing effect
    icon. */
-// FUNCTION: WIZ8 0x0059ADD0
 static void DrawDamageSplatOverlay(unsigned int party_slot)
 {
     W8MonsterManagerEntry* entry = &gXStatus.monster_manager_entries[party_slot];
@@ -285,7 +278,6 @@ static void DrawDamageSplatOverlay(unsigned int party_slot)
    frame -1 is the deferred-start state and draws nothing; the icon is skipped
    while a pending portrait refresh sits under another overlay (the settings
    mode parked off PORTRAITS with the slot's refresh flag set). */
-// FUNCTION: WIZ8 0x0059B0F0
 void DrawPortraitEffectIcon(unsigned int party_slot)
 {
     int image = gXStatus.monster_manager_entries[party_slot].effect_icon_frame;
@@ -316,7 +308,6 @@ void DrawPortraitEffectIcon(unsigned int party_slot)
 
 /* Advance the per-slot portrait FX counters on a 100ms clock and request a
    redraw when a visible slot's animation frame advances. */
-// FUNCTION: WIZ8 0x0059B1A0
 void TickPartyPortraitFx(void)
 {
     unsigned char slot;
@@ -365,7 +356,6 @@ void TickPartyPortraitFx(void)
 /* Clear each occupied slot's damage-splat and effect-icon portrait overlays
    and rearm the shared FX clock; the main-game screen leave runs it so a
    pending animation does not survive the screen transition. */
-// FUNCTION: WIZ8 0x0059B270
 void ResetPartyPortraitFx(void)
 {
     unsigned char slot;
@@ -392,7 +382,6 @@ void ResetPartyPortraitFx(void)
    alternate while the slot is the hovered combat slot, then the can't-act
    badge or the party-member target marker. The slot currently acting is drawn
    by the action panel instead. */
-// FUNCTION: WIZ8 0x0059B720
 void RedrawCombatPortraits(void)
 {
     int portrait_x;
@@ -445,7 +434,6 @@ void RedrawCombatPortraits(void)
 
 /* Toggle numeric hit-point display on the party portraits and invalidate all
    eight slot masks so the new mode repaints everywhere. */
-// FUNCTION: WIZ8 0x0059AA30
 void ToggleNumericHitPoints(void)
 {
     g_settings.numeric_hit_points = g_settings.numeric_hit_points == 0;
@@ -458,7 +446,6 @@ void ToggleNumericHitPoints(void)
    panel corner, the band's two x edges (their order swaps with the column),
    the grid row and the column pixel. 'adjust' applies the compact-display
    shift used when the party display is a single column. */
-// FUNCTION: WIZ8 0x0059AA60
 void GetPartySlotMenuAnchor(int party_slot, int* menu_x, int* menu_y, int* band_menu_edge,
                             int* band_portrait_edge, int* grid_row, int* column_x, int adjust)
 {
@@ -551,7 +538,6 @@ void GetPartySlotMenuAnchor(int party_slot, int* menu_x, int* menu_y, int* band_
 
 /* Repaint one party slot's HP, stamina and optional spell-point bars beside
    the portrait, including numeric HP text when that option is enabled. */
-// FUNCTION: WIZ8 0x0059A540
 void RedrawPartyPortraitBars(unsigned int party_slot, bool slot_enabled)
 {
     W8MonsterManagerEntry* entry = &gXStatus.monster_manager_entries[party_slot];
@@ -636,7 +622,6 @@ void RedrawPartyPortraitBars(unsigned int party_slot, bool slot_enabled)
     entry->portrait_stats_dirty = false;
 }
 
-// FUNCTION: WIZ8 0x0059AF40
 void StageMonsterCastIcon(unsigned int party_slot, W8SpellRealm realm, bool alternate, int spell_id)
 {
     if (g_current_screen_state.id != W8_SCREEN_MAIN_GAME) {
@@ -692,7 +677,6 @@ void StageMonsterCastIcon(unsigned int party_slot, W8SpellRealm realm, bool alte
     entry->effect_icon_frame = -1;
 }
 
-// FUNCTION: WIZ8 0x005993A0
 bool PreparePartyPortraitOverlay(unsigned int party_slot, unsigned int left, unsigned int top)
 {
     if (gXStatus.fNpcDialogueMode && (party_slot & 1) != 0 &&
@@ -727,7 +711,6 @@ bool PreparePartyPortraitOverlay(unsigned int party_slot, unsigned int left, uns
 /* Repaint one party-slot portrait band: frame, live or dead portrait, item
    hands, HP/stamina chrome, labels, condition/enchantment icons, and any
    active overlay callees for that slot. */
-// FUNCTION: WIZ8 0x005994C0
 void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool overlay_ready,
                                 bool slot_enabled)
 {
@@ -1091,7 +1074,6 @@ portrait_fx:
     }
 }
 
-// FUNCTION: WIZ8 0x0059A110
 void ShadeStatusBarGap(int length, int left, int top)
 {
     if (length != 0) {

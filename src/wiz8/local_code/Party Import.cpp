@@ -33,11 +33,8 @@
 /* Retail Local Code\Party Import.cpp: converts imported Wizardry 7
    characters into the Wizardry 8 layout. */
 
-#define PARTY_IMPORT_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Party Import.cpp"
-
 /* The three bonus attributes each profession grants on top of the imported
    values. */
-// GLOBAL: WIZ8 0x00614FC8
 static int g_profession_primary_attributes[15][3] = {
     {W8_ATTRIBUTE_STRENGTH, W8_ATTRIBUTE_DEXTERITY, W8_ATTRIBUTE_VITALITY},
     {W8_ATTRIBUTE_STRENGTH, W8_ATTRIBUTE_DEXTERITY, W8_ATTRIBUTE_PIETY},
@@ -57,7 +54,6 @@ static int g_profession_primary_attributes[15][3] = {
 };
 
 /* The starting spells LearnSpell grants each profession on import. */
-// GLOBAL: WIZ8 0x0062A5F8
 static int g_profession_starting_spells[15][6] = {
     {0, 0, 0, 0, 0, 0},   {6, 2, 0, 0, 0, 0},     {6, 13, 0, 0, 0, 0},  {6, 1, 0, 0, 0, 0},
     {5, 12, 0, 0, 0, 0},  {1, 7, 0, 0, 0, 0},     {6, 10, 0, 0, 0, 0},  {0, 0, 0, 0, 0, 0},
@@ -82,16 +78,12 @@ static int FindItemByLegacyNumber(short item_number)
 /* The Wizardry 7 import file state filled by the loader below: the record
    count, whether the save carries an ending selector, that selector's two
    nibbles decoded, the ninety-six flag bits and the character records. */
-// GLOBAL: WIZ8 0x0068DE48
 int g_import_character_count;
 
-// GLOBAL: WIZ8 0x0068DE50
 int g_wiz7_ending;
 
-// GLOBAL: WIZ8 0x0068DE58
 unsigned char g_import_flags[0x60];
 
-// GLOBAL: WIZ8 0x0068DEB8
 W8Wiz7Character g_imported_characters[6];
 
 /* Load a Wizardry 7 save for import: a 0x34c-byte header (two record-skip
@@ -101,7 +93,6 @@ W8Wiz7Character g_imported_characters[6];
    sections, then the character records. Every record must carry the previous
    one's tag byte. On success the ending and difficulty nibbles decode from
    the shared tag and the flag bits unpack into g_import_flags. */
-// FUNCTION: WIZ8 0x00558D00
 unsigned char LoadWizardry7ImportFile(std::string_view path)
 try {
     if (path.empty()) return 0;
@@ -161,7 +152,6 @@ try {
    mark the imported-party path and convert each record into a regular member.
    Reports 1 when the file does not load or a slot cannot take the character,
    2 when the ending selector holds the value three, 0 otherwise. */
-// FUNCTION: WIZ8 0x00558C40
 unsigned char ImportWizardry7Party(std::string_view path)
 {
     W8Character scratch;
@@ -185,7 +175,6 @@ unsigned char ImportWizardry7Party(std::string_view path)
     return 1;
 }
 
-// FUNCTION: WIZ8 0x005590B0
 void ImportWizardry7Character(W8Character* character, W8Wiz7Character* imported)
 {
     W8Profession profession;
@@ -283,7 +272,6 @@ void ImportWizardry7Character(W8Character* character, W8Wiz7Character* imported)
     }
 }
 
-// FUNCTION: WIZ8 0x005592D0
 void ConvertAttribute(W8Character* character, const W8Wiz7Character* imported)
 {
     unsigned int imported_values[7] = {0};
@@ -323,8 +311,7 @@ void ConvertAttribute(W8Character* character, const W8Wiz7Character* imported)
             case 6:
                 break;
             default:
-                srAssertFail("FALSE", PARTY_IMPORT_CPP, 0x462,
-                             "ConvertAttribute: ERROR - Invalid attribute");
+                Fail("FALSE", "ConvertAttribute: ERROR - Invalid attribute");
             }
             imported_values[mapped] = imported->attributes[i];
             switch (i) {
@@ -349,8 +336,7 @@ void ConvertAttribute(W8Character* character, const W8Wiz7Character* imported)
             case 6:
                 break;
             default:
-                srAssertFail("FALSE", PARTY_IMPORT_CPP, 0x462,
-                             "ConvertAttribute: ERROR - Invalid attribute");
+                Fail("FALSE", "ConvertAttribute: ERROR - Invalid attribute");
             }
             total += imported_values[mapped];
         }
@@ -417,7 +403,6 @@ void ConvertAttribute(W8Character* character, const W8Wiz7Character* imported)
     character->level_band_base = 1;
 }
 
-// FUNCTION: WIZ8 0x005595D0
 void GrantStartingSpells(W8Character* character, const W8Wiz7Character*)
 {
     W8LearnedSpellState scratch;
@@ -447,7 +432,6 @@ void GrantStartingSpells(W8Character* character, const W8Wiz7Character*)
     BuildLearnedSpellState(&scratch, character);
 }
 
-// FUNCTION: WIZ8 0x00559650
 void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
 {
     W8ItemInstance item;
@@ -601,7 +585,6 @@ void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
 
 /* Retail fell through the failed assert and read `imported->skills` by
    whatever `mapped` held; the recovery keeps that read. */
-// FUNCTION: WIZ8 0x00559BC0
 unsigned int ConvertSkill(W8Skill skill_id, W8Character* character, const W8Wiz7Character* imported)
 {
     int mapped;
@@ -789,13 +772,12 @@ unsigned int ConvertSkill(W8Skill skill_id, W8Character* character, const W8Wiz7
             }
             break;
         default:
-            srAssertFail("FALSE", PARTY_IMPORT_CPP, 0x56c,
-                         "ConvertSkill: ERROR - Invalid NEW skill");
+            Fail("FALSE", "ConvertSkill: ERROR - Invalid NEW skill");
             break;
         }
         break;
     default:
-        srAssertFail("FALSE", PARTY_IMPORT_CPP, 0x4b3, "ConvertSkill: ERROR - Invalid skill");
+        Fail("FALSE", "ConvertSkill: ERROR - Invalid skill");
         break;
     }
     if (!routed) {

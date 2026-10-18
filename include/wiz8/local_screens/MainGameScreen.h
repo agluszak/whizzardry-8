@@ -131,7 +131,6 @@ private:
 };
 
 /* The NPC dialogue keyword transcript. */
-// VTABLE: WIZ8 0x005ee920
 class W8NpcDialogueTextController {
 public:
     W8NpcDialogueTextController();
@@ -399,7 +398,6 @@ void OpenAutomapScreen(void);
    portrait mode, and disable that slot's portrait region set. */
 void ClearPortraitRefreshSlot(int slot);
 /* Clear whatever the screen was waiting on and open the options screen. */
-// FUNCTION: WIZ8 0x00565970
 inline void ClearScreenWait(void)
 {
     g_pending_screen_state.mode = 0;

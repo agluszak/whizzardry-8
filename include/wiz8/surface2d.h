@@ -11,7 +11,6 @@ struct SDL_Surface;
 
 class srGERD;
 
-// VTABLE: WIZ8 0x005EC748 stSurface2D
 class stSurface2D : public srNode {
 public:
     stSurface2D(std::shared_ptr<SDL_Surface> surface, int width, int height, srNode* parent,

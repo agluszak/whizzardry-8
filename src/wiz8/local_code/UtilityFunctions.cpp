@@ -24,7 +24,6 @@
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 
-// FUNCTION: WIZ8 0x00517950
 void SetDice(W8Dice* dice, unsigned char count, unsigned char sides, short base)
 {
     dice->count = count;
@@ -32,7 +31,6 @@ void SetDice(W8Dice* dice, unsigned char count, unsigned char sides, short base)
     dice->base = base;
 }
 
-// FUNCTION: WIZ8 0x00517970
 int RollDice(const W8Dice* dice)
 {
     unsigned int roll;
@@ -54,7 +52,6 @@ int RollDice(const W8Dice* dice, unsigned int rolls)
     return result;
 }
 
-// FUNCTION: WIZ8 0x005179b0
 int IntegerPower(int base, unsigned int exponent)
 {
     int result;
@@ -65,7 +62,6 @@ int IntegerPower(int base, unsigned int exponent)
     return result;
 }
 
-// FUNCTION: WIZ8 0x00517af0
 std::string FormatUnsignedIntegerWithCommas(unsigned int value)
 {
     auto text = std::to_string(value);
@@ -76,7 +72,6 @@ std::string FormatUnsignedIntegerWithCommas(unsigned int value)
     return text;
 }
 
-// FUNCTION: WIZ8 0x00517bd0
 char* TitleCaseString(char* string)
 {
     bool capitalize = true;
@@ -110,12 +105,10 @@ char* TitleCaseString(char* string)
     return string;
 }
 
-// FUNCTION: WIZ8 0x00517c60
 float NormalizeAngle(float angle)
 {
     if (!std::isfinite(angle)) {
-        srAssertFail("std::isfinite(flAngle)",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\UtilityFunctions.cpp", 0x13b, 0);
+        Fail("std::isfinite(flAngle)");
     }
 
     angle += 6.2831852;
@@ -128,7 +121,6 @@ float NormalizeAngle(float angle)
     return angle;
 }
 
-// FUNCTION: WIZ8 0x00517ce0
 float ShortestAngleDistance(float first, float second)
 {
     float forward = NormalizeAngle(first - second);
@@ -137,14 +129,12 @@ float ShortestAngleDistance(float first, float second)
     return forward < backward ? forward : backward;
 }
 
-// FUNCTION: WIZ8 0x00517e20
 DesignRect UnionScreenRects(const DesignRect& first, const DesignRect& second)
 {
     return {std::min(first.left, second.left), std::min(first.top, second.top),
             std::max(first.right, second.right), std::max(first.bottom, second.bottom)};
 }
 
-// FUNCTION: WIZ8 0x00517e70
 bool ScreenPointInRect(const DesignRect* rect, const SDL_Point* point)
 {
     if (rect == nullptr || point == nullptr) return false;
@@ -153,21 +143,18 @@ bool ScreenPointInRect(const DesignRect* rect, const SDL_Point* point)
     return SDL_PointInRect(point, &bounds);
 }
 
-// FUNCTION: WIZ8 0x00517ea0
 void StripMonsterNameSuffix(std::string& name)
 {
     if (const auto suffix = name.find('#'); suffix != std::string::npos) name.resize(suffix);
 }
 
-// FUNCTION: WIZ8 0x00517ec0
 unsigned int CharacterPointerToPartySlot(const W8Character* character)
 {
     unsigned int slot;
     const W8Character* party_character;
 
     if (!character->fInParty) {
-        srAssertFail("pPC->fInParty", "C:\\Projects\\Wizardry 8\\Local Code\\UtilityFunctions.cpp",
-                     0x1c8, "PCPtrToPCSlot: ERROR - called for non-party character");
+        Fail("pPC->fInParty", "PCPtrToPCSlot: ERROR - called for non-party character");
     }
 
     party_character = g_status.buffers.Char;
@@ -177,13 +164,11 @@ unsigned int CharacterPointerToPartySlot(const W8Character* character)
         }
     }
 
-    srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Local Code\\UtilityFunctions.cpp", 0x1d1,
-                 fmt::format("PCPtrToPCSlot: ERROR - no match on ptr {}",
-                             static_cast<const void*>(character)));
+    Fail("FALSE", fmt::format("PCPtrToPCSlot: ERROR - no match on ptr {}",
+                              static_cast<const void*>(character)));
     return 0;
 }
 
-// FUNCTION: WIZ8 0x00517f30
 bool IsPartyCharacterPointer(const W8Character* character)
 {
     W8Character* party_character = g_status.buffers.Char;
@@ -198,19 +183,16 @@ bool IsPartyCharacterPointer(const W8Character* character)
     return false;
 }
 
-// FUNCTION: WIZ8 0x00517f60
 void AdjustByteByPercent(unsigned char* value, unsigned int percent)
 {
     *value = static_cast<unsigned char>(((percent + 100) * *value + 50) / 100);
 }
 
-// FUNCTION: WIZ8 0x00517f90
 void AdjustIntegerByPercent(unsigned int* value, unsigned int percent)
 {
     *value += *value * percent / 100;
 }
 
-// FUNCTION: WIZ8 0x00517FB0
 unsigned int GetRandomPartySlots(int require_primary, int require_secondary,
                                  unsigned int excluded_slot, unsigned int* selected,
                                  unsigned int count, bool skip_first_two)
@@ -273,7 +255,6 @@ unsigned int GetRandomPartySlots(int require_primary, int require_secondary,
     return found;
 }
 
-// FUNCTION: WIZ8 0x00518150
 int GetRandomCharacter(int require_primary, int require_secondary, int excluded_slot,
                        signed char excluded_gender)
 {
@@ -327,7 +308,6 @@ retry:
     return -1;
 }
 
-// FUNCTION: WIZ8 0x00518230
 int GetNextCharacter(int require_primary, int require_secondary, int previous_slot)
 {
     int start_slot = (previous_slot + 1) % 8;
@@ -369,14 +349,12 @@ retry:
     return -1;
 }
 
-// FUNCTION: WIZ8 0x005182e0
 void DebugMessage(int channel, std::string_view message)
 {
     (void)channel;
     (void)message; // The recovered diagnostic sink is inactive.
 }
 
-// FUNCTION: WIZ8 0x00518310
 int RPCPtrToPCSlot(const W8MonsterManagerEntry* rpc)
 {
     int slot = 0;
@@ -388,13 +366,11 @@ int RPCPtrToPCSlot(const W8MonsterManagerEntry* rpc)
         }
         ++slot;
     }
-    srAssertFail(
-        "FALSE", "C:\\Projects\\Wizardry 8\\Local Code\\UtilityFunctions.cpp", 0x385,
-        fmt::format("RPCPtrToPCSlot: ERROR - no match on ptr {}", static_cast<const void*>(rpc)));
+    Fail("FALSE",
+         fmt::format("RPCPtrToPCSlot: ERROR - no match on ptr {}", static_cast<const void*>(rpc)));
     return 0;
 }
 
-// FUNCTION: WIZ8 0x005184b0
 void FreeStringTable(void)
 {
     ReleaseLocalizedStrings();

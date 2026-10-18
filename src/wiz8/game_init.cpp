@@ -37,7 +37,6 @@
  * recovered elsewhere keep theirs.
  */
 
-// FUNCTION: WIZ8 0x004e2f40
 unsigned char InitializeGame(size_t& initialized_screens)
 {
     const auto version = FormatVersionBanner(true, true, true);

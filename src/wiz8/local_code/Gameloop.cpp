@@ -44,16 +44,11 @@
 
 /* GameloopExit names this unit; GameLoop is placed with that companion. */
 
-// GLOBAL: WIZ8 0x0068ec78
 W8ScreenStateRuntime g_current_screen_state;
-// GLOBAL: WIZ8 0x0068ed10
 W8ScreenStateRuntime g_pending_screen_state;
-// GLOBAL: WIZ8 0x0068edac
 bool g_screen_return_requested;
-// GLOBAL: WIZ8 0x0068eda8
 std::vector<W8ScreenStateRuntime> g_screen_return_stack;
 
-// GLOBAL: WIZ8 0x00647bc8
 W8ScreenStateHandlers g_screen_handlers[W8_SCREEN_COUNT] = {
     {.enter = IntroScreenEnter, .frame = IntroScreenFrame, .leave = IntroScreenLeave},
     {.enter = MainMenuScreenEnter, .frame = MainMenuScreenFrame, .leave = MainMenuScreenLeave},
@@ -81,12 +76,9 @@ W8ScreenStateHandlers g_screen_handlers[W8_SCREEN_COUNT] = {
      .finalize = JournalScreenFinalize},
     {.enter = ExitScreenEnter, .frame = ExitScreenFrame, .leave = MainMenuScreenLeave},
 };
-// GLOBAL: WIZ8 0x00647bc0
 W8ScreenId g_previous_screen_id = W8_SCREEN_NONE;
-// GLOBAL: WIZ8 0x00647bc4
 W8ScreenId g_suspended_screen_id = W8_SCREEN_NONE;
 
-// FUNCTION: WIZ8 0x004e3290
 void ShutdownGame(size_t initialized_screens, bool save_configuration)
 {
     int index;
@@ -128,7 +120,6 @@ static bool EnterScreen(W8ScreenId state)
     return !enter || enter();
 }
 
-// FUNCTION: WIZ8 0x004e3340
 void GameLoop(void)
 {
     W8ScreenId state;
@@ -197,7 +188,6 @@ void GameLoop(void)
     g_screen_handlers[state].frame();
 }
 
-// FUNCTION: WIZ8 0x004e34b0
 void GameloopExit()
 {
     // Complete voice events before leaving gameplay unloads its UI.

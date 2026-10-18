@@ -18,7 +18,6 @@ extern const unsigned int g_W8TextBufferAlignTop;
 extern const unsigned int g_W8TextBufferAlignBottom;
 extern const unsigned int g_W8TextBufferNoWrap;
 
-// VTABLE: WIZ8 0x005ed5b8
 class W8TextBuffer {
 public:
     friend class W8DialogTextArea;

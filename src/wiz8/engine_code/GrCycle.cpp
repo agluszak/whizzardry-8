@@ -66,10 +66,6 @@ constexpr float kLodLevelZeroExitThreshold = 0.30000001192092896f;
 #define BEHAVIOUR_FIRST W8_ANIMATION_PLAY_ONCE
 #define BEHAVIOUR_LAST W8_ANIMATION_NEVER_STOP
 
-// VTABLE: WIZ8 0x005ece78 W8GrObject
-// VTABLE: WIZ8 0x005eceb8 W8Navigator
-// class W8GrCycle
-// GLOBAL: WIZ8 0x0060da88
 static bool g_camera_shake_enabled = true;
 ShakeDefinition::ShakeDefinition(float duration, bool preset, float intensity, float distance_cap,
                                  const glm::vec3* position)
@@ -204,22 +200,21 @@ void UpdateShakeEffects()
 /* Build the two paths used while reading a .mon resource, verify its one-byte
    version, and hand the open file plus its resource context to the typed cycle
    reader. */
-// FUNCTION: WIZ8 0x004A67E0
 bool LoadGrCycle(std::string_view mon_name, W8GrCycle* cycle, int cycle_index, int value,
-                 const char* directory, unsigned char object_type, const char* bitmap_directory)
+                 std::string_view directory, unsigned char object_type,
+                 std::string_view bitmap_directory)
 try {
     W8ReadLevelInfo info;
     unsigned char version;
     bool success;
 
     if (mon_name.empty() || cycle == 0) {
-        srAssertFail("pacName && ppCycle", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp",
-                     0x176, 0);
+        Fail("pacName && ppCycle");
     }
 
     const auto mon_path = fmt::format("{}/{}.mon", directory, mon_name);
-    const auto bitmap_path =
-        bitmap_directory ? std::string(bitmap_directory) : fmt::format("{}/Bitmaps", directory);
+    const auto bitmap_path = bitmap_directory.empty() ? fmt::format("{}/Bitmaps", directory)
+                                                      : std::string(bitmap_directory);
 
     std::unique_ptr<wiz8::File> handle = [&]() {
         try {
@@ -246,9 +241,8 @@ try {
 
     handle.reset();
     if (!success) {
-        srAssertFail(
-            "fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x198,
-            fmt::format("GrCycle::Read: ERROR - Read {} in {} failed", mon_path, bitmap_path));
+        Fail("fSuccess",
+             fmt::format("GrCycle::Read: ERROR - Read {} in {} failed", mon_path, bitmap_path));
     }
     return success;
 } catch (const std::exception&) {
@@ -259,7 +253,6 @@ try {
    representation payload.  A particle attachment keeps the source node plus
    its local transform; the live cycle owns the attachment record and vector,
    while the particle node remains scene-owned. */
-// FUNCTION: WIZ8 0x004A6970
 unsigned char ReadGrCycleData(W8ReadLevelInfo* info, W8GrCycle* cycle, int cycle_index, int value,
                               unsigned char object_type)
 try {
@@ -268,7 +261,7 @@ try {
     unsigned char success = 0;
 
     if (info == 0) {
-        srAssertFail("pInfo", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x1ba, 0);
+        Fail("pInfo");
     }
 
     info->hFile->read(&has_path, 1);
@@ -320,7 +313,6 @@ try {
     return false;
 }
 
-// FUNCTION: WIZ8 0x004a5e50
 W8GrCycle::W8GrCycle(W8World* owner) : W8Navigator(owner)
 {
     current_model_instance = 0;
@@ -335,7 +327,6 @@ W8GrCycle::W8GrCycle(W8World* owner) : W8Navigator(owner)
 }
 
 // Copy runtime state, particles and the shadow; representations own borrowed lights.
-// FUNCTION: WIZ8 0x004a5f20
 W8GrCycle::W8GrCycle(const W8GrCycle& other, W8World* owner)
     : W8GrObject(other), W8Navigator(other, owner)
 {
@@ -363,7 +354,6 @@ W8GrCycle::W8GrCycle(const W8GrCycle& other, W8World* owner)
         m_ground_shadow = std::make_unique<stGroundShadow>(*other.m_ground_shadow);
 }
 
-// FUNCTION: WIZ8 0x004a6610
 W8GrCycle::~W8GrCycle()
 {
     UnregisterGrCycle(this);
@@ -385,7 +375,6 @@ void W8GrCycle::RetireParticles(W8World& world)
     }
 }
 
-// FUNCTION: WIZ8 0x004a6df0
 void W8GrCycle::SetCyclePosition(glm::vec3* position)
 
 {
@@ -396,7 +385,6 @@ void W8GrCycle::SetCyclePosition(glm::vec3* position)
     return;
 }
 
-// FUNCTION: WIZ8 0x004a6e20
 void W8GrCycle::TickAnimation(float scale)
 {
     W8EmitterHost* representation = GetRepresentation();
@@ -459,7 +447,6 @@ void W8GrCycle::TickAnimation(float scale)
     }
 }
 
-// FUNCTION: WIZ8 0x004a6fc0
 unsigned char W8GrCycle::ApplyPendingCycle()
 {
     W8EmitterHost* representation = GetRepresentation();
@@ -486,8 +473,7 @@ unsigned char W8GrCycle::ApplyPendingCycle()
             W8EmitterHost* current = GetRepresentation();
 
             if (behaviour < BEHAVIOUR_FIRST || behaviour > BEHAVIOUR_LAST) {
-                srAssertFail("(bBehaviour >= BEHAVIOUR_FIRST) && (bBehaviour <= BEHAVIOUR_LAST)",
-                             "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x63e, 0);
+                Fail("(bBehaviour >= BEHAVIOUR_FIRST) && (bBehaviour <= BEHAVIOUR_LAST)");
             }
             current->animation_behaviour = behaviour;
             representation->pending_behaviour = W8_ANIMATION_NO_PENDING_BEHAVIOUR;
@@ -515,7 +501,6 @@ unsigned char W8GrCycle::ApplyPendingCycle()
     return 0;
 }
 
-// FUNCTION: WIZ8 0x004a7150
 void W8GrCycle::UpdateLights()
 {
     W8EmitterHost* representation = GetRepresentation();
@@ -561,7 +546,6 @@ void W8GrCycle::UpdateLights()
     }
 }
 
-// FUNCTION: WIZ8 0x004a7dd0
 std::optional<srBoundingBox> W8GrCycle::GetAnimationBounds()
 {
     auto* representation = GetRepresentation();
@@ -570,19 +554,17 @@ std::optional<srBoundingBox> W8GrCycle::GetAnimationBounds()
                             representation->subcycle);
 }
 
-// FUNCTION: WIZ8 0x004a7e10
 unsigned char W8GrCycle::GetAnimationRadius(float* arg_radius)
 {
     W8AniMesh* mesh = GetCurrentAniMesh();
 
     if (mesh == 0) {
-        srAssertFail("0", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x541, 0);
+        Fail("0");
         return 0;
     }
     return AniMeshRadius(mesh, arg_radius);
 }
 
-// FUNCTION: WIZ8 0x004a72f0
 void W8GrCycle::AdvanceAnimationFrame(int, int)
 {
     W8EmitterHost* representation = GetRepresentation();
@@ -642,13 +624,12 @@ void W8GrCycle::AdvanceAnimationFrame(int, int)
     }
 }
 
-// FUNCTION: WIZ8 0x004a7420
 void W8GrCycle::ResetRepresentation()
 {
     W8EmitterHost* target = GetRepresentation();
 
     if (target == 0) {
-        srAssertFail("pRep", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x3ae, 0);
+        Fail("pRep");
     }
     PathAIResetRecord(m_pAI.get());
     target->frame_direction = W8_ANIMATION_FORWARD;
@@ -665,7 +646,6 @@ void W8GrCycle::ResetRepresentation()
    and the last instance placed becomes the cached one.
 
    The ground shadow and owned lights attach to the supplied world as well. */
-// FUNCTION: WIZ8 0x004a7470
 void W8GrCycle::SetPresentationColour(glm::vec4 colour)
 {
     auto* rep = GetRepresentation();
@@ -694,7 +674,7 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
     int index;
 
     if (pWorld == 0) {
-        srAssertFail("pWorld", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x3d1, 0);
+        Fail("pWorld");
     }
     if (pRep->active == 0) {
         return;
@@ -710,8 +690,7 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
             glm::mat3 current;
 
             if (psrMesh == 0) {
-                srAssertFail("psrMesh", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x3e4,
-                             0);
+                Fail("psrMesh");
             }
             psrMesh->highlight_colour = pRep->highlight_colour;
             if (pRep->apply_instance_scale) {
@@ -744,7 +723,7 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
         srNode* child;
 
         if (psrMesh == 0) {
-            srAssertFail("psrMesh", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x40f, 0);
+            Fail("psrMesh");
         }
         SetAniMeshCacheProtected(pRep->GetEmitterAniMesh(pRep->current_cycle), true);
         psrMesh->highlight_colour = pRep->highlight_colour;
@@ -809,7 +788,6 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
     }
 }
 
-// FUNCTION: WIZ8 0x004a7a70
 void W8GrCycle::DetachRepresentation(W8World* world)
 {
     W8EmitterHost* representation = GetRepresentation();
@@ -821,8 +799,7 @@ void W8GrCycle::DetachRepresentation(W8World* world)
             srModelInstance* mesh = AnimObjDispatchList(animation, representation->m_bLOD,
                                                         static_cast<signed char>(index));
             if (mesh == 0) {
-                srAssertFail("psrMesh", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x476,
-                             0);
+                Fail("psrMesh");
             }
             W8AniMesh* ani_mesh = representation->GetEmitterAniMesh(representation->current_cycle);
             if (ani_mesh != 0) {
@@ -833,7 +810,7 @@ void W8GrCycle::DetachRepresentation(W8World* world)
         }
     } else if (current_model_instance != 0) {
         if (world == 0) {
-            srAssertFail("pWorld", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x484, 0);
+            Fail("pWorld");
         }
         W8AniMesh* ani_mesh = representation->GetEmitterAniMesh(representation->current_cycle);
         SetAniMeshCacheProtected(ani_mesh, false);
@@ -860,7 +837,6 @@ void W8GrCycle::DetachRepresentation(W8World* world)
    The particle's own mode then decides its orientation: mode three aims it
    along the cycle's stored axis, mode four leaves the orientation alone, and
    anything else composes the attachment's own rotation with the model's. */
-// FUNCTION: WIZ8 0x004a7e50
 void W8GrCycle::UpdateParticleAttachments()
 {
     int count;
@@ -984,7 +960,6 @@ void W8GrCycle::UpdateParticleAttachments()
    slider, and LOD 2 is the near one. The tail then lets the fog/detail setting
    override the distance choice in either direction, but only towards a LOD the
    cycle has. */
-// FUNCTION: WIZ8 0x004a7be0
 void W8GrCycle::SelectLOD(const glm::vec3* position)
 {
     W8EmitterHost* pRep = GetRepresentation();
@@ -1043,7 +1018,6 @@ void W8GrCycle::SelectLOD(const glm::vec3* position)
 /* Select the model instance for the representation's current cycle, frame,
    and LOD. AnimObj's frame lookup is the source of the returned instance; the
    callers immediately use it as an srNode/srModelInstance. */
-// FUNCTION: WIZ8 0x004a8250
 srModelInstance* W8GrCycle::GetCurrentModelInstance()
 {
     W8AnimObj* animation;
@@ -1063,21 +1037,19 @@ srModelInstance* W8GrCycle::GetCurrentModelInstance()
                                representation->m_bLOD);
 }
 
-// FUNCTION: WIZ8 0x004a8360
 srModelInstance* W8GrCycle::SelectCycleFrameLod(signed char cycle, signed char frame,
                                                 signed char lod)
 {
     W8EmitterHost* target;
 
     if (lod < 0 || lod >= 3) {
-        srAssertFail("bLOD >= 0 && bLOD < NUM_LODS",
-                     "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x5f1, 0);
+        Fail("bLOD >= 0 && bLOD < NUM_LODS");
     }
     if (frame < 0) {
-        srAssertFail("bFrame >= 0", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x5f2, 0);
+        Fail("bFrame >= 0");
     }
     if (cycle < 0) {
-        srAssertFail("bCycle >= 0", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x5f3, 0);
+        Fail("bCycle >= 0");
     }
     if (m_pAI != 0) {
         target = GetRepresentation();
@@ -1087,14 +1059,12 @@ srModelInstance* W8GrCycle::SelectCycleFrameLod(signed char cycle, signed char f
     return target->SetCycleFrameLod(cycle, frame, lod);
 }
 
-// FUNCTION: WIZ8 0x004a8400
 unsigned char W8GrCycle::ReplacePath(W8PathAI* path)
 {
     m_pAI.reset(path);
     return 1;
 }
 
-// FUNCTION: WIZ8 0x004a84a0
 void W8GrCycle::SubmitTargetValue()
 {
     W8EmitterHost* target = GetRepresentation();
@@ -1110,7 +1080,6 @@ struct RegisteredCycles {
 // Stable records keep borrowed name strings valid while other names are registered.
 static std::list<RegisteredCycles> g_registered_cycles;
 
-// FUNCTION: WIZ8 0x004a8430
 void W8GrCycle::SetSubCycle(unsigned char subcycle)
 {
     signed char count = GetNumSubCycles();
@@ -1121,14 +1090,12 @@ void W8GrCycle::SetSubCycle(unsigned char subcycle)
     }
 }
 
-// FUNCTION: WIZ8 0x004a8460
 void W8GrCycle::SetBehaviour(signed char bBehaviour)
 {
     W8EmitterHost* target = GetRepresentation();
 
     if (bBehaviour < BEHAVIOUR_FIRST || bBehaviour > BEHAVIOUR_LAST) {
-        srAssertFail("(bBehaviour >= BEHAVIOUR_FIRST) && (bBehaviour <= BEHAVIOUR_LAST)",
-                     "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x63e, 0);
+        Fail("(bBehaviour >= BEHAVIOUR_FIRST) && (bBehaviour <= BEHAVIOUR_LAST)");
     }
     target->animation_behaviour = bBehaviour;
 }
@@ -1165,13 +1132,11 @@ void W8GrCycle::AttachCycleLights(std::vector<std::unique_ptr<stLight>>* lights)
     }
 }
 
-// FUNCTION: WIZ8 0x004a84c0
 void W8GrCycle::SetLights(std::vector<std::unique_ptr<stLight>>* lights)
 {
     m_plsLights = lights;
 }
 
-// FUNCTION: WIZ8 0x004a8530
 void W8GrCycle::AddShakeEffect(ShakeDefinition effect)
 {
     shake_events.push_back(effect);
@@ -1185,10 +1150,10 @@ static const RegisteredCycles* FindRegistration(const W8GrCycle* cycle)
     return entry == g_registered_cycles.end() ? nullptr : &*entry;
 }
 
-const char* W8GrCycle::GetRegisteredName() const
+std::string_view W8GrCycle::GetRegisteredName() const
 {
     const auto* entry = FindRegistration(this);
-    return entry ? entry->name.c_str() : nullptr;
+    return entry ? std::string_view(entry->name) : std::string_view{};
 }
 
 bool W8GrCycle::IsSoleRegisteredCycleForName() const
@@ -1232,7 +1197,6 @@ void RegisterGrCycle(std::string_view name, W8GrCycle* cycle)
     }
 }
 
-// FUNCTION: WIZ8 0x004a8d10
 int FindMappedIndexInMeshChain(stMeshModel** mesh, int key)
 {
     int result;
@@ -1255,7 +1219,6 @@ int FindMappedIndexInMeshChain(stMeshModel** mesh, int key)
     return result;
 }
 
-// FUNCTION: WIZ8 0x004a8d50
 void W8GrCycle::CreateGroundShadow(float width, float depth)
 {
     m_ground_shadow = std::make_unique<stGroundShadow>(nullptr);
@@ -1264,7 +1227,6 @@ void W8GrCycle::CreateGroundShadow(float width, float depth)
     m_ground_shadow->depth = depth;
 }
 
-// FUNCTION: WIZ8 0x004a8de0
 void W8GrCycle::SetGroundShadowVisible(bool visible)
 {
     if (m_ground_shadow != 0) {

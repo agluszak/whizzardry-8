@@ -27,7 +27,6 @@ static void orthonormalizeRotation(glm::dmat3& rotation)
     rotation = glm::transpose(rows);
 }
 
-// FUNCTION: SURRENDER 0x100503C0
 void srNode::notifyChildren(std::uint32_t notifications)
 {
     /* Only the bits this node has not seen yet propagate; the new set is
@@ -41,13 +40,11 @@ void srNode::notifyChildren(std::uint32_t notifications)
     }
 }
 
-// FUNCTION: SURRENDER 0x10050490
 int srNode::testNotify(e_notify notification) const
 {
     return (notifications & (1 << notification)) != 0;
 }
 
-// FUNCTION: SURRENDER 0x100504B0
 void srNode::traverse(TraverseInfo& info)
 {
     if (next_sibling_ != 0) {
@@ -63,16 +60,13 @@ void srNode::traverseEffect(TraverseInfo& info)
     traverseEffect(info, [] { return EffectTraversal::active; });
 }
 
-// FUNCTION: SURRENDER 0x100504F0
 void srNode::process(const ProcessInfo& info, e_processType type) {}
 
-// FUNCTION: SURRENDER 0x10050510
 srNode::BoundInfo srNode::getLocalBounds()
 {
     return {glm::vec3(0), glm::vec3(0), glm::vec3(0), 0.0f, testFlag(FLAG_GLOBAL) != 0 ? 2 : 0};
 }
 
-// FUNCTION: SURRENDER 0x100505E0
 srNode& srNode::operator=(const srNode& other)
 {
     if (this != &other) {
@@ -86,7 +80,6 @@ srNode& srNode::operator=(const srNode& other)
     return *this;
 }
 
-// FUNCTION: SURRENDER 0x10050C10
 srNode::srNode(srNode* parent)
 {
     world_transform0 = glm::dmat4x3(1);
@@ -115,7 +108,6 @@ void srNode::eraseOwnedChild(const srNode* child)
 }
 
 // Reparenting preserves world placement when requested, independent of ownership.
-// FUNCTION: SURRENDER 0x10050F00
 int srNode::setParent(srNode* parent, int preserve_world_transform)
 {
     if (parent == this) {
@@ -155,7 +147,6 @@ int srNode::setParent(srNode* parent, int preserve_world_transform)
     return 1;
 }
 
-// FUNCTION: SURRENDER 0x10050B70
 w8_long srNode::getChildCount() const
 {
     w8_long count = 0;
@@ -165,7 +156,6 @@ w8_long srNode::getChildCount() const
     return count;
 }
 
-// FUNCTION: SURRENDER 0x10050BA0
 void srNode::unlink()
 {
     if (previous_sibling_ != 0) {
@@ -183,7 +173,6 @@ void srNode::unlink()
     setWSDirty();
 }
 
-// FUNCTION: SURRENDER 0x10051370
 int srNode::isChildOf(const srNode& node) const
 {
     const srNode* current = this;
@@ -196,7 +185,6 @@ int srNode::isChildOf(const srNode& node) const
     return 0;
 }
 
-// FUNCTION: SURRENDER 0x100513A0
 int srNode::isParentOf(const srNode& node) const
 {
     const srNode* target = &node;
@@ -206,25 +194,21 @@ int srNode::isParentOf(const srNode& node) const
     return target->isChildOf(*this);
 }
 
-// FUNCTION: SURRENDER 0x10051A20
 srNode* srNode::getChild() const
 {
     return first_child_;
 }
 
-// FUNCTION: SURRENDER 0x10051A30
 srNode* srNode::getNext() const
 {
     return next_sibling_;
 }
 
-// FUNCTION: SURRENDER 0x10051A60
 void srNode::setScale(double scale)
 {
     setScale(glm::dvec3(scale));
 }
 
-// FUNCTION: SURRENDER 0x10051A90
 void srNode::checkTransformation() const
 {
     if (testNotify(NOTIFY_TRANSFORM_DIRTY) != 0) {
@@ -232,7 +216,6 @@ void srNode::checkTransformation() const
     }
 }
 
-// FUNCTION: SURRENDER 0x10051C50
 void srNode::setFlag(e_flag flag)
 {
     flags |= 1 << flag;
@@ -241,7 +224,6 @@ void srNode::setFlag(e_flag flag)
     }
 }
 
-// FUNCTION: SURRENDER 0x10051C80
 void srNode::clearFlag(e_flag flag)
 {
     flags &= ~(1 << flag);
@@ -250,33 +232,28 @@ void srNode::clearFlag(e_flag flag)
     }
 }
 
-// FUNCTION: SURRENDER 0x10051CB0
 int srNode::testFlag(e_flag flag) const
 {
     return (flags & (1 << flag)) != 0;
 }
 
-// FUNCTION: SURRENDER 0x10051D40
 void srNode::setWSDirty()
 {
     notifyChildren(1u << NOTIFY_TRANSFORM_DIRTY);
 }
 
-// FUNCTION: SURRENDER 0x100536B0
 void srNode::setRotation(const glm::dmat3& rotation)
 {
     this->rotation = rotation;
     setWSDirty();
 }
 
-// FUNCTION: SURRENDER 0x100536D0
 void srNode::setRotation(const glm::mat3& rotation)
 {
     setRotation(glm::dmat3(rotation));
 }
 
 // Compose local X, Y and Z rotations in that order.
-// FUNCTION: SURRENDER 0x10053740
 void srNode::setRotation(double x, double y, double z)
 {
     rotation = glm::mat3_cast(glm::angleAxis(x, glm::dvec3(1, 0, 0)) *
@@ -285,7 +262,6 @@ void srNode::setRotation(double x, double y, double z)
     setWSDirty();
 }
 
-// FUNCTION: SURRENDER 0x10052750
 void srNode::setRotation(double amount, const glm::dvec3& direction)
 {
     const glm::dvec3 axis = normalizedOrZero(direction);
@@ -294,7 +270,6 @@ void srNode::setRotation(double amount, const glm::dvec3& direction)
     setWSDirty();
 }
 
-// FUNCTION: SURRENDER 0x100528C0
 void srNode::setRotation(const glm::dvec3& direction, double amount)
 {
     const double yaw = std::atan2(direction.x, direction.z);
@@ -305,43 +280,36 @@ void srNode::setRotation(const glm::dvec3& direction, double amount)
     setWSDirty();
 }
 
-// FUNCTION: SURRENDER 0x10052B20
 void srNode::setRotation(const glm::dvec3& first, const glm::dvec3& second, double amount)
 {
     setRotation(first - second, amount);
 }
 
-// FUNCTION: SURRENDER 0x10053D70
 double srNode::getLocationX() const
 {
     return location.x;
 }
 
-// FUNCTION: SURRENDER 0x10053D80
 double srNode::getLocationY() const
 {
     return location.y;
 }
 
-// FUNCTION: SURRENDER 0x10053D90
 double srNode::getLocationZ() const
 {
     return location.z;
 }
 
-// FUNCTION: SURRENDER 0x10053DA0
 glm::dvec3 srNode::getLocation() const
 {
     return location;
 }
 
-// FUNCTION: SURRENDER 0x10053E90
 glm::dvec3 srNode::getScale() const
 {
     return scale;
 }
 
-// FUNCTION: SURRENDER 0x10053EB0
 void srNode::offsetLocation(const glm::dvec3& offset)
 {
     if (offset.x != 0.0 || offset.y != 0.0 || offset.z != 0.0) {
@@ -350,13 +318,11 @@ void srNode::offsetLocation(const glm::dvec3& offset)
     }
 }
 
-// FUNCTION: SURRENDER 0x10053F10
 void srNode::offsetLocation(double x, double y, double z)
 {
     offsetLocation(glm::dvec3(x, y, z));
 }
 
-// FUNCTION: SURRENDER 0x10054790
 void srNode::setLocation(const glm::dvec3& location)
 {
     if (!(location == this->location)) {
@@ -365,13 +331,11 @@ void srNode::setLocation(const glm::dvec3& location)
     }
 }
 
-// FUNCTION: SURRENDER 0x100547E0
 void srNode::setLocation(double x, double y, double z)
 {
     setLocation(glm::dvec3(x, y, z));
 }
 
-// FUNCTION: SURRENDER 0x100548D0
 void srNode::setScale(const glm::dvec3& scale)
 {
     if (!(this->scale == scale)) {
@@ -380,21 +344,18 @@ void srNode::setScale(const glm::dvec3& scale)
     }
 }
 
-// FUNCTION: SURRENDER 0x10054F70
 glm::dvec3 srNode::getWorldSpaceLocation() const
 {
     checkTransformation();
     return world_transform0[3];
 }
 
-// FUNCTION: SURRENDER 0x10055210
 glm::dvec3 srNode::getWorldSpaceDOF() const
 {
     checkTransformation();
     return normalizedOrZero(world_transform0[2]);
 }
 
-// FUNCTION: SURRENDER 0x100552B0
 glm::dvec3 srNode::getWorldSpaceScale() const
 {
     checkTransformation();
@@ -402,7 +363,6 @@ glm::dvec3 srNode::getWorldSpaceScale() const
             glm::length(world_transform0[2])};
 }
 
-// FUNCTION: SURRENDER 0x10054920
 void srNode::updateTransformation() const
 {
     notifications &= ~(1u << NOTIFY_TRANSFORM_DIRTY);
@@ -419,7 +379,6 @@ void srNode::updateTransformation() const
     world_transform1 = glm::mat4x3(world);
 }
 
-// FUNCTION: SURRENDER 0x100553A0
 srModelViewScope srNode::scopedWorldSpaceMatrix(srGERD& renderer) const
 {
     checkTransformation();
@@ -428,7 +387,6 @@ srModelViewScope srNode::scopedWorldSpaceMatrix(srGERD& renderer) const
     return transform;
 }
 
-// FUNCTION: SURRENDER 0x10053A20
 void srNode::move(const glm::dvec3& offset)
 {
     if (offset.x != 0.0 || offset.y != 0.0 || offset.z != 0.0) {
@@ -437,7 +395,6 @@ void srNode::move(const glm::dvec3& offset)
     }
 }
 
-// FUNCTION: SURRENDER 0x10053F70
 void srNode::rotate(const glm::dmat3& rotation)
 {
     glm::dmat3 identity;
@@ -448,7 +405,6 @@ void srNode::rotate(const glm::dmat3& rotation)
     }
 }
 
-// FUNCTION: SURRENDER 0x100540E0
 void srNode::rotate(double angle, const glm::dvec3& axis)
 {
     const glm::dvec3 direction = normalizedOrZero(axis);
@@ -458,13 +414,11 @@ void srNode::rotate(double angle, const glm::dvec3& axis)
     }
 }
 
-// FUNCTION: SURRENDER 0x100542A0
 void srNode::rotateX(double angle)
 {
     rotate(angle, glm::dvec3(1, 0, 0));
 }
 
-// FUNCTION: SURRENDER 0x10051FB0
 void srNode::setWorldSpaceRotation(const glm::dmat3& rotation)
 {
     this->rotation = rotation;
@@ -477,7 +431,6 @@ void srNode::setWorldSpaceRotation(const glm::dmat3& rotation)
     setWSDirty();
 }
 
-// FUNCTION: SURRENDER 0x10052420
 void srNode::setWorldSpaceMatrix(const glm::dmat4& matrix)
 {
     glm::dmat4 local = matrix;

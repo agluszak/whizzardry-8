@@ -54,7 +54,6 @@
 /* Notice string ids for each condition row: the status label, the singular
    and plural "inflicted" verb phrases and the noun used by resistance and
    immunity text. Rows past W8_CONDITION_MISSING are unused placeholders. */
-// GLOBAL: WIZ8 0x0061e570
 W8ConditionNoticeIds g_condition_notices[25] = {
     {0x348, 0x349, 0x34a, 0x34b}, {0x34c, 0x34d, 0x34e, 0x34f}, {0x350, 0x351, 0x352, 0x353},
     {0x354, 0x355, 0x356, 0x357}, {0x358, 0x359, 0x35a, 0x35b}, {0x35c, 0x35d, 0x35e, 0x35f},
@@ -68,7 +67,6 @@ W8ConditionNoticeIds g_condition_notices[25] = {
 };
 
 /* Enchantment-slot names, indexed by W8EnchantmentSlot. */
-// GLOBAL: WIZ8 0x0061e638
 unsigned short g_enchantment_notices[16] = {
     0x398, 0x399, 0x39a, 0x39b, 0x39c, 0x39d, 0x39e, 0x39f,
     0x273, 0x670, 0x671, 0x672, 0x673, 0x674, 0x675, 0x676,
@@ -76,18 +74,15 @@ unsigned short g_enchantment_notices[16] = {
 
 /* Notices posted when a condition interrupts a character's action, indexed
    by GetConditionInterrupt's result. */
-// GLOBAL: WIZ8 0x0061e658
 unsigned short g_condition_interrupt_notices[12] = {
     0x3a0, 0x3a1, 0x3a2, 0x3a3, 0x3a4, 0x3a5, 0x3a6, 0x3a7, 0x3a8, 0x3a9, 0x3aa, 0x3ab,
 };
 
-// FUNCTION: WIZ8 0x005248a0
 bool GetConditionRecordFlag(int party_slot, W8CharacterDependence dependence)
 {
     return g_status.buffers.Char[party_slot].conditions[dependence].active;
 }
 
-// FUNCTION: WIZ8 0x005248D0
 void ReleaseMonsterConditionBindings(W8MonsterInfo* monster_info)
 {
     for (unsigned int slot_kind = 0; slot_kind < W8_DEPENDENCE_COUNT; ++slot_kind) {
@@ -133,7 +128,6 @@ void ReleaseMonsterConditionBindings(W8MonsterInfo* monster_info)
 
 /* Lifting a character's condition clears its duration and any state that
    condition alone maintained, then notifies dependents. */
-// FUNCTION: WIZ8 0x00523330
 void RemoveCharacterCondition(int party_slot, W8Condition condition, bool announce)
 {
     W8Character* character = &g_status.buffers.Char[party_slot];
@@ -143,14 +137,10 @@ void RemoveCharacterCondition(int party_slot, W8Condition condition, bool announ
 
     if (character->uiCondition[condition] != 0 || !g_status.world_suspended) {
         if (!row->fOccupied) {
-            srAssertFail("fCHAR_OCCUPIED(uiChar)",
-                         "C:\\Projects\\Wizardry 8\\Local Code\\Conditions & Enchantments.cpp",
-                         0xf4, 0);
+            Fail("fCHAR_OCCUPIED(uiChar)");
         }
         if (character->uiCondition[condition] == 0) {
-            srAssertFail("gStatus.Char[uiChar].uiCondition[uiCondition] > 0",
-                         "C:\\Projects\\Wizardry 8\\Local Code\\Conditions & Enchantments.cpp",
-                         0xf5, 0);
+            Fail("gStatus.Char[uiChar].uiCondition[uiCondition] > 0");
         }
         if (condition == W8_CONDITION_HEXED) {
             if (character->uiCondition[W8_CONDITION_INFATUATED] != 0 &&
@@ -216,11 +206,8 @@ void RemoveCharacterCondition(int party_slot, W8Condition condition, bool announ
  * highest enchantment slot in use up to date as slots empty.
  */
 
-#define CONDITIONS_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Conditions & Enchantments.cpp"
-
 /* Keep the live quantity in the byte selected by the database record. Stack
    items use stack_count; charge and use-count items use uses_or_charges. */
-// FUNCTION: WIZ8 0x00522e80
 void NormalizeItemQuantityKind(W8ItemInstance* item)
 {
     unsigned char quantity_kind;
@@ -261,7 +248,6 @@ void NormalizeItemQuantityKind(W8ItemInstance* item)
 /* The load tail: drop equipment the loaded character can no longer wear, then
    normalize the quantity byte on every worn and packed item and on the shared
    party pool. */
-// FUNCTION: WIZ8 0x00522ef0
 void SanitizeLoadedItems(void)
 {
     unsigned int slot;
@@ -301,7 +287,6 @@ void SanitizeLoadedItems(void)
    the condition never lands. The two-byte packing is load-bearing: padded to
    four the stride would be 0x54, but the table walks 0x52 per entry. Values
    are the retail table at 0x006171A8; the walkers address the ids at +2. */
-// GLOBAL: WIZ8 0x006171A8
 W8ConditionImmunity g_condition_immunities[3] = {
     {20, 1, {W8_CONDITION_DISEASED,  W8_CONDITION_POISONED,  W8_CONDITION_UNCONSCIOUS,
              W8_CONDITION_IRRITATED, W8_CONDITION_AFRAID,    W8_CONDITION_INSANE,
@@ -328,11 +313,10 @@ W8ConditionImmunity g_condition_immunities[3] = {
    highest_condition, then resync the three formation copies, encumbrance when
    the dead threshold was crossed either way, the portrait pose and the
    portrait page if it is up. */
-// FUNCTION: WIZ8 0x005237e0
 void RecomputeCharacterHighestCondition(int party_slot)
 {
     if (!g_status.buffers.XChar[party_slot].fOccupied) {
-        srAssertFail("fCHAR_OCCUPIED(uiChar)", CONDITIONS_CPP, 0x183, 0);
+        Fail("fCHAR_OCCUPIED(uiChar)");
     }
     W8Character* character = &g_status.buffers.Char[party_slot];
     W8Condition previous = character->highest_condition;
@@ -374,7 +358,6 @@ done:
 /* Settle a condition's enchantment record on the character: a bigger argument
    replaces the stored one, slot two rolls its bonus dice, and the top scan,
    redraw and stats rebuild follow. */
-// FUNCTION: WIZ8 0x00523940
 void ApplyCharacterCondition(int party_slot, W8EnchantmentSlot slot, int argument,
                              unsigned int duration, unsigned int percent)
 {
@@ -417,20 +400,15 @@ void ApplyCharacterCondition(int party_slot, W8EnchantmentSlot slot, int argumen
    the elapsed minutes, lifting it once they run out. POISONED also bleeds its
    stored strength pro rata over the remaining duration, with a hundred-sided
    roll covering the fractional part when the quotient floors to zero. */
-// FUNCTION: WIZ8 0x005236A0
 void TickCharacterCondition(unsigned int party_slot, W8Condition condition, unsigned int minutes)
 {
     W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
 
     if (!row->fOccupied) {
-        srAssertFail("fCHAR_OCCUPIED(uiSlot)",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\Conditions & Enchantments.cpp", 0x158,
-                     0);
+        Fail("fCHAR_OCCUPIED(uiSlot)");
     }
     if (g_status.buffers.Char[party_slot].uiCondition[condition] == 0) {
-        srAssertFail("gStatus.Char[uiSlot].uiCondition[uiCondition] > 0",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\Conditions & Enchantments.cpp", 0x159,
-                     0);
+        Fail("gStatus.Char[uiSlot].uiCondition[uiCondition] > 0");
     }
     if (g_status.buffers.Char[party_slot].uiCondition[condition] <= minutes) {
         RemoveCharacterCondition(party_slot, condition, true);
@@ -469,7 +447,6 @@ static void RefreshMonsterConditionState(W8MonsterInfo* monster_info)
     }
 }
 
-// FUNCTION: WIZ8 0x00523C00
 void SetMonsterCondition(int location_id, W8Condition condition, int duration, int poison_strength,
                          W8TargetSource* target, bool announce)
 {
@@ -482,9 +459,7 @@ void SetMonsterCondition(int location_id, W8Condition condition, int duration, i
     bool handled;
 
     if (poison_strength != 0 && condition != W8_CONDITION_POISONED) {
-        srAssertFail("(uiPoisonStrength == 0) || (uiCondition == COND_POISONED)",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\Conditions & Enchantments.cpp", 0x220,
-                     0);
+        Fail("(uiPoisonStrength == 0) || (uiCondition == COND_POISONED)");
     }
     if (condition == W8_CONDITION_POISONED && poison_strength == 0) {
         return;
@@ -583,7 +558,6 @@ void SetMonsterCondition(int location_id, W8Condition condition, int duration, i
 }
 /* Clearing a monster's condition also re-derives its highest set condition
    index, recounts its group, and possibly stops it moving. */
-// FUNCTION: WIZ8 0x00523F40
 void ClearMonsterCondition(int location_id, W8Condition condition)
 {
     W8MonsterInfo* monster_info;
@@ -592,9 +566,7 @@ void ClearMonsterCondition(int location_id, W8Condition condition)
     monster_info = FindMonster(location_id);
     if (monster_info->hp_current != 0) {
         if (monster_info->uiCondition[condition] == 0) {
-            srAssertFail("pMonsterInfo->uiCondition[uiCondition] > 0",
-                         "C:\\Projects\\Wizardry 8\\Local Code\\Conditions & Enchantments.cpp",
-                         0x2d8, 0);
+            Fail("pMonsterInfo->uiCondition[uiCondition] > 0");
         }
         if (condition == W8_CONDITION_TURNCOAT &&
             monster_info->uiCondition[W8_CONDITION_TURNCOAT] != 0) {
@@ -637,7 +609,6 @@ void ClearMonsterCondition(int location_id, W8Condition condition)
 /* Age one live monster condition. Poison loses its carried strength in the
    same proportion as its remaining duration, with a probabilistic one-point
    correction when integer division rounds the loss to zero. */
-// FUNCTION: WIZ8 0x00524110
 void TickMonsterCondition(int location_id, W8Condition condition, unsigned int minutes)
 {
     W8MonsterInfo* monster_info = FindMonster(location_id);
@@ -646,7 +617,7 @@ void TickMonsterCondition(int location_id, W8Condition condition, unsigned int m
         return;
     }
     if (monster_info->uiCondition[condition] == 0) {
-        srAssertFail("pMonsterInfo->uiCondition[uiCondition] > 0", CONDITIONS_CPP, 0x31b, 0);
+        Fail("pMonsterInfo->uiCondition[uiCondition] > 0");
     }
     if (monster_info->uiCondition[condition] <= minutes) {
         ClearMonsterCondition(location_id, condition);
@@ -668,7 +639,6 @@ void TickMonsterCondition(int location_id, W8Condition condition, unsigned int m
 /* Setting a character's condition runs poison/immunity gates, the duration
    switch, trait gates, and the same rescan/notify/tail handling as the other
    transitions. */
-// FUNCTION: WIZ8 0x00522FE0
 unsigned char SetCharacterCondition(int party_slot, W8Condition condition, int duration,
                                     int poison_strength, char alternate_missing_notice,
                                     char announce)
@@ -680,14 +650,10 @@ unsigned char SetCharacterCondition(int party_slot, W8Condition condition, int d
     bool handled;
 
     if (!row->fOccupied) {
-        srAssertFail("fCHAR_OCCUPIED(uiChar)",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\Conditions & Enchantments.cpp", 0x2a,
-                     0);
+        Fail("fCHAR_OCCUPIED(uiChar)");
     }
     if (poison_strength != 0 && condition != W8_CONDITION_POISONED) {
-        srAssertFail("(uiPoisonStrength == 0) || (uiCondition == COND_POISONED)",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\Conditions & Enchantments.cpp", 0x2d,
-                     0);
+        Fail("(uiPoisonStrength == 0) || (uiCondition == COND_POISONED)");
     }
     if (condition == W8_CONDITION_POISONED && poison_strength == 0) {
         return 0;
@@ -795,7 +761,6 @@ unsigned char SetCharacterCondition(int party_slot, W8Condition condition, int d
 /* Copy every condition a character is under onto something else in the world.
    Condition seven carries an argument alongside its duration, so it is the one
    entry that is not just a duration. */
-// FUNCTION: WIZ8 0x005241e0
 void CopyCharacterConditionsToTarget(const W8Character& character, const int* target)
 {
     W8TargetSource target_block;
@@ -821,7 +786,6 @@ void CopyCharacterConditionsToTarget(const W8Character& character, const int* ta
 
 /* The same copy the other way round, from a monster onto one character. Every
    condition carries the monster's argument here, not only the seventh. */
-// FUNCTION: WIZ8 0x00524250
 void CopyMonsterConditionsToCharacter(W8Character* character, const W8MonsterInfo* monster_info)
 {
     unsigned int condition;
@@ -844,7 +808,6 @@ void CopyMonsterConditionsToCharacter(W8Character* character, const W8MonsterInf
 /* Empty one of a character's enchantment slots and find the highest one still
    in use, scanning down from the last. Emptying the sixth also raises the flag
    the interface watches. */
-// FUNCTION: WIZ8 0x00523a80
 void ClearCharacterEnchantmentSlot(int party_slot, W8EnchantmentSlot slot)
 {
     W8Character* character;
@@ -874,7 +837,6 @@ void ClearCharacterEnchantmentSlot(int party_slot, W8EnchantmentSlot slot)
 /* Run one of a character's enchantment slots down by the given number of
    turns, emptying it the same way ClearCharacterEnchantmentSlot does when
    nothing is left. */
-// FUNCTION: WIZ8 0x00523b30
 void TickCharacterEnchantmentSlot(int party_slot, W8EnchantmentSlot slot, unsigned int turns)
 {
     unsigned int remaining = g_status.buffers.Char[party_slot].enchantments[slot].turns;
@@ -890,7 +852,6 @@ void TickCharacterEnchantmentSlot(int party_slot, W8EnchantmentSlot slot, unsign
    argument replaces the stored one, slot two rolls its bonus dice, a freshly
    applied slot adds the spell icon, and the stats rebuild and special-slot
    sight refresh follow. */
-// FUNCTION: WIZ8 0x005242b0
 void ApplyMonsterCondition(int location_id, W8EnchantmentSlot slot, int argument,
                            unsigned int duration, unsigned int percent)
 {
@@ -923,7 +884,6 @@ void ApplyMonsterCondition(int location_id, W8EnchantmentSlot slot, int argument
 
 /* Empty one of a monster's enchantment slots and tell the live engine object
    that the matching effect is over. */
-// FUNCTION: WIZ8 0x00524390
 void ClearMonsterEnchantmentSlot(int location_id, W8EnchantmentSlot slot)
 {
     W8MonsterInfo* monster_info = FindMonster(location_id);
@@ -939,7 +899,6 @@ void ClearMonsterEnchantmentSlot(int location_id, W8EnchantmentSlot slot)
 /* Run one of a monster's enchantment slots down by the given number of turns,
    emptying it when nothing is left. The look-up is repeated rather than
    reused, which is what the two separate index calls show. */
-// FUNCTION: WIZ8 0x00524400
 void TickMonsterEnchantmentSlot(int location_id, W8EnchantmentSlot slot, unsigned int turns)
 {
     W8MonsterInfo* monster_info = FindMonster(location_id);
@@ -954,7 +913,6 @@ void TickMonsterEnchantmentSlot(int location_id, W8EnchantmentSlot slot, unsigne
 }
 
 /* Lift one condition from everybody in the party who is under it. */
-// FUNCTION: WIZ8 0x005246c0
 void RemoveConditionFromParty(W8Condition condition)
 {
     unsigned int party_slot;
@@ -970,7 +928,6 @@ void RemoveConditionFromParty(W8Condition condition)
 /* Lift one condition from everybody in the world - the party first, then every
    live monster. The monster count is re-read every iteration because lifting a
    condition can remove one. */
-// FUNCTION: WIZ8 0x005244a0
 void RemoveConditionFromEveryone(W8Condition condition)
 {
     unsigned int monster_index;
@@ -991,7 +948,6 @@ void RemoveConditionFromEveryone(W8Condition condition)
    live monster, rescanning each character's top slot and flagging the special
    slot's refresh. The monster count is re-read every iteration because
    clearing one can remove a monster from the list. */
-// FUNCTION: WIZ8 0x00524540
 void RemoveAllEnchantments(void)
 {
     for (unsigned int enchantment = 0; enchantment < 8; ++enchantment) {
@@ -1019,7 +975,6 @@ void RemoveAllEnchantments(void)
 /* Lift every condition from the whole party. The tenth is left alone, the same
    one death leaves alone, and the last two of the twenty are outside the sweep
    entirely. */
-// FUNCTION: WIZ8 0x00524720
 void RemoveAllConditionsFromParty(void)
 {
     unsigned int condition;
@@ -1037,20 +992,19 @@ void RemoveAllConditionsFromParty(void)
    the encounter budget, and the character's condition record keeps the level
    it happened on, the monster's id and the live flag before the derived
    stats rebuild. */
-// FUNCTION: WIZ8 0x00524780
 void BindMonsterToCharacterDependence(unsigned int party_slot, unsigned int dependence_slot,
                                       int monster_id)
 {
     W8MonsterInfo* monster_info;
 
     if (party_slot >= 8) {
-        srAssertFail("uiChar < MAX_CHARS", CONDITIONS_CPP, 0x447, 0);
+        Fail("uiChar < MAX_CHARS");
     }
     if (dependence_slot >= W8_DEPENDENCE_COUNT) {
-        srAssertFail("uiDependence < DEPEND_COND_COUNT", CONDITIONS_CPP, 0x448, 0);
+        Fail("uiDependence < DEPEND_COND_COUNT");
     }
     if (monster_id == -1) {
-        srAssertFail("iMonsterID != -1", CONDITIONS_CPP, 0x449, 0);
+        Fail("iMonsterID != -1");
     }
 
     monster_info = FindMonster(monster_id);

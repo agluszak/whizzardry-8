@@ -222,7 +222,6 @@ std::optional<std::uint32_t> file_size(const std::string& filename)
 }
 } // namespace
 
-// FUNCTION: WIZ8 0x004086d0
 bool initialize(bool enabled)
 {
     shutdown();
@@ -230,7 +229,6 @@ bool initialize(bool enabled)
     return true;
 }
 
-// FUNCTION: WIZ8 0x00408850
 void shutdown()
 {
     service_state.enabled = false;
@@ -244,7 +242,6 @@ void shutdown()
     w8_native::shutdown_audio();
 }
 
-// FUNCTION: WIZ8 0x004095b0
 void service()
 {
     if (!service_state.enabled) return;
@@ -255,7 +252,6 @@ void service()
             finish(playback);
 }
 
-// FUNCTION: WIZ8 0x00409970
 Clip load(std::string_view path)
 {
     if (!service_state.enabled) return {};
@@ -263,7 +259,6 @@ Clip load(std::string_view path)
     return filename.empty() ? Clip{} : load_resolved(filename);
 }
 
-// FUNCTION: WIZ8 0x00408860
 Playback play(std::string_view path, PlayOptions options)
 {
     if (!service_state.enabled) return {};
@@ -290,7 +285,6 @@ Playback play(const Clip& clip, PlayOptions options)
     return start(std::move(playback), clip, std::move(options));
 }
 
-// FUNCTION: WIZ8 0x00408ad0
 Playback stream(std::string_view path, PlayOptions options)
 {
     if (!service_state.enabled) return {};
@@ -298,7 +292,6 @@ Playback stream(std::string_view path, PlayOptions options)
     return filename.empty() ? Playback{} : stream_resolved(filename, std::move(options));
 }
 
-// FUNCTION: WIZ8 0x004098f0
 void release_cache()
 {
     stop_group(Group::effects);
@@ -307,13 +300,11 @@ void release_cache()
     service_state.cached_bytes = 0;
 }
 
-// FUNCTION: WIZ8 0x00408ef0
 bool is_playing(const Playback& playback)
 {
     return live(playback) && MIX_TrackPlaying(playback->track.get());
 }
 
-// FUNCTION: WIZ8 0x0040a910
 bool is_file_playing(std::string_view path)
 {
     return std::ranges::any_of(service_state.active, [&](const Playback& playback) {
@@ -323,7 +314,6 @@ bool is_file_playing(std::string_view path)
     });
 }
 
-// FUNCTION: WIZ8 0x00408f70
 bool stop(const Playback& playback, std::uint32_t fade_out_ms)
 {
     const bool was_playing = is_playing(playback);
@@ -336,7 +326,6 @@ bool stop(const Playback& playback, std::uint32_t fade_out_ms)
     return was_playing;
 }
 
-// FUNCTION: WIZ8 0x00409020
 bool stop_group(Group group)
 {
     const auto batch = service_state.active;
@@ -347,39 +336,33 @@ bool stop_group(Group group)
     return playing;
 }
 
-// FUNCTION: WIZ8 0x00409120
 void set_default_volume(std::uint32_t volume)
 {
     service_state.default_volume = std::min(volume, 127u);
 }
 
-// FUNCTION: WIZ8 0x00409210
 bool set_volume(const Playback& playback, std::uint32_t volume)
 {
     return live(playback) && set_gain(playback->track.get(), volume);
 }
 
-// FUNCTION: WIZ8 0x004092a0
 std::optional<std::uint32_t> volume(const Playback& playback)
 {
     if (!live(playback)) return std::nullopt;
     return std::uint32_t(MIX_GetTrackGain(playback->track.get()) * 127 + 0.5f);
 }
 
-// FUNCTION: WIZ8 0x0040ab20
 void set_position(const Playback& playback, glm::vec3 position)
 {
     if (!live(playback) || !playback->positional) return;
     apply_spatial(playback->track.get(), position);
 }
 
-// FUNCTION: WIZ8 0x004097f0
 std::uint32_t elapsed_ms(const Playback& playback)
 {
     return live(playback) ? std::uint32_t(w8_get_ticks() - playback->started_at) : 0;
 }
 
-// FUNCTION: WIZ8 0x00409840
 std::optional<PlaybackTime> playback_time(const Playback& playback)
 {
     if (!live(playback)) return std::nullopt;

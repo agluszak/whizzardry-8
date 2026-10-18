@@ -32,14 +32,11 @@
 
 /* The SR.DLL registry string is the original runtime class identity. */
 
-// GLOBAL: WIZ8 0x006834cc
 static std::shared_ptr<srTexture> g_ground_shadow_texture;
-// GLOBAL: WIZ8 0x006834d0
 static std::shared_ptr<srMaterial> g_ground_shadow_material;
 /* A default-constructed srShader: retail's dynamic initializer (0x004D61A0)
    stores the srShader default 0x0100241b before the constructor masks in
    the shadow bits, so the 0x13 bits survive into the shadow shader. */
-// GLOBAL: WIZ8 0x006834c8
 static srShader g_ground_shadow_shader;
 
 /* The material mapper installed for ground shadows: process projects each
@@ -48,8 +45,6 @@ static srShader g_ground_shadow_shader;
    and world z/x center; owned polygons carries every selected triangle
    index for the active mesh. No source name survives, so the
    mapper keeps a descriptive name anchored at its constructor. */
-// VTABLE: WIZ8 0x005ED3B8
-// class W8GroundShadowMapper
 class W8GroundShadowMapper : public srVertexProcessor {
 public:
     /* Retail ICF folds this onto W8NormalTexcoordMapper::isActive at
@@ -62,13 +57,11 @@ public:
     std::vector<w8_ulong> polygons;
 };
 
-// GLOBAL: WIZ8 0x00683430
 static W8GroundShadowMapper g_ground_shadow_material_parameters;
 
 /* Retail ICF folds this class's scalar deleting destructor onto
    W8NormalTexcoordMapper's at 0x004B8A50. */
 
-// FUNCTION: WIZ8 0x004D6090
 void W8GroundShadowMapper::process(srVertexPipe& pipe)
 {
 
@@ -82,7 +75,6 @@ void W8GroundShadowMapper::process(srVertexPipe& pipe)
         output[i] = projection->coordinates(vertices[indices[i]]);
 }
 
-// FUNCTION: WIZ8 0x004D61B0
 stGroundShadow::stGroundShadow(srNode* parent) : srNode(static_cast<srNode*>(0))
 {
     angle = 0;
@@ -103,7 +95,6 @@ stGroundShadow::stGroundShadow(srNode* parent) : srNode(static_cast<srNode*>(0))
     }
 }
 
-// FUNCTION: WIZ8 0x004d6430
 stGroundShadow::stGroundShadow(const stGroundShadow& other) : srNode(static_cast<srNode*>(0))
 {
     setParent(other.parent_, 1);
@@ -131,7 +122,6 @@ void stGroundShadow::traverse(TraverseInfo& info)
     }
 }
 
-// FUNCTION: WIZ8 0x004d6640
 void stGroundShadow::process(const ProcessInfo& info, e_processType)
 {
     if (g_settings.monster_shadows != 0) {
@@ -140,7 +130,6 @@ void stGroundShadow::process(const ProcessInfo& info, e_processType)
     }
 }
 
-// FUNCTION: WIZ8 0x004D66A0
 void stGroundShadow::renderGroundShadow(srGERD& renderer)
 {
     auto position = glm::vec3(getLocation());

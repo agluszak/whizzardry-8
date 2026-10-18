@@ -18,16 +18,11 @@ void InitializeRenderQuality(void)
     option_states.fill(0);
 }
 
-// GLOBAL: WIZ8 0x0060A210
 float g_render_brightness = 1.0f;
-// GLOBAL: WIZ8 0x0060E610
 float g_render_fog_distance = 0.5f;
-// GLOBAL: WIZ8 0x0060A20C
 bool g_render_missile_lights = true;
-// GLOBAL: WIZ8 0x00603C6C
 bool g_render_mesh_sky = true;
 
-// FUNCTION: WIZ8 0x0047b590
 void EnableRenderOption(W8RenderOption option)
 {
     if (option < W8_RENDER_OPTION_COUNT) {
@@ -35,7 +30,6 @@ void EnableRenderOption(W8RenderOption option)
     }
 }
 
-// FUNCTION: WIZ8 0x0047b630
 void SetRenderOption(W8RenderOption option, int enabled)
 {
     if (option == W8_RENDER_OPTION_RESERVED_5 || option == W8_RENDER_OPTION_RESERVED_12) return;
@@ -84,7 +78,6 @@ void SetRenderOption(W8RenderOption option, int enabled)
     }
 }
 
-// FUNCTION: WIZ8 0x0047b5b0
 void DisableRenderOption(W8RenderOption option)
 {
     if (option < W8_RENDER_OPTION_COUNT) {
@@ -92,7 +85,6 @@ void DisableRenderOption(W8RenderOption option)
     }
 }
 
-// FUNCTION: WIZ8 0x0047b5d0
 void DisableAllRenderOptions(void)
 {
     int option = 0;
@@ -103,7 +95,6 @@ void DisableAllRenderOptions(void)
     } while (option < W8_RENDER_OPTION_COUNT);
 }
 
-// FUNCTION: WIZ8 0x0047b5f0
 void EnableAllRenderOptions(void)
 {
     for (int option = 0; option < W8_RENDER_OPTION_COUNT; ++option) {
@@ -112,7 +103,6 @@ void EnableAllRenderOptions(void)
 }
 
 /* Out-of-range reads report zero rather than indexing past the block. */
-// FUNCTION: WIZ8 0x0047b610
 unsigned char GetRenderOptionState(W8RenderOption option)
 {
     if (option >= W8_RENDER_OPTION_COUNT) {
@@ -121,7 +111,6 @@ unsigned char GetRenderOptionState(W8RenderOption option)
     return option_states[option];
 }
 
-// FUNCTION: WIZ8 0x0047b890
 unsigned char LoadRenderOptions(W8Chunk& handle)
 try {
     int version;
@@ -140,7 +129,6 @@ try {
     return false;
 }
 
-// FUNCTION: WIZ8 0x0047b920
 bool SaveRenderOptions(wiz8::File& handle)
 {
     int version = 1;

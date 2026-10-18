@@ -23,15 +23,9 @@ class stLight;
 class W8Missile;
 struct W8AnimObj;
 
-/* The kind-3 record of the tagged AI family W8GrObject holds at +0x0c (the
-   path record is kind 0). UpdateMissileAI ticks it: +0x04 is the
-   per-step distance scale, +0x08 the remaining turn budget, +0x0c the missile
-   it steers (runtime clones start detached), +0x10 the
-   half-tick baseline, +0x14 the elapsed flight clock, +0x18 the early-impact
-   limit and +0x1c a trailing flag. */
-struct W8AIMissile : W8AIRecord {
-    W8AIMissile() : W8AIRecord(W8_AI_RECORD_MISSILE) {}
-    std::unique_ptr<W8AIRecord> Clone() const override;
+struct W8AIMissile {
+    W8AIMissile() = default;
+    std::unique_ptr<W8AIMissile> Clone() const;
 
     /* Gravity latch copied from the missile's gravity: when set, the
        vertical fall rate decays each step. */
@@ -114,6 +108,7 @@ public:
 public:
     int missile_table_index;
     std::unique_ptr<W8MissileRep> m_pRep;
+    std::unique_ptr<W8AIMissile> flight_ai;
     /* Flight exhausted its duration; the world updater destroys the missile
        once block_released is also set. */
     bool flight_done;

@@ -12,14 +12,9 @@
 #include "texture_animation.h"
 #include "wiz8/engine_code/stTextureFile.h"
 
-// VTABLE: WIZ8 0x005EC9C0
-// class stTextureAnim
-
-// FUNCTION: WIZ8 0x00484BE0
 stTextureAnim::stTextureAnim() : frame_tick(w8_get_ticks()) {}
 
 /* Copies share the frame textures but restart playback. */
-// FUNCTION: WIZ8 0x00485070
 stTextureAnim::stTextureAnim(const stTextureAnim& other)
     : textures(other.textures), animation_mode(other.animation_mode),
       initial_frame(other.initial_frame), frame_rate(other.frame_rate), frame_tick(w8_get_ticks()),
@@ -27,20 +22,17 @@ stTextureAnim::stTextureAnim(const stTextureAnim& other)
 {
 }
 
-// FUNCTION: WIZ8 0x00485400
 void stTextureAnim::SetFrame(int frame)
 {
     this->frame = frame;
     frame_tick = w8_get_ticks();
 }
 
-// FUNCTION: WIZ8 0x00485420
 void stTextureAnim::AddTexture(std::shared_ptr<srTexture> texture)
 {
     textures.push_back(std::move(texture));
 }
 
-// FUNCTION: WIZ8 0x004854B0
 void stTextureAnim::UpdateFrame()
 {
     const int count = static_cast<int>(textures.size());
@@ -103,35 +95,20 @@ void stTextureAnim::UpdateFrame()
     }
 }
 
-// FUNCTION: WIZ8 0x00485730
 int stTextureAnim::IsFinished() const
 {
     return animation_mode == W8_TEXTURE_ANIM_PLAY_ONCE &&
            frame == std::max(static_cast<int>(textures.size()) - 1, 0);
 }
 
-// FUNCTION: WIZ8 0x004856F0
 srTexture* stTextureAnim::resolve()
 {
     UpdateFrame();
     return textures.empty() ? nullptr : current().resolve();
 }
 
-// FUNCTION: WIZ8 0x00484D60
-
-// FUNCTION: WIZ8 0x00484D80
-
-// FUNCTION: WIZ8 0x00484DB0
-
-// FUNCTION: WIZ8 0x00484DE0
-
-// FUNCTION: WIZ8 0x00484E10
-
-// FUNCTION: WIZ8 0x00484E40
-
 void stTextureAnim::invalidate() {}
 
-// FUNCTION: WIZ8 0x00485760
 void stTextureAnim::setupDefaultValues()
 {
     srTexture* texture = textures.empty() ? nullptr : textures[0].get();
@@ -145,7 +122,6 @@ void stTextureAnim::setupDefaultValues()
     }
 }
 
-// FUNCTION: WIZ8 0x004857B0
 unsigned char stTextureAnim::Prepare()
 {
     auto* file = textures.empty() ? nullptr : dynamic_cast<stTextureFile*>(textures[0].get());

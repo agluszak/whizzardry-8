@@ -56,7 +56,7 @@ public:
     /* 0x0047A310: step the 1.5-second shared-group volume fade */
     void UpdateFade();
 
-    W8AmbientSound* FindNextMatching(const char* match_name, W8AmbientSound* previous);
+    W8AmbientSound* FindNextMatching(std::string_view match_name, W8AmbientSound* previous);
 
     std::string name;
     W8AmbientSoundConfig config; /* 0x004: wave filename; shared sounds match on it */
@@ -147,20 +147,20 @@ void BuildFootstepPath(char* path, signed char surface, signed char material, ch
 wiz8::sound::Playback PlayFootstep(signed char surface, signed char material, W8FootstepKind kind);
 void UpdateAmbientSounds(W8World* world);
 void RepositionAmbientSounds();
-unsigned char ReadAmbientSoundListFile(W8World& world, const char* filename);
+unsigned char ReadAmbientSoundListFile(W8World& world, std::string_view filename);
 void StartAmbientSoundList(W8World& world);
 
-void PositionAmbientSoundByName(W8World* /* unused */, const char* name);
-void StopAmbientSoundByName(W8World* /* unused */, const char* name);
-void ToggleAmbientSoundByName(const char* name);
-unsigned char AddAmbientSound(W8World* world, const char* name, const W8AmbientSoundConfig* config,
-                              const glm::vec3* position, const glm::vec3* region_min,
-                              const glm::vec3* region_max, int volume_min, int volume_max,
-                              int time_min, int time_max, int speed_min, int speed_max,
-                              float radius, bool looping, unsigned char bounded,
-                              const glm::vec3* region_center, float region_angle,
-                              const glm::vec3* region_axis, const glm::vec3* region_scale,
-                              unsigned char shared);
+void PositionAmbientSoundByName(W8World* /* unused */, std::string_view name);
+void StopAmbientSoundByName(W8World* /* unused */, std::string_view name);
+void ToggleAmbientSoundByName(std::string_view name);
+unsigned char AddAmbientSound(W8World* world, std::string_view name,
+                              const W8AmbientSoundConfig* config, const glm::vec3* position,
+                              const glm::vec3* region_min, const glm::vec3* region_max,
+                              int volume_min, int volume_max, int time_min, int time_max,
+                              int speed_min, int speed_max, float radius, bool looping,
+                              unsigned char bounded, const glm::vec3* region_center,
+                              float region_angle, const glm::vec3* region_axis,
+                              const glm::vec3* region_scale, unsigned char shared);
 
 void SaveAmbientSoundList(wiz8::File& handle);
 struct W8AmbientSoundState {

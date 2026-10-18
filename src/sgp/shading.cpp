@@ -8,11 +8,8 @@
 #include "himage.h"
 #include "shading.h"
 
-// GLOBAL: WIZ8 0x006c0da0
 std::array<std::uint16_t, 65536> ShadeTable{};
 
-// FUNCTION: WIZ8 0x00413d60
-// FUNCTION: WIZ8 0x00413e80
 void SetShadeTablePercent(float percent)
 {
     // Preserve the existing quantized 5-bit shade levels, sampled in steps of 4.

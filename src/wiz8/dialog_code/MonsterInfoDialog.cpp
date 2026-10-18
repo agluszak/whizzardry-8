@@ -45,15 +45,10 @@
 #include "wiz8/ui_input.h"
 #include "wiz8/utility.h"
 
-// STRING: WIZ8 0x0064F6B0
-
 /* The background and scroll track the monster and statistic info dialogs
    load, read through this pointer. */
-// GLOBAL: WIZ8 0x0064f610
-// STRING: WIZ8 0x0064f660
 const char* g_info_dialog_background = "Data\\Dialogs\\popup_monsterinfo.sti";
 
-// FUNCTION: WIZ8 0x005d5e30
 W8MonsterInfoDialog::W8MonsterInfoDialog(int location_id) : m_location_id(location_id)
 {
     SetOrigin(0x9c, 0x31);
@@ -71,20 +66,16 @@ W8MonsterInfoDialog::W8MonsterInfoDialog(int location_id) : m_location_id(locati
     CreateCloseButton(m_button, 0x11a, 0xe6);
 }
 
-// FUNCTION: WIZ8 0x005d5f90
 /* GppStringList indices naming the seven classes the monster's
    name line falls into by how far its level sits above the party average. */
-// GLOBAL: WIZ8 0x0064f614
 static int g_monster_level_name_ids[7] = {301, 302, 303, 304, 305, 306, 307};
 
 /* Knowledge threshold and g_localized_strings label id pairs gating the
    record's six resistance entries. */
-// GLOBAL: WIZ8 0x0064f630
 static int g_monster_resistance_label_gates[6][2] = {
     {70, 308}, {60, 309}, {40, 310}, {50, 311}, {80, 312}, {90, 313},
 };
 
-// FUNCTION: WIZ8 0x005d6160
 bool W8MonsterInfoDialog::PopulateText()
 {
     W8ControlsRect bounds;
@@ -434,7 +425,6 @@ bool W8MonsterInfoDialog::PopulateText()
     return true;
 }
 
-// FUNCTION: WIZ8 0x005d6080
 void W8MonsterInfoDialog::Draw(SDL_Surface& target)
 {
 

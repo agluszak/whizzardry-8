@@ -36,7 +36,6 @@ constexpr int kWorldActionQuoteMin = 'F';
    directly, randomly in [operand0, operand2] when operand1 is 2, or a
    queued QUOTE_ENTRY continuation line when operand2 is 4. Returns the
    response index, -1 when a guard fails, and -2 after queueing. */
-// FUNCTION: WIZ8 0x005251F0
 int W8NpcDialogue::SelectResponse(W8NpcQuoteEntry* entry, int quote_index, int entry_index)
 {
     int index;
@@ -69,7 +68,6 @@ int W8NpcDialogue::SelectResponse(W8NpcQuoteEntry* entry, int quote_index, int e
 /* Kind-4 entries carry the keyword strings a dialogue keyword can select;
    scan every quote for a subentry whose text
    matches, reporting the entry and subentry indices through the out-pointers. */
-// FUNCTION: WIZ8 0x00525E80
 int FindNpcScriptQuoteByKeyword(std::string_view keyword, short* entry_index,
                                 short* sub_entry_index)
 {
@@ -110,7 +108,6 @@ int FindNpcScriptQuoteByKeyword(std::string_view keyword, short* entry_index,
    switches, items, gold, keyword learning or the follow-up quote. Then speak
    the current subquote and queue the continuation line. Quote indices
    'F'..'R' fall outside the scripted world-action dispatch. */
-// FUNCTION: WIZ8 0x00525FA0
 void W8NpcDialogue::Speak(int script_line, bool force_npc_voice)
 {
     W8NpcScriptQuote* quote;
@@ -291,13 +288,11 @@ void W8NpcDialogue::Push(W8NpcAction action, bool prepend)
     }
 }
 
-// FUNCTION: WIZ8 0x00528830
 void W8NpcDialogue::QueueQuote(int quote, bool mark_pending, bool prepend, bool suppress_entries)
 {
     Push(W8NpcQueuedQuote{quote, mark_pending, suppress_entries}, prepend);
 }
 
-// FUNCTION: WIZ8 0x005289B0
 void W8NpcDialogue::Queue(W8NpcAction action)
 {
     Push(std::move(action), false);
@@ -314,7 +309,6 @@ void W8NpcDialogue::QueuePortraitMessage(std::string text, W8QuoteNotice notice)
    entries - role 3 supplies the per-keyword answer list, role 1 the generic
    answer. No keyword match at all falls back to the role-2 entry. -1 when the
    quote has no usable reply. */
-// FUNCTION: WIZ8 0x00529300
 int W8NpcDialogue::FindReplyQuote(std::string_view text) const
 {
     W8NpcScriptQuote* quote;
@@ -372,7 +366,6 @@ int W8NpcDialogue::FindReplyQuote(std::string_view text) const
     return -1;
 }
 
-// FUNCTION: WIZ8 0x005294c0
 std::string GetNpcQuoteText(W8NpcState* npc, int type)
 {
     const W8NpcScriptFile* script = npc->script_file.get();
@@ -384,14 +377,12 @@ std::string GetNpcQuoteText(W8NpcState* npc, int type)
 
 /* Queue a quote-entry line carrying `continuation_quote`; `prepend` inserts it
    at the front of the queue (continuation subquotes overtake pending lines). */
-// FUNCTION: WIZ8 0x00528B50
 void W8NpcDialogue::QueueQuoteEntry(int quote_index, int entry_index, int continuation_quote,
                                     bool prepend)
 {
     Push(W8NpcQueuedEntry{quote_index, entry_index, continuation_quote}, prepend);
 }
 
-// FUNCTION: WIZ8 0x00529560
 void W8NpcDialogue::Cancel()
 {
     cancelled_ = true;
@@ -399,7 +390,6 @@ void W8NpcDialogue::Cancel()
 
 /* Run every kind-0x17 consequence entry of the given quote - the reply
    handler's decline path when the party refuses a price offer. */
-// FUNCTION: WIZ8 0x00529610
 void W8NpcDialogue::RunDeclineActions(int quote_index)
 {
     W8NpcScriptQuote* quote;
@@ -467,13 +457,11 @@ void W8NpcDialogue::AbandonReply()
     price_check_.reset();
 }
 
-// FUNCTION: WIZ8 0x00529BC0
 void W8NpcDialogue::HoldForScene()
 {
     held_by_scene_ = true;
 }
 
-// FUNCTION: WIZ8 0x00529BD0
 void W8NpcDialogue::ReleaseScene()
 {
     held_by_scene_ = false;

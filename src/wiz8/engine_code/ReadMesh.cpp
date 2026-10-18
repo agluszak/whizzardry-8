@@ -96,7 +96,6 @@ static bool ReadMeshFaceNeedsSplit(const W8ReadMeshFace& face,
 
 /* Reorder polygons so equal shader/texture keys are adjacent, then vertices so
    equal materials are adjacent and, within them, follow first use. */
-// FUNCTION: WIZ8 0x004867F0
 static void OptimizeMeshOrder(stMeshModel& mesh)
 {
     auto* model = &mesh;
@@ -293,7 +292,6 @@ std::unique_ptr<stMeshModel> BuildMeshPart(const SingleLevelMeshRecord& record,
 
 static void ValidateMeshMaterialNames(const W8MaterialRecord& material);
 
-// FUNCTION: WIZ8 0x00487E10
 static std::vector<W8MaterialRecord> ReadMeshMaterialRecords(wiz8::File& file)
 {
     short count = 0;
@@ -534,7 +532,6 @@ try {
     return {};
 }
 
-// FUNCTION: WIZ8 0x00488240
 std::vector<std::unique_ptr<stModelInstance>>
 ReadMultipleLevelMeshes(wiz8::File& file, std::size_t expected_count,
                         const std::filesystem::path& texture_directory)

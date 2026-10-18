@@ -247,7 +247,6 @@ bool WarpGameMouse(SDL_Window* window, int x, int y)
     return true;
 }
 
-// FUNCTION: WIZ8 0x00402750
 void FreeMouseCursor()
 {
     if (input_window) SDL_SetWindowMouseRect(input_window, nullptr);

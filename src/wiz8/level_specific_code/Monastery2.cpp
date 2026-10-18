@@ -20,18 +20,15 @@
    blocks for four level TUs - MtGigasOuter (0xe), MtGigasTop (0xf),
    Monastery2 (9) and Monastery1 (8) - which are not recovered here. */
 
-#define MONASTERY2_CPP "C:\\Projects\\Wizardry 8\\Level Specific Code\\Monastery2.cpp"
-
 static void DisableBellTrigger(const char* name, int line)
 {
     Trigger* pPropTrigger = FindTriggerByName(name);
     if (pPropTrigger == 0) {
-        srAssertFail("pPropTrigger", MONASTERY2_CPP, line, 0);
+        Fail("pPropTrigger");
     }
     pPropTrigger->flags &= ~W8_TRIGGER_ON;
 }
 
-// FUNCTION: WIZ8 0x004dc7a0
 bool Monastery2BellButton(Trigger* pTrigger)
 {
     W8Prop* prop;
@@ -39,7 +36,7 @@ bool Monastery2BellButton(Trigger* pTrigger)
 
     prop = FindPropByName(GetWorld(), "dial1");
     if (prop != 0) {
-        slot = prop->Rep()->FindCurrentAnimationSlot();
+        slot = prop->FindCurrentAnimationSlot();
         if (slot == 0) {
             wiz8::sound::play("Data\\Sound\\Ambients\\Mon2Bell1.wav");
         } else if (slot == 1) {
@@ -55,7 +52,6 @@ bool Monastery2BellButton(Trigger* pTrigger)
     return true;
 }
 
-// FUNCTION: WIZ8 0x004dc880
 bool Monastery2MicroDoor2(Trigger* pTrigger)
 {
     glm::vec3 position;

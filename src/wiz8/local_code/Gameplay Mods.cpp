@@ -26,7 +26,6 @@
    effect run and each character's own equipment and condition blocks into
    their derived modifiers, then drive the sky node from the stored light
    byte. */
-// FUNCTION: WIZ8 0x0050E700
 void RebuildPartyEffectBlock(void)
 {
     memset(&g_status.party_modifiers, 0, sizeof(W8GameplayModifierBlock));
@@ -79,7 +78,6 @@ void RebuildPartyEffectBlock(void)
    equipment slots are walked, the two alternate hand slots are skipped, the
    two hand slots contribute no attack values, and the six per-item
    resistance bytes are summed and clamped into the block's resistance run. */
-// FUNCTION: WIZ8 0x0050e980
 void AccumulateEquipmentModifiers(W8Character* character, W8GameplayModifierBlock* equipment_bonus)
 {
     int resistance_totals[6] = {0};
@@ -124,7 +122,6 @@ void AccumulateEquipmentModifiers(W8Character* character, W8GameplayModifierBloc
 
 /* Add one modifier block into another: the byte fields sum, the six flags
    latch, and the light and max-combined bytes keep the larger source. */
-// FUNCTION: WIZ8 0x0050f090
 void ApplyModifierBlock(W8GameplayModifierBlock* target, const W8GameplayModifierBlock* source)
 {
     unsigned int index;
@@ -181,7 +178,6 @@ void ApplyModifierBlock(W8GameplayModifierBlock* target, const W8GameplayModifie
 }
 
 /* Fold the party's twelve effect slots into the shared modifier block. */
-// FUNCTION: WIZ8 0x0050EDC0
 void ApplyPartyEffectSlots(const W8EffectSlot* source, W8GameplayModifierBlock* target)
 {
     const W8EffectSlot* slot = source;
@@ -233,7 +229,6 @@ void ApplyPartyEffectSlots(const W8EffectSlot* source, W8GameplayModifierBlock* 
 }
 
 /* Fold the six combat effect records at +0x85a into the shared modifier block. */
-// FUNCTION: WIZ8 0x0050EF50
 void ApplyCombatEffectSlots(const W8EffectSlot* source, W8GameplayModifierBlock* target)
 {
     const W8EffectSlot* slot = source;
@@ -271,7 +266,6 @@ void ApplyCombatEffectSlots(const W8EffectSlot* source, W8GameplayModifierBlock*
 
 /* Rebuild one character's derived modifier block from the equipment,
    condition and party blocks without rerunning the derived stats. */
-// FUNCTION: WIZ8 0x0050f030
 void RebuildCharacterModifierBlock(W8Character* character)
 {
     memset(&character->bonus, 0, sizeof(W8GameplayModifierBlock));
@@ -285,7 +279,6 @@ void RebuildCharacterModifierBlock(W8Character* character)
 /* Rebuild one character's equipment bonus block from its worn items, then its
    derived block from the equipment, condition and party blocks, and
    recompute the derived stats. The standalone form character creation runs. */
-// FUNCTION: WIZ8 0x0050e540
 void RebuildEquipmentAndDerivedStats(W8Character* character)
 {
     memset(&character->equipment_bonus, 0, sizeof(W8GameplayModifierBlock));
@@ -297,7 +290,6 @@ void RebuildEquipmentAndDerivedStats(W8Character* character)
 /* The party-slot counterpart of RebuildEquipmentAndDerivedStats: refill the
    member's equipment bonus block from its worn items, then its derived block
    and stats. */
-// FUNCTION: WIZ8 0x0050e5c0
 void RebuildEquipmentAndDerivedStatsForSlot(int party_slot)
 {
     RebuildEquipmentAndDerivedStats(&g_status.buffers.Char[party_slot]);
@@ -307,7 +299,6 @@ void RebuildEquipmentAndDerivedStatsForSlot(int party_slot)
    live condition durations, the enchantment slots and the bound-NPC penalty,
    then its derived block and stats. Every condition and enchantment change
    funnels through it. */
-// FUNCTION: WIZ8 0x0050e650
 void RebuildConditionsAndDerivedStats(int party_slot)
 {
     W8Character* character = &g_status.buffers.Char[party_slot];
@@ -325,7 +316,6 @@ void RebuildConditionsAndDerivedStats(int party_slot)
    condition durations, enchantments and effect slots, then its armor byte's
    combat adjustment and the combat effect run, and finally the derived
    attributes and regeneration rates. */
-// FUNCTION: WIZ8 0x0050e8c0
 void RebuildMonsterDerivedStats(int location_id)
 {
     RebuildMonsterDerivedStats(*FindMonster(location_id));
@@ -359,7 +349,6 @@ void RebuildMonsterDerivedStats(W8MonsterInfo& monster)
    argument (poison strength) to the block's regen channel, and condition 0x13
    scales its hit adjustment off the bound monster when the record still
    resolves on the saved level. */
-// FUNCTION: WIZ8 0x0050eac0
 void ApplyConditionModifiers(W8Character* character, const unsigned int* condition_turns,
                              int condition_argument, W8GameplayModifierBlock* target)
 {
@@ -449,7 +438,6 @@ void ApplyConditionModifiers(W8Character* character, const unsigned int* conditi
    attribute by ten per power, slot six raises them all by five per power and
    slot seven raises the damage-reduction and armor bytes by eight and one per
    power, each scaled by the slot's percentage. */
-// FUNCTION: WIZ8 0x0050ecc0
 void ApplyEnchantmentModifiers(const W8Enchantment* enchantments, W8GameplayModifierBlock* target)
 {
     unsigned char amount;

@@ -6,10 +6,8 @@
 
 // Scales real elapsed time into accumulated game time, with a per-frame clamp.
 
-// GLOBAL: WIZ8 0x006068EC
 float g_rate = 0.1f;
 
-// GLOBAL: WIZ8 0x006598bc
 static std::optional<W8GameTimeAccumulator> g_game_time_accumulator;
 
 W8GameTimeAccumulator& GameTimeAccumulator()
@@ -23,7 +21,6 @@ void ResetGameTimeAccumulator()
     g_game_time_accumulator.reset();
 }
 
-// FUNCTION: WIZ8 0x0043a910
 W8GameTimeAccumulator::W8GameTimeAccumulator()
 {
     m_duration_seconds = g_rate;
@@ -36,7 +33,6 @@ W8GameTimeAccumulator::W8GameTimeAccumulator()
     m_end = m_duration;
 }
 
-// FUNCTION: WIZ8 0x0043a960
 void W8GameTimeAccumulator::SetTimeScale(float scale)
 {
     m_duration_scale = scale;
@@ -49,7 +45,6 @@ void W8GameTimeAccumulator::SetTimeScale(float scale)
     m_frame_delta = 0.0f;
 }
 
-// FUNCTION: WIZ8 0x0043aa20
 void W8GameTimeAccumulator::ResetTimeScale()
 {
     m_flags.slow_scale = false;
@@ -60,7 +55,6 @@ void W8GameTimeAccumulator::ResetTimeScale()
     m_frame_delta = 0.0f;
 }
 
-// FUNCTION: WIZ8 0x0043aad0
 float W8GameTimeAccumulator::Update()
 {
     if (m_flags.paused || (g_shared_timer_paused && !m_flags.raw_time) || g_shared_timer_flag0) {

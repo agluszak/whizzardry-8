@@ -175,7 +175,7 @@ public:
     void RefreshModelLightScale();
     void SetDamageStage(int stage);
     int GetDamageStageCount();
-    bool ReplaceSkinTexture(int stage, const char* old_name, const char* new_name);
+    bool ReplaceSkinTexture(int stage, std::string_view old_name, std::string_view new_name);
     int AddDamageStage(std::string_view base_name, int stage);
     void RemoveCycleSkinTables();
     void RandomizeAppearanceAndMotion();
@@ -202,13 +202,13 @@ public:
     bool SetScript(std::string script_name, bool reset_orders);
     void UseScript(std::shared_ptr<stScript> loaded, bool reset_orders);
     void ProcessScript();
-    bool ResolveScriptPosition(const char* name, glm::vec3* position);
+    bool ResolveScriptPosition(std::string_view name, glm::vec3* position);
     bool GetProjectilePosition(glm::vec3* position);
     bool GetSpellPosition(glm::vec3* position);
     bool GetCycleMappedPosition(signed char cycle, int mapped_index, glm::vec3* position);
     bool EvaluateScriptCondition(std::string_view expression);
     bool CanContinueScript();
-    bool SetScriptLabel(const char* label);
+    bool SetScriptLabel(std::string_view label);
     bool IsPendingFinalize() const;
     bool IsWithinWorldRange();
     bool CheckLineOfSightToPlayer();
@@ -326,11 +326,11 @@ public:
     /* 0x332: copied from the source monster; blocks hostility recompute in
        Targeting and Combat Hostility. */
     bool hostility_preserved;
-    stSound3D* sound;
+    std::unique_ptr<stSound3D> sound;
     std::vector<wiz8::sound::Playback> sounds;
 };
 
-W8MonsterCycle ParseMonsterCycleName(const char* name, signed char* subcycle = 0);
+W8MonsterCycle ParseMonsterCycleName(std::string_view name, signed char* subcycle = nullptr);
 std::unique_ptr<W8Monster> MonsterReadAllCycles(W8World* world, std::string_view monster_name,
                                                 int load_value, int location_id);
 unsigned short ChooseDifferentMonsterDirection(unsigned short previous_direction);
@@ -408,7 +408,7 @@ void MonsterResumeAllNavigators(void);
 void SetMonsterPartySlotMarker(int party_slot, int location_id, char on);
 void MonsterForwardReferencePosition(W8Monster* monster, char alternate); /* 0x004C6240 */
 
-std::unique_ptr<W8Item> CreateMonsterIconItem(W8World& world, const char* path);
+std::unique_ptr<W8Item> CreateMonsterIconItem(W8World& world, std::string_view path);
 /* A Monster script by name, shared through the script cache; null when missing. */
 std::shared_ptr<stScript> LoadMonsterScript(std::string_view name);
 /* One eight-byte row per animation cycle at 0x0060EA08. The parser at

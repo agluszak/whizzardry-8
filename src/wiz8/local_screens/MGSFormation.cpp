@@ -40,7 +40,6 @@
 
 /* On-board (left, top) of each of the fifteen cell markers,
    relative to the board anchor. */
-// GLOBAL: WIZ8 0x0064daf4
 static glm::ivec2 g_formation_marker_offsets[15] = {
     {0x26, 0x9},  {0x19, 0xd},  {0x33, 0xd},  {0x43, 0x26}, {0x3f, 0x19},
     {0x3f, 0x33}, {0x26, 0x43}, {0x33, 0x3f}, {0x19, 0x3f}, {0x9, 0x26},
@@ -48,23 +47,17 @@ static glm::ivec2 g_formation_marker_offsets[15] = {
 };
 
 /* Screen (left, top) of the fifteen cell controls. */
-// GLOBAL: WIZ8 0x0064db6c
 static glm::ivec2 g_formation_cell_positions[15] = {
     {0x5a, 0x1c}, {0x3d, 0x25}, {0x77, 0x25}, {0x98, 0x5a}, {0x8f, 0x3d},
     {0x8f, 0x77}, {0x5a, 0x98}, {0x77, 0x8f}, {0x3d, 0x8f}, {0x1c, 0x5a},
     {0x25, 0x77}, {0x25, 0x3d}, {0x5a, 0x48}, {0x48, 0x61}, {0x6c, 0x61},
 };
 
-// GLOBAL: WIZ8 0x0069c2f0
 static int g_formation_active_cell;
-// GLOBAL: WIZ8 0x0069c2f4
 static int g_formation_drag_slot;
 /* The party slot occupying each cell control, or -1. */
-// GLOBAL: WIZ8 0x0069c304
 static int g_formation_cell_slots[15];
-// GLOBAL: WIZ8 0x0069c340
 static uint64_t g_formation_drag_clock;
-// GLOBAL: WIZ8 0x0069c380
 static int g_formation_drag_cell;
 
 namespace {
@@ -93,7 +86,6 @@ static void UpdateFormationCells(void);
 
 /* Draw each occupied slot's facing arrow and marching-order chip into the
    board image; the slot the board highlights gets the +1 frame of each. */
-// FUNCTION: WIZ8 0x005b1f40
 void DrawFormationSlotMarkers(SDL_Surface& target)
 {
     int slot;
@@ -124,7 +116,6 @@ void DrawFormationSlotMarkers(SDL_Surface& target)
 
 /* Rebuild the board, compass and overlay sprites and redraw the slot markers
    into the board image. */
-// FUNCTION: WIZ8 0x005b1c80
 void RefreshFormationBoard(void)
 {
     SDLSurfaceOwner board_image{nullptr, SDL_DestroySurface};
@@ -155,7 +146,6 @@ void RefreshFormationBoard(void)
 }
 
 /* Rotate the compass needle to party_facing - party_heading. */
-// FUNCTION: WIZ8 0x005b1e70
 void UpdateFormationCompass(void)
 {
     if (g_level_block->formation_compass_sprite != 0) {
@@ -166,7 +156,6 @@ void UpdateFormationCompass(void)
 }
 
 /* Lazily create the overlay sprite above the board. */
-// FUNCTION: WIZ8 0x005b1ea0
 void CreateFormationBoardOverlay(void)
 {
     W8ControlsRect bounds;
@@ -301,7 +290,6 @@ void RefreshFormationPanel(bool force)
 
 /* Open the formation panel: build the controls, snapshot the live formation
    into gXStatus.edited_formation and pause the world. */
-// FUNCTION: WIZ8 0x005b2150
 void OpenFormationPanel(void)
 {
     DestroyFormationPanel();
@@ -319,7 +307,6 @@ void OpenFormationPanel(void)
 
 /* Re-derive every cell's sprites and enabled state from the edited formation
    and re-highlight the selected character's cell. */
-// FUNCTION: WIZ8 0x005b2600
 static void UpdateFormationCells(void)
 {
     for (auto& slot : g_formation_cell_slots) slot = -1;
@@ -333,7 +320,6 @@ static void UpdateFormationCells(void)
 
 /* The cells' activation callback: highlight the active cell and make its
    party slot the selected character. */
-// FUNCTION: WIZ8 0x005b27e0
 static void SelectFormationCell(void)
 {
     const int slot = g_formation_cell_slots[g_formation_active_cell];
@@ -346,7 +332,6 @@ static void SelectFormationCell(void)
 /* The accept button: wake any slot whose row changed, reconcile the edited
    formation into the live one (or just warn while in combat) and close the
    panel. */
-// FUNCTION: WIZ8 0x005b2860
 static void AcceptFormationChanges(void)
 {
     unsigned int slot;
@@ -370,7 +355,6 @@ static void AcceptFormationChanges(void)
 }
 
 /* The reset button: throw the staged edits away and rebuild the cells. */
-// FUNCTION: WIZ8 0x005b2960
 static void ResetFormationPanel(void)
 {
     gXStatus.edited_formation = g_status.formation;
@@ -384,7 +368,6 @@ static void DropFormationSlot(int cell);
    drag clock, a repeat while held begins the drag, left release either
    activates the cell or completes the drop, and mouse transitions drive the
    hover art and tooltip. */
-// FUNCTION: WIZ8 0x005b29d0
 static UiResult HandleFormationCell(const UiPointerEvent& event, int id)
 {
     if ((g_formation_cell_slots[id] != -1) &&
@@ -473,7 +456,6 @@ static UiResult HandleFormationBackground(const UiPointerEvent& event)
 
 /* Pick up the active cell's character: clear the cell, switch the mouse
    cursor to the dragged chip and blank both controls' sprites. */
-// FUNCTION: WIZ8 0x005b2e10
 static void BeginFormationDrag()
 {
     SDL_Point point;
@@ -507,7 +489,6 @@ static void BeginFormationDrag()
 
 /* Drop the dragged character: into an empty cell it re-seats the row, onto a
    movable occupant it swaps positions, onto a dead one it cancels. */
-// FUNCTION: WIZ8 0x005b2f70
 static void DropFormationSlot(int cell)
 {
     if (cell != -1 && cell != g_formation_drag_cell) {
@@ -544,7 +525,6 @@ void SelectFormationSlotCell(int party_slot)
     formation->dirty = true;
 }
 
-// FUNCTION: WIZ8 0x005B2200
 void CloseFormationPanel(void)
 {
     DestroyFormationPanel();

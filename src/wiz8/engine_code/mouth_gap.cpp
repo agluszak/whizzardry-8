@@ -14,7 +14,6 @@
 /* Voice samples ship a companion file at <voice dir>\GAP\<voice name>.gap
    holding little-endian int32 (start, end) millisecond pairs. */
 
-// FUNCTION: WIZ8 0x005E2D10
 W8MouthGapTrack LoadMouthGapTrack(std::string_view voice_path)
 {
     const auto separator = voice_path.find_last_of("\\/");
@@ -42,7 +41,6 @@ W8MouthGapTrack LoadMouthGapTrack(std::string_view voice_path)
     return track;
 }
 
-// FUNCTION: WIZ8 0x005E2F40
 void UpdateMouthGapTrack(wiz8::sound::Playback playback, W8MouthGapTrack& track)
 {
     if (track.ranges.empty()) {

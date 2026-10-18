@@ -36,7 +36,6 @@ struct ButtonSetup {
 
 /* Ordinary sprite or generic-frame button. Its layer owns input registration;
    this control owns behavior and appearance without a visual parent tree. */
-// VTABLE: WIZ8 0x005efa98
 class W8ButtonWidget {
 public:
     explicit W8ButtonWidget(UiLayer& layer);

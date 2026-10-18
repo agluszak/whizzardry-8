@@ -16,20 +16,12 @@ class File;
 
 /* Runtime path data. File records are read field by field by LoadPathAI. */
 
-enum W8AIRecordKind { W8_AI_RECORD_PATH, W8_AI_RECORD_MISSILE = 3 };
-
-struct W8AIRecord {
-    explicit W8AIRecord(W8AIRecordKind kind) : kind(kind) {}
-    W8AIRecord(const W8AIRecord&) = default;
-    W8AIRecord& operator=(const W8AIRecord&) = delete;
-    virtual ~W8AIRecord() = default;
-    virtual std::unique_ptr<W8AIRecord> Clone() const = 0;
-    const W8AIRecordKind kind;
-};
-
-struct W8PathAI : W8AIRecord {
-    W8PathAI() : W8AIRecord(W8_AI_RECORD_PATH) {}
-    std::unique_ptr<W8AIRecord> Clone() const override;
+struct W8PathAI {
+    W8PathAI() = default;
+    W8PathAI(const W8PathAI&) = default;
+    W8PathAI& operator=(const W8PathAI&) = delete;
+    ~W8PathAI() = default;
+    std::unique_ptr<W8PathAI> Clone() const;
 
     /* Serialized record selector: value 2 adds a per-point scale array. */
     unsigned char version{};
@@ -56,11 +48,9 @@ struct W8PathAI : W8AIRecord {
     bool timed{};
 };
 
-/* Tagged-record dispatchers: the body switches on kind and hands the
-   record to the path or missile implementation. */
-bool PathAIUpdate(W8AIRecord* record, signed char direction);
-void PathAIResetRecord(W8AIRecord* record);
-void PathAIApplyToRep(W8AIRecord* record, W8AnimRepBase* representation);
+bool PathAIUpdate(W8PathAI* record, signed char direction);
+void PathAIResetRecord(W8PathAI* record);
+void PathAIApplyToRep(W8PathAI* record, W8AnimRepBase* representation);
 /* Places one srNode (model instance, light, camera, …) through a path. The
    body only calls srNode child/location/rotation/scale APIs; retail callers
    pass those node kinds interchangeably. */

@@ -17,6 +17,7 @@
 #include <SDL3/SDL_surface.h>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers.hpp>
+#include <catch2/matchers/catch_matchers_string.hpp>
 
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srDebug.h"
@@ -292,8 +293,9 @@ TEST_CASE("imports_test")
         REQUIRE(decoder.getDataCount() == sizeof(values) / sizeof(values[0]));
         for (auto value : values) REQUIRE(decoder.decompressSymbol() == value);
     }
-    REQUIRE_THROWS_WITH(srAssertFail("native probe", "imports_test.cpp", 42, "value %d", 7),
-                        "Debug assertion in module imports_test.cpp line 42 failed:\n\n"
-                        "Expression [ native probe ] evaluates to false.\n\nvalue 7\n");
-    puts("ok: native renderer consumer imports, generated special members and variadic assertion");
+    REQUIRE_THROWS_WITH(Fail("native probe", "value 7"),
+                        Catch::Matchers::ContainsSubstring("Invariant failed at") &&
+                            Catch::Matchers::ContainsSubstring("[ native probe ]") &&
+                            Catch::Matchers::ContainsSubstring("value 7"));
+    puts("ok: native renderer consumer imports and generated special members");
 }

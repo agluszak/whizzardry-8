@@ -9,7 +9,6 @@
 #include "srModel.h"
 #include "srNode.h"
 
-// class srModelInstance
 class srModelInstance : public srNode {
 public:
     virtual ~srModelInstance() override;

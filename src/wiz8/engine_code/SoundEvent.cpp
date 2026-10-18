@@ -20,10 +20,7 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/xstatus.h"
 
-#define SOUNDEVENT_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\SoundEvent.cpp"
-
 // Looping events own the voice they start.
-// FUNCTION: WIZ8 0x004d5770
 W8SoundEvent::~W8SoundEvent()
 {
     if (looping && sound_handle != nullptr) {
@@ -33,7 +30,6 @@ W8SoundEvent::~W8SoundEvent()
 
 /* The wave name is copied into storage the event owns and its destructor
    releases. */
-// FUNCTION: WIZ8 0x004d57a0
 W8SoundEvent::W8SoundEvent(W8SoundEventKind kind, int cycle, int frame, int subcycle,
                            std::string wave_name, bool looping)
     : kind(kind), cycle(cycle), frame(frame), subcycle(subcycle), wave_name(std::move(wave_name)),
@@ -41,16 +37,13 @@ W8SoundEvent::W8SoundEvent(W8SoundEventKind kind, int cycle, int frame, int subc
 {
 }
 
-// GLOBAL: WIZ8 0x0061095c
 static int g_last_sound_event = -1;
 
-// GLOBAL: WIZ8 0x00683420
 static int g_previous_footstep_variant;
 
 /* For every bit of the caller's mask, append the events of that kind whose
    own classification matches, then play one of them at random without
    repeating the previous choice for as long as a second candidate exists. */
-// FUNCTION: WIZ8 0x004d5890
 void UpdateSoundEvents(const std::vector<std::unique_ptr<W8SoundEvent>>& events,
                        const glm::vec3& position, unsigned int event_mask, int cycle, int frame,
                        int subcycle)
@@ -83,7 +76,6 @@ void UpdateSoundEvents(const std::vector<std::unique_ptr<W8SoundEvent>>& events,
 /* Resolve one event into a positional 3D play: decide the base volume from
    the event's own routing, rotate the listener offset into the camera frame,
    and let the ground/step branch rebuild the wave name before the play. */
-// FUNCTION: WIZ8 0x004d5a10
 bool W8SoundEvent::Play(const glm::vec3& position, int cycle)
 {
     W8Monster* monster = 0;

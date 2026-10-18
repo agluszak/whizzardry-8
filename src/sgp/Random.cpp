@@ -9,7 +9,6 @@ namespace {
 std::uint32_t state = 1;
 } // namespace
 
-// FUNCTION: WIZ8 0x0040ef80
 void InitializeRandom()
 {
     // Seed the random-number generator with current time so that
@@ -29,14 +28,12 @@ std::uint32_t Random15()
 }
 
 // Returns a pseudo-random integer between 0 and uiRange
-// FUNCTION: WIZ8 0x0040efa0
 std::uint32_t Random(std::uint32_t uiRange)
 {
     if (uiRange == 0) return 0;
     return static_cast<std::uint32_t>(std::uint64_t{Random15()} * uiRange / 0x7fff % uiRange);
 }
 
-// FUNCTION: WIZ8 0x0040efe0
 bool Chance(std::uint32_t uiChance)
 {
     return Random(100) < uiChance;

@@ -106,7 +106,6 @@ constexpr float kRegionLinkCircleCoverage = 6.282185077667236f;
 constexpr float kScatterInnerRingJitterScale = 0.00020000000949949026f;
 constexpr float kScatterOuterRingJitterScale = 0.00040000001899898052f;
 
-// FUNCTION: WIZ8 0x00433a70
 void W8Octree::GetPathSurfaceNormal(const glm::vec3* position, glm::vec3* normal)
 {
     if (pathing != 0) {
@@ -116,29 +115,17 @@ void W8Octree::GetPathSurfaceNormal(const glm::vec3* position, glm::vec3* normal
     (*normal) = glm::vec3(0.0f, 1.0f, 0.0f);
 }
 
-// FUNCTION: WIZ8 0x00434170
-
-// GLOBAL: WIZ8 0x00659760
 static W8OctreeIndex::iterator g_octree_query_slot;
-// GLOBAL: WIZ8 0x00659766
 static unsigned short g_octree_query_id;
 
-// GLOBAL: WIZ8 0x00659770
-
-// GLOBAL: WIZ8 0x00659774
 static unsigned int g_octree_query_cell;
 
 /* Build a packed four-byte colour from four components and answer its
    address. The receiver is the output slot. */
 /* Draw the probe box through the world camera. */
 
-// GLOBAL: WIZ8 0x006598a4
-
-// GLOBAL: WIZ8 0x006068a4
 static char g_region_link_extension[] = ".rlk";
 
-// GLOBAL: WIZ8 0x006598a8
-// GLOBAL: WIZ8 0x006598b0
 static unsigned short g_octree_region_debug_last;
 
 /* Renderer switches toggled across a region-link build: while sampling,
@@ -146,17 +133,10 @@ static unsigned short g_octree_region_debug_last;
    faces culled.  The inverted-depth switch is read by the surface-capture
    path (RenderWorldToSurface and the tri-mesh renderer) but no Wiz8 code
    ever writes it. */
-// GLOBAL: WIZ8 0x0065a0ec
 bool g_render_unlit;
-// GLOBAL: WIZ8 0x0065a0ed
 bool g_render_cull_front;
-// GLOBAL: WIZ8 0x0065a0ee
-// GLOBAL: WIZ8 0x0065a146
 bool g_render_untextured;
 
-// FUNCTION: WIZ8 0x0042bc00
-
-// GLOBAL: WIZ8 0x005ec02c
 static const float NAVIGATOR_MINIMUM_HORIZONTAL_DISTANCE = 50.0f;
 
 void W8OctreeView::captureCamera(const srCamera& camera)
@@ -171,7 +151,6 @@ void W8OctreeView::captureCamera(const srCamera& camera)
     horizontal_fov_cosine = static_cast<float>(cos(horizontal_fov));
 }
 
-// FUNCTION: WIZ8 0x0042f7e0
 void W8Octree::UpdateCameraVisibility()
 {
     W8World* world = owner_world;
@@ -186,7 +165,6 @@ void W8Octree::UpdateCameraVisibility()
     UpdateVisibility();
 }
 
-// FUNCTION: WIZ8 0x004304a0
 void W8Octree::UpdateVisibility()
 {
     unsigned short mesh_index;
@@ -302,7 +280,6 @@ void W8Octree::UpdateVisibility()
 
 /* Collect mesh and prop instances whose world-space bounds intersect the query sphere.
    The grid and pre-generated frusta supply candidate regions. */
-// FUNCTION: WIZ8 0x0042f9a0
 std::vector<stModelInstance*> W8Octree::modelsNearPoint(const glm::vec3& center, float radius,
                                                         unsigned int flags, bool only_accumulated)
 {
@@ -381,7 +358,6 @@ std::vector<stModelInstance*> W8Octree::modelsNearPoint(const glm::vec3& center,
 
    The lookup gives a 1-based start into a packed link table; each run is
    terminated by a zero. A linked entry whose slot is empty is skipped. */
-// FUNCTION: WIZ8 0x00430a70
 void W8Octree::MarkMeshLinksVisible(unsigned int mesh)
 {
     if (mesh > m_meshCount) return;
@@ -399,7 +375,6 @@ void W8Octree::MarkMeshLinksVisible(unsigned int mesh)
    camera cell up in the region-link table and adds every linked region to the
    projected set. The leaf the walk ends on contributes its region list through
    ProjectLinkedRegionsForLocation. */
-// FUNCTION: WIZ8 0x00431050
 short W8Octree::ProjectLinkedRegionsForLocation(glm::vec3* location, unsigned short* region_list)
 {
     if (!m_region_links_ready) {
@@ -477,7 +452,6 @@ short W8Octree::ProjectLinkedRegionsForLocation(glm::vec3* location, unsigned sh
     return match_count;
 }
 
-// FUNCTION: WIZ8 0x00430BF0
 unsigned int W8Octree::GetSectorForPosition(const glm::vec3* position)
 {
     glm::vec3 point = *position;
@@ -521,7 +495,6 @@ OctreeCellCoordinates W8Octree::cellCoordinates(const glm::vec3& location) const
     return {cell, offset, inside};
 }
 
-// FUNCTION: WIZ8 0x00430d50
 OctreeCellCoordinates W8Octree::projectRegionsAt(const glm::vec3& position)
 {
     const auto coordinates = cellCoordinates(position);
@@ -574,7 +547,6 @@ OctreeCellCoordinates W8Octree::projectRegionsAt(const glm::vec3& position)
 /* Project each candidate region volume against the camera frustum and add the
    visible ones to the current region set. The first corner is tested against
    the far-clip sphere before the eight remaining corners are projected. */
-// FUNCTION: WIZ8 0x004301c0
 void W8Octree::MarkVisibleRegions()
 {
     float radius = view.far_clip;
@@ -604,7 +576,6 @@ void W8Octree::MarkVisibleRegions()
 
 /* Build the four side frustum planes from the camera basis and far clip, and
    accumulate the two far-plane offsets the region projection reads. */
-// FUNCTION: WIZ8 0x004302e0
 void W8Octree::BuildFrustumPlanes()
 {
     float fov = view.horizontal_fov * 0.5f;
@@ -644,7 +615,6 @@ void W8Octree::BuildFrustumPlanes()
    array directly, while the far cells filter through
    PointInsideFrustum first. Either way the reached node contributes
    the region stored at its branch head. */
-// FUNCTION: WIZ8 0x0042fe90
 void W8Octree::CollectVisibleCells()
 {
     BuildFrustumPlanes();
@@ -704,10 +674,9 @@ void W8Octree::CollectVisibleCells()
     }
 }
 
-// FUNCTION: WIZ8 0x00432b80
-bool W8Octree::LoadPointFiles(const char* level_name)
+bool W8Octree::LoadPointFiles(std::string_view level_name)
 try {
-    std::string stem = level_name;
+    std::string stem(level_name);
     if (const auto extension = stem.find_last_of('.'); extension != std::string::npos) {
         stem.resize(extension);
     }
@@ -742,13 +711,12 @@ try {
 }
 
 /* Write the octree's point count and records to the mutable overlay. */
-// FUNCTION: WIZ8 0x00432d60
-bool W8Octree::SavePoints(const char* path)
+bool W8Octree::SavePoints(std::string_view path)
 try {
     if (m_sample_points.empty() || m_sample_points.size() > UINT32_MAX) {
         return false;
     }
-    std::string name = path;
+    std::string name(path);
     if (const auto extension = name.find_last_of('.'); extension != std::string::npos) {
         name.resize(extension);
     }
@@ -763,10 +731,9 @@ try {
     return false;
 }
 
-// FUNCTION: WIZ8 0x00432e90
-bool W8Octree::ReadRegionLinkFile(const char* level_name)
+bool W8Octree::ReadRegionLinkFile(std::string_view level_name)
 try {
-    std::string name = level_name;
+    std::string name(level_name);
     if (const auto extension = name.find_last_of('.'); extension != std::string::npos) {
         name.resize(extension);
     }
@@ -797,7 +764,6 @@ try {
    array, else the packed auto-region key - the region-grid level in the top
    byte over the point's cell coordinates. Region zero is never tested: it is
    the no-region sentinel. */
-// FUNCTION: WIZ8 0x00432720
 unsigned int W8Octree::RegionKeyForPoint(const glm::vec3& point)
 {
     unsigned int region = 0;
@@ -827,7 +793,6 @@ unsigned int W8Octree::RegionKeyForPoint(const glm::vec3& point)
 /* Record `region_key` against every mesh marked in m_projected_regions:
    unseen (region, mesh) pairs are inserted into m_region_links and the
    link list is logged once per call. */
-// FUNCTION: WIZ8 0x004327f0
 void W8Octree::RecordRegionMeshLinks(unsigned int region_key)
 {
     bool reported = false;
@@ -871,7 +836,6 @@ void W8Octree::RecordRegionMeshLinks(unsigned int region_key)
    directly and zero resolves it through RegionKeyForPoint. `clear_sets`
    empties the projected and previous sets first. Returns the region key when
    at least one cell linked, zero otherwise. */
-// FUNCTION: WIZ8 0x00431e10
 unsigned int W8Octree::SampleRegionLinks(const glm::vec3& point, bool descend, bool clear_sets,
                                          unsigned int region_key)
 {
@@ -1037,7 +1001,6 @@ unsigned int W8Octree::SampleRegionLinks(const glm::vec3& point, bool descend, b
    every camera path node. The old link table is swapped for a scratch table
    during the build so a failure or Esc abort can restore it; the scratch
    becomes the live table once the links save. */
-// FUNCTION: WIZ8 0x004314c0
 void W8Octree::BuildRegionLinks(bool rebuild_all)
 {
     W8World* world = owner_world;
@@ -1200,7 +1163,7 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
         m_region_links = std::move(saved_links);
         SDL_Log("Region linking aborted");
     } else {
-        SaveRegionLinks(m_path_stem.c_str());
+        SaveRegionLinks(m_path_stem);
         SDL_Log("Region linking took %u h %u min %u s", hours, minutes, elapsed % 60);
     }
 }
@@ -1211,13 +1174,12 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
    count, followed by the cell keys of the region grid offset by the link id.
    Each key's table values are appended in chain order; the count is written
    first, then the keys and their short values. */
-// FUNCTION: WIZ8 0x004331f0
-bool W8Octree::SaveRegionLinks(const char* path)
+bool W8Octree::SaveRegionLinks(std::string_view path)
 try {
-    if (path == 0 || m_region_links.empty()) {
+    if (path.empty() || m_region_links.empty()) {
         return false;
     }
-    std::string name = path;
+    std::string name(path);
     if (const auto extension = name.find_last_of('.'); extension != std::string::npos) {
         name.resize(extension);
     }
@@ -1263,11 +1225,9 @@ try {
 /* Draw the octree cell the camera currently occupies as a wire box. The cell
    is derived on each axis by quantizing the camera position relative to the
    spatial minimum, and the box spans one cell from there. */
-// FUNCTION: WIZ8 0x00433eb0
 
 /* Pack normalized alpha/red/green/blue components using the current x87
    rounding mode, then retain each result's low byte. */
-// FUNCTION: WIZ8 0x00433fb0
 w8_ulong* PackColourToLong(w8_ulong* color, double alpha, double red, double green, double blue)
 {
     unsigned char* bytes =
@@ -1283,7 +1243,6 @@ w8_ulong* PackColourToLong(w8_ulong* color, double alpha, double red, double gre
    of the spatial state. The scratch copy is flattened to the leaf level with
    all region bounds enabled, and every reported bad link is posted as one
    notice. */
-// FUNCTION: WIZ8 0x00433ab0
 unsigned char W8Octree::ValidateRegionMeshLinks()
 {
     W8OctSpatialState spatial(&m_spatial);
@@ -1303,7 +1262,6 @@ unsigned char W8Octree::ValidateRegionMeshLinks()
    from the cell; branch nodes subdivide the cell among the eight children and
    accumulate their counts.  Depths past the record limit count as one bad
    link. */
-// FUNCTION: WIZ8 0x00433B90
 int W8Octree::CountBadRegionMeshLinks(W8OctSpatialState* spatial)
 {
     W8OctSpatialState local(spatial);
@@ -1347,16 +1305,13 @@ int W8Octree::CountBadRegionMeshLinks(W8OctSpatialState* spatial)
    toggles the flag: resuming forces the next update to rebuild all visibility
    state, while suspending drops every mesh from view, clears the visited
    region bytes, and lazily attaches the render node to the static scene. */
-// FUNCTION: WIZ8 0x00434020
 
-// FUNCTION: WIZ8 0x00434220
 unsigned char W8Octree::TestNoiseLineOfSight(const glm::vec3* from, glm::vec3* to, float* range,
                                              int* hops)
 {
     return pathing->MeasureAttachmentPath(from, to, range, hops);
 }
 
-// FUNCTION: WIZ8 0x00434250
 unsigned char W8Octree::PrepareNavigatorTarget(W8NavigatorMovementState* movement, float radius,
                                                float separation)
 {
@@ -1425,7 +1380,6 @@ unsigned char W8Octree::PrepareNavigatorTarget(W8NavigatorMovementState* movemen
     return pathing->PlanMovement(movement, radius, separation) != 0;
 }
 
-// FUNCTION: WIZ8 0x004347d0
 bool IsNavigatorAtTarget(W8NavigatorMovementState* movement)
 {
     glm::vec3 target;
@@ -1445,7 +1399,6 @@ bool IsNavigatorAtTarget(W8NavigatorMovementState* movement)
     return true;
 }
 
-// FUNCTION: WIZ8 0x00434880
 unsigned char W8Octree::PrepareNavigatorPatrol(W8NavigatorMovementState* movement, float minimum,
                                                float maximum)
 {
@@ -1471,7 +1424,6 @@ unsigned char W8Octree::PrepareNavigatorPatrol(W8NavigatorMovementState* movemen
     return result;
 }
 
-// FUNCTION: WIZ8 0x00434a00
 unsigned char W8Octree::LinkNavigatorTarget(W8NavigatorMovementState* movement,
                                             const glm::vec3* target, float separation)
 {
@@ -1485,11 +1437,9 @@ unsigned char W8Octree::LinkNavigatorTarget(W8NavigatorMovementState* movement,
 /* The cell-walk probes and the trace helpers the two line-of-sight bodies use.
    None of their bodies are recovered, so they keep address-qualified names. */
 
-// GLOBAL: WIZ8 0x005ebcd0
 const float g_octree_cell_scale = 100.0f;
 /* Follow one child bit per axis and level through the compact 9-word branch
    records.  Zero is the missing-child sentinel; live leaves start at one. */
-// FUNCTION: WIZ8 0x00433660
 w8_ulong W8Octree::FindLeaf(const glm::ivec3& point)
 {
     int level = m_spatial.m_depth;
@@ -1523,7 +1473,6 @@ w8_ulong W8Octree::FindLeaf(const glm::ivec3& point)
 /* Descend the branch tree while `masked_cell`'s leading mask word keeps the
    current level bit set, choosing the octant from the three coordinate words.
    The region validators compare the returned node's region field. */
-// FUNCTION: WIZ8 0x004336d0
 int W8Octree::DescendByMask(const unsigned int* masked_cell)
 {
     int node = 1;
@@ -1549,7 +1498,6 @@ int W8Octree::DescendByMask(const unsigned int* masked_cell)
 
 /* Bounds-checked cell -> leaf index shared by the cell probes: the direct
    leaf grid when one exists, else the same masked branch descent. */
-// FUNCTION: WIZ8 0x00433730
 unsigned int W8Octree::LeafIndexForCell(const glm::ivec3& cell)
 {
     if (cell.x < 0 || static_cast<int>(m_leaf_grid_dimensions.x) <= cell.x || cell.y < 0 ||
@@ -1570,7 +1518,6 @@ unsigned int W8Octree::LeafIndexForCell(const glm::ivec3& cell)
    a level-surface hit clears it) and always testing the level surfaces.
    The point's y drops to the contact on a hit and keeps its input value on a
    miss, after clamping to the ceiling. Both values are returned together. */
-// FUNCTION: WIZ8 0x00433820
 GroundProbe W8Octree::settleToGround(const glm::vec3& input, bool test_props, float limit)
 {
     glm::vec3 position = input;
@@ -1646,7 +1593,6 @@ out:
     return {position, hit};
 }
 
-// FUNCTION: WIZ8 0x00434b60
 bool W8Octree::HasLineOfSight(const glm::vec3* from, glm::vec3* to, bool allow_fallback)
 {
     glm::ivec3 cell;
@@ -1678,7 +1624,6 @@ bool W8Octree::HasLineOfSight(const glm::vec3* from, glm::vec3* to, bool allow_f
     return blocked == 0;
 }
 
-// FUNCTION: WIZ8 0x00434f20
 short W8Octree::TraceLineOfSight(const glm::vec3* from, glm::vec3* to, bool trace_world,
                                  int from_location_id, int to_location_id, bool visit_octree,
                                  int trace_mode)
@@ -1734,7 +1679,6 @@ resolve:
 
 /* Trace location spheres and then the camera. The winning location id
    retains the historical last-collider-offset behavior. */
-// FUNCTION: WIZ8 0x004353f0
 std::optional<W8Octree::SphereTraceHit>
 W8Octree::traceSphereHit(const glm::vec3& from, const glm::vec3& to, int excluded, int target,
                          int excluded_location, unsigned int flags, bool noise_adjust)
@@ -1852,7 +1796,6 @@ no_probes:;
 /* Second Remove emission (0x00438C90 above is the other), serving the
    keyboard/automap tables' callers. */
 
-// FUNCTION: WIZ8 0x00436b90
 unsigned char W8OctreeObjectRegistry::MoveObjectToCell(W8OctreeObjectKind kind, int id,
                                                        const glm::ivec3& point)
 {
@@ -1868,7 +1811,6 @@ unsigned char W8OctreeObjectRegistry::MoveObjectToCell(W8OctreeObjectKind kind, 
     return 1;
 }
 
-// FUNCTION: WIZ8 0x00436dc0
 unsigned char W8OctreeObjectRegistry::UnregisterObject(W8OctreeObjectKind kind, int id)
 {
     unsigned int object_key = PackOctreeObjectKey(kind, id);
@@ -1896,7 +1838,6 @@ unsigned char W8OctreeObjectRegistry::UnregisterObject(W8OctreeObjectKind kind, 
 
    The two indexes are the same pair AddCollidablePropBounds keeps: one keyed by
    cell, one keyed by object. */
-// FUNCTION: WIZ8 0x00437000
 unsigned char W8OctreeObjectRegistry::RegisterObjectCell(W8OctreeObjectKind kind, int id,
                                                          const glm::ivec3& point)
 {
@@ -1943,7 +1884,6 @@ unsigned char W8OctreeObjectRegistry::RegisterObjectCell(W8OctreeObjectKind kind
    matching pairing in both directions before the new one goes in. The cell key
    packs x, y and z into one dword a byte apart, and the prop key carries its id
    in the low half with a tag above it. */
-// FUNCTION: WIZ8 0x0042eab0
 void W8Octree::AddCollidablePropBounds(int index, const srBoundingBox& bounds)
 {
     const auto minimum = cellAt(bounds.minimum);
@@ -1968,7 +1908,6 @@ void W8Octree::AddCollidablePropBounds(int index, const srBoundingBox& bounds)
    other two each get an error triple seeded from where inside its cell the line
    starts. The step count covers the driving axis plus the partial cell at each
    end, which is why the remainder decides between one and two extra. */
-// FUNCTION: WIZ8 0x004362d0
 W8OctreeWalk W8Octree::cellWalk(const glm::vec3& from, const glm::vec3& to) const
 {
     W8OctreeWalk walk{};
@@ -2017,7 +1956,6 @@ W8OctreeWalk W8Octree::cellWalk(const glm::vec3& from, const glm::vec3& to) cons
    entry into the shared buffer, then hand the accumulated id list to the
    GameData prop trace. The hit returns its prop id and contact together;
    current_prop keeps the selected id for existing registry consumers. */
-// FUNCTION: WIZ8 0x00436510
 std::optional<W8Octree::PropTraceHit>
 W8Octree::traceProps(const glm::vec3& from, const glm::vec3& to, int skip_flag, int gate)
 {
@@ -2053,7 +1991,6 @@ W8Octree::traceProps(const glm::vec3& from, const glm::vec3& to, int skip_flag, 
    the mesh in m_current_regions. The Append variant skips the result-count
    reset so successive cells accumulate. */
 /* Cell probes share LeafIndexForCell; their retail bodies expand this lookup. */
-// FUNCTION: WIZ8 0x00435b00
 int W8Octree::ProbeCellForTrace(const glm::ivec3& cell)
 {
     unsigned int leaf_index = LeafIndexForCell(cell);
@@ -2077,7 +2014,6 @@ int W8Octree::ProbeCellForTrace(const glm::ivec3& cell)
     return m_gd_result_count;
 }
 
-// FUNCTION: WIZ8 0x00435c40
 int W8Octree::ProbeCellForBlockers(const glm::ivec3& cell)
 {
     unsigned int leaf_index = LeafIndexForCell(cell);
@@ -2106,7 +2042,6 @@ void W8Octree::AppendBlockerStream(const w8_ulong* stream)
     }
 }
 
-// FUNCTION: WIZ8 0x00435da0
 int W8Octree::ProbeCellForBlockersAppend(const glm::ivec3& cell)
 {
     unsigned int leaf_index = LeafIndexForCell(cell);
@@ -2121,7 +2056,6 @@ int W8Octree::ProbeCellForBlockersAppend(const glm::ivec3& cell)
 /* March the buffered (mesh<<16)|polygon keys, ray-test each live mesh
    instance's triangle against the record and keep the nearest contact: the
    record's end returns the hit position and hit_limit the distance. */
-// FUNCTION: WIZ8 0x00435f00
 unsigned char W8Octree::TestProbeResult(W8OctreeTrace* trace)
 {
     bool hit = false;
@@ -2166,7 +2100,6 @@ unsigned char W8Octree::TestProbeResult(W8OctreeTrace* trace)
    mesh is gone, alpha-flagged or facing away, and when its triangle fails the
    spatial bounds test. The survivors are compacted, sorted for ordered
    consumption and zero-terminated; the shared buffer is returned. */
-// FUNCTION: WIZ8 0x00438780
 std::vector<w8_ulong> W8Octree::polygonsNearPoint(const glm::vec3& position, float radius,
                                                   float height)
 {
@@ -2204,7 +2137,6 @@ std::vector<w8_ulong> W8Octree::polygonsNearPoint(const glm::vec3& position, flo
 
 /* A location the octree cannot resolve, or one whose submesh has no live model
    instance, clears the monster's cached mesh rather than leaving a stale one. */
-// FUNCTION: WIZ8 0x0042e540
 void W8Octree::UpdateMonsterLocation(unsigned short location_id, const glm::vec3* position)
 {
     int queue_id = location_id + 1;
@@ -2231,9 +2163,9 @@ void W8Octree::UpdateMonsterLocation(unsigned short location_id, const glm::vec3
     object_registry->RegisterObjectCell(W8_OCTREE_KIND_LOCATION, queue_id, point);
 }
 
-bool W8Octree::SetPathStem(const char* path)
+bool W8Octree::SetPathStem(std::string_view path)
 {
-    if (*path == '\0') {
+    if (path.empty()) {
         return false;
     }
     std::string stem(path);
@@ -2253,8 +2185,7 @@ bool W8Octree::SetPathStem(const char* path)
 
    A null path builds an empty octree, and a level whose preprocessed files
    cannot be built runs on the LVL file alone with the same error bit set. */
-// FUNCTION: WIZ8 0x0042bc10
-W8Octree::W8Octree(const char* path, std::unique_ptr<W8GameData>* game_data, W8World* owner)
+W8Octree::W8Octree(std::string_view path, std::unique_ptr<W8GameData>* game_data, W8World* owner)
     : owner_world(owner)
 {
     Reset();
@@ -2262,7 +2193,7 @@ W8Octree::W8Octree(const char* path, std::unique_ptr<W8GameData>* game_data, W8W
         *game_data = 0;
     }
     try {
-        if (path == 0) {
+        if (path.empty()) {
             Initialize(0);
             return;
         }
@@ -2440,8 +2371,8 @@ W8Octree::W8Octree(const char* path, std::unique_ptr<W8GameData>* game_data, W8W
             *game_data = std::move(pGameData);
         }
 
-        m_region_links_ready = ReadRegionLinkFile(m_path_stem.c_str());
-        LoadPointFiles(m_path_stem.c_str());
+        m_region_links_ready = ReadRegionLinkFile(m_path_stem);
+        LoadPointFiles(m_path_stem);
         if (pathing != 0) {
             pathing->ReadWaypointFile(*this);
         }
@@ -2453,10 +2384,10 @@ W8Octree::W8Octree(const char* path, std::unique_ptr<W8GameData>* game_data, W8W
 }
 
 // Installed assets are already prepared. Missing OCT/PVL falls back to LVL.
-int CheckLevelAssetSet(const char* level_path)
+int CheckLevelAssetSet(std::string_view level_path)
 {
-    if (std::string_view(level_path).find("Sky") != std::string_view::npos ||
-        std::string_view(level_path).find("sky") != std::string_view::npos)
+    if (level_path.find("Sky") != std::string_view::npos ||
+        level_path.find("sky") != std::string_view::npos)
         return -1;
     auto pvl = wiz8::asset_path(level_path);
     pvl.replace_extension(".pvl");
@@ -2465,7 +2396,6 @@ int CheckLevelAssetSet(const char* level_path)
 
 /* Reset the owned tables and query state before applying an OCT header.
    Retail leaves the region masks and positional flag untouched here. */
-// FUNCTION: WIZ8 0x0042d040
 void W8Octree::Reset()
 {
     m_spatial.Reset();
@@ -2525,7 +2455,6 @@ void W8Octree::Reset()
 
 /* ReadOctFile calls this after Reset. The 0xf5-byte packed record has one
    canonical source model shared with WriteOctFile. */
-// FUNCTION: WIZ8 0x0042d2a0
 void W8Octree::Initialize(const W8OctFileHeader* header)
 {
     unsigned short level;
@@ -2642,7 +2571,6 @@ void W8Octree::AddLoadedParticles(std::span<stParticle* const> particles)
 
 /* Complete non-deleting teardown. World loading and destruction both perform the
    matching operator delete only after this method returns. */
-// FUNCTION: WIZ8 0x0042de60
 W8Octree::~W8Octree()
 {
     m_particle_links = {};
@@ -2652,7 +2580,6 @@ W8Octree::~W8Octree()
 /* Running index into the prop-sunlight bit stream, shared across the octree
    so consecutive levels pick up where the previous one's props ended. */
 
-// GLOBAL: WIZ8 0x006598ac
 int g_prop_sun_index;
 
 /* Test whether prop `offset` past the octree's base index has its sunlight
@@ -2660,7 +2587,6 @@ int g_prop_sun_index;
    negative offset instead checkpoints the shared index into the base, which
    is how ReadWorldProps starts each level's props on a fresh range. With no
    array attached the answer is always no. */
-// FUNCTION: WIZ8 0x0042e400
 bool W8Octree::TestPropSunBit(int offset)
 {
     if (offset < 0) {
@@ -2676,7 +2602,6 @@ bool W8Octree::TestPropSunBit(int offset)
 
 /* Visit a point handed over by address, copied to the stack first so the
    caller's copy is not the one the traversal holds. */
-// FUNCTION: WIZ8 0x0042e620
 void W8Octree::VisitPointCopy(unsigned short location_id, glm::vec3* position)
 {
     glm::vec3 copy;
@@ -2692,7 +2617,6 @@ void W8Octree::VisitPointCopy(unsigned short location_id, glm::vec3* position)
    back as the FindNextEntry cursor even though RemoveAt has pushed that
    entry onto the free list; the walk then follows the overwritten
    next_index, which is the free head (-1 in practice), ending the loop. */
-// FUNCTION: WIZ8 0x0042e650
 void W8Octree::UnregisterLocationObjects(unsigned int location_id)
 {
     UnregisterLocationObject(location_id, W8_OCTREE_KIND_LOCATION);
@@ -2704,14 +2628,12 @@ void W8Octree::UnregisterLocationObjects(unsigned int location_id)
    retail verified (the same sequence is inlined at 0x0042E880): FindNextEntry
    follows entries[slot].next_index after RemoveAt has overwritten it with
    the free-list head. */
-// FUNCTION: WIZ8 0x0042e880
 void W8Octree::UnregisterLocationObject(unsigned int location_id, W8OctreeObjectKind kind)
 {
     object_registry->UnregisterObject(kind, location_id + 1);
 }
 
 /* Query the expanded segment box and own its ordered, deduplicated IDs. */
-// FUNCTION: WIZ8 0x0042ed60
 std::vector<w8_ulong> W8Octree::queryAlongSegment(const glm::vec3& origin, const glm::vec3& delta,
                                                   float extent, unsigned short kind)
 {
@@ -2728,7 +2650,6 @@ std::vector<w8_ulong> W8Octree::queryAlongSegment(const glm::vec3& origin, const
 /* The kind-12 convenience query: a zero exclusion maps to -1 (none). OctPath
    uses it to list the location ids near a mover. */
 
-// FUNCTION: WIZ8 0x0042ef00
 std::vector<w8_ulong> W8Octree::locationsInBox(const srBoundingBox& bounds,
                                                unsigned short exclusion)
 {
@@ -2738,7 +2659,6 @@ std::vector<w8_ulong> W8Octree::locationsInBox(const srBoundingBox& bounds,
 /* AABB occupancy test: GD triangles, kind-12 location objects (each
    monster's navigator radius inflates the box) and collidable-prop surfaces
    all answer "occupied". */
-// FUNCTION: WIZ8 0x0042ef30
 unsigned char W8Octree::TestBoxOccupied(const glm::vec3* lower, const glm::vec3* upper)
 {
     auto objects = queryObjects({(*lower), (*upper)}, W8_OCTREE_KIND_SURFACE, -1);
@@ -2786,7 +2706,6 @@ unsigned char W8Octree::TestBoxOccupied(const glm::vec3* lower, const glm::vec3*
 
 /* Query the inclusive cell box and copy the deduplicated IDs out of the
    scratch buffer before any subsequent query can overwrite them. */
-// FUNCTION: WIZ8 0x0042f280
 std::vector<w8_ulong> W8Octree::queryObjects(const srBoundingBox& bounds, unsigned short kind,
                                              int excluded)
 {
@@ -2806,7 +2725,6 @@ std::vector<w8_ulong> W8Octree::queryObjects(const srBoundingBox& bounds, unsign
    object registry's cell hash; kinds above 12 accept both the 12 and 13
    halfwords packed into each registry value. Every append deduplicates
    through m_visited_object_bits and the buffer stops at 10000 entries. */
-// FUNCTION: WIZ8 0x0042f400
 unsigned int W8Octree::CollectObjectsInCell(const glm::ivec3& cell, unsigned short kind)
 {
     unsigned int found = 0;
@@ -2865,7 +2783,6 @@ unsigned int W8Octree::CollectObjectsInCell(const glm::ivec3& cell, unsigned sho
 
 /* Register the navigator's world position in the spatial cell registry.
    Navigator IDs are stored with a one-based bias. */
-// FUNCTION: WIZ8 0x0042e810
 void W8Octree::RegisterNavigatorCell(int id, const glm::vec3* position)
 {
     glm::ivec3 point;
@@ -2876,7 +2793,6 @@ void W8Octree::RegisterNavigatorCell(int id, const glm::vec3* position)
 
 /* Quantize the world point relative to the spatial minimum. This preserves
    truncation toward zero, including points below the minimum. */
-// FUNCTION: WIZ8 0x00431440
 glm::ivec3 W8Octree::cellAt(const glm::vec3& position) const
 {
     return glm::ivec3((position - m_spatial.m_bounds.minimum) / m_spatial.m_node_extent);
@@ -2891,7 +2807,6 @@ glm::ivec3 W8Octree::cellAt(const glm::vec3& position) const
    length is clamped to the distance remaining, and reaching the target is what
    the return value reports. The new position is mirrored into the attachment's
    own three copies. */
-// FUNCTION: WIZ8 0x00434620
 unsigned int W8Octree::AdvanceNavigator(W8NavigatorMovementState* movement, float radius,
                                         float separation)
 {
@@ -2937,7 +2852,6 @@ unsigned int W8Octree::AdvanceNavigator(W8NavigatorMovementState* movement, floa
    applied. Each end is capped at the octree's height ceiling first, and its
    settled height is only taken when the drop actually hit something. The pair
    is then handed on together, which is why one body carries both. */
-// FUNCTION: WIZ8 0x00434a30
 
 /* Release the location-variable names and empty their parallel value and
    level vectors. Trigger.cpp creates the names as copied character arrays. */
@@ -2951,7 +2865,6 @@ std::vector<w8_ulong> W8Octree::nearbyLocations(const glm::vec3& position, float
 /* Lateral column offsets for the scatter search below: the inner loop walks
    three columns (0, +1, -1) per ring, or all five when more than ten
    positions are wanted. */
-// GLOBAL: WIZ8 0x00605ae8
 static float g_scatter_column_offsets[5] = {0.0f, 1.0f, -1.0f, 2.0f, -2.0f};
 
 /* Ring-scatter search for up to `count` clear positions around `position`.
@@ -2974,7 +2887,6 @@ static bool OverlapsNearbyMonster(const glm::vec3& point, float reach,
     });
 }
 
-// FUNCTION: WIZ8 0x00437980
 std::vector<glm::vec3> W8Octree::scatterPositions(const glm::vec3& position, float yaw,
                                                   float spacing, unsigned int count,
                                                   bool proximity_check, bool flatten_y)
@@ -3064,7 +2976,6 @@ std::vector<glm::vec3> W8Octree::scatterPositions(const glm::vec3& position, flo
     return positions;
 }
 
-// FUNCTION: WIZ8 0x00437f30
 NavigatorPlacement W8Octree::navigatorPositions(const glm::vec3& input, float yaw, float radius,
                                                 unsigned int count, bool first_only,
                                                 bool settle_any_height, bool avoid_triggers,

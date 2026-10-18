@@ -112,108 +112,55 @@ static SDL_Rect g_ui_upload{};
 
 /* The released SGP video unit owns this platform handle.  Wiz8 replaces the
    released video manager but keeps the same source-defined interface. */
-// GLOBAL: WIZ8 0x006596CC
 SDL_Window* ghWindow;
 
-// GLOBAL: WIZ8 0x603c38
 bool g_world_pick_enabled = true;
-// GLOBAL: WIZ8 0x603c4c
 unsigned char g_fullscreen_scene_last = 1;
-// GLOBAL: WIZ8 0x603c60
 bool g_cursor_scene_enabled = true;
-// GLOBAL: WIZ8 0x603c6d
 bool g_overlay_scenes_enabled = true;
-// GLOBAL: WIZ8 0x603c68
-// GLOBAL: WIZ8 0x603c39
 unsigned char g_fullscreen = 1;
-// GLOBAL: WIZ8 0x603c3a
 bool g_flush_pending = true;
-// GLOBAL: WIZ8 0x603c3c
 int g_screen_width = 640;
-// GLOBAL: WIZ8 0x603c40
 int g_screen_height = 480;
-// GLOBAL: WIZ8 0x603c48
-// GLOBAL: WIZ8 0x65962c
 srModelInstance* g_current_model_instance;
-// GLOBAL: WIZ8 0x6596fc
 int g_fps_frame_count;
-// GLOBAL: WIZ8 0x659700
 uint64_t g_fps_window_tick;
 /* Per-page counters reset as each overlay page is retired; retail stores
    through g_active_page as an index, so this is one two-entry array. */
-// GLOBAL: WIZ8 0x6595f8
-// GLOBAL: WIZ8 0x659710
 bool g_video_active;
-// GLOBAL: WIZ8 0x65970e
 bool g_world_blacked_out;
-// GLOBAL: WIZ8 0x659711
 bool g_screenshot_pending;
-// GLOBAL: WIZ8 0x65970f
 bool g_video_inspector_enabled;
-// GLOBAL: WIZ8 0x00659634
 std::unique_ptr<srGERD> g_gerd;
-// GLOBAL: WIZ8 0x65971c
-// GLOBAL: WIZ8 0x65969c
-// GLOBAL: WIZ8 0x6596a0
-// GLOBAL: WIZ8 0x6596a4
-// GLOBAL: WIZ8 0x6596a8
 static std::shared_ptr<SDL_Surface> primarySurface;
-// GLOBAL: WIZ8 0x6596ac
-// GLOBAL: WIZ8 0x6596b0
 SDLSurfaceOwner videoSurfaceOwner{nullptr, SDL_DestroySurface};
 
-// GLOBAL: WIZ8 0x600088
 VideoOverlayScenes g_overlay_scenes;
-// GLOBAL: WIZ8 0x659660
 std::shared_ptr<SDL_Surface> g_primary_color_surface;
-// GLOBAL: WIZ8 0x659664
 class stSurface2D* g_surface_node;
-// GLOBAL: WIZ8 0x659680
 float g_surface_scale;
-// GLOBAL: WIZ8 0x659688
 std::shared_ptr<SDL_Surface> g_mouse_surface;
-// GLOBAL: WIZ8 0x65967c
 std::shared_ptr<srMaterial> g_blit_material;
-// GLOBAL: WIZ8 0x6595dc
 int g_surface_opaque_shader_bits;
-// GLOBAL: WIZ8 0x654ad8
 int g_surface_alpha_blend_shader_bits;
-// GLOBAL: WIZ8 0x6595e8
 DesignRect g_viewport;
-// GLOBAL: WIZ8 0x652da4
 bool g_camera_sway_active;
-// GLOBAL: WIZ8 0x5ebb1c
 extern const float g_viewport_x_scale = 1.0f / 640.0f;
-// GLOBAL: WIZ8 0x5ebb20
 extern const float g_viewport_y_scale = 1.0f / 480.0f;
 
-// GLOBAL: WIZ8 0x006596e4
 unsigned int g_active_page;
-// GLOBAL: WIZ8 0x006596d4
 int g_video_inspector_mode;
-// GLOBAL: WIZ8 0x65409c
-// GLOBAL: WIZ8 0x659704
 float g_frames_per_second;
 
-// GLOBAL: WIZ8 0x65968c
 srMeshModel* g_cursor_model;
-// GLOBAL: WIZ8 0x659690
 std::shared_ptr<srTexture> g_cursor_texture;
-// GLOBAL: WIZ8 0x659694
 std::unique_ptr<srModelInstance> g_cursor_node;
-// GLOBAL: WIZ8 0x659698
 uint64_t g_cursor_move_tick;
-// GLOBAL: WIZ8 0x654ad0
 int g_cursor_width;
-// GLOBAL: WIZ8 0x654ad4
 int g_cursor_height;
-// GLOBAL: WIZ8 0x6596b4
 int g_cursor_image_width;
-// GLOBAL: WIZ8 0x6596b8
 int g_cursor_image_height;
-// GLOBAL: WIZ8 0x6596bc
 int g_cursor_hotspot_x;
-// GLOBAL: WIZ8 0x6596c0
 int g_cursor_hotspot_y;
 
 /* Reset both framebuffer pages and discard transient scene instances.
@@ -232,7 +179,6 @@ static void ResetVideoDirtyState()
    The four scene walks are the same typed operation used during renderer
    bring-up; keeping the reset here avoids reproducing SurRender's node ABI at
    the menu call site. */
-// FUNCTION: WIZ8 0x00422b10
 void ResetVideoFrameState(void)
 {
     const auto& description = *primarySurface;
@@ -244,7 +190,6 @@ void ResetVideoFrameState(void)
    given, loads that extension from the DLL subdirectory before returning to the
    original working directory. Each gate that fails returns straight out with
    the callee's own false still in AL. */
-// FUNCTION: WIZ8 0x00421bb0
 bool InitializeVideoManager(void)
 {
     g_world_pick_enabled = true;
@@ -289,7 +234,6 @@ done:
     return InitializeMouseCursorScene();
 }
 
-// FUNCTION: WIZ8 0x00421dc0
 void ShutdownVideoManager(void)
 {
     FreeMouseCursor();
@@ -313,7 +257,6 @@ void ShutdownVideoManager(void)
 /* Releases the renderer scene graph and 2D objects created by the video
    startup sequence; runs from ShutdownVideoManager before the CPU surface
    teardown. */
-// FUNCTION: WIZ8 0x00423f30
 void ShutdownVideoScenes(void)
 {
     VideoRemoveToolTip();
@@ -339,13 +282,11 @@ void ShutdownVideoScenes(void)
 /* Selects the SDL packed format for SGP's 16-bit framebuffer and sprites.
    The startup configuration uses ARGB1555; the high bit is an opaque-pixel
    marker, while zero is the software blitters' transparent pixel. */
-// FUNCTION: WIZ8 0x004265c0
 
 /* Registers and creates the real top-level Wizardry window.  The odd use of
    the horizontal screen metric for both axes is present in the retail body and
    is preserved here; AdjustWindowRect turns the four stored client bounds into
    the outer window rectangle before CreateWindowEx. */
-// FUNCTION: WIZ8 0x00425ec0
 unsigned char CreateWizardryWindow(void)
 {
     ghWindow = W8CreateGameWindow(g_screen_width, g_screen_height, g_fullscreen != 0);
@@ -353,7 +294,6 @@ unsigned char CreateWizardryWindow(void)
 }
 
 /* SDL owns the 640x480 CPU frame used as SurRender color output. */
-// FUNCTION: WIZ8 0x00426080
 void ReleasePrimarySurface(void)
 {
     primarySurface.reset();
@@ -379,7 +319,6 @@ bool SetupDisablesAudio()
     return s_setup_disables_audio;
 }
 
-// FUNCTION: WIZ8 0x00422240
 unsigned char InitializeVideoDevice(void)
 try {
     std::istringstream config;
@@ -433,7 +372,6 @@ try {
 
 /* Applies the configured window style, asks SurRender for the matching display
    mode in fullscreen operation, and opens the renderer output window. */
-// FUNCTION: WIZ8 0x00422800
 unsigned char OpenRendererWindow(void)
 {
     if (!W8ConfigureGameWindow(ghWindow, g_fullscreen != 0, g_screen_width, g_screen_height))
@@ -443,7 +381,6 @@ unsigned char OpenRendererWindow(void)
     return 1;
 }
 
-// FUNCTION: WIZ8 0x00423390
 SDL_Surface* BeginVideoPresentation(void)
 {
     const auto& source = *primarySurface;
@@ -452,7 +389,6 @@ SDL_Surface* BeginVideoPresentation(void)
     return videoSurfaceOwner.get();
 }
 
-// FUNCTION: WIZ8 0x004234A0
 unsigned char FinishVideoPresentation(void)
 {
     videoSurfaceOwner.reset();
@@ -464,7 +400,6 @@ unsigned char FinishVideoPresentation(void)
 /* WM_SIZE only rebuilds the SurRender output in windowed mode.  Full-screen
    startup receives the same Windows notification while the device already
    owns its configured 640x480 mode, so there is no resize operation to do. */
-// FUNCTION: WIZ8 0x00422550
 bool VideoResizeWindow(void)
 {
     if (g_fullscreen || !ghWindow || !g_gerd || !g_flush_pending) {
@@ -481,7 +416,6 @@ bool VideoResizeWindow(void)
     return 1;
 }
 
-// FUNCTION: WIZ8 0x00422970
 void VideoFullScreen(bool enabled)
 {
     g_fullscreen = enabled;
@@ -492,7 +426,6 @@ void VideoFullScreen(bool enabled)
     }
 }
 
-// FUNCTION: WIZ8 0x00422f10
 void ResetTransientRenderScenes(void)
 {
     ResetVideoDirtyState();
@@ -500,13 +433,11 @@ void ResetTransientRenderScenes(void)
 
 /* Same dirty-block / transient-scene reset as ResetTransientRenderScenes, but
    the full-screen invalidate uses flag 1 (the all-bits redraw path). */
-// FUNCTION: WIZ8 0x00423150
 void ClearVideoDirtyBlocks(void)
 {
     ResetVideoDirtyState();
 }
 
-// FUNCTION: WIZ8 0x00422050
 bool IsVideoActive()
 {
     return g_video_active;
@@ -526,7 +457,6 @@ void SuspendVideoManager(void)
     }
 }
 
-// FUNCTION: WIZ8 0x004220b0
 bool RestoreVideoManager(void)
 {
     if (g_video_active) {
@@ -549,7 +479,6 @@ bool RestoreVideoManager(void)
     return 0;
 }
 
-// FUNCTION: WIZ8 0x00421ff0
 unsigned char ClearPrimarySurface(void)
 {
     SDL_FillSurfaceRect(primarySurface.get(), nullptr, 0);
@@ -565,7 +494,6 @@ void UpdateRenderElapsedTime(void);
 static RuntimeWorldRenderData ObserveWorldRenderState();
 #endif
 
-// FUNCTION: WIZ8 0x00427850
 void RenderScene(srScene* scene, srCamera* camera, const DesignRect* viewport, bool preserve_fog)
 {
     w8_ulong width = g_gerd->getWidth();
@@ -639,7 +567,6 @@ static RuntimeWorldRenderData ObserveWorldRenderState()
 /* The central renderer frame transaction. It owns the page flip, every scene
    pass, optional world picking, transient-node retirement, and frame timing;
    callers do not reproduce any subset of that lifecycle. */
-// FUNCTION: WIZ8 0x00426790
 void RenderFrame(void)
 {
     /* The movie adapter owns presentation until FinishVideoPresentation. */
@@ -813,7 +740,6 @@ void RenderFrame(void)
    caller-owned color surface. `rect` selects a logical 640x480 viewport; otherwise
    the stored game viewport applies. Saves use this for SHOT screenshots, and
    the automap uses it for its backdrop. */
-// FUNCTION: WIZ8 0x00426f80
 unsigned char RenderWorldToSurface(SDL_Surface* target, const DesignRect* rect,
                                    bool render_secondary)
 {
@@ -851,7 +777,6 @@ unsigned char RenderWorldToSurface(SDL_Surface* target, const DesignRect* rect,
     return 0;
 }
 
-// FUNCTION: WIZ8 0x00427440
 void InvalidateRendererTextureCache(void)
 {
     if (g_gerd != 0) {
@@ -861,7 +786,6 @@ void InvalidateRendererTextureCache(void)
 
 /* The renderer and both static scenes take the light direction as their fog
    colour. The renderer is flushed before the new colour lands. */
-// FUNCTION: WIZ8 0x00427380
 void PublishLightDirection(const glm::vec3* direction)
 {
     if (g_gerd != 0) {
@@ -876,7 +800,6 @@ void PublishLightDirection(const glm::vec3* direction)
     }
 }
 
-// FUNCTION: WIZ8 0x00427230
 void SetRendererAutoFlipEnabled(bool enabled)
 {
     if (g_gerd != 0) {
@@ -887,13 +810,11 @@ void SetRendererAutoFlipEnabled(bool enabled)
     }
 }
 
-// FUNCTION: WIZ8 0x00427260
 bool RendererBufferIsLockable(void)
 {
     return g_gerd && g_gerd->isWindowOpen();
 }
 
-// FUNCTION: WIZ8 0x00427830
 void SetWorldModelPickingEnabled(bool enabled)
 {
     g_world_pick_enabled = enabled;
@@ -923,7 +844,6 @@ static void SetSpriteQuad(srMeshModel& model, float width, float height,
                                  uv_offset + glm::vec2(uv_scale.x, 0), uv_offset + uv_scale};
 }
 
-// FUNCTION: WIZ8 0x00424EB0
 srModelInstance* MakePolygonBrush(srNode* parent, std::shared_ptr<SDL_Surface> surface,
                                   double width, double height, float mapping_x, float mapping_y,
                                   float mapping_width, float mapping_height, unsigned char overlay)
@@ -964,7 +884,6 @@ srModelInstance* MakePolygonBrush(srNode* parent, std::shared_ptr<SDL_Surface> s
     return instance;
 }
 
-// FUNCTION: WIZ8 0x00425190
 stModelInstance2D* CreateSpriteFromTexture(std::shared_ptr<srTexture> texture, double width,
                                            double height, bool keep_aspect, bool overlay)
 {
@@ -1001,7 +920,6 @@ stModelInstance2D* CreateSpriteFromTexture(std::shared_ptr<srTexture> texture, d
     return instance;
 }
 
-// FUNCTION: WIZ8 0x00484A40
 bool BlitVideoObjectToColorSurface(const SpriteSheet& sprites, std::uint16_t region,
                                    SDL_Surface& destination, int x, int y)
 {
@@ -1019,7 +937,6 @@ static void MoveSystemCursor(int x, int y)
     WarpGameMouse(ghWindow, x, y);
 }
 
-// FUNCTION: WIZ8 0x00427c90
 bool ResizeMouseCursorSurface(int width, int height)
 {
     int extent;
@@ -1063,7 +980,6 @@ bool ResizeMouseCursorSurface(int width, int height)
 
 /* Move the OS/system cursor when the hotspot changes, then resync the rendered
    cursor. */
-// FUNCTION: WIZ8 0x00427f00
 void SetMouseCursorHotspot(short hotspot_x, short hotspot_y)
 {
     int x;
@@ -1079,7 +995,6 @@ void SetMouseCursorHotspot(short hotspot_x, short hotspot_y)
     }
 }
 
-// FUNCTION: WIZ8 0x00427ab0
 bool SetMouseCursorFromVideoObject(const SpriteSheet& sprites, std::uint16_t region,
                                    std::int16_t offset_x, std::int16_t offset_y)
 {
@@ -1107,14 +1022,12 @@ bool SetMouseCursorFromVideoObject(const SpriteSheet& sprites, std::uint16_t reg
     return BlitVideoObjectToColorSurface(sprites, region, *g_mouse_surface, 0, 0);
 }
 
-// FUNCTION: WIZ8 0x00427fc0
 void BlitToMouseCursor(const SpriteSheet& sprites, std::uint16_t region, std::uint16_t x,
                        std::uint16_t y)
 {
     BlitVideoObjectToColorSurface(sprites, region, *g_mouse_surface, x, y);
 }
 
-// FUNCTION: WIZ8 0x00427ff0
 void RefreshMouseCursorTexture(void)
 {
     g_cursor_texture->invalidate();
@@ -1123,7 +1036,6 @@ void RefreshMouseCursorTexture(void)
 /* Whether the tracked cursor position lies inside the render viewport. The
    two automap callers use it, but nothing names the viewport as automap-only
    state; placed here with the neighbouring cursor bodies. */
-// FUNCTION: WIZ8 0x00427e70
 bool ClearMouseSurface(void)
 {
     SDL_FillSurfaceRect(g_mouse_surface.get(), nullptr, 0);
@@ -1132,7 +1044,6 @@ bool ClearMouseSurface(void)
 
 /* Distinct from IsCursorInsideViewport: the whole cursor image must fit
    inside the viewport, not just the hotspot point. */
-// FUNCTION: WIZ8 0x00428030
 bool IsCursorImageInsideViewport(void)
 {
     if (g_cursor_width >= g_viewport.left && g_cursor_height >= g_viewport.top &&
@@ -1143,7 +1054,6 @@ bool IsCursorImageInsideViewport(void)
     return false;
 }
 
-// FUNCTION: WIZ8 0x00428070
 bool IsCursorInsideViewport(void)
 {
     int x = g_cursor_hotspot_x + g_cursor_width;
@@ -1152,13 +1062,11 @@ bool IsCursorInsideViewport(void)
            y <= g_viewport.bottom;
 }
 
-// FUNCTION: WIZ8 0x004280c0
 void WarpSystemCursor(int x, int y)
 {
     WarpGameMouse(ghWindow, x, y);
 }
 
-// FUNCTION: WIZ8 0x00428140
 void PositionMouseCursor(int width, int height, bool reset_tick)
 {
     glm::dvec3 location;
@@ -1180,7 +1088,6 @@ void PositionMouseCursor(int width, int height, bool reset_tick)
 
 /* Milliseconds since the cursor last moved (or was repositioned with the
    reset-tick arm). */
-// FUNCTION: WIZ8 0x00428220
 unsigned int GetMillisecondsSinceCursorMove(void)
 {
     return w8_get_ticks() - g_cursor_move_tick;
@@ -1188,7 +1095,6 @@ unsigned int GetMillisecondsSinceCursorMove(void)
 
 /* The tracked cursor as viewport-relative 0..1 coordinates, or zero when it
    lies outside. Same tracked position and viewport as the query above. */
-// FUNCTION: WIZ8 0x00428230
 unsigned char GetCursorPositionInViewport(glm::vec2* position)
 {
     int x = g_cursor_hotspot_x + g_cursor_width;
@@ -1205,7 +1111,6 @@ unsigned char GetCursorPositionInViewport(glm::vec2* position)
 
 /* The tracked cursor tip (hotspot + size) in pixel-scale units. DropHeldItem
    turns it into the toss direction. */
-// FUNCTION: WIZ8 0x004282F0
 glm::vec2 GetCursorScaledPosition()
 {
     return glm::vec2(g_cursor_hotspot_x + g_cursor_width, g_cursor_hotspot_y + g_cursor_height) *
@@ -1216,7 +1121,6 @@ glm::vec2 GetCursorScaledPosition()
    already reports design-space coordinates, so windowed and fullscreen share
    the same position; fullscreen coordinates are clamped to the 640x480 game
    surface. */
-// FUNCTION: WIZ8 0x00428340
 void SyncSystemCursor(void)
 {
     SDL_Point cursor = GetGameMousePosition();
@@ -1245,7 +1149,6 @@ void SyncSystemCursor(void)
 /* Fill a caller-supplied point with the sum of the two global pairs, after the
    refresh that recomputes them. Fifty callers reach this; what the two pairs
    mean is not established beyond the sum, so both keep address-qualified names. */
-// FUNCTION: WIZ8 0x004284f0
 void SGPMouseGetPos(SDL_Point* point)
 {
     if (point != 0) {
@@ -1255,7 +1158,6 @@ void SGPMouseGetPos(SDL_Point* point)
     }
 }
 
-// FUNCTION: WIZ8 0x00428520
 bool IsCursorInRectangle(int left, int top, int right, int bottom)
 {
     SDL_Point point;
@@ -1265,7 +1167,6 @@ bool IsCursorInRectangle(int left, int top, int right, int bottom)
 }
 
 /* Creates the shipped 128x128 mouse polygon inside its dedicated scene. */
-// FUNCTION: WIZ8 0x004285c0
 unsigned char InitializeMouseCursorScene(void)
 {
     auto cursor_scene = std::make_unique<srScene>(nullptr);
@@ -1293,7 +1194,6 @@ unsigned char InitializeMouseCursorScene(void)
     return 1;
 }
 
-// GLOBAL: WIZ8 0x65970d
 unsigned char g_world_render_enabled;
 
 void InvalidateRegion(int left, int top, int right, int bottom)
@@ -1339,7 +1239,6 @@ void SetScaledViewport(const DesignRect& bounds)
 
 /* Sets the viewport and rebuilds the camera view plane to match it. */
 
-// FUNCTION: WIZ8 0x00426250
 void SetViewport(const DesignRect& bounds)
 {
     float fractional_left;
@@ -1380,7 +1279,6 @@ void SetViewport(const DesignRect& bounds)
 /* The debug stats readout drawn over the primary surface: a black band plus
    the frame-rate line always, the object/poly/vertex counters, texture and
    pagefile memory in mode 2, or the scaled camera position in mode 3. */
-// FUNCTION: WIZ8 0x00427460
 void DrawVideoInspector(int left, unsigned int top)
 {
     glm::vec3 position;
@@ -1478,21 +1376,17 @@ void DrawVideoInspector(int left, unsigned int top)
     }
 }
 
-// FUNCTION: WIZ8 0x004277d0
 void VideoInspectorEnable(void)
 {
     g_video_inspector_enabled = true;
 }
 
-// GLOBAL: WIZ8 0x006548a0
 std::int32_t g_help_box_width;
-// GLOBAL: WIZ8 0x00654acc
 std::int32_t g_help_box_height;
 
 /* Live tooltip sprites, left to right. */
 static std::vector<stModelInstance2D*> g_tooltip_nodes;
 
-// FUNCTION: WIZ8 0x00429770
 void VideoRemoveToolTip(void)
 {
     for (auto* node : g_tooltip_nodes) {
@@ -1501,7 +1395,6 @@ void VideoRemoveToolTip(void)
     g_tooltip_nodes.clear();
 }
 
-// FUNCTION: WIZ8 0x00424A90
 std::unique_ptr<stModelInstance> VideoMakePoster(std::shared_ptr<SDL_Surface> surface, float width,
                                                  float height, bool additive)
 {
@@ -1526,7 +1419,6 @@ void PresentMenuOverlayFrame(void)
     g_gerd->endFrame();
 }
 
-// FUNCTION: WIZ8 0x00425570
 void SetPrimarySurfaceTextureHint2Enabled(bool enabled)
 {
     if (g_surface_node) {
@@ -1534,7 +1426,6 @@ void SetPrimarySurfaceTextureHint2Enabled(bool enabled)
     }
 }
 
-// FUNCTION: WIZ8 0x00424040
 unsigned char InitializeMouseSurface(void)
 {
     g_mouse_surface = std::shared_ptr<SDL_Surface>(
@@ -1573,7 +1464,6 @@ static std::unique_ptr<srCamera> createOverlayCamera(srNode* parent, const char*
     return camera;
 }
 
-// FUNCTION: WIZ8 0x00423500
 unsigned char InitializeRendererSceneObjects(void)
 {
     std::shared_ptr<srMaterial> material;
@@ -1618,7 +1508,6 @@ unsigned char InitializeRendererSceneObjects(void)
     return 1;
 }
 
-// FUNCTION: WIZ8 0x004263f0
 void ClearSurfaceRect(int left, unsigned int top, int right, unsigned int bottom)
 {
     if (top >= bottom || left >= right) return;
@@ -1633,7 +1522,6 @@ void EraseRegion(int left, int top, int right, int bottom)
     InvalidateRegion(left, top, right, bottom);
 }
 
-// FUNCTION: WIZ8 0x00426500
 void PurgeInactiveSceneInstances(srScene* scene)
 {
     srNode* node;
@@ -1663,7 +1551,6 @@ void PurgeInactiveSceneInstances(srScene* scene)
     }
 }
 
-// FUNCTION: WIZ8 0x00425820
 void ClearNodeFlag(srNode* node)
 {
     if (node) {
@@ -1671,14 +1558,12 @@ void ClearNodeFlag(srNode* node)
     }
 }
 
-// FUNCTION: WIZ8 0x00428010
 unsigned char DisableCursorScene(void)
 {
     g_cursor_scene_enabled = false;
     return 1;
 }
 
-// FUNCTION: WIZ8 0x00428020
 unsigned char EnableCursorScene(void)
 {
     g_cursor_scene_enabled = true;
@@ -1688,7 +1573,6 @@ unsigned char EnableCursorScene(void)
 /* Release an srClass, leaving the renderer in 2D mode, or in the paired
    mode when overlay_scene_flag bit 0 says otherwise. Recovered callers pass
    stModelInstance2D sprites (highlight / formation board). */
-// FUNCTION: WIZ8 0x004257F0
 void ReleaseObject(stModelInstance2D* object)
 {
     if ((object->overlay_scene_flag & 1) != 0) {
@@ -1700,7 +1584,6 @@ void ReleaseObject(stModelInstance2D* object)
 
 /* Rotate a 2D sprite node by `degrees` about z and dirty the renderer mode
    word its overlay_scene_flag bit 0 selects. */
-// FUNCTION: WIZ8 0x00425840
 void RotateNodeInDegrees(srNode* node, int degrees)
 {
     node->setRotation(0.0, 0.0, 3.141592653589793 * 0.0055555557f * degrees);
@@ -1710,12 +1593,10 @@ void RotateNodeInDegrees(srNode* node, int degrees)
     }
 }
 
-// FUNCTION: WIZ8 0x00428AA0
 void SetRendererModePair(void) {}
 
 /* Install a texture (often an stTextureAnim) on the mouse-cursor mesh. A null
    argument reuses the current cursor texture. */
-// FUNCTION: WIZ8 0x00429170
 void SetMouseCursorTexture(std::shared_ptr<srTexture> texture)
 {
     if (texture == 0) {
@@ -1725,28 +1606,22 @@ void SetMouseCursorTexture(std::shared_ptr<srTexture> texture)
     g_cursor_model->setDirty(srMeshModel::DIRTY_TRI_MESH);
 }
 
-// FUNCTION: WIZ8 0x004297D0
 bool HasScreenTransitionObjects(void)
 {
     return !g_tooltip_nodes.empty();
 }
 
-// FUNCTION: WIZ8 0x004297e0
 void SetSurfaceScale(float scale)
 {
     g_surface_node->setScale(scale);
     g_surface_scale = scale;
 }
 
-// FUNCTION: WIZ8 0x004298E0
 void SetFullscreenSceneLast(unsigned char value)
 {
     g_fullscreen_scene_last = value;
 }
 
-// FUNCTION: WIZ8 0x004298F0
-
-// FUNCTION: WIZ8 0x00428b80
 int VideoDumpMemoryLeaks(void)
 {
     return 0;
@@ -1755,7 +1630,6 @@ int VideoDumpMemoryLeaks(void)
 /* The retail linker folds this trivial TRUE stub with other returns; its
    0x42B830 address sits past the proven Video2 hull, so its placement stays
    provisional. */
-// FUNCTION: WIZ8 0x0042b830
 
 SDL_Surface& GetFrameBufferSurface()
 {
@@ -1764,13 +1638,9 @@ SDL_Surface& GetFrameBufferSurface()
 
 /* The retail empty video-capture entry folds with the shared 0x4023a0 ret. */
 
-// GLOBAL: WIZ8 0x006596f4
-// GLOBAL: WIZ8 0x00659724
 int g_screenshot_index;
-// GLOBAL: WIZ8 0x00659728
 int g_screenshot_page;
 
-// FUNCTION: WIZ8 0x004229e0
 void SaveJpegScreenshot(void)
 {
     SDL_Surface* surface = g_gerd->lockBuffer();
@@ -1789,7 +1659,6 @@ void SaveJpegScreenshot(void)
 /* Places one tooltip node at a screen position in normalized coordinates.
    With positional set, the position is snapped to the renderer's pixel grid;
    the node keeps the screen x/y in its right/bottom extent fields. */
-// FUNCTION: WIZ8 0x004255F0
 void PositionToolTipNode(srNode* node, int x, int y, bool positional)
 {
     stModelInstance2D* instance = static_cast<stModelInstance2D*>(node);
@@ -1828,7 +1697,6 @@ void PositionToolTipNode(srNode* node, int x, int y, bool positional)
    larger source extent (including a one-pixel border) is rounded up to 16..256,
    then CopySurfaceWithBorder / MakePolygonBrush install it on the square
    overlay scene. */
-// FUNCTION: WIZ8 0x00424560
 srModelInstance* Video2DRectToSquarePolygon(const W8ControlsRect* rect, SDL_Surface& source,
                                             srNode* parent, unsigned char overlay)
 {
@@ -1877,7 +1745,6 @@ srModelInstance* Video2DRectToSquarePolygon(const W8ControlsRect* rect, SDL_Surf
 
 /* Copies a surface rectangle into the user or square overlay path, and
    records the resulting 2D instance extents. */
-// FUNCTION: WIZ8 0x004253F0
 stModelInstance2D* CreateSpriteFromSurface(SDL_Surface& surface, const W8ControlsRect* bounds,
                                            int square, int overlay)
 {
@@ -1946,7 +1813,6 @@ stModelInstance2D* CreateSpriteFromSurface(SDL_Surface& surface, const W8Control
 
 /* Builds a solid-color quad sprite. Width/height are pixel counts; color becomes
    the material emissive. Radar blip templates are the observed callers. */
-// FUNCTION: WIZ8 0x00424790
 stModelInstance2D* CreateColoredPolygonSprite(int width, int height, const glm::vec4* color,
                                               bool fullscreen)
 {
@@ -1985,7 +1851,6 @@ stModelInstance2D* CreateColoredPolygonSprite(int width, int height, const glm::
     return instance;
 }
 
-// FUNCTION: WIZ8 0x004257D0
 void Position2DNodeUnsnapped(srNode* node, int x, int y)
 {
     PositionToolTipNode(node, x, y, false);
@@ -1994,7 +1859,6 @@ void Position2DNodeUnsnapped(srNode* node, int x, int y)
 /* Positions every live tooltip object left to right starting at x, advancing
    the cursor by each node's scaled width. With no live objects, just record
    the requested position. */
-// FUNCTION: WIZ8 0x00429210
 void VideoPositionToolTip(std::int32_t x, std::int32_t y)
 {
     if (!g_tooltip_nodes.empty()) {
@@ -2010,7 +1874,6 @@ void VideoPositionToolTip(std::int32_t x, std::int32_t y)
 /* Copies the tooltip source rectangle into a size-rounded 16-bit surface,
    repeating its border one pixel outward, and reports the texture mapping
    scales for the resulting polygon brush. */
-// FUNCTION: WIZ8 0x00428B90
 unsigned char CopySurfaceWithBorder(SDL_Surface* surface, const W8ControlsRect* rect,
                                     SDL_Surface& source, float* scale_x, float* scale_y,
                                     float* mapping_x, float* mapping_y)
@@ -2075,7 +1938,6 @@ unsigned char CopySurfaceWithBorder(SDL_Surface* surface, const W8ControlsRect* 
 /* Builds a polygon brush from a tooltip surface rectangle. The larger source
    extent is rounded up to the next power of two between 16 and 256, the copy
    repeats its border, and the node records the rectangle extents. */
-// FUNCTION: WIZ8 0x00424280
 srModelInstance* Video2DRectToPolygon(const W8ControlsRect* rect, SDL_Surface& source,
                                       srNode* parent, unsigned char overlay)
 {
@@ -2146,7 +2008,6 @@ srModelInstance* Video2DRectToPolygon(const W8ControlsRect* rect, SDL_Surface& s
    border, converts the surface to a polygon brush, appends it to the live
    tooltip objects and positions them above the cursor. Only one tooltip is
    alive at a time. */
-// FUNCTION: WIZ8 0x00429290
 void VideoToolTip(std::string_view text)
 {
     if (!g_tooltip_nodes.empty()) {
@@ -2206,10 +2067,8 @@ void VideoToolTip(std::string_view text)
 
 /* Renderer configuration helpers reached from the video device, not the
    persisted configuration block. */
-// GLOBAL: WIZ8 0x659714
 int g_resident_texture_policy;
 
-// FUNCTION: WIZ8 0x004266e0
 void SetResidentTexturePolicy(int policy)
 {
     if (policy != g_resident_texture_policy) {
@@ -2219,18 +2078,14 @@ void SetResidentTexturePolicy(int policy)
     }
 }
 
-// FUNCTION: WIZ8 0x00426710
 void SetSwapInterval(bool enabled)
 {
     g_gerd->setSwapInterval(enabled ? 1 : 0);
 }
 
-// FUNCTION: WIZ8 0x00426740
-
 /* Build an stTextureAnim whose frames are consecutive VObject subimages starting
    at start_frame. use_argb1555 selects SURFACE_ARGB1555 versus SURFACE_RGB555 for
    each frame surface. The setName string is the retail identity. */
-// FUNCTION: WIZ8 0x00428E90
 std::shared_ptr<stTextureAnim> VideoVObjectToTextureAnim(const SpriteSheet& sprites,
                                                          unsigned short start_frame,
                                                          unsigned short frame_count,
@@ -2306,7 +2161,6 @@ std::shared_ptr<stTextureAnim> VideoVObjectToTextureAnim(const SpriteSheet& spri
 /* The option-4-suppressed variant of the render probe: with the positional
    option forced off, draw the node between the camera's bracketing
    passes, restore the option and return the sampled statistic. */
-// FUNCTION: WIZ8 0x00428830
 unsigned int MeasureNodeRenderWithoutPositionalOption(srNode* node)
 {
     if (g_gerd != 0 && g_gerd->isEnabled(srGERD::ENABLE_AUTO_FLIP)) {
@@ -2321,7 +2175,6 @@ unsigned int MeasureNodeRenderWithoutPositionalOption(srNode* node)
 
 /* Open the render-probe pass: force renderer option 4 off, reset the frame
    to a solid blue clear and prime the scissor before the measured draw. */
-// FUNCTION: WIZ8 0x00428910
 void BeginRenderProbe(void)
 {
     if (g_gerd->isEnabled(srGERD::ENABLE_AUTO_FLIP)) {
@@ -2337,7 +2190,6 @@ void BeginRenderProbe(void)
 
 /* Draw the node between the camera's bracketing passes and return the
    renderer statistic the probe samples. */
-// FUNCTION: WIZ8 0x004289e0
 unsigned int MeasureNodeRender(srNode* node)
 {
     srNode::ProcessInfo process;
@@ -2356,7 +2208,6 @@ unsigned int MeasureNodeRender(srNode* node)
 }
 
 /* Close the render-probe pass: restore renderer option 4 and present. */
-// FUNCTION: WIZ8 0x004289c0
 void EndRenderProbe(void)
 {
     if (!g_gerd->isEnabled(srGERD::ENABLE_AUTO_FLIP)) {
@@ -2365,7 +2216,6 @@ void EndRenderProbe(void)
     g_gerd->flipFrame();
 }
 
-// FUNCTION: WIZ8 0x00424BA0
 std::unique_ptr<stModelInstance> MakePosterQuad(std::shared_ptr<srTexture> texture, float width,
                                                 float height, bool additive)
 {
@@ -2397,21 +2247,18 @@ std::unique_ptr<stModelInstance> MakePosterQuad(std::shared_ptr<srTexture> textu
     return instance;
 }
 
-// FUNCTION: WIZ8 0x00425590
 void DrawColorSurface(SDL_Surface* surface, int x, int y)
 {
     SDL_Rect destination{x, y, surface->w, surface->h};
     SDL_BlitSurface(surface, nullptr, g_primary_color_surface.get(), &destination);
 }
 
-// FUNCTION: WIZ8 0x004273F0
 ViewportBounds GetScaledViewportBounds()
 {
     return {{g_viewport.left * g_viewport_x_scale, g_viewport.top * g_viewport_y_scale},
             {g_viewport.right * g_viewport_x_scale, g_viewport.bottom * g_viewport_y_scale}};
 }
 
-// FUNCTION: WIZ8 0x004277F0
 void SetPickKey(void* key)
 {
     if (g_gerd) {

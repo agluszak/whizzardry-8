@@ -20,7 +20,6 @@ class W8DialogScrollBar;
 
 /* Modal controls own their regions and state; only visual resources and
    rendering uses the shared dialog button appearance module. */
-// VTABLE: WIZ8 0x005efaf8
 class W8DialogBase : public ModalContent {
     /* First, so it outlives every control's region. */
     UiLayer m_input;

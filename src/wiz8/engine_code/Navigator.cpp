@@ -37,8 +37,6 @@
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 
-// STRING: WIZ8 0x006081fc
-
 /* The world object the navigator notifies when it leaves a location, and
    the notification itself. 0x0042E880 sits outside every assertion-backed
    interval, so it keeps an address-qualified name. */
@@ -50,7 +48,6 @@ bool NavigationCombatActive(const W8Navigator& navigator)
            (!navigator.owner_world || navigator.owner_world == GetWorld());
 }
 
-// GLOBAL: WIZ8 0x00659b30
 std::vector<W8Navigator*> g_registered_navigators;
 
 } // namespace
@@ -59,7 +56,6 @@ std::vector<W8Navigator*> g_registered_navigators;
    `target`: walks stored positions while they stay inside, then lerps the
    crossing point into path_destination and over the first outside waypoint, moves
    path_position_index there, and clears flag 0x00400000. */
-// FUNCTION: WIZ8 0x004566C0
 bool W8NavigatorAttachment::TruncatePathAtRadius(const glm::vec3* target, float radius)
 {
     unsigned int index = path_cursor;
@@ -96,7 +92,6 @@ bool W8NavigatorAttachment::TruncatePathAtRadius(const glm::vec3* target, float 
    through every recorded position at or past the current index and cached in
    path_length under the 0x00400000 flag. Entries whose preceding path value
    carries bit 0x2 contribute nothing. */
-// FUNCTION: WIZ8 0x00456B00
 float W8NavigatorAttachment::MeasurePathLength()
 {
     unsigned int index = 1;
@@ -123,7 +118,6 @@ void W8NavigatorAttachment::GrowPathStorage()
     path.resize(path.size() + 10);
 }
 
-// FUNCTION: WIZ8 0x00451ec0
 W8Navigator::W8Navigator(W8World* owner) : owner_world(owner), reactivated(0)
 {
     navigation_mode = 0;
@@ -159,7 +153,6 @@ W8Navigator::W8Navigator(W8World* owner) : owner_world(owner), reactivated(0)
     movement_callback = NavigatorDefaultCallback;
     unknown_094 = 0;
     unknown_098 = 0;
-    owned_object = 0;
     tracked_distance = 500.0f;
     group_linked = false;
     tracked_dirty = false;
@@ -167,17 +160,12 @@ W8Navigator::W8Navigator(W8World* owner) : owner_world(owner), reactivated(0)
     movement.Reset();
     tracked_position = glm::vec3(0);
     g_registered_navigators.push_back(this);
-    /* 0x004520A4 re-zeroes the movement target, the eight-byte collision margin
-       and the target link immediately before the node allocation, so the retail
-       constructor initialises that group twice. */
     movement_target = glm::vec3(0);
     collision_margin = 0.0;
     target_navigator = 0;
-    node = std::make_unique<srNode>(nullptr);
 }
 
 /* The callback a navigator starts with: mark it and stop it dead. */
-// FUNCTION: WIZ8 0x00451ea0
 void NavigatorDefaultCallback(W8Navigator* navigator)
 {
     navigator->halted = true;
@@ -188,7 +176,6 @@ void NavigatorDefaultCallback(W8Navigator* navigator)
    clears their stop flags and resets their path state, then re-bases any
    monster group already following a navigator onto that navigator's path and
    position; every other mode stops them and clears their velocity. */
-// FUNCTION: WIZ8 0x00452F50
 void SetNavigatorLinkMode(unsigned char mode)
 {
     if (g_navigator_link_mode == mode) {
@@ -238,7 +225,6 @@ void SetNavigatorLinkMode(unsigned char mode)
     }
 }
 
-// FUNCTION: WIZ8 0x00453160
 void StopAllNavigators(void)
 {
     int count = static_cast<int>(g_registered_navigators.size());
@@ -249,7 +235,6 @@ void StopAllNavigators(void)
     }
 }
 
-// FUNCTION: WIZ8 0x004531a0
 void ResumeAllNavigators(void)
 {
     int count = static_cast<int>(g_registered_navigators.size());
@@ -267,7 +252,6 @@ void ResumeAllNavigators(void)
 }
 
 /* Start with ten route slots and clear per-position values. */
-// FUNCTION: WIZ8 0x00456210
 W8NavigatorAttachment::W8NavigatorAttachment()
 {
     flags = 0;
@@ -284,7 +268,6 @@ W8NavigatorAttachment::W8NavigatorAttachment()
 /* The from/to attachment: a ready-made two-position route that starts at the
    first recorded position, with path_length carrying the direct segment length
    until a real path is built over it. */
-// FUNCTION: WIZ8 0x00456280
 W8NavigatorAttachment::W8NavigatorAttachment(const glm::vec3* from, const glm::vec3* to)
 {
     flags = W8_NAV_ATTACHMENT_POSITION_RECORDED;
@@ -307,7 +290,6 @@ W8NavigatorAttachment::W8NavigatorAttachment(const glm::vec3* from, const glm::v
    a facing of three quarter turns, a ten-thousand callback threshold, a turn
    rate of a sixteenth turn, unit scale and speed, and an identity basis in the
    three vectors at +0x88. */
-// FUNCTION: WIZ8 0x004573d0
 void W8NavigatorMovementState::Reset()
 {
     navigation_filter = 0;
@@ -337,7 +319,6 @@ void W8NavigatorMovementState::Reset()
 /* The whole 0xCC tail starts cleared apart from a unit movement speed, the byte
    at +0x76, the invalidated target_location_id and the attachment, which the tail
    allocates and owns from construction rather than acquiring later. */
-// FUNCTION: WIZ8 0x004572c0
 W8NavigatorMovementState::W8NavigatorMovementState()
 {
     navigation_filter = 0;
@@ -376,7 +357,6 @@ W8NavigatorMovementState::W8NavigatorMovementState()
 /* Only these eleven fields survive a transfer between navigators; everything
    else in the tail stays whatever the destination already had, and target_location_id is
    invalidated rather than copied. */
-// FUNCTION: WIZ8 0x004574d0
 void W8NavigatorMovementState::CopySettingsFrom(const W8NavigatorMovementState& other)
 {
     navigation_filter = other.navigation_filter;
@@ -394,7 +374,6 @@ void W8NavigatorMovementState::CopySettingsFrom(const W8NavigatorMovementState& 
 }
 
 /* Owning members release the route attachment. */
-// FUNCTION: WIZ8 0x00457530
 W8NavigatorMovementState::~W8NavigatorMovementState() = default;
 
 /* A copy shares nothing that ties it to the original's navigation. The path is
@@ -405,7 +384,6 @@ W8NavigatorMovementState::~W8NavigatorMovementState() = default;
    subset. The outer navigator also carries across its height band, bounding
    corners, radius and callback. The copy allocates its own scene node and
    registers itself, so it is a live navigator from birth. */
-// FUNCTION: WIZ8 0x00452220
 W8Navigator::W8Navigator(const W8Navigator& other, W8World* owner)
     : owner_world(owner), flags(0), collision_margin(0.0), movement_target(0.0f, 0.0f, 0.0f),
       movement_stopped(true), halted(false), movement_complete(true), unknown_027(0),
@@ -415,8 +393,7 @@ W8Navigator::W8Navigator(const W8Navigator& other, W8World* owner)
       path_ai(nullptr), radius(other.radius), active(true),
       movement_callback(other.movement_callback), trace_mask(other.trace_mask),
       unknown_094(other.unknown_094), unknown_098(0), reactivated(other.reactivated),
-      owned_object(nullptr), tracked_distance(other.tracked_distance),
-      group_linked(other.group_linked)
+      tracked_distance(other.tracked_distance), group_linked(other.group_linked)
 {
     movement.collision_radius = other.movement.collision_radius;
     movement.alternate_radius = other.movement.alternate_radius;
@@ -438,28 +415,17 @@ W8Navigator::W8Navigator(const W8Navigator& other, W8World* owner)
     tracked_dirty = false;
     linked_update_time = 0;
     tracked_position = glm::vec3(0);
-    node = std::make_unique<srNode>(nullptr);
-    node->setLocation(other.node->getLocation());
     g_registered_navigators.push_back(this);
 }
 
-/* Everything this navigator owns, in the order the retail body releases it.
-   The path goes through the kind-guarded PathAI helper rather than the general
-   one; the optional polymorphic object and scene node have exclusive owners,
-   and the movement tail owns its attachment.
-   Leaving the world's location index is a notification, not a release. */
-// FUNCTION: WIZ8 0x00452120
 W8Navigator::~W8Navigator()
 {
     wiz8::erase_first(g_registered_navigators, this);
-    owned_object.reset();
     auto* world = owner_world ? owner_world : GetWorld();
     if (movement.location_id != 0 && world && world->octree)
         world->octree->UnregisterLocationObject(movement.location_id, W8_OCTREE_KIND_NAVIGATOR);
-    node.reset();
 }
 
-// FUNCTION: WIZ8 0x00452E10
 bool W8Navigator::IsLinkedToNavigator(W8Navigator* other)
 {
     W8Navigator* linked;
@@ -478,7 +444,6 @@ bool W8Navigator::IsLinkedToNavigator(W8Navigator* other)
    resets the two movement enables. What the modes actually differ in is that
    pair: mode one and four clear both, two, three and five enable pitch, and six
    enables pitch and roll. */
-// FUNCTION: WIZ8 0x00452e50
 void W8Navigator::SetNavigationMode(int mode)
 {
     std::unique_ptr<W8PathAI> path;
@@ -516,7 +481,6 @@ void W8Navigator::SetNavigationMode(int mode)
 
 /* Replace the collision bounds and keep the broad-phase radius synchronized
    with the movement state's alternate radius. */
-// FUNCTION: WIZ8 0x00452f10
 void W8Navigator::SetBounds(const srBoundingBox& bounds)
 {
     minimum = bounds.minimum;
@@ -524,19 +488,16 @@ void W8Navigator::SetBounds(const srBoundingBox& bounds)
     radius = movement.alternate_radius;
 }
 
-// FUNCTION: WIZ8 0x004534c0
 glm::vec3 W8Navigator::GetPosition()
 {
     return movement.position;
 }
 
-// FUNCTION: WIZ8 0x004534f0
 glm::vec3 W8Navigator::GetVelocity() const
 {
     return movement.velocity;
 }
 
-// FUNCTION: WIZ8 0x00454950
 bool W8Navigator::UpdateTrackedPosition()
 {
     float distance = glm::length((tracked_position - movement.position));
@@ -548,7 +509,6 @@ bool W8Navigator::UpdateTrackedPosition()
     return tracked_dirty;
 }
 
-// FUNCTION: WIZ8 0x00453880
 void W8Navigator::SetMovementStopped()
 {
     if (!movement_stopped) {
@@ -590,7 +550,6 @@ void W8Navigator::CopyPathToGroup()
 
 /* Push this navigator's path and position onto every navigator in its group,
    and let the whole group move again if this one may. */
-// FUNCTION: WIZ8 0x00454c80
 void W8Navigator::PropagateGroupPosition()
 {
     if (!NavigationCombatActive(*this)) {
@@ -603,51 +562,43 @@ void W8Navigator::PropagateGroupPosition()
     }
 }
 
-// FUNCTION: WIZ8 0x004538d0
 void W8Navigator::SetTargetYaw(float angle)
 {
     movement.target_yaw = NormalizeAngle(angle);
 }
 
-// FUNCTION: WIZ8 0x004538f0
 void W8Navigator::SetAngles(float angle)
 {
     movement.yaw = NormalizeAngle(angle);
     movement.target_yaw = NormalizeAngle(angle);
 }
 
-// FUNCTION: WIZ8 0x00453920
 void W8Navigator::SetTargetPitch(float angle)
 {
     movement.target_pitch = NormalizeAngle(angle);
 }
 
-// FUNCTION: WIZ8 0x00453940
 void W8Navigator::SetPitch(float pitch)
 {
     movement.pitch = NormalizeAngle(pitch);
     movement.target_pitch = NormalizeAngle(pitch);
 }
 
-// FUNCTION: WIZ8 0x00453970
 float W8Navigator::GetYaw()
 {
     return movement.yaw;
 }
 
-// FUNCTION: WIZ8 0x00453980
 float W8Navigator::GetPitch()
 {
     return movement.pitch;
 }
 
-// FUNCTION: WIZ8 0x00453c90
 void W8Navigator::SetTurnRate(float turn_rate)
 {
     movement.turn_rate = turn_rate;
 }
 
-// FUNCTION: WIZ8 0x00453ef0
 void W8Navigator::SetHeightRange(float minimum, float maximum)
 {
     if (minimum >= 0.0f) {
@@ -658,19 +609,16 @@ void W8Navigator::SetHeightRange(float minimum, float maximum)
     }
 }
 
-// FUNCTION: WIZ8 0x004538b0
 void W8Navigator::SetPathAI(std::unique_ptr<W8PathAI> path)
 {
     path_ai = std::move(path);
 }
 
-// FUNCTION: WIZ8 0x004538c0
 W8PathAI* W8Navigator::GetPathAI()
 {
     return path_ai.get();
 }
 
-// FUNCTION: WIZ8 0x00454930
 void W8Navigator::ResetPathAI()
 {
     if (path_ai != 0) {
@@ -680,15 +628,11 @@ void W8Navigator::ResetPathAI()
     }
 }
 
-// GLOBAL: WIZ8 0x005ec2f4
 const float g_navigator_default_turn_rate = 4.398229598999023f;
 
-// GLOBAL: WIZ8 0x005ec2f0
 const float g_navigator_snap_angle = 0.029999999329447746f;
-// GLOBAL: WIZ8 0x006081e4
 unsigned char g_combat_inactive = 1;
 
-// FUNCTION: WIZ8 0x004526c0
 unsigned short W8Navigator::SetMovementTargetToNavigator(W8Navigator* target, double separation)
 {
     unsigned short result = 0;
@@ -720,7 +664,6 @@ unsigned short W8Navigator::SetMovementTargetToNavigator(W8Navigator* target, do
     return result;
 }
 
-// FUNCTION: WIZ8 0x00453cc0
 bool W8Navigator::StartPatrol(const glm::vec3* home, float distance, float variation)
 {
     W8Navigator* navigator = this;
@@ -734,33 +677,21 @@ bool W8Navigator::StartPatrol(const glm::vec3* home, float distance, float varia
     navigator->maximum_height = variation;
     return navigator->ConfigureMovement(distance, variation);
 }
-// GLOBAL: WIZ8 0x00659c10
 unsigned char g_navigator_link_mode;
-// GLOBAL: WIZ8 0x005ebc98
 const float g_navigator_linked_radius_scale = 4.0f;
-// GLOBAL: WIZ8 0x005ebcc8
 const float g_navigator_vertical_phase_step = 0.25f;
-// GLOBAL: WIZ8 0x006081ec
 float g_navigator_minimum_speed = 0.5f;
-// GLOBAL: WIZ8 0x006081f0
 float g_navigator_minimum_speed_mode23 = 0.8999999761581421f;
 /* Runtime scale for the camera-sphere radius in the octree trace resolver;
    the retail image carries link-time 1.0 here. */
-// GLOBAL: WIZ8 0x006081f4
 float g_camera_sphere_radius_scale = 1.0f;
-// GLOBAL: WIZ8 0x00659bf8
 std::vector<W8Navigator*> g_navigator_group;
 
-// GLOBAL: WIZ8 0x005ec314
 static const float NAVIGATOR_THREE_QUARTER_TURN = 4.712389f;
-// GLOBAL: WIZ8 0x005ec310
 static const float NAVIGATOR_MAXIMUM_DROP = 1500.0f;
-// GLOBAL: WIZ8 0x00603acc
 float g_navigator_gravity = 187.5f;
-// GLOBAL: WIZ8 0x005ec320
 static const float NAVIGATOR_LINK_DISTANCE_SQUARED = 400.0f;
 
-// FUNCTION: WIZ8 0x00454d70
 void W8Navigator::UpdateLinkedNavigator()
 {
     if (linked_navigator == 0) {
@@ -811,7 +742,6 @@ follow_path:
     }
 }
 
-// FUNCTION: WIZ8 0x00454fe0
 bool W8Navigator::UpdateLinkedPosition()
 {
     if (linked_navigator == 0) {
@@ -842,7 +772,6 @@ bool W8Navigator::UpdateLinkedPosition()
     return true;
 }
 
-// FUNCTION: WIZ8 0x00454440
 glm::vec3* W8Navigator::AdjustPosition(glm::vec3* result, const glm::vec3* current,
                                        const glm::vec3* previous, W8Octree& octree)
 {
@@ -917,7 +846,6 @@ glm::vec3* W8Navigator::AdjustPosition(glm::vec3* result, const glm::vec3* curre
     return result;
 }
 
-// FUNCTION: WIZ8 0x00454780
 void W8Navigator::UpdateFacing(bool immediate)
 {
     if (!movement.pitch_enabled && !movement.roll_enabled) {
@@ -956,7 +884,6 @@ void W8Navigator::UpdateFacing(bool immediate)
     }
 }
 
-// FUNCTION: WIZ8 0x00453230
 W8Navigator* W8Navigator::ResolveBlockingNavigator(const glm::vec3* from, glm::vec3* to,
                                                    bool include_target)
 {
@@ -993,7 +920,6 @@ W8Navigator* W8Navigator::ResolveBlockingNavigator(const glm::vec3* from, glm::v
     return 0;
 }
 
-// FUNCTION: WIZ8 0x00453300
 double W8Navigator::MeasurePathDistance(const glm::vec3* target, float max_range, int location_id)
 {
     static W8NavigatorMovementState movement;
@@ -1019,7 +945,6 @@ double W8Navigator::MeasurePathDistance(const glm::vec3* target, float max_range
     return -1.0;
 }
 
-// FUNCTION: WIZ8 0x00453480
 int W8Navigator::FindNavigatorPathDistance(float max_range, float* out_distance)
 {
     double distance = MeasurePathDistance(&PartyNavigator()->movement.position, max_range, 0);
@@ -1031,13 +956,11 @@ int W8Navigator::FindNavigatorPathDistance(float max_range, float* out_distance)
     return 0;
 }
 
-// FUNCTION: WIZ8 0x00453520
 void W8Navigator::SetVelocity(const glm::vec3* velocity)
 {
     movement.velocity = *velocity;
 }
 
-// FUNCTION: WIZ8 0x00453540
 bool W8Navigator::CheckNavigatorCollision(const glm::vec3* from, const glm::vec3* to)
 {
     W8Navigator* blocker = ResolveBlockingNavigator(from, const_cast<glm::vec3*>(to), false);
@@ -1051,7 +974,6 @@ bool W8Navigator::CheckNavigatorCollision(const glm::vec3* from, const glm::vec3
    bits, reseed the path cursors at one, copy source and destination into the
    position fields and the first two waypoints, clear the recorded path values
    and store the segment length. */
-// FUNCTION: WIZ8 0x004563e0
 void W8NavigatorAttachment::InitializeSegment(const glm::vec3* source, const glm::vec3* destination)
 {
     flags = (flags & 0xc810000) | W8_NAV_ATTACHMENT_POSITION_RECORDED;
@@ -1069,7 +991,6 @@ void W8NavigatorAttachment::InitializeSegment(const glm::vec3* source, const glm
     path_length = glm::length((path_destination - segment_start));
 }
 
-// FUNCTION: WIZ8 0x004564f0
 void W8NavigatorAttachment::CopyPathFrom(const W8NavigatorAttachment* other)
 {
     flags = other->flags;
@@ -1093,7 +1014,6 @@ void W8NavigatorAttachment::CopyPathFrom(const W8NavigatorAttachment* other)
     }
 }
 
-// FUNCTION: WIZ8 0x00456660
 glm::vec3 W8NavigatorAttachment::GetNextPosition() const
 {
     if ((flags & W8_NAV_ATTACHMENT_START_WAYPOINT) != 0) {
@@ -1106,7 +1026,6 @@ glm::vec3 W8NavigatorAttachment::GetNextPosition() const
     }
 }
 
-// FUNCTION: WIZ8 0x00456830
 bool W8NavigatorAttachment::AdvanceAlongPathPositions(float distance, glm::vec3* position)
 {
     glm::vec3 local;
@@ -1188,7 +1107,6 @@ bool W8NavigatorAttachment::withinHopHeight(const glm::vec2& point, unsigned bas
     return projection.distance <= height;
 }
 
-// FUNCTION: WIZ8 0x00456CB0
 bool W8NavigatorAttachment::checkPositionHopHeight(const glm::vec3& position) const
 {
     const unsigned base = path_cursor == 1 ? 1 : path_cursor - 1;
@@ -1196,13 +1114,11 @@ bool W8NavigatorAttachment::checkPositionHopHeight(const glm::vec3& position) co
     return withinHopHeight({position.x, position.z}, base, false);
 }
 
-// FUNCTION: WIZ8 0x00456DD0
 bool W8NavigatorAttachment::checkPredictedHopHeight(const glm::vec3& position) const
 {
     return withinHopHeight({position.x, position.z}, path_cursor - 1, true);
 }
 
-// FUNCTION: WIZ8 0x00456F60
 bool W8NavigatorAttachment::AdvancePositionTowardWaypoint(glm::vec3* position, float distance)
 {
     glm::vec2 point;
@@ -1257,7 +1173,6 @@ bool W8NavigatorAttachment::AdvancePositionTowardWaypoint(glm::vec3* position, f
 /* Advances `position` along the recorded route by `distance`, writing the unit
    direction toward the current waypoint into `direction`; one once the final
    waypoint is reached. */
-// FUNCTION: WIZ8 0x00457150
 bool W8NavigatorAttachment::AdvancePositionWithDirection(glm::vec3* position, float distance,
                                                          glm::vec3* direction)
 {
@@ -1289,7 +1204,6 @@ bool W8NavigatorAttachment::AdvancePositionWithDirection(glm::vec3* position, fl
     return false;
 }
 
-// FUNCTION: WIZ8 0x00452560
 void W8Navigator::SetScale(float scale)
 {
     float ratio = scale / movement.scale;
@@ -1306,7 +1220,6 @@ void W8Navigator::SetScale(float scale)
                       movement.alternate_radius, radius});
 }
 
-// FUNCTION: WIZ8 0x00452630
 unsigned char W8Navigator::ConfigureMovementToPosition(const glm::vec3* position)
 {
     flags = 6;
@@ -1327,7 +1240,6 @@ unsigned char W8Navigator::ConfigureMovementToPosition(const glm::vec3* position
     return SetMovementTarget(&movement_target, false);
 }
 
-// FUNCTION: WIZ8 0x004531f0
 void W8Navigator::SetHalted(bool value)
 {
     halted = value;
@@ -1340,7 +1252,6 @@ void W8Navigator::SetHalted(bool value)
     }
 }
 
-// FUNCTION: WIZ8 0x00453ca0
 void W8Navigator::SetPitchRollEnabled(bool pitch, bool roll)
 {
     movement.pitch_enabled = pitch;
@@ -1350,7 +1261,6 @@ void W8Navigator::SetPitchRollEnabled(bool pitch, bool roll)
 /* 0x004527AD is a split address inside this body: it resumes at the
    GetWorldPathing() nonnull branch with the call registers still live, not a
    separate authored function. */
-// FUNCTION: WIZ8 0x004527a0
 unsigned char W8Navigator::LinkToNavigator(W8Navigator* target, double separation)
 {
     unsigned char result = 0;
@@ -1385,7 +1295,6 @@ unsigned char W8Navigator::LinkToNavigator(W8Navigator* target, double separatio
     return result;
 }
 
-// FUNCTION: WIZ8 0x004529a0
 unsigned short W8Navigator::ConfigureMovementToNavigator(W8Navigator* target, float separation,
                                                          float maximum_distance, glm::vec3 position,
                                                          int trace_mode, float facing,
@@ -1423,7 +1332,6 @@ unsigned short W8Navigator::ConfigureMovementToNavigator(W8Navigator* target, fl
     return result;
 }
 
-// FUNCTION: WIZ8 0x00452bd0
 void W8Navigator::LinkGroupNavigator(W8Navigator* target, bool combat_active)
 {
     if (!combat_active) {
@@ -1449,7 +1357,6 @@ void W8Navigator::LinkGroupNavigator(W8Navigator* target, bool combat_active)
     }
 }
 
-// FUNCTION: WIZ8 0x00452c90
 void W8Navigator::ResetMovementAndGroupState()
 {
     movement_target = glm::vec3(0);
@@ -1478,7 +1385,6 @@ void W8Navigator::ResetMovementAndGroupState()
     }
 }
 
-// FUNCTION: WIZ8 0x00453d20
 bool W8Navigator::ConfigureMovement(float minimum, float maximum)
 {
     flags |= 0x20000000;
@@ -1508,7 +1414,6 @@ bool W8Navigator::ConfigureMovement(float minimum, float maximum)
     return false;
 }
 
-// FUNCTION: WIZ8 0x00454170
 unsigned char W8Navigator::SetMovementTarget(const glm::vec3* target, bool propagate)
 {
     movement.target_position = *target;
@@ -1545,7 +1450,6 @@ unsigned char W8Navigator::SetMovementTarget(const glm::vec3* target, bool propa
     return result;
 }
 
-// FUNCTION: WIZ8 0x00453690
 void W8Navigator::AddPathPoint(const glm::vec3* position)
 {
     if (path_ai == 0) {
@@ -1566,7 +1470,6 @@ void W8Navigator::AddPathPoint(const glm::vec3* position)
     PathAIAddPoint(*path_ai, *position);
 }
 
-// FUNCTION: WIZ8 0x004537c0
 void W8Navigator::SetPathLooping(char value)
 {
     if (path_ai != 0) {
@@ -1578,19 +1481,16 @@ void W8Navigator::SetPathLooping(char value)
     }
 }
 
-// FUNCTION: WIZ8 0x00453c50
 void W8Navigator::SetMovementScale(float value)
 {
     movement.movement_scale = value;
 }
 
-// FUNCTION: WIZ8 0x00453c60
 float W8Navigator::GetMovementScale()
 {
     return movement.movement_scale;
 }
 
-// FUNCTION: WIZ8 0x00454040
 void W8Navigator::SetFacingToward(const glm::vec3* target)
 {
     glm::vec3 current = movement.position;
@@ -1614,23 +1514,17 @@ void W8Navigator::SetFacingToward(const glm::vec3* target)
     }
 }
 
-// FUNCTION: WIZ8 0x00456020
 void W8Navigator::SetPosition(const glm::vec3* position)
 {
     SetPositionInternal(position);
     position_dirty = true;
 }
 
-// FUNCTION: WIZ8 0x00453590
 void W8Navigator::SetPositionInternal(const glm::vec3* position)
 {
-    glm::dvec3 widened;
-
     if (position->x != movement.position.x || position->y != movement.position.y ||
         position->z != movement.position.z) {
         movement.position = *position;
-        widened = glm::dvec3(*position);
-        node->setLocation(widened);
         if ((movement.location_id != 0 || this == PartyNavigator()) &&
             (!owner_world || owner_world == GetWorld())) {
             g_navigator_position_changed = true;
@@ -1644,7 +1538,6 @@ void W8Navigator::SetPositionInternal(const glm::vec3* position)
     }
 }
 
-// FUNCTION: WIZ8 0x004537e0
 void W8Navigator::ClearMovement()
 {
     SetMovementStopped();
@@ -1661,7 +1554,6 @@ void W8Navigator::ClearMovement()
     movement_complete = true;
 }
 
-// FUNCTION: WIZ8 0x00453990
 void W8Navigator::UpdateAngles()
 {
     float step = g_navigator_default_turn_rate;
@@ -1729,7 +1621,6 @@ void W8Navigator::UpdateAngles()
     }
 }
 
-// FUNCTION: WIZ8 0x00453f30
 void W8Navigator::AimAtPosition(const glm::vec3* target)
 {
     glm::vec3 current = movement.position;
@@ -1752,7 +1643,6 @@ void W8Navigator::AimAtPosition(const glm::vec3* target)
     }
 }
 
-// FUNCTION: WIZ8 0x00455140
 void W8Navigator::CollectGroupNavigators(std::vector<W8Navigator*>& navigators)
 {
     W8MonsterInfo* monster_info;
@@ -1792,7 +1682,6 @@ void W8Navigator::CollectGroupNavigators(std::vector<W8Navigator*>& navigators)
     }
 }
 
-// FUNCTION: WIZ8 0x004553a0
 void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
 {
     glm::vec3 previous = movement.position;
@@ -2021,7 +1910,6 @@ void W8Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
     }
 }
 
-// FUNCTION: WIZ8 0x00455cc0
 int W8Navigator::ResolveMovement()
 {
     W8Navigator* target = target_navigator;
@@ -2115,7 +2003,6 @@ W8OctreeTrace::W8OctreeTrace(const glm::vec3& from, const glm::vec3& to)
     reset(from, to);
 }
 
-// FUNCTION: WIZ8 0x00453c70
 void W8Navigator::SetMonsterTurnSpeed(float speed)
 {
     movement.callback_threshold = speed * kWorldScale;

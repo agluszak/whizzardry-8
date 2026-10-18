@@ -112,7 +112,6 @@
 
 constexpr unsigned int kFleeChance = 15;
 
-// GLOBAL: WIZ8 0x006836a8
 std::unique_ptr<W8CombatState> g_combat_state;
 /* A friendly NPC's combat-entry script notice was queued by
    StartCombat; while it is set the next call checks the dialogue and script
@@ -122,9 +121,7 @@ std::unique_ptr<W8CombatState> g_combat_state;
 
 /* The per-character combat rows live at +0x18 of the combat state and run
    0xd4 bytes apart; the state's leading 0x18 bytes are its own header. */
-// GLOBAL: WIZ8 0x0068d810
 static bool g_combat_log_enabled;
-// GLOBAL: WIZ8 0x0061EC8C
 static int g_breath_notice_id = 0x65b;
 
 void ResetPartyCombatRows(void);
@@ -132,7 +129,6 @@ void ResetPartyCombatRows(void);
 /* Enter combat mode: queue a friendly NPC's combat-entry script notice when
    one is still owed, refuse while dialogue or a script event defers it, then
    reset the world, UI and per-monster state and allocate the combat state. */
-// FUNCTION: WIZ8 0x004E7090
 bool StartCombat(int surprise)
 {
     W8MonsterInfo* monster_info;
@@ -292,7 +288,6 @@ bool StartCombat(int surprise)
 /* Reset every occupied party slot's combat bookkeeping on combat entry: clear
    the pending and attack-mode words, empty both combat target slots, re-commit
    the chosen action, and mark the combat row when the character cannot act. */
-// FUNCTION: WIZ8 0x004E7590
 void ResetPartyCombatRows(void)
 {
     for (unsigned int slot = 0; slot < 8; ++slot) {
@@ -325,7 +320,6 @@ void ResetPartyCombatRows(void)
     }
 }
 
-// FUNCTION: WIZ8 0x004e7ca0
 bool AnyCharacterEngaged(void)
 {
     unsigned int party_slot;
@@ -338,7 +332,6 @@ bool AnyCharacterEngaged(void)
     return false;
 }
 
-// FUNCTION: WIZ8 0x004ED460
 bool CombatMayAdvanceContinuously(void)
 {
     if (gXStatus.fCombatMode) {
@@ -383,7 +376,6 @@ static bool AnyCombatMonster(Predicate predicate)
     return false;
 }
 
-// FUNCTION: WIZ8 0x004ED710
 bool QueueNpcCombatScript(void)
 {
     if (!gXStatus.fCombatMode) {
@@ -439,7 +431,6 @@ bool QueueNpcCombatScript(void)
     return false;
 }
 
-// FUNCTION: WIZ8 0x004ED550
 bool CombatHasContinuingEffects(void)
 {
     unsigned int enchantment;
@@ -491,7 +482,6 @@ bool CombatHasContinuingEffects(void)
     return false;
 }
 
-// FUNCTION: WIZ8 0x004EA1F0
 void ApplyCombatEndEffects(void)
 {
     int slot;
@@ -523,7 +513,6 @@ void ApplyCombatEndEffects(void)
     }
 }
 
-// FUNCTION: WIZ8 0x004E8370
 void BeginCombatExecution(void)
 {
     int slot;
@@ -655,8 +644,7 @@ void BeginCombatExecution(void)
                     PostCharacterNotice(slot, fmt::sprintf(g_localized_strings[0x229],
                                                            GetMonsterName(target, 0, 0)));
                 } else {
-                    srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x5e6,
-                                 0);
+                    Fail("FALSE");
                 }
             }
         }
@@ -680,7 +668,7 @@ void BeginCombatExecution(void)
                                   fmt::sprintf(g_localized_strings[0x229],
                                                g_status.buffers.Char[monster->Target.iChar].name));
             } else {
-                srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x60a, 0);
+                Fail("FALSE");
             }
         }
     }
@@ -689,7 +677,6 @@ void BeginCombatExecution(void)
 
 /* The queued party action after the active movement phase has started,
    otherwise the current party action. */
-// FUNCTION: WIZ8 0x004ed2b0
 W8PartyAction GetEffectivePartyAction(void)
 {
     if (g_combat_state->uiCurrentPartyActionStatus != W8_PARTY_ACTION_NOT_STARTED) {
@@ -701,7 +688,6 @@ W8PartyAction GetEffectivePartyAction(void)
 /* Whether the party is engaged at all. Being told so outright settles it;
    otherwise, with nothing derived, one conscious character whose combat row is
    flagged is enough. */
-// FUNCTION: WIZ8 0x004e7e70
 int IsPartyEngaged(void)
 {
     unsigned int party_slot;
@@ -722,7 +708,6 @@ int IsPartyEngaged(void)
     return 0;
 }
 
-// FUNCTION: WIZ8 0x004ecdd0
 void RecordCharacterDeath(int party_slot)
 {
     if (gXStatus.fCombatMode) {
@@ -730,7 +715,6 @@ void RecordCharacterDeath(int party_slot)
     }
 }
 
-// FUNCTION: WIZ8 0x004e8290
 void SetSlotAction(int party_slot, W8ActionKind action_kind, int action_detail)
 {
     W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
@@ -742,7 +726,6 @@ void SetSlotAction(int party_slot, W8ActionKind action_kind, int action_detail)
 
 /* Post one line to the combat log, if the log is on. The whole line is
    formatted whether or not it will be shown. */
-// FUNCTION: WIZ8 0x004ed260
 void CombatLog(std::string_view text)
 {
     if (g_combat_log_enabled) ShowNotice(W8_FONT_PALETTE_BROWN, text);
@@ -750,7 +733,6 @@ void CombatLog(std::string_view text)
 
 /* Start a fresh round: lift the one action that does not survive it and clear
    the two round flags. */
-// FUNCTION: WIZ8 0x004ecf00
 void BeginCombatRound(void)
 {
     unsigned int party_slot;
@@ -770,7 +752,6 @@ void BeginCombatRound(void)
 /* Bring one combatant's clock up to the current round: advance it by however
    many rounds have passed since it last caught up, clamp it, and remember
    where it got to. */
-// FUNCTION: WIZ8 0x004eceb0
 void CatchUpCombatActor(W8CombatCharacterRow* row)
 {
     row->phase += g_combat_state->round_counter - row->phase_clock_stamp;
@@ -784,7 +765,6 @@ void CatchUpCombatActor(W8CombatCharacterRow* row)
    assertion's own - assert(CanCharReBreathe(uiChar)) - and the rule is that
    they have to be free of the condition that forbids it and still hold a fifth
    of their stamina, the same fifth a run costs. */
-// FUNCTION: WIZ8 0x004ebc80
 bool CanCharReBreathe(int party_slot)
 {
     W8Character* character = &g_status.buffers.Char[party_slot];
@@ -798,7 +778,6 @@ bool CanCharReBreathe(int party_slot)
 
 /* Take one character out of the round: hand back whatever they were aiming at,
    clear the slot, and re-choose an action of the same kind. */
-// FUNCTION: WIZ8 0x004e82e0
 void DropCharacterFromRound(int party_slot)
 {
     W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
@@ -814,7 +793,6 @@ void DropCharacterFromRound(int party_slot)
 /* Tell every monster within short range about something. A monster has to be
    in combat, alive, not on its way out, free of whatever 0x087 records, and
    in the engaged state before it is told. */
-// FUNCTION: WIZ8 0x004ecaa0
 void NotifyNearbyMonsters(int what)
 {
     unsigned int index;
@@ -836,7 +814,6 @@ void NotifyNearbyMonsters(int what)
 /* Whether the party notices what is coming. The first character in shape to
    act rolls against half their sixth attribute; nobody in shape at all, or the
    global being clear, and the answer is yes by default. */
-// FUNCTION: WIZ8 0x004ed1c0
 int PartyAvoidsSurprise(void)
 {
     unsigned int party_slot = 0;
@@ -863,7 +840,6 @@ int PartyAvoidsSurprise(void)
 /* What one character's whole turn is worth. A character whose turn combat has
    already set up uses the values it saved; anyone else is asked afresh. A
    phase of exactly a hundred is worth one whatever the hands say. */
-// FUNCTION: WIZ8 0x004ec860
 int GetCharacterTurnValue(int party_slot)
 {
     W8CombatCharacterRow* row = &g_combat_state->characters[party_slot];
@@ -896,7 +872,6 @@ int GetCharacterTurnValue(int party_slot)
 /* Whether a wounded character panics. Only a character target counts, they
    have to be below the fraction of their hit points that triggers it, and then
    it is a roll - so the same wound does not always panic. */
-// FUNCTION: WIZ8 0x004ece00
 bool TryPanicWoundedCharacter(const W8CombatSlot* target)
 {
     W8Character* character;
@@ -919,7 +894,6 @@ bool TryPanicWoundedCharacter(const W8CombatSlot* target)
 /* End one monster's turn: forget what it was doing, mark its combat state
    inactive, and - if it is still in the fight - either stand it down or turn
    it to face whoever it settled on. */
-// FUNCTION: WIZ8 0x004e76f0
 void EndMonsterTurn(W8MonsterInfo* monster_info)
 {
     W8CombatSlot chosen;
@@ -952,7 +926,6 @@ void EndMonsterTurn(W8MonsterInfo* monster_info)
    on what it chose - fleeing is half speed and one action is half again - and
    an enchanted monster is quickened by ten per point instead of slowed by the
    condition it is under. */
-// FUNCTION: WIZ8 0x004eb8c0
 void SetUpMonsterTurn(W8MonsterInfo* monster_info)
 {
     unsigned int speed = 100;
@@ -989,7 +962,6 @@ void SetUpMonsterTurn(W8MonsterInfo* monster_info)
 /* Finish one monster's attack: charge it the fatigue, drop the party's
    selection, and give it its next phase if it still has attacks left - which
    divides whatever is left of the round between them. */
-// FUNCTION: WIZ8 0x004eb7f0
 void EndMonsterAttack(W8MonsterInfo* monster_info)
 {
     W8MonsterCombatState* combat = monster_info->pCombat.get();
@@ -1022,7 +994,6 @@ void EndMonsterAttack(W8MonsterInfo* monster_info)
    whose turn combat has set up already only agrees to the action they are
    already on; anyone else may switch, except into the fourth action while
    something else forbids it. */
-// FUNCTION: WIZ8 0x004ed2d0
 bool TryCharacterAction(int party_slot, W8ActionKind action, bool commit)
 {
     W8Character* character = &g_status.buffers.Char[party_slot];
@@ -1052,12 +1023,10 @@ bool TryCharacterAction(int party_slot, W8ActionKind action, bool commit)
    the target display rebuilds. Protect additionally copies the current target
    into the out-of-combat target slot, and a switch to defend raises the
    combat row's attack flag unless the row is already on that action. */
-// FUNCTION: WIZ8 0x004ed390
 void SwitchCharacterTo(int party_slot, W8ActionKind action)
 {
     if (action != W8_ACTION_DEFEND && action != W8_ACTION_PROTECT) {
-        srAssertFail("(iCharAction == CHAR_ACTION_DEFEND) || (iCharAction == CHAR_ACTION_PROTECT)",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x1686, 0);
+        Fail("(iCharAction == CHAR_ACTION_DEFEND) || (iCharAction == CHAR_ACTION_PROTECT)");
     }
     W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
 
@@ -1079,7 +1048,6 @@ void SwitchCharacterTo(int party_slot, W8ActionKind action)
    surviving characters back into exploration state, release the combat state
    and restore the main-game UI. The mode passes through to the end-of-combat
    monster pass and gates the world reset when zero. */
-// FUNCTION: WIZ8 0x004ea310
 void EndCombat(bool forced_cleanup)
 {
     if (gXStatus.fPartyMovementMode) {
@@ -1179,7 +1147,6 @@ void EndCombat(bool forced_cleanup)
 /* Record a chosen action on the slot row: outside combat it fills the
    pending-action block, inside combat it fills the chosen-action record and
    dispatches the action's follow-up. */
-// FUNCTION: WIZ8 0x004e7cc0
 void ChooseAction(int party_slot, W8ActionKind action, int detail, const W8ActionDetailBlock* data,
                   bool defer_execution, int notify)
 {
@@ -1231,7 +1198,6 @@ void ChooseAction(int party_slot, W8ActionKind action, int detail, const W8Actio
 
 /* Apply a chosen in-combat action for party-move kinds 10/11, otherwise record
    the action on the slot row and refresh targeting UI state. */
-// FUNCTION: WIZ8 0x004e7ee0
 void ApplyPartyCombatAction(int party_slot, W8ActionKind action, int detail,
                             const W8ActionDetailBlock* data, int notify)
 {
@@ -1287,7 +1253,6 @@ void ApplyPartyCombatAction(int party_slot, W8ActionKind action, int detail,
 
 /* Record the chosen in-combat action on the slot row, copy its detail block,
    then aim and validate that choice for a still-active character. */
-// FUNCTION: WIZ8 0x004e8000
 void SetCharacterCombatAction(int party_slot, W8Action next, int notify)
 {
     auto& committed = g_status.buffers.XChar[party_slot].committed_action;
@@ -1297,8 +1262,7 @@ void SetCharacterCombatAction(int party_slot, W8Action next, int notify)
     W8CombatCharacterRow* row = &g_combat_state->characters[party_slot];
     SetTargetSourceToCharacter(party_slot, &source);
     if (action_kind > W8_ACTION_RUN) {
-        srAssertFail("iAction < CHAR_ACTION_COUNT",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x484, 0);
+        Fail("iAction < CHAR_ACTION_COUNT");
     }
     committed = next;
     if (action_kind != W8_ACTION_ATTACK && action_kind != W8_ACTION_BERSERK &&
@@ -1343,7 +1307,6 @@ void SetCharacterCombatAction(int party_slot, W8Action next, int notify)
 
 /* Ask the slot's currently selected action which context its outputs hold:
    the chosen action kind plus three context-dependent words. */
-// FUNCTION: WIZ8 0x004e77b0
 W8Action SelectCombatAction(int party_slot, W8TargetingContext context)
 {
     const auto& row = g_status.buffers.XChar[party_slot];
@@ -1389,7 +1352,6 @@ W8Action SelectCombatAction(int party_slot, W8TargetingContext context)
 
 /* Whether a slot may switch to the given action context, optionally repairing
    the aim state first when the caller allows it. */
-// FUNCTION: WIZ8 0x004e79a0
 bool CharacterCanSwitchTo(int party_slot, W8TargetingContext context, bool allow_missing_target,
                           bool allow_equipment_changes)
 {
@@ -1507,7 +1469,6 @@ bool CharacterCanSwitchTo(int party_slot, W8TargetingContext context, bool allow
    starts: its own side, a specific monster, the nearest visible group member,
    or a point on the ground. `alternate` picks the immediate versus the
    animated turn. */
-// FUNCTION: WIZ8 0x004EC900
 void OrientMonsterTowardTarget(W8MonsterInfo* monster_info, bool alternate)
 {
     W8MonsterInfo* target;
@@ -1559,7 +1520,6 @@ void OrientMonsterTowardTarget(W8MonsterInfo* monster_info, bool alternate)
 
 /* Whether combat must keep waiting on a live monster's pending cycle, running
    animation or unfinished turn before the action state machine may advance. */
-// FUNCTION: WIZ8 0x004e8c30
 bool AnyCombatMonsterBusy(void)
 {
     unsigned int monster_count = CurrentLevelPopulation().monster_roster.live().size();
@@ -1610,7 +1570,6 @@ bool AnyCombatMonsterBusy(void)
 /* While the auto-advance option is on and the party is in combat with nothing
    else capturing input, move the selection to the next party slot that is a
    live member without a combat action to take. */
-// FUNCTION: WIZ8 0x004e8da0
 void AutoAdvanceSelectedCharacter(void)
 {
     if (g_settings.auto_advance_character == 0 || g_level_block->pick_changed ||
@@ -1624,8 +1583,7 @@ void AutoAdvanceSelectedCharacter(void)
         return;
     }
     if (selected == -1) {
-        srAssertFail("gStatus.iSelectedCharacter != BAD_INDEX",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x72d, 0);
+        Fail("gStatus.iSelectedCharacter != BAD_INDEX");
     }
     int party_slot = selected + 1;
     if (party_slot > 7) {
@@ -1653,7 +1611,6 @@ void AutoAdvanceSelectedCharacter(void)
 /* Assign each combatant's phase for the round: the living, active party slots
    and in-combat monsters roll initiative into a phase under ninety steps,
    everyone else is parked with no phase. */
-// FUNCTION: WIZ8 0x004e89d0
 void AssignCombatPhases(void)
 {
     for (int party_slot = 0; party_slot < 8; ++party_slot) {
@@ -1715,7 +1672,6 @@ void AssignCombatPhases(void)
 /* Award the round's skill practice: each hand record's successful-swing count
    rolls its weapon and combat skills, and the three defensive skills flagged
    during the round each earn two usage points. */
-// FUNCTION: WIZ8 0x004e99c0
 void PracticeCombatRoundSkills(int party_slot)
 {
     W8Character* character = &g_status.buffers.Char[party_slot];
@@ -1761,7 +1717,6 @@ void PracticeCombatRoundSkills(int party_slot)
 /* The round boundary. Restore stamina to resting combatants, award the round's
    skill practice, track how long nobody could engage, advance the clock, and
    refresh engagement, sight and targets for the next round. */
-// FUNCTION: WIZ8 0x004e9b20
 void AdvanceCombatRound(void)
 {
     W8Dice dice;
@@ -1900,7 +1855,6 @@ void AdvanceCombatRound(void)
 /* Whether combat is over and how it ended. Returns 1 once the combat has been
    torn down - the all-dead defeat, the no-kill end, or the victory fanfare -
    and 0 while it may continue. */
-// FUNCTION: WIZ8 0x004e9f90
 int CheckCombatEnd(unsigned int end_if_no_hostiles)
 {
     bool any_active = AnyCharacterActive();
@@ -1964,7 +1918,6 @@ int CheckCombatEnd(unsigned int end_if_no_hostiles)
    threatening monster's opposed check plus level/search bonuses, and the
    hostile side when none of them can see the party while surprise is
    possible. Mutual surprise cancels. */
-// FUNCTION: WIZ8 0x004ecf50
 void RollCombatSurprise(char party_cannot_be_surprised)
 {
     bool search_surprise = false;
@@ -1974,8 +1927,7 @@ void RollCombatSurprise(char party_cannot_be_surprised)
     W8MonsterInfo* monster_info;
 
     if (!gXStatus.fCombatMode) {
-        srAssertFail("gXStatus.fCombatMode", "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp",
-                     0x1552, 0);
+        Fail("gXStatus.fCombatMode");
     }
     if (party_cannot_be_surprised == 0) {
         if (g_status.party_modifiers.sight_override == 0) {
@@ -2051,7 +2003,6 @@ void RollCombatSurprise(char party_cannot_be_surprised)
    chooser stored becomes the live pending action; a condition interrupt can
    cancel or redirect it first, then the action-kind switch executes it and
    the tail flags engagement and charges the fatigue. */
-// FUNCTION: WIZ8 0x004EA5C0
 void ExecuteCharacterAction(int party_slot)
 {
     W8Character* character = &g_status.buffers.Char[party_slot];
@@ -2280,7 +2231,6 @@ void ExecuteCharacterAction(int party_slot)
    hands can attack the off hand wins unless it is strictly worse on both the
    reach value and the damage bonus, and a switched hand charges the phase
    the difference in the hands' damage bonuses. */
-// FUNCTION: WIZ8 0x004EAC90
 void ComputeCharacterActionPhase(int party_slot)
 {
     W8CombatCharacterRow* row = &g_combat_state->characters[party_slot];
@@ -2335,7 +2285,6 @@ void ComputeCharacterActionPhase(int party_slot)
    action first (berserk forces a fresh random choice); the action-kind
    switch executes it and a failed action loops back through the AI for a
    repick until something commits or the monster holds. */
-// FUNCTION: WIZ8 0x004EAE20
 void ExecuteMonsterAction(W8MonsterInfo* monster_info, W8MonsterRecord* record)
 {
     char tried[11] = {0};
@@ -2353,8 +2302,7 @@ void ExecuteMonsterAction(W8MonsterInfo* monster_info, W8MonsterRecord* record)
     W8TargetSource monster_source;
 
     if (!gXStatus.fCombatMode) {
-        srAssertFail("gXStatus.fCombatMode", "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp",
-                     0xe04, 0);
+        Fail("gXStatus.fCombatMode");
     }
     if (g_combat_state->uiCurrentPartyActionStatus == W8_PARTY_ACTION_IN_PROGRESS) {
         EndPartyMovementPhase();
@@ -2592,7 +2540,6 @@ void ExecuteMonsterAction(W8MonsterInfo* monster_info, W8MonsterRecord* record)
 /* The monster flee action: check the monster can and will run, aim it, play
    its flee cycle unless the special-attack mode table keeps it facing the
    target, then report the attempt. */
-// FUNCTION: WIZ8 0x004EB980
 bool MonsterFleeAction(W8MonsterInfo* monster_info, W8MonsterRecord* record)
 {
     if (!CanMonsterFlee(monster_info, record, false)) {
@@ -2625,7 +2572,6 @@ bool MonsterFleeAction(W8MonsterInfo* monster_info, W8MonsterRecord* record)
 /* Aim the monster's mode-three particle axis at its combat target: the target
    monster's center, a visible group member, the aimed point, or the camera.
    Self targets and empty slots leave the axis unchanged. */
-// FUNCTION: WIZ8 0x004ECB40
 void AimMonsterBreathAtTarget(W8MonsterInfo* monster_info)
 {
     glm::vec3 position;
@@ -2671,7 +2617,6 @@ void AimMonsterBreathAtTarget(W8MonsterInfo* monster_info)
    lists, fold in every monster hostile to the source, then resolve the group
    attack. Either way the record's cooldown lands in its combat state and the
    attack costs a tenth of its stamina. */
-// FUNCTION: WIZ8 0x004EBA70
 int ExecuteMonsterSpecialAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record)
 {
     W8TargetSource source;
@@ -2702,7 +2647,6 @@ int ExecuteMonsterSpecialAttack(W8MonsterInfo* monster_info, W8MonsterRecord* re
    still playing, hand it to the world updater, rebuild the spell marker lists
    from the committed target, fold in every hostile monster, resolve the group
    attack as kind 0x1e and tax a fifth of the stamina ceiling. */
-// FUNCTION: WIZ8 0x004EBFE0
 int ExecuteCharacterSpecialAttack(int party_slot)
 {
     W8TargetSource source;
@@ -2734,7 +2678,6 @@ int ExecuteCharacterSpecialAttack(int party_slot)
    camera-to-target line. Fails when no monster marker survives, when the
    visual cannot be created, and otherwise reports the breath name and leaves
    the visual held for the attack. */
-// FUNCTION: WIZ8 0x004EBCE0
 bool CreateCharacterBreathEffect(int party_slot)
 {
     W8TargetSource source;
@@ -2790,7 +2733,6 @@ bool CreateCharacterBreathEffect(int party_slot)
    the special attack, or the movement kinds - which may retarget, re-decide
    through the AI and bank the next phase. The outcome code lands in
    eCombatActionStatus while this monster is the action owner. */
-// FUNCTION: WIZ8 0x004EB5A0
 void StepMonsterCombatAction(W8MonsterInfo* monster_info)
 {
     int outcome;
@@ -2863,8 +2805,7 @@ void StepMonsterCombatAction(W8MonsterInfo* monster_info)
         break;
     case W8_MONSTER_ACTION_SPELL:
         if (!monster_info->fSpellReleased) {
-            srAssertFail("pMonsterInfo->fSpellReleased",
-                         "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0xff2, 0);
+            Fail("pMonsterInfo->fSpellReleased");
         }
         outcome = 2;
         break;
@@ -2886,7 +2827,6 @@ void StepMonsterCombatAction(W8MonsterInfo* monster_info)
    nausea fit, a webbed actor's break-out check, blindness, insanity, fear,
    control and turncoat. Returns the interrupt category the action scheduler
    substitutes, -1 when the action proceeds. */
-// FUNCTION: WIZ8 0x004EC1E0
 int GetConditionInterrupt(W8TargetSource* source)
 {
     int party_slot;
@@ -2906,8 +2846,7 @@ int GetConditionInterrupt(W8TargetSource* source)
     can_attack = false;
     if (source->iType == W8_TARGET_SOURCE_CHARACTER) {
         if (source->iChar == -1) {
-            srAssertFail("pSource->iChar != BAD_INDEX",
-                         "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x1193, 0);
+            Fail("pSource->iChar != BAD_INDEX");
         }
         party_slot = source->iChar;
         character = &g_status.buffers.Char[party_slot];
@@ -2922,12 +2861,10 @@ int GetConditionInterrupt(W8TargetSource* source)
         controlled = false;
     } else {
         if (source->iType != W8_TARGET_SOURCE_MONSTER) {
-            srAssertFail("pSource->iType == SOURCE_TYPE_MONSTER",
-                         "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x11a8, 0);
+            Fail("pSource->iType == SOURCE_TYPE_MONSTER");
         }
         if (source->iMonsterID == -1) {
-            srAssertFail("pSource->iMonsterID != BAD_INDEX",
-                         "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x11a9, 0);
+            Fail("pSource->iMonsterID != BAD_INDEX");
         }
         monster_info = FindMonster(source->iMonsterID);
         moving = monster_info->action_kind == W8_MONSTER_ACTION_ADVANCE;
@@ -3002,7 +2939,6 @@ int GetConditionInterrupt(W8TargetSource* source)
    only turns for the selected character's own actions. Monster and group
    targets resolve through the monster list; a place target aims the camera
    at the point. */
-// FUNCTION: WIZ8 0x004ECC80
 void PointCameraAtCombatTarget(W8TargetSource* source, const W8CombatSlot* target)
 {
     int location_id;
@@ -3027,14 +2963,12 @@ void PointCameraAtCombatTarget(W8TargetSource* source, const W8CombatSlot* targe
     }
     if (target->iType == W8_TARGET_KIND_MONSTER) {
         if (target->iMonsterID == -1) {
-            srAssertFail("pTarget->iMonsterID != -1",
-                         "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x13fe, 0);
+            Fail("pTarget->iMonsterID != -1");
         }
         location_id = target->iMonsterID;
     } else if (target->iType == W8_TARGET_KIND_GROUP) {
         if (target->iGroupID == -1) {
-            srAssertFail("pTarget->iGroupID != -1",
-                         "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x140c, 0);
+            Fail("pTarget->iGroupID != -1");
         }
         group = FindMonsterGroup(target->iGroupID);
         location_id = group->leader_location_id;
@@ -3050,7 +2984,6 @@ void PointCameraAtCombatTarget(W8TargetSource* source, const W8CombatSlot* targe
     PointCameraAtMonster(monster_info, false, true);
 }
 
-// FUNCTION: WIZ8 0x004E8EA0
 void UpdateCombat(void)
 {
     if (gXStatus.world_update_blocked) {
@@ -3140,12 +3073,10 @@ void UpdateCombat(void)
     switch (g_combat_state->eCombatActionStatus) {
     case 0:
         if (g_combat_state->iActionChar != -1) {
-            srAssertFail("gpCombat->iActionChar == BAD_INDEX",
-                         "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x7e1, 0);
+            Fail("gpCombat->iActionChar == BAD_INDEX");
         }
         if (g_combat_state->pActionMonsterInfo != 0) {
-            srAssertFail("gpCombat->pActionMonsterInfo == NULL",
-                         "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x7e2, 0);
+            Fail("gpCombat->pActionMonsterInfo == NULL");
         }
         if (!QueueNpcCombatScript()) {
             ScheduleCombatActor();
@@ -3166,7 +3097,7 @@ void UpdateCombat(void)
                                      GetMonsterDataForInfo(g_combat_state->pActionMonsterInfo));
                 return;
             }
-            srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x805, 0);
+            Fail("FALSE");
             return;
         }
         break;
@@ -3177,7 +3108,7 @@ void UpdateCombat(void)
                 StepMonsterCombatAction(g_combat_state->pActionMonsterInfo);
                 return;
             }
-            srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x816, 0);
+            Fail("FALSE");
             return;
         }
         W8ActionKind pending_action = g_status.buffers.XChar[slot].pending_action;
@@ -3223,7 +3154,7 @@ void UpdateCombat(void)
         }
         W8MonsterInfo* monster_info = g_combat_state->pActionMonsterInfo;
         if (monster_info == 0) {
-            srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x826, 0);
+            Fail("FALSE");
             return;
         }
         GetMonsterDataForInfo(monster_info);
@@ -3252,12 +3183,10 @@ void UpdateCombat(void)
     }
 }
 
-// FUNCTION: WIZ8 0x004E9490
 void ScheduleCombatActor(void)
 {
     if (g_combat_state->eCombatActionStatus != 0) {
-        srAssertFail("gpCombat->eCombatActionStatus == COMBAT_ACTION_NONE",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x84f, 0);
+        Fail("gpCombat->eCombatActionStatus == COMBAT_ACTION_NONE");
     }
     bool free_turn = false;
     for (;;) {
@@ -3434,14 +3363,12 @@ void ScheduleCombatActor(void)
     }
 }
 
-// FUNCTION: WIZ8 0x004EC610
 short GetCombatActionProgress(int* out_total)
 {
     int total = 0;
     int completed = 0;
     if (!gXStatus.fCombatMode) {
-        srAssertFail("gXStatus.fCombatMode", "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp",
-                     0x1244, 0);
+        Fail("gXStatus.fCombatMode");
     }
     if (g_combat_state->uiCurrentPartyAction == W8_PARTY_ACTION_NONE ||
         g_combat_state->uiCurrentPartyActionStatus == W8_PARTY_ACTION_FINISHED) {

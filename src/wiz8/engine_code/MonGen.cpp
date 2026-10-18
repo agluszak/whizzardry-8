@@ -51,7 +51,6 @@
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 
-// FUNCTION: WIZ8 0x0048A680
 MonGen::MonGen()
 {
     flags = 0;
@@ -64,7 +63,6 @@ MonGen::MonGen()
     memset(name, 0, sizeof(name));
 }
 
-// FUNCTION: WIZ8 0x0048bdc0
 MonGen* FindMonGenByName(const char* name)
 {
     for (const auto& generator : GetWorld()->encounters.generators) {
@@ -75,17 +73,12 @@ MonGen* FindMonGenByName(const char* name)
     return 0;
 }
 
-// GLOBAL: WIZ8 0x005ec040
 const float g_generator_jitter_fraction = 0.20000000298023224f;
 
-// GLOBAL: WIZ8 0x0065ba20
 std::vector<W8EncounterTableRuntime> g_encounter_tables;
-// GLOBAL: WIZ8 0x0065ba38
 std::vector<std::string> g_encounter_names;
-// GLOBAL: WIZ8 0x0060a6bc
 int g_encounter_tables_level = -1;
 
-// FUNCTION: WIZ8 0x0048a7a0
 unsigned int InitializeEncounterTables(void)
 try {
     auto handle = wiz8::open_file(wiz8::asset_path("Data\\Databases\\EncounterTables.dbs"));
@@ -130,9 +123,6 @@ try {
     return 0;
 }
 
-// STRING: WIZ8 0x0060A6E0
-#define MON_GEN_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\MonGen.cpp"
-
 /* Flag bits on a generator: bit 0 suppresses spawning, bit 2 is armed, bit 3
    selects the shared default chance and interval, and bit 5 adds the
    story/faction gate. */
@@ -153,7 +143,6 @@ enum { W8_ENCOUNTER_STALE_SECONDS = 36000 };
    scales rarity down as that mismatch grows; when that leaves no candidate,
    retail falls back to raw rarity plus the day/night condition. A random
    candidate is returned to GenerateEncounter. */
-// FUNCTION: WIZ8 0x0048B9A0
 const W8EncounterEntry* MonGen::SelectEncounterCandidate(const W8EncounterTableRuntime& table)
 {
     int rarity_roll;
@@ -218,7 +207,6 @@ const W8EncounterEntry* MonGen::SelectEncounterCandidate(const W8EncounterTableR
    configured difficulty. Strong encounters are pushed toward the lower half on
    normal difficulty and weak tiny encounters toward the upper half; novice and
    expert take the corresponding fixed extremes in those branches. */
-// FUNCTION: WIZ8 0x0048BC30
 int MonGen::RollEncounterGroupSize(W8MonsterRecord* record)
 {
     W8Dice* dice = &record->group_size_dice;
@@ -261,7 +249,6 @@ int MonGen::RollEncounterGroupSize(W8MonsterRecord* record)
    companion groups, attach scripts and formation state, and register the main
    group as a live random encounter. The bit-5 form is only valid for hostile
    factions while one of the three story facts is set. */
-// FUNCTION: WIZ8 0x0048AD20
 unsigned char MonGen::GenerateEncounter(const glm::vec3* position)
 {
     W8EncounterCompanionRecord companion_records[2];
@@ -292,8 +279,7 @@ unsigned char MonGen::GenerateEncounter(const glm::vec3* position)
     spawn_position = *position;
     record = MonsterDBFromSpecies(species);
     if (record == 0) {
-        srAssertFail("pMonsterDB", MON_GEN_CPP, 0x146,
-                     fmt::format("MonsterDBFromSpecies failed for species {:d}", species));
+        Fail("pMonsterDB", fmt::format("MonsterDBFromSpecies failed for species {:d}", species));
     }
     if (record->deleted != 0) {
         DebugMessage(1, fmt::format("MonGen::GenerateEncounter: WARNING - DBS record for monster "
@@ -324,8 +310,8 @@ unsigned char MonGen::GenerateEncounter(const glm::vec3* position)
 
     int count = RollEncounterGroupSize(record);
     if (count == 0) {
-        srAssertFail("ulNumMonsters", MON_GEN_CPP, 0x17b,
-                     fmt::format("Error in Monster DB: zero group size ({})", record->name0));
+        Fail("ulNumMonsters",
+             fmt::format("Error in Monster DB: zero group size ({})", record->name0));
     }
 
     group = CreateGroup(species, count, &spawn_position, false, false, true);
@@ -346,9 +332,8 @@ unsigned char MonGen::GenerateEncounter(const glm::vec3* position)
             static_cast<unsigned short>(companion_records[index].species);
         W8MonsterRecord* companion_record = MonsterDBFromSpecies(companion_species);
         if (companion_record == 0) {
-            srAssertFail(
-                "pMonsterDB", MON_GEN_CPP, 0x193,
-                fmt::format("MonsterDBFromSpecies failed for species {:d}", companion_species));
+            Fail("pMonsterDB",
+                 fmt::format("MonsterDBFromSpecies failed for species {:d}", companion_species));
         }
         if (companion_record->deleted != 0) {
             DebugMessage(1,
@@ -384,7 +369,6 @@ unsigned char MonGen::GenerateEncounter(const glm::vec3* position)
    is disabled, or while its candidate point is too close/far, visible, occupied
    or over the active-encounter budget. A forced roll bypasses the spatial and
    chance tests but not the global-mode and budget gates. */
-// FUNCTION: WIZ8 0x0048B200
 bool MonGen::CanGenerateEncounter(bool force)
 {
     glm::vec3 camera;
@@ -459,7 +443,6 @@ static void ClampEncounterBudget(W8World& world)
    The elapsed span is finally added to every live group's own timestamp, so a
    group that existed through the gap ages by exactly as much as the level did.
    Past ten hours that is not worth doing and the encounters are rerolled. */
-// FUNCTION: WIZ8 0x0048c810
 void UpdateRandomEncounterBudget(bool reset_budget)
 {
     int elapsed;
@@ -484,7 +467,6 @@ void UpdateRandomEncounterBudget(bool reset_budget)
     }
 }
 
-// FUNCTION: WIZ8 0x0048c9f0
 void DespawnAllActiveMonsterGroups(void)
 {
     for (;;) {
@@ -496,7 +478,6 @@ void DespawnAllActiveMonsterGroups(void)
 
 /* Put the encounter-culling scale back to its fast default and rearm every
    loaded generator's interval timer. */
-// FUNCTION: WIZ8 0x0048cbe0
 void ResetMonsterGeneratorTimers(void)
 {
     g_encounter_culling_scale_fast = 1.0f;
@@ -508,13 +489,10 @@ void ResetMonsterGeneratorTimers(void)
     }
 }
 
-// GLOBAL: WIZ8 0x0060a6cc
 float g_encounter_culling_scale_fast = 1.0f;
 
-// GLOBAL: WIZ8 0x005ec918
 const float g_encounter_culling_rate = 2880.0f;
 
-// GLOBAL: WIZ8 0x005eca90
 const double g_encounter_culling_distance = 50000.0;
 
 /* Retires random encounters that have outlived their welcome.
@@ -528,7 +506,6 @@ const double g_encounter_culling_distance = 50000.0;
    The elapsed span is compared as unsigned, so a group whose timestamp is ahead
    of the clock reads as very old rather than as not yet due. Preserved as
    found. */
-// FUNCTION: WIZ8 0x0048c8e0
 void CullExpiredEncounters(void)
 {
     glm::vec3 party;
@@ -563,7 +540,6 @@ void CullExpiredEncounters(void)
 }
 
 /* One loaded encounter table by index. */
-// FUNCTION: WIZ8 0x0048ad00
 W8EncounterTableRuntime* GetEncounterTable(int index)
 {
     if (index >= 0 && index < static_cast<int>(g_encounter_tables.size())) {
@@ -573,7 +549,6 @@ W8EncounterTableRuntime* GetEncounterTable(int index)
 }
 
 /* Destroy every generator and empty the list. */
-// FUNCTION: WIZ8 0x0048bf70
 void DestroyMonsterGenerators(void)
 {
     GetWorld()->encounters.generators.clear();
@@ -583,7 +558,6 @@ void DestroyMonsterGenerators(void)
    fields; version four and below also have no saved encounter budget. The
    random-encounter budget is always clamped to the current level after loading,
    and the culling span is finally reset from that level's database row. */
-// FUNCTION: WIZ8 0x0048c110
 W8EncounterState ReadEncounterState(W8Chunk& file)
 {
     W8EncounterState state;
@@ -658,7 +632,6 @@ void StartLevelEncounters(W8World& world)
 /* Runs one encounter roll for every generator that is armed and whose own
    precondition passes. The count is taken once, but the vector is re-read for
    each element, which is what the repeated bounds test in the original is. */
-// FUNCTION: WIZ8 0x0048c600
 void RunMonsterGenerators(void)
 {
     int count = static_cast<int>(GetWorld()->encounters.generators.size());
@@ -686,7 +659,6 @@ void SpendRandomEncounterBudget()
 }
 
 /* Release all encounter tables and names, and mark no level loaded. */
-// FUNCTION: WIZ8 0x0048a710
 void UnloadEncounterTables(void)
 {
     g_encounter_tables.clear();
@@ -697,7 +669,6 @@ void UnloadEncounterTables(void)
 /* Writes the world's generators to a save. The record version goes out first,
    then a shared flag byte, then the count, and then each generator as its name,
    its trailing flag, its own flag word and whatever 0x0043A770 appends. */
-// FUNCTION: WIZ8 0x0048c3b0
 void SaveMonsterGenerators(wiz8::File& handle)
 {
     MonGen* generator;
@@ -723,7 +694,6 @@ void SaveMonsterGenerators(wiz8::File& handle)
    record on disk is narrower than the structure and skips +0x05, +0x0A and
    +0x18. The leading byte is written uninitialised - a one-byte local the
    original never assigns. Preserved as found. */
-// FUNCTION: WIZ8 0x0048b520
 void MonGen::Save(wiz8::File& handle)
 {
     unsigned char version = 3;
@@ -748,7 +718,6 @@ void MonGen::Save(wiz8::File& handle)
    through the same conjunction, so the first failure abandons the rest and the
    record is reported bad; the timer is rearmed either way, and the armed bit is
    always cleared on the way out so a loaded generator starts disarmed. */
-// FUNCTION: WIZ8 0x0048b5e0
 unsigned char MonGen::Load(W8Chunk& handle, short default_interval)
 try {
     unsigned char version{};
@@ -781,7 +750,6 @@ try {
    configured interval jittered by a uniform draw over twice its jitter
    fraction, so the mean is the interval itself. Bit 3 selects the shared
    default interval; a clear bit uses the generator's custom +0x06 interval. */
-// FUNCTION: WIZ8 0x0048b420
 void MonGen::Reset(short default_interval)
 {
     short interval;
@@ -799,7 +767,6 @@ void MonGen::Reset(short default_interval)
    records themselves: the record version, the level's saved budget, the running
    budget and culling span, the shared flag byte, three shared interval words,
    and then the count followed by that many generator records. */
-// FUNCTION: WIZ8 0x0048c020
 void SaveEncounterState(wiz8::File& handle)
 {
     int count;
@@ -825,7 +792,6 @@ void SaveEncounterState(wiz8::File& handle)
 /* Destroy every current random group, make an exact-count copy of the world's
    generator vector, randomize it with count independent pair swaps, then force
    one generation attempt from every copied entry. */
-// FUNCTION: WIZ8 0x0048ca20
 void RollRandomEncounters(void)
 {
     DespawnAllActiveMonsterGroups();
@@ -856,7 +822,6 @@ void RollRandomEncounters(void)
 
 /* Apply one duration scale to the encounter culling clock and every loaded
    generator timer. */
-// FUNCTION: WIZ8 0x0048cb80
 void SetMonsterGeneratorDurationScale(float scale)
 {
     g_encounter_culling_scale_fast = scale;
@@ -869,7 +834,6 @@ void SetMonsterGeneratorDurationScale(float scale)
 
 /* Store the table index and mark HARASSMENT tables with bit 5. Retail never
    clears that bit here when a later table is not HARASSMENT. */
-// FUNCTION: WIZ8 0x0048cc50
 void MonGen::SetEncounterTable(int index)
 {
     encounter_table_index = index;
@@ -881,7 +845,6 @@ void MonGen::SetEncounterTable(int index)
 
 /* Return the first table whose name starts with the complete caller string,
    ignoring case as the retail _strnicmp import does. */
-// FUNCTION: WIZ8 0x0048cca0
 int FindEncounterTableByName(const char* name)
 {
     for (int index = 0; index < static_cast<int>(g_encounter_tables.size()); ++index) {

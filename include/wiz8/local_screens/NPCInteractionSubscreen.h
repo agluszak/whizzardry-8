@@ -334,7 +334,6 @@ void UpdateNpcDialogueSubMode(void);
 void SyncDialogueCategoryButtons(void);
 void EndNpcDialogueSession(bool skip_exit_actions);
 
-// FUNCTION: WIZ8 0x00576b80
 inline void CloseNpcDialogueIfActive(void)
 {
     if (gXStatus.fNpcDialogueMode) {

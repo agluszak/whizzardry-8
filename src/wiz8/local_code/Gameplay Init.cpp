@@ -58,7 +58,6 @@ namespace {
 /* NPC.DBS records carry an optional sub-list, stored after the record when its
    leading count exceeds one and its 0x9D flag is clear: a count, then that many
    six-byte elements appended to a freshly created list. */
-// FUNCTION: WIZ8 0x0054aac0
 unsigned char InitializeNpcDatabase(void)
 try {
     auto handle =
@@ -100,7 +99,6 @@ void DestroyNpcDatabase(void)
     g_npc_records = {};
 }
 
-// FUNCTION: WIZ8 0x0054ad00
 unsigned char InitializeFactDatabase(void)
 try {
     auto handle =
@@ -112,13 +110,11 @@ try {
     return 0;
 }
 
-// FUNCTION: WIZ8 0x0054ae00
 void DestroyFactDatabase(void)
 {
     g_fact_records = {};
 }
 
-// FUNCTION: WIZ8 0x0054ae20
 unsigned char InitializeLevelDatabase(void)
 try {
     auto handle =
@@ -129,14 +125,12 @@ try {
     return 0;
 }
 
-// FUNCTION: WIZ8 0x0054af10
 void DestroyLevelDatabase(void)
 {
     g_level_records = {};
 }
 
 /* Reset the status and its fixed eight-slot character banks. */
-// FUNCTION: WIZ8 0x0054af30
 void ResetGameStatus(bool /*release*/)
 {
     static std::array<W8Character, W8_PARTY_SLOT_COUNT> characters;
@@ -149,7 +143,6 @@ void ResetGameStatus(bool /*release*/)
 }
 
 /* Reset transient gameplay state and create its runtime resources at startup. */
-// FUNCTION: WIZ8 0x0054afd0
 void InitializeGameplayRuntimeObjects(void)
 {
     gXStatus = {};
@@ -169,7 +162,6 @@ void InitializeGameplayRuntimeObjects(void)
 
    The assertion at Spells.cpp:1908 names the table s_pSpellTable, which is why
    this body treats the global as the table itself rather than as a cursor. */
-// FUNCTION: WIZ8 0x0054b080
 void ResetGameplayStatusBlock(void)
 {
     memset(gXStatus.spell_cooldown_clocks, 0, sizeof(gXStatus.spell_cooldown_clocks));
@@ -178,7 +170,6 @@ void ResetGameplayStatusBlock(void)
     gXStatus.fSurprisePossible = false;
 }
 
-// FUNCTION: WIZ8 0x0054b0b0
 void DestroyGameplayObjects(void)
 {
     gXStatus.character_event_queue.reset();
@@ -190,7 +181,6 @@ void DestroyGameplayObjects(void)
    clears the item in hand and the carried pool, and
    grants the starting items. The pool and the id list are both walked by
    address against the symbol that follows them, not by index. */
-// FUNCTION: WIZ8 0x0054b100
 void ResetForNewGame(void)
 {
     W8ItemInstance item;
@@ -226,7 +216,6 @@ void ResetForNewGame(void)
 /* Raises three flags, optionally hands the caller's target to 0x005A9E70, then
    runs a fixed opening sequence. The two calls into 0x00482720 and 0x00482740
    share one stack cleanup, as consecutive cdecl calls do. */
-// FUNCTION: WIZ8 0x0054b250
 void RunNewGameOpeningSequence(bool notify, std::string_view target)
 {
     g_status.game_started = true;
@@ -248,7 +237,6 @@ void RunNewGameOpeningSequence(bool notify, std::string_view target)
     g_pending_screen_state.id = W8_SCREEN_GAME_START_ROUTER;
 }
 
-// FUNCTION: WIZ8 0x0054b2d0
 void ResetTargetingState(void)
 {
     unsigned int slot;
@@ -266,7 +254,6 @@ void ResetTargetingState(void)
    party-member selection thresholds against 0x12 and 0x0f - decides between 1
    and 2 here. The five countdown clocks and the Random call share one stack
    cleanup, as consecutive cdecl calls do. */
-// FUNCTION: WIZ8 0x0054b300
 void ResetGameplaySlot(unsigned int slot)
 {
     W8MonsterManagerEntry* record = &gXStatus.monster_manager_entries[slot];
@@ -324,7 +311,6 @@ void ResetGameplaySlot(unsigned int slot)
    wiped container headers: every later use is non-virtual (Clear, GetCount,
    direct teardown of a null backing store), so no reconstruction runs. */
 
-// FUNCTION: WIZ8 0x0054b470
 void ResetPartySlotRow(int slot)
 {
     W8PartySlotRow* row = &g_status.buffers.XChar[slot];
@@ -341,7 +327,6 @@ void ResetPartySlotRow(int slot)
 /* Clears the settings block and writes its defaults. The constants 0, 1, 0x40
    and 0xff are each used many times over, which is why VC6 holds them in
    registers rather than spelling out immediates. */
-// FUNCTION: WIZ8 0x0054b560
 void ResetGameplaySettings(void)
 {
     memset(&g_settings, 0, sizeof(g_settings));

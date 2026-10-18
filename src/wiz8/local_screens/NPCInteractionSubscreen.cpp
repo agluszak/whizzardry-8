@@ -204,45 +204,33 @@ static void ConfirmNpcTradePurchase(void);
 static unsigned char AcceptNpcDialogueItem(W8NpcState* npc, W8ItemInstance* item, int mode);
 void OnNpcDialogClosed(W8NpcDialog& dialog);
 
-// GLOBAL: WIZ8 0x0068ee90
 static W8NpcInteractionState g_npc_interaction_storage;
 /* The global object's implicit constructor and destructor; 0x0056B930 is the
    retail static initializer that runs the former and registers the latter. */
 
-// GLOBAL: WIZ8 0x00649f1c
 W8NpcInteractionState* g_npc_interaction_state = &g_npc_interaction_storage;
 /* The dialogue keyword tables. Element zero is the English file
    list and element one the translated one; each file list holds one line list
    per line and each line list one word per field. */
-// GLOBAL: WIZ8 0x0068EE80
 std::vector<KeywordFile> g_keyword_lists;
 /* Both keyword files are loaded and the tables are usable. */
-// GLOBAL: WIZ8 0x0068F0F8
 bool g_keyword_lists_loaded;
 /* The keyword subsystem's active flag, written absolutely by the
    screen reset and by the keyword panel helpers. */
-// GLOBAL: WIZ8 0x0068F0F9
 bool g_pending_notice_queued;
 /* Empty wide string used to clear dialogue editor text. */
 /* The queued NPC script notice; see the type comment in the
    header. */
-// GLOBAL: WIZ8 0x0068EE60
 W8PendingNotice g_pending_notice;
 /* w8_get_ticks sample for the trade-item highlight timeout. */
-// GLOBAL: WIZ8 0x0068EE78
 static uint64_t g_trade_highlight_tick;
 
-// GLOBAL: WIZ8 0x00649f20
 static int g_dialogue_place_keyword_count = 15;
-// GLOBAL: WIZ8 0x00649f24
 static int g_dialogue_place_keyword_ids[15] = {0x751, 0x752, 0x753, 0x754, 0x755,
                                                0x756, 0x757, 0x758, 0x759, 0x75a,
                                                0x75b, 0x75c, 0x75d, 0x75e, 0x75f};
-// GLOBAL: WIZ8 0x00649F64
 static int g_dialogue_fallback_ids0[5] = {0x760, 0x761, 0x762, 0x763, 0x764};
-// GLOBAL: WIZ8 0x00649F78
 static int g_dialogue_fallback_ids1[5] = {0x765, 0x766, 0x767, 0x768, 0x769};
-// GLOBAL: WIZ8 0x00649f8c
 const char* g_dialogue_person_keywords[] = {"BALBRAK", "BILDUBLU", "EWAXX",  "KUNAR",
                                             "PANRACK", "RODAN",    "RUBBLE", "SAXX",
                                             "SPARKLE", "YAMIR",    ""};

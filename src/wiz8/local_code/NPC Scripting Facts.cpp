@@ -58,21 +58,18 @@
 
 /* Potion explosion completion callback: retail stores this JMP thunk rather than
    ClearScriptedSceneActive's void() entry. */
-// FUNCTION: WIZ8 0x005092c0
 static void ClearPotionExplosionSoundFlag()
 {
     g_npc_dialogue.ReleaseScene();
 }
 
 /* Camera-shake completion callback stored on ShakeDefinition::completion_callback. */
-// FUNCTION: WIZ8 0x005092d0
 static void ReplayEarthquakeShake(void)
 {
     CameraShakes().Start(ShakeDefinition(3.0f, false, 1.0f, 0, nullptr));
     BeginEndgameSequence();
 }
 
-// FUNCTION: WIZ8 0x00506670
 void HandleFactChange(W8FactId fact_id, unsigned char value)
 {
     W8NpcState* npc;
@@ -140,7 +137,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         }
         npc = GetNpcStateByKind(0x48);
         if (npc == 0) {
-            srAssertFail("npc", __FILE__, __LINE__, 0);
+            Fail("npc");
         }
         ClearNpcScheduledItem(npc, 0x242, 0);
         return;
@@ -223,7 +220,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         }
         npc = GetNpcStateByKind(0x29);
         if (npc == 0) {
-            srAssertFail("npc", __FILE__, __LINE__, 0);
+            Fail("npc");
         }
         MarkNpcOfKind(0x29);
         return;
@@ -643,7 +640,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         }
         npc = GetNpcStateByKind(0x29);
         if (npc == 0) {
-            srAssertFail("npc", __FILE__, __LINE__, 0);
+            Fail("npc");
         }
         MarkNpcOfKind(0x29);
         return;
@@ -831,7 +828,6 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
     }
 }
 
-// FUNCTION: WIZ8 0x00508d70
 void HandleScriptedNpcDeath(unsigned int monster_list_index)
 {
     W8MonsterInfo* monster_info = GetMonsterListEntry(monster_list_index);
@@ -921,7 +917,6 @@ void HandleScriptedNpcDeath(unsigned int monster_list_index)
    changes for the special kills, the Rattkin breeder location-variable count,
    and the 0x22b cleanup that clears the victim's condition and queues the
    death event on the recorded party slot. */
-// FUNCTION: WIZ8 0x005090C0
 void MonsterKilled(int record_id, int killer_party_slot)
 {
     unsigned char value;
@@ -974,10 +969,8 @@ void MonsterKilled(int record_id, int killer_party_slot)
 
 /* Original translation-unit ownership of these helpers is unknown. */
 
-// GLOBAL: WIZ8 0x00689b78
 unsigned char g_fact_values[1000];
 
-// FUNCTION: WIZ8 0x00506280
 unsigned char GetFact(W8FactId fact_id)
 {
     unsigned char value;
@@ -1001,7 +994,6 @@ unsigned char GetFact(W8FactId fact_id)
     return value;
 }
 
-// FUNCTION: WIZ8 0x005061a0
 void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects)
 {
     unsigned char previous_value;
@@ -1041,7 +1033,6 @@ void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects)
     }
 }
 
-// FUNCTION: WIZ8 0x00506480
 void SaveFactState(wiz8::File& save_handle)
 {
     save_handle.write(g_fact_values, sizeof(g_fact_values));
@@ -1052,7 +1043,6 @@ void SaveFactState(wiz8::File& save_handle)
    choice 1/2/other maps to facts 0x4c/0x4b/0x4d, then two independent import
    bytes can set 0x199 and 0x7b. The 0x7b path unsuppresses and returns; the
    other imported path and the new-game path unsuppress at the shared exit. */
-// FUNCTION: WIZ8 0x00506310
 void InitializeFactState(void)
 {
     /* Retail memsets 1000 of the 1001 bytes - index 1000 stays BSS-zeroed. */

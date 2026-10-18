@@ -13,7 +13,6 @@ class W8TextBuffer;
 struct W8Character;
 
 /* A character preview owns its voice and portrait animation. */
-// VTABLE: WIZ8 0x005efdc0
 class W8CharacterSummaryDialog : public W8DialogBase {
 public:
     explicit W8CharacterSummaryDialog(W8Character* character);

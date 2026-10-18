@@ -44,7 +44,6 @@ void W8Chunk::WriteBytes(const void* buffer, std::size_t size)
     m_hFile->write(buffer, size);
 }
 
-// FUNCTION: WIZ8 0x0055c000
 bool W8Chunk::OpenRead(const std::filesystem::path& path)
 try {
     if (m_hFile != 0) {
@@ -67,7 +66,6 @@ try {
     return false;
 }
 
-// FUNCTION: WIZ8 0x0055be30
 bool W8Chunk::OpenWrite(const std::filesystem::path& path)
 try {
     if (m_hFile) return false;
@@ -97,7 +95,6 @@ try {
 /* Close the root chunk and then its file. In write mode the root's stored
    child count is patched before the ordinary current-chunk finalizer writes
    the root extent. */
-// FUNCTION: WIZ8 0x0055c100
 void W8Chunk::Close()
 {
     if (m_hFile != 0) {
@@ -128,7 +125,6 @@ void W8Chunk::Close()
 
 /* Stream the source's active payload, reproduce its tag and grouping bit
    in this write stream, and finalize the copy as one complete chunk. */
-// FUNCTION: WIZ8 0x0055c1e0
 bool W8Chunk::CopyCurrentChunkFrom(W8Chunk* source)
 {
     W8ChunkHead* source_head = &source->CurrentHead();
@@ -152,7 +148,6 @@ bool W8Chunk::CopyCurrentChunkFrom(W8Chunk* source)
 
 /* Move past the unread remainder of the current head. Its absolute extent is
    combined with the active group's base offset and the current file position. */
-// FUNCTION: WIZ8 0x0055c390
 void W8Chunk::SkipCurrentChunk()
 {
     m_hFile->seek(CurrentChunkEnd(), wiz8::SeekOrigin::begin);
@@ -161,7 +156,6 @@ void W8Chunk::SkipCurrentChunk()
 /* A grouped chunk begins with its child count. Readers retain that count for
    the group walk. Writers mark the active head as grouped, reserve the count,
    and retain a zero completed-child counter until ReleaseGroup patches it. */
-// FUNCTION: WIZ8 0x0055c3f0
 void W8Chunk::OpenGroup()
 {
     if (!m_fWriting) {
@@ -186,7 +180,6 @@ void W8Chunk::OpenGroup()
 
 /* Finish one grouped walk. Readers discard its retained child count. Writers
    patch the reserved word with the number of released children. */
-// FUNCTION: WIZ8 0x0055c5a0
 void W8Chunk::ReleaseGroup()
 {
     if (!m_fWriting) {
@@ -202,7 +195,6 @@ void W8Chunk::ReleaseGroup()
     }
 }
 
-// FUNCTION: WIZ8 0x0055c660
 unsigned int W8Chunk::CurrentChunkId()
 {
     W8ChunkHead* head = &CurrentHead();
@@ -210,7 +202,6 @@ unsigned int W8Chunk::CurrentChunkId()
     return head->chunk_id;
 }
 
-// FUNCTION: WIZ8 0x0055c690
 int W8Chunk::CurrentChunkExtent()
 {
     W8ChunkHead* head = &CurrentHead();
@@ -224,7 +215,6 @@ std::int64_t W8Chunk::CurrentChunkEnd() const
     return m_offsets.back() + m_heads.back().extent;
 }
 
-// FUNCTION: WIZ8 0x0055c6c0
 int W8Chunk::ChunkCount()
 {
     return m_group_counts.back();
@@ -234,7 +224,6 @@ int W8Chunk::ChunkCount()
    separately: bytes 6 and 7 are object padding, not file data. A zero tag in
    read mode asks the stream to populate the header; write mode requires the
    caller to supply the tag. */
-// FUNCTION: WIZ8 0x0055c6d0
 void W8Chunk::OpenChunk(unsigned int chunk_id, unsigned char grouped)
 {
     W8ChunkHead head{};
@@ -262,7 +251,6 @@ void W8Chunk::OpenChunk(unsigned int chunk_id, unsigned char grouped)
 /* Remove the active header. Writers patch its extent in place; readers only
    discard the saved payload offset. A nested group advances its parent's
    completed-child count. */
-// FUNCTION: WIZ8 0x0055c930
 void W8Chunk::ReleaseCurrentChunk()
 {
     m_heads.pop_back();
@@ -285,7 +273,6 @@ void W8Chunk::ReleaseCurrentChunk()
     }
 }
 
-// FUNCTION: WIZ8 0x0055cae0
 void W8Chunk::RewindCurrentChunk()
 {
     m_hFile->seek(m_offsets.back(), wiz8::SeekOrigin::begin);

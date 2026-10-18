@@ -5,22 +5,10 @@
 #include "wiz8/engine_code/Emitter.h"
 #include "wiz8/engine_code/game_timer.h"
 
-// GLOBAL: WIZ8 0x0060e608
 float g_lod_range_default0 = 3500.0f;
 
-// GLOBAL: WIZ8 0x0060e60c
 float g_lod_range_default1 = 8500.0f;
 
-// VTABLE: WIZ8 0x005ec1d8 W8AnimRepBase
-// class W8AnimRepBase
-
-// VTABLE: WIZ8 0x005ed050 W8AnimRep
-// class W8AnimRep
-
-// VTABLE: WIZ8 0x005ed058 W8EmitterHost
-// class W8EmitterHost
-
-// FUNCTION: WIZ8 0x004b86e0
 W8AnimRepBase::W8AnimRepBase()
 {
     location = glm::vec3(0);
@@ -33,12 +21,10 @@ W8AnimRepBase::W8AnimRepBase()
     apply_instance_scale = false;
 }
 
-// FUNCTION: WIZ8 0x004b55c0
 void W8AnimRep::SetFrameMethod(signed char method)
 {
     if (method < 1 || method > 4) {
-        srAssertFail("bFrameMethod >= DIR_FIRST && bFrameMethod <= DIR_LAST",
-                     "C:\\Projects\\Wizardry 8\\Engine Code\\AnimRep.cpp", 0x6a, 0);
+        Fail("bFrameMethod >= DIR_FIRST && bFrameMethod <= DIR_LAST");
     }
     frame_method = method;
 }
@@ -46,7 +32,6 @@ void W8AnimRep::SetFrameMethod(signed char method)
 /* The root copy preserves five aggregate values, but deliberately resets its
    runtime scale and flags instead of copying them.  Bytes 0x62 and 0x63 are
    not touched by the canonical constructor. */
-// FUNCTION: WIZ8 0x004b87c0
 W8AnimRepBase::W8AnimRepBase(const W8AnimRepBase& other)
     : location(other.location), local_location(other.local_location),
       parent_location(other.parent_location), rotation(other.rotation),
@@ -58,38 +43,32 @@ W8AnimRepBase::W8AnimRepBase(const W8AnimRepBase& other)
 /* Store the representation's local location, then rebuild the world location
    from its parent location.  The three floating-point additions establish
    these as vectors rather than opaque twelve-byte values. */
-// FUNCTION: WIZ8 0x004b8850
 void W8AnimRepBase::SetLocation(const glm::vec3* location)
 {
     local_location = *location;
     this->location = parent_location + local_location;
 }
 
-// FUNCTION: WIZ8 0x004b8890
 glm::vec3 W8AnimRepBase::GetLocation() const
 {
     return location;
 }
 
-// FUNCTION: WIZ8 0x004b88b0
 glm::vec3 W8AnimRepBase::GetLocalLocation() const
 {
     return local_location;
 }
 
-// FUNCTION: WIZ8 0x004b88d0
 void W8AnimRepBase::SetRotation(const glm::mat3* rotation)
 {
     this->rotation = *rotation;
 }
 
-// FUNCTION: WIZ8 0x004b88f0
 glm::mat3 W8AnimRepBase::GetRotation() const
 {
     return rotation;
 }
 
-// FUNCTION: WIZ8 0x004b53d0
 W8AnimRep::W8AnimRep()
     : subcycle(0), pending_subcycle(0xffff), timer(0), active(0), animation_playing(0),
       frame_direction(W8_ANIMATION_DIRECTION_NONE), frame_method(0), animation_behaviour(0),
@@ -100,7 +79,6 @@ W8AnimRep::W8AnimRep()
 }
 
 /* Copies persistent animation state, then timestamps the new representation. */
-// FUNCTION: WIZ8 0x004b54a0
 W8AnimRep::W8AnimRep(const W8AnimRep& other)
     : W8AnimRepBase(other), subcycle(other.subcycle), pending_subcycle(other.pending_subcycle),
       timer(other.timer), active(other.active), animation_playing(other.animation_playing),
@@ -115,7 +93,6 @@ W8AnimRep::W8AnimRep(const W8AnimRep& other)
 
 /* The abstract emitter host copies its stable settings, but starts with no
    selected emitter and the canonical 00 00 FF FF transient byte pattern. */
-// FUNCTION: WIZ8 0x004b5680
 W8EmitterHost::W8EmitterHost(const W8EmitterHost& other)
     : W8AnimRep(other), m_bLOD(other.m_bLOD), lod_near(other.lod_near), lod_far(other.lod_far),
       current_cycle(0), current_subcycle(0), forced_subcycle(-1), pending_cycle(-1),
@@ -123,7 +100,6 @@ W8EmitterHost::W8EmitterHost(const W8EmitterHost& other)
 {
 }
 
-// FUNCTION: WIZ8 0x004b5600
 W8EmitterHost::W8EmitterHost()
     : m_bLOD(0), lod_near(g_lod_range_default0), lod_far(g_lod_range_default1), current_cycle(0),
       current_subcycle(0), forced_subcycle(-1), pending_cycle(-1), animation_radius(0)

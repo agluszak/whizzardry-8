@@ -7,8 +7,6 @@
 class srCamera;
 class srGERD;
 
-// VTABLE: SURRENDER 0x10077230 srScene
-// class srScene
 class srScene : public srNode {
 public:
     enum e_enable { ENABLE_NODE_PICK_KEYS = 0 };
@@ -27,7 +25,6 @@ public:
     void setAmbientLight(float red, float green, float blue);
     void setAmbientLight(const glm::vec3& color);
     void setFogColor(float red, float green, float blue);
-    // FUNCTION: SURRENDER 0x10056D40 SYMBOL
     void setFogColor(const glm::vec3& color) { fog_color = color; }
 
 protected:

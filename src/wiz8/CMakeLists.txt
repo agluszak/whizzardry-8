@@ -169,7 +169,6 @@ add_library(WIZ8_GAME_CORE STATIC
     fact_state.cpp
     engine_code/MonsterLight.cpp
     engine_code/GDCamera.cpp
-    engine_code/camera_transition_state.cpp
     engine_code/world_selection.cpp
     engine_code/stCube.cpp
     engine_code/Camera.cpp

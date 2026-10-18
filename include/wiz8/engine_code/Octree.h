@@ -172,7 +172,8 @@ class W8Octree {
 public:
     float max_navigation_radius = 500.0f;
     W8World* const owner_world;
-    W8Octree(const char* path, std::unique_ptr<W8GameData>* game_data, W8World* owner = nullptr);
+    W8Octree(std::string_view path, std::unique_ptr<W8GameData>* game_data,
+             W8World* owner = nullptr);
     /* Preprocessing calls retain this receiver even when a body uses only
        global build state. */
     void Reset();
@@ -292,10 +293,10 @@ public:
     void UpdateVisibility();
     /* Store `path` with its extension stripped into m_path_stem; the sibling
        data files are then derived from the stem. */
-    bool SetPathStem(const char* path); /* 0x0042CF90 */
-    bool SavePoints(const char* path);
-    bool LoadPointFiles(const char* level_name);
-    bool ReadRegionLinkFile(const char* level_name);
+    bool SetPathStem(std::string_view path);
+    bool SavePoints(std::string_view path);
+    bool LoadPointFiles(std::string_view level_name);
+    bool ReadRegionLinkFile(std::string_view level_name);
     /* Region containing `point` (1-based index into the volume array), else
        the packed auto-region key (level<<24)|cell. */
     unsigned int RegionKeyForPoint(const glm::vec3& point); /* 0x00432720 */
@@ -311,7 +312,7 @@ public:
        `rebuild_all` sweeps every cell and discards the saved point list, a
        zero value samples a sparse checkerboard plus the stored points. */
     void BuildRegionLinks(bool rebuild_all); /* 0x004314C0 */
-    bool SaveRegionLinks(const char* path);
+    bool SaveRegionLinks(std::string_view path);
     unsigned char ValidateRegionMeshLinks();
     /* Collect the live (mesh<<16)|polygon keys whose triangles overlap the
        (x±radius, y-height..y, z±radius) box, sorted in an owned result. */
@@ -438,6 +439,6 @@ extern bool g_render_cull_front;
    and the frame clear path uses a zero clear-depth while this is set. */
 extern bool g_render_untextured;
 
-int CheckLevelAssetSet(const char* level_path);
+int CheckLevelAssetSet(std::string_view level_path);
 
 w8_ulong* PackColourToLong(w8_ulong* color, double alpha, double red, double green, double blue);

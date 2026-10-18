@@ -101,7 +101,6 @@ public:
     virtual ~W8GrCycle() override;
     // Gameplay despawning lets active particles finish; level destruction does not.
     void RetireParticles(W8World& world);
-    // FUNCTION: WIZ8 0x004a7140
     virtual unsigned char CanEnterCycle(signed char) { return 1; }
     virtual void TickAnimation(float scale);           /* 0x004A6E20 */
     virtual unsigned char ApplyPendingCycle();         /* 0x004A6FC0 */
@@ -117,7 +116,7 @@ public:
     virtual W8EmitterHost* GetRepresentation() = 0;
     void SetCyclePosition(glm::vec3* position);
     /* Registry-wide lookups answered from this cycle's identity. */
-    const char* GetRegisteredName() const;     /* 0x004A8650 */
+    std::string_view GetRegisteredName() const;
     bool IsSoleRegisteredCycleForName() const; /* 0x004A8700 */
     virtual std::optional<srBoundingBox> GetAnimationBounds();
     virtual unsigned char GetAnimationRadius(float* radius);
@@ -174,8 +173,8 @@ W8GrCycle* FindFirstGrCycleByName(std::string_view name);
 unsigned char UnregisterGrCycle(W8GrCycle* cycle);
 void RegisterGrCycle(std::string_view name, W8GrCycle* cycle);
 bool LoadGrCycle(std::string_view mon_name, W8GrCycle* cycle, int cycle_index, int value,
-                 const char* directory, unsigned char object_type,
-                 const char* bitmap_directory = 0);
+                 std::string_view directory, unsigned char object_type,
+                 std::string_view bitmap_directory = {});
 unsigned char ReadGrCycleData(W8ReadLevelInfo* info, W8GrCycle* cycle, int cycle_index, int value,
                               unsigned char object_type);
 int FindMappedIndexInMeshChain(stMeshModel** mesh, int key); /* 0x004A8D10 */

@@ -640,7 +640,7 @@ static void graphical_object_ownership_contracts()
 {
     W8GrObject original;
     original.m_pAI = std::make_unique<W8PathAI>();
-    PathAIAddPoint(*static_cast<W8PathAI*>(original.m_pAI.get()), glm::vec3(1, 2, 3));
+    PathAIAddPoint(*original.m_pAI, glm::vec3(1, 2, 3));
     auto event = std::make_unique<W8SoundEvent>(W8_SOUND_EVENT_FRAME, 1, 2, 3, "step.wav", true);
     auto* first = event.get();
     original.AddSoundEvent(std::move(event));
@@ -651,7 +651,7 @@ static void graphical_object_ownership_contracts()
     REQUIRE((original.sound_events.front().get() == first));
     W8GrObject copy(original);
     REQUIRE((copy.m_pAI != original.m_pAI));
-    REQUIRE((static_cast<W8PathAI*>(copy.m_pAI.get())->nodes[0].y == 2));
+    REQUIRE((copy.m_pAI->nodes[0].y == 2));
     REQUIRE((copy.sound_events.size() == original.sound_events.size()));
     REQUIRE((copy.sound_events.front().get() != first));
     REQUIRE((copy.sound_events.front()->wave_name == "step.wav"));
@@ -659,13 +659,12 @@ static void graphical_object_ownership_contracts()
              copy.sound_events.front()->sound_handle == nullptr));
     original.sound_events.clear();
     REQUIRE((copy.sound_events.front()->wave_name == "step.wav"));
-    W8GrObject missile;
+    W8Missile missile;
     auto* ai = new W8AIMissile{};
-    REQUIRE((ai->kind == W8_AI_RECORD_MISSILE));
     ai->speed_per_step = 5;
-    missile.m_pAI.reset(ai);
-    W8GrObject missile_copy(missile);
-    auto* cloned = static_cast<W8AIMissile*>(missile_copy.m_pAI.get());
+    missile.flight_ai.reset(ai);
+    W8Missile missile_copy(missile);
+    auto* cloned = missile_copy.flight_ai.get();
     REQUIRE((cloned != ai && cloned->speed_per_step == 5 && !cloned->missile));
 }
 

@@ -43,9 +43,9 @@
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Gameloop.h"
+#include "wiz8/unicode.h"
 #include "wiz8/xstatus.h"
 
-// GLOBAL: WIZ8 0x005ec5a8
 const float g_ambient_sound_inner_radius_scale = 0.6000000238418579f;
 
 W8AmbientTrack::~W8AmbientTrack()
@@ -118,7 +118,6 @@ void StartAmbientSoundList(W8World& world)
     }
 }
 
-// FUNCTION: WIZ8 0x00479040
 W8AmbientSound::W8AmbientSound()
     : volume_min(0), volume_max(0), target_volume(0), current_volume(0), speed_min(0), speed_max(0),
       time_min(0), time_max(0), radius(0), in_range(0), looping(0), sound_handle(), random(),
@@ -132,7 +131,6 @@ W8AmbientSound::W8AmbientSound()
 /* Region test used by UpdatePosition and the group handoff: translate the
    listener into region-center space, un-apply the per-axis scale, rotate back
    around the configured axis, then test against the min/max bounds. */
-// FUNCTION: WIZ8 0x004790d0
 bool W8AmbientSound::IsInsideRegion(const glm::vec3* listener)
 {
     glm::vec3 relative;
@@ -170,7 +168,6 @@ bool W8AmbientSound::IsInsideRegion(const glm::vec3* listener)
    one-shot scheduling, re-aim a live 3D voice around the camera, and nudge its
    volume up inside the inner 40% of the radius. Shared sounds retarget the
    fade at the bus-scaled maximum. */
-// FUNCTION: WIZ8 0x00479350
 void W8AmbientSound::UpdatePosition(const glm::vec3* listener)
 {
     bool handed_off = false;
@@ -285,7 +282,6 @@ void W8AmbientSound::UpdatePosition(const glm::vec3* listener)
    fire a positioned one-shot at the emitter. Looping sounds start once:
    positional emitters are positioned, shared group sounds start at zero volume
    so UpdateFade can ramp them up. */
-// FUNCTION: WIZ8 0x00479970
 void W8AmbientSound::Service(bool entered)
 {
     if (stopped != 0 || in_range == 0) {
@@ -380,8 +376,8 @@ void W8AmbientSound::Service(bool entered)
 
 /* The contiguous class lifecycle and shared world-list accesses identify these
    pre-assertion bodies as the same AmbientSound.cpp unit. */
-// FUNCTION: WIZ8 0x0047a260
-W8AmbientSound* W8AmbientSound::FindNextMatching(const char* match_name, W8AmbientSound* previous)
+W8AmbientSound* W8AmbientSound::FindNextMatching(std::string_view match_name,
+                                                 W8AmbientSound* previous)
 {
     int count;
     int index;
@@ -403,14 +399,13 @@ W8AmbientSound* W8AmbientSound::FindNextMatching(const char* match_name, W8Ambie
     for (; index < count; ++index) {
         W8AmbientSound* candidate = GetWorldAmbientSound(GetWorld(), index);
         if (candidate != 0 && candidate != this && candidate->shared != 0 &&
-            SDL_strcasecmp(candidate->config.wave_name, match_name) == 0) {
+            CompareTextIgnoreAsciiCase(candidate->config.wave_name, match_name) == 0) {
             return candidate;
         }
     }
     return 0;
 }
 
-// FUNCTION: WIZ8 0x0047a310
 void W8AmbientSound::UpdateFade()
 {
     if (shared != 0) {
@@ -436,7 +431,6 @@ void W8AmbientSound::UpdateFade()
     }
 }
 
-// FUNCTION: WIZ8 0x0047a3e0
 void UpdateAmbientSounds(W8World* world)
 {
     if (world != 0) {
@@ -456,19 +450,14 @@ void UpdateAmbientSounds(W8World* world)
     }
 }
 
-// GLOBAL: WIZ8 0x0065a108
 unsigned char g_default_footstep_surface;
 
-// GLOBAL: WIZ8 0x0065a109
 unsigned char g_default_footstep_material;
 
-// GLOBAL: WIZ8 0x0065a10a
 bool g_footstep_alternate;
 
-// GLOBAL: WIZ8 0x0065a10c
 int g_previous_ambient_footstep_variant;
 
-// GLOBAL: WIZ8 0x00609edc
 const char* g_footstep_names[] = {
     "None",        "Gritty",     "Grass",     "Stone",       "ShallowWater",   "CreakyWood",
     "SolidWood",   "HollowWood", "Metal",     "Gravel",      "RoughStone",     "Marble",
@@ -476,19 +465,15 @@ const char* g_footstep_names[] = {
     "ClimbLadder", "ClimbRock",  "ClimbRope", "SwimSurface", "SwimUnderwater", "Crawl",
     "Fly",         "",
 };
-// GLOBAL: WIZ8 0x00609eb8
 const char* g_footstep_surfaces[] = {
     "None",       "SmallCave", "MediumCave",   "LargeCave",      "SmallRoom",
     "MediumRoom", "LargeRoom", "OutdoorsFlat", "OutdoorsCanyon",
 };
-// GLOBAL: WIZ8 0x00609f44
 const char* g_footstep_fixed_name = "Jump";
-// GLOBAL: WIZ8 0x00609f48
 const char* g_footstep_scuff_name = "Scuff";
 
 /* Surface and material ids are range-checked against 1..9 / 1..25 before
    indexing the name tables. */
-// FUNCTION: WIZ8 0x0047a440
 wiz8::sound::Playback PlayFootstep(signed char surface, signed char material, W8FootstepKind kind)
 {
     signed char selected_surface;
@@ -524,7 +509,6 @@ wiz8::sound::Playback PlayFootstep(signed char surface, signed char material, W8
     return wiz8::sound::play(path, {.volume = std::uint32_t(g_settings.footstep_volume)});
 }
 
-// FUNCTION: WIZ8 0x0047a540
 void BuildFootstepPath(char* path, signed char surface, signed char material, char kind,
                        int variant)
 {
@@ -545,7 +529,6 @@ void BuildFootstepPath(char* path, signed char surface, signed char material, ch
     }
 }
 
-// FUNCTION: WIZ8 0x0047a600
 void RepositionAmbientSounds()
 {
     if (GetWorld() != nullptr) {
@@ -571,19 +554,18 @@ W8AmbientSound::~W8AmbientSound()
 
 /* Build a complete ambient-sound row and attach it to the world's list. The
    twenty parameters and their widths come directly from the stack reads. */
-// FUNCTION: WIZ8 0x0047a790
-unsigned char AddAmbientSound(W8World* world, const char* name, const W8AmbientSoundConfig* config,
-                              const glm::vec3* position, const glm::vec3* region_min,
-                              const glm::vec3* region_max, int volume_min, int volume_max,
-                              int time_min, int time_max, int speed_min, int speed_max,
-                              float radius, bool looping, unsigned char bounded,
-                              const glm::vec3* region_center, float region_angle,
-                              const glm::vec3* region_axis, const glm::vec3* region_scale,
-                              unsigned char shared)
+unsigned char AddAmbientSound(W8World* world, std::string_view name,
+                              const W8AmbientSoundConfig* config, const glm::vec3* position,
+                              const glm::vec3* region_min, const glm::vec3* region_max,
+                              int volume_min, int volume_max, int time_min, int time_max,
+                              int speed_min, int speed_max, float radius, bool looping,
+                              unsigned char bounded, const glm::vec3* region_center,
+                              float region_angle, const glm::vec3* region_axis,
+                              const glm::vec3* region_scale, unsigned char shared)
 {
     auto sound = std::make_unique<W8AmbientSound>();
 
-    if (name) sound->name = name;
+    if (!name.empty()) sound->name = name;
     sound->config = *config;
     sound->position = *position;
     sound->region_min = *region_min;
@@ -609,18 +591,17 @@ unsigned char AddAmbientSound(W8World* world, const char* name, const W8AmbientS
 /* The by-name script operations share one lookup and the same start/stop
    steps; retail expands all of them, re-testing the found pointer after the
    lookup has already dereferenced it. */
-static W8AmbientSound* FindAmbientSoundByName(const char* name)
+static W8AmbientSound* FindAmbientSoundByName(std::string_view name)
 {
-    int count = static_cast<int>(GetWorld()->plsAmbientSounds.size());
-    int index;
+    const int count = static_cast<int>(GetWorld()->plsAmbientSounds.size());
 
-    for (index = 0; index < count; ++index) {
+    for (int index = 0; index < count; ++index) {
         W8AmbientSound* sound = GetWorldAmbientSound(GetWorld(), index);
-        if (!sound->name.empty() && SDL_strcasecmp(sound->name.c_str(), name) == 0) {
+        if (!sound->name.empty() && CompareTextIgnoreAsciiCase(sound->name, name) == 0) {
             return sound;
         }
     }
-    return 0;
+    return nullptr;
 }
 
 static void StartAmbientSoundAtCamera(W8AmbientSound* sound)
@@ -638,8 +619,7 @@ static void StopAmbientSound(W8AmbientSound* sound)
     sound->sound_handle = nullptr;
 }
 
-// FUNCTION: WIZ8 0x0047a950
-void PositionAmbientSoundByName(W8World* /* unused */, const char* name)
+void PositionAmbientSoundByName(W8World* /* unused */, std::string_view name)
 {
     W8AmbientSound* sound = FindAmbientSoundByName(name);
     if (sound != 0) {
@@ -647,8 +627,7 @@ void PositionAmbientSoundByName(W8World* /* unused */, const char* name)
     }
 }
 
-// FUNCTION: WIZ8 0x0047a9e0
-void StopAmbientSoundByName(W8World* /* unused */, const char* name)
+void StopAmbientSoundByName(W8World* /* unused */, std::string_view name)
 {
     W8AmbientSound* sound = FindAmbientSoundByName(name);
     if (sound != 0) {
@@ -656,8 +635,7 @@ void StopAmbientSoundByName(W8World* /* unused */, const char* name)
     }
 }
 
-// FUNCTION: WIZ8 0x0047aa70
-void ToggleAmbientSoundByName(const char* name)
+void ToggleAmbientSoundByName(std::string_view name)
 {
     W8AmbientSound* sound = FindAmbientSoundByName(name);
     if (sound != 0) {
@@ -669,8 +647,7 @@ void ToggleAmbientSoundByName(const char* name)
     }
 }
 
-// FUNCTION: WIZ8 0x0047ab40
-unsigned char ReadAmbientSoundListFile(W8World& world, const char* filename)
+unsigned char ReadAmbientSoundListFile(W8World& world, std::string_view filename)
 try {
     auto file = wiz8::open_file(wiz8::asset_path(filename));
     std::istringstream input(file->read_text());
@@ -714,7 +691,6 @@ try {
    ambient list: each writes the configured effects volume through the SGP
    default, then re-drives every live ambient voice and 3D instance so the new
    level is heard immediately. */
-// FUNCTION: WIZ8 0x0047ad00
 void SetSoundEffectsVolume(unsigned char volume)
 {
     W8World* world;
@@ -755,13 +731,11 @@ void SetSoundEffectsVolume(unsigned char volume)
     }
 }
 
-// FUNCTION: WIZ8 0x0047ae80
 bool IsSoundEffectsMuted(void)
 {
     return g_settings.muted_sound_effects_volume != 0xff;
 }
 
-// FUNCTION: WIZ8 0x0047ae90
 void SetSoundEffectsMuted(unsigned char muted)
 {
     if (muted != 0) {
@@ -775,7 +749,6 @@ void SetSoundEffectsMuted(unsigned char muted)
     }
 }
 
-// FUNCTION: WIZ8 0x0047b140
 void SaveAmbientSoundList(wiz8::File& handle)
 {
     const unsigned char version = 1;

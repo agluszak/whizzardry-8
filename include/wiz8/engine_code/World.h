@@ -33,8 +33,9 @@ glm::mat3 cameraRotation(const W8World& world);
 glm::vec3 cameraLocation(const W8World& world);
 glm::vec3 cameraLocationOrZero(const W8World& world);
 void SetWorldScenePosition(W8World* world, const glm::vec3* position);
-stParticle* FindParticleByName(const char* name);
-bool FindEntityByName(const char* name, glm::vec3* position, float* angle, glm::vec3* direction);
+stParticle* FindParticleByName(std::string_view name);
+bool FindEntityByName(std::string_view name, glm::vec3* position, float* angle,
+                      glm::vec3* direction);
 unsigned char AdjustWorldCollisionPosition(float radius, glm::vec3* position, bool check_items,
                                            bool check_monsters);
 unsigned char FindNearbyFreePosition(float radius, glm::vec3* position, bool check_items,
@@ -69,4 +70,4 @@ void SaveWorldProps(wiz8::File& handle);
    object's id key. Unmatched records are decoded and ignored. */
 struct W8Chunk;
 void LoadWorldProps(W8World* world, W8Chunk& chunk);
-void UpdateCameraPathStateByName(W8World* world, const char* name, int active);
+void UpdateCameraPathStateByName(W8World* world, std::string_view name, int active);

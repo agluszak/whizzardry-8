@@ -9,7 +9,6 @@
 
 /* The constructor stores the spell id; Draw and DrawLabels index
    g_spell_records with it. */
-// VTABLE: WIZ8 0x005efab0
 class W8SpellInfoDialog : public W8DialogBase {
 public:
     W8SpellInfoDialog(unsigned int spell);

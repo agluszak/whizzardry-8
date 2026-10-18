@@ -10,7 +10,6 @@ struct W8ControlsRect;
 
 extern unsigned int g_dialog_text_layout_mask;
 
-// VTABLE: WIZ8 0x005ef894
 class W8DialogTextEntry : public W8TextBuffer {
 public:
     W8DialogTextEntry(std::string_view prefix, std::string_view text, unsigned int prefix_palette,

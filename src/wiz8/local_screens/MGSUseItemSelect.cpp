@@ -57,8 +57,6 @@
 
 struct W8NpcState;
 
-#define MGSUSEITEMSELECT_CPP "C:\\Projects\\Wizardry 8\\Local Screens\\MGSUseItemSelect.cpp"
-
 namespace {
 enum class ItemPool { Character, Party, Hand };
 struct UseItemView {
@@ -161,7 +159,6 @@ static void CreateUseItemSelectControls(void)
     item.setTooltip([] { return g_localized_strings[98]; });
 }
 
-// FUNCTION: WIZ8 0x0059C930
 unsigned char OpenUseItemSelectView(int slot)
 {
 
@@ -187,7 +184,6 @@ unsigned char OpenUseItemSelectView(int slot)
     return 1;
 }
 
-// FUNCTION: WIZ8 0x0059CAC0
 void CloseUseItemSelectView(void)
 {
     if (use_item) {
@@ -220,7 +216,6 @@ void CloseUseItemSelectView(void)
 }
 
 // Retarget the picker, preferring a dragged item or the character's remembered use.
-// FUNCTION: WIZ8 0x0059CC40
 void RefreshUseItemSelectionForSlot(int party_slot)
 {
     W8ItemInstance* item;
@@ -233,15 +228,14 @@ void RefreshUseItemSelectionForSlot(int party_slot)
     if (gXStatus.item_drag_active) {
         if (!g_status.item_in_cursor) {
             const bool party_pool = gXStatus.dragged_item_origin == W8_ITEM_ORIGIN_PARTY_POOL;
-            if (party_pool && gXStatus.fCombatMode)
-                srAssertFail("!gXStatus.fCombatMode", MGSUSEITEMSELECT_CPP, 0x1f0, 0);
+            if (party_pool && gXStatus.fCombatMode) Fail("!gXStatus.fCombatMode");
             RebuildUseItemSelectList(party_pool ? ItemPool::Party : ItemPool::Character,
                                      gXStatus.dragged_item);
         } else {
             RebuildUseItemSelectList(ItemPool::Hand, &g_status.item_in_hand);
         }
         if (use_item->selected_line == -1) {
-            srAssertFail("giReuseItemLineNumber != -1", MGSUSEITEMSELECT_CPP, 0x1fe, 0);
+            Fail("giReuseItemLineNumber != -1");
         }
         ScrollTextBoxTo(use_item->selected_line);
         gXStatus.item_drag_active = false;
@@ -254,11 +248,10 @@ void RefreshUseItemSelectionForSlot(int party_slot)
         if (CanUseItemForAction(use_item->owner, item)) {
             const bool party_pool =
                 g_status.buffers.XChar[party_slot].item_origin == W8_ITEM_ORIGIN_PARTY_POOL;
-            if (party_pool && gXStatus.fCombatMode)
-                srAssertFail("!gXStatus.fCombatMode", MGSUSEITEMSELECT_CPP, 0x216, 0);
+            if (party_pool && gXStatus.fCombatMode) Fail("!gXStatus.fCombatMode");
             RebuildUseItemSelectList(party_pool ? ItemPool::Party : ItemPool::Character, item);
             if (use_item->selected_line == -1) {
-                srAssertFail("giReuseItemLineNumber != -1", MGSUSEITEMSELECT_CPP, 0x221, 0);
+                Fail("giReuseItemLineNumber != -1");
             }
             ScrollTextBoxTo(use_item->selected_line);
             SetHoveredTextLine(use_item->selected_line, 2);
@@ -270,7 +263,6 @@ void RefreshUseItemSelectionForSlot(int party_slot)
     RebuildUseItemSelectList(use_item->pool, nullptr);
 }
 
-// FUNCTION: WIZ8 0x0059CF40
 void InvalidateUseItemSelectPanel(void)
 {
     use_item->dirty[1] = true;
@@ -279,7 +271,6 @@ void InvalidateUseItemSelectPanel(void)
 /* Per-frame update: keep the scroll buttons synced, run the
    dirty panels' redraw pass, then re-check the pending commit through the
    shared helper. */
-// FUNCTION: WIZ8 0x0059CF50
 void UpdateUseItemSelect(bool active)
 {
     UpdateUseItemScrollButtons();
@@ -335,7 +326,6 @@ void UpdateUseItemScrollButtons(void)
     use_item->pools[1]->SetPressed(use_item->pool == ItemPool::Party);
 }
 
-// FUNCTION: WIZ8 0x0059D860
 static void UseItemSelectAssayButton(void)
 {
     if (use_item->detail_item != 0 && use_item->item_image) {
@@ -345,7 +335,6 @@ static void UseItemSelectAssayButton(void)
 
 // Commit a copy of the draft; execution may close the picker. Identify keeps
 // the view available for its second selection step.
-// FUNCTION: WIZ8 0x0059D180
 void CommitSelectedItemUse(void)
 {
     const auto draft = use_item->draft;
@@ -361,7 +350,6 @@ void CommitSelectedItemUse(void)
 }
 
 // Rebuild from the selected inventory source; usable entries retain inventory order.
-// FUNCTION: WIZ8 0x0059D230
 static void RebuildUseItemSelectList(ItemPool pool, W8ItemInstance* select)
 {
     ResetEditorStatusLine(2);
@@ -451,7 +439,6 @@ static void ShowUseItemList(W8ItemInstance* select)
 /* Entries the character cannot activate or cast from are dropped,
    except usable-class items stay unless the slot's bound NPC wants the
    item. */
-// FUNCTION: WIZ8 0x0059D6B0
 static bool IsUseItemFilteredOut(W8ItemInstance* item)
 {
     W8NpcState* npc;
@@ -478,7 +465,6 @@ static bool IsUseItemFilteredOut(W8ItemInstance* item)
 
 /* After the cursor item is dropped mid-select, rebuild the list under the
    saved select mode so the rows reflect the new state, then repaint. */
-// FUNCTION: WIZ8 0x0059D690
 void RefreshUseItemSelection(void)
 {
     RebuildUseItemSelectList(use_item->pool, nullptr);
@@ -487,7 +473,6 @@ void RefreshUseItemSelection(void)
 
 /* Right release on the use-item text box: open the assay dialog for the item
    on the clicked row. Cleanup restores the saved target cursor. */
-// FUNCTION: WIZ8 0x0059D880
 void OpenUseItemAssayDialog(W8ItemInstance* item)
 {
     W8AssayDialog* dialog;
@@ -503,7 +488,6 @@ void OpenUseItemAssayDialog(W8ItemInstance* item)
     OpenModal(std::unique_ptr<ModalContent>(dialog));
 }
 
-// FUNCTION: WIZ8 0x0059D950
 void CloseUseItemSelection(void)
 {
     CloseUseItemSelectView();
@@ -537,7 +521,6 @@ UiResult HandleUseItemTextBox(const UiPointerEvent& event)
 
 /* Wheel rotation over the use-item text box re-selects the row under the
    cursor, even when it is already the hovered row. */
-// FUNCTION: WIZ8 0x0059DD30
 void UseItemSelectTextBoxWheelAt(short x, unsigned short y, bool flag)
 {
     int row;
@@ -555,17 +538,16 @@ void UseItemSelectTextBoxWheelAt(short x, unsigned short y, bool flag)
 /* Left-click commit of a use-item list row: validate the item's spell for
    this owner, learn it directly when castable-from-item, otherwise point the
    targeting filter at the embedded spell. */
-// FUNCTION: WIZ8 0x0059DDC0
 void SelectUseItemLine(int iTextLine)
 {
     W8SpellTargetType target_type;
 
     if (iTextLine < 0) {
-        srAssertFail("iTextLine >= 0", MGSUSEITEMSELECT_CPP, 0x61d, 0);
+        Fail("iTextLine >= 0");
     }
     if (iTextLine >= static_cast<int>(use_item->rows.size())) {
         // c-style-cast-ok: the assertion text itself spells (INT32)
-        srAssertFail("iTextLine < (INT32) guiNumItemsInList", MGSUSEITEMSELECT_CPP, 0x61e, 0);
+        Fail("iTextLine < (INT32) guiNumItemsInList");
     }
     SetTargetingMode(W8_TARGET_NEED_NONE);
     UpdateUseItemDetailPanel(use_item->rows[iTextLine].item);
@@ -607,7 +589,6 @@ void SelectUseItemLine(int iTextLine)
 /* Show the item in the detail control: its catalog icon plus a quantity line -
    stack counts only past one, uses/charges always once the item is identified,
    '?' while it still is not. */
-// FUNCTION: WIZ8 0x0059DFA0
 void UpdateUseItemDetailPanel(W8ItemInstance* item)
 {
     std::string text;
@@ -648,7 +629,6 @@ void UpdateUseItemDetailPanel(W8ItemInstance* item)
     use_item->detail_item = item;
 }
 
-// FUNCTION: WIZ8 0x0059E0E0
 void SelectCurrentUseItemLine(void)
 {
     SelectUseItemLine(use_item->selected_line);
@@ -658,7 +638,6 @@ void SelectCurrentUseItemLine(void)
    holding an item that one goes back to the owner or party first; if the
    store shifted the party pool, the selection is re-anchored onto the entry
    the move slid it to before the hand copy is refreshed. */
-// FUNCTION: WIZ8 0x0059E0F0
 void TakeUseItemIntoHand(void)
 {
     unsigned int i;
@@ -670,7 +649,7 @@ void TakeUseItemIntoHand(void)
         return;
     }
     if (use_item->owner == -1) {
-        srAssertFail("giUseItemChar != BAD_INDEX", MGSUSEITEMSELECT_CPP, 0x6c1, 0);
+        Fail("giUseItemChar != BAD_INDEX");
     }
     old_count = g_status.party_item_count;
     GiveItemToCharacterOrParty(use_item->owner, &g_status.item_in_hand, true);

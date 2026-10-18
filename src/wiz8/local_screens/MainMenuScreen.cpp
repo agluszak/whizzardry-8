@@ -40,14 +40,9 @@
 #include "wiz8/xstatus.h"
 
 /* The screen's own state. */
-// GLOBAL: WIZ8 0x0069c4ba
 bool g_main_menu_has_save_games;
-// GLOBAL: WIZ8 0x0069c4b6
 bool g_main_menu_redraw;
-// GLOBAL: WIZ8 0x0069c4b4
 static short g_main_menu_selected_item;
-// GLOBAL: WIZ8 0x0069c4c4
-// GLOBAL: WIZ8 0x0069c4bc
 std::string g_pending_main_menu_message;
 // The modal dialog belongs to this screen, not a global registry.
 static std::unique_ptr<W8MessageDialogBase> main_menu_dialog;
@@ -204,8 +199,7 @@ bool MainMenuScreenEnter(void)
     CreateMainMenuInput();
 
     if (gXStatus.uiMonstersInDatabase > 1000) {
-        srAssertFail("gXStatus.uiMonstersInDatabase <= MAX_MONSTERS_IN_DATABASE", __FILE__, 0x87,
-                     0);
+        Fail("gXStatus.uiMonstersInDatabase <= MAX_MONSTERS_IN_DATABASE");
     }
     if (g_previous_screen_id != W8_SCREEN_OPTIONS) {
         StartMusicResource("MainMenu.MPL", 0, 1);

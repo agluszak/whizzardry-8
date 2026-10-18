@@ -76,7 +76,6 @@ struct W8NavigatorAttachment {
 
     /* Also expanded in OctPath.cpp at 0x00465F63, 0x0046400A and
        0x00464820: set the recorded flag before copying the three components. */
-    // FUNCTION: WIZ8 0x00456ae0
     void RecordPosition(const glm::vec3* position) { flags |= W8_NAV_ATTACHMENT_POSITION_RECORDED; }
     void GrowPathStorage();
     /* Append a waypoint and its value, reserving a spare endpoint slot. */
@@ -124,19 +123,6 @@ private:
     bool withinHopHeight(const glm::vec2& point, unsigned base, bool include_next) const;
 };
 
-/* The polymorphic object the navigator owns at +0xa0. 0x00452120 deletes it
-   through its own virtual slot. Recovered writes only store null
-   (Navigator constructors/destructor and Monster.cpp); no allocation site or
-   constructor target is known, so the identity stays unestablished. The name
-   is positional and claims nothing. */
-class W8NavigatorOwned0A0 {
-public:
-    virtual ~W8NavigatorOwned0A0();
-};
-
-/* Navigator.cpp constructs the 0xCC-byte movement/collision tail at +0xC0
-   independently. World collision routines receive this subobject, while the
-   surrounding Navigator owns the path and group-following state. */
 struct W8NavigatorMovementState {
     unsigned int navigation_filter;
     unsigned short location_id;
@@ -377,7 +363,6 @@ public:
     /* 0x09d: raised by the trigger sweep after it reactivates the monster
        (members_active, animation restart, rep/path reset). */
     bool reactivated;
-    std::unique_ptr<W8NavigatorOwned0A0> owned_object;
     glm::vec3 tracked_position;
     float tracked_distance;
     bool tracked_dirty;
@@ -390,7 +375,6 @@ public:
        owner. Copy construction constructs a fresh attachment and transfers
        selected settings; it never shares the source's path allocation. */
     W8NavigatorMovementState movement;
-    std::unique_ptr<srNode> node;
 }; /* 0x190 */
 
 void SetNavigatorLinkMode(unsigned char mode);

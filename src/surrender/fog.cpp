@@ -10,7 +10,6 @@
 #include "surrender/srVertexPipe.h"
 #include "surrender/srVertexProcessor.h"
 
-// FUNCTION: SURRENDER 0x1004C0E0
 void srFog::setDensity(float density)
 {
     if (density <= 0.0f) {
@@ -24,20 +23,17 @@ void srFog::setDensity(float density)
     this->density = density;
 }
 
-// FUNCTION: SURRENDER 0x1004C130
 float srFog::getDensity() const
 {
     return density;
 }
 
-// FUNCTION: SURRENDER 0x1004C140
 void srFog::setRange(double start, double end)
 {
     fog_start = start;
     fog_end = end;
 }
 
-// FUNCTION: SURRENDER 0x1004B6F0
 int srFog::isActive(srVertexPipe& pipe)
 {
     if ((group_mask & pipe.getExclusionMask()) != 0) {
@@ -55,7 +51,6 @@ int srFog::isActive(srVertexPipe& pipe)
     return 0;
 }
 
-// FUNCTION: SURRENDER 0x1004B870
 void srFog::process(srVertexPipe& pipe)
 {
     float values[64];
@@ -89,7 +84,6 @@ void srFog::process(srVertexPipe& pipe)
     }
 }
 
-// FUNCTION: SURRENDER 0x1004BB60
 srFog::srFog(srNode* parent)
 {
     if (parent != 0) {
@@ -100,5 +94,4 @@ srFog::srFog(srNode* parent)
     density = 0.5f;
 }
 
-// FUNCTION: SURRENDER 0x1004C350
 srFog::~srFog() = default;

@@ -32,7 +32,6 @@ enum W8MeshModelFlag {
     W8_MESH_HAS_FRAME_STORAGE = 4
 };
 
-// VTABLE: WIZ8 0x005ec454 stMeshModel
 class stMeshModel : public srMeshModel {
 public:
     stMeshModel(w8_long polygons, w8_long vertices);

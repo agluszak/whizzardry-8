@@ -273,7 +273,7 @@ public:
     PathCellCoordinates pathCell(const glm::vec3& position) const;
     W8Octree* const owner_octree;
     explicit W8PathingService(W8Octree* owner = nullptr); /* 0x004578E0 */
-    unsigned int FindPathHandle(const char* path_name, W8PathGridBounds* path_bounds,
+    unsigned int FindPathHandle(std::string_view path_name, W8PathGridBounds* path_bounds,
                                 W8PathVerticalRange* path_range); /* 0x00457CF0 */
     /* Neither takes a prop: both walk the service's own surface and edge
        tables, and their receiver is the service. */
@@ -382,7 +382,7 @@ public:
     bool TestAttachmentHopDoor(W8NavigatorAttachment* attachment); /* 0x00460680 */
     /* Configure the node count, grid pitch, bounds and level name. */
     void ConfigureForLevel(int size, float grid_scale, const srBoundingBox& bounds,
-                           const char* name); /* 0x00458A50 */
+                           std::string_view name);
     unsigned char ReadPathNodes(wiz8::File* handle); /* 0x00458CE0 */
     unsigned char ReadWaypointFile(W8Octree& octree);
     /* Owning destructor: releases owned tables and bit sets. Single caller
@@ -412,7 +412,7 @@ public:
        template only copies and compares values, so the two instantiations are
        body-equivalent and retail's linker folds them. */
     std::unique_ptr<std::unordered_multimap<unsigned int, unsigned int>> m_pPathValues;
-    const char* level_name; /* 0x68 */
+    std::string level_name;
     std::unique_ptr<W8PathHeapHandle> path_heap;
     float m_path_cost_limit; /* 0x70: starts 1.0e10f */
     std::unique_ptr<std::unordered_map<unsigned int, int>> m_pVisitedCells;

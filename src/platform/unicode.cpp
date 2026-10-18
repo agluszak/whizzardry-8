@@ -143,7 +143,6 @@ std::string from_utf16le(std::span<const std::byte> bytes, bool encoded)
     for (std::size_t i = 0; i < bytes.size(); i += 2) {
         auto unit = static_cast<std::uint16_t>(std::to_integer<unsigned>(bytes[i]) |
                                                (std::to_integer<unsigned>(bytes[i + 1]) << 8));
-        // FUNCTION: WIZ8 0x005300e0 (DecodeLocalizedText at the format boundary)
         if (encoded) unit = static_cast<std::uint16_t>(~unit + 0x9697);
         if (!unit) break;
         units += static_cast<char16_t>(unit);
@@ -165,13 +164,11 @@ void to_utf16le(std::string_view text, std::span<std::byte> bytes)
 }
 } // namespace wiz8::text
 
-// FUNCTION: WIZ8 0x00402800
 bool IsUppercaseCharacter(std::uint32_t character)
 {
     return utf8proc_category(character) == UTF8PROC_CATEGORY_LU;
 }
 
-// FUNCTION: WIZ8 0x00402820
 bool IsLowercaseCharacter(std::uint32_t character)
 {
     const auto category = utf8proc_category(character);
@@ -181,7 +178,6 @@ bool IsLowercaseCharacter(std::uint32_t character)
            category == UTF8PROC_CATEGORY_ME;
 }
 
-// FUNCTION: WIZ8 0x00402840
 bool IsPunctuationCharacter(std::uint32_t character)
 {
     const auto category = utf8proc_category(character);
@@ -189,19 +185,16 @@ bool IsPunctuationCharacter(std::uint32_t character)
            category == UTF8PROC_CATEGORY_CF;
 }
 
-// FUNCTION: WIZ8 0x00402880
 int ToUppercaseCharacter(int character)
 {
     return utf8proc_toupper(character);
 }
 
-// FUNCTION: WIZ8 0x004028A0
 int ToLowercaseCharacter(int character)
 {
     return utf8proc_tolower(character);
 }
 
-// FUNCTION: WIZ8 0x00402920
 int CompareTextIgnoreAsciiCase(std::string_view first, std::string_view second)
 {
     auto lower = [](unsigned char c) { return c >= 'A' && c <= 'Z' ? c + ('a' - 'A') : c; };

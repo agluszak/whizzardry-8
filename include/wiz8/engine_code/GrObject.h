@@ -6,18 +6,10 @@
 #include <memory>
 #include <vector>
 
-/* The sound events GrObject.cpp calls `pse`/`m_plsSoundEvents`. The class
-   itself belongs to Engine Code\SoundEvent.cpp, which owns its whole
-   lifecycle; only the pointer is needed here. */
 class W8SoundEvent;
+struct W8PathAI;
 
-/* PathAI.h owns the tagged AI record family this slot points at (kind 0
-   W8PathAI, kind 3 W8AIMissile). */
-struct W8AIRecord;
-
-/* GrObject.cpp owns this base.  The original Item.cpp assertion
-   `pMissile->GrObject::GetAI()` independently establishes the class name. */
-// VTABLE: WIZ8 0x005ed090
+/* GrObject.cpp owns this base. */
 class W8GrObject {
 public:
     W8GrObject();                        /* 0x004B6900 */
@@ -30,7 +22,7 @@ public:
 public:
     unsigned char kind;
     int id;
-    std::unique_ptr<W8AIRecord> m_pAI;
+    std::unique_ptr<W8PathAI> m_pAI;
     std::vector<std::unique_ptr<W8SoundEvent>> sound_events;
 };
 

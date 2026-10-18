@@ -25,9 +25,7 @@ struct W8NpcState;
    range sits between the MtGigas2 TU and the MtGigasOuter TU which starts
    at 0x004DBE70. */
 
-// GLOBAL: WIZ8 0x006834f4
 static GDProp* g_plate_prop;
-// GLOBAL: WIZ8 0x006834f9
 static bool g_plate_down;
 
 static void RunPlateTrigger(const char* name, W8AnimationDirection direction)
@@ -45,7 +43,6 @@ static void RunPlateTrigger(const char* name, W8AnimationDirection direction)
 /* Level-load restore: binds the "plate" trigger's prop to the plate GDProp
    global and mirrors the saved PPlateDown variable into the latch flag,
    creating the variable when the level never wrote one. */
-// FUNCTION: WIZ8 0x004DBAB0
 void MtGigas1Setup(void)
 {
     Trigger* pTrigger;
@@ -71,7 +68,6 @@ void MtGigas1Setup(void)
 
 /* Activation callback on _VOC_EWAXXLIFT1: queues the lift NPC notice with
    the held item, if any. */
-// FUNCTION: WIZ8 0x004DBB50
 bool MtGigas1Lift1(Trigger* pTrigger)
 {
     if (gXStatus.fNpcDialogueMode) {
@@ -84,7 +80,6 @@ bool MtGigas1Lift1(Trigger* pTrigger)
 
 /* Activation callback on _VOC_EWAXXLIFT2: queues the lift NPC notice with
    the held item, if any. */
-// FUNCTION: WIZ8 0x004DBB90
 bool MtGigas1Lift2(Trigger* pTrigger)
 {
     if (gXStatus.fNpcDialogueMode) {
@@ -100,7 +95,6 @@ bool MtGigas1Lift2(Trigger* pTrigger)
    prop still has list entries. On the down edge it opens secretDoor-01 and
    drops the plate (forward animation, rumble + open sounds); on the release edge it
    reverses both (reverse animation, close + rumble sounds) and clears PPlateDown. */
-// FUNCTION: WIZ8 0x004DBBD0
 bool MtGigas1PressurePlate(Trigger* pTrigger)
 {
     glm::vec3 position;
@@ -140,7 +134,6 @@ bool MtGigas1PressurePlate(Trigger* pTrigger)
 
 /* Activation callback on mudWallTrigger: spawns the badass monster at the
    NP_BadassMonster entity. */
-// FUNCTION: WIZ8 0x004DBE30
 bool MtGigas1MudWall(Trigger* pTrigger)
 {
     glm::vec3 position;

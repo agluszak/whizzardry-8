@@ -18,18 +18,12 @@ std::uint32_t GameClockMilliseconds()
     return static_cast<std::uint32_t>(w8_get_ticks());
 }
 
-// GLOBAL: WIZ8 0x006598C4
 int g_shared_timer_pause_base;
-// GLOBAL: WIZ8 0x006598C8
 int g_shared_timer_pause_time;
-// GLOBAL: WIZ8 0x006598D0
 bool g_shared_timer_paused;
-// GLOBAL: WIZ8 0x006598D1
 bool g_shared_timer_flag0;
-// GLOBAL: WIZ8 0x006598D2
 bool g_level_motion_resume_pending;
 
-// FUNCTION: WIZ8 0x00439bc0
 void PauseSharedGameTimers(void)
 {
     g_shared_timer_paused = true;
@@ -42,7 +36,6 @@ void PauseSharedGameTimers(void)
     }
 }
 
-// FUNCTION: WIZ8 0x00439ca0
 void ResumeSharedGameTimers(void)
 {
     g_shared_timer_paused = false;
@@ -60,19 +53,16 @@ void ResumeSharedGameTimers(void)
     timer.m_end = start + timer.m_duration;
 }
 
-// FUNCTION: WIZ8 0x00439a60
 int W8GameTimer::GetTime()
 {
     return ReadClock();
 }
 
-// FUNCTION: WIZ8 0x00439550
 W8GameTimer::W8GameTimer() : W8GameTimer(1.0f, false) {}
 
 /* The startup status object uses the duration-bearing constructor at
    0x004397F0.  It differs from the default constructor only in the raw-time
    flag and in converting seconds to the timer's 1/10000-second units. */
-// FUNCTION: WIZ8 0x004397f0
 W8GameTimer::W8GameTimer(float duration, bool raw_time)
 {
     Flags initial_flags = {false, false, 0, false, false, 0, 0};
@@ -90,7 +80,6 @@ W8GameTimer::W8GameTimer(float duration, bool raw_time)
     m_end = m_start + m_duration;
 }
 
-// FUNCTION: WIZ8 0x00439b80
 void W8GameTimer::SetDuration(float duration)
 {
     if (duration > 0.0f) {
@@ -100,21 +89,18 @@ void W8GameTimer::SetDuration(float duration)
     m_end = m_start + m_duration;
 }
 
-// FUNCTION: WIZ8 0x00439ad0
 void W8GameTimer::SetMode(W8TimerClock mode)
 {
     m_clock_mode = mode;
     Restart();
 }
 
-// FUNCTION: WIZ8 0x00439d80
 void W8GameTimer::Restart()
 {
     m_start = ReadClock();
     m_end = m_start + m_duration;
 }
 
-// FUNCTION: WIZ8 0x00439e20
 void W8GameTimer::SetDurationScale(float scale)
 {
     m_duration_scale = scale;
@@ -126,7 +112,6 @@ void W8GameTimer::SetDurationScale(float scale)
     SetProgress(progress);
 }
 
-// FUNCTION: WIZ8 0x00439fe0
 void W8GameTimer::ResetDurationScale()
 {
     m_flags.slow_scale = false;
@@ -136,7 +121,6 @@ void W8GameTimer::ResetDurationScale()
     SetProgress(progress);
 }
 
-// FUNCTION: WIZ8 0x0043a190
 float W8GameTimer::GetProgress()
 {
     int sample = ReadClock();
@@ -158,7 +142,6 @@ float W8GameTimer::GetProgress()
     return 0.0f;
 }
 
-// FUNCTION: WIZ8 0x0043a290
 void W8GameTimer::SetProgress(float progress)
 {
     int sample = ReadClock();
@@ -166,7 +149,6 @@ void W8GameTimer::SetProgress(float progress)
     m_end = m_start + m_duration;
 }
 
-// FUNCTION: WIZ8 0x0043a330
 bool W8GameTimer::Load(W8Chunk& handle)
 try {
     const auto progress = handle.ReadValue<float>();
@@ -186,7 +168,6 @@ try {
     return false;
 }
 
-// FUNCTION: WIZ8 0x0043a440
 float W8GameTimer::GetElapsedSeconds()
 {
     int sample = ReadClock();

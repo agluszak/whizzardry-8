@@ -57,30 +57,25 @@
 #include "wiz8/ui_layer.h"
 #include "wiz8/xstatus.h"
 
-// GLOBAL: WIZ8 0x0061e3a4
 unsigned short g_character_description_first_ids[22] = {
     0x274, 0x275, 0x276, 0x277, 0x278, 0x279, 0x27a, 0,     0x27b, 0x27c, 0x27d,
     0x27e, 0x27f, 0x280, 0x281, 0,     0x6ac, 0x6ad, 0x6ae, 0x6af, 0x6b0, 0,
 };
-// GLOBAL: WIZ8 0x0061e3d0
 unsigned short g_race_name_message_ids[W8_RACE_COUNT] = {
     0x284, 0x285, 0x286, 0x287, 0x288, 0x289, 0x28a, 0x28b,
     0x28c, 0x28d, 0x28e, 0x28f, 0x290, 0x291, 0x292, 0x293,
 };
-// GLOBAL: WIZ8 0x0061e3f0
 unsigned short g_profession_name_message_ids[32] = {
     0x2a4, 0x2a5, 0x2a6, 0x2a7, 0x2a8, 0x2a9, 0x2aa, 0x2ab, 0x2ac, 0x2ad, 0x2ae,
     0x2af, 0x2b0, 0x2b1, 0x2b2, 0,     0x2c2, 0x2c3, 0x2c4, 0x2c5, 0x2c6, 0x2c7,
     0x2c8, 0x2c9, 0x2ca, 0x2cb, 0x2cc, 0x2cd, 0x2ce, 0x2cf, 0x2d0, 0,
 };
-// GLOBAL: WIZ8 0x0061e430
 unsigned short g_gender_name_message_rows[4][4] = {
     {0x2d1, 0x2d4, 0x2d7, 0x2da},
     {0x2d2, 0x2d5, 0x2d8, 0x2db},
     {0x2d3, 0x2d6, 0x2d9, 0x2dc},
     {0x2dd, 0x2de, 0x2df, 0x2e0},
 };
-// GLOBAL: WIZ8 0x0061e454
 unsigned short g_character_skill_name_ids[84] = {
     0x2e2, 0x2e3, 0x2e4, 0x2e5, 0x2e6, 0x2e7, 0x2e8, 0x2e9, 0x2ea, 0x2eb, 0x2ec, 0x2ed,
     0x2ee, 0x2ef, 0x2f0, 0x2f1, 0x2f2, 0x2f3, 0x2f4, 0x2f5, 0x2f6, 0x2f7, 0x2f8, 0x2f9,
@@ -90,11 +85,9 @@ unsigned short g_character_skill_name_ids[84] = {
     0x689, 0x68a, 0x68b, 0x68c, 0x68d, 0x68e, 0x68f, 0x690, 0x691, 0x692, 0x693, 0x694,
     0x695, 0x696, 0x697, 0x698, 0x699, 0x69a, 0x69b, 0x69c, 0x69d, 0x69e, 0x69f, 0,
 };
-// GLOBAL: WIZ8 0x0061e674
 unsigned short g_personality_message_ids[10] = {
     0x3ad, 0x3ae, 0x3af, 0x3b0, 0x3b1, 0x3b2, 0x3b3, 0x3b4, 0x3b5, 0,
 };
-// GLOBAL: WIZ8 0x0061e688
 unsigned short g_profession_level_name_message_ids[15][9] = {
     {0x3b6, 0x3b7, 0x3b8, 0x3b9, 0x3ba, 0x3bb, 0x3bc, 0x3bd, 0x3be},
     {0x3b6, 0x3b7, 0x3bf, 0x3c0, 0x3c1, 0x3c2, 0x3c3, 0x3c4, 0x3c5},
@@ -112,15 +105,10 @@ unsigned short g_profession_level_name_message_ids[15][9] = {
     {0x3b6, 0x3b7, 0x40e, 0x40f, 0x410, 0x411, 0x412, 0x413, 0x414},
     {0x3b6, 0x3b7, 0x415, 0x416, 0x417, 0x418, 0x419, 0x41a, 0x41b},
 };
-// GLOBAL: WIZ8 0x0064da9c
 static int g_character_page_title_ids[4] = {0xcf, 0xd1, 0xd0, 0xd2};
 
-// GLOBAL: WIZ8 0x0069c2e8
 std::unique_ptr<W8CharacterScreen> g_character_screen;
 
-// class W8CharacterScreen
-
-// FUNCTION: WIZ8 0x005b0040
 W8CharacterScreen::W8CharacterScreen(int mode, W8Character* character)
     : m_mode(mode), m_original(character), m_block_advance(0), m_confirm_profession(0),
       m_force_transition(0), m_dialog(0), m_capture_dialog_result(0)
@@ -145,7 +133,6 @@ W8CharacterScreen::~W8CharacterScreen()
     if (m_page_index >= 0 && m_pages[m_page_index]) m_pages[m_page_index]->Deactivate();
 }
 
-// FUNCTION: WIZ8 0x005b0140
 void W8CharacterScreen::BuildControls()
 {
     const auto button = [this](int x, int frame, int help, std::function<void()> action) {
@@ -199,7 +186,6 @@ void W8CharacterScreen::BuildControls()
     SelectPage(index < 4 ? index : -1);
 }
 
-// FUNCTION: WIZ8 0x005b04b0
 void W8CharacterScreen::UpdateDialog()
 {
     if (m_dialog != 0) {
@@ -218,7 +204,6 @@ void W8CharacterScreen::UpdateDialog()
     }
 }
 
-// FUNCTION: WIZ8 0x005b0580
 void W8CharacterScreen::UpdateNavigation(W8CharacterPage* page)
 {
     bool next_enabled;
@@ -237,7 +222,6 @@ void W8CharacterScreen::UpdateNavigation(W8CharacterPage* page)
     }
 }
 
-// FUNCTION: WIZ8 0x005b0610
 void W8CharacterScreen::ShowSpellInfo(int value)
 {
     m_dialog_response = 0;
@@ -246,7 +230,6 @@ void W8CharacterScreen::ShowSpellInfo(int value)
     m_dialog->InputLayer().setModal(true);
 }
 
-// FUNCTION: WIZ8 0x005b06a0
 void W8CharacterScreen::ShowProfessionInfo(W8Profession profession)
 {
     m_dialog_response = 0;
@@ -255,7 +238,6 @@ void W8CharacterScreen::ShowProfessionInfo(W8Profession profession)
     m_dialog->InputLayer().setModal(true);
 }
 
-// FUNCTION: WIZ8 0x005b0730
 void W8CharacterScreen::ShowRaceInfo(W8Race race)
 {
     m_dialog_response = 0;
@@ -264,7 +246,6 @@ void W8CharacterScreen::ShowRaceInfo(W8Race race)
     m_dialog->InputLayer().setModal(true);
 }
 
-// FUNCTION: WIZ8 0x005b07c0
 void W8CharacterScreen::ShowPrimaryAttributeInfo(W8Attribute attribute)
 {
     m_dialog_response = 0;
@@ -273,7 +254,6 @@ void W8CharacterScreen::ShowPrimaryAttributeInfo(W8Attribute attribute)
     m_dialog->InputLayer().setModal(true);
 }
 
-// FUNCTION: WIZ8 0x005b0850
 void W8CharacterScreen::ShowSecondaryAttributeInfo(unsigned int attribute)
 {
     m_dialog_response = 0;
@@ -282,7 +262,6 @@ void W8CharacterScreen::ShowSecondaryAttributeInfo(unsigned int attribute)
     m_dialog->InputLayer().setModal(true);
 }
 
-// FUNCTION: WIZ8 0x005b08e0
 void W8CharacterScreen::ShowSkillInfo(W8Skill value)
 {
     m_dialog_response = 0;
@@ -306,7 +285,6 @@ void W8CharacterScreen::DrawNavigation(SDL_Surface& target)
     m_navigation_dirty = false;
 }
 
-// FUNCTION: WIZ8 0x005b09b0
 void W8CharacterScreen::ShowDescription(int first, int second)
 {
     ShowMessage(fmt::sprintf(g_localized_strings[0x1d6],
@@ -316,7 +294,6 @@ void W8CharacterScreen::ShowDescription(int first, int second)
                 0, 0);
 }
 
-// FUNCTION: WIZ8 0x005b0a10
 void W8CharacterScreen::ShowCharacterSummary()
 {
     m_dialog_response = 1;
@@ -324,7 +301,6 @@ void W8CharacterScreen::ShowCharacterSummary()
     m_dialog->InputLayer().setModal(true);
 }
 
-// FUNCTION: WIZ8 0x005b0b50
 void W8CharacterScreen::AdvancePage(bool forward)
 {
     if (!forward || (m_page_index != 3 && m_next->IsEnabled())) {
@@ -381,7 +357,6 @@ void W8CharacterScreen::AdvancePage(bool forward)
     }
 }
 
-// FUNCTION: WIZ8 0x005b0d50
 void W8CharacterScreen::SelectPage(int index)
 {
     if (m_page_index >= 0) {
@@ -429,7 +404,6 @@ void W8CharacterScreen::SelectPage(int index)
     UpdateNavigation(page);
 }
 
-// FUNCTION: WIZ8 0x005b0f30
 void W8CharacterScreen::SyncCharacterForPage(int index)
 {
     if (m_page_index > index) return;
@@ -446,7 +420,6 @@ void W8CharacterScreen::SyncCharacterForPage(int index)
     }
 }
 
-// FUNCTION: WIZ8 0x005b1110
 void W8CharacterScreen::DrawHeader()
 {
     W8TextBuffer text;
@@ -500,7 +473,6 @@ void W8CharacterScreen::DrawHeader()
     m_header_dirty = false;
 }
 
-// FUNCTION: WIZ8 0x005b0fd0
 bool W8CharacterScreen::CommitCharacter()
 {
     if (!ValidateName()) return false;
@@ -539,7 +511,6 @@ bool W8CharacterScreen::CommitCharacter()
 /* Skill-availability hooks raised by RefreshCharacterSkillAvailability while this screen is
    current. They adjust the named skill through the page-2 helpers and then
    refresh page 2, the skills list. */
-// FUNCTION: WIZ8 0x005b1af0
 void ResetCharacterScreenSkill(W8Skill skill_id)
 {
     W8CharacterScreen* screen = g_character_screen.get();
@@ -549,7 +520,6 @@ void ResetCharacterScreenSkill(W8Skill skill_id)
     }
 }
 
-// FUNCTION: WIZ8 0x005b1b30
 void RefundCharacterScreenSkill(W8Skill skill_id)
 {
     W8CharacterScreen* screen = g_character_screen.get();
@@ -559,7 +529,6 @@ void RefundCharacterScreenSkill(W8Skill skill_id)
     }
 }
 
-// FUNCTION: WIZ8 0x005b1430
 void W8CharacterScreen::ShowMessage(std::string_view text, int confirmation, int response)
 {
     m_dialog_response = response;
@@ -576,7 +545,6 @@ void W8CharacterScreen::ShowMessage(std::string_view text, int confirmation, int
     }
 }
 
-// FUNCTION: WIZ8 0x005b1520
 void W8CharacterScreen::HandleDialogResult(int response, unsigned char accepted)
 {
     if (accepted) {
@@ -624,7 +592,6 @@ void W8CharacterScreen::HandleDialogResult(int response, unsigned char accepted)
     }
 }
 
-// FUNCTION: WIZ8 0x005b1670
 bool W8CharacterScreen::ValidateName()
 {
     if (m_original != 0 && strcmp(m_original->name.c_str(), m_character.name.c_str()) == 0) {
@@ -651,19 +618,16 @@ bool W8CharacterScreen::ValidateName()
     return true;
 }
 
-// FUNCTION: WIZ8 0x005b0120
 bool W8CharacterScreen::HasDialog()
 {
     return m_dialog != 0;
 }
 
-// FUNCTION: WIZ8 0x005b0130
 W8Character* W8CharacterScreen::GetOriginalCharacter()
 {
     return m_original;
 }
 
-// FUNCTION: WIZ8 0x005b1750
 bool CharacterScreenEnter(void)
 {
     SetViewport({0, 0, 0x281, 0x1e1});
@@ -681,14 +645,12 @@ bool CharacterScreenEnter(void)
     return 1;
 }
 
-// FUNCTION: WIZ8 0x005b1840
 bool CharacterScreenLeave(int leaving)
 {
     if (leaving) g_character_screen.reset();
     return 1;
 }
 
-// FUNCTION: WIZ8 0x005b18e0
 void CharacterScreenFrame(void)
 {
     g_character_screen->UpdateDialog();

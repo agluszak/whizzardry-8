@@ -109,7 +109,6 @@ struct W8NpcState;
    fFoundEquipChar assertion. This is state 6, reached both from the party
    selector and from the running game. */
 
-// GLOBAL: WIZ8 0x0069c0f4
 std::unique_ptr<W8CampScreenState> g_camp_screen;
 
 /* Retail freed the camp sub-objects in this order on leave. */
@@ -122,33 +121,19 @@ W8CampScreenState::~W8CampScreenState()
     stats_controls.reset();
     character_info.reset();
 }
-// GLOBAL: WIZ8 0x0064cbe8
 int giReviewCharSlot = -1;
-// GLOBAL: WIZ8 0x0069c0f8
 W8Character* g_review_character;
-// GLOBAL: WIZ8 0x0069c0fc
 W8Character* g_camp_identifying_character; /* gpIdentifyingPC */
-// GLOBAL: WIZ8 0x0069c100
 W8Character* g_camp_character;
-// GLOBAL: WIZ8 0x0069c104
 bool g_camp_character_pending;
-// GLOBAL: WIZ8 0x0069c10c
 w8_ulong g_fade_tick_base;
-// GLOBAL: WIZ8 0x0069c110
 void (*g_fade_callback)(void);
-// GLOBAL: WIZ8 0x0069c114
 unsigned char g_fade_flag;
-// GLOBAL: WIZ8 0x0069c118
 unsigned int g_fade_duration;
-// GLOBAL: WIZ8 0x0069c11c
 std::unique_ptr<stModelInstance2D> g_fade_overlay;
-// GLOBAL: WIZ8 0x0069c120
 int g_fade_out;
-// GLOBAL: WIZ8 0x0069c124
 wiz8::sound::Playback g_ending_sound;
-// GLOBAL: WIZ8 0x0069c128
 bool g_ending_screen;
-// GLOBAL: WIZ8 0x0069c129
 bool g_ending_autosave;
 
 void DrawCampCharacterInfo(void);
@@ -162,11 +147,9 @@ void DrawCampScreen(void);
 void DrawCampRegenStats(void);
 /* The font-state palette index selected for each load category
    while the weight line is drawn; zero leaves the default palette in place. */
-// GLOBAL: WIZ8 0x00648C48
 int g_load_category_palettes[5] = {0xf, 3, 1, 5, 0};
 
 /* One portrait frame per race and gender, race-major in threes. */
-// GLOBAL: WIZ8 0x0064CDA0
 int g_race_portrait_images[0x30] = {
     0x125, 0x126, 0x125, 0x127, 0x128, 0x127, 0x129, 0x12a, 0x129, 0x12b, 0x12c, 0x12b,
     0x12d, 0x12e, 0x12d, 0x12f, 0x130, 0x12f, 0x131, 0x132, 0x131, 0x133, 0x134, 0x133,
@@ -176,12 +159,10 @@ int g_race_portrait_images[0x30] = {
 
 /* The seven attribute label message ids, drawn top to bottom on
    the secondary panel. The last two entries swap relative to attribute order. */
-// GLOBAL: WIZ8 0x0064DD30
 int g_attribute_label_ids[7] = {0x924, 0x925, 0x926, 0x927, 0x928, 0x92a, 0x929};
 
 /* The help-line weight breakdown, "<personal>: n, <party>: n". */
 
-// GLOBAL: WIZ8 0x0064CBF0
 W8CampScreenRegion g_camp_screen_regions[12] = {
     {0x0bc, 0x0b0, 0x2d, 0x39, 0x00, 0x01, 0x0ee, 0x0c1, 0},
     {0x1af, 0x0c6, 0x28, 0x28, 0x28, 0x08, 0x1aa, 0x0de, 1},
@@ -906,7 +887,6 @@ void W8CampCharacterInfo::SetCombatView(bool enabled)
     InvalidateAll();
 }
 
-// GLOBAL: WIZ8 0x0061e798
 unsigned short g_camp_armor_class_labels[12] = {1052, 1053, 1054, 1055, 1056, 1057,
                                                 1058, 1059, 1060, 1061, 1062, 1063};
 
@@ -1230,7 +1210,7 @@ bool CampScreenEnter(void)
                 }
             }
         }
-        srAssertFail("fFoundEquipChar", __FILE__, 0x16f, 0);
+        Fail("fFoundEquipChar");
     show_equip_message:
         ShowCampNoticeLine(g_camp_screen->text_buffer, 0, true, false);
     }
@@ -1733,10 +1713,10 @@ void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOr
     std::string text;
 
     if (item == 0) {
-        srAssertFail("pPCItem != NULL", __FILE__, 0x4e5, 0);
+        Fail("pPCItem != NULL");
     }
     if (static_cast<unsigned int>(origin) >= W8_ITEM_ORIGIN_COUNT) {
-        srAssertFail("uiSlotType < SLOT_TYPE_COUNT", __FILE__, 0x4e6, 0);
+        Fail("uiSlotType < SLOT_TYPE_COUNT");
     }
 
     /* A held stackable whose name kind the clicked item merges with counts as
@@ -1832,7 +1812,7 @@ void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOr
             return;
         }
         if (g_camp_identifying_character == 0) {
-            srAssertFail("gpIdentifyingPC != NULL", __FILE__, 0x553, 0);
+            Fail("gpIdentifyingPC != NULL");
         }
         old_pool_count = g_status.party_item_count;
         reidentify = false;

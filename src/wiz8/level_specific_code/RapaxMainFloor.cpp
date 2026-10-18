@@ -35,7 +35,6 @@ static void SetRamTriggerEnabled(const char* name, bool enabled)
 /* "AltarBox": the first activation while the fact-0x14c gate is clear marks
    LezboDemonAppeared, spawns Al-Sedexus (0x124) at NP_Al-Sedexus and arms the
    trigger's follow-up action 0x1fc. */
-// FUNCTION: WIZ8 0x004DA3C0
 bool RapaxMainFloorAltarBox(Trigger* pTrigger)
 {
     glm::vec3 position;
@@ -79,7 +78,6 @@ static void SpawnActivatedItemAt(const char* entity, int item_id)
 
 /* "platformtrigger": drop the three cursed Rapax items (0x1fd robe, 0x1fe
    helm, 0x1ff dagger) at their NP_C* entities and enable RAM03. */
-// FUNCTION: WIZ8 0x004DA460
 bool RapaxMainFloorPlatform(Trigger* pTrigger)
 {
     SpawnActivatedItemAt("NP_CRobe", 0x1fd);
@@ -90,7 +88,6 @@ bool RapaxMainFloorPlatform(Trigger* pTrigger)
 }
 
 /* "platformtrigger01": disable RAM03 and enable RAM07. */
-// FUNCTION: WIZ8 0x004DA590
 bool RapaxMainFloorPlatform01(Trigger* pTrigger)
 {
     SetRamTriggerEnabled("RAM03", false);
@@ -99,7 +96,6 @@ bool RapaxMainFloorPlatform01(Trigger* pTrigger)
 }
 
 /* "platformtrigger02": disable RAM07 and enable RAM11. */
-// FUNCTION: WIZ8 0x004DA5D0
 bool RapaxMainFloorPlatform02(Trigger* pTrigger)
 {
     SetRamTriggerEnabled("RAM07", false);

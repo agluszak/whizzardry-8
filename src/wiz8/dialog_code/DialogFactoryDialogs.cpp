@@ -51,17 +51,12 @@ void W8ListBoxDialog::ClearLines()
     m_first_visible_line = 0;
 }
 
-// FUNCTION: WIZ8 0x005cbb40
 W8ListBoxDialog::W8ListBoxDialog()
 {
     m_fill_colour = {0, 0x60, 0, SDL_ALPHA_OPAQUE};
     ClearLines();
 }
 
-// FUNCTION: WIZ8 0x005cbce0
-
-// FUNCTION: WIZ8 0x005cbd70
-// FUNCTION: WIZ8 0x005CC650
 int W8ListBoxDialog::GetVisibleLineCount()
 {
     if (!m_area_button.IsConfigured()) {
@@ -92,7 +87,6 @@ void W8ListBoxDialog::SetFirstVisibleLine(int requested)
     }
 }
 
-// FUNCTION: WIZ8 0x005CCB80
 void W8ListBoxDialog::SetCurrentLine(int line)
 {
     if (m_selected_line == line) {
@@ -117,7 +111,6 @@ void W8ListBoxDialog::SetCurrentLine(int line)
     m_dirty = true;
 }
 
-// FUNCTION: WIZ8 0x005CD2B0
 bool W8ListBoxDialog::HandleInputEvent(const InputEvent* input)
 {
     if (input->type != InputEventType::KeyDown && input->type != InputEventType::KeyRepeat) {
@@ -161,7 +154,6 @@ bool W8ListBoxDialog::HandleInputEvent(const InputEvent* input)
 
 /* Build two text buttons, the scrolling text area, the up and down arrows, a
    slider and the confirmation pair. */
-// FUNCTION: WIZ8 0x005cbdb0
 void W8ListBoxDialog::Configure()
 {
     edge_inlay = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogEdge.STI", {},
@@ -248,10 +240,8 @@ void W8ListBoxDialog::Configure()
     throw std::runtime_error("Cannot configure list controls");
 }
 
-// FUNCTION: WIZ8 0x005cc430
 /* The scrolling text area. Rows shrink by the scroll arrow when the list does
    not fit; the slider position tracks the selected line. */
-// FUNCTION: WIZ8 0x005cc690
 void W8ListBoxDialog::Draw(SDL_Surface& target)
 {
     W8DialogBase::Draw(target);
@@ -330,7 +320,6 @@ bool W8ListBoxDialog::TakeDirty()
     return dirty;
 }
 
-// FUNCTION: WIZ8 0x005cd470
 bool W8ListBoxDialog::ProcessInput()
 {
     BeginModalInput();
@@ -359,27 +348,20 @@ struct W8SplitAmountButtonOffset {
     int y;
 };
 
-// GLOBAL: WIZ8 0x0064fc08
 static W8SplitAmountButtonOffset g_split_amount_button_offsets[6] = {
     {0xdb, 0x20}, {0xc0, 0x20}, {0xbe, 0xf}, {0xbe, 0x35}, {0xed, 0x47}, {0x111, 0x47},
 };
 
-// GLOBAL: WIZ8 0x0064fc38
 static W8ControlsRect g_split_amount_text_bounds[3] = {
     {0x4a, 0xf, 0xb8, 0x1b},
     {0x4a, 0x35, 0xb8, 0x41},
     {0xbe, 0xf, 0xf4, 0x1b},
 };
 
-// GLOBAL: WIZ8 0x0064fc68
 static DesignRect g_split_amount_field_bounds = {0xbe, 0x35, 0xf4, 0x41};
 
-// GLOBAL: WIZ8 0x0064fc78
 static int g_split_amount_string_ids[3] = {265, 266, 267};
 
-// FUNCTION: WIZ8 0x005d97d0
-
-// FUNCTION: WIZ8 0x005d9890
 W8SplitAmountDialog::W8SplitAmountDialog(int total, SDL_Point origin)
     : m_taken(0), m_total(total), m_result(W8_SPLIT_RESULT_PENDING)
 {
@@ -395,12 +377,10 @@ W8SplitAmountDialog::W8SplitAmountDialog(int total, SDL_Point origin)
     UpdateTextBuffers();
 }
 
-// FUNCTION: WIZ8 0x005d9930
 W8SplitAmountDialog::~W8SplitAmountDialog() = default;
 
 /* The split-item dialog. Three text buffers show the running totals, the
    numeric field edits the taken amount, and the buttons step it. */
-// FUNCTION: WIZ8 0x005d9b30
 bool W8SplitAmountDialog::CreateButtons()
 {
     int index;
@@ -451,7 +431,6 @@ bool W8SplitAmountDialog::CreateButtons()
     return true;
 }
 
-// FUNCTION: WIZ8 0x005d9d10
 void W8SplitAmountDialog::CreateTextBuffers()
 {
     int index;
@@ -468,7 +447,6 @@ void W8SplitAmountDialog::CreateTextBuffers()
     }
 }
 
-// FUNCTION: WIZ8 0x005d9e30
 void W8SplitAmountDialog::CreateNumericInput()
 {
     W8ControlsRect bounds;
@@ -486,7 +464,6 @@ void W8SplitAmountDialog::CreateNumericInput()
     m_split_input->m_maximum = 1000000;
 }
 
-// FUNCTION: WIZ8 0x005d9f20
 void W8SplitAmountDialog::Draw(SDL_Surface& target)
 {
     W8DialogBase::Draw(target);
@@ -498,7 +475,6 @@ void W8SplitAmountDialog::Draw(SDL_Surface& target)
     m_split_input->Draw(target);
 }
 
-// FUNCTION: WIZ8 0x005da000
 void W8SplitAmountDialog::UpdateTextBuffers()
 {
     std::string text;
@@ -517,7 +493,6 @@ void W8SplitAmountDialog::UpdateTextBuffers()
     m_split_input->m_dirty = true;
 }
 
-// FUNCTION: WIZ8 0x005da090
 void W8SplitAmountDialog::UpdateButtonStates()
 {
     m_buttons[0]->UpdateEnabledState(m_taken != 0);
@@ -531,7 +506,6 @@ void W8SplitAmountDialog::UpdateButtonStates()
     m_buttons[3]->m_dirty = true;
 }
 
-// FUNCTION: WIZ8 0x005da140
 void W8SplitAmountDialog::DecreaseAmount(int amount)
 {
     m_taken = std::max(0, m_taken - amount);
@@ -546,7 +520,6 @@ void W8SplitAmountDialog::IncreaseAmount(int amount)
     UpdateTextBuffers();
 }
 
-// FUNCTION: WIZ8 0x005da180
 bool W8SplitAmountDialog::HandleInputEvent(const InputEvent* input)
 {
     if (m_split_input->HandleInput(input)) return true;
@@ -565,7 +538,6 @@ bool W8SplitAmountDialog::HandleInputEvent(const InputEvent* input)
     return m_keep_open;
 }
 
-// FUNCTION: WIZ8 0x005da2a0
 bool W8SplitAmountDialog::ProcessInput()
 {
     BeginModalInput();
@@ -573,14 +545,12 @@ bool W8SplitAmountDialog::ProcessInput()
     return m_keep_open;
 }
 
-// FUNCTION: WIZ8 0x005da5a0
 void W8SplitAmountDialog::Finish(W8SplitDialogResult result)
 {
     m_result = result;
     m_keep_open = false;
 }
 
-// FUNCTION: WIZ8 0x005da5c0
 void W8SplitAmountDialog::ActivateField()
 {
     if (!m_split_input) {
@@ -597,7 +567,6 @@ void W8SplitAmountDialog::ActivateField()
 }
 
 /* The trigger-owned item picker configures its buttons during construction. */
-// FUNCTION: WIZ8 0x005cd710
 W8TriggerItemPickerDialog::W8TriggerItemPickerDialog()
 {
     SetExtent(200, 100);
@@ -613,7 +582,6 @@ W8TriggerItemPickerDialog::W8TriggerItemPickerDialog()
 
 /* Configure the thirteen owned buttons. Buttons 5..8 are item rows and
    9..12 are the scroll bar. */
-// FUNCTION: WIZ8 0x005cd8d0
 bool W8TriggerItemPickerDialog::CreateButtons()
 {
     for (auto& button : m_buttons) {
@@ -720,7 +688,6 @@ bool W8TriggerItemPickerDialog::CreateButtons()
 /* Sync the four visible item buttons with the scroll offset and the per-item
    enable flags. A short list pins the first row; a row scrolled past the end
    clears its pressed state and hides the button. */
-// FUNCTION: WIZ8 0x005ce420
 void W8TriggerItemPickerDialog::RefreshScrollButtons()
 {
     if (static_cast<int>(entries.size()) <= 4) {
@@ -785,7 +752,6 @@ void W8TriggerItemPickerDialog::ToggleItem(int index, W8ButtonWidget* button)
    successful transfer removes the entry and retries the same
    row; any failure raises the beep flag. Afterwards the scroll state refreshes
    and an emptied picker closes itself. */
-// FUNCTION: WIZ8 0x005ce4c0
 void W8TriggerItemPickerDialog::TransferSelectedItems(int destination)
 {
     int index;
@@ -825,7 +791,6 @@ void W8TriggerItemPickerDialog::TransferSelectedItems(int destination)
 
 /* The select-all button: clear every flag when all are set, otherwise set them
    all. The four visible row buttons are synced with the flags. */
-// FUNCTION: WIZ8 0x005ce5f0
 void W8TriggerItemPickerDialog::ToggleAllItems()
 {
     const bool all_selected = std::ranges::all_of(entries, &PickerEntry::selected);
@@ -835,7 +800,6 @@ void W8TriggerItemPickerDialog::ToggleAllItems()
 }
 
 /* Right-clicking a visible row opens the assay dialog on a copy of its item. */
-// FUNCTION: WIZ8 0x005cea30
 void W8TriggerItemPickerDialog::ShowVisibleItemInfo(int row)
 {
     const int index = m_first_item + row;
@@ -848,7 +812,6 @@ void W8TriggerItemPickerDialog::ShowVisibleItemInfo(int row)
 /* Thumb drag callback: while the left button is held, map the live cursor
    position between the scroll buttons' top and bottom bounds onto the item
    list, then clamp through SetFirstVisible. */
-// FUNCTION: WIZ8 0x005ceaf0
 void W8TriggerItemPickerDialog::ScrollItemsToMouse()
 {
     const W8ButtonWidget& thumb = *m_buttons[12];
@@ -869,7 +832,6 @@ void W8TriggerItemPickerDialog::ScrollItemsToMouse()
 /* Keyboard list navigation. The up/down keys move the first visible row, the
    paging keys jump, the digit keys toggle one of the four visible flags and
    SDLK_ESCAPE closes the picker. */
-// FUNCTION: WIZ8 0x005cec20
 bool W8TriggerItemPickerDialog::HandleInputEvent(const InputEvent* input)
 {
     if (input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) {
@@ -925,7 +887,6 @@ bool W8TriggerItemPickerDialog::HandleInputEvent(const InputEvent* input)
 
 /* Move the trigger's whole item group into this picker, merging each item
    through the add path. */
-// FUNCTION: WIZ8 0x005cf0c0
 void W8TriggerItemPickerDialog::SetItemGroup(W8WorldItem* group)
 {
     m_item_group = group;
@@ -935,7 +896,6 @@ void W8TriggerItemPickerDialog::SetItemGroup(W8WorldItem* group)
 
 /* Hand every picker item back to the trigger's group, keeping the order the
    picker displayed them in. */
-// FUNCTION: WIZ8 0x005cf110
 W8WorldItem* W8TriggerItemPickerDialog::ReturnItemsToGroup()
 {
     for (auto& entry : entries) ItemInfoAddToGroup(m_item_group, std::move(entry.item));
@@ -947,7 +907,6 @@ W8WorldItem* W8TriggerItemPickerDialog::ReturnItemsToGroup()
    placed next to the existing entries with the same equipment class and, among
    those, the same unidentified name, keeping each name run ordered by item id.
    The existing world-item lifetime is unchanged. */
-// FUNCTION: WIZ8 0x005ce210
 int W8TriggerItemPickerDialog::AddItem(std::unique_ptr<W8WorldItem> item)
 {
     W8ItemInstance* instance = &item->item;
@@ -991,7 +950,6 @@ int W8TriggerItemPickerDialog::AddItem(std::unique_ptr<W8WorldItem> item)
    belong to the party, and the two button-down kinds first ask the screen
    helper whether it wants them. The input layer routes dialog controls; the
    wheel scrolls the picker's first visible row in four-row steps. */
-// FUNCTION: WIZ8 0x005cef00
 bool W8TriggerItemPickerDialog::ProcessInput()
 {
     BeginModalInput();
@@ -1025,7 +983,6 @@ bool W8TriggerItemPickerDialog::ProcessInput()
    display name and its weight. A short list hides the four scroll buttons,
    otherwise they are placed around the row area and the scroll bar tracks the
    first visible item. */
-// FUNCTION: WIZ8 0x005cdc70
 void W8TriggerItemPickerDialog::Draw(SDL_Surface& target)
 {
     W8DialogBase::Draw(target);
@@ -1138,9 +1095,7 @@ void W8TriggerItemPickerDialog::UpdateLayout()
 }
 
 /* Create the base controls first, then the picker buttons. */
-// FUNCTION: WIZ8 0x005cdc10
 /* Release base graphics and owned picker buttons. */
-// FUNCTION: WIZ8 0x005cdc40
 std::function<void()> W8SplitAmountDialog::TakeCompletion(bool completed)
 {
     W8DialogBase::TakeCompletion(completed);

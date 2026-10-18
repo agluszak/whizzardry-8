@@ -26,7 +26,6 @@
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/ui_layer.h"
 
-// GLOBAL: WIZ8 0x00648c90
 W8SpellRealmAnimation g_spell_realm_animations[6] = {{486, 22, 3}, {487, 18, 8},  {488, 14, 8},
                                                      {489, 21, 1}, {490, 16, 14}, {491, 24, 11}};
 
@@ -101,7 +100,6 @@ W8CharacterSpellsPage::W8CharacterSpellsPage()
 }
 W8CharacterSpellsPage::~W8CharacterSpellsPage() = default;
 
-// FUNCTION: WIZ8 0x005c7e10
 void W8CharacterSpellList::SetEntryCount(int count)
 {
     m_range.InvalidateAll();
@@ -116,7 +114,6 @@ void W8CharacterSpellList::SetEntryCount(int count)
     }
 }
 
-// FUNCTION: WIZ8 0x005c7ef0
 void W8CharacterSpellList::Redraw(SDL_Surface& target, bool force)
 {
     if (m_dirty || force) {
@@ -151,7 +148,6 @@ void W8CharacterSpellList::Redraw(SDL_Surface& target, bool force)
     }
 }
 
-// FUNCTION: WIZ8 0x005c83d0
 void W8CharacterSpellsPage::SetCharacter(W8Character* character,
                                          W8CharacterCreationState* creation_state, int mode)
 {
@@ -162,7 +158,6 @@ void W8CharacterSpellsPage::SetCharacter(W8Character* character,
     }
 }
 
-// FUNCTION: WIZ8 0x005C8530
 void W8CharacterSpellsPage::Activate()
 {
     input.setEnabled(true);
@@ -174,7 +169,6 @@ void W8CharacterSpellsPage::Activate()
     m_prepared = true;
 }
 
-// FUNCTION: WIZ8 0x005c8570
 void W8CharacterSpellsPage::Deactivate()
 {
     input.setEnabled(false);
@@ -185,7 +179,6 @@ void W8CharacterSpellsPage::Deactivate()
 
 /* Drop every pending pick: clear the per-entry selected flags, return the
    creation-state spell selections, and repaint. */
-// FUNCTION: WIZ8 0x005C8730
 void W8CharacterSpellsPage::Accept()
 {
     for (auto& index : m_SpellData) {
@@ -202,7 +195,6 @@ void W8CharacterSpellsPage::Accept()
    pass two appends the learnable (1) spells greyed out. */
 /* Repaint the spell-point instructions and pool, the six realm headings and
    values, then the animated realm icons and their range controls. */
-// FUNCTION: WIZ8 0x005C88C0
 void W8CharacterSpellsPage::Redraw(SDL_Surface& target, bool full_redraw)
 {
     bool redraw = m_active && m_dirty;
@@ -303,13 +295,11 @@ void W8CharacterSpellsPage::Redraw(SDL_Surface& target, bool full_redraw)
     }
 }
 
-// FUNCTION: WIZ8 0x005c87a0
 void W8CharacterSpellsPage::Refresh()
 {
     UpdateSpellLists();
 }
 
-// FUNCTION: WIZ8 0x005c85a0
 void W8CharacterSpellsPage::UpdateSpellLists()
 {
     int entry = 0;
@@ -348,7 +338,6 @@ void W8CharacterSpellsPage::UpdateSpellLists()
     }
 }
 
-// FUNCTION: WIZ8 0x005c8770
 void W8CharacterSpellsPage::GetNavigationState(bool* next_enabled, bool* exit_enabled)
 {
     *next_enabled = 1;
@@ -357,12 +346,10 @@ void W8CharacterSpellsPage::GetNavigationState(bool* next_enabled, bool* exit_en
 
 /* Retail emits this with the W8CharacterSpellListListener-adjusted `this`
    (page + 0x70): the slot is only ever dispatched through that base. */
-// FUNCTION: WIZ8 0x005c87b0
 void W8CharacterSpellsPage::SelectSpell(unsigned int uiSelected)
 {
     if (!m_SpellData[uiSelected].fSelectable) {
-        srAssertFail("m_SpellData[uiSelected].fSelectable",
-                     "C:\\Projects\\Wizardry 8\\Local Screens\\CGSSpellsPage.cpp", 0x252, 0);
+        Fail("m_SpellData[uiSelected].fSelectable");
     }
     if (m_SpellData[uiSelected].selected) {
         m_SpellData[uiSelected].selected = false;
@@ -388,13 +375,11 @@ void W8CharacterSpellsPage::SelectSpell(unsigned int uiSelected)
     InvalidateAll();
 }
 
-// FUNCTION: WIZ8 0x005c88a0
 void W8CharacterSpellsPage::ShowSpellInfo(unsigned int entry)
 {
     m_screen->ShowSpellInfo(m_SpellData[entry].spell);
 }
 
-// FUNCTION: WIZ8 0x005C8DE0
 W8CharacterSpellsPage* CreateCharacterSpellsPage()
 {
     return new W8CharacterSpellsPage();

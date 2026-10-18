@@ -110,7 +110,6 @@ static void RemoveDepletedNpcStock(W8NpcState* npc)
     std::erase_if(npc->items, [](const W8NpcItemEntry& entry) { return entry.quantity == 0; });
 }
 
-// FUNCTION: WIZ8 0x0055a7b0
 int AddNpcItem(W8NpcState* npc, int item_id, unsigned int quantity)
 {
     W8ItemDatabaseRecord* record;
@@ -156,7 +155,6 @@ int AddNpcItem(W8NpcState* npc, int item_id, unsigned int quantity)
     return index;
 }
 
-// FUNCTION: WIZ8 0x0055afa0
 unsigned char MaintainNpcStock(W8NpcState* npc, bool force)
 {
     W8NpcItemEntry* entry;
@@ -215,7 +213,6 @@ unsigned char MaintainNpcStock(W8NpcState* npc, bool force)
     return 1;
 }
 
-// FUNCTION: WIZ8 0x0055a630
 unsigned char PopulateNpcStock(W8NpcState* npc)
 {
     W8NpcItemStockRule* rule;
@@ -266,7 +263,6 @@ unsigned char PopulateNpcStock(W8NpcState* npc)
 }
 
 /* Order the stock as the item pool orders items; equal entries keep their order. */
-// FUNCTION: WIZ8 0x0055b9c0
 void SortNpcItems(W8NpcState* npc)
 {
     std::ranges::stable_sort(npc->items,
@@ -280,7 +276,6 @@ void SortNpcItems(W8NpcState* npc)
    Equipment, equip_class four, always takes a new entry instead of merging. The
    quantity then lands in whichever of the two counts the item's quantity kind
    uses, and the other count is raised to one while it is still clear. */
-// FUNCTION: WIZ8 0x0055a930
 int AddNpcItemFromInstance(W8NpcState* npc, const W8ItemInstance* item, char quantity)
 {
     W8NpcItemEntry* entry;
@@ -324,7 +319,6 @@ int AddNpcItemFromInstance(W8NpcState* npc, const W8ItemInstance* item, char qua
    then becomes a percentage chance, and the shortfall is jittered by half up or
    down before being added. Item 0x1fc is gated behind fact 0x15f; neither has a
    recovered symbolic name. */
-// FUNCTION: WIZ8 0x0055ab80
 int RestockNpcItems(W8NpcState* npc)
 {
     W8NpcItemStockRule* rule;
@@ -381,7 +375,6 @@ int RestockNpcItems(W8NpcState* npc)
    falls. Every comparison here is signed, so the difficulty byte is read into a
    char, and the tier is returned byte-sized. The NPC argument is unused by the
    original. */
-// FUNCTION: WIZ8 0x0055aad0
 char RateItemIdentifyDifficulty(W8NpcState* npc, int item_id)
 {
     char difficulty;
@@ -417,7 +410,6 @@ char RateItemIdentifyDifficulty(W8NpcState* npc, int item_id)
 /* Add stock that only becomes ordinary trade stock once the world clock passes
    the given delay. This is what establishes the leading field as a clock stamp
    rather than a state enum. */
-// FUNCTION: WIZ8 0x0055aa80
 int AddNpcItemWithDelay(W8NpcState* npc, int item_id, unsigned int quantity, int delay)
 {
     int index;
@@ -433,7 +425,6 @@ int AddNpcItemWithDelay(W8NpcState* npc, int item_id, unsigned int quantity, int
     return index;
 }
 
-// FUNCTION: WIZ8 0x0055ade0
 W8NpcItemEntry* GetNpcItemAt(W8NpcState* npc, int index)
 {
     if (index < 0 || std::cmp_greater_equal(index, npc->items.size())) {
@@ -442,16 +433,13 @@ W8NpcItemEntry* GetNpcItemAt(W8NpcState* npc, int index)
     return &npc->items[index];
 }
 
-// FUNCTION: WIZ8 0x0055b710
 unsigned int GetNpcItemCount(W8NpcState* npc)
 {
     return npc->items.size();
 }
 
-// GLOBAL: WIZ8 0x0062A80C
 static char g_sound_cash_transaction[] = "Data\\Sound\\misc\\Cash Transaction.wav";
 
-// FUNCTION: WIZ8 0x0055B730
 static unsigned char SellItemToNpc(W8NpcState* npc, W8ItemInstance* item, unsigned char quantity,
                                    bool suppress_payment)
 {
@@ -533,7 +521,6 @@ W8TradeResult CompleteNpcTrade(W8NpcState* npc, const W8TradeSelection& selectio
     return {W8TradeOutcome::Complete, wanted};
 }
 
-// FUNCTION: WIZ8 0x0055b290
 bool NpcAcceptsTradeItemClass(const W8NpcState* npc, const W8ItemInstance* item)
 {
     const auto cls = g_item_records[item->iItemNo].equip_class;
@@ -541,7 +528,6 @@ bool NpcAcceptsTradeItemClass(const W8NpcState* npc, const W8ItemInstance* item)
            (npc->record->trade_item_class_mask & (std::uint32_t{1} << cls)) != 0;
 }
 
-// FUNCTION: WIZ8 0x0055b250
 bool NpcAcceptsTradeItem(W8NpcState* npc, W8ItemInstance* item)
 {
     if ((g_item_records[item->iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) != 0) {
@@ -550,7 +536,6 @@ bool NpcAcceptsTradeItem(W8NpcState* npc, W8ItemInstance* item)
     return NpcAcceptsTradeItemClass(npc, item);
 }
 
-// FUNCTION: WIZ8 0x0055b5a0
 int CalculateNpcTradeStackPrice(W8NpcState* npc, int item_id, W8TradePriceKind price_kind,
                                 unsigned char stack_count, bool identified)
 {
@@ -570,7 +555,6 @@ int CalculateNpcTradeStackPrice(W8NpcState* npc, int item_id, W8TradePriceKind p
    the party buys (mode 1). Stackable non-armour bundles price per unit times
    the count, everything else prices the whole stack value, unidentified
    merchandise goes at quarter price, and no stack settles below 1. */
-// FUNCTION: WIZ8 0x0055b5e0
 int CalculateTradeStackPrice(W8NpcState* npc, W8ItemInstance* item, char price_kind)
 {
     int stack_value = GetItemStackValue(item);
@@ -608,7 +592,6 @@ int CalculateTradeStackPrice(W8NpcState* npc, W8ItemInstance* item, char price_k
    non-stack quantity kinds) until the request is filled; the price of the
    accumulated stack then leaves the party purse and the stock entry shrinks.
    The trailing pass drops entries whose remaining count hit zero. */
-// FUNCTION: WIZ8 0x0055B7E0
 W8TradeResult CompleteNpcItemPurchase(W8NpcState* npc, int index, unsigned char quantity,
                                       bool no_payment)
 {
@@ -714,7 +697,6 @@ W8TradeResult CompleteNpcItemPurchase(W8NpcState* npc, int index, unsigned char 
     return {W8TradeOutcome::Complete, false, !drops.empty()};
 }
 
-// FUNCTION: WIZ8 0x0055ae00
 unsigned char ConsumeNpcItemQuantity(W8NpcState* npc, int index, unsigned char quantity)
 {
     W8NpcItemEntry* entry;
@@ -746,7 +728,6 @@ unsigned char ConsumeNpcItemQuantity(W8NpcState* npc, int index, unsigned char q
 
 /* Remove ordinary stock that is neither protected by its item flags nor kept
    by the NPC database's persistent stock rule. */
-// FUNCTION: WIZ8 0x0055ae70
 void DecayNpcInventory(W8NpcState* npc)
 {
     int item_id;
@@ -804,7 +785,6 @@ void DecayNpcInventory(W8NpcState* npc)
     }
 }
 
-// FUNCTION: WIZ8 0x0055BB10
 void MatureNpcDelayedItems(W8NpcState* npc)
 {
     for (auto& stock : npc->items) {
@@ -861,7 +841,6 @@ void MatureNpcDelayedItems(W8NpcState* npc)
 }
 
 /* Restock the NPC's trade inventory, then refresh the derived stock state. */
-// FUNCTION: WIZ8 0x0055BCC0
 void RestockNpcInventory(W8NpcState* npc)
 {
     MaintainNpcStock(npc, false);

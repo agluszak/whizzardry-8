@@ -68,21 +68,14 @@
    empty text and as a sprintf format argument. No recovered writer exists. */
 
 /* Suppress hover sounds on the registered options-row children. */
-// GLOBAL: WIZ8 0x005ed590
 
-// GLOBAL: WIZ8 0x0069c1c8
 static bool g_options_first_frame;
-// GLOBAL: WIZ8 0x0069c138
 W8OptionsValues g_options_values;
-// GLOBAL: WIZ8 0x0069c254
 std::unique_ptr<W8OptionsScreen> g_options_screen;
-// GLOBAL: WIZ8 0x0069c1cc
 std::string g_options_last_save_name;
 
-// GLOBAL: WIZ8 0x0064d72c
 static int g_last_options_panel = 5;
 
-// GLOBAL: WIZ8 0x0064d0b8
 static W8OptionsMenuRow g_options_menu_rows[8] = {
     {1, {{20, 51, 69, 137}, {-1, -1, -1, -1}}, {16, 194, 0, 0}, {0, 2, 1, -1, -1}},
     {4, {{90, 72, 117, 117}, {217, 72, 244, 117}}, {16, 220, 0, 0}, {3, 5, 4, -1, -1}},
@@ -93,16 +86,11 @@ static W8OptionsMenuRow g_options_menu_rows[8] = {
     {0, {{-1, -1, -1, -1}, {-1, -1, -1, -1}}, {7, 398, 0, 0}, {18, 20, 19, -1, -1}},
     {0, {{-1, -1, -1, -1}, {-1, -1, -1, -1}}, {7, 436, 0, 0}, {21, 23, 22, -1, -1}}};
 
-// GLOBAL: WIZ8 0x0064d078
 static W8OptionsPanelRange g_options_panel_ranges[8] = {{0, 2},   {3, 3},   {4, 5}, {6, 10},
                                                         {11, 11}, {12, 12}, {0, 0}, {0, 0}};
-// GLOBAL: WIZ8 0x0064d730
 static int g_options_difficulty_labels[3] = {0x7f8, 0x7f9, 0x7fa};
-// GLOBAL: WIZ8 0x0064d73c
 static int g_options_camera_rotation_labels[3] = {0x7fe, 0x7ff, 0x800};
-// GLOBAL: WIZ8 0x0064d748
 static int g_options_combat_mode_labels[2] = {0x7f6, 0x7f5};
-// GLOBAL: WIZ8 0x0064d750
 static int g_options_audio_labels[4] = {0x81e, 0x81f, 0x821, 0x820};
 
 struct W8OptionsKeyName {
@@ -123,7 +111,6 @@ struct W8OptionsKeyboardPage {
     W8MGSCommand last_binding;
 };
 
-// GLOBAL: WIZ8 0x0064d2f8
 static W8OptionsKeyName g_options_key_names[] = {{SDLK_F1, 0, 2158},
                                                  {SDLK_F2, 0, 2159},
                                                  {SDLK_F3, 0, 2160},
@@ -174,7 +161,6 @@ static W8OptionsKeyName g_options_key_names[] = {{SDLK_F1, 0, 2158},
                                                  {SDLK_GRAVE, 0, 2204},
                                                  {0, 0, 2157}};
 
-// GLOBAL: WIZ8 0x0064d480
 static W8OptionsKeyRow g_options_key_rows[] = {
     {W8_MGS_COMMAND_MOVE_FORWARD, W8_MGS_COMMAND_MOVE_FORWARD_RUN, 2106},
     {W8_MGS_COMMAND_MOVE_BACKWARD, W8_MGS_COMMAND_MOVE_BACKWARD_RUN, 2107},
@@ -229,7 +215,6 @@ static W8OptionsKeyRow g_options_key_rows[] = {
     {W8_MGS_COMMAND_REPEAT_ACTION, W8_MGS_COMMAND_NONE, 2156},
     {W8_MGS_COMMAND_NONE, W8_MGS_COMMAND_NONE, -1}};
 
-// GLOBAL: WIZ8 0x0064d6f0
 static W8OptionsKeyboardPage g_options_keyboard_pages[5] = {
     {0x835, W8_MGS_COMMAND_MOVE_FORWARD, W8_MGS_COMMAND_LOOK_LEVEL},
     {0x836, W8_MGS_COMMAND_PAUSE_GAME, W8_MGS_COMMAND_JOURNAL},

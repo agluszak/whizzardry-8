@@ -17,12 +17,9 @@
 #include "wiz8/string_database.h"
 #include "wiz8/unicode.h"
 
-// GLOBAL: WIZ8 0x0068c098
 int giStringListLen;
-// GLOBAL: WIZ8 0x0068c09c
 std::vector<std::string> g_localized_strings;
 
-// FUNCTION: WIZ8 0x0052FF80
 std::string GetStringFromStringDatabase(std::string_view path, int index, unsigned int* metadata_00,
                                         unsigned int* metadata_04)
 try {
@@ -54,7 +51,6 @@ try {
     return {};
 }
 
-// FUNCTION: WIZ8 0x00518500
 void ReleaseLocalizedStrings()
 {
     giStringListLen = 0;
@@ -85,7 +81,6 @@ static std::string ImportLocalizedPattern(std::string text)
     return result;
 }
 
-// FUNCTION: WIZ8 0x00518360
 void LoadLocalizedStrings(std::string_view path)
 {
     auto handle = wiz8::open_file(wiz8::asset_path(path));

@@ -167,19 +167,16 @@ public:
     std::vector<std::unique_ptr<W8TextBuffer>> m_text_buffers;
 };
 
-// VTABLE: WIZ8 0x005ef174
 class W8OptionsGamePanel : public W8OptionsPanel {
 public:
     virtual void Populate() override;
 };
 
-// VTABLE: WIZ8 0x005ef158
 class W8OptionsMousePanel : public W8OptionsPanel {
 public:
     virtual void Populate() override;
 };
 
-// VTABLE: WIZ8 0x005ef134 W8OptionsPanel
 class W8OptionsInterfacePanel : public W8OptionsPanel {
 public:
     virtual void Populate() override;
@@ -187,7 +184,6 @@ public:
     W8OptionsSlider* m_tooltip_delay;
 };
 
-// VTABLE: WIZ8 0x005ef108 W8OptionsPanel
 class W8OptionsAudioPanel : public W8OptionsPanel {
 public:
     virtual void Populate() override;
@@ -198,13 +194,11 @@ public:
     W8ButtonWidget* m_mute_buttons[4];
 };
 
-// VTABLE: WIZ8 0x005ef0dc W8OptionsPanel
 class W8OptionsGraphicsPanel : public W8OptionsPanel {
 public:
     virtual void Populate() override;
 };
 
-// VTABLE: WIZ8 0x005ef0b8
 class W8OptionsAdvancedGraphicsPanel : public W8OptionsPanel {
 public:
     virtual void Populate() override;
@@ -236,7 +230,6 @@ public:
     W8OptionsKeyButton* m_captured_button = nullptr;
 };
 
-// VTABLE: WIZ8 0x005ef09c
 class W8OptionsUnavailablePanel : public W8OptionsPanel {
 public:
     explicit W8OptionsUnavailablePanel(int message);

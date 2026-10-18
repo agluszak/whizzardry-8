@@ -39,8 +39,6 @@
    quadrant is centred on its facing rather than starting at it. */
 enum { W8_DEGREES_PER_TURN = 360, W8_DEGREES_PER_QUADRANT = 90 };
 
-#define FORMATION_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Formation & Facing.cpp"
-
 extern char g_formation_row_names[5][20];
 
 /* Reconcile an edited formation against the live one. Characters still able
@@ -49,7 +47,6 @@ extern char g_formation_row_names[5][20];
    place are returned to their live row when it still has room, or pushed into
    a fallback row with a notice. Dead characters keep the live position record
    verbatim. The reconciled state is written back into both formations. */
-// FUNCTION: WIZ8 0x005545f0
 void ReconcilePartyFormation(W8PartyFormationState* edited, W8PartyFormationState* live)
 {
     W8PartyFormationState working;
@@ -111,7 +108,7 @@ void ReconcilePartyFormation(W8PartyFormationState* edited, W8PartyFormationStat
                     }
                 }
                 if (column == -1) {
-                    srAssertFail("bQuadrantSlot != -1", FORMATION_CPP, 0xbe, 0);
+                    Fail("bQuadrantSlot != -1");
                 }
             }
             SetFormationPosition(&working, slot, row, column, false, false, false);
@@ -138,7 +135,7 @@ void ReconcilePartyFormation(W8PartyFormationState* edited, W8PartyFormationStat
                 }
             }
             if (!placed) {
-                srAssertFail("bQuadrantSlot != -1", FORMATION_CPP, 0xe1, 0);
+                Fail("bQuadrantSlot != -1");
             }
         }
     }
@@ -156,7 +153,6 @@ void ReconcilePartyFormation(W8PartyFormationState* edited, W8PartyFormationStat
    into a single turn, then biased by half a quadrant before the divide - so
    quadrant zero is the 90 degrees centred on straight ahead rather than the 90
    beginning there. */
-// FUNCTION: WIZ8 0x00555f30
 int GetQuadrantForPosition(glm::vec3 position)
 {
     glm::vec3 party;
@@ -186,15 +182,12 @@ enum { W8_FACING_ANY = 4 };
 /* The state a character has to be under to hold a place in the formation:
    highest_condition below HOSTILE, tighter than the party-wide death window. */
 
-// GLOBAL: WIZ8 0x005ee858
 const double g_facing_tolerance1 = 2.3561944500000003;
 
-// GLOBAL: WIZ8 0x005ebcf4
 const float g_facing_tolerance0 = 0.05f;
 
 /* Whether one character can hold a place in the formation at all: they have to
    be alive and in better shape than the party sweeps demand. */
-// FUNCTION: WIZ8 0x005549e0
 bool CanHoldFormationPlace(int party_slot)
 {
     const W8Character* character = &g_status.buffers.Char[party_slot];
@@ -203,22 +196,20 @@ bool CanHoldFormationPlace(int party_slot)
 }
 
 /* Remember the formation combat started with. */
-// FUNCTION: WIZ8 0x00554a20
 void SaveCombatFormation(void)
 {
     if (!gXStatus.fCombatMode) {
-        srAssertFail("gXStatus.fCombatMode", FORMATION_CPP, 258, 0);
+        Fail("gXStatus.fCombatMode");
     }
     memcpy(&g_combat_state->saved_formation, &g_status.formation, sizeof(W8PartyFormationState));
 }
 
 /* Put the formation combat started with back, if anything moved. Comparing the
    whole block is what makes it one object rather than a set of tables. */
-// FUNCTION: WIZ8 0x00554a60
 void RestoreCombatFormation(void)
 {
     if (!gXStatus.fCombatMode) {
-        srAssertFail("gXStatus.fCombatMode", FORMATION_CPP, 266, 0);
+        Fail("gXStatus.fCombatMode");
     }
 
     if (memcmp(&g_combat_state->saved_formation, &g_status.formation,
@@ -233,12 +224,10 @@ void RestoreCombatFormation(void)
 
 /* When set during combat, camera yaw updates party_heading only and leaves
    party_facing alone. Cleared, the free-look path also writes party_facing. */
-// GLOBAL: WIZ8 0x0069B7D4
 static bool g_combat_preserve_party_facing;
 
 /* Sync party facing/heading from the camera yaw and refresh the formation
    compass. Stopped level movement and combat-with-preserve skip writing facing. */
-// FUNCTION: WIZ8 0x005552F0
 void SyncPartyFacingFromCamera(void)
 {
     unsigned int yaw;
@@ -266,7 +255,6 @@ void SyncPartyFacingFromCamera(void)
 
 /* Turn the party to a new heading, moving the camera with it unless it is
    already looking that way. */
-// FUNCTION: WIZ8 0x005553c0
 unsigned int TurnPartyTo(unsigned int degrees)
 {
     unsigned int previous;
@@ -287,7 +275,6 @@ unsigned int TurnPartyTo(unsigned int degrees)
 
 /* The same turn, with the option of snapping the camera round rather than
    swinging it. */
-// FUNCTION: WIZ8 0x00555420
 void TurnPartyToImmediate(unsigned int degrees, char snap)
 {
     if (degrees == g_status.party_heading) {
@@ -308,7 +295,6 @@ void TurnPartyToImmediate(unsigned int degrees, char snap)
 /* While the camera is not being rotated by hand, re-aim the party heading at
    the selected slot's formation facing and swing the camera to match -
    snapping or gliding per the rotation style. */
-// FUNCTION: WIZ8 0x005554a0
 void FaceCameraToSelection(int party_slot)
 {
     unsigned int heading;
@@ -325,7 +311,6 @@ void FaceCameraToSelection(int party_slot)
 
 /* Face one position the way the rules say it should, unless the rules have no
    preference or it already faces that way. */
-// FUNCTION: WIZ8 0x005557e0
 void FacePositionAsDecided(int position, int target_position)
 {
     signed char facing = DecideFacingForPosition(position, target_position);
@@ -338,7 +323,6 @@ void FacePositionAsDecided(int position, int target_position)
 
 /* Whether a position already faces the way the rules want. No preference
    always agrees. */
-// FUNCTION: WIZ8 0x00555920
 bool PositionFacesAsDecided(int position, int target_position)
 {
     signed char facing = DecideFacingForPosition(position, target_position);
@@ -351,7 +335,6 @@ bool PositionFacesAsDecided(int position, int target_position)
 
 /* Whether a position is facing exactly away from where the rules want it -
    two of the four facings apart. */
-// FUNCTION: WIZ8 0x00555c20
 bool PositionFacesOppositeToDecided(int target_position, int position)
 {
     signed char facing = DecideFacingForPosition(position, target_position);
@@ -369,7 +352,6 @@ bool PositionFacesOppositeToDecided(int target_position, int position)
 
 /* Whether the party is looking far enough away from a point to count as not
    facing it, measured as the shortest way round. */
-// FUNCTION: WIZ8 0x00555d60
 bool IsPartyLookingAwayFrom(int, W8MonsterInfo* monster_info)
 {
     glm::vec3 monster_position = monster_info->p3D->GetPosition();
@@ -384,14 +366,13 @@ bool IsPartyLookingAwayFrom(int, W8MonsterInfo* monster_info)
    target quadrant verbatim for rows 0-3, the opposite quadrant when the
    target sits in the centre, and the no-facing code 4 when either side is
    unseated or both match. */
-// FUNCTION: WIZ8 0x00555e70
 signed char DecideFacingForPosition(int position, int target_position)
 {
     signed char source = g_status.formation.positions[position].bQuadrant;
     signed char target = g_status.formation.positions[target_position].bQuadrant;
 
     if (source == -1) {
-        srAssertFail("bSourceQuadrant != -1", FORMATION_CPP, 0x40d, 0);
+        Fail("bSourceQuadrant != -1");
     }
     if (target == -1 || source == target) {
         return 4;
@@ -418,14 +399,13 @@ signed char DecideFacingForPosition(int position, int target_position)
         }
         break;
     }
-    srAssertFail("FALSE", FORMATION_CPP, 0x43a, 0);
+    Fail("FALSE");
     return 4;
 }
 
 /* Whether the party is looking at a point, measured as a plain difference
    rather than the shortest way round - so a bearing either side of the wrap
    answers no. */
-// FUNCTION: WIZ8 0x00555ba0
 bool IsPartyLookingAt(W8MonsterInfo* monster_info, glm::vec3 point)
 {
     glm::vec3 monster_position = monster_info->p3D->GetPosition();
@@ -435,7 +415,6 @@ bool IsPartyLookingAt(W8MonsterInfo* monster_info, glm::vec3 point)
 }
 
 /* The five formation rows' display names, indexed by row. */
-// GLOBAL: WIZ8 0x00649e54
 char g_formation_row_names[5][20] = {
     "Front", "Right", "Rear", "Left", "Center",
 };
@@ -452,14 +431,14 @@ static signed char MakeRoomInFormationRow(W8PartyFormationState* formation, int 
     case 1: {
         signed char leader = formation->bOccupantChar[row][0];
         if (leader == -1) {
-            srAssertFail("iChar != -1", FORMATION_CPP, 0x159, 0);
+            Fail("iChar != -1");
         }
         SetFormationPosition(formation, leader, row, 1, false, false, true);
         return 2;
     }
     case 2:
         if (formation->bOccupantChar[row][0] != -1) {
-            srAssertFail("iChar == -1", FORMATION_CPP, 0x172, 0);
+            Fail("iChar == -1");
         }
         return 0;
     default:
@@ -472,7 +451,6 @@ static signed char MakeRoomInFormationRow(W8PartyFormationState* formation, int 
    first column; a row led by one character moves that leader to the second
    column and puts the joiner in the third; a row already holding two takes
    the joiner directly. */
-// FUNCTION: WIZ8 0x00554ae0
 void PlaceCharacterInFormation(W8PartyFormationState* formation, int slot)
 {
     unsigned char row_order[3] = {0, 4, 2};
@@ -494,7 +472,6 @@ void PlaceCharacterInFormation(W8PartyFormationState* formation, int slot)
    the slot in the new row and update the facing. The detach flag re-places
    the positions left in the old row, and the announce flag posts the row
    name to the slot. */
-// FUNCTION: WIZ8 0x00554dd0
 void CompactFormationRow(W8PartyFormationState* formation, unsigned char row)
 {
     signed char last_free = -1;
@@ -525,7 +502,6 @@ void CompactFormationRow(W8PartyFormationState* formation, unsigned char row)
     }
 }
 
-// FUNCTION: WIZ8 0x00554bd0
 void SetFormationPosition(W8PartyFormationState* formation, int slot, signed char new_row,
                           signed char new_column, bool announce, bool detach, bool update_facing)
 {
@@ -536,12 +512,10 @@ void SetFormationPosition(W8PartyFormationState* formation, int slot, signed cha
     if (old_row != -1) {
         signed char* occupant = &formation->bOccupantChar[old_row][old_column];
         if (*occupant == -1) {
-            srAssertFail("pFormation->bOccupantChar[bOldQuadrant][bOldSlot] != -1", FORMATION_CPP,
-                         0x18e, 0);
+            Fail("pFormation->bOccupantChar[bOldQuadrant][bOldSlot] != -1");
         }
         if (formation->ubQuadrantOccupants[old_row] == 0) {
-            srAssertFail("pFormation->ubQuadrantOccupants[bOldQuadrant] > 0", FORMATION_CPP, 0x18f,
-                         0);
+            Fail("pFormation->ubQuadrantOccupants[bOldQuadrant] > 0");
         }
         *occupant = -1;
         --formation->ubQuadrantOccupants[old_row];
@@ -551,12 +525,10 @@ void SetFormationPosition(W8PartyFormationState* formation, int slot, signed cha
     if (new_row != -1) {
         signed char* occupant = &formation->bOccupantChar[new_row][new_column];
         if (*occupant != -1) {
-            srAssertFail("pFormation->bOccupantChar[bNewQuadrant][bNewSlot] == -1", FORMATION_CPP,
-                         0x19d, 0);
+            Fail("pFormation->bOccupantChar[bNewQuadrant][bNewSlot] == -1");
         }
         if (formation->ubQuadrantOccupants[new_row] >= 3) {
-            srAssertFail("pFormation->ubQuadrantOccupants[bNewQuadrant] < MAX_CHARS_PER_QUADRANT",
-                         FORMATION_CPP, 0x19e, 0);
+            Fail("pFormation->ubQuadrantOccupants[bNewQuadrant] < MAX_CHARS_PER_QUADRANT");
         }
         *occupant = static_cast<signed char>(slot);
         ++formation->ubQuadrantOccupants[new_row];
@@ -606,7 +578,6 @@ void SetFormationPosition(W8PartyFormationState* formation, int slot, signed cha
    member who can hold one again is returned to that remembered quadrant under
    the usual seating rules, or placed like a joiner when it had none. The
    remembered quadrant is cleared once the slot is dealt with. */
-// FUNCTION: WIZ8 0x00554e70
 void UpdateFormationSlotState(W8PartyFormationState* formation, int slot)
 {
     signed char row_order[3] = {0, 4, 2};
@@ -654,7 +625,6 @@ void UpdateFormationSlotState(W8PartyFormationState* formation, int slot)
    the leader to column 1 and seats the slot at column 2, and a row already
    holding two puts it in the free lead column. A full row refuses with a
    notice naming the row. */
-// FUNCTION: WIZ8 0x00555080
 void SeatFormationSlotInRow(W8PartyFormationState* formation, int slot, int row)
 {
     signed char seat = MakeRoomInFormationRow(formation, row);
@@ -671,14 +641,13 @@ void SeatFormationSlotInRow(W8PartyFormationState* formation, int slot, int row)
    quadrant and quadrant slot, then the first takes the place the second
    vacated. When the second slot holds no quadrant, the first is seated in the
    row the second last occupied instead. */
-// FUNCTION: WIZ8 0x00555160
 void SwapFormationSlots(W8PartyFormationState* formation, int slot_a, int slot_b)
 {
     W8PartyFormationPosition* position_a = &formation->positions[slot_a];
     W8PartyFormationPosition* position_b = &formation->positions[slot_b];
 
     if (slot_a == slot_b) {
-        srAssertFail("uiChar1 != uiChar2", FORMATION_CPP, 0x296, 0);
+        Fail("uiChar1 != uiChar2");
     }
     if (position_b->bQuadrant != -1) {
         signed char row_a = position_a->bQuadrant;
@@ -711,7 +680,6 @@ void SwapFormationSlots(W8PartyFormationState* formation, int slot_a, int slot_b
 /* Unseat every formation position whose party row is no longer occupied; a
    live load restores party_rows first and the formation record second, so a
    slot the save marked vacant still carries its old seat. */
-// FUNCTION: WIZ8 0x00555FA0
 void RebuildPartyStatus(W8PartyFormationState* status, const W8PartySlotRow* party_rows)
 {
     unsigned int slot;
@@ -725,7 +693,6 @@ void RebuildPartyStatus(W8PartyFormationState* status, const W8PartySlotRow* par
 
 /* Whether the monster currently faces the party's own position, inside the
    usual facing tolerance - the mirror of IsPartyLookingAt. */
-// FUNCTION: WIZ8 0x00555a60
 int IsMonsterFacingParty(W8MonsterInfo* monster_info)
 {
     glm::vec3 party_position = PartyNavigator()->GetPosition();
@@ -733,7 +700,6 @@ int IsMonsterFacingParty(W8MonsterInfo* monster_info)
 }
 
 /* Whether the first monster faces the second, inside the usual tolerance. */
-// FUNCTION: WIZ8 0x00555b00
 int IsMonsterFacingMonster(W8MonsterInfo* first, W8MonsterInfo* second)
 {
     glm::vec3 second_position = second->p3D->GetPosition();
@@ -742,7 +708,6 @@ int IsMonsterFacingMonster(W8MonsterInfo* first, W8MonsterInfo* second)
 
 /* Whether the second monster is looking away from the first, measured the
    shortest way round like IsPartyLookingAwayFrom. */
-// FUNCTION: WIZ8 0x00555de0
 int IsMonsterLookingAwayFrom(W8MonsterInfo* first, W8MonsterInfo* second)
 {
     glm::vec3 first_position = first->p3D->GetPosition();
@@ -760,7 +725,6 @@ int IsMonsterLookingAwayFrom(W8MonsterInfo* first, W8MonsterInfo* second)
    screen sides - the same 0..3 facing values the formation positions carry.
    The facing checks use GetQuadrantForPosition and share the same
    invalid-quadrant assertion. */
-// FUNCTION: WIZ8 0x00555960
 bool IsCharacterFacingMonster(int party_slot, W8MonsterInfo* monster_info)
 {
     glm::vec3 monster_position = monster_info->p3D->GetPosition();
@@ -780,14 +744,13 @@ bool IsCharacterFacingMonster(int party_slot, W8MonsterInfo* monster_info)
         side = 3;
         break;
     default:
-        srAssertFail("FALSE", FORMATION_CPP, 0x456, 0);
+        Fail("FALSE");
         return true;
     }
     return side == g_status.formation.positions[party_slot].facing;
 }
 
 /* Turn the character's formation facing toward the side the monster is on. */
-// FUNCTION: WIZ8 0x00555820
 void TurnCharacterTowardMonster(int party_slot, W8MonsterInfo* monster_info)
 {
     glm::vec3 monster_position = monster_info->p3D->GetPosition();
@@ -807,7 +770,7 @@ void TurnCharacterTowardMonster(int party_slot, W8MonsterInfo* monster_info)
         side = 3;
         break;
     default:
-        srAssertFail("FALSE", FORMATION_CPP, 0x456, 0);
+        Fail("FALSE");
         return;
     }
     if (g_status.formation.positions[party_slot].facing != side) {
@@ -818,7 +781,6 @@ void TurnCharacterTowardMonster(int party_slot, W8MonsterInfo* monster_info)
 
 /* Whether the monster sits on the side opposite the one the character faces -
    the being-snuck-up-on test. */
-// FUNCTION: WIZ8 0x00555c60
 int IsMonsterBehindCharacter(W8MonsterInfo* monster_info, int party_slot)
 {
     glm::vec3 monster_position = monster_info->p3D->GetPosition();
@@ -839,7 +801,7 @@ int IsMonsterBehindCharacter(W8MonsterInfo* monster_info, int party_slot)
         side = 3;
         break;
     default:
-        srAssertFail("FALSE", FORMATION_CPP, 0x456, 0);
+        Fail("FALSE");
         return 0;
     }
     difference = side - g_status.formation.positions[party_slot].facing;
@@ -849,7 +811,6 @@ int IsMonsterBehindCharacter(W8MonsterInfo* monster_info, int party_slot)
     return difference == 2;
 }
 
-// FUNCTION: WIZ8 0x00555560
 void FaceCharacterTowardCombatTarget(int party_slot, W8CombatSlot* target)
 {
     signed char facing;
@@ -860,7 +821,7 @@ void FaceCharacterTowardCombatTarget(int party_slot, W8CombatSlot* target)
     case W8_TARGET_KIND_CHARACTER:
     case W8_TARGET_KIND_CHARACTER_INDIRECT:
         if (target->iChar == -1) {
-            srAssertFail("pTarget->iChar != BAD_INDEX", FORMATION_CPP, 0x33a, 0);
+            Fail("pTarget->iChar != BAD_INDEX");
         }
         facing = DecideFacingForPosition(party_slot, target->iChar);
         if (facing == W8_FACING_ANY) {
@@ -869,7 +830,7 @@ void FaceCharacterTowardCombatTarget(int party_slot, W8CombatSlot* target)
         break;
     case W8_TARGET_KIND_MONSTER:
         if (target->iMonsterID == -1) {
-            srAssertFail("pTarget->iMonsterID != BAD_INDEX", FORMATION_CPP, 0x33f, 0);
+            Fail("pTarget->iMonsterID != BAD_INDEX");
         }
         position = GetMonsterByLocationID(target->iMonsterID)->GetPosition();
         has_position = true;
@@ -896,7 +857,7 @@ void FaceCharacterTowardCombatTarget(int party_slot, W8CombatSlot* target)
             facing = 3;
             break;
         default:
-            srAssertFail("FALSE", FORMATION_CPP, 0x456, 0);
+            Fail("FALSE");
             return;
         }
     }

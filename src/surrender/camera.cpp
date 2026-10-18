@@ -18,7 +18,6 @@
 #include "surrender/srGERD.h"
 #include "surrender/srNode.h"
 
-// FUNCTION: SURRENDER 0x10047DF0
 void srCamera::process(const ProcessInfo& info, e_processType type)
 {
     if (type == PROCESS_PUSH) {
@@ -28,7 +27,6 @@ void srCamera::process(const ProcessInfo& info, e_processType type)
     processPop(info.renderer);
 }
 
-// FUNCTION: SURRENDER 0x10047E20
 void srCamera::setProjectionType(e_project projection)
 {
     if (projection == PROJECT_PERSPECTIVE) {
@@ -38,7 +36,6 @@ void srCamera::setProjectionType(e_project projection)
     flags |= 1UL << FLAG_PROJECTION_TYPE;
 }
 
-// FUNCTION: SURRENDER 0x10047E50
 void srCamera::processPush(srGERD* renderer)
 {
     glm::dmat4 world;
@@ -78,7 +75,6 @@ void srCamera::processPush(srGERD* renderer)
     renderer->setEnvironmentScaleFactor(environment_near_scale, environment_far_scale);
 }
 
-// FUNCTION: SURRENDER 0x100482E0
 void srCamera::processPop(srGERD* renderer)
 {
     renderer->matrixMode(srGERD::MATRIX_MODELVIEW);
@@ -88,7 +84,6 @@ void srCamera::processPop(srGERD* renderer)
     renderer->popEnvironment();
 }
 
-// FUNCTION: SURRENDER 0x10048450
 srCamera::srCamera(srNode* parent) : srNode(static_cast<srNode*>(0))
 {
     flags = 0;
@@ -104,46 +99,39 @@ srCamera::srCamera(srNode* parent) : srNode(static_cast<srNode*>(0))
     setFOV(3.141592653589793 * (1.0f / 180.0f) * 90.0f, 1.3333333333333333);
 }
 
-// FUNCTION: SURRENDER 0x100485A0
 srCamera::Rect srCamera::getNormalizedViewPlane() const
 {
     return {view_plane.left / view_plane_distance, view_plane.bottom / view_plane_distance,
             view_plane.right / view_plane_distance, view_plane.top / view_plane_distance};
 }
 
-// FUNCTION: SURRENDER 0x10048650
 srCamera::ViewPlane srCamera::getViewPlane() const
 {
     return {view_plane, view_plane_distance};
 }
 
-// FUNCTION: SURRENDER 0x100486C0
 void srCamera::setEnvironmentRange(float near_range, float far_range)
 {
     environment_near = near_range;
     environment_far = far_range;
 }
 
-// FUNCTION: SURRENDER 0x100486E0
 void srCamera::setEnvironmentScale(float near_scale, float far_scale)
 {
     environment_near_scale = near_scale;
     environment_far_scale = far_scale;
 }
 
-// FUNCTION: SURRENDER 0x10048700
 std::pair<float, float> srCamera::getEnvironmentRange() const
 {
     return {environment_near, environment_far};
 }
 
-// FUNCTION: SURRENDER 0x10048720
 std::pair<float, float> srCamera::getEnvironmentScale() const
 {
     return {environment_near_scale, environment_far_scale};
 }
 
-// FUNCTION: SURRENDER 0x10048740
 void srCamera::setClipRange(double near_plane, double far_plane)
 {
     near_clip = near_plane;
@@ -161,13 +149,11 @@ void srCamera::setClipRange(double near_plane, double far_plane)
     }
 }
 
-// FUNCTION: SURRENDER 0x100487F0
 std::pair<double, double> srCamera::getClipRange() const
 {
     return {near_clip, far_clip};
 }
 
-// FUNCTION: SURRENDER 0x10048820
 void srCamera::setViewPlane(const Rect& rectangle, double distance)
 {
     if (distance > 5.9604644775390625e-08) {
@@ -179,7 +165,6 @@ void srCamera::setViewPlane(const Rect& rectangle, double distance)
     }
 }
 
-// FUNCTION: SURRENDER 0x10048920
 void srCamera::setViewPlane(double width, double height)
 {
     constexpr double half_turn = 3.141592653589793;
@@ -196,7 +181,6 @@ void srCamera::setViewPlane(double width, double height)
     view_plane = rectangle;
 }
 
-// FUNCTION: SURRENDER 0x10048A10
 void srCamera::setFOV(double field_of_view, double aspect_ratio)
 {
     constexpr double minimum = 5.9604644775390625e-08;
@@ -212,21 +196,18 @@ void srCamera::setFOV(double field_of_view, double aspect_ratio)
     view_plane = rectangle;
 }
 
-// FUNCTION: SURRENDER 0x10048AB0
 double srCamera::getHorizontalFOV() const
 {
     return atan(view_plane.right / view_plane_distance) -
            atan(view_plane.left / view_plane_distance);
 }
 
-// FUNCTION: SURRENDER 0x10048AE0
 double srCamera::getVerticalFOV() const
 {
     return atan(view_plane.top / view_plane_distance) -
            atan(view_plane.bottom / view_plane_distance);
 }
 
-// FUNCTION: SURRENDER 0x10048B40
 void srCamera::flipHorizontal()
 {
     double swap = view_plane.left;
@@ -234,7 +215,6 @@ void srCamera::flipHorizontal()
     view_plane.right = swap;
 }
 
-// FUNCTION: SURRENDER 0x10048E30
 srCamera::Projection srCamera::project(const glm::dvec3& input)
 {
     const auto rotation = getWorldSpaceRotation<glm::dmat3>();
@@ -258,7 +238,6 @@ bool srCamera::projectsAny(std::span<const glm::vec3> points)
     });
 }
 
-// FUNCTION: SURRENDER 0x100490B0
 std::optional<glm::vec3> srCamera::unproject(const glm::dvec3& input)
 {
     const glm::dvec2 uv(input.x, input.y);

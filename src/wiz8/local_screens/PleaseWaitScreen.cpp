@@ -52,9 +52,7 @@ struct W8LevelLoadDescriptor {
     int caption_y;
 };
 
-// GLOBAL: WIZ8 0x0069B7C0
 Font g_level_load_font;
-// GLOBAL: WIZ8 0x0069B7C8
 std::unique_ptr<W8LevelLoadDescriptor> g_load_descriptor;
 
 /* Engine Code\Levels.cpp owns this with C++ linkage. */
@@ -63,7 +61,6 @@ std::unique_ptr<W8LevelLoadDescriptor> g_load_descriptor;
    screen shows while that level loads. 0x00605820 indexes the level's name in
    the string list. Both are bounded by 0x2F, with 0xE4 as the backdrop the
    frame handler falls back to. */
-// GLOBAL: WIZ8 0x0064bf8c
 static int g_level_backdrops[W8_LEVEL_COUNT] = {
     0x1bc, 0x1bd, 0x1be, 0x1bf, 0x1c0, 0x1c2, 0x1c1, 0x1c3, 0x1c4, 0x1c5, 0x1c6, 0xe4,
     0x1c7, 0x1c8, 0x1c9, 0x1ca, 0x1cb, 0x1cc, 0x1cd, 0x1ce, 0x1cf, 0x1d0, 0x1d1, 0xe4,
@@ -71,7 +68,6 @@ static int g_level_backdrops[W8_LEVEL_COUNT] = {
     0x1da, 0x1db, 0x1dc, 0xe4,  0,     0,     0,     0,     0,     0,     0,
 };
 /* The path the five assertions carry. */
-#define PLEASE_WAIT_SCREEN_CPP __FILE__
 
 bool PleaseWaitScreenInitialize(void)
 {
@@ -174,17 +170,17 @@ void PleaseWaitScreenFrame(void)
         int entrance;
         ChooseNewGameStartLocation(&level, &entrance);
         if (!LoadLevel(level, entrance, false)) {
-            srAssertFail("fVerify", PLEASE_WAIT_SCREEN_CPP, 279, 0);
+            Fail("fVerify");
         }
         PostNewGameLoad();
 
         break;
     case 1:
         if (!LoadGame(g_load_descriptor->name)) {
-            srAssertFail("fVerify", PLEASE_WAIT_SCREEN_CPP, 293, 0);
+            Fail("fVerify");
         }
         if (!LoadLevel(g_status.resume_level, -1, true)) {
-            srAssertFail("fVerify", PLEASE_WAIT_SCREEN_CPP, 296, 0);
+            Fail("fVerify");
         }
 
         break;
@@ -214,13 +210,13 @@ void PleaseWaitScreenFrame(void)
     case 3:
         if (!ReloadLevelPreservingCamera(g_load_descriptor->parameter,
                                          g_load_descriptor->parameter_2)) {
-            srAssertFail("fVerify", PLEASE_WAIT_SCREEN_CPP, 320, 0);
+            Fail("fVerify");
         }
         AutoSaveIfAllowed(true);
     }
 
     if (!GetWorld()) {
-        srAssertFail("GetWorld()", PLEASE_WAIT_SCREEN_CPP, 332, 0);
+        Fail("GetWorld()");
     }
     RequestScreenTransition();
     if (g_load_descriptor->mode == 1 && g_status.intro_shown) {

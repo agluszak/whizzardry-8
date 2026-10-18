@@ -45,18 +45,14 @@ class srMaterial;
 
 extern float g_monster_light_scale;
 
-// GLOBAL: WIZ8 0x00659cb8
 std::vector<stMeshModel*> g_mesh_models;
 
-// GLOBAL: WIZ8 0x0065a0e8
 int g_decompressed_mesh_bytes;
 
 /* Byte budget for the decompressed per-frame caches; AllocateFrameBuffers
    reclaims least-recently-used frames past it. */
-// GLOBAL: WIZ8 0x00609d34
 static int g_decompressed_mesh_byte_limit = 0x800000;
 
-// FUNCTION: WIZ8 0x00470B00
 stMeshModel::stMeshModel(w8_long polygons, w8_long vertices) : srMeshModel(polygons, vertices)
 {
     vertex_lighting_ready = false;
@@ -70,7 +66,6 @@ stMeshModel::stMeshModel(w8_long polygons, w8_long vertices) : srMeshModel(polyg
     automap_filter_active = false;
 }
 
-// FUNCTION: WIZ8 0x00470ED0
 stMeshModel::~stMeshModel()
 {
     ReleaseDecompressedFrames();
@@ -90,7 +85,6 @@ srModel::Bounds stMeshModel::getBounds()
    push the resulting box, center and radius to each member. Models whose
    flags bit 2 is clear answer from the base-class bounding box; the rest
    decompress each frame's vertex table. */
-// FUNCTION: WIZ8 0x00471E10
 void stMeshModel::CalculateLinkedBounds()
 {
     stMeshModel* first = head ? head : this;
@@ -133,7 +127,6 @@ void stMeshModel::RevealVerticesNear(const glm::vec3& position, float range, con
     }
 }
 
-// FUNCTION: WIZ8 0x00473190
 srBoundingBox stMeshModel::GetFrameBounds(int frame)
 {
     if (static_cast<unsigned int>(frame) >= frames.size() || vertex_location_count == 0) {
@@ -154,7 +147,6 @@ srBoundingBox stMeshModel::GetFrameBounds(int frame)
 
 /* Apply pending vertex DIG lighting when flags bit 1 is set, then return
    the SurRender TriMesh cache. */
-// FUNCTION: WIZ8 0x00472270
 void stMeshModel::updateBakedLighting()
 {
     const auto& lights = vertex_lights[vertex_light_table];
@@ -208,7 +200,6 @@ srMeshModel::TriMesh stMeshModel::getTriMesh()
     return srMeshModel::getTriMesh();
 }
 
-// FUNCTION: WIZ8 0x00470360
 void stMeshModel::renderTriMesh(srGERD& renderer, const TriMesh& mesh)
 {
     RenderTriMeshWithEquations(renderer, mesh, {});
@@ -240,7 +231,6 @@ std::vector<w8_ulong> stMeshModel::facingPolygons(const TriMesh& mesh,
    a software backface cull into an owned active-polygon list and
    forces CULL_NONE; a null table leaves hardware cull at CULL_BACK unless
    g_render_cull_front already requested front culling. */
-// FUNCTION: WIZ8 0x00470380
 void stMeshModel::RenderTriMeshWithEquations(srGERD& renderer, const TriMesh& mesh,
                                              std::span<const glm::vec3> arg_poly_equations)
 {
@@ -298,7 +288,6 @@ static bool MeshNameEquals(std::string_view left, std::string_view right)
                                                      });
 }
 
-// FUNCTION: WIZ8 0x00473fa0
 void stMeshModel::ApplyAutomapPolygonFilter(std::span<const std::string_view> excluded_textures)
 {
     std::vector<w8_ulong> active;
@@ -323,7 +312,6 @@ void stMeshModel::ApplyAutomapPolygonFilter(std::span<const std::string_view> ex
     automap_filter_active = true;
 }
 
-// FUNCTION: WIZ8 0x00474120
 void stMeshModel::ClearAutomapPolygonFilter()
 {
     automap_polygons.reset();
@@ -335,7 +323,6 @@ void stMeshModel::ClearAutomapPolygonFilter()
 /* The active-polygon table selects which polygons a texture-table draw
    submits. Skin scans drop textures whose name starts with "blank"; a table
    not found among the skins uses the base/automap selection. */
-// FUNCTION: WIZ8 0x00473CD0
 srMeshModel::PolygonSelection stMeshModel::GetActivePolygons(int table, bool check_blanking)
 {
     auto skin = std::find_if(skins.begin(), skins.end(),
@@ -368,13 +355,11 @@ srMeshModel::PolygonSelection stMeshModel::GetActivePolygons(int table, bool che
     return std::span<const w8_ulong>(*selection);
 }
 
-// FUNCTION: WIZ8 0x00471160
 void stMeshModel::SetMappedVertex(int vertex, short key)
 {
     mapped_vertices.insert_or_assign(key, vertex);
 }
 
-// FUNCTION: WIZ8 0x004712d0
 int stMeshModel::FindMappedIndex(short key)
 {
     if (key < 0) {
@@ -402,18 +387,15 @@ stMeshModel* stMeshModel::Next() const
 
 /* One frame's compressed vertex table, refused outright when there is no
    table at all. */
-// FUNCTION: WIZ8 0x00471aa0
 short* stMeshModel::GetVertex(unsigned int frame)
 {
     return frame < frames.size() ? frames[frame].compressed_locations.data() : nullptr;
 }
 
-// FUNCTION: WIZ8 0x00473b00
 void stMeshModel::InitializeVertexFrames(int count)
 {
     if (count <= 0) {
-        srAssertFail("uiFrames", "C:\\Projects\\Wizardry 8\\Engine Code\\stMeshModel.cpp", 0x6e8,
-                     0);
+        Fail("uiFrames");
         return;
     }
     // ReadMesh calls this for each frame; it must not discard earlier frames.
@@ -433,7 +415,6 @@ void stMeshModel::InitializeVertexFrames(int count)
 
 /* Drop every decompressed float cache, returning the bytes actually released.
    Resetting the optional destroys its vector allocation, unlike vector::clear. */
-// FUNCTION: WIZ8 0x004739e0
 int stMeshModel::ReleaseDecompressedFrames()
 {
     int released = 0;
@@ -452,7 +433,6 @@ int stMeshModel::ReleaseDecompressedFrames()
 
 /* Evict least-recently-used decompressed frames until `needed` bytes are
    available, or give up when every eligible model has been drained. */
-// FUNCTION: WIZ8 0x00473BF0
 unsigned char ReclaimDecompressedBytes(unsigned int needed, const stMeshModel* retained_model)
 {
     unsigned int released = 0;
@@ -481,7 +461,6 @@ unsigned char ReclaimDecompressedBytes(unsigned int needed, const stMeshModel* r
     return 1;
 }
 
-// FUNCTION: WIZ8 0x004736d0
 int stMeshModel::FindSkinTable(std::string_view name)
 {
     for (const auto& skin : skins) {
@@ -494,7 +473,6 @@ int stMeshModel::FindSkinTable(std::string_view name)
     return -1;
 }
 
-// FUNCTION: WIZ8 0x00473720
 MeshResources<srTexture>* stMeshModel::GetTextureTable(int table)
 {
     auto skin = std::find_if(skins.begin(), skins.end(),
@@ -504,7 +482,6 @@ MeshResources<srTexture>* stMeshModel::GetTextureTable(int table)
 
 /* Clone one polygon-texture table under an owned name. Table ids are the lowest
    free non-negative integer and remain stable independently of vector position. */
-// FUNCTION: WIZ8 0x00473260
 int stMeshModel::CreateSkinTable(std::string_view name, int base_table)
 {
     if (FindSkinTable(name) != -1) {
@@ -527,7 +504,6 @@ int stMeshModel::CreateSkinTable(std::string_view name, int base_table)
     return table;
 }
 
-// FUNCTION: WIZ8 0x00473830
 void stMeshModel::RemoveSkinTable(int index)
 {
     if (static_cast<unsigned int>(index) < skins.size()) {
@@ -537,7 +513,6 @@ void stMeshModel::RemoveSkinTable(int index)
 
 /* Skin tables are named with the owning cycle plus a one-character suffix.
    Final teardown removes every table whose name has that cycle prefix. */
-// FUNCTION: WIZ8 0x00473780
 void stMeshModel::RemoveSkinTablesForCycle(std::string_view cycle_name)
 {
     if (!cycle_name.empty()) {
@@ -562,7 +537,6 @@ static void DecompressMeshNormals(const unsigned char* normals, int count, glm::
 
 /* Expand one frame's compressed table into `destination`: bit 1 the vertex
    locations, bit 2 the vertex normals, bit 4 the polygon normals. */
-// FUNCTION: WIZ8 0x00471930
 unsigned char stMeshModel::DecompressFrame(int frame, unsigned char flags,
                                            std::span<glm::vec3> destination)
 {
@@ -599,7 +573,6 @@ unsigned char stMeshModel::DecompressFrame(int frame, unsigned char flags,
 /* Allocate one frame's decompressed caches for the tables named by `flags`
    (bit 0 locations, bit 1 vertex normals, bit 2 polygon normals), reclaiming
    least-recently-used frames when the byte budget would overflow. */
-// FUNCTION: WIZ8 0x00471720
 unsigned char stMeshModel::AllocateFrameBuffers(unsigned int uiFrame, unsigned char flags)
 {
     if (uiFrame >= frames.size()) {
@@ -631,7 +604,6 @@ unsigned char stMeshModel::AllocateFrameBuffers(unsigned int uiFrame, unsigned c
 /* Return frame `frame`'s vertex locations, decompressing on demand. When
    `interpolation` is positive and another frame follows, both frames are
    decompressed and lerped into lerp_buffer (m_pLerpBuffer). */
-// FUNCTION: WIZ8 0x00471AD0
 glm::vec3* stMeshModel::GetVertexLocations(unsigned int frame, bool load, float interpolation)
 {
     if (frame >= frames.size()) {
@@ -654,13 +626,11 @@ glm::vec3* stMeshModel::GetVertexLocations(unsigned int frame, bool load, float 
     return frameTable(frame, load, W8_MESH_FRAME_LOCATIONS);
 }
 
-// FUNCTION: WIZ8 0x00471CA0
 glm::vec3* stMeshModel::GetVertexNormals(unsigned int frame, bool load)
 {
     return frameTable(frame, load, W8_MESH_FRAME_VERTEX_NORMALS);
 }
 
-// FUNCTION: WIZ8 0x00471D00
 glm::vec3* stMeshModel::GetPolygonNormals(unsigned int frame, bool load)
 {
     return frameTable(frame, load, W8_MESH_FRAME_POLYGON_NORMALS);
@@ -697,7 +667,6 @@ void stMeshModel::ClearVertexLights()
     flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
 }
 
-// FUNCTION: WIZ8 0x00472990
 void stMeshModel::SetAmbientColor(const glm::vec3& color)
 {
     if (!(ambient_color == color)) {
@@ -730,7 +699,6 @@ static void CompressMeshNormals(const std::vector<glm::vec3>& normals,
    locations. Vertex normals are summed per polygon corner, remapped through
    the shade index table when there is one, unitized, and stored as signed
    bytes scaled by 127. */
-// FUNCTION: WIZ8 0x004729F0
 void stMeshModel::ComputeFrameNormals(int frame)
 {
     if (static_cast<unsigned int>(frame) >= frames.size() || polygon_count == 0 ||
@@ -777,7 +745,6 @@ void stMeshModel::ComputeFrameNormals(int frame)
 }
 
 /* Thirteen-byte forwarder onto the per-frame normal builder. */
-// FUNCTION: WIZ8 0x00472100
 std::span<glm::vec3> stMeshModel::GetVertexLights(bool initialize, int table)
 {
     if (table == -1) {
@@ -793,7 +760,6 @@ std::span<glm::vec3> stMeshModel::GetVertexLights(bool initialize, int table)
     return lights;
 }
 
-// FUNCTION: WIZ8 0x004721E0
 std::span<float> stMeshModel::GetVertexSunlight(bool initialize)
 {
     if (vertex_sunlight.empty() && initialize) {
@@ -803,7 +769,6 @@ std::span<float> stMeshModel::GetVertexSunlight(bool initialize)
     return vertex_sunlight;
 }
 
-// FUNCTION: WIZ8 0x00473180
 void stMeshModel::FinalizeVertexFrame(int frame)
 {
     ComputeFrameNormals(frame);

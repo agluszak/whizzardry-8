@@ -84,78 +84,43 @@ constexpr double kPathOverlapTolerance = 250.0;
 class srMaterial;
 class srTexture;
 
-// GLOBAL: WIZ8 0x005ec388
-// GLOBAL: WIZ8 0x005ec398
 const float g_path_link_cost_base = 1001.0f;
-// GLOBAL: WIZ8 0x005ec39c
 const float g_patrol_cost_limit = 250000.0f;
-// GLOBAL: WIZ8 0x005ed2e8
 const float g_obstacle_radius_average_scale = 0.3333333f;
-
-// GLOBAL: WIZ8 0x00659c60
 
 /* Engine Code\OctPath.cpp. The unit is named by its own assertions, which
    place every one of these bodies in OctPath.cpp rather than in Octree.cpp
    where the octree's own loader lives. */
 
-// GLOBAL: WIZ8 0x0060827a
 unsigned short g_path_reserve = 2000;
-// GLOBAL: WIZ8 0x005ec344
 const float g_path_span_scale = 1.5259254723787308e-05f;
 
-// GLOBAL: WIZ8 0x00659c5c
 static bool g_path_continue_after_blocker;
-// GLOBAL: WIZ8 0x00659c64
-// GLOBAL: WIZ8 0x005ec3a8
 const double g_path_initial_cost_slack = 1.1;
-// GLOBAL: WIZ8 0x005ec3a0
 const double g_path_segment_split_distance = 25000.0;
-// GLOBAL: WIZ8 0x005ec348
 const float g_path_direction_threshold_0 = -0.9239000082015991f;
-// GLOBAL: WIZ8 0x005ec34c
 const float g_path_direction_threshold_1 = -0.38269999623298645f;
-// GLOBAL: WIZ8 0x005ec350
 const float g_path_direction_threshold_2 = 0.38269999623298645f;
-// GLOBAL: WIZ8 0x005ec354
 const float g_path_direction_threshold_3 = 0.9239000082015991f;
-// GLOBAL: WIZ8 0x005ec358
 const float g_path_cardinal_scale = 1.4149999618530273f;
 
-// GLOBAL: WIZ8 0x00659c6c
-// GLOBAL: WIZ8 0x005ec380
-
-// GLOBAL: WIZ8 0x0060f9e8
 static float g_path_acceleration_factor = 3.0f;
-// GLOBAL: WIZ8 0x0060f9ec
 static float g_path_angular_acceleration_factor = 2.0f;
-// GLOBAL: WIZ8 0x0060f9f0
 static float g_path_angular_deceleration_factor = 0.5f;
-// GLOBAL: WIZ8 0x0060f9f4
 static float g_path_prediction_time = 1.0f;
-// GLOBAL: WIZ8 0x0060f9f8
 static float g_path_approach_slow_time = 1.0f;
-// GLOBAL: WIZ8 0x0060f9fc
 static float g_path_approach_run_time = 8.0f;
-// GLOBAL: WIZ8 0x0060fa00
 static float g_path_approach_run_rate = 2.0f;
-// GLOBAL: WIZ8 0x0060fa04
 static float g_path_lookahead_time = 1.0f;
-// GLOBAL: WIZ8 0x0060fa08
 static float g_path_group_repulsion_factor = 1.0f;
-// GLOBAL: WIZ8 0x0060fa0c
 static float g_path_party_boundary_radius = 2.0f;
-// GLOBAL: WIZ8 0x0060fa10
 static float g_path_obstacle_steering_factor = 2.0f;
-// GLOBAL: WIZ8 0x0060fa14
 static float g_path_obstacle_braking_factor = 0.3f;
-
-#define OCTPATH_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\OctPath.cpp"
 
 bool LoadPathParameters();
 
 /* Mark a waypoint, growing the set with slack when the index is past its end. */
 
-// FUNCTION: WIZ8 0x004577F0
 void W8PathHeapHandle::DeleteRoot(W8PathSearchNode* node)
 {
     if (!open.empty()) {
@@ -168,7 +133,6 @@ void W8PathHeapHandle::DeleteRoot(W8PathSearchNode* node)
 /* Read a versioned .WPT snapshot and rebuild its live graph representation.
    Version one stores the four persistent edge fields separately; later files
    contain the complete packed 0x0e-byte edge record. */
-// FUNCTION: WIZ8 0x00459650
 unsigned char W8PathingService::ReadWaypointFile(W8Octree& octree)
 try {
     if (path_node_count == 0) {
@@ -279,7 +243,6 @@ try {
 
 /* Read the path hash and conditional tables completely before replacing
    live state. Counts below the lookup/key sentinel pair denote empty tables. */
-// FUNCTION: WIZ8 0x00458ce0
 unsigned char W8PathingService::ReadPathNodes(wiz8::File* handle)
 try {
     if (path_node_count < 0 ||
@@ -371,7 +334,6 @@ PathCellCoordinates W8PathingService::pathCell(const glm::vec3& position) const
    converted to the graph's integer grid - x from the bounds floor, z from the
    third bound - and the two conversions happen in the order the point's fields
    do not. */
-// FUNCTION: WIZ8 0x00460020
 void W8PathingService::LinkSurfaces(GDProp* prop)
 {
     unsigned int index = 1;
@@ -393,7 +355,6 @@ void W8PathingService::LinkSurfaces(GDProp* prop)
    and which name two surfaces by index in their shorts at +4 and +6. Each of
    those surfaces contributes one converted point, so the builder receives the
    edge as a pair. */
-// FUNCTION: WIZ8 0x004600b0
 void W8PathingService::LinkEdges(GDProp* prop)
 {
     unsigned int index = 1;
@@ -429,7 +390,6 @@ void W8PathingService::LinkEdges(GDProp* prop)
    Retail's missing-frame path performs its inverse-state work in two loops and
    deliberately carries the last value found by the first loop into the second.
    Once that carried value is disabled, later clear-state keys are skipped. */
-// FUNCTION: WIZ8 0x00457ea0
 void W8PathingService::SetConditionalPathFrame(unsigned int path_handle, unsigned short frame)
 {
     std::unordered_multimap<unsigned int, unsigned int>* index = m_pPathValues.get();
@@ -536,7 +496,6 @@ void W8PathingService::SetConditionalPathFrame(unsigned int path_handle, unsigne
 /* Find the value for one conditional path key whose persistent identity is
    the requested low word. Several state variants of the same path cell can
    occupy one hash bucket, so an ordinary key lookup is not sufficient. */
-// FUNCTION: WIZ8 0x00458970
 unsigned int W8PathingService::FindConditionalPathValue(unsigned int key, unsigned int value)
 {
     std::unordered_multimap<unsigned int, unsigned int>* index = m_pPathValues.get();
@@ -555,13 +514,12 @@ unsigned int W8PathingService::FindConditionalPathValue(unsigned int key, unsign
 }
 
 /* Refresh the disabled bit for a conditional list of waypoints. */
-// FUNCTION: WIZ8 0x004601b0
 void W8PathingService::CheckConditionalWayPtStatus(std::span<const unsigned short> waypoints)
 {
     for (const auto waypoint : waypoints) {
         if (waypoint >= static_cast<unsigned short>(m_waypoints.size())) {
-            srAssertFail("pusWayPts[i] < (UINT16)m_waypoints.size()", OCTPATH_CPP, 0x1a4e,
-                         "Pathing::CheckConditionalWayPtStatus: WayPt Index out of range.");
+            Fail("pusWayPts[i] < (UINT16)m_waypoints.size()",
+                 "Pathing::CheckConditionalWayPtStatus: WayPt Index out of range.");
         }
 
         W8PathSurface* surface = &m_waypoints[waypoint];
@@ -576,13 +534,12 @@ void W8PathingService::CheckConditionalWayPtStatus(std::span<const unsigned shor
 /* Refresh the disabled bit for conditional path edges. Only edges carrying
    the conditional-span flag participate. A disabled source always disables
    its edge; otherwise the current span test decides the bit. */
-// FUNCTION: WIZ8 0x00460250
 void W8PathingService::CheckConditionalLinkStatus(std::span<const unsigned short> edges)
 {
     for (const auto edge_index : edges) {
         if (edge_index >= static_cast<unsigned short>(m_pEdges.size())) {
-            srAssertFail("pusLinks[i] < (UINT16)m_pEdges.size()", OCTPATH_CPP, 0x1a6c,
-                         "Pathing::CheckConditionalLinkStatus: Link Index out of range.");
+            Fail("pusLinks[i] < (UINT16)m_pEdges.size()",
+                 "Pathing::CheckConditionalLinkStatus: Link Index out of range.");
         }
 
         W8PathEdge* edge = &m_pEdges[edge_index];
@@ -604,7 +561,6 @@ void W8PathingService::CheckConditionalLinkStatus(std::span<const unsigned short
    Disabled ordinary edges stop movement. Teleportal edges consume the current
    pair, move both live and attachment positions to its destination, and toggle
    the attachment's transition mode. */
-// FUNCTION: WIZ8 0x00460350
 unsigned char W8PathingService::HandlePathEdgeTransition(W8NavigatorMovementState* movement)
 {
     W8NavigatorAttachment* attachment = movement->attachment.get();
@@ -654,7 +610,6 @@ unsigned char W8PathingService::HandlePathEdgeTransition(W8NavigatorMovementStat
    exits restore the 1.0e10f limit. On success `range` receives the
    measured path length and `hops` the count of hop segments whose link is
    gated by a door. */
-// FUNCTION: WIZ8 0x004604B0
 bool W8PathingService::MeasureAttachmentPath(const glm::vec3* from, glm::vec3* to, float* range,
                                              int* hops)
 {
@@ -700,7 +655,6 @@ bool W8PathingService::MeasureAttachmentPath(const glm::vec3* from, glm::vec3* t
    bits, the props inside the segment's bounds box are queried and the one
    nearest the midpoint supplies the trigger. The hop counts when that
    trigger's action record is a type-10 door record whose flag bit is clear. */
-// FUNCTION: WIZ8 0x00460680
 bool W8PathingService::TestAttachmentHopDoor(W8NavigatorAttachment* attachment)
 {
     unsigned short current = attachment->path_cursor;
@@ -755,11 +709,8 @@ bool W8PathingService::TestAttachmentHopDoor(W8NavigatorAttachment* attachment)
                         }
                     }
                 }
-                W8TriggerActionData* action_data = selected->m_pActionData.get();
-                if (action_data == 0 || action_data->type != W8_TRIGGER_PAYLOAD_DOOR) {
-                    action_data = 0;
-                }
-                if (!static_cast<W8DoorTriggerActionData*>(action_data)->open) {
+                const auto* door = selected->doorData();
+                if (door && !door->open) {
                     return true;
                 }
             }
@@ -774,7 +725,6 @@ bool W8PathingService::TestAttachmentHopDoor(W8NavigatorAttachment* attachment)
    truncation of each node's estimated remaining cost. Edges are filtered by
    the surface/edge flags and the caller's `flags` masks. Returns the reached
    end waypoint index, or zero on failure. */
-// FUNCTION: WIZ8 0x00460b80
 unsigned short W8PathingService::FindPath(W8NavigatorAttachment* attachment, unsigned int flags)
 {
     unsigned short usStartNode = FindWaypoint(attachment->segment_start, false);
@@ -784,13 +734,11 @@ unsigned short W8PathingService::FindPath(W8NavigatorAttachment* attachment, uns
     unsigned int start = usStartNode;
     unsigned short usEndNode = FindWaypoint(attachment->path_destination, false);
     if (m_waypoints.size() <= start) {
-        srAssertFail("usStartNode < m_waypoints.size()", OCTPATH_CPP, 0x1bdb,
-                     "Starting index out of range");
+        Fail("usStartNode < m_waypoints.size()", "Starting index out of range");
     }
     unsigned int end = usEndNode;
     if (m_waypoints.size() <= end) {
-        srAssertFail("usEndNode < m_waypoints.size()", OCTPATH_CPP, 0x1bdc,
-                     "Last index out of range");
+        Fail("usEndNode < m_waypoints.size()", "Last index out of range");
     }
     if (usEndNode == 0) {
         return 0;
@@ -805,21 +753,18 @@ unsigned short W8PathingService::FindPath(W8NavigatorAttachment* attachment, uns
         do {
             unsigned int current = usWayPt;
             if (m_waypoints.size() <= current) {
-                srAssertFail("usWayPt < m_waypoints.size()", OCTPATH_CPP, 0x1bea,
-                             "Waypoint index out of range (1)");
+                Fail("usWayPt < m_waypoints.size()", "Waypoint index out of range (1)");
             }
             unsigned short usLink = m_waypoints[current].first_edge;
             unsigned int link = usLink;
             if (m_pEdges.size() <= link) {
-                srAssertFail("usLink < m_pEdges.size()", OCTPATH_CPP, 0x1bec,
-                             "Link index out of range (1)");
+                Fail("usLink < m_pEdges.size()", "Link index out of range (1)");
             }
             bool settled = true;
             if (usLink != 0) {
                 do {
                     if (m_pEdges.size() <= link) {
-                        srAssertFail("usLink < m_pEdges.size()", OCTPATH_CPP, 0x1bf0,
-                                     "Link index out of range (2)");
+                        Fail("usLink < m_pEdges.size()", "Link index out of range (2)");
                     }
                     unsigned int edge_flags = m_pEdges[link].flags;
                     unsigned int usNextNode = m_pEdges[link].destination;
@@ -839,8 +784,7 @@ unsigned short W8PathingService::FindPath(W8NavigatorAttachment* attachment, uns
                     unsigned short usNext = static_cast<unsigned short>(usNextNode);
                     unsigned short usCurrent = usWayPt;
                     if (m_waypoints.size() <= usNextNode) {
-                        srAssertFail("usNextNode < m_waypoints.size()", OCTPATH_CPP, 0x1bf5,
-                                     "Waypoint index out of range (2)");
+                        Fail("usNextNode < m_waypoints.size()", "Waypoint index out of range (2)");
                     }
                     if ((usNext != 0) && (usNext != usCurrent) &&
                         (!TestBit(m_visited_path_nodes, usNextNode))) {
@@ -901,8 +845,7 @@ unsigned short W8PathingService::FindPath(W8NavigatorAttachment* attachment, uns
                     usLink = m_pEdges[link].next;
                     link = usLink;
                     if (m_pEdges.size() <= link) {
-                        srAssertFail("usLink < m_pEdges.size()", OCTPATH_CPP, 0x1c22,
-                                     "Link index out of range (3)");
+                        Fail("usLink < m_pEdges.size()", "Link index out of range (3)");
                     }
                 } while (usLink != 0);
             }
@@ -919,8 +862,7 @@ unsigned short W8PathingService::FindPath(W8NavigatorAttachment* attachment, uns
             usWayPt = path_heap->root_node;
             current = usWayPt;
             if (m_waypoints.size() <= current) {
-                srAssertFail("usWayPt < m_waypoints.size()", OCTPATH_CPP, 0x1c2a,
-                             "Waypoint index out of range (3)");
+                Fail("usWayPt < m_waypoints.size()", "Waypoint index out of range (3)");
             }
             if (usWayPt == 0) {
                 return 0;
@@ -947,7 +889,6 @@ void W8PathingService::AppendScratchPath(W8NavigatorAttachment* attachment, unsi
    the shared scratch array into route entries, the end position
    is appended, and the final hop is trimmed back to the destination when the
    last waypoint already sees it. */
-// FUNCTION: WIZ8 0x00460950
 bool W8PathingService::BuildAttachmentPath(W8NavigatorAttachment* attachment, unsigned int flags)
 {
     if (path_heap != 0 && !m_waypoints.empty()) {
@@ -963,7 +904,7 @@ bool W8PathingService::BuildAttachmentPath(W8NavigatorAttachment* attachment, un
                     break;
                 }
                 if (m_waypoints.size() <= count) {
-                    srAssertFail("i < m_waypoints.size()", OCTPATH_CPP, 0x1ba2, 0);
+                    Fail("i < m_waypoints.size()");
                 }
                 m_path_scratch[count] = node;
                 node = m_waypoints[node].search_parent;
@@ -1010,7 +951,6 @@ static void FinalizeWaypointRoute(W8NavigatorAttachment* attachment, bool has_st
    parent into the scratch array, reversed into the attachment's position
    and value arrays, trimmed at the `separation` sphere around the target, and
    the last stored position becomes path_destination. */
-// FUNCTION: WIZ8 0x004612a0
 bool W8PathingService::LinkAttachmentTarget(W8NavigatorAttachment* attachment, unsigned int flags,
                                             const glm::vec3* target, float separation)
 {
@@ -1057,7 +997,7 @@ bool W8PathingService::LinkAttachmentTarget(W8NavigatorAttachment* attachment, u
             break;
         }
         if (m_waypoints.size() <= count) {
-            srAssertFail("i < m_waypoints.size()", OCTPATH_CPP, 0x1c97, 0);
+            Fail("i < m_waypoints.size()");
         }
         m_path_scratch[count] = current;
         current = m_waypoints[current].search_parent;
@@ -1076,7 +1016,6 @@ bool W8PathingService::LinkAttachmentTarget(W8NavigatorAttachment* attachment, u
    candidate priced beyond m_patrol_distance or recurses into each in sorted
    order. The farthest-measured candidate is parked in m_probe_cell_key for
    the fallback path in LinkAttachmentTarget. */
-// FUNCTION: WIZ8 0x004615d0
 unsigned short W8PathingService::RecurseTargetLinks(unsigned short waypoint)
 {
     unsigned short edge;
@@ -1161,7 +1100,6 @@ unsigned short W8PathingService::RecurseTargetLinks(unsigned short waypoint)
    attachment path. The fallback nodes tracked in m_patrol_node and
    m_probe_cell_key supply the endpoint when no candidate qualifies.
    `velocity` is passed by callers but never read. */
-// FUNCTION: WIZ8 0x00461960
 bool W8PathingService::BuildPatrolPath(W8NavigatorAttachment* attachment, unsigned int flags,
                                        const glm::vec3* destination, float minimum,
                                        const glm::vec3* velocity, float maximum)
@@ -1219,7 +1157,7 @@ bool W8PathingService::BuildPatrolPath(W8NavigatorAttachment* attachment, unsign
             break;
         }
         if (m_waypoints.size() <= count) {
-            srAssertFail("i < m_waypoints.size()", OCTPATH_CPP, 0x1d87, 0);
+            Fail("i < m_waypoints.size()");
         }
         previous = static_cast<unsigned short>(current);
         m_path_scratch[count] = previous;
@@ -1240,7 +1178,6 @@ bool W8PathingService::BuildPatrolPath(W8NavigatorAttachment* attachment, unsign
    each candidate in sorted order. The argmin-key candidate is parked in
    m_patrol_node and the best-cost alternate in m_probe_cell_key for the
    caller's fallback. The visited set is m_visited_path_nodes. */
-// FUNCTION: WIZ8 0x00461d10
 unsigned short W8PathingService::RecursePatrolLinks(unsigned short waypoint)
 {
     unsigned short links[20];
@@ -1253,8 +1190,7 @@ unsigned short W8PathingService::RecursePatrolLinks(unsigned short waypoint)
     if (link != 0) {
         do {
             if (m_pEdges.size() <= static_cast<unsigned int>(link)) {
-                srAssertFail("usLink < m_pEdges.size()", OCTPATH_CPP, 0x1dcf,
-                             "Link index out of range");
+                Fail("usLink < m_pEdges.size()", "Link index out of range");
             }
             unsigned int edge_flags = m_pEdges[link].flags;
             unsigned short next = m_pEdges[link].destination;
@@ -1273,8 +1209,7 @@ unsigned short W8PathingService::RecursePatrolLinks(unsigned short waypoint)
                 (next != 0)) {
                 if (!TestBit(m_visited_path_nodes, next)) {
                     if (m_waypoints.size() <= static_cast<unsigned int>(next)) {
-                        srAssertFail("usNextNode < m_waypoints.size()", OCTPATH_CPP, 0x1dd9,
-                                     "Waypoint index out of range");
+                        Fail("usNextNode < m_waypoints.size()", "Waypoint index out of range");
                     }
                     W8PathSurface* next_surface = &m_waypoints[next];
                     distance = glm::length((next_surface->position - m_patrol_destination));
@@ -1305,8 +1240,8 @@ unsigned short W8PathingService::RecursePatrolLinks(unsigned short waypoint)
                             }
                         }
                         if (0x13 < count) {
-                            srAssertFail("ulLinkNum < 20", OCTPATH_CPP, 0x1e00,
-                                         "Too many links for waypoint in RecursePatrolLinks");
+                            Fail("ulLinkNum < 20",
+                                 "Too many links for waypoint in RecursePatrolLinks");
                         }
                     }
                 }
@@ -1322,8 +1257,7 @@ unsigned short W8PathingService::RecursePatrolLinks(unsigned short waypoint)
     for (unsigned int index = 0; index < count; ++index) {
         unsigned short next = m_pEdges[links[index]].destination;
         if (m_waypoints.size() <= static_cast<unsigned int>(next)) {
-            srAssertFail("usNextNode < m_waypoints.size()", OCTPATH_CPP, 0x1e0f,
-                         "Waypoint index out of range (2)");
+            Fail("usNextNode < m_waypoints.size()", "Waypoint index out of range (2)");
         }
         if (((m_patrol_distance < costs[index]) || (g_patrol_cost_limit < costs[index])) &&
             (m_patrol_min < distance)) {
@@ -1341,7 +1275,6 @@ unsigned short W8PathingService::RecursePatrolLinks(unsigned short waypoint)
    the selected parent tree. A child participates only while it remains in the
    active waypoint bit set and names the current waypoint as its parent. The
    cost reaching zero is the retail recursion boundary. */
-// FUNCTION: WIZ8 0x00462220
 void W8PathingService::ReduceWaypointCosts(unsigned int waypoint, float amount)
 {
     W8PathSurface* surface = &m_waypoints[waypoint];
@@ -1366,7 +1299,6 @@ void W8PathingService::ReduceWaypointCosts(unsigned int waypoint, float amount)
    only when the live path grid permits the span from the supplied position.
    W8_NAV_ATTACHMENT_START_WAYPOINT makes the first probe repeat the current path
    index. */
-// FUNCTION: WIZ8 0x00462de0
 bool W8PathingService::AdvanceAttachmentWaypoint(const glm::vec3* source,
                                                  W8NavigatorAttachment* attachment)
 {
@@ -1390,7 +1322,6 @@ bool W8PathingService::AdvanceAttachmentWaypoint(const glm::vec3* source,
    tag-only query succeeds immediately. A spatial query must lie strictly
    farther from the probe center than the search origin was, while remaining
    strictly inside its collision radius plus the caller's own radius. */
-// FUNCTION: WIZ8 0x00465970
 bool W8PathingService::MatchesPathProbe(unsigned int tag, const float* radius,
                                         const glm::vec3* position)
 {
@@ -1412,7 +1343,6 @@ bool W8PathingService::MatchesPathProbe(unsigned int tag, const float* radius,
 }
 
 /* Append a cleared planner node; zero remains the sentinel. */
-// FUNCTION: WIZ8 0x00465A00
 unsigned short W8PathingService::AllocateSearchNode()
 {
     const auto index = m_search_nodes.size();
@@ -1423,7 +1353,6 @@ unsigned short W8PathingService::AllocateSearchNode()
 /* Walk grid-sized steps from a position toward a search node. Every crossed
    cell must resolve through the visited-node index to a live, unblocked node
    whose recorded clearance exceeds the caller's limit. */
-// FUNCTION: WIZ8 0x00465AF0
 bool W8PathingService::CanReachSearchNode(const glm::vec3* position, unsigned short target_node,
                                           float clearance)
 {
@@ -1463,7 +1392,6 @@ bool W8PathingService::CanReachSearchNode(const glm::vec3* position, unsigned sh
 /* Pull the last planned point onto the requested contact shell when it only
    overshoots that shell by less than half a path cell. The adjusted point is
    also made the attachment's current point and republished to the octree. */
-// FUNCTION: WIZ8 0x00465D70
 void W8PathingService::AdjustFinalPathEndpoint(W8NavigatorMovementState* movement, float radius,
                                                float separation)
 {
@@ -1517,7 +1445,6 @@ void W8PathingService::AdjustFinalPathEndpoint(W8NavigatorMovementState* movemen
    the selected frame then gain the caller's state bits. The hash table may
    contain several values for one key, so the low word from the serialized
    conditional value is the identity used to find the exact pairing. */
-// FUNCTION: WIZ8 0x00465fb0
 void W8PathingService::UpdateConditionalPathFlags(unsigned int path_handle, unsigned short frame,
                                                   unsigned int flags)
 {
@@ -1550,7 +1477,6 @@ void W8PathingService::UpdateConditionalPathFlags(unsigned int path_handle, unsi
 /* Notify every collidable prop overlapping the search cell. The planner's
    single-result form stops after the first notification and returns that
    prop's collection index; the ordinary form visits the complete query. */
-// FUNCTION: WIZ8 0x004663D0
 int W8PathingService::ProcessSearchNodeProps(unsigned short node_index, bool first_only)
 {
     W8PathSearchNode* node = &m_search_nodes[node_index];
@@ -1583,7 +1509,6 @@ int W8PathingService::ProcessSearchNodeProps(unsigned short node_index, bool fir
    monster manager remains authoritative for resolving each live navigator.
    Retail caps the resulting probe table at five entries even though its fixed
    storage has room for ten. */
-// FUNCTION: WIZ8 0x004656a0
 unsigned int W8PathingService::CollectPathProbes(W8NavigatorMovementState* movement, float radius)
 {
     m_path_probe_count = 0;
@@ -1671,7 +1596,6 @@ short W8PathingService::TraceSearchNodeToTarget(unsigned short node,
    active attachment target. The open-chain index owns one search node per
    cell, the fixed-capacity minimum heap chooses the next node to expand, and
    the selected parent chain is collapsed into the attachment's route array. */
-// FUNCTION: WIZ8 0x00463460
 unsigned short W8PathingService::PlanMovement(W8NavigatorMovementState* movement, float radius,
                                               float separation)
 {
@@ -1908,7 +1832,7 @@ unsigned short W8PathingService::PlanMovement(W8NavigatorMovementState* movement
         if (best_node > (m_search_nodes.size() - 1)) {
             char message[80];
             sprintf(message, "A*, Invalid node index %d from Queue", best_node);
-            srAssertFail("(ulBestNode <= m_ulSearchNodesUsed)", OCTPATH_CPP, 0x22ad, message);
+            Fail("(ulBestNode <= m_ulSearchNodesUsed)", message);
         }
     }
 
@@ -2052,7 +1976,6 @@ unsigned short W8PathingService::PlanMovement(W8NavigatorMovementState* movement
 /* Plan with an explicit target position. The service flag suppresses the core
    planner's ordinary post-search callback for exactly this nested call, while
    the planner's status is passed straight back to the navigator caller. */
-// FUNCTION: WIZ8 0x00464ab0
 unsigned short W8PathingService::PlanMovementToPosition(W8NavigatorMovementState* movement,
                                                         const glm::vec3* target, float radius,
                                                         float separation)
@@ -2068,7 +1991,6 @@ unsigned short W8PathingService::PlanMovementToPosition(W8NavigatorMovementState
    mode scores from the shared ceiling; ordinary mode starts from the node's
    base score and adds a range penalty only when the adjusted gap is positive.
    Flag 0x2000 applies the final fixed penalty in either mode. */
-// FUNCTION: WIZ8 0x00464ff0
 float W8PathingService::UpdateSearchNodeScore(unsigned short node_index, const glm::vec3* position,
                                               float minimum, float maximum)
 {
@@ -2108,7 +2030,6 @@ float W8PathingService::UpdateSearchNodeScore(unsigned short node_index, const g
    volumes can mark the node as hard-blocked before the live object lookup.
    Shallow overlaps move the node outward and set flag 0x200; deeper or
    directionally conflicting overlaps return the retail collision state. */
-// FUNCTION: WIZ8 0x00465130
 unsigned short W8PathingService::ResolveSearchNodeCollisions(W8NavigatorMovementState* movement,
                                                              unsigned short node_index,
                                                              float radius, float separation)
@@ -2221,7 +2142,6 @@ unsigned short W8PathingService::ResolveSearchNodeCollisions(W8NavigatorMovement
    of sight to the movement target. The trace origin is an offset rotated from
    the candidate-to-target bearing into the configured target yaw; the trace
    endpoint is the movement target with its configured vertical adjustment. */
-// FUNCTION: WIZ8 0x00464cc0
 bool W8PathingService::TestSearchPositionVisibility(const glm::vec3* position,
                                                     W8NavigatorMovementState* movement)
 {
@@ -2263,7 +2183,6 @@ bool W8PathingService::TestSearchPositionVisibility(const glm::vec3* position,
    collapse that segment to the current position and finish without planning.
    The optional probe runs the same core planner under its two temporary flags
    before the ordinary authoritative call. */
-// FUNCTION: WIZ8 0x00464b00
 unsigned short W8PathingService::ConfigureMovementSearch(
     W8NavigatorMovementState* movement, int target_location, float radius, float separation,
     float maximum_distance, glm::vec3 trace_offset, int requested_trace_mode,
@@ -2330,7 +2249,6 @@ unsigned short W8PathingService::ConfigureMovementSearch(
    height entries must be unblocked; dynamic entries additionally require the
    caller's permission and their own enabled bit. The selected packed value
    updates height, vertical offset, compass direction, and the dynamic byte. */
-// FUNCTION: WIZ8 0x004648d0
 bool W8PathingService::ResolvePathCell(unsigned int key, bool allow_dynamic, unsigned int* height,
                                        float* direction, float* vertical, bool* dynamic)
 {
@@ -2369,7 +2287,6 @@ bool W8PathingService::ResolvePathCell(unsigned int key, bool allow_dynamic, uns
 /* Resolve the path cell under `position` through the path-value hash, pick the
    entry whose height is within two cell spans, and compute the slide
    direction for `delta` from its neighbor mask. */
-// FUNCTION: WIZ8 0x00466600
 std::optional<glm::vec3> W8PathingService::neighborSlideDirection(const glm::vec3& position,
                                                                   const glm::vec3& delta)
 {
@@ -2407,7 +2324,6 @@ std::optional<glm::vec3> W8PathingService::neighborSlideDirection(const glm::vec
     return std::nullopt;
 }
 
-// FUNCTION: WIZ8 0x00466990
 std::optional<glm::vec3> W8PathingService::obstacleDirection(const glm::vec3& delta)
 {
     return slideDirection(m_waypoint_neighbor_mask, delta);
@@ -2419,7 +2335,6 @@ std::optional<glm::vec3> W8PathingService::obstacleDirection(const glm::vec3& de
    edge-transition handler, and relinks to a linked navigator's route when
    the end is reached but still out of contact. Returns whether the step
    completed the path. */
-// FUNCTION: WIZ8 0x004669b0
 unsigned int W8PathingService::StepAlongPath(W8NavigatorMovementState* movement, float radius,
                                              float separation)
 {
@@ -2623,7 +2538,6 @@ void W8PathingService::ResolveLinkedNavigatorAttachment(W8NavigatorMovementState
    route is rebuilt from the navigator's current position to the linked
    path's next live waypoint, and the linked route's remaining positions are
    appended verbatim. Returns the path-build result. */
-// FUNCTION: WIZ8 0x00466fb0
 bool W8PathingService::PrepareLinkedNavigator(W8NavigatorMovementState* movement)
 {
     W8NavigatorAttachment* attachment = movement->attachment.get();
@@ -2669,7 +2583,6 @@ bool W8PathingService::PrepareLinkedNavigator(W8NavigatorMovementState* movement
    Hostile groups run sight and RTAI between slices and bail when combat
    starts. `radius`/`separation` are passed by callers but never read.
    Returns whether the step completed the path. */
-// FUNCTION: WIZ8 0x00467150
 unsigned int W8PathingService::StepMonsterAlongPath(W8NavigatorMovementState* movement,
                                                     float radius, float separation)
 {
@@ -2722,7 +2635,6 @@ unsigned int W8PathingService::StepMonsterAlongPath(W8NavigatorMovementState* mo
 }
 
 /* Containers own the graph and search tables; retire the global service slot. */
-// FUNCTION: WIZ8 0x00457b10
 W8PathingService::~W8PathingService() = default;
 
 /* Build the pathing service.
@@ -2730,7 +2642,6 @@ W8PathingService::~W8PathingService() = default;
    Everything starts cleared except three hundred-bit sets, a reserve table
    sized from the shared bound, and one state object. The containing octree owns the service; construction does not change the
    active world. */
-// FUNCTION: WIZ8 0x004578e0
 W8PathingService::W8PathingService(W8Octree* owner) : owner_octree(owner)
 {
     grid_scale = 0;
@@ -2738,7 +2649,6 @@ W8PathingService::W8PathingService(W8Octree* owner) : owner_octree(owner)
     path_node_count = 0;
     m_marked_path_nodes.assign(100, false);
     m_visited_path_nodes.assign(100, false);
-    level_name = 0;
     m_probe_bounded = false;
     m_path_cost_limit = 1.0e10f;
     start_waypoint = 0;
@@ -2756,9 +2666,8 @@ W8PathingService::W8PathingService(W8Octree* owner) : owner_octree(owner)
 /* Take the octree's own minimum/maximum bounds pair and level name. The span is the vertical extent
    of that box scaled down to one height unit; the cell count is how many of those units fit in
    1.25 grid cells, plus one, and bounds the vertical band the height lookups accept. */
-// FUNCTION: WIZ8 0x00458a50
 void W8PathingService::ConfigureForLevel(int size, float grid_scale, const srBoundingBox& bounds,
-                                         const char* name)
+                                         std::string_view name)
 {
     path_node_count = size;
     this->grid_scale = grid_scale;
@@ -2774,7 +2683,6 @@ void W8PathingService::ConfigureForLevel(int size, float grid_scale, const srBou
    X and Z form the hash key. Entries with that key carry a one-based vertical
    cell in their low half; among candidates inside the service's vertical span,
    the closest height wins and its complete packed value is returned. */
-// FUNCTION: WIZ8 0x00459c00
 unsigned int W8PathingService::ClassifyWaypoint(const glm::vec3* position)
 {
     unsigned int key = pathCell(*position).key;
@@ -2803,7 +2711,6 @@ unsigned int W8PathingService::ClassifyWaypoint(const glm::vec3* position)
     return result;
 }
 
-// FUNCTION: WIZ8 0x00459d60
 unsigned int W8PathingService::FindPathCell(glm::vec3* position, glm::uvec2* cell, bool adjust)
 {
     int path_height = static_cast<int>((position->y - level_bounds.minimum.y) / span) + 1;
@@ -2941,7 +2848,6 @@ bool W8PathingService::FindNearbyPathCell(glm::vec3* position, bool snap_to_cell
    The accepted vertical window is twice the service's cell count in either
    direction. X and Z snap to the horizontal cell centers; Y snaps to the exact
    one-based height carried by the matching packed index value. */
-// FUNCTION: WIZ8 0x00462e60
 bool W8PathingService::SnapWaypointPosition(glm::vec3* position, bool snap_to_cell)
 {
     return FindNearbyPathCell(position, snap_to_cell, false, nullptr);
@@ -2952,7 +2858,6 @@ bool W8PathingService::SnapWaypointPosition(glm::vec3* position, bool snap_to_ce
    the special direction flag selects the global fallback instead. A successful
    lookup may also move the position onto the indexed cell before testing that
    clearance. */
-// FUNCTION: WIZ8 0x00463040
 bool W8PathingService::TestPathCellClearance(glm::vec3* position, float clearance,
                                              bool snap_to_cell)
 {
@@ -2968,7 +2873,6 @@ bool W8PathingService::TestPathCellClearance(glm::vec3* position, float clearanc
 /* Snap a position to the closest eligible indexed height no higher than its
    own. Directional entries are ignored unless the caller explicitly permits
    them; X and Z always move to the chosen cell's center. */
-// FUNCTION: WIZ8 0x00463290
 bool W8PathingService::SnapToLowerPathCell(glm::vec3* position, bool allow_directional)
 {
     bool found = false;
@@ -3011,7 +2915,6 @@ bool W8PathingService::SnapToLowerPathCell(glm::vec3* position, bool allow_direc
 /* Search the short arc between an attachment's two endpoint positions. The
    temporary index is rebuilt before the paired directed probes, so both walks
    share only the path position they discover. */
-// FUNCTION: WIZ8 0x00462360
 bool W8PathingService::ProbeAttachmentPath(W8NavigatorAttachment* attachment)
 {
     float distance = glm::length((attachment->segment_start - attachment->path_destination));
@@ -3046,7 +2949,6 @@ bool W8PathingService::ProbeAttachmentPath(W8NavigatorAttachment* attachment)
    and renormalizes to the pair's original radius. The dot product identifies
    when the sweep has passed its forward threshold and the walk stops after it
    subsequently crosses behind the starting direction. */
-// FUNCTION: WIZ8 0x00462570
 void W8PathingService::ProbeWaypointArc(const glm::vec3* from, const glm::vec3* to)
 {
     glm::vec3 direction;
@@ -3088,7 +2990,6 @@ void W8PathingService::ProbeWaypointArc(const glm::vec3* from, const glm::vec3* 
 
 /* Convert the signed steps on the walk's driving and secondary axes into the
    four horizontal direction codes consumed by the segment probe. */
-// FUNCTION: WIZ8 0x0045aee0
 void W8PathingService::GetPathGridStepDirections(const W8PathGridWalk* walk, int* directions)
 {
     if (walk->major_axis != 0) {
@@ -3126,7 +3027,6 @@ void W8PathingService::GetPathGridStepDirections(const W8PathGridWalk* walk, int
    Coordinates are first converted to integer distances from the level origin.
    The larger absolute delta drives the walk; the start-cell remainder fixes
    how far each axis is from its next boundary and therefore the initial error. */
-// FUNCTION: WIZ8 0x0045af60
 void W8PathingService::BuildPathGridWalk(const glm::vec2* from, const glm::vec2* to,
                                          const glm::vec2* origin, W8PathGridWalk* walk)
 {
@@ -3197,7 +3097,6 @@ void W8PathingService::BuildPathGridWalk(const glm::vec2* from, const glm::vec2*
    step cost; when a bounded probe is active, the cheapest reached cell and its
    world-space center are retained on the service. Direction bits on the chosen
    path record can terminate the walk after the corresponding grid step. */
-// FUNCTION: WIZ8 0x00462750
 bool W8PathingService::ProbeWaypointSegment(const glm::vec3* from, const glm::vec3* to)
 {
     float distance = glm::length((*to - *from));
@@ -3323,7 +3222,6 @@ bool W8PathingService::ProbeWaypointSegment(const glm::vec3* from, const glm::ve
    neighboring cells. A source record carrying an explicit direction mask only
    permits those directions to be tested. As in retail, an entirely open set
    of eight neighbors is represented by zero rather than 0xff. */
-// FUNCTION: WIZ8 0x004667a0
 unsigned int W8PathingService::ComputeWaypointNeighborMask(const glm::ivec2* cell,
                                                            unsigned int path_value)
 {
@@ -3387,7 +3285,6 @@ unsigned int W8PathingService::ComputeWaypointNeighborMask(const glm::ivec2* cel
    the last accepted cell; its alternate stepping mode combines simultaneous
    major/minor moves into the corresponding diagonal direction. Packed path
    records contribute their direction masks and two obstruction flag bits. */
-// FUNCTION: WIZ8 0x0045a1b0
 bool W8PathingService::TestWaypointSpan(const glm::vec3* source, glm::vec3* destination,
                                         bool adjust_destination, bool diagonal_steps)
 {
@@ -3573,7 +3470,6 @@ bool W8PathingService::TestWaypointSpan(const glm::vec3* source, glm::vec3* dest
 /* Compare clearance along the two compass rays bracketing a horizontal
    direction. The normalized Z component selects the pair; the sign of X
    selects which half of the compass owns the middle bands. */
-// FUNCTION: WIZ8 0x0045aac0
 float W8PathingService::CompareDirectionalClearance(const glm::vec3* position,
                                                     const glm::vec3* direction, float distance)
 {
@@ -3637,7 +3533,6 @@ float W8PathingService::CompareDirectionalClearance(const glm::vec3* position,
    direction. Cardinal runs use the retail diagonal-to-axis scale before cell
    stepping; every crossed cell must carry a vertically compatible record whose
    explicit direction mask, when present, permits the same direction. */
-// FUNCTION: WIZ8 0x0045ac70
 float W8PathingService::MeasureDirectionalPath(const glm::ivec2* cell, int direction,
                                                unsigned int height, float distance)
 {
@@ -3732,7 +3627,6 @@ float W8PathingService::MeasureDirectionalPath(const glm::ivec2* cell, int direc
    first candidate connected by the ordinary span test is selected. Exhaustive
    mode retries the ordered candidates with paired arc probes, rebuilding the
    temporary visitation index for every attempt. */
-// FUNCTION: WIZ8 0x0045b120
 unsigned short W8PathingService::FindWaypoint(const glm::vec3& position, bool exhaustive)
 {
     glm::vec3 query = position;
@@ -3756,7 +3650,7 @@ unsigned short W8PathingService::FindWaypoint(const glm::vec3& position, bool ex
         return result;
     }
     if (static_cast<unsigned int>(count) >= 200) {
-        srAssertFail("ulCount<200", OCTPATH_CPP, 0xe0c, "Too many nodes in list");
+        Fail("ulCount<200", "Too many nodes in list");
     }
 
     unsigned int distances[199];
@@ -3838,7 +3732,6 @@ unsigned short W8PathingService::FindWaypoint(const glm::vec3& position, bool ex
    Unlike SnapWaypointPosition, this operation leaves X and Z exactly
    as supplied. The one-based height stored in the index is converted back to
    the level's world-space Y coordinate. */
-// FUNCTION: WIZ8 0x0045b5a0
 void W8PathingService::SnapPathHeight(glm::vec3* position)
 {
     unsigned int key = pathCell(*position).key;
@@ -3870,7 +3763,6 @@ void W8PathingService::SnapPathHeight(glm::vec3* position)
 /* Build the path surface normal from height-snapped samples at the current
    point, one X cell over, and one Z cell over. The Z-edge crossed with the
    X-edge gives the upward normal on flat ground, matching the retail order. */
-// FUNCTION: WIZ8 0x0045b730
 void W8PathingService::GetPathSurfaceNormal(const glm::vec3* position, glm::vec3* normal)
 {
     glm::vec3 origin = *position;
@@ -3895,7 +3787,6 @@ void W8PathingService::GetPathSurfaceNormal(const glm::vec3* position, glm::vec3
    and accepts only an edge carrying both dynamic bits. Kind-eight octree hits
    are filtered to active props whose trigger owner permits this activation;
    when several remain, the owner nearest the segment midpoint wins. */
-// FUNCTION: WIZ8 0x0045b880
 void W8PathingService::ActivateMovementTrigger(W8NavigatorMovementState* movement,
                                                bool use_path_edge)
 {
@@ -4011,9 +3902,9 @@ void W8PathingService::ActivateMovementTrigger(W8NavigatorMovementState* movemen
    the current flags rather than starting from zero. The resulting edge is
    forced dynamic, its cached distance is invalidated, and both the renderer
    and path-edit state are marked dirty. */
-// FUNCTION: WIZ8 0x0045f2d0
 
-unsigned int W8PathingService::FindPathHandle(const char* path_name, W8PathGridBounds* path_bounds,
+unsigned int W8PathingService::FindPathHandle(std::string_view path_name,
+                                              W8PathGridBounds* path_bounds,
                                               W8PathVerticalRange* path_range)
 {
     unsigned int index;
@@ -4021,11 +3912,11 @@ unsigned int W8PathingService::FindPathHandle(const char* path_name, W8PathGridB
     unsigned short value;
     float height;
 
-    if (path_name == 0 || *path_name == 0 || m_pCondPaths.empty()) {
+    if (path_name.empty() || m_pCondPaths.empty()) {
         return 0;
     }
     for (index = 0; index < static_cast<unsigned int>(m_pCondPaths.size()); ++index) {
-        if (strcmp(path_name, m_pCondPaths[index].name) == 0) {
+        if (std::string_view(m_pCondPaths[index].name) == path_name) {
             path_bounds->min_z = 0xffff;
             path_bounds->min_x = 0xffff;
             path_bounds->max_z = 0;
@@ -4073,7 +3964,6 @@ struct W8PathParameter {
     float* value;
 };
 
-// GLOBAL: WIZ8 0x0060FA18
 static W8PathParameter g_path_parameters[] = {
     {"ACCELERATION_FACTOR", &g_path_acceleration_factor},
     {"ANGULAR_ACCEL_FACTOR", &g_path_angular_acceleration_factor},
@@ -4091,13 +3981,11 @@ static W8PathParameter g_path_parameters[] = {
     {"FLY_SWIM_MIN_ANIM_RATE", &g_navigator_minimum_speed_mode23},
     {0, 0}};
 
-// FUNCTION: WIZ8 0x004cae40
 W8PathParameters::W8PathParameters()
 {
     LoadPathParameters();
 }
 
-// FUNCTION: WIZ8 0x004cae50
 void W8PathParameters::InitializeSteeringContext(W8NavigatorMovementState* movement)
 {
     W8Navigator* linked;
@@ -4129,7 +4017,6 @@ void W8PathParameters::InitializeSteeringContext(W8NavigatorMovementState* movem
     nearby_queried = false;
 }
 
-// FUNCTION: WIZ8 0x004cafc0
 bool W8PathParameters::QueryNearbyNavigators()
 {
     glm::vec3 lower;
@@ -4150,7 +4037,6 @@ bool W8PathParameters::QueryNearbyNavigators()
     return !nearby_locations.empty();
 }
 
-// FUNCTION: WIZ8 0x004cb090
 void W8PathParameters::IntegrateSteering()
 {
     float step;
@@ -4232,7 +4118,6 @@ void W8PathParameters::IntegrateSteering()
     movement->position = position;
 }
 
-// FUNCTION: WIZ8 0x004cb520
 void W8PathParameters::UpdateYawSteering(float time_step, bool use_turn_rate)
 {
     float remaining;
@@ -4264,7 +4149,6 @@ void W8PathParameters::UpdateYawSteering(float time_step, bool use_turn_rate)
     movement->yaw_velocity = angular_velocity;
 }
 
-// FUNCTION: WIZ8 0x004cb620
 bool W8PathParameters::PredictNavigatorCollision()
 {
     float lookahead;
@@ -4365,7 +4249,6 @@ bool W8PathParameters::PredictNavigatorCollision()
     return found;
 }
 
-// FUNCTION: WIZ8 0x004cbb70
 bool W8PathParameters::HandleObstacleAhead()
 {
     glm::vec3 escape;
@@ -4451,7 +4334,6 @@ bool W8PathParameters::HandleObstacleAhead()
     return false;
 }
 
-// FUNCTION: WIZ8 0x004cc1a0
 void W8PathParameters::AccumulateSeekForce()
 {
     glm::vec3 desired;
@@ -4481,7 +4363,6 @@ void W8PathParameters::AccumulateSeekForce()
     force += seek;
 }
 
-// FUNCTION: WIZ8 0x004cc420
 void W8PathParameters::SeekWithApproachSpeed()
 {
     float distance;
@@ -4500,7 +4381,6 @@ void W8PathParameters::SeekWithApproachSpeed()
     AccumulateSeekForce();
 }
 
-// FUNCTION: WIZ8 0x004cc4c0
 void W8PathParameters::AccumulateGroupRepulsion()
 {
     unsigned int index;
@@ -4546,7 +4426,6 @@ void W8PathParameters::AccumulateGroupRepulsion()
     }
 }
 
-// FUNCTION: WIZ8 0x004cc680
 bool W8PathParameters::SteerAroundLeader(bool allow_path_fallback)
 {
     W8Navigator* leader;
@@ -4614,7 +4493,6 @@ bool W8PathParameters::SteerAroundLeader(bool allow_path_fallback)
     return true;
 }
 
-// FUNCTION: WIZ8 0x004ccad0
 void W8PathParameters::SteerFromPathStart(W8NavigatorMovementState* movement, bool alternate)
 {
     InitializeSteeringContext(movement);
@@ -4637,7 +4515,6 @@ void W8PathParameters::SteerFromPathStart(W8NavigatorMovementState* movement, bo
     IntegrateSteering();
 }
 
-// FUNCTION: WIZ8 0x004ccb60
 bool W8PathParameters::SteerAlongPath(W8NavigatorMovementState* movement, bool alternate)
 {
     glm::vec3 ahead;
@@ -4678,7 +4555,6 @@ steered:
     return advanced;
 }
 
-// FUNCTION: WIZ8 0x004cccb0
 bool LoadPathParameters()
 try {
     std::istringstream input(

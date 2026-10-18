@@ -9,7 +9,6 @@
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/local_code/ButtonWidget.h"
 
-// VTABLE: WIZ8 0x005ef8b0
 class W8MessageDialogBase : public W8DialogBase {
 public:
     std::function<void()> TakeCompletion(bool completed) override;
@@ -42,7 +41,6 @@ private:
     void Configure();
 
 protected:
-    // FUNCTION: WIZ8 0x005d32c0 (confirm), 0x005d3370 (cancel)
     void Close(bool accept);
     GenericButtonImage m_edge_image; /* 0x56 generic-button-image resource */
     W8ButtonWidget m_message_button{InputLayer()};

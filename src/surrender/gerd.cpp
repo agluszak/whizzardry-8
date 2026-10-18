@@ -52,11 +52,9 @@ class srVertexProcessor;
 
 srGERD* srGERD::active = nullptr;
 
-// FUNCTION: SURRENDER 0x10019A00 SYMBOL
 // RECOMP: ??0MatrixStack@srGERD@@QAE@XZ
 srGERD::MatrixStack::MatrixStack() : depth(0) {}
 
-// FUNCTION: SURRENDER 0x10019320
 srGERD::srGERD()
     : dirty(0), state_flags(0), state{}, statistics{}, clear_state{}, texture_slots{},
       texture_parms{}, texture_state{}, polygon_offset(0), texture_default(nullptr),
@@ -104,28 +102,22 @@ srGERD::srGERD()
     setName("SDL GPU");
 }
 
-// FUNCTION: SURRENDER 0x10019F40
 srGERD::~srGERD()
 {
     deleteRenderers();
     deleteContext();
 }
 
-// FUNCTION: SURRENDER 0x1001B010
 srGERD& srGERD::operator=(const srGERD& other)
 {
     return *this;
 }
 
-// FUNCTION: SURRENDER 0x10017920
-
-// FUNCTION: SURRENDER 0x10017A50
 void srGERD::setTextureReduction(w8_long reduction)
 {
     texture_reduction = std::clamp(reduction, w8_long{0}, w8_long{7});
 }
 
-// FUNCTION: SURRENDER 0x10017AC0
 void srGERD::setTexture(srTexture* texture, w8_ulong layer)
 {
     if (layer < SDLGPUDevice::max_texture_stages && texture_iface[layer] != texture) {
@@ -135,11 +127,6 @@ void srGERD::setTexture(srTexture* texture, w8_ulong layer)
     }
 }
 
-// FUNCTION: SURRENDER 0x10017F30
-
-// FUNCTION: SURRENDER 0x10017F50
-
-// FUNCTION: SURRENDER 0x1001AAF0
 srGERD::Statistics srGERD::getStatistics()
 {
     this->statistics.input_triangles = 0;
@@ -165,7 +152,6 @@ srGERD::Statistics srGERD::getStatistics()
     return result;
 }
 
-// FUNCTION: SURRENDER 0x1001ACD0
 void srGERD::resetStatistics()
 {
     statistics = {};
@@ -173,13 +159,11 @@ void srGERD::resetStatistics()
     statistics.elapsed = static_cast<double>(w8_clock_us()) / 1'000'000;
 }
 
-// FUNCTION: SURRENDER 0x1001ADD0
 void srGERD::toggle(e_enable option)
 {
     enable_flags ^= 1UL << option;
 }
 
-// FUNCTION: SURRENDER 0x1001AE60
 void srGERD::popEnable()
 {
     w8_ulong flags = 0;
@@ -198,7 +182,6 @@ void srGERD::popEnable()
     }
 }
 
-// FUNCTION: SURRENDER 0x1001AEC0
 void srGERD::setSwapInterval(w8_ulong interval)
 {
     if (interval != display.swap_interval) {
@@ -207,7 +190,6 @@ void srGERD::setSwapInterval(w8_ulong interval)
     }
 }
 
-// FUNCTION: SURRENDER 0x1001BE70
 void srGERD::setClipState(std::uint32_t state)
 {
     if (state != vertex_arrays.clip) {
@@ -216,13 +198,11 @@ void srGERD::setClipState(std::uint32_t state)
     }
 }
 
-// FUNCTION: SURRENDER 0x1001C380
 srGERD::e_winding srGERD::getWinding() const
 {
     return state.winding;
 }
 
-// FUNCTION: SURRENDER 0x1001C390
 void srGERD::setWinding(e_winding winding)
 {
     if (state.winding != winding) {
@@ -231,19 +211,16 @@ void srGERD::setWinding(e_winding winding)
     }
 }
 
-// FUNCTION: SURRENDER 0x1001C3B0
 void srGERD::setAmbientLight(const glm::vec4& light)
 {
     ambient_light = light;
 }
 
-// FUNCTION: SURRENDER 0x1001C410
 glm::vec4 srGERD::getAmbientLight() const
 {
     return ambient_light;
 }
 
-// FUNCTION: SURRENDER 0x1001C480
 void srGERD::setAmbientLight(float red, float green, float blue, float alpha)
 {
     glm::vec4 light;
@@ -254,25 +231,21 @@ void srGERD::setAmbientLight(float red, float green, float blue, float alpha)
     setAmbientLight(light);
 }
 
-// FUNCTION: SURRENDER 0x1001C4C0
 srGERD::e_cullMode srGERD::getCullMode() const
 {
     return state.cull_mode;
 }
 
-// FUNCTION: SURRENDER 0x1001C4F0
 std::pair<float, float> srGERD::getEnvironmentRange() const
 {
     return {environment.x, environment.y};
 }
 
-// FUNCTION: SURRENDER 0x1001C5A0
 std::pair<float, float> srGERD::getEnvironmentScaleFactor() const
 {
     return {environment.z, environment.w};
 }
 
-// FUNCTION: SURRENDER 0x1001C8A0
 void srGERD::setPolygonOffset(w8_long offset)
 {
     if (offset != polygon_offset) {
@@ -282,13 +255,11 @@ void srGERD::setPolygonOffset(w8_long offset)
     }
 }
 
-// FUNCTION: SURRENDER 0x1001C8D0
 w8_long srGERD::getPolygonOffset() const
 {
     return polygon_offset;
 }
 
-// FUNCTION: SURRENDER 0x1001CA30
 void srGERD::setClearColor(const glm::vec4& color)
 {
     {
@@ -299,13 +270,11 @@ void srGERD::setClearColor(const glm::vec4& color)
     }
 }
 
-// FUNCTION: SURRENDER 0x1001CB00
 void srGERD::setClearColor(float red, float green, float blue, float alpha)
 {
     setClearColor(glm::vec4(red, green, blue, alpha));
 }
 
-// FUNCTION: SURRENDER 0x1001CB70
 void srGERD::setClearDepth(double depth)
 {
     clear_state.clear_values.depth = std::clamp(depth, 0.0, 1.0);
@@ -322,7 +291,6 @@ void srGERD::prepareDrawState()
     }
 }
 
-// FUNCTION: SURRENDER 0x1001CC10
 void srGERD::drawArrays(srRendererDefs::e_primitive primitive, w8_long first, w8_ulong count)
 {
     if ((enable_flags & 4) == 0) {
@@ -332,7 +300,6 @@ void srGERD::drawArrays(srRendererDefs::e_primitive primitive, w8_long first, w8
     }
 }
 
-// FUNCTION: SURRENDER 0x1001CC90
 void srGERD::drawElements(srRendererDefs::e_primitive primitive, w8_ulong count,
                           srRendererDefs::e_indexType type, const void* indices)
 {
@@ -343,19 +310,16 @@ void srGERD::drawElements(srRendererDefs::e_primitive primitive, w8_ulong count,
     }
 }
 
-// FUNCTION: SURRENDER 0x1001CEC0
 w8_ulong srGERD::getVertexProcessorCount() const
 {
     return static_cast<w8_ulong>(vertex_processors.size());
 }
 
-// FUNCTION: SURRENDER 0x1001CED0
 const std::vector<srVertexProcessor*>& srGERD::getVertexProcessors() const
 {
     return vertex_processors;
 }
 
-// FUNCTION: SURRENDER 0x1001CFC0
 void srGERD::setError(e_error error)
 {
     last_error = error;
@@ -374,7 +338,6 @@ void srGERD::unbindTexture(const srTexture* texture)
     }
 }
 
-// FUNCTION: SURRENDER 0x10018330
 void srGERD::invalidateTexture(srTexture* texture)
 {
     const auto entry = textures.find(texture);
@@ -388,7 +351,6 @@ void srGERD::invalidateTexture(srTexture* texture)
     textures.erase(entry);
 }
 
-// FUNCTION: SURRENDER 0x100281E0
 void srGERD::resetCurrentTexPointers()
 {
     for (w8_ulong stage = 0; stage < SDLGPUDevice::max_texture_stages; ++stage) {
@@ -399,15 +361,12 @@ void srGERD::resetCurrentTexPointers()
     dirty |= DIRTY_TEXTURE1;
 }
 
-// FUNCTION: SURRENDER 0x10028150
-
 void srGERD::invalidateResidentTextures()
 {
     flushImmediateRenderers();
     invalidateTextureCache();
 }
 
-// FUNCTION: SURRENDER 0x100180A0
 void srGERD::setTextureSubImage(srTexture* texture, w8_long mipmap, w8_long x, w8_long y,
                                 w8_long width, w8_long height)
 {
@@ -437,14 +396,12 @@ void srGERD::setTextureSubImage(srTexture* texture, w8_long mipmap, w8_long x, w
                              destination->pitch);
 }
 
-// FUNCTION: SURRENDER 0x10018480
 void srGERD::invalidateTextureCache()
 {
     resetCurrentTexPointers();
     std::erase_if(textures, [this](const auto& entry) { return &entry.second != texture_default; });
 }
 
-// FUNCTION: SURRENDER 0x10018500
 w8_ulong srGERD::getResidentTextureMemUsed() const
 {
     w8_ulong used = 0;
@@ -457,13 +414,11 @@ w8_ulong srGERD::getResidentTextureMemUsed() const
     return used;
 }
 
-// FUNCTION: SURRENDER 0x10023550
 void srGERD::matrixMode(e_matrixMode mode)
 {
     state.matrix_mode = mode;
 }
 
-// FUNCTION: SURRENDER 0x100235B0
 bool srGERD::pushMatrix()
 {
     MatrixStack& stack = state.matrix_stacks[state.matrix_mode];
@@ -475,7 +430,6 @@ bool srGERD::pushMatrix()
     return false;
 }
 
-// FUNCTION: SURRENDER 0x10023560
 void srGERD::popMatrix()
 {
     glm::mat4* matrix = &state.matrix_current[state.matrix_mode];
@@ -487,7 +441,6 @@ void srGERD::popMatrix()
     setMatrixDirty();
 }
 
-// FUNCTION: SURRENDER 0x100236D0
 void srGERD::setMatrixDirty()
 {
     if (state.matrix_mode == MATRIX_PROJECTION) {
@@ -496,7 +449,6 @@ void srGERD::setMatrixDirty()
     dirty |= 1 << (static_cast<int>(state.matrix_mode) + DIRTY_MATRIX_SHIFT);
 }
 
-// FUNCTION: SURRENDER 0x1001D2D0
 void srGERD::checkFrameStateChanges()
 {
     if ((dirty & DIRTY_FRAME_STATE) != 0) {
@@ -504,7 +456,6 @@ void srGERD::checkFrameStateChanges()
     }
 }
 
-// FUNCTION: SURRENDER 0x1001B450
 void srGERD::applyFrameStateChanges()
 {
     if ((dirty & DIRTY_SWAP_INTERVAL) != 0) {
@@ -529,7 +480,6 @@ void srGERD::drainRenderers(RendererDrain action)
     }
 }
 
-// FUNCTION: SURRENDER 0x10019A40
 void srGERD::flushRenderers()
 {
     flushImmediateRenderers();
@@ -537,13 +487,11 @@ void srGERD::flushRenderers()
     drainRenderers(RendererDrain::reset);
 }
 
-// FUNCTION: SURRENDER 0x10019AD0
 void srGERD::flushSort()
 {
     drainRenderers(RendererDrain::sorted);
 }
 
-// FUNCTION: SURRENDER 0x10019B60
 void srGERD::flushImmediateRenderers()
 {
     drainRenderers(RendererDrain::immediate);
@@ -561,7 +509,6 @@ srGERD::Renderer& srGERD::batchRenderer()
     return *renderer;
 }
 
-// FUNCTION: SURRENDER 0x1001A790
 srGERD::e_error srGERD::beginFrame()
 {
     if ((state_flags & STATE_CONTEXT_CREATED) == 0) {
@@ -585,7 +532,6 @@ srGERD::e_error srGERD::beginFrame()
     return ERROR_NONE;
 }
 
-// FUNCTION: SURRENDER 0x1001A810
 void srGERD::endFrame()
 {
     if (isWindowOpen() == 0) {
@@ -599,13 +545,11 @@ void srGERD::endFrame()
     }
 }
 
-// FUNCTION: SURRENDER 0x1001A850
 void srGERD::flipFrame()
 {
     flipFrame(0, 0, 0);
 }
 
-// FUNCTION: SURRENDER 0x1001A860
 void srGERD::flipFrame(const Rectangle* first, const Rectangle* second, w8_ulong count)
 {
     if (isWindowOpen() == 0) {
@@ -621,7 +565,6 @@ void srGERD::flipFrame(const Rectangle* first, const Rectangle* second, w8_ulong
     state_flags |= STATE_FRAME_FLIPPED;
 }
 
-// FUNCTION: SURRENDER 0x1001AAB0
 void srGERD::flush()
 {
     if (isWindowOpen() == 0) {
@@ -633,26 +576,21 @@ void srGERD::flush()
     device.gpu.flushFrame();
 }
 
-// FUNCTION: SURRENDER 0x1001D020
 w8_long srGERD::getWidth() const
 {
     return device.open_info.width;
 }
 
-// FUNCTION: SURRENDER 0x1001D0A0
 w8_long srGERD::getHeight() const
 {
     return device.open_info.height;
 }
 
-// FUNCTION: SURRENDER 0x1001D0D0
 int srGERD::isWindowOpen() const
 {
     return (state_flags >> 1) & 1;
 }
 
-// FUNCTION: SURRENDER 0x1001D030
-// FUNCTION: SURRENDER 0x1001D1F0
 void srGERD::pushEnable()
 {
     w8_ulong depth = environment_state.enable_depth;
@@ -662,7 +600,6 @@ void srGERD::pushEnable()
     }
 }
 
-// FUNCTION: SURRENDER 0x1001D410
 void srGERD::setViewPort(w8_ulong x, w8_ulong y, w8_ulong width, w8_ulong height)
 {
     if (width < 1) {
@@ -690,7 +627,6 @@ void srGERD::setViewPort(w8_ulong x, w8_ulong y, w8_ulong width, w8_ulong height
     dirty |= DIRTY_VIEWPORT;
 }
 
-// FUNCTION: SURRENDER 0x1001D630
 void srGERD::performPickTest(const PickInput& input)
 {
     if (pick.pick_depth == 0) return;
@@ -730,7 +666,6 @@ void srGERD::performPickTest(const PickInput& input)
     }
 }
 
-// FUNCTION: SURRENDER 0x1001DAA0
 void srGERD::pushPick(const Pick& pick)
 {
     if (this->pick.pick_depth < 0x20) {
@@ -739,39 +674,33 @@ void srGERD::pushPick(const Pick& pick)
     }
 }
 
-// FUNCTION: SURRENDER 0x1001DAE0
 std::optional<srGERD::Pick> srGERD::popPick()
 {
     if (pick.pick_depth == 0) return std::nullopt;
     return pick.pick_stack[--pick.pick_depth];
 }
 
-// FUNCTION: SURRENDER 0x1001DB10
 void srGERD::setPickKey(w8_ulong_ptr key)
 {
     pick.pick_key = key;
 }
 
-// FUNCTION: SURRENDER 0x1001EE50
 void srGERD::setExclusionMask(w8_ulong mask)
 {
     exclusion_mask = mask;
 }
 
-// FUNCTION: SURRENDER 0x1001EE60
 w8_ulong srGERD::getExclusionMask() const
 {
     return exclusion_mask;
 }
 
-// FUNCTION: SURRENDER 0x100293E0
 void srGERD::resetTexture()
 {
     dirty |= DIRTY_TEXTURE0;
     dirty |= DIRTY_TEXTURE1;
 }
 
-// FUNCTION: SURRENDER 0x100213C0
 glm::mat4 srGERD::getNormalMatrix()
 {
     checkViewStateChanges();
@@ -781,14 +710,12 @@ glm::mat4 srGERD::getNormalMatrix()
     return matrix;
 }
 
-// FUNCTION: SURRENDER 0x100214F0
 glm::mat4 srGERD::getProjectClipNearMatrix()
 {
     checkViewStateChanges();
     return state.project_clip_near;
 }
 
-// FUNCTION: SURRENDER 0x10022190
 void srGERD::ortho(const Frustum& frustum)
 {
     auto& current = state.matrix_current[state.matrix_mode];
@@ -797,7 +724,6 @@ void srGERD::ortho(const Frustum& frustum)
     setMatrixDirty();
 }
 
-// FUNCTION: SURRENDER 0x10022330
 void srGERD::ortho(double left, double right, double bottom, double top, double near_plane,
                    double far_plane)
 {
@@ -811,7 +737,6 @@ void srGERD::ortho(double left, double right, double bottom, double top, double 
     ortho(frustum);
 }
 
-// FUNCTION: SURRENDER 0x100223A0
 void srGERD::rotate(double angle, const glm::vec3& axis)
 {
     if (glm::dot(axis, axis) == 0) {
@@ -823,7 +748,6 @@ void srGERD::rotate(double angle, const glm::vec3& axis)
     setMatrixDirty();
 }
 
-// FUNCTION: SURRENDER 0x10022780
 void srGERD::scale(const glm::vec3& factors)
 {
     auto& current = state.matrix_current[state.matrix_mode];
@@ -831,13 +755,11 @@ void srGERD::scale(const glm::vec3& factors)
     setMatrixDirty();
 }
 
-// FUNCTION: SURRENDER 0x10022870
 void srGERD::scale(double x, double y, double z)
 {
     scale(glm::vec3(x, y, z));
 }
 
-// FUNCTION: SURRENDER 0x10022960
 void srGERD::translate(const glm::vec3& offset)
 {
     auto& current = state.matrix_current[state.matrix_mode];
@@ -845,13 +767,11 @@ void srGERD::translate(const glm::vec3& offset)
     setMatrixDirty();
 }
 
-// FUNCTION: SURRENDER 0x10022A20
 void srGERD::translate(double x, double y, double z)
 {
     translate(glm::vec3(x, y, z));
 }
 
-// FUNCTION: SURRENDER 0x100231D0
 void srGERD::loadIdentity()
 {
     auto& current = state.matrix_current[state.matrix_mode];
@@ -861,21 +781,18 @@ void srGERD::loadIdentity()
     }
 }
 
-// FUNCTION: SURRENDER 0x10023320
 glm::mat4 srGERD::getMatrix(e_matrixMode mode)
 {
     checkViewStateChanges();
     return state.matrix_current[mode];
 }
 
-// FUNCTION: SURRENDER 0x10023510
 glm::mat4 srGERD::getInverseModelViewMatrix()
 {
     checkViewStateChanges();
     return state.inverse_modelview;
 }
 
-// FUNCTION: SURRENDER 0x10020D30
 void srGERD::clear(std::uint32_t buffers)
 {
     if (isWindowOpen() == 0) {
@@ -890,7 +807,6 @@ void srGERD::clear(std::uint32_t buffers)
     }
 }
 
-// FUNCTION: SURRENDER 0x1001BC70
 void srGERD::applyViewStateChanges()
 {
     w8_ulong dirty = this->dirty;
@@ -938,7 +854,6 @@ void srGERD::applyViewStateChanges()
     this->dirty &= ~DIRTY_VIEW_STATE;
 }
 
-// FUNCTION: SURRENDER 0x1001D580
 void srGERD::setScissor(w8_ulong x, w8_ulong y, w8_ulong width, w8_ulong height)
 {
     state.scissor.left = x;
@@ -961,7 +876,6 @@ void srGERD::setScissor(w8_ulong x, w8_ulong y, w8_ulong width, w8_ulong height)
     dirty |= DIRTY_SCISSOR;
 }
 
-// FUNCTION: SURRENDER 0x100204C0
 void srGERD::recalcScissor()
 {
     if (state.scissor.left == 0 && state.scissor.right == (w8_ulong)getWidth() &&
@@ -973,7 +887,6 @@ void srGERD::recalcScissor()
     device.gpu.setScissor(state.scissor);
 }
 
-// FUNCTION: SURRENDER 0x100215A0
 void srGERD::classifyMatrix(e_matrixMode mode)
 {
     statistics.matrix_classifications += 1;
@@ -990,10 +903,8 @@ void srGERD::classifyMatrix(e_matrixMode mode)
     state.normal_matrix = glm::mat4(glm::transpose(glm::inverse(basis)));
 }
 
-// FUNCTION: SURRENDER 0x1001CF40
 void srGERD::assertContext() const {}
 
-// FUNCTION: SURRENDER 0x1001BB10
 void srGERD::checkViewStateChanges()
 {
     if ((dirty & DIRTY_VIEW_STATE) != 0) {
@@ -1001,7 +912,6 @@ void srGERD::checkViewStateChanges()
     }
 }
 
-// FUNCTION: SURRENDER 0x1001BB30
 void srGERD::checkClipPlaneChanges()
 {
     if ((dirty & DIRTY_CLIP_PLANES) != 0) {
@@ -1009,7 +919,6 @@ void srGERD::checkClipPlaneChanges()
     }
 }
 
-// FUNCTION: SURRENDER 0x1001BB20
 void srGERD::checkDrawStateChanges()
 {
     if ((dirty & DIRTY_DRAW_STATE) != 0) {
@@ -1017,7 +926,6 @@ void srGERD::checkDrawStateChanges()
     }
 }
 
-// FUNCTION: SURRENDER 0x1001D2A0
 void srGERD::checkAllStateChanges()
 {
     if (dirty != 0) {
@@ -1027,19 +935,16 @@ void srGERD::checkAllStateChanges()
     }
 }
 
-// FUNCTION: SURRENDER 0x10023540
 srGERD::e_matrixMode srGERD::getMatrixMode() const
 {
     return state.matrix_mode;
 }
 
-// FUNCTION: SURRENDER 0x10023350
 glm::mat4 srGERD::getMatrix()
 {
     return getMatrix(state.matrix_mode);
 }
 
-// FUNCTION: SURRENDER 0x10021380
 float srGERD::getMaxModelViewScale()
 {
     checkViewStateChanges();
@@ -1065,7 +970,6 @@ srModelViewScope::~srModelViewScope()
     }
 }
 
-// FUNCTION: SURRENDER 0x10022C50
 void srGERD::multMatrix(const glm::mat4& matrix)
 {
     assertContext();
@@ -1073,50 +977,42 @@ void srGERD::multMatrix(const glm::mat4& matrix)
     setMatrixDirty();
 }
 
-// FUNCTION: SURRENDER 0x10022F10
 void srGERD::multMatrix(const glm::dmat4& matrix)
 {
     multMatrix(glm::mat4(matrix));
 }
 
-// FUNCTION: SURRENDER 0x10022A70
 void srGERD::loadMatrix(const glm::dmat4& matrix)
 {
     loadMatrix(glm::mat4(matrix));
 }
 
-// FUNCTION: SURRENDER 0x10022B20
 void srGERD::loadMatrix(const glm::mat4& matrix)
 {
     state.matrix_current[state.matrix_mode] = matrix;
     setMatrixDirty();
 }
 
-// FUNCTION: SURRENDER 0x10022B50
 void srGERD::loadMatrix(const glm::dmat3& matrix)
 {
     loadMatrix(glm::mat4(matrix));
 }
 
-// FUNCTION: SURRENDER 0x10022BD0
 void srGERD::loadMatrix(const glm::mat3& matrix)
 {
     loadMatrix(glm::mat4(matrix));
 }
 
-// FUNCTION: SURRENDER 0x100228C0
 void srGERD::scale(double factor)
 {
     scale(factor, factor, factor);
 }
 
-// FUNCTION: SURRENDER 0x10022730
 void srGERD::rotate(double angle, double x, double y, double z)
 {
     rotate(angle, glm::vec3(x, y, z));
 }
 
-// FUNCTION: SURRENDER 0x10021DF0
 void srGERD::frustum(const Frustum& bounds)
 {
     if (bounds.near_plane <= 0 || bounds.far_plane <= 0) return;
@@ -1126,7 +1022,6 @@ void srGERD::frustum(const Frustum& bounds)
     setMatrixDirty();
 }
 
-// FUNCTION: SURRENDER 0x10021FF0
 void srGERD::frustum(double left, double right, double bottom, double top, double near_plane,
                      double far_plane)
 {
@@ -1140,7 +1035,6 @@ void srGERD::frustum(double left, double right, double bottom, double top, doubl
     frustum(bounds);
 }
 
-// FUNCTION: SURRENDER 0x1001B820
 void srGERD::applyClipPlaneChanges()
 {
     const auto rows = glm::transpose(state.matrix_current[MATRIX_PROJECTION]);
@@ -1155,7 +1049,6 @@ void srGERD::applyClipPlaneChanges()
     dirty &= ~DIRTY_CLIP_PLANES;
 }
 
-// FUNCTION: SURRENDER 0x1001C010
 void srGERD::pushClipPlane(const glm::vec4& plane, e_clipMode mode)
 {
     if ((w8_ulong)state.clip_plane_count < 0x1a) {
@@ -1174,7 +1067,6 @@ void srGERD::pushClipPlane(const glm::vec4& plane, e_clipMode mode)
     state.clip_plane_count += 1;
 }
 
-// FUNCTION: SURRENDER 0x1001C1F0
 void srGERD::popClipPlane()
 {
     if (state.clip_plane_count != 0) {
@@ -1185,7 +1077,6 @@ void srGERD::popClipPlane()
     }
 }
 
-// FUNCTION: SURRENDER 0x1001C230
 srGERD::ClipPlanes srGERD::getClipPlanes()
 {
     checkClipPlaneChanges();
@@ -1204,7 +1095,6 @@ srGERD::ClipPlanes srGERD::getClipPlanes()
     return planes;
 }
 
-// FUNCTION: SURRENDER 0x1001C5C0
 void srGERD::pushEnvironment()
 {
     if (environment_state.environment_depth < 0x10) {
@@ -1213,7 +1103,6 @@ void srGERD::pushEnvironment()
     }
 }
 
-// FUNCTION: SURRENDER 0x1001C600
 void srGERD::popEnvironment()
 {
     if (environment_state.environment_depth != 0) {
@@ -1222,14 +1111,12 @@ void srGERD::popEnvironment()
     }
 }
 
-// FUNCTION: SURRENDER 0x1001C4D0
 void srGERD::setEnvironmentRange(float minimum, float maximum)
 {
     environment.x = minimum;
     environment.y = maximum;
 }
 
-// FUNCTION: SURRENDER 0x1001C510
 void srGERD::setEnvironmentScaleFactor(float scale, float inverse_scale)
 {
     if (0.0f < scale) {
@@ -1251,13 +1138,11 @@ void srGERD::setEnvironmentScaleFactor(float scale, float inverse_scale)
     environment.w = 0.0f;
 }
 
-// FUNCTION: SURRENDER 0x1001CE00
 void srGERD::pushVertexProcessor(srVertexProcessor& processor)
 {
     vertex_processors.push_back(&processor);
 }
 
-// FUNCTION: SURRENDER 0x1001CEA0
 void srGERD::popVertexProcessor()
 {
     if (!vertex_processors.empty()) {
@@ -1268,7 +1153,6 @@ void srGERD::popVertexProcessor()
 /* Each component clamps through (0,1): strictly positive keeps the value, 1.0 or above saturates,
    anything else becomes 0. The color only updates (and dirties state) when a clamped component
    differs. */
-// FUNCTION: SURRENDER 0x1001C6B0
 void srGERD::setFogColor(const glm::vec4& color)
 {
     const auto clamped = glm::clamp(color, 0.0f, 1.0f);
@@ -1279,19 +1163,16 @@ void srGERD::setFogColor(const glm::vec4& color)
     }
 }
 
-// FUNCTION: SURRENDER 0x1001C680
 glm::vec4 srGERD::getFogColor() const
 {
     return fog_color;
 }
 
-// FUNCTION: SURRENDER 0x1001DB20
 w8_ulong_ptr srGERD::getPickKey() const
 {
     return pick.pick_key;
 }
 
-// FUNCTION: SURRENDER 0x1001DB30
 srGERD::e_visibility srGERD::testBoundingSphere(const glm::vec3& center, float radius)
 {
     statistics.sphere_tests++;
@@ -1306,7 +1187,6 @@ srGERD::e_visibility srGERD::testBoundingSphere(const glm::vec3& center, float r
     return static_cast<e_visibility>(1);
 }
 
-// FUNCTION: SURRENDER 0x1001DD60
 srGERD::e_visibility srGERD::testBoundingBox(const glm::vec3& minimum, const glm::vec3& maximum)
 {
     statistics.box_tests++;
@@ -1320,21 +1200,18 @@ srGERD::e_visibility srGERD::testBoundingBox(const glm::vec3& minimum, const glm
     return VISIBILITY_OUTSIDE;
 }
 
-// FUNCTION: SURRENDER 0x100235F0
 glm::vec4 srGERD::getEyeSpaceLocation(const glm::vec3& object_location)
 {
     checkViewStateChanges();
     return state.matrix_current[MATRIX_MODELVIEW] * glm::vec4(object_location, 1);
 }
 
-// FUNCTION: SURRENDER 0x1001DDF0
 srBoundingSphere srGERD::eyeSpaceBounds(const srBoundingSphere& sphere)
 {
     const auto center = glm::vec3(getEyeSpaceLocation(sphere.center));
     return {center, sphere.radius * state.max_modelview_scale};
 }
 
-// FUNCTION: SURRENDER 0x1001B570
 void srGERD::applyDrawStateChanges()
 {
     if ((dirty & DIRTY_FOG_COLOR) != 0) {
@@ -1372,7 +1249,6 @@ void srGERD::applyDrawStateChanges()
     statistics.draw_state_applies++;
 }
 
-// FUNCTION: SURRENDER 0x100281B0
 void srGERD::setTextureParameters(w8_ulong stage, const srTexture::Parameters& requested)
 {
     const auto mag = requested.mag == srTexture::FILTER_DEFAULT ? texture_state.default_mag_filter
@@ -1398,7 +1274,6 @@ void srGERD::setTextureParameters(w8_ulong stage, const srTexture::Parameters& r
     device.gpu.setTextureParameters(stage, resolved);
 }
 
-// FUNCTION: SURRENDER 0x10029400
 void srGERD::changeTexture(srTexture* texture, w8_ulong stage, int apply_parms)
 {
     if ((state_flags & STATE_CLOSING_WINDOW) || stage >= SDLGPUDevice::max_texture_stages) return;
@@ -1451,15 +1326,11 @@ w8_ulong nextTextureDimension(w8_ulong value)
 
 } // namespace
 
-// FUNCTION: SURRENDER 0x10019080
-
-// FUNCTION: SURRENDER 0x1001C3E0
 void srGERD::initLights()
 {
     ambient_light = glm::vec4(0.2f, 0.2f, 0.2f, 1.0f);
 }
 
-// FUNCTION: SURRENDER 0x10021BE0
 void srGERD::initMatrices()
 {
     state.matrix_mode = MATRIX_MODELVIEW;
@@ -1471,7 +1342,6 @@ void srGERD::initMatrices()
     state.inverse_modelview = glm::mat4(1);
 }
 
-// FUNCTION: SURRENDER 0x100191E0
 srGERD::e_error srGERD::createContext(SDL_Window* window)
 {
     deleteContext();
@@ -1487,7 +1357,6 @@ srGERD::e_error srGERD::createContext(SDL_Window* window)
     return ERROR_NONE;
 }
 
-// FUNCTION: SURRENDER 0x100192A0
 void srGERD::deleteContext()
 {
     if ((state_flags & STATE_CONTEXT_CREATED) != 0) {
@@ -1499,13 +1368,11 @@ void srGERD::deleteContext()
     }
 }
 
-// FUNCTION: SURRENDER 0x10019EB0
 void srGERD::deleteRenderers()
 {
     for (auto& renderer : renderers) renderer.reset();
 }
 
-// FUNCTION: SURRENDER 0x10020DF0
 SDL_Surface* srGERD::lockBuffer()
 {
     if (!isWindowOpen()) {
@@ -1527,7 +1394,6 @@ void srGERD::unlockBuffer(bool modified)
     device.gpu.unlockBuffer(modified);
 }
 
-// FUNCTION: SURRENDER 0x1001A5F0
 void srGERD::closeWindow(e_closeHint hint)
 {
     if (isWindowOpen() != 0) {
@@ -1549,9 +1415,6 @@ void srGERD::closeWindow(e_closeHint hint)
     }
 }
 
-// FUNCTION: SURRENDER 0x1001CD10
-
-// FUNCTION: SURRENDER 0x1001A120
 srGERD::e_error srGERD::openWindow()
 {
     if ((state_flags & STATE_CONTEXT_CREATED) == 0) {
@@ -1562,7 +1425,6 @@ srGERD::e_error srGERD::openWindow()
     return openWindow(width, height);
 }
 
-// FUNCTION: SURRENDER 0x1001A160
 srGERD::e_error srGERD::openWindow(w8_long width, w8_long height)
 {
     if ((state_flags & STATE_CONTEXT_CREATED) == 0) {
@@ -1578,7 +1440,6 @@ srGERD::e_error srGERD::openWindow(w8_long width, w8_long height)
     return openWindowInternal(info);
 }
 
-// FUNCTION: SURRENDER 0x1001A290
 srGERD::e_error srGERD::openWindowInternal(const OpenInfo& info)
 {
     if ((w8_ulong)info.width > (w8_ulong)info.window_width ||
@@ -1635,7 +1496,6 @@ srGERD::e_error srGERD::openWindowInternal(const OpenInfo& info)
     return ERROR_WINDOW_OPEN_FAILED;
 }
 
-// FUNCTION: SURRENDER 0x10028460
 void srGERD::closeTexCache()
 {
     resetCurrentTexPointers();
@@ -1649,7 +1509,6 @@ void srGERD::initTexCache()
     texture_default = createNewTexture(&fallback_texture);
 }
 
-// FUNCTION: SURRENDER 0x10028B80
 void srGERD::evaluateTextureDimensions(TextureCacheData& device,
                                        const srTexture::Dimensions& dimensions)
 {
@@ -1695,8 +1554,6 @@ void srGERD::evaluateTextureDimensions(TextureCacheData& device,
     }
 }
 
-// FUNCTION: SURRENDER 0x10028E60
-// FUNCTION: SURRENDER 0x10029090
 srGERD::Texture* srGERD::createNewTexture(srTexture* texture)
 {
     auto [entry, inserted] = textures.try_emplace(texture, device.gpu);
@@ -1737,32 +1594,11 @@ srGERD::Texture* srGERD::createNewTexture(srTexture* texture)
     }
 }
 
-// FUNCTION: SURRENDER 0x10017D00
-
-// FUNCTION: SURRENDER 0x10017DD0
-
-// FUNCTION: SURRENDER 0x10029600
-// FUNCTION: SURRENDER 0x1001AFD0
-
-// FUNCTION: SURRENDER 0x1001AFF0
-
-// GLOBAL: SURRENDER 0x100993A4
-
-// FUNCTION: SURRENDER 0x10020DD0
-
-// FUNCTION: SURRENDER 0x1001C870
-
-// FUNCTION: SURRENDER 0x1001C8E0
-
-// FUNCTION: SURRENDER 0x1001CBE0
 void srGERD::setClearStencil(w8_ulong stencil)
 {
     clear_state.clear_values.stencil = stencil;
 }
 
-// FUNCTION: SURRENDER 0x1001CFD0
-
-// FUNCTION: SURRENDER 0x1001D010
 srGERD::e_error srGERD::getError()
 {
     e_error error = last_error;
@@ -1770,11 +1606,6 @@ srGERD::e_error srGERD::getError()
     return error;
 }
 
-// FUNCTION: SURRENDER 0x1001D0C0
-
-// FUNCTION: SURRENDER 0x1001D1E0
-
-// FUNCTION: SURRENDER 0x1001BC30
 void srGERD::setDataPtr(srRendererDefs::e_vertexArray index, w8_long components,
                         srRendererDefs::e_type type, w8_ulong stride, const void* values)
 {
@@ -1785,7 +1616,6 @@ void srGERD::setDataPtr(srRendererDefs::e_vertexArray index, w8_long components,
     vertex_arrays_dirty |= DIRTY_VERTEX_ARRAY_INFO;
 }
 
-// FUNCTION: SURRENDER 0x10020550
 void srGERD::initClearColors()
 {
     setClearColor(glm::vec4(0));
@@ -1793,7 +1623,6 @@ void srGERD::initClearColors()
     setClearStencil(0);
 }
 
-// FUNCTION: SURRENDER 0x1001D2E0
 void srGERD::initView()
 {
     state.depth_min = 0.0;
@@ -1805,9 +1634,6 @@ void srGERD::initView()
     state.winding = static_cast<e_winding>(0);
 }
 
-// FUNCTION: SURRENDER 0x10027F60
-
-// FUNCTION: SURRENDER 0x10068700
 bool srRender::testBoundingBox(const glm::mat4& matrix, const glm::vec3& minimum,
                                const glm::vec3& maximum)
 {

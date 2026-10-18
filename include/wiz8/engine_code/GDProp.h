@@ -49,7 +49,7 @@ public:
         m_path_bounds.max_x = 0;
         m_path_bounds.min_x = 0;
     }
-    GDProp(W8PathingService* pathing, srModelInstance* instance, const char* path_name,
+    GDProp(W8PathingService* pathing, srModelInstance* instance, std::string_view path_name,
            unsigned short prop_number, unsigned char footstep_surface,
            unsigned char footstep_material); /* 0x004B6E00 */
     GDProp(GDProp&&) noexcept = default;

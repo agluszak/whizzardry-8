@@ -43,35 +43,21 @@
 #include "wiz8/string_database.h"
 #include "wiz8/utility.h"
 
-#define TRAPS_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Traps.cpp"
-
-// GLOBAL: WIZ8 0x0069ca68
 static char g_record_mode_line[0x1000];
-// GLOBAL: WIZ8 0x0069da6c
 static bool g_record_mode_active;
-// GLOBAL: WIZ8 0x0069da70
 static int g_record_mode_length;
 
-// GLOBAL: WIZ8 0x00650384
 static char s_record_mode_prompt[] = "Type in your text, then ENTER or ESC.";
-// GLOBAL: WIZ8 0x006503ac
 static char s_record_mode_default_location[] = "tst";
-// GLOBAL: WIZ8 0x006503d0
 static char s_data_notes_txt[] = "logs\\notes.txt";
-// GLOBAL: WIZ8 0x006503e0
 static char s_exiting_record_mode[] = "Exiting record mode.";
-// GLOBAL: WIZ8 0x006503f8
 static char s_error_deleting_log_file[] = "Error deleting log file.";
-// GLOBAL: WIZ8 0x00650414
 static char s_log_file_deleted[] = "Log file deleted.";
-// GLOBAL: WIZ8 0x00650428
 static char s_delete_log[] = "DELETE LOG";
 /* Per-device spell/notice table; TriggerTrapDevice reads
    the effect spell id at index device + 0xb. */
-// GLOBAL: WIZ8 0x006504E8
 int g_table2[] = {10,  25, 35, 40, 50, 60, 70, 80,  90,  100, 110, 121, 122,
                   123, 24, 47, 36, 37, 60, 70, 124, 125, 126, 86,  127, 91};
-// GLOBAL: WIZ8 0x00650434
 static unsigned char g_table1[15][8] = {
     {0, 1, 0, 0, 0, 1, 0, 0}, {0, 1, 0, 1, 0, 0, 0, 0}, {0, 0, 1, 0, 0, 1, 0, 0},
     {0, 0, 0, 0, 1, 1, 0, 0}, {0, 0, 1, 1, 0, 0, 0, 1}, {1, 1, 0, 0, 1, 0, 0, 0},
@@ -82,11 +68,9 @@ static unsigned char g_table1[15][8] = {
 
 /* Record mode appends the current camera position, orientation, level
    location code and the typed line to data\notes.txt. */
-// FUNCTION: WIZ8 0x005E3280
 void WriteRecordModeEntry(void)
 {
     W8WorldCameraState state;
-    char location_code[32];
     std::string line;
     std::unique_ptr<wiz8::File> file;
     unsigned int length;
@@ -111,12 +95,10 @@ void WriteRecordModeEntry(void)
         line = fmt::format("{:f} {:f} {:f} {:f} {:f} {:d}\n", state.yaw[0], state.yaw[1],
                            state.yaw[2], state.yaw[3], state.yaw[4], 0);
         file->write(line.data(), line.size());
-        if (GetLevelLocationCode(GetLoadedLevelID(), location_code) == 0) {
-            strcpy(location_code, s_record_mode_default_location);
-        }
-        length = strlen(location_code);
-        location_code[length] = '\n';
-        file->write(location_code, length + 1);
+        const auto code =
+            GetLevelLocationCode(GetLoadedLevelID()).value_or(s_record_mode_default_location);
+        line = code + '\n';
+        file->write(line.data(), line.size());
         length = strlen(g_record_mode_line);
         g_record_mode_line[length] = '\n';
         file->write(g_record_mode_line, length + 1);
@@ -128,7 +110,6 @@ void WriteRecordModeEntry(void)
 
 /* The ENTER-key apply callback: an ordinary line is appended to the log, while
    "DELETE LOG" removes the file and leaves record mode. */
-// FUNCTION: WIZ8 0x005E34B0
 void ApplyRecordModeLine(void)
 {
     char message[1024];
@@ -154,7 +135,6 @@ void ApplyRecordModeLine(void)
 
 /* The per-key prompt callback: clears the status line and shows the record
    mode prompt while each character is being composed. */
-// FUNCTION: WIZ8 0x005E35A0
 void PromptRecordModeEntry(void)
 {
     char message[100];
@@ -168,7 +148,6 @@ void PromptRecordModeEntry(void)
    attribution gap before the asserted Traps.cpp body at 0x5E3800 (line 148);
    their placement here is provisional, not proven ownership. */
 
-// FUNCTION: WIZ8 0x005E3600
 bool IsRecordModeActive(void)
 {
     return g_record_mode_active;
@@ -176,7 +155,6 @@ bool IsRecordModeActive(void)
 /* Record-mode key handler: collects a printable line into
    g_record_mode_line. Returns 1 on ENTER (the caller then runs the
    apply callback), -1 on ESC, 0 otherwise. */
-// FUNCTION: WIZ8 0x005E3610
 char HandleRecordModeKey(const InputEvent* input, void (*prompt)(void))
 {
     char character;
@@ -224,7 +202,6 @@ char HandleRecordModeKey(const InputEvent* input, void (*prompt)(void))
     return 0;
 }
 
-// FUNCTION: WIZ8 0x005E3730
 unsigned char GetTable650434Entry(int row, int column)
 {
     return g_table1[row][column];
@@ -233,13 +210,11 @@ unsigned char GetTable650434Entry(int row, int column)
 /* Per-type device floor for the sprung-trap discharge: the type's entry is
    subtracted from the trigger's device count before extra targets and power
    are rolled. */
-// GLOBAL: WIZ8 0x006504AC
 static int g_trap_difficulty[W8_TRAP_TYPE_COUNT] = {1, 1, 2, 2, 3, 3, 3, 4, 5, 5, 5, 6, 6, 7, 7};
 
 /* Roll the trigger's trap type (device_id) on first interaction: rejection-
    sample the fifteen-row trap table until a type whose per-type difficulty
    lands within four of the trigger's grade (difficulty, floored at one). */
-// FUNCTION: WIZ8 0x005E3740
 void SelectTrapType(Trigger* trigger)
 {
     W8LockState* lock_state;
@@ -260,7 +235,6 @@ void SelectTrapType(Trigger* trigger)
     } while (g_trap_difficulty[type] > budget || g_trap_difficulty[type] + 4 < budget);
 }
 
-// FUNCTION: WIZ8 0x005E3780
 void CompleteTrapDisarm(Trigger* trigger)
 {
     int type;
@@ -277,7 +251,6 @@ void CompleteTrapDisarm(Trigger* trigger)
     trigger->Run(-1);
 }
 
-// FUNCTION: WIZ8 0x005E3800
 static void DischargeTrapSpell(glm::vec3 point, int spell_id, unsigned int power_level,
                                int num_targets)
 {
@@ -288,7 +261,7 @@ static void DischargeTrapSpell(glm::vec3 point, int spell_id, unsigned int power
     W8TargetSource source;
 
     if (num_targets < 1) {
-        srAssertFail("iNumTargets > 0", "C:\\Projects\\Wizardry 8\\Local Code\\Traps.cpp", 0x94, 0);
+        Fail("iNumTargets > 0");
     }
     ResetTargetSource(&source);
     source.iType = W8_TARGET_SOURCE_INDIRECT;
@@ -322,7 +295,6 @@ static void DischargeTrapSpell(glm::vec3 point, int spell_id, unsigned int power
     }
 }
 
-// FUNCTION: WIZ8 0x005E3AB0
 void ResolveSprungTrap(Trigger* trigger)
 {
     int devices;

@@ -145,7 +145,6 @@ public:
     bool m_dirty = true;
 };
 
-// VTABLE: WIZ8 0x005ef778 W8CharacterPage
 class W8CharacterStatsPage : public W8CharacterPage {
 public:
     W8CharacterStatsPage() : W8CharacterPage(CatalogArtwork::Load(0x104)) {}

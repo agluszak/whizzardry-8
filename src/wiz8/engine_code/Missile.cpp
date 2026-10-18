@@ -71,10 +71,7 @@ constexpr float kCharacterProjectileHeight = 81.25f;
 constexpr float kCharacterProjectileHeightStep = 32.5f;
 constexpr double kMissileGravityAcceleration = 0.009800000000000001;
 
-#define MISSILE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Missile.cpp"
-
-// FUNCTION: WIZ8 0x004a53a0
-std::unique_ptr<W8AIRecord> W8AIMissile::Clone() const
+std::unique_ptr<W8AIMissile> W8AIMissile::Clone() const
 {
     auto copy = std::make_unique<W8AIMissile>(*this);
     copy->missile = nullptr;
@@ -85,7 +82,6 @@ std::unique_ptr<W8AIRecord> W8AIMissile::Clone() const
    clamped half-tick delta, fold the returned advance into the elapsed clock,
    steer the representation while the path is unobstructed, and end the flight
    at expiry or an early-impact limit. */
-// FUNCTION: WIZ8 0x004a4cf0
 unsigned char UpdateMissileAI(W8AIMissile* record)
 {
     W8Missile* missile;
@@ -170,7 +166,6 @@ unsigned char UpdateMissileAI(W8AIMissile* record)
    re-aim its representation at that point. A ray through the world octree
    flags the record when a prop blocks the path and fires the prop's
    missile trigger. Returns the distance the step covered. */
-// FUNCTION: WIZ8 0x004a50a0
 float AdvanceMissileAI(W8AIMissile* record, glm::vec3* out, unsigned int steps)
 {
     W8MissileRep* representation;
@@ -230,10 +225,8 @@ float AdvanceMissileAI(W8AIMissile* record, glm::vec3* out, unsigned int steps)
     return advance;
 }
 
-// GLOBAL: WIZ8 0x0065bde0
 std::vector<W8MissileTableRecord> g_missile_table;
 
-// GLOBAL: WIZ8 0x0060c9c8
 const char* g_missile_cycle_names[] = {"FLY", "EXPLODE"};
 
 /* Index of the cycle whose name starts the PAC name, or -1 when none does. */
@@ -248,7 +241,6 @@ static int missileCycleIndex(const char* pac_name)
 }
 /* Engine Code\\Missile.cpp's startup database load.  Each disk row has a
    0x101-byte editor prefix followed by the 0x1e5-byte runtime record. */
-// FUNCTION: WIZ8 0x004a5600
 unsigned char LoadMissileDatabase(void)
 try {
     auto handle = wiz8::open_file(wiz8::asset_path("Data\\Databases\\MissileTables.dbs"));
@@ -273,7 +265,6 @@ try {
 /* True while this missile is still an in-flight engagement that must finish
    before combat can end: either it has not been marked done, or its animation
    state for mode 6 is not the terminal value. */
-// FUNCTION: WIZ8 0x004a5790
 bool W8Missile::BlocksEndingCombat()
 {
     if (!flight_done) {
@@ -284,7 +275,6 @@ bool W8Missile::BlocksEndingCombat()
     return false;
 }
 
-// FUNCTION: WIZ8 0x004A57B0
 void GetCharacterProjectilePosition(unsigned int character_index, glm::vec3* position)
 {
     glm::vec3 camera = cameraLocation();
@@ -296,17 +286,10 @@ void GetCharacterProjectilePosition(unsigned int character_index, glm::vec3* pos
     *position = camera + glm::rotateY(glm::rotateX(offset, pitch), yaw);
 }
 
-// VTABLE: WIZ8 0x005ecde0 W8MissileRep
-// class W8MissileRep
-// VTABLE: WIZ8 0x005ece08 W8GrObject
-// VTABLE: WIZ8 0x005ecdf4 W8Navigator
-// class W8Missile
-// GLOBAL: WIZ8 0x0065BDE4
 static int g_missile_iterator;
 
 /* Iterate the world's missile vector. A nonzero argument restarts the shared
    cursor; a missing world or vector answers null. */
-// FUNCTION: WIZ8 0x004A2760
 W8Missile* NextMissile(bool restart)
 {
     W8Missile* missile = 0;
@@ -328,11 +311,10 @@ W8Missile* NextMissile(bool restart)
    A missile still starting, or not yet marked for removal, detaches its
    representation, starts if needed, and updates in place; a finished one
    leaves the world collection and is destroyed. */
-// FUNCTION: WIZ8 0x004a27c0
 void UpdateWorldMissiles(W8World* world)
 {
     if (world == 0) {
-        srAssertFail("pWorld", MISSILE_CPP, 200, 0);
+        Fail("pWorld");
     }
     int index = 0;
     int count = static_cast<int>(world->missiles.size());
@@ -357,7 +339,6 @@ void UpdateWorldMissiles(W8World* world)
 
 /* Derive the two launch angles from the source and target, then forward the
    remaining launch values to the missile factory. */
-// FUNCTION: WIZ8 0x004A2D30
 W8Missile* FireMissile(unsigned int missile_table_index, glm::vec3* source, glm::vec3* target,
                        float flight_speed, unsigned int trace_mask, unsigned int block_released,
                        float duration)
@@ -370,7 +351,6 @@ W8Missile* FireMissile(unsigned int missile_table_index, glm::vec3* source, glm:
 /* Instantiate the missile for `missile_table_index`: load or clone the cycle
    the table row names, then stamp the index, register the result on the world
    missile list and give it the default navigation bounds. */
-// FUNCTION: WIZ8 0x004A5450
 W8Missile* AllocateMissile(int missile_table_index)
 {
     auto owner = LoadMissileCycle(GetWorld(), g_missile_table[missile_table_index].cycle_name);
@@ -403,15 +383,12 @@ W8Missile* AllocateMissile(int missile_table_index)
    the "data\\Missiles\\<name>.mls" script is parsed - its align/explode/
    gravity/velocity keywords set the missile's tail flags - and the cycle
    lines load through the ordinary GrCycle path. */
-// FUNCTION: WIZ8 0x004a3550
 std::unique_ptr<W8Missile> LoadMissileCycle(W8World* world, std::string_view name)
 {
     if (auto* found = FindFirstGrCycleByName(name)) {
         auto missile = std::make_unique<W8Missile>(*static_cast<W8Missile*>(found), world);
-        auto* ai = static_cast<W8AIMissile*>(missile->m_pAI.get());
-        if (ai->kind != W8_AI_RECORD_MISSILE)
-            srAssertFail("missile AI", MISSILE_CPP, __LINE__, nullptr);
-        ai->missile = missile.get();
+        if (!missile->flight_ai) Fail("missile AI");
+        missile->flight_ai->missile = missile.get();
         RegisterGrCycle(name, missile.get());
         return missile;
     }
@@ -526,7 +503,6 @@ std::unique_ptr<W8Missile> LoadMissileCycle(W8World* world, std::string_view nam
    the heading and pitch, position and aim the navigator, probe the world
    octree for an early-impact limit, and attach the kind-3 AI record that
    drives the flight. */
-// FUNCTION: WIZ8 0x004A28D0
 W8Missile* CreateMissile(unsigned int missile_table_index, glm::vec3* source, float heading,
                          float pitch, float flight_speed, unsigned int trace_mask,
                          unsigned char block_released, float duration)
@@ -580,7 +556,7 @@ W8Missile* CreateMissile(unsigned int missile_table_index, glm::vec3* source, fl
         ai->limit = limit;
         ai->last_half_tick = GameClockMilliseconds() >> 1;
         ai->missile = missile;
-        missile->m_pAI.reset(ai);
+        missile->flight_ai.reset(ai);
         ai->fall_speed = static_cast<float>(sin(-pitch) * flight_speed * 0.001f);
         ai->limit = limit;
         missile->trace_mask = trace_mask;
@@ -610,13 +586,12 @@ W8AniMesh* W8MissileRep::GetEmitterAniMesh(signed char emitter)
 }
 
 /* Apply the representation's current LOD to one required animation. */
-// FUNCTION: WIZ8 0x004A2710
 unsigned int W8MissileRep::ApplyEmitterSetting(signed char emitter)
 {
     W8AnimObj* target = resources.cycles[emitter].animation.get();
 
     if (target == 0) {
-        srAssertFail("pao", MISSILE_CPP, 0x7e, 0);
+        Fail("pao");
     }
     return AnimObjValue(target, m_bLOD);
 }
@@ -630,15 +605,13 @@ W8MissileRep::W8MissileRep() = default;
    copy every optional light vector. The copied lights are ordinary scene
    objects registered with the world but detached until the missile selects
    their emitter. */
-// FUNCTION: WIZ8 0x004a2db0
 W8MissileRep::W8MissileRep(const W8MissileRep& other) = default;
 
-// FUNCTION: WIZ8 0x004A3300
 unsigned char W8MissileRep::ReadCycleData(W8ReadLevelInfo* info, W8Missile* missile,
                                           int cycle_index, int)
 {
     if (info == 0 || info->hFile == 0 || missile == 0) {
-        srAssertFail("pInfo && pInfo->hFile && pMissile", MISSILE_CPP, 0x1df, 0);
+        Fail("pInfo && pInfo->hFile && pMissile");
     }
     return ReadEmitterCycle(*this, resources.cycles, info, *missile, cycle_index,
                             missile->m_pRep != nullptr);
@@ -648,7 +621,6 @@ unsigned char W8MissileRep::ReadCycleData(W8ReadLevelInfo* info, W8Missile* miss
    complete +0x280..+0x321 tail after allocating the representation.  That
    overwrites the vector and leaks its initial five-pointer allocation; the
    ordering is preserved because it is present explicitly in the product. */
-// FUNCTION: WIZ8 0x004A3C10
 W8Missile::W8Missile(W8World* owner)
     : W8GrCycle(owner), missile_table_index(-1), flight_done(0), impacting(0), block_released(1),
       gravity(0), align_camera(0), explode_ground(0), align_explosion(0), flag(1), value_1e8(0),
@@ -662,7 +634,7 @@ W8Missile::W8Missile(W8World* owner)
 
     m_pRep = std::make_unique<W8MissileRep>();
     if (m_pRep == 0) {
-        srAssertFail("m_pRep", MISSILE_CPP, 0x38e, 0);
+        Fail("m_pRep");
     }
 
     memset(&definition, 0, sizeof(definition));
@@ -676,7 +648,6 @@ W8Missile::W8Missile(W8World* owner)
    +0x280..+0x321 tail after result's member construction, leaking the
    growable vector's initial allocation exactly as the default constructor
    does. */
-// FUNCTION: WIZ8 0x004A3E50
 W8Missile::W8Missile(const W8Missile& other, W8World* owner)
     : W8GrCycle(other, owner), missile_table_index(other.missile_table_index), flight_done(0),
       impacting(0), block_released(other.block_released), gravity(other.gravity),
@@ -688,6 +659,7 @@ W8Missile::W8Missile(const W8Missile& other, W8World* owner)
     W8GrObject::kind = 1;
     id = AllocateGrObjectId();
     m_pRep = std::make_unique<W8MissileRep>(*other.m_pRep);
+    flight_ai = other.flight_ai ? other.flight_ai->Clone() : nullptr;
 
     memset(&definition, 0, sizeof(definition));
     result = {};
@@ -696,7 +668,6 @@ W8Missile::W8Missile(const W8Missile& other, W8World* owner)
 
 /* Mode-keyed query over the representation's emitter/cycle state; used by the
    missile script handlers. */
-// FUNCTION: WIZ8 0x004A4640
 w8_ulong W8Missile::GetAnimationState(int mode)
 {
     switch (mode) {
@@ -723,7 +694,6 @@ w8_ulong W8Missile::GetAnimationState(int mode)
 
 /* Release the representation and every external reference before ordinary
    vector and GrCycle teardown. */
-// FUNCTION: WIZ8 0x004a3fc0
 W8Missile::~W8Missile()
 {
     SetLights(0);
@@ -738,14 +708,15 @@ W8Missile::~W8Missile()
    missile's AI and ticks the animation. A scripted missile instead records
    the start, fires the one-shot launch for its table kind, and lets the
    combat boundary consume the animation once its table flag is set. */
-// FUNCTION: WIZ8 0x004a4050
 void W8Missile::StartIfHostActive()
 {
     if (m_pRep->active == 0) {
         return;
     }
     if (GetAnimationState(2) == 0 || !impacting) {
-        if (m_pAI != 0) {
+        if (flight_ai) {
+            UpdateMissileAI(flight_ai.get());
+        } else if (m_pAI != 0) {
             PathAIUpdate(m_pAI.get(), 1);
         }
         W8GrCycle::TickAnimation(1.0f);
@@ -766,7 +737,6 @@ W8MissileRep::~W8MissileRep() = default;
 
 /* Copy the effect definition, then replace its radius from the selected
    0x1e5-byte missile database row. */
-// FUNCTION: WIZ8 0x004A5410
 void W8Missile::SetEffectDefinition(const W8SpellEffectDefinition* definition)
 {
     memcpy(&this->definition, definition, sizeof(this->definition));
@@ -774,40 +744,35 @@ void W8Missile::SetEffectDefinition(const W8SpellEffectDefinition* definition)
 }
 
 /* The representation a missile was fired from. */
-// FUNCTION: WIZ8 0x004a45e0
 W8EmitterHost* W8Missile::GetRepresentation()
 {
     return m_pRep.get();
 }
 
 /* The animation the representation is currently firing from. */
-// FUNCTION: WIZ8 0x004a4570
 W8AnimObj* W8Missile::GetCurrentAnimation()
 {
     return m_pRep->resources.cycles[m_pRep->current_cycle].animation.get();
 }
 
 /* That animation's own playback scale. */
-// FUNCTION: WIZ8 0x004a45c0
 float W8Missile::GetCurrentAnimationScale()
 {
     return m_pRep->resources.cycles[m_pRep->current_cycle].animation->playback_scale;
 }
 
-// FUNCTION: WIZ8 0x004a45f0
 W8AniMesh* W8Missile::GetCurrentAniMesh()
 {
     W8AnimObj* animation = m_pRep->resources.cycles[m_pRep->current_cycle].animation.get();
 
     if (animation == 0) {
-        srAssertFail("pao", MISSILE_CPP, 0x55e, 0);
+        Fail("pao");
     }
     return animation->entries[m_pRep->m_bLOD].get();
 }
 
 /* How many emitters the launcher has, counted by testing each for null rather
    than read from a stored count. */
-// FUNCTION: WIZ8 0x004a4590
 signed char W8Missile::GetTotalAnimationCount()
 {
     signed char count = 0;
@@ -823,14 +788,12 @@ signed char W8Missile::GetTotalAnimationCount()
 }
 
 /* The missile adds no work around the ordinary GrCycle update. */
-// FUNCTION: WIZ8 0x004a4100
 void W8Missile::UpdateRepresentation(W8World* world)
 {
     W8GrCycle::UpdateRepresentation(world);
 }
 
 /* Hand the representation's LOD to the current animation. */
-// FUNCTION: WIZ8 0x004a4110
 signed char W8Missile::GetNumSubCycles()
 {
     W8AnimObj* animation = GetCurrentAnimation();
@@ -838,11 +801,10 @@ signed char W8Missile::GetNumSubCycles()
     return static_cast<signed char>(AnimObjValue(animation, m_pRep->m_bLOD));
 }
 
-// FUNCTION: WIZ8 0x004a42b0
 bool W8Missile::IsCycleSupported(signed char cycle)
 {
     if (cycle >= 2) {
-        srAssertFail("bCycle<MISSILE_NUM_CYCLES", MISSILE_CPP, 0x4bf, 0);
+        Fail("bCycle<MISSILE_NUM_CYCLES");
     }
     return m_pRep->resources.cycles[cycle].animation != 0;
 }
@@ -852,14 +814,12 @@ bool W8Missile::IsCycleSupported(signed char cycle)
 /* 0x004A4440 is a split address inside this body: it resumes at the
    animation-record field copy after the timestamp read, not a separate
    authored function. */
-// FUNCTION: WIZ8 0x004a4300
 void W8Missile::SetCycle(signed char cycle)
 {
     std::vector<std::unique_ptr<stLight>>* lights;
 
     if (cycle < 0 || cycle >= 2) {
-        srAssertFail("bCycle >= MISSILE_CYCLE_FIRST && bCycle <= MISSILE_CYCLE_LAST", MISSILE_CPP,
-                     0x4d6, 0);
+        Fail("bCycle >= MISSILE_CYCLE_FIRST && bCycle <= MISSILE_CYCLE_LAST");
     }
 
     lights = m_pRep->resources.cycles[m_pRep->current_cycle].lightView();
@@ -883,7 +843,6 @@ void W8Missile::SetCycle(signed char cycle)
 /* Reset the launcher's two counters at 0x94 and 0x95. The second is one less
    than the missile's own virtual answer, and the launcher pointer is taken
    before the virtual call rather than after. */
-// FUNCTION: WIZ8 0x004a4140
 void W8Missile::AdvanceAnimationFrame(int value, int arg_flags)
 {
     W8MissileRep* representation_before;
@@ -897,7 +856,6 @@ void W8Missile::AdvanceAnimationFrame(int value, int arg_flags)
 /* Cast spell 0x83 at the missile's own position on behalf of the character
    that fired it - the detonation a stored-spell missile (table index 0x23)
    releases once its flight ends. */
-// FUNCTION: WIZ8 0x004a49e0
 void W8Missile::DetonateMissileSpell()
 {
     W8TargetSource source;
@@ -905,7 +863,7 @@ void W8Missile::DetonateMissileSpell()
     glm::vec3 position;
 
     if (m_Source.iType != W8_TARGET_SOURCE_CHARACTER) {
-        srAssertFail("m_Source.iType == SOURCE_TYPE_CHAR", MISSILE_CPP, 0x6c5, 0);
+        Fail("m_Source.iType == SOURCE_TYPE_CHAR");
     }
     position = GetPosition();
     ResetTargetSource(&source);
@@ -921,7 +879,6 @@ void W8Missile::DetonateMissileSpell()
 
 /* Post "<source> hits <target>" to the notice box and colour the target's
    name with the target side's colour when it differs from the source's. */
-// FUNCTION: WIZ8 0x004a4ac0
 void W8Missile::AnnounceCollisionTarget()
 {
     std::string text;
@@ -952,7 +909,6 @@ void W8Missile::AnnounceCollisionTarget()
     }
 }
 
-// FUNCTION: WIZ8 0x004a4c20
 void W8Missile::EnterImpactCycle()
 {
     if (IsCycleSupported(1)) {
@@ -979,7 +935,6 @@ void W8Missile::EnterImpactCycle()
     }
 }
 
-// FUNCTION: WIZ8 0x004a4720
 bool W8Missile::OnCollision(W8Navigator* other)
 {
     char hit_result;

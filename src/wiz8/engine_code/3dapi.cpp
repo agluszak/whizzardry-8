@@ -66,6 +66,7 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/unicode.h"
 #include "wiz8/world_cursor.h"
 // Completes MonGen for templated world-registry destruction.
 #include "wiz8/local_code/MonsterGenerator.h" // IWYU pragma: keep
@@ -82,9 +83,6 @@ constexpr double kAutomapRefreshDistanceSquared = 250000.0;
 
 class srModelInstance;
 
-#define THREE_D_API_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\3dapi.cpp"
-
-// GLOBAL: WIZ8 0x00659757
 bool g_world_cleanup_flag;
 W8GameData* GetWorldGameData()
 {
@@ -102,15 +100,12 @@ W8PathingService* GetWorldPathing()
 {
     return GetWorld() ? WorldPathing(*GetWorld()) : nullptr;
 }
-// GLOBAL: WIZ8 0x006081f8
 bool g_navigator_vertical_enabled = true;
 
-// GLOBAL: WIZ8 0x00609c88
 float g_mesh_view_half_angle_degrees = 60.0f;
 
 /* Build scene resources under a local owner. No active world is required;
    malformed resources destroy only this unpublished result. */
-// FUNCTION: WIZ8 0x0044F5F0
 std::unique_ptr<W8World> LoadWorld(int level_id, std::string source_path, bool use_octree)
 {
     auto owner = std::make_unique<W8World>(level_id, std::move(source_path));
@@ -166,17 +161,15 @@ std::unique_ptr<W8World> LoadWorld(int level_id, std::string source_path, bool u
     try {
         handle = wiz8::open_file(wiz8::asset_path(level_path), wiz8::OpenMode::read);
     } catch (const std::exception&) {
-        srAssertFail("hFile", THREE_D_API_CPP, 0x1d8, "Could not open level file.");
+        Fail("hFile", "Could not open level file.");
     }
     if (!ReadLevel(world, handle.get(), use_octree, wiz8::asset_path(material_folder))) {
-        srAssertFail("fSuccess", THREE_D_API_CPP, 0x1dd,
-                     "Problem loading level, please check files and versions.");
+        Fail("fSuccess", "Problem loading level, please check files and versions.");
     }
     return owner;
 }
 
 // The sky world only retires particles and disables queued nodes.
-// FUNCTION: WIZ8 0x0044F4E0
 static void UpdateWorld(W8World& world)
 {
     if (&world != GetSecondaryWorld()) {
@@ -201,7 +194,6 @@ static void UpdateWorld(W8World& world)
     world.nodes_to_disable.clear();
 }
 
-// FUNCTION: WIZ8 0x0044F400
 void UpdateWorlds(void)
 {
     g_navigator_vertical_enabled =
@@ -223,7 +215,6 @@ void UpdateWorlds(void)
 
 /* Detach the item meshes in the level and sky worlds before the renderer-side
    resource transition. */
-// FUNCTION: WIZ8 0x0044f5b0
 void DetachAllWorldItems(void)
 {
     for (W8World* world : {GetWorld(), GetSecondaryWorld()}) {
@@ -231,17 +222,11 @@ void DetachAllWorldItems(void)
     }
 }
 
-// GLOBAL: WIZ8 0x005ec1f8
 const double g_world_camera_pi = 3.141592653589793;
-// GLOBAL: WIZ8 0x005ebce8
 const double g_world_camera_half_turn_degrees = 180.0;
-// GLOBAL: WIZ8 0x00607d84
 static float g_camera_base_horizontal_fov = 85.0f;
-// GLOBAL: WIZ8 0x00607d88
 static float g_camera_base_vertical_fov = 71.0f;
-// GLOBAL: WIZ8 0x00659abc
 static float g_camera_sway_horizontal_phase;
-// GLOBAL: WIZ8 0x00659ac0
 static float g_camera_sway_vertical_phase;
 
 /* Drives the swaying camera view. A positive mode captures the camera's
@@ -249,7 +234,6 @@ static float g_camera_sway_vertical_phase;
    captured view and leaves it, and zero only advances the sway while it is
    active: both phases run in degrees per second, wrap at a full turn and
    offset the view plane through sine. */
-// FUNCTION: WIZ8 0x00450080
 void SetCameraSwayMode(srCamera* camera, int mode)
 {
     float elapsed = MoveTimer(2);
@@ -339,7 +323,6 @@ static void DestroyWorldResources(W8World* world)
 
 /* A world starts with its static scene, the level node and the dynamic scene.
    Authored environment ramps are seeded before the level overrides them. */
-// FUNCTION: WIZ8 0x0044F1C0
 W8LevelPopulation& CurrentLevelPopulation()
 {
     if (!GetWorld()) throw std::logic_error("no gameplay level is loaded");
@@ -371,7 +354,6 @@ W8World::~W8World()
    primary world, then the sky world with flag 0x40 so the motion pass is
    skipped there. Function-local statics keep the last refresh position and the
    last applied rotation; their atexit thunks are at 0x00450070 / 0x00450060. */
-// FUNCTION: WIZ8 0x0044FC20
 void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
 {
     static glm::vec3 s_last_automap_refresh_position(0);
@@ -466,12 +448,10 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
 }
 
 /* Camera or geometry changes invalidate only this world's cached view. */
-// FUNCTION: WIZ8 0x00451010
 
 /* Resolve a particle by its runtime name from the current world's particle
    vector. Names are case-insensitive in the original registry-facing lookup. */
-// FUNCTION: WIZ8 0x00451080
-stParticle* FindParticleByName(const char* name)
+stParticle* FindParticleByName(std::string_view name)
 {
     if (GetWorld() != nullptr) {
         int count = static_cast<int>(GetWorld()->particles.size());
@@ -479,7 +459,7 @@ stParticle* FindParticleByName(const char* name)
         for (int index = 0; index < count; ++index) {
             stParticle* particle = GetWorld()->particles[index].get();
 
-            if (SDL_strcasecmp(particle->getName().c_str(), name) == 0) {
+            if (CompareTextIgnoreAsciiCase(particle->getName(), name) == 0) {
                 return particle;
             }
         }
@@ -490,7 +470,6 @@ stParticle* FindParticleByName(const char* name)
 /* Read the camera position when one is attached to the world. The sole
    caller preserves this value across a level reload, so a world without a
    camera contributes the zero position. */
-// FUNCTION: WIZ8 0x00451160
 glm::vec3 cameraLocationOrZero(const W8World& world)
 {
     return world.camera ? cameraLocation(world) : glm::vec3(0);
@@ -499,14 +478,13 @@ glm::vec3 cameraLocationOrZero(const W8World& world)
 /* Set the view position after loading or traversing a portal. The camera light
    follows the camera, while only the camera move publishes the new game-space
    position. */
-// FUNCTION: WIZ8 0x004511D0
 void SetWorldScenePosition(W8World* world, const glm::vec3* location)
 {
     glm::vec3 position;
     glm::dvec3 render_position;
 
     if (!world) {
-        srAssertFail("pWorld", THREE_D_API_CPP, 1043, 0);
+        Fail("pWorld");
     }
 
     position = *location;
@@ -521,7 +499,6 @@ void SetWorldScenePosition(W8World* world, const glm::vec3* location)
     }
 }
 
-// FUNCTION: WIZ8 0x00451020
 void RefreshWorldView()
 {
     auto* world = GetWorld();
@@ -534,36 +511,26 @@ void RefreshWorldView()
     RequestRefreshPartyState();
 }
 
-/* Report a failed assertion with no message of its own, so the expression and
-   the site are all the caller has to give. */
-// FUNCTION: WIZ8 0x00450780
-void ReportAssertion(const char* expression, const char* source_path, w8_long line)
-{
-    srAssertFail(expression, source_path, line, 0);
-}
-
 /* The camera's rotation basis, read straight back out of the renderer node.
    Both assertions belong to this body: 3dapi.cpp:975 names the world and
    3dapi.cpp:976 names its camera member pWorld->psrCamera, which is what puts
    the camera at 0x44 rather than anywhere else. */
-// FUNCTION: WIZ8 0x004503c0
 glm::mat3 cameraRotation(const W8World& world)
 {
     if (!world.camera) {
-        srAssertFail("pWorld->psrCamera", THREE_D_API_CPP, 0x3d0, 0);
+        Fail("pWorld->psrCamera");
     }
     return world.camera->getRotation<glm::mat3>();
 }
 
 /* Moves the camera and its camera light together. Only the camera's move
    notifies the level; the light simply follows the view. */
-// FUNCTION: WIZ8 0x00450420
 void WorldSetCameraLocation(const glm::vec3* location)
 {
     glm::dvec3 position;
 
     if (!GetWorld()) {
-        srAssertFail("pWorld", THREE_D_API_CPP, 0x422, 0);
+        Fail("pWorld");
     }
     if (GetWorld()->camera != 0) {
         position = glm::dvec3((*location));
@@ -579,17 +546,16 @@ void WorldSetCameraLocation(const glm::vec3* location)
 /* Apply a CamPos record to the world's camera and camera light. A non-null
    source world repeats the orientation write; automap restore passes null and
    recall / LoadLevel pass GetSecondaryWorld(). */
-// FUNCTION: WIZ8 0x004504B0
 void SetWorldCameraState(W8World* world, W8World* source_world, W8WorldCameraState* state)
 {
     if (world == nullptr) {
-        srAssertFail("pWorld", THREE_D_API_CPP, 0x43f, 0);
+        Fail("pWorld");
     }
     if (state == nullptr) {
-        srAssertFail("CamPos", THREE_D_API_CPP, 0x444, 0);
+        Fail("CamPos");
     }
     if (world->camera == nullptr) {
-        srAssertFail("pWorld->pCamera", THREE_D_API_CPP, 0x444, 0);
+        Fail("pWorld->pCamera");
     }
 
     glm::vec3 location = state->position;
@@ -609,13 +575,12 @@ void SetWorldCameraState(W8World* world, W8World* source_world, W8WorldCameraSta
 
 /* Reinstall a CamPos record, then copy the resulting camera pose onto the
    startup navigator in degrees with the default world height removed. */
-// FUNCTION: WIZ8 0x00450610
 void RestoreWorldCameraState(W8World* source_world, W8WorldCameraState* state)
 {
     glm::vec3 navigator_position;
 
     if (GetWorld() == nullptr) {
-        srAssertFail("pWorld", THREE_D_API_CPP, 0x46b, 0);
+        Fail("pWorld");
     }
     SetWorldCameraState(GetWorld(), source_world, state);
     navigator_position = glm::vec3(GetWorld()->camera->getLocation());
@@ -627,7 +592,6 @@ void RestoreWorldCameraState(W8World* source_world, W8WorldCameraState* state)
 
 /* Snapshot the world's camera location and the live yaw/pitch into a CamPos
    record. A world without a camera contributes the zero position. */
-// FUNCTION: WIZ8 0x004506C0
 W8WorldCameraState cameraState(const W8World& world)
 {
     W8WorldCameraState state{};
@@ -638,7 +602,6 @@ W8WorldCameraState cameraState(const W8World& world)
 
 /* Read the camera node's double-precision renderer position back into the
    world's float position type. */
-// FUNCTION: WIZ8 0x00450750
 glm::vec3 cameraLocation(const W8World& world)
 {
     return glm::vec3(world.camera->getLocation());
@@ -646,13 +609,12 @@ glm::vec3 cameraLocation(const W8World& world)
 
 /* Runtime/debug adjustment dispatcher for the active world's clipping and
    environment controls. Bits not handled here are intentionally ignored. */
-// FUNCTION: WIZ8 0x00450210
 void ApplyWorldUpdateFlags(W8World* world, unsigned int flags)
 {
     float scale;
 
     if (world == 0) {
-        srAssertFail("pWorld", THREE_D_API_CPP, 0x321, 0);
+        Fail("pWorld");
     }
     if ((flags & W8_WORLD_INCREASE_FAR_CLIP) != 0) {
         WorldSetFarClip(world,
@@ -687,13 +649,13 @@ void ApplyWorldUpdateFlags(W8World* world, unsigned int flags)
 }
 
 /* Resolve the PARTY alias or a named position stored with the current world. */
-// FUNCTION: WIZ8 0x004512C0
-bool FindEntityByName(const char* name, glm::vec3* position, float* angle, glm::vec3* direction)
+bool FindEntityByName(std::string_view name, glm::vec3* position, float* angle,
+                      glm::vec3* direction)
 {
-    if (name == 0) {
+    if (name.empty()) {
         return false;
     }
-    if (SDL_strcasecmp("PARTY", name) == 0) {
+    if (CompareTextIgnoreAsciiCase("PARTY", name) == 0) {
         *position = cameraLocation();
         return true;
     }
@@ -701,7 +663,7 @@ bool FindEntityByName(const char* name, glm::vec3* position, float* angle, glm::
     int count = static_cast<int>(GetWorld()->named_positions.size());
     for (int index = 0; index < count; ++index) {
         const W8NamedPosition* entry = &GetWorld()->named_positions[index];
-        if (SDL_strcasecmp(name, entry->name) == 0) {
+        if (CompareTextIgnoreAsciiCase(name, entry->name) == 0) {
             *position = entry->position;
             if (angle != 0) {
                 *angle = entry->angle;
@@ -717,7 +679,6 @@ bool FindEntityByName(const char* name, glm::vec3* position, float* angle, glm::
 
 /* Push a candidate position clear of static geometry, then reject it when it
    overlaps another world item or monster. */
-// FUNCTION: WIZ8 0x00451390
 unsigned char AdjustWorldCollisionPosition(float radius, glm::vec3* position, bool check_items,
                                            bool check_monsters)
 {
@@ -797,7 +758,6 @@ unsigned char AdjustWorldCollisionPosition(float radius, glm::vec3* position, bo
 
 /* Try the requested point first, then the two retail half-turn probe points
    around it; only an unobstructed probe is handed to the overlap resolver. */
-// FUNCTION: WIZ8 0x00451800
 unsigned char FindNearbyFreePosition(float radius, glm::vec3* position, bool check_items,
                                      bool check_monsters)
 {

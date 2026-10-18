@@ -1,13 +1,9 @@
 #pragma once
 
+#include <source_location>
 #include <string>
+#include <string_view>
 
-// Fatal invariant failure; the application boundary reports the diagnostic.
-[[noreturn]] void srAssertFail(const char* expression, const char* source_path, int line,
-                               const char* message, ...);
-
-[[noreturn]] inline void srAssertFail(const char* expression, const char* source_path, int line,
-                                      const std::string& message)
-{
-    srAssertFail(expression, source_path, line, "%s", message.c_str());
-}
+// Unconditional invariant failure. The application boundary reports the diagnostic.
+[[noreturn]] void Fail(std::string_view expression, std::string_view message = {},
+                       const std::source_location& location = std::source_location::current());
