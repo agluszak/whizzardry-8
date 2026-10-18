@@ -95,7 +95,7 @@ void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targ
    collection. */
 void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* source,
                                 W8CombatSlot* target, std::vector<int>& monster_markers,
-                                std::vector<int>& party_markers, int highlighting);
+                                std::vector<int>& party_markers, W8AreaSightRule sight_rule);
 /* Drop every marker that no longer names a live, targetable
    monster; a few spell ids prune on extra monster-record rules. */
 void PruneSpellTargetMarkers(int spell_id, std::vector<int>& monster_markers);
@@ -112,7 +112,7 @@ int GetSpellDifficulty(unsigned int caster_figure, int spell_id, int bonus);
 bool IsSpellBlockedForCharacter(const W8Character* character, int spell_id);
 /* Records the character's chosen spell and power level for the
    pending action. */
-void SetCharacterSpell(const W8Character* character, int spell_id, int power_level);
+void SetCharacterSpell(const W8Character* character, const W8Action& spell);
 /* The power level the party slot's chosen spell can actually be
    cast at; zero means the cast cannot happen at all. */
 int GetAffordableSpellPowerLevel(int party_slot);

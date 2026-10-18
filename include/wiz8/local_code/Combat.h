@@ -10,15 +10,7 @@ struct W8MonsterRecord;
 
 void ChooseAction(int party_slot, W8ActionKind action, int detail, const W8ActionDetailBlock* data,
                   bool defer_execution, int notify);
-// A borrowed, short-lived selection; the owner retains pending, committed and
-// remembered spell/item/breath state independently.
-struct W8SelectedAction {
-    W8ActionKind kind;
-    int detail;
-    W8CombatSlot* target;
-    W8ActionDetailBlock* detail_block;
-};
-W8SelectedAction SelectCombatAction(int party_slot, W8TargetingContext context);
+W8Action SelectCombatAction(int party_slot, W8TargetingContext context);
 
 void SetCharacterCombatAction(int party_slot, W8ActionKind action_kind, int action_detail,
                               const W8ActionDetailBlock* data, int notify);
@@ -54,7 +46,7 @@ bool AnyCharacterEngaged(void);
 /* Whether the character knows any spell whose realm's sp_left
    still covers its spell_point_cost. */
 bool CharacterHasCastableSpell(W8Character* character);
-void PointCameraAtCombatTarget(W8TargetSource* source, W8CombatSlot* target);
+void PointCameraAtCombatTarget(W8TargetSource* source, const W8CombatSlot* target);
 /* Run one party slot's committed combat action - commit the
    chosen block, check conditions that can redirect or cancel it, dispatch on
    the action kind, and charge the fatigue. */

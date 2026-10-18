@@ -123,8 +123,7 @@ enum W8PartyActionStatus {
 
 /* The two-word block an action carries beside itself. A spell's holds the
    power level and a spare word; an item use's holds the use kind and the item.
-   It is the party slot row's own pair in both cases rather than a copy, which
-   is why every reader takes a pointer to it. */
+   Item references are borrowed only for the lifetime of the owning inventory. */
 union W8ActionDetailBlock {
     struct {
         int power_level;
@@ -156,6 +155,23 @@ enum W8ActionKind {
     W8_ACTION_EQUIP = 9,
     W8_ACTION_WALK = 10,
     W8_ACTION_RUN = 11
+};
+
+// An action snapshot owns its contents. Assessment cannot edit the controller's
+// pending, committed or remembered choice through this value.
+struct W8Action {
+    W8ActionKind kind = W8_ACTION_NONE;
+    int detail = -1;
+    W8CombatSlot target{W8_TARGET_KIND_NONE, -1, -1, -1, {}, nullptr};
+    W8ActionDetailBlock detail_block{.item_use = {0, nullptr}};
+};
+
+enum class W8AreaSightRule { RequireLineOfSight, GeometryOnly };
+
+enum class W8TargetFailure { None, Unavailable, OutOfRange, SightBlocked };
+struct W8TargetAssessment {
+    W8TargetFailure failure = W8TargetFailure::None;
+    operator bool() const { return failure == W8TargetFailure::None; }
 };
 
 // Action storage choices used at operation boundaries; algorithms receive the selection.

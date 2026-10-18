@@ -24,9 +24,8 @@ struct W8SpellCastingView {
     HitTarget* name_target = nullptr;
     W8Character* caster;
     W8SpellRealm iSpellRealm; /* selected realm, -1 when none */
-    int uiSpellToCast;
+    W8Action draft{W8_ACTION_CAST_SPELL, 0};
     int override_spell;                 /* detail/commit override spell */
-    int iSpellPower;                    /* chosen power index, -1 when unset */
     W8SpellPowerClass iSpellPowerClass; /* the spell record's power class */
     unsigned int uiPowerLevels;         /* affordable power-level count */
     uint64_t realm_anim_timer;

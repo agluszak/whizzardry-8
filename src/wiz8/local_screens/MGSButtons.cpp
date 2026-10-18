@@ -1206,9 +1206,10 @@ bool BuildSubMenuPanel(short notification)
         int message = g_submenu_entry_message_ids[menu * 5 + entry];
         int icon_delta = 0;
         if (menu == W8_SUBMENU_SPELLS && entry == 1) {
-            message += g_spell_records[g_status.buffers.XChar[g_status.selected_character].spell_id]
-                           .realm *
-                       7;
+            message +=
+                g_spell_records[g_status.buffers.XChar[g_status.selected_character].spell.detail]
+                    .realm *
+                7;
         } else if (menu == W8_SUBMENU_ATTACK && entry == 0) {
             const int base = GetAttackMenuWeaponOffset(
                 g_status.buffers.Char[g_status.selected_character].Hand[0].weapon_skill);

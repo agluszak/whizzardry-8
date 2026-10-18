@@ -1222,8 +1222,8 @@ void CampSpellsScenario()
     REQUIRE(caster.iSPLeft[curse_realm] < 100);
     REQUIRE(caster.iSPLeft[curse_realm] >= 0);
     REQUIRE(g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_NONE);
-    REQUIRE(g_status.buffers.XChar[slot].spell_target.iType == W8_TARGET_KIND_CHARACTER);
-    REQUIRE(g_status.buffers.XChar[slot].spell_target.iChar == slot);
+    REQUIRE(g_status.buffers.XChar[slot].spell.target.iType == W8_TARGET_KIND_CHARACTER);
+    REQUIRE(g_status.buffers.XChar[slot].spell.target.iChar == slot);
     caster.uiCondition[W8_CONDITION_HEXED] = 0;
 }
 
@@ -1326,13 +1326,13 @@ void CheckGameplayUi(Game& game)
     REQUIRE(gpSCSV->uiSpellToCast == W8_SPELL_LIGHT);
     game.click_at(0x1f4, 0x172);
     if (gpSCSV) {
-        REQUIRE(gpSCSV->iSpellPower == 1);
+        REQUIRE(gpSCSV->draft.detail_block.spell.power_level == 2);
         game.click_at(0x247, 0x179);
         REQUIRE(!gpSCSV);
     } else {
         // Target-free spells may commit in the same frame as power selection.
-        REQUIRE(g_status.buffers.XChar[slot].spell_id == W8_SPELL_LIGHT);
-        REQUIRE(g_status.buffers.XChar[slot].spell_detail.spell.power_level == 2);
+        REQUIRE(g_status.buffers.XChar[slot].spell.detail == W8_SPELL_LIGHT);
+        REQUIRE(g_status.buffers.XChar[slot].spell.detail_block.spell.power_level == 2);
     }
     character = original_character;
 

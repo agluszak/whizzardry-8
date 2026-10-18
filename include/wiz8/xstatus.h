@@ -85,8 +85,8 @@ struct W8XStatus {
     W8PartyFormationState edited_formation;
     std::vector<int> target_markers;
     glm::vec3 target_position;
-    W8CombatSlot shared_target;
-    W8ActionDetailBlock shared_action_detail;
+    W8CombatSlot item_selection_target;
+    W8ActionDetailBlock item_selection_detail;
     int picked_monster;
     int picked_group;
     /* One-shot latch set when the combat/party panels refresh; the next

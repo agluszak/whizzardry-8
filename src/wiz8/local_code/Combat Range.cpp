@@ -92,9 +92,8 @@ bool CanPartySlotAttackAnyTarget(int party_slot, int flag, bool hand)
                 (live_groups || MonsterVsCharDisposition(first, monster_info) == side)) {
                 for (unsigned int reach_hand = 0; reach_hand < 2; ++reach_hand) {
                     if (CanHandReachTarget(first, reach_hand) &&
-                        CanPartyMemberAimAtMonster(
-                            first, reach_hand, monster_info,
-                            W8SelectedAction{W8_ACTION_ATTACK, -1, nullptr, nullptr}, false)) {
+                        AssessMonsterAim(first, reach_hand, monster_info,
+                                         W8Action{W8_ACTION_ATTACK, -1, {}, {}})) {
                         return true;
                     }
                 }
@@ -137,9 +136,9 @@ bool CanPartySlotAttackAnyTarget(int party_slot, int flag, bool hand)
    spell's distance and its line of sight, and a group target defers to the
    shared group range test. */
 // FUNCTION: WIZ8 0x00519180
-bool CharacterActionReachesTarget(int party_slot, int hand, const W8SelectedAction& selected)
+bool CharacterActionReachesTarget(int party_slot, int hand, const W8Action& selected)
 {
-    const W8CombatSlot* target = selected.target;
+    const W8CombatSlot* target = &selected.target;
     if (!target) return false;
     if (target->iType == W8_TARGET_KIND_MONSTER) {
         W8MonsterInfo* monster_info = FindMonster(target->iMonsterID, false);
@@ -147,7 +146,7 @@ bool CharacterActionReachesTarget(int party_slot, int hand, const W8SelectedActi
             return false;
         }
         GetMonsterDataForInfo(monster_info);
-        return CanPartyMemberAimAtMonster(party_slot, hand, monster_info, selected, false);
+        return AssessMonsterAim(party_slot, hand, monster_info, selected);
     }
     if (target->iType == W8_TARGET_KIND_CHARACTER) {
         int target_slot = target->iChar;
@@ -223,72 +222,38 @@ bool CharacterActionReachesTarget(int party_slot, int hand, const W8SelectedActi
    rows between slot and monster) and selects the aim flag. An allowed aim
    then has to pass the band distance to the monster. */
 // FUNCTION: WIZ8 0x005194e0
-bool CanPartyMemberAimAtMonster(int party_slot, int hand, W8MonsterInfo* monster_info,
-                                const W8SelectedAction& selected, bool notify_failure,
-                                std::optional<W8RangeCategory> attack_range, bool sighting)
+W8TargetAssessment AssessMonsterAim(int party_slot, int hand, W8MonsterInfo* monster_info,
+                                    const W8Action& selected,
+                                    std::optional<W8RangeCategory> attack_range, bool sighting)
 {
-    bool flag;
-    W8ActionKind action;
-    int range;
-    char rows;
-
-    if (monster_info->party_threat.sight_state != W8_SIGHT_SEEN) {
-        return false;
-    }
-    if (sighting) {
-        range = W8_RANGE_TOUCH;
-        flag = true;
-    } else {
-        action = selected.kind;
+    if (monster_info->party_threat.sight_state != W8_SIGHT_SEEN)
+        return {W8TargetFailure::Unavailable};
+    bool spell_sight = true;
+    auto range = W8_RANGE_TOUCH;
+    if (!sighting) {
         range = GetCharActionRange(party_slot, hand, selected, attack_range);
-        if (range == W8_RANGE_NONE) {
-            return false;
-        }
-        flag = action == W8_ACTION_TURN_UNDEAD ||
-               (action > W8_ACTION_PROTECT && action < W8_ACTION_EQUIP);
+        if (range == W8_RANGE_NONE) return {W8TargetFailure::Unavailable};
+        spell_sight = selected.kind == W8_ACTION_TURN_UNDEAD ||
+                      (selected.kind > W8_ACTION_PROTECT && selected.kind < W8_ACTION_EQUIP);
         if (gXStatus.fCombatMode && range >= 0 && range < 2) {
-            rows = CountRowsBetween(party_slot, monster_info);
-            while (rows != 0) {
-                if (range == W8_RANGE_TOUCH) {
-                    range = W8_RANGE_NONE;
-                    break;
-                }
-                --range;
-                --rows;
-            }
-        }
-        if (range == W8_RANGE_NONE) {
-            if (notify_failure) {
-                QueueCharacterEvent(&g_status.buffers.Char[party_slot], g_event_target_out_of_range,
-                                    0, kCharacterEventNoFlags, kCharacterEventFullVolume);
-            }
-            return false;
+            int rows = CountRowsBetween(party_slot, monster_info);
+            while (rows-- > 0 && range != W8_RANGE_NONE)
+                range = range == W8_RANGE_TOUCH ? W8_RANGE_NONE
+                                                : static_cast<W8RangeCategory>(range - 1);
+            if (range == W8_RANGE_NONE) return {W8TargetFailure::OutOfRange};
         }
     }
-    if (!monster_info->party_threat.los_flags[flag]) {
-        if (notify_failure) {
-            QueueCharacterEvent(&g_status.buffers.Char[party_slot], g_event_sight_blocked, 0,
-                                kCharacterEventNoFlags, kCharacterEventFullVolume);
-        }
-        return false;
-    }
-    if (CalcRangeDistance(static_cast<W8RangeCategory>(range)) <
-        monster_info->p3D->GetDistanceToPlayer()) {
-        if (notify_failure) {
-            QueueCharacterEvent(&g_status.buffers.Char[party_slot], g_event_target_out_of_range, 0,
-                                kCharacterEventNoFlags, kCharacterEventFullVolume);
-        }
-        return false;
-    }
-    return true;
+    if (!monster_info->party_threat.los_flags[spell_sight]) return {W8TargetFailure::SightBlocked};
+    if (CalcRangeDistance(range) < monster_info->p3D->GetDistanceToPlayer())
+        return {W8TargetFailure::OutOfRange};
+    return {};
 }
 
 /* The slot-vs-slot reach check the target-list builders share: the slot's
    chosen action has to have a range, and melee range additionally has to get
    past the front rank. */
 // FUNCTION: WIZ8 0x005197c0
-bool CharacterActionReachesSlot(int party_slot, int hand, int target_slot,
-                                const W8SelectedAction& selected)
+bool CharacterActionReachesSlot(int party_slot, int hand, int target_slot, const W8Action& selected)
 {
     if (static_cast<char>(party_slot) == target_slot) {
         return true;
@@ -311,36 +276,22 @@ bool CharacterActionReachesSlot(int party_slot, int hand, int target_slot,
    The character becomes the source for the shared range test; a miss can
    queue the character's complaint event when `notify` asks for it. */
 // FUNCTION: WIZ8 0x00519920
-bool IsSlotInRangeOfGroup(int party_slot, int group_id, const W8SelectedAction& selected,
-                          bool notify)
+W8TargetAssessment AssessGroupRange(int party_slot, int group_id, const W8Action& selected)
 {
+    auto* group = FindMonsterGroup(group_id, false);
+    if (!group) return {W8TargetFailure::Unavailable};
     W8TargetSource source;
-    W8MonsterGroup* group;
-
-    group = FindMonsterGroup(group_id, false);
-    if (group == nullptr) {
-        return false;
-    }
-    if (group == 0) {
-        srAssertFail("pMonsterGroup != NULL", COMBAT_RANGE_CPP, 0x1a0, 0);
-    }
     SetTargetSourceToCharacter(party_slot, &source);
-    if (!IsTargetSourceInRangeOfGroup(&source, group,
-                                      GetCharActionRange(party_slot, 0, selected))) {
-        if (notify) {
-            QueueCharacterEvent(&g_status.buffers.Char[party_slot], g_event_target_out_of_range, 0,
-                                kCharacterEventNoFlags, kCharacterEventFullVolume);
-        }
-        return false;
-    }
-    return true;
+    if (!IsTargetSourceInRangeOfGroup(&source, group, GetCharActionRange(party_slot, 0, selected)))
+        return {W8TargetFailure::OutOfRange};
+    return {};
 }
 
 /* The range category the slot's chosen action works at. Attacks take the
    weapon's reach for the asked hand, a move acts at long range, spells and
    item uses ask their spell record, and anything unknown has no range. */
 // FUNCTION: WIZ8 0x005199f0
-W8RangeCategory GetCharActionRange(int party_slot, int hand, const W8SelectedAction& selected,
+W8RangeCategory GetCharActionRange(int party_slot, int hand, const W8Action& selected,
                                    std::optional<W8RangeCategory> attack_range)
 {
     W8Character* character = &g_status.buffers.Char[party_slot];
@@ -355,7 +306,7 @@ W8RangeCategory GetCharActionRange(int party_slot, int hand, const W8SelectedAct
         }
         break;
     case W8_ACTION_USE_ITEM:
-        return GetItemSpellRange(selected.detail_block->item_use.item);
+        return GetItemSpellRange(selected.detail_block.item_use.item);
     case W8_ACTION_PROTECT:
         return W8_RANGE_TOUCH;
     case W8_ACTION_BREATHE:
@@ -1119,8 +1070,7 @@ void GetMonsterAttackSourceOffset(W8Monster* monster, int kind, glm::vec3* out)
 }
 
 // FUNCTION: WIZ8 0x0051b4e0
-bool SourceActionReachesTarget(W8TargetSource* source, W8CombatSlot* target,
-                               const W8SelectedAction& action)
+bool SourceActionReachesTarget(W8TargetSource* source, W8CombatSlot* target, const W8Action& action)
 {
     if (TargetSourceIsCharacter(source, 0)) {
         return CharacterActionReachesTarget(source->iChar, 0, action);

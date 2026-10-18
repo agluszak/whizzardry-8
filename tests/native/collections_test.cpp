@@ -42,6 +42,7 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_screens/JournalScreen.h"
 #include "wiz8/local_screens/MGSKeyboard.h"
+#include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/monster_roster.h"
 #include "wiz8/npc_items.h"
 #include "wiz8/xstatus.h"
@@ -448,7 +449,7 @@ TEST_CASE("A failed alternate-weapon search leaves equipment and binding state u
     records[1].range_category = W8_RANGE_LONG;
     records[1].binds_on_equip = 1;
     W8CombatSlot target{};
-    const W8SelectedAction action{W8_ACTION_ATTACK, -1, &target, nullptr};
+    const W8Action action{W8_ACTION_ATTACK, -1, target, {}};
     REQUIRE_FALSE(ChooseFallbackMonsterTarget(0, action));
     REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo == 0);
     const auto& alternate = character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON];
@@ -477,8 +478,50 @@ TEST_CASE("Target eligibility uses the supplied action and target without a scre
     W8CombatSlot target{};
     target.iType = W8_TARGET_KIND_CHARACTER;
     target.iChar = 0;
-    const W8SelectedAction action{W8_ACTION_PROTECT, -1, &target, nullptr};
+    W8Action action{W8_ACTION_PROTECT, -1, target, {}};
     REQUIRE(TargetIsInPlay(0, 0, action));
     target.iType = W8_TARGET_KIND_NONE;
+    REQUIRE(TargetIsInPlay(0, 0, action)); // The supplied action owns its target.
+    action.target.iType = W8_TARGET_KIND_NONE;
     REQUIRE_FALSE(TargetIsInPlay(0, 0, action));
+}
+
+TEST_CASE("Spell drafts cancel without changing committed or remembered choices", "[targeting]")
+{
+    std::array<W8PartySlotRow, 8> rows{};
+    std::array<W8Character, 8> characters{};
+    struct RestoreState {
+        W8StatusBuffers buffers = g_status.buffers;
+        bool casting = gXStatus.fSpellCastMode;
+        std::unique_ptr<W8SpellCastingView> view = std::move(gpSCSV);
+        ~RestoreState()
+        {
+            gpSCSV = std::move(view);
+            gXStatus.fSpellCastMode = casting;
+            g_status.buffers = buffers;
+        }
+    } restore;
+    g_status.buffers.XChar = rows.data();
+    g_status.buffers.Char = characters.data();
+    rows[0].fOccupied = true;
+    characters[0].hp_current = 1;
+    rows[0].action = W8_ACTION_CAST_SPELL;
+    rows[0].action_detail0 = 5;
+    rows[0].spell = {W8_ACTION_CAST_SPELL, 7};
+    gpSCSV = std::make_unique<W8SpellCastingView>();
+    gpSCSV->draft = rows[0].spell;
+    gpSCSV->draft.detail = 9;
+    gpSCSV->draft.detail_block.spell.power_level = 3;
+    gXStatus.fSpellCastMode = true;
+    W8CombatSlot target{W8_TARGET_KIND_CHARACTER, 0, -1, -1, {}, nullptr};
+    CommitActionTarget(0, W8_TARGETING_CONTEXT_SHARED, target, false);
+    const auto assessed = SelectCombatAction(0, W8_TARGETING_CONTEXT_SHARED);
+    REQUIRE(assessed.detail == 9);
+    REQUIRE(assessed.target == target);
+    gpSCSV->draft.target.iType = W8_TARGET_KIND_NONE;
+    REQUIRE(assessed.target == target);
+    gpSCSV.reset();
+    REQUIRE(rows[0].action_detail0 == 5);
+    REQUIRE(rows[0].spell.detail == 7);
+    REQUIRE(rows[0].spell.target.iType == W8_TARGET_KIND_NONE);
 }

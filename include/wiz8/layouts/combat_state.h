@@ -51,12 +51,8 @@ struct W8PartySlotRow {
     W8CombatSlot target_in_combat;
     W8ActionKind action_kind;
     int action_detail;
-    int spell_id;
-    /* The spell's two-word detail block: power level plus an unused second
-       word. SelectCombatAction hands this block out for the spell context;
-       StartCharacterSpellCast copies it through ChooseAction the same way. */
-    W8ActionDetailBlock spell_detail;
-    W8CombatSlot spell_target;
+    // Last accepted spell; editing a picker never changes this choice.
+    W8Action spell{W8_ACTION_CAST_SPELL, 0};
     /* The item-use two-word detail block: the use kind plus the item. */
     W8ActionDetailBlock item_detail;
     W8CombatSlot item_target;

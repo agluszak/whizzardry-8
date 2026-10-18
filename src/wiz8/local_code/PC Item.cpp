@@ -2667,8 +2667,8 @@ bool MergeItemStacks(W8ItemInstance* destination, W8ItemInstance* source, bool* 
     return false;
 }
 
-static void RefreshChangedItems(W8Character* character,
-                                std::span<W8ItemInstance* const> changed, bool refresh);
+static void RefreshChangedItems(W8Character* character, std::span<W8ItemInstance* const> changed,
+                                bool refresh);
 
 /* Move a complete live item into an empty destination and clear its old slot.
    Moving into the held-item slot also remembers the character/slot origin so
@@ -2701,8 +2701,9 @@ void SwapItemInstances(W8ItemInstance* item, W8ItemInstance* destination, W8Char
         srAssertFail("(pPCItem1->iItemNo != -1) || (pPCItem2->iItemNo != -1)", PC_ITEM_CPP, 0xdbc,
                      0);
     }
-    auto* held_source = item == &g_status.item_in_hand ? destination
-                        : destination == &g_status.item_in_hand ? item : nullptr;
+    auto* held_source = item == &g_status.item_in_hand          ? destination
+                        : destination == &g_status.item_in_hand ? item
+                                                                : nullptr;
     unsigned int held_character = -1;
     unsigned char held_origin = W8_ITEM_ORIGIN_NONE;
     unsigned short held_slot = 0xffff;
@@ -2843,8 +2844,8 @@ void RefreshAfterItemRecordChange(W8ItemInstance* item, W8Character* character, 
     RefreshChangedItems(character, std::array{item}, refresh);
 }
 
-static void RefreshChangedItems(W8Character* character,
-                                std::span<W8ItemInstance* const> changed, bool refresh)
+static void RefreshChangedItems(W8Character* character, std::span<W8ItemInstance* const> changed,
+                                bool refresh)
 {
     if (!character) {
         return;
@@ -3461,9 +3462,8 @@ void AimItemUseAtCurrentTarget(W8Character* character, W8ItemInstance* item)
 
     detail.item_use.item = item;
     detail.item_use.kind = -1;
-    W8CombatSlot* target =
-        SelectCombatAction(party_slot, GetEditedActionContext(party_slot)).target;
-    StagePartySlotItemUse(party_slot, item, target);
+    const auto action = SelectCombatAction(party_slot, GetEditedActionContext(party_slot));
+    StagePartySlotItemUse(party_slot, item, &action.target);
     if (g_item_records[item->iItemNo].spell_id == W8_SPELL_IDENTIFY_ITEM) {
         ChooseAction(party_slot, W8_ACTION_USE_ITEM, -1, &detail, true, 1);
         OpenCharacterScreenForPartySlot(CharacterPointerToPartySlot(character), true);
@@ -3994,11 +3994,11 @@ void CommitWeaponSetSwap(int party_slot, W8WeaponSwap choice, bool refresh)
     BindEquippedItem(character, W8_EQUIP_SLOT_SECONDARY_WEAPON);
     std::array<W8ItemInstance*, 4> changed;
     size_t count = 0;
-    for (auto [swap, active, alternate] : {
-             std::tuple{choice.primary, W8_EQUIP_SLOT_PRIMARY_WEAPON,
-                        W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON},
-             std::tuple{choice.secondary, W8_EQUIP_SLOT_SECONDARY_WEAPON,
-                        W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON}}) {
+    for (auto [swap, active, alternate] :
+         {std::tuple{choice.primary, W8_EQUIP_SLOT_PRIMARY_WEAPON,
+                     W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON},
+          std::tuple{choice.secondary, W8_EQUIP_SLOT_SECONDARY_WEAPON,
+                     W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON}}) {
         if (!swap) continue;
         auto& first = character->EquippedItem[active];
         auto& second = character->EquippedItem[alternate];

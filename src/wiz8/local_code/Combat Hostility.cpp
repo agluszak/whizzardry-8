@@ -499,7 +499,7 @@ int TurnUndead(int party_slot, int* out_cost, bool check)
 
     W8CombatSlot target;
     ResetCombatSlot(&target);
-    PopulateSpellTargetMarkers(W8_SPELL_DISPEL_UNDEAD, 1, &source, &target, monsters, party, 0);
+    PopulateSpellTargetMarkers(W8_SPELL_DISPEL_UNDEAD, 1, &source, &target, monsters, party, W8AreaSightRule::RequireLineOfSight);
     if (monsters.empty()) {
         return 0;
     }

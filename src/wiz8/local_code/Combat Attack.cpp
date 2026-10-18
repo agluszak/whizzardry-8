@@ -438,12 +438,11 @@ bool CharacterHasAttackOn(int party_slot, W8CombatSlot* target)
         if (GetMonsterDataForInfo(monster_info)->untargetable != 0) {
             return false;
         }
-        if (!CanPartyMemberAimAtMonster(
+        if (!AssessMonsterAim(
                 party_slot, 0, monster_info,
                 SelectCombatAction(party_slot, !g_combat_state->characters[party_slot].dead
                                                    ? W8_TARGETING_CONTEXT_IN_COMBAT
-                                                   : W8_TARGETING_CONTEXT_OUT_OF_COMBAT),
-                false)) {
+                                                   : W8_TARGETING_CONTEXT_OUT_OF_COMBAT))) {
             return false;
         }
     } else {
@@ -3030,9 +3029,8 @@ void BuildCharacterTargetList(int party_slot, int action, std::vector<W8CombatSl
                  W8_TARGET_KIND_MONSTER ||
              g_status.buffers.XChar[party_slot].target_out_of_combat.iMonsterID !=
                  monster_info->location_id) &&
-            CanPartyMemberAimAtMonster(
-                party_slot, action, monster_info,
-                SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT), false)) {
+            AssessMonsterAim(party_slot, action, monster_info,
+                             SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT))) {
             AppendCombatTargetEntry(out_list, W8_TARGET_KIND_MONSTER, -1,
                                     monster_info->location_id);
         }

@@ -495,24 +495,26 @@ void SetPartySlotSpell(int party_slot, int spell_id, int power_level, const W8Co
 {
     W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
 
-    row->spell_id = spell_id;
-    row->spell_detail.spell.power_level = power_level;
-    row->spell_detail.spell.unused = 0;
-    row->spell_target = *target;
+    row->spell.kind = W8_ACTION_CAST_SPELL;
+    row->spell.detail = spell_id;
+    row->spell.detail_block.spell.power_level = power_level;
+    row->spell.detail_block.spell.unused = 0;
+    row->spell.target = *target;
 }
 
 // FUNCTION: WIZ8 0x004f9a20
-void SetCharacterSpell(const W8Character* character, int spell_id, int power_level)
+void SetCharacterSpell(const W8Character* character, const W8Action& spell)
 {
-    int party_slot = CharacterPointerToPartySlot(character);
-    W8ActionDetailBlock notify;
-
-    notify.spell.power_level = power_level;
-    notify.spell.unused = 0;
-    ChooseAction(party_slot, W8_ACTION_CAST_SPELL, spell_id, &notify, false, 1);
-
-    SetPartySlotSpell(party_slot, spell_id, power_level,
-                      SelectCombatAction(party_slot, GetEditedActionContext(party_slot)).target);
+    const int party_slot = CharacterPointerToPartySlot(character);
+    auto& row = g_status.buffers.XChar[party_slot];
+    row.spell = spell;
+    // Publish the accepted target before ChooseAction validates the new action.
+    if (gXStatus.fCombatMode)
+        row.target_in_combat = spell.target;
+    else
+        row.target_out_of_combat = spell.target;
+    ChooseAction(party_slot, spell.kind, spell.detail, &spell.detail_block, false, 1);
+    StartBreathCycle(party_slot, true);
 }
 
 /* Start one character's breath attack; the character must be able to
@@ -891,25 +893,25 @@ unsigned char g_profession_spellbooks[15] = {
 void StartCharacterSpellCast(int party_slot, int power_level)
 {
     W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
-    W8CombatSlot saved_target = row->spell_target;
+    W8CombatSlot saved_target = row->spell.target;
     W8ActionDetailBlock named;
     const W8ActionDetailBlock* target;
 
     if (!gXStatus.fCombatMode) {
-        AimAtTarget(party_slot, &row->spell_target, GetEditedActionContext(party_slot));
+        AimAtTarget(party_slot, &row->spell.target, GetEditedActionContext(party_slot));
     }
 
     if (power_level == 0) {
-        target = &row->spell_detail;
+        target = &row->spell.detail_block;
     } else {
         named.spell.power_level = power_level;
         named.spell.unused = 0;
         target = &named;
     }
-    ChooseAction(party_slot, W8_ACTION_CAST_SPELL, row->spell_id, target, false, 1);
+    ChooseAction(party_slot, W8_ACTION_CAST_SPELL, row->spell.detail, target, false, 1);
     AimAtTarget(party_slot, &saved_target, GetEditedActionContext(party_slot));
 
-    if (IsSpellTargetStillValid(party_slot, row->spell_id,
+    if (IsSpellTargetStillValid(party_slot, row->spell.detail,
                                 SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_SPELL))) {
         StartBreathCycle(party_slot, false);
         return;
@@ -1180,8 +1182,8 @@ enum { W8_SPELL_POWER_AS_AFFORDABLE = 8, W8_SPELL_POWER_MAX = 7 };
 bool CanPartySlotCastRecordedSpell(int party_slot)
 {
     const W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
-    int spell_id = row->spell_id;
-    int power_level = row->spell_detail.spell.power_level;
+    int spell_id = row->spell.detail;
+    int power_level = row->spell.detail_block.spell.power_level;
 
     if (spell_id == W8_SPELL_NONE) {
         return false;
@@ -1193,7 +1195,7 @@ bool CanPartySlotCastRecordedSpell(int party_slot)
     if (g_status.buffers.Char[party_slot].spell_learned[spell_id] != 1) {
         return false;
     }
-    if (row->spell_detail.spell.power_level == W8_SPELL_POWER_AS_AFFORDABLE &&
+    if (row->spell.detail_block.spell.power_level == W8_SPELL_POWER_AS_AFFORDABLE &&
         g_spell_records[spell_id].power_class == W8_SPELL_POWER_REPEAT_OUT_OF_COMBAT &&
         gXStatus.fCombatMode) {
         return false;
@@ -1225,8 +1227,8 @@ bool CanPartySlotCastRecordedSpell(int party_slot)
 int GetAffordableSpellPowerLevel(int party_slot)
 {
     const W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
-    int spell_id = row->spell_id;
-    int power_level = row->spell_detail.spell.power_level;
+    int spell_id = row->spell.detail;
+    int power_level = row->spell.detail_block.spell.power_level;
     int cost;
 
     if (spell_id == W8_SPELL_NONE) {
@@ -1239,7 +1241,7 @@ int GetAffordableSpellPowerLevel(int party_slot)
     if (g_status.buffers.Char[party_slot].spell_learned[spell_id] != 1) {
         return 0;
     }
-    if (row->spell_detail.spell.power_level == W8_SPELL_POWER_AS_AFFORDABLE &&
+    if (row->spell.detail_block.spell.power_level == W8_SPELL_POWER_AS_AFFORDABLE &&
         g_spell_records[spell_id].power_class == W8_SPELL_POWER_REPEAT_OUT_OF_COMBAT &&
         gXStatus.fCombatMode) {
         return 0;
@@ -2114,7 +2116,7 @@ bool ValidateSpellTarget(int party_slot, int spell_id, unsigned int power, bool 
     SetTargetSourceToCharacter(party_slot, &source);
     PopulateSpellTargetMarkers(spell_id, power, &source,
                                &g_status.buffers.XChar[party_slot].target_out_of_combat, monsters,
-                               party, 0);
+                               party, W8AreaSightRule::RequireLineOfSight);
 
     bool valid = true;
     bool has_targets = spell_id == W8_SPELL_SONIC_BOOM || !monsters.empty() || !party.empty();
@@ -2803,7 +2805,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
         if (party_targets == 0) {
             if (monster_targets == 0) {
                 PopulateSpellTargetMarkers(spell_id, power_level, source, target, monster_markers,
-                                           party_markers, 0);
+                                           party_markers, W8AreaSightRule::RequireLineOfSight);
                 if (spell_id == W8_SPELL_SUMMON_ELEMENTAL) {
                     ground_point.y = target->point.y - 1e+03f;
                     target->point.y = ground_point.y;
@@ -3578,7 +3580,7 @@ static void ReportInvalidMagicReference(const char* type, int spell_id,
 // FUNCTION: WIZ8 0x004FD030
 void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* source,
                                 W8CombatSlot* target, std::vector<int>& monster_markers,
-                                std::vector<int>& party_markers, int highlighting)
+                                std::vector<int>& party_markers, W8AreaSightRule sight_rule)
 {
     glm::vec3 player_pos;
     glm::vec3 camera;
@@ -3609,8 +3611,8 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
     monster_info = 0;
     sight_flag = 0;
     if (!source->fBackfire && !source->fReflection &&
-        !SourceActionReachesTarget(
-            source, target, W8SelectedAction{W8_ACTION_CAST_SPELL, spell_id, target, nullptr})) {
+        !SourceActionReachesTarget(source, target,
+                                   W8Action{W8_ACTION_CAST_SPELL, spell_id, *target, {}})) {
         return;
     }
     player_pos = PartyNavigator()->GetPosition();
@@ -3717,7 +3719,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
             }
         }
         CollectMonstersWithinRadius(&centre, &eye, monster_markers, radius, static_cast<char>(side),
-                                    static_cast<char>(highlighting));
+                                    sight_rule);
         break;
     case W8_TARGET_TYPE_ENEMY_GROUP:
         if (target->iType == W8_TARGET_KIND_GROUP) {
@@ -3818,12 +3820,12 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
             }
         }
         CollectMonstersWithinRadius(&trace, &target_point, monster_markers, radius,
-                                    static_cast<char>(side), static_cast<char>(highlighting));
+                                    static_cast<char>(side), sight_rule);
         if (monster_markers.empty() && (g_combat_state == 0 || !g_combat_state->enemies_engaged) &&
             TargetSourceIsCharacter(source, 0) && static_cast<char>(side) == 1 &&
             !AnyMonsterEngaged()) {
             CollectMonstersWithinRadius(&trace, &target_point, monster_markers, radius, 3,
-                                        static_cast<char>(highlighting));
+                                        sight_rule);
         }
         break;
     case W8_TARGET_TYPE_ALL_ENEMIES:
@@ -3847,12 +3849,11 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
             }
         }
         CollectMonstersWithinRadius(&centre, &eye, monster_markers, radius, static_cast<char>(side),
-                                    static_cast<char>(highlighting));
+                                    sight_rule);
         if (monster_markers.empty() && (g_combat_state == 0 || !g_combat_state->enemies_engaged) &&
             TargetSourceIsCharacter(source, 0) && static_cast<char>(side) == 1 &&
             !AnyMonsterEngaged()) {
-            CollectMonstersWithinRadius(&centre, &eye, monster_markers, radius, 3,
-                                        static_cast<char>(highlighting));
+            CollectMonstersWithinRadius(&centre, &eye, monster_markers, radius, 3, sight_rule);
         }
         break;
     default:

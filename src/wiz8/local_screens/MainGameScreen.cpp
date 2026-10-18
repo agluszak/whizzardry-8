@@ -3171,7 +3171,7 @@ void RedrawCombatMonsterList(void)
     bool is_action_group;
     bool is_target_group;
     int context_slot;
-    W8CombatSlot* target;
+    const W8CombatSlot* target;
     Palette16 palette;
     W8MonsterInfo* monster_info;
     std::string scratch_text;
@@ -3210,8 +3210,9 @@ void RedrawCombatMonsterList(void)
                     if (context_slot == -1) {
                         context_slot = g_status.selected_character;
                     }
-                    target = SelectCombatAction(context_slot, GetEditedActionContext(context_slot))
-                                 .target;
+                    const auto group_action =
+                        SelectCombatAction(context_slot, GetEditedActionContext(context_slot));
+                    target = &group_action.target;
                     if (target->iType == W8_TARGET_KIND_GROUP &&
                         monster_group->group_id == target->iGroupID) {
                         is_target_group = true;
@@ -4506,7 +4507,7 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
     const auto editing_context = GetEditedActionContext(g_status.selected_character);
     const auto selected_action =
         g_status.selected_character < 0
-            ? W8SelectedAction{W8_ACTION_NONE, -1, nullptr, nullptr}
+            ? W8Action{W8_ACTION_NONE, -1, {}, {}}
             : SelectCombatAction(g_status.selected_character, editing_context);
     needed = editing_context == W8_TARGETING_CONTEXT_OUT_OF_COMBAT
                  ? W8_TARGET_NEED_NONE
@@ -5121,7 +5122,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
     const auto editing_context = GetEditedActionContext(g_status.selected_character);
     const auto selected_action =
         g_status.selected_character < 0
-            ? W8SelectedAction{W8_ACTION_NONE, -1, nullptr, nullptr}
+            ? W8Action{W8_ACTION_NONE, -1, {}, {}}
             : SelectCombatAction(g_status.selected_character, editing_context);
     needed = editing_context == W8_TARGETING_CONTEXT_OUT_OF_COMBAT
                  ? W8_TARGET_NEED_NONE
@@ -5248,10 +5249,10 @@ UiResult WorldViewInput(const UiPointerEvent& event)
             signed char extent_index;
             glm::vec3 minimum;
             glm::vec3 maximum;
-            if (gpSCSV->iSpellPower == -1) {
+            if (gpSCSV->draft.detail_block.spell.power_level == 0) {
                 extent_index = 2;
             } else {
-                extent_index = g_spell_power_extent_index[gpSCSV->iSpellPower];
+                extent_index = g_spell_power_extent_index[gpSCSV->draft.detail_block.spell.power_level - 1];
             }
             minimum =
                 glm::vec3(static_cast<float>(g_world_cursor_extent_table[extent_index * 6]),
@@ -5291,11 +5292,10 @@ UiResult WorldViewInput(const UiPointerEvent& event)
                 if ((gXStatus.iCurrentCursor == W8_CURSOR_VALID_TARGET ||
                      g_status.item_in_cursor) &&
                     g_status.selected_character != -1 &&
-                    CanPartyMemberAimAtMonster(
+                    AssessMonsterAim(
                         g_status.selected_character, 2, monster_info,
                         SelectCombatAction(g_status.selected_character,
-                                           GetEditedActionContext(g_status.selected_character)),
-                        false)) {
+                                           GetEditedActionContext(g_status.selected_character)))) {
                     if ((GetMonsterDataForInfo(monster_info)->flags & W8_MONSTER_FLAG_NPC) == 0) {
                         ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x7de]);
                     } else {
@@ -5407,7 +5407,7 @@ void UpdateWorldViewCursor(const UiPointerEvent& event, W8TargetNeed target_need
     const auto editing_context = GetEditedActionContext(g_status.selected_character);
     const auto edited_action =
         g_status.selected_character < 0
-            ? W8SelectedAction{W8_ACTION_NONE, -1, nullptr, nullptr}
+            ? W8Action{W8_ACTION_NONE, -1, {}, {}}
             : SelectCombatAction(g_status.selected_character, editing_context);
     const bool sighting = editing_context == W8_TARGETING_CONTEXT_OUT_OF_COMBAT;
 
@@ -5447,8 +5447,8 @@ void UpdateWorldViewCursor(const UiPointerEvent& event, W8TargetNeed target_need
         cursor = 0;
     } else {
         FindMonster(g_level_block->highlighted_item);
-        if (!CanTargetMonster(g_status.selected_character, g_level_block->highlighted_item,
-                              edited_action, true, false, sighting)) {
+        if (!AssessMonsterTarget(g_status.selected_character, g_level_block->highlighted_item,
+                                 edited_action, true, sighting)) {
             SetTargetCursor(cursor);
             return;
         }
@@ -5645,7 +5645,7 @@ void SetCombatSelection(int value)
     const auto editing_context = GetEditedActionContext(g_status.selected_character);
     const auto edited_action =
         g_status.selected_character < 0
-            ? W8SelectedAction{W8_ACTION_NONE, -1, nullptr, nullptr}
+            ? W8Action{W8_ACTION_NONE, -1, {}, {}}
             : SelectCombatAction(g_status.selected_character, editing_context);
     const bool sighting = editing_context == W8_TARGETING_CONTEXT_OUT_OF_COMBAT;
     const auto needed = sighting ? W8_TARGET_NEED_NONE : GetTargetNeededForAction(edited_action);
@@ -5706,8 +5706,7 @@ void SetCombatSelection(int value)
                                      ? W8_TARGET_HIGHLIGHT_RED
                                      : W8_TARGET_HIGHLIGHT_GREEN);
             }
-            CanTargetMonster(g_status.selected_character, value, edited_action, true, false,
-                             sighting);
+            AssessMonsterTarget(g_status.selected_character, value, edited_action, true, sighting);
         }
         monster = GetMonsterByLocationID(value);
         monster->target_highlighted = true;
@@ -5779,7 +5778,7 @@ void SetCombatAction(int value)
     const auto editing_context = GetEditedActionContext(g_status.selected_character);
     const auto edited_action =
         g_status.selected_character < 0
-            ? W8SelectedAction{W8_ACTION_NONE, -1, nullptr, nullptr}
+            ? W8Action{W8_ACTION_NONE, -1, {}, {}}
             : SelectCombatAction(g_status.selected_character, editing_context);
     const bool sighting = editing_context == W8_TARGETING_CONTEXT_OUT_OF_COMBAT;
     const auto needed = sighting ? W8_TARGET_NEED_NONE : GetTargetNeededForAction(edited_action);
@@ -7112,6 +7111,10 @@ unsigned char UpdateSurpriseFade(void)
 
 W8TargetingContext GetEditedActionContext(int party_slot)
 {
+    if (party_slot == g_status.selected_character &&
+        (gXStatus.fSpellCastMode || gXStatus.fItemSelectMode)) {
+        return W8_TARGETING_CONTEXT_SHARED;
+    }
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_level_block != 0 &&
         g_level_block->selection_kind != W8_ACTION_NONE) {
         if (g_level_block->selection_kind == W8_ACTION_CAST_SPELL &&
@@ -7124,29 +7127,25 @@ W8TargetingContext GetEditedActionContext(int party_slot)
         }
         return W8_TARGETING_CONTEXT_DIALOGUE;
     }
-    if (party_slot == g_status.selected_character &&
-        (gXStatus.fSpellCastMode || gXStatus.fItemSelectMode)) {
-        return W8_TARGETING_CONTEXT_SHARED;
-    }
     return gXStatus.fCombatMode ? W8_TARGETING_CONTEXT_IN_COMBAT
                                 : W8_TARGETING_CONTEXT_OUT_OF_COMBAT;
 }
 
 // The interaction controller evaluates a choice, commits its gameplay state,
 // and then refreshes the presentation of that committed choice.
-void AimAtTarget(int actor, W8CombatSlot* target, W8TargetingContext context)
+void AimAtTarget(int actor, const W8CombatSlot* target, W8TargetingContext context)
 {
     const auto action = SelectCombatAction(actor, context);
-    if (!action.target) return;
     const auto chosen = *target; // The caller may borrow one of the remembered blocks.
-    if (*action.target != chosen) {
+    if (action.target != chosen) {
         if (context != W8_TARGETING_CONTEXT_OUT_OF_COMBAT)
-            ClearTargetHighlights(actor, action.target);
-        CommitActionTarget(actor, action, chosen,
+            ClearTargetHighlights(actor, &action.target);
+        CommitActionTarget(actor, context, chosen,
                            context == W8_TARGETING_CONTEXT_IN_COMBAT && gXStatus.fCombatMode);
         if (context != W8_TARGETING_CONTEXT_OUT_OF_COMBAT) {
-            if (GetEditedActionContext(actor) == context && TargetIsInPlay(actor, 2, action))
-                RefreshCombatTargetHighlights(actor, action);
+            if (GetEditedActionContext(actor) == context &&
+                TargetIsInPlay(actor, 2, SelectCombatAction(actor, context)))
+                RefreshCombatTargetHighlights(actor, SelectCombatAction(actor, context));
             RequestPartySlotRedraw(actor);
             if (actor == g_status.selected_character) {
                 RequestRedrawParty();
@@ -7162,8 +7161,8 @@ void AimAtTarget(int actor, W8CombatSlot* target, W8TargetingContext context)
         const auto needed = editing == W8_TARGETING_CONTEXT_OUT_OF_COMBAT
                                 ? W8_TARGET_NEED_NONE
                                 : GetTargetNeededForAction(edited_action);
-        SetTargetingMode(TargetMatchesNeeded(edited_action.target, needed) ? W8_TARGET_NEED_NONE
-                                                                           : needed);
+        SetTargetingMode(TargetMatchesNeeded(&edited_action.target, needed) ? W8_TARGET_NEED_NONE
+                                                                            : needed);
     }
 }
 
@@ -7210,13 +7209,16 @@ void SetTargetingMode(W8TargetNeed state)
     }
 }
 
-void RefreshCombatTargetHighlights(int party_slot, const W8SelectedAction& selected)
+void RefreshCombatTargetHighlights(int party_slot, const W8Action& selected)
 {
     unsigned int spell_id;
     W8MonsterManagerEntry* entry = &gXStatus.monster_manager_entries[party_slot];
 
     entry->highlighted_monsters.clear();
-    const auto [action, detail, target, detail_block] = selected;
+    const auto action = selected.kind;
+    const auto detail = selected.detail;
+    const auto* target = &selected.target;
+    const auto* detail_block = &selected.detail_block;
     spell_id = W8_SPELL_NONE;
     if (action == W8_ACTION_BREATHE) {
         spell_id = W8_SPELL_SPECIAL_ATTACK_CONE;
@@ -7240,7 +7242,7 @@ void RefreshCombatTargetHighlights(int party_slot, const W8SelectedAction& selec
             source.iChar = party_slot;
             auto marker_target = *target;
             PopulateSpellTargetMarkers(spell_id, 1, &source, &marker_target,
-                                       entry->highlighted_monsters, scratch, 0);
+                                       entry->highlighted_monsters, scratch, W8AreaSightRule::RequireLineOfSight);
         }
 
         ClearPartySlotMonsterHighlights(party_slot);

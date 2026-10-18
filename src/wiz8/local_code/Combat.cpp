@@ -1350,85 +1350,49 @@ void SetCharacterCombatAction(int party_slot, W8ActionKind action_kind, int acti
 /* Ask the slot's currently selected action which context its outputs hold:
    the chosen action kind plus three context-dependent words. */
 // FUNCTION: WIZ8 0x004e77b0
-W8SelectedAction SelectCombatAction(int party_slot, W8TargetingContext context)
+W8Action SelectCombatAction(int party_slot, W8TargetingContext context)
 {
-    W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
-    W8ActionKind kind;
-    int value_a;
-    W8CombatSlot* target;
-    W8ActionDetailBlock* detail;
-
+    const auto& row = g_status.buffers.XChar[party_slot];
+    W8Action action;
     switch (context) {
     case W8_TARGETING_CONTEXT_OUT_OF_COMBAT:
-        kind = row->pending_action;
-        value_a = row->attack_mode[0];
-        target = &row->target_out_of_combat;
-        detail = &row->pending_action_detail;
+        action = {row.pending_action, row.attack_mode[0], row.target_out_of_combat,
+                  row.pending_action_detail};
         break;
     case W8_TARGETING_CONTEXT_IN_COMBAT:
-        kind = row->action;
-        value_a = row->action_detail0;
-        target = &row->target_in_combat;
-        detail = &row->action_detail1;
+        action = {row.action, row.action_detail0, row.target_in_combat, row.action_detail1};
         break;
     case W8_TARGETING_CONTEXT_SHARED:
-        if (!gXStatus.fSpellCastMode) {
-            if (!gXStatus.fItemSelectMode) {
-                srAssertFail("gXStatus.fItemSelectMode",
-                             "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x2e0, 0);
-            }
-            kind = W8_ACTION_USE_ITEM;
-            value_a = -1;
-            target = &gXStatus.shared_target;
-            detail = &gXStatus.shared_action_detail;
+        if (gXStatus.fSpellCastMode) {
+            action = gpSCSV->draft;
+            action.detail = GetSpellCastingSelection();
         } else {
-            kind = W8_ACTION_CAST_SPELL;
-            value_a = GetSpellCastingSelection();
-            target = &gXStatus.shared_target;
-            detail = &gXStatus.shared_action_detail;
+            action = {W8_ACTION_USE_ITEM, -1, gXStatus.item_selection_target,
+                      gXStatus.item_selection_detail};
         }
         break;
     case W8_TARGETING_CONTEXT_SPELL:
-        value_a = row->spell_id;
-        kind = W8_ACTION_CAST_SPELL;
-        target = &row->spell_target;
-        detail = &row->spell_detail;
+        action = row.spell;
         break;
     case W8_TARGETING_CONTEXT_ITEM:
-        value_a = -1;
-        kind = W8_ACTION_USE_ITEM;
-        target = &row->item_target;
-        detail = &row->item_detail;
+        action = {W8_ACTION_USE_ITEM, -1, row.item_target, row.item_detail};
         break;
     case W8_TARGETING_CONTEXT_BREATH:
-        value_a = -1;
-        target = &row->breath_target;
-        kind = W8_ACTION_BREATHE;
-        detail = 0;
+        action = {W8_ACTION_BREATHE, -1, row.breath_target};
         break;
     case W8_TARGETING_CONTEXT_DIALOGUE:
-        kind = g_level_block->selection_kind;
-        value_a = g_level_block->pending_action;
-        target = 0;
-        detail = 0;
+        action = {g_level_block->selection_kind, g_level_block->pending_action};
         break;
     case W8_TARGETING_CONTEXT_ATTACK:
-        kind = W8_ACTION_ATTACK;
-        value_a = -1;
-        target = 0;
-        detail = 0;
+        action = {W8_ACTION_ATTACK};
         break;
     default:
-        srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x310, 0);
         throw std::invalid_argument("invalid action selection");
     }
-    if (!CanPartySlotParticipate(party_slot) && kind != W8_ACTION_WALK && kind != W8_ACTION_RUN) {
-        kind = W8_ACTION_NONE;
-        value_a = -1;
-        target = 0;
-        detail = 0;
-    }
-    return {kind, value_a, target, detail};
+    if (!CanPartySlotParticipate(party_slot) && action.kind != W8_ACTION_WALK &&
+        action.kind != W8_ACTION_RUN)
+        return {};
+    return action;
 }
 
 /* Whether a slot may switch to the given action context, optionally repairing
@@ -1517,13 +1481,13 @@ bool CharacterCanSwitchTo(int party_slot, W8TargetingContext context, bool allow
         }
         break;
     case W8_ACTION_USE_ITEM:
-        if (context == W8_TARGETING_CONTEXT_DIALOGUE && selected.detail_block == 0) {
+        if (context == W8_TARGETING_CONTEXT_DIALOGUE) {
             return true;
         }
-        if (selected.detail_block->item_use.item == 0) {
+        if (selected.detail_block.item_use.item == 0) {
             return false;
         }
-        if (!CanCharacterActivateItem(character, selected.detail_block->item_use.item)) {
+        if (!CanCharacterActivateItem(character, selected.detail_block.item_use.item)) {
             return false;
         }
         break;
@@ -2729,7 +2693,7 @@ int ExecuteMonsterSpecialAttack(W8MonsterInfo* monster_info, W8MonsterRecord* re
         monster_info->p3D->aim_set = false;
         PointCameraAtCombatTarget(&source, &monster_info->Target);
         PopulateSpellTargetMarkers(W8_SPELL_SPECIAL_ATTACK_CONE, 0, &source, &monster_info->Target,
-                                   monster_targets, char_targets, 0);
+                                   monster_targets, char_targets, W8AreaSightRule::RequireLineOfSight);
         ProvokeListedMonsterGroups(&source, monster_targets);
     }
     ResolveMonsterGroupAttack(record->special_attack_kind, &source, &monster_info->Target,
@@ -2758,7 +2722,7 @@ int ExecuteCharacterSpecialAttack(int party_slot)
     SetTargetSourceToCharacter(party_slot, &source);
     PopulateSpellTargetMarkers(W8_SPELL_SPECIAL_ATTACK_CONE, 0, &source,
                                &g_status.buffers.XChar[party_slot].target_out_of_combat,
-                               monster_targets, char_targets, 0);
+                               monster_targets, char_targets, W8AreaSightRule::RequireLineOfSight);
     ProvokeListedMonsterGroups(&source, monster_targets);
     ResolveMonsterGroupAttack(0x1e, &source,
                               &g_status.buffers.XChar[party_slot].target_out_of_combat,
@@ -2793,7 +2757,7 @@ bool CreateCharacterBreathEffect(int party_slot)
     SetTargetSourceToCharacter(party_slot, &source);
     target = &g_status.buffers.XChar[party_slot].target_out_of_combat;
     PopulateSpellTargetMarkers(W8_SPELL_SPECIAL_ATTACK_CONE, 0, &source, target, monster_targets,
-                               char_targets, 0);
+                               char_targets, W8AreaSightRule::RequireLineOfSight);
     if (monster_targets.empty()) {
         PostCharacterNotice(party_slot,
                             fmt::sprintf(g_localized_strings[0x1b7],
@@ -3045,7 +3009,7 @@ int GetConditionInterrupt(W8TargetSource* source)
    targets resolve through the monster list; a place target aims the camera
    at the point. */
 // FUNCTION: WIZ8 0x004ECC80
-void PointCameraAtCombatTarget(W8TargetSource* source, W8CombatSlot* target)
+void PointCameraAtCombatTarget(W8TargetSource* source, const W8CombatSlot* target)
 {
     int location_id;
     W8MonsterInfo* monster_info;

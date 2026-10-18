@@ -1656,7 +1656,7 @@ void LoadGameStatus(W8Chunk* chunks, W8GlobalStatus* status)
         }
         party_row.pending_action_detail.item_use.item = item;
         party_row.action_detail1.item_use.item = nullptr;
-        party_row.spell_target.pPCItem = nullptr;
+        party_row.spell.target.pPCItem = nullptr;
         party_row.item_target.pPCItem = nullptr;
         party_row.breath_target.pPCItem = nullptr;
     }

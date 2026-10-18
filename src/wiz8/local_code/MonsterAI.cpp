@@ -1358,7 +1358,7 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
             power_level = ChooseMonsterSpellPowerLevel(
                 monster_info, GetMonsterDataForInfo(monster_info), spell_id);
             PopulateSpellTargetMarkers(spell_id, power_level, &source, combat_slot, monster_markers,
-                                       party_markers, 0);
+                                       party_markers, W8AreaSightRule::RequireLineOfSight);
             for (index = 0; index < static_cast<int>(party_markers.size()); ++index) {
                 ++total;
                 ResetCombatSlot(&probe);
@@ -1763,7 +1763,7 @@ bool SpellAreaHitsNeutralMonster(W8MonsterInfo* monster_info, int spell_id,
     power_level =
         ChooseMonsterSpellPowerLevel(monster_info, GetMonsterDataForInfo(monster_info), spell_id);
     PopulateSpellTargetMarkers(spell_id, power_level, &source, combat_slot, monster_markers,
-                               party_markers, 0);
+                               party_markers, W8AreaSightRule::RequireLineOfSight);
     for (index = 0; index < static_cast<int>(monster_markers.size()); ++index) {
         target = FindMonster(monster_markers[index]);
         if (target->ubDisposition == W8_DISPOSITION_NEUTRAL) {
@@ -2574,8 +2574,7 @@ bool MonsterSpellHasPartyTarget(W8MonsterInfo* monster_info, int spell_id, W8Com
     SetTargetSourceToMonster(monster_info, &source);
     power_level =
         ChooseMonsterSpellPowerLevel(monster_info, GetMonsterDataForInfo(monster_info), spell_id);
-    PopulateSpellTargetMarkers(spell_id, power_level, &source, slot, monster_markers, party_markers,
-                               0);
+    PopulateSpellTargetMarkers(spell_id, power_level, &source, slot, monster_markers, party_markers, W8AreaSightRule::RequireLineOfSight);
     return !party_markers.empty();
 }
 

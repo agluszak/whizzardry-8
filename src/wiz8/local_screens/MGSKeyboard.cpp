@@ -740,7 +740,8 @@ static std::string KeyboardMenuTooltip(const KeyboardMenuRow& row)
     if (row.menu == -1) return g_localized_strings[0x11];
     if (row.menu == W8_SUBMENU_SPELLS && row.item == 1) {
         if (!row.enabled) return g_localized_strings[0x5a];
-        const auto& spell = g_spell_records[g_status.buffers.XChar[g_selected_party_slot].spell_id];
+        const auto& spell =
+            g_spell_records[g_status.buffers.XChar[g_selected_party_slot].spell.detail];
         return fmt::format("{}: {} ({:d})", g_localized_strings[0x5a], spell.display_name,
                            GetAffordableSpellPowerLevel(g_selected_party_slot));
     }
@@ -860,7 +861,8 @@ void RefreshKeyboardMenuRows(void)
         int offset = 0;
         if (row.menu == W8_SUBMENU_SPELLS && row.item == 1)
             offset =
-                g_spell_records[g_status.buffers.XChar[g_selected_party_slot].spell_id].realm * 7;
+                g_spell_records[g_status.buffers.XChar[g_selected_party_slot].spell.detail].realm *
+                7;
         else if (row.menu == W8_SUBMENU_ATTACK && row.item == 0)
             offset = GetAttackMenuWeaponOffset(
                          g_status.buffers.Char[g_selected_party_slot].Hand[0].weapon_skill) *
