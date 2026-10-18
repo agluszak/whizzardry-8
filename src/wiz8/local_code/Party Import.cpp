@@ -1,6 +1,7 @@
 #include <cstring>
 #include <exception>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -66,8 +67,8 @@ static int g_profession_starting_spells[15][6] = {
 };
 
 /* The item database index whose legacy item number matches the imported
-   one, or -1 when no record carries it. */
-static int FindItemByLegacyNumber(short item_number)
+   one, if a record carries it. */
+static std::optional<int> FindItemByLegacyNumber(short item_number)
 {
     unsigned int index = 0;
     while (index < g_item_records.size()) {
@@ -76,7 +77,7 @@ static int FindItemByLegacyNumber(short item_number)
         }
         ++index;
     }
-    return -1;
+    return std::nullopt;
 }
 
 /* The Wizardry 7 import file state filled by the loader below: the record
@@ -461,9 +462,7 @@ void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
     const W8Wiz7Item* entry;
     int slot;
     int index;
-    int best_index;
     int best_value;
-    int item_index;
     int price;
     int give;
     int item_id;
@@ -478,29 +477,29 @@ void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
         source = imported->items[slot];
         for (index = 0; index < 10; ++index) {
             if (source->item_number != 0) {
-                item_index = FindItemByLegacyNumber(source->item_number);
-                if (item_index != -1) {
-                    if (item_index != 0x128) {
-                        if (g_item_records[item_index].unidentified_name_index == 0x84 ||
-                            4999 < static_cast<int>(g_item_records[item_index].value)) {
+                const auto item_index = FindItemByLegacyNumber(source->item_number);
+                if (item_index) {
+                    if (*item_index != 0x128) {
+                        if (g_item_records[*item_index].unidentified_name_index == 0x84 ||
+                            4999 < static_cast<int>(g_item_records[*item_index].value)) {
                             source++;
                             continue;
                         }
-                        if (2999 < static_cast<int>(g_item_records[item_index].value)) {
+                        if (2999 < static_cast<int>(g_item_records[*item_index].value)) {
                             candidates[0][counts[0]] = *source;
                             ++counts[0];
                             source++;
                             continue;
                         }
-                        if (999 < static_cast<int>(g_item_records[item_index].value)) {
+                        if (999 < static_cast<int>(g_item_records[*item_index].value)) {
                             candidates[1][counts[1]] = *source;
                             ++counts[1];
                             source++;
                             continue;
                         }
                     }
-                    ReplaceOrCreateItem(&item, item_index, true, true, true);
-                    if (g_item_records[item_index].binds_on_equip == 0) {
+                    ReplaceOrCreateItem(&item, *item_index, true, true, true);
+                    if (g_item_records[*item_index].binds_on_equip == 0) {
                         StoreItemWithCharacterOrParty(character, &item, false, false,
                                                       static_cast<unsigned int>(slot == 0));
                     } else {
@@ -522,32 +521,34 @@ void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
     for (slot = 0; slot < 2; ++slot) {
         while (0 < maximum[slot]) {
             best_value = 0;
-            best_index = -1;
+            std::optional<int> best_index;
             for (index = 0; index < counts[slot]; ++index) {
                 entry = &candidates[slot][index];
                 if (0 < entry->item_number) {
-                    item_index = FindItemByLegacyNumber(entry->item_number);
-                    price = g_item_records[item_index].value;
-                    if (!ItemHasHiddenProperties(item_index)) {
+                    const auto item_index = FindItemByLegacyNumber(entry->item_number);
+                    if (!item_index) continue;
+                    price = g_item_records[*item_index].value;
+                    if (!ItemHasHiddenProperties(*item_index)) {
                         price /= 2;
                     }
                     if (best_value < price) {
-                        best_value = g_item_records[item_index].value;
+                        best_value = g_item_records[*item_index].value;
                         best_index = index;
                     }
                 }
             }
-            if (best_index != -1) {
-                item_index = FindItemByLegacyNumber(candidates[slot][best_index].item_number);
-                ReplaceOrCreateItem(&item, item_index, true, true, true);
-                if (g_item_records[item_index].binds_on_equip == 0) {
-                    StoreItemWithCharacterOrParty(character, &item, false, false, true);
-                } else {
-                    AddItemToCharacter(character, &item, false, false, false);
-                }
-                --maximum[slot];
-                candidates[slot][best_index] = empty_item;
+            if (!best_index) break;
+            const auto item_index =
+                FindItemByLegacyNumber(candidates[slot][*best_index].item_number);
+            if (!item_index) break;
+            ReplaceOrCreateItem(&item, *item_index, true, true, true);
+            if (g_item_records[*item_index].binds_on_equip == 0) {
+                StoreItemWithCharacterOrParty(character, &item, false, false, true);
+            } else {
+                AddItemToCharacter(character, &item, false, false, false);
             }
+            --maximum[slot];
+            candidates[slot][*best_index] = empty_item;
         }
     }
     profession = W8_PROFESSION_COUNT;

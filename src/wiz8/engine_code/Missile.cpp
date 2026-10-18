@@ -5,6 +5,7 @@
 #include <cstring>
 #include <exception>
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -236,15 +237,15 @@ std::vector<W8MissileTableRecord> g_missile_table;
 // GLOBAL: WIZ8 0x0060c9c8
 const char* g_missile_cycle_names[] = {"FLY", "EXPLODE"};
 
-/* Index of the cycle whose name starts the PAC name, or -1 when none does. */
-static int missileCycleIndex(const char* pac_name)
+/* Index of the cycle whose name starts the PAC name, if one matches. */
+static std::optional<int> missileCycleIndex(const char* pac_name)
 {
     for (int index = 0; index < 2; ++index) {
         if (SDL_strncasecmp(pac_name, g_missile_cycle_names[index],
                             strlen(g_missile_cycle_names[index])) == 0)
             return index;
     }
-    return -1;
+    return std::nullopt;
 }
 /* Engine Code\\Missile.cpp's startup database load.  Each disk row has a
    0x101-byte editor prefix followed by the 0x1e5-byte runtime record. */
@@ -483,8 +484,10 @@ std::unique_ptr<W8Missile> LoadMissileCycle(W8World* world, std::string_view nam
                 }
                 float intensity = 1.0f, duration = 1.0f, distance = 10.0f;
                 fields >> intensity >> duration >> distance;
+                const auto cycle = missileCycleIndex(cycle_name.c_str());
+                if (!cycle) continue;
                 ShakeDefinition effect(duration, true, intensity, distance * kWorldScale, 0);
-                effect.cycle = missileCycleIndex(cycle_name.c_str());
+                effect.cycle = *cycle;
                 effect.frame = frame;
                 effect.subcycle = 0;
                 output->AddShakeEffect(effect);
@@ -503,10 +506,11 @@ std::unique_ptr<W8Missile> LoadMissileCycle(W8World* world, std::string_view nam
                 break;
             }
             fields >> loop;
+            const auto cycle = missileCycleIndex(cycle_name.c_str());
+            if (!cycle) continue;
             const auto wave = fmt::format("data/missiles/sounds/{}.WAV", resource);
             output->AddSoundEvent(std::make_unique<W8SoundEvent>(
-                kind, missileCycleIndex(cycle_name.c_str()), frame, 0, wave.c_str(),
-                SDL_strcasecmp(loop.c_str(), "LOOP") == 0));
+                kind, *cycle, frame, 0, wave.c_str(), SDL_strcasecmp(loop.c_str(), "LOOP") == 0));
         }
     }
     if (output) {
