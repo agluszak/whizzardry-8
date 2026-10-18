@@ -690,7 +690,8 @@ void ResumeNpc(W8NpcState* npc, int enabled)
     }
     if (monster_info != 0) {
         if (static_cast<char>(enabled) != 0) {
-            SetMonsterGroupHostilityByID(monster_info->monster_group_id, W8_DISPOSITION_HOSTILE, false);
+            SetMonsterGroupHostilityByID(monster_info->monster_group_id, W8_DISPOSITION_HOSTILE,
+                                        false);
             return;
         }
         SetMonsterGroupHostilityByID(monster_info->monster_group_id, W8_DISPOSITION_NEUTRAL, false);
