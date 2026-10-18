@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -56,9 +57,9 @@ struct W8Searchable {
     void GetPosition(glm::vec3* position);
     // Apply discovery to the item or trigger itself.
     void Reveal();
-    /* The best searching party member within range of this
-       searchable, or -1. Practices the searching skill on a qualified pick. */
-    int PickBestSearcher();
+    /* The best searching party member within range of this searchable.
+       Practices the searching skill on a qualified pick. */
+    std::optional<int> PickBestSearcher();
 
     W8WorldItem* world_item = nullptr;
     Trigger* trigger = nullptr;
@@ -173,9 +174,9 @@ void RunSearchPulse(void)
             {
                 for (auto& candidate : candidates) {
                     auto* searchable = &candidate;
-                    int slot = searchable->PickBestSearcher();
-                    if (slot != -1) {
-                        W8Character* character = &g_status.buffers.Char[slot];
+                    auto slot = searchable->PickBestSearcher();
+                    if (slot) {
+                        W8Character* character = &g_status.buffers.Char[*slot];
                         if (searchable->world_item == 0) {
                             if (searchable->trigger == 0) {
                                 QueueCharacterEvent(character, 0x1a, 0, kCharacterEventFullVolume);
@@ -232,7 +233,7 @@ void RunSearchPulse(void)
                 }
             }
             if (g_status.search_mode != 0 && !IsLevelFastMovement() && !found && Random(100) == 0) {
-                ApplyItemEffectToRandomCharacter(g_container_event, -1, 0);
+                ApplyItemEffectToRandomCharacter(g_container_event, std::nullopt, 0);
             }
         }
     }
@@ -244,10 +245,10 @@ void RunSearchPulse(void)
    force-picks random eligible members without practicing the skill. The pick
    must also reach this searchable's position. */
 // FUNCTION: WIZ8 0x00517560
-int W8Searchable::PickBestSearcher()
+std::optional<int> W8Searchable::PickBestSearcher()
 {
     unsigned int best_score = 0;
-    int best_slot = -1;
+    std::optional<int> best_slot;
     bool earned = false;
     for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
         W8Character* character = &g_status.buffers.Char[slot];
@@ -288,7 +289,7 @@ int W8Searchable::PickBestSearcher()
             }
         }
         if (g_status.party_modifiers.detect_secrets != 0) {
-            if (best_slot != -1 && Random(2) == 0) {
+            if (best_slot && Random(2) == 0) {
                 continue;
             }
             best_score = 100;
@@ -307,7 +308,7 @@ int W8Searchable::PickBestSearcher()
         }
         return best_slot;
     }
-    return -1;
+    return std::nullopt;
 }
 
 /* Toggle the party's search mode: leaving it posts the off notice, entering it

@@ -256,8 +256,8 @@ void ResetTargetingState(void)
     for (slot = 0; slot < 8; ++slot) {
         ResetGameplaySlot(slot);
     }
-    gXStatus.picked_monster = -1;
-    gXStatus.picked_group = -1;
+    gXStatus.picked_monster.reset();
+    gXStatus.picked_group.reset();
 }
 
 /* Resets one 0x118-byte slot. The tier it stores twice comes from the character

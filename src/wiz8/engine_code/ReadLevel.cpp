@@ -13,6 +13,7 @@
 #include <iterator>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <string>
 #include <system_error>
 #include <utility>
@@ -595,7 +596,7 @@ try {
     unsigned char positional_byte;
     unsigned char success;
     Trigger* trigger;
-    int item_id;
+    std::optional<int> item_id;
     W8WorldItem* world_item;
     W8Item* item;
 
@@ -634,12 +635,15 @@ try {
             pInfo->hFile->read(&positional_value, sizeof(positional_value));
 
             if (record.item_name[0] >= '0' && record.item_name[0] <= '9') {
-                item_id = atoi(record.item_name);
+                const int parsed_item_id = atoi(record.item_name);
+                if (parsed_item_id >= 0) {
+                    item_id = parsed_item_id;
+                }
             } else {
                 item_id = FindItemRecordByName(record.item_name);
             }
-            if (item_id >= 0) {
-                world_item = AddWorldItem(SpawnItem(item_id, &record.position,
+            if (item_id) {
+                world_item = AddWorldItem(SpawnItem(*item_id, &record.position,
                                                     W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
                 if (world_item != 0) {
                     success = 1;

@@ -71,8 +71,8 @@ struct W8XStatus {
        live formation here on open, edits the copy, and either reconciles it
        back or diffs it against live on accept. */
     W8PartyFormationState edited_formation;
-    int picked_monster;
-    int picked_group;
+    std::optional<int> picked_monster;
+    std::optional<int> picked_group;
     /* One-shot latch set when the combat/party panels refresh; the next
        UpdateMonsterSight pass consumes and clears it. */
     bool sight_refresh_pending;

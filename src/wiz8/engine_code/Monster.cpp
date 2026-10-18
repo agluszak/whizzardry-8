@@ -1906,9 +1906,9 @@ void W8Monster::ProcessScript()
             case MONSCR_GIVE:
                 tokens >> token;
                 if (tokens) {
-                    int item = FindItemRecordByName(token.c_str());
-                    if (item != -1) {
-                        CreateItemIntoHandOrPool(item, true);
+                    auto item = FindItemRecordByName(token.c_str());
+                    if (item) {
+                        CreateItemIntoHandOrPool(*item, true);
                     }
                 }
                 break;
@@ -3683,12 +3683,11 @@ void W8Monster::HandleAnimationThreshold()
         goto prepare_attack;
     }
 
+    const auto party_slot = GetRandomCharacter(1, 1);
+    if (!party_slot) return;
     monster_info->Target.iType = W8_TARGET_KIND_CHARACTER;
-    monster_info->Target.iChar = GetRandomCharacter(1, 1, -1, -1);
+    monster_info->Target.iChar = *party_slot;
     monster_info->Target.iMonsterID = -1;
-    if (monster_info->Target.iChar == -1) {
-        return;
-    }
 
     for (attack_index = 0; attack_index < W8_MAX_MONSTER_ATTACKS; ++attack_index) {
         attack = &record->attacks[attack_index];

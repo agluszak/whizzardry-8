@@ -966,7 +966,7 @@ bool RemoveMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal)
 
         wiz8::erase_first(monster_group->monsters, monster_info->location_id);
         if (monster_group->highlighted_member == monster_info->location_id)
-            monster_group->highlighted_member = -1;
+            monster_group->highlighted_member.reset();
 
         RequestRedrawParty();
         if (monster_group->MemberCount() == 0) {
@@ -1659,7 +1659,7 @@ void EvaluateCombatDifficulty(void)
             event_type = 31;
             break;
         }
-        ApplyItemEffectToRandomCharacter(event_type, -1, 0);
+        ApplyItemEffectToRandomCharacter(event_type, std::nullopt, 0);
     }
     ++g_status.combat_difficulty_counts[difficulty];
     gXStatus.combat_difficulty = difficulty;

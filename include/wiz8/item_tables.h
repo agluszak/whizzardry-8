@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include <glm/ext/vector_float3.hpp>
@@ -11,7 +12,7 @@
 
 struct W8WorldItem;
 
-int FindItemTableByName(const char* name);
+std::optional<int> FindItemTableByName(const char* name);
 int GenerateItemsFromTable(std::vector<std::unique_ptr<W8WorldItem>>& output_items,
                            unsigned int table_id, unsigned int maximum_items,
                            const glm::vec3& position);

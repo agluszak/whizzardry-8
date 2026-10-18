@@ -253,28 +253,26 @@ static bool keyboardBindingReplacement()
         file->write(records.data(), records.size());
     }
     MGSKeyboard keyboard;
-    REQUIRE(keyboard.GetBinding(0) == nullptr);
+    REQUIRE(keyboard.FindBinding(W8_MGS_COMMAND_CANCEL) == nullptr);
     {
         auto file = wiz8::open_file(path);
         REQUIRE(ReadSavePayload(*file, [&](W8Chunk& chunk) { return keyboard.Load(chunk, true); }));
     }
     // A duplicate command replaces its record and moves to the end of the
-    // ordered bindings. The command index must refer to that replacement.
-    REQUIRE(keyboard.FindBinding(W8_MGS_COMMAND_MOVE_FORWARD) == 0);
-    REQUIRE(keyboard.FindBinding(W8_MGS_COMMAND_CANCEL) == 1);
-    REQUIRE((keyboard.GetBinding(0)->key == SDLK_B && keyboard.GetBinding(1)->key == SDLK_C));
-    REQUIRE(keyboard.GetBinding(-1) == nullptr);
-    REQUIRE(keyboard.GetBinding(2) == keyboard.GetBinding(0));
+    // ordered bindings. Both commands resolve directly to their live records.
+    auto* move_forward = keyboard.FindBinding(W8_MGS_COMMAND_MOVE_FORWARD);
+    auto* cancel = keyboard.FindBinding(W8_MGS_COMMAND_CANCEL);
+    REQUIRE((move_forward && cancel && move_forward->key == SDLK_B && cancel->key == SDLK_C));
     GetInputState().keys.insert(SDLK_A);
     REQUIRE(!keyboard.IsCommandPressed(W8_MGS_COMMAND_CANCEL));
     GetInputState().keys.erase(SDLK_A);
     GetInputState().keys.insert(SDLK_C);
     REQUIRE(keyboard.IsCommandPressed(W8_MGS_COMMAND_CANCEL));
     GetInputState().keys.erase(SDLK_C);
-    keyboard.GetBinding(0)->key = SDLK_KP_ENTER;
-    keyboard.GetBinding(0)->modifiers = SHIFT_DOWN | CTRL_DOWN;
-    keyboard.GetBinding(1)->key = SDLK_UNKNOWN;
-    keyboard.GetBinding(1)->unmapped_retail_key = 0x1234;
+    move_forward->key = SDLK_KP_ENTER;
+    move_forward->modifiers = SHIFT_DOWN | CTRL_DOWN;
+    cancel->key = SDLK_UNKNOWN;
+    cancel->unmapped_retail_key = 0x1234;
     {
         auto file = wiz8::open_file(root / "saved.bin", wiz8::OpenMode::replace);
         REQUIRE(keyboard.Save(*file));
@@ -296,13 +294,14 @@ static bool keyboardBindingReplacement()
                                .modifiers = SHIFT_DOWN | CTRL_DOWN,
                                .key = SDLK_KP_ENTER};
         REQUIRE(restored.FindCommandForEvent(&press) == W8_MGS_COMMAND_MOVE_FORWARD);
-        REQUIRE(restored.GetBinding(1)->key == SDLK_UNKNOWN);
-        REQUIRE(restored.GetBinding(1)->unmapped_retail_key == 0x1234);
+        const auto* restored_cancel = restored.FindBinding(W8_MGS_COMMAND_CANCEL);
+        REQUIRE(restored_cancel && restored_cancel->key == SDLK_UNKNOWN);
+        REQUIRE(restored_cancel->unmapped_retail_key == 0x1234);
         const InputEvent no_key{.type = InputEventType::KeyDown};
         REQUIRE(restored.FindCommandForEvent(&no_key) == W8_MGS_COMMAND_NONE);
     }
     keyboard.Clear();
-    REQUIRE(keyboard.GetBinding(0) == nullptr);
+    REQUIRE(keyboard.FindBinding(W8_MGS_COMMAND_CANCEL) == nullptr);
     REQUIRE(!keyboard.IsCommandPressed(W8_MGS_COMMAND_CANCEL));
     return true;
 }

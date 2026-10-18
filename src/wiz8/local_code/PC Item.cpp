@@ -3104,11 +3104,9 @@ void DeliverExceptionalItemReaction(W8ItemInstance* item, bool choose_character,
         return;
     }
     if (choose_character) {
-        int party_slot = GetRandomCharacter(0, 0, -1, -1);
-        if (party_slot == -1) {
-            return;
-        }
-        character = &g_status.buffers.Char[party_slot];
+        const auto party_slot = GetRandomCharacter(0, 0);
+        if (!party_slot) return;
+        character = &g_status.buffers.Char[*party_slot];
     }
     if ((item->effect_used & 1) != 0) {
         return;

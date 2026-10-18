@@ -692,16 +692,14 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                  monster_info->ubDisposition == W8_DISPOSITION_NEUTRAL) &&
                                 (g_sight_marker_tick == 0 || now - g_sight_marker_tick > 199)) {
                                 g_sight_marker_tick = now;
-                                int party_slot = GetRandomCharacter(0, 0, -1, -1);
-
-                                if (party_slot != -1) {
+                                if (const auto party_slot = GetRandomCharacter(0, 0)) {
                                     int effect = 0x43;
 
                                     if (Random(2) == 0) {
                                         effect = 0x44;
                                     }
                                     W8CharacterEvent* notice =
-                                        QueueCharacterEvent(&g_status.buffers.Char[party_slot],
+                                        QueueCharacterEvent(&g_status.buffers.Char[*party_slot],
                                                             effect, 0, kCharacterEventFullVolume);
 
                                     if (notice != 0) {
@@ -721,9 +719,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                 if (glm::length(delta) < 25000.0f &&
                                     (npc->party_noticed = true, !gXStatus.fSurprisePossible) &&
                                     GetLoadedLevelID() != 4) {
-                                    int party_slot = GetRandomCharacter(0, 0, -1, -1);
-
-                                    if (party_slot != -1) {
+                                    if (const auto party_slot = GetRandomCharacter(0, 0)) {
                                         int effect = 0x26;
 
                                         if (npc->name_style == W8_NPC_VI_DOMINA &&
@@ -731,7 +727,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                             effect = 0x39;
                                         }
                                         W8CharacterEvent* notice = QueueCharacterEvent(
-                                            &g_status.buffers.Char[party_slot], effect, 0,
+                                            &g_status.buffers.Char[*party_slot], effect, 0,
                                             kCharacterEventFullVolume);
 
                                         if (notice != 0) {

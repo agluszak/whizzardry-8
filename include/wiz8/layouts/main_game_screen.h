@@ -3,6 +3,8 @@
 #include "Font.h"
 #pragma once
 
+#include <optional>
+
 #include "wiz8/camera_motion.h"
 #include "wiz8/geometry.h"
 #include "wiz8/layouts/targeting.h"
@@ -96,18 +98,27 @@ enum W8PortraitHighlightKind {
 /* One highlighted party slot and why it is highlighted. */
 struct W8PortraitHighlight {
     W8PortraitHighlightKind kind = W8_HIGHLIGHT_NONE;
-    int slot = -1;
+    std::optional<int> slot;
 
-    int SlotFor(W8PortraitHighlightKind wanted) const { return kind == wanted ? slot : -1; }
+    std::optional<int> SlotFor(W8PortraitHighlightKind wanted) const
+    {
+        if (kind != wanted) return std::nullopt;
+        return slot;
+    }
     bool IsFormation() const
     {
         return kind == W8_HIGHLIGHT_FORMATION_BOARD || kind == W8_HIGHLIGHT_FORMATION;
     }
-    int FormationSlot() const { return IsFormation() ? slot : -1; }
+    std::optional<int> FormationSlot() const
+    {
+        if (!IsFormation()) return std::nullopt;
+        return slot;
+    }
     /* The target and formation highlights light the whole portrait. */
     bool LightsPortrait(int party_slot) const
     {
-        return slot == party_slot && (kind == W8_HIGHLIGHT_TARGET || IsFormation());
+        return slot && *slot == party_slot &&
+               (kind == W8_HIGHLIGHT_TARGET || IsFormation());
     }
 };
 
@@ -186,8 +197,8 @@ struct W8LevelRuntimeBlock {
     uint64_t countdown0;
     uint64_t countdown1;
     bool transition_active;
-    int highlighted_item = -1;
-    int selected_item = -1;
+    std::optional<int> highlighted_item;
+    std::optional<int> selected_item;
     /* Text box visible; toggled by the keyboard shortcut and raised
        by spell/item/dialogue screens that need it. */
     bool text_box_visible;

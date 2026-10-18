@@ -1003,8 +1003,9 @@ bool MonsterActionReachesTarget(W8MonsterInfo* monster_info, W8MonsterRecord* re
         W8MonsterInfo* target_monster = FindMonster(target->iMonsterID);
         return MonsterAttackReachesMonster(monster_info, record, attack, target_monster);
     } else if (target->iType == W8_TARGET_KIND_PARTY) {
-        int party_slot = GetRandomCharacter(1, 1, -1, -1);
-        range = GetMonsterPartyTargetRange(monster_info, record, attack, party_slot);
+        const auto party_slot = GetRandomCharacter(1, 1);
+        if (!party_slot) return false;
+        range = GetMonsterPartyTargetRange(monster_info, record, attack, *party_slot);
         if (range == W8_RANGE_NONE) {
             return false;
         }

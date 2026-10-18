@@ -274,8 +274,8 @@ unsigned int GetRandomPartySlots(int require_primary, int require_secondary,
 }
 
 // FUNCTION: WIZ8 0x00518150
-int GetRandomCharacter(int require_primary, int require_secondary, int excluded_slot,
-                       signed char excluded_gender)
+std::optional<int> GetRandomCharacter(int require_primary, int require_secondary,
+                                      std::optional<int> excluded_slot)
 {
     int skip;
     unsigned int slot;
@@ -289,20 +289,18 @@ retry:
     slot = 0;
     do {
         matched = false;
-        if (g_status.buffers.XChar[slot].fOccupied && static_cast<int>(slot) != excluded_slot) {
+        if (g_status.buffers.XChar[slot].fOccupied &&
+            (!excluded_slot || static_cast<int>(slot) != *excluded_slot)) {
             character = &g_status.buffers.Char[slot];
             if ((character->hp_current > 0 && character->highest_condition < W8_CONDITION_DEAD) ||
                 require_primary == 2) {
-                if (excluded_gender == -1 || excluded_gender != character->gender) {
-                    if (character->highest_condition < W8_CONDITION_ASLEEP ||
-                        require_secondary == 2) {
-                        matched = true;
-                        if (skip == 0) {
-                            return slot;
-                        }
-                        skip--;
-                        scanned = 0;
+                if (character->highest_condition < W8_CONDITION_ASLEEP || require_secondary == 2) {
+                    matched = true;
+                    if (skip == 0) {
+                        return slot;
                     }
+                    skip--;
+                    scanned = 0;
                 }
             }
         }
@@ -324,7 +322,7 @@ retry:
         require_primary = 2;
         goto retry;
     }
-    return -1;
+    return std::nullopt;
 }
 
 // FUNCTION: WIZ8 0x00518230

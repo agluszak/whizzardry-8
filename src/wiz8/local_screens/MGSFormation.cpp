@@ -440,7 +440,7 @@ static UiResult HandleFormationCell(const UiPointerEvent& event, int id)
             formation->dirty = true;
         }
         g_formation_active_cell = -1;
-        SetTooltipSubject(W8_HIGHLIGHT_FORMATION, -1);
+        SetTooltipSubject(W8_HIGHLIGHT_FORMATION, std::nullopt);
         return UiResult::Handled;
     }
     if (event.action == UiPointerAction::Enter ||
@@ -529,7 +529,8 @@ static void DropFormationSlot(int cell)
         formation->highlighted[cell] = true;
         g_formation_active_cell = cell;
         g_level_block->highlight = {W8_HIGHLIGHT_FORMATION, g_formation_cell_slots[cell]};
-        RequestRedraw(1 << (g_level_block->highlight.slot & 0x1f));
+        if (g_level_block->highlight.slot)
+            RequestRedraw(1u << (*g_level_block->highlight.slot & 0x1f));
     }
     g_formation_drag_cell = -1;
 }

@@ -2,6 +2,7 @@
 #ifndef WIZ8_UTILITY_H
 #define WIZ8_UTILITY_H
 
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -27,8 +28,8 @@ float NormalizeAngle(float angle);
 void DebugMessage(int channel, std::string_view message);
 /* The plain message reporter. ReadLevel.cpp uses it for load failures and
    GrCycle.cpp for a cycle with no usable LOD, so its name stays neutral. */
-int GetRandomCharacter(int require_primary, int require_secondary, int excluded_slot,
-                       signed char excluded_gender);
+std::optional<int> GetRandomCharacter(int require_primary, int require_secondary,
+                                      std::optional<int> excluded_slot = std::nullopt);
 /* 0x00517FB0: fill `selected` with up to `count` distinct party slots that pass
    the same eligibility gate as GetRandomCharacter, skipping `excluded_slot` and
    starting the scan at slot two when `skip_first_two` is set. More eligible

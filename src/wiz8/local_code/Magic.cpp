@@ -1429,8 +1429,12 @@ int PointCastSpell(glm::vec3 position, int spell_id, unsigned int power_level)
     case W8_TARGET_TYPE_CASTER:
     case W8_TARGET_TYPE_ALLY:
     case W8_TARGET_TYPE_ENEMY:
-        target.iType = W8_TARGET_KIND_CHARACTER;
-        target.iChar = GetRandomCharacter(0, 1, -1, -1);
+        if (const auto character_slot = GetRandomCharacter(0, 1)) {
+            target.iType = W8_TARGET_KIND_CHARACTER;
+            target.iChar = *character_slot;
+        } else {
+            return 0;
+        }
         break;
     case W8_TARGET_TYPE_RADIUS:
     case W8_TARGET_TYPE_POINT:

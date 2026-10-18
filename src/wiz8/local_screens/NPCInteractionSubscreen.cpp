@@ -1255,10 +1255,9 @@ void EndNpcDialogueSession(bool skip_exit_actions)
         W8NpcState* npc = g_npc_interaction_state->dialogue_npc;
         if (!g_npc_interaction_state->suppress_parting_reaction && npc->record->merchant == 0 &&
             !npc->is_grouped && GetNpcMonsterInfo(npc) != 0) {
-            int slot = GetRandomCharacter(1, 1, -1, -1);
-            if (slot != -1) {
+            if (const auto slot = GetRandomCharacter(1, 1)) {
                 W8CharacterEvent* event =
-                    QueueCharacterEvent(&g_status.buffers.Char[slot], g_special_event8,
+                    QueueCharacterEvent(&g_status.buffers.Char[*slot], g_special_event8,
                                         kCharacterEventNoPreempt, kCharacterEventFullVolume);
                 if (event != 0) {
                     event->DelayDispatch(1000);

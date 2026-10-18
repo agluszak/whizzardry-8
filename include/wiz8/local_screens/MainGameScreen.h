@@ -1,4 +1,5 @@
 #pragma once
+
 #include <array>
 #include <memory>
 #include <optional>
@@ -381,7 +382,7 @@ struct W8TargetingPresentation;
 void ApplyMainGameRedrawFlags(const W8TargetingPresentation& presentation);
 void DrawMainGameScreen(void);
 void CancelMouselook();
-void SetTooltipSubject(W8PortraitHighlightKind kind, int subject);
+void SetTooltipSubject(W8PortraitHighlightKind kind, std::optional<int> subject);
 int IsScreenInputBlocked(void);
 void DisableCombatRegions(void);
 
@@ -528,8 +529,8 @@ bool TrapInteractionSuspended();
    fallback hand, breath or character attack, or reroute spell/item aiming. */
 void FallbackFromUnreachableAction(int party_slot);
 void SetCombatAction(int value);
-void SetCombatSelection(int value);
-void SetCombatTarget(int value);
+void SetCombatSelection(std::optional<int> value);
+void SetCombatTarget(std::optional<int> value);
 
 void RequestRedrawCombatBar(void);
 void UpdateScreenOverlays(int frame);

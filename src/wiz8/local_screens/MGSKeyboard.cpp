@@ -86,10 +86,16 @@ MGSKeyboard g_mgs_keyboard;
 // Retail set 0x26, regions 180-193.
 
 // FUNCTION: WIZ8 0x0055d260
-int MGSKeyboard::FindBinding(W8MGSCommand command) const
+MGSKeyBinding* MGSKeyboard::FindBinding(W8MGSCommand command)
 {
     const auto found = std::ranges::find(m_bindings, command, &MGSKeyBinding::command);
-    return found == m_bindings.end() ? -1 : static_cast<int>(found - m_bindings.begin());
+    return found == m_bindings.end() ? nullptr : &*found;
+}
+
+const MGSKeyBinding* MGSKeyboard::FindBinding(W8MGSCommand command) const
+{
+    const auto found = std::ranges::find(m_bindings, command, &MGSKeyBinding::command);
+    return found == m_bindings.end() ? nullptr : &*found;
 }
 
 // FUNCTION: WIZ8 0x0055d2a0
@@ -104,24 +110,12 @@ W8MGSCommand MGSKeyboard::FindCommandForEvent(const InputEvent* event) const
 }
 
 // FUNCTION: WIZ8 0x0055d300
-MGSKeyBinding* MGSKeyboard::GetBinding(int index)
-{
-    if (index < 0 || m_bindings.empty()) {
-        return nullptr;
-    }
-    // Preserve the binding table's fallback to its first entry.
-    if (std::cmp_greater_equal(index, m_bindings.size())) {
-        return &m_bindings.front();
-    }
-    return &m_bindings[index];
-}
-
 // FUNCTION: WIZ8 0x0055d320
 bool MGSKeyboard::IsCommandPressed(W8MGSCommand command) const
 {
-    const int index = FindBinding(command);
-    return index >= 0 && IsKeyHeld(m_bindings[index].key) &&
-           m_bindings[index].modifiers == GetInputState().modifiers;
+    const auto* binding = FindBinding(command);
+    return binding && IsKeyHeld(binding->key) &&
+           binding->modifiers == GetInputState().modifiers;
 }
 
 /* Discard every queued input atom. MainGameScreenEnter calls this so stale
@@ -141,8 +135,9 @@ void MGSKeyboard::Clear()
 
 void MGSKeyboard::SetBinding(MGSKeyBinding binding)
 {
-    const int index = FindBinding(binding.command);
-    if (index >= 0) m_bindings.erase(m_bindings.begin() + index);
+    std::erase_if(m_bindings, [&](const MGSKeyBinding& existing) {
+        return existing.command == binding.command;
+    });
     m_bindings.push_back(binding);
 }
 
@@ -640,8 +635,8 @@ void DispatchMGSCommand(W8MGSCommand command)
         RequestRedraw(W8_MAIN_REDRAW_TEXT_BOX);
         break;
     case W8_MGS_COMMAND_DEBUG_MONSTER_SCRIPT:
-        if (g_level_block->highlighted_item != -1) {
-            FindMonster(g_level_block->highlighted_item);
+        if (g_level_block->highlighted_item) {
+            FindMonster(*g_level_block->highlighted_item);
         }
         break;
     default:

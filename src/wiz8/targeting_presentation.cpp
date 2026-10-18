@@ -42,8 +42,9 @@ bool CurrentCombatSubjectIsValid()
     const auto context = GetEditedActionContext(actor);
     const auto action = SelectCombatAction(actor, context);
     const bool sighting = context == W8_TARGETING_CONTEXT_OUT_OF_COMBAT;
-    if (g_level_block->highlighted_item != -1)
-        return AssessMonsterTarget(actor, g_level_block->highlighted_item, action, true, sighting);
+    if (g_level_block->highlighted_item)
+        return AssessMonsterTarget(actor, *g_level_block->highlighted_item, action, true,
+                                  sighting);
     if (auto* group = FindMonsterGroup(g_level_block->action_group, false))
         return CanTargetMonsterGroup(actor, group, action, sighting);
     return false;
@@ -54,8 +55,8 @@ W8TargetingPresentation BuildTargetingPresentation()
     W8TargetingPresentation result;
     if (!GetWorld() || !g_level_block) return result;
     const int selected = g_status.selected_character;
-    int tint_owner = g_level_block->highlight.SlotFor(W8_HIGHLIGHT_TARGET);
-    if (tint_owner == -1) tint_owner = selected;
+    auto tint_owner = g_level_block->highlight.SlotFor(W8_HIGHLIGHT_TARGET);
+    if (!tint_owner && selected != -1) tint_owner = selected;
     bool area_preview = false;
     if (selected != -1 &&
         (gXStatus.iTargetingMode == W8_TARGET_NEED_CONE ||
@@ -99,7 +100,8 @@ W8TargetingPresentation BuildTargetingPresentation()
         for (int id : targets) {
             auto& mark = result.monsters[id];
             mark.party_targets |= static_cast<unsigned char>(1u << actor);
-            if (actor == tint_owner && gXStatus.iTargetingMode == W8_TARGET_NEED_NONE)
+            if (tint_owner && actor == *tint_owner &&
+                gXStatus.iTargetingMode == W8_TARGET_NEED_NONE)
                 mark.tint = {0, 1, 0, 1};
         }
     };
@@ -111,16 +113,20 @@ W8TargetingPresentation BuildTargetingPresentation()
     }
     result.subject_valid = CurrentCombatSubjectIsValid();
     const glm::vec4 tint = result.subject_valid ? glm::vec4{0, 1, 0, 1} : glm::vec4{1, 0, 0, 1};
-    if (auto* info = FindMonster(g_level_block->highlighted_item, false)) {
-        result.monsters[info->location_id].hovered = true;
+    auto* highlighted = g_level_block->highlighted_item
+                            ? FindMonster(*g_level_block->highlighted_item, false)
+                            : nullptr;
+    if (highlighted) {
+        result.monsters[highlighted->location_id].hovered = true;
         const auto action = selected == -1
                                 ? W8Action{}
                                 : SelectCombatAction(selected, GetEditedActionContext(selected));
         if (selected != -1 && GetTargetNeededForAction(action) == W8_TARGET_NEED_GROUP) {
-            if (auto* group = FindMonsterGroup(info->monster_group_id, false))
+            if (auto* group = FindMonsterGroup(highlighted->monster_group_id, false))
                 for (int id : group->MemberIds()) result.monsters[id].tint = tint;
-        } else
-            result.monsters[info->location_id].tint = tint;
+        } else {
+            result.monsters[highlighted->location_id].tint = tint;
+        }
     } else if (auto* group = FindMonsterGroup(g_level_block->action_group, false)) {
         const auto action = selected == -1
                                 ? W8Action{}
@@ -131,7 +137,7 @@ W8TargetingPresentation BuildTargetingPresentation()
             const auto id = PickNextTargetableGroupMember(selected, group, action,
                                                           GetEditedActionContext(selected) ==
                                                               W8_TARGETING_CONTEXT_OUT_OF_COMBAT);
-            if (id != -1) result.monsters[id].tint = tint;
+            if (id) result.monsters[*id].tint = tint;
         }
     }
     return result;

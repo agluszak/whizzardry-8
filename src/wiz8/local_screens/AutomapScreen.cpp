@@ -1864,9 +1864,8 @@ unsigned char HandleAutomapKey(const InputEvent* input)
     if (input->type != InputEventType::KeyDown) {
         return 0;
     }
-    MGSKeyBinding* binding =
-        g_mgs_keyboard.GetBinding(g_mgs_keyboard.FindBinding(W8_MGS_COMMAND_AUTOMAP));
-    if (input->key == binding->key && input->modifiers == binding->modifiers) {
+    const MGSKeyBinding* binding = g_mgs_keyboard.FindBinding(W8_MGS_COMMAND_AUTOMAP);
+    if (binding && input->key == binding->key && input->modifiers == binding->modifiers) {
         RequestScreenTransition();
         return 1;
     }

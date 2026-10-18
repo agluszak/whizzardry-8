@@ -675,14 +675,13 @@ void W8OptionsKeyButton::SetKey(SDL_Keycode key)
         return;
     }
 
-    MGSKeyBinding* binding =
-        g_mgs_keyboard.GetBinding(g_mgs_keyboard.FindBinding(m_primary_binding));
+    MGSKeyBinding* binding = g_mgs_keyboard.FindBinding(m_primary_binding);
     if (binding != 0) {
         binding->key = key;
         binding->unmapped_retail_key = 0;
     }
     if (m_secondary_binding != W8_MGS_COMMAND_NONE) {
-        binding = g_mgs_keyboard.GetBinding(g_mgs_keyboard.FindBinding(m_secondary_binding));
+        binding = g_mgs_keyboard.FindBinding(m_secondary_binding);
         if (binding != 0) {
             binding->key = key;
             binding->unmapped_retail_key = 0;
@@ -807,8 +806,7 @@ void W8OptionsKeyboardPanel::RefreshBindingLabels()
 {
     for (auto& key : m_keys) {
         if (key->m_primary_binding == W8_MGS_COMMAND_NONE) continue;
-        auto* binding =
-            g_mgs_keyboard.GetBinding(g_mgs_keyboard.FindBinding(key->m_primary_binding));
+        auto* binding = g_mgs_keyboard.FindBinding(key->m_primary_binding);
         if (binding) key->SetKeyText(binding->key);
     }
     InvalidateAll();
@@ -854,14 +852,13 @@ void W8OptionsKeyboardPanel::ClearDuplicateBinding(SDL_Keycode key)
 
     W8OptionsKeyRow* row = g_options_key_rows;
     for (;;) {
-        MGSKeyBinding* binding =
-            g_mgs_keyboard.GetBinding(g_mgs_keyboard.FindBinding(row->primary_binding));
+        MGSKeyBinding* binding = g_mgs_keyboard.FindBinding(row->primary_binding);
         if (binding != 0 && binding->key == key) {
             binding->key = SDLK_UNKNOWN;
             binding->unmapped_retail_key = 0;
             if (g_options_key_rows[row_index].secondary_binding != W8_MGS_COMMAND_NONE) {
-                binding = g_mgs_keyboard.GetBinding(
-                    g_mgs_keyboard.FindBinding(g_options_key_rows[row_index].secondary_binding));
+                binding = g_mgs_keyboard.FindBinding(
+                    g_options_key_rows[row_index].secondary_binding);
                 if (binding != 0) {
                     binding->key = SDLK_UNKNOWN;
                     binding->unmapped_retail_key = 0;

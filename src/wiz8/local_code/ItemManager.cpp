@@ -164,7 +164,7 @@ static W8ItemLevelScaleRange g_item_level_scale_ranges[7] = {
 };
 
 // FUNCTION: WIZ8 0x004f88a0
-int FindItemTableByName(const char* name)
+std::optional<int> FindItemTableByName(const char* name)
 {
     int index;
 
@@ -173,7 +173,7 @@ int FindItemTableByName(const char* name)
             return index;
         }
     }
-    return -1;
+    return std::nullopt;
 }
 
 // FUNCTION: WIZ8 0x004f88f0
@@ -260,7 +260,7 @@ int GenerateItemsFromTable(std::vector<std::unique_ptr<W8WorldItem>>& output_ite
    record; a record whose name is empty is matched against the display name
    converted down from wide instead. */
 // FUNCTION: WIZ8 0x004f8220
-int FindItemRecordByName(const char* name)
+std::optional<int> FindItemRecordByName(const char* name)
 {
     int index;
     std::string internal_name;
@@ -275,7 +275,7 @@ int FindItemRecordByName(const char* name)
             return index;
         }
     }
-    return -1;
+    return std::nullopt;
 }
 
 /* Take one item out of the group chained onto another. Unlinking the head
@@ -603,7 +603,7 @@ void DeactivateWorldItem(W8WorldItem* item)
 
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_level_block != 0 &&
         g_level_block->selected_item == item->runtime_id) {
-        g_level_block->selected_item = -1;
+        g_level_block->selected_item.reset();
     }
 
     position = item->p3D->m_pRep->GetLocation();
@@ -619,16 +619,16 @@ void DeactivateWorldItem(W8WorldItem* item)
 }
 
 /* The runtime id of the nearest active world item the cursor is hovering over
-   and whose screen distance stays inside `max_distance`, or -1. The cursor
+   and whose screen distance stays inside `max_distance`, when there is one. The cursor
    coordinates are carried but unused - the hover test is IsSelected. */
 // FUNCTION: WIZ8 0x004f7370
-int PickNearestItemUnderCursor(int cursor_x, int cursor_y, float max_distance)
+std::optional<int> PickNearestItemUnderCursor(int cursor_x, int cursor_y, float max_distance)
 {
-    int result;
+    std::optional<int> result;
     float best_distance;
     unsigned int index;
 
-    result = -1;
+    result.reset();
     best_distance = 999999.0f;
     for (index = 0; index < CurrentLevelPopulation().world_items.size(); ++index) {
         W8WorldItem* item = ItemInfo(index);

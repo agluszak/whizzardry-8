@@ -997,8 +997,10 @@ bool W8Missile::OnCollision(W8Navigator* other)
             if (combat_slot.iType != W8_TARGET_KIND_NONE) {
                 retargeted = true;
             }
+            const auto party_slot = GetRandomCharacter(1, 1);
+            if (!party_slot) goto miss;
             combat_slot.iType = W8_TARGET_KIND_CHARACTER;
-            combat_slot.iChar = GetRandomCharacter(1, 1, -1, -1);
+            combat_slot.iChar = *party_slot;
             combat_slot.iMonsterID = -1;
             if (gXStatus.fCombatMode) {
                 AnnounceCollisionTarget();

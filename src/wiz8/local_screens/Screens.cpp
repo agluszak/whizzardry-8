@@ -315,8 +315,8 @@ void InitializeMainGameLevelBlock(void)
         CurrentDialogueLineHasContent() ? kDownArrowEnabled : -1;
     g_level_block->world_update_flags = 0;
     g_level_block->camera_motion_flags = 0;
-    g_level_block->highlighted_item = -1;
-    g_level_block->selected_item = -1;
+    g_level_block->highlighted_item.reset();
+    g_level_block->selected_item.reset();
     g_level_block->clock = w8_get_ticks();
     g_level_block->portrait_flash = 0;
     for (slot = 0; slot < 8; ++slot) {

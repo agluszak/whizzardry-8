@@ -19,7 +19,7 @@ W8WorldItem* ItemInfo(unsigned int item_list_index);
 void DeactivateWorldItem(W8WorldItem* item);
 unsigned int ItemIndex(int runtime_id);
 
-int PickNearestItemUnderCursor(int cursor_x, int cursor_y, float max_distance);
+std::optional<int> PickNearestItemUnderCursor(int cursor_x, int cursor_y, float max_distance);
 unsigned char InteractWithWorldItem(int runtime_id);
 void SetWorldItemFalling(W8WorldItem* item, bool enabled);
 void RebuildAllWorldItemInstances(void);

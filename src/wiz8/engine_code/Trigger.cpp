@@ -2072,7 +2072,7 @@ void Trigger::RunDestination(const char* destination)
 void Trigger::GenerateItemGroup()
 {
     std::vector<std::unique_ptr<W8WorldItem>> items;
-    unsigned int table_id;
+    std::optional<int> table_id;
     unsigned int maximum_items;
     int index;
 
@@ -2082,19 +2082,19 @@ void Trigger::GenerateItemGroup()
 
     SeedRandom(item_group_seed);
     table_id = FindItemTableByName(inline_action_data);
-    if (table_id == static_cast<unsigned int>(-1)) {
+    if (!table_id) {
         return;
     }
 
-    maximum_items = RollDice(&g_item_tables[table_id].item_count_dice);
-    GenerateItemsFromTable(items, table_id, maximum_items, position);
+    maximum_items = RollDice(&g_item_tables[*table_id].item_count_dice);
+    GenerateItemsFromTable(items, *table_id, maximum_items, position);
     if (world_item_group == 0) {
         world_item_group = SpawnItem(0x23c, &position, 0);
     }
     for (index = 0; index < static_cast<int>(items.size()); ++index) {
         ItemInfoAddToGroup(world_item_group.get(), std::move(items[index]));
     }
-    gold = RollDice(&g_item_tables[table_id].gold_dice);
+    gold = RollDice(&g_item_tables[*table_id].gold_dice);
     items_generated = 1;
 }
 
@@ -2217,7 +2217,7 @@ void Trigger::Run(int source)
                 break;
             }
             ApplyItemEffectToRandomCharacter(
-                Random(2) != 0 ? kConditionReaction : kConditionReactionAlt, -1, 0);
+                Random(2) != 0 ? kConditionReaction : kConditionReactionAlt, std::nullopt, 0);
             flags |= W8_TRIGGER_RUNNING;
             goto commit_action;
 
@@ -2578,7 +2578,8 @@ void Trigger::Run(int source)
                 if (item_count == 0) {
                     if (m_pProp->Rep()->subcycle == 0) {
                         ApplyItemEffectToRandomCharacter(
-                            Random(2) != 0 ? g_container_event : g_container_event_alt, -1, 0);
+                            Random(2) != 0 ? g_container_event : g_container_event_alt,
+                            std::nullopt, 0);
                     }
                 } else if (item_count == 1 && !g_status.item_in_cursor) {
                     item = world_item_group->next.get();

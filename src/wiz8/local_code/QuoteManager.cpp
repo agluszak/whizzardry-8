@@ -1305,10 +1305,10 @@ void W8CharacterEventQueue::ProcessDeferredCharacterEvents()
    receive the event the draw retries up to fifty times; exhaustion returns
    zero without queueing anything. */
 // FUNCTION: WIZ8 0x0052E5C0
-W8CharacterEvent* ApplyItemEffectToRandomCharacter(unsigned int event_type, int excluded_slot,
+W8CharacterEvent* ApplyItemEffectToRandomCharacter(unsigned int event_type,
+                                                   std::optional<int> excluded_slot,
                                                    unsigned int flags)
 {
-    int character_slot;
     int attempts;
 
     if (event_type >= g_normal_event_count &&
@@ -1316,21 +1316,20 @@ W8CharacterEvent* ApplyItemEffectToRandomCharacter(unsigned int event_type, int 
          event_type >= kRemappedEventCount + kFirstRemappedEvent)) {
         return 0;
     }
-    character_slot = GetRandomCharacter(0, 0, excluded_slot, -1);
-    if (character_slot == -1) {
-        return 0;
-    }
+    auto character_slot = GetRandomCharacter(0, 0, excluded_slot);
+    if (!character_slot) return nullptr;
     attempts = 0;
-    bool can_dispatch = CanDispatchCharacterEvent(character_slot, event_type);
+    bool can_dispatch = CanDispatchCharacterEvent(*character_slot, event_type);
     while (!can_dispatch && attempts < 0x32) {
-        character_slot = GetRandomCharacter(0, 0, excluded_slot, -1);
+        character_slot = GetRandomCharacter(0, 0, excluded_slot);
+        if (!character_slot) return nullptr;
         ++attempts;
-        can_dispatch = CanDispatchCharacterEvent(character_slot, event_type);
+        can_dispatch = CanDispatchCharacterEvent(*character_slot, event_type);
     }
     if (attempts == 0x32) {
         return 0;
     }
-    return QueueCharacterEvent(&g_status.buffers.Char[character_slot], event_type, flags,
+    return QueueCharacterEvent(&g_status.buffers.Char[*character_slot], event_type, flags,
                                kCharacterEventFullVolume);
 }
 
@@ -1516,7 +1515,7 @@ void QueueConditionChangeReaction(W8Character* character)
 {
     int events[3];
     int excluded_slot;
-    int slot;
+    std::optional<int> slot;
     int attempts;
     unsigned int reaction;
 
@@ -1574,16 +1573,17 @@ void QueueConditionChangeReaction(W8Character* character)
         if ((reaction < g_normal_event_count ||
              (kFirstRemappedEvent <= reaction &&
               reaction < kRemappedEventCount + kFirstRemappedEvent)) &&
-            (slot = GetRandomCharacter(0, 0, excluded_slot, -1)) != -1) {
+            (slot = GetRandomCharacter(0, 0, excluded_slot))) {
             attempts = 0;
-            while (!CanDispatchCharacterEvent(slot, reaction)) {
+            while (!CanDispatchCharacterEvent(*slot, reaction)) {
                 if (attempts >= 0x32) {
                     return;
                 }
-                slot = GetRandomCharacter(0, 0, excluded_slot, -1);
+                slot = GetRandomCharacter(0, 0, excluded_slot);
+                if (!slot) return;
                 ++attempts;
             }
-            QueueCharacterEvent(&g_status.buffers.Char[slot], reaction, 0,
+            QueueCharacterEvent(&g_status.buffers.Char[*slot], reaction, 0,
                                 kCharacterEventFullVolume);
             return;
         }

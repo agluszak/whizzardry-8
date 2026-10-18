@@ -504,9 +504,9 @@ void ApplyCombatEndEffects(void)
                 W8Character* character = &g_status.buffers.Char[slot];
                 if (character->highest_condition == W8_CONDITION_DEAD) {
                     if (npc->healer_assist) {
-                        ApplyItemEffectToRandomCharacter(13, -1, 0);
+                        ApplyItemEffectToRandomCharacter(13, std::nullopt, 0);
                     } else if (npc->item_assist) {
-                        ApplyItemEffectToRandomCharacter(20, -1, 0);
+                        ApplyItemEffectToRandomCharacter(20, std::nullopt, 0);
                     }
                 }
             }
@@ -1224,7 +1224,7 @@ void ChooseAction(int party_slot, W8ActionKind action, int detail, const W8Actio
         return;
     case W8_ACTION_WALK:
     case W8_ACTION_RUN:
-        ApplyItemEffectToRandomCharacter(g_special_event2, -1, 0);
+        ApplyItemEffectToRandomCharacter(g_special_event2, std::nullopt, 0);
         break;
     default:
         break;

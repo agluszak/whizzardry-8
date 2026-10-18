@@ -450,8 +450,7 @@ public:
        press can switch screens and with them the active key bindings. */
     void command(W8MGSCommand command)
     {
-        const int index = g_mgs_keyboard.FindBinding(command);
-        const MGSKeyBinding* bound = index >= 0 ? g_mgs_keyboard.GetBinding(index) : nullptr;
+        const MGSKeyBinding* bound = g_mgs_keyboard.FindBinding(command);
         if (!bound || !bound->key)
             Fail("command", "no key bound to command " + std::to_string(int(command)));
         const MGSKeyBinding binding = *bound;
@@ -2186,8 +2185,8 @@ int Monkey(Game& game, int steps, unsigned seed)
                 // Bound commands only reach the game on the main-game screen.
                 const W8MGSCommand command = commands[pick(int(std::size(commands)))];
                 std::printf("  monkey %d: command %d\n", step, int(command));
-                const int binding = g_mgs_keyboard.FindBinding(command);
-                if (binding >= 0 && g_mgs_keyboard.GetBinding(binding)->key) game.command(command);
+                const auto* binding = g_mgs_keyboard.FindBinding(command);
+                if (binding && binding->key) game.command(command);
                 break;
             }
             std::fflush(stdout);

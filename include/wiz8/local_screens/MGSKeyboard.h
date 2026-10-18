@@ -27,10 +27,10 @@ struct MGSKeyBinding {
 // VTABLE: WIZ8 0x005ee8f0
 class MGSKeyboard {
 public:
-    int FindBinding(W8MGSCommand command) const;
+    MGSKeyBinding* FindBinding(W8MGSCommand command);
+    const MGSKeyBinding* FindBinding(W8MGSCommand command) const;
     /* Match a live InputEvent against the binding table; returns command or -1. */
     W8MGSCommand FindCommandForEvent(const InputEvent* event) const;
-    MGSKeyBinding* GetBinding(int index);
     bool IsCommandPressed(W8MGSCommand command) const;
     void Clear();
     unsigned char Load(W8Chunk& handle, bool clear);

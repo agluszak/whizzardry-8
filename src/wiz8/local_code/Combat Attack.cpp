@@ -3135,22 +3135,22 @@ void AnnounceAccidentalStrike(W8TargetSource* source, W8CombatSlot* target)
 // FUNCTION: WIZ8 0x00544530
 void QueueFumbleReaction(int party_slot)
 {
-    int slot;
+    std::optional<int> slot;
     if (Random(2) != 0) {
         QueueCharacterEvent(&g_status.buffers.Char[party_slot], 16, 0, kCharacterEventFullVolume);
         return;
     }
-    if (g_combat_state->TargetHit.iType != W8_TARGET_KIND_CHARACTER ||
-        party_slot == g_combat_state->TargetHit.iChar ||
-        !IsTargetStillPresent(&g_combat_state->TargetHit) ||
-        (slot = g_combat_state->TargetHit.iChar,
-         g_status.buffers.Char[slot].highest_condition > W8_CONDITION_WEBBED)) {
-        slot = GetRandomCharacter(0, 0, party_slot, -1);
+    if (g_combat_state->TargetHit.iType == W8_TARGET_KIND_CHARACTER &&
+        party_slot != g_combat_state->TargetHit.iChar &&
+        IsTargetStillPresent(&g_combat_state->TargetHit) &&
+        g_status.buffers.Char[g_combat_state->TargetHit.iChar].highest_condition <=
+            W8_CONDITION_WEBBED) {
+        slot = g_combat_state->TargetHit.iChar;
+    } else {
+        slot = GetRandomCharacter(0, 0, party_slot);
     }
-    if (slot == -1) {
-        return;
-    }
-    QueueCharacterEvent(&g_status.buffers.Char[slot], 17, 0, kCharacterEventFullVolume);
+    if (!slot) return;
+    QueueCharacterEvent(&g_status.buffers.Char[*slot], 17, 0, kCharacterEventFullVolume);
 }
 
 /* When GetMonsterByLocationID returns NULL the sight-flag call is skipped and

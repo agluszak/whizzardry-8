@@ -694,13 +694,13 @@ static bool IsMonsterHoverSelectable(W8MonsterInfo* monster_info)
    scan only while g_dev_mode is set. The cursor coordinates are carried but
    unused - the hover test is MonsterUsesCurrentModelInstance. */
 // FUNCTION: WIZ8 0x005396d0
-int PickNearestMonsterUnderCursor(int cursor_x, int cursor_y)
+std::optional<int> PickNearestMonsterUnderCursor(int cursor_x, int cursor_y)
 {
-    int result;
+    std::optional<int> result;
     float best_distance;
     unsigned int index;
 
-    result = -1;
+    result.reset();
     best_distance = 999999.0f;
     for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
         W8MonsterInfo* monster_info = GetMonsterListEntry(index);
@@ -1537,7 +1537,8 @@ struct W8GroupMemberByAngle {
    jumping about, and it is why the sort buffer holds a pair per candidate
    rather than just the ids. */
 // FUNCTION: WIZ8 0x005383e0
-static int SelectNextGroupMemberByAngle(const std::vector<int>& candidates, int current)
+static std::optional<int> SelectNextGroupMemberByAngle(const std::vector<int>& candidates,
+                                                       std::optional<int> current)
 {
     unsigned int count = static_cast<unsigned int>(candidates.size());
     std::vector<W8GroupMemberByAngle> sorted(count);
@@ -1546,7 +1547,7 @@ static int SelectNextGroupMemberByAngle(const std::vector<int>& candidates, int 
     int result;
 
     if (count == 0) {
-        return BAD_INDEX;
+        return std::nullopt;
     }
     party = cameraLocation();
 
@@ -1563,9 +1564,9 @@ static int SelectNextGroupMemberByAngle(const std::vector<int>& candidates, int 
     std::ranges::sort(sorted, {}, &W8GroupMemberByAngle::angle);
 
     result = sorted[0].location_id;
-    if (current != BAD_INDEX) {
+    if (current) {
         for (index = 0; index < count; ++index) {
-            if (sorted[index].location_id == current) {
+            if (sorted[index].location_id == *current) {
                 result = sorted[index + 1 < count ? index + 1 : 0].location_id;
                 break;
             }
@@ -1582,7 +1583,8 @@ static int SelectNextGroupMemberByAngle(const std::vector<int>& candidates, int 
    monster. Every live monster the slot could aim at becomes a candidate and
    the angular sweep steps on from whichever monster is currently picked. */
 // FUNCTION: WIZ8 0x00538140
-static int PickNextTargetableMonster(int party_slot, const W8Action& edited_action, bool sighting)
+static std::optional<int> PickNextTargetableMonster(int party_slot,
+                                                    const W8Action& edited_action, bool sighting)
 {
     std::vector<int> targetable;
     unsigned int index;
@@ -1599,8 +1601,8 @@ static int PickNextTargetableMonster(int party_slot, const W8Action& edited_acti
 }
 
 // FUNCTION: WIZ8 0x00538280
-int PickNextTargetableGroupMember(int party_slot, const W8MonsterGroup* group,
-                                  const W8Action& edited_action, bool sighting)
+std::optional<int> PickNextTargetableGroupMember(int party_slot, const W8MonsterGroup* group,
+                                                 const W8Action& edited_action, bool sighting)
 {
     std::vector<int> targetable;
     unsigned int index;
@@ -1625,7 +1627,7 @@ void AimAtMonsterGroupMember(int party_slot, W8MonsterGroup* group)
     const bool sighting = context == W8_TARGETING_CONTEXT_OUT_OF_COMBAT;
     W8CombatSlot target;
     W8TargetSource source;
-    int picked;
+    std::optional<int> picked;
 
     if (!sighting) {
         if (GetTargetNeededForAction(selected) == W8_TARGET_NEED_GROUP) {
@@ -1643,16 +1645,14 @@ void AimAtMonsterGroupMember(int party_slot, W8MonsterGroup* group)
     }
 
     picked = PickNextTargetableGroupMember(party_slot, group, selected, sighting);
-    if (picked == BAD_INDEX) {
-        return;
-    }
+    if (!picked) return;
 
     ResetCombatSlot(&target);
     target.iType = W8_TARGET_KIND_MONSTER;
-    target.iMonsterID = picked;
+    target.iMonsterID = *picked;
     AimAtTarget(party_slot, &target, context);
 
-    group->highlighted_member = picked;
+    group->highlighted_member = *picked;
     g_level_block->pick_changed = true;
 
     StartBreathCycle(party_slot, false);
@@ -1671,15 +1671,16 @@ void AimAtMonsterGroupMember(int party_slot, W8MonsterGroup* group)
    will do. A picked group that has since gone away resets the starting point
    rather than ending the sweep. */
 // FUNCTION: WIZ8 0x00537ed0
-static int PickNextTargetableGroup(int party_slot, const W8Action& edited_action, bool sighting)
+static std::optional<int> PickNextTargetableGroup(int party_slot,
+                                                  const W8Action& edited_action, bool sighting)
 {
     const auto& groups = CurrentLevelPopulation().monster_groups;
-    if (groups.empty()) return BAD_INDEX;
+    if (groups.empty()) return std::nullopt;
     const auto current = std::ranges::find_if(
         groups, [](const auto& group) { return group->group_id == gXStatus.picked_group; });
     std::size_t start = 0;
     if (current == groups.end())
-        gXStatus.picked_group = BAD_INDEX;
+        gXStatus.picked_group.reset();
     else
         start = (std::distance(groups.begin(), current) + 1) % groups.size();
     for (std::size_t offset = 0; offset < groups.size(); ++offset) {
@@ -1687,7 +1688,7 @@ static int PickNextTargetableGroup(int party_slot, const W8Action& edited_action
         if (CanTargetMonsterGroup(party_slot, group, edited_action, sighting))
             return group->group_id;
     }
-    return BAD_INDEX;
+    return std::nullopt;
 }
 
 /* The cycle-target key: step the party's pick to the next thing the slot's
@@ -1703,7 +1704,7 @@ void CycleToNextTarget(int party_slot)
     const bool sighting = context == W8_TARGETING_CONTEXT_OUT_OF_COMBAT;
     W8CombatSlot target;
     W8TargetSource source;
-    int pick;
+    std::optional<int> pick;
     bool pick_group = false;
 
     if (!sighting) {
@@ -1712,28 +1713,24 @@ void CycleToNextTarget(int party_slot)
     }
     if (pick_group) {
         pick = PickNextTargetableGroup(party_slot, selected, sighting);
-        if (pick == BAD_INDEX) {
-            return;
-        }
+        if (!pick) return;
         memset(&target, 0, sizeof(target));
         target.iMonsterID = BAD_INDEX;
         target.iChar = BAD_INDEX;
         target.iType = W8_TARGET_KIND_GROUP;
-        target.iGroupID = pick;
+        target.iGroupID = *pick;
         AimAtTarget(party_slot, &target, context);
-        gXStatus.picked_group = pick;
+        gXStatus.picked_group = *pick;
     } else {
         pick = PickNextTargetableMonster(party_slot, selected, sighting);
-        if (pick == BAD_INDEX) {
-            return;
-        }
+        if (!pick) return;
         memset(&target, 0, sizeof(target));
         target.iChar = BAD_INDEX;
         target.iGroupID = BAD_INDEX;
         target.iType = W8_TARGET_KIND_MONSTER;
-        target.iMonsterID = pick;
+        target.iMonsterID = *pick;
         AimAtTarget(party_slot, &target, context);
-        gXStatus.picked_monster = pick;
+        gXStatus.picked_monster = *pick;
     }
     StartBreathCycle(party_slot, false);
     SetTargetSourceToCharacter(party_slot, &source);

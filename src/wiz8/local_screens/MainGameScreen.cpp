@@ -347,7 +347,7 @@ void CancelMouselook()
 static void QueueInteractionNotice(int event_type)
 {
     W8CharacterEvent* event =
-        ApplyItemEffectToRandomCharacter(event_type, -1, kCharacterEventNoPreempt);
+        ApplyItemEffectToRandomCharacter(event_type, std::nullopt, kCharacterEventNoPreempt);
     if (event != 0) {
         event->DelayDispatch(600);
     }
@@ -3155,15 +3155,14 @@ void RedrawCombatMonsterList(bool subject_valid)
                     is_action_group = false;
                     if (monster_group->group_id == g_level_block->action_group) {
                         is_action_group = true;
-                    } else if (g_level_block->highlighted_item != -1) {
-                        monster_info = FindMonster(g_level_block->highlighted_item);
+                    } else if (g_level_block->highlighted_item) {
+                        monster_info = FindMonster(*g_level_block->highlighted_item);
                         is_action_group = monster_group->group_id == monster_info->monster_group_id;
                     }
                     is_target_group = false;
-                    context_slot = g_level_block->pending_highlight.SlotFor(W8_HIGHLIGHT_TARGET);
-                    if (context_slot == -1) {
-                        context_slot = g_status.selected_character;
-                    }
+                    const auto highlighted_slot =
+                        g_level_block->pending_highlight.SlotFor(W8_HIGHLIGHT_TARGET);
+                    context_slot = highlighted_slot.value_or(g_status.selected_character);
                     const auto group_action =
                         SelectCombatAction(context_slot, GetEditedActionContext(context_slot));
                     target = &group_action.target;
@@ -4227,7 +4226,7 @@ void ClearPortraitRefreshSlot(int slot)
 /* Note what the pointer is hovering over. Moving to anything else restarts the
    tooltip clock; staying put leaves it running, which is what makes the four
    fields one tooltip rather than four settings. */
-void SetTooltipSubject(W8PortraitHighlightKind kind, int subject)
+void SetTooltipSubject(W8PortraitHighlightKind kind, std::optional<int> subject)
 {
     auto& pending = g_level_block->pending_highlight;
     if (pending.kind != kind || pending.slot != subject) {
@@ -4264,7 +4263,7 @@ void RefreshMainGameLayout()
     const bool constrained =
         gpSCSV || ItemUseDraft() || gXStatus.fLockInteractMode || gXStatus.fTrapInteractMode ||
         (gXStatus.fNpcDialogueMode && !g_npc_interaction_state->scripted_dialogue);
-    SetTooltipSubject(portraits ? W8_HIGHLIGHT_TARGET : W8_HIGHLIGHT_VITALS, -1);
+    SetTooltipSubject(portraits ? W8_HIGHLIGHT_TARGET : W8_HIGHLIGHT_VITALS, std::nullopt);
     CloseMainGameOverlays();
     g_level_block->portrait_mode = portraits;
     if (portraits) {
@@ -4622,7 +4621,7 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
             } else {
                 g_level_block->portrait_right_hold_armed = false;
                 if (IsNpcDialogueCursorActive() == 0) {
-                    SetTooltipSubject(W8_HIGHLIGHT_TARGET, -1);
+                    SetTooltipSubject(W8_HIGHLIGHT_TARGET, std::nullopt);
                     SetTargetCursor(GetTargetingCursorForState(false));
                 }
                 if (g_level_block->portrait_overlay_party_slot == slot) {
@@ -4679,7 +4678,7 @@ static UiResult DispatchPortraitOrbInput(const UiPointerEvent& event, HitTarget&
                 return UiResult::Pass;
             }
             if (event.action == UiPointerAction::Leave) {
-                SetTooltipSubject(tooltip_kind, -1);
+                SetTooltipSubject(tooltip_kind, std::nullopt);
                 if ((g_level_block.get()->*selection) != -1) {
                     (g_level_block.get()->*selection) = -1;
                     DismissHighlightOverlay();
@@ -4805,7 +4804,7 @@ UiResult PortraitAssaySidebarInput(const UiPointerEvent& event, HitTarget& targe
                 SetTooltipSubject(W8_HIGHLIGHT_ASSAY, slot);
             }
         } else {
-            SetTooltipSubject(W8_HIGHLIGHT_ASSAY, -1);
+            SetTooltipSubject(W8_HIGHLIGHT_ASSAY, std::nullopt);
             return UiResult::Pass;
         }
         return UiResult::Pass;
@@ -4861,7 +4860,7 @@ UiResult PortraitOverlayHoverInput(const UiPointerEvent& event, HitTarget& targe
                 }
                 g_level_block->portrait_overlay_party_slot = slot;
             } else {
-                SetTooltipSubject(W8_HIGHLIGHT_VITALS, -1);
+                SetTooltipSubject(W8_HIGHLIGHT_VITALS, std::nullopt);
                 if (g_level_block->portrait_overlay_party_slot == -1) {
                     return UiResult::Pass;
                 }
@@ -5061,7 +5060,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
         cursor_y = event.position.y;
         cursor_x = event.position.x;
 
-        int hover;
+        std::optional<int> hover;
         if (!gXStatus.fNpcDialogueMode && gXStatus.iTargetingMode != W8_TARGET_NEED_PLACE &&
             gXStatus.iTargetingMode != W8_TARGET_NEED_CONE &&
             gXStatus.iTargetingMode != W8_TARGET_NEED_ITEM &&
@@ -5069,15 +5068,15 @@ UiResult WorldViewInput(const UiPointerEvent& event)
             !IsWorldCursorVisible() && !g_mouselook_active) {
             hover = PickNearestMonsterUnderCursor(cursor_x, cursor_y);
         } else {
-            hover = -1;
+            hover.reset();
         }
         SetCombatSelection(hover);
-        if (g_level_block->highlighted_item == -1) {
+        if (!g_level_block->highlighted_item) {
             if (gXStatus.item_manager_pending != 0 && !IsWorldCursorVisible() &&
                 !g_mouselook_active) {
                 hover = PickNearestItemUnderCursor(cursor_x, cursor_y, 5000.0f);
             } else {
-                hover = -1;
+                hover.reset();
             }
             SetCombatTarget(hover);
         }
@@ -5098,19 +5097,20 @@ UiResult WorldViewInput(const UiPointerEvent& event)
     }
     if ((event.button == UiPointerButton::Right && event.action == UiPointerAction::Down)) {
 
-        if (g_level_block->highlighted_item != -1 && !gpSCSV && !gXStatus.fNpcDialogueMode &&
+        if (g_level_block->highlighted_item && !gpSCSV && !gXStatus.fNpcDialogueMode &&
             !ItemUseDraft() && !gXStatus.fLockInteractMode && !gXStatus.fTrapInteractMode &&
             (g_settings.ctrl_right_click_info == 0 ||
              ((GetInputState().modifiers & CTRL_DOWN) != 0))) {
-            AfterUiDispatch([=] { OpenMonsterInfoDialog(g_level_block->highlighted_item); });
+            const int location_id = *g_level_block->highlighted_item;
+            AfterUiDispatch([location_id] { OpenMonsterInfoDialog(location_id); });
             return UiResult::Handled;
         }
-        if (!g_status.item_in_cursor && g_level_block->selected_item != -1 && !gpSCSV &&
+        if (!g_status.item_in_cursor && g_level_block->selected_item && !gpSCSV &&
             !gXStatus.fNpcDialogueMode && !ItemUseDraft() && !gXStatus.fLockInteractMode &&
             !gXStatus.fTrapInteractMode &&
             (g_settings.ctrl_right_click_info == 0 ||
              ((GetInputState().modifiers & CTRL_DOWN) != 0))) {
-            W8WorldItem* world_item = ItemInfo(ItemIndex(g_level_block->selected_item));
+            W8WorldItem* world_item = ItemInfo(ItemIndex(*g_level_block->selected_item));
             PartyAttemptsToIdentifyItem(&world_item->item, 0);
             OpenAssayDialog(world_item->item, -1);
             return UiResult::Handled;
@@ -5185,15 +5185,15 @@ UiResult WorldViewInput(const UiPointerEvent& event)
     } else if (gXStatus.iTargetingMode == W8_TARGET_NEED_CONE ||
                (needed == W8_TARGET_NEED_CONE && (event.modifiers & CTRL_DOWN) != 0)) {
         AimAtGroundTarget(g_status.selected_character);
-    } else if (g_level_block->highlighted_item == -1) {
+    } else if (!g_level_block->highlighted_item) {
         if (g_status.item_in_cursor && GetSelectedPropIndex() == -1) {
             if (!gXStatus.world_update_blocked) {
                 DropItemInHand(1);
             }
-        } else if (g_level_block->selected_item != -1) {
+        } else if (g_level_block->selected_item) {
             if (!gXStatus.world_update_blocked &&
-                InteractWithWorldItem(g_level_block->selected_item) != 0) {
-                g_level_block->selected_item = -1;
+                InteractWithWorldItem(*g_level_block->selected_item) != 0) {
+                g_level_block->selected_item.reset();
                 VideoRemoveToolTip();
                 SetTargetingMode(W8_TARGET_NEED_NONE);
             }
@@ -5201,7 +5201,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
             ActivateSelectedProp();
         }
     } else {
-        W8MonsterInfo* monster_info = FindMonster(g_level_block->highlighted_item);
+        W8MonsterInfo* monster_info = FindMonster(*g_level_block->highlighted_item);
         bool assign = true;
         if (!gXStatus.fCombatMode) {
             if (needed != W8_TARGET_NEED_ENEMY && needed != W8_TARGET_NEED_ALLY &&
@@ -5223,9 +5223,9 @@ UiResult WorldViewInput(const UiPointerEvent& event)
                         }
                         if (monster_info->highest_condition < W8_CONDITION_ASLEEP) {
                             W8NpcState* npc = FindNpcBindingForMonster(
-                                FindMonster(g_level_block->highlighted_item));
+                                FindMonster(*g_level_block->highlighted_item));
                             QueueNpcScriptNotice(npc, item, -1, false, 0);
-                            SetCombatSelection(-1);
+                            SetCombatSelection(std::nullopt);
                         } else {
                             ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x7de]);
                         }
@@ -5239,7 +5239,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
             for (slot = 0; slot < 8; ++slot) {
                 if (g_status.buffers.XChar[slot].fOccupied &&
                     g_status.buffers.Char[slot].hp_current != 0) {
-                    AimAtMonsterLocation(slot, g_level_block->highlighted_item, false);
+                    AimAtMonsterLocation(slot, *g_level_block->highlighted_item, false);
                 }
             }
             assign = false;
@@ -5248,7 +5248,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
             if (g_status.selected_character == -1) {
                 srAssertFail("gStatus.iSelectedCharacter != -1", MAIN_GAME_SCREEN_CPP, 0x16db, 0);
             }
-            AimAtMonsterLocation(g_status.selected_character, g_level_block->highlighted_item,
+            AimAtMonsterLocation(g_status.selected_character, *g_level_block->highlighted_item,
                                  true);
         }
     }
@@ -5311,8 +5311,8 @@ UiResult MonsterListInput(const UiPointerEvent& event)
    what is going to be done - and then re-derive who is acting. */
 void ClearCombatSelection(void)
 {
-    SetCombatSelection(-1);
-    SetCombatTarget(-1);
+    SetCombatSelection(std::nullopt);
+    SetCombatTarget(std::nullopt);
     SetCombatAction(-1);
     SetTargetCursor(GetTargetingCursorForState(false));
 }
@@ -5334,9 +5334,9 @@ void UpdateWorldViewCursor(const UiPointerEvent& event, W8TargetNeed target_need
     if (cursor == W8_CURSOR_INVALID_TARGET) {
         return;
     }
-    if (g_level_block->highlighted_item == -1) {
+    if (!g_level_block->highlighted_item) {
         if (gXStatus.iTargetingMode == W8_TARGET_NEED_NONE) {
-            if (g_level_block->selected_item != -1) {
+            if (g_level_block->selected_item) {
                 if (!gXStatus.world_update_blocked) {
                     SetTargetCursor(5);
                     return;
@@ -5365,8 +5365,8 @@ void UpdateWorldViewCursor(const UiPointerEvent& event, W8TargetNeed target_need
         }
         cursor = 0;
     } else {
-        FindMonster(g_level_block->highlighted_item);
-        if (!AssessMonsterTarget(g_status.selected_character, g_level_block->highlighted_item,
+        FindMonster(*g_level_block->highlighted_item);
+        if (!AssessMonsterTarget(g_status.selected_character, *g_level_block->highlighted_item,
                                  edited_action, true, sighting)) {
             SetTargetCursor(cursor);
             return;
@@ -5386,7 +5386,7 @@ void UpdateWorldViewCursor(const UiPointerEvent& event, W8TargetNeed target_need
 void ClearHighlightIfItIs(const int* item)
 {
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_level_block != 0 &&
-        g_level_block->highlighted_item != -1 && *item == g_level_block->highlighted_item) {
+        g_level_block->highlighted_item && *item == *g_level_block->highlighted_item) {
         VideoRemoveToolTip();
     }
 }
@@ -5522,16 +5522,16 @@ void ApplyPendingTooltip(void)
     const W8PortraitHighlight next =
         std::exchange(g_level_block->pending_highlight, W8PortraitHighlight{});
     g_level_block->tooltip_pending = false;
-    if (previous.slot != -1 &&
+    if (previous.slot &&
         (!previous.IsFormation() || g_current_screen_state.id == W8_SCREEN_MAIN_GAME)) {
-        RequestRedraw(1u << (previous.slot & 0x1f));
+        RequestRedraw(1u << (*previous.slot & 0x1f));
     }
-    if (next.slot != -1) {
-        RequestRedraw(1u << (next.slot & 0x1f));
+    if (next.slot) {
+        RequestRedraw(1u << (*next.slot & 0x1f));
         g_level_block->highlight = next;
     }
-    if ((previous.slot != -1 && previous.IsFormation()) ||
-        (next.slot != -1 && next.kind == W8_HIGHLIGHT_FORMATION_BOARD)) {
+    if ((previous.slot && previous.IsFormation()) ||
+        (next.slot && next.kind == W8_HIGHLIGHT_FORMATION_BOARD)) {
         RefreshFormationBoard();
     }
 }
@@ -5559,19 +5559,19 @@ static void PositionSelectionToolTip(SDL_Point point)
    monster's group or target highlight, and a valid new pick relights it in
    the colour CanTargetMonster just judged, so the group tint always agrees
    with the selection marker. */
-void SetCombatSelection(int value)
+void SetCombatSelection(std::optional<int> value)
 {
-    int current = g_level_block->highlighted_item;
+    const auto current = g_level_block->highlighted_item;
 
     if (value == current) {
-        if (current != -1 && !TimeUntilDeadline(g_level_block->countdown1) &&
+        if (current && !TimeUntilDeadline(g_level_block->countdown1) &&
             !HasScreenTransitionObjects()) {
             SDL_Point point;
             std::string text;
             std::string health;
 
             SGPMouseGetPos(&point);
-            W8MonsterInfo* monster_info = FindMonster(g_level_block->highlighted_item);
+            W8MonsterInfo* monster_info = FindMonster(*current);
             if (monster_info != 0) {
                 text = GetMonsterName(monster_info, 0, 0);
                 text += " (";
@@ -5584,13 +5584,13 @@ void SetCombatSelection(int value)
         }
         return;
     }
-    g_level_block->highlighted_item = -1;
-    if (value != -1) {
-        auto* info = FindMonster(value, false);
+    g_level_block->highlighted_item.reset();
+    if (value) {
+        auto* info = FindMonster(*value, false);
         if (info && info->p3D) {
             const auto bounds = MonsterGetWorldAnimationBounds(info->p3D);
             if (bounds && traceLineOfSightToBounds(cameraLocation(), *bounds))
-                g_level_block->highlighted_item = value;
+                g_level_block->highlighted_item = *value;
         }
     }
     RequestRedraw(W8_MAIN_REDRAW_MONSTER_LIST);
@@ -5605,21 +5605,19 @@ void SetCombatSelection(int value)
 /* The world-item twin of SetCombatSelection: a pick change drops the old
    item's highlight and lights a visible new one; re-picking the same item
    while its tooltip clock is idle pops its display name at the cursor. */
-void SetCombatTarget(int value)
+void SetCombatTarget(std::optional<int> value)
 {
-    int current = g_level_block->selected_item;
+    const auto current = g_level_block->selected_item;
 
     if (value != current) {
-        g_level_block->selected_item = -1;
-        if (value == -1) {
-            g_level_block->selected_item = -1;
-        } else {
-            W8WorldItem* item = ItemInfo(ItemIndex(value));
+        g_level_block->selected_item.reset();
+        if (value) {
+            W8WorldItem* item = ItemInfo(ItemIndex(*value));
             if (item != 0) {
                 if (const auto bounds = GetItemWorldBounds(item->p3D)) {
                     const glm::vec3 camera(cameraLocation());
                     if (traceLineOfSightToBounds(camera, *bounds) != 0) {
-                        g_level_block->selected_item = value;
+                        g_level_block->selected_item = *value;
                     }
                 }
             }
@@ -5632,13 +5630,13 @@ void SetCombatTarget(int value)
         g_level_block->countdown1 = w8_get_ticks() + (delay);
         return;
     }
-    if (current != -1 && !TimeUntilDeadline(g_level_block->countdown1) &&
+    if (current && !TimeUntilDeadline(g_level_block->countdown1) &&
         !HasScreenTransitionObjects()) {
         SDL_Point point;
         W8WorldItem* item;
 
         SGPMouseGetPos(&point);
-        item = ItemInfo(ItemIndex(g_level_block->selected_item));
+        item = ItemInfo(ItemIndex(*current));
         if (item != 0) {
             auto text = FormatItemDisplayName(&item->item, true);
 

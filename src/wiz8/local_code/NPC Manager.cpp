@@ -1071,7 +1071,7 @@ static void SelectStartNpcGreeting(void)
 
     value = GetFact(W8_FACT_VIRGIN);
     if (value != 0) {
-        ApplyItemEffectToRandomCharacter(g_fact_check_event, -1, 0);
+        ApplyItemEffectToRandomCharacter(g_fact_check_event, std::nullopt, 0);
         return;
     }
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "glm/ext/vector_float3.hpp"
@@ -57,4 +58,4 @@ void ItemInfoAddToGroup(W8WorldItem* group, std::unique_ptr<W8WorldItem> item);
 std::unique_ptr<W8WorldItem> ItemInfoRemoveFromGroup(W8WorldItem* group, W8WorldItem* item);
 bool ItemInfoIsWorldPersistent(const W8WorldItem* item);
 void ActivateItem(W8WorldItem* item);
-int FindItemRecordByName(const char* name);
+std::optional<int> FindItemRecordByName(const char* name);

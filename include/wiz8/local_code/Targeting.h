@@ -52,8 +52,8 @@ void SetTargetToCharacter(int character_slot, bool in_combat);
 
 void SetTargetingMode(W8TargetNeed state);
 
-/* Location id of the nearest hovered live monster, or -1. */
-int PickNearestMonsterUnderCursor(int cursor_x, int cursor_y);
+/* Location id of the nearest hovered live monster, when one is under the cursor. */
+std::optional<int> PickNearestMonsterUnderCursor(int cursor_x, int cursor_y);
 
 /* Cursor-table index for SetTargetCursor, including slots 10..12. Not a
    W8TargetingContext. */
@@ -159,5 +159,5 @@ void RepickInvalidCombatTargets(void);
 void CommitActionTarget(int actor, W8TargetingContext context, const W8CombatSlot& target,
                         bool remember_action_target);
 
-int PickNextTargetableGroupMember(int party_slot, const W8MonsterGroup* group,
-                                  const W8Action& action, bool sighting);
+std::optional<int> PickNextTargetableGroupMember(int party_slot, const W8MonsterGroup* group,
+                                                 const W8Action& action, bool sighting);

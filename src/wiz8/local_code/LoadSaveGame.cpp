@@ -1331,7 +1331,10 @@ void InstallLevelSessionState(W8World& world, W8LoadedLevelStatus* status)
     g_status.next_group_id = g_status.next_monster_location_id = g_status.next_world_item_id = 1;
     g_status.next_trigger_id = world.next_trigger_id;
     gXStatus.item_manager_pending = 0;
-    if (g_level_block) g_level_block->highlighted_item = g_level_block->selected_item = -1;
+    if (g_level_block) {
+        g_level_block->highlighted_item.reset();
+        g_level_block->selected_item.reset();
+    }
     if (!status) return;
     auto& data = *status->data;
     if (data.header) ApplyStatusHeader(*data.header);

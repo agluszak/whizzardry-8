@@ -80,14 +80,12 @@ void EnsureTrynnie1KilledVar(void)
 bool Trynnie1FountRandomFX(Trigger* pTrigger)
 {
     unsigned int roll;
-    int slot;
     int i;
 
     roll = Random(100);
     if (roll < 25) {
-        slot = GetRandomCharacter(0, 0, -1, -1);
-        if (slot != -1) {
-            SetCharacterCondition(slot, W8_CONDITION_HEXED, Random(5) + 10, 0, 0, 1);
+        if (const auto slot = GetRandomCharacter(0, 0)) {
+            SetCharacterCondition(*slot, W8_CONDITION_HEXED, Random(5) + 10, 0, 0, 1);
             wiz8::sound::play("Data\\Sound\\misc\\fountain_magic.wav");
             return true;
         }
