@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <stdexcept>
 
 #include <SDL3/SDL_blendmode.h>

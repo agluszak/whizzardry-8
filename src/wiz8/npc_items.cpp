@@ -271,6 +271,27 @@ void SortNpcItems(W8NpcState* npc)
                              });
 }
 
+// Selling a stack adds one stock entry, even for ammunition. Unlike restocking,
+// an existing entry's other quantity counter must be preserved.
+static void AddSoldNpcItem(W8NpcState* npc, int item_id, char quantity)
+{
+    std::optional<int> index;
+    if (g_item_records[item_id].equip_class != W8_ITEM_EQUIP_CLASS_AMMUNITION)
+        index = FindNpcStockItem(npc, item_id);
+    if (!index) {
+        index = static_cast<int>(npc->items.size());
+        npc->items.push_back(MakeNpcItemEntry(item_id));
+    }
+    auto& entry = npc->items[*index];
+    if (g_item_records[item_id].quantity_kind == W8_ITEM_QUANTITY_STACK) {
+        if (entry.quantity == 0) entry.quantity = 1;
+        entry.item.stack_count += quantity;
+    } else {
+        if (entry.item.stack_count == 0) entry.item.stack_count = 1;
+        entry.quantity += quantity;
+    }
+}
+
 /* Top up an NPC's stock from its database rules. A rule restocks only while it
    is not the persistent kind, while any fact gating its item is set, and while
    the NPC holds no more than half the configured quantity. The difficulty tier
@@ -414,7 +435,7 @@ static unsigned char SellItemToNpc(W8NpcState* npc, W8ItemInstance* item, unsign
             if (item->stack_count == 0) {
                 item->stack_count = 1;
             }
-            AddNpcItemFromInstance(npc, item, quantity);
+            AddSoldNpcItem(npc, item->iItemNo, quantity);
             return 1;
         }
     }
