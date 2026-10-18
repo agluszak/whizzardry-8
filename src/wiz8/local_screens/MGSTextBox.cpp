@@ -186,7 +186,7 @@ void ResetEditorStatusLine(short line)
     if (!IsNpcDialogueTextInputActive()) {
         g_level_block->text_lines[line] = 0;
     }
-    g_level_block->text_lines[4 + line] = -1;
+    g_level_block->stopped_text_line.reset();
     g_level_block->hovered_text_lines[line].reset();
     g_level_block->selected_text_lines[line].reset();
     g_level_block->text_content_region = kUpArrowDisabled;
@@ -1054,7 +1054,7 @@ void RedrawTextBoxBody(bool skip_invalidate)
         return;
     }
 
-    g_level_block->text_lines[4 + text_box] = FindStoppedTextLine();
+    g_level_block->stopped_text_line = FindStoppedTextLine();
 
     scroll = g_level_block->text_lines[text_box];
     rows = shown - scroll;
@@ -1204,19 +1204,19 @@ void RedrawTextBoxComplete(void)
 /* The last message on the current line whose clock has stopped, searched from
    the newest backwards - so the first one found is the most recent finished
    message rather than the oldest. */
-int FindStoppedTextLine(void)
+std::optional<int> FindStoppedTextLine(void)
 {
     int index = g_status.text_box_lines_shown[g_status.text_line_cursor];
 
     if (index == 0) {
-        return -1;
+        return std::nullopt;
     }
     while (--index >= 0) {
         if (TimeUntilDeadline(g_message_storage[g_status.text_line_cursor][index].clock) == 0) {
             return index;
         }
     }
-    return -1;
+    return std::nullopt;
 }
 
 /* Hand one key to the text box's own handler. A key that moved the selection

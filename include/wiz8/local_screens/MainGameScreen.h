@@ -71,7 +71,8 @@ public:
     UiLayer input;
     W8RangeControl m_range{input, 0x1d0, 0x16b, 0x1e2, 0x1bf};
     int m_line_count = 15, m_visible_lines = 6;
-    int m_selected_line = 0, m_hover_line = -1, m_first_visible_line = 0;
+    int m_selected_line = 0, m_first_visible_line = 0;
+    std::optional<int> m_hover_line;
     bool m_dirty = true;
     std::function<void()> on_selection;
 };
@@ -270,10 +271,10 @@ public:
     W8ButtonWidget* m_spell_button;     /* gated by spell-0x27 power */
     W8ButtonWidget* m_force_button;     /* gated by the force chance */
     W8ButtonWidget* m_cancel_button;    /* OnPrimary target, state 5 (cancel) */
-    int m_selected_slot;               /* party slot owning the raised pins */
+    std::optional<int> m_selected_slot; /* party slot owning the raised pins */
     int m_picked_tumbler;              /* index OnTumblerPicked recorded */
     W8LockInteractionState m_state;      /* Process() state */
-    int m_tumbler_owner[8];            /* owning party slot per pin, -1 unset */
+    std::optional<int> m_tumbler_owner[8]; /* owning party slot per pin */
     unsigned char m_tumbler_locked[8]; /* pin kept when the slot is released */
     int m_slot_attempts[8];            /* pick attempts per party slot */
     W8GameTimer m_timer;               /* state-8 completion delay */
@@ -519,7 +520,7 @@ void RefreshFormationPanel(bool show_portraits);
 void EndLockInteractMode(char suspend);
 void UpdateMainGameScreen(void);
 void EndTrapInteractMode(char suspend);
-int GetPartySlotLocksTrapsLevel(int slot);
+std::optional<int> GetPartySlotLocksTrapsLevel(int slot);
 int OpenLockInteraction(Trigger* trigger);
 int OpenTrapInteraction(Trigger* trigger);
 /* The interaction exists but is suspended while a spell or item targets it. */

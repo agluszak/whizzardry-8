@@ -2,6 +2,7 @@
 struct W8Chunk;
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -159,7 +160,7 @@ void AppendTextBoxLine(std::string_view text, short text_box = -1);
 
 bool CurrentTextLineHasContent(void);
 bool CurrentDialogueLineHasContent(void);
-int FindStoppedTextLine(void);
+std::optional<int> FindStoppedTextLine(void);
 void SetTextBoxRegionBounds(int left, int top, int right, int bottom);
 void ResetMessageStorage(void);
 /* Write the four message runs into the open TEXT chunk. */

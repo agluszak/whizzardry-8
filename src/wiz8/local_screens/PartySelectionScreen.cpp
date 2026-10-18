@@ -5,6 +5,7 @@
 #include <cstring>
 #include <exception>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -66,7 +67,7 @@ struct W8PartySelectionCharacterCollection {
     ~W8PartySelectionCharacterCollection();
     W8PartySelectionCharacterCollection(const W8PartySelectionCharacterCollection&) = delete;
     W8Character* GetCharacter(int index);
-    int FindPartySlot(int index);
+    std::optional<int> FindPartySlot(int index);
     void DetachFromParty(int index);
     void DeleteAt(int index);
     void ClearCharacters();
@@ -122,19 +123,20 @@ W8Character* W8PartySelectionCharacterCollection::GetCharacter(int index)
 void W8PartySelectionCharacterCollection::DetachFromParty(int index)
 {
     W8Character* previous = GetCharacter(index);
-    int slot = FindPartySlot(index);
+    const auto slot = FindPartySlot(index);
+    if (!previous || !slot) return;
     W8Character* replacement = new W8Character;
     std::string path;
     path = BuildCharacterPath(previous->name, -1);
     if (!LoadCharacter(path, replacement, -1)) {
         *replacement = *previous;
     }
-    RemoveCharacterFromParty(slot + 2);
+    RemoveCharacterFromParty(*slot + 2);
     replacement->fInParty = false;
     characters[index] = replacement;
 }
 
-int W8PartySelectionCharacterCollection::FindPartySlot(int index)
+std::optional<int> W8PartySelectionCharacterCollection::FindPartySlot(int index)
 {
     W8Character* character = GetCharacter(index);
     if (character && character->fInParty) {
@@ -145,7 +147,7 @@ int W8PartySelectionCharacterCollection::FindPartySlot(int index)
             }
         }
     }
-    return -1;
+    return std::nullopt;
 }
 
 void W8PartySelectionCharacterCollection::DeleteAt(int index)
@@ -1274,15 +1276,16 @@ void W8PartySelectionController::TogglePartyMemberSelection()
         }
         SetSelection(selected, false, true);
     } else {
-        int previous_slot = collection->FindPartySlot(selected);
+        const auto previous_slot = collection->FindPartySlot(selected);
+        if (!previous_slot) return;
         collection->DetachFromParty(selected);
 
-        int next_slot = previous_slot + 1;
+        int next_slot = *previous_slot + 1;
         bool found = false;
-        while (next_slot != previous_slot) {
+        while (next_slot != *previous_slot) {
             if (next_slot > 5) {
                 next_slot = 0;
-                if (previous_slot == 0) {
+                if (*previous_slot == 0) {
                     break;
                 }
             }

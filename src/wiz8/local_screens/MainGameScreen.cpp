@@ -469,6 +469,11 @@ static std::optional<int> PercentOrNothing(int value)
     return value > -1 ? std::optional(value) : std::nullopt;
 }
 
+static std::optional<int> PercentOrNothing(std::optional<int> value)
+{
+    return value;
+}
+
 /* Show a percentage in an info line, or the dimmed dash when there is none. */
 static void ShowPercent(W8TextBuffer& line, std::optional<int> percent, int font_state = -1)
 {
@@ -491,7 +496,7 @@ static std::optional<int> LockForceChance(int tumbler_count)
 
 void W8LockInteraction::RefreshControls()
 {
-    const bool can_pick = GetPartySlotLocksTrapsLevel(g_status.selected_character) > -1;
+    const bool can_pick = GetPartySlotLocksTrapsLevel(g_status.selected_character).has_value();
     for (int i = 0; i < m_tumbler_panel->m_tumbler_count; i++) {
         m_tumbler_panel->m_tumblers[i].m_enabled = can_pick;
     }
@@ -739,9 +744,9 @@ W8LockInteraction::W8LockInteraction(Trigger* trigger) : m_timer()
     m_force_button = buttons[1].get();
     m_cancel_button = buttons[2].get();
     m_done_button = buttons[3].get();
-    m_selected_slot = -1;
+    m_selected_slot.reset();
     for (i = 0; i < 8; i++) {
-        m_tumbler_owner[i] = -1;
+        m_tumbler_owner[i].reset();
         m_tumbler_locked[i] = 0;
     }
     for (i = 0; i < 8; i++) {
@@ -756,7 +761,7 @@ int W8LockInteraction::ReleaseOwnedTumblers(int slot)
     int i;
     for (i = 0; i < m_tumbler_count; i++) {
         if (m_tumbler_owner[i] == slot && m_tumbler_locked[i] != 0) {
-            m_tumbler_owner[i] = -1;
+            m_tumbler_owner[i].reset();
             m_tumbler_locked[i] = 0;
             m_tumbler_panel->m_tumblers[i].m_at_top = false;
             m_tumbler_panel->m_tumblers[i].m_pin_set = false;
@@ -829,7 +834,7 @@ void W8LockInteraction::Process()
     case W8_LOCK_STATE_CHECK_PICK_SUCCESS:
         m_state = W8_LOCK_STATE_IDLE;
         for (i = 0; i < m_tumbler_count; i++) {
-            if (m_tumbler_owner[i] == -1) {
+            if (!m_tumbler_owner[i]) {
                 return;
             }
         }
@@ -863,10 +868,10 @@ void W8LockInteraction::OnTumblerPicked(int index)
         return;
     }
     if (m_selected_slot != g_status.selected_character) {
-        if (m_selected_slot != -1) {
+        if (m_selected_slot) {
             for (i = 0; i < m_tumbler_count; i++) {
                 if (m_tumbler_owner[i] == m_selected_slot && m_tumbler_locked[i] == 0) {
-                    m_tumbler_owner[i] = -1;
+                    m_tumbler_owner[i].reset();
                     m_tumbler_panel->m_tumblers[i].m_pin_set = false;
                     m_tumbler_panel->m_tumblers[i].m_falling = true;
                     m_tumbler_panel->m_animating = true;
@@ -912,11 +917,11 @@ void W8LockInteraction::ResolvePick()
     dropped = 0;
     for (i = 0; i < m_tumbler_count; i++) {
         if (m_tumbler_owner[i] == m_selected_slot && m_tumbler_locked[i] == 0) {
-            character = &g_status.buffers.Char[m_selected_slot];
+            character = &g_status.buffers.Char[*m_selected_slot];
             chance = character->skills[W8_SKILL_LOCKS_TRAPS].level + g_settings.difficulty * -5 + 5;
             if ((chance < 0 ? 0 : static_cast<unsigned char>(chance)) <=
                 static_cast<int>(Random(100))) {
-                m_tumbler_owner[i] = -1;
+                m_tumbler_owner[i].reset();
                 m_tumbler_panel->m_tumblers[i].m_pin_set = false;
                 m_tumbler_panel->m_tumblers[i].m_falling = true;
                 m_tumbler_panel->m_animating = true;
@@ -924,10 +929,10 @@ void W8LockInteraction::ResolvePick()
             }
         }
     }
-    m_slot_attempts[m_selected_slot]++;
+    m_slot_attempts[*m_selected_slot]++;
     m_tumbler_owner[m_picked_tumbler] = m_selected_slot;
     if (Random(5) == 0 && m_trigger->lock_state.ConsumeCountdown()) {
-        character = &g_status.buffers.Char[m_selected_slot];
+        character = &g_status.buffers.Char[*m_selected_slot];
         level = character->skills[W8_SKILL_LOCKS_TRAPS].level;
         PracticeCharacterSkill(character, W8_SKILL_LOCKS_TRAPS, 1, false);
         if (level != static_cast<int>(character->skills[W8_SKILL_LOCKS_TRAPS].level)) {
@@ -938,7 +943,7 @@ void W8LockInteraction::ResolvePick()
         wiz8::sound::play(s_lock_pin_falling);
     }
     for (i = 0; i < m_tumbler_count; i++) {
-        if (m_tumbler_owner[i] == -1) {
+        if (!m_tumbler_owner[i]) {
             return;
         }
     }
@@ -1004,7 +1009,7 @@ void W8LockInteraction::ApplyKnockKnock(int level, int /*flag*/, char backfire)
             pin = order[i];
             panel = m_tumbler_panel.get();
             if (backfire == 0) {
-                if (m_tumbler_owner[pin] == -1) {
+                if (!m_tumbler_owner[pin]) {
                     tumbler = &panel->m_tumblers[pin];
                     tumbler->m_hovered = false;
                     tumbler->m_rising = true;
@@ -1014,11 +1019,11 @@ void W8LockInteraction::ApplyKnockKnock(int level, int /*flag*/, char backfire)
                 m_tumbler_locked[pin] = 1;
                 m_tumbler_owner[pin] = slot;
             } else {
-                if (m_tumbler_owner[pin] == -1) {
+                if (!m_tumbler_owner[pin]) {
                     continue;
                 }
                 m_tumbler_locked[pin] = 0;
-                m_tumbler_owner[pin] = -1;
+                m_tumbler_owner[pin].reset();
                 m_tumbler_panel->m_tumblers[pin].m_at_top = false;
                 tumbler = &panel->m_tumblers[pin];
                 tumbler->m_pin_set = false;
@@ -1084,7 +1089,7 @@ W8MainGameTextKeyHandler::W8MainGameTextKeyHandler()
         if (event.action != UiPointerAction::Up || event.captured_buttons)
             PlayButtonSound(event.action);
         if (event.action == UiPointerAction::Leave)
-            m_hover_line = -1;
+            m_hover_line.reset();
         else if (event.action == UiPointerAction::Move || event.action == UiPointerAction::Enter)
             m_hover_line = event.local.y / 14 + m_first_visible_line;
         else if (event.action == UiPointerAction::Wheel)
@@ -1368,10 +1373,10 @@ W8MainGameStatusPanel::W8MainGameStatusPanel()
 void W8MainGameStatusPanel::RefreshStatusTexts()
 {
     const int slot = g_status.selected_character;
-    const int level = GetPartySlotLocksTrapsLevel(slot);
+    const auto level = GetPartySlotLocksTrapsLevel(slot);
 
     m_text[0].SetText(g_status.buffers.Char[slot].name, g_wiz_text_font_secondary);
-    ShowPercent(m_text[2], PercentOrNothing(level < 0 ? level : level + m_target * 6),
+    ShowPercent(m_text[2], level ? PercentOrNothing(*level + m_target * 6) : std::nullopt,
                 m_target < 1 ? -1 : 3);
     ShowPercent(m_text[4], PercentOrNothing(LearnedSpellPower(slot, W8_SPELL_KNOCK_KNOCK)));
     ShowPercent(m_text[6], PercentOrNothing(LearnedSpellPower(slot, W8_SPELL_DIVINE_TRAP)));
@@ -1381,17 +1386,17 @@ void W8MainGameStatusPanel::RefreshStatusTexts()
     m_dirty = true;
 }
 
-int GetPartySlotLocksTrapsLevel(int slot)
+std::optional<int> GetPartySlotLocksTrapsLevel(int slot)
 {
     W8Character* character;
 
     if (!IsPartySlotEligible(slot)) {
-        return -1;
+        return std::nullopt;
     }
     character = &g_status.buffers.Char[slot];
     if (!character->skills[W8_SKILL_LOCKS_TRAPS].active &&
         character->skills[W8_SKILL_LOCKS_TRAPS].level == 0) {
-        return -1;
+        return std::nullopt;
     }
     return static_cast<int>(character->skills[W8_SKILL_LOCKS_TRAPS].level);
 }
@@ -1454,25 +1459,22 @@ void W8MainGameScreen::DrawActions(SDL_Surface& target)
 void W8MainGameScreen::SelectTextEntry(int index)
 {
     int slot = g_status.selected_character;
-    int skill;
     int chance;
     int roll;
     float hold;
     float duration;
 
     m_selected_character = slot;
-    skill = GetPartySlotLocksTrapsLevel(slot);
-    hold = g_navigator_linked_radius_scale - skill * 0.02f;
+    const auto skill = GetPartySlotLocksTrapsLevel(slot);
+    hold = skill ? g_navigator_linked_radius_scale - *skill * 0.02f
+                 : g_navigator_linked_radius_scale + 0.02f;
     chance = m_difficulty;
     if (chance < 0) {
         chance = 0;
     }
-    skill = GetPartySlotLocksTrapsLevel(m_selected_character);
-    if (skill > -1) {
-        skill += ((m_target_difficulty + 1) / 2) * 6;
-    }
-    skill -= g_table2[chance];
-    chance = (skill * 3) / 2 + (11 - g_settings.difficulty) * 10;
+    const int skill_score = skill ? *skill + ((m_target_difficulty + 1) / 2) * 6 - g_table2[chance]
+                                  : -1 - g_table2[chance];
+    chance = (skill_score * 3) / 2 + (11 - g_settings.difficulty) * 10;
     if (chance < 0) {
         chance = 0;
     } else if (chance > 0x63) {
@@ -1504,18 +1506,15 @@ void W8MainGameScreen::SelectTextEntry(int index)
 int W8MainGameScreen::GetTrapInteractionChance() const
 {
     int chance;
-    int skill;
+    const auto skill = GetPartySlotLocksTrapsLevel(m_selected_character);
 
     chance = m_difficulty;
     if (chance < 0) {
         chance = 0;
     }
-    skill = GetPartySlotLocksTrapsLevel(m_selected_character);
-    if (skill > -1) {
-        skill += m_target_difficulty * 6;
-    }
-    skill -= g_table2[chance];
-    chance = (skill * 3) / 2 + (11 - g_settings.difficulty) * 10;
+    const int skill_score = skill ? *skill + m_target_difficulty * 6 - g_table2[chance]
+                                  : -1 - g_table2[chance];
+    chance = (skill_score * 3) / 2 + (11 - g_settings.difficulty) * 10;
     if (chance < 0) {
         chance = 0;
     } else if (chance > 0x63) {
@@ -1527,7 +1526,7 @@ int W8MainGameScreen::GetTrapInteractionChance() const
 void W8MainGameScreen::OnPrimary(W8TrapInteractionAction action)
 {
     int slot;
-    int skill;
+    std::optional<int> skill;
     int chance;
     int roll;
     float hold;
@@ -1554,7 +1553,8 @@ void W8MainGameScreen::OnPrimary(W8TrapInteractionAction action)
     slot = g_status.selected_character;
     m_selected_character = slot;
     skill = GetPartySlotLocksTrapsLevel(slot);
-    hold = 6.0f - skill * kCameraSnapEpsilon;
+    hold = skill ? 6.0f - *skill * kCameraSnapEpsilon
+                 : 6.0f + kCameraSnapEpsilon;
     chance = GetTrapInteractionChance();
     roll = static_cast<int>(Random(0x64));
     if (roll < chance) {
@@ -1680,13 +1680,13 @@ void W8MainGameScreen::Update()
 void W8MainGameScreen::RefreshActionPanel()
 {
     int slot = g_status.selected_character;
-    int skill = GetPartySlotLocksTrapsLevel(slot);
+    const auto skill = GetPartySlotLocksTrapsLevel(slot);
     int i;
 
-    m_action_controls[4]->SetEnabled(skill >= 0);
+    m_action_controls[4]->SetEnabled(skill.has_value());
     for (i = 0; i < 8; ++i) {
         if (!m_text_panel->cells[i].interaction.selected) {
-            m_text_panel->cells[i].blocked = skill < 0;
+            m_text_panel->cells[i].blocked = !skill;
         }
     }
     m_action_controls[1]->SetEnabled(CanCastTrapSpell(slot));
@@ -2979,7 +2979,6 @@ finish_mode_overlays:
    MainGameScreenFrame calls it after its update and on a pending transition. */
 void DrawMainGameScreen(void)
 {
-    int stopped_line;
     srNode* node;
 
     SyncPartyFacingFromCamera();
@@ -2988,9 +2987,8 @@ void DrawMainGameScreen(void)
     UpdateRadarBlips(presentation);
     if (g_level_block->action_panel_visible == 0 && !gXStatus.fNpcDialogueMode &&
         !gXStatus.fLockInteractMode && !gXStatus.fTrapInteractMode && !gpSCSV && !ItemUseDraft()) {
-        stopped_line = FindStoppedTextLine();
-        if (stopped_line != -1 && g_level_block->text_lines[4 + g_status.text_line_cursor] !=
-                                      static_cast<unsigned int>(stopped_line)) {
+        const auto stopped_line = FindStoppedTextLine();
+        if (stopped_line && g_level_block->stopped_text_line != stopped_line) {
             RequestRedraw(W8_MAIN_REDRAW_TEXT_BOX);
             SetRendererModePair();
         }

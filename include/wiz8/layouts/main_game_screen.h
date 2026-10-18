@@ -163,6 +163,7 @@ struct W8LevelRuntimeBlock {
     int text_content_region;
     int dialogue_content_region;
     unsigned int text_lines[12];
+    std::optional<int> stopped_text_line;
     /* Wrapped-line starts for hover and selection highlighting.
        NPC dialogue uses box 2 for the hovered row and selected trade item. */
     std::optional<int> hovered_text_lines[4];

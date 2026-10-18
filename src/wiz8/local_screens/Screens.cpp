@@ -336,7 +336,7 @@ void InitializeMainGameLevelBlock(void)
     g_level_block->group_list_width = 0;
     g_main_game_state->monster_list->setEnabled(false);
     g_level_block->action_group.reset();
-    g_level_block->text_lines[4 + g_status.text_line_cursor] = FindStoppedTextLine();
+    g_level_block->stopped_text_line = FindStoppedTextLine();
     g_level_block->refresh_combat_panel = 1;
     g_level_block->combat_panel_timer = w8_get_ticks() + (0);
     g_level_block->text_scroll_drag_idle = 1;
