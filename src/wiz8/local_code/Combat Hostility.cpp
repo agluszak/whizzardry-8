@@ -382,8 +382,7 @@ void SetMonsterGroupHostility(W8MonsterGroup* group, W8Disposition hostility, bo
             9,
             fmt::format("{} {} {}!", GetMonsterGroupName(group),
                         g_localized_strings[0x1d7 + (group->MemberCount() != 1)],
-                        g_localized_strings[g_group_hostility_notice_ids[static_cast<unsigned char>(
-                            hostility)]]));
+                        g_localized_strings[g_group_hostility_notice_ids[hostility]]));
     }
     group->hostility_set_at = g_status.world_clock;
     if (previous != W8_DISPOSITION_NEUTRAL) {
