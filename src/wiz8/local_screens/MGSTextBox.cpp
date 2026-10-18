@@ -357,7 +357,7 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view, short tex
             g_notice_line_count = 0;
             g_status.long_quote = 0;
         }
-        g_level_block->text_lines[8 + text_box] = 0;
+        g_level_block->text_line_highlight_offsets[text_box] = 0;
         if (static_cast<unsigned int>(g_level_block->text_box_font->textWidth(text)) < wrap_width) {
             AppendNoticeLine(static_cast<unsigned char>(font_palette), text, text_box, 0);
         } else {
@@ -382,8 +382,14 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view, short tex
                                  line_index++);
                 remaining.remove_prefix(end);
                 if (!remaining.empty() && remaining.front() == '\n') remaining.remove_prefix(1);
-                if (!remaining.empty())
-                    g_level_block->text_lines[8 + text_box] = line_index == 1 ? line.size() : ~0U;
+                if (!remaining.empty()) {
+                    if (line_index == 1) {
+                        g_level_block->text_line_highlight_offsets[text_box] =
+                            static_cast<unsigned int>(line.size());
+                    } else {
+                        g_level_block->text_line_highlight_offsets[text_box].reset();
+                    }
+                }
             }
         }
         if (g_status.quote_audit && g_notice_line_count > 7) {
@@ -608,10 +614,9 @@ void HighlightTextBoxRange(unsigned char color, std::size_t start, std::size_t s
         srAssertFail("gStatus.uiTextBoxLinesUsed[iTextBuffer] > 0", MGS_TEXT_BOX_CPP, 0x261, 0);
     }
     line = &g_message_storage[text_box][g_status.text_box_lines_used[text_box] - 1];
-    if (g_level_block->text_lines[8 + text_box] == static_cast<unsigned int>(-1)) {
-        return;
-    }
-    if (g_level_block->text_lines[8 + text_box] == 0) {
+    const auto offset = g_level_block->text_line_highlight_offsets[text_box];
+    if (!offset) return;
+    if (*offset == 0) {
         line->highlight_stop = stop;
         line->highlight_start = start;
         line->highlight_color = color;
@@ -621,19 +626,19 @@ void HighlightTextBoxRange(unsigned char color, std::size_t start, std::size_t s
         srAssertFail("gStatus.uiTextBoxLinesUsed[iTextBuffer] >= 2", MGS_TEXT_BOX_CPP, 0x277, 0);
     }
     previous = &g_message_storage[text_box][g_status.text_box_lines_used[text_box] - 2];
-    if (start >= g_level_block->text_lines[8 + text_box]) {
-        line->highlight_start = start - g_level_block->text_lines[8 + text_box];
+    if (start >= *offset) {
+        line->highlight_start = start - *offset;
     } else {
         previous->highlight_start = start;
         previous->highlight_color = color;
-        if (stop < g_level_block->text_lines[8 + text_box]) {
+        if (stop < *offset) {
             previous->highlight_stop = stop;
             return;
         }
         previous->highlight_stop = previous->text.size();
         line->highlight_start = 0;
     }
-    line->highlight_stop = stop - g_level_block->text_lines[8 + text_box];
+    line->highlight_stop = stop - *offset;
     line->highlight_color = color;
 }
 
@@ -1135,21 +1140,17 @@ void RedrawTextBoxScrollChrome(void)
             g_level_block->text_content_region = kUpArrowEnabled;
         }
 
-        switch (g_level_block->text_content_region) {
-        case kUpArrowEnabled:
+        if (g_level_block->text_content_region == kUpArrowEnabled) {
             CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 0,
                                                g_level_block->text_box_right + 5, 0x16b);
-            break;
-        case kUpArrowPressed:
+        } else if (g_level_block->text_content_region == kUpArrowPressed) {
             CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 1,
                                                g_level_block->text_box_right + 5, 0x16b);
-            break;
-        case -1:
-        case kUpArrowDisabled:
+        } else if (!g_level_block->text_content_region ||
+                   g_level_block->text_content_region == kUpArrowDisabled) {
             CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 3,
                                                g_level_block->text_box_right + 5, 0x16b);
-            g_level_block->text_content_region = -1;
-            break;
+            g_level_block->text_content_region.reset();
         }
 
         line_count = g_status.text_box_lines_shown[text_box];
@@ -1162,21 +1163,17 @@ void RedrawTextBoxScrollChrome(void)
             g_level_block->dialogue_content_region = kDownArrowDisabled;
         }
 
-        switch (g_level_block->dialogue_content_region) {
-        case kDownArrowEnabled:
+        if (g_level_block->dialogue_content_region == kDownArrowEnabled) {
             CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 8,
                                                g_level_block->text_box_right + 5, 0x1ad);
-            break;
-        case kDownArrowPressed:
+        } else if (g_level_block->dialogue_content_region == kDownArrowPressed) {
             CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 9,
                                                g_level_block->text_box_right + 5, 0x1ad);
-            break;
-        case -1:
-        case kDownArrowDisabled:
+        } else if (!g_level_block->dialogue_content_region ||
+                   g_level_block->dialogue_content_region == kDownArrowDisabled) {
             CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 0xb,
                                                g_level_block->text_box_right + 5, 0x1ad);
-            g_level_block->dialogue_content_region = -1;
-            break;
+            g_level_block->dialogue_content_region.reset();
         }
 
         if (line_count > static_cast<unsigned int>(visible)) {

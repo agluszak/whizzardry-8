@@ -311,9 +311,16 @@ void InitializeMainGameLevelBlock(void)
     g_level_block->condition_orb_party_slot.reset();
     g_level_block->enchantment_orb_party_slot.reset();
     g_level_block->condition_highlight_party_slot.reset();
-    g_level_block->text_content_region = CurrentTextLineHasContent() ? kUpArrowEnabled : -1;
-    g_level_block->dialogue_content_region =
-        CurrentDialogueLineHasContent() ? kDownArrowEnabled : -1;
+    if (CurrentTextLineHasContent()) {
+        g_level_block->text_content_region = kUpArrowEnabled;
+    } else {
+        g_level_block->text_content_region.reset();
+    }
+    if (CurrentDialogueLineHasContent()) {
+        g_level_block->dialogue_content_region = kDownArrowEnabled;
+    } else {
+        g_level_block->dialogue_content_region.reset();
+    }
     g_level_block->world_update_flags = 0;
     g_level_block->camera_motion_flags = 0;
     g_level_block->highlighted_item.reset();
