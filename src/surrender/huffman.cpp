@@ -1,271 +1,70 @@
 #include <algorithm>
-#include <cstring>
-#include <iterator>
-#include <limits>
+#include <bit>
+#include <queue>
 #include <stdexcept>
-#include <unordered_map>
-#include <utility>
-#include <vector>
 
-#include <SDL3/SDL_endian.h>
-#include <SDL3/SDL_error.h>
-#include <SDL3/SDL_iostream.h>
-#include <SDL3/SDL_stdinc.h>
-
-#include "compat/compiler.h"
 #include "surrender/srHuffman.h"
-#include "surrender/srIO.h"
 
-static void sortSymbolPairs(srHuffman::Sampler::Symbol* pairs, w8_ulong count);
-
-// FUNCTION: SURRENDER 0x100013D0
-void srHuffman::BitIStream::fetchCache(Sint64 position)
-{
-    if (position < 0 || position > bit_end / 8)
-        throw std::out_of_range("Huffman cursor outside input");
-    cache_base = position;
-    if (SDL_SeekIO(stream, position, SDL_IO_SEEK_SET) != position)
-        throw std::runtime_error(SDL_GetError());
-    std::fill(std::begin(cache), std::end(cache), 0);
-    cache_valid = SDL_ReadIO(stream, cache, sizeof(cache));
-    if (SDL_GetIOStatus(stream) != SDL_IO_STATUS_READY &&
-        SDL_GetIOStatus(stream) != SDL_IO_STATUS_EOF)
-        throw std::runtime_error(SDL_GetError());
-}
-
-// FUNCTION: SURRENDER 0x100015C0
-w8_ulong srHuffman::BitIStream::getByte(Sint64 position)
-{
-    const auto distance = position - cache_base;
-    size_t offset = distance < 0 ? sizeof(cache) : size_t(distance);
-    if (offset >= 0x80) {
-        fetchCache(position);
-        offset = 0;
-    }
-    if (offset >= cache_valid) throw std::runtime_error("Truncated Huffman bits");
-    return cache[offset];
-}
-
-// FUNCTION: SURRENDER 0x10001490
-w8_ulong srHuffman::BitIStream::getDWord(Sint64 position)
-{
-    const auto distance = position - cache_base;
-    size_t offset = distance < 0 ? sizeof(cache) : size_t(distance);
-    if (offset >= 0x7d) {
-        fetchCache(position);
-        offset = 0;
-    }
-    Uint32 value;
-    memcpy(&value, cache + offset, sizeof(value));
-    return SDL_Swap32LE(value);
-}
-
-// FUNCTION: SURRENDER 0x10001340
-w8_ulong srHuffman::BitIStream::getWordOrLess(w8_ulong bits)
-{
-    Sint64 position = bit_pos / 8;
-    w8_ulong shift = bit_pos & 7;
-    w8_ulong data = getDWord(position);
-    if (size_t(position - cache_base) + (shift + bits + 7) / 8 > cache_valid)
-        throw std::runtime_error("Truncated Huffman bits");
-    bit_pos += bits;
-    return (data & ((1 << (shift + bits)) - 1)) >> shift;
-}
-
-// FUNCTION: SURRENDER 0x100010A0
-srHuffman::BitIStream::BitIStream(SDL_IOStream* stream)
-{
-    this->stream = stream;
-    cache_base = -0x100;
-    const auto position = SDL_TellIO(stream), size = SDL_GetIOSize(stream);
-    if (position < 0 || size < position || size > std::numeric_limits<Sint64>::max() / 8)
-        throw std::out_of_range("Invalid Huffman cursor or length");
-    bit_begin = bit_pos = position * 8;
-    bit_end = size * 8;
-}
-
-void srHuffman::BitIStream::requireBits(w8_ulong bits) const
-{
-    if (bits > bit_end - bit_pos) throw std::out_of_range("Truncated Huffman bits");
-}
-
-// FUNCTION: SURRENDER 0x100010E0
 w8_ulong srHuffman::BitIStream::get(w8_ulong bits)
 {
-    if (bits == 0) return 0;
     if (bits > 32) throw std::runtime_error("Invalid Huffman bit width");
-    requireBits(bits);
-    if (bits <= 0x10) {
-        return getWordOrLess(bits);
+    const auto needed = (bit_offset + bits + 7) / 8;
+    if (needed > data.size() - byte_pos) throw std::out_of_range("Truncated Huffman bits");
+    w8_ulong value = 0;
+    for (unsigned shift = 0; shift < bits;) {
+        const auto count = std::min<unsigned>(bits - shift, 8 - bit_offset);
+        value |= w8_ulong((data[byte_pos] >> bit_offset) & ((1u << count) - 1)) << shift;
+        shift += count;
+        bit_offset += count;
+        byte_pos += bit_offset / 8;
+        bit_offset %= 8;
     }
-    w8_ulong low = getWordOrLess(0x10);
-    w8_ulong high = getWordOrLess(bits - 0x10);
-    return (high << 0x10) | low;
+    return value;
 }
 
-w8_ulong srHuffman::BitIStream::peekByte()
+w8_ulong srHuffman::BitIStream::peekByte() const
 {
-    return (getDWord(bit_pos / 8) >> (bit_pos & 7)) & 0xff;
+    if (byte_pos == data.size()) return 0;
+    w8_ulong value = data[byte_pos] >> bit_offset;
+    if (bit_offset && byte_pos + 1 < data.size())
+        value |= w8_ulong(data[byte_pos + 1]) << (8 - bit_offset);
+    return value & 0xff;
 }
 
-// FUNCTION: SURRENDER 0x10001290
-w8_ulong srHuffman::BitIStream::getBit()
-{
-    requireBits(1);
-    w8_ulong data = getByte(bit_pos / 8);
-    w8_ulong bit = (data >> (bit_pos & 7)) & 1;
-    ++bit_pos;
-    return bit;
-}
-
-// FUNCTION: SURRENDER 0x10001320
-void srHuffman::BitIStream::rewind(w8_long bits)
-{
-    if (bits < 0 || bits > bit_pos - bit_begin)
-        throw std::out_of_range("Rewind outside Huffman input");
-    bit_pos -= bits;
-}
-
-// FUNCTION: SURRENDER 0x10001420
-srHuffman::BitOStream& srHuffman::BitOStream::operator=(const BitOStream& stream)
-{
-    return *this;
-}
-
-// FUNCTION: SURRENDER 0x100016D0
-srHuffman::BitOStream::BitOStream(SDL_IOStream* stream)
-{
-    this->stream = stream;
-    pending = 0;
-    bit_count = 0;
-    bytes = 0;
-    buffered = 0;
-}
-
-// FUNCTION: SURRENDER 0x10001730
-srHuffman::BitOStream::~BitOStream()
-{
-    try {
-        flush();
-    } catch (...) { /* Explicit flush reports failures to the caller. */
-    }
-}
-
-// FUNCTION: SURRENDER 0x10001760
 void srHuffman::BitOStream::put(w8_ulong value, w8_ulong bits)
 {
-    for (; bits > 0; --bits) {
-        putBit(value & 1);
-        value >>= 1;
+    if (bits > 32) throw std::runtime_error("Invalid Huffman bit width");
+    for (unsigned shift = 0; shift < bits;) {
+        if (bit_offset == 0) bytes.push_back(0);
+        const auto count = std::min<unsigned>(bits - shift, 8 - bit_offset);
+        bytes.back() |= ((value >> shift) & ((1u << count) - 1)) << bit_offset;
+        shift += count;
+        bit_offset = (bit_offset + count) % 8;
     }
 }
 
-// FUNCTION: SURRENDER 0x10001790
-void srHuffman::BitOStream::flush()
-{
-    flushByte();
-    flushBuffer();
-}
-
-// FUNCTION: SURRENDER 0x100017B0
-void srHuffman::BitOStream::flushByte()
-{
-    if (bit_count != 0) {
-        buffer[buffered] = (unsigned char)pending;
-        ++bytes;
-        ++buffered;
-        pending = 0;
-        bit_count = 0;
-        if (buffered == 0x40) {
-            flushBuffer();
-        }
-    }
-}
-
-// FUNCTION: SURRENDER 0x100017F0
-void srHuffman::BitOStream::flushBuffer()
-{
-    if (buffered != 0) {
-        const auto count = std::exchange(buffered, 0);
-        srIO::writeExact(stream, buffer, count);
-    }
-}
-
-// FUNCTION: SURRENDER 0x10001810
-void srHuffman::BitOStream::putBit(w8_ulong bit)
-{
-    pending |= (bit & 1) << bit_count;
-    ++bit_count;
-    if (bit_count == 8) {
-        flushByte();
-    }
-}
-
-// FUNCTION: SURRENDER 0x10001990
-void srHuffman::Sampler::insert(w8_ulong symbol)
-{
-    const auto found = table.find(symbol);
-    if (found != table.end()) {
-        ++symbols[found->second].frequency;
-        return;
-    }
-    // The vector, not hash iteration, defines the format's first-seen order.
-    const auto index = symbols.size();
-    symbols.push_back({symbol, 1});
-    try {
-        table.emplace(symbol, index);
-    } catch (...) {
-        symbols.pop_back();
-        throw;
-    }
-}
-
-// FUNCTION: SURRENDER 0x10001BA0
-w8_ulong srHuffman::Sampler::getNumSymbols() const
-{
-    return static_cast<w8_ulong>(symbols.size());
-}
-
-// FUNCTION: SURRENDER 0x10001BB0
-w8_ulong srHuffman::Sampler::getSymbolValue(w8_ulong index) const
-{
-    return symbols[index].symbol;
-}
-
-// FUNCTION: SURRENDER 0x10001BC0
-w8_ulong srHuffman::Sampler::getSymbolFrequency(w8_ulong index) const
-{
-    return symbols[index].frequency;
-}
-
-// FUNCTION: SURRENDER 0x10001BD0
 srHuffman::Compressor::Compressor(const Sampler& sampler)
+    : root(nullptr), num_symbols(sampler.size()), code_width(1)
 {
-    num_symbols = sampler.getNumSymbols();
-    code_width = 0;
-    total = 0;
-    root = 0;
-    free_list = 0;
-    if (num_symbols != 0) {
-        nodes.resize(num_symbols * 2);
-        free_list = nodes.data();
-        for (w8_ulong index = 0; index < num_symbols * 2; ++index) {
-            nodes[index].symbol = 0;
-            nodes[index].frequency = 0;
-            nodes[index].next = nodes.data() + index + 1;
-            nodes[index].children[0] = 0;
-            nodes[index].children[1] = 0;
-            nodes[index].code = 0;
-            nodes[index].bits = 0;
-        }
-        nodes[num_symbols - 1].next = 0;
-        free_list = nodes.data() + num_symbols;
-        nodes[num_symbols * 2 - 1].next = 0;
-        collectSymbols(sampler);
-        buildSymbolTree();
-        total = 0;
-        setupPath(root, 0, 0);
+    // Allocate once: the heap and code table borrow pointers into this storage.
+    nodes.reserve(sampler.empty() ? 0 : sampler.size() * 2 - 1);
+    auto lessFrequent = [](const Node* a, const Node* b) { return a->frequency > b->frequency; };
+    std::priority_queue<Node*, std::vector<Node*>, decltype(lessFrequent)> queue(lessFrequent);
+    for (const auto& [symbol, frequency] : sampler) {
+        nodes.push_back({symbol, frequency, 0, 0, {nullptr, nullptr}});
+        queue.push(&nodes.back());
+        code_width = std::max(code_width, w8_ulong(std::bit_width(symbol)));
     }
+    while (queue.size() > 1) {
+        auto* left = queue.top();
+        queue.pop();
+        auto* right = queue.top();
+        queue.pop();
+        nodes.push_back({0, left->frequency + right->frequency, 0, 0, {left, right}});
+        queue.push(&nodes.back());
+    }
+    if (!queue.empty()) root = queue.top();
+    setupPath(root, 0, 0);
 }
 
 // FUNCTION: SURRENDER 0x10001E40
@@ -291,120 +90,16 @@ void srHuffman::Compressor::dumpNode(BitOStream& stream, Node* node)
 // FUNCTION: SURRENDER 0x10001EC0
 void srHuffman::Compressor::setupPath(Node* node, w8_ulong code, w8_ulong depth)
 {
-    if (node != 0) {
-        while (node->children[0] != 0) {
-            setupPath(node->children[0], code, depth + 1);
-            node = node->children[1];
-            code |= 1 << depth;
-            ++depth;
-            if (node == 0) {
-                return;
-            }
-        }
-        node->code = code;
-        node->bits = depth;
-        table.insert_or_assign(node->symbol, node);
-        total += node->frequency * node->bits;
+    if (node == nullptr) return;
+    if (node->children[0] != nullptr) {
+        if (depth >= 32) throw std::runtime_error("Huffman code exceeds 32 bits");
+        setupPath(node->children[0], code, depth + 1);
+        setupPath(node->children[1], code | (w8_ulong(1) << depth), depth + 1);
+        return;
     }
-}
-
-// FUNCTION: SURRENDER 0x10001F90
-void srHuffman::Compressor::buildSymbolTree()
-{
-    if (num_symbols != 1) {
-        Node* heads[2];
-        Node* tails[2];
-        Node* root = 0;
-        heads[0] = nodes.data();
-        heads[1] = 0;
-        tails[1] = 0;
-        for (w8_ulong merged = 0; merged < num_symbols - 1; ++merged) {
-            Node* node = free_list;
-            free_list = node->next;
-            node->next = 0;
-            Node** slot = node->children;
-            for (int remaining = 2; remaining != 0; --remaining) {
-                int which = 0;
-                if (heads[1] != 0 &&
-                    (heads[0] == 0 || heads[1]->frequency <= heads[0]->frequency)) {
-                    which = 1;
-                }
-                Node* picked = heads[which];
-                // n symbols take n - 1 merges, so both queues never run dry here.
-                if (picked == nullptr) throw std::logic_error("Huffman merge queue exhausted");
-                *slot = picked;
-                heads[which] = picked->next;
-                if (heads[which] == 0) {
-                    tails[which] = 0;
-                }
-                picked = *slot;
-                ++slot;
-                picked->next = 0;
-            }
-            node->frequency = node->children[1]->frequency + node->children[0]->frequency;
-            if (tails[1] == 0) {
-                heads[1] = node;
-            } else {
-                tails[1]->next = node;
-            }
-            root = heads[1];
-            tails[1] = node;
-        }
-        this->root = root;
-    } else {
-        this->root = nodes.data();
-    }
-}
-
-// FUNCTION: SURRENDER 0x10002080
-void srHuffman::Compressor::collectSymbols(const Sampler& sampler)
-{
-    std::vector<Sampler::Symbol> pairs(num_symbols);
-    w8_ulong max_symbol = 0;
-    w8_ulong index;
-    for (index = 0; index < num_symbols; ++index) {
-        pairs[index].symbol = sampler.getSymbolValue(index);
-        pairs[index].frequency = sampler.getSymbolFrequency(index);
-        if (max_symbol < pairs[index].symbol) {
-            max_symbol = pairs[index].symbol;
-        }
-    }
-    int width;
-    if (max_symbol == 0) {
-        width = -1;
-    } else {
-        width = 0;
-        if ((max_symbol & 0xffff0000) != 0) {
-            width = 0x10;
-            max_symbol >>= 0x10;
-        }
-        if ((max_symbol & 0xff00) != 0) {
-            width += 8;
-            max_symbol >>= 8;
-        }
-        if ((max_symbol & 0xf0) != 0) {
-            width += 4;
-            max_symbol >>= 4;
-        }
-        if ((max_symbol & 0x0c) != 0) {
-            width += 2;
-            max_symbol >>= 2;
-        }
-        if ((max_symbol & 0x02) != 0) {
-            width += 1;
-        }
-    }
-    code_width = width + 1;
-    if (code_width < 1) {
-        code_width = 1;
-    }
-    if (num_symbols > 1) {
-        sortSymbolPairs(pairs.data(), num_symbols);
-    }
-    for (index = 0; index < num_symbols; ++index) {
-        nodes[index].symbol = pairs[index].symbol;
-        nodes[index].frequency = pairs[index].frequency;
-    }
+    node->code = code;
+    node->bits = depth;
+    table.emplace(node->symbol, node);
 }
 
 // FUNCTION: SURRENDER 0x10002340
@@ -473,16 +168,4 @@ void srHuffman::Decompressor::setupSymbolTable(Symbol* node)
     node->symbol = stream->get(code_width);
     node->children[0] = 0;
     node->children[1] = 0;
-}
-
-// FUNCTION: SURRENDER 0x100027F0
-static void sortSymbolPairs(srHuffman::Sampler::Symbol* pairs, w8_ulong count)
-{
-    if (count <= 1) {
-        return;
-    }
-    // Stable frequency order preserves the radix sort's tie order and therefore the bitstream.
-    std::stable_sort(pairs, pairs + count, [](const auto& first, const auto& second) {
-        return first.frequency < second.frequency;
-    });
 }

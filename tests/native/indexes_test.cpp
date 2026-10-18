@@ -97,16 +97,16 @@ static bool renderingAndSymbolIndexes()
     REQUIRE(cache.intern(second) == 0);
 
     srHuffman::Sampler sampler;
-    sampler.insert(0);
-    sampler.insert(500);
-    for (unsigned int symbol = 1; symbol < 500; ++symbol) sampler.insert(symbol);
-    sampler.insert(0);
-    sampler.insert(500);
-    REQUIRE(sampler.getNumSymbols() == 501);
-    REQUIRE((sampler.getSymbolValue(0) == 0 && sampler.getSymbolFrequency(0) == 2));
-    REQUIRE((sampler.getSymbolValue(1) == 500 && sampler.getSymbolFrequency(1) == 2));
+    ++sampler[0];
+    ++sampler[500];
+    for (unsigned int symbol = 1; symbol < 500; ++symbol) ++sampler[symbol];
+    ++sampler[0];
+    ++sampler[500];
+    REQUIRE(sampler.size() == 501);
+    REQUIRE((sampler.at(0) == 2));
+    REQUIRE((sampler.at(500) == 2));
     srHuffman::Compressor compressor(sampler);
-    REQUIRE(compressor.table.size() == sampler.getNumSymbols());
+    REQUIRE(compressor.table.size() == sampler.size());
     for (const auto& [symbol, node] : compressor.table) {
         REQUIRE((node != nullptr && node->symbol == symbol));
         REQUIRE(node >= compressor.nodes.data());

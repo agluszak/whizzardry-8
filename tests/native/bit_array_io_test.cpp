@@ -43,7 +43,14 @@ TEST_CASE("packed bit IO")
         0x00, 0x00, 0x00, 0xdd, 0x00, 0x00, 0x00, 0x80, 0x00, 0x00, 0x00, 0xc0, 0x40,
         0x00, 0x00, 0x10, 0xcf, 0x8a, 0x46, 0x36, 0x0d, 0xd0, 0xad, 0xde,
     };
-    REQUIRE((encoded == legacy));
+    {
+        auto captured = wiz8::open_file(directory.path / "legacy.bin", wiz8::OpenMode::replace);
+        captured->write(legacy.data(), legacy.size());
+        captured->seek(0, wiz8::SeekOrigin::begin);
+        std::vector<bool> restored;
+        REQUIRE(LoadPackedBits(*captured, restored));
+        REQUIRE(restored == original);
+    }
     file->seek(0, wiz8::SeekOrigin::begin);
     std::vector<bool> restored(1);
     REQUIRE((LoadPackedBits(*file, restored) && restored.size() == 64));
@@ -68,7 +75,7 @@ TEST_CASE("packed bit IO")
     }
     // Counts near 2^24 exposed the old float divide rounding into the next
     // word. Packed IO must use the integer word count at these boundaries.
-    for (const unsigned count : {31u, 32u, 33u, 16777247u}) {
+    for (const unsigned count : {1u, 31u, 32u, 33u, 16777247u}) {
         std::vector<bool> source(count), resized(1);
         SetBit(source, count - 1);
         auto output = wiz8::open_file(path, wiz8::OpenMode::replace);

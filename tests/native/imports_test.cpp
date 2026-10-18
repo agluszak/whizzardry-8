@@ -20,7 +20,6 @@
 
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srDebug.h"
-#include "surrender/srIO.h"
 #include "surrender/srMath.h"
 /* Native consumer-side linking and lifetime for the renderer contracts used
    by the game, including compiler-generated members imported on Windows. */
@@ -29,7 +28,6 @@
 #include "surrender/srCamera.h"
 #include "surrender/srClipPlane.h"
 #include "surrender/srFog.h"
-#include "surrender/srHuffman.h"
 #include "surrender/srLight.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srMeshModel.h"
@@ -254,43 +252,6 @@ TEST_CASE("imports_test")
         REQUIRE((parent->getChildCount() == 2 && clone->getParent() == parent &&
                  sibling->getParent() == parent));
         delete parent; // Recursively releases the sibling and copied light.
-        srHuffman::Sampler sampler;
-        sampler.insert(10);
-        sampler.insert(10);
-        sampler.insert(11);
-        REQUIRE((sampler.getNumSymbols() == 2 && sampler.getSymbolFrequency(0) == 2));
-        // Exercise a branching symbol tree, as used by octree alpha bits.
-        const w8_ulong values[] = {10, 10, 11, 12, 13, 10, 13, 14, 0xffffffff};
-        srHuffman::Sampler tree_sampler;
-        for (auto value : values) tree_sampler.insert(value);
-        srHuffman::Compressor compressor(tree_sampler);
-        auto encoded = srIO::own(SDL_IOFromDynamicMem());
-        {
-            srHuffman::BitOStream bits(encoded.get());
-            bits.put(compressor.num_symbols, 32);
-            bits.put(compressor.code_width, 6);
-            bits.put(sizeof(values) / sizeof(values[0]), 32);
-            compressor.storeSymbolTable(bits);
-            for (auto value : values) compressor.compressSymbol(bits, value);
-            bits.flush();
-        }
-        // Captured from main's pre-consolidation stream/Huffman implementation.
-        const unsigned char golden[] = {0x06, 0x00, 0x00, 0x00, 0x60, 0x02, 0x00, 0x00, 0x00, 0x2e,
-                                        0x00, 0x00, 0x00, 0x64, 0x00, 0x00, 0x00, 0xd0, 0x01, 0x00,
-                                        0x00, 0xe0, 0xff, 0xff, 0xff, 0xbf, 0x0d, 0x00, 0x00, 0x00,
-                                        0x15, 0x00, 0x00, 0x00, 0x1e, 0xec, 0x64};
-        REQUIRE(SDL_GetIOSize(encoded.get()) == sizeof(golden));
-        REQUIRE(memcmp(SDL_GetPointerProperty(SDL_GetIOProperties(encoded.get()),
-                                              SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr),
-                       golden, sizeof(golden)) == 0);
-        auto input = srIO::own(SDL_IOFromConstMem(
-            SDL_GetPointerProperty(SDL_GetIOProperties(encoded.get()),
-                                   SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr),
-            SDL_GetIOSize(encoded.get())));
-        srHuffman::BitIStream bits(input.get());
-        srHuffman::Decompressor decoder(bits);
-        REQUIRE(decoder.getDataCount() == sizeof(values) / sizeof(values[0]));
-        for (auto value : values) REQUIRE(decoder.decompressSymbol() == value);
     }
     REQUIRE_THROWS_WITH(srAssertFail("native probe", "imports_test.cpp", 42, "value %d", 7),
                         "Debug assertion in module imports_test.cpp line 42 failed:\n\n"

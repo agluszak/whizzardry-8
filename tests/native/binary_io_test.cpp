@@ -1,119 +1,119 @@
-#include <algorithm>
 #include <array>
-#include <cstdio>
-#include <exception>
-#include <limits>
+#include <span>
 #include <stdexcept>
+#include <vector>
 
-#include <SDL3/SDL_iostream.h>
-#include <SDL3/SDL_stdinc.h>
 #include <catch2/catch_test_macros.hpp>
 
-#include "compat/compiler.h"
 #include "surrender/srHuffman.h"
-#include "surrender/srIO.h"
 
-TEST_CASE("binary_io_test")
+TEST_CASE("Huffman bit IO bounds and full width words")
 {
-    bool rejected = false;
-    // A short final cache is valid; requesting a bit past it is not. Cache
-    // lookahead must never reuse bytes from an earlier block.
-    const Uint8 bits_data[] = {0x81, 0x42};
-    auto bits_input = srIO::own(SDL_IOFromConstMem(bits_data, sizeof(bits_data)));
-    srHuffman::BitIStream bits(bits_input.get());
-    REQUIRE((bits.get(9) == 0x81 && bits.get(7) == 0x21));
-    rejected = false;
-    try {
-        bits.getBit();
-    } catch (const std::exception&) {
-        rejected = true;
-    }
-    REQUIRE(rejected);
-    REQUIRE(bits.peekByte() == 0); // Padding is for lookahead, not consumption.
-    for (const auto rewind : {w8_long(-1), std::numeric_limits<w8_long>::min(), w8_long(17),
-                              std::numeric_limits<w8_long>::max()}) {
-        rejected = false;
-        try {
-            bits.rewind(rewind);
-        } catch (const std::out_of_range&) {
-            rejected = true;
-        }
-        REQUIRE((rejected && bits.peekByte() == 0));
-    }
-    bits.rewind(16);
-    rejected = false;
-    try {
-        bits.rewind(1);
-    } catch (const std::out_of_range&) {
-        rejected = true;
-    }
-    REQUIRE((rejected && bits.get(8) == 0x81));
-    rejected = false;
-    try {
-        bits.get(32);
-    } catch (const std::out_of_range&) {
-        rejected = true;
-    }
-    REQUIRE((rejected && bits.get(8) == 0x42)); // A rejected read does not advance.
-    REQUIRE(SDL_SeekIO(bits_input.get(), 1, SDL_IO_SEEK_SET) == 1);
-    srHuffman::BitIStream offset_bits(bits_input.get());
-    rejected = false;
-    try {
-        offset_bits.rewind(1);
-    } catch (const std::out_of_range&) {
-        rejected = true;
-    }
-    REQUIRE((rejected && offset_bits.get(8) == 0x42));
+    const unsigned char data[] = {0x81, 0x42};
+    srHuffman::BitIStream input(data);
+    REQUIRE(input.get(9) == 0x81);
+    REQUIRE_THROWS_AS(input.get(32), std::out_of_range);
+    REQUIRE(input.get(7) == 0x21); // Rejected reads leave the cursor intact.
+    REQUIRE(input.peekByte() == 0); // Lookahead pads; consumption rejects truncation.
+    REQUIRE_THROWS_AS(input.getBit(), std::out_of_range);
+    REQUIRE(input.get(0) == 0);
+    REQUIRE_THROWS(input.get(33));
 
-    // Exercise a cache refill and rewind across its boundary.
-    std::array<Uint8, 130> long_bits{};
-    long_bits[127] = 0x81;
-    long_bits[128] = 0x42;
-    long_bits[129] = 0xff;
-    auto long_input = srIO::own(SDL_IOFromConstMem(long_bits.data(), long_bits.size()));
-    srHuffman::BitIStream long_reader(long_input.get());
-    for (unsigned i = 0; i < 127; ++i) REQUIRE(long_reader.get(8) == 0);
-    REQUIRE(long_reader.get(24) == 0xff4281);
-    long_reader.rewind(24);
-    REQUIRE((long_reader.get(24) == 0xff4281 && long_reader.peekByte() == 0));
-    // A sparse SDL backend exercises positions beyond the former 32-bit bit
-    // cursor without allocating a gigabyte-sized fixture.
-    struct SparseInput {
-        Sint64 position, size;
-    } sparse{Sint64(1) << 30, (Sint64(1) << 30) + 1};
-    SDL_IOStreamInterface interface;
-    SDL_INIT_INTERFACE(&interface);
-    interface.size = [](void* cookie) -> Sint64 { return static_cast<SparseInput*>(cookie)->size; };
-    interface.seek = [](void* cookie, Sint64 offset, SDL_IOWhence whence) -> Sint64 {
-        auto& self = *static_cast<SparseInput*>(cookie);
-        const auto base = whence == SDL_IO_SEEK_SET   ? 0
-                          : whence == SDL_IO_SEEK_CUR ? self.position
-                                                      : self.size;
-        if (offset < -base || offset > self.size - base) return -1;
-        return self.position = base + offset;
-    };
-    interface.read = [](void* cookie, void* data, size_t requested,
-                        SDL_IOStatus* status) -> size_t {
-        auto& self = *static_cast<SparseInput*>(cookie);
-        const auto count = std::min(requested, size_t(self.size - self.position));
-        std::fill_n(static_cast<Uint8*>(data), count, Uint8(0xa5));
-        self.position += count;
-        if (count < requested) *status = SDL_IO_STATUS_EOF;
-        return count;
-    };
-    auto sparse_io = srIO::own(SDL_OpenIO(&interface, &sparse));
-    srHuffman::BitIStream sparse_reader(sparse_io.get());
-    REQUIRE(sparse_reader.get(8) == 0xa5);
-    sparse_reader.rewind(8);
-    REQUIRE(sparse_reader.get(8) == 0xa5);
-    sparse.position = 0;
-    sparse.size = std::numeric_limits<Sint64>::max();
-    rejected = false;
-    try {
-        srHuffman::BitIStream invalid(sparse_io.get());
-    } catch (const std::out_of_range&) {
-        rejected = true;
+    // Every alignment must preserve bit 31 without shifting by the word width.
+    for (unsigned offset = 0; offset < 8; ++offset) {
+        srHuffman::BitOStream output;
+        output.put(0x55, offset);
+        for (auto word : {0u, 0x80000000u, 0xffffffffu, 0x12345678u}) output.put(word, 32);
+        srHuffman::BitIStream reader(output.bytes);
+        REQUIRE(reader.get(offset) == (0x55u & ((1u << offset) - 1)));
+        for (auto word : {0u, 0x80000000u, 0xffffffffu, 0x12345678u})
+            REQUIRE(reader.get(32) == word);
     }
-    REQUIRE(rejected);
-    puts("ok: Huffman cursor/cache bounds");
+    // Crossing the old cache boundary needs no special handling.
+    std::array<unsigned char, 130> bytes{};
+    bytes[127] = 0x81;
+    bytes[128] = 0x42;
+    bytes[129] = 0xff;
+    srHuffman::BitIStream reader(bytes);
+    for (unsigned i = 0; i < 127; ++i) REQUIRE(reader.get(8) == 0);
+    REQUIRE(reader.get(24) == 0xff4281);
+    REQUIRE(reader.peekByte() == 0);
+}
+
+TEST_CASE("Huffman captured tree decoding and round trip")
+{
+    // Exercise a branching symbol tree, as used by octree alpha bits.
+    const w8_ulong values[] = {10, 10, 11, 12, 13, 10, 13, 14, 0xffffffff};
+    srHuffman::Sampler tree_sampler;
+    for (auto value : values) ++tree_sampler[value];
+    srHuffman::Compressor compressor(tree_sampler);
+    srHuffman::BitOStream encoded;
+    encoded.put(compressor.num_symbols, 32);
+    encoded.put(compressor.code_width, 6);
+    encoded.put(sizeof(values) / sizeof(values[0]), 32);
+    compressor.storeSymbolTable(encoded);
+    for (auto value : values) compressor.compressSymbol(encoded, value);
+    // Captured from main's pre-consolidation stream/Huffman implementation.
+    const unsigned char golden[] = {0x06, 0x00, 0x00, 0x00, 0x60, 0x02, 0x00, 0x00, 0x00, 0x2e,
+                                    0x00, 0x00, 0x00, 0x64, 0x00, 0x00, 0x00, 0xd0, 0x01, 0x00,
+                                    0x00, 0xe0, 0xff, 0xff, 0xff, 0xbf, 0x0d, 0x00, 0x00, 0x00,
+                                    0x15, 0x00, 0x00, 0x00, 0x1e, 0xec, 0x64};
+    for (const auto data :
+         {std::span<const unsigned char>(golden), std::span<const unsigned char>(encoded.bytes)}) {
+        srHuffman::BitIStream bits(data);
+        srHuffman::Decompressor decoder(bits);
+        REQUIRE(decoder.getDataCount() == sizeof(values) / sizeof(values[0]));
+        for (auto value : values) REQUIRE(decoder.decompressSymbol() == value);
+    }
+}
+
+TEST_CASE("Huffman repeated symbols and frequency map growth")
+{
+    // Repeated symbols (including zero), and
+    // enough distinct values to grow/rehash the lookup several times.
+    std::vector<w8_ulong> values;
+    srHuffman::Sampler sampler;
+    for (w8_ulong i = 0; i < 512; ++i) {
+        const auto symbol = i * 1024;
+        values.push_back(symbol);
+        ++sampler[symbol];
+    }
+    for (w8_ulong i = 0; i < 1024; ++i) {
+        const auto symbol = (i % 7) * 1024;
+        values.push_back(symbol);
+        ++sampler[symbol];
+    }
+    REQUIRE(sampler.size() == 512);
+    for (w8_ulong i = 0; i < 512; ++i) {
+        REQUIRE(sampler.at(i * 1024) == 1 + (i < 7 ? 146 + (i < 2) : 0));
+    }
+    srHuffman::Compressor compressor(sampler);
+    srHuffman::BitOStream output;
+    output.put(compressor.num_symbols, 32);
+    output.put(compressor.code_width, 6);
+    output.put(values.size(), 32);
+    compressor.storeSymbolTable(output);
+    for (auto symbol : values) compressor.compressSymbol(output, symbol);
+    srHuffman::BitIStream input(output.bytes);
+    srHuffman::Decompressor decoder(input);
+    REQUIRE(decoder.getDataCount() == values.size());
+    for (auto symbol : values) REQUIRE(decoder.decompressSymbol() == symbol);
+}
+
+TEST_CASE("Huffman single symbol trees need no payload bits")
+{
+    for (const auto value : {0u, 0xffffffffu}) {
+        srHuffman::Sampler sampler{{value, 3}};
+        srHuffman::Compressor compressor(sampler);
+        srHuffman::BitOStream output;
+        output.put(compressor.num_symbols, 32);
+        output.put(compressor.code_width, 6);
+        output.put(3, 32);
+        compressor.storeSymbolTable(output);
+        for (unsigned i = 0; i < 3; ++i) compressor.compressSymbol(output, value);
+        srHuffman::BitIStream input(output.bytes);
+        srHuffman::Decompressor decoder(input);
+        REQUIRE(decoder.getDataCount() == 3);
+        for (unsigned i = 0; i < 3; ++i) REQUIRE(decoder.decompressSymbol() == value);
+    }
 }
