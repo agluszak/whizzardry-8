@@ -856,7 +856,7 @@ bool FrontRankScreens(unsigned int from_position, unsigned int to_position)
 
 /* Every other seated, living party member whose side matches `relationship`
    and that the slot's chosen action could actually strike is collected; one of
-   them is picked at random, or -1 when nobody qualifies. The berserk and
+   them is picked at random, or no value when nobody qualifies. The berserk and
    turncoat paths use it to pick a victim. */
 // FUNCTION: WIZ8 0x0051b0a0
 std::optional<int> PickReachableSlotByDisposition(int party_slot, W8Disposition relationship)

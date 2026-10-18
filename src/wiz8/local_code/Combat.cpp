@@ -2884,7 +2884,7 @@ void StepMonsterCombatAction(W8MonsterInfo* monster_info)
 /* Condition interrupt rolled before an actor's committed action runs: a
    nausea fit, a webbed actor's break-out check, blindness, insanity, fear,
    control and turncoat. Returns the interrupt category the action scheduler
-   substitutes, -1 when the action proceeds. */
+   substitutes, or no value when the action proceeds. */
 // FUNCTION: WIZ8 0x004EC1E0
 std::optional<int> GetConditionInterrupt(W8TargetSource* source)
 {

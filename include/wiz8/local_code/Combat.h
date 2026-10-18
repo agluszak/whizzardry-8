@@ -60,7 +60,7 @@ void ComputeCharacterActionPhase(int party_slot);
 /* Set one monster's turn up, once - phase and speed by action. */
 void SetUpMonsterTurn(W8MonsterInfo* monster_info);
 /* The condition interrupt that fires before the actor's action;
-   returns the interrupt kind, or -1 when none fires. */
+   returns an interrupt kind, or no value when none fires. */
 std::optional<int> GetConditionInterrupt(W8TargetSource* source);
 /* The monster's breathe/special-attack action step. */
 bool MonsterFleeAction(W8MonsterInfo* monster_info, W8MonsterRecord* record);

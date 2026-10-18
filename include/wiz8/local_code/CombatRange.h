@@ -51,7 +51,7 @@ bool RangeCategoryUsesSightCondition(const W8MonsterInfo* monster, W8RangeCatego
 bool MonsterActionReachesTarget(W8MonsterInfo* monster_info, W8MonsterRecord* record,
                                 unsigned int attack, W8CombatSlot* target);
 /* The location id of the nearest live, in-combat group member the monster can
-   see under check `kind`, or -1 when none qualify. */
+   see under check `kind`, or no value when none qualify. */
 std::optional<int> FindNearestVisibleGroupMonster(W8MonsterInfo* monster_info, int group_id,
                                                   int kind);
 /* The furthest range band the monster can act at: its attacks first, then its
@@ -93,7 +93,7 @@ bool CharacterActionReachesTarget(int party_slot, int hand, const W8Action& sele
 bool CharacterActionReachesSlot(int party_slot, int hand, int target_slot,
                                 const W8Action& selected);
 /* Collect the party slots the slot could reach and strike under
-   `relationship`, and pick one at random; -1 when none qualify. */
+   `relationship`, and pick one at random; no value when none qualify. */
 std::optional<int> PickReachableSlotByDisposition(int party_slot, W8Disposition relationship);
 /* Write `out` the offset from the monster's feet to the origin of
    its attack for `kind` - 1 the projectile muzzle, 3 the spell hand. */

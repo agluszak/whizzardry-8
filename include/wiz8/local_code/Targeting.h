@@ -151,7 +151,7 @@ bool SlotHasAnyValidTarget(int party_slot);
    targeting mode that admits one. */
 bool IsDeadCharacterTargetable(int party_slot);
 
-/* The faction table index for a name, -1 when none matches. */
+/* The faction table index for a name, when one matches. */
 std::optional<signed char> FindFactionByName(const char* name);
 void RepickInvalidCombatTargets(void);
 
