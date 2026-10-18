@@ -362,8 +362,10 @@ bool CombatAllowsLiveGroups(void)
 static unsigned short g_group_hostility_notice_ids[3] = {511, 512, 513};
 
 // GLOBAL: WIZ8 0x0061ec14
-int g_monster_special_attack_name_ids[12] = {0,    1598, 1599, 1600, 1601, 1602,
-                                             1603, 1604, 1605, 1606, 1607, 1608};
+int g_monster_special_attack_name_ids[32] = {
+    0,    1598, 1599, 1600, 1601, 1602, 1603, 1604, 1605, 1606, 1607,
+    1608, 1609, 1610, 1611, 1612, 1613, 1614, 1615, 1616, 1617, 1618,
+    1619, 1620, 1621, 1622, 1623, 1624, 1625, 1626, 1627, 1628};
 
 // FUNCTION: WIZ8 0x00547540
 void SetMonsterGroupHostilityByID(int group_id, unsigned int hostility, bool recurse)
