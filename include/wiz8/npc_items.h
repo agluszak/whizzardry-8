@@ -16,8 +16,8 @@ enum class W8TradeSource { Backpack, PartyPool, NpcStock, Gold };
 // Identical item stacks are fungible; no persistent item identity is invented.
 struct W8TradeSelection {
     W8TradeSource source;
-    std::optional<int> character;
-    std::optional<int> slot;
+    std::optional<int> character{};
+    std::optional<int> slot{};
     W8ItemInstance expected{};
     unsigned char stock_quantity = 0;
 };
