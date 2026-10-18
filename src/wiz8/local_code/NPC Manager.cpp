@@ -153,7 +153,8 @@ static char GetNpcDisposition(W8NpcState* npc)
     if (npc->record->monster_bound != 0) {
         return faction_disposition;
     }
-    if (GetFactionDispositionToward(npc->record->faction, W8_FACTION_PARTY) == 0) {
+    if (GetFactionDispositionToward(npc->record->faction, W8_FACTION_PARTY) ==
+        W8_FACTION_HOSTILE) {
         return faction_disposition;
     }
     if (npc->record->allied_faction != 0) {
