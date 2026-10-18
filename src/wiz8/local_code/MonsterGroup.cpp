@@ -218,10 +218,7 @@ static W8Disposition MonsterGroupCalcDefaultDisposition(W8MonsterGroup* monster_
     } else {
         switch (record->faction_id) {
         case W8_FACTION_UNALIGNED:
-            if (record->hostility_radius != -1) {
-                disposition = record->hostility_radius == 0 ? W8_DISPOSITION_HOSTILE
-                                                          : W8_DISPOSITION_NEUTRAL;
-            }
+            if (record->hostility_radius == 0) disposition = W8_DISPOSITION_HOSTILE;
             break;
         case W8_FACTION_PARTY:
             disposition = W8_DISPOSITION_FRIENDLY;
