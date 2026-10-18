@@ -607,7 +607,7 @@ static RuntimeWorldRenderData ObserveWorldRenderState()
 {
     RuntimeWorldRenderData data;
     memset(&data, 0, sizeof(data));
-    data.level = GetLoadedLevelID();
+    data.level = GetRequiredLoadedLevelID();
     data.flags = (g_world_render_enabled ? 1UL : 0UL) | (g_world_blacked_out ? 2UL : 0UL) |
                  (g_video_active ? 4UL : 0UL) | (g_monster_shadow_updates_enabled ? 8UL : 0UL) |
                  (g_render_mesh_sky ? 16UL : 0UL) | (g_world_pick_enabled ? 32UL : 0UL);

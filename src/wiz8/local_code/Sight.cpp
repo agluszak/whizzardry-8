@@ -320,7 +320,7 @@ unsigned int AgeAllMonsterSight(void)
     W8MonsterInfo* monster_info;
 
     elapsed = g_status.world_clock * 1000 -
-              g_status.level_progress[GetLoadedLevelID()].sight_clock * 1000;
+              g_status.level_progress[GetRequiredLoadedLevelID()].sight_clock * 1000;
     steps = elapsed / 120000;
     if (steps == 0) {
         return 0;
@@ -718,7 +718,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                 delta = own_position - PartyNavigator()->GetPosition();
                                 if (glm::length(delta) < 25000.0f &&
                                     (npc->party_noticed = true, !gXStatus.fSurprisePossible) &&
-                                    GetLoadedLevelID() != 4) {
+                                    GetRequiredLoadedLevelID() != 4) {
                                     if (const auto party_slot = GetRandomCharacter(0, 0)) {
                                         int effect = 0x26;
 

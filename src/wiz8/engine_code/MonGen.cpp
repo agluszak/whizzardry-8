@@ -124,7 +124,7 @@ try {
     }
     g_encounter_names = std::move(names);
     g_encounter_tables = std::move(tables);
-    g_encounter_tables_level = GetLoadedLevelID();
+    g_encounter_tables_level = GetRequiredLoadedLevelID();
     return 1;
 } catch (const std::exception&) {
     return 0;
@@ -414,7 +414,7 @@ bool MonGen::CanGenerateEncounter(bool force)
         }
     }
 
-    const auto& level = g_level_records[GetLoadedLevelID()];
+    const auto& level = g_level_records[GetRequiredLoadedLevelID()];
     const int limit = std::clamp(GetWorld()->encounters.random_budget,
                                  level.minimum_random_encounters, level.maximum_random_encounters);
     if (static_cast<int>(CurrentLevelPopulation().activeEncounterLeaders().size()) >= limit) {
@@ -470,12 +470,13 @@ void UpdateRandomEncounterBudget(bool reset_budget)
     int elapsed;
 
     if (!reset_budget) {
-        elapsed = g_status.world_clock - g_status.level_progress[GetLoadedLevelID()].sight_clock;
+        elapsed =
+            g_status.world_clock - g_status.level_progress[GetRequiredLoadedLevelID()].sight_clock;
         GetWorld()->encounters.random_budget +=
-            elapsed / g_level_records[GetLoadedLevelID()].encounter_budget_period;
+            elapsed / g_level_records[GetRequiredLoadedLevelID()].encounter_budget_period;
     } else {
         GetWorld()->encounters.random_budget =
-            g_level_records[GetLoadedLevelID()].maximum_encounter_budget;
+            g_level_records[GetRequiredLoadedLevelID()].maximum_encounter_budget;
         elapsed = W8_ENCOUNTER_STALE_SECONDS + 1;
     }
     ClampEncounterBudget(*GetWorld());

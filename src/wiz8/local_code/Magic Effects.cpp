@@ -886,7 +886,7 @@ void RecallCasterToSavedLocation(W8SpellEffectEntry* pQueue)
     }
     caster = &g_status.buffers.Char[pQueue->Source.iChar];
     if (caster->has_saved_location) {
-        if (caster->saved_level == GetLoadedLevelID()) {
+        if (caster->saved_level == GetRequiredLoadedLevelID()) {
             RestoreWorldCameraState(GetSecondaryWorld(), &caster->saved_location);
             point = caster->saved_location.position;
             PlacePartyAtPoint(&point);
@@ -3348,7 +3348,7 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
         camera_state = &g_status.buffers.Char[effect->Source.iChar].saved_location;
         world = GetWorld();
         *camera_state = cameraState(*world);
-        g_status.buffers.Char[effect->Source.iChar].saved_level = GetLoadedLevelID();
+        g_status.buffers.Char[effect->Source.iChar].saved_level = GetRequiredLoadedLevelID();
         g_status.buffers.Char[effect->Source.iChar].has_saved_location = true;
         effect->applied = true;
         break;

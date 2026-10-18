@@ -238,7 +238,7 @@ void RefreshLevelUpReadyNotices(void)
 {
     int party_slot;
 
-    if (g_status.greeting_pending || GetLevelBand(GetLoadedLevelID()) == 0xe) {
+    if (g_status.greeting_pending || GetLevelBand(GetRequiredLoadedLevelID()) == 0xe) {
         return;
     }
 
@@ -1140,7 +1140,8 @@ void RemoveCharacterFromParty(int party_slot)
         RefreshPartySlotRegions();
     }
     if (g_status.selected_character == party_slot) {
-        g_status.selected_character = GetNextCharacter(1, 1, -1);
+        const auto next = GetNextCharacter(1, 1, -1);
+        g_status.selected_character = next ? *next : -1;
     }
 }
 
@@ -1212,8 +1213,9 @@ void AwardPartyExperience(int amount, bool alternate_message)
             } else {
                 character->experience = static_cast<unsigned int>(-1);
             }
-            if (GetLoadedLevelID() >= 0 && GetLoadedLevelID() < W8_LEVEL_COUNT) {
-                auto& progress = g_status.level_progress[GetLoadedLevelID()];
+            if (const auto level = GetLoadedLevelID();
+                level && *level >= 0 && *level < W8_LEVEL_COUNT) {
+                auto& progress = g_status.level_progress[*level];
                 const unsigned int gained = progress.experience_gained;
                 total = gained + static_cast<unsigned int>(amount);
                 if (total > gained) {

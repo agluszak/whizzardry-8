@@ -291,7 +291,7 @@ static unsigned char WorldCursorNodeShowMessageOnce(int command, W8WorldCursorNo
 
     result = false;
     message_id = node->parameters[0];
-    folder = GetLevelFolderName(GetLoadedLevelID());
+    folder = GetLevelFolderName(GetRequiredLoadedLevelID());
     type = node->parameters[2];
     enabled = static_cast<unsigned char>(node->parameters[1]);
     if (enabled != 0 && g_status.search_mode == 0 && g_status.party_modifiers.detect_secrets == 0) {
@@ -337,7 +337,7 @@ static unsigned char WorldCursorNodeShowContextMessage(int command, W8WorldCurso
     std::string path;
     std::string text;
 
-    folder = GetLevelFolderName(GetLoadedLevelID());
+    folder = GetLevelFolderName(GetRequiredLoadedLevelID());
     if (command != 4) {
         return 0;
     }
@@ -365,7 +365,7 @@ static unsigned char WorldCursorNodeShowMessage(int command, W8WorldCursorNode* 
     std::string path;
     std::string text;
 
-    folder = GetLevelFolderName(GetLoadedLevelID());
+    folder = GetLevelFolderName(GetRequiredLoadedLevelID());
     if (command != 3) {
         return 0;
     }
@@ -557,7 +557,7 @@ unsigned char ShowLevelMessage(int message_id)
     std::string path;
     std::string text;
 
-    folder = GetLevelFolderName(GetLoadedLevelID());
+    folder = GetLevelFolderName(GetRequiredLoadedLevelID());
     if (folder == 0) {
         folder = "Test";
     }

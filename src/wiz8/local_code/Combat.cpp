@@ -1110,8 +1110,9 @@ void EndCombat(bool forced_cleanup)
     }
     unsigned int active = CountActiveCharacters();
     if (active != 0 && g_combat_state->experience_pool != 0) {
-        if (GetLoadedLevelID() >= 0 && GetLoadedLevelID() < W8_LEVEL_COUNT) {
-            g_status.level_progress[GetLoadedLevelID()].combat_end_count += 1;
+        if (const auto level = GetLoadedLevelID();
+            level && *level >= 0 && *level < W8_LEVEL_COUNT) {
+            g_status.level_progress[*level].combat_end_count += 1;
         }
         g_combat_state->experience_pool /= active;
         AwardPartyExperience(g_combat_state->experience_bonus + g_combat_state->experience_pool,

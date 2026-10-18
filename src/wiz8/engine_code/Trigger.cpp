@@ -1967,7 +1967,7 @@ void Trigger::CommitActionResult(bool apply_state_changes)
 
 show_action_message:
     if ((flags & W8_TRIGGER_CAN_RUN_LINKED) != 0) {
-        const char* level_folder = GetLevelFolderName(GetLoadedLevelID());
+        const char* level_folder = GetLevelFolderName(GetRequiredLoadedLevelID());
         int message_id;
 
         if (action_state == 2) {
@@ -2021,7 +2021,7 @@ void Trigger::RunDestination(const char* destination)
     }
 
     ResetInactiveLevelDataVectors();
-    current_location = GetLoadedLevelID();
+    current_location = GetRequiredLoadedLevelID();
     location_id = current_location;
     named_entity =
         FindEntityByName(destination, &destination_position, &angle, &destination_direction);
@@ -3312,7 +3312,7 @@ std::optional<int> GetLocationVarIDByName(const char* name)
 {
     const auto found = std::find_if(location_variables.begin(), location_variables.end(),
                                     [name](const auto& variable) {
-                                        return variable.level == GetLoadedLevelID() &&
+                                        return variable.level == GetRequiredLoadedLevelID() &&
                                                SDL_strcasecmp(variable.name.c_str(), name) == 0;
                                     });
     if (found == location_variables.end()) return std::nullopt;
@@ -3326,7 +3326,7 @@ void CreateLocationVar(const char* name, int value)
     if (GetLocationVarIDByName(name)) return;
     if (location_variables.size() >= std::numeric_limits<std::int32_t>::max())
         throw std::length_error("Too many location variables");
-    location_variables.push_back({name, value, GetLoadedLevelID()});
+    location_variables.push_back({name, value, GetRequiredLoadedLevelID()});
 }
 
 // FUNCTION: WIZ8 0x004440d0
@@ -3343,7 +3343,7 @@ void SaveLocationVariables(wiz8::File& handle,
                            std::span<const std::pair<std::string, int>> script_state)
 {
     auto snapshot = location_variables;
-    const int current_level = GetLoadedLevelID();
+    const int current_level = GetRequiredLoadedLevelID();
     for (const auto& [name, value] : script_state) {
         const auto found = std::ranges::find_if(snapshot, [&](const auto& variable) {
             return variable.level == current_level &&

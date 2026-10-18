@@ -186,7 +186,8 @@ void RunSearchPulse(void)
                                 int message = searchable->trigger->m_lData1;
                                 found = true;
                                 if (message >= 0) {
-                                    const char* folder = GetLevelFolderName(GetLoadedLevelID());
+                                    const char* folder =
+                                        GetLevelFolderName(GetRequiredLoadedLevelID());
                                     if (folder == 0) {
                                         folder = "Test";
                                     }

@@ -101,7 +101,7 @@ bool PleaseWaitScreenEnter(void)
             g_load_descriptor->name = g_current_screen_state.name;
             break;
         case W8_PLEASE_WAIT_SAVE_GAME:
-            g_load_descriptor->parameter = GetLoadedLevelID();
+            g_load_descriptor->parameter = GetRequiredLoadedLevelID();
             g_load_descriptor->name = g_current_screen_state.name;
             g_load_descriptor->previous_save_name = g_current_screen_state.previous_save_name;
             g_load_descriptor->save_screenshot = g_current_screen_state.save_screenshot;

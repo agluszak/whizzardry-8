@@ -431,7 +431,7 @@ void ApplyConditionModifiers(W8Character* character, const unsigned int* conditi
                                        W8_DEPENDENCE_SWALLOWED)) {
                 W8MonsterInfo* bound;
                 if (character->conditions[W8_DEPENDENCE_SWALLOWED].level_acquired ==
-                        GetLoadedLevelID() &&
+                        GetRequiredLoadedLevelID() &&
                     (bound = FindMonster(
                          character->conditions[W8_DEPENDENCE_SWALLOWED].source_monster)) != 0) {
                     W8MonsterRecord* monster = GetMonsterDataForInfo(bound);

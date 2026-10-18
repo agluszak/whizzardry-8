@@ -783,7 +783,7 @@ void CopyCurrentGameChunks(W8Chunk& source, W8Chunk& destination)
 {
     source.ForEachChunk([&](unsigned int id) {
         if (id == W8_CHUNK_LEVEL_STATUS) {
-            if (PeekGroupLevel(source) == GetLoadedLevelID()) return;
+            if (PeekGroupLevel(source) == GetRequiredLoadedLevelID()) return;
         } else if (id != W8_CHUNK_CHARACTER) {
             return;
         }
@@ -871,7 +871,7 @@ try {
 void FillCurrentSaveSlot(W8SaveSlot& slot)
 {
     slot.name.clear();
-    slot.level_id = GetLoadedLevelID();
+    slot.level_id = GetRequiredLoadedLevelID();
     slot.game_time_ms = g_status.game_time_ms;
     slot.game_time_days = g_status.game_time_days;
     slot.iron_man = g_status.iron_man;
@@ -1021,7 +1021,7 @@ static void WriteGame(std::string_view name, const W8SaveScreenshot* screenshot,
         auto snapshot = CaptureStatusForSave(chunks.WriteStream());
         // Normalize transient UI state in the save image, without changing the session.
         if (snapshot.text_line_cursor == 2) snapshot.text_line_cursor = 0;
-        snapshot.resume_level = GetLoadedLevelID();
+        snapshot.resume_level = GetRequiredLoadedLevelID();
         SaveGlobalStatus(&chunks, &snapshot);
     }
     chunks.WriteChunk(W8_CHUNK_GAME_VERSION, [&] {
@@ -1093,7 +1093,8 @@ try {
         W8Chunk source;
         if (!source.OpenRead(wiz8::user_path(path))) return false;
         source.ForEachChunk([&](unsigned int id) {
-            if (id == W8_CHUNK_LEVEL_STATUS && PeekGroupLevel(source) == GetLoadedLevelID()) return;
+            if (id == W8_CHUNK_LEVEL_STATUS && PeekGroupLevel(source) == GetRequiredLoadedLevelID())
+                return;
             RequireSection(transaction.chunks.CopyCurrentChunkFrom(&source), "level status copy");
         });
         source.Close();
@@ -1112,7 +1113,7 @@ bool SaveStatusHeader(W8Chunk* chunks)
 try {
     auto& file = chunks->WriteStream();
     chunks->WriteGroup(W8_CHUNK_LEVEL_STATUS, [&] {
-        chunks->WriteValue(GetLoadedLevelID());
+        chunks->WriteValue(GetRequiredLoadedLevelID());
         chunks->WriteChunk(W8_CHUNK_STATUS_HEADER,
                            [&] { chunks->WriteValue(CaptureStatusHeader()); });
         chunks->WriteChunk(W8_CHUNK_MONSTERS,
@@ -1354,7 +1355,7 @@ void BeginRestoredLevelActivity(W8World& world, W8LoadedLevelStatus* status)
 // FUNCTION: WIZ8 0x00512c40
 void ResetLiveSessionForLoad(void)
 {
-    if (GetLoadedLevelID() != -1) {
+    if (GetLoadedLevelID()) {
         LeaveLevel();
         wiz8::sound::release_cache();
     }

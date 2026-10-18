@@ -324,12 +324,12 @@ static int g_lock_phase;
 // GLOBAL: WIZ8 0x0068F2C0
 static std::unique_ptr<W8LockInteraction> g_lock_interaction;
 /* The selected slot's effective power with spell 0x27. */
-/* A party slot's casting level for a spell it has learned, or -1. */
-static int LearnedSpellPower(int slot, W8SpellId spell)
+/* A party slot's casting level for a spell it has learned. */
+static std::optional<int> LearnedSpellPower(int slot, W8SpellId spell)
 {
     W8Character* character = &g_status.buffers.Char[slot];
     if (!IsPartySlotEligible(slot) || character->spell_learned[spell] != 1) {
-        return -1;
+        return std::nullopt;
     }
     const W8Skill book = GetBestSpellbookSkillForSpell(character, spell, true, false, 7);
     return static_cast<int>(
@@ -447,7 +447,7 @@ void EndLockInteractMode(char suspend)
 static bool CanSelectedCharacterCastKnockKnock()
 {
     const int slot = g_status.selected_character;
-    return LearnedSpellPower(slot, W8_SPELL_KNOCK_KNOCK) > -1 &&
+    return LearnedSpellPower(slot, W8_SPELL_KNOCK_KNOCK).has_value() &&
            CanCharacterCastSpell(&g_status.buffers.Char[slot], W8_SPELL_KNOCK_KNOCK);
 }
 
@@ -458,15 +458,10 @@ static bool CanSelectedCharacterCastKnockKnock()
 static bool CanCastTrapSpell(int slot)
 {
     W8Character* character = &g_status.buffers.Char[slot];
-    return (LearnedSpellPower(slot, W8_SPELL_KNOCK_KNOCK) > -1 ||
-            LearnedSpellPower(slot, W8_SPELL_DIVINE_TRAP) > -1) &&
+    return (LearnedSpellPower(slot, W8_SPELL_KNOCK_KNOCK).has_value() ||
+            LearnedSpellPower(slot, W8_SPELL_DIVINE_TRAP).has_value()) &&
            (CanCharacterCastSpell(character, W8_SPELL_KNOCK_KNOCK) ||
             CanCharacterCastSpell(character, W8_SPELL_DIVINE_TRAP));
-}
-
-static std::optional<int> PercentOrNothing(int value)
-{
-    return value > -1 ? std::optional(value) : std::nullopt;
 }
 
 static std::optional<int> PercentOrNothing(std::optional<int> value)
@@ -2628,11 +2623,11 @@ update_screen:
             RefreshLevelUpReadyNotices();
         }
         if (g_status.selected_character == -1) {
-            int next = GetNextCharacter(1, 1, -1);
-            if (next == -1) {
+            const auto next = GetNextCharacter(1, 1, -1);
+            if (!next) {
                 srAssertFail("iNextChar != BAD_INDEX", __FILE__, 0x1047, 0);
             }
-            SelectPartyCharacter(next);
+            SelectPartyCharacter(*next);
         }
     }
     if (!IsScreenTransitionPending() && (!gXStatus.world_paused || gXStatus.fCombatMode)) {
@@ -2696,7 +2691,7 @@ bool MainGameScreenLeave(int leaving)
     CloseMainGameOverlays();
 
     if (static_cast<unsigned char>(leaving)) {
-        if (GetLoadedLevelID() != -1) {
+        if (GetLoadedLevelID()) {
             UnloadSkyWorld();
             LeaveLevel();
         }
@@ -5434,7 +5429,7 @@ void OpenAutomapScreen(void)
    whatever watches it knows. */
 bool LoadCurrentLevelData(void)
 {
-    if (GetLoadedLevelID() != -1) {
+    if (GetLoadedLevelID()) {
         SetTargetCursor(W8_CURSOR_MAP_LOAD);
         g_world_cleanup_flag = true;
         UnloadSkyWorld();

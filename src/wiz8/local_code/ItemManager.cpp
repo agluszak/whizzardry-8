@@ -898,7 +898,6 @@ unsigned char AdvanceFallingWorldItem(W8WorldItem* item)
     float ground;
     float previous_y;
     float dt;
-    int sector;
 
     if (!ItemHasFlags(item, W8_WORLD_ITEM_FALLING)) {
         return 0;
@@ -921,15 +920,15 @@ unsigned char AdvanceFallingWorldItem(W8WorldItem* item)
         return 0;
     }
 
-    sector = GetWorldOctree()->current_prop;
-    if (sector != item->sector_id) {
+    const auto sector = GetWorldOctree()->current_prop;
+    if ((sector && *sector != item->sector_id) || (!sector && item->sector_id >= 0)) {
         if (item->sector_id >= 0) {
             RemoveItemFromSector(item->sector_id, item);
         }
-        if (sector >= 0) {
-            AddItemToSector(sector, item);
+        if (sector) {
+            AddItemToSector(*sector, item);
         }
-        item->sector_id = sector;
+        item->sector_id = sector ? *sector : -1;
     }
 
     if (previous_y <= ground) {
@@ -958,7 +957,6 @@ unsigned char SettleWorldItem(W8WorldItem* item)
 {
     glm::vec3 start;
     bool hit;
-    int sector;
 
     start = glm::vec3(item->position.x, item->position.y + kWorldScale, item->position.z);
 
@@ -972,15 +970,15 @@ unsigned char SettleWorldItem(W8WorldItem* item)
         return 0;
     }
 
-    sector = GetWorldOctree()->current_prop;
-    if (sector != item->sector_id) {
+    const auto sector = GetWorldOctree()->current_prop;
+    if ((sector && *sector != item->sector_id) || (!sector && item->sector_id >= 0)) {
         if (item->sector_id >= 0) {
             RemoveItemFromSector(item->sector_id, item);
         }
-        if (sector >= 0) {
-            AddItemToSector(sector, item);
+        if (sector) {
+            AddItemToSector(*sector, item);
         }
-        item->sector_id = sector;
+        item->sector_id = sector ? *sector : -1;
     }
     if (item->p3D != 0) {
         item->p3D->SetLocation(&start);

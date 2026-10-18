@@ -234,6 +234,7 @@ TEST_CASE("Failed resource construction preserves the active worlds and allows r
         DetachAllWorldItems();
     }
     ReplaceWorld(nullptr);
+    REQUIRE_FALSE(GetLoadedLevelID());
     ReplaceSkyWorld(nullptr);
 }
 

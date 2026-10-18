@@ -370,7 +370,8 @@ void ResetAutomapView(void)
     }
     ClearAutomapNotes();
     g_automap_redraw = true;
-    if (GetLoadedLevelID() == 0x18 || (GetLoadedLevelID() > 0x1a && GetLoadedLevelID() <= 0x22)) {
+    if (GetRequiredLoadedLevelID() == 0x18 ||
+        (GetRequiredLoadedLevelID() > 0x1a && GetRequiredLoadedLevelID() <= 0x22)) {
         g_automap_range = 30000.0f;
     } else {
         g_automap_range = 10000.0f;
@@ -672,11 +673,12 @@ bool AutomapScreenEnter(void)
         std::vector<std::string_view> excluded_textures;
         int line = 0;
         int section = -1;
-        while (section < GetLoadedLevelID() && line < static_cast<int>(script.lines.size())) {
+        while (section < GetRequiredLoadedLevelID() &&
+               line < static_cast<int>(script.lines.size())) {
             if (script.lines[line].text.contains('[')) ++section;
             ++line;
         }
-        if (line < static_cast<int>(script.lines.size()) && section == GetLoadedLevelID()) {
+        if (line < static_cast<int>(script.lines.size()) && section == GetRequiredLoadedLevelID()) {
             for (; line < static_cast<int>(script.lines.size()); ++line) {
                 const auto& text = script.lines[line].text;
                 if (text.contains('[')) break;

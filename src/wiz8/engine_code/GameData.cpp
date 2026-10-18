@@ -953,18 +953,18 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
    vector's "no value" here, and Controls.cpp's own range start. Neither is
    proven, so it keeps its address. */
 /* Run the buffered prop id list through TestProp and report the id of the
-   last prop that hit; an empty list reports -1. */
+   last prop that hit, if any. */
 // FUNCTION: WIZ8 0x0041c0d0
-int W8GameData::TestPropSurfaces(int count, w8_ulong* ids, W8OctreeTrace* trace, char skip_flag,
-                                 char gate)
+std::optional<int> W8GameData::TestPropSurfaces(int count, w8_ulong* ids, W8OctreeTrace* trace,
+                                                char skip_flag, char gate)
 {
-    int last_hit = -1;
+    std::optional<int> last_hit;
     if (count == 0) {
-        return -1;
+        return std::nullopt;
     }
     do {
         if (TestProp(*ids, trace, skip_flag, gate)) {
-            last_hit = *ids;
+            last_hit = static_cast<int>(*ids);
         }
         ++ids;
         --count;

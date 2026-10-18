@@ -327,7 +327,7 @@ retry:
 }
 
 // FUNCTION: WIZ8 0x00518230
-int GetNextCharacter(int require_primary, int require_secondary, int previous_slot)
+std::optional<int> GetNextCharacter(int require_primary, int require_secondary, int previous_slot)
 {
     int start_slot = (previous_slot + 1) % 8;
     W8Character* characters = g_status.buffers.Char;
@@ -365,7 +365,7 @@ retry:
         require_primary = 2;
         goto retry;
     }
-    return -1;
+    return std::nullopt;
 }
 
 // FUNCTION: WIZ8 0x005182e0

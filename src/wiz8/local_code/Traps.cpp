@@ -111,7 +111,7 @@ void WriteRecordModeEntry(void)
         line = fmt::format("{:f} {:f} {:f} {:f} {:f} {:d}\n", state.yaw[0], state.yaw[1],
                            state.yaw[2], state.yaw[3], state.yaw[4], 0);
         file->write(line.data(), line.size());
-        if (GetLevelLocationCode(GetLoadedLevelID(), location_code) == 0) {
+        if (GetLevelLocationCode(GetRequiredLoadedLevelID(), location_code) == 0) {
             strcpy(location_code, s_record_mode_default_location);
         }
         length = strlen(location_code);

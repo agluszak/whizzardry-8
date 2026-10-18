@@ -293,9 +293,9 @@ struct W8GameData {
     /* 1-based ordinal of the interface_names entry whose name matches, else -1. */
     int FindPointerByName(const char* name); /* 0x004482A0 */
     /* Loop the buffered prop ids through TestProp and return the id of the
-       last prop that reported a hit, or -1. */
-    int TestPropSurfaces(int count, w8_ulong* ids, W8OctreeTrace* trace, char skip_flag,
-                         char gate); /* 0x0041C0D0 */
+       last prop that reported a hit, if any. */
+    std::optional<int> TestPropSurfaces(int count, w8_ulong* ids, W8OctreeTrace* trace,
+                                        char skip_flag, char gate); /* 0x0041C0D0 */
     /* Ray-test one collidable prop: swaps the prop's surface/vertex arrays
        into this context, traces in prop-local space through the prop's
        position delta (reseeding the caller's record

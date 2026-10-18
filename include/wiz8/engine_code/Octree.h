@@ -370,9 +370,8 @@ public:
     std::vector<bool> m_visible_props;
     std::vector<W8Prop*> m_props;
     std::vector<stParticle*> m_particles;
-    /* Registered prop id the last prop trace or test_props snap hit; -1 when
-       the ground resolve touched only static geometry. */
-    int current_prop;
+    /* Registered prop id the last prop trace or test_props snap hit, if any. */
+    std::optional<int> current_prop;
     w8_ulong m_gd_surface_stream_len;
     w8_ulong m_trigger_count;
     std::vector<w8_ulong> m_gd_surface_index_stream;
@@ -438,6 +437,6 @@ extern bool g_render_cull_front;
    and the frame clear path uses a zero clear-depth while this is set. */
 extern bool g_render_untextured;
 
-int CheckLevelAssetSet(const char* level_path);
+bool CheckLevelAssetSet(const char* level_path);
 
 w8_ulong* PackColourToLong(w8_ulong* color, double alpha, double red, double green, double blue);

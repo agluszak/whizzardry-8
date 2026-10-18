@@ -216,7 +216,8 @@ void ResetForNewGame(void)
         ++id;
     } while (id < g_starting_item_ids + 6);
     g_status.party_gold = 500;
-    g_status.selected_character = GetNextCharacter(1, 1, -1);
+    const auto first_character = GetNextCharacter(1, 1, -1);
+    g_status.selected_character = first_character ? *first_character : -1;
     InitializePartyFormation(&g_status.formation);
     for (index = 0; index < 8; ++index) {
         g_status.party_order_slots[index] = 0xffffffff;

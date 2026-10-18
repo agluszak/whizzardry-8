@@ -902,7 +902,7 @@ fs::path QuickSave(Game& game)
     game.command(W8_MGS_COMMAND_QUICK_SAVE);
     const auto saves = SaveFiles(game.user_root());
     REQUIRE((saves.size() == 1 && fs::file_size(saves[0]) > 0));
-    REQUIRE(GetSaveGameLevel(saves[0].stem().string().c_str()) == int(GetLoadedLevelID()));
+    REQUIRE(GetSaveGameLevel(saves[0].stem().string().c_str()) == GetRequiredLoadedLevelID());
     return saves[0];
 }
 
@@ -1445,7 +1445,7 @@ void ResourceLifecycleScenario()
     // painting and toggling the journal must ignore them without deleting them.
     const auto journal_size = g_fact_journal_entries.size();
     const auto invalid_fact = static_cast<W8FactId>(-1);
-    g_fact_journal_entries.push_back({GetLoadedLevelID(), invalid_fact, false});
+    g_fact_journal_entries.push_back({GetRequiredLoadedLevelID(), invalid_fact, false});
     game.command(W8_MGS_COMMAND_JOURNAL);
     game.wait_screen("journal", W8_SCREEN_JOURNAL);
     REQUIRE(g_screen_return_stack.size() == return_depth + 1);
@@ -1470,7 +1470,7 @@ void ResourceLifecycleScenario()
     REQUIRE(g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS);
     REQUIRE((GetWorld() && GetWorld()->level));
 
-    const int level = GetLoadedLevelID();
+    const int level = GetRequiredLoadedLevelID();
     const auto anchor = Walk(game, "settle-before-save", 2.0f);
     QuickSave(game);
     { // One save/load cycle covers eviction, reconstruction and live teardown.
@@ -1518,7 +1518,7 @@ void WriteSaveFixture(const fs::path& output, const fs::path& save, const glm::v
     fs::copy_file(save, output / "fixture.SAV", fs::copy_options::overwrite_existing);
     std::ofstream metadata(output / "fixture.txt");
     metadata << std::setprecision(std::numeric_limits<float>::max_digits10) << anchor.x << ' '
-             << anchor.y << ' ' << anchor.z << ' ' << GetLoadedLevelID() << ' '
+             << anchor.y << ' ' << anchor.z << ' ' << GetRequiredLoadedLevelID() << ' '
              << g_status.buffers.Char[PremadeSlot()].experience << ' '
              << g_status.buffers.Char[PremadeSlot()].hp_current << '\n';
     metadata.close();
@@ -1554,7 +1554,7 @@ void QuickSaveScenario()
     Game game(false);
     StartPremadeGame(game);
     const glm::vec3 anchor = Walk(game, "walk", 2.0f);
-    const int level = GetLoadedLevelID();
+    const int level = GetRequiredLoadedLevelID();
     const unsigned experience = g_status.buffers.Char[PremadeSlot()].experience;
     const auto health = g_status.buffers.Char[PremadeSlot()].hp_current;
     REQUIRE(health > 1);

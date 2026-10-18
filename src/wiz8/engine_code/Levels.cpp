@@ -79,9 +79,18 @@ W8World* GetSecondaryWorld()
 {
     return sky_world.get();
 }
-int GetLoadedLevelID()
+std::optional<int> GetLoadedLevelID()
 {
-    return primary_world ? primary_world->level_id : -1;
+    if (!primary_world) return std::nullopt;
+    return primary_world->level_id;
+}
+
+int GetRequiredLoadedLevelID()
+{
+    if (!primary_world) {
+        srAssertFail("primary_world", __FILE__, 0x56, 0);
+    }
+    return primary_world->level_id;
 }
 
 std::unique_ptr<W8World> ReplaceWorld(std::unique_ptr<W8World> world)
@@ -168,8 +177,8 @@ char GetLevelBand(int saved_level)
 void StartLevelMusic(int fade, int replace_current)
 {
     const auto level = GetLoadedLevelID();
-    const std::string playlist = level >= 0 && level < W8_LEVEL_COUNT
-                                     ? std::string(g_level_folders[level].level_name) + ".MPL"
+    const std::string playlist = level && *level >= 0 && *level < W8_LEVEL_COUNT
+                                     ? std::string(g_level_folders[*level].level_name) + ".MPL"
                                      : "Adventure.MPL";
     const auto path = std::filesystem::path("Data") / "Music" / wiz8::path_from_utf8(playlist);
     const auto status = wiz8::file_status(wiz8::asset_path(wiz8::path_to_utf8(path)));
@@ -529,8 +538,8 @@ static void FinishLevelDeparture()
         CreateLocationVar(name.c_str(), value);
         SetTriggerVariableByName(name.c_str(), value);
     }
-    if (GetLoadedLevelID() >= 0 && GetLoadedLevelID() < W8_LEVEL_COUNT) {
-        g_status.level_progress[GetLoadedLevelID()].sight_clock = g_status.world_clock;
+    if (const auto level = GetLoadedLevelID(); level && *level >= 0 && *level < W8_LEVEL_COUNT) {
+        g_status.level_progress[*level].sight_clock = g_status.world_clock;
     }
 }
 

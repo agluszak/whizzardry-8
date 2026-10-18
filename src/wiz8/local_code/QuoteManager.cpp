@@ -767,7 +767,7 @@ unsigned char W8CharacterEvent::Dispatch()
                 return 1;
             }
             if (npc->name_style == W8_NPC_VI_DOMINA && event_type > 0x8b && event_type < 0x92 &&
-                GetLoadedLevelID() != 0) {
+                GetRequiredLoadedLevelID() != 0) {
                 return 0;
             }
             if ((flags & W8_EVENT_NPC_SCRIPT) != 0) {

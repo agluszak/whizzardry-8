@@ -2454,7 +2454,7 @@ void PumpReviewTransition(void)
         }
         g_ending_autosave = false;
     }
-    if (GetLoadedLevelID() != -1) {
+    if (GetLoadedLevelID()) {
         LoadCurrentLevelData();
     }
     exit_review = false;

@@ -402,8 +402,9 @@ done:
                                   (monster_info->ubDisposition == W8_DISPOSITION_FRIENDLY &&
                                    monster_info->uiCondition[W8_CONDITION_TURNCOAT] != 0))) {
         ++g_combat_state->combat_result;
-        if (GetLoadedLevelID() >= 0 && GetLoadedLevelID() < W8_LEVEL_COUNT) {
-            ++g_status.level_progress[GetLoadedLevelID()].monster_kill_count;
+        if (const auto level = GetLoadedLevelID();
+            level && *level >= 0 && *level < W8_LEVEL_COUNT) {
+            ++g_status.level_progress[*level].monster_kill_count;
         }
         if (killer_party_slot != -1) {
             W8Character* killer = &g_status.buffers.Char[killer_party_slot];

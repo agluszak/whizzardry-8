@@ -110,7 +110,7 @@ void InitializeFactJournal(void)
 void RecordFactChangeForJournal(W8FactId fact_id)
 {
     W8JournalEntry entry;
-    entry.level = GetLoadedLevelID();
+    entry.level = GetRequiredLoadedLevelID();
     entry.fact = fact_id;
     entry.alternate_text = GetFact(fact_id) != 0;
     g_fact_journal_entries.push_back(entry);

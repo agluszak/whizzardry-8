@@ -1585,7 +1585,7 @@ GroundProbe W8Octree::settleToGround(const glm::vec3& input, bool test_props, fl
 
     m_gd_result_count = 0;
     if (test_props != 0) {
-        current_prop = -1;
+        current_prop.reset();
     }
     std::ranges::fill(m_visited_object_bits, false);
     if (m_spatial.m_clipped_bounds.maximum.y < position.y) {
@@ -1607,10 +1607,10 @@ GroundProbe W8Octree::settleToGround(const glm::vec3& input, bool test_props, fl
                 w8_ulong before = m_gd_result_count;
                 CollectObjectsInCell(cell, W8_OCTREE_KIND_PROP);
                 if (m_gd_result_count != before) {
-                    int prop = owner_world->game_data->TestPropSurfaces(
+                    const auto prop = owner_world->game_data->TestPropSurfaces(
                         m_gd_result_count, m_aulGDObjs.data(), &trace, 0, 0);
                     current_prop = prop;
-                    if (prop >= 0) {
+                    if (prop) {
                         prop_hit = true;
                     }
                 }
@@ -1633,7 +1633,7 @@ GroundProbe W8Octree::settleToGround(const glm::vec3& input, bool test_props, fl
                     trace.reset(start, end);
                 }
             } else if (prop_hit) {
-                current_prop = -1;
+                current_prop.reset();
             }
             owner_world->game_data->trace_flag4_gate = false;
         } while (-1 < cell.y);
@@ -2039,10 +2039,10 @@ W8Octree::traceProps(const glm::vec3& from, const glm::vec3& to, int skip_flag, 
         });
     current_prop = owner_world->game_data->TestPropSurfaces(m_gd_result_count, m_aulGDObjs.data(),
                                                             &trace, skip_flag, gate);
-    if (current_prop < 0) {
+    if (!current_prop) {
         return std::nullopt;
     }
-    return PropTraceHit{trace.end, current_prop};
+    return PropTraceHit{trace.end, *current_prop};
 }
 
 /* The cell probes share one lookup: bounds-check the cell against the grid,
@@ -2455,14 +2455,14 @@ W8Octree::W8Octree(const char* path, std::unique_ptr<W8GameData>* game_data, W8W
 }
 
 // Installed assets are already prepared. Missing OCT/PVL falls back to LVL.
-int CheckLevelAssetSet(const char* level_path)
+bool CheckLevelAssetSet(const char* level_path)
 {
     if (std::string_view(level_path).find("Sky") != std::string_view::npos ||
         std::string_view(level_path).find("sky") != std::string_view::npos)
-        return -1;
+        return false;
     auto pvl = wiz8::asset_path(level_path);
     pvl.replace_extension(".pvl");
-    return wiz8::file_status(wiz8::asset_path(level_path)) && wiz8::file_status(pvl) ? 0 : -1;
+    return wiz8::file_status(wiz8::asset_path(level_path)) && wiz8::file_status(pvl);
 }
 
 /* Reset the owned tables and query state before applying an OCT header.
@@ -2522,7 +2522,7 @@ void W8Octree::Reset()
     m_sun_count = 0;
     prop_sun_base = 0;
     m_ulNumProps = 0;
-    current_prop = -1;
+    current_prop.reset();
 }
 
 /* ReadOctFile calls this after Reset. The 0xf5-byte packed record has one

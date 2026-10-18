@@ -88,7 +88,7 @@ void UpdateCameraPathState(W8World* world, W8CameraPath* path, int active)
     ApplyCameraRotation(&rotation);
     path->active = false;
     SetEnvironmentLoadFlag(g_saved_environment_flag);
-    if (GetLoadedLevelID() == 1) {
+    if (GetRequiredLoadedLevelID() == 1) {
         if (SDL_strcasecmp(path->name0, "Camera01") == 0) {
             g_npc_dialogue.Queue(W8NpcPortraitString{0x721});
             g_npc_dialogue.Queue(W8NpcStoryAction::path2_trigger);
@@ -127,7 +127,7 @@ void UpdateCameraPathState(W8World* world, W8CameraPath* path, int active)
         }
         return;
     }
-    if (GetLoadedLevelID() == 4 && SDL_strcasecmp(path->name0, "CameraPath2") != 0) {
+    if (GetRequiredLoadedLevelID() == 4 && SDL_strcasecmp(path->name0, "CameraPath2") != 0) {
         if (SDL_strcasecmp(path->name0, "CameraPath3") == 0) {
             ClearMainGameTargetState();
             group = FindFirstMonsterByID(0x1b4);

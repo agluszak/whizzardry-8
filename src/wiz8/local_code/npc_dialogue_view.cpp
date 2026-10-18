@@ -283,7 +283,7 @@ static void FinishNpcVoicePlayback(bool resume_script)
 // FUNCTION: WIZ8 0x00525D90
 void TryFinishNpcVoicePlayback(bool force)
 {
-    if (g_status.world_cursor_gate == 0 || GetLoadedLevelID() != 4) {
+    if (g_status.world_cursor_gate == 0 || GetRequiredLoadedLevelID() != 4) {
         if (!force && w8_get_ticks() - g_speech.voice_started_at <= 500) {
             return;
         }

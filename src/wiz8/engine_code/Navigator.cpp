@@ -864,7 +864,7 @@ glm::vec3* W8Navigator::AdjustPosition(glm::vec3* result, const glm::vec3* curre
         hit = ground_probe.hit;
         float ground = ground_probe.position.y;
         if (hit) {
-            if (octree.current_prop < 0) {
+            if (!octree.current_prop) {
                 movement.position_adjusted = false;
             } else {
                 movement.position_adjusted = true;
