@@ -59,7 +59,7 @@ public:
 
     srModelInstance* ToggleAnimation(int argument); /* 0x0044BA00 */
     unsigned char SelectAnimationSlot(unsigned char tag);
-    int FindCurrentAnimationSlot(); /* 0x0044BAE0 */
+    std::optional<int> FindCurrentAnimationSlot(); /* 0x0044BAE0 */
     unsigned char AdvanceAnimationSegment();
     /* CreateAndLoadProp loads m_pRep into ECX, then passes (pInfo, pProp). */
     bool LoadProp(W8ReadLevelInfo* info, W8Prop* prop); /* 0x0044AEE0 */
@@ -142,7 +142,7 @@ public:
        type-10 action payload naming item). */
     bool TriggerRequiresItem(); /* 0x0044E380 */
     /* The prop's current animation value; -1 when it has none. */
-    int GetAnimationState() const; /* 0x0044EBE0 */
+    std::optional<int> GetAnimationState() const; /* 0x0044EBE0 */
     void AttachAnimationInstances(W8World* world);
     /* Raw activation byte, also persisted in prop animation state. */
     unsigned char GetActivationState();

@@ -35,11 +35,9 @@ static void DisableBellTrigger(const char* name, int line)
 bool Monastery2BellButton(Trigger* pTrigger)
 {
     W8Prop* prop;
-    int slot;
-
     prop = FindPropByName(GetWorld(), "dial1");
     if (prop != 0) {
-        slot = prop->Rep()->FindCurrentAnimationSlot();
+        const auto slot = prop->Rep()->FindCurrentAnimationSlot();
         if (slot == 0) {
             wiz8::sound::play("Data\\Sound\\Ambients\\Mon2Bell1.wav");
         } else if (slot == 1) {

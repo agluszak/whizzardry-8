@@ -749,8 +749,10 @@ void UpdateWorldTriggers(W8World* world)
     int count = static_cast<int>(world->triggers.size());
     for (int index = 0; index < count; ++index) {
         Trigger* trigger = world->triggers[index].get();
+        const auto animation_state =
+            trigger->m_pProp ? trigger->m_pProp->GetAnimationState() : std::nullopt;
         if ((trigger->flags & W8_TRIGGER_ITEM_PICKER) != 0 && trigger->m_pProp != 0 &&
-            (trigger->m_pProp->GetAnimationState() < 2 ||
+            (!animation_state || *animation_state < 2 ||
              trigger->m_pProp->Rep()->animation_playing == 0)) {
             trigger->GenerateItemGroup();
             if (g_modal_owner == 0 && trigger->world_item_group != 0) {

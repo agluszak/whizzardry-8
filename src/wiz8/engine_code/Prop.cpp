@@ -373,7 +373,7 @@ unsigned char W8PropRepresentation::SelectAnimationSlot(unsigned char tag)
    own leading byte rather than used as an index, so the slots need not be in
    tag order. */
 // FUNCTION: WIZ8 0x0044bae0
-int W8PropRepresentation::FindCurrentAnimationSlot()
+std::optional<int> W8PropRepresentation::FindCurrentAnimationSlot()
 {
     int index;
 
@@ -382,7 +382,7 @@ int W8PropRepresentation::FindCurrentAnimationSlot()
             return index;
         }
     }
-    return -1;
+    return std::nullopt;
 }
 
 // FUNCTION: WIZ8 0x0044bb20
@@ -1562,13 +1562,13 @@ fail_with_result:
 /* The prop representation's current animation value, or -1 while it owns no
    animation. */
 // FUNCTION: WIZ8 0x0044ebe0
-int W8Prop::GetAnimationState() const
+std::optional<int> W8Prop::GetAnimationState() const
 {
     const W8AnimObj* animation = Rep()->Animation();
     if (animation != 0) {
         return static_cast<int>(AnimObjValue(animation, 2));
     }
-    return -1;
+    return std::nullopt;
 }
 
 /* Every model instance the representation's animation can display: one per
