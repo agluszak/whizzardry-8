@@ -1174,12 +1174,10 @@ void StartMonsterCycle(W8MonsterInfo* monster_info, int cycle, int behavior)
     W8Monster* monster = monster_info->p3D;
     unsigned char pending;
     std::string detail;
-    int line;
 
     if (static_cast<signed char>(behavior) == W8_ANIMATION_NEVER_STOP &&
         !monster->IsCycleInterruptable(static_cast<signed char>(cycle))) {
         detail = "Trying to set a NEVER_STOP behaviour with an uninterruptable cycle!";
-        line = 0x46f;
     } else {
         pending = monster->m_pRep->pending_cycle;
         if (gXStatus.fCombatMode) {
@@ -1209,7 +1207,6 @@ void StartMonsterCycle(W8MonsterInfo* monster_info, int cycle, int behavior)
             return;
         }
         detail.clear();
-        line = 0x4a4;
     }
     Fail("FALSE", detail);
 }
