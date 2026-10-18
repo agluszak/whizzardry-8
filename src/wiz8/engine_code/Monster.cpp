@@ -1969,7 +1969,7 @@ void W8Monster::ProcessScript()
                 }
                 break;
             case MONSCR_DISPOSITION: {
-                unsigned char disposition = 0xff;
+                W8Disposition disposition = static_cast<W8Disposition>(0xff);
                 tokens >> token;
                 if (tokens) {
                     if (SDL_strcasecmp(token.c_str(), "DISP_NEUTRAL") == 0)
@@ -1983,8 +1983,7 @@ void W8Monster::ProcessScript()
                         W8MonsterGroup* group =
                             FindMonsterGroup(monster_info->monster_group_id, false);
                         if (group != 0) {
-                            SetMonsterGroupHostility(
-                                group, static_cast<W8Disposition>(disposition), false);
+                            SetMonsterGroupHostility(group, disposition, false);
                         }
                     }
                 }
