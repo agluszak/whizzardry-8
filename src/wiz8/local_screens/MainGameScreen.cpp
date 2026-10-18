@@ -5265,9 +5265,9 @@ UiResult MonsterListInput(const UiPointerEvent& event)
 {
     if (event.action != UiPointerAction::Up || event.captured_buttons)
         PlayButtonSound(event.action);
-    int row = -1;
+    std::optional<int> row;
     W8MonsterGroup* group = 0;
-    int group_id = -1;
+    std::optional<int> group_id;
 
     if (event.action != UiPointerAction::Leave && !gXStatus.fNpcDialogueMode &&
         gXStatus.iTargetingMode != W8_TARGET_NEED_PLACE &&
@@ -5276,9 +5276,9 @@ UiResult MonsterListInput(const UiPointerEvent& event)
         CurrentLevelPopulation().monster_roster.hasActiveMonsters() && !IsWorldCursorVisible() &&
         !g_mouselook_active) {
         row = (event.local.y) / 0xb;
-        group = GetLiveMonsterGroupAtIndex(row);
+        group = GetLiveMonsterGroupAtIndex(*row);
         if (group == 0) {
-            row = -1;
+            row.reset();
         } else {
             group_id = group->group_id;
         }
@@ -5290,7 +5290,7 @@ UiResult MonsterListInput(const UiPointerEvent& event)
     }
     if (event.button == UiPointerButton::Left && event.action == UiPointerAction::Up) {
         if ((event.captured_buttons & SDL_BUTTON_LMASK) != 0 && g_status.selected_character != -1 &&
-            group_id != -1 && CurrentCombatSubjectIsValid()) {
+            group_id && CurrentCombatSubjectIsValid()) {
             AimAtMonsterGroupMember(g_status.selected_character, group);
         }
         return UiResult::Handled;
@@ -5300,14 +5300,14 @@ UiResult MonsterListInput(const UiPointerEvent& event)
         return UiResult::Handled;
     }
     if (event.button == UiPointerButton::Right && event.action == UiPointerAction::Up) {
-        if ((event.captured_buttons & SDL_BUTTON_RMASK) != 0 && group_id != -1 && !gpSCSV &&
+        if ((event.captured_buttons & SDL_BUTTON_RMASK) != 0 && group_id && !gpSCSV &&
             !gXStatus.fNpcDialogueMode && !ItemUseDraft() && !gXStatus.fLockInteractMode &&
             !gXStatus.fTrapInteractMode) {
-            ShowMonsterGroupInfoNotice(group_id);
+            ShowMonsterGroupInfoNotice(*group_id);
         }
         return UiResult::Handled;
     }
-    return row == -1 ? UiResult::Handled : UiResult::Pass;
+    return row ? UiResult::Pass : UiResult::Handled;
 }
 
 /* Forget the whole combat selection - what is picked, what it is aimed at, and

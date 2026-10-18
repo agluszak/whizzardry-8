@@ -4,6 +4,7 @@
 #include <array>
 #include <cstring>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -61,7 +62,7 @@ static int g_camp_stats_origin_x;
 /* The skills page row the cursor last hovered, kept so the help
    text only resets on a real change. */
 // GLOBAL: WIZ8 0x0069c524
-static int g_camp_skill_hover_row;
+static std::optional<int> g_camp_skill_hover_row;
 // GLOBAL: WIZ8 0x0069c528
 void DrawCampEffectList(void);
 void DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out);
@@ -705,7 +706,7 @@ void CreateCampSkillRegions(void)
                 return HandleCampSkillList(event, category);
             });
         target.setTooltip(
-            [] { return g_camp_skill_hover_row < 0 ? std::string{} : g_localized_strings[0x958]; });
+            [] { return !g_camp_skill_hover_row ? std::string{} : g_localized_strings[0x958]; });
     }
 }
 
@@ -866,7 +867,7 @@ void DrawCampSkillsPage(void)
 UiResult HandleCampSkillList(const UiPointerEvent& event, W8SkillCategory category)
 {
     int row = (event.local.y - 1) / 0xe;
-    int skill = -1;
+    std::optional<int> skill;
     int occurrence = 0;
     for (int index = 0; index < 0x29; ++index) {
         if (g_skill_attributes[index].category == category &&
@@ -882,7 +883,7 @@ UiResult HandleCampSkillList(const UiPointerEvent& event, W8SkillCategory catego
 
     if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Move ||
         event.action == UiPointerAction::Leave) {
-        const int hover = event.inside && skill != -1 ? row : -1;
+        const auto hover = event.inside && skill ? std::optional(row) : std::nullopt;
         if (hover != g_camp_skill_hover_row) {
             ResetUiHelp(true);
             g_camp_skill_hover_row = hover;
@@ -890,16 +891,18 @@ UiResult HandleCampSkillList(const UiPointerEvent& event, W8SkillCategory catego
     }
     if (event.action == UiPointerAction::Up && event.inside &&
         event.button == UiPointerButton::Right && (event.captured_buttons & SDL_BUTTON_RMASK) &&
-        skill != -1) {
-        AfterUiDispatch([skill] {
+        skill) {
+        const int selected_skill = *skill;
+        AfterUiDispatch([selected_skill] {
             bool best = false;
-            if (g_status.game_started && g_review_character->skills[skill].level != 0) {
-                best = IsBestCampSkillLevel(static_cast<W8Skill>(skill),
-                                            g_review_character->skills[skill].level);
+            if (g_status.game_started && g_review_character->skills[selected_skill].level != 0) {
+                best = IsBestCampSkillLevel(static_cast<W8Skill>(selected_skill),
+                                            g_review_character->skills[selected_skill].level);
             }
             auto dialog = std::make_unique<W8SkillInfoDialog>(
-                static_cast<W8Skill>(skill), best, !g_review_character->skills[skill].active,
-                skill == g_profession_bonus_skills[g_review_character->iProfession]);
+                static_cast<W8Skill>(selected_skill), best,
+                !g_review_character->skills[selected_skill].active,
+                selected_skill == g_profession_bonus_skills[g_review_character->iProfession]);
             DisplayCampDialog(std::move(dialog));
         });
     }

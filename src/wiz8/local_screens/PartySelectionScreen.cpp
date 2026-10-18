@@ -301,8 +301,8 @@ public:
     bool m_redraw_backdrop = true;
     bool summary_dirty = true, rows_dirty = true, slots_dirty = true;
     bool list_dirty = true, options_dirty = true;
-    int m_selected_row = 0, selected_slot = -1, hovered_row = -1, hovered_slot = -1;
-    int import_selection = 0, import_hovered = -1, import_first = 0;
+    int m_selected_row = 0, import_selection = 0, import_first = 0;
+    std::optional<int> selected_slot, hovered_row, hovered_slot, import_hovered;
     int difficulty = g_settings.difficulty;
     W8PartyCreationPage creation_page = W8_PARTY_CREATION_OPTIONS;
     W8RangeControl m_range{input, 0x1e9, 0x31, 0x1fb, 0x12b};
@@ -695,7 +695,8 @@ void W8PartySelectionController::Setup()
                     PlayButtonSound(event.action);
                 if (event.action == UiPointerAction::Enter ||
                     event.action == UiPointerAction::Leave) {
-                    hovered_row = event.action == UiPointerAction::Enter ? row : -1;
+                    if (event.action == UiPointerAction::Enter) hovered_row = row;
+                    else hovered_row.reset();
                     rows_dirty = true;
                 } else if (event.action == UiPointerAction::Wheel)
                     m_range.AdjustValue(event.wheel);
@@ -724,7 +725,8 @@ void W8PartySelectionController::Setup()
                     PlayButtonSound(event.action);
                 if (event.action == UiPointerAction::Enter ||
                     event.action == UiPointerAction::Leave) {
-                    hovered_slot = event.action == UiPointerAction::Enter ? row : -1;
+                    if (event.action == UiPointerAction::Enter) hovered_slot = row;
+                    else hovered_slot.reset();
                     slots_dirty = true;
                 } else if ((event.action == UiPointerAction::Up && event.inside &&
                             (event.captured_buttons &
@@ -764,7 +766,7 @@ void W8PartySelectionController::Setup()
         if (event.action != UiPointerAction::Up || event.captured_buttons)
             PlayButtonSound(event.action);
         if (event.action == UiPointerAction::Leave)
-            import_hovered = -1;
+            import_hovered.reset();
         else if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Move)
             import_hovered = event.local.y / 14 + import_first;
         else if (event.action == UiPointerAction::Up && event.button == UiPointerButton::Left &&
@@ -904,7 +906,7 @@ void W8PartySelectionController::SetSelection(int selection, bool party_slot, bo
     if (!party_slot) {
         if (m_mode == W8_PARTY_SELECT_CHARACTERS) {
             m_character = g_party_selection_character_collection->GetCharacter(selection);
-            int selected_slot = -1;
+            std::optional<int> selected_slot;
             if (m_character && m_character->fInParty) {
                 for (int slot = 0; slot < 6; ++slot) {
                     if (g_status.buffers.XChar[slot + 2].fOccupied &&
@@ -943,7 +945,8 @@ void W8PartySelectionController::SetSelection(int selection, bool party_slot, bo
             SetSelectedRow(character_index);
         }
         if (refresh_other) {
-            selected_slot = selection;
+            if (selection >= 0) selected_slot = selection;
+            else selected_slot.reset();
             slots_dirty = true;
         }
     }
