@@ -1190,7 +1190,7 @@ void CreateLevelButtons()
                  [slot](auto*) {
                      AfterUiDispatch([slot] {
                          g_pending_screen_state.character = &g_status.buffers.Char[slot];
-                         g_pending_screen_state.mode = 2;
+                         g_pending_screen_state.mode = W8_CHARACTER_EDIT;
                          g_pending_screen_state.id = W8_SCREEN_CHARACTER;
                      });
                  },

@@ -79,9 +79,9 @@ void UpdateEnvironmentLighting(void);
    caller lives in a TU owned elsewhere, so the rename waits for it. */
 void SetSkyNodeVisible(bool visible);
 void SetCameraLightIntensity(float value);
-/* Mode 0 raises the camera light's intensity, 1 lowers it, 2 disables the
-   node, 3 re-enables it. */
-void SetCameraLightMode(int mode);
+/* Camera light actions used by SetCameraLightMode. */
+enum class W8CameraLightMode { Increase, Decrease, Disable, Enable };
+void SetCameraLightMode(W8CameraLightMode mode);
 void RefreshFogRanges(W8World& world);
 
 void SetViewDistance(float distance);
@@ -89,12 +89,9 @@ unsigned char InitializeEnvironmentColours(void);
 extern uint64_t g_frame_tick;
 extern float g_frame_elapsed;
 
-/* The environment's lighting mode: 2 while the per-frame day/night cycle runs,
-   1 while a colour transition is in progress and 0 once one has faded the world
-   out. Retail writes it only from the transition bodies at 0x00483FD0 and
-   0x00484300 and reads it from UpdateEnvironment; the exported accessor
-   above still carries the address name. */
-extern int g_environment_lighting_mode;
+/* Whether day/night lighting is active, fading, or faded out. */
+enum class W8EnvironmentLightingMode { FadedOut, Transition, DayNight };
+extern W8EnvironmentLightingMode g_environment_lighting_mode;
 /* 1/duration while the lighting transition body at 0x00484300 runs, zero when
    idle: UpdateEnvironment hands off to that body while it is not zero. */
 extern float g_environment_transition_rate;

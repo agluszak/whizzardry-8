@@ -911,7 +911,8 @@ UiResult HandleCampSkillList(const UiPointerEvent& event, int category)
 // class W8CharacterPersonalityPage
 // FUNCTION: WIZ8 0x005c6460
 void W8CharacterPersonalityPage::SetCharacter(W8Character* character,
-                                              W8CharacterCreationState* creation_state, int mode)
+                                              W8CharacterCreationState* creation_state,
+                                              W8CharacterScreenMode mode)
 {
     W8CharacterPage::SetCharacter(character, creation_state, mode);
     constexpr SDL_Point positions[] = {
@@ -989,7 +990,7 @@ void W8CharacterPersonalityPage::Deactivate()
 // FUNCTION: WIZ8 0x005c6910
 void W8CharacterPersonalityPage::Accept()
 {
-    if (m_mode == 0) {
+    if (m_mode == W8_CHARACTER_CREATE) {
         InvalidateAndRecalculateCharacterClassData(m_character);
     } else {
         W8Character* original = m_screen->GetOriginalCharacter();
@@ -1009,7 +1010,7 @@ void W8CharacterPersonalityPage::GetNavigationState(bool* next_enabled, bool* ex
 {
     *next_enabled =
         m_text_fields && m_text_fields->Text(0).size() != 0 && m_text_fields->Text(1).size() != 0;
-    if (m_mode != 0) {
+    if (m_mode != W8_CHARACTER_CREATE) {
         W8Character* original = m_screen->GetOriginalCharacter();
         *exit_enabled = false;
         if (m_character->personality == original->personality &&
@@ -1264,7 +1265,8 @@ W8CharacterPersonalityPage* CreateCharacterPersonalityPage()
 // class W8CharacterSkillsPage
 // FUNCTION: WIZ8 0x005c7580
 void W8CharacterSkillsPage::SetCharacter(W8Character* character,
-                                         W8CharacterCreationState* creation_state, int mode)
+                                         W8CharacterCreationState* creation_state,
+                                         W8CharacterScreenMode mode)
 {
     W8CharacterPage::SetCharacter(character, creation_state, mode);
     int category_count[5] = {0, 0, 0, 0, 0};

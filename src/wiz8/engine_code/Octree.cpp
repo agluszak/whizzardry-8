@@ -1062,7 +1062,7 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
     saved_rotation = world->camera->getRotation<glm::mat3>();
     g_light_update_flags &= ~1u;
     g_render_untextured = true;
-    SetCameraLightMode(2);
+    SetCameraLightMode(W8CameraLightMode::Disable);
     g_render_unlit = true;
     g_render_cull_front = true;
     double saved_width = world->camera->getHorizontalFOV();
@@ -1182,7 +1182,7 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
     world->camera->setLocation(restore_location);
     world->camera->setRotation(saved_rotation);
     g_light_update_flags |= 1u;
-    SetCameraLightMode(3);
+    SetCameraLightMode(W8CameraLightMode::Enable);
     g_render_unlit = false;
     g_render_cull_front = false;
     SetScaledViewport({0, 0, 0x280, 0x1e0});

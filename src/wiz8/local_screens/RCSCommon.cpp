@@ -272,7 +272,7 @@ static void OpenLevelUpCharacterScreen(void)
     g_current_screen_state.parameter_2 = giReviewCharSlot;
     g_current_screen_state.character = g_review_character;
     g_pending_screen_state.character = &g_status.buffers.Char[giReviewCharSlot];
-    g_pending_screen_state.mode = 2;
+    g_pending_screen_state.mode = W8_CHARACTER_LEVEL_UP;
     g_pending_screen_state.id = W8_SCREEN_CHARACTER;
 }
 
@@ -363,7 +363,7 @@ UiResult HandleCampCharacterHeader(const UiPointerEvent& event)
         AfterUiDispatch([] {
             g_current_screen_state.character = g_review_character;
             g_current_screen_state.parameter_2 = giReviewCharSlot;
-            g_pending_screen_state.mode = 1;
+            g_pending_screen_state.mode = W8_CHARACTER_EDIT;
             g_pending_screen_state.character = g_review_character;
             g_pending_screen_state.id = W8_SCREEN_CHARACTER;
         });

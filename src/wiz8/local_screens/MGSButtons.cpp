@@ -315,7 +315,7 @@ static void CreateSubMenuPanelButtons()
 static void MainGameOptionsDiskButton(W8ButtonWidget* button)
 {
     if (CanInterruptLevelMovement()) {
-        g_pending_screen_state.mode = 3;
+        g_pending_screen_state.mode = W8_OPTIONS_IN_GAME;
         g_pending_screen_state.id = W8_SCREEN_OPTIONS;
     }
 }

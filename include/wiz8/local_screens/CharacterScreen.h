@@ -13,6 +13,7 @@
 #include "wiz8/compat/compiler.h"
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/layouts/character.h"
+#include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/local_code/ControlsRect.h"
@@ -74,7 +75,7 @@ public:
     virtual void InvalidateAll();
     virtual void Redraw(SDL_Surface& target, bool full_redraw);
     virtual void SetCharacter(W8Character* character, W8CharacterCreationState* creation_state,
-                              int mode);
+                              W8CharacterScreenMode mode);
     virtual void Activate() = 0;
     virtual void Deactivate() = 0;
     virtual void Accept() = 0;
@@ -86,7 +87,7 @@ public:
     W8CharacterScreen* m_screen;
     W8Character* m_character;
     W8CharacterCreationState* m_creation_state;
-    int m_mode;
+    W8CharacterScreenMode m_mode;
     bool m_prepared;
     bool m_contentDirty; /* page-specific content needs repainting */
 
@@ -150,7 +151,7 @@ class W8CharacterStatsPage : public W8CharacterPage {
 public:
     W8CharacterStatsPage() : W8CharacterPage(CatalogArtwork::Load(0x104)) {}
     void Redraw(SDL_Surface& target, bool full_redraw) override;
-    virtual void SetCharacter(W8Character*, W8CharacterCreationState*, int) override;
+    virtual void SetCharacter(W8Character*, W8CharacterCreationState*, W8CharacterScreenMode) override;
     virtual void Activate() override;
     virtual void Deactivate() override;
     virtual void Accept() override;
@@ -192,7 +193,7 @@ class W8CharacterSpellsPage : public W8CharacterPage {
 public:
     W8CharacterSpellsPage();
     ~W8CharacterSpellsPage() override;
-    virtual void SetCharacter(W8Character*, W8CharacterCreationState*, int) override;
+    virtual void SetCharacter(W8Character*, W8CharacterCreationState*, W8CharacterScreenMode) override;
     void Redraw(SDL_Surface& target, bool full_redraw) override;
     virtual void Activate() override;
     virtual void Deactivate() override;
@@ -215,7 +216,7 @@ class W8CharacterSkillsPage : public W8CharacterPage {
 public:
     W8CharacterSkillsPage() : W8CharacterPage(CatalogArtwork::Load(0x108)) {}
     void Redraw(SDL_Surface& target, bool full_redraw) override;
-    virtual void SetCharacter(W8Character*, W8CharacterCreationState*, int) override;
+    virtual void SetCharacter(W8Character*, W8CharacterCreationState*, W8CharacterScreenMode) override;
     virtual void Activate() override;
     virtual void Deactivate() override;
     virtual void Accept() override;
@@ -238,7 +239,7 @@ public:
     {
     }
     void Redraw(SDL_Surface& target, bool full_redraw) override;
-    virtual void SetCharacter(W8Character*, W8CharacterCreationState*, int) override;
+    virtual void SetCharacter(W8Character*, W8CharacterCreationState*, W8CharacterScreenMode) override;
     virtual void Activate() override;
     virtual void Deactivate() override;
     virtual void Accept() override;
@@ -299,7 +300,7 @@ void RefundCharacterScreenSkill(W8Skill skill_id);
 
 class W8CharacterScreen final {
 public:
-    W8CharacterScreen(int mode, W8Character* character);
+    W8CharacterScreen(W8CharacterScreenMode mode, W8Character* character);
     ~W8CharacterScreen();
     void BuildControls();
     void UpdateDialog();
@@ -325,7 +326,7 @@ public:
     W8Character* GetOriginalCharacter();
     void DrawNavigation(SDL_Surface& target);
 
-    int m_mode;
+    W8CharacterScreenMode m_mode;
     int m_page_index = -1;
     bool m_header_dirty;
     unsigned char pad_011[3];

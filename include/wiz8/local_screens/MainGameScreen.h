@@ -402,7 +402,7 @@ void ClearPortraitRefreshSlot(int slot);
 // FUNCTION: WIZ8 0x00565970
 inline void ClearScreenWait(void)
 {
-    g_pending_screen_state.mode = 0;
+    g_pending_screen_state.mode = W8_OPTIONS_DEFAULT;
     g_pending_screen_state.id = W8_SCREEN_OPTIONS;
 }
 /* Portrait condition / enchantment orbs (help 25 / 26): hold opens the

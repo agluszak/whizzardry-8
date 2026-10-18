@@ -32,6 +32,21 @@ enum W8PleaseWaitMode {
     W8_PLEASE_WAIT_CHANGE_LEVEL = 3
 };
 
+/* The destination-specific values carried by W8ScreenStateRuntime::mode. */
+enum W8OptionsMode {
+    W8_OPTIONS_DEFAULT = 0,
+    W8_OPTIONS_LOAD = 1,
+    W8_OPTIONS_SAVE = 2,
+    W8_OPTIONS_IN_GAME = 3
+};
+
+enum W8CharacterScreenMode {
+    W8_CHARACTER_CREATE = 0,
+    W8_CHARACTER_EDIT = 1,
+    W8_CHARACTER_LEVEL_UP = 2,
+    W8_CHARACTER_LEVEL_UP_NOTICE = 3
+};
+
 /* A screen's lifecycle hooks. Initialize, enter and leave report failure,
    which stops the program; absent optional hooks have nothing to do. */
 struct W8ScreenStateHandlers {
