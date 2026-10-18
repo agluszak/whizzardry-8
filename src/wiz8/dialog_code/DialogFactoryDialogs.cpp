@@ -955,43 +955,41 @@ W8WorldItem* W8TriggerItemPickerDialog::ReturnItemsToGroup()
    those, the same unidentified name, keeping each name run ordered by item id.
    The existing world-item lifetime is unchanged. */
 // FUNCTION: WIZ8 0x005ce210
-int W8TriggerItemPickerDialog::AddItem(std::unique_ptr<W8WorldItem> item)
+void W8TriggerItemPickerDialog::AddItem(std::unique_ptr<W8WorldItem> item)
 {
+    if (!item) return;
     W8ItemInstance* instance = &item->item;
 
-    if (instance != 0) {
-        int index;
+    int index;
 
-        PartyAttemptsToIdentifyItem(instance, 0);
-        for (index = 0; index < static_cast<int>(entries.size()); ++index) {
-            W8WorldItem* other = entries[index].item.get();
-            if (ItemsShareEquipClass(instance, &other->item)) {
-                break;
-            }
+    PartyAttemptsToIdentifyItem(instance, 0);
+    for (index = 0; index < static_cast<int>(entries.size()); ++index) {
+        W8WorldItem* other = entries[index].item.get();
+        if (ItemsShareEquipClass(instance, &other->item)) {
+            break;
+        }
+    }
+    if (index < static_cast<int>(entries.size())) {
+        W8WorldItem* other = entries[index].item.get();
+        while (index < static_cast<int>(entries.size()) &&
+               !ItemsShareUnidentifiedName(instance, &other->item)) {
+            other = entries[index].item.get();
+            ++index;
         }
         if (index < static_cast<int>(entries.size())) {
-            W8WorldItem* other = entries[index].item.get();
             while (index < static_cast<int>(entries.size()) &&
-                   !ItemsShareUnidentifiedName(instance, &other->item)) {
+                   other->item.iItemNo != instance->iItemNo) {
                 other = entries[index].item.get();
                 ++index;
             }
             if (index < static_cast<int>(entries.size())) {
-                while (index < static_cast<int>(entries.size()) &&
-                       other->item.iItemNo != instance->iItemNo) {
-                    other = entries[index].item.get();
-                    ++index;
-                }
-                if (index < static_cast<int>(entries.size())) {
-                    entries.insert(entries.begin() + index, PickerEntry{std::move(item)});
+                entries.insert(entries.begin() + index, PickerEntry{std::move(item)});
 
-                    return -1;
-                }
+                return;
             }
         }
-        entries.push_back({std::move(item)});
     }
-    return -1;
+    entries.push_back({std::move(item)});
 }
 
 /* Poll the input queue for this picker. Button presses over a party portrait

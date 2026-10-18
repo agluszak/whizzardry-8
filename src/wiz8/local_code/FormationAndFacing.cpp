@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <cstring>
+#include <optional>
 #include <vector>
 
 #include <fmt/printf.h>
@@ -444,7 +445,7 @@ char g_formation_row_names[5][20] = {
    take: an empty row, or one whose lead column is already open, seats it in
    column 0; a lone leader moves over to column 1 and the newcomer takes column
    2. A full row has no room (-1). */
-static signed char MakeRoomInFormationRow(W8PartyFormationState* formation, int row)
+static std::optional<signed char> MakeRoomInFormationRow(W8PartyFormationState* formation, int row)
 {
     switch (formation->ubQuadrantOccupants[row]) {
     case 0:
@@ -463,7 +464,7 @@ static signed char MakeRoomInFormationRow(W8PartyFormationState* formation, int 
         }
         return 0;
     default:
-        return -1;
+        return std::nullopt;
     }
 }
 
@@ -481,9 +482,9 @@ void PlaceCharacterInFormation(W8PartyFormationState* formation, int slot)
     position->bQuadrant = 0xff;
     position->bQuadrantSlot = -1;
     for (unsigned char row : row_order) {
-        signed char seat = MakeRoomInFormationRow(formation, row);
-        if (seat != -1) {
-            SetFormationPosition(formation, slot, row, seat, true, true, true);
+        const auto seat = MakeRoomInFormationRow(formation, row);
+        if (seat) {
+            SetFormationPosition(formation, slot, row, *seat, true, true, true);
             return;
         }
     }
@@ -612,7 +613,7 @@ void UpdateFormationSlotState(W8PartyFormationState* formation, int slot)
     signed char row_order[3] = {0, 4, 2};
     W8PartyFormationPosition* position = &formation->positions[slot];
     int row;
-    signed char seat;
+    std::optional<signed char> seat;
     int index;
 
     if (g_status.buffers.Char[slot].highest_condition >= W8_CONDITION_DEAD) {
@@ -629,8 +630,8 @@ void UpdateFormationSlotState(W8PartyFormationState* formation, int slot)
     row = position->bOldQuadrant;
     if (row != -1) {
         seat = MakeRoomInFormationRow(formation, row);
-        if (seat != -1) {
-            SetFormationPosition(formation, slot, position->bOldQuadrant, seat,
+        if (seat) {
+            SetFormationPosition(formation, slot, position->bOldQuadrant, *seat,
                                  formation == &g_status.formation, true, true);
             position->bOldQuadrant = -1;
             return;
@@ -641,8 +642,8 @@ void UpdateFormationSlotState(W8PartyFormationState* formation, int slot)
     for (index = 0; index < 3; ++index) {
         row = row_order[index];
         seat = MakeRoomInFormationRow(formation, row);
-        if (seat != -1) {
-            SetFormationPosition(formation, slot, row, seat, true, true, true);
+        if (seat) {
+            SetFormationPosition(formation, slot, row, *seat, true, true, true);
             break;
         }
     }
@@ -657,10 +658,10 @@ void UpdateFormationSlotState(W8PartyFormationState* formation, int slot)
 // FUNCTION: WIZ8 0x00555080
 void SeatFormationSlotInRow(W8PartyFormationState* formation, int slot, int row)
 {
-    signed char seat = MakeRoomInFormationRow(formation, row);
+    const auto seat = MakeRoomInFormationRow(formation, row);
 
-    if (seat != -1) {
-        SetFormationPosition(formation, slot, row, seat, false, true, true);
+    if (seat) {
+        SetFormationPosition(formation, slot, row, *seat, false, true, true);
         return;
     }
     PostCharacterNotice(slot,
@@ -696,11 +697,11 @@ void SwapFormationSlots(W8PartyFormationState* formation, int slot_a, int slot_b
     }
     {
         int row = position_b->bOldQuadrant;
-        signed char seat;
+        std::optional<signed char> seat;
 
         seat = MakeRoomInFormationRow(formation, row);
-        if (seat != -1) {
-            SetFormationPosition(formation, slot_a, row, seat, false, true, true);
+        if (seat) {
+            SetFormationPosition(formation, slot_a, row, *seat, false, true, true);
             return;
         }
         PostCharacterNotice(

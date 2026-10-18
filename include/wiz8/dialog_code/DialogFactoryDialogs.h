@@ -170,7 +170,7 @@ public:
 
     virtual bool ProcessInput() override;
 
-    int AddItem(std::unique_ptr<W8WorldItem> item);
+    void AddItem(std::unique_ptr<W8WorldItem> item);
     W8WorldItem* ReturnItemsToGroup();
     void SetItemGroup(W8WorldItem* group);
 
