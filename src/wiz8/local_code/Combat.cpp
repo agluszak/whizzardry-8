@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstring>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string_view>
 #include <vector>
@@ -1535,10 +1536,9 @@ void OrientMonsterTowardTarget(W8MonsterInfo* monster_info, bool alternate)
         }
         break;
     case W8_TARGET_KIND_GROUP:
-        location_id =
-            FindNearestVisibleGroupMonster(monster_info, monster_info->Target.iGroupID, 3);
-        if (location_id != -1) {
-            target = FindMonster(location_id);
+        if (const auto nearest =
+                FindNearestVisibleGroupMonster(monster_info, monster_info->Target.iGroupID, 3)) {
+            target = FindMonster(*nearest);
             if (IsMonsterFacingMonster(monster_info, target) == 0) {
                 MonsterAimAtMonster(monster_info->p3D, target->p3D, alternate);
                 return;
@@ -2059,7 +2059,7 @@ void ExecuteCharacterAction(int party_slot)
     W8PartySlotRow* slot = &g_status.buffers.XChar[party_slot];
     W8TargetSource source;
     W8TargetSource enemy_source;
-    int interrupt = -1;
+    std::optional<int> interrupt;
     int fatigue_cost = -1;
     unsigned char result = 1;
     bool saved_dead = false; /* only combat tracks whether the slot already acted */
@@ -2105,11 +2105,11 @@ void ExecuteCharacterAction(int party_slot)
         }
         SetTargetSourceToCharacter(party_slot, &source);
         interrupt = GetConditionInterrupt(&source);
-        if (interrupt != -1) {
+        if (interrupt) {
             W8Disposition relationship = W8_DISPOSITION_NEUTRAL;
             PostCharacterNotice(party_slot,
-                                g_localized_strings[g_condition_interrupt_notices[interrupt]]);
-            switch (interrupt) {
+                                g_localized_strings[g_condition_interrupt_notices[*interrupt]]);
+            switch (*interrupt) {
             case 0:
             case 1:
             case 2:
@@ -2137,8 +2137,6 @@ void ExecuteCharacterAction(int party_slot)
             /* Berserk and confused characters turn on a reachable character:
                berserk ones with their ranged attack when it reaches far enough. */
             if (interrupt == 8 || interrupt == 9) {
-                int target;
-
                 if (interrupt == 8 && GetBestHandRangeCategory(character) < W8_RANGE_LONG) {
                     action = W8_ACTION_BERSERK;
                     slot->pending_action = W8_ACTION_BERSERK;
@@ -2146,8 +2144,8 @@ void ExecuteCharacterAction(int party_slot)
                     action = W8_ACTION_ATTACK;
                     slot->pending_action = W8_ACTION_ATTACK;
                 }
-                target = PickReachableSlotByDisposition(party_slot, relationship);
-                if (target == -1) {
+                const auto target = PickReachableSlotByDisposition(party_slot, relationship);
+                if (!target) {
                     DebugMessage(1,
                                  fmt::format("ERROR: {} is attacking friends with nobody in range",
                                              character->name));
@@ -2157,7 +2155,7 @@ void ExecuteCharacterAction(int party_slot)
                     if (!saved_dead) {
                         PrepareCharacterAttacks(party_slot);
                     }
-                    AimAtCharacter(party_slot, target, W8_TARGETING_CONTEXT_OUT_OF_COMBAT);
+                    AimAtCharacter(party_slot, *target, W8_TARGETING_CONTEXT_OUT_OF_COMBAT);
                 }
             }
         }
@@ -2167,7 +2165,7 @@ void ExecuteCharacterAction(int party_slot)
     }
     if (CharacterActionTargetsEnemies(character, action, detail, &slot->pending_action_detail) &&
         (!gXStatus.fCombatMode ||
-         (interrupt == -1 && !g_combat_state->characters[party_slot].berserk))) {
+         (!interrupt && !g_combat_state->characters[party_slot].berserk))) {
         SetTargetSourceToCharacter(party_slot, &enemy_source);
         MakeTargetGroupHostile(&enemy_source, &slot->target_out_of_combat);
     }
@@ -2243,7 +2241,7 @@ void ExecuteCharacterAction(int party_slot)
        it or the slot had already acted. */
     if (result == 0) {
         action = W8_ACTION_NONE;
-        if (interrupt == -1 && !saved_dead) {
+        if (!interrupt && !saved_dead) {
             action = W8_ACTION_DEFEND;
             slot->pending_action = W8_ACTION_DEFEND;
             if (g_settings.verbose_combat_messages != 0) {
@@ -2343,7 +2341,7 @@ void ExecuteMonsterAction(W8MonsterInfo* monster_info, W8MonsterRecord* record)
     unsigned char result = 0;
     unsigned char move_flag = 0;
     bool berserked = false;
-    int interrupt;
+    std::optional<int> interrupt;
     int sight;
     W8RangeCategory range;
     float approach_distance;
@@ -2363,11 +2361,11 @@ void ExecuteMonsterAction(W8MonsterInfo* monster_info, W8MonsterRecord* record)
     PointCameraAtMonster(monster_info, false, true);
     SetTargetSourceToMonster(monster_info, &source);
     interrupt = GetConditionInterrupt(&source);
-    if (interrupt != -1) {
+    if (interrupt) {
         ShowNotice(W8_FONT_PALETTE_RUST,
                    fmt::format("{} {}", GetMonsterName(monster_info, nullptr, 0),
-                               g_localized_strings[g_condition_interrupt_notices[interrupt]]));
-        switch (interrupt) {
+                               g_localized_strings[g_condition_interrupt_notices[*interrupt]]));
+        switch (*interrupt) {
         case 0:
         case 1:
         case 2:
@@ -2414,7 +2412,7 @@ void ExecuteMonsterAction(W8MonsterInfo* monster_info, W8MonsterRecord* record)
         }
         if (MonsterActionTargetsEnemies(monster_info->action_kind, monster_info->action_detail,
                                         &monster_info->spell_power_level) &&
-            interrupt == -1 && !monster_info->pCombat->berserk) {
+            !interrupt && !monster_info->pCombat->berserk) {
             SetTargetSourceToMonster(monster_info, &monster_source);
             MakeTargetGroupHostile(&monster_source, &monster_info->Target);
         }
@@ -2561,7 +2559,7 @@ void ExecuteMonsterAction(W8MonsterInfo* monster_info, W8MonsterRecord* record)
             }
             break;
         }
-        if (interrupt != -1 || monster_info->pCombat->active ||
+        if (interrupt || monster_info->pCombat->active ||
             monster_info->action_kind == W8_MONSTER_ACTION_CONTROLLED_MOVE) {
             monster_info->action_kind = W8_MONSTER_ACTION_NONE;
             break;
@@ -2630,14 +2628,14 @@ bool MonsterFleeAction(W8MonsterInfo* monster_info, W8MonsterRecord* record)
 void AimMonsterBreathAtTarget(W8MonsterInfo* monster_info)
 {
     glm::vec3 position;
-    int location_id;
+    std::optional<int> location_id;
     W8Monster* target_monster;
     bool no_target;
 
     switch (monster_info->Target.iType) {
     case W8_TARGET_KIND_MONSTER:
         location_id = monster_info->Target.iMonsterID;
-        no_target = monster_info->location_id == location_id;
+        no_target = monster_info->location_id == *location_id;
         break;
     case W8_TARGET_KIND_PLACE:
         monster_info->p3D->m_axis = monster_info->Target.point;
@@ -2646,7 +2644,7 @@ void AimMonsterBreathAtTarget(W8MonsterInfo* monster_info)
     case W8_TARGET_KIND_GROUP:
         location_id =
             FindNearestVisibleGroupMonster(monster_info, monster_info->Target.iGroupID, 3);
-        no_target = location_id == -1;
+        no_target = !location_id;
         break;
     case W8_TARGET_KIND_NONE:
     case W8_TARGET_KIND_ALL_ENEMIES:
@@ -2658,7 +2656,7 @@ void AimMonsterBreathAtTarget(W8MonsterInfo* monster_info)
         return;
     }
     if (!no_target) {
-        target_monster = GetMonsterByLocationID(location_id);
+        target_monster = GetMonsterByLocationID(*location_id);
         monster_info->p3D->m_axis.x = target_monster->movement.position.x;
         monster_info->p3D->m_axis.y =
             target_monster->movement.position.y + target_monster->movement.height_offset;
@@ -2888,7 +2886,7 @@ void StepMonsterCombatAction(W8MonsterInfo* monster_info)
    control and turncoat. Returns the interrupt category the action scheduler
    substitutes, -1 when the action proceeds. */
 // FUNCTION: WIZ8 0x004EC1E0
-int GetConditionInterrupt(W8TargetSource* source)
+std::optional<int> GetConditionInterrupt(W8TargetSource* source)
 {
     int party_slot;
     W8Character* character;
@@ -2974,7 +2972,7 @@ int GetConditionInterrupt(W8TargetSource* source)
         return 0xb;
     }
     if (condition_turns[W8_CONDITION_TURNCOAT] == 0) {
-        return -1;
+        return std::nullopt;
     }
     if (source->iType == W8_TARGET_SOURCE_CHARACTER) {
         if (!can_attack) {
@@ -2993,7 +2991,7 @@ int GetConditionInterrupt(W8TargetSource* source)
         }
     } else if (!MonsterActionTargetsEnemies(monster_info->action_kind, monster_info->action_detail,
                                             &monster_info->spell_power_level)) {
-        return -1;
+        return std::nullopt;
     }
     return 9;
 }
