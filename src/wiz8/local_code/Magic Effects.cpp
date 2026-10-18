@@ -2329,9 +2329,7 @@ void DestroyConsumablesOnTargets(W8SpellEffectEntry* effect)
                 if (!verbose) {
                     AppendToLastTextLine(!effect->reported ? " -- " : ", ", -1);
                 }
-                SetTextBoxMode(verbose ? W8_TEXT_BOX_MODE_NOTICE
-                                                   : W8_TEXT_BOX_MODE_APPEND,
-                                   -1);
+                SetTextBoxMode(verbose ? W8_TEXT_BOX_MODE_NOTICE : W8_TEXT_BOX_MODE_APPEND, -1);
                 if (index == 0) {
                     AppendToLastTextLine(fmt::sprintf(g_localized_strings[0x1fa], totals[0], -1),
                                          -1);
@@ -3469,7 +3467,8 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
                 percent_roll = 100;
             }
             g_status.party_gold = g_status.party_gold - (percent_roll * g_status.party_gold) / 100;
-            if (g_settings.verbose_combat_messages == 0 && GetTextBoxMode() != W8_TEXT_BOX_MODE_NOTICE) {
+            if (g_settings.verbose_combat_messages == 0 &&
+                GetTextBoxMode() != W8_TEXT_BOX_MODE_NOTICE) {
                 AppendToLastTextLine(" -- ", -1);
                 SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
             }

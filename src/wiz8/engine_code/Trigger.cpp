@@ -2655,8 +2655,8 @@ void Trigger::Run(int source)
     }
 
     case 0x10:
-        SetCameraSwayMode(m_pWorld->camera, source > 0 ? W8CameraSwayMode::Start
-                                                       : W8CameraSwayMode::Stop);
+        SetCameraSwayMode(m_pWorld->camera,
+                          source > 0 ? W8CameraSwayMode::Start : W8CameraSwayMode::Stop);
         return;
 
     case 0x36:

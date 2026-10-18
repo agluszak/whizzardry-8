@@ -895,7 +895,7 @@ int CharacterPrayAction(int party_slot)
 void AlertSameFactionGroups(W8MonsterGroup* monster_group)
 {
     W8MonsterRecord* record = MonsterGroupGetRecord(monster_group);
-    if (record->faction_id != 0) {
+    if (record->faction_id != W8_FACTION_UNALIGNED) {
         for (unsigned int index = 0; index < CurrentLevelPopulation().monster_groups.size();
              ++index) {
             W8MonsterGroup* other = CurrentLevelPopulation().monster_groups[index].get();

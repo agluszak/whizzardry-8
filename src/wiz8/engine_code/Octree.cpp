@@ -211,7 +211,8 @@ void W8Octree::UpdateVisibility()
         for (index = 0; index < m_props.size(); ++index) {
             m_props[index]->SetActivationState(false);
         }
-        for (const auto id : m_prop_links.alwaysVisible()) m_props[id - 1]->SetActivationState(true);
+        for (const auto id : m_prop_links.alwaysVisible())
+            m_props[id - 1]->SetActivationState(true);
         for (index = 0; index < m_particles.size(); ++index) {
             m_particles[index]->SetTraversalEnabled(false);
         }

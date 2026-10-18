@@ -127,26 +127,14 @@ struct ElevatorStateBindings {
     void (*button_state)(W8SavedLocationState&);
 };
 
-static constexpr ElevatorStateBindings g_el01_bindings{W8_ARNIKA_ELEVATOR_ONE,
-                                                       W8_ARNIKA_ELEVATOR_STEP_1,
-                                                       "El01State",
-                                                       "El01Moving",
-                                                       "RedButtonDown",
-                                                       ArnikaEl1Moving,
-                                                       ArnikaEl1Button,
-                                                       false,
-                                                       CaptureEl1Moving,
-                                                       CaptureEl1Button};
-static constexpr ElevatorStateBindings g_el02_bindings{W8_ARNIKA_ELEVATOR_TWO,
-                                                       W8_ARNIKA_ELEVATOR_STEP_7,
-                                                       "El02State",
-                                                       "El02Moving",
-                                                       "GreenButtonDown",
-                                                       ArnikaEl2Moving,
-                                                       ArnikaEl2Button,
-                                                       true,
-                                                       CaptureEl2Moving,
-                                                       CaptureEl2Button};
+static constexpr ElevatorStateBindings g_el01_bindings{
+    W8_ARNIKA_ELEVATOR_ONE, W8_ARNIKA_ELEVATOR_STEP_1, "El01State",     "El01Moving",
+    "RedButtonDown",        ArnikaEl1Moving,           ArnikaEl1Button, false,
+    CaptureEl1Moving,       CaptureEl1Button};
+static constexpr ElevatorStateBindings g_el02_bindings{
+    W8_ARNIKA_ELEVATOR_TWO, W8_ARNIKA_ELEVATOR_STEP_7, "El02State",     "El02Moving",
+    "GreenButtonDown",      ArnikaEl2Moving,           ArnikaEl2Button, true,
+    CaptureEl2Moving,       CaptureEl2Button};
 
 static void RestoreArnikaElevator(W8Elevator& elevator, const ElevatorStateBindings& bindings)
 {
@@ -160,8 +148,8 @@ static void RestoreArnikaElevator(W8Elevator& elevator, const ElevatorStateBindi
             elevator.pBottomDoorCollide->Run(-1);
         }
     } else {
-        elevator.state = static_cast<W8ArnikaElevatorState>(
-            GetLocationVarValueByName(bindings.state_variable));
+        elevator.state =
+            static_cast<W8ArnikaElevatorState>(GetLocationVarValueByName(bindings.state_variable));
     }
     if (GetLocationVarIDByName(bindings.moving_variable) == -1) {
         CreateLocationVar(bindings.moving_variable, elevator.moving);
@@ -619,8 +607,7 @@ bool ArnikaRedButton(Trigger* pTrigger)
             g_red_button_armed = true;
             return false;
         }
-        if (gEl01.state != W8_ARNIKA_ELEVATOR_STEP_1 &&
-            gEl01.state != W8_ARNIKA_ELEVATOR_STEP_7) {
+        if (gEl01.state != W8_ARNIKA_ELEVATOR_STEP_1 && gEl01.state != W8_ARNIKA_ELEVATOR_STEP_7) {
             g_trigger_feedback = true;
             g_red_button_armed = true;
             return false;
@@ -648,8 +635,7 @@ bool ArnikaEl1TopButtons(Trigger* pTrigger)
 {
     g_trigger_feedback = true;
     if (gEl01.button_down != 2 &&
-        (gEl01.state == W8_ARNIKA_ELEVATOR_STEP_1 ||
-         gEl01.state == W8_ARNIKA_ELEVATOR_STEP_3 ||
+        (gEl01.state == W8_ARNIKA_ELEVATOR_STEP_1 || gEl01.state == W8_ARNIKA_ELEVATOR_STEP_3 ||
          gEl01.state == W8_ARNIKA_ELEVATOR_STEP_7)) {
         ArnikaElevatorAdvance(W8_ARNIKA_ELEVATOR_ONE);
     }
@@ -726,8 +712,7 @@ bool ArnikaElevator02Trigger(Trigger* pTrigger)
     if (gEl02.button_down == 2) {
         return false;
     }
-    if (gEl02.state != W8_ARNIKA_ELEVATOR_STEP_1 &&
-        gEl02.state != W8_ARNIKA_ELEVATOR_STEP_3 &&
+    if (gEl02.state != W8_ARNIKA_ELEVATOR_STEP_1 && gEl02.state != W8_ARNIKA_ELEVATOR_STEP_3 &&
         gEl02.state != W8_ARNIKA_ELEVATOR_STEP_7) {
         return false;
     }

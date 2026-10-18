@@ -16,8 +16,7 @@ class W8DialogTextEntry : public W8TextBuffer {
 public:
     W8DialogTextEntry(std::string_view prefix, std::string_view text, unsigned int prefix_palette,
                       unsigned int text_palette, const W8ControlsRect* bounds, Font& font,
-                      W8DialogueCategory category, unsigned int layout_mode,
-                      unsigned char shorten);
+                      W8DialogueCategory category, unsigned int layout_mode, unsigned char shorten);
     void Paint(SDL_Surface& target, bool selected, bool highlighted);
 
 private:

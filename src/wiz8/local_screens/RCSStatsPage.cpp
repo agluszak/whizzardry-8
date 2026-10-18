@@ -687,9 +687,9 @@ void DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out)
 void CreateCampSkillRegions(void)
 {
     g_camp_screen->skill_input = std::make_unique<UiLayer>();
-    for (auto category : {W8_SKILL_CATEGORY_WEAPON, W8_SKILL_CATEGORY_MISCELLANEOUS,
-                          W8_SKILL_CATEGORY_COMBAT, W8_SKILL_CATEGORY_MAGIC,
-                          W8_SKILL_CATEGORY_EXPERT}) {
+    for (auto category :
+         {W8_SKILL_CATEGORY_WEAPON, W8_SKILL_CATEGORY_MISCELLANEOUS, W8_SKILL_CATEGORY_COMBAT,
+          W8_SKILL_CATEGORY_MAGIC, W8_SKILL_CATEGORY_EXPERT}) {
         const auto category_index = static_cast<unsigned int>(category);
         int x = g_camp_skill_category_positions[category_index].x;
         int y = g_camp_skill_category_positions[category_index].y;
@@ -1277,11 +1277,11 @@ void W8CharacterSkillsPage::SetCharacter(W8Character* character,
     for (auto& skill_attribute : g_skill_attributes) {
         const auto category = skill_attribute.category;
         const int category_index = static_cast<int>(category);
-        W8CharacterPageEntry* entry = new W8CharacterPageEntry(
-            input, g_character_page2_category_geometry[category_index].x,
-            g_character_page2_category_geometry[category_index].y +
-                category_count[category_index] * 0xe,
-            true);
+        W8CharacterPageEntry* entry =
+            new W8CharacterPageEntry(input, g_character_page2_category_geometry[category_index].x,
+                                     g_character_page2_category_geometry[category_index].y +
+                                         category_count[category_index] * 0xe,
+                                     true);
         AddEntry(entry);
         entry->on_adjust = [this, entry](int delta) { AdjustEntry(entry, delta); };
         entry->on_info = [this, entry] { ShowEntryInfo(entry); };

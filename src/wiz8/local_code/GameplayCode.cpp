@@ -1225,6 +1225,6 @@ void AwardPartyExperience(int amount, bool alternate_message)
     }
     auto text = fmt::sprintf(g_localized_strings[alternate_message ? 0x231 : 0x232], amount);
     g_npc_dialogue.QueuePortraitMessage(
-        std::move(text), W8ExperienceNoticePayload{static_cast<unsigned int>(amount),
-                                                   alternate_message});
+        std::move(text),
+        W8ExperienceNoticePayload{static_cast<unsigned int>(amount), alternate_message});
 }

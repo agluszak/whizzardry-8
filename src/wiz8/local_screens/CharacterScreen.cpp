@@ -335,8 +335,8 @@ void W8CharacterScreen::AdvancePage(bool forward)
             return;
         }
         if (index == 0) {
-            if (m_mode == W8_CHARACTER_LEVEL_UP && m_character.iProfession != m_original->iProfession &&
-                !m_confirm_profession) {
+            if (m_mode == W8_CHARACTER_LEVEL_UP &&
+                m_character.iProfession != m_original->iProfession && !m_confirm_profession) {
                 int value = ComputeRealmSkillDebt(m_original, &m_character);
                 if (value > 0) {
                     ShowMessage(
@@ -677,9 +677,8 @@ bool CharacterScreenEnter(void)
         static_cast<W8CharacterScreenMode>(g_current_screen_state.mode),
         g_current_screen_state.character);
     g_character_screen->BuildControls();
-    if (!g_status.game_started &&
-        (g_current_screen_state.mode == W8_CHARACTER_CREATE ||
-         g_current_screen_state.mode == W8_CHARACTER_LEVEL_UP)) {
+    if (!g_status.game_started && (g_current_screen_state.mode == W8_CHARACTER_CREATE ||
+                                   g_current_screen_state.mode == W8_CHARACTER_LEVEL_UP)) {
         StartMusicResource("Menus.MPL", 1, 1);
     }
     return 1;
@@ -711,7 +710,8 @@ void CharacterScreenFrame(void)
                             input.key == SDLK_N) {
                             screen->AdvancePage(true);
                         } else if (input.key == SDLK_ESCAPE) {
-                            if (screen->m_mode == W8_CHARACTER_EDIT && !screen->m_exit->IsEnabled()) {
+                            if (screen->m_mode == W8_CHARACTER_EDIT &&
+                                !screen->m_exit->IsEnabled()) {
                                 RequestScreenTransition();
                             } else {
                                 screen->ShowMessage(g_localized_strings[0xd3], 1, 2);

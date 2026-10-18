@@ -421,7 +421,7 @@ bool QueueNpcCombatScript(void)
                 W8MonsterGroup* group = CurrentLevelPopulation().monster_groups[index].get();
                 if (group->members_active && group->fInCombat &&
                     group->ubDisposition == W8_DISPOSITION_HOSTILE &&
-                    MonsterGroupGetRecord(group)->faction_id == 4) {
+                    MonsterGroupGetRecord(group)->faction_id == W8_FACTION_UMPANI) {
                     hostile_group_present = true;
                     break;
                 }

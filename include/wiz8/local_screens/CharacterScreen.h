@@ -151,7 +151,8 @@ class W8CharacterStatsPage : public W8CharacterPage {
 public:
     W8CharacterStatsPage() : W8CharacterPage(CatalogArtwork::Load(0x104)) {}
     void Redraw(SDL_Surface& target, bool full_redraw) override;
-    virtual void SetCharacter(W8Character*, W8CharacterCreationState*, W8CharacterScreenMode) override;
+    virtual void SetCharacter(W8Character*, W8CharacterCreationState*,
+                              W8CharacterScreenMode) override;
     virtual void Activate() override;
     virtual void Deactivate() override;
     virtual void Accept() override;
@@ -193,7 +194,8 @@ class W8CharacterSpellsPage : public W8CharacterPage {
 public:
     W8CharacterSpellsPage();
     ~W8CharacterSpellsPage() override;
-    virtual void SetCharacter(W8Character*, W8CharacterCreationState*, W8CharacterScreenMode) override;
+    virtual void SetCharacter(W8Character*, W8CharacterCreationState*,
+                              W8CharacterScreenMode) override;
     void Redraw(SDL_Surface& target, bool full_redraw) override;
     virtual void Activate() override;
     virtual void Deactivate() override;
@@ -216,7 +218,8 @@ class W8CharacterSkillsPage : public W8CharacterPage {
 public:
     W8CharacterSkillsPage() : W8CharacterPage(CatalogArtwork::Load(0x108)) {}
     void Redraw(SDL_Surface& target, bool full_redraw) override;
-    virtual void SetCharacter(W8Character*, W8CharacterCreationState*, W8CharacterScreenMode) override;
+    virtual void SetCharacter(W8Character*, W8CharacterCreationState*,
+                              W8CharacterScreenMode) override;
     virtual void Activate() override;
     virtual void Deactivate() override;
     virtual void Accept() override;
@@ -239,7 +242,8 @@ public:
     {
     }
     void Redraw(SDL_Surface& target, bool full_redraw) override;
-    virtual void SetCharacter(W8Character*, W8CharacterCreationState*, W8CharacterScreenMode) override;
+    virtual void SetCharacter(W8Character*, W8CharacterCreationState*,
+                              W8CharacterScreenMode) override;
     virtual void Activate() override;
     virtual void Deactivate() override;
     virtual void Accept() override;

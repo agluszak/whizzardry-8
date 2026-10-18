@@ -129,7 +129,7 @@ void KillTrynnieGroups(void)
          ++index) {
         group = CurrentLevelPopulation().monster_groups[index].get();
         if (group != 0 && group->members_active &&
-            (record = MonsterGroupGetRecord(group), record->faction_id == 0xd) &&
+            (record = MonsterGroupGetRecord(group), record->faction_id == W8_FACTION_TRYNNIE) &&
             ReplaceMonsterGroupSpecies(group, 0x1be) != 0) {
             RemoveAllGroupMembers(group);
         }

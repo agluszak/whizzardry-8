@@ -3094,7 +3094,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                 break;
             }
         }
-    owner.kind = static_cast<W8SpellId>(spell_id);
+        owner.kind = static_cast<W8SpellId>(spell_id);
         owner.Source = *source;
         owner.target = *target;
         owner.definition = block;

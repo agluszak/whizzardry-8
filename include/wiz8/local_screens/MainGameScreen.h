@@ -49,8 +49,8 @@ extern DesignRect g_viewport_modes[];
 extern unsigned short g_trap_name_string_ids[];
 #include "wiz8/dialog_code/DialogTextArea.h"
 #include "wiz8/engine_code/game_timer.h"
-#include "wiz8/layouts/screen_state.h"
 #include "wiz8/layouts/npc_dialogue.h"
+#include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/Gameloop.h"

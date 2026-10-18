@@ -1418,9 +1418,11 @@ W8MainGameScreen::W8MainGameScreen(Trigger* owner)
             ButtonGraphics::Load(CatalogArtwork::Load(i == 0 ? 0x8e : 0x1b0, 0).spriteSheet(),
                                  normal[i] + 3, normal[i], normal[i] + 1, normal[i] + 2,
                                  normal[i] + 2),
-            {.on_click = [this, i](auto*) {
-                 AfterUiDispatch([this, i] { OnPrimary(static_cast<W8TrapInteractionAction>(i)); });
-             },
+            {.on_click =
+                 [this, i](auto*) {
+                     AfterUiDispatch(
+                         [this, i] { OnPrimary(static_cast<W8TrapInteractionAction>(i)); });
+                 },
              .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
              .tooltip = help[i],
              .priority = UI_PRIORITY_LOWEST,
@@ -1574,7 +1576,8 @@ void W8MainGameScreen::Update()
     int elapsed;
     float progress;
 
-    if (m_disarm_state == W8_TRAP_DISARM_WAIT_FOR_TRAP && m_timer.GetProgress() >= 1.0f && PartyPortraitEventsIdle() != 0) {
+    if (m_disarm_state == W8_TRAP_DISARM_WAIT_FOR_TRAP && m_timer.GetProgress() >= 1.0f &&
+        PartyPortraitEventsIdle() != 0) {
         m_owner->Run(-1);
         m_disarm_state = W8_TRAP_DISARM_EXIT;
     }
@@ -1900,7 +1903,8 @@ void W8NpcDialogueTextController::Redraw(SDL_Surface& target, bool full_redraw)
 }
 
 unsigned char W8NpcDialogueTextController::AddTranscriptEntry(std::string_view text,
-                                                              W8DialogueCategory category, char mark)
+                                                              W8DialogueCategory category,
+                                                              char mark)
 {
     int index;
     int added;
@@ -4073,9 +4077,10 @@ void UpdateCombatPortraitStatus(void)
                     if (combat_row->dead) {
                         status = W8_COMBAT_PORTRAIT_INELIGIBLE;
                     } else {
-                        status = CharacterCanSwitchTo(slot, W8_TARGETING_CONTEXT_IN_COMBAT, false, false)
-                                     ? W8_COMBAT_PORTRAIT_READY
-                                     : W8_COMBAT_PORTRAIT_CANNOT_SWITCH;
+                        status =
+                            CharacterCanSwitchTo(slot, W8_TARGETING_CONTEXT_IN_COMBAT, false, false)
+                                ? W8_COMBAT_PORTRAIT_READY
+                                : W8_COMBAT_PORTRAIT_CANNOT_SWITCH;
                     }
                 } else {
                     status = W8_COMBAT_PORTRAIT_INELIGIBLE;
