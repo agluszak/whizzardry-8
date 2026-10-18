@@ -1048,7 +1048,7 @@ unsigned int GetActionSpellLikeId(const W8Action& selected)
 
 /* plsMonsterList index that last satisfied AnyMonsterVisible. */
 // GLOBAL: WIZ8 0x0061D14C
-static int g_last_visible_monster = -1;
+static std::optional<int> g_last_visible_monster;
 
 /* Re-check the selected character's committed target after its action has
    changed. A slot that cannot act at all falls back to no targeting;
@@ -1877,8 +1877,9 @@ bool AnyMonsterVisible(void)
     }
     camera = cameraLocation();
     count = CurrentLevelPopulation().monster_roster.live().size();
-    if (0 <= g_last_visible_monster && g_last_visible_monster < count) {
-        W8MonsterInfo* monster_info = GetMonsterListEntry(g_last_visible_monster);
+    if (g_last_visible_monster && 0 <= *g_last_visible_monster &&
+        *g_last_visible_monster < count) {
+        W8MonsterInfo* monster_info = GetMonsterListEntry(*g_last_visible_monster);
         if (monster_info->p3D != 0 &&
             IsMonsterVisibleWithinDistance(monster_info->p3D, &camera, limit)) {
             return true;

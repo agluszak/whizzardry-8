@@ -238,7 +238,7 @@ void SubMenuSelectWalk(void)
 
 void OpenSubMenuPanel(short notification)
 {
-    if (g_level_block->combat_end_notification != -1) {
+    if (g_level_block->combat_end_notification) {
         DestroySubMenuControls();
     }
     UpdateScreenOverlays(0);
@@ -252,11 +252,9 @@ void OpenSubMenuPanel(short notification)
 // FUNCTION: WIZ8 0x00596CF0
 void ResetSubMenuPanel(void)
 {
-    short saved_notification;
-
-    saved_notification = g_level_block->combat_end_notification;
+    auto saved_notification = g_level_block->combat_end_notification;
     DestroySubMenuControls();
-    OpenSubMenuPanel(saved_notification);
+    if (saved_notification) OpenSubMenuPanel(*saved_notification);
 }
 
 // FUNCTION: WIZ8 0x00596EC0
@@ -924,7 +922,7 @@ void UpdateSubMenuPanelButtons(void)
 
     if (!gXStatus.fCombatMode || !g_combat_state->round_active || gXStatus.fSurprisePossible ||
         gXStatus.fLockInteractMode || gXStatus.fTrapInteractMode || gXStatus.fNpcDialogueMode ||
-        gpSCSV || ItemUseDraft() || g_level_block->combat_end_notification != -1) {
+        gpSCSV || ItemUseDraft() || g_level_block->combat_end_notification) {
         enabled = false;
     } else {
         enabled = AnyCharacterEngaged();
@@ -933,7 +931,7 @@ void UpdateSubMenuPanelButtons(void)
 
     if (!gXStatus.fSurprisePossible && !gXStatus.fLockInteractMode && !gXStatus.fTrapInteractMode &&
         !gXStatus.fNpcDialogueMode && !gpSCSV && !ItemUseDraft() &&
-        g_level_block->combat_end_notification == -1 && AnyCharacterEngaged()) {
+        !g_level_block->combat_end_notification && AnyCharacterEngaged()) {
         g_main_game_state->hud_buttons.submenu_panel[1].SetEnabled(true);
         if (!gXStatus.fReviewCharacterMode) {
             if (g_main_game_state->hud_buttons.submenu_panel[1].IsPressed()) {
@@ -954,7 +952,7 @@ void UpdateSubMenuPanelButtons(void)
 static void UpdateSubMenuScrollButtons()
 {
 
-    const bool enabled = g_level_block->combat_end_notification == -1 &&
+    const bool enabled = !g_level_block->combat_end_notification &&
                          !gXStatus.fNpcDialogueMode && !gXStatus.fCampMode;
     for (auto& button : g_main_game_state->hud_buttons.submenu_scroll) {
         button.SetEnabled(enabled);

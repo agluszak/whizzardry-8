@@ -7,6 +7,7 @@
 #include <cstring>
 #include <exception>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -186,8 +187,8 @@ void ResetEditorStatusLine(short line)
         g_level_block->text_lines[line] = 0;
     }
     g_level_block->text_lines[4 + line] = -1;
-    g_level_block->hovered_text_lines[line] = -1;
-    g_level_block->selected_text_lines[line] = -1;
+    g_level_block->hovered_text_lines[line].reset();
+    g_level_block->selected_text_lines[line].reset();
     g_level_block->text_content_region = kUpArrowDisabled;
     g_level_block->dialogue_content_region = kDownArrowDisabled;
     RedrawTextBox();
@@ -527,13 +528,13 @@ try {
 /* Clear one box's hover or selection highlight and request a repaint. */
 void ClearHoveredTextLine(int index)
 {
-    g_level_block->hovered_text_lines[index] = -1;
+    g_level_block->hovered_text_lines[index].reset();
     RedrawTextBox();
 }
 
 void ClearSelectedTextLine(int index)
 {
-    g_level_block->selected_text_lines[index] = -1;
+    g_level_block->selected_text_lines[index].reset();
     RedrawTextBox();
 }
 
@@ -1294,7 +1295,7 @@ void SelectTextBox(short text_box)
     g_level_block->dialogue_content_region = can_scroll ? kDownArrowEnabled : kDownArrowDisabled;
 }
 
-static void SelectWrappedTextLine(int line, int box, int (&selection)[4])
+static void SelectWrappedTextLine(int line, int box, std::optional<int> (&selection)[4])
 {
     if (line < 0x15e) {
         unsigned int first = g_level_block->text_lines[g_status.text_line_cursor];

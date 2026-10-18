@@ -167,7 +167,7 @@ unsigned char OpenUseItemSelectView(int slot)
 
     UpdateScreenOverlays(0);
     use_item = std::make_unique<UseItemView>();
-    if (g_level_block->combat_end_notification != -1) {
+    if (g_level_block->combat_end_notification) {
         DestroySubMenuControls();
     }
     CloseNpcDialogueIfActive();
@@ -521,8 +521,8 @@ UiResult HandleUseItemTextBox(const UiPointerEvent& event)
         use_item->hover_row = row;
     } else if (event.action == UiPointerAction::Up && event.inside) {
         if (event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK)) {
-            const int slot = g_level_block->hovered_text_lines[2];
-            if (slot != -1) AfterUiDispatch([slot] { SelectUseItemLine(slot); });
+            if (const auto slot = g_level_block->hovered_text_lines[2])
+                AfterUiDispatch([slot = *slot] { SelectUseItemLine(slot); });
         }
         if (event.button == UiPointerButton::Right && (event.captured_buttons & SDL_BUTTON_RMASK)) {
             const int row = event.local.y / 11;

@@ -70,8 +70,8 @@ int W8NpcDialogue::SelectResponse(W8NpcQuoteEntry* entry, int quote_index, int e
    scan every quote for a subentry whose text
    matches, reporting the entry and subentry indices through the out-pointers. */
 // FUNCTION: WIZ8 0x00525E80
-int FindNpcScriptQuoteByKeyword(std::string_view keyword, short* entry_index,
-                                short* sub_entry_index)
+std::optional<int> FindNpcScriptQuoteByKeyword(std::string_view keyword, short* entry_index,
+                                               short* sub_entry_index)
 {
     W8NpcScriptFile* script;
     W8NpcScriptQuote* quote;
@@ -102,7 +102,7 @@ int FindNpcScriptQuoteByKeyword(std::string_view keyword, short* entry_index,
             }
         }
     }
-    return -1;
+    return std::nullopt;
 }
 
 /* Run one script quote line: stage it as current, and when the last subquote
@@ -314,10 +314,10 @@ void W8NpcDialogue::QueuePortraitMessage(std::string text, W8QuoteNotice notice)
    quote's option/keyword entries (kinds 5 and 0x13) carry the matchable
    phrases in their sub-entries; a hit consults the quote's kind-6 reply
    entries - role 3 supplies the per-keyword answer list, role 1 the generic
-   answer. No keyword match at all falls back to the role-2 entry. -1 when the
-   quote has no usable reply. */
+   answer. No keyword match at all falls back to the role-2 entry. No usable
+   reply is represented by an empty optional. */
 // FUNCTION: WIZ8 0x00529300
-int W8NpcDialogue::FindReplyQuote(std::string_view text) const
+std::optional<int> W8NpcDialogue::FindReplyQuote(std::string_view text) const
 {
     W8NpcScriptQuote* quote;
     W8NpcQuoteEntry* entry;
@@ -361,7 +361,7 @@ int W8NpcDialogue::FindReplyQuote(std::string_view text) const
                     return entry->operand0;
                 }
             }
-            return -1;
+            return std::nullopt;
         }
     }
 
@@ -371,7 +371,7 @@ int W8NpcDialogue::FindReplyQuote(std::string_view text) const
             return entry->operand0;
         }
     }
-    return -1;
+    return std::nullopt;
 }
 
 // FUNCTION: WIZ8 0x005294c0
@@ -421,9 +421,8 @@ void W8NpcDialogue::RunDeclineActions(int quote_index)
 void W8NpcDialogue::Answer(std::string_view text)
 {
     if (!price_check_) {
-        const int line = FindReplyQuote(text);
-        if (line != -1) {
-            QueueQuote(line, false, false, false);
+        if (const auto line = FindReplyQuote(text)) {
+            QueueQuote(*line, false, false, false);
         }
     } else {
         const W8NpcPriceCheck check = *price_check_;

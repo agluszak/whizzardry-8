@@ -1,5 +1,6 @@
 #include <array>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -47,7 +48,7 @@ public:
     W8CharacterSpellEntry* m_entries;
     int m_first_entry = 0;
     int m_entry_count = 0;
-    int m_hovered_entry = -1;
+    std::optional<int> m_hovered_entry;
     int m_scroll_offset = 0;
 };
 
@@ -72,11 +73,11 @@ W8CharacterSpellList::W8CharacterSpellList(W8CharacterSpellsPage& owner, int x, 
                             (event.action != UiPointerAction::Up || event.captured_buttons)))
                 PlayButtonSound(event.action);
             if (event.action == UiPointerAction::Leave) {
-                m_hovered_entry = -1;
+                m_hovered_entry.reset();
                 m_dirty = true;
             } else if (event.action == UiPointerAction::Move ||
                        event.action == UiPointerAction::Enter) {
-                const int hovered = valid ? entry : -1;
+                const std::optional<int> hovered = valid ? std::optional<int>(entry) : std::nullopt;
                 if (hovered != m_hovered_entry) {
                     m_hovered_entry = hovered;
                     m_dirty = true;

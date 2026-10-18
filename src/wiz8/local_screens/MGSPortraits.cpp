@@ -422,7 +422,7 @@ void RedrawCombatPortraits(void)
             g_level_block->portrait_refresh_pending[slot] == 0) {
             EraseRegion(portrait_x, row_y + 0x37, portrait_x + 0x14, row_y + 0x58);
         }
-        if (g_level_block->combat_action_hover_party_slot == -1 ||
+        if (!g_level_block->combat_action_hover_party_slot ||
             g_level_block->combat_action_hover_party_slot != slot) {
             portrait_image = combat_row->portrait_image;
         } else {
@@ -1065,22 +1065,22 @@ portrait_fx:
     }
 
     if (g_level_block->portrait_overlay_party_slot == static_cast<int>(party_slot)) {
-        DrawPortraitConditionOverlay(g_level_block->portrait_overlay_party_slot);
+        DrawPortraitConditionOverlay(*g_level_block->portrait_overlay_party_slot);
     }
     if (g_level_block->condition_orb_party_slot == static_cast<int>(party_slot)) {
-        DrawPortraitEnchantmentOverlay(g_level_block->condition_orb_party_slot);
+        DrawPortraitEnchantmentOverlay(*g_level_block->condition_orb_party_slot);
     }
     if (g_level_block->enchantment_orb_party_slot == static_cast<int>(party_slot)) {
-        DrawPortraitVitalsOverlay(g_level_block->enchantment_orb_party_slot);
+        DrawPortraitVitalsOverlay(*g_level_block->enchantment_orb_party_slot);
     }
     if (g_level_block->condition_highlight_party_slot == static_cast<int>(party_slot)) {
-        DrawPortraitStatusOverlay(g_level_block->condition_highlight_party_slot);
+        DrawPortraitStatusOverlay(*g_level_block->condition_highlight_party_slot);
     }
 
     if (GetEffectiveMainUiMode() != W8_MAIN_UI_MODE_PORTRAITS &&
         g_level_block->portrait_refresh_pending[party_slot] != 0 &&
-        (g_level_block->condition_highlight_party_slot != -1 ||
-         g_level_block->portrait_overlay_party_slot != -1)) {
+        (g_level_block->condition_highlight_party_slot ||
+         g_level_block->portrait_overlay_party_slot)) {
         RefreshTrackedPortraitOverlay();
     }
 
@@ -1126,7 +1126,7 @@ void ReleaseConditionButtons()
 
 static void ClearConditionHighlight()
 {
-    g_level_block->condition_highlight_party_slot = -1;
+    g_level_block->condition_highlight_party_slot.reset();
     DismissHighlightOverlay();
     RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
     RequestRedraw(W8_MAIN_REDRAW_PORTRAITS);
@@ -1142,7 +1142,7 @@ void DisableConditionButtons()
 {
     condition_icons->active = false;
     condition_icons->input.setEnabled(false);
-    if (g_level_block->condition_highlight_party_slot != -1) ClearConditionHighlight();
+    if (g_level_block->condition_highlight_party_slot) ClearConditionHighlight();
 }
 
 void EnableConditionButtons()
@@ -1223,7 +1223,7 @@ void CreateConditionButtons()
                 if (event.action == UiPointerAction::Leave ||
                     (event.action == UiPointerAction::Up &&
                      event.button == UiPointerButton::Left)) {
-                    if (g_level_block->condition_highlight_party_slot != -1)
+                    if (g_level_block->condition_highlight_party_slot)
                         ClearConditionHighlight();
                 } else if (event.action == UiPointerAction::Down &&
                            event.button == UiPointerButton::Left) {

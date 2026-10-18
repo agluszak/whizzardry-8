@@ -1199,7 +1199,7 @@ void ToggleCombatMode(void)
     }
     EndCombat(false);
     ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_COMBAT_ENDED]);
-    if (g_level_block->combat_end_notification != -1) {
+    if (g_level_block->combat_end_notification) {
         DestroySubMenuControls();
     }
 }

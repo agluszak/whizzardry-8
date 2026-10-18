@@ -199,10 +199,10 @@ std::optional<W8NpcScriptItemQuote> FindNpcScriptItemQuote(int item_id)
 }
 
 /* Resolve an NPC-name, named-person, or region keyword to the quote id the
-   speaker answers with; -1 when nothing applies. The record's alias mask
+   speaker answers with, when one applies. The record's alias mask
    selects which named persons this NPC will speak for. */
 // FUNCTION: WIZ8 0x00528D50
-int FindNpcNameOrPlaceQuote(W8NpcState* npc, std::string_view text)
+std::optional<int> FindNpcNameOrPlaceQuote(W8NpcState* npc, std::string_view text)
 {
     int index;
     int band;
@@ -213,7 +213,7 @@ int FindNpcNameOrPlaceQuote(W8NpcState* npc, std::string_view text)
     for (index = 0; g_npc_named_quotes[index].name[0] != 0; ++index) {
         if (CompareTextIgnoreAsciiCase(text, g_npc_named_quotes[index].name) == 0) {
             if ((npc->record->name_alias_mask & g_npc_named_quotes[index].mask) == 0) {
-                return -1;
+                return std::nullopt;
             }
             return g_npc_named_quotes[index].quote;
         }
@@ -238,7 +238,7 @@ int FindNpcNameOrPlaceQuote(W8NpcState* npc, std::string_view text)
         return g_npc_region_quotes[4][band];
     }
     if (CompareTextIgnoreAsciiCase(text, "the Monastery") != 0) {
-        return -1;
+        return std::nullopt;
     }
     band = GetLevelBand(GetLoadedLevelID());
     return g_npc_region_quotes[1][band];

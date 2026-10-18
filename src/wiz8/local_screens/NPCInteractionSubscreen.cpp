@@ -1494,7 +1494,6 @@ static void NpcDialogueTextBoxLeftUp(int x, int y)
     std::string word_text;
     int line;
     W8NoticeWord* word;
-    int slot;
 
     switch (g_npc_interaction_state->dialogue_layout) {
     case W8_DIALOGUE_LAYOUT_TRANSCRIPT:
@@ -1511,11 +1510,9 @@ static void NpcDialogueTextBoxLeftUp(int x, int y)
         return;
     case W8_DIALOGUE_LAYOUT_SERVICES:
     case W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX:
-        slot = g_level_block->hovered_text_lines[2];
-        if (slot == -1) {
-            return;
-        }
-        UpdateNpcTradeSelection(slot, ((GetInputState().modifiers & SHIFT_DOWN) != 0) ? 1 : 0, 1);
+        if (const auto slot = g_level_block->hovered_text_lines[2])
+            UpdateNpcTradeSelection(*slot,
+                                    ((GetInputState().modifiers & SHIFT_DOWN) != 0) ? 1 : 0, 1);
         return;
     default:
         break;
@@ -1530,18 +1527,15 @@ static void NpcDialogueTextBoxRightUp(int x, int y)
     std::string word_text;
     int line;
     W8NoticeWord* word;
-    int slot;
     W8ItemInstance* item;
     W8AssayDialog* dialog;
 
     switch (g_npc_interaction_state->dialogue_layout) {
-    case W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX:
-        slot = g_level_block->hovered_text_lines[2];
-        if (slot == -1) {
-            return;
-        }
-        UpdateNpcTradeSelection(slot, ((GetInputState().modifiers & SHIFT_DOWN) != 0) ? 1 : 0, 1);
-        item = ResolveNpcTradeRow(slot, false, 0, 1);
+    case W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX: {
+        const auto slot = g_level_block->hovered_text_lines[2];
+        if (!slot) return;
+        UpdateNpcTradeSelection(*slot, ((GetInputState().modifiers & SHIFT_DOWN) != 0) ? 1 : 0, 1);
+        item = ResolveNpcTradeRow(*slot, false, 0, 1);
         if (item == 0) {
             return;
         }
@@ -1552,6 +1546,7 @@ static void NpcDialogueTextBoxRightUp(int x, int y)
         dialog->on_close = [] { RequestRedraw(W8_MAIN_REDRAW_ALL); };
         OpenModal(std::unique_ptr<ModalContent>(dialog));
         return;
+    }
     case W8_DIALOGUE_LAYOUT_TRANSCRIPT:
         word = HitTestNoticeWord(3, x, y, &line);
         if (word == 0) {
@@ -1573,7 +1568,6 @@ static void NpcDialogueTextBoxDoubleClick(int x, int y)
     std::string word_text;
     int line;
     W8NoticeWord* word;
-    int slot;
 
     switch (g_npc_interaction_state->dialogue_layout) {
     case W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX:
@@ -1605,10 +1599,9 @@ static void NpcDialogueTextBoxDoubleClick(int x, int y)
         HighlightNoticeRow(line);
         g_npc_interaction_state->hovered_text_line = line;
     }
-    slot = g_level_block->hovered_text_lines[2];
-    if (slot != -1) {
+    if (const auto slot = g_level_block->hovered_text_lines[2]) {
         g_npc_interaction_state->selected_trade_row = -1;
-        UpdateNpcTradeSelection(slot, 0, 1);
+        UpdateNpcTradeSelection(*slot, 0, 1);
         if (g_npc_interaction_state->trade_item != 0) {
             ConfirmNpcTradeItem();
         }
@@ -2508,13 +2501,10 @@ static void SelectNpcStockItems(void)
 
 static void ConfirmNpcTradeSlot(void)
 {
-    int slot;
-
     if (g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX) {
-        slot = g_level_block->selected_text_lines[2];
-        if (slot != -1) {
-            UpdateNpcTradeSelection(slot, 0, 0);
-            if (g_npc_interaction_state->trade_mode == W8_NPC_TRADE_GIVE && slot == 0) {
+        if (const auto slot = g_level_block->selected_text_lines[2]) {
+            UpdateNpcTradeSelection(*slot, 0, 0);
+            if (g_npc_interaction_state->trade_mode == W8_NPC_TRADE_GIVE && *slot == 0) {
                 OpenNpcGoldAmountDialog();
             } else if (g_npc_interaction_state->trade_item->stack_count > 1) {
                 OpenNpcTradeQuantityDialog();
@@ -3043,12 +3033,12 @@ void HandleNpcDialogueInput(void)
     std::string notice;
     std::string_view cursor;
     bool has_word;
-    int quote_id = -1;
-    int second_quote_id = -1;
+    std::optional<int> quote_id;
+    std::optional<int> second_quote_id;
     bool show_fallback = true;
     bool plain_text = true;
     bool echo = false;
-    int quote;
+    std::optional<int> quote;
     int word_count;
     int matches;
 
@@ -3104,19 +3094,19 @@ void HandleNpcDialogueInput(void)
             buf = fmt::sprintf(g_localized_strings[0x76a], field_text);
         }
         quote = FindNpcScriptQuoteByKeyword(TranslateDialogueKeyword(buf), 0, 0);
-        if (quote != -1) {
+        if (quote) {
             plain_text = false;
-            quote_id = quote;
+            quote_id = *quote;
         }
     } else {
         buf = field_text;
         quote = FindNpcScriptQuoteByKeyword(TranslateDialogueKeyword(buf), 0, 0);
-        if (quote != -1) {
-            quote_id = quote;
+        if (quote) {
+            quote_id = *quote;
         }
     }
 
-    if (quote_id == -1) {
+    if (!quote_id) {
         buf = field_text;
         if (CompareTextIgnoreAsciiCase(
                 std::string_view(buf).substr(0, wiz8::text::codepoint_prefix(buf, 0xb)),
@@ -3144,29 +3134,25 @@ void HandleNpcDialogueInput(void)
             plain_text = false;
             show_fallback = false;
             quote_id = FindNpcNameOrPlaceQuote(g_npc_interaction_state->dialogue_npc, field_text);
-            if (quote_id == -1) {
-                quote_id = 0x76;
-            }
+            if (!quote_id) quote_id = 0x76;
         } else if (g_npc_interaction_state->where_is_query) {
             plain_text = false;
             quote_id = FindNpcNameOrPlaceQuote(g_npc_interaction_state->dialogue_npc, field_text);
-            if (quote_id == -1) {
-                quote_id = 0x76;
-            }
+            if (!quote_id) quote_id = 0x76;
         } else {
             plain_text = true;
         }
     }
 
     /* Try each adjacent word pair. */
-    if (quote_id == -1) {
+    if (!quote_id) {
         cursor = field_text;
         has_word = ReadNextWord(cursor, word);
         while (has_word && ReadNextWord(cursor, word2)) {
             buf = fmt::format("{} {}", word, word2);
             quote = FindNpcScriptQuoteByKeyword(TranslateDialogueKeyword(buf), 0, 0);
-            if (quote != -1) {
-                quote_id = quote;
+            if (quote) {
+                quote_id = *quote;
                 break;
             }
             word = word2;
@@ -3175,13 +3161,12 @@ void HandleNpcDialogueInput(void)
 
     /* Then each single word: more than two hits echoes the text, otherwise the
        first hit (and a different second one) answer. */
-    if (quote_id == -1) {
+    if (!quote_id) {
         matches = 0;
         cursor = field_text;
         while (!cursor.empty()) {
             has_word = ReadNextWord(cursor, word);
-            if (has_word &&
-                FindNpcScriptQuoteByKeyword(TranslateDialogueKeyword(word), 0, 0) != -1) {
+            if (has_word && FindNpcScriptQuoteByKeyword(TranslateDialogueKeyword(word), 0, 0)) {
                 ++matches;
             }
         }
@@ -3197,14 +3182,14 @@ void HandleNpcDialogueInput(void)
                     break;
                 }
                 quote = FindNpcScriptQuoteByKeyword(TranslateDialogueKeyword(word), 0, 0);
-                if (quote == -1) {
+                if (!quote) {
                     continue;
                 }
                 ++found_count;
                 if (found_count == 1) {
-                    quote_id = quote;
+                    quote_id = *quote;
                 } else if (found_count == 2 && quote != quote_id) {
-                    second_quote_id = quote;
+                    second_quote_id = *quote;
                 }
                 if (matches == 1) {
                     break;
@@ -3213,7 +3198,7 @@ void HandleNpcDialogueInput(void)
         }
     }
 
-    if (quote_id >= 0x59 && quote_id < 0x69 && second_quote_id == -1) {
+    if (quote_id && *quote_id >= 0x59 && *quote_id < 0x69 && !second_quote_id) {
         echo = true;
     }
     if (!echo && show_fallback) {
@@ -3228,7 +3213,7 @@ void HandleNpcDialogueInput(void)
         ShowNotice(W8_FONT_PALETTE_BRONZE, field_text, 3,
                    (g_level_block->text_box_right - g_level_block->text_box_left));
     }
-    if (quote_id == -1) {
+    if (!quote_id) {
         g_npc_dialogue.QueueQuote(Random(2) + 0x23, false, false, false);
         return;
     }
@@ -3236,12 +3221,12 @@ void HandleNpcDialogueInput(void)
         g_npc_dialogue.QueueQuote(0x59, true, false, false);
         return;
     }
-    g_npc_dialogue.QueueQuote(quote_id, true, false, false);
-    if (second_quote_id == -1) {
+    g_npc_dialogue.QueueQuote(*quote_id, true, false, false);
+    if (!second_quote_id) {
         return;
     }
     g_npc_dialogue.QueueQuote(0x21, false, false, false);
-    g_npc_dialogue.QueueQuote(second_quote_id, true, false, false);
+    g_npc_dialogue.QueueQuote(*second_quote_id, true, false, false);
 }
 
 void HandleNpcDialogueKeyEvent(const InputEvent* event)

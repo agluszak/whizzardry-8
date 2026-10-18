@@ -137,8 +137,8 @@ struct W8CombatCharacterRow {
     bool alternate_hand;
     unsigned char extra_swings[2];
     /* Historical offset 0x84/0x88: the slot's combat-portrait catalog image and the alternate the
-       combat portrait strip draws while the slot is the hovered combat slot
-       (combat_action_hover_party_slot); -1 draws nothing. */
+       combat portrait strip draws while the slot is hovered
+       (combat_action_hover_party_slot); no hovered slot keeps the normal image. */
     int portrait_image;
     int portrait_image_alternate;
     /* Historical offset 0x8c: the slot's combat-strip status recomputed each combat-mode frame:

@@ -707,8 +707,11 @@ void CloseKeyboardMenu(void)
 {
     gXStatus.monster_manager_entries[g_selected_party_slot].keyboard_menu_open = false;
     g_level_block->keyboard_menu_open = false;
-    g_level_block->combat_slot = -1;
-    g_level_block->hover_combat_slot = g_selected_party_slot;
+    g_level_block->combat_slot.reset();
+    if (g_selected_party_slot >= 0)
+        g_level_block->hover_combat_slot = g_selected_party_slot;
+    else
+        g_level_block->hover_combat_slot.reset();
     g_level_block->cursor_grace = 0;
     RefreshPartySlotRegions();
     if (gXStatus.fCombatMode) {

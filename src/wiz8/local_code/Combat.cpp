@@ -533,7 +533,7 @@ void BeginCombatExecution(void)
         g_combat_state->uiCurrentPartyActionStatus == W8_PARTY_ACTION_FINISHED) {
         AlertWorldNoise();
     }
-    if (g_level_block->combat_end_notification != -1) {
+    if (g_level_block->combat_end_notification) {
         if (g_settings.continuous_combat == 0) {
             DestroySubMenuControls();
         } else {

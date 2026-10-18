@@ -149,7 +149,8 @@ void RefreshPartySlotDisplay(unsigned int party_slot)
                 PreparePartyPortraitOverlay(party_slot, (party_slot & 1) << 9 | 0x14, top);
             highlighted = false;
             if (g_level_block->highlight.LightsPortrait(static_cast<int>(party_slot)) ||
-                party_slot == static_cast<unsigned int>(g_level_block->held_item_display)) {
+                (g_level_block->held_item_display &&
+                 party_slot == static_cast<unsigned int>(*g_level_block->held_item_display))) {
                 highlighted = true;
             }
             RedrawPartyPortraitOverlay(party_slot, highlighted, overlay_ready,
@@ -301,15 +302,15 @@ void InitializeMainGameLevelBlock(void)
     }
     g_level_block->camera_mode = W8_VIEWPORT_MODE_UNINITIALIZED;
     g_level_block->highlight = {};
-    g_level_block->combat_action_hover_party_slot = -1;
+    g_level_block->combat_action_hover_party_slot.reset();
     g_level_block->portrait_assay_hover_mode = W8_PORTRAIT_ASSAY_HOVER_NONE;
-    g_level_block->held_item_display = -1;
-    g_level_block->highlight_row = -1;
+    g_level_block->held_item_display.reset();
+    g_level_block->highlight_row.reset();
     g_level_block->highlight_graphic = 0;
-    g_level_block->portrait_overlay_party_slot = -1;
-    g_level_block->condition_orb_party_slot = -1;
-    g_level_block->enchantment_orb_party_slot = -1;
-    g_level_block->condition_highlight_party_slot = -1;
+    g_level_block->portrait_overlay_party_slot.reset();
+    g_level_block->condition_orb_party_slot.reset();
+    g_level_block->enchantment_orb_party_slot.reset();
+    g_level_block->condition_highlight_party_slot.reset();
     g_level_block->text_content_region = CurrentTextLineHasContent() ? kUpArrowEnabled : -1;
     g_level_block->dialogue_content_region =
         CurrentDialogueLineHasContent() ? kDownArrowEnabled : -1;
@@ -323,7 +324,7 @@ void InitializeMainGameLevelBlock(void)
         g_level_block->portrait_refresh_pending[slot] = 0;
         g_level_block->portrait_refresh_image[slot] = 0;
     }
-    g_level_block->combat_end_notification = -1;
+    g_level_block->combat_end_notification.reset();
     RefreshMainGameLayout();
     g_level_block->character_update_timer = w8_get_ticks() + (0);
     g_level_block->world_update_timer = w8_get_ticks() + (0);
@@ -334,7 +335,7 @@ void InitializeMainGameLevelBlock(void)
     g_level_block->group_list_rows = 0;
     g_level_block->group_list_width = 0;
     g_main_game_state->monster_list->setEnabled(false);
-    g_level_block->action_group = -1;
+    g_level_block->action_group.reset();
     g_level_block->text_lines[4 + g_status.text_line_cursor] = FindStoppedTextLine();
     g_level_block->refresh_combat_panel = 1;
     g_level_block->combat_panel_timer = w8_get_ticks() + (0);
@@ -344,8 +345,8 @@ void InitializeMainGameLevelBlock(void)
         text_line = 0;
     }
     for (int slot_index = 0; slot_index < 4; ++slot_index) {
-        g_level_block->hovered_text_lines[slot_index] = -1;
-        g_level_block->selected_text_lines[slot_index] = -1;
+        g_level_block->hovered_text_lines[slot_index].reset();
+        g_level_block->selected_text_lines[slot_index].reset();
     }
     g_level_block->text_box_font = &g_wiz_text_font_secondary;
     g_level_block->palette = g_wiz_text_font_secondary.glyphs->colors;
@@ -356,9 +357,9 @@ void InitializeMainGameLevelBlock(void)
     g_level_block->tooltip_pending = false;
     g_level_block->pending_highlight = {};
     g_level_block->countdown3 = w8_get_ticks() + (0);
-    g_level_block->combat_slot = -1;
+    g_level_block->combat_slot.reset();
     g_level_block->keyboard_menu_open = false;
-    g_level_block->hover_combat_slot = -1;
+    g_level_block->hover_combat_slot.reset();
     g_level_block->cursor_grace = 0;
     g_level_block->countdown4 = w8_get_ticks() + (0);
     g_level_block->portrait_right_hold_armed = false;

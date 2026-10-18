@@ -2992,7 +2992,7 @@ static void RefreshChangedItems(W8Character* character, std::span<W8ItemInstance
     }
 
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_level_block) {
-        if (g_level_block->combat_end_notification != -1) {
+        if (g_level_block->combat_end_notification) {
             ReopenSubMenuPanel();
         }
         RefreshFlaggedMainGameState();

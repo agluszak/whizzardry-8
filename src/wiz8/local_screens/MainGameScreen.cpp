@@ -389,7 +389,7 @@ int OpenLockInteraction(Trigger* trigger)
         return 1;
     }
     gXStatus.fLockInteractMode = true;
-    if (g_level_block->combat_end_notification != -1) {
+    if (g_level_block->combat_end_notification) {
         DestroySubMenuControls();
     }
     CloseMainGameOverlays();
@@ -1775,7 +1775,7 @@ int OpenTrapInteraction(Trigger* trigger)
         return 1;
     }
     gXStatus.fTrapInteractMode = true;
-    if (g_level_block->combat_end_notification != -1) {
+    if (g_level_block->combat_end_notification) {
         DestroySubMenuControls();
     }
     CloseMainGameOverlays();
@@ -2468,7 +2468,7 @@ update_screen:
         UpdateCombatPortraitStatus();
     }
     g_status.world_suspended = false;
-    if (g_level_block->keyboard_menu_open || g_level_block->combat_slot != -1) {
+    if (g_level_block->keyboard_menu_open || g_level_block->combat_slot) {
         UpdateKeyboardMenu();
     }
     UpdateSurpriseMode();
@@ -2521,9 +2521,9 @@ update_screen:
         }
     } else
         UpdateWorldCursor();
-    if (!g_level_block->keyboard_menu_open && g_level_block->hover_combat_slot != -1 &&
-        !g_main_game_state->combat_targets[g_level_block->hover_combat_slot]->hitAt(point))
-        g_level_block->hover_combat_slot = -1;
+    if (!g_level_block->keyboard_menu_open && g_level_block->hover_combat_slot &&
+        !g_main_game_state->combat_targets[*g_level_block->hover_combat_slot]->hitAt(point))
+        g_level_block->hover_combat_slot.reset();
     TickAmbientFollowUpIdle(ProcessMainGameInput());
     if (!IsRecordModeActive()) {
         HandleManualCameraHotkeys();
@@ -2689,8 +2689,8 @@ bool MainGameScreenLeave(int leaving)
     }
 
     UpdateHeldItemCursor();
-    if (g_level_block->held_item_display != -1) {
-        g_level_block->held_item_display = -1;
+    if (g_level_block->held_item_display) {
+        g_level_block->held_item_display.reset();
         UpdateHeldItemCursor();
     }
 
@@ -2822,9 +2822,9 @@ void ApplyMainGameRedrawFlags(const W8TargetingPresentation& presentation)
     }
     if (gXStatus.fReviewCharacterMode) {
         if (((g_level_block->redraw_flags & W8_MAIN_REDRAW_PORTRAIT_PANEL) == 0) ||
-            g_level_block->condition_orb_party_slot != -1 ||
-            g_level_block->enchantment_orb_party_slot != -1 ||
-            g_level_block->portrait_overlay_party_slot != -1) {
+            g_level_block->condition_orb_party_slot ||
+            g_level_block->enchantment_orb_party_slot ||
+            g_level_block->portrait_overlay_party_slot) {
             show_portraits = false;
         } else {
             show_portraits = true;
@@ -2844,7 +2844,7 @@ void ApplyMainGameRedrawFlags(const W8TargetingPresentation& presentation)
         } else {
             keyboard_menu_invalidate = false;
             if (g_level_block->highlight.LightsPortrait(party_slot) ||
-                party_slot == g_level_block->held_item_display) {
+                g_level_block->held_item_display == static_cast<int>(party_slot)) {
                 keyboard_menu_invalidate = true;
             }
             RedrawPartyPortraitOverlay(party_slot, keyboard_menu_invalidate, true,
@@ -2963,7 +2963,7 @@ finish_mode_overlays:
     if ((g_level_block->redraw_flags & W8_MAIN_REDRAW_CHARACTER_ACTION) != 0) {
         DrawSubMenuCharacterAction();
     }
-    if (g_level_block->combat_end_notification != -1) {
+    if (g_level_block->combat_end_notification) {
         RefreshSubMenuPanel((g_level_block->redraw_flags & W8_MAIN_REDRAW_SUBMENU_PANEL) != 0);
     }
     if ((g_level_block->redraw_flags & W8_MAIN_REDRAW_OPTIONS_BUTTON) != 0) {
@@ -3012,7 +3012,7 @@ void DrawMainGameScreen(void)
         if (g_modal_owner != 0) {
             g_modal_owner->RefreshModal();
         }
-        if (g_level_block->combat_end_notification != -1) {
+        if (g_level_block->combat_end_notification) {
             UpdateSubMenuAutoClose();
         }
         if (!gXStatus.fCombatMode) {
@@ -3080,24 +3080,24 @@ void DrawMainGameScreen(void)
    sequence is inlined inside the mode-6 block of the redraw orchestrator. */
 void RefreshTrackedPortraitOverlay(void)
 {
-    if (g_level_block->condition_orb_party_slot != -1) {
+    if (g_level_block->condition_orb_party_slot) {
         DismissHighlightOverlay();
-        DrawPortraitConditionOverlay(g_level_block->condition_orb_party_slot);
+        DrawPortraitConditionOverlay(*g_level_block->condition_orb_party_slot);
         return;
     }
-    if (g_level_block->enchantment_orb_party_slot != -1) {
+    if (g_level_block->enchantment_orb_party_slot) {
         DismissHighlightOverlay();
-        DrawPortraitEnchantmentOverlay(g_level_block->enchantment_orb_party_slot);
+        DrawPortraitEnchantmentOverlay(*g_level_block->enchantment_orb_party_slot);
         return;
     }
-    if (g_level_block->portrait_overlay_party_slot != -1) {
+    if (g_level_block->portrait_overlay_party_slot) {
         DismissHighlightOverlay();
-        DrawPortraitVitalsOverlay(g_level_block->portrait_overlay_party_slot);
+        DrawPortraitVitalsOverlay(*g_level_block->portrait_overlay_party_slot);
         return;
     }
-    if (g_level_block->condition_highlight_party_slot != -1) {
+    if (g_level_block->condition_highlight_party_slot) {
         DismissHighlightOverlay();
-        DrawPortraitStatusOverlay(g_level_block->condition_highlight_party_slot);
+        DrawPortraitStatusOverlay(*g_level_block->condition_highlight_party_slot);
     }
 }
 
@@ -3153,7 +3153,8 @@ void RedrawCombatMonsterList(bool subject_valid)
                                     monster_group->visible_member_count);
                     text_width = g_wiz_text_font_secondary.textWidth(scratch_text);
                     is_action_group = false;
-                    if (monster_group->group_id == g_level_block->action_group) {
+                    if (g_level_block->action_group &&
+                        monster_group->group_id == *g_level_block->action_group) {
                         is_action_group = true;
                     } else if (g_level_block->highlighted_item) {
                         monster_info = FindMonster(*g_level_block->highlighted_item);
@@ -3278,7 +3279,7 @@ void SelectPartyCharacter(int party_slot)
     if (gXStatus.fReviewCharacterMode) {
         SelectFormationSlotCell(g_status.selected_character);
     }
-    if (g_level_block->combat_end_notification != -1) {
+    if (g_level_block->combat_end_notification) {
         ResetSubMenuPanel();
     }
     if (g_level_block->keyboard_menu_open && party_slot != g_selected_party_slot) {
@@ -3307,18 +3308,18 @@ void RefreshSelectedPartyPortrait(unsigned int party_slot)
     }
 
     if (g_level_block->condition_highlight_party_slot == static_cast<int>(party_slot)) {
-        g_level_block->condition_highlight_party_slot = -1;
+        g_level_block->condition_highlight_party_slot.reset();
         DismissHighlightOverlay();
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL | W8_MAIN_REDRAW_PORTRAITS);
-    } else if (g_level_block->condition_highlight_party_slot != -1) {
+    } else if (g_level_block->condition_highlight_party_slot) {
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
     }
 
     if (g_level_block->portrait_overlay_party_slot == static_cast<int>(party_slot)) {
-        g_level_block->portrait_overlay_party_slot = -1;
+        g_level_block->portrait_overlay_party_slot.reset();
         DismissHighlightOverlay();
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL | W8_MAIN_REDRAW_PORTRAITS);
-    } else if (g_level_block->portrait_overlay_party_slot != -1) {
+    } else if (g_level_block->portrait_overlay_party_slot) {
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
     }
 
@@ -3402,16 +3403,16 @@ void DrawHighlightOverlay(unsigned int party_slot, int row_count, unsigned int m
     if ((party_slot & 1) == 0) {
         left = g_level_block->portrait_refresh_image[party_slot] -
                g_level_block->portrait_hover_x_origin + 0x80;
-        if (pending == 0 && (g_level_block->condition_highlight_party_slot != -1 ||
-                             g_level_block->portrait_overlay_party_slot != -1)) {
+        if (pending == 0 && (g_level_block->condition_highlight_party_slot ||
+                             g_level_block->portrait_overlay_party_slot)) {
             left += 0x18;
         }
     } else {
         left = g_level_block->portrait_hover_x_origin -
                g_level_block->portrait_refresh_image[party_slot] - static_cast<int>(panel_width) +
                0x200;
-        if (pending == 0 && (g_level_block->condition_highlight_party_slot != -1 ||
-                             g_level_block->portrait_overlay_party_slot != -1)) {
+        if (pending == 0 && (g_level_block->condition_highlight_party_slot ||
+                             g_level_block->portrait_overlay_party_slot)) {
             left -= 0x18;
         }
     }
@@ -3425,7 +3426,7 @@ void DrawHighlightOverlay(unsigned int party_slot, int row_count, unsigned int m
             top = 0x166 - content_height * 2;
         } else {
             top = candidate;
-            if (pending == 0 && g_level_block->condition_highlight_party_slot != -1) {
+            if (pending == 0 && g_level_block->condition_highlight_party_slot) {
                 top = row_y + 0x12;
             }
         }
@@ -3503,7 +3504,7 @@ void DrawHighlightOverlay(unsigned int party_slot, int row_count, unsigned int m
     g_level_block->highlight_graphic->render_state.display_state = 4;
     Position2DNodeUnsnapped(g_level_block->highlight_graphic, g_level_block->dialogue_x + 7,
                             g_level_block->dialogue_row_y - 1 +
-                                g_level_block->highlight_row * 0x12);
+                                *g_level_block->highlight_row * 0x12);
     InvalidateRegion(g_level_block->dialogue_x, g_level_block->dialogue_y,
                      g_level_block->dialogue_x + g_level_block->dialogue_width,
                      g_level_block->dialogue_y + g_level_block->dialogue_height);
@@ -4140,7 +4141,7 @@ void UpdateKeyboardMenu(void)
 {
     RequestRedraw(W8_MAIN_REDRAW_FRAME);
     if ((!gXStatus.fCombatMode && g_level_block->keyboard_menu_open) ||
-        (g_level_block->combat_slot != -1 && !IsPartySlotEligible(g_level_block->combat_slot))) {
+        (g_level_block->combat_slot && !IsPartySlotEligible(*g_level_block->combat_slot))) {
         CloseKeyboardMenu();
         return;
     }
@@ -4150,7 +4151,8 @@ void UpdateKeyboardMenu(void)
     }
     if (g_level_block->keyboard_menu_open) {
         if (g_level_block->cursor_grace == 0) {
-            if (g_status.buffers.XChar[g_level_block->combat_slot].fOccupied == 0) {
+            if (!g_level_block->combat_slot ||
+                g_status.buffers.XChar[*g_level_block->combat_slot].fOccupied == 0) {
                 CloseKeyboardMenu();
                 return;
             }
@@ -4162,7 +4164,10 @@ void UpdateKeyboardMenu(void)
         } else {
             if (KeyboardMenuContainsCursor()) {
                 g_level_block->countdown3 = w8_get_ticks() + (0);
-                g_level_block->combat_slot = g_selected_party_slot;
+                if (g_selected_party_slot >= 0)
+                    g_level_block->combat_slot = g_selected_party_slot;
+                else
+                    g_level_block->combat_slot.reset();
                 g_level_block->cursor_grace = 0;
             } else if (TimeUntilDeadline(g_level_block->countdown3) == 0) {
                 CloseKeyboardMenu();
@@ -4459,7 +4464,7 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
         if ((event.button == UiPointerButton::Left && event.action == UiPointerAction::Repeat)) {
             if (g_level_block->portrait_refresh_pending[slot] == 0 &&
                 g_settings.main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS &&
-                g_level_block->portrait_overlay_party_slot == -1 &&
+                !g_level_block->portrait_overlay_party_slot &&
                 TimeUntilDeadline(g_level_block->countdown5) == 0 &&
                 (event.captured_buttons & SDL_BUTTON_LMASK) != 0) {
                 g_level_block->portrait_overlay_party_slot = slot;
@@ -4475,14 +4480,14 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
 
             if (g_level_block->portrait_refresh_pending[slot] == 0 &&
                 g_settings.main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS &&
-                g_level_block->portrait_overlay_party_slot == -1) {
+                !g_level_block->portrait_overlay_party_slot) {
                 g_level_block->countdown5 = w8_get_ticks() + (500);
                 return UiResult::Handled;
             }
         } else if ((event.button == UiPointerButton::Left && event.action == UiPointerAction::Up)) {
             if ((event.captured_buttons & SDL_BUTTON_LMASK) != 0) {
                 if (g_level_block->portrait_overlay_party_slot == slot) {
-                    g_level_block->portrait_overlay_party_slot = -1;
+                    g_level_block->portrait_overlay_party_slot.reset();
                     DismissHighlightOverlay();
                     if (g_current_screen_state.id != W8_SCREEN_MAIN_GAME) {
                         g_main_game_mode = W8_MAIN_GAME_DEFAULT;
@@ -4625,7 +4630,7 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                     SetTargetCursor(GetTargetingCursorForState(false));
                 }
                 if (g_level_block->portrait_overlay_party_slot == slot) {
-                    g_level_block->portrait_overlay_party_slot = -1;
+                    g_level_block->portrait_overlay_party_slot.reset();
                     DismissHighlightOverlay();
                     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_level_block != 0) {
                         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
@@ -4661,7 +4666,7 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
 template<class Effect>
 static UiResult DispatchPortraitOrbInput(const UiPointerEvent& event, HitTarget& target, int id,
                                          Effect W8Character::* effect, Effect none,
-                                         int W8LevelRuntimeBlock::* selection,
+                                         std::optional<int> W8LevelRuntimeBlock::* selection,
                                          W8PortraitHighlightKind tooltip_kind)
 {
     int slot = id;
@@ -4679,8 +4684,8 @@ static UiResult DispatchPortraitOrbInput(const UiPointerEvent& event, HitTarget&
             }
             if (event.action == UiPointerAction::Leave) {
                 SetTooltipSubject(tooltip_kind, std::nullopt);
-                if ((g_level_block.get()->*selection) != -1) {
-                    (g_level_block.get()->*selection) = -1;
+                if (g_level_block.get()->*selection) {
+                    (g_level_block.get()->*selection).reset();
                     DismissHighlightOverlay();
                     RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
                 }
@@ -4706,10 +4711,10 @@ static UiResult DispatchPortraitOrbInput(const UiPointerEvent& event, HitTarget&
             target.setTooltip({});
             return UiResult::Pass;
         }
-        if ((g_level_block.get()->*selection) == -1) {
+        if (!(g_level_block.get()->*selection)) {
             return UiResult::Handled;
         }
-        (g_level_block.get()->*selection) = -1;
+        (g_level_block.get()->*selection).reset();
         DismissHighlightOverlay();
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
         return UiResult::Handled;
@@ -4861,16 +4866,16 @@ UiResult PortraitOverlayHoverInput(const UiPointerEvent& event, HitTarget& targe
                 g_level_block->portrait_overlay_party_slot = slot;
             } else {
                 SetTooltipSubject(W8_HIGHLIGHT_VITALS, std::nullopt);
-                if (g_level_block->portrait_overlay_party_slot == -1) {
+                if (!g_level_block->portrait_overlay_party_slot) {
                     return UiResult::Pass;
                 }
-                g_level_block->portrait_overlay_party_slot = -1;
+                g_level_block->portrait_overlay_party_slot.reset();
                 DismissHighlightOverlay();
             }
             RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
             return UiResult::Pass;
         }
-        g_level_block->portrait_overlay_party_slot = -1;
+        g_level_block->portrait_overlay_party_slot.reset();
         DismissHighlightOverlay();
     }
     RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
@@ -4901,7 +4906,7 @@ UiResult PartyCombatActionInput(const UiPointerEvent& event, HitTarget& target, 
     if (event.button == UiPointerButton::Left && event.action == UiPointerAction::Up) {
         if ((event.captured_buttons & SDL_BUTTON_LMASK) != 0 &&
             g_status.buffers.XChar[slot].fOccupied) {
-            if (g_level_block->keyboard_menu_open && slot != g_level_block->combat_slot) {
+            if (g_level_block->keyboard_menu_open && g_level_block->combat_slot != slot) {
                 CloseKeyboardMenu();
             }
             if (g_combat_state->round_active) {
@@ -4922,11 +4927,11 @@ UiResult PartyCombatActionInput(const UiPointerEvent& event, HitTarget& target, 
         event.action == UiPointerAction::Leave) {
         if (event.action == UiPointerAction::Leave) {
             if (!g_level_block->keyboard_menu_open) {
-                g_level_block->combat_slot = -1;
+                g_level_block->combat_slot.reset();
                 g_level_block->countdown3 = w8_get_ticks() + (0);
-                g_level_block->hover_combat_slot = -1;
+                g_level_block->hover_combat_slot.reset();
             }
-            g_level_block->combat_action_hover_party_slot = -1;
+            g_level_block->combat_action_hover_party_slot.reset();
             gXStatus.monster_manager_entries[slot].combat_portrait_dirty = true;
             target.setTooltip({});
             return UiResult::Pass;
@@ -5313,7 +5318,7 @@ void ClearCombatSelection(void)
 {
     SetCombatSelection(std::nullopt);
     SetCombatTarget(std::nullopt);
-    SetCombatAction(-1);
+    SetCombatAction(std::nullopt);
     SetTargetCursor(GetTargetingCursorForState(false));
 }
 
@@ -5650,7 +5655,7 @@ void SetCombatTarget(std::optional<int> value)
    the old group's tint, then either empties the selection or re-tints the new
    group - its lead member when the action picks monsters individually, the
    whole group when it wants the group. The cursor follows the result. */
-void SetCombatAction(int value)
+void SetCombatAction(std::optional<int> value)
 {
     if (g_level_block->action_group == value) return;
     g_level_block->action_group = value;
@@ -5890,7 +5895,7 @@ bool IsMGSActionKeyEnabled(unsigned short command)
    the combat action, or dispatch the slot's queued action's own command. */
 void RunMGSActionKey(unsigned short command)
 {
-    if (g_level_block->combat_end_notification != -1) {
+    if (g_level_block->combat_end_notification) {
         DestroySubMenuControls();
     }
     if (g_level_block->keyboard_menu_open) {
@@ -6304,7 +6309,7 @@ void ConfirmNpcTradeItem(void)
     auto& state = *g_npc_interaction_state;
     if (!state.trade_selection) return;
     const auto selection = *state.trade_selection;
-    const int row = g_level_block->selected_text_lines[2];
+    const auto row = g_level_block->selected_text_lines[2];
     if (state.trade_mode == W8_NPC_TRADE_GIVE) {
         if (selection.source != W8TradeSource::Gold &&
             !ResolveTradeSelection(state.dialogue_npc, selection))
@@ -6333,8 +6338,10 @@ void ConfirmNpcTradeItem(void)
             if (result.dropped_overflow) DisplayNpcQuote(g_localized_strings[0x6b1], false);
             SortNpcItems(state.dialogue_npc);
             RebuildNpcTradeItemList(false);
-            SetSelectedTextLine(row, 2);
-            UpdateNpcTradeSelection(row, 0, 1);
+            if (row) {
+                SetSelectedTextLine(*row, 2);
+                UpdateNpcTradeSelection(*row, 0, 1);
+            }
             if (result.accepted_topic) g_npc_dialogue.QueueQuote(0x15, false, false, false);
             break;
         case W8TradeOutcome::Refused:
@@ -6573,10 +6580,11 @@ void RestockNpcTradeStock(void)
 void NpcTradeSplitDialogResult(int count)
 {
     if (count != 0) {
-        int slot = g_level_block->selected_text_lines[2];
+        const auto slot = g_level_block->selected_text_lines[2];
+        if (!slot) return;
         g_npc_interaction_state->trade_quantity = count - 1;
-        SetSelectedTextLine(slot, 2);
-        UpdateNpcTradeSelection(slot, 0, 1);
+        SetSelectedTextLine(*slot, 2);
+        UpdateNpcTradeSelection(*slot, 0, 1);
     }
 }
 

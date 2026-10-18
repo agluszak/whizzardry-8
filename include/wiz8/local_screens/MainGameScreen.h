@@ -528,7 +528,7 @@ bool TrapInteractionSuspended();
 /* When a slot's committed action cannot execute, re-choose a
    fallback hand, breath or character attack, or reroute spell/item aiming. */
 void FallbackFromUnreachableAction(int party_slot);
-void SetCombatAction(int value);
+void SetCombatAction(std::optional<int> value);
 void SetCombatSelection(std::optional<int> value);
 void SetCombatTarget(std::optional<int> value);
 

@@ -45,8 +45,10 @@ bool CurrentCombatSubjectIsValid()
     if (g_level_block->highlighted_item)
         return AssessMonsterTarget(actor, *g_level_block->highlighted_item, action, true,
                                   sighting);
-    if (auto* group = FindMonsterGroup(g_level_block->action_group, false))
-        return CanTargetMonsterGroup(actor, group, action, sighting);
+    if (g_level_block->action_group) {
+        if (auto* group = FindMonsterGroup(*g_level_block->action_group, false))
+            return CanTargetMonsterGroup(actor, group, action, sighting);
+    }
     return false;
 }
 
@@ -127,17 +129,19 @@ W8TargetingPresentation BuildTargetingPresentation()
         } else {
             result.monsters[highlighted->location_id].tint = tint;
         }
-    } else if (auto* group = FindMonsterGroup(g_level_block->action_group, false)) {
+    } else if (g_level_block->action_group) {
         const auto action = selected == -1
                                 ? W8Action{}
                                 : SelectCombatAction(selected, GetEditedActionContext(selected));
-        if (selected != -1 && GetTargetNeededForAction(action) == W8_TARGET_NEED_GROUP) {
-            for (int id : group->MemberIds()) result.monsters[id].tint = tint;
-        } else if (selected != -1) {
-            const auto id = PickNextTargetableGroupMember(selected, group, action,
-                                                          GetEditedActionContext(selected) ==
-                                                              W8_TARGETING_CONTEXT_OUT_OF_COMBAT);
-            if (id) result.monsters[*id].tint = tint;
+        if (auto* group = FindMonsterGroup(*g_level_block->action_group, false)) {
+            if (selected != -1 && GetTargetNeededForAction(action) == W8_TARGET_NEED_GROUP) {
+                for (int id : group->MemberIds()) result.monsters[id].tint = tint;
+            } else if (selected != -1) {
+                const auto id = PickNextTargetableGroupMember(
+                    selected, group, action,
+                    GetEditedActionContext(selected) == W8_TARGETING_CONTEXT_OUT_OF_COMBAT);
+                if (id) result.monsters[*id].tint = tint;
+            }
         }
     }
     return result;

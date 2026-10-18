@@ -836,7 +836,7 @@ void ReleaseItemLists()
 
 /* plsItemList index that last satisfied AnyWorldItemVisible. */
 // GLOBAL: WIZ8 0x00618E70
-static int g_last_visible_world_item = -1;
+static std::optional<int> g_last_visible_world_item;
 
 static bool IsWorldItemMarkerVisible(W8WorldItem* item, const glm::vec3& camera)
 {
@@ -870,8 +870,9 @@ bool AnyWorldItemVisible(void)
     }
     camera = cameraLocation();
     count = CurrentLevelPopulation().world_items.size();
-    if (0 <= g_last_visible_world_item && g_last_visible_world_item < count) {
-        W8WorldItem* item = GetWorldItemListEntry(g_last_visible_world_item);
+    if (g_last_visible_world_item && 0 <= *g_last_visible_world_item &&
+        *g_last_visible_world_item < count) {
+        W8WorldItem* item = GetWorldItemListEntry(*g_last_visible_world_item);
         if (IsWorldItemMarkerVisible(item, camera)) {
             return true;
         }

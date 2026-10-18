@@ -155,25 +155,25 @@ struct W8LevelRuntimeBlock {
     /* The applied highlight, and the hover waiting out the tooltip delay. */
     W8PortraitHighlight highlight;
     W8PortraitHighlight pending_highlight;
-    int combat_action_hover_party_slot = -1;
+    std::optional<int> combat_action_hover_party_slot;
     /* PortraitAssaySidebarInput hover zone — 1 upper weapon
        row, 2 lower, 3 assayable item; Screens resets it to 0. */
     W8PortraitAssayHoverMode portrait_assay_hover_mode;
-    int held_item_display = -1;
+    std::optional<int> held_item_display;
     int text_content_region;
     int dialogue_content_region;
     unsigned int text_lines[12];
     /* Wrapped-line starts for hover and selection highlighting.
        NPC dialogue uses box 2 for the hovered row and selected trade item. */
-    int hovered_text_lines[4];
-    int selected_text_lines[4];
-    int portrait_overlay_party_slot = -1;
+    std::optional<int> hovered_text_lines[4];
+    std::optional<int> selected_text_lines[4];
+    std::optional<int> portrait_overlay_party_slot;
     /* Party slot whose condition / enchantment orb is held or
        drag-hovering; PortraitConditionOrbInput and
-       PortraitEnchantmentOrbInput own them (-1 while idle). */
-    int condition_orb_party_slot = -1;
-    int enchantment_orb_party_slot = -1;
-    int condition_highlight_party_slot = -1;
+       PortraitEnchantmentOrbInput own them; no slot is present while idle. */
+    std::optional<int> condition_orb_party_slot;
+    std::optional<int> enchantment_orb_party_slot;
+    std::optional<int> condition_highlight_party_slot;
     uint64_t clock;
     unsigned char portrait_flash;
     int dialogue_x;
@@ -184,7 +184,7 @@ struct W8LevelRuntimeBlock {
     int dialogue_text_x;
     int dialogue_text_width;
     int dialogue_width;
-    int highlight_row = -1;
+    std::optional<int> highlight_row;
     /* The dialogue highlight sprite. DrawHighlightOverlay lazily creates it
        from catalog object 0x72 through CreateSpriteFromSurface, and it is released
        through ReleaseObject whenever mode 6 ends or the tracked party
@@ -207,7 +207,7 @@ struct W8LevelRuntimeBlock {
     int pending_entry_id;
     int group_list_rows;
     int group_list_width;
-    int action_group = -1;
+    std::optional<int> action_group;
     /* Result of HighlightMonsterAsTarget for the current pick; [0]
        drives the group tint and the target cursor shape. */
     /* The formation board's three stModelInstance2D-family
@@ -220,7 +220,7 @@ struct W8LevelRuntimeBlock {
     stModelInstance2D* formation_overlay_sprite;
     unsigned char refresh_combat_panel;
     uint64_t combat_panel_timer;
-    short combat_end_notification;
+    std::optional<short> combat_end_notification;
     int text_box_left;
     int text_box_top;
     int text_box_right;
@@ -235,11 +235,11 @@ struct W8LevelRuntimeBlock {
     uint64_t tooltip_since;
     bool tooltip_pending;
     uint64_t countdown3;
-    int combat_slot;
+    std::optional<int> combat_slot;
     /* The keyboard-action menu is open; set before BuildKeyboardMenu,
        cleared by CloseKeyboardMenu. */
     bool keyboard_menu_open;
-    int hover_combat_slot;
+    std::optional<int> hover_combat_slot;
     /* Keyboard-menu cursor-left grace countdown armed; expires into
        CloseKeyboardMenu. */
     unsigned char cursor_grace;

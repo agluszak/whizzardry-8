@@ -3,6 +3,7 @@
 #include <array>
 #include <cstddef>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -45,7 +46,7 @@ bool g_main_menu_has_save_games;
 // GLOBAL: WIZ8 0x0069c4b6
 bool g_main_menu_redraw;
 // GLOBAL: WIZ8 0x0069c4b4
-static short g_main_menu_selected_item;
+static std::optional<short> g_main_menu_selected_item;
 // GLOBAL: WIZ8 0x0069c4c4
 // GLOBAL: WIZ8 0x0069c4bc
 std::string g_pending_main_menu_message;
@@ -84,12 +85,12 @@ unsigned char DrawMainMenuItem(short item, short state)
 static void DrawMainMenuItems()
 {
     for (short item = 0; item < 6; ++item) DrawMainMenuItem(item, 0);
-    DrawMainMenuItem(g_main_menu_selected_item, 1);
+    if (g_main_menu_selected_item) DrawMainMenuItem(*g_main_menu_selected_item, 1);
 }
 
 static void SelectMainMenuItem(short item)
 {
-    DrawMainMenuItem(g_main_menu_selected_item, 0);
+    if (g_main_menu_selected_item) DrawMainMenuItem(*g_main_menu_selected_item, 0);
     g_main_menu_selected_item = item;
     DrawMainMenuItem(item, 1);
 }
@@ -134,22 +135,23 @@ UiResult HandleMainMenuItem(short item, const UiPointerEvent& event)
         if (available) SelectMainMenuItem(item);
         break;
     case UiPointerAction::Leave:
-        DrawMainMenuItem(g_main_menu_selected_item, 0);
-        g_main_menu_selected_item = -1;
+        if (g_main_menu_selected_item) DrawMainMenuItem(*g_main_menu_selected_item, 0);
+        g_main_menu_selected_item.reset();
         break;
     case UiPointerAction::Down:
         if (available && event.button == UiPointerButton::Left)
-            DrawMainMenuItem(g_main_menu_selected_item, 2);
+            if (g_main_menu_selected_item) DrawMainMenuItem(*g_main_menu_selected_item, 2);
         break;
     case UiPointerAction::Up:
         if (!available || event.button != UiPointerButton::Left ||
             !(event.captured_buttons & SDL_BUTTON_LMASK))
             break;
-        DrawMainMenuItem(g_main_menu_selected_item, event.inside ? 1 : 0);
+        if (g_main_menu_selected_item)
+            DrawMainMenuItem(*g_main_menu_selected_item, event.inside ? 1 : 0);
         if (event.inside) {
             AfterUiDispatch([item] { ActivateMainMenuItem(item); });
         } else if (g_main_menu_selected_item == item) {
-            g_main_menu_selected_item = -1;
+            g_main_menu_selected_item.reset();
         }
         break;
     default:
@@ -263,8 +265,10 @@ void MainMenuScreenFrame()
                 } else {
                     switch (input.key) {
                     case SDLK_RETURN:
-                        DrawMainMenuItem(g_main_menu_selected_item, 2);
-                        ActivateMainMenuItem(static_cast<short>(g_main_menu_selected_item));
+                        if (g_main_menu_selected_item) {
+                            DrawMainMenuItem(*g_main_menu_selected_item, 2);
+                            ActivateMainMenuItem(*g_main_menu_selected_item);
+                        }
                         break;
                     case SDLK_ESCAPE:
                     case SDLK_E:
@@ -278,22 +282,24 @@ void MainMenuScreenFrame()
                         SelectMainMenuItem(5);
                         break;
                     case SDLK_UP:
-                        DrawMainMenuItem(g_main_menu_selected_item, 0);
-                        if (g_main_menu_selected_item > 0) {
-                            --g_main_menu_selected_item;
+                        if (g_main_menu_selected_item)
+                            DrawMainMenuItem(*g_main_menu_selected_item, 0);
+                        if (g_main_menu_selected_item && *g_main_menu_selected_item > 0) {
+                            --*g_main_menu_selected_item;
                         } else {
                             g_main_menu_selected_item = 5;
                         }
-                        DrawMainMenuItem(g_main_menu_selected_item, 1);
+                        DrawMainMenuItem(*g_main_menu_selected_item, 1);
                         break;
                     case SDLK_DOWN:
-                        DrawMainMenuItem(g_main_menu_selected_item, 0);
-                        if (g_main_menu_selected_item < 5) {
-                            ++g_main_menu_selected_item;
+                        if (g_main_menu_selected_item)
+                            DrawMainMenuItem(*g_main_menu_selected_item, 0);
+                        if (g_main_menu_selected_item && *g_main_menu_selected_item < 5) {
+                            ++*g_main_menu_selected_item;
                         } else {
                             g_main_menu_selected_item = 0;
                         }
-                        DrawMainMenuItem(g_main_menu_selected_item, 1);
+                        DrawMainMenuItem(*g_main_menu_selected_item, 1);
                         break;
                     case SDLK_L:
                         ActivateMainMenuItem(2);

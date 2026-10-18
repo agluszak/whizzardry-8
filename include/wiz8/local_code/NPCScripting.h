@@ -93,7 +93,7 @@ private:
     void RunNextAction();
     void RunQuoteEntry(W8NpcQuoteEntry* entry, int continuation_quote);
     int SelectResponse(W8NpcQuoteEntry* entry, int quote, int entry_index);
-    int FindReplyQuote(std::string_view text) const;
+    std::optional<int> FindReplyQuote(std::string_view text) const;
     void RunDeclineActions(int quote);
 
     Session session_{};
@@ -113,8 +113,8 @@ extern W8NpcDialogue g_npc_dialogue;
 std::string GetNpcScriptRegionName(int region);
 void StripNpcKeywordPunctuation(std::string& text);
 void TryFinishNpcVoicePlayback(bool force);
-int FindNpcScriptQuoteByKeyword(std::string_view keyword, short* entry_index,
-                                short* sub_entry_index);
+std::optional<int> FindNpcScriptQuoteByKeyword(std::string_view keyword, short* entry_index,
+                                               short* sub_entry_index);
 /* What presenting a subquote asks of the conversation: script sentinels
    UNKNOWN and CLASSIFIED stand for the NPC's stock "don't know" and
    "won't say" quotes. */
@@ -137,7 +137,7 @@ void UpdateNpcDialogueVoiceAndCursor(void);
 void SetNpcScriptEventActive(unsigned char value);
 /* Resolves NPC-name, named-person, and region keywords to a quote
    id; returns -1 when nothing matches. */
-int FindNpcNameOrPlaceQuote(W8NpcState* npc, std::string_view text);
+std::optional<int> FindNpcNameOrPlaceQuote(W8NpcState* npc, std::string_view text);
 void RestoreCurrentNpcQuoteBubble(void);
 /* Show the NPC quote bubble for the formatted line; a nonzero
    second argument also plays the startup jingle. */

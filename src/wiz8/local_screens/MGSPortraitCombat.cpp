@@ -173,7 +173,7 @@ void UpdateSubMenuButton(int index)
         g_main_game_state->hud_buttons.submenu[index].SetEnabled(false);
         return;
     }
-    if (g_level_block->combat_end_notification != -1) {
+    if (g_level_block->combat_end_notification) {
         g_main_game_state->hud_buttons.submenu[index].SetEnabled(false);
         return;
     }
@@ -354,7 +354,7 @@ static void SubMenuButtonToggleCombat(W8ButtonWidget* button)
 void DestroySubMenuControls(void)
 {
     SetSubMenuButtonTooltips(1);
-    g_level_block->combat_end_notification = -1;
+    g_level_block->combat_end_notification.reset();
     DestroySubMenuPanel();
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
 }
@@ -362,10 +362,10 @@ void DestroySubMenuControls(void)
 // FUNCTION: WIZ8 0x00595600
 void ReopenSubMenuPanel(void)
 {
-    short notification = g_level_block->combat_end_notification;
+    auto notification = g_level_block->combat_end_notification;
 
-    if (notification == -1) {
+    if (!notification) {
         return;
     }
-    OpenSubMenuPanel(notification);
+    OpenSubMenuPanel(*notification);
 }
