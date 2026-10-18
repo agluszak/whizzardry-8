@@ -198,7 +198,7 @@ bool OnSecurityButtonActivated(Trigger* trigger)
     if (GetLocationVarIDByName("UmpaniCampAlarm") != -1) {
         return false;
     }
-    SetFactionDispositionBand(4, 0);
+    SetFactionDispositionBand(4, W8_FACTION_HOSTILE);
     ControlCampAlarm(0xEFFFFFFF);
     return true;
 }
