@@ -3442,7 +3442,7 @@ bool W8PathingService::TestWaypointSpan(const glm::vec3* source, glm::vec3* dest
         static_cast<unsigned int>(static_cast<int>(((source->y - level_bounds.minimum.y) / span))) +
         1;
     unsigned int previous_key = 0;
-    unsigned int previous_value;
+    unsigned int previous_value = height;
     int iteration = 0;
     const auto updateNeighborMask = [&](unsigned int current_key, unsigned int current_value) {
         const unsigned int key = previous_key == 0 ? current_key : previous_key;
@@ -3458,7 +3458,7 @@ bool W8PathingService::TestWaypointSpan(const glm::vec3* source, glm::vec3* dest
     while (iteration < walk.count && !blocked) {
         auto slot = path_index->equal_range(cell_key).first;
         unsigned int direction_mask = 0;
-        unsigned int path_value;
+        unsigned int path_value = height;
         bool found = false;
 
         while (slot != path_index->end() && !found) {
