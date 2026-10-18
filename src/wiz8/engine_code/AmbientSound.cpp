@@ -32,7 +32,6 @@
 #include "surrender/srMath.h"
 #include "wiz8/audio_resources.h"
 #include "wiz8/chunk.h"
-#include "wiz8/containers.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/PolyPick.h"
 #include "wiz8/engine_code/Quality.h"
@@ -383,31 +382,24 @@ void W8AmbientSound::Service(bool entered)
 // FUNCTION: WIZ8 0x0047a260
 W8AmbientSound* W8AmbientSound::FindNextMatching(const char* match_name, W8AmbientSound* previous)
 {
-    int count;
-    int index;
+    if (!GetWorld()) return nullptr;
 
-    if (GetWorld() == 0) {
-        return 0;
+    auto& sounds = GetWorld()->plsAmbientSounds;
+    auto current = sounds.begin();
+    if (previous) {
+        current = std::ranges::find(sounds, previous,
+                                    [](const auto& owner) { return owner.get(); });
+        if (current == sounds.end()) return nullptr;
+        ++current;
     }
-    count = static_cast<int>(GetWorld()->plsAmbientSounds.size());
-    if (previous == 0) {
-        index = 0;
-    } else {
-        index = wiz8::index_of(GetWorld()->plsAmbientSounds, previous,
-                               [](const auto& owner) { return owner.get(); }) +
-                1;
-        if (index < 0 || index > count) {
-            return 0;
-        }
-    }
-    for (; index < count; ++index) {
-        W8AmbientSound* candidate = GetWorldAmbientSound(GetWorld(), index);
-        if (candidate != 0 && candidate != this && candidate->shared != 0 &&
+    for (; current != sounds.end(); ++current) {
+        W8AmbientSound* candidate = current->get();
+        if (candidate && candidate != this && candidate->shared &&
             SDL_strcasecmp(candidate->config.wave_name, match_name) == 0) {
             return candidate;
         }
     }
-    return 0;
+    return nullptr;
 }
 
 // FUNCTION: WIZ8 0x0047a310

@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -155,7 +156,7 @@ void ServiceMusicPlaylist(void)
     }
 
     for (;;) {
-        int selected = -1;
+        std::optional<int> selected;
 
         if (g_music_playlist_weight_total == 0) {
             selected = Random(g_music_playlist_track_count);
@@ -175,12 +176,12 @@ void ServiceMusicPlaylist(void)
             }
         }
 
-        if (selected < 0) {
+        if (!selected) {
             g_music_force_next = false;
             return;
         }
 
-        const auto& line = g_music_playlist->lines[selected].text;
+        const auto& line = g_music_playlist->lines[*selected].text;
         const auto track = line.substr(0, line.find('('));
 
         if (StartMusicResource(track.c_str(), g_music_fade, 1) == 0) {
