@@ -2613,7 +2613,7 @@ void CheckMonsterGroupsEnterCombat(void)
                     record = MonsterGroupGetRecord(group);
                     if ((record->flags & W8_MONSTER_FLAG_NPC) == 0 && record->faction_id == 0 &&
                         record->hostility_radius != 0 && record->hostility_radius != -1) {
-                        SetMonsterGroupHostility(group, 1, false);
+                        SetMonsterGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
                     }
                 }
             }
