@@ -1670,9 +1670,8 @@ void AssignCombatPhases(void)
             int value = Random(4) + character->initiative;
             W8ActionKind action = party_row->committed_action.kind;
             if (action == W8_ACTION_ATTACK || action == W8_ACTION_BERSERK) {
-                int hand = ChooseCharacterAttackHand(party_slot);
-                if (hand != -1) {
-                    value += character->Hand[hand].damage_bonus;
+                if (const auto hand = ChooseCharacterAttackHand(party_slot)) {
+                    value += character->Hand[*hand].damage_bonus;
                 }
             }
             value = std::clamp(value, -10, 0x59);

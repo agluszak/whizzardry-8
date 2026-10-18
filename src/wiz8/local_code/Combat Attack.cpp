@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -1037,9 +1038,9 @@ void ResolveMissileHit(W8Missile* missile, bool deflected)
    wins, ties go to the bigger damage bonus, and a hand that cannot reach is
    not a candidate. */
 // FUNCTION: WIZ8 0x0053d390
-int ChooseCharacterAttackHand(int party_slot)
+std::optional<int> ChooseCharacterAttackHand(int party_slot)
 {
-    int best_hand = -1;
+    std::optional<int> best_hand;
     unsigned int best_attacks = 0;
     int best_damage_bonus = -999;
     unsigned int hand;
@@ -1069,16 +1070,16 @@ int ChooseCharacterAttackHand(int party_slot)
 // FUNCTION: WIZ8 0x0053d680
 void PrepareCharacterAttacks(int party_slot)
 {
-    int best_hand = ChooseCharacterAttackHand(party_slot);
+    const auto best_hand = ChooseCharacterAttackHand(party_slot);
     unsigned int hand;
     int value;
 
-    if (best_hand == -1) {
+    if (!best_hand) {
         DebugMessage(1, fmt::format("ERROR: {} is preparing attacks with when it's not possible!",
                                     g_status.buffers.Char[party_slot].name));
         return;
     }
-    g_combat_state->characters[party_slot].current_hand = best_hand;
+    g_combat_state->characters[party_slot].current_hand = *best_hand;
     for (hand = 0; hand < W8_HAND_COUNT; ++hand) {
         if (hand >= W8_HAND_COUNT) {
             srAssertFail("uiHand < HAND_COUNT", COMBAT_ATTACK_CPP, 102,

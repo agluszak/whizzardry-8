@@ -1,3 +1,4 @@
+#include <optional>
 #include <span>
 #include <vector>
 
@@ -561,7 +562,7 @@ int CharacterPrayAction(int party_slot)
     unsigned int index;
     int action;
     int pick;
-    int best;
+    std::optional<int> best;
 
     if (!CanPartySlotPray(party_slot)) {
         return 0;
@@ -721,19 +722,19 @@ int CharacterPrayAction(int party_slot)
                 prayed = true;
                 break;
             }
-            best = -1;
+            best.reset();
             for (index = 0; index < 8; ++index) {
                 W8Character* member = &g_status.buffers.Char[index];
                 if (CanPartySlotParticipate(index) &&
                     member->hp_current < static_cast<unsigned int>(member->uiHPMax) &&
-                    (best == -1 || member->hp_current < g_status.buffers.Char[best].hp_current)) {
+                    (!best || member->hp_current < g_status.buffers.Char[*best].hp_current)) {
                     best = index;
                 }
             }
-            if (best != -1) {
+            if (best) {
                 ResetCombatSlot(&target);
                 target.iType = W8_TARGET_KIND_CHARACTER;
-                target.iChar = best;
+                target.iChar = *best;
                 AppendToLastTextLine(g_localized_strings[0x179], -1);
                 CastSpellFromSource(W8_SPELL_HEAL_WOUNDS, &source, &target, power_level, 0, 0,
                                     false, &outcome, 0, 0, 0);
