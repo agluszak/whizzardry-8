@@ -47,7 +47,8 @@ int ComputeRealmSkillDebt(W8Character* original, W8Character* edited)
 {
     int total = 0;
 
-    if (GetProfessionCasterLevel(edited, W8_PROFESSION_NONE) != 0) {
+    const auto edited_caster_level = GetProfessionCasterLevel(edited, W8_PROFESSION_NONE);
+    if (!edited_caster_level || *edited_caster_level != 0) {
         int index;
 
         for (index = 0x18; index <= 0x1b; ++index) {
@@ -61,7 +62,8 @@ int ComputeRealmSkillDebt(W8Character* original, W8Character* edited)
         }
         return total;
     }
-    if (GetProfessionCasterLevel(original, W8_PROFESSION_NONE) < 1) {
+    const auto original_caster_level = GetProfessionCasterLevel(original, W8_PROFESSION_NONE);
+    if (!original_caster_level || *original_caster_level < 1) {
         return 0;
     }
     {
@@ -597,7 +599,8 @@ void ClampSkillsToBudget(W8Character* character, W8CharacterCreationState* creat
 void FinalizeSpellPointPool(W8Character* character, W8CharacterCreationState* creation_state)
 {
     int spent = creation_state->spell_points_total - creation_state->spell_points_remaining;
-    if (GetProfessionCasterLevel(character, W8_PROFESSION_NONE) < 1) {
+    const auto caster_level = GetProfessionCasterLevel(character, W8_PROFESSION_NONE);
+    if (!caster_level || *caster_level < 1) {
         creation_state->spell_points_total = 0;
     } else {
         if (character->uiExpLevel == 1) {
@@ -607,7 +610,7 @@ void FinalizeSpellPointPool(W8Character* character, W8CharacterCreationState* cr
         }
         creation_state->magic_skill_bonus += g_spell_point_bonus;
         int total = 0;
-        if (GetProfessionCasterLevel(character, W8_PROFESSION_NONE) > 0) {
+        if (caster_level && *caster_level > 0) {
             for (unsigned int realm = 0x18; realm < 0x1c; ++realm) {
                 if (character->skills[realm].active) {
                     total += character->skill_costs[realm - 0x18];

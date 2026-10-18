@@ -1,6 +1,7 @@
 #ifndef WIZ8_LOCAL_CODE_MAGIC_H
 #define WIZ8_LOCAL_CODE_MAGIC_H
 
+#include <optional>
 #include <vector>
 
 #include "glm/ext/vector_float3.hpp"
@@ -99,7 +100,8 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
 /* Drop every marker that no longer names a live, targetable
    monster; a few spell ids prune on extra monster-record rules. */
 void PruneSpellTargetMarkers(int spell_id, std::vector<int>& monster_markers);
-int GetProfessionCasterLevel(const W8Character* character, W8Profession profession_id);
+std::optional<int> GetProfessionCasterLevel(const W8Character* character,
+                                            W8Profession profession_id);
 extern unsigned char g_profession_spellbooks[W8_PROFESSION_COUNT];
 /* The spell a missile type carries, or W8_SPELL_NONE. */
 int MissileSpellId(int missile_type);

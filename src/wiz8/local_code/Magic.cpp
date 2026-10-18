@@ -89,7 +89,8 @@
 constexpr float kGroundSettleFail = -1000000.0f;
 
 // FUNCTION: WIZ8 0x004ff3b0
-int GetProfessionCasterLevel(const W8Character* character, W8Profession profession_id)
+std::optional<int> GetProfessionCasterLevel(const W8Character* character,
+                                            W8Profession profession_id)
 {
     int magic_level_offset;
 
@@ -103,7 +104,7 @@ int GetProfessionCasterLevel(const W8Character* character, W8Profession professi
 
     magic_level_offset = g_profession_magic_level_offsets[profession_id];
     if (magic_level_offset == -255) {
-        return -1;
+        return std::nullopt;
     }
     return character->profession_levels[profession_id] + magic_level_offset;
 }
@@ -940,22 +941,23 @@ void StartCharacterItemUse(int party_slot)
    of nothing at all short-circuits unless the caller asks for the sum
    anyway. */
 // FUNCTION: WIZ8 0x004ffbd0
-int GetTotalCasterLevel(const W8Character* character, int spellbook, bool include_all)
+std::optional<int> GetTotalCasterLevel(const W8Character* character, int spellbook,
+                                       bool include_all)
 {
-    int total = GetProfessionCasterLevel(character, W8_PROFESSION_NONE);
+    auto total = GetProfessionCasterLevel(character, W8_PROFESSION_NONE);
     int other;
-    int level;
 
-    if (total < 1 && !include_all) {
+    if (!include_all && (!total || *total < 1)) {
         return total;
     }
 
     for (other = 0; other < 15; ++other) {
         if (character->profession_levels[other] != 0 && other != character->iProfession &&
             (g_profession_spellbooks[other] & spellbook) != 0) {
-            level = GetProfessionCasterLevel(character, static_cast<W8Profession>(other));
-            if (level > 0) {
-                total += level;
+            const auto level =
+                GetProfessionCasterLevel(character, static_cast<W8Profession>(other));
+            if (level && *level > 0) {
+                total = total ? *total + *level : *level;
             }
         }
     }
@@ -1024,7 +1026,6 @@ bool CanCharacterLearnSpell(W8Character* character, int spell_id)
     unsigned char book = SpellbookMaskForSpell(spell_id);
     int caster_level;
     int other;
-    int other_level;
     unsigned int level_ceiling = 0;
     unsigned int skill_ceiling;
     unsigned int ceiling;
@@ -1038,14 +1039,16 @@ bool CanCharacterLearnSpell(W8Character* character, int spell_id)
         return false;
     }
 
-    caster_level = GetProfessionCasterLevel(character, W8_PROFESSION_NONE);
+    const auto current_caster_level = GetProfessionCasterLevel(character, W8_PROFESSION_NONE);
+    caster_level = current_caster_level ? *current_caster_level : 0;
     if (caster_level > 0) {
         for (other = 0; other < 15; ++other) {
             if (character->profession_levels[other] != 0 && other != character->iProfession &&
                 (g_profession_spellbooks[other] & book) != W8_SPELLBOOK_NONE) {
-                other_level = GetProfessionCasterLevel(character, static_cast<W8Profession>(other));
-                if (other_level > 0) {
-                    caster_level += other_level;
+                const auto other_level =
+                    GetProfessionCasterLevel(character, static_cast<W8Profession>(other));
+                if (other_level && *other_level > 0) {
+                    caster_level += *other_level;
                 }
             }
         }
@@ -1519,8 +1522,9 @@ W8Skill GetBestSpellbookSkillForSpell(W8Character* character, int spell_id, bool
                                                      g_spell_records[spell_id].realm);
             failure = GetSpellFailureChance(skill_figure, spell_id, static_cast<int>(power_level));
 
-            shortfall = GetMinimumCasterLevelForSpell(spell_id) -
-                        GetTotalCasterLevel(character, book, true) - 1 + power_level;
+            const auto total_level = GetTotalCasterLevel(character, book, true);
+            shortfall = GetMinimumCasterLevelForSpell(spell_id) - (total_level ? *total_level : 0) -
+                        1 + power_level;
             if (shortfall > 0) {
                 failure += g_spell_records[spell_id].spell_level * shortfall;
             }
@@ -1558,7 +1562,8 @@ static unsigned int GetCastFailureChance(W8Character* character, int spell_id,
 
     chance = GetSpellFailureChance(skill_figure, spell_id, static_cast<int>(power_level));
     book = SpellbookMaskForSpell(spell_id);
-    caster_level = GetTotalCasterLevel(character, book, true);
+    const auto total_level = GetTotalCasterLevel(character, book, true);
+    caster_level = total_level ? *total_level : 0;
     shortfall = GetMinimumCasterLevelForSpell(spell_id) - caster_level - 1 + power_level;
     if (shortfall > 0) {
         chance += record->spell_level * shortfall;
@@ -2605,15 +2610,18 @@ int ExecuteCharacterSpellCast(int party_slot, int spell_id, unsigned int power_l
         chance = 0;
     }
     minimum_level = GetMinimumCasterLevelForSpell(spell_id);
-    caster_level = GetProfessionCasterLevel(character, W8_PROFESSION_NONE);
+    const auto current_caster_level = GetProfessionCasterLevel(character, W8_PROFESSION_NONE);
+    caster_level = current_caster_level ? *current_caster_level : 0;
     spellbook = (record->psionics_spell != 0 ? 8U : 0U) | (record->divinity_spell != 0 ? 2U : 0U) |
                 (record->wizardry_spell != 0 ? 1U : 0U) | (record->alchemy_spell != 0 ? 4U : 0U);
     for (profession = W8_PROFESSION_FIGHTER; profession < W8_PROFESSION_COUNT; ++profession) {
         if (character->profession_levels[profession] != 0 && profession != character->iProfession &&
-            (g_profession_spellbooks[profession] & spellbook) != 0 &&
-            (index = GetProfessionCasterLevel(character, static_cast<W8Profession>(profession)),
-             0 < index)) {
-            caster_level += index;
+            (g_profession_spellbooks[profession] & spellbook) != 0) {
+            const auto other_caster_level =
+                GetProfessionCasterLevel(character, static_cast<W8Profession>(profession));
+            if (other_caster_level && *other_caster_level > 0) {
+                caster_level += *other_caster_level;
+            }
         }
     }
     index = (minimum_level - caster_level) - 1 + power_level;
@@ -2838,13 +2846,14 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
         ClearAttackBlock(&block);
         if (TargetSourceIsCharacter(source, 1)) {
             if (source->name_known == 0) {
-                caster_figure = GetTotalCasterLevel(
+                const auto total_level = GetTotalCasterLevel(
                     &g_status.buffers.Char[source->iChar],
                     (g_spell_records[spell_id].psionics_spell != 0 ? 8 : 0) |
                         (g_spell_records[spell_id].divinity_spell != 0 ? 2 : 0) |
                         (g_spell_records[spell_id].wizardry_spell != 0 ? 1 : 0) |
                         (g_spell_records[spell_id].alchemy_spell != 0 ? 4 : 0),
                     true);
+                caster_figure = total_level ? *total_level : 0;
                 caster_figure = GetSpellDifficulty(caster_figure, spell_id, power_level);
             } else {
                 caster_figure = source->spell_difficulty;
