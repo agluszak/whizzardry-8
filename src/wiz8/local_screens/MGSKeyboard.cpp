@@ -17,7 +17,6 @@
 
 #include "camera_motion.h"
 #include "glm/ext/vector_int2.hpp"
-#include "input.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/npc_dialogue.h"
 #include "layouts/screen_state.h"
@@ -67,6 +66,7 @@
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"

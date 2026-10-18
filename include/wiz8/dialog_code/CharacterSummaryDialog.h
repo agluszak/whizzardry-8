@@ -3,10 +3,10 @@
 #include <cstdint>
 #include <memory>
 
-#include "input.h"
+#include "wiz8/audio/mouth_gap.h"
 #include "wiz8/audio_resources.h"
 #include "wiz8/dialog_code/DialogBase.h"
-#include "wiz8/mouth_gap.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/portrait_animation.h"
 
 class W8TextBuffer;

@@ -7,7 +7,6 @@
 #include "Navigator.h"
 #include "glm/ext/vector_float3.hpp"
 #include "local_code/Factions.h"
-#include "random.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/layouts/game_status.h"
@@ -15,6 +14,7 @@
 #include "wiz8/level_population.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/platform/random.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/xstatus.h"
 

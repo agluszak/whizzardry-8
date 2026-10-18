@@ -9,8 +9,8 @@
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/engine_code/3dapi.h"
-#include "wiz8/engine_code/IntervalGate.h"
 #include "wiz8/engine_code/World.h"
+#include "wiz8/platform/IntervalGate.h"
 
 /* Orientation limits shared by the inline setters and GDCamera.cpp. */
 extern const float g_camera_angle_period0;

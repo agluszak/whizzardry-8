@@ -5,9 +5,9 @@
 #include <vector>
 
 #include "compat/compiler.h"
-#include "input.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/platform/input.h"
 
 class W8MessageDialogBase : public W8DialogBase {
 public:

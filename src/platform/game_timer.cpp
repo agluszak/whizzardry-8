@@ -1,11 +1,11 @@
-#include "wiz8/engine_code/game_timer.h"
+#include "wiz8/platform/game_timer.h"
 
 #include <cstdint>
 #include <exception>
 
 #include "wiz8/chunk.h"
 #include "wiz8/compat/native.h"
-#include "wiz8/engine_code/GameTimeAccumulator.h"
+#include "wiz8/platform/GameTimeAccumulator.h"
 
 std::uint32_t GameClockTicks()
 {

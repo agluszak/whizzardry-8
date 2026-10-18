@@ -7,7 +7,6 @@
 
 #include <fmt/format.h>
 
-#include "random.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -21,6 +20,7 @@
 #include "wiz8/message_box.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_script_file.h"
+#include "wiz8/platform/random.h"
 #include "wiz8/unicode.h"
 
 constexpr int kWorldActionQuoteMax = 'R';

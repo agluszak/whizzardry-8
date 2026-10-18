@@ -1,4 +1,4 @@
-#include "sprite.h"
+#include "wiz8/canvas/sprite.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -10,8 +10,8 @@
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 
-#include "himage.h"
-#include "image.h"
+#include "wiz8/canvas/himage.h"
+#include "wiz8/canvas/image.h"
 #include "wiz8/surface_storage.h"
 
 namespace {

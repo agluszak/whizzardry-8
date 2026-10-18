@@ -12,7 +12,6 @@
 #include <fmt/format.h>
 
 #include "conditions.h"
-#include "image.h"
 #include "layouts/character.h"
 #include "layouts/gameplay_databases.h"
 #include "layouts/item_instance.h"
@@ -22,6 +21,7 @@
 #include "local_code/TextBuffer.h"
 #include "surrender/srDebug.h"
 #include "wiz8/button_interaction.h"
+#include "wiz8/canvas/image.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/dialog_code/AssayDialog.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"

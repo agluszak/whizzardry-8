@@ -12,10 +12,9 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 
-#include "Font.h"
-#include "input.h"
 #include "local_code/ControlsRect.h"
 #include "npc_script_file.h"
+#include "wiz8/canvas/Font.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
@@ -25,6 +24,7 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"

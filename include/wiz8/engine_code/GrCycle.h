@@ -19,8 +19,8 @@
 #include "glm/ext/matrix_float3x3.hpp"
 #include "wiz8/engine_code/GrObject.h"
 #include "wiz8/engine_code/Navigator.h"
-#include "wiz8/engine_code/game_timer.h"
 #include "wiz8/engine_code/stParticle.h"
+#include "wiz8/platform/game_timer.h"
 
 class srModelInstance;
 struct W8World;

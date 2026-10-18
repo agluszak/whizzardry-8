@@ -8,7 +8,7 @@
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_surface.h>
 
-#include "himage.h"
+#include "wiz8/canvas/himage.h"
 
 // Path-keyed decoded images packed in the fixed ARGB1555 framebuffer format.
 class ImageAssets {

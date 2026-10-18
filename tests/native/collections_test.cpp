@@ -15,11 +15,9 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "fact_state.h"
-#include "input.h"
 #include "layouts/item_instance.h"
 #include "layouts/npc_state.h"
 #include "mgs_commands.h"
-#include "random.h"
 #include "save_payload.h"
 #include "scoped_asset_roots.h"
 #include "scoped_records.h"
@@ -61,6 +59,8 @@
 #include "wiz8/monster_roster.h"
 #include "wiz8/npc_items.h"
 #include "wiz8/npc_trade_price.h"
+#include "wiz8/platform/input.h"
+#include "wiz8/platform/random.h"
 #include "wiz8/retail_save_records.h"
 #include "wiz8/retail_text_records.h"
 #include "wiz8/xstatus.h"

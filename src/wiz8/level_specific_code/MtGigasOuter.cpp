@@ -6,13 +6,12 @@
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/world.h"
 #include "surrender/srCamera.h"
+#include "wiz8/audio/stSound3D.h"
 #include "wiz8/cursor.h"
-#include "wiz8/engine_code/IntervalGate.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/stSound3D.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
@@ -22,6 +21,7 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/location_variables.h"
+#include "wiz8/platform/IntervalGate.h"
 
 struct W8ItemInstance;
 struct W8NpcState;

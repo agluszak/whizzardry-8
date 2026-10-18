@@ -12,10 +12,10 @@
 #include "wiz8/audio_resources.h"
 #include "wiz8/camera_motion.h"
 #include "wiz8/engine_code/GDCamera.h"
-#include "wiz8/engine_code/IntervalGate.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/ground_probe.h"
+#include "wiz8/platform/IntervalGate.h"
 #include "wiz8/retail_opaque_records.h"
 
 namespace wiz8 {

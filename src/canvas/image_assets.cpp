@@ -1,4 +1,4 @@
-#include "image_assets.h"
+#include "wiz8/canvas/image_assets.h"
 
 #include <memory>
 #include <string>
@@ -8,8 +8,8 @@
 
 #include <SDL3/SDL_surface.h>
 
-#include "himage.h"
-#include "image.h"
+#include "wiz8/canvas/himage.h"
+#include "wiz8/canvas/image.h"
 
 namespace {
 std::string cache_key(std::string_view path)

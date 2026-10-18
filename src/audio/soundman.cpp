@@ -1,6 +1,6 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09, 2026-10-11, 2026-10-16.
    Distributed under the accompanying SFI Source Code license agreement. */
-#include "soundman.h"
+#include "wiz8/audio/soundman.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -23,10 +23,10 @@
 
 #include "asset_paths.h"
 #include "compat/native.h"
-#include "random.h"
+#include "wiz8/audio/native_audio.h"
 #include "wiz8/audio_resources.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/native_audio.h"
+#include "wiz8/platform/random.h"
 
 namespace wiz8::sound {
 struct AudioClip {

@@ -2,15 +2,15 @@
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 
-#include "himage.h"
-#include "input.h"
 #include "wiz8/application.h"
+#include "wiz8/canvas/himage.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_screens/Screens.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/ui_input.h"
 
 /* Lifecycle record 12 is the exit screen selected by Main Menu's Exit row and

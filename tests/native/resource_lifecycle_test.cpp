@@ -40,7 +40,6 @@
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/emitter_cycles.h"
 #include "wiz8/engine_code/emitter_resources.h"
-#include "wiz8/engine_code/game_timer.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/engine_code/stModelInstance.h"
@@ -58,6 +57,7 @@
 #include "wiz8/message_box.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_script_file.h"
+#include "wiz8/platform/game_timer.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/xstatus.h"
 

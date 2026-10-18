@@ -6,8 +6,8 @@ struct W8Chunk;
 #include <string_view>
 #include <vector>
 
-#include "Font.h"
-#include "input.h"
+#include "wiz8/canvas/Font.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/ui_input.h"
 
 struct W8MonsterInfo;

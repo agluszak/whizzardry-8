@@ -27,7 +27,6 @@
 #include "glm/matrix.hpp"
 #include "layouts/world.h"
 #include "particle_modes.h"
-#include "random.h"
 #include "surrender/mesh_submission.h"
 #include "surrender/srBoundingBox.h"
 #include "surrender/srDebug.h"
@@ -44,11 +43,12 @@
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/PolyPick.h"
 #include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/game_timer.h"
 #include "wiz8/engine_code/stTextureAnim.h"
 #include "wiz8/engine_code/stTextureFile.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/gameplay_constants.h"
+#include "wiz8/platform/game_timer.h"
+#include "wiz8/platform/random.h"
 #include "wiz8/unicode.h"
 
 constexpr float kParticleFlutterAngleRandomScale = 0.00019174758926965296f;

@@ -8,8 +8,8 @@
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srLight.h"
 #include "surrender/srNode.h"
-#include "wiz8/engine_code/GameTimeAccumulator.h"
 #include "wiz8/gameplay_constants.h"
+#include "wiz8/platform/GameTimeAccumulator.h"
 
 const float g_monster_light_cycle_rate = 0.025f;
 

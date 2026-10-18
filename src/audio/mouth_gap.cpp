@@ -1,4 +1,4 @@
-#include "wiz8/mouth_gap.h"
+#include "wiz8/audio/mouth_gap.h"
 
 #include <algorithm>
 #include <exception>
@@ -8,7 +8,7 @@
 
 #include "asset_paths.h"
 #include "audio_resources.h"
-#include "soundman.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/filesystem.h"
 
 /* Voice samples ship a companion file at <voice dir>\GAP\<voice name>.gap

@@ -16,7 +16,6 @@ struct W8WorldItem;
 #include <stddef.h>
 
 #include "wiz8/character_event_queue.h"
-#include "wiz8/engine_code/game_timer.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_instance.h"
@@ -25,6 +24,7 @@ struct W8WorldItem;
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/platform/game_timer.h"
 
 struct W8MonsterGroup;
 struct W8WorldItem;

@@ -11,7 +11,6 @@
 #include "local_code/Factions.h"
 #include "local_code/FormationAndFacing.h"
 #include "monster_spell_icons.h"
-#include "random.h"
 #include "spell_ids.h"
 #include "surrender/srDebug.h"
 #include "wiz8/character_skills.h"
@@ -48,6 +47,7 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/monster_cycles.h"
+#include "wiz8/platform/random.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 

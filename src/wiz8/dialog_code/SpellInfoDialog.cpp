@@ -8,14 +8,13 @@
 #include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
 
-#include "Font.h"
 #include "dialog_code/DialogScrollBar.h"
 #include "dialog_code/DialogTextArea.h"
 #include "dice.h"
-#include "game_timer.h"
 #include "layouts/gameplay_databases.h"
 #include "local_code/ControlsRect.h"
 #include "surrender/srDebug.h"
+#include "wiz8/canvas/Font.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/engine_code/Spells.h"
@@ -23,6 +22,7 @@
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/CharacterScreen.h"
+#include "wiz8/platform/game_timer.h"
 #include "wiz8/string_database.h"
 
 const char* g_spell_info_background_path = "Data\\Dialogs\\popup_spellinfo.sti";

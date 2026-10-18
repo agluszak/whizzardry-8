@@ -10,7 +10,6 @@
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 
-#include "input.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/DialogScrollBar.h"
@@ -19,6 +18,7 @@
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/modal_content.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/ui_input.h"
 
 void W8DialogBase::CreateCloseButton(W8ButtonWidget& button, int left, int top)

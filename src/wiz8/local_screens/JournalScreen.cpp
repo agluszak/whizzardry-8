@@ -13,14 +13,13 @@
 #include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
 
-#include "Font.h"
 #include "difficulty.h"
-#include "himage.h"
-#include "image.h"
-#include "input.h"
 #include "message_box.h"
-#include "soundman.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/button_interaction.h"
+#include "wiz8/canvas/Font.h"
+#include "wiz8/canvas/himage.h"
+#include "wiz8/canvas/image.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/chunk.h"
 #include "wiz8/cursor.h"
@@ -42,6 +41,7 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/Screens.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/xstatus.h"

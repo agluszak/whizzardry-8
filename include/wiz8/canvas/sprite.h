@@ -6,7 +6,7 @@
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 
-#include "himage.h"
+#include "wiz8/canvas/himage.h"
 #include "wiz8/surface_storage.h"
 
 enum class SpriteBlend {

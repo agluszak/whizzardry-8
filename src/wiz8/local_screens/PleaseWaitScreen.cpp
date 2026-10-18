@@ -11,13 +11,13 @@
 #include <SDL3/SDL_log.h>
 #include <fmt/format.h>
 
-#include "Font.h"
 #include "asset_paths.h"
 #include "compat/compiler.h"
 #include "compat/native.h"
 #include "layouts/levels.h"
-#include "soundman.h"
 #include "surrender/srDebug.h"
+#include "wiz8/audio/soundman.h"
+#include "wiz8/canvas/Font.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Video2.h"

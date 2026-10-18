@@ -12,7 +12,6 @@
 #include <fmt/format.h>
 #include <glm/geometric.hpp>
 
-#include "Font.h"
 #include "character_skills.h"
 #include "conditions.h"
 #include "dialog_code/DialogBase.h"
@@ -22,6 +21,7 @@
 #include "layouts/character.h"
 #include "local_code/Factions.h"
 #include "monster_actions.h"
+#include "wiz8/canvas/Font.h"
 #include "wiz8/dialog_code/SpellInfoDialog.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Navigator.h"

@@ -1,4 +1,4 @@
-#include "wiz8/engine_code/AmbientSound.h"
+#include "wiz8/audio/AmbientSound.h"
 
 #include <algorithm>
 #include <array>
@@ -23,13 +23,11 @@
 
 #include "asset_paths.h"
 #include "compat/native.h"
-#include "game_timer.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/world.h"
-#include "random.h"
-#include "soundman.h"
 #include "surrender/srMath.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/audio_resources.h"
 #include "wiz8/chunk.h"
 #include "wiz8/containers.h"
@@ -43,6 +41,8 @@
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Gameloop.h"
+#include "wiz8/platform/game_timer.h"
+#include "wiz8/platform/random.h"
 #include "wiz8/unicode.h"
 #include "wiz8/xstatus.h"
 

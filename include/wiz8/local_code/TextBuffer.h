@@ -5,7 +5,7 @@
 
 #include <SDL3/SDL_surface.h>
 
-#include "Font.h"
+#include "wiz8/canvas/Font.h"
 #include "wiz8/local_code/ControlsRect.h"
 
 extern char g_W8TextSeparator[];

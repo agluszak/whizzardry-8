@@ -6,7 +6,7 @@ struct W8Chunk;
 #include <string_view>
 #include <vector>
 
-#include "Font.h"
+#include "wiz8/canvas/Font.h"
 
 void SyncNpcDialogueTranscriptScrollButtons();
 void SetNpcDialogueInputEnabled(int group, bool enabled);
@@ -16,7 +16,6 @@ void HideNpcQuoteBubbleRegion();
 #include <array>
 #include <functional>
 
-#include "input.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/dialog_code/PortraitQuote.h"
 #include "wiz8/layouts/item_instance.h"
@@ -25,6 +24,7 @@ void HideNpcQuoteBubbleRegion();
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/message_box.h"
 #include "wiz8/npc_items.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/xstatus.h"
 

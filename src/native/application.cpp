@@ -14,16 +14,16 @@
 #include <SDL3/SDL_stdinc.h>
 
 #include "asset_paths.h"
-#include "random.h"
-#include "soundman.h"
+#include "wiz8/audio/soundman.h"
+#include "wiz8/audio/stSound3D.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/engine_code/Video2.h"
-#include "wiz8/engine_code/stSound3D.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game_init.h"
 #include "wiz8/local_code/Gameloop.h"
+#include "wiz8/platform/random.h"
 
 namespace {
 

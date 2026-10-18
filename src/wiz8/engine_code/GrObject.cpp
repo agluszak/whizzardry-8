@@ -4,8 +4,8 @@
 #include <string>
 #include <utility>
 
+#include "wiz8/audio/SoundEvent.h"
 #include "wiz8/engine_code/PathAI.h"
-#include "wiz8/engine_code/SoundEvent.h"
 
 W8GrObject::W8GrObject() : kind(0), id(-1), m_pAI(nullptr) {}
 

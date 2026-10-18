@@ -3,7 +3,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include "random.h"
+#include "wiz8/platform/random.h"
 
 TEST_CASE("Random covers the whole requested range", "[random]")
 {

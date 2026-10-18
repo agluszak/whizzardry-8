@@ -5,8 +5,8 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-11.
    Distributed under the accompanying SFI Source Code license agreement. */
 
-#include "himage.h"
-#include "shading.h"
+#include "wiz8/canvas/himage.h"
+#include "wiz8/canvas/shading.h"
 
 std::array<std::uint16_t, 65536> ShadeTable{};
 

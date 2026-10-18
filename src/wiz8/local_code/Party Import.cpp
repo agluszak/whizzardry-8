@@ -9,7 +9,6 @@
 #include "layouts/game_status.h"
 #include "layouts/item_instance.h"
 #include "layouts/learned_spells.h"
-#include "random.h"
 #include "surrender/srDebug.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/conditions.h"
@@ -27,6 +26,7 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/PartyImport.h"
 #include "wiz8/local_code/party_encumbrance.h"
+#include "wiz8/platform/random.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 

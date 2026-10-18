@@ -24,7 +24,6 @@
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
-#include "input.h"
 #include "layouts/world.h"
 #include "named_position.h"
 #include "surrender/srCamera.h"
@@ -32,8 +31,8 @@
 #include "surrender/srFog.h" // IWYU pragma: keep - completes world-owned fog nodes.
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
+#include "wiz8/audio/AmbientSound.h"
 #include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/AmbientSound.h"
 #include "wiz8/engine_code/Camera.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/GDCamera.h"
@@ -66,6 +65,7 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/unicode.h"
 #include "wiz8/world_cursor.h"
 // Completes MonGen for templated world-registry destruction.

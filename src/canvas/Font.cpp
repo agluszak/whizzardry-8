@@ -13,11 +13,11 @@
 #include "wiz8/unicode.h"
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
-#include "Font.h"
 #include "Video2.h"
-#include "himage.h"
-#include "image_assets.h"
-#include "sprite.h"
+#include "wiz8/canvas/Font.h"
+#include "wiz8/canvas/himage.h"
+#include "wiz8/canvas/image_assets.h"
+#include "wiz8/canvas/sprite.h"
 
 static constexpr auto font_translation = [] {
     std::array<std::uint16_t, 252> table{};

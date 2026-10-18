@@ -13,7 +13,7 @@
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/engine_code/GDProp.h"
 #include "wiz8/engine_code/GrObject.h"
-#include "wiz8/engine_code/game_timer.h"
+#include "wiz8/platform/game_timer.h"
 
 class W8PathingService;
 struct W8ReadLevelInfo;

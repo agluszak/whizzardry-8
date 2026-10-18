@@ -6,10 +6,10 @@
 #include <utility>
 
 #include "compat/native.h"
-#include "soundman.h"
+#include "wiz8/audio/mouth_gap.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/mouth_gap.h"
 #include "wiz8/unicode.h"
 
 bool PlayNpcVoice(W8NpcSpeech& speech, std::string_view path, std::function<void()> on_finished)

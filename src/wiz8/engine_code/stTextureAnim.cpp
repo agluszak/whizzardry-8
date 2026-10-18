@@ -7,10 +7,10 @@
 #include <SDL3/SDL_pixels.h>
 
 #include "compat/native.h"
-#include "random.h"
 #include "surrender/srTexture.h"
 #include "texture_animation.h"
 #include "wiz8/engine_code/stTextureFile.h"
+#include "wiz8/platform/random.h"
 
 stTextureAnim::stTextureAnim() : frame_tick(w8_get_ticks()) {}
 

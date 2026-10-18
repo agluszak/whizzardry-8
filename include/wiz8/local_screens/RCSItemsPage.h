@@ -2,9 +2,9 @@
 #pragma once
 #include <string>
 
-#include "input.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/dialog_code/DialogBase.h"
+#include "wiz8/platform/input.h"
 
 struct W8Character;
 struct W8ItemInstance;

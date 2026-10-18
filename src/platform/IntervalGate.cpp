@@ -1,10 +1,10 @@
-#include "wiz8/engine_code/IntervalGate.h"
+#include "wiz8/platform/IntervalGate.h"
 
 #include <exception>
 
-#include "game_timer.h"
 #include "wiz8/chunk.h"
 #include "wiz8/filesystem.h"
+#include "wiz8/platform/game_timer.h"
 
 W8IntervalGate::W8IntervalGate() : W8GameTimer(1.0f, 0), m_finished(0) {}
 

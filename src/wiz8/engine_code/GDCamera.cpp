@@ -14,11 +14,11 @@
 #include "layouts/main_game_screen.h"
 #include "wiz8/direction_angles.h"
 #include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/IntervalGate.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/platform/IntervalGate.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 

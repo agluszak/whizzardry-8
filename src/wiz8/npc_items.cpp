@@ -13,8 +13,7 @@
 #include "glm/ext/vector_float3.hpp"
 #include "local_code/ConditionsAndEnchantments.h"
 #include "npc_trade_price.h"
-#include "random.h"
-#include "soundman.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/Item.h"
 #include "wiz8/fact_state.h"
@@ -33,6 +32,7 @@
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/party_encumbrance.h"
+#include "wiz8/platform/random.h"
 #include "wiz8/xstatus.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */

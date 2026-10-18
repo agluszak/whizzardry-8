@@ -13,9 +13,9 @@ struct W8World;
 #include <vector>
 
 #include "glm/ext/vector_float2.hpp"
-#include "input.h"
 #include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/ui_layer.h"
 
 namespace wiz8 {

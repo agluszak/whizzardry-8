@@ -9,7 +9,6 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 
-#include "Font.h"
 #include "character_skills.h"
 #include "dialog_code/DialogBase.h"
 #include "dialog_code/DialogScrollBar.h"
@@ -17,6 +16,7 @@
 #include "layouts/gameplay_databases.h"
 #include "local_code/ControlsRect.h"
 #include "surrender/srDebug.h"
+#include "wiz8/canvas/Font.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/character.h"

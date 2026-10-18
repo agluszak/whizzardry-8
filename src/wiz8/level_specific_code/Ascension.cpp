@@ -10,9 +10,8 @@
 #include "layouts/npc_state.h"
 #include "layouts/world.h"
 #include "local_code/Factions.h"
-#include "soundman.h"
 #include "surrender/srCamera.h"
-#include "wiz8/engine_code/IntervalGate.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
@@ -29,6 +28,7 @@
 #include "wiz8/location_variables.h"
 #include "wiz8/message_box.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/platform/IntervalGate.h"
 #include "wiz8/xstatus.h"
 
 /* Level Specific Code\Ascension.cpp.

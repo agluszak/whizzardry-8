@@ -15,7 +15,7 @@
 #include "local_code/Gameloop.h"
 #include "local_code/MonsterManager.h"
 #include "monster_actions.h"
-#include "soundman.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/audio_resources.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"

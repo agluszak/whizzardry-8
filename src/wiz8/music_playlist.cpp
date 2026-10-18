@@ -13,10 +13,10 @@
 #include "audio_resources.h"
 #include "compat/native.h"
 #include "local_screens/Screens.h"
-#include "random.h"
-#include "soundman.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/engine_code/stScript.h"
 #include "wiz8/local_code/Configuration.h"
+#include "wiz8/platform/random.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/xstatus.h"
 

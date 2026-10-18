@@ -18,15 +18,14 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 
-#include "Font.h"
 #include "asset_paths.h"
 #include "compat/compiler.h"
 #include "difficulty.h"
 #include "file_time.h"
-#include "image.h"
-#include "input.h"
-#include "sprite.h"
 #include "wiz8/button_interaction.h"
+#include "wiz8/canvas/Font.h"
+#include "wiz8/canvas/image.h"
+#include "wiz8/canvas/sprite.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/cursor.h"
@@ -58,6 +57,7 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/music_playlist.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"

@@ -17,7 +17,6 @@
 #include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
 
-#include "Font.h"
 #include "compat/compiler.h"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float2.hpp"
@@ -33,6 +32,7 @@
 #include "surrender/srNode.h"
 #include "surrender/srShader.h"
 #include "surrender/srTexture.h"
+#include "wiz8/canvas/Font.h"
 #include "wiz8/chunk.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Octree.h"

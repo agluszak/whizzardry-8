@@ -13,18 +13,18 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 
-#include "Font.h"
 #include "conditions.h"
 #include "dialog_code/DialogBase.h"
 #include "equipment_slots.h"
-#include "himage.h"
-#include "image.h"
 #include "layouts/gameplay_databases.h"
 #include "layouts/item_instance.h"
 #include "layouts/main_game_screen.h"
-#include "sprite.h"
 #include "surrender/srDebug.h"
 #include "wiz8/button_interaction.h"
+#include "wiz8/canvas/Font.h"
+#include "wiz8/canvas/himage.h"
+#include "wiz8/canvas/image.h"
+#include "wiz8/canvas/sprite.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/cursor.h"

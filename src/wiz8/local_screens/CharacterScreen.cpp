@@ -16,13 +16,12 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 
-#include "Font.h"
 #include "asset_paths.h"
 #include "dialog_code/DialogBase.h"
-#include "input.h"
 #include "layouts/gameplay_databases.h"
-#include "soundman.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/button_interaction.h"
+#include "wiz8/canvas/Font.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/cursor.h"
@@ -53,6 +52,7 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/modal_content.h"
 #include "wiz8/music_playlist.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/xstatus.h"

@@ -4,7 +4,7 @@
 
 #include <SDL3/SDL_video.h>
 
-#include "input.h"
+#include "wiz8/platform/input.h"
 
 SDL_Window* W8CreateGameWindow(int width, int height, bool fullscreen)
 {

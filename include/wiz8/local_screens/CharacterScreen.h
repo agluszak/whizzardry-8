@@ -6,17 +6,17 @@
 #include <string_view>
 #include <vector>
 
-#include "input.h"
 #include "layouts/gameplay_databases.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/compat/compiler.h"
-#include "wiz8/engine_code/game_timer.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/TextBuffer.h"
+#include "wiz8/platform/game_timer.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_layer.h"
 

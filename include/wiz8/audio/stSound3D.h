@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "glm/ext/vector_float3.hpp"
-#include "soundman.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/audio_resources.h"
 #include "wiz8/geometry.h"
 

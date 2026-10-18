@@ -3,9 +3,9 @@
 #include <cstdint>
 
 #include "compat/native.h"
-#include "soundman.h"
-#include "timer.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/local_code/Configuration.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/ui_layer.h"
 
 char g_button_click_1[] = "Data\\Sound\\Misc\\Interface Click 01.wav";

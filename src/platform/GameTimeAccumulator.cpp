@@ -1,8 +1,8 @@
-#include "wiz8/engine_code/GameTimeAccumulator.h"
+#include "wiz8/platform/GameTimeAccumulator.h"
 
 #include <optional>
 
-#include "game_timer.h"
+#include "wiz8/platform/game_timer.h"
 
 // Scales real elapsed time into accumulated game time, with a per-frame clamp.
 

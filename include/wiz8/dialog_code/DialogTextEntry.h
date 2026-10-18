@@ -2,8 +2,8 @@
 
 #include <string_view>
 
-#include "Font.h"
 #include "compat/compiler.h"
+#include "wiz8/canvas/Font.h"
 #include "wiz8/local_code/TextBuffer.h"
 
 struct W8ControlsRect;

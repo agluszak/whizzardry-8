@@ -1,4 +1,4 @@
-#include "wiz8/engine_code/SoundEvent.h"
+#include "wiz8/audio/SoundEvent.h"
 
 #include <memory>
 #include <string>
@@ -11,13 +11,13 @@
 
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
-#include "random.h"
-#include "soundman.h"
-#include "wiz8/engine_code/AmbientSound.h"
+#include "wiz8/audio/AmbientSound.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/platform/random.h"
 #include "wiz8/xstatus.h"
 
 // Looping events own the voice they start.

@@ -12,13 +12,12 @@
 #include "compat/native.h"
 #include "glm/common.hpp"
 #include "glm/ext/vector_float3.hpp"
-#include "random.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
+#include "wiz8/audio/AmbientSound.h"
 #include "wiz8/chunk.h"
 #include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/AmbientSound.h"
 #include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/PathAI.h"
@@ -28,6 +27,7 @@
 #include "wiz8/engine_code/octree_spatial.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/layouts/world.h"
+#include "wiz8/platform/random.h"
 
 /* The previous 00497af0-004adb20 range spanned eight units that carry their
    own assertion-backed intervals -

@@ -11,7 +11,6 @@
 
 #include <fmt/format.h>
 
-#include "Font.h"
 #include "Video2.h"
 #include "compat/native.h"
 #include "conditions.h"
@@ -19,9 +18,9 @@
 #include "layouts/item_instance.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/targeting.h"
-#include "timer.h"
 #include "wiz8/assertions.h"
 #include "wiz8/button_interaction.h"
+#include "wiz8/canvas/Font.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/cursor.h"
@@ -52,6 +51,7 @@
 #include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/xstatus.h"

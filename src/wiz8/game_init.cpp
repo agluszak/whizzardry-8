@@ -5,8 +5,8 @@
 #include <string>
 #include <vector>
 
-#include "shading.h"
 #include "wiz8/application.h"
+#include "wiz8/canvas/shading.h"
 #include "wiz8/cursor.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/engine_code/Missile.h"

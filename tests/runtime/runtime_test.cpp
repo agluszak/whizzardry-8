@@ -42,10 +42,10 @@
 #include <glm/ext/vector_float3.hpp>
 
 #include "../native/surface_pixels.h"
-#include "random.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/level_population.h"
 #include "wiz8/local_screens/MGSUseItemSelect.h"
+#include "wiz8/platform/random.h"
 #include "wiz8/ui_layer.h"
 
 /* Runtime scenarios against installed retail assets.
@@ -65,7 +65,6 @@
 #include "catch2/catch_message.hpp"
 #include "conditions.h"
 #include "equipment_slots.h"
-#include "input.h"
 #include "layouts/gameplay_databases.h"
 #include "layouts/party_formation.h"
 #include "layouts/targeting.h"
@@ -74,7 +73,6 @@
 #include "local_code/Factions.h"
 #include "local_code/SpellEffect.h"
 #include "mgs_commands.h"
-#include "native/audio_test.h"
 #include "scoped_asset_roots.h"
 #include "surrender/srGERD.h"
 #include "surrender/srModelInstance.h"
@@ -82,6 +80,7 @@
 #include "temporary_directory.h"
 #include "wiz8/application.h"
 #include "wiz8/asset_paths.h"
+#include "wiz8/audio/audio_test.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/cursor.h"
 #include "wiz8/dialog_code/AssayDialog.h"
@@ -143,6 +142,7 @@
 #include "wiz8/monster_cycles.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_script_file.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/runtime_test_hooks.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/text_input.h"

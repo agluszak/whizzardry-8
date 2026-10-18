@@ -18,9 +18,8 @@
 #include "layouts/character.h"
 #include "layouts/item_instance.h"
 #include "layouts/targeting.h"
-#include "random.h"
-#include "soundman.h"
 #include "surrender/srDebug.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/engine_code/Missile.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/layouts/combat_state.h"
@@ -30,6 +29,7 @@
 #include "wiz8/local_code/CombatSound.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/platform/random.h"
 
 static std::array<std::string, 38> g_weapon_attack_sounds;
 static std::array<std::array<std::string, 12>, 28> g_material_impact_sounds;

@@ -1,6 +1,6 @@
 #include <deque>
 
-#include "Font.h"
+#include "wiz8/canvas/Font.h"
 #pragma once
 
 #include <array>
@@ -13,11 +13,11 @@
 #include <SDL3/SDL_rect.h>
 
 #include "compat/compiler.h"
-#include "input.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/ControlsRect.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/text_input.h"
 
 struct W8WorldItem;

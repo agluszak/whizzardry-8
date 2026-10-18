@@ -12,7 +12,6 @@
 #include "layouts/gameplay_databases.h"
 #include "layouts/targeting.h"
 #include "local_code/Factions.h"
-#include "random.h"
 #include "sight_state.h"
 #include "surrender/srDebug.h"
 #include "wiz8/engine_code/PolyPick.h"
@@ -31,6 +30,7 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/platform/random.h"
 #include "wiz8/utility.h"
 
 /* The per-special-attack condition each attack slot tries to inflict, indexing the same

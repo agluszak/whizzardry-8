@@ -28,10 +28,7 @@
 #include <wiz8/asset_paths.h>
 
 #include "../../src/native/movie.h"
-#include "image_assets.h"
-#include "input.h"
 #include "scoped_asset_roots.h"
-#include "sprite.h"
 #include "surrender/SDLGPUDevice.h"
 #include "surrender/srGERD.h"
 #include "surrender/srImageIO.h"
@@ -41,9 +38,12 @@
 #include "surrender/srTriMeshPipeline.h"
 #include "temporary_directory.h"
 #include "wiz8/bink_video.h"
+#include "wiz8/canvas/image_assets.h"
+#include "wiz8/canvas/sprite.h"
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/overlay_scenes.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/surface2d.h"
 #include "wiz8/surface_storage.h"
 

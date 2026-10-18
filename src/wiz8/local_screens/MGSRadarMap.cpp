@@ -16,9 +16,9 @@
 #include "layouts/main_game_screen.h"
 #include "layouts/party_formation.h"
 #include "sight_state.h"
-#include "sprite.h"
 #include "surrender/srNode.h"
 #include "surrender/srScene.h" // IWYU pragma: keep - complete scene type for conversion to srNode.
+#include "wiz8/canvas/sprite.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Item.h"

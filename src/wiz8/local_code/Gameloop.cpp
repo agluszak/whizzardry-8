@@ -2,13 +2,13 @@
 #include <vector>
 
 #include "layouts/game_status.h"
-#include "soundman.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/music_playlist.h"
 #ifdef WIZ8_RUNTIME_TESTS
 #include "runtime_instrumentation.h"
 #endif
-#include "Font.h"
 #include "wiz8/application.h"
+#include "wiz8/canvas/Font.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/engine_code/Spells.h"
 #include "wiz8/engine_code/Video2.h"

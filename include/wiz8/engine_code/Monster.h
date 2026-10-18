@@ -24,11 +24,11 @@ struct W8World;
 #include "wiz8/engine_code/Emitter.h"
 #include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/engine_code/emitter_resources.h"
-#include "wiz8/engine_code/game_timer.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/monster_actions.h"
 #include "wiz8/monster_cycles.h"
 #include "wiz8/monster_spell_icons.h"
+#include "wiz8/platform/game_timer.h"
 
 struct W8AnimObj;
 struct W8ReadLevelInfo;

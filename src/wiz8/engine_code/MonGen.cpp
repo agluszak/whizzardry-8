@@ -15,7 +15,6 @@
 #include <fmt/format.h>
 #include <glm/geometric.hpp>
 
-#include "IntervalGate.h"
 #include "Monster.h"
 #include "Octree.h"
 #include "asset_paths.h"
@@ -28,7 +27,6 @@
 #include "layouts/screen_state.h"
 #include "layouts/world.h"
 #include "local_code/Factions.h"
-#include "random.h"
 #include "surrender/srDebug.h"
 #include "wiz8/chunk.h"
 #include "wiz8/engine_code/GameData.h"
@@ -47,6 +45,8 @@
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/monster_generators.h"
+#include "wiz8/platform/IntervalGate.h"
+#include "wiz8/platform/random.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"

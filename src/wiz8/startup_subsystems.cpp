@@ -4,8 +4,8 @@
 #include <tuple>
 #include <utility>
 
-#include "Font.h"
-#include "himage.h"
+#include "wiz8/canvas/Font.h"
+#include "wiz8/canvas/himage.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"

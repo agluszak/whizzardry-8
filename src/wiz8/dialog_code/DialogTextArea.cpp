@@ -8,8 +8,8 @@
 
 #include <SDL3/SDL_surface.h>
 
-#include "Font.h"
 #include "dialog_code/DialogTextEntry.h"
+#include "wiz8/canvas/Font.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/unicode.h"

@@ -14,7 +14,7 @@
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 
-#include "himage.h"
+#include "wiz8/canvas/himage.h"
 
 // font glyphs for spell targeting types
 inline constexpr char32_t FONT_GLYPH_TARGET_POINT = 0xFFF0;

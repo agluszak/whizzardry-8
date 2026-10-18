@@ -12,9 +12,8 @@
 #include <fmt/format.h>
 
 #include "dialog_code/DialogBase.h"
-#include "input.h"
 #include "npc_trade_price.h"
-#include "sprite.h"
+#include "wiz8/canvas/sprite.h"
 #include "wiz8/design_rect.h"
 #include "wiz8/dialog_code/AssayDialog.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
@@ -30,6 +29,7 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/utility.h"
 

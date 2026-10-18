@@ -11,7 +11,6 @@
 
 #include "asset_paths.h"
 #include "compat/compiler.h"
-#include "input.h"
 #include "wiz8/bink_video.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/filesystem.h"
@@ -19,6 +18,7 @@
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/music_playlist.h"
+#include "wiz8/platform/input.h"
 
 /* The canonical state-zero row owns this enter/frame/leave bundle. */
 

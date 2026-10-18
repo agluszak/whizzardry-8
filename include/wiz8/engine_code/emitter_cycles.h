@@ -6,7 +6,7 @@
 #include "wiz8/engine_code/Emitter.h"
 #include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/engine_code/emitter_resources.h"
-#include "wiz8/engine_code/game_timer.h"
+#include "wiz8/platform/game_timer.h"
 
 inline void SelectInitialEmitterLod(W8EmitterHost& host, signed char cycle)
 {

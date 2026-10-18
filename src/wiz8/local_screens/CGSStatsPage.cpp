@@ -7,7 +7,6 @@
 #include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
 
-#include "input.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
@@ -22,6 +21,7 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/CharacterScreen.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 

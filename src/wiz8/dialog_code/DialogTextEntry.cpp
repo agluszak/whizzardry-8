@@ -8,9 +8,9 @@
 #include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
 
-#include "Font.h"
-#include "himage.h"
-#include "image.h"
+#include "wiz8/canvas/Font.h"
+#include "wiz8/canvas/himage.h"
+#include "wiz8/canvas/image.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/ControlsRect.h"

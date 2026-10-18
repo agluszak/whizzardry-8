@@ -12,10 +12,10 @@
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 
-#include "Font.h"
-#include "image.h"
-#include "image_assets.h"
-#include "sprite.h"
+#include "wiz8/canvas/Font.h"
+#include "wiz8/canvas/image.h"
+#include "wiz8/canvas/image_assets.h"
+#include "wiz8/canvas/sprite.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
 #include "wiz8/unicode.h"

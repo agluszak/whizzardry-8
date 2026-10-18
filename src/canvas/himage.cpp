@@ -1,6 +1,6 @@
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07.
    Distributed under the accompanying SFI Source Code license agreement. */
-#include "himage.h"
+#include "wiz8/canvas/himage.h"
 
 #include <algorithm>
 #include <array>
@@ -29,7 +29,7 @@
 #include <zlib.h>
 
 #include "asset_paths.h"
-#include "imgfmt.h"
+#include "wiz8/canvas/imgfmt.h"
 #include "wiz8/filesystem.h"
 
 // Nonblack colors that pack to 0 are nudged to 1 so they stay opaque.
