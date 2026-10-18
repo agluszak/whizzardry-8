@@ -2255,7 +2255,7 @@ bool MainGameScreenEnter(void)
                    fmt::sprintf(g_localized_strings[0x78c], g_localized_strings[display_mode]));
     }
     ResetTransientRenderScenes();
-    MoveTimer(4);
+    MoveTimer(W8_MOVE_TIMER_RESUME);
     SyncWorldAdvancement();
     {
         W8GameTimer* timer = gXStatus.gameplay_timer.get();
@@ -2658,7 +2658,7 @@ bool MainGameScreenLeave(int leaving)
     ReleaseConditionButtons();
     if (gXStatus.fPartyMovementUi) DisablePartyMovementRegions();
     RestoreCurrentNpcQuoteBubble();
-    MoveTimer(1);
+    MoveTimer(W8_MOVE_TIMER_SUSPEND);
 
     if (!gXStatus.gameplay_timer->m_flags.paused) {
         gXStatus.gameplay_timer->m_flags.paused = true;
@@ -6080,7 +6080,7 @@ void SyncWorldAdvancement()
     SetWorldResumeInput(gXStatus.world_paused && !interaction_blocked);
     if (applied_user_pause != gXStatus.world_paused) {
         applied_user_pause = gXStatus.world_paused;
-        MoveTimer(applied_user_pause ? 1 : 4);
+        MoveTimer(applied_user_pause ? W8_MOVE_TIMER_SUSPEND : W8_MOVE_TIMER_RESUME);
     }
     if (!world) return;
     if (blocked && changed && gXStatus.fPartyMovementUi) DisablePartyMovementRegions();

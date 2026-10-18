@@ -43,8 +43,13 @@ enum {
 
 extern bool g_shared_timers_paused;
 
-enum { TIMER_SUSPEND = 1, TIMER_RESUME = 8 };
-float MoveTimer(int action);
+enum W8MoveTimerAction {
+    W8_MOVE_TIMER_SUSPEND = 1,
+    W8_MOVE_TIMER_FRAME_DELTA = 2,
+    W8_MOVE_TIMER_RESUME = 4,
+    W8_MOVE_TIMER_RESUME_MAIN_GAME = 8
+};
+float MoveTimer(W8MoveTimerAction action);
 
 void ResetLevelMovement(float movement_limit, bool reset, bool fast_move); /* 0x0041EEE0 */
 

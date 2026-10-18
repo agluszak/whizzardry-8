@@ -277,7 +277,7 @@ try {
 bool W8Missile::BlocksEndingCombat()
 {
     if (!flight_done) {
-        if (GetAnimationState(6) != 1) {
+        if (GetAnimationState(W8_MISSILE_ANIMATION_CYCLE_INDEX) != 1) {
             return true;
         }
     }
@@ -697,24 +697,24 @@ W8Missile::W8Missile(const W8Missile& other, W8World* owner)
 /* Mode-keyed query over the representation's emitter/cycle state; used by the
    missile script handlers. */
 // FUNCTION: WIZ8 0x004A4640
-w8_ulong W8Missile::GetAnimationState(int mode)
+w8_ulong W8Missile::GetAnimationState(W8MissileAnimationStateQuery query)
 {
-    switch (mode) {
-    case 0:
+    switch (query) {
+    case W8_MISSILE_ANIMATION_EMITTER_SETTING:
         return m_pRep->ApplyEmitterSetting(m_pRep->current_cycle);
-    case 1:
+    case W8_MISSILE_ANIMATION_TOTAL_COUNT:
         return GetTotalAnimationCount();
-    case 2:
+    case W8_MISSILE_ANIMATION_AT_FINAL_SUBCYCLE:
         return m_pRep->subcycle == m_pRep->ApplyEmitterSetting(m_pRep->current_cycle) - 1;
-    case 3:
+    case W8_MISSILE_ANIMATION_AT_INITIAL_SUBCYCLE:
         return m_pRep->subcycle == 0;
-    case 4:
+    case W8_MISSILE_ANIMATION_SUBCYCLE_INDEX:
         return m_pRep->subcycle;
-    case 5:
+    case W8_MISSILE_ANIMATION_HAS_EMITTER:
         return m_pRep->ApplyEmitterSetting(m_pRep->current_cycle) != 0xffffffff;
-    case 6:
+    case W8_MISSILE_ANIMATION_CYCLE_INDEX:
         return m_pRep->current_cycle;
-    case 7:
+    case W8_MISSILE_ANIMATION_FINISHED:
         return m_pRep->animation_playing == 0;
     default:
         return 0xffffffff;
@@ -744,7 +744,7 @@ void W8Missile::StartIfHostActive()
     if (m_pRep->active == 0) {
         return;
     }
-    if (GetAnimationState(2) == 0 || !impacting) {
+    if (GetAnimationState(W8_MISSILE_ANIMATION_AT_FINAL_SUBCYCLE) == 0 || !impacting) {
         if (m_pAI != 0) {
             PathAIUpdate(m_pAI.get(), 1);
         }
@@ -956,7 +956,7 @@ void W8Missile::AnnounceCollisionTarget()
 void W8Missile::EnterImpactCycle()
 {
     if (IsCycleSupported(1)) {
-        if (GetAnimationState(6) != 1) {
+        if (GetAnimationState(W8_MISSILE_ANIMATION_CYCLE_INDEX) != 1) {
             W8MissileRep* representation = m_pRep.get();
             glm::vec3 position = representation->location;
             representation->pending_cycle = 1;

@@ -252,7 +252,7 @@ static float g_camera_sway_vertical_phase;
 // FUNCTION: WIZ8 0x00450080
 void SetCameraSwayMode(srCamera* camera, W8CameraSwayMode mode)
 {
-    float elapsed = MoveTimer(2);
+    float elapsed = MoveTimer(W8_MOVE_TIMER_FRAME_DELTA);
 
     if (mode != W8CameraSwayMode::Reset) {
         if (mode == W8CameraSwayMode::Start) {
