@@ -6,7 +6,6 @@ set(SURRENDER_SOURCES
     vertex_pipe.cpp
     gerd.cpp
     gerd_filters.cpp
-    huffman.cpp
     illuminator.cpp
     image_io.cpp
     image_tga.cpp

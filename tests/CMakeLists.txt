@@ -19,10 +19,6 @@ add_executable(native_bit_array_io_test native/bit_array_io_test.cpp)
 target_link_libraries(native_bit_array_io_test PRIVATE WIZ8_GAME_CORE)
 add_test(NAME native_bit_array_io COMMAND native_bit_array_io_test)
 
-add_executable(native_binary_io_test native/binary_io_test.cpp)
-target_link_libraries(native_binary_io_test PRIVATE SURRENDER wiz8_native_settings)
-add_test(NAME native_binary_io COMMAND native_binary_io_test)
-
 add_executable(native_images_test native/images_test.cpp)
 target_link_libraries(native_images_test PRIVATE WIZ8_GAME_CORE)
 catch_discover_tests(native_images_test TEST_PREFIX "native_images/")
