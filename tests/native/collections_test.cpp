@@ -638,7 +638,7 @@ TEST_CASE("Trade confirmation rejects changed inventory and stock sources", "[tr
     W8NpcState npc{};
     npc.items = {{0, {.iItemNo = 17, .stack_count = 4}, 1},
                  {0, {.iItemNo = 18, .stack_count = 3}, 1}};
-    const W8TradeSelection stock{W8TradeSource::NpcStock, -1, 0, npc.items[0].item, 1};
+    const W8TradeSelection stock{W8TradeSource::NpcStock, {}, 0, npc.items[0].item, 1};
     REQUIRE(ResolveTradeSelection(&npc, stock) == &npc.items[0].item);
     std::swap(npc.items[0], npc.items[1]);
     REQUIRE_FALSE(ResolveTradeSelection(&npc, stock));

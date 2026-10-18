@@ -1,6 +1,8 @@
 #ifndef WIZ8_NPC_ITEMS_H
 #define WIZ8_NPC_ITEMS_H
 
+#include <optional>
+
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/npc_trade_price.h"
 
@@ -14,8 +16,8 @@ enum class W8TradeSource { Backpack, PartyPool, NpcStock, Gold };
 // Identical item stacks are fungible; no persistent item identity is invented.
 struct W8TradeSelection {
     W8TradeSource source;
-    int character = -1;
-    int slot = -1;
+    std::optional<int> character;
+    std::optional<int> slot;
     W8ItemInstance expected{};
     unsigned char stock_quantity = 0;
 };
@@ -33,9 +35,8 @@ W8TradeResult CompleteNpcTrade(W8NpcState* npc, const W8TradeSelection& selectio
    npc_items.cpp, sits in an unresolved-fragment gap, so original-TU ownership
    of these declarations is provisional until the fragment is attributed. */
 
-int AddNpcItem(W8NpcState* npc, int item_id, unsigned int quantity);
-int AddNpcItemFromInstance(W8NpcState* npc, const W8ItemInstance* item, char quantity);
-int AddNpcItemWithDelay(W8NpcState* npc, int item_id, unsigned int quantity, int delay);
+std::optional<int> AddNpcItem(W8NpcState* npc, int item_id, unsigned int quantity);
+void AddNpcItemWithDelay(W8NpcState* npc, int item_id, unsigned int quantity, int delay);
 char RateItemIdentifyDifficulty(W8NpcState* npc, int item_id);
 int RestockNpcItems(W8NpcState* npc);
 void SortNpcItems(W8NpcState* npc);

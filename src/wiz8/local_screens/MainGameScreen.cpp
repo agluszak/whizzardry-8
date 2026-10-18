@@ -6312,11 +6312,11 @@ void ConfirmNpcTradeItem(void)
             !ResolveTradeSelection(state.dialogue_npc, selection))
             return;
         if (selection.source == W8TradeSource::Backpack) {
-            const int owner = g_status.buffers.XChar[selection.character].npc_index;
+            const int owner = g_status.buffers.XChar[*selection.character].npc_index;
             auto* npc = owner == -1 ? nullptr : GetNpcState(owner);
             auto* item = ResolveTradeSelection(state.dialogue_npc, selection);
             if (npc && item && NpcWantsItem(npc, item)) {
-                QueueCharacterEvent(&g_status.buffers.Char[selection.character], 109, 0,
+                QueueCharacterEvent(&g_status.buffers.Char[*selection.character], 109, 0,
                                     kCharacterEventFullVolume);
                 return;
             }
@@ -6325,7 +6325,7 @@ void ConfirmNpcTradeItem(void)
     } else if (state.trade_mode == W8_NPC_TRADE_SHOPLIFT) {
         if (auto* item = ResolveTradeSelection(state.dialogue_npc, selection))
             AttemptNpcItemTrade(item, static_cast<unsigned char>(state.trade_quantity),
-                                selection.slot);
+                                *selection.slot);
     } else if (state.trade_mode == W8_NPC_TRADE_BUY || state.trade_mode == W8_NPC_TRADE_SELL) {
         if (state.trade_quantity <= 0 || state.trade_quantity > 255) return;
         const auto result = CompleteNpcTrade(state.dialogue_npc, selection,
@@ -6346,7 +6346,7 @@ void ConfirmNpcTradeItem(void)
             g_npc_dialogue.QueueQuote(0x14, false, false, false);
             break;
         case W8TradeOutcome::WantedByOwner:
-            QueueCharacterEvent(&g_status.buffers.Char[selection.character], 109, 0,
+            QueueCharacterEvent(&g_status.buffers.Char[*selection.character], 109, 0,
                                 kCharacterEventFullVolume);
             break;
         case W8TradeOutcome::InvalidSelection:
@@ -6418,7 +6418,7 @@ void RebuildNpcTradeItemList(bool scroll_to_top)
             }
             if (!NpcTradeItemAllowed(&entry->item) && entry->available_at == 0) {
                 g_npc_interaction_state->trade_rows.push_back(
-                    {W8TradeSource::NpcStock, -1, index, entry->item, entry->quantity});
+                    {W8TradeSource::NpcStock, {}, index, entry->item, entry->quantity});
                 ShowNpcTradeItemNotice(&entry->item);
             }
         }
@@ -6499,7 +6499,7 @@ void PopulateNpcTradeList(void)
                 break;
             }
             g_npc_interaction_state->trade_rows.push_back(
-                {W8TradeSource::PartyPool, -1, static_cast<int>(index), *item});
+                {W8TradeSource::PartyPool, {}, static_cast<int>(index), *item});
             ShowNpcPlayerTradeItem(item, acceptable, font_palette);
         }
     } else {
