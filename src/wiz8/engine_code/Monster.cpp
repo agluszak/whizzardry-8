@@ -1983,7 +1983,7 @@ void W8Monster::ProcessScript()
                         W8MonsterGroup* group =
                             FindMonsterGroup(monster_info->monster_group_id, false);
                         if (group != 0) {
-                            SetMonsterGroupHostility(group, disposition, false);
+                            SetMonsterGroupHostility(group, static_cast<W8Disposition>(disposition), false);
                         }
                     }
                 }
@@ -2054,10 +2054,10 @@ void W8Monster::ProcessScript()
                     if (SDL_strcasecmp(token.c_str(), "STARTGOLEMATTACK") == 0) {
                         ClearMainGameTargetState();
                         W8MonsterGroup* group = FindFirstMonsterByID(0x68);
-                        if (group != 0) SetMonsterGroupHostility(group, 1, false);
+                        if (group != 0) SetMonsterGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
                         group = FindFirstMonsterByID(0x13e);
                         if (group != 0) {
-                            SetMonsterGroupHostility(group, 1, false);
+                            SetMonsterGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
                             MonsterGroupEnterCombat(group);
                         }
                     } else if (SDL_strcasecmp(token.c_str(), "ENDSAVANTWALK") == 0) {
