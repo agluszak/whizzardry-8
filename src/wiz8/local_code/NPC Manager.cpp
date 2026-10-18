@@ -153,8 +153,7 @@ static char GetNpcDisposition(W8NpcState* npc)
     if (npc->record->monster_bound != 0) {
         return faction_disposition;
     }
-    if (GetFactionDispositionToward(npc->record->faction, W8_FACTION_PARTY) ==
-        W8_FACTION_HOSTILE) {
+    if (GetFactionDispositionToward(npc->record->faction, W8_FACTION_PARTY) == W8_FACTION_HOSTILE) {
         return faction_disposition;
     }
     if (npc->record->allied_faction != 0) {
@@ -690,12 +689,12 @@ void ResumeNpc(W8NpcState* npc, int enabled)
         npc->disposition = 0x19;
     }
     if (monster_info != 0) {
+        const int group_id = monster_info->monster_group_id;
         if (static_cast<char>(enabled) != 0) {
-            SetMonsterGroupHostilityByID(monster_info->monster_group_id, W8_DISPOSITION_HOSTILE,
-                                        false);
+            SetMonsterGroupHostilityByID(group_id, W8_DISPOSITION_HOSTILE, false);
             return;
         }
-        SetMonsterGroupHostilityByID(monster_info->monster_group_id, W8_DISPOSITION_NEUTRAL, false);
+        SetMonsterGroupHostilityByID(group_id, W8_DISPOSITION_NEUTRAL, false);
     }
 }
 
