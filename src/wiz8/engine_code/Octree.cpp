@@ -1055,7 +1055,7 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
     for (unsigned int particle = 0; particle < m_particles.size(); ++particle) {
         m_particles[particle]->SetTraversalEnabled(false);
     }
-    SetViewportMode(0);
+    SetViewportMode(W8_VIEWPORT_MODE_FULL);
     SetScaledViewport({0, 0, 0x140, 0xf0});
     glm::vec3 saved_location;
     glm::mat3 saved_rotation;

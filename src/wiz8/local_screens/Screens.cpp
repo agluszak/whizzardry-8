@@ -299,7 +299,7 @@ void InitializeMainGameLevelBlock(void)
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_level_block != 0) {
         g_level_block->redraw_flags = static_cast<unsigned int>(-1);
     }
-    g_level_block->camera_mode = 7;
+    g_level_block->camera_mode = W8_VIEWPORT_MODE_UNINITIALIZED;
     g_level_block->highlight = {};
     g_level_block->combat_action_hover_party_slot = -1;
     g_level_block->portrait_assay_hover_mode = W8_PORTRAIT_ASSAY_HOVER_NONE;

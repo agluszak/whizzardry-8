@@ -3419,7 +3419,7 @@ void DrawHighlightOverlay(unsigned int party_slot, int row_count, unsigned int m
 
     unsigned int content_height = row_count * 9 + 0x12;
     int row_y = (party_slot >> 1) * 0x55;
-    int top = g_viewport_modes[g_level_block->camera_mode].top;
+    int top = g_viewport_modes[static_cast<unsigned int>(g_level_block->camera_mode)].top;
     int candidate = row_y - static_cast<int>(content_height) + 0x3c;
     if (candidate >= top) {
         if (candidate + content_height * 2 > 0x166) {
@@ -4017,14 +4017,14 @@ void RequestLevelTransition(int level, int entry, unsigned char flag)
 
 /* Switch the 3D view to another viewport mode: resize the view region to the
    inclusive rectangle and hand the renderer the exclusive one. */
-void SetViewportMode(int mode)
+void SetViewportMode(W8ViewportMode mode)
 {
     DesignRect* rect;
 
     if (mode == g_level_block->camera_mode) {
         return;
     }
-    rect = &g_viewport_modes[mode];
+    rect = &g_viewport_modes[static_cast<unsigned int>(mode)];
     g_main_game_state->world_view->setShape(
         SDL_Rect{rect->left, rect->top, rect->right - rect->left, rect->bottom - rect->top});
     W8MainGameInvalidateRect& viewport = g_main_game_invalidate_rects[15];
@@ -6188,7 +6188,7 @@ void OpenCharacterScreenForPartySlot(unsigned int party_slot, bool flag)
    full-3d while every overlay flag is clear and no main-game mode override is
    set, the plain mode when any of the board, radar or combat latches is still
    down, and otherwise the override field's own mapping. */
-short GetMainGameViewportMode(void)
+W8ViewportMode GetMainGameViewportMode(void)
 {
     if (!gpSCSV &&
         (!gXStatus.fNpcDialogueMode ||
@@ -6197,7 +6197,7 @@ short GetMainGameViewportMode(void)
         g_level_block->action_panel_visible == 0 && g_level_block->formation_board_visible &&
         g_level_block->radar_map_visible != 0 &&
         GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS) {
-        return 4;
+        return W8_VIEWPORT_MODE_CENTERED_FULL_HEIGHT;
     }
     if (!gpSCSV &&
         (!gXStatus.fNpcDialogueMode ||
@@ -6205,16 +6205,16 @@ short GetMainGameViewportMode(void)
         !gXStatus.fLockInteractMode && !gXStatus.fTrapInteractMode && !ItemUseDraft() &&
         (!g_level_block->formation_board_visible || g_level_block->radar_map_visible == 0 ||
          g_level_block->action_panel_visible == 0)) {
-        return 0;
+        return W8_VIEWPORT_MODE_FULL;
     }
     switch (g_settings.main_ui_mode) {
     case W8_MAIN_UI_MODE_RADAR:
-        return 0;
+        return W8_VIEWPORT_MODE_FULL;
     case W8_MAIN_UI_MODE_FORMATION:
-        return 1;
+        return W8_VIEWPORT_MODE_FULL_WITH_BOTTOM_PANEL;
     case W8_MAIN_UI_MODE_PORTRAITS:
     default:
-        return 2;
+        return W8_VIEWPORT_MODE_CENTERED_WITH_BOTTOM_PANEL;
     }
 }
 
@@ -6243,7 +6243,8 @@ void ClearHighlightOverlayRegion(void)
                          g_level_block->dialogue_x + g_level_block->dialogue_width,
                          g_level_block->dialogue_y + g_level_block->dialogue_height);
         if (g_level_block->dialogue_y <
-            static_cast<unsigned int>(g_viewport_modes[g_level_block->camera_mode].top)) {
+            static_cast<unsigned int>(
+                g_viewport_modes[static_cast<unsigned int>(g_level_block->camera_mode)].top)) {
             RequestRedrawCombatBar();
         }
         if (g_level_block->dialogue_y + g_level_block->dialogue_height > 0x166) {

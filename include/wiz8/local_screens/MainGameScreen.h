@@ -403,7 +403,7 @@ extern bool g_build_level_links;
 extern int g_next_link_level;
 extern bool g_navigator_position_changed;
 void BeginLevelTransition(void);
-void SetViewportMode(int mode);
+void SetViewportMode(W8ViewportMode mode);
 /* Apply a main-game UI mode (0=portraits, 1=formation, 2=radar): drop raised
    panels, optionally re-raise them from settings prefs, refresh tooltip and
    region state, and sync both settings and the level-block mode field. */
@@ -493,7 +493,7 @@ void TryMGSActionKey(W8MGSAction command);
 bool IsMGSActionKeyEnabled(unsigned short command);
 void RunMGSActionKey(unsigned short command);
 void LoadMainGameCursorResources(void);
-short GetMainGameViewportMode(void);
+W8ViewportMode GetMainGameViewportMode(void);
 void CloseMainGameOverlays(void);
 void SetRadarMapVisible(bool visible);
 void SetActionPanelVisible(bool visible);

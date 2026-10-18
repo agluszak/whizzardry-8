@@ -35,6 +35,17 @@ enum W8MainUiMode {
     W8_MAIN_UI_MODE_RADAR = 2
 };
 
+enum W8ViewportMode : int {
+    W8_VIEWPORT_MODE_FULL = 0,
+    W8_VIEWPORT_MODE_FULL_WITH_BOTTOM_PANEL = 1,
+    W8_VIEWPORT_MODE_CENTERED_WITH_BOTTOM_PANEL = 2,
+    W8_VIEWPORT_MODE_CENTERED_COMPACT = 3,
+    W8_VIEWPORT_MODE_CENTERED_FULL_HEIGHT = 4,
+    W8_VIEWPORT_MODE_CENTERED_TALL = 5,
+    W8_VIEWPORT_MODE_FULL_WIDTH_TALL = 6,
+    W8_VIEWPORT_MODE_UNINITIALIZED = 7
+};
+
 /* RequestRedraw requests main-game repaints with this mask. The low
    eight bits select party portraits; combinations remain unsigned mask words. */
 enum W8MainGameRedrawFlag {
@@ -114,7 +125,7 @@ struct W8LevelRuntimeBlock {
     /* Owned notice/list paint scratch, reused by the monster-list formatter. */
     std::string text_paint_scratch;
     unsigned int redraw_flags;
-    int camera_mode;
+    W8ViewportMode camera_mode;
     unsigned char portrait_refresh_pending[8];
     int portrait_refresh_image[8];
     bool pick_changed;
