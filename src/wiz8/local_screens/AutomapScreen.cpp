@@ -259,8 +259,8 @@ bool g_automap_surface_mode;
 /* The camera's near clip: how far above the selected layer it floats. */
 // GLOBAL: WIZ8 0x0064b920
 float g_automap_near_clip = 1.0f;
-// GLOBAL: WIZ8 0x0068f278
 enum class AutomapZoomMode { ZoomInOnly, Both, ZoomOutOnly };
+// GLOBAL: WIZ8 0x0068f278
 static AutomapZoomMode g_automap_zoom_mode = AutomapZoomMode::ZoomInOnly;
 // GLOBAL: WIZ8 0x0068f27c
 
@@ -1009,7 +1009,8 @@ unsigned char ZoomAutomapIn(const glm::vec2* point)
 
     float height = (g_automap_top_y - ground) * 0.5f;
     float minimum = ground + 2.5e+04f;
-    if (g_automap_zoom_mode != AutomapZoomMode::ZoomInOnly || g_automap_top_y <= minimum || height < minimum) {
+    if (g_automap_zoom_mode != AutomapZoomMode::ZoomInOnly || g_automap_top_y <= minimum ||
+        height < minimum) {
         SetAutomapButtonMode(AutomapZoomMode::ZoomOutOnly);
         height = minimum;
     } else {
