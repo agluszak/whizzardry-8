@@ -5,6 +5,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include "compat/compiler.h"
 #include "surrender/srHuffman.h"
 
 TEST_CASE("Huffman bit IO bounds and full width words")
@@ -44,22 +45,14 @@ TEST_CASE("Huffman captured tree decoding and round trip")
 {
     // Exercise a branching symbol tree, as used by octree alpha bits.
     const w8_ulong values[] = {10, 10, 11, 12, 13, 10, 13, 14, 0xffffffff};
-    srHuffman::Sampler tree_sampler;
-    for (auto value : values) ++tree_sampler[value];
-    srHuffman::Compressor compressor(tree_sampler);
-    srHuffman::BitOStream encoded;
-    encoded.put(compressor.num_symbols, 32);
-    encoded.put(compressor.code_width, 6);
-    encoded.put(sizeof(values) / sizeof(values[0]), 32);
-    compressor.storeSymbolTable(encoded);
-    for (auto value : values) compressor.compressSymbol(encoded, value);
+    const auto encoded = srHuffman::compress(values);
     // Captured from main's pre-consolidation stream/Huffman implementation.
     const unsigned char golden[] = {0x06, 0x00, 0x00, 0x00, 0x60, 0x02, 0x00, 0x00, 0x00, 0x2e,
                                     0x00, 0x00, 0x00, 0x64, 0x00, 0x00, 0x00, 0xd0, 0x01, 0x00,
                                     0x00, 0xe0, 0xff, 0xff, 0xff, 0xbf, 0x0d, 0x00, 0x00, 0x00,
                                     0x15, 0x00, 0x00, 0x00, 0x1e, 0xec, 0x64};
     for (const auto data :
-         {std::span<const unsigned char>(golden), std::span<const unsigned char>(encoded.bytes)}) {
+         {std::span<const unsigned char>(golden), std::span<const unsigned char>(encoded)}) {
         srHuffman::BitIStream bits(data);
         srHuffman::Decompressor decoder(bits);
         REQUIRE(decoder.getDataCount() == sizeof(values) / sizeof(values[0]));
@@ -72,29 +65,16 @@ TEST_CASE("Huffman repeated symbols and frequency map growth")
     // Repeated symbols (including zero), and
     // enough distinct values to grow/rehash the lookup several times.
     std::vector<w8_ulong> values;
-    srHuffman::Sampler sampler;
     for (w8_ulong i = 0; i < 512; ++i) {
         const auto symbol = i * 1024;
         values.push_back(symbol);
-        ++sampler[symbol];
     }
     for (w8_ulong i = 0; i < 1024; ++i) {
         const auto symbol = (i % 7) * 1024;
         values.push_back(symbol);
-        ++sampler[symbol];
     }
-    REQUIRE(sampler.size() == 512);
-    for (w8_ulong i = 0; i < 512; ++i) {
-        REQUIRE(sampler.at(i * 1024) == 1 + (i < 7 ? 146 + (i < 2) : 0));
-    }
-    srHuffman::Compressor compressor(sampler);
-    srHuffman::BitOStream output;
-    output.put(compressor.num_symbols, 32);
-    output.put(compressor.code_width, 6);
-    output.put(values.size(), 32);
-    compressor.storeSymbolTable(output);
-    for (auto symbol : values) compressor.compressSymbol(output, symbol);
-    srHuffman::BitIStream input(output.bytes);
+    const auto encoded = srHuffman::compress(values);
+    srHuffman::BitIStream input(encoded);
     srHuffman::Decompressor decoder(input);
     REQUIRE(decoder.getDataCount() == values.size());
     for (auto symbol : values) REQUIRE(decoder.decompressSymbol() == symbol);
@@ -103,15 +83,9 @@ TEST_CASE("Huffman repeated symbols and frequency map growth")
 TEST_CASE("Huffman single symbol trees need no payload bits")
 {
     for (const auto value : {0u, 0xffffffffu}) {
-        srHuffman::Sampler sampler{{value, 3}};
-        srHuffman::Compressor compressor(sampler);
-        srHuffman::BitOStream output;
-        output.put(compressor.num_symbols, 32);
-        output.put(compressor.code_width, 6);
-        output.put(3, 32);
-        compressor.storeSymbolTable(output);
-        for (unsigned i = 0; i < 3; ++i) compressor.compressSymbol(output, value);
-        srHuffman::BitIStream input(output.bytes);
+        const w8_ulong words[] = {value, value, value};
+        const auto encoded = srHuffman::compress(words);
+        srHuffman::BitIStream input(encoded);
         srHuffman::Decompressor decoder(input);
         REQUIRE(decoder.getDataCount() == 3);
         for (unsigned i = 0; i < 3; ++i) REQUIRE(decoder.decompressSymbol() == value);

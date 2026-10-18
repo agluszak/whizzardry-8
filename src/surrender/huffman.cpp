@@ -1,8 +1,13 @@
 #include <algorithm>
 #include <bit>
 #include <queue>
+#include <span>
 #include <stdexcept>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
+#include "compat/compiler.h"
 #include "surrender/srHuffman.h"
 
 w8_ulong srHuffman::BitIStream::get(w8_ulong bits)
@@ -43,15 +48,26 @@ void srHuffman::BitOStream::put(w8_ulong value, w8_ulong bits)
     }
 }
 
-srHuffman::Compressor::Compressor(const Sampler& sampler)
-    : root(nullptr), num_symbols(sampler.size()), code_width(1)
+std::vector<unsigned char> srHuffman::compress(std::span<const w8_ulong> words)
 {
-    // Allocate once: the heap and code table borrow pointers into this storage.
-    nodes.reserve(sampler.empty() ? 0 : sampler.size() * 2 - 1);
+    struct Node {
+        w8_ulong symbol, frequency;
+        Node* children[2]{};
+    };
+    struct Encoding {
+        w8_ulong frequency = 0, code = 0, bits = 0;
+    };
+    std::unordered_map<w8_ulong, Encoding> encodings;
+    for (auto word : words) ++encodings[word].frequency;
+
+    // Allocate once: heap entries and child pointers borrow this storage.
+    std::vector<Node> nodes;
+    nodes.reserve(encodings.empty() ? 0 : encodings.size() * 2 - 1);
     auto lessFrequent = [](const Node* a, const Node* b) { return a->frequency > b->frequency; };
     std::priority_queue<Node*, std::vector<Node*>, decltype(lessFrequent)> queue(lessFrequent);
-    for (const auto& [symbol, frequency] : sampler) {
-        nodes.push_back({symbol, frequency, 0, 0, {nullptr, nullptr}});
+    w8_ulong code_width = 1;
+    for (const auto& [symbol, encoding] : encodings) {
+        nodes.push_back({symbol, encoding.frequency});
         queue.push(&nodes.back());
         code_width = std::max(code_width, w8_ulong(std::bit_width(symbol)));
     }
@@ -60,46 +76,35 @@ srHuffman::Compressor::Compressor(const Sampler& sampler)
         queue.pop();
         auto* right = queue.top();
         queue.pop();
-        nodes.push_back({0, left->frequency + right->frequency, 0, 0, {left, right}});
+        nodes.push_back({0, left->frequency + right->frequency, {left, right}});
         queue.push(&nodes.back());
     }
-    if (!queue.empty()) root = queue.top();
-    setupPath(root, 0, 0);
-}
 
-// FUNCTION: SURRENDER 0x10001E40
-void srHuffman::Compressor::storeSymbolTable(BitOStream& stream)
-{
-    dumpNode(stream, root);
-}
-
-// FUNCTION: SURRENDER 0x10001E60
-void srHuffman::Compressor::dumpNode(BitOStream& stream, Node* node)
-{
-    while (node != 0 && node->children[0] != 0) {
-        stream.put(0, 1);
-        dumpNode(stream, node->children[0]);
-        node = node->children[1];
+    BitOStream output;
+    output.put(encodings.size(), 32);
+    output.put(code_width, 6);
+    output.put(words.size(), 32);
+    // Assign codes during the same traversal that serializes the complete tree.
+    auto storeTree = [&](auto&& self, Node* node, w8_ulong code, w8_ulong depth) -> void {
+        const bool leaf = node->children[0] == nullptr;
+        output.put(leaf, 1);
+        if (leaf) {
+            output.put(node->symbol, code_width);
+            auto& encoding = encodings.at(node->symbol);
+            encoding.code = code;
+            encoding.bits = depth;
+        } else {
+            if (depth >= 32) throw std::runtime_error("Huffman code exceeds 32 bits");
+            self(self, node->children[0], code, depth + 1);
+            self(self, node->children[1], code | (w8_ulong(1) << depth), depth + 1);
+        }
+    };
+    if (!queue.empty()) storeTree(storeTree, queue.top(), 0, 0);
+    for (auto word : words) {
+        const auto& encoding = encodings.at(word);
+        output.put(encoding.code, encoding.bits);
     }
-    if (node != 0) {
-        stream.put(1, 1);
-        stream.put(node->symbol, code_width);
-    }
-}
-
-// FUNCTION: SURRENDER 0x10001EC0
-void srHuffman::Compressor::setupPath(Node* node, w8_ulong code, w8_ulong depth)
-{
-    if (node == nullptr) return;
-    if (node->children[0] != nullptr) {
-        if (depth >= 32) throw std::runtime_error("Huffman code exceeds 32 bits");
-        setupPath(node->children[0], code, depth + 1);
-        setupPath(node->children[1], code | (w8_ulong(1) << depth), depth + 1);
-        return;
-    }
-    node->code = code;
-    node->bits = depth;
-    table.emplace(node->symbol, node);
+    return std::move(output.bytes);
 }
 
 // FUNCTION: SURRENDER 0x10002340

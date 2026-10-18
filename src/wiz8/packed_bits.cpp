@@ -78,18 +78,9 @@ bool SavePackedBits(wiz8::File& handle, const std::vector<bool>& bits)
     srIO::check(SDL_WriteU32LE(handle.io(), kMagic));
     srIO::check(SDL_WriteU32LE(handle.io(), static_cast<Uint32>(bits.size())));
 
-    srHuffman::BitOStream output;
-    srHuffman::Sampler sampler;
-    for (unsigned int word : words) ++sampler[word];
-    srHuffman::Compressor compressor(sampler);
-    output.put(compressor.num_symbols, 32);
-    output.put(compressor.code_width, 6);
-    output.put(static_cast<unsigned int>(words.size()), 32);
-    compressor.storeSymbolTable(output);
-    for (unsigned int word : words) compressor.compressSymbol(output, word);
-
-    srIO::check(SDL_WriteU32LE(handle.io(), static_cast<Uint32>(output.bytes.size())));
-    srIO::writeExact(handle.io(), output.bytes.data(), output.bytes.size());
+    const auto packed = srHuffman::compress(words);
+    srIO::check(SDL_WriteU32LE(handle.io(), static_cast<Uint32>(packed.size())));
+    srIO::writeExact(handle.io(), packed.data(), packed.size());
     srIO::check(SDL_WriteU32LE(handle.io(), kMagic));
     return true;
 }
