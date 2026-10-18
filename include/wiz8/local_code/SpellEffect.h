@@ -13,11 +13,12 @@
 #include "wiz8/dice.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/targeting.h"
+#include "wiz8/spell_ids.h"
 
 class W8SpellVisual;
 class W8Missile;
 
-enum W8SpellDamageReportKind {
+enum W8SpellDamageReportKind : int {
     W8_SPELL_DAMAGE_REPORT_CHARACTER_DEATH = 1,
     W8_SPELL_DAMAGE_REPORT_MONSTER_DEATH = 3
 };
@@ -83,7 +84,7 @@ struct W8SpellEffectEntry {
     /* OrigSource and OrigTarget are left for the caller to fill. */
     W8SpellEffectEntry()
     {
-        kind = 0;
+        kind = W8_SPELL_NONE;
         turns_remaining = 0;
         memset(&Source, 0, sizeof(Source));
         memset(&target, 0, sizeof(target));
@@ -97,7 +98,7 @@ struct W8SpellEffectEntry {
         result = {};
     }
 
-    int kind;
+    W8SpellId kind;
     int turns_remaining;
     /* The cast's original source. */
     W8TargetSource OrigSource;

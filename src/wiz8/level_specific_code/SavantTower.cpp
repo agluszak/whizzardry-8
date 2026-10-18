@@ -24,9 +24,9 @@ void SavantTowerSyncButtonBlocker(void)
     W8Prop* prop = FindPropByName(GetWorld(), "ButtonBlocker");
     if (prop != 0) {
         if (GetFact(W8_FACT_DS_BOMB_DEACTIVATED) != 0) {
-            prop->SetActivationState(1);
+            prop->SetActivationState(true);
         } else {
-            prop->SetActivationState(0);
+            prop->SetActivationState(false);
         }
     }
 }
@@ -51,7 +51,7 @@ bool SavantTowerButtonBlocker(Trigger* pTrigger)
     W8Prop* blocker = FindPropByName(GetWorld(), "ButtonBlocker");
 
     if (blocker != 0) {
-        blocker->SetActivationState(1);
+        blocker->SetActivationState(true);
     }
     QueueNpcScriptNotice(GetNpcStateByKind(0x46), 0, 1, false, 0);
     SetFact(W8_FACT_DS_BOMB_DEACTIVATED, 1, false);

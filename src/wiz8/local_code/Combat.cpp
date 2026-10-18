@@ -259,9 +259,9 @@ bool StartCombat(int surprise)
                 monster_info->highest_condition < W8_CONDITION_WEBBED &&
                 monster_info->uiCondition[W8_CONDITION_BLIND] == 0) {
                 MonsterChooseTarget(monster_info, &chosen, 3);
-                if (chosen.iType == 2) {
+                if (chosen.iType == W8_TARGET_KIND_PARTY) {
                     MonsterForwardReferencePosition(monster_info->p3D, 0);
-                } else if (chosen.iType == 3) {
+                } else if (chosen.iType == W8_TARGET_KIND_MONSTER) {
                     MonsterAimAtMonster(monster_info->p3D,
                                         GetMonsterByLocationID(chosen.iMonsterID), false);
                 }
@@ -935,12 +935,12 @@ void EndMonsterTurn(W8MonsterInfo* monster_info)
     if (monster_info->hp_current != 0 && monster_info->highest_condition < W8_CONDITION_WEBBED &&
         monster_info->uiCondition[W8_CONDITION_BLIND] == 0) {
         MonsterChooseTarget(monster_info, &chosen, 3);
-        if (chosen.iType == 2) {
+        if (chosen.iType == W8_TARGET_KIND_PARTY) {
             MonsterForwardReferencePosition(monster_info->p3D, 0);
             monster_info->death_processed = false;
             return;
         }
-        if (chosen.iType == 3) {
+        if (chosen.iType == W8_TARGET_KIND_MONSTER) {
             target_location = chosen.iMonsterID;
             MonsterAimAtMonster(monster_info->p3D, GetMonsterByLocationID(target_location), false);
         }
@@ -1113,7 +1113,8 @@ void EndCombat(bool forced_cleanup)
             g_status.level_progress[GetLoadedLevelID()].combat_end_count += 1;
         }
         g_combat_state->experience_pool /= active;
-        AwardPartyExperience(g_combat_state->experience_bonus + g_combat_state->experience_pool, 1);
+        AwardPartyExperience(g_combat_state->experience_bonus + g_combat_state->experience_pool,
+                             true);
         w8_unaligned_int* entry = g_status.status_ints;
         w8_unaligned_int* end = entry + 1000;
         while (entry < end) {
@@ -1886,9 +1887,9 @@ void AdvanceCombatRound(void)
             monster_info->uiCondition[W8_CONDITION_BLIND] == 0) {
             W8CombatSlot chosen;
             MonsterChooseTarget(monster_info, &chosen, 3);
-            if (chosen.iType == 2) {
+            if (chosen.iType == W8_TARGET_KIND_PARTY) {
                 MonsterForwardReferencePosition(monster_info->p3D, 0);
-            } else if (chosen.iType == 3) {
+            } else if (chosen.iType == W8_TARGET_KIND_MONSTER) {
                 MonsterAimAtMonster(monster_info->p3D, GetMonsterByLocationID(chosen.iMonsterID),
                                     false);
             }
@@ -2818,9 +2819,9 @@ void StepMonsterCombatAction(W8MonsterInfo* monster_info)
             monster_info->highest_condition < W8_CONDITION_WEBBED &&
             monster_info->uiCondition[W8_CONDITION_BLIND] == 0) {
             MonsterChooseTarget(monster_info, &chosen, 3);
-            if (chosen.iType == 2) {
+            if (chosen.iType == W8_TARGET_KIND_PARTY) {
                 MonsterForwardReferencePosition(monster_info->p3D, 0);
-            } else if (chosen.iType == 3) {
+            } else if (chosen.iType == W8_TARGET_KIND_MONSTER) {
                 MonsterAimAtMonster(monster_info->p3D, GetMonsterByLocationID(chosen.iMonsterID),
                                     false);
             }

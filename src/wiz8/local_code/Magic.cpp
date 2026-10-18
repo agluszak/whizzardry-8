@@ -807,7 +807,7 @@ void FinishSpellEffect(W8SpellEffectEntry* effect)
             PostCharacterNotice(effect->target.iChar, g_localized_strings[0x195]);
         }
         if (g_settings.verbose_combat_messages == 0) {
-            SetTextBoxMode(1, -1);
+            SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
         }
         target.point = position;
         CastSpellFromSource(W8_SPELL_BOILING_BLOOD_EXPLOSION, &effect->Source, &target,
@@ -1953,7 +1953,7 @@ unsigned int MonsterCastsSpell(W8MonsterInfo* monster_info, int spell_id, unsign
                                 GetMonsterName(monster_info, record, 0),
                                 g_spell_records[spell_id].display_name,
                                 SpellTargetString(&source, &monster_info->Target)));
-        SetTextBoxMode(1, 9);
+        SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, 9);
     } else {
         ShowNotice(W8_FONT_PALETTE_RUST,
                    fmt::sprintf(g_localized_strings[W8_MESSAGE_MONSTER_CAST_VERBOSE / 4],
@@ -2018,9 +2018,9 @@ void SpawnLureEffects(W8SpellEffectEntry* owner, int argument, W8CombatSlot* tar
 void ReportSpellResult(W8SpellEffectEntry* effect)
 {
 
-    if (GetTextBoxMode() != 0) {
+    if (GetTextBoxMode() != W8_TEXT_BOX_MODE_NOTICE) {
         AppendToLastTextLine(!effect->reported ? " -- " : ", ", -1);
-        SetTextBoxMode(1, -1);
+        SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
     }
     if (effect->result.amount != 0) {
         if (effect->result.count == 1) {
@@ -2030,16 +2030,16 @@ void ReportSpellResult(W8SpellEffectEntry* effect)
             AppendToLastTextLine(fmt::sprintf(g_localized_strings[0x199], effect->result.count,
                                               effect->result.amount / effect->result.count, -1),
                                  -1);
-            SetTextBoxMode(1, -1);
+            SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
         }
-        SetTextBoxMode(1, -1);
+        SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
         effect->reported = true;
     }
     for (int condition = W8_CONDITION_DRAINED; condition < W8_CONDITION_COUNT; ++condition) {
         if (effect->result.condition_counts[condition] != 0) {
-            if (effect->reported && GetTextBoxMode() != 0) {
+            if (effect->reported && GetTextBoxMode() != W8_TEXT_BOX_MODE_NOTICE) {
                 AppendToLastTextLine(", ", -1);
-                SetTextBoxMode(1, -1);
+                SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
             }
             if (effect->result.condition_counts[condition] == 1) {
                 if (effect->target.iType == W8_TARGET_KIND_CHARACTER) {
@@ -2063,7 +2063,7 @@ void ReportSpellResult(W8SpellEffectEntry* effect)
                                 g_localized_strings[g_condition_notices[condition].plural]),
                     -1);
             }
-            SetTextBoxMode(1, -1);
+            SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
             effect->reported = true;
         }
     }
@@ -2073,7 +2073,7 @@ void ReportSpellResult(W8SpellEffectEntry* effect)
         effect->result.reports.erase(effect->result.reports.begin());
         if (report != 0) {
             if (report->kind == W8_SPELL_DAMAGE_REPORT_CHARACTER_DEATH) {
-                SetTextBoxMode(0, -1);
+                SetTextBoxMode(W8_TEXT_BOX_MODE_NOTICE, -1);
                 PostCharacterNotice(
                     report->value,
                     fmt::format(
@@ -2081,7 +2081,7 @@ void ReportSpellResult(W8SpellEffectEntry* effect)
                         g_localized_strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
                 effect->reported = true;
             } else if (report->kind == W8_SPELL_DAMAGE_REPORT_MONSTER_DEATH) {
-                SetTextBoxMode(0, -1);
+                SetTextBoxMode(W8_TEXT_BOX_MODE_NOTICE, -1);
                 ShowNotice(
                     W8_FONT_PALETTE_RUST,
                     fmt::format(
@@ -2571,10 +2571,10 @@ int ExecuteCharacterSpellCast(int party_slot, int spell_id, unsigned int power_l
             PostCharacterNotice(party_slot,
                                 fmt::sprintf(g_localized_strings[0x18c], record->display_name,
                                              SpellTargetString(&source, aim)));
-            SetTextBoxMode(1, 8);
+            SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, 8);
         } else {
             PostCharacterNotice(party_slot, g_localized_strings[0x18d]);
-            SetTextBoxMode(1, 8);
+            SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, 8);
         }
     } else {
         PostCharacterNotice(party_slot,
@@ -3094,7 +3094,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                 break;
             }
         }
-        owner.kind = spell_id;
+    owner.kind = static_cast<W8SpellId>(spell_id);
         owner.Source = *source;
         owner.target = *target;
         owner.definition = block;

@@ -54,7 +54,7 @@ int AddCharacterToParty(W8Character& character, int slot);
    persists it back to its NPC record first. */
 void RemoveCharacterFromParty(int party_slot);
 
-void AwardPartyExperience(int value, int mode);
+void AwardPartyExperience(int value, bool alternate_message);
 bool IsCharacterReadyToAdvance(int party_slot);
 void CalcXPGoal(W8Character* character);
 void DeriveCharacterPersonality(W8Character* character);

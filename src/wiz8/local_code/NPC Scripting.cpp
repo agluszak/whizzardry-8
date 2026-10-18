@@ -512,7 +512,7 @@ void W8NpcDialogue::RunQuoteEntry(W8NpcQuoteEntry* entry, int continuation_quote
         DisplayNpcQuote(notice_text, true);
         break;
     case W8_NPC_ENTRY_GIVE_EXPERIENCE:
-        AwardPartyExperience(entry->operand0, 0);
+        AwardPartyExperience(entry->operand0, false);
         break;
     default:
         break;

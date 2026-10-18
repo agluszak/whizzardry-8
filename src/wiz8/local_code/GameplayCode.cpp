@@ -1201,7 +1201,7 @@ unsigned char RecruitCharacterIntoParty(W8Character* character, W8Character* rec
 }
 
 // FUNCTION: WIZ8 0x004EEF10
-void AwardPartyExperience(int amount, int alternate_message)
+void AwardPartyExperience(int amount, bool alternate_message)
 {
     for (int slot = 0; slot < 8; ++slot) {
         W8Character* character = &g_status.buffers.Char[slot];
@@ -1226,5 +1226,5 @@ void AwardPartyExperience(int amount, int alternate_message)
     auto text = fmt::sprintf(g_localized_strings[alternate_message ? 0x231 : 0x232], amount);
     g_npc_dialogue.QueuePortraitMessage(
         std::move(text), W8ExperienceNoticePayload{static_cast<unsigned int>(amount),
-                                                   static_cast<unsigned char>(alternate_message)});
+                                                   alternate_message});
 }

@@ -2771,7 +2771,7 @@ void Trigger::Run(int source)
         if (m_pProp == 0 || source != m_lData1) {
             return;
         }
-        m_pProp->SetActivationState(0);
+        m_pProp->SetActivationState(false);
         break;
 
     case 0x3b:
@@ -2903,14 +2903,14 @@ void Trigger::Run(int source)
         if (m_pProp == 0) {
             return;
         }
-        m_pProp->SetActivationState(1);
+        m_pProp->SetActivationState(true);
         break;
 
     case 0x3e:
         if (m_pProp == 0) {
             return;
         }
-        m_pProp->SetActivationState(0);
+        m_pProp->SetActivationState(false);
         break;
 
     case 0x3f:

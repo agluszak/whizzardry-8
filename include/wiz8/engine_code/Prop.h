@@ -147,7 +147,7 @@ public:
     void SetAnimationDirection(W8AnimationDirection direction);
     void SetRepresentationActive(unsigned char active, bool update_animation);
     bool CanBeUsedFrom(int path_x, int path_z, bool notify);
-    void SetActivationState(unsigned char value);
+    void SetActivationState(bool active);
     /* Queues the signed byte as a short; -1 becomes the 0xffff sentinel. */
     void SetPendingAnimationSubcycle(char value);
     void SetAnimationSpeed(float speed);

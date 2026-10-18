@@ -39,7 +39,7 @@ enum W8CampPage {
     W8_CAMP_PAGE_REGENERATION = 4
 };
 
-enum W8CampItemAction {
+enum W8CampItemAction : unsigned char {
     W8_CAMP_ITEM_ACTION_NONE = 0,
     W8_CAMP_ITEM_ACTION_MOVE = 1,
     W8_CAMP_ITEM_ACTION_IDENTIFY_SPELL = 2,
@@ -52,7 +52,10 @@ enum W8CampItemAction {
     W8_CAMP_ITEM_ACTION_USE_ON_CHARACTER = 9
 };
 
-enum W8CampInfoPage { W8_CAMP_INFO_PAGE_ITEMS = 0, W8_CAMP_INFO_PAGE_CHARACTER = 1 };
+enum W8CampInfoPage : unsigned char {
+    W8_CAMP_INFO_PAGE_ITEMS = 0,
+    W8_CAMP_INFO_PAGE_CHARACTER = 1
+};
 
 enum W8CampHeaderMode { W8_CAMP_HEADER_SUMMARY = 0, W8_CAMP_HEADER_PROFESSION_HISTORY = 1 };
 

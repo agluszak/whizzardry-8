@@ -439,11 +439,11 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                                             uiTotals[i] / uiHits[i], -1);
                         break;
                     default:
-                        SetTextBoxMode(1, -1);
+                        SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
                         continue;
                     }
                     AppendToLastTextLine(text, -1);
-                    SetTextBoxMode(1, -1);
+                    SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
                 }
             }
         }

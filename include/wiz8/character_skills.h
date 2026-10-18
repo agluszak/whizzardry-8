@@ -19,7 +19,7 @@ enum W8Attribute {
     W8_ATTRIBUTE_COUNT = 7
 };
 
-enum W8SkillCategory {
+enum W8SkillCategory : int {
     W8_SKILL_CATEGORY_WEAPON,
     W8_SKILL_CATEGORY_MISCELLANEOUS,
     W8_SKILL_CATEGORY_COMBAT,

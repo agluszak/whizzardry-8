@@ -209,9 +209,9 @@ void W8Octree::UpdateVisibility()
             }
         }
         for (index = 0; index < m_props.size(); ++index) {
-            m_props[index]->SetActivationState(0);
+            m_props[index]->SetActivationState(false);
         }
-        for (const auto id : m_prop_links.alwaysVisible()) m_props[id - 1]->SetActivationState(1);
+        for (const auto id : m_prop_links.alwaysVisible()) m_props[id - 1]->SetActivationState(true);
         for (index = 0; index < m_particles.size(); ++index) {
             m_particles[index]->SetTraversalEnabled(false);
         }
@@ -290,9 +290,9 @@ void W8Octree::UpdateVisibility()
         for (const auto id : m_prop_links.alwaysVisible()) SetBit(m_linked_props, id - 1);
         for (std::size_t prop = 0; prop < m_linked_props.size(); ++prop) {
             if (m_linked_props[prop] && !m_visible_props[prop]) {
-                m_props[prop]->SetActivationState(1);
+                m_props[prop]->SetActivationState(true);
             } else if (!m_linked_props[prop] && m_visible_props[prop]) {
-                m_props[prop]->SetActivationState(0);
+                m_props[prop]->SetActivationState(false);
             }
         }
         m_visible_props = m_linked_props;
@@ -1049,7 +1049,7 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
     unsigned short rows =
         static_cast<unsigned short>(static_cast<int>(m_spatial.m_extent / stride));
     for (unsigned int prop = 0; prop < m_props.size(); ++prop) {
-        m_props[prop]->SetActivationState(0);
+        m_props[prop]->SetActivationState(false);
     }
     for (unsigned int particle = 0; particle < m_particles.size(); ++particle) {
         m_particles[particle]->SetTraversalEnabled(false);

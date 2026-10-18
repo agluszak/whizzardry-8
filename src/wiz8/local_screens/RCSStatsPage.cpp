@@ -1275,14 +1275,17 @@ void W8CharacterSkillsPage::SetCharacter(W8Character* character,
     W8CharacterPage::SetCharacter(character, creation_state, mode);
     int category_count[5] = {0, 0, 0, 0, 0};
     for (auto& skill_attribute : g_skill_attributes) {
-        int category = skill_attribute.category;
+        const auto category = skill_attribute.category;
+        const int category_index = static_cast<int>(category);
         W8CharacterPageEntry* entry = new W8CharacterPageEntry(
-            input, g_character_page2_category_geometry[category].x,
-            g_character_page2_category_geometry[category].y + category_count[category] * 0xe, true);
+            input, g_character_page2_category_geometry[category_index].x,
+            g_character_page2_category_geometry[category_index].y +
+                category_count[category_index] * 0xe,
+            true);
         AddEntry(entry);
         entry->on_adjust = [this, entry](int delta) { AdjustEntry(entry, delta); };
         entry->on_info = [this, entry] { ShowEntryInfo(entry); };
-        ++category_count[category];
+        ++category_count[category_index];
     }
     nav_next_state = false;
 }

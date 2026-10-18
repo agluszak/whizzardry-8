@@ -2746,7 +2746,7 @@ void ApplyMainGameRedrawFlags(const W8TargetingPresentation& presentation)
     bool keyboard_menu_invalidate;
     int party_slot;
     int text_box_variant;
-    unsigned char text_box_mode;
+    W8TextBoxMode text_box_mode;
     bool show_portraits;
     SDL_Rect combat_clip;
     short health_percent;
@@ -2901,14 +2901,15 @@ void ApplyMainGameRedrawFlags(const W8TargetingPresentation& presentation)
             CatalogArtwork::Load(0x87, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0x80,
                                                             0x166);
             text_box_mode = GetTextBoxMode();
-            if (text_box_mode == 0 || text_box_mode == 1) {
+            if (text_box_mode == W8_TEXT_BOX_MODE_NOTICE ||
+                text_box_mode == W8_TEXT_BOX_MODE_APPEND) {
                 text_box_variant = text_box_mode;
-            } else if (text_box_mode == 3) {
+            } else if (text_box_mode == W8_TEXT_BOX_MODE_SPECIAL_PANEL) {
                 text_box_variant = 2;
             } else {
                 DebugMessage(
                     0, fmt::format("WARNING: Drawing text box while Text Buffer = {:d} (AlexP)",
-                                   text_box_mode));
+                                   static_cast<unsigned int>(text_box_mode)));
                 goto draw_formation_panel;
             }
             CatalogArtwork::Load(0x88, 0).drawAndInvalidate(GetFrameBufferSurface(),

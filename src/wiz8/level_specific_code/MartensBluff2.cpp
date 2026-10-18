@@ -552,7 +552,7 @@ bool MartensBluff2MonsterCrusher(int command)
             } else {
                 MonsterStartsDying(info, true);
                 if (info->monster_species == 0x183) {
-                    AwardPartyExperience(10000, 0);
+                    AwardPartyExperience(10000, false);
                 }
             }
         }

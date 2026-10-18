@@ -115,7 +115,7 @@ static_assert(offsetof(W8MessageStorageDiskRecord, trailing_bytes) == 0x1c,
               "W8MessageStorageDiskRecord_trailing_offset");
 static_assert(sizeof(w8_ulong) == 4, "W8MessageStorageDiskRecord_requires_32_bit_words");
 // GLOBAL: WIZ8 0x0069b7b8
-static unsigned char g_text_box_mode;
+static W8TextBoxMode g_text_box_mode;
 // GLOBAL: WIZ8 0x0069b7bc
 int g_notice_line_count;
 // GLOBAL: WIZ8 0x0064bd54
@@ -388,7 +388,7 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view, short tex
         if (g_status.quote_audit && g_notice_line_count > 7) {
             g_status.long_quote = 1;
         }
-        g_text_box_mode = 0;
+        g_text_box_mode = W8_TEXT_BOX_MODE_NOTICE;
     } else if (force_dialog) {
         W8MessageDialogBase* dialog = CreateMessageDialog();
         dialog->SetMessage(text, 1, 50, true, false, true, false, 0, 0);
@@ -647,7 +647,7 @@ void AppendToLastTextLine(std::string_view text, short text_box)
         g_current_screen_state.id != W8_SCREEN_CAMP) {
         return;
     }
-    if (g_text_box_mode == 0) {
+    if (g_text_box_mode == W8_TEXT_BOX_MODE_NOTICE) {
         ShowNotice(g_text_box_value, text, text_box);
         return;
     }
@@ -965,12 +965,12 @@ UiResult HandleTextChannel(const UiPointerEvent& event, int channel)
 
 /* The text box's mode, and the setter that also records a value when one is
    given - passing -1 leaves the value alone. */
-unsigned char GetTextBoxMode(void)
+W8TextBoxMode GetTextBoxMode(void)
 {
     return g_text_box_mode;
 }
 
-void SetTextBoxMode(unsigned char mode, int value)
+void SetTextBoxMode(W8TextBoxMode mode, int value)
 {
     g_text_box_mode = mode;
     if (value != -1) {
