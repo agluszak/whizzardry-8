@@ -102,7 +102,7 @@ void ActivateMainMenuItem(short item)
     case 0:
         RequestScreenTransition();
         g_settings.intro_seen = false;
-        SetIntroVideoIndex(0);
+        SetIntroVideoIndex(W8_INTRO_VIDEO_WIZARDRY);
         g_pending_screen_state.id = W8_SCREEN_INTRO;
         break;
     case 1:
