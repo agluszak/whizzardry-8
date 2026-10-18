@@ -3,6 +3,7 @@
 
 #include <array>
 #include <memory>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -96,10 +97,9 @@ struct W8XStatus {
     /* Which Assay dialog tab is shown - set selects the profession
        icons/button, clear selects the race side. */
     bool assay_professions_tab;
-    bool item_drag_active;
     W8ItemInstance* dragged_item;
     unsigned char dragged_item_origin;
-    signed char dragged_character_slot;
+    std::optional<int> dragged_character_slot;
     uint64_t spell_cooldown_clocks[14];
     uint64_t combat_countdown;
     unsigned char combat_difficulty;
@@ -109,13 +109,12 @@ struct W8XStatus {
 extern W8XStatus gXStatus;
 
 /* Drop any item drag in progress; the camp, use-item and main-game paths
-   all reset the four drag fields together. */
+   all reset the drag state together. */
 inline void ClearItemDrag(void)
 {
-    gXStatus.item_drag_active = false;
     gXStatus.dragged_item = 0;
     gXStatus.dragged_item_origin = W8_ITEM_ORIGIN_NONE;
-    gXStatus.dragged_character_slot = -1;
+    gXStatus.dragged_character_slot.reset();
 }
 
 /* Bounded queries into the current level; absent levels resolve to null. */

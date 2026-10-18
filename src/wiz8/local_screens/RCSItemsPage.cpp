@@ -251,9 +251,8 @@ void UseCampItem(W8ItemInstance* item)
         LearnSpellFromItem(g_review_character, item);
     } else {
         if (!IsUsableItemClass(item) || IsSpecialItemId(item)) {
-            gXStatus.item_drag_active = true;
             gXStatus.dragged_item = item;
-            gXStatus.dragged_character_slot = static_cast<char>(giReviewCharSlot);
+            gXStatus.dragged_character_slot = giReviewCharSlot;
             GetOriginOfCharacterItem(giReviewCharSlot, item, &gXStatus.dragged_item_origin, &slot);
         } else {
             if (!g_status.item_in_cursor) {

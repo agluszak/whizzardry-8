@@ -2296,10 +2296,10 @@ bool MainGameScreenEnter(void)
     if (TrapInteractionSuspended()) {
         OpenTrapInteraction(0);
     }
-    if (gXStatus.item_drag_active) {
-        if (IsPartySlotEligible(gXStatus.dragged_character_slot)) {
-            SelectPartyCharacter(gXStatus.dragged_character_slot);
-            OpenUseItemSelectView(gXStatus.dragged_character_slot);
+    if (const auto dragged_slot = gXStatus.dragged_character_slot) {
+        if (IsPartySlotEligible(*dragged_slot)) {
+            SelectPartyCharacter(*dragged_slot);
+            OpenUseItemSelectView(*dragged_slot);
             SelectCurrentUseItemLine();
         } else {
             ClearItemDrag();

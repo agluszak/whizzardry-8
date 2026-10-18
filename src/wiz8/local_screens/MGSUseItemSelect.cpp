@@ -230,7 +230,7 @@ void RefreshUseItemSelectionForSlot(int party_slot)
         return;
     }
     use_item->owner = party_slot;
-    if (gXStatus.item_drag_active) {
+    if (gXStatus.dragged_character_slot) {
         if (!g_status.item_in_cursor) {
             const bool party_pool = gXStatus.dragged_item_origin == W8_ITEM_ORIGIN_PARTY_POOL;
             if (party_pool && gXStatus.fCombatMode)
@@ -244,7 +244,7 @@ void RefreshUseItemSelectionForSlot(int party_slot)
             srAssertFail("giReuseItemLineNumber != -1", MGSUSEITEMSELECT_CPP, 0x1fe, 0);
         }
         ScrollTextBoxTo(use_item->selected_line);
-        gXStatus.item_drag_active = false;
+        gXStatus.dragged_character_slot.reset();
         return;
     }
     if (CanPartySlotUseRecordedItem(party_slot)) {
