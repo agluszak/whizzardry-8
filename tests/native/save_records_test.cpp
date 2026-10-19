@@ -970,7 +970,7 @@ static void save_file_contracts(const std::filesystem::path& user)
     for (const auto& slot : slots) {
         const auto metadata = wiz8::file_status(user / "saves" / (slot->name + ".SAV"));
         REQUIRE(metadata);
-        REQUIRE(slot->write_time == metadata->info.modify_time);
+        REQUIRE(slot->write_time == metadata.value().info.modify_time);
         SDL_DateTime local{};
         REQUIRE(SDL_TimeToDateTime(slot->write_time, &local, true));
         REQUIRE(slot->timestamp.year == local.year);
