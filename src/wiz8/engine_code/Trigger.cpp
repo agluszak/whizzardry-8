@@ -325,8 +325,10 @@ void W8LockState::ReadRuntimeRecord(W8Chunk& handle, int version, int restoring)
             handle.ReadBytes(&last_interaction_clock, sizeof(last_interaction_clock));
         }
     } else {
+        int serialized_lock_type;
         handle.ReadBytes(&record_version, sizeof(record_version));
-        handle.ReadBytes(&lock_type, sizeof(lock_type));
+        handle.ReadBytes(&serialized_lock_type, sizeof(serialized_lock_type));
+        lock_type = static_cast<W8LockType>(serialized_lock_type);
         handle.ReadBytes(&difficulty, sizeof(difficulty));
         handle.ReadBytes(&device_state.completed, sizeof(device_state.completed));
         handle.ReadBytes(device_state.pins, sizeof(device_state.pins));

@@ -109,7 +109,7 @@ struct W8TriggerDeviceState {
     unsigned char pins[8];
 };
 
-enum class W8LockType : int { none = 0, pickable_lock = 1, trap = 2, key_lock = 3 };
+enum class W8LockType : unsigned char { none = 0, pickable_lock = 1, trap = 2, key_lock = 3 };
 
 /* The locks & traps device record embedded at the tail of Trigger. `lock_type` is the editor "Type" (none,
    pickable lock, trap, or key lock); `difficulty` is the editor "Difficulty"
@@ -143,7 +143,7 @@ enum W8TriggerRepresentationKind : unsigned char {
     W8_TRIGGER_REP_POSITION = 3
 };
 
-enum class W8TriggerKind : int { none = 0, item = 1, prop = 2 };
+enum class W8TriggerKind : unsigned char { none = 0, item = 1, prop = 2 };
 enum class W8TriggerActionState : unsigned char {
     inactive = 1,
     initial_action = 2,
