@@ -1,6 +1,7 @@
 #include "wiz8/engine_code/Camera.h"
 
 #include <memory>
+#include <string_view>
 
 #include <SDL3/SDL_stdinc.h>
 
@@ -25,6 +26,7 @@
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/unicode.h"
 
 struct W8NpcState;
 
@@ -39,24 +41,21 @@ W8CameraPath::~W8CameraPath() = default;
    stMeshModel.cpp and AmbientSound.cpp, ~0x7A40 below this anchor, and remains
    a reconstructed owner in GDCamera.cpp. */
 
-// GLOBAL: WIZ8 0x0060AA64
 static int g_saved_environment_flag = 1;
 
 /* Find the named camera path in the world's list and toggle it. Retail
    callers push the flag as a plain int and the body forwards it raw to
    UpdateCameraPathState. */
-// FUNCTION: WIZ8 0x0048F280
-void UpdateCameraPathStateByName(W8World* world, const char* name, int active)
+void UpdateCameraPathStateByName(W8World* world, std::string_view name, int active)
 {
     for (const std::unique_ptr<W8CameraPath>& path : world->plsCameras) {
-        if (SDL_strcasecmp(path->name0, name) == 0) {
+        if (CompareTextIgnoreAsciiCase(path->name0, name) == 0) {
             UpdateCameraPathState(world, path.get(), active);
             return;
         }
     }
 }
 
-// FUNCTION: WIZ8 0x0048F2F0
 void UpdateCameraPathState(W8World* world, W8CameraPath* path, int active)
 {
     W8NpcState* npc;
@@ -118,7 +117,7 @@ void UpdateCameraPathState(W8World* world, W8CameraPath* path, int active)
                         PartyCamera().BeginOrientationTransition(pitch, angle, false);
                     }
                 }
-                MonsterForwardReferencePosition(monster_info->p3D, 0);
+                monster_info->p3D->ForwardReferencePosition(0);
             }
             npc = GetNpcStateByKind(0x34);
         }
@@ -133,7 +132,7 @@ void UpdateCameraPathState(W8World* world, W8CameraPath* path, int active)
             group = FindFirstMonsterByID(0x1b4);
             if (group != 0) {
                 monster_info = FindMonster(group->leader_location_id);
-                MonsterForwardReferencePosition(monster_info->p3D, 0);
+                monster_info->p3D->ForwardReferencePosition(0);
                 return;
             }
         } else if (SDL_strcasecmp(path->name0, "CameraPath4") == 0) {
@@ -149,7 +148,6 @@ void UpdateCameraPathState(W8World* world, W8CameraPath* path, int active)
    animate chooses the eased transition over the snap. The aim point is the
    head height, or the lower offset when the two nearly coincide or the
    monster is far away. */
-// FUNCTION: WIZ8 0x0048F650
 void PointCameraAtMonster(W8MonsterInfo* monster_info, bool force, bool animate)
 {
     glm::vec3 position;
@@ -207,7 +205,6 @@ void PointCameraAtMonster(W8MonsterInfo* monster_info, bool force, bool animate)
    only moves when tracking mode is enabled, snapping or easing per the
    configured rotation style; with it the orientation is always updated -
    snapped unless animate asks for the transition. */
-// FUNCTION: WIZ8 0x0048F800
 void PointCameraAtTarget(glm::vec3* position, bool force, bool animate)
 {
     float angle;

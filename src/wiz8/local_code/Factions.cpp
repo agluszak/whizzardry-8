@@ -19,16 +19,13 @@
    embeds, and the 0..20 domain they bound is the same one the contiguous
    21-name faction table establishes. */
 
-// GLOBAL: WIZ8 0x0068D6E8
 W8FactionRuntimeRecord g_factions[W8_FACTION_COUNT];
 
-// GLOBAL: WIZ8 0x0068D528
 unsigned char g_faction_relations[W8_FACTION_COUNT][W8_FACTION_COUNT];
 
 /* Zero both tables, then write the starting relation cells and the per-faction
    disposition scores. The two low scores are the hostile bands the faction
    accessors cut at 34 and 67. */
-// FUNCTION: WIZ8 0x00535920
 void ResetFactions(void)
 {
     memset(g_factions, 0, sizeof(g_factions));
@@ -112,16 +109,15 @@ void ResetFactions(void)
     g_factions[W8_FACTION_KINGS_ASSASINS].disposition_score = 0x50;
 }
 
-// FUNCTION: WIZ8 0x00535ad0
 W8FactionDisposition GetFactionDisposition(signed char faction)
 {
     signed char disposition_score;
 
     if (faction < 0) {
-        srAssertFail("bFaction >= 0");
+        Fail("bFaction >= 0");
     }
     if (faction >= W8_FACTION_COUNT) {
-        srAssertFail("bFaction < FACTION_COUNT");
+        Fail("bFaction < FACTION_COUNT");
     }
 
     disposition_score = g_factions[faction].disposition_score;
@@ -136,7 +132,6 @@ W8FactionDisposition GetFactionDisposition(signed char faction)
 
 /* The g_localized_strings name id for each faction row; the two filler
    factions reuse the unaligned name. */
-// GLOBAL: WIZ8 0x0061EACC
 static unsigned short g_faction_name_ids[W8_FACTION_COUNT] = {
     0x5a1, 0x5a2, 0x5a3, 0x5a4, 0x5a5, 0x5a6, 0x5a7, 0x5a8, 0x5a9, 0x5aa, 0x5ab,
     0x5ac, 0x5ad, 0x5ae, 0x5af, 0x5b0, 0x5b1, 0x5b2, 0x5b3, 0x5a1, 0x5a1,
@@ -145,7 +140,6 @@ static unsigned short g_faction_name_ids[W8_FACTION_COUNT] = {
 /* Snap a faction's score onto the requested band's anchor (25/55/75). When the
    band actually moved, stamp the world clock and post the worsened/improved
    notice naming the faction. */
-// FUNCTION: WIZ8 0x00535B40
 void SetFactionDispositionBand(signed char faction, W8FactionDisposition band)
 {
     std::string notice;
@@ -181,7 +175,6 @@ void SetFactionDispositionBand(signed char faction, W8FactionDisposition band)
 /* The disposition `faction` holds toward `other`: the party target reads the
    live score band while any other target is answered by the static relation
    matrix, reporting friendly unless the stored relation is neutral. */
-// FUNCTION: WIZ8 0x00535C50
 W8FactionDisposition GetFactionDispositionToward(signed char faction, signed char other)
 {
     if (other == W8_FACTION_PARTY) {
@@ -193,7 +186,6 @@ W8FactionDisposition GetFactionDispositionToward(signed char faction, signed cha
 
 /* Direct disposition changes skip the unaligned/party factions. Witnessed
    offenses use RecordFactionOffense with the victim itself. */
-// FUNCTION: WIZ8 0x00535CF0
 void ApplyFactionChange(char mode, char op, signed char faction, int value)
 {
     if (op == 1 && faction != 0 && faction != 1) {
@@ -209,7 +201,6 @@ void ApplyFactionChange(char mode, char op, signed char faction, int value)
    the victim. Factions that flip hostile outright do so once they were not
    already hostile; everyone else loses a record-scaled amount that grows as
    the offense count climbs. */
-// FUNCTION: WIZ8 0x00535D50
 void RecordFactionOffense(signed char faction, W8MonsterInfo* monster_info)
 {
     W8MonsterRecord* record;
@@ -225,10 +216,10 @@ void RecordFactionOffense(signed char faction, W8MonsterInfo* monster_info)
     case W8_FACTION_HIGARDI_HLL:
     case W8_FACTION_HIGARDI_COMMON:
         if (faction < 0) {
-            srAssertFail("bFaction >= 0");
+            Fail("bFaction >= 0");
         }
         if (faction >= W8_FACTION_COUNT) {
-            srAssertFail("bFaction < FACTION_COUNT");
+            Fail("bFaction < FACTION_COUNT");
         }
         if (g_factions[faction].disposition_score >= 34) {
             SetFactionDispositionBand(faction, W8_FACTION_HOSTILE);
@@ -254,7 +245,6 @@ void RecordFactionOffense(signed char faction, W8MonsterInfo* monster_info)
    stamps the world clock; any score move posts the worsened/improved notice
    naming the faction. The bounds asserts genuinely run twice - before the
    read and again before the band check. */
-// FUNCTION: WIZ8 0x00535EA0
 void AdjustFactionDisposition(signed char faction, char delta)
 {
     std::string notice;
@@ -294,7 +284,6 @@ void AdjustFactionDisposition(signed char faction, char delta)
 
 /* Write both faction tables into the open FATA chunk: the 21x21 relation
    matrix, then the 21 runtime disposition records. */
-// FUNCTION: WIZ8 0x00536030
 void SaveFactionState(wiz8::File& file)
 {
     file.write(g_faction_relations, sizeof(g_faction_relations));
@@ -303,7 +292,6 @@ void SaveFactionState(wiz8::File& file)
 
 /* Read the relation matrix and runtime disposition records back from the open
    FATA chunk, then re-arm the brotherhood's fixed score. */
-// FUNCTION: WIZ8 0x00536070
 void LoadFactionState(W8Chunk& file)
 {
     unsigned char relations[W8_FACTION_COUNT][W8_FACTION_COUNT];

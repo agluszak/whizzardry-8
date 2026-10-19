@@ -11,17 +11,12 @@
 #include "surrender/srTexture.h"
 #include "wiz8/filesystem.h"
 
-// VTABLE: WIZ8 0x005EC5F8
-// class stTextureFile
-
-// FUNCTION: WIZ8 0x0047BBD0
 void stTextureFile::releaseSurface()
 {
     surface.reset();
     texture_flags_ |= DEFAULTS_PENDING;
 }
 
-// FUNCTION: WIZ8 0x0047C630
 stTextureFile::stTextureFile(std::filesystem::path file_name, bool preload)
     : file_name(std::move(file_name)), has_alpha(false)
 {
@@ -30,14 +25,12 @@ stTextureFile::stTextureFile(std::filesystem::path file_name, bool preload)
     if (preload) setupDefaultValues();
 }
 
-// FUNCTION: WIZ8 0x0047C5F0
 srTexture* stTextureFile::resolve()
 {
     if (!surface && (texture_flags_ & LOAD_FAILED) == 0) loadSurface();
     return surface ? this : nullptr;
 }
 
-// FUNCTION: WIZ8 0x0047C600
 void stTextureFile::setupDefaultValues()
 {
     if ((texture_flags_ & DEFAULTS_PENDING) == 0) {
@@ -51,7 +44,6 @@ void stTextureFile::setupDefaultValues()
     setupDefaultValuesFromSurface(surface.get());
 }
 
-// FUNCTION: WIZ8 0x0047C8B0
 void stTextureFile::invalidate()
 {
     releaseSurface();
@@ -59,13 +51,11 @@ void stTextureFile::invalidate()
     texture_flags_ &= ~LOAD_FAILED;
 }
 
-// FUNCTION: WIZ8 0x0047C8E0
 stTextureFile::~stTextureFile()
 {
     invalidate();
 }
 
-// FUNCTION: WIZ8 0x0047BBF0
 void stTextureFile::loadSurface()
 {
     if (surface != 0) {
@@ -102,5 +92,3 @@ void stTextureFile::loadSurface()
        pixel format (unsigned SETA): the authored comparison is `> 0`. */
     has_alpha = (SDL_ISPIXELFORMAT_ALPHA(surface->format));
 }
-
-// FUNCTION: WIZ8 0x0047CA50

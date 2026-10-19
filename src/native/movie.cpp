@@ -11,9 +11,9 @@
 
 #include "asset_paths.h"
 #include "compat/native.h"
-#include "native/movie_audio.h"
 #include "surrender/SDLGPUDevice.h"
 #include "surrender/srGERD.h"
+#include "wiz8/audio/movie_audio.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/surface2d.h"
 

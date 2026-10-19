@@ -3,22 +3,21 @@
 #include <cmath>
 #include <string>
 
-#include "glm/common.hpp"
+#include <glm/common.hpp>
+
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srLight.h"
 #include "surrender/srNode.h"
-#include "wiz8/engine_code/GameTimeAccumulator.h"
 #include "wiz8/gameplay_constants.h"
+#include "wiz8/platform/GameTimeAccumulator.h"
 
-// GLOBAL: WIZ8 0x005ecd4c
 const float g_monster_light_cycle_rate = 0.025f;
 
 /* Monster's fixed light is a regular srLight specialization.  Its two colours
    are retained for the optional cycle, while the first colour is also the
    initial renderer colour. Construction needs no gameplay clock; colour cycling
    starts when the light first participates in a live update. */
-// FUNCTION: WIZ8 0x0049D500
 MonsterLight::MonsterLight(srNode* parent, bool cycle_color, float range,
                            const glm::vec3* first_color, const glm::vec3* second_color)
     : srLight(parent, srLight::PRESET_POINT), m_vertical_offset(0.0f), m_color_first(*first_color),
@@ -42,7 +41,6 @@ MonsterLight::MonsterLight(srNode* parent, bool cycle_color, float range,
 /* A copied monster light preserves the authored light configuration and
    colour-cycle settings. The owning monster attaches it to its target scene
    and the first live update starts its interval. */
-// FUNCTION: WIZ8 0x0049D660
 MonsterLight::MonsterLight(const MonsterLight& other)
     : srLight(other), m_vertical_offset(other.m_vertical_offset),
       m_color_first(other.m_color_first), m_color_second(other.m_color_second), m_start_time(),
@@ -52,7 +50,6 @@ MonsterLight::MonsterLight(const MonsterLight& other)
     setFlag(srNode::FLAG_DISABLE);
 }
 
-// FUNCTION: WIZ8 0x0049D940
 void MonsterLight::SetRange(float range)
 {
     far_start = 0.0;
@@ -60,7 +57,6 @@ void MonsterLight::SetRange(float range)
     setLinearAttenuation(range, 0.0019569471f);
 }
 
-// FUNCTION: WIZ8 0x0049D970
 void MonsterLight::SetVisible(bool visible)
 {
     if (visible) {
@@ -70,7 +66,6 @@ void MonsterLight::SetVisible(bool visible)
     }
 }
 
-// FUNCTION: WIZ8 0x0049D990
 void MonsterLight::Update(const glm::vec3* position)
 {
     const float now = GameTimeAccumulator().GetElapsed();
@@ -96,7 +91,6 @@ void MonsterLight::Update(const glm::vec3* position)
     setLocation(location);
 }
 
-// FUNCTION: WIZ8 0x0049DAF0
 void MonsterLight::StartFadeOut()
 {
     m_fade_out = true;

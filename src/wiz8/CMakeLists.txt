@@ -1,17 +1,23 @@
-
 add_library(WIZ8_GAME_CORE STATIC
-    ../sgp/image.cpp
-    ../sgp/sprite.cpp
-    ../sgp/input.cpp
-    ../sgp/soundman.cpp
-    ../sgp/native/audio.cpp
-    ../sgp/native/video.cpp
-    ../sgp/Font.cpp
+    ../canvas/image.cpp
+    ../canvas/sprite.cpp
+    ../canvas/Font.cpp
+    ../canvas/himage.cpp
+    ../canvas/image_assets.cpp
+    ../canvas/shading.cpp
+    ../platform/input.cpp
+    ../platform/random.cpp
+    ../platform/video.cpp
+    ../platform/game_timer.cpp
+    ../platform/GameTimeAccumulator.cpp
+    ../platform/IntervalGate.cpp
+    ../audio/soundman.cpp
+    ../audio/native_audio.cpp
+    ../audio/sound3d.cpp
+    ../audio/SoundEvent.cpp
+    ../audio/AmbientSound.cpp
+    ../audio/mouth_gap.cpp
     dialog_code/ButtonAppearance.cpp
-    ../sgp/himage.cpp
-    ../sgp/image_assets.cpp
-    ../sgp/shading.cpp
-    ../sgp/Random.cpp
     "local_code/PC Item.cpp"
     local_code/FormationAndFacing.cpp
     local_code/ThingEditorShared.cpp
@@ -80,8 +86,6 @@ add_library(WIZ8_GAME_CORE STATIC
     dialog_code/StatInfoDialogs.cpp
     dialog_code/CharacterSummaryDialog.cpp
     dialog_code/ProfRaceInfoDialog.cpp
-    engine_code/GameTimeAccumulator.cpp
-    engine_code/IntervalGate.cpp
     engine_code/GameData.cpp
     engine_code/GDFileIO.cpp
     engine_code/Octree.cpp
@@ -100,7 +104,6 @@ add_library(WIZ8_GAME_CORE STATIC
     engine_code/Trigger.cpp
     engine_code/OctBuildTree.cpp
     engine_code/Environment.cpp
-    engine_code/AmbientSound.cpp
     engine_code/emitter_resources.cpp
     engine_code/AnimObj.cpp
     engine_code/AniMesh.cpp
@@ -108,12 +111,9 @@ add_library(WIZ8_GAME_CORE STATIC
     engine_code/Missile.cpp
     engine_code/PathAI.cpp
     engine_code/Spells.cpp
-    engine_code/SoundEvent.cpp
-    engine_code/AnimRep.cpp
     engine_code/GDProp.cpp
     engine_code/Prop.cpp
     engine_code/Navigator.cpp
-    engine_code/GrObject.cpp
     "local_code/Party Import.cpp"
     learned_spells.cpp
     packed_bits.cpp
@@ -128,14 +128,12 @@ add_library(WIZ8_GAME_CORE STATIC
     dialog_code/DialogInterface.cpp
     dialog_code/PortraitQuote.cpp
     local_code/ItemManager.cpp
-    engine_code/game_timer.cpp
     engine_code/materials.cpp
     engine_code/PolyPick.cpp
     engine_code/Monster.cpp
     engine_code/stScript.cpp
     local_code/Targeting.cpp
     engine_code/3d.cpp
-    engine_code/mouth_gap.cpp
     level_specific_code/MasterFunctionList.cpp
     level_specific_code/Monastery1.cpp
     level_specific_code/Monastery2.cpp
@@ -169,7 +167,6 @@ add_library(WIZ8_GAME_CORE STATIC
     fact_state.cpp
     engine_code/MonsterLight.cpp
     engine_code/GDCamera.cpp
-    engine_code/camera_transition_state.cpp
     engine_code/world_selection.cpp
     engine_code/stCube.cpp
     engine_code/Camera.cpp
@@ -228,8 +225,6 @@ if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
 else()
     target_compile_options(WIZ8_GAME_CORE PRIVATE -ffunction-sections -fdata-sections)
 endif()
-
-target_include_directories(WIZ8_GAME_CORE PUBLIC "${PROJECT_SOURCE_DIR}/src/sgp")
 
 if(WIZ8_PRECOMPILE_HEADERS)
     target_precompile_headers(WIZ8_GAME_CORE PRIVATE

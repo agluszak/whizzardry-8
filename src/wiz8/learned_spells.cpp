@@ -6,7 +6,6 @@
 #include "wiz8/layouts/gameplay_databases.h"
 
 /* Original translation unit is not established by the ItemManager/Magic source anchors. */
-// FUNCTION: WIZ8 0x004F9600
 void BuildLearnedSpellState(W8LearnedSpellState* scratch, W8Character* character)
 {
     int spell_id;

@@ -9,7 +9,6 @@
 #include "surrender/srNode.h"
 #include "surrender/srScene.h"
 
-// FUNCTION: SURRENDER 0x100565D0
 srScene::srScene(srNode* parent) : srNode(static_cast<srNode*>(0))
 {
     ambient_light = glm::vec3(0.2f);
@@ -20,7 +19,6 @@ srScene::srScene(srNode* parent) : srNode(static_cast<srNode*>(0))
     }
 }
 
-// FUNCTION: SURRENDER 0x100566F0
 srScene& srScene::operator=(const srScene& other)
 {
     if (this != &other) {
@@ -34,7 +32,6 @@ srScene& srScene::operator=(const srScene& other)
 
 /* The scene walks its own traversal arrays: nodes carry the global pre/post passes (types 3 and 4)
    and the typed entries carry their per-node process type in the entry value. */
-// FUNCTION: SURRENDER 0x100561F0
 void srScene::traverse(TraverseInfo& info)
 {
     if (next_sibling_ != 0) {
@@ -45,7 +42,6 @@ void srScene::traverse(TraverseInfo& info)
     }
 }
 
-// FUNCTION: SURRENDER 0x100562E0
 void srScene::process(const ProcessInfo& info, e_processType type)
 {
     if (first_child_ == 0) {
@@ -82,7 +78,6 @@ void srScene::process(const ProcessInfo& info, e_processType type)
     renderer->setPickKey(pick_key);
 }
 
-// FUNCTION: SURRENDER 0x100564A0
 void srScene::render(srGERD& renderer, srCamera* camera)
 {
     if (testFlag(FLAG_DISABLE) || testFlag(FLAG_TERMINATE) || first_child_ == 0) {
@@ -99,31 +94,26 @@ void srScene::render(srGERD& renderer, srCamera* camera)
     }
 }
 
-// FUNCTION: SURRENDER 0x10056C40
 glm::vec3 srScene::getAmbientLight() const
 {
     return ambient_light;
 }
 
-// FUNCTION: SURRENDER 0x10056C90
 glm::vec3 srScene::getFogColor() const
 {
     return fog_color;
 }
 
-// FUNCTION: SURRENDER 0x10056CC0
 void srScene::setAmbientLight(float red, float green, float blue)
 {
     ambient_light = glm::vec3(red, green, blue);
 }
 
-// FUNCTION: SURRENDER 0x10056CF0
 void srScene::setAmbientLight(const glm::vec3& color)
 {
     ambient_light = color;
 }
 
-// FUNCTION: SURRENDER 0x10056D10
 void srScene::setFogColor(float red, float green, float blue)
 {
     fog_color = glm::vec3(red, green, blue);

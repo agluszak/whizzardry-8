@@ -19,9 +19,8 @@
 #include "layouts/targeting.h"
 #include "load_category.h"
 #include "local_code/Factions.h"
-#include "random.h"
-#include "soundman.h"
 #include "surrender/srDebug.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/dice.h"
@@ -59,6 +58,7 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/message_box.h"
+#include "wiz8/platform/random.h"
 #include "wiz8/unicode.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
@@ -72,10 +72,8 @@ enum {
 };
 
 /* One entry per sex, race and profession together. */
-// GLOBAL: WIZ8 0x00616308
 unsigned char gubLocalACPercent[5] = {15, 40, 30, 10, 5};
 
-// GLOBAL: WIZ8 0x00616604
 static int g_character_table[480] = {
     3,  1,  0,  0,  3,  56, 4,  2,  1,  2,  5,  4,  24, 4,  5,  13, 12, 0,  12, 13, 56, 13, 12, 12,
     12, 14, 14, 14, 14, 14, 19, 19, 0,  19, 19, 56, 20, 20, 20, 20, 18, 18, 18, 18, 18, 24, 24, 0,
@@ -98,14 +96,12 @@ static int g_character_table[480] = {
     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0};
 
-// GLOBAL: WIZ8 0x006172F0
 static W8Dice g_unarmed_damage_dice[12] = {{0, 1, 2}, {0, 1, 3}, {0, 2, 2}, {0, 2, 3},
                                            {0, 2, 4}, {0, 3, 3}, {1, 3, 3}, {2, 3, 3},
                                            {0, 3, 5}, {0, 4, 4}, {2, 4, 4}, {4, 4, 4}};
 
 /* Whether any monster is engaged with the party right now: in combat, in the
    engaged state, still alive and not yet on its way out. */
-// FUNCTION: WIZ8 0x004eee20
 bool AnyMonsterEngaged(void)
 {
     unsigned int index;
@@ -123,7 +119,6 @@ bool AnyMonsterEngaged(void)
 }
 
 /* How many party members are still on their feet. */
-// FUNCTION: WIZ8 0x004eee80
 int CountActiveCharacters(void)
 {
     int count = 0;
@@ -138,7 +133,6 @@ int CountActiveCharacters(void)
 }
 
 /* Whether anybody is. */
-// FUNCTION: WIZ8 0x004eeec0
 bool AnyCharacterActive(void)
 {
     return CountActiveCharacters() != 0;
@@ -147,7 +141,6 @@ bool AnyCharacterActive(void)
 /* Walk a character up to a level from scratch, recomputing the experience goal
    at each step so the goals for the level below are the ones they actually
    passed. */
-// FUNCTION: WIZ8 0x004ef010
 void AdvanceCharacterToLevel(W8Character* character, unsigned int level)
 {
     character->uiExpLevel = 1;
@@ -165,21 +158,20 @@ void AdvanceCharacterToLevel(W8Character* character, unsigned int level)
 /* The next level's goal: the goal the previous level had plus the profession's
    weight, doubled for every level up to ten and grown twenty percent per level
    above it. */
-// FUNCTION: WIZ8 0x004ef090
 void CalcXPGoal(W8Character* character)
 {
     int weight;
     unsigned int value;
 
     if (character == 0) {
-        srAssertFail("pPC != NULL");
+        Fail("pPC != NULL");
     }
     if (character->uiExpLevel == 0) {
-        srAssertFail("pPC->uiExpLevel > 0");
+        Fail("pPC->uiExpLevel > 0");
     }
     if (character->iProfession < W8_PROFESSION_FIGHTER ||
         character->iProfession >= W8_PROFESSION_COUNT) {
-        srAssertFail("(pPC->iProfession >= 0) && (pPC->iProfession < PROF_COUNT)");
+        Fail("(pPC->iProfession >= 0) && (pPC->iProfession < PROF_COUNT)");
     }
     switch (character->iProfession) {
     case W8_PROFESSION_FIGHTER:
@@ -206,7 +198,7 @@ void CalcXPGoal(W8Character* character)
         weight = 0x640;
         break;
     default:
-        srAssertFail("FALSE", "CalcXPGoal: ERROR - Invalid profession");
+        Fail("FALSE", "CalcXPGoal: ERROR - Invalid profession");
         return;
     }
 
@@ -230,7 +222,6 @@ void CalcXPGoal(W8Character* character)
    post a notice the first time each ready slot is seen, and clear the marker
    when a slot is no longer ready. Skipped while greeting_pending is set or the saved
    level is in band 0xe. */
-// FUNCTION: WIZ8 0x004ef1f0
 void RefreshLevelUpReadyNotices(void)
 {
     int party_slot;
@@ -296,7 +287,6 @@ void RefreshLevelUpReadyNotices(void)
 
 /* Whether one party slot has earned its next level: occupied, alive, in shape
    to act, and holding at least the experience the next level asks for. */
-// FUNCTION: WIZ8 0x004ef3c0
 bool IsCharacterReadyToAdvance(int party_slot)
 {
     const W8Character* character = &g_status.buffers.Char[party_slot];
@@ -314,7 +304,6 @@ bool IsCharacterReadyToAdvance(int party_slot)
 }
 
 /* The first free party slot in a range, or -1 when the range is full. */
-// FUNCTION: WIZ8 0x004ef460
 unsigned int FindFreePartySlot(unsigned int first, unsigned int last)
 {
     unsigned int slot;
@@ -331,7 +320,6 @@ unsigned int FindFreePartySlot(unsigned int first, unsigned int last)
    profession. A character who has changed profession is banded on the whole
    level; one still in their first profession has the starting base taken off
    first. */
-// FUNCTION: WIZ8 0x004eed80
 void CalcCharacterLevelBand(W8Character* character)
 {
     unsigned int level = character->profession_levels[character->iProfession];
@@ -360,25 +348,22 @@ void CalcCharacterLevelBand(W8Character* character)
 }
 
 /* Look up the value that sex, race and profession together select. */
-// FUNCTION: WIZ8 0x004ef950
 void CalcCharacterTableValue(W8Character* character)
 {
     if (character->iRace > W8_RACE_MOOK) {
-        srAssertFail("pPC->iRace < PC_RACE_COUNT");
+        Fail("pPC->iRace < PC_RACE_COUNT");
     }
     character->portrait_index =
         g_character_table[(character->gender * 0x10 + character->iRace) * W8_PROFESSION_COUNT +
                           character->iProfession];
 }
 
-// GLOBAL: WIZ8 0x00617894
 static char s_fall_impact_wav[] = "Data\\Sound\\Misc\\Fall Impact.wav";
 
 /* Level-motion override landing: the accumulated fall magnitude becomes
    pow(fall + 0.7, 8.0) six-sided dice of damage against the whole party,
    with a notice and the fall-impact sound. The eighth power keeps a short
    drop to a die or two and lets a long one grow steeply. */
-// FUNCTION: WIZ8 0x004EF9A0
 void HandleLevelOverride(float fall)
 {
     unsigned int count = static_cast<unsigned int>(pow(fall + 0.7, 8.0));
@@ -395,7 +380,6 @@ void HandleLevelOverride(float fall)
 /* What the character's levels are worth towards physical combat. Every
    profession they have ever held counts, weighted by how much fighting that
    profession does. */
-// FUNCTION: WIZ8 0x004ee130
 int CalcPhysCombatExperience(W8Character* character)
 {
     int total = 0;
@@ -407,11 +391,11 @@ int CalcPhysCombatExperience(W8Character* character)
         return 0;
     }
     if (character == 0) {
-        srAssertFail("pPC != NULL");
+        Fail("pPC != NULL");
     }
     if (character->iProfession < W8_PROFESSION_FIGHTER ||
         character->iProfession > W8_PROFESSION_MAGE) {
-        srAssertFail("(pPC->iProfession >= 0) && (pPC->iProfession < PROF_COUNT)");
+        Fail("(pPC->iProfession >= 0) && (pPC->iProfession < PROF_COUNT)");
     }
 
     for (profession = 0; profession < W8_PROFESSION_COUNT; ++profession) {
@@ -440,7 +424,7 @@ int CalcPhysCombatExperience(W8Character* character)
                 weight = W8_PHYS_COMBAT_WEIGHT_CASTER;
                 break;
             default:
-                srAssertFail("FALSE", "CalcPhysCombatExperience: ERROR - Invalid profession");
+                Fail("FALSE", "CalcPhysCombatExperience: ERROR - Invalid profession");
             }
             total += levels * weight;
         }
@@ -450,7 +434,6 @@ int CalcPhysCombatExperience(W8Character* character)
 
 /* Rebuild the character's initiative from level, speed and senses, with the
    initiative skill and equipment/effect modifier applied before encumbrance. */
-// FUNCTION: WIZ8 0x004ee000
 void CalcInitiative(W8Character* character)
 {
     character->initiative = ((character->uiExpLevel + 1) >> 1) +
@@ -478,7 +461,7 @@ void CalcInitiative(W8Character* character)
         character->initiative -= 8;
         break;
     default:
-        srAssertFail("FALSE", "CalcInitiative: ERROR - Invalid load category");
+        Fail("FALSE", "CalcInitiative: ERROR - Invalid load category");
         break;
     }
 }
@@ -556,7 +539,6 @@ std::array<W8HandAttack, 2> EvaluateWeaponHands(const W8ItemInstance& primary,
     return hands;
 }
 
-// FUNCTION: WIZ8 0x004ee220
 void CalcAttacks(W8Character* character)
 {
     W8HandAttack* attacks[2];
@@ -626,7 +608,7 @@ void CalcAttacks(W8Character* character)
             load_penalty = -120;
             break;
         default:
-            srAssertFail("FALSE", "CalcAttacks: ERROR - Invalid load category");
+            Fail("FALSE", "CalcAttacks: ERROR - Invalid load category");
         }
         if (attack->weapon_skill == W8_SKILL_MODERN_WEAPONS) {
             load_penalty /= 2;
@@ -803,7 +785,6 @@ void CalcAttacks(W8Character* character)
 
 /* Rebuild the thirteen shared and location-specific armor-class components,
    then derive the unweighted and body-location-weighted summaries. */
-// FUNCTION: WIZ8 0x004ee9d0
 void CalcArmorClasses(W8Character* character)
 {
     bool defensive_action = false;
@@ -925,7 +906,7 @@ void CalcArmorClasses(W8Character* character)
             location_slot = 11;
             break;
         default:
-            srAssertFail("FALSE", "CalcArmorClasses: ERROR - Invalid AC location");
+            Fail("FALSE", "CalcArmorClasses: ERROR - Invalid AC location");
         }
         int item_id = character->EquippedItem[location_slot].iItemNo;
         if (item_id != -1) {
@@ -940,7 +921,6 @@ void CalcArmorClasses(W8Character* character)
 /* Personality and voice values by sex and profession class,
    two dwords per row. It ends exactly where the sex/race/profession table
    at 0x00616604 begins. */
-// GLOBAL: WIZ8 0x006164F4
 static int g_character_value_table[34][2] = {
     {0, 2}, {0, 1}, {6, 1}, {0, 1}, {0, 1}, {2, 2}, {0, 1}, {8, 1}, {7, 2}, {7, 2}, {7, 2}, {7, 2},
     {7, 2}, {7, 2}, {4, 1}, {4, 1}, {1, 1}, {5, 2}, {7, 1}, {6, 2}, {6, 2}, {6, 1}, {3, 2}, {3, 2},
@@ -948,7 +928,6 @@ static int g_character_value_table[34][2] = {
 
 /* Derive the character's personality and voice from sex and profession.
    Unaligned characters pick a class through the race shortcut first. */
-// FUNCTION: WIZ8 0x004EFA30
 void DeriveCharacterPersonality(W8Character* character)
 {
     int gender = character->gender;
@@ -984,7 +963,6 @@ void DeriveCharacterPersonality(W8Character* character)
 /* Re-roll the character's voice until no other in-party character shares the
    same gender/personality/voice triple. The first clash only flips the voice;
    further clashes re-roll both personality and voice. */
-// FUNCTION: WIZ8 0x004EFAD0
 void EnsureUniquePartyVoice(W8Character* character)
 {
     W8Character* other;
@@ -1016,7 +994,6 @@ void EnsureUniquePartyVoice(W8Character* character)
     }
 }
 
-// FUNCTION: WIZ8 0x004ef420
 unsigned int GetAveragePartyLevel(void)
 {
     unsigned int total_level = 0;
@@ -1036,7 +1013,6 @@ unsigned int GetAveragePartyLevel(void)
    copy the record, mark it in party, rebuild its row and formation position
    and enter it in the marching order. The band is 2..7 for a regular member
    and 0..1 for the two auxiliary slots. */
-// FUNCTION: WIZ8 0x004ef4a0
 int AddCharacterToParty(W8Character& character, int slot_kind)
 {
     unsigned int slot;
@@ -1102,7 +1078,6 @@ int AddCharacterToParty(W8Character& character, int slot_kind)
 /* Remove one character from the party: drop its queued events, clear the row,
    its formation positions and marching-order entry, and fix the member counts
    and selection. */
-// FUNCTION: WIZ8 0x004EF610
 void RemoveCharacterFromParty(int party_slot)
 {
     W8Character* character = &g_status.buffers.Char[party_slot];
@@ -1141,7 +1116,6 @@ void RemoveCharacterFromParty(int party_slot)
    record is copied in and the row re-enters the marching order and formation
    as a regular member. When the caller pays for it, the starting equipment is
    bought out of the party gold the way a new recruit would bring it. */
-// FUNCTION: WIZ8 0x004ef7e0
 unsigned char RecruitCharacterIntoParty(W8Character* character, W8Character* record,
                                         bool buy_equipment)
 {
@@ -1181,7 +1155,7 @@ unsigned char RecruitCharacterIntoParty(W8Character* character, W8Character* rec
     if (buy_equipment) {
         unsigned int cost = ComputeStartingEquipmentCost(character);
         if (g_status.party_gold < cost) {
-            srAssertFail("uiValue <= gStatus.uiPartyGold");
+            Fail("uiValue <= gStatus.uiPartyGold");
         }
         g_status.party_gold -= cost;
         AddCharacterStartingEquipment(character);

@@ -22,10 +22,9 @@
 #include "local_code/Factions.h"
 #include "local_code/SpellEffect.h"
 #include "monster_actions.h"
-#include "random.h"
-#include "soundman.h"
 #include "spell_ids.h"
 #include "surrender/srDebug.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/compat/unaligned.h"
@@ -74,6 +73,7 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/monster_cycles.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/platform/random.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
@@ -132,7 +132,6 @@ static void ApplyRazorCloakBacklash(const W8CombatSlot& target, W8MonsterInfo* m
     }
 }
 
-// FUNCTION: WIZ8 0x00546a70
 void GetCharacterHandDamageDice(const W8Character* character, int hand, W8Dice* dice)
 {
     if (character->Hand[hand].uiHolds == HOLDS_NOTHING) {
@@ -153,7 +152,6 @@ void GetCharacterHandDamageDice(const W8Character* character, int hand, W8Dice* 
     *dice = g_item_records[character->EquippedItem[slot].iItemNo].damage_dice;
 }
 
-// FUNCTION: WIZ8 0x00546b10
 int GetCharacterHandDamageBonus(const W8Character* character, int hand)
 {
     return character->Hand[hand].damage_percent + character->bonus.damage_percent;
@@ -162,7 +160,6 @@ int GetCharacterHandDamageBonus(const W8Character* character, int hand)
 /* Nine attack modes, one bit each, held in the low half of a word. */
 
 /* Clear a forty-eight byte attack block. */
-// FUNCTION: WIZ8 0x00543260
 void ClearAttackBlock(W8SpellEffectDefinition* block)
 {
     memset(block, 0, 0x30);
@@ -170,7 +167,6 @@ void ClearAttackBlock(W8SpellEffectDefinition* block)
 
 /* Fold specific melee animation cycles onto ATTACK_CLOSE, and the throw
    and shoot cycles onto ATTACK_RANGED. Other cycles retain their identity. */
-// FUNCTION: WIZ8 0x005430c0
 W8MonsterCycle NormalizeMonsterCycle(W8MonsterCycle cycle)
 {
     switch (cycle) {
@@ -195,7 +191,6 @@ W8MonsterCycle NormalizeMonsterCycle(W8MonsterCycle cycle)
    the nine bits, counting only the ones that are set, until it has passed as
    many as the roll asked for - so a mask with one bit always answers that bit
    however the roll came out. */
-// FUNCTION: WIZ8 0x00542db0
 W8AttackMode ChooseAttackMode(unsigned int attack_modes)
 {
     unsigned int wanted;
@@ -203,7 +198,7 @@ W8AttackMode ChooseAttackMode(unsigned int attack_modes)
     unsigned int mode = 0;
 
     if (static_cast<short>(attack_modes) == 0) {
-        srAssertFail("fsAttackModes != 0");
+        Fail("fsAttackModes != 0");
     }
 
     wanted = Random(W8_ATTACK_MODE_COUNT);
@@ -218,7 +213,6 @@ W8AttackMode ChooseAttackMode(unsigned int attack_modes)
 
 /* Whether one character can swing this round: engaged, in better shape than
    the attack threshold, and with the first hand in play. */
-// FUNCTION: WIZ8 0x00545b80
 bool CanCharacterAttack(int party_slot)
 {
     const W8Character* character = &g_status.buffers.Char[party_slot];
@@ -234,7 +228,6 @@ bool CanCharacterAttack(int party_slot)
 
 /* Whether a bodyguard can protect another combatant: active, alive, able
    to act and equipped with a natural attack. The AI uses this for action 8. */
-// FUNCTION: WIZ8 0x00545bd0
 bool CanMonsterProtect(W8MonsterInfo* monster_info)
 {
     const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
@@ -250,7 +243,6 @@ bool CanMonsterProtect(W8MonsterInfo* monster_info)
 /* How much of a hit the target actually takes. The two reductions add, the
    remainder is taken as a percentage rounding to nearest, and nothing goes
    below zero. */
-// FUNCTION: WIZ8 0x005459b0
 int ApplyDamageReduction(const W8MonsterInfo* monster_info, const W8MonsterRecord* record,
                          int damage)
 {
@@ -269,7 +261,6 @@ int ApplyDamageReduction(const W8MonsterInfo* monster_info, const W8MonsterRecor
    attack the record lacks is simply not usable, and so is one whose data is
    broken, which is reported. Otherwise the attack is out of reach unless it
    reaches anyone, judged with the monster's current action set aside. */
-// FUNCTION: WIZ8 0x0053d4b0
 unsigned char RateMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record,
                                 unsigned int attack, int, bool friendly_targets)
 {
@@ -277,7 +268,7 @@ unsigned char RateMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* re
     bool reaches;
 
     if (attack >= W8_MAX_MONSTER_ATTACKS) {
-        srAssertFail("uiAttack < MAX_MONSTER_ATTACKS");
+        Fail("uiAttack < MAX_MONSTER_ATTACKS");
     }
     if (record->attacks[attack].fHasAttack == 0) {
         return W8_MONSTER_ATTACK_NOT_USABLE;
@@ -306,7 +297,6 @@ unsigned char RateMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* re
    motionless monster is always rated at one; otherwise each of its three
    attacks is rated, a usable one answering at once and the highest reason
    otherwise kept. */
-// FUNCTION: WIZ8 0x0053d450
 unsigned char RateMonsterBestAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record,
                                     bool friendly_targets)
 {
@@ -335,11 +325,10 @@ enum { W8_HAND_COUNT = 2 };
 
 /* Whether one of a character's hands can reach the target it is aimed at: the
    hand has to be in play and to have a range category at all. */
-// FUNCTION: WIZ8 0x0053d2a0
 bool CanHandReachTarget(int party_slot, unsigned int hand)
 {
     if (hand >= W8_HAND_COUNT) {
-        srAssertFail("uiHand < HAND_COUNT");
+        Fail("uiHand < HAND_COUNT");
     }
     if (!g_status.buffers.Char[party_slot].Hand[hand].in_play) {
         return false;
@@ -348,7 +337,6 @@ bool CanHandReachTarget(int party_slot, unsigned int hand)
 }
 
 /* Whether either hand can. */
-// FUNCTION: WIZ8 0x0053d310
 bool CanAnyHandReachTarget(int party_slot)
 {
     unsigned int hand;
@@ -362,7 +350,6 @@ bool CanAnyHandReachTarget(int party_slot)
 }
 
 /* What one hand's attack is worth, or nothing when it cannot reach. */
-// FUNCTION: WIZ8 0x0053d7f0
 int GetHandAttackValue(int party_slot, unsigned int hand)
 {
     if (CanHandReachTarget(party_slot, hand)) {
@@ -374,7 +361,6 @@ int GetHandAttackValue(int party_slot, unsigned int hand)
 /* How much of a hit a character keeps. Their own reduction is taken as a
    percentage rounding to nearest, and using it practises the skill it comes
    from - but only for a character who has that skill at all. */
-// FUNCTION: WIZ8 0x00545950
 int ApplyCharacterDamageReduction(W8Character* character, int damage)
 {
     if (character->damage_reduction != 0) {
@@ -391,7 +377,6 @@ int ApplyCharacterDamageReduction(W8Character* character, int damage)
 
 /* Whether a character can berserk: the ability itself, a hand that can reach
    the target, and a primary hand fighting at short range or closer. */
-// FUNCTION: WIZ8 0x005458a0
 bool CanCharacterBerserk(int party_slot)
 {
     W8Character* character = &g_status.buffers.Char[party_slot];
@@ -402,7 +387,7 @@ bool CanCharacterBerserk(int party_slot)
     }
     for (hand = 0; hand < W8_HAND_COUNT; ++hand) {
         if (hand >= W8_HAND_COUNT) {
-            srAssertFail("uiHand < HAND_COUNT");
+            Fail("uiHand < HAND_COUNT");
         }
         if (g_status.buffers.Char[party_slot].Hand[hand].in_play &&
             GetCharAttackRange(&g_status.buffers.Char[party_slot], hand) != W8_RANGE_NONE) {
@@ -415,7 +400,6 @@ bool CanCharacterBerserk(int party_slot)
 /* Whether a character could attack what a combat slot names. A party member
    has to be in play and not screened off by the front rank; a monster has to be
    engaged, alive, targetable and within the character's reach. */
-// FUNCTION: WIZ8 0x00545c20
 bool CharacterHasAttackOn(int party_slot, W8CombatSlot* target)
 {
     W8MonsterInfo* monster_info;
@@ -454,7 +438,6 @@ bool CharacterHasAttackOn(int party_slot, W8CombatSlot* target)
    bodyguard's first-attack range, higher level, and injured or out of
    formation. Preserve retail's use of the bodyguard's formation modifier
    for a monster target. */
-// FUNCTION: WIZ8 0x00545cf0
 bool CanMonsterProtectCombatant(W8MonsterInfo* monster_info, W8CombatSlot* target)
 {
     W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
@@ -508,7 +491,6 @@ bool CanMonsterProtectCombatant(W8MonsterInfo* monster_info, W8CombatSlot* targe
 
 /* Protection readiness for the selected target. The action-8 executor
    requires an eligible bodyguard with an attack in range of that target. */
-// FUNCTION: WIZ8 0x00545b20
 bool CanMonsterProtectTarget(W8MonsterInfo* monster_info)
 {
     const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
@@ -524,7 +506,6 @@ bool CanMonsterProtectTarget(W8MonsterInfo* monster_info)
 /* Attack verbs whose fatigue penalty halves before it lands on the monster's
    attack score - the unarmed and natural strikes. The score roll scans it for
    the attack's verb byte. */
-// GLOBAL: WIZ8 0x0061D284
 static unsigned char g_low_fatigue_attack_verbs[0x12] = {
     0x07, 0x0d, 0x0e, 0x0f, 0x15, 0x19, 0x21, 0x2b, 0x31,
     0x32, 0x34, 0x35, 0x36, 0x38, 0x3b, 0x55, 0x56, 0x57,
@@ -566,7 +547,6 @@ static int GetMonsterProtectionScore(W8MonsterInfo* monster)
    struck target rolls its defense score against the attacker's, and a success
    replaces the target with the guardian. Answers whether the target was
    taken over. */
-// FUNCTION: WIZ8 0x00545e50
 int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
 {
     std::vector<W8TargetSource> candidates;
@@ -619,7 +599,7 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
         W8MonsterInfo* target_info = FindMonster(target->iMonsterID);
         target_name = GetMonsterName(target_info, nullptr, 0);
     } else {
-        srAssertFail("FALSE");
+        Fail("FALSE");
     }
     for (i = 0; i < static_cast<int>(candidates.size()); ++i) {
         W8TargetSource* candidate = &candidates[i];
@@ -630,7 +610,7 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
             W8MonsterInfo* defender = FindMonster(candidate->iMonsterID);
             guardian_score = GetMonsterProtectionScore(defender);
         } else {
-            srAssertFail("FALSE");
+            Fail("FALSE");
         }
         if (source->iType == W8_TARGET_SOURCE_CHARACTER) {
             W8Character* attacker = &g_status.buffers.Char[source->iChar];
@@ -639,7 +619,7 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
             W8MonsterInfo* attacker = FindMonster(source->iMonsterID);
             attacker_score = GetMonsterProtectionScore(attacker);
         } else {
-            srAssertFail("FALSE");
+            Fail("FALSE");
         }
         if (g_combat_state->unaware != 0) {
             attacker_score += 10;
@@ -677,7 +657,7 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
     }
     unsigned int uiSuccessfulCnt = static_cast<int>(interposers.size());
     if (uiSuccessfulCnt <= 0) {
-        srAssertFail("uiSuccessfulCnt > 0");
+        Fail("uiSuccessfulCnt > 0");
     }
     W8TargetSource* interposer = &interposers[Random(uiSuccessfulCnt)];
     g_combat_state->attack_message = fmt::sprintf(g_localized_strings[0x21a], target_name);
@@ -712,7 +692,6 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
 /* The character counterpart: the target has to still be in play, the character
    engaged and in shape, the first hand in play, and the attack itself has to
    come off. */
-// FUNCTION: WIZ8 0x00545aa0
 bool CanCharacterAttackItsTarget(int party_slot)
 {
     W8Character* character;
@@ -735,7 +714,6 @@ bool CanCharacterAttackItsTarget(int party_slot)
 /* What an attack mode is worth to hit with, which depends on whether the
    attacker is a monster or a character - the same nine modes score differently
    for each. Its error text carries the function's own name. */
-// FUNCTION: WIZ8 0x00542e10
 static int AttackModeMod(int is_character, W8AttackMode attack_mode)
 {
     if (is_character == 0) {
@@ -756,7 +734,7 @@ static int AttackModeMod(int is_character, W8AttackMode attack_mode)
         case W8_ATTACK_MODE_LASH:
             return 10;
         default:
-            srAssertFail("FALSE", "AttackModeMod: ERROR - Invalid attack mode");
+            Fail("FALSE", "AttackModeMod: ERROR - Invalid attack mode");
             return 0;
         }
     }
@@ -777,17 +755,15 @@ static int AttackModeMod(int is_character, W8AttackMode attack_mode)
     case W8_ATTACK_MODE_LASH:
         return -10;
     default:
-        srAssertFail("FALSE", "AttackModeMod: ERROR - Invalid attack mode");
+        Fail("FALSE", "AttackModeMod: ERROR - Invalid attack mode");
         return 0;
     }
 }
 
-// GLOBAL: WIZ8 0x0061e7b0
 unsigned short g_pc_hit_location_labels[5][2] = {
     {0x429, 0x42a}, {0x42b, 0x42c}, {0x42d, 0x42e}, {0x42f, 0x430}, {0x431, 0x432},
 };
 
-// GLOBAL: WIZ8 0x0061ea24
 unsigned short g_monster_hit_location_labels[W8_MONSTER_HIT_LOCATIONS][W8_MONSTER_BODY_TYPES] = {
     {0x55c, 0x563, 0x56a, 0x55c, 0x571, 0x572}, {0x55d, 0x564, 0x56b, 0x55d, 0x572, 0x575},
     {0x55e, 0x565, 0x56c, 0x55e, 0x55e, 0x55e}, {0x55f, 0x566, 0x56d, 0x55f, 0x573, 0x576},
@@ -795,18 +771,15 @@ unsigned short g_monster_hit_location_labels[W8_MONSTER_HIT_LOCATIONS][W8_MONSTE
     {0x562, 0x569, 0x570, 0x562, 0x55c, 0x55d},
 };
 
-// GLOBAL: WIZ8 0x0061e9a8
 unsigned short g_attack_flag_name_ids[9][2] = {
     {1311, 1312}, {1313, 1314}, {1315, 1316}, {1317, 1318}, {1319, 1320},
     {1321, 1322}, {1323, 1324}, {1325, 1326}, {1327, 1328},
 };
 
-// GLOBAL: WIZ8 0x0061e9cc
 unsigned short g_attack_effect_name_ids[W8_ATTACK_EFFECT_COUNT] = {
     1330, 1331, 1332, 1333, 1334, 1335, 1336, 1337, 1338, 1339, 1340, 1341, 1342, 1343, 1344, 1345,
 };
 
-// GLOBAL: WIZ8 0x0061ea78
 unsigned short g_special_category_name_ids[42] = {
     1400, 1401, 1402, 1403, 1404, 1405, 1406, 1407, 1408, 1409, 1410, 1411, 1412, 1413,
     1414, 1415, 1416, 1417, 1418, 1419, 1420, 1421, 1422, 1423, 1424, 1425, 1426, 1427,
@@ -819,7 +792,6 @@ unsigned short g_special_category_name_ids[42] = {
    conditions against the target. An area effect instead reaches the whole
    party when a character was struck, or every active monster within the
    radius of the struck monster's position. */
-// FUNCTION: WIZ8 0x00544d30
 void ResolveSpellMissileHit(W8Missile* missile)
 {
     W8TargetSource* source = &missile->m_Source;
@@ -854,7 +826,7 @@ void ResolveSpellMissileHit(W8Missile* missile)
                  ++index) {
                 monster_info = GetMonsterListEntry(index);
                 if (monster_info->fActive) {
-                    location = MonsterGetLocation(monster_info->p3D);
+                    location = monster_info->p3D->GetRepresentationLocation();
                     glm::vec3 offset = center - location;
                     if (glm::length(offset) <= definition->radius) {
                         struck.iMonsterID = monster_info->location_id;
@@ -940,7 +912,6 @@ static unsigned int RollCharacterHitLocation()
    modifier and 5 per point of armour class under 10. A penetrating shot
    rolls the effect size and, when it is not nothing, plays the hit sound,
    applies the damage and rolls the effect's conditions. */
-// FUNCTION: WIZ8 0x00545090
 void ResolveMissileHit(W8Missile* missile, bool deflected)
 {
     W8TargetSource* source = &missile->m_Source;
@@ -1032,7 +1003,6 @@ void ResolveMissileHit(W8Missile* missile, bool deflected)
 /* Which hand a character attacks with: the hand carrying the most attacks
    wins, ties go to the bigger damage bonus, and a hand that cannot reach is
    not a candidate. */
-// FUNCTION: WIZ8 0x0053d390
 int ChooseCharacterAttackHand(int party_slot)
 {
     int best_hand = -1;
@@ -1042,7 +1012,7 @@ int ChooseCharacterAttackHand(int party_slot)
 
     for (hand = 0; hand < W8_HAND_COUNT; ++hand) {
         if (hand >= W8_HAND_COUNT) {
-            srAssertFail(
+            Fail(
                 "uiHand < HAND_COUNT", // reinterpret-ok: the assert message slot carries the failing hand index
                 reinterpret_cast<const char*>(hand));
         }
@@ -1062,7 +1032,6 @@ int ChooseCharacterAttackHand(int party_slot)
 /* Pick the attacking hand and record each hand's reach-adjusted attack count
    on the combat row, zero for a hand that cannot reach. A character with no
    usable hand cannot be attacking. */
-// FUNCTION: WIZ8 0x0053d680
 void PrepareCharacterAttacks(int party_slot)
 {
     int best_hand = ChooseCharacterAttackHand(party_slot);
@@ -1077,7 +1046,7 @@ void PrepareCharacterAttacks(int party_slot)
     g_combat_state->characters[party_slot].current_hand = best_hand;
     for (hand = 0; hand < W8_HAND_COUNT; ++hand) {
         if (hand >= W8_HAND_COUNT) {
-            srAssertFail(
+            Fail(
                 "uiHand < HAND_COUNT", // reinterpret-ok: the assert message slot carries the failing hand index
                 reinterpret_cast<const char*>(hand));
         }
@@ -1096,7 +1065,6 @@ void PrepareCharacterAttacks(int party_slot)
    mode: the character's conditional components, or the monster's bonus and
    fatigue share, plus the four points a distracted or flanked target loses
    against anything but the special modes. */
-// FUNCTION: WIZ8 0x005468d0
 int GetTargetArmorClassModifier(W8CombatSlot* target, W8AttackMode attack_mode)
 {
     W8MonsterInfo* monster_info;
@@ -1146,7 +1114,7 @@ int GetTargetArmorClassModifier(W8CombatSlot* target, W8AttackMode attack_mode)
         }
         out_of_formation = character->bonus.out_of_formation;
     } else {
-        srAssertFail("FALSE");
+        Fail("FALSE");
         return 0;
     }
     if (distracted && out_of_formation == 0 &&
@@ -1159,7 +1127,6 @@ int GetTargetArmorClassModifier(W8CombatSlot* target, W8AttackMode attack_mode)
 
 /* Which of the hand's attack modes this swing uses: a random one of the set
    mode bits, walked cyclically until the roll's-th set bit. */
-// FUNCTION: WIZ8 0x00542ca0
 W8AttackMode CharChooseHandAttackMode(W8Character* character, int hand)
 {
     W8ItemInstance* item;
@@ -1172,18 +1139,17 @@ W8AttackMode CharChooseHandAttackMode(W8Character* character, int hand)
         slot = (hand != 0) + 6;
         item = &character->EquippedItem[slot];
         if (item->iItemNo == -1) {
-            srAssertFail("pPC->EquippedItem[uiWeaponSlot].iItemNo != -1",
-                         fmt::format("CharChooseHandAttackMode: ERROR - {}'s weapon slot {:d} has "
-                                     "no item in it, but holds {:d}",
-                                     character->name, slot, character->Hand[hand].uiHolds));
+            Fail("pPC->EquippedItem[uiWeaponSlot].iItemNo != -1",
+                 fmt::format("CharChooseHandAttackMode: ERROR - {}'s weapon slot {:d} has "
+                             "no item in it, but holds {:d}",
+                             character->name, slot, character->Hand[hand].uiHolds));
         }
         modes = g_item_records[item->iItemNo].attack_flags;
     }
     if (modes == 0) {
-        srAssertFail(
-            "fsAttackModes > 0",
-            fmt::format("CharChooseHandAttackMode: ERROR - {}'s hand {:d} has no attack modes",
-                        character->name, hand));
+        Fail("fsAttackModes > 0",
+             fmt::format("CharChooseHandAttackMode: ERROR - {}'s hand {:d} has no attack modes",
+                         character->name, hand));
     }
     return ChooseAttackMode(modes);
 }
@@ -1191,7 +1157,6 @@ W8AttackMode CharChooseHandAttackMode(W8Character* character, int hand)
 /* The bare display name of whatever a combat slot names, for the attack
    notices (spell notices use Magic.cpp's " at ..." form). A target that is its
    own source answers the reflexive pronoun instead of the name. */
-// FUNCTION: WIZ8 0x00546b40
 static std::string CombatTargetName(const W8TargetSource* source, const W8CombatSlot* target)
 {
     W8MonsterInfo* monster_info;
@@ -1199,7 +1164,7 @@ static std::string CombatTargetName(const W8TargetSource* source, const W8Combat
     W8MonsterGroup* monster_group;
 
     if (target == nullptr) {
-        srAssertFail("pTarget != NULL");
+        Fail("pTarget != NULL");
     }
     switch (target->iType) {
     case W8_TARGET_KIND_NONE:
@@ -1212,7 +1177,7 @@ static std::string CombatTargetName(const W8TargetSource* source, const W8Combat
         return g_localized_strings[0x1e3];
     case W8_TARGET_KIND_MONSTER:
         if (target->iMonsterID == -1) {
-            srAssertFail("pTarget->iMonsterID != BAD_INDEX");
+            Fail("pTarget->iMonsterID != BAD_INDEX");
         }
         monster_info = FindMonster(target->iMonsterID);
         record = GetMonsterDataForInfo(monster_info);
@@ -1232,12 +1197,12 @@ static std::string CombatTargetName(const W8TargetSource* source, const W8Combat
         return fmt::sprintf(g_localized_strings[0x1e6],
                             FormatItemDisplayName(target->pPCItem, false));
     default:
-        srAssertFail("FALSE", fmt::format("SpellTargetString: ERROR - Invalid target type {:d}",
-                                          fmt::underlying(target->iType)));
+        Fail("FALSE", fmt::format("SpellTargetString: ERROR - Invalid target type {:d}",
+                                  fmt::underlying(target->iType)));
         return " - TARGET INVALID";
     }
     if (target->iChar == -1) {
-        srAssertFail("pTarget->iChar != BAD_INDEX");
+        Fail("pTarget->iChar != BAD_INDEX");
     }
     if (TargetSourceIsCharacter(source, 0) && source->name_known == 0 &&
         source->iChar == target->iChar) {
@@ -1251,7 +1216,6 @@ static std::string CombatTargetName(const W8TargetSource* source, const W8Combat
 /* What the target's armour starts from before the situational modifier: the
    character's total, or ten minus the monster record's evasion - unless the
    monster is out of formation, which costs it a flat five. */
-// FUNCTION: WIZ8 0x00542ee0
 int GetTargetArmorClass(W8CombatSlot* target, W8AttackMode attack_mode)
 {
     W8MonsterInfo* monster_info;
@@ -1270,7 +1234,7 @@ int GetTargetArmorClass(W8CombatSlot* target, W8AttackMode attack_mode)
     } else if (target->iType == W8_TARGET_KIND_CHARACTER) {
         base = g_status.buffers.Char[target->iChar].armor_class_total;
     } else {
-        srAssertFail("FALSE");
+        Fail("FALSE");
     }
     return GetTargetArmorClassModifier(target, attack_mode) + base;
 }
@@ -1278,7 +1242,6 @@ int GetTargetArmorClass(W8CombatSlot* target, W8AttackMode attack_mode)
 /* The armour class a hit at one location must beat: the base above plus the
    location and attack-mode terms each target kind carries, with the
    situational modifier applied a second time through the base. */
-// FUNCTION: WIZ8 0x00542fc0
 int TargetArmorClassAtLocation(W8CombatSlot* target, W8AttackMode attack_mode, int hit_location)
 {
     W8Character* character;
@@ -1301,7 +1264,7 @@ int TargetArmorClassAtLocation(W8CombatSlot* target, W8AttackMode attack_mode, i
                (character->armor_class_by_location[hit_location] - character->armor_class_total) +
                base;
     }
-    srAssertFail("FALSE");
+    Fail("FALSE");
     return GetTargetArmorClassModifier(target, attack_mode) + hit_location + base;
 }
 
@@ -1309,7 +1272,6 @@ int TargetArmorClassAtLocation(W8CombatSlot* target, W8AttackMode attack_mode, i
    with the off-hand item when their shield component covers the margin; a
    monster needs its record's blocking flag and a margin of ten or less. The
    block posts the notice and plays the material impact sound. */
-// FUNCTION: WIZ8 0x00543110
 bool BlockedForSpecialReason(int weapon_class, W8CombatSlot* target, int attack_value,
                              int armor_value, unsigned int palette)
 {
@@ -1345,7 +1307,7 @@ bool BlockedForSpecialReason(int weapon_class, W8CombatSlot* target, int attack_
         }
         material = 2;
     } else {
-        srAssertFail("FALSE", "BlockedForSpecialReason: Unknown target type");
+        Fail("FALSE", "BlockedForSpecialReason: Unknown target type");
         return false;
     }
     if (g_settings.verbose_combat_messages != 0) {
@@ -1357,7 +1319,6 @@ bool BlockedForSpecialReason(int weapon_class, W8CombatSlot* target, int attack_
 
 /* The most a single attack may take off the current target: a fifth of its
    maximum hit points, at least one. */
-// FUNCTION: WIZ8 0x00545a00
 unsigned int CapAttackDamageByTargetHealth(unsigned int damage)
 {
     W8CombatSlot* target = &g_combat_state->TargetHit;
@@ -1371,7 +1332,7 @@ unsigned int CapAttackDamageByTargetHealth(unsigned int damage)
         monster_info = FindMonster(target->iMonsterID);
         health = monster_info->uiHPMax;
     } else {
-        srAssertFail("FALSE");
+        Fail("FALSE");
         health = 0;
     }
     limit = health / 5;
@@ -1389,7 +1350,6 @@ unsigned int CapAttackDamageByTargetHealth(unsigned int damage)
    monster that lacks the cycle falls back to six or seven. A ranged cycle on
    an attack whose record only reaches short range is a data error, corrected
    to long and reported; the reverse is corrected to short the same way. */
-// FUNCTION: WIZ8 0x0053ffe0
 void StartMonsterAttackCycle(W8MonsterInfo* monster_info, W8AttackMode action_detail)
 {
     W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
@@ -1426,11 +1386,11 @@ void StartMonsterAttackCycle(W8MonsterInfo* monster_info, W8AttackMode action_de
         cycle = W8_MONSTER_CYCLE_ATTACK_MELEE;
         break;
     default:
-        srAssertFail("FALSE", fmt::format("StartMonsterAttack: ERROR - Invalid attack mode {:d}",
-                                          fmt::underlying(action_detail)));
+        Fail("FALSE", fmt::format("StartMonsterAttack: ERROR - Invalid attack mode {:d}",
+                                  fmt::underlying(action_detail)));
         return;
     }
-    if (!MonsterIsCycleSupported(monster_info->p3D, cycle)) {
+    if (!monster_info->p3D->IsCycleSupported(cycle)) {
         switch (cycle) {
         case W8_MONSTER_CYCLE_ATTACK_SWING:
         case W8_MONSTER_CYCLE_ATTACK_THRUST:
@@ -1510,7 +1470,6 @@ static void AnnounceCombatTargetCondition(const W8SpellEffectResult* report, uns
 /* Announce a character's attack on the combat log: the swings line, the
    damage notices, what the target suffered unless it died, and the casualty
    list - then wipe the record clean for the next attack. */
-// FUNCTION: WIZ8 0x0053fb00
 /* The two combat streams use the same damage/condition report; their
    speaker, colour and the monster-only Missing condition remain distinct. */
 static void ReportAttackResult(int party_slot, W8MonsterInfo* attacker, W8SpellEffectResult* report)
@@ -1595,7 +1554,7 @@ static int GetCombatFumbleChance(const std::vector<W8CombatSlot>& targets, int a
         chance = static_cast<int>(pow(100 - attack_score, 3.0) * 1e-5 + 0.5);
         unsigned int count = targets.size();
         if (count == 0) {
-            srAssertFail("uiNumTargets > 0");
+            Fail("uiNumTargets > 0");
         }
         chance = count * chance * 10 / 100;
     } else {
@@ -1609,7 +1568,7 @@ static W8CombatSlot ChooseCombatFumbleTarget(const std::vector<W8CombatSlot>& ta
 {
     unsigned int count = targets.size();
     if (count == 0) {
-        srAssertFail("uiChoices > 0");
+        Fail("uiChoices > 0");
     }
     return targets[Random(count)];
 }
@@ -1661,7 +1620,6 @@ static void ReportInvalidAttackTarget(const W8CombatSlot& target, const W8Target
    location, rolls penetration, applies damage and the struck target's
    retaliation enchantment, then decides whether the monster swings again,
    repicks a target or is done. */
-// FUNCTION: WIZ8 0x00540170
 int ContinueMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record)
 {
     W8SpellEffectResult* report = &g_combat_state->attack_report;
@@ -1734,12 +1692,12 @@ int ContinueMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record)
         }
     } else {
         if (!monster_info->fMissileReleased) {
-            srAssertFail("pMonsterInfo->fMissileReleased",
-                         fmt::format("ContinueMonsterAttack: ERROR - Missile not released, ID "
-                                     "{:d}, cycle {:d}, pending {:d}",
-                                     monster_info->location_id,
-                                     MonsterQuery(monster_info->p3D, W8_MONSTER_QUERY_CYCLE),
-                                     monster_info->p3D->m_pRep->pending_cycle));
+            Fail("pMonsterInfo->fMissileReleased",
+                 fmt::format("ContinueMonsterAttack: ERROR - Missile not released, ID "
+                             "{:d}, cycle {:d}, pending {:d}",
+                             monster_info->location_id,
+                             monster_info->p3D->Query(W8_MONSTER_QUERY_CYCLE),
+                             monster_info->p3D->pending_cycle));
         }
         if (g_combat_state->missile_hit_result == W8_MISSILE_HIT) {
             swing_missed = false;
@@ -1931,7 +1889,7 @@ int ContinueMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record)
         ApplyQueuedFatigue(&g_combat_state->TargetHit, queued_fatigue, 1);
     }
     if (combat->uiSwingsRemaining == 0) {
-        srAssertFail("pCmbt->uiSwingsRemaining > 0");
+        Fail("pCmbt->uiSwingsRemaining > 0");
     }
     --combat->uiSwingsRemaining;
     if (monster_info->hp_current == 0 && monster_info->highest_condition > W8_CONDITION_WEBBED) {
@@ -1992,7 +1950,6 @@ invalid_target:
 
 /* The monster-side counterpart: the same swing/damage/casualty walk reported
    against the monster's own notice stream. */
-// FUNCTION: WIZ8 0x005412b0
 void ReportMonsterAttackResult(W8MonsterInfo* monster_info, W8SpellEffectResult* report)
 {
     ReportAttackResult(-1, monster_info, report);
@@ -2001,21 +1958,20 @@ void ReportMonsterAttackResult(W8MonsterInfo* monster_info, W8SpellEffectResult*
 /* Begin one of the monster's attacks for the round: validate the state, rate
    the pending attack, confirm the target is still reachable, roll the swing
    count, announce it and start the cycle. */
-// FUNCTION: WIZ8 0x0053fea0
 bool StartMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record)
 {
     W8MonsterCombatState* combat;
     unsigned int attack;
 
     if (monster_info == 0) {
-        srAssertFail("pMonsterInfo != NULL");
+        Fail("pMonsterInfo != NULL");
     }
     if (record == 0) {
-        srAssertFail("pMonsterDB != NULL");
+        Fail("pMonsterDB != NULL");
     }
     combat = monster_info->pCombat.get();
     if (combat == 0) {
-        srAssertFail("pCmbt != NULL");
+        Fail("pCmbt != NULL");
     }
     g_combat_state->attack_report = {};
     if (combat->attacks_per_round == 0) {
@@ -2045,7 +2001,6 @@ bool StartMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record)
 
 /* Attack weapon-type name string ids; the monster attack announcement indexes
    it two words per type. */
-// GLOBAL: WIZ8 0x0061EB02
 static unsigned short g_monster_attack_name_ids[0x25] = {
     0x619, 0x61a, 0x61b, 0x61c, 0x61d, 0x61e, 0x61f, 0x620, 0x621, 0x622, 0x623, 0x624, 0x625,
     0x626, 0x627, 0x628, 0x629, 0x62a, 0x62b, 0x62c, 0x62d, 0x62e, 0x62f, 0x630, 0x631, 0x632,
@@ -2054,7 +2009,6 @@ static unsigned short g_monster_attack_name_ids[0x25] = {
 
 /* Attack verb-class string ids; the monster attack announcement appends the
    entry the attack's verb byte selects. */
-// GLOBAL: WIZ8 0x0061EB4C
 static unsigned short g_monster_attack_verb_ids[0x60] = {
     0x5b8, 0x5b9, 0x5ba, 0x5bb, 0x5bc, 0x5bd, 0x5be, 0x5bf, 0x5c0, 0x5c1, 0x5c2, 0x5c3,
     0x5c4, 0x5c5, 0x5c6, 0x5c7, 0x5c8, 0x5c9, 0x5ca, 0x5cb, 0x5cc, 0x5cd, 0x5ce, 0x5cf,
@@ -2069,7 +2023,6 @@ static unsigned short g_monster_attack_verb_ids[0x60] = {
 /* Whether a character catches the incoming attack in time to turn toward it.
    Only a living, alert defender or protector gets the roll; the first try
    always succeeds and each retry is 25 points harder on the senses check. */
-// FUNCTION: WIZ8 0x0053d590
 bool CharacterNoticesAttacker(int party_slot)
 {
     W8CombatCharacterRow* row = &g_combat_state->characters[party_slot];
@@ -2112,7 +2065,6 @@ static void AppendAttackWeaponName(std::string_view name, int mode)
     }
 }
 
-// FUNCTION: WIZ8 0x00541630
 void AnnounceMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record,
                            char target_changed)
 {
@@ -2197,7 +2149,7 @@ void AnnounceMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record,
         }
     } else {
         if (monster_info->Target.iType != W8_TARGET_KIND_MONSTER) {
-            srAssertFail("pMonsterInfo->Target.iType == TARGET_TYPE_MONSTER");
+            Fail("pMonsterInfo->Target.iType == TARGET_TYPE_MONSTER");
         }
         second = FindMonster(monster_info->Target.iMonsterID);
         MonsterHostility(monster_info, second);
@@ -2220,7 +2172,7 @@ void AnnounceMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record,
                 }
                 ++second_combat->spot_attempts;
                 if (notices) {
-                    MonsterAimAtMonster(second->p3D, monster_info->p3D, false);
+                    second->p3D->AimAtMonster(monster_info->p3D, false);
                 }
             }
             if (!notices) {
@@ -2237,7 +2189,7 @@ void AnnounceMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record,
     } else {
         g_combat_state->attack_message += g_localized_strings[0x212];
         if (pAttack->ubWeaponNameIndex == 0) {
-            srAssertFail("pAttack->ubWeaponNameIndex != MON_WEAPON_NAME_UNARMED");
+            Fail("pAttack->ubWeaponNameIndex != MON_WEAPON_NAME_UNARMED");
         }
         if (pAttack->ubWeaponNameIndex != 0) {
             text = g_localized_strings[g_monster_attack_verb_ids[pAttack->ubWeaponNameIndex]];
@@ -2262,7 +2214,6 @@ void AnnounceMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record,
    surprise term. When the flag is clear the target's armour class and the
    int/DEX/SPEED/SENSES differential count too; a blinded attacker caps at ten
    unless a trait lets it fight blind. Finally the difficulty scaler runs. */
-// FUNCTION: WIZ8 0x00541c00
 static int GetTargetAttackAttributes(int party_slot, int hand, W8AttackMode attack_mode,
                                      char ignore_target_defenses)
 {
@@ -2329,7 +2280,6 @@ static int GetTargetAttackAttributes(int party_slot, int hand, W8AttackMode atta
    character-side attack-mode term, the fatigue penalty skipped entirely for
    modern weapons, then the target's armour class at the hit location and the
    same attribute differential. */
-// FUNCTION: WIZ8 0x00541ec0
 int GetTargetHitAttackAttributes(int party_slot, int hand, W8AttackMode attack_mode,
                                  int hit_location)
 {
@@ -2360,7 +2310,6 @@ int GetTargetHitAttackAttributes(int party_slot, int hand, W8AttackMode attack_m
    rolls the effective dice count, reports hit or miss and the dice count
    through the out params, and returns the damage after bonuses and the
    target's reduction. */
-// FUNCTION: WIZ8 0x005420b0
 int ResolveCharacterAttackDamage(int party_slot, int hand, W8AttackMode attack_mode,
                                  unsigned int* out_dice_count, unsigned char* out_hit)
 {
@@ -2376,7 +2325,7 @@ int ResolveCharacterAttackDamage(int party_slot, int hand, W8AttackMode attack_m
 
     if (target_is_monster) {
         if (g_combat_state->TargetHit.iMonsterID == -1) {
-            srAssertFail("gpCombat->TargetHit.iMonsterID != BAD_INDEX");
+            Fail("gpCombat->TargetHit.iMonsterID != BAD_INDEX");
         }
         monster_info = FindMonster(g_combat_state->TargetHit.iMonsterID);
         record = GetMonsterDataForInfo(monster_info);
@@ -2387,7 +2336,7 @@ int ResolveCharacterAttackDamage(int party_slot, int hand, W8AttackMode attack_m
             action_kind == W8_MONSTER_ACTION_WAIT || action_kind == W8_MONSTER_ACTION_PROTECT;
     } else {
         if (g_combat_state->TargetHit.iChar == -1) {
-            srAssertFail("gpCombat->TargetHit.iChar != BAD_INDEX");
+            Fail("gpCombat->TargetHit.iChar != BAD_INDEX");
         }
         target = &g_status.buffers.Char[g_combat_state->TargetHit.iChar];
         W8PartyAction party_action = GetEffectivePartyAction();
@@ -2434,7 +2383,7 @@ int ResolveCharacterAttackDamage(int party_slot, int hand, W8AttackMode attack_m
     switch (attack_mode) {
     case W8_ATTACK_MODE_PUNCH:
         if (pPC->Hand[hand].uiHolds != HOLDS_NOTHING) {
-            srAssertFail("pPC->Hand[uiHand].uiHolds == HOLDS_NOTHING");
+            Fail("pPC->Hand[uiHand].uiHolds == HOLDS_NOTHING");
         }
         if (pPC->Hand[1].uiHolds != HOLDS_NOTHING) {
             dice = g_item_records[pPC->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo]
@@ -2445,7 +2394,7 @@ int ResolveCharacterAttackDamage(int party_slot, int hand, W8AttackMode attack_m
         break;
     case W8_ATTACK_MODE_KICK:
         if (pPC->Hand[hand].uiHolds != HOLDS_NOTHING) {
-            srAssertFail("pPC->Hand[uiHand].uiHolds == HOLDS_NOTHING");
+            Fail("pPC->Hand[uiHand].uiHolds == HOLDS_NOTHING");
         }
         if (pPC->Hand[0].uiHolds != HOLDS_NOTHING) {
             W8EquipSlot paired = W8_EQUIP_SLOT_NONE;
@@ -2463,7 +2412,7 @@ int ResolveCharacterAttackDamage(int party_slot, int hand, W8AttackMode attack_m
         break;
     default:
         if (attack_mode != W8_ATTACK_MODE_BERSERK && pPC->Hand[hand].uiHolds == HOLDS_NOTHING) {
-            srAssertFail("pPC->Hand[uiHand].uiHolds != HOLDS_NOTHING");
+            Fail("pPC->Hand[uiHand].uiHolds != HOLDS_NOTHING");
         }
         if (pPC->Hand[hand].uiHolds == HOLDS_NOTHING) {
             dice = pPC->Hand[hand].damage_dice;
@@ -2517,7 +2466,6 @@ int ResolveCharacterAttackDamage(int party_slot, int hand, W8AttackMode attack_m
    modifier and mode terms, unaware/natural bonuses, a fatigue penalty that
    halves for natural verbs, a repick surprise penalty, an optional armor and
    attribute comparison against the target, the blind cap, and difficulty. */
-// FUNCTION: WIZ8 0x00542720
 int GetMonsterAttackScore(W8MonsterInfo* monster_info, W8MonsterAttack* attack,
                           W8AttackMode attack_mode, char ignore_target_defenses)
 {
@@ -2593,7 +2541,6 @@ int GetMonsterAttackScore(W8MonsterInfo* monster_info, W8MonsterAttack* attack,
    dice count for the running attack, rolls the attack's dice, floors the
    result at one, applies the target's damage reduction, and reports the dice
    count through the out pointer. */
-// FUNCTION: WIZ8 0x00542960
 int ResolveMonsterAttackDamage(W8MonsterInfo* monster_info, W8MonsterAttack* attack,
                                unsigned int* out_dice_count)
 {
@@ -2608,7 +2555,7 @@ int ResolveMonsterAttackDamage(W8MonsterInfo* monster_info, W8MonsterAttack* att
 
     if (target_is_character) {
         if (g_combat_state->TargetHit.iChar == -1) {
-            srAssertFail("gpCombat->TargetHit.iChar != BAD_INDEX");
+            Fail("gpCombat->TargetHit.iChar != BAD_INDEX");
         }
         target = &g_status.buffers.Char[g_combat_state->TargetHit.iChar];
         target_info = nullptr;
@@ -2621,7 +2568,7 @@ int ResolveMonsterAttackDamage(W8MonsterInfo* monster_info, W8MonsterAttack* att
             TryCharacterAction(g_combat_state->TargetHit.iChar, W8_ACTION_PROTECT, true);
     } else {
         if (g_combat_state->TargetHit.iMonsterID == -1) {
-            srAssertFail("gpCombat->TargetHit.iMonsterID != BAD_INDEX");
+            Fail("gpCombat->TargetHit.iMonsterID != BAD_INDEX");
         }
         target_info = FindMonster(g_combat_state->TargetHit.iMonsterID);
         record = GetMonsterDataForInfo(target_info);
@@ -2690,7 +2637,6 @@ static bool resolveConditionAttack(const W8TargetSource* source, W8CombatSlot* t
    lands, resolve the condition or drain the case handles. A report passed in
    is folded into a local accumulator per condition, then merged back - unless
    a killing blow landed, in which case the report keeps only the kill. */
-// FUNCTION: WIZ8 0x00543270
 void ApplyEffectConditions(W8TargetSource* source, W8CombatSlot* target,
                            W8SpellEffectDefinition* definition, bool announce, bool verbose,
                            W8SpellEffectResult* result)
@@ -2714,18 +2660,18 @@ void ApplyEffectConditions(W8TargetSource* source, W8CombatSlot* target,
     }
     if (target->iType == W8_TARGET_KIND_CHARACTER) {
         if (target->iChar == -1) {
-            srAssertFail("pTarget->iChar != BAD_INDEX");
+            Fail("pTarget->iChar != BAD_INDEX");
         }
         if (g_status.buffers.XChar[target->iChar].fOccupied == 0) {
-            srAssertFail("fCHAR_OCCUPIED(pTarget->iChar)");
+            Fail("fCHAR_OCCUPIED(pTarget->iChar)");
         }
         highest_condition = g_status.buffers.Char[target->iChar].highest_condition;
     } else {
         if (target->iType != W8_TARGET_KIND_MONSTER) {
-            srAssertFail("pTarget->iType == TARGET_TYPE_MONSTER");
+            Fail("pTarget->iType == TARGET_TYPE_MONSTER");
         }
         if (target->iMonsterID == -1) {
-            srAssertFail("pTarget->iMonsterID != BAD_INDEX");
+            Fail("pTarget->iMonsterID != BAD_INDEX");
         }
         highest_condition = FindMonster(target->iMonsterID)->highest_condition;
     }
@@ -2990,7 +2936,6 @@ static void AppendCombatTargetEntry(std::vector<W8CombatSlot>& targets, W8Target
 /* Builds the retargeting candidate list for a character: every live party
    member except the one already aimed at, plus self, then every active
    in-combat monster except the aimed one. */
-// FUNCTION: WIZ8 0x00543dc0
 void BuildCharacterTargetList(int party_slot, int action, std::vector<W8CombatSlot>& out_list)
 {
     for (int i = 0; i < W8_PARTY_SLOT_COUNT; ++i) {
@@ -3028,7 +2973,6 @@ void BuildCharacterTargetList(int party_slot, int action, std::vector<W8CombatSl
 /* The monster twin: candidates for the monster's next target. Retail's
    monster exclusion compares the aimed id with the acting monster's own id,
    rather than the candidate's id (0x005441aa..0x005441b2). */
-// FUNCTION: WIZ8 0x00544010
 void BuildMonsterTargetList(W8MonsterInfo* monster_info, W8MonsterRecord* record,
                             unsigned int attack, std::vector<W8CombatSlot>& out_list)
 {
@@ -3063,7 +3007,6 @@ void BuildMonsterTargetList(W8MonsterInfo* monster_info, W8MonsterRecord* record
 /* Announces a friendly-fire strike: "<attacker> accidentally strikes
    <target>", then highlights the name that belongs to the other side's
    notice palette when the two sides differ. */
-// FUNCTION: WIZ8 0x00544250
 void AnnounceAccidentalStrike(W8TargetSource* source, W8CombatSlot* target)
 {
     char source_color = GetSourceNoticeColor(source);
@@ -3090,7 +3033,7 @@ void AnnounceAccidentalStrike(W8TargetSource* source, W8CombatSlot* target)
         }
     } else {
         if (!TargetSourceIsMonster(source, 0)) {
-            srAssertFail("SourceIsMonster(pSource)");
+            Fail("SourceIsMonster(pSource)");
         }
         W8MonsterInfo* monster_info = FindMonster(source->iMonsterID);
         W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
@@ -3120,7 +3063,6 @@ void AnnounceAccidentalStrike(W8TargetSource* source, W8CombatSlot* target)
 /* Fumble banter after a redirected hit: half the time the attacker reacts to
    its own fumble, otherwise the struck victim speaks, or a random other party
    member when the victim is gone or incapacitated. */
-// FUNCTION: WIZ8 0x00544530
 void QueueFumbleReaction(int party_slot)
 {
     int slot;
@@ -3147,7 +3089,6 @@ void QueueFumbleReaction(int party_slot)
    resolves both endpoints' world positions, defers the target when a combat-
    ending missile is already engaged, folds the range category's base speed
    into the shot and fires through FireMissile. */
-// FUNCTION: WIZ8 0x00544630
 W8Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W8CombatSlot* target,
                                      W8SpellEffectDefinition* attack, bool use_default_accuracy,
                                      W8RangeCategory range_category, int accuracy)
@@ -3169,7 +3110,7 @@ W8Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W
     float pitch;
 
     if (!use_default_accuracy && g_combat_state->engaged_missile != nullptr) {
-        srAssertFail("FALSE");
+        Fail("FALSE");
         return nullptr;
     }
     if (TargetSourceIsCharacter(source, 0) && target->iType == W8_TARGET_KIND_CHARACTER &&
@@ -3191,7 +3132,7 @@ W8Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W
     } else if (target->iType == W8_TARGET_KIND_PLACE) {
         target_position = target->point;
     } else {
-        srAssertFail("FALSE", "FireMissileSourceToTarget: Unknown target type");
+        Fail("FALSE", "FireMissileSourceToTarget: Unknown target type");
     }
     if (TargetSourceIsCharacter(source, 0)) {
         GetCharacterProjectilePosition(source->iChar, &source_position);
@@ -3217,7 +3158,7 @@ W8Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W
         blind = g_status.buffers.Char[source->iChar].uiCondition[W8_CONDITION_BLIND] != 0;
     } else if (TargetSourceIsMonster(source, 0)) {
         if (source->iMonsterID == -1) {
-            srAssertFail("pSource->iMonsterID != -1");
+            Fail("pSource->iMonsterID != -1");
         }
         monster_info = FindMonster(source->iMonsterID);
         monster = monster_info->p3D;
@@ -3233,7 +3174,7 @@ W8Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W
                 glm::vec3(monster->movement.position.x,
                           monster->movement.position.y + monster->movement.height_offset,
                           monster->movement.position.z);
-            MonsterGetAnimationRadius(monster, &radius);
+            monster->GetAnimationRadius(&radius);
             pitch = GetElevationAngle(&source_position, &target_position);
             yaw = GetHeadingAngle(&source_position, &target_position);
             OffsetPositionByYawPitch(radius + radius, &source_position, yaw, pitch);
@@ -3242,7 +3183,7 @@ W8Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W
         blind = monster_info->uiCondition[W8_CONDITION_BLIND] != 0;
     } else {
         if (source->iType != W8_TARGET_SOURCE_INDIRECT) {
-            srAssertFail("FALSE");
+            Fail("FALSE");
             return nullptr;
         }
         source_position = source->point;
@@ -3279,14 +3220,13 @@ W8Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W
         PointCameraAtCombatTarget(source, target);
         return missile;
     }
-    srAssertFail("pMissileFired");
+    Fail("pMissileFired");
     return nullptr;
 }
 
 /* The character-side missile fire: builds the attack block from the wielded
    (and paired) weapon's item records, scores the shot for the current hand's
    attack mode and fires at the slot's out-of-combat target. */
-// FUNCTION: WIZ8 0x00544b60
 void FireCharacterItemMissile(int party_slot, W8Character* pc, W8CombatCharacterRow* row,
                               W8RangeCategory range_category)
 {
@@ -3345,7 +3285,6 @@ void FireCharacterItemMissile(int party_slot, W8Character* pc, W8CombatCharacter
 /* Displaces the aim point `to` perpendicular to the from->to line by a
    randomized cone scatter. `accuracy` shrinks the cone; `blind` swaps the
    flat 8% profile for the coarse distance-scaled one. */
-// FUNCTION: WIZ8 0x005454c0
 void ScatterMissileAimPoint(const glm::vec3* from, glm::vec3* to, int accuracy, bool blind)
 {
     float dx = to->x - from->x;
@@ -3454,7 +3393,6 @@ static void AppendAttackMessageSuffix(int mode)
     }
 }
 
-// FUNCTION: WIZ8 0x0053d870
 bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
 {
     W8Character* character;
@@ -3471,7 +3409,7 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
     unsigned int event_ids[3];
 
     if (static_cast<unsigned int>(party_slot) >= 8) {
-        srAssertFail("uiChar < MAX_CHARS");
+        Fail("uiChar < MAX_CHARS");
     }
     found = nullptr;
     character = &g_status.buffers.Char[party_slot];
@@ -3479,7 +3417,7 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
     party_row = &g_status.buffers.XChar[party_slot];
     g_combat_state->attack_report = {};
     if (static_cast<unsigned int>(row->current_hand) >= 2) {
-        srAssertFail("uiHand < HAND_COUNT");
+        Fail("uiHand < HAND_COUNT");
     }
     hand = row->current_hand;
     if (!character->Hand[hand].in_play || GetCharAttackRange(character, hand) == W8_RANGE_NONE) {
@@ -3598,7 +3536,7 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
                 }
                 monster_info->pCombat->spot_attempts++;
                 if (noticed) {
-                    MonsterForwardReferencePosition(monster_info->p3D, 0);
+                    monster_info->p3D->ForwardReferencePosition(0);
                 } else {
                     g_combat_state->unaware = IsPartyLookingAwayFrom(party_slot, monster_info);
                 }
@@ -3608,10 +3546,10 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
         }
     } else {
         if (party_row->target_out_of_combat.iType != W8_TARGET_KIND_CHARACTER) {
-            srAssertFail("CHAR_CURRENT_TARGET(uiChar).iType == TARGET_TYPE_CHAR");
+            Fail("CHAR_CURRENT_TARGET(uiChar).iType == TARGET_TYPE_CHAR");
         }
         if (party_row->target_out_of_combat.iChar == -1) {
-            srAssertFail("CHAR_CURRENT_TARGET(uiChar).iChar != BAD_INDEX");
+            Fail("CHAR_CURRENT_TARGET(uiChar).iChar != BAD_INDEX");
         }
         g_combat_state->attack_message +=
             g_status.buffers.Char[party_row->target_out_of_combat.iChar].name;
@@ -3627,7 +3565,7 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
     }
     if (g_combat_state->natural_attack != 0) {
         if (character->Hand[hand].uiHolds == HOLDS_NOTHING) {
-            srAssertFail("pPC->Hand[uiHand].uiHolds != HOLDS_NOTHING");
+            Fail("pPC->Hand[uiHand].uiHolds != HOLDS_NOTHING");
         }
         if (character->Hand[hand].uiHolds != HOLDS_NOTHING) {
             name = GetItemDisplayName(found);
@@ -3663,7 +3601,6 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
    picks the hit location, rolls to hit and to penetrate, applies damage and
    the struck target's retaliation enchantment, consumes the thrown item or
    charge, and answers whether the attack continues. */
-// FUNCTION: WIZ8 0x0053e250
 int ResolveCharacterAttack(int party_slot)
 {
     W8SpellEffectResult* report = &g_combat_state->attack_report;
@@ -4133,7 +4070,7 @@ int ResolveCharacterAttack(int party_slot)
         }
     }
     if (row->uiSwingsRemaining == 0) {
-        srAssertFail("pCmbt->uiSwingsRemaining > 0");
+        Fail("pCmbt->uiSwingsRemaining > 0");
     }
     --row->uiSwingsRemaining;
     if (character->hp_current == 0 || character->highest_condition >= W8_CONDITION_ASLEEP) {
@@ -4141,7 +4078,7 @@ int ResolveCharacterAttack(int party_slot)
     }
     if (row->uiSwingsRemaining != 0) {
         if (hand >= 2) {
-            srAssertFail("uiHand < HAND_COUNT");
+            Fail("uiHand < HAND_COUNT");
         }
         if (character->Hand[hand].in_play && GetCharAttackRange(character, hand) != W8_RANGE_NONE &&
             (target == party_row->target_out_of_combat) &&

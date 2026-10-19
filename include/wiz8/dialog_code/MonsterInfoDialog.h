@@ -7,7 +7,6 @@
 #include "wiz8/local_code/ButtonWidget.h"
 
 /* The monster information dialog for one monster location id. */
-// VTABLE: WIZ8 0x005ef910
 class W8MonsterInfoDialog : public W8DialogBase {
 public:
     W8MonsterInfoDialog(int location_id);

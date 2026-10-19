@@ -3,14 +3,12 @@
 #include <cstdint>
 
 #include "compat/native.h"
-#include "soundman.h"
-#include "timer.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/local_code/Configuration.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/ui_layer.h"
 
-// GLOBAL: WIZ8 0x0062A51C
 char g_button_click_1[] = "Data\\Sound\\Misc\\Interface Click 01.wav";
-// GLOBAL: WIZ8 0x0068DE3C
 static uint64_t g_button_sound_cooldown;
 
 void PlayButtonSound(UiPointerAction action)

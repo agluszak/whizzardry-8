@@ -16,14 +16,13 @@
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
+#include <glm/geometric.hpp>
 
-#include "Font.h"
 #include "compat/compiler.h"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
-#include "glm/geometric.hpp"
 #include "layouts/world.h"
 #include "surrender/srBoundingBox.h"
 #include "surrender/srDebug.h"
@@ -33,6 +32,7 @@
 #include "surrender/srNode.h"
 #include "surrender/srShader.h"
 #include "surrender/srTexture.h"
+#include "wiz8/canvas/Font.h"
 #include "wiz8/chunk.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Octree.h"
@@ -47,18 +47,14 @@
 #include "wiz8/world_cursor.h"
 
 // The scene node unlinks itself from the world when it is destroyed.
-// FUNCTION: WIZ8 0x0048da80
 W8WorldCursorNode::~W8WorldCursorNode() = default;
 
 /* The double selection range at 0x005ECAC8: node distances below it select the
    node. Read as 75000.0, not the zero a float view would give. */
-// GLOBAL: WIZ8 0x005ecac8
 const double g_cube_effect_max_distance = 75000.0;
 
-// GLOBAL: WIZ8 0x0060a9b0
 static int g_cursor_node_index = -1;
 
-// GLOBAL: WIZ8 0x005ebf50
 const double g_world_cursor_scale = 0.002;
 
 /* 0x0048D070 is a bare JMP to CreateWorldCursorCube: a tail-jump thunk
@@ -70,7 +66,6 @@ const double g_world_cursor_scale = 0.002;
 
 static void DrawWorldCursorNodeLabel(W8WorldCursorNode& entry);
 
-// FUNCTION: WIZ8 0x0048d080
 std::unique_ptr<W8WorldCursorNode> CreateWorldCursorCube()
 {
     auto model = std::make_shared<stMeshModel>(12, 24);
@@ -126,7 +121,7 @@ std::unique_ptr<W8WorldCursorNode> CreateWorldCursorCube()
     auto surface = std::shared_ptr<SDL_Surface>(
         CreateCpuStorage(0x20UL, 0x20UL, SDL_PIXELFORMAT_ARGB1555).release(), SDL_DestroySurface);
     if (surface == 0) {
-        srAssertFail("psrSurface");
+        Fail("psrSurface");
     }
 
     w8_ulong pixel;
@@ -161,20 +156,19 @@ std::unique_ptr<W8WorldCursorNode> CreateWorldCursorCube()
 
 /* Paint the three cube parameters onto the model's first texture using the menu
    small font. */
-// FUNCTION: WIZ8 0x0048dcb0
 static void DrawWorldCursorNodeLabel(W8WorldCursorNode& entry)
 {
     stModelInstance* instance = entry.node.get();
     if (instance == 0) {
-        srAssertFail("pstModelInstance");
+        Fail("pstModelInstance");
     }
     stMeshModel* mesh = static_cast<stMeshModel*>(instance->getModel());
     if (mesh == 0) {
-        srAssertFail("pstMeshModel");
+        Fail("pstMeshModel");
     }
     srTexture* texture = static_cast<srTexture*>(mesh->getTexture(0, 0));
     if (texture == 0) {
-        srAssertFail("psrTexture");
+        Fail("psrTexture");
     }
     SDL_Surface* surface = texture->getSurfacePtr();
     SDL_FillSurfaceRect(surface, nullptr,
@@ -183,7 +177,7 @@ static void DrawWorldCursorNodeLabel(W8WorldCursorNode& entry)
                                            entry.color >> 24));
     unsigned char* data = static_cast<unsigned char*>(surface->pixels);
     if (data == 0) {
-        srAssertFail("pBuffer");
+        Fail("pBuffer");
     }
     {
         g_smfnt_font.resetPalette();
@@ -202,7 +196,6 @@ static void DrawWorldCursorNodeLabel(W8WorldCursorNode& entry)
     }
 }
 
-// FUNCTION: WIZ8 0x0048e470
 void ReadWorldCursorNodeStates(W8Chunk& file, W8SavedCursorNodes& table)
 {
     std::int32_t version;
@@ -244,7 +237,6 @@ void ReadWorldCursorNodeStates(W8Chunk& file, W8SavedCursorNodes& table)
     }
 }
 
-// FUNCTION: WIZ8 0x0048e6d0
 void SaveWorldCursorNodeStates(wiz8::File& handle)
 {
     const std::int32_t version = 2;
@@ -265,7 +257,6 @@ void SaveWorldCursorNodeStates(wiz8::File& handle)
    the existing table untouched. Each record is the label parameters, local
    bounds (stored as the scale applied to the 500-unit cube), location and
    one opaque word; version 2 adds the name and version 3 the name serial. */
-// FUNCTION: WIZ8 0x0048e7b0
 W8SavedCursorNodes ReadWorldCursorNodes(W8Chunk& file)
 {
     W8SavedCursorNodes result;
@@ -320,7 +311,6 @@ void BuildWorldCursorNodes(W8World& world, W8SavedCursorNodes records)
     }
 }
 
-// FUNCTION: WIZ8 0x0048ead0
 void SaveWorldCursorNodes(wiz8::File& handle)
 {
     const std::int32_t version = 3;
@@ -344,7 +334,6 @@ void SaveWorldCursorNodes(wiz8::File& handle)
 /* Reparent the world's cursor-attached nodes onto the dynamic scene, or
    detach them when hidden. Levels.cpp drives this from the world-cursor
    flag. */
-// FUNCTION: WIZ8 0x0048ED70
 void SetWorldCursorNodesVisible(bool visible)
 {
     if (!GetWorld()) return;
@@ -357,7 +346,6 @@ void SetWorldCursorNodesVisible(bool visible)
 /* Answer the next table node after `after` whose world-space bounds contain
    `point`; a null `after` starts the walk at the head of the table. When
    `after` is the last entry the walk answers null immediately. */
-// FUNCTION: WIZ8 0x0048EDD0
 W8WorldCursorNode* FindWorldCursorNodeAtPoint(W8WorldCursorNode* after, glm::vec3* point)
 {
     auto next = GetWorld()->cursor_nodes.begin();
@@ -380,7 +368,6 @@ W8WorldCursorNode* FindWorldCursorNodeAtPoint(W8WorldCursorNode* after, glm::vec
 
 /* Select a cursor node within the selection distance of the camera,
    remembering it for the next call. Answers whether one was close enough. */
-// FUNCTION: WIZ8 0x0048EFC0
 bool SelectWorldCursorNode(void)
 {
     if (GetWorld() != 0 && GetWorld()->camera != 0) {

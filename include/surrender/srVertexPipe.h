@@ -58,12 +58,10 @@ public:
     void applyFog(std::span<const float> values);
     void copyDiffuseToSpecular();
     void copySpecularToDiffuse();
-    // FUNCTION: SURRENDER 0x1002C310
     inline void disableChannel(srVertexProcessor::e_channel channel)
     {
         channel_mask &= ~(1u << channel);
     }
-    // FUNCTION: SURRENDER 0x1002C330
     inline void enableChannel(srVertexProcessor::e_channel channel)
     {
         channel_mask |= 1u << channel;
@@ -203,21 +201,18 @@ private:
                           srVertexProcessor::e_channel channel);
 };
 
-// FUNCTION: SURRENDER 0x1002C4B0 SYMBOL
 // RECOMP: ?getVertexCount@srVertexPipe@@QBEKXZ
 inline w8_ulong srVertexPipe::getVertexCount() const
 {
     return vertex_count;
 }
 
-// FUNCTION: SURRENDER 0x1002C4E0 SYMBOL
 // RECOMP: ?isChannelAvailable@srVertexPipe@@QBEHW4e_channel@srVertexProcessor@@@Z
 inline int srVertexPipe::isChannelAvailable(srVertexProcessor::e_channel channel) const
 {
     return ((1u << channel) & channel_mask) != 0;
 }
 
-// FUNCTION: SURRENDER 0x1002C5C0 SYMBOL
 inline std::span<const glm::vec3> srVertexPipe::getEyeSpaceNormal()
 {
     return scratchChannel(scratch.normals, Scratch::READY_EYE_NORMALS,

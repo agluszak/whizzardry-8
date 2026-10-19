@@ -6,20 +6,19 @@
 #include <string_view>
 
 #include "compat/compiler.h"
+#include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_float4.hpp"
 #include "surrender/srBoundingBox.h"
-#include "wiz8/engine_code/AnimRep.hpp"
-#include "wiz8/engine_code/GrObject.h"
 
 struct W8World;
-struct W8Item;
+struct WorldItemEntity;
 class Trigger;
 class srModelInstance;
 class stModelInstance;
 class srNode;
 
-/* Bit masks in W8ItemRep::flags and the saved W8WorldItem::entity_flags.
-   The world item's own flags are a separate domain. */
+/* Bit masks in WorldItemEntity::flags and the saved W8WorldItem::entity_flags. */
 enum {
     W8_ITEM_ENTITY_PULSE = 0x01u,
     W8_ITEM_ENTITY_ROTATE = 0x02u,
@@ -31,46 +30,41 @@ enum {
     W8_ITEM_ENTITY_HIGHLIGHT_BLUE = 0x80u
 };
 
-/* Engine Code\Item.cpp. The assertion expressions establish the original
-   m_pRep and m_psrMesh names; the bodies establish their offsets. */
-struct W8ItemRep : public W8AnimRepBase {
-    W8ItemRep();
-    virtual ~W8ItemRep() override;
+struct WorldItemEntity {
+    WorldItemEntity();
+    ~WorldItemEntity();
+    WorldItemEntity(const WorldItemEntity&) = delete;
+    WorldItemEntity& operator=(const WorldItemEntity&) = delete;
 
+    glm::vec3 location{0.0f};
+    glm::vec3 local_location{0.0f};
+    glm::vec3 parent_location{0.0f};
+    glm::mat3 rotation{1.0f};
+    glm::vec4 highlight_colour{0.0f};
     std::unique_ptr<stModelInstance> m_psrMesh;
-    glm::vec3 bounds_minimum;         /* 0x68 */
-    glm::vec3 bounds_maximum;         /* 0x74 */
-    float bounds_radius;              /* 0x80 */
-    float pulse_level; /* 0x88 */
-    unsigned int flags; /* 0x90 */
+    glm::vec3 bounds_minimum{0.0f};
+    glm::vec3 bounds_maximum{0.0f};
+    float bounds_radius = 0.0f;
+    float pulse_level = 0.0f;
+    unsigned int flags = 0;
+    Trigger* trigger = nullptr;
+    uint64_t countdown = 0;
 
     void RefreshBounds();
-    unsigned int SetFlags(unsigned int mask, bool enabled); /* 0x0049F310 */
-};
-
-struct W8Item : public W8GrObject {
-    W8Item();
-    virtual ~W8Item() override;
-    W8Item(const W8Item&) = delete;
-    W8Item& operator=(const W8Item&) = delete;
-
-    std::unique_ptr<W8ItemRep> m_pRep = std::make_unique<W8ItemRep>();
-    Trigger* trigger;
-    /* 0x1c: countdown clock; IsTicking reports whether it is running. */
-    uint64_t countdown;
+    unsigned int SetFlags(unsigned int mask, bool enabled);
+    void SetLocation(const glm::vec3* new_location);
+    glm::vec3 GetLocation() const { return location; }
+    glm::vec3 GetLocalLocation() const { return local_location; }
+    void SetRotation(const glm::mat3* new_rotation) { rotation = *new_rotation; }
+    glm::mat3 GetRotation() const { return rotation; }
 
     void DetachMesh();
     void ApplyRepTransform();
     void AttachMesh(W8World* world);
     void UpdateAnimation();
-    void SetLocation(const glm::vec3* location);
     srNode* GetMesh();
-    /* Model-local cached bounds. GetItemWorldBounds translates them by the
-       representation's location without rotating them. */
     srBoundingBox GetCachedLocalBounds() const;
-    float GetBoundsRadius() const;
-    /* Live search/interaction point: representation location raised by 0.66 of
-       the cached local Y extent. */
+    float GetBoundsRadius() const { return bounds_radius; }
     glm::vec3 GetSearchPosition() const;
     void SetYaw(float angle);
     void SetHighlight(bool enabled, bool hovered = false);
@@ -79,8 +73,6 @@ struct W8Item : public W8GrObject {
     bool IsRadarBlipLit();
 };
 
-/* Run the item's trigger, if any, and report its action state. */
-unsigned char RunItemTrigger(W8Item* item); /* 0x004A0070 */
-std::optional<srBoundingBox> GetItemWorldBounds(const W8Item* item);
-
-std::unique_ptr<W8Item> LoadItemFromFile(std::string_view name);
+unsigned char RunItemTrigger(WorldItemEntity* item);
+std::optional<srBoundingBox> GetItemWorldBounds(const WorldItemEntity* item);
+std::unique_ptr<WorldItemEntity> LoadItemFromFile(std::string_view name);

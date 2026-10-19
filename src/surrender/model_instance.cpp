@@ -14,7 +14,6 @@
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
 
-// FUNCTION: SURRENDER 0x1004F920
 srModelInstance::srModelInstance(srNode* parent) : srNode(static_cast<srNode*>(nullptr))
 {
     alignment_flags = 0;
@@ -26,7 +25,6 @@ srModelInstance::srModelInstance(srNode* parent) : srNode(static_cast<srNode*>(n
     }
 }
 
-// FUNCTION: SURRENDER 0x1004F890
 srModelInstance& srModelInstance::operator=(const srModelInstance& other)
 {
     if (this != &other) {
@@ -40,10 +38,8 @@ srModelInstance& srModelInstance::operator=(const srModelInstance& other)
     return *this;
 }
 
-// FUNCTION: SURRENDER 0x1004FA40
 srModelInstance::~srModelInstance() = default;
 
-// FUNCTION: SURRENDER 0x1004F3A0
 void srModelInstance::traverse(TraverseInfo& info)
 {
     if (next_sibling_ != 0) {
@@ -57,7 +53,6 @@ void srModelInstance::traverse(TraverseInfo& info)
     }
 }
 
-// FUNCTION: SURRENDER 0x1004F350
 srNode::BoundInfo srModelInstance::getLocalBounds()
 {
     srModel* model = getModel();
@@ -113,32 +108,27 @@ srModelInstance::RenderScope srModelInstance::scopedRender(srGERD& renderer,
     return RenderScope(*this, renderer, apply_exclusion);
 }
 
-// FUNCTION: SURRENDER 0x1004F4B0
 void srModelInstance::process(const ProcessInfo& info, e_processType type)
 {
     const auto scope = scopedRender(*info.renderer);
     getModel()->render(*info.renderer);
 }
 
-// FUNCTION: SURRENDER 0x1004FF50
 glm::vec3 srModelInstance::getAlignAxis() const
 {
     return align_axis;
 }
 
-// FUNCTION: SURRENDER 0x1004FE90
 int srModelInstance::isAligned() const
 {
     return (int)(alignment_flags & 1);
 }
 
-// FUNCTION: SURRENDER 0x10050000
 w8_ulong srModelInstance::getExclusionMask() const
 {
     return exclusion_mask;
 }
 
-// FUNCTION: SURRENDER 0x1004FE60
 void srModelInstance::setAlignment(int enabled)
 {
     if (enabled != 0) {
@@ -148,21 +138,18 @@ void srModelInstance::setAlignment(int enabled)
     alignment_flags &= ~1u;
 }
 
-// FUNCTION: SURRENDER 0x1004FEA0
 void srModelInstance::setAlignAngle(double angle)
 {
     align_angle = (float)angle;
     alignment_flags |= 1;
 }
 
-// FUNCTION: SURRENDER 0x1004FEC0
 void srModelInstance::setAlignAxis(const glm::vec3& axis)
 {
     align_axis = normalizedOrZero(axis);
     alignment_flags |= 1;
 }
 
-// FUNCTION: SURRENDER 0x1004FFF0
 void srModelInstance::setExclusionMask(w8_ulong mask)
 {
     exclusion_mask = mask;

@@ -9,23 +9,22 @@
 #include <utility>
 #include <vector>
 
+#include <glm/common.hpp>
+#include <glm/vector_relational.hpp>
+
 #include "compat/compiler.h"
 #include "geometry.h"
-#include "glm/common.hpp"
 #include "glm/ext/vector_bool3.hpp"
 #include "glm/ext/vector_float3.hpp"
-#include "glm/vector_relational.hpp"
 #include "surrender/srBoundingBox.h"
 #include "surrender/swept_bounds.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/octree_spatial.h"
 
-// GLOBAL: WIZ8 0x005ec188
 const float g_octree_cell_extent_scale = 1.000100016593933f;
 
 /* Build the cubic spatial domain used to insert processed GameData surfaces.
    The optional level bounds are expanded locally by half a leaf on every axis. */
-// FUNCTION: WIZ8 0x00446390
 W8OctBuildTree::W8OctBuildTree(float leaf_size, std::optional<srBoundingBox> bounds,
                                unsigned short item_limit, short extent_mode)
     : spatial(0)
@@ -98,12 +97,10 @@ W8OctBuildTree::W8OctBuildTree(float leaf_size, std::optional<srBoundingBox> bou
 }
 
 /* The tree owns its nodes and stable link storage. Queries own their results. */
-// FUNCTION: WIZ8 0x004466d0
 W8OctBuildTree::~W8OctBuildTree() = default;
 
 /* Reject triangles outside the build domain, lazily create the root node, and
    then hand the complete typed working record to the recursive inserter. */
-// FUNCTION: WIZ8 0x00446820
 unsigned char W8OctBuildTree::InsertSurface(W8GDSurface* surface,
                                             std::span<const glm::vec3> vertices, w8_ulong mode)
 {
@@ -132,7 +129,6 @@ unsigned char W8OctBuildTree::InsertSurface(W8GDSurface* surface,
 
 /* Descend through every overlapping octant; leaf surface banks retain
    their insertion order independently of child ownership. */
-// FUNCTION: WIZ8 0x004469f0
 unsigned char W8OctBuildTree::InsertSurfaceRecursive(W8OctSpatialState* working,
                                                      W8GDSurface* surface,
                                                      const glm::vec3& planeNormal, w8_ulong mode)
@@ -170,7 +166,6 @@ unsigned char W8OctBuildTree::InsertSurfaceRecursive(W8OctSpatialState* working,
 }
 
 /* Append to the leaf's surface bank in insertion order. */
-// FUNCTION: WIZ8 0x00446d00
 void W8OctBuildTree::AppendLink(W8OctBuildNode* node, void* payload, short kind)
 {
     node->surfaces.at(kind - 2).push_back(payload);
@@ -234,7 +229,6 @@ static int classifyBuildBox(const srBoundingBox& box, const srBoundingBox& bound
     return inside ? 1 : 0;
 }
 
-// FUNCTION: WIZ8 0x00446d80
 std::vector<W8GDSurface*> W8OctBuildTree::queryAlongSegment(const glm::vec3& origin,
                                                             const glm::vec3& delta, float extent,
                                                             unsigned short kind)
@@ -251,7 +245,6 @@ std::vector<W8GDSurface*> W8OctBuildTree::queryAlongSegment(const glm::vec3& ori
     return std::move(collector.results);
 }
 
-// FUNCTION: WIZ8 0x00446f20
 void W8OctBuildTree::collectRecursive(const W8OctSpatialState& state, const srBoundingBox& bounds,
                                       short kind, SurfaceCollector& collector) const
 {
@@ -271,7 +264,6 @@ void W8OctBuildTree::collectRecursive(const W8OctSpatialState& state, const srBo
     }
 }
 
-// FUNCTION: WIZ8 0x00447110
 void W8OctBuildTree::collectLeaf(W8OctBuildNode* node, short depth, short kind,
                                  SurfaceCollector& collector) const
 {

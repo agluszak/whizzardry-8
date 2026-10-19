@@ -16,9 +16,9 @@
 #include "layouts/main_game_screen.h"
 #include "layouts/party_formation.h"
 #include "sight_state.h"
-#include "sprite.h"
 #include "surrender/srNode.h"
 #include "surrender/srScene.h" // IWYU pragma: keep - complete scene type for conversion to srNode.
+#include "wiz8/canvas/sprite.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Item.h"
@@ -46,7 +46,6 @@
    class while a merely-sensed one and anything in the near field use class 3.
    AcquireRadarBlip's highlight path reuses rows group*3 and group*3+2 as the
    facing/up orientation vectors. */
-// GLOBAL: WIZ8 0x0064ca90
 static float g_radar_blip_colors[18][3] = {
     {0.5f, 0.5f, 0.0f}, {0.7f, 0.7f, 0.0f}, {1.0f, 1.0f, 0.0f}, {0.5f, 0.0f, 0.0f},
     {0.7f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.5f, 0.0f}, {0.0f, 0.7f, 0.0f},
@@ -56,12 +55,10 @@ static float g_radar_blip_colors[18][3] = {
 };
 
 /* UbDisposition to blip class for live monsters. */
-// GLOBAL: WIZ8 0x0064cb68
 static unsigned char g_radar_disposition_class[4] = {0, 1, 2, 0};
 
 /* Screen offsets at which the zoomed map image gets each
    occupied formation cell's party-order chip painted. */
-// GLOBAL: WIZ8 0x0064cb6c
 static glm::ivec2 g_radar_cell_offsets[15] = {
     {45, 37}, {42, 38}, {48, 38}, {53, 45}, {52, 42}, {52, 48}, {45, 53}, {48, 52},
     {42, 52}, {37, 45}, {38, 48}, {38, 42}, {45, 42}, {43, 46}, {47, 46},
@@ -70,34 +67,20 @@ static glm::ivec2 g_radar_cell_offsets[15] = {
 /* The radar overlay's runtime state: the lazily built backdrop, the zoom
    preset flag, the three sprites, the eighteen sector blip pools with their
    per-sector reuse cursors, and the active range/scale band. */
-// GLOBAL: WIZ8 0x0069bf58
 static stModelInstance2D* g_radar_backdrop = 0;
-// GLOBAL: WIZ8 0x0069bf5c
 static bool g_radar_zoomed = false;
-// GLOBAL: WIZ8 0x0069bf60
 static stModelInstance2D* g_radar_compass = 0;
-// GLOBAL: WIZ8 0x0069c088
 static stModelInstance2D* g_radar_frame = 0;
-// GLOBAL: WIZ8 0x0069bf68
 static std::vector<std::unique_ptr<stModelInstance2D>> g_radar_icon_pools[18];
-// GLOBAL: WIZ8 0x0069c08c
 static int g_radar_icon_cursors[18];
-// GLOBAL: WIZ8 0x0069c0d4
 static float g_radar_outer_radius;
-// GLOBAL: WIZ8 0x0069c0d8
 static float g_radar_inner_radius;
-// GLOBAL: WIZ8 0x0069c0dc
 static stModelInstance2D* g_radar_map = 0;
-// GLOBAL: WIZ8 0x0069c0e0
 static float g_radar_map_scale;
-// GLOBAL: WIZ8 0x0069c0e4
 static bool g_radar_map_enabled = false;
 
-// GLOBAL: WIZ8 0x005eece8
 const float g_radar_center_y = 404.0f;
-// GLOBAL: WIZ8 0x005eecec
 const float g_radar_center_x = 75.0f;
-// GLOBAL: WIZ8 0x005eecf0
 const float g_radar_max_marker_scale = 38.0f;
 
 static stModelInstance2D* AcquireRadarBlip(int sector, bool lit);
@@ -116,7 +99,6 @@ static void ResetRadarBlips()
     }
 }
 
-// FUNCTION: WIZ8 0x005a20e0
 void EnableRadarMap(bool enable)
 {
     g_radar_map_enabled = enable;
@@ -125,7 +107,6 @@ void EnableRadarMap(bool enable)
     }
 }
 
-// FUNCTION: WIZ8 0x005a2140
 void EnsureRadarMapOverlay(void)
 {
     if (g_radar_backdrop == 0) {
@@ -141,7 +122,6 @@ void EnsureRadarMapOverlay(void)
     }
 }
 
-// FUNCTION: WIZ8 0x005a21b0
 static stModelInstance2D* AcquireRadarBlip(int sector, bool lit)
 {
     auto& pool = g_radar_icon_pools[sector];
@@ -184,7 +164,6 @@ static stModelInstance2D* AcquireRadarBlip(int sector, bool lit)
     return icon;
 }
 
-// FUNCTION: WIZ8 0x005a23e0
 void ReleaseRadarMap(void)
 {
     if (g_radar_map != 0) {
@@ -205,7 +184,6 @@ void ReleaseRadarMap(void)
     ReleaseRendererObject(g_radar_backdrop);
 }
 
-// FUNCTION: WIZ8 0x005a24a0
 void RefreshRadarMap(void)
 {
     int sector;
@@ -265,7 +243,6 @@ void RefreshRadarMap(void)
     UpdateRadarBlips({});
 }
 
-// FUNCTION: WIZ8 0x005a2800
 void UpdateRadarBlips(const W8TargetingPresentation& presentation)
 {
     glm::vec3 camera;
@@ -290,22 +267,21 @@ void UpdateRadarBlips(const W8TargetingPresentation& presentation)
     detect_all = PartyHasCondition(0x40);
 
     for (const auto& world_item : CurrentLevelPopulation().world_items) {
-        W8Item* item = world_item->p3D;
+        WorldItemEntity* item = world_item->p3D;
 
         if (item != 0) {
-            W8ItemRep* rep = item->m_pRep.get();
-            if ((rep->flags & W8_ITEM_ENTITY_NO_PICKUP) == 0) {
-                position = rep->GetLocation();
+            if ((item->flags & W8_ITEM_ENTITY_NO_PICKUP) == 0) {
+                position = item->GetLocation();
                 const auto bounds = item->GetCachedLocalBounds();
                 center = bounds.center();
                 position += center;
                 party = PartyNavigator()->GetPosition();
                 delta = position - party;
-                if ((detect_all || (rep->flags & W8_ITEM_ENTITY_RADAR_SEEN) != 0 ||
+                if ((detect_all || (item->flags & W8_ITEM_ENTITY_RADAR_SEEN) != 0 ||
                      HasCameraLineOfSight(&position)) &&
                     glm::length(delta) <= g_radar_outer_radius) {
                     if (PlaceRadarBlip(&delta, 4, item->IsRadarBlipLit()) != 0) {
-                        rep->flags |= W8_ITEM_ENTITY_RADAR_SEEN;
+                        item->flags |= W8_ITEM_ENTITY_RADAR_SEEN;
                     }
                 }
             }
@@ -410,7 +386,6 @@ void UpdateRadarBlips(const W8TargetingPresentation& presentation)
     SetRendererModePair();
 }
 
-// FUNCTION: WIZ8 0x005a3060
 static unsigned char PlaceRadarBlip(glm::vec3* delta, int group, bool lit)
 {
     int ring = 0;
@@ -458,7 +433,6 @@ static unsigned char PlaceRadarBlip(glm::vec3* delta, int group, bool lit)
     return 1;
 }
 
-// FUNCTION: WIZ8 0x005a3360
 void ToggleRadarMapZoom(void)
 {
     if (!g_radar_zoomed) {
@@ -474,7 +448,6 @@ void ToggleRadarMapZoom(void)
     ZoomRadarMapOut();
 }
 
-// FUNCTION: WIZ8 0x005a3410
 void ZoomRadarMapIn(void)
 {
     g_radar_zoomed = true;
@@ -484,7 +457,6 @@ void ZoomRadarMapIn(void)
     RefreshRadarMap();
 }
 
-// FUNCTION: WIZ8 0x005a3470
 void ZoomRadarMapOut(void)
 {
     float radius = PartyNavigator()->radius;

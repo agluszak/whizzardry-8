@@ -11,6 +11,7 @@
 #include <limits>
 #include <memory>
 #include <stdexcept>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -19,9 +20,9 @@
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srBoundingBox.h"
 #include "surrender/srDebug.h"
+#include "wiz8/audio/AmbientSound.h"
 #include "wiz8/binary_reader.h"
 #include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/AmbientSound.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/OctBuildTree.h"
@@ -37,20 +38,11 @@ constexpr float kSurfaceFlatNormalThreshold = 0.9959999918937683f;
 
 class Trigger;
 
-// GLOBAL: WIZ8 0x005ec1ac
-// GLOBAL: WIZ8 0x005ec1b0
-// GLOBAL: WIZ8 0x005ec1b4
-// GLOBAL: WIZ8 0x005ff56c
-
-// GLOBAL: WIZ8 0x00659a58
 static int g_integrated_trigger_count;
 
-// GLOBAL: WIZ8 0x00603ab8
 float g_default_momentum_scale = 0.30000001192092896f;
-// GLOBAL: WIZ8 0x00603abc
 float g_default_motion_limit = 112.5f;
 
-// GLOBAL: WIZ8 0x005ec1a4
 const float g_path_endpoint_scale = 0.9900000095367432f;
 
 /* Opens a game-data file, builds its record, and pulls the polygon and
@@ -63,8 +55,7 @@ static std::unique_ptr<W8GameData> ReadGeometry(std::unique_ptr<wiz8::File> file
     return game_data;
 }
 
-// FUNCTION: WIZ8 0x00447570
-std::unique_ptr<W8GameData> ReadGameData(const char* path, bool secondary)
+std::unique_ptr<W8GameData> ReadGameData(std::string_view path, bool secondary)
 {
     std::unique_ptr<wiz8::File> file;
     try {
@@ -153,7 +144,6 @@ InterfaceBank BuildInterfaces(std::size_t count, const std::vector<ConditionalFa
 }
 }
 
-// FUNCTION: WIZ8 0x00447660
 unsigned char W8GameData::ReadWGDList(wiz8::File& file, int poly_type)
 {
     if (poly_type < 0 || poly_type > 2) throw std::runtime_error("invalid WGD poly type");
@@ -272,8 +262,7 @@ unsigned char W8GameData::ReadWGDList(wiz8::File& file, int poly_type)
 
 /* Answers the 1-based ordinal of the name-table entry matching `name`,
    else -1. */
-// FUNCTION: WIZ8 0x004482A0
-int W8GameData::FindPointerByName(const char* name)
+int W8GameData::FindPointerByName(std::string_view name)
 {
     const auto found = std::find(interface_names.begin(), interface_names.end(), name);
     return found == interface_names.end() ? -1 : int(found - interface_names.begin()) + 1;
@@ -300,7 +289,6 @@ void W8GameData::AddTriggerTriangle(int trigger_index, int vertex_0, int vertex_
     surface->hit_plane = 0;
 }
 
-// FUNCTION: WIZ8 0x00448310
 void W8GameData::AddTriggerPlane(const glm::vec3* trigger_vertices, Trigger* trigger)
 {
     int trigger_index = 0;
@@ -311,15 +299,15 @@ void W8GameData::AddTriggerPlane(const glm::vec3* trigger_vertices, Trigger* tri
             m_ppTriggers.resize(m_iNumTriggers);
         }
         if (g_integrated_trigger_count >= m_iNumTriggers) {
-            srAssertFail("(iTriggerCount < m_iNumTriggers)",
-                         "AddTriggerPlane: Too many triggers for trigger array.");
+            Fail("(iTriggerCount < m_iNumTriggers)",
+                 "AddTriggerPlane: Too many triggers for trigger array.");
         }
         m_ppTriggers[g_integrated_trigger_count++] = trigger;
         return;
     }
 
     if (TrigSurfacesCount() >= 500) {
-        srAssertFail("(TrigSurfacesCount() < MAX_TRIG_SURFACES)");
+        Fail("(TrigSurfacesCount() < MAX_TRIG_SURFACES)");
     }
 
     for (index = 0; index < m_iNumTriggers && trigger_index == 0; ++index) {
@@ -342,7 +330,6 @@ void W8GameData::AddTriggerPlane(const glm::vec3* trigger_vertices, Trigger* tri
                        TrigVerticesCount() - 4);
 }
 
-// FUNCTION: WIZ8 0x00448840
 void W8GameData::IntegrateTriggers()
 {
     if (TrigVerticesCount() == 0) {
@@ -365,7 +352,6 @@ void W8GameData::IntegrateTriggers()
 }
 
 /* Append an owned environment derived from the linked surface plane. */
-// FUNCTION: WIZ8 0x00448E60
 
 struct W8ProcessedGameDataHeader {
     unsigned int version;
@@ -384,7 +370,6 @@ struct W8ProcessedGameDataHeader {
     unsigned char reserved[0x24];
 };
 
-// FUNCTION: WIZ8 0x0041a820
 unsigned char W8EnvironRecord::RescaleToReference(const W8EnvironRecord* reference)
 {
     if (reference == 0) {
@@ -418,7 +403,6 @@ unsigned char W8EnvironRecord::RescaleToReference(const W8EnvironRecord* referen
 }
 
 /* Read the processed GameData header and all of its variable-size banks. */
-// FUNCTION: WIZ8 0x00449240
 void W8GameData::ReadProcessedGameData(wiz8::File* handle)
 {
     wiz8::BinaryReader reader(*handle);
@@ -524,7 +508,6 @@ void W8GameData::ReadProcessedGameData(wiz8::File* handle)
 
 /* 0x0044902E is the constructor's shared body entry: the SEH wrapper at
    0x00449010 zeroes EBX and falls through into the code below. */
-// FUNCTION: WIZ8 0x00449010
 W8GameData::W8GameData(wiz8::File* handle, bool)
 {
     geometry_index = 0;
@@ -534,9 +517,7 @@ W8GameData::W8GameData(wiz8::File* handle, bool)
     trigger_surface_base = 0;
 
     m_iNumTriggers = 0;
-    last_hit_surface = 0;
 
-    trace_flag4_gate = false;
     minimum = glm::vec3(1.0e8f);
     maximum = glm::vec3(-1.0e8f);
     if (handle != 0) {
@@ -551,7 +532,6 @@ W8GameData::W8GameData(wiz8::File* handle, bool)
 /* Build the processed level's spatial index once and publish every surface
    from its primary 0x4c-byte bank.  The constructor expands only local bounds,
    leaving the serialized GameData limits unchanged. */
-// FUNCTION: WIZ8 0x004497c0
 unsigned char InitializeGameData(W8GameData* game_data)
 {
     if (game_data == 0) {
@@ -577,7 +557,6 @@ unsigned char InitializeGameData(W8GameData* game_data)
 /* Rebuild one indexed surface plane and derive the runtime classification
    carried by the level-geometry record. Bit 0x80 requests dominant-axis
    selection; bit 4 is the walkable slope classification. */
-// FUNCTION: WIZ8 0x004498c0
 void ClassifySurfacePlane(const glm::vec3* vertices, W8GDSurface* surface)
 {
     surface->plane =
@@ -626,5 +605,4 @@ void ClassifySurfacePlane(const glm::vec3* vertices, W8GDSurface* surface)
 }
 
 /* Release level globals; member owners release the runtime banks. */
-// FUNCTION: WIZ8 0x00449BB0
 W8GameData::~W8GameData() = default;

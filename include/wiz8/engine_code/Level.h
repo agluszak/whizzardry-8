@@ -5,7 +5,6 @@
 /* Engine Code\ReadLevel.cpp. The allocation sites at 0x0044F2A1 and
    0x004BA3E3 establish the complete size. The constructor/destructor pair
    registers the object as class 0x10007 and proves srNode as its base. */
-// VTABLE: WIZ8 0x005ED0F0 stLevel
 class stLevel : public srNode {
 public:
     explicit stLevel(srNode* parent);

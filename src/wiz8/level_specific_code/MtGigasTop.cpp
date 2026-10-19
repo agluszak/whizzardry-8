@@ -19,7 +19,6 @@ struct W8NpcState;
 
 /* Activation callback on _VOC_EWAXXCANNON1: hands the cannon NPC (kind 0x58)
    the item the player is holding, if any, as script argument -1. */
-// FUNCTION: WIZ8 0x004DC6B0
 bool OnEwaxxCannon1Activated(Trigger* trigger)
 {
     QueueNpcHeldItemNotice(0x58);
@@ -28,7 +27,6 @@ bool OnEwaxxCannon1Activated(Trigger* trigger)
 
 /* Activation callback on EwaxxLanding: same held-item handoff to the landing
    NPC (kind 0x7f). */
-// FUNCTION: WIZ8 0x004DC6E0
 bool OnEwaxxLandingActivated(Trigger* trigger)
 {
     QueueNpcHeldItemNotice(0x7f);
@@ -37,7 +35,6 @@ bool OnEwaxxLandingActivated(Trigger* trigger)
 
 /* Activation callback on catchCord: records fact 0x177 once the party grabs
    the catch cord. */
-// FUNCTION: WIZ8 0x004DC710
 bool OnCatchCordActivated(Trigger* trigger)
 {
     SetFact(W8_FACT_TMISSION_KILL_UMPANI_CORD_SEVERED, 1, false);
@@ -46,7 +43,6 @@ bool OnCatchCordActivated(Trigger* trigger)
 
 /* Activation callback on _VOC_EWAXXTOPDOOR2: hands the top-door NPC (kind
    0x60) the held item, if any, as script argument -1. */
-// FUNCTION: WIZ8 0x004DC730
 bool OnEwaxxTopDoor2Activated(Trigger* trigger)
 {
     QueueNpcHeldItemNotice(0x60);
@@ -56,7 +52,6 @@ bool OnEwaxxTopDoor2Activated(Trigger* trigger)
 
 /* Activation callback on painActivatorTrigger: rolls 1d40+30 health damage
    against the party; the trigger stays armed (returns false). */
-// FUNCTION: WIZ8 0x004DC770
 bool OnPainActivatorActivated(Trigger* trigger)
 {
     W8Dice dice;

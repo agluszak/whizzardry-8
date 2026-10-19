@@ -9,7 +9,6 @@
    unresolved fragment; the descriptive name does not prove original-TU
    identity. */
 
-// FUNCTION: WIZ8 0x00554580
 void InitializePartyFormation(W8PartyFormationState* formation)
 {
     unsigned int index;

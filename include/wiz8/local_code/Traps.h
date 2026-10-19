@@ -1,6 +1,6 @@
 #pragma once
 
-#include "input.h"
+#include "wiz8/platform/input.h"
 
 class Trigger;
 

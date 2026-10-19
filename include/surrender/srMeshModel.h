@@ -15,7 +15,6 @@
 #include "srShader.h"
 #include "srTexture.h"
 
-// VTABLE: SURRENDER 0x10076D48 srMeshModel
 class srMeshModel : public srModel {
 public:
     using PolygonSelection = std::optional<std::span<const w8_ulong>>;
@@ -109,7 +108,6 @@ public:
     srTexture* getTexture(w8_long polygon, w8_long layer) const;
     void setMaterial(std::shared_ptr<srMaterial> material, w8_long polygon, e_side side);
     void setTexture(std::shared_ptr<srTexture> texture, w8_long polygon, w8_long layer);
-    // FUNCTION: SURRENDER 0x10041710 SYMBOL
     // RECOMP: ?setDirty@srMeshModel@@QAEXW4e_flags@1@@Z
     void setDirty(e_flags flag)
     {
@@ -118,7 +116,6 @@ public:
             dirty_flags |= mask | (1u << DIRTY_TRI_MESH);
         }
     }
-    // FUNCTION: SURRENDER 0x10041750 SYMBOL
     // RECOMP: ?clearDirty@srMeshModel@@QAEXW4e_flags@1@@Z
     void clearDirty(e_flags flag) { dirty_flags &= ~(1u << flag); }
     srShader* getPolyShader(w8_long polygon, int layer);
@@ -132,7 +129,6 @@ public:
     w8_long getPolygonCount() const;
     w8_long getVertexCount() const;
     void setPassCount(w8_long count);
-    // FUNCTION: SURRENDER 0x10041790
     void setSortBias(float bias)
     {
         sort_bias = bias;
@@ -140,13 +136,11 @@ public:
     }
     float getSortBias() const;
     void disable(e_control control);
-    // FUNCTION: SURRENDER 0x10041830
     void enable(e_control control)
     {
         render_control |= 1u << control;
         setDirty(DIRTY_TRI_MESH);
     }
-    // FUNCTION: SURRENDER 0x10041660
     void setDirtyAll()
     {
         setDirty(DIRTY_BOUNDS);

@@ -27,7 +27,6 @@ struct srVertexArray {
 };
 
 /* Interface with no data beyond its vptr. */
-// VTABLE: SURRENDER 0x10076c74 srVertexProcessor
 class srVertexProcessor {
 public:
     srVertexProcessor() = default;
@@ -35,7 +34,6 @@ public:
     srVertexProcessor& operator=(const srVertexProcessor&) = default;
     virtual ~srVertexProcessor() = default;
     struct MaterialInfo {
-        // FUNCTION: WIZ8 0x00424A80
         inline MaterialInfo() : disabled_channels(0) {}
 
         glm::vec4 diffuse;          /* 0x00 */
@@ -64,13 +62,9 @@ public:
     };
 
 protected:
-    // FUNCTION: WIZ8 0x0042A360
-
 public:
     // The provider's base vtable contains these bodies, not _purecall.
-    // FUNCTION: SURRENDER 0x10035470
     virtual int isActive(srVertexPipe& pipe) { return 1; }
-    // FUNCTION: SURRENDER 0x10035480
     virtual void process(srVertexPipe& pipe) {}
 
 public:

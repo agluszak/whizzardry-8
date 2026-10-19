@@ -17,12 +17,11 @@
 #include "layouts/gameplay_databases.h"
 #include "layouts/world.h"
 #include "local_code/SpellEffect.h"
-#include "random.h"
 #include "surrender/srMath.h"
+#include "wiz8/audio/sound3d.h"
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/GDProp.h"
-#include "wiz8/engine_code/IntervalGate.h"
 #include "wiz8/engine_code/Missile.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Octree.h"
@@ -30,7 +29,6 @@
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/stParticle.h"
-#include "wiz8/engine_code/stSound3D.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/character.h"
@@ -47,6 +45,8 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/location_variables.h"
+#include "wiz8/platform/IntervalGate.h"
+#include "wiz8/platform/random.h"
 #include "wiz8/string_database.h"
 
 /* Level Specific Code\MartensBluff2.cpp (level 6).
@@ -58,31 +58,18 @@
    (Arrowtraptrigger, Spikeballtrigger, DoorBolt, DummyLever, Dummy,
    PerfumeBox, StoneIdol, BlueFlowers, SquisherControls, DoorControls). */
 
-// GLOBAL: WIZ8 0x00613828
 static bool g_idol_gas_armed = true;
-// GLOBAL: WIZ8 0x0068352D
 static bool g_crusher_excluded_flag;
-// GLOBAL: WIZ8 0x0068352E
 static bool g_crusher_active;
-// GLOBAL: WIZ8 0x00683530
 static std::optional<W8IntervalGate> g_spikeball_gate;
-// GLOBAL: WIZ8 0x00683534
 static int g_spikeball_count;
-// GLOBAL: WIZ8 0x00683538
 static W8Monster* g_crusher_excluded;
-// GLOBAL: WIZ8 0x0068353C
 static W8Prop* g_squisher3_prop;
-// GLOBAL: WIZ8 0x00683540
 static W8Prop* g_squisher4_prop;
-// GLOBAL: WIZ8 0x00683544
 static W8Prop* g_dummy_prop;
-// GLOBAL: WIZ8 0x00683548
 static W8Prop* g_dummy_rope_prop;
-// GLOBAL: WIZ8 0x0068354C
-static stSound3D* g_crusher_sound;
-// GLOBAL: WIZ8 0x00683550
+static Sound3D* g_crusher_sound;
 static int g_crusher_state;
-// GLOBAL: WIZ8 0x00683554
 static std::optional<W8IntervalGate> g_idol_gas_gate;
 
 /* Level init: creates the RavenQuest location variable, fires the Dummy
@@ -90,7 +77,6 @@ static std::optional<W8IntervalGate> g_idol_gas_gate;
    lever from the saved quest state, respawns the rapax with its move script
    at state 2, re-arms the side-gate text while the bolt is open and restores
    the spikeball/crusher master functions from their saved counts. */
-// FUNCTION: WIZ8 0x004DCB50
 void MartensBluff2Setup(void)
 {
     Trigger* pTrigger;
@@ -181,7 +167,6 @@ static void FireTrapLauncher(const char* name, W8SpellEffectDefinition* effect)
 
 /* "Arrowtraptrigger": fires a missile from each named launcher entity along
    its facing direction, rotated by the entity's yaw angle. */
-// FUNCTION: WIZ8 0x004DCD40
 bool TriggerArrowTrap(Trigger* pTrigger)
 {
     W8SpellEffectDefinition effect;
@@ -215,7 +200,6 @@ bool TriggerArrowTrap(Trigger* pTrigger)
 
 /* "Spikeballtrigger": toggles the spikeball master function's launcher
    sequence through its toggle command. */
-// FUNCTION: WIZ8 0x004DD3E0
 bool MartensBluff2Spikeballtrigger(Trigger* pTrigger)
 {
     MartensBluff2Spikeball(static_cast<int>(0xEFFFFFFF));
@@ -232,7 +216,6 @@ static void CaptureSpikeball(W8SavedLocationState& state)
    other small value is the starting shot count. Command 0 is the per-frame
    run; it fires the four Spikeball-launcher entities every two seconds until
    the count reaches sixteen, then unregisters and saves the reset. */
-// FUNCTION: WIZ8 0x004DD3F0
 bool MartensBluff2Spikeball(int command)
 {
     W8SpellEffectDefinition effect;
@@ -298,7 +281,6 @@ bool MartensBluff2Spikeball(int command)
 }
 
 /* "DoorBolt": re-arms the side-gate text trigger when the bolt opens. */
-// FUNCTION: WIZ8 0x004DDD30
 bool MartensBluff2DoorBolt(Trigger* pTrigger)
 {
     Trigger* pText = FindTriggerByName("SideGateText");
@@ -310,7 +292,6 @@ bool MartensBluff2DoorBolt(Trigger* pTrigger)
 
 /* "DummyLever": re-arms itself and reports whether the RavenQuest location
    variable is still zero. */
-// FUNCTION: WIZ8 0x004DDD50
 bool MartensBluff2DummyLever(Trigger* pTrigger)
 {
     pTrigger->flags &= ~W8_TRIGGER_ENABLED;
@@ -320,7 +301,6 @@ bool MartensBluff2DummyLever(Trigger* pTrigger)
 /* "Dummy": re-arms the PerfumeBox trigger and marks RavenQuest stage 1. The
    shared callback flag suppresses this while the quest state is being driven
    programmatically. */
-// FUNCTION: WIZ8 0x004DDD80
 bool MartensBluff2Dummy(Trigger* pTrigger)
 {
     if (!g_running_trigger_from_script) {
@@ -336,7 +316,6 @@ bool MartensBluff2Dummy(Trigger* pTrigger)
 /* "PerfumeBox": while item 0x2ea (the perfume) is on the cursor, consume it,
    spawn the rapax on Ravenz with its move script and post the result string.
    Always returns 0. */
-// FUNCTION: WIZ8 0x004DDDC0
 bool MartensBluff2PerfumeBox(Trigger* pTrigger)
 {
     glm::vec3 position;
@@ -374,7 +353,6 @@ bool MartensBluff2PerfumeBox(Trigger* pTrigger)
 
 /* "DoorControls": while the control trigger is off, fires the two squisher
    doors whose door action data is open. */
-// FUNCTION: WIZ8 0x004DDEB0
 bool MartensBluff2DoorControls(Trigger* pTrigger)
 {
     if (pTrigger->state_index == 0) {
@@ -383,9 +361,7 @@ bool MartensBluff2DoorControls(Trigger* pTrigger)
             if (pDoor == nullptr) {
                 continue;
             }
-            W8TriggerActionData* action = pDoor->m_pActionData.get();
-            if (action != nullptr && action->type == W8_TRIGGER_PAYLOAD_DOOR &&
-                static_cast<W8DoorTriggerActionData*>(action)->open) {
+            if (const auto* door = pDoor->doorData(); door && door->open) {
                 pDoor->Run(-1);
             }
         }
@@ -394,7 +370,6 @@ bool MartensBluff2DoorControls(Trigger* pTrigger)
 }
 
 /* "SquisherControls": toggles the monster crusher while it is idle. */
-// FUNCTION: WIZ8 0x004DDF20
 bool MartensBluff2SquisherControls(Trigger* pTrigger)
 {
     if (!g_crusher_active) {
@@ -417,7 +392,6 @@ static void CaptureCrusher(W8SavedLocationState& state)
    with room aside and crushing the rest (species 0x183 pays out through
    AwardPartyExperience); once the squisher finishes it runs the Dummy and DummyRope
    triggers, and once those props finish it unregisters. */
-// FUNCTION: WIZ8 0x004DDF40
 bool MartensBluff2MonsterCrusher(int command)
 {
     /* The bounds box the octree query below sweeps; function-local statics,
@@ -493,10 +467,10 @@ bool MartensBluff2MonsterCrusher(int command)
         return false;
     }
     if (g_dummy_prop != 0) {
-        if (g_dummy_prop->Rep()->animation_playing != 0) {
+        if (g_dummy_prop->animation_playing != 0) {
             return false;
         }
-        if (g_dummy_rope_prop->Rep()->animation_playing != 0) {
+        if (g_dummy_rope_prop->animation_playing != 0) {
             return false;
         }
 
@@ -504,7 +478,7 @@ bool MartensBluff2MonsterCrusher(int command)
         g_crusher_state = 0;
         return true;
     }
-    if (g_squisher3_prop->Rep()->animation_playing == 0) {
+    if (g_squisher3_prop->animation_playing == 0) {
         if (g_crusher_sound != 0) {
             g_crusher_sound->Stop();
         }
@@ -562,7 +536,6 @@ bool MartensBluff2MonsterCrusher(int command)
 
 /* "StoneIdol": while the cursor is free, puts item 0x291 in hand, posts the
    text, activates the IdolGas particle and arms the IdolGas master function. */
-// FUNCTION: WIZ8 0x004DE520
 bool MartensBluff2StoneIdol(Trigger* pTrigger)
 {
     stParticle* particle;
@@ -588,7 +561,6 @@ bool MartensBluff2StoneIdol(Trigger* pTrigger)
 
 /* "BlueFlowers": while the cursor is free, puts item 0x2eb in hand. The
    shared callback flag is cleared on every run. */
-// FUNCTION: WIZ8 0x004DE620
 bool MartensBluff2BlueFlowers(Trigger* pTrigger)
 {
     if (!g_running_trigger_from_script) {
@@ -607,7 +579,6 @@ bool MartensBluff2BlueFlowers(Trigger* pTrigger)
    the gate, then fades back in, picks a party member to suffer the gas when
    no kind-0x1e NPC is around and stops the particle; the following run
    unregisters. */
-// FUNCTION: WIZ8 0x004DE660
 bool MartensBluff2IdolGas(int command)
 {
     stParticle* particle;
@@ -651,7 +622,6 @@ bool MartensBluff2IdolGas(int command)
    falls back to the first dead member when nothing scored - a retail
    unreachable path, since a nonzero lowest score implies a candidate. The
    winner gets condition 0x13 indefinitely and fact 0x33 records the event. */
-// FUNCTION: WIZ8 0x004DE7D0
 void MartensBluff2IdolGasVictim(void)
 {
     unsigned int severities[8];

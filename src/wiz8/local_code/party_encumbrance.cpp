@@ -35,7 +35,6 @@ constexpr int kCampOverloadEventId = 8;
    resistances, the encumbrance and load category, and then the initiative,
    attacks and armor classes. A character whose profession, race or gender is
    still unset is left alone. */
-// FUNCTION: WIZ8 0x004ed9d0
 void RecalculateCharacterDerivedStats(W8Character* character)
 {
     int index;
@@ -117,7 +116,6 @@ void RecalculateCharacterDerivedStats(W8Character* character)
 /* Carrying capacity from strength and the carrying trait. The two attributes
    are the third and first effective values, the same pair the stamina
    recomputation reads. */
-// FUNCTION: WIZ8 0x004edc10
 bool RecalculateCarryingCapacity(W8Character* character)
 {
     unsigned int previous = character->carrying_capacity;
@@ -134,7 +132,6 @@ bool RecalculateCarryingCapacity(W8Character* character)
 /* Sum the stack weights of everything the character carries. Crossing the
    carrying capacity in the old-to-new direction raises the overloaded
    notice. */
-// FUNCTION: WIZ8 0x004edc60
 bool RecalculateCarriedWeight(W8Character* character)
 {
     unsigned int previous = character->inventory_weight;
@@ -159,7 +156,6 @@ bool RecalculateCarriedWeight(W8Character* character)
 /* Split the shared party-pool weight across eligible members by remaining
    carrying capacity, then refresh each member's load band. Combat defers the
    work by raising the pending-redistribution flag instead. */
-// FUNCTION: WIZ8 0x004edd20
 void RedistributePartyEncumbrance(void)
 {
     int capacity[8];

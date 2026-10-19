@@ -7,7 +7,7 @@
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 
-#include "sprite.h"
+#include "wiz8/canvas/sprite.h"
 
 // Whether a bitmap draw skips transparent (zero) pixels; sprites carry their own transparency.
 enum class BitmapKey : bool { Opaque, Transparent };

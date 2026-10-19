@@ -37,7 +37,6 @@ static void RunTreasureDoor()
    the NP_SlipItem entity and runs the TDoor1 trigger. When TdoorOpen is
    already set the treasure is deferred through the TMakeTreasure/
    TMakeTreasureNumber location vars for DoorDone to deliver. */
-// FUNCTION: WIZ8 0x004DA110
 bool RapaxUpperFloorAirBox(Trigger* pTrigger)
 {
     glm::vec3 entity_position;
@@ -96,7 +95,6 @@ bool RapaxUpperFloorAirBox(Trigger* pTrigger)
 /* "DoorDone": when TMakeTreasure is armed and TdoorOpen is still closed,
    deliver the stashed TMakeTreasureNumber item at NP_SlipItem and run TDoor1.
    Returns 0 once the treasure is delivered. */
-// FUNCTION: WIZ8 0x004DA2E0
 bool RapaxUpperFloorDoorDone(Trigger* pTrigger)
 {
     glm::vec3 entity_position;

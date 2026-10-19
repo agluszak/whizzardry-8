@@ -20,9 +20,9 @@
 #include "local_code/TextBuffer.h"
 #include "retail_item_payloads.h"
 #include "spell_ids.h"
-#include "sprite.h"
 #include "surrender/srDebug.h"
 #include "wiz8/button_interaction.h"
+#include "wiz8/canvas/sprite.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
@@ -48,16 +48,13 @@
 #include "wiz8/ui_input.h"
 #include "wiz8/xstatus.h"
 
-// GLOBAL: WIZ8 0x0064f918
 static int g_assay_scroll_x_offset = 0x160;
-// GLOBAL: WIZ8 0x0064f91c
 static int g_assay_scroll_y_offset = 0x48;
 struct W8AssayButtonOffset {
     int x;
     int y;
 };
 
-// GLOBAL: WIZ8 0x0064f920
 static W8AssayButtonOffset g_assay_button_offsets[W8_ASSAY_BUTTON_COUNT] = {
     {0xb, 0xb},   {0xb, 0xb},   {0xd, 0xd},   {0x27, 0xd},  {0x46, 0x48}, {0x14f, 0xf5},
     {0xd, 0x2a},  {0xd, 0x47},  {0xd, 0x64},  {0xd, 0x81},  {0xd, 0x9e},  {0xd, 0xbb},
@@ -67,37 +64,27 @@ static W8AssayButtonOffset g_assay_button_offsets[W8_ASSAY_BUTTON_COUNT] = {
     {0x26, 0x47}, {0x26, 0x64}, {0x26, 0x81}, {0x26, 0x9e}, {0x26, 0xbb}, {0x26, 0xd8},
     {0x26, 0xf5},
 };
-// GLOBAL: WIZ8 0x0064fa48
 static W8ControlsRect g_assay_text_buffer_offsets[W8_ASSAY_TEXT_BUFFER_COUNT] = {
     {117, 15, 343, 31}, {117, 35, 170, 47}, {174, 35, 343, 47},
     {117, 53, 170, 65}, {174, 53, 343, 65},
 };
-// GLOBAL: WIZ8 0x0064fa98
 static W8ControlsRect g_assay_text_area_offsets = {0x48, 0x4a, 0x156, 0xef};
-// GLOBAL: WIZ8 0x0064faa8
 static int g_assay_text_buffer_string_ids[W8_ASSAY_TEXT_BUFFER_COUNT] = {270, 271, 270, 272, 270};
-// GLOBAL: WIZ8 0x0061e7dc
 unsigned short g_equip_class_name_ids[32] = {
     1087, 1088, 1089, 1090, 1091, 1092, 1093, 1094, 1095, 1096, 1097, 1098, 1099, 1100, 1101, 1102,
     1103, 1104, 1105, 1106, 1107, 1108, 1109, 1110, 1111, 1112, 1114, 1115, 1116, 1117, 1118, 1119};
 /* String-list label ids indexed by W8ItemDatabaseRecord::flags bit. */
-// GLOBAL: WIZ8 0x0061e938
 static unsigned short g_item_flag_name_ids[8] = {
     1255, 1256, 1257, 1258, 1259, 1260, 1261, 1262,
 };
 /* String-list label ids indexed by W8ItemDatabaseRecord::quantity_kind. */
-// GLOBAL: WIZ8 0x0061e948
 static unsigned short g_quantity_kind_name_ids[7] = {
     1264, 1265, 1266, 1267, 1268, 0, 1269,
 };
-// GLOBAL: WIZ8 0x0069c818
 static std::string g_assay_entry_text;
-
-// STRING: WIZ8 0x0064FAE4
 
 enum { NUM_RPC_RACES = 5 };
 
-// FUNCTION: WIZ8 0x005d6fb0
 W8AssayDialog::W8AssayDialog(const W8ItemInstance& item, W8Character* character, SDL_Point origin)
     : m_item(item), m_item_worn(character && IsItemWornByCharacter(character, &item))
 {
@@ -123,10 +110,8 @@ W8AssayDialog::W8AssayDialog(const W8ItemInstance& item, W8Character* character,
     m_buttons[gXStatus.assay_professions_tab ? 2 : 3].SetPressed(true);
 }
 
-// FUNCTION: WIZ8 0x005d7090
 W8AssayDialog::~W8AssayDialog() = default;
 
-// FUNCTION: WIZ8 0x005d72b0
 static void AppendAssayEntryText(std::string_view text)
 {
     g_assay_entry_text += text;
@@ -151,7 +136,6 @@ static int AppendAssayRequirements(const W8ItemRequirement* requirement, int cou
     return count;
 }
 
-// FUNCTION: WIZ8 0x005d7310
 void W8AssayDialog::PopulateText()
 {
     W8ControlsRect bounds;
@@ -459,7 +443,7 @@ void W8AssayDialog::PopulateText()
     if (record->category == W8_ITEM_CATEGORY_CASTER_ITEM_6 ||
         record->category == W8_ITEM_CATEGORY_CASTER_ITEM_8) {
         if (record->spell_id == W8_SPELL_NONE) {
-            srAssertFail("uiSpell != SPELL_NONE");
+            Fail("uiSpell != SPELL_NONE");
         }
         if (count != 0) {
             AppendAssayEntryText(g_comma_space);
@@ -502,7 +486,6 @@ void W8AssayDialog::PopulateText()
    (ios_base::Init) at 0x0069C815. The lint iostream stub shadows the real
    header, so the toolchain does not emit the objects or these thunks. */
 
-// FUNCTION: WIZ8 0x005d9200
 void W8AssayDialog::Draw(SDL_Surface& target)
 {
     W8DialogBase::Draw(target);
@@ -529,19 +512,16 @@ void W8AssayDialog::ShowTab(bool professions)
     }
 }
 
-// FUNCTION: WIZ8 0x005d9620
 void W8AssayDialog::ShowPrimaryTab()
 {
     ShowTab(true);
 }
 
-// FUNCTION: WIZ8 0x005d96a0
 void W8AssayDialog::ShowSecondaryTab()
 {
     ShowTab(false);
 }
 
-// FUNCTION: WIZ8 0x005d8850
 bool W8AssayDialog::PopulateRequirements()
 {
     int index;
@@ -656,7 +636,7 @@ bool W8AssayDialog::PopulateRequirements()
 
     for (us_index = 0; us_index < NUM_RPC_RACES; ++us_index) {
         if (us_index >= NUM_RPC_RACES) {
-            srAssertFail("usIndex < NUM_RPC_RACES");
+            Fail("usIndex < NUM_RPC_RACES");
         }
         switch (us_index) {
         case 0:
@@ -676,7 +656,7 @@ bool W8AssayDialog::PopulateRequirements()
             break;
         default:
             button_index = -1;
-            srAssertFail("iUnknownButtonIndex != MAXDWORD");
+            Fail("iUnknownButtonIndex != MAXDWORD");
             break;
         }
         switch (g_status.rpc_races[us_index]) {
@@ -720,7 +700,6 @@ bool W8AssayDialog::PopulateRequirements()
     return true;
 }
 
-// FUNCTION: WIZ8 0x005d8fb0
 void W8AssayDialog::CreateTextBuffers()
 {
     int index;
@@ -756,7 +735,6 @@ void W8AssayDialog::CreateTextBuffers()
     m_text_buffers[4]->SetText(text, g_wiz_text_font_secondary);
 }
 
-// FUNCTION: WIZ8 0x005d9330
 void W8AssayDialog::SetProfessionIconsVisible(bool show)
 {
     unsigned int profession;
@@ -822,7 +800,6 @@ void W8AssayDialog::SetProfessionIconsVisible(bool show)
     }
 }
 
-// FUNCTION: WIZ8 0x005d9460
 void W8AssayDialog::SetRaceIconsVisible(bool show)
 {
     unsigned int race;
@@ -874,7 +851,7 @@ void W8AssayDialog::SetRaceIconsVisible(bool show)
             for (us_index = 0; us_index < NUM_RPC_RACES; ++us_index) {
                 if (race == g_status.rpc_races[us_index]) {
                     if (us_index >= NUM_RPC_RACES) {
-                        srAssertFail("usIndex < NUM_RPC_RACES");
+                        Fail("usIndex < NUM_RPC_RACES");
                     }
                     switch (us_index) {
                     case 0:

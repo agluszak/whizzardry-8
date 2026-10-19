@@ -13,11 +13,11 @@
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 
-#include "Font.h"
-#include "himage.h"
-#include "image.h"
-#include "image_assets.h"
-#include "sprite.h"
+#include "wiz8/canvas/Font.h"
+#include "wiz8/canvas/himage.h"
+#include "wiz8/canvas/image.h"
+#include "wiz8/canvas/image_assets.h"
+#include "wiz8/canvas/sprite.h"
 
 static GenericButtonImage default_generic_image;
 
@@ -123,7 +123,6 @@ bool InitializeButtonImageManager()
     return default_generic_image != nullptr;
 }
 
-// FUNCTION: WIZ8 0x0040cb70
 GenericButtonImage LoadGenericButtonImages(std::string_view gray, std::string_view off_normal,
                                            std::string_view off_hilite, std::string_view on_normal,
                                            std::string_view on_hilite, std::string_view background,
@@ -134,7 +133,6 @@ GenericButtonImage LoadGenericButtonImages(std::string_view gray, std::string_vi
                                index, offset_x, offset_y);
 }
 
-// FUNCTION: WIZ8 0x0040ce60
 void ShutdownButtonImageManager(void)
 {
     default_generic_image.reset();
@@ -155,7 +153,6 @@ void DrawButtonAppearance(SDL_Surface& target, const ButtonAppearance& appearanc
     }
 }
 
-// FUNCTION: WIZ8 0x0040e060
 static bool DrawQuickButton(SDL_Surface& target, const ButtonAppearance* b, const SDL_Rect& bounds,
                             const ButtonVisualState& state)
 {

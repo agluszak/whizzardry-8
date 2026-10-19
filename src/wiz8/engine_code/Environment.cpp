@@ -6,13 +6,13 @@
 #include <exception>
 #include <memory>
 
+#include <glm/common.hpp>
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/geometric.hpp>
 #include <glm/gtc/quaternion.hpp>
 
 #include "compat/compiler.h"
 #include "compat/native.h"
-#include "glm/common.hpp"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float2.hpp"
@@ -44,9 +44,7 @@
 // GLOBAL: WIZ8 0x0060a3a8
 W8EnvironmentLightingMode g_environment_lighting_mode = W8EnvironmentLightingMode::DayNight;
 
-// GLOBAL: WIZ8 0x0065b9ae
 bool g_sky_enabled;
-// GLOBAL: WIZ8 0x0065B9A8
 static w8_ulong g_tick;
 /* 0x00659AB4: the world being rendered. Its sky node is the one field these
    two bodies reach, and it is the same W8World the 3d code walks. */
@@ -58,21 +56,16 @@ static const float CAMERA_LIGHT_MAXIMUM_INTENSITY = 50.0f;
 /* 1/duration while the transition body at 0x00484300 runs, zero when idle.
    BeginWorldLightingFade stores 1/duration and sets the lighting mode to 1;
    UpdateEnvironmentLighting stores zero again once it completes. */
-// GLOBAL: WIZ8 0x0065b9b8
 float g_environment_transition_rate;
 /* Tick baseline for the active lighting transition; rewritten every frame the
    transition body advances the light scale. */
-// GLOBAL: WIZ8 0x0065b9bc
 w8_ulong g_environment_transition_tick;
-// GLOBAL: WIZ8 0x0060a3ac
 
-// GLOBAL: WIZ8 0x0060a395
 bool g_environment_colour_refresh = true;
 
 /* The mapper starts its scroll rate at 0.002 texture units per second on x
    only and reseeds the shared frame clock, so the first scrolled frame uses
    the interval since this object's construction rather than since startup. */
-// FUNCTION: WIZ8 0x00482010
 W8MaterialMapper::W8MaterialMapper()
 {
     scroll_rate_u = 0.002f;
@@ -80,7 +73,6 @@ W8MaterialMapper::W8MaterialMapper()
     g_frame_tick = w8_get_ticks();
 }
 
-// FUNCTION: WIZ8 0x00482040
 int W8MaterialMapper::isActive(srVertexPipe&)
 {
     return 1;
@@ -88,7 +80,6 @@ int W8MaterialMapper::isActive(srVertexPipe&)
 
 /* Add the frame-scaled rate to each axis and keep only the fractional part,
    then shift the first texture coordinate set of every vertex by it. */
-// FUNCTION: WIZ8 0x00482050
 void W8MaterialMapper::process(srVertexPipe& pipe)
 {
     float offset_x;
@@ -114,7 +105,6 @@ void W8MaterialMapper::process(srVertexPipe& pipe)
 /* Drop every per-level environment object: the sky gradients, the Sun/Moon
    props and the orbit radius reset, then release the two fog objects and
    empty the registered-light list without freeing its storage. */
-// FUNCTION: WIZ8 0x004823B0
 void ClearEnvironmentObjects(void)
 {
     ResetEnvironment();
@@ -130,7 +120,6 @@ void ClearEnvironmentObjects(void)
    The three animated sky gradients consume the same 8-bit day phase, so the
    clock, prop placement, and gradient animation remain one update rather than
    parallel timers. */
-// FUNCTION: WIZ8 0x00482a20
 void AdvanceEnvironmentTime(int elapsed)
 {
     unsigned int time = g_status.game_time_ms + elapsed;
@@ -172,10 +161,10 @@ void AdvanceEnvironmentTime(int elapsed)
     W8Prop* moving = day ? g_sun_prop : g_moon_prop;
     W8Prop* opposite = day ? g_moon_prop : g_sun_prop;
     if (moving != 0) {
-        moving->Rep()->SetLocation(&position);
+        moving->SetLocation(&position);
     }
     if (opposite != 0) {
-        opposite->Rep()->SetLocation(&g_celestial_origin);
+        opposite->SetLocation(&g_celestial_origin);
     }
 
     unsigned int phase = ((g_status.game_time_ms / 1000U) << 8) / 86400U;
@@ -204,7 +193,6 @@ static void AdvanceEnvironmentClock(void)
 /* Turn environment time progression on or off. Enabling it resets its
    elapsed-tick baseline and moves the world clock on by the game-clock
    multiplier's share of the time since that baseline. */
-// FUNCTION: WIZ8 0x00482990
 void SetEnvironmentTimeEnabled(bool enabled)
 {
     if (!enabled) {
@@ -223,7 +211,6 @@ void SetEnvironmentTimeEnabled(bool enabled)
    from the same phase whenever the colour-refresh flag is set; any other mode
    just advances the clock. Every path that advances the clock scales the
    elapsed ticks by the game-clock multiplier. */
-// FUNCTION: WIZ8 0x00482770
 void UpdateEnvironment(void)
 {
     if (g_environment_transition_rate != 0.0f) {
@@ -291,7 +278,6 @@ std::array<glm::vec3, 256> EnvironmentColourRamp()
 
 /* Refresh the light direction from the day-phase table when the phase turns
    over; used after level load once fog is on. */
-// FUNCTION: WIZ8 0x004834B0
 void UpdateEnvironmentLight(void)
 {
     if (!GetWorld()) return;
@@ -304,7 +290,6 @@ void UpdateEnvironmentLight(void)
     }
 }
 
-// FUNCTION: WIZ8 0x00483750
 void SetSkyEnabled(bool enabled)
 {
     if (!GetWorld()) return;
@@ -342,13 +327,11 @@ void SetSkyEnabled(bool enabled)
 }
 
 /* The far plane the world is drawn to. */
-// FUNCTION: WIZ8 0x00482750
 void SetViewDistance(float distance)
 {
     g_view_distance = distance;
 }
 
-// FUNCTION: WIZ8 0x00482760
 float GetViewDistance(void)
 {
     return g_view_distance;
@@ -358,7 +341,6 @@ float GetViewDistance(void)
    elapsed ticks' share and publish the day phase's light direction if it moved
    on. The phase tracker is the same one the per-frame update keeps, so enabling
    the sky does not restart the cycle. */
-// FUNCTION: WIZ8 0x00482EA0
 void EnableSky(void)
 {
     SetSkyEnabled(true);
@@ -366,11 +348,8 @@ void EnableSky(void)
     UpdateEnvironmentLight();
 }
 
-// GLOBAL: WIZ8 0x0060a3b0
-
 /* Advance the clock-driven sky and refresh the world's environment colour
    from the day-phase table when the phase turns over. */
-// FUNCTION: WIZ8 0x00483560
 void RefreshEnvironment(void)
 {
     if (!GetWorld()) return;
@@ -385,13 +364,12 @@ void RefreshEnvironment(void)
 
 /* Set the world's environment intensity, clamped to the unit range, keeping
    its current colour unless the world has no static scene to take it from. */
-// FUNCTION: WIZ8 0x00483AE0
 void SetWorldEnvironmentIntensity(W8World* world, float value)
 {
     glm::vec3 colour{1.0f};
 
     if (world == 0) {
-        srAssertFail("pWorld");
+        Fail("pWorld");
     }
     if (1.0 <= value || 0.0 < value) {
         if (1.0 <= value) {
@@ -431,7 +409,6 @@ static float ApplyWorldLightingIntensity(W8World* world, float intensity)
    lighting with the current base intensity; any other duration stores
    1/duration as the per-millisecond rate and, for a fade-out, snapshots the
    live intensity into the world's base field. */
-// FUNCTION: WIZ8 0x00483FD0
 void BeginWorldLightingFade(float duration)
 {
     W8World* world;
@@ -449,7 +426,7 @@ void BeginWorldLightingFade(float duration)
         world = GetWorld();
         intensity = world->environment_base_intensity;
         if (world == 0) {
-            srAssertFail("pWorld");
+            Fail("pWorld");
         }
         intensity = ApplyWorldLightingIntensity(world, intensity);
 
@@ -482,7 +459,6 @@ void BeginWorldLightingFade(float duration)
    scale times each world's base intensity, and publish a scale-modulated light
    direction. Completing a fade-out leaves mode 0; completing a fade-in returns
    to day/night mode 2. */
-// FUNCTION: WIZ8 0x00484300
 void UpdateEnvironmentLighting(void)
 {
     w8_ulong now = w8_get_ticks();
@@ -507,7 +483,7 @@ void UpdateEnvironmentLighting(void)
     world = GetWorld();
     intensity = scale * world->environment_base_intensity;
     if (world == 0) {
-        srAssertFail("pWorld");
+        Fail("pWorld");
     }
     intensity = ApplyWorldLightingIntensity(world, intensity);
 
@@ -547,7 +523,6 @@ void UpdateEnvironmentLighting(void)
     g_monster_shadow_updates_enabled = 1;
 }
 
-// FUNCTION: WIZ8 0x00482F60
 void DisableSky(void)
 {
     SetSkyEnabled(false);
@@ -556,7 +531,6 @@ void DisableSky(void)
 
 /* Refresh the two fog objects' ranges from the world's far clip. Runs after
    the camera's clip range moves, so the fog tracks the same plane. */
-// FUNCTION: WIZ8 0x004836A0
 void RefreshFogRanges(W8World& world)
 {
     if (world.static_fog != nullptr) {
@@ -570,7 +544,6 @@ void RefreshFogRanges(W8World& world)
 /* Clear the whole ambient block. The six stores together are what makes them one
    group; the orbit radius last, at minus one, which is the "not measured yet"
    value InitializeLevelEnvironment tests before re-deriving the sky. */
-// FUNCTION: WIZ8 0x004826b0
 void ResetEnvironment(void)
 {
     g_sky_gradient_animations[0].reset();
@@ -583,7 +556,6 @@ void ResetEnvironment(void)
 
 /* The direction light comes from. Setting it also hands the new direction to
    the renderer, so the two are not a plain field pair. */
-// FUNCTION: WIZ8 0x00483650
 void SetLightDirection(const glm::vec3* direction)
 {
     g_light_direction = *direction;
@@ -593,14 +565,13 @@ void SetLightDirection(const glm::vec3* direction)
 /* The ambient light the world contributes, or nothing at all when the world's
    own gate at 0x3c is clear. Both assertions belong to this body: line 616
    names the world and line 617 names the out-parameter pLightValue. */
-// FUNCTION: WIZ8 0x004839e0
 void GetWorldLightValue(const W8World* world, glm::vec3* pLightValue)
 {
     if (world == 0) {
-        srAssertFail("pWorld");
+        Fail("pWorld");
     }
     if (pLightValue == 0) {
-        srAssertFail("pLightValue");
+        Fail("pLightValue");
     }
     if (world->static_scene != 0) {
         *pLightValue = world->environment_colour;
@@ -612,34 +583,27 @@ void GetWorldLightValue(const W8World* world, glm::vec3* pLightValue)
 /* Drops the two renderer objects the environment holds and clears the count
    that goes with them. Both releases run through one loaded import address,
    which is what makes the two globals the same class rather than two. */
-// FUNCTION: WIZ8 0x004826e0
-
-// FUNCTION: WIZ8 0x00483F30
 
 /* Retain the world's current intensity while replacing its environment
    colour. Retail takes the colour triple by value and forwards its address to
    SetWorldEnvironment. */
-// FUNCTION: WIZ8 0x00483a60
 void SetWorldEnvironmentColour(glm::vec3 colour)
 {
     if (GetWorld() == nullptr) {
-        srAssertFail("pWorld");
+        Fail("pWorld");
     }
     ApplyEnvironmentColour(GetWorld(), GetWorld()->environment_intensity, &colour);
 }
 
-// GLOBAL: WIZ8 0x005ec988
 const double g_inverse_half_day_ms = 2.3148148148148148e-08;
-// GLOBAL: WIZ8 0x005ec990
 const double g_half_day_ms = 43200000.0;
 
 /* Push one day-phase colour and intensity into the world's static scene, every
    registered environment light, and the animated cloud material. */
-// FUNCTION: WIZ8 0x00483ba0
 void ApplyEnvironmentColour(W8World* world, float intensity, const glm::vec3* colour)
 {
     if (world == 0) {
-        srAssertFail("pWorld");
+        Fail("pWorld");
     }
     if (world->static_scene != 0) {
         const auto ambient = glm::clamp(*colour * intensity, 0.0f, 1.0f);
@@ -669,7 +633,6 @@ void ApplyEnvironmentColour(W8World* world, float intensity, const glm::vec3* co
 }
 
 /* Write the camera light's intensity, if the world has one. */
-// FUNCTION: WIZ8 0x00483e30
 void SetCameraLightIntensity(float value)
 {
     if (GetWorld()->camera_light != 0) {
@@ -681,7 +644,6 @@ void SetCameraLightIntensity(float value)
    other way round: showing it clears the flag. 0x00483E50 loads the light from
    GetWorld() at offset 0x54 and reaches the same two imported flag thunks, so the
    node here is the camera light the world setup creates, never a sky node. */
-// FUNCTION: WIZ8 0x00483e50
 void SetSkyNodeVisible(bool visible)
 {
     stLight* camera_light = GetWorld()->camera_light;
@@ -736,21 +698,18 @@ void SetCameraLightMode(W8CameraLightMode mode)
     }
 }
 
-// FUNCTION: WIZ8 0x00482720
 void SetGameTimeMilliseconds(int value)
 {
     g_status.game_time_ms = value;
     g_tick = w8_get_ticks();
 }
 
-// GLOBAL: WIZ8 0x0060a398
 const char* g_sky_gradient_names[3] = {"SkyGrad0000.ifl", "Skytop0000.ifl", "Horizon0000.ifl"};
 
 /* Level-entry environment setup: locate the level's Sun and Moon props, derive
    the celestial origin and orbit radius from the distance between them, register
    the three sky gradient textures, advance the day clock and publish the current
    day phase's colour and light direction. */
-// FUNCTION: WIZ8 0x00482410
 void InitializeLevelEnvironment(void)
 {
     if (GetSecondaryWorld() != 0) {
@@ -765,8 +724,8 @@ void InitializeLevelEnvironment(void)
             glm::vec3 sun;
             glm::vec3 moon;
 
-            sun = g_sun_prop->Rep()->GetLocation();
-            moon = g_moon_prop->Rep()->GetLocation();
+            sun = g_sun_prop->GetLocation();
+            moon = g_moon_prop->GetLocation();
             glm::vec3 delta = sun - moon;
             glm::vec3 midpoint = (sun + moon) * 0.5f;
             g_celestial_orbit_radius = glm::length(delta) * 0.5f;

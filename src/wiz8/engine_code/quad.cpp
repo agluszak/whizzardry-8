@@ -9,10 +9,8 @@
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
 
-// GLOBAL: WIZ8 0x0060E5D0
 static float g_quad_cell_size = 5500.0f;
 
-// FUNCTION: WIZ8 0x004BE200
 std::unique_ptr<W8Quad> BuildWorldQuad(srModelInstance* instance, const glm::vec3& minimum,
                                        const glm::vec3& maximum)
 {

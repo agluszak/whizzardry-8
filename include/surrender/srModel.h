@@ -8,8 +8,6 @@
 
 class srGERD;
 
-// VTABLE: SURRENDER 0x10076D08 srModel
-// class srModel
 class srModel : public srClass {
 public:
     srModel() = default;

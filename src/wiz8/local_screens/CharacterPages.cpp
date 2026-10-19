@@ -9,7 +9,6 @@
 #include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
 
-#include "input.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
@@ -22,6 +21,7 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/CharacterScreen.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 
@@ -36,7 +36,6 @@ template<class T> T ReadStatValue(const void* address)
 }
 }
 
-// GLOBAL: WIZ8 0x006483d0
 W8PortraitDescriptor g_portrait_descriptors[80] = {
     {0, 0, 0, 1},  {0, 0, 1, 0},  {0, 0, 2, 2},  {0, 0, 3, 0},  {0, 0, 3, 1},  {0, 0, 3, 2},
     {0, 1, 0, 2},  {0, 1, 1, 0},  {0, 1, 2, 0},  {0, 1, 3, 1},  {0, 1, 3, 0},  {0, 1, 3, 0},
@@ -53,10 +52,7 @@ W8PortraitDescriptor g_portrait_descriptors[80] = {
     {13, 0, 3, 0}, {13, 0, 3, 1}, {13, 0, 3, 0}, {13, 0, 3, 0}, {0, 0, 3, 0},  {0, 1, 3, 2},
     {1, 0, 3, 1},  {1, 1, 3, 0},
 };
-// VTABLE: WIZ8 0x005ef1d8 W8CharacterPageEntry
-// class W8CharacterPageEntry
 
-// FUNCTION: WIZ8 0x005af690
 W8CharacterPageEntry::W8CharacterPageEntry(UiLayer& input, int x, int y, bool compact)
     : m_input(input), m_first(0), m_second(0), m_third(0), m_id(-1), m_draw_background(compact),
       m_dirty(1), m_enabled(0), m_increment_allowed(1)
@@ -122,7 +118,6 @@ W8CharacterPageEntry::~W8CharacterPageEntry()
     m_input.remove(*m_help);
 }
 
-// FUNCTION: WIZ8 0x005af9e0
 void W8CharacterPageEntry::SetContent(unsigned int id, std::string_view label, unsigned int* first,
                                       int* second, int* third, int help_id)
 {
@@ -140,7 +135,6 @@ void W8CharacterPageEntry::SetContent(unsigned int id, std::string_view label, u
     MarkDirty();
 }
 
-// FUNCTION: WIZ8 0x005afc20
 void W8CharacterPageEntry::SetIncrementAllowed(bool allowed)
 {
     m_increment_allowed = allowed;
@@ -148,7 +142,6 @@ void W8CharacterPageEntry::SetIncrementAllowed(bool allowed)
     MarkDirty();
 }
 
-// FUNCTION: WIZ8 0x005afa90
 void W8CharacterPageEntry::SetEnabled(bool enabled)
 {
     m_enabled = enabled;
@@ -158,13 +151,11 @@ void W8CharacterPageEntry::SetEnabled(bool enabled)
     MarkDirty();
 }
 
-// FUNCTION: WIZ8 0x005afae0
 void W8CharacterPageEntry::SetHelpActive(bool active)
 {
     m_help->setEnabled(active);
 }
 
-// FUNCTION: WIZ8 0x005afaf0
 void W8CharacterPageEntry::Redraw(SDL_Surface& target)
 {
     m_dirty |= m_increment->m_dirty || m_decrement->m_dirty;
@@ -192,13 +183,11 @@ void W8CharacterPageEntry::Redraw(SDL_Surface& target)
     m_increment->m_dirty = m_decrement->m_dirty = false;
 }
 
-// FUNCTION: WIZ8 0x005afbf0
 void W8CharacterPageEntry::SetLabelFontState(int state)
 {
     m_label.SetFontStateIndex(state);
 }
 
-// FUNCTION: WIZ8 0x005afc00
 void W8CharacterPageEntry::MarkDirty()
 {
     m_decrement->m_dirty = true;
@@ -206,7 +195,6 @@ void W8CharacterPageEntry::MarkDirty()
     m_dirty = true;
 }
 
-// FUNCTION: WIZ8 0x005afd10
 void W8CharacterPageEntry::UpdateButtons()
 {
     if (m_enabled) {
@@ -223,16 +211,11 @@ void W8CharacterPageEntry::UpdateButtons()
     }
 }
 
-// VTABLE: WIZ8 0x005ef1e4 W8CharacterPage
-// class W8CharacterPage
-
-// FUNCTION: WIZ8 0x005afd90
 W8CharacterPage::W8CharacterPage(CatalogArtwork background)
     : background(std::move(background)), m_screen(nullptr)
 {
 }
 
-// FUNCTION: WIZ8 0x005afe40
 W8CharacterPage::~W8CharacterPage() = default;
 
 void W8CharacterPage::SetActive(bool active)
@@ -241,7 +224,6 @@ void W8CharacterPage::SetActive(bool active)
     input.setEnabled(active);
 }
 
-// FUNCTION: WIZ8 0x005aff00
 void W8CharacterPage::SetCharacter(W8Character* character, W8CharacterCreationState* creation_state,
                                    W8CharacterScreenMode mode)
 {
@@ -250,7 +232,6 @@ void W8CharacterPage::SetCharacter(W8Character* character, W8CharacterCreationSt
     m_mode = mode;
 }
 
-// FUNCTION: WIZ8 0x005aff20
 void W8CharacterPage::Redraw(SDL_Surface& target, bool full_redraw)
 {
     if (!m_active) return;
@@ -264,7 +245,6 @@ void W8CharacterPage::Redraw(SDL_Surface& target, bool full_redraw)
     }
 }
 
-// FUNCTION: WIZ8 0x005aff50
 void W8CharacterPage::InvalidateAll()
 {
     m_dirty = true;
@@ -273,7 +253,6 @@ void W8CharacterPage::InvalidateAll()
     }
 }
 
-// FUNCTION: WIZ8 0x005affa0
 void W8CharacterPage::Prepare()
 {
     InvalidateAll();
@@ -281,7 +260,6 @@ void W8CharacterPage::Prepare()
     m_prepared = true;
 }
 
-// FUNCTION: WIZ8 0x005affc0
 void W8CharacterPage::AddEntry(W8CharacterPageEntry* entry)
 {
     m_entries.emplace_back(entry);

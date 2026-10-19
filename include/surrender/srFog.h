@@ -4,9 +4,6 @@
 
 #include "srIlluminator.h"
 
-// VTABLE: SURRENDER 0x10076FE8 srVertexProcessor
-// VTABLE: SURRENDER 0x10076FA8 srVertexProcessor
-// class srFog
 class srFog : public srIlluminator {
 public:
     srFog(srNode* parent = 0);

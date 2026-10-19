@@ -13,39 +13,27 @@
 #include "audio_resources.h"
 #include "compat/native.h"
 #include "local_screens/Screens.h"
-#include "random.h"
-#include "soundman.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/engine_code/stScript.h"
 #include "wiz8/local_code/Configuration.h"
+#include "wiz8/platform/random.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/xstatus.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
 
-// GLOBAL: WIZ8 0x0060aae0
 wiz8::sound::Playback g_music_sample_handle = nullptr;
-// GLOBAL: WIZ8 0x0065BA74
 static stScript* g_music_playlist;
-// GLOBAL: WIZ8 0x0065BA78
 static uint64_t g_music_playlist_tick;
-// GLOBAL: WIZ8 0x0065BA7E
 bool g_music_playlist_active;
-// GLOBAL: WIZ8 0x0065BA80
 int g_music_playlist_weight_total;
-// GLOBAL: WIZ8 0x0065BA84
 int g_music_playlist_track_count;
-// GLOBAL: WIZ8 0x0060AAE4
 static unsigned char g_music_fade = 1;
-// GLOBAL: WIZ8 0x0060AAE5
 static bool g_music_force_next = true;
-// GLOBAL: WIZ8 0x0060AAE8
 int g_music_pause_min_seconds = 20;
-// GLOBAL: WIZ8 0x0060AAEC
 int g_music_pause_max_seconds = 60;
-// GLOBAL: WIZ8 0x0060AAF0
 int g_music_pause_chance_percent = 30;
 
-// FUNCTION: WIZ8 0x0048fe50
 void SetMusicVolume(unsigned char volume)
 {
     g_settings.music_volume = volume;
@@ -54,13 +42,11 @@ void SetMusicVolume(unsigned char volume)
     }
 }
 
-// FUNCTION: WIZ8 0x0048fe80
 bool IsMusicMuted(void)
 {
     return g_settings.muted_music_volume != 0xff;
 }
 
-// FUNCTION: WIZ8 0x0048fe90
 void SetMusicMuted(unsigned char muted)
 {
     if (muted != 0) {
@@ -74,13 +60,11 @@ void SetMusicMuted(unsigned char muted)
     }
 }
 
-// FUNCTION: WIZ8 0x00490180
 bool IsCurrentMusicPlaylist(const char* playlist)
 {
     return SDL_strcasecmp(playlist, g_music_playlist->getName().c_str()) == 0;
 }
 
-// FUNCTION: WIZ8 0x0048f940
 unsigned char InitializeMusicPlaylist(void)
 {
     g_music_playlist = new stScript();
@@ -96,7 +80,6 @@ unsigned char InitializeMusicPlaylist(void)
 
 /* Count playable rows, load the pause directives, and retain a nonzero weight
    total only when every playable row carries a parenthesized weight. */
-// FUNCTION: WIZ8 0x0048FF50
 int AnalyzeMusicPlaylist(stScript* playlist, int* total_weight)
 {
     int playable_count = 0;
@@ -131,7 +114,6 @@ int AnalyzeMusicPlaylist(stScript* playlist, int* total_weight)
     return playable_count;
 }
 
-// FUNCTION: WIZ8 0x0048F9E0
 void ServiceMusicPlaylist(void)
 {
     int failures = 0;
@@ -193,7 +175,6 @@ void ServiceMusicPlaylist(void)
     }
 }
 
-// FUNCTION: WIZ8 0x0048FC10
 unsigned char StartMusicResource(const char* resource, int fade, unsigned char replace_current)
 {
     std::string path;
@@ -263,7 +244,6 @@ unsigned char StartMusicResource(const char* resource, int fade, unsigned char r
     return 1;
 }
 
-// FUNCTION: WIZ8 0x0048FF00
 void StopMusicPlaylist(bool fade)
 {
     if (fade) {

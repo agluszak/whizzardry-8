@@ -1,7 +1,7 @@
 #include "wiz8/ui_layer.h"
 #pragma once
 
-#include "input.h"
+#include "wiz8/platform/input.h"
 
 /* Local Screens\MGSFormation.cpp: the party-formation screen - a board of
    fifteen cells in five rows of three drawn over the main-game view, with a

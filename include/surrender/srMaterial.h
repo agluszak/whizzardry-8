@@ -8,7 +8,6 @@
 
 class srVertexPipe;
 
-// VTABLE: SURRENDER 0x10075538 srMaterial
 class srMaterial : public srClass {
 public:
     /* Bit indices, not masks. */
@@ -20,7 +19,6 @@ public:
         OPER_DIFFUSE_SPECULAR = 4
     };
 
-    // FUNCTION: SURRENDER 0x10034700 SYMBOL
     // RECOMP: ??0srMaterial@@QAE@XZ
     inline srMaterial() { reset(); }
 
@@ -38,26 +36,20 @@ public:
     void disable(e_oper operation);
     void enable(e_oper operation);
     glm::vec4 getEmissive() const;
-    // FUNCTION: SURRENDER 0x10034930 SYMBOL
     // RECOMP: ?setAmbient@srMaterial@@QAEXABV?$srVector4T@M@@@Z
     void setAmbient(const glm::vec4& ambient) { setVector(parms.ambient, ambient); }
-    // FUNCTION: SURRENDER 0x10034960 SYMBOL
     // RECOMP: ?setDiffuse@srMaterial@@QAEXABV?$srVector4T@M@@@Z
     inline void setDiffuse(const glm::vec4& diffuse) { setVector(parms.diffuse, diffuse); }
-    // FUNCTION: SURRENDER 0x10034990 SYMBOL
     // RECOMP: ?setEmissive@srMaterial@@QAEXABV?$srVector4T@M@@@Z
     inline void setEmissive(const glm::vec4& emissive) { setVector(parms.emissive, emissive); }
-    // FUNCTION: SURRENDER 0x10034B40 SYMBOL
     // RECOMP: ?setMapper@srMaterial@@QAEXPAVsrVertexProcessor@@@Z
     inline void setMapper(srVertexProcessor* mapper) { this->mapper = mapper; }
-    // FUNCTION: SURRENDER 0x10034A80 SYMBOL
     // RECOMP: ?setOpacity@srMaterial@@QAEXN@Z
     inline void setOpacity(double opacity)
     {
         parms.diffuse.w = static_cast<float>(opacity);
         dirty = 1;
     }
-    // FUNCTION: SURRENDER 0x100349C0 SYMBOL
     // RECOMP: ?setSpecular@srMaterial@@QAEXABV?$srVector4T@M@@@Z
     inline void setSpecular(const glm::vec4& specular) { setVector(parms.specular, specular); }
 

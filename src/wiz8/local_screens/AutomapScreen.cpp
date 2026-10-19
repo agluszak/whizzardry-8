@@ -24,7 +24,6 @@
 #include <glm/geometric.hpp> // NOLINT(misc-include-cleaner)
 
 #include "AnimRep.hpp"
-#include "Font.h"
 #include "Item.h"
 #include "compat/native.h"
 #include "glm/ext/matrix_float4x4.hpp"
@@ -33,9 +32,6 @@
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "glm/ext/vector_int2.hpp"
-#include "himage.h"
-#include "image.h"
-#include "input.h"
 #include "layouts/item_instance.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/world.h"
@@ -50,6 +46,9 @@
 #include "surrender/srScene.h"
 #include "surrender/srTexture.h"
 #include "wiz8/asset_paths.h"
+#include "wiz8/canvas/Font.h"
+#include "wiz8/canvas/himage.h"
+#include "wiz8/canvas/image.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/chunk.h"
 #include "wiz8/cursor.h"
@@ -87,6 +86,7 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/overlay_scenes.h"
 #include "wiz8/packed_bits.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/unicode.h"
@@ -96,55 +96,37 @@
 /* Lifecycle record 8; the automap screen. Its original screen-class name is
    unknown, so the existing compilation boundary is retained. */
 
-// GLOBAL: WIZ8 0x0068F258
 static std::vector<std::unique_ptr<W8AutomapNote>> g_automap_notes;
-
-// GLOBAL: WIZ8 0x0068f104
-// GLOBAL: WIZ8 0x0068f105
 
 /* Lifecycle record 8's own state, all of it released by the finalizer below and
    nothing here naming what any of it holds. The note list is created by this record's initializer at 0x0057E5D0. */
 
 /* One bit per automap cell: raised when the party camera enters the cell. */
-// GLOBAL: WIZ8 0x0068F288
 
 /* One bit per visited cell already turned into vertex lights. */
-// GLOBAL: WIZ8 0x0068F28C
 
 /* Packed cell keys read from the level file, indexed by cell number. */
-// GLOBAL: WIZ8 0x0068F280
 
 /* Packed cell key -> cell number + 1. */
-// GLOBAL: WIZ8 0x0068F284
 
-// GLOBAL: WIZ8 0x0068F29C
 std::unique_ptr<stModelInstance2D> g_automap_party_marker;
-// GLOBAL: WIZ8 0x0068F2A0
 std::unique_ptr<stModelInstance2D> g_automap_friendly_marker;
-// GLOBAL: WIZ8 0x0068F2A4
 std::unique_ptr<stModelInstance2D> g_automap_neutral_marker;
-// GLOBAL: WIZ8 0x0068F2A8
 std::unique_ptr<stModelInstance2D> g_automap_hostile_marker;
-// GLOBAL: WIZ8 0x0068F2AC
 std::unique_ptr<stModelInstance2D> g_automap_text_marker;
 
 /* Leave releases the pointed-to objects and erases their vector entries. */
-// GLOBAL: WIZ8 0x0068F1F4
 std::vector<std::unique_ptr<stModelInstance2D>> g_automap_markers;
 
-// GLOBAL: WIZ8 0x0068f220
 std::vector<std::unique_ptr<srClipPlane>> g_automap_created_layers;
-// GLOBAL: WIZ8 0x0068f24c
 std::unique_ptr<AutomapButtons> g_automap_buttons;
 struct W8AutomapState {
     uint64_t blink_time = 0;
     bool blink_enabled = false;
     unsigned char pending_cell_lighting = 0;
 };
-// GLOBAL: WIZ8 0x0068f268
 static std::unique_ptr<W8AutomapState> g_automap_state;
 
-// GLOBAL: WIZ8 0x0068f274
 SDLSurfaceOwner g_automap_surface{nullptr, SDL_DestroySurface};
 
 void AutomapZoomInButton(void);
@@ -162,11 +144,9 @@ void AutomapExitButton(void);
 void ResetAutomapZoom(void);
 
 /* String-table tooltip indexes for the sixteen automap chrome buttons. */
-// GLOBAL: WIZ8 0x0064b7a4
 int g_automap_button_tooltips[16] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
 /* Left-click actions. ResetAutomapZoom / RestoreAutomapCameraPosition are the
    already-recovered bodies at the retail callback addresses. */
-// GLOBAL: WIZ8 0x0064b7e4
 void (*g_automap_button_callbacks[16])(void) = {
     AutomapZoomInButton,
     ZoomAutomapOut,
@@ -186,89 +166,55 @@ void (*g_automap_button_callbacks[16])(void) = {
     AutomapExitButton,
 };
 /* Catalog entries supplying filenames and state-frame offsets for each button. */
-// GLOBAL: WIZ8 0x0064b824
 int g_automap_button_catalogs[16] = {388, 392, 396, 380, 384, 348, 352, 356,
                                      340, 344, 360, 364, 368, 372, 376, 336};
 /* Screen positions for the sixteen buttons. */
-// GLOBAL: WIZ8 0x0064b864
 glm::ivec2 g_automap_button_positions[16] = {
     {490, 124}, {541, 124}, {591, 124}, {490, 70},  {541, 70},  {591, 70},  {591, 70},  {591, 70},
     {490, 164}, {591, 164}, {540, 218}, {540, 326}, {486, 272}, {594, 272}, {540, 272}, {588, 441},
 };
-// GLOBAL: WIZ8 0x0064b8e4
 glm::ivec2 g_automap_cursor_offsets[5] = {{0, 0}, {8, 7}, {1, 24}, {1, 24}, {8, 7}};
-// GLOBAL: WIZ8 0x0064b910
 float g_automap_range = 10000.0f;
 /* Developer I-key latch; retail has no rendering consumer for this toggle. */
-// GLOBAL: WIZ8 0x0064b90d
 bool g_automap_developer_i_toggle = true;
-// GLOBAL: WIZ8 0x0064b918
 int g_automap_layer = -1;
-// GLOBAL: WIZ8 0x0064b91c
 bool g_automap_bounds_dirty = true;
-// GLOBAL: WIZ8 0x0068f138
 glm::vec3 g_automap_saved_light_direction{1.0f};
-// GLOBAL: WIZ8 0x0068f144
 glm::vec3 g_automap_saved_ambient_light{1.0f};
-// GLOBAL: WIZ8 0x0068f150
 bool g_automap_saved_sky;
-// GLOBAL: WIZ8 0x0068f154
 W8WorldCameraState g_automap_saved_camera;
-// GLOBAL: WIZ8 0x0068f190
 float g_automap_saved_far_clip;
-// GLOBAL: WIZ8 0x0068f194
 float g_automap_saved_world_value;
-// GLOBAL: WIZ8 0x0068f198
 unsigned char g_automap_saved_render_flags[4];
-// GLOBAL: WIZ8 0x0068f19c
 int g_automap_saved_texture_policy;
-// GLOBAL: WIZ8 0x0068f1a8
 std::vector<srClipPlane*> g_automap_layers;
-// GLOBAL: WIZ8 0x0068f1b8
 glm::vec3 g_automap_bounds_max;
-// GLOBAL: WIZ8 0x0068f1c8
 glm::vec3 g_automap_grid_max;
-// GLOBAL: WIZ8 0x0068f1d8
 glm::vec3 g_automap_grid_min;
-// GLOBAL: WIZ8 0x0068f1e8
 glm::vec3 g_automap_position;
-// GLOBAL: WIZ8 0x0068f204
 float g_automap_top_y;
-// GLOBAL: WIZ8 0x0068f210
 glm::vec3 g_automap_bounds_min;
-// GLOBAL: WIZ8 0x0068f230
 DesignRect g_automap_viewport;
-// GLOBAL: WIZ8 0x0068f240
 glm::vec3 g_automap_grid_origin;
 // GLOBAL: WIZ8 0x0068f250
 W8AutomapTool g_automap_tool = W8AutomapTool::Select;
 // GLOBAL: WIZ8 0x0068f254
 bool g_automap_cursor_inside;
-// GLOBAL: WIZ8 0x0068f25c
 bool g_automap_redraw;
-// GLOBAL: WIZ8 0x0068f260
 unsigned int g_automap_page;
-// GLOBAL: WIZ8 0x0068f264
 bool g_automap_show_all_monsters;
-// GLOBAL: WIZ8 0x0068f25d
 bool g_automap_overlay_redraw;
-// GLOBAL: WIZ8 0x0068f26c
 float g_automap_zoom;
-// GLOBAL: WIZ8 0x0068f270
 bool g_automap_surface_mode;
 /* The camera's near clip: how far above the selected layer it floats. */
-// GLOBAL: WIZ8 0x0064b920
 float g_automap_near_clip = 1.0f;
 enum class AutomapZoomMode { ZoomInOnly, Both, ZoomOutOnly };
 // GLOBAL: WIZ8 0x0068f278
 static AutomapZoomMode g_automap_zoom_mode = AutomapZoomMode::ZoomInOnly;
 // GLOBAL: WIZ8 0x0068f27c
 
-// GLOBAL: WIZ8 0x0068f290
 bool g_automap_position_initialized;
-// GLOBAL: WIZ8 0x0068f294
 W8AutomapNote* g_automap_editing_note; // Non-owning; g_automap_notes owns the note.
-// GLOBAL: WIZ8 0x0068f298
 W8AutomapNote* g_automap_hovered_note;
 
 unsigned char HandleAutomapKey(const InputEvent* input);
@@ -919,8 +865,6 @@ void SetAutomapButtonMode(AutomapZoomMode update)
     g_automap_zoom_mode = update;
 }
 
-// GLOBAL: WIZ8 0x0064b914
-
 /* Park the automap camera over the requested point with its xz clamped into
    the explored bounds, reselect the layer underneath and refresh the mesh. */
 void SetAutomapCameraPoint(glm::vec3* position)
@@ -1543,7 +1487,7 @@ void RenderAutomapMarkers(void)
         W8MonsterInfo* info = GetMonsterListEntry(index);
         W8Monster* monster = info->p3D;
         glm::vec3 location;
-        location = monster->m_pRep->GetLocation();
+        location = monster->GetLocation();
         FindAutomapLayerAtHeight(location.y);
         if (g_automap_show_all_monsters || detect_all ||
             (!monster->disabled && info->party_threat.sight_state == W8_SIGHT_SEEN)) {
@@ -1578,15 +1522,15 @@ void RenderAutomapMarkers(void)
         }
     }
     for (const auto& world_item : CurrentLevelPopulation().world_items) {
-        W8Item* item = world_item->p3D;
+        WorldItemEntity* item = world_item->p3D;
         if (item == 0) {
             continue;
         }
         glm::vec3 location;
         location = item->GetSearchPosition();
         int layer = FindAutomapLayerAtHeight(location.y);
-        if ((item->m_pRep->flags & W8_ITEM_ENTITY_NO_PICKUP) == 0 &&
-            (detect_all || (item->m_pRep->flags & W8_ITEM_ENTITY_RADAR_SEEN) != 0 ||
+        if ((item->flags & W8_ITEM_ENTITY_NO_PICKUP) == 0 &&
+            (detect_all || (item->flags & W8_ITEM_ENTITY_RADAR_SEEN) != 0 ||
              HasCameraLineOfSight(&location)) &&
             layer - 1 == g_automap_layer) {
             left = g_automap_position.x - g_automap_zoom * 0.5f;

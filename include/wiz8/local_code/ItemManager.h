@@ -6,7 +6,7 @@
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 
-struct W8Item;
+struct WorldItemEntity;
 struct W8WorldItem;
 struct W8ItemInstance;
 struct W8MonsterInfo;
