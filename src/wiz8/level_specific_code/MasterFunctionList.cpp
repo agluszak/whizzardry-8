@@ -25,6 +25,7 @@
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/party_slot.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/level_specific_code/Arnika.h"
 #include "wiz8/level_specific_code/Ascension.h"
@@ -51,7 +52,6 @@
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/location_variables.h"
@@ -284,10 +284,10 @@ static unsigned char WorldCursorNodeShowMessageOnce(int command, W8WorldCursorNo
     folder = GetLevelFolderName(GetLoadedLevelID());
     type = node->parameters[2];
     enabled = static_cast<unsigned char>(node->parameters[1]);
-    if (enabled != 0 && !g_status.search_mode && g_status.party_modifiers.detect_secrets == 0) {
+    if (enabled != 0 && !g_status.search_mode && g_status.party.modifiers.detect_secrets == 0) {
         for (slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-            if (g_status.buffers.XChar[slot].fOccupied &&
-                CharacterHasTrait(g_status.buffers.Char + slot, W8_TRAIT_SEARCH)) {
+            if (g_status.party.rows[slot].fOccupied &&
+                CharacterHasTrait(g_status.party.characters + slot, W8_TRAIT_SEARCH)) {
                 goto command_check;
             }
         }
@@ -331,7 +331,7 @@ static unsigned char WorldCursorNodeShowContextMessage(int command, W8WorldCurso
         message_id = node->parameters[0];
         path = fmt::format("Data\\Messages\\{}.msg", folder.empty() ? "Test" : folder);
         if ((!(text = GetStringFromStringDatabase(path, message_id, 0, 0)).empty()) != 0) {
-            if (text.size() != 0 && g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
+            if (text.size() != 0 && CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
                 ShowString(text);
             }
         }
@@ -380,7 +380,7 @@ static unsigned char WorldCursorNodeMaleCharacterEvent(int command, W8WorldCurso
     W8Character* character;
 
     if (command == 1 && g_status.rpc_active) {
-        character = g_status.buffers.Char + g_status.sedexus_party_slot;
+        character = g_status.party.characters + g_status.sedexus_party_slot;
         if (character->gender == W8_GENDER_MALE) {
             QueueCharacterEvent(character, g_character_event_kind1, 0, kCharacterEventFullVolume);
         }
@@ -507,7 +507,7 @@ static unsigned char WorldCursorNodePartyVoice(int command, W8WorldCursorNode* n
             *shown = std::byte{1};
             slot = PickRandomPartySpeaker(event_type, 0xff);
             if (slot != -1) {
-                QueueCharacterEvent(g_status.buffers.Char + slot, event_type, 0,
+                QueueCharacterEvent(g_status.party.characters + slot, event_type, 0,
                                     kCharacterEventFullVolume);
             }
         }
@@ -736,7 +736,6 @@ void InitializeLevelMasterFunctions(int level)
         return;
     case 0x16:
         g_sea_caves_slope_override_enabled = true;
-        g_party_has_slope_override_item = FindItemOnParty(0x254, 0, 0, 0, 0);
         BindLevelTrigger("HigardiChest01", SeaCavesHigardiChest01);
         BindLevelTrigger("HigardiChest02", SeaCavesHigardiChest02);
         BindLevelTrigger("HigardiChest03", SeaCavesHigardiChest03);

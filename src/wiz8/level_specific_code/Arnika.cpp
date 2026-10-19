@@ -14,6 +14,9 @@
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/fact_state.h"
+#include "wiz8/inventory.h"
+#include "wiz8/item_location.h"
+#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/CombatHostility.h"
@@ -317,7 +320,7 @@ bool ArnikaLaserScanMaster(int command)
 /* ScannerDoor trigger: the 0x27b key item opens the HLL door once. */
 bool ArnikaScannerDoor(Trigger* pTrigger)
 {
-    if (!FindItemOnParty(0x27b, 0, 0, 2, 0)) {
+    if (!PartyHasItem(0x27b)) {
         return false;
     }
     if (GetLocationVarIDByName("HLLDoorOpen") == -1) {
@@ -385,7 +388,7 @@ bool ArnikaMookholo(Trigger* pTrigger)
     W8MonsterInfo* info;
     int location_id;
 
-    if (gXStatus.fCombatMode) {
+    if (g_combat.active()) {
         return false;
     }
     if (GetLocationVarIDByName("ScregActive") != -1 &&
@@ -780,7 +783,7 @@ void ArnikaElevatorAdvance(W8ArnikaElevatorId which)
    flag is raised. */
 bool ArnikaChaosMolori(Trigger* pTrigger)
 {
-    if (!g_running_trigger_from_script && g_status.item_in_cursor) {
+    if (!g_running_trigger_from_script && (g_status.party.held.item.iItemNo != -1)) {
         return false;
     }
     return true;
@@ -806,7 +809,7 @@ bool ArnikaMaddmook(Trigger* pTrigger)
    activation to the CMBox trigger. */
 bool ArnikaAstralDominae(Trigger* pTrigger)
 {
-    if (!g_running_trigger_from_script && g_status.item_in_cursor) {
+    if (!g_running_trigger_from_script && (g_status.party.held.item.iItemNo != -1)) {
         return false;
     }
     pTrigger = FindRequiredTriggerByName("CMBox");
@@ -855,7 +858,7 @@ int ArnikaPedestalItem(int* previous_item)
     int item = -1;
     int previous;
 
-    if (g_status.item_in_cursor) {
+    if ((g_status.party.held.item.iItemNo != -1)) {
         item = GetItemInHand();
         if (item != 0x244 && item != 0x242 && item != 0x264) {
             return -2;
@@ -863,7 +866,7 @@ int ArnikaPedestalItem(int* previous_item)
     }
     FindRequiredTriggerByName("ChaosMolori");
     if (item > -1) {
-        ClearHeldItemDisplay();
+        (void)TakeInventoryItem({W8ItemStorage::Hand});
     }
     if (GetLocationVarIDByName("PedestalItem") != -1 &&
         GetLocationVarIDByName("WarnedAboutEntry") != -1 &&
@@ -883,7 +886,7 @@ int ArnikaPedestalItem(int* previous_item)
         CreateLocationVar("PedestalItem", -1);
         previous = 0x244;
         if (item == -1) {
-            ReplaceOrCreateItem(&g_status.item_in_hand, previous, false, false, false);
+            ReplaceHeldItem(MakeItem(previous, false, false, false));
         }
     } else {
         previous = GetLocationVarValueByName("PedestalItem");
@@ -892,7 +895,7 @@ int ArnikaPedestalItem(int* previous_item)
                 return -2;
             }
         } else if (item == -1) {
-            ReplaceOrCreateItem(&g_status.item_in_hand, previous, false, false, false);
+            ReplaceHeldItem(MakeItem(previous, false, false, false));
         }
     }
     SetItemCursor(0);
@@ -925,7 +928,7 @@ bool ArnikaBallSlot(Trigger* pTrigger)
     if (GetLocationVarIDByName("BallInserted") == -1) {
         CreateLocationVar("BallInserted", 1);
         npc = GetNpcStateByKind(0x16);
-        ReplaceOrCreateItem(&item, 0x240, true, true, false);
+        item = MakeItem(0x240, true, true, false);
         QueueNpcScriptNotice(npc, &item, -1, false, 0);
     }
     g_trigger_feedback = true;
@@ -946,8 +949,8 @@ bool ArnikaFlightRecorder(Trigger* pTrigger)
     g_trigger_feedback = true;
     npc = GetNpcStateByKind(0x14);
     item = 0;
-    if (g_status.item_in_cursor) {
-        item = &g_status.item_in_hand;
+    if ((g_status.party.held.item.iItemNo != -1)) {
+        item = &g_status.party.held.item;
     }
     QueueNpcScriptNotice(npc, item, -1, false, 0);
     return false;

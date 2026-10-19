@@ -564,7 +564,7 @@ try {
     std::vector<Mesh*> owners(mesh_count);
     std::vector<std::shared_ptr<Mesh>> roots(mesh_count);
     for (unsigned int mesh_index = 0; mesh_index < mesh_count; ++mesh_index) {
-        if (g_current_screen_state.id == W8_SCREEN_PLEASE_WAIT) {
+        if (CurrentScreenState().id == W8_SCREEN_PLEASE_WAIT) {
             UpdatePleaseWaitLoadFrame();
         }
         auto owned_model = reader.Read(&file, materials);

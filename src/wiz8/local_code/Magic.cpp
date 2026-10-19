@@ -38,11 +38,14 @@
 #include "wiz8/entities/spell_visual.h"
 #include "wiz8/fonts.h"
 #include "wiz8/gameplay_constants.h"
+#include "wiz8/inventory.h"
+#include "wiz8/item_location.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_tables.h"
+#include "wiz8/layouts/party_slot.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
@@ -75,6 +78,7 @@
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/picking.h"
+#include "wiz8/spatial/bounding_sphere.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/spell_ids.h"
@@ -247,8 +251,7 @@ bool SpellUsableNow(int spell_id, bool allow_out_of_combat)
         Fail("uiSpellUsableWhen < SPELL_USAGE_COUNT");
     }
 
-    if (g_current_screen_state.id == W8_SCREEN_CAMP && !gXStatus.fCombatMode &&
-        gXStatus.fCampMode &&
+    if (CurrentScreenState().id == W8_SCREEN_CAMP && !g_combat.active() && gXStatus.fCampMode &&
         (spell_id == W8_SPELL_IDENTIFY_ITEM || spell_id == W8_SPELL_REMOVE_CURSE)) {
         return true;
     }
@@ -259,12 +262,12 @@ bool SpellUsableNow(int spell_id, bool allow_out_of_combat)
     case W8_SPELL_USABLE_ANY_TIME:
         break;
     case W8_SPELL_USABLE_IN_COMBAT:
-        if (!gXStatus.fCombatMode && !allow_out_of_combat) {
+        if (!g_combat.active() && !allow_out_of_combat) {
             return false;
         }
         break;
     case W8_SPELL_USABLE_OUT_OF_COMBAT:
-        if (gXStatus.fCombatMode) {
+        if (g_combat.active()) {
             return false;
         }
         break;
@@ -446,11 +449,11 @@ bool PartyHasCondition(int effect_id)
    Both tables are searched, the party's first. */
 bool CombatHasCondition(int effect_id)
 {
-    if (g_combat_state) {
-        for (const auto& slot : g_combat_state->effect_slots) {
+    if (g_combat.state()) {
+        for (const auto& slot : g_combat.state()->effect_slots) {
             if (slot.active && slot.effect_id == effect_id) return true;
         }
-        for (const auto& slot : g_combat_state->effect_slots0) {
+        for (const auto& slot : g_combat.state()->effect_slots0) {
             if (slot.active && slot.effect_id == effect_id) return true;
         }
     }
@@ -459,7 +462,7 @@ bool CombatHasCondition(int effect_id)
 
 void SetPartySlotSpell(int party_slot, int spell_id, int power_level, const W8CombatSlot* target)
 {
-    W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
+    W8PartySlotRow* row = &g_status.party.rows[party_slot];
 
     row->spell.kind = W8_ACTION_CAST_SPELL;
     row->spell.detail = spell_id;
@@ -471,9 +474,9 @@ void SetPartySlotSpell(int party_slot, int spell_id, int power_level, const W8Co
 void SetCharacterSpell(const W8Character* character, const W8Action& spell)
 {
     const int party_slot = CharacterPointerToPartySlot(character);
-    auto& row = g_status.buffers.XChar[party_slot];
+    auto& row = g_status.party.rows[party_slot];
     row.spell = spell;
-    if (gXStatus.fCombatMode) {
+    if (g_combat.active()) {
         SetCharacterCombatAction(party_slot, spell, 1);
     } else {
         row.target_out_of_combat = spell.target;
@@ -486,7 +489,7 @@ void SetCharacterSpell(const W8Character* character, const W8Action& spell)
    breathe again. */
 void StartCharacterBreathAttack(int party_slot)
 {
-    W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
+    W8PartySlotRow* row = &g_status.party.rows[party_slot];
 
     if (!CanCharReBreathe(party_slot)) {
         Fail("CanCharReBreathe(uiChar)");
@@ -616,12 +619,12 @@ void UpdateSpellEffects(void)
                         Fail("pOrigSource->iMonsterID != -1");
                     }
                     W8MonsterInfo* monster_info = FindMonster(effect.OrigSource.iMonsterID);
-                    if (gXStatus.fCombatMode &&
-                        g_combat_state->action_status != W8CombatActionStatus::idle &&
-                        g_combat_state->pActionMonsterInfo != 0 &&
-                        g_combat_state->pActionMonsterInfo->location_id ==
+                    if (g_combat.active() &&
+                        g_combat.state()->action_status != W8CombatActionStatus::idle &&
+                        g_combat.state()->pActionMonsterInfo != 0 &&
+                        g_combat.state()->pActionMonsterInfo->location_id ==
                             monster_info->location_id) {
-                        g_combat_state->action_status = W8CombatActionStatus::finishing;
+                        g_combat.state()->action_status = W8CombatActionStatus::finishing;
                     }
                 }
             }
@@ -750,7 +753,7 @@ void FinishSpellEffect(W8SpellEffectEntry* effect)
     }
     if ((effect->target.iType == W8_TARGET_KIND_MONSTER && monster_info->hp_current == 0) ||
         (effect->target.iType == W8_TARGET_KIND_CHARACTER &&
-         g_status.buffers.Char[effect->target.iChar].hp_current == 0)) {
+         g_status.party.characters[effect->target.iChar].hp_current == 0)) {
         target.iType = W8_TARGET_KIND_PLACE;
         if (effect->target.iType == W8_TARGET_KIND_MONSTER) {
             NavigatorMovement* movement = &monster_info->p3D->nav.movement;
@@ -781,7 +784,7 @@ void ScaleByCombatPace(int party_slot, unsigned int* value)
     unsigned int pace;
     unsigned int phase_clock;
 
-    if (!gXStatus.fCombatMode) {
+    if (!g_combat.active()) {
         return;
     }
 
@@ -800,7 +803,7 @@ void ScaleByCombatPace(int party_slot, unsigned int* value)
         return;
     }
 
-    phase_clock = g_combat_state->characters[party_slot].phase_clock_stamp;
+    phase_clock = g_combat.state()->characters[party_slot].phase_clock_stamp;
     if (pace <= phase_clock) {
         *value = ((0x32 - pace) + phase_clock) * *value * 2 / 100;
     }
@@ -844,10 +847,10 @@ unsigned char g_profession_spellbooks[15] = {
    it does not rewrite the remembered power. */
 void StartCharacterSpellCast(int party_slot, int power_level)
 {
-    W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
+    W8PartySlotRow* row = &g_status.party.rows[party_slot];
     auto choice = row->spell;
     if (power_level != 0) choice.detail_block.spell.power_level = power_level;
-    if (gXStatus.fCombatMode) {
+    if (g_combat.active()) {
         SetCharacterCombatAction(party_slot, choice, 1);
     } else {
         AimAtTarget(party_slot, &choice.target, GetEditedActionContext(party_slot));
@@ -868,17 +871,17 @@ void StartCharacterSpellCast(int party_slot, int power_level)
    failed use can put it back. */
 void StartCharacterItemUse(int party_slot)
 {
-    W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
+    W8PartySlotRow* row = &g_status.party.rows[party_slot];
     W8CombatSlot saved_target = row->item_target;
 
-    if (!gXStatus.fCombatMode) {
+    if (!g_combat.active()) {
         AimAtTarget(party_slot, &row->item_target, GetEditedActionContext(party_slot));
     }
     ChooseAction(party_slot, W8_ACTION_USE_ITEM, -1, &row->item_detail, false, 1);
     AimAtTarget(party_slot, &saved_target, GetEditedActionContext(party_slot));
-    FindCharacterItemAt(party_slot, static_cast<unsigned char>(row->item_origin), row->item_slot);
 
-    if (IsSpellTargetStillValid(party_slot, GetItemSpell(row->item_detail.item_use.item),
+    if (IsSpellTargetStillValid(party_slot,
+                                GetItemSpell(g_status.party.itemAt(row->item_detail.item_use.item)),
                                 SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_ITEM))) {
         StartBreathCycle(party_slot, false);
         return;
@@ -1095,7 +1098,7 @@ void LearnSpellFromItem(W8Character* character, W8ItemInstance* item)
             PracticeCharacterSkill(character, static_cast<W8Skill>(skill_id), usage_points, false);
         }
     }
-    EmptyItemRecord(item, character, true);
+    (void)TakeInventoryItem(g_status.party.locateItem(item));
     QueueCharacterEvent(character, g_learn_sound, 0, kCharacterEventFullVolume);
 }
 
@@ -1113,7 +1116,7 @@ enum { W8_SPELL_POWER_AS_AFFORDABLE = 8, W8_SPELL_POWER_MAX = 7 };
    player picked. */
 bool CanPartySlotCastRecordedSpell(int party_slot)
 {
-    const W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
+    const W8PartySlotRow* row = &g_status.party.rows[party_slot];
     int spell_id = row->spell.detail;
     int power_level = row->spell.detail_block.spell.power_level;
 
@@ -1124,12 +1127,12 @@ bool CanPartySlotCastRecordedSpell(int party_slot)
         GetConditionRecordFlag(party_slot, W8_DEPENDENCE_SUMMON)) {
         return false;
     }
-    if (g_status.buffers.Char[party_slot].spell_learned[spell_id] != 1) {
+    if (g_status.party.characters[party_slot].spell_learned[spell_id] != 1) {
         return false;
     }
     if (row->spell.detail_block.spell.power_level == W8_SPELL_POWER_AS_AFFORDABLE &&
         g_spell_records[spell_id].power_class == W8_SPELL_POWER_REPEAT_OUT_OF_COMBAT &&
-        gXStatus.fCombatMode) {
+        g_combat.active()) {
         return false;
     }
 
@@ -1137,13 +1140,13 @@ bool CanPartySlotCastRecordedSpell(int party_slot)
         power_level = 1;
     }
     if (g_spell_records[spell_id].spell_point_cost * power_level >
-        g_status.buffers.Char[party_slot].iSPLeft[g_spell_records[spell_id].realm]) {
+        g_status.party.characters[party_slot].iSPLeft[g_spell_records[spell_id].realm]) {
         return false;
     }
     if (!SpellUsableNow(spell_id, false)) {
         return false;
     }
-    if (!gXStatus.fCombatMode &&
+    if (!g_combat.active() &&
         !IsSpellTargetStillValid(party_slot, spell_id,
                                  SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_SPELL))) {
         return false;
@@ -1157,7 +1160,7 @@ bool CanPartySlotCastRecordedSpell(int party_slot)
    is more than the pool holds. */
 int GetAffordableSpellPowerLevel(int party_slot)
 {
-    const W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
+    const W8PartySlotRow* row = &g_status.party.rows[party_slot];
     int spell_id = row->spell.detail;
     int power_level = row->spell.detail_block.spell.power_level;
     int cost;
@@ -1169,18 +1172,18 @@ int GetAffordableSpellPowerLevel(int party_slot)
         GetConditionRecordFlag(party_slot, W8_DEPENDENCE_SUMMON)) {
         return 0;
     }
-    if (g_status.buffers.Char[party_slot].spell_learned[spell_id] != 1) {
+    if (g_status.party.characters[party_slot].spell_learned[spell_id] != 1) {
         return 0;
     }
     if (row->spell.detail_block.spell.power_level == W8_SPELL_POWER_AS_AFFORDABLE &&
         g_spell_records[spell_id].power_class == W8_SPELL_POWER_REPEAT_OUT_OF_COMBAT &&
-        gXStatus.fCombatMode) {
+        g_combat.active()) {
         return 0;
     }
     if (!SpellUsableNow(spell_id, false)) {
         return 0;
     }
-    if (!gXStatus.fCombatMode &&
+    if (!g_combat.active() &&
         !IsSpellTargetStillValid(party_slot, spell_id,
                                  SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_SPELL))) {
         return 0;
@@ -1191,7 +1194,8 @@ int GetAffordableSpellPowerLevel(int party_slot)
     }
     cost = g_spell_records[spell_id].spell_point_cost * power_level;
     while (power_level != 0) {
-        if (cost <= g_status.buffers.Char[party_slot].iSPLeft[g_spell_records[spell_id].realm]) {
+        if (cost <=
+            g_status.party.characters[party_slot].iSPLeft[g_spell_records[spell_id].realm]) {
             return power_level;
         }
         --power_level;
@@ -1200,39 +1204,31 @@ int GetAffordableSpellPowerLevel(int party_slot)
     return 0;
 }
 
-/* Whether the slot could go through with the item use it has recorded. The
-   item is looked up again from where it was taken rather than trusted, and the
-   re-read pointer is stored back, so a stale record is caught here and not at
-   the point of use. A record pointing into the shared party pool is refused
+/* Whether the slot could go through with its recorded item use. Resolve the
+   location and check the expected item id before use. A shared-pool item is refused
    in combat, where only what a character personally carries is reachable.
 
    A spell whose target type is not the self-only one may be aimed anywhere; the
    self-only one has to be aimed at the user. */
 bool CanPartySlotUseRecordedItem(int party_slot)
 {
-    W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
+    W8PartySlotRow* row = &g_status.party.rows[party_slot];
     W8ItemInstance* item;
     int spell_id;
     bool normalize;
 
-    if (row->item_origin == W8_ITEM_ORIGIN_NONE || static_cast<short>(row->item_slot) < 0) {
+    const auto location = row->item_detail.item_use.item;
+    if (location.storage == W8ItemStorage::None || location.storage == W8ItemStorage::Hand ||
+        (location.storage == W8ItemStorage::Pool && g_combat.active()))
         return false;
-    }
-
-    item = FindCharacterItemAt(party_slot, static_cast<unsigned char>(row->item_origin),
-                               row->item_slot);
-    row->item_detail.item_use.item = item;
-
-    if (row->item_origin == W8_ITEM_ORIGIN_PARTY_POOL && gXStatus.fCombatMode) {
-        return false;
-    }
+    item = g_status.party.itemAt(location);
     if (item == 0 || item->iItemNo == -1 || item->iItemNo != row->item_id) {
         return false;
     }
     if (!CanUseItemForAction(party_slot, item)) {
         return false;
     }
-    if (!CanCharacterActivateItem(&g_status.buffers.Char[party_slot], item)) {
+    if (!CanCharacterActivateItem(&g_status.party.characters[party_slot], item)) {
         return false;
     }
 
@@ -1245,7 +1241,7 @@ bool CanPartySlotUseRecordedItem(int party_slot)
     if (!SpellUsableNow(spell_id, false)) {
         return false;
     }
-    if (!gXStatus.fCombatMode &&
+    if (!g_combat.active() &&
         !IsSpellTargetStillValid(party_slot, spell_id,
                                  SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_ITEM))) {
         return false;
@@ -1685,7 +1681,7 @@ static unsigned int ChooseSpellPowerLevelForTarget(W8Character* caster, int spel
     unsigned int worst;
 
     if (target.iType == W8_TARGET_KIND_CHARACTER) {
-        target_character = &g_status.buffers.Char[target.iChar];
+        target_character = &g_status.party.characters[target.iChar];
         conditions = target_character->uiCondition;
     } else if (target.iType == W8_TARGET_KIND_MONSTER) {
         if (const W8MonsterInfo* monster_info = FindMonster(target.iMonsterID)) {
@@ -1755,7 +1751,8 @@ static unsigned int ChooseSpellPowerLevelForTarget(W8Character* caster, int spel
         if (spell_id != W8_SPELL_IDENTIFY_ITEM) {
             return 1;
         }
-        power_level = CountIdentifyAttemptsNeeded(target.pPCItem, identify_context);
+        power_level =
+            CountIdentifyAttemptsNeeded(g_status.party.itemAt(target.item), identify_context);
         break;
 
     default:
@@ -1806,9 +1803,9 @@ static std::string SpellTargetString(const W8TargetSource* source, const W8Comba
         if (!TargetSourceIsCharacter(source, 0) || source->name_known ||
             source->iChar != target->iChar) {
             return fmt::sprintf(g_localized_strings[W8_MESSAGE_TARGET_AT / 4],
-                                g_status.buffers.Char[target->iChar].name);
+                                g_status.party.characters[target->iChar].name);
         }
-        name_prefix = g_name_prefix_messages[g_status.buffers.Char[target->iChar].gender * 4];
+        name_prefix = g_name_prefix_messages[g_status.party.characters[target->iChar].gender * 4];
         break;
 
     case 2:
@@ -1840,7 +1837,7 @@ static std::string SpellTargetString(const W8TargetSource* source, const W8Comba
 
     case 7:
         return fmt::sprintf(g_localized_strings[W8_MESSAGE_TARGET_ITEM / 4],
-                            FormatItemDisplayName(target->pPCItem, false));
+                            FormatItemDisplayName(g_status.party.itemAt(target->item), false));
 
     case W8_TARGET_KIND_EIGHT:
         return g_localized_strings[W8_MESSAGE_TARGET_DIRECTION / 4];
@@ -1972,7 +1969,7 @@ void ReportSpellResult(W8SpellEffectEntry* effect)
             if (effect->result.condition_counts[condition] == 1) {
                 if (effect->target.iType == W8_TARGET_KIND_CHARACTER) {
                     AppendToLastTextLine(
-                        fmt::format("{} {}", g_status.buffers.Char[effect->target.iChar].name,
+                        fmt::format("{} {}", g_status.party.characters[effect->target.iChar].name,
                                     g_localized_strings[g_condition_notices[condition].singular]),
                         -1);
                 } else if (effect->target.iType == W8_TARGET_KIND_MONSTER) {
@@ -2032,7 +2029,7 @@ bool ValidateSpellTarget(int party_slot, int spell_id, unsigned int power, bool 
     W8TargetSource source;
     SetTargetSourceToCharacter(party_slot, &source);
     PopulateSpellTargetMarkers(spell_id, power, &source,
-                               &g_status.buffers.XChar[party_slot].target_out_of_combat, monsters,
+                               &g_status.party.rows[party_slot].target_out_of_combat, monsters,
                                party, W8AreaSightRule::RequireLineOfSight);
 
     bool valid = true;
@@ -2059,10 +2056,11 @@ bool ValidateSpellTarget(int party_slot, int spell_id, unsigned int power, bool 
          LevelMovedThisUpdate())) {
         valid = false;
     }
-    if (!valid && (!gXStatus.fCombatMode || !MonsterCanAimSpell(spell_id) ||
+    if (!valid && (!g_combat.active() || !MonsterCanAimSpell(spell_id) ||
                    CurrentLevelPopulation().monster_roster.hostileCombatCount() != 0 ||
-                   !g_combat_state->enemies_engaged)) {
-        QueueCharacterEvent(&g_status.buffers.Char[party_slot], 0x35, 0, kCharacterEventFullVolume);
+                   !g_combat.state()->enemies_engaged)) {
+        QueueCharacterEvent(&g_status.party.characters[party_slot], 0x35, 0,
+                            kCharacterEventFullVolume);
     }
     return valid;
 }
@@ -2111,7 +2109,7 @@ bool SpellAffectedTarget(W8Character* character, int spell_id, W8CombatSlot* aim
     case W8_SPELL_MISSILE_SHIELD:
     case W8_SPELL_ARMORPLATE:
     case W8_SPELL_MAGIC_SCREEN:
-        if (!gXStatus.fCombatMode) {
+        if (!g_combat.active()) {
             affected = CheckAndRestartSpellCooldown(spell_id);
         } else {
             for (index = 0; index < 12; ++index) {
@@ -2128,11 +2126,10 @@ bool SpellAffectedTarget(W8Character* character, int spell_id, W8CombatSlot* aim
     case W8_SPELL_ELEMENT_SHIELD:
     case W8_SPELL_SOUL_SHIELD:
     case W8_SPELL_RING_OF_FIRE:
-        if (gXStatus.fCombatMode &&
-            CurrentLevelPopulation().monster_roster.hostileCombatCount() > 0) {
+        if (g_combat.active() && CurrentLevelPopulation().monster_roster.hostileCombatCount() > 0) {
             for (index = 0; index < 9; ++index) {
                 if (g_combat_effect_slot_spells_and_cast_success[index] == spell_id) {
-                    affected = g_combat_state->effect_slots0[index].duration /
+                    affected = g_combat.state()->effect_slots0[index].duration /
                                    static_cast<float>(duration) <=
                                g_navigator_vertical_phase_step;
                     break;
@@ -2148,10 +2145,9 @@ bool SpellAffectedTarget(W8Character* character, int spell_id, W8CombatSlot* aim
     case W8_SPELL_EYE_FOR_AN_EYE:
     case W8_SPELL_SUPERMAN:
     case W8_SPELL_BODY_OF_STONE:
-        if (gXStatus.fCombatMode &&
-            CurrentLevelPopulation().monster_roster.hostileCombatCount() > 0) {
+        if (g_combat.active() && CurrentLevelPopulation().monster_roster.hostileCombatCount() > 0) {
             if (aim->iType == W8_TARGET_KIND_CHARACTER) {
-                enchantments = g_status.buffers.Char[aim->iChar].enchantments;
+                enchantments = g_status.party.characters[aim->iChar].enchantments;
             } else {
                 monster_info = FindMonster(aim->iMonsterID);
                 enchantments = monster_info->enchantments;
@@ -2164,15 +2160,16 @@ bool SpellAffectedTarget(W8Character* character, int spell_id, W8CombatSlot* aim
         affected = false;
         break;
     case W8_SPELL_HASTE:
-        if (gXStatus.fCombatMode &&
-            CurrentLevelPopulation().monster_roster.hostileCombatCount() > 0) {
+        if (g_combat.active() && CurrentLevelPopulation().monster_roster.hostileCombatCount() > 0) {
             if (aim->iType != W8_TARGET_KIND_PARTY) {
                 return true;
             }
             affected = false;
             for (index = 0; index < 8; ++index) {
-                if (g_status.buffers.XChar[index].fOccupied &&
-                    g_status.buffers.Char[index].enchantments[W8_ENCHANTMENT_RAZOR_CLOAK].turns /
+                if (g_status.party.rows[index].fOccupied &&
+                    g_status.party.characters[index]
+                                .enchantments[W8_ENCHANTMENT_RAZOR_CLOAK]
+                                .turns /
                             static_cast<float>(duration) <=
                         g_navigator_vertical_phase_step) {
                     affected = true;
@@ -2184,8 +2181,8 @@ bool SpellAffectedTarget(W8Character* character, int spell_id, W8CombatSlot* aim
         break;
     case W8_SPELL_HEAL_WOUNDS:
         if (aim->iType == W8_TARGET_KIND_CHARACTER) {
-            if (g_status.buffers.Char[aim->iChar].hp_current ==
-                static_cast<unsigned int>(g_status.buffers.Char[aim->iChar].uiHPMax)) {
+            if (g_status.party.characters[aim->iChar].hp_current ==
+                static_cast<unsigned int>(g_status.party.characters[aim->iChar].uiHPMax)) {
                 return false;
             }
         } else {
@@ -2197,8 +2194,8 @@ bool SpellAffectedTarget(W8Character* character, int spell_id, W8CombatSlot* aim
         break;
     case W8_SPELL_HEAL_ALL:
         for (index = 0; index < 8; ++index) {
-            target = &g_status.buffers.Char[index];
-            if (g_status.buffers.XChar[index].fOccupied &&
+            target = &g_status.party.characters[index];
+            if (g_status.party.rows[index].fOccupied &&
                 target->highest_condition <= W8_CONDITION_DEAD &&
                 target->hp_current < static_cast<unsigned int>(target->uiHPMax)) {
                 return true;
@@ -2206,22 +2203,22 @@ bool SpellAffectedTarget(W8Character* character, int spell_id, W8CombatSlot* aim
         }
         return false;
     case W8_SPELL_STAMINA:
-        if (gXStatus.fCombatMode) {
+        if (g_combat.active()) {
             if (aim->iType != W8_TARGET_KIND_CHARACTER) {
                 monster_info = FindMonster(aim->iMonsterID);
                 return monster_info->stamina != monster_info->stamina_max;
             }
-            return g_status.buffers.Char[aim->iChar].stamina !=
-                   g_status.buffers.Char[aim->iChar].uiStaminaMax;
+            return g_status.party.characters[aim->iChar].stamina !=
+                   g_status.party.characters[aim->iChar].uiStaminaMax;
         }
         affected = false;
         break;
     case W8_SPELL_REST_ALL:
         affected = false;
-        if (gXStatus.fCombatMode) {
+        if (g_combat.active()) {
             for (index = 0; index < 8; ++index) {
-                target = &g_status.buffers.Char[index];
-                if (g_status.buffers.XChar[index].fOccupied &&
+                target = &g_status.party.characters[index];
+                if (g_status.party.rows[index].fOccupied &&
                     target->highest_condition <= W8_CONDITION_DEAD &&
                     static_cast<unsigned int>(target->stamina) <
                         static_cast<unsigned int>(target->uiStaminaMax)) {
@@ -2233,7 +2230,7 @@ bool SpellAffectedTarget(W8Character* character, int spell_id, W8CombatSlot* aim
         break;
     case W8_SPELL_RESTORATION:
         if (aim->iType == W8_TARGET_KIND_CHARACTER) {
-            target = &g_status.buffers.Char[aim->iChar];
+            target = &g_status.party.characters[aim->iChar];
             for (index = 1; index < 0x12; ++index) {
                 if (target->uiCondition[index] != 0) {
                     return true;
@@ -2254,7 +2251,7 @@ bool SpellAffectedTarget(W8Character* character, int spell_id, W8CombatSlot* aim
                monster_info->hp_current < static_cast<unsigned int>(monster_info->uiHPMax);
     case W8_SPELL_CURE_PARALYSIS:
         if (aim->iType == W8_TARGET_KIND_CHARACTER) {
-            conditions = g_status.buffers.Char[aim->iChar].uiCondition;
+            conditions = g_status.party.characters[aim->iChar].uiCondition;
         } else {
             monster_info = FindMonster(aim->iMonsterID);
             conditions = monster_info->uiCondition;
@@ -2265,7 +2262,7 @@ bool SpellAffectedTarget(W8Character* character, int spell_id, W8CombatSlot* aim
         break;
     case W8_SPELL_CURE_POISON:
         if (aim->iType == W8_TARGET_KIND_CHARACTER) {
-            conditions = g_status.buffers.Char[aim->iChar].uiCondition;
+            conditions = g_status.party.characters[aim->iChar].uiCondition;
         } else {
             monster_info = FindMonster(aim->iMonsterID);
             conditions = monster_info->uiCondition;
@@ -2276,7 +2273,7 @@ bool SpellAffectedTarget(W8Character* character, int spell_id, W8CombatSlot* aim
         break;
     case W8_SPELL_CURE_DISEASE:
         if (aim->iType == W8_TARGET_KIND_CHARACTER) {
-            conditions = g_status.buffers.Char[aim->iChar].uiCondition;
+            conditions = g_status.party.characters[aim->iChar].uiCondition;
         } else {
             monster_info = FindMonster(aim->iMonsterID);
             conditions = monster_info->uiCondition;
@@ -2287,7 +2284,7 @@ bool SpellAffectedTarget(W8Character* character, int spell_id, W8CombatSlot* aim
         break;
     case W8_SPELL_SANE_MIND:
         if (aim->iType == W8_TARGET_KIND_CHARACTER) {
-            conditions = g_status.buffers.Char[aim->iChar].uiCondition;
+            conditions = g_status.party.characters[aim->iChar].uiCondition;
         } else {
             monster_info = FindMonster(aim->iMonsterID);
             conditions = monster_info->uiCondition;
@@ -2298,7 +2295,7 @@ bool SpellAffectedTarget(W8Character* character, int spell_id, W8CombatSlot* aim
         break;
     case W8_SPELL_RENEWAL:
         if (aim->iType == W8_TARGET_KIND_CHARACTER) {
-            conditions = g_status.buffers.Char[aim->iChar].uiCondition;
+            conditions = g_status.party.characters[aim->iChar].uiCondition;
         } else {
             monster_info = FindMonster(aim->iMonsterID);
             conditions = monster_info->uiCondition;
@@ -2309,7 +2306,7 @@ bool SpellAffectedTarget(W8Character* character, int spell_id, W8CombatSlot* aim
         break;
     case W8_SPELL_RESURRECTION:
         if (aim->iType == W8_TARGET_KIND_CHARACTER_INDIRECT) {
-            conditions = g_status.buffers.Char[aim->iChar].uiCondition;
+            conditions = g_status.party.characters[aim->iChar].uiCondition;
         } else {
             monster_info = FindMonster(aim->iMonsterID);
             conditions = monster_info->uiCondition;
@@ -2320,7 +2317,7 @@ bool SpellAffectedTarget(W8Character* character, int spell_id, W8CombatSlot* aim
         break;
     case W8_SPELL_CURE_LESSER_COND:
         if (aim->iType == W8_TARGET_KIND_CHARACTER) {
-            conditions = g_status.buffers.Char[aim->iChar].uiCondition;
+            conditions = g_status.party.characters[aim->iChar].uiCondition;
         } else {
             monster_info = FindMonster(aim->iMonsterID);
             conditions = monster_info->uiCondition;
@@ -2333,9 +2330,9 @@ bool SpellAffectedTarget(W8Character* character, int spell_id, W8CombatSlot* aim
         break;
     case W8_SPELL_PURIFY_AIR:
         affected = false;
-        if (g_combat_state != 0) {
+        if (g_combat.state() != 0) {
             for (index = 0; index < 9; ++index) {
-                if (g_combat_state->effect_slots[index].active) {
+                if (g_combat.state()->effect_slots[index].active) {
                     return true;
                 }
             }
@@ -2344,7 +2341,7 @@ bool SpellAffectedTarget(W8Character* character, int spell_id, W8CombatSlot* aim
         break;
     case W8_SPELL_SONIC_BOOM:
     case W8_SPELL_HYPNOTIC_LURE:
-        if (g_combat_state != 0 &&
+        if (g_combat.state() != 0 &&
             CurrentLevelPopulation().monster_roster.hostileCombatCount() > 0) {
             return true;
         }
@@ -2359,19 +2356,19 @@ bool SpellAffectedTarget(W8Character* character, int spell_id, W8CombatSlot* aim
         affected = CheckAndRestartSpellCooldown(spell_id);
         break;
     case W8_SPELL_IDENTIFY_ITEM:
-        if (aim->pPCItem->identified) {
+        if (g_status.party.itemAt(aim->item)->identified) {
             return false;
         }
         break;
     case W8_SPELL_REMOVE_CURSE:
-        if (!gXStatus.fCombatMode) {
+        if (!g_combat.active()) {
             affected = CheckAndRestartSpellCooldown(spell_id);
             if (!affected) {
                 return false;
             }
         }
         if (aim->iType == W8_TARGET_KIND_CHARACTER) {
-            conditions = g_status.buffers.Char[aim->iChar].uiCondition;
+            conditions = g_status.party.characters[aim->iChar].uiCondition;
         } else {
             monster_info = FindMonster(aim->iMonsterID);
             conditions = monster_info->uiCondition;
@@ -2420,14 +2417,14 @@ int ExecuteCharacterSpellCast(int party_slot, int spell_id, unsigned int power_l
     bool recast;
     bool clamp_power;
 
-    character = &g_status.buffers.Char[party_slot];
+    character = &g_status.party.characters[party_slot];
     record = &g_spell_records[spell_id];
     realm = record->realm;
     sp_cost = record->spell_point_cost;
     *out_points = 0;
     switch (record->power_class) {
     case W8_SPELL_POWER_REPEAT_OUT_OF_COMBAT:
-        if (!gXStatus.fCombatMode && power_level == 8) {
+        if (!g_combat.active() && power_level == 8) {
             recast = true;
             clamp_power = false;
             break;
@@ -2479,7 +2476,7 @@ int ExecuteCharacterSpellCast(int party_slot, int spell_id, unsigned int power_l
     } else {
         power_cast_bonus = (character->skills[W8_SKILL_POWER_CAST].level >> 2) + 1;
     }
-    aim = &g_status.buffers.XChar[party_slot].target_out_of_combat;
+    aim = &g_status.party.rows[party_slot].target_out_of_combat;
     if (power_level == 8) {
         power_level = ChooseSpellPowerLevelForTarget(character, spell_id, *aim, power_cast_bonus);
         if (power_level == 0) {
@@ -2540,7 +2537,7 @@ int ExecuteCharacterSpellCast(int party_slot, int spell_id, unsigned int power_l
     if (0 < index) {
         chance += record->spell_level * index;
     }
-    if (gXStatus.fCombatMode) {
+    if (g_combat.active()) {
         if (g_settings.difficulty == W8_DIFFICULTY_NOVICE) {
             morale = 0x50;
         } else if (g_settings.difficulty == W8_DIFFICULTY_NORMAL) {
@@ -2552,7 +2549,7 @@ int ExecuteCharacterSpellCast(int party_slot, int spell_id, unsigned int power_l
             }
             morale = 0x28;
         }
-        threshold = g_combat_state->characters[slot].phase_clock_stamp;
+        threshold = g_combat.state()->characters[slot].phase_clock_stamp;
         if (morale <= threshold) {
             chance = (((0x32 - morale) + threshold) * chance * 2) / 100;
         }
@@ -2708,7 +2705,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
             fizzled = true;
             wiz8::sound::play("Data\\Sound\\Misc\\Spell Fizzle 01.wav");
             if (caster_slot != -1 && Random(100) < 0x46) {
-                QueueCharacterEvent(&g_status.buffers.Char[caster_slot], g_special_event13, 0,
+                QueueCharacterEvent(&g_status.party.characters[caster_slot], g_special_event13, 0,
                                     kCharacterEventFullVolume);
             }
         }
@@ -2741,7 +2738,9 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                             g_world_cursor_extent_table
                                 [g_spell_power_extent_index[power_level - 1] * 6 + 3]) +
                             kWorldScale,
-                        1, true, false, false, 5, true);
+                        1, true, false, false, 5, true,
+                        BoundingSphere{PartyNavigator()->movement.position,
+                                       PartyNavigator()->movement.alternate_radius});
                     ground_point = placement.source;
                     if (!placement.positions.empty()) target->point = placement.positions.front();
                 }
@@ -2758,7 +2757,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
         if (TargetSourceIsCharacter(source, 1)) {
             if (!source->name_known) {
                 caster_figure = GetTotalCasterLevel(
-                    &g_status.buffers.Char[source->iChar],
+                    &g_status.party.characters[source->iChar],
                     (g_spell_records[spell_id].psionics_spell != 0 ? 8 : 0) |
                         (g_spell_records[spell_id].divinity_spell != 0 ? 2 : 0) |
                         (g_spell_records[spell_id].wizardry_spell != 0 ? 1 : 0) |
@@ -3041,7 +3040,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                 }
             }
         }
-        if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && !gXStatus.fNpcDialogueMode &&
+        if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME && !gXStatus.fNpcDialogueMode &&
             !gXStatus.fCampMode) {
             g_spell_effects.push_back(std::move(pending));
         } else {
@@ -3061,7 +3060,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
             }
             if (caster_slot != -1) {
                 if (Random(2) == 0) {
-                    QueueCharacterEvent(&g_status.buffers.Char[caster_slot], 16, 0,
+                    QueueCharacterEvent(&g_status.party.characters[caster_slot], 16, 0,
                                         kCharacterEventFullVolume);
                 } else {
                     ApplyItemEffectToRandomCharacter(17, caster_slot, 0);
@@ -3108,11 +3107,11 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                 Fail("pOrigSource->iMonsterID != -1");
             }
             monster_info = FindMonster(owner.Source.iMonsterID);
-            if (gXStatus.fCombatMode &&
-                g_combat_state->action_status != W8CombatActionStatus::idle &&
-                g_combat_state->pActionMonsterInfo != 0 &&
-                g_combat_state->pActionMonsterInfo->location_id == monster_info->location_id) {
-                g_combat_state->action_status = W8CombatActionStatus::finishing;
+            if (g_combat.active() &&
+                g_combat.state()->action_status != W8CombatActionStatus::idle &&
+                g_combat.state()->pActionMonsterInfo != 0 &&
+                g_combat.state()->pActionMonsterInfo->location_id == monster_info->location_id) {
+                g_combat.state()->action_status = W8CombatActionStatus::finishing;
             }
         }
         return 2;
@@ -3313,7 +3312,7 @@ int PickBackfireTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targe
 
     candidates = 0;
     for (slot = 0; slot < 8; ++slot) {
-        if (g_status.buffers.XChar[slot].fOccupied &&
+        if (g_status.party.rows[slot].fOccupied &&
             (!TargetSourceIsCharacter(source, 0) || source->iChar != slot)) {
             ++candidates;
         }
@@ -3333,7 +3332,7 @@ int PickBackfireTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targe
     }
     pick = Random(candidates) + 1;
     for (slot = 0; slot < 8; ++slot) {
-        if (g_status.buffers.XChar[slot].fOccupied &&
+        if (g_status.party.rows[slot].fOccupied &&
             (!TargetSourceIsCharacter(source, 0) || source->iChar != slot) && (--pick == 0)) {
             if (GetSpellTargetType(spell_id, false) == 4) {
                 target->iType = W8_TARGET_KIND_PARTY;
@@ -3422,7 +3421,7 @@ void CheckSpellBackfire(int spell_id, W8TargetSource* source, W8CombatSlot* targ
 
     monster_info = 0;
     if (source->iType == W8_TARGET_SOURCE_CHARACTER) {
-        character = &g_status.buffers.Char[source->iChar];
+        character = &g_status.party.characters[source->iChar];
         if (character->uiCondition[W8_CONDITION_BLIND] == 0) {
             return;
         }
@@ -3701,7 +3700,8 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
         }
         CollectConeMonsterTargets(source, &eye, heading, elevation, monster_markers,
                                   static_cast<unsigned char>(side), sight_flag, cone_range);
-        if (monster_markers.empty() && (g_combat_state == 0 || !g_combat_state->enemies_engaged) &&
+        if (monster_markers.empty() &&
+            (g_combat.state() == 0 || !g_combat.state()->enemies_engaged) &&
             TargetSourceIsCharacter(source, 0) && static_cast<char>(side) == 1 &&
             !AnyMonsterEngaged()) {
             CollectConeMonsterTargets(source, &eye, heading, elevation, monster_markers, 3,
@@ -3737,7 +3737,8 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
         }
         CollectMonstersWithinRadius(&trace, &target_point, monster_markers, radius,
                                     static_cast<char>(side), sight_rule);
-        if (monster_markers.empty() && (g_combat_state == 0 || !g_combat_state->enemies_engaged) &&
+        if (monster_markers.empty() &&
+            (g_combat.state() == 0 || !g_combat.state()->enemies_engaged) &&
             TargetSourceIsCharacter(source, 0) && static_cast<char>(side) == 1 &&
             !AnyMonsterEngaged()) {
             CollectMonstersWithinRadius(&trace, &target_point, monster_markers, radius, 3,
@@ -3766,7 +3767,8 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
         }
         CollectMonstersWithinRadius(&centre, &eye, monster_markers, radius, static_cast<char>(side),
                                     sight_rule);
-        if (monster_markers.empty() && (g_combat_state == 0 || !g_combat_state->enemies_engaged) &&
+        if (monster_markers.empty() &&
+            (g_combat.state() == 0 || !g_combat.state()->enemies_engaged) &&
             TargetSourceIsCharacter(source, 0) && static_cast<char>(side) == 1 &&
             !AnyMonsterEngaged()) {
             CollectMonstersWithinRadius(&centre, &eye, monster_markers, radius, 3, sight_rule);
@@ -3778,7 +3780,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
     if (marked && spell_id != W8_SPELL_HOLY_WATER && spell_id != W8_SPELL_BANISH) {
         for (slot = 0; slot < 8; ++slot) {
             if (CanPartySlotParticipate(slot) &&
-                (g_status.buffers.Char[slot].uiCondition[W8_CONDITION_TURNCOAT] == 0 ||
+                (g_status.party.characters[slot].uiCondition[W8_CONDITION_TURNCOAT] == 0 ||
                  !MonsterCanAimSpell(spell_id) || static_cast<char>(side) == 3)) {
                 party_markers.push_back(slot);
             }

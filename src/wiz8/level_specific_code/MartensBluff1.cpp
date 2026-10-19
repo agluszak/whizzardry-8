@@ -14,13 +14,14 @@
 #include "wiz8/entities/trigger.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/gameplay_constants.h"
+#include "wiz8/inventory.h"
+#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/platform/IntervalGate.h"
@@ -123,7 +124,7 @@ bool MartensBluff1FHandlock(Trigger* pTrigger)
     if (pTrigger->running) {
         return true;
     }
-    if (g_status.item_in_cursor && GetItemInHand() == 0x26f) {
+    if ((g_status.party.held.item.iItemNo != -1) && GetItemInHand() == 0x26f) {
         return true;
     }
     SetDice(&dice, 2, 4, 1);
@@ -279,7 +280,7 @@ bool MartensBluff1TransportSpawn(void)
     if (GetFact(W8_FACT_TRANG_TELEPORTER_TOAST)) {
         return false;
     }
-    if (gXStatus.fCombatMode) {
+    if (g_combat.active()) {
         return true;
     }
     if (!FindEntityByName("ANTRHACAX1", &position_a, 0, 0)) {

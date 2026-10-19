@@ -3,14 +3,14 @@
 #include <vector>
 
 #include "glm/ext/vector_float3.hpp"
-#include "wiz8/cursor.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/fact_state.h"
+#include "wiz8/inventory.h"
+#include "wiz8/item_location.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/Factions.h"
-#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/string_database.h"
@@ -45,12 +45,12 @@ bool RapaxUpperFloorAirBox(Trigger* pTrigger)
     int item_id;
     int var_id;
 
-    if (g_status.item_in_cursor) {
+    if ((g_status.party.held.item.iItemNo != -1)) {
         item_id = GetItemInHand();
         if (item_id == 0x1cb || item_id == 0x1cd || item_id == 0x1cc || item_id == 0x1ce) {
             SetFact(W8_FACT_RAPAX_TREASURY_RAIDED, 1, false);
             SetFactionDispositionBand(0x12, W8_FACTION_HOSTILE);
-            ClearHeldItemDisplay();
+            (void)TakeInventoryItem({W8ItemStorage::Hand});
             if (item_id == 0x1cb) {
                 item_id = 0x1c7;
             } else if (item_id == 0x1cd) {

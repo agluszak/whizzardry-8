@@ -510,7 +510,7 @@ void AutomapPanEastButton(void)
 void AutomapExitButton(void)
 {
     if (g_automap_editing_note == 0) {
-        RequestScreenTransition();
+        ReturnToPreviousScreen();
     }
 }
 
@@ -1795,7 +1795,7 @@ unsigned char HandleAutomapKey(const InputEvent* input)
     MGSKeyBinding* binding =
         g_mgs_keyboard.GetBinding(g_mgs_keyboard.FindBinding(W8_MGS_COMMAND_AUTOMAP));
     if (input->key == binding->key && input->modifiers == binding->modifiers) {
-        RequestScreenTransition();
+        ReturnToPreviousScreen();
         return 1;
     }
     switch (input->key) {
@@ -1832,7 +1832,7 @@ unsigned char HandleAutomapKey(const InputEvent* input)
     drop_tool:
         /* Escape drops the tool, or leaves the screen when none is held. */
         if (g_automap_tool == W8AutomapTool::Select) {
-            RequestScreenTransition();
+            ReturnToPreviousScreen();
             return 1;
         }
         g_automap_tool = W8AutomapTool::Select;

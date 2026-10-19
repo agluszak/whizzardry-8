@@ -21,7 +21,6 @@
 #include "wiz8/render/frame.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
-#include "wiz8/xstatus.h"
 
 namespace {
 std::unique_ptr<UiLayer> party_icons;
@@ -84,16 +83,17 @@ void RefreshCombatEffectHud()
 {
     left_icons.reset();
     right_icons.reset();
-    if (!gXStatus.fCombatMode) return;
-    PaintEffectStrip(left_icons, g_combat_state->effect_slots, {0x81, 0x14}, 0x15, 0x14, false);
-    PaintEffectStrip(right_icons, g_combat_state->effect_slots0, {0x1eb, 0x14}, -0x15, 0x14, true);
+    if (!g_combat.active()) return;
+    PaintEffectStrip(left_icons, g_combat.state()->effect_slots, {0x81, 0x14}, 0x15, 0x14, false);
+    PaintEffectStrip(right_icons, g_combat.state()->effect_slots0, {0x1eb, 0x14}, -0x15, 0x14,
+                     true);
     left_icons->setEnabled(!g_level_block->portrait_refresh_pending[0]);
     right_icons->setEnabled(!g_level_block->portrait_refresh_pending[1]);
 }
 
 void InvalidateMainGameEffectHud()
 {
-    if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
+    if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
         EraseRegion(0x7f, 0x14, 0x201, 0x28);
     }
 }

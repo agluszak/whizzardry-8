@@ -45,6 +45,7 @@
 #include "wiz8/message_box.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_script_file.h"
+#include "wiz8/party.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/render/camera_shake.h"
 #include "wiz8/render/light.h"
@@ -160,13 +161,12 @@ TEST_CASE("NPC message queues release their contents", "[resources][lifecycle]")
 
 TEST_CASE("A dead character's events leave every queue", "[resources][lifecycle]")
 {
-    std::array<W8Character, 8> party{};
-    party[0].fInParty = party[1].fInParty = true;
-    // NOLINTNEXTLINE(cppcoreguidelines-special-member-functions): local restoration guard
     struct RestoreParty {
-        W8Character* saved;
-        ~RestoreParty() { g_status.buffers.Char = saved; }
-    } restore{std::exchange(g_status.buffers.Char, party.data())};
+        W8Party saved = std::exchange(g_status.party, W8Party{});
+        ~RestoreParty() { g_status.party = std::move(saved); }
+    } restore;
+    auto& party = g_status.party.characters;
+    party[0].fInParty = party[1].fInParty = true;
     // Declared last, so its remaining active event completes while the party is reachable.
     W8CharacterEventQueue queue;
     const auto queues = {&queue.pending_events, &queue.npc_deferred_events, &queue.active_events};
@@ -545,26 +545,22 @@ TEST_CASE_METHOD(SpellVisualFixture,
 
 TEST_CASE("Ambient exchanges wait for completion and choose a different respondent", "[events]")
 {
-    std::array<W8Character, 8> characters{};
-    std::array<W8PartySlotRow, 8> slots{};
+    auto& characters = g_status.party.characters;
+    auto& slots = g_status.party.rows;
     struct Restore {
-        W8Character* characters = g_status.buffers.Char;
-        W8PartySlotRow* slots = g_status.buffers.XChar;
+        W8Party party = std::exchange(g_status.party, W8Party{});
         bool environment = g_environment_time_enabled;
         bool greeting = g_status.greeting_pending;
         std::unique_ptr<W8CharacterEventQueue> queue = std::move(gXStatus.character_event_queue);
         ~Restore()
         {
             gXStatus.character_event_queue.reset();
-            g_status.buffers.Char = characters;
-            g_status.buffers.XChar = slots;
+            g_status.party = std::move(party);
             g_environment_time_enabled = environment;
             g_status.greeting_pending = greeting;
             gXStatus.character_event_queue = std::move(queue);
         }
     } restore;
-    g_status.buffers.Char = characters.data();
-    g_status.buffers.XChar = slots.data();
     g_environment_time_enabled = true;
     g_status.greeting_pending = false;
     gXStatus.character_event_queue = std::make_unique<W8CharacterEventQueue>();

@@ -114,11 +114,11 @@ static void AdvanceIntroScreen(void)
         FinishVideoPresentation();
     }
     g_intro_video.reset();
-    RequestScreenTransition();
+    ReturnToPreviousScreen();
     switch (g_intro_video_index) {
     case W8_INTRO_VIDEO_WIZARDRY:
     case W8_INTRO_VIDEO_SIRTECH:
-        g_pending_screen_state.id = W8_SCREEN_MAIN_MENU;
+        RequestScreen({.id = W8_SCREEN_MAIN_MENU});
         g_settings.intro_seen = true;
         break;
     case W8_INTRO_VIDEO_UNALIGNED:
@@ -126,12 +126,11 @@ static void AdvanceIntroScreen(void)
     case W8_INTRO_VIDEO_TRANG:
     case W8_INTRO_VIDEO_VIRGIN:
         if (!g_status.intro_shown) {
-            g_pending_screen_state.mode = W8_PLEASE_WAIT_NEW_GAME;
-            g_pending_screen_state.id = W8_SCREEN_PLEASE_WAIT;
+            RequestScreen({.id = W8_SCREEN_PLEASE_WAIT, .mode = W8_PLEASE_WAIT_NEW_GAME});
         } else {
             g_status.intro_shown = false;
             if (GetPendingScreenState() != 7) {
-                g_pending_screen_state.id = W8_SCREEN_MAIN_GAME;
+                RequestScreen({.id = W8_SCREEN_MAIN_GAME});
             }
         }
         break;

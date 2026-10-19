@@ -12,11 +12,17 @@ void GameloopExit();
 
 /* Local Code\Gameloop.cpp's screen-state machine storage. */
 extern W8ScreenStateHandlers g_screen_handlers[W8_SCREEN_COUNT];
-extern W8ScreenStateRuntime g_current_screen_state;
-extern W8ScreenStateRuntime g_pending_screen_state;
-extern bool g_screen_return_requested;
-extern std::vector<W8ScreenStateRuntime> g_screen_return_stack;
-extern W8ScreenId g_previous_screen_id;
-extern W8ScreenId g_suspended_screen_id;
+enum class ScreenDeparture { Suspend, Discard };
+void ResetScreenRouting();
+void RequestScreen(W8ScreenStateRuntime request,
+                   ScreenDeparture departure = ScreenDeparture::Suspend);
+void ReturnToPreviousScreen();
+const W8ScreenStateRuntime& CurrentScreenState();
+W8ScreenId PreviousScreen();
+W8ScreenId SuspendedScreen();
+W8ScreenId RequestedScreen();
+std::size_t SuspendedScreenCount();
+bool IsScreenTransitionPending();
+W8ScreenId GetPendingScreenState();
 
 #endif

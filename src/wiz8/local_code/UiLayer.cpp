@@ -412,7 +412,7 @@ bool DispatchUiInput(const InputEvent* input)
     RuntimeObserve(RUNTIME_MOUSE_DISPATCH, input->type,
                    static_cast<w8_ulong>(input->position.x) |
                        (static_cast<w8_ulong>(input->position.y) << 16),
-                   g_current_screen_state.id);
+                   CurrentScreenState().id);
 #endif
     auto* target = state.live(g_ui.captured) ? g_ui.captured : state.at(input->position);
     if (!target) return false;

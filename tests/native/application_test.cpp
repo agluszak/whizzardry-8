@@ -54,7 +54,6 @@ TEST_CASE("application_test")
             failed = true;
         }
         REQUIRE(failed);
-        REQUIRE(gzStringDataOverride == "string data.wiz");
         CheckStopped();
     }
 

@@ -30,7 +30,9 @@
 #include "wiz8/design_rect.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/fonts.h"
+#include "wiz8/inventory.h"
 #include "wiz8/item_spawning.h"
+#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/ItemManager.h"
@@ -764,8 +766,8 @@ void W8TriggerItemPickerDialog::TransferSelectedItems(int destination)
             if (destination == -1) {
                 added = AddItemToParty(&instance, true, false);
             } else {
-                added = AddItemToCharacter(&g_status.buffers.Char[destination], &instance, false,
-                                           true, false);
+                added = AddItemToCharacter(&g_status.party.characters[destination], &instance,
+                                           false, true, false);
             }
             if (added) {
                 entries.erase(entries.begin() + index);
@@ -1029,7 +1031,7 @@ void W8TriggerItemPickerDialog::UpdateLayout()
         visible_rows = count;
     }
 
-    if (gXStatus.fCombatMode) {
+    if (g_combat.active()) {
         m_buttons[2]->SetEnabled(false);
     }
     if (m_dirty) {

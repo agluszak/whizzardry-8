@@ -311,7 +311,7 @@ Trigger* FindTriggerForProp(World* world, Prop* prop);
 Light* FindLightByName(std::string_view name);
 /* Walk the world's triggers for a type-0x34 RunDestination trigger whose
    annulus contains the position; answers true when one does. */
-bool InsideDestinationTrigger(float x, float y, float z);
+bool InsideDestinationTrigger(const World& world, float x, float y, float z);
 
 // Stop callbacks before retiring the primary world; trigger owners survive until teardown.
 

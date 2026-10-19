@@ -26,6 +26,7 @@
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/party_slot.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/PC_Item.h"
@@ -155,8 +156,8 @@ void RunSearchPulse(void)
     if (TimeUntilDeadline(g_search_pulse_clock) == 0) {
         g_search_pulse_clock = w8_get_ticks() + (500);
         if (g_environment_time_enabled != 0 && !gXStatus.world_update_blocked &&
-            !gXStatus.fSurprisePossible && !gXStatus.fLockInteractMode &&
-            !LockInteractionSuspended() && !gXStatus.fTrapInteractMode &&
+            !gXStatus.fSurprisePossible && !IsLockInteractionActive() &&
+            !LockInteractionSuspended() && !IsTrapInteractionActive() &&
             !TrapInteractionSuspended()) {
             if (IsLevelFastMovement() && g_status.search_mode) {
                 ShowNotice(W8_FONT_PALETTE_BEIGE,
@@ -169,7 +170,7 @@ void RunSearchPulse(void)
                     auto* searchable = &candidate;
                     int slot = searchable->PickBestSearcher();
                     if (slot != -1) {
-                        W8Character* character = &g_status.buffers.Char[slot];
+                        W8Character* character = &g_status.party.characters[slot];
                         if (searchable->world_item == 0) {
                             if (searchable->trigger == 0) {
                                 QueueCharacterEvent(character, 0x1a, 0, kCharacterEventFullVolume);
@@ -217,8 +218,8 @@ void RunSearchPulse(void)
                 /* Retail scans the party for a live member carrying the
                    Scouting skill and then discards the result. */
                 for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-                    W8Character* character = &g_status.buffers.Char[slot];
-                    if (g_status.buffers.XChar[slot].fOccupied && character->hp_current != 0 &&
+                    W8Character* character = &g_status.party.characters[slot];
+                    if (g_status.party.rows[slot].fOccupied && character->hp_current != 0 &&
                         character->highest_condition < W8_CONDITION_TURNCOAT &&
                         character->skills[W8_SKILL_SCOUTING].level != 0) {
                         break;
@@ -243,8 +244,8 @@ int W8Searchable::PickBestSearcher()
     int best_slot = -1;
     bool earned = false;
     for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-        W8Character* character = &g_status.buffers.Char[slot];
-        if (!g_status.buffers.XChar[slot].fOccupied || character->hp_current == 0 ||
+        W8Character* character = &g_status.party.characters[slot];
+        if (!g_status.party.rows[slot].fOccupied || character->hp_current == 0 ||
             character->highest_condition >= W8_CONDITION_TURNCOAT) {
             continue;
         }
@@ -280,7 +281,7 @@ int W8Searchable::PickBestSearcher()
                 best_slot = slot;
             }
         }
-        if (g_status.party_modifiers.detect_secrets != 0) {
+        if (g_status.party.modifiers.detect_secrets != 0) {
             if (best_slot != -1 && Random(2) == 0) {
                 continue;
             }
@@ -296,7 +297,8 @@ int W8Searchable::PickBestSearcher()
     glm::vec3 delta = camera - position;
     if (glm::length(delta) < range) {
         if (earned) {
-            PracticeCharacterSkill(&g_status.buffers.Char[best_slot], W8_SKILL_SCOUTING, 5, false);
+            PracticeCharacterSkill(&g_status.party.characters[best_slot], W8_SKILL_SCOUTING, 5,
+                                   false);
         }
         return best_slot;
     }
@@ -313,7 +315,7 @@ void ToggleSearchMode(void)
         ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_SEARCH_MODE_OFF]);
         return;
     }
-    if (!gXStatus.fCombatMode) {
+    if (!g_combat.active()) {
         g_status.search_mode = true;
         ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_SEARCH_MODE_ON]);
         g_search_pulse_clock = w8_get_ticks() + (0x1f4);

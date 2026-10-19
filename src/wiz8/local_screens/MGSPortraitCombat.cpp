@@ -120,10 +120,10 @@ void UpdateSubMenuButton(int index)
     case 5:
     case 6:
     case 8:
-        g_main_game_state->hud_buttons.submenu[index].SetVisible(gXStatus.fCombatMode);
+        g_main_game_state->hud_buttons.submenu[index].SetVisible(g_combat.active());
         break;
     case 7:
-        g_main_game_state->hud_buttons.submenu[index].SetVisible(!gXStatus.fCombatMode);
+        g_main_game_state->hud_buttons.submenu[index].SetVisible(!g_combat.active());
         break;
     }
     if (gXStatus.fNpcDialogueMode &&
@@ -132,7 +132,7 @@ void UpdateSubMenuButton(int index)
         g_main_game_state->hud_buttons.submenu[index].SetEnabled(false);
         return;
     }
-    if (gXStatus.fLockInteractMode || gXStatus.fTrapInteractMode || gXStatus.fReviewCharacterMode) {
+    if (IsLockInteractionActive() || IsTrapInteractionActive() || gXStatus.fReviewCharacterMode) {
         g_main_game_state->hud_buttons.submenu[index].SetEnabled(false);
         return;
     }
@@ -148,7 +148,7 @@ void UpdateSubMenuButton(int index)
         g_main_game_state->hud_buttons.submenu[index].SetEnabled(false);
         return;
     }
-    if (gXStatus.fCombatMode && !g_combat_state->round_active) {
+    if (g_combat.active() && !g_combat.state()->round_active) {
         g_main_game_state->hud_buttons.submenu[index].SetEnabled(false);
         return;
     }
@@ -158,21 +158,21 @@ void UpdateSubMenuButton(int index)
     }
     switch (index) {
     case 0:
-        if (gXStatus.fCombatMode) {
+        if (g_combat.active()) {
             g_main_game_state->hud_buttons.submenu[0].SetEnabled(false);
         } else {
             g_main_game_state->hud_buttons.submenu[0].SetEnabled(true);
         }
         break;
     case 1:
-        if (gXStatus.fCombatMode) {
+        if (g_combat.active()) {
             g_main_game_state->hud_buttons.submenu[1].SetEnabled(false);
         } else {
             g_main_game_state->hud_buttons.submenu[1].SetEnabled(true);
         }
         break;
     case 2:
-        if (gXStatus.fCombatMode) {
+        if (g_combat.active()) {
             g_main_game_state->hud_buttons.submenu[2].SetEnabled(false);
         } else {
             g_main_game_state->hud_buttons.submenu[2].SetEnabled(true);
@@ -213,7 +213,7 @@ void UpdateSubMenuButton(int index)
     case 4:
         g_main_game_state->hud_buttons.submenu[4].SetEnabled(
             IsPartySlotEligible(g_status.selected_character) &&
-            CharacterHasCastableSpell(&g_status.buffers.Char[g_status.selected_character]));
+            CharacterHasCastableSpell(&g_status.party.characters[g_status.selected_character]));
         /* As case 2, with the spell picker open: 0x00594FA0/0x00594FB5 then
            0x00594FBC/0x00594FCD. This case's SetEnabled stays a single call -
            the retail's `? :` collapses into one at 0x00594F8C. */
@@ -229,20 +229,20 @@ void UpdateSubMenuButton(int index)
         break;
     case 5:
     case 6:
-        g_main_game_state->hud_buttons.submenu[index].SetEnabled(gXStatus.fCombatMode);
+        g_main_game_state->hud_buttons.submenu[index].SetEnabled(g_combat.active());
         if (!IsPartySlotEligible(g_status.selected_character)) {
             g_main_game_state->hud_buttons.submenu[index].SetEnabled(false);
         }
         break;
     case 7:
-        if (gXStatus.fCombatMode) {
+        if (g_combat.active()) {
             g_main_game_state->hud_buttons.submenu[7].SetEnabled(false);
         } else {
             g_main_game_state->hud_buttons.submenu[7].SetEnabled(true);
         }
         break;
     case 8:
-        if (gXStatus.fCombatMode) {
+        if (g_combat.active()) {
             g_main_game_state->hud_buttons.submenu[8].SetEnabled(true);
         } else {
             g_main_game_state->hud_buttons.submenu[8].SetEnabled(false);
@@ -258,7 +258,7 @@ static void SubMenuButtonPendingScreen(W8ButtonWidget* button)
     if (gXStatus.fNpcDialogueMode) {
         gXStatus.fCampMode = true;
     }
-    g_pending_screen_state.id = W8_SCREEN_JOURNAL;
+    RequestScreen({.id = W8_SCREEN_JOURNAL});
 }
 
 static void SubMenuButtonSurprise(W8ButtonWidget* button)
@@ -282,7 +282,7 @@ static void SubMenuButtonUseItem(W8ButtonWidget* button)
         CloseUseItemSelectView();
         return;
     }
-    if (gXStatus.fCombatMode) {
+    if (g_combat.active()) {
         OpenSubMenuPanel(3);
         ReleaseUiCapture();
         return;
@@ -292,7 +292,7 @@ static void SubMenuButtonUseItem(W8ButtonWidget* button)
 
 static void SubMenuButtonSpellView(W8ButtonWidget* button)
 {
-    if (CharacterHasCastableSpell(&g_status.buffers.Char[g_status.selected_character])) {
+    if (CharacterHasCastableSpell(&g_status.party.characters[g_status.selected_character])) {
         if (gpSCSV) {
             CloseSpellCastingView();
         } else {

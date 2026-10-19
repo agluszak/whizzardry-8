@@ -96,7 +96,7 @@ void AdvanceEnvironmentTime(int elapsed)
     }
     g_status.game_time_ms = time % 86400000U;
 
-    if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
+    if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
         UpdateGameClock(elapsed);
     }
     g_tick = w8_get_ticks();

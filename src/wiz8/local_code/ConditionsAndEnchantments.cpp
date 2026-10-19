@@ -18,14 +18,18 @@
 #include "wiz8/entities/animation_types.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/fonts.h"
+#include "wiz8/inventory.h"
+#include "wiz8/item_location.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/item_tables.h"
+#include "wiz8/layouts/party_slot.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/level_population.h"
+#include "wiz8/live_party.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/Gameloop.h"
@@ -39,12 +43,12 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/character_events.h"
-#include "wiz8/local_code/party_encumbrance.h"
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/monster_cycles.h"
+#include "wiz8/party_stats.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/utility.h"
@@ -80,7 +84,7 @@ unsigned short g_condition_interrupt_notices[12] = {
 
 bool GetConditionRecordFlag(int party_slot, W8CharacterDependence dependence)
 {
-    return g_status.buffers.Char[party_slot].conditions[dependence].active;
+    return g_status.party.characters[party_slot].conditions[dependence].active;
 }
 
 void ReleaseMonsterConditionBindings(W8MonsterInfo* monster_info)
@@ -98,7 +102,7 @@ void ReleaseMonsterConditionBindings(W8MonsterInfo* monster_info)
                 break;
             }
             for (unsigned int party_slot = 0; party_slot < 8; ++party_slot) {
-                W8Character* character = &g_status.buffers.Char[party_slot];
+                W8Character* character = &g_status.party.characters[party_slot];
                 W8CharacterConditionRecord* record = &character->conditions[slot_kind];
                 if ((condition == W8_CONDITION_NONE || character->uiCondition[condition] != 0) &&
                     record->level_acquired == GetLoadedLevelID() &&
@@ -130,11 +134,8 @@ void ReleaseMonsterConditionBindings(W8MonsterInfo* monster_info)
    condition alone maintained, then notifies dependents. */
 void RemoveCharacterCondition(int party_slot, W8Condition condition, bool announce)
 {
-    W8Character* character = &g_status.buffers.Char[party_slot];
-    W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
-    W8ItemInstance* found_item;
-    W8Character* found_character;
-
+    W8Character* character = &g_status.party.characters[party_slot];
+    W8PartySlotRow* row = &g_status.party.rows[party_slot];
     if (character->uiCondition[condition] != 0 || !g_status.world_suspended) {
         if (!row->fOccupied) {
             Fail("fCHAR_OCCUPIED(uiChar)");
@@ -148,15 +149,15 @@ void RemoveCharacterCondition(int party_slot, W8Condition condition, bool announ
                 GetLevelBand(GetLoadedLevelID()) != '\n') {
                 return;
             }
-        } else if (condition == W8_CONDITION_INSANE &&
-                   FindItemOnParty(0x243, &found_item, &found_character, 2, 0) &&
-                   found_item != &g_status.item_in_hand) {
-            if (found_character == 0) {
-                found_character = FindPartyMemberWithLowestResistance4();
+        } else if (const auto found = FindPartyItem(ItemWithId(0x243), W8ItemReach::Party);
+                   condition == W8_CONDITION_INSANE && found.storage != W8ItemStorage::None &&
+                   found.storage != W8ItemStorage::Hand) {
+            W8Character* holder = g_status.party.holderOf(found);
+            if (!holder) {
+                holder = FindPartyMemberWithLowestResistance4();
             }
-            if (CharacterPointerToPartySlot(found_character) ==
-                    static_cast<unsigned int>(party_slot) &&
-                !FindItemOnCharacter(found_character, 0x239, 0, 0, 0)) {
+            if (CharacterPointerToPartySlot(holder) == static_cast<unsigned int>(party_slot) &&
+                !FindCharacterItem(*holder, ItemWithId(0x239), W8ItemReach::Worn)) {
                 return;
             }
         }
@@ -180,7 +181,7 @@ void RemoveCharacterCondition(int party_slot, W8Condition condition, bool announ
             character->fatigue_penalty = 0;
             break;
         case W8_CONDITION_INSANE:
-            if (gXStatus.fCombatMode && g_combat_state->characters[party_slot].berserk) {
+            if (g_combat.active() && g_combat.state()->characters[party_slot].berserk) {
                 row->target_out_of_combat = row->committed_action.target;
             }
             break;
@@ -254,16 +255,12 @@ void SanitizeLoadedItems(void)
     unsigned int index;
     W8Character* character;
 
+    SettleActiveParty();
     for (slot = 0; slot < 8; ++slot) {
-        if (g_status.buffers.XChar[slot].fOccupied) {
-            UnequipUnusableItems(&g_status.buffers.Char[slot]);
-        }
-    }
-    for (slot = 0; slot < 8; ++slot) {
-        if (!g_status.buffers.XChar[slot].fOccupied) {
+        if (!g_status.party.rows[slot].fOccupied) {
             continue;
         }
-        character = &g_status.buffers.Char[slot];
+        character = &g_status.party.characters[slot];
         for (index = 0; index < 12; ++index) {
             if (character->EquippedItem[index].iItemNo != -1) {
                 NormalizeItemQuantityKind(&character->EquippedItem[index]);
@@ -275,9 +272,9 @@ void SanitizeLoadedItems(void)
             }
         }
     }
-    for (index = 0; index < g_status.party_item_count; ++index) {
-        if (g_status.party_item_pool[index].iItemNo != -1) {
-            NormalizeItemQuantityKind(&g_status.party_item_pool[index]);
+    for (index = 0; index < g_status.party.item_count; ++index) {
+        if (g_status.party.item_pool[index].iItemNo != -1) {
+            NormalizeItemQuantityKind(&g_status.party.item_pool[index]);
         }
     }
 }
@@ -315,10 +312,10 @@ W8ConditionImmunity g_condition_immunities[3] = {
    portrait page if it is up. */
 void RecomputeCharacterHighestCondition(int party_slot)
 {
-    if (!g_status.buffers.XChar[party_slot].fOccupied) {
+    if (!g_status.party.rows[party_slot].fOccupied) {
         Fail("fCHAR_OCCUPIED(uiChar)");
     }
-    W8Character* character = &g_status.buffers.Char[party_slot];
+    W8Character* character = &g_status.party.characters[party_slot];
     W8Condition previous = character->highest_condition;
     for (int index = 0x13; index >= 0; --index) {
         if (character->uiCondition[index] != 0 || index == 0) {
@@ -326,10 +323,10 @@ void RecomputeCharacterHighestCondition(int party_slot)
             break;
         }
     }
-    UpdateFormationSlotState(&g_status.formation, party_slot);
-    if (gXStatus.fCombatMode) {
+    UpdateFormationSlotState(&g_status.party.formation, party_slot);
+    if (g_combat.active()) {
         UpdateFormationSlotState(&gXStatus.edited_formation, party_slot);
-        UpdateFormationSlotState(&g_combat_state->saved_formation, party_slot);
+        UpdateFormationSlotState(&g_combat.state()->saved_formation, party_slot);
     }
     if ((previous < W8_CONDITION_DEAD) != (character->highest_condition < W8_CONDITION_DEAD)) {
         RedistributePartyEncumbrance();
@@ -349,7 +346,7 @@ void RecomputeCharacterHighestCondition(int party_slot)
     }
     SetPortraitTargetPose(&gXStatus.monster_manager_entries[party_slot], pose);
 done:
-    if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
+    if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
         RequestRedraw(W8_MAIN_REDRAW_CHARACTER_ACTION);
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
     }
@@ -361,7 +358,7 @@ done:
 void ApplyCharacterCondition(int party_slot, W8EnchantmentSlot slot, int argument,
                              unsigned int duration, unsigned int percent)
 {
-    W8Character* character = &g_status.buffers.Char[party_slot];
+    W8Character* character = &g_status.party.characters[party_slot];
     W8Enchantment* enchantment = &character->enchantments[slot];
     if (enchantment->power < static_cast<unsigned int>(argument)) {
         enchantment->power = argument;
@@ -382,7 +379,7 @@ void ApplyCharacterCondition(int party_slot, W8EnchantmentSlot slot, int argumen
             }
         }
         RequestPartySlotRedraw(party_slot);
-        if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
+        if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
             RequestRedraw(W8_MAIN_REDRAW_CHARACTER_ACTION);
             RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
         }
@@ -402,32 +399,33 @@ void ApplyCharacterCondition(int party_slot, W8EnchantmentSlot slot, int argumen
    roll covering the fractional part when the quotient floors to zero. */
 void TickCharacterCondition(unsigned int party_slot, W8Condition condition, unsigned int minutes)
 {
-    W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
+    W8PartySlotRow* row = &g_status.party.rows[party_slot];
 
     if (!row->fOccupied) {
         Fail("fCHAR_OCCUPIED(uiSlot)");
     }
-    if (g_status.buffers.Char[party_slot].uiCondition[condition] == 0) {
+    if (g_status.party.characters[party_slot].uiCondition[condition] == 0) {
         Fail("gStatus.Char[uiSlot].uiCondition[uiCondition] > 0");
     }
-    if (g_status.buffers.Char[party_slot].uiCondition[condition] <= minutes) {
+    if (g_status.party.characters[party_slot].uiCondition[condition] <= minutes) {
         RemoveCharacterCondition(party_slot, condition, true);
         return;
     }
     if (condition == W8_CONDITION_POISONED) {
-        int strength = g_status.buffers.Char[party_slot].condition_argument;
-        unsigned int lost = strength * minutes /
-                            g_status.buffers.Char[party_slot].uiCondition[W8_CONDITION_POISONED];
+        int strength = g_status.party.characters[party_slot].condition_argument;
+        unsigned int lost =
+            strength * minutes /
+            g_status.party.characters[party_slot].uiCondition[W8_CONDITION_POISONED];
 
         if (lost == 0 &&
             Random(100) <
-                g_status.buffers.Char[party_slot].condition_argument * minutes * 100 /
-                    g_status.buffers.Char[party_slot].uiCondition[W8_CONDITION_POISONED]) {
+                g_status.party.characters[party_slot].condition_argument * minutes * 100 /
+                    g_status.party.characters[party_slot].uiCondition[W8_CONDITION_POISONED]) {
             lost = 1;
         }
-        g_status.buffers.Char[party_slot].condition_argument = strength - lost;
+        g_status.party.characters[party_slot].condition_argument = strength - lost;
     }
-    g_status.buffers.Char[party_slot].uiCondition[condition] -= minutes;
+    g_status.party.characters[party_slot].uiCondition[condition] -= minutes;
 }
 
 static void RefreshMonsterConditionState(W8MonsterInfo* monster_info)
@@ -548,7 +546,7 @@ void SetMonsterCondition(int location_id, W8Condition condition, int duration, i
         MonsterStartsDying(monster_info, announce);
         return;
     }
-    if (announce && (gXStatus.fCombatMode || monster_info->party_threat.visible_to_player)) {
+    if (announce && (g_combat.active() || monster_info->party_threat.visible_to_player)) {
         auto name = GetMonsterName(monster_info, 0, 0);
         ShowNotice(W8_FONT_PALETTE_RUST,
                    fmt::format("{} {}!", name,
@@ -575,7 +573,7 @@ void ClearMonsterCondition(int location_id, W8Condition condition)
             monster_group = FindMonsterGroup(monster_info->monster_group_id);
             SetMonsterHostility(monster_info, monster_group->ubDisposition);
         }
-        if (gXStatus.fCombatMode || monster_info->party_threat.visible_to_player) {
+        if (g_combat.active() || monster_info->party_threat.visible_to_player) {
             ShowNotice(W8_FONT_PALETTE_RUST,
                        fmt::sprintf(g_localized_strings[0x244], GetMonsterName(monster_info, 0, 0),
                                     g_localized_strings[g_condition_notices[condition].name]));
@@ -645,8 +643,8 @@ unsigned char SetCharacterCondition(int party_slot, W8Condition condition, int d
                                     int poison_strength, char alternate_missing_notice,
                                     char announce)
 {
-    W8Character* character = &g_status.buffers.Char[party_slot];
-    W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
+    W8Character* character = &g_status.party.characters[party_slot];
+    W8PartySlotRow* row = &g_status.party.rows[party_slot];
     W8Condition old_highest;
     unsigned int old_duration;
     bool handled;
@@ -815,9 +813,9 @@ void ClearCharacterEnchantmentSlot(int party_slot, W8EnchantmentSlot slot)
     W8Character* character;
     int scan;
 
-    memset(&g_status.buffers.Char[party_slot].enchantments[slot], 0, sizeof(W8Enchantment));
+    memset(&g_status.party.characters[party_slot].enchantments[slot], 0, sizeof(W8Enchantment));
 
-    character = &g_status.buffers.Char[party_slot];
+    character = &g_status.party.characters[party_slot];
     for (scan = 7; scan >= 0; --scan) {
         if (character->enchantments[scan].turns > 0 || scan == 0) {
             character->enchantment_top = static_cast<W8EnchantmentSlot>(scan);
@@ -826,7 +824,7 @@ void ClearCharacterEnchantmentSlot(int party_slot, W8EnchantmentSlot slot)
     }
 
     RequestPartySlotRedraw(party_slot);
-    if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
+    if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
         RequestRedraw(W8_MAIN_REDRAW_CHARACTER_ACTION);
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
     }
@@ -841,12 +839,12 @@ void ClearCharacterEnchantmentSlot(int party_slot, W8EnchantmentSlot slot)
    nothing is left. */
 void TickCharacterEnchantmentSlot(int party_slot, W8EnchantmentSlot slot, unsigned int turns)
 {
-    unsigned int remaining = g_status.buffers.Char[party_slot].enchantments[slot].turns;
+    unsigned int remaining = g_status.party.characters[party_slot].enchantments[slot].turns;
 
     if (remaining <= turns) {
         ClearCharacterEnchantmentSlot(party_slot, slot);
     } else {
-        g_status.buffers.Char[party_slot].enchantments[slot].turns = remaining - turns;
+        g_status.party.characters[party_slot].enchantments[slot].turns = remaining - turns;
     }
 }
 
@@ -920,8 +918,8 @@ void RemoveConditionFromParty(W8Condition condition)
     unsigned int party_slot;
 
     for (party_slot = 0; party_slot < 8; ++party_slot) {
-        if (g_status.buffers.XChar[party_slot].fOccupied &&
-            g_status.buffers.Char[party_slot].uiCondition[condition] != 0) {
+        if (g_status.party.rows[party_slot].fOccupied &&
+            g_status.party.characters[party_slot].uiCondition[condition] != 0) {
             RemoveCharacterCondition(party_slot, condition, true);
         }
     }
@@ -954,9 +952,9 @@ void RemoveAllEnchantments(void)
 {
     for (unsigned int enchantment = 0; enchantment < 8; ++enchantment) {
         for (int party_slot = 0; party_slot < 8; ++party_slot) {
-            W8Character* character = &g_status.buffers.Char[party_slot];
+            W8Character* character = &g_status.party.characters[party_slot];
 
-            if (g_status.buffers.XChar[party_slot].fOccupied &&
+            if (g_status.party.rows[party_slot].fOccupied &&
                 character->enchantments[enchantment].turns != 0) {
                 ClearCharacterEnchantmentSlot(party_slot,
                                               static_cast<W8EnchantmentSlot>(enchantment));
@@ -1016,9 +1014,9 @@ void BindMonsterToCharacterDependence(unsigned int party_slot, unsigned int depe
         RetireMonsterGroupAndAllies(FindMonsterGroup(monster_info->monster_group_id));
     }
 
-    g_status.buffers.Char[party_slot].conditions[dependence_slot].level_acquired =
+    g_status.party.characters[party_slot].conditions[dependence_slot].level_acquired =
         GetLoadedLevelID();
-    g_status.buffers.Char[party_slot].conditions[dependence_slot].source_monster = monster_id;
-    g_status.buffers.Char[party_slot].conditions[dependence_slot].active = true;
+    g_status.party.characters[party_slot].conditions[dependence_slot].source_monster = monster_id;
+    g_status.party.characters[party_slot].conditions[dependence_slot].active = true;
     RebuildConditionsAndDerivedStats(party_slot);
 }

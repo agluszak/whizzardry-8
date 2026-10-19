@@ -5,11 +5,12 @@
 
 #include "conditions.h"
 #include "glm/ext/vector_float3.hpp"
-#include "wiz8/cursor.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
+#include "wiz8/inventory.h"
+#include "wiz8/item_location.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/item_instance.h"
@@ -19,7 +20,6 @@
 #include "wiz8/local_code/MonsterGenerator.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/location_variables.h"
@@ -99,7 +99,7 @@ bool Trynnie2MeatBox(Trigger* pTrigger)
     int item_id;
 
     group = FindFirstMonsterByID(0x1d4);
-    if (group == 0 || !g_status.item_in_cursor) {
+    if (group == 0 || !(g_status.party.held.item.iItemNo != -1)) {
         ShowNotice(W8_FONT_PALETTE_TEXT_BOX, g_localized_strings[0x964]);
         return true;
     }
@@ -121,7 +121,7 @@ bool Trynnie2MeatBox(Trigger* pTrigger)
             CreateLocationVar("HogarDruggedGivenExp", 1);
         }
     }
-    ClearHeldItemDisplay();
+    (void)TakeInventoryItem({W8ItemStorage::Hand});
     BeginScriptedWorldAction();
     return true;
 }
@@ -160,7 +160,7 @@ bool Trynnie2UseItem(W8ItemInstance* item)
         }
     }
     destination.iItemNo = -1;
-    CopyItemInstance(&destination, item, 0, true);
+    destination = TakeInventoryItem(g_status.party.locateItem(item));
     return true;
 }
 

@@ -143,7 +143,7 @@ void CreditsScreenFrame(void)
         input = *next_input;
         if (input.type == InputEventType::KeyDown || input.type == InputEventType::LeftButtonUp ||
             input.type == InputEventType::RightButtonUp)
-            RequestScreenTransition();
+            ReturnToPreviousScreen();
     }
 
     const auto steps = (w8_get_ticks() - g_credit_started_at) / 35 - g_credit_elapsed_steps;
@@ -155,7 +155,7 @@ void CreditsScreenFrame(void)
         while (g_credit_y < 0) {
             ++g_credit_line;
             if (g_credit_line >= static_cast<int>(g_credit_lines.size())) {
-                RequestScreenTransition();
+                ReturnToPreviousScreen();
                 break;
             }
             entry = g_credit_lines[g_credit_line];

@@ -29,6 +29,7 @@
 #include "wiz8/fact_state.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
+#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
 #include "wiz8/local_code/Configuration.h"
@@ -350,7 +351,7 @@ unsigned char MonGen::GenerateEncounter(const glm::vec3* position)
         LinkMonsterGroupToLeader(group, companion_group);
     }
 
-    if (g_dev_mode && g_current_screen_state.id != W8_SCREEN_PLEASE_WAIT) {
+    if (g_dev_mode && CurrentScreenState().id != W8_SCREEN_PLEASE_WAIT) {
         W8MonsterRecord* group_record = MonsterGroupGetRecord(group);
         std::string group_name =
             group->MemberCount() == 1 ? group_record->name0 : group_record->name1;
@@ -373,7 +374,7 @@ bool MonGen::CanGenerateEncounter(bool force)
     float distance;
 
     if (GetWorld()->encounters.save_flag != 0 || gXStatus.world_update_blocked ||
-        gXStatus.fCombatMode || gXStatus.fNpcDialogueMode || !generation_enabled) {
+        g_combat.active() || gXStatus.fNpcDialogueMode || !generation_enabled) {
         return false;
     }
 
@@ -651,7 +652,7 @@ void RunMonsterGenerators(void)
    Retirement and final leader removal own this event, exactly once. */
 void SpendRandomEncounterBudget()
 {
-    if (!gXStatus.fCombatMode) return;
+    if (!g_combat.active()) return;
     --GetWorld()->encounters.random_budget;
     ClampEncounterBudget(*GetWorld());
 }

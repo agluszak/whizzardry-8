@@ -75,8 +75,6 @@ wiz8::Application::Application(std::span<const std::string_view> arguments)
              {"config", "logs", "saves/characters", "saves/npcs", "saves/import"})
             wiz8::create_directory(wiz8::user_path(directory));
         const auto options = ParseArguments(arguments);
-        gfLoadAtStartup = options.load_at_startup;
-        gzStringDataOverride = options.string_data;
         if (options.inspector) VideoInspectorEnable();
         if (options.windowed) VideoFullScreen(false);
         if (!InitializeVideoManager()) throw std::runtime_error("Video initialization failed");
@@ -84,7 +82,7 @@ wiz8::Application::Application(std::span<const std::string_view> arguments)
             throw std::runtime_error("Sound initialization failed");
         InitializeRandom();
         game_started_ = true;
-        if (!InitializeGame(initialized_screens_))
+        if (!InitializeGame(initialized_screens_, options.load_at_startup, options.string_data))
             throw std::runtime_error("Game initialization failed");
         gfGameInitialized = gfApplicationActive = gfProgramIsRunning = true;
     } catch (...) {

@@ -72,6 +72,7 @@
 #include "wiz8/retail_geometry_types.h"
 #include "wiz8/retail_text_records.h"
 #include "wiz8/spatial/bounding_box.h"
+#include "wiz8/spatial/bounding_sphere.h"
 #include "wiz8/spatial/mesh_links.h"
 #include "wiz8/spatial/navigation.h"
 #include "wiz8/spatial/navigator.h"
@@ -2068,7 +2069,6 @@ unsigned int LevelSpatialIndex::CollectObjectsInCell(const glm::ivec3& cell, uns
 {
     unsigned int found = 0;
     unsigned int leaf_index;
-    W8OctreeIndex::iterator slot;
 
     switch (kind) {
     case W8_OCTREE_KIND_SURFACE:
@@ -2092,9 +2092,8 @@ unsigned int LevelSpatialIndex::CollectObjectsInCell(const glm::ivec3& cell, uns
         break;
     default: {
         const unsigned int cell_key = PackOctreeCellKey(cell.x, cell.y, cell.z);
-        W8OctreeIndex::iterator cursor = registry.cells->by_cell.end();
-        slot = NextIndexValue(registry.cells->by_cell, cell_key, cursor);
-        cursor = slot;
+        auto slot =
+            NextIndexValue(registry.cells->by_cell, cell_key, registry.cells->by_cell.end());
         while (slot != registry.cells->by_cell.end()) {
             unsigned int packed = static_cast<unsigned int>(slot->second);
             const auto query_id = static_cast<unsigned short>(packed);
@@ -2106,8 +2105,7 @@ unsigned int LevelSpatialIndex::CollectObjectsInCell(const glm::ivec3& cell, uns
             if (matches && !SetBit(scratch.visited_objects, OctreeKeyId(packed) - 1)) {
                 scratch.keys.push_back(query_id - 1);
             }
-            slot = NextIndexValue(registry.cells->by_cell, cell_key, cursor);
-            cursor = slot;
+            slot = NextIndexValue(registry.cells->by_cell, cell_key, slot);
         }
         break;
     }
@@ -2227,7 +2225,8 @@ static bool OverlapsNearbyMonster(const World* world, const glm::vec3& point, fl
 
 std::vector<glm::vec3> LevelSpatialIndex::scatterPositions(const glm::vec3& position, float yaw,
                                                            float spacing, unsigned int count,
-                                                           bool proximity_check, bool flatten_y)
+                                                           bool proximity_check, bool flatten_y,
+                                                           std::optional<BoundingSphere> player)
 {
     float source_y = position.y;
     std::vector<glm::vec3> positions;
@@ -2269,7 +2268,7 @@ std::vector<glm::vec3> LevelSpatialIndex::scatterPositions(const glm::vec3& posi
                 const auto probe =
                     grid.candidate(source, {ring + jitter_ring, jitter_column + *column_offset});
                 if (const auto settled = wiz8::placement::grounded(
-                        probe, probeGround(probe).position.y, flatten_y)) {
+                        probe, settleToGround(probe, true, 500).position.y, flatten_y)) {
                     glm::vec3 candidate = *settled;
                     if (!proximity_check) {
                         if (pathing->SnapWaypointPosition(&candidate, false)) {
@@ -2278,10 +2277,9 @@ std::vector<glm::vec3> LevelSpatialIndex::scatterPositions(const glm::vec3& posi
                     } else {
                         float reach = spacing * 0.5f;
                         if (pathing->TestPathCellClearance(&candidate, reach, false)) {
-                            glm::vec3 navigator = PartyNavigator()->GetPosition();
-                            const auto delta = navigator - candidate;
-                            float separation = PartyNavigator()->radius + reach;
-                            if (separation * separation <= glm::dot(delta, delta)) {
+                            const auto delta = player ? player->center - candidate : glm::vec3(0);
+                            const float separation = player ? player->radius + reach : 0;
+                            if (!player || separation * separation <= glm::dot(delta, delta)) {
                                 if (OverlapsNearbyMonster(owner_world, candidate, reach, candidates,
                                                           false))
                                     goto next_cell;
@@ -2319,7 +2317,8 @@ NavigatorPlacement LevelSpatialIndex::navigatorPositions(const glm::vec3& input,
                                                          float radius, unsigned int count,
                                                          bool first_only, bool settle_any_height,
                                                          bool avoid_triggers, int mode,
-                                                         bool require_waypoint_span)
+                                                         bool require_waypoint_span,
+                                                         std::optional<BoundingSphere> player)
 {
     unsigned int found = 0;
     glm::vec3 source = input;
@@ -2328,14 +2327,14 @@ NavigatorPlacement LevelSpatialIndex::navigatorPositions(const glm::vec3& input,
     int found_j = 9999;
     float source_y = source.y;
     std::vector<w8_ulong> candidates;
-    float camera_radius = PartyNavigator()->movement.alternate_radius;
+    float camera_radius = player ? player->radius : 0;
     bool placed = false;
     float separation = (CalcRangeDistance(W8_RANGE_TOUCH) + radius) * 0.5f + camera_radius;
     float angle = NormalizeAngle(yaw + g_monster_rotation_offset);
     const wiz8::placement::Grid grid(angle, radius);
     source.y += kWorldScale;
-    if (const auto settled =
-            wiz8::placement::grounded(source, probeGround(source).position.y, settle_any_height))
+    if (const auto settled = wiz8::placement::grounded(
+            source, settleToGround(source, true, 500).position.y, settle_any_height))
         source = *settled;
     if (first_only) {
         candidates = nearbyLocations(source, radius);
@@ -2375,7 +2374,8 @@ NavigatorPlacement LevelSpatialIndex::navigatorPositions(const glm::vec3& input,
                             }
                             const auto probe = grid.candidate(source, {i + jitter_i, jitter_j + j});
                             if (const auto settled = wiz8::placement::grounded(
-                                    probe, probeGround(probe).position.y, settle_any_height)) {
+                                    probe, settleToGround(probe, true, 500).position.y,
+                                    settle_any_height)) {
                                 glm::vec3 candidate = *settled;
                                 unsigned char clear;
                                 if (!first_only) {
@@ -2384,13 +2384,15 @@ NavigatorPlacement LevelSpatialIndex::navigatorPositions(const glm::vec3& input,
                                     clear = pathing->TestPathCellClearance(&candidate,
                                                                            radius * 0.5f, false);
                                 }
-                                if (clear != 0 && (!avoid_triggers ||
-                                                   !InsideDestinationTrigger(
-                                                       candidate.x, candidate.y, candidate.z))) {
+                                if (clear != 0 &&
+                                    (!avoid_triggers ||
+                                     !InsideDestinationTrigger(*owner_world, candidate.x,
+                                                               candidate.y, candidate.z))) {
                                     if (first_only) {
-                                        glm::vec3 camera = PartyNavigator()->GetPosition();
-                                        const auto delta = camera - candidate;
-                                        if (glm::dot(delta, delta) < separation * separation) {
+                                        const auto delta =
+                                            player ? player->center - candidate : glm::vec3(0);
+                                        if (player &&
+                                            glm::dot(delta, delta) < separation * separation) {
                                             goto next_cell;
                                         }
                                         if (OverlapsNearbyMonster(owner_world, candidate,

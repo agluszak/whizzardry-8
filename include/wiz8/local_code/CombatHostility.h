@@ -6,19 +6,21 @@
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/monster_actions.h"
 
+struct W8Party;
 struct W8MonsterInfo;
 struct W8MonsterGroup;
 struct W8TargetSource;
 struct W8CombatSlot;
 struct W8Character;
-union W8ActionDetailBlock;
+struct W8ActionDetailBlock;
 /* Local Code\Combat Hostility.cpp: whether two monsters count as hostile to
    each other, and whether a spell can be aimed by monster AI. */
 W8Disposition MonsterHostility(W8MonsterInfo* first, W8MonsterInfo* second);
 /* Whether a party action aims at enemies (melee kinds, or a spell /
    item-spell whose target type is an enemy band). */
-bool CharacterActionTargetsEnemies(W8Character* character, W8ActionKind action_kind,
-                                   int action_detail, W8ActionDetailBlock* detail);
+bool CharacterActionTargetsEnemies(const W8Party& party, W8Character* character,
+                                   W8ActionKind action_kind, int action_detail,
+                                   W8ActionDetailBlock* detail);
 /* The monster-side counterpart; action kinds 0 and 3 always count,
    kind 2 defers to MonsterCanAimSpell. */
 bool MonsterActionTargetsEnemies(W8MonsterActionKind action_kind, int action_detail,

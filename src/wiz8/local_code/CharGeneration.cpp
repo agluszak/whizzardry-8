@@ -10,15 +10,19 @@
 #include "layouts/gameplay_databases.h"
 #include "layouts/item_instance.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/character_stats.h"
 #include "wiz8/dialog_code/ProfRaceInfoDialog.h"
+#include "wiz8/inventory.h"
 #include "wiz8/layouts/character.h"
+#include "wiz8/live_party.h"
+#include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/party_encumbrance.h"
+#include "wiz8/party_stats.h"
 #include "wiz8/platform/assertion.h"
 
 /* Refund every spent skill point through the per-skill commit helper. */
@@ -154,10 +158,10 @@ void InitializeCharacterLevelUp(W8Character* character, W8CharacterCreationState
         PayDownAttributeDebt(character, creation_state);
     }
     CalcCharacterLevelBand(character);
-    RecalculateCharacterHitPoints(character);
+    RecalculateHitPoints(*character);
     RecalculateCharacterStamina(character);
     RecalculateRealmSpellPoints(character);
-    CalcArmorClasses(character);
+    RecalculateArmorClass(*character);
     FinalizeSpellPointPool(character, creation_state);
 }
 
@@ -476,12 +480,12 @@ void AdjustAllocatedAttribute(W8Character* character, W8CharacterCreationState* 
     }
     creation_state->attributes_complete = true;
 complete:
-    RecalculateCharacterHitPoints(character);
+    RecalculateHitPoints(*character);
     RecalculateCharacterStamina(character);
     RecalculateCarryingCapacity(character);
-    RecalculateCarriedWeight(character);
+    PresentInventoryWeightChange(*character, RecalculateInventoryWeight(*character));
     RecalculateRealmSpellPoints(character);
-    CalcArmorClasses(character);
+    RecalculateArmorClass(*character);
     RecalculateCharacterResistances(character);
     if (character->uiExpLevel == 1) {
         RebuildSkillAllocations(character, creation_state);
@@ -867,7 +871,7 @@ int ComputeStartingEquipmentCost(W8Character* character)
 bool CanAffordStartingEquipment(W8Character* character)
 {
     return static_cast<unsigned int>(ComputeStartingEquipmentCost(character)) <=
-           g_status.party_gold;
+           g_status.party.gold;
 }
 
 /* Recompute the level-up pools after a profession change, refunding every
@@ -1001,12 +1005,12 @@ void ApplyRaceProfessionTables(W8Character* character, W8CharacterCreationState*
                 character->attributes[index].effective = character->attributes[index].base;
             }
         }
-        RecalculateCharacterHitPoints(character);
+        RecalculateHitPoints(*character);
         RecalculateCharacterStamina(character);
         RecalculateCarryingCapacity(character);
-        RecalculateCarriedWeight(character);
+        PresentInventoryWeightChange(*character, RecalculateInventoryWeight(*character));
         RecalculateRealmSpellPoints(character);
-        CalcArmorClasses(character);
+        RecalculateArmorClass(*character);
     }
     RecalculateCharacterResistances(character);
     if (character->uiExpLevel == 1) {
@@ -1074,7 +1078,7 @@ void FinalizeCreatedCharacter(W8Character* character, W8CharacterCreationState* 
     unsigned int realm;
     unsigned int spell;
 
-    RecalculateCharacterDerivedStats(character);
+    RecalculateCharacterDerivedStats(*character);
     if (give_starting_equipment) {
         AddCharacterStartingEquipment(character);
     }
@@ -1170,7 +1174,7 @@ void AddCharacterStartingEquipment(W8Character* character)
         if (g_starting_equipment[set][slot] == -1) {
             continue;
         }
-        ReplaceOrCreateItem(&item, g_starting_equipment[set][slot], true, true, true);
+        item = MakeItem(g_starting_equipment[set][slot], true, true, true);
         AddItemToCharacter(character, &item, true, false, false);
     }
 
@@ -1178,28 +1182,28 @@ void AddCharacterStartingEquipment(W8Character* character)
     case W8_PROFESSION_PRIEST:
         if (character->skills[W8_SKILL_MACE_FLAIL].level >
             character->skills[W8_SKILL_STAFF_WAND].level) {
-            ReplaceOrCreateItem(&item, 0x16, true, true, true);
+            item = MakeItem(0x16, true, true, true);
         } else {
-            ReplaceOrCreateItem(&item, 0x52, true, true, true);
+            item = MakeItem(0x52, true, true, true);
         }
         break;
     case W8_PROFESSION_FIGHTER:
         if (character->skills[W8_SKILL_AXE].level > character->skills[W8_SKILL_SWORD].level) {
-            ReplaceOrCreateItem(&item, 0x12, true, true, true);
+            item = MakeItem(0x12, true, true, true);
         } else {
-            ReplaceOrCreateItem(&item, 7, true, true, true);
+            item = MakeItem(7, true, true, true);
         }
         break;
     case W8_PROFESSION_GADGETEER:
-        ReplaceOrCreateItem(&item, 599, true, true, true);
+        item = MakeItem(599, true, true, true);
         break;
     case W8_PROFESSION_BARD:
-        ReplaceOrCreateItem(&item, 0x144, true, true, true);
+        item = MakeItem(0x144, true, true, true);
         break;
     default:
-        RebuildEquipmentAndDerivedStats(character);
+        RecalculateCharacterDerivedStats(*(character));
         return;
     }
     AddItemToCharacter(character, &item, true, false, false);
-    RebuildEquipmentAndDerivedStats(character);
+    RecalculateCharacterDerivedStats(*(character));
 }

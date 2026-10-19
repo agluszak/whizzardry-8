@@ -33,17 +33,19 @@
 #include "wiz8/dialog_code/StatInfoDialogs.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
+#include "wiz8/inventory.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/party_slot.h"
 #include "wiz8/layouts/screen_state.h"
+#include "wiz8/live_party.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/LoadSaveGame.h"
-#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/UtilityFunctions.h"
@@ -55,7 +57,6 @@
 #include "wiz8/render/frame.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
-#include "wiz8/xstatus.h"
 
 unsigned short g_character_description_first_ids[22] = {
     0x274, 0x275, 0x276, 0x277, 0x278, 0x279, 0x27a, 0,     0x27b, 0x27c, 0x27d,
@@ -157,7 +158,7 @@ void W8CharacterScreen::BuildControls()
     m_exit = button(0x1fc, 0x14, 0xde, [this] { m_pages[m_page_index]->Accept(); });
     m_accept = button(0x1d0, 4, 0xdf, [this] {
         if (m_mode == W8_CHARACTER_EDIT && !m_exit->IsEnabled())
-            RequestScreenTransition();
+            ReturnToPreviousScreen();
         else
             ShowMessage(g_localized_strings[0xd3], 1, 2);
     });
@@ -174,7 +175,7 @@ void W8CharacterScreen::BuildControls()
     if (m_mode == W8_CHARACTER_EDIT && g_status.game_started &&
         CharacterPointerToPartySlot(m_original) > 1) {
         m_reset->SetVisible(true);
-        if (gXStatus.fCombatMode) {
+        if (g_combat.active()) {
             m_reset->SetEnabled(false);
         }
     }
@@ -345,12 +346,12 @@ void W8CharacterScreen::AdvancePage(bool forward)
             SelectPage(index);
         } else if (!m_force_transition) {
             if (CommitCharacter()) {
-                RequestScreenTransition();
+                ReturnToPreviousScreen();
                 if (m_mode == W8_CHARACTER_LEVEL_UP &&
                     m_character.experience_goal <= m_character.experience) {
-                    g_pending_screen_state.mode = W8_CHARACTER_LEVEL_UP_NOTICE;
-                    g_pending_screen_state.character = m_original;
-                    g_pending_screen_state.id = W8_SCREEN_CHARACTER;
+                    RequestScreen({.id = W8_SCREEN_CHARACTER,
+                                   .mode = W8_CHARACTER_LEVEL_UP_NOTICE,
+                                   .character = m_original});
                 }
             }
         } else if (ValidateName()) {
@@ -505,7 +506,7 @@ bool W8CharacterScreen::CommitCharacter()
         if (was_in_party) m_original->fInParty = true;
         if (m_original->iProfession == W8_PROFESSION_GADGETEER)
             UpgradeProfessionClassItem(m_original);
-        UnequipUnusableItems(m_original);
+        RecalculateCharacterDerivedStats(*m_original);
     }
     return true;
 }
@@ -552,7 +553,7 @@ void W8CharacterScreen::HandleDialogResult(int response, unsigned char accepted)
     if (accepted) {
         switch (response) {
         case 2:
-            RequestScreenTransition();
+            ReturnToPreviousScreen();
             break;
         case 3:
             m_block_advance = true;
@@ -579,18 +580,18 @@ void W8CharacterScreen::HandleDialogResult(int response, unsigned char accepted)
         case 6:
             FinalizeCreatedCharacter(&m_character, &m_creation_state, false);
             RecruitCharacterIntoParty(m_original, &m_character, true);
-            RequestScreenTransition();
+            ReturnToPreviousScreen();
             break;
         case 7:
             FinalizeCreatedCharacter(&m_character, &m_creation_state, false);
             RecruitCharacterIntoParty(m_original, &m_character, false);
-            RequestScreenTransition();
+            ReturnToPreviousScreen();
             break;
         }
     } else if (response == 6) {
         FinalizeCreatedCharacter(&m_character, &m_creation_state, false);
         RecruitCharacterIntoParty(m_original, &m_character, false);
-        RequestScreenTransition();
+        ReturnToPreviousScreen();
     }
 }
 
@@ -611,8 +612,8 @@ bool W8CharacterScreen::ValidateName()
         }
     }
     for (int index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
-        if (g_status.buffers.XChar[index].fOccupied &&
-            strcmp(g_status.buffers.Char[index].name.c_str(), m_character.name.c_str()) == 0) {
+        if (g_status.party.rows[index].fOccupied &&
+            strcmp(g_status.party.characters[index].name.c_str(), m_character.name.c_str()) == 0) {
             ShowMessage(g_localized_strings[0xd5], 0, 0);
             return false;
         }
@@ -632,14 +633,13 @@ W8Character* W8CharacterScreen::GetOriginalCharacter()
 
 bool CharacterScreenEnter(void)
 {
-    const W8CharacterScreenMode mode = std::get<W8CharacterScreenMode>(g_current_screen_state.mode);
+    const W8CharacterScreenMode mode = std::get<W8CharacterScreenMode>(CurrentScreenState().mode);
     SetViewport({0, 0, 0x281, 0x1e1});
     SetPrimarySurfaceTextureHint2Enabled(false);
     UpdateHeldItemCursor();
     g_wiz_text_font_secondary.resetPalette();
     g_wiz_text_bold_font.resetPalette();
-    g_character_screen =
-        std::make_unique<W8CharacterScreen>(mode, g_current_screen_state.character);
+    g_character_screen = std::make_unique<W8CharacterScreen>(mode, CurrentScreenState().character);
     g_character_screen->BuildControls();
     if (!g_status.game_started && (mode == W8_CHARACTER_CREATE || mode == W8_CHARACTER_LEVEL_UP)) {
         StartMusicResource("Menus.MPL", 1, 1);
@@ -673,7 +673,7 @@ void CharacterScreenFrame(void)
                         } else if (input.key == SDLK_ESCAPE) {
                             if (screen->m_mode == W8_CHARACTER_EDIT &&
                                 !screen->m_exit->IsEnabled()) {
-                                RequestScreenTransition();
+                                ReturnToPreviousScreen();
                             } else {
                                 screen->ShowMessage(g_localized_strings[0xd3], 1, 2);
                             }

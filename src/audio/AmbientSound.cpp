@@ -31,6 +31,7 @@
 #include "wiz8/containers.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/gameplay_constants.h"
+#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Gameloop.h"
@@ -43,7 +44,6 @@
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/unicode.h"
 #include "wiz8/world/world.h"
-#include "wiz8/xstatus.h"
 
 static constexpr float g_ambient_sound_inner_radius_scale = 0.6000000238418579f;
 
@@ -301,8 +301,8 @@ void W8AmbientSound::Service(bool entered)
             } else {
                 should_play = Random(3);
             }
-            if (!gXStatus.fCombatMode && should_play != 0 &&
-                g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
+            if (!g_combat.active() && should_play != 0 &&
+                CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
                 float angle = -GetCameraYawRadians();
                 glm::vec3 camera;
                 glm::mat3 rotation;

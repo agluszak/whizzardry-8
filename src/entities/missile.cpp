@@ -5,6 +5,7 @@
 #include <cstring>
 #include <exception>
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -55,6 +56,7 @@
 #include "wiz8/render/light.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/retail_text_records.h"
+#include "wiz8/spatial/bounding_sphere.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/spell_ids.h"
@@ -145,7 +147,8 @@ unsigned char UpdateMissileAI(MissileFlight* record)
     }
     missile->flight_done = true;
     if (missile->missile_table_index == 0x23 &&
-        (g_combat_state == 0 || g_combat_state->missile_hit_result != W8_MISSILE_HIT_DEFLECTED)) {
+        (g_combat.state() == 0 ||
+         g_combat.state()->missile_hit_result != W8_MISSILE_HIT_DEFLECTED)) {
         missile->DetonateMissileSpell();
     }
     if (g_missile_table[missile->missile_table_index].spell_missile != 0) {
@@ -315,7 +318,12 @@ void UpdateWorldMissiles(World* world)
             if (!missile->flight_done || missile->block_released == 0) {
                 missile->StartIfHostActive();
                 missile->visual.UpdateRepresentation(world, missile->nav);
-                missile->nav.UpdateNavigation(0, false);
+                missile->nav.UpdateNavigation(
+                    0, false,
+                    world == GetWorld()
+                        ? std::optional{BoundingSphere{PartyNavigator()->movement.position,
+                                                       PartyNavigator()->movement.alternate_radius}}
+                        : std::nullopt);
             } else {
                 missile->visual.RetireParticles(*world);
                 world->missiles.erase(world->missiles.begin() + index);
@@ -353,8 +361,8 @@ Missile* AllocateMissile(int missile_table_index)
     missile->flight_done = false;
     if (missile->flight_done) {
         if (missile->missile_table_index == 0x23 &&
-            (g_combat_state == 0 ||
-             g_combat_state->missile_hit_result != W8_MISSILE_HIT_DEFLECTED)) {
+            (g_combat.state() == 0 ||
+             g_combat.state()->missile_hit_result != W8_MISSILE_HIT_DEFLECTED)) {
             missile->DetonateMissileSpell();
         }
         if (g_missile_table[missile->missile_table_index].spell_missile != 0) {
@@ -703,8 +711,8 @@ void Missile::StartIfHostActive()
     } else {
         flight_done = true;
         if (missile_table_index == 0x23 &&
-            (g_combat_state == 0 ||
-             g_combat_state->missile_hit_result != W8_MISSILE_HIT_DEFLECTED)) {
+            (g_combat.state() == 0 ||
+             g_combat.state()->missile_hit_result != W8_MISSILE_HIT_DEFLECTED)) {
             DetonateMissileSpell();
         }
         if (g_missile_table[missile_table_index].spell_missile) {
@@ -847,7 +855,7 @@ void Missile::AnnounceCollisionTarget()
     unsigned char source_color;
     unsigned char target_color;
 
-    if (!gXStatus.fCombatMode) {
+    if (!g_combat.active()) {
         return;
     }
     text = fmt::format("{} ", g_localized_strings[0x1bf]);
@@ -856,7 +864,7 @@ void Missile::AnnounceCollisionTarget()
         W8MonsterInfo* monster_info = FindMonster(combat_slot.iMonsterID);
         text += GetMonsterName(monster_info, 0, 0);
     } else {
-        text += g_status.buffers.Char[combat_slot.iChar].name;
+        text += g_status.party.characters[combat_slot.iChar].name;
     }
     target_stop = text.size();
     source_color = GetSourceNoticeColor(&m_Source);
@@ -884,8 +892,8 @@ void Missile::EnterImpactCycle()
     } else {
         flight_done = true;
         if (missile_table_index == 0x23 &&
-            (g_combat_state == 0 ||
-             g_combat_state->missile_hit_result != W8_MISSILE_HIT_DEFLECTED)) {
+            (g_combat.state() == 0 ||
+             g_combat.state()->missile_hit_result != W8_MISSILE_HIT_DEFLECTED)) {
             DetonateMissileSpell();
         }
         if (g_missile_table[missile_table_index].spell_missile) {
@@ -914,7 +922,7 @@ bool Missile::OnCollision(Navigator* other)
             combat_slot.iType = W8_TARGET_KIND_CHARACTER;
             combat_slot.iChar = GetRandomCharacter(1, 1, -1, -1);
             combat_slot.iMonsterID = -1;
-            if (gXStatus.fCombatMode) {
+            if (g_combat.active()) {
                 AnnounceCollisionTarget();
             }
         }
@@ -942,7 +950,7 @@ bool Missile::OnCollision(Navigator* other)
             combat_slot.iType = W8_TARGET_KIND_MONSTER;
             combat_slot.iChar = -1;
             combat_slot.iMonsterID = location_id;
-            if (gXStatus.fCombatMode) {
+            if (g_combat.active()) {
                 AnnounceCollisionTarget();
             }
         }
@@ -951,7 +959,8 @@ bool Missile::OnCollision(Navigator* other)
     hit_result = W8_MISSILE_HIT;
     if (!g_missile_table[missile_table_index].spell_missile) {
         if (combat_slot.iType == W8_TARGET_KIND_CHARACTER) {
-            deflect_chance = g_status.buffers.Char[combat_slot.iChar].bonus.missile_deflect_chance;
+            deflect_chance =
+                g_status.party.characters[combat_slot.iChar].bonus.missile_deflect_chance;
         } else {
             W8MonsterInfo* monster_info = FindMonster(combat_slot.iMonsterID);
             deflect_chance = monster_info->modifiers.missile_deflect_chance;
@@ -962,10 +971,10 @@ bool Missile::OnCollision(Navigator* other)
     }
 
     if (missile_table_index == 0x23) {
-        g_combat_state->missile_hit_result = hit_result;
-    } else if (g_combat_state != 0 && g_combat_state->engaged_missile != 0) {
-        g_combat_state->missile_hit_result = hit_result;
-        g_combat_state->TargetHit = combat_slot;
+        g_combat.state()->missile_hit_result = hit_result;
+    } else if (g_combat.state() != 0 && g_combat.state()->engaged_missile != 0) {
+        g_combat.state()->missile_hit_result = hit_result;
+        g_combat.state()->TargetHit = combat_slot;
     } else if (g_missile_table[missile_table_index].spell_missile) {
         ResolveSpellMissileHit(this);
     } else {

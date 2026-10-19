@@ -74,6 +74,7 @@
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/modal_content.h"
+#include "wiz8/party.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/render/compositor.h"
 #include "wiz8/render/frame.h"
@@ -119,50 +120,45 @@ void screen_stack()
     const auto saved_options = g_screen_handlers[W8_SCREEN_OPTIONS];
     for (auto id : {W8_SCREEN_INTRO, W8_SCREEN_OPTIONS})
         g_screen_handlers[id] = {nullptr, enter, frame, leave, nullptr};
-    g_current_screen_state = {};
-    g_current_screen_state.id = W8_SCREEN_NONE;
-    g_pending_screen_state.id = W8_SCREEN_NONE;
-    g_screen_return_requested = false;
+    ResetScreenRouting();
     REQUIRE(GetPendingScreenState() == W8_SCREEN_NONE);
     W8Character payload{};
     for (int index = 0; index < 40; ++index) {
-        g_pending_screen_state = {};
-        g_pending_screen_state.id = index % 2 ? W8_SCREEN_OPTIONS : W8_SCREEN_INTRO;
-        g_pending_screen_state.parameter = index;
-        g_pending_screen_state.character = &payload;
-        g_pending_screen_state.name = "screen " + std::to_string(index);
-        REQUIRE(GetPendingScreenState() == g_pending_screen_state.id);
+        const auto id = index % 2 ? W8_SCREEN_OPTIONS : W8_SCREEN_INTRO;
+        RequestScreen({.id = id,
+                       .parameter = index,
+                       .character = &payload,
+                       .name = "screen " + std::to_string(index)});
+        REQUIRE(GetPendingScreenState() == id);
         GameLoop();
-        REQUIRE(g_current_screen_state.parameter == index);
-        REQUIRE(g_screen_return_stack.size() == static_cast<size_t>(index));
+        REQUIRE(CurrentScreenState().parameter == index);
+        REQUIRE(SuspendedScreenCount() == static_cast<size_t>(index));
     }
     REQUIRE((screen_entries == 40 && screen_frames == 40));
     REQUIRE((screen_leaves.size() == 39 && screen_leaves.back() == 0));
     REQUIRE(GetPendingScreenState() == W8_SCREEN_INTRO);
     for (int index = 38; index >= 0; --index) {
-        RequestScreenTransition();
+        ReturnToPreviousScreen();
         GameLoop();
-        REQUIRE(g_current_screen_state.parameter == index);
-        REQUIRE(g_current_screen_state.character == &payload);
-        REQUIRE(g_current_screen_state.name == std::string("screen ") + std::to_string(index));
-        REQUIRE(g_screen_return_stack.size() == static_cast<size_t>(index));
+        REQUIRE(CurrentScreenState().parameter == index);
+        REQUIRE(CurrentScreenState().character == &payload);
+        REQUIRE(CurrentScreenState().name == std::string("screen ") + std::to_string(index));
+        REQUIRE(SuspendedScreenCount() == static_cast<size_t>(index));
         REQUIRE(screen_leaves.back() == 1);
     }
-    g_screen_return_stack.push_back(g_current_screen_state);
-    g_pending_screen_state = g_current_screen_state;
-    g_pending_screen_state.id = W8_SCREEN_OPTIONS;
-    g_pending_screen_state.parameter = 99;
-    RequestScreenTransition();
+    RequestScreen({.id = W8_SCREEN_OPTIONS, .parameter = 98});
     GameLoop();
-    REQUIRE((g_current_screen_state.parameter == 99 && g_screen_return_stack.size() == 1));
-    RequestScreenTransition();
+    RequestScreen({.id = W8_SCREEN_OPTIONS, .parameter = 99}, ScreenDeparture::Discard);
     GameLoop();
-    REQUIRE((g_current_screen_state.parameter == 0 && g_screen_return_stack.empty()));
+    REQUIRE((CurrentScreenState().parameter == 99 && SuspendedScreenCount() == 1));
+    ReturnToPreviousScreen();
+    GameLoop();
+    REQUIRE((CurrentScreenState().parameter == 0 && (SuspendedScreenCount() == 0)));
     gfProgramIsRunning = true;
-    RequestScreenTransition();
+    ReturnToPreviousScreen();
     GameLoop();
-    REQUIRE((!gfProgramIsRunning && g_current_screen_state.id == W8_SCREEN_NONE));
-    g_screen_return_requested = false;
+    REQUIRE((!gfProgramIsRunning && CurrentScreenState().id == W8_SCREEN_NONE));
+    ResetScreenRouting();
     gXStatus.character_event_queue = nullptr;
     g_screen_handlers[W8_SCREEN_INTRO] = saved_intro;
     g_screen_handlers[W8_SCREEN_OPTIONS] = saved_options;
@@ -187,56 +183,69 @@ void camp_effects()
     } restore{previous_roots};
     {
         g_camp_screen = std::make_unique<W8CampScreenState>();
-        auto* state = g_camp_screen.get();
-        REQUIRE((state->effect_list.empty() && state->stats_range == nullptr));
+        W8CampScreenState independent{};
+        auto* state = &independent;
+        REQUIRE((state->stats.effect_list.empty() && state->stats.stats_range == nullptr));
         const auto layer_count = LiveUiLayerCount();
-        state->stats_range =
+        state->stats.stats_range =
             std::make_unique<W8RangeControl>(state->scroll_input, 0x264, 0xbe, 0x276, 0x1b5);
         REQUIRE(LiveUiLayerCount() == layer_count);
         // Disabling one scrollbar must not disable unrelated targets in its layer.
         const auto consume = [](const UiPointerEvent&) { return UiResult::Handled; };
         auto& sibling = state->scroll_input.add(SDL_Rect{0, 0, 640, 480}, consume);
-        state->stats_range->SetActive(true);
-        state->stats_range->SetActive(false);
+        state->stats.stats_range->SetActive(true);
+        state->stats.stats_range->SetActive(false);
         REQUIRE(sibling.hitAt({0, 0}));
         state->scroll_input.remove(sibling);
-        auto& range = *state->stats_range;
-        state->effect_list = {{false, false, true, false, W8_CAMP_EFFECT_CONDITION, 0, 0, 3, 10},
-                              {false, false, false, true, W8_CAMP_EFFECT_CONDITION, 1, 0, 3, 9},
-                              {true, false, true, false, W8_CAMP_EFFECT_EQUIPMENT, 2, 0, 9999, 3},
-                              {false, false, true, true, W8_CAMP_EFFECT_CONDITION, 3, 0, 3, 2}};
-        state->effect_filter = W8_CAMP_EFFECT_FILTER_ALL;
-        state->effect_scroll = 100;
-        FilterCampEffectList();
-        REQUIRE((state->effect_visible_lines == 24 && state->effect_scroll == 7));
-        REQUIRE((state->effect_first_visible == 0 && state->effect_last_visible == 3));
+        auto& range = *state->stats.stats_range;
+        state->stats.effect_list = {
+            {false, false, true, false, W8_CAMP_EFFECT_CONDITION, 0, 0, 3, 10},
+            {false, false, false, true, W8_CAMP_EFFECT_CONDITION, 1, 0, 3, 9},
+            {true, false, true, false, W8_CAMP_EFFECT_EQUIPMENT, 2, 0, 9999, 3},
+            {false, false, true, true, W8_CAMP_EFFECT_CONDITION, 3, 0, 3, 2}};
+        state->stats.effect_filter = W8_CAMP_EFFECT_FILTER_ALL;
+        state->stats.effect_scroll = 100;
+        state->stats.FilterCampEffectList();
+        REQUIRE((state->stats.effect_visible_lines == 24 && state->stats.effect_scroll == 7));
+        REQUIRE((state->stats.effect_first_visible == 0 && state->stats.effect_last_visible == 3));
         REQUIRE((range.m_enabled && range.m_value == 7));
-        state->effect_filter = W8_CAMP_EFFECT_FILTER_BENEFICIAL;
-        FilterCampEffectList();
-        REQUIRE((state->effect_visible_lines == 14 && state->effect_scroll == 0));
-        REQUIRE((!range.m_enabled && !state->effect_list[1].visible));
-        state->effect_filter = W8_CAMP_EFFECT_FILTER_DETRIMENTAL;
-        FilterCampEffectList();
-        REQUIRE((state->effect_visible_lines == 13 && state->effect_list[3].visible));
-        state->effect_items_only = true;
-        state->effect_filter = W8_CAMP_EFFECT_FILTER_ALL;
-        FilterCampEffectList();
-        REQUIRE((state->effect_visible_lines == 4 && state->effect_first_visible == 2));
+        state->stats.effect_filter = W8_CAMP_EFFECT_FILTER_BENEFICIAL;
+        state->stats.FilterCampEffectList();
+        REQUIRE((state->stats.effect_visible_lines == 14 && state->stats.effect_scroll == 0));
+        REQUIRE((!range.m_enabled && !state->stats.effect_list[1].visible));
+        state->stats.effect_filter = W8_CAMP_EFFECT_FILTER_DETRIMENTAL;
+        state->stats.FilterCampEffectList();
+        REQUIRE((state->stats.effect_visible_lines == 13 && state->stats.effect_list[3].visible));
+        state->stats.effect_items_only = true;
+        state->stats.effect_filter = W8_CAMP_EFFECT_FILTER_ALL;
+        state->stats.FilterCampEffectList();
+        REQUIRE((state->stats.effect_visible_lines == 4 && state->stats.effect_first_visible == 2));
         W8Character character{};
         for (auto& condition : character.uiCondition) condition = 1;
         for (auto& enchantment : character.enchantments) enchantment.turns = 2;
-        g_review_character = &character;
-        state->effect_items_only = false;
-        RebuildCampEffectList();
-        REQUIRE(state->effect_list.size() == 28);
-        REQUIRE((state->effect_detrimental_count == 20 && state->effect_beneficial_count == 8));
-        REQUIRE((state->effect_list.front().index == 19 && state->effect_list.back().index == 0));
-        REQUIRE((state->effect_visible_lines == 64 && range.m_enabled));
+        character.fInParty = true; // A saved flag does not establish membership.
+        state->reviewed = &character;
+        REQUIRE(state->ReviewedPartySlot() == -1);
+        state->reviewed = &g_status.party.characters[3];
+        REQUIRE(state->ReviewedPartySlot() == 3);
+        W8ScreenStateRuntime suspended{.id = W8_SCREEN_CAMP, .character = state->reviewed};
+        state->reviewed = &character;
+        REQUIRE(suspended.character == &g_status.party.characters[3]);
+        state->stats.effect_items_only = false;
+        state->stats.RebuildCampEffectList();
+        REQUIRE(state->stats.effect_list.size() == 28);
+        REQUIRE((state->stats.effect_detrimental_count == 20 &&
+                 state->stats.effect_beneficial_count == 8));
+        REQUIRE((state->stats.effect_list.front().index == 19 &&
+                 state->stats.effect_list.back().index == 0));
+        REQUIRE((state->stats.effect_visible_lines == 64 && range.m_enabled));
         character = {};
-        RebuildCampEffectList();
-        REQUIRE((state->effect_list.empty() && state->effect_visible_lines == 0));
-        REQUIRE((state->effect_beneficial_count == 0 && !range.m_enabled));
-        g_review_character = nullptr;
+        state->stats.RebuildCampEffectList();
+        REQUIRE((state->stats.effect_list.empty() && state->stats.effect_visible_lines == 0));
+        REQUIRE((state->stats.effect_beneficial_count == 0 && !range.m_enabled));
+        state->reviewed = {};
+        REQUIRE(g_camp_screen->stats.effect_list.empty());
+        REQUIRE(g_camp_screen->stats.stats_range == nullptr);
     }
 }
 
@@ -1901,12 +1910,12 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
     {
         W8Character character{};
         struct RestoreParty {
-            W8StatusBuffers buffers = g_status.buffers;
+            W8Party party = std::exchange(g_status.party, W8Party{});
             std::unique_ptr<W8CharacterEventQueue> queue =
                 std::move(gXStatus.character_event_queue);
             ~RestoreParty()
             {
-                g_status.buffers = buffers;
+                g_status.party = std::move(party);
                 gXStatus.character_event_queue = std::move(queue);
             }
         } restore_party;
@@ -1915,8 +1924,7 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         auto& queue = *gXStatus.character_event_queue;
         queue.active_events.push_back(std::make_unique<W8CharacterEvent>(&character, 0, 0, 127));
         auto* unrelated = queue.active_events.front().get();
-        g_status.buffers.Char = nullptr;
-        g_status.buffers.XChar = nullptr;
+        g_status.party = {};
         {
             W8CharacterSummaryDialog summary(&character);
             REQUIRE(summary.ProcessInput()); // Waiting for its own 750 ms playback delay.

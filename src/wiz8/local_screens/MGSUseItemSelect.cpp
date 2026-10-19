@@ -25,6 +25,8 @@
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/fonts.h"
 #include "wiz8/gameplay_constants.h"
+#include "wiz8/inventory.h"
+#include "wiz8/item_location.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/item_tables.h"
@@ -192,14 +194,14 @@ void CloseUseItemSelectView(void)
         SetTargetingMode(W8_TARGET_NEED_NONE);
         ResetEditorStatusLine(-1);
         g_level_block->text_box_visible = true;
-        SelectTextBox(gXStatus.fCombatMode);
+        SelectTextBox(g_combat.active());
         use_item.reset();
         RefreshMainGameLayout();
         RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
         RequestRedrawCombatBar();
         RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
         SyncWorldAdvancement();
-        ClearItemDrag();
+        gXStatus.item_drag.reset();
         if (LockInteractionSuspended() && !IsScreenTransitionPending()) {
             OpenLockInteraction(0);
             return;
@@ -208,7 +210,7 @@ void CloseUseItemSelectView(void)
             OpenTrapInteraction(0);
             return;
         }
-        if (gXStatus.fCampMode && g_pending_screen_state.id != W8_SCREEN_CAMP) {
+        if (gXStatus.fCampMode && RequestedScreen() != W8_SCREEN_CAMP) {
             SyncDialogueNpcState();
         }
     }
@@ -224,31 +226,31 @@ void RefreshUseItemSelectionForSlot(int party_slot)
         return;
     }
     use_item->owner = party_slot;
-    if (gXStatus.item_drag_active) {
-        if (!g_status.item_in_cursor) {
-            const bool party_pool = gXStatus.dragged_item_origin == W8_ITEM_ORIGIN_PARTY_POOL;
-            if (party_pool && gXStatus.fCombatMode) Fail("!gXStatus.fCombatMode");
+    if (gXStatus.item_drag && gXStatus.item_drag->pending) {
+        gXStatus.item_drag->pending = false;
+        const auto dragged = gXStatus.item_drag->item;
+        if (g_status.party.held.item.iItemNo == -1) {
+            const bool party_pool = dragged.storage == W8ItemStorage::Pool;
+            if (party_pool && g_combat.active()) Fail("!g_combat.active()");
             RebuildUseItemSelectList(party_pool ? ItemPool::Party : ItemPool::Character,
-                                     gXStatus.dragged_item);
+                                     g_status.party.itemAt(dragged));
         } else {
-            RebuildUseItemSelectList(ItemPool::Hand, &g_status.item_in_hand);
+            RebuildUseItemSelectList(ItemPool::Hand, &g_status.party.held.item);
         }
         if (use_item->selected_line == -1) {
             Fail("giReuseItemLineNumber != -1");
         }
         ScrollTextBoxTo(use_item->selected_line);
-        gXStatus.item_drag_active = false;
         return;
     }
     if (CanPartySlotUseRecordedItem(party_slot)) {
-        gXStatus.dragged_item = 0;
-        item = FindCharacterItemAt(
-            party_slot, static_cast<unsigned char>(g_status.buffers.XChar[party_slot].item_origin),
-            g_status.buffers.XChar[party_slot].item_slot);
+        gXStatus.item_drag.reset();
+        item = g_status.party.itemAt(g_status.party.rows[party_slot].item_detail.item_use.item);
         if (CanUseItemForAction(use_item->owner, item)) {
             const bool party_pool =
-                g_status.buffers.XChar[party_slot].item_origin == W8_ITEM_ORIGIN_PARTY_POOL;
-            if (party_pool && gXStatus.fCombatMode) Fail("!gXStatus.fCombatMode");
+                g_status.party.rows[party_slot].item_detail.item_use.item.storage ==
+                W8ItemStorage::Pool;
+            if (party_pool && g_combat.active()) Fail("!g_combat.active()");
             RebuildUseItemSelectList(party_pool ? ItemPool::Party : ItemPool::Character, item);
             if (use_item->selected_line == -1) {
                 Fail("giReuseItemLineNumber != -1");
@@ -259,7 +261,7 @@ void RefreshUseItemSelectionForSlot(int party_slot)
             return;
         }
     }
-    gXStatus.dragged_item = 0;
+    gXStatus.item_drag.reset();
     RebuildUseItemSelectList(use_item->pool, nullptr);
 }
 
@@ -317,11 +319,11 @@ static void SelectUseItemPool(ItemPool pool)
 // Both controls project the selected source. Their pressed states never select a source.
 void UpdateUseItemScrollButtons(void)
 {
-    if (gXStatus.fCombatMode && use_item->pool == ItemPool::Party)
+    if (g_combat.active() && use_item->pool == ItemPool::Party)
         RebuildUseItemSelectList(ItemPool::Character, nullptr);
     const bool hand = use_item->pool == ItemPool::Hand;
     use_item->pools[0]->SetEnabled(!hand);
-    use_item->pools[1]->SetEnabled(!hand && !gXStatus.fCombatMode);
+    use_item->pools[1]->SetEnabled(!hand && !g_combat.active());
     use_item->pools[0]->SetPressed(use_item->pool == ItemPool::Character);
     use_item->pools[1]->SetPressed(use_item->pool == ItemPool::Party);
 }
@@ -338,7 +340,7 @@ static void UseItemSelectAssayButton(void)
 void CommitSelectedItemUse(void)
 {
     const auto draft = use_item->draft;
-    auto* item = draft.detail_block.item_use.item;
+    auto* item = g_status.party.itemAt(draft.detail_block.item_use.item);
     const int slot = use_item->owner;
     if (!item || !CanUseItemForAction(slot, item) || !IsItemTargetOfNeededKind(&draft.target, item))
         return;
@@ -354,7 +356,7 @@ static void RebuildUseItemSelectList(ItemPool pool, W8ItemInstance* select)
 {
     ResetEditorStatusLine(2);
     ClearSelectedTextLine(2);
-    use_item->draft.detail_block.item_use.item = 0;
+    use_item->draft.detail_block.item_use.item = {};
     use_item->detail_item = 0;
     use_item->item_image.reset();
     use_item->quantity.SetText("", g_large_font);
@@ -365,14 +367,14 @@ static void RebuildUseItemSelectList(ItemPool pool, W8ItemInstance* select)
     use_item->filter->SetPressed(true);
     use_item->rows.clear();
     if (pool == ItemPool::Hand) {
-        AppendUseItemListEntry(&g_status.item_in_hand);
+        AppendUseItemListEntry(&g_status.party.held.item);
     } else if (pool == ItemPool::Character) {
-        auto& character = g_status.buffers.Char[use_item->owner];
+        auto& character = g_status.party.characters[use_item->owner];
         for (auto& item : character.EquippedItem) AppendUseItemListEntry(&item);
         for (auto& item : character.backpack) AppendUseItemListEntry(&item);
     } else {
-        for (unsigned int i = 0; i < g_status.party_item_count; ++i)
-            AppendUseItemListEntry(&g_status.party_item_pool[i]);
+        for (unsigned int i = 0; i < g_status.party.item_count; ++i)
+            AppendUseItemListEntry(&g_status.party.item_pool[i]);
     }
     ShowUseItemList(select);
     UpdateUseItemScrollButtons();
@@ -403,7 +405,7 @@ static void ShowUseItemList(W8ItemInstance* select)
         if (!usable) {
             const bool silenced =
                 g_item_records[item->iItemNo].equip_class == W8_ITEM_EQUIP_CLASS_INSTRUMENT &&
-                g_status.buffers.Char[use_item->owner].uiCondition[W8_CONDITION_SILENCED];
+                g_status.party.characters[use_item->owner].uiCondition[W8_CONDITION_SILENCED];
             ShowNotice(silenced ? 4 : 0, FormatItemDisplayName(item, true), 2);
             continue;
         }
@@ -446,15 +448,15 @@ static bool IsUseItemFilteredOut(W8ItemInstance* item)
     if (item->iItemNo == -1) {
         return true;
     }
-    if (!CanCharacterActivateItem(&g_status.buffers.Char[g_status.selected_character], item)) {
-        if (CanCastFromItem(&g_status.buffers.Char[g_status.selected_character], item)) {
+    if (!CanCharacterActivateItem(&g_status.party.characters[g_status.selected_character], item)) {
+        if (CanCastFromItem(&g_status.party.characters[g_status.selected_character], item)) {
             return false;
         }
         if (!IsUsableItemClass(item)) {
             return true;
         }
         if ((g_status.selected_character == 0 || g_status.selected_character == 1) &&
-            (npc = GetNpcState(g_status.buffers.XChar[g_status.selected_character].npc_index),
+            (npc = GetNpcState(g_status.party.rows[g_status.selected_character].npc_index),
              npc != 0) &&
             NpcWantsItem(npc, item)) {
             return true;
@@ -478,7 +480,7 @@ void OpenUseItemAssayDialog(W8ItemInstance* item)
     W8AssayDialog* dialog;
 
     dialog =
-        new W8AssayDialog(*item, &g_status.buffers.Char[use_item->owner], {kInfoDialogX, 0x48});
+        new W8AssayDialog(*item, &g_status.party.characters[use_item->owner], {kInfoDialogX, 0x48});
     dialog->SetText("");
 
     dialog->cleanup = [cursor = gXStatus.iCurrentCursor] {
@@ -553,37 +555,32 @@ void SelectUseItemLine(int iTextLine)
     UpdateUseItemDetailPanel(use_item->rows[iTextLine].item);
     if (ValidateItemSpellUse(use_item->owner, use_item->rows[iTextLine].item,
                              SpellCastingNoticeClosed)) {
-        QueueCharacterEvent(&g_status.buffers.Char[use_item->owner], 0x35, 0,
+        QueueCharacterEvent(&g_status.party.characters[use_item->owner], 0x35, 0,
                             kCharacterEventFullVolume);
         return;
     }
-    use_item->draft.detail_block.item_use.item = use_item->rows[iTextLine].item;
-    if (Trynnie2UseItem(use_item->draft.detail_block.item_use.item)) {
+    auto* item = use_item->rows[iTextLine].item;
+    use_item->draft.detail_block.item_use.item = g_status.party.locateItem(item);
+    if (Trynnie2UseItem(item)) {
         CloseUseItemSelectView();
         return;
     }
-    if (IsUsableItemClass(use_item->draft.detail_block.item_use.item)) {
+    if (IsUsableItemClass(item)) {
         TakeUseItemIntoHand();
         CloseUseItemSelectView();
         return;
     }
-    if (CanCastFromItem(&g_status.buffers.Char[g_status.selected_character],
-                        use_item->draft.detail_block.item_use.item)) {
-        LearnSpellFromItem(&g_status.buffers.Char[g_status.selected_character],
-                           use_item->draft.detail_block.item_use.item);
+    if (CanCastFromItem(&g_status.party.characters[g_status.selected_character], item)) {
+        LearnSpellFromItem(&g_status.party.characters[g_status.selected_character], item);
         CloseUseItemSelectView();
         return;
     }
     SetSelectedTextLine(iTextLine, 2);
     ClearHoveredTextLine(2);
     RedrawTextBox();
-    target_type = GetSpellTargetType(
-        GetItemSpell(use_item->draft.detail_block.item_use.item),
-        ItemClassNormalizesTarget(
-            &g_item_records[use_item->draft.detail_block.item_use.item->iItemNo]));
-    ConfigureSpellTargetFilter(target_type,
-                               GetTargetNeededForItem(use_item->draft.detail_block.item_use.item,
-                                                      g_level_block == nullptr));
+    target_type = GetSpellTargetType(GetItemSpell(item),
+                                     ItemClassNormalizesTarget(&g_item_records[item->iItemNo]));
+    ConfigureSpellTargetFilter(target_type, GetTargetNeededForItem(item, g_level_block == nullptr));
 }
 
 /* Show the item in the detail control: its catalog icon plus a quantity line -
@@ -642,29 +639,18 @@ void SelectCurrentUseItemLine(void)
    the move slid it to before the hand copy is refreshed. */
 void TakeUseItemIntoHand(void)
 {
-    unsigned int i;
-    unsigned int old_count;
-
-    if (!g_status.item_in_cursor) {
-        CopyItemInstance(&g_status.item_in_hand, use_item->draft.detail_block.item_use.item, 0,
-                         true);
-        return;
-    }
-    if (use_item->owner == -1) {
-        Fail("giUseItemChar != BAD_INDEX");
-    }
-    old_count = g_status.party_item_count;
-    GiveItemToCharacterOrParty(use_item->owner, &g_status.item_in_hand, true);
-    if (use_item->pool == ItemPool::Party && old_count != g_status.party_item_count &&
-        g_status.party_item_count != 0) {
-        for (i = 0; i < g_status.party_item_count; i++) {
-            if (use_item->draft.detail_block.item_use.item == &g_status.party_item_pool[i]) {
-                use_item->draft.detail_block.item_use.item = &g_status.party_item_pool[i + 1];
-                CopyItemInstance(&g_status.item_in_hand, use_item->draft.detail_block.item_use.item,
-                                 0, true);
-                return;
-            }
+    auto& selected = use_item->draft.detail_block.item_use.item;
+    if (g_status.party.held.item.iItemNo != -1) {
+        if (use_item->owner == -1) {
+            Fail("giUseItemChar != BAD_INDEX");
         }
+        const auto old_count = g_status.party.item_count;
+        GiveItemToCharacterOrParty(use_item->owner, &g_status.party.held.item, true);
+        // A new pool entry goes to the front and moves the selection down one row.
+        if (use_item->pool == ItemPool::Party && old_count != g_status.party.item_count &&
+            selected.storage == W8ItemStorage::Pool && selected.slot < g_status.party.item_count)
+            ++selected.slot;
     }
-    CopyItemInstance(&g_status.item_in_hand, use_item->draft.detail_block.item_use.item, 0, true);
+    ExchangeInventoryItems(selected, {W8ItemStorage::Hand},
+                           static_cast<unsigned>(g_status.selected_character));
 }

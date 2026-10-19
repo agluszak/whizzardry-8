@@ -11,6 +11,7 @@
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/fact_state.h"
+#include "wiz8/inventory.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/MtGigasOuter.h"
@@ -101,8 +102,8 @@ bool MtGigas2Train(Trigger* pTrigger)
     npc = GetNpcStateByKind(0x5b);
     item = 0;
     item_id = 0;
-    if (g_status.item_in_cursor) {
-        item = &g_status.item_in_hand;
+    if ((g_status.party.held.item.iItemNo != -1)) {
+        item = &g_status.party.held.item;
         item_id = GetItemInHand();
     }
     QueueNpcScriptNotice(npc, item, -1, false, 0);

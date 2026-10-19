@@ -84,7 +84,7 @@ bool PleaseWaitScreenEnter(void)
 {
     if (!g_load_descriptor) {
         g_load_descriptor = std::make_unique<W8LevelLoadDescriptor>();
-        g_load_descriptor->mode = std::get<W8PleaseWaitMode>(g_current_screen_state.mode);
+        g_load_descriptor->mode = std::get<W8PleaseWaitMode>(CurrentScreenState().mode);
         switch (g_load_descriptor->mode) {
         case W8_PLEASE_WAIT_NEW_GAME:
             InitializeFactState();
@@ -93,18 +93,18 @@ bool PleaseWaitScreenEnter(void)
             wiz8::remove_file(wiz8::user_path("saves\\CurrentGame.SAV"));
             break;
         case W8_PLEASE_WAIT_LOAD_GAME:
-            g_load_descriptor->parameter = g_current_screen_state.parameter;
-            g_load_descriptor->name = g_current_screen_state.name;
+            g_load_descriptor->parameter = CurrentScreenState().parameter;
+            g_load_descriptor->name = CurrentScreenState().name;
             break;
         case W8_PLEASE_WAIT_SAVE_GAME:
             g_load_descriptor->parameter = GetLoadedLevelID();
-            g_load_descriptor->name = g_current_screen_state.name;
-            g_load_descriptor->previous_save_name = g_current_screen_state.previous_save_name;
-            g_load_descriptor->save_screenshot = g_current_screen_state.save_screenshot;
+            g_load_descriptor->name = CurrentScreenState().name;
+            g_load_descriptor->previous_save_name = CurrentScreenState().previous_save_name;
+            g_load_descriptor->save_screenshot = CurrentScreenState().save_screenshot;
             break;
         case W8_PLEASE_WAIT_CHANGE_LEVEL:
-            g_load_descriptor->parameter = g_current_screen_state.parameter;
-            g_load_descriptor->parameter_2 = g_current_screen_state.parameter_2;
+            g_load_descriptor->parameter = CurrentScreenState().parameter;
+            g_load_descriptor->parameter_2 = CurrentScreenState().parameter_2;
             break;
         }
     }
@@ -217,14 +217,14 @@ void PleaseWaitScreenFrame(void)
     if (!GetWorld()) {
         Fail("GetWorld()");
     }
-    RequestScreenTransition();
+    ReturnToPreviousScreen();
     if (g_load_descriptor->mode == W8_PLEASE_WAIT_LOAD_GAME && g_status.intro_shown) {
         SetIntroVideoIndex(W8_INTRO_VIDEO_VIRGIN);
-        g_pending_screen_state.id = W8_SCREEN_INTRO;
+        RequestScreen({.id = W8_SCREEN_INTRO});
         return;
     }
     if (GetPendingScreenState() != 7) {
-        g_pending_screen_state.id = W8_SCREEN_MAIN_GAME;
+        RequestScreen({.id = W8_SCREEN_MAIN_GAME});
     }
 }
 

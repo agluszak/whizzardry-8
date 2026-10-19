@@ -4,11 +4,13 @@
 #include <vector>
 
 #include "glm/ext/vector_float3.hpp"
+#include "wiz8/inventory.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/targeting.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/PC_Item.h"
 
+struct W8Party;
 struct W8MonsterInfo;
 struct W8MonsterGroup;
 struct W8ItemInstance;
@@ -59,7 +61,7 @@ int PickNearestMonsterUnderCursor(int cursor_x, int cursor_y);
    W8TargetingContext. */
 int GetTargetingCursorForState(bool alternate);
 bool ActionNeedsExplicitTarget(const W8Action& action, bool camping);
-unsigned int GetActionSpellLikeId(const W8Action& selected);
+unsigned int GetActionSpellLikeId(const W8Party& party, const W8Action& selected);
 void ResetTargetSource(W8TargetSource* source);
 void SetTargetSourceToMonster(const W8MonsterInfo* monster_info, W8TargetSource* source);
 bool TargetMatchesNeeded(const W8CombatSlot* target, W8TargetNeed needed);
@@ -134,7 +136,8 @@ bool CanPartySlotParticipate(int party_slot);
 void SetTargetSourceToCharacter(int party_slot, W8TargetSource* source);
 /* What the interface has to ask the player to pick for one
    action - a fixed kind for most, the spell's answer for casts and item use. */
-W8TargetNeed GetTargetNeededForAction(const W8Action& action, bool needs_item_target = true);
+W8TargetNeed GetTargetNeededForAction(const W8Party& party, const W8Action& action,
+                                      bool needs_item_target = true);
 W8TargetNeed GetTargetNeededForItem(const W8ItemInstance* item, bool needs_item_target);
 
 /* After the selected character's action changes, drop back to no

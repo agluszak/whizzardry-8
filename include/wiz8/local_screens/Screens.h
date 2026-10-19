@@ -12,7 +12,7 @@ void ApplyCurrentCursor(void);
 void RequestPartySlotRedraw(int bit);
 unsigned char GetPartyOrderTextColor(signed char party_order);
 W8ScreenId GetPendingScreenState(void);
-void RequestScreenTransition(void);
+void ReturnToPreviousScreen();
 
 bool IsScreenTransitionPending(void);
 void RequestExitScreen(void);

@@ -1,4 +1,5 @@
 #include <cstddef>
+#include <utility>
 #include <vector>
 
 #include "layouts/game_status.h"
@@ -44,10 +45,60 @@
 
 /* GameloopExit names this unit; GameLoop is placed with that companion. */
 
-W8ScreenStateRuntime g_current_screen_state;
-W8ScreenStateRuntime g_pending_screen_state;
-bool g_screen_return_requested;
-std::vector<W8ScreenStateRuntime> g_screen_return_stack;
+namespace {
+struct ScreenRouting {
+    W8ScreenStateRuntime current;
+    W8ScreenStateRuntime pending;
+    bool return_requested = false;
+    std::vector<W8ScreenStateRuntime> return_stack;
+    W8ScreenId previous = W8_SCREEN_NONE;
+    W8ScreenId suspended = W8_SCREEN_NONE;
+};
+ScreenRouting routing;
+}
+
+void ResetScreenRouting()
+{
+    routing = {};
+}
+void RequestScreen(W8ScreenStateRuntime request, ScreenDeparture departure)
+{
+    routing.pending = std::move(request);
+    if (departure == ScreenDeparture::Discard) routing.return_requested = true;
+}
+void ReturnToPreviousScreen()
+{
+    routing.return_requested = true;
+}
+const W8ScreenStateRuntime& CurrentScreenState()
+{
+    return routing.current;
+}
+W8ScreenId PreviousScreen()
+{
+    return routing.previous;
+}
+W8ScreenId SuspendedScreen()
+{
+    return routing.suspended;
+}
+W8ScreenId RequestedScreen()
+{
+    return routing.pending.id;
+}
+std::size_t SuspendedScreenCount()
+{
+    return routing.return_stack.size();
+}
+bool IsScreenTransitionPending()
+{
+    return routing.pending.id != W8_SCREEN_NONE || routing.return_requested;
+}
+W8ScreenId GetPendingScreenState()
+{
+    if (routing.pending.id != W8_SCREEN_NONE) return routing.pending.id;
+    return routing.return_stack.empty() ? W8_SCREEN_NONE : routing.return_stack.back().id;
+}
 
 W8ScreenStateHandlers g_screen_handlers[W8_SCREEN_COUNT] = {
     {.enter = IntroScreenEnter, .frame = IntroScreenFrame, .leave = IntroScreenLeave},
@@ -76,8 +127,6 @@ W8ScreenStateHandlers g_screen_handlers[W8_SCREEN_COUNT] = {
      .finalize = JournalScreenFinalize},
     {.enter = ExitScreenEnter, .frame = ExitScreenFrame, .leave = MainMenuScreenLeave},
 };
-W8ScreenId g_previous_screen_id = W8_SCREEN_NONE;
-W8ScreenId g_suspended_screen_id = W8_SCREEN_NONE;
 
 void ShutdownGame(size_t initialized_screens, bool save_configuration)
 {
@@ -98,14 +147,14 @@ void ShutdownGame(size_t initialized_screens, bool save_configuration)
     for (index = 0; index < static_cast<int>(initialized_screens); ++index) {
         if (g_screen_handlers[index].finalize) g_screen_handlers[index].finalize();
     }
-    g_screen_return_stack.clear();
+    routing.return_stack.clear();
     ClearLocationVariables();
     DestroyGameplayObjects();
     ClearNpcMessageQueue();
     ClearNpcDialogueTranscript();
     ReleaseMessageStorage();
     FreeStringTable();
-    g_status.buffers = {};
+    g_status.party = {};
     if (save_configuration) SaveGameConfiguration();
 }
 
@@ -126,55 +175,58 @@ void GameLoop(void)
 
     wiz8::sound::service();
     ServiceMusicPlaylist();
-    state = g_current_screen_state.id;
-    if (g_screen_return_requested) {
-        g_previous_screen_id = state;
-        if (!g_screen_handlers[g_current_screen_state.id].leave(1)) {
+    state = routing.current.id;
+    if (routing.return_requested) {
+        routing.previous = state;
+        if (!g_screen_handlers[routing.current.id].leave(1)) {
             gfProgramIsRunning = 0;
-            g_current_screen_state.id = W8_SCREEN_NONE;
+            routing.current.id = W8_SCREEN_NONE;
             return;
         }
-        g_current_screen_state.id = W8_SCREEN_NONE;
-        if (g_pending_screen_state.id == W8_SCREEN_NONE) {
-            if (g_screen_return_stack.empty()) {
+        routing.current.id = W8_SCREEN_NONE;
+        if (routing.pending.id == W8_SCREEN_NONE) {
+            if (routing.return_stack.empty()) {
                 gfProgramIsRunning = 0;
                 return;
             }
-            g_pending_screen_state = g_screen_return_stack.back();
-            g_screen_return_stack.pop_back();
+            routing.pending = routing.return_stack.back();
+            routing.return_stack.pop_back();
         }
         state = W8_SCREEN_NONE;
-        g_current_screen_state.id = state;
-        g_screen_return_requested = false;
+        routing.current.id = state;
+        routing.return_requested = false;
     }
-    if (g_pending_screen_state.id != W8_SCREEN_NONE && g_pending_screen_state.id != state) {
+    if (routing.pending.id != W8_SCREEN_NONE && routing.pending.id != state) {
         /* Retail tests only the low byte of the count. */
         if (static_cast<unsigned char>(
                 static_cast<int>(gXStatus.character_event_queue->active_events.size())) != 0) {
             gXStatus.character_event_queue->CompleteFirstActiveEvent();
-            state = g_current_screen_state.id;
+            state = routing.current.id;
         }
         if (state != W8_SCREEN_NONE) {
-            g_previous_screen_id = state;
-            if (!g_screen_handlers[g_current_screen_state.id].leave(0)) {
-                g_current_screen_state.id = W8_SCREEN_NONE;
+            routing.previous = state;
+            if (state == W8_SCREEN_CAMP && g_camp_screen) {
+                routing.current.character = g_camp_screen->reviewed;
+            }
+            if (!g_screen_handlers[routing.current.id].leave(0)) {
+                routing.current.id = W8_SCREEN_NONE;
                 gfProgramIsRunning = 0;
                 return;
             }
-            g_suspended_screen_id = g_current_screen_state.id;
-            g_screen_return_stack.push_back(g_current_screen_state);
+            routing.suspended = routing.current.id;
+            routing.return_stack.push_back(routing.current);
         }
-        state = g_pending_screen_state.id;
-        g_current_screen_state = g_pending_screen_state;
+        state = routing.pending.id;
+        routing.current = routing.pending;
         if (!EnterScreen(state)) {
-            g_current_screen_state.id = W8_SCREEN_NONE;
+            routing.current.id = W8_SCREEN_NONE;
             gfProgramIsRunning = 0;
             return;
         }
-        state = g_current_screen_state.id;
-        g_pending_screen_state.id = W8_SCREEN_NONE;
+        state = routing.current.id;
+        routing.pending.id = W8_SCREEN_NONE;
 #ifdef WIZ8_RUNTIME_TESTS
-        RuntimeObserve(RUNTIME_SCREEN_CHANGED, g_previous_screen_id, state, -1);
+        RuntimeObserve(RUNTIME_SCREEN_CHANGED, routing.previous, state, -1);
         if (state == W8_SCREEN_MAIN_GAME) {
             RuntimeObserve(RUNTIME_MAIN_GAME_ENTERED, state, 0, 0);
         }
@@ -203,16 +255,16 @@ void GameloopExit()
     g_options_detail_font.resetPalette();
     // Discard the current screen, then every suspended one without
     // re-entering it: a full leave releases what a suspended screen retains.
-    if (g_current_screen_state.id != W8_SCREEN_NONE) {
-        g_screen_handlers[g_current_screen_state.id].leave(1);
+    if (routing.current.id != W8_SCREEN_NONE) {
+        g_screen_handlers[routing.current.id].leave(1);
     }
-    while (!g_screen_return_stack.empty()) {
-        g_current_screen_state = g_screen_return_stack.back();
-        g_screen_return_stack.pop_back();
-        if (g_current_screen_state.id != W8_SCREEN_NONE) {
-            g_screen_handlers[g_current_screen_state.id].leave(1);
+    while (!routing.return_stack.empty()) {
+        routing.current = routing.return_stack.back();
+        routing.return_stack.pop_back();
+        if (routing.current.id != W8_SCREEN_NONE) {
+            g_screen_handlers[routing.current.id].leave(1);
         }
     }
-    g_current_screen_state.id = W8_SCREEN_NONE;
-    g_pending_screen_state.id = W8_SCREEN_NONE;
+    routing.current.id = W8_SCREEN_NONE;
+    routing.pending.id = W8_SCREEN_NONE;
 }

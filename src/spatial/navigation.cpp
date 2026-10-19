@@ -2454,7 +2454,7 @@ unsigned int NavigationMesh::StepAlongPath(PathSearchScratch& path_search,
         unsigned short cursor = attachment->path_cursor;
         if (((cursor == 1) && (1 < attachment->path_position_index)) &&
             (attachment->path[2].value != 0)) {
-            if (attachment->checkPositionHopHeight(movement->position)) {
+            if (attachment->checkPositionHopHeight(m_waypoints, movement->position)) {
                 ActivateMovementTrigger(movement, true);
                 ++attachment->path_cursor;
             }
@@ -4510,7 +4510,7 @@ bool SteeringStep::SteerAlongPath(NavigatorMovement* movement, bool alternate)
         if (0.0f < velocity_length) {
             reach = settings.prediction_time * velocity_length;
             ahead = this->movement->position + direction * reach;
-            if (!movement->attachment->checkPredictedHopHeight(ahead)) {
+            if (!movement->attachment->checkPredictedHopHeight(navigation.m_waypoints, ahead)) {
                 target = this->movement->position;
                 advanced = movement->attachment->AdvancePositionTowardWaypoint(&target, reach);
                 AccumulateSeekForce();

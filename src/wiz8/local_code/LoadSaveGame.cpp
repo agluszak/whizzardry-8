@@ -57,6 +57,7 @@
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/party_slot.h"
 #include "wiz8/layouts/save_screenshot.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/level_population.h"
@@ -230,20 +231,6 @@ public:
         chunks.Close();
         staged_.commit();
     }
-};
-
-/* A status block read outside g_status, with party buffers of its own. */
-struct DetachedStatus {
-    W8GlobalStatus status{};
-    W8Character characters[8]{};
-    W8PartySlotRow party_rows[8]{};
-    DetachedStatus()
-    {
-        status.buffers.Char = characters;
-        status.buffers.XChar = party_rows;
-    }
-    DetachedStatus(const DetachedStatus&) = delete;
-    DetachedStatus& operator=(const DetachedStatus&) = delete;
 };
 
 /* Find the top-level LVLS group saved for `level` (the first group when no
@@ -793,7 +780,7 @@ void CopyCurrentGameChunks(W8Chunk& source, W8Chunk& destination)
    combat, sight override, uninterruptible movement, dialogue or camp. */
 bool CanAutoSaveNow()
 {
-    return g_status.world_cursor_gate == 0 && !AnyMonsterDying() && !gXStatus.fCombatMode &&
+    return g_status.world_cursor_gate == 0 && !AnyMonsterDying() && !g_combat.active() &&
            !IsSightRangeOverridden() && CanInterruptLevelMovement() && !gXStatus.fNpcDialogueMode &&
            !gXStatus.fCampMode;
 }
@@ -806,7 +793,7 @@ std::string_view AutoSaveSlotName()
 
 void ShowMainGameNotice(int string_id)
 {
-    if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME)
+    if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME)
         ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[string_id]);
 }
 
@@ -883,7 +870,7 @@ static std::unique_ptr<W8SaveSlot> ReadSaveSlot(const std::string& name,
     W8Chunk chunks;
     if (!chunks.OpenRead(wiz8::user_path("saves\\" + name))) return nullptr;
     auto slot = std::make_unique<W8SaveSlot>();
-    DetachedStatus saved;
+    W8GlobalStatus saved{};
     bool has_status = false;
     slot->screenshot.capture_result = W8ScreenshotCaptureResult::failed;
     slot->version_major = kUnversionedSave.major;
@@ -892,9 +879,9 @@ static std::unique_ptr<W8SaveSlot> ReadSaveSlot(const std::string& name,
     chunks.ForEachChunk([&](unsigned int id) {
         switch (id) {
         case W8_CHUNK_GAME_STATUS:
-            LoadGameStatus(&chunks, &saved.status);
+            saved = DecodeGameStatus(chunks);
             has_status = true;
-            slot->dev_flagged = saved.status.dev_flagged;
+            slot->dev_flagged = saved.dev_flagged;
             break;
         case W8_CHUNK_GAME_VERSION:
             chunks.ReadValue(slot->version_major);
@@ -907,7 +894,7 @@ static std::unique_ptr<W8SaveSlot> ReadSaveSlot(const std::string& name,
         }
     });
     chunks.Close();
-    const auto& status = saved.status;
+    const auto& status = saved;
     if (!has_status || status.flag || status.endgame_started) return nullptr;
     slot->name = name.substr(0, name.find_last_of('.'));
     slot->write_time = metadata.info.modify_time;
@@ -954,16 +941,16 @@ int GetSaveGameLevel(std::string_view slot_name)
 try {
     W8Chunk chunks;
     if (!chunks.OpenRead(wiz8::user_path(SaveSlotPath(slot_name)))) return 0;
-    DetachedStatus saved;
+    W8GlobalStatus saved{};
     bool found = false;
     chunks.ForEachChunk([&](unsigned int id) {
         if (id != W8_CHUNK_GAME_STATUS) return true;
-        LoadGameStatus(&chunks, &saved.status);
+        saved = DecodeGameStatus(chunks);
         found = true;
         return false;
     });
     chunks.Close();
-    return found ? saved.status.resume_level : 0;
+    return found ? saved.resume_level : 0;
 } catch (const std::exception&) {
     return 0;
 }
@@ -972,7 +959,7 @@ static W8GlobalStatus CaptureStatusForSave(const wiz8::File& file)
 {
     auto snapshot = g_status;
     snapshot.pending_move_location = cameraState(*GetWorld());
-    snapshot.buffers.save_version = 1.1f;
+    snapshot.save_version = 1.1f;
     snapshot.difficulty = g_settings.difficulty;
     if (snapshot.iron_man) {
         const auto creation_time = file.times().created;
@@ -1612,22 +1599,17 @@ try {
     return {};
 }
 
-/* Read the GSTA section: the status block followed by eight characters and
-   eight party rows, each size-prefixed. The live buffer pointers are kept.
-   Old status blocks get the message-box migration, pre-v2 characters their
-   profession repair, and the live party rows rebuild their item pointers
-   rather than trusting saved addresses. */
-void LoadGameStatus(W8Chunk* chunks, W8GlobalStatus* status)
+/* Decode the GSTA section into owned status, characters and party rows.
+   Old status blocks get the message-box migration and pre-v2 characters their
+   profession repair. Runtime item bindings are restored only on activation. */
+// FUNCTION: WIZ8 0x00515cf0
+W8GlobalStatus DecodeGameStatus(W8Chunk& chunks)
 {
-    W8Character* characters = status->buffers.Char;
-    W8PartySlotRow* party_rows = status->buffers.XChar;
-    if (!characters || !party_rows) throw std::runtime_error("missing status buffers");
-
     W8GlobalStatus saved{};
-    W8Character saved_characters[8]{};
-    W8PartySlotRow saved_rows[8]{};
-    wiz8::retail::read_sized(*chunks, saved);
-    if (saved.buffers.save_version < 1.1f) {
+    wiz8::retail::read_sized(chunks, saved);
+    if (saved.party.item_count > std::size(saved.party.item_pool))
+        throw std::runtime_error("invalid party inventory count");
+    if (saved.save_version < 1.1f) {
         // Before 1.1 there were three message boxes, stored in a legacy pair.
         for (int box = 0; box < 3; ++box) {
             saved.text_box_lines_used[box] = saved.legacy_text_box_lines[0][box];
@@ -1641,50 +1623,43 @@ void LoadGameStatus(W8Chunk* chunks, W8GlobalStatus* status)
             saved.text_box_lines_shown[box] > std::size(g_message_storage[box]))
             throw std::runtime_error("invalid message storage count");
     }
-    for (auto& character : saved_characters) {
-        wiz8::retail::read_sized(*chunks, character);
+    for (auto& character : saved.party.characters) {
+        wiz8::retail::read_sized(chunks, character);
         if (character.record_version < 2 &&
             character.original_profession == W8_PROFESSION_FIGHTER &&
             character.profession_levels[W8_PROFESSION_FIGHTER] == 0)
             character.original_profession = character.iProfession;
     }
-    for (auto& party_row : saved_rows) wiz8::retail::read_sized(*chunks, party_row);
-
-    saved.buffers.Char = characters;
-    saved.buffers.XChar = party_rows;
-    std::ranges::move(saved_characters, characters);
-    std::ranges::copy(saved_rows, party_rows);
-    *status = std::move(saved);
-    RebuildPartyStatus(&status->formation, party_rows);
-    if (status != &g_status) return;
-
-    for (int slot = 0; slot < 8; ++slot) {
-        auto& party_row = party_rows[slot];
-        const auto item_slot = static_cast<short>(party_row.item_slot);
-        W8ItemInstance* item = nullptr;
-        if (party_row.fOccupied && party_row.pending_action == W8_ACTION_USE_ITEM &&
-            party_row.item_origin != W8_ITEM_ORIGIN_NONE && item_slot != -1) {
-            item = FindCharacterItemAt(slot, static_cast<unsigned char>(party_row.item_origin),
-                                       static_cast<unsigned short>(item_slot));
-        }
-        party_row.pending_action_detail.item_use.item = item;
-        party_row.committed_action.detail_block.item_use.item = nullptr;
-        party_row.spell.target.pPCItem = nullptr;
-        party_row.item_target.pPCItem = nullptr;
-        party_row.breath_target.pPCItem = nullptr;
+    for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
+        auto& row = saved.party.rows[slot];
+        wiz8::retail::read_sized(chunks, row);
+        auto& item = row.item_detail.item_use.item;
+        item.character = slot;
+        if (!row.fOccupied || !saved.party.itemAt(item)) item = {};
+        if (row.pending_action == W8_ACTION_USE_ITEM)
+            row.pending_action_detail.item_use.item = item;
     }
-    RebuildPartyStatus(&status->formation, party_rows);
+
+    saved.party.formation.reconcile(saved.party.rows);
+    return saved;
 }
 
-/* Write the GSTA section; see LoadGameStatus. */
+// Activation installs a complete owning value; it does not repair internal pointers.
+void ActivateGameStatus(W8GlobalStatus saved)
+{
+    g_status = std::move(saved);
+}
+
+/* Write the GSTA section in the retail field order. */
+// FUNCTION: WIZ8 0x00515fa0
 void SaveGlobalStatus(W8Chunk* chunks, const W8GlobalStatus* status)
 {
     chunks->WriteChunk(W8_CHUNK_GAME_STATUS, [&] {
         wiz8::retail::write_sized(*chunks, *status);
         for (int slot = 0; slot != 8; ++slot)
-            wiz8::retail::write_sized(*chunks, status->buffers.Char[slot]);
+            wiz8::retail::write_sized(*chunks, status->party.characters[slot]);
         for (int slot = 0; slot != 8; ++slot)
-            wiz8::retail::write_sized(*chunks, status->buffers.XChar[slot]);
+            wiz8::retail::write_sized(*chunks, status->party.rows[slot]);
     });
 }
 
@@ -1736,7 +1711,7 @@ try {
     chunks.ForEachChunk([&](unsigned int id) {
         switch (id) {
         case W8_CHUNK_GAME_STATUS:
-            LoadGameStatus(&chunks, &g_status);
+            ActivateGameStatus(DecodeGameStatus(chunks));
             break;
         case W8_CHUNK_MESSAGE_STORAGE:
             RequireSection(LoadMessageStorage(chunks), "message storage");
@@ -1769,7 +1744,7 @@ try {
         [](auto& message) { message.clock = w8_get_ticks() + message.saved_remaining_ms; });
     gXStatus.gameplay_timer->Restart();
     ResetMainGameScreenState();
-    if (g_status.item_in_hand.iItemNo == -1) {
+    if (g_status.party.held.item.iItemNo == -1) {
         ClearHeldItemDisplay();
     } else {
         SetItemCursor(0);

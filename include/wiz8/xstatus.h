@@ -4,6 +4,7 @@
 #include <array>
 #include <cstddef>
 #include <memory>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -18,6 +19,7 @@ struct W8WorldItem;
 #include <stddef.h>
 
 #include "wiz8/character_event_queue.h"
+#include "wiz8/item_location.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_instance.h"
@@ -34,22 +36,25 @@ struct W8WorldItem;
 enum class W8SurprisePhase : unsigned short { fade_in, hold, fade_out_and_resolve };
 
 // Live gameplay state, not a disk record.
+struct W8ItemDrag {
+    W8ItemLocation item;
+    int actor = -1;
+    // Until the use-item picker opens on it; the drag is remembered afterwards.
+    bool pending = true;
+};
+
 struct W8XStatus {
     W8MonsterManagerEntry monster_manager_entries[8];
     unsigned int uiItemTablesInDatabase;
     unsigned int uiItemTableCategories;
     unsigned int uiMonstersInDatabase;
-    bool fCombatMode;
     bool fNpcDialogueMode;
-    bool fLockInteractMode;
-    bool fTrapInteractMode;
     bool fReviewCharacterMode;
     bool fCampMode;
     /* Dialogue NPC state needs re-syncing once the frame settles. */
     bool dialogue_sync_pending;
     /* Re-check level-up notices when the UI is idle again. */
     bool level_up_notice;
-    bool fEncumbranceDirty; /* Pending party-weight recalc */
     int item_manager_pending;
     bool fSurprisePossible;
     /* Set when surprise starts with no character engaged; phase 1 waits
@@ -82,9 +87,6 @@ struct W8XStatus {
     /* Explicit user-pause choice; closing an interaction does not clear it. */
     bool world_paused;
     unsigned short review_character_slot;
-    int held_item_source;
-    W8ItemOrigin held_item_origin;
-    unsigned short held_item_slot;
     std::array<std::unique_ptr<W8MonsterRecord>, 1000> monster_record_cache;
     std::unique_ptr<W8GameTimer> gameplay_timer;
     bool save_notice_shown;
@@ -99,10 +101,8 @@ struct W8XStatus {
     /* Which Assay dialog tab is shown - set selects the profession
        icons/button, clear selects the race side. */
     bool assay_professions_tab;
-    bool item_drag_active;
-    W8ItemInstance* dragged_item;
-    W8ItemOrigin dragged_item_origin;
-    signed char dragged_character_slot;
+    /* An item the camp's Use action hands to the main game's use-item picker. */
+    std::optional<W8ItemDrag> item_drag;
     uint64_t spell_cooldown_clocks[14];
     uint64_t combat_countdown;
     W8Difficulty combat_difficulty = W8_DIFFICULTY_NOVICE;
@@ -110,16 +110,6 @@ struct W8XStatus {
 };
 
 extern W8XStatus gXStatus;
-
-/* Drop any item drag in progress; the camp, use-item and main-game paths
-   all reset the four drag fields together. */
-inline void ClearItemDrag(void)
-{
-    gXStatus.item_drag_active = false;
-    gXStatus.dragged_item = 0;
-    gXStatus.dragged_item_origin = W8_ITEM_ORIGIN_NONE;
-    gXStatus.dragged_character_slot = -1;
-}
 
 /* Bounded queries into the current level; absent levels resolve to null. */
 W8MonsterInfo* GetMonsterListEntry(std::ptrdiff_t index);

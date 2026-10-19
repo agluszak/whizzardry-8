@@ -16,7 +16,8 @@ short GetCombatPortraitImage(W8ActionKind action, int detail, W8CombatPortraitSt
 
     switch (action) {
     case W8_ACTION_ATTACK:
-        image = 14 * GetAttackMenuWeaponOffset(g_status.buffers.Char[slot].Hand[0].weapon_skill);
+        image =
+            14 * GetAttackMenuWeaponOffset(g_status.party.characters[slot].Hand[0].weapon_skill);
         break;
     case W8_ACTION_BERSERK:
         image = 0x7e;

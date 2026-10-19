@@ -16,11 +16,11 @@
 #include "wiz8/audio/soundman.h"
 #include "wiz8/checked_integer.h"
 #include "wiz8/entities/monster.h"
+#include "wiz8/layouts/combat_state.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/spatial/level_spatial_index.h"
-#include "wiz8/xstatus.h"
 
 // Looping events own the voice they start.
 W8SoundEvent::~W8SoundEvent()
@@ -97,7 +97,7 @@ bool W8SoundEvent::Play(const glm::vec3& position, int cycle)
             track_sound = true;
             if (location_id != 0) {
                 monster = GetMonsterByLocationID(location_id);
-                if (gXStatus.fCombatMode || (monster && monster->nearest_to_party)) {
+                if (g_combat.active() || (monster && monster->nearest_to_party)) {
                     base_volume = footstep_combat_volume;
                 }
             }

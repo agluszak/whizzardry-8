@@ -147,13 +147,6 @@ bool CanPartySlotTurnUndead(int party_slot);
 bool CanPartySlotPray(int party_slot);
 float ScaleValueByProfessionLevel(W8Character* character, W8Trait trait, float base);
 float ScaleValueByMonsterLevel(W8MonsterRecord* record, int trait, float base);
-/* 0x005539E0: rebuild the effective attributes from the modifier block's
-   seven adjustment bytes and every skill's base level from the attribute
-   pair g_skill_attributes names. */
-void ResetCharacterAttributes(W8Character* character);
-/* 0x00553A60: rebuild every skill level from its base, the profession bonus
-   and the race and profession skill adjustments. */
-void ResetCharacterSkills(W8Character* character);
 bool IsCharacterSkillAvailable(W8Character* character, W8Skill skill_id,
                                const bool* expert_realm_flags);
 void InvalidateAndRecalculateCharacterClassData(W8Character* character);
@@ -168,3 +161,10 @@ void ApplySkillChange(W8Character* character, W8Skill skill_id);
 void InitializeSkillBaseLevels(W8Character* character);
 void RefreshCharacterSkillAvailability(W8Character* character);
 unsigned int GetSkillQuarterValue(W8Character* character, W8Skill skill_id);
+
+// Profession, race and gender are set; nothing is derived for a character without them.
+bool IsCharacterDefined(const W8Character& character);
+struct W8GameplayModifierBlock;
+// Rebuild modifier blocks, effective attributes, skill levels and hand kinds from the
+// character's equipment, conditions and the supplied party modifiers.
+void EvaluateCharacterInputs(W8Character&, const W8GameplayModifierBlock*);

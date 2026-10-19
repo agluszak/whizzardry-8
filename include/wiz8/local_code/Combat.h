@@ -14,7 +14,6 @@ void ChooseAction(int party_slot, W8ActionKind action, int detail, const W8Actio
 W8Action SelectCombatAction(int party_slot, W8TargetingContext context);
 
 void SetCharacterCombatAction(int party_slot, W8Action action, int notify);
-void EndCombat(bool forced_cleanup);
 void BeginCombatExecution(void);
 void AssignCombatPhases(void);
 void UpdateCombat(void);
@@ -36,7 +35,6 @@ void RollCombatSurprise(char party_cannot_be_surprised);
 /* Enter combat mode; queues a friendly NPC's combat-entry script
    notice when one is still owed and declines while dialogue or a script event
    defers it. */
-bool StartCombat(int surprise);
 struct W8Character;
 struct W8MonsterInfo;
 struct W8CombatCharacterRow;

@@ -44,6 +44,7 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/npc_state.h"
+#include "wiz8/layouts/party_slot.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/level_population.h"
 #include "wiz8/local_code/Combat.h"
@@ -344,8 +345,8 @@ void RecordMonsterKill(W8MonsterInfo* monster_info, bool announce)
         killer_party_slot = monster_info->condition_target.iChar;
         if (killer_party_slot != -1 &&
             (killer_party_slot < 0 || killer_party_slot >= W8_PARTY_SLOT_COUNT ||
-             !g_status.buffers.XChar[killer_party_slot].fOccupied ||
-             !g_status.buffers.Char[killer_party_slot].fInParty)) {
+             !g_status.party.rows[killer_party_slot].fOccupied ||
+             !g_status.party.characters[killer_party_slot].fInParty)) {
             Fail("(iKilledByPC == BAD_INDEX) || VALID_CHAR(iKilledByPC)");
         }
         notice_channel = (killer_party_slot == -1) + 8;
@@ -389,19 +390,19 @@ done:
                                    monster_info->uiCondition[W8_CONDITION_TURNCOAT] == 0) ||
                                   (monster_info->ubDisposition == W8_DISPOSITION_FRIENDLY &&
                                    monster_info->uiCondition[W8_CONDITION_TURNCOAT] != 0))) {
-        ++g_combat_state->combat_result;
+        ++g_combat.state()->combat_result;
         if (GetLoadedLevelID() >= 0 && GetLoadedLevelID() < W8_LEVEL_COUNT) {
             ++g_status.level_progress[GetLoadedLevelID()].monster_kill_count;
         }
         if (killer_party_slot != -1) {
-            W8Character* killer = &g_status.buffers.Char[killer_party_slot];
+            W8Character* killer = &g_status.party.characters[killer_party_slot];
             ++killer->kill_count;
             if (record->significant_kill != 0) {
                 unsigned int level_total = 0;
                 int occupied = 0;
                 for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-                    if (g_status.buffers.XChar[slot].fOccupied) {
-                        level_total += g_status.buffers.Char[slot].uiExpLevel;
+                    if (g_status.party.rows[slot].fOccupied) {
+                        level_total += g_status.party.characters[slot].uiExpLevel;
                         ++occupied;
                     }
                 }
@@ -420,7 +421,7 @@ done:
                 DebugMessage(0, fmt::format("DATA ERROR: {} is worth 0 XPs", record->name0));
             }
         }
-        g_combat_state->experience_pool += experience;
+        g_combat.state()->experience_pool += experience;
         if (g_status.status_ints[monster_species] == 0) {
             g_status.status_ints[monster_species] = 1;
         }
@@ -837,9 +838,9 @@ void TryStartMonsterCycle2(W8MonsterInfo* monster_info, Monster* monster,
                 signed char cycle = monster->visual.pending_cycle;
 
                 if (cycle == 2 || !monster->IsCycleInterruptable(cycle) ||
-                    (gXStatus.fCombatMode &&
-                     g_combat_state->action_status != W8CombatActionStatus::idle &&
-                     g_combat_state->pActionMonsterInfo == monster_info)) {
+                    (g_combat.active() &&
+                     g_combat.state()->action_status != W8CombatActionStatus::idle &&
+                     g_combat.state()->pActionMonsterInfo == monster_info)) {
                     return;
                 }
                 W8MonsterGroup* group = FindMonsterGroup(monster_info->monster_group_id);
@@ -920,7 +921,7 @@ bool RemoveMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal)
     };
     if (!owns(roster.live()) && !owns(roster.unborn())) return false;
 
-    if (gXStatus.fCombatMode && monster_info->pCombat) {
+    if (g_combat.active() && monster_info->pCombat) {
         MonsterInfoLeaveCombat(monster_info);
     }
     if (monster_info->monster_group_id != 0) {
@@ -944,9 +945,9 @@ bool RemoveMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal)
         monster_info->monster_group_id = 0;
     }
     DeactivateMonster(monster_info);
-    if (g_combat_state && g_combat_state->pActionMonsterInfo == monster_info) {
-        g_combat_state->pActionMonsterInfo = nullptr;
-        g_combat_state->action_status = W8CombatActionStatus::idle;
+    if (g_combat.state() && g_combat.state()->pActionMonsterInfo == monster_info) {
+        g_combat.state()->pActionMonsterInfo = nullptr;
+        g_combat.state()->action_status = W8CombatActionStatus::idle;
     }
     if (removal == W8MonsterRemoval::Deactivate) return true;
     if (monster_info->p3D) {
@@ -993,14 +994,14 @@ void DeactivateMonster(W8MonsterInfo* monster_info)
         position = monster_info->p3D->GetRepresentationLocalLocation();
         monster_info->position = position;
         monster_info->fActive = false;
-        if (gXStatus.fCombatMode) {
+        if (g_combat.active()) {
             RefreshAllSight();
             SetTargetToMonster(monster_info->location_id, false);
             RefreshFlaggedMainGameState();
             RefreshCombatEngagement();
-            if (g_combat_state->pActionMonsterInfo == monster_info) {
-                g_combat_state->action_status = W8CombatActionStatus::idle;
-                g_combat_state->pActionMonsterInfo = 0;
+            if (g_combat.state()->pActionMonsterInfo == monster_info) {
+                g_combat.state()->action_status = W8CombatActionStatus::idle;
+                g_combat.state()->pActionMonsterInfo = 0;
             }
         }
     }
@@ -1026,7 +1027,7 @@ void MonsterInfoEnterCombat(W8MonsterInfo* monster_info)
     if (monster_info->ubDisposition == W8_DISPOSITION_HOSTILE) {
         RefreshCombatEngagement();
     }
-    if (gXStatus.fCombatMode) {
+    if (g_combat.active()) {
         EndMonsterTurn(monster_info);
     }
 }
@@ -1037,8 +1038,8 @@ void MonsterInfoLeaveCombat(W8MonsterInfo* monster_info)
     unsigned int index;
     W8EffectSlot* entry;
 
-    if (!gXStatus.fCombatMode) {
-        Fail("gXStatus.fCombatMode");
+    if (!g_combat.active()) {
+        Fail("g_combat.active()");
     }
     if (monster_info == 0) {
         Fail("pMonsterInfo != NULL");
@@ -1046,9 +1047,9 @@ void MonsterInfoLeaveCombat(W8MonsterInfo* monster_info)
     if (!monster_info->pCombat) {
         Fail("pMonsterInfo->pCombat");
     }
-    if (g_combat_state->pActionMonsterInfo == monster_info) {
-        g_combat_state->action_status = W8CombatActionStatus::idle;
-        g_combat_state->pActionMonsterInfo = 0;
+    if (g_combat.state()->pActionMonsterInfo == monster_info) {
+        g_combat.state()->action_status = W8CombatActionStatus::idle;
+        g_combat.state()->pActionMonsterInfo = 0;
     }
     for (index = 0; index < 9; ++index) {
         entry = &monster_info->pCombat->combat_effects[index];
@@ -1082,27 +1083,27 @@ void TogglePartyCombatStance(void)
     }
     if (g_settings.continuous_combat != 0) {
         g_settings.continuous_combat = 0;
-        if (gXStatus.fCombatMode) {
-            g_combat_state->round_active = (g_combat_state->execution_active == 0);
-            g_combat_state->combat_ready = true;
+        if (g_combat.active()) {
+            g_combat.state()->round_active = (g_combat.state()->execution_active == 0);
+            g_combat.state()->combat_ready = true;
         }
-        if (g_current_screen_state.id != W8_SCREEN_MAIN_GAME) {
+        if (CurrentScreenState().id != W8_SCREEN_MAIN_GAME) {
             return;
         }
         message = g_localized_strings[W8_NOTICE_COMBAT_STANCE_RELAXED];
     } else {
         g_settings.continuous_combat = 1;
-        if (gXStatus.fCombatMode && g_combat_state->combat_ready) {
-            g_combat_state->round_active = true;
-            g_combat_state->combat_ready = false;
+        if (g_combat.active() && g_combat.state()->combat_ready) {
+            g_combat.state()->round_active = true;
+            g_combat.state()->combat_ready = false;
         }
-        if (g_current_screen_state.id != W8_SCREEN_MAIN_GAME) {
+        if (CurrentScreenState().id != W8_SCREEN_MAIN_GAME) {
             return;
         }
         message = g_localized_strings[W8_NOTICE_COMBAT_STANCE_READY];
     }
     ShowNotice(W8_FONT_PALETTE_BEIGE, message);
-    if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
+    if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
         RequestRedraw(W8_MAIN_REDRAW_COMBAT_STANCE);
     }
 }
@@ -1119,13 +1120,13 @@ void ToggleCombatMode(void)
     W8MonsterGroup* monster_group;
     Missile* missile;
 
-    if (!gXStatus.fCombatMode) {
-        StartCombat(1);
+    if (!g_combat.active()) {
+        g_combat.Start(1);
         return;
     }
     if (CurrentLevelPopulation().monster_roster.hostileCombatCount() != 0 ||
-        g_combat_state->enemies_engaged) {
-        if (g_combat_state->round_count != 0) {
+        g_combat.state()->enemies_engaged) {
+        if (g_combat.state()->round_count != 0) {
             ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_COMBAT_CANNOT_END]);
             return;
         }
@@ -1141,7 +1142,7 @@ void ToggleCombatMode(void)
         }
     }
     for (missile = NextMissile(true); missile != 0; missile = NextMissile(false)) {
-        if ((missile == g_combat_state->engaged_missile ||
+        if ((missile == g_combat.state()->engaged_missile ||
              g_missile_table[missile->missile_table_index].spell_missile != 0) &&
             missile->BlocksEndingCombat()) {
             ShowNotice(W8_FONT_PALETTE_BEIGE,
@@ -1149,12 +1150,12 @@ void ToggleCombatMode(void)
             return;
         }
     }
-    if (g_combat_state->execution_active != 0) {
+    if (g_combat.state()->execution_active != 0) {
         ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_COMBAT_CANNOT_END_PENDING],
                    W8_NOTICE_TEXT_BOX_AUTOMATIC, W8_NOTICE_WRAP_AUTOMATIC, true);
         return;
     }
-    EndCombat(false);
+    g_combat.End(false);
     ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_COMBAT_ENDED]);
     if (g_level_block->combat_end_notification != -1) {
         DestroySubMenuControls();
@@ -1184,7 +1185,7 @@ void StartMonsterCycle(W8MonsterInfo* monster_info, int cycle, W8AnimationBehavi
         detail = "Trying to set a NEVER_STOP behaviour with an uninterruptable cycle!";
     } else {
         pending = monster->visual.pending_cycle;
-        if (gXStatus.fCombatMode) {
+        if (g_combat.active()) {
             monster->Query(W8_MONSTER_QUERY_CYCLE);
         }
         if (pending != W8_CYCLE_STOP && pending != W8_CYCLE_NONE &&
@@ -1248,7 +1249,7 @@ void ProcessMonsterManagerFrame(void)
                     static_cast<W8MonsterCycle>(monster->Query(W8_MONSTER_QUERY_CYCLE));
                 TryStartMonsterCycle2(monster_info, monster, query_state);
                 if (monster->Query(W8_MONSTER_QUERY_CYCLE_COMPLETE) != 0) {
-                    if (gXStatus.fCombatMode && query_state == W8_MONSTER_CYCLE_ATTACK_SPECIAL) {
+                    if (g_combat.active() && query_state == W8_MONSTER_CYCLE_ATTACK_SPECIAL) {
                         monster_info->pCombat->special_ready = true;
                     }
                     switch (query_state) {
@@ -1311,7 +1312,7 @@ std::string GetMonsterName(W8MonsterInfo* monster_info, W8MonsterRecord* record,
     }
     if (record->record_id == W8_MONSTER_RECORD_ALTERNATE_NAME) {
         g_status.monster_name_buffer =
-            fmt::format("Al-{}", g_status.buffers.Char[g_status.sedexus_party_slot].name);
+            fmt::format("Al-{}", g_status.party.characters[g_status.sedexus_party_slot].name);
         return g_status.monster_name_buffer;
     }
     if (monster_info->monster_group_id == 0) {
@@ -1336,8 +1337,8 @@ float GetAveragePartyMemberLevel(void)
     float total = 0.0f;
     float count = 0.0f;
     for (int party_slot = 0; party_slot < 6; ++party_slot) {
-        if (g_status.buffers.XChar[party_slot].fOccupied) {
-            total += g_status.buffers.Char[party_slot].uiExpLevel;
+        if (g_status.party.rows[party_slot].fOccupied) {
+            total += g_status.party.characters[party_slot].uiExpLevel;
             count += 1.0f;
         }
     }
@@ -1350,8 +1351,8 @@ unsigned int GetBestPartySkillLevel(W8Skill skill_index, int* party_slot)
     unsigned int best_level = 0;
     int best_slot = -1;
     for (int index = 0; index < 8; ++index) {
-        W8Character* character = &g_status.buffers.Char[index];
-        if (g_status.buffers.XChar[index].fOccupied && character->hp_current != 0 &&
+        W8Character* character = &g_status.party.characters[index];
+        if (g_status.party.rows[index].fOccupied && character->hp_current != 0 &&
             character->highest_condition < W8_CONDITION_TURNCOAT &&
             (character->skills[skill_index].level > best_level || best_slot == -1)) {
             best_level = character->skills[skill_index].level;
@@ -1418,8 +1419,8 @@ std::string FormatMonsterHealth(W8MonsterInfo* monster_info)
 /* Blind, incapacitated and unoccupied party members cannot sense monsters. */
 static bool CanNoticeMonsterGroup(unsigned int slot)
 {
-    const W8Character& character = g_status.buffers.Char[slot];
-    return g_status.buffers.XChar[slot].fOccupied && character.hp_current != 0 &&
+    const W8Character& character = g_status.party.characters[slot];
+    return g_status.party.rows[slot].fOccupied && character.hp_current != 0 &&
            character.highest_condition < W8_CONDITION_INSANE &&
            character.uiCondition[W8_CONDITION_BLIND] == 0;
 }
@@ -1432,7 +1433,7 @@ void DetectMonsterGroups(void)
          ++group_index) {
         W8MonsterGroup* group = CurrentLevelPopulation().monster_groups[group_index].get();
         if (!group->members_active || (group->alternate_name && group->group_state[0] != 0) ||
-            (gXStatus.fCombatMode && !group->fInCombat) ||
+            (g_combat.active() && !group->fInCombat) ||
             !MonsterGroupHasRenderableMember(group, false)) {
             continue;
         }
@@ -1442,7 +1443,7 @@ void DetectMonsterGroups(void)
             unsigned int best_margin = 0;
             for (unsigned int slot = 0; slot < 8; ++slot) {
                 if (!CanNoticeMonsterGroup(slot)) continue;
-                W8Character* character = &g_status.buffers.Char[slot];
+                W8Character* character = &g_status.party.characters[slot];
                 int score =
                     (character->monster_awareness[group->monster_id] - record->effective_level) *
                         3 +
@@ -1492,7 +1493,7 @@ void DetectMonsterGroups(void)
         if (group->group_state[0] == 0) {
             for (unsigned int slot = 0; slot < 8; ++slot) {
                 if (!CanNoticeMonsterGroup(slot)) continue;
-                W8Character* character = &g_status.buffers.Char[slot];
+                W8Character* character = &g_status.party.characters[slot];
                 unsigned int awareness =
                     character->monster_awareness[group->monster_id] + group->MemberCount();
                 if (awareness > 0xff) {
@@ -1533,8 +1534,8 @@ void EvaluateCombatDifficulty(void)
     }
 
     for (slot = 0; slot < 8; ++slot) {
-        W8PartySlotRow* row = &g_status.buffers.XChar[slot];
-        W8Character* character = &g_status.buffers.Char[slot];
+        W8PartySlotRow* row = &g_status.party.rows[slot];
+        W8Character* character = &g_status.party.characters[slot];
         if (!CanPartySlotParticipate(slot)) {
             continue;
         }
@@ -1591,7 +1592,7 @@ void EvaluateCombatDifficulty(void)
         StartMusicResource("CombatLousy.MPL", 0, 1);
         break;
     }
-    if ((g_combat_state != 0 && g_combat_state->party_surprised) ||
+    if ((g_combat.state() != 0 && g_combat.state()->party_surprised) ||
         TimeUntilDeadline(gXStatus.combat_countdown) == 0 ||
         difficulty != gXStatus.combat_difficulty) {
         unsigned int event_type;
@@ -1612,11 +1613,11 @@ void EvaluateCombatDifficulty(void)
     gXStatus.combat_difficulty = difficulty;
 
     for (slot = 0; slot < 2; ++slot) {
-        W8PartySlotRow* row = &g_status.buffers.XChar[slot];
+        W8PartySlotRow* row = &g_status.party.rows[slot];
         if (row->fOccupied) {
             W8NpcState* npc = GetNpcState(row->npc_index);
             if (npc != 0) {
-                W8Character* character = &g_status.buffers.Char[slot];
+                W8Character* character = &g_status.party.characters[slot];
                 if (character->highest_condition == W8_CONDITION_DEAD) {
                     npc->item_assist = 0;
                 } else if (npc->name_style == W8_NPC_VI_DOMINA ||
@@ -1629,8 +1630,8 @@ void EvaluateCombatDifficulty(void)
         }
     }
     for (slot = 0; slot < 8; ++slot) {
-        W8PartySlotRow* row = &g_status.buffers.XChar[slot];
-        W8Character* character = &g_status.buffers.Char[slot];
+        W8PartySlotRow* row = &g_status.party.rows[slot];
+        W8Character* character = &g_status.party.characters[slot];
         if (row->fOccupied && character->uiCondition[W8_CONDITION_DEAD] == 0) {
             gXStatus.monster_manager_entries[slot].condition_19_latch =
                 character->uiCondition[W8_CONDITION_MISSING] != 0;

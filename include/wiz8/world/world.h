@@ -115,8 +115,6 @@ struct World {
     W8EncounterState encounters;
 };
 
-extern int g_combat_round_counter;
-
 /* Typed element access for the homogeneous world lists. */
 inline Prop* GetWorldProp(World* world, int index)
 {

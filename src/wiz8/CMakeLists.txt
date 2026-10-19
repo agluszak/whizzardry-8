@@ -172,7 +172,13 @@ target_sources(wiz8_engine PRIVATE
     ../entities/cursor.cpp
     ../render/effects/light_animation.cpp
     version.cpp
-    local_code/party_encumbrance.cpp
+    party_formation.cpp
+    party.cpp
+    party_stats.cpp
+    inventory.cpp
+    character_stats.cpp
+    item_rules.cpp
+    live_party.cpp
     local_code/Search.cpp
     local_code/npc_interaction.cpp
     local_code/npc_dialogue.cpp

@@ -32,6 +32,7 @@
 #include "wiz8/entities/trigger.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/ground_probe.h"
+#include "wiz8/inventory.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/level_population.h"
@@ -39,7 +40,6 @@
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/math.h"
 #include "wiz8/packed_bits.h"
@@ -1024,8 +1024,8 @@ bool W8GDSurface::ResolveCollision(PartyMotion& level, LevelEnvironment& environ
     bool crossed = false;
     glm::vec3 crease_a(0);
     if ((flags & W8_GD_SURFACE_WALKABLE) != 0) {
-        if ((flags & W8_GD_SURFACE_EXPLICIT_SLOPE) != 0 && g_party_has_slope_override_item != 0 &&
-            g_sea_caves_slope_override_enabled) {
+        if ((flags & W8_GD_SURFACE_EXPLICIT_SLOPE) != 0 && g_sea_caves_slope_override_enabled &&
+            PartyHasItem(kSlopeOverrideItem, W8ItemReach::Worn)) {
             environ.motion_factor = 1.0f;
         } else if (environ.motion_factor < slope) {
             environ.motion_factor = slope;
@@ -1531,7 +1531,7 @@ float MoveTimer(W8MoveTimerAction action)
 {
     if (g_shared_timers_paused) {
         if ((action == W8_MOVE_TIMER_RESUME_MAIN_GAME &&
-             g_current_screen_state.id == W8_SCREEN_MAIN_GAME) ||
+             CurrentScreenState().id == W8_SCREEN_MAIN_GAME) ||
             action == W8_MOVE_TIMER_RESUME) {
             ResumeSharedGameTimers();
             g_shared_timers_paused = false;

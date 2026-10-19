@@ -3,8 +3,6 @@
 #include <array>
 #include <memory>
 
-#include "compat/compiler.h"
-#include "wiz8/character_skills.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/RangeControl.h"
 #include "wiz8/platform/input.h"
@@ -36,28 +34,16 @@ struct W8CampEffectEntry {
    list: button 0 selects beneficial rows, button 1 detrimental rows and
    button 2 switches the list to equipped items. */
 
+struct W8CampScreenState;
+
 class W8CampStatsControls {
+    W8CampScreenState& screen;
+
 public:
-    W8CampStatsControls();
+    explicit W8CampStatsControls(W8CampScreenState& screen);
     void Redraw(SDL_Surface& target, bool force);
     void InvalidateAll();
     void SelectFilter(int index);
     UiLayer input;
     std::array<std::unique_ptr<W8ButtonWidget>, 3> m_buttons;
 };
-
-/* Camp page-1 renderer - attributes, traits and the effect list trigger. */
-void DrawCampStatsPage(void);
-void DrawCampSkillsPage(void);
-
-/* Rebuilds the stats page's effect list from the reviewed character's
-   conditions, enchantments and equipped items, then refilters it. Called when
-   the reviewed character changes and when the stats page is entered. */
-void RebuildCampEffectList(void);
-void FilterCampEffectList(void);
-
-/* Lazily creates and enables the five per-category skill regions of camp page
-   2; DisableCampSkillRegions releases them on camp leave. */
-void CreateCampSkillRegions(void);
-void DisableCampSkillRegions(void);
-UiResult HandleCampSkillList(const UiPointerEvent& event, W8SkillCategory category);

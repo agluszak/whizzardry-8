@@ -8,7 +8,6 @@
 
 #include "compat/native.h"
 #include "glm/ext/vector_float3.hpp"
-#include "layouts/item_instance.h"
 #include "layouts/screen_state.h"
 #include "layouts/targeting.h"
 #include "local_code/Gameloop.h"
@@ -25,11 +24,13 @@
 #include "wiz8/entities/trigger.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/gameplay_constants.h"
+#include "wiz8/inventory.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/npc_state.h"
+#include "wiz8/layouts/party_slot.h"
 #include "wiz8/level_specific_code/Ascension.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/CombatHostility.h"
@@ -138,7 +139,7 @@ static void NpcScriptTurnToBook(void)
 static void NpcScriptEndgameScreen(void)
 {
     SetIntroVideoIndex(W8_INTRO_VIDEO_DARK_ENDING);
-    g_pending_screen_state.id = W8_SCREEN_INTRO;
+    RequestScreen({.id = W8_SCREEN_INTRO});
 }
 
 /* Fact 0x1bf: raise the scripted-scene gate, drop the level's transient data
@@ -153,7 +154,7 @@ void BeginNpcScriptedScene(void)
     gXStatus.scripted_scene = true;
     SetTargetingMode(W8_TARGET_NEED_ALLY);
     for (party_slot = 0; party_slot < 8; ++party_slot) {
-        if (g_status.buffers.XChar[party_slot].fOccupied) {
+        if (g_status.party.rows[party_slot].fOccupied) {
             EnableMainGamePortraitSlot(party_slot);
             g_main_game_state->edge_targets[party_slot]->setEnabled(true);
         }
@@ -168,7 +169,6 @@ void BeginNpcScriptedScene(void)
    facts 0x1c1 or 0x227. The party-member region sets reopen on the way out. */
 void EndScriptedPortraitPick(int party_slot)
 {
-    W8ItemInstance* found;
     W8Character* character;
     /* 0x00529EDC compares the slot counter as slot - 7 against 8 with a
        signed jump, so the counter is not unsigned. */
@@ -178,12 +178,12 @@ void EndScriptedPortraitPick(int party_slot)
     if (!gXStatus.scripted_scene) {
         return;
     }
-    if (!gXStatus.fCombatMode || gXStatus.fPartyMovementMode) {
+    if (!g_combat.active() || gXStatus.fPartyMovementMode) {
         ClearLevelMovementStopped();
     }
     SetTargetingMode(W8_TARGET_NEED_NONE);
     for (slot = 0; slot < 8; ++slot) {
-        if (g_status.buffers.XChar[slot].fOccupied) {
+        if (g_status.party.rows[slot].fOccupied) {
             DisableMainGamePortraitSlot(slot);
             g_main_game_state->edge_targets[slot]->setEnabled(false);
         }
@@ -196,23 +196,23 @@ void EndScriptedPortraitPick(int party_slot)
     SetFact(W8_FACT_ALSEDEXUS_SACRIFICE_NOT_DRESSED, 0, false);
     SetFact(W8_FACT_ALSEDEXUS_SACRIFICE_NOT_ABLE, 0, false);
     for (slot = 0; slot < 8; ++slot) {
-        if (g_status.buffers.XChar[slot].fOccupied &&
-            g_status.buffers.Char[slot].gender != W8_GENDER_FEMALE) {
+        if (g_status.party.rows[slot].fOccupied &&
+            g_status.party.characters[slot].gender != W8_GENDER_FEMALE) {
             other_gender_present = true;
             break;
         }
     }
-    character = &g_status.buffers.Char[party_slot];
+    character = &g_status.party.characters[party_slot];
     if (character->gender == W8_GENDER_FEMALE && other_gender_present) {
         SetFact(W8_FACT_ALSEDEXUS_SACRIFICE_WOMAN, 1, false);
         QueueCharacterEvent(character, 43, kCharacterEventNoNpcDefer, kCharacterEventFullVolume);
         return;
     }
-    if (g_status.buffers.XChar[party_slot].npc_index == -1 &&
+    if (g_status.party.rows[party_slot].npc_index == -1 &&
         character->highest_condition < W8_CONDITION_ASLEEP) {
-        if (FindItemOnCharacter(character, 0x1fd, &found, 0, 0) &&
-            FindItemOnCharacter(character, 0x1fe, &found, 0, 0) &&
-            FindItemOnCharacter(character, 0x1ff, &found, 0, 0)) {
+        if (FindCharacterItem(*character, ItemWithId(0x1fd), W8ItemReach::Worn) &&
+            FindCharacterItem(*character, ItemWithId(0x1fe), W8ItemReach::Worn) &&
+            FindCharacterItem(*character, ItemWithId(0x1ff), W8ItemReach::Worn)) {
             SetFact(W8_FACT_ALSEDEXUS_SACRIFICE_NOT_DRESSED, 0, false);
             g_status.monster_name_buffer = fmt::format("Al-{}", character->name);
             g_status.sedexus_party_slot = party_slot;
@@ -226,7 +226,7 @@ void EndScriptedPortraitPick(int party_slot)
         SetFact(W8_FACT_ALSEDEXUS_SACRIFICE_NOT_ABLE, 1, false);
     }
     for (slot = 0; slot < 8; ++slot) {
-        if (g_status.buffers.XChar[slot].fOccupied) {
+        if (g_status.party.rows[slot].fOccupied) {
             EnableMainGamePortraitSlot(slot);
             g_main_game_state->edge_targets[slot]->setEnabled(true);
         }
@@ -273,8 +273,8 @@ void UpdateSedexusScene(void)
         ClearMainGameTargetState();
         int sedexus_party_slot = g_status.sedexus_party_slot;
         for (int party_slot = 0; party_slot < 8; ++party_slot) {
-            const W8PartySlotRow& row = g_status.buffers.XChar[party_slot];
-            const W8Character& character = g_status.buffers.Char[party_slot];
+            const W8PartySlotRow& row = g_status.party.rows[party_slot];
+            const W8Character& character = g_status.party.characters[party_slot];
             if (row.fOccupied &&
                 (character.hp_current > 0 || character.highest_condition < W8_CONDITION_DEAD) &&
                 party_slot != sedexus_party_slot) {
@@ -282,7 +282,7 @@ void UpdateSedexusScene(void)
                 sedexus_party_slot = g_status.sedexus_party_slot;
             }
         }
-        W8Character* character = &g_status.buffers.Char[sedexus_party_slot];
+        W8Character* character = &g_status.party.characters[sedexus_party_slot];
         if (character->gender == W8_GENDER_MALE) {
             QueueCharacterEvent(character, 43, 0, kCharacterEventFullVolume);
         }
@@ -309,9 +309,9 @@ void BeginSedexusCapture(void)
     g_sedexus_scene.capture_active = true;
     BeginWorldLightingFade(-1000.0f);
     for (party_slot = 0; party_slot < 8; ++party_slot) {
-        if (g_status.buffers.XChar[party_slot].fOccupied &&
-            (g_status.buffers.Char[party_slot].hp_current > 0 ||
-             g_status.buffers.Char[party_slot].highest_condition < W8_CONDITION_DEAD) &&
+        if (g_status.party.rows[party_slot].fOccupied &&
+            (g_status.party.characters[party_slot].hp_current > 0 ||
+             g_status.party.characters[party_slot].highest_condition < W8_CONDITION_DEAD) &&
             party_slot != static_cast<unsigned int>(g_status.sedexus_party_slot)) {
             SetCharacterCondition(party_slot, W8_CONDITION_UNCONSCIOUS, W8_CONDITION_INDEFINITE, 0,
                                   0, 0);
@@ -474,16 +474,15 @@ void RunNpcStoryAction(W8NpcStoryAction action)
         unsigned int eligible = 0;
         int party_slot;
         for (party_slot = 2; party_slot < 8; ++party_slot) {
-            if (g_status.buffers.XChar[party_slot].fOccupied &&
-                g_status.buffers.Char[party_slot].highest_condition < W8_CONDITION_ASLEEP) {
+            if (g_status.party.rows[party_slot].fOccupied &&
+                g_status.party.characters[party_slot].highest_condition < W8_CONDITION_ASLEEP) {
                 ++eligible;
             }
         }
         if (eligible > 1) {
             for (party_slot = 0; party_slot < 8; ++party_slot) {
-                W8Character* character = &g_status.buffers.Char[party_slot];
-                if (g_status.buffers.XChar[party_slot].fOccupied &&
-                    character->iRace == W8_RACE_MOOK &&
+                W8Character* character = &g_status.party.characters[party_slot];
+                if (g_status.party.rows[party_slot].fOccupied && character->iRace == W8_RACE_MOOK &&
                     character->highest_condition < W8_CONDITION_ASLEEP) {
                     QueueCharacterEvent(character, 51, kCharacterEventNoNpcDefer,
                                         kCharacterEventFullVolume);

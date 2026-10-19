@@ -25,9 +25,9 @@
 #include "wiz8/entities/trigger.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/filesystem.h"
+#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
-#include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/LoadSaveGame.h"
@@ -485,8 +485,8 @@ static void FinishLevelDeparture()
 {
     // Combat state is transient on restore. End it after saving the level;
     // sight age is session history recorded at the actual departure boundary.
-    if (gXStatus.fCombatMode) {
-        EndCombat(true);
+    if (g_combat.active()) {
+        g_combat.End(true);
     }
 
     // These values become durable session history at departure. Saving only

@@ -91,7 +91,7 @@ void RecalculateCharacterResistances(W8Character* character);
 /* Enchantment- and flat-amount damage applied outside the announced attack
    path: each rolls or takes its amount, runs it through the target's damage
    reduction, applies it, and feeds the running combat totals and the pending
-   damage-report queue inside g_combat_state. */
+   damage-report queue inside g_combat.state(). */
 void ApplyDiceDamageToCharacter(int party_slot, W8TargetSource* source, W8Enchantment* enchantment);
 void ApplyDiceDamageToMonster(W8MonsterInfo* monster_info, W8TargetSource* source,
                               W8Enchantment* enchantment);

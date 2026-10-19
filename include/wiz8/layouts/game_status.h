@@ -7,10 +7,12 @@
 
 #include "wiz8/difficulty.h"
 #include "wiz8/gameplay_modifiers.h"
+#include "wiz8/layouts/character.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/levels.h"
 #include "wiz8/layouts/party_formation.h"
+#include "wiz8/party.h"
 #include "wiz8/retail_opaque_records.h"
 #include "wiz8/world/world.h"
 
@@ -18,21 +20,11 @@ struct W8PartySlotRow;
 
 struct W8Character;
 
-enum { W8_PARTY_SLOT_COUNT = 8 };
-
 enum W8GameWaitState : unsigned char {
     W8_GAME_WAIT_STATE_MOVING = 0,
     W8_GAME_WAIT_STATE_FAST_MOVEMENT = 1,
     W8_GAME_WAIT_STATE_INITIAL_REST = 2,
     W8_GAME_WAIT_STATE_RESTING = 3
-};
-
-/* The status block's version and the process-owned party buffers it points
-   at; the pointers are never saved. */
-struct W8StatusBuffers {
-    float save_version;
-    W8Character* Char;
-    W8PartySlotRow* XChar;
 };
 
 enum { W8_CHARACTER_SERIALIZED_SIZE = 0x1862 };
@@ -51,17 +43,12 @@ struct W8CharacterSpellUsageRecord {
 };
 
 struct W8GlobalStatus {
-    W8StatusBuffers buffers;
+    W8Party party;
+    float save_version = 0;
     bool game_started;
     /* Retail offset 0x000d..0x0018: the three join counters the party-add entry advances:
        the regular-member, auxiliary and total counts. */
-    int regular_member_count;
-    int auxiliary_member_count;
-    int total_member_count;
-    unsigned int party_gold;
     int selected_character;
-    W8ItemInstance party_item_pool[500];
-    unsigned int party_item_count;
     /* Retail offset 0x1795: text-box line cursor. */
     short text_line_cursor;
     unsigned int legacy_text_box_lines[2][3];
@@ -73,7 +60,6 @@ struct W8GlobalStatus {
     unsigned int party_heading;
     int world_clock;
     unsigned int world_clock_ms;
-    unsigned int party_order_slots[8];
     // Decoded save destination. Live identity belongs to the primary world.
     int resume_level = -1;
     /* Retail offset 0x1904..0x1a03: the 0x100-byte STAT header block. */
@@ -85,16 +71,10 @@ struct W8GlobalStatus {
     /* Retail offset 0x22a7: CamPos staged by recall when the anchor is on another level;
        LoadLevel restores it after the new world exists. */
     CameraPose pending_move_location;
-    /* Retail offset 0x22e3: the party-wide modifier block the effect rebuild clears and
-       refills. Its +0x4a flag is the light gate the monster-sight threshold
-       pass reads. */
-    W8GameplayModifierBlock party_modifiers;
     int next_group_id;
     int next_monster_location_id;
     int next_world_item_id;
     int next_trigger_id;
-    bool item_in_cursor;
-    W8ItemInstance item_in_hand;
     /* Retail offset 0x2367: per-slot flags the character-load path consults. */
     unsigned char flags[0x20];
     unsigned int game_time_ms;
@@ -113,7 +93,6 @@ struct W8GlobalStatus {
     float frame_elapsed;
     W8GameWaitState wait_state;
     unsigned int item_recharge_ms;
-    W8PartyFormationState formation;
     int game_time_days;
     bool iron_man;
     /* Retail offset 0x242a: world-clock stamp of the last NPC-binding reset; the event

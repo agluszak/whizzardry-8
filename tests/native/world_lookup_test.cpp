@@ -21,6 +21,7 @@
 #include "temporary_directory.h"
 #include "wiz8/chunk.h"
 #include "wiz8/entities/trigger.h"
+#include "wiz8/inventory.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -69,6 +70,13 @@ bool triggers()
     REQUIRE((FindTriggerByName("MISSING") == nullptr));
     level.triggers.erase(level.triggers.begin() + 1);
     REQUIRE((FindTriggerByName("DOOR") == first));
+    first->initial_action = 0x34;
+    first->position = {0, 0, 0};
+    first->range_minimum = 0;
+    first->range_maximum = 1000;
+    first->flags = 0;
+    REQUIRE(InsideDestinationTrigger(level, 0, 0, 0));
+    REQUIRE_FALSE(InsideDestinationTrigger(sky, 0, 0, 0));
     // Removing an owner also removes its borrowed lookup entry.
     level.triggers.clear();
     REQUIRE(level.triggers.empty());
@@ -317,11 +325,9 @@ TEST_CASE("Reward accounting follows the owned world, not a pending save destina
             g_localized_strings = std::move(strings);
         }
     } restore;
-    std::array<W8Character, 8> characters{};
-    std::array<W8PartySlotRow, 8> rows{};
+    auto& characters = g_status.party.characters;
+    auto& rows = g_status.party.rows;
     g_status = W8GlobalStatus{};
-    g_status.buffers.Char = characters.data();
-    g_status.buffers.XChar = rows.data();
     rows[0].fOccupied = true;
     characters[0].hp_current = 1;
     g_localized_strings.resize(0x233);
@@ -338,7 +344,7 @@ TEST_CASE("Reward accounting follows the owned world, not a pending save destina
     const auto suffix = std::to_array(g_status.status_header_suffix);
     AddPartyGold(1, false);
     AwardPartyExperience(1, 0);
-    REQUIRE(g_status.party_gold == 2);
+    REQUIRE(g_status.party.gold == 2);
     REQUIRE(characters[0].experience == 2);
     REQUIRE(g_status.level_progress[3].gold_collected == 1);
     REQUIRE(g_status.level_progress[3].experience_gained == 1);

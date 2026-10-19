@@ -13,25 +13,30 @@
 #include "gameplay_modifiers.h"
 #include "layouts/item_instance.h"
 #include "local_code/ConditionsAndEnchantments.h"
+#include "wiz8/equipment_slots.h"
 #include "wiz8/gameplay_constants.h"
+#include "wiz8/inventory.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/screen_state.h"
+#include "wiz8/live_party.h"
+#include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/GameplayCode.h"
+#include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/UtilityFunctions.h"
-#include "wiz8/local_code/party_encumbrance.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/message_box.h"
+#include "wiz8/party_stats.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/unicode.h"
 #include "wiz8/xstatus.h"
@@ -52,7 +57,7 @@ void PostSkillIncreaseNotices(const W8SkillNoticePayload* notices)
     for (int index = 0; index < notices->count; ++index) {
         int slot = notices->party_slots[index];
         W8Skill skill = static_cast<W8Skill>(notices->skills[index]);
-        W8Character* character = &g_status.buffers.Char[slot];
+        W8Character* character = &g_status.party.characters[slot];
         unsigned int value = GetCharacterSkillNoticeValue(character, skill);
         PostCharacterNotice(
             slot, fmt::sprintf(g_localized_strings[0x1d9],
@@ -62,11 +67,11 @@ void PostSkillIncreaseNotices(const W8SkillNoticePayload* notices)
 
 std::string FormatSkillIncreaseNoticeText(int party_slot, bool continue_line, W8Skill skill_id)
 {
-    auto* character = &g_status.buffers.Char[party_slot];
+    auto* character = &g_status.party.characters[party_slot];
     std::string text = continue_line ? " \n  " : " ";
     wiz8::text::append(text, 0xb4);
     wiz8::text::append(text, GetPartyOrderTextColor(static_cast<signed char>(
-                                 g_status.buffers.XChar[party_slot].party_order_index)));
+                                 g_status.party.rows[party_slot].party_order_index)));
     text += " " + fmt::format("{}'s", character->name) + " ";
     wiz8::text::append(text, 0xb5);
     text += " " + fmt::sprintf(g_localized_strings[0x1db],
@@ -91,8 +96,8 @@ void FlushDeferredSkillNotices(void)
     }
     text.clear();
     for (slot = 0; slot < 8; ++slot) {
-        W8Character* character = &g_status.buffers.Char[slot];
-        if (!g_status.buffers.XChar[slot].fOccupied || character->hp_current == 0 ||
+        W8Character* character = &g_status.party.characters[slot];
+        if (!g_status.party.rows[slot].fOccupied || character->hp_current == 0 ||
             character->highest_condition >= W8_CONDITION_DEAD) {
             continue;
         }
@@ -261,7 +266,7 @@ float ScaleValueByMonsterLevel(W8MonsterRecord* record, int, float base)
    current pool every other time. */
 void CheatDeathRevive(int party_slot)
 {
-    W8Character* character = &g_status.buffers.Char[party_slot];
+    W8Character* character = &g_status.party.characters[party_slot];
 
     PostCharacterNotice(party_slot, g_localized_strings[0x173]);
     SetCharacterCondition(
@@ -270,13 +275,13 @@ void CheatDeathRevive(int party_slot)
             static_cast<int>(ScaleValueByProfessionLevel(character, W8_TRAIT_CHEAT_DEATH, 5.0f)) +
             7,
         0, 0, 1);
-    if (g_combat_state != 0 && !g_combat_state->characters[party_slot].cheat_death_used) {
+    if (g_combat.state() != 0 && !g_combat.state()->characters[party_slot].cheat_death_used) {
         character->hp_current = (Random(static_cast<unsigned int>(ScaleValueByProfessionLevel(
                                      character, W8_TRAIT_CHEAT_DEATH,
                                      static_cast<unsigned int>(character->uiHPMax) * 0.5f))) +
                                  0x32) *
                                 character->uiHPMax / 100;
-        g_combat_state->characters[party_slot].cheat_death_used = true;
+        g_combat.state()->characters[party_slot].cheat_death_used = true;
     } else {
         character->hp_current = Random(static_cast<unsigned int>(ScaleValueByProfessionLevel(
                                     character, W8_TRAIT_CHEAT_DEATH, character->hp_current))) +
@@ -288,7 +293,7 @@ void CheatDeathRevive(int party_slot)
    slot's level in its current profession: level/4 + 1, zero percent. */
 int RevealCharacterItemBindingsByProfession(int party_slot, unsigned int target_slot)
 {
-    W8Character* character = &g_status.buffers.Char[party_slot];
+    W8Character* character = &g_status.party.characters[party_slot];
     return RevealCharacterItemBindings(
         target_slot, (character->profession_levels[character->iProfession] >> 2) + 1, 0);
 }
@@ -320,7 +325,7 @@ void BrewAlchemistPotion(W8Character* character)
     unsigned int recipes;
     unsigned int pick;
 
-    if (g_status.buffers.XChar[slot].fOccupied &&
+    if (g_status.party.rows[slot].fOccupied &&
         character->highest_condition < W8_CONDITION_UNCONSCIOUS &&
         CharacterHasTrait(character, W8_TRAIT_MAKE_POTIONS)) {
         alchemy = character->profession_levels[W8_PROFESSION_ALCHEMIST];
@@ -335,7 +340,7 @@ void BrewAlchemistPotion(W8Character* character)
              alchemy < recipe[-1] || (recipe[0] != -1 && recipe[0] < alchemy) || --pick != 0;
              recipe += 3) {
         }
-        ReplaceOrCreateItem(&item, recipe[-2], false, true, true);
+        item = MakeItem(recipe[-2], false, true, true);
         if (item.stack_count > 1) {
             item.stack_count = 1;
         }
@@ -424,9 +429,9 @@ bool IsCharacterSkillAvailable(W8Character* character, W8Skill skill_id,
 /* Rebuild each attribute's effective value from its base and the modifier
    block's seven adjustment bytes, clamped to one through 125, and then every
    skill's base level from the attribute pair g_skill_attributes names. The
-   equipment refresh runs after each attribute so its use checks see the new
-   value. */
-void ResetCharacterAttributes(W8Character* character)
+   complete values are available before equipment requirements are checked. */
+// FUNCTION: WIZ8 0x005539e0
+static void ResetCharacterAttributes(W8Character* character)
 {
     unsigned int index;
 
@@ -435,7 +440,6 @@ void ResetCharacterAttributes(W8Character* character)
             character->bonus.attribute_adjustments[index] + character->attributes[index].base;
         value = std::clamp(value, 1, 0x7d);
         character->attributes[index].effective = value;
-        UnequipUnusableItems(character);
     }
     InitializeSkillBaseLevels(character);
 }
@@ -457,17 +461,33 @@ static int GetEffectiveSkillLevel(const W8Character* character, W8Skill skill_id
 
 /* Rebuild every skill level from the value already spent on it, the
    profession's bonus skill and the race and profession adjustment bytes the
-   modifier block carries, clamped to zero through 125. The equipment refresh
-   runs after each skill for the same reason. */
-void ResetCharacterSkills(W8Character* character)
+   modifier block carries, clamped to zero through 125. Equipment requirements are checked after all skills have been evaluated. */
+// FUNCTION: WIZ8 0x00553a60
+static void ResetCharacterSkills(W8Character* character)
 {
     unsigned int index;
 
     for (index = 0; index < 0x29; ++index) {
         character->skills[index].level =
             GetEffectiveSkillLevel(character, static_cast<W8Skill>(index));
-        UnequipUnusableItems(character);
     }
+}
+
+void EvaluateCharacterInputs(W8Character& character, const W8GameplayModifierBlock* party_modifiers)
+{
+    character.equipment_bonus = {};
+    AccumulateEquipmentModifiers(&character, &character.equipment_bonus);
+    RebuildCharacterModifierBlock(&character, party_modifiers);
+    ResetCharacterAttributes(&character);
+    ResetCharacterSkills(&character);
+    SetHandType(&character, W8_EQUIP_SLOT_PRIMARY_WEAPON);
+    SetHandType(&character, W8_EQUIP_SLOT_SECONDARY_WEAPON);
+}
+
+bool IsCharacterDefined(const W8Character& character)
+{
+    return character.iProfession < W8_PROFESSION_COUNT && character.iRace < W8_RACE_COUNT &&
+           character.gender != W8_GENDER_UNSET;
 }
 
 /* An attribute's base value changed: flip the at-maximum flag on the
@@ -483,10 +503,10 @@ void ApplyAttributeChange(W8Character* character, W8Attribute attribute)
     if (character->attributes[attribute].base >= 0x64) {
         if (!character->skills[skill_id].active) {
             character->skills[skill_id].active = true;
-            if (g_current_screen_state.id == W8_SCREEN_CHARACTER) {
+            if (CurrentScreenState().id == W8_SCREEN_CHARACTER) {
                 ResetCharacterScreenSkill(static_cast<W8Skill>(skill_id));
             }
-            if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
+            if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
                 ShowMainGameNoticeLine(
                     fmt::sprintf(g_localized_strings[0x1d6],
                                  g_localized_strings[g_character_description_first_ids[attribute]],
@@ -498,7 +518,7 @@ void ApplyAttributeChange(W8Character* character, W8Attribute attribute)
     } else {
         if (character->skills[skill_id].active) {
             character->skills[skill_id].active = false;
-            if (g_current_screen_state.id == W8_SCREEN_CHARACTER) {
+            if (CurrentScreenState().id == W8_SCREEN_CHARACTER) {
                 RefundCharacterScreenSkill(static_cast<W8Skill>(skill_id));
             }
         }
@@ -507,8 +527,7 @@ void ApplyAttributeChange(W8Character* character, W8Attribute attribute)
                     static_cast<int>(character->attributes[attribute].base);
     effective = std::clamp(effective, 1, 0x7d);
     character->attributes[attribute].effective = effective;
-    UnequipUnusableItems(character);
-    RecalculateCharacterDerivedStats(character);
+    RecalculateCharacterDerivedStats(*character);
     InitializeSkillBaseLevels(character);
 }
 
@@ -522,8 +541,7 @@ void ApplySkillChange(W8Character* character, W8Skill skill_id)
     RefreshCharacterSkillAvailability(character);
 
     character->skills[skill_id].level = GetEffectiveSkillLevel(character, skill_id);
-    UnequipUnusableItems(character);
-    RecalculateCharacterDerivedStats(character);
+    RecalculateCharacterDerivedStats(*character);
 }
 
 /* Average the two attribute values g_skill_attributes names for every skill
@@ -561,13 +579,13 @@ void RefreshCharacterSkillAvailability(W8Character* character)
         if (!available) {
             if (character->skills[index].active) {
                 character->skills[index].active = false;
-                if (g_current_screen_state.id == W8_SCREEN_CHARACTER) {
+                if (CurrentScreenState().id == W8_SCREEN_CHARACTER) {
                     RefundCharacterScreenSkill(static_cast<W8Skill>(index));
                 }
             }
         } else if (!character->skills[index].active) {
             character->skills[index].active = true;
-            if (g_current_screen_state.id == W8_SCREEN_CHARACTER) {
+            if (CurrentScreenState().id == W8_SCREEN_CHARACTER) {
                 ResetCharacterScreenSkill(static_cast<W8Skill>(index));
             }
         }
@@ -609,7 +627,7 @@ void PracticeCharacterSkill(W8Character* character, W8Skill skill_id, int usage_
                 return;
             }
             skill->active = true;
-            if (g_current_screen_state.id == W8_SCREEN_CHARACTER) {
+            if (CurrentScreenState().id == W8_SCREEN_CHARACTER) {
                 ResetCharacterScreenSkill(skill_id);
             }
         }
@@ -637,11 +655,10 @@ void PracticeCharacterSkill(W8Character* character, W8Skill skill_id, int usage_
             if (improved) {
                 RefreshCharacterSkillAvailability(character);
                 skill->level = GetEffectiveSkillLevel(character, skill_id);
-                UnequipUnusableItems(character);
-                RecalculateCharacterDerivedStats(character);
+                RecalculateCharacterDerivedStats(*character);
                 slot = CharacterPointerToPartySlot(character);
-                if (!gXStatus.fCombatMode && !IsModalOpen() && !gXStatus.item_pick_pending &&
-                    g_current_screen_state.id == W8_SCREEN_MAIN_GAME && IsScreenIdle() &&
+                if (!g_combat.active() && !IsModalOpen() && !gXStatus.item_pick_pending &&
+                    CurrentScreenState().id == W8_SCREEN_MAIN_GAME && IsScreenIdle() &&
                     !suppress_notification) {
                     std::string text;
                     text += FormatSkillIncreaseNoticeText(slot, false, skill_id);

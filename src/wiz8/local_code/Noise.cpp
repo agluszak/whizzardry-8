@@ -7,6 +7,7 @@
 #include "glm/ext/vector_float3.hpp"
 #include "local_code/Factions.h"
 #include "wiz8/entities/monster.h"
+#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/level_population.h"
@@ -41,7 +42,7 @@ void AlertMonsterGroupsToNoise(const glm::vec3* position, int radius, int flag)
             continue;
         }
         if (flag == 1) {
-            if (gXStatus.fCombatMode && group->fInCombat) {
+            if (g_combat.active() && group->fInCombat) {
                 continue;
             }
         } else if (flag == 0 && info->ubDisposition != W8_DISPOSITION_HOSTILE) {
@@ -64,7 +65,7 @@ void AlertMonsterGroupsToNoise(const glm::vec3* position, int radius, int flag)
                 continue;
             }
         }
-        if (flag == 1 && gXStatus.fCombatMode) {
+        if (flag == 1 && g_combat.active()) {
             float range = static_cast<float>(radius);
             int hops;
             if (GetWorldSpatialIndex()->TestNoiseLineOfSight(&monster_position, &noise_position,

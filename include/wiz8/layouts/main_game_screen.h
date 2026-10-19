@@ -146,7 +146,6 @@ struct W8LevelRuntimeBlock {
     bool formation_board_visible;
     unsigned char radar_map_visible;
     /* Portraits UI mode selected; picks the portrait-hover layout. */
-    bool portrait_mode;
     unsigned char text_scroll_drag_idle;
     /* The x origin the mode-6 hover panel anchors the slot's portrait
        column position against. */

@@ -6,6 +6,7 @@
 
 #include "conditions.h"
 #include "wiz8/chunk.h"
+#include "wiz8/inventory.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -74,11 +75,11 @@ unsigned char EvaluateFact(W8FactId fact_id)
 
     if (fact_id == W8_FACT_DEVICE_ONE || fact_id == W8_FACT_DEVICE_TWO ||
         fact_id == W8_FACT_DEVICE_THREE) {
-        count = FindItemOnParty(0x243, 0, 0, 2, 0);
-        if (FindItemOnParty(0x242, 0, 0, 2, 0)) {
+        count = PartyHasItem(0x243);
+        if (PartyHasItem(0x242)) {
             ++count;
         }
-        if (FindItemOnParty(0x244, 0, 0, 2, 0)) {
+        if (PartyHasItem(0x244)) {
             ++count;
         }
         if (fact_id == W8_FACT_DEVICE_ONE) {
@@ -96,7 +97,7 @@ unsigned char EvaluateFact(W8FactId fact_id)
         }
         switch (fact_id) {
         case W8_FACT_ARNIKA_PARTY_HAS_MARTEN_BADGE:
-            return FindItemOnParty(0x27b, 0, 0, 2, 0);
+            return PartyHasItem(0x27b);
         case W8_FACT_FACTION_HIGARDI_COMMON_FRIENDLY:
             return GetFactionDisposition(W8_FACTION_HIGARDI_COMMON) == W8_FACTION_FRIENDLY;
         case W8_FACT_ALIGNMENT_NONE:
@@ -114,9 +115,9 @@ unsigned char EvaluateFact(W8FactId fact_id)
             return CountLeadingPartySlots() == 2;
         case W8_FACT_MOOK_MOOK_IN_PARTY: {
             unsigned int slot = 0;
-            while (!g_status.buffers.XChar[slot].fOccupied ||
-                   g_status.buffers.Char[slot].iRace != W8_RACE_MOOK ||
-                   g_status.buffers.Char[slot].highest_condition > W8_CONDITION_WEBBED) {
+            while (!g_status.party.rows[slot].fOccupied ||
+                   g_status.party.characters[slot].iRace != W8_RACE_MOOK ||
+                   g_status.party.characters[slot].highest_condition > W8_CONDITION_WEBBED) {
                 if (slot >= 7) {
                     return 0;
                 }
@@ -146,15 +147,14 @@ unsigned char EvaluateFact(W8FactId fact_id)
             value = GetFact(W8_FACT_UMISSION_TRAIN_COVERT_ASSIGN);
             if (value == 0) {
                 value = GetFact(W8_FACT_UMISSION_TRAIN_FIRE_ASSIGN);
-                if (value != 0 && !FindItemOnParty(0x271, 0, 0, 2, 0) &&
-                    !FindItemOnParty(0x272, 0, 0, 2, 0)) {
+                if (value != 0 && !PartyHasItem(0x271) && !PartyHasItem(0x272)) {
                     return 1;
                 }
             }
             return 0;
         case W8_FACT_UMISSION_TRAIN_COVERT_DONE:
             if (!g_status.fact_88_latch) {
-                if (CountItemOnParty(0x1c4, 0, 0, 2) < 5) {
+                if (CountPartyItem(0x1c4) < 5) {
                     return 0;
                 }
                 g_status.fact_88_latch = true;
@@ -162,15 +162,15 @@ unsigned char EvaluateFact(W8FactId fact_id)
             }
             break;
         case W8_FACT_UMISSION_TRAIN_WETSUIT:
-            return EveryCharacterHasItem(0x1e5, 0);
+            return EveryCharacterHasItem(0x1e5, W8ItemReach::Worn);
         case W8_FACT_UMISSION_IUFPASS_LEVEL2:
-            return FindItemOnParty(0x268, 0, 0, 2, 0);
+            return PartyHasItem(0x268);
         case W8_FACT_RAPAX_AWAY_CAMP_EXISTS:
-            count = FindItemOnParty(0x242, 0, 0, 2, 0);
-            if (FindItemOnParty(0x243, 0, 0, 2, 0)) {
+            count = PartyHasItem(0x242);
+            if (PartyHasItem(0x243)) {
                 ++count;
             }
-            if (FindItemOnParty(0x244, 0, 0, 2, 0)) {
+            if (PartyHasItem(0x244)) {
                 ++count;
             }
             return count >= 2;
@@ -183,7 +183,7 @@ unsigned char EvaluateFact(W8FactId fact_id)
         }
         switch (fact_id) {
         case W8_FACT_TRYNNIE_PC_HAS_HELM:
-            return FindItemOnParty(0x239, 0, 0, 2, 0);
+            return PartyHasItem(0x239);
         case W8_FACT_FACTION_UMPANI_COMMON_FRIENDLY:
             return GetFactionDisposition(W8_FACTION_UMPANI) == W8_FACTION_FRIENDLY;
         case W8_FACT_FACTION_TRANG_COMMON_FRIENDLY:
@@ -195,7 +195,7 @@ unsigned char EvaluateFact(W8FactId fact_id)
         case W8_FACT_FATHER_IN_PARTY:
             if (g_status.rpc_active) {
                 for (unsigned int slot = 0; slot < 8; ++slot) {
-                    if (g_status.buffers.XChar[slot].fOccupied &&
+                    if (g_status.party.rows[slot].fOccupied &&
                         slot == static_cast<unsigned int>(g_status.sedexus_party_slot)) {
                         return 1;
                     }
@@ -203,7 +203,7 @@ unsigned char EvaluateFact(W8FactId fact_id)
             }
             return 0;
         case W8_FACT_PARTY_HAS_BLOODLUST_SWORD:
-            return FindItemOnParty(0x294, 0, 0, 2, 0);
+            return PartyHasItem(0x294);
         case W8_FACT_RAPAX_SAVANT_ALLIANCE:
             value = GetFact(W8_FACT_ASTRAL_POSSESS);
             if (value != 0) {
@@ -223,7 +223,7 @@ unsigned char EvaluateFact(W8FactId fact_id)
         }
     } else if (fact_id < W8_FACT_QUEST_SHAMAN_BRIDGE_EASY) {
         if (fact_id == W8_FACT_QUEST_SHAMAN_GET_HELM) {
-            return !FindItemOnParty(0x239, 0, 0, 2, 0);
+            return !PartyHasItem(0x239);
         }
         switch (fact_id) {
         case W8_FACT_FACTION_RAPAX_COMMON_FRIENDLY:
@@ -235,8 +235,8 @@ unsigned char EvaluateFact(W8FactId fact_id)
                 return g_fact_values[fact_id];
             }
             W8NpcState* npc = GetNpcStateByKind(0x18);
-            if (npc != 0 &&
-                g_status.buffers.Char[npc->group_index].highest_condition >= W8_CONDITION_ASLEEP) {
+            if (npc != 0 && g_status.party.characters[npc->group_index].highest_condition >=
+                                W8_CONDITION_ASLEEP) {
                 return 1;
             }
             return 0;

@@ -207,6 +207,89 @@ message-countdown and status images without advancing scripts or modifying live
 records; successful saving alone resets autosave pacing. Resource destruction
 performs no departure gameplay bookkeeping.
 
+## Inventory, party statistics and camp pages
+
+`inventory.h` is the active party's inventory model. Every command states the
+locations it replaced or emptied and finishes once: settlement (unusable
+equipment comes off, statistics and shared load are recalculated, an exhausted
+member dies), combat choices follow a weapon-hand change, a committed item use
+loses a replaced item, and the cursor shows the hand. A change of quantity alone
+is not a replacement. Unusable equipment is resolved once, in slot order, and
+stored like a received item; without storage it falls at the party's feet or
+into an empty hand. `W8Party` owns storage primitives with no gameplay;
+`party_stats.h` calculates derived values and shared load from explicit rules;
+`live_party.h` supplies the active session's rules and applies what follows.
+`PC Item.cpp` keeps per-item rules: eligibility, display, identification,
+binding, casting and acquisition reactions. Swings still read the damage bonus
+left by the previous calculation, as retail does.
+
+The camp screen owns routing, the header, portraits and dialogs. The items,
+stats, skills and spells pages are objects owning their state and controls;
+the screen drives them through a small lifecycle. The items page repaints
+cells from what they last showed, so inventory code never raises camp flags.
+
+### Hardest remaining architecture work
+
+- One derivation path. Settlement coexists with partial recalculations
+  (`RecalculateArmorClass`, `RecalculateHitPoints`, `RedistributePartyEncumbrance`,
+  `RebuildConditionsAndDerivedStats`, `ApplyPartyModifiers`, direct `CalcInitiative`
+  and `CalcAttacks` calls). Route them through settlement with explicit inputs. Swing
+  timing must first become an explicit history input (the previous damage bonus),
+  so that extra or fewer passes cannot change combat results.
+- Derived values versus resource transitions. HP, stamina and spell-point
+  recalculation still adjusts current pools inside the statistics calculation.
+  Make the ceilings pure, and apply pool adjustment and death as a named transition
+  of the operation that changed them.
+- Placement versus acquisition. `StoreWithCharacter` and `StoreInPool` also post
+  notices, set story facts and deliver exceptional-item reactions, so the rules
+  cannot be tested or reused without gameplay. Pure placement belongs on
+  `W8Party` and should return where items went; commands then apply acquisition
+  rules explicitly. Unequipping, stashing and trade can then say which effects
+  they really owe.
+- Characters by slot, items by location or value. `AddItemToCharacter`,
+  `AddItemToParty`, `StoreItemWithCharacterOrParty` and `GiveItemToCharacterOrParty`
+  take `W8Character*` and `W8ItemInstance*`, and resolve sources by scanning party
+  storage (`locateItem`). Callers should pass party slots, `W8ItemLocation` sources
+  and owned values.
+- Draft characters. Character creation and import build drafts inside unoccupied
+  `g_status.party` slots, which forces "is this an occupied member" dispatch through
+  `slotOf` (`RecalculateCharacterDerivedStats`, `FinishCharacterInventoryEdit`).
+  Give drafts their own owner and join them to the party explicitly.
+- Committed item-use identity. Committed and pending item uses store a
+  `W8ItemLocation`; pool compaction shifts indices, so a pool reference can silently
+  name another item. Record the expected contents as trade rows do, and abandon on
+  mismatch.
+- Cursor as a projection. Commands call `UpdateHeldItemCursor` and about fifteen
+  callers set item cursors directly. The cursor should be derived each frame from
+  the held item and the active interaction mode.
+- Camp coupling. Pages reach back through `screen.` for redraw bits, the reviewed
+  character and dialogs. The item-action buttons (`camp_buttons.actions`) belong to
+  the items page. Redraw state is still a set of retail bitmasks (`0x7ff`, `0x10000`)
+  rather than per-page invalidation. `g_camp_screen` is read by `Screens.cpp`,
+  `QuoteManager.cpp` and `live_party.cpp`.
+- Combat consequences of equipment changes. `ReconcileHandChange` repairs berserk,
+  targets and the alternate-hand toggle after any weapon change. Combat should own
+  this as a combat-side response to an equipment change, and the per-action
+  fatigue sentinel (`-1`) in `Combat.cpp` should become a value.
+
+### Easier follow-ups
+
+- `CreateItemIntoHandOrPool` always replaces the hand; rename it. Confirm against
+  retail that `GiveHeldItemToCharacterOrParty`'s party-first refusal really
+  discards the held item.
+- Full storage can still lose an item when the backpack and the 500-entry pool are
+  full, no drop position exists and the hand is occupied.
+- `MergeItems` and other inventory commands still show camp notices themselves;
+  return refusals to the screen.
+- Merge the overlapping screen-routing queries (`RequestedScreen`,
+  `GetPendingScreenState`, `IsScreenTransitionPending`).
+- Decide whether `CountCharacterItem` keeps the retail quirk that counts the
+  equipment slot with the backpack index.
+- Add regression tests with a light combat fixture: a weapon-set swap toggles
+  `alternate_hand` once, and spending one charge keeps a committed item use.
+- Remaining decomp address annotations added by this work should be verified or
+  removed.
+
 ## Derived selection and population state
 
 A spell picker is open exactly while its view is owned. Layout, input, targeting,

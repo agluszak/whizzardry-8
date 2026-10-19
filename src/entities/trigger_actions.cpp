@@ -56,8 +56,10 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
 #include "wiz8/gameplay_constants.h"
+#include "wiz8/inventory.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/item_tables.h"
+#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
@@ -212,12 +214,13 @@ Trigger* FindTriggerForProp(World* world, Prop* prop)
 /* True while a type-0x34 destination trigger holds (x, y, z) inside its
    activation annulus: under range_maximum and, unless flags bit 6
    waives the minimum, at or beyond range_minimum. */
-bool InsideDestinationTrigger(float x, float y, float z)
+// FUNCTION: WIZ8 0x00445940
+bool InsideDestinationTrigger(const World& world, float x, float y, float z)
 {
-    int count = static_cast<int>(GetWorld()->triggers.size());
+    int count = static_cast<int>(world.triggers.size());
 
     for (int index = 0; index < count; ++index) {
-        Trigger* trigger = GetWorld()->triggers[index].get();
+        Trigger* trigger = world.triggers[index].get();
         if (trigger->initial_action != 0x34) {
             continue;
         }
@@ -467,7 +470,7 @@ void TriggerEvent::Update()
     if (action == 2) {
         W8GameTimer::Flags flags = timer.m_flags;
 
-        if (g_combat_inactive == 0) {
+        if (g_combat.engineActive()) {
             if (flags.paused || (g_shared_timer_paused && !flags.raw_time) ||
                 g_shared_timer_flag0) {
                 return;
@@ -1178,7 +1181,7 @@ void Trigger::Run(int source)
             }
             W8DoorTriggerActionData* action_data = doorData();
             if (action_data != 0 && action_data->locked && action_data->item != -1) {
-                if (!FindItemOnParty(action_data->item, 0, 0, 2, 0)) {
+                if (!PartyHasItem(action_data->item)) {
                     ShowNotice(W8_FONT_PALETTE_BLUE, "Your party doesn't have required key.");
                     break;
                 }
@@ -1243,7 +1246,7 @@ void Trigger::Run(int source)
             bool was_active;
 
             if (action_data != 0 && action_data->locked && action_data->item != -1) {
-                if (!FindItemOnParty(action_data->item, 0, 0, 2, 0)) {
+                if (!PartyHasItem(action_data->item)) {
                     ShowNotice(W8_FONT_PALETTE_BLUE, "Your party doesn't have required key.");
                     break;
                 }
@@ -1409,9 +1412,9 @@ void Trigger::Run(int source)
         was_active = m_pProp->animation_playing;
 
         if (inline_action_data[0] != '\0') {
-            if (g_status.item_in_cursor) {
+            if ((g_status.party.held.item.iItemNo != -1)) {
                 glm::vec3 item_position;
-                auto item = CreateWorldItem(&g_status.item_in_hand, &item_position,
+                auto item = CreateWorldItem(&g_status.party.held.item, &item_position,
                                             W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE);
 
                 if (item != 0) {
@@ -1459,9 +1462,9 @@ void Trigger::Run(int source)
                         ApplyItemEffectToRandomCharacter(
                             Random(2) != 0 ? g_container_event : g_container_event_alt, -1, 0);
                     }
-                } else if (item_count == 1 && !g_status.item_in_cursor) {
+                } else if (item_count == 1 && !(g_status.party.held.item.iItemNo != -1)) {
                     item = world_item_group->contents.front().get();
-                    CopyItemInstance(&g_status.item_in_hand, &item->item, 0, true);
+                    ReceiveItemInHand(item->item);
                     world_item_group->contents.clear();
                     if (m_pProp->subcycle != 0) {
                         goto toggle_item_prop;
@@ -2018,7 +2021,7 @@ bool Trigger::SelectAction()
     bool fallback_selected = false;
     bool result = true;
 
-    if (g_combat_inactive == 0 && doorData() != nullptr && doorData()->open) {
+    if (g_combat.engineActive() && doorData() != nullptr && doorData()->open) {
         return false;
     }
 

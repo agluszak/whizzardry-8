@@ -2,9 +2,9 @@
 
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/entities/trigger.h"
+#include "wiz8/inventory.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/spell_ids.h"

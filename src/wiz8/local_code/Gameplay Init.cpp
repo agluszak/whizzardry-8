@@ -21,11 +21,13 @@
 #include "wiz8/character_event_queue.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/filesystem.h"
+#include "wiz8/inventory.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_instance.h"
+#include "wiz8/layouts/party_slot.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/Configuration.h"
@@ -132,13 +134,7 @@ void DestroyLevelDatabase(void)
 /* Reset the status and its fixed eight-slot character banks. */
 void ResetGameStatus(bool /*release*/)
 {
-    static std::array<W8Character, W8_PARTY_SLOT_COUNT> characters;
-    static std::array<W8PartySlotRow, W8_PARTY_SLOT_COUNT> rows;
-    characters.fill({});
-    rows.fill({});
     g_status = {};
-    g_status.buffers.Char = characters.data();
-    g_status.buffers.XChar = rows.data();
 }
 
 /* Reset transient gameplay state and create its runtime resources at startup. */
@@ -189,26 +185,26 @@ void ResetForNewGame(void)
 
     ResetGameStatus(true);
     ReleaseMessageStorage();
-    EmptyItemRecord(&g_status.item_in_hand, 0, true);
-    slot = g_status.party_item_pool;
+    *(&g_status.party.held.item) = W8ItemInstance{.iItemNo = -1};
+    slot = g_status.party.item_pool;
     do {
-        EmptyItemRecord(slot, 0, true);
+        *(slot) = W8ItemInstance{.iItemNo = -1};
         ++slot;
-    } while (slot < g_status.party_item_pool + 500);
+    } while (slot < g_status.party.item_pool + 500);
     id = g_starting_item_ids;
     do {
         if (*id != 0xffffffff) {
-            ReplaceOrCreateItem(&item, *id, true, true, true);
+            item = MakeItem(*id, true, true, true);
             item.stack_count = 1;
             AddItemToParty(&item, false, false);
         }
         ++id;
     } while (id < g_starting_item_ids + 6);
-    g_status.party_gold = 500;
+    g_status.party.gold = 500;
     g_status.selected_character = GetNextCharacter(1, 1, -1);
-    InitializePartyFormation(&g_status.formation);
+    InitializePartyFormation(&g_status.party.formation);
     for (index = 0; index < 8; ++index) {
-        g_status.party_order_slots[index] = 0xffffffff;
+        g_status.party.order_slots[index] = 0xffffffff;
     }
 }
 
@@ -223,17 +219,17 @@ void RunNewGameOpeningSequence(bool notify, std::string_view target)
         g_options_last_save_name = target;
     }
     g_status.difficulty = g_settings.difficulty;
-    gXStatus.fEncumbranceDirty = true;
+    g_status.party.redistribution_pending = true;
     SetGameTimeMilliseconds(0x2932e00);
     g_status.game_time_days = 1;
     if (notify) {
-        RequestScreenTransition();
+        ReturnToPreviousScreen();
     }
     ResetNpcStates();
     InitializeFactJournal();
     ResetFactions();
     ResetMainScreenStateBlock();
-    g_pending_screen_state.id = W8_SCREEN_GAME_START_ROUTER;
+    RequestScreen({.id = W8_SCREEN_GAME_START_ROUTER});
 }
 
 void ResetTargetingState(void)
@@ -265,7 +261,7 @@ void ResetGameplaySlot(unsigned int slot)
     record->portrait.frame = 6;
     record->portrait.blink_closing = false;
     tier = 1;
-    if (g_status.buffers.Char[slot].highest_condition >= W8_CONDITION_ASLEEP) {
+    if (g_status.party.characters[slot].highest_condition >= W8_CONDITION_ASLEEP) {
         tier = 2;
     }
     record->portrait.pose = tier;
@@ -312,7 +308,7 @@ void ResetGameplaySlot(unsigned int slot)
 
 void ResetPartySlotRow(int slot)
 {
-    W8PartySlotRow* row = &g_status.buffers.XChar[slot];
+    W8PartySlotRow* row = &g_status.party.rows[slot];
 
     memset(row, 0, sizeof(W8PartySlotRow));
     row->fOccupied = true;

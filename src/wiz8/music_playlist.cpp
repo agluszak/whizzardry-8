@@ -15,10 +15,10 @@
 #include "local_screens/Screens.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/entities/script.h"
+#include "wiz8/layouts/combat_state.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/ui_input.h"
-#include "wiz8/xstatus.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
 
@@ -26,13 +26,20 @@ wiz8::sound::Playback g_music_sample_handle = nullptr;
 static Script* g_music_playlist;
 static uint64_t g_music_playlist_tick;
 bool g_music_playlist_active;
-int g_music_playlist_weight_total;
-int g_music_playlist_track_count;
+// GLOBAL: WIZ8 0x0060AAE4
 static unsigned char g_music_fade = 1;
 static bool g_music_force_next = true;
-int g_music_pause_min_seconds = 20;
-int g_music_pause_max_seconds = 60;
-int g_music_pause_chance_percent = 30;
+
+namespace {
+struct MusicPlaylistInfo {
+    int track_count = 0;
+    int weight_total = 0;
+    int pause_min_seconds = 0;
+    int pause_max_seconds = 0;
+    int pause_chance_percent = 0;
+};
+MusicPlaylistInfo playlist_info;
+}
 
 void SetMusicVolume(unsigned char volume)
 {
@@ -72,46 +79,46 @@ unsigned char InitializeMusicPlaylist(void)
         g_music_playlist->setName("Music Playlist");
     }
     g_music_playlist_tick = w8_get_ticks();
-    g_music_pause_min_seconds = 0;
-    g_music_pause_max_seconds = 0;
-    g_music_pause_chance_percent = 0;
+    playlist_info.pause_min_seconds = 0;
+    playlist_info.pause_max_seconds = 0;
+    playlist_info.pause_chance_percent = 0;
     return g_music_playlist != 0;
 }
 
 /* Count playable rows, load the pause directives, and retain a nonzero weight
    total only when every playable row carries a parenthesized weight. */
-int AnalyzeMusicPlaylist(Script* playlist, int* total_weight)
+// FUNCTION: WIZ8 0x0048FF50
+static MusicPlaylistInfo AnalyzeMusicPlaylist(const Script& playlist)
 {
-    int playable_count = 0;
+    MusicPlaylistInfo parsed;
     bool found_unweighted = false;
 
-    *total_weight = 0;
-    for (const auto& entry : playlist->lines) {
+    for (const auto& entry : playlist.lines) {
         const char* line = entry.text.c_str();
 
         if (line[0] == '#') {
             if (SDL_strncasecmp(line + 1, "PAUSEMIN=", 9) == 0) {
-                g_music_pause_min_seconds = atoi(line + 10);
+                parsed.pause_min_seconds = atoi(line + 10);
             } else if (SDL_strncasecmp(line + 1, "PAUSEMAX=", 9) == 0) {
-                g_music_pause_max_seconds = atoi(line + 10);
+                parsed.pause_max_seconds = atoi(line + 10);
             } else if (SDL_strncasecmp(line + 1, "PAUSECHANCE=", 12) == 0) {
-                g_music_pause_chance_percent = atoi(line + 13);
+                parsed.pause_chance_percent = atoi(line + 13);
             }
             continue;
         }
 
-        ++playable_count;
+        ++parsed.track_count;
         if (!found_unweighted) {
             const char* weight = strchr(line, '(');
             if (weight != 0) {
-                *total_weight += atoi(weight + 1);
+                parsed.weight_total += atoi(weight + 1);
             } else {
                 found_unweighted = true;
-                *total_weight = 0;
+                parsed.weight_total = 0;
             }
         }
     }
-    return playable_count;
+    return parsed;
 }
 
 void ServiceMusicPlaylist(void)
@@ -128,21 +135,21 @@ void ServiceMusicPlaylist(void)
         return;
     }
 
-    if (!g_music_force_next && !gXStatus.fCombatMode &&
-        Random(100) <= static_cast<unsigned int>(g_music_pause_chance_percent)) {
+    if (!g_music_force_next && !g_combat.active() &&
+        Random(100) <= static_cast<unsigned int>(playlist_info.pause_chance_percent)) {
         g_music_playlist_tick =
-            w8_get_ticks() + g_music_pause_min_seconds * 1000 +
-            Random(g_music_pause_max_seconds * 1000 - g_music_pause_min_seconds * 1000);
+            w8_get_ticks() + playlist_info.pause_min_seconds * 1000 +
+            Random(playlist_info.pause_max_seconds * 1000 - playlist_info.pause_min_seconds * 1000);
         return;
     }
 
     for (;;) {
         int selected = -1;
 
-        if (g_music_playlist_weight_total == 0) {
-            selected = Random(g_music_playlist_track_count);
+        if (playlist_info.weight_total == 0) {
+            selected = Random(playlist_info.track_count);
         } else {
-            unsigned int target = Random(g_music_playlist_weight_total);
+            unsigned int target = Random(playlist_info.weight_total);
             unsigned int accumulated = 0;
             for (int index = 0; index < static_cast<int>(g_music_playlist->lines.size()); ++index) {
                 const char* line = g_music_playlist->lines[index].text.c_str();
@@ -214,9 +221,9 @@ unsigned char StartMusicResource(const char* resource, int fade, unsigned char r
     }
 
     g_music_playlist_tick = w8_get_ticks() - 1;
-    g_music_pause_min_seconds = 0;
-    g_music_pause_max_seconds = 0;
-    g_music_pause_chance_percent = 0;
+    playlist_info.pause_min_seconds = 0;
+    playlist_info.pause_max_seconds = 0;
+    playlist_info.pause_chance_percent = 0;
     g_music_playlist->Clear();
     g_music_playlist->Load(path.c_str());
 
@@ -234,9 +241,8 @@ unsigned char StartMusicResource(const char* resource, int fade, unsigned char r
         g_music_sample_handle = nullptr;
     }
 
-    g_music_playlist_track_count =
-        AnalyzeMusicPlaylist(g_music_playlist, &g_music_playlist_weight_total);
-    if (g_music_playlist_track_count != 0) {
+    playlist_info = AnalyzeMusicPlaylist(*g_music_playlist);
+    if (playlist_info.track_count != 0) {
         g_music_playlist->setName(resource);
         g_music_playlist_active = true;
         g_music_force_next = true;
