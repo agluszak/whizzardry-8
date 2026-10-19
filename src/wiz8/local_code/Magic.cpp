@@ -86,8 +86,6 @@
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 
-constexpr float kGroundSettleFail = -1000000.0f;
-
 // FUNCTION: WIZ8 0x004ff3b0
 std::optional<int> GetProfessionCasterLevel(const W8Character* character,
                                             W8Profession profession_id)
@@ -3486,10 +3484,10 @@ void ScatterSpellPointTarget(int spell_id, W8TargetSource* source, W8CombatSlot*
             (Random(0x7d1) - g_monster_poster_max_distance) * range * 0.001 + origin.z);
         point.y = Random(0x3e9) * range * 0.001 + origin.y;
         GetWorldOctree()->TraceLineOfSight(&origin, &point, true, -3, -3, true, 0);
-        point.y = probeGround(point).position.y;
-        if (point.y != kGroundSettleFail) {
-            break;
-        }
+        const auto ground = probeGround(point);
+        if (!ground.hit) continue;
+        point = ground.position;
+        break;
     }
     delta = origin - point;
     if (range < glm::length(delta)) {

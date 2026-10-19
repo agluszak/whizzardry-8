@@ -355,8 +355,8 @@ std::unique_ptr<W8Monster> MonsterReadAllCycles(W8World* world, std::string_view
     float fight_radius = 0.0f;
     float target_height = 0.0f;
     float camera_height = 0.0f;
-    float scale_range_start = -1.0f;
-    float scale_range_end = -1.0f;
+    std::optional<float> scale_range_start;
+    std::optional<float> scale_range_end;
     float hover_range_start = 0.0f;
     float hover_range_end = 0.0f;
     float bob_range_start = 0.0f;
@@ -365,11 +365,11 @@ std::unique_ptr<W8Monster> MonsterReadAllCycles(W8World* world, std::string_view
     float idle_fps_end = 0.0f;
     float lod_range_start = 0.0f;
     float lod_range_end = 0.0f;
-    float opacity = -1.0f;
-    float glow = -1.0f;
+    std::optional<float> opacity;
+    std::optional<float> glow;
     float death_scale = 1.0f;
-    float sound_falloff = -1.0f;
-    float shadow_width = -1.0f;
+    std::optional<float> sound_falloff;
+    std::optional<float> shadow_width;
     float shadow_depth = 0.0f;
     std::optional<int> missile_start;
     std::optional<int> spell_start;
@@ -423,9 +423,11 @@ std::unique_ptr<W8Monster> MonsterReadAllCycles(W8World* world, std::string_view
             } else if (SDL_strcasecmp(command.c_str(), "deathscale") == 0) {
                 fields >> death_scale;
             } else if (SDL_strcasecmp(command.c_str(), "scalerangestart") == 0) {
-                fields >> scale_range_start;
+                float value;
+                if (fields >> value) scale_range_start = value;
             } else if (SDL_strcasecmp(command.c_str(), "scalerangeend") == 0) {
-                fields >> scale_range_end;
+                float value;
+                if (fields >> value) scale_range_end = value;
             } else if (SDL_strcasecmp(command.c_str(), "hoverrangestart") == 0) {
                 fields >> hover_range_start;
             } else if (SDL_strcasecmp(command.c_str(), "hoverrangeend") == 0) {
@@ -471,7 +473,8 @@ std::unique_ptr<W8Monster> MonsterReadAllCycles(W8World* world, std::string_view
                 }
                 fields >> last_sound->volume_min >> last_sound->volume_max;
             } else if (SDL_strcasecmp(command.c_str(), "sound_falloff") == 0) {
-                fields >> sound_falloff;
+                float value;
+                if (fields >> value) sound_falloff = value;
             } else if (SDL_strcasecmp(command.c_str(), "footstep_vol") == 0) {
                 fields >> footstep_volume >> footstep_combat_volume;
             } else if (SDL_strcasecmp(command.c_str(), "probability") == 0) {
@@ -488,11 +491,15 @@ std::unique_ptr<W8Monster> MonsterReadAllCycles(W8World* world, std::string_view
                 fields >> argument;
                 monster->SetScript(argument.c_str(), true);
             } else if (SDL_strcasecmp(command.c_str(), "opacity") == 0) {
-                fields >> opacity;
+                float value;
+                if (fields >> value) opacity = value;
             } else if (SDL_strcasecmp(command.c_str(), "glow") == 0) {
-                fields >> glow;
+                float value;
+                if (fields >> value) glow = value;
             } else if (SDL_strcasecmp(command.c_str(), "shadow") == 0) {
-                fields >> shadow_width >> shadow_depth;
+                float width;
+                if (fields >> width) shadow_width = width;
+                fields >> shadow_depth;
             } else if (SDL_strcasecmp(command.c_str(), "lefthanded") == 0) {
                 fields >> left_handed;
             } else if (SDL_strcasecmp(command.c_str(), "fulltransition") == 0) {
@@ -544,8 +551,10 @@ std::unique_ptr<W8Monster> MonsterReadAllCycles(W8World* world, std::string_view
                         if (!monster ||
                             monster->IsCycleSupported(static_cast<signed char>(cycle)) == 0 ||
                             GetRenderOptionState(W8_RENDER_OPTION_ADDITIONAL_ANIMATIONS) != 0) {
-                            float animation_scale = -1.0f;
-                            fields >> animation_scale;
+                            std::optional<float> animation_scale;
+                            float parsed_animation_scale;
+                            if (fields >> parsed_animation_scale)
+                                animation_scale = parsed_animation_scale;
 
                             success = LoadGrCycle(argument, monster.get(), cycle, load_value,
                                                   "data\\monsters", 0);
@@ -558,7 +567,7 @@ std::unique_ptr<W8Monster> MonsterReadAllCycles(W8World* world, std::string_view
                                     }
                                 }
                             }
-                            if (animation_scale > 0.0f) {
+                            if (animation_scale && *animation_scale > 0.0f) {
                                 W8MonsterRep* rep = monster->m_pRep.get();
                                 int current = rep->current_subcycle;
                                 /* 0x004C128A: a missing subcycle is fatal, as in
@@ -570,8 +579,9 @@ std::unique_ptr<W8Monster> MonsterReadAllCycles(W8World* world, std::string_view
                                 }
                                 W8AnimObj* animation =
                                     monster->m_pRep->animations[cycle][current].get();
-                                animation->playback_scale = animation_scale;
-                                monster->m_pRep->animation_scales[cycle][current] = animation_scale;
+                                animation->playback_scale = *animation_scale;
+                                monster->m_pRep->animation_scales[cycle][current] =
+                                    *animation_scale;
                             }
                         }
                     }
@@ -610,8 +620,8 @@ std::unique_ptr<W8Monster> MonsterReadAllCycles(W8World* world, std::string_view
                             last_sound->volume_min =
                                 sound_type == W8_SOUND_EVENT_FOOTSTEP ? 0x23 : 0x7f;
                             last_sound->volume_max = last_sound->volume_min;
-                            if (sound_falloff > 0.0f) {
-                                last_sound->falloff = sound_falloff * kWorldScale;
+                            if (sound_falloff && *sound_falloff > 0.0f) {
+                                last_sound->falloff = *sound_falloff * kWorldScale;
                             }
                             if (footstep_volume != 0 || footstep_combat_volume != 0) {
                                 last_sound->footstep_volume = footstep_volume;
@@ -649,10 +659,10 @@ std::unique_ptr<W8Monster> MonsterReadAllCycles(W8World* world, std::string_view
 
     W8MonsterRep* representation = monster->m_pRep.get();
     representation->name = monster_name;
-    if (scale_range_start != -1.0f && scale_range_end != -1.0f) {
-        representation->minimum_scale = scale_range_start;
-        representation->maximum_scale = scale_range_end;
-        scale_factor = (scale_range_end - scale_range_start) * 0.5f + scale_range_start;
+    if (scale_range_start && scale_range_end) {
+        representation->minimum_scale = *scale_range_start;
+        representation->maximum_scale = *scale_range_end;
+        scale_factor = (*scale_range_end - *scale_range_start) * 0.5f + *scale_range_start;
     }
     representation->scale = scale_factor;
     representation->death_scale = death_scale;
@@ -702,15 +712,15 @@ std::unique_ptr<W8Monster> MonsterReadAllCycles(W8World* world, std::string_view
         representation->lod_near = lod_range_start * kWorldScale;
         representation->lod_far = lod_range_end * kWorldScale;
     }
-    if (opacity >= 0.0f && opacity < 1.0f) {
-        monster->scale = opacity;
+    if (opacity && *opacity >= 0.0f && *opacity < 1.0f) {
+        monster->scale = *opacity;
     }
-    if (glow > 0.0f) {
+    if (glow && *glow > 0.0f) {
         std::vector<stModelInstance*> instances;
         monster->CollectModelInstances(instances);
         for (stModelInstance* instance : instances) {
             instance->emissive_override_enabled = true;
-            instance->emissive_override = glow;
+            instance->emissive_override = *glow;
         }
     }
 
@@ -718,12 +728,13 @@ std::unique_ptr<W8Monster> MonsterReadAllCycles(W8World* world, std::string_view
     monster->hover_base_max = hover_range_end;
     monster->bob_amplitude_min = bob_range_start;
     monster->bob_amplitude_max = bob_range_end;
-    if (shadow_width != 0.0f) {
-        if (shadow_width < 0.0f) {
-            shadow_width = monster->movement.collision_radius * 0.002f;
+    if (!shadow_width || *shadow_width != 0.0f) {
+        float width = shadow_width ? *shadow_width : monster->movement.collision_radius * 0.002f;
+        if (width < 0.0f) {
+            width = monster->movement.collision_radius * 0.002f;
         }
-        if (shadow_depth == 0.0f) shadow_depth = shadow_width;
-        monster->CreateGroundShadow(shadow_width * kWorldScale, shadow_depth * kWorldScale);
+        if (shadow_depth == 0.0f) shadow_depth = width;
+        monster->CreateGroundShadow(width * kWorldScale, shadow_depth * kWorldScale);
     }
     representation->left_handed = left_handed;
     representation->special_movement = (flies || swims || full_transition) ? 1 : 0;
