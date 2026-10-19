@@ -2156,11 +2156,14 @@ void ExecuteCharacterAction(int party_slot)
     case W8_ACTION_PROTECT:
         result = CanCharacterAttackItsTarget(party_slot);
         break;
-    case W8_ACTION_USE_ITEM:
-        if (UseItem(party_slot, slot->pending_action_detail.item_use.item, &fatigue_cost) == 0) {
+    case W8_ACTION_USE_ITEM: {
+        const auto use = UseItem(party_slot, slot->pending_action_detail.item_use.item);
+        fatigue_cost = use.fatigue_cost.value_or(-1);
+        if (use.effect == 0) {
             result = 0;
         }
         break;
+    }
     case W8_ACTION_EQUIP:
         break;
     default:

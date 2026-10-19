@@ -134,9 +134,14 @@ void ReadyPrimaryWeapon(unsigned party_slot);
 
 // ---- Using items
 
-/* Use one item as a character's action. `out_uses` receives the fatigue cost of
-   the attempt, or -1 when nothing was attempted. */
-unsigned char UseItem(unsigned actor, W8ItemLocation item, int* out_uses);
+struct W8ItemUseResult {
+    // The spell engine's outcome; 1 is a success and 0 means nothing happened.
+    unsigned char effect = 0;
+    // The attempt's own fatigue cost; none leaves the action's ordinary cost.
+    std::optional<int> fatigue_cost;
+};
+// Use one item as a character's action.
+W8ItemUseResult UseItem(unsigned actor, W8ItemLocation item);
 
 // ---- Equipment rule
 

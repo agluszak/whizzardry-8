@@ -6,7 +6,6 @@
 #include <functional>
 #include <memory>
 #include <optional>
-#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -33,23 +32,18 @@
 #include "wiz8/button_interaction.h"
 #include "wiz8/canvas/Font.h"
 #include "wiz8/canvas/himage.h"
-#include "wiz8/canvas/image.h"
-#include "wiz8/canvas/sprite.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/character_stats.h"
 #include "wiz8/conditions.h"
-#include "wiz8/cursor.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/dialog_code/SpellInfoDialog.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
-#include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
-#include "wiz8/item_location.h"
 #include "wiz8/item_rules.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
@@ -103,7 +97,6 @@
 #include "wiz8/spell_ids.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
-#include "wiz8/utility.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/xstatus.h"
 
@@ -1089,7 +1082,6 @@ int CommitPartySlotSpell(int party_slot, int spell_id, int power_level, W8Combat
    magic otherwise. */
 int CommitPartySlotItemUse(int party_slot, W8ItemInstance* item, W8CombatSlot* target)
 {
-    int uses;
     int result;
     W8PartySlotRow* row;
     W8ItemInstance* used;
@@ -1104,11 +1096,12 @@ int CommitPartySlotItemUse(int party_slot, W8ItemInstance* item, W8CombatSlot* t
     row->target_out_of_combat = *target;
     const auto spell = g_item_records[item->iItemNo].spell_id;
     StagePartySlotItemUse(party_slot, item, target);
-    result = UseItem(party_slot, g_status.party.locateItem(item), &uses);
-    if (uses == -1) {
-        uses = CharacterActionFatigueCost(party_slot, W8_ACTION_USE_ITEM);
-    }
-    FatigueCharacter(party_slot, uses, true, 0);
+    const auto use = UseItem(party_slot, g_status.party.locateItem(item));
+    result = use.effect;
+    FatigueCharacter(
+        party_slot,
+        use.fatigue_cost.value_or(CharacterActionFatigueCost(party_slot, W8_ACTION_USE_ITEM)), true,
+        0);
     if (result == 1) {
         used = g_status.party.itemAt(target->item);
         if (spell == W8_SPELL_IDENTIFY_ITEM && used && used->iItemNo != -1 && used->identified) {

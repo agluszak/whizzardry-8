@@ -1817,8 +1817,14 @@ void ReadyPrimaryWeapon(unsigned party_slot)
    hard the attempt is. `out_uses` receives the fatigue cost of the attempt, and
    stays -1 when nothing was attempted; a casting aid's attempt costs eight per
    level of its spell plus twenty, even when it fails. */
-static unsigned char UseItemOnce(W8Character* character, W8ItemInstance* item, int* out_uses,
-                                 bool* emptied)
+namespace {
+struct ItemUseOutcome {
+    W8ItemUseResult result;
+    bool emptied = false;
+};
+}
+
+static ItemUseOutcome UseItemOnce(W8Character* character, W8ItemInstance* item)
 {
     const W8ItemDatabaseRecord* record = &g_item_records[item->iItemNo];
     unsigned int party_slot = CharacterPointerToPartySlot(character);
@@ -1827,6 +1833,10 @@ static unsigned char UseItemOnce(W8Character* character, W8ItemInstance* item, i
     W8Skill skill;
     int event_type;
     int fatigue_cost = -1;
+    bool emptied = false;
+    const auto own_cost = [&] {
+        return fatigue_cost < 0 ? std::nullopt : std::optional<int>{fatigue_cost};
+    };
     W8TargetSource target;
     // Retail returned an unset byte for a spent item; nothing was used.
     unsigned char used = 0;
@@ -1834,14 +1844,12 @@ static unsigned char UseItemOnce(W8Character* character, W8ItemInstance* item, i
     if (!CanCharacterUseItem(character, item->iItemNo)) {
         PostCharacterNotice(party_slot,
                             fmt::sprintf(g_localized_strings[0x164], GetItemDisplayName(item)));
-        *out_uses = -1;
-        return 0;
+        return {};
     }
     if (!CanCharacterActivateItem(character, item)) {
         PostCharacterNotice(party_slot,
                             fmt::sprintf(g_localized_strings[0x165], GetItemDisplayName(item)));
-        *out_uses = -1;
-        return 0;
+        return {};
     }
 
     if (record->quantity_kind == W8_ITEM_QUANTITY_CHARGES && item->uses_or_charges == 0) {
@@ -1856,8 +1864,7 @@ static unsigned char UseItemOnce(W8Character* character, W8ItemInstance* item, i
         if (record->equip_class == W8_ITEM_EQUIP_CLASS_INSTRUMENT &&
             character->uiCondition[W8_CONDITION_SILENCED] != 0) {
             PostCharacterNotice(party_slot, g_localized_strings[0x166]);
-            *out_uses = -1;
-            return 0;
+            return {};
         }
 
         /* The one item that is not used on anybody: it hands the level's NPC
@@ -1873,8 +1880,7 @@ static unsigned char UseItemOnce(W8Character* character, W8ItemInstance* item, i
             }
             SetFact(W8_FACT_RFS81_HAS_BEEN_FIXED, 1, false);
             SetFact(W8_FACT_QUEST_ANDROID_BROKEN, 0, false);
-            *emptied = ConsumeItemUse(item, true);
-            return 1;
+            return {{1, std::nullopt}, ConsumeItemUse(item, true)};
         }
 
         if (record->equip_class != W8_ITEM_EQUIP_CLASS_INSTRUMENT &&
@@ -1914,8 +1920,7 @@ static unsigned char UseItemOnce(W8Character* character, W8ItemInstance* item, i
                 PostCharacterNotice(
                     party_slot, fmt::sprintf(g_localized_strings[0x1f3], GetItemDisplayName(item)));
                 PracticeCharacterSkill(character, skill, 1, false);
-                *out_uses = fatigue_cost;
-                return 0;
+                return {{0, own_cost()}};
             }
         }
 
@@ -1949,8 +1954,7 @@ static unsigned char UseItemOnce(W8Character* character, W8ItemInstance* item, i
             (g_item_records[item->iItemNo].equip_class < W8_ITEM_EQUIP_CLASS_FOOD ||
              g_item_records[item->iItemNo].equip_class > W8_ITEM_EQUIP_CLASS_DRINK) &&
             DispatchWorldCursorNodeCommand(0, 4, 1)) {
-            *out_uses = 0;
-            return 0;
+            return {{0, 0}};
         }
 
         if (TargetSourceIsCharacter(&target, 0)) {
@@ -1981,26 +1985,22 @@ static unsigned char UseItemOnce(W8Character* character, W8ItemInstance* item, i
             if (!used) {
                 fatigue_cost = 0;
             } else {
-                *emptied = ConsumeItemUse(item, true);
+                emptied = ConsumeItemUse(item, true);
             }
         }
-        *out_uses = fatigue_cost;
-        return used;
+        return {{used, own_cost()}, emptied};
     }
 
     QueueCharacterEvent(&g_status.party.characters[party_slot], event_type, 0,
                         kCharacterEventFullVolume);
-    *out_uses = fatigue_cost;
-    return used;
+    return {{used, own_cost()}, emptied};
 }
 
-unsigned char UseItem(unsigned actor, W8ItemLocation location, int* out_uses)
+W8ItemUseResult UseItem(unsigned actor, W8ItemLocation location)
 {
-    *out_uses = -1;
     auto* item = g_status.party.itemAt(location);
-    if (actor >= W8_PARTY_SLOT_COUNT || !item || item->iItemNo == -1) return 0;
-    bool emptied = false;
-    const auto result = UseItemOnce(&g_status.party.characters[actor], item, out_uses, &emptied);
-    FinishInventoryEdit({emptied ? location : W8ItemLocation{}});
-    return result;
+    if (actor >= W8_PARTY_SLOT_COUNT || !item || item->iItemNo == -1) return {};
+    const auto outcome = UseItemOnce(&g_status.party.characters[actor], item);
+    FinishInventoryEdit({outcome.emptied ? location : W8ItemLocation{}});
+    return outcome.result;
 }

@@ -4,6 +4,7 @@
 #include <array>
 #include <functional>
 #include <memory>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -27,6 +28,8 @@
 #include "wiz8/audio/soundman.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/canvas/Font.h"
+#include "wiz8/canvas/image.h"
+#include "wiz8/canvas/sprite.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/cursor.h"
@@ -42,6 +45,7 @@
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/live_party.h"
 #include "wiz8/local_code/ButtonSound.h"
@@ -58,6 +62,7 @@
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/local_screens/RCSCommon.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/npc_interaction.h"
@@ -65,6 +70,7 @@
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/random.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/ui_layer.h"
