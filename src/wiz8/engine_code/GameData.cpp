@@ -96,7 +96,8 @@ GroundProbe probeGround(const glm::vec3& position)
 // FUNCTION: WIZ8 0x00420CA0
 GroundSurfaceInfo groundSurfaceInfo(const glm::vec3& position)
 {
-    GroundSurfaceInfo result{probeGround(position).position.y, 0, 0};
+    GroundSurfaceInfo result{probeGround(position).position.y, W8_FOOTSTEP_SURFACE_NONE,
+                             W8_FOOTSTEP_MATERIAL_NONE};
     if (GetWorldGameData() && GetWorldGameData()->last_hit_surface != 0) {
         const auto& hit = GetWorldGameData()->m_pSurfaces[GetWorldGameData()->last_hit_surface];
         result.surface = hit.footstep_surface;
