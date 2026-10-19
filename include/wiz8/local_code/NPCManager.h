@@ -1,5 +1,6 @@
 #pragma once
 struct W8Chunk;
+#include <optional>
 #include <string_view>
 
 #include "surrender/srMath.h"
@@ -132,7 +133,7 @@ W8NpcState* FindNpcBindingForMonster(W8MonsterInfo* monster_info);
 unsigned char GetNpcDispositionBand(W8NpcState* npc);
 void SetNpcDispositionBand(W8NpcState* npc, char band);
 bool WillNpcTradeForItem(W8NpcState* npc, W8ItemInstance* item);
-void ApplyNpcInteraction(W8NpcState* npc, int kind, int value, W8ItemInstance* item,
+void ApplyNpcInteraction(W8NpcState* npc, int kind, std::optional<int> value, W8ItemInstance* item,
                          unsigned int gold);
 /* Whether the NPC's database entry carries the value at 0x002. */
 bool NpcRecordHasTradePool(W8NpcState* npc);

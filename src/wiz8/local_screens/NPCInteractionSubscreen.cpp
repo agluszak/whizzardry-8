@@ -869,11 +869,11 @@ void SelectNpcDialogueSpeaker(W8NpcState* npc, int flags)
     W8MonsterInfo* info;
     W8NpcState* selected;
     int slot;
-    int speaker;
+    std::optional<int> speaker;
     unsigned int best;
 
     state = g_npc_interaction_state;
-    speaker = -1;
+    speaker.reset();
     state->target_location_id.reset();
     best = 0xffffffff;
     state->dialogue_npc = 0;
@@ -898,7 +898,7 @@ void SelectNpcDialogueSpeaker(W8NpcState* npc, int flags)
     state->camera_redirected = false;
     for (slot = 0; slot < 8; ++slot) {
         if (g_status.buffers.XChar[slot].fOccupied) {
-            if (speaker == -1) {
+            if (!speaker) {
                 speaker = slot;
             }
             if (g_status.buffers.Char[slot].skills[W8_SKILL_COMMUNICATION].level > best) {
@@ -2758,7 +2758,7 @@ static void ToggleNpcTradeCategory(int button, W8NpcTradeFilter filter)
     if (control.interaction.selected) {
         int previous = g_npc_interaction_state->trade_filter & W8_NPC_TRADE_CATEGORY_MASK;
         if (previous != filter) {
-            int previous_button;
+            std::optional<int> previous_button;
             switch (previous) {
             case W8_NPC_TRADE_HAND:
                 previous_button = 0;
@@ -2773,11 +2773,11 @@ static void ToggleNpcTradeCategory(int button, W8NpcTradeFilter filter)
                 previous_button = 4;
                 break;
             default:
-                previous_button = -1;
+                previous_button.reset();
                 break;
             }
-            if (previous_button != -1) {
-                SetNpcActionPressed(W8_NPC_CONTROL_OPTION_BUTTONS + previous_button, false);
+            if (previous_button) {
+                SetNpcActionPressed(W8_NPC_CONTROL_OPTION_BUTTONS + *previous_button, false);
                 UpdateNpcTradeFilterBits(previous);
             }
         }

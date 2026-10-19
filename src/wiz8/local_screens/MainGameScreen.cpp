@@ -1280,10 +1280,12 @@ void W8MainGameTextPanel::RefreshCellImages()
 {
     for (int column = 0; column < 8; ++column) {
         auto& cell = cells[column];
-        cell.image = m_values == nullptr || (m_values[column] == 0 &&
-                                             GetTable650434Entry(m_selection, column) == 0)
-                         ? -1
-                         : m_values[column];
+        if (m_values == nullptr ||
+            (m_values[column] == 0 && GetTable650434Entry(m_selection, column) == 0)) {
+            cell.image.reset();
+        } else {
+            cell.image = m_values[column];
+        }
         cell.dirty = true;
     }
 }
@@ -1307,11 +1309,11 @@ void W8MainGameTextPanel::Redraw(SDL_Surface& target, bool full_redraw)
                                        : cell.target->hovered() && !cell.blocked ? 1
                                                                                  : 0);
         CatalogArtwork::Load(0x1b2, 0).drawAndInvalidate(target, frame, x, y);
-        if (cell.image >= 0)
+        if (cell.image)
             CatalogArtwork::Load(0x1b3, 0).draw(target,
-                                                cell.image == 0   ? 2
-                                                : cell.image == 1 ? 0
-                                                                  : 1,
+                                                *cell.image == 0   ? 2
+                                                : *cell.image == 1 ? 0
+                                                                   : 1,
                                                 x, y);
         cell.dirty = false;
     }

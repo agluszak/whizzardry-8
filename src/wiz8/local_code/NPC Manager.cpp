@@ -1688,7 +1688,7 @@ static void DebitNpcTradePool(W8NpcState* npc, unsigned int price)
    pool down by the party's Communication-adjusted price, and the scripted
    kind adds its operand straight to disposition. */
 // FUNCTION: WIZ8 0x0050A570
-void ApplyNpcInteraction(W8NpcState* npc, int kind, int value, W8ItemInstance* item,
+void ApplyNpcInteraction(W8NpcState* npc, int kind, std::optional<int> value, W8ItemInstance* item,
                          unsigned int gold)
 {
     switch (static_cast<char>(kind)) {

@@ -98,7 +98,7 @@ public:
         HitTarget* target;
         ButtonInteraction interaction;
         bool enabled = true, blocked = false, dirty = true;
-        int image = -1;
+        std::optional<int> image;
     };
     std::array<Cell, 8> cells;
     std::unique_ptr<W8MainGameTextKeyHandler> m_key_handler;

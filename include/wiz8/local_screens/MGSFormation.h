@@ -1,7 +1,9 @@
-#include "wiz8/ui_layer.h"
 #pragma once
 
+#include <optional>
+
 #include "input.h"
+#include "wiz8/ui_layer.h"
 
 /* Local Screens\MGSFormation.cpp: the party-formation screen - a board of
    fifteen cells in five rows of three drawn over the main-game view, with a
@@ -25,4 +27,4 @@ UiResult HandleFormationBoard(const UiPointerEvent& event);
    into gXStatus.edited_formation and pause the world. */
 void OpenFormationPanel(void);
 /* Highlight the cell holding one party slot and un-highlight the rest. */
-void SelectFormationSlotCell(int party_slot);
+void SelectFormationSlotCell(std::optional<int> party_slot);

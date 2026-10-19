@@ -196,9 +196,10 @@ const float g_facing_tolerance0 = 0.05f;
 /* Whether one character can hold a place in the formation at all: they have to
    be alive and in better shape than the party sweeps demand. */
 // FUNCTION: WIZ8 0x005549e0
-bool CanHoldFormationPlace(int party_slot)
+bool CanHoldFormationPlace(std::optional<int> party_slot)
 {
-    const W8Character* character = &g_status.buffers.Char[party_slot];
+    if (!party_slot || *party_slot < 0 || *party_slot >= 8) return false;
+    const W8Character* character = &g_status.buffers.Char[*party_slot];
 
     return character->hp_current > 0 && character->highest_condition < W8_CONDITION_TURNCOAT;
 }

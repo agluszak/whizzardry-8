@@ -1,5 +1,7 @@
 #pragma once
 
+#include <optional>
+
 #include "glm/ext/vector_float3.hpp"
 
 struct W8MonsterInfo;
@@ -33,7 +35,7 @@ bool PositionFacesOppositeToDecided(int target_position, int position);
 bool IsPartyLookingAwayFrom(int party_slot, W8MonsterInfo* monster_info);
 /* Whether the character can hold a formation place at all: alive
    and in better shape than the hostile conditions. */
-bool CanHoldFormationPlace(int party_slot);
+bool CanHoldFormationPlace(std::optional<int> party_slot);
 void RestoreCombatFormation(void);
 /* Give one joining party slot its formation position, scanning
    the row order for the first free one. */

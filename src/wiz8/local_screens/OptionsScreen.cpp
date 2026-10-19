@@ -1100,17 +1100,17 @@ void W8OptionsAudioPanel::PreviewVolume(int index)
 
 void W8OptionsAudioPanel::OnPrimary(W8ButtonWidget* control)
 {
-    int index;
-    for (index = 0; index < 4; ++index) {
-        if (control == m_mute_buttons[index]) {
+    std::optional<int> index;
+    for (int candidate = 0; candidate < 4; ++candidate) {
+        if (control == m_mute_buttons[candidate]) {
+            index = candidate;
             break;
         }
     }
-    if (index == 4) {
-        index = -1;
-    }
+    if (!index) return;
+
     const bool muted = control->IsPressed();
-    switch (index) {
+    switch (*index) {
     case 0:
         SetMusicMuted(muted);
         break;
@@ -1128,7 +1128,7 @@ void W8OptionsAudioPanel::OnPrimary(W8ButtonWidget* control)
         SetVoiceMuted(muted);
         break;
     }
-    m_sliders[index]->SetEnabled(muted == 0);
+    m_sliders[*index]->SetEnabled(muted == 0);
 }
 
 void W8OptionsGraphicsPanel::Populate()

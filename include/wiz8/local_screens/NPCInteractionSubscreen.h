@@ -165,7 +165,7 @@ struct W8NpcInteractionState {
     unsigned char unknown_002[0xee];
     /* The dialogue's leading speaker: the occupied row whose character leads
        skill 0x16. */
-    int dialogue_speaker;
+    std::optional<int> dialogue_speaker;
     std::optional<int> target_location_id;
     W8NpcDialogueLayout dialogue_layout;
     W8NpcTradeMode trade_mode;
