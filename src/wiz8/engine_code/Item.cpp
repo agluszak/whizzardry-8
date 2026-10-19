@@ -337,7 +337,8 @@ unsigned char RunItemTrigger(W8Item* item)
         return 1;
     }
     trigger->Run(-1);
-    if (trigger->action_state == 1 || trigger->action_state == 4) {
+    if (trigger->action_state == W8TriggerActionState::inactive ||
+        trigger->action_state == W8TriggerActionState::fallback_action) {
         return 0;
     }
     return 1;

@@ -2870,8 +2870,7 @@ void Trigger::Run(int source)
             float duration = abs(m_lData2) * 0.001f;
 
             if (m_lData2 > 0 && trigger_kind != W8TriggerKind::prop) {
-                srAssertFail("0", "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0x87f,
-                             "Continous firing missile must be invisible trigger.");
+                srAssertFail("0", "Continous firing missile must be invisible trigger.");
             }
             m_pEvent = std::make_unique<W8TriggerEvent>();
             m_pEvent->action = static_cast<short>(action);
