@@ -259,8 +259,9 @@ bool g_automap_surface_mode;
 /* The camera's near clip: how far above the selected layer it floats. */
 // GLOBAL: WIZ8 0x0064b920
 float g_automap_near_clip = 1.0f;
+enum class AutomapZoomMode { ZoomInOnly, Both, ZoomOutOnly };
 // GLOBAL: WIZ8 0x0068f278
-int g_automap_zoom_mode;
+static AutomapZoomMode g_automap_zoom_mode = AutomapZoomMode::ZoomInOnly;
 // GLOBAL: WIZ8 0x0068f27c
 
 // GLOBAL: WIZ8 0x0068f290
@@ -281,7 +282,7 @@ static glm::vec2 AutomapWorldPosition(const glm::vec2& cursor)
            (cursor - 0.5f) * glm::vec2(g_automap_zoom, -g_automap_zoom);
 }
 void SetAutomapCameraPoint(glm::vec3* position);
-void SetAutomapButtonMode(int update);
+void SetAutomapButtonMode(AutomapZoomMode update);
 void RenderAutomapFrame(void);
 void UpdateAutomapPageButtons(void);
 void ResetAutomapLighting(void);
@@ -479,19 +480,19 @@ void AutomapZoomInButton(void)
 static void ZoomAutomapOut()
 {
     if (g_automap_position.y < g_automap_top_y) {
-        if (g_automap_zoom_mode == 1) {
+        if (g_automap_zoom_mode == AutomapZoomMode::Both) {
             g_automap_zoom = g_automap_top_y - g_automap_bounds_min.y;
             glm::vec3 position = (g_automap_bounds_max + g_automap_bounds_min) / 2.0f;
             position.y = g_automap_top_y;
             SetAutomapCameraPoint(&position);
             SetAutomapToolCursor(g_automap_tool);
-            SetAutomapButtonMode(0);
+            SetAutomapButtonMode(AutomapZoomMode::ZoomInOnly);
         } else {
             float ground_y = g_automap_position.y - g_automap_zoom;
             float height = g_automap_top_y - (g_automap_top_y - ground_y) * 0.5f;
             if (g_automap_position.y <= height) {
                 g_automap_position.y = height;
-                SetAutomapButtonMode(1);
+                SetAutomapButtonMode(AutomapZoomMode::Both);
                 g_automap_zoom = g_automap_position.y - ground_y;
                 SetAutomapCameraPoint(&g_automap_position);
                 SetAutomapToolCursor(g_automap_tool);
@@ -714,7 +715,7 @@ bool AutomapScreenEnter(void)
         position.y = g_automap_top_y;
         SetAutomapCameraPoint(&position);
         SetAutomapToolCursor(g_automap_tool);
-        SetAutomapButtonMode(0);
+        SetAutomapButtonMode(AutomapZoomMode::ZoomInOnly);
     } else {
         RestoreAutomapCameraPosition();
     }
@@ -802,7 +803,7 @@ void AutomapScreenFrame(void)
                         glm::vec3 distance(point.x - g_automap_saved_camera.position.x, 0.0f,
                                            point.z - g_automap_saved_camera.position.z);
                         if (glm::length(distance) < g_automap_zoom * 0.05f && g_automap_tool == 0 &&
-                            g_automap_zoom_mode != 2) {
+                            g_automap_zoom_mode != AutomapZoomMode::ZoomOutOnly) {
                             DisableCursorScene();
                             glm::dvec3 scale(0.44f, 0.44f, 0.44f);
                             g_automap_party_marker->setScale(scale);
@@ -901,22 +902,14 @@ void AutomapScreenFinalize(void)
 
 /* Select which automap buttons are enabled for the update mode, then dirty
    and redraw both and remember the mode. */
-void SetAutomapButtonMode(int update)
+void SetAutomapButtonMode(AutomapZoomMode update)
 {
     if (!g_automap_buttons) {
         g_automap_zoom_mode = update;
         return;
     }
-    if (update == 0) {
-        g_automap_buttons->buttons[0]->SetEnabled(true);
-        g_automap_buttons->buttons[1]->SetEnabled(false);
-    } else if (update == 1) {
-        g_automap_buttons->buttons[0]->SetEnabled(true);
-        g_automap_buttons->buttons[1]->SetEnabled(true);
-    } else if (update == 2) {
-        g_automap_buttons->buttons[0]->SetEnabled(false);
-        g_automap_buttons->buttons[1]->SetEnabled(true);
-    }
+    g_automap_buttons->buttons[0]->SetEnabled(update != AutomapZoomMode::ZoomOutOnly);
+    g_automap_buttons->buttons[1]->SetEnabled(update != AutomapZoomMode::ZoomInOnly);
     g_automap_buttons->buttons[0]->m_dirty = true;
     g_automap_buttons->buttons[0]->Draw(GetFrameBufferSurface());
     g_automap_buttons->buttons[1]->m_dirty = true;
@@ -991,7 +984,7 @@ void ResetAutomapZoom(void)
     position.y = g_automap_top_y;
     SetAutomapCameraPoint(&position);
     SetAutomapToolCursor(g_automap_tool);
-    SetAutomapButtonMode(0);
+    SetAutomapButtonMode(AutomapZoomMode::ZoomInOnly);
 }
 
 /* Left-click zoom: drop a sight line onto the clicked point, halve the
@@ -1016,11 +1009,12 @@ unsigned char ZoomAutomapIn(const glm::vec2* point)
 
     float height = (g_automap_top_y - ground) * 0.5f;
     float minimum = ground + 2.5e+04f;
-    if (g_automap_zoom_mode != 0 || g_automap_top_y <= minimum || height < minimum) {
-        SetAutomapButtonMode(2);
+    if (g_automap_zoom_mode != AutomapZoomMode::ZoomInOnly || g_automap_top_y <= minimum ||
+        height < minimum) {
+        SetAutomapButtonMode(AutomapZoomMode::ZoomOutOnly);
         height = minimum;
     } else {
-        SetAutomapButtonMode(1);
+        SetAutomapButtonMode(AutomapZoomMode::Both);
     }
     g_automap_zoom = height - ground;
     position.y = height;
@@ -1878,13 +1872,13 @@ unsigned char HandleAutomapKey(const InputEvent* input)
     case SDLK_BACKSPACE:
         /* Backspace zooms out one step, or all the way from the full view. */
         if (g_automap_position.y < g_automap_top_y) {
-            if (g_automap_zoom_mode == 1) {
+            if (g_automap_zoom_mode == AutomapZoomMode::Both) {
                 g_automap_zoom = g_automap_top_y - g_automap_bounds_min.y;
                 glm::vec3 position = (g_automap_bounds_max + g_automap_bounds_min) / 2.0f;
                 position.y = g_automap_top_y;
                 SetAutomapCameraPoint(&position);
                 SetAutomapToolCursor(g_automap_tool);
-                SetAutomapButtonMode(0);
+                SetAutomapButtonMode(AutomapZoomMode::ZoomInOnly);
                 return 1;
             }
             float floor = g_automap_position.y - g_automap_zoom;
@@ -1894,7 +1888,7 @@ unsigned char HandleAutomapKey(const InputEvent* input)
                 return 1;
             }
             g_automap_position.y = height;
-            SetAutomapButtonMode(1);
+            SetAutomapButtonMode(AutomapZoomMode::Both);
             g_automap_zoom = g_automap_position.y - floor;
             SetAutomapCameraPoint(&g_automap_position);
             SetAutomapToolCursor(g_automap_tool);
@@ -1931,7 +1925,7 @@ unsigned char HandleAutomapKey(const InputEvent* input)
             SetAutomapCameraPoint(&position);
         }
         SetAutomapToolCursor(g_automap_tool);
-        SetAutomapButtonMode(0);
+        SetAutomapButtonMode(AutomapZoomMode::ZoomInOnly);
         return 1;
     }
     case SDLK_INSERT:
@@ -1972,7 +1966,7 @@ unsigned char HandleAutomapKey(const InputEvent* input)
                 SetAutomapCameraPoint(&position);
             }
             SetAutomapToolCursor(g_automap_tool);
-            SetAutomapButtonMode(0);
+            SetAutomapButtonMode(AutomapZoomMode::ZoomInOnly);
             RenderAutomapFrame();
             return 1;
         }

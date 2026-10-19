@@ -543,7 +543,7 @@ void W8OptionsSaveLoadPanel::LoadSelectedSave()
             ClearHeldItemDisplay();
         }
         RequestScreenTransition();
-        g_pending_screen_state.mode = 1;
+        g_pending_screen_state.mode = W8_PLEASE_WAIT_LOAD_GAME;
         g_pending_screen_state.parameter = slot.level_id;
         g_pending_screen_state.name = slot.name;
         g_pending_screen_state.id = W8_SCREEN_PLEASE_WAIT;
@@ -562,7 +562,7 @@ void W8OptionsSaveLoadPanel::SaveSelectedSave(std::string_view previous_name)
 
     g_options_last_save_name = slot.name;
     RequestScreenTransition();
-    g_pending_screen_state.mode = 2;
+    g_pending_screen_state.mode = W8_PLEASE_WAIT_SAVE_GAME;
     g_pending_screen_state.name = slot.name;
     const std::string old_name(previous_name);
     // Game save paths resolve ASCII names case-insensitively. Never remove the

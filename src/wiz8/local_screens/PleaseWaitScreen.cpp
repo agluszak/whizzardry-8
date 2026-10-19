@@ -42,7 +42,7 @@
    the tail and writes the caption; the leave releases it. */
 struct W8LevelLoadDescriptor {
     std::string caption; /* 0x000, written by strcpy and sprintf */
-    int mode;              /* 0x0f0, the screen state's own mode */
+    W8PleaseWaitMode mode; /* 0x0f0, the screen state's own mode */
     int parameter;
     int parameter_2;
     std::string name; /* 0x0fd, bounded only by the next field */
@@ -89,25 +89,25 @@ bool PleaseWaitScreenEnter(void)
 {
     if (!g_load_descriptor) {
         g_load_descriptor = std::make_unique<W8LevelLoadDescriptor>();
-        g_load_descriptor->mode = g_current_screen_state.mode;
+        g_load_descriptor->mode = static_cast<W8PleaseWaitMode>(g_current_screen_state.mode);
         switch (g_load_descriptor->mode) {
-        case 0:
+        case W8_PLEASE_WAIT_NEW_GAME:
             InitializeFactState();
             g_load_descriptor->parameter = SelectNewGameStartLevel();
             ReleaseMessageStorage();
             wiz8::remove_file(wiz8::user_path("saves\\CurrentGame.SAV"));
             break;
-        case 1:
+        case W8_PLEASE_WAIT_LOAD_GAME:
             g_load_descriptor->parameter = g_current_screen_state.parameter;
             g_load_descriptor->name = g_current_screen_state.name;
             break;
-        case 2:
+        case W8_PLEASE_WAIT_SAVE_GAME:
             g_load_descriptor->parameter = GetLoadedLevelID();
             g_load_descriptor->name = g_current_screen_state.name;
             g_load_descriptor->previous_save_name = g_current_screen_state.previous_save_name;
             g_load_descriptor->save_screenshot = g_current_screen_state.save_screenshot;
             break;
-        case 3:
+        case W8_PLEASE_WAIT_CHANGE_LEVEL:
             g_load_descriptor->parameter = g_current_screen_state.parameter;
             g_load_descriptor->parameter_2 = g_current_screen_state.parameter_2;
             break;
@@ -138,18 +138,18 @@ static void DrawPleaseWaitScreen()
 void PleaseWaitScreenFrame(void)
 {
     switch (g_load_descriptor->mode) {
-    case 0:
+    case W8_PLEASE_WAIT_NEW_GAME:
         g_load_descriptor->caption = g_localized_strings[0x6ef];
         break;
-    case 1: {
+    case W8_PLEASE_WAIT_LOAD_GAME: {
         const auto& strings = g_localized_strings;
         g_load_descriptor->caption =
             g_load_descriptor->name.starts_with("Quick") ? strings[0x6f1] : strings[0x6f0];
     } break;
-    case 2:
+    case W8_PLEASE_WAIT_SAVE_GAME:
         g_load_descriptor->caption = g_localized_strings[0x6f2].c_str();
         break;
-    case 3:
+    case W8_PLEASE_WAIT_CHANGE_LEVEL:
         if (static_cast<unsigned int>(g_load_descriptor->parameter) < W8_LEVEL_COUNT) {
             g_load_descriptor->caption = fmt::format(
                 "{} {}...", g_localized_strings[0x6f3],
@@ -168,7 +168,7 @@ void PleaseWaitScreenFrame(void)
     DisableCursorScene();
 
     switch (g_load_descriptor->mode) {
-    case 0:
+    case W8_PLEASE_WAIT_NEW_GAME:
         ResetLiveSessionForLoad();
         int level;
         int entrance;
@@ -179,7 +179,7 @@ void PleaseWaitScreenFrame(void)
         PostNewGameLoad();
 
         break;
-    case 1:
+    case W8_PLEASE_WAIT_LOAD_GAME:
         if (!LoadGame(g_load_descriptor->name)) {
             srAssertFail("fVerify", PLEASE_WAIT_SCREEN_CPP, 293, 0);
         }
@@ -188,7 +188,7 @@ void PleaseWaitScreenFrame(void)
         }
 
         break;
-    case 2: {
+    case W8_PLEASE_WAIT_SAVE_GAME: {
         const auto& screenshot = g_load_descriptor->save_screenshot;
         const bool saved = SaveGame(g_load_descriptor->name, screenshot ? &*screenshot : nullptr);
         // Do not destroy the previous save until the new one has been committed.
@@ -211,7 +211,7 @@ void PleaseWaitScreenFrame(void)
             std::this_thread::sleep_for(std::chrono::milliseconds(500 - shown));
         break;
     }
-    case 3:
+    case W8_PLEASE_WAIT_CHANGE_LEVEL:
         if (!ReloadLevelPreservingCamera(g_load_descriptor->parameter,
                                          g_load_descriptor->parameter_2)) {
             srAssertFail("fVerify", PLEASE_WAIT_SCREEN_CPP, 320, 0);
@@ -223,8 +223,8 @@ void PleaseWaitScreenFrame(void)
         srAssertFail("GetWorld()", PLEASE_WAIT_SCREEN_CPP, 332, 0);
     }
     RequestScreenTransition();
-    if (g_load_descriptor->mode == 1 && g_status.intro_shown) {
-        SetIntroVideoIndex(4);
+    if (g_load_descriptor->mode == W8_PLEASE_WAIT_LOAD_GAME && g_status.intro_shown) {
+        SetIntroVideoIndex(W8_INTRO_VIDEO_VIRGIN);
         g_pending_screen_state.id = W8_SCREEN_INTRO;
         return;
     }

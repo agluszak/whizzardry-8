@@ -27,7 +27,7 @@
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 
 // GLOBAL: WIZ8 0x0064d8ac
-w8_ulong g_intro_video_index = 6;
+W8IntroVideo g_intro_video_index = W8_INTRO_VIDEO_SIRTECH;
 // GLOBAL: WIZ8 0x0064D8B0
 static constexpr std::array<std::string_view, 7> g_intro_video_names = {
     "Wizardry8.bik", "unaligned.bik", "Umpani.bik",  "T'Rang.bik",
@@ -48,7 +48,8 @@ bool IntroScreenEnter(void)
     std::string path;
 
     ClearSurfaceRect(0, 0, 0x280, 0x1e0);
-    if (g_intro_video_index == 0 && g_settings.intro_seen && !g_status.intro_shown) {
+    if (g_intro_video_index == W8_INTRO_VIDEO_WIZARDRY && g_settings.intro_seen &&
+        !g_status.intro_shown) {
         return 1;
     }
     path = fmt::format("Data\\Flics\\Intro\\{}", g_intro_video_names[g_intro_video_index]);
@@ -103,8 +104,8 @@ static void AdvanceIntroScreen(void)
     std::string path;
     bool first_video_available = false;
 
-    if (g_intro_video_index == 6 && !g_settings.intro_seen) {
-        g_intro_video_index = 0;
+    if (g_intro_video_index == W8_INTRO_VIDEO_SIRTECH && !g_settings.intro_seen) {
+        g_intro_video_index = W8_INTRO_VIDEO_WIZARDRY;
         path = fmt::format("Data\\Flics\\Intro\\{}", g_intro_video_names[g_intro_video_index]);
         first_video_available = [&]() {
             const auto status = wiz8::file_status(wiz8::asset_path(path));
@@ -121,17 +122,17 @@ static void AdvanceIntroScreen(void)
     g_intro_video.reset();
     RequestScreenTransition();
     switch (g_intro_video_index) {
-    case 0:
-    case 6:
+    case W8_INTRO_VIDEO_WIZARDRY:
+    case W8_INTRO_VIDEO_SIRTECH:
         g_pending_screen_state.id = W8_SCREEN_MAIN_MENU;
         g_settings.intro_seen = true;
         break;
-    case 1:
-    case 2:
-    case 3:
-    case 4:
+    case W8_INTRO_VIDEO_UNALIGNED:
+    case W8_INTRO_VIDEO_UMPANI:
+    case W8_INTRO_VIDEO_TRANG:
+    case W8_INTRO_VIDEO_VIRGIN:
         if (!g_status.intro_shown) {
-            g_pending_screen_state.mode = 0;
+            g_pending_screen_state.mode = W8_PLEASE_WAIT_NEW_GAME;
             g_pending_screen_state.id = W8_SCREEN_PLEASE_WAIT;
         } else {
             g_status.intro_shown = false;
@@ -140,7 +141,7 @@ static void AdvanceIntroScreen(void)
             }
         }
         break;
-    case 5:
+    case W8_INTRO_VIDEO_DARK_ENDING:
         BeginScreenFade(0, 0, 1, ContinueAfterDarkEndingVideo, true, 1);
         break;
     }
@@ -158,7 +159,7 @@ bool IntroScreenLeave(int)
 }
 
 // FUNCTION: WIZ8 0x005AE9C0
-void SetIntroVideoIndex(w8_ulong value)
+void SetIntroVideoIndex(W8IntroVideo value)
 {
     g_intro_video_index = value;
 }

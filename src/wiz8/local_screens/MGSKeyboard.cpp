@@ -484,7 +484,7 @@ void DispatchMGSCommand(W8MGSCommand command)
         if (const auto slot_name = FindStartupQuickSave()) {
             g_options_last_save_name = (*slot_name);
             ClearHeldItemDisplay();
-            g_pending_screen_state.mode = 1;
+            g_pending_screen_state.mode = W8_PLEASE_WAIT_LOAD_GAME;
             g_pending_screen_state.name = *slot_name;
             g_pending_screen_state.parameter = GetSaveGameLevel(g_pending_screen_state.name);
             CloseMainGameOverlays();
