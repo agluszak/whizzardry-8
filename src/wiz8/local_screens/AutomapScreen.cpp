@@ -1616,7 +1616,6 @@ void RenderAutomapMarkers(void)
         unsigned int count = static_cast<int>(g_automap_notes.size());
         for (unsigned int index = 0; index < count; ++index) {
             W8AutomapNote* note = g_automap_notes[index].get();
-            int layer = note->layer + 1;
             left = g_automap_position.x - g_automap_zoom * 0.5f;
             top = g_automap_position.z - g_automap_zoom * 0.5f;
             if (note->position.x < left || left + g_automap_zoom < note->position.x ||
