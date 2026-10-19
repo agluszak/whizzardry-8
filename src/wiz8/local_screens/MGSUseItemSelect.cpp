@@ -422,7 +422,7 @@ static void ShowUseItemList(W8ItemInstance* select)
             ShowNotice(silenced ? 4 : 0, FormatItemDisplayName(item, true), 2);
             continue;
         }
-        int count = 0;
+        std::optional<int> count = 0;
         bool charged = false;
         switch (g_item_records[item->iItemNo].quantity_kind) {
         case W8_ITEM_QUANTITY_STACK:
@@ -443,10 +443,10 @@ static void ShowUseItemList(W8ItemInstance* select)
             break;
         }
         auto text = FormatItemDisplayName(item, false);
-        if (count == -1)
+        if (!count)
             text = fmt::format("{} (?)", text);
-        else if (count > 1 || charged)
-            text = fmt::format("{} ({:d})", text, count);
+        else if (*count > 1 || charged)
+            text = fmt::format("{} ({:d})", text, *count);
         ShowNotice(W8_FONT_PALETTE_TEXT_BOX, text, 2);
     }
 }
@@ -620,7 +620,7 @@ void UpdateUseItemDetailPanel(W8ItemInstance* item)
 {
     std::string text;
     std::string value;
-    short count;
+    std::optional<short> count = 0;
     bool charges = false;
 
     use_item->item_image = ItemSprites(item->iItemNo);
@@ -635,7 +635,7 @@ void UpdateUseItemDetailPanel(W8ItemInstance* item)
     case W8_ITEM_QUANTITY_USES:
         charges = true;
         if (!item->identified) {
-            count = -1;
+            count.reset();
         } else {
             count = item->uses_or_charges;
         }
@@ -645,10 +645,10 @@ void UpdateUseItemDetailPanel(W8ItemInstance* item)
         count = item->uses_or_charges;
         break;
     }
-    if (count == -1) {
+    if (!count) {
         value = "?";
-    } else if (count > 1 || charges) {
-        text = fmt::format("{:d}", count);
+    } else if (*count > 1 || charges) {
+        text = fmt::format("{:d}", *count);
         value = text;
     } else {
         value = "";
