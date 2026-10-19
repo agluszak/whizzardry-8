@@ -25,6 +25,14 @@ class W8DialogBase;
 class W8CharacterScreen;
 class W8CharacterPageEntry;
 
+enum class W8CharacterPortraitAction : int {
+    previous_group = 0,
+    next_group = 1,
+    previous_portrait = 2,
+    next_portrait = 3,
+    show_summary = 4,
+};
+
 /* One value row shared by the skills and attributes pages. */
 class W8CharacterPageEntry {
 public:
@@ -249,7 +257,7 @@ public:
     virtual void GetNavigationState(bool*, bool*) override;
     virtual void HandleInput(const InputEvent*) override;
     virtual void Refresh() override;
-    void ChangePortrait(int action);
+    void ChangePortrait(W8CharacterPortraitAction action);
 
 private:
     std::array<std::unique_ptr<W8ButtonWidget>, 5> m_buttons;

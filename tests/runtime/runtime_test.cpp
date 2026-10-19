@@ -2117,7 +2117,7 @@ void Trace(Game& game, int location_id, int frames)
                     int(body.movement_complete), int(body.movement_stopped), int(body.halted),
                     unsigned(body.flags), body.movement.callback_progress,
                     body.movement.callback_threshold, body.movement.movement_speed,
-                    g_combat_state ? int(g_combat_state->eCombatActionStatus) : -1,
+                    g_combat_state ? static_cast<int>(g_combat_state->action_status) : -1,
                     g_combat_state && g_combat_state->pActionMonsterInfo
                         ? g_combat_state->pActionMonsterInfo->location_id
                         : -1,

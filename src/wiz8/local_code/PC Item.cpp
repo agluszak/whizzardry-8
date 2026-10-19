@@ -3424,7 +3424,7 @@ void SetCharacterItemUse(int party_slot, const W8Action& action)
 {
     auto* item = action.detail_block.item_use.item;
     auto detail = action.detail_block;
-    detail.item_use.kind = -1;
+    detail.item_use.kind = W8ItemUseDetailKind::none;
     auto& row = g_status.buffers.XChar[party_slot];
     if (gXStatus.fCombatMode)
         row.committed_action.target = action.target;
@@ -3445,7 +3445,7 @@ void StagePartySlotItemUse(int party_slot, W8ItemInstance* item, const W8CombatS
 {
     W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
 
-    row->item_detail.item_use.kind = -1;
+    row->item_detail.item_use.kind = W8ItemUseDetailKind::none;
     row->item_detail.item_use.item = item;
     row->item_target = *target;
     row->item_id = item->iItemNo;
@@ -4053,7 +4053,8 @@ void BindCharacterItems(int party_slot, bool announce)
                        g_localized_strings[W8_NOTICE_WEAPON_SWAP_BLOCKED_COMBAT]);
             return;
         }
-        if (g_combat_state->iActionChar == party_slot && g_combat_state->eCombatActionStatus == 2 &&
+        if (g_combat_state->iActionChar == party_slot &&
+            g_combat_state->action_status == W8CombatActionStatus::resolving &&
             (g_status.buffers.XChar[party_slot].pending_action == W8_ACTION_ATTACK ||
              g_status.buffers.XChar[party_slot].pending_action == W8_ACTION_BERSERK)) {
             ShowNotice(W8_FONT_PALETTE_WHITE, fmt::sprintf(g_localized_strings[0x1f7],

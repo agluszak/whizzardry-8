@@ -436,7 +436,7 @@ void ShutdownMonsterManager(void);
 
 std::string GetMonsterName(W8MonsterInfo* monster_info, W8MonsterRecord* record,
                            unsigned char name_form);
-enum class W8MonsterRemoval { Deactivate, Despawn, Unload };
+enum class W8MonsterRemoval : unsigned char { Deactivate, Despawn, Unload };
 bool RemoveMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal);
 void MonsterInfoEnterCombat(W8MonsterInfo* monster_info);
 void DeactivateMonster(W8MonsterInfo* monster_info);

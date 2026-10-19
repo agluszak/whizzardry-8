@@ -9,7 +9,7 @@
 #include "wiz8/canvas/himage.h"
 #include "wiz8/surface_storage.h"
 
-enum class SpriteBlend {
+enum class SpriteBlend : std::uint8_t {
     Transparent,
     Mono,
 };

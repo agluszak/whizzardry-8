@@ -179,7 +179,6 @@ void ImportWizardry7Character(W8Character* character, W8Wiz7Character* imported)
     W8Profession profession;
     unsigned int level;
     unsigned int skill_id;
-    int status;
 
     *character = W8Character{};
     character->name = TitleCaseString(imported->name);
@@ -243,8 +242,8 @@ void ImportWizardry7Character(W8Character* character, W8Wiz7Character* imported)
     character->profession_levels[character->iProfession] = character->uiExpLevel;
     character->original_profession = character->iProfession;
     character->level_band_base = 0;
-    status = imported->status;
-    if (status == 2 || status == 3) {
+    if (imported->status == W8Wiz7CharacterStatus::dead_with_status_2 ||
+        imported->status == W8Wiz7CharacterStatus::dead_with_status_3) {
         character->uiCondition[W8_CONDITION_DEAD] = W8_CONDITION_INDEFINITE;
         character->highest_condition = W8_CONDITION_DEAD;
     } else {

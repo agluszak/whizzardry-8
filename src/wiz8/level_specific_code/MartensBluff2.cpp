@@ -59,6 +59,19 @@
    (Arrowtraptrigger, Spikeballtrigger, DoorBolt, DummyLever, Dummy,
    PerfumeBox, StoneIdol, BlueFlowers, SquisherControls, DoorControls). */
 
+enum class RavenQuestState : int { not_started, dummy_activated, perfume_used, rapax_scripted };
+enum class W8CrusherState : int { inactive, moving, waiting_for_dummies };
+
+static RavenQuestState GetRavenQuestState()
+{
+    return static_cast<RavenQuestState>(GetLocationVarValueByName("RavenQuest"));
+}
+
+static void SetRavenQuestState(RavenQuestState state)
+{
+    SetTriggerVariableByName("RavenQuest", static_cast<int>(state));
+}
+
 static bool g_idol_gas_armed = true;
 static bool g_crusher_excluded_flag;
 static bool g_crusher_active;
@@ -70,7 +83,7 @@ static W8Prop* g_squisher4_prop;
 static W8Prop* g_dummy_prop;
 static W8Prop* g_dummy_rope_prop;
 static Sound3D* g_crusher_sound;
-static int g_crusher_state;
+static W8CrusherState g_crusher_state = W8CrusherState::inactive;
 static std::optional<W8IntervalGate> g_idol_gas_gate;
 
 /* Level init: creates the RavenQuest location variable, fires the Dummy
@@ -84,12 +97,12 @@ void MartensBluff2Setup(void)
     W8MonsterGroup* group;
     W8MonsterInfo* info;
     glm::vec3 position;
-    int quest_state;
+    RavenQuestState quest_state;
     int location_id;
     int value;
 
     pTrigger = FindTriggerByName("PerfumeBox");
-    quest_state = 0;
+    quest_state = RavenQuestState::not_started;
     g_crusher_active = false;
     if (pTrigger != 0) {
         if (GetLocationVarIDByName("RavenQuest") == -1) {
@@ -98,15 +111,15 @@ void MartensBluff2Setup(void)
             FindTriggerByName("Dummy")->Run(-1);
             g_running_trigger_from_script = false;
         } else {
-            quest_state = GetLocationVarValueByName("RavenQuest");
+            quest_state = GetRavenQuestState();
         }
         pTrigger->flags &= ~W8_TRIGGER_ENABLED;
-        if (quest_state != 0) {
-            if (quest_state == 1) {
+        if (quest_state != RavenQuestState::not_started) {
+            if (quest_state == RavenQuestState::dummy_activated) {
                 pTrigger->flags |= W8_TRIGGER_ENABLED;
             }
             FindTriggerByName("DummyLever")->flags &= ~W8_TRIGGER_ENABLED;
-            if (quest_state == 2) {
+            if (quest_state == RavenQuestState::perfume_used) {
                 if (FindEntityByName("Ravenz", &position, 0, 0)) {
                     group = SpawnMonsters(0x183, 1, &position, 0, true, false, false);
                     location_id = group->MemberLocationId(0);
@@ -114,7 +127,7 @@ void MartensBluff2Setup(void)
                         info = FindMonster(location_id);
                         if (info != 0 && info->p3D != 0) {
                             info->p3D->SetScript("MB_MoveRapax.msf", true);
-                            SetTriggerVariableByName("RavenQuest", 3);
+                            SetRavenQuestState(RavenQuestState::rapax_scripted);
                         }
                     }
                 }
@@ -296,7 +309,7 @@ bool MartensBluff2DoorBolt(Trigger* pTrigger)
 bool MartensBluff2DummyLever(Trigger* pTrigger)
 {
     pTrigger->flags &= ~W8_TRIGGER_ENABLED;
-    return !GetLocationVarValueByName("RavenQuest");
+    return GetRavenQuestState() == RavenQuestState::not_started;
 }
 
 /* "Dummy": re-arms the PerfumeBox trigger and marks RavenQuest stage 1. The
@@ -308,7 +321,7 @@ bool MartensBluff2Dummy(Trigger* pTrigger)
         Trigger* pPerfumeBox = FindTriggerByName("PerfumeBox");
         if (pPerfumeBox != 0) {
             pPerfumeBox->flags |= W8_TRIGGER_ENABLED;
-            SetTriggerVariableByName("RavenQuest", 1);
+            SetRavenQuestState(RavenQuestState::dummy_activated);
         }
     }
     return true;
@@ -324,7 +337,7 @@ bool MartensBluff2PerfumeBox(Trigger* pTrigger)
     W8MonsterInfo* info;
     int location_id;
 
-    int quest_state;
+    RavenQuestState quest_state;
 
     if (!g_status.item_in_cursor) {
         return false;
@@ -335,7 +348,7 @@ bool MartensBluff2PerfumeBox(Trigger* pTrigger)
     g_trigger_feedback = true;
     ClearHeldItemDisplay();
     pTrigger->flags &= ~W8_TRIGGER_ENABLED;
-    quest_state = 2;
+    quest_state = RavenQuestState::perfume_used;
     if (FindEntityByName("Ravenz", &position, 0, 0)) {
         group = SpawnMonsters(0x183, 1, &position, 0, true, false, false);
         location_id = group->MemberLocationId(0);
@@ -343,11 +356,11 @@ bool MartensBluff2PerfumeBox(Trigger* pTrigger)
             info = FindMonster(location_id);
             if (info != 0 && info->p3D != 0) {
                 info->p3D->SetScript("MB_MoveRapax.msf", true);
-                quest_state = 3;
+                quest_state = RavenQuestState::rapax_scripted;
             }
         }
     }
-    SetTriggerVariableByName("RavenQuest", quest_state);
+    SetRavenQuestState(quest_state);
     ShowString(g_localized_strings[0x71c]);
     return false;
 }
@@ -382,7 +395,7 @@ bool MartensBluff2SquisherControls(Trigger* pTrigger)
 
 static void CaptureCrusher(W8SavedLocationState& state)
 {
-    state.emplace_back("MonsterCrusher", g_crusher_state);
+    state.emplace_back("MonsterCrusher", static_cast<int>(g_crusher_state));
 }
 
 /* The MonsterCrusher master function. A nonzero command looks up the two
@@ -427,7 +440,7 @@ bool MartensBluff2MonsterCrusher(int command)
             g_squisher4_prop = pTrigger->GetProp();
         }
         if (command != static_cast<int>(0xEFFFFFFF)) {
-            g_crusher_state = command;
+            g_crusher_state = static_cast<W8CrusherState>(command);
         }
         if (g_squisher3_prop != 0 && g_squisher4_prop != 0) {
             const auto crusher_bounds = g_squisher3_prop->GetFrameBounds();
@@ -450,10 +463,10 @@ bool MartensBluff2MonsterCrusher(int command)
                                            centre, 0.7f, 30.0f, true);
             }
             g_crusher_active = true;
-            g_crusher_state = 1;
+            g_crusher_state = W8CrusherState::moving;
             g_master_functions.push_back({MartensBluff2MonsterCrusher, CaptureCrusher});
         }
-        if (command != 1 && GetLocationVarValueByName("RavenQuest") != 0) {
+        if (command != 1 && GetRavenQuestState() != RavenQuestState::not_started) {
             g_running_trigger_from_script = true;
             FindTriggerByName("Dummy")->Run(-1);
             FindTriggerByName("DummyRope")->Run(-1);
@@ -476,7 +489,7 @@ bool MartensBluff2MonsterCrusher(int command)
         }
 
         g_crusher_active = false;
-        g_crusher_state = 0;
+        g_crusher_state = W8CrusherState::inactive;
         return true;
     }
     if (g_squisher3_prop->animation_playing == 0) {
@@ -485,10 +498,10 @@ bool MartensBluff2MonsterCrusher(int command)
         }
         g_crusher_sound = 0;
         pTrigger = FindTriggerByName("Dummy");
-        if (GetLocationVarValueByName("RavenQuest") == 0) {
+        if (GetRavenQuestState() == RavenQuestState::not_started) {
 
             g_crusher_active = false;
-            g_crusher_state = 0;
+            g_crusher_state = W8CrusherState::inactive;
             return true;
         }
         g_running_trigger_from_script = true;
@@ -498,7 +511,7 @@ bool MartensBluff2MonsterCrusher(int command)
         pTrigger->Run(-1);
         g_dummy_rope_prop = pTrigger->GetProp();
         g_running_trigger_from_script = false;
-        g_crusher_state = 2;
+        g_crusher_state = W8CrusherState::waiting_for_dummies;
         return false;
     }
     left = g_squisher3_prop->m_gd_prop->computeBounds().maximum.x;

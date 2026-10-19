@@ -837,7 +837,8 @@ void TryStartMonsterCycle2(W8MonsterInfo* monster_info, W8Monster* monster,
                 signed char cycle = monster->pending_cycle;
 
                 if (cycle == 2 || !monster->IsCycleInterruptable(cycle) ||
-                    (gXStatus.fCombatMode && g_combat_state->eCombatActionStatus != 0 &&
+                    (gXStatus.fCombatMode &&
+                     g_combat_state->action_status != W8CombatActionStatus::idle &&
                      g_combat_state->pActionMonsterInfo == monster_info)) {
                     return;
                 }
@@ -945,7 +946,7 @@ bool RemoveMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal)
     DeactivateMonster(monster_info);
     if (g_combat_state && g_combat_state->pActionMonsterInfo == monster_info) {
         g_combat_state->pActionMonsterInfo = nullptr;
-        g_combat_state->eCombatActionStatus = 0;
+        g_combat_state->action_status = W8CombatActionStatus::idle;
     }
     if (removal == W8MonsterRemoval::Deactivate) return true;
     if (monster_info->p3D) {
@@ -998,7 +999,7 @@ void DeactivateMonster(W8MonsterInfo* monster_info)
             RefreshFlaggedMainGameState();
             RefreshCombatEngagement();
             if (g_combat_state->pActionMonsterInfo == monster_info) {
-                g_combat_state->eCombatActionStatus = 0;
+                g_combat_state->action_status = W8CombatActionStatus::idle;
                 g_combat_state->pActionMonsterInfo = 0;
             }
         }
@@ -1046,7 +1047,7 @@ void MonsterInfoLeaveCombat(W8MonsterInfo* monster_info)
         Fail("pMonsterInfo->pCombat");
     }
     if (g_combat_state->pActionMonsterInfo == monster_info) {
-        g_combat_state->eCombatActionStatus = 0;
+        g_combat_state->action_status = W8CombatActionStatus::idle;
         g_combat_state->pActionMonsterInfo = 0;
     }
     for (index = 0; index < 9; ++index) {

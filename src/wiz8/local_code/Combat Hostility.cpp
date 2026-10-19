@@ -399,7 +399,8 @@ void SetMonsterHostility(W8MonsterInfo* monster, W8Disposition hostility)
     }
     if (monster->pCombat && monster->hp_current > 0 &&
         monster->ubDisposition != W8_DISPOSITION_NEUTRAL) {
-        if (gXStatus.fCombatMode && g_combat_state->eCombatActionStatus != 1 &&
+        if (gXStatus.fCombatMode &&
+            g_combat_state->action_status != W8CombatActionStatus::scheduled &&
             g_combat_state->pActionMonsterInfo == monster) {
             EndMonsterAttack(monster);
             monster->action_kind = W8_MONSTER_ACTION_NONE;

@@ -40,7 +40,7 @@ void UpdateUiHelp();
 void ResetUiHelp(bool delayed);
 void SetUiHelpDelay(int delay_ms);
 
-enum class InputRoute { Pass, Handled, Stop };
+enum class InputRoute : unsigned char { Pass, Handled, Stop };
 
 /* How a screen or modal routes its frame's input. Each queued event is
    offered once: `before` may claim it ahead of the UI (gameplay pointer

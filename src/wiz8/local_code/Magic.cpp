@@ -616,11 +616,12 @@ void UpdateSpellEffects(void)
                         Fail("pOrigSource->iMonsterID != -1");
                     }
                     W8MonsterInfo* monster_info = FindMonster(effect.OrigSource.iMonsterID);
-                    if (gXStatus.fCombatMode && g_combat_state->eCombatActionStatus != 0 &&
+                    if (gXStatus.fCombatMode &&
+                        g_combat_state->action_status != W8CombatActionStatus::idle &&
                         g_combat_state->pActionMonsterInfo != 0 &&
                         g_combat_state->pActionMonsterInfo->location_id ==
                             monster_info->location_id) {
-                        g_combat_state->eCombatActionStatus = 3;
+                        g_combat_state->action_status = W8CombatActionStatus::finishing;
                     }
                 }
             }
@@ -3102,10 +3103,11 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                 Fail("pOrigSource->iMonsterID != -1");
             }
             monster_info = FindMonster(owner.Source.iMonsterID);
-            if (gXStatus.fCombatMode && g_combat_state->eCombatActionStatus != 0 &&
+            if (gXStatus.fCombatMode &&
+                g_combat_state->action_status != W8CombatActionStatus::idle &&
                 g_combat_state->pActionMonsterInfo != 0 &&
                 g_combat_state->pActionMonsterInfo->location_id == monster_info->location_id) {
-                g_combat_state->eCombatActionStatus = 3;
+                g_combat_state->action_status = W8CombatActionStatus::finishing;
             }
         }
         return 2;

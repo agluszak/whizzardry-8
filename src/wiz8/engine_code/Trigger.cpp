@@ -1194,7 +1194,7 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
         trigger->recipients = recipients;
         trigger->state_count = static_cast<unsigned char>(byte1);
         trigger->state_index = 0;
-        trigger->state_direction = 1;
+        trigger->state_direction = W8TriggerStateDirection::forward;
         trigger->cycle_bounce = byte0;
         trigger->action_value = action_value;
         trigger->initial_action = action;
@@ -1630,7 +1630,7 @@ Trigger::Trigger(W8World* world)
     action_value = 0;
     state_count = 0;
     state_index = 0;
-    state_direction = 0;
+    state_direction = W8TriggerStateDirection::stopped;
     cycle_bounce = 0;
     state_mod_mode = W8TriggerStateModificationMode::none;
     searchable = 0;
@@ -2259,11 +2259,11 @@ void Trigger::Run(int source)
                         state_index = 0;
                     } else {
                         state_index = state_count - 2;
-                        state_direction = 0xff;
+                        state_direction = W8TriggerStateDirection::backward;
                     }
                 } else if (next < 0) {
                     state_index = 1;
-                    state_direction = 1;
+                    state_direction = W8TriggerStateDirection::forward;
                 }
             }
 

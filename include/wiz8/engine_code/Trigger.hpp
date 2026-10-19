@@ -150,6 +150,7 @@ enum class W8TriggerActionState : unsigned char {
     alternate_action = 3,
     fallback_action = 4
 };
+enum class W8TriggerStateDirection : signed char { stopped = 0, forward = 1, backward = -1 };
 enum class W8TriggerStateModificationMode : unsigned char {
     none = 0,
     set = 1,
@@ -241,7 +242,7 @@ public:
     int action_value;
     unsigned char state_count;
     unsigned char state_index;
-    unsigned char state_direction;
+    W8TriggerStateDirection state_direction;
     unsigned char cycle_bounce;
     W8TriggerStateModificationMode state_mod_mode;
     unsigned char unknown_0b5[3];

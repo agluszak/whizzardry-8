@@ -349,7 +349,6 @@ void InitializeMainGameLevelBlock(void)
     g_level_block->text_box_font = &g_wiz_text_font_secondary;
     g_level_block->palette = g_wiz_text_font_secondary.glyphs->colors;
     g_level_block->selection_kind = W8_ACTION_NONE;
-    g_level_block->pending_action = -1;
     g_level_block->selection_settled = false;
     g_level_block->tooltip_since = 0;
     g_level_block->tooltip_pending = false;

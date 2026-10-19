@@ -73,18 +73,18 @@ static unsigned char GetNpcConfiguredStockQuantity(W8NpcState* npc, int item_id)
     return 0;
 }
 
-static char NpcStockChanceForTier(char tier)
+static char NpcStockChanceForTier(W8NpcStockChanceTier tier)
 {
     switch (tier) {
-    case 0:
+    case W8NpcStockChanceTier::never:
         return 0;
-    case 1:
+    case W8NpcStockChanceTier::quarter:
         return 25;
-    case 2:
+    case W8NpcStockChanceTier::half:
         return 50;
-    case 3:
+    case W8NpcStockChanceTier::three_quarters:
         return 75;
-    case 4:
+    case W8NpcStockChanceTier::always:
         return 100;
     default:
         return 0;
@@ -222,7 +222,7 @@ unsigned char PopulateNpcStock(W8NpcState* npc)
     char persistent;
     char added;
     char chance;
-    char tier;
+    W8NpcStockChanceTier tier;
 
     rule_count = npc->record->item_stock_rules.size();
     if (rule_count == 0) {
@@ -241,7 +241,7 @@ unsigned char PopulateNpcStock(W8NpcState* npc)
                     if (persistent == 0) {
                         tier = RateItemIdentifyDifficulty(npc, item_id);
                     } else {
-                        tier = 4;
+                        tier = W8NpcStockChanceTier::always;
                     }
                     chance = NpcStockChanceForTier(tier);
                     if (Random(100) < static_cast<unsigned int>(chance)) {
@@ -327,7 +327,7 @@ int RestockNpcItems(W8NpcState* npc)
     int configured;
     unsigned char held;
     unsigned char amount;
-    char tier;
+    W8NpcStockChanceTier tier;
     char chance;
 
     rule_count = npc->record->item_stock_rules.size();
@@ -352,7 +352,7 @@ int RestockNpcItems(W8NpcState* npc)
         if (rule->persistent == 0) {
             tier = RateItemIdentifyDifficulty(npc, rule->item_id);
         } else {
-            tier = 4;
+            tier = W8NpcStockChanceTier::always;
         }
         chance = NpcStockChanceForTier(tier);
         if (static_cast<unsigned int>(chance) <= Random(100)) {
@@ -374,7 +374,7 @@ int RestockNpcItems(W8NpcState* npc)
    falls. Every comparison here is signed, so the difficulty byte is read into a
    char, and the tier is returned byte-sized. The NPC argument is unused by the
    original. */
-char RateItemIdentifyDifficulty(W8NpcState* npc, int item_id)
+W8NpcStockChanceTier RateItemIdentifyDifficulty(W8NpcState* npc, int item_id)
 {
     char difficulty;
     char level;
@@ -398,12 +398,12 @@ char RateItemIdentifyDifficulty(W8NpcState* npc, int item_id)
         upper = 20;
     }
     if (difficulty > upper) {
-        return 0;
+        return W8NpcStockChanceTier::never;
     }
     if (difficulty < lower) {
-        return static_cast<char>((difficulty + 4 >= lower) + 1);
+        return static_cast<W8NpcStockChanceTier>((difficulty + 4 >= lower) + 1);
     }
-    return 3;
+    return W8NpcStockChanceTier::three_quarters;
 }
 
 /* Add stock that only becomes ordinary trade stock once the world clock passes

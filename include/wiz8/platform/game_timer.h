@@ -27,7 +27,7 @@ void ResumeSharedGameTimers(void);
 
 /* Mode 1 samples the saved game-day/millisecond clock. Mode 0 samples the
    shared clock; its separate raw-time flag controls pause adjustment. */
-enum W8TimerClock { W8_TIMER_CLOCK_SHARED = 0, W8_TIMER_CLOCK_GAME = 1 };
+enum W8TimerClock : unsigned char { W8_TIMER_CLOCK_SHARED = 0, W8_TIMER_CLOCK_GAME = 1 };
 
 class W8GameTimer {
 public:

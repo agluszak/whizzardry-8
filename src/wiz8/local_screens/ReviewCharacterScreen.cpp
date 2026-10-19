@@ -2261,7 +2261,7 @@ int CommitPartySlotItemUse(int party_slot, W8ItemInstance* item, W8CombatSlot* t
     row->pending_action = W8_ACTION_USE_ITEM;
     row->attack_mode[0] = -1;
     row->attack_mode[1] = -1;
-    row->pending_action_detail.item_use.kind = -1;
+    row->pending_action_detail.item_use.kind = W8ItemUseDetailKind::none;
     row->pending_action_detail.item_use.item = item;
     row->target_out_of_combat = *target;
     result = UseItem(&g_status.buffers.Char[party_slot], item, &uses);

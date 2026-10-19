@@ -272,7 +272,8 @@ void RefreshPartySelectionPortrait(unsigned int party_slot)
     const int portrait = g_status.buffers.Char[row + 2].portrait_index;
     const auto position = PartySlotPosition(row);
     SpriteDraw draw{};
-    draw.mirror = g_portrait_descriptors[portrait].render_mode == ((row & 1) ? 2 : 1);
+    draw.mirror = g_portrait_descriptors[portrait].mirror_side ==
+                  ((row & 1) ? W8PortraitMirrorSide::right : W8PortraitMirrorSide::left);
     BlitPartyPortraitAnimation(GetFrameBufferSurface(), portrait, position.x, position.y, draw,
                                row + 2, false);
 }
@@ -361,7 +362,8 @@ void W8PartySelectionController::DrawSlots(SDL_Surface& target)
             character = &g_status.buffers.Char[row + 2];
             const int portrait = character->portrait_index;
             SpriteDraw draw{};
-            draw.mirror = g_portrait_descriptors[portrait].render_mode == ((row & 1) ? 2 : 1);
+            draw.mirror = g_portrait_descriptors[portrait].mirror_side ==
+                          ((row & 1) ? W8PortraitMirrorSide::right : W8PortraitMirrorSide::left);
             RenderPartyPortrait(target, portrait, left, top, draw, 1, row + 2);
         }
         CatalogArtwork::Load(0x100, 0).drawAndInvalidate(target, 0, left - 13, top - 11);

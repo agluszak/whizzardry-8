@@ -7,6 +7,12 @@
 
 struct W8Character;
 
+enum class W8Wiz7CharacterStatus : unsigned char {
+    unknown = 0,
+    dead_with_status_2 = 2,
+    dead_with_status_3 = 3,
+};
+
 /* One imported Wizardry 7 item record. */
 struct W8Wiz7Item {
     short item_number;
@@ -37,7 +43,7 @@ struct W8Wiz7Character {
     unsigned char gender;
     unsigned char profession; /* Wiz7 class byte */
     unsigned char unknown_23a;
-    unsigned char status; /* 2 or 3 imports as a dead member */
+    W8Wiz7CharacterStatus status; /* 2 or 3 imports as a dead member */
     unsigned char unknown_23c[0xc];
 };
 

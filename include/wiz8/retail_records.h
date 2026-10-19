@@ -35,7 +35,7 @@ struct CameraState {
 };
 static_assert(sizeof(CameraState) == 0x3c);
 struct TargetSource {
-    W8TargetSourceKind iType;
+    std::int32_t iType;
     int iChar;
     int iMonsterID;
     Vec3f point;

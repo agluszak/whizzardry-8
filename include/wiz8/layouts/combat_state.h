@@ -27,6 +27,8 @@ class W8SpellVisual;
 
 enum class W8CombatEquipPhase : unsigned char { action_selection, resolving };
 
+enum class W8CombatActionStatus : unsigned char { idle, scheduled, resolving, finishing };
+
 /* OnCollision produces HIT or DEFLECTED; attack setup also seeds the result
    when collision is bypassed. The shared combat-state field remains one byte. */
 enum W8MissileHitResult : signed char {
@@ -218,7 +220,7 @@ struct W8CombatState {
     /* Historical offset 0x7ac: the pacing clock the scheduler arms as a w8_get_ticks deadline
        before the scheduled actor's action may execute. */
     uint64_t action_clock;
-    int eCombatActionStatus;
+    W8CombatActionStatus action_status = W8CombatActionStatus::idle;
     int iActionChar;
     struct W8MonsterInfo* pActionMonsterInfo;
     wiz8::sound::Playback hit_sound;

@@ -902,9 +902,10 @@ void W8CharacterPersonalityPage::SetCharacter(W8Character* character,
     W8CharacterPage::SetCharacter(character, creation_state, mode);
     constexpr SDL_Point positions[] = {
         {100, 0x19}, {0x144, 0x19}, {100, 0x67}, {0x144, 0x67}, {0x16d, 0x155}};
-    for (int action = 0; action < 5; ++action) {
-        const int frame = action == 4 ? 20 : action % 2 ? 15 : 10;
-        auto& button = m_buttons[action];
+    for (int button_index = 0; button_index < 5; ++button_index) {
+        const auto action = static_cast<W8CharacterPortraitAction>(button_index);
+        const int frame = button_index == 4 ? 20 : button_index % 2 ? 15 : 10;
+        auto& button = m_buttons[button_index];
         button = std::make_unique<W8ButtonWidget>(input);
         button->Configure(ButtonGraphics::Load(CatalogArtwork::Load(0x10a, 0).spriteSheet(),
                                                frame + 3, frame, frame + 1, frame + 2, frame + 4),
@@ -913,11 +914,11 @@ void W8CharacterPersonalityPage::SetCharacter(W8Character* character,
                                    AfterUiDispatch([this, action] { ChangePortrait(action); });
                                },
                            .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
-                           .tooltip = action == 4 ? 0xf5 : -1,
+                           .tooltip = action == W8CharacterPortraitAction::show_summary ? 0xf5 : -1,
                            .priority = UI_PRIORITY_LOWEST,
                            .menu_artwork = true});
 
-        button->SetPosition(0xc3 + positions[action].x, 0x2b + positions[action].y);
+        button->SetPosition(0xc3 + positions[button_index].x, 0x2b + positions[button_index].y);
     }
     character->voice = std::clamp(int(character->voice), 0, 1);
     for (int index = 0; index < 11; ++index) {
@@ -1188,27 +1189,28 @@ void W8CharacterPersonalityPage::Redraw(SDL_Surface& target, bool full_redraw)
     }
 }
 
-void W8CharacterPersonalityPage::ChangePortrait(int action)
+void W8CharacterPersonalityPage::ChangePortrait(W8CharacterPortraitAction action)
 {
     int portrait = m_character->portrait_index;
-    if (action == 1) {
+    if (action == W8CharacterPortraitAction::next_group) {
         int group = g_portrait_descriptors[portrait].group + 1;
         if (group > 11) group = 0;
         m_character->portrait_index = g_portrait_groups[group].portraits[0];
         m_portrait_dirty = true;
-    } else if (action == 0) {
+    } else if (action == W8CharacterPortraitAction::previous_group) {
         int group = g_portrait_descriptors[portrait].group - 1;
         if (group < 0) group = 11;
         m_character->portrait_index = g_portrait_groups[group].portraits[0];
         m_portrait_dirty = true;
-    } else if (action == 3 || action == 2) {
+    } else if (action == W8CharacterPortraitAction::next_portrait ||
+               action == W8CharacterPortraitAction::previous_portrait) {
         int group = g_portrait_descriptors[portrait].group;
         W8PortraitGroup* portraits = &g_portrait_groups[group];
         int index = 0;
         while (index < portraits->count && portraits->portraits[index] != portrait) {
             ++index;
         }
-        if (action == 3) {
+        if (action == W8CharacterPortraitAction::next_portrait) {
             ++index;
             if (index >= portraits->count) index = 0;
         } else {
@@ -1217,7 +1219,7 @@ void W8CharacterPersonalityPage::ChangePortrait(int action)
         }
         m_character->portrait_index = portraits->portraits[index];
         m_portrait_dirty = true;
-    } else if (action == 4) {
+    } else if (action == W8CharacterPortraitAction::show_summary) {
         m_animation_active = true;
         m_animation_frame = 2;
         anim_timer.Restart();
@@ -1226,7 +1228,7 @@ void W8CharacterPersonalityPage::ChangePortrait(int action)
         m_screen->ShowCharacterSummary();
     }
 
-    if (action != 4) {
+    if (action != W8CharacterPortraitAction::show_summary) {
         m_screen->UpdateNavigation(this);
     }
 }

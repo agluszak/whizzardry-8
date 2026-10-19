@@ -347,11 +347,13 @@ extern W8Skill g_profession_skills[W8_PROFESSION_COUNT][4];
 extern int g_profession_magic_level_offsets[W8_PROFESSION_COUNT];
 extern float g_profession_hit_point_factors[W8_PROFESSION_COUNT];
 
+enum class W8PortraitMirrorSide : unsigned char { none, left, right };
+
 struct W8PortraitDescriptor {
     int group;
     int unknown_004;
     int unknown_008;
-    int render_mode;
+    W8PortraitMirrorSide mirror_side;
 };
 
 extern W8PortraitDescriptor g_portrait_descriptors[80];

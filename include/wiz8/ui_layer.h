@@ -12,9 +12,9 @@
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_rect.h>
 
-enum class UiPointerAction { Enter, Leave, Move, Down, Up, Repeat, Wheel };
-enum class UiPointerButton { None, Left, Right };
-enum class UiResult { Pass, Handled };
+enum class UiPointerAction : std::uint8_t { Enter, Leave, Move, Down, Up, Repeat, Wheel };
+enum class UiPointerButton : std::uint8_t { None, Left, Right };
+enum class UiResult : std::uint8_t { Pass, Handled };
 
 struct UiPointerEvent {
     UiPointerAction action;
@@ -85,7 +85,7 @@ private:
 
 // Named overlay ordering. Lower orders win, and equal layers use insertion
 // order. Only relative precedence matters; no retail region-set IDs survive.
-enum class UiLayerOrder {
+enum class UiLayerOrder : std::uint8_t {
     LockInput,
     Combat,
     PortraitButtons,
@@ -118,12 +118,12 @@ enum class UiLayerOrder {
 };
 
 // Lower layer orders win; within a layer higher priorities win, then first registration.
-enum class UiLayerMode { Normal, Modal };
+enum class UiLayerMode : std::uint8_t { Normal, Modal };
 
 // A layer belongs to the input owner (normally the screen) active when it is
 // created, and receives input only while that owner is selected. Shared
 // layers outlive screen switches and stay active under every owner.
-enum class UiLayerScope { Owner, Shared };
+enum class UiLayerScope : std::uint8_t { Owner, Shared };
 
 class UiLayer {
 public:

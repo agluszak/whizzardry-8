@@ -353,36 +353,39 @@ bool MartensBluff1Transporter(int command)
    been chosen yet. Always answers false so the trigger stays armed. */
 bool MartensBluff1Teleporter(Trigger* pTrigger)
 {
-    int state;
+    MartensBluff1TeleporterPad state;
 
     if (GetLocationVarIDByName("TeleporterState") == -1) {
         CreateLocationVar("TeleporterState", 0);
-        state = 0;
+        state = MartensBluff1TeleporterPad::none;
     } else {
-        state = GetLocationVarValueByName("TeleporterState");
+        state =
+            static_cast<MartensBluff1TeleporterPad>(GetLocationVarValueByName("TeleporterState"));
     }
-    if (state == 0) {
-        state = Random(4) + 1;
+    if (state == MartensBluff1TeleporterPad::none) {
+        state = static_cast<MartensBluff1TeleporterPad>(Random(4) + 1);
     }
-    switch (state - 1) {
-    case 0:
+    switch (state) {
+    case MartensBluff1TeleporterPad::gigas:
         pTrigger->RunDestination("CT611");
         return false;
-    case 1:
+    case MartensBluff1TeleporterPad::trang:
         pTrigger->RunDestination("CT107");
         return false;
-    case 2:
+    case MartensBluff1TeleporterPad::rift:
         pTrigger->RunDestination("RIF01");
         return false;
-    case 3:
+    case MartensBluff1TeleporterPad::maten:
         pTrigger->RunDestination("MR207");
         return false;
+    case MartensBluff1TeleporterPad::none:
+        break;
     }
     return false;
 }
 
 /* Advances the teleporter to a pad; while a teleport runs, a press only re-arms the input. */
-static bool pressTeleporterButton(int pad)
+static bool pressTeleporterButton(MartensBluff1TeleporterPad pad)
 {
     if (!g_teleport_running) {
         return MartensBluff1TeleportState(pad);
@@ -395,68 +398,69 @@ static bool pressTeleporterButton(int pad)
    running it only re-arms the consumed-input flag. */
 bool MartensBluff1ButtonGigas(Trigger* pTrigger)
 {
-    return pressTeleporterButton(1);
+    return pressTeleporterButton(MartensBluff1TeleporterPad::gigas);
 }
 
 /* "ButtonTrang": advances the teleporter to pad 2. */
 bool MartensBluff1ButtonTrang(Trigger* pTrigger)
 {
-    return pressTeleporterButton(2);
+    return pressTeleporterButton(MartensBluff1TeleporterPad::trang);
 }
 
 /* "ButtonRift": advances the teleporter to pad 3. */
 bool MartensBluff1ButtonRift(Trigger* pTrigger)
 {
-    return pressTeleporterButton(3);
+    return pressTeleporterButton(MartensBluff1TeleporterPad::rift);
 }
 
 /* "ButtonMaten": advances the teleporter to pad 4. */
 bool MartensBluff1ButtonMaten(Trigger* pTrigger)
 {
-    return pressTeleporterButton(4);
+    return pressTeleporterButton(MartensBluff1TeleporterPad::maten);
 }
 
 /* Shared teleporter state advance. Asserts the MR109 trigger exists, reads
    the current TeleporterState and, when it names a different live pad, runs
    that pad's button trigger before writing the new state. The re-entrancy
    flag keeps the button callbacks from recursing back in. */
-bool MartensBluff1TeleportState(int new_state)
+bool MartensBluff1TeleportState(MartensBluff1TeleporterPad new_state)
 {
     Trigger* pOldButtonTrigger;
-    int state;
+    MartensBluff1TeleporterPad state;
 
     FindRequiredTriggerByName("MR109");
     if (GetLocationVarIDByName("TeleporterState") == -1) {
         CreateLocationVar("TeleporterState", 0);
         return false;
     }
-    state = GetLocationVarValueByName("TeleporterState");
-    if (state == 0) {
+    state = static_cast<MartensBluff1TeleporterPad>(GetLocationVarValueByName("TeleporterState"));
+    if (state == MartensBluff1TeleporterPad::none) {
         return false;
     }
     if (state == new_state) {
         return false;
     }
     g_teleport_running = true;
-    switch (state - 1) {
-    case 0:
+    switch (state) {
+    case MartensBluff1TeleporterPad::gigas:
         pOldButtonTrigger = FindRequiredTriggerByName("ButtonGigas");
         break;
-    case 1:
+    case MartensBluff1TeleporterPad::trang:
         pOldButtonTrigger = FindRequiredTriggerByName("ButtonTrang");
         break;
-    case 2:
+    case MartensBluff1TeleporterPad::rift:
         pOldButtonTrigger = FindRequiredTriggerByName("ButtonRift");
         break;
-    case 3:
+    case MartensBluff1TeleporterPad::maten:
         pOldButtonTrigger = FindRequiredTriggerByName("ButtonMaten");
         break;
+    case MartensBluff1TeleporterPad::none:
     default:
         goto set_state;
     }
     pOldButtonTrigger->Run(-1);
 set_state:
-    SetTriggerVariableByName("TeleporterState", new_state);
+    SetTriggerVariableByName("TeleporterState", static_cast<int>(new_state));
     g_teleport_running = false;
     return true;
 }
@@ -471,12 +475,14 @@ bool MartensBluff1WireTrigger(Trigger* pTrigger)
     g_trigger_feedback = true;
     pTelTrigger = FindRequiredTriggerByName("MR109");
     if (GetLocationVarIDByName("TeleporterState") == -1) {
-        CreateLocationVar("TeleporterState", 1);
+        CreateLocationVar("TeleporterState", static_cast<int>(MartensBluff1TeleporterPad::gigas));
     } else {
-        if (GetLocationVarValueByName("TeleporterState") != 0) {
+        if (GetLocationVarValueByName("TeleporterState") !=
+            static_cast<int>(MartensBluff1TeleporterPad::none)) {
             return false;
         }
-        SetTriggerVariableByName("TeleporterState", 1);
+        SetTriggerVariableByName("TeleporterState",
+                                 static_cast<int>(MartensBluff1TeleporterPad::gigas));
     }
     g_teleport_running = true;
     pTelTrigger = FindRequiredTriggerByName("ButtonGigas");
