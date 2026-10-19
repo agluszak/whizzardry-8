@@ -900,7 +900,7 @@ static std::unique_ptr<W8SaveSlot> ReadSaveSlot(const std::string& name,
     auto slot = std::make_unique<W8SaveSlot>();
     DetachedStatus saved;
     bool has_status = false;
-    slot->screenshot.capture_result = 0;
+    slot->screenshot.capture_result = W8ScreenshotCaptureResult::failed;
     slot->version_major = kUnversionedSave.major;
     slot->version_minor = kUnversionedSave.minor;
     slot->version_patch = kUnversionedSave.patch;
@@ -1531,7 +1531,9 @@ void CaptureSaveScreenshot(W8SaveScreenshot& screenshot)
     auto surface = CreateCpuStorage(80, 60, SDL_PIXELFORMAT_ARGB1555, screenshot.pixels, 160);
     SetRendererAutoFlipEnabled(false);
     ScopeExit restore([] { SetRendererAutoFlipEnabled(true); });
-    screenshot.capture_result = RenderWorldToSurface(surface.get(), &rect, true);
+    screenshot.capture_result = RenderWorldToSurface(surface.get(), &rect, true)
+                                    ? W8ScreenshotCaptureResult::succeeded
+                                    : W8ScreenshotCaptureResult::failed;
     RenderFrame();
 }
 

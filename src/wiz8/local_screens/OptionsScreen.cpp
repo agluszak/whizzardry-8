@@ -616,7 +616,7 @@ void W8OptionsSaveRow::Redraw(SDL_Surface& target, bool full_redraw)
 
     int x = button.Bounds().x;
     int y = button.Bounds().y;
-    if (m_save->screenshot.capture_result == 0) {
+    if (m_save->screenshot.capture_result == W8ScreenshotCaptureResult::failed) {
         CatalogArtwork::Load(0xf6, 0).draw(target, 0, x + 6, y + 6);
     } else {
         auto portrait =
