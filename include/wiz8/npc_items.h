@@ -2,6 +2,14 @@
 #define WIZ8_NPC_ITEMS_H
 
 #include "wiz8/layouts/item_instance.h"
+
+enum class W8NpcStockChanceTier : signed char {
+    never = 0,
+    quarter = 1,
+    half = 2,
+    three_quarters = 3,
+    always = 4,
+};
 #include "wiz8/npc_trade_price.h"
 
 struct W8ItemInstance;
@@ -42,7 +50,7 @@ W8TradeResult CompleteNpcTrade(W8NpcState* npc, const W8TradeSelection& selectio
 int AddNpcItem(W8NpcState* npc, int item_id, unsigned int quantity);
 int AddNpcItemFromInstance(W8NpcState* npc, const W8ItemInstance* item, char quantity);
 int AddNpcItemWithDelay(W8NpcState* npc, int item_id, unsigned int quantity, int delay);
-char RateItemIdentifyDifficulty(W8NpcState* npc, int item_id);
+W8NpcStockChanceTier RateItemIdentifyDifficulty(W8NpcState* npc, int item_id);
 int RestockNpcItems(W8NpcState* npc);
 void SortNpcItems(W8NpcState* npc);
 unsigned char PopulateNpcStock(W8NpcState* npc);
