@@ -173,7 +173,7 @@ W8EquipSlot GetItemDefaultEquipSlot(int item_id)
 /* The hand opposite the one given. Anything that is not a hand has no
    opposite. */
 // FUNCTION: WIZ8 0x0051c8b0
-W8EquipSlot GetPairedEquipSlot(W8EquipSlot equip_slot)
+std::optional<W8EquipSlot> GetPairedEquipSlot(W8EquipSlot equip_slot)
 {
     switch (equip_slot) {
     case W8_EQUIP_SLOT_PRIMARY_WEAPON:
@@ -185,7 +185,7 @@ W8EquipSlot GetPairedEquipSlot(W8EquipSlot equip_slot)
     case W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON:
         return W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON;
     default:
-        return W8_EQUIP_SLOT_NONE;
+        return std::nullopt;
     }
 }
 
@@ -2742,15 +2742,14 @@ void SwapItemInstances(W8ItemInstance* item, W8ItemInstance* destination, W8Char
 bool EquipHeldItemAndStowPartner(W8Character& character, W8EquipSlot slot)
 {
     const auto partner_slot = GetPairedEquipSlot(slot);
-    if (partner_slot == W8_EQUIP_SLOT_NONE || !g_status.item_in_cursor ||
-        g_status.item_in_hand.iItemNo == -1 || !CanUnequipSlotItem(&character, slot) ||
-        !CanUnequipSlotItem(&character, partner_slot))
+    if (!partner_slot || !g_status.item_in_cursor || g_status.item_in_hand.iItemNo == -1 ||
+        !CanUnequipSlotItem(&character, slot) || !CanUnequipSlotItem(&character, *partner_slot))
         return false;
     auto proposed = character;
-    proposed.EquippedItem[partner_slot].iItemNo = -1;
+    proposed.EquippedItem[*partner_slot].iItemNo = -1;
     if (!CanEquipItemInSlot(&proposed, g_status.item_in_hand.iItemNo, slot, false)) return false;
     auto& destination = character.EquippedItem[slot];
-    auto& partner = character.EquippedItem[partner_slot];
+    auto& partner = character.EquippedItem[*partner_slot];
     const bool replace = destination.iItemNo != -1;
     W8ItemInstance* storage = nullptr;
     int backpack_slot = -1;
@@ -3767,7 +3766,6 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
 void SplitThrowableStackBetweenHands(W8Character* character, W8EquipSlot equip_slot)
 {
     W8ItemInstance created;
-    W8EquipSlot source_slot;
     W8ItemInstance* source;
     int item_id;
     unsigned char moved;
@@ -3776,8 +3774,9 @@ void SplitThrowableStackBetweenHands(W8Character* character, W8EquipSlot equip_s
         equip_slot != W8_EQUIP_SLOT_SECONDARY_WEAPON) {
         return;
     }
-    source_slot = GetPairedEquipSlot(equip_slot);
-    source = &character->EquippedItem[source_slot];
+    const auto source_slot = GetPairedEquipSlot(equip_slot);
+    if (!source_slot) return;
+    source = &character->EquippedItem[*source_slot];
     item_id = source->iItemNo;
     /* Equipment class two is the thrown weapon, which is the only kind that
        stacks across the two hands. */

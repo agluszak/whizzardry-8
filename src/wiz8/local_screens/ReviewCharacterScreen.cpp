@@ -649,12 +649,13 @@ void DrawCampEquipmentItems(void)
         item_id = character->EquippedItem[slot].iItemNo;
         if (item_id == -1) {
             if (slot == 7 || slot == 9) {
-                int paired =
-                    character->EquippedItem[GetPairedEquipSlot(static_cast<W8EquipSlot>(slot))]
-                        .iItemNo;
-                if (paired != -1 && (g_item_records[paired].flags & W8_ITEM_FLAG_TWO_HANDED) != 0) {
-                    CatalogArtwork::Load(0x146, 0).drawAndInvalidate(GetFrameBufferSurface(), 0,
-                                                                     region->x, region->y);
+                if (const auto paired_slot = GetPairedEquipSlot(static_cast<W8EquipSlot>(slot))) {
+                    int paired = character->EquippedItem[*paired_slot].iItemNo;
+                    if (paired != -1 &&
+                        (g_item_records[paired].flags & W8_ITEM_FLAG_TWO_HANDED) != 0) {
+                        CatalogArtwork::Load(0x146, 0).drawAndInvalidate(GetFrameBufferSurface(), 0,
+                                                                         region->x, region->y);
+                    }
                 }
             }
         } else {
@@ -1702,7 +1703,7 @@ static void RefreshCampItemOrigin(W8ItemOrigin origin, W8EquipSlot equip_slot)
 {
     if (origin == W8_ITEM_ORIGIN_EQUIPPED) {
         RebuildEquipmentAndDerivedStatsForSlot(giReviewCharSlot);
-        if (GetPairedEquipSlot(equip_slot) != -1) {
+        if (GetPairedEquipSlot(equip_slot)) {
             g_status.buffers.XChar[giReviewCharSlot].weapon_swap_pending = false;
         }
         RebuildCampItemList();
@@ -1995,7 +1996,12 @@ void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOr
                     }
                     if (origin == W8_ITEM_ORIGIN_EQUIPPED && g_status.item_in_cursor &&
                         !HeldItemFitsPairedSlot(giReviewCharSlot, equip_slot)) {
-                        paired_slot = GetPairedEquipSlot(equip_slot);
+                        const auto paired_slot_result = GetPairedEquipSlot(equip_slot);
+                        if (!paired_slot_result) {
+                            ShowCampNoticeLine(g_localized_strings[0x90c], 0, true, false);
+                            return;
+                        }
+                        paired_slot = *paired_slot_result;
                         paired = &g_review_character->EquippedItem[paired_slot];
                         if (!CanUnequipSlotItem(g_review_character, paired_slot)) {
                             text = g_localized_strings[0x916];

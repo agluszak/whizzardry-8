@@ -48,7 +48,7 @@ void SetHandType(W8Character* character, W8EquipSlot equip_slot);
 unsigned int GetEquipmentBindingDifficulty(int character_index);
 bool CompatiblePartnerItems(int weapon_item_id, int off_hand_item_id);
 bool ItemUsesShots(int item_id);
-W8EquipSlot GetPairedEquipSlot(W8EquipSlot equip_slot);
+std::optional<W8EquipSlot> GetPairedEquipSlot(W8EquipSlot equip_slot);
 std::string GetItemDisplayName(const W8ItemInstance* item);
 
 bool ItemHasSingledOutGenericName(int item_id);

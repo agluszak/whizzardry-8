@@ -147,8 +147,8 @@ void GetCharacterHandDamageDice(const W8Character* character, int hand, W8Dice* 
         slot = W8_EQUIP_SLOT_PRIMARY_WEAPON;
         if (ItemHasSingledOutGenericName(
                 character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo)) {
-            W8EquipSlot partner = GetPairedEquipSlot(W8_EQUIP_SLOT_PRIMARY_WEAPON);
-            if (partner != W8_EQUIP_SLOT_NONE) slot = partner;
+            if (const auto partner = GetPairedEquipSlot(W8_EQUIP_SLOT_PRIMARY_WEAPON))
+                slot = *partner;
         }
     } else {
         slot = W8_EQUIP_SLOT_SECONDARY_WEAPON;
@@ -2460,11 +2460,11 @@ int ResolveCharacterAttackDamage(int party_slot, int hand, W8AttackMode attack_m
             srAssertFail("pPC->Hand[uiHand].uiHolds == HOLDS_NOTHING", COMBAT_ATTACK_CPP, 0xc50, 0);
         }
         if (pPC->Hand[0].uiHolds != HOLDS_NOTHING) {
-            W8EquipSlot paired = W8_EQUIP_SLOT_NONE;
+            const auto paired = GetPairedEquipSlot(W8_EQUIP_SLOT_PRIMARY_WEAPON);
             if (ItemHasSingledOutGenericName(
                     pPC->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo) &&
-                (paired = GetPairedEquipSlot(W8_EQUIP_SLOT_PRIMARY_WEAPON)) != W8_EQUIP_SLOT_NONE) {
-                dice = g_item_records[pPC->EquippedItem[paired].iItemNo].damage_dice;
+                paired) {
+                dice = g_item_records[pPC->EquippedItem[*paired].iItemNo].damage_dice;
             } else {
                 dice = g_item_records[pPC->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo]
                            .damage_dice;
@@ -2482,12 +2482,11 @@ int ResolveCharacterAttackDamage(int party_slot, int hand, W8AttackMode attack_m
         } else {
             int item_id;
             if (hand == 0) {
-                W8EquipSlot paired = W8_EQUIP_SLOT_NONE;
+                const auto paired = GetPairedEquipSlot(W8_EQUIP_SLOT_PRIMARY_WEAPON);
                 if (ItemHasSingledOutGenericName(
                         pPC->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo) &&
-                    (paired = GetPairedEquipSlot(W8_EQUIP_SLOT_PRIMARY_WEAPON)) !=
-                        W8_EQUIP_SLOT_NONE) {
-                    item_id = pPC->EquippedItem[paired].iItemNo;
+                    paired) {
+                    item_id = pPC->EquippedItem[*paired].iItemNo;
                 } else {
                     item_id = pPC->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo;
                 }
@@ -3526,7 +3525,11 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
         row->current_equip_slot = W8_EQUIP_SLOT_PRIMARY_WEAPON;
         if (ItemHasSingledOutGenericName(
                 character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo)) {
-            row->paired_equip_slot = GetPairedEquipSlot(row->current_equip_slot);
+            if (const auto paired = GetPairedEquipSlot(row->current_equip_slot)) {
+                row->paired_equip_slot = *paired;
+            } else {
+                row->paired_equip_slot = W8_EQUIP_SLOT_NONE;
+            }
         } else {
             row->paired_equip_slot = W8_EQUIP_SLOT_NONE;
         }
