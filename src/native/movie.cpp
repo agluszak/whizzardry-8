@@ -202,12 +202,11 @@ struct W8NativeVideo::State {
     }
     void video_frame()
     {
+        const double time_base = av_q2d(format->streams[*video_index]->time_base);
         double time =
             decoded->best_effort_timestamp == AV_NOPTS_VALUE
                 ? video_frames * frame_duration
-                : decoded->best_effort_timestamp *
-                      av_q2d(format->streams[*video_index]->time_base) -
-                      origin;
+                : decoded->best_effort_timestamp * time_base - origin;
         Frame frame{decoded->width, decoded->height, std::max(0.0, time), frame_duration, {}};
         frame.pixels.resize(size_t(frame.width) * frame.height);
         scale =
