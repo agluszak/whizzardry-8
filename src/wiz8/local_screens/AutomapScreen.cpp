@@ -1200,7 +1200,6 @@ unsigned char ShowAutomapNoteTooltip(W8AutomapNote* note)
                     (1.0f / (g_automap_zoom * 0.00004f)) * 0.44f *
                     static_cast<double>(g_automap_text_marker->scaledSize().x) * 0.5f);
             }
-            g_automap_text_marker->scaledSize().y;
             DesignRect rect;
             rect.top = (0x20 - screen_y) - ((unsigned)g_wiz_text_font_secondary.height() >> 1);
             rect.left = marker_width / 2 + (0xe - screen_x);
