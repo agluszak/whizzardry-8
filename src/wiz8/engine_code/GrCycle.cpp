@@ -908,7 +908,7 @@ void W8GrCycle::UpdateParticleAttachments()
     for (index = 0; index < count; ++index) {
         W8GrCycleParticleAttachment* attachment = &particles[index];
         stParticle* particle = attachment->m_pstParticles.get();
-        if (particle->emitting == 0) {
+        if (!particle->emitting) {
             continue;
         }
         if (pMeshModel != 0) {

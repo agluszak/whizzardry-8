@@ -2981,7 +2981,7 @@ void Trigger::Run(int source)
                 } else if (action == 0x45) {
                     particle->SetActive(0);
                 } else {
-                    particle->SetActive(particle->emitting == 0);
+                    particle->SetActive(!particle->emitting);
                 }
                 action_succeeded = true;
             }

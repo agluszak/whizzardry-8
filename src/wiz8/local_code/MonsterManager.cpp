@@ -850,11 +850,12 @@ float CalculateMonsterScale(W8MonsterInfo* monster_info)
 }
 
 // FUNCTION: WIZ8 0x004e67a0
-void TryStartMonsterCycle2(W8MonsterInfo* monster_info, W8Monster* monster, int query_state)
+void TryStartMonsterCycle2(W8MonsterInfo* monster_info, W8Monster* monster,
+                           W8MonsterCycle query_state)
 {
     if (monster_info->fActive && monster_info->hp_current > 0 &&
         monster_info->uiCondition[W8_CONDITION_DEAD] == 0 &&
-        monster_info->within_viewing_distance && query_state == 1) {
+        monster_info->within_viewing_distance && query_state == W8_MONSTER_CYCLE_IDLE) {
         int result = MonsterQuery(monster, W8_MONSTER_QUERY_AT_PLAYBACK_END);
 
         if (result != 0 && !monster_info->fMotionless) {
@@ -1281,20 +1282,21 @@ void ProcessMonsterManagerFrame(void)
             --monster_list_index;
         } else {
             if ((monster->runtime_flags & W8_MONSTER_PARKED) == 0) {
-                int query_state = MonsterQuery(monster, W8_MONSTER_QUERY_CYCLE);
+                const auto query_state =
+                    static_cast<W8MonsterCycle>(MonsterQuery(monster, W8_MONSTER_QUERY_CYCLE));
                 TryStartMonsterCycle2(monster_info, monster, query_state);
                 if (MonsterQuery(monster, W8_MONSTER_QUERY_CYCLE_COMPLETE) != 0) {
-                    if (gXStatus.fCombatMode && query_state == 0x12) {
+                    if (gXStatus.fCombatMode && query_state == W8_MONSTER_CYCLE_ATTACK_SPECIAL) {
                         monster_info->pCombat->special_ready = true;
                     }
                     switch (query_state) {
-                    case 1:
-                    case 3:
-                    case 4:
-                    case 0x17:
-                    case 0x18:
+                    case W8_MONSTER_CYCLE_IDLE:
+                    case W8_MONSTER_CYCLE_TRANSITION:
+                    case W8_MONSTER_CYCLE_WALK:
+                    case W8_MONSTER_CYCLE_TALK_SPICE:
+                    case W8_MONSTER_CYCLE_TALK:
                         break;
-                    case 0x15:
+                    case W8_MONSTER_CYCLE_DIE:
                         if ((monster->runtime_flags & W8_MONSTER_REMOVE_AFTER_FADE) == 0) {
                             monster_info = GetMonsterListEntry(monster_list_index);
                             HandleScriptedNpcDeath(monster_list_index);
