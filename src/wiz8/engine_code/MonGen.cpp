@@ -447,7 +447,7 @@ bool MonGen::CanGenerateEncounter(bool force)
 /* Restore the level's encounter budget and population bounds. */
 static void ClampEncounterBudget(W8World& world)
 {
-    const auto& level = g_level_records[world.level_id];
+    const auto& level = g_level_records[world.level_id.value()];
     world.encounters.random_budget =
         std::clamp(world.encounters.random_budget, level.minimum_encounter_budget,
                    level.maximum_encounter_budget);
@@ -654,8 +654,8 @@ void ReadMonsterGeneratorStates(W8Chunk& file, W8EncounterState& state)
 void StartLevelEncounters(W8World& world)
 {
     for (const auto& generator : world.encounters.generators) generator->timer.Arm();
-    if (world.level_id >= 0 && world.level_id < W8_LEVEL_COUNT) {
-        auto& level = g_level_records[world.level_id];
+    if (world.level_id && *world.level_id >= 0 && *world.level_id < W8_LEVEL_COUNT) {
+        auto& level = g_level_records[world.level_id.value()];
         ClampEncounterBudget(world);
         world.encounters.culling_seconds = level.encounter_culling_seconds;
     }

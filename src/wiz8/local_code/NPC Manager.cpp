@@ -1302,8 +1302,8 @@ W8PreparedNpcBindings PrepareNpcBindings(W8World& world)
         npc->is_present = true;
         npc->has_monster = true;
         npc->binding_unavailable = false;
-        npc->level_band = GetLevelBand(world.level_id);
-        npc->bound_level = static_cast<unsigned char>(world.level_id);
+        npc->level_band = GetLevelBand(world.level_id.value());
+        npc->bound_level = static_cast<unsigned char>(world.level_id.value());
         info.bound_npc_index = slot;
         ReloadNpcScriptResources(npc, info.p3D);
     };

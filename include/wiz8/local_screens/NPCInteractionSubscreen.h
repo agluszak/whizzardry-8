@@ -170,7 +170,7 @@ struct W8NpcInteractionState {
     W8NpcDialogueLayout dialogue_layout;
     W8NpcTradeMode trade_mode;
     /* The layout the current one replaced; back-out paths reopen it. */
-    W8NpcDialogueLayout previous_dialogue_layout;
+    std::optional<W8NpcDialogueLayout> previous_dialogue_layout;
     // Borrowed preview only; confirmation resolves trade_selection.
     W8ItemInstance* trade_item;
     std::vector<W8TradeSelection> trade_rows;
@@ -215,7 +215,7 @@ struct W8NpcInteractionState {
     bool pending_trade_toggle;
     /* A layout staged for reopen; the frame update closes the current layout
        and opens this one, then clears it. */
-    W8NpcDialogueLayout pending_layout;
+    std::optional<W8NpcDialogueLayout> pending_layout;
     /* Cleared when the dialogue ends on a refusal/abrupt dismissal, in which
        case the close path queues a delayed party reaction event. */
     bool suppress_parting_reaction;

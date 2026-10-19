@@ -272,7 +272,7 @@ class W8PartySelectionController {
 public:
     void Setup();
     void SetMode(W8PartySelectionMode mode);
-    void SetSelection(int selection, bool party_slot, bool refresh_other);
+    void SetSelection(std::optional<int> selection, bool party_slot, bool refresh_other);
     void SetSelectedRow(std::optional<int> selection);
     void RefreshRows();
     void RefreshSlots();
@@ -910,11 +910,14 @@ void W8PartySelectionController::SetMode(W8PartySelectionMode mode)
     title.SetText(g_localized_strings[message], g_wiz_text_bold_font);
 }
 
-void W8PartySelectionController::SetSelection(int selection, bool party_slot, bool refresh_other)
+void W8PartySelectionController::SetSelection(std::optional<int> selection, bool party_slot,
+                                              bool refresh_other)
 {
     if (!party_slot) {
         if (m_mode == W8_PARTY_SELECT_CHARACTERS) {
-            m_character = g_party_selection_character_collection->GetCharacter(selection);
+            m_character = selection
+                              ? g_party_selection_character_collection->GetCharacter(*selection)
+                              : nullptr;
             std::optional<int> selected_slot;
             if (m_character && m_character->fInParty) {
                 for (int slot = 0; slot < 6; ++slot) {
@@ -932,14 +935,16 @@ void W8PartySelectionController::SetSelection(int selection, bool party_slot, bo
             }
         }
     } else {
-        m_character = &g_status.buffers.Char[selection + 2];
-        if (!m_character->fInParty) {
-            m_character = 0;
-            selection = -1;
+        m_character = selection && *selection >= 0 && *selection < 6
+                          ? &g_status.buffers.Char[*selection + 2]
+                          : nullptr;
+        if (!m_character || !m_character->fInParty) {
+            m_character = nullptr;
+            selection.reset();
         }
         if (m_mode == W8_PARTY_SELECT_CHARACTERS) {
             std::optional<int> character_index;
-            if (selection >= 0 && g_status.buffers.XChar[selection + 2].fOccupied) {
+            if (selection && g_status.buffers.XChar[*selection + 2].fOccupied) {
                 for (int index = 0;
                      index <
                      static_cast<int>(g_party_selection_character_collection->characters.size());
@@ -954,10 +959,7 @@ void W8PartySelectionController::SetSelection(int selection, bool party_slot, bo
             SetSelectedRow(character_index);
         }
         if (refresh_other) {
-            if (selection >= 0)
-                selected_slot = selection;
-            else
-                selected_slot.reset();
+            selected_slot = selection;
             slots_dirty = true;
         }
     }
@@ -1046,7 +1048,7 @@ void W8PartySelectionController::OnPrimary(W8ButtonWidget* control)
             [[fallthrough]];
         case W8_PARTY_SELECT_IMPORT:
             m_previous_mode = m_mode;
-            SetSelection(-1, true, true);
+            SetSelection(std::nullopt, true, true);
             SetMode(W8_PARTY_SELECT_OPTIONS);
             return;
         case W8_PARTY_SELECT_OPTIONS:
@@ -1226,7 +1228,7 @@ void W8PartySelectionController::ApplyPartySelectionConfirmation(W8PartyConfirma
     }
     case W8_PARTY_CONFIRM_PROCEED_TO_OPTIONS:
         m_previous_mode = m_mode;
-        SetSelection(-1, true, true);
+        SetSelection(std::nullopt, true, true);
         SetMode(W8_PARTY_SELECT_OPTIONS);
         return;
     case W8_PARTY_CONFIRM_IMPORT: {

@@ -122,7 +122,8 @@ float g_mesh_view_half_angle_degrees = 60.0f;
 /* Build scene resources under a local owner. No active world is required;
    malformed resources destroy only this unpublished result. */
 // FUNCTION: WIZ8 0x0044F5F0
-std::unique_ptr<W8World> LoadWorld(int level_id, std::string source_path, bool use_octree)
+std::unique_ptr<W8World> LoadWorld(std::optional<int> level_id, std::string source_path,
+                                   bool use_octree)
 {
     auto owner = std::make_unique<W8World>(level_id, std::move(source_path));
     auto* world = owner.get();
@@ -362,7 +363,7 @@ W8LevelPopulation& CurrentLevelPopulation()
     return *GetWorld()->population;
 }
 
-W8World::W8World(int level_id, std::string path)
+W8World::W8World(std::optional<int> level_id, std::string path)
     : level_id(level_id),
       source_path(path.empty() ? std::string{} : wiz8::normalize_asset_path(path).generic_string()),
       population(std::make_unique<W8LevelPopulation>()),

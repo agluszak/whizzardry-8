@@ -762,7 +762,7 @@ static unsigned char OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item,
     state = g_npc_interaction_state;
     state->dialogue_layout = W8_DIALOGUE_LAYOUT_NONE;
     if (!gXStatus.fCampMode) {
-        state->previous_dialogue_layout = W8_DIALOGUE_LAYOUT_NONE;
+        state->previous_dialogue_layout.reset();
         state->trade_mode = W8_NPC_TRADE_NONE;
     }
     state->dialogue_panel_hidden = false;
@@ -779,7 +779,7 @@ static unsigned char OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item,
     state->modal_dialog_open = false;
     state->reopen_topics = false;
     state->trade_gold = 0;
-    state->pending_layout = W8_DIALOGUE_LAYOUT_NONE;
+    state->pending_layout.reset();
     state->suppress_parting_reaction = true;
     state->selected_trade_row.reset();
     state->transcript_open_count = 0;
@@ -1083,7 +1083,6 @@ static void CreateNpcDialogueControls()
 static void OpenNpcDialogueLayout(W8NpcDialogueLayout layout)
 {
     switch (layout) {
-    case W8_DIALOGUE_LAYOUT_UNSET:
     case W8_DIALOGUE_LAYOUT_NONE:
     case W8_DIALOGUE_LAYOUT_BARE:
         return;
@@ -1123,15 +1122,15 @@ void ServiceNpcDialogue(void)
         SetNpcDialogueHidden(0);
     }
     field_text = NpcFieldText();
-    if (g_npc_interaction_state->pending_layout != W8_DIALOGUE_LAYOUT_NONE) {
+    if (g_npc_interaction_state->pending_layout) {
         g_level_block->text_box_visible = false;
         EnableDialogueTextBoxRegions();
         SetTextBoxScrollInput(true);
         g_level_block->action_panel_visible = 1;
-        W8NpcDialogueLayout layout = g_npc_interaction_state->pending_layout;
+        const W8NpcDialogueLayout layout = *g_npc_interaction_state->pending_layout;
         SwitchNpcDialogueLayout(W8_DIALOGUE_LAYOUT_NONE);
         OpenNpcDialogueLayout(layout);
-        g_npc_interaction_state->pending_layout = W8_DIALOGUE_LAYOUT_NONE;
+        g_npc_interaction_state->pending_layout.reset();
     }
     if (g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_TRANSCRIPT) {
         if (field_text.size() == 0) {
@@ -1756,15 +1755,11 @@ static void BackOutNpcDialogue(void)
     switch (g_npc_interaction_state->dialogue_layout) {
     case W8_DIALOGUE_LAYOUT_SERVICES:
         CloseNpcDialogueMode1Layout();
-        switch (g_npc_interaction_state->previous_dialogue_layout) {
-        case W8_DIALOGUE_LAYOUT_TOPIC_MENU:
+        if (g_npc_interaction_state->previous_dialogue_layout == W8_DIALOGUE_LAYOUT_TOPIC_MENU) {
             ShowNpcDialogueTopicMenu();
-            break;
-        case W8_DIALOGUE_LAYOUT_TRANSCRIPT:
+        } else if (g_npc_interaction_state->previous_dialogue_layout ==
+                   W8_DIALOGUE_LAYOUT_TRANSCRIPT) {
             OpenNpcDialogueTranscriptLayout();
-            break;
-        default:
-            break;
         }
         break;
     case W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX: {
@@ -3285,7 +3280,7 @@ void HandleNpcDialogueKeyEvent(const InputEvent* event)
             EndNpcDialogueSession(false);
             return;
         case W8_DIALOGUE_LAYOUT_SERVICES: {
-            W8NpcDialogueLayout prev = g_npc_interaction_state->previous_dialogue_layout;
+            const auto prev = g_npc_interaction_state->previous_dialogue_layout;
             CloseNpcDialogueMode1Layout();
             if (prev == W8_DIALOGUE_LAYOUT_TOPIC_MENU) {
                 ShowNpcDialogueTopicMenu();
@@ -3676,7 +3671,7 @@ void DrainNpcDialogueDeferralInput(void)
 {
     SDL_Point mouse;
     InputEvent input;
-    W8NpcDialogueLayout prior_layout;
+    std::optional<W8NpcDialogueLayout> prior_layout;
     bool reopen_topics;
 
     if (!ShouldDeferCharacterEventForNpcScript(true) || !gXStatus.fNpcDialogueMode) {
@@ -3698,9 +3693,9 @@ void DrainNpcDialogueDeferralInput(void)
                         case W8_DIALOGUE_LAYOUT_SERVICES:
                             prior_layout = g_npc_interaction_state->previous_dialogue_layout;
                             CloseNpcDialogueMode1Layout();
-                            if (prior_layout == 2) {
+                            if (prior_layout == W8_DIALOGUE_LAYOUT_TOPIC_MENU) {
                                 ShowNpcDialogueTopicMenu();
-                            } else if (prior_layout == 3) {
+                            } else if (prior_layout == W8_DIALOGUE_LAYOUT_TRANSCRIPT) {
                                 OpenNpcDialogueTranscriptLayout();
                             }
                             break;
@@ -4146,7 +4141,13 @@ void SyncDialogueNpcStateAndMarkPending(void)
 void SyncDialogueNpcState(void)
 {
     BeginNpcDialogueInternal(g_npc_interaction_state->dialogue_npc, 0, std::nullopt, 0, 1);
-    g_npc_interaction_state->pending_layout = g_npc_interaction_state->previous_dialogue_layout;
+    if (g_npc_interaction_state->previous_dialogue_layout &&
+        *g_npc_interaction_state->previous_dialogue_layout != W8_DIALOGUE_LAYOUT_NONE) {
+        g_npc_interaction_state->pending_layout =
+            *g_npc_interaction_state->previous_dialogue_layout;
+    } else {
+        g_npc_interaction_state->pending_layout.reset();
+    }
 }
 
 /* The dialogue NPC takes the guard script when it is '*' styled and the party

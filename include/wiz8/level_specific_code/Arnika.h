@@ -1,5 +1,7 @@
 #pragma once
 
+#include <optional>
+
 class Trigger;
 
 enum W8ArnikaElevatorId : int { W8_ARNIKA_ELEVATOR_ONE = 1, W8_ARNIKA_ELEVATOR_TWO = 2 };
@@ -46,6 +48,10 @@ bool ArnikaChaosMolori(Trigger* pTrigger);
 bool ArnikaMaddmook(Trigger* pTrigger);
 bool ArnikaAstralDominae(Trigger* pTrigger);
 bool ArnikaCMbox(Trigger* pTrigger);
-int ArnikaPedestalItem(int* previous_item);
+struct ArnikaPedestalResult {
+    bool handled = false;
+    std::optional<int> inserted_item;
+};
+ArnikaPedestalResult ArnikaPedestalItem();
 bool ArnikaBallSlot(Trigger* pTrigger);
 bool ArnikaFlightRecorder(Trigger* pTrigger);

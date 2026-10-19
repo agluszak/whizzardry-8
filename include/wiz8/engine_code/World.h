@@ -22,7 +22,8 @@ W8World* GetSecondaryWorld(void);
 std::unique_ptr<W8World> ReplaceWorld(std::unique_ptr<W8World> world);
 std::unique_ptr<W8World> ReplaceSkyWorld(std::unique_ptr<W8World> world);
 
-std::unique_ptr<W8World> LoadWorld(int level_id, std::string source_path, bool use_octree = true);
+std::unique_ptr<W8World> LoadWorld(std::optional<int> level_id, std::string source_path,
+                                   bool use_octree = true);
 void DetachAllWorldItems(void);
 void UpdateWorlds(void);
 void RefreshWorldView(void);

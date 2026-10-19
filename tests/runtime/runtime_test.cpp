@@ -2064,7 +2064,7 @@ void PrintState(Game& game)
     if (g_combat_state)
         std::printf(" round=%u executing=%d", g_combat_state->round_count,
                     int(g_combat_state->execution_active));
-    if (g_current_screen_state.id == W8_SCREEN_CAMP && g_camp_screen)
+    if (g_current_screen_state.id == W8_SCREEN_CAMP && g_camp_screen) {
         if (giReviewCharSlot) {
             std::printf(" camp_pc=%d page=%d item_action=%d camp_dialog=%d targeting=%d",
                         *giReviewCharSlot, int(g_camp_screen->page),
@@ -2075,6 +2075,7 @@ void PrintState(Game& game)
                         int(g_camp_screen->page), int(g_camp_screen->item_action),
                         g_camp_screen->dialog != nullptr, int(gXStatus.iTargetingMode));
         }
+    }
     std::printf("\n");
     for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
         if (g_status.buffers.XChar[slot].fOccupied) {

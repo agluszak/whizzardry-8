@@ -857,22 +857,17 @@ bool ArnikaAstralDominae(Trigger* pTrigger)
 // FUNCTION: WIZ8 0x004E2420
 bool ArnikaCMbox(Trigger* pTrigger)
 {
-    int previous = -1;
-    int item;
-
     if (g_running_trigger_from_script) {
         return false;
     }
-    item = ArnikaPedestalItem(&previous);
-    if (item < -1) {
-        return false;
-    }
-    if (item == 0x244) {
+    const ArnikaPedestalResult result = ArnikaPedestalItem();
+    if (!result.handled) return false;
+    if (result.inserted_item == 0x244) {
         pTrigger = FindRequiredTriggerByName("ChaosMolori");
-    } else if (item == 0x242 || item == 0x264) {
+    } else if (result.inserted_item == 0x242 || result.inserted_item == 0x264) {
         pTrigger = FindRequiredTriggerByName("AstralDominae");
     } else {
-        return previous != -1;
+        return true;
     }
     g_running_trigger_from_script = true;
     pTrigger->Run(-1);
@@ -883,56 +878,51 @@ bool ArnikaCMbox(Trigger* pTrigger)
 /* Pedestal item exchange: when a relic (0x242/0x244/0x264) is on the cursor
    it is consumed into the PedestalItem location variable and the stored item
    comes back to the cursor; on the first exchange it also aims the camera at
-   the mook and posts the entry notice. Answers the item placed, -1 when the
-   pedestal already held one, or -2 when the cursor item was not a relic. */
+   the mook and posts the entry notice. The result distinguishes a handled
+   exchange from no action and carries an inserted relic only when present. */
 // FUNCTION: WIZ8 0x004E24E0
-int ArnikaPedestalItem(int* previous_item)
+ArnikaPedestalResult ArnikaPedestalItem()
 {
     W8NpcState* npc;
     W8MonsterInfo* info;
     glm::vec3 position;
-    int item = -1;
-    int previous;
+    std::optional<int> item;
+    std::optional<int> previous;
 
     if (g_status.item_in_cursor) {
         const auto held_item_id = GetItemInHand();
         if (!held_item_id ||
             (*held_item_id != 0x244 && *held_item_id != 0x242 && *held_item_id != 0x264)) {
-            return -2;
+            return {};
         }
         item = *held_item_id;
     }
     FindRequiredTriggerByName("ChaosMolori");
-    if (item > -1) {
+    if (item) {
         ClearHeldItemDisplay();
     }
     if (GetLocationVarIDByName("PedestalItem") && GetLocationVarIDByName("WarnedAboutEntry") &&
         GetLocationVarValueByName("WarnedAboutEntry") == 1) {
-        previous = GetLocationVarValueByName("PedestalItem");
-        if (item == -1) {
-            return previous | item;
-        }
-        SetTriggerVariableByName("PedestalItem", item);
+        if (!item) return {};
+        SetTriggerVariableByName("PedestalItem", *item);
         if (GetLocationVarIDByName("WarnedAboutEntry")) {
             SetTriggerVariableByName("WarnedAboutEntry", 0);
         }
-        *previous_item = previous;
-        return item;
+        return {true, item};
     }
     if (!GetLocationVarIDByName("PedestalItem")) {
         CreateLocationVar("PedestalItem", -1);
         previous = 0x244;
-        if (item == -1) {
-            ReplaceOrCreateItem(&g_status.item_in_hand, previous, false, false, false);
+        if (!item) {
+            ReplaceOrCreateItem(&g_status.item_in_hand, *previous, false, false, false);
         }
     } else {
-        previous = GetLocationVarValueByName("PedestalItem");
-        if (previous == -1) {
-            if (item == previous) {
-                return -2;
-            }
-        } else if (item == -1) {
-            ReplaceOrCreateItem(&g_status.item_in_hand, previous, false, false, false);
+        const int stored_item = GetLocationVarValueByName("PedestalItem");
+        if (stored_item != -1) previous = stored_item;
+        if (!previous) {
+            if (!item) return {};
+        } else if (!item) {
+            ReplaceOrCreateItem(&g_status.item_in_hand, *previous, false, false, false);
         }
     }
     SetItemCursor(0);
@@ -951,8 +941,7 @@ int ArnikaPedestalItem(int* previous_item)
     } else {
         SetTriggerVariableByName("WarnedAboutEntry", 1);
     }
-    *previous_item = previous;
-    return item;
+    return {true, item};
 }
 
 /* The "BallSlot" activation callback: on the first ball insert it creates

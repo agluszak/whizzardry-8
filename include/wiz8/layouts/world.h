@@ -75,8 +75,8 @@ struct W8AutomapCells {
    collidable_props is a non-owning index. Light updates derive from owned lights and scene attachment. Named positions
    are owned values: lookups copy their data and never retain element addresses. */
 struct W8World {
-    explicit W8World(int level_id = -1, std::string source_path = {});
-    const int level_id;
+    explicit W8World(std::optional<int> level_id = std::nullopt, std::string source_path = {});
+    const std::optional<int> level_id;
     const std::string source_path;
     ~W8World();
     W8World(const W8World&) = delete;

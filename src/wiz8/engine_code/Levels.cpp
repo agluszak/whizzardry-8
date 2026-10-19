@@ -94,10 +94,11 @@ std::optional<int> GetLoadedLevelID()
 int GetRequiredLoadedLevelID(std::source_location caller)
 {
     const auto* world = GetWorld();
-    if (!world) {
-        srAssertFail("primary_world", caller.file_name(), static_cast<int>(caller.line()), 0);
+    if (!world || !world->level_id) {
+        srAssertFail("primary_world && primary_world->level_id", caller.file_name(),
+                     static_cast<int>(caller.line()), 0);
     }
-    return world->level_id;
+    return *world->level_id;
 }
 
 std::unique_ptr<W8World> ReplaceWorld(std::unique_ptr<W8World> world)
@@ -274,7 +275,7 @@ const char* GetLevelFolderName(int level_id)
 static std::unique_ptr<W8World> PrepareSkyWorld(std::string_view sky_path)
 {
     if (sky_path.empty()) return nullptr;
-    auto replacement = LoadWorld(-1, std::string(sky_path), false);
+    auto replacement = LoadWorld(std::nullopt, std::string(sky_path), false);
     if (!replacement) return nullptr;
     auto* sky = replacement.get();
 

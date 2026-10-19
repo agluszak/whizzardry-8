@@ -4,7 +4,6 @@
    layout-1 caption is "MAGIC" (Charm/Mindread/Use Item services) and the
    layout-5 caption "TRADE". Layout 6 owns no panels and is never opened. */
 enum W8NpcDialogueLayout {
-    W8_DIALOGUE_LAYOUT_UNSET = -1, /* spell view has no dialogue to reopen */
     W8_DIALOGUE_LAYOUT_NONE = 0,
     W8_DIALOGUE_LAYOUT_SERVICES = 1,
     W8_DIALOGUE_LAYOUT_TOPIC_MENU = 2,

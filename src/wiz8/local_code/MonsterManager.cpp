@@ -278,7 +278,8 @@ std::unique_ptr<W8Monster> ReadMonsterRepresentation(W8World& world, W8MonsterIn
 
 void ConfigureMonsterRepresentation(W8World& world, W8MonsterInfo* monster_info)
 {
-    if (monster_info->scale < 0.0f || g_status.level_progress[world.level_id].visited == 0) {
+    if (monster_info->scale < 0.0f ||
+        g_status.level_progress[world.level_id.value()].visited == 0) {
         monster_info->saved_mirror_x = monster_info->p3D->mirror_x;
         monster_info->scale = CalculateMonsterScale(monster_info);
         monster_info->p3D->m_pRep->scale = monster_info->scale;

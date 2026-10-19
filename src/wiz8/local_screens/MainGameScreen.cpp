@@ -1280,7 +1280,7 @@ void W8MainGameTextPanel::RefreshCellImages()
 {
     for (int column = 0; column < 8; ++column) {
         auto& cell = cells[column];
-        if (m_values == nullptr ||
+        if (m_values == nullptr || m_values[column] < 0 ||
             (m_values[column] == 0 && GetTable650434Entry(m_selection, column) == 0)) {
             cell.image.reset();
         } else {
@@ -5773,9 +5773,7 @@ void UpdateScreenOverlays(int frame)
    own command. */
 bool IsMGSActionKeyEnabled(unsigned short command)
 {
-    short state;
-
-    state = -1;
+    std::optional<short> state;
     if (gXStatus.fNpcDialogueMode) {
         if (command != W8_MGS_ACTION_JOURNAL || IsNpcDialogueCursorActive() != 0 ||
             (gXStatus.fNpcDialogueMode && g_npc_interaction_state->scripted_dialogue)) {
@@ -5870,14 +5868,15 @@ bool IsMGSActionKeyEnabled(unsigned short command)
             break;
         }
     }
-    if (state == -1) {
-        srAssertFail("iActionState != -1", __FILE__, 0x20aa,
+    if (!state) {
+        srAssertFail("iActionState.has_value()", __FILE__, 0x20aa,
                      "Error with handling main game action keyboard equivalent");
+        return false;
     }
     if (!IsPartySlotEligible(g_status.selected_character)) {
         return false;
     }
-    return state == 0 || state == 1;
+    return *state == 0 || *state == 1;
 }
 
 /* Run the numbered action-key command: dismiss the transient menu first, then
