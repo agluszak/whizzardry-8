@@ -16,6 +16,7 @@ struct W8WorldItem;
 #include <stddef.h>
 
 #include "wiz8/character_event_queue.h"
+#include "wiz8/difficulty.h"
 #include "wiz8/engine_code/game_timer.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/gameplay_databases.h"
@@ -28,6 +29,8 @@ struct W8WorldItem;
 
 struct W8MonsterGroup;
 struct W8WorldItem;
+
+enum class W8SurprisePhase : unsigned short { fade_in, hold, fade_out_and_resolve };
 
 // Live gameplay state, not a disk record.
 struct W8XStatus {
@@ -53,8 +56,7 @@ struct W8XStatus {
     bool surprise_unengaged;
     /* uiTurnsElapsed deadline the phase-1 hold compares against. */
     unsigned int surprise_deadline_turns;
-    /* 0 = fade in, 1 = hold, 2 = fade out / resolve. */
-    unsigned short surprise_phase;
+    W8SurprisePhase surprise_phase = W8SurprisePhase::fade_in;
     bool fPartyMovementUi;
     bool fPartyMovementMode;
     float flPartyMoveDistLimit;
@@ -102,7 +104,7 @@ struct W8XStatus {
     signed char dragged_character_slot;
     uint64_t spell_cooldown_clocks[14];
     uint64_t combat_countdown;
-    unsigned char combat_difficulty;
+    W8Difficulty combat_difficulty = W8_DIFFICULTY_NOVICE;
     bool party_moving;
 };
 

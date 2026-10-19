@@ -1624,23 +1624,23 @@ void EvaluateCombatDifficulty(void)
             party_levels / pow(static_cast<double>(eligible_count) * 6.0f, 0.5) + 0.5);
     }
     int relative_strength = static_cast<int>(party_power * 100 / threat_level) - 100;
-    unsigned char difficulty;
+    W8Difficulty difficulty;
     if (relative_strength >= 20) {
-        difficulty = 0;
+        difficulty = W8_DIFFICULTY_NOVICE;
     } else if (relative_strength <= -20) {
-        difficulty = 2;
+        difficulty = W8_DIFFICULTY_EXPERT;
     } else {
-        difficulty = 1;
+        difficulty = W8_DIFFICULTY_NORMAL;
     }
 
     switch (difficulty) {
-    case 0:
+    case W8_DIFFICULTY_NOVICE:
         StartMusicResource("CombatEasy.MPL", 0, 1);
         break;
-    case 1:
+    case W8_DIFFICULTY_NORMAL:
         StartMusicResource("Combat.MPL", 0, 1);
         break;
-    case 2:
+    case W8_DIFFICULTY_EXPERT:
         StartMusicResource("CombatLousy.MPL", 0, 1);
         break;
     }
@@ -1649,10 +1649,10 @@ void EvaluateCombatDifficulty(void)
         difficulty != gXStatus.combat_difficulty) {
         unsigned int event_type;
         switch (difficulty) {
-        case 0:
+        case W8_DIFFICULTY_NOVICE:
             event_type = 29;
             break;
-        case 1:
+        case W8_DIFFICULTY_NORMAL:
             event_type = 30;
             break;
         default:
