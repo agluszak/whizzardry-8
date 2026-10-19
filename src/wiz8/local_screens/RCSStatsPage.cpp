@@ -70,11 +70,8 @@ static glm::ivec2 g_camp_skill_category_positions[5] = {
     {0x160, 0x8}, {0x160, 0xcc}, {0x22, 0x9}, {0x22, 0x86}, {0x2a, 0x21},
 };
 static constexpr std::array<W8SkillCategory, 5> g_camp_skill_categories = {
-    W8_SKILL_CATEGORY_WEAPON,
-    W8_SKILL_CATEGORY_MISCELLANEOUS,
-    W8_SKILL_CATEGORY_COMBAT,
-    W8_SKILL_CATEGORY_MAGIC,
-    W8_SKILL_CATEGORY_EXPERT,
+    W8_SKILL_CATEGORY_WEAPON, W8_SKILL_CATEGORY_MISCELLANEOUS, W8_SKILL_CATEGORY_COMBAT,
+    W8_SKILL_CATEGORY_MAGIC,  W8_SKILL_CATEGORY_EXPERT,
 };
 static int g_camp_skill_category_rows[5] = {0xb, 5, 8, 0xa, 7};
 static int g_camp_skill_category_images[5] = {2, 3, 0, 1, 4};
