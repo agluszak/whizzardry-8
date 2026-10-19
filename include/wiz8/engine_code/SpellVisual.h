@@ -29,7 +29,7 @@ enum {
     SPELL_CYCLES_PER_GROUP = 7
 };
 
-enum class W8SpellVisualHostStateQuery : int {
+enum class W8SpellVisualHostStateQuery : unsigned char {
     EmitterSetting,
     AnimationCount,
     AtLastSubcycle,

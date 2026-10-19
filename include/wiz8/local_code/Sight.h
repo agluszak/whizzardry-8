@@ -6,7 +6,7 @@ struct W8MonsterInfo;
 struct W8MonsterGroup;
 struct W8VisibilityRecord;
 
-enum class W8VisibilityCondition : int {
+enum class W8VisibilityCondition : unsigned char {
     SightState = 0,
     CanSee = 1,
     FirstLineOfSightFlag = 2,

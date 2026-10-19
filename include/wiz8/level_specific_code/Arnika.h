@@ -2,9 +2,9 @@
 
 class Trigger;
 
-enum W8ArnikaElevatorId : int { W8_ARNIKA_ELEVATOR_ONE = 1, W8_ARNIKA_ELEVATOR_TWO = 2 };
+enum W8ArnikaElevatorId : unsigned char { W8_ARNIKA_ELEVATOR_ONE = 1, W8_ARNIKA_ELEVATOR_TWO = 2 };
 
-enum W8ArnikaElevatorState : int {
+enum W8ArnikaElevatorState : unsigned char {
     W8_ARNIKA_ELEVATOR_STEP_1 = 1,
     W8_ARNIKA_ELEVATOR_STEP_2 = 2,
     W8_ARNIKA_ELEVATOR_STEP_3 = 3,
