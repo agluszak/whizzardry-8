@@ -3471,7 +3471,8 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
                 percent_roll = 100;
             }
             g_status.party_gold = g_status.party_gold - (percent_roll * g_status.party_gold) / 100;
-            if (g_settings.verbose_combat_messages == 0 && GetTextBoxMode() != W8_TEXT_BOX_MODE_NOTICE) {
+            if (g_settings.verbose_combat_messages == 0 &&
+                GetTextBoxMode() != W8_TEXT_BOX_MODE_NOTICE) {
                 AppendToLastTextLine(" -- ", std::nullopt);
                 SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, std::nullopt);
             }
