@@ -1,8 +1,6 @@
 #ifndef WIZ8_GAMEPLAY_MODIFIERS_H
 #define WIZ8_GAMEPLAY_MODIFIERS_H
 
-#include <stddef.h>
-
 /*
  * The effect-slot and modifier records the gameplay-modifier passes accumulate through.
  *
@@ -16,9 +14,7 @@
  * the same record at W8MonsterInfo::modifiers.
  */
 
-#pragma pack(push, 1)
-
-/* One 0x11-byte effect slot. The id at +0x01 is both the condition id the
+/* One runtime effect slot. The packed retail record is 0x11 bytes. The id at +0x01 is both the condition id the
    HasCondition predicates compare and the index into the effect-visual table
    the clear path drops. ApplyPartyEffectSlots scales the amount at +0x05 by
    the percentage at +0x09 before accumulating it. */
@@ -48,14 +44,6 @@ struct W8EffectSlot {
     unsigned int duration; /* 0x0d: remaining lifetime, aged down in whole
                                   minutes by AgeMonsterSight */
 }; /* 0x11 */
-#pragma pack(pop)
-
-static_assert(sizeof(W8EffectSlot) == 0x11, "W8EffectSlot_must_be_0x11");
-static_assert(offsetof(W8EffectSlot, active) == 0x00, "W8EffectSlot_active");
-static_assert(offsetof(W8EffectSlot, effect_id) == 0x01, "W8EffectSlot_effect_id");
-static_assert(offsetof(W8EffectSlot, amount) == 0x05, "W8EffectSlot_amount");
-static_assert(offsetof(W8EffectSlot, percent) == 0x09, "W8EffectSlot_percent");
-static_assert(offsetof(W8EffectSlot, duration) == 0x0d, "W8EffectSlot_duration");
 
 /* The 0x67-byte modifier accumulator. Its byte runs are fixed by the fold at
    0x0050F090: bytes 0x00..0x0b, 0x0c..0x12, 0x13..0x3b and 0x3c..0x41 are

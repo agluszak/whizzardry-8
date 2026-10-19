@@ -15,7 +15,6 @@
 
 /* One enchantment slot. Both a character and a monster carry eight of them,
    and both clear a slot by zeroing all three dwords at once. */
-#pragma pack(push, 1)
 struct W8Enchantment {
     /* Retail offset 0x00: the enchantment's power; a slot is only overwritten by a higher
        (unsigned) power. Slot three also spends it as a charge count -
@@ -30,20 +29,17 @@ struct W8Enchantment {
     /* Retail offset 0x08: turns left; the fatigue path consults it on slot five. */
     unsigned int turns;
 };
-#pragma pack(pop)
 
 /* Runtime names own UTF-8 strings. retail_text_records.h encodes the
    10/6-unit UTF-16LE fields separately and preserves the following unknown bytes. */
 
 /* Base attributes and their effective values after equipment and effects. */
-#pragma pack(push, 1)
 struct W8CharacterAttribute {
     unsigned int base;
     unsigned int effective;
     int change_counter;
     unsigned char unknown_0c[8];
 };
-#pragma pack(pop)
 
 /* One skill record, indexed directly by skill id. The leading flag is set
    when a skill first becomes available. */
@@ -74,13 +70,11 @@ struct W8CharacterSkill {
 /* One resistance channel. Recalculation rebuilds `base` from scratch each time
    and then derives `total` from it, so the two are a computed pair rather than
    a stored value and a cache. */
-#pragma pack(push, 1)
 struct W8CharacterResistance {
     unsigned int base;
     unsigned int total;
     unsigned char unknown_08[8];
 };
-#pragma pack(pop)
 
 /* The six realms a spell point pool is kept per are W8SpellRealm's, declared
    with the spell record in wiz8/layouts/gameplay_databases.h. */
@@ -98,7 +92,6 @@ enum {
 
 /* One hand's derived attack block - the elements of W8Character::Hand. */
 enum { HOLDS_NOTHING = 0 };
-#pragma pack(push, 1)
 struct W8HandAttack {
     int uiHolds;
     bool in_play;
@@ -117,19 +110,16 @@ struct W8HandAttack {
     unsigned char condition_chances[W8_ATTACK_EFFECT_COUNT];
     unsigned char unknown_43[0x18];
 };
-#pragma pack(pop)
 
 /* One condition record. GetConditionRecordFlag reads byte 8 of one of the
    four; the condition-0x13 fold reads record one's leading dwords as the level
    the binding was made on and the bound monster's id. */
-#pragma pack(push, 1)
 struct W8CharacterConditionRecord {
     int level_acquired;
     int source_monster;
     bool active;
     unsigned char unknown_09[8];
 };
-#pragma pack(pop)
 
 struct W8Character {
     /* Retail offset 0x0000: SaveCharacter stamps 1 here before writing the record, so the

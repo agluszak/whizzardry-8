@@ -474,6 +474,47 @@ static_assert(offsetof(MonsterRecord, attack_body_part_chances) == 0x157,
 static_assert(offsetof(MonsterRecord, effective_level) == 0x24f, "MonsterRecord_effective_level");
 static_assert(offsetof(MonsterRecord, display_level) == 0x251, "MonsterRecord_display_level");
 // Skill images retain the retail stride; live skills use native alignment.
+// These native value records already have the exact internal disk layout.
+static_assert(sizeof(W8Enchantment) == 0x0c);
+static_assert(sizeof(W8CharacterAttribute) == 0x14);
+static_assert(sizeof(W8CharacterResistance) == 0x10);
+struct HandAttack {
+    int uiHolds;
+    bool in_play;
+    W8Skill weapon_skill;
+    W8Skill combat_skill;
+    unsigned int combined_skill;
+    int attack_score;
+    unsigned int attacks;
+    int swings;
+    int damage_bonus;
+    int hit_bonus;
+    int attack_bonus;
+    int damage_percent;
+    W8Dice damage_dice;
+    unsigned short attack_flags;
+    unsigned char condition_chances[W8_ATTACK_EFFECT_COUNT];
+    unsigned char unknown_43[0x18];
+};
+static_assert(sizeof(HandAttack) == 0x5b);
+struct CharacterConditionRecord {
+    int level_acquired;
+    int source_monster;
+    bool active;
+    unsigned char unknown_09[8];
+};
+static_assert(sizeof(CharacterConditionRecord) == 0x11);
+struct EffectSlot {
+    bool active;
+    int effect_id;
+    int amount;
+    unsigned int percent;
+    unsigned int duration;
+};
+static_assert(sizeof(EffectSlot) == 0x11);
+static_assert(offsetof(EffectSlot, effect_id) == 0x01);
+static_assert(offsetof(EffectSlot, amount) == 0x05);
+static_assert(offsetof(EffectSlot, duration) == 0x0d);
 struct CharacterSkill {
     std::uint8_t active, reset_flag;
     std::uint32_t points, level, base_level, practice_count;
@@ -632,7 +673,7 @@ struct Character {
     W8ItemInstance backpack[8]; /* 0x1029 */
     unsigned char unknown_1089[0xc0];
     /* 0x1149: the two per-hand derived attack blocks. */
-    W8HandAttack Hand[2];
+    HandAttack Hand[2];
     unsigned char unknown_11ff[0xb6];
     unsigned char dual_wielding; /* 0x12b5 */
     /* 0x12b6: per-monster-id detection score, one byte per record id. The
@@ -660,7 +701,7 @@ struct Character {
     /* 0x1813: which level that anchor belongs to. The recall compares it
        against GetLoadedLevelID() and takes a different path when they differ. */
     int saved_level;                          /* 0x1813 */
-    W8CharacterConditionRecord conditions[4]; /* 0x1817 .. 0x185a */
+    CharacterConditionRecord conditions[4]; /* 0x1817 .. 0x185a */
     /* 0x185b: the deep-fatigue effect is already on this character, which is
        what stops FatigueCharacter re-applying it every turn. */
     bool deep_fatigue_applied;
@@ -709,7 +750,7 @@ struct GlobalStatus {
     unsigned int legacy_text_box_lines[2][3];
     /* 0x17af: the party's twelve effect slots, the same 0x11-byte records the
        monster and combat tables hold. The trailing run is opaque. */
-    W8EffectSlot effect_slots[12];
+    EffectSlot effect_slots[12];
     unsigned char unknown_187b[0x55];
     int party_facing;
     unsigned int party_heading;

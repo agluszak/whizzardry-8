@@ -958,23 +958,23 @@ void FatigueCharacter(int party_slot, int amount, bool scale_by_load,
 unsigned int CharacterActionFatigueCost(int party_slot, W8ActionKind action_kind)
 {
     unsigned int cost = 0;
-    W8CombatCharacterRow* combat_row = &g_combat_state->characters[party_slot];
     W8AttackMode attack_mode;
     int item_id;
     int weight_bands;
 
     switch (action_kind) {
     case W8_ACTION_ATTACK:
-    case W8_ACTION_BERSERK:
+    case W8_ACTION_BERSERK: {
+        const auto& combat_row = g_combat_state->characters[party_slot];
         attack_mode = static_cast<W8AttackMode>(
-            g_status.buffers.XChar[party_slot].attack_mode[combat_row->current_hand]);
+            g_status.buffers.XChar[party_slot].attack_mode[combat_row.current_hand]);
         if (attack_mode == W8_ATTACK_MODE_PUNCH) {
             cost = Random(3) + 2;
         } else if (attack_mode == W8_ATTACK_MODE_KICK) {
             cost = Random(3) + 3;
         } else {
             item_id = g_status.buffers.Char[party_slot]
-                          .EquippedItem[combat_row->current_equip_slot]
+                          .EquippedItem[combat_row.current_equip_slot]
                           .iItemNo;
             if (item_id == -1) {
                 cost = Random(4) + 3;
@@ -987,6 +987,7 @@ unsigned int CharacterActionFatigueCost(int party_slot, W8ActionKind action_kind
             cost *= 2;
         }
         break;
+    }
     case W8_ACTION_BREATHE:
     case W8_ACTION_DEFEND:
     case W8_ACTION_PROTECT:

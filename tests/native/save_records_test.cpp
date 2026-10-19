@@ -123,15 +123,23 @@ static void character_file_contracts(const std::filesystem::path& assets,
         character.skills[0].points = points;
         character.skills[1].level = level;
         character.skills[0].unknown_14[0] = 0xa5;
+        character.Hand[1].attacks = 7;
+        character.conditions[1].source_monster = 42;
         auto expected = bytes;
         std::memcpy(expected.data() + 0x19d + 2, &points, sizeof(points));
         std::memcpy(expected.data() + 0x19d + 0x26 + 6, &level, sizeof(level));
         expected[0x19d + 0x14] = std::byte{0xa5};
+        const unsigned int attacks = 7;
+        const int source_monster = 42;
+        std::memcpy(expected.data() + 0x1149 + 0x5b + 0x15, &attacks, sizeof(attacks));
+        std::memcpy(expected.data() + 0x1817 + 0x11 + 4, &source_monster, sizeof(source_monster));
         REQUIRE(wiz8::retail::encode(character) == expected);
         wiz8::retail::decode<W8Character>(expected, character);
         REQUIRE(character.skills[0].points == points);
         REQUIRE(character.skills[1].level == level);
         REQUIRE(character.skills[0].unknown_14[0] == 0xa5);
+        REQUIRE(character.Hand[1].attacks == 7);
+        REQUIRE(character.conditions[1].source_monster == 42);
         character.name = "改名";
         const auto edited = wiz8::retail::encode(character);
         REQUIRE(std::equal(bytes.begin() + 0x25, bytes.begin() + 0x69, edited.begin() + 0x25));
@@ -1234,6 +1242,22 @@ TEST_CASE_METHOD(SaveFixture, "Quality files retain reserved slots and live opti
     REQUIRE(options[12] == 0);
     REQUIRE(options[14] == 1);
     REQUIRE(options[15] == 1);
+}
+
+TEST_CASE("Effect slots retain their packed disk representation", "[save][records]")
+{
+    const std::array<std::byte, 0x11> bytes = {
+        std::byte{1}, std::byte{2}, std::byte{0}, std::byte{0}, std::byte{0}, std::byte{3},
+        std::byte{0}, std::byte{0}, std::byte{0}, std::byte{4}, std::byte{0}, std::byte{0},
+        std::byte{0}, std::byte{5}, std::byte{0}, std::byte{0}, std::byte{0}};
+    W8EffectSlot slot{};
+    wiz8::retail::decode<W8EffectSlot>(bytes, slot);
+    REQUIRE(slot.active);
+    REQUIRE(slot.effect_id == 2);
+    REQUIRE(slot.amount == 3);
+    REQUIRE(slot.percent == 4);
+    REQUIRE(slot.duration == 5);
+    REQUIRE(wiz8::retail::encode(slot) == bytes);
 }
 
 TEST_CASE("Global status record", "[save][records]")
