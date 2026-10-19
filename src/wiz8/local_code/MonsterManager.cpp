@@ -36,6 +36,7 @@
 #include "timer.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/containers.h"
+#include "wiz8/difficulty.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/engine_code/Levels.h"
