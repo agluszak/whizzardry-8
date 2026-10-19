@@ -651,8 +651,8 @@ glm::ivec2 g_keyboard_row_positions[13] = {
 
 namespace {
 struct KeyboardMenuRow {
-    int menu = -1;
-    int item = -1;
+    std::optional<int> menu;
+    std::optional<int> item;
     bool enabled = true;
     HitTarget* target = nullptr;
     ButtonInteraction press;
@@ -729,22 +729,22 @@ void CloseKeyboardMenu(void)
 
 static std::string KeyboardMenuTooltip(const KeyboardMenuRow& row)
 {
-    if (row.menu == -1) return g_localized_strings[0x11];
-    if (row.menu == W8_SUBMENU_SPELLS && row.item == 1) {
+    if (!row.menu || !row.item) return g_localized_strings[0x11];
+    if (*row.menu == W8_SUBMENU_SPELLS && *row.item == 1) {
         if (!row.enabled) return g_localized_strings[0x5a];
         const auto& spell =
             g_spell_records[g_status.buffers.XChar[*g_selected_party_slot].spell.detail];
         return fmt::format("{}: {} ({:d})", g_localized_strings[0x5a], spell.display_name,
                            GetAffordableSpellPowerLevel(*g_selected_party_slot));
     }
-    if (row.menu == W8_SUBMENU_ITEMS && row.item == 2) {
+    if (*row.menu == W8_SUBMENU_ITEMS && *row.item == 2) {
         if (!row.enabled) return g_localized_strings[0x5d];
         const auto& party = g_status.buffers.XChar[*g_selected_party_slot];
         auto* item =
             FindCharacterItemAt(*g_selected_party_slot, party.item_origin, party.item_slot);
         return fmt::format("{}: {}", g_localized_strings[0x5d], FormatItemDisplayName(item, false));
     }
-    return g_localized_strings[g_submenu_entry_help_ids[row.menu * 5 + row.item]];
+    return g_localized_strings[g_submenu_entry_help_ids[*row.menu * 5 + *row.item]];
 }
 
 unsigned char BuildKeyboardMenu(void)
@@ -777,8 +777,8 @@ unsigned char BuildKeyboardMenu(void)
                 const ButtonPolicy policy{.input_rule = ButtonInputRule::PrimaryPressedState};
                 if (event.action == UiPointerAction::Leave) row.press.leave(policy);
                 if (event.action == UiPointerAction::Enter &&
-                    ((row.menu == W8_SUBMENU_ITEMS && row.item == 2) ||
-                     (row.menu == W8_SUBMENU_SPELLS && row.item == 1)))
+                    ((row.menu && row.item && *row.menu == W8_SUBMENU_ITEMS && *row.item == 2) ||
+                     (row.menu && row.item && *row.menu == W8_SUBMENU_SPELLS && *row.item == 1)))
                     g_ui_help_forced = true;
                 if ((row.enabled) &&
                     (event.action != UiPointerAction::Up || event.captured_buttons))
@@ -792,9 +792,9 @@ unsigned char BuildKeyboardMenu(void)
                 if (event.action == UiPointerAction::Down) row.press.press(mask, policy);
                 if (event.action == UiPointerAction::Up && event.inside &&
                     (event.captured_buttons & mask) && row.press.release(mask, policy).activate) {
-                    auto action = event.button == UiPointerButton::Right || row.menu == -1
+                    auto action = event.button == UiPointerButton::Right || !row.menu || !row.item
                                       ? CloseKeyboardMenu
-                                      : actions[row.menu][row.item];
+                                      : actions[*row.menu][*row.item];
                     if (action) AfterUiDispatch(action);
                 }
                 return UiResult::Handled;
@@ -828,12 +828,14 @@ void RefreshKeyboardMenuRows(void)
 {
     const auto art = CatalogArtwork::Load(0x89, 0);
     for (auto& row : keyboard_menu->rows) {
-        if (row.menu == -1) continue;
-        const int base = g_submenu_entry_message_ids[row.menu * 5 + row.item];
+        if (!row.menu || !row.item) continue;
+        const int menu = *row.menu;
+        const int item = *row.item;
+        const int base = g_submenu_entry_message_ids[menu * 5 + item];
         int normal = base;
         int hover = base + 2;
         row.enabled = true;
-        switch (GetSubMenuEntryState(row.menu, row.item, *g_selected_party_slot)) {
+        switch (GetSubMenuEntryState(menu, item, *g_selected_party_slot)) {
         case W8_SUBMENU_ENTRY_USABLE:
             break;
         case W8_SUBMENU_ENTRY_USABLE_SELECTED:
@@ -852,11 +854,11 @@ void RefreshKeyboardMenuRows(void)
             break;
         }
         int offset = 0;
-        if (row.menu == W8_SUBMENU_SPELLS && row.item == 1)
+        if (menu == W8_SUBMENU_SPELLS && item == 1)
             offset =
                 g_spell_records[g_status.buffers.XChar[*g_selected_party_slot].spell.detail].realm *
                 7;
-        else if (row.menu == W8_SUBMENU_ATTACK && row.item == 0)
+        else if (menu == W8_SUBMENU_ATTACK && item == 0)
             offset = GetAttackMenuWeaponOffset(
                          g_status.buffers.Char[*g_selected_party_slot].Hand[0].weapon_skill) *
                      7;
