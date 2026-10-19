@@ -1,3 +1,4 @@
+#include "wiz8/cursor.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 
 #include <algorithm>
