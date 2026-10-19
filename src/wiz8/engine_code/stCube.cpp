@@ -7,6 +7,7 @@
 #include <cstring>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -58,7 +59,7 @@ W8WorldCursorNode::~W8WorldCursorNode() = default;
 const double g_cube_effect_max_distance = 75000.0;
 
 // GLOBAL: WIZ8 0x0060a9b0
-static int g_cursor_node_index = -1;
+static std::optional<std::size_t> g_cursor_node_index;
 
 // GLOBAL: WIZ8 0x005ebf50
 const double g_world_cursor_scale = 0.002;
@@ -391,14 +392,13 @@ bool SelectWorldCursorNode(void)
             return glm::length(entry.node->getLocation() - camera_location) <
                    g_cube_effect_max_distance;
         };
-        const auto selected = static_cast<std::size_t>(g_cursor_node_index);
-        if (selected < GetWorld()->cursor_nodes.size() &&
-            in_range(*GetWorld()->cursor_nodes[selected])) {
+        if (g_cursor_node_index && *g_cursor_node_index < GetWorld()->cursor_nodes.size() &&
+            in_range(*GetWorld()->cursor_nodes[*g_cursor_node_index])) {
             return true;
         }
         for (std::size_t index = 0; index < GetWorld()->cursor_nodes.size(); ++index) {
             if (in_range(*GetWorld()->cursor_nodes[index])) {
-                g_cursor_node_index = static_cast<int>(index);
+                g_cursor_node_index = index;
                 return true;
             }
         }
