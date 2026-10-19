@@ -1072,10 +1072,10 @@ void W8CampScreenState::SelectCampItemAction(W8CampItemActionButton button)
         return;
     case W8_CAMP_ACTION_BUTTON_SPLIT_STACK:
         if ((g_status.party.held.item.iItemNo != -1))
-            return OpenSplitStackDialog(&g_status.party.held.item);
+            return OpenSplitStackDialog({W8ItemStorage::Hand});
         return SetCampItemActionMode(W8_CAMP_ITEM_ACTION_SPLIT_STACK);
     case W8_CAMP_ACTION_BUTTON_USE:
-        if ((g_status.party.held.item.iItemNo != -1)) return UseCampItem(&g_status.party.held.item);
+        if (g_status.party.held.item.iItemNo != -1) return UseCampItem({W8ItemStorage::Hand});
         return SetCampItemActionMode(W8_CAMP_ITEM_ACTION_USE);
     case W8_CAMP_ACTION_BUTTON_DROP:
         if ((g_status.party.held.item.iItemNo != -1)) return DropHeldCampItem();

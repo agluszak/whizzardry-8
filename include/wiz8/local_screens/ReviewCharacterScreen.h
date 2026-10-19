@@ -288,7 +288,7 @@ private:
     void RebuildCampItemList();
     void SetCampHeaderMode(W8CampHeaderMode mode);
     void SelectPendingCampCharacter();
-    void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOrigin origin);
+    void HandleCampItemClick(W8ItemLocation location);
     void TakeItemUnitToHand(W8ItemLocation source);
     bool ResolvePendingCampCharacter(bool force);
     void MarkCampCharacterPending(W8ItemInstance* item);
@@ -298,8 +298,8 @@ private:
     void OpenSecondaryAttributeInfoDialog(unsigned int uiIndex);
     void IdentifyAndOpenItemInfo(W8ItemInstance* item);
     void DropHeldCampItem();
-    void UseCampItem(W8ItemInstance* item);
-    void MergeItemStacksWithHeld(W8ItemInstance* item);
+    void UseCampItem(W8ItemLocation location);
+    void MergeItemStacksWithHeld(W8ItemLocation location);
     void ReportCastResult(int party_slot);
     void UseHeldItemOnItem(W8ItemInstance* item);
     void TargetCharacterWithHeldItem(unsigned int uiTargetChar);
@@ -309,9 +309,9 @@ private:
     void SortCampItemPool();
     void ToggleCampItemFilter(W8CampItemFilterButton tab);
     void ShowCampItemInfo(W8ItemInstance* item);
-    std::pair<W8ItemInstance*, int> CampItemAt(int slot, int origin);
-    std::string CampItemTooltip(int slot, int origin);
-    UiResult HandleCampItem(const UiPointerEvent& event, int slot, int origin);
+    W8ItemLocation CampItemAt(int slot, W8ItemStorage storage) const;
+    std::string CampItemTooltip(int slot, W8ItemStorage storage);
+    UiResult HandleCampItem(const UiPointerEvent& event, int slot, W8ItemStorage storage);
     void DrawCampItemIcons();
     void DrawCampItemLabel(W8ItemInstance* item, int left, int top, char flag);
     void EnableCampActionButtons();
@@ -341,7 +341,7 @@ private:
     void ShowDismissCharacterDialog();
     void OnDismissCharacterDialogClosed(bool accepted);
     void DismissSelectedPartyCharacter();
-    void OpenSplitStackDialog(W8ItemInstance* item);
+    void OpenSplitStackDialog(W8ItemLocation location);
     void DisplayCampDialog(std::unique_ptr<W8DialogBase> dialog);
     void CreateCampHeaderButtons();
     void CreateCampButtonPanel();

@@ -170,8 +170,9 @@ void W8CampScreenState::DropHeldCampItem(void)
 }
 
 // FUNCTION: WIZ8 0x005BA400
-void W8CampScreenState::OpenSplitStackDialog(W8ItemInstance* item)
+void W8CampScreenState::OpenSplitStackDialog(W8ItemLocation location)
 {
+    auto* item = g_status.party.itemAt(location);
     if (item->iItemNo != -1 && item->stack_count > 1 &&
         (g_item_records[item->iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) == 0 &&
         g_item_records[item->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK) {
@@ -179,7 +180,7 @@ void W8CampScreenState::OpenSplitStackDialog(W8ItemInstance* item)
                                                           SDL_Point{kSplitDialogX, kSplitDialogY});
         dialog->SetText("");
 
-        dialog->on_complete = [screen = this, source = g_status.party.locateItem(item),
+        dialog->on_complete = [screen = this, source = location,
                                actor = ReviewedPartySlot()](int count) {
             if (count <= 0) return;
             if (!SplitItemStack(source, static_cast<unsigned>(count), actor)) {
@@ -197,8 +198,9 @@ void W8CampScreenState::OpenSplitStackDialog(W8ItemInstance* item)
 }
 
 // FUNCTION: WIZ8 0x005BA4F0
-void W8CampScreenState::UseCampItem(W8ItemInstance* item)
+void W8CampScreenState::UseCampItem(W8ItemLocation location)
 {
+    auto* item = g_status.party.itemAt(location);
     if (ValidateItemSpellUse(ReviewedPartySlot(), item, 0)) {
         SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
         return;
@@ -207,18 +209,11 @@ void W8CampScreenState::UseCampItem(W8ItemInstance* item)
         LearnSpellFromItem(reviewed, item);
     } else {
         if (!IsUsableItemClass(item) || IsSpecialItemId(item)) {
-            gXStatus.item_drag_active = true;
-            gXStatus.dragged_item = item;
-            gXStatus.dragged_character_slot = static_cast<char>(ReviewedPartySlot());
-            const auto location = g_status.party.locateItem(item);
-            gXStatus.dragged_item_origin =
-                location.storage == W8ItemStorage::Equipment  ? W8_ITEM_ORIGIN_EQUIPPED
-                : location.storage == W8ItemStorage::Backpack ? W8_ITEM_ORIGIN_BACKPACK
-                                                              : W8_ITEM_ORIGIN_PARTY_POOL;
+            gXStatus.item_drag = W8ItemDrag{location, ReviewedPartySlot()};
         } else {
             if (!(g_status.party.held.item.iItemNo != -1)) {
                 MarkCampCharacterPending(item);
-                ExchangeInventoryItems(g_status.party.locateItem(item), {W8ItemStorage::Hand},
+                ExchangeInventoryItems(location, {W8ItemStorage::Hand},
                                        static_cast<unsigned>(g_status.selected_character));
             }
         }
@@ -230,10 +225,10 @@ void W8CampScreenState::UseCampItem(W8ItemInstance* item)
 }
 
 // FUNCTION: WIZ8 0x005BA5D0
-void W8CampScreenState::MergeItemStacksWithHeld(W8ItemInstance* item)
+void W8CampScreenState::MergeItemStacksWithHeld(W8ItemLocation location)
 {
-    if (item->iItemNo != -1) {
-        if (MergeItems(ReviewedPartySlot(), g_status.party.locateItem(item))) {
+    if (g_status.party.itemAt(location)->iItemNo != -1) {
+        if (MergeItems(ReviewedPartySlot(), location)) {
             RebuildCampItemList();
             redraw_flags |= W8_CAMP_REDRAW_ALL;
             SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
@@ -579,23 +574,27 @@ void W8CampScreenState::ShowCampItemInfo(W8ItemInstance* item)
     SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
 }
 
-std::pair<W8ItemInstance*, int> W8CampScreenState::CampItemAt(int slot, int origin)
+/* A visible cell: the reviewed character's own slot, or the pool row the scrolled
+   list shows there (the first free pool entry past the list's end). */
+W8ItemLocation W8CampScreenState::CampItemAt(int slot, W8ItemStorage storage) const
 {
-    if (origin == W8_ITEM_ORIGIN_BACKPACK) return {reviewed->backpack + slot, slot};
-    if (origin == W8_ITEM_ORIGIN_EQUIPPED) return {reviewed->EquippedItem + slot, slot};
-    const auto visible = item_scroll + slot;
-    const int index =
+    const auto cell = static_cast<unsigned int>(slot);
+    if (storage != W8ItemStorage::Pool)
+        return {storage, static_cast<unsigned int>(ReviewedPartySlot()), cell};
+    const auto visible = item_scroll + cell;
+    const auto index =
         visible < item_list_count && g_status.party.item_pool[item_list[visible]].iItemNo != -1
             ? item_list[visible]
             : g_status.party.item_count;
-    return {g_status.party.item_pool + index, index};
+    return {W8ItemStorage::Pool, 0, static_cast<unsigned int>(index)};
 }
 
-std::string W8CampScreenState::CampItemTooltip(int slot, int origin)
+std::string W8CampScreenState::CampItemTooltip(int slot, W8ItemStorage storage)
 {
-    const auto [item, index] = CampItemAt(slot, origin);
+    const auto* item = g_status.party.itemAt(CampItemAt(slot, storage));
+    if (!item) return {};
     std::string text = item->iItemNo == -1 ? std::string{} : FormatItemDisplayName(item, false);
-    if (origin == W8_ITEM_ORIGIN_EQUIPPED) {
+    if (storage == W8ItemStorage::Equipment) {
         const auto& label = g_localized_strings[g_equip_slot_label_ids[slot]];
         return text.empty() ? std::string(label) : fmt::format("{} ({})", text, label);
     }
@@ -608,11 +607,15 @@ std::string W8CampScreenState::CampItemTooltip(int slot, int origin)
     return text;
 }
 
-UiResult W8CampScreenState::HandleCampItem(const UiPointerEvent& event, int slot, int origin)
+UiResult W8CampScreenState::HandleCampItem(const UiPointerEvent& event, int slot,
+                                           W8ItemStorage storage)
 {
-    const auto [item, index] = CampItemAt(slot, origin);
-    const bool equipped = origin == W8_ITEM_ORIGIN_EQUIPPED;
-    const bool pool = origin == W8_ITEM_ORIGIN_PARTY_POOL;
+    const auto location = CampItemAt(slot, storage);
+    auto* item = g_status.party.itemAt(location);
+    // A full pool has no free row to show past the end of its list.
+    if (!item) return UiResult::Handled;
+    const bool equipped = storage == W8ItemStorage::Equipment;
+    const bool pool = storage == W8ItemStorage::Pool;
     auto& target = *(pool ? pool_targets[slot] : inventory_targets[slot + (equipped ? 8 : 0)]);
     const bool interactive =
         !(item->iItemNo == -1 &&
@@ -639,9 +642,7 @@ UiResult W8CampScreenState::HandleCampItem(const UiPointerEvent& event, int slot
     if (event.action == UiPointerAction::Wheel && pool) item_range->AdjustValue(event.wheel);
     if (event.action == UiPointerAction::Up && event.inside) {
         if (event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK))
-            AfterUiDispatch([this, item, index, origin] {
-                HandleCampItemClick(item, index, static_cast<W8ItemOrigin>(origin));
-            });
+            AfterUiDispatch([this, location] { HandleCampItemClick(location); });
         if (event.button == UiPointerButton::Right && (event.captured_buttons & SDL_BUTTON_RMASK) &&
             item->iItemNo != -1 && item_action != W8_CAMP_ITEM_ACTION_IDENTIFY)
             AfterUiDispatch([this, item] { ShowCampItemInfo(item); });
@@ -650,7 +651,7 @@ UiResult W8CampScreenState::HandleCampItem(const UiPointerEvent& event, int slot
         event.action == UiPointerAction::Wheel) {
         SetUiHelpDelay(std::min({g_settings.tooltip_delay_ms, 300}));
         g_ui_help_forced = true;
-        target.setTooltip([this, slot, origin] { return CampItemTooltip(slot, origin); });
+        target.setTooltip([this, slot, storage] { return CampItemTooltip(slot, storage); });
     }
     return UiResult::Handled;
 }

@@ -199,7 +199,7 @@ void CloseUseItemSelectView(void)
         RequestRedrawCombatBar();
         RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
         SyncWorldAdvancement();
-        ClearItemDrag();
+        gXStatus.item_drag.reset();
         if (LockInteractionSuspended() && !IsScreenTransitionPending()) {
             OpenLockInteraction(0);
             return;
@@ -224,12 +224,14 @@ void RefreshUseItemSelectionForSlot(int party_slot)
         return;
     }
     use_item->owner = party_slot;
-    if (gXStatus.item_drag_active) {
-        if (!(g_status.party.held.item.iItemNo != -1)) {
-            const bool party_pool = gXStatus.dragged_item_origin == W8_ITEM_ORIGIN_PARTY_POOL;
+    if (gXStatus.item_drag && gXStatus.item_drag->pending) {
+        gXStatus.item_drag->pending = false;
+        const auto dragged = gXStatus.item_drag->item;
+        if (g_status.party.held.item.iItemNo == -1) {
+            const bool party_pool = dragged.storage == W8ItemStorage::Pool;
             if (party_pool && g_combat.active()) Fail("!g_combat.active()");
             RebuildUseItemSelectList(party_pool ? ItemPool::Party : ItemPool::Character,
-                                     gXStatus.dragged_item);
+                                     g_status.party.itemAt(dragged));
         } else {
             RebuildUseItemSelectList(ItemPool::Hand, &g_status.party.held.item);
         }
@@ -237,11 +239,10 @@ void RefreshUseItemSelectionForSlot(int party_slot)
             Fail("giReuseItemLineNumber != -1");
         }
         ScrollTextBoxTo(use_item->selected_line);
-        gXStatus.item_drag_active = false;
         return;
     }
     if (CanPartySlotUseRecordedItem(party_slot)) {
-        gXStatus.dragged_item = 0;
+        gXStatus.item_drag.reset();
         item = g_status.party.itemAt(g_status.party.rows[party_slot].item_detail.item_use.item);
         if (CanUseItemForAction(use_item->owner, item)) {
             const bool party_pool =
@@ -258,7 +259,7 @@ void RefreshUseItemSelectionForSlot(int party_slot)
             return;
         }
     }
-    gXStatus.dragged_item = 0;
+    gXStatus.item_drag.reset();
     RebuildUseItemSelectList(use_item->pool, nullptr);
 }
 
@@ -636,38 +637,18 @@ void SelectCurrentUseItemLine(void)
    the move slid it to before the hand copy is refreshed. */
 void TakeUseItemIntoHand(void)
 {
-    unsigned int i;
-    unsigned int old_count;
-
-    if (!(g_status.party.held.item.iItemNo != -1)) {
-        ExchangeInventoryItems(g_status.party.locateItem(g_status.party.itemAt(
-                                   use_item->draft.detail_block.item_use.item)),
-                               {W8ItemStorage::Hand},
-                               static_cast<unsigned>(g_status.selected_character));
-        return;
-    }
-    if (use_item->owner == -1) {
-        Fail("giUseItemChar != BAD_INDEX");
-    }
-    old_count = g_status.party.item_count;
-    GiveItemToCharacterOrParty(use_item->owner, &g_status.party.held.item, true);
-    if (use_item->pool == ItemPool::Party && old_count != g_status.party.item_count &&
-        g_status.party.item_count != 0) {
-        for (i = 0; i < g_status.party.item_count; i++) {
-            if (g_status.party.itemAt(use_item->draft.detail_block.item_use.item) ==
-                &g_status.party.item_pool[i]) {
-                use_item->draft.detail_block.item_use.item =
-                    g_status.party.locateItem(&g_status.party.item_pool[i + 1]);
-                ExchangeInventoryItems(g_status.party.locateItem(g_status.party.itemAt(
-                                           use_item->draft.detail_block.item_use.item)),
-                                       {W8ItemStorage::Hand},
-                                       static_cast<unsigned>(g_status.selected_character));
-                return;
-            }
+    auto& selected = use_item->draft.detail_block.item_use.item;
+    if (g_status.party.held.item.iItemNo != -1) {
+        if (use_item->owner == -1) {
+            Fail("giUseItemChar != BAD_INDEX");
         }
+        const auto old_count = g_status.party.item_count;
+        GiveItemToCharacterOrParty(use_item->owner, &g_status.party.held.item, true);
+        // A new pool entry goes to the front and moves the selection down one row.
+        if (use_item->pool == ItemPool::Party && old_count != g_status.party.item_count &&
+            selected.storage == W8ItemStorage::Pool && selected.slot < g_status.party.item_count)
+            ++selected.slot;
     }
-    ExchangeInventoryItems(g_status.party.locateItem(
-                               g_status.party.itemAt(use_item->draft.detail_block.item_use.item)),
-                           {W8ItemStorage::Hand},
+    ExchangeInventoryItems(selected, {W8ItemStorage::Hand},
                            static_cast<unsigned>(g_status.selected_character));
 }

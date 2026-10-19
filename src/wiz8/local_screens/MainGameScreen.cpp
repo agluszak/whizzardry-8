@@ -2103,7 +2103,7 @@ void ResetMainGameScreenState(void)
         gXStatus.review_character_slot = static_cast<unsigned short>(unset);
         gXStatus.gameplay_timer->Restart();
         gXStatus.assay_professions_tab = true;
-        ClearItemDrag();
+        gXStatus.item_drag.reset();
         ResetTargetingState();
     }
 }
@@ -2254,13 +2254,13 @@ bool MainGameScreenEnter(void)
     if (TrapInteractionSuspended()) {
         OpenTrapInteraction(0);
     }
-    if (gXStatus.item_drag_active) {
-        if (IsPartySlotEligible(gXStatus.dragged_character_slot)) {
-            SelectPartyCharacter(gXStatus.dragged_character_slot);
-            OpenUseItemSelectView(gXStatus.dragged_character_slot);
+    if (gXStatus.item_drag && gXStatus.item_drag->pending) {
+        if (IsPartySlotEligible(gXStatus.item_drag->actor)) {
+            SelectPartyCharacter(gXStatus.item_drag->actor);
+            OpenUseItemSelectView(gXStatus.item_drag->actor);
             SelectCurrentUseItemLine();
         } else {
-            ClearItemDrag();
+            gXStatus.item_drag.reset();
         }
     }
     if (!g_combat.active()) {
@@ -4443,9 +4443,10 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                                 &g_status.party.characters[g_status.selected_character], 0x35, 0,
                                 kCharacterEventFullVolume);
                         }
-                    } else if (!(g_status.party.held.item.iItemNo != -1) ||
+                    } else if (g_status.party.held.item.iItemNo == -1 ||
                                gXStatus.iCurrentCursor != W8_CURSOR_INVALID_TARGET ||
-                               gXStatus.dragged_item == &g_status.party.held.item) {
+                               (gXStatus.item_drag &&
+                                gXStatus.item_drag->item.storage == W8ItemStorage::Hand)) {
                         if (g_settings.main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS) {
                             RefreshSelectedPartyPortrait(slot);
                         }
@@ -4515,9 +4516,10 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                     }
                 } else {
                     if (g_level_block->portrait_refresh_pending[slot] == 0) {
-                        if (!(g_status.party.held.item.iItemNo != -1) ||
+                        if (g_status.party.held.item.iItemNo == -1 ||
                             gXStatus.iCurrentCursor != W8_CURSOR_INVALID_TARGET ||
-                            gXStatus.dragged_item == &g_status.party.held.item) {
+                            (gXStatus.item_drag &&
+                             gXStatus.item_drag->item.storage == W8ItemStorage::Hand)) {
                             help_text = g_localized_strings[0x1d];
                         } else {
                             help_text = g_localized_strings[0x1e];
