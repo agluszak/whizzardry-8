@@ -346,3 +346,15 @@ Validation before consolidation (2026-10-19; rebase verification follows separat
   `clang-format --dry-run --Werror`; `git diff --check` passed.
 - These are bounded regression checks, not a claim of complete gameplay,
   save-format, or platform parity. Remote CI is reported separately on #374.
+
+Consolidation and rebase validation (2026-10-19):
+
+- #374 now targets `main` directly; the native GitHub stack was dissolved and
+  #371 / #372 closed. The original local tip is retained at
+  `backup/engine-stack-before-rebase-20261019`.
+- Rebase conflict resolutions retain `main`'s typed enums, simplified native
+  surfaces, flat world-item groups, and assertion call-site diagnostics.
+- Clang 23 release build with warnings as errors passed. All 227 CTest cases
+  passed, including all 14 installed-asset runtime scenarios.
+- AddressSanitizer and the full repository clang-tidy scan are being checked;
+  remote CI must pass on the consolidated head before merge.
