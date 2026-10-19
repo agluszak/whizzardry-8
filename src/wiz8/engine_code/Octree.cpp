@@ -36,7 +36,6 @@
 #include "ground_probe.h"
 #include "index_algorithms.h"
 #include "layouts/gameplay_databases.h"
-#include "layouts/main_game_screen.h"
 #include "layouts/world.h"
 #include "surrender/plane_math.h"
 #include "surrender/segment_math.h"
