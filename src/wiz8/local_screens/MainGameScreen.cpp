@@ -5988,6 +5988,8 @@ void RunMGSActionKey(unsigned short command)
         case W8_ACTION_EQUIP:
             RunMGSActionKey(W8_MGS_ACTION_EQUIP);
             break;
+        default:
+            break;
         }
         break;
     default:
