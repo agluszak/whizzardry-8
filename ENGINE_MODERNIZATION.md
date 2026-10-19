@@ -325,11 +325,11 @@ the continuation.
 
 | Plan area | Implementation in #384 | Validation |
 | :--- | :--- | :--- |
-| Foundation modules | `canvas/` draws only to SDL surfaces; framebuffer integration lives in `render/frame`. SDL window/input/time services live in `platform/`. `AmbientAudioSystem` owns ambient schedules, stable script voices, transient voices and the footstep loop; sound events and mouth-gap data are values. | Pending complete CI |
-| Renderer and resources | `GpuRenderer` directly owns GPU resources and submissions. The device facade, mesh pipeline, vertex processor hierarchy and fixed state stacks are deleted. Vertex shading receives concrete draw inputs. `WorldScene` uses typed mesh/light/fog/particle/shadow/clip collections. `Mesh`, `MeshInstance`, `Texture`, `Material` and variant-animated `Light` are concrete resources. Mesh parts use standard ranges over owned children. One UI canvas texture and flat `OverlayQuad` values replace overlay scenes and tiled surfaces. | Pending complete CI |
-| Entities and animation | `Monster`, `Missile` and `SpellVisual` compose `CyclePlayer` and `Navigator`; all entity bases, representation classes and virtual animation getters are gone. Cycle slots own animations, lights and playback scale together. Prop owns its collision/path data. Keyframe tracks and missile flight are values. Trigger payloads use a variant; trigger I/O, actions and locks have separate implementations. Typed world asset lookup replaces the process-wide cycle registry. The reviewed actor lookup callers handle unloaded actors explicitly; the wider actor-reference audit remains open. | Pending complete CI |
-| Spatial and navigation | One world-owned `LevelSpatialIndex` owns compiled indexing and collision banks, including the raw-WGD fallback. `DynamicSpatialRegistry` owns registration and visibility; `CollisionRuntime` owns conditional switches and trigger state. Queries use local scratch and explicit geometry spans, without surface-bank swaps, shared visit bits or cached hit results. Motion contacts copy immutable geometry into a local contact cache. `SurfaceIndex` stores typed surface references and deduplicates locally. Navigation uses per-search graph/grid/patrol scratch and per-mesh settings; only movement updates patrol stamps. The obsolete region-link authoring pipeline is deleted; shipped `.rlk` files remain readable. | Pending complete CI |
-| World, environment, camera and loading | `World` owns scene, environment, spatial data, audio, population and entities. Member order replaces manual teardown phases. `EnvironmentState` owns authored ramps, fog, lighting transitions and sky references. `PartyCamera` owns orientation, transitions, `PartyMotion`, active physical environment, sway, input and footstep timing. Camera snapshots use typed poses with opaque retail bytes preserved by the codec. `world/level_loader` owns level/PVL/WGD decoding; `world/level_session` owns loading, transitions and save snapshots. All callers use the new modules. | Pending complete CI |
+| Foundation modules | `canvas/` draws only to SDL surfaces; framebuffer integration lives in `render/frame`. SDL window/input/time services live in `platform/`. `AmbientAudioSystem` owns ambient schedules, stable script voices, transient voices and the footstep loop; sound events and mouth-gap data are values. | Passed CI; see section 6 |
+| Renderer and resources | `GpuRenderer` directly owns GPU resources and submissions. The device facade, mesh pipeline, vertex processor hierarchy and fixed state stacks are deleted. Vertex shading receives concrete draw inputs. `WorldScene` uses typed mesh/light/fog/particle/shadow/clip collections. `Mesh`, `MeshInstance`, `Texture`, `Material` and variant-animated `Light` are concrete resources. Mesh parts use standard ranges over owned children. One UI canvas texture and flat `OverlayQuad` values replace overlay scenes and tiled surfaces. | Passed CI; see section 6 |
+| Entities and animation | `Monster`, `Missile` and `SpellVisual` compose `CyclePlayer` and `Navigator`; all entity bases, representation classes and virtual animation getters are gone. Cycle slots own animations, lights and playback scale together. Prop owns its collision/path data. Keyframe tracks and missile flight are values. Trigger payloads use a variant; trigger I/O, actions and locks have separate implementations. Typed world asset lookup replaces the process-wide cycle registry. The reviewed actor lookup callers handle unloaded actors explicitly; the wider actor-reference audit remains open. | Passed CI; see section 6 |
+| Spatial and navigation | One world-owned `LevelSpatialIndex` owns compiled indexing and collision banks, including the raw-WGD fallback. `DynamicSpatialRegistry` owns registration and visibility; `CollisionRuntime` owns conditional switches and trigger state. Queries use local scratch and explicit geometry spans, without surface-bank swaps, shared visit bits or cached hit results. Motion contacts copy immutable geometry into a local contact cache. `SurfaceIndex` stores typed surface references and deduplicates locally. Navigation uses per-search graph/grid/patrol scratch and per-mesh settings; only movement updates patrol stamps. The obsolete region-link authoring pipeline is deleted; shipped `.rlk` files remain readable. | Passed CI; see section 6 |
+| World, environment, camera and loading | `World` owns scene, environment, spatial data, audio, population and entities. Member order replaces manual teardown phases. `EnvironmentState` owns authored ramps, fog, lighting transitions and sky references. `PartyCamera` owns orientation, transitions, `PartyMotion`, active physical environment, sway, input and footstep timing. Camera snapshots use typed poses with opaque retail bytes preserved by the codec. `world/level_loader` owns level/PVL/WGD decoding; `world/level_session` owns loading, transitions and save snapshots. All callers use the new modules. | Passed CI; see section 6 |
 
 The old source and include directories `sgp`, `surrender` and
 `wiz8/engine_code` are removed. This is an architectural replacement: no aliases
@@ -337,7 +337,7 @@ or subclasses keep their former engine interfaces alive. Retail compatibility
 records remain explicit at file boundaries, including camera opaque bytes,
 collision records and named/numeric prop-save keys.
 
-## 6. Verification and Completion Gate
+## 6. Batch Verification
 
 As requested, compilation, tests and static analysis for #384 run **exclusively
 in GitHub Actions**. No local build or test results are claimed for this work.
@@ -352,16 +352,26 @@ The required checks are:
   analysis; offline Metal and Direct3D shader verification.
 - Repository-wide clang-format check.
 
-Existing fixtures now exercise concrete resource ownership, independent clone
+The rebased implementation at `6f147060` passed GitHub Actions on 2026-10-19:
+
+- [Native CI](https://github.com/agluszak/whizzardry-8/actions/runs/39292975337):
+  **231/231 CTest entries passed in Debug and 231/231 in ASan/UBSan**, including
+  all **14 licensed retail-asset runtime scenarios** in each configuration.
+  All four analysis shards, the combined clang-tidy check and offline shader
+  verification passed.
+- [Formatting](https://github.com/agluszak/whizzardry-8/actions/runs/39292975343)
+  passed.
+
+Existing fixtures exercise concrete resource ownership, independent clone
 playback, material/light/fog rendering behavior, mesh-part mapping, query
 isolation, pending-world isolation, opaque camera/save records and trigger
-lifetimes. Inheritance-only fixtures were removed. An untimed-trigger regression
-covers continuous camera-shake cleanup without an absent countdown dereference.
+lifetimes. Inheritance-only fixtures were removed. Regressions cover untimed
+camera-shake cleanup and preserving the selected monster animation during
+model collection. CI also verified crop pixel fidelity and serialized mesh
+ownership after fixes found by the expanded run.
 
-CI fixes are being validated on the rebased continuation branch against the
-C++26 toolchain, stronger diagnostics and sanitizer configuration now on main.
-The PR remains a draft until the complete checks above pass on the final
-implementation. Historical green checks on #374 and the initial movement-only
+These results validate this batch; they do not close the remaining architectural
+work in section 7. Historical green checks on #374 and the initial movement-only
 continuation cover those revisions only.
 
 ### Historical #374 validation
@@ -394,5 +404,5 @@ directories alone does not finish these goals.
   meaningful unloaded/retired-actor regressions where the audit finds bugs.
 - **Validate each follow-up in CI.** Keep retail asset/save compatibility,
   concrete ownership tests, sanitizer runtime scenarios and all required
-  analysis/format checks green. Record the final CI results for this batch
-  in section 6 before declaring it ready.
+  analysis/format checks green. The verified baseline for this batch is recorded
+  in section 6.
