@@ -20,7 +20,7 @@ inline void SelectInitialEmitterLod(W8GrCycle& visual, signed char cycle)
 inline void StartEmitterCycle(W8GrCycle& visual, const W8AnimObj& animation, signed char cycle)
 {
     visual.current_cycle = cycle;
-    visual.rep_active = 1;
+    visual.rep_active = true;
     visual.frame_direction = W8_ANIMATION_FORWARD;
     SelectInitialEmitterLod(visual, cycle);
     visual.timer = GameClockMilliseconds();
@@ -65,7 +65,7 @@ inline bool ReadEmitterCycle(W8GrCycle& visual, std::span<EmitterCycleResources>
     destination.swap(loaded);
     visual.SetLights(destination.lightView());
     visual.current_cycle = static_cast<signed char>(emitter);
-    visual.rep_active = 1;
+    visual.rep_active = true;
     visual.frame_direction = W8_ANIMATION_FORWARD;
     visual.timer = timer;
     visual.animation_behaviour = destination.animation->behaviour;

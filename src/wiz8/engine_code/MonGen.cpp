@@ -59,7 +59,7 @@ MonGen::MonGen()
     unknown_08 = 0xffff;
     encounter_table_index = -1;
     timer.m_flags.one_shot = false;
-    generation_enabled = 1;
+    generation_enabled = true;
     memset(name, 0, sizeof(name));
 }
 
@@ -375,7 +375,7 @@ bool MonGen::CanGenerateEncounter(bool force)
     float distance;
 
     if (GetWorld()->encounters.save_flag != 0 || gXStatus.world_update_blocked ||
-        gXStatus.fCombatMode || gXStatus.fNpcDialogueMode || generation_enabled == 0) {
+        gXStatus.fCombatMode || gXStatus.fNpcDialogueMode || !generation_enabled) {
         return false;
     }
 
@@ -607,7 +607,7 @@ void ReadMonsterGeneratorStates(W8Chunk& file, W8EncounterState& state)
                 break;
             }
         if (generator) {
-            generator->generation_enabled = enabled;
+            generator->generation_enabled = enabled != 0;
             generator->flags = flags;
         }
         if (version > 1) {
@@ -684,7 +684,8 @@ void SaveMonsterGenerators(wiz8::File& handle)
     for (index = 0; index < count; ++index) {
         generator = GetWorld()->encounters.generators[index].get();
         handle.write(generator->name, 0x20);
-        handle.write(&generator->generation_enabled, 1);
+        const unsigned char enabled = generator->generation_enabled;
+        handle.write(&enabled, 1);
         handle.write(&generator->flags, 4);
         generator->timer.SaveState(handle);
     }
@@ -700,7 +701,8 @@ void MonGen::Save(wiz8::File& handle)
 
     handle.write(&version, 1);
     handle.write(name, 0x20);
-    handle.write(&generation_enabled, 1);
+    const unsigned char enabled = generation_enabled;
+    handle.write(&enabled, 1);
     handle.write(&flags, 4);
     handle.write(&custom_spawn_chance, 1);
     handle.write(&custom_interval_seconds, 2);
@@ -725,7 +727,9 @@ try {
     handle.ReadBytes(&version, 1);
     if (static_cast<signed char>(version) >= 3) {
         handle.ReadBytes(name, 0x20);
-        handle.ReadBytes(&generation_enabled, 1);
+        unsigned char enabled;
+        handle.ReadBytes(&enabled, 1);
+        generation_enabled = enabled != 0;
     }
     handle.ReadBytes(&flags, 4);
     handle.ReadBytes(&custom_spawn_chance, 1);

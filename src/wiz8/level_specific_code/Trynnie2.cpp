@@ -188,7 +188,7 @@ bool Trynnie2UrnTrigger(Trigger* pTrigger)
     if (count >= 3) {
         generator = FindMonGenByName("PAGODA");
         if (generator != 0) {
-            generator->generation_enabled = 0;
+            generator->generation_enabled = false;
         }
         ShowLevelMessage(0x14);
         return true;

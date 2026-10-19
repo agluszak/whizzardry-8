@@ -109,6 +109,6 @@ inline W8SpellVisual::W8SpellVisual(const W8SpellVisual& other, W8World* owner)
     scale0 = other.scale0;
     location_id = 0;
     AllocateLegacyPropSaveId();
-    rep_active = 1;
+    rep_active = true;
     current_cycle = other.current_cycle;
 }

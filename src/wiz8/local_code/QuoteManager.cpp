@@ -1664,10 +1664,10 @@ void AdvancePortraitPose(W8PortraitAnimation& state)
    incapacitation path when no record is active, advances facing and pose
    clocks, and asks the current screen to redraw a changed slot. */
 
-int UpdateCharacterEventState(void)
+bool UpdateCharacterEventState(void)
 {
     unsigned int party_slot;
-    int any_active = 0;
+    bool any_active = false;
 
     for (party_slot = 0; party_slot < 8; ++party_slot) {
         W8MonsterManagerEntry* record = &gXStatus.monster_manager_entries[party_slot];
@@ -1716,7 +1716,7 @@ int UpdateCharacterEventState(void)
                     MaybeStartIncapacitationEvent(party_slot);
                 }
             } else {
-                any_active = 1;
+                any_active = true;
                 AdvancePortraitSpeech(record->portrait, sound_active,
                                       g_event_range_min <= record->pending_event_type &&
                                           record->pending_event_type <= g_event_range_max);

@@ -1423,7 +1423,9 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
             handle->read_exact(&representation_scale, 4);
             handle->read_exact(&initial_location_value, 1);
             handle->read_exact(&flag0, 1);
-            handle->read_exact(&trigger->action_data_mode, 1);
+            signed char action_data_mode;
+            handle->read_exact(&action_data_mode, 1);
+            trigger->action_data_mode = static_cast<W8TriggerActionDataMode>(action_data_mode);
             handle->read_exact(&trigger->sound_volume, 1);
             int unused;
             handle->read_exact(&unused, 4);
@@ -1658,6 +1660,7 @@ Trigger::Trigger(W8World* world)
     name[0] = 0;
     position = glm::vec3(0);
     action_data[0] = 0;
+    action_data_mode = W8TriggerActionDataMode::toggle_alternate;
     item_group_seed = static_cast<unsigned int>(w8_get_ticks() + Random(30000));
     gold = 0;
     uses_remaining = 0;
@@ -1672,19 +1675,20 @@ void Trigger::UpdateActionAnimation()
         return;
     }
     if ((flags & W8_TRIGGER_ALTERNATE_ACTION) != 0) {
-        if (action_data_mode == 0) {
+        if (action_data_mode == W8TriggerActionDataMode::toggle_alternate) {
             if ((flags & W8_TRIGGER_ALTERNATE_SELECTED) == 0) {
                 flags |= W8_TRIGGER_ALTERNATE_SELECTED;
             } else {
                 action_data = alternate_action_data;
                 flags &= ~W8_TRIGGER_ALTERNATE_SELECTED;
             }
-        } else if (action_data_mode == 1) {
+        } else if (action_data_mode == W8TriggerActionDataMode::alternate_action) {
             if (action == alternate_action) {
                 PlayActionSound(alternate_action_data, sound_volume);
                 return;
             }
-        } else if (action_data_mode == 2 && action == fallback_action) {
+        } else if (action_data_mode == W8TriggerActionDataMode::fallback_action &&
+                   action == fallback_action) {
             PlayActionSound(alternate_action_data, sound_volume);
             return;
         }
@@ -2508,7 +2512,8 @@ void Trigger::Run(int source)
         return;
 
     case 0x36:
-        if (action_state == W8TriggerActionState::fallback_action && action_data_mode == 2) {
+        if (action_state == W8TriggerActionState::fallback_action &&
+            action_data_mode == W8TriggerActionDataMode::fallback_action) {
             PlayActionSound(alternate_action_data, 0);
         } else {
             PlayActionSound(this->action_data, 0);
@@ -2560,7 +2565,7 @@ void Trigger::Run(int source)
         }
 
         group->members_active = true;
-        monster_info->p3D->rep_active = 1;
+        monster_info->p3D->rep_active = true;
         monster_info->p3D->animation_playing = 1;
         monster_info->p3D->timer = GameClockMilliseconds();
         monster_info->p3D->ResetRepresentation();

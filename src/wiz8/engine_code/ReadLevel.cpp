@@ -682,7 +682,7 @@ try {
         if (has_options) {
             if (options[1] == '0' || options[1] == '\0') {
                 group->members_active = false;
-                monster->rep_active = 0;
+                monster->rep_active = false;
             }
             if (options[0] == '0' || options[0] == '\0') continue;
         }

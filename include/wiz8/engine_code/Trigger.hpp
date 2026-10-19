@@ -156,6 +156,11 @@ enum class W8TriggerStateModificationMode : unsigned char {
     clear = 2,
     toggle = 3
 };
+enum class W8TriggerActionDataMode : signed char {
+    toggle_alternate = 0,
+    alternate_action = 1,
+    fallback_action = 2
+};
 
 class Trigger {
 public:
@@ -257,7 +262,7 @@ public:
     W8World* m_pWorld;
     char action_data[0x80];
     char alternate_action_data[0x80];
-    signed char action_data_mode;
+    W8TriggerActionDataMode action_data_mode;
     signed char sound_volume;
     unsigned short initial_action;
     unsigned short alternate_action;

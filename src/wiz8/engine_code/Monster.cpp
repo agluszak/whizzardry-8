@@ -930,7 +930,7 @@ unsigned char W8Monster::ReadCycleData(W8ReadLevelInfo* info, int cycle_index, i
         animation_scales[cycle].push_back(animation->playback_scale);
     }
 
-    rep_active = 1;
+    rep_active = true;
     frame_direction = W8_ANIMATION_FORWARD;
     m_bLOD = 2;
     timer = GameClockMilliseconds();
@@ -1365,7 +1365,7 @@ void W8Monster::Update()
         }
     }
 
-    if (rep_active == 0) {
+    if (!rep_active) {
         return;
     }
 

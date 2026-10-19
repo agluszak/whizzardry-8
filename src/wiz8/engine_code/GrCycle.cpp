@@ -703,7 +703,7 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
     if (pWorld == 0) {
         Fail("pWorld");
     }
-    if (rep_active == 0) {
+    if (!rep_active) {
         return;
     }
     animation = GetCurrentAnimation();

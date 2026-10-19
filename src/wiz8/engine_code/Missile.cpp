@@ -687,7 +687,7 @@ W8Missile::~W8Missile()
    combat boundary consume the animation once its table flag is set. */
 void W8Missile::StartIfHostActive()
 {
-    if (rep_active == 0) {
+    if (!rep_active) {
         return;
     }
     if (GetAnimationState(W8_MISSILE_ANIMATION_AT_FINAL_SUBCYCLE) == 0 || !impacting) {
