@@ -109,7 +109,8 @@ claim unexecuted tests pass.
 Understand current ownership and callers before changing an API. Make the
 simplification end-to-end: update consumers, remove dead code, and do not
 leave two ways to do the same thing. Favor focused, reviewable changes with
-a clear net reduction in complexity. Consult `README.md`,
-`UI_MODERNIZATION.md`, and `NATIVE_WORK.md` for existing conventions and
-remaining migration work; where those notes describe transitional machinery,
-the principles above describe the desired end state.
+a clear net reduction in complexity. Consult `README.md` and
+`ARCHITECTURE.md` for existing conventions and `ROADMAP.md` for remaining
+migration work; where those notes describe transitional machinery, the
+principles above describe the desired end state. When you finish a roadmap
+item, delete it; record new architectural work there rather than in a new file.
