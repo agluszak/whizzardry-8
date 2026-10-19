@@ -2752,7 +2752,7 @@ bool EquipHeldItemAndStowPartner(W8Character& character, W8EquipSlot slot)
     auto& partner = character.EquippedItem[*partner_slot];
     const bool replace = destination.iItemNo != -1;
     W8ItemInstance* storage = nullptr;
-    int backpack_slot = -1;
+    std::optional<int> backpack_slot;
     bool pool = false;
     const auto actor = CharacterPointerToPartySlot(&character);
     if (replace) {
@@ -2804,7 +2804,7 @@ bool EquipHeldItemAndStowPartner(W8Character& character, W8EquipSlot slot)
         if (g_current_screen_state.id == W8_SCREEN_CAMP && g_camp_screen)
             g_camp_screen->item_redraw_flags |= pool ? W8_CAMP_ITEM_REDRAW_POOL
                                                      : W8_CAMP_ITEM_REDRAW_BACKPACK_CELL_FIRST
-                                                           << backpack_slot;
+                                                           << *backpack_slot;
     }
     return true;
 }
