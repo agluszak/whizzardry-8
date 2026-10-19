@@ -858,7 +858,7 @@ void HandleScriptedNpcDeath(unsigned int monster_list_index)
     if (record->record_id != 0x234) {
         return;
     }
-    int lead_index = -1;
+    std::optional<int> lead_index;
     if (NpcLeadHasNameStyle(W8_NPC_VI_DOMINA)) {
         W8NpcState* lead = GetNpcStateByKind(W8_NPC_VI_DOMINA);
         if (lead != 0) {
@@ -881,7 +881,7 @@ void HandleScriptedNpcDeath(unsigned int monster_list_index)
         }
     }
     for (index = 0; index < eligible_count; ++index) {
-        if (eligible_slots[index] == lead_index) {
+        if (lead_index && eligible_slots[index] == *lead_index) {
             QueueCharacterEvent(&g_status.buffers.Char[eligible_slots[index]], 36,
                                 kCharacterEventNoNpcDefer, kCharacterEventFullVolume);
         }
@@ -889,7 +889,7 @@ void HandleScriptedNpcDeath(unsigned int monster_list_index)
     if (eligible_count > 2) {
         do {
             pick = Random(eligible_count);
-        } while (eligible_slots[pick] == lead_index);
+        } while (lead_index && eligible_slots[pick] == *lead_index);
         QueueCharacterEvent(&g_status.buffers.Char[eligible_slots[pick]], 36,
                             kCharacterEventNoNpcDefer, kCharacterEventFullVolume);
     }

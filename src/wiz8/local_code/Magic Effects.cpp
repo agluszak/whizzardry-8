@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <iterator>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -1967,7 +1968,7 @@ void ApplyCombatEffectSlot(W8SpellEffectEntry* effect)
     W8EffectSlot* slot;
     unsigned int duration;
     const int* table;
-    int source_character = -1;
+    std::optional<int> source_character;
     int spell_id;
     int slot_index;
     int index;
@@ -2015,9 +2016,9 @@ void ApplyCombatEffectSlot(W8SpellEffectEntry* effect)
             }
             slot->Activate(spell_id, effect->definition.duration_scale, duration);
             RebuildMonsterDerivedStats(monster_info->location_id);
-            if (source_character != -1) {
+            if (source_character) {
                 W8MonsterRecord* monster = GetMonsterDataForInfo(monster_info);
-                monster_info->pCombat->character_hate[source_character] +=
+                monster_info->pCombat->character_hate[*source_character] +=
                     monster->effective_level * effect->definition.duration_scale;
             }
             effect->applied = true;
