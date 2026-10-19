@@ -9,7 +9,7 @@ class File;
 
 /* The factions. The name table, the runtime score array and the relationship
    matrix keep one row per id. The last two ids name no faction. */
-enum W8Faction : int {
+enum W8Faction : signed char {
     W8_FACTION_UNALIGNED = 0,
     W8_FACTION_PARTY = 1,
     W8_FACTION_DARK_SAVANT = 2,

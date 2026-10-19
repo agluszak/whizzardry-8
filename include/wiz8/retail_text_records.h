@@ -656,8 +656,8 @@ template<> struct Record<W8MonsterRecord> {
                                                             sizeof(Disk::alternate_model_index)));
         value(&runtime.hostility_radius,
               bytes.subspan(offsetof(Disk, hostility_radius), sizeof(Disk::hostility_radius)));
-        value(&runtime.faction_id,
-              bytes.subspan(offsetof(Disk, faction_id), sizeof(Disk::faction_id)));
+        enum_value<std::int32_t>(&runtime.faction_id, bytes.subspan(offsetof(Disk, faction_id),
+                                                                    sizeof(Disk::faction_id)));
         value(&runtime.material, bytes.subspan(offsetof(Disk, material), sizeof(Disk::material)));
         value(&runtime.deleted, bytes.subspan(offsetof(Disk, deleted), sizeof(Disk::deleted)));
         value(&runtime.significant_kill,
@@ -955,8 +955,8 @@ template<> struct Record<W8GlobalStatus> {
               bytes.subspan(offsetof(Disk, real_elapsed), sizeof(Disk::real_elapsed)));
         value(&runtime.frame_elapsed,
               bytes.subspan(offsetof(Disk, frame_elapsed), sizeof(Disk::frame_elapsed)));
-        value(&runtime.wait_state,
-              bytes.subspan(offsetof(Disk, wait_state), sizeof(Disk::wait_state)));
+        enum_value<std::uint32_t>(&runtime.wait_state, bytes.subspan(offsetof(Disk, wait_state),
+                                                                     sizeof(Disk::wait_state)));
         value(&runtime.item_recharge_ms,
               bytes.subspan(offsetof(Disk, item_recharge_ms), sizeof(Disk::item_recharge_ms)));
         value(&runtime.formation,

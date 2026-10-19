@@ -20,7 +20,7 @@ struct W8Character;
 
 enum { W8_PARTY_SLOT_COUNT = 8 };
 
-enum W8GameWaitState : unsigned int {
+enum W8GameWaitState : unsigned char {
     W8_GAME_WAIT_STATE_MOVING = 0,
     W8_GAME_WAIT_STATE_FAST_MOVEMENT = 1,
     W8_GAME_WAIT_STATE_INITIAL_REST = 2,
