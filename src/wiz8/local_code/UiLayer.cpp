@@ -51,11 +51,11 @@ InputEvent PointerMotion(SDL_Point point)
 struct UiState {
     std::vector<UiLayer*> layers, modals;
     HitTarget* tooltip = nullptr;
-    int owner = -1;
+    std::optional<int> owner;
 
     bool allowed(const UiLayer& layer) const
     {
-        if (!layer.enabled_ || (layer.owner_ && *layer.owner_ != owner)) return false;
+        if (!layer.enabled_ || (layer.owner_ && layer.owner_ != owner)) return false;
         return modals.empty() || modals.back() == &layer;
     }
     bool live(const HitTarget* target) const
@@ -440,7 +440,7 @@ void ClearUiHover()
     const UiTransaction transaction;
     State().leave(PointerMotion(g_ui.pointer));
 }
-void SelectUiInputOwner(int owner)
+void SelectUiInputOwner(std::optional<int> owner)
 {
     auto& state = State();
     state.hideTooltip();
@@ -450,7 +450,7 @@ void SelectUiInputOwner(int owner)
     g_ui_help_delay = g_settings.tooltip_delay_ms;
     g_ui_help_forced = false;
 }
-int UiInputOwner()
+std::optional<int> UiInputOwner()
 {
     return State().owner;
 }

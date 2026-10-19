@@ -120,7 +120,7 @@ void InitializeWorldCursor(void)
         cursor.monster = monster.get();
         GetWorld()->monsters.push_back(std::move(monster));
         MonsterSetCycle(cursor.monster, 0);
-        cursor.last_published = glm::vec3(-100000000.0f);
+        cursor.last_published.reset();
         cursor.position = glm::vec3(0);
         cursor.cam_rel_offset = glm::vec3(0);
         cursor.monster->inactive = true;
@@ -325,7 +325,7 @@ void ApplyWorldCursorInput(void)
         cursor.position = delta;
         cursor.cam_rel_offset = delta;
     }
-    if (!(cursor.last_published == cursor.position)) {
+    if (!cursor.last_published || *cursor.last_published != cursor.position) {
         lifted = cursor.position;
         MonsterSetAdjustedPosition(cursor.monster, &lifted);
         if (g_cursor_node0 != 0) {
@@ -417,7 +417,7 @@ void ResetWorldCursorRange(void)
 
 /* Install an action-range distance into the live cursor: subtract
    2e+03f / distance * world_scale, clamp to 50000, write range,
-   and force last_published to the -1e8 republish sentinel. */
+   and clear last_published to force a republish. */
 // FUNCTION: WIZ8 0x00491650
 void SetWorldCursorRange(float distance)
 {
@@ -427,7 +427,7 @@ void SetWorldCursorRange(float distance)
             distance = 5e+04f;
         }
         cursor->range = distance;
-        cursor->last_published = glm::vec3(-100000000.0f);
+        cursor->last_published.reset();
     }
 }
 
@@ -638,7 +638,7 @@ void UpdateWorldCursorPlacement(void)
     camera = cameraLocation();
     camera.y -= g_default_world_height;
     cursor = WorldCursor();
-    cursor->last_published = glm::vec3(-100000000.0f);
+    cursor->last_published.reset();
     target =
         camera + glm::rotateY(glm::vec3(0, 0, g_cursor_projection_distance), PartyCamera().m_yaw);
     cursor->position = camera;

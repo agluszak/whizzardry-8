@@ -2331,7 +2331,7 @@ void BeginEndgameSequence(void)
         fade_code = 1;
         endgame_variant = true;
     }
-    SelectUiInputOwner(W8_SCREEN_NONE); // No screen takes input during the fade.
+    SelectUiInputOwner(std::nullopt); // No screen takes input during the fade.
     VideoRemoveToolTip();
     g_level_block->review_transition_active = true;
     BeginScreenFade(fade_to_black, 0, fade_code, ShowEndingScreen, true, endgame_variant);
@@ -2441,7 +2441,7 @@ void BeginPartyDeath(void)
     UpdateHeldItemCursor();
     wiz8::sound::play("Data\\Sound\\Misc\\PartyDead.wav");
     StartMusicResource("CombatLose.MPL", 0, 1);
-    SelectUiInputOwner(W8_SCREEN_NONE); // No screen takes input during the fade.
+    SelectUiInputOwner(std::nullopt); // No screen takes input during the fade.
     VideoRemoveToolTip();
     BeginScreenFade(1, 0, 0x7d0, DrawPartyDeathScreen, true, 0);
     g_level_block->review_transition_active = true;

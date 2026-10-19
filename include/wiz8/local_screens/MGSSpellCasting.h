@@ -41,7 +41,7 @@ struct W8SpellCastingView {
     std::unique_ptr<W8ButtonWidget> cancel;
     W8TextBuffer spell_name;
     std::array<bool, 3> dirty{true, true, true};
-    W8NpcDialogueLayout interact_id;
+    std::optional<W8NpcDialogueLayout> interact_id;
     int location_id;
     struct SpellRow {
         int spell;
@@ -55,7 +55,7 @@ unsigned char OpenSpellCastingView(int party_slot);
 void CloseSpellCastingView(void);
 void RestoreSpellCastingRegions(void);
 void SelectSpellCastingCharacter(int party_slot);
-void BeginSpellCast(int spell_id, int location_id, W8NpcDialogueLayout interact_id);
+void BeginSpellCast(int spell_id, int location_id, std::optional<W8NpcDialogueLayout> interact_id);
 void SetSpellCastingPanelsActive(bool active);
 void SelectSpellPowerLevel(int power_level);
 void ResetSpellCastingSelection(void);

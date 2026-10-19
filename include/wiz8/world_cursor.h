@@ -31,9 +31,9 @@ struct W8WorldCursorState {
     /* read back by the path-visualization update as a world point. */
     glm::vec3 position{0};
     /* the last position published to the cursor's nodes and monster;
-       the update compares it against position to detect a move. Seeded
-       to the -1e7 sentinel by the placement update. */
-    glm::vec3 last_published{0};
+       the update compares it against position to detect a move. Empty
+       until the first position is published or after explicit invalidation. */
+    std::optional<glm::vec3> last_published;
     /* authored name fEnabled - the cursor update asserts it. */
     bool enabled{};
     /* ground tracking. Set by the initializer and the placement
@@ -82,7 +82,7 @@ bool IsWorldCursorVisible(void);
 void SetWorldCursorNodesVisible(bool visible);
 bool SelectWorldCursorNode(void);
 /* Clamp and install an action-range distance into the live world cursor, then
-   invalidate last_published so the next update republishes. */
+   clear last_published so the next update republishes. */
 void SetWorldCursorRange(float distance); /* 0x00491650 */
 /* Arm footprint placement: the target resolver ground-probes the two fixed
    offsets instead of the probe box. */
