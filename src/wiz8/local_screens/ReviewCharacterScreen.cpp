@@ -167,7 +167,7 @@ W8CampScreenRegion g_camp_screen_regions[12] = {
 
 /* Enable or disable the six spell-realm scrollbars together. While enabling, a
    realm whose learned spells fit the eight visible rows keeps its bar off. */
-void W8CampScreenState::SetCampSpellRangesEnabled(bool enable)
+void W8CampSpellsPage::SetCampSpellRangesEnabled(bool enable)
 {
     W8RangeControl* spell_range;
     int realm;
@@ -177,7 +177,7 @@ void W8CampScreenState::SetCampSpellRangesEnabled(bool enable)
         spell_range = spell_ranges[realm].get();
         spell_range->SetActive(enable);
         if (enable) {
-            second = reviewed->skill_unlocks[0x1c + realm] - 8;
+            second = screen.reviewed->skill_unlocks[0x1c + realm] - 8;
             if (second < 1) {
                 spell_range->SetEnabled(false);
             } else {
@@ -190,7 +190,7 @@ void W8CampScreenState::SetCampSpellRangesEnabled(bool enable)
 
 /* Re-enable all six spell-realm scrollbars after the learned-spell lists were
    rebuilt for a new character. */
-void W8CampScreenState::RefreshCampSpellRanges(void)
+void W8CampSpellsPage::RefreshCampSpellRanges(void)
 {
     W8RangeControl* spell_range;
     int realm;
@@ -199,7 +199,7 @@ void W8CampScreenState::RefreshCampSpellRanges(void)
     for (realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
         spell_range = spell_ranges[realm].get();
         spell_range->SetActive(true);
-        second = reviewed->skill_unlocks[0x1c + realm] - 8;
+        second = screen.reviewed->skill_unlocks[0x1c + realm] - 8;
         if (second < 1) {
             spell_range->SetEnabled(false);
         } else {
@@ -213,10 +213,9 @@ void W8CampScreenState::RefreshCampSpellRanges(void)
    skill level, the spell-point pool and up to eight learned spell rows; the
    row under the cursor gets the highlight palette and unaffordable or
    unusable spells dim. */
-void W8CampScreenState::DrawCampSpellPages(void)
+void W8CampSpellsPage::DrawCampSpellPages(void)
 {
-    W8CampScreenState* state;
-    W8Character* character = reviewed;
+    W8Character* character = screen.reviewed;
     const W8SpellRealmAnimation* animation;
     int realm;
     int row;
@@ -228,14 +227,14 @@ void W8CampScreenState::DrawCampSpellPages(void)
     unsigned int visible;
     Palette16 palette;
 
-    if ((redraw_flags & W8_CAMP_REDRAW_RESISTANCES) != 0 && !gpSCSV) {
+    if ((screen.redraw_flags & W8_CAMP_REDRAW_RESISTANCES) != 0 && !gpSCSV) {
         DrawCampResistances();
     }
-    if (redraw_flags == W8_CAMP_REDRAW_ALL) {
+    if (screen.redraw_flags == W8_CAMP_REDRAW_ALL) {
         CatalogArtwork::Load(0x140, 0).drawAndInvalidate(GetFrameBufferSurface(), 2, 0, 0xa5);
     }
     for (realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
-        if ((redraw_flags & (W8_CAMP_REDRAW_REALM_SPELLS_FIRST << realm)) == 0) {
+        if ((screen.redraw_flags & (W8_CAMP_REDRAW_REALM_SPELLS_FIRST << realm)) == 0) {
             continue;
         }
         left = (realm % 3) * 0xd5 + 3;
@@ -294,14 +293,13 @@ void W8CampScreenState::DrawCampSpellPages(void)
             }
             g_wiz_text_font_secondary.resetPalette();
         }
-        state = this;
-        state->spell_ranges[realm]->Redraw(GetFrameBufferSurface(), true);
+        spell_ranges[realm]->Redraw(GetFrameBufferSurface(), true);
     }
     for (realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
-        if (dialog != 0 && realm != 0 && realm != 3) {
+        if (screen.dialog != 0 && realm != 0 && realm != 3) {
             continue;
         }
-        if ((redraw_flags & ((W8_CAMP_REDRAW_REALM_SPELLS_FIRST << realm) | 0x10000)) == 0) {
+        if ((screen.redraw_flags & ((W8_CAMP_REDRAW_REALM_SPELLS_FIRST << realm) | 0x10000)) == 0) {
             continue;
         }
         animation = &g_spell_realm_animations[realm];
@@ -320,9 +318,9 @@ void W8CampScreenState::DrawCampSpellPages(void)
 /* The six resistance bars along the spell page's top strip: each bar clips its
    fill to the learned portion, the overflow to the bonus band or the shortfall
    to the gap, then right-aligns the value inside the bar. */
-void W8CampScreenState::DrawCampResistances(void)
+void W8CampSpellsPage::DrawCampResistances(void)
 {
-    W8Character* character = reviewed;
+    W8Character* character = screen.reviewed;
     const W8SpellRealmAnimation* animation;
     std::string text;
     int index;
@@ -354,17 +352,17 @@ void W8CampScreenState::DrawCampResistances(void)
    event's cursor position picks the highlighted row within the eight visible
    ones, wheel input scrolls the realm's range control, and activating a valid
    row opens its spell info dialog. */
-UiResult W8CampScreenState::HandleCampSpellList(const UiPointerEvent& event, int realm)
+UiResult W8CampSpellsPage::HandleCampSpellList(const UiPointerEvent& event, int realm)
 {
 
     int row = (event.local.y - 1) / 13;
-    const int visible =
-        std::min(8, int(reviewed->skill_unlocks[0x1c + realm]) - int(learned_spells.scroll[realm]));
+    const int visible = std::min(8, int(screen.reviewed->skill_unlocks[0x1c + realm]) -
+                                        int(learned_spells.scroll[realm]));
     if (!event.inside || row < 0 || row >= visible) row = -1;
     if (row != selected_spell_row || event.action == UiPointerAction::Enter ||
         event.action == UiPointerAction::Leave) {
         selected_spell_row = row;
-        redraw_flags |= W8_CAMP_REDRAW_REALM_SPELLS_FIRST << realm;
+        screen.redraw_flags |= W8_CAMP_REDRAW_REALM_SPELLS_FIRST << realm;
     }
     if (event.action == UiPointerAction::Wheel) {
         spell_ranges[realm]->AdjustValue(event.wheel);
@@ -377,11 +375,11 @@ UiResult W8CampScreenState::HandleCampSpellList(const UiPointerEvent& event, int
 }
 
 /* Open the spell info dialog for one spell id off the camp spell lists. */
-void W8CampScreenState::OpenSpellInfoDialog(unsigned int spell_id)
+void W8CampSpellsPage::OpenSpellInfoDialog(unsigned int spell_id)
 {
     auto dialog = std::make_unique<W8SpellInfoDialog>(spell_id);
     dialog->SetText("");
-    DisplayCampDialog(std::move(dialog));
+    screen.DisplayCampDialog(std::move(dialog));
 }
 
 W8CampCharacterInfo::W8CampCharacterInfo(W8CampScreenState& screen) : screen(screen)
@@ -603,7 +601,7 @@ void W8CampCharacterInfo::Redraw(SDL_Surface& target, bool full_redraw)
 void W8CampScreenState::CreateCampInput()
 {
     items.CreateInput();
-    spell_input.setEnabled(false);
+    spells.CreateInput();
     main_targets[0] =
         &main_input.add(SDL_Rect{164, 12, 91, 73}, [this](const UiPointerEvent& event) {
             return HandleCampDismissPortrait(event);
@@ -623,13 +621,6 @@ void W8CampScreenState::CreateCampInput()
         main_targets[1 + slot] = &main_input.add(
             SDL_Rect{(slot & 1) * 48 + 6, (slot / 2) * 39 + 5, 46, 37},
             [this, slot](const UiPointerEvent& event) { return HandleCampPortrait(event, slot); });
-    }
-    for (int realm = 0; realm < 6; ++realm) {
-        spell_targets[realm] =
-            &spell_input.add(SDL_Rect{(realm % 3) * 213 + 29, (realm / 3) * 140 + 195, 154, 102},
-                             [this, realm](const UiPointerEvent& event) {
-                                 return HandleCampSpellList(event, realm);
-                             });
     }
 }
 
@@ -657,32 +648,10 @@ bool W8CampScreenState::Enter(const W8ScreenStateRuntime& request)
     items.CreateCampItemControls();
     CreateCampHeaderButtons();
     page = W8_CAMP_PAGE_ITEMS;
-    for (int range_index = 0; range_index < 6; ++range_index) {
-        const int x = (range_index % 3) * 0xd5;
-        const int y = (range_index / 3) * 0x8c;
-        auto& range = spell_ranges[range_index];
-        range =
-            std::make_unique<W8RangeControl>(scroll_input, x + 0xbb, y + 0xc3, x + 0xcd, y + 0x129);
-        range->on_change = [this, range_index](auto* scroll) {
-            learned_spells.scroll[range_index] = scroll->m_value;
-            redraw_flags |= W8_CAMP_REDRAW_REALM_SPELLS_FIRST << range_index;
-        };
-    }
-    effect_list.clear();
-    effect_items_only = true;
-    effect_filter = W8_CAMP_EFFECT_FILTER_ALL;
-    stats_range = std::make_unique<W8RangeControl>(scroll_input, 0x264, 0xbe, 0x276, 0x1b5);
-    stats_range->on_change = [this](auto* range) {
-        effect_scroll = range->m_value;
-        redraw_flags |= W8_CAMP_REDRAW_EFFECT_LIST;
-    };
-    stats_controls = std::make_unique<W8CampStatsControls>(*this);
+    spells.CreateControls();
+    stats.CreateControls();
     character_info = std::make_unique<W8CampCharacterInfo>(*this);
     ActivateCampPage();
-    animation_timer = w8_get_ticks() + (50);
-    for (unsigned int animation = 0; animation < 6; ++animation) {
-        animation_frames[animation] = Random(g_spell_realm_animations[animation].frame_count);
-    }
     if (g_combat.active() &&
         g_combat.state()->equip_phase != W8CombatEquipPhase::action_selection) {
         if (g_combat.state()->equip_pending == 1) {
@@ -772,16 +741,7 @@ void W8CampScreenState::Frame()
             }
             return InputRoute::Handled;
         }});
-    if (page == W8_CAMP_PAGE_SPELLS && !TimeUntilDeadline(animation_timer)) {
-        for (unsigned int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
-            ++animation_frames[realm];
-            if (animation_frames[realm] == g_spell_realm_animations[realm].frame_count) {
-                animation_frames[realm] = 0;
-            }
-        }
-        animation_timer = w8_get_ticks() + (50);
-        redraw_flags |= 0x10000;
-    }
+    if (page == W8_CAMP_PAGE_SPELLS) spells.Tick();
     if (page == W8_CAMP_PAGE_ITEMS) items.Tick();
     if (header_mode == W8_CAMP_HEADER_SUMMARY) {
         gXStatus.character_event_queue->ProcessDeferredCharacterEvents();
@@ -818,8 +778,6 @@ void W8CampScreenState::DismissSelectedPartyCharacter()
 
 void W8CampScreenState::DrawCampScreen(void)
 {
-    unsigned int index;
-
     items.BeginRedraw();
     if (redraw_flags != 0 || items.RedrawPending() || (g_status.party.held.item.iItemNo != -1)) {
         if (redraw_flags == W8_CAMP_REDRAW_ALL) {
@@ -834,13 +792,13 @@ void W8CampScreenState::DrawCampScreen(void)
             items.RedrawCampItemsPage();
             break;
         case W8_CAMP_PAGE_STATS:
-            DrawCampStatsPage();
+            stats.DrawCampStatsPage();
             break;
         case W8_CAMP_PAGE_SKILLS:
-            DrawCampSkillsPage();
+            skills.DrawCampSkillsPage();
             break;
         case W8_CAMP_PAGE_SPELLS:
-            DrawCampSpellPages();
+            spells.DrawCampSpellPages();
             break;
         case W8_CAMP_PAGE_REGENERATION:
             DrawCampRegenStats();
@@ -855,12 +813,9 @@ void W8CampScreenState::DrawCampScreen(void)
     if (page == W8_CAMP_PAGE_ITEMS) {
         items.DrawControls(dialog != nullptr);
     } else if (page == W8_CAMP_PAGE_STATS) {
-        stats_range->Redraw(GetFrameBufferSurface(), false);
-        stats_controls->Redraw(GetFrameBufferSurface(), false);
+        stats.DrawControls();
     } else if (page == W8_CAMP_PAGE_SPELLS) {
-        for (index = 0; index < 6; ++index) {
-            spell_ranges[index]->Redraw(GetFrameBufferSurface(), false);
-        }
+        spells.DrawControls();
     }
     items.RefreshCampItemActions(false);
     if (!g_combat.active()) {
@@ -932,19 +887,13 @@ void W8CampScreenState::ActivateCampPage(void)
         if (g_status.game_started) return;
         break;
     case W8_CAMP_PAGE_STATS:
-        RebuildCampEffectList();
-        stats_range->SetActive(true);
-        stats_controls->input.setEnabled(true);
-        character_info->SetActive(true);
+        stats.Activate();
         return;
     case W8_CAMP_PAGE_SKILLS:
-        CreateCampSkillRegions();
+        skills.CreateCampSkillRegions();
         return;
     case W8_CAMP_PAGE_SPELLS:
-        spell_input.setEnabled(true);
-        BuildLearnedSpellState(&learned_spells, reviewed);
-        RefreshCampSpellRanges();
-        selected_spell_row = -1;
+        spells.Activate();
         break;
     default:
         break;
@@ -964,20 +913,16 @@ void W8CampScreenState::DeactivateCampPage(void)
         if (g_status.game_started) return;
         break;
     case W8_CAMP_PAGE_STATS:
-        stats_range->SetActive(false);
-        stats_controls->input.setEnabled(false);
-        character_info->SetActive(false);
-        effect_list.clear();
+        stats.Deactivate();
         break;
     case W8_CAMP_PAGE_SKILLS:
-        DisableCampSkillRegions();
+        skills.DisableCampSkillRegions();
         for (index = 0; index < 0x29; ++index) {
             reviewed->skills[index].improved = false;
         }
         return;
     case W8_CAMP_PAGE_SPELLS:
-        spell_input.setEnabled(false);
-        SetCampSpellRangesEnabled(false);
+        spells.Deactivate();
         break;
     default:
         break;
@@ -1455,4 +1400,72 @@ void ShowEndingScreen(void)
     if (schedule_fade) {
         BeginScreenFade(fade_to_black, 1, 0x4b0, 0, true, 1);
     }
+}
+
+void W8CampSpellsPage::CreateInput()
+{
+    spell_input.setEnabled(false);
+    for (int realm = 0; realm < 6; ++realm) {
+        spell_targets[realm] =
+            &spell_input.add(SDL_Rect{(realm % 3) * 213 + 29, (realm / 3) * 140 + 195, 154, 102},
+                             [this, realm](const UiPointerEvent& event) {
+                                 return HandleCampSpellList(event, realm);
+                             });
+    }
+}
+
+void W8CampSpellsPage::CreateControls()
+{
+    for (int range_index = 0; range_index < 6; ++range_index) {
+        const int x = (range_index % 3) * 0xd5;
+        const int y = (range_index / 3) * 0x8c;
+        auto& range = spell_ranges[range_index];
+        range = std::make_unique<W8RangeControl>(screen.scroll_input, x + 0xbb, y + 0xc3, x + 0xcd,
+                                                 y + 0x129);
+        range->on_change = [this, range_index](auto* scroll) {
+            learned_spells.scroll[range_index] = scroll->m_value;
+            screen.redraw_flags |= W8_CAMP_REDRAW_REALM_SPELLS_FIRST << range_index;
+        };
+    }
+    animation_timer = w8_get_ticks() + (50);
+    for (unsigned int animation = 0; animation < 6; ++animation) {
+        animation_frames[animation] = Random(g_spell_realm_animations[animation].frame_count);
+    }
+}
+
+void W8CampSpellsPage::Activate()
+{
+    spell_input.setEnabled(true);
+    ReviewedCharacterChanged();
+    selected_spell_row = -1;
+}
+
+void W8CampSpellsPage::Deactivate()
+{
+    spell_input.setEnabled(false);
+    SetCampSpellRangesEnabled(false);
+}
+
+void W8CampSpellsPage::ReviewedCharacterChanged()
+{
+    BuildLearnedSpellState(&learned_spells, screen.reviewed);
+    RefreshCampSpellRanges();
+}
+
+void W8CampSpellsPage::Tick()
+{
+    if (TimeUntilDeadline(animation_timer)) return;
+    for (unsigned int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
+        ++animation_frames[realm];
+        if (animation_frames[realm] == g_spell_realm_animations[realm].frame_count) {
+            animation_frames[realm] = 0;
+        }
+    }
+    animation_timer = w8_get_ticks() + (50);
+    screen.redraw_flags |= 0x10000;
+}
+
+void W8CampSpellsPage::DrawControls()
+{
+    for (auto& range : spell_ranges) range->Redraw(GetFrameBufferSurface(), false);
 }

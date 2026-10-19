@@ -86,12 +86,10 @@ void W8CampScreenState::SelectCampCharacter(int slot)
         items.ReviewedCharacterChanged();
         break;
     case W8_CAMP_PAGE_STATS:
-        RebuildCampEffectList();
-        character_info->InvalidateAll();
+        stats.ReviewedCharacterChanged();
         break;
     case W8_CAMP_PAGE_SPELLS:
-        BuildLearnedSpellState(&learned_spells, reviewed);
-        RefreshCampSpellRanges();
+        spells.ReviewedCharacterChanged();
         break;
     default:
         break;
@@ -845,4 +843,3 @@ void W8CampScreenState::SelectCampPageButton(int button, W8CampPage page)
     }
     camp_buttons.pages[button]->SetPressed(true);
 }
-

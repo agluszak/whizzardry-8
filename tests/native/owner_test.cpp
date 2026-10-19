@@ -185,40 +185,41 @@ void camp_effects()
         g_camp_screen = std::make_unique<W8CampScreenState>();
         W8CampScreenState independent{};
         auto* state = &independent;
-        REQUIRE((state->effect_list.empty() && state->stats_range == nullptr));
+        REQUIRE((state->stats.effect_list.empty() && state->stats.stats_range == nullptr));
         const auto layer_count = LiveUiLayerCount();
-        state->stats_range =
+        state->stats.stats_range =
             std::make_unique<W8RangeControl>(state->scroll_input, 0x264, 0xbe, 0x276, 0x1b5);
         REQUIRE(LiveUiLayerCount() == layer_count);
         // Disabling one scrollbar must not disable unrelated targets in its layer.
         const auto consume = [](const UiPointerEvent&) { return UiResult::Handled; };
         auto& sibling = state->scroll_input.add(SDL_Rect{0, 0, 640, 480}, consume);
-        state->stats_range->SetActive(true);
-        state->stats_range->SetActive(false);
+        state->stats.stats_range->SetActive(true);
+        state->stats.stats_range->SetActive(false);
         REQUIRE(sibling.hitAt({0, 0}));
         state->scroll_input.remove(sibling);
-        auto& range = *state->stats_range;
-        state->effect_list = {{false, false, true, false, W8_CAMP_EFFECT_CONDITION, 0, 0, 3, 10},
-                              {false, false, false, true, W8_CAMP_EFFECT_CONDITION, 1, 0, 3, 9},
-                              {true, false, true, false, W8_CAMP_EFFECT_EQUIPMENT, 2, 0, 9999, 3},
-                              {false, false, true, true, W8_CAMP_EFFECT_CONDITION, 3, 0, 3, 2}};
-        state->effect_filter = W8_CAMP_EFFECT_FILTER_ALL;
-        state->effect_scroll = 100;
-        state->FilterCampEffectList();
-        REQUIRE((state->effect_visible_lines == 24 && state->effect_scroll == 7));
-        REQUIRE((state->effect_first_visible == 0 && state->effect_last_visible == 3));
+        auto& range = *state->stats.stats_range;
+        state->stats.effect_list = {
+            {false, false, true, false, W8_CAMP_EFFECT_CONDITION, 0, 0, 3, 10},
+            {false, false, false, true, W8_CAMP_EFFECT_CONDITION, 1, 0, 3, 9},
+            {true, false, true, false, W8_CAMP_EFFECT_EQUIPMENT, 2, 0, 9999, 3},
+            {false, false, true, true, W8_CAMP_EFFECT_CONDITION, 3, 0, 3, 2}};
+        state->stats.effect_filter = W8_CAMP_EFFECT_FILTER_ALL;
+        state->stats.effect_scroll = 100;
+        state->stats.FilterCampEffectList();
+        REQUIRE((state->stats.effect_visible_lines == 24 && state->stats.effect_scroll == 7));
+        REQUIRE((state->stats.effect_first_visible == 0 && state->stats.effect_last_visible == 3));
         REQUIRE((range.m_enabled && range.m_value == 7));
-        state->effect_filter = W8_CAMP_EFFECT_FILTER_BENEFICIAL;
-        state->FilterCampEffectList();
-        REQUIRE((state->effect_visible_lines == 14 && state->effect_scroll == 0));
-        REQUIRE((!range.m_enabled && !state->effect_list[1].visible));
-        state->effect_filter = W8_CAMP_EFFECT_FILTER_DETRIMENTAL;
-        state->FilterCampEffectList();
-        REQUIRE((state->effect_visible_lines == 13 && state->effect_list[3].visible));
-        state->effect_items_only = true;
-        state->effect_filter = W8_CAMP_EFFECT_FILTER_ALL;
-        state->FilterCampEffectList();
-        REQUIRE((state->effect_visible_lines == 4 && state->effect_first_visible == 2));
+        state->stats.effect_filter = W8_CAMP_EFFECT_FILTER_BENEFICIAL;
+        state->stats.FilterCampEffectList();
+        REQUIRE((state->stats.effect_visible_lines == 14 && state->stats.effect_scroll == 0));
+        REQUIRE((!range.m_enabled && !state->stats.effect_list[1].visible));
+        state->stats.effect_filter = W8_CAMP_EFFECT_FILTER_DETRIMENTAL;
+        state->stats.FilterCampEffectList();
+        REQUIRE((state->stats.effect_visible_lines == 13 && state->stats.effect_list[3].visible));
+        state->stats.effect_items_only = true;
+        state->stats.effect_filter = W8_CAMP_EFFECT_FILTER_ALL;
+        state->stats.FilterCampEffectList();
+        REQUIRE((state->stats.effect_visible_lines == 4 && state->stats.effect_first_visible == 2));
         W8Character character{};
         for (auto& condition : character.uiCondition) condition = 1;
         for (auto& enchantment : character.enchantments) enchantment.turns = 2;
@@ -230,19 +231,21 @@ void camp_effects()
         W8ScreenStateRuntime suspended{.id = W8_SCREEN_CAMP, .character = state->reviewed};
         state->reviewed = &character;
         REQUIRE(suspended.character == &g_status.party.characters[3]);
-        state->effect_items_only = false;
-        state->RebuildCampEffectList();
-        REQUIRE(state->effect_list.size() == 28);
-        REQUIRE((state->effect_detrimental_count == 20 && state->effect_beneficial_count == 8));
-        REQUIRE((state->effect_list.front().index == 19 && state->effect_list.back().index == 0));
-        REQUIRE((state->effect_visible_lines == 64 && range.m_enabled));
+        state->stats.effect_items_only = false;
+        state->stats.RebuildCampEffectList();
+        REQUIRE(state->stats.effect_list.size() == 28);
+        REQUIRE((state->stats.effect_detrimental_count == 20 &&
+                 state->stats.effect_beneficial_count == 8));
+        REQUIRE((state->stats.effect_list.front().index == 19 &&
+                 state->stats.effect_list.back().index == 0));
+        REQUIRE((state->stats.effect_visible_lines == 64 && range.m_enabled));
         character = {};
-        state->RebuildCampEffectList();
-        REQUIRE((state->effect_list.empty() && state->effect_visible_lines == 0));
-        REQUIRE((state->effect_beneficial_count == 0 && !range.m_enabled));
+        state->stats.RebuildCampEffectList();
+        REQUIRE((state->stats.effect_list.empty() && state->stats.effect_visible_lines == 0));
+        REQUIRE((state->stats.effect_beneficial_count == 0 && !range.m_enabled));
         state->reviewed = {};
-        REQUIRE(g_camp_screen->effect_list.empty());
-        REQUIRE(g_camp_screen->stats_range == nullptr);
+        REQUIRE(g_camp_screen->stats.effect_list.empty());
+        REQUIRE(g_camp_screen->stats.stats_range == nullptr);
     }
 }
 
