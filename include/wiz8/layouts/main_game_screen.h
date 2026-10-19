@@ -205,7 +205,7 @@ struct W8LevelRuntimeBlock {
     bool text_box_visible;
     uint64_t tick;
     int pending_level;
-    int pending_entry_id;
+    std::optional<int> pending_entry_id;
     int group_list_rows;
     int group_list_width;
     std::optional<int> action_group;
@@ -231,7 +231,7 @@ struct W8LevelRuntimeBlock {
     Font* text_box_font;
     Palette16 palette;
     W8ActionKind selection_kind;
-    int pending_action;
+    std::optional<int> pending_action;
     bool selection_settled;
     uint64_t tooltip_since;
     bool tooltip_pending;

@@ -895,7 +895,7 @@ void RecallCasterToSavedLocation(W8SpellEffectEntry* pQueue)
         }
         g_status.pending_move_location = caster->saved_location;
         g_level_block->pending_level = g_status.buffers.Char[pQueue->Source.iChar].saved_level;
-        g_level_block->pending_entry_id = -1;
+        g_level_block->pending_entry_id.reset();
         BeginLevelTransition();
     }
 }

@@ -936,7 +936,7 @@ void W8CharacterPersonalityPage::SetCharacter(W8Character* character,
                                    AfterUiDispatch([this, action] { ChangePortrait(action); });
                                },
                            .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
-                           .tooltip = action == 4 ? 0xf5 : -1,
+                           .tooltip = action == 4 ? std::optional<int>{0xf5} : std::nullopt,
                            .priority = UI_PRIORITY_LOWEST,
                            .menu_artwork = true});
 

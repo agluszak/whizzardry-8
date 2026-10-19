@@ -1378,7 +1378,7 @@ W8SubMenuEntryState GetSubMenuEntryState(short menu, short item, int party_slot)
         break;
     }
     g_level_block->selection_kind = W8_ACTION_NONE;
-    g_level_block->pending_action = -1;
+    g_level_block->pending_action.reset();
     g_level_block->selection_settled = false;
     return state;
 }
@@ -1445,6 +1445,6 @@ void MapSubMenuSelection(short menu, short item)
         break;
     }
     g_level_block->selection_kind = action;
-    g_level_block->pending_action = -1;
+    g_level_block->pending_action.reset();
     g_level_block->selection_settled = settled;
 }

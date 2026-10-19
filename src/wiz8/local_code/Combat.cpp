@@ -1376,7 +1376,9 @@ W8Action SelectCombatAction(int party_slot, W8TargetingContext context)
         action = {W8_ACTION_BREATHE, -1, row.breath_target};
         break;
     case W8_TARGETING_CONTEXT_DIALOGUE:
-        action = {g_level_block->selection_kind, g_level_block->pending_action};
+        action = g_level_block->pending_action
+                     ? W8Action{g_level_block->selection_kind, *g_level_block->pending_action}
+                     : W8Action{};
         break;
     case W8_TARGETING_CONTEXT_ATTACK:
         action = {W8_ACTION_ATTACK};

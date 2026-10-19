@@ -2332,7 +2332,8 @@ void BeginLevelTransition(void)
 {
     g_pending_screen_state.mode = W8_PLEASE_WAIT_CHANGE_LEVEL;
     g_pending_screen_state.parameter = g_level_block->pending_level;
-    g_pending_screen_state.parameter_2 = g_level_block->pending_entry_id;
+    g_pending_screen_state.parameter_2 =
+        g_level_block->pending_entry_id ? *g_level_block->pending_entry_id : -1;
     SetMainGameMode(W8_MAIN_GAME_DEFAULT);
     g_pending_screen_state.id = W8_SCREEN_PLEASE_WAIT;
 }
