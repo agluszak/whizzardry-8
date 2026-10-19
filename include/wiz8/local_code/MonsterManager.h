@@ -451,7 +451,7 @@ void EvaluateCombatDifficulty(void);
    "%s %s!" notice, clear conditions the dead monster sourced, apply the
    faction fallout, and bank the kill count and experience when it fought. */
 void RecordMonsterKill(W8MonsterInfo* monster_info, bool announce);
-/* Record a kill fact for a monster record and the killer party slot. */
-void MonsterKilled(int record_id, int killer_party_slot);
+/* Record kill facts keyed by the monster record. */
+void MonsterKilled(int record_id);
 
 #endif

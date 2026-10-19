@@ -923,7 +923,7 @@ void HandleScriptedNpcDeath(unsigned int monster_list_index)
    and the 0x22b cleanup that clears the victim's condition and queues the
    death event on the recorded party slot. */
 // FUNCTION: WIZ8 0x005090C0
-void MonsterKilled(int record_id, int killer_party_slot)
+void MonsterKilled(int record_id)
 {
     unsigned char value;
 

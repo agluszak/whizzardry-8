@@ -339,7 +339,7 @@ void MonsterStartsDying(W8MonsterInfo* monster_info, bool display_message)
 // FUNCTION: WIZ8 0x004E46F0
 void RecordMonsterKill(W8MonsterInfo* monster_info, bool announce)
 {
-    int killer_party_slot = -1;
+    std::optional<int> killer_party_slot;
     if (monster_info == 0) {
         srAssertFail("pMonsterInfo != NULL", MONSTER_MANAGER_CPP, 0x5e9, 0);
     }
@@ -350,15 +350,16 @@ void RecordMonsterKill(W8MonsterInfo* monster_info, bool announce)
     W8MonsterRecord* record = MonsterDBFromSpecies(monster_species);
     unsigned int notice_channel;
     if (TargetSourceIsCharacter(&monster_info->condition_target, 0)) {
-        killer_party_slot = monster_info->condition_target.iChar;
-        if (killer_party_slot != -1 &&
-            (killer_party_slot < 0 || killer_party_slot >= W8_PARTY_SLOT_COUNT ||
-             !g_status.buffers.XChar[killer_party_slot].fOccupied ||
-             !g_status.buffers.Char[killer_party_slot].fInParty)) {
+        const int character_slot = monster_info->condition_target.iChar;
+        if (character_slot != -1 && (character_slot < 0 || character_slot >= W8_PARTY_SLOT_COUNT ||
+                                     !g_status.buffers.XChar[character_slot].fOccupied ||
+                                     !g_status.buffers.Char[character_slot].fInParty)) {
             srAssertFail("(iKilledByPC == BAD_INDEX) || VALID_CHAR(iKilledByPC)",
                          MONSTER_MANAGER_CPP, 0x354, 0);
+        } else if (character_slot != -1) {
+            killer_party_slot = character_slot;
         }
-        notice_channel = (killer_party_slot == -1) + 8;
+        notice_channel = killer_party_slot ? 8 : 9;
     } else {
         notice_channel = 9;
     }
@@ -376,7 +377,7 @@ void RecordMonsterKill(W8MonsterInfo* monster_info, bool announce)
     if (monster_info->death_processed) {
         return;
     }
-    if (killer_party_slot == -1) {
+    if (!killer_party_slot) {
         if (!TargetSourceIsMonster(&monster_info->condition_target, 0)) {
             goto done;
         }
@@ -394,7 +395,7 @@ void RecordMonsterKill(W8MonsterInfo* monster_info, bool announce)
     if (record->faction_id != W8_FACTION_UNALIGNED && record->faction_id != W8_FACTION_PARTY)
         RecordFactionOffense(static_cast<signed char>(record->faction_id), monster_info);
 done:
-    MonsterKilled(record->record_id, killer_party_slot);
+    MonsterKilled(record->record_id);
     if (monster_info->pCombat && ((monster_info->ubDisposition == W8_DISPOSITION_HOSTILE &&
                                    monster_info->uiCondition[W8_CONDITION_TURNCOAT] == 0) ||
                                   (monster_info->ubDisposition == W8_DISPOSITION_FRIENDLY &&
@@ -404,8 +405,8 @@ done:
             level && *level >= 0 && *level < W8_LEVEL_COUNT) {
             ++g_status.level_progress[*level].monster_kill_count;
         }
-        if (killer_party_slot != -1) {
-            W8Character* killer = &g_status.buffers.Char[killer_party_slot];
+        if (killer_party_slot) {
+            W8Character* killer = &g_status.buffers.Char[*killer_party_slot];
             ++killer->kill_count;
             if (record->significant_kill != 0) {
                 unsigned int level_total = 0;
@@ -1494,7 +1495,7 @@ void DetectMonsterGroups(void)
         }
         if (!group->alternate_name) {
             W8MonsterRecord* record = MonsterGroupGetRecord(group);
-            int best_slot = -1;
+            std::optional<unsigned int> best_slot;
             unsigned int best_margin = 0;
             for (unsigned int slot = 0; slot < 8; ++slot) {
                 if (!CanNoticeMonsterGroup(slot)) continue;
@@ -1517,9 +1518,10 @@ void DetectMonsterGroups(void)
                     best_margin = margin;
                 }
             }
-            if (best_slot != -1) {
-                PostCharacterNotice(best_slot, fmt::sprintf(g_localized_strings[0x1ca],
-                                                            GetMonsterGroupName(group)));
+            if (best_slot) {
+                PostCharacterNotice(
+                    static_cast<int>(*best_slot),
+                    fmt::sprintf(g_localized_strings[0x1ca], GetMonsterGroupName(group)));
                 group->alternate_name = true;
                 bool vowel;
                 switch (toupper(static_cast<unsigned char>(GetMonsterGroupName(group).front()))) {
