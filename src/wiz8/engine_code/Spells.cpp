@@ -471,7 +471,7 @@ W8SpellVisual::~W8SpellVisual()
    finished instead. */
 void W8SpellVisual::StartIfHostActive()
 {
-    if (this->!rep_active) {
+    if (!this->rep_active) {
         return;
     }
     if (QueryHostStateByKind(7) != 0) {
