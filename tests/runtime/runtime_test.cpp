@@ -2242,10 +2242,12 @@ bool RunScriptCommand(Game& game, const std::string& line)
     } else if (op == "journal") {
         std::printf("  journal: %zu entries, %zu facts\n", g_fact_journal_entries.size(),
                     g_fact_records.size());
-        for (const W8JournalEntry& entry : g_fact_journal_entries)
+        for (const W8JournalEntry& entry : g_fact_journal_entries) {
             if (unsigned(entry.fact) >= g_fact_records.size())
-                std::printf("  journal entry level %d fact %d alternate %d out of range\n",
-                            entry.level, int(entry.fact), entry.alternate_text);
+                std::printf("  journal entry level %s fact %d alternate %d out of range\n",
+                            entry.level ? std::to_string(*entry.level).c_str() : "none",
+                            int(entry.fact), entry.alternate_text);
+        }
     } else if (op == "items" || op == "spells") {
         const int slot = g_current_screen_state.id == W8_SCREEN_CAMP ? giReviewCharSlot
                                                                      : g_status.selected_character;

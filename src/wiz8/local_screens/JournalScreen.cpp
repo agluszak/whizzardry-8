@@ -111,7 +111,7 @@ void InitializeFactJournal(void)
 void RecordFactChangeForJournal(W8FactId fact_id)
 {
     W8JournalEntry entry;
-    entry.level = GetRequiredLoadedLevelID();
+    entry.level = GetLoadedLevelID();
     entry.fact = fact_id;
     entry.alternate_text = GetFact(fact_id) != 0;
     g_fact_journal_entries.push_back(entry);
@@ -171,8 +171,9 @@ void SaveFactJournal(wiz8::File& file)
     file.write(&format, 4);
     file.write(&count, 4);
     for (const auto& entry : g_fact_journal_entries) {
-        const JournalEntryRecord record{entry.level, static_cast<std::int32_t>(entry.fact),
-                                        entry.alternate_text, entry.unknown_09};
+        const JournalEntryRecord record{entry.level ? *entry.level : -1,
+                                        static_cast<std::int32_t>(entry.fact), entry.alternate_text,
+                                        entry.unknown_09};
         file.write(&record, sizeof(record));
     }
 }
@@ -193,7 +194,8 @@ void LoadJournalEntries(W8Chunk& file)
     for (auto& entry : g_fact_journal_entries) {
         JournalEntryRecord record;
         file.ReadBytes(&record, sizeof(record));
-        entry = {record.level, static_cast<W8FactId>(record.fact), record.alternate_text != 0,
+        const auto level = record.level == -1 ? std::nullopt : std::optional<int>{record.level};
+        entry = {level, static_cast<W8FactId>(record.fact), record.alternate_text != 0,
                  record.unknown_09};
     }
 }
@@ -271,7 +273,7 @@ void JournalScreen::DrawContent(SDL_Surface& target)
         if (last >= static_cast<int>(g_journal_entries.size())) {
             last = static_cast<int>(g_journal_entries.size()) - 1;
         }
-        std::optional<int> previous_level;
+        std::optional<std::optional<int>> previous_level;
         int y = 0x39;
         for (int index = first; index <= last; ++index, y += 0x1e) {
             const W8JournalEntry* entry = &g_journal_entries[index];
@@ -280,14 +282,14 @@ void JournalScreen::DrawContent(SDL_Surface& target)
             std::string description =
                 entry->alternate_text ? fact->alternate_description : fact->description;
             std::string level_name;
-            if (entry->level == 0x38) {
-                level_name = g_default_level;
-            } else if (entry->level == -1) {
+            if (!entry->level) {
                 level_name = g_localized_strings[0x6dd];
+            } else if (*entry->level == 0x38) {
+                level_name = g_default_level;
             } else {
-                level_name = g_localized_strings[g_level_name_indices[entry->level]];
+                level_name = g_localized_strings[g_level_name_indices[*entry->level]];
             }
-            if (!previous_level || entry->level != *previous_level) {
+            if (!previous_level || *previous_level != entry->level) {
                 DrawJournalLine(target, level_name, 0, y, 0, true);
             }
             DrawJournalLine(target, description, 1, y, active, false);

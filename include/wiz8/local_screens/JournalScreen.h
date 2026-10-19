@@ -4,6 +4,7 @@ struct W8Chunk;
 extern char g_default_level[];
 #include <array>
 #include <cstdint>
+#include <optional>
 #include <vector>
 
 #include "wiz8/fact_state.h"
@@ -14,7 +15,7 @@ class File;
 
 /* One fact change as the journal lists it. */
 struct W8JournalEntry {
-    int level = 0;
+    std::optional<int> level;
     W8FactId fact{};
     /* The fact was set when it changed, so the journal shows its alternate text. */
     bool alternate_text = false;
