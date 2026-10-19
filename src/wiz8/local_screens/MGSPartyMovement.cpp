@@ -201,13 +201,13 @@ void DrawPartyMovementGauge(short right, short image, bool panel_live, int capti
         }
         frame = 0;
     }
-    unsigned int action;
+    W8PartyAction action;
     if (!CanPartyMove() || (g_combat_state->execution_active != 0 && IsPartyEngaged() == 0)) {
         action = g_combat_state->uiCurrentPartyAction;
     } else {
         action = g_combat_state->uiNextPartyAction;
     }
-    if (action == 2) {
+    if (action == W8_PARTY_ACTION_RUN) {
         timer_length = 0x32;
     } else {
         frame_base = 0x24;
