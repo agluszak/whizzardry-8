@@ -20,27 +20,15 @@
 #include "layouts/main_game_screen.h"
 #include "layouts/npc_state.h"
 #include "layouts/targeting.h"
-#include "layouts/world.h"
 #include "local_code/Factions.h"
 #include "local_code/UtilityFunctions.h"
 #include "monster_actions.h"
 #include "monster_spell_icons.h"
-#include "surrender/srDebug.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/conditions.h"
-#include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/3dapi.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/GrCycle.h"
-#include "wiz8/engine_code/Levels.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Navigator.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/PolyPick.h"
-#include "wiz8/engine_code/Spells.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/engine_code/World.h"
+#include "wiz8/entities/cycle_player.h"
+#include "wiz8/entities/monster.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
 #include "wiz8/gameplay_constants.h"
@@ -73,13 +61,24 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
+#include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/MGSSpellIcons.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/random.h"
+#include "wiz8/render/camera_shake.h"
+#include "wiz8/render/frame.h"
+#include "wiz8/render/picking.h"
+#include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/spatial/navigator.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/utility.h"
+#include "wiz8/world/camera_control.h"
+#include "wiz8/world/level_session.h"
+#include "wiz8/world/update.h"
+#include "wiz8/world/world.h"
 #include "wiz8/xstatus.h"
 
 constexpr float kCameraShakeIntensityBase = 0.7900000214576721f;
@@ -635,8 +634,8 @@ W8EnchantmentSlot GetConditionDisplaySlot(int spell_id)
    when the extreme-range box query turns up no monster at all. */
 float HeadingTowardNearestMonster(glm::vec3 point, W8Disposition disposition, int exclusion)
 {
-    W8Monster* nearest;
-    W8Monster* monster;
+    Monster* nearest;
+    Monster* monster;
     glm::vec3 lower;
     glm::vec3 upper;
     glm::vec3 position;
@@ -662,24 +661,26 @@ float HeadingTowardNearestMonster(glm::vec3 point, W8Disposition disposition, in
     upper.y += range;
     upper.z += range;
 
-    location_ids =
-        GetWorldOctree()->locationsInBox({lower, upper}, static_cast<unsigned short>(exclusion));
+    location_ids = GetWorldSpatialIndex()->locationsInBox({lower, upper},
+                                                          static_cast<unsigned short>(exclusion));
     count = location_ids.size();
     if (count == 0) {
         return HeadingToTargetCPP(&point);
     }
     for (index = 0; index < count; ++index) {
         monster = GetMonsterByLocationID(location_ids[index]);
-        position = monster->GetPosition();
+        if (!monster) continue;
+        position = monster->nav.GetPosition();
         distance = sqrtf((position.x - point.x) * (position.x - point.x) +
                          (position.y - point.y) * (position.y - point.y) +
                          (position.z - point.z) * (position.z - point.z));
-        if (distance < nearest_distance || index == 0) {
+        if (!nearest || distance < nearest_distance) {
             nearest_distance = distance;
             nearest = monster;
         }
     }
-    position = nearest->GetPosition();
+    if (!nearest) return HeadingToTargetCPP(&point);
+    position = nearest->nav.GetPosition();
     return GetHeadingAngle(&point, &position);
 }
 
@@ -766,7 +767,7 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
         Fail("pGroup");
     }
     summon = FindMonster(group->leader_location_id);
-    summon->p3D->SetAngles(
+    summon->p3D->nav.SetAngles(
         HeadingTowardNearestMonster(effect->target.point, disposition, summon->location_id));
     SetMonsterGroupHostility(group, disposition, false);
     const auto summoned_state = disposition == W8_DISPOSITION_FRIENDLY ? W8_MONSTER_SUMMON_FRIENDLY
@@ -867,7 +868,7 @@ void RecallCasterToSavedLocation(W8SpellEffectEntry* pQueue)
     caster = &g_status.buffers.Char[pQueue->Source.iChar];
     if (caster->has_saved_location) {
         if (caster->saved_level == GetLoadedLevelID()) {
-            RestoreWorldCameraState(GetSecondaryWorld(), &caster->saved_location);
+            RestoreWorldCameraState(&caster->saved_location);
             point = caster->saved_location.position;
             PlacePartyAtPoint(&point);
             return;
@@ -2314,20 +2315,20 @@ void ApplyMonsterControlToNearbyMonsters(W8SpellEffectEntry* effect)
     lower = glm::vec3(center.x - far_clip, center.y - far_clip, center.z - far_clip);
     upper = glm::vec3(center.x + far_clip, center.y + far_clip, center.z + far_clip);
 
-    location_ids = GetWorldOctree()->locationsInBox({lower, upper}, 0);
+    location_ids = GetWorldSpatialIndex()->locationsInBox({lower, upper}, 0);
     count = location_ids.size();
     for (index = 0; index < count; ++index) {
         monster_info = FindMonster(location_ids[index]);
         if (monster_info->p3D->IsDying()) {
             continue;
         }
-        if ((!gXStatus.fCombatMode && monster_info->p3D->linked_navigator != 0) ||
+        if ((!gXStatus.fCombatMode && monster_info->p3D->nav.linked_navigator != 0) ||
             monster_info->ubDisposition != W8_DISPOSITION_HOSTILE) {
             continue;
         }
-        eye = monster_info->p3D->movement.position;
-        eye.y += monster_info->p3D->movement.height_offset;
-        if (!GetWorldOctree()->HasLineOfSight(&eye, &center, true)) {
+        eye = monster_info->p3D->nav.movement.position;
+        eye.y += monster_info->p3D->nav.movement.height_offset;
+        if (!GetWorldSpatialIndex()->HasLineOfSight(&eye, &center, true)) {
             continue;
         }
         if (monster_info->control_state < W8_MONSTER_CONTROL_NONE ||
@@ -2961,8 +2962,8 @@ void TickCombatEffectSlots(W8EffectSlot* effect_slots, W8CombatSlot* target)
    stamina and realm spell points hold out), and the reflection pass runs. */
 void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
 {
-    W8WorldCameraState* camera_state;
-    W8World* world;
+    CameraPose* camera_state;
+    World* world;
     glm::vec3 point;
     std::string sound_name;
     std::string path;

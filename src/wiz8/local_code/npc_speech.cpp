@@ -8,7 +8,7 @@
 #include "compat/native.h"
 #include "wiz8/audio/mouth_gap.h"
 #include "wiz8/audio/soundman.h"
-#include "wiz8/engine_code/Monster.h"
+#include "wiz8/entities/monster.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/unicode.h"
 
@@ -47,7 +47,7 @@ bool IsNpcSpeechHoldOver(const W8NpcSpeech& speech)
     return speech.hold_ms < w8_get_ticks() - speech.hold_started_at;
 }
 
-void UpdateNpcMouth(W8NpcSpeech& speech, W8Monster* monster)
+void UpdateNpcMouth(W8NpcSpeech& speech, Monster* monster)
 {
     UpdateMouthGapTrack(speech.voice_handle, speech.gap_track);
     if (monster != 0) {

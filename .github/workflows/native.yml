@@ -52,7 +52,7 @@ jobs:
           from pathlib import Path
           names = [os.fsdecode(p) for p in Path(os.environ['RUNNER_TEMP'], 'changed').read_bytes().split(b'\0') if p]
           checks = any(not (p.endswith('.md') or p in ('LICENSE', '.gitignore') or p.startswith('docs/')) for p in names)
-          shaders = any(p.startswith(('tools/shadercross/', 'src/surrender/devices/sdl_gpu/compiled/'))
+          shaders = any(p.startswith(('tools/shadercross/', 'src/render/shaders/compiled/'))
                         or p.endswith('.glsl') or p.startswith('conan')
                         or p in ('CMakeLists.txt', 'CMakePresets.json', '.github/workflows/native.yml', 'tools/install-llvm.sh')
                         for p in names)
@@ -144,7 +144,7 @@ jobs:
             -DCMAKE_C_FLAGS_DEBUG="-O0 -g1" \
             -DCMAKE_CXX_FLAGS_DEBUG="-O0 -g1 -Xclang -fno-pch-timestamp" \
             -DCMAKE_CXX_FLAGS_RELWITHDEBINFO="-O1 -g1 -DNDEBUG -Xclang -fno-pch-timestamp" \
-            -DWIZ8_SURRENDER_UNITY_BUILD=ON -DWIZ8_WARNINGS_AS_ERRORS=ON \
+            -DWIZ8_RENDER_UNITY_BUILD=ON -DWIZ8_WARNINGS_AS_ERRORS=ON \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
       - name: Build native game and fixtures
         id: native-build
@@ -323,8 +323,8 @@ jobs:
             -DCMAKE_TOOLCHAIN_FILE="$PWD/build/linux-tidy/conan/conan_toolchain.cmake" \
             -DCMAKE_BUILD_TYPE=Debug \
             -DCMAKE_C_COMPILER=clang-23 -DCMAKE_CXX_COMPILER=clang++-23 \
-            -DWIZ8_PRECOMPILE_HEADERS=OFF -DWIZ8_SURRENDER_UNITY_BUILD=OFF
-          cmake --build build/linux-tidy --target surrender_shader_headers
+            -DWIZ8_PRECOMPILE_HEADERS=OFF -DWIZ8_RENDER_UNITY_BUILD=OFF
+          cmake --build build/linux-tidy --target wiz8_shader_headers
       - name: Verify offline Metal and Direct3D shaders
         if: matrix.shard == 0 && needs.scope.outputs.shaders == 'true'
         run: |
@@ -349,6 +349,7 @@ jobs:
         env:
           CLANG_TIDY: clang-tidy-23
           RUN_CLANG_TIDY: run-clang-tidy-23
+          PYTHONUNBUFFERED: "1"
         run: |
           export CLANG_TIDY_JOBS="$(nproc)"
           clang-tidy-23 --verify-config --config-file=.clang-tidy-audit
@@ -367,6 +368,7 @@ jobs:
         env:
           CLANG_TIDY: clang-tidy-23
           RUN_CLANG_TIDY: run-clang-tidy-23
+          PYTHONUNBUFFERED: "1"
           CLANG_TIDY_CONFIG: ${{ github.workspace }}/.clang-tidy-audit
           CLANG_TIDY_JOBS: "2"
         run: ./tools/run-clang-tidy.sh build/linux-tidy

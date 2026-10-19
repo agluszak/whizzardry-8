@@ -17,10 +17,10 @@
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
-#include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/render/frame.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/unicode.h"
 

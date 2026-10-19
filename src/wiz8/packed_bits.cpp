@@ -16,10 +16,10 @@
 #include <SDL3/SDL_iostream.h>
 #include <SDL3/SDL_stdinc.h>
 
-#include "surrender/srIO.h"
 #include "wiz8/checked_integer.h"
 #include "wiz8/chunk.h"
 #include "wiz8/filesystem.h"
+#include "wiz8/platform/sdl_io.h"
 
 namespace {
 constexpr Uint32 kMagic = 0xdeadd00d;
@@ -240,12 +240,12 @@ bool SavePackedBits(wiz8::File& handle, const std::vector<bool>& bits)
         words[bit / kBitsPerWord] |= static_cast<unsigned int>(bits[bit]) << (bit % kBitsPerWord);
     }
 
-    srIO::check(SDL_WriteU32LE(handle.io(), kMagic));
-    srIO::check(SDL_WriteU32LE(handle.io(), static_cast<Uint32>(bits.size())));
+    sdlIO::check(SDL_WriteU32LE(handle.io(), kMagic));
+    sdlIO::check(SDL_WriteU32LE(handle.io(), static_cast<Uint32>(bits.size())));
 
     const auto packed = EncodeWords(words);
-    srIO::check(SDL_WriteU32LE(handle.io(), static_cast<Uint32>(packed.size())));
-    srIO::writeExact(handle.io(), packed.data(), packed.size());
-    srIO::check(SDL_WriteU32LE(handle.io(), kMagic));
+    sdlIO::check(SDL_WriteU32LE(handle.io(), static_cast<Uint32>(packed.size())));
+    sdlIO::writeExact(handle.io(), packed.data(), packed.size());
+    sdlIO::check(SDL_WriteU32LE(handle.io(), kMagic));
     return true;
 }

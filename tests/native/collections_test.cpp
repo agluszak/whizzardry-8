@@ -26,9 +26,7 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/chunk.h"
 #include "wiz8/conditions.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Navigator.h"
-#include "wiz8/engine_code/World.h"
+#include "wiz8/entities/monster.h"
 #include "wiz8/equipment_slots.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/layouts/combat_state.h"
@@ -37,7 +35,6 @@
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/layouts/targeting.h"
-#include "wiz8/layouts/world.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/Combat.h"
@@ -63,10 +60,12 @@
 #include "wiz8/platform/random.h"
 #include "wiz8/retail_save_records.h"
 #include "wiz8/retail_text_records.h"
+#include "wiz8/spatial/navigator.h"
+#include "wiz8/world/world.h"
 #include "wiz8/xstatus.h"
 
 struct LevelWorldFixture {
-    std::unique_ptr<W8World> previous = ReplaceWorld(std::make_unique<W8World>());
+    std::unique_ptr<World> previous = ReplaceWorld(std::make_unique<World>());
     ~LevelWorldFixture() { ReplaceWorld(std::move(previous)); }
 };
 
@@ -189,7 +188,7 @@ static bool gameplayCollectionLifetime()
     // Preparing and abandoning another population cannot publish its identities.
     live->location_id = 7;
     {
-        W8World replacement;
+        World replacement;
         auto* candidate =
             replacement.population->monster_roster.add(std::make_unique<W8MonsterInfo>(), false);
         candidate->location_id = 7;
@@ -708,7 +707,7 @@ TEST_CASE("Encounter retirement spends one budget unit per formation, without re
           "[groups]")
 {
     struct Restore {
-        std::unique_ptr<W8World> world = ReplaceWorld(std::make_unique<W8World>(0));
+        std::unique_ptr<World> world = ReplaceWorld(std::make_unique<World>(0));
         bool combat = std::exchange(gXStatus.fCombatMode, true);
         ~Restore()
         {
@@ -754,7 +753,7 @@ TEST_CASE("Encounter state prepares independently and retains the retail save fi
           "[groups][save]")
 {
     struct Restore {
-        std::unique_ptr<W8World> world = ReplaceWorld(std::make_unique<W8World>(0));
+        std::unique_ptr<World> world = ReplaceWorld(std::make_unique<World>(0));
         ~Restore() { ReplaceWorld(std::move(world)); }
     } restore;
     const ScopedRecords levels(g_level_records, 2);
@@ -768,7 +767,7 @@ TEST_CASE("Encounter state prepares independently and retains the retail save fi
     live.default_interval = 17;
     live.interval_max = 44;
     live.save_flag = 1;
-    W8World replacement(1);
+    World replacement(1);
     replacement.encounters.random_budget = 100;
     StartLevelEncounters(replacement);
     REQUIRE(replacement.encounters.random_budget == 9);
@@ -811,7 +810,7 @@ TEST_CASE_METHOD(LevelWorldFixture, "Full formations reject a link before detach
 TEST_CASE("Allied leader election preserves one encounter with zero leadership ranks", "[groups]")
 {
     struct Restore {
-        std::unique_ptr<W8World> world = ReplaceWorld(std::make_unique<W8World>(0));
+        std::unique_ptr<World> world = ReplaceWorld(std::make_unique<World>(0));
         decltype(g_combat_inactive) inactive = std::exchange(g_combat_inactive, 0);
         bool combat = std::exchange(gXStatus.fCombatMode, true);
         ~Restore()
@@ -826,7 +825,7 @@ TEST_CASE("Allied leader election preserves one encounter with zero leadership r
     g_level_records[0].maximum_encounter_budget = 20;
     GetWorld()->encounters.random_budget = 8;
     auto& population = CurrentLevelPopulation();
-    std::array<std::unique_ptr<W8Monster>, 3> representations;
+    std::array<std::unique_ptr<Monster>, 3> representations;
     for (int index = 0; index < 3; ++index) {
         auto group = std::make_unique<W8MonsterGroup>();
         group->group_id = index + 1;
@@ -837,9 +836,9 @@ TEST_CASE("Allied leader election preserves one encounter with zero leadership r
         auto record = std::make_unique<W8MonsterInfo>();
         record->location_id = index + 1;
         auto& monster = representations[index];
-        monster = std::make_unique<W8Monster>(GetWorld());
+        monster = std::make_unique<Monster>(GetWorld());
         monster->location_id = index + 1;
-        monster->movement.leadership_rank = 0;
+        monster->nav.movement.leadership_rank = 0;
         record->p3D = monster.get();
         population.monster_roster.add(std::move(record), false);
     }
@@ -856,7 +855,7 @@ TEST_CASE("Allied leader election preserves one encounter with zero leadership r
     REQUIRE(first->leader_group_id == 0);
     REQUIRE(first->allied_group_ids[0] == 3);
     REQUIRE(second->leader_group_id == 2);
-    REQUIRE(representations[2]->linked_navigator == representations[1].get());
+    REQUIRE(representations[2]->nav.linked_navigator == &(representations[1].get())->nav);
 }
 
 TEST_CASE_METHOD(LevelWorldFixture,

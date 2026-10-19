@@ -3,15 +3,15 @@
 
 #include <string>
 
-#include "surrender/srMath.h"
 #include "wiz8/attack_modes.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/conditions.h"
 #include "wiz8/gameplay_modifiers.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_instance.h"
-#include "wiz8/layouts/world.h"
 #include "wiz8/load_category.h"
+#include "wiz8/math.h"
+#include "wiz8/world/world.h"
 
 /* One enchantment slot. Both a character and a monster carry eight of them,
    and both clear a slot by zeroing all three dwords at once. */
@@ -294,7 +294,7 @@ struct W8Character {
     /* Retail offset 0x17d7: the CamPos record cameraState writes and recall restores.
        The cross-level path copies the whole 0x3c bytes onto
        W8GlobalStatus::pending_move_location. */
-    W8WorldCameraState saved_location;
+    CameraPose saved_location;
     /* Retail offset 0x1813: which level that anchor belongs to. The recall compares it
        against GetLoadedLevelID() and takes a different path when they differ. */
     int saved_level;

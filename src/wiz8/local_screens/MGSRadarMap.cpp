@@ -3,12 +3,12 @@
 #include <cmath>
 #include <memory>
 #include <numbers>
+#include <utility>
 #include <vector>
 
 #include <glm/geometric.hpp>
 #include <glm/gtx/rotate_vector.hpp>
 
-#include "AnimRep.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "glm/ext/vector_int2.hpp"
@@ -16,17 +16,11 @@
 #include "layouts/main_game_screen.h"
 #include "layouts/party_formation.h"
 #include "sight_state.h"
-#include "surrender/srNode.h"
-#include "surrender/srScene.h" // IWYU pragma: keep - complete scene type for conversion to srNode.
 #include "wiz8/canvas/sprite.h"
 #include "wiz8/catalog_artwork.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/Item.h"
-#include "wiz8/engine_code/Missile.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Navigator.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/engine_code/stModelInstance.h"
+#include "wiz8/entities/missile.h"
+#include "wiz8/entities/monster.h"
+#include "wiz8/entities/world_item.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -36,7 +30,10 @@
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/overlay_scenes.h"
+#include "wiz8/render/compositor.h"
+#include "wiz8/render/frame.h"
+#include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/spatial/navigator.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/targeting_presentation.h"
 #include "wiz8/xstatus.h"
@@ -67,15 +64,15 @@ static glm::ivec2 g_radar_cell_offsets[15] = {
 /* The radar overlay's runtime state: the lazily built backdrop, the zoom
    preset flag, the three sprites, the eighteen sector blip pools with their
    per-sector reuse cursors, and the active range/scale band. */
-static stModelInstance2D* g_radar_backdrop = 0;
+static std::unique_ptr<OverlayQuad> g_radar_backdrop;
 static bool g_radar_zoomed = false;
-static stModelInstance2D* g_radar_compass = 0;
-static stModelInstance2D* g_radar_frame = 0;
-static std::vector<std::unique_ptr<stModelInstance2D>> g_radar_icon_pools[18];
+static std::unique_ptr<OverlayQuad> g_radar_compass;
+static std::unique_ptr<OverlayQuad> g_radar_frame;
+static std::vector<std::unique_ptr<OverlayQuad>> g_radar_icon_pools[18];
 static int g_radar_icon_cursors[18];
 static float g_radar_outer_radius;
 static float g_radar_inner_radius;
-static stModelInstance2D* g_radar_map = 0;
+static std::unique_ptr<OverlayQuad> g_radar_map;
 static float g_radar_map_scale;
 static bool g_radar_map_enabled = false;
 
@@ -83,7 +80,7 @@ const float g_radar_center_y = 404.0f;
 const float g_radar_center_x = 75.0f;
 const float g_radar_max_marker_scale = 38.0f;
 
-static stModelInstance2D* AcquireRadarBlip(int sector, bool lit);
+static OverlayQuad* AcquireRadarBlip(int sector, bool lit);
 static unsigned char PlaceRadarBlip(glm::vec3* delta, int group, bool lit);
 
 static void ResetRadarBlips()
@@ -94,7 +91,7 @@ static void ResetRadarBlips()
 
         g_radar_icon_cursors[sector] = 0;
         for (int index = 0; index < count; ++index) {
-            (pool[index])->setFlag(srNode::FLAG_DISABLE);
+            (pool[index])->visible = false;
         }
     }
 }
@@ -116,39 +113,37 @@ void EnsureRadarMapOverlay(void)
         bounds.top = 0x166;
         bounds.right = 0x80;
         bounds.bottom = 0x1c2;
-        g_radar_backdrop = CreateSpriteFromSurface(GetFrameBufferSurface(), &bounds, 0, 1);
-        Position2DNodeUnsnapped(g_radar_backdrop, 0x17, 0x166);
-        g_radar_backdrop->render_state.display_state = 4;
+        g_radar_backdrop = makeOverlayFromSurface(GetFrameBufferSurface(), &bounds, 0, 1);
+        positionOverlay(g_radar_backdrop.get(), 0x17, 0x166, false);
     }
 }
 
-static stModelInstance2D* AcquireRadarBlip(int sector, bool lit)
+static OverlayQuad* AcquireRadarBlip(int sector, bool lit)
 {
     auto& pool = g_radar_icon_pools[sector];
-    stModelInstance2D* icon;
+    OverlayQuad* icon;
     int cursor = g_radar_icon_cursors[sector];
 
     if (cursor < static_cast<int>(pool.size())) {
         g_radar_icon_cursors[sector] = cursor + 1;
         icon = pool[cursor].get();
     } else {
-        icon = new stModelInstance2D(0);
-        *icon = *pool[0];
-        pool.emplace_back(icon);
+        auto owned = std::make_unique<OverlayQuad>(*pool.front());
+        icon = owned.get();
+        pool.push_back(std::move(owned));
     }
     if (icon != 0) {
-        icon->clearFlag(srNode::FLAG_DISABLE);
-        icon->setParent(0, 1);
-        icon->setParent(g_overlay_scenes.square.get(), 1);
-        icon->overlay_scene_flag |= 1;
+        icon->visible = true;
+        icon->detach();
+        g_compositor.attach(*icon, OverlayLayer::SquareAspect);
         if (!lit) {
-            icon->SetGlowEnabled(false);
+            icon->glow_enabled = false;
         } else {
             glm::vec4 first;
             glm::vec4 second;
             int group = sector - sector % 3;
 
-            icon->SetGlowEnabled(true);
+            icon->glow_enabled = true;
             second.w = 1.0f;
             first.w = 1.0f;
             second.x = g_radar_blip_colors[group + 2][0];
@@ -157,8 +152,8 @@ static stModelInstance2D* AcquireRadarBlip(int sector, bool lit)
             first.x = g_radar_blip_colors[group][0];
             first.y = g_radar_blip_colors[group][1];
             first.z = g_radar_blip_colors[group][2];
-            icon->SetGlowColors(first, second);
-            icon->render_state.render_depth = 1000;
+            icon->glow_colors = {first, second};
+            icon->glow_period = 1000;
         }
     }
     return icon;
@@ -167,21 +162,21 @@ static stModelInstance2D* AcquireRadarBlip(int sector, bool lit)
 void ReleaseRadarMap(void)
 {
     if (g_radar_map != 0) {
-        ReleaseObject(g_radar_map);
+        g_radar_map.reset();
         g_radar_map = 0;
     }
     if (g_radar_frame != 0) {
-        ReleaseObject(g_radar_frame);
+        g_radar_frame.reset();
         g_radar_frame = 0;
     }
     if (g_radar_compass != 0) {
-        ReleaseObject(g_radar_compass);
+        g_radar_compass.reset();
         g_radar_compass = 0;
     }
     for (auto& pool : g_radar_icon_pools) {
         pool.clear();
     }
-    ReleaseRendererObject(g_radar_backdrop);
+    g_radar_backdrop.reset();
 }
 
 void RefreshRadarMap(void)
@@ -218,27 +213,20 @@ void RefreshRadarMap(void)
     auto compass_surface = RenderSpriteToImage(*compass_artwork.spriteSheet(), 0);
     if (!compass_surface) return;
 
-    g_radar_compass = CreateSpriteFromSurface(*compass_surface, 0, 1, 1);
-    Position2DNodeUnsnapped(g_radar_compass, 0x1e, 0x167);
-    g_radar_compass->render_state.display_state = 4;
-    g_radar_frame = CreateSpriteFromSurface(*frame_surface, 0, 1, 1);
-    Position2DNodeUnsnapped(g_radar_frame, 0x1e, 0x167);
-    g_radar_frame->render_state.display_state = 4;
-    g_radar_map = CreateSpriteFromSurface(*map_surface, 0, 1, 1);
-    Position2DNodeUnsnapped(g_radar_map, 0x1e, 0x167);
-    g_radar_map->render_state.display_state = 4;
+    g_radar_compass = makeOverlayFromSurface(*compass_surface, 0, 1, 1);
+    positionOverlay(g_radar_compass.get(), 0x1e, 0x167, false);
+    g_radar_frame = makeOverlayFromSurface(*frame_surface, 0, 1, 1);
+    positionOverlay(g_radar_frame.get(), 0x1e, 0x167, false);
+    g_radar_map = makeOverlayFromSurface(*map_surface, 0, 1, 1);
+    positionOverlay(g_radar_map.get(), 0x1e, 0x167, false);
 
     for (sector = 0; sector < 18; ++sector) {
         glm::vec4 color;
-        stModelInstance2D* icon;
-
         color.x = g_radar_blip_colors[sector][0];
         color.y = g_radar_blip_colors[sector][1];
         color.z = g_radar_blip_colors[sector][2];
         color.w = 1.0f;
-        icon = CreateColoredPolygonSprite(2, 2, &color, false);
-        g_radar_icon_pools[sector].emplace_back(icon);
-        icon->overlay_scene_flag |= 1;
+        g_radar_icon_pools[sector].push_back(makeColorOverlay(2, 2, color, false));
     }
     UpdateRadarBlips({});
 }
@@ -257,11 +245,13 @@ void UpdateRadarBlips(const W8TargetingPresentation& presentation)
         return;
     }
     if (g_radar_compass != 0) {
-        RotateNodeInDegrees(g_radar_compass, g_status.party_facing -
-                                                 static_cast<int>(g_status.party_heading) + 0x168);
+        g_radar_compass->rotation = static_cast<float>(
+            (g_status.party_facing - static_cast<int>(g_status.party_heading) + 0x168) *
+            -0.017453292519943295);
     }
     if (g_radar_frame != 0) {
-        RotateNodeInDegrees(g_radar_frame, g_status.party_facing);
+        g_radar_frame->rotation =
+            static_cast<float>((g_status.party_facing) * -0.017453292519943295);
     }
     camera = cameraLocation();
     detect_all = PartyHasCondition(0x40);
@@ -290,7 +280,7 @@ void UpdateRadarBlips(const W8TargetingPresentation& presentation)
 
     for (const auto& monster_owner : CurrentLevelPopulation().monster_roster.live()) {
         auto* info = monster_owner.get();
-        W8Monster* monster = info->p3D;
+        Monster* monster = info->p3D;
 
         if (monster != 0 && info->fActive && info->within_viewing_distance &&
             (!monster->disabled || detect_all)) {
@@ -316,16 +306,16 @@ void UpdateRadarBlips(const W8TargetingPresentation& presentation)
                     party = PartyNavigator()->GetPosition();
                     delta = position - party;
                     float distance = glm::length(delta);
-                    if (distance - monster->radius < g_radar_outer_radius) {
-                        distance = (distance - monster->radius) / distance;
+                    if (distance - monster->nav.radius < g_radar_outer_radius) {
+                        distance = (distance - monster->nav.radius) / distance;
                         delta.x *= distance;
                         delta.z *= distance;
                         PlaceRadarBlip(&delta, 3, hostile);
                     } else {
                         delta.y = 0.0f;
                         distance = glm::length(delta);
-                        if (distance - monster->radius > g_radar_outer_radius) {
-                            distance = g_radar_outer_radius / (distance - monster->radius);
+                        if (distance - monster->nav.radius > g_radar_outer_radius) {
+                            distance = g_radar_outer_radius / (distance - monster->nav.radius);
                             delta.x *= distance;
                             delta.z *= distance;
                             PlaceRadarBlip(&delta, 3, hostile);
@@ -339,21 +329,21 @@ void UpdateRadarBlips(const W8TargetingPresentation& presentation)
                     continue;
                 }
                 center = bounds->center();
-                party = monster->GetPosition();
+                party = monster->nav.GetPosition();
                 position = center + party;
                 party = PartyNavigator()->GetPosition();
                 delta = position - party;
                 float distance = glm::length(delta);
-                if (distance - monster->radius < g_radar_outer_radius) {
-                    distance = (distance - monster->radius) / distance;
+                if (distance - monster->nav.radius < g_radar_outer_radius) {
+                    distance = (distance - monster->nav.radius) / distance;
                     delta.x *= distance;
                     delta.z *= distance;
                     PlaceRadarBlip(&delta, g_radar_disposition_class[info->ubDisposition], hostile);
                 } else {
                     delta.y = 0.0f;
                     distance = glm::length(delta);
-                    if (distance - monster->radius > g_radar_outer_radius) {
-                        distance = g_radar_outer_radius / (distance - monster->radius);
+                    if (distance - monster->nav.radius > g_radar_outer_radius) {
+                        distance = g_radar_outer_radius / (distance - monster->nav.radius);
                         delta.x *= distance;
                         delta.z *= distance;
                         PlaceRadarBlip(&delta, g_radar_disposition_class[info->ubDisposition],
@@ -364,16 +354,16 @@ void UpdateRadarBlips(const W8TargetingPresentation& presentation)
         }
     }
 
-    W8Missile* missile = NextMissile(true);
+    Missile* missile = NextMissile(true);
     while (missile != 0) {
         if (!missile->impacting) {
-            const auto bounds = missile->GetAnimationBounds();
+            const auto bounds = missile->visual.GetAnimationBounds();
             if (!bounds) {
                 missile = NextMissile(false);
                 continue;
             }
             center = bounds->center();
-            party = missile->GetPosition();
+            party = missile->nav.GetPosition();
             position = center + party;
             party = PartyNavigator()->GetPosition();
             delta = position - party;
@@ -383,7 +373,6 @@ void UpdateRadarBlips(const W8TargetingPresentation& presentation)
         }
         missile = NextMissile(false);
     }
-    SetRendererModePair();
 }
 
 static unsigned char PlaceRadarBlip(glm::vec3* delta, int group, bool lit)
@@ -428,8 +417,8 @@ static unsigned char PlaceRadarBlip(glm::vec3* delta, int group, bool lit)
         left = static_cast<int>(scale * delta->x + g_radar_center_x);
         top = static_cast<int>(g_radar_center_y - scale * delta->z);
     }
-    stModelInstance2D* blip = AcquireRadarBlip(ring + group * 3, lit);
-    Position2DNodeUnsnapped(blip, left, top);
+    OverlayQuad* blip = AcquireRadarBlip(ring + group * 3, lit);
+    positionOverlay(blip, left, top, false);
     return 1;
 }
 

@@ -12,12 +12,12 @@
 #include "wiz8/canvas/himage.h"
 #include "wiz8/canvas/image.h"
 #include "wiz8/checked_integer.h"
-#include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
+#include "wiz8/render/frame.h"
 
 /* Retail initializer 0x005D1010 copies the Controls layout constant. */
 unsigned int g_dialog_text_layout_mask = g_W8TextBufferNoWrap;

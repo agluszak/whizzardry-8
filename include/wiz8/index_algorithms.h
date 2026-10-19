@@ -31,8 +31,8 @@ void InsertUniqueIndexValue(Index& index, typename Index::key_type key,
         InsertIndexValue(index, key, value);
 }
 
-template<class Index, class Key>
-auto NextIndexValue(Index& index, Key key, typename Index::iterator previous)
+template<class Index, class Key, class Iterator>
+Iterator NextIndexValue(Index& index, Key key, Iterator previous)
 {
     if (previous == index.end()) return index.equal_range(key).first;
     const auto next = std::next(previous);

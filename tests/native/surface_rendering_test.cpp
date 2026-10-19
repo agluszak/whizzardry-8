@@ -11,10 +11,9 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "surface_pixels.h"
-#include "surrender/SDLGPUDevice.h"
-#include "surrender/srGERD.h"
-#include "surrender/srTexture.h"
-#include "wiz8/surface2d.h"
+#include "wiz8/render/compositor.h"
+#include "wiz8/render/gpu_renderer.h"
+#include "wiz8/render/texture.h"
 #include "wiz8/surface_storage.h"
 
 TEST_CASE("Native UI texture preserves pixels, alpha holes, and dirty rectangles")
@@ -25,12 +24,12 @@ TEST_CASE("Native UI texture preserves pixels, alpha holes, and dirty rectangles
         std::unique_ptr<SDL_Window, decltype(&SDL_DestroyWindow)> window{
             SDL_CreateWindow("surface rendering", 640, 480, SDL_WINDOW_HIDDEN), SDL_DestroyWindow};
         REQUIRE(window);
-        srGERD renderer;
-        REQUIRE(renderer.createContext(window.get()) == srGERD::ERROR_NONE);
-        REQUIRE(renderer.openWindow(640, 480) == srGERD::ERROR_NONE);
+        GpuRenderer renderer;
+        REQUIRE(renderer.createContext(window.get()) == GpuRenderer::ERROR_NONE);
+        REQUIRE(renderer.openWindow(640, 480) == GpuRenderer::ERROR_NONE);
         renderer.setTextureReduction(1);
-        renderer.setTextureDefaultMagFilter(srTexture::FILTER_BEST);
-        renderer.setTextureDefaultMinFilter(srTexture::FILTER_BEST);
+        renderer.setTextureDefaultMagFilter(Texture::FILTER_BEST);
+        renderer.setTextureDefaultMinFilter(Texture::FILTER_BEST);
         auto storage = CreateCpuStorage(640, 480, SDL_PIXELFORMAT_ARGB1555);
         for (int y = 0; y < 480; ++y) {
             auto* row = reinterpret_cast<std::uint16_t*>(
@@ -38,12 +37,12 @@ TEST_CASE("Native UI texture preserves pixels, alpha holes, and dirty rectangles
             for (int x = 0; x < 640; ++x) row[x] = (x + y) % 3 == 0 ? 0 : (x % 2 ? 0xffff : 0x8000);
         }
         auto pixels = std::shared_ptr<SDL_Surface>(std::move(storage));
-        stSurface2D surface{pixels, nullptr};
+        UiCanvasTexture surface{pixels};
         surface.setAlphaTestEnabled(true);
         const auto draw = [&] {
             renderer.setClearColor(0, 0, 1, 1);
-            renderer.clear(SDLGPUDevice::BUFFER_COLOR | SDLGPUDevice::BUFFER_DEPTH);
-            renderer.matrixMode(srGERD::MATRIX_MODELVIEW);
+            renderer.clear(GpuRenderer::GPU_BUFFER_COLOR | GpuRenderer::GPU_BUFFER_DEPTH);
+            renderer.matrixMode(GpuRenderer::MATRIX_MODELVIEW);
             renderer.loadIdentity();
             renderer.resetStatistics();
             surface.draw(&renderer);

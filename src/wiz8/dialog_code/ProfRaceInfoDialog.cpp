@@ -16,7 +16,6 @@
 #include "dialog_code/DialogTextArea.h"
 #include "layouts/gameplay_databases.h"
 #include "local_code/ControlsRect.h"
-#include "surrender/srDebug.h"
 #include "wiz8/canvas/Font.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/fonts.h"
@@ -27,6 +26,7 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/CharacterScreen.h"
+#include "wiz8/platform/assertion.h"
 
 W8AttributeMinimums g_race_attribute_minimums[W8_RACE_PLAYABLE_COUNT] = {
     {{45, 45, 45, 45, 45, 45, 45}}, {{35, 50, 50, 35, 50, 45, 40}}, {{55, 30, 50, 60, 35, 35, 35}},

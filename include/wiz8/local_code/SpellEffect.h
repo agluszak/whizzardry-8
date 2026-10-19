@@ -15,8 +15,8 @@
 #include "wiz8/layouts/targeting.h"
 #include "wiz8/spell_ids.h"
 
-class W8SpellVisual;
-class W8Missile;
+class SpellVisual;
+class Missile;
 
 enum W8SpellDamageReportKind : unsigned char {
     W8_SPELL_DAMAGE_REPORT_CHARACTER_DEATH = 1,
@@ -79,7 +79,7 @@ struct W8SpellEffectResult {
 };
 
 struct W8SpellEffectEntry {
-    void AddVisual(W8SpellVisual* visual);
+    void AddVisual(SpellVisual* visual);
 
     /* OrigSource and OrigTarget are left for the caller to fill. */
     W8SpellEffectEntry()
@@ -120,8 +120,8 @@ struct W8SpellEffectEntry {
     std::vector<int> target_indices;
     /* Spawned visuals and owned missiles. Their constructors
        install a base vector table followed by the derived table. */
-    std::vector<W8SpellVisual*> spell_visuals;
-    std::vector<W8Missile*> missiles;
+    std::vector<SpellVisual*> spell_visuals;
+    std::vector<Missile*> missiles;
     /* When the effect ends without having applied, the tick re-casts
        the spell from the stored source. CastSpellFromSource's `c` argument. */
     bool recast;
@@ -149,7 +149,7 @@ W8SpellEffectEntry* FindMonsterControlSpellEffect(void);
 void UpdateSpellEffects(void);
 /* Fold one missile's accumulated damage and reports into the queued effect
    that owns it. */
-void AbsorbMissileDamage(W8Missile* missile);
+void AbsorbMissileDamage(Missile* missile);
 void ReportSpellResult(W8SpellEffectEntry* effect);
 void SpawnLureEffects(W8SpellEffectEntry* owner, int argument, W8CombatSlot* target);
 

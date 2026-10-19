@@ -1,9 +1,6 @@
 #include "glm/ext/vector_float3.hpp"
-#include "layouts/world.h"
-#include "surrender/srDebug.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/World.h"
+#include "wiz8/entities/monster.h"
+#include "wiz8/entities/trigger.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/CosmicCircle.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
@@ -13,6 +10,8 @@
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/platform/assertion.h"
+#include "wiz8/world/world.h"
 #include "wiz8/xstatus.h"
 
 struct W8NpcState;
@@ -96,10 +95,10 @@ void CosmicCircleSetup(void)
         }
         g_status.cc_arena_spawned = true;
         if (pMonsterInfoDs != nullptr) {
-            pMonsterInfoDs->p3D->AimAtPosition(&positionAltheides);
+            pMonsterInfoDs->p3D->nav.AimAtPosition(&positionAltheides);
         }
         if (pMonsterInfoAltheides != nullptr) {
-            pMonsterInfoAltheides->p3D->AimAtPosition(&positionDs);
+            pMonsterInfoAltheides->p3D->nav.AimAtPosition(&positionDs);
         }
         pTrigger = FindTriggerByName("CC_TRIGGERPLANE2");
         if (pTrigger != 0) {

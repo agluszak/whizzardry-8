@@ -53,12 +53,7 @@
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/dialog_code/NpcDialog.h"
 #include "wiz8/dialog_code/PortraitQuote.h"
-#include "wiz8/engine_code/GDCamera.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/Levels.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Navigator.h"
-#include "wiz8/engine_code/Video2.h"
+#include "wiz8/entities/monster.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
 #include "wiz8/gameplay_constants.h"
@@ -96,12 +91,17 @@
 #include "wiz8/npc_script_file.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/random.h"
+#include "wiz8/render/frame.h"
+#include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/spatial/navigator.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/unicode.h"
 #include "wiz8/utility.h"
+#include "wiz8/world/level_session.h"
+#include "wiz8/world/party_camera.h"
 #include "wiz8/xstatus.h"
 
 constexpr int kSplitDialogOriginX = 0x9f;
@@ -699,9 +699,9 @@ static void BeginNpcDialogueInternal(W8NpcState* npc, W8ItemInstance* item, int 
     if (info == 0) {
         return;
     }
-    position = info->p3D->movement.position;
-    position.y += info->p3D->movement.height_offset;
-    PartyCamera().LookAt(&position, false);
+    position = info->p3D->nav.movement.position;
+    position.y += info->p3D->nav.movement.height_offset;
+    partyCamera().LookAt(&position, false);
 }
 
 void BeginNpcDialogue(W8NpcState* npc, W8ItemInstance* item, int quote, unsigned char flags,
@@ -830,12 +830,12 @@ static unsigned char OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item,
     info = GetNpcMonsterInfo(npc);
     if (info != 0) {
         g_npc_interaction_state->camera_redirected = true;
-        g_npc_interaction_state->saved_camera_pitch = PartyCamera().m_pitch;
+        g_npc_interaction_state->saved_camera_pitch = partyCamera().m_pitch;
         dialogue_info = GetNpcMonsterInfo(g_npc_interaction_state->dialogue_npc);
         if (dialogue_info != 0) {
-            position = dialogue_info->p3D->movement.position;
-            position.y += dialogue_info->p3D->movement.height_offset;
-            PartyCamera().LookAt(&position, false);
+            position = dialogue_info->p3D->nav.movement.position;
+            position.y += dialogue_info->p3D->nav.movement.height_offset;
+            partyCamera().LookAt(&position, false);
         }
         info->p3D->ForwardReferencePosition(0);
     }
@@ -1101,7 +1101,7 @@ void ServiceNpcDialogue(void)
     std::string field_text;
     W8MonsterInfo* monster_info = GetNpcMonsterInfo(g_npc_interaction_state->dialogue_npc);
     if (monster_info != 0) {
-        monster_info->p3D->UpdateAngles();
+        monster_info->p3D->nav.UpdateAngles();
     }
     if (g_npc_interaction_state->scripted_dialogue) {
         return;
@@ -1257,7 +1257,7 @@ void EndNpcDialogueSession(bool skip_exit_actions)
     }
     FlushPendingNoticeLines();
     if (g_npc_interaction_state->camera_redirected) {
-        PartyCamera().SetPitch(g_npc_interaction_state->saved_camera_pitch);
+        partyCamera().SetPitch(g_npc_interaction_state->saved_camera_pitch);
     }
     if (g_npc_interaction_state->dialogue_npc->name_style == 0xf &&
         GetFact(W8_FACT_ALIGNMENT_UMPANI) != 0) {
@@ -3687,7 +3687,7 @@ void DrainNpcDialogueDeferralInput(void)
     if (!ShouldDeferCharacterEventForNpcScript(true) || !gXStatus.fNpcDialogueMode) {
         return;
     }
-    SGPMouseGetPos(&mouse);
+    mouse = CursorPosition();
     UpdateUiPointer(mouse.x, mouse.y);
     while (auto next_input = PollInputEvent()) {
         input = *next_input;
@@ -3927,9 +3927,9 @@ void LookAtDialogueNpc(void)
 {
     W8MonsterInfo* info = GetNpcMonsterInfo(g_npc_interaction_state->dialogue_npc);
     if (info != 0) {
-        glm::vec3 position = info->p3D->movement.position;
-        position.y += info->p3D->movement.height_offset;
-        PartyCamera().LookAt(&position, false);
+        glm::vec3 position = info->p3D->nav.movement.position;
+        position.y += info->p3D->nav.movement.height_offset;
+        partyCamera().LookAt(&position, false);
     }
 }
 
@@ -4241,7 +4241,7 @@ void FlushInputWhileWorldCursorGate(void)
     if (g_status.world_cursor_gate == 0) {
         return;
     }
-    SGPMouseGetPos(&mouse);
+    mouse = CursorPosition();
     UpdateUiPointer(mouse.x, mouse.y);
     while (auto next_input = PollInputEvent()) {
         input = *next_input;

@@ -4,8 +4,6 @@
 #include "gameplay_modifiers.h"
 #include "layouts/item_instance.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/engine_code/Environment.h"
-#include "wiz8/engine_code/Levels.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
@@ -20,6 +18,8 @@
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/party_encumbrance.h"
 #include "wiz8/utility.h"
+#include "wiz8/world/environment.h"
+#include "wiz8/world/level_session.h"
 #include "wiz8/xstatus.h"
 
 /* Clear the party modifier block, fold the party's effect slots, the combat

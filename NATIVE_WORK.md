@@ -23,9 +23,11 @@ do not need the original compiler layout.
   scratch, fallback resources and GPU texture records. Indexed TGA decoding
   owns its palette; no SurRender core initialization or CPU texture-cache
   budget remains.
-- Modernize remaining SurRender/SGP allocator, string, array and threading
-  abstractions; remove unused layout assertions, packing and ABI annotations
-  once runtime and serialized records are separate.
+- PR #384 replaces the legacy engine layers; see `ENGINE_MODERNIZATION.md`
+  for CI verification and the remaining modernization work. SGP, SurRender
+  and `engine_code` source/include directories are removed. Concrete rendering
+  resources, composed entities, per-query spatial/navigation scratch and
+  world-owned environment/audio/camera state replace their engine layers.
 
 CTest includes both asset-independent fixtures and licensed runtime scenarios.
 The runtime label covers video, character creation, game start, world movement,
@@ -63,8 +65,9 @@ remain explicit, including malformed-input replacement and fixed-field limits.
 The native application only reads compiled OCT/WPT/PVL geometry. The unreachable
 level compiler, mesh and waypoint writers, waypoint editor/visualization and
 interactive build-log UI are removed. Shared spatial operations live with the
-runtime octree. `W8OctBuildTree` remains the gameplay collision index built from
-loaded game data; its queries are exercised independently of the removed editor.
+level index. `SurfaceIndex` accelerates loaded collision geometry with typed
+surface references and local traversal values; its queries are exercised
+independently of the removed editor.
 Reader fixtures cover both retail waypoint edge layouts and truncated-input
 rollback without invoking a production writer.
 

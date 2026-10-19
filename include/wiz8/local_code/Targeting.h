@@ -106,11 +106,11 @@ void CollectMonstersWithinRadius(const glm::vec3* centre, const glm::vec3* eye,
                                  std::vector<int>& found, float radius, char side,
                                  W8AreaSightRule sight_rule);
 
-class W8Monster;
+class Monster;
 
 /* Whether `monster` is within `max_distance` of the player and
    still projects on screen. `position` is unused. */
-bool IsMonsterVisibleWithinDistance(W8Monster* monster, const glm::vec3* position,
+bool IsMonsterVisibleWithinDistance(Monster* monster, const glm::vec3* position,
                                     float max_distance);
 
 /* Whether `target` lies within the combined radii of `eye` and

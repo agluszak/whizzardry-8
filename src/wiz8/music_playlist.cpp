@@ -14,7 +14,7 @@
 #include "compat/native.h"
 #include "local_screens/Screens.h"
 #include "wiz8/audio/soundman.h"
-#include "wiz8/engine_code/stScript.h"
+#include "wiz8/entities/script.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/ui_input.h"
@@ -23,7 +23,7 @@
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
 
 wiz8::sound::Playback g_music_sample_handle = nullptr;
-static stScript* g_music_playlist;
+static Script* g_music_playlist;
 static uint64_t g_music_playlist_tick;
 bool g_music_playlist_active;
 int g_music_playlist_weight_total;
@@ -67,7 +67,7 @@ bool IsCurrentMusicPlaylist(const char* playlist)
 
 unsigned char InitializeMusicPlaylist(void)
 {
-    g_music_playlist = new stScript();
+    g_music_playlist = new Script();
     if (g_music_playlist) {
         g_music_playlist->setName("Music Playlist");
     }
@@ -80,7 +80,7 @@ unsigned char InitializeMusicPlaylist(void)
 
 /* Count playable rows, load the pause directives, and retain a nonzero weight
    total only when every playable row carries a parenthesized weight. */
-int AnalyzeMusicPlaylist(stScript* playlist, int* total_weight)
+int AnalyzeMusicPlaylist(Script* playlist, int* total_weight)
 {
     int playable_count = 0;
     bool found_unweighted = false;

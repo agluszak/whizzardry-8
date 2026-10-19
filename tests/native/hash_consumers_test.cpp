@@ -3,20 +3,17 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "compat/compiler.h"
-#include "surrender/srGERD.h"
-#include "surrender/srShader.h"
-#include "surrender/srTexture.h"
+#include "wiz8/render/draw_shader.h"
+#include "wiz8/render/gpu_renderer.h"
+#include "wiz8/render/texture.h"
 
 static void checkConsumers()
 {
     // Interning must distinguish both texture addresses and the shader word,
     // preserve index zero, and keep existing indices across growth and clear.
-    srGERD::Renderer::TextureSetCache cache;
-    struct Texture : srTexture {
-        void invalidate() override {}
-        void setupDefaultValues() override {}
-    } textures[2];
-    srGERD::Renderer::TextureSetKey key{nullptr, nullptr, {}};
+    GpuRenderer::Renderer::TextureSetCache cache;
+    Texture textures[2];
+    GpuRenderer::Renderer::TextureSetKey key{nullptr, nullptr, {}};
     for (w8_ulong i = 0; i < 512; ++i) {
         key.shader.value = i;
         REQUIRE(cache.intern(key) == i);
@@ -25,7 +22,7 @@ static void checkConsumers()
         key.shader.value = i;
         REQUIRE(cache.intern(key) == i);
         REQUIRE(cache.sets[i].shader.value == i);
-        const auto blend = (i >> srShader::DSTBLEND_SHIFT) & 7;
+        const auto blend = (i >> DrawShader::DSTBLEND_SHIFT) & 7;
         REQUIRE((cache.sets[i].blend == (blend == 1                 ? 2
                                          : blend == 2 || blend == 3 ? 3
                                          : blend == 4 || blend == 5 ? 1

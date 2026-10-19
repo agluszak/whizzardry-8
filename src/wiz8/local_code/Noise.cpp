@@ -4,17 +4,17 @@
 
 #include <glm/geometric.hpp>
 
-#include "Navigator.h"
 #include "glm/ext/vector_float3.hpp"
 #include "local_code/Factions.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Octree.h"
+#include "wiz8/entities/monster.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/level_population.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/platform/random.h"
+#include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/spatial/navigator.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/xstatus.h"
 
@@ -48,7 +48,7 @@ void AlertMonsterGroupsToNoise(const glm::vec3* position, int radius, int flag)
             continue;
         }
         W8MonsterRecord* record = GetMonsterDataForInfo(info);
-        glm::vec3 monster_position = info->p3D->GetPosition();
+        glm::vec3 monster_position = info->p3D->nav.GetPosition();
         int remaining = radius - static_cast<int>(glm::length((monster_position - noise_position)));
         if (remaining <= 0) {
             continue;
@@ -67,8 +67,8 @@ void AlertMonsterGroupsToNoise(const glm::vec3* position, int radius, int flag)
         if (flag == 1 && gXStatus.fCombatMode) {
             float range = static_cast<float>(radius);
             int hops;
-            if (GetWorldOctree()->TestNoiseLineOfSight(&monster_position, &noise_position, &range,
-                                                       &hops) == 0) {
+            if (GetWorldSpatialIndex()->TestNoiseLineOfSight(&monster_position, &noise_position,
+                                                             &range, &hops) == 0) {
                 continue;
             }
             // Truncate the float move-range to int before scaling, matching retail.

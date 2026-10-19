@@ -2,7 +2,7 @@
 
 This document specifies the **complete architectural replacement** of `src/sgp`, `src/surrender`, and `src/wiz8/engine_code` in a single, cohesive design.
 
-Instead of incremental half-steps, adapters, or moving legacy classes into new folders, this plan **deletes the 2001 three-engine seam (`SGP` + `SurRender` + `engine_code`) outright** and replaces it with a clean, idiomatic C++23 architecture built directly on SDL3, SDL3_GPU, SDL3_mixer, and GLM.
+Instead of incremental half-steps, adapters, or moving legacy classes into new folders, this plan **deletes the 2001 three-engine seam (`SGP` + `SurRender` + `engine_code`) outright** and replaces it with a clean, idiomatic C++26 architecture built directly on SDL3, SDL3_GPU, SDL3_mixer, and GLM.
 
 ---
 
@@ -21,9 +21,9 @@ In a big-bang redesign, we **collapse all three into one flat, data-oriented arc
 | **`stSurface2D` (30× 128×128 tile textures) + 8 `VideoOverlayScenes` + `stModelInstance2D` + `PurgeInactiveSceneInstances`** | **Direct 2D Compositor**: One 640×480 streaming GPU texture for the UI canvas, plus a flat per-frame `std::vector<OverlayQuad>` for rotated/blended HUD sprites, fades, tooltips, and the cursor. |
 | **`srClass` + `srNode` + `srModel` + `srMeshModel` + `stMeshModel` + `srModelInstance` + `stModelInstance`** (7-class deep polymorphic scene graph) | **Two concrete types**: **`Mesh`** (geometry, compressed frames, skins, vertex lights) and **`MeshInstance`** (transform, active frame/skin, highlight/shadow flags). No generic `srNode` linked-list tree! |
 | **`srLight` + `stLight` + `MonsterLight` + `stLightDefinition` + `stParametricLightDefinition` + `stKeyframedLightDefinition`** (6-class hierarchy) | **One concrete `Light` struct** with a `std::variant<std::monostate, ParametricLight, KeyframedLight, MonsterLight>` animator. |
-| **`W8GrObject` + `W8Navigator` + `W8GrCycle` $\leftrightarrow$ `W8AnimRepBase` + `W8AnimRep` + `W8EmitterHost` + `*Rep`** (dual parallel inheritance diamond + 10 pure virtual getters) | **Zero entity inheritance**: `Monster`, `Missile`, `SpellVisual`, `Prop`, and `WorldItem` are standalone concrete classes that compose a **`CyclePlayer`** value member and a **`Navigator`** value member. |
+| **`W8GrObject` + `W8Navigator` + `W8GrCycle` $\leftrightarrow$ `W8AnimRepBase` + `W8AnimRep` + `W8EmitterHost` + `*Rep`** (dual parallel inheritance diamond + 10 pure virtual getters) | **Zero entity inheritance**: `Monster`, `Missile`, `SpellVisual`, `Prop`, and `WorldItemEntity` are standalone concrete classes that compose a **`CyclePlayer`** value member and a **`Navigator`** value member. |
 | **`W8AIRecord` (`W8PathAI` vs. `W8AIMissile`)** polymorphic tagged union | **`KeyframeTrack`** (concrete spline struct) and **`MissileFlight`** (value member inside `Missile`). |
-| **Entangled `W8Octree` $\leftrightarrow$ `W8GameData` $\leftrightarrow$ `W8PathingService`** with mutable member scratchpads and `TestProp` vector-swapping | **`LevelCollision`** (immutable `.oct` + `.wgd` geometry with pure, `const` ray/box/ground queries) and **`NavigationMesh`** (`.wpt` graph + stateless A*/patrol planner + steering). |
+| **Entangled `W8Octree` $\leftrightarrow$ `W8GameData` $\leftrightarrow$ `W8PathingService`** with mutable member scratchpads and `TestProp` vector-swapping | **`LevelSpatialIndex`** (immutable `.oct` + `.wgd` geometry with pure, `const` ray/box/ground queries) and **`NavigationMesh`** (`.wpt` graph + stateless A*/patrol planner + steering). |
 
 ---
 
@@ -313,53 +313,96 @@ To execute this cleanly in a dedicated worktree without leaving transitional shi
 
 ## 5. Implementation Status
 
-The former #371 / #372 / #374 stack is consolidated into #374 (`engine-modernization-audio-3d`), rebased directly onto `main`. The consolidated PR includes this complete plan, all three implementation batches, and conflict resolutions that preserve the newer native enum, surface, assertion, and world-item APIs. #371 and #372 are superseded.
+PR [#374](https://github.com/agluszak/whizzardry-8/pull/374), merged as
+`77e6e460`, established the foundation modules and initial entity flattening.
+The replacement continues in PR
+[#384](https://github.com/agluszak/whizzardry-8/pull/384).
 
-| Step | Status | Where |
+This batch replaces the old engine layers across all five architecture areas.
+**The entire modernization plan is not complete.** The remaining API and
+ownership work is listed in section 7. The earlier #374 results do not validate
+the continuation.
+
+| Plan area | Implementation in #384 | Validation |
 | :--- | :--- | :--- |
-| 1. Foundations (`canvas/`, `platform/`, `audio/`) | Relocation done: `src/sgp` removed, modules under `src/canvas`, `src/platform`, `src/audio`. 3D sound extracted to `audio/sound3d` as `Sound3D`. | #374 |
-| 1. Foundations, remaining | `Sound3D` still uses a global borrowed index (`g_sound3d_instances`) and `Retain3DSound`. `AmbientAudioSystem` owner, `SoundEvent`, and `mouth_gap` are not yet value types. | — |
-| 2. `render/` | Not started. `srNode` and `stSurface2D` remain. | — |
-| 3. `entities/` | Done: `Prop` merged with its animation representation; `Trigger` payloads are a `std::variant`; `W8PathAI` no longer derives from `W8AIRecord`; the 37 `Monster*()` wrappers are `W8Monster` members or removed (no null guards at call sites; nullable callers remain review work); `W8MissileRep`, `W8MonsterRep` and `W8SpellEmitterHost` are merged into `W8Missile`, `W8Monster` and `W8SpellVisual`. The shared `W8GrObject`, `W8AnimRepBase`, `W8AnimRep`, and `W8EmitterHost` bases are deleted: animation transforms, playback, LOD, path, and sound-event ownership now live directly in `W8GrCycle`; `Prop` and `WorldItemEntity` have no entity base. The representation getter and its virtual bounce are gone. Clone paths retain independent animations, lights, sound events, and AI. Old numeric APST records still resolve through an explicitly named legacy prop-save key and the original construction sequence; other entities no longer store unused IDs. | #374 |
-| 3, remaining | `WorldItemEntity` already owns its representation directly. Extract a concrete `CyclePlayer` value from `W8GrCycle`, replace its animation virtuals with explicit component inputs, and compose navigation in the entity owners. `GDProp` remains separately owned by `Prop`. | — |
-| 4. `spatial/`, `world/` | Path planning: the visited and marked node sets, the open-set heap, the search-node array, and the patrol walk state are per-search values now, not members. Still members: the trace configuration that `ConfigureMovementSearch` sets for later calls, which needs an explicit parameter object before it can move. Started: the dead region-link builder (`BuildRegionLinks`, `SampleRegionLinks`, `SaveRegionLinks`, `SavePoints`, `CountBadRegionMeshLinks`, `ValidateRegionMeshLinks`), its dev-only level-link loop, and the debug render switches (`g_render_unlit`, `g_render_cull_front`, `g_render_untextured`) are deleted. The `.rlk` files still ship and are read. The octree's per-query scratch (`OctreeScratch`: keys, count, and dedupe sets) replaces the member buffers. The flag-4 gate is a parameter, and the skip flag is gone. The last trace's surface now travels on the trace record and the ground probe, not on `GameData`; a probe that makes no ray test reports no surface instead of a stale one. The region-link recorder, the octree's registry cursor globals, the prop id on the trace (now returned on the ground probe), and six unreferenced navigator, pathing, and monster functions are removed. Remaining: `LevelSpatialIndex` is not yet const, because the visibility sets (`m_current_regions` and friends) are written during queries. | — |
-| 5. Verification | The consolidated implementation builds locally with Clang 23 and warnings as errors. Release and AddressSanitizer builds each pass all 227 CTest cases, including all 14 retail-asset runtime scenarios, emitter clone lifetime, and named/numeric prop saves. Static analysis and validation details are recorded below. CI remains a separate check on the published commit. | #374 |
+| Foundation modules | `canvas/` draws only to SDL surfaces; framebuffer integration lives in `render/frame`. SDL window/input/time services live in `platform/`. `AmbientAudioSystem` owns ambient schedules, stable script voices, transient voices and the footstep loop; sound events and mouth-gap data are values. | Passed CI; see section 6 |
+| Renderer and resources | `GpuRenderer` directly owns GPU resources and submissions. The device facade, mesh pipeline, vertex processor hierarchy and fixed state stacks are deleted. Vertex shading receives concrete draw inputs. `WorldScene` uses typed mesh/light/fog/particle/shadow/clip collections. `Mesh`, `MeshInstance`, `Texture`, `Material` and variant-animated `Light` are concrete resources. Mesh parts use standard ranges over owned children. One UI canvas texture and flat `OverlayQuad` values replace overlay scenes and tiled surfaces. | Passed CI; see section 6 |
+| Entities and animation | `Monster`, `Missile` and `SpellVisual` compose `CyclePlayer` and `Navigator`; all entity bases, representation classes and virtual animation getters are gone. Cycle slots own animations, lights and playback scale together. Prop owns its collision/path data. Keyframe tracks and missile flight are values. Trigger payloads use a variant; trigger I/O, actions and locks have separate implementations. Typed world asset lookup replaces the process-wide cycle registry. The reviewed actor lookup callers handle unloaded actors explicitly; the wider actor-reference audit remains open. | Passed CI; see section 6 |
+| Spatial and navigation | One world-owned `LevelSpatialIndex` owns compiled indexing and collision banks, including the raw-WGD fallback. `DynamicSpatialRegistry` owns registration and visibility; `CollisionRuntime` owns conditional switches and trigger state. Queries use local scratch and explicit geometry spans, without surface-bank swaps, shared visit bits or cached hit results. Motion contacts copy immutable geometry into a local contact cache. `SurfaceIndex` stores typed surface references and deduplicates locally. Navigation uses per-search graph/grid/patrol scratch and per-mesh settings; only movement updates patrol stamps. The obsolete region-link authoring pipeline is deleted; shipped `.rlk` files remain readable. | Passed CI; see section 6 |
+| World, environment, camera and loading | `World` owns scene, environment, spatial data, audio, population and entities. Member order replaces manual teardown phases. `EnvironmentState` owns authored ramps, fog, lighting transitions and sky references. `PartyCamera` owns orientation, transitions, `PartyMotion`, active physical environment, sway, input and footstep timing. Camera snapshots use typed poses with opaque retail bytes preserved by the codec. `world/level_loader` owns level/PVL/WGD decoding; `world/level_session` owns loading, transitions and save snapshots. All callers use the new modules. | Passed CI; see section 6 |
 
-Verification and remaining review work:
+The old source and include directories `sgp`, `surrender` and
+`wiz8/engine_code` are removed. This is an architectural replacement: no aliases
+or subclasses keep their former engine interfaces alive. Retail compatibility
+records remain explicit at file boundaries, including camera opaque bytes,
+collision records and named/numeric prop-save keys.
 
-- The earlier Monster wrapper batch removed the null guards that the wrappers provided. Nullable callers still need explicit review before the stack merges; the selected runtime scenarios do not establish that every caller is non-null.
-- The previous CI compile/analyzer failures (shadowed monster members, dead region-link constants, and an incomplete ground-shadow model type) are fixed in the consolidated implementation.
+## 6. Batch Verification
 
-Validation before consolidation (2026-10-19; rebase verification follows separately):
+As requested, compilation, tests and static analysis for #384 run **exclusively
+in GitHub Actions**. No local build or test results are claimed for this work.
+The required checks are:
 
-- Release build: `ninja -C build/native-rel -j 8`, Clang 23, warnings as errors.
-- Release and AddressSanitizer builds: all 210 non-runtime CTest cases passed.
-- Both builds passed the five installed-asset scenarios `resource-lifecycle`,
-  `camp-spells`, `combat`, `quick-save`, and `load-game` against prepared GOG assets.
-- The ASan runs used `VK_DRIVER_FILES=/usr/share/vulkan/icd.d/lvp_icd.json`,
-  matching CI's software Vulkan selection, with leak detection enabled and no
-  suppressions. Initial runs on the default host driver reported D-Bus leaks;
-  the software-driver run also passed the GPU rendering fixture.
-- Targeted `clang-tidy` passed for all 14 changed C++ translation units using
-  the repository configuration; the obsolete `PathAI.cpp` animation include
-  was removed after its first analysis finding. Changed C++ files passed
-  `clang-format --dry-run --Werror`; `git diff --check` passed.
-- These are bounded regression checks, not a claim of complete gameplay,
-  save-format, or platform parity. Remote CI is reported separately on #374.
+- Native Debug build with Clang 23 and warnings as errors, followed by CTest.
+- AddressSanitizer/UndefinedBehaviorSanitizer build and CTest, including leak
+  detection and immediate failure on undefined behavior.
+- Provisioned retail-asset runtime scenarios, save/load contracts and software
+  Vulkan rendering checks in both configurations.
+- clang-tidy with the repository configuration and changed-header dependency
+  analysis; offline Metal and Direct3D shader verification.
+- Repository-wide clang-format check.
 
-Consolidation and rebase validation (2026-10-19):
+The rebased implementation at `6f147060` passed GitHub Actions on 2026-10-19:
 
-- #374 now targets `main` directly; the native GitHub stack was dissolved and
-  #371 / #372 closed. The original local tip is retained at
-  `backup/engine-stack-before-rebase-20261019`.
-- Rebase conflict resolutions retain `main`'s typed enums, simplified native
-  surfaces, flat world-item groups, and assertion call-site diagnostics.
-- Clang 23 release build with warnings as errors passed. All 227 CTest cases
-  passed, including all 14 installed-asset runtime scenarios.
-- The AddressSanitizer build also passed all 227 CTest cases with leak
-  detection enabled, no suppressions, and CI's software Vulkan driver.
-- A full 285-translation-unit clang-tidy scan found one duplicate timer include
-  and two obsolete includes after conflict resolution. They were removed and
-  every affected failing translation unit was rechecked. Formatting and
-  whitespace checks passed. Remote CI must pass on the consolidated head
-  before merge.
+- [Native CI](https://github.com/agluszak/whizzardry-8/actions/runs/39292975337):
+  **231/231 CTest entries passed in Debug and 231/231 in ASan/UBSan**, including
+  all **14 licensed retail-asset runtime scenarios** in each configuration.
+  All four analysis shards, the combined clang-tidy check and offline shader
+  verification passed.
+- [Formatting](https://github.com/agluszak/whizzardry-8/actions/runs/39292975343)
+  passed.
+
+Existing fixtures exercise concrete resource ownership, independent clone
+playback, material/light/fog rendering behavior, mesh-part mapping, query
+isolation, pending-world isolation, opaque camera/save records and trigger
+lifetimes. Inheritance-only fixtures were removed. Regressions cover untimed
+camera-shake cleanup and preserving the selected monster animation during
+model collection. CI also verified crop pixel fidelity and serialized mesh
+ownership after fixes found by the expanded run.
+
+These results validate this batch; they do not close the remaining architectural
+work in section 7. Historical green checks on #374 and the initial movement-only
+continuation cover those revisions only.
+
+### Historical #374 validation
+
+The merged plan recorded 227 passing CTest cases in Release and AddressSanitizer,
+including 14 retail-asset scenarios, and targeted static analysis. Those results
+are retained here as history, not as evidence for #384's much larger replacement.
+
+## 7. Work Remaining After This Batch
+
+The new modules are the foundation for the following work; removing the old
+directories alone does not finish these goals.
+
+- **Finish spatial query value APIs.** `traceSurfaces` and `traceGeometry`
+  return typed hits, but `W8OctreeTrace`, line-of-sight and ground-probe callers
+  still use mutable output records and surface-zero sentinel conventions.
+  Convert these end to end to explicit inputs and optional typed results,
+  preserving world/prop filtering and gameplay behavior.
+- **Finish explicit renderer inputs.** The device/pipeline hierarchies and
+  fixed stacks are gone, but renderer matrix-mode/load operations and mutable
+  current draw state remain. Replace the remaining implicit state protocol
+  with explicit per-draw inputs and migrate its callers.
+- **Complete world/session ownership cleanup.** Review the remaining borrowed
+  camera/static-mesh aliases and active-session globals against their actual
+  owners. Move persistent cursor selection/projection state into the owning
+  world or session; retain borrowed views only where their lifetime is clear.
+- **Complete the nullable actor-reference audit.** The direct location-ID
+  lookup review fixed unloaded-actor cases, but metadata `p3D` consumers still
+  need a wider review, including trigger-driven actor reactivation. Exercise
+  meaningful unloaded/retired-actor regressions where the audit finds bugs.
+- **Validate each follow-up in CI.** Keep retail asset/save compatibility,
+  concrete ownership tests, sanitizer runtime scenarios and all required
+  analysis/format checks green. The verified baseline for this batch is recorded
+  in section 6.

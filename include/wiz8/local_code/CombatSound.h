@@ -11,7 +11,7 @@ struct W8CombatCharacterRow;
 struct W8CombatSlot;
 struct W8HandAttack;
 struct W8MonsterAttack;
-class W8Missile;
+class Missile;
 
 /* Play one Data\Sound\Combat\<name>.wav; a variant count above
    one appends a random digit onto the caller's writable name buffer, and the
@@ -29,7 +29,7 @@ void MakePCMeleeHitSound(int iChar, const W8HandAttack* hand_attack, W8CombatSlo
                          int hit_location, int volume);
 /* Play the hit sound for a missile striking the target's armour
    at one location. */
-void MakePCHitSound(W8Missile* missile, W8CombatSlot* target, int hit_location, int volume);
+void MakePCHitSound(Missile* missile, W8CombatSlot* target, int hit_location, int volume);
 /* Melee hit sound for a monster striking the target's armour at
    one location; the selected attack supplies its signed weapon class. */
 void MakeMonsterHitSound(const W8MonsterAttack* attack, W8CombatSlot* target, int hit_location,

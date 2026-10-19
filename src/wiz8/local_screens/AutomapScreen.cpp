@@ -23,8 +23,6 @@
 #include <fmt/format.h>
 #include <glm/geometric.hpp> // NOLINT(misc-include-cleaner)
 
-#include "AnimRep.hpp"
-#include "Item.h"
 #include "compat/native.h"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_double3.hpp"
@@ -34,17 +32,9 @@
 #include "glm/ext/vector_int2.hpp"
 #include "layouts/item_instance.h"
 #include "layouts/main_game_screen.h"
-#include "layouts/world.h"
 #include "local_code/Factions.h"
 #include "mgs_commands.h"
 #include "sight_state.h"
-#include "surrender/srCamera.h"
-#include "surrender/srClipPlane.h"
-#include "surrender/srMeshModel.h"
-#include "surrender/srModelInstance.h"
-#include "surrender/srNode.h"
-#include "surrender/srScene.h"
-#include "surrender/srTexture.h"
 #include "wiz8/asset_paths.h"
 #include "wiz8/canvas/Font.h"
 #include "wiz8/canvas/himage.h"
@@ -55,23 +45,9 @@
 #include "wiz8/cursor.h"
 #include "wiz8/design_rect.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
-#include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/3dapi.h"
-#include "wiz8/engine_code/Environment.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/Levels.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/Quality.h"
-#include "wiz8/engine_code/UpdateMesh.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/octree_spatial.h"
-#include "wiz8/engine_code/stLight.hpp"
-#include "wiz8/engine_code/stMeshModel.h"
-#include "wiz8/engine_code/stModelInstance.h"
-#include "wiz8/engine_code/stScript.h"
-#include "wiz8/engine_code/stTextureFile.h"
+#include "wiz8/entities/monster.h"
+#include "wiz8/entities/script.h"
+#include "wiz8/entities/world_item.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
 #include "wiz8/gameplay_constants.h"
@@ -85,12 +61,30 @@
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
-#include "wiz8/overlay_scenes.h"
 #include "wiz8/packed_bits.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/render/camera.h"
+#include "wiz8/render/clip_plane.h"
+#include "wiz8/render/compositor.h"
+#include "wiz8/render/frame.h"
+#include "wiz8/render/light.h"
+#include "wiz8/render/mesh.h"
+#include "wiz8/render/mesh_instance.h"
+#include "wiz8/render/mesh_updates.h"
+#include "wiz8/render/quality.h"
+#include "wiz8/render/texture.h"
+#include "wiz8/render/world_scene.h"
+#include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/spatial/octree_geometry.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/unicode.h"
+#include "wiz8/world/camera_control.h"
+#include "wiz8/world/camera_pose.h"
+#include "wiz8/world/environment.h"
+#include "wiz8/world/level_session.h"
+#include "wiz8/world/update.h"
+#include "wiz8/world/world.h"
 #include "wiz8/xstatus.h"
 
 /* Lifecycle record 8; the automap screen. Its original screen-class name is
@@ -109,16 +103,16 @@ static std::vector<std::unique_ptr<W8AutomapNote>> g_automap_notes;
 
 /* Packed cell key -> cell number + 1. */
 
-std::unique_ptr<stModelInstance2D> g_automap_party_marker;
-std::unique_ptr<stModelInstance2D> g_automap_friendly_marker;
-std::unique_ptr<stModelInstance2D> g_automap_neutral_marker;
-std::unique_ptr<stModelInstance2D> g_automap_hostile_marker;
-std::unique_ptr<stModelInstance2D> g_automap_text_marker;
+std::unique_ptr<OverlayQuad> g_automap_party_marker;
+std::unique_ptr<OverlayQuad> g_automap_friendly_marker;
+std::unique_ptr<OverlayQuad> g_automap_neutral_marker;
+std::unique_ptr<OverlayQuad> g_automap_hostile_marker;
+std::unique_ptr<OverlayQuad> g_automap_text_marker;
 
 /* Leave releases the pointed-to objects and erases their vector entries. */
-std::vector<std::unique_ptr<stModelInstance2D>> g_automap_markers;
+std::vector<std::unique_ptr<OverlayQuad>> g_automap_markers;
 
-std::vector<std::unique_ptr<srClipPlane>> g_automap_created_layers;
+std::vector<std::unique_ptr<ClipPlane>> g_automap_created_layers;
 std::unique_ptr<AutomapButtons> g_automap_buttons;
 struct W8AutomapState {
     uint64_t blink_time = 0;
@@ -182,12 +176,12 @@ bool g_automap_bounds_dirty = true;
 glm::vec3 g_automap_saved_light_direction{1.0f};
 glm::vec3 g_automap_saved_ambient_light{1.0f};
 bool g_automap_saved_sky;
-W8WorldCameraState g_automap_saved_camera;
+CameraPose g_automap_saved_camera;
 float g_automap_saved_far_clip;
 float g_automap_saved_world_value;
 unsigned char g_automap_saved_render_flags[4];
 int g_automap_saved_texture_policy;
-std::vector<srClipPlane*> g_automap_layers;
+std::vector<ClipPlane*> g_automap_layers;
 glm::vec3 g_automap_bounds_max;
 glm::vec3 g_automap_grid_max;
 glm::vec3 g_automap_grid_min;
@@ -236,9 +230,9 @@ void LightAutomapCell(const glm::vec3* position);
 unsigned int LightPendingAutomapCells(unsigned int max_count);
 int RestoreAutomapRect(DesignRect* rect);
 void SetAutomapLayer(int layer);
-stModelInstance2D* CreateAutomapItemMarker(int item_id);
-stModelInstance2D* CreateAutomapMonsterMarker(int type);
-stModelInstance2D* CreateAutomapTextMarker(void);
+OverlayQuad* CreateAutomapItemMarker(int item_id);
+OverlayQuad* CreateAutomapMonsterMarker(int type);
+OverlayQuad* CreateAutomapTextMarker(void);
 
 static void SetAutomapCursorImage(int tool)
 {
@@ -273,7 +267,7 @@ static int FindAutomapLayerAtHeight(double height)
 {
     int layer;
     for (layer = 0; layer < static_cast<int>(g_automap_layers.size()); ++layer) {
-        if (HasAutomapLayer(layer) && g_automap_layers[layer]->getLocation().y < height) {
+        if (HasAutomapLayer(layer) && g_automap_layers[layer]->transform.getLocation().y < height) {
             break;
         }
     }
@@ -321,11 +315,11 @@ void ResetAutomapView(void)
     } else {
         g_automap_range = 10000.0f;
     }
-    if (GetWorldOctree() == 0) {
+    if (GetWorldSpatialIndex() == 0) {
         g_automap_grid_min = glm::vec3(-250000.0f);
         g_automap_grid_max = glm::vec3(250000.0f);
     } else {
-        const auto bounds = GetWorldOctree()->m_spatial.GetClippedBounds();
+        const auto bounds = GetWorldSpatialIndex()->m_spatial.GetClippedBounds();
         g_automap_grid_min = bounds.minimum;
         g_automap_grid_max = bounds.maximum;
     }
@@ -522,13 +516,13 @@ void AutomapExitButton(void)
 
 bool AutomapScreenEnter(void)
 {
-    stScript script;
-    g_automap_saved_light_direction = g_light_direction;
+    Script script;
+    g_automap_saved_light_direction = EnvironmentLightDirection();
     GetWorldLightValue(GetWorld(), &g_automap_saved_ambient_light);
     g_automap_saved_camera = cameraState(*GetWorld());
     g_automap_saved_far_clip = static_cast<float>(WorldGetFarClip(GetWorld()));
     g_automap_saved_world_value = GetWorld()->render_range;
-    g_automap_saved_sky = g_sky_enabled;
+    g_automap_saved_sky = IsSkyEnabled();
     g_automap_saved_render_flags[0] = GetRenderOptionState(W8_RENDER_OPTION_HIGH_TEXTURE_DETAIL);
     g_automap_saved_render_flags[1] = GetRenderOptionState(W8_RENDER_OPTION_MESH_SKY);
     g_automap_saved_render_flags[2] = g_monster_shadow_updates_enabled;
@@ -544,9 +538,10 @@ bool AutomapScreenEnter(void)
     DisableSky();
     GetWorld()->camera->setClipRange(g_automap_near_clip, 1500000.0);
     WorldSetRenderRange(GetWorld(), 1500000.0f);
-    GetWorld()->camera->setRotation(3.141592653589793 * (1.0f / 180.0f) * 90.0f, 0.0, 0.0);
+    GetWorld()->camera->transform.setRotation(3.141592653589793 * (1.0f / 180.0f) * 90.0f, 0.0,
+                                              0.0);
     int layer_number = 1;
-    GetWorld()->camera->setProjectionType(srCamera::PROJECT_ORTHOGRAPHIC);
+    GetWorld()->camera->setProjectionType(Camera3D::PROJECT_ORTHOGRAPHIC);
     RestoreAutomapCameraPosition();
     UpdateWorldMesh();
     SetWorldMeshVertexLightTable(1);
@@ -565,17 +560,17 @@ bool AutomapScreenEnter(void)
     g_automap_layers.push_back(0);
     std::string layer_name;
     layer_name = fmt::format("LAYER {:d}", layer_number);
-    srClipPlane* layer = FindWorldNode<srClipPlane>(layer_name.c_str());
+    ClipPlane* layer = FindWorldClipPlane(layer_name.c_str());
     while (layer) {
         g_automap_layers.push_back(layer);
         ++layer_number;
         layer_name = fmt::format("LAYER {:d}", layer_number);
-        layer = FindWorldNode<srClipPlane>(layer_name.c_str());
+        layer = FindWorldClipPlane(layer_name.c_str());
     }
     const auto monster_count = CurrentLevelPopulation().monster_roster.live().size();
     for (unsigned int index = 0; index < monster_count; ++index) {
         W8MonsterInfo* monster = GetMonsterListEntry(index);
-        if (monster->p3D) monster->p3D->DetachRepresentation(GetWorld());
+        if (monster->p3D) monster->p3D->visual.DetachRepresentation(GetWorld());
     }
     for (const auto& item : CurrentLevelPopulation().world_items) {
         if (item->p3D) item->p3D->DetachMesh();
@@ -586,7 +581,7 @@ bool AutomapScreenEnter(void)
     SetAutomapToolCursor(W8AutomapTool::Select);
     CreateAutomapMarkerSprites();
     CreateAutomapButtons();
-    g_automap_party_marker->setParent(0, 1);
+    g_automap_party_marker->detach();
     g_automap_surface_mode = RendererBufferIsLockable();
     if (g_automap_surface_mode) {
         g_world_render_enabled = 0;
@@ -630,26 +625,24 @@ bool AutomapScreenEnter(void)
                     excluded_textures.push_back(text);
                 } else {
                     float height = static_cast<float>(atof(text.c_str() + 6));
-                    srClipPlane* clip =
-                        g_automap_created_layers.emplace_back(std::make_unique<srClipPlane>())
-                            .get();
+                    ClipPlane* clip =
+                        g_automap_created_layers.emplace_back(std::make_unique<ClipPlane>()).get();
                     layer_name = fmt::format("LAYER {:d}", layer_number);
                     clip->setName(layer_name.c_str());
                     glm::vec4 plane;
                     plane = glm::vec4(0.0f, 1.0f, 0.0f, 0.0f);
                     clip->setClipPlane(plane);
                     glm::dvec3 position(0.0, static_cast<double>(height * 500.0f), 0.0);
-                    clip->setLocation(position);
-                    clip->setFlag(static_cast<srNode::e_flag>(2));
-                    clip->setClipType(srClipPlane::CLIP_POSITIONAL_0);
-                    clip->setFlag(static_cast<srNode::e_flag>(0));
+                    clip->transform.setLocation(position);
+                    clip->setClipType(ClipPlane::CLIP_POSITIONAL_0);
+                    clip->visible = false;
                     g_automap_layers.push_back(clip);
                     ++layer_number;
                 }
             }
-            for (unsigned int mesh = 0; mesh < GetWorld()->octree->m_meshCount; ++mesh) {
-                for (stMeshModel* model : stMeshModel::Meshes(
-                         static_cast<stMeshModel*>(GetWorld()->psrMeshes[mesh]->getModel()))) {
+            for (unsigned int mesh = 0; mesh < GetWorld()->compiledIndex()->m_meshCount; ++mesh) {
+                for (Mesh* model :
+                     meshParts(static_cast<Mesh*>(GetWorld()->psrMeshes[mesh]->getModel()))) {
                     model->ApplyAutomapPolygonFilter(excluded_textures);
                 }
             }
@@ -700,7 +693,7 @@ void AutomapScreenFrame(void)
                         SetAutomapToolCursor(g_automap_tool);
                     }
                     SDL_Point point;
-                    SGPMouseGetPos(&point);
+                    point = CursorPosition();
                     UpdateUiPointer(point.x, point.y);
                     return IsMouseButtonEvent(input) ? InputRoute::Pass : InputRoute::Handled;
                 }
@@ -714,7 +707,7 @@ void AutomapScreenFrame(void)
                         if (GetCursorPositionInViewport(&point)) {
                             int layer = g_automap_layer + 1;
                             if (HasAutomapLayer(layer)) {
-                                g_automap_layers[layer]->getLocationY();
+                                g_automap_layers[layer]->transform.getLocationY();
                             }
                             const auto location = AutomapWorldPosition(point);
                             g_automap_editing_note =
@@ -754,13 +747,13 @@ void AutomapScreenFrame(void)
                             g_automap_zoom_mode != AutomapZoomMode::ZoomOutOnly) {
                             DisableCursorScene();
                             glm::dvec3 scale(0.44f, 0.44f, 0.44f);
-                            g_automap_party_marker->setScale(scale);
+                            g_automap_party_marker->scale = {scale.x, scale.z};
                             return InputRoute::Handled;
                         }
                     }
                     float factor = (1.0f / (g_automap_zoom * 0.00004f)) * 0.44f;
                     glm::dvec3 scale(factor, factor, factor);
-                    g_automap_party_marker->setScale(scale);
+                    g_automap_party_marker->scale = {scale.x, scale.z};
                     EnableCursorScene();
                 }
                 return InputRoute::Handled;
@@ -796,7 +789,7 @@ void RestoreAutomapWorldSettings(void)
 {
     SetWorldEnvironmentColour(g_automap_saved_ambient_light);
     SetLightDirection(&g_automap_saved_light_direction);
-    RestoreWorldCameraState(0, &g_automap_saved_camera);
+    RestoreWorldCameraState(&g_automap_saved_camera);
     WorldSetFarClip(GetWorld(), g_automap_saved_far_clip);
     WorldSetRenderRange(GetWorld(), g_automap_saved_world_value);
     if (g_automap_saved_sky) EnableSky();
@@ -804,7 +797,7 @@ void RestoreAutomapWorldSettings(void)
     SetRenderOption(W8_RENDER_OPTION_MESH_SKY, g_automap_saved_render_flags[1]);
     g_monster_shadow_updates_enabled = g_automap_saved_render_flags[2];
     g_world_render_enabled = g_automap_saved_render_flags[3];
-    GetWorld()->camera->setRotation(0.0, 0.0, 0.0);
+    GetWorld()->camera->transform.setRotation(0.0, 0.0, 0.0);
     GetWorld()->camera->flags &= ~1ul;
     SetWorldMeshVertexLightTable(0);
     g_light_update_flags |= 1u;
@@ -822,13 +815,12 @@ bool AutomapScreenLeave(int)
     SetMouseMoveEventsEnabled(0);
     g_automap_surface.reset();
     ClearAutomapMarkers();
-    g_automap_party_marker->setParent(0, 1);
+    g_automap_party_marker->detach();
     g_automap_buttons.reset();
     UpdateHeldItemCursor();
     EnableCursorScene();
-    for (unsigned int mesh = 0; mesh < GetWorld()->octree->m_meshCount; ++mesh) {
-        for (stMeshModel* model : stMeshModel::Meshes(
-                 static_cast<stMeshModel*>(GetWorld()->psrMeshes[mesh]->getModel()))) {
+    for (unsigned int mesh = 0; mesh < GetWorld()->compiledIndex()->m_meshCount; ++mesh) {
+        for (Mesh* model : meshParts(static_cast<Mesh*>(GetWorld()->psrMeshes[mesh]->getModel()))) {
             model->ClearAutomapPolygonFilter();
         }
     }
@@ -879,12 +871,12 @@ void SetAutomapCameraPoint(glm::vec3* position)
     clamped.z = clamped.z < g_automap_bounds_max.z
                     ? (position->z < g_automap_bounds_min.z ? g_automap_bounds_min.z : position->z)
                     : g_automap_bounds_max.z;
-    GetWorld()->camera->setLocation(glm::dvec3(clamped.x, clamped.y, clamped.z));
+    GetWorld()->camera->transform.setLocation(glm::dvec3(clamped.x, clamped.y, clamped.z));
     g_automap_position = clamped;
     SetAutomapLayer(g_automap_layer);
     g_automap_redraw = true;
     g_automap_overlay_redraw = true;
-    if (GetWorld()->octree != 0) {
+    if (GetWorld()->compiledIndex() != 0) {
         RefreshWorldView();
     }
 }
@@ -896,8 +888,8 @@ void SetAutomapLayer(int layer)
     if (!HasAutomapLayer(layer)) {
         g_automap_near_clip = 1.0f;
     } else {
-        float height =
-            g_automap_position.y - static_cast<float>(g_automap_layers[layer]->getLocation().y);
+        float height = g_automap_position.y -
+                       static_cast<float>(g_automap_layers[layer]->transform.getLocation().y);
         if (height < 1.0f) {
             g_automap_near_clip = 1.0f;
         } else {
@@ -943,11 +935,11 @@ unsigned char ZoomAutomapIn(const glm::vec2* point)
     glm::vec3 to(location.x, g_automap_grid_min.y, location.y);
 
     float ground;
-    if (GetWorldGameData()->octree->TraceLineOfSight(&from, &to, true, -3, -3, true, 0) == 0) {
+    if (GetWorldCollision()->TraceLineOfSight(&from, &to, true, -3, -3, true, 0) == 0) {
         ground = g_automap_grid_min.y;
         if (!g_automap_layers.empty() && 1 < static_cast<int>(g_automap_layers.size()) &&
             g_automap_layers[1] != 0) {
-            ground = static_cast<float>(g_automap_layers[1]->getLocationY());
+            ground = static_cast<float>(g_automap_layers[1]->transform.getLocationY());
         }
     } else {
         ground = to.y;
@@ -974,19 +966,18 @@ unsigned char ZoomAutomapIn(const glm::vec2* point)
    every visited cell. */
 void ResetAutomapLighting(void)
 {
-    if (GetWorld()->octree != 0) {
-        for (unsigned int mesh = 0; mesh < GetWorld()->octree->m_meshCount; ++mesh) {
-            srModelInstance* instance = GetWorld()->psrMeshes[mesh];
+    if (GetWorld()->compiledIndex() != 0) {
+        for (unsigned int mesh = 0; mesh < GetWorld()->compiledIndex()->m_meshCount; ++mesh) {
+            MeshInstance* instance = GetWorld()->psrMeshes[mesh];
             if (instance != 0) {
-                for (stMeshModel* model :
-                     stMeshModel::Meshes(static_cast<stMeshModel*>(instance->getModel()))) {
+                for (Mesh* model : meshParts(static_cast<Mesh*>(instance->getModel()))) {
                     model->ClearVertexLights();
                 }
             }
         }
     } else {
-        for (stMeshModel* model : stMeshModel::Meshes(
-                 static_cast<stMeshModel*>(GetWorld()->update_mesh_source->getModel()))) {
+        for (Mesh* model :
+             meshParts(static_cast<Mesh*>(GetWorld()->update_mesh_source->getModel()))) {
             model->ClearVertexLights();
         }
     }
@@ -1049,9 +1040,9 @@ void RefreshDirtyAutomap(void)
    cells for the node builder and grow the box to cover each visited cell. */
 void UpdateAutomapBounds(void)
 {
-    std::vector<stModelInstance*> models;
+    std::vector<MeshInstance*> models;
     PartyHasCondition(0x40);
-    if (GetWorld()->octree != 0) {
+    if (GetWorld()->compiledIndex() != 0) {
         if (g_automap_bounds_dirty) {
             ResetAutomapLighting();
             g_automap_bounds_dirty = false;
@@ -1106,12 +1097,11 @@ void UpdateAutomapBounds(void)
 void LightAutomapCell(const glm::vec3* position)
 {
     const auto center = (*position);
-    const auto instances = GetWorld()->octree->modelsNearPoint(center, g_automap_range, 0, false);
+    const auto instances = GetWorld()->compiledIndex()->modelsNearPoint(center, g_automap_range);
     for (auto* instance : instances) {
         if (!instance) continue;
-        auto world = instance->getWorldSpaceMatrix<glm::mat4>();
-        for (auto* mesh = static_cast<stMeshModel*>(instance->getModel()); mesh;
-             mesh = mesh->Next())
+        auto world = instance->transform.matrix<glm::mat4>();
+        for (auto* mesh : meshParts(static_cast<Mesh*>(instance->getModel())))
             mesh->RevealVerticesNear(center, g_automap_range, world);
     }
 }
@@ -1127,7 +1117,7 @@ void RenderAutomapFrame(void)
             if (g_automap_overlay_redraw) {
                 SetResidentTexturePolicy(3);
                 float half = g_automap_zoom * 0.5f;
-                srCamera::Rect view;
+                Camera3D::Rect view;
                 view.left = static_cast<double>(-half);
                 view.bottom = static_cast<double>(-half);
                 view.right = static_cast<double>(half);
@@ -1189,9 +1179,9 @@ unsigned char ShowAutomapNoteTooltip(W8AutomapNote* note)
     if (!HasAutomapLayer(layer)) {
         floor_y = g_automap_grid_min.y;
     } else if (layer < static_cast<int>(g_automap_layers.size())) {
-        floor_y = static_cast<float>(g_automap_layers[layer]->getLocationY());
+        floor_y = static_cast<float>(g_automap_layers[layer]->transform.getLocationY());
     } else {
-        floor_y = static_cast<float>(g_automap_layers.front()->getLocationY());
+        floor_y = static_cast<float>(g_automap_layers.front()->transform.getLocationY());
     }
     int index = FindAutomapLayerAtHeight(floor_y);
     if (index - 1 == g_automap_layer) {
@@ -1204,13 +1194,12 @@ unsigned char ShowAutomapNoteTooltip(W8AutomapNote* note)
                 static_cast<int>((1.0f - (note->position.y - bottom) / g_automap_zoom) * -435.0f);
             int marker_width;
             if (note == g_automap_editing_note) {
-                marker_width = static_cast<int>(g_automap_text_marker->GetScaledWidth() * 0.22);
+                marker_width = static_cast<int>(g_automap_text_marker->scaledSize().x * 0.22);
             } else {
                 marker_width = static_cast<int>(
                     (1.0f / (g_automap_zoom * 0.00004f)) * 0.44f *
-                    static_cast<double>(g_automap_text_marker->GetScaledWidth()) * 0.5f);
+                    static_cast<double>(g_automap_text_marker->scaledSize().x) * 0.5f);
             }
-            g_automap_text_marker->GetScaledHeight();
             DesignRect rect;
             rect.top = (0x20 - screen_y) - ((unsigned)g_wiz_text_font_secondary.height() >> 1);
             rect.left = marker_width / 2 + (0xe - screen_x);
@@ -1315,7 +1304,7 @@ W8SavedAutomapNotes ReadAutomapNotes(W8Chunk& file, std::size_t cells)
     return result;
 }
 
-void ApplyAutomapNotes(W8World& world, W8SavedAutomapNotes records)
+void ApplyAutomapNotes(World& world, W8SavedAutomapNotes records)
 {
     ClearAutomapNotes();
     g_automap_redraw = true;
@@ -1341,7 +1330,7 @@ unsigned char GetAutomapPositionUnderCursor(glm::vec3* position)
         int layer = g_automap_layer + 1;
         float height;
         if (HasAutomapLayer(layer)) {
-            height = static_cast<float>(g_automap_layers[layer]->getLocationY());
+            height = static_cast<float>(g_automap_layers[layer]->transform.getLocationY());
         } else {
             height = g_automap_grid_min.y;
         }
@@ -1363,7 +1352,7 @@ W8AutomapNote* FindAutomapNoteUnderCursor(void)
     if (g_automap_page != 2 && GetCursorPositionInViewport(&point) != 0) {
         int layer = g_automap_layer + 1;
         if (HasAutomapLayer(layer)) {
-            g_automap_layers[layer]->getLocationY();
+            g_automap_layers[layer]->transform.getLocationY();
         }
         const auto location = AutomapWorldPosition(point);
         for (const auto& automap_note : g_automap_notes) {
@@ -1382,29 +1371,28 @@ W8AutomapNote* FindAutomapNoteUnderCursor(void)
 }
 
 /* Descriptive name for the common marker-texture loading operation. */
-static std::shared_ptr<stTextureFile> LoadAutomapMarkerTexture(const char* path)
+static std::shared_ptr<Texture> LoadAutomapMarkerTexture(const char* path)
 {
-    auto texture = std::make_shared<stTextureFile>(wiz8::asset_path(path), false);
+    auto texture = std::make_shared<Texture>(wiz8::asset_path(path), false);
 
-    texture->setMipmap(srTexture::MIPMAP_NONE);
-    texture->setMagFilter(srTexture::FILTER_BEST);
-    texture->setMinFilter(srTexture::FILTER_BEST);
+    texture->setMipmap(Texture::MIPMAP_NONE);
+    texture->setMagFilter(Texture::FILTER_BEST);
+    texture->setMinFilter(Texture::FILTER_BEST);
     texture->loadSurface();
     return texture;
 }
 
-static std::unique_ptr<stModelInstance2D> CreateAutomapMarkerSprite(const char* path)
+static std::unique_ptr<OverlayQuad> CreateAutomapMarkerSprite(const char* path)
 {
-    std::shared_ptr<stTextureFile> texture = LoadAutomapMarkerTexture(path);
+    std::shared_ptr<Texture> texture = LoadAutomapMarkerTexture(path);
     SDL_Surface* surface = texture->getSurface();
     if (!surface) {
         return {};
     }
-    auto marker = std::unique_ptr<stModelInstance2D>(CreateSpriteFromTexture(
+    auto marker = std::unique_ptr<OverlayQuad>(makeOverlayFromTexture(
         texture, surface->w * g_viewport_x_scale, surface->h * g_viewport_y_scale, true, false));
     if (!marker) return {};
-    marker->setParent(nullptr, 0);
-    static_cast<srMeshModel*>(marker->getModel())->enable(srMeshModel::CONTROL_SORTED_RENDERING);
+    marker->detach();
     return marker;
 }
 
@@ -1413,24 +1401,22 @@ static std::unique_ptr<stModelInstance2D> CreateAutomapMarkerSprite(const char* 
 void CreateAutomapMarkerSprites(void)
 {
     if (g_automap_party_marker == 0) {
-        std::shared_ptr<stTextureFile> texture =
+        std::shared_ptr<Texture> texture =
             LoadAutomapMarkerTexture("Data\\Automap\\map_partymarker_a.tga");
         SDL_Surface* surface = texture->getSurface();
         if (surface != 0) {
-            g_automap_party_marker.reset(
-                CreateSpriteFromTexture(texture, surface->w * g_viewport_x_scale,
-                                        surface->h * g_viewport_x_scale, true, true));
-            g_automap_party_marker->setParent(nullptr, 0);
-            g_automap_party_marker->setParent(g_overlay_scenes.square.get(), 1);
-            static_cast<srMeshModel*>(g_automap_party_marker->getModel())
-                ->enable(srMeshModel::CONTROL_SORTED_RENDERING);
-            g_automap_party_marker->SetGlowEnabled(true);
+            g_automap_party_marker =
+                makeOverlayFromTexture(texture, surface->w * g_viewport_x_scale,
+                                       surface->h * g_viewport_x_scale, true, true);
+            g_automap_party_marker->detach();
+            g_compositor.attach(*g_automap_party_marker, OverlayLayer::SquareAspect);
+            g_automap_party_marker->glow_enabled = true;
             glm::vec4 first;
             glm::vec4 second;
             first = glm::vec4(0.0f, 0.25f, 0.0f, 1.0f);
             second = glm::vec4(0.0f, 0.75f, 0.0f, 1.0f);
-            g_automap_party_marker->SetGlowColors(first, second);
-            g_automap_party_marker->render_state.render_depth = 2000;
+            g_automap_party_marker->glow_colors = {first, second};
+            g_automap_party_marker->glow_period = 2000;
         }
     }
     if (g_automap_friendly_marker == 0) {
@@ -1461,34 +1447,33 @@ void RenderAutomapMarkers(void)
     float top = g_automap_position.z - g_automap_zoom * 0.5f;
     if (point.x < left || left + g_automap_zoom < point.x || point.z < top ||
         top + g_automap_zoom < point.z) {
-        g_automap_party_marker->setFlag(srNode::FLAG_DISABLE);
+        g_automap_party_marker->visible = false;
     } else {
         int x = 0xc - static_cast<int>((point.x - left) / g_automap_zoom * -455.0f);
         int y = 0x20 - static_cast<int>((1.0f - (point.z - top) / g_automap_zoom) * -435.0f);
         float factor = (1.0f / (g_automap_zoom * 0.00004f)) * 0.44f;
         glm::dvec3 scale(factor, factor, factor);
-        g_automap_party_marker->setScale(scale);
-        if (g_automap_party_marker->GetScaledHeight() < 1) {
-            g_automap_party_marker->setScale(glm::dvec3(1.0, 1.0, 1.0));
-            factor = 1.0f / g_automap_party_marker->GetScaledHeight();
+        g_automap_party_marker->scale = {scale.x, scale.z};
+        if (g_automap_party_marker->scaledSize().y < 1) {
+            g_automap_party_marker->scale = {1.0, 1.0};
+            factor = 1.0f / g_automap_party_marker->scaledSize().y;
             scale = glm::dvec3(factor);
-            g_automap_party_marker->setScale(scale);
+            g_automap_party_marker->scale = {scale.x, scale.z};
         }
-        unsigned short width = g_automap_party_marker->GetScaledWidth();
-        unsigned short height = g_automap_party_marker->GetScaledHeight();
-        PositionToolTipNode(g_automap_party_marker.get(), x - (width >> 1), y - (height >> 1),
-                            false);
-        g_automap_party_marker->setRotation(0.0, 0.0, -static_cast<double>(GetCameraYawRadians()));
-        g_automap_party_marker->clearFlag(srNode::FLAG_DISABLE);
-        g_automap_party_marker->setParent(0, 1);
-        g_automap_party_marker->setParent(g_overlay_scenes.square.get(), 1);
+        unsigned short width = g_automap_party_marker->scaledSize().x;
+        unsigned short height = g_automap_party_marker->scaledSize().y;
+        positionOverlay(g_automap_party_marker.get(), x - (width >> 1), y - (height >> 1), false);
+        g_automap_party_marker->rotation = GetCameraYawRadians();
+        g_automap_party_marker->visible = true;
+        g_automap_party_marker->detach();
+        g_compositor.attach(*g_automap_party_marker, OverlayLayer::SquareAspect);
     }
     const auto count = CurrentLevelPopulation().monster_roster.live().size();
     for (unsigned int index = 0; index < count; ++index) {
         W8MonsterInfo* info = GetMonsterListEntry(index);
-        W8Monster* monster = info->p3D;
+        Monster* monster = info->p3D;
         glm::vec3 location;
-        location = monster->GetLocation();
+        location = monster->visual.GetLocation();
         FindAutomapLayerAtHeight(location.y);
         if (g_automap_show_all_monsters || detect_all ||
             (!monster->disabled && info->party_threat.sight_state == W8_SIGHT_SEEN)) {
@@ -1500,7 +1485,7 @@ void RenderAutomapMarkers(void)
             }
             int x = 0xc - static_cast<int>((location.x - left) / g_automap_zoom * -455.0f);
             int y = 0x20 - static_cast<int>((1.0f - (location.z - top) / g_automap_zoom) * -435.0f);
-            stModelInstance2D* marker;
+            OverlayQuad* marker;
             switch (info->ubDisposition) {
             case W8_DISPOSITION_NEUTRAL:
                 marker = CreateAutomapMonsterMarker(1);
@@ -1514,12 +1499,12 @@ void RenderAutomapMarkers(void)
             default:
                 continue;
             }
-            unsigned short width = marker->GetScaledWidth();
+            unsigned short width = marker->scaledSize().x;
             x -= width >> 1;
-            unsigned short height = marker->GetScaledHeight();
+            unsigned short height = marker->scaledSize().y;
             y -= height >> 1;
-            marker->setParent(g_overlay_scenes.fullscreen.get(), 1);
-            Position2DNodeUnsnapped(marker, x, y);
+            g_compositor.attach(*marker, OverlayLayer::Fullscreen);
+            positionOverlay(marker, x, y, false);
         }
     }
     for (const auto& world_item : CurrentLevelPopulation().world_items) {
@@ -1542,12 +1527,12 @@ void RenderAutomapMarkers(void)
             }
             int x = 0xc - static_cast<int>((location.x - left) / g_automap_zoom * -455.0f);
             int y = 0x20 - static_cast<int>((1.0f - (location.z - top) / g_automap_zoom) * -435.0f);
-            stModelInstance2D* marker = CreateAutomapItemMarker(world_item->item.iItemNo);
+            OverlayQuad* marker = CreateAutomapItemMarker(world_item->item.iItemNo);
             if (marker != 0) {
-                unsigned short width = marker->GetScaledWidth();
-                unsigned short height = marker->GetScaledHeight();
-                PositionToolTipNode(marker, x - (width >> 1), y - (height >> 1), false);
-                marker->setParent(g_overlay_scenes.fullscreen.get(), 1);
+                unsigned short width = marker->scaledSize().x;
+                unsigned short height = marker->scaledSize().y;
+                positionOverlay(marker, x - (width >> 1), y - (height >> 1), false);
+                g_compositor.attach(*marker, OverlayLayer::Fullscreen);
             }
         }
     }
@@ -1561,7 +1546,7 @@ void RenderAutomapMarkers(void)
             W8AutomapNote* note = g_automap_notes[index].get();
             int layer = note->layer + 1;
             if (HasAutomapLayer(layer)) {
-                g_automap_layers[layer]->getLocationY();
+                g_automap_layers[layer]->transform.getLocationY();
             }
             left = g_automap_position.x - g_automap_zoom * 0.5f;
             top = g_automap_position.z - g_automap_zoom * 0.5f;
@@ -1572,26 +1557,26 @@ void RenderAutomapMarkers(void)
             int x = 0xc - static_cast<int>((note->position.x - left) / g_automap_zoom * -455.0f);
             int y = 0x20 -
                     static_cast<int>((1.0f - (note->position.y - top) / g_automap_zoom) * -435.0f);
-            stModelInstance2D* marker = CreateAutomapTextMarker();
-            if (note == g_automap_editing_note) marker->setScale(glm::dvec3(0.22f, 0.22f, 0.22f));
+            OverlayQuad* marker = CreateAutomapTextMarker();
+            if (note == g_automap_editing_note) marker->scale = {0.22f, 0.22f};
             if (marker != 0) {
-                unsigned short width = marker->GetScaledWidth();
+                unsigned short width = marker->scaledSize().x;
                 x -= width >> 1;
-                unsigned short height = marker->GetScaledHeight();
+                unsigned short height = marker->scaledSize().y;
                 y -= height >> 1;
-                Position2DNodeUnsnapped(marker, x, y);
-                marker->setParent(g_overlay_scenes.fullscreen.get(), 1);
+                positionOverlay(marker, x, y, false);
+                g_compositor.attach(*marker, OverlayLayer::Fullscreen);
                 if (note->layer == g_automap_layer && !note->text.empty() &&
                     (g_automap_page == 0 || note == g_automap_hovered_note ||
                      note == g_automap_editing_note)) {
-                    height = marker->GetScaledHeight();
+                    height = marker->scaledSize().y;
                     y += (height >> 1) - ((font_height & 0xffff) >> 1);
-                    width = marker->GetScaledWidth();
+                    width = marker->scaledSize().x;
                     x += width + 2;
                     DrawTextAndInvalidate(GetFrameBufferSurface(), g_wiz_text_font_secondary,
                                           {x, y}, note->text);
                     if (note == g_automap_editing_note) {
-                        marker->setScale(glm::dvec3(0.22f, 0.22f, 0.22f));
+                        marker->scale = {0.22f, 0.22f};
                         int color = Get16BPPColor(SDL_Color{239, 155, 86, SDL_ALPHA_OPAQUE});
                         int length = g_wiz_text_font_secondary.textWidth(note->text);
                         const SDL_Rect top_edge{x - 1, y, length + 4, 1};
@@ -1611,18 +1596,18 @@ void RenderAutomapMarkers(void)
     }
 }
 
-static void ScaleAutomapMarker(stModelInstance2D* marker, float factor)
+static void ScaleAutomapMarker(OverlayQuad* marker, float factor)
 {
-    if (marker->GetScaledHeight() * factor < 1.0f) {
-        marker->setScale(glm::dvec3(1.0, 1.0, 1.0));
-        factor = 1.0f / marker->GetScaledHeight();
+    if (marker->scaledSize().y * factor < 1.0f) {
+        marker->scale = {1.0, 1.0};
+        factor = 1.0f / marker->scaledSize().y;
     }
-    marker->setScale(glm::dvec3(factor, factor, factor));
+    marker->scale = {factor, factor};
 }
 
 /* Create a scaled automap blip for a world item by blitting its inventory icon
    into a scratch surface and wrapping it in a 2D brush. */
-stModelInstance2D* CreateAutomapItemMarker(int item_id)
+OverlayQuad* CreateAutomapItemMarker(int item_id)
 {
     const auto sprites = ItemSprites(item_id);
     const SpriteSheet& video_object = *sprites;
@@ -1639,34 +1624,32 @@ stModelInstance2D* CreateAutomapItemMarker(int item_id)
     float factor = (1.0f / (g_automap_zoom * 0.00004f)) * 0.44f;
     const auto width = surface->w * g_viewport_x_scale;
     const auto height = surface->h * g_viewport_y_scale;
-    auto* parent = g_overlay_scenes.fullscreen.get();
-    auto* node = MakePolygonBrush(parent, surface, width, height, 0.0f, 0.0f, 1.0f, 1.0f, 1);
-    auto owned = std::unique_ptr<stModelInstance2D>(static_cast<stModelInstance2D*>(node));
+    auto owned =
+        makeOverlayFromTexture(std::make_shared<Texture>(surface), width, height, true, false);
     auto* marker = owned.get();
     if (marker == 0) {
         return 0;
     }
-    marker->setParent(nullptr, 0);
-    static_cast<srMeshModel*>(marker->getModel())->enable(srMeshModel::CONTROL_SORTED_RENDERING);
+    marker->detach();
     g_automap_markers.push_back(std::move(owned));
-    marker->SetGlowEnabled(true);
+    marker->glow_enabled = true;
     glm::vec4 first;
     glm::vec4 second;
     second = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
     first = glm::vec4(0.0f, 0.0f, 0.25f, 1.0f);
-    marker->SetGlowColors(first, second);
-    marker->setRenderDepth(2000);
+    marker->glow_colors = {first, second};
+    marker->glow_period = 2000;
     ScaleAutomapMarker(marker, factor);
     return marker;
 }
 
 /* Clone the friendly, neutral or hostile blip sprite for one monster entry and
    register the clone for release after the pass. */
-stModelInstance2D* CreateAutomapMonsterMarker(int type)
+OverlayQuad* CreateAutomapMonsterMarker(int type)
 {
-    auto owned = std::make_unique<stModelInstance2D>(nullptr);
+    auto owned = std::make_unique<OverlayQuad>();
     auto* marker = owned.get();
-    marker->setParent(nullptr, 0);
+    marker->detach();
     switch (type) {
     case 0: {
         glm::vec4 first;
@@ -1674,7 +1657,7 @@ stModelInstance2D* CreateAutomapMonsterMarker(int type)
         *marker = *g_automap_friendly_marker;
         second = glm::vec4(0.0f, 0.5f, 0.0f, 1.0f);
         first = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
-        marker->SetGlowColors(first, second);
+        marker->glow_colors = {first, second};
         break;
     }
     case 1: {
@@ -1683,7 +1666,7 @@ stModelInstance2D* CreateAutomapMonsterMarker(int type)
         *marker = *g_automap_neutral_marker;
         second = glm::vec4(0.25f, 0.25f, 0.0f, 1.0f);
         first = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
-        marker->SetGlowColors(first, second);
+        marker->glow_colors = {first, second};
         break;
     }
     case 2: {
@@ -1692,13 +1675,13 @@ stModelInstance2D* CreateAutomapMonsterMarker(int type)
         *marker = *g_automap_hostile_marker;
         second = glm::vec4(0.5f, 0.0f, 0.0f, 1.0f);
         first = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
-        marker->SetGlowColors(first, second);
+        marker->glow_colors = {first, second};
         break;
     }
     }
     g_automap_markers.push_back(std::move(owned));
-    marker->SetGlowEnabled(true);
-    marker->setRenderDepth(2000);
+    marker->glow_enabled = true;
+    marker->glow_period = 2000;
     /* Retail scales by 0.85 as a step of its own; written as one product, VC6
        folds 0.44 * 0.85 into a single constant. */
     float factor = (1.0f / (g_automap_zoom * 0.00004f)) * 0.44f;
@@ -1709,22 +1692,22 @@ stModelInstance2D* CreateAutomapMonsterMarker(int type)
 
 /* Clone the text blip sprite and register the clone for release after the
    pass. */
-stModelInstance2D* CreateAutomapTextMarker(void)
+OverlayQuad* CreateAutomapTextMarker(void)
 {
-    auto owned = std::make_unique<stModelInstance2D>(nullptr);
+    auto owned = std::make_unique<OverlayQuad>();
     auto* marker = owned.get();
     *marker = *g_automap_text_marker;
-    marker->setParent(nullptr, 0);
+    marker->detach();
     g_automap_markers.push_back(std::move(owned));
     float factor = (1.0f / (g_automap_zoom * 0.00004f)) * 0.44f * 0.5f;
     ScaleAutomapMarker(marker, factor);
-    marker->SetGlowEnabled(true);
+    marker->glow_enabled = true;
     glm::vec4 first;
     glm::vec4 second;
     second = glm::vec4(1.0f, 0.4f, 0.0f, 1.0f);
     first = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
-    marker->SetGlowColors(first, second);
-    marker->setRenderDepth(2000);
+    marker->glow_colors = {first, second};
+    marker->glow_period = 2000;
     return marker;
 }
 /* While a note is being edited, forward key events into its text buffer and
@@ -1738,7 +1721,7 @@ unsigned char HandleAutomapNoteInput(const InputEvent* input)
             if (GetCursorPositionInViewport(&point) != 0) {
                 int layer = g_automap_layer + 1;
                 if (HasAutomapLayer(layer)) {
-                    g_automap_layers[layer]->getLocationY();
+                    g_automap_layers[layer]->transform.getLocationY();
                 }
                 g_automap_editing_note->position = AutomapWorldPosition(point);
                 g_automap_redraw = true;

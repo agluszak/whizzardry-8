@@ -19,12 +19,12 @@
 #include "wiz8/canvas/himage.h"
 #include "wiz8/canvas/image.h"
 #include "wiz8/cursor.h"
-#include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/render/frame.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/unicode.h"
 

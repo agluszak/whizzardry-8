@@ -5,6 +5,7 @@
 
 #include "wiz8/chunk.h"
 #include "wiz8/compat/native.h"
+#include "wiz8/layouts/game_status.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
 
 std::uint32_t GameClockTicks()
@@ -174,4 +175,21 @@ float W8GameTimer::GetElapsedSeconds()
     return (static_cast<unsigned int>(sample - m_start) /
             static_cast<float>(static_cast<unsigned int>(m_end - m_start))) *
            m_duration_seconds;
+}
+
+int W8GameTimer::ReadClock() const
+{
+    switch (m_clock_mode) {
+    case W8_TIMER_CLOCK_GAME:
+        return (g_status.game_time_days * 86400000 + g_status.game_time_ms) * 10;
+    default:
+        break;
+    }
+    if (!m_flags.raw_time) {
+        if (g_shared_timer_paused) {
+            return g_shared_timer_pause_time;
+        }
+        return GameClockTicks() - g_shared_timer_pause_base;
+    }
+    return GameClockTicks();
 }

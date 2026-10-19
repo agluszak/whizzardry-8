@@ -7,9 +7,9 @@
 #include "wiz8/canvas/Font.h"
 #include "wiz8/canvas/himage.h"
 #include "wiz8/catalog_artwork.h"
-#include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
 #include "wiz8/local_screens/PleaseWaitScreen.h"
+#include "wiz8/render/frame.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
 

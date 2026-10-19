@@ -6,7 +6,7 @@ struct W8Chunk;
 #include "glm/ext/vector_float3.hpp"
 
 struct W8AutomapCells;
-struct W8World;
+struct World;
 
 enum class W8AutomapTool : unsigned char { Select = 0, AddNote = 2, EraseNote = 3 };
 
@@ -58,7 +58,7 @@ struct W8SavedAutomapNotes {
     std::vector<std::unique_ptr<W8AutomapNote>> notes;
 };
 W8SavedAutomapNotes ReadAutomapNotes(W8Chunk& file, std::size_t cells);
-void ApplyAutomapNotes(W8World& world, W8SavedAutomapNotes notes);
+void ApplyAutomapNotes(World& world, W8SavedAutomapNotes notes);
 unsigned char GetAutomapPositionUnderCursor(glm::vec3* position);
 void SetAutomapToolCursor(W8AutomapTool tool);
 W8AutomapNote* FindAutomapNoteUnderCursor(void);

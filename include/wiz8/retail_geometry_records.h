@@ -11,7 +11,7 @@
 #include "wiz8/retail_geometry_types.h"
 #include "wiz8/retail_text_records.h"
 
-struct W8EnvironRecord;
+struct LevelEnvironment;
 struct W8OctRegionVolume;
 
 namespace wiz8::retail {
@@ -85,7 +85,9 @@ template<> struct Record<W8GDSurface> {
         value(&runtime.plane.normal.z, field(offsetof(Disk, plane) + 8, 4));
         value(&runtime.plane.w, field(offsetof(Disk, plane) + 12, 4));
         value(&runtime.distance, field(offsetof(Disk, distance), sizeof(Disk::distance)));
-        pointer_slot(runtime.hit_plane, field(offsetof(Disk, hit_plane), sizeof(Disk::hit_plane)));
+        // Runtime contact planes are per movement step; disk pointer slots are discarded.
+        std::uint32_t unused_contact = 0;
+        value(&unused_contact, field(offsetof(Disk, hit_plane), sizeof(Disk::hit_plane)));
         value(&runtime.footstep_surface,
               field(offsetof(Disk, footstep_surface), sizeof(Disk::footstep_surface)));
         value(&runtime.footstep_material,
@@ -98,7 +100,7 @@ template<> struct Record<W8GDSurface> {
     }
 };
 
-template<> struct Record<W8EnvironRecord> {
+template<> struct Record<LevelEnvironment> {
     using Disk = Environ;
     template<class Runtime, class Bytes, class Value, class Text>
     static void fields(Runtime& runtime, Bytes bytes, Value value, Text)

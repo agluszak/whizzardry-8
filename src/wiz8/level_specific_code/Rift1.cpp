@@ -3,14 +3,14 @@
 #include <string>
 
 #include "glm/ext/vector_float3.hpp"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/World.h"
+#include "wiz8/entities/monster.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/world/world.h"
 
 /* Level Specific Code\Rift1.cpp (level 0x15).
 
@@ -53,7 +53,7 @@ bool Rift1Hotstuff(Trigger* pTrigger)
 {
     glm::vec3 position;
     W8MonsterGroup* group;
-    W8Monster* monster;
+    Monster* monster;
 
     if (GetFact(W8_FACT_LAVALORD_DIE) == 0) {
         if (FindEntityByName("Hotstuff", &position, 0, 0)) {

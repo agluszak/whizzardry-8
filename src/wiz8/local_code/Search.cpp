@@ -17,16 +17,9 @@
 #include "layouts/item_instance.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/engine_code/Camera.h"
-#include "wiz8/engine_code/Environment.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/Item.h"
-#include "wiz8/engine_code/Levels.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/PolyPick.h"
-#include "wiz8/engine_code/Prop.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/World.h"
+#include "wiz8/entities/prop.h"
+#include "wiz8/entities/trigger.h"
+#include "wiz8/entities/world_item.h"
 #include "wiz8/fonts.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
@@ -43,8 +36,14 @@
 #include "wiz8/notices.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/platform/timer.h"
+#include "wiz8/render/picking.h"
+#include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/string_database.h"
 #include "wiz8/utility.h"
+#include "wiz8/world/camera_paths.h"
+#include "wiz8/world/environment.h"
+#include "wiz8/world/level_session.h"
+#include "wiz8/world/world.h"
 #include "wiz8/xstatus.h"
 
 constexpr int kSearchFoundItemEvent = 0x17;
@@ -90,7 +89,7 @@ void W8Searchable::Reveal()
 }
 
 /* Gather eligible candidates inside the radius and sight cone for one pulse. */
-static std::vector<W8Searchable> CollectSearchablesInView(W8World& world)
+static std::vector<W8Searchable> CollectSearchablesInView(World& world)
 {
     std::vector<W8Searchable> found;
     const glm::vec3 camera = cameraLocation();
@@ -105,7 +104,8 @@ static std::vector<W8Searchable> CollectSearchablesInView(W8World& world)
             const float yaw = GetCameraYawRadians();
             if ((half_cone <= NormalizeAngle(yaw - heading) &&
                  half_cone <= NormalizeAngle(heading - yaw)) ||
-                !world.octree || !world.octree->HasLineOfSight(&camera, &position, true))
+                !world.compiledIndex() ||
+                !world.compiledIndex()->HasLineOfSight(&camera, &position, true))
                 return;
         }
         found.push_back(candidate);
@@ -140,7 +140,7 @@ void W8Searchable::GetPosition(glm::vec3* position)
         return;
     }
     if (trigger != 0) {
-        W8Prop* prop = trigger->GetProp();
+        Prop* prop = trigger->GetProp();
         if (prop != 0) {
             if (const auto center = prop->GetCenterPosition()) *position = *center;
         }

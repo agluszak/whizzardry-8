@@ -30,7 +30,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # builds because single-file edits otherwise rebuild whole compilation batches.
 option(WIZ8_PRECOMPILE_HEADERS "Precompile stable C++ dependencies" ON)
 option(WIZ8_UNITY_BUILD "Compile game and renderer sources in batches" OFF)
-option(WIZ8_SURRENDER_UNITY_BUILD "Unity-build SurRender independently of the game" OFF)
+option(WIZ8_RENDER_UNITY_BUILD "Unity-build rendering independently of the game" OFF)
 option(WIZ8_INTEGER_SANITIZER "Audit implicit integer truncation at data/image boundaries" OFF)
 option(WIZ8_WARNINGS_AS_ERRORS "Fail first-party compilation on warnings (CI enables this)" OFF)
 set(WIZ8_UNITY_BATCH_SIZE 4 CACHE STRING "Sources per unity compilation batch")
@@ -201,7 +201,6 @@ endif()
 target_include_directories(wiz8_native_settings INTERFACE
     "${PROJECT_SOURCE_DIR}/include"
     "${PROJECT_SOURCE_DIR}/include/wiz8"
-    "${PROJECT_SOURCE_DIR}/include/wiz8/engine_code"
 )
 target_link_libraries(wiz8_native_settings INTERFACE glm::glm-header-only Threads::Threads ${CMAKE_DL_LIBS})
 
@@ -218,11 +217,15 @@ if(UNIX AND NOT APPLE)
 endif()
 target_link_libraries(wiz8_native_settings INTERFACE wiz8_compat)
 
-add_subdirectory(src/surrender)
+add_library(wiz8_platform STATIC src/platform/random.cpp)
+target_link_libraries(wiz8_platform PUBLIC wiz8_native_settings)
+
+add_library(wiz8_engine STATIC)
+add_subdirectory(src/render)
 add_subdirectory(src/wiz8)
 
 add_executable(Wiz8Native src/platform/main.cpp)
-target_link_libraries(Wiz8Native PRIVATE WIZ8_GAME_CORE SDL3::SDL3)
+target_link_libraries(Wiz8Native PRIVATE wiz8_engine SDL3::SDL3)
 
 if(BUILD_TESTING)
     add_subdirectory(tests)
@@ -234,12 +237,12 @@ if(WIZ8_INTEGER_SANITIZER)
     # Every first-party executable links the platform library. Supply the
     # runtime even when the option is enabled outside the sanitizer preset.
     target_link_options(wiz8_filesystem INTERFACE -fsanitize=implicit-integer-truncation)
-    foreach(component WIZ8_GAME_CORE SURRENDER wiz8_filesystem wiz8_asset_preparation)
+    foreach(component wiz8_engine wiz8_filesystem wiz8_asset_preparation)
         get_target_property(component_dir ${component} SOURCE_DIR)
         get_target_property(component_sources ${component} SOURCES)
         foreach(source IN LISTS component_sources)
             string(TOLOWER "${source}" lower_source)
-            if(lower_source MATCHES "(image|pixel|blit|retail|chunk|loadsave|packed|readmesh|readlevel|npc_script|unicode|assets/prepare).*\\.cpp$")
+            if(lower_source MATCHES "(image|pixel|blit|retail|chunk|loadsave|packed|mesh_loader|level_loader|npc_script|unicode|assets/prepare).*\\.cpp$")
                 cmake_path(ABSOLUTE_PATH source BASE_DIRECTORY "${component_dir}" OUTPUT_VARIABLE absolute_source)
                 set_property(SOURCE "${absolute_source}" TARGET_DIRECTORY ${component}
                     PROPERTY SKIP_PRECOMPILE_HEADERS ON)

@@ -23,13 +23,13 @@
 #include "wiz8/canvas/image.h"
 #include "wiz8/canvas/sprite.h"
 #include "wiz8/design_rect.h"
-#include "wiz8/engine_code/Levels.h"
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/unicode.h"
+#include "wiz8/world/level_session.h"
 #ifdef WIZ8_RUNTIME_TESTS
 #include "runtime_instrumentation.h"
 #endif
@@ -40,10 +40,8 @@
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/dialog_code/PortraitQuote.h"
-#include "wiz8/engine_code/Environment.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/Video2.h"
+#include "wiz8/entities/monster.h"
+#include "wiz8/entities/trigger.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/character.h"
@@ -74,8 +72,10 @@
 #include "wiz8/platform/random.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/portrait_animation.h"
+#include "wiz8/render/frame.h"
 #include "wiz8/string_database.h"
 #include "wiz8/utility.h"
+#include "wiz8/world/environment.h"
 #include "wiz8/xstatus.h"
 
 constexpr unsigned int kPortraitLowHealthPercent = 20;

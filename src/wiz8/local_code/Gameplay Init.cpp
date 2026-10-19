@@ -19,8 +19,6 @@
 #include "spell_ids.h"
 #include "wiz8/audio/mouth_gap.h"
 #include "wiz8/character_event_queue.h"
-#include "wiz8/engine_code/Environment.h"
-#include "wiz8/engine_code/Quality.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/layouts/character.h"
@@ -47,7 +45,9 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/random.h"
+#include "wiz8/render/quality.h"
 #include "wiz8/retail_text_records.h"
+#include "wiz8/world/environment.h"
 #include "wiz8/xstatus.h"
 /* TU attribution follows the 2001-08-14 demo __FILE__ and link-order evidence. */
 

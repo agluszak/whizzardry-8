@@ -10,21 +10,15 @@
 #include "wiz8/audio_resources.h"
 #include "wiz8/geometry.h"
 
-class Sound3D;
-// Borrowed update index; callers or the audio service own every entry.
-extern std::vector<Sound3D*> g_sound3d_instances;
-Sound3D* Retain3DSound(std::unique_ptr<Sound3D> sound);
-void Release3DSounds();
-void Update3DSounds();
-
 class Sound3D {
 public:
     Sound3D(std::string_view sound_name);
     Sound3D(const Sound3D& other) : Sound3D(other.wave_name.c_str()) { *this = other; }
     ~Sound3D();
     bool IsPlaying();
+    void Update(const glm::vec3& listener, float yaw, unsigned effects_volume);
     void Stop();
-    // Loop until stopped; the caller keeps ownership unless it calls Retain3DSound.
+    // The caller owns this voice for its complete lifetime.
     unsigned char Play(bool loop);
     wiz8::sound::PlayOptions BuildSoundOptions(const glm::vec3& listener);
 

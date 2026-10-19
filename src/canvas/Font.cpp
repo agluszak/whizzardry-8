@@ -13,7 +13,6 @@
 #include "wiz8/unicode.h"
 /* Modified for the Wizardry 8 reconstruction: 2026-10-03, 2026-10-06, 2026-10-07, 2026-10-09.
    Distributed under the accompanying SFI Source Code license agreement. */
-#include "Video2.h"
 #include "wiz8/canvas/Font.h"
 #include "wiz8/canvas/himage.h"
 #include "wiz8/canvas/image_assets.h"
@@ -321,11 +320,4 @@ void DrawText(SDL_Surface& target, Font& font, SDL_Point at, std::string_view te
                     .palette = &font.currentPalette()});
         x += GetWidth(sprites, glyph);
     }
-}
-
-void DrawTextAndInvalidate(SDL_Surface& target, Font& font, SDL_Point at, std::string_view text,
-                           TextOptions options)
-{
-    DrawText(target, font, at, text, options);
-    InvalidateRegion(at.x, at.y, at.x + font.textWidth(text), at.y + font.height());
 }

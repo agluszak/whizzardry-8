@@ -11,7 +11,6 @@
 #include "layouts/item_instance.h"
 #include "layouts/screen_state.h"
 #include "layouts/targeting.h"
-#include "layouts/world.h"
 #include "local_code/Gameloop.h"
 #include "local_code/MonsterManager.h"
 #include "monster_actions.h"
@@ -21,13 +20,9 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/conditions.h"
 #include "wiz8/dialog_code/DialogInterface.h"
-#include "wiz8/engine_code/AnimRep.hpp"
-#include "wiz8/engine_code/Camera.h"
-#include "wiz8/engine_code/Environment.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/World.h"
+#include "wiz8/entities/animation_types.h"
+#include "wiz8/entities/monster.h"
+#include "wiz8/entities/trigger.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/character.h"
@@ -56,12 +51,16 @@
 #include "wiz8/message_box.h"
 #include "wiz8/monster_cycles.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/world/camera_paths.h"
+#include "wiz8/world/environment.h"
+#include "wiz8/world/world.h"
 #include "wiz8/xstatus.h"
 
 static void ResolveSedexusCapture(void);
-static void NpcScriptHenchmanArrives(W8Monster* monster);
-static void NpcScriptHenchmanDeparted(W8Monster* monster);
-static void NpcScriptSavantHackDone(W8Monster* monster);
+static void NpcScriptHenchmanArrives(Monster* monster);
+static void NpcScriptHenchmanDeparted(Monster* monster);
+static void NpcScriptSavantHackDone(Monster* monster);
 
 static W8MonsterInfo* FindMonsterByLocation(int location_id)
 {
@@ -261,7 +260,7 @@ void UpdateSedexusScene(void)
     if (!g_sedexus_scene.capture_pending && !g_sedexus_scene.release_pending) {
         return;
     }
-    const W8EnvironmentLightingMode environment = g_environment_lighting_mode;
+    const W8EnvironmentLightingMode environment = EnvironmentLightingMode();
     if (environment != W8EnvironmentLightingMode::FadedOut &&
         environment != W8EnvironmentLightingMode::DayNight) {
         return;
@@ -353,7 +352,7 @@ static void ResolveSedexusCapture(void)
    waypoint and its first member's bound NPC gets the script notice; the
    callback monster itself is parked at the origin with its position flagged
    dirty either way. */
-static void NpcScriptHenchmanArrives(W8Monster* monster)
+static void NpcScriptHenchmanArrives(Monster* monster)
 {
     glm::vec3 position;
     glm::vec3 origin;
@@ -379,7 +378,7 @@ static void NpcScriptHenchmanArrives(W8Monster* monster)
 
 /* Cycle-0x12 departure callback: park the monster at the origin and flag its
    position dirty. */
-static void NpcScriptHenchmanDeparted(W8Monster* monster)
+static void NpcScriptHenchmanDeparted(Monster* monster)
 {
     glm::vec3 origin;
 
@@ -390,7 +389,7 @@ static void NpcScriptHenchmanDeparted(W8Monster* monster)
 
 /* Cycle-0x19 completion callback: stamping savant_hack_tick lets
    UpdateNpcEvents retire NPC group 0x1b3 fifty ticks later. */
-static void NpcScriptSavantHackDone(W8Monster* monster)
+static void NpcScriptSavantHackDone(Monster* monster)
 {
     g_status.savant_hack_tick = int(uint32_t(w8_get_ticks()));
 }
@@ -631,7 +630,7 @@ void RunNpcStoryAction(W8NpcStoryAction action)
                 if (location_id != 0) {
                     W8MonsterInfo* monster_info = FindMonsterByLocation(location_id);
                     if (FindEntityByName("NP_DS1", &position, 0, 0)) {
-                        monster_info->p3D->AimAtPosition(&position);
+                        monster_info->p3D->nav.AimAtPosition(&position);
                     }
                 }
             }

@@ -11,8 +11,8 @@
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/levels.h"
 #include "wiz8/layouts/party_formation.h"
-#include "wiz8/layouts/world.h"
 #include "wiz8/retail_opaque_records.h"
+#include "wiz8/world/world.h"
 
 struct W8PartySlotRow;
 
@@ -84,7 +84,7 @@ struct W8GlobalStatus {
     unsigned char unknown_2013[0x294];
     /* Retail offset 0x22a7: CamPos staged by recall when the anchor is on another level;
        LoadLevel restores it after the new world exists. */
-    W8WorldCameraState pending_move_location;
+    CameraPose pending_move_location;
     /* Retail offset 0x22e3: the party-wide modifier block the effect rebuild clears and
        refills. Its +0x4a flag is the light gate the monster-sight threshold
        pass reads. */

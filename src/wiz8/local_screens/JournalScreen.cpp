@@ -24,8 +24,6 @@
 #include "wiz8/chunk.h"
 #include "wiz8/cursor.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
-#include "wiz8/engine_code/Levels.h"
-#include "wiz8/engine_code/Video2.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
@@ -42,8 +40,10 @@
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/render/frame.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
+#include "wiz8/world/level_session.h"
 #include "wiz8/xstatus.h"
 
 namespace {

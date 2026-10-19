@@ -16,8 +16,8 @@
 #include "wiz8/canvas/image.h"
 #include "wiz8/canvas/image_assets.h"
 #include "wiz8/canvas/sprite.h"
-#include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
+#include "wiz8/render/frame.h"
 #include "wiz8/unicode.h"
 
 namespace {

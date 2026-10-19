@@ -17,9 +17,9 @@
 #include <SDL3_image/SDL_image.h>
 #include <catch2/catch_test_macros.hpp>
 
-#include "surrender/srIO.h"
+#include "wiz8/platform/sdl_io.h"
 /* Actual SDL_image decoding and byte-exact transfer. */
-#include "surrender/srImageIO.h"
+#include "wiz8/render/image_io.h"
 #include "wiz8/surface_storage.h"
 
 using Bytes = std::vector<Uint8>;
@@ -39,15 +39,15 @@ static void checkFormat(const SDL_Surface& surface, SDL_PixelFormat type)
 static OwnedSurface loadJpeg(const Bytes& data)
 {
     if (data.empty()) return {nullptr, SDL_DestroySurface};
-    auto input = srIO::own(SDL_IOFromConstMem(data.data(), data.size()));
-    auto result = srImage::load("sample.jpg", input.get());
+    auto input = sdlIO::own(SDL_IOFromConstMem(data.data(), data.size()));
+    auto result = imageIO::load("sample.jpg", input.get());
     REQUIRE(SDL_GetIOSize(input.get()) == Sint64(data.size()));
     return result;
 }
 static Bytes encode(SDL_Surface& surface, int quality = 100)
 {
-    auto output = srIO::own(SDL_IOFromDynamicMem());
-    srImage::save("sample.jpg", output.get(), surface, quality);
+    auto output = sdlIO::own(SDL_IOFromDynamicMem());
+    imageIO::save("sample.jpg", output.get(), surface, quality);
     REQUIRE(((SDL_GetIOStatus(output.get()) == SDL_IO_STATUS_READY) &&
              SDL_GetIOSize(output.get()) > 2));
     auto* data = static_cast<const Uint8*>(SDL_GetPointerProperty(
@@ -77,7 +77,7 @@ static void jpegTests()
         auto surface = loadJpeg(*data);
         REQUIRE((surface && surface->w == 3 && surface->h == 2));
         checkFormat(*surface, SDL_PIXELFORMAT_BGRA32);
-        auto io = srIO::own(SDL_IOFromConstMem(data->data(), data->size()));
+        auto io = sdlIO::own(SDL_IOFromConstMem(data->data(), data->size()));
         SDLSurfaceOwner decoded(IMG_LoadJPG_IO(io.get()), SDL_DestroySurface);
         REQUIRE(decoded);
         SDLSurfaceOwner reference(SDL_ConvertSurface(decoded.get(), SDL_PIXELFORMAT_BGRA32),
@@ -185,8 +185,8 @@ static TgaFixture tgaFixture(unsigned depth, bool indexed, bool rle, unsigned or
 }
 static OwnedSurface loadTga(const Bytes& data)
 {
-    auto input = srIO::own(SDL_IOFromConstMem(data.data(), data.size()));
-    auto result = srImage::loadTga(input.get());
+    auto input = sdlIO::own(SDL_IOFromConstMem(data.data(), data.size()));
+    auto result = imageIO::loadTga(input.get());
     REQUIRE(SDL_GetIOSize(input.get()) == Sint64(data.size()));
     return result;
 }
@@ -300,7 +300,7 @@ struct FaultIO {
         }
         return bytes ? bytes - 1 : 0;
     }
-    srIO::IO open()
+    sdlIO::IO open()
     {
         SDL_IOStreamInterface interface;
         SDL_INIT_INTERFACE(&interface);
@@ -308,13 +308,13 @@ struct FaultIO {
         interface.seek = seek;
         interface.read = read;
         interface.write = write;
-        return srIO::own(SDL_OpenIO(&interface, this));
+        return sdlIO::own(SDL_OpenIO(&interface, this));
     }
 };
 static void streamTests()
 {
     const Bytes data{1, 2, 3, 4};
-    auto source = srIO::own(SDL_IOFromConstMem(data.data(), data.size()));
+    auto source = sdlIO::own(SDL_IOFromConstMem(data.data(), data.size()));
     REQUIRE(SDL_GetIOSize(source.get()) == 4);
     REQUIRE(SDL_SeekIO(source.get(), -1, SDL_IO_SEEK_END) == 3);
     Uint8 bytes[8]{};
@@ -328,7 +328,7 @@ static void streamTests()
     for (int fault : {0, 1, 2, 3}) {
         FaultIO backend{jpeg, fault};
         auto input = backend.open();
-        REQUIRE(!srImage::load("sample.jpg", input.get()));
+        REQUIRE(!imageIO::load("sample.jpg", input.get()));
         REQUIRE(SDL_TellIO(input.get()) <= Sint64(jpeg.size()));
     }
     auto surface = loadJpeg(jpeg);
@@ -338,7 +338,7 @@ static void streamTests()
         auto output = backend.open();
         bool rejected = false;
         try {
-            srImage::save("sample.jpg", output.get(), *surface);
+            imageIO::save("sample.jpg", output.get(), *surface);
         } catch (...) {
             rejected = true;
         }

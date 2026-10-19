@@ -14,23 +14,18 @@
 #include "glm/ext/vector_float3.hpp"
 #include "item_spawning.h"
 #include "layouts/gameplay_databases.h"
-#include "surrender/srDebug.h"
 #include "wiz8/audio/sound3d.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/Levels.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Prop.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/stCube.h"
+#include "wiz8/entities/cursor_nodes.h"
+#include "wiz8/entities/monster.h"
+#include "wiz8/entities/prop.h"
+#include "wiz8/entities/trigger.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/screen_state.h"
-#include "wiz8/layouts/world.h"
 #include "wiz8/level_specific_code/Arnika.h"
 #include "wiz8/level_specific_code/Ascension.h"
 #include "wiz8/level_specific_code/Camp.h"
@@ -60,8 +55,12 @@
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/location_variables.h"
+#include "wiz8/platform/assertion.h"
 #include "wiz8/save_game.h"
+#include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/string_database.h"
+#include "wiz8/world/level_session.h"
+#include "wiz8/world/world.h"
 
 constexpr float kSoundNodeFullVolume = 127.0f;
 
@@ -133,7 +132,10 @@ Sound3D* CreateAndPlaySoundNode(const char* sound_name, glm::vec3 position, floa
     sound->volume = static_cast<int>(volume * kSoundNodeFullVolume);
     sound->falloff = scale * kWorldScale;
     sound->Play(play_flag);
-    return Retain3DSound(std::move(sound));
+    if (!GetWorld()) return nullptr;
+    auto* result = sound.get();
+    GetWorld()->audio.script_sounds.push_back(std::move(sound));
+    return result;
 }
 
 /* One row of the cursor-node dispatch table at 0x006109F4, indexed by the
@@ -205,7 +207,7 @@ unsigned char DispatchWorldCursorNodeCommand(W8MonsterInfo* info, int command, .
     if (info == 0) {
         position = cameraLocation();
     } else {
-        position = info->p3D->GetPosition();
+        position = info->p3D->nav.GetPosition();
     }
     position.y = probeGround(position).position.y + 125.0f;
     node = FindWorldCursorNodeAtPoint(0, &position);
@@ -458,7 +460,7 @@ bool g_sea_caves_slope_override_enabled;
 void LoadAwayCampChest(void)
 {
     std::vector<std::unique_ptr<W8WorldItem>> items;
-    W8Prop* pChest;
+    Prop* pChest;
     Trigger* pTrigger;
     W8WorldItem* pContainer;
     int index;

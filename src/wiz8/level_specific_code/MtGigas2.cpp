@@ -4,15 +4,12 @@
 #include <vector>
 
 #include "glm/ext/vector_float3.hpp"
-#include "layouts/world.h"
-#include "surrender/srCamera.h"
 #include "wiz8/audio/sound3d.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/dice.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Prop.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/World.h"
+#include "wiz8/entities/monster.h"
+#include "wiz8/entities/prop.h"
+#include "wiz8/entities/trigger.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
@@ -25,7 +22,9 @@
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/platform/IntervalGate.h"
+#include "wiz8/render/camera.h"
 #include "wiz8/utility.h"
+#include "wiz8/world/world.h"
 #include "wiz8/xstatus.h"
 
 struct W8ItemInstance;
@@ -187,7 +186,7 @@ bool MtGigas2YellowWire(Trigger* pTrigger)
 static void MtGigas2WireShock(void)
 {
     Trigger* pTrigger;
-    W8Prop* prop;
+    Prop* prop;
     W8Dice dice;
 
     SetTriggerVariableByName("WirePanel", 0);
@@ -317,7 +316,7 @@ static bool MtGigas2UmpaniAlarm(int command)
         if (g_mt_gigas_alarm_gate || g_mt_gigas_alarm_sound != 0) {
             return false;
         }
-        position = glm::vec3(GetWorld()->camera->getLocation());
+        position = glm::vec3(GetWorld()->camera->transform.getLocation());
         if (static_cast<unsigned int>(command) > 0x1e) {
             command = 0x1e;
         }

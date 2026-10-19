@@ -28,9 +28,7 @@
 #include "wiz8/chunk.h"
 #include "wiz8/cursor.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
-#include "wiz8/engine_code/Cursor3d.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/Video2.h"
+#include "wiz8/entities/cursor.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
 #include "wiz8/key_bindings.h"
@@ -67,6 +65,8 @@
 #include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/render/frame.h"
+#include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
@@ -266,7 +266,6 @@ void DispatchMGSCommand(W8MGSCommand command)
         break;
     case W8_MGS_COMMAND_TOGGLE_FULLSCREEN:
         ResetTransientRenderScenes();
-        SetRendererModePair();
         VideoFullScreen(g_fullscreen == 0);
         break;
     case W8_MGS_COMMAND_LOAD_OPTIONS:

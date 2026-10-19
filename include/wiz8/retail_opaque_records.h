@@ -1,6 +1,11 @@
 #pragma once
+#include <array>
+#include <cstddef>
 
 namespace wiz8::retail {
+struct CameraPoseOpaque {
+    std::array<std::byte, 20> pitch{}, yaw{};
+};
 // Unidentified disk fields retained for lossless saves/database edits.
 struct MonsterGroupOpaque {
     // Retail cache retained on decode; level saves replace it with the derived count.

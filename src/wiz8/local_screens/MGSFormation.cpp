@@ -19,8 +19,6 @@
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/cursor.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/engine_code/stModelInstance.h" // IWYU pragma: keep - complete sprite type for conversion to srNode.
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -33,6 +31,7 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/platform/timer.h"
+#include "wiz8/render/frame.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
@@ -136,12 +135,10 @@ void RefreshFormationBoard(void)
     compass_image = RenderSpriteToImage(*compass_artwork.spriteSheet(), 0);
     if (!compass_image) return;
     DrawFormationSlotMarkers(*board_image);
-    g_level_block->formation_compass_sprite = CreateSpriteFromSurface(*compass_image, 0, 1, 1);
-    Position2DNodeUnsnapped(g_level_block->formation_compass_sprite, 0x207, 0x167);
-    g_level_block->formation_compass_sprite->render_state.display_state = 4;
-    g_level_block->formation_board_sprite = CreateSpriteFromSurface(*board_image, 0, 1, 1);
-    Position2DNodeUnsnapped(g_level_block->formation_board_sprite, 0x207, 0x167);
-    g_level_block->formation_board_sprite->render_state.display_state = 4;
+    g_level_block->formation_compass_sprite = makeOverlayFromSurface(*compass_image, 0, 1, 1);
+    positionOverlay(g_level_block->formation_compass_sprite.get(), 0x207, 0x167, false);
+    g_level_block->formation_board_sprite = makeOverlayFromSurface(*board_image, 0, 1, 1);
+    positionOverlay(g_level_block->formation_board_sprite.get(), 0x207, 0x167, false);
     UpdateFormationCompass();
 }
 
@@ -149,10 +146,9 @@ void RefreshFormationBoard(void)
 void UpdateFormationCompass(void)
 {
     if (g_level_block->formation_compass_sprite != 0) {
-        RotateNodeInDegrees(g_level_block->formation_compass_sprite,
-                            g_status.party_facing - g_status.party_heading + 0x168);
+        g_level_block->formation_compass_sprite->rotation = static_cast<float>(
+            (g_status.party_facing - g_status.party_heading + 0x168) * -0.017453292519943295);
     }
-    SetRendererModePair();
 }
 
 /* Lazily create the overlay sprite above the board. */
@@ -167,9 +163,8 @@ void CreateFormationBoardOverlay(void)
         bounds.right = 0x269;
         bounds.bottom = 0x1c2;
         g_level_block->formation_overlay_sprite =
-            CreateSpriteFromSurface(GetFrameBufferSurface(), &bounds, 0, 1);
-        Position2DNodeUnsnapped(g_level_block->formation_overlay_sprite, 0x200, 0x166);
-        g_level_block->formation_overlay_sprite->render_state.display_state = 4;
+            makeOverlayFromSurface(GetFrameBufferSurface(), &bounds, 0, 1);
+        positionOverlay(g_level_block->formation_overlay_sprite.get(), 0x200, 0x166, false);
     }
 }
 
@@ -470,7 +465,7 @@ static void BeginFormationDrag()
     // The dragged chip follows the pointer; the drop must reach the cell under
     // it rather than the button region that captured the initial press.
     g_formation_cell_slots[g_formation_active_cell] = -1;
-    SGPMouseGetPos(&point);
+    point = CursorPosition();
     ClearMouseSurface();
     sprite = gXStatus.edited_formation.positions[g_formation_drag_slot].facing * 3 + 1;
     const auto artwork = CatalogArtwork::Load(0x9f);

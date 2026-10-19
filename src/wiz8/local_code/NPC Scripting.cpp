@@ -26,11 +26,8 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/conditions.h"
 #include "wiz8/dialog_code/DialogInterface.h"
-#include "wiz8/engine_code/Environment.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/Levels.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Trigger.hpp"
+#include "wiz8/entities/monster.h"
+#include "wiz8/entities/trigger.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/file_time.h"
 #include "wiz8/filesystem.h"
@@ -62,7 +59,10 @@
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_script_file.h"
 #include "wiz8/npc_speech.h"
+#include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/unicode.h"
+#include "wiz8/world/environment.h"
+#include "wiz8/world/level_session.h"
 #include "wiz8/xstatus.h"
 
 constexpr unsigned int kCharacterEventNpcScript = 0x40;
@@ -331,7 +331,7 @@ std::string FormatNpcVoiceSoundPath(W8NpcState* npc)
     return fmt::format("{}{}", prefix, GetNpcDisplayName(npc));
 }
 
-void ReloadNpcScriptResources(W8NpcState* npc, W8Monster* monster)
+void ReloadNpcScriptResources(W8NpcState* npc, Monster* monster)
 {
     const std::string script_name = FormatNpcVoiceSoundPath(npc);
     std::string resource_name = fmt::format("Data\\NPC Scripts\\{}.nsf", script_name);
@@ -639,7 +639,7 @@ void W8NpcDialogue::RunNextAction()
                 break;
             case W8NpcCommand::remove_speaking_npc: {
                 EndNpcDialogueSession(false);
-                W8Monster* monster = GetNpcMonster(dialogue.session_.npc);
+                Monster* monster = GetNpcMonster(dialogue.session_.npc);
                 if (monster != 0) {
                     monster->BeginFadeOutAndRemove(W8_MONSTER_REMOVAL_NONE);
                 }

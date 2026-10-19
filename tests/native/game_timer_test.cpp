@@ -1,18 +1,19 @@
 #include <array>
 #include <cstdint>
+#include <utility>
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
 #include "save_payload.h"
-#include "surrender/srGERD.h"
 #include "temporary_directory.h"
-#include "wiz8/engine_code/stTextureAnim.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
 #include "wiz8/platform/IntervalGate.h"
 #include "wiz8/platform/game_timer.h"
+#include "wiz8/render/gpu_renderer.h"
+#include "wiz8/render/texture.h"
 #include "wiz8/runtime_test_hooks.h"
 
 W8RuntimeTestHooks g_runtime_test_hooks;
@@ -138,7 +139,7 @@ TEST_CASE_METHOD(TimerFixture, "Interval gates retain catch-up, one-shot and sav
 TEST_CASE_METHOD(TimerFixture, "Renderer statistics measure elapsed seconds without a clock owner",
                  "[timers][renderer]")
 {
-    srGERD renderer;
+    GpuRenderer renderer;
     renderer.resetStatistics();
     advance(250'000);
     REQUIRE(renderer.getStatistics().elapsed == Catch::Approx(0.25));
@@ -151,14 +152,15 @@ TEST_CASE_METHOD(TimerFixture, "Texture animations retain their clock after 32-b
                  "[timers]")
 {
     g_runtime_test_hooks.clock_us = ((std::uint64_t{1} << 32) + 250) * 1000;
-    stTextureAnim animation;
-    animation.textures.resize(3);
-    animation.frame_rate = 1.0f;
+    TexturePlayback playback;
+    playback.textures.resize(3);
+    playback.frame_rate = 1.0f;
+    Texture animation(std::move(playback));
     advance(1'000'000);
     animation.UpdateFrame();
-    REQUIRE(animation.frame == 1);
+    REQUIRE(animation.playback->frame == 1);
     animation.SetFrame(0);
     advance(1'000'000);
     animation.UpdateFrame();
-    REQUIRE(animation.frame == 1);
+    REQUIRE(animation.playback->frame == 1);
 }

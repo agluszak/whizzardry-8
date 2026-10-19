@@ -13,8 +13,7 @@
 #include "local_code/MonsterManager.h"
 #include "wiz8/audio/mouth_gap.h"
 #include "wiz8/audio/soundman.h"
-#include "wiz8/engine_code/Levels.h"
-#include "wiz8/engine_code/Monster.h"
+#include "wiz8/entities/monster.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -35,6 +34,7 @@
 #include "wiz8/npc_script_file.h"
 #include "wiz8/npc_speech.h"
 #include "wiz8/unicode.h"
+#include "wiz8/world/level_session.h"
 #include "wiz8/xstatus.h"
 
 static void FinishNpcVoicePlayback(bool resume_script);
@@ -128,7 +128,7 @@ W8NpcSubquoteOutcome SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char sub
     W8NpcState* const speaker = g_npc_dialogue.speaker();
     const int current_quote = g_npc_dialogue.current_quote();
     W8MonsterManagerEntry* entry;
-    W8Monster* monster;
+    Monster* monster;
     std::string voice_dir;
     std::string voice_path;
     std::string voice_stem;
@@ -251,7 +251,7 @@ static void FinishNpcVoicePlayback(bool resume_script)
         return;
     }
     StopNpcVoice(g_speech);
-    W8Monster* monster = GetNpcMonster(speaker);
+    Monster* monster = GetNpcMonster(speaker);
     if (monster != 0) {
         monster->StopTalking();
     }

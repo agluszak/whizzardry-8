@@ -9,7 +9,7 @@
 #include <wiz8/filesystem.h>
 
 #include "surface_pixels.h"
-/* Real SLF/STI -> immutable sprites and SDL surfaces -> stSurface2D -> SDL GPU.
+/* Real SLF/STI -> immutable sprites and SDL surfaces -> UiCanvasTexture -> SDL GPU.
    Also checks a movie-owned surface and restoration of the game primary. */
 
 #include <array>
@@ -29,25 +29,22 @@
 
 #include "../../src/native/movie.h"
 #include "scoped_asset_roots.h"
-#include "surrender/SDLGPUDevice.h"
-#include "surrender/srGERD.h"
-#include "surrender/srImageIO.h"
-#include "surrender/srRendererDefs.h"
-#include "surrender/srShader.h"
-#include "surrender/srTexture.h"
-#include "surrender/srTriMeshPipeline.h"
 #include "temporary_directory.h"
 #include "wiz8/bink_video.h"
 #include "wiz8/canvas/image_assets.h"
 #include "wiz8/canvas/sprite.h"
 #include "wiz8/cursor.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/overlay_scenes.h"
 #include "wiz8/platform/input.h"
-#include "wiz8/surface2d.h"
+#include "wiz8/render/compositor.h"
+#include "wiz8/render/draw_shader.h"
+#include "wiz8/render/frame.h"
+#include "wiz8/render/gpu_renderer.h"
+#include "wiz8/render/image_io.h"
+#include "wiz8/render/texture.h"
+#include "wiz8/render/vertex_stream.h"
 #include "wiz8/surface_storage.h"
 
-class srScene;
+class WorldScene;
 
 void PresentMenuOverlayFrame();
 void SaveJpegScreenshot();
@@ -86,13 +83,10 @@ TEST_CASE("game graphics")
     REQUIRE(CreateWizardryWindow());
     REQUIRE(InitializePrimarySurface());
     REQUIRE(InitializeVideoDevice());
-    REQUIRE(srGERD::getActive() == g_gerd.get());
+    REQUIRE(GpuRenderer::getActive() == g_gerd.get());
     REQUIRE(InitializeRendererSceneObjects());
-    auto targa = srImage::load("data\\automap\\map_monsterfriendly_a.tga");
+    auto targa = imageIO::load("data\\automap\\map_monsterfriendly_a.tga");
     REQUIRE((targa && targa->w > 0 && targa->h > 0));
-    auto pipeline = &g_gerd->meshPipeline();
-    REQUIRE(pipeline);
-    pipeline->Flush();
     const char* image_path = SDL_getenv("WIZ8_GRAPHICS_IMAGE");
     auto image_object =
         g_image_assets.sprites(image_path ? image_path : "data\\main interface\\bottom.sti");
@@ -113,16 +107,16 @@ TEST_CASE("game graphics")
         SDL_Event event;
         while (SDL_PollEvent(&event)) HandleInputEvent(event);
         auto error = g_gerd->beginFrame();
-        if (error != srGERD::ERROR_NONE)
+        if (error != GpuRenderer::ERROR_NONE)
             fprintf(stderr, "begin frame %d: %d window %p open %d\n", frame, int(error),
                     static_cast<void*>(ghWindow), g_gerd->isWindowOpen());
-        REQUIRE(error == srGERD::ERROR_NONE);
+        REQUIRE(error == GpuRenderer::ERROR_NONE);
         g_gerd->setClearColor(0, 0, 0, 1);
-        g_gerd->clear(SDLGPUDevice::BUFFER_COLOR | SDLGPUDevice::BUFFER_DEPTH);
-        g_gerd->matrixMode(srGERD::MATRIX_MODELVIEW);
+        g_gerd->clear(GpuRenderer::GPU_BUFFER_COLOR | GpuRenderer::GPU_BUFFER_DEPTH);
+        g_gerd->matrixMode(GpuRenderer::MATRIX_MODELVIEW);
         g_gerd->loadIdentity();
-        g_surface_node->draw(g_gerd.get());
-        RenderScene(g_overlay_scenes.cursor.get(), g_overlay_scenes.camera.get(), nullptr, false);
+        g_ui_canvas->draw(g_gerd.get());
+        g_compositor.draw(*g_gerd, OverlayLayer::Cursor);
         g_gerd->endFrame();
     }
     auto buffer = g_gerd->lockBuffer();
@@ -214,16 +208,16 @@ TEST_CASE("game graphics")
     PresentMenuOverlayFrame();
 
     // Reopening must publish the renderer again and rebuild invalidated texture caches.
-    g_gerd->closeWindow(static_cast<srGERD::e_closeHint>(0));
-    REQUIRE(srGERD::getActive() == nullptr);
+    g_gerd->closeWindow(static_cast<GpuRenderer::e_closeHint>(0));
+    REQUIRE(GpuRenderer::getActive() == nullptr);
     REQUIRE(OpenRendererWindow());
-    REQUIRE(srGERD::getActive() == g_gerd.get());
+    REQUIRE(GpuRenderer::getActive() == g_gerd.get());
     PresentMenuOverlayFrame();
 
     g_screenshot_index = 0;
     SaveJpegScreenshot();
     auto screenshot_file = wiz8::open_file(wiz8::user_path("Wiz800000.JPG"));
-    auto screenshot = srImage::load("screenshot.jpg", *screenshot_file);
+    auto screenshot = imageIO::load("screenshot.jpg", *screenshot_file);
     REQUIRE((screenshot && screenshot->w == 640 && screenshot->h == 480));
     puts("retail Targa import and game JPEG screenshot round-trip");
 
@@ -234,23 +228,23 @@ TEST_CASE("game graphics")
         auto green = CreateCpuStorage(1, 1, SDL_PIXELFORMAT_BGRA32);
         REQUIRE(SDL_FillSurfaceRect(red.get(), nullptr, 0xffff0000));
         REQUIRE(SDL_FillSurfaceRect(green.get(), nullptr, 0xff00ff00));
-        std::optional<srTexture> texture{std::shared_ptr<SDL_Surface>(std::move(red))};
+        std::optional<Texture> texture{std::shared_ptr<SDL_Surface>(std::move(red))};
         const std::array<float, 12> triangle{-1, -1, 0, 1, 3, -1, 0, 1, -1, 3, 0, 1};
-        g_gerd->matrixMode(srGERD::MATRIX_PROJECTION);
+        g_gerd->matrixMode(GpuRenderer::MATRIX_PROJECTION);
         g_gerd->loadIdentity();
-        g_gerd->matrixMode(srGERD::MATRIX_MODELVIEW);
+        g_gerd->matrixMode(GpuRenderer::MATRIX_MODELVIEW);
         g_gerd->loadIdentity();
-        g_gerd->setVertexPointer(4, srRendererDefs::TYPE_FLOAT, 16, triangle.data(), 3);
-        g_gerd->setVertexArrayMask(1 << srRendererDefs::VERTEX_ARRAY_POSITIONS);
-        g_gerd->setCullMode(srGERD::CULL_NONE);
-        srShader shader;
-        shader.value = srShader::PASS_ALWAYS | srShader::MASK_COLOR_WRITE |
-                       srShader::MASK_TEXTURING |
-                       (srShader::SRCBLEND_ONE << srShader::SRCBLEND_SHIFT);
+        g_gerd->setVertexPointer(4, vertexStream::TYPE_FLOAT, 16, triangle.data(), 3);
+        g_gerd->setVertexArrayMask(1 << vertexStream::VERTEX_ARRAY_POSITIONS);
+        g_gerd->setCullMode(GpuRenderer::CULL_NONE);
+        DrawShader shader;
+        shader.value = DrawShader::PASS_ALWAYS | DrawShader::MASK_COLOR_WRITE |
+                       DrawShader::MASK_TEXTURING |
+                       (DrawShader::SRCBLEND_ONE << DrawShader::SRCBLEND_SHIFT);
         g_gerd->setShader(shader);
         const auto draw = [&] {
             g_gerd->setTexture(&*texture, 0);
-            g_gerd->drawArrays(srRendererDefs::PRIMITIVE_TRIANGLES, 0, 3);
+            g_gerd->drawArrays(vertexStream::PRIMITIVE_TRIANGLES, 0, 3);
         };
         draw();
         texture.reset();
@@ -266,7 +260,7 @@ TEST_CASE("game graphics")
 
     ShutdownVideoManager();
     REQUIRE(g_gerd == nullptr);
-    REQUIRE(srGERD::getActive() == nullptr);
+    REQUIRE(GpuRenderer::getActive() == nullptr);
 
     SDL_Quit();
 }

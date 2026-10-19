@@ -42,7 +42,7 @@ int FindEncounterTableByName(const char* name);        /* 0x0048CCA0 */
 void SaveEncounterState(wiz8::File& handle);
 void SaveMonsterGenerators(wiz8::File& handle);
 void DestroyMonsterGenerators(void);
-struct W8World;
+struct World;
 struct W8EncounterState {
     int saved_budget = 100;
     int random_budget = 20;
@@ -53,7 +53,7 @@ struct W8EncounterState {
 };
 W8EncounterState ReadEncounterState(W8Chunk& file);
 void ReadMonsterGeneratorStates(W8Chunk& file, W8EncounterState& state);
-void StartLevelEncounters(W8World& world);
+void StartLevelEncounters(World& world);
 void RunMonsterGenerators(void);
 void DespawnAllActiveMonsterGroups(void);
 void ResetMonsterGeneratorTimers(void);

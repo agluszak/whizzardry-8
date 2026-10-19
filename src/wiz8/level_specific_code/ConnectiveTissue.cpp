@@ -1,6 +1,6 @@
 #include "wiz8/level_specific_code/ConnectiveTissue.h"
 
-#include "wiz8/engine_code/Trigger.hpp"
+#include "wiz8/entities/trigger.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/MonsterGenerator.h"

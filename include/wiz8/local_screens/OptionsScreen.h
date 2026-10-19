@@ -13,12 +13,12 @@
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/difficulty.h"
-#include "wiz8/engine_code/Quality.h"
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/mgs_commands.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/render/quality.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_layer.h"
 

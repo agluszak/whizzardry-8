@@ -17,7 +17,7 @@ struct W8MonsterInfo;
 struct W8SpellEffectDefinition;
 struct W8SpellEffectResult;
 struct W8TargetSource;
-class W8Missile;
+class Missile;
 
 /* The five character hit locations, in the order gubLocalACPercent and the
    per-location armour classes use them. */
@@ -47,18 +47,18 @@ extern unsigned short g_special_category_name_ids[42];
    the fired missile stores: the weapon or monster attack's dice magnitude and
    per-condition chances ride the same record a spell effect definition does. */
 void ClearAttackBlock(W8SpellEffectDefinition* block);
-W8Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W8CombatSlot* target,
-                                     W8SpellEffectDefinition* attack, bool use_default_accuracy,
-                                     W8RangeCategory range_category, int accuracy);
+Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W8CombatSlot* target,
+                                   W8SpellEffectDefinition* attack, bool use_default_accuracy,
+                                   W8RangeCategory range_category, int accuracy);
 void ScatterMissileAimPoint(const glm::vec3* from, glm::vec3* to, int accuracy, bool blind);
 
 /* A physical missile reached its combat target - announce the
    hit, roll penetration against the target's armour and apply the damage.
    `deflected` reports the target's missile-deflection roll succeeded. */
-void ResolveMissileHit(W8Missile* missile, bool deflected);
+void ResolveMissileHit(Missile* missile, bool deflected);
 /* A spell missile reached its combat target - play its impact
    sound and apply the carried spell effect to the target or the area. */
-void ResolveSpellMissileHit(W8Missile* missile);
+void ResolveSpellMissileHit(Missile* missile);
 /* The armour class a hit at one location must beat, for the
    attack mode used. */
 int TargetArmorClassAtLocation(W8CombatSlot* target, W8AttackMode attack_mode, int hit_location);

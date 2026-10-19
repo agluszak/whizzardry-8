@@ -17,9 +17,6 @@
 #include <glm/gtc/quaternion.hpp>
 #include <glm/matrix.hpp>
 
-#include "Monster.h"
-#include "Navigator.h"
-#include "Video2.h"
 #include "compat/native.h"
 #include "dice.h"
 #include "difficulty.h"
@@ -30,21 +27,15 @@
 #include "layouts/targeting.h"
 #include "local_code/Factions.h"
 #include "monster_actions.h"
-#include "surrender/srDebug.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/conditions.h"
 #include "wiz8/containers.h"
-#include "wiz8/engine_code/AnimRep.hpp"
-#include "wiz8/engine_code/GDCamera.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/Levels.h"
-#include "wiz8/engine_code/Missile.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/PolyPick.h"
-#include "wiz8/engine_code/SpellVisual.h"
-#include "wiz8/engine_code/Spells.h"
+#include "wiz8/entities/animation_types.h"
+#include "wiz8/entities/missile.h"
+#include "wiz8/entities/monster.h"
+#include "wiz8/entities/spell_visual.h"
 #include "wiz8/fonts.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/character.h"
@@ -74,15 +65,24 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/character_events.h"
+#include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/MGSPortraits.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
+#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/platform/timer.h"
+#include "wiz8/render/frame.h"
+#include "wiz8/render/picking.h"
+#include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/spatial/navigator.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/utility.h"
+#include "wiz8/world/level_session.h"
+#include "wiz8/world/party_camera.h"
+#include "wiz8/world/party_motion.h"
 #include "wiz8/xstatus.h"
 
 constexpr float kGroundSettleFail = -1000000.0f;
@@ -504,7 +504,7 @@ void StartCharacterBreathAttack(int party_slot)
 /* Fold one missile's accumulated damage and reports into the queued effect
    that owns it. The owning effect is the one whose missile list still names
    the missile; nothing happens if it has already been detached. */
-void AbsorbMissileDamage(W8Missile* missile)
+void AbsorbMissileDamage(Missile* missile)
 {
     for (const auto& effect : g_spell_effects) {
         for (int missile_index = 0; missile_index < static_cast<int>(effect->missiles.size());
@@ -554,14 +554,14 @@ void UpdateSpellEffects(void)
         for (int visual_index = 0;
              visual_index < static_cast<int>(effect.spell_visuals.size()) && alive;
              ++visual_index) {
-            W8SpellVisual* visual = effect.spell_visuals[visual_index];
+            SpellVisual* visual = effect.spell_visuals[visual_index];
             if (!visual->finished) {
                 alive = false;
             }
         }
         for (int missile_index = 0;
              missile_index < static_cast<int>(effect.missiles.size()) && alive; ++missile_index) {
-            W8Missile* missile = effect.missiles[missile_index];
+            Missile* missile = effect.missiles[missile_index];
             if (!missile->flight_done) {
                 alive = false;
             }
@@ -582,7 +582,7 @@ void UpdateSpellEffects(void)
         if (process) {
 
             if (effect.missiles_pending) {
-                W8Missile* missile = 0;
+                Missile* missile = 0;
 
                 for (int missile_index = 0;
                      missile_index < static_cast<int>(effect.missiles.size()); ++missile_index) {
@@ -591,9 +591,9 @@ void UpdateSpellEffects(void)
                     effect.missiles.erase(effect.missiles.begin() + missile_index);
                 }
                 if (missile != 0) {
-                    glm::vec3 position = missile->GetPosition();
+                    glm::vec3 position = missile->nav.GetPosition();
                     position.y -= 1e+03f;
-                    W8SpellVisual* visual =
+                    SpellVisual* visual =
                         SpawnSpellEffect(&position, g_spell_records[effect.kind].resource_name,
                                          missile->definition.duration_scale, 0, 0);
                     if (visual != 0) {
@@ -650,7 +650,7 @@ void UpdateSpellEffects(void)
         }
         for (int release_visual = 0; release_visual < static_cast<int>(effect.spell_visuals.size());
              ++release_visual) {
-            W8SpellVisual* visual = effect.spell_visuals[release_visual];
+            SpellVisual* visual = effect.spell_visuals[release_visual];
             visual->auto_release = true;
             if (effect.sustained) {
                 visual->finished = true;
@@ -666,7 +666,7 @@ void UpdateSpellEffects(void)
 
 /* Take one missile back off the spell effect that owns it. The first effect
    whose missile list contains it drops the entry and stops the walk. */
-void DetachMissileReferences(W8Missile* missile)
+void DetachMissileReferences(Missile* missile)
 {
     for (const auto& effect : g_spell_effects) {
         const bool was_removed = wiz8::erase_first(effect->missiles, missile);
@@ -753,7 +753,7 @@ void FinishSpellEffect(W8SpellEffectEntry* effect)
          g_status.buffers.Char[effect->target.iChar].hp_current == 0)) {
         target.iType = W8_TARGET_KIND_PLACE;
         if (effect->target.iType == W8_TARGET_KIND_MONSTER) {
-            W8NavigatorMovementState* movement = &monster_info->p3D->movement;
+            NavigatorMovement* movement = &monster_info->p3D->nav.movement;
             position = movement->position;
             position.y += movement->height_offset;
             position.y = probeGround(position).position.y;
@@ -1901,7 +1901,7 @@ unsigned int MonsterCastsSpell(W8MonsterInfo* monster_info, int spell_id, unsign
     return SpellCastFatigueCost(spell_id, result);
 }
 
-void W8SpellEffectEntry::AddVisual(W8SpellVisual* visual)
+void W8SpellEffectEntry::AddVisual(SpellVisual* visual)
 {
     if (visual != 0) {
         visual->auto_release = false;
@@ -1915,7 +1915,7 @@ void W8SpellEffectEntry::AddVisual(W8SpellVisual* visual)
 void SpawnLureEffects(W8SpellEffectEntry* owner, int argument, W8CombatSlot* target)
 {
     glm::vec3 position;
-    W8SpellVisual* effect;
+    SpellVisual* effect;
 
     target->point.y -= 1000.0f;
     position = target->point;
@@ -1928,7 +1928,7 @@ void SpawnLureEffects(W8SpellEffectEntry* owner, int argument, W8CombatSlot* tar
     effect = SpawnSpellEffect(&position, "hyp_lure2", argument, 0, 0);
     if (effect != 0) {
         effect->auto_release = false;
-        effect->pending_behaviour = W8_ANIMATION_NEVER_STOP;
+        effect->visual.pending_behaviour = W8_ANIMATION_NEVER_STOP;
         owner->spell_visuals.push_back(effect);
     }
 }
@@ -2627,9 +2627,9 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
     bool forced;
     bool icon_flag;
     W8MonsterRecord* record_data;
-    W8Missile* missile;
-    W8Monster* monster;
-    W8SpellVisual* visual;
+    Missile* missile;
+    Monster* monster;
+    SpellVisual* visual;
     W8MonsterInfo* monster_info;
     unsigned int backfire_chance;
     int message;
@@ -2735,7 +2735,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                         disposition = W8_DISPOSITION_HOSTILE;
                     }
                     heading = HeadingTowardNearestMonster(ground_point, disposition, 0);
-                    const auto placement = GetWorldOctree()->navigatorPositions(
+                    const auto placement = GetWorldSpatialIndex()->navigatorPositions(
                         ground_point, heading,
                         static_cast<float>(
                             g_world_cursor_extent_table
@@ -2910,9 +2910,12 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                     }
                 } else {
                     if (TargetSourceIsMonster(source, 0)) {
-                        visual = CreateAttachedSpellEffect(
-                            g_spell_records[spell_id].resource_name, power_level,
-                            GetMonsterByLocationID(source->iMonsterID), 0, 0);
+                        auto* actor = GetMonsterByLocationID(source->iMonsterID);
+                        visual =
+                            actor
+                                ? CreateAttachedSpellEffect(g_spell_records[spell_id].resource_name,
+                                                            power_level, actor, 0, 0)
+                                : nullptr;
                     } else {
                         origin = source->point;
                         direction = target->point - origin;
@@ -2951,6 +2954,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                 if (spell_id != W8_SPELL_SET_PORTAL && spell_id != W8_SPELL_RETURN_TO_PORTAL) {
                     for (index = 0; index < static_cast<int>(monster_markers.size()); ++index) {
                         monster = GetMonsterByLocationID(monster_markers[index]);
+                        if (!monster) continue;
                         visual = CreateMonsterSpellEffect(g_spell_records[spell_id].resource_name,
                                                           power_level, monster, 0, 0);
                         owner.AddVisual(visual);
@@ -2992,6 +2996,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                 }
                 for (index = 0; index < static_cast<int>(monster_markers.size()); ++index) {
                     monster = GetMonsterByLocationID(monster_markers[index]);
+                    if (!monster) continue;
                     visual = CreateMonsterSpellEffect(g_spell_records[spell_id].resource_name,
                                                       power_level, monster, 0, 0);
                     owner.AddVisual(visual);
@@ -3209,7 +3214,7 @@ void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targ
     glm::vec3 trace;
     glm::vec3 saved;
     W8MonsterInfo* monster_info;
-    W8Navigator* navigator;
+    Navigator* navigator;
     W8SpellTargetType target_type;
 
     if (source->iType <= W8_TARGET_SOURCE_NONE || source->iType >= W8_TARGET_SOURCE_COUNT) {
@@ -3255,7 +3260,7 @@ void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targ
             from = source->point;
         }
         trace = target->point;
-        GetWorldOctree()->TraceLineOfSight(&from, &trace, true, -3, -3, true, 0);
+        GetWorldSpatialIndex()->TraceLineOfSight(&from, &trace, true, -3, -3, true, 0);
         target->point = trace;
         saved = source->point;
         source->point = target->point;
@@ -3263,7 +3268,7 @@ void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targ
             from = cameraLocation();
             target->point = from;
         } else if (monster_source) {
-            navigator = monster_info->p3D;
+            navigator = &(monster_info->p3D)->nav;
             target->point = navigator->movement.position;
             target->point.y += navigator->movement.height_offset;
         } else {
@@ -3284,7 +3289,7 @@ void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targ
     if (TargetSourceIsCharacter(source, 0)) {
         navigator = PartyNavigator();
     } else if (monster_source) {
-        navigator = monster_info->p3D;
+        navigator = &(monster_info->p3D)->nav;
     } else {
         target->point = saved;
         source->iType = W8_TARGET_SOURCE_INDIRECT;
@@ -3370,7 +3375,7 @@ void ScatterSpellPointTarget(int spell_id, W8TargetSource* source, W8CombatSlot*
     glm::vec3 point;
     glm::vec3 delta;
     W8MonsterInfo* monster_info;
-    W8Navigator* navigator;
+    Navigator* navigator;
     double range;
     int attempt;
 
@@ -3381,7 +3386,7 @@ void ScatterSpellPointTarget(int spell_id, W8TargetSource* source, W8CombatSlot*
             Fail("pSource->iType == SOURCE_TYPE_MONSTER");
         }
         monster_info = FindMonster(source->iMonsterID);
-        navigator = monster_info->p3D;
+        navigator = &(monster_info->p3D)->nav;
     }
     origin = navigator->GetPosition();
     for (attempt = 0; attempt < 5; ++attempt) {
@@ -3390,7 +3395,7 @@ void ScatterSpellPointTarget(int spell_id, W8TargetSource* source, W8CombatSlot*
         point.z = static_cast<float>(
             (Random(0x7d1) - g_monster_poster_max_distance) * range * 0.001 + origin.z);
         point.y = Random(0x3e9) * range * 0.001 + origin.y;
-        GetWorldOctree()->TraceLineOfSight(&origin, &point, true, -3, -3, true, 0);
+        GetWorldSpatialIndex()->TraceLineOfSight(&origin, &point, true, -3, -3, true, 0);
         point.y = probeGround(point).position.y;
         if (point.y != kGroundSettleFail) {
             break;
@@ -3502,7 +3507,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
     W8MonsterInfo* monster_info;
     W8MonsterInfo* member;
     W8MonsterGroup* group;
-    W8Monster* monster;
+    Monster* monster;
     float radius;
     float heading;
     float elevation;
@@ -3549,7 +3554,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
         centre = player_pos;
         eye = camera;
     } else if (direct_monster_source) {
-        centre = monster->GetPosition();
+        centre = monster->nav.GetPosition();
         fVertextAvail = false;
         if (!source->point_source && spell_id != W8_SPELL_SPECIAL_ATTACK_CONE &&
             monster_info->has_spell_origin) {
@@ -3561,8 +3566,8 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
         if (fVertextAvail) {
             sight_flag = 3;
         } else {
-            eye = monster->movement.position;
-            eye.y += monster->movement.height_offset;
+            eye = monster->nav.movement.position;
+            eye.y += monster->nav.movement.height_offset;
             sight_flag = 2;
         }
     } else {
@@ -3618,14 +3623,14 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
                 return;
             }
             side = monster_info->ubDisposition;
-            radius += monster->radius;
+            radius += monster->nav.radius;
         } else {
             side = 2;
             distance = (centre.x - player_pos.x) * (centre.x - player_pos.x) +
                        (centre.y - player_pos.y) * (centre.y - player_pos.y) +
                        (centre.z - player_pos.z) * (centre.z - player_pos.z);
-            if (sqrtf(distance) <= radius &&
-                GetWorldOctree()->TraceLineOfSight(&eye, &camera, true, -3, -3, true, 0) == 0) {
+            if (sqrtf(distance) <= radius && GetWorldSpatialIndex()->TraceLineOfSight(
+                                                 &eye, &camera, true, -3, -3, true, 0) == 0) {
                 marked = true;
             }
         }
@@ -3665,8 +3670,8 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
                 side = 1;
             } else if (monster_info->ubDisposition == W8_DISPOSITION_HOSTILE) {
                 side = 2;
-                if (TargetInRangeAndArcs(&camera, PartyNavigator()->radius, &eye, monster->radius,
-                                         heading, elevation, cone_range) &&
+                if (TargetInRangeAndArcs(&camera, PartyNavigator()->radius, &eye,
+                                         monster->nav.radius, heading, elevation, cone_range) &&
                     monster_info->player_visibility.los_flags[sight_flag] != '\0') {
                     marked = true;
                 }
@@ -3691,7 +3696,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
         if (!marked &&
             TargetInRangeAndArcs(&camera, PartyNavigator()->radius, &eye, 0, heading, elevation,
                                  cone_range) &&
-            GetWorldOctree()->TraceLineOfSight(&eye, &camera, true, -3, -3, true, 0) == 0) {
+            GetWorldSpatialIndex()->TraceLineOfSight(&eye, &camera, true, -3, -3, true, 0) == 0) {
             marked = true;
         }
         CollectConeMonsterTargets(source, &eye, heading, elevation, monster_markers,
@@ -3725,8 +3730,8 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
                        (trace.y - player_pos.y) * (trace.y - player_pos.y) +
                        (trace.z - player_pos.z) * (trace.z - player_pos.z);
             if (sqrtf(distance) <= radius &&
-                GetWorldOctree()->TraceLineOfSight(&target_point, &camera, true, -3, -3, true, 0) ==
-                    0) {
+                GetWorldSpatialIndex()->TraceLineOfSight(&target_point, &camera, true, -3, -3, true,
+                                                         0) == 0) {
                 marked = true;
             }
         }
@@ -3754,8 +3759,8 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
             distance = (centre.x - player_pos.x) * (centre.x - player_pos.x) +
                        (centre.y - player_pos.y) * (centre.y - player_pos.y) +
                        (centre.z - player_pos.z) * (centre.z - player_pos.z);
-            if (sqrtf(distance) <= radius &&
-                GetWorldOctree()->TraceLineOfSight(&eye, &camera, true, -3, -3, true, 0) == 0) {
+            if (sqrtf(distance) <= radius && GetWorldSpatialIndex()->TraceLineOfSight(
+                                                 &eye, &camera, true, -3, -3, true, 0) == 0) {
                 marked = true;
             }
         }

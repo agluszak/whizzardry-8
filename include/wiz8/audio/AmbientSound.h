@@ -10,10 +10,11 @@ struct W8Chunk;
 #include <vector>
 
 #include "glm/ext/vector_float3.hpp"
+#include "wiz8/audio/sound3d.h"
 #include "wiz8/audio_resources.h"
 #include "wiz8/platform/game_timer.h"
 
-struct W8World;
+struct World;
 // One level-owned voice and its optional random replay schedule.
 struct W8AmbientTrack {
     wiz8::sound::Clip clip;
@@ -147,15 +148,15 @@ void BuildFootstepPath(char* path, W8FootstepSurface surface, W8FootstepMaterial
                        W8FootstepKind kind, int variant);
 wiz8::sound::Playback PlayFootstep(W8FootstepSurface surface, W8FootstepMaterial material,
                                    W8FootstepKind kind);
-void UpdateAmbientSounds(W8World* world);
+void UpdateAmbientSounds(World* world);
 void RepositionAmbientSounds();
-unsigned char ReadAmbientSoundListFile(W8World& world, std::string_view filename);
-void StartAmbientSoundList(W8World& world);
+unsigned char ReadAmbientSoundListFile(World& world, std::string_view filename);
+void StartAmbientSoundList(World& world);
 
-void PositionAmbientSoundByName(W8World* /* unused */, std::string_view name);
-void StopAmbientSoundByName(W8World* /* unused */, std::string_view name);
+void PositionAmbientSoundByName(World* /* unused */, std::string_view name);
+void StopAmbientSoundByName(World* /* unused */, std::string_view name);
 void ToggleAmbientSoundByName(std::string_view name);
-unsigned char AddAmbientSound(W8World* world, std::string_view name,
+unsigned char AddAmbientSound(World* world, std::string_view name,
                               const W8AmbientSoundConfig* config, const glm::vec3* position,
                               const glm::vec3* region_min, const glm::vec3* region_max,
                               int volume_min, int volume_max, int time_min, int time_max,
@@ -170,7 +171,7 @@ struct W8AmbientSoundState {
     bool stopped;
 };
 std::vector<W8AmbientSoundState> ReadAmbientSoundStates(W8Chunk& file);
-void ApplyAmbientSoundStates(W8World& world, std::span<const W8AmbientSoundState> states);
+void ApplyAmbientSoundStates(World& world, std::span<const W8AmbientSoundState> states);
 
 bool IsSoundEffectsMuted(void);
 void SetSoundEffectsVolume(unsigned char volume);
@@ -178,3 +179,15 @@ void SetSoundEffectsMuted(unsigned char muted);
 
 extern const char* const g_footstep_names[];
 extern const char* const g_footstep_surfaces[];
+
+// Level-owned ambient emitters, schedules, and positional voices. Script voices
+// remain stable until the level is left; unreferenced trigger voices retire when done.
+struct AmbientAudioSystem {
+    ~AmbientAudioSystem();
+    wiz8::sound::Playback footstep_loop;
+    std::vector<std::unique_ptr<W8AmbientSound>> emitters;
+    std::vector<std::unique_ptr<W8AmbientTrack>> tracks;
+    std::vector<std::unique_ptr<Sound3D>> script_sounds;
+    std::vector<std::unique_ptr<Sound3D>> one_shots;
+    void update(const glm::vec3& listener, float yaw, unsigned effects_volume);
+};

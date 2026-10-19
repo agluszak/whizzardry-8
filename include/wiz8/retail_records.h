@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <type_traits>
 
-#include "wiz8/engine_code/Missile.h"
+#include "wiz8/entities/missile.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"

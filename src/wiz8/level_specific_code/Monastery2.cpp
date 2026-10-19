@@ -1,14 +1,13 @@
 #include "wiz8/level_specific_code/Monastery2.h"
 
-#include "Item.h"
 #include "glm/ext/vector_float3.hpp"
-#include "layouts/world.h"
-#include "surrender/srDebug.h"
 #include "wiz8/audio/soundman.h"
-#include "wiz8/engine_code/Prop.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/World.h"
+#include "wiz8/entities/prop.h"
+#include "wiz8/entities/trigger.h"
+#include "wiz8/entities/world_item.h"
 #include "wiz8/item_spawning.h"
+#include "wiz8/platform/assertion.h"
+#include "wiz8/world/world.h"
 
 /* Level Specific Code\Monastery2.cpp (level 9).
 
@@ -31,7 +30,7 @@ static void DisableBellTrigger(const char* name, int line)
 
 bool Monastery2BellButton(Trigger* pTrigger)
 {
-    W8Prop* prop;
+    Prop* prop;
     int slot;
 
     prop = FindPropByName(GetWorld(), "dial1");

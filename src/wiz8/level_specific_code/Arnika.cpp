@@ -10,12 +10,9 @@
 #include "wiz8/audio/sound3d.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/cursor.h"
-#include "wiz8/engine_code/GDCamera.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Navigator.h"
-#include "wiz8/engine_code/Prop.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/World.h"
+#include "wiz8/entities/monster.h"
+#include "wiz8/entities/prop.h"
+#include "wiz8/entities/trigger.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
@@ -29,6 +26,9 @@
 #include "wiz8/location_variables.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/platform/IntervalGate.h"
+#include "wiz8/spatial/navigator.h"
+#include "wiz8/world/party_camera.h"
+#include "wiz8/world/world.h"
 #include "wiz8/xstatus.h"
 
 struct W8NpcState;
@@ -55,24 +55,24 @@ struct W8Elevator {
     Trigger* pTopDoorCollide;    /* 0x1c */
     Trigger* pBottomDoorCollide; /* 0x20 */
     Trigger* pButton;            /* 0x24 */
-    W8Prop* pProp;               /* 0x28: rep the moving master waits on */
+    Prop* pProp;               /* 0x28: rep the moving master waits on */
 };
 
 static W8Elevator gEl01;
 static W8Elevator gEl02;
 
 static bool g_red_button_armed = true;
-static W8Prop* g_el01_button_prop;
-static W8Prop* g_el02_button_prop;
+static Prop* g_el01_button_prop;
+static Prop* g_el02_button_prop;
 
-static W8Prop* g_lazer_prop;
-static W8Prop* g_exit_door_prop;
+static Prop* g_lazer_prop;
+static Prop* g_exit_door_prop;
 static Trigger* g_exit_door_trigger;
 static int g_laser_scanning;
 static Sound3D* g_warning_loop;
 static Sound3D* g_warning_oneshot;
 static std::optional<W8IntervalGate> g_warning_gate;
-static W8Monster* g_mookholo_monster;
+static Monster* g_mookholo_monster;
 
 static void CaptureEl1Moving(W8SavedLocationState& state)
 {
@@ -174,7 +174,7 @@ static void RestoreArnikaElevator(W8Elevator& elevator, const ElevatorStateBindi
     }
 }
 
-static bool RunArnikaElevatorButton(W8Elevator& elevator, W8Prop*& button_prop,
+static bool RunArnikaElevatorButton(W8Elevator& elevator, Prop*& button_prop,
                                     const ElevatorStateBindings& bindings, int command)
 {
     if (command != 0) {
@@ -694,18 +694,18 @@ bool ArnikaEl2Moving(int command)
 }
 
 /* Runs a door and its collide trigger for one elevator step and returns the door's prop. */
-static W8Prop* RunElevatorDoor(Trigger* door, Trigger* collide)
+static Prop* RunElevatorDoor(Trigger* door, Trigger* collide)
 {
-    W8Prop* prop = door->GetProp();
+    Prop* prop = door->GetProp();
     door->Run(-1);
     collide->Run(-1);
     return prop;
 }
 
 /* Runs the lift for one elevator step and returns its prop. */
-static W8Prop* RunElevatorLift(Trigger* lift)
+static Prop* RunElevatorLift(Trigger* lift)
 {
-    W8Prop* prop = lift->GetProp();
+    Prop* prop = lift->GetProp();
     lift->Run(-1);
     return prop;
 }
@@ -719,7 +719,7 @@ void ArnikaElevatorAdvance(W8ArnikaElevatorId which)
 {
     W8Elevator* el;
     /* An invalid state runs nothing and leaves no prop to wait on. */
-    W8Prop* prop = nullptr;
+    Prop* prop = nullptr;
 
     if (which == W8_ARNIKA_ELEVATOR_ONE) {
         el = &gEl01;
@@ -900,9 +900,9 @@ int ArnikaPedestalItem(int* previous_item)
     if (npc != 0) {
         info = GetNpcMonsterInfo(npc);
         if (info != 0) {
-            position = info->p3D->movement.position;
-            position.y += info->p3D->movement.height_offset;
-            PartyCamera().LookAt(&position, false);
+            position = info->p3D->nav.movement.position;
+            position.y += info->p3D->nav.movement.height_offset;
+            partyCamera().LookAt(&position, false);
         }
         QueueNpcScriptNotice(npc, 0, 8, false, 0);
     }

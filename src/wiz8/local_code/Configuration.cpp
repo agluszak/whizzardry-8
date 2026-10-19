@@ -6,12 +6,12 @@
 #include <fmt/format.h>
 
 #include "asset_paths.h"
-#include "surrender/srDebug.h"
 #include "wiz8/audio/AmbientSound.h"
 #include "wiz8/chunk.h"
-#include "wiz8/engine_code/Quality.h"
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_screens/MGSKeyboard.h"
+#include "wiz8/platform/assertion.h"
+#include "wiz8/render/quality.h"
 
 W8GameSettings g_settings;
 static char g_config_file_name[8] = "Wiz8";

@@ -11,7 +11,6 @@
 
 #include <fmt/format.h>
 
-#include "Video2.h"
 #include "compat/native.h"
 #include "conditions.h"
 #include "equipment_slots.h"
@@ -25,8 +24,6 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/cursor.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
@@ -52,6 +49,8 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/platform/timer.h"
+#include "wiz8/render/frame.h"
+#include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/xstatus.h"

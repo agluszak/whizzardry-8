@@ -12,7 +12,7 @@ parser.add_argument('--shadercross', required=True, type=Path)
 parser.add_argument('--glslang', default='glslangValidator')
 parser.add_argument('--check', action='store_true')
 args = parser.parse_args()
-source = Path(__file__).resolve().parents[2] / 'src/surrender/devices/sdl_gpu'
+source = Path(__file__).resolve().parents[2] / 'src/render/shaders'
 output = source / 'compiled'
 output.mkdir(exist_ok=True)
 with tempfile.TemporaryDirectory(prefix='wiz8-shaders-') as directory:

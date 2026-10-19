@@ -35,10 +35,6 @@
 #include "local_screens/RCSStatsPage.h"
 #include "scoped_asset_roots.h"
 #include "scoped_records.h"
-#include "surrender/srCamera.h"
-#include "surrender/srModelInstance.h"
-#include "surrender/srNode.h"
-#include "surrender/srScene.h"
 #include "temporary_directory.h"
 #include "wiz8/assertions.h"
 #include "wiz8/asset_paths.h"
@@ -60,8 +56,6 @@
 #include "wiz8/dialog_code/DialogTextArea.h"
 #include "wiz8/dialog_code/DialogTextEntry.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/fonts.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/character.h"
@@ -80,8 +74,10 @@
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/modal_content.h"
-#include "wiz8/overlay_scenes.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/render/compositor.h"
+#include "wiz8/render/frame.h"
+#include "wiz8/render/mesh_instance.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"
@@ -2255,42 +2251,24 @@ TEST_CASE("Dialog completion extracts a result before retirement and preserves r
     OpenModal(nullptr);
 }
 
-TEST_CASE("Video scene shutdown releases owned roots and preserves independent children")
+TEST_CASE("Compositor membership follows quad owners without owning the widgets")
 {
-    int destroyed = 0;
-    struct OverlayChild : srNode {
-        int& destroyed;
-        OverlayChild(srNode* parent, int& destroyed) : srNode(parent), destroyed(destroyed) {}
-        ~OverlayChild() override { ++destroyed; }
-    };
-    for (auto* scene :
-         {&g_overlay_scenes.user, &g_overlay_scenes.fullscreen, &g_overlay_scenes.frame[0],
-          &g_overlay_scenes.frame[1], &g_overlay_scenes.square, &g_overlay_scenes.prerender[0],
-          &g_overlay_scenes.prerender[1], &g_overlay_scenes.cursor}) {
-        *scene = std::make_unique<srScene>(nullptr);
-        (*scene)->adoptChild(std::make_unique<OverlayChild>(nullptr, destroyed));
+    auto texture = std::make_shared<Texture>();
+    std::weak_ptr<Texture> lifetime = texture;
+    auto independent = std::make_unique<OverlayQuad>();
+    independent->texture = texture;
+    texture.reset();
+    {
+        Compositor compositor;
+        compositor.attach(*independent, OverlayLayer::Cursor);
+        auto transient = std::make_unique<OverlayQuad>(*independent);
+        compositor.attach(*transient, OverlayLayer::OverUi);
+        transient.reset();
+        REQUIRE_FALSE(lifetime.expired());
+        compositor.clear();
     }
-    g_overlay_scenes.camera = std::make_unique<srCamera>(nullptr);
-    g_overlay_scenes.square_camera =
-        g_overlay_scenes.square->adoptChild(std::make_unique<srCamera>());
-    g_cursor_node = std::make_unique<srModelInstance>(g_overlay_scenes.cursor.get());
-    auto independent = std::make_unique<OverlayChild>(g_overlay_scenes.user.get(), destroyed);
-    auto borrowed_sprite = std::make_unique<stModelInstance2D>(g_overlay_scenes.frame[1].get());
-    borrowed_sprite->render_state.display_state = 4;
-    auto* retired =
-        g_overlay_scenes.frame[1]->adoptChild(std::make_unique<stModelInstance2D>(nullptr));
-    retired->render_state.display_state = 4;
-    PurgeInactiveSceneInstances(g_overlay_scenes.frame[1].get());
-    REQUIRE(borrowed_sprite->getParent() == nullptr);
-    REQUIRE(g_overlay_scenes.frame[1]->getChildCount() == 1); // The other adopted test child.
-    ShutdownVideoScenes();
-    REQUIRE(destroyed == 8);
-    REQUIRE(independent->getParent() == nullptr);
-    REQUIRE(g_cursor_node == nullptr);
-    REQUIRE(g_overlay_scenes.square_camera == nullptr);
-    REQUIRE_FALSE(g_overlay_scenes.camera);
-    REQUIRE_FALSE(g_overlay_scenes.cursor);
-    ShutdownVideoScenes();
-    REQUIRE(destroyed == 8);
+    independent->detach(); // Safe after its compositor has been destroyed.
+    REQUIRE_FALSE(lifetime.expired());
     independent.reset();
+    REQUIRE(lifetime.expired());
 }

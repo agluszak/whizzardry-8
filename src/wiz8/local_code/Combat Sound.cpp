@@ -18,9 +18,8 @@
 #include "layouts/character.h"
 #include "layouts/item_instance.h"
 #include "layouts/targeting.h"
-#include "surrender/srDebug.h"
 #include "wiz8/audio/soundman.h"
-#include "wiz8/engine_code/Missile.h"
+#include "wiz8/entities/missile.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -29,6 +28,7 @@
 #include "wiz8/local_code/CombatSound.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/random.h"
 
 static std::array<std::string, 38> g_weapon_attack_sounds;
@@ -197,7 +197,7 @@ void MakePCMeleeHitSound(int iChar, const W8HandAttack* hand_attack, W8CombatSlo
     PlayCombatSound(GetMaterialImpactSound(weapon_class, target_material), 1, true, volume);
 }
 
-void MakePCHitSound(W8Missile* missile, W8CombatSlot* target, int hit_location, int volume)
+void MakePCHitSound(Missile* missile, W8CombatSlot* target, int hit_location, int volume)
 {
     int weapon_class = g_missile_table[missile->missile_table_index].weapon_sound_class;
 

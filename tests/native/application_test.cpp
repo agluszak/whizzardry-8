@@ -13,7 +13,7 @@
 #include "temporary_directory.h"
 #include "wiz8/application.h"
 #include "wiz8/asset_paths.h"
-#include "wiz8/engine_code/Video2.h"
+#include "wiz8/render/frame.h"
 #include "wiz8/ui_input.h"
 
 static void CheckStopped()

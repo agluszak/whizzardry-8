@@ -31,7 +31,6 @@ private:
     SDL_Rect previous_;
 };
 
-SDL_Surface& GetFrameBufferSurface();
 // Surfaces in kFramePixelFormat without blending.
 SDLSurfaceOwner CreateFrameSurface(int width, int height);
 SDLSurfaceOwner ConvertBitmapToFrameSurface(const SDL_Surface& bitmap);

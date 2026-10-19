@@ -6,7 +6,6 @@
 
 #include <fmt/printf.h>
 
-#include "surrender/srDebug.h"
 #include "wiz8/chunk.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/layouts/game_status.h"
@@ -14,6 +13,7 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/platform/assertion.h"
 
 /* Local Code\Factions.cpp. The unit is named by the two assertions this body
    embeds, and the 0..20 domain they bound is the same one the contiguous

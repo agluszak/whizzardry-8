@@ -15,13 +15,13 @@
 #include <SDL3/SDL_video.h>
 #include <catch2/catch_test_macros.hpp>
 
-#include "Video2.h"
 #include "compat/native.h"
 #include "wiz8/application.h"
-#include "wiz8/engine_code/GameData.h"
 #include "wiz8/key_bindings.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/timer.h"
+#include "wiz8/render/frame.h"
+#include "wiz8/spatial/level_spatial_index.h"
 
 SDL_Window* ghWindow = nullptr;
 bool g_screenshot_pending = false;

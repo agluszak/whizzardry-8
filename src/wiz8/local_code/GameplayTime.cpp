@@ -14,21 +14,12 @@
 #include "layouts/main_game_screen.h"
 #include "layouts/targeting.h"
 #include "monster_actions.h"
-#include "surrender/srDebug.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/conditions.h"
 #include "wiz8/dice.h"
-#include "wiz8/engine_code/Environment.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/Levels.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Navigator.h"
-#include "wiz8/engine_code/OctPath.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/PolyPick.h"
-#include "wiz8/engine_code/Video2.h"
+#include "wiz8/entities/monster.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
 #include "wiz8/gameplay_constants.h"
@@ -64,8 +55,16 @@
 #include "wiz8/monster_runtime.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
+#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/random.h"
+#include "wiz8/render/frame.h"
+#include "wiz8/render/picking.h"
+#include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/spatial/navigation.h"
+#include "wiz8/spatial/navigator.h"
 #include "wiz8/utility.h"
+#include "wiz8/world/environment.h"
+#include "wiz8/world/level_session.h"
 #include "wiz8/xstatus.h"
 
 constexpr float kFastMagicRecoveryScale = 1.25f;
@@ -908,7 +907,7 @@ static void MoveMonsterGroupAndAllies(W8MonsterGroup* group, glm::vec3* position
    ticks the combat effect slots. */
 static void AgeMonsterMovement(W8MonsterInfo* monster_info, unsigned int minutes)
 {
-    W8Monster* monster;
+    Monster* monster;
 
     if (monster_info->pCombat) {
         W8CombatSlot target;
@@ -926,7 +925,7 @@ static void AgeMonsterMovement(W8MonsterInfo* monster_info, unsigned int minutes
         location = monster->GetRepresentationLocation();
         if (monster->formation.x == 0.0f && monster->formation.y == 0.0f &&
             monster->formation.z == 0.0f) {
-            monster->formation = monster->GetPosition();
+            monster->formation = monster->nav.GetPosition();
         }
         last_seen = monster->formation;
         delta = last_seen - location;
@@ -937,11 +936,11 @@ static void AgeMonsterMovement(W8MonsterInfo* monster_info, unsigned int minutes
             probe.y += 1e+03f;
             camera = cameraLocation();
             if (projectsToCamera(probe) == 0 &&
-                !GetWorldOctree()->HasLineOfSight(&camera, &probe, true)) {
+                !GetWorldSpatialIndex()->HasLineOfSight(&camera, &probe, true)) {
                 glm::vec3 notify_position = last_seen;
                 W8MonsterGroup* group = FindMonsterGroup(monster_info->monster_group_id);
 
-                MoveMonsterGroupAndAllies(group, &notify_position, monster->GetYaw());
+                MoveMonsterGroupAndAllies(group, &notify_position, monster->nav.GetYaw());
             }
         }
         return;
@@ -949,8 +948,8 @@ static void AgeMonsterMovement(W8MonsterInfo* monster_info, unsigned int minutes
     if (GetViewDistance() != g_sight_default) {
         return;
     }
-    if ((monster->linked_navigator == 0 && !monster->halted) &&
-        (monster_info->movement_stall_ticks > 1 || !monster->movement_stopped)) {
+    if ((monster->nav.linked_navigator == 0 && !monster->nav.halted) &&
+        (monster_info->movement_stall_ticks > 1 || !monster->nav.movement_stopped)) {
         glm::vec3 location;
         glm::vec3 previous;
         glm::vec3 delta;
@@ -971,7 +970,7 @@ static void AgeMonsterMovement(W8MonsterInfo* monster_info, unsigned int minutes
                 bool cleared = false;
 
                 if (glm::length(delta) < 500.0f) {
-                    glm::vec3 navigator_position = monster->GetPosition();
+                    glm::vec3 navigator_position = monster->nav.GetPosition();
 
                     /* Retail resets the AI mode and pathing cooldown only once the
                        short-move test passes; a long move leaves both alone. */
@@ -981,9 +980,9 @@ static void AgeMonsterMovement(W8MonsterInfo* monster_info, unsigned int minutes
                         !monster_info->party_threat.visible_to_player) {
                         glm::vec3 next_position;
 
-                        next_position = monster->movement.attachment->GetNextPosition();
+                        next_position = monster->nav.movement.attachment->GetNextPosition();
                         if (glm::length(next_position) == static_cast<float>(0.0)) {
-                            next_position = monster->GetPosition();
+                            next_position = monster->nav.GetPosition();
                         }
                         {
                             glm::vec3 camera;
@@ -991,13 +990,13 @@ static void AgeMonsterMovement(W8MonsterInfo* monster_info, unsigned int minutes
 
                             camera = cameraLocation();
                             if (projectsToCamera(probe) == 0 &&
-                                !GetWorldOctree()->HasLineOfSight(&camera, &probe, true)) {
+                                !GetWorldSpatialIndex()->HasLineOfSight(&camera, &probe, true)) {
                                 glm::vec3 notify_position = next_position;
                                 W8MonsterGroup* group =
                                     FindMonsterGroup(monster_info->monster_group_id);
 
                                 MoveMonsterGroupAndAllies(group, &notify_position,
-                                                          monster->GetYaw());
+                                                          monster->nav.GetYaw());
                                 cleared = true;
                             }
                         }
@@ -1010,31 +1009,32 @@ static void AgeMonsterMovement(W8MonsterInfo* monster_info, unsigned int minutes
                 glm::vec3 location2;
 
                 camera = cameraLocation();
-                location2 = monster->GetPosition();
+                location2 = monster->nav.GetPosition();
                 probe = location2;
                 probe.y += 1e+03f;
                 /* Both on-screen tests take the representation location read at the top of
                    the watch block, not the navigator position (0x00503e90, 0x00503f40). */
                 if (projectsToCamera(location) == 0 &&
-                    !GetWorldOctree()->HasLineOfSight(&camera, &probe, true)) {
+                    !GetWorldSpatialIndex()->HasLineOfSight(&camera, &probe, true)) {
                     if (monster->formation.x == 0.0f && monster->formation.y == 0.0f &&
                         monster->formation.z == 0.0f) {
-                        monster->formation = monster->GetPosition();
+                        monster->formation = monster->nav.GetPosition();
                     }
                     probe = monster->formation;
                     probe.y += 1e+03f;
                     if (projectsToCamera(location) == 0 &&
-                        !GetWorldOctree()->HasLineOfSight(&camera, &probe, true)) {
+                        !GetWorldSpatialIndex()->HasLineOfSight(&camera, &probe, true)) {
                         if (monster->formation.x == 0.0f && monster->formation.y == 0.0f &&
                             monster->formation.z == 0.0f) {
-                            monster->formation = monster->GetPosition();
+                            monster->formation = monster->nav.GetPosition();
                         }
                         {
                             glm::vec3 notify_position = monster->formation;
                             W8MonsterGroup* group =
                                 FindMonsterGroup(monster_info->monster_group_id);
 
-                            MoveMonsterGroupAndAllies(group, &notify_position, monster->GetYaw());
+                            MoveMonsterGroupAndAllies(group, &notify_position,
+                                                      monster->nav.GetYaw());
                         }
                         cycle_cleared = true;
                         flags_cleared = true;

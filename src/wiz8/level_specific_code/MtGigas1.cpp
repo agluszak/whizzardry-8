@@ -1,18 +1,16 @@
 #include "wiz8/level_specific_code/MtGigas1.h"
 
-#include "AnimRep.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
-#include "layouts/world.h"
-#include "surrender/srCamera.h"
 #include "wiz8/audio/soundman.h"
-#include "wiz8/engine_code/GDProp.h"
-#include "wiz8/engine_code/Prop.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/World.h"
+#include "wiz8/entities/animation_types.h"
+#include "wiz8/entities/prop.h"
+#include "wiz8/entities/trigger.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/location_variables.h"
+#include "wiz8/render/camera.h"
+#include "wiz8/world/world.h"
 #include "wiz8/xstatus.h"
 
 struct W8ItemInstance;
@@ -25,7 +23,7 @@ struct W8NpcState;
    range sits between the MtGigas2 TU and the MtGigasOuter TU which starts
    at 0x004DBE70. */
 
-static GDProp* g_plate_prop;
+static Prop* g_plate_prop;
 static bool g_plate_down;
 
 static void RunPlateTrigger(const char* name, W8AnimationDirection direction)
@@ -33,20 +31,20 @@ static void RunPlateTrigger(const char* name, W8AnimationDirection direction)
     Trigger* trigger = FindTriggerByName(name);
     if (trigger != 0) {
         trigger->Run(-1);
-        W8Prop* prop = trigger->GetProp();
+        Prop* prop = trigger->GetProp();
         if (prop != 0) {
             prop->SetAnimationDirection(direction);
         }
     }
 }
 
-/* Level-load restore: binds the "plate" trigger's prop to the plate GDProp
+/* Level-load restore: binds the "plate" trigger's prop to the plate Prop
    global and mirrors the saved PPlateDown variable into the latch flag,
    creating the variable when the level never wrote one. */
 void MtGigas1Setup(void)
 {
     Trigger* pTrigger;
-    W8Prop* prop;
+    Prop* prop;
 
     g_plate_prop = 0;
     g_plate_down = false;
@@ -54,7 +52,7 @@ void MtGigas1Setup(void)
     if (pTrigger != 0) {
         prop = pTrigger->GetProp();
         if (prop != 0) {
-            g_plate_prop = prop->m_gd_prop.get();
+            g_plate_prop = (prop->collision_ready ? prop : nullptr);
         }
     }
     if (GetLocationVarIDByName("PPlateDown") == -1) {
@@ -102,7 +100,7 @@ bool MtGigas1PressurePlate(Trigger* pTrigger)
     if (g_plate_prop == 0) {
         return false;
     }
-    glm::dvec3 camera_position = GetWorld()->camera->getLocation();
+    glm::dvec3 camera_position = GetWorld()->camera->transform.getLocation();
     position.x = static_cast<float>(camera_position.x);
     position.z = static_cast<float>(camera_position.z);
     const auto bounds = g_plate_prop->computeBounds();

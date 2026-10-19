@@ -10,11 +10,11 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include "Missile.h"
 #include "attack_modes.h"
 #include "layouts/character.h"
 #include "layouts/gameplay_databases.h"
 #include "retail_records.h"
+#include "wiz8/entities/missile.h"
 #include "wiz8/retail_text_records.h"
 #include "wiz8/unicode.h"
 

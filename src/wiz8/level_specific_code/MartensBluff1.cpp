@@ -7,16 +7,11 @@
 #include <glm/geometric.hpp>
 
 #include "glm/ext/vector_float3.hpp"
-#include "layouts/world.h"
-#include "surrender/srCamera.h"
 #include "wiz8/audio/sound3d.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/dice.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/stParticle.h"
+#include "wiz8/entities/monster.h"
+#include "wiz8/entities/trigger.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/game_status.h"
@@ -30,9 +25,13 @@
 #include "wiz8/location_variables.h"
 #include "wiz8/platform/IntervalGate.h"
 #include "wiz8/platform/random.h"
+#include "wiz8/render/camera.h"
+#include "wiz8/render/particle_system.h"
+#include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/string_database.h"
 #include "wiz8/utility.h"
+#include "wiz8/world/world.h"
 #include "wiz8/xstatus.h"
 
 /* Level Specific Code\MartensBluff1.cpp (level 5, Marten's Bluff).
@@ -60,7 +59,7 @@ void MartensBluff1Setup(void)
     glm::vec3 position;
     glm::vec3 trigger_position;
     Trigger* pTrigger;
-    stParticle* particle;
+    ParticleSystem* particle;
     int dial_state;
 
     FindTriggerByName("Gas-Switch");
@@ -75,7 +74,7 @@ void MartensBluff1Setup(void)
         CreateLocationVar("DialState", 0x470111);
     }
     MartensBluff1Transporter(static_cast<int>(0xEFFFFFFF));
-    position = glm::vec3(GetWorld()->camera->getLocation());
+    position = glm::vec3(GetWorld()->camera->transform.getLocation());
     pTrigger = FindTriggerByName("MR101");
     if (pTrigger != 0 && (pTrigger->flags & W8_TRIGGER_POSITIONED) != 0) {
         pTrigger->GetPosition(&trigger_position);
@@ -97,7 +96,7 @@ void MartensBluff1Setup(void)
             if ((dial_state & 0xf0000000) == 0) {
                 particle->SetActive(false);
             } else {
-                position = glm::vec3(particle->getLocation());
+                position = glm::vec3(particle->transform.getLocation());
                 g_gas_sound0 = CreateAndPlaySoundNode(
                     "Data\\Sound\\Ambients\\Air_Escaping_Loop.wav", position, 0.3f, 30.0f, true);
             }
@@ -107,7 +106,7 @@ void MartensBluff1Setup(void)
             if ((dial_state & 0xf0000000) == 0) {
                 particle->SetActive(false);
             } else {
-                position = glm::vec3(particle->getLocation());
+                position = glm::vec3(particle->transform.getLocation());
                 g_gas_sound1 = CreateAndPlaySoundNode(
                     "Data\\Sound\\Ambients\\Air_Escaping_Loop.wav", position, 0.3f, 30.0f, true);
             }
@@ -179,7 +178,7 @@ bool MartensBluff1DialC(Trigger* pTrigger)
    GasSpray particles and their looping sounds. */
 bool MartensBluff1GasSwitch(Trigger* pTrigger)
 {
-    stParticle* particle;
+    ParticleSystem* particle;
     int state;
 
     if (g_door_controller == 0) {
@@ -218,7 +217,7 @@ bool MartensBluff1GasSwitch(Trigger* pTrigger)
 bool MartensBluff1JDoorController(Trigger* pTrigger)
 {
     glm::vec3 position;
-    stParticle* particle;
+    ParticleSystem* particle;
     int state;
 
     if (g_door_controller == 0 || pTrigger->running) {
@@ -235,18 +234,18 @@ bool MartensBluff1JDoorController(Trigger* pTrigger)
     particle = FindParticleByName("GasSpray-00");
     if (particle != 0) {
         particle->SetActive(true);
-        position = glm::vec3(particle->getLocation());
+        position = glm::vec3(particle->transform.getLocation());
         g_gas_sound0 = CreateAndPlaySoundNode("Data\\Sound\\Ambients\\Air_Escaping_Loop.wav",
                                               position, 0.3f, 30.0f, true);
     }
     particle = FindParticleByName("GasSpray-01");
     if (particle != 0) {
         particle->SetActive(true);
-        position = glm::vec3(particle->getLocation());
+        position = glm::vec3(particle->transform.getLocation());
         g_gas_sound1 = CreateAndPlaySoundNode("Data\\Sound\\Ambients\\Air_Escaping_Loop.wav",
                                               position, 0.3f, 30.0f, true);
     }
-    position = glm::vec3(GetWorld()->camera->getLocation());
+    position = glm::vec3(GetWorld()->camera->transform.getLocation());
     PointCastSpell(position, W8_SPELL_FREEZE_FLESH, 5);
     state |= 0x10000000;
     SetTriggerVariableByName("DialState", state);

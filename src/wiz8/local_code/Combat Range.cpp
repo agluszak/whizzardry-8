@@ -16,13 +16,7 @@
 #include "local_code/Factions.h"
 #include "monster_actions.h"
 #include "sight_state.h"
-#include "surrender/srDebug.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/Levels.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Navigator.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/Spells.h"
+#include "wiz8/entities/monster.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
@@ -41,11 +35,16 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/character_events.h"
+#include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/random.h"
+#include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/spatial/navigator.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/utility.h"
+#include "wiz8/world/level_session.h"
 #include "wiz8/xstatus.h"
 
 int g_event_sight_blocked = kFirstRemappedEvent + 30;
@@ -193,8 +192,8 @@ bool CharacterActionReachesTarget(int party_slot, int hand, const W8Action& sele
             return false;
         }
         if (trace) {
-            return GetWorldOctree()->TraceLineOfSight(&camera_top, &point, true, -3, -3, true, 0) ==
-                   0;
+            return GetWorldSpatialIndex()->TraceLineOfSight(&camera_top, &point, true, -3, -3, true,
+                                                            0) == 0;
         }
     } else if (target->iType == W8_TARGET_KIND_GROUP) {
         W8MonsterGroup* group = FindMonsterGroup(target->iGroupID, false);
@@ -680,7 +679,7 @@ float CalcRangeDistance(W8RangeCategory range_category, W8TargetSource* source)
             Fail("pSource->iMonsterID != -1");
         }
         W8MonsterInfo* monster_info = FindMonster(source->iMonsterID);
-        return monster_info->p3D->movement.alternate_radius + distance;
+        return monster_info->p3D->nav.movement.alternate_radius + distance;
     }
     return distance;
 }
@@ -1017,12 +1016,12 @@ int FindNearestVisibleGroupMonster(W8MonsterInfo* monster_info, int group_id,
 /* The attack-origin offset for `kind` 1 (projectile) or 3 (spell): the
    monster's height offset, shifted by the delta between its navigator
    position and the muzzle/hand point when that point resolves. */
-void GetMonsterAttackSourceOffset(W8Monster* monster, int kind, glm::vec3* out)
+void GetMonsterAttackSourceOffset(Monster* monster, int kind, glm::vec3* out)
 {
-    (*out) = glm::vec3(0.0f, monster->movement.height_offset, 0.0f);
+    (*out) = glm::vec3(0.0f, monster->nav.movement.height_offset, 0.0f);
     if (kind == 1) {
         if (monster->GetProjectilePosition(out)) {
-            glm::vec3 position = monster->GetPosition();
+            glm::vec3 position = monster->nav.GetPosition();
             *out -= position;
             return;
         }
@@ -1031,7 +1030,7 @@ void GetMonsterAttackSourceOffset(W8Monster* monster, int kind, glm::vec3* out)
             return;
         }
         if (monster->GetSpellPosition(out)) {
-            glm::vec3 position = monster->GetPosition();
+            glm::vec3 position = monster->nav.GetPosition();
             *out -= position;
             return;
         }

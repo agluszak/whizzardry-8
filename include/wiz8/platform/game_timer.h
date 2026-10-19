@@ -3,8 +3,6 @@ struct W8Chunk;
 
 #include <cstdint>
 
-#include "wiz8/layouts/game_status.h"
-
 namespace wiz8 {
 class File;
 }
@@ -43,22 +41,7 @@ public:
 
     W8GameTimer();
     W8GameTimer(float duration, bool raw_time);
-    int ReadClock() const
-    {
-        switch (m_clock_mode) {
-        case W8_TIMER_CLOCK_GAME:
-            return (g_status.game_time_days * 86400000 + g_status.game_time_ms) * 10;
-        default:
-            break;
-        }
-        if (!m_flags.raw_time) {
-            if (g_shared_timer_paused) {
-                return g_shared_timer_pause_time;
-            }
-            return GameClockTicks() - g_shared_timer_pause_base;
-        }
-        return GameClockTicks();
-    }
+    int ReadClock() const;
     int GetTime();
     void SetMode(W8TimerClock mode);
     void SetDuration(float duration);

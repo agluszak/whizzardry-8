@@ -14,7 +14,7 @@
 #include "npc_trade_price.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/cursor.h"
-#include "wiz8/engine_code/Item.h"
+#include "wiz8/entities/world_item.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/combat_state.h"

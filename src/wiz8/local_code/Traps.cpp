@@ -17,17 +17,9 @@
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/gameplay_databases.h"
 #include "layouts/targeting.h"
-#include "layouts/world.h"
-#include "surrender/srDebug.h"
-#include "wiz8/engine_code/GDCamera.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/Levels.h"
-#include "wiz8/engine_code/Navigator.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/Prop.h"
-#include "wiz8/engine_code/Spells.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/World.h"
+#include "wiz8/entities/locks.h"
+#include "wiz8/entities/prop.h"
+#include "wiz8/entities/trigger.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/game_status.h"
@@ -35,12 +27,20 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
+#include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/random.h"
+#include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/spatial/navigator.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/string_database.h"
+#include "wiz8/world/camera_pose.h"
+#include "wiz8/world/level_session.h"
+#include "wiz8/world/party_camera.h"
+#include "wiz8/world/world.h"
 
 static char g_record_mode_line[0x1000];
 static bool g_record_mode_active;
@@ -69,7 +69,7 @@ static unsigned char g_table1[15][8] = {
    location code and the typed line to data\notes.txt. */
 void WriteRecordModeEntry(void)
 {
-    W8WorldCameraState state;
+    CameraPose state;
     std::string line;
     std::unique_ptr<wiz8::File> file;
 
@@ -83,15 +83,15 @@ void WriteRecordModeEntry(void)
     if (file != 0) {
         file->seek(-static_cast<std::int64_t>(0), wiz8::SeekOrigin::end);
         state = cameraState(*GetWorld());
-        // GetCameraOrientation zeroes every angle-record slot after the first.
+        // Debug exports use zero for the unused retail angle fields.
         line =
             fmt::format("{:f} {:f} {:f}\n", state.position.x, state.position.y, state.position.z);
         file->write(line.data(), line.size());
-        line = fmt::format("{:f} {:f} {:f} {:f} {:f} {:d}\n", state.pitch[0], state.pitch[1],
-                           state.pitch[2], state.pitch[3], state.pitch[4], 0);
+        line = fmt::format("{:f} {:f} {:f} {:f} {:f} {:d}\n", state.orientation.pitch, 0.0f, 0.0f,
+                           0.0f, 0.0f, 0);
         file->write(line.data(), line.size());
-        line = fmt::format("{:f} {:f} {:f} {:f} {:f} {:d}\n", state.yaw[0], state.yaw[1],
-                           state.yaw[2], state.yaw[3], state.yaw[4], 0);
+        line = fmt::format("{:f} {:f} {:f} {:f} {:f} {:d}\n", state.orientation.yaw, 0.0f, 0.0f,
+                           0.0f, 0.0f, 0);
         file->write(line.data(), line.size());
         const auto code =
             GetLevelLocationCode(GetLoadedLevelID()).value_or(s_record_mode_default_location);
@@ -212,7 +212,7 @@ static int g_trap_difficulty[W8_TRAP_TYPE_COUNT] = {1, 1, 2, 2, 3, 3, 3, 4, 5, 5
    lands within four of the trigger's grade (difficulty, floored at one). */
 void SelectTrapType(Trigger* trigger)
 {
-    W8LockState* lock_state;
+    LockState* lock_state;
     int budget;
     int type;
 
@@ -323,7 +323,7 @@ void ResolveSprungTrap(Trigger* trigger)
             power = 7;
         }
     }
-    W8Prop* prop = trigger->GetProp();
+    Prop* prop = trigger->GetProp();
     if (prop == 0) {
         GetCameraForwardPoint(1000.0f, &point);
     } else {
@@ -332,6 +332,6 @@ void ResolveSprungTrap(Trigger* trigger)
         point = *center;
     }
     camera = cameraLocation();
-    GetWorldOctree()->TraceLineOfSight(&camera, &point, true, -3, -3, true, 0);
+    GetWorldSpatialIndex()->TraceLineOfSight(&camera, &point, true, -3, -3, true, 0);
     DischargeTrapSpell(point, g_table2[type + 11], power, count);
 }

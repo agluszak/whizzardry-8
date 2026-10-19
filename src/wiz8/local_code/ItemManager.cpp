@@ -16,7 +16,6 @@
 #include <glm/gtx/rotate_vector.hpp>
 #include <glm/trigonometric.hpp> // NOLINT(misc-include-cleaner)
 
-#include "Monster.h"
 #include "asset_paths.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float2.hpp"
@@ -26,22 +25,12 @@
 #include "layouts/item_tables.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/npc_state.h"
-#include "layouts/world.h"
-#include "surrender/srBoundingBox.h"
-#include "surrender/srDebug.h"
-#include "surrender/srNode.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/cursor.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
-#include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/GDCamera.h"
-#include "wiz8/engine_code/GDProp.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/Item.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/PolyPick.h"
-#include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/stModelInstance.h"
+#include "wiz8/entities/monster.h"
+#include "wiz8/entities/prop.h"
+#include "wiz8/entities/world_item.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
@@ -57,9 +46,17 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/modal_content.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
+#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/random.h"
+#include "wiz8/render/mesh_instance.h"
+#include "wiz8/render/picking.h"
+#include "wiz8/spatial/bounding_box.h"
+#include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/unicode.h"
 #include "wiz8/utility.h"
+#include "wiz8/world/party_camera.h"
+#include "wiz8/world/update.h"
+#include "wiz8/world/world.h"
 #include "wiz8/xstatus.h"
 
 constexpr float kDropItemPitchScale = 71.0f;
@@ -448,8 +445,8 @@ void ActivateItem(W8WorldItem* item)
     std::string zItemName;
     std::string zItemFullPath;
     std::string name;
-    srNode* sun;
-    stModelInstance* mesh;
+    Light* sun;
+    MeshInstance* mesh;
 
     if (item == 0) {
         Fail("pItemInfo != NULL");
@@ -505,12 +502,12 @@ void ActivateItem(W8WorldItem* item)
     item->fActive = true;
     ++gXStatus.item_manager_pending;
 
-    sun = FindWorldNode<srNode>("SUN");
+    sun = FindWorldLight("SUN");
     if (sun != 0) {
-        sun_position = glm::vec3(sun->getLocation());
-        mesh = static_cast<stModelInstance*>(item->p3D->GetMesh());
+        sun_position = glm::vec3(sun->transform.getLocation());
+        mesh = static_cast<MeshInstance*>(item->p3D->GetMesh());
         if (mesh != 0) {
-            if (GetWorldOctree()->HasLineOfSight(&position, &sun_position, true)) {
+            if (GetWorldSpatialIndex()->HasLineOfSight(&position, &sun_position, true)) {
                 mesh->light_scale = glm::vec3(1);
             } else {
                 mesh->light_scale = glm::vec3(0);
@@ -654,7 +651,7 @@ std::optional<glm::vec3> FindItemDropPosition()
 
     glm::vec3 camera = cameraLocation();
     direction += camera;
-    GetWorldOctree()->TraceLineOfSight(&camera, &direction, true, -3, -3, true, 0);
+    GetWorldSpatialIndex()->TraceLineOfSight(&camera, &direction, true, -3, -3, true, 0);
 
     glm::vec3 delta = direction - camera;
     delta = glm::dot(delta, delta) == 0
@@ -663,7 +660,7 @@ std::optional<glm::vec3> FindItemDropPosition()
                       static_cast<float>(glm::max(glm::length(delta) - 125.0f, 0.0f));
 
     glm::vec3 position = camera + delta;
-    position.y = GetWorldOctree()->settleToGround(position, true, 250).position.y + 125.0f;
+    position.y = GetWorldSpatialIndex()->settleToGround(position, true, 250).position.y + 125.0f;
     if (FindNearbyFreePosition(250.0f, &position, true, true) != 0) return position;
     return std::nullopt;
 }
@@ -837,7 +834,7 @@ unsigned char AdvanceFallingWorldItem(W8WorldItem* item)
         probe.y = dt * item->vertical_velocity + probe.y;
     }
 
-    const auto ground_probe = GetWorldOctree()->settleToGround(probe, 1, 250.0f);
+    const auto ground_probe = GetWorldSpatialIndex()->settleToGround(probe, 1, 250.0f);
     probe = ground_probe.position;
     hit = ground_probe.hit;
     ground = ground_probe.position.y;
@@ -890,7 +887,7 @@ unsigned char SettleWorldItem(W8WorldItem* item)
     item->flags &= ~W8_WORLD_ITEM_FALLING;
     item->vertical_velocity = 0.0f;
 
-    const auto ground_probe = GetWorldOctree()->settleToGround(start, 1, 250.0f);
+    const auto ground_probe = GetWorldSpatialIndex()->settleToGround(start, 1, 250.0f);
     start = ground_probe.position;
     hit = ground_probe.hit;
     if (!hit) {
@@ -982,7 +979,7 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
     std::vector<std::unique_ptr<W8WorldItem>> items;
     if (monster_info != 0) {
         W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
-        glm::vec3 position = monster_info->p3D->GetPosition();
+        glm::vec3 position = monster_info->p3D->nav.GetPosition();
         std::unique_ptr<W8WorldItem> item;
         int gold = 0;
         int slot;

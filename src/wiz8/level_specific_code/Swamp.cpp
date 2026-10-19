@@ -2,19 +2,13 @@
 
 #include <vector>
 
-#include "Item.h"
-#include "Navigator.h"
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/item_instance.h"
-#include "layouts/world.h"
 #include "monster_actions.h"
-#include "surrender/srCamera.h"
 #include "wiz8/cursor.h"
-#include "wiz8/engine_code/GDCamera.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/World.h"
+#include "wiz8/entities/monster.h"
+#include "wiz8/entities/trigger.h"
+#include "wiz8/entities/world_item.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/game_status.h"
@@ -25,11 +19,16 @@
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
+#include "wiz8/render/camera.h"
+#include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/spatial/navigator.h"
 #include "wiz8/spell_ids.h"
+#include "wiz8/world/party_camera.h"
+#include "wiz8/world/world.h"
 
 struct W8NpcState;
 
-static W8Monster* g_swamp_spawned_monster;
+static Monster* g_swamp_spawned_monster;
 
 /* Level Specific Code\Swamp.cpp (level 0x18).
 
@@ -65,7 +64,7 @@ static bool CastSwampPlaneSpell(Trigger* pTrigger, int spell_id)
         SwampGasFireSpawn(pTrigger);
         return false;
     }
-    position = glm::vec3(GetWorld()->camera->getLocation());
+    position = glm::vec3(GetWorld()->camera->transform.getLocation());
     PointCastSpell(position, spell_id, 4);
     return true;
 }
@@ -125,13 +124,13 @@ static bool SwampGasFireSpawn(Trigger* pTrigger)
         monster_info = FindMonster(index);
         if (monster_info != 0) {
             g_swamp_spawned_monster = monster_info->p3D;
-            monster_info->p3D->instance_scale = 1.0f;
-            monster_info->p3D->apply_instance_scale = true;
+            monster_info->p3D->visual.instance_scale = 1.0f;
+            monster_info->p3D->visual.apply_instance_scale = true;
             g_swamp_spawned_monster->BeginFadeIn(2.0f);
             g_swamp_spawned_monster->GetMappedPosition(&mapped);
-            look_target = monster_info->p3D->movement.position;
-            look_target.y += monster_info->p3D->movement.height_offset;
-            PartyCamera().LookAt(&look_target, false);
+            look_target = monster_info->p3D->nav.movement.position;
+            look_target.y += monster_info->p3D->nav.movement.height_offset;
+            partyCamera().LookAt(&look_target, false);
             g_npc_dialogue_closed = false;
             g_master_functions.push_back({SwampGasFireItemDrop});
         }
@@ -160,7 +159,7 @@ static bool SwampGasFireItemDrop(int command)
     }
     if (g_npc_dialogue_closed) {
         if (g_swamp_spawned_monster != 0) {
-            position = g_swamp_spawned_monster->GetPosition();
+            position = g_swamp_spawned_monster->nav.GetPosition();
             drop_position = position;
             item = AddWorldItem(
                 SpawnItem(0x264, &drop_position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
