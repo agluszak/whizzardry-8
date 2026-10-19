@@ -85,10 +85,10 @@ std::optional<int> GetLoadedLevelID()
     return primary_world->level_id;
 }
 
-int GetRequiredLoadedLevelID()
+int GetRequiredLoadedLevelID(std::source_location caller)
 {
     if (!primary_world) {
-        srAssertFail("primary_world", __FILE__, 0x56, 0);
+        srAssertFail("primary_world", caller.file_name(), static_cast<int>(caller.line()), 0);
     }
     return primary_world->level_id;
 }

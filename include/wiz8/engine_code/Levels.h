@@ -1,6 +1,7 @@
 #pragma once
 
 #include <optional>
+#include <source_location>
 #include <string_view>
 
 #include "wiz8/layouts/levels.h"
@@ -8,7 +9,7 @@
 // The level id of the published world, if one is loaded.
 std::optional<int> GetLoadedLevelID(void);
 // Use only in paths whose contract requires a published world.
-int GetRequiredLoadedLevelID(void);
+int GetRequiredLoadedLevelID(std::source_location caller = std::source_location::current());
 
 extern W8LevelFolderRecord g_level_folders[W8_LEVEL_COUNT];
 const char* GetLevelFolderName(int level_id);
