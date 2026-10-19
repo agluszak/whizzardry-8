@@ -6,8 +6,8 @@ struct SDL_Surface;
 #include <string>
 #include <string_view>
 
-#include "sprite.h"
 #include "wiz8/audio_resources.h"
+#include "wiz8/canvas/sprite.h"
 #include "wiz8/conditions.h"
 
 bool IsVoiceMuted(void);
@@ -21,7 +21,7 @@ struct W8MonsterManagerEntry;
 extern int g_special_event13;
 extern int g_special_event14;
 extern int g_special_event17;
-int UpdateCharacterEventState(void);
+bool UpdateCharacterEventState(void);
 W8CharacterEvent* QueueCharacterEvent(W8Character* character, int event_type, unsigned int flags,
                                       unsigned int volume);
 

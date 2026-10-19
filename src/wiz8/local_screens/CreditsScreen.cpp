@@ -12,10 +12,9 @@
 #include <utility>
 #include <vector>
 
-#include "Font.h"
 #include "asset_paths.h"
 #include "compat/native.h"
-#include "input.h"
+#include "wiz8/canvas/Font.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/checked_integer.h"
 #include "wiz8/engine_code/Video2.h"
@@ -23,25 +22,19 @@
 #include "wiz8/fonts.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/music_playlist.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/unicode.h"
 
-// GLOBAL: WIZ8 0x0069C4A8
 static std::vector<W8CreditLine> g_credit_lines;
-// GLOBAL: WIZ8 0x0069C494
 static std::uint64_t g_credit_elapsed_steps;
-// GLOBAL: WIZ8 0x0069C498
 static bool g_credit_redraw;
-// GLOBAL: WIZ8 0x0069C49C
 static std::uint64_t g_credit_started_at;
-// GLOBAL: WIZ8 0x0069C4A0
 static int g_credit_y;
-// GLOBAL: WIZ8 0x0069C4A4
 static int g_credit_line;
 
 /* Read one wide line, stopping at a newline, capacity, or the end of the
    stream. Answers whether the line ended at a newline; trailing carriage
    returns are stripped. */
-// FUNCTION: WIZ8 0x004CEED0
 std::optional<std::string> ReadRetailTextLine(wiz8::File* handle)
 {
     std::vector<std::byte> bytes;
@@ -62,7 +55,6 @@ std::optional<std::string> ReadRetailTextLine(wiz8::File* handle)
     return text;
 }
 
-// FUNCTION: WIZ8 0x005bc130
 bool CreditsScreenEnter(void)
 try {
     std::unique_ptr<wiz8::File> handle;
@@ -132,7 +124,6 @@ try {
     return false;
 }
 
-// FUNCTION: WIZ8 0x005bc420
 bool CreditsScreenLeave(int)
 {
     g_credit_lines.clear();
@@ -143,7 +134,6 @@ bool CreditsScreenLeave(int)
     return 1;
 }
 
-// FUNCTION: WIZ8 0x005bc530
 void CreditsScreenFrame(void)
 {
     InputEvent input;

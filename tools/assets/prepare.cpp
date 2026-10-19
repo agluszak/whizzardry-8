@@ -16,6 +16,8 @@
 #include <string_view>
 #include <vector>
 
+#include <SDL3/SDL_time.h>
+
 #include "slf.h"
 #include "wiz8/asset_paths.h"
 #include "wiz8/file_time.h"
@@ -104,10 +106,10 @@ void extract(const Archive& archive, const fs::path& output)
             remaining -= count;
         }
         file->close();
-        if (const auto time = file_time_to_sdl(entry.modified))
-            fs::last_write_time(target, fs::file_time_type::clock::from_sys(
-                                            std::chrono::sys_time<std::chrono::nanoseconds>(
-                                                std::chrono::nanoseconds(*time))));
+        const auto time = SDL_TimeFromWindows(entry.modified.low, entry.modified.high);
+        fs::last_write_time(target, fs::file_time_type::clock::from_sys(
+                                        std::chrono::sys_time<std::chrono::nanoseconds>(
+                                            std::chrono::nanoseconds(time))));
     }
 }
 using Tree = std::map<std::string, fs::path>;

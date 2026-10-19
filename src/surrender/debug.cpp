@@ -1,27 +1,15 @@
-#include <cstdarg>
-#include <cstdio>
+#include <source_location>
 #include <stdexcept>
-#include <string>
+#include <string_view>
+
+#include <fmt/format.h>
 
 #include "surrender/srDebug.h"
 
-[[noreturn]] void srAssertFail(const char* expression, const char* source_path, int line,
-                               const char* message, ...)
+[[noreturn]] void Fail(std::string_view expression, std::string_view message,
+                       std::source_location location)
 {
-    std::string diagnostic = "Debug assertion in module ";
-    diagnostic += source_path ? source_path : "(unknown)";
-    diagnostic += " line " + std::to_string(line) + " failed:\n\nExpression [ ";
-    diagnostic += expression ? expression : "(unknown)";
-    diagnostic += " ] evaluates to false.\n";
-    if (message && *message) {
-        char details[1024]{};
-        va_list arguments;
-        va_start(arguments, message);
-        std::vsnprintf(details, sizeof(details), message, arguments);
-        va_end(arguments);
-        diagnostic += "\n";
-        diagnostic += details;
-        diagnostic += "\n";
-    }
-    throw std::runtime_error(diagnostic);
+    throw std::runtime_error(fmt::format("Assertion failed at {}:{}: {}{}{}", location.file_name(),
+                                         location.line(), expression, message.empty() ? "" : "\n",
+                                         message));
 }

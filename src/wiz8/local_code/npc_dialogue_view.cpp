@@ -11,7 +11,8 @@
 #include "compat/native.h"
 #include "cursor.h"
 #include "local_code/MonsterManager.h"
-#include "soundman.h"
+#include "wiz8/audio/mouth_gap.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/fonts.h"
@@ -30,7 +31,6 @@
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/message_box.h"
-#include "wiz8/mouth_gap.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_script_file.h"
 #include "wiz8/npc_speech.h"
@@ -48,7 +48,6 @@ enum class W8NpcPresentation : unsigned char { none, quote, portrait_message };
 static W8NpcPresentation g_presentation;
 static W8NpcSpeech g_speech;
 
-// FUNCTION: WIZ8 0x00525DD0
 bool IsNpcScriptSessionActive(void)
 {
     return g_presentation != W8NpcPresentation::none;
@@ -74,7 +73,6 @@ void ShowNpcScriptNoticeBubble(std::string_view text)
     HoldNpcSpeech(g_speech, 2000);
 }
 
-// FUNCTION: WIZ8 0x00524DA0
 void UpdateNpcDialogueVoiceAndCursor(void)
 {
     W8NpcState* speaker = g_npc_dialogue.speaker();
@@ -111,7 +109,6 @@ void UpdateNpcDialogueVoiceAndCursor(void)
 
 /* Completion callback armed on the NPC voice. A natural stream end finishes
    the quote but leaves the session active for a 700 ms hold. */
-// FUNCTION: WIZ8 0x005251C0
 static void NpcVoiceEosCallback()
 {
     FinishNpcVoicePlayback(false);
@@ -125,7 +122,6 @@ static void NpcVoiceEosCallback()
    sound with the EOS callback armed, and hang the mouth-gap track on the
    party slot's monster-manager entry or on the dialogue speech for ungrouped
    NPCs. notice_only routes the text through ShowNotice instead. */
-// FUNCTION: WIZ8 0x00525350
 W8NpcSubquoteOutcome SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char subquote_index,
                                       bool notice_only, bool force_npc_voice)
 {
@@ -241,7 +237,6 @@ W8NpcSubquoteOutcome SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char sub
     return W8NpcSubquoteOutcome::presented;
 }
 
-// FUNCTION: WIZ8 0x00525C50
 static void FinishNpcVoicePlayback(bool resume_script)
 {
     W8NpcState* const speaker = g_npc_dialogue.speaker();
@@ -279,7 +274,6 @@ static void FinishNpcVoicePlayback(bool resume_script)
 /* Guarded finish entry point: suppressed outright while the level-4 gate
    flag is set; a non-forced call inside 500 ms of the last script tick is a
    no-op, so the tick path can poll without re-finishing. */
-// FUNCTION: WIZ8 0x00525D90
 void TryFinishNpcVoicePlayback(bool force)
 {
     if (g_status.world_cursor_gate == 0 || GetLoadedLevelID() != 4) {
@@ -299,7 +293,6 @@ void ShowNpcPortraitMessage(std::string_view text, W8QuoteNotice notice)
 
 /* Repost the NPC's current quote bubble after a modal sub-dialog closes, or
    clear it when the dialogue NPC/script went away. */
-// FUNCTION: WIZ8 0x00529510
 void RestoreCurrentNpcQuoteBubble(void)
 {
     W8NpcState* const speaker = g_npc_dialogue.speaker();
@@ -315,7 +308,6 @@ void RestoreCurrentNpcQuoteBubble(void)
 
 /* Raise the quote bubble over `text` and, when `play_sound` is set, kick off
    the generic start-game click that accompanies a silent text notice. */
-// FUNCTION: WIZ8 0x00529570
 void DisplayNpcQuote(std::string_view text, bool play_sound)
 {
     std::string sound_path;

@@ -8,16 +8,17 @@
 #include <string>
 #include <vector>
 
+#include <glm/common.hpp>
+
+#include "compat/compiler.h"
 #include "compat/native.h"
-#include "glm/common.hpp"
 #include "glm/ext/vector_float3.hpp"
-#include "random.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
+#include "wiz8/audio/AmbientSound.h"
 #include "wiz8/chunk.h"
 #include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/AmbientSound.h"
 #include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/PathAI.h"
@@ -27,6 +28,7 @@
 #include "wiz8/engine_code/octree_spatial.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/layouts/world.h"
+#include "wiz8/platform/random.h"
 
 /* The previous 00497af0-004adb20 range spanned eight units that carry their
    own assertion-backed intervals -
@@ -38,12 +40,10 @@
    string in the image names this unit; the class ownership is nevertheless
    established by its definitions. */
 
-// GLOBAL: WIZ8 0x0060bfdc
 unsigned int g_light_update_flags = 1;
 
 /* Normalizes a retail 15-bit Random15() roll to a 0..1 flicker probability;
    only Update uses it. */
-// GLOBAL: WIZ8 0x005ec1e4
 const float g_light_flicker_random_unit_scale = 3.0518509447574615e-05f;
 
 /* The parent-taking constructor never forwards the parent to srLight: the base
@@ -51,7 +51,6 @@ const float g_light_flicker_random_unit_scale = 3.0518509447574615e-05f;
    the emitted body carries an explicit null test around setParent. Everything
    below +0x228 is stLight's own state, and both timestamps start from the same
    converted tick. */
-// FUNCTION: WIZ8 0x0049C2C0
 stLight::stLight(srNode* parent) : srLight(static_cast<srNode*>(nullptr), srLight::PRESET_POINT)
 {
     m_save_marked = false;
@@ -75,7 +74,6 @@ stLight::~stLight() = default;
    shares nothing with its source except the prop reference and the parent it
    is re-linked under. The two timestamps restart from the current tick instead
    of being copied. */
-// FUNCTION: WIZ8 0x0049C690
 stLight& stLight::operator=(const stLight& other)
 {
     if (this == &other) return *this;
@@ -103,7 +101,6 @@ stLight& stLight::operator=(const stLight& other)
     return *this;
 }
 
-// FUNCTION: WIZ8 0x0049C7A0
 void stLight::traverse(srNode::TraverseInfo& info)
 {
     traverseEffect(info, [&] {
@@ -113,7 +110,6 @@ void stLight::traverse(srNode::TraverseInfo& info)
     });
 }
 
-// FUNCTION: WIZ8 0x0049C8D0
 void stLight::process(const srNode::ProcessInfo& info, srNode::e_processType type)
 {
     if ((type == PROCESS_PUSH || type == PROCESS_PUSH_GLOBAL) && g_monster_light_scale != 1.0f) {
@@ -126,7 +122,6 @@ void stLight::process(const srNode::ProcessInfo& info, srNode::e_processType typ
     srLight::process(info, type);
 }
 
-// FUNCTION: WIZ8 0x0049C940
 void stLight::SetDefinitionTime(float time)
 {
     if (m_definition != 0 && m_definition->kind == W8_LIGHT_DEFINITION_KEYFRAMED) {
@@ -148,7 +143,6 @@ glm::vec3 stParametricLightDefinition::GetInterpolatedColor(float blend) const
     return glm::min(glm::mix(color, color_to, blend), glm::vec3(1));
 }
 
-// FUNCTION: WIZ8 0x0049C960
 void stLight::Update()
 {
     if (m_definition != 0 && m_definition->kind == W8_LIGHT_DEFINITION_KEYFRAMED) {
@@ -320,7 +314,6 @@ void stLight::Update()
    The definition at +0x234 is owned by stLight; type two resets its own pair
    of counters, while the other forms restore intensity and an optional
    colour. */
-// FUNCTION: WIZ8 0x0049D070
 void stLight::Reset()
 {
     if (m_definition != 0) {
@@ -348,7 +341,6 @@ void stLight::Reset()
 
 /* Serialize the trigger-toggled lights of the loaded worlds: a version byte and
    count followed by each light's 0x80-byte name and its enable flag. */
-// FUNCTION: WIZ8 0x0049D120
 void SaveLightStates(wiz8::File& handle)
 {
     unsigned char version = 1;
@@ -374,7 +366,6 @@ void SaveLightStates(wiz8::File& handle)
 /* Reload the serialized positional-light states: a version byte and count
    followed by each light's 0x80-byte name and its enable flag, applied to the
    light found by name in the loaded worlds. */
-// FUNCTION: WIZ8 0x0049D390
 std::vector<W8LightState> ReadLightStates(W8Chunk& file)
 {
     unsigned char version;
@@ -413,7 +404,6 @@ void ApplyLightStates(W8World& world, std::span<const W8LightState> states)
    inlined the way 0x0049C430 expands it. */
 
 /* Test a point against the six inward-facing planes of one region volume. */
-// FUNCTION: WIZ8 0x0049e460
 bool W8OctRegionVolume::ContainsPoint(const glm::vec3& point) const
 {
     return PointInsideFrustum(point, m_planes);

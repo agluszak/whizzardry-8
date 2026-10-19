@@ -17,7 +17,6 @@
 
 #include "camera_motion.h"
 #include "glm/ext/vector_int2.hpp"
-#include "input.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/npc_dialogue.h"
 #include "layouts/screen_state.h"
@@ -67,6 +66,7 @@
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
@@ -80,19 +80,16 @@ struct W8ItemInstance;
    lookup and the singleton ResetMGSKeyboardBindings installs.
    MGSKeyboard::LoadDefaults moved to Local Code\InputMapper.cpp. */
 
-// GLOBAL: WIZ8 0x0069b7e4
 MGSKeyboard g_mgs_keyboard;
 
 // Retail set 0x26, regions 180-193.
 
-// FUNCTION: WIZ8 0x0055d260
 int MGSKeyboard::FindBinding(W8MGSCommand command) const
 {
     const auto found = std::ranges::find(m_bindings, command, &MGSKeyBinding::command);
     return found == m_bindings.end() ? -1 : static_cast<int>(found - m_bindings.begin());
 }
 
-// FUNCTION: WIZ8 0x0055d2a0
 W8MGSCommand MGSKeyboard::FindCommandForEvent(const InputEvent* event) const
 {
     if (event->type != InputEventType::KeyDown || event->key == SDLK_UNKNOWN)
@@ -103,7 +100,6 @@ W8MGSCommand MGSKeyboard::FindCommandForEvent(const InputEvent* event) const
     return W8_MGS_COMMAND_NONE;
 }
 
-// FUNCTION: WIZ8 0x0055d300
 MGSKeyBinding* MGSKeyboard::GetBinding(int index)
 {
     if (index < 0 || m_bindings.empty()) {
@@ -116,7 +112,6 @@ MGSKeyBinding* MGSKeyboard::GetBinding(int index)
     return &m_bindings[index];
 }
 
-// FUNCTION: WIZ8 0x0055d320
 bool MGSKeyboard::IsCommandPressed(W8MGSCommand command) const
 {
     const int index = FindBinding(command);
@@ -126,14 +121,12 @@ bool MGSKeyboard::IsCommandPressed(W8MGSCommand command) const
 
 /* Discard every queued input atom. MainGameScreenEnter calls this so stale
    presses do not fire against the freshly entered screen state. */
-// FUNCTION: WIZ8 0x0055D3C0
 void DrainInputEventQueue()
 {
     while (PollInputEvent()) {
     }
 }
 
-// FUNCTION: WIZ8 0x0055D3F0
 void MGSKeyboard::Clear()
 {
     m_bindings.clear();
@@ -159,7 +152,6 @@ struct RetailKeyBinding {
 static_assert(sizeof(RetailKeyBinding) == 10);
 } // namespace
 
-// FUNCTION: WIZ8 0x0055d590
 unsigned char MGSKeyboard::Load(W8Chunk& handle, bool clear)
 try {
     if (clear) Clear();
@@ -181,7 +173,6 @@ try {
     return false;
 }
 
-// FUNCTION: WIZ8 0x0055d7a0
 unsigned char MGSKeyboard::Save(wiz8::File& handle) const
 {
     const auto count = SDL_Swap32LE(static_cast<std::uint32_t>(m_bindings.size()));
@@ -197,7 +188,6 @@ unsigned char MGSKeyboard::Save(wiz8::File& handle) const
     return true;
 }
 
-// FUNCTION: WIZ8 0x00592BE0
 void ResetMGSKeyboardBindings()
 {
     g_mgs_keyboard.Clear();
@@ -208,7 +198,6 @@ void ResetMGSKeyboardBindings()
    box consume key presses first; the record-mode console gates on its flag;
    everything else resolves to a bound MGS command.
    Attribution-gap body leading the MGSKeyboard.cpp hull at 0x00591960. */
-// FUNCTION: WIZ8 0x00591890
 unsigned char HandleMainGameInputEvent(const InputEvent* input)
 {
     auto* text_fields = TextFieldGroup::Focused();
@@ -237,7 +226,6 @@ unsigned char HandleMainGameInputEvent(const InputEvent* input)
     return 1;
 }
 
-// FUNCTION: WIZ8 0x00591960
 void DispatchMGSCommand(W8MGSCommand command)
 {
     switch (command) {
@@ -649,7 +637,6 @@ void DispatchMGSCommand(W8MGSCommand command)
     }
 }
 
-// GLOBAL: WIZ8 0x0064c1cc
 glm::ivec2 g_keyboard_row_positions[13] = {
     {5, 55}, {23, 55}, {41, 55}, {59, 55}, {59, 37}, {5, 37},  {5, 19},
     {5, 1},  {23, 1},  {41, 1},  {59, 1},  {59, 19}, {32, 28},
@@ -686,7 +673,6 @@ static void KeyboardMenuOpenSpellView(void);
 static void KeyboardMenuCastRecordedSpell(void);
 static void KeyboardMenuUseRecordedItem(void);
 
-// FUNCTION: WIZ8 0x00592C70
 void OpenKeyboardMenuForSlot(int slot)
 {
     g_selected_party_slot = slot;
@@ -707,7 +693,6 @@ void OpenKeyboardMenuForSlot(int slot)
     RequestRedraw(1 << slot);
 }
 
-// FUNCTION: WIZ8 0x00592E60
 void CloseKeyboardMenu(void)
 {
     gXStatus.monster_manager_entries[g_selected_party_slot].keyboard_menu_open = false;
@@ -744,7 +729,8 @@ static std::string KeyboardMenuTooltip(const KeyboardMenuRow& row)
     if (row.menu == W8_SUBMENU_ITEMS && row.item == 2) {
         if (!row.enabled) return g_localized_strings[0x5d];
         const auto& party = g_status.buffers.XChar[g_selected_party_slot];
-        auto* item = FindCharacterItemAt(g_selected_party_slot, party.item_origin, party.item_slot);
+        auto* item = FindCharacterItemAt(
+            g_selected_party_slot, static_cast<unsigned char>(party.item_origin), party.item_slot);
         return fmt::format("{}: {}", g_localized_strings[0x5d], FormatItemDisplayName(item, false));
     }
     return g_localized_strings[g_submenu_entry_help_ids[row.menu * 5 + row.item]];
@@ -896,56 +882,48 @@ static void ChooseKeyboardMenuAction(W8ActionKind action)
     CloseKeyboardMenu();
 }
 
-// FUNCTION: WIZ8 0x00593710
 static void KeyboardMenuSelectAttack(void)
 {
 
     ChooseKeyboardMenuAction(W8_ACTION_ATTACK);
 }
 
-// FUNCTION: WIZ8 0x00593860
 static void KeyboardMenuSelectBerserk(void)
 {
 
     ChooseKeyboardMenuAction(W8_ACTION_BERSERK);
 }
 
-// FUNCTION: WIZ8 0x005939B0
 static void KeyboardMenuSelectBreathe(void)
 {
 
     ChooseKeyboardMenuAction(W8_ACTION_BREATHE);
 }
 
-// FUNCTION: WIZ8 0x00593B00
 static void KeyboardMenuSelectTurnUndead(void)
 {
 
     ChooseKeyboardMenuAction(W8_ACTION_TURN_UNDEAD);
 }
 
-// FUNCTION: WIZ8 0x00593C50
 static void KeyboardMenuSelectPray(void)
 {
 
     ChooseKeyboardMenuAction(W8_ACTION_PRAY);
 }
 
-// FUNCTION: WIZ8 0x00593DA0
 static void KeyboardMenuSelectDefend(void)
 {
 
     ChooseKeyboardMenuAction(W8_ACTION_DEFEND);
 }
 
-// FUNCTION: WIZ8 0x00593EF0
 static void KeyboardMenuSelectProtect(void)
 {
 
     ChooseKeyboardMenuAction(W8_ACTION_PROTECT);
 }
 
-// FUNCTION: WIZ8 0x00594040
 static void KeyboardMenuOpenSpellView(void)
 {
 
@@ -955,7 +933,6 @@ static void KeyboardMenuOpenSpellView(void)
     }
 }
 
-// FUNCTION: WIZ8 0x00594180
 static void KeyboardMenuCastRecordedSpell(void)
 {
 
@@ -966,14 +943,12 @@ static void KeyboardMenuCastRecordedSpell(void)
     }
 }
 
-// FUNCTION: WIZ8 0x00594390
 static void KeyboardMenuSelectEquip(void)
 {
 
     ChooseKeyboardMenuAction(W8_ACTION_EQUIP);
 }
 
-// FUNCTION: WIZ8 0x005944E0
 static void KeyboardMenuOpenUseItemView(void)
 {
 
@@ -983,7 +958,6 @@ static void KeyboardMenuOpenUseItemView(void)
     }
 }
 
-// FUNCTION: WIZ8 0x00594620
 static void KeyboardMenuUseRecordedItem(void)
 {
 
@@ -992,7 +966,6 @@ static void KeyboardMenuUseRecordedItem(void)
     RequestRedraw(W8_MAIN_REDRAW_CHARACTER_ACTION);
 }
 
-// FUNCTION: WIZ8 0x005929d0
 void HandleManualCameraHotkeys(void)
 {
     if (g_modal_owner == 0 && !gXStatus.fNpcDialogueMode) {
@@ -1003,7 +976,6 @@ void HandleManualCameraHotkeys(void)
     }
 }
 
-// FUNCTION: WIZ8 0x00592a10
 void ApplyCameraMotionHotkeys(void)
 {
     if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_TURN_LEFT) ||

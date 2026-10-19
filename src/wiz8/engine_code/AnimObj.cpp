@@ -23,13 +23,9 @@
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/retail_text_records.h"
 
-#define ANIM_OBJ_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\AnimObj.cpp"
-
-// FUNCTION: WIZ8 0x004a01a0
 W8AnimObj::W8AnimObj() = default;
 W8AnimObj::~W8AnimObj() = default;
 
-// FUNCTION: WIZ8 0x004a05c0
 bool AnimObjReadFromFile(W8ReadLevelInfo* info, W8AnimObj* animation, int load_all,
                          std::vector<std::unique_ptr<stLight>>* light_list, int)
 try {
@@ -41,7 +37,7 @@ try {
     int index;
 
     if (info == 0 || info->hFile == 0 || animation == 0) {
-        srAssertFail("pInfo && pInfo->hFile && pao", ANIM_OBJ_CPP, 0xef, 0);
+        Fail("pInfo && pInfo->hFile && pao");
     }
     handle = info->hFile;
     const auto read_flag = [handle](bool& flag) {
@@ -187,8 +183,7 @@ try {
             }
 
             if (light_list == 0) {
-                srAssertFail("0", ANIM_OBJ_CPP, 0x1b2,
-                             "AnimObjReadFromFile: Where is the light list?");
+                Fail("0", "AnimObjReadFromFile: Where is the light list?");
             } else {
                 auto light = CreateLight(nullptr, "MonsterLight");
                 light->diffuse = color;
@@ -244,7 +239,7 @@ try {
             int entry;
             success = (handle->read(&entry_count, 1).bytes == static_cast<std::size_t>(1));
             if (!success) {
-                srAssertFail("fSuccess", ANIM_OBJ_CPP, 0x200, 0);
+                Fail("fSuccess");
             }
             for (entry = 0; entry < entry_count; ++entry) {
                 signed char channel;
@@ -293,7 +288,6 @@ try {
 }
 
 /* Clone owned meshes and paths; bounds copy as ordinary values. */
-// FUNCTION: WIZ8 0x004a0320
 W8AnimObj::W8AnimObj(const W8AnimObj& other)
     : group_count(other.group_count), animation_playing(other.animation_playing),
       frame_method(other.frame_method), behaviour(other.behaviour), cycle(other.cycle),
@@ -324,7 +318,6 @@ W8AnimObj::W8AnimObj(const W8AnimObj& other)
 
 /* Cache the frame's mesh bounds. Retail applies each path but merges the
    untransformed mesh boxes; the discarded transformed box is not part of the result. */
-// FUNCTION: WIZ8 0x004a1710
 std::optional<srBoundingBox> AnimObjGetBounds(W8AnimObj* animation, signed char list_index,
                                               unsigned int frame)
 {
@@ -369,7 +362,6 @@ std::optional<srBoundingBox> AnimObjGetBounds(W8AnimObj* animation, signed char 
    the result. The first corner seeds both ends rather than starting from an
    infinite box, which is why the loop carries the is-first test instead of
    pre-filling. */
-// FUNCTION: WIZ8 0x004a1df0
 void TransformBounds(const glm::mat3* rotation, const glm::vec3* translation,
                      const glm::vec3* scale, glm::vec3* minimum, glm::vec3* maximum)
 {
@@ -380,15 +372,12 @@ void TransformBounds(const glm::mat3* rotation, const glm::vec3* translation,
     *minimum = transformed.minimum;
 }
 
-// FUNCTION: WIZ8 0x004a01e0
-
 /* While the object is inactive the selected owned entry supplies the value;
    once active, AnimObj keeps the live value in its own byte at 0x16. */
-// FUNCTION: WIZ8 0x004a15d0
 unsigned int AnimObjValue(const W8AnimObj* animation, signed char index)
 {
     if (animation == 0) {
-        srAssertFail("pao", ANIM_OBJ_CPP, 0x291, 0);
+        Fail("pao");
     }
     if (!animation->path_lists) {
         return AniMeshValue(animation->entries[index].get());
@@ -396,17 +385,15 @@ unsigned int AnimObjValue(const W8AnimObj* animation, signed char index)
     return animation->frame_count;
 }
 
-// FUNCTION: WIZ8 0x004a1620
 unsigned int AnimObjListCount(W8AnimObj* animation, signed char index)
 {
     return wiz8::checked_integer<unsigned int>(animation->meshes[index].size());
 }
 
-// FUNCTION: WIZ8 0x004a16c0
 W8PathAI* AnimObjListEntry(W8AnimObj* animation, signed char list_index, signed char entry_index)
 {
     if (animation == 0) {
-        srAssertFail("pao", ANIM_OBJ_CPP, 0x2d3, 0);
+        Fail("pao");
     }
     if (!animation->path_lists) {
         return 0;
@@ -418,13 +405,12 @@ W8PathAI* AnimObjListEntry(W8AnimObj* animation, signed char list_index, signed 
     return paths[entry_index].get();
 }
 
-// FUNCTION: WIZ8 0x004a14d0
 srModelInstance* AnimObjDispatch(W8AnimObj* animation, signed char list_index, unsigned char value)
 {
     W8AniMesh* entry;
 
     if (animation == 0) {
-        srAssertFail("pao", ANIM_OBJ_CPP, 0x243, 0);
+        Fail("pao");
     }
     if (!animation->path_lists) {
         entry = animation->entries[list_index].get();
@@ -440,14 +426,13 @@ srModelInstance* AnimObjDispatch(W8AnimObj* animation, signed char list_index, u
     return 0;
 }
 
-// FUNCTION: WIZ8 0x004a1560
 srModelInstance* AnimObjDispatchList(W8AnimObj* animation, signed char list_index,
                                      signed char entry_index)
 {
     W8AniMesh* entry;
 
     if (animation == 0) {
-        srAssertFail("pao", ANIM_OBJ_CPP, 0x26c, 0);
+        Fail("pao");
     }
     if (animation->path_lists) {
         const auto& list = animation->meshes[list_index];
@@ -461,11 +446,10 @@ srModelInstance* AnimObjDispatchList(W8AnimObj* animation, signed char list_inde
     return 0;
 }
 
-// FUNCTION: WIZ8 0x004a1660
 W8AniMesh* AnimObjEntry(W8AnimObj* animation, signed char list_index, std::size_t entry_index)
 {
     if (animation == 0) {
-        srAssertFail("pao", ANIM_OBJ_CPP, 0x2bd, 0);
+        Fail("pao");
     }
     if (!animation->path_lists) {
         return animation->entries[list_index].get();
@@ -478,19 +462,16 @@ W8AniMesh* AnimObjEntry(W8AnimObj* animation, signed char list_index, std::size_
     return meshes[frame].get();
 }
 
-// FUNCTION: WIZ8 0x004A2220
 stLightDefinition::~stLightDefinition() = default;
 
 /* Type-two light definitions own four synchronized keyframe vectors.  The
    clone iterates the second vector's count, which is the retail authority for
    the shared extent, then copies the four scalar playback  */
-// FUNCTION: WIZ8 0x004a2230
 std::unique_ptr<stLightDefinition> stKeyframedLightDefinition::Clone() const
 {
     return std::make_unique<stKeyframedLightDefinition>(*this);
 }
 
-// FUNCTION: WIZ8 0x004a2580
 bool stKeyframedLightDefinition::IsEnabledForSubcycle(unsigned char subcycle)
 {
     if (key_frames[0] <= time && time <= key_frames.back()) {

@@ -7,23 +7,19 @@
 
 #include "asset_paths.h"
 #include "surrender/srDebug.h"
+#include "wiz8/audio/AmbientSound.h"
 #include "wiz8/chunk.h"
-#include "wiz8/engine_code/AmbientSound.h"
 #include "wiz8/engine_code/Quality.h"
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_screens/MGSKeyboard.h"
 
-// GLOBAL: WIZ8 0x006850c8
 W8GameSettings g_settings;
-// GLOBAL: WIZ8 0x0061e184
 static char g_config_file_name[8] = "Wiz8";
-// GLOBAL: WIZ8 0x0061e18c
 static char g_config_file_extension[] = "CFG";
 constexpr unsigned int W8_CHUNK_SETTINGS = W8ChunkId("CNFG");
 constexpr unsigned int W8_CHUNK_RENDER_OPTIONS = W8ChunkId("QLTY");
 constexpr unsigned int W8_CHUNK_KEY_BINDINGS = W8ChunkId("KEYM");
 
-// FUNCTION: WIZ8 0x0054b810
 void LoadGameConfiguration(void)
 {
     W8Chunk file;
@@ -53,10 +49,9 @@ void LoadGameConfiguration(void)
             g_settings.text_display_delay_ms <= 5000u) {
             reset = false;
         } else {
-            srAssertFail(
-                "FALSE", "C:\\Projects\\Wizardry 8\\Local Code\\Configuration.cpp", 0xd9,
-                fmt::format("LoadConfig: ERROR - Config file appears to be corrupted.  Delete {}",
-                            path));
+            Fail("FALSE",
+                 fmt::format("LoadConfig: ERROR - Config file appears to be corrupted.  Delete {}",
+                             path));
         }
     }
     if (reset) {
@@ -67,7 +62,6 @@ void LoadGameConfiguration(void)
     SetMusicVolume(g_settings.music_volume);
 }
 
-// FUNCTION: WIZ8 0x0054b6d0
 bool SaveGameConfiguration(void)
 try {
     W8Chunk file;

@@ -42,10 +42,10 @@
 #include <glm/ext/vector_float3.hpp>
 
 #include "../native/surface_pixels.h"
-#include "random.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/level_population.h"
 #include "wiz8/local_screens/MGSUseItemSelect.h"
+#include "wiz8/platform/random.h"
 #include "wiz8/ui_layer.h"
 
 /* Runtime scenarios against installed retail assets.
@@ -65,7 +65,6 @@
 #include "catch2/catch_message.hpp"
 #include "conditions.h"
 #include "equipment_slots.h"
-#include "input.h"
 #include "layouts/gameplay_databases.h"
 #include "layouts/party_formation.h"
 #include "layouts/targeting.h"
@@ -74,7 +73,6 @@
 #include "local_code/Factions.h"
 #include "local_code/SpellEffect.h"
 #include "mgs_commands.h"
-#include "native/audio_test.h"
 #include "scoped_asset_roots.h"
 #include "surrender/srGERD.h"
 #include "surrender/srModelInstance.h"
@@ -82,6 +80,7 @@
 #include "temporary_directory.h"
 #include "wiz8/application.h"
 #include "wiz8/asset_paths.h"
+#include "wiz8/audio/audio_test.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/cursor.h"
 #include "wiz8/dialog_code/AssayDialog.h"
@@ -143,6 +142,7 @@
 #include "wiz8/monster_cycles.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_script_file.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/runtime_test_hooks.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/text_input.h"
@@ -155,7 +155,7 @@ namespace {
 namespace fs = std::filesystem;
 using Clock = std::chrono::steady_clock;
 
-[[noreturn]] void Fail(const std::string& step, const std::string& detail)
+[[noreturn]] void FailStep(const std::string& step, const std::string& detail)
 {
     throw std::runtime_error(step + ": " + detail);
 }
@@ -265,7 +265,7 @@ public:
         // without depending on how fast the host audio device consumes samples.
         std::array<float, 735 * 2> audio{}; // 44,100 stereo sample frames / 60.
         if (!w8_native::audio_render_for_test(audio.data(), audio.size() / 2))
-            Fail("audio", "offline mixer did not advance");
+            FailStep("audio", "offline mixer did not advance");
         ++frames_;
         g_runtime_test_hooks.clock_us += frame_us;
     }
@@ -276,9 +276,9 @@ public:
         const auto deadline = Clock::now() + std::chrono::duration<double>(seconds);
         while (!ready()) {
             if (Clock::now() > deadline)
-                Fail(step, "timed out after " + std::to_string(frames_) + " frames on screen " +
-                               std::string(ScreenName(g_current_screen_state.id)) + " pending " +
-                               ScreenName(g_pending_screen_state.id));
+                FailStep(step, "timed out after " + std::to_string(frames_) + " frames on screen " +
+                                   std::string(ScreenName(g_current_screen_state.id)) +
+                                   " pending " + ScreenName(g_pending_screen_state.id));
             frame();
         }
     }
@@ -303,7 +303,7 @@ public:
 
     void click(const char* step, SDL_Point point)
     {
-        if (!UiTargetAt(point)) Fail(step, "target is not live");
+        if (!UiTargetAt(point)) FailStep(step, "target is not live");
         click_at(point.x, point.y);
     }
 
@@ -420,7 +420,7 @@ public:
     {
         const SDL_Scancode scancode = SDL_GetScancodeFromKey(binding.key, nullptr);
         if (scancode == SDL_SCANCODE_UNKNOWN)
-            Fail("command", "no SDL scancode for binding " + std::to_string(binding.key));
+            FailStep("command", "no SDL scancode for binding " + std::to_string(binding.key));
         const struct {
             unsigned short flag;
             SDL_Scancode scancode;
@@ -453,7 +453,7 @@ public:
         const int index = g_mgs_keyboard.FindBinding(command);
         const MGSKeyBinding* bound = index >= 0 ? g_mgs_keyboard.GetBinding(index) : nullptr;
         if (!bound || !bound->key)
-            Fail("command", "no key bound to command " + std::to_string(int(command)));
+            FailStep("command", "no key bound to command " + std::to_string(int(command)));
         const MGSKeyBinding binding = *bound;
         command_key(binding, true);
         frame();
@@ -693,7 +693,7 @@ std::string CreateCharacter(Game& game)
     game.click_at(616, 464);
     game.wait_screen("committed", W8_SCREEN_PARTY_SELECTION);
     const auto saved = game.user_root() / "saves" / "characters" / (name + ".CHR");
-    if (!fs::is_regular_file(saved)) Fail("saved", "missing " + saved.string());
+    if (!fs::is_regular_file(saved)) FailStep("saved", "missing " + saved.string());
     REQUIRE(fs::file_size(saved) > 0);
     return name;
 }
@@ -759,7 +759,7 @@ glm::vec3 Settle(Game& game, const char* step)
         last = now;
         if (still >= 5) return now;
     }
-    Fail(step, "party never settled");
+    FailStep(step, "party never settled");
 }
 
 /* Holds the forward key until the party is `distance` from where it started. */
@@ -780,7 +780,7 @@ int PremadeSlot()
             REQUIRE(g_status.buffers.Char[slot].fInParty);
             return slot;
         }
-    Fail("party", "no occupied slot");
+    FailStep("party", "no occupied slot");
 }
 
 /* A new game with the checked-in character, bypassing party selection. */
@@ -915,7 +915,7 @@ void ExpectAt(const char* step, const glm::vec3& expected)
                 expected.y, expected.z);
     if (!std::isfinite(distance) || !std::isfinite(now.y) || distance > 1.0f ||
         std::abs(now.y - expected.y) > 1.0f)
-        Fail(step, "party restored " + std::to_string(distance) + " units from the save");
+        FailStep(step, "party restored " + std::to_string(distance) + " units from the save");
 }
 
 /* --- Scenarios ----------------------------------------------------------- */
@@ -932,7 +932,7 @@ void VideoScenario(bool intro_seen)
     unsigned lit = 0;
     game.wait("logo-content", [&] {
         if (g_runtime_test_hooks.movie_frames_presented > 150)
-            Fail("logo-content", "movie frames are black");
+            FailStep("logo-content", "movie frames are black");
         for (unsigned pixel : game.read_frame()) lit += (pixel & 0xf0f0f0) != 0;
         return lit > 1000;
     });
@@ -985,18 +985,20 @@ void InventoryChestScenario()
     for (const auto& trigger : GetWorld()->triggers)
         if (trigger->initial_action == 3 && trigger->inline_action_data[0]) {
             trigger->GenerateItemGroup();
-            if (trigger->world_item_group && trigger->world_item_group->next) {
+            if (trigger->world_item_group && !trigger->world_item_group->contents.empty()) {
                 chest = trigger.get();
                 break;
             }
         }
     REQUIRE(chest);
     // Loot is created at its owning chest, never at an uninitialized vector.
-    for (const auto* item = chest->world_item_group.get(); item; item = item->next.get()) {
-        REQUIRE(item->position.x == chest->position.x);
-        REQUIRE(std::isfinite(item->position.y));
-        REQUIRE(item->position.z == chest->position.z);
-    }
+    const auto check_position = [&](const W8WorldItem& item) {
+        REQUIRE(item.position.x == chest->position.x);
+        REQUIRE(std::isfinite(item.position.y));
+        REQUIRE(item.position.z == chest->position.z);
+    };
+    check_position(*chest->world_item_group);
+    for (const auto& item : chest->world_item_group->contents) check_position(*item);
     // Request the same picker that an opened chest raises. This isolates loot
     // handling from the chest's lock/trap skill rolls and prop animation.
     chest->flags |= W8_TRIGGER_ITEM_PICKER;
@@ -1909,7 +1911,8 @@ void NpcDialogueScenario()
 void Approach(Game& game, int location_id, float stop)
 {
     W8MonsterInfo* monster = FindMonster(location_id, false);
-    if (!monster || !monster->p3D) Fail("approach", "no monster " + std::to_string(location_id));
+    if (!monster || !monster->p3D)
+        FailStep("approach", "no monster " + std::to_string(location_id));
     SDL_Keycode held = SDLK_UNKNOWN;
     const auto hold = [&](SDL_Keycode key) {
         if (held == key) return;
@@ -2101,7 +2104,7 @@ void PrintState(Game& game)
 void Trace(Game& game, int location_id, int frames)
 {
     W8MonsterInfo* monster = FindMonster(location_id, false);
-    if (!monster || !monster->p3D) Fail("trace", "no monster " + std::to_string(location_id));
+    if (!monster || !monster->p3D) FailStep("trace", "no monster " + std::to_string(location_id));
     for (int frame = 0; frame < frames; ++frame) {
         game.frame();
         const W8Monster& body = *monster->p3D;
@@ -2297,7 +2300,7 @@ void ScriptScenario()
     for (std::string line; std::getline(script, line);) {
         if (line.find_first_not_of(" \t") == std::string::npos || line[0] == '#') continue;
         std::printf("> %s\n", line.c_str());
-        if (!RunScriptCommand(game, line)) Fail(line, "unknown script command");
+        if (!RunScriptCommand(game, line)) FailStep(line, "unknown script command");
     }
     PrintState(game);
 }

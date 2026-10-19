@@ -15,7 +15,6 @@
 #include "layouts/targeting.h"
 #include "local_code/Factions.h"
 #include "monster_actions.h"
-#include "random.h"
 #include "sight_state.h"
 #include "surrender/srDebug.h"
 #include "wiz8/engine_code/GameData.h"
@@ -43,15 +42,13 @@
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/platform/random.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 
-// GLOBAL: WIZ8 0x0068C518
 int g_event_sight_blocked = kFirstRemappedEvent + 30;
-
-#define COMBAT_RANGE_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Combat Range.cpp"
 
 /* The range categories are W8RangeCategory, declared with the spell record
    that shares the domain. Above W8_RANGE_SHORT an attack is out of the
@@ -72,7 +69,6 @@ enum { W8_FORMATION_ROW_WIDTH = 3 };
    scan and only the out-of-combat and plain-attack categories also scan the
    party for an opposing-side member the chosen action could actually
    strike. */
-// FUNCTION: WIZ8 0x00518e30
 bool CanPartySlotAttackAnyTarget(int party_slot, int flag, bool hand)
 {
     char side;
@@ -137,7 +133,6 @@ bool CanPartySlotAttackAnyTarget(int party_slot, int flag, bool hand)
    front-rank screen on melee), a point on the ground must sit inside the
    spell's distance and its line of sight, and a group target defers to the
    shared group range test. */
-// FUNCTION: WIZ8 0x00519180
 bool CharacterActionReachesTarget(int party_slot, int hand, const W8Action& selected)
 {
     const W8CombatSlot* target = &selected.target;
@@ -173,7 +168,7 @@ bool CharacterActionReachesTarget(int party_slot, int hand, const W8Action& sele
         point = target->point;
         unsigned int spell_id = GetActionSpellLikeId(selected);
         if (spell_id == W8_SPELL_NONE) {
-            srAssertFail("uiSpell != SPELL_NONE", COMBAT_RANGE_CPP, 0xee, 0);
+            Fail("uiSpell != SPELL_NONE");
         }
         W8SpellTargetType target_type = GetSpellTargetType(spell_id, false);
         if (target_type == W8_TARGET_TYPE_CONE) {
@@ -181,7 +176,7 @@ bool CharacterActionReachesTarget(int party_slot, int hand, const W8Action& sele
             distance = 1.25e+04f;
         } else {
             if (target_type != W8_TARGET_TYPE_RADIUS && target_type != W8_TARGET_TYPE_POINT) {
-                srAssertFail("FALSE", COMBAT_RANGE_CPP, 0x101, 0);
+                Fail("FALSE");
                 return false;
             }
 
@@ -207,7 +202,7 @@ bool CharacterActionReachesTarget(int party_slot, int hand, const W8Action& sele
             return false;
         }
         if (group == 0) {
-            srAssertFail("pMonsterGroup != NULL", COMBAT_RANGE_CPP, 0x1a0, 0);
+            Fail("pMonsterGroup != NULL");
         }
         W8TargetSource source;
         SetTargetSourceToCharacter(party_slot, &source);
@@ -223,7 +218,6 @@ bool CharacterActionReachesTarget(int party_slot, int hand, const W8Action& sele
    action supplies the range category (a combat melee band loses the formation
    rows between slot and monster) and selects the aim flag. An allowed aim
    then has to pass the band distance to the monster. */
-// FUNCTION: WIZ8 0x005194e0
 W8TargetAssessment AssessMonsterAim(int party_slot, int hand, W8MonsterInfo* monster_info,
                                     const W8Action& selected,
                                     std::optional<W8RangeCategory> attack_range, bool sighting)
@@ -254,7 +248,6 @@ W8TargetAssessment AssessMonsterAim(int party_slot, int hand, W8MonsterInfo* mon
 /* The slot-vs-slot reach check the target-list builders share: the slot's
    chosen action has to have a range, and melee range additionally has to get
    past the front rank. */
-// FUNCTION: WIZ8 0x005197c0
 bool CharacterActionReachesSlot(int party_slot, int hand, int target_slot, const W8Action& selected)
 {
     if (static_cast<char>(party_slot) == target_slot) {
@@ -277,7 +270,6 @@ bool CharacterActionReachesSlot(int party_slot, int hand, int target_slot, const
 /* Whether `party_slot`'s action can reach any member of `group_id` at all.
    The character becomes the source for the shared range test; a miss can
    queue the character's complaint event when `notify` asks for it. */
-// FUNCTION: WIZ8 0x00519920
 W8TargetAssessment AssessGroupRange(int party_slot, int group_id, const W8Action& selected)
 {
     auto* group = FindMonsterGroup(group_id, false);
@@ -292,7 +284,6 @@ W8TargetAssessment AssessGroupRange(int party_slot, int group_id, const W8Action
 /* The range category the slot's chosen action works at. Attacks take the
    weapon's reach for the asked hand, a move acts at long range, spells and
    item uses ask their spell record, and anything unknown has no range. */
-// FUNCTION: WIZ8 0x005199f0
 W8RangeCategory GetCharActionRange(int party_slot, int hand, const W8Action& selected,
                                    std::optional<W8RangeCategory> attack_range)
 {
@@ -323,7 +314,6 @@ W8RangeCategory GetCharActionRange(int party_slot, int hand, const W8Action& sel
    `hand` of HAND_ANY asks both hands and keeps the better answer; only a
    hand actually in play carrying a melee or thrown wield kind has a range to
    report at all. */
-// FUNCTION: WIZ8 0x00519ac0
 W8RangeCategory GetCharAttackRange(const W8Character* character, unsigned int hand)
 {
     unsigned int index;
@@ -332,7 +322,7 @@ W8RangeCategory GetCharAttackRange(const W8Character* character, unsigned int ha
 
     if (hand >= 2) {
         if (hand != 2) {
-            srAssertFail("uiHand == HAND_ANY", COMBAT_RANGE_CPP, 0x1f2, 0);
+            Fail("uiHand == HAND_ANY");
         }
         best = W8_RANGE_NONE;
         for (index = 0; index < 2; ++index) {
@@ -360,7 +350,6 @@ W8RangeCategory GetCharAttackRange(const W8Character* character, unsigned int ha
 }
 
 /* The furthest range category any of this character's hands can reach at. */
-// FUNCTION: WIZ8 0x00519ba0
 W8RangeCategory GetBestHandRangeCategory(const W8Character* character)
 {
     W8RangeCategory best = W8_RANGE_NONE;
@@ -379,7 +368,6 @@ W8RangeCategory GetBestHandRangeCategory(const W8Character* character)
 }
 
 /* Whether the first lighting condition applies at distant or extreme range. */
-// FUNCTION: WIZ8 0x00519be0
 bool RangeCategoryUsesSightCondition(const W8MonsterInfo* monster, W8RangeCategory range_category)
 {
     if (range_category >= W8_RANGE_LONG && range_category <= W8_RANGE_EXTREME) {
@@ -392,7 +380,6 @@ bool RangeCategoryUsesSightCondition(const W8MonsterInfo* monster, W8RangeCatego
    selects the friendly disposition band rather than the hostile band. In
    combat, berserk forces the friendly band. Party members and other monsters defer to the corresponding
    MonsterAttackReachesCharacter/Monster helpers. */
-// FUNCTION: WIZ8 0x00519c00
 bool MonsterAttackReachesAnyone(W8MonsterInfo* monster_info, unsigned int attack,
                                 bool friendly_targets)
 {
@@ -488,7 +475,6 @@ static W8RangeCategory GetMonsterPartyTargetRange(W8MonsterInfo* monster_info,
 /* Whether the monster's attack `attack` reaches the character in `party_slot`,
    given what it can see and how far away they stand. Combat mode shortens
    touch/short reach by CountRowsBetween. */
-// FUNCTION: WIZ8 0x0051a2f0
 bool MonsterAttackReachesCharacter(W8MonsterInfo* monster_info, W8MonsterRecord* record,
                                    unsigned int attack, int party_slot)
 {
@@ -507,7 +493,6 @@ bool MonsterAttackReachesCharacter(W8MonsterInfo* monster_info, W8MonsterRecord*
 /* Whether the monster's attack `attack` reaches another monster. Untargetable
    attackers never reach; the same monster always does. Sight comes from the
    mon-to-mon visibility row rather than the party record. */
-// FUNCTION: WIZ8 0x0051a510
 bool MonsterAttackReachesMonster(W8MonsterInfo* monster_info, W8MonsterRecord* record,
                                  unsigned int attack, W8MonsterInfo* target)
 {
@@ -548,7 +533,6 @@ bool MonsterAttackReachesMonster(W8MonsterInfo* monster_info, W8MonsterRecord* r
 
 /* The furthest range category among a monster's three attacks. Asking for the
    close-quarters band only considers the two categories inside it. */
-// FUNCTION: WIZ8 0x0051a800
 W8RangeCategory GetBestMonsterAttackRange(const W8MonsterRecord* record, bool close_quarters_only)
 {
     W8RangeCategory best = W8_RANGE_NONE;
@@ -569,7 +553,6 @@ W8RangeCategory GetBestMonsterAttackRange(const W8MonsterRecord* record, bool cl
 
 /* Furthest attack band, optionally raised to long for certain special-attack
    kinds, then the furthest castable spell band when the gates allow. */
-// FUNCTION: WIZ8 0x0051a840
 W8RangeCategory GetMonsterBestRangeCategory(W8MonsterInfo* monster_info,
                                             bool skip_capability_checks, int* out_sight)
 {
@@ -630,7 +613,6 @@ W8RangeCategory GetMonsterBestRangeCategory(W8MonsterInfo* monster_info,
 /* The range category one monster action works at. A spell takes the range off
    the spell record; two of the actions have a fixed answer and the rest have
    none. A plain attack takes it from the attack itself, which has to exist. */
-// FUNCTION: WIZ8 0x0051a730
 W8RangeCategory GetMonsterActionRangeCategory(const W8MonsterInfo* monster_info,
                                               const W8MonsterRecord* record, unsigned int attack)
 {
@@ -648,17 +630,16 @@ W8RangeCategory GetMonsterActionRangeCategory(const W8MonsterInfo* monster_info,
     }
 
     if (attack >= W8_MAX_MONSTER_ATTACKS) {
-        srAssertFail("uiAttack < MAX_MONSTER_ATTACKS", COMBAT_RANGE_CPP, 949, 0);
+        Fail("uiAttack < MAX_MONSTER_ATTACKS");
     }
     if (record->attacks[attack].fHasAttack == 0) {
-        srAssertFail("pMonsterDB->Attack[uiAttack].fHasAttack", COMBAT_RANGE_CPP, 950, 0);
+        Fail("pMonsterDB->Attack[uiAttack].fHasAttack");
     }
     return static_cast<W8RangeCategory>(record->attacks[attack].range_category);
 }
 
 /* How far a range category actually is. The four categories step 2, 4, 25, 50
    before the world scale multiplies them; no range at all is zero distance. */
-// FUNCTION: WIZ8 0x0051a9a0
 float CalcRangeDistance(W8RangeCategory range_category)
 {
     unsigned int steps = 0;
@@ -680,8 +661,7 @@ float CalcRangeDistance(W8RangeCategory range_category)
         steps = 50;
         break;
     default:
-        srAssertFail("FALSE", COMBAT_RANGE_CPP, 1123,
-                     "CalcRangeDistance: ERROR - Invalid range category");
+        Fail("FALSE", "CalcRangeDistance: ERROR - Invalid range category");
     }
     return steps * kWorldScale;
 }
@@ -689,7 +669,6 @@ float CalcRangeDistance(W8RangeCategory range_category)
 /* Source-relative action range: same band steps as CalcRangeDistance, then add
    the source's navigator radius - the party navigator for a character source,
    the individual monster's for a monster source. */
-// FUNCTION: WIZ8 0x0051AA30
 float CalcRangeDistance(W8RangeCategory range_category, W8TargetSource* source)
 {
     float distance = CalcRangeDistance(range_category);
@@ -698,7 +677,7 @@ float CalcRangeDistance(W8RangeCategory range_category, W8TargetSource* source)
     }
     if (TargetSourceIsMonster(source, 0)) {
         if (source->iMonsterID == -1) {
-            srAssertFail("pSource->iMonsterID != -1", COMBAT_RANGE_CPP, 0x483, 0);
+            Fail("pSource->iMonsterID != -1");
         }
         W8MonsterInfo* monster_info = FindMonster(source->iMonsterID);
         return monster_info->p3D->movement.alternate_radius + distance;
@@ -708,7 +687,6 @@ float CalcRangeDistance(W8RangeCategory range_category, W8TargetSource* source)
 
 /* Party-relative action range for the world cursor: same band steps as
    CalcRangeDistance, then add the startup navigator's movement collision_radius. */
-// FUNCTION: WIZ8 0x0051AB50
 float CalcRangeDistanceFromParty(W8RangeCategory range_category)
 {
     return CalcRangeDistance(range_category) + PartyNavigator()->movement.collision_radius;
@@ -717,7 +695,6 @@ float CalcRangeDistanceFromParty(W8RangeCategory range_category)
 /* Shrink a short-range category by the formation rows CountRowsBetween says
    stand between the monster and `party_slot`. Exhausting the category marks it
    unreachable (-1). */
-// FUNCTION: WIZ8 0x0051abe0
 void CloseFormationGap(W8MonsterInfo* monster_info, int party_slot, W8RangeCategory* range_category)
 {
     char crossable;
@@ -743,7 +720,6 @@ void CloseFormationGap(W8MonsterInfo* monster_info, int party_slot, W8RangeCateg
 }
 
 /* Whether anybody standing ahead of this position is still in formation. */
-// FUNCTION: WIZ8 0x0051ae60
 bool AnyoneStandsAhead(unsigned char position)
 {
     unsigned char found = 0;
@@ -763,7 +739,6 @@ bool AnyoneStandsAhead(unsigned char position)
    reach. Same row answers zero; otherwise one when the monster's row is
    occupied, plus one more when the gap is exactly two rows and either that
    row or the front rank screens. */
-// FUNCTION: WIZ8 0x0051aec0
 char CountRowsBetween(int party_slot, W8MonsterInfo* monster_info)
 {
     unsigned char monster_quadrant = static_cast<unsigned char>(GetMonsterQuadrant(monster_info));
@@ -789,7 +764,7 @@ char CountRowsBetween(int party_slot, W8MonsterInfo* monster_info)
     }
 
     if (monster_quadrant == 4) {
-        srAssertFail("ubMonsterQuadrant != QUADRANT_CENTER", COMBAT_RANGE_CPP, 0x598, 0);
+        Fail("ubMonsterQuadrant != QUADRANT_CENTER");
     }
     if (party_quadrant == 4) {
         return rows;
@@ -821,7 +796,6 @@ char CountRowsBetween(int party_slot, W8MonsterInfo* monster_info)
 
 /* Whether the front rank stands between two positions. Only positions exactly
    two rows apart can be screened, and the fifth row is never in the way. */
-// FUNCTION: WIZ8 0x0051b000
 bool FrontRankScreens(unsigned int from_position, unsigned int to_position)
 {
     unsigned char from_row = g_status.formation.positions[from_position].bQuadrant;
@@ -859,7 +833,6 @@ bool FrontRankScreens(unsigned int from_position, unsigned int to_position)
    and that the slot's chosen action could actually strike is collected; one of
    them is picked at random, or -1 when nobody qualifies. The berserk and
    turncoat paths use it to pick a victim. */
-// FUNCTION: WIZ8 0x0051b0a0
 int PickReachableSlotByDisposition(int party_slot, W8Disposition relationship)
 {
     int candidates[8];
@@ -892,13 +865,11 @@ int PickReachableSlotByDisposition(int party_slot, W8Disposition relationship)
 }
 
 /* Two seven-byte constant readers the range rules share. */
-// FUNCTION: WIZ8 0x0051b300
 float GetMonsterEngagementRange(void)
 {
     return 2.5e+04f;
 }
 
-// FUNCTION: WIZ8 0x0051b310
 float GetGroundTargetRange(void)
 {
     return 1.25e+04f;
@@ -907,7 +878,6 @@ float GetGroundTargetRange(void)
 /* Cache which origin points this monster can actually provide. Projectile
    attacks need a usable launch point only when their best range is long or
    extreme; spell casting also requires the spell cycle. */
-// FUNCTION: WIZ8 0x0051B420
 void InitializeMonsterRangeCapabilities(W8MonsterInfo* monster_info, const W8MonsterRecord* record)
 {
     monster_info->unknown_379 = 1;
@@ -925,11 +895,10 @@ void InitializeMonsterRangeCapabilities(W8MonsterInfo* monster_info, const W8Mon
         best_range > W8_RANGE_SHORT && monster_info->p3D->GetProjectilePosition(&position);
 
     monster_info->has_spell_origin = record->spell_chance != 0 &&
-                                     MonsterIsCycleSupported(monster_info->p3D, 0x19) &&
+                                     monster_info->p3D->IsCycleSupported(0x19) &&
                                      monster_info->p3D->GetSpellPosition(&position);
 }
 
-// FUNCTION: WIZ8 0x0051b3f0
 unsigned char TraceModeRejectsNoHit(int mode)
 {
     switch (mode) {
@@ -948,13 +917,14 @@ unsigned char TraceModeRejectsNoHit(int mode)
    the nearest hostile visible monster. Answers the chosen distance and fills
    the target kind and monster id when applicable. */
 // FUNCTION: WIZ8 0x0051ac30
-float MonsterChooseTarget(W8MonsterInfo* monster_info, W8CombatSlot* out, int kind)
+float MonsterChooseTarget(W8MonsterInfo* monster_info, W8CombatSlot* out,
+                          W8VisibilityCondition condition)
 {
     float best = 999999.0f;
 
     out->iType = W8_TARGET_KIND_NONE;
     if (monster_info->ubDisposition == W8_DISPOSITION_HOSTILE &&
-        IsVisibleUnderConditions(monster_info, &monster_info->player_visibility, kind) &&
+        IsVisibleUnderConditions(monster_info, &monster_info->player_visibility, condition) &&
         (best = monster_info->p3D->GetDistanceToPlayer(), best < 999999.0f)) {
         out->iType = W8_TARGET_KIND_CHARACTER;
     }
@@ -967,7 +937,7 @@ float MonsterChooseTarget(W8MonsterInfo* monster_info, W8CombatSlot* out, int ki
             if (other != monster_info && other->fActive && other->hp_current != 0 &&
                 other->pCombat && MonsterHostility(monster_info, other) == W8_DISPOSITION_HOSTILE) {
                 W8VisibilityRecord* row = FindMonToMonVisibility(monster_info, other);
-                if (IsVisibleUnderConditions(monster_info, row, kind)) {
+                if (IsVisibleUnderConditions(monster_info, row, condition)) {
                     float distance = monster_info->p3D->GetDistanceToMonster(other->p3D);
                     if (distance < best) {
                         out->iType = W8_TARGET_KIND_MONSTER;
@@ -985,7 +955,6 @@ float MonsterChooseTarget(W8MonsterInfo* monster_info, W8CombatSlot* out, int ki
    carries: its own line of sight has to hold for a character or the party, the
    target monster has to be reachable, and a group target is checked against
    every member. */
-// FUNCTION: WIZ8 0x00519f80
 bool MonsterActionReachesTarget(W8MonsterInfo* monster_info, W8MonsterRecord* record,
                                 unsigned int attack, W8CombatSlot* target)
 {
@@ -1022,7 +991,8 @@ bool MonsterActionReachesTarget(W8MonsterInfo* monster_info, W8MonsterRecord* re
 }
 
 // FUNCTION: WIZ8 0x0051ad60
-int FindNearestVisibleGroupMonster(W8MonsterInfo* monster_info, int group_id, int kind)
+int FindNearestVisibleGroupMonster(W8MonsterInfo* monster_info, int group_id,
+                                   W8VisibilityCondition condition)
 {
     int best_id = -1;
     float best = 999999.0f;
@@ -1032,7 +1002,7 @@ int FindNearestVisibleGroupMonster(W8MonsterInfo* monster_info, int group_id, in
         W8MonsterInfo* target = FindMonster(location_id);
         if (target->fActive && target->hp_current != 0 && target->pCombat) {
             W8VisibilityRecord* row = FindMonToMonVisibility(monster_info, target);
-            if (IsVisibleUnderConditions(monster_info, row, kind)) {
+            if (IsVisibleUnderConditions(monster_info, row, condition)) {
                 float distance = monster_info->p3D->GetDistanceToMonster(target->p3D);
                 if (distance < best) {
                     best_id = target->location_id;
@@ -1047,7 +1017,6 @@ int FindNearestVisibleGroupMonster(W8MonsterInfo* monster_info, int group_id, in
 /* The attack-origin offset for `kind` 1 (projectile) or 3 (spell): the
    monster's height offset, shifted by the delta between its navigator
    position and the muzzle/hand point when that point resolves. */
-// FUNCTION: WIZ8 0x0051b320
 void GetMonsterAttackSourceOffset(W8Monster* monster, int kind, glm::vec3* out)
 {
     (*out) = glm::vec3(0.0f, monster->movement.height_offset, 0.0f);
@@ -1067,10 +1036,9 @@ void GetMonsterAttackSourceOffset(W8Monster* monster, int kind, glm::vec3* out)
             return;
         }
     }
-    srAssertFail("FALSE", COMBAT_RANGE_CPP, 0x646, 0);
+    Fail("FALSE");
 }
 
-// FUNCTION: WIZ8 0x0051b4e0
 bool SourceActionReachesTarget(W8TargetSource* source, W8CombatSlot* target, const W8Action& action)
 {
     if (TargetSourceIsCharacter(source, 0)) {

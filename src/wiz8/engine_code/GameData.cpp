@@ -9,35 +9,35 @@
 #include <span>
 #include <vector>
 
+#include <glm/common.hpp>
+#include <glm/geometric.hpp>
+#include <glm/matrix.hpp>
+#include <glm/trigonometric.hpp>
+#include <glm/vector_relational.hpp>
+
 #include "audio_resources.h"
 #include "camera_motion.h"
 #include "compat/compiler.h"
 #include "geometry.h"
-#include "glm/common.hpp"
 #include "glm/ext/matrix_float2x2.hpp"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
-#include "glm/geometric.hpp"
 #include "glm/gtx/projection.hpp"
-#include "glm/matrix.hpp"
-#include "glm/trigonometric.hpp"
-#include "glm/vector_relational.hpp"
 #include "layouts/world.h"
 #include "local_code/Combat.h"
-#include "random.h"
-#include "soundman.h"
 #include "surrender/segment_math.h"
 #include "surrender/srDebug.h"
 #include "surrender/srMath.h"
 #include "surrender/triangle_projection.h"
+#include "wiz8/audio/AmbientSound.h"
+#include "wiz8/audio/SoundEvent.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/3dapi.h"
-#include "wiz8/engine_code/AmbientSound.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GDProp.h"
-#include "wiz8/engine_code/GameTimeAccumulator.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Navigator.h"
@@ -45,11 +45,9 @@
 #include "wiz8/engine_code/OctPath.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Prop.h"
-#include "wiz8/engine_code/SoundEvent.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/game_timer.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/ground_probe.h"
 #include "wiz8/layouts/game_status.h"
@@ -64,6 +62,9 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/packed_bits.h"
+#include "wiz8/platform/GameTimeAccumulator.h"
+#include "wiz8/platform/game_timer.h"
+#include "wiz8/platform/random.h"
 #include "wiz8/xstatus.h"
 
 constexpr float kCameraRadiansToDegrees = 57.295784f;
@@ -80,10 +81,8 @@ constexpr float kCollisionSlopeMarginScale = 150.0f;
 class srMaterial;
 class srTexture;
 
-// GLOBAL: WIZ8 0x00652da7
 bool g_mouselook_manual;
 
-// FUNCTION: WIZ8 0x00420bd0
 GroundProbe probeGround(const glm::vec3& position)
 {
     if (GetWorldGameData() && GetWorldGameData()->octree)
@@ -94,26 +93,22 @@ GroundProbe probeGround(const glm::vec3& position)
 /* The ground height under `position` plus the footstep surface/material of
    the surface the last trace selected; both outputs stay zero when no
    surface was recorded. */
-// FUNCTION: WIZ8 0x00420CA0
 GroundSurfaceInfo groundSurfaceInfo(const glm::vec3& position)
 {
-    GroundSurfaceInfo result{probeGround(position).position.y, W8_FOOTSTEP_SURFACE_NONE,
-                             W8_FOOTSTEP_MATERIAL_NONE};
-    if (GetWorldGameData() && GetWorldGameData()->last_hit_surface != 0) {
-        const auto& hit = GetWorldGameData()->m_pSurfaces[GetWorldGameData()->last_hit_surface];
+    const auto probe = probeGround(position);
+    GroundSurfaceInfo result{probe.position.y, W8_FOOTSTEP_SURFACE_NONE, W8_FOOTSTEP_MATERIAL_NONE};
+    if (GetWorldGameData() && probe.surface != 0) {
+        const auto& hit = GetWorldGameData()->m_pSurfaces[probe.surface];
         result.surface = hit.footstep_surface;
         result.material = hit.footstep_material;
     }
     return result;
 }
 
-// GLOBAL: WIZ8 0x00652dba
 static bool g_level_override;
-// GLOBAL: WIZ8 0x00652dce
 bool g_shared_timers_paused;
 
 /* Resolve a complete triangle from an explicit processed vertex table. */
-// FUNCTION: WIZ8 0x004214d0
 std::optional<RuntimeTriangle> surfaceTriangle(std::span<const glm::vec3> vertices,
                                                std::span<const int, 3> vertexIndices)
 {
@@ -123,13 +118,11 @@ std::optional<RuntimeTriangle> surfaceTriangle(std::span<const glm::vec3> vertic
 }
 
 /* Ensure the shared game-data object exists, then run its update. */
-// FUNCTION: WIZ8 0x0041F1F0
 void UpdateSharedGameDataObject()
 {
     GameTimeAccumulator().Update();
 }
 
-// FUNCTION: WIZ8 0x0041F260
 void UpdateGameDataRuntime()
 {
     if (g_shared_timers_paused) {
@@ -142,7 +135,6 @@ void UpdateGameDataRuntime()
 /* Apply world-render camera-motion flags into `rotation` and mirror the yaw
    rotation into `saved`. ECX is the owning W8GameData; the body reads only
    globals. */
-// FUNCTION: WIZ8 0x0041F330
 CameraRotation W8GameData::cameraRotation(unsigned int flags, const glm::mat3& rotation)
 {
     CameraRotation result{rotation, rotation};
@@ -209,29 +201,19 @@ CameraRotation W8GameData::cameraRotation(unsigned int flags, const glm::mat3& r
     return result;
 }
 
-// GLOBAL: WIZ8 0x00652dcd
 unsigned char g_level_motion_fast;
-// GLOBAL: WIZ8 0x00652db9
 bool g_level_footstep_pending;
-// GLOBAL: WIZ8 0x00603ac0
 float g_camera_motion_clamp = 1125.0f;
-// GLOBAL: WIZ8 0x00603ac4
 float g_camera_motion_divisor = 3000.0f;
-// GLOBAL: WIZ8 0x00603ad4
 wiz8::sound::Playback g_level_footstep_sound = nullptr;
-// GLOBAL: WIZ8 0x00652dd0
 float g_level_footstep_time;
-// GLOBAL: WIZ8 0x005ebc50
 const double g_motion_delta_epsilon = 0.10000000149011612;
-// GLOBAL: WIZ8 0x005ebcd4
 const float g_footstep_fall_threshold = -250.0f;
-// GLOBAL: WIZ8 0x00652940
 glm::vec3 g_world_origin;
 
 /* Advance the camera under world-render motion flags. ECX is the owning
    W8GameData; the body mostly reads globals. Zero elapsed (`camera_scale`)
    returns before the motion helpers. */
-// FUNCTION: WIZ8 0x0041F5F0
 CameraMotion W8GameData::cameraMotion(unsigned int flags, const glm::vec3& position,
                                       const glm::mat3& movement_basis)
 {
@@ -354,14 +336,10 @@ after_move:
     return result;
 }
 
-// GLOBAL: WIZ8 0x005ebc48
 const double g_motion_vector_epsilon = 5.0;
-// GLOBAL: WIZ8 0x00603ad1
 unsigned char g_environment_motion_active = 1;
-// GLOBAL: WIZ8 0x00652db8
 bool g_environ_ground_latch;
 
-// FUNCTION: WIZ8 0x00421800
 void W8EnvironRecord::SetScaledMotion(const glm::vec3& motion)
 {
     vector = motion / scale;
@@ -370,13 +348,11 @@ void W8EnvironRecord::SetScaledMotion(const glm::vec3& motion)
     airborne = 1;
 }
 
-// FUNCTION: WIZ8 0x00421850
 glm::vec3 W8EnvironRecord::withScaledMotion(const glm::vec3& position) const
 {
     return position + vector * scale;
 }
 
-// FUNCTION: WIZ8 0x0041FE20
 unsigned char W8LevelDataRecord::ClampCameraToBounds(W8EnvironRecord& environ,
                                                      const glm::vec3* minimum,
                                                      const glm::vec3* maximum)
@@ -426,7 +402,6 @@ unsigned char W8LevelDataRecord::ClampCameraToBounds(W8EnvironRecord& environ,
 /* Probe active collidable props along the motion segment. On a hit, rewrites
    the caller's position into world space, may nudge `direction`, and latches
    plane / level-data contact fields used by the collision response pass. */
-// FUNCTION: WIZ8 0x0041B770
 W8GDSurface* W8GameData::ProbePropsAlongMotion(glm::vec3* direction, glm::vec3* position,
                                                glm::vec3* scratch, float* nearest_distance)
 {
@@ -553,7 +528,6 @@ W8GDSurface* W8GameData::ProbePropsAlongMotion(glm::vec3* direction, glm::vec3* 
     return nearest_surface;
 }
 
-// FUNCTION: WIZ8 0x0041BD60
 unsigned char W8GameData::ProbeMonstersAlongMotion(glm::vec3* direction, glm::vec3* position, int)
 {
     std::vector<w8_ulong> objects;
@@ -592,7 +566,7 @@ unsigned char W8GameData::ProbeMonstersAlongMotion(glm::vec3* direction, glm::ve
             return hit;
         }
         monster_info = FindMonster(objects[index]);
-        if (monster_info != 0 && monster_info->p3D != 0 && monster_info->p3D->active) {
+        if (monster_info != 0 && monster_info->p3D != 0 && monster_info->p3D->W8Navigator::active) {
             monster = monster_info->p3D;
             time_scale = g_rate * GameTimeAccumulator().GetFrameDelta();
             velocity = monster->GetVelocity();
@@ -633,7 +607,6 @@ unsigned char W8GameData::ProbeMonstersAlongMotion(glm::vec3* direction, glm::ve
 /* Environment-load camera advance: integrate level vectors, clamp environ
    gravity into the path, then walk up to five collision attempts against
    props/octree/geometry before committing crossed surfaces. */
-// FUNCTION: WIZ8 0x0041AB40
 unsigned char W8GameData::AdvanceEnvironmentMotion()
 {
     W8LevelDataRecord* level;
@@ -841,8 +814,7 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
                 collisions[collision_count] = nearest_surface;
                 ++collision_count;
                 if (99 < collision_count) {
-                    srAssertFail("lCollisions < 100",
-                                 "C:\\Projects\\Wizardry 8\\Engine Code\\GameData.cpp", 0x253, 0);
+                    Fail("lCollisions < 100");
                 }
                 if (g_environment_motion_active == 0) {
                     hit_count = 0;
@@ -955,7 +927,6 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
    proven, so it keeps its address. */
 /* Run the buffered prop id list through TestProp and report the id of the
    last prop that hit; an empty list reports -1. */
-// FUNCTION: WIZ8 0x0041c0d0
 int W8GameData::TestPropSurfaces(int count, w8_ulong* ids, W8OctreeTrace* trace, char skip_flag,
                                  char gate)
 {
@@ -979,7 +950,6 @@ int W8GameData::TestPropSurfaces(int count, w8_ulong* ids, W8OctreeTrace* trace,
    prop space through the prop's
    position delta; on a hit the caller's record is reseeded from the start to
    the world-space contact. `gate` skips flag-4 props when set. */
-// FUNCTION: WIZ8 0x0041c140
 bool W8GameData::TestProp(int prop_id, W8OctreeTrace* trace, char skip_flag, char gate)
 {
     auto* prop = octree->owner_world->collidable_props[prop_id];
@@ -995,7 +965,8 @@ bool W8GameData::TestProp(int prop_id, W8OctreeTrace* trace, char skip_flag, cha
     W8OctreeTrace prop_trace(start, end);
     const bool hit = TestGeometryTrace(gd_prop->m_pGDSurfaces, gd_prop->m_pVertices,
                                        static_cast<int>(gd_prop->m_pGDSurfaces.size()), 0,
-                                       &prop_trace, skip_flag, 0);
+                                       &prop_trace, skip_flag, 0, false);
+    trace->hit_surface = prop_trace.hit_surface;
     if (hit) {
         end = prop_trace.end + delta;
         trace->reset(start, end);
@@ -1004,29 +975,29 @@ bool W8GameData::TestProp(int prop_id, W8OctreeTrace* trace, char skip_flag, cha
 }
 
 /* Ray the trace record against `count` surfaces: all of m_pSurfaces in order
-   when `surface_ids` is null, else just the listed indexes. The trace_flag4_gate flag
-   admits flag-4 surfaces only, 0x1080-marked surfaces are skipped outright,
+   when `surface_ids` is null, else just the listed indexes. When `walkable_only` is set,
+   only walkable surfaces are admitted, 0x1080-marked surfaces are skipped outright,
    `skip_flag` drops 0x8000-marked ones, and a nonzero chance needs a
    passing `mode` roll. Each accepted surface's plane is tested both sides of
    the segment; a point-in-triangle pass on the contact keeps the closest hit,
-   storing index into last_hit_surface, the contact into end and the hit
+   storing index into the record's hit_surface, the contact into end and the hit
    distance into hit_limit/length. */
-// FUNCTION: WIZ8 0x0041c330
 bool W8GameData::TestTraceResult(int count, w8_ulong* surface_ids, W8OctreeTrace* trace,
-                                 char skip_flag, int mode)
+                                 char skip_flag, int mode, bool walkable_only)
 {
-    return TestGeometryTrace(m_pSurfaces, m_pVertices, count, surface_ids, trace, skip_flag, mode);
+    return TestGeometryTrace(m_pSurfaces, m_pVertices, count, surface_ids, trace, skip_flag, mode,
+                             walkable_only);
 }
 
 bool W8GameData::TestGeometryTrace(std::span<W8GDSurface> surfaces,
                                    std::span<const glm::vec3> vertices_bank, int count,
                                    w8_ulong* surface_ids, W8OctreeTrace* trace, char skip_flag,
-                                   int mode)
+                                   int mode, bool walkable_only)
 {
     bool hit = false;
     glm::vec3 best_contact;
 
-    last_hit_surface = 0;
+    trace->hit_surface = 0;
     if (count != 0) {
         w8_ulong* id = surface_ids;
         int index = 0;
@@ -1038,7 +1009,7 @@ bool W8GameData::TestGeometryTrace(std::span<W8GDSurface> surfaces,
             } else {
                 surface = surfaces.data() + *id;
             }
-            if (((!trace_flag4_gate || (surface->flags & W8_GD_SURFACE_WALKABLE) != 0) &&
+            if (((!walkable_only || (surface->flags & W8_GD_SURFACE_WALKABLE) != 0) &&
                  (surface->flags & W8_GD_SURFACE_CROSSING_MASK) == 0 &&
                  (skip_flag == 0 || (surface->flags & W8_GD_SURFACE_SKIP_FILTERED_TRACE) == 0)) &&
                 (surface->chance == 0 ||
@@ -1055,7 +1026,7 @@ bool W8GameData::TestGeometryTrace(std::span<W8GDSurface> surfaces,
                     if (PointInsideTriangle(vertices, surface->flags & W8_GD_SURFACE_AXIS_MASK,
                                             contact->point) &&
                         contact->distance < trace->hit_limit) {
-                        last_hit_surface = surface->index;
+                        trace->hit_surface = surface->index;
                         hit = true;
                         trace->hit_limit = contact->distance;
                         best_contact = contact->point;
@@ -1083,7 +1054,6 @@ bool W8GameData::TestGeometryTrace(std::span<W8GDSurface> surfaces,
 /* Selects a switch interface's state: the matching state group's conditional
    polygons clear surface flag 0x10 while every other state's polygons set
    it. Asserts the interface id and the state slice bounds. */
-// FUNCTION: WIZ8 0x0041c680
 char W8GameData::SetInterfaceState(int iID, int state)
 {
     int iStates;
@@ -1093,14 +1063,12 @@ char W8GameData::SetInterfaceState(int iID, int state)
     int* polys;
 
     if (iID == 0 || InterfacesCount() <= iID) {
-        srAssertFail("iID && iID < InterfacesCount()",
-                     "C:\\Projects\\Wizardry 8\\Engine Code\\GameData.cpp", 0x4e0, 0);
+        Fail("iID && iID < InterfacesCount()");
     }
     interface_rec = m_pInterfaces.data() + iID;
     iStates = interface_rec->state_count;
     if (StatesCount() < interface_rec->iStates + iStates) {
-        srAssertFail("(m_pInterfaces[iID].iStates + iStates) <= StatesCount()",
-                     "C:\\Projects\\Wizardry 8\\Engine Code\\GameData.cpp", 0x4e2, 0);
+        Fail("(m_pInterfaces[iID].iStates + iStates) <= StatesCount()");
     }
     states = m_pStates.data() + interface_rec->iStates;
     for (; iStates != 0; --iStates) {
@@ -1126,7 +1094,6 @@ char W8GameData::SetInterfaceState(int iID, int state)
    boundary (flag 0x1000) swaps the active environment record, carrying the
    live blend fields across; a trigger surface runs its trigger in the
    crossing direction unless the bit sets already hold it. */
-// FUNCTION: WIZ8 0x0041c770
 void W8GameData::ProcessCrossedSurface(W8GDSurface* surface)
 {
     Trigger* trigger;
@@ -1166,7 +1133,8 @@ void W8GameData::ProcessCrossedSurface(W8GDSurface* surface)
     }
     if (direction != 0) {
         trigger->Run(direction);
-        if (trigger->action_state == 1 || trigger->action_state == 4) {
+        if (trigger->action_state == W8TriggerActionState::inactive ||
+            trigger->action_state == W8TriggerActionState::fallback_action) {
             ClearBit(active_trigger_bits, surface->trigger_index);
             ClearBit(pending_trigger_bits, surface->trigger_index);
         }
@@ -1179,7 +1147,6 @@ void W8GameData::ProcessCrossedSurface(W8GDSurface* surface)
    gate on the contact band below distance; flag-0x1080 surfaces (special)
    instead test whether the segment crossed the plane, and lift the probe by the
    level-flag-8 camera offset. */
-// FUNCTION: WIZ8 0x0041CF90
 std::optional<PlaneContact> W8GDSurface::segmentContact(const glm::vec3& from,
                                                         const glm::vec3& direction,
                                                         std::span<const glm::vec3, 3> vertices,
@@ -1303,7 +1270,6 @@ std::optional<PlaneContact> W8GDSurface::segmentContact(const glm::vec3& from,
 /* 2D segment-vs-edge test in the plane perpendicular to `axis`: the projected
    motion segment seg_start→seg_end must overlap edge_a→edge_b on both free
    axes and their line-crossing parameters must both fall inside [0,1]. */
-// FUNCTION: WIZ8 0x0041D7A0
 bool SegmentCrossesEdge(const glm::vec3& seg_start, const glm::vec3& seg_end,
                         const glm::vec3& edge_a, const glm::vec3& edge_b, unsigned int axis)
 {
@@ -1332,7 +1298,6 @@ bool SegmentCrossesEdge(const glm::vec3& seg_start, const glm::vec3& seg_end,
    missed the projected triangle. `limit` (contact_margin) shrinks
    to the remaining in-plane travel before the nearest edge; fails when no
    edge improves it. */
-// FUNCTION: WIZ8 0x0041D9D0
 std::optional<float> W8GDSurface::edgeContactLimit(const glm::vec3& point,
                                                    std::span<const glm::vec3, 3> vertices,
                                                    float limit) const
@@ -1381,7 +1346,6 @@ std::optional<float> W8GDSurface::edgeContactLimit(const glm::vec3& point,
    `direction` is bent along the contact plane; returns whether motion
    continues. The crossed contact planes persist across calls in the statics
    so sequential bounces wedge the slide between them. */
-// FUNCTION: WIZ8 0x0041DC10
 bool W8GDSurface::ResolveCollision(W8LevelDataRecord& level, W8EnvironRecord& environ,
                                    glm::vec3* origin, const glm::vec3* hit_point,
                                    glm::vec3* direction, int collision_index)
@@ -1568,7 +1532,6 @@ bool W8GDSurface::ResolveCollision(W8LevelDataRecord& level, W8EnvironRecord& en
 /* Whether `surface_index`'s triangle centroid sits farther from this surface's
    centroid than the from→to normal offset: used to tell genuinely different
    contact planes apart when wedging a slide. */
-// FUNCTION: WIZ8 0x0041E8E0
 bool W8GDSurface::CentroidsDiverging(int surface_index, const glm::vec3& from, const glm::vec3& to)
 {
     const W8GDSurface* other = GetWorldGameData()->m_pSurfaces.data() + surface_index;
@@ -1592,7 +1555,6 @@ bool W8GDSurface::CentroidsDiverging(int surface_index, const glm::vec3& from, c
    scaled by value_20 and the vertical attenuation, and reports the combined
    motion to the environ record. Direction tests against the surface normal
    decide whether any correction applies. */
-// FUNCTION: WIZ8 0x0041EA90
 bool W8GDSurface::ApplyEnvironContact(W8LevelDataRecord& level, W8EnvironRecord& environ,
                                       glm::vec3& direction)
 {
@@ -1642,7 +1604,6 @@ bool W8GDSurface::ApplyEnvironContact(W8LevelDataRecord& level, W8EnvironRecord&
 /* VC6 vector constructor iterator, emitted for an ordinary array construction.
    This is compiler support, not an authored Wizardry callback wrapper. */
 
-// FUNCTION: WIZ8 0x0041EEE0
 void ResetLevelMovement(float movement_limit, bool reset, bool fast_move)
 {
     W8LevelDataRecord* level = LevelMotion();
@@ -1667,7 +1628,6 @@ void ResetLevelMovement(float movement_limit, bool reset, bool fast_move)
     }
 }
 
-// FUNCTION: WIZ8 0x0041ef50
 void ResetInactiveLevelDataVectors(void)
 {
     W8LevelDataRecord* level = LevelMotion();
@@ -1683,7 +1643,6 @@ void ResetInactiveLevelDataVectors(void)
 }
 
 /* Fast movement is shared by camera motion, stamina and combat movement. */
-// FUNCTION: WIZ8 0x0041efb0
 bool IsLevelFastMovement(void)
 {
     W8LevelDataRecord* level = LevelMotion();
@@ -1693,7 +1652,6 @@ bool IsLevelFastMovement(void)
     return false;
 }
 
-// FUNCTION: WIZ8 0x0041efd0
 void ClearLevelFastMovement(void)
 {
     W8LevelDataRecord* level = LevelMotion();
@@ -1702,7 +1660,6 @@ void ClearLevelFastMovement(void)
     }
 }
 
-// FUNCTION: WIZ8 0x0041efe0
 void SetLevelFastMovement(void)
 {
     W8LevelDataRecord* level = LevelMotion();
@@ -1711,7 +1668,6 @@ void SetLevelFastMovement(void)
     }
 }
 
-// FUNCTION: WIZ8 0x0041eff0
 bool LevelMovedThisUpdate(void)
 {
     W8LevelDataRecord* level = LevelMotion();
@@ -1722,7 +1678,6 @@ bool LevelMovedThisUpdate(void)
 }
 
 /* Whether the last motion update found walkable-surface contact. */
-// FUNCTION: WIZ8 0x0041f070
 bool HasLevelWalkableContact(void)
 {
     W8LevelDataRecord* level = LevelMotion();
@@ -1733,7 +1688,6 @@ bool HasLevelWalkableContact(void)
 }
 
 /* Clear active, stopped and reset movement state together. */
-// FUNCTION: WIZ8 0x0041f0c0
 void ClearLevelMovementState(void)
 {
     W8LevelDataRecord* level = LevelMotion();
@@ -1742,7 +1696,6 @@ void ClearLevelMovementState(void)
     }
 }
 
-// FUNCTION: WIZ8 0x0041f140
 bool IsLevelMovementStopped(void)
 {
     W8LevelDataRecord* level = LevelMotion();
@@ -1752,7 +1705,6 @@ bool IsLevelMovementStopped(void)
     return false;
 }
 
-// FUNCTION: WIZ8 0x0041f160
 void ClearLevelMovementStopped(void)
 {
     W8LevelDataRecord* level = LevelMotion();
@@ -1764,7 +1716,6 @@ void ClearLevelMovementStopped(void)
 /* Hand the level's pending real/frame elapsed times to the caller, fold them
    into the session accumulators, clear the pending pair, and report whether
    either was above the camera-transition epsilon. */
-// FUNCTION: WIZ8 0x0041f170
 unsigned char ConsumeLevelElapsedTime(float* real_elapsed, float* frame_elapsed)
 {
     W8LevelDataRecord* level = LevelMotion();
@@ -1784,7 +1735,6 @@ unsigned char ConsumeLevelElapsedTime(float* real_elapsed, float* frame_elapsed)
 
 /* Options and save/load may interrupt motion while grounded or before
    the falling-state override has latched. Without a loaded level, it is refused. */
-// FUNCTION: WIZ8 0x0041f090
 bool CanInterruptLevelMovement(void)
 {
     W8LevelDataRecord* level = LevelMotion();
@@ -1799,7 +1749,6 @@ bool CanInterruptLevelMovement(void)
 
 /* Whether the level has a live vector at 0x88: bit zero has to be up and at
    least one of the three floats has to differ from the default. */
-// FUNCTION: WIZ8 0x0041f010
 bool HasLevelDataVector(void)
 {
     W8LevelDataRecord* level = LevelMotion();
@@ -1829,7 +1778,6 @@ W8EnvironRecord* LevelEnviron()
 /* The camera-sway mode halves navigator gravity, mirrors it into the active
    environment record and swaps the camera forward scale; the flag guards both
    transitions so repeated triggers are idempotent. */
-// FUNCTION: WIZ8 0x0041a960
 void BeginCameraSway(void)
 {
     W8EnvironRecord* environ = LevelEnviron();
@@ -1844,7 +1792,6 @@ void BeginCameraSway(void)
     g_camera_sway_active = true;
 }
 
-// FUNCTION: WIZ8 0x0041a9a0
 void EndCameraSway(void)
 {
     W8EnvironRecord* environ = LevelEnviron();
@@ -1859,7 +1806,6 @@ void EndCameraSway(void)
     g_camera_sway_active = false;
 }
 
-// FUNCTION: WIZ8 0x0041AA40
 void ResetCurrentEnvironment(void)
 {
     auto* data = GetWorldGameData();
@@ -1879,7 +1825,6 @@ void ResetCurrentEnvironment(void)
     g_level_override = false;
 }
 
-// FUNCTION: WIZ8 0x0041AAE0
 unsigned char SetEnvironmentLoadFlag(unsigned char flag)
 {
     W8EnvironRecord* environ = LevelEnviron();
@@ -1895,7 +1840,6 @@ unsigned char SetEnvironmentLoadFlag(unsigned char flag)
     return previous;
 }
 
-// FUNCTION: WIZ8 0x0041F0D0
 void ResetLevelDataVectors(void)
 {
     W8LevelDataRecord* level = LevelMotion();
@@ -1915,7 +1859,6 @@ void ResetLevelDataVectors(void)
 
 /* Camera facade, move timer and the party placement entry. */
 
-// GLOBAL: WIZ8 0x005ebc18
 const double g_game_data_pi = 3.141592653589793;
 
 // FUNCTION: WIZ8 0x00420b40
@@ -1938,27 +1881,21 @@ float MoveTimer(W8MoveTimerAction action)
     return GameTimeAccumulator().GetFrameDelta();
 }
 
-// FUNCTION: WIZ8 0x00420D40
-
-// FUNCTION: WIZ8 0x00420DC0
 float GetCameraYawInDegrees()
 {
     return PartyCamera().m_yaw * kCameraRadiansToDegrees;
 }
 
-// FUNCTION: WIZ8 0x00420DD0
 float GetCameraYawRadians()
 {
     return PartyCamera().m_yaw;
 }
 
-// FUNCTION: WIZ8 0x00420DE0
 float GetCameraPitchInDegrees()
 {
     return PartyCamera().m_pitch * kCameraRadiansToDegrees;
 }
 
-// FUNCTION: WIZ8 0x00420E00
 void BeginManualCameraControl()
 {
     PartyCamera().SetManualControlActive(true);
@@ -1967,7 +1904,6 @@ void BeginManualCameraControl()
 /* 0x00420F40: camera yaw in whole degrees, plus an optional copy of the
    yaw-rotation matrix. The diagnostics dump passes null and uses only the
    yaw. */
-// FUNCTION: WIZ8 0x00420F40
 int GetCameraYawAndRotation(glm::mat3* rotation)
 {
     float degrees = PartyCamera().m_yaw * kCameraRadiansToDegrees;
@@ -1977,46 +1913,39 @@ int GetCameraYawAndRotation(glm::mat3* rotation)
     return static_cast<int>(degrees);
 }
 
-// FUNCTION: WIZ8 0x00420F70
 void LevelCamera()
 {
     PartyCamera().BeginLeveling();
     g_mouselook_manual = false;
 }
 
-// FUNCTION: WIZ8 0x00420F90
 void CameraLookAt(const glm::vec3* position)
 {
     PartyCamera().LookAt(position, false);
 }
 
-// FUNCTION: WIZ8 0x00420FB0
 void CameraSnapToTarget(const glm::vec3* target)
 {
     PartyCamera().SnapToTarget(target);
 }
 
-// FUNCTION: WIZ8 0x00420FD0
 void TurnCameraToDegrees(float degrees)
 {
     double scale = g_game_data_pi * 0.0055555557f;
     PartyCamera().BeginOrientationTransition(0.0f, static_cast<float>(scale * degrees), false);
 }
 
-// FUNCTION: WIZ8 0x00421000
 void SetCameraYawDegrees(float degrees)
 {
     double scale = g_game_data_pi * 0.0055555557f;
     PartyCamera().SetOrientationImmediate(0.0f, static_cast<float>(scale * degrees));
 }
 
-// FUNCTION: WIZ8 0x00421030
 void ApplyCameraRotation(glm::mat3* rotation)
 {
     PartyCamera().ApplyRotationMatrix(rotation, LevelMotion());
 }
 
-// FUNCTION: WIZ8 0x00421070
 glm::vec3 cameraLocation()
 {
     return PartyCamera().m_position;
@@ -2025,7 +1954,6 @@ glm::vec3 cameraLocation()
 /* Zero the two six-float CamPos angle records, then store the live yaw in the
    first and the live pitch in the second. cameraState passes the yaw
    record at +0x24 as angle and the pitch record at +0x0c as pitch. */
-// FUNCTION: WIZ8 0x004213A0
 void GetCameraOrientation(void* angle, void* pitch)
 {
     W8CameraAngleRecord yaw_values = {}, pitch_values = {};
@@ -2035,7 +1963,6 @@ void GetCameraOrientation(void* angle, void* pitch)
     memcpy(pitch, pitch_values, sizeof(pitch_values));
 }
 
-// FUNCTION: WIZ8 0x004213E0
 void SetCameraOrientation(void* angle, void* pitch, glm::mat3* rotation)
 {
     float yaw_value, pitch_value;
@@ -2051,7 +1978,6 @@ void SetCameraOrientation(void* angle, void* pitch, glm::mat3* rotation)
 }
 
 /* Project onto a direction; leave the vector unchanged for a degenerate target. */
-// FUNCTION: WIZ8 0x00421440
 glm::vec3 ProjectVectorOntoVector(const glm::vec3& vector, const glm::vec3& onto)
 {
     const float length_squared = glm::dot(onto, onto);
@@ -2060,13 +1986,11 @@ glm::vec3 ProjectVectorOntoVector(const glm::vec3& vector, const glm::vec3& onto
 }
 
 /* Apply saved yaw and pitch after a world reload. */
-// FUNCTION: WIZ8 0x00421570
 void RestoreWorldCameraOrientation(void* angle, void* pitch)
 {
     SetCameraOrientation(angle, pitch, nullptr);
 }
 
-// FUNCTION: WIZ8 0x00421550
 int GetCameraYawDegrees(void)
 {
     return static_cast<int>(glm::degrees(PartyCamera().m_yaw));
@@ -2075,7 +1999,6 @@ int GetCameraYawDegrees(void)
 /* Point-visibility query: returns whether the camera has line of sight to the
    given position through the world octree. Fails with no world loaded; with a
    world but no octree there is nothing to occlude, so it returns true. */
-// FUNCTION: WIZ8 0x004215e0
 bool HasCameraLineOfSight(const glm::vec3* position)
 {
     glm::vec3 to = *position;
@@ -2091,7 +2014,6 @@ bool HasCameraLineOfSight(const glm::vec3* position)
 
 /* Mark the renderer ready and copy the point into the game camera when it
    sits anywhere but the origin. */
-// FUNCTION: WIZ8 0x00421090
 void PlacePartyAtPoint(const glm::vec3* point)
 {
     glm::vec3 delta = *point - g_world_origin;
@@ -2100,7 +2022,6 @@ void PlacePartyAtPoint(const glm::vec3* point)
     }
 }
 
-// FUNCTION: WIZ8 0x0041FD10
 W8LevelDataRecord::W8LevelDataRecord()
 {
     flags = 0;
@@ -2143,7 +2064,6 @@ unsigned int W8LevelDataRecord::resolveMotionFlags(unsigned int input, bool enga
     return input;
 }
 
-// FUNCTION: WIZ8 0x00420470
 bool W8LevelDataRecord::IntegrateCameraForward(const W8EnvironRecord& environ)
 {
     float forward_length;
@@ -2198,7 +2118,6 @@ bool W8LevelDataRecord::IntegrateCameraForward(const W8EnvironRecord& environ)
     return true;
 }
 
-// FUNCTION: WIZ8 0x00420810
 unsigned char W8LevelDataRecord::ApplySavedMotionMatrix(const W8EnvironRecord& environ,
                                                         unsigned char prior_fast, bool fast_move,
                                                         const glm::mat3& saved)
@@ -2234,7 +2153,6 @@ unsigned char W8LevelDataRecord::ApplySavedMotionMatrix(const W8EnvironRecord& e
     return prior_fast;
 }
 
-// FUNCTION: WIZ8 0x00420A60
 bool W8LevelDataRecord::UpdateFootstepFromMotion()
 {
     const auto movement = camera_motion_displacement -
@@ -2249,7 +2167,7 @@ bool W8LevelDataRecord::UpdateFootstepFromMotion()
     distance = glm::length(movement) + footstep_accumulator;
     footstep_accumulator = distance;
     if (2e+03f < distance) {
-        if (g_status.search_mode == 0 && (flags & W8_LEVEL_FLAG_FAST_MOVEMENT) == 0) {
+        if (!g_status.search_mode && (flags & W8_LEVEL_FLAG_FAST_MOVEMENT) == 0) {
             large_radius = false;
         } else {
             large_radius = true;
@@ -2269,7 +2187,6 @@ bool W8LevelDataRecord::UpdateFootstepFromMotion()
 /* Flip the two props the last motion contact bound: the primary prop toggles
    only while its setting-6f2 latch is set, and the secondary follows when it
    is still set on the far side; a secondary that fails the check reports 0. */
-// FUNCTION: WIZ8 0x0041FF00
 unsigned char W8LevelDataRecord::ToggleBoundProps()
 {
     W8Prop* prop;
@@ -2293,7 +2210,6 @@ unsigned char W8LevelDataRecord::ToggleBoundProps()
     return toggled;
 }
 
-// FUNCTION: WIZ8 0x0041FF90
 void W8LevelDataRecord::UpdateMotionProgress(W8EnvironRecord& environ, unsigned char fast_move,
                                              unsigned char moved)
 {
@@ -2381,7 +2297,6 @@ void W8LevelDataRecord::UpdateMotionProgress(W8EnvironRecord& environ, unsigned 
     vertical_motion = 0;
 }
 
-// FUNCTION: WIZ8 0x00420E20
 void UpdateLevelMovementAudio(void)
 {
     W8LevelDataRecord* level = LevelMotion();

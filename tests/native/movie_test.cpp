@@ -17,12 +17,12 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "../../src/native/movie.h"
-#include "native/audio_test.h"
 #include "prepared_assets.h"
 #include "scoped_asset_roots.h"
 #include "slf.h"
-#include "soundman.h"
 #include "temporary_directory.h"
+#include "wiz8/audio/audio_test.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/bink_video.h"
 #include "wiz8/checked_integer.h"
 #include "wiz8/surface_storage.h"

@@ -14,3 +14,4 @@ __pycache__/
 # Per-preset dependency installation and generated builds.
 /build/
 /vcpkg_installed/
+.idea

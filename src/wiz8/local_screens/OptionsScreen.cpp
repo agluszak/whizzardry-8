@@ -21,27 +21,25 @@
 #include <fmt/format.h>
 #include <wiz8/filesystem.h>
 
-#include "Font.h"
 #include "asset_paths.h"
 #include "dialog_code/MessageDialogBase.h"
-#include "difficulty.h"
-#include "file_time.h"
-#include "himage.h"
-#include "input.h"
 #include "mgs_commands.h"
-#include "soundman.h"
+#include "wiz8/audio/AmbientSound.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/button_interaction.h"
+#include "wiz8/canvas/Font.h"
+#include "wiz8/canvas/himage.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/cursor.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/DialogInterface.h"
-#include "wiz8/engine_code/AmbientSound.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Quality.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/save_screenshot.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ButtonWidget.h"
@@ -58,6 +56,7 @@
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/music_playlist.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"
@@ -68,21 +67,33 @@
    empty text and as a sprintf format argument. No recovered writer exists. */
 
 /* Suppress hover sounds on the registered options-row children. */
-// GLOBAL: WIZ8 0x005ed590
 
-// GLOBAL: WIZ8 0x0069c1c8
 static bool g_options_first_frame;
-// GLOBAL: WIZ8 0x0069c138
 W8OptionsValues g_options_values;
-// GLOBAL: WIZ8 0x0069c254
 std::unique_ptr<W8OptionsScreen> g_options_screen;
-// GLOBAL: WIZ8 0x0069c1cc
 std::string g_options_last_save_name;
+
+static void AddOptionsLabel(W8OptionsPanel& panel, int label);
+
+template<typename T>
+void W8OptionsPanel::AddChoices(int label, int count, const int* choices, T* value)
+{
+    AddOptionsLabel(*this, label);
+    const auto first = m_buttons.size();
+    for (int index = 0; index < count; ++index) {
+        auto* button = AddChoiceButton(choices[index], [this, first, count, index, value](auto*) {
+            *value = static_cast<T>(index);
+            for (int i = 0; i < count; ++i) m_buttons[first + i]->SetPressed(i == index);
+        });
+        button->Policy().primary_toggle = ButtonToggle::StayLatched;
+        button->SetPressed(static_cast<T>(index) == *value);
+    }
+    m_content_top += 22;
+}
 
 // GLOBAL: WIZ8 0x0064d72c
 static int g_last_options_panel = 5;
 
-// GLOBAL: WIZ8 0x0064d0b8
 static W8OptionsMenuRow g_options_menu_rows[8] = {
     {1, {{20, 51, 69, 137}, {-1, -1, -1, -1}}, {16, 194, 0, 0}, {0, 2, 1, -1, -1}},
     {4, {{90, 72, 117, 117}, {217, 72, 244, 117}}, {16, 220, 0, 0}, {3, 5, 4, -1, -1}},
@@ -93,16 +104,11 @@ static W8OptionsMenuRow g_options_menu_rows[8] = {
     {0, {{-1, -1, -1, -1}, {-1, -1, -1, -1}}, {7, 398, 0, 0}, {18, 20, 19, -1, -1}},
     {0, {{-1, -1, -1, -1}, {-1, -1, -1, -1}}, {7, 436, 0, 0}, {21, 23, 22, -1, -1}}};
 
-// GLOBAL: WIZ8 0x0064d078
 static W8OptionsPanelRange g_options_panel_ranges[8] = {{0, 2},   {3, 3},   {4, 5}, {6, 10},
                                                         {11, 11}, {12, 12}, {0, 0}, {0, 0}};
-// GLOBAL: WIZ8 0x0064d730
 static int g_options_difficulty_labels[3] = {0x7f8, 0x7f9, 0x7fa};
-// GLOBAL: WIZ8 0x0064d73c
 static int g_options_camera_rotation_labels[3] = {0x7fe, 0x7ff, 0x800};
-// GLOBAL: WIZ8 0x0064d748
 static int g_options_combat_mode_labels[2] = {0x7f6, 0x7f5};
-// GLOBAL: WIZ8 0x0064d750
 static int g_options_audio_labels[4] = {0x81e, 0x81f, 0x821, 0x820};
 
 struct W8OptionsKeyName {
@@ -123,7 +129,6 @@ struct W8OptionsKeyboardPage {
     W8MGSCommand last_binding;
 };
 
-// GLOBAL: WIZ8 0x0064d2f8
 static W8OptionsKeyName g_options_key_names[] = {{SDLK_F1, 0, 2158},
                                                  {SDLK_F2, 0, 2159},
                                                  {SDLK_F3, 0, 2160},
@@ -174,7 +179,6 @@ static W8OptionsKeyName g_options_key_names[] = {{SDLK_F1, 0, 2158},
                                                  {SDLK_GRAVE, 0, 2204},
                                                  {0, 0, 2157}};
 
-// GLOBAL: WIZ8 0x0064d480
 static W8OptionsKeyRow g_options_key_rows[] = {
     {W8_MGS_COMMAND_MOVE_FORWARD, W8_MGS_COMMAND_MOVE_FORWARD_RUN, 2106},
     {W8_MGS_COMMAND_MOVE_BACKWARD, W8_MGS_COMMAND_MOVE_BACKWARD_RUN, 2107},
@@ -229,7 +233,6 @@ static W8OptionsKeyRow g_options_key_rows[] = {
     {W8_MGS_COMMAND_REPEAT_ACTION, W8_MGS_COMMAND_NONE, 2156},
     {W8_MGS_COMMAND_NONE, W8_MGS_COMMAND_NONE, -1}};
 
-// GLOBAL: WIZ8 0x0064d6f0
 static W8OptionsKeyboardPage g_options_keyboard_pages[5] = {
     {0x835, W8_MGS_COMMAND_MOVE_FORWARD, W8_MGS_COMMAND_LOOK_LEVEL},
     {0x836, W8_MGS_COMMAND_PAUSE_GAME, W8_MGS_COMMAND_JOURNAL},
@@ -616,7 +619,7 @@ void W8OptionsSaveRow::Redraw(SDL_Surface& target, bool full_redraw)
 
     int x = button.Bounds().x;
     int y = button.Bounds().y;
-    if (m_save->screenshot.capture_result == 0) {
+    if (m_save->screenshot.capture_result == W8ScreenshotCaptureResult::failed) {
         CatalogArtwork::Load(0xf6, 0).draw(target, 0, x + 6, y + 6);
     } else {
         auto portrait =
@@ -1383,20 +1386,20 @@ void W8OptionsScreen::Redraw()
     }
 }
 
-void W8OptionsValues::TransferByte(int* value, unsigned char* setting)
+void W8OptionsValues::TransferByte(bool* value, unsigned char* setting)
 {
-    if (applying == 0) {
-        *value = *setting;
+    if (!applying) {
+        *value = *setting != 0;
     } else {
-        *setting = static_cast<unsigned char>(*value);
+        *setting = *value ? 1 : 0;
     }
 }
 
-void W8OptionsValues::TransferRenderOption(int* value, W8RenderOption option)
+void W8OptionsValues::TransferRenderOption(bool* value, W8RenderOption option)
 {
-    if (applying == 0) {
-        *value = GetRenderOptionState(option);
-    } else if (*value != 0) {
+    if (!applying) {
+        *value = GetRenderOptionState(option) != 0;
+    } else if (*value) {
         EnableRenderOption(option);
     } else {
         DisableRenderOption(option);
@@ -1415,7 +1418,7 @@ void W8OptionsValues::TransferSettings()
     TransferByte(&verbose_combat_messages, &g_settings.verbose_combat_messages);
     TransferByte(&autoswap_weapons, &g_settings.autoswap_weapons);
     TransferByte(&skill_increase_messages, &g_settings.skill_increase_messages);
-    if (applying == 0) {
+    if (!applying) {
         monster_movement_speed = g_settings.monster_movement_speed;
     } else {
         g_settings.monster_movement_speed = monster_movement_speed;
@@ -1424,21 +1427,21 @@ void W8OptionsValues::TransferSettings()
     TransferByte(&autotarget_spells, &g_settings.autotarget_spells);
     TransferByte(&pc_confirmations, &g_settings.pc_confirmations);
     TransferByte(&pc_subtitles, &g_settings.pc_subtitles);
-    if (applying == 0) {
+    if (!applying) {
         text_display_delay_ms = static_cast<float>(g_settings.text_display_delay_ms);
     } else {
         g_settings.text_display_delay_ms = static_cast<unsigned int>(text_display_delay_ms);
     }
     TransferByte(&auto_save, &g_settings.auto_save);
-    if (applying == 0) {
+    if (!applying) {
         difficulty = g_status.difficulty;
     } else {
-        g_status.difficulty = static_cast<W8Difficulty>(difficulty);
+        g_status.difficulty = difficulty;
     }
-    if (applying == 0) {
+    if (!applying) {
         difficulty = g_settings.difficulty;
     } else {
-        g_settings.difficulty = static_cast<W8Difficulty>(difficulty);
+        g_settings.difficulty = difficulty;
     }
     TransferRenderOption(&render_options[0], W8_RENDER_OPTION_MIP_MAPPING);
     TransferRenderOption(&render_options[1], W8_RENDER_OPTION_MISSILE_LIGHTS);
@@ -1450,22 +1453,23 @@ void W8OptionsValues::TransferSettings()
     TransferByte(&monster_shadows, &g_settings.monster_shadows);
     TransferByte(&smooth_monster_animations, &g_settings.smooth_monster_animations);
     TransferByte(&smooth_world_animations, &g_settings.smooth_world_animations);
-    if (applying == 0) {
+    if (!applying) {
         combat_speed = (g_settings.combat_delay_ms - 5000) * -0.0002f;
-        camera_auto_rotation = g_settings.camera_rotation_mode == W8_CAMERA_ROTATION_DISABLED
-                                   ? 2
-                                   : g_settings.camera_rotation_style;
+        camera_auto_rotation =
+            g_settings.camera_rotation_mode == W8_CAMERA_ROTATION_DISABLED
+                ? W8OptionsCameraRotation::disabled
+                : static_cast<W8OptionsCameraRotation>(g_settings.camera_rotation_style);
         TransferByte(&continuous_combat, &g_settings.continuous_combat);
     } else {
         g_settings.combat_delay_ms = 5000 - static_cast<int>(combat_speed * 5000.0f);
-        if (camera_auto_rotation == 2) {
+        if (camera_auto_rotation == W8OptionsCameraRotation::disabled) {
             g_settings.camera_rotation_mode = W8_CAMERA_ROTATION_DISABLED;
         } else {
             g_settings.camera_rotation_mode = W8_CAMERA_ROTATION_ALL_TARGETS;
             g_settings.camera_rotation_style =
-                static_cast<W8CameraRotationStyle>(camera_auto_rotation);
+                static_cast<W8CameraRotationStyle>(static_cast<int>(camera_auto_rotation));
         }
-        if (continuous_combat != g_settings.continuous_combat) {
+        if (continuous_combat != (g_settings.continuous_combat != 0)) {
             TogglePartyCombatStance();
         }
     }
@@ -1604,13 +1608,13 @@ static void AddOptionsLabel(W8OptionsPanel& panel, int label)
                          g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4));
 }
 
-void W8OptionsPanel::AddCheckbox(int label, int* value)
+void W8OptionsPanel::AddCheckbox(int label, bool* value)
 {
     AddOptionsLabel(*this, label);
     auto* checkbox = AddButton(0x14d, m_content_top - 2, 0xf1, 2, 0, 3, 1, -1,
-                               [value](auto* button) { *value = button->IsPressed() ? 2 : 0; });
+                               [value](auto* button) { *value = button->IsPressed(); });
     checkbox->Policy().primary_toggle = ButtonToggle::Release;
-    checkbox->SetPressed(*value != 0);
+    checkbox->SetPressed(*value);
     m_content_top += 44;
 }
 
@@ -1635,21 +1639,6 @@ W8OptionsSlider* W8OptionsPanel::AddSlider(int label, float* value, bool alterna
         alternate));
     m_content_top += 22;
     return slider.get();
-}
-
-void W8OptionsPanel::AddChoices(int label, int count, const int* choices, int* value)
-{
-    AddOptionsLabel(*this, label);
-    const auto first = m_buttons.size();
-    for (int index = 0; index < count; ++index) {
-        auto* button = AddChoiceButton(choices[index], [this, first, count, index, value](auto*) {
-            *value = index;
-            for (int i = 0; i < count; ++i) m_buttons[first + i]->SetPressed(i == index);
-        });
-        button->Policy().primary_toggle = ButtonToggle::StayLatched;
-        button->SetPressed(index == *value);
-    }
-    m_content_top += 22;
 }
 
 void W8OptionsPanel::Redraw(SDL_Surface& target, bool full_redraw)

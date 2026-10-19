@@ -6,10 +6,10 @@
 #include <utility>
 
 #include "compat/native.h"
-#include "soundman.h"
+#include "wiz8/audio/mouth_gap.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/mouth_gap.h"
 #include "wiz8/unicode.h"
 
 bool PlayNpcVoice(W8NpcSpeech& speech, std::string_view path, std::function<void()> on_finished)
@@ -31,7 +31,6 @@ void StopNpcVoice(W8NpcSpeech& speech)
     speech.gap_track = {};
 }
 
-// FUNCTION: WIZ8 0x00525E60
 int ComputePortraitMessageDuration(std::string_view text)
 {
     return static_cast<int>(wiz8::text::to_utf16(text).size() * 0x3c + 2000);

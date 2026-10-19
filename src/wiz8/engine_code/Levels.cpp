@@ -11,7 +11,6 @@
 #include <utility>
 
 #include <SDL3/SDL_filesystem.h>
-#include <SDL3/SDL_stdinc.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/gtc/quaternion.hpp>
 
@@ -30,12 +29,11 @@
 #include "surrender/srMeshModel.h"
 #include "surrender/srModelInstance.h"
 #include "surrender/srNode.h"
+#include "wiz8/audio/AmbientSound.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/3dapi.h"
-#include "wiz8/engine_code/AmbientSound.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/GameTimeAccumulator.h"
 #include "wiz8/engine_code/Level.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/Trigger.hpp"
@@ -62,10 +60,11 @@
 #include "wiz8/location_variables.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/music_playlist.h"
+#include "wiz8/platform/GameTimeAccumulator.h"
+#include "wiz8/unicode.h"
 #include "wiz8/world_cursor.h"
 #include "wiz8/xstatus.h"
 
-// GLOBAL: WIZ8 0x00659a80
 namespace {
 std::unique_ptr<W8World> primary_world;
 std::unique_ptr<W8World> sky_world;
@@ -94,9 +93,6 @@ std::unique_ptr<W8World> ReplaceSkyWorld(std::unique_ptr<W8World> world)
     return std::exchange(sky_world, std::move(world));
 }
 
-#define LEVELS_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Levels.cpp"
-
-// GLOBAL: WIZ8 0x00604478
 W8LevelFolderRecord g_level_folders[W8_LEVEL_COUNT] = {
     {"Arnika", "Arnika2", "ARN", 1, 2},
     {"Ascension", "Ascension", "ASC", 0, 12},
@@ -147,10 +143,8 @@ W8LevelFolderRecord g_level_folders[W8_LEVEL_COUNT] = {
     {"Spare20", "Spare20", "SPK", 0, 0},
 };
 
-// GLOBAL: WIZ8 0x00659738
 W8MaterialMapper g_material_mapper;
 
-// FUNCTION: WIZ8 0x0042b740
 char GetLevelBand(int saved_level)
 {
     int level = NormalizeMasterFunctionValue(saved_level);
@@ -164,7 +158,6 @@ char GetLevelBand(int saved_level)
 
 /* Start the saved level's music playlist. Formats a path from the level's
    name, falls back to Adventure.MPL when no level-specific playlist exists. */
-// FUNCTION: WIZ8 0x0042b770
 void StartLevelMusic(int fade, int replace_current)
 {
     const auto level = GetLoadedLevelID();
@@ -179,7 +172,6 @@ void StartLevelMusic(int fade, int replace_current)
     ServiceMusicPlaylist();
 }
 
-// FUNCTION: WIZ8 0x0042b3e0
 void UnloadSkyWorld(void)
 {
     ReplaceSkyWorld(nullptr);
@@ -188,38 +180,31 @@ void UnloadSkyWorld(void)
 
 // The original bounds-checks only the upper end, so a negative level_id reads
 // before the table. Reproduced as-is; GetLevelFolderName checks both ends.
-// FUNCTION: WIZ8 0x0042b500
-unsigned char GetLevelLocationCode(int level_id, char* location_code)
+std::optional<std::string> GetLevelLocationCode(int level_id)
 {
-    if (level_id >= W8_LEVEL_COUNT) {
-        return 0;
+    if (level_id >= W8_LEVEL_COUNT || level_id < 0) {
+        return std::nullopt;
     }
-    if (!location_code) {
-        return 0;
-    }
-    strcpy(location_code, g_level_folders[level_id].location_code);
-    return 1;
+    return std::string(g_level_folders[level_id].location_code);
 }
 
-static int LevelFindIDByLocationCode(const char* location_code)
+static int LevelFindIDByLocationCode(std::string_view location_code)
 {
-    int level_id;
-
-    for (level_id = 0; level_id < W8_LEVEL_COUNT; level_id++) {
-        if (SDL_strcasecmp(g_level_folders[level_id].location_code, location_code) == 0) {
+    for (int level_id = 0; level_id < W8_LEVEL_COUNT; level_id++) {
+        if (CompareTextIgnoreAsciiCase(g_level_folders[level_id].location_code, location_code) ==
+            0) {
             return level_id;
         }
     }
     return -1;
 }
 
-// FUNCTION: WIZ8 0x0042b410
-int FindLevelIdByLocationCode(const char* location_code)
+int FindLevelIdByLocationCode(std::string_view location_code)
 {
     W8LevelInfo info;
     int level_id;
 
-    if (!location_code) {
+    if (location_code.empty()) {
         return -1;
     }
     level_id = LevelFindIDByLocationCode(location_code);
@@ -241,11 +226,10 @@ int FindLevelIdByLocationCode(const char* location_code)
     return level_id;
 }
 
-// FUNCTION: WIZ8 0x0042b550
-const char* GetLevelFolderName(int level_id)
+std::string_view GetLevelFolderName(int level_id)
 {
     if (level_id >= W8_LEVEL_COUNT || level_id < 0) {
-        return 0;
+        return {};
     }
     return g_level_folders[level_id].folder_name;
 }
@@ -254,7 +238,6 @@ const char* GetLevelFolderName(int level_id)
    the previous sky. A replacement receives the animated-cloud material:
    its cloud meshes are marked for the renderer's
    control bits and every CloudsN prop's mesh chain is rebound to it. */
-// FUNCTION: WIZ8 0x0042B020
 static std::unique_ptr<W8World> PrepareSkyWorld(std::string_view sky_path)
 {
     if (sky_path.empty()) return nullptr;
@@ -319,7 +302,6 @@ unsigned char LoadSkyWorld(std::string_view sky_path)
     return 1;
 }
 
-// GLOBAL: WIZ8 0x00605820
 unsigned short g_level_name_indices[W8_LEVEL_COUNT] = {
     0x6f7, 0x6f8, 0x6f9, 0x6fa, 0x6fb, 0x6fd, 0x6fc, 0x6fe, 0x6ff, 0x700, 0x701, 0x719,
     0x702, 0x703, 0x704, 0x705, 0x706, 0x707, 0x708, 0x709, 0x70a, 0x70b, 0x70c, 0x719,
@@ -327,21 +309,14 @@ unsigned short g_level_name_indices[W8_LEVEL_COUNT] = {
     0x716, 0x717, 0x706, 0x718, 0x719, 0x719, 0x719, 0x719, 0x719, 0x719, 0x719,
 };
 
-// GLOBAL: WIZ8 0x00603ac8
 float g_default_world_height = 1000.0f;
 
-// GLOBAL: WIZ8 0x005ebfdc
 const float g_position_height_epsilon = 2500.0f;
 
-// GLOBAL: WIZ8 0x00603ad0
 unsigned char g_environment_load_flag = 1;
 
-// GLOBAL: WIZ8 0x0065ba70
 bool g_camera_path_active;
 
-// GLOBAL: WIZ8 0x0068f0fd
-
-// GLOBAL: WIZ8 0x00605880
 const char* g_sky_names[] = {
     "DefaultSky", "RapaxSky", "MountainPassSky", "RiftSky1",  "TrynnieSky1", "TrynnieSky2",
     "RatkinSky1", "CampSky",  "BluffSky1",       "BluffSky2", "CircleSky",
@@ -351,7 +326,6 @@ const char* g_sky_names[] = {
    regular forty-seven levels use the database row directly; the ten test
    slots synthesize level1..level9 and DefaultLevel. A missing LVL file is
    valid only when both its OCT and PVL replacements exist. */
-// FUNCTION: WIZ8 0x0042A370
 bool LevelBuildInfoByID(int level, W8LevelInfo* info)
 {
     if (level < 0 || level >= 57 || info == nullptr) return false;
@@ -437,7 +411,7 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
             }
             SetWorldScenePosition(GetWorld(), &position);
 
-            if (trigger->trigger_kind == 2) {
+            if (trigger->trigger_kind == W8TriggerKind::prop) {
                 glm::vec3 axis;
                 glm::mat3 rotation;
 
@@ -514,7 +488,6 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
 
 /* Construct level and sky resources before leaving the current level. The
    remaining work activates gameplay against the completed scenes. */
-// FUNCTION: WIZ8 0x0042A6F0
 static void FinishLevelDeparture()
 {
     // Combat state is transient on restore. End it after saving the level;
@@ -540,8 +513,7 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
     W8LevelInfo level_info;
 
     if (level >= 57) {
-        srAssertFail("iLevel < TEST_LEVEL_COUNT",
-                     "C:\\Projects\\Wizardry 8\\Engine Code\\Levels.cpp", 385, 0);
+        Fail("iLevel < TEST_LEVEL_COUNT");
     }
     if (!LevelBuildInfoByID(level, &level_info)) {
         return 0;
@@ -571,7 +543,6 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
     return 1;
 }
 
-// FUNCTION: WIZ8 0x0042ACE0
 void LeaveLevel()
 {
     if (!primary_world) return;
@@ -612,7 +583,6 @@ void LeaveLevel()
    re-enters the current level through the -1 entrance sentinel, the camera's
    saved yaw/pitch records and position are put back after the load; every
    other request is a plain unload+load. */
-// FUNCTION: WIZ8 0x0042AF60
 unsigned char ReloadLevelPreservingCamera(int level, int entrance)
 {
     W8CameraAngleRecord saved_angle;

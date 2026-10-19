@@ -40,7 +40,6 @@ class Trigger;
 /* Fact 0x229 records that the Trynnie2 group was wiped out; mirror it into the
    Trynnie2Killed location variable the first time this level sees it, so the
    world-side check has a stable flag to read. */
-// FUNCTION: WIZ8 0x004D9D30
 void EnsureTrynnie2KilledVar(void)
 {
     if (GetFact(W8_FACT_TRYNNIE_SHAMAN_DIES) == 1) {
@@ -53,7 +52,6 @@ void EnsureTrynnie2KilledVar(void)
 
 /* "GoodaVine_A": place the vine item on the cursor, refusing while the cursor
    already holds an item. */
-// FUNCTION: WIZ8 0x004D9D70
 bool Trynnie2GoodaVineA(Trigger* pTrigger)
 {
     return PlaceItemOnCursor(0x16d, true, true, false);
@@ -61,7 +59,6 @@ bool Trynnie2GoodaVineA(Trigger* pTrigger)
 
 /* "GoodaVine_B": place the second vine item on the cursor, refusing while the
    cursor already holds an item. */
-// FUNCTION: WIZ8 0x004D9DA0
 bool Trynnie2GoodaVineB(Trigger* pTrigger)
 {
     return PlaceItemOnCursor(0x16e, true, true, false);
@@ -69,14 +66,12 @@ bool Trynnie2GoodaVineB(Trigger* pTrigger)
 
 /* "Give_Zulu": place item 0x1b3 on the cursor, refusing while the cursor
    already holds an item. */
-// FUNCTION: WIZ8 0x004D9DD0
 bool Trynnie2GiveZulu(Trigger* pTrigger)
 {
     return PlaceItemOnCursor(0x1b3, true, true, false);
 }
 
 /* "Meat_Maker": spawn the meat item at the Meat_Position entity. */
-// FUNCTION: WIZ8 0x004D9E00
 bool Trynnie2MeatMaker(Trigger* pTrigger)
 {
     glm::vec3 entity_position;
@@ -97,7 +92,6 @@ bool Trynnie2MeatMaker(Trigger* pTrigger)
 /* "Meat_Box": feeding Hogar (monster 0x1d4) plain meat starts MoveHogar.msf;
    drugged meat starts MoveHogarDrugged.msf and pays the 500-point reward
    once. */
-// FUNCTION: WIZ8 0x004D9E60
 bool Trynnie2MeatBox(Trigger* pTrigger)
 {
     W8MonsterGroup* group;
@@ -140,7 +134,6 @@ bool Trynnie2MeatBox(Trigger* pTrigger)
    instance. The retail DispatchWorldCursorNodeCommand call passes only two
    arguments; arg is never dereferenced for command 8, so the callee reads an
    uninitialized stack slot there. */
-// FUNCTION: WIZ8 0x004D9F60
 bool Trynnie2UseItem(W8ItemInstance* item)
 {
     glm::vec3 position;
@@ -174,7 +167,6 @@ bool Trynnie2UseItem(W8ItemInstance* item)
 /* "URN_Trigger_01..04": once more than two of the four urn variables are set
    the pagoda generator is shut down; either way a level message reports the
    outcome. */
-// FUNCTION: WIZ8 0x004DA060
 bool Trynnie2UrnTrigger(Trigger* pTrigger)
 {
     MonGen* generator;
@@ -196,7 +188,7 @@ bool Trynnie2UrnTrigger(Trigger* pTrigger)
     if (count >= 3) {
         generator = FindMonGenByName("PAGODA");
         if (generator != 0) {
-            generator->generation_enabled = 0;
+            generator->generation_enabled = false;
         }
         ShowLevelMessage(0x14);
         return true;

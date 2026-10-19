@@ -4,9 +4,9 @@
 struct W8Chunk;
 
 #include "glm/ext/vector_float3.hpp"
-#include "wiz8/engine_code/IntervalGate.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/geometry.h"
+#include "wiz8/platform/IntervalGate.h"
 
 struct W8EncounterTableRuntime;
 struct W8EncounterEntry;
@@ -21,7 +21,7 @@ struct MonGen {
     int encounter_table_index; /* index into g_encounter_tables, -1 means none */
     W8IntervalGate timer;
     char name[32];
-    unsigned char generation_enabled; /* MIPE "Toggle Active"; gates CanGenerate */
+    bool generation_enabled; /* MIPE "Toggle Active"; gates CanGenerate */
 
     MonGen();
     void Reset(short default_interval);

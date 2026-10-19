@@ -18,9 +18,8 @@
 #include "layouts/character.h"
 #include "layouts/item_instance.h"
 #include "layouts/targeting.h"
-#include "random.h"
-#include "soundman.h"
 #include "surrender/srDebug.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/engine_code/Missile.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/layouts/combat_state.h"
@@ -30,17 +29,13 @@
 #include "wiz8/local_code/CombatSound.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/platform/random.h"
 
-#define COMBAT_SOUND_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Combat Sound.cpp"
-
-// GLOBAL: WIZ8 0x0068DD90
 static std::array<std::string, 38> g_weapon_attack_sounds;
-// GLOBAL: WIZ8 0x0068D850
 static std::array<std::array<std::string, 12>, 28> g_material_impact_sounds;
 
 /* Build the selected variant without modifying the borrowed sound name.
    Positive volume is scaled by the effects setting; other values use the default. */
-// FUNCTION: WIZ8 0x005499D0
 void PlayCombatSound(std::string_view sound_name, unsigned int variant_count, bool store_handle,
                      int volume)
 {
@@ -54,11 +49,10 @@ void PlayCombatSound(std::string_view sound_name, unsigned int variant_count, bo
             const auto status = wiz8::file_status(wiz8::asset_path(zSoundFileName));
             return status && status->info.type == SDL_PATHTYPE_FILE;
         }()) {
-        srAssertFail("[&]() { const auto status = "
-                     "wiz8::file_status(wiz8::asset_path(zSoundFileName)); return status "
-                     "&& status->info.type == SDL_PATHTYPE_FILE; }()",
-                     COMBAT_SOUND_CPP, 104,
-                     fmt::format("CombatSound: ERROR - Sound file {} not found", zSoundFileName));
+        Fail("[&]() { const auto status = "
+             "wiz8::file_status(wiz8::asset_path(zSoundFileName)); return status "
+             "&& status->info.type == SDL_PATHTYPE_FILE; }()",
+             fmt::format("CombatSound: ERROR - Sound file {} not found", zSoundFileName));
     }
     if (volume > 0) {
         handle = wiz8::sound::play(
@@ -73,7 +67,6 @@ void PlayCombatSound(std::string_view sound_name, unsigned int variant_count, bo
     }
 }
 
-// FUNCTION: WIZ8 0x00549b00
 unsigned char LoadHitSoundDatabase(void)
 try {
     std::istringstream input(
@@ -113,7 +106,6 @@ try {
     return false;
 }
 
-// FUNCTION: WIZ8 0x00549e50
 void ReleaseHitSoundDatabase(void)
 {
     g_weapon_attack_sounds = {};
@@ -121,7 +113,6 @@ void ReleaseHitSoundDatabase(void)
 }
 
 // Missing weapon-specific entries inherit weapon class zero.
-// FUNCTION: WIZ8 0x00549EB0
 std::string_view GetMaterialImpactSound(int weapon_class, int target_material)
 {
     if (weapon_class < 0 || weapon_class >= 28 || target_material < 0 || target_material >= 12)
@@ -154,12 +145,11 @@ static int PCItemInACSlot(const W8Character* character, int hit_location)
         slot = W8_EQUIP_SLOT_FEET;
         break;
     default:
-        srAssertFail("FALSE", COMBAT_SOUND_CPP, 168, "PCItemInACSlot: ERROR - Invalid AC location");
+        Fail("FALSE", "PCItemInACSlot: ERROR - Invalid AC location");
     }
     return character->EquippedItem[slot].iItemNo;
 }
 
-// FUNCTION: WIZ8 0x00549EF0
 void MakePCAttackSound(W8CombatCharacterRow* row, const W8HandAttack* hand_attack, W8AttackMode,
                        bool store_handle, int volume)
 {
@@ -187,13 +177,11 @@ static int GetCombatTargetMaterial(W8CombatSlot* target, int hit_location, int a
         const W8MonsterRecord* record = GetMonsterDataByLocationID(target->iMonsterID);
         target_material = record == 0 ? 0 : record->material;
     } else {
-        srAssertFail("FALSE", COMBAT_SOUND_CPP, assertion_line,
-                     "MakePCHitSound : Unknown target type");
+        Fail("FALSE", "MakePCHitSound : Unknown target type");
     }
     return target_material;
 }
 
-// FUNCTION: WIZ8 0x00549F50
 void MakePCMeleeHitSound(int iChar, const W8HandAttack* hand_attack, W8CombatSlot* target,
                          int hit_location, int volume)
 {
@@ -209,7 +197,6 @@ void MakePCMeleeHitSound(int iChar, const W8HandAttack* hand_attack, W8CombatSlo
     PlayCombatSound(GetMaterialImpactSound(weapon_class, target_material), 1, true, volume);
 }
 
-// FUNCTION: WIZ8 0x0054A0E0
 void MakePCHitSound(W8Missile* missile, W8CombatSlot* target, int hit_location, int volume)
 {
     int weapon_class = g_missile_table[missile->missile_table_index].weapon_sound_class;
@@ -218,7 +205,6 @@ void MakePCHitSound(W8Missile* missile, W8CombatSlot* target, int hit_location, 
     PlayCombatSound(GetMaterialImpactSound(weapon_class, target_material), 1, true, volume);
 }
 
-// FUNCTION: WIZ8 0x0054A270
 void MakeMonsterHitSound(const W8MonsterAttack* attack, W8CombatSlot* target, int hit_location,
                          int volume)
 {

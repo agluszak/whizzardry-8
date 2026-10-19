@@ -10,9 +10,8 @@
 #include "layouts/targeting.h"
 #include "layouts/world.h"
 #include "message_box.h"
-#include "random.h"
-#include "soundman.h"
 #include "surrender/srDebug.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/engine_code/GameData.h"
@@ -53,26 +52,24 @@
 #include "wiz8/monster_cycles.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_items.h"
+#include "wiz8/platform/random.h"
 #include "wiz8/string_database.h"
 #include "xstatus.h"
 
 /* Potion explosion completion callback: retail stores this JMP thunk rather than
    ClearScriptedSceneActive's void() entry. */
-// FUNCTION: WIZ8 0x005092c0
 static void ClearPotionExplosionSoundFlag()
 {
     g_npc_dialogue.ReleaseScene();
 }
 
 /* Camera-shake completion callback stored on ShakeDefinition::completion_callback. */
-// FUNCTION: WIZ8 0x005092d0
 static void ReplayEarthquakeShake(void)
 {
     CameraShakes().Start(ShakeDefinition(3.0f, false, 1.0f, 0, nullptr));
     BeginEndgameSequence();
 }
 
-// FUNCTION: WIZ8 0x00506670
 void HandleFactChange(W8FactId fact_id, unsigned char value)
 {
     W8NpcState* npc;
@@ -140,7 +137,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         }
         npc = GetNpcStateByKind(0x48);
         if (npc == 0) {
-            srAssertFail("npc", __FILE__, __LINE__, 0);
+            Fail("npc");
         }
         ClearNpcScheduledItem(npc, 0x242, 0);
         return;
@@ -223,7 +220,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         }
         npc = GetNpcStateByKind(0x29);
         if (npc == 0) {
-            srAssertFail("npc", __FILE__, __LINE__, 0);
+            Fail("npc");
         }
         MarkNpcOfKind(0x29);
         return;
@@ -643,7 +640,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         }
         npc = GetNpcStateByKind(0x29);
         if (npc == 0) {
-            srAssertFail("npc", __FILE__, __LINE__, 0);
+            Fail("npc");
         }
         MarkNpcOfKind(0x29);
         return;
@@ -716,10 +713,10 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         }
         particle = FindParticleByName("FuzzBlast");
         if (particle != 0) {
-            particle->SetActive(0);
+            particle->SetActive(false);
             particle->start_frame = 0;
             particle->emission_count = 0;
-            particle->SetActive(1);
+            particle->SetActive(true);
             particle->SetTraversalEnabled(true);
         }
         npc = GetNpcStateByKind(0x49);
@@ -730,7 +727,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         if (monster_info == 0) {
             return;
         }
-        if (!monster_info->p3D->IsCycleInterruptable(monster_info->p3D->m_pRep->pending_cycle)) {
+        if (!monster_info->p3D->IsCycleInterruptable(monster_info->p3D->pending_cycle)) {
             return;
         }
         StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_GET_HIT, W8_ANIMATION_PLAY_ONCE);
@@ -831,7 +828,6 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
     }
 }
 
-// FUNCTION: WIZ8 0x00508d70
 void HandleScriptedNpcDeath(unsigned int monster_list_index)
 {
     W8MonsterInfo* monster_info = GetMonsterListEntry(monster_list_index);
@@ -921,7 +917,6 @@ void HandleScriptedNpcDeath(unsigned int monster_list_index)
    changes for the special kills, the Rattkin breeder location-variable count,
    and the 0x22b cleanup that clears the victim's condition and queues the
    death event on the recorded party slot. */
-// FUNCTION: WIZ8 0x005090C0
 void MonsterKilled(int record_id, int killer_party_slot)
 {
     unsigned char value;
@@ -974,10 +969,8 @@ void MonsterKilled(int record_id, int killer_party_slot)
 
 /* Original translation-unit ownership of these helpers is unknown. */
 
-// GLOBAL: WIZ8 0x00689b78
 unsigned char g_fact_values[1000];
 
-// FUNCTION: WIZ8 0x00506280
 unsigned char GetFact(W8FactId fact_id)
 {
     unsigned char value;
@@ -1001,7 +994,6 @@ unsigned char GetFact(W8FactId fact_id)
     return value;
 }
 
-// FUNCTION: WIZ8 0x005061a0
 void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects)
 {
     unsigned char previous_value;
@@ -1041,7 +1033,6 @@ void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects)
     }
 }
 
-// FUNCTION: WIZ8 0x00506480
 void SaveFactState(wiz8::File& save_handle)
 {
     save_handle.write(g_fact_values, sizeof(g_fact_values));
@@ -1052,7 +1043,6 @@ void SaveFactState(wiz8::File& save_handle)
    choice 1/2/other maps to facts 0x4c/0x4b/0x4d, then two independent import
    bytes can set 0x199 and 0x7b. The 0x7b path unsuppresses and returns; the
    other imported path and the new-game path unsuppress at the shared exit. */
-// FUNCTION: WIZ8 0x00506310
 void InitializeFactState(void)
 {
     /* Retail memsets 1000 of the 1001 bytes - index 1000 stays BSS-zeroed. */

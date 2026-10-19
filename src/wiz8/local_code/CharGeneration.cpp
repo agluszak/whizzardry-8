@@ -21,10 +21,7 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/party_encumbrance.h"
 
-#define CHAR_GENERATION_CPP "C:\\Projects\\Wizardry 8\\Local Code\\CharGeneration.cpp"
-
 /* Refund every spent skill point through the per-skill commit helper. */
-// FUNCTION: WIZ8 0x00557F90
 void RefundAllSkillPoints(W8Character* character, W8CharacterCreationState* creation_state)
 {
     int index;
@@ -41,7 +38,6 @@ void RefundAllSkillPoints(W8Character* character, W8CharacterCreationState* crea
 /* Sums the realm skill costs the edited character still owes: skills the
    original holds but the edited build lacks, or the original's own set when
    it has no caster level to compare against. */
-// FUNCTION: WIZ8 0x00557FD0
 int ComputeRealmSkillDebt(W8Character* original, W8Character* edited)
 {
     int total = 0;
@@ -80,13 +76,9 @@ int ComputeRealmSkillDebt(W8Character* original, W8Character* edited)
 /* Character generation state. The four dwords below accumulate the pools a
    reset or level-up hands to the editing state; the byte at 0x34 records that
    a profession change forced the sex to one. */
-// GLOBAL: WIZ8 0x0068de28
 static int g_attribute_point_bonus;
-// GLOBAL: WIZ8 0x0068de2c
 static int g_skill_point_bonus;
-// GLOBAL: WIZ8 0x0068de30
 static int g_spell_point_bonus;
-// GLOBAL: WIZ8 0x0068de34
 static bool g_gender_locked;
 
 static void InitializeCharacterPointPools(W8Character* character,
@@ -120,7 +112,6 @@ static void InitializeCharacterPointPools(W8Character* character,
 
 /* A fresh creation: zero the character and the editing state, install the
    sentinel values, and hand out the level-one pools. */
-// FUNCTION: WIZ8 0x00556dc0
 void InitializeCharacterCreation(W8Character* character, W8CharacterCreationState* creation_state)
 {
     g_attribute_point_bonus = 0;
@@ -147,7 +138,6 @@ void InitializeCharacterCreation(W8Character* character, W8CharacterCreationStat
 /* One level gained: raise the level and profession counter, reset the editing
    state, and re-derive every pool the character's new level entitles them
    to. */
-// FUNCTION: WIZ8 0x00556cc0
 void InitializeCharacterLevelUp(W8Character* character, W8CharacterCreationState* creation_state)
 {
     g_attribute_point_bonus = 0;
@@ -174,7 +164,6 @@ void InitializeCharacterLevelUp(W8Character* character, W8CharacterCreationState
 /* Reset one skill's contribution to the editing state: set its reset byte,
    refund its spent points, and let a realm skill that was just opened up reach its
    minimum five. */
-// FUNCTION: WIZ8 0x00557c90
 void ResetSkillContribution(W8Character* character, W8CharacterCreationState* creation_state,
                             W8Skill skill_id)
 {
@@ -199,7 +188,6 @@ void ResetSkillContribution(W8Character* character, W8CharacterCreationState* cr
 
 /* Refund every point spent on one skill and leave its level at the base
    value the assignment gave it. */
-// FUNCTION: WIZ8 0x00557d20
 void RefundSkillAllocation(W8Character* character, W8CharacterCreationState* creation_state,
                            W8Skill skill_id)
 {
@@ -214,7 +202,6 @@ void RefundSkillAllocation(W8Character* character, W8CharacterCreationState* cre
 
 /* Every point the edited character has already committed is spent from the
    pool in one burst. */
-// FUNCTION: WIZ8 0x00557ae0
 void RefundAllocatedAttributes(W8Character* character, W8CharacterCreationState* creation_state)
 {
     for (int index = 0; index < 7; ++index) {
@@ -227,7 +214,6 @@ void RefundAllocatedAttributes(W8Character* character, W8CharacterCreationState*
 
 /* Attribute limits and the step ceiling for the current pool, then the
    attribute-point reconciliations. */
-// FUNCTION: WIZ8 0x00557730
 void RecomputeAttributeLimits(W8Character* character, W8CharacterCreationState* creation_state)
 {
     int points = creation_state->attribute_points_total;
@@ -277,7 +263,6 @@ void RecomputeAttributeLimits(W8Character* character, W8CharacterCreationState* 
 
 /* Clamp the allocated attribute values to their limits, then take points back
    round-robin while the character is over budget. */
-// FUNCTION: WIZ8 0x00557800
 void ClampAttributesToBudget(W8Character* character, W8CharacterCreationState* creation_state)
 {
     int index;
@@ -314,7 +299,6 @@ void ClampAttributesToBudget(W8Character* character, W8CharacterCreationState* c
 /* Top the character's attributes up to the profession's minimums, or hand the
    shortfall to 0x00557200 when the pool cannot cover it. A level-one character
    also gets the value/baseline bookkeeping the creation flow expects. */
-// FUNCTION: WIZ8 0x00557890
 void ApplyProfessionMinimumAttributes(W8Character* character,
                                       W8CharacterCreationState* creation_state)
 {
@@ -369,7 +353,6 @@ void ApplyProfessionMinimumAttributes(W8Character* character,
 
 /* Draw the level-up attribute debt back down one point at a time, preferring
    the largest remaining deficit, until the pool or the debt runs out. */
-// FUNCTION: WIZ8 0x00557200
 void PayDownAttributeDebt(W8Character* character, W8CharacterCreationState* creation_state)
 {
     std::array<std::array<int, 2>, 7> deficits;
@@ -422,7 +405,6 @@ void PayDownAttributeDebt(W8Character* character, W8CharacterCreationState* crea
    reach: the character's own profession is always eligible, profession two
    needs the matching sex, and every other one has to clear the
    profession's minimums within the remaining pool and limits. */
-// FUNCTION: WIZ8 0x00557350
 void DetermineEligibleProfessions(W8Character* character, W8CharacterCreationState* creation_state,
                                   unsigned char* eligibility)
 {
@@ -463,14 +445,13 @@ void DetermineEligibleProfessions(W8Character* character, W8CharacterCreationSta
 
 /* Apply one attribute adjustment through the same clamps 0x005579E0 uses for
    the creation flow: never below zero, never above the pool or the limit. */
-// FUNCTION: WIZ8 0x005579e0
 void AdjustAllocatedAttribute(W8Character* character, W8CharacterCreationState* creation_state,
                               W8Attribute attribute, int modifier)
 {
     int value = creation_state->attribute_values[attribute];
     if (value + modifier < 0) {
         if (modifier >= 0) {
-            srAssertFail("iModifier < 0", CHAR_GENERATION_CPP, 0x380, 0);
+            Fail("iModifier < 0");
         }
         modifier = -value;
     }
@@ -512,7 +493,6 @@ complete:
 
 /* Skill limits from the pool plus the base levels the attribute pairs give
    every skill. */
-// FUNCTION: WIZ8 0x00557b20
 void RecomputeSkillLimits(W8Character* character, W8CharacterCreationState* creation_state)
 {
     InitializeSkillBaseLevels(character);
@@ -544,7 +524,6 @@ void RecomputeSkillLimits(W8Character* character, W8CharacterCreationState* crea
 
 /* Clamp the committed skill points to their limits, refund round-robin while
    over budget, and report whether every skill still has room. */
-// FUNCTION: WIZ8 0x00557eb0
 void ClampSkillsToBudget(W8Character* character, W8CharacterCreationState* creation_state)
 {
     int index;
@@ -592,7 +571,6 @@ void ClampSkillsToBudget(W8Character* character, W8CharacterCreationState* creat
 /* Finalize the spell-point pool the level-up flow presents: settle the realm
    skills against the spent spell points, then trim any learned spell the
    character can no longer hold. */
-// FUNCTION: WIZ8 0x00558070
 void FinalizeSpellPointPool(W8Character* character, W8CharacterCreationState* creation_state)
 {
     int spent = creation_state->spell_points_total - creation_state->spell_points_remaining;
@@ -636,7 +614,6 @@ void FinalizeSpellPointPool(W8Character* character, W8CharacterCreationState* cr
 
 /* Re-checks every spell against the character's current realm skills and
    reports how many points still remain to be allocated. */
-// FUNCTION: WIZ8 0x00558180
 int CountRemainingSpellPoints(W8Character* character, W8CharacterCreationState* creation_state)
 {
     int available = 0;
@@ -711,7 +688,6 @@ int CountRemainingSpellPoints(W8Character* character, W8CharacterCreationState* 
 /* Reset every skill to the attribute-derived base, hand the profession's
    skills and bonus skill their share of the step pool, then add the points
    already committed. */
-// FUNCTION: WIZ8 0x00557d80
 void RebuildSkillAllocations(W8Character* character, W8CharacterCreationState* creation_state)
 {
     int index;
@@ -756,7 +732,6 @@ void RebuildSkillAllocations(W8Character* character, W8CharacterCreationState* c
 /* Compute how many spell points the level-up summary can award from the
    character's six realm pools, saving and restoring the learned-spell flags
    around the trial assignment. */
-// FUNCTION: WIZ8 0x00558330
 int ComputeLevelUpSpellPointAward(W8Character* character, W8CharacterCreationState* creation_state)
 {
     int total = 0;
@@ -809,7 +784,6 @@ int ComputeLevelUpSpellPointAward(W8Character* character, W8CharacterCreationSta
 /* Spend one creation spell point on a pick: the spell goes to selected, and
    either end of the linked 0x49/0x4b pair drags its partner along unless the
    character already knows it. An emptied pool marks the page complete. */
-// FUNCTION: WIZ8 0x005584e0
 void SelectCreationSpell(W8Character* character, W8CharacterCreationState* creation_state,
                          unsigned int spell)
 {
@@ -834,7 +808,6 @@ void SelectCreationSpell(W8Character* character, W8CharacterCreationState* creat
 /* Return one creation spell pick: the spell goes to declined, an auto-added
    partner of the 0x49/0x4b pair follows only while it is still marked
    selected, and the point goes back to the pool. */
-// FUNCTION: WIZ8 0x00558560
 void DeselectCreationSpell(W8Character* character, W8CharacterCreationState* creation_state,
                            unsigned int spell)
 {
@@ -857,7 +830,6 @@ void DeselectCreationSpell(W8Character* character, W8CharacterCreationState* cre
 /* Back out the in-progress spell picks before the pool is rebuilt: every
    tentative selection (state two) returns to unlearned, the point pool is
    topped back up and the page is marked incomplete. */
-// FUNCTION: WIZ8 0x005585D0
 void ResetSpellSelections(W8Character* character, W8CharacterCreationState* creation_state)
 {
     for (int index = 0; index < 0x72; ++index) {
@@ -870,7 +842,6 @@ void ResetSpellSelections(W8Character* character, W8CharacterCreationState* crea
 
 /* Price the profession's starting gear: stage the equipment, sum every
    carried stack's value, then empty the character back out. */
-// FUNCTION: WIZ8 0x00558640
 int ComputeStartingEquipmentCost(W8Character* character)
 {
     int total;
@@ -893,7 +864,6 @@ int ComputeStartingEquipmentCost(W8Character* character)
 }
 
 /* Whether the party's gold covers the new character's starting gear. */
-// FUNCTION: WIZ8 0x005586b0
 bool CanAffordStartingEquipment(W8Character* character)
 {
     return static_cast<unsigned int>(ComputeStartingEquipmentCost(character)) <=
@@ -902,7 +872,6 @@ bool CanAffordStartingEquipment(W8Character* character)
 
 /* Recompute the level-up pools after a profession change, refunding every
    baseline the previous profession's assignment had granted. */
-// FUNCTION: WIZ8 0x00557060
 void RebuildLevelUpPoolsForProfession(W8Character* character,
                                       W8CharacterCreationState* creation_state,
                                       W8Profession profession)
@@ -966,7 +935,6 @@ void RebuildLevelUpPoolsForProfession(W8Character* character,
 }
 
 /* Assign the chosen race and rebuild the race/profession tables. */
-// FUNCTION: WIZ8 0x005571c0
 void SetCharacterRace(W8Character* character, W8CharacterCreationState* creation_state, W8Race race)
 {
     character->iRace = race;
@@ -974,7 +942,6 @@ void SetCharacterRace(W8Character* character, W8CharacterCreationState* creation
 }
 
 /* Assign the chosen sex and rebuild the race/profession tables. */
-// FUNCTION: WIZ8 0x005571e0
 void SetCharacterGender(W8Character* character, W8CharacterCreationState* creation_state,
                         W8Gender gender)
 {
@@ -984,7 +951,6 @@ void SetCharacterGender(W8Character* character, W8CharacterCreationState* creati
 
 /* Apply the race and profession tables once race, profession and sex are
    all set, rebuilding every derived pool on the way. */
-// FUNCTION: WIZ8 0x00556eb0
 void ApplyRaceProfessionTables(W8Character* character, W8CharacterCreationState* creation_state)
 {
     int index;
@@ -1057,7 +1023,6 @@ void ApplyRaceProfessionTables(W8Character* character, W8CharacterCreationState*
 
 /* The level-up attribute editor's pool is fixed by the profession minimums,
    so the deficit sweep runs before the skill pass. */
-// FUNCTION: WIZ8 0x00557bc0
 void InitializeLevelUpAttributePool(W8Character* character,
                                     W8CharacterCreationState* creation_state, unsigned int skill,
                                     int modifier)
@@ -1065,7 +1030,7 @@ void InitializeLevelUpAttributePool(W8Character* character,
     int spent = creation_state->skill_points_spent[skill];
     if (spent + modifier < 0) {
         if (modifier >= 0) {
-            srAssertFail("iModifier < 0", CHAR_GENERATION_CPP, 0x448, 0);
+            Fail("iModifier < 0");
         }
         modifier = -spent;
     }
@@ -1103,7 +1068,6 @@ complete:
    ceilings and re-derive the experience goal and level band. The spell the
    creation flow marks as chosen but does not charge for is skipped by its
    retail index, not by anything a record says. */
-// FUNCTION: WIZ8 0x00557580
 void FinalizeCreatedCharacter(W8Character* character, W8CharacterCreationState* creation_state,
                               bool give_starting_equipment)
 {
@@ -1181,7 +1145,6 @@ void FinalizeCreatedCharacter(W8Character* character, W8CharacterCreationState* 
 
 /* The six starting item ids each profession hands out, with the faerie race's
    own row last; -1 is an empty slot. */
-// GLOBAL: WIZ8 0x0061635c
 int g_starting_equipment[0x10][6] = {
     {143, 153, 203, 246, -1, -1},  {35, 1, 158, 204, 247, 210},  {75, 170, 197, 246, 215, -1},
     {110, 125, 157, 188, 247, -1}, {38, 49, 165, 192, 246, -1},  {105, 230, 180, 209, 253, -1},
@@ -1194,7 +1157,6 @@ int g_starting_equipment[0x10][6] = {
 /* Hand out the race or profession's six-item starting set and then the extra
    item the profession's own skill pair selects, and settle the character's
    modifiers once the equipment is on. */
-// FUNCTION: WIZ8 0x00557430
 void AddCharacterStartingEquipment(W8Character* character)
 {
     W8ItemInstance item;

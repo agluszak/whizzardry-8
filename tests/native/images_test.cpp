@@ -25,15 +25,15 @@
 #include <zlib.h>
 
 #include "asset_paths.h"
-#include "himage.h"
-#include "image.h"
-#include "image_assets.h"
-#include "imgfmt.h"
 #include "prepared_assets.h"
 #include "scoped_asset_roots.h"
 #include "slf.h"
-#include "sprite.h"
 #include "temporary_directory.h"
+#include "wiz8/canvas/himage.h"
+#include "wiz8/canvas/image.h"
+#include "wiz8/canvas/image_assets.h"
+#include "wiz8/canvas/imgfmt.h"
+#include "wiz8/canvas/sprite.h"
 #include "wiz8/checked_integer.h"
 #include "wiz8/surface_storage.h"
 

@@ -5,7 +5,7 @@
 #include <string_view>
 #include <vector>
 
-#include "input.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/ui_layer.h"
 
 struct Font;

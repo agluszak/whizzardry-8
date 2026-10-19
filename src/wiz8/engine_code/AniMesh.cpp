@@ -21,23 +21,16 @@
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/filesystem.h"
 
-#define ANI_MESH_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\AniMesh.cpp"
-
 /* AniMesh cache: a generation stamp, the loaded-byte total, the 16 MiB primary
    limit, the unused 1 MiB secondary limit the initializer still writes, and
    the list EnforceAniMeshMemoryLimit walks. */
-// GLOBAL: WIZ8 0x0065be80
 int g_animesh_cache_stamp;
-// GLOBAL: WIZ8 0x0065be84
 int g_animesh_cache_bytes;
-// GLOBAL: WIZ8 0x0065be88
 int g_animesh_cache_limit;
-// GLOBAL: WIZ8 0x0065be90
 std::vector<W8AniMesh*> g_animesh_cache_list;
 
 /* The two caller-provided values override the original 16 MiB and 1 MiB
    defaults only when positive. Startup passes -1 for both. */
-// FUNCTION: WIZ8 0x004b5780
 void InitializeAniMeshCache(int primary_limit, int secondary_limit)
 {
     g_animesh_cache_stamp = 0;
@@ -53,13 +46,11 @@ void InitializeAniMeshCache(int primary_limit, int secondary_limit)
 }
 
 /* Releases every cached ani-mesh entry and clears the list. */
-// FUNCTION: WIZ8 0x004B57D0
 void FreeAniMeshCache(void)
 {
     g_animesh_cache_list.clear();
 }
 
-// FUNCTION: WIZ8 0x004b57e0
 W8AniMesh::W8AniMesh() = default;
 
 W8AniMesh::W8AniMesh(const W8AniMesh& other)
@@ -186,7 +177,6 @@ try {
 /* Hands back the mesh's cached bounding box, loading the mesh first if it has
    not been. Touching it also stamps the storage clock, so asking for bounds
    counts as a use for the memory-pressure walk. */
-// FUNCTION: WIZ8 0x004b6640
 std::optional<srBoundingBox> GetAniMeshBounds(W8AniMesh* mesh)
 {
     if (!mesh || (!mesh->flags.radius_loaded && !ReloadAnimatedMesh(*mesh))) return std::nullopt;
@@ -194,14 +184,12 @@ std::optional<srBoundingBox> GetAniMeshBounds(W8AniMesh* mesh)
     return srBoundingBox{mesh->bounds_minimum, mesh->bounds_maximum};
 }
 
-// FUNCTION: WIZ8 0x004b5880
 W8AniMesh::~W8AniMesh()
 {
     std::erase(g_animesh_cache_list, this);
     if (flags.loaded) UnloadAniMesh(this, true);
 }
 
-// FUNCTION: WIZ8 0x004b63f0
 bool UnloadAniMesh(W8AniMesh* mesh, bool force)
 {
     if (!mesh || (!force && !mesh->flags.keep_loaded)) return false;
@@ -218,21 +206,20 @@ bool UnloadAniMesh(W8AniMesh* mesh, bool force)
     return true;
 }
 
-// FUNCTION: WIZ8 0x004b6550
 stModelInstance* GetAniMeshFrame(W8AniMesh* mesh, unsigned char frame)
 {
     if (!mesh) {
-        srAssertFail("mesh", ANI_MESH_CPP, 0x2e6, nullptr);
+        Fail("mesh");
         return nullptr;
     }
     if (frame >= mesh->frame_count) {
         const auto message =
             fmt::format("AniMeshGetMeshForFrame error, frame {}, num {}", frame, mesh->frame_count);
-        srAssertFail("frame < mesh->frame_count", ANI_MESH_CPP, 0x2e6, message.c_str());
+        Fail("frame < mesh->frame_count", message.c_str());
         return nullptr;
     }
     if (!mesh->flags.loaded && !ReloadAnimatedMesh(*mesh)) {
-        srAssertFail("0", ANI_MESH_CPP, 0x2ee, 0);
+        Fail("0");
         return 0;
     }
     stModelInstance* instance;
@@ -247,32 +234,30 @@ stModelInstance* GetAniMeshFrame(W8AniMesh* mesh, unsigned char frame)
     return instance;
 }
 
-// FUNCTION: WIZ8 0x004b64f0
 unsigned char AniMeshValue(W8AniMesh* mesh)
 {
     if (mesh == 0) {
-        srAssertFail("pAniMesh", ANI_MESH_CPP, 0x2be, 0);
+        Fail("pAniMesh");
         return 0xff;
     }
     if (!mesh->flags.frame_count_loaded) {
         if (!ReloadAnimatedMesh(*mesh)) {
-            srAssertFail("0", ANI_MESH_CPP, 0x2c6, 0);
+            Fail("0");
             return 0xff;
         }
     }
     return mesh->frame_count;
 }
 
-// FUNCTION: WIZ8 0x004b66e0
 bool AniMeshRadius(W8AniMesh* mesh, float* radius)
 {
     if (mesh == 0 || radius == 0) {
-        srAssertFail("pAniMesh&&pflRadius", ANI_MESH_CPP, 0x348, 0);
+        Fail("pAniMesh&&pflRadius");
     }
     if (mesh != 0 && radius != 0) {
         if (!mesh->flags.radius_loaded) {
             if (!ReloadAnimatedMesh(*mesh)) {
-                srAssertFail("0", ANI_MESH_CPP, 0x350, 0);
+                Fail("0");
                 return false;
             }
         }
@@ -284,11 +269,10 @@ bool AniMeshRadius(W8AniMesh* mesh, float* radius)
     return false;
 }
 
-// FUNCTION: WIZ8 0x004b6860
 void SetAniMeshCacheProtected(W8AniMesh* mesh, bool enabled)
 {
     if (mesh == 0) {
-        srAssertFail("pAniMesh", ANI_MESH_CPP, 0x3b7, 0);
+        Fail("pAniMesh");
     }
     if (enabled) {
         mesh->flags.cache_protected = true;
@@ -297,7 +281,6 @@ void SetAniMeshCacheProtected(W8AniMesh* mesh, bool enabled)
     mesh->flags.cache_protected = false;
 }
 
-// FUNCTION: WIZ8 0x004b6770
 void EnforceAniMeshMemoryLimit(W8AniMesh* current)
 {
     while (g_animesh_cache_bytes > g_animesh_cache_limit) {

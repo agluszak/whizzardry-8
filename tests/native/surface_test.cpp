@@ -6,7 +6,7 @@
 #include <SDL3/SDL_surface.h>
 #include <catch2/catch_test_macros.hpp>
 
-#include "image.h"
+#include "wiz8/canvas/image.h"
 #include "wiz8/surface_storage.h"
 
 namespace {

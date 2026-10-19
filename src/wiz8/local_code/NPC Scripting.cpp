@@ -21,7 +21,7 @@
 #include "local_code/Factions.h"
 #include "local_code/MonsterManager.h"
 #include "monster_actions.h"
-#include "soundman.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/conditions.h"
@@ -76,7 +76,6 @@ struct W8NpcScriptRegionName {
     int region;
 };
 
-// GLOBAL: WIZ8 0x0061b788
 static W8NpcScriptRegionName g_npc_script_region_names[] = {{"Monastery", 1},
                                                             {"Arnika", 2},
                                                             {"Trynton", 3},
@@ -124,7 +123,6 @@ void ApplyScriptedDialogueKeyword(W8NpcQuoteEntryKind kind, const char* text)
     }
 }
 
-// FUNCTION: WIZ8 0x00528f10
 std::string GetNpcScriptRegionName(int region)
 {
     for (const auto& entry : g_npc_script_region_names)
@@ -141,7 +139,6 @@ struct W8NpcNamedQuote {
     int quote;
 };
 
-// GLOBAL: WIZ8 0x0061aea8
 static W8NpcNamedQuote g_npc_named_quotes[] = {
     {"Phoozang", 0x4000, 116},    {"Cosmic Lords", 0x8000, 116}, {"Yamir", 0x10000, 111},
     {"Z'Ant", 0x20000, 109},      {"Vi Domina", 0x40000, 106},   {"Al-Sedexus", 0x80000, 113},
@@ -157,7 +154,6 @@ static W8NpcNamedQuote g_npc_named_quotes[] = {
 
 /* Region-by-level-band quote table: one 0x12-int row per
    g_npc_script_region_names region id; band 0 is unused. */
-// GLOBAL: WIZ8 0x0061bda0
 static int g_npc_region_quotes[15][0x12] = {
     {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
     {-1, 117, 210, 210, 210, 210, 210, 213, 210, 211, 211, 211, 211, 213, 210, -1, 210, 213},
@@ -177,7 +173,6 @@ static int g_npc_region_quotes[15][0x12] = {
 };
 
 /* Kind 0x0b consumes the item; kind 0x0f only mentions it. */
-// FUNCTION: WIZ8 0x00528CD0
 std::optional<W8NpcScriptItemQuote> FindNpcScriptItemQuote(int item_id)
 {
     W8NpcScriptFile* script = g_npc_dialogue.speaker()->script_file.get();
@@ -201,7 +196,6 @@ std::optional<W8NpcScriptItemQuote> FindNpcScriptItemQuote(int item_id)
 /* Resolve an NPC-name, named-person, or region keyword to the quote id the
    speaker answers with; -1 when nothing applies. The record's alias mask
    selects which named persons this NPC will speak for. */
-// FUNCTION: WIZ8 0x00528D50
 int FindNpcNameOrPlaceQuote(W8NpcState* npc, std::string_view text)
 {
     int index;
@@ -259,7 +253,6 @@ static void ShowConsumedItemQuote(std::string_view text)
    when `match_item_id` is set), then the party pool, then the pending
    trade item. The first hit announces the loss through the quote bubble or
    the layout-4 path and returns. */
-// FUNCTION: WIZ8 0x00528FF0
 void RemoveNpcScriptItem(W8ItemInstance* item, int match_item_id, int item_id)
 {
     std::string text;
@@ -316,7 +309,6 @@ void RemoveNpcScriptItem(W8ItemInstance* item, int match_item_id, int item_id)
     }
 }
 
-// FUNCTION: WIZ8 0x00528f60
 void StripNpcKeywordPunctuation(std::string& text)
 {
     std::erase_if(text, [](char c) {
@@ -326,15 +318,11 @@ void StripNpcKeywordPunctuation(std::string& text)
 
 /* Alternates between the two string-list ids SpeakNpcSubquote substitutes for
    an "EMPTY"/"BLANK" quote on the closing quotes it allows. */
-// GLOBAL: WIZ8 0x0068C4FC
 
-// GLOBAL: WIZ8 0x0068c500
 static unsigned char g_npc_script_event_active;
 
-// GLOBAL: WIZ8 0x0068C358
 static int g_pending_npc_travel_level;
 
-// FUNCTION: WIZ8 0x00524BD0
 std::string FormatNpcVoiceSoundPath(W8NpcState* npc)
 {
     const auto prefix = npc->is_grouped && g_npc_script_event_active == 0 ? "RPC_"
@@ -343,7 +331,6 @@ std::string FormatNpcVoiceSoundPath(W8NpcState* npc)
     return fmt::format("{}{}", prefix, GetNpcDisplayName(npc));
 }
 
-// FUNCTION: WIZ8 0x00524CA0
 void ReloadNpcScriptResources(W8NpcState* npc, W8Monster* monster)
 {
     const std::string script_name = FormatNpcVoiceSoundPath(npc);
@@ -357,7 +344,6 @@ void ReloadNpcScriptResources(W8NpcState* npc, W8Monster* monster)
     }
 }
 
-// FUNCTION: WIZ8 0x00524EB0
 void W8NpcDialogue::Advance()
 {
     if (held_by_scene_ || IsNpcScriptSessionActive()) {
@@ -387,7 +373,6 @@ void W8NpcDialogue::Advance()
     }
 }
 
-// FUNCTION: WIZ8 0x00525110
 void W8NpcDialogue::Begin(W8NpcState* npc, bool suspend_current)
 {
     if (suspend_current) {
@@ -400,7 +385,6 @@ void W8NpcDialogue::Begin(W8NpcState* npc, bool suspend_current)
     session_.npc = npc;
 }
 
-// FUNCTION: WIZ8 0x00525DF0
 bool ShouldDeferCharacterEventForNpcScript(bool require_group_entry)
 {
     if (g_npc_dialogue.is_held_by_scene()) {
@@ -424,7 +408,6 @@ bool ShouldDeferCharacterEventForNpcScript(bool require_group_entry)
    items or gold to the party with the notice bubble and chime, or open the
    modal dialog kinds. The party slot's pending portrait event clears once the
    entry has run. */
-// FUNCTION: WIZ8 0x00526810
 void W8NpcDialogue::RunQuoteEntry(W8NpcQuoteEntry* entry, int continuation_quote)
 {
     W8NpcState* target;
@@ -522,7 +505,6 @@ void W8NpcDialogue::RunQuoteEntry(W8NpcQuoteEntry* entry, int continuation_quote
     }
 }
 
-// FUNCTION: WIZ8 0x00526E90
 void W8NpcDialogue::RunNextAction()
 {
     W8NpcState* npc;
@@ -734,7 +716,7 @@ void W8NpcDialogue::RunNextAction()
         }
         void operator()(W8NpcMarkMissing missing) const
         {
-            g_status.skip_next_condition_reaction = 1;
+            g_status.skip_next_condition_reaction = true;
             SetCharacterCondition(missing.party_slot, W8_CONDITION_MISSING, W8_CONDITION_INDEFINITE,
                                   0, 0, 0);
             g_status.condition13_clock = 1;
@@ -768,7 +750,6 @@ void W8NpcDialogue::RunNextAction()
     queue_.erase(current);
 }
 
-// FUNCTION: WIZ8 0x0052a1b0
 static void OnNpcTravelConfirmationClosed(bool accepted)
 {
     if (accepted) {
@@ -783,7 +764,6 @@ static void OnNpcTravelConfirmationClosed(bool accepted)
    g_status.quote_audit makes ShowNotice maintain
    g_notice_line_count and g_status.long_quote. The
    report streams are owned and failures leave quote-audit mode disabled. */
-// FUNCTION: WIZ8 0x00529660
 void AuditNpcScriptQuotes(void)
 {
     W8NpcScriptFile* script;
@@ -880,7 +860,6 @@ void AuditNpcScriptQuotes(void)
    queue owns it, and while the level-data flag is clear the message is
    bracketed by RESET_LEVEL_STATE markers so the dispatcher restores state
    around it. */
-// FUNCTION: WIZ8 0x005299B0
 void ShowString(std::string_view text)
 {
     if (!IsLevelMovementStopped()) {
@@ -891,7 +870,6 @@ void ShowString(std::string_view text)
         g_npc_dialogue.Queue(W8NpcCommand::clear_level_movement_stopped);
     }
 }
-// FUNCTION: WIZ8 0x0052A1A0
 void SetNpcScriptEventActive(unsigned char value)
 {
     g_npc_script_event_active = value;

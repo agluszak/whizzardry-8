@@ -434,7 +434,7 @@ struct W8MonsterRecord {
     std::string name2;
     std::string name3;
     /* Cosmic Forge's Monster Editor exposes this byte as 'Can open doors'. */
-    unsigned char can_open_doors;
+    bool can_open_doors;
     /* Retail offset 0x0c1: rolled by the group-attack summon to size the spawned group. */
     W8Dice group_size_dice;
     W8EncounterCompanionRecord companions[2];

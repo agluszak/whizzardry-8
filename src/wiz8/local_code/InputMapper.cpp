@@ -10,18 +10,17 @@
 #include <fmt/format.h>
 
 #include "asset_paths.h"
-#include "input.h"
 #include "mgs_commands.h"
 #include "surrender/srDebug.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/key_bindings.h"
 #include "wiz8/local_screens/CreditsScreen.h"
 #include "wiz8/local_screens/MGSKeyboard.h"
+#include "wiz8/platform/input.h"
 
 /* Local Code\InputMapper.cpp. MGSKeyboard::LoadDefaults at 0x0055D800
    asserts this unit (line 478); it is the only body placed here. */
 
-// FUNCTION: WIZ8 0x0055D800
 unsigned char MGSKeyboard::LoadDefaults(const char* path)
 {
     bool loaded_binding = false;
@@ -33,8 +32,7 @@ unsigned char MGSKeyboard::LoadDefaults(const char* path)
         }
     }();
     if (handle == 0) {
-        srAssertFail("hFile", "C:\\Projects\\Wizardry 8\\Local Code\\InputMapper.cpp", 478,
-                     fmt::format("Couldn't open keyboard init file {}", path));
+        Fail("hFile", fmt::format("Couldn't open keyboard init file {}", path));
     }
 
     std::string line;

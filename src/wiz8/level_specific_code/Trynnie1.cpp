@@ -5,9 +5,8 @@
 #include "conditions.h"
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/gameplay_databases.h"
-#include "random.h"
-#include "soundman.h"
 #include "surrender/srDebug.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/layouts/combat_state.h"
@@ -22,6 +21,7 @@
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/monster_generators.h"
+#include "wiz8/platform/random.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 
@@ -35,11 +35,8 @@ class Trigger;
    location variable. The level-0x1a neighbors belong to Trynnie2.cpp
    (0x004D9E60 cites it). */
 
-#define TRYNNIE1_CPP "C:\\Projects\\Wizardry 8\\Level Specific Code\\Trynnie1.cpp"
-
 /* Item ids 0x1b3 and 0x1c3 route the use-item action down the origin/equip
    path instead of activating, the same as a non-usable equip class. */
-// FUNCTION: WIZ8 0x004DA0F0
 bool IsSpecialItemId(W8ItemInstance* item)
 {
     return item->iItemNo == 0x1b3 || item->iItemNo == 0x1c3;
@@ -48,7 +45,6 @@ bool IsSpecialItemId(W8ItemInstance* item)
 /* Level 0x19 setup: once fact 0x229 reports the Trynnies dead and the
    Trynnie1Killed location variable does not exist yet, swap the encounter
    tables and spawn the dead shaman (0xcd) at VOC_SHAMAN_DYING. */
-// FUNCTION: WIZ8 0x004DA670
 void EnsureTrynnie1KilledVar(void)
 {
     glm::vec3 vPos;
@@ -59,14 +55,12 @@ void EnsureTrynnie1KilledVar(void)
         if (GetLocationVarIDByName("Trynnie1Killed") == -1) {
             KillTrynnieGroups();
             if (!FindEntityByName("VOC_SHAMAN_DYING", &vPos, 0, 0)) {
-                srAssertFail("WorldGetNamedPosition(\"VOC_SHAMAN_DYING\", vPos)", TRYNNIE1_CPP,
-                             0x12, 0);
+                Fail("WorldGetNamedPosition(\"VOC_SHAMAN_DYING\", vPos)");
             }
             vPos2 = vPos;
             group = CreateGroup(0xcd, 1, &vPos2, true, false, true);
             if (group == 0) {
-                srAssertFail("CreateGroup(205, 1, vPos2, TRUE, FALSE, TRUE)", TRYNNIE1_CPP, 0x18,
-                             0);
+                Fail("CreateGroup(205, 1, vPos2, TRUE, FALSE, TRUE)");
             }
             CreateLocationVar("Trynnie1Killed", 1);
         }
@@ -76,7 +70,6 @@ void EnsureTrynnie1KilledVar(void)
 /* "Fount_randomFX": the magic fountain rolls d100 - afflict a random party
    member with condition 9 (25%), restore the party's spell points (25%),
    heal everyone (25%) or restore everyone's stamina (25%). */
-// FUNCTION: WIZ8 0x004DA740
 bool Trynnie1FountRandomFX(Trigger* pTrigger)
 {
     unsigned int roll;
@@ -116,7 +109,6 @@ bool Trynnie1FountRandomFX(Trigger* pTrigger)
 
 /* Replace every live faction-0xd (Trynnie) group with a dead-Trynnie (0x1be)
    group, then point each 'Trynnies' generator at the 'Dead Trynnies' table. */
-// FUNCTION: WIZ8 0x004DA850
 void KillTrynnieGroups(void)
 {
     W8MonsterGroup* group;
@@ -138,11 +130,10 @@ void KillTrynnieGroups(void)
     iOldTable = FindEncounterTableByName("Trynnies");
     iNewTable = FindEncounterTableByName("Dead Trynnies");
     if (iOldTable == -1) {
-        srAssertFail("iOldTable!=(-1)", TRYNNIE1_CPP, 0x68, "Can't find monster table 'Trynnies'");
+        Fail("iOldTable!=(-1)", "Can't find monster table 'Trynnies'");
     }
     if (iNewTable == -1) {
-        srAssertFail("iNewTable!=(-1)", TRYNNIE1_CPP, 0x69,
-                     "Can't find monster table 'Dead Trynnies'");
+        Fail("iNewTable!=(-1)", "Can't find monster table 'Dead Trynnies'");
     }
     for (index = 0; index < static_cast<int>(GetWorld()->encounters.generators.size()); ++index) {
         generator = GetWorld()->encounters.generators[index].get();

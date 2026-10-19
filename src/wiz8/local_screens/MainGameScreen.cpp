@@ -5,7 +5,6 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -14,7 +13,6 @@
 #include <utility>
 #include <vector>
 
-#include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_rect.h>
@@ -22,9 +20,7 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 
-#include "Font.h"
 #include "Item.h"
-#include "asset_paths.h"
 #include "camera_motion.h"
 #include "compat/native.h"
 #include "dialog_code/DialogBase.h"
@@ -32,13 +28,8 @@
 #include "dialog_code/DialogTextEntry.h"
 #include "difficulty.h"
 #include "equipment_slots.h"
-#include "game_timer.h"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
-#include "himage.h"
-#include "image.h"
-#include "input.h"
-#include "layouts/levels.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/npc_dialogue.h"
 #include "layouts/targeting.h"
@@ -49,9 +40,6 @@
 #include "local_code/TextBuffer.h"
 #include "mgs_commands.h"
 #include "npc_trade_price.h"
-#include "random.h"
-#include "soundman.h"
-#include "sprite.h"
 #include "surrender/srDebug.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srMeshModel.h"
@@ -59,8 +47,12 @@
 #include "surrender/srScene.h" // IWYU pragma: keep - complete scene type for conversion to srNode.
 #include "surrender/srShader.h"
 #include "texture_animation.h"
-#include "timer.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/button_interaction.h"
+#include "wiz8/canvas/Font.h"
+#include "wiz8/canvas/himage.h"
+#include "wiz8/canvas/image.h"
+#include "wiz8/canvas/sprite.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
@@ -90,7 +82,6 @@
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/engine_code/stTextureAnim.h" // IWYU pragma: keep - complete animation type used through the owned pointer.
-#include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
@@ -156,6 +147,10 @@
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_items.h"
 #include "wiz8/overlay_scenes.h"
+#include "wiz8/platform/game_timer.h"
+#include "wiz8/platform/input.h"
+#include "wiz8/platform/random.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/string_database.h"
 #include "wiz8/surface2d.h"
@@ -174,44 +169,26 @@ struct SDL_Surface;
    another screen is simply dropped. */
 
 /* The region set the two enable/disable wrappers below own. */
-// GLOBAL: WIZ8 0x0068edcc
 std::unique_ptr<W8LevelRuntimeBlock> g_level_block;
-// GLOBAL: WIZ8 0x0068edd0
 std::unique_ptr<ModalContent> g_modal_owner;
-// GLOBAL: WIZ8 0x0068edd4
 std::unique_ptr<ModalContent> g_pending_main_game_dialog;
 
-// GLOBAL: WIZ8 0x0068edb0
 static uint64_t g_mouselook_last_tick;
-// GLOBAL: WIZ8 0x0068edb4
 static bool g_mouselook_tick_init;
-// GLOBAL: WIZ8 0x0068edbc
 
-// GLOBAL: WIZ8 0x0068ede0
 static float g_mouselook_pending_yaw;
-// GLOBAL: WIZ8 0x0068ede4
 static float g_mouselook_pending_pitch;
 
-// GLOBAL: WIZ8 0x005ee9a0
 const float g_mouselook_smooth_max = 0.39269906f;
-// GLOBAL: WIZ8 0x005ee9a4
 const float g_mouselook_smooth_min = 0.006135923f;
 
-// GLOBAL: WIZ8 0x0068edc8
-
-// GLOBAL: WIZ8 0x0068edc9
-
-// GLOBAL: WIZ8 0x0068edd8
 bool g_mouselook_active;
 
 /* Saved mouse position while mouselook is latched (WarpSystemCursor restore). */
-// GLOBAL: WIZ8 0x0068edc0
 static SDL_Point g_mouselook_cursor_pos;
 
-// GLOBAL: WIZ8 0x0068eddc
 W8MainGameMode g_main_game_mode;
 
-// GLOBAL: WIZ8 0x00648278
 W8MainGameResourceSlot g_main_game_resource_slots[17] = {
     {1, 0, 1, 0, 0, 0, 0},  {2, 0, 5, 0, 0, 0, 0},  {3, 0, 1, 0, 0, 0, 0},  {4, 0, 1, 0, 0, 0, 0},
     {5, 0, 1, 0, 0, 0, 0},  {6, 0, 4, 0, 0, 0, 0},  {7, 0, 4, 0, 0, 0, 0},  {0, 0, 0, 0, 0, 0, 0},
@@ -220,56 +197,37 @@ W8MainGameResourceSlot g_main_game_resource_slots[17] = {
     {16, 0, 1, 0, 0, 0, 0},
 };
 
-// GLOBAL: WIZ8 0x0065bd2c
-bool g_build_level_links;
-
-// GLOBAL: WIZ8 0x0068ede8
-int g_next_link_level;
-
-// GLOBAL: WIZ8 0x0068edd9
 bool g_mouselook_left_held;
 
 /* When set, the draw path clears FLAG_DISABLE on level model instances before
    RenderFrame, then re-evaluates each instance afterward. */
-// GLOBAL: WIZ8 0x0068edda
 bool g_node_cull_pending;
 
-// GLOBAL: WIZ8 0x0061e9ec
 unsigned short g_trap_name_string_ids[] = {
     0x542, 0x543, 0x544, 0x545, 0x546, 0x547, 0x548, 0x549, 0x54a, 0x54b,
     0x54c, 0x54d, 0x54e, 0x54f, 0x550, 0,     0x551, 0x552, 0x553, 0x554,
     0x555, 0,     0x556, 0x557, 0x558, 0x559, 0x55a, 0x55b,
 };
 
-// GLOBAL: WIZ8 0x0064bbac
 const char* g_trap_sounds[8] = {
     "Data\\Sound\\Misc\\Trap 03.wav", "Data\\Sound\\Misc\\Trap 07.wav",
     "Data\\Sound\\Misc\\Trap 01.wav", "Data\\Sound\\Misc\\Trap 05.wav",
     "Data\\Sound\\Misc\\Trap 02.wav", "Data\\Sound\\Misc\\Trap 08.wav",
     "Data\\Sound\\Misc\\Trap 06.wav", "Data\\Sound\\Misc\\Trap 04.wav",
 };
-// GLOBAL: WIZ8 0x0064BB88
 static char s_lock_open_fail[] = "Data\\Sound\\Misc\\Lock_Open_Fail.wav";
-// GLOBAL: WIZ8 0x0064BCF0
 static char s_trap_detect[] = "Data\\Sound\\Misc\\Trap Detect.wav";
 
-// GLOBAL: WIZ8 0x0064bcac
 static char g_trap_inspection_sound[] = "Data\\Sound\\Misc\\Trap Inspection.wav";
 
-// GLOBAL: WIZ8 0x0064bcd0
 static char g_trap_sprung_sound[] = "Data\\Sound\\Misc\\Trap Sprung.wav";
 
-// GLOBAL: WIZ8 0x006480b8
 static char g_text_enter_default_level[] = "Enter default level ?";
 
-// GLOBAL: WIZ8 0x005ee998
 const float g_mouselook_yaw_scale = 0.004908738192170858f;
-// GLOBAL: WIZ8 0x005ee99c
 const float g_mouselook_pitch_scale = 0.00654498441144824f;
-// GLOBAL: WIZ8 0x005eebbc
 const float g_text_panel_progress_scale = 120.0f;
 
-// GLOBAL: WIZ8 0x00659c11
 bool g_navigator_position_changed;
 
 static void ApplyPendingMouselook(void);
@@ -291,7 +249,6 @@ void UpdateFormationPortraitRefresh(void);
 extern bool g_mouselook_manual;
 /* Insanity (spell 0x3c) world-cursor extent rows: six doubles per row.
    Three rows fill through 0x00616f40, immediately before the power index. */
-// GLOBAL: WIZ8 0x00616eb0
 double g_world_cursor_extent_table[18] = {
     -750.0,  0.0, -750.0,  750.0,  1349.9999642372131, 750.0,
     -1125.0, 0.0, -1125.0, 1125.0, 2024.9999463558197, 1125.0,
@@ -300,28 +257,18 @@ double g_world_cursor_extent_table[18] = {
 /* Per spell-power index into g_world_cursor_extent_table. The
    Insanity cursor reads it byte-indexed by the power field; the eleven bytes
    run to 0x00616f4c, where the separate Magic Effects dword table starts. */
-// GLOBAL: WIZ8 0x00616f41
 signed char g_spell_power_extent_index[8] = {0, 0, 0, 1, 1, 2, 2, 0};
 
 void ServiceNpcDialogue(void);
-// GLOBAL: WIZ8 0x0064BA80
 static int g_lock_pin_target_height[4] = {10, 16, 22, 28};
 
-// GLOBAL: WIZ8 0x0064ba90
 static int g_knock_knock_chance[8] = {0, 344, 459, 516, 550, 573, 589, 602};
-// GLOBAL: WIZ8 0x0064BAE8
 static char s_lock_pin_falling[] = "Data\\Sound\\Misc\\Lock_Pin_Falling.wav";
-// GLOBAL: WIZ8 0x0064BABC
 static char s_lock_picking_success[] = "Data\\Sound\\Misc\\Lock_Picking_Success.wav";
-// GLOBAL: WIZ8 0x0064BB10
 static char s_lock_pin_rising[] = "Data\\Sound\\Misc\\Lock_Pin_Rising.wav";
-// GLOBAL: WIZ8 0x0064BB34
 static char s_lock_forcing_fail[] = "Data\\Sound\\Misc\\Lock_Forcing_Fail.wav";
-// GLOBAL: WIZ8 0x0064BB5C
 static char s_lock_forcing_success[] = "Data\\Sound\\Misc\\Lock_Forcing_Successful.wav";
-// GLOBAL: WIZ8 0x0068F2B4
 static int g_lock_phase;
-// GLOBAL: WIZ8 0x0068F2C0
 static std::unique_ptr<W8LockInteraction> g_lock_interaction;
 /* The selected slot's effective power with spell 0x27. */
 /* A party slot's casting level for a spell it has learned, or -1. */
@@ -2142,7 +2089,7 @@ void ResetMainGameScreenState(void)
         unset = -1;
         gXStatus.review_character_slot = static_cast<unsigned short>(unset);
         gXStatus.held_item_source = unset;
-        gXStatus.held_item_origin = static_cast<unsigned char>(unset);
+        gXStatus.held_item_origin = W8_ITEM_ORIGIN_NONE;
         gXStatus.held_item_slot = static_cast<unsigned short>(unset);
         gXStatus.gameplay_timer->Restart();
         gXStatus.assay_professions_tab = true;
@@ -2428,34 +2375,6 @@ void MainGameScreenFrame(void)
     if (g_dev_mode) {
         RequestExitScreen();
     }
-    if (g_build_level_links) {
-        char path[512];
-        W8LevelInfo info;
-        strcpy(path, GetWorld()->octree->m_path_stem.c_str());
-        char* extension = strrchr(path, '.');
-        if (extension) {
-            *extension = '\0';
-        }
-        strcat(path, ".rlk");
-        if (![&]() {
-                const auto status = wiz8::file_status(wiz8::asset_path(path));
-                return status && status->info.type == SDL_PATHTYPE_FILE;
-            }()) {
-            GetWorld()->octree->BuildRegionLinks(true);
-        }
-        for (; g_next_link_level < W8_LEVEL_COUNT; ++g_next_link_level) {
-            if (LevelBuildInfoByID(g_next_link_level, &info)) {
-                if (g_next_link_level < W8_LEVEL_COUNT) {
-                    int level = g_next_link_level++;
-                    RequestLevelTransition(level, -1, 0);
-                    goto update_screen;
-                }
-                break;
-            }
-        }
-        g_build_level_links = false;
-    }
-update_screen:
     ApplyPendingMouselook();
     ApplyPendingTooltip();
     if (g_modal_owner && ProcessModalOwner()) RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
@@ -2632,7 +2551,7 @@ update_screen:
         if (g_status.selected_character == -1) {
             int next = GetNextCharacter(1, 1, -1);
             if (next == -1) {
-                srAssertFail("iNextChar != BAD_INDEX", __FILE__, 0x1047, 0);
+                Fail("iNextChar != BAD_INDEX");
             }
             SelectPartyCharacter(next);
         }
@@ -3108,8 +3027,6 @@ void RequestRedrawParty(void)
     RequestRedraw(W8_MAIN_REDRAW_MONSTER_LIST);
 }
 
-#define MAIN_GAME_SCREEN_CPP __FILE__
-
 /* Redraw the combat monster-group list at the left edge of the main screen:
    clear the previous rows, walk live groups, format each line, tint the
    hovered action group and current target, and resize input region 0xe5. */
@@ -3232,7 +3149,7 @@ void SelectPartyCharacter(int party_slot)
     int previous;
 
     if (!g_status.buffers.XChar[party_slot].fOccupied) {
-        ReportAssertion("gStatus.XChar[uiChar].fOccupied", __FILE__, 0x1053);
+        Fail("gStatus.XChar[uiChar].fOccupied");
     }
     character = &g_status.buffers.Char[party_slot];
     if (character->highest_condition >= W8_CONDITION_MISSING) {
@@ -3500,7 +3417,7 @@ void DrawHighlightOverlay(unsigned int party_slot, int row_count, unsigned int m
         }
     }
     if (g_level_block->highlight_graphic == 0) {
-        ReportAssertion("gpMGSV->pHighlightGraphic", __FILE__, 0xd84);
+        Fail("gpMGSV->pHighlightGraphic");
     }
     g_level_block->highlight_graphic->render_state.display_state = 4;
     Position2DNodeUnsnapped(g_level_block->highlight_graphic, g_level_block->dialogue_x + 7,
@@ -3908,13 +3825,11 @@ bool IsModalOpen(void)
 /* The 3D view's screen rectangle for each of the seven viewport modes, with
    exclusive right and bottom edges. Mode 7, which leaving a level stores, sits
    outside the table so the next change always applies. */
-// GLOBAL: WIZ8 0x00647d30
 DesignRect g_viewport_modes[7] = {
     {23, 18, 617, 450},  {23, 18, 617, 358},  {128, 18, 512, 358}, {128, 18, 512, 279},
     {128, 18, 512, 450}, {128, 18, 512, 416}, {23, 18, 617, 416},
 };
 
-// GLOBAL: WIZ8 0x00647DA0
 W8MainGameInvalidateRect g_main_game_invalidate_rects[23] = {
     {0, 18, 127, 103, -1, 0, 0},     {512, 18, 639, 103, 1, 0, 1},
     {0, 103, 127, 188, -1, 0, 2},    {512, 103, 639, 188, 1, 0, 3},
@@ -5247,7 +5162,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
         }
         if (assign) {
             if (g_status.selected_character == -1) {
-                srAssertFail("gStatus.iSelectedCharacter != -1", MAIN_GAME_SCREEN_CPP, 0x16db, 0);
+                Fail("gStatus.iSelectedCharacter != -1");
             }
             AimAtMonsterLocation(g_status.selected_character, g_level_block->highlighted_item,
                                  true);
@@ -5589,7 +5504,7 @@ void SetCombatSelection(int value)
     if (value != -1) {
         auto* info = FindMonster(value, false);
         if (info && info->p3D) {
-            const auto bounds = MonsterGetWorldAnimationBounds(info->p3D);
+            const auto bounds = info->p3D->GetWorldAnimationBounds();
             if (bounds && traceLineOfSightToBounds(cameraLocation(), *bounds))
                 g_level_block->highlighted_item = value;
         }
@@ -5873,14 +5788,12 @@ bool IsMGSActionKeyEnabled(unsigned short command)
                 return false;
             }
         default:
-            srAssertFail("FALSE", __FILE__, 0x207d,
-                         "Error with handling main game action keyboard equivalent");
+            Fail("FALSE", "Error with handling main game action keyboard equivalent");
             break;
         }
     }
     if (state == -1) {
-        srAssertFail("iActionState != -1", __FILE__, 0x20aa,
-                     "Error with handling main game action keyboard equivalent");
+        Fail("iActionState != -1", "Error with handling main game action keyboard equivalent");
     }
     if (!IsPartySlotEligible(g_status.selected_character)) {
         return false;
@@ -5989,10 +5902,12 @@ void RunMGSActionKey(unsigned short command)
         case W8_ACTION_EQUIP:
             RunMGSActionKey(W8_MGS_ACTION_EQUIP);
             break;
+        default:
+            break;
         }
         break;
     default:
-        srAssertFail("FALSE", __FILE__, 0x2151, "Error executing main game screen action");
+        Fail("FALSE", "Error executing main game screen action");
         break;
     }
 }
@@ -6106,10 +6021,10 @@ void SyncWorldAdvancement()
     if (environment_changed) {
         SetEnvironmentTimeEnabled(!environment_blocked);
         if (environment_blocked) {
-            MonsterStopAllNavigators();
+            StopAllNavigators();
             ResetLevelDataVectors();
         } else {
-            MonsterResumeAllNavigators();
+            ResumeAllNavigators();
             if (!g_lock_interaction && !g_main_game_screen) ClearLevelMovementStopped();
         }
     }
@@ -6692,17 +6607,11 @@ resume_world:
 /* Note that the party's state changed. The combat half is only asked for while
    a fight is on; the party half always. */
 
-// GLOBAL: WIZ8 0x0068edb8
 static std::uint64_t g_surprise_fade_tick_base;
-// GLOBAL: WIZ8 0x005ee9a8
 const float g_fade_resume_scale = -500.0f;
-// GLOBAL: WIZ8 0x0068edca
 static bool g_surprise_fade_in;
-// GLOBAL: WIZ8 0x0068edf0
 static std::shared_ptr<SDL_Surface> g_surprise_snapshot_surface;
-// GLOBAL: WIZ8 0x0068edf4
 static std::unique_ptr<stSurface2D> g_surprise_snapshot_overlay;
-// GLOBAL: WIZ8 0x0068edf8
 static std::unique_ptr<stModelInstance2D> g_surprise_fade_node;
 
 void ResetMainGameMode(void)
@@ -6743,7 +6652,7 @@ void CreateSurpriseFade(void)
 
 void ReverseSurpriseFade(void)
 {
-    if (gXStatus.surprise_phase == 0) {
+    if (gXStatus.surprise_phase == W8SurprisePhase::fade_in) {
         srMaterial* material =
             static_cast<srMaterial*>(static_cast<srMeshModel*>(g_surprise_fade_node->getModel())
                                          ->getMaterial(0, srMeshModel::SIDE_FRONT));
@@ -6801,7 +6710,7 @@ unsigned char UpdateSurpriseFade(void)
         ->setOpacity(opacity);
 
     if (boundary) {
-        if (gXStatus.surprise_phase == 0) {
+        if (gXStatus.surprise_phase == W8SurprisePhase::fade_in) {
             const auto snapshot = CatalogArtwork::Load(0x1e0).bitmap();
             g_surprise_snapshot_surface = snapshot;
             g_surprise_snapshot_overlay = std::make_unique<stSurface2D>(
@@ -6817,7 +6726,7 @@ unsigned char UpdateSurpriseFade(void)
         return done;
     }
     if (done) {
-        if (gXStatus.surprise_phase == 0) {
+        if (gXStatus.surprise_phase == W8SurprisePhase::fade_in) {
             g_surprise_fade_node->setFlag(srNode::FLAG_DISABLE);
             return done;
         }

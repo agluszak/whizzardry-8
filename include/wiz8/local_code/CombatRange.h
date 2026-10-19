@@ -6,6 +6,7 @@
 #include "wiz8/layouts/targeting.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/Factions.h"
+#include "wiz8/local_code/Sight.h"
 
 struct W8MonsterInfo;
 struct W8MonsterRecord;
@@ -50,9 +51,10 @@ float CalcRangeDistance(W8RangeCategory range_category, W8TargetSource* source);
 bool RangeCategoryUsesSightCondition(const W8MonsterInfo* monster, W8RangeCategory range_category);
 bool MonsterActionReachesTarget(W8MonsterInfo* monster_info, W8MonsterRecord* record,
                                 unsigned int attack, W8CombatSlot* target);
-/* The location id of the nearest live, in-combat group member the monster can
-   see under check `kind`, or -1 when none qualify. */
-int FindNearestVisibleGroupMonster(W8MonsterInfo* monster_info, int group_id, int kind);
+/* The location id of the nearest live, in-combat group member visible under
+   the selected condition, or -1 when none qualify. */
+int FindNearestVisibleGroupMonster(W8MonsterInfo* monster_info, int group_id,
+                                   W8VisibilityCondition condition);
 /* The furthest range band the monster can act at: its attacks first, then its
    castable spells. `skip_capability_checks` (callers pass 1 for reach/info)
    bypasses prefer-ranged/flee/usability gates; otherwise those gates apply.
@@ -66,7 +68,8 @@ W8RangeCategory GetCharAttackRange(const W8Character* character, unsigned int ha
 W8RangeCategory GetCharActionRange(int party_slot, int hand, const W8Action& selected,
                                    std::optional<W8RangeCategory> attack_range = {});
 W8TargetAssessment AssessGroupRange(int party_slot, int group_id, const W8Action& selected);
-float MonsterChooseTarget(W8MonsterInfo* monster_info, W8CombatSlot* out, int kind);
+float MonsterChooseTarget(W8MonsterInfo* monster_info, W8CombatSlot* out,
+                          W8VisibilityCondition condition);
 float GetGroundTargetRange(void);
 float GetMonsterEngagementRange(void);
 bool AnyoneStandsAhead(unsigned char position);

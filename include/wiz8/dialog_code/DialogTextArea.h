@@ -1,3 +1,4 @@
+#include "wiz8/canvas/Font.h"
 #pragma once
 
 #include <memory>

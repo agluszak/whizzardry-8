@@ -446,7 +446,7 @@ struct MonsterRecord {
     int model_index;           /* 0x253 */
     int alternate_model_index; /* 0x257: alternate selected value */
     int hostility_radius;      /* 0x25b: Minimal Neutrality Distance / Hostility Radius */
-    W8Faction faction_id;      /* 0x25f: W8Faction value, domain 0..20 */
+    std::int32_t faction_id;   /* 0x25f: W8Faction value, domain 0..20 */
     int material;              /* 0x263: Monster Editor Material selector */
     unsigned char deleted;     /* 0x267: LoadMonsterGroup skips the record */
     unsigned char significant_kill;
@@ -742,7 +742,7 @@ struct GlobalStatus {
        pass sums them against zero. */
     float real_elapsed;
     float frame_elapsed;
-    W8GameWaitState wait_state;
+    std::uint32_t wait_state;
     unsigned int item_recharge_ms;
     W8PartyFormationState formation;
     int game_time_days;

@@ -1,6 +1,6 @@
 #include <string>
 
-#include "Font.h"
+#include "wiz8/canvas/Font.h"
 #pragma once
 
 #include "wiz8/camera_motion.h"
@@ -9,6 +9,18 @@
 
 class stTextureAnim;
 class stModelInstance2D;
+
+enum W8TextBoxArrowState : unsigned char {
+    kTextBoxArrowUninitialized = 0,
+    kTextBoxArrowNone = 0xff,
+    kUpArrowDisabled = 0x56,
+    kUpArrowEnabled = 0x57,
+    kUpArrowPressed = 0x58,
+    kDownArrowDisabled = 0x59,
+    kDownArrowEnabled = 0x5a,
+    kDownArrowPressed = 0x5b,
+};
+static_assert(sizeof(W8TextBoxArrowState) == sizeof(unsigned char));
 
 #include <memory>
 
@@ -35,7 +47,7 @@ enum W8MainUiMode {
     W8_MAIN_UI_MODE_RADAR = 2
 };
 
-enum W8ViewportMode : int {
+enum W8ViewportMode : unsigned char {
     W8_VIEWPORT_MODE_FULL = 0,
     W8_VIEWPORT_MODE_FULL_WITH_BOTTOM_PANEL = 1,
     W8_VIEWPORT_MODE_CENTERED_WITH_BOTTOM_PANEL = 2,
@@ -114,7 +126,7 @@ struct W8PortraitHighlight {
 static const unsigned int W8_MAIN_REDRAW_FRAME = 0x80000000U;
 static const unsigned int W8_MAIN_REDRAW_ALL = 0xffffffffU;
 
-enum W8PortraitAssayHoverMode : int {
+enum W8PortraitAssayHoverMode : unsigned char {
     W8_PORTRAIT_ASSAY_HOVER_NONE = 0,
     W8_PORTRAIT_ASSAY_HOVER_PRIMARY_WEAPON = 1,
     W8_PORTRAIT_ASSAY_HOVER_SECONDARY_WEAPON = 2,
@@ -149,8 +161,8 @@ struct W8LevelRuntimeBlock {
        row, 2 lower, 3 assayable item; Screens resets it to 0. */
     W8PortraitAssayHoverMode portrait_assay_hover_mode;
     int held_item_display = -1;
-    int text_content_region;
-    int dialogue_content_region;
+    W8TextBoxArrowState text_content_region = kTextBoxArrowNone;
+    W8TextBoxArrowState dialogue_content_region = kTextBoxArrowNone;
     unsigned int text_lines[12];
     /* Wrapped-line starts for hover and selection highlighting.
        NPC dialogue uses box 2 for the hovered row and selected trade item. */

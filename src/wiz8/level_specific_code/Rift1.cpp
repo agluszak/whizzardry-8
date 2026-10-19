@@ -24,7 +24,6 @@
    the replacement (species 0x22b) at the Sexspawn entity if it is not already
    in the level. Returns false unless the swap runs, so the trigger stays
    armed until it does. */
-// FUNCTION: WIZ8 0x004DAFD0
 bool Rift1Sexspawn(Trigger* pTrigger)
 {
     glm::vec3 position;
@@ -50,7 +49,6 @@ bool Rift1Sexspawn(Trigger* pTrigger)
 /* "Hotstuff": until fact 0x326, spawn the lava lord (0x175) at the Hotstuff
    entity, give it the MoveLavalord movement script and begin the scripted
    world action. */
-// FUNCTION: WIZ8 0x004DB090
 bool Rift1Hotstuff(Trigger* pTrigger)
 {
     glm::vec3 position;
@@ -73,7 +71,6 @@ bool Rift1Hotstuff(Trigger* pTrigger)
 
 /* "Fireantspawn": spawn a hostile group of six fire ants (0x12b) at the
    Fireantspawn entity. */
-// FUNCTION: WIZ8 0x004DB120
 bool Rift1Fireantspawn(Trigger* pTrigger)
 {
     glm::vec3 position;
@@ -85,7 +82,6 @@ bool Rift1Fireantspawn(Trigger* pTrigger)
 }
 
 /* "Gate": raise fact 0x1c4. */
-// FUNCTION: WIZ8 0x004DB160
 bool Rift1Gate(Trigger* pTrigger)
 {
     SetFact(W8_FACT_RIFT_RAFE_CAGE_OPEN, 1, false);
@@ -93,7 +89,6 @@ bool Rift1Gate(Trigger* pTrigger)
 }
 
 /* "AshLock": spawn one hostile monster 0x222 at the NP_Hotstuff3 entity. */
-// FUNCTION: WIZ8 0x004DB180
 bool Rift1AshLock(Trigger* pTrigger)
 {
     glm::vec3 position;
@@ -106,7 +101,6 @@ bool Rift1AshLock(Trigger* pTrigger)
 
 /* "TimeDorado": give every existing monster group of species 0xfc a fresh
    member. */
-// FUNCTION: WIZ8 0x004DB1C0
 bool Rift1TimeDorado(Trigger* pTrigger)
 {
     W8MonsterGroup* previous;

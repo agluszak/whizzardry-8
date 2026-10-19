@@ -17,25 +17,17 @@ enum {
 
 /* A world item. Saves store it as wiz8::retail::WorldItem. */
 struct W8WorldItem {
-    W8WorldItem() = default;
-    W8WorldItem(W8WorldItem&&) = default;
-    W8WorldItem& operator=(W8WorldItem&&) = default;
-    ~W8WorldItem();
     int runtime_id;      /* 0x00 */
-    W8Item* p3D; // Scene entity, deactivated before removing the world record.
+    WorldItemEntity* p3D; // Scene entity, deactivated before removing the world record.
     bool fActive;        /* 0x08: assertion-proven pItemInfo->fActive */
     W8ItemInstance item; /* 0x09 */
     glm::vec3 position; /* 0x15 */
     unsigned char unknown_21[4];
-    /* Saved W8ItemRep flag word; level restore clears RADAR_SEEN. */
+    /* Saved world item flag word; level restore clears RADAR_SEEN. */
     int entity_flags;
     unsigned int flags; /* 0x29: W8_WORLD_ITEM_* masks */
-    /* Both established by the LoadSaveGame.cpp serializers: the marker is set
-       to 1 before each record is written, and the chain is walked and rebuilt
-       through the link. The link is written to the file and reloaded with the
-       record, so on disk it only records that another entry follows. */
-    int saved_marker;  /* 0x2d */
-    std::unique_ptr<W8WorldItem> next;
+    int saved_marker;
+    std::vector<std::unique_ptr<W8WorldItem>> contents;
     /* 0x35: vertical velocity while flag bit 1 (falling) is set; cleared on
        ground settle. */
     float vertical_velocity;
@@ -52,9 +44,6 @@ std::unique_ptr<W8WorldItem> SpawnItem(int item_id, const glm::vec3* position, i
 bool ItemHasFlags(const W8WorldItem* item, unsigned int mask);
 void SetItemFlags(W8WorldItem* item, unsigned int mask, bool enabled);
 void SetItemAndEntityFlags(W8WorldItem* item, unsigned int mask, bool enabled);
-int ItemInfoGetNumInGroup(W8WorldItem* item);
-void ItemInfoAddToGroup(W8WorldItem* group, std::unique_ptr<W8WorldItem> item);
-std::unique_ptr<W8WorldItem> ItemInfoRemoveFromGroup(W8WorldItem* group, W8WorldItem* item);
 bool ItemInfoIsWorldPersistent(const W8WorldItem* item);
 void ActivateItem(W8WorldItem* item);
 int FindItemRecordByName(const char* name);

@@ -7,7 +7,6 @@
 #include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
 
-#include "input.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
@@ -23,12 +22,10 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/CharacterScreen.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 
-#define CGS_STATS_PAGE_CPP "C:\\Projects\\Wizardry 8\\Local Screens\\CGSStatsPage.cpp"
-
-// GLOBAL: WIZ8 0x0064f028
 static W8CharacterStatsRecord g_character_profession_records[15] = {
     {0x0000010b, 0x0000000a, 0x0000000b, 0x02a4, 0, 0},
     {0x0000010b, 0x00000018, 0x00000019, 0x02a5, 0, 0},
@@ -46,7 +43,6 @@ static W8CharacterStatsRecord g_character_profession_records[15] = {
     {0x0000010b, 0x0000000e, 0x0000000f, 0x02b1, 0, 0},
     {0x0000010b, 0x0000001a, 0x0000001b, 0x02b2, 0, 0},
 };
-// GLOBAL: WIZ8 0x0064f118
 static W8CharacterStatsRecord g_character_race_records[W8_RACE_PLAYABLE_COUNT] = {
     {0x0000010c, 0x00000008, 0x00000009, 0x0284, 1, 0},
     {0x0000010c, 0x00000004, 0x00000005, 0x0285, 1, 0},
@@ -60,38 +56,30 @@ static W8CharacterStatsRecord g_character_race_records[W8_RACE_PLAYABLE_COUNT] =
     {0x0000010c, 0x00000012, 0x00000013, 0x028d, 1, 0},
     {0x0000010c, 0x00000006, 0x00000007, 0x028e, 1, 0},
 };
-// GLOBAL: WIZ8 0x0064f218
 static W8CharacterStatsRecord g_character_gender_records[2] = {
     {0x0000010d, 0x00000000, 0x00000001, 0x02d1, 0, 0},
     {0x0000010d, 0x00000002, 0x00000003, 0x02d2, 0, 0},
 };
-// GLOBAL: WIZ8 0x0064f248
 static W8CharacterStatsRecord g_character_profession_default_record = {
     0x0000010e, 0x00000002, 0x00000003, 0x008f, 1, 0,
 };
-// GLOBAL: WIZ8 0x0064f258
 static W8CharacterStatsRecord g_character_race_default_record = {
     0x0000010e, 0x00000000, 0x00000001, 0x0090, 1, 0,
 };
-// GLOBAL: WIZ8 0x0064f268
 static W8CharacterStatsRecord g_character_gender_default_record = {
     0x0000010e, 0x00000004, 0x00000005, 0x0091, 1, 0,
 };
 
 /* The six resistance icons drawn beside the stats page's resistance values. */
-// GLOBAL: WIZ8 0x0064ce60
 int g_character_resistance_images[6] = {
     0x193, 0x194, 0x195, 0x196, 0x197, 0x198,
 };
-// GLOBAL: WIZ8 0x0061e530
 unsigned short g_character_trait_name_ids[0x20] = {
     0x328, 0x329, 0x32a, 0x32b, 0x32c, 0x32d, 0x32e, 0x32f, 0x330, 0x331, 0x332,
     0x333, 0x334, 0x335, 0x336, 0x337, 0x338, 0x339, 0x33a, 0x33b, 0x33c, 0x33d,
     0x33e, 0x33f, 0x340, 0x341, 0x342, 0x343, 0x344, 0x345, 0x346, 0x347,
 };
-// GLOBAL: WIZ8 0x0064789c
 char g_dash[] = "-";
-// GLOBAL: WIZ8 0x0064f2c0
 static char g_zero_slash_zero[] = "0/0";
 
 /* Skill name message ids indexed by skill id are declared with the stats
@@ -274,7 +262,6 @@ void W8CharacterStatsRow::DrawChoices(SDL_Surface& target)
 
 /* Send every row control through its enabled state, redraw the values, and
    refresh the character-wide figures the rows depend on. */
-// FUNCTION: WIZ8 0x005ca140
 void W8CharacterStatsPage::Activate()
 {
     input.setEnabled(true);
@@ -288,7 +275,6 @@ void W8CharacterStatsPage::Activate()
 
 /* The skills page's Deactivate is the same one-call body; the linker folded
    both onto this address, so only this definition carries the marker. */
-// FUNCTION: WIZ8 0x005ca1f0
 void W8CharacterStatsPage::Deactivate()
 {
     input.setEnabled(false);
@@ -297,7 +283,6 @@ void W8CharacterStatsPage::Deactivate()
 /* Rebuild the three row displays from the character's current profession,
    race and sex. In creation mode the profession list is opened up
    entirely; in level-up mode only the eligible professions stay enabled. */
-// FUNCTION: WIZ8 0x005ca200
 void W8CharacterStatsPage::UpdateRowValues()
 {
     unsigned char eligible[15];
@@ -337,7 +322,6 @@ void W8CharacterStatsPage::UpdateRowValues()
 }
 
 /* The entries only need enabling the first time the rows become usable. */
-// FUNCTION: WIZ8 0x005ca480
 void W8CharacterStatsPage::Refresh()
 {
     UpdateRowValues();
@@ -354,7 +338,6 @@ void W8CharacterStatsPage::Refresh()
 
 /* Accept the page: refund everything the editing state still owes, then let
    the screen recompute its navigation buttons. */
-// FUNCTION: WIZ8 0x005ca4f0
 void W8CharacterStatsPage::Accept()
 {
     RefundAllocatedAttributes(m_character, m_creation_state);
@@ -368,7 +351,6 @@ void W8CharacterStatsPage::Accept()
 
 /* The next button needs a complete attribute allocation; exit is available
    once any points are committed. */
-// FUNCTION: WIZ8 0x005ca550
 void W8CharacterStatsPage::GetNavigationState(bool* next_enabled, bool* exit_enabled)
 {
     if (!m_creation_state->attributes_complete || m_character->iProfession == W8_PROFESSION_NONE ||
@@ -388,7 +370,6 @@ void W8CharacterStatsPage::GetNavigationState(bool* next_enabled, bool* exit_ena
 }
 
 /* A click anywhere closes an expanded row's record list. */
-// FUNCTION: WIZ8 0x005ca5e0
 void W8CharacterStatsPage::HandleInput(const InputEvent* input)
 {
     if (input->type != InputEventType::LeftButtonDown &&
@@ -404,7 +385,6 @@ void W8CharacterStatsPage::HandleInput(const InputEvent* input)
    creation-state helper, then show every skill the maxed attribute gates.
    Only skills 0x22..0x27 are walked: retail's end bound is the attribute
    field of g_skill_attributes[0x28], so the last skill is never offered. */
-// FUNCTION: WIZ8 0x005ca730
 void W8CharacterStatsPage::AdjustEntry(W8CharacterPageEntry* entry, int delta)
 {
     entry->MarkDirty();
@@ -423,7 +403,6 @@ void W8CharacterStatsPage::AdjustEntry(W8CharacterPageEntry* entry, int delta)
     }
 }
 
-// FUNCTION: WIZ8 0x005ca7e0
 void W8CharacterStatsPage::ShowEntryInfo(W8CharacterPageEntry* entry)
 {
     m_screen->ShowPrimaryAttributeInfo(static_cast<W8Attribute>(entry->m_id));
@@ -431,7 +410,6 @@ void W8CharacterStatsPage::ShowEntryInfo(W8CharacterPageEntry* entry)
 
 /* A value row moved: rerun the whole creation rebuild for the new
    profession, race or sex, then refresh the row controls. */
-// FUNCTION: WIZ8 0x005ca800
 void W8CharacterStatsPage::OnRowValueChanged(W8CharacterStatsRow* row, int value)
 {
     if (row == m_profession_row.get()) {
@@ -469,14 +447,12 @@ void W8CharacterStatsPage::SetRowControlsActive(W8CharacterStatsRow* row, bool a
 
 /* A row opened its record list: park the row and attribute controls so the
    list owns the input. */
-// FUNCTION: WIZ8 0x005ca8d0
 void W8CharacterStatsPage::OnRowExpanded(W8CharacterStatsRow* row)
 {
     SetRowControlsActive(row, false);
 }
 
 /* The record list closed: restore the row and attribute controls. */
-// FUNCTION: WIZ8 0x005ca970
 void W8CharacterStatsPage::OnRowCollapsed(W8CharacterStatsRow* row)
 {
     SetRowControlsActive(row, true);
@@ -484,7 +460,6 @@ void W8CharacterStatsPage::OnRowCollapsed(W8CharacterStatsRow* row)
 }
 
 /* Right-clicking a row's value asks the screen for that entry's info. */
-// FUNCTION: WIZ8 0x005caa20
 void W8CharacterStatsPage::OnRowInfoRequested(W8CharacterStatsRow* row, int value)
 {
     if (row == m_profession_row.get()) {
@@ -496,7 +471,6 @@ void W8CharacterStatsPage::OnRowInfoRequested(W8CharacterStatsRow* row, int valu
     }
 }
 
-// FUNCTION: WIZ8 0x005caa80
 void W8CharacterStatsPage::Prepare()
 {
     W8CharacterPage::Prepare();
@@ -507,7 +481,6 @@ void W8CharacterStatsPage::Prepare()
 
 /* The whole page: three value rows, seven attribute entries, five attribute
    corner controls, then the profession/race/sex list state. */
-// FUNCTION: WIZ8 0x005c9c80
 void W8CharacterStatsPage::SetCharacter(W8Character* character,
                                         W8CharacterCreationState* creation_state,
                                         W8CharacterScreenMode mode)
@@ -574,7 +547,6 @@ void W8CharacterStatsPage::SetCharacter(W8Character* character,
 
 /* The page redraw: header figures, the seven attribute entries' section,
    the three value rows' labels, then the resistance and trait blocks. */
-// FUNCTION: WIZ8 0x005cab20
 void W8CharacterStatsPage::Redraw(SDL_Surface& target, bool full_redraw)
 {
     bool redraw = static_cast<unsigned char>(m_active && m_dirty);
@@ -861,7 +833,6 @@ void W8CharacterStatsPage::Redraw(SDL_Surface& target, bool full_redraw)
 
 /* Factory for the stats page; the render target comes from the base
    constructor. */
-// FUNCTION: WIZ8 0x005cba90
 W8CharacterStatsPage* CreateCharacterStatsPage()
 {
     return new W8CharacterStatsPage;

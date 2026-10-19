@@ -4,12 +4,11 @@
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/DialogScrollBar.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
-#include "wiz8/engine_code/game_timer.h"
 #include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/platform/game_timer.h"
 
 /* The constructor stores the spell id; Draw and DrawLabels index
    g_spell_records with it. */
-// VTABLE: WIZ8 0x005efab0
 class W8SpellInfoDialog : public W8DialogBase {
 public:
     W8SpellInfoDialog(unsigned int spell);

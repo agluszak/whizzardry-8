@@ -25,7 +25,6 @@
    active, bit2 = directional, bit3 = OpenGL attenuation active, bit4 = constant-only OpenGL
    attenuation, bit5 = far-range attenuation active. */
 
-// FUNCTION: SURRENDER 0x1004DDA0
 srLight::srLight(srNode* parent, e_preset preset) : srIlluminator(static_cast<srNode*>(nullptr))
 {
     enable_flags = 0;
@@ -58,7 +57,6 @@ srLight::srLight(srNode* parent, e_preset preset) : srIlluminator(static_cast<sr
     }
 }
 
-// FUNCTION: SURRENDER 0x1004DFB0
 srLight& srLight::operator=(const srLight& other)
 {
     if (this != &other) {
@@ -82,7 +80,6 @@ srLight& srLight::operator=(const srLight& other)
     return *this;
 }
 
-// FUNCTION: SURRENDER 0x1004D650
 void srLight::process(const ProcessInfo& info, e_processType type)
 {
     srGERD* renderer = info.renderer;
@@ -174,7 +171,6 @@ void srLight::process(const ProcessInfo& info, e_processType type)
     }
 }
 
-// FUNCTION: SURRENDER 0x1004CCC0
 int srLight::isActive(srVertexPipe& pipe)
 {
     const srVertexPipe::Input* input = pipe.input;
@@ -202,7 +198,6 @@ int srLight::isActive(srVertexPipe& pipe)
     return 1;
 }
 
-// FUNCTION: SURRENDER 0x1004CE00
 void srLight::process(srVertexPipe& pipe)
 {
     w8_ulong channels = channel_mask & pipe.channel_mask;
@@ -345,7 +340,6 @@ void srLight::process(srVertexPipe& pipe)
     srLightingMath::accumulateLight(pipe.getSpecular(), color, distance_values, attenuation);
 }
 
-// FUNCTION: SURRENDER 0x1004DC80
 void srLight::traverse(TraverseInfo& info)
 {
     traverseEffect(info, [&] {
@@ -353,7 +347,6 @@ void srLight::traverse(TraverseInfo& info)
     });
 }
 
-// FUNCTION: SURRENDER 0x1004DF40
 void srLight::setLinearAttenuation(float range, float attenuation)
 {
     if (attenuation <= 1e-06f) {
@@ -367,43 +360,36 @@ void srLight::setLinearAttenuation(float range, float attenuation)
     opengl_attenuation.y = (1.0f - attenuation) / (range * attenuation);
 }
 
-// FUNCTION: SURRENDER 0x1004E760
 void srLight::setAmbient(const glm::vec3& ambient)
 {
     this->ambient = ambient;
 }
 
-// FUNCTION: SURRENDER 0x1004E670
 glm::vec3 srLight::getAmbient() const
 {
     return ambient;
 }
 
-// FUNCTION: SURRENDER 0x1004E830
 void srLight::setSpotDirection(const glm::vec3& direction)
 {
     spot_direction = normalizedOrZero(direction);
 }
 
-// FUNCTION: SURRENDER 0x1004E720
 glm::vec3 srLight::getSpotDirection() const
 {
     return spot_direction;
 }
 
-// FUNCTION: SURRENDER 0x1004E7A0
 void srLight::setIntensity(float intensity)
 {
     this->intensity = intensity;
 }
 
-// FUNCTION: SURRENDER 0x1004E920
 void srLight::setAttenuation(const glm::vec3& attenuation)
 {
     opengl_attenuation = glm::max(attenuation, glm::vec3(0.0001f));
 }
 
-// FUNCTION: SURRENDER 0x1004E9A0
 glm::vec3 srLight::getAttenuation() const
 {
     return opengl_attenuation;

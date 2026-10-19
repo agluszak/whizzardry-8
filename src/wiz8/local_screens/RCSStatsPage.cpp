@@ -14,15 +14,13 @@
 #include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
 
-#include "Font.h"
-#include "game_timer.h"
 #include "glm/ext/vector_int2.hpp"
-#include "himage.h"
-#include "image.h"
-#include "input.h"
 #include "local_code/CombatAttack.h"
 #include "local_code/RangeControl.h"
 #include "wiz8/button_interaction.h"
+#include "wiz8/canvas/Font.h"
+#include "wiz8/canvas/himage.h"
+#include "wiz8/canvas/image.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/conditions.h"
@@ -48,21 +46,19 @@
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/RCSCommon.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
+#include "wiz8/platform/game_timer.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 
 /* 0x0069C514/0x0069C518: the stats page's text origin, initialized by the
    page renderer before every full redraw. */
-// GLOBAL: WIZ8 0x0069c514
 static int g_camp_stats_origin_y;
-// GLOBAL: WIZ8 0x0069c518
 static int g_camp_stats_origin_x;
 /* The skills page row the cursor last hovered, kept so the help
    text only resets on a real change. */
-// GLOBAL: WIZ8 0x0069c524
 static int g_camp_skill_hover_row;
-// GLOBAL: WIZ8 0x0069c528
 void DrawCampEffectList(void);
 void DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out);
 
@@ -70,27 +66,25 @@ void DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out);
    origins, the row count that bounds each region, and the catalog frame each
    header draws. Category 4 sits below the right-hand column; the others fill
    the left and right columns. */
-// GLOBAL: WIZ8 0x0064ef40
 static glm::ivec2 g_camp_skill_category_positions[5] = {
     {0x160, 0x8}, {0x160, 0xcc}, {0x22, 0x9}, {0x22, 0x86}, {0x2a, 0x21},
 };
-// GLOBAL: WIZ8 0x0064ef68
+static constexpr std::array<W8SkillCategory, 5> g_camp_skill_categories = {
+    W8_SKILL_CATEGORY_WEAPON, W8_SKILL_CATEGORY_MISCELLANEOUS, W8_SKILL_CATEGORY_COMBAT,
+    W8_SKILL_CATEGORY_MAGIC,  W8_SKILL_CATEGORY_EXPERT,
+};
 static int g_camp_skill_category_rows[5] = {0xb, 5, 8, 0xa, 7};
-// GLOBAL: WIZ8 0x0064ef7c
 static int g_camp_skill_category_images[5] = {2, 3, 0, 1, 4};
 
-// GLOBAL: WIZ8 0x0064ef90
 static glm::ivec2 g_character_page2_category_geometry[5] = {
     {0xf9, 0x0a}, {0xf9, 0xcd}, {0x22, 0x0a}, {0x22, 0x87}, {0xf9, 0x120},
 };
-// GLOBAL: WIZ8 0x0064efb8
 static int g_character_page2_category_frames[5] = {2, 3, 0, 1, 4};
 
 struct W8PortraitGroup {
     int count;
     int portraits[14];
 };
-// GLOBAL: WIZ8 0x00648950
 static W8PortraitGroup g_portrait_groups[12] = {
     {14, {0, 1, 2, 3, 76, 4, 5, 6, 7, 8, 9, 77, 10, 11}},
     {8, {12, 13, 14, 78, 15, 16, 17, 79}},
@@ -106,7 +100,6 @@ static W8PortraitGroup g_portrait_groups[12] = {
     {2, {56, 57}},
 };
 
-// FUNCTION: WIZ8 0x005c4540
 W8CampStatsControls::W8CampStatsControls()
 {
     constexpr int y[] = {0xbe, 0xd6, 0xf3};
@@ -175,7 +168,6 @@ void W8CampStatsControls::SelectFilter(int index)
 /* The stats page's full redraw: attribute rows with their base/effective
    delta bars, the profession's bonus skill, the trait grid, then the effect
    list region when its redraw flag is up. */
-// FUNCTION: WIZ8 0x005c48b0
 void DrawCampStatsPage(void)
 {
     if (g_camp_screen->redraw_flags == W8_CAMP_REDRAW_ALL) {
@@ -264,7 +256,6 @@ void DrawCampStatsPage(void)
    item in `slot` contributes to its effect-list entry. The armor-class bonus
    counts only on slots that actually take armor (not the two weapon/shield
    rows, 0 and 4/5 and 10/11) and never on equip-class 5 items. */
-// FUNCTION: WIZ8 0x005c4d40
 unsigned int CountEquipItemBenefits(int slot)
 {
     W8ItemDatabaseRecord* record = &g_item_records[g_review_character->EquippedItem[slot].iItemNo];
@@ -308,7 +299,6 @@ unsigned int CountEquipItemBenefits(int slot)
     return count;
 }
 
-// FUNCTION: WIZ8 0x005c4e20
 unsigned int CountEquipItemPenalties(int slot)
 {
     W8ItemDatabaseRecord* record = &g_item_records[g_review_character->EquippedItem[slot].iItemNo];
@@ -362,7 +352,6 @@ static void AddCampEffectEntry(W8CampScreenState* screen, W8CampEffectEntry* ent
     }
 }
 
-// FUNCTION: WIZ8 0x005c4ee0
 void RebuildCampEffectList(void)
 {
     W8CampScreenState* screen = g_camp_screen.get();
@@ -432,7 +421,6 @@ void RebuildCampEffectList(void)
 /* Remarks each list entry against the current tab and beneficial/detrimental
    filter, tracks the first/last visible rows, and reprograms the scrollbar to
    the visible line total. */
-// FUNCTION: WIZ8 0x005c5240
 void FilterCampEffectList(void)
 {
     W8CampScreenState* screen = g_camp_screen.get();
@@ -475,7 +463,6 @@ void FilterCampEffectList(void)
 
 /* Draws the visible slice of the effect list into the page's clipping
    window, skipping entries that sit entirely above the scrolled view. */
-// FUNCTION: WIZ8 0x005c53c0
 void DrawCampEffectList(void)
 {
     W8CampScreenState* screen = g_camp_screen.get();
@@ -680,17 +667,13 @@ void DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out)
 
 /* Wheel input over the stats page's effect-list region steps the
    scrollbar. */
-// FUNCTION: WIZ8 0x005c5c60
 /* Creates the five skill-category regions once per camp session and points
    them at the list handler. Category 4 is the overflow block under the right
    column. */
-// FUNCTION: WIZ8 0x005c5cd0
 void CreateCampSkillRegions(void)
 {
     g_camp_screen->skill_input = std::make_unique<UiLayer>();
-    for (auto category :
-         {W8_SKILL_CATEGORY_WEAPON, W8_SKILL_CATEGORY_MISCELLANEOUS, W8_SKILL_CATEGORY_COMBAT,
-          W8_SKILL_CATEGORY_MAGIC, W8_SKILL_CATEGORY_EXPERT}) {
+    for (W8SkillCategory category : g_camp_skill_categories) {
         const auto category_index = static_cast<unsigned int>(category);
         int x = g_camp_skill_category_positions[category_index].x;
         int y = g_camp_skill_category_positions[category_index].y;
@@ -709,7 +692,6 @@ void CreateCampSkillRegions(void)
     }
 }
 
-// FUNCTION: WIZ8 0x005c5d70
 void DisableCampSkillRegions(void)
 {
     g_camp_screen->skill_input.reset();
@@ -731,7 +713,6 @@ static bool IsBestCampSkillLevel(W8Skill skill, unsigned int level)
 /* The skills page's full redraw: the two column panels, the five category
    headers, then every known skill's name and level with the base/current
    delta bar. */
-// FUNCTION: WIZ8 0x005c5d80
 void DrawCampSkillsPage(void)
 {
     if (g_camp_screen->redraw_flags == W8_CAMP_REDRAW_ALL) {
@@ -748,18 +729,20 @@ void DrawCampSkillsPage(void)
         CatalogArtwork::Load(0x141, 0).drawAndInvalidate(GetFrameBufferSurface(), has_fifth, 0x136,
                                                          0);
         CatalogArtwork::Load(0x141, 0).drawAndInvalidate(GetFrameBufferSurface(), 2, 0, 0xa5);
-        for (int category = 0; category < 5; ++category) {
-            if (category != 4 || has_fifth) {
-                int x = g_camp_skill_category_positions[category].x;
-                int y = g_camp_skill_category_positions[category].y;
-                if (category == 4) {
+        for (W8SkillCategory category : g_camp_skill_categories) {
+            const auto category_index = static_cast<std::size_t>(category);
+            if (category != W8_SKILL_CATEGORY_EXPERT || has_fifth) {
+                int x = g_camp_skill_category_positions[category_index].x;
+                int y = g_camp_skill_category_positions[category_index].y;
+                if (category == W8_SKILL_CATEGORY_EXPERT) {
                     x += 0x136;
                 } else {
                     y += 0xa5;
                 }
                 CatalogArtwork::Load(0x144, 0).draw(
                     GetFrameBufferSurface(),
-                    static_cast<short>(g_camp_skill_category_images[category]), x - 0x16, y - 3);
+                    static_cast<short>(g_camp_skill_category_images[category_index]), x - 0x16,
+                    y - 3);
             }
         }
         int category_count[5] = {0, 0, 0, 0, 0};
@@ -912,9 +895,6 @@ UiResult HandleCampSkillList(const UiPointerEvent& event, W8SkillCategory catego
    the CGSSpellsPage anchor; their retail span 0x005C6460..0x005C7D60 matches
    demo 0x005CFAD0..0x005D0FE0 inside the same hull. */
 
-// VTABLE: WIZ8 0x005ef57c W8CharacterPage
-// class W8CharacterPersonalityPage
-// FUNCTION: WIZ8 0x005c6460
 void W8CharacterPersonalityPage::SetCharacter(W8Character* character,
                                               W8CharacterCreationState* creation_state,
                                               W8CharacterScreenMode mode)
@@ -967,7 +947,6 @@ void W8CharacterPersonalityPage::SetCharacter(W8Character* character,
     }
 }
 
-// FUNCTION: WIZ8 0x005c6820
 void W8CharacterPersonalityPage::Activate()
 {
     input.setEnabled(true);
@@ -985,14 +964,12 @@ void W8CharacterPersonalityPage::Activate()
     m_choices_dirty = true;
 }
 
-// FUNCTION: WIZ8 0x005c68f0
 void W8CharacterPersonalityPage::Deactivate()
 {
     input.setEnabled(false);
     m_text_fields.reset();
 }
 
-// FUNCTION: WIZ8 0x005c6910
 void W8CharacterPersonalityPage::Accept()
 {
     if (m_mode == W8_CHARACTER_CREATE) {
@@ -1010,7 +987,6 @@ void W8CharacterPersonalityPage::Accept()
     m_screen->UpdateNavigation(this);
 }
 
-// FUNCTION: WIZ8 0x005c69a0
 void W8CharacterPersonalityPage::GetNavigationState(bool* next_enabled, bool* exit_enabled)
 {
     *next_enabled =
@@ -1031,7 +1007,6 @@ void W8CharacterPersonalityPage::GetNavigationState(bool* next_enabled, bool* ex
     }
 }
 
-// FUNCTION: WIZ8 0x005c6a60
 void W8CharacterPersonalityPage::HandleInput(const InputEvent* input)
 {
     if (m_screen->HasDialog()) return;
@@ -1059,7 +1034,6 @@ void W8CharacterPersonalityPage::HandleInput(const InputEvent* input)
     m_screen->UpdateNavigation(this);
 }
 
-// FUNCTION: WIZ8 0x005c6b20
 void W8CharacterPersonalityPage::Refresh()
 {
     if (m_text_fields) {
@@ -1072,7 +1046,6 @@ void W8CharacterPersonalityPage::Refresh()
 /* The final page's whole redraw: advance the portrait animation, draw the
    fixed text labels and the nine personality labels, then let the dirty
    portrait, description and name-row blocks refresh themselves. */
-// FUNCTION: WIZ8 0x005c6b70
 void W8CharacterPersonalityPage::Redraw(SDL_Surface& target, bool full_redraw)
 {
     if (m_animation_active) {
@@ -1215,7 +1188,6 @@ void W8CharacterPersonalityPage::Redraw(SDL_Surface& target, bool full_redraw)
     }
 }
 
-// FUNCTION: WIZ8 0x005c7220
 void W8CharacterPersonalityPage::ChangePortrait(int action)
 {
     int portrait = m_character->portrait_index;
@@ -1259,16 +1231,11 @@ void W8CharacterPersonalityPage::ChangePortrait(int action)
     }
 }
 
-// FUNCTION: WIZ8 0x005c73f0
 W8CharacterPersonalityPage* CreateCharacterPersonalityPage()
 {
     return new W8CharacterPersonalityPage;
 }
 
-// VTABLE: WIZ8 0x005ef5c8 W8CharacterPage
-// VTABLE: WIZ8 0x005ef5c0 W8CharacterPageEntryListener
-// class W8CharacterSkillsPage
-// FUNCTION: WIZ8 0x005c7580
 void W8CharacterSkillsPage::SetCharacter(W8Character* character,
                                          W8CharacterCreationState* creation_state,
                                          W8CharacterScreenMode mode)
@@ -1291,7 +1258,6 @@ void W8CharacterSkillsPage::SetCharacter(W8Character* character,
     nav_next_state = false;
 }
 
-// FUNCTION: WIZ8 0x005c76a0
 void W8CharacterSkillsPage::Activate()
 {
     input.setEnabled(true);
@@ -1305,7 +1271,6 @@ void W8CharacterSkillsPage::Deactivate()
     input.setEnabled(false);
 }
 
-// FUNCTION: WIZ8 0x005c76c0
 void W8CharacterSkillsPage::Accept()
 {
     RefundAllSkillPoints(m_character, m_creation_state);
@@ -1317,7 +1282,6 @@ void W8CharacterSkillsPage::Accept()
     }
 }
 
-// FUNCTION: WIZ8 0x005c7720
 void W8CharacterSkillsPage::GetNavigationState(bool* next_enabled, bool* exit_enabled)
 {
     *next_enabled = m_creation_state->skills_complete;
@@ -1330,7 +1294,6 @@ void W8CharacterSkillsPage::GetNavigationState(bool* next_enabled, bool* exit_en
     }
 }
 
-// FUNCTION: WIZ8 0x005c7790
 void W8CharacterSkillsPage::AdjustEntry(W8CharacterPageEntry* entry, int delta)
 {
     entry->MarkDirty();
@@ -1339,13 +1302,11 @@ void W8CharacterSkillsPage::AdjustEntry(W8CharacterPageEntry* entry, int delta)
     m_screen->UpdateNavigation(this);
 }
 
-// FUNCTION: WIZ8 0x005c77d0
 void W8CharacterSkillsPage::ShowEntryInfo(W8CharacterPageEntry* entry)
 {
     m_screen->ShowSkillInfo(static_cast<W8Skill>(entry->m_id));
 }
 
-// FUNCTION: WIZ8 0x005c77f0
 void W8CharacterSkillsPage::Redraw(SDL_Surface& target, bool full_redraw)
 {
     bool redraw = static_cast<unsigned char>(m_active && m_dirty);
@@ -1413,7 +1374,6 @@ void W8CharacterSkillsPage::Redraw(SDL_Surface& target, bool full_redraw)
     }
 }
 
-// FUNCTION: WIZ8 0x005c7b50
 void W8CharacterSkillsPage::UpdateEntries()
 {
     int index;
@@ -1448,13 +1408,11 @@ void W8CharacterSkillsPage::UpdateEntries()
     }
 }
 
-// FUNCTION: WIZ8 0x005c7cc0
 W8CharacterSkillsPage* CreateCharacterSkillsPage()
 {
     return new W8CharacterSkillsPage;
 }
 
-// FUNCTION: WIZ8 0x005c7d30
 void W8CharacterSkillsPage::Refresh()
 {
     m_force_redraw = true;

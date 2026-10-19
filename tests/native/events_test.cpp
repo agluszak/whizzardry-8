@@ -17,11 +17,11 @@
 
 #include "Video2.h"
 #include "compat/native.h"
-#include "input.h"
-#include "timer.h"
 #include "wiz8/application.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/key_bindings.h"
+#include "wiz8/platform/input.h"
+#include "wiz8/platform/timer.h"
 
 SDL_Window* ghWindow = nullptr;
 bool g_screenshot_pending = false;

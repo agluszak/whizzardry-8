@@ -18,7 +18,7 @@
 class W8SpellVisual;
 class W8Missile;
 
-enum W8SpellDamageReportKind : int {
+enum W8SpellDamageReportKind : unsigned char {
     W8_SPELL_DAMAGE_REPORT_CHARACTER_DEATH = 1,
     W8_SPELL_DAMAGE_REPORT_MONSTER_DEATH = 3
 };

@@ -6,12 +6,12 @@
 #include <string_view>
 #include <vector>
 
-#include "Font.h"
 #include "compat/native.h"
 #include "layouts/item_instance.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/targeting.h"
 #include "surrender/srDebug.h"
+#include "wiz8/canvas/Font.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/cursor.h"
 #include "wiz8/dialog_code/DialogBase.h"
@@ -213,7 +213,7 @@ void UpdateHeldItemCursor(void)
 void ApplyCurrentCursor(void)
 {
     if (gXStatus.iCurrentCursor == W8_CURSOR_NONE) {
-        srAssertFail("gXStatus.iCurrentCursor != -1", __FILE__, 0x18d, 0);
+        Fail("gXStatus.iCurrentCursor != -1");
     }
     if (g_main_game_resource_slots[gXStatus.iCurrentCursor].object != 0) {
         ResizeMouseCursorSurface(g_main_game_resource_slots[gXStatus.iCurrentCursor].size_x,
@@ -250,7 +250,6 @@ void ClearHeldItemDisplay(void)
 
 /* Inline text colors selected by party order for skill and level-up notices. */
 
-// GLOBAL: WIZ8 0x00647ccc
 static unsigned char g_party_order_text_colors[8] = {7, 4, 6, 2, 5, 8, 9, 3};
 
 unsigned char GetPartyOrderTextColor(signed char party_order)
@@ -310,9 +309,10 @@ void InitializeMainGameLevelBlock(void)
     g_level_block->condition_orb_party_slot = -1;
     g_level_block->enchantment_orb_party_slot = -1;
     g_level_block->condition_highlight_party_slot = -1;
-    g_level_block->text_content_region = CurrentTextLineHasContent() ? kUpArrowEnabled : -1;
+    g_level_block->text_content_region =
+        CurrentTextLineHasContent() ? kUpArrowEnabled : kTextBoxArrowNone;
     g_level_block->dialogue_content_region =
-        CurrentDialogueLineHasContent() ? kDownArrowEnabled : -1;
+        CurrentDialogueLineHasContent() ? kDownArrowEnabled : kTextBoxArrowNone;
     g_level_block->world_update_flags = 0;
     g_level_block->camera_motion_flags = 0;
     g_level_block->highlighted_item = -1;

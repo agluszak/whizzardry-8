@@ -6,13 +6,12 @@
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/world.h"
 #include "surrender/srCamera.h"
+#include "wiz8/audio/sound3d.h"
 #include "wiz8/cursor.h"
-#include "wiz8/engine_code/IntervalGate.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/stSound3D.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
@@ -22,11 +21,10 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/location_variables.h"
+#include "wiz8/platform/IntervalGate.h"
 
 struct W8ItemInstance;
 struct W8NpcState;
-
-#define MTGIGASOUTER_CPP "C:\\Projects\\Wizardry 8\\Level Specific Code\\MtGigasOuter.cpp"
 
 /* Level Specific Code\MtGigasOuter.cpp (level 0x0e).
 
@@ -35,28 +33,20 @@ struct W8NpcState;
    alongside the _VOC_EWAXXLIFT1 trigger wiring. The assert file string at
    0x00613640 names this TU for 0x004DBEC0 and 0x004DC080. */
 
-// GLOBAL: WIZ8 0x006834fc
 static std::optional<W8IntervalGate> g_lift_gate;
-// GLOBAL: WIZ8 0x00683500
 static W8Prop* g_lift_prop;
-// GLOBAL: WIZ8 0x00683504
-static stSound3D* g_mt_gigas_outer_alarm_sound;
-// GLOBAL: WIZ8 0x00683508
+static Sound3D* g_mt_gigas_outer_alarm_sound;
 static std::optional<W8IntervalGate> g_mt_gigas_outer_alarm_gate;
 
 /* Lift prop Y travel: 5228.6 at the top of the ride, -2000.0 at the bottom,
    and -5000.0 parked out of the world once the ride is spent. */
-// GLOBAL: WIZ8 0x00613600
 static float LIFT_TOP_Y = 5228.6f;
-// GLOBAL: WIZ8 0x00613604
 static float LIFT_BOTTOM_Y = -2000.0f;
-// GLOBAL: WIZ8 0x00613608
 static float LIFT_PARKED_Y = -5000.0f;
 
 /* When the FlagPosition location variable exists, feed its value to the lift
    gate; values at or above 1000 stop there. Otherwise the "flag" trigger
    runs. */
-// FUNCTION: WIZ8 0x004DBE70
 void ProcessFlagPosition(void)
 {
     if (GetLocationVarIDByName("FlagPosition") != -1) {
@@ -75,7 +65,6 @@ void ProcessFlagPosition(void)
    resets the lift and flags the trigger used; a saved mid-descent value
    (100-999) snaps the lift prop to its parked depth, marks the ride done and
    spawns the sentry at NP_catwalk. */
-// FUNCTION: WIZ8 0x004DBEC0
 bool OnCrankTriggerActivated(Trigger* trigger)
 {
     glm::vec3 position;
@@ -140,7 +129,6 @@ static void CaptureCampAlarm(W8SavedLocationState& state)
    it directly: a positive command moves the lift that many percent of the
    ride; 0xEFFFFFFF re-arms the ride from the top. The prop slides from
    5228.6 down to -2000.0 while the gate runs; -5000.0 parks it below. */
-// FUNCTION: WIZ8 0x004DC080
 bool ControlLiftGate(int command)
 {
     glm::vec3 position;
@@ -191,7 +179,6 @@ bool ControlLiftGate(int command)
 /* Activation callback installed on the "Security Button" trigger. The first
    press lowers the Umpani faction disposition and starts the camp alarm;
    while the UmpaniCampAlarm variable exists the button does nothing. */
-// FUNCTION: WIZ8 0x004DC390
 bool OnSecurityButtonActivated(Trigger* trigger)
 {
     g_trigger_feedback = true;
@@ -207,7 +194,6 @@ bool OnSecurityButtonActivated(Trigger* trigger)
    zero ticks the alarm gate while registered; any other command plays Alarm1.wav at
    the camera and re-arms the gate (clamped to 30 seconds). When the gate
    finishes the sound is released and the variable is reset to zero. */
-// FUNCTION: WIZ8 0x004DC3D0
 bool ControlCampAlarm(int command)
 {
     glm::vec3 position;
@@ -243,7 +229,6 @@ bool ControlCampAlarm(int command)
 
 /* Activation callback on VOC_EWAXXSENTRYtrig: hands the sentry NPC (kind
    0x59) the item the player is holding, if any, as script argument -1. */
-// FUNCTION: WIZ8 0x004DC600
 bool OnSentryTriggerActivated(Trigger* trigger)
 {
     QueueNpcHeldItemNotice(0x59);
@@ -253,7 +238,6 @@ bool OnSentryTriggerActivated(Trigger* trigger)
 
 /* Activation callback on ewaxxdoortrigger03: the door only responds while an
    item in the 0x268-0x26e key range sits in the player's hand. */
-// FUNCTION: WIZ8 0x004DC640
 bool OnEwaxxDoor03Activated(Trigger* trigger)
 {
     if (g_status.item_in_cursor) {
@@ -267,7 +251,6 @@ bool OnEwaxxDoor03Activated(Trigger* trigger)
 
 /* Activation callback on dummytrigger: every live member of monster kind
    0x180 gives birth once. */
-// FUNCTION: WIZ8 0x004DC670
 bool OnDummyTriggerActivated(Trigger* trigger)
 {
     W8MonsterGroup* group = FindNextExistingMonsterByID(0x180, 0);

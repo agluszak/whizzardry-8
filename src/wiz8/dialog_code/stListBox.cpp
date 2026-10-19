@@ -2,8 +2,8 @@
 
 #include <SDL3/SDL_rect.h>
 
-#include "Font.h"
 #include "dialog_code/DialogBase.h"
+#include "wiz8/canvas/Font.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/ButtonWidget.h"
@@ -16,7 +16,6 @@
    path 0x005CD2B0 - are not proven to this unit and stay declared in
    DialogFactoryDialogs.h for these call sites. */
 
-// FUNCTION: WIZ8 0x005cce70
 void W8ListBoxDialog::OnTextAreaClick()
 {
     const SDL_Point cursor = g_ui.pointer;
@@ -30,26 +29,22 @@ void W8ListBoxDialog::OnTextAreaClick()
     SetCurrentLine(line);
 }
 
-// FUNCTION: WIZ8 0x005ccf30
 void W8ListBoxDialog::OnUp()
 {
     SetCurrentLine(m_selected_line - 1);
 }
 
-// FUNCTION: WIZ8 0x005ccfe0
 void W8ListBoxDialog::OnDown()
 {
     SetCurrentLine(m_selected_line + 1);
 }
 
-// FUNCTION: WIZ8 0x005cd090
 void W8ListBoxDialog::OnOk()
 {
     m_keep_open = false;
     m_dirty = true;
 }
 
-// FUNCTION: WIZ8 0x005cd130
 void W8ListBoxDialog::OnCancel()
 {
     m_keep_open = false;
@@ -57,7 +52,6 @@ void W8ListBoxDialog::OnCancel()
     m_dirty = true;
 }
 
-// FUNCTION: WIZ8 0x005cd1e0
 void W8ListBoxDialog::OnSliderTrackClick()
 {
     SDL_Point cursor = g_ui.pointer;

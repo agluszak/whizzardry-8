@@ -1,6 +1,5 @@
 #include "wiz8/engine_code/Spells.h"
 
-#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <exception>
@@ -16,7 +15,6 @@
 #include <SDL3/SDL_stdinc.h>
 #include <fmt/format.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
-#include <glm/geometric.hpp>
 #include <glm/gtc/quaternion.hpp>
 
 #include "GrCycle.h"
@@ -28,61 +26,36 @@
 #include "monster_cycles.h"
 #include "monster_spell_icons.h"
 #include "retail_records.h"
-#include "soundman.h"
 #include "spell_ids.h"
 #include "surrender/srDebug.h"
 #include "surrender/srModelInstance.h"
-#include "surrender/srNode.h"
-#include "wiz8/containers.h"
+#include "wiz8/audio/AmbientSound.h"
+#include "wiz8/audio/SoundEvent.h"
 #include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/AmbientSound.h"
 #include "wiz8/engine_code/AnimObj.h"
 #include "wiz8/engine_code/AnimRep.hpp"
-#include "wiz8/engine_code/Emitter.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/GrObject.h"
 #include "wiz8/engine_code/Item.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/PolyPick.h"
 #include "wiz8/engine_code/ReadLevel.h"
-#include "wiz8/engine_code/SoundEvent.h"
-#include "wiz8/engine_code/SpellEmitterHost.h"
 #include "wiz8/engine_code/SpellVisual.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/emitter_cycles.h"
-#include "wiz8/engine_code/game_timer.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stModelInstance.h"
-#include "wiz8/engine_code/stSound3D.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/local_code/Configuration.h"
+#include "wiz8/legacy_prop_save_ids.h"
 #include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/platform/game_timer.h"
 #include "wiz8/retail_text_records.h"
-
-// GLOBAL: WIZ8 0x0065BE40
-std::vector<stSound3D*> g_sound3d_instances;
-// Only fire-and-forget positional sounds belong to the audio service.
-static std::vector<std::unique_ptr<stSound3D>> g_service_sounds;
-
-stSound3D* Retain3DSound(std::unique_ptr<stSound3D> sound)
-{
-    auto* borrowed = sound.get();
-    g_service_sounds.push_back(std::move(sound));
-    return borrowed;
-}
-
-void Release3DSounds()
-{
-    g_service_sounds.clear();
-}
 
 /* Names of the seven bitmap cycles in each of the four spell-visual groups,
    in load order: FLASH, EXPLOSION, TARGET and CONE. */
-// GLOBAL: WIZ8 0x0060CF80
 const char* g_spell_cycle_names[28] = {
     "FLASH1",     "FLASH2",     "FLASH3",     "FLASH4",     "FLASH5",     "FLASH6",
     "FLASH7",     "EXPLOSION1", "EXPLOSION2", "EXPLOSION3", "EXPLOSION4", "EXPLOSION5",
@@ -92,10 +65,8 @@ const char* g_spell_cycle_names[28] = {
 };
 
 /* The persistent TargetCone visual the targeting code toggles on and off. */
-// GLOBAL: WIZ8 0x0065BE20
 static W8SpellVisual* g_target_cone_visual;
 
-// FUNCTION: WIZ8 0x004ac9d0
 W8SpellTargetType GetSpellTargetType(int spell_id, bool normalize_single_target)
 {
     W8SpellTargetType target_type = g_spell_records[spell_id].target_type;
@@ -106,7 +77,6 @@ W8SpellTargetType GetSpellTargetType(int spell_id, bool normalize_single_target)
     return target_type;
 }
 
-// FUNCTION: WIZ8 0x004acb40
 int MinimumCasterLevelForSpellLevel(int spell_level)
 {
     switch (spell_level) {
@@ -127,109 +97,88 @@ int MinimumCasterLevelForSpellLevel(int spell_level)
     }
 }
 
-// FUNCTION: WIZ8 0x004acba0
 int GetMinimumCasterLevelForSpell(int spell_id)
 {
     return MinimumCasterLevelForSpellLevel(g_spell_records[spell_id].spell_level);
 }
 
-/* The emitter record a spell's visual hangs off. */
-// FUNCTION: WIZ8 0x004ac890
-W8EmitterHost* W8SpellVisual::GetRepresentation()
-{
-    return this->host.get();
-}
-
 /* The emitter it is currently coming out of. */
-// FUNCTION: WIZ8 0x004ac820
 W8AnimObj* W8SpellVisual::GetCurrentAnimation()
 {
-    return this->host->resources.cycles[this->host->current_cycle].animation.get();
+    return this->resources.cycles[this->current_cycle].animation.get();
 }
 
 /* That emitter's own value. */
-// FUNCTION: WIZ8 0x004ac870
 float W8SpellVisual::GetCurrentAnimationScale()
 {
-    return this->host->resources.cycles[this->host->current_cycle].animation->playback_scale;
+    return this->resources.cycles[this->current_cycle].animation->playback_scale;
 }
 
-// FUNCTION: WIZ8 0x004ac8a0
 W8AniMesh* W8SpellVisual::GetCurrentAniMesh()
 {
-    W8AnimObj* emitter = this->host->resources.cycles[this->host->current_cycle].animation.get();
+    W8AnimObj* emitter = this->resources.cycles[this->current_cycle].animation.get();
 
     if (emitter == 0) {
-        srAssertFail("pao", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x653, 0);
+        Fail("pao");
     }
-    return emitter->entries[this->host->m_bLOD].get();
+    return emitter->entries[this->m_bLOD].get();
 }
 
 /* How many emitters the host has, counted by testing each for null. */
-// FUNCTION: WIZ8 0x004ac840
 signed char W8SpellVisual::GetTotalAnimationCount()
 {
     char count = 0;
 
-    if (this->host->resources.cycles[0].animation != 0) {
+    if (this->resources.cycles[0].animation != 0) {
         count = 1;
     }
 
-    if (this->host->resources.cycles[1].animation != 0) {
+    if (this->resources.cycles[1].animation != 0) {
         ++count;
     }
     return count;
 }
 
 /* Hand the host's LOD to the current animation. */
-// FUNCTION: WIZ8 0x004ac360
 signed char W8SpellVisual::GetNumSubCycles()
 {
     W8AnimObj* animation = GetCurrentAnimation();
 
-    return static_cast<signed char>(AnimObjValue(animation, host->m_bLOD));
+    return static_cast<signed char>(AnimObjValue(animation, this->m_bLOD));
 }
 
-// FUNCTION: WIZ8 0x004ac4e0
 bool W8SpellVisual::IsCycleSupported(signed char cycle)
 {
     if (cycle >= SPELL_NUM_CYCLES) {
-        srAssertFail("bCycle<SPELL_NUM_CYCLES", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp",
-                     0x55a, 0);
+        Fail("bCycle<SPELL_NUM_CYCLES");
     }
-    return host->resources.cycles[cycle].animation != 0;
+    return this->resources.cycles[cycle].animation != 0;
 }
 
 /* Reset the host's two frame counters before the ordinary GrCycle step. */
-// FUNCTION: WIZ8 0x004ac390
 void W8SpellVisual::AdvanceAnimationFrame(int value, int arg_flags)
 {
-    W8SpellEmitterHost* representation_before;
-
-    host->first_frame = 0;
-    representation_before = host.get();
-    representation_before->last_frame = GetNumSubCycles() - 1;
+    this->first_frame = 0;
+    this->last_frame = GetNumSubCycles() - 1;
     W8GrCycle::AdvanceAnimationFrame(value, arg_flags);
 }
 
 /* Select one of the spell host's 28 emitters and rebuild its light and
    particle attachment state. */
-// FUNCTION: WIZ8 0x004ac580
 void W8SpellVisual::SetCycle(signed char cycle)
 {
     std::vector<std::unique_ptr<stLight>>* lights;
 
     if (cycle < SPELL_CYCLE_FIRST || cycle > SPELL_CYCLE_LAST) {
-        srAssertFail("bCycle >= SPELL_CYCLE_FIRST && bCycle <= SPELL_CYCLE_LAST",
-                     "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x5c1, 0);
+        Fail("bCycle >= SPELL_CYCLE_FIRST && bCycle <= SPELL_CYCLE_LAST");
     }
 
-    lights = host->resources.cycles[host->current_cycle].lightView();
+    lights = this->resources.cycles[this->current_cycle].lightView();
     DetachCycleLights(lights);
 
-    StartEmitterCycle(*host, *host->resources.cycles[cycle].animation, cycle);
+    StartEmitterCycle(*this, *this->resources.cycles[cycle].animation, cycle);
 
-    lights = host->resources.cycles[cycle].lightView();
+    lights = this->resources.cycles[cycle].lightView();
     SetLights(lights);
     AttachCycleLights(lights);
 
@@ -243,7 +192,6 @@ void W8SpellVisual::SetCycle(signed char cycle)
 
 /* Position and orient each live spell visual according to its attachment
    mode, then let the common GrCycle update submit the resulting state. */
-// FUNCTION: WIZ8 0x004abe00
 void W8SpellVisual::UpdateRepresentation(W8World* world)
 {
     glm::mat3 rotation;
@@ -311,10 +259,10 @@ void W8SpellVisual::UpdateRepresentation(W8World* world)
     }
 
     if (apply_rotation) {
-        host->SetRotation(&rotation);
+        this->SetRotation(&rotation);
     }
 
-    if (host->billboard) {
+    if (this->billboard) {
         glm::mat3 billboard;
         glm::vec3 visual_position = GetPosition();
         float angle;
@@ -324,7 +272,7 @@ void W8SpellVisual::UpdateRepresentation(W8World* world)
         angle =
             GetHeadingAngle(&visual_position, &camera_position) + static_cast<float>(g_camera_pi);
         billboard *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
-        host->SetRotation(&billboard);
+        this->SetRotation(&billboard);
     }
 
     srModelInstance* instance = GetCurrentModelInstance();
@@ -347,11 +295,10 @@ static void DestroySpellVisual(W8World* world, W8SpellVisual* visual)
    holds, starts and updates in place; a finished one the effect released is
    unlinked from the world collection, hands its lights back through the
    world light boundary, and deletes itself. */
-// FUNCTION: WIZ8 0x004aab80
 void UpdateWorldSpellVisuals(W8World* world)
 {
     if (world == 0) {
-        srAssertFail("pWorld", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x130, 0);
+        Fail("pWorld");
     }
     int index = 0;
     int count = static_cast<int>(world->spell_visuals.size());
@@ -373,35 +320,18 @@ void UpdateWorldSpellVisuals(W8World* world)
     }
 }
 
-W8SpellEmitterHost::W8SpellEmitterHost() : value_0ac(0), value_0b0(0), billboard(0) {}
-
-/* Copy the two proven host values and the billboard flag, clone every
-   populated animation, and deep-copy all optional per-emitter light
-   vectors. */
-// FUNCTION: WIZ8 0x004aad20
-W8SpellEmitterHost::W8SpellEmitterHost(const W8SpellEmitterHost& other)
-    : W8EmitterHost(other), value_0ac(other.value_0ac), value_0b0(other.value_0b0),
-      resources(other.resources), billboard(other.billboard)
+unsigned char W8SpellVisual::ReadCycleData(W8ReadLevelInfo* info, int, int emitter_index)
 {
-    active = 1;
-    current_cycle = other.current_cycle;
-}
-
-// FUNCTION: WIZ8 0x004AB340
-unsigned char W8SpellEmitterHost::ReadCycleData(W8ReadLevelInfo* info, W8SpellVisual* visual, int,
-                                                int emitter_index)
-{
-    if (info == 0 || info->hFile == 0 || visual == 0) {
-        srAssertFail("pInfo && pInfo->hFile && pSpell",
-                     "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x25a, 0);
+    if (info == 0 || info->hFile == 0) {
+        Fail("pInfo && pInfo->hFile && pSpell");
     }
-    return ReadEmitterCycle(*this, resources.cycles, info, *visual, emitter_index, true);
+    return ReadEmitterCycle(*this, resources.cycles, info, emitter_index, true);
 }
 
 static int FindSpellCycleByName(const char* name)
 {
     if (name == 0) {
-        srAssertFail("pacName", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x532, 0);
+        Fail("pacName");
     }
     for (int index = 0; index < SPELL_NUM_CYCLES; ++index) {
         if (SDL_strncasecmp(name, g_spell_cycle_names[index], strlen(g_spell_cycle_names[index])) ==
@@ -417,7 +347,6 @@ static int FindSpellCycleByName(const char* name)
    the .mls text resource is parsed: each of the seven cycle rows of the
    requested group loads its bitmaps, SOUND_FRAME/SOUND_CYCLE rows attach timed
    sound events, and SHAKE_FRAME rows attach camera-shake effects. */
-// FUNCTION: WIZ8 0x004ab580
 std::unique_ptr<W8SpellVisual> LoadSpellVisualResource(W8World* world, std::string_view name,
                                                        W8SpellVisualMode group)
 {
@@ -425,10 +354,10 @@ std::unique_ptr<W8SpellVisual> LoadSpellVisualResource(W8World* world, std::stri
     if (shared != 0 && shared->mode == group) {
         auto spell = std::make_unique<W8SpellVisual>(*shared, world);
         if (spell == 0) {
-            srAssertFail("pSpell", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x406, 0);
+            Fail("pSpell");
         }
         if (!spell) {
-            srAssertFail("*ppSpell", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x2f8, 0);
+            Fail("*ppSpell");
         }
         RegisterGrCycle(name, spell.get());
         return spell;
@@ -446,7 +375,7 @@ std::unique_ptr<W8SpellVisual> LoadSpellVisualResource(W8World* world, std::stri
         }
     }();
     auto visual = std::make_unique<W8SpellVisual>(world);
-    visual->host->current_cycle = -1;
+    visual->current_cycle = -1;
     if (handle == 0) {
         success = false;
     } else {
@@ -465,7 +394,7 @@ std::unique_ptr<W8SpellVisual> LoadSpellVisualResource(W8World* world, std::stri
                         break;
                     }
 
-                    success = LoadGrCycle(resource, visual.get(), cycle, 1, "Data\\Spells", 2, 0);
+                    success = LoadGrCycle(resource, visual.get(), cycle, 1, "Data\\Spells", 2);
                     if (success) {
                         RegisterGrCycle(resource, visual.get());
                     }
@@ -510,34 +439,29 @@ std::unique_ptr<W8SpellVisual> LoadSpellVisualResource(W8World* world, std::stri
             }
         }
         if (!visual) {
-            srAssertFail(
-                "*ppSpell", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x365,
-                fmt::format("Spell {} missing cycle of type {:d}", name, fmt::underlying(group)));
+            Fail("*ppSpell",
+                 fmt::format("Spell {} missing cycle of type {:d}", name, fmt::underlying(group)));
         }
-        visual->host->billboard = false;
-        visual->host->pending_behaviour = W8_ANIMATION_PLAY_ONCE;
+        visual->billboard = false;
+        visual->pending_behaviour = W8_ANIMATION_PLAY_ONCE;
     }
 
     ResumeSharedGameTimers();
     return success ? std::move(visual) : nullptr;
 }
 
-// FUNCTION: WIZ8 0x004ABBB0
 W8SpellVisual::W8SpellVisual(W8World* owner)
     : W8GrCycle(owner), mode(W8_SPELL_VISUAL_NONE), finished(0), flag(0), auto_release(1),
       fixed_transform(0), scale0(1.0f), location_id(0)
 {
-    W8GrObject::kind = 1;
-    id = AllocateGrObjectId();
+    AllocateLegacyPropSaveId();
 }
 
 /* Release the emitter host, leave the world's spell collection, and unregister
    the common GrCycle identity before the base classes tear down. */
-// FUNCTION: WIZ8 0x004abd00
 W8SpellVisual::~W8SpellVisual()
 {
     SetLights(0);
-    host.reset();
 
     UnregisterGrCycle(this);
 }
@@ -545,13 +469,12 @@ W8SpellVisual::~W8SpellVisual()
 /* Tick the visual's animation, but only while the host is live. When the
    kind-7 query reports the current animation needs no tick, the visual is
    finished instead. */
-// FUNCTION: WIZ8 0x004abdc0
 void W8SpellVisual::StartIfHostActive()
 {
-    if (this->host->active == 0) {
+    if (!this->rep_active) {
         return;
     }
-    if (QueryHostStateByKind(7) != 0) {
+    if (QueryHostState(W8SpellVisualHostStateQuery::AnimationStopped) != 0) {
         this->finished = true;
         return;
     }
@@ -560,7 +483,6 @@ void W8SpellVisual::StartIfHostActive()
 
 /* Search backward from a subcycle for the first cycle this visual supports,
    seven cycles per group; -1 when none does. */
-// FUNCTION: WIZ8 0x004ac530
 int W8SpellVisual::FindSupportedCycle(int group, int subcycle)
 {
     for (int index = subcycle; index >= 0; --index) {
@@ -573,30 +495,26 @@ int W8SpellVisual::FindSupportedCycle(int group, int subcycle)
     return -1;
 }
 
-/* Kind-indexed query over the host's emitter state; the only call site asks
-   kind 7. */
-// FUNCTION: WIZ8 0x004ac8f0
-int W8SpellVisual::QueryHostStateByKind(int arg_kind)
+/* Query one host-side property of the spell visual. */
+int W8SpellVisual::QueryHostState(W8SpellVisualHostStateQuery query)
 {
-    W8SpellEmitterHost* host = this->host.get();
-
-    switch (arg_kind) {
-    case 0:
-        return host->ApplyEmitterSetting(host->current_cycle);
-    case 1:
+    switch (query) {
+    case W8SpellVisualHostStateQuery::EmitterSetting:
+        return this->ApplyEmitterSetting(this->current_cycle);
+    case W8SpellVisualHostStateQuery::AnimationCount:
         return GetTotalAnimationCount();
-    case 2:
-        return host->subcycle == host->ApplyEmitterSetting(host->current_cycle) - 1;
-    case 3:
-        return host->subcycle == 0;
-    case 4:
-        return host->subcycle;
-    case 5:
-        return host->ApplyEmitterSetting(host->current_cycle) != 0xffffffff;
-    case 6:
-        return host->current_cycle;
-    case 7:
-        return host->animation_playing == 0;
+    case W8SpellVisualHostStateQuery::AtLastSubcycle:
+        return this->subcycle == this->ApplyEmitterSetting(this->current_cycle) - 1;
+    case W8SpellVisualHostStateQuery::IsFirstSubcycle:
+        return this->subcycle == 0;
+    case W8SpellVisualHostStateQuery::Subcycle:
+        return this->subcycle;
+    case W8SpellVisualHostStateQuery::HasEmitterSetting:
+        return this->ApplyEmitterSetting(this->current_cycle) != 0xffffffff;
+    case W8SpellVisualHostStateQuery::CurrentCycle:
+        return this->current_cycle;
+    case W8SpellVisualHostStateQuery::AnimationStopped:
+        return this->animation_playing == 0;
     default:
         return -1;
     }
@@ -632,7 +550,7 @@ static W8SpellVisual* CreateSpellVisual(std::string_view name, W8SpellVisualMode
     }
     if (visual) {
         visual->mode = mode;
-        visual->host->pending_cycle = static_cast<signed char>(cycle);
+        visual->pending_cycle = static_cast<signed char>(cycle);
         visual->effect_value = value;
         visual->flags0 = flags;
     }
@@ -643,18 +561,16 @@ static W8SpellVisual* CreateSpellVisual(std::string_view name, W8SpellVisualMode
    Generic visual when the named one is missing or has no supported cycle.
    The visual joins the world's list, is positioned, and carries the caller's
    two extra arguments. The power level picks the EXPLOSION row. */
-// FUNCTION: WIZ8 0x004ad430
 W8SpellVisual* SpawnSpellEffect(const glm::vec3* position, std::string_view resource_name,
                                 int power_level, int value, int flags)
 {
     if (resource_name.empty()) {
-        srAssertFail("pMLS && strlen(pMLS)", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp",
-                     0x8b4, 0);
+        Fail("pMLS && strlen(pMLS)");
     }
     W8SpellVisual* visual =
         CreateSpellVisual(resource_name, W8_SPELL_VISUAL_EXPLOSION, power_level, value, flags);
     if (visual != 0) {
-        visual->host->billboard = true;
+        visual->billboard = true;
         visual->SetPositionInternal(position);
     }
     return visual;
@@ -664,12 +580,10 @@ W8SpellVisual* SpawnSpellEffect(const glm::vec3* position, std::string_view reso
    resource when the named one is missing or has no supported cycle. The
    visual is placed at the camera and turned to face the camera's yaw/pitch;
    the power level picks the FLASH row. */
-// FUNCTION: WIZ8 0x004ad080
 W8SpellVisual* SpawnCameraSpellEffect(std::string_view name, int power_level, int value, int flags)
 {
     if (name.empty()) {
-        srAssertFail("pMLS && strlen(pMLS)", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp",
-                     0x879, 0);
+        Fail("pMLS && strlen(pMLS)");
     }
     W8SpellVisual* visual =
         CreateSpellVisual(name, W8_SPELL_VISUAL_FLASH, power_level, value, flags);
@@ -686,7 +600,7 @@ W8SpellVisual* SpawnCameraSpellEffect(std::string_view name, int power_level, in
         rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
         pitch = -PartyCamera().m_pitch;
         rotation *= glm::mat3_cast(glm::angleAxis(float(pitch), glm::vec3(1, 0, 0)));
-        visual->host->SetRotation(&rotation);
+        visual->SetRotation(&rotation);
     }
     return visual;
 }
@@ -695,16 +609,14 @@ W8SpellVisual* SpawnCameraSpellEffect(std::string_view name, int power_level, in
    monster's position raised by half the bounds height and scales to the
    larger bound extent. Requires a monster; falls back to the Generic
    resource like above. The power level picks the TARGET row. */
-// FUNCTION: WIZ8 0x004ad630
 W8SpellVisual* CreateMonsterSpellEffect(std::string_view mls_name, int power_level,
                                         W8Monster* monster, int value, int flags)
 {
     if (mls_name.empty()) {
-        srAssertFail("pMLS && strlen(pMLS)", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp",
-                     0x8e9, 0);
+        Fail("pMLS && strlen(pMLS)");
     }
     if (monster == 0) {
-        srAssertFail("pMonster", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x8ea, 0);
+        Fail("pMonster");
     }
     const auto bounds = monster->GetAnimationBounds();
     if (!bounds) return nullptr;
@@ -716,7 +628,7 @@ W8SpellVisual* CreateMonsterSpellEffect(std::string_view mls_name, int power_lev
         float height;
         float width;
 
-        visual->host->billboard = true;
+        visual->billboard = true;
         visual->location_id = monster->location_id;
         position = monster->GetPosition();
         position.y += (maximum.y - minimum.y) * 0.5f;
@@ -736,13 +648,11 @@ W8SpellVisual* CreateMonsterSpellEffect(std::string_view mls_name, int power_lev
    monster's animation bounds. Without a parent it anchors at the camera with
    the camera's rotation. Falls back to the Generic resource like above. The
    power level picks the CONE row. */
-// FUNCTION: WIZ8 0x004ad8a0
 W8SpellVisual* CreateAttachedSpellEffect(std::string_view mls_name, int power_level,
                                          W8Monster* parent, int value, int flags)
 {
     if (mls_name.empty()) {
-        srAssertFail("pMLS && strlen(pMLS)", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp",
-                     0x93f, 0);
+        Fail("pMLS && strlen(pMLS)");
     }
     const auto bounds = parent ? parent->GetAnimationBounds() : std::nullopt;
     if (parent && !bounds) return nullptr;
@@ -773,7 +683,7 @@ W8SpellVisual* CreateAttachedSpellEffect(std::string_view mls_name, int power_le
             position = cameraLocation();
             rotation = PartyCamera().rotationMatrix();
             visual->SetCyclePosition(&position);
-            visual->host->SetRotation(&rotation);
+            visual->SetRotation(&rotation);
         }
     }
     return visual;
@@ -783,20 +693,18 @@ W8SpellVisual* CreateAttachedSpellEffect(std::string_view mls_name, int power_le
    the same named-load-then-Generic-fallback flow as the other spawn
    helpers. The supplied transform is fixed: mode-3 updates do not re-follow
    the monster or camera. */
-// FUNCTION: WIZ8 0x004adb20
 W8SpellVisual* CreateAimedSpellEffect(std::string_view mls_name, int power_level,
                                       glm::vec3* position, glm::mat3* rotation, int value,
                                       int flags)
 {
     if (mls_name.empty()) {
-        srAssertFail("pMLS && strlen(pMLS)", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp",
-                     0x991, 0);
+        Fail("pMLS && strlen(pMLS)");
     }
     W8SpellVisual* visual =
         CreateSpellVisual(mls_name, W8_SPELL_VISUAL_CONE, power_level, value, flags);
     if (visual != 0) {
         visual->SetCyclePosition(position);
-        visual->host->SetRotation(rotation);
+        visual->SetRotation(rotation);
         visual->fixed_transform = true;
     }
     return visual;
@@ -805,14 +713,13 @@ W8SpellVisual* CreateAimedSpellEffect(std::string_view mls_name, int power_level
 /* The persistent TargetCone targeting visual: created the first time the mode
    is enabled, deleted when it is disabled, and kept in representation mode 3
    while it lives. */
-// FUNCTION: WIZ8 0x004add30
 void SetTargetConeEnabled(bool enabled)
 {
     if (enabled) {
         if (g_target_cone_visual == 0) {
             g_target_cone_visual = CreateAttachedSpellEffect("TargetCone", 1, 0, 0, 0);
             if (g_target_cone_visual != 0) {
-                g_target_cone_visual->host->pending_behaviour = W8_ANIMATION_NEVER_STOP;
+                g_target_cone_visual->pending_behaviour = W8_ANIMATION_NEVER_STOP;
             }
         }
         return;
@@ -825,30 +732,27 @@ void SetTargetConeEnabled(bool enabled)
 
 /* Send something to one named emitter. The arguments are handed on in the
    reverse of the order they arrive. */
-// FUNCTION: WIZ8 0x004ab290
-srModelInstance* W8SpellEmitterHost::SetCycleFrameLod(signed char emitter, signed char frame,
-                                                      signed char lod)
+srModelInstance* W8SpellVisual::SetCycleFrameLod(signed char emitter, signed char frame,
+                                                 signed char lod)
 {
     return AnimObjDispatch(this->resources.cycles[emitter].animation.get(), lod, frame);
 }
 
 /* Apply the host setting to one required emitter.  The source assertion names
    that local pointer `pao`; assertions do not replace the following call. */
-// FUNCTION: WIZ8 0x004ab2c0
-unsigned int W8SpellEmitterHost::ApplyEmitterSetting(signed char emitter)
+unsigned int W8SpellVisual::ApplyEmitterSetting(signed char emitter)
 {
     W8AnimObj* target = this->resources.cycles[emitter].animation.get();
 
     if (target == 0) {
-        srAssertFail("pao", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x200, 0);
+        Fail("pao");
     }
     return AnimObjValue(target, this->m_bLOD);
 }
 
 /* One named emitter's AniMesh, looked up with the host's own setting; an
    empty slot yields none. */
-// FUNCTION: WIZ8 0x004ab310
-W8AniMesh* W8SpellEmitterHost::GetEmitterAniMesh(signed char emitter)
+W8AniMesh* W8SpellVisual::GetEmitterAniMesh(signed char emitter)
 {
     W8AnimObj* target = this->resources.cycles[emitter].animation.get();
 
@@ -858,8 +762,6 @@ W8AniMesh* W8SpellEmitterHost::GetEmitterAniMesh(signed char emitter)
     return AnimObjEntry(target, this->m_bLOD, 0);
 }
 
-W8SpellEmitterHost::~W8SpellEmitterHost() = default;
-
 /* Whether one spell id is among the six that occupy a persistent combat
    effect slot - Armormelt, Acid Bomb, Toxic Cloud, Firestorm, Death Cloud and
    Draining Cloud, the spells that leave a standing hazard instead of resolving
@@ -867,7 +769,6 @@ W8SpellEmitterHost::~W8SpellEmitterHost() = default;
    g_combat_effect_slot_spells to skip re-casting one that is still
    running, and the effect update loop uses it to keep the per-cast
    result/report path off the lingering spells. */
-// FUNCTION: WIZ8 0x004aca00
 bool IsCombatEffectSlotSpell(int spell_id)
 {
     switch (spell_id) {
@@ -883,7 +784,6 @@ bool IsCombatEffectSlotSpell(int spell_id)
     }
 }
 
-// FUNCTION: WIZ8 0x004acd50
 void ReleaseSpellDatabase()
 {
     g_spell_records = {};
@@ -891,7 +791,6 @@ void ReleaseSpellDatabase()
 
 /* The forty icon resource names under Data\Icons\MonsterSpells. Entries 8 and
    9 share the pooled "Hexed" literal in retail. */
-// GLOBAL: WIZ8 0x0060d50c
 const char* g_monster_spell_icon_names[40] = {
     "Hexed",           "Diseased",     "Irritated",      "Nauseated",      "Slowed",
     "Afraid",          "Poisoned",     "Silenced",       "Hexed",          "Hexed",
@@ -905,21 +804,18 @@ const char* g_monster_spell_icon_names[40] = {
 
 void AddMonsterSpellIcon(W8World& world, W8Monster* monster, W8MonsterSpellIconId icon)
 {
-    if (!monster || !monster->m_pRep || icon < 0 || icon >= SPELL_NUM_ICONS)
-        srAssertFail("monster spell icon", __FILE__, __LINE__, nullptr);
-    auto& icons = monster->m_pRep->spell_icons;
+    if (!monster || icon < 0 || icon >= SPELL_NUM_ICONS) Fail("monster spell icon");
+    auto& icons = monster->spell_icons;
     icons.reserve(icons.size() + 1);
     const auto path =
         fmt::format("data/icons/monsterspells/{}_A.TGA", g_monster_spell_icon_names[icon]);
     icons.push_back({icon, CreateMonsterIconItem(world, path.c_str())});
 }
 
-// FUNCTION: WIZ8 0x004acd80
 void SetMonsterSpellIcon(W8Monster* monster, W8MonsterSpellIconId icon, bool add)
 {
-    if (!monster || !monster->m_pRep || icon < 0 || icon >= SPELL_NUM_ICONS)
-        srAssertFail("monster spell icon", __FILE__, __LINE__, nullptr);
-    auto& icons = monster->m_pRep->spell_icons;
+    if (!monster || icon < 0 || icon >= SPELL_NUM_ICONS) Fail("monster spell icon");
+    auto& icons = monster->spell_icons;
     if (add) {
         AddMonsterSpellIcon(*GetWorld(), monster, icon);
     } else {
@@ -934,148 +830,15 @@ void SetMonsterSpellIcon(W8Monster* monster, W8MonsterSpellIconId icon, bool add
     }
 }
 
-// VTABLE: WIZ8 0x005ecf40 W8GrObject
-// VTABLE: WIZ8 0x005ecf2c W8Navigator
-// class W8SpellVisual
-// VTABLE: WIZ8 0x005ecf18 W8SpellEmitterHost
-// class W8SpellEmitterHost
-// VTABLE: WIZ8 0x005ecfb0
-// class stSound3D
-// VTABLE: WIZ8 0x005ecfe4
-// FUNCTION: WIZ8 0x004AE6D0
-stSound3D::stSound3D(const char* name, srNode* parent) : srNode(static_cast<srNode*>(0))
-{
-    if (parent != 0) {
-        setParent(parent, 0);
-    }
-    wave_name = name ? name : "";
-    unknown_138 = 0;
-    sound_handle = nullptr;
-    volume = 0x7f;
-    falloff = 25000.0f;
-    g_sound3d_instances.push_back(this);
-}
-
-// FUNCTION: WIZ8 0x004AEAA0
-stSound3D::~stSound3D()
-{
-    if (sound_handle != nullptr) {
-        wiz8::sound::stop(sound_handle);
-    }
-    wiz8::erase_first(g_sound3d_instances, this);
-}
-
-// FUNCTION: WIZ8 0x004AEBF0
-unsigned char stSound3D::Play(bool loop)
-{
-    if (wave_name.empty()) {
-        return 0;
-    }
-    auto options = BuildSoundOptions(cameraLocation());
-    if (loop) {
-        options.loops = 0;
-    }
-    sound_handle = wiz8::sound::play(wave_name, std::move(options));
-    return sound_handle != nullptr;
-}
-
-// FUNCTION: WIZ8 0x004AECC0
-wiz8::sound::PlayOptions stSound3D::BuildSoundOptions(const glm::vec3& listener)
-{
-    const float angle = -GetCameraYawRadians();
-    const unsigned int scaled_volume = (volume * g_settings.sound_effects_volume) / 0x7f;
-    const glm::mat3 rotation = glm::mat3_cast(glm::angleAxis(angle, glm::vec3(0, 1, 0)));
-    const glm::vec3 node_position = glm::vec3(getLocation());
-    const glm::vec3 offset = node_position - listener;
-    const glm::vec3 listener_offset = listener - node_position;
-    return {.volume = static_cast<unsigned int>((1.0f - glm::length(listener_offset) / falloff) *
-                                                scaled_volume),
-            .position = rotation * offset};
-}
-
-// FUNCTION: WIZ8 0x004AEC70
-bool stSound3D::IsPlaying()
-{
-    if (sound_handle != nullptr && wiz8::sound::is_playing(sound_handle)) {
-        return true;
-    }
-    return false;
-}
-
-// FUNCTION: WIZ8 0x004AEC90
-void stSound3D::Stop()
-{
-    if (sound_handle != nullptr) {
-        wiz8::sound::stop(sound_handle);
-        sound_handle = nullptr;
-    }
-}
-
-/* Update borrowed positional nodes, then retire finished service-owned sounds.
-   Caller-owned sounds retain their independent lifetime. */
-// FUNCTION: WIZ8 0x004aefd0
-void Update3DSounds()
-{
-    glm::vec3 listener = cameraLocation();
-    int index = 0;
-    int count = static_cast<int>(g_sound3d_instances.size());
-    if (count > 0) {
-        do {
-            stSound3D* sound = g_sound3d_instances[index];
-            if (sound->sound_handle != nullptr) {
-                glm::dvec3 world = sound->getWorldSpaceLocation();
-                if (!wiz8::sound::is_playing(sound->sound_handle)) {
-                    sound->sound_handle = nullptr;
-                } else {
-                    glm::vec3 to_listener;
-                    glm::vec3 offset;
-                    glm::vec3 transformed;
-                    glm::mat3 rotation;
-                    float distance;
-                    float angle;
-                    unsigned int volume;
-
-                    to_listener = glm::vec3(listener.x - static_cast<float>(world.x),
-                                            listener.y - static_cast<float>(world.y),
-                                            listener.z - static_cast<float>(world.z));
-                    distance = static_cast<float>(sqrt(glm::dot(to_listener, to_listener)));
-                    if (sound->falloff <= distance) {
-                        wiz8::sound::set_volume(sound->sound_handle, 0);
-                    } else {
-                        angle = -GetCameraYawRadians();
-                        rotation = glm::mat3(1);
-                        rotation *=
-                            glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
-                        offset = glm::vec3(static_cast<float>(world.x) - listener.x,
-                                           static_cast<float>(world.y) - listener.y,
-                                           static_cast<float>(world.z) - listener.z);
-                        transformed = rotation * offset;
-                        wiz8::sound::set_position(sound->sound_handle, transformed);
-                        volume = (sound->volume * g_settings.sound_effects_volume) / 0x7f;
-                        wiz8::sound::set_volume(sound->sound_handle,
-                                                static_cast<std::uint32_t>(
-                                                    (1.0f - distance / sound->falloff) * volume));
-                    }
-                }
-            }
-            ++index;
-        } while (index < count);
-    }
-    std::erase_if(g_service_sounds, [](const auto& sound) { return !sound->IsPlaying(); });
-}
-
-// FUNCTION: WIZ8 0x004ACF90
 void ClearMonsterSpellIcons(W8Monster* monster)
 {
-    if (!monster || !monster->m_pRep)
-        srAssertFail("monster representation", __FILE__, __LINE__, nullptr);
-    for (const auto& entry : monster->m_pRep->spell_icons) {
+    if (!monster) Fail("monster representation");
+    for (const auto& entry : monster->spell_icons) {
         entry.item->DetachMesh();
     }
-    monster->m_pRep->spell_icons.clear();
+    monster->spell_icons.clear();
 }
 
-// FUNCTION: WIZ8 0x004aca60
 bool CanSpellBackfire(int spell_id)
 {
     switch (g_spell_records[spell_id].target_type) {
@@ -1126,7 +889,6 @@ bool CanSpellBackfire(int spell_id)
     return false;
 }
 
-// FUNCTION: WIZ8 0x004acc10
 unsigned char InitializeSpellDatabase(void)
 try {
     auto handle = wiz8::open_file(wiz8::asset_path("data/databases/spelltables.dbs"));

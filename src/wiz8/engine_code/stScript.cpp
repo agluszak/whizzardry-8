@@ -14,17 +14,15 @@
 #include "filesystem.h"
 #include "wiz8/unicode.h"
 
-// FUNCTION: WIZ8 0x004CF690
 void stScript::Clear()
 {
     lines.clear();
     labels.clear();
 }
 
-// FUNCTION: WIZ8 0x004CF3B0
-bool stScript::Load(const char* path)
+bool stScript::Load(std::string_view path)
 try {
-    if (!path) return false;
+    if (path.empty()) return false;
     std::istringstream input(wiz8::open_file(wiz8::asset_path(path))->read_text());
     std::string text;
     stScript pending;
@@ -59,7 +57,6 @@ try {
     return false;
 }
 
-// FUNCTION: WIZ8 0x004CF730
 int stScript::FindLabelLine(std::string_view label) const
 {
     for (const auto& entry : labels)
@@ -67,7 +64,6 @@ int stScript::FindLabelLine(std::string_view label) const
     return -1;
 }
 
-// FUNCTION: WIZ8 0x004CF790
 int stScript::GetSourceLine(int line) const
 {
     return line >= 0 && static_cast<std::size_t>(line) < lines.size() ? lines[line].source_line

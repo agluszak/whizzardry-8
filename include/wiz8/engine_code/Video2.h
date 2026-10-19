@@ -13,7 +13,7 @@
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
-#include "himage.h"
+#include "wiz8/canvas/himage.h"
 #include "wiz8/design_rect.h"
 /* Modified for the Wizardry 8 reconstruction, 2026-09-10.
    Reconstructed Wizardry Video2 interface.
@@ -94,8 +94,7 @@ stModelInstance2D* CreateSpriteFromTexture(std::shared_ptr<srTexture> texture, d
                                            double height, bool keep_aspect, bool overlay);
 /* 0x00426F80: render the world into a caller-owned color surface through a
    scissored viewport, then blit the locked frame buffer onto the target. */
-unsigned char RenderWorldToSurface(SDL_Surface* target, const DesignRect* rect,
-                                   bool render_secondary);
+bool RenderWorldToSurface(SDL_Surface* target, const DesignRect* rect, bool render_secondary);
 void SetPickKey(void* key);
 
 struct W8ControlsRect;

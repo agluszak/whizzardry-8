@@ -3,36 +3,34 @@
 #include <cmath>
 #include <span>
 
-#include "wiz8/engine_code/Emitter.h"
 #include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/engine_code/emitter_resources.h"
-#include "wiz8/engine_code/game_timer.h"
+#include "wiz8/platform/game_timer.h"
 
-inline void SelectInitialEmitterLod(W8EmitterHost& host, signed char cycle)
+inline void SelectInitialEmitterLod(W8GrCycle& visual, signed char cycle)
 {
-    if (host.SetCycleFrameLod(cycle, 0, 2))
-        host.m_bLOD = 2;
-    else if (host.SetCycleFrameLod(cycle, 0, 1))
-        host.m_bLOD = 1;
+    if (visual.SetCycleFrameLod(cycle, 0, 2))
+        visual.m_bLOD = 2;
+    else if (visual.SetCycleFrameLod(cycle, 0, 1))
+        visual.m_bLOD = 1;
     else
-        host.m_bLOD = 0;
+        visual.m_bLOD = 0;
 }
 
-inline void StartEmitterCycle(W8EmitterHost& host, const W8AnimObj& animation, signed char cycle)
+inline void StartEmitterCycle(W8GrCycle& visual, const W8AnimObj& animation, signed char cycle)
 {
-    host.current_cycle = cycle;
-    host.active = 1;
-    host.frame_direction = W8_ANIMATION_FORWARD;
-    SelectInitialEmitterLod(host, cycle);
-    host.timer = GameClockMilliseconds();
-    host.frame_method = animation.frame_method;
-    host.animation_playing = animation.animation_playing;
-    host.subcycle = 0;
+    visual.current_cycle = cycle;
+    visual.rep_active = true;
+    visual.frame_direction = W8_ANIMATION_FORWARD;
+    SelectInitialEmitterLod(visual, cycle);
+    visual.timer = GameClockMilliseconds();
+    visual.frame_method = animation.frame_method;
+    visual.animation_playing = animation.animation_playing;
+    visual.subcycle = 0;
 }
 
-inline bool ReadEmitterCycle(W8EmitterHost& host, std::span<EmitterCycleResources> cycles,
-                             W8ReadLevelInfo* info, W8GrCycle& visual, int cycle_index,
-                             bool select_lod)
+inline bool ReadEmitterCycle(W8GrCycle& visual, std::span<EmitterCycleResources> cycles,
+                             W8ReadLevelInfo* info, int cycle_index, bool select_lod)
 {
     if (cycle_index < -1 || cycle_index >= static_cast<int>(cycles.size())) {
         return false;
@@ -49,7 +47,7 @@ inline bool ReadEmitterCycle(W8EmitterHost& host, std::span<EmitterCycleResource
     }
 
     // Resolve any deferred frame resources before publishing the new cycle.
-    signed char lod = host.m_bLOD;
+    signed char lod = visual.m_bLOD;
     if (select_lod) {
         if (AnimObjDispatch(loaded.animation.get(), 2, 0)) {
             lod = 2;
@@ -66,15 +64,15 @@ inline bool ReadEmitterCycle(W8EmitterHost& host, std::span<EmitterCycleResource
     const auto timer = GameClockMilliseconds();
     destination.swap(loaded);
     visual.SetLights(destination.lightView());
-    host.current_cycle = static_cast<signed char>(emitter);
-    host.active = 1;
-    host.frame_direction = W8_ANIMATION_FORWARD;
-    host.timer = timer;
-    host.animation_behaviour = destination.animation->behaviour;
-    host.frame_method = destination.animation->frame_method;
-    host.animation_playing = destination.animation->animation_playing;
+    visual.current_cycle = static_cast<signed char>(emitter);
+    visual.rep_active = true;
+    visual.frame_direction = W8_ANIMATION_FORWARD;
+    visual.timer = timer;
+    visual.animation_behaviour = destination.animation->behaviour;
+    visual.frame_method = destination.animation->frame_method;
+    visual.animation_playing = destination.animation->animation_playing;
     if (select_lod) {
-        host.m_bLOD = lod;
+        visual.m_bLOD = lod;
     }
     return true;
 }

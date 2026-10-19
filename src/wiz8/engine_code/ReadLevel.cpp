@@ -20,6 +20,7 @@
 #include <vector>
 
 #include <SDL3/SDL_stdinc.h>
+#include <glm/common.hpp>
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/gtc/quaternion.hpp>
 
@@ -28,7 +29,6 @@
 #include "application.h"
 #include "compat/compiler.h"
 #include "compat/native.h"
-#include "glm/common.hpp"
 #include "glm/ext/matrix_double3x3.hpp"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_double3.hpp"
@@ -82,9 +82,6 @@
 
 class srTexture;
 
-#define READ_LEVEL_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\ReadLevel.cpp"
-
-// FUNCTION: WIZ8 0x004B9C00
 stLevel::stLevel(srNode* parent) : srNode(static_cast<srNode*>(0))
 {
     if (parent != 0) {
@@ -93,7 +90,6 @@ stLevel::stLevel(srNode* parent) : srNode(static_cast<srNode*>(0))
     m_render_exclusion_mask = 0;
 }
 
-// FUNCTION: WIZ8 0x004BA0E0
 void stLevel::traverse(TraverseInfo& info)
 {
     if (testFlag(FLAG_DISABLE) == 0) {
@@ -104,7 +100,6 @@ void stLevel::traverse(TraverseInfo& info)
     }
 }
 
-// FUNCTION: WIZ8 0x004B9DD0
 void stLevel::process(const ProcessInfo& info, e_processType)
 {
     srGERD& renderer = *info.renderer;
@@ -147,10 +142,6 @@ void stLevel::process(const ProcessInfo& info, e_processType)
 
             srMeshModel::TriMesh mesh;
             mesh = model->getTriMesh();
-            if (g_render_untextured) {
-                mesh.shaders[0].value &= 0xffff7fff;
-                mesh.poly_shaders[0] = 0;
-            }
             if (!mesh.active_polygons) {
                 const auto active = model->GetActivePolygons(-1, false);
                 if (active) {
@@ -209,13 +200,11 @@ static_assert(sizeof(W8LevelLightRecord) == 40);
 
 } // namespace
 
-// GLOBAL: WIZ8 0x00659cd0
 glm::vec3 CurrentEnvironmentOffset()
 {
     return GetWorld() ? GetWorld()->environment_offset : glm::vec3(0.0f);
 }
 
-// FUNCTION: WIZ8 0x004BC060
 void AssociateWorldLights(W8World* world)
 {
     for (const auto& owned : world->transient_lights) {
@@ -242,7 +231,6 @@ void AssociateWorldLights(W8World* world)
     }
 }
 
-// FUNCTION: WIZ8 0x004BBAD0
 static unsigned char ReadWorldLights(W8World* world, wiz8::File* hFile)
 try {
     short light_count;
@@ -251,7 +239,7 @@ try {
     success = (hFile->read(&light_count, sizeof(light_count)).bytes ==
                static_cast<std::size_t>(sizeof(light_count)));
     if (!success) {
-        srAssertFail("fSuccess", READ_LEVEL_CPP, 486, "Couldn't read number of lights");
+        Fail("fSuccess", "Couldn't read number of lights");
     }
 
     for (index = 0; index < light_count; ++index) {
@@ -323,7 +311,7 @@ try {
             }
             light = world->dynamic_scene->adoptChild(CreateLight(nullptr, name));
             if (light == 0) {
-                srAssertFail("pstLight", READ_LEVEL_CPP, 593, 0);
+                Fail("pstLight");
             }
             light->setGroupMask(1);
         }
@@ -352,7 +340,6 @@ try {
     return false;
 }
 
-// FUNCTION: WIZ8 0x004BC9D0
 unsigned char ReadWorldEnvironment(W8ReadLevelInfo* pInfo, W8World* pWorld)
 try {
     /* Retail read these uninitialised when a FileRead chain short-circuited;
@@ -444,7 +431,6 @@ try {
     return false;
 }
 
-// FUNCTION: WIZ8 0x004BCE20
 static unsigned char ReadWorldClipPlanes(W8ReadLevelInfo* pInfo, W8World* pWorld)
 try {
     std::vector<srClipPlane*> clip_planes;
@@ -461,19 +447,19 @@ try {
     unsigned char success;
 
     if (pInfo == 0) {
-        srAssertFail("pInfo", READ_LEVEL_CPP, 0x59b, 0);
+        Fail("pInfo");
     }
     if (pInfo->hFile == 0) {
-        srAssertFail("pInfo->hFile", READ_LEVEL_CPP, 0x59c, 0);
+        Fail("pInfo->hFile");
     }
     if (pWorld == 0) {
-        srAssertFail("pWorld", READ_LEVEL_CPP, 0x59d, 0);
+        Fail("pWorld");
     }
 
     success = (pInfo->hFile->read(&count, sizeof(count)).bytes ==
                static_cast<std::size_t>(sizeof(count)));
     if (!success) {
-        srAssertFail("fSuccess", READ_LEVEL_CPP, 0x5a2, "Error reading num clipping planes");
+        Fail("fSuccess", "Error reading num clipping planes");
         return 0;
     }
     if (count == 0) {
@@ -485,8 +471,7 @@ try {
     for (index = 0; index < count; ++index) {
         clip_plane = pWorld->static_scene->adoptChild(std::make_unique<srClipPlane>());
         if (clip_plane == 0) {
-            srAssertFail("psrClipPlane", READ_LEVEL_CPP, 0x5ae,
-                         "out of memory creating clip plane");
+            Fail("psrClipPlane", "out of memory creating clip plane");
         }
 
         pInfo->hFile->read(name, sizeof(name));
@@ -516,7 +501,6 @@ static bool ReadRecordCount(wiz8::File& file, int& count)
     return read && count >= 0 && count < 100000;
 }
 
-// FUNCTION: WIZ8 0x004BC5E0
 static unsigned char ReadWorldProps(W8ReadLevelInfo* pInfo, W8World* pWorld,
                                     bool mark_model_instances)
 try {
@@ -585,7 +569,6 @@ try {
     return false;
 }
 
-// FUNCTION: WIZ8 0x004BC380
 unsigned char ReadWorldItems(W8ReadLevelInfo* pInfo, W8World* pWorld)
 try {
     unsigned char has_trigger;
@@ -598,7 +581,7 @@ try {
     Trigger* trigger;
     int item_id;
     W8WorldItem* world_item;
-    W8Item* item;
+    WorldItemEntity* item;
 
     if (pInfo == 0 || pInfo->hFile == 0 || pWorld == 0) {
         return 0;
@@ -660,7 +643,6 @@ try {
     return false;
 }
 
-// FUNCTION: WIZ8 0x004BC140
 unsigned char ReadMonsterPaths(W8ReadLevelInfo* info, W8World* world)
 try {
     if (!info || !info->hFile || !world) return false;
@@ -701,7 +683,7 @@ try {
         if (has_options) {
             if (options[1] == '0' || options[1] == '\0') {
                 group->members_active = false;
-                monster->m_pRep->active = 0;
+                monster->rep_active = false;
             }
             if (options[0] == '0' || options[0] == '\0') continue;
         }
@@ -712,7 +694,6 @@ try {
     return false;
 }
 
-// FUNCTION: WIZ8 0x004BC850
 unsigned char ReadWorldCameras(W8ReadLevelInfo* info, W8World* world)
 try {
     if (!info || !info->hFile || !world) {
@@ -757,7 +738,6 @@ try {
     return false;
 }
 
-// FUNCTION: WIZ8 0x004BD0D0
 unsigned char ReadWorldParticles(W8ReadLevelInfo* pInfo, srNode* pScene,
                                  std::vector<std::unique_ptr<stParticle>>* pParticles)
 try {
@@ -845,7 +825,7 @@ try {
         }
 
         if (record.initially_active == 0) {
-            particle->SetActive(0);
+            particle->SetActive(false);
         }
         particle->particle_size = record.particle_size;
         particle->expiry_mode =
@@ -857,7 +837,7 @@ try {
         particle->end_frame = record.end_frame;
 
         if (record.has_acceleration != 0) {
-            particle->has_acceleration = 1;
+            particle->has_acceleration = true;
             particle->acceleration =
                 glm::vec3(record.acceleration.x, record.acceleration.y, record.acceleration.z) *
                 kWorldScale;
@@ -933,8 +913,8 @@ try {
 
         if (strncmp(record.name, "CLOUD", 5) == 0) {
             particle->camera_offset = glm::vec3(particle->getLocation());
-            particle->camera_relative = 1;
-            particle->SetActive(1);
+            particle->camera_relative = true;
+            particle->SetActive(true);
         } else if (octree) {
             octree_particles.push_back(particle);
         }
@@ -949,7 +929,6 @@ try {
     return false;
 }
 
-// FUNCTION: WIZ8 0x004BDC90
 bool ReadNamedPositions(wiz8::File* hFile, std::vector<W8NamedPosition>& named_positions)
 try {
     int count;
@@ -995,7 +974,6 @@ try {
         ShutdownWithErrorBox(error_message);                                                       \
     }
 
-// FUNCTION: WIZ8 0x004BAFF0
 unsigned char ReadLevel(W8World* world, wiz8::File* handle, bool use_octree,
                         const std::filesystem::path& texture_directory)
 try {
@@ -1109,7 +1087,7 @@ try {
 
     success = ReadWorldClipPlanes(&info, world);
     if (!success) {
-        srAssertFail("fSuccess", READ_LEVEL_CPP, 0x15c, 0);
+        Fail("fSuccess");
     }
     CHECK_PVL_OFFSET("Wrong offset in .pvl file after Clipping Planes.");
 
@@ -1137,7 +1115,7 @@ try {
     prop_count = world->plsProps.size();
     for (index = 0; index < static_cast<int>(prop_count); ++index) {
         W8Prop* prop = GetWorldProp(world, index);
-        W8AnimObj* animation = prop->Rep()->Animation();
+        W8AnimObj* animation = prop->Animation();
 
         if ((prop->flags & W8_PROP_NO_DIRECT_SUN) != 0) {
             unsigned int animation_count = AnimObjListCount(animation, 2);

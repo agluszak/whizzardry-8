@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -14,8 +15,6 @@
 #include "gameplay_modifiers.h"
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/item_instance.h"
-#include "random.h"
-#include "timer.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/engine_code/Camera.h"
@@ -42,6 +41,8 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/notices.h"
+#include "wiz8/platform/random.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/string_database.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
@@ -68,16 +69,12 @@ static uint64_t g_search_pulse_clock;
 
 /* 10000.0: the unit search radius PickBestSearcher scales by score, and the
    collector's outer range gate. */
-// GLOBAL: WIZ8 0x0061a364
 constexpr float g_search_radius = 10000.0f;
-// GLOBAL: WIZ8 0x0061a368
 constexpr float g_search_cone_angle = 3.1415925f;
 
 /* The view's own constructor: seeds the cursor ahead of the first element and
    builds the item vector with capacity five. */
-// FUNCTION: WIZ8 0x00517900
 /* Discovery changes the same state used to select the next pulse's candidates. */
-// FUNCTION: WIZ8 0x00516ad0
 void W8Searchable::Reveal()
 {
     if (world_item ? !ItemHasFlags(world_item, W8_WORLD_ITEM_HIDDEN) : trigger == nullptr) return;
@@ -93,7 +90,6 @@ void W8Searchable::Reveal()
 }
 
 /* Gather eligible candidates inside the radius and sight cone for one pulse. */
-// FUNCTION: WIZ8 0x00516ba0
 static std::vector<W8Searchable> CollectSearchablesInView(W8World& world)
 {
     std::vector<W8Searchable> found;
@@ -116,19 +112,20 @@ static std::vector<W8Searchable> CollectSearchablesInView(W8World& world)
     };
     // Trigger definitions precede item records in level loading. Keep that search order.
     for (const auto& trigger : world.triggers)
-        if (trigger->trigger_kind == 1 && trigger->searchable == 1 &&
+        if (trigger->trigger_kind == W8TriggerKind::item && trigger->searchable == 1 &&
             (trigger->flags & W8_TRIGGER_SEARCHED) == 0)
             collect({nullptr, trigger.get()});
-    for (const auto& group : CurrentLevelPopulation().world_items)
-        for (auto* item = group.get(); item; item = item->next.get())
-            if (ItemHasFlags(item, W8_WORLD_ITEM_HIDDEN)) collect({item, nullptr});
+    for (const auto& group : CurrentLevelPopulation().world_items) {
+        if (ItemHasFlags(group.get(), W8_WORLD_ITEM_HIDDEN)) collect({group.get(), nullptr});
+        for (const auto& item : group->contents)
+            if (ItemHasFlags(item.get(), W8_WORLD_ITEM_HIDDEN)) collect({item.get(), nullptr});
+    }
     return found;
 }
 
 /* Resolve this searchable's world position: the item's rep midpoint when it
    has a live owner, the recorded position otherwise; prop searchables
    resolve through their trigger's prop. */
-// FUNCTION: WIZ8 0x00517080
 void W8Searchable::GetPosition(glm::vec3* position)
 {
     (*position) = glm::vec3(0);
@@ -150,12 +147,9 @@ void W8Searchable::GetPosition(glm::vec3* position)
     }
 }
 
-// FUNCTION: WIZ8 0x005171b0
-
 /* The 500ms search sweep: while nothing is interacting or surprising the
    party, walk the in-view searchables, pick the best searcher for each, queue
    the found event and turn the camera toward the find. */
-// FUNCTION: WIZ8 0x005171c0
 void RunSearchPulse(void)
 {
     if (TimeUntilDeadline(g_search_pulse_clock) == 0) {
@@ -164,7 +158,7 @@ void RunSearchPulse(void)
             !gXStatus.fSurprisePossible && !gXStatus.fLockInteractMode &&
             !LockInteractionSuspended() && !gXStatus.fTrapInteractMode &&
             !TrapInteractionSuspended()) {
-            if (IsLevelFastMovement() && g_status.search_mode != 0) {
+            if (IsLevelFastMovement() && g_status.search_mode) {
                 ShowNotice(W8_FONT_PALETTE_BEIGE,
                            g_localized_strings[W8_NOTICE_SEARCH_SPECIAL_LEVEL]);
             }
@@ -185,12 +179,12 @@ void RunSearchPulse(void)
                                 int message = searchable->trigger->m_lData1;
                                 found = true;
                                 if (message >= 0) {
-                                    const char* folder = GetLevelFolderName(GetLoadedLevelID());
-                                    if (folder == 0) {
-                                        folder = "Test";
-                                    }
-                                    std::string path;
-                                    path = fmt::format("Data\\Messages\\{}.msg", folder);
+                                    const std::string_view level_folder =
+                                        GetLevelFolderName(GetLoadedLevelID());
+                                    const std::string folder =
+                                        level_folder.empty() ? "Test" : std::string(level_folder);
+                                    const std::string path =
+                                        fmt::format("Data\\Messages\\{}.msg", folder);
                                     std::string text;
                                     if ((!(text = GetStringFromStringDatabase(path, message, 0, 0))
                                               .empty()) != 0) {
@@ -219,7 +213,7 @@ void RunSearchPulse(void)
                     }
                 }
             }
-            if (g_status.search_mode == 0 || IsLevelFastMovement()) {
+            if (!g_status.search_mode || IsLevelFastMovement()) {
                 /* Retail scans the party for a live member carrying the
                    Scouting skill and then discards the result. */
                 for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
@@ -231,7 +225,7 @@ void RunSearchPulse(void)
                     }
                 }
             }
-            if (g_status.search_mode != 0 && !IsLevelFastMovement() && !found && Random(100) == 0) {
+            if (g_status.search_mode && !IsLevelFastMovement() && !found && Random(100) == 0) {
                 ApplyItemEffectToRandomCharacter(g_container_event, -1, 0);
             }
         }
@@ -243,7 +237,6 @@ void RunSearchPulse(void)
    plus a Senses-derived bonus; the detect-secrets party effect instead
    force-picks random eligible members without practicing the skill. The pick
    must also reach this searchable's position. */
-// FUNCTION: WIZ8 0x00517560
 int W8Searchable::PickBestSearcher()
 {
     unsigned int best_score = 0;
@@ -255,14 +248,14 @@ int W8Searchable::PickBestSearcher()
             character->highest_condition >= W8_CONDITION_TURNCOAT) {
             continue;
         }
-        if (CharacterHasTrait(character, W8_TRAIT_SEARCH) || g_status.search_mode != 0) {
+        if (CharacterHasTrait(character, W8_TRAIT_SEARCH) || g_status.search_mode) {
             unsigned int level = character->skills[W8_SKILL_SCOUTING].level;
             unsigned int base = level >> 1;
             if (IsLevelFastMovement()) {
                 base = level >> 2;
             }
             unsigned int score = 0;
-            if (base != 0 || (g_status.search_mode != 0 && !IsLevelFastMovement())) {
+            if (base != 0 || (g_status.search_mode && !IsLevelFastMovement())) {
                 unsigned int attribute = character->attributes[W8_ATTRIBUTE_SENSES].effective;
                 if (attribute < 0x33) {
                     score = base + attribute / 5;
@@ -313,16 +306,15 @@ int W8Searchable::PickBestSearcher()
 /* Toggle the party's search mode: leaving it posts the off notice, entering it
    posts the on notice and arms the 500ms pulse that sweeps the searchable
    registry; combat blocks the toggle outright. */
-// FUNCTION: WIZ8 0x00517780
 void ToggleSearchMode(void)
 {
-    if (g_status.search_mode != 0) {
-        g_status.search_mode = 0;
+    if (g_status.search_mode) {
+        g_status.search_mode = false;
         ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_SEARCH_MODE_OFF]);
         return;
     }
     if (!gXStatus.fCombatMode) {
-        g_status.search_mode = 1;
+        g_status.search_mode = true;
         ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_SEARCH_MODE_ON]);
         g_search_pulse_clock = w8_get_ticks() + (0x1f4);
         ClearActiveWorldCursorNode();

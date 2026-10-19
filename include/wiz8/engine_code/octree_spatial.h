@@ -69,7 +69,7 @@ struct W8OctSpatialState {
     srBoundingBox m_bounds{};
     srBoundingBox m_clipped_bounds{};
     /* Mode-2 insertions increment this once per region polygon; the build
-       conversion copies it to the pre-tree and sizes m_visited_polygon_bits from it. */
+       conversion copies it to the pre-tree and sizes the polygon dedupe set from it. */
     w8_ulong m_polygon_count{};
     w8_ulong m_item_count{};
     unsigned short m_depth{};

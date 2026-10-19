@@ -9,8 +9,8 @@
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/engine_code/3dapi.h"
-#include "wiz8/engine_code/IntervalGate.h"
 #include "wiz8/engine_code/World.h"
+#include "wiz8/platform/IntervalGate.h"
 
 /* Orientation limits shared by the inline setters and GDCamera.cpp. */
 extern const float g_camera_angle_period0;
@@ -56,13 +56,11 @@ public:
     void ApplyYawInput(float input); /* 0x00477B90 */
     void ApplyPitchInput(float input); /* 0x00477EB0 */
     void BrakePitchAtLimit(); /* 0x00478290 */
-    // FUNCTION: WIZ8 0x004784C0
     void SetPitch(float pitch)
     {
         m_pitch = glm::clamp(pitch, g_camera_pitch_lower, g_camera_pitch_upper);
         m_pitch_rotation = glm::mat3(glm::eulerAngleX(m_pitch));
     }
-    // FUNCTION: WIZ8 0x00478720
     void SetYaw(float angle)
     {
         m_yaw = glm::mod(angle, g_camera_angle_period0);

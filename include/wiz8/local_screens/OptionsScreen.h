@@ -10,14 +10,15 @@
 #include <SDL3/SDL_keycode.h>
 
 #include "compat/compiler.h"
-#include "input.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
+#include "wiz8/difficulty.h"
 #include "wiz8/engine_code/Quality.h"
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/mgs_commands.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_layer.h"
 
@@ -29,6 +30,8 @@ struct W8SaveSlot;
 
 class W8OptionsSaveLoadPanel;
 class W8OptionsKeyboardPanel;
+
+enum class W8OptionsCameraRotation : unsigned char { snap, smooth, disabled };
 
 struct W8OptionsTextEditor {
     W8OptionsSaveLoadPanel* owner;
@@ -54,36 +57,36 @@ struct W8OptionsSaveRow {
    Float loads/stores distinguish the slider values from the integer options. */
 struct W8OptionsValues {
     void TransferSettings();
-    void TransferByte(int* value, unsigned char* setting);
-    void TransferRenderOption(int* value, W8RenderOption option);
+    void TransferByte(bool* value, unsigned char* setting);
+    void TransferRenderOption(bool* value, W8RenderOption option);
 
-    int mouselook_toggle;
-    int mouselook_smoothing;
-    int invert_mouse_y;
-    int ctrl_right_click_info;
-    int difficulty;
-    int camera_auto_rotation;
-    int continuous_combat;
-    int numeric_hit_points;
-    int autoscroll_combat_messages;
-    int simplified_npc_interaction;
-    int verbose_combat_messages;
-    int autoswap_weapons;
-    int auto_advance_character;
-    int autotarget_spells;
-    int stop_movement_for_events; /* UI checkbox 0x801; TransferSettings does not persist it */
-    int skill_increase_messages;
+    bool mouselook_toggle;
+    bool mouselook_smoothing;
+    bool invert_mouse_y;
+    bool ctrl_right_click_info;
+    W8Difficulty difficulty;
+    W8OptionsCameraRotation camera_auto_rotation;
+    bool continuous_combat;
+    bool numeric_hit_points;
+    bool autoscroll_combat_messages;
+    bool simplified_npc_interaction;
+    bool verbose_combat_messages;
+    bool autoswap_weapons;
+    bool auto_advance_character;
+    bool autotarget_spells;
+    bool stop_movement_for_events; /* UI checkbox 0x801; TransferSettings does not persist it */
+    bool skill_increase_messages;
     float combat_speed;
     float monster_movement_speed;
     float text_display_delay_ms;
-    int auto_save;
-    int render_options[7];
-    int monster_shadows;
-    int smooth_monster_animations;
-    int smooth_world_animations;
-    int pc_confirmations;
-    int pc_subtitles;
-    int applying;
+    bool auto_save;
+    bool render_options[7];
+    bool monster_shadows;
+    bool smooth_monster_animations;
+    bool smooth_world_animations;
+    bool pc_confirmations;
+    bool pc_subtitles;
+    bool applying;
 };
 
 extern W8OptionsValues g_options_values;
@@ -158,28 +161,25 @@ public:
     virtual void SetCurrent(int current);
     virtual void InvalidateAll() { m_dirty = true; }
     const SDL_Rect& ScreenBounds() const { return m_bounds; }
-    void AddCheckbox(int label, int* value);
+    void AddCheckbox(int label, bool* value);
     W8ButtonWidget* AddChoiceButton(int label, W8ButtonCallback callback);
     W8OptionsSlider* AddSlider(int label, float* value, bool alternate);
-    void AddChoices(int label, int count, const int* choices, int* value);
+    template<typename T> void AddChoices(int label, int count, const int* choices, T* value);
     int m_current = 0;
     int m_content_top = 0x18;
     std::vector<std::unique_ptr<W8TextBuffer>> m_text_buffers;
 };
 
-// VTABLE: WIZ8 0x005ef174
 class W8OptionsGamePanel : public W8OptionsPanel {
 public:
     virtual void Populate() override;
 };
 
-// VTABLE: WIZ8 0x005ef158
 class W8OptionsMousePanel : public W8OptionsPanel {
 public:
     virtual void Populate() override;
 };
 
-// VTABLE: WIZ8 0x005ef134 W8OptionsPanel
 class W8OptionsInterfacePanel : public W8OptionsPanel {
 public:
     virtual void Populate() override;
@@ -187,7 +187,6 @@ public:
     W8OptionsSlider* m_tooltip_delay;
 };
 
-// VTABLE: WIZ8 0x005ef108 W8OptionsPanel
 class W8OptionsAudioPanel : public W8OptionsPanel {
 public:
     virtual void Populate() override;
@@ -198,13 +197,11 @@ public:
     W8ButtonWidget* m_mute_buttons[4];
 };
 
-// VTABLE: WIZ8 0x005ef0dc W8OptionsPanel
 class W8OptionsGraphicsPanel : public W8OptionsPanel {
 public:
     virtual void Populate() override;
 };
 
-// VTABLE: WIZ8 0x005ef0b8
 class W8OptionsAdvancedGraphicsPanel : public W8OptionsPanel {
 public:
     virtual void Populate() override;
@@ -236,7 +233,6 @@ public:
     W8OptionsKeyButton* m_captured_button = nullptr;
 };
 
-// VTABLE: WIZ8 0x005ef09c
 class W8OptionsUnavailablePanel : public W8OptionsPanel {
 public:
     explicit W8OptionsUnavailablePanel(int message);

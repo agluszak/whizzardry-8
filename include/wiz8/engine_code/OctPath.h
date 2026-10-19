@@ -226,6 +226,20 @@ struct W8PathProbeVolume {
    Scoring at 0x00464FF0 proves the flag word, base score, current distance,
    accumulated score and world position; the remaining planner state stays
    positional until its readers are recovered. */
+// Running state of one patrol or target-link walk: the argmin-key candidate
+// node, the accepted min/max start-to-destination range, the randomized target
+// path cost, the start and destination positions, and the best alternate
+// candidate's cost. Each top-level search owns one and its walks take it.
+struct W8PatrolSearch {
+    unsigned int node = 0;
+    float min = 0.0f;
+    float max = 0.0f;
+    float distance = 0.0f;
+    glm::vec3 start{0.0f};
+    glm::vec3 destination{0.0f};
+    float cost = 0.0f;
+};
+
 struct W8PathSearchNode {
     unsigned short flags;
     unsigned short node_index;
@@ -274,7 +288,7 @@ public:
     PathCellCoordinates pathCell(const glm::vec3& position) const;
     W8Octree* const owner_octree;
     explicit W8PathingService(W8Octree* owner = nullptr); /* 0x004578E0 */
-    unsigned int FindPathHandle(const char* path_name, W8PathGridBounds* path_bounds,
+    unsigned int FindPathHandle(std::string_view path_name, W8PathGridBounds* path_bounds,
                                 W8PathVerticalRange* path_range); /* 0x00457CF0 */
     /* Neither takes a prop: both walk the service's own surface and edge
        tables, and their receiver is the service. */
@@ -291,27 +305,31 @@ public:
     void SetConditionalPathFrame(unsigned int path_handle, unsigned short frame);
     unsigned int FindConditionalPathValue(unsigned int key, unsigned int value);
     unsigned char HandlePathEdgeTransition(W8NavigatorMovementState* movement);
-    void ReduceWaypointCosts(unsigned int waypoint, float amount);
+    void ReduceWaypointCosts(unsigned int waypoint, float amount, std::vector<bool>& marked);
     bool AdvanceAttachmentWaypoint(const glm::vec3* source,
                                    struct W8NavigatorAttachment* attachment);
     bool MatchesPathProbe(unsigned int tag, const float* radius, const glm::vec3* position);
-    unsigned short AllocateSearchNode();
-    bool CanReachSearchNode(const glm::vec3* position, unsigned short target_node, float clearance);
+    unsigned short AllocateSearchNode(std::vector<W8PathSearchNode>& nodes);
+    bool CanReachSearchNode(const glm::vec3* position, unsigned short target_node, float clearance,
+                            std::vector<W8PathSearchNode>& nodes);
     void AdjustFinalPathEndpoint(W8NavigatorMovementState* movement, float radius,
                                  float separation);
     void UpdateConditionalPathFlags(unsigned int path_handle, unsigned short frame,
                                     unsigned int flags);
-    int ProcessSearchNodeProps(unsigned short node_index, bool first_only);
+    int ProcessSearchNodeProps(unsigned short node_index, bool first_only,
+                               std::vector<W8PathSearchNode>& nodes);
     unsigned int CollectPathProbes(W8NavigatorMovementState* movement, float radius);
     unsigned short PlanMovement(W8NavigatorMovementState* movement, float radius, float separation);
     unsigned short PlanMovementToPosition(W8NavigatorMovementState* movement,
                                           const glm::vec3* target, float radius, float separation);
     float UpdateSearchNodeScore(unsigned short node, const glm::vec3* position, float minimum,
-                                float maximum);
+                                float maximum, std::vector<W8PathSearchNode>& nodes);
     unsigned short ResolveSearchNodeCollisions(W8NavigatorMovementState* movement,
-                                               unsigned short node, float radius, float separation);
+                                               unsigned short node, float radius, float separation,
+                                               std::vector<W8PathSearchNode>& nodes);
     glm::vec3 GetSearchTraceOffset(float bearing);
-    short TraceSearchNodeToTarget(unsigned short node, W8NavigatorMovementState* movement);
+    short TraceSearchNodeToTarget(unsigned short node, W8NavigatorMovementState* movement,
+                                  std::vector<W8PathSearchNode>& nodes);
     bool TestSearchPositionVisibility(const glm::vec3* position,
                                       W8NavigatorMovementState* movement);
     unsigned short ConfigureMovementSearch(W8NavigatorMovementState* movement, int target_location,
@@ -330,7 +348,6 @@ public:
                             unsigned int* packed_out);
     bool SnapWaypointPosition(glm::vec3* position, bool snap_to_cell);
     bool TestPathCellClearance(glm::vec3* position, float clearance, bool snap_to_cell);
-    bool SnapToLowerPathCell(glm::vec3* position, bool allow_directional);
     bool ProbeAttachmentPath(W8NavigatorAttachment* attachment);
     unsigned int FindPathCell(glm::vec3* position, glm::uvec2* cell, bool adjust);
     void AppendScratchPath(W8NavigatorAttachment* attachment, unsigned int count);
@@ -360,13 +377,15 @@ public:
        argmin-key fallback nodes, and returns the reached endpoint or zero.
        Retail names it in the "Too many links" assert. */
     /* Depth-first link search from `waypoint` toward the target stored in
-       m_patrol_start by LinkAttachmentTarget: collects admissible
+       patrol.start by LinkAttachmentTarget: collects admissible
        edge destinations (filtered like FindPath), prices each by accumulated
        link cost plus distance-to-target, sorts by that key, then returns the
-       first candidate beyond m_patrol_distance or the first nonzero
+       first candidate beyond patrol.distance or the first nonzero
        recursive result. m_probe_cell_key tracks the farthest candidate. */
-    unsigned short RecurseTargetLinks(unsigned short waypoint); /* 0x004615D0 */
-    unsigned short RecursePatrolLinks(unsigned short waypoint);
+    unsigned short RecurseTargetLinks(unsigned short waypoint, std::vector<bool>& visited,
+                                      W8PatrolSearch& patrol); /* 0x004615D0 */
+    unsigned short RecursePatrolLinks(unsigned short waypoint, std::vector<bool>& visited,
+                                      W8PatrolSearch& patrol);
     float MeasureDirectionalPath(const glm::ivec2* cell, int direction, unsigned int height,
                                  float distance);
     float CompareDirectionalClearance(const glm::vec3* position, const glm::vec3* direction,
@@ -383,7 +402,7 @@ public:
     bool TestAttachmentHopDoor(W8NavigatorAttachment* attachment); /* 0x00460680 */
     /* Configure the node count, grid pitch, bounds and level name. */
     void ConfigureForLevel(int size, float grid_scale, const srBoundingBox& bounds,
-                           const char* name); /* 0x00458A50 */
+                           std::string_view name);
     unsigned char ReadPathNodes(wiz8::File* handle); /* 0x00458CE0 */
     unsigned char ReadWaypointFile(W8Octree& octree);
     /* Owning destructor: releases owned tables and bit sets. Single caller
@@ -404,8 +423,6 @@ public:
     std::vector<W8PathSurface> m_waypoints;
     std::vector<W8PathEdge> m_pEdges;
     std::vector<std::uint16_t> m_path_scratch;
-    std::vector<bool> m_marked_path_nodes;
-    std::vector<bool> m_visited_path_nodes;
     /* Two hash indexes the loader builds and 0x00457B10 destroys. The path
        value words are bitfields (height in the low half, state flags in the
        high bits), so 0x64 takes unsigned values; 0x74 is the visited-cell set
@@ -413,8 +430,7 @@ public:
        template only copies and compares values, so the two instantiations are
        body-equivalent and retail's linker folds them. */
     std::unique_ptr<std::unordered_multimap<unsigned int, unsigned int>> m_pPathValues;
-    const char* level_name; /* 0x68 */
-    std::unique_ptr<W8PathHeapHandle> path_heap;
+    std::string level_name;
     float m_path_cost_limit; /* 0x70: starts 1.0e10f */
     std::unique_ptr<std::unordered_map<unsigned int, int>> m_pVisitedCells;
     unsigned int m_probe_cell_key; /* 0x78 */
@@ -431,22 +447,9 @@ public:
     float trace_height_offset;
     int m_trace_target_location;
     float m_trace_target_yaw;
-    std::vector<W8PathSearchNode> m_search_nodes;
     unsigned int m_path_probe_count;
     W8PathProbeVolume m_path_probes[10];
     unsigned short start_waypoint;
-    /* Patrol-search state laid down by BuildPatrolPath and consulted by the
-       recursive FindPatrolPath: the argmin-key candidate node, the accepted
-       min/max start-to-destination range, the randomized target path cost,
-       the start and destination positions, and the best alternate
-       candidate's cost. */
-    unsigned int m_patrol_node;
-    float m_patrol_min;
-    float m_patrol_max;
-    float m_patrol_distance;
-    glm::vec3 m_patrol_start;
-    glm::vec3 m_patrol_destination;
-    float m_patrol_cost;
     W8PathParameters m_steering_context;
     W8NavigatorAttachment* m_linked_attachment;
     // Named conditional paths and their sentinel-terminated frame/key runs.

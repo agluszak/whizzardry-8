@@ -27,13 +27,7 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 
-#include "Font.h"
 #include "application.h"
-#include "himage.h"
-#include "image.h"
-#include "image_assets.h"
-#include "imgfmt.h"
-#include "input.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/npc_dialogue.h"
 #include "layouts/screen_state.h"
@@ -49,6 +43,11 @@
 #include "wiz8/assertions.h"
 #include "wiz8/asset_paths.h"
 #include "wiz8/button_interaction.h"
+#include "wiz8/canvas/Font.h"
+#include "wiz8/canvas/himage.h"
+#include "wiz8/canvas/image.h"
+#include "wiz8/canvas/image_assets.h"
+#include "wiz8/canvas/imgfmt.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/cursor.h"
@@ -64,6 +63,7 @@
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/fonts.h"
+#include "wiz8/item_spawning.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/item_tables.h"
@@ -81,6 +81,7 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/modal_content.h"
 #include "wiz8/overlay_scenes.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"
@@ -1799,6 +1800,39 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
          {"dialogbackground.sti", "popup_chest_selectionbuttons.sti",
           "chest_confirmationbuttons.sti", "popup_chest2.sti", "maininterface_scroll.sti"}) {
         button_image_fixture(assets / "data" / "dialogs", image, 16);
+    }
+    {
+        const ScopedRecords items(g_item_records, 3);
+        W8WorldItem group{};
+        std::vector<W8WorldItem*> addresses;
+        for (int index = 0; index < 3; ++index) {
+            g_item_records[index].equip_class = static_cast<W8ItemEquipClass>(index);
+            auto item = std::make_unique<W8WorldItem>();
+            item->item.iItemNo = index;
+            item->item.identified = true;
+            addresses.push_back(item.get());
+            group.contents.push_back(std::move(item));
+        }
+        W8TriggerItemPickerDialog picker;
+        picker.SetItemGroup(&group);
+        REQUIRE(group.contents.empty());
+        REQUIRE(picker.entries.size() == addresses.size());
+        for (std::size_t index = 0; index < addresses.size(); ++index)
+            REQUIRE(picker.entries[index].item.get() == addresses[index]);
+        bool completed = false;
+        picker.on_complete = [&](W8WorldItem* result) {
+            completed = true;
+            REQUIRE(result == &group);
+            REQUIRE(result->contents.size() == addresses.size());
+            for (std::size_t index = 0; index < addresses.size(); ++index)
+                REQUIRE(result->contents[index].get() == addresses[index]);
+        };
+        auto completion = picker.TakeCompletion(true);
+        REQUIRE(picker.entries.empty());
+        REQUIRE_FALSE(completed);
+        REQUIRE(completion);
+        completion();
+        REQUIRE(completed);
     }
     {
         W8TriggerItemPickerDialog picker;

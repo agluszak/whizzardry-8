@@ -14,17 +14,17 @@
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 
-#include "Font.h"
 #include "compat/native.h"
-#include "himage.h"
-#include "image.h"
-#include "input.h"
+#include "wiz8/canvas/Font.h"
+#include "wiz8/canvas/himage.h"
+#include "wiz8/canvas/image.h"
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_screens/Screens.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/unicode.h"
 
@@ -34,7 +34,7 @@
  * Released ancestor: ja2-stracciatella/ja2-stracciatella commit
  * 5ac0a9d56d27e8a7e2c4a7b48ed8932ae7f64033,
  * ja2/Build/Utils/Text_Input.{c,h}. This derivative is distributed under the
- * SFI Source Code License Agreement retained in src/sgp.
+ * SFI Source Code License Agreement retained in licenses/.
  *
  * The released JA2 source establishes ancestry, not Wizardry's original source
  * path. Retail contains no Text_Input / Utils path string, so the recovered

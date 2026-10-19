@@ -22,7 +22,6 @@ struct W8NpcQuoteEntry;
 /* NPC replies: options, a price confirmation, or keyword entry. The dialog
    owns its editor; closing restores the previous editor before reporting the
    reply to the NPC controller. */
-// VTABLE: WIZ8 0x005efa4c
 class W8NpcDialog final : public ModalContent {
     friend void OnNpcDialogClosed(W8NpcDialog& dialog);
 

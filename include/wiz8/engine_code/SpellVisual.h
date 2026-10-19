@@ -1,7 +1,8 @@
 #pragma once
 
 #include "wiz8/engine_code/GrCycle.h"
-#include "wiz8/engine_code/SpellEmitterHost.h"
+#include "wiz8/engine_code/emitter_resources.h"
+#include "wiz8/legacy_prop_save_ids.h"
 
 /* The four spell-visual modes double as the four seven-cycle groups of
    g_spell_cycle_names: the value selects which .mls rows a visual loads and
@@ -28,6 +29,17 @@ enum {
     SPELL_CYCLES_PER_GROUP = 7
 };
 
+enum class W8SpellVisualHostStateQuery : unsigned char {
+    EmitterSetting,
+    AnimationCount,
+    AtLastSubcycle,
+    IsFirstSubcycle,
+    Subcycle,
+    HasEmitterSetting,
+    CurrentCycle,
+    AnimationStopped,
+};
+
 /* Engine Code\Spells.cpp's 0x1f8-byte GrCycle specialization.  Construction
    installs the primary 0x005ECF40 table and the ordinary W8Navigator secondary
    table at +0x18, then owns one 0x37c-byte emitter host at +0x1e0. */
@@ -48,25 +60,33 @@ public:
     virtual bool IsCycleSupported(signed char cycle) override;
     virtual signed char GetTotalAnimationCount() override;
     virtual float GetCurrentAnimationScale() override;
-    virtual W8EmitterHost* GetRepresentation() override;
     virtual void SetCycle(signed char cycle) override;
     virtual W8AnimObj* GetCurrentAnimation() override;
     virtual void AdvanceAnimationFrame(int value, int flags) override;
     virtual W8AniMesh* GetCurrentAniMesh() override;
+    srModelInstance* SetCycleFrameLod(signed char cycle, signed char frame,
+                                      signed char lod) override;
+    unsigned int ApplyEmitterSetting(signed char emitter) override;
+    W8AniMesh* GetEmitterAniMesh(signed char emitter) override;
+    unsigned char ReadCycleData(W8ReadLevelInfo* info, int, int emitter_index);
 
     virtual void StartIfHostActive(); /* 0x004ABDC0 */
     /* Search backward from a subcycle for the first cycle this visual
        supports; returns -1 when none does. */
     virtual int FindSupportedCycle(int group, int subcycle);
-    /* Kind-indexed query over the emitter host's current state; only ever
-       called with kind 7 by StartIfHostActive. */
-    int QueryHostStateByKind(int kind);
+    /* Typed query over the emitter host's current state. */
+    int QueryHostState(W8SpellVisualHostStateQuery query);
 
     /* Selects the update mode and the cycle group the resource loader
        matches shared visuals by. */
     W8SpellVisualMode mode;
     int value_1dc;
-    std::unique_ptr<W8SpellEmitterHost> host = std::make_unique<W8SpellEmitterHost>();
+    unsigned int value_0ac{};
+    unsigned int value_0b0{};
+    EmitterResources<28> resources;
+    /* Set for spawned visuals: UpdateRepresentation then adds the camera-facing yaw
+       rotation on top of the mode's orientation. */
+    bool billboard{};
     /* Set once the host's animation no longer needs ticking, or forced when
        the owning effect releases it; the world updater deletes a finished
        visual as soon as auto_release also permits it. */
@@ -88,7 +108,8 @@ public:
 /* Secondary vftable 0x005ecf2c keeps the W8Navigator subobject at +0x18. */
 
 inline W8SpellVisual::W8SpellVisual(const W8SpellVisual& other, W8World* owner)
-    : W8GrCycle(other, owner)
+    : W8GrCycle(other, owner), value_0ac(other.value_0ac), value_0b0(other.value_0b0),
+      resources(other.resources), billboard(other.billboard)
 {
     mode = other.mode;
     finished = false;
@@ -97,6 +118,7 @@ inline W8SpellVisual::W8SpellVisual(const W8SpellVisual& other, W8World* owner)
     fixed_transform = other.fixed_transform;
     scale0 = other.scale0;
     location_id = 0;
-    host = std::make_unique<W8SpellEmitterHost>(*other.host);
-    id = AllocateGrObjectId();
+    AllocateLegacyPropSaveId();
+    rep_active = true;
+    current_cycle = other.current_cycle;
 }

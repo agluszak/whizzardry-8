@@ -9,13 +9,12 @@
 
 #include "compat/native.h"
 #include "conditions.h"
-#include "image.h"
 #include "layouts/character.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/targeting.h"
 #include "surrender/srDebug.h"
-#include "timer.h"
 #include "wiz8/button_interaction.h"
+#include "wiz8/canvas/image.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/engine_code/GameData.h"
@@ -34,13 +33,12 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/xstatus.h"
 
 constexpr float kMovementFatigueTickScale = 0.0004f;
-
-#define PARTY_MOVEMENT_CPP __FILE__
 
 namespace {
 struct PartyMovementPanel {
@@ -121,15 +119,14 @@ void DrawPartyMovementPanel(void)
     int image;
 
     if (!gXStatus.fCombatMode) {
-        srAssertFail("gXStatus.fCombatMode", PARTY_MOVEMENT_CPP, 0xf6, 0);
+        Fail("gXStatus.fCombatMode");
     }
     if ((g_combat_state->uiCurrentPartyAction == W8_PARTY_ACTION_NONE ||
          g_combat_state->uiCurrentPartyActionStatus == W8_PARTY_ACTION_FINISHED) &&
         g_combat_state->uiNextPartyAction == W8_PARTY_ACTION_NONE) {
-        srAssertFail("((gpCombat->uiCurrentPartyAction != PARTY_ACTION_NONE) && "
-                     "(gpCombat->uiCurrentPartyActionStatus != ACTION_STATUS_FINISHED)) || "
-                     "(gpCombat->uiNextPartyAction != PARTY_ACTION_NONE)",
-                     PARTY_MOVEMENT_CPP, 0xfb, 0);
+        Fail("((gpCombat->uiCurrentPartyAction != PARTY_ACTION_NONE) && "
+             "(gpCombat->uiCurrentPartyActionStatus != ACTION_STATUS_FINISHED)) || "
+             "(gpCombat->uiNextPartyAction != PARTY_ACTION_NONE)");
     }
     const int visible = CanPartyMove() ? 1 : 0;
     movement->dirty |= visible != movement->visible_button;
@@ -201,13 +198,13 @@ void DrawPartyMovementGauge(short right, short image, bool panel_live, int capti
         }
         frame = 0;
     }
-    unsigned int action;
+    W8PartyAction action;
     if (!CanPartyMove() || (g_combat_state->execution_active != 0 && IsPartyEngaged() == 0)) {
         action = g_combat_state->uiCurrentPartyAction;
     } else {
         action = g_combat_state->uiNextPartyAction;
     }
-    if (action == 2) {
+    if (action == W8_PARTY_ACTION_RUN) {
         timer_length = 0x32;
     } else {
         frame_base = 0x24;
@@ -269,7 +266,7 @@ unsigned char HandlePartyMovement(float* real_elapsed, float* frame_elapsed)
             continue;
         }
         amount = *frame_elapsed;
-        if (g_status.search_mode != 0 || gXStatus.fCombatMode) {
+        if (g_status.search_mode || gXStatus.fCombatMode) {
             amount = *real_elapsed * 0.5f + amount;
         }
         switch (character->load_category) {
@@ -289,8 +286,7 @@ unsigned char HandlePartyMovement(float* real_elapsed, float* frame_elapsed)
             multiplier = 3.0f;
             break;
         default:
-            srAssertFail("FALSE", PARTY_MOVEMENT_CPP, 0x2a9,
-                         "HandlePartyMovement: ERROR - Invalid load category");
+            Fail("FALSE", "HandlePartyMovement: ERROR - Invalid load category");
         }
         if (gXStatus.fCombatMode) {
             multiplier += multiplier;

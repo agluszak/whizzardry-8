@@ -9,25 +9,22 @@
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srBoundingBox.h"
 
-enum W8AnimationBehaviour : unsigned char;
-
-/* Engine Code\GrCycle.cpp owns these declarations. The two bases keep their
-   original relative order: W8GrObject is
-   W8GrCycle's first base and W8Navigator its second. */
+// Shared animation playback and navigation for monsters, missiles, and spell visuals.
 
 #include <vector>
 
 #include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
-#include "wiz8/engine_code/GrObject.h"
+#include "glm/ext/vector_float4.hpp"
+#include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/engine_code/Navigator.h"
-#include "wiz8/engine_code/game_timer.h"
 #include "wiz8/engine_code/stParticle.h"
+#include "wiz8/platform/game_timer.h"
 
 class srModelInstance;
 struct W8World;
 struct W8ReadLevelInfo;
-class W8EmitterHost;
+class W8SoundEvent;
 
 class stLight;
 class stMeshModel;
@@ -93,7 +90,7 @@ public:
     glm::mat3 rotation;
 };
 
-class W8GrCycle : public W8GrObject, public W8Navigator {
+class W8GrCycle : public W8Navigator {
 public:
     explicit W8GrCycle(W8World* owner = nullptr);
     // Borrowed lifetime: the world destroys its cycles before its scene.
@@ -101,9 +98,22 @@ public:
     W8GrCycle(const W8GrCycle& other, W8World* owner); /* 0x004A5F20 */
     W8GrCycle& operator=(const W8GrCycle&) = delete;
     virtual ~W8GrCycle() override;
+
+    void AddSoundEvent(std::unique_ptr<W8SoundEvent> event);
+    void SetLocation(const glm::vec3* new_location);
+    glm::vec3 GetLocation() const;
+    glm::vec3 GetLocalLocation() const;
+    void SetRotation(const glm::mat3* new_rotation);
+    glm::mat3 GetRotation() const;
+    void SetFrameMethod(W8AnimationFrameMethod method);
+
+    virtual srModelInstance* SetCycleFrameLod(signed char cycle, signed char frame,
+                                              signed char lod) = 0;
+    virtual unsigned int ApplyEmitterSetting(signed char emitter) = 0;
+    virtual W8AniMesh* GetEmitterAniMesh(signed char emitter) = 0;
+
     // Gameplay despawning lets active particles finish; level destruction does not.
     void RetireParticles(W8World& world);
-    // FUNCTION: WIZ8 0x004a7140
     virtual unsigned char CanEnterCycle(signed char) { return 1; }
     virtual void TickAnimation(float scale);           /* 0x004A6E20 */
     virtual unsigned char ApplyPendingCycle();         /* 0x004A6FC0 */
@@ -113,13 +123,9 @@ public:
     virtual bool IsCycleSupported(signed char cycle) = 0;
     virtual signed char GetTotalAnimationCount() = 0;
     virtual float GetCurrentAnimationScale() = 0;
-    /* The concrete cycle owns the representation placed in GrObject::m_pRep.
-       This typed view supplies animation, particles, lights, and model state;
-       neither base constructs or deletes that pointer. */
-    virtual W8EmitterHost* GetRepresentation() = 0;
     void SetCyclePosition(glm::vec3* position);
     /* Registry-wide lookups answered from this cycle's identity. */
-    const char* GetRegisteredName() const;     /* 0x004A8650 */
+    std::string_view GetRegisteredName() const;
     bool IsSoleRegisteredCycleForName() const; /* 0x004A8700 */
     virtual std::optional<srBoundingBox> GetAnimationBounds();
     virtual unsigned char GetAnimationRadius(float* radius);
@@ -145,10 +151,40 @@ public:
     void UpdateLights();
     srModelInstance* SelectCycleFrameLod(signed char cycle, signed char frame, signed char lod);
     srModelInstance* GetCurrentModelInstance();
+    bool UsesCurrentModelInstance();
     unsigned char ReplacePath(W8PathAI* path);
     void SubmitTargetValue();
 
 public:
+    std::unique_ptr<W8PathAI> m_pAI;
+    std::vector<std::unique_ptr<W8SoundEvent>> sound_events;
+    glm::vec3 location{0.0f};
+    glm::vec3 local_location{0.0f};
+    glm::vec3 parent_location{0.0f};
+    glm::mat3 rotation{1.0f};
+    glm::vec4 highlight_colour{0.0f};
+    float instance_scale = 1.0f;
+    bool apply_instance_scale = false;
+    unsigned char subcycle = 0;
+    unsigned short pending_subcycle = 0xffff;
+    unsigned int timer = 0;
+    bool rep_active = false;
+    unsigned char animation_playing = 0;
+    W8AnimationDirection frame_direction = W8_ANIMATION_DIRECTION_NONE;
+    W8AnimationFrameMethod frame_method = W8_ANIMATION_FRAME_METHOD_NONE;
+    W8AnimationBehaviour animation_behaviour = W8_ANIMATION_BEHAVIOUR_NONE;
+    W8AnimationBehaviour pending_behaviour = W8_ANIMATION_NO_PENDING_BEHAVIOUR;
+    unsigned char first_frame = 0xff;
+    unsigned char last_frame = 0xff;
+    signed char m_bLOD = 0;
+    float lod_near = 3500.0f;
+    float lod_far = 8500.0f;
+    signed char current_cycle = 0;
+    signed char current_subcycle = 0;
+    signed char forced_subcycle = -1;
+    signed char pending_cycle = -1;
+    float animation_radius = 0.0f;
+
     srModelInstance* current_model_instance;
     std::vector<std::unique_ptr<stLight>>* m_plsLights;                  /* 0x1ac */
     std::deque<ShakeDefinition> shake_events;
@@ -165,7 +201,7 @@ public:
     bool aim_set;
     /* The axis 0x004A7E50 aims a mode-three particle along. */
     glm::vec3 m_axis;
-    float scale;
+    float opacity;
     std::unique_ptr<stGroundShadow> m_ground_shadow;
     /* Fractional frame progress after TickAnimation consumes whole frames.
        Monster interpolation and light definition time use the same fraction. */
@@ -176,8 +212,8 @@ W8GrCycle* FindFirstGrCycleByName(std::string_view name);
 unsigned char UnregisterGrCycle(W8GrCycle* cycle);
 void RegisterGrCycle(std::string_view name, W8GrCycle* cycle);
 bool LoadGrCycle(std::string_view mon_name, W8GrCycle* cycle, int cycle_index, int value,
-                 const char* directory, unsigned char object_type,
-                 const char* bitmap_directory = 0);
+                 std::string_view directory, unsigned char object_type,
+                 std::string_view bitmap_directory = {});
 unsigned char ReadGrCycleData(W8ReadLevelInfo* info, W8GrCycle* cycle, int cycle_index, int value,
                               unsigned char object_type);
 int FindMappedIndexInMeshChain(stMeshModel** mesh, int key); /* 0x004A8D10 */

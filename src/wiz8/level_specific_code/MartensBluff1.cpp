@@ -8,17 +8,15 @@
 
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/world.h"
-#include "random.h"
-#include "soundman.h"
 #include "surrender/srCamera.h"
+#include "wiz8/audio/sound3d.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/dice.h"
-#include "wiz8/engine_code/IntervalGate.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/stParticle.h"
-#include "wiz8/engine_code/stSound3D.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/game_status.h"
@@ -30,6 +28,8 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/location_variables.h"
+#include "wiz8/platform/IntervalGate.h"
+#include "wiz8/platform/random.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/string_database.h"
 #include "wiz8/utility.h"
@@ -44,15 +44,10 @@
    InitializeLevelMasterFunctions registers the teleporter cluster
    (MR109, ButtonGigas, ButtonTrang, ButtonRift, ButtonMaten). */
 
-// GLOBAL: WIZ8 0x00683558
 static bool g_teleport_running;
-// GLOBAL: WIZ8 0x0068355C
 static Trigger* g_door_controller;
-// GLOBAL: WIZ8 0x00683560
-static stSound3D* g_gas_sound0;
-// GLOBAL: WIZ8 0x00683564
-static stSound3D* g_gas_sound1;
-// GLOBAL: WIZ8 0x00683568
+static Sound3D* g_gas_sound0;
+static Sound3D* g_gas_sound1;
 static std::optional<W8IntervalGate> g_transport_gate;
 
 /* The level-5 entry point called from InitializeLevelMasterFunctions:
@@ -60,7 +55,6 @@ static std::optional<W8IntervalGate> g_transport_gate;
    transporter, raises the MR101 lift flag when the party is already beside it
    and starts or stops the two GasSpray particles' air-escaping loops from the
    saved gas state. */
-// FUNCTION: WIZ8 0x004DEB40
 void MartensBluff1Setup(void)
 {
     glm::vec3 position;
@@ -101,7 +95,7 @@ void MartensBluff1Setup(void)
         particle = FindParticleByName("GasSpray-00");
         if (particle != 0) {
             if ((dial_state & 0xf0000000) == 0) {
-                particle->SetActive(0);
+                particle->SetActive(false);
             } else {
                 position = glm::vec3(particle->getLocation());
                 g_gas_sound0 = CreateAndPlaySoundNode(
@@ -111,7 +105,7 @@ void MartensBluff1Setup(void)
         particle = FindParticleByName("GasSpray-01");
         if (particle != 0) {
             if ((dial_state & 0xf0000000) == 0) {
-                particle->SetActive(0);
+                particle->SetActive(false);
             } else {
                 position = glm::vec3(particle->getLocation());
                 g_gas_sound1 = CreateAndPlaySoundNode(
@@ -123,7 +117,6 @@ void MartensBluff1Setup(void)
 
 /* The "F-Handlock" trap callback: already-unlocked or the right hand item
    (0x26f) opens it; otherwise it shocks the whole party for 2d4+1. */
-// FUNCTION: WIZ8 0x004DEDB0
 bool MartensBluff1FHandlock(Trigger* pTrigger)
 {
     W8Dice dice;
@@ -152,7 +145,6 @@ static void advanceDialDigit(int shift)
 }
 
 /* The "Dial-A" callback: advance the lowest DialState digit modulo 8. */
-// FUNCTION: WIZ8 0x004DEE10
 bool MartensBluff1DialA(Trigger* pTrigger)
 {
     if (g_door_controller == 0) {
@@ -163,7 +155,6 @@ bool MartensBluff1DialA(Trigger* pTrigger)
 }
 
 /* The "Dial-B" callback: advance the second DialState digit modulo 8. */
-// FUNCTION: WIZ8 0x004DEE50
 bool MartensBluff1DialB(Trigger* pTrigger)
 {
     if (g_door_controller == 0) {
@@ -174,7 +165,6 @@ bool MartensBluff1DialB(Trigger* pTrigger)
 }
 
 /* The "Dial-C" callback: advance the third DialState digit modulo 8. */
-// FUNCTION: WIZ8 0x004DEEA0
 bool MartensBluff1DialC(Trigger* pTrigger)
 {
     if (g_door_controller == 0) {
@@ -187,7 +177,6 @@ bool MartensBluff1DialC(Trigger* pTrigger)
 /* The "Gas-Switch" callback: toggles the 0x1000 gas-disable digit of
    DialState. Re-enabling only clears the digit; disabling also stops the two
    GasSpray particles and their looping sounds. */
-// FUNCTION: WIZ8 0x004DEEF0
 bool MartensBluff1GasSwitch(Trigger* pTrigger)
 {
     stParticle* particle;
@@ -205,11 +194,11 @@ bool MartensBluff1GasSwitch(Trigger* pTrigger)
     state = (state & 0xfff0fff) | 0x1000;
     particle = FindParticleByName("GasSpray-00");
     if (particle != 0) {
-        particle->SetActive(0);
+        particle->SetActive(false);
     }
     particle = FindParticleByName("GasSpray-01");
     if (particle != 0) {
-        particle->SetActive(0);
+        particle->SetActive(false);
     }
     if (g_gas_sound0 != 0) {
         g_gas_sound0->Stop();
@@ -226,7 +215,6 @@ bool MartensBluff1GasSwitch(Trigger* pTrigger)
 /* The "J-Doorcontroller" callback: opens while the three dialed digits match
    the combination stored in bits 16-27 of DialState. A wrong code sprays gas
    (unless the gas switch disabled it) and casts spell 0x25 at the party. */
-// FUNCTION: WIZ8 0x004DEFB0
 bool MartensBluff1JDoorController(Trigger* pTrigger)
 {
     glm::vec3 position;
@@ -246,14 +234,14 @@ bool MartensBluff1JDoorController(Trigger* pTrigger)
     g_trigger_feedback = true;
     particle = FindParticleByName("GasSpray-00");
     if (particle != 0) {
-        particle->SetActive(1);
+        particle->SetActive(true);
         position = glm::vec3(particle->getLocation());
         g_gas_sound0 = CreateAndPlaySoundNode("Data\\Sound\\Ambients\\Air_Escaping_Loop.wav",
                                               position, 0.3f, 30.0f, true);
     }
     particle = FindParticleByName("GasSpray-01");
     if (particle != 0) {
-        particle->SetActive(1);
+        particle->SetActive(true);
         position = glm::vec3(particle->getLocation());
         g_gas_sound1 = CreateAndPlaySoundNode("Data\\Sound\\Ambients\\Air_Escaping_Loop.wav",
                                               position, 0.3f, 30.0f, true);
@@ -266,7 +254,6 @@ bool MartensBluff1JDoorController(Trigger* pTrigger)
 }
 
 /* The "Controller" callback: toggles fact 0x42. */
-// FUNCTION: WIZ8 0x004DF120
 bool MartensBluff1Controller(Trigger* pTrigger)
 {
     if (GetFact(W8_FACT_NARGISST_MONITOR_OVERFLOW_ON) == 0) {
@@ -282,7 +269,6 @@ bool MartensBluff1Controller(Trigger* pTrigger)
    finds the two ANTRHACAX entities, plays the transporter sound at the first,
    spawns monster group 0x177 there and hands the spawned monster its move
    script. Answers false only when the fact was already set. */
-// FUNCTION: WIZ8 0x004DF160
 bool MartensBluff1TransportSpawn(void)
 {
     glm::vec3 position_a;
@@ -327,7 +313,6 @@ static void CaptureTransporter(W8SavedLocationState& state)
 /* The TransportSpawn master function. The 0xEFFFFFFF command re-arms the minute gate and registers the run. The command-0 run
    fires the transporter spawn each time the gate elapses until the spawn
    reports the fact already set, then deletes the gate and unregisters. */
-// FUNCTION: WIZ8 0x004DF260
 bool MartensBluff1Transporter(int command)
 {
     if (command != 0) {
@@ -366,7 +351,6 @@ bool MartensBluff1Transporter(int command)
 /* "MR109": the teleporter pad. Sends the party to the destination indexed by
    the TeleporterState location variable, picking a random pad when none has
    been chosen yet. Always answers false so the trigger stays armed. */
-// FUNCTION: WIZ8 0x004DF4A0
 bool MartensBluff1Teleporter(Trigger* pTrigger)
 {
     int state;
@@ -409,28 +393,24 @@ static bool pressTeleporterButton(int pad)
 
 /* "ButtonGigas": advances the teleporter to pad 1. While the state helper is
    running it only re-arms the consumed-input flag. */
-// FUNCTION: WIZ8 0x004DF540
 bool MartensBluff1ButtonGigas(Trigger* pTrigger)
 {
     return pressTeleporterButton(1);
 }
 
 /* "ButtonTrang": advances the teleporter to pad 2. */
-// FUNCTION: WIZ8 0x004DF560
 bool MartensBluff1ButtonTrang(Trigger* pTrigger)
 {
     return pressTeleporterButton(2);
 }
 
 /* "ButtonRift": advances the teleporter to pad 3. */
-// FUNCTION: WIZ8 0x004DF580
 bool MartensBluff1ButtonRift(Trigger* pTrigger)
 {
     return pressTeleporterButton(3);
 }
 
 /* "ButtonMaten": advances the teleporter to pad 4. */
-// FUNCTION: WIZ8 0x004DF5A0
 bool MartensBluff1ButtonMaten(Trigger* pTrigger)
 {
     return pressTeleporterButton(4);
@@ -440,7 +420,6 @@ bool MartensBluff1ButtonMaten(Trigger* pTrigger)
    the current TeleporterState and, when it names a different live pad, runs
    that pad's button trigger before writing the new state. The re-entrancy
    flag keeps the button callbacks from recursing back in. */
-// FUNCTION: WIZ8 0x004DF5C0
 bool MartensBluff1TeleportState(int new_state)
 {
     Trigger* pOldButtonTrigger;
@@ -485,7 +464,6 @@ set_state:
 /* The "WireTrigger" callback: latches TeleporterState 1 (returning false when
    it is already nonzero) and replays the ButtonGigas sequence under the
    teleport-running guard. */
-// FUNCTION: WIZ8 0x004DF710
 bool MartensBluff1WireTrigger(Trigger* pTrigger)
 {
     Trigger* pTelTrigger;
@@ -508,7 +486,6 @@ bool MartensBluff1WireTrigger(Trigger* pTrigger)
 }
 
 /* The "MartenBook" callback: latches fact 0x268. */
-// FUNCTION: WIZ8 0x004DF7E0
 bool MartensBluff1MartenBook(Trigger* pTrigger)
 {
     SetFact(W8_FACT_QUEST_MARTEN_DIARY, 1, false);

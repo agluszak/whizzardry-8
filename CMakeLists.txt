@@ -202,7 +202,6 @@ target_include_directories(wiz8_native_settings INTERFACE
     "${PROJECT_SOURCE_DIR}/include"
     "${PROJECT_SOURCE_DIR}/include/wiz8"
     "${PROJECT_SOURCE_DIR}/include/wiz8/engine_code"
-    "${PROJECT_SOURCE_DIR}/src/sgp"
 )
 target_link_libraries(wiz8_native_settings INTERFACE glm::glm-header-only Threads::Threads ${CMAKE_DL_LIBS})
 
@@ -222,7 +221,7 @@ target_link_libraries(wiz8_native_settings INTERFACE wiz8_compat)
 add_subdirectory(src/surrender)
 add_subdirectory(src/wiz8)
 
-add_executable(Wiz8Native src/sgp/native/main.cpp)
+add_executable(Wiz8Native src/platform/main.cpp)
 target_link_libraries(Wiz8Native PRIVATE WIZ8_GAME_CORE SDL3::SDL3)
 
 if(BUILD_TESTING)

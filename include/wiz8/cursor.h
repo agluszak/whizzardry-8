@@ -5,7 +5,7 @@
 #include <memory>
 
 #include "glm/ext/vector_float2.hpp"
-#include "himage.h"
+#include "wiz8/canvas/himage.h"
 #include "wiz8/engine_code/Video2.h"
 
 class srModelInstance;

@@ -9,7 +9,6 @@
 #include "wiz8/local_code/npc_dialogue_view.h"
 #include "wiz8/local_code/npc_story_events.h"
 
-// GLOBAL: WIZ8 0x0068C430
 W8NpcDialogue g_npc_dialogue;
 
 /* NPC interaction availability and its party-slot eligibility query. Live
@@ -18,7 +17,6 @@ W8NpcDialogue g_npc_dialogue;
 
 /* Report whether a party slot can be picked: in range, occupied, still on its
    feet, and not Turncoat or a more severe condition. */
-// FUNCTION: WIZ8 0x00524a10
 bool IsPartySlotEligible(int slot)
 {
     W8Character* character;
@@ -41,7 +39,6 @@ bool IsPartySlotEligible(int slot)
     return eligible;
 }
 
-// FUNCTION: WIZ8 0x00524c50
 void ClearNpcMessageQueue(void)
 {
 

@@ -4,17 +4,18 @@
 #include <cstddef>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
 #include <fmt/format.h>
 
 #include "gameplay_modifiers.h"
-#include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "item_spawning.h"
 #include "layouts/gameplay_databases.h"
 #include "surrender/srDebug.h"
+#include "wiz8/audio/sound3d.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Levels.h"
@@ -23,7 +24,6 @@
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/stCube.h"
-#include "wiz8/engine_code/stSound3D.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/character.h"
@@ -67,14 +67,11 @@ constexpr float kSoundNodeFullVolume = 127.0f;
 
 /* The world-cursor node the party is standing in, tracked across the
    command-0 sweep so enter/leave commands fire once per crossing. */
-// GLOBAL: WIZ8 0x006834d4
 static W8WorldCursorNode* g_active_cursor_node;
 
-// GLOBAL: WIZ8 0x006834d8
 std::vector<W8LevelMaster> g_master_functions;
 
 // Capture the batch size: callbacks may append work for the next frame.
-// FUNCTION: WIZ8 0x004D8E40
 void RunMasterFunctions(void)
 {
     int count = static_cast<int>(g_master_functions.size());
@@ -100,7 +97,6 @@ W8SavedLocationState CaptureMasterFunctionState()
 /* The level callbacks' scripted spawn: settle the requested point onto the
    ground when asked, create the group, apply hostility, refresh its centre
    cache and re-run outward sight for the new arrivals. */
-// FUNCTION: WIZ8 0x004D8F00
 W8MonsterGroup* SpawnMonsters(int monster_id, int count, glm::vec3* position, int hostility,
                               bool settle, bool a, bool b)
 {
@@ -123,9 +119,8 @@ W8MonsterGroup* SpawnMonsters(int monster_id, int count, glm::vec3* position, in
 /* The level callbacks' one-shot positional sound: reject a negative
    loudness fraction, clamp anything above one, then create the node at the
    requested spot, scale its base volume and falloff and start playback. */
-// FUNCTION: WIZ8 0x004D8F80
-stSound3D* CreateAndPlaySoundNode(const char* sound_name, glm::vec3 position, float volume,
-                                  float scale, bool play_flag)
+Sound3D* CreateAndPlaySoundNode(const char* sound_name, glm::vec3 position, float volume,
+                                float scale, bool play_flag)
 {
     if (volume > 1.0f) {
         volume = 1.0f;
@@ -133,8 +128,8 @@ stSound3D* CreateAndPlaySoundNode(const char* sound_name, glm::vec3 position, fl
         return 0;
     }
 
-    auto sound = std::make_unique<stSound3D>(sound_name, nullptr);
-    sound->setLocation(glm::dvec3(position));
+    auto sound = std::make_unique<Sound3D>(sound_name);
+    sound->position = position;
     sound->volume = static_cast<int>(volume * kSoundNodeFullVolume);
     sound->falloff = scale * kWorldScale;
     sound->Play(play_flag);
@@ -165,14 +160,10 @@ static unsigned char WorldCursorNodeApplyType6ItemEffect(int command, W8WorldCur
 static unsigned char WorldCursorNodePartyVoice(int command, W8WorldCursorNode* node, int context);
 
 /* The character-event kind constants the cursor-node handlers queue. */
-// GLOBAL: WIZ8 0x005EE5F4
 const int g_character_event_kind0 = 0x1b;
-// GLOBAL: WIZ8 0x005EE63C
 const int g_character_event_kind1 = 0x2d;
-// GLOBAL: WIZ8 0x005EE688
 const int g_character_event_kind3 = 0x40;
 
-// GLOBAL: WIZ8 0x006109F4
 static W8WorldCursorNodeHandler g_world_cursor_node_handlers[10] = {
     WorldCursorNodeShowMessageOnce,      /* type 0 */
     WorldCursorNodeShowMessageOnce,      /* type 1 */
@@ -192,7 +183,6 @@ static W8WorldCursorNodeHandler g_world_cursor_node_handlers[10] = {
    newly entered node's handler gets 1 (enter); commands 3, 4 and 8 deliver
    themselves to nodes of type 3, 2 and 7 respectively. Answers whether any
    handler reported the command handled. */
-// FUNCTION: WIZ8 0x004D9080
 unsigned char DispatchWorldCursorNodeCommand(W8MonsterInfo* info, int command, ...)
 {
     glm::vec3 position;
@@ -274,12 +264,11 @@ unsigned char DispatchWorldCursorNodeCommand(W8MonsterInfo* info, int command, .
    string once - the first byte of the node's userdata is the shown flag.
    Parameter 1 additionally gates the message on a living party member with
    trait 0x0c while the party is neither searching nor under effect 0x11. */
-// FUNCTION: WIZ8 0x004D9260
 static unsigned char WorldCursorNodeShowMessageOnce(int command, W8WorldCursorNode* node,
                                                     int context)
 {
     int message_id;
-    const char* folder;
+    std::string_view folder;
     int type;
     unsigned char enabled;
     bool result;
@@ -293,7 +282,7 @@ static unsigned char WorldCursorNodeShowMessageOnce(int command, W8WorldCursorNo
     folder = GetLevelFolderName(GetLoadedLevelID());
     type = node->parameters[2];
     enabled = static_cast<unsigned char>(node->parameters[1]);
-    if (enabled != 0 && g_status.search_mode == 0 && g_status.party_modifiers.detect_secrets == 0) {
+    if (enabled != 0 && !g_status.search_mode && g_status.party_modifiers.detect_secrets == 0) {
         for (slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
             if (g_status.buffers.XChar[slot].fOccupied &&
                 CharacterHasTrait(g_status.buffers.Char + slot, W8_TRAIT_SEARCH)) {
@@ -314,10 +303,7 @@ command_check:
             return 0;
         }
         *shown = std::byte{1};
-        if (folder == 0) {
-            folder = "Test";
-        }
-        path = fmt::format("Data\\Messages\\{}.msg", folder);
+        path = fmt::format("Data\\Messages\\{}.msg", folder.empty() ? "Test" : folder);
         if ((!(text = GetStringFromStringDatabase(path, message_id, 0, 0)).empty()) != 0) {
             ShowString(text);
         }
@@ -327,11 +313,10 @@ command_check:
 
 /* Type-2 nodes: command 4 with a nonzero context flag shows the node's
    message while the main game screen is up. */
-// FUNCTION: WIZ8 0x004D93E0
 static unsigned char WorldCursorNodeShowContextMessage(int command, W8WorldCursorNode* node,
                                                        int context)
 {
-    const char* folder;
+    std::string_view folder;
     int message_id;
     std::string path;
     std::string text;
@@ -342,10 +327,7 @@ static unsigned char WorldCursorNodeShowContextMessage(int command, W8WorldCurso
     }
     if (static_cast<unsigned char>(context) != 0) {
         message_id = node->parameters[0];
-        if (folder == 0) {
-            folder = "Test";
-        }
-        path = fmt::format("Data\\Messages\\{}.msg", folder);
+        path = fmt::format("Data\\Messages\\{}.msg", folder.empty() ? "Test" : folder);
         if ((!(text = GetStringFromStringDatabase(path, message_id, 0, 0)).empty()) != 0) {
             if (text.size() != 0 && g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
                 ShowString(text);
@@ -356,10 +338,9 @@ static unsigned char WorldCursorNodeShowContextMessage(int command, W8WorldCurso
 }
 
 /* Type-3 nodes: command 3 shows the node's message unconditionally. */
-// FUNCTION: WIZ8 0x004D94B0
 static unsigned char WorldCursorNodeShowMessage(int command, W8WorldCursorNode* node, int context)
 {
-    const char* folder;
+    std::string_view folder;
     int message_id;
     std::string path;
     std::string text;
@@ -369,10 +350,7 @@ static unsigned char WorldCursorNodeShowMessage(int command, W8WorldCursorNode* 
         return 0;
     }
     message_id = node->parameters[0];
-    if (folder == 0) {
-        folder = "Test";
-    }
-    path = fmt::format("Data\\Messages\\{}.msg", folder);
+    path = fmt::format("Data\\Messages\\{}.msg", folder.empty() ? "Test" : folder);
     if ((!(text = GetStringFromStringDatabase(path, message_id, 0, 0)).empty()) != 0) {
         if (text.size() != 0) {
             ShowString(text);
@@ -383,7 +361,6 @@ static unsigned char WorldCursorNodeShowMessage(int command, W8WorldCursorNode* 
 
 /* Type-4 nodes: entering applies the node's item effect to a random party
    member. */
-// FUNCTION: WIZ8 0x004D9560
 static unsigned char WorldCursorNodeApplyItemEffect(int command, W8WorldCursorNode* node,
                                                     int context)
 {
@@ -395,7 +372,6 @@ static unsigned char WorldCursorNodeApplyItemEffect(int command, W8WorldCursorNo
 
 /* Type-9 nodes: entering while the fact-0x14c gate holds queues the male
    event for the indexed party member when that member is male. */
-// FUNCTION: WIZ8 0x004D9590
 static unsigned char WorldCursorNodeMaleCharacterEvent(int command, W8WorldCursorNode* node,
                                                        int context)
 {
@@ -411,7 +387,6 @@ static unsigned char WorldCursorNodeMaleCharacterEvent(int command, W8WorldCurso
 }
 
 /* Predicate installed in the master-function callback table. */
-// FUNCTION: WIZ8 0x004D95F0
 static unsigned char IsMasterFunctionTypeEight(int command, W8WorldCursorNode* node, int context)
 {
     return command == 8;
@@ -421,7 +396,6 @@ static unsigned char IsMasterFunctionTypeEight(int command, W8WorldCursorNode* n
    items are on the party and neither blocking fact holds, queue the reaction
    and latch the AP_SeenBodies location variable. Retail runs the fact-0x133
    clear twice. */
-// FUNCTION: WIZ8 0x004D9600
 static unsigned char WorldCursorNodeSeenBodies(int command, W8WorldCursorNode* node, int context)
 {
     if (command == 1) {
@@ -446,7 +420,6 @@ static unsigned char WorldCursorNodeSeenBodies(int command, W8WorldCursorNode* n
 
 /* Type-6 nodes: entering applies the node's item effect to a random party
    member. */
-// FUNCTION: WIZ8 0x004D96C0
 static unsigned char WorldCursorNodeApplyType6ItemEffect(int command, W8WorldCursorNode* node,
                                                          int context)
 {
@@ -456,7 +429,6 @@ static unsigned char WorldCursorNodeApplyType6ItemEffect(int command, W8WorldCur
     return 1;
 }
 
-// FUNCTION: WIZ8 0x004D96F0
 void ClearActiveWorldCursorNode(void)
 {
     g_active_cursor_node = 0;
@@ -464,7 +436,6 @@ void ClearActiveWorldCursorNode(void)
 
 /* Master-function values 0x10 and 0x26 select the same path once either of
    the two enabling facts has been set. */
-// FUNCTION: WIZ8 0x004D9700
 int NormalizeMasterFunctionValue(int value)
 {
     if (value == 0x10 || value == 0x26) {
@@ -476,18 +447,14 @@ int NormalizeMasterFunctionValue(int value)
     return value;
 }
 
-// GLOBAL: WIZ8 0x006834DD
 bool g_running_trigger_from_script;
-// GLOBAL: WIZ8 0x006109F0
 bool g_npc_dialogue_closed = true;
-// GLOBAL: WIZ8 0x00652DA5
 bool g_sea_caves_slope_override_enabled;
 
 /* Fill the away camp chest from the level-0x26 item records stored in the
    current save. Records that are not world-persistent move into the chest
    trigger's container item; persistent records are flattened back into the
    load vector (so their own groups are visited too) and then freed. */
-// FUNCTION: WIZ8 0x004D9740
 void LoadAwayCampChest(void)
 {
     std::vector<std::unique_ptr<W8WorldItem>> items;
@@ -498,27 +465,25 @@ void LoadAwayCampChest(void)
 
     pChest = FindPropByName(GetWorld(), "AwayCampChest");
     if (pChest == 0) {
-        srAssertFail("pChest", __FILE__, __LINE__, 0);
+        Fail("pChest");
     }
     pTrigger = pChest->GetTrigger();
     if (pTrigger == 0) {
-        srAssertFail("pTrigger", __FILE__, __LINE__, 0);
+        Fail("pTrigger");
     }
     pContainer = pTrigger->GetOrCreateItemGroup(true);
     if (pContainer == 0) {
-        srAssertFail("pContainer", __FILE__, __LINE__, 0);
+        Fail("pContainer");
     }
-    LoadSavedLevelItems(0x26, items);
+    if (!LoadSavedLevelItems(0x26, items)) return;
     for (index = 0; index < static_cast<int>(items.size()); ++index) {
         auto item = std::move(items[index]);
+        auto contents = std::move(item->contents);
         if (ItemInfoIsWorldPersistent(item.get())) {
-            while (item->next) {
-                auto next = std::move(item->next);
-                item->next = std::move(next->next);
-                items.push_back(std::move(next));
-            }
+            for (auto& contained : contents) items.push_back(std::move(contained));
         } else {
-            ItemInfoAddToGroup(pContainer, std::move(item));
+            pContainer->contents.push_back(std::move(item));
+            for (auto& contained : contents) pContainer->contents.push_back(std::move(contained));
         }
     }
 }
@@ -526,7 +491,6 @@ void LoadAwayCampChest(void)
 /* Type-8 nodes: entering queues a random party member's voice line for the
    node's event type, once - the first byte of the node's userdata is the
    shown flag. */
-// FUNCTION: WIZ8 0x004D98C0
 static unsigned char WorldCursorNodePartyVoice(int command, W8WorldCursorNode* node, int context)
 {
     int event_type;
@@ -551,18 +515,14 @@ static unsigned char WorldCursorNodePartyVoice(int command, W8WorldCursorNode* n
 
 /* Format the current level's message-database path, fetch the indexed string
    and show it. Answers whether the string existed. */
-// FUNCTION: WIZ8 0x004D9960
 unsigned char ShowLevelMessage(int message_id)
 {
-    const char* folder;
+    std::string_view folder;
     std::string path;
     std::string text;
 
     folder = GetLevelFolderName(GetLoadedLevelID());
-    if (folder == 0) {
-        folder = "Test";
-    }
-    path = fmt::format("Data\\Messages\\{}.msg", folder);
+    path = fmt::format("Data\\Messages\\{}.msg", folder.empty() ? "Test" : folder);
     if ((!(text = GetStringFromStringDatabase(path, message_id, 0, 0)).empty()) != 0) {
         ShowString(text);
         return 1;
@@ -599,7 +559,6 @@ static void BindLevelTrigger(const char* name, Trigger::ActivationCallback callb
 }
 
 /* Install the level's trigger callbacks and master-function helpers. */
-// FUNCTION: WIZ8 0x004D6C50
 void InitializeLevelMasterFunctions(int level)
 {
     Trigger* pTrigger;

@@ -8,13 +8,13 @@
 #include <SDL3/SDL_surface.h>
 #include <fmt/printf.h>
 
-#include "Font.h"
 #include "character_skills.h"
 #include "dialog_code/DialogBase.h"
 #include "dialog_code/DialogScrollBar.h"
 #include "dialog_code/DialogTextArea.h"
 #include "local_code/ControlsRect.h"
 #include "surrender/srDebug.h"
+#include "wiz8/canvas/Font.h"
 #include "wiz8/dialog_code/MonsterInfoDialog.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/character.h"
@@ -31,23 +31,17 @@
    info dialog in this family reuses; its own vtable is emitted retail even
    though it is only ever a base subobject. */
 
-// STRING: WIZ8 0x006501D8
-#define STAT_INFO_DIALOGS_CPP "C:\\Projects\\Wizardry 8\\Dialog Code\\StatInfoDialogs.cpp"
-
 enum { ATTR_COUNT = 7 };
 enum { SKILL_COUNT = 0x29 };
 
-// GLOBAL: WIZ8 0x0061e4fc
 static unsigned short g_attr_table0[8] = {
     0x6a0, 0x6a1, 0x6a2, 0x6a3, 0x6a4, 0x6a5, 0x6a6, 0,
 };
-// GLOBAL: WIZ8 0x0061e50c
 unsigned short g_attr_table1[18] = {
     0x6a7, 0x6a8, 0x6a9, 0x6aa, 0x6ab, 0,     0x30b, 0x30c, 0x30d,
     0x30e, 0x30f, 0x310, 0x311, 0x312, 0x313, 0x314, 0x315, 0x316,
 };
 
-// FUNCTION: WIZ8 0x005df880
 W8StatInfoDialogBase::W8StatInfoDialogBase()
 {
     SetOrigin(0x9c, 0x69);
@@ -56,7 +50,6 @@ W8StatInfoDialogBase::W8StatInfoDialogBase()
     UseInfoPopup({textarea, scrollbar, &button});
 }
 
-// FUNCTION: WIZ8 0x005df9d0
 void W8StatInfoDialogBase::Configure()
 {
     if (!PopulateText()) {
@@ -70,7 +63,6 @@ void W8StatInfoDialogBase::Configure()
     return;
 }
 
-// FUNCTION: WIZ8 0x005dfae0
 void W8StatInfoDialogBase::Draw(SDL_Surface& target)
 {
 
@@ -82,7 +74,6 @@ void W8StatInfoDialogBase::Draw(SDL_Surface& target)
     button.Draw(target);
 }
 
-// FUNCTION: WIZ8 0x005dfb40
 void W8StatInfoDialogBase::DrawTitle(SDL_Surface& target)
 {
     g_wiz_text_font_secondary.resetPalette();
@@ -92,7 +83,6 @@ void W8StatInfoDialogBase::DrawTitle(SDL_Surface& target)
              title);
 }
 
-// FUNCTION: WIZ8 0x005dfdb0
 bool W8StatInfoDialogBase::PopulateText()
 {
     W8ControlsRect bounds;
@@ -107,11 +97,10 @@ bool W8StatInfoDialogBase::PopulateText()
     return true;
 }
 
-// FUNCTION: WIZ8 0x005dfc70
 W8AttributeInfoDialog::W8AttributeInfoDialog(W8Attribute uiIndex)
 {
     if (static_cast<unsigned int>(uiIndex) >= ATTR_COUNT) {
-        srAssertFail("uiIndex < ATTR_COUNT", STAT_INFO_DIALOGS_CPP, 204, 0);
+        Fail("uiIndex < ATTR_COUNT");
     }
     m_uiIndex = uiIndex;
     m_title_id = g_character_description_first_ids[uiIndex];
@@ -119,11 +108,10 @@ W8AttributeInfoDialog::W8AttributeInfoDialog(W8Attribute uiIndex)
     Configure();
 }
 
-// FUNCTION: WIZ8 0x005dfe40
 W8SkillInfoDialog::W8SkillInfoDialog(W8Skill skill, bool first, bool second, bool bonus)
 {
     if (static_cast<unsigned int>(skill) >= SKILL_COUNT) {
-        srAssertFail("uiIndex < SKILL_COUNT", STAT_INFO_DIALOGS_CPP, 227, 0);
+        Fail("uiIndex < SKILL_COUNT");
     }
     m_skill = skill;
     m_title_id = g_character_skill_name_ids[skill];
@@ -134,7 +122,6 @@ W8SkillInfoDialog::W8SkillInfoDialog(W8Skill skill, bool first, bool second, boo
     Configure();
 }
 
-// FUNCTION: WIZ8 0x005dffa0
 bool W8SkillInfoDialog::PopulateText()
 {
     W8StatInfoDialogBase::PopulateText();
@@ -162,11 +149,10 @@ bool W8SkillInfoDialog::PopulateText()
     return true;
 }
 
-// FUNCTION: WIZ8 0x005e0180
 W8SecondaryAttributeInfoDialog::W8SecondaryAttributeInfoDialog(unsigned int uiIndex)
 {
     if (uiIndex >= ATTR_COUNT) {
-        srAssertFail("uiIndex < ATTR_COUNT", STAT_INFO_DIALOGS_CPP, 278, 0);
+        Fail("uiIndex < ATTR_COUNT");
     }
     m_uiIndex = uiIndex;
     m_title_id = g_character_description_first_ids[16 + uiIndex];

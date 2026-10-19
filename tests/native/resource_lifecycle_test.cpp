@@ -14,7 +14,6 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "GrCycle.h"
-#include "SpellEmitterHost.h"
 #include "SpellVisual.h"
 #include "asset_paths.h"
 #include "glm/ext/matrix_float3x3.hpp"
@@ -41,7 +40,6 @@
 #include "wiz8/engine_code/World.h"
 #include "wiz8/engine_code/emitter_cycles.h"
 #include "wiz8/engine_code/emitter_resources.h"
-#include "wiz8/engine_code/game_timer.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/engine_code/stModelInstance.h"
@@ -60,6 +58,7 @@
 #include "wiz8/message_box.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_script_file.h"
+#include "wiz8/platform/game_timer.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/xstatus.h"
 
@@ -220,7 +219,7 @@ struct SpellVisualFixture {
 
     SpellVisualFixture()
     {
-        world.octree = std::make_unique<W8Octree>(nullptr, nullptr, &world);
+        world.octree = std::make_unique<W8Octree>("", nullptr, &world);
         std::filesystem::create_directory(directory.path / "assets");
         std::filesystem::create_directory(directory.path / "user");
         roots.configure({(directory.path / "assets").string(), (directory.path / "user").string()});
@@ -239,7 +238,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "Spell visual fallback and registration", "
     W8SpellVisual named, generic;
     named.mode = generic.mode = W8_SPELL_VISUAL_EXPLOSION;
     const int first_cycle = W8_SPELL_VISUAL_EXPLOSION * 7;
-    generic.host->resources.cycles[first_cycle + 1].animation = std::make_unique<W8AnimObj>();
+    generic.resources.cycles[first_cycle + 1].animation = std::make_unique<W8AnimObj>();
     RegisterGrCycle("Named", &named);
     RegisterGrCycle("Generic", &generic);
     const glm::vec3 position{11, 22, 33};
@@ -248,11 +247,11 @@ TEST_CASE_METHOD(SpellVisualFixture, "Spell visual fallback and registration", "
     for (const char* name : {"Missing", "Named"}) {
         auto* visual = SpawnSpellEffect(&position, name, 4, 17, 23);
         REQUIRE(visual);
-        REQUIRE(visual->host->pending_cycle == first_cycle + 1);
+        REQUIRE(visual->pending_cycle == first_cycle + 1);
         REQUIRE(std::string_view(visual->GetRegisteredName()) == "Generic");
         REQUIRE(visual->effect_value == 17);
         REQUIRE(visual->flags0 == 23);
-        REQUIRE(visual->host->billboard);
+        REQUIRE(visual->billboard);
         REQUIRE(visual->GetPosition() == position);
         REQUIRE(visuals.size() == 1);
         REQUIRE(visuals.front().get() == visual);
@@ -262,10 +261,10 @@ TEST_CASE_METHOD(SpellVisualFixture, "Spell visual fallback and registration", "
     REQUIRE(FindFirstGrCycleByName("Named") == &named);
 
     // A supported named cycle takes precedence over the fallback.
-    named.host->resources.cycles[first_cycle + 2].animation = std::make_unique<W8AnimObj>();
+    named.resources.cycles[first_cycle + 2].animation = std::make_unique<W8AnimObj>();
     auto* visual = SpawnSpellEffect(&position, "Named", 4, 31, 47);
     REQUIRE(visual);
-    REQUIRE(visual->host->pending_cycle == first_cycle + 2);
+    REQUIRE(visual->pending_cycle == first_cycle + 2);
     REQUIRE(std::string_view(visual->GetRegisteredName()) == "Named");
 }
 
@@ -310,8 +309,8 @@ static void CheckEmitterCloneLifetime()
 
 TEST_CASE_METHOD(SpellVisualFixture, "Emitter clones outlive their source", "[resources][spell]")
 {
-    CheckEmitterCloneLifetime<W8MissileRep>();
-    CheckEmitterCloneLifetime<W8SpellEmitterHost>();
+    CheckEmitterCloneLifetime<W8Missile>();
+    CheckEmitterCloneLifetime<W8SpellVisual>();
 }
 
 TEST_CASE_METHOD(SpellVisualFixture, "Cycle registration owns stable names and ordered borrowers",
@@ -319,7 +318,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "Cycle registration owns stable names and o
 {
     W8SpellVisual first, second, other;
     RegisterGrCycle("MixedCase", &first);
-    const char* borrowed_name = first.GetRegisteredName();
+    const std::string_view borrowed_name = first.GetRegisteredName();
     RegisterGrCycle("mixedcase", &second);
     RegisterGrCycle("AnotherName", &other);
     REQUIRE(std::string_view(borrowed_name) == "MixedCase");
@@ -330,7 +329,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "Cycle registration owns stable names and o
     REQUIRE(second.IsSoleRegisteredCycleForName());
     REQUIRE(UnregisterGrCycle(&second));
     REQUIRE(FindFirstGrCycleByName("mixedcase") == nullptr);
-    REQUIRE(first.GetRegisteredName() == nullptr);
+    REQUIRE(first.GetRegisteredName().empty());
     REQUIRE(FindFirstGrCycleByName("anothername") == &other);
 }
 
@@ -364,7 +363,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "Emitter loads publish only complete valid 
                  "[resources][spell]")
 {
     W8SpellVisual visual;
-    auto& host = *visual.host;
+    auto& host = visual;
     host.current_cycle = 2;
     host.resources.cycles[2].animation = std::make_unique<W8AnimObj>();
     auto* original = host.resources.cycles[2].animation.get();
@@ -374,7 +373,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "Emitter loads publish only complete valid 
         auto file = wiz8::open_file(wiz8::asset_path("emitter.dat"));
         W8ReadLevelInfo info{};
         info.hFile = file.get();
-        REQUIRE_FALSE(ReadEmitterCycle(host, host.resources.cycles, &info, visual, -1, false));
+        REQUIRE_FALSE(ReadEmitterCycle(visual, host.resources.cycles, &info, -1, false));
         REQUIRE(host.current_cycle == 2);
         REQUIRE(host.timer == original_timer);
         REQUIRE(host.resources.cycles[2].animation.get() == original);
@@ -386,7 +385,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "Emitter loads publish only complete valid 
         auto file = wiz8::open_file(wiz8::asset_path("emitter.dat"));
         W8ReadLevelInfo info{};
         info.hFile = file.get();
-        REQUIRE(ReadEmitterCycle(host, host.resources.cycles, &info, visual, -1, false));
+        REQUIRE(ReadEmitterCycle(visual, host.resources.cycles, &info, -1, false));
         REQUIRE(visual.m_plsLights == host.resources.cycles[2].lightView());
         REQUIRE(visual.m_plsLights->size() == 1);
     }
@@ -536,7 +535,7 @@ TEST_CASE_METHOD(SpellVisualFixture,
     published.movement.location_id = 7;
     world.octree->object_registry->RegisterObjectCell(W8_OCTREE_KIND_NAVIGATOR, 8, {0, 0, 0});
     W8World replacement;
-    replacement.octree = std::make_unique<W8Octree>(nullptr, nullptr, &replacement);
+    replacement.octree = std::make_unique<W8Octree>("", nullptr, &replacement);
     replacement.octree->object_registry = std::make_unique<W8OctreeObjectRegistry>();
     {
         W8Navigator prepared(&replacement);
@@ -564,18 +563,15 @@ TEST_CASE_METHOD(
     "[resources][levels][geometry]")
 {
     world.game_data = std::make_unique<W8GameData>(nullptr, false);
-    world.game_data->trace_flag4_gate = true;
     W8World replacement;
     replacement.game_data = std::make_unique<W8GameData>(nullptr, false);
-    replacement.octree = std::make_unique<W8Octree>(nullptr, nullptr, &replacement);
+    replacement.octree = std::make_unique<W8Octree>("", nullptr, &replacement);
     auto& spatial = replacement.octree->m_spatial;
     spatial.m_bounds.minimum = glm::vec3(0);
     spatial.m_clipped_bounds.maximum = glm::vec3(10000);
     spatial.m_node_extent = 1000;
     const auto ground = replacement.octree->settleToGround({0, 1500, 0}, false, 0);
     REQUIRE(ground.position.y == 1500);
-    REQUIRE(world.game_data->trace_flag4_gate);
-    REQUIRE_FALSE(replacement.game_data->trace_flag4_gate);
 }
 
 TEST_CASE_METHOD(SpellVisualFixture,

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "input.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/ui_layer.h"
 
 /* Local Screens\MGSFormation.cpp: the party-formation screen - a board of

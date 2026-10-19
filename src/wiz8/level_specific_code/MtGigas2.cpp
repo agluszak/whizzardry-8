@@ -5,15 +5,14 @@
 
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/world.h"
-#include "soundman.h"
 #include "surrender/srCamera.h"
+#include "wiz8/audio/sound3d.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/dice.h"
-#include "wiz8/engine_code/IntervalGate.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/stSound3D.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
@@ -25,6 +24,7 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/location_variables.h"
+#include "wiz8/platform/IntervalGate.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 
@@ -39,9 +39,7 @@ struct W8NpcState;
    at 0x004DBE70. The UmpaniAlarm master at 0x004DB860 is the same shape as
    ControlCampAlarm (0x004DC3D0) in MtGigasOuter.cpp. */
 
-// GLOBAL: WIZ8 0x006834e8
-static stSound3D* g_mt_gigas_alarm_sound;
-// GLOBAL: WIZ8 0x006834ec
+static Sound3D* g_mt_gigas_alarm_sound;
 static std::optional<W8IntervalGate> g_mt_gigas_alarm_gate;
 
 static void MtGigas2WireShock(void);
@@ -51,7 +49,6 @@ static bool MtGigas2UmpaniAlarm(int command);
    untouched reads back -1), re-runs the three wire triggers when the panel
    was already solved, restarts a saved UmpaniAlarm countdown, and moves the
    Sergeant Rubble NPC to his covert when the rubble teleport was pending. */
-// FUNCTION: WIZ8 0x004DB200
 void MtGigas2Setup(void)
 {
     if (GetLocationVarIDByName("WirePanel") != -1) {
@@ -92,7 +89,6 @@ void MtGigas2Setup(void)
 /* Activation callback on _VOC_EWAXXTRAIN: queues the wire-panel NPC notice
    with the held item, and accepts the 0x269/0x26c wire items to arm the
    panel (value 0) when it was still untouched (-1). */
-// FUNCTION: WIZ8 0x004DB380
 bool MtGigas2Train(Trigger* pTrigger)
 {
     W8NpcState* npc;
@@ -145,14 +141,12 @@ static bool advanceWirePanel(int expected, int next)
 
 /* Activation callback on redwire: the first wire moves the panel from 0 to
    1; any other order shocks the party. */
-// FUNCTION: WIZ8 0x004DB420
 bool MtGigas2RedWire(Trigger* pTrigger)
 {
     return advanceWirePanel(0, 1);
 }
 
 /* Activation callback on bluewire: valid only as the second wire (1 -> 2). */
-// FUNCTION: WIZ8 0x004DB460
 bool MtGigas2BlueWire(Trigger* pTrigger)
 {
     return advanceWirePanel(1, 2);
@@ -160,7 +154,6 @@ bool MtGigas2BlueWire(Trigger* pTrigger)
 
 /* Activation callback on yellowwire: valid only as the last wire (2 -> 3);
    on success it latches fact 0xa7 and re-arms all three wire triggers. */
-// FUNCTION: WIZ8 0x004DB4A0
 bool MtGigas2YellowWire(Trigger* pTrigger)
 {
     int value = GetLocationVarValueByName("WirePanel");
@@ -191,7 +184,6 @@ bool MtGigas2YellowWire(Trigger* pTrigger)
 /* Shared wrong-wire penalty: resets the panel and all three wire props, then
    rolls 2d4+1 electric damage into the party with the spark sound. The third
    wire prop is looked up under the misspelled name "yellowire". */
-// FUNCTION: WIZ8 0x004DB530
 static void MtGigas2WireShock(void)
 {
     Trigger* pTrigger;
@@ -228,7 +220,6 @@ static void MtGigas2WireShock(void)
 
 /* Activation callback on _VOC_EWAXXLIFT3: queues the lift NPC notice with
    the held item, if any. */
-// FUNCTION: WIZ8 0x004DB650
 bool MtGigas2Lift3(Trigger* pTrigger)
 {
     if (gXStatus.fNpcDialogueMode) {
@@ -241,7 +232,6 @@ bool MtGigas2Lift3(Trigger* pTrigger)
 
 /* Activation callback on _VOC_EWAXXTOPDOOR1: queues the top-door NPC notice
    with the held item, if any. */
-// FUNCTION: WIZ8 0x004DB690
 bool MtGigas2TopDoor1(Trigger* pTrigger)
 {
     if (gXStatus.fNpcDialogueMode) {
@@ -275,7 +265,6 @@ static bool ActivateMtGigasOfficer(int door_bit, const char* door_name, int npc_
 /* Activation callback on _VOC_EWAXXOFFICER1: while ObstacleDoors bit 0 is
    set, runs Door19 and clears the bit; otherwise queues the officer NPC
    notice with the held item. */
-// FUNCTION: WIZ8 0x004DB6D0
 bool MtGigas2Officer1(Trigger* pTrigger)
 {
     return ActivateMtGigasOfficer(1, "Door19", 0x7c);
@@ -284,7 +273,6 @@ bool MtGigas2Officer1(Trigger* pTrigger)
 /* Activation callback on _VOC_EWAXXOFFICER2: while ObstacleDoors bit 1 is
    set, runs Door18 and clears the bit; otherwise queues the officer NPC
    notice with the held item. */
-// FUNCTION: WIZ8 0x004DB770
 bool MtGigas2Officer2(Trigger* pTrigger)
 {
     return ActivateMtGigasOfficer(2, "Door18", 0x7d);
@@ -293,7 +281,6 @@ bool MtGigas2Officer2(Trigger* pTrigger)
 /* Activation callback on triggerPlaneLaserAlarm/01: once per level (fact
    0xa5 and the UmpaniAlarm variable both unset) turns the Umpani faction
    hostile and starts the intruder alarm. */
-// FUNCTION: WIZ8 0x004DB810
 bool MtGigas2LaserAlarm(Trigger* pTrigger)
 {
     g_trigger_feedback = true;
@@ -321,7 +308,6 @@ static void CaptureUmpaniAlarm(W8SavedLocationState& state)
    the intruder warning at the camera and arms the gate (clamped to 30
    seconds). Unlike ControlCampAlarm the gate and sound are only created when
    both are absent, and finishing stops the sound but keeps its node. */
-// FUNCTION: WIZ8 0x004DB860
 static bool MtGigas2UmpaniAlarm(int command)
 {
     glm::vec3 position;
@@ -356,7 +342,6 @@ static bool MtGigas2UmpaniAlarm(int command)
 }
 
 /* Activation callback on wiringMalfunction: plays the short spark sound. */
-// FUNCTION: WIZ8 0x004DBA70
 bool MtGigas2WiringMalfunction(Trigger* pTrigger)
 {
     wiz8::sound::play("Data\\Sound\\Ambients\\Electricity 04.wav");
@@ -364,7 +349,6 @@ bool MtGigas2WiringMalfunction(Trigger* pTrigger)
 }
 
 /* Activation callback on accessHatch: plays the falling-statue sound. */
-// FUNCTION: WIZ8 0x004DBA90
 bool MtGigas2AccessHatch(Trigger* pTrigger)
 {
     wiz8::sound::play("Data\\Sound\\Ambients\\Sign Falling Statue.wav");

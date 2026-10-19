@@ -32,7 +32,7 @@ public:
     stParticle(const stParticle& other); /* 0x00498180 */
     ~stParticle() override;
     void CancelAnimationCallback();
-    void SetActive(unsigned char active);
+    void SetActive(bool active);
     void SetTraversalEnabled(bool enabled);
     void DeactivateParticle(unsigned int index);
     std::optional<unsigned int> activateParticle(bool replaceWhenFull);
@@ -47,7 +47,7 @@ public:
        by the submitted batch. Their retail names remain unavailable. */
     void Update(); /* 0x00499FA0 */
     void PrepareRenderer(const glm::mat4& view); /* 0x00498DD0 */
-    unsigned char ReplaceTexture(const char* old_name, std::shared_ptr<srTexture> replacement);
+    unsigned char ReplaceTexture(std::string_view old_name, std::shared_ptr<srTexture> replacement);
     virtual void traverse(srNode::TraverseInfo& info) override; /* 0x00498C40 */
     virtual void process(const srNode::ProcessInfo& info,
                          srNode::e_processType type) override; /* 0x00498D60 */
@@ -90,17 +90,18 @@ public:
     bool finished = false;
     bool replace_when_full = false;
     bool persisted = false;
-    unsigned char emitting = 1;
+    /* The save codec writes this as the existing one-byte active selector. */
+    bool emitting = true;
     bool traversal_enabled = true;
     W8ParticleBoundsMode bounds_mode = W8_PARTICLE_BOUNDS_SPHERE;
-    int has_acceleration = 0;
+    bool has_acceleration = false;
     W8ParticleExpiryMode expiry_mode = W8_PARTICLE_EXPIRY_TIMED;
     W8ParticleEmissionMode emission_mode = W8_PARTICLE_EMISSION_NONE;
-    int los_check_enabled = 0;
+    bool los_check_enabled = false;
     W8ParticleDirectionMode direction_mode = W8_PARTICLE_DIRECTION_CONE;
     W8ParticleSpeedMode speed_mode = W8_PARTICLE_SPEED_RANDOM;
     W8ParticleFlutterMode flutter_mode = W8_PARTICLE_FLUTTER_NONE;
-    int camera_relative = 0;
+    bool camera_relative = false;
     /* Emission interval; elapsed comparisons use unsigned subtraction. */
     unsigned int emission_interval = 50;
     /* Lifetime added to each absolute unsigned birth tick. */

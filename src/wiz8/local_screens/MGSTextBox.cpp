@@ -18,20 +18,16 @@
 #include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
 
-#include "Font.h"
 #include "compat/compiler.h"
 #include "compat/native.h"
-#include "game_timer.h"
-#include "himage.h"
-#include "image.h"
-#include "input.h"
 #include "layouts/character.h"
 #include "layouts/main_game_screen.h"
 #include "local_code/MonsterManager.h"
 #include "local_code/RangeControl.h"
-#include "random.h"
 #include "surrender/srDebug.h"
-#include "timer.h"
+#include "wiz8/canvas/Font.h"
+#include "wiz8/canvas/himage.h"
+#include "wiz8/canvas/image.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/checked_integer.h"
 #include "wiz8/chunk.h"
@@ -56,14 +52,15 @@
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/modal_content.h"
+#include "wiz8/platform/game_timer.h"
+#include "wiz8/platform/input.h"
+#include "wiz8/platform/random.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/unicode.h"
 #include "wiz8/xstatus.h"
 
-// GLOBAL: WIZ8 0x0068f2d4
 std::unique_ptr<W8MainGameScreen> g_main_game_screen;
-
-#define MGS_TEXT_BOX_CPP __FILE__
 
 namespace {
 struct MessageBoxInput {
@@ -119,7 +116,6 @@ static_assert(sizeof(w8_ulong) == 4, "W8MessageStorageDiskRecord_requires_32_bit
 static W8TextBoxMode g_text_box_mode;
 // GLOBAL: WIZ8 0x0069b7bc
 int g_notice_line_count;
-// GLOBAL: WIZ8 0x0064bd54
 static int g_text_box_value = W8_FONT_PALETTE_BEIGE;
 /* The screen the text box belongs to; its two panels sit at 0x0c
    and 0x14. */
@@ -128,7 +124,6 @@ static int g_text_box_value = W8_FONT_PALETTE_BEIGE;
    return each record to its all-zero initial state.  The retail body walks
    the same record boundary twice: 0x15e records per run and four runs up to
    the next global at 0x0069B7D0. */
-// GLOBAL: WIZ8 0x0068f2d8
 W8MessageStorageRecord g_message_storage[4][0x15e];
 
 static void AppendNoticeLine(unsigned char font_palette, std::string_view text, short text_box,
@@ -347,7 +342,7 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view, short tex
                                g_current_screen_state.id == W8_SCREEN_PLEASE_WAIT ||
                                g_current_screen_state.id == W8_SCREEN_CHARACTER)) {
         if (font_palette >= W8_FONT_PALETTE_COUNT) {
-            srAssertFail("uiFontPaletteIndex <= FONT_PALETTE_COUNT", MGS_TEXT_BOX_CPP, 0x15c, 0);
+            Fail("uiFontPaletteIndex <= FONT_PALETTE_COUNT");
         }
         if (wrap_width == W8_NOTICE_WRAP_AUTOMATIC) {
             wrap_width = g_level_block->text_box_right - g_level_block->text_box_left - 10;
@@ -600,14 +595,14 @@ void HighlightTextBoxRange(unsigned char color, std::size_t start, std::size_t s
     W8MessageStorageRecord* previous;
 
     if (!(stop >= start)) {
-        srAssertFail("ubStopChar >= ubStartChar", MGS_TEXT_BOX_CPP, 0x247, 0);
+        Fail("ubStopChar >= ubStartChar");
     }
     if (g_current_screen_state.id != W8_SCREEN_MAIN_GAME) {
         return;
     }
     text_box = ResolveNoticeTextBox(text_box);
     if (!(g_status.text_box_lines_used[text_box] > 0)) {
-        srAssertFail("gStatus.uiTextBoxLinesUsed[iTextBuffer] > 0", MGS_TEXT_BOX_CPP, 0x261, 0);
+        Fail("gStatus.uiTextBoxLinesUsed[iTextBuffer] > 0");
     }
     line = &g_message_storage[text_box][g_status.text_box_lines_used[text_box] - 1];
     if (g_level_block->text_lines[8 + text_box] == static_cast<unsigned int>(-1)) {
@@ -620,7 +615,7 @@ void HighlightTextBoxRange(unsigned char color, std::size_t start, std::size_t s
         return;
     }
     if (!(g_status.text_box_lines_used[text_box] >= 2)) {
-        srAssertFail("gStatus.uiTextBoxLinesUsed[iTextBuffer] >= 2", MGS_TEXT_BOX_CPP, 0x277, 0);
+        Fail("gStatus.uiTextBoxLinesUsed[iTextBuffer] >= 2");
     }
     previous = &g_message_storage[text_box][g_status.text_box_lines_used[text_box] - 2];
     if (start >= g_level_block->text_lines[8 + text_box]) {
@@ -657,7 +652,7 @@ void AppendToLastTextLine(std::string_view text, short text_box)
     text_box = ResolveNoticeTextBox(text_box);
     w8_unaligned_uint* lines_used = &g_status.text_box_lines_used[text_box];
     if (!(*lines_used > 0)) {
-        srAssertFail("gStatus.uiTextBoxLinesUsed[iTextBuffer] > 0", MGS_TEXT_BOX_CPP, 0xf92, 0);
+        Fail("gStatus.uiTextBoxLinesUsed[iTextBuffer] > 0");
     }
     W8MessageStorageRecord* line = &g_message_storage[text_box][*lines_used - 1];
     const auto merged = fmt::format("{}{}", line->text, text);
@@ -670,8 +665,7 @@ void AppendToLastTextLine(std::string_view text, short text_box)
     line->entries.clear();
     if (g_status.text_box_lines_shown[text_box] == *lines_used) {
         if (!(g_status.text_box_lines_shown[text_box] > 0)) {
-            srAssertFail("gStatus.uiTextBoxLinesShown[iTextBuffer] > 0", MGS_TEXT_BOX_CPP, 0xfa9,
-                         0);
+            Fail("gStatus.uiTextBoxLinesShown[iTextBuffer] > 0");
         }
         --g_status.text_box_lines_shown[text_box];
     }
@@ -742,8 +736,7 @@ void AdvanceNoticeLine(short text_box)
         text_box = g_status.text_line_cursor;
     }
     if (g_status.text_box_lines_shown[text_box] >= 350) {
-        srAssertFail("gStatus.uiTextBoxLinesShown[iTextBuffer] < MAX_TEXT_BOX_LINES",
-                     MGS_TEXT_BOX_CPP, 0x2a5, 0);
+        Fail("gStatus.uiTextBoxLinesShown[iTextBuffer] < MAX_TEXT_BOX_LINES");
     }
     W8MessageStorageRecord* record =
         &g_message_storage[text_box][g_status.text_box_lines_shown[text_box]];
@@ -1146,11 +1139,13 @@ void RedrawTextBoxScrollChrome(void)
             CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 1,
                                                g_level_block->text_box_right + 5, 0x16b);
             break;
-        case -1:
+        case kTextBoxArrowNone:
         case kUpArrowDisabled:
             CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 3,
                                                g_level_block->text_box_right + 5, 0x16b);
-            g_level_block->text_content_region = -1;
+            g_level_block->text_content_region = kTextBoxArrowNone;
+            break;
+        default:
             break;
         }
 
@@ -1173,11 +1168,13 @@ void RedrawTextBoxScrollChrome(void)
             CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 9,
                                                g_level_block->text_box_right + 5, 0x1ad);
             break;
-        case -1:
+        case kTextBoxArrowNone:
         case kDownArrowDisabled:
             CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 0xb,
                                                g_level_block->text_box_right + 5, 0x1ad);
-            g_level_block->dialogue_content_region = -1;
+            g_level_block->dialogue_content_region = kTextBoxArrowNone;
+            break;
+        default:
             break;
         }
 
@@ -1459,7 +1456,7 @@ void PostMonsterNotice(W8MonsterInfo* monster_info, std::string_view text)
 /* Re-show the last wrapped entry of `mode`'s message run as a notice line;
    0xffff derives the mode from the live dialogue/camp/combat state. Retail
    only fills `merged` when the run index range is non-empty, so a failing
-   (but returning) srAssertFail left it uninitialized at ShowNoticeLine; the recovery keeps that
+   (but returning) Fail left it uninitialized at ShowNoticeLine; the recovery keeps that
    read. */
 void RefreshTextBoxMode(unsigned short mode)
 {
@@ -1488,12 +1485,12 @@ void RefreshTextBoxMode(unsigned short mode)
     }
     int text_box = static_cast<short>(mode);
     if (g_status.text_box_lines_used[text_box] == 0) {
-        srAssertFail("gStatus.uiTextBoxLinesUsed[iTextBuffer] > 0", MGS_TEXT_BOX_CPP, 0x109e, 0);
+        Fail("gStatus.uiTextBoxLinesUsed[iTextBuffer] > 0");
     }
     last_line = g_status.text_box_lines_used[text_box] - 1;
     group_lines = g_message_storage[text_box][last_line].link;
     if (last_line < group_lines) {
-        srAssertFail("uiLastLineIndex >= uiGroupLine", MGS_TEXT_BOX_CPP, 0x10a6, 0);
+        Fail("uiLastLineIndex >= uiGroupLine");
     }
     first_line = last_line - group_lines;
     line = &g_message_storage[text_box][first_line];

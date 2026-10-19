@@ -22,7 +22,6 @@ std::string path_to_utf8(const std::filesystem::path& path);
 
 enum class OpenMode { read, update, replace, append };
 enum class SeekOrigin { begin, current, end };
-enum class CopyMode { fail_if_exists, replace };
 
 struct ReadResult {
     std::size_t bytes;
@@ -88,14 +87,13 @@ std::optional<FileStatus> file_status(const std::filesystem::path& path);
 bool remove_file(const std::filesystem::path& path);
 void create_directory(const std::filesystem::path& path);
 void clear_read_only(const std::filesystem::path& path);
-// Basenames; ASCII case-insensitive * / ? matching. Missing directories throw.
+// Basenames; SDL case-insensitive * / ? matching. Missing directories throw.
 std::vector<std::string> list_directory(const std::filesystem::path& directory,
                                         std::string_view pattern = "*");
 
-// Streams opened for a copy are closed before destination replacement. Callers
-// must close independently owned destination streams themselves (also Windows).
-void copy_file(const std::filesystem::path& source, const std::filesystem::path& destination,
-               CopyMode mode = CopyMode::fail_if_exists);
+// Stage a writable copy before replacing the destination. Callers must close
+// independently owned destination streams themselves (also Windows).
+void copy_file(const std::filesystem::path& source, const std::filesystem::path& destination);
 // Owns a same-filesystem staging file. commit flushes and closes every shared
 // stream reference before publication; abandonment removes the temporary file.
 class StagedFile {

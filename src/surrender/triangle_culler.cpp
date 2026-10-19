@@ -19,7 +19,6 @@
 #include "surrender/srTriangleCuller.h"
 #include "surrender/triangle_selection.h"
 
-// FUNCTION: SURRENDER 0x10029740
 glm::vec4 srTriangleCuller::transformClipPlane(const glm::vec4& plane,
                                                const glm::mat4& plane_matrix)
 {
@@ -61,7 +60,6 @@ static ClipFlagsResult SetClipFlags(std::span<w8_ulong> flags, const srTriangleC
     return {shared == 0, clipped};
 }
 
-// FUNCTION: SURRENDER 0x10029FC0
 srTriangleCuller::ClipMask srTriangleCuller::getClipMask(const glm::vec3& center, float radius,
                                                          std::span<const glm::vec4> planes,
                                                          w8_ulong mask)
@@ -86,7 +84,6 @@ srTriangleCuller::ClipMask srTriangleCuller::getClipMask(const glm::vec3& center
     return {clip, 1 - visible};
 }
 
-// FUNCTION: SURRENDER 0x1002A720
 srTriangleCuller::Output srTriangleCuller::cull(const Input& input)
 {
     if (input.triangles.empty() || (input.active_triangles && input.active_triangles->empty()))
@@ -141,7 +138,6 @@ srTriangleCuller::Output srTriangleCuller::cull(const Input& input)
     return output;
 }
 
-// FUNCTION: SURRENDER 0x10068DE0
 SRDWORD srRender::collectOutside(std::span<SRDWORD> destination, const glm::vec4& constant,
                                  std::span<const glm::vec4> vectors)
 {

@@ -20,8 +20,8 @@
 #include <SDL3/SDL_timer.h>
 #include <SDL3_mixer/SDL_mixer.h>
 #include <catch2/catch_test_macros.hpp>
+#include <wiz8/audio/native_audio.h>
 #include <wiz8/filesystem.h>
-#include <wiz8/native_audio.h>
 
 #include "asset_paths.h"
 #include "prepared_assets.h"
@@ -31,21 +31,21 @@
 #include <glm/ext/vector_float3.hpp>
 
 #include "catch2/catch_message.hpp"
-#include "input.h"
-#include "native/audio_test.h"
-#include "native/movie_audio.h"
 #include "scoped_asset_roots.h"
 #include "slf.h"
-#include "soundman.h"
 #include "temporary_directory.h"
+#include "wiz8/audio/AmbientSound.h"
+#include "wiz8/audio/audio_test.h"
+#include "wiz8/audio/movie_audio.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/audio_resources.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
-#include "wiz8/engine_code/AmbientSound.h"
 #include "wiz8/layouts/world.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/CombatSound.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 

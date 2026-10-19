@@ -5,7 +5,7 @@
 
 #include <SDL3/SDL_surface.h>
 
-#include "Font.h"
+#include "wiz8/canvas/Font.h"
 #include "wiz8/local_code/ControlsRect.h"
 
 extern char g_W8TextSeparator[];
@@ -18,7 +18,6 @@ extern const unsigned int g_W8TextBufferAlignTop;
 extern const unsigned int g_W8TextBufferAlignBottom;
 extern const unsigned int g_W8TextBufferNoWrap;
 
-// VTABLE: WIZ8 0x005ed5b8
 class W8TextBuffer {
 public:
     friend class W8DialogTextArea;

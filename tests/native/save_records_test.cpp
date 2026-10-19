@@ -1,6 +1,7 @@
 #include <limits>
 
 #include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_time.h>
 #include <catch2/catch_test_macros.hpp>
 
 #include "asset_paths.h"
@@ -57,19 +58,17 @@
 #include "file_faults.h"
 #include "scoped_asset_roots.h"
 #include "temporary_directory.h"
+#include "wiz8/audio/SoundEvent.h"
 #include "wiz8/chunk.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/AniMesh.h"
 #include "wiz8/engine_code/AnimObj.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/GrObject.h"
-#include "wiz8/engine_code/IntervalGate.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Missile.h"
 #include "wiz8/engine_code/PathAI.h"
 #include "wiz8/engine_code/ReadLevel.h"
-#include "wiz8/engine_code/SoundEvent.h"
 #include "wiz8/engine_code/stScript.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
@@ -81,6 +80,7 @@
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/npc_script_file.h"
+#include "wiz8/platform/IntervalGate.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/xstatus.h"
 
@@ -641,9 +641,9 @@ static void animated_mesh_cache_contracts()
 
 static void graphical_object_ownership_contracts()
 {
-    W8GrObject original;
+    W8Missile original;
     original.m_pAI = std::make_unique<W8PathAI>();
-    PathAIAddPoint(*static_cast<W8PathAI*>(original.m_pAI.get()), glm::vec3(1, 2, 3));
+    PathAIAddPoint(*original.m_pAI, glm::vec3(1, 2, 3));
     auto event = std::make_unique<W8SoundEvent>(W8_SOUND_EVENT_FRAME, 1, 2, 3, "step.wav", true);
     auto* first = event.get();
     original.AddSoundEvent(std::move(event));
@@ -652,9 +652,9 @@ static void graphical_object_ownership_contracts()
             std::make_unique<W8SoundEvent>(W8_SOUND_EVENT_CYCLE, i, 0, 0, "other.wav", false));
     }
     REQUIRE((original.sound_events.front().get() == first));
-    W8GrObject copy(original);
+    W8Missile copy(original);
     REQUIRE((copy.m_pAI != original.m_pAI));
-    REQUIRE((static_cast<W8PathAI*>(copy.m_pAI.get())->nodes[0].y == 2));
+    REQUIRE((copy.m_pAI->nodes[0].y == 2));
     REQUIRE((copy.sound_events.size() == original.sound_events.size()));
     REQUIRE((copy.sound_events.front().get() != first));
     REQUIRE((copy.sound_events.front()->wave_name == "step.wav"));
@@ -662,13 +662,12 @@ static void graphical_object_ownership_contracts()
              copy.sound_events.front()->sound_handle == nullptr));
     original.sound_events.clear();
     REQUIRE((copy.sound_events.front()->wave_name == "step.wav"));
-    W8GrObject missile;
+    W8Missile missile;
     auto* ai = new W8AIMissile{};
-    REQUIRE((ai->kind == W8_AI_RECORD_MISSILE));
     ai->speed_per_step = 5;
-    missile.m_pAI.reset(ai);
-    W8GrObject missile_copy(missile);
-    auto* cloned = static_cast<W8AIMissile*>(missile_copy.m_pAI.get());
+    missile.flight_ai.reset(ai);
+    W8Missile missile_copy(missile);
+    auto* cloned = missile_copy.flight_ai.get();
     REQUIRE((cloned != ai && cloned->speed_per_step == 5 && !cloned->missile));
 }
 
@@ -888,15 +887,11 @@ static void save_file_contracts(const std::filesystem::path& user)
     using namespace std::chrono;
     const auto epoch = wiz8::file_time_from_sdl(0);
     REQUIRE(epoch.ticks() == 116444736000000000ULL);
-    const auto utc = wiz8::file_time_to_utc(epoch);
-    REQUIRE((utc.year == 1970 && utc.month == 1 && utc.day == 1));
     REQUIRE(wiz8::file_time_from_sdl(-1).ticks() == epoch.ticks() - 1);
     REQUIRE(wiz8::file_time_with_legacy_local_bias(epoch, 19800).ticks() ==
             epoch.ticks() + 19800ULL * 10000000);
     REQUIRE(wiz8::file_time_with_legacy_local_bias(epoch, -18000).ticks() ==
             epoch.ticks() - 18000ULL * 10000000);
-    REQUIRE(wiz8::file_time_to_utc(wiz8::file_time_with_legacy_local_bias(epoch, -18000)).year ==
-            1969);
     REQUIRE(wiz8::file_time_with_legacy_local_bias({}, -1).ticks() == UINT64_MAX - 9999999);
 
     const auto path = wiz8::user_path("saves/timestamp.SAV");
@@ -943,33 +938,47 @@ static void save_file_contracts(const std::filesystem::path& user)
     const unsigned epoch_masked[] = {epoch.low ^ masks[0], epoch.high ^ masks[1]};
     REQUIRE((epoch_masked[0] == 0xbe1a69f0u && epoch_masked[1] == 0xe6e1991fu));
 
-    const auto now = std::filesystem::file_time_type::clock::now();
+    W8Character characters[8]{};
+    W8PartySlotRow rows[8]{};
+    W8GlobalStatus status{};
+    status.buffers.Char = characters;
+    status.buffers.XChar = rows;
+    for (auto& position : status.formation.positions) {
+        position.bQuadrant = -1;
+        position.bQuadrantSlot = -1;
+    }
+    const auto now = std::filesystem::file_time_type::clock::from_sys(
+        sys_days{year{2024} / January / 15} + hours{12});
     for (int slot = 1; slot <= 3; ++slot) {
         const auto name = "Quick " + std::to_string(slot) + ".SAV";
-        std::ofstream save(user / "saves" / name, std::ios::binary);
-        write(save, slot);
-        save.close();
+        W8Chunk save;
+        REQUIRE(save.OpenWrite(user / "saves" / name));
+        SaveGlobalStatus(&save, &status);
+        save.Close();
         std::filesystem::last_write_time(user / "saves" / name, now - hours(slot == 1   ? 0
                                                                             : slot == 2 ? 4
                                                                                         : 2));
     }
     REQUIRE(SelectQuickSaveSlotForWrite() == "Quick 2");
     REQUIRE(FindStartupQuickSave() == "Quick 1");
+    std::vector<std::unique_ptr<W8SaveSlot>> slots;
+    REQUIRE(EnumerateSaveSlots(slots));
+    REQUIRE(slots.size() == 3); // The unrelated invalid timestamp.SAV is excluded.
+    REQUIRE(slots[0]->name == "Quick 1");
+    REQUIRE(slots[1]->name == "Quick 3");
+    REQUIRE(slots[2]->name == "Quick 2");
+    for (const auto& slot : slots) {
+        const auto metadata = wiz8::file_status(user / "saves" / (slot->name + ".SAV"));
+        REQUIRE(metadata);
+        REQUIRE(slot->write_time == metadata->info.modify_time);
+        SDL_DateTime local{};
+        REQUIRE(SDL_TimeToDateTime(slot->write_time, &local, true));
+        REQUIRE(slot->timestamp.year == local.year);
+        REQUIRE(slot->timestamp.day == local.day);
+        REQUIRE(slot->timestamp.hour == local.hour);
+        REQUIRE(slot->timestamp.utc_offset == local.utc_offset);
+    }
     char oldest[] = "saves\\Quick 2.SAV", newest[] = "saves\\Quick 1.SAV";
-    const auto oldest_status = wiz8::file_status(wiz8::user_path(oldest)),
-               newest_status = wiz8::file_status(wiz8::user_path(newest));
-    REQUIRE((oldest_status && newest_status));
-    const auto oldest_time =
-        wiz8::file_time_from_sdl(oldest_status.value().info.modify_time).ticks();
-    const auto newest_time =
-        wiz8::file_time_from_sdl(newest_status.value().info.modify_time).ticks();
-    REQUIRE((oldest_time < newest_time && (newest_time - oldest_time) / 10000000 >= 3600));
-    REQUIRE(!(newest_time < oldest_time));
-    REQUIRE((newest_time - oldest_time) / 10000000 < 20000);
-    wiz8::DiskFileTime high{0, 2}, low{UINT32_MAX, 1};
-    REQUIRE(high.ticks() > low.ticks());
-    const wiz8::DiskFileTime same_low{UINT32_MAX, 1};
-    REQUIRE((low.ticks() < high.ticks() && low.ticks() == same_low.ticks()));
     REQUIRE(wiz8::remove_file(wiz8::user_path(oldest)));
     REQUIRE(SelectQuickSaveSlotForWrite() == "Quick 2");
     REQUIRE(wiz8::remove_file(wiz8::user_path(newest)));

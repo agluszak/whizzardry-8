@@ -50,6 +50,19 @@ struct W8GameData;
 struct W8NavigatorMovementState;
 
 // Native segment state; disk geometry retains its explicit record types.
+// The keys one trace or query collects, and the sets that keep each key to a
+// single entry. Each query owns one, so no query sees another's leftovers.
+struct OctreeScratch {
+    OctreeScratch(std::size_t polygon_bits, std::size_t object_bits)
+        : keys(10000), visited_polygons(polygon_bits, false), visited_objects(object_bits, false)
+    {
+    }
+    std::vector<w8_ulong> keys;
+    w8_ulong count = 0;
+    std::vector<bool> visited_polygons;
+    std::vector<bool> visited_objects;
+};
+
 struct W8OctreeTrace {
     glm::vec3 start{0};
     glm::vec3 end{0};
@@ -57,6 +70,8 @@ struct W8OctreeTrace {
     float hit_limit = 1.0e20f;
     float length = 0;
     unsigned short state = 0;
+    // Surface the last ray test accepted; reset() leaves it for the caller to read.
+    int hit_surface = 0;
 
     W8OctreeTrace() = default;
     W8OctreeTrace(const glm::vec3& from, const glm::vec3& to);
@@ -172,7 +187,8 @@ class W8Octree {
 public:
     float max_navigation_radius = 500.0f;
     W8World* const owner_world;
-    W8Octree(const char* path, std::unique_ptr<W8GameData>* game_data, W8World* owner = nullptr);
+    W8Octree(std::string_view path, std::unique_ptr<W8GameData>* game_data,
+             W8World* owner = nullptr);
     /* Preprocessing calls retain this receiver even when a body uses only
        global build state. */
     void Reset();
@@ -208,8 +224,9 @@ public:
        monster's navigator radius) and collidable-prop surfaces. */
     unsigned char TestBoxOccupied(const glm::vec3* lower, const glm::vec3* upper); /* 0x0042EF30 */
     /* Append the objects of `kind` inside one cell to the shared query
-       buffer; the registry path deduplicates through m_visited_object_bits. */
-    unsigned int CollectObjectsInCell(const glm::ivec3& cell, unsigned short kind); /* 0x0042F400 */
+       buffer; the registry path deduplicates through the scratch object set. */
+    unsigned int CollectObjectsInCell(const glm::ivec3& cell, unsigned short kind,
+                                      OctreeScratch& scratch); /* 0x0042F400 */
     /* Bounds-checked cell -> leaf index: the direct leaf grid when present,
        else a masked descent through the branch tree. */
     unsigned int LeafIndexForCell(const glm::ivec3& cell); /* 0x00433730 */
@@ -228,15 +245,15 @@ public:
                            int trace_mode);
     W8OctreeWalk cellWalk(const glm::vec3& from, const glm::vec3& to) const;
     /* Reset the shared buffer and collect one cell's leaf object ids. */
-    int ProbeCellForTrace(const glm::ivec3& cell); /* 0x00435B00 */
+    int ProbeCellForTrace(const glm::ivec3& cell, OctreeScratch& scratch); /* 0x00435B00 */
     /* Reset vs append variants collecting one cell's leaf polygon references
        (mapped through m_aulPolyLookup into (mesh<<16)|polygon keys). */
-    int ProbeCellForBlockers(const glm::ivec3& cell); /* 0x00435C40 */
-    void AppendBlockerStream(const w8_ulong* stream);
-    int ProbeCellForBlockersAppend(const glm::ivec3& cell); /* 0x00435DA0 */
+    int ProbeCellForBlockers(const glm::ivec3& cell, OctreeScratch& scratch); /* 0x00435C40 */
+    void AppendBlockerStream(const w8_ulong* stream, OctreeScratch& scratch);
+    int ProbeCellForBlockersAppend(const glm::ivec3& cell, OctreeScratch& scratch); /* 0x00435DA0 */
     /* Test every buffered (mesh<<16)|polygon key's triangle against the trace
        ray; on a closer hit, end returns the contact point. */
-    unsigned char TestProbeResult(W8OctreeTrace* trace); /* 0x00435F00 */
+    unsigned char TestProbeResult(W8OctreeTrace* trace, OctreeScratch& scratch); /* 0x00435F00 */
     struct PropTraceHit {
         glm::vec3 position;
         int prop_id;
@@ -292,32 +309,13 @@ public:
     void UpdateVisibility();
     /* Store `path` with its extension stripped into m_path_stem; the sibling
        data files are then derived from the stem. */
-    bool SetPathStem(const char* path); /* 0x0042CF90 */
-    bool SavePoints(const char* path);
-    bool LoadPointFiles(const char* level_name);
-    bool ReadRegionLinkFile(const char* level_name);
-    /* Region containing `point` (1-based index into the volume array), else
-       the packed auto-region key (level<<24)|cell. */
-    unsigned int RegionKeyForPoint(const glm::vec3& point); /* 0x00432720 */
-    /* Link `region_key` to every mesh marked in m_projected_regions,
-       inserting unseen (region, mesh) pairs into m_region_links. */
-    void RecordRegionMeshLinks(unsigned int region_key); /* 0x004327F0 */
-    /* Sweep the camera around `point`, mark cells whose meshes still draw
-       into m_projected_regions and return `point`'s region key (zero when
-       nothing linked). */
-    unsigned int SampleRegionLinks(const glm::vec3& point, bool descend, bool clear_sets,
-                                   unsigned int region_key); /* 0x00431E10 */
-    /* Rebuild the region-link table by camera-sampling the region grid;
-       `rebuild_all` sweeps every cell and discards the saved point list, a
-       zero value samples a sparse checkerboard plus the stored points. */
-    void BuildRegionLinks(bool rebuild_all); /* 0x004314C0 */
-    bool SaveRegionLinks(const char* path);
-    unsigned char ValidateRegionMeshLinks();
+    bool SetPathStem(std::string_view path);
+    bool LoadPointFiles(std::string_view level_name);
+    bool ReadRegionLinkFile(std::string_view level_name);
     /* Collect the live (mesh<<16)|polygon keys whose triangles overlap the
        (x±radius, y-height..y, z±radius) box, sorted in an owned result. */
     std::vector<w8_ulong> polygonsNearPoint(const glm::vec3& center, float radius,
                                             float height); /* 0x00438780 */
-    int CountBadRegionMeshLinks(W8OctSpatialState* spatial);
     void MarkMeshLinksVisible(unsigned int mesh);
     /* Collect the model instances whose bounds reach within `radius` of
        `point`, through the region cells and volumes the sphere touches. */
@@ -370,16 +368,12 @@ public:
     std::vector<bool> m_visible_props;
     std::vector<W8Prop*> m_props;
     std::vector<stParticle*> m_particles;
-    /* Registered prop id the last prop trace or test_props snap hit; -1 when
-       the ground resolve touched only static geometry. */
-    int current_prop;
     w8_ulong m_gd_surface_stream_len;
     w8_ulong m_trigger_count;
     std::vector<w8_ulong> m_gd_surface_index_stream;
     /* Trigger list: serialized as 2-byte elements (ReadOctFile allocates
        count * 2 + 4) even though WriteOctFile emits them four bytes wide. */
     std::vector<unsigned short> m_trigger_indices;
-    w8_ulong m_trace_skip_flag;
     w8_ulong m_region_list_len;
     /* The leaf-level mask: VerifyPolygonRegions rebuilds it as
        (1 << m_leaf_level) - 1 and the packed-cell writers emit it as the top
@@ -407,15 +401,14 @@ public:
     w8_ulong m_ulNumProps;
     /* Retail m_pPropSunBits, named by ReadOctFile's assertion at 0x0042CAA4. */
     std::vector<bool> m_sunlit_props; /* empty when the level has none */
-    std::vector<bool> m_visited_polygon_bits;
-    std::vector<bool> m_visited_object_bits;
+    /* Sizes of the per-query dedupe sets; fixed once the level is loaded. */
+    std::size_t m_polygon_bit_count = 0;
+    std::size_t m_object_bit_count = 0;
     std::vector<bool> m_accumulated_regions;
     w8_ulong m_root_mesh_count;
     w8_ulong m_kind1_submesh_count;
     w8_ulong m_alpha_polygon_count;
     w8_ulong m_meshCount;
-    w8_ulong m_gd_result_count;
-    std::array<w8_ulong, 10000> m_aulGDObjs;
     W8OctreeView view;
     bool m_visibility_suspended;
     /* The build's directional-sun count: the driver stores the light total
@@ -430,14 +423,7 @@ bool IsNavigatorAtTarget(W8NavigatorMovementState* movement);
 
 extern const float g_octree_cell_scale;
 extern int g_prop_sun_index;
-/* Renderer switches the region-link build toggles: suppress baked vertex
-   lighting, force front-face culling and strip textures while sampling. */
-extern bool g_render_unlit;
-extern bool g_render_cull_front;
-/* Inverted-depth / alternate pass-compare mode; renderTriMesh forces GEQUAL
-   and the frame clear path uses a zero clear-depth while this is set. */
-extern bool g_render_untextured;
 
-int CheckLevelAssetSet(const char* level_path);
+int CheckLevelAssetSet(std::string_view level_path);
 
 w8_ulong* PackColourToLong(w8_ulong* color, double alpha, double red, double green, double blue);
