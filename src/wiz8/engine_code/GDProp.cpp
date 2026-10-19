@@ -155,7 +155,7 @@ void GDProp::Initialize(W8PathingService* pathing, srModelInstance* instance, bo
         W8TriggerActionData* action = owner->m_pActionData.get();
         if (action != 0 && action->type == W8_TRIGGER_PAYLOAD_DOOR) {
             unsigned int flags = W8_PATH_CELL_DOOR;
-            if ((owner->lock_state.lock_type != 0 &&
+            if ((owner->lock_state.lock_type != W8LockType::none &&
                  owner->lock_state.device_state.completed == 0) ||
                 ((owner->flags & W8_TRIGGER_ENABLED) == 0 ||
                  static_cast<W8DoorTriggerActionData*>(action)->open ||
@@ -185,7 +185,7 @@ void GDProp::BindTrigger(Trigger* owner, W8PathingService* pathing)
     if (action != 0 && action->type == W8_TRIGGER_PAYLOAD_DOOR) {
         if (action != 0) {
             unsigned int path_flags = W8_PATH_CELL_DOOR;
-            if ((owner->lock_state.lock_type == 0 ||
+            if ((owner->lock_state.lock_type == W8LockType::none ||
                  owner->lock_state.device_state.completed != 0) &&
                 (owner->flags & W8_TRIGGER_ENABLED) != 0 &&
                 !static_cast<W8DoorTriggerActionData*>(action)->open &&

@@ -148,14 +148,16 @@ struct W8TriggerDeviceState {
     unsigned char pins[8];
 };
 
-/* The locks & traps device record embedded at the tail of Trigger. `lock_type` is the editor "Type" (0 none,
-   1 pickable lock, 2 trap, 3 key lock); `difficulty` is the editor "Difficulty"
+enum class W8LockType : int { none = 0, pickable_lock = 1, trap = 2, key_lock = 3 };
+
+/* The locks & traps device record embedded at the tail of Trigger. `lock_type` is the editor "Type" (none,
+   pickable lock, trap, or key lock); `difficulty` is the editor "Difficulty"
    grade — it doubles as the pickable lock's pin budget; `device_id` indexes
    the tumbler/trap tables (-1 = roll on first use); `lock_countdown` ticks the
    pick interaction (pins remaining, difficulty * 3); `last_interaction_clock`
    is the world clock of the last attempt (-1 = never). */
 struct W8LockState {
-    /* Re-rolls the eight pin bytes of a pickable lock (lock_type == 1) and
+    /* Re-rolls the eight pin bytes of a pickable lock and
        resets its difficulty-derived countdown and interaction state. */
     void Reset(); /* 0x00445730 */
     void ReadRuntimeRecord(W8Chunk& handle, int version, int restoring);
@@ -163,7 +165,7 @@ struct W8LockState {
        remained to spend. */
     bool ConsumeCountdown(); /* 0x004457A0 */
 
-    int lock_type;
+    W8LockType lock_type;
     int difficulty;
     W8TriggerDeviceState device_state;
     unsigned char unknown_011[3];
@@ -173,11 +175,19 @@ struct W8LockState {
     int last_interaction_clock;
 };
 
-enum W8TriggerRepresentationKind {
+enum W8TriggerRepresentationKind : unsigned char {
     W8_TRIGGER_REP_NONE = 0,
     W8_TRIGGER_REP_ITEM = 1,
     W8_TRIGGER_REP_PROP = 2,
     W8_TRIGGER_REP_POSITION = 3
+};
+
+enum class W8TriggerKind : int { none = 0, item = 1, prop = 2 };
+enum class W8TriggerStateModificationMode : unsigned char {
+    none = 0,
+    set = 1,
+    clear = 2,
+    toggle = 3
 };
 
 class Trigger : public srClass {
@@ -225,7 +235,7 @@ public:
     void RunDestination(const char* destination);
     void Run(int source);
 
-    int trigger_kind;
+    W8TriggerKind trigger_kind;
     char name[0x80];
     int trigger_id;
     /* W8TriggerFlag bits with established producer/consumer semantics. The
@@ -239,7 +249,7 @@ public:
     unsigned char state_index;
     unsigned char state_direction;
     unsigned char cycle_bounce;
-    unsigned char state_mod_mode;
+    W8TriggerStateModificationMode state_mod_mode;
     unsigned char unknown_0b5[3];
     int surface_id;
     int m_lData1;
@@ -250,7 +260,7 @@ public:
     glm::vec3 representation_vectors[4];
     float angle;
     glm::vec3 direction;
-    unsigned char m_bRepType;
+    W8TriggerRepresentationKind m_bRepType;
     unsigned char unknown_10d[3];
     W8Prop* m_pProp;
     W8Item* rep_item;

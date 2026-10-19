@@ -802,7 +802,8 @@ bool W8Prop::CanBeUsedFrom(int path_x, int path_z, bool notify)
     if (action == 0 || action->type != W8_TRIGGER_PAYLOAD_DOOR) {
         action = 0;
     }
-    if ((owner->lock_state.lock_type != 0 && owner->lock_state.device_state.completed == 0) ||
+    if ((owner->lock_state.lock_type != W8LockType::none &&
+         owner->lock_state.device_state.completed == 0) ||
         static_cast<W8DoorTriggerActionData*>(action)->open ||
         static_cast<W8DoorTriggerActionData*>(action)->locked) {
         return false;
@@ -1488,7 +1489,7 @@ try {
             if (trigger->initial_action == 0x40) {
                 InitializeStateDrivenPropVariables(trigger);
             }
-            if (trigger->trigger_kind == 1 && trigger->initial_action == 8) {
+            if (trigger->trigger_kind == W8TriggerKind::item && trigger->initial_action == 8) {
                 unsigned int path_count;
                 unsigned int path_i;
 

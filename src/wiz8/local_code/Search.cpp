@@ -116,7 +116,7 @@ static std::vector<W8Searchable> CollectSearchablesInView(W8World& world)
     };
     // Trigger definitions precede item records in level loading. Keep that search order.
     for (const auto& trigger : world.triggers)
-        if (trigger->trigger_kind == 1 && trigger->searchable == 1 &&
+        if (trigger->trigger_kind == W8TriggerKind::item && trigger->searchable == 1 &&
             (trigger->flags & W8_TRIGGER_SEARCHED) == 0)
             collect({nullptr, trigger.get()});
     for (const auto& group : CurrentLevelPopulation().world_items)

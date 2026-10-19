@@ -437,7 +437,7 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
             }
             SetWorldScenePosition(GetWorld(), &position);
 
-            if (trigger->trigger_kind == 2) {
+            if (trigger->trigger_kind == W8TriggerKind::prop) {
                 glm::vec3 axis;
                 glm::mat3 rotation;
 
