@@ -1311,7 +1311,7 @@ try {
         animation->group_count = 1;
         animation->animation_playing = b0;
         animation->frame_method = static_cast<W8AnimationFrameMethod>(b1);
-        animation->behaviour = b2;
+        animation->behaviour = static_cast<W8AnimationBehaviour>(b2);
         animation->cycle = 0;
         animation->path_lists = 0;
         animation->playback_scale = playback_scale;
