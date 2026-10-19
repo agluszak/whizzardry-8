@@ -210,43 +210,46 @@ static short ResolveNoticeTextBox(std::optional<short> text_box)
     return *text_box;
 }
 
-static void AppendNoticeLine(unsigned char font_palette, std::string_view text, short text_box,
-                             int wrapped_line)
+static void AppendNoticeLine(unsigned char font_palette, std::string_view text,
+                             std::optional<short> text_box, int wrapped_line)
 {
-    text_box = ResolveNoticeTextBox(text_box);
+    const short resolved_text_box = ResolveNoticeTextBox(text_box);
     if (g_current_screen_state.id != W8_SCREEN_MAIN_GAME &&
         g_current_screen_state.id != W8_SCREEN_CAMP &&
         g_current_screen_state.id != W8_SCREEN_PLEASE_WAIT &&
         g_current_screen_state.id != W8_SCREEN_CHARACTER) {
         return;
     }
-    if (g_status.text_box_lines_used[text_box] == 350) {
-        W8MessageStorageRecord* first = &g_message_storage[text_box][0];
+    if (g_status.text_box_lines_used[resolved_text_box] == 350) {
+        W8MessageStorageRecord* first = &g_message_storage[resolved_text_box][0];
         for (int i = 0; i < 349; ++i) {
             first[i] = std::move(first[i + 1]);
         }
         first[349] = {};
-        --g_status.text_box_lines_used[text_box];
-        if (g_status.text_box_lines_shown[text_box] != 0) {
-            --g_status.text_box_lines_shown[text_box];
-            if (g_status.text_box_lines_shown[text_box] < g_level_block->text_lines[text_box]) {
-                g_level_block->text_lines[text_box] = g_status.text_box_lines_shown[text_box];
+        --g_status.text_box_lines_used[resolved_text_box];
+        if (g_status.text_box_lines_shown[resolved_text_box] != 0) {
+            --g_status.text_box_lines_shown[resolved_text_box];
+            if (g_status.text_box_lines_shown[resolved_text_box] <
+                g_level_block->text_lines[resolved_text_box]) {
+                g_level_block->text_lines[resolved_text_box] =
+                    g_status.text_box_lines_shown[resolved_text_box];
             }
         }
     }
-    unsigned int index = g_status.text_box_lines_used[text_box];
-    W8MessageStorageRecord* record = &g_message_storage[text_box][index];
+    unsigned int index = g_status.text_box_lines_used[resolved_text_box];
+    W8MessageStorageRecord* record = &g_message_storage[resolved_text_box][index];
     record->text.assign(text);
     record->RebuildEntries();
-    ++g_status.text_box_lines_used[text_box];
+    ++g_status.text_box_lines_used[resolved_text_box];
     record->font_palette = font_palette;
     record->highlight_color = 0xff;
     record->link = wrapped_line;
     record->length = -1;
     ++g_notice_line_count;
-    if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_status.text_line_cursor == text_box) {
-        AdvanceNoticeLine(text_box);
-    } else if (text_box == 3) {
+    if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME &&
+        g_status.text_line_cursor == resolved_text_box) {
+        AdvanceNoticeLine(resolved_text_box);
+    } else if (resolved_text_box == 3) {
         g_status.text_box_lines_shown[3] = g_status.text_box_lines_used[3];
         g_level_block->text_lines[3] = g_status.text_box_lines_used[3];
         W8MessageStorageRecord* last = &g_message_storage[3][g_status.text_box_lines_shown[3] - 1];
@@ -351,14 +354,14 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view,
         if (wrap_width == W8_NOTICE_WRAP_AUTOMATIC) {
             wrap_width = g_level_block->text_box_right - g_level_block->text_box_left - 10;
         }
-        text_box = ResolveNoticeTextBox(text_box);
+        const short resolved_text_box = ResolveNoticeTextBox(text_box);
         if (g_status.quote_audit) {
             g_notice_line_count = 0;
             g_status.long_quote = 0;
         }
-        g_level_block->text_line_highlight_offsets[text_box] = 0;
+        g_level_block->text_line_highlight_offsets[resolved_text_box] = 0;
         if (static_cast<unsigned int>(g_level_block->text_box_font->textWidth(text)) < wrap_width) {
-            AppendNoticeLine(static_cast<unsigned char>(font_palette), text, text_box, 0);
+            AppendNoticeLine(static_cast<unsigned char>(font_palette), text, resolved_text_box, 0);
         } else {
             std::string_view remaining(text);
             int line_index = 0;
@@ -377,16 +380,16 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view,
                         last_space = end;
                 }
                 const auto line = remaining.substr(0, end);
-                AppendNoticeLine(static_cast<unsigned char>(font_palette), line, text_box,
+                AppendNoticeLine(static_cast<unsigned char>(font_palette), line, resolved_text_box,
                                  line_index++);
                 remaining.remove_prefix(end);
                 if (!remaining.empty() && remaining.front() == '\n') remaining.remove_prefix(1);
                 if (!remaining.empty()) {
                     if (line_index == 1) {
-                        g_level_block->text_line_highlight_offsets[text_box] =
+                        g_level_block->text_line_highlight_offsets[resolved_text_box] =
                             static_cast<unsigned int>(line.size());
                     } else {
-                        g_level_block->text_line_highlight_offsets[text_box].reset();
+                        g_level_block->text_line_highlight_offsets[resolved_text_box].reset();
                     }
                 }
             }
@@ -570,8 +573,9 @@ void ScrollTextBoxToCursor(void)
    empty optional selects the box the current game mode posts to. */
 void AppendTextBoxLine(std::string_view text, std::optional<short> text_box)
 {
-    text_box = ResolveNoticeTextBox(text_box);
-    auto& line = g_message_storage[text_box][g_status.text_box_lines_used[text_box] - 1];
+    const short resolved_text_box = ResolveNoticeTextBox(text_box);
+    auto& line =
+        g_message_storage[resolved_text_box][g_status.text_box_lines_used[resolved_text_box] - 1];
     line.length = line.text.size();
     line.text.append(text);
 }
@@ -608,12 +612,13 @@ void HighlightTextBoxRange(unsigned char color, std::size_t start, std::size_t s
     if (g_current_screen_state.id != W8_SCREEN_MAIN_GAME) {
         return;
     }
-    text_box = ResolveNoticeTextBox(text_box);
-    if (!(g_status.text_box_lines_used[text_box] > 0)) {
+    const short resolved_text_box = ResolveNoticeTextBox(text_box);
+    if (!(g_status.text_box_lines_used[resolved_text_box] > 0)) {
         srAssertFail("gStatus.uiTextBoxLinesUsed[iTextBuffer] > 0", MGS_TEXT_BOX_CPP, 0x261, 0);
     }
-    line = &g_message_storage[text_box][g_status.text_box_lines_used[text_box] - 1];
-    const auto offset = g_level_block->text_line_highlight_offsets[text_box];
+    line =
+        &g_message_storage[resolved_text_box][g_status.text_box_lines_used[resolved_text_box] - 1];
+    const auto offset = g_level_block->text_line_highlight_offsets[resolved_text_box];
     if (!offset) return;
     if (*offset == 0) {
         line->highlight_stop = stop;
@@ -621,10 +626,11 @@ void HighlightTextBoxRange(unsigned char color, std::size_t start, std::size_t s
         line->highlight_color = color;
         return;
     }
-    if (!(g_status.text_box_lines_used[text_box] >= 2)) {
+    if (!(g_status.text_box_lines_used[resolved_text_box] >= 2)) {
         srAssertFail("gStatus.uiTextBoxLinesUsed[iTextBuffer] >= 2", MGS_TEXT_BOX_CPP, 0x277, 0);
     }
-    previous = &g_message_storage[text_box][g_status.text_box_lines_used[text_box] - 2];
+    previous =
+        &g_message_storage[resolved_text_box][g_status.text_box_lines_used[resolved_text_box] - 2];
     if (start >= *offset) {
         line->highlight_start = start - *offset;
     } else {
@@ -656,12 +662,12 @@ void AppendToLastTextLine(std::string_view text, std::optional<short> text_box)
         ShowNotice(g_text_box_value, text, text_box);
         return;
     }
-    text_box = ResolveNoticeTextBox(text_box);
-    w8_unaligned_uint* lines_used = &g_status.text_box_lines_used[text_box];
+    const short resolved_text_box = ResolveNoticeTextBox(text_box);
+    w8_unaligned_uint* lines_used = &g_status.text_box_lines_used[resolved_text_box];
     if (!(*lines_used > 0)) {
         srAssertFail("gStatus.uiTextBoxLinesUsed[iTextBuffer] > 0", MGS_TEXT_BOX_CPP, 0xf92, 0);
     }
-    W8MessageStorageRecord* line = &g_message_storage[text_box][*lines_used - 1];
+    W8MessageStorageRecord* line = &g_message_storage[resolved_text_box][*lines_used - 1];
     const auto merged = fmt::format("{}{}", line->text, text);
     unsigned char channel = line->font_palette;
     int link = line->link;
@@ -670,20 +676,20 @@ void AppendToLastTextLine(std::string_view text, std::optional<short> text_box)
     std::size_t start = line->highlight_start;
     line->text.clear();
     line->entries.clear();
-    if (g_status.text_box_lines_shown[text_box] == *lines_used) {
-        if (!(g_status.text_box_lines_shown[text_box] > 0)) {
+    if (g_status.text_box_lines_shown[resolved_text_box] == *lines_used) {
+        if (!(g_status.text_box_lines_shown[resolved_text_box] > 0)) {
             srAssertFail("gStatus.uiTextBoxLinesShown[iTextBuffer] > 0", MGS_TEXT_BOX_CPP, 0xfa9,
                          0);
         }
-        --g_status.text_box_lines_shown[text_box];
+        --g_status.text_box_lines_shown[resolved_text_box];
     }
     --*lines_used;
-    ShowNotice(channel, merged, text_box);
+    ShowNotice(channel, merged, resolved_text_box);
     if (color != 0xff) {
-        HighlightTextBoxRange(color, start, stop, text_box);
+        HighlightTextBoxRange(color, start, stop, resolved_text_box);
     }
     if (link != 0) {
-        W8MessageStorageRecord* last = &g_message_storage[text_box][*lines_used - 1];
+        W8MessageStorageRecord* last = &g_message_storage[resolved_text_box][*lines_used - 1];
         int propagated = 0;
         if (last->link != -1 && last->link + 1 > 0) {
             W8MessageStorageRecord* entry = last;
