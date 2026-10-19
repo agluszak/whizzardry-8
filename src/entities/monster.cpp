@@ -811,7 +811,6 @@ bool Monster::GetCycleMappedPosition(signed char cycle, int mapped_index, glm::v
                                          g_cycle_names[cycle].name, subcycle));
     }
     animation = cycle_animations[subcycle].animation.get();
-    visual.active_animation = animation;
 
     /* 0x004C7A3A..0x004C7A50: the missile vertex (5) is sampled on
        missile_frame (0x1f4) and the spell vertex (6) on spell_frame (0x1f8). */
@@ -2578,7 +2577,6 @@ void Monster::CollectModelInstances(std::vector<MeshInstance*>& instances)
                                                  name, g_cycle_names[cycle].name, subcycle));
             }
             animation = cycle_animations[subcycle].animation.get();
-            visual.active_animation = animation;
             if (animation == 0) {
                 continue;
             }

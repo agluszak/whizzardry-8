@@ -808,8 +808,10 @@ std::unique_ptr<OverlayQuad> makeOverlayFromSurface(SDL_Surface& surface,
     if (source.w <= 0 || source.h <= 0 || source.x < 0 || source.y < 0 ||
         source.x + source.w > surface.w || source.y + source.h > surface.h)
         return {};
-    auto storage = CreateCpuStorage(source.w, source.h, SDL_PIXELFORMAT_ARGB1555);
+    auto storage = CreateCpuStorage(source.w, source.h, surface.format);
     if (!storage) return {};
+    if (auto* palette = SDL_GetSurfacePalette(&surface))
+        if (!SDL_SetSurfacePalette(storage.get(), palette)) return {};
     SDL_BlendMode blend;
     SDL_GetSurfaceBlendMode(&surface, &blend);
     SDL_SetSurfaceBlendMode(&surface, SDL_BLENDMODE_NONE);

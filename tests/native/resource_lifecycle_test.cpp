@@ -674,3 +674,27 @@ TEST_CASE_METHOD(SpellVisualFixture, "Target cone is removed through its world o
         SetTargetConeEnabled(false);
     }
 }
+
+TEST_CASE("Collecting monster models preserves the selected playback cycle",
+          "[resources][animation]")
+{
+    World world;
+    Monster monster(&world);
+    for (int cycle = 0; cycle < 2; ++cycle) {
+        auto animation = std::make_unique<Animation>();
+        animation->path_lists = true;
+        animation->frame_count = cycle == 0 ? 4 : 2;
+        monster.cycles[cycle].emplace_back(EmitterLights{}, std::move(animation), 1.0f);
+    }
+    monster.visual.current_cycle = 0;
+    monster.visual.current_subcycle = 0;
+    monster.visual.active_animation = monster.cycles[0][0].animation.get();
+    monster.visual.animation_playing = true;
+    std::vector<MeshInstance*> instances;
+    monster.CollectModelInstances(instances);
+    // A lighting/skin walk must not replace the current four-frame animation
+    // with the unrelated two-frame cycle visited last.
+    monster.visual.SetSubCycle(3);
+    REQUIRE(monster.visual.subcycle == 3);
+    REQUIRE(monster.visual.frameCount() == 4);
+}

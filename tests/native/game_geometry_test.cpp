@@ -1267,12 +1267,11 @@ TEST_CASE("Clip plane normalization preserves consumer transform ordering and de
     // GERD normalizes in object space before the inverse-transpose transform.
     REQUIRE(renderer.getClipPlanes().planes[6] == glm::vec4(0.5f, 0, 0, -1));
     renderer.popClipPlane();
-    // Extra pushes must balance without shifting past the 32-bit plane mask
-    // or dropping a stored plane. Six bits belong to the view frustum.
+    // Six bits belong to the view frustum. Rejected pushes leave existing
+    // planes intact; callers balance only the pushes that succeeded.
     for (int index = 0; index < 40; ++index)
-        renderer.pushClipPlane({1, 0, 0, 0}, GpuRenderer::CLIPMODE_POSITIONAL_0);
-    REQUIRE(renderer.getClipPlanes().mask == 0xffffffffu);
-    for (int index = 0; index < 14; ++index) renderer.popClipPlane();
+        REQUIRE(renderer.pushClipPlane({1, 0, 0, 0}, GpuRenderer::CLIPMODE_POSITIONAL_0) ==
+                (index < 26));
     REQUIRE(renderer.getClipPlanes().mask == 0xffffffffu);
     renderer.popClipPlane();
     REQUIRE(renderer.getClipPlanes().mask == 0x7fffffffu);

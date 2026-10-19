@@ -1001,7 +1001,6 @@ void GpuRenderer::popClipPlane()
 {
     if (state.clip_plane_count != 0) {
         state.clip_plane_count -= 1;
-        // Excess pushes are counted, but have no stored plane to remove.
         if (state.clip_plane_count < 26) {
             w8_ulong mask = ~(1u << (state.clip_plane_count + 6));
             state.clip_mask &= mask;

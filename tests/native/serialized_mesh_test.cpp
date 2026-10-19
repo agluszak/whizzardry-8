@@ -169,9 +169,12 @@ bool LoadCycles(const std::filesystem::path& path)
             WorldScene scene;
             world.psrMeshes.resize(5, nullptr);
             for (std::size_t index = 0; index < instances.size(); ++index) {
-                world.psrMeshes[index] = scene.addStaticMesh(std::move(instances[index]));
+                if (instances[index])
+                    world.psrMeshes[index] = scene.addStaticMesh(std::move(instances[index]));
             }
-            REQUIRE(scene.static_meshes.size() == instances.size());
+            REQUIRE(scene.static_meshes.size() == 2);
+            REQUIRE(world.psrMeshes[2] == nullptr);
+            REQUIRE(world.psrMeshes[3] == nullptr);
             REQUIRE(world.psrMeshes.back() == nullptr);
         }
         REQUIRE(g_mesh_models.empty());
