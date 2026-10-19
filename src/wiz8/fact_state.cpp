@@ -1,6 +1,7 @@
 #include "wiz8/fact_state.h"
 
 #include <cstring>
+#include <iterator>
 #include <vector>
 
 #include "conditions.h"
@@ -67,6 +68,7 @@ void LoadFactState(W8Chunk& save_handle)
    fact-check log is enabled. */
 unsigned char EvaluateFact(W8FactId fact_id)
 {
+    if (static_cast<unsigned>(fact_id) >= std::size(g_fact_values)) return 0;
     unsigned char value;
     unsigned char count;
 

@@ -23,7 +23,10 @@
 #include "wiz8/compat/native.h"
 #include "wiz8/engine_code/Quality.h"
 #include "wiz8/engine_code/stModelInstance.h" // IWYU pragma: keep - complete model type for unique_ptr destruction.
+#include "wiz8/fact_state.h"
+#include "wiz8/gameplay_modifiers.h"
 #include "wiz8/local_code/GameplayDatabase.h"
+#include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/retail_save_records.h"
@@ -1258,6 +1261,26 @@ TEST_CASE("Effect slots retain their packed disk representation", "[save][record
     REQUIRE(slot.percent == 4);
     REQUIRE(slot.duration == 5);
     REQUIRE(wiz8::retail::encode(slot) == bytes);
+}
+
+TEST_CASE("Unknown fact IDs never index native fact storage", "[save][records]")
+{
+    const auto before = std::to_array(g_fact_values);
+    for (const auto raw : {-1, 1000, std::numeric_limits<std::int32_t>::min(),
+                           std::numeric_limits<std::int32_t>::max()}) {
+        const auto fact = static_cast<W8FactId>(raw);
+        REQUIRE(GetFact(fact) == 0);
+        REQUIRE(EvaluateFact(fact) == 0);
+        SetFact(fact, 1, true);
+    }
+    REQUIRE(std::ranges::equal(g_fact_values, before));
+}
+
+TEST_CASE("Radius-effect updates accept empty and short effect arrays", "[effects]")
+{
+    std::array<W8EffectSlot, 6> effects{};
+    REQUIRE_NOTHROW(TickRadiusBlastEffectSlots({}));
+    REQUIRE_NOTHROW(TickRadiusBlastEffectSlots(effects));
 }
 
 TEST_CASE("Global status record", "[save][records]")

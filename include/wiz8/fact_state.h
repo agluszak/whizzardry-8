@@ -1,6 +1,8 @@
 #ifndef WIZ8_FACT_STATE_H
 #define WIZ8_FACT_STATE_H
 
+#include <cstdint>
+
 struct W8Chunk;
 
 namespace wiz8 {
@@ -8,14 +10,15 @@ class File;
 }
 
 /* 1000 entries, indices 0..999, stored at 0x00689B78 and ending exactly at
-   g_npc_name_buffer. GetFact/SetFact check fact_id > 1000, so index 1000
+   g_npc_name_buffer. Retail GetFact/SetFact checked fact_id > 1000, so index 1000
    historically aliases g_npc_name_buffer[0]. Native storage has no such alias. */
 extern unsigned char g_fact_values[1000];
 extern bool g_fact_notifications_suppressed;
 
 /* All 807 names and ids come from retail Data\Databases\FACT.DBS.
    InitializeFactDatabase reads the count and 0x1d8-byte records unchanged. */
-enum W8FactId {
+// Saves may retain unknown signed 32-bit IDs; validate before indexing.
+enum W8FactId : std::int32_t {
     W8_FACT_NONE = 0x0,
     W8_FACT_ANTONE_ZYNARYX_PLATE_ASSIGNED = 0x1,
     W8_FACT_ANTONE_STEELHIDE_ASSIGNED = 0x2,

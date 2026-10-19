@@ -1,5 +1,7 @@
 #pragma once
 
+#include <span>
+
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/conditions.h"
 #include "wiz8/dice.h"
@@ -78,7 +80,7 @@ struct W8EffectVisual {
 extern W8EffectVisual g_effect_visual_table[150];
 
 void TickCombatEffectSlots(W8EffectSlot* slots, W8CombatSlot* target);
-void TickRadiusBlastEffectSlots(W8EffectSlot* slots);
+void TickRadiusBlastEffectSlots(std::span<const W8EffectSlot> slots);
 void ApplyMonsterControlToNearbyMonsters(W8SpellEffectEntry* effect);
 void ClearEffectSlot(W8MonsterInfo* monster_info, W8EffectSlot* slot);
 void ResetPartyEffectBlock(W8EffectSlot* slot);

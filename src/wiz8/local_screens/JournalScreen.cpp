@@ -100,7 +100,8 @@ void RecordFactChangeForJournal(W8FactId fact_id)
     entry.alternate_text = GetFact(fact_id) != 0;
     g_fact_journal_entries.push_back(entry);
 
-    if (g_fact_notifications_suppressed) {
+    if (g_fact_notifications_suppressed ||
+        static_cast<unsigned>(fact_id) >= g_fact_records.size()) {
         return;
     }
     int visibility;
