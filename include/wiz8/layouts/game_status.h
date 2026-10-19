@@ -159,7 +159,7 @@ struct W8GlobalStatus {
     unsigned char condition13_clock;
     /* Retail offset 0x2488: one-shot gate; when set, the next condition-change and
        condition-cleared reaction is swallowed and the flag cleared. */
-    unsigned char skip_next_condition_reaction;
+    bool skip_next_condition_reaction;
     bool rpc_active;
     /* Retail offset 0x248a: armed by the long NPC reward event; the event also stamps
        0x2493 with the world clock. */

@@ -252,7 +252,7 @@ void PrepareMonsterInWorld(W8World& world, W8MonsterInfo& info, bool unborn)
         }
     }
     monster_info->monster_visibility = std::make_unique<W8MonsterVisibility>();
-    if (record->can_open_doors != 0) {
+    if (record->can_open_doors) {
         monster_info->p3D->movement.navigation_filter |= W8_NAV_THROUGH_DOORS;
     }
 }

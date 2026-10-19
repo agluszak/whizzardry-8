@@ -353,7 +353,7 @@ void EndSurprise(void)
     if (g_status.condition13_clock != 0 &&
         0x15180 < static_cast<unsigned int>(g_status.world_clock) - g_status.condition13_clock) {
         g_status.condition13_clock = 0;
-        g_status.skip_next_condition_reaction = 1;
+        g_status.skip_next_condition_reaction = true;
         int party_slot = g_status.pending_condition_party_slot;
         RemoveCharacterCondition(party_slot, W8_CONDITION_MISSING, false);
         QueueCharacterEvent(&g_status.buffers.Char[party_slot], 52, 0, kCharacterEventFullVolume);

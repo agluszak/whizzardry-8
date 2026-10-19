@@ -1516,8 +1516,8 @@ void QueueConditionChangeReaction(W8Character* character)
     if (IsSedexusCaptureActive()) {
         return;
     }
-    if (g_status.skip_next_condition_reaction != 0) {
-        g_status.skip_next_condition_reaction = 0;
+    if (g_status.skip_next_condition_reaction) {
+        g_status.skip_next_condition_reaction = false;
         return;
     }
     switch (character->highest_condition) {
@@ -1601,8 +1601,8 @@ void QueueConditionClearedReaction(W8Character* character, W8Condition condition
     if (IsSedexusCaptureActive()) {
         return;
     }
-    if (g_status.skip_next_condition_reaction != 0) {
-        g_status.skip_next_condition_reaction = 0;
+    if (g_status.skip_next_condition_reaction) {
+        g_status.skip_next_condition_reaction = false;
         return;
     }
     switch (condition) {

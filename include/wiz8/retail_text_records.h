@@ -545,8 +545,8 @@ template<> struct Record<W8MonsterRecord> {
              Encoding::utf16);
         text(runtime.name3, bytes.subspan(offsetof(Disk, name3), sizeof(Disk::name3)),
              Encoding::utf16);
-        value(&runtime.can_open_doors,
-              bytes.subspan(offsetof(Disk, can_open_doors), sizeof(Disk::can_open_doors)));
+        byte_boolean(&runtime.can_open_doors,
+                     bytes.subspan(offsetof(Disk, can_open_doors), sizeof(Disk::can_open_doors)));
         value(&runtime.group_size_dice,
               bytes.subspan(offsetof(Disk, group_size_dice), sizeof(Disk::group_size_dice)));
         value(&runtime.companions,
@@ -1008,9 +1008,9 @@ template<> struct Record<W8GlobalStatus> {
               bytes.subspan(offsetof(Disk, stamina_tick_ms), sizeof(Disk::stamina_tick_ms)));
         value(&runtime.condition13_clock,
               bytes.subspan(offsetof(Disk, condition13_clock), sizeof(Disk::condition13_clock)));
-        value(&runtime.skip_next_condition_reaction,
-              bytes.subspan(offsetof(Disk, skip_next_condition_reaction),
-                            sizeof(Disk::skip_next_condition_reaction)));
+        byte_boolean(&runtime.skip_next_condition_reaction,
+                     bytes.subspan(offsetof(Disk, skip_next_condition_reaction),
+                                   sizeof(Disk::skip_next_condition_reaction)));
         value(&runtime.rpc_active,
               bytes.subspan(offsetof(Disk, rpc_active), sizeof(Disk::rpc_active)));
         value(&runtime.fact_b8_pending,
