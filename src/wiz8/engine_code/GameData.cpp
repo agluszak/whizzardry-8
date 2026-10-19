@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstring>
 #include <memory>
 #include <optional>
@@ -530,7 +531,7 @@ W8GDSurface* W8GameData::ProbePropsAlongMotion(glm::vec3* direction, glm::vec3* 
 unsigned char W8GameData::ProbeMonstersAlongMotion(glm::vec3* direction, glm::vec3* position, int)
 {
     std::vector<w8_ulong> objects;
-    unsigned int count;
+    std::size_t count;
     unsigned int index;
     W8MonsterInfo* monster_info;
     W8Monster* monster;
@@ -623,7 +624,7 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
     W8GDSurface* collisions[101];
     std::vector<w8_ulong> octree_hits;
     std::vector<W8GDSurface*> geometry_hits;
-    int hit_count = 0;
+    std::ptrdiff_t hit_count = 0;
     int collision_count;
     int attempt;
     int index;

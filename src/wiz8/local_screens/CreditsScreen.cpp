@@ -13,10 +13,10 @@
 #include <vector>
 
 #include "asset_paths.h"
-#include "compat/compiler.h"
 #include "compat/native.h"
 #include "wiz8/canvas/Font.h"
 #include "wiz8/catalog_artwork.h"
+#include "wiz8/checked_integer.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
@@ -26,9 +26,9 @@
 #include "wiz8/unicode.h"
 
 static std::vector<W8CreditLine> g_credit_lines;
-static int g_credit_elapsed_steps;
+static std::uint64_t g_credit_elapsed_steps;
 static bool g_credit_redraw;
-static w8_ulong g_credit_started_at;
+static std::uint64_t g_credit_started_at;
 static int g_credit_y;
 static int g_credit_line;
 
@@ -146,12 +146,12 @@ void CreditsScreenFrame(void)
             RequestScreenTransition();
     }
 
-    int steps = (w8_get_ticks() - g_credit_started_at) / 35 - g_credit_elapsed_steps;
+    const auto steps = (w8_get_ticks() - g_credit_started_at) / 35 - g_credit_elapsed_steps;
     if (steps >= 1) {
         g_credit_elapsed_steps += steps;
         g_credit_redraw = true;
         W8CreditLine entry = g_credit_lines[g_credit_line];
-        g_credit_y -= steps;
+        g_credit_y -= wiz8::checked_integer<int>(steps);
         while (g_credit_y < 0) {
             ++g_credit_line;
             if (g_credit_line >= static_cast<int>(g_credit_lines.size())) {

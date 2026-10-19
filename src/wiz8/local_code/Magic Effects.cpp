@@ -1,8 +1,10 @@
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstdlib>
 #include <cstring>
 #include <iterator>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -642,7 +644,7 @@ float HeadingTowardNearestMonster(glm::vec3 point, W8Disposition disposition, in
     double nearest_distance;
     float distance;
     float range;
-    unsigned int count;
+    std::size_t count;
     unsigned int index;
 
     nearest = 0;
@@ -2302,7 +2304,7 @@ void ApplyMonsterControlToNearbyMonsters(W8SpellEffectEntry* effect)
     glm::vec3 upper;
     glm::vec3 eye;
     std::vector<w8_ulong> location_ids;
-    unsigned int count;
+    std::size_t count;
     unsigned int index;
     float far_clip;
 
@@ -2654,7 +2656,7 @@ void FinishSpellEffectTargets(W8SpellEffectEntry* effect)
    resistance-checked dice roll scaled by the slot's stored magnitude.  In
    verbose mode each damage line goes straight out; otherwise the results
    accumulate and print as one summary plus per-target condition reports. */
-void TickRadiusBlastEffectSlots(W8EffectSlot* effect_slots)
+void TickRadiusBlastEffectSlots(std::span<const W8EffectSlot> effect_slots)
 {
     std::vector<int> found;
     W8SpellEffectResult local_result;
@@ -2665,15 +2667,13 @@ void TickRadiusBlastEffectSlots(W8EffectSlot* effect_slots)
     unsigned int amount;
     bool verbose;
     int index;
-    int remaining;
 
     verbose = g_settings.verbose_combat_messages != 0;
     ResetTargetSource(&source);
     local_result = {};
     memset(&target, 0, sizeof(target));
-    remaining = 9;
-    do {
-        if (effect_slots->active && effect_slots->effect_id == 0x3e) {
+    for (const auto& slot : effect_slots) {
+        if (slot.active && slot.effect_id == 0x3e) {
             ShowNotice(W8_FONT_PALETTE_WHITE,
                        fmt::sprintf(g_localized_strings[0x1ae],
                                     g_spell_records[W8_SPELL_RING_OF_FIRE].display_name));
@@ -2691,13 +2691,13 @@ void TickRadiusBlastEffectSlots(W8EffectSlot* effect_slots)
                     Fail("pMonsterInfo");
                 }
                 dice = g_spell_records[W8_SPELL_RING_OF_FIRE].effect_dice;
-                dice.count = static_cast<char>(effect_slots->amount) * dice.count;
+                dice.count = static_cast<char>(slot.amount) * dice.count;
                 amount = RollDice(&dice);
                 target.iType = W8_TARGET_KIND_MONSTER;
                 target.iMonsterID = monster_info->location_id;
                 ApplyEffectAndAnnounce(&amount, &target,
                                        g_spell_records[W8_SPELL_RING_OF_FIRE].realm,
-                                       effect_slots->amount * 3);
+                                       slot.amount * 3);
                 if (amount != 0) {
                     ApplyDamageToMonster(monster_info, amount, &source, false, verbose, 0,
                                          !verbose ? &local_result : 0, false);
@@ -2743,12 +2743,7 @@ void TickRadiusBlastEffectSlots(W8EffectSlot* effect_slots)
                 }
             }
         }
-        ++effect_slots;
-        --remaining;
-        if (remaining == 0) {
-            return;
-        }
-    } while (true);
+    }
 }
 
 /* Per-tick upkeep for the first party combat-effect block (the nine slots at

@@ -94,7 +94,7 @@ extern W8EnvironmentLightingMode g_environment_lighting_mode;
 /* 1/duration while the lighting transition body at 0x00484300 runs, zero when
    idle: UpdateEnvironment hands off to that body while it is not zero. */
 extern float g_environment_transition_rate;
-extern w8_ulong g_environment_transition_tick;
+extern std::uint64_t g_environment_transition_tick;
 /* Gates the per-frame world-colour refresh. Retail writes it nowhere and
    initialises it to 1, so that refresh always runs; the only reference is the
    read inside UpdateEnvironment. */

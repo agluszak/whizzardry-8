@@ -1,8 +1,8 @@
-#include <string>
-#include <string_view>
 #pragma once
 
 #include <span>
+#include <string>
+#include <string_view>
 
 extern "C" {
 extern bool gfProgramIsRunning;

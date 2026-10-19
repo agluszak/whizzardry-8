@@ -1,6 +1,7 @@
+#pragma once
+
 #include <cstdint>
 #include <optional>
-#pragma once
 
 class W8Octree;
 

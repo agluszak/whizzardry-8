@@ -1,4 +1,5 @@
 #include <cstring>
+#include <iterator>
 #include <string>
 #include <vector>
 
@@ -976,12 +977,12 @@ unsigned char GetFact(W8FactId fact_id)
     unsigned char value;
     std::string display_value;
 
-    if (fact_id > 1000) {
+    if (static_cast<unsigned>(fact_id) >= std::size(g_fact_values)) {
         return 0;
     }
 
     value = EvaluateFact(fact_id);
-    if (g_status.log_fact_checks) {
+    if (g_status.log_fact_checks && static_cast<unsigned>(fact_id) < g_fact_records.size()) {
         if (value) {
             display_value = "TRUE";
         } else {
@@ -999,7 +1000,7 @@ void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects)
     unsigned char previous_value;
     std::string display_value;
 
-    if (fact_id > 1000) {
+    if (static_cast<unsigned>(fact_id) >= std::size(g_fact_values)) {
         return;
     }
 
@@ -1020,7 +1021,7 @@ void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects)
         }
         HandleFactChange(fact_id, value);
 
-        if (g_status.log_fact_checks) {
+        if (g_status.log_fact_checks && static_cast<unsigned>(fact_id) < g_fact_records.size()) {
             if (value) {
                 display_value = "TRUE";
             } else {

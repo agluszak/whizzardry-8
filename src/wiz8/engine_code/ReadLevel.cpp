@@ -4,6 +4,7 @@
 #include <array>
 #include <charconv>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -213,7 +214,7 @@ void AssociateWorldLights(W8World* world)
         if (definition != 0 && definition->kind == W8_LIGHT_DEFINITION_PARAMETRIC &&
             (static_cast<stParametricLightDefinition*>(definition)->flags &
              W8_PARAM_LIGHT_FLICKER) != 0) {
-            int prop_count = world->plsProps.size();
+            const auto prop_count = std::ssize(world->plsProps);
             int prop_index;
 
             for (prop_index = 0; prop_index < prop_count; ++prop_index) {
@@ -787,7 +788,9 @@ try {
         stParticle* particle;
         glm::dvec3 axis;
         glm::dvec3 location;
-        auto owned = std::make_unique<stParticle>(pScene, record.particle_count);
+        // Forwarding a packed member would bind a potentially unaligned reference.
+        const auto particle_count = record.particle_count;
+        auto owned = std::make_unique<stParticle>(pScene, particle_count);
         particle = owned.get();
 
         SDL_strupr(record.name);
@@ -984,7 +987,7 @@ try {
     int section_count;
     int camera_mode;
     int index;
-    unsigned int prop_count;
+    std::size_t prop_count;
     unsigned char success;
 
     if (world == nullptr || world->static_scene == nullptr || handle == nullptr) {

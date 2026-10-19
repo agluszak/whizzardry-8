@@ -27,6 +27,7 @@
 #include "wiz8/audio/soundman.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/checked_integer.h"
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/conditions.h"
 #include "wiz8/engine_code/AnimRep.hpp"
@@ -1552,7 +1553,7 @@ static int GetCombatFumbleChance(const std::vector<W8CombatSlot>& targets, int a
     int chance;
     if (attack_score < 100) {
         chance = static_cast<int>(pow(100 - attack_score, 3.0) * 1e-5 + 0.5);
-        unsigned int count = targets.size();
+        const auto count = wiz8::checked_integer<unsigned int>(targets.size());
         if (count == 0) {
             Fail("uiNumTargets > 0");
         }
@@ -1566,7 +1567,7 @@ static int GetCombatFumbleChance(const std::vector<W8CombatSlot>& targets, int a
 
 static W8CombatSlot ChooseCombatFumbleTarget(const std::vector<W8CombatSlot>& targets)
 {
-    unsigned int count = targets.size();
+    const auto count = wiz8::checked_integer<unsigned int>(targets.size());
     if (count == 0) {
         Fail("uiChoices > 0");
     }

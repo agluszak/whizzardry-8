@@ -28,7 +28,6 @@
 #include "wiz8/local_code/party_encumbrance.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/utility.h"
-#include "wiz8/xstatus.h"
 
 /* Retail Local Code\Party Import.cpp: converts imported Wizardry 7
    characters into the Wizardry 8 layout. */

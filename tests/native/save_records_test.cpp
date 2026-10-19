@@ -19,10 +19,15 @@
 #include "retail_records.h"
 #include "save_payload.h"
 #include "unicode.h"
+#include "wiz8/checked_integer.h"
 #include "wiz8/compat/native.h"
 #include "wiz8/engine_code/Quality.h"
 #include "wiz8/engine_code/stModelInstance.h" // IWYU pragma: keep - complete model type for unique_ptr destruction.
+#include "wiz8/fact_state.h"
+#include "wiz8/gameplay_modifiers.h"
 #include "wiz8/local_code/GameplayDatabase.h"
+#include "wiz8/local_code/Magic.h"
+#include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/retail_save_records.h"
@@ -116,6 +121,29 @@ static void character_file_contracts(const std::filesystem::path& assets,
         wiz8::retail::decode<W8Character>(bytes, character);
         REQUIRE((character.name == "vi" && character.name_part_2 == "probe"));
         REQUIRE(wiz8::retail::encode(character) == bytes);
+        // Native skills have padding; the retail stride and unknown bytes must
+        // remain exact across both adjacent records.
+        constexpr std::uint32_t points = 0x12345678, level = 0x23456789;
+        character.skills[0].points = points;
+        character.skills[1].level = level;
+        character.skills[0].unknown_14[0] = 0xa5;
+        character.Hand[1].attacks = 7;
+        character.conditions[1].source_monster = 42;
+        auto expected = bytes;
+        std::memcpy(expected.data() + 0x19d + 2, &points, sizeof(points));
+        std::memcpy(expected.data() + 0x19d + 0x26 + 6, &level, sizeof(level));
+        expected[0x19d + 0x14] = std::byte{0xa5};
+        const unsigned int attacks = 7;
+        const int source_monster = 42;
+        std::memcpy(expected.data() + 0x1149 + 0x5b + 0x15, &attacks, sizeof(attacks));
+        std::memcpy(expected.data() + 0x1817 + 0x11 + 4, &source_monster, sizeof(source_monster));
+        REQUIRE(wiz8::retail::encode(character) == expected);
+        wiz8::retail::decode<W8Character>(expected, character);
+        REQUIRE(character.skills[0].points == points);
+        REQUIRE(character.skills[1].level == level);
+        REQUIRE(character.skills[0].unknown_14[0] == 0xa5);
+        REQUIRE(character.Hand[1].attacks == 7);
+        REQUIRE(character.conditions[1].source_monster == 42);
         character.name = "改名";
         const auto edited = wiz8::retail::encode(character);
         REQUIRE(std::equal(bytes.begin() + 0x25, bytes.begin() + 0x69, edited.begin() + 0x25));
@@ -271,7 +299,7 @@ static void unicode_file_contracts()
         const unsigned char header[5] = {0, 0, 0, 0, static_cast<unsigned char>(encrypted)};
         file->write(header, sizeof(header));
         const auto bytes = retail_bytes(name, encrypted);
-        const int length = bytes.size() / 2;
+        const auto length = wiz8::checked_integer<int>(bytes.size() / 2);
         const unsigned first = 123, second = 456;
         file->write(&first, 4);
         file->write(&second, 4);
@@ -300,7 +328,7 @@ static void unicode_file_contracts()
         wiz8::open_file(wiz8::asset_path("Data/Strings/unicode.dat"), wiz8::OpenMode::replace);
     const int count = 1;
     const auto bytes = retail_bytes("é中😀 %S %hs %s", true);
-    const int length = bytes.size();
+    const auto length = wiz8::checked_integer<int>(bytes.size());
     file->write(&count, 4);
     file->write(&length, 4);
     file->write(bytes.data(), bytes.size());
@@ -534,14 +562,14 @@ static void animation_record_contracts()
         REQUIRE((animation->frame_bounds.size() == 2));
         const auto bounds = AnimObjGetBounds(animation.get(), 0, 1);
         REQUIRE(bounds);
-        REQUIRE((bounds->minimum.y == -1000 && bounds->maximum.z == 1500));
+        REQUIRE((bounds.value().minimum.y == -1000 && bounds.value().maximum.z == 1500));
         REQUIRE_FALSE(AnimObjGetBounds(nullptr, 0, 0));
         REQUIRE_FALSE(AnimObjGetBounds(animation.get(), -1, 1));
         REQUIRE_FALSE(AnimObjGetBounds(animation.get(), 3, 1));
         const auto wrapped_bounds = AnimObjGetBounds(animation.get(), 0, 0x101);
         REQUIRE(wrapped_bounds);
-        REQUIRE(wrapped_bounds->minimum == bounds->minimum);
-        REQUIRE(wrapped_bounds->maximum == bounds->maximum);
+        REQUIRE(wrapped_bounds.value().minimum == bounds.value().minimum);
+        REQUIRE(wrapped_bounds.value().maximum == bounds.value().maximum);
         animation->path = std::make_unique<W8PathAI>();
         PathAIAddPoint(*animation->path, glm::vec3(1, 2, 3));
         animation->paths[0].push_back(std::make_unique<W8PathAI>(*animation->path));
@@ -563,7 +591,7 @@ static void animation_record_contracts()
         REQUIRE((copy->paths[0][0]->nodes[0].z == 3));
         const auto copy_bounds = AnimObjGetBounds(copy.get(), 0, 0);
         REQUIRE(copy_bounds);
-        REQUIRE((copy_bounds->minimum.x == -500 && copy_bounds->maximum.x == 500));
+        REQUIRE((copy_bounds.value().minimum.x == -500 && copy_bounds.value().maximum.x == 500));
         copy->path_lists = true;
         REQUIRE((!AnimObjGetBounds(copy.get(), 0, 2)));
     }
@@ -584,15 +612,15 @@ static void animated_mesh_cache_contracts()
         mesh.bounds_maximum = {4, 5, 6};
         auto bounds = GetAniMeshBounds(&mesh);
         REQUIRE(bounds);
-        REQUIRE(bounds->minimum == glm::vec3(-1, -2, -3));
-        REQUIRE(bounds->maximum == glm::vec3(4, 5, 6));
+        REQUIRE(bounds.value().minimum == glm::vec3(-1, -2, -3));
+        REQUIRE(bounds.value().maximum == glm::vec3(4, 5, 6));
         REQUIRE(mesh.last_used == old_stamp);
         REQUIRE(g_animesh_cache_stamp == old_stamp + 1);
         REQUIRE_FALSE(mesh.flags.loaded);
-        bounds->minimum.x = -100;
+        bounds.value().minimum.x = -100;
         const auto snapshot = GetAniMeshBounds(&mesh);
         REQUIRE(snapshot);
-        REQUIRE(snapshot->minimum.x == -1);
+        REQUIRE(snapshot.value().minimum.x == -1);
         REQUIRE(mesh.last_used == old_stamp + 1);
     }
     constexpr auto filename = "Data/empty-animation-mesh.dat";
@@ -969,7 +997,7 @@ static void save_file_contracts(const std::filesystem::path& user)
     for (const auto& slot : slots) {
         const auto metadata = wiz8::file_status(user / "saves" / (slot->name + ".SAV"));
         REQUIRE(metadata);
-        REQUIRE(slot->write_time == metadata->info.modify_time);
+        REQUIRE(slot->write_time == metadata.value().info.modify_time);
         SDL_DateTime local{};
         REQUIRE(SDL_TimeToDateTime(slot->write_time, &local, true));
         REQUIRE(slot->timestamp.year == local.year);
@@ -1220,6 +1248,63 @@ TEST_CASE_METHOD(SaveFixture, "Quality files retain reserved slots and live opti
     REQUIRE(options[15] == 1);
 }
 
+TEST_CASE("Effect slots retain their packed disk representation", "[save][records]")
+{
+    const std::array<std::byte, 0x11> bytes = {
+        std::byte{1}, std::byte{2}, std::byte{0}, std::byte{0}, std::byte{0}, std::byte{3},
+        std::byte{0}, std::byte{0}, std::byte{0}, std::byte{4}, std::byte{0}, std::byte{0},
+        std::byte{0}, std::byte{5}, std::byte{0}, std::byte{0}, std::byte{0}};
+    W8EffectSlot slot{};
+    wiz8::retail::decode<W8EffectSlot>(bytes, slot);
+    REQUIRE(slot.active);
+    REQUIRE(slot.effect_id == 2);
+    REQUIRE(slot.amount == 3);
+    REQUIRE(slot.percent == 4);
+    REQUIRE(slot.duration == 5);
+    REQUIRE(wiz8::retail::encode(slot) == bytes);
+}
+
+TEST_CASE("Unknown fact IDs never index native fact storage", "[save][records]")
+{
+    const auto before = std::to_array(g_fact_values);
+    for (const auto raw : {-1, 1000, std::numeric_limits<std::int32_t>::min(),
+                           std::numeric_limits<std::int32_t>::max()}) {
+        const auto fact = static_cast<W8FactId>(raw);
+        REQUIRE(GetFact(fact) == 0);
+        REQUIRE(EvaluateFact(fact) == 0);
+        SetFact(fact, 1, true);
+    }
+    REQUIRE(std::ranges::equal(g_fact_values, before));
+}
+
+TEST_CASE("Radius-effect updates accept empty and short effect arrays", "[effects]")
+{
+    std::array<W8EffectSlot, 6> effects{};
+    REQUIRE_NOTHROW(TickRadiusBlastEffectSlots({}));
+    REQUIRE_NOTHROW(TickRadiusBlastEffectSlots(effects));
+}
+
+TEST_CASE("Combat condition queries stay within both effect arrays", "[effects]")
+{
+    // NOLINTNEXTLINE(cppcoreguidelines-special-member-functions): local scope guard
+    struct RestoreCombat {
+        std::unique_ptr<W8CombatState> previous = std::move(g_combat_state);
+        ~RestoreCombat() { g_combat_state = std::move(previous); }
+    } restore;
+    REQUIRE_FALSE(CombatHasCondition(0x3e));
+    g_combat_state = std::make_unique<W8CombatState>();
+    g_combat_state->effect_slots[8].Activate(0x3e, 1, 1);
+    REQUIRE(CombatHasCondition(0x3e));
+    g_combat_state->effect_slots[8].Reset();
+    g_combat_state->effect_slots0[5].Activate(0x3e, 1, 1);
+    REQUIRE(CombatHasCondition(0x3e));
+    g_combat_state->effect_slots0[5].Reset();
+    // In-flight missile state next to the short array is not an effect slot.
+    g_combat_state->missile_hit_result = W8_MISSILE_HIT_DEFLECTED;
+    g_combat_state->TargetHit.iMonsterID = 2;
+    REQUIRE_FALSE(CombatHasCondition(0x3e));
+}
+
 TEST_CASE("Global status record", "[save][records]")
 {
     global_status_record();
@@ -1276,7 +1361,7 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
             REQUIRE((npc->items.empty() && npc->script_file == 0));
             if (i < 2) {
                 REQUIRE(npc->character.has_value());
-                REQUIRE(npc->character->name[0] == static_cast<char>('A' + i));
+                REQUIRE(npc->character.value().name[0] == static_cast<char>('A' + i));
             } else {
                 REQUIRE(!npc->character);
             }
@@ -1322,7 +1407,7 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
             }
             REQUIRE((rejected && NpcStatePointers() == previous));
             REQUIRE(g_npc_states[0].get() == previous_npc);
-            REQUIRE(previous_npc->character->name[0] == L'A');
+            REQUIRE(previous_npc->character.value().name[0] == L'A');
             file.reset();
         }
         REQUIRE((!GetNpcState(-1) && !GetNpcState(3)));
@@ -1334,7 +1419,7 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
         auto* replacement = CreateNpcRuntimeNode(0);
         REQUIRE((g_npc_states.size() == 3 && GetNpcState(0) == replacement));
         REQUIRE((replacement->partner_index == 0 && GetNpcState(1) == kept));
-        REQUIRE((retired->binding_unavailable && retired->character->name[0] == L'A'));
+        REQUIRE((retired->binding_unavailable && retired->character.value().name[0] == L'A'));
         ReleaseNpcStates();
         ReleaseNpcStates();
         REQUIRE(g_npc_states.empty());

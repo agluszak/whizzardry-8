@@ -206,13 +206,13 @@ TEST_CASE("Navigation slide math returns complete values for blocked headings")
     for (unsigned bit = 0; bit < directions.size(); ++bit) {
         const auto slide = slideDirection(255u & ~(1u << bit), -directions[bit]);
         REQUIRE(slide);
-        REQUIRE(glm::length(*slide - glm::normalize(directions[bit])) < 1e-6f);
-        REQUIRE(slide->y == 0);
+        REQUIRE(glm::length(slide.value() - glm::normalize(directions[bit])) < 1e-6f);
+        REQUIRE(slide.value().y == 0);
     }
     // Opposing blocked neighbors still yield an engaged zero direction.
     const auto cancelled = slideDirection(255u & ~((1u << 3) | (1u << 7)), {1, 0, 1});
     REQUIRE(cancelled);
-    REQUIRE(*cancelled == glm::vec3(0));
+    REQUIRE(cancelled.value() == glm::vec3(0));
 }
 
 TEST_CASE("Picking edge tests retain signed W, winding and clipping depth policy")
@@ -227,7 +227,7 @@ TEST_CASE("Picking edge tests retain signed W, winding and clipping depth policy
         }
         const auto depth = srPickingMath::triangleDepth(projected, glm::vec3(0, 0, 1));
         REQUIRE(depth);
-        REQUIRE(std::abs(*depth - sign * .125f) < 1e-6f);
+        REQUIRE(std::abs(depth.value() - sign * .125f) < 1e-6f);
         REQUIRE_FALSE(srPickingMath::triangleDepth(projected, glm::vec3(2, 0, 1)));
         std::swap(projected[0], projected[1]);
         REQUIRE(srPickingMath::triangleDepth(projected, glm::vec3(0, 0, 1)));

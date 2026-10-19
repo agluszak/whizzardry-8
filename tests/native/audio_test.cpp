@@ -25,6 +25,7 @@
 
 #include "asset_paths.h"
 #include "prepared_assets.h"
+#include "wiz8/checked_integer.h"
 
 /* Native sound service -> SDL3_mixer, with deterministic offline mixing. */
 #include <glm/ext/vector_float3.hpp>
@@ -138,7 +139,7 @@ struct AudioFixture {
         wiz8::SlfEntry entries[2]{};
         strcpy(entries[0].sFileName, "packed.wav");
         entries[0].uiOffset = sizeof(header);
-        entries[0].uiLength = wave.size();
+        entries[0].uiLength = wiz8::checked_integer<std::uint32_t>(wave.size());
         strcpy(entries[1].sFileName, "truncated.wav");
         entries[1].uiOffset = sizeof(header);
         entries[1].uiLength = 16;
@@ -269,12 +270,12 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
     REQUIRE(wiz8::sound::is_file_playing(path));
     auto position = wiz8::sound::playback_time(sound);
     REQUIRE(position.has_value());
-    REQUIRE(position->total_ms == 100);
+    REQUIRE(position.value().total_ms == 100);
     auto samples = mix(2048);
     REQUIRE((energy(samples, 0) > 10 && energy(samples, 1) > 10));
     position = wiz8::sound::playback_time(sound);
     REQUIRE(position.has_value());
-    REQUIRE((position->current_ms > 0 && position->current_ms <= 100));
+    REQUIRE((position.value().current_ms > 0 && position.value().current_ms <= 100));
     REQUIRE(wiz8::sound::volume(sound) == 127u);
     REQUIRE(wiz8::sound::set_volume(sound, 64));
     REQUIRE(wiz8::sound::volume(sound) == 64u);
@@ -326,7 +327,7 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
     sound = wiz8::sound::stream(packed);
     REQUIRE(sound != nullptr);
     position = wiz8::sound::playback_time(sound);
-    REQUIRE((position.has_value() && position->total_ms == 100));
+    REQUIRE((position.has_value() && position.value().total_ms == 100));
     samples = mix(8192);
     REQUIRE(energy(samples, 0) + energy(samples, 1) > 10);
     wiz8::sound::service();

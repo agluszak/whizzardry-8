@@ -30,6 +30,7 @@
 #include "surrender/srMath.h"
 #include "surrender/srMeshModel.h"
 #include "surrender/srShader.h"
+#include "wiz8/checked_integer.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/OctMeshModel.h"
 #include "wiz8/engine_code/materials.h"
@@ -168,7 +169,7 @@ static void OptimizeMeshOrder(stMeshModel& mesh)
     model->reindexVertices(vertices);
     std::vector<w8_ulong> inverse(vertex_count);
     for (std::size_t vertex = 0; vertex < vertices.size(); ++vertex)
-        inverse[vertices[vertex]] = vertex;
+        inverse[vertices[vertex]] = wiz8::checked_integer<w8_ulong>(vertex);
     for (auto& [key, vertex] : mesh.mapped_vertices) vertex = static_cast<int>(inverse[vertex]);
 }
 
@@ -256,7 +257,7 @@ std::unique_ptr<stMeshModel> BuildMeshPart(const SingleLevelMeshRecord& record,
     }
 
     std::ranges::copy(polygon_vertices, model->getPolyVertex());
-    model->setUVCount(uvs.size());
+    model->setUVCount(wiz8::checked_integer<int>(uvs.size()));
     std::ranges::copy(uvs, model->getVertexTexCoords(0, 0, 1));
     std::ranges::copy(polygon_uvs, model->getPolyUVIndex(0, 1));
     auto* shades = model->getVertexShadeIndex(1);
@@ -273,16 +274,17 @@ std::unique_ptr<stMeshModel> BuildMeshPart(const SingleLevelMeshRecord& record,
             vertices[vertex] = record.vertices[source_vertices[vertex]];
         OptimizeMeshOrder(*model);
     } else {
-        model->InitializeVertexFrames(record.compressed_vertices.size());
+        model->InitializeVertexFrames(
+            wiz8::checked_integer<int>(record.compressed_vertices.size()));
         model->vertex_compression_scale = 500.0f / record.compression_scale;
         for (std::size_t frame = 0; frame < record.compressed_vertices.size(); ++frame) {
-            auto* vertices = model->GetVertex(frame);
+            auto* vertices = model->GetVertex(wiz8::checked_integer<unsigned int>(frame));
             for (std::size_t vertex = 0; vertex < vertex_count; ++vertex) {
                 const auto source = source_vertices[vertex];
                 std::copy_n(record.compressed_vertices[frame].data() + source * 3, 3,
                             vertices + vertex * 3);
             }
-            model->FinalizeVertexFrame(frame);
+            model->FinalizeVertexFrame(wiz8::checked_integer<int>(frame));
         }
     }
     model->setDirtyAll();

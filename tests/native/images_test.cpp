@@ -34,6 +34,7 @@
 #include "wiz8/canvas/image_assets.h"
 #include "wiz8/canvas/imgfmt.h"
 #include "wiz8/canvas/sprite.h"
+#include "wiz8/checked_integer.h"
 #include "wiz8/surface_storage.h"
 
 static std::vector<std::uint16_t> sprite_pixels(const SpriteFrame& frame)
@@ -145,7 +146,7 @@ static Bytes sti_bitmap(unsigned width, unsigned height, unsigned depth, const B
         REQUIRE(compress2(stored.data(), &size, pixels.data(), pixels.size(), 9) == Z_OK);
         stored.resize(size);
     }
-    header.uiStoredSize = stored.size();
+    header.uiStoredSize = wiz8::checked_integer<std::uint32_t>(stored.size());
     Bytes bytes(sizeof(header));
     memcpy(bytes.data(), &header, sizeof(header));
     if (depth == 8)
@@ -194,7 +195,7 @@ static Bytes slf(const std::vector<std::pair<std::string, Bytes>>& files)
     wiz8::SlfHeader header{};
     strcpy(header.sLibName, "data.slf");
     strcpy(header.sPathToLibrary, "Data\\");
-    header.iEntries = header.iUsed = files.size();
+    header.iEntries = header.iUsed = wiz8::checked_integer<int>(files.size());
     header.iVersion = 0x200;
     Bytes bytes(reinterpret_cast<const std::uint8_t*>(&header),
                 reinterpret_cast<const std::uint8_t*>(&header) + sizeof(header));
@@ -203,8 +204,8 @@ static Bytes slf(const std::vector<std::pair<std::string, Bytes>>& files)
         wiz8::SlfEntry entry{};
         REQUIRE(name.size() < sizeof(entry.sFileName));
         memcpy(entry.sFileName, name.c_str(), name.size() + 1);
-        entry.uiOffset = bytes.size();
-        entry.uiLength = data.size();
+        entry.uiOffset = wiz8::checked_integer<std::uint32_t>(bytes.size());
+        entry.uiLength = wiz8::checked_integer<std::uint32_t>(data.size());
         entries.push_back(entry);
         bytes.insert(bytes.end(), data.begin(), data.end());
     }
@@ -216,7 +217,7 @@ static Bytes slf(const std::vector<std::pair<std::string, Bytes>>& files)
 static BitmapImage load(const char* path)
 {
     auto image = LoadImage(path);
-    auto* bitmap = image ? std::get_if<BitmapImage>(&*image) : nullptr;
+    auto* bitmap = image ? std::get_if<BitmapImage>(&image.value()) : nullptr;
     return bitmap ? std::move(*bitmap) : BitmapImage{nullptr, SDL_DestroySurface};
 }
 
@@ -537,7 +538,7 @@ TEST_CASE_METHOD(ImageFixture, "STI sprite sheets decode and transfer ownership 
     fixture(assets / "sheet.sti", bytes);
     auto image = LoadImage("sheet.sti");
     REQUIRE(image);
-    auto* sheet = std::get_if<SpriteSheet>(&*image);
+    auto* sheet = std::get_if<SpriteSheet>(&image.value());
     REQUIRE(sheet);
     REQUIRE(sheet->frames.size() == 2);
     const std::vector<std::uint16_t> expected{
@@ -565,7 +566,7 @@ TEST_CASE_METHOD(ImageFixture, "STI sprite sheets decode and transfer ownership 
     fixture(assets / "empty.sti", sti_sheet({}, {}));
     auto empty = LoadImage("empty.sti");
     REQUIRE(empty);
-    REQUIRE(std::holds_alternative<SpriteSheet>(*empty));
+    REQUIRE(std::holds_alternative<SpriteSheet>(empty.value()));
     REQUIRE(g_image_assets.sprites("empty.sti"));
 }
 
@@ -586,14 +587,14 @@ TEST_CASE_METHOD(ImageFixture, "Malformed ETRLE fails before any image is expose
         if (corruption == 6) pixels[6] = 3; // Truncated literal run.
         if (corruption == 7) {
             frames[1].usWidth = frames[1].usHeight = 0;
-            frames[1].uiDataOffset = pixels.size() + 1;
+            frames[1].uiDataOffset = wiz8::checked_integer<std::uint32_t>(pixels.size() + 1);
         }
         fixture(assets / "bad-sheet.sti", sti_sheet(frames, pixels));
         REQUIRE_FALSE(LoadImage("bad-sheet.sti"));
         fixture(assets / "good-sheet.sti", sti_sheet(valid_frames, runs));
         auto good = LoadImage("good-sheet.sti");
         REQUIRE(good);
-        auto* good_sheet = std::get_if<SpriteSheet>(&*good);
+        auto* good_sheet = std::get_if<SpriteSheet>(&good.value());
         REQUIRE(good_sheet);
         REQUIRE(good_sheet->frames.size() == 2);
         REQUIRE(sprite_pixels(good_sheet->frames[0])[0] == 0);

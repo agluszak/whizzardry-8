@@ -1,5 +1,3 @@
-#include "glm/ext/vector_float3.hpp"
-#include "wiz8/design_rect.h"
 #ifndef WIZ8_VIDEO2_H
 #define WIZ8_VIDEO2_H
 
@@ -13,8 +11,10 @@
 
 #include "compat/compiler.h"
 #include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "wiz8/canvas/himage.h"
+#include "wiz8/design_rect.h"
 /* Modified for the Wizardry 8 reconstruction, 2026-09-10.
    Reconstructed Wizardry Video2 interface.
    Remove the artificial SGP C boundary and unused local configuration include, 2026-10-04.

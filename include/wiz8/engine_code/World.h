@@ -43,7 +43,7 @@ unsigned char FindNearbyFreePosition(float radius, glm::vec3* position, bool che
 
 /* Scene nodes of the loaded worlds (the level world, then the sky world).
    Lookups return the first type-compatible match by exact name. */
-void ForEachWorldNode(const std::function<void(srNode*)>& visit);
+void ForEachWorldNode(std::function_ref<void(srNode*)> visit);
 
 template<class T> T* FindWorldNode(std::string_view name)
 {
@@ -55,7 +55,7 @@ template<class T> T* FindWorldNode(std::string_view name)
     return nullptr;
 }
 
-template<class T> void ForEachWorldNode(const std::function<void(T*)>& visit)
+template<class T> void ForEachWorldNode(std::function_ref<void(T*)> visit)
 {
     ForEachWorldNode([&](srNode* node) {
         if (auto* match = dynamic_cast<T*>(node)) visit(match);

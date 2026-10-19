@@ -661,7 +661,7 @@ W8SpellVisual* CreateAttachedSpellEffect(std::string_view mls_name, int power_le
     if (visual != 0) {
         glm::vec3 position;
 
-        if (parent != 0) {
+        if (parent && bounds) {
             const auto& [minimum, maximum] = *bounds;
             float height;
             float width;

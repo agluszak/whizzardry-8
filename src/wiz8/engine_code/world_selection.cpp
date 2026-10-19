@@ -10,7 +10,7 @@
    Engine Code\3dapi.cpp (upper 0x004511D0) and Engine Code\Navigator.cpp
    (lower 0x00452F50). */
 
-static void VisitNodes(srNode* node, const std::function<void(srNode*)>& visit)
+static void VisitNodes(srNode* node, std::function_ref<void(srNode*)> visit)
 {
     for (; node != 0; node = node->getNext()) {
         visit(node);
@@ -18,7 +18,7 @@ static void VisitNodes(srNode* node, const std::function<void(srNode*)>& visit)
     }
 }
 
-void ForEachWorldNode(const std::function<void(srNode*)>& visit)
+void ForEachWorldNode(std::function_ref<void(srNode*)> visit)
 {
     for (W8World* world : {GetWorld(), GetSecondaryWorld()}) {
         if (world != 0 && world->static_scene != 0) {

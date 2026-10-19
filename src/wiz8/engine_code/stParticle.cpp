@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <span>
@@ -36,6 +37,7 @@
 #include "surrender/srTexture.h"
 #include "surrender/srTriMeshPipeline.h"
 #include "surrender/srVertexPipe.h"
+#include "wiz8/checked_integer.h"
 #include "wiz8/chunk.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Monster.h"
@@ -653,9 +655,9 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
 
     pipeline->active_triangles = std::span(active_triangles).first(active_particle_count * 2);
     pipeline->triangles = triangles.data();
-    pipeline->triangle_count = triangles.size();
+    pipeline->triangle_count = wiz8::checked_integer<std::uint32_t>(triangles.size());
     pipeline->positions = vertex_positions.data();
-    pipeline->vertex_count = vertex_positions.size();
+    pipeline->vertex_count = wiz8::checked_integer<std::uint32_t>(vertex_positions.size());
 
     pipeline->current_record->flags = 0;
     pipeline->current_pass->shaders = 0;

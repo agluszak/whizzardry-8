@@ -330,11 +330,12 @@ static bool MtGigas2UmpaniAlarm(int command)
             g_master_functions.push_back({MtGigas2UmpaniAlarm, CaptureUmpaniAlarm});
         }
     }
+    if (!g_mt_gigas_alarm_gate) return true;
     if (!g_mt_gigas_alarm_gate->PollFinished()) {
         return false;
     }
 
-    g_mt_gigas_alarm_sound->Stop();
+    if (g_mt_gigas_alarm_sound) g_mt_gigas_alarm_sound->Stop();
     g_mt_gigas_alarm_gate.reset();
     SetTriggerVariableByName("UmpaniAlarm", 0);
     return true;

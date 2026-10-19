@@ -48,7 +48,7 @@ extern int g_cursor_hotspot_y;
 void PositionMouseCursor(int x, int y, bool reset_tick);
 /* 0x00428220: milliseconds since PositionMouseCursor last stamped the move
    tick. */
-unsigned int GetMillisecondsSinceCursorMove(void);
+std::uint64_t GetMillisecondsSinceCursorMove(void);
 /* 0x00428520: whether the current cursor hotspot is inside the inclusive
    rectangle (left, top, right, bottom). */
 bool IsCursorInRectangle(int left, int top, int right, int bottom);

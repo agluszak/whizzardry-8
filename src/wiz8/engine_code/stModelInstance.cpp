@@ -240,7 +240,8 @@ void stModelInstance2D::process(const ProcessInfo& info, e_processType)
     srMeshModel* model = static_cast<srMeshModel*>(getModel());
     auto mesh = model->getTriMesh();
 
-    if (render_state.glow_enabled) {
+    if (render_state.glow_enabled && glow_color_base && glow_color_peak &&
+        render_state.render_depth != 0) {
         if (glow_material == 0) {
             glow_material = std::make_shared<srMaterial>();
             if (mesh.materials[0][0] != 0) {

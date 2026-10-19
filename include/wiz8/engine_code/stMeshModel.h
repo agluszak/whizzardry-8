@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <list>
 #include <memory>
 #include <optional>
@@ -164,7 +165,7 @@ public:
     std::vector<Frame> frames; // Empty for a static base-class mesh.
     std::list<Skin> skins;
     std::unordered_map<short, int> mapped_vertices; // wire marker key -> runtime vertex index
-    w8_ulong last_decompress_release_tick;
+    std::uint64_t last_decompress_release_tick;
     float vertex_compression_scale;
     // m_pLerpBuffer: stable interpolation scratch, outside the cache budget.
     std::vector<glm::vec3> lerp_buffer;

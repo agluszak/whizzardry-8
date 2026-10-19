@@ -1,8 +1,19 @@
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <exception>
+// Some libstdc++ 16 releases use deprecated is_trivial_v in _M_init.
+// Limit the workaround to diagnostics originating in that library header.
+#if defined(__clang__) && defined(_GLIBCXX_RELEASE) && _GLIBCXX_RELEASE == 16
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#endif
+#include <inplace_vector>
+#if defined(__clang__) && defined(_GLIBCXX_RELEASE) && _GLIBCXX_RELEASE == 16
+#pragma clang diagnostic pop
+#endif
 #include <limits>
 #include <memory>
 #include <span>
@@ -26,6 +37,7 @@
 #include "retail_records.h"
 #include "surrender/srDebug.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/checked_integer.h"
 #include "wiz8/chunk.h"
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/conditions.h"
@@ -291,7 +303,7 @@ W8MonsterInfo* GetNpcMonsterInfo(W8NpcState* npc)
    says it has a group and it is in one. */
 W8MonsterManagerEntry* GetNpcGroupEntry(W8NpcState* npc)
 {
-    if (npc->record->has_group == 0) {
+    if (npc->record->has_group == 0 || !npc->character) {
         return 0;
     }
     if (!npc->is_grouped) {
@@ -303,7 +315,7 @@ W8MonsterManagerEntry* GetNpcGroupEntry(W8NpcState* npc)
 /* The party character occupying this NPC's group slot. */
 W8Character* GetNpcGroupCharacter(W8NpcState* npc)
 {
-    if (npc->record->has_group == 0) {
+    if (npc->record->has_group == 0 || !npc->character) {
         return 0;
     }
     if (!npc->is_grouped) {
@@ -459,7 +471,7 @@ int DismissNpcFromParty(int party_slot, int /*unused*/, bool skip_spawn, bool ne
         return 0;
     }
     W8Character* character = &g_status.buffers.Char[party_slot];
-    *npc->character = *character;
+    npc->character = *character;
     npc->is_grouped = false;
     npc->script_file.reset();
     RemoveCharacterFromParty(party_slot);
@@ -467,7 +479,8 @@ int DismissNpcFromParty(int party_slot, int /*unused*/, bool skip_spawn, bool ne
     memset(row, 0, sizeof(*row));
     gXStatus.monster_manager_entries[party_slot] = {};
     row->npc_index = -1;
-    if (npc->character->highest_condition != W8_CONDITION_DEAD && !skip_spawn) {
+    auto& dismissed_character = npc->character.value();
+    if (dismissed_character.highest_condition != W8_CONDITION_DEAD && !skip_spawn) {
         std::unique_ptr<W8MonsterRecord[]> records;
         if (!LoadMonsterDatabase(&records)) return false;
         unsigned int species;
@@ -483,11 +496,11 @@ int DismissNpcFromParty(int party_slot, int /*unused*/, bool skip_spawn, bool ne
         W8MonsterGroup* group = CreateGroup(species, 1, &position, true, false, true);
         W8MonsterInfo* monster = FindMonster(group->leader_location_id);
         if (monster != 0) {
-            CopyCharacterConditionsToTarget(*npc->character, &monster->location_id);
+            CopyCharacterConditionsToTarget(dismissed_character, &monster->location_id);
             if (monster->uiCondition[W8_CONDITION_UNCONSCIOUS] == W8_CONDITION_INDEFINITE) {
-                unsigned int stamina = static_cast<unsigned int>(npc->character->uiStaminaMax);
-                if (static_cast<unsigned int>(npc->character->stamina) < stamina) {
-                    stamina = static_cast<unsigned int>(npc->character->stamina);
+                unsigned int stamina = static_cast<unsigned int>(dismissed_character.uiStaminaMax);
+                if (static_cast<unsigned int>(dismissed_character.stamina) < stamina) {
+                    stamina = static_cast<unsigned int>(dismissed_character.stamina);
                 }
                 monster->stamina = stamina;
             }
@@ -498,7 +511,7 @@ int DismissNpcFromParty(int party_slot, int /*unused*/, bool skip_spawn, bool ne
         }
     }
     RequestRedraw(W8_MAIN_REDRAW_ALL);
-    ReturnDismissedNpcItems(npc, *npc->character);
+    ReturnDismissedNpcItems(npc, dismissed_character);
     npc->dismissed_flag = true;
     memset(&npc->dismissed_timer, 0, sizeof(npc->dismissed_timer));
     npc->event_pending = 1;
@@ -547,7 +560,7 @@ void UpdateNpcPartyMember(int party_slot)
 
 bool RecruitNpcIntoParty(W8NpcState* npc)
 {
-    if (npc->record->has_group == 0) {
+    if (npc->record->has_group == 0 || !npc->character) {
         return false;
     }
     int party_slot = AddCharacterToParty(*npc->character, npc->partner_index);
@@ -695,7 +708,7 @@ bool CanNpcJoinParty(W8NpcState* npc)
     unsigned int total;
     unsigned int average;
 
-    if (npc->record->has_group == 0) {
+    if (npc->record->has_group == 0 || !npc->character) {
         return false;
     }
     /* The service ids are the GetLevelBand region numbering: an NPC who offers
@@ -1121,7 +1134,7 @@ try {
     unsigned int index;
 
     file.write(&version, 1);
-    count = g_npc_states.size();
+    count = wiz8::checked_integer<unsigned int>(g_npc_states.size());
     file.write(&count, 4);
     for (index = 0; index < count; ++index) {
         npc = g_npc_states[index].get();
@@ -1801,7 +1814,8 @@ W8NpcPickpocketResult AttemptNpcPickpocket(W8Character* character, W8NpcState* n
                                            W8ItemInstance* item_out, unsigned int* gold_out)
 {
     bool empty_pick = false;
-    std::vector<int> candidates;
+    // Each of the forty stock slots contributes at most one candidate.
+    std::inplace_vector<int, 40> candidates;
     unsigned int picked = 0xffffffff;
     int index;
 

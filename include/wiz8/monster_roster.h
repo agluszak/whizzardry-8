@@ -18,9 +18,8 @@ public:
     W8MonsterInfo* add(std::unique_ptr<W8MonsterInfo> info, bool unborn)
     {
         auto& index = unborn ? unborn_ : live_;
-        W8MonsterInfo* borrowed = info.get();
         index.push_back(std::move(info));
-        return borrowed;
+        return index.back().get();
     }
 
     // Membership change only; returns false when the monster is not unborn.
@@ -48,7 +47,7 @@ public:
         return std::ranges::any_of(live_, active) || std::ranges::any_of(unborn_, active);
     }
 
-    unsigned int hostileCombatCount() const
+    auto hostileCombatCount() const
     {
         return std::ranges::count_if(live_, [](const auto& info) {
             return info->fActive && info->pCombat && info->ubDisposition == W8_DISPOSITION_HOSTILE;

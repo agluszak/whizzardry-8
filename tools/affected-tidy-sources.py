@@ -11,47 +11,15 @@ import json
 import os
 from pathlib import Path
 import re
-import shlex
 import subprocess
 import sys
 from tempfile import TemporaryDirectory
 
-SOURCES = {".c", ".cc", ".cpp", ".cxx"}
+from clang_tidy_shard import owns_source
+from clang_tidy_support import SOURCES, dependencies, is_first_party_source, source_path
+
 HEADERS = {".h", ".hh", ".hpp", ".hxx", ".inc", ".inl", ".ipp"}
 DOCS = {"README.md", "LICENSE", ".gitignore", "AGENTS.md", "CONTRIBUTING.md"}
-
-
-def source_path(entry):
-    return (Path(entry["directory"]) / entry["file"]).resolve()
-
-
-def is_first_party_source(root, path):
-    try:
-        relative = path.relative_to(root)
-    except ValueError:
-        return False
-    return relative.parts[0] in ("src", "tests") and path.suffix in SOURCES
-
-
-def dependencies(entry, index, temp):
-    directory = Path(entry["directory"])
-    arguments = entry.get("arguments")
-    if arguments is None:
-        arguments = shlex.split(entry["command"])
-    depfile = temp / f"{index}.d"
-    # The compiler handles conditional/macro includes, -include, search paths,
-    # and transitive includes. -M runs only the preprocessor, not compilation.
-    cmd = [*arguments, "-M", "-MT", "deps", "-MF", str(depfile)]
-    completed = subprocess.run(cmd, cwd=directory, stdout=subprocess.DEVNULL,
-                               stderr=subprocess.PIPE, timeout=90, check=False)
-    if completed.returncode:
-        message = completed.stderr.decode(errors="replace")[-2000:]
-        raise RuntimeError(f"{entry['file']}: {message}")
-    output = depfile.read_text().replace("\\\n", "")
-    if not output.startswith("deps:"):
-        raise RuntimeError(f"Unexpected dependency output for {entry['file']}")
-    names = shlex.split(output[len("deps:"):])
-    return source_path(entry), {(directory / name).resolve() for name in names}
 
 
 def main():
@@ -59,7 +27,11 @@ def main():
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--compile-commands", type=Path, required=True)
     parser.add_argument("--changed-files", type=Path, required=True)
+    parser.add_argument("--shard-index", type=int, default=0)
+    parser.add_argument("--shard-count", type=int, default=1)
     args = parser.parse_args()
+    if args.shard_count < 1 or not 0 <= args.shard_index < args.shard_count:
+        parser.error("shard count must be positive and index must be within the shard count")
     root = args.root.resolve()
     names = [os.fsdecode(name) for name in args.changed_files.read_bytes().split(b"\0") if name]
 
@@ -69,9 +41,9 @@ def main():
         path = Path(name)
         if name in DOCS or name.startswith(("docs/", ".github/ISSUE_TEMPLATE/")):
             continue
-        if path.parts and path.parts[0] in ("src", "tests") and path.suffix in SOURCES:
+        if path.parts and path.parts[0] in ("src", "tests", "tools") and path.suffix in SOURCES:
             changed_sources.add((root / path).resolve())
-        elif path.parts and path.parts[0] in ("src", "tests", "include") and path.suffix in HEADERS:
+        elif path.parts and path.parts[0] in ("src", "tests", "include", "tools") and path.suffix in HEADERS:
             changed_headers.add((root / path).resolve())
         else:
             # Build scripts, lint configuration, or unrecognized input changed.
@@ -84,6 +56,8 @@ def main():
             entries = [entry for entry in entries if is_first_party_source(root, source_path(entry))]
             if not entries:
                 raise RuntimeError("No first-party translation units in compilation database")
+            entries = [entry for entry in entries
+                       if owns_source(root, source_path(entry), args.shard_index, args.shard_count)]
             print(f"Scanning compiler dependencies for {len(entries)} translation units...", file=sys.stderr)
             with TemporaryDirectory() as directory:
                 with ThreadPoolExecutor(max_workers=max(1, int(os.environ.get("CLANG_TIDY_SCAN_JOBS", "4")))) as pool:
@@ -95,6 +69,8 @@ def main():
             print("FULL")
             return
 
+    changed_sources = {source for source in changed_sources
+                       if owns_source(root, source, args.shard_index, args.shard_count)}
     if changed_sources:
         print("^(?:" + "|".join(sorted(re.escape(str(path)) for path in changed_sources)) + ")$")
     else:

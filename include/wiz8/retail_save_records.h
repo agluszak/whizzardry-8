@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <iterator>
 #include <span>
 #include <type_traits>
 
@@ -61,7 +62,7 @@ struct MonsterInfo {
     W8Enchantment enchantments[8];
     W8Condition highest_condition;
     int condition_argument;
-    W8EffectSlot effect_slots[12];
+    EffectSlot effect_slots[12];
     W8GameplayModifierBlock modifiers;
     int fatigue_band;
     unsigned char pathing_cooldown;
@@ -301,8 +302,12 @@ template<> struct Record<W8MonsterInfo> {
               field(offsetof(Disk, highest_condition), sizeof(Disk::highest_condition)));
         value(&runtime.condition_argument,
               field(offsetof(Disk, condition_argument), sizeof(Disk::condition_argument)));
-        value(&runtime.effect_slots,
-              field(offsetof(Disk, effect_slots), sizeof(Disk::effect_slots)));
+        for (std::size_t index = 0; index < std::size(runtime.effect_slots); ++index)
+            Record<W8EffectSlot>::fields(
+                runtime.effect_slots[index],
+                field(offsetof(Disk, effect_slots) + index * sizeof(EffectSlot),
+                      sizeof(EffectSlot)),
+                value, text);
         value(&runtime.modifiers, field(offsetof(Disk, modifiers), sizeof(Disk::modifiers)));
         value(&runtime.fatigue_band,
               field(offsetof(Disk, fatigue_band), sizeof(Disk::fatigue_band)));

@@ -1,7 +1,6 @@
 #include "wiz8/canvas/Font.h"
 #pragma once
 
-#include <optional>
 #include <string_view>
 
 #include "compat/compiler.h"
@@ -36,7 +35,7 @@ extern W8ProfRaceInfoRow g_race_info_rows[W8_RACE_COUNT];
    minimums and the header icon. */
 class W8ProfRaceInfoDialogBase : public W8DialogBase {
 public:
-    W8ProfRaceInfoDialogBase();
+    explicit W8ProfRaceInfoDialogBase(CatalogArtwork artwork);
     virtual void Draw(SDL_Surface& target) override;
 
 protected:
@@ -50,7 +49,7 @@ private:
                       int height, std::string_view text, Font& font);
 
 protected:
-    std::optional<CatalogArtwork> m_uiArtwork;
+    CatalogArtwork m_uiArtwork;
     unsigned int m_uiSummaryImage;
     unsigned int m_uiNameId;    /* g_localized_strings index */
     unsigned int m_uiHeadingId; /* g_localized_strings index */

@@ -1,4 +1,5 @@
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -85,7 +86,6 @@
 #include "wiz8/startup_world.h"
 #include "wiz8/surface2d.h"
 #include "wiz8/ui_input.h"
-#include "wiz8/utility.h"
 
 constexpr double kInverseScreenHeight = 0.0020833333333333333;
 constexpr double kInverseScreenWidth = 0.0015625;
@@ -577,7 +577,7 @@ void RenderFrame(void)
     glm::vec3 saved_world_position;
     glm::vec3 shifted_world_position;
     unsigned int next_page;
-    w8_ulong now;
+    std::uint64_t now;
     float elapsed;
     float frames_per_second;
     srScene* first_page;
@@ -673,7 +673,7 @@ void RenderFrame(void)
             g_gerd->setPickKey(0);
             g_gerd->pushPick(pick);
             RenderScene(GetWorld()->static_scene.get(), GetWorld()->camera, &g_viewport, true);
-            pick = *g_gerd->popPick();
+            pick = g_gerd->popPick().value();
             g_current_model_instance = pick.selected_model;
             ResolvePickedProp();
         }
@@ -1088,7 +1088,7 @@ void PositionMouseCursor(int width, int height, bool reset_tick)
 
 /* Milliseconds since the cursor last moved (or was repositioned with the
    reset-tick arm). */
-unsigned int GetMillisecondsSinceCursorMove(void)
+std::uint64_t GetMillisecondsSinceCursorMove(void)
 {
     return w8_get_ticks() - g_cursor_move_tick;
 }

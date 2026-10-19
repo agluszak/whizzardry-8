@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -168,7 +169,7 @@ public:
 
 // Callbacks request owner destruction or screen transitions here. Outside a
 // transaction the action runs immediately. PumpUiInput yields once one is queued.
-void AfterUiDispatch(std::function<void()> action);
+void AfterUiDispatch(std::move_only_function<void()> action);
 
 using RetiredObject = std::unique_ptr<void, void (*)(void*)>;
 void RetireAfterUiDispatch(RetiredObject object);

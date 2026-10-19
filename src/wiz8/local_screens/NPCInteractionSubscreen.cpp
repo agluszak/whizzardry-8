@@ -43,6 +43,7 @@
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/checked_integer.h"
 #include "wiz8/chunk.h"
 #include "wiz8/conditions.h"
 #include "wiz8/cursor.h"
@@ -3427,13 +3428,15 @@ try {
 unsigned char SaveNpcDialogueTranscript(wiz8::File& file)
 try {
     const unsigned char version = 2;
-    const int record_count = static_cast<int>(g_npc_interaction_state->dialogue_transcript.size());
+    const auto record_count =
+        wiz8::checked_integer<std::int32_t>(g_npc_interaction_state->dialogue_transcript.size());
     file.write(&version, sizeof(version));
     file.write(&record_count, sizeof(record_count));
     for (int index = 0; index < record_count; ++index) {
         W8DialogueTranscriptRecord* record =
             g_npc_interaction_state->dialogue_transcript[index].get();
-        const int text_length = wiz8::text::to_utf16(record->text).size();
+        const auto text_length =
+            wiz8::checked_integer<std::int32_t>(wiz8::text::to_utf16(record->text).size());
         if (text_length >= 100) return false;
         std::vector<std::byte> bytes((std::size_t(text_length) + 1) * 2);
         wiz8::text::to_utf16le(record->text, bytes);

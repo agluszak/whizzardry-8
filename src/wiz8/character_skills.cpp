@@ -34,7 +34,6 @@
 #include "wiz8/message_box.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/unicode.h"
-#include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */

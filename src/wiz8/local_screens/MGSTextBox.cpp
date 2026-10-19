@@ -29,6 +29,7 @@
 #include "wiz8/canvas/himage.h"
 #include "wiz8/canvas/image.h"
 #include "wiz8/catalog_artwork.h"
+#include "wiz8/checked_integer.h"
 #include "wiz8/chunk.h"
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/dialog_code/DialogInterface.h"
@@ -245,8 +246,8 @@ static void AppendNoticeLine(unsigned char font_palette, std::string_view text, 
         g_status.text_box_lines_shown[3] = g_status.text_box_lines_used[3];
         g_level_block->text_lines[3] = g_status.text_box_lines_used[3];
         W8MessageStorageRecord* last = &g_message_storage[3][g_status.text_box_lines_shown[3] - 1];
-        unsigned int delay = g_settings.text_display_delay_ms *
-                             (wiz8::text::grapheme_count(last->text) * 100 / 20 + 100) / 100;
+        auto delay = g_settings.text_display_delay_ms *
+                     (wiz8::text::grapheme_count(last->text) * 100 / 20 + 100) / 100;
         if (delay > 60000) {
             delay = 60000;
         }
@@ -377,7 +378,8 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view, short tex
                 remaining.remove_prefix(end);
                 if (!remaining.empty() && remaining.front() == '\n') remaining.remove_prefix(1);
                 if (!remaining.empty())
-                    g_level_block->text_lines[8 + text_box] = line_index == 1 ? line.size() : ~0U;
+                    g_level_block->text_lines[8 + text_box] =
+                        line_index == 1 ? wiz8::checked_integer<unsigned int>(line.size()) : ~0U;
             }
         }
         if (g_status.quote_audit && g_notice_line_count > 7) {
@@ -510,7 +512,8 @@ try {
             };
             live_record->highlight_start = byte_offset(disk_record.highlight_start);
             live_record->highlight_stop = byte_offset(disk_record.highlight_stop);
-            if (disk_record.length >= 0) live_record->length = byte_offset(disk_record.length);
+            if (disk_record.length >= 0)
+                live_record->length = wiz8::checked_integer<int>(byte_offset(disk_record.length));
             live_record->text = std::move(decoded);
         }
     }
@@ -562,7 +565,7 @@ void AppendTextBoxLine(std::string_view text, short text_box)
 {
     text_box = ResolveNoticeTextBox(text_box);
     auto& line = g_message_storage[text_box][g_status.text_box_lines_used[text_box] - 1];
-    line.length = line.text.size();
+    line.length = wiz8::checked_integer<int>(line.text.size());
     line.text.append(text);
 }
 
@@ -709,7 +712,7 @@ void PostCharacterNotice(int party_slot, std::string_view text, int context)
     ShowNotice(W8_FONT_PALETTE_WHITE,
                fmt::format("{}{}{}", g_status.buffers.Char[party_slot].name, separator, text),
                context);
-    int stop = g_status.buffers.Char[party_slot].name.size();
+    auto stop = g_status.buffers.Char[party_slot].name.size();
     if (text.starts_with("'")) {
         ++stop;
         if (text.starts_with("'s")) {
@@ -737,8 +740,8 @@ void AdvanceNoticeLine(short text_box)
     }
     W8MessageStorageRecord* record =
         &g_message_storage[text_box][g_status.text_box_lines_shown[text_box]];
-    unsigned int delay = g_settings.text_display_delay_ms *
-                         (wiz8::text::grapheme_count(record->text) * 100 / 20 + 100) / 100;
+    auto delay = g_settings.text_display_delay_ms *
+                 (wiz8::text::grapheme_count(record->text) * 100 / 20 + 100) / 100;
     if (delay > 60000) {
         delay = 60000;
     }

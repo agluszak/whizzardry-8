@@ -1,6 +1,8 @@
 #include "wiz8/local_code/MonsterAI.h"
 
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <span>
 #include <vector>
 
@@ -20,6 +22,7 @@
 #include "sight_state.h"
 #include "surrender/srDebug.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/checked_integer.h"
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/GDCamera.h"
@@ -1032,8 +1035,8 @@ void BuildMonsterActionQueue(W8MonsterInfo* monster_info, bool target_locked, bo
     unsigned int mode_bit;
     unsigned int char_lo;
     unsigned int char_hi;
-    unsigned int monster_lo;
-    unsigned int monster_hi;
+    std::size_t monster_lo;
+    std::size_t monster_hi;
     unsigned int attack_lo;
     unsigned int attack_hi;
     bool scan_chars = false;
@@ -1154,8 +1157,8 @@ targets_chosen:
             }
         }
         if (scan_monsters) {
-            for (index = monster_lo; index < monster_hi; ++index) {
-                other = GetMonsterListEntry(index);
+            for (auto monster_index = monster_lo; monster_index < monster_hi; ++monster_index) {
+                other = GetMonsterListEntry(monster_index);
                 if (locked_monster && other != locked_monster) continue;
                 if (other != monster_info && other->fActive && other->hp_current != 0 &&
                     GetMonsterDataForInfo(other)->untargetable == 0 && other->pCombat &&
@@ -1219,7 +1222,7 @@ bool ChooseRandomMonsterAction(W8MonsterInfo* monster_info, bool target_locked, 
     if (actions.empty()) {
         return false;
     }
-    const auto& entry = actions[Random(actions.size())];
+    const auto& entry = actions[Random(wiz8::checked_integer<std::uint32_t>(actions.size()))];
     monster_info->action_kind = entry.action_kind;
     switch (entry.action_kind) {
     case W8_MONSTER_ACTION_ATTACK:

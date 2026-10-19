@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -1152,7 +1153,7 @@ W8Octree::traceSphereHit(const glm::vec3& from, const glm::vec3& to, int exclude
     }
 no_probes:;
     ids = queryObjects({low, high}, W8_OCTREE_KIND_LOCATION, -1);
-    unsigned int count = ids.size(); /* c-style-cast-ok:
+    auto count = ids.size(); /* c-style-cast-ok:
             the shared query count field is stored unsigned */
     if (count != 0) {
         do {
@@ -2075,7 +2076,7 @@ std::vector<w8_ulong> W8Octree::locationsInBox(const srBoundingBox& bounds,
 unsigned char W8Octree::TestBoxOccupied(const glm::vec3* lower, const glm::vec3* upper)
 {
     auto objects = queryObjects({(*lower), (*upper)}, W8_OCTREE_KIND_SURFACE, -1);
-    unsigned int count = objects.size();
+    auto count = objects.size();
     unsigned int index;
     for (index = 0; index < count; ++index) {
         W8GDSurface* surface = owner_world->game_data->m_pSurfaces.data() + objects[index];

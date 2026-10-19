@@ -369,7 +369,7 @@ bool ArnikaWarningSound(int command)
         return false;
     }
 
-    g_warning_loop->Stop();
+    if (g_warning_loop) g_warning_loop->Stop();
     g_warning_gate.reset();
     SetTriggerVariableByName("WarningSound", 0);
     return true;

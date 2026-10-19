@@ -67,11 +67,12 @@ void W8GroundShadowMapper::process(srVertexPipe& pipe)
     pipe.lazy_setup_mask |= 1 << CHANNEL_ST0;
 
     if (pipe.vertex_count == 0) return;
+    const auto& transform = projection.value();
     const std::span<const w8_ulong> indices(pipe.avt + pipe.sub_batch_offset, pipe.vertex_count);
     const std::span<glm::vec2> output(
         pipe.vertex_array->st0 + pipe.batch_base + pipe.sub_batch_offset, pipe.vertex_count);
     for (std::size_t i = 0; i < output.size(); ++i)
-        output[i] = projection->coordinates(vertices[indices[i]]);
+        output[i] = transform.coordinates(vertices[indices[i]]);
 }
 
 stGroundShadow::stGroundShadow(srNode* parent) : srNode(static_cast<srNode*>(0))

@@ -29,7 +29,6 @@
 #include "wiz8/local_screens/PartySelectionScreen.h"
 #include "wiz8/local_screens/RCSCommon.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
-#include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 
 /* Query whether scrolling is possible, or scroll and invalidate the transcript. */

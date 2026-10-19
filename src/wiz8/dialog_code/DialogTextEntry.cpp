@@ -11,6 +11,7 @@
 #include "wiz8/canvas/Font.h"
 #include "wiz8/canvas/himage.h"
 #include "wiz8/canvas/image.h"
+#include "wiz8/checked_integer.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/npc_dialogue.h"
@@ -38,7 +39,7 @@ W8DialogTextEntry::W8DialogTextEntry(std::string_view prefix, std::string_view t
     SetLayoutBounds(bounds, true);
     SetLayoutMode(layout_mode);
     m_shorten_mask = shorten;
-    m_prefix_length = prefix.empty() ? 0 : prefix.size() + 2;
+    m_prefix_length = prefix.empty() ? 0 : wiz8::checked_integer<int>(prefix.size() + 2);
     m_text = prefix.empty() ? std::string(text) : fmt::format("{}: {}", prefix, text);
     UpdateLayout();
 }

@@ -86,7 +86,6 @@
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
-#include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 
 namespace {
@@ -552,7 +551,7 @@ void generic_button_images()
     {
         auto image = LoadImage("metadata.sti");
         REQUIRE(image);
-        const auto* sheet = std::get_if<SpriteSheet>(&*image);
+        const auto* sheet = std::get_if<SpriteSheet>(&image.value());
         REQUIRE(sheet);
         REQUIRE(sheet->frames.size() == 3);
         REQUIRE(sheet->frames[2].paletteIndexAt(0, 0) == 1);
@@ -820,7 +819,7 @@ void generic_button_images()
     REQUIRE((image->offset_x == 4 && image->offset_y == 5));
     const auto background_pixel = image->frames[0]->frames[8].paletteIndexAt(0, 0);
     REQUIRE(background_pixel);
-    REQUIRE(image->fill_color == image->frames[0]->colors[*background_pixel]);
+    REQUIRE(image->fill_color == image->frames[0]->colors[background_pixel.value()]);
     auto another_owner = image;
     image.reset();
     REQUIRE(another_owner->frames[0]);
@@ -1307,7 +1306,8 @@ TEST_CASE("Input-layer owners close only after the outer dispatch completes", "[
     bool finished = false;
     layer->add(SDL_Rect{10, 10, 20, 20}, [&](const UiPointerEvent& event) {
         if (event.action == UiPointerAction::Down) {
-            AfterUiDispatch([&] {
+            AfterUiDispatch([&, owned = std::make_unique<int>(42)] {
+                REQUIRE(*owned == 42);
                 REQUIRE(finished);
                 layer.reset();
             });
@@ -1360,7 +1360,7 @@ TEST_CASE("The input pump finishes its policy before committing a layer close", 
     REQUIRE(layer == nullptr);
     auto pending = PollInputEvent();
     REQUIRE(pending);
-    REQUIRE(pending->type == InputEventType::LeftButtonUp);
+    REQUIRE(pending.value().type == InputEventType::LeftButtonUp);
     REQUIRE_FALSE(PollInputEvent());
 }
 

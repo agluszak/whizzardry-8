@@ -2,11 +2,13 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <exception>
+#include <iterator>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -57,7 +59,6 @@
 #include "wiz8/engine_code/PolyPick.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/World.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/level_population.h"
@@ -676,7 +677,7 @@ bool W8PathingService::TestAttachmentHopDoor(W8NavigatorAttachment* attachment)
             std::vector<w8_ulong> candidates;
             Trigger* selected = 0;
             candidates = owner_octree->queryObjects(bounds, W8_OCTREE_KIND_PROP, -1);
-            int count = candidates.size();
+            const auto count = std::ssize(candidates);
             if (count > 0) {
                 if (count == 1) {
                     W8Prop* prop = owner_octree->owner_world->collidable_props[candidates[0]];
@@ -1489,7 +1490,7 @@ int W8PathingService::ProcessSearchNodeProps(unsigned short node_index, bool fir
     upper = node->position + upper_extent;
 
     const auto candidates = owner_octree->queryObjects({lower, upper}, W8_OCTREE_KIND_PROP, -1);
-    unsigned int count = candidates.size();
+    const auto count = std::ssize(candidates);
     for (unsigned int index = 0; index < count; ++index) {
         W8Prop* prop = owner_octree->owner_world->collidable_props[candidates[index]];
         prop->CanBeUsedFrom(node->cell_x, node->cell_z, true);
@@ -3600,7 +3601,7 @@ unsigned short W8PathingService::FindWaypoint(const glm::vec3& position, bool ex
     upper = query + half_extent;
 
     auto candidates = owner_octree->queryObjects({lower, upper}, W8_OCTREE_KIND_WAYPOINT, -1);
-    int count = candidates.size();
+    const auto count = std::ssize(candidates);
     if (count == 0) {
         return result;
     }
@@ -3807,7 +3808,7 @@ void W8PathingService::ActivateMovementTrigger(W8NavigatorMovementState* movemen
     }
 
     const auto candidates = owner_octree->queryObjects({lower, upper}, W8_OCTREE_KIND_PROP, -1);
-    int count = candidates.size();
+    const auto count = std::ssize(candidates);
     if (count <= 0) {
         return;
     }

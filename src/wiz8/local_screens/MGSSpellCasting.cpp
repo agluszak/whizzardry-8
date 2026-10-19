@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cstdlib>
 #include <cstring>
 #include <functional>
@@ -23,6 +24,7 @@
 #include "surrender/srDebug.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/catalog_artwork.h"
+#include "wiz8/checked_integer.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/SpellInfoDialog.h"
@@ -57,7 +59,6 @@
 #include "wiz8/platform/timer.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/ui_layer.h"
-#include "wiz8/utility.h"
 #include "wiz8/world_cursor.h"
 #include "wiz8/xstatus.h"
 
@@ -506,8 +507,8 @@ static void RebuildSpellCastingList(int spell_id)
                                spell.display_name),
                    2);
         AppendTextBoxLine(fmt::format("{:d}", spell.spell_point_cost), 2);
-        if (row.color != 15) SetSpellListLineColor(index, row.color);
-        if (row.spell == spell_id && row.color == 15) selected = index;
+        if (row.color != 15) SetSpellListLineColor(wiz8::checked_integer<int>(index), row.color);
+        if (row.spell == spell_id && row.color == 15) selected = wiz8::checked_integer<int>(index);
     }
     if (selected == -1) {
         ScrollTextBoxTo(0);

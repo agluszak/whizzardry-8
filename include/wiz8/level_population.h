@@ -33,7 +33,7 @@ struct W8LevelPopulation {
                 if (info->location_id == id) return info.get();
         return nullptr;
     }
-    int activeMemberCount(const W8MonsterGroup& group) const
+    auto activeMemberCount(const W8MonsterGroup& group) const
     {
         return std::ranges::count_if(group.MemberIds(), [this](int id) {
             const auto* member = findMonster(id);

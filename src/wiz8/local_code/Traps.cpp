@@ -41,7 +41,6 @@
 #include "wiz8/platform/random.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/string_database.h"
-#include "wiz8/utility.h"
 
 static char g_record_mode_line[0x1000];
 static bool g_record_mode_active;
@@ -73,7 +72,6 @@ void WriteRecordModeEntry(void)
     W8WorldCameraState state;
     std::string line;
     std::unique_ptr<wiz8::File> file;
-    unsigned int length;
 
     file = [&]() {
         try {
@@ -97,11 +95,8 @@ void WriteRecordModeEntry(void)
         file->write(line.data(), line.size());
         const auto code =
             GetLevelLocationCode(GetLoadedLevelID()).value_or(s_record_mode_default_location);
-        line = code + '\n';
+        line = fmt::format("{}\n{}\n", code, g_record_mode_line);
         file->write(line.data(), line.size());
-        length = strlen(g_record_mode_line);
-        g_record_mode_line[length] = '\n';
-        file->write(g_record_mode_line, length + 1);
         if (file) file->close();
         file.reset();
     }

@@ -96,7 +96,7 @@ static bool frame_storage()
         REQUIRE(lerp[1].x == Catch::Approx(1.5f).margin(1e-6));
         REQUIRE(mesh.GetVertexLocations(0, true, 1.0f) == lerp);
         REQUIRE(lerp[0] == glm::vec3(2.0f, 0.0f, 0.0f));
-        REQUIRE(mesh.GetVertexLocations(1, true, 0.75f) == mesh.frames[1].locations->data());
+        REQUIRE(mesh.GetVertexLocations(1, true, 0.75f) == mesh.frames[1].locations.value().data());
         bounds = mesh.GetFrameBounds(0);
         REQUIRE(bounds.minimum == glm::vec3(0.0f, 0.0f, 0.0f));
         REQUIRE(bounds.maximum == glm::vec3(1.0f, 1.0f, 0.0f));
@@ -160,7 +160,7 @@ static bool writable_and_empty_caches()
         stMeshModel empty(0, 0);
         empty.InitializeVertexFrames(1);
         REQUIRE(empty.AllocateFrameBuffers(0, 7));
-        REQUIRE((empty.frames[0].locations && empty.frames[0].locations->empty()));
+        REQUIRE((empty.frames[0].locations && empty.frames[0].locations.value().empty()));
         REQUIRE((empty.frames[0].vertex_normals && empty.frames[0].polygon_normals));
         REQUIRE(g_decompressed_mesh_bytes == initial_bytes);
         REQUIRE(!ReclaimDecompressedBytes(1)); // No infinite loop on resident empty caches.
@@ -279,12 +279,14 @@ static bool skins_and_automap()
             auto selection = mesh.GetActivePolygons(second, true);
             REQUIRE((selection && selection->size() == 2 && (*selection)[0] == 1 &&
                      (*selection)[1] == 2));
-            REQUIRE(mesh.GetActivePolygons(second, true)->data() == selection->data());
+            REQUIRE(mesh.GetActivePolygons(second, true).value().data() ==
+                    selection.value().data());
             mesh.RemoveSkinTable(0);
             REQUIRE(mesh.FindSkinTable("SECOND1") ==
                     second); // ID is no longer its vector position.
             REQUIRE(mesh.GetTextureTable(second) == second_textures);
-            REQUIRE(mesh.GetActivePolygons(second, true)->data() == selection->data());
+            REQUIRE(mesh.GetActivePolygons(second, true).value().data() ==
+                    selection.value().data());
             const std::array<char, 9> bounded_name{'t', 'h', 'i', 'r', 'd', '2', 'X', 'X', 'X'};
             REQUIRE(mesh.FindSkinTable(std::string_view(bounded_name.data(), 6)) == third);
             REQUIRE(mesh.CreateSkinTable("reused3", -1) == 0);
@@ -323,11 +325,11 @@ static bool skins_and_automap()
             mesh.ClearAutomapPolygonFilter();
             const auto empty_automap = mesh.GetActivePolygons(-1, true);
             REQUIRE(empty_automap);
-            REQUIRE(empty_automap->empty());
+            REQUIRE(empty_automap.value().empty());
             const int all_blank = mesh.CreateSkinTable("all-blank", -1);
             const auto empty_skin = mesh.GetActivePolygons(all_blank, true);
             REQUIRE(empty_skin);
-            REQUIRE(empty_skin->empty());
+            REQUIRE(empty_skin.value().empty());
             mesh.SetMappedVertex(7, 10);
             mesh.SetMappedVertex(9, 10);
             REQUIRE((mesh.FindMappedIndex(10) == 9 && mesh.mapped_vertices.size() == 1));

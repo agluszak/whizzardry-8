@@ -301,8 +301,8 @@ TEST_CASE("Animated meshes share source geometry and keep playback independent")
     REQUIRE(second->meshes[0]->frame_index == 0);
     const auto bounds = GetAniMeshBounds(first.get());
     REQUIRE(bounds);
-    REQUIRE(bounds->minimum == glm::vec3(0));
-    REQUIRE(bounds->maximum == glm::vec3(3, 1, 0));
+    REQUIRE(bounds.value().minimum == glm::vec3(0));
+    REQUIRE(bounds.value().maximum == glm::vec3(3, 1, 0));
     REQUIRE(first->radius == std::sqrt(10.0f) * 0.5f);
     REQUIRE(first->meshes[0]->frame_index == 0);
     auto* first_frame = GetAniMeshFrame(first.get(), 1);

@@ -209,15 +209,14 @@ bool ControlCampAlarm(int command)
         g_mt_gigas_outer_alarm_sound = nullptr;
         g_mt_gigas_outer_alarm_sound = CreateAndPlaySoundNode("Data\\Sound\\Ambients\\Alarm1.wav",
                                                               position, 1.0f, 75.0f, true);
-        if (g_mt_gigas_outer_alarm_gate) {
-            g_mt_gigas_outer_alarm_gate.reset();
-        }
+        const bool was_running = g_mt_gigas_outer_alarm_gate.has_value();
         g_mt_gigas_outer_alarm_gate.emplace(static_cast<float>(static_cast<unsigned int>(command)),
                                             false, true);
-        if (g_mt_gigas_outer_alarm_gate) {
+        if (!was_running) {
             g_master_functions.push_back({ControlCampAlarm, CaptureCampAlarm});
         }
     }
+    if (!g_mt_gigas_outer_alarm_gate) return true;
     if (!g_mt_gigas_outer_alarm_gate->PollFinished()) {
         return false;
     }

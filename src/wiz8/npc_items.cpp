@@ -10,7 +10,6 @@
 #include <vector>
 
 #include "character_skills.h"
-#include "glm/ext/vector_float3.hpp"
 #include "local_code/ConditionsAndEnchantments.h"
 #include "npc_trade_price.h"
 #include "wiz8/audio/soundman.h"
@@ -47,7 +46,7 @@ static W8NpcItemEntry MakeNpcItemEntry(int item_id)
 
 static int FindNpcStockItem(W8NpcState* npc, int item_id)
 {
-    unsigned int count = npc->items.size();
+    const auto count = npc->items.size();
     for (unsigned int index = 0; index < count; ++index) {
         if (npc->items[index].item.iItemNo == item_id) {
             return index;
@@ -64,7 +63,7 @@ static unsigned char GetNpcStockQuantity(W8NpcState* npc, int item_id)
 
 static unsigned char GetNpcConfiguredStockQuantity(W8NpcState* npc, int item_id)
 {
-    unsigned int count = npc->record->item_stock_rules.size();
+    const auto count = npc->record->item_stock_rules.size();
     for (unsigned int index = 0; index < count; ++index) {
         W8NpcItemStockRule* rule = &npc->record->item_stock_rules[index];
         if (rule->item_id == item_id) {
@@ -159,7 +158,7 @@ unsigned char MaintainNpcStock(W8NpcState* npc, bool force)
 {
     W8NpcItemEntry* entry;
     W8NpcItemStockRule* rule;
-    unsigned int count;
+    std::size_t count;
     unsigned int index;
     unsigned int rule_index;
     int item_id;
@@ -216,7 +215,7 @@ unsigned char MaintainNpcStock(W8NpcState* npc, bool force)
 unsigned char PopulateNpcStock(W8NpcState* npc)
 {
     W8NpcItemStockRule* rule;
-    unsigned int rule_count;
+    std::size_t rule_count;
     unsigned int rule_index;
     unsigned int remaining;
     int item_id;
@@ -322,7 +321,7 @@ int AddNpcItemFromInstance(W8NpcState* npc, const W8ItemInstance* item, char qua
 int RestockNpcItems(W8NpcState* npc)
 {
     W8NpcItemStockRule* rule;
-    unsigned int rule_count;
+    std::size_t rule_count;
     unsigned int rule_index;
     int item_id;
     int configured;
@@ -433,7 +432,7 @@ W8NpcItemEntry* GetNpcItemAt(W8NpcState* npc, int index)
     return &npc->items[index];
 }
 
-unsigned int GetNpcItemCount(W8NpcState* npc)
+std::size_t GetNpcItemCount(W8NpcState* npc)
 {
     return npc->items.size();
 }
@@ -653,28 +652,27 @@ W8TradeResult CompleteNpcItemPurchase(W8NpcState* npc, int index, unsigned char 
         moved += unit;
     }
     std::optional<W8ItemInstance> held;
-    std::optional<glm::vec3> drop_position;
+    std::vector<std::unique_ptr<W8WorldItem>> drops;
     if (!overflow.empty()) {
         if ((record.flags & W8_ITEM_FLAG_NO_DISCARD) != 0) {
             if (g_status.item_in_cursor || overflow.size() != 1) return {W8TradeOutcome::Refused};
             held = overflow.front();
             overflow.clear();
         } else {
-            drop_position = FindItemDropPosition();
+            const auto drop_position = FindItemDropPosition();
             if (!drop_position) return {W8TradeOutcome::Refused};
+            for (auto& item : overflow)
+                drops.push_back(CreateWorldItem(&item, &*drop_position,
+                                                W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
         }
     }
-    std::vector<std::unique_ptr<W8WorldItem>> drops;
-    for (auto& item : overflow)
-        drops.push_back(
-            CreateWorldItem(&item, &*drop_position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
     if (!drops.empty()) {
         auto& items = CurrentLevelPopulation().world_items;
         items.reserve(items.size() + drops.size());
     }
     // Publish the complete transfer before encumbrance, reactions or presentation.
     std::ranges::copy(pool, g_status.party_item_pool);
-    g_status.party_item_count = pool.size();
+    g_status.party_item_count = static_cast<unsigned int>(pool.size());
     ConsumeNpcItemQuantity(npc, index, quantity);
     RemoveDepletedNpcStock(npc);
     if (!no_payment) SpendPartyGold(price);
@@ -731,9 +729,9 @@ unsigned char ConsumeNpcItemQuantity(W8NpcState* npc, int index, unsigned char q
 void DecayNpcInventory(W8NpcState* npc)
 {
     int item_id;
-    unsigned int item_count;
+    std::size_t item_count;
     W8NpcItemEntry* entry;
-    unsigned int rule_count;
+    std::size_t rule_count;
     W8NpcItemStockRule* rule;
     char quantity;
     unsigned int rule_index;

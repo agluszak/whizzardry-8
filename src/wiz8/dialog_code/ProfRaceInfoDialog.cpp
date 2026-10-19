@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include <SDL3/SDL_surface.h>
@@ -68,7 +69,8 @@ W8ProfRaceInfoRow g_race_info_rows[W8_RACE_COUNT] = {
     {656, 672, 24}, {657, 673, 22}, {658, 674, 26}, {659, 675, 28},
 };
 
-W8ProfRaceInfoDialogBase::W8ProfRaceInfoDialogBase()
+W8ProfRaceInfoDialogBase::W8ProfRaceInfoDialogBase(CatalogArtwork artwork)
+    : m_uiArtwork(std::move(artwork))
 {
     SetOrigin(0x85, 0x69);
     SetExtent(0x177, 0x10e);
@@ -94,7 +96,7 @@ void W8ProfRaceInfoDialogBase::Draw(SDL_Surface& target)
 {
 
     W8DialogBase::Draw(target);
-    m_uiArtwork->draw(target, m_uiSummaryImage, m_x + 0xd, m_y + 0xd);
+    m_uiArtwork.draw(target, m_uiSummaryImage, m_x + 0xd, m_y + 0xd);
     DrawTextLine(target, g_W8TextBufferAlignLeft, 0x25, 0xb, 0x147, 0x18,
                  g_localized_strings[m_uiNameId], g_options_detail_font);
     DrawTextLine(target, g_W8TextBufferAlignCenter, 0xd, 0x29, 0x8e, 0xc,
@@ -149,12 +151,12 @@ bool W8ProfRaceInfoDialogBase::PopulateText()
 /* Copies the row straight out of the table: every profession has minimums, so
    there is no per-entry test the way the race dialog needs one. */
 W8ProfessionInfoDialog::W8ProfessionInfoDialog(W8Profession uiIndex)
+    : W8ProfRaceInfoDialogBase(CatalogArtwork::Load(0x10b))
 {
     if (uiIndex >= W8_PROFESSION_COUNT) {
         Fail("uiIndex < PROF_COUNT");
     }
     m_uiIndex = uiIndex;
-    m_uiArtwork = CatalogArtwork::Load(0x10b);
     m_uiHeadingId = 0x14c;
     m_uiSummaryImage = g_profession_info_rows[uiIndex].image_id;
     m_uiNameId = g_profession_info_rows[uiIndex].name_id;
@@ -231,12 +233,12 @@ bool W8ProfessionInfoDialog::PopulateText()
    rest show -1, so the copy is a counted loop with the test inside it rather
    than the profession dialog's straight block move. */
 W8RaceInfoDialog::W8RaceInfoDialog(W8Race uiIndex)
+    : W8ProfRaceInfoDialogBase(CatalogArtwork::Load(0x10c))
 {
     if (uiIndex >= W8_RACE_COUNT) {
         Fail("uiIndex < RACE_COUNT");
     }
     m_uiIndex = uiIndex;
-    m_uiArtwork = CatalogArtwork::Load(0x10c);
     m_uiHeadingId = 0x152;
     m_uiSummaryImage = g_race_info_rows[uiIndex].image_id;
     m_uiNameId = g_race_info_rows[uiIndex].name_id;

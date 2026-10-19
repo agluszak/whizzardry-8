@@ -1,9 +1,9 @@
-#include <memory>
-#include <string>
 #ifndef WIZ8_LOCAL_CODE_SPELL_EFFECT_H
 #define WIZ8_LOCAL_CODE_SPELL_EFFECT_H
 
 #include <algorithm>
+#include <memory>
+#include <string>
 #include <vector>
 
 #include <stddef.h>

@@ -13,6 +13,7 @@
 
 #include "dialog_code/DialogBase.h"
 #include "wiz8/canvas/Font.h"
+#include "wiz8/checked_integer.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
@@ -153,7 +154,7 @@ unsigned int W8MessageDialogBase::WrapMessage(std::string_view message)
         if (start < message.size() && message[start] == ' ') ++start;
     }
     m_lines.push_back(std::move(line));
-    return m_lines.size();
+    return wiz8::checked_integer<unsigned int>(m_lines.size());
 }
 
 void W8MessageDialogBase::SetClientExtent(int width, int height)

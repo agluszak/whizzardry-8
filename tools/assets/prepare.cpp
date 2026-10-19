@@ -107,9 +107,26 @@ void extract(const Archive& archive, const fs::path& output)
         }
         file->close();
         const auto time = SDL_TimeFromWindows(entry.modified.low, entry.modified.high);
-        fs::last_write_time(target, fs::file_time_type::clock::from_sys(
-                                        std::chrono::sys_time<std::chrono::nanoseconds>(
-                                            std::chrono::nanoseconds(time))));
+        // Unset/unsupported FILETIMEs are clamped by SDL. Keep the new file's
+        // timestamp rather than converting a clamped value into another epoch.
+        if (file_time_from_sdl(time).ticks() != entry.modified.ticks()) continue;
+        using namespace std::chrono;
+        using FileTime = fs::file_time_type;
+        using FileSeconds = duration<FileTime::rep>;
+        const sys_time<nanoseconds> system_time{nanoseconds{time}};
+        const auto seconds_time = floor<seconds>(system_time);
+        const auto file_seconds = FileTime::clock::from_sys(seconds_time);
+        // Check in seconds first: from_sys at nanosecond precision can overflow
+        // even when SDL's system time itself is representable.
+        if (file_seconds < ceil<FileSeconds>(FileTime::min()) ||
+            file_seconds > floor<FileSeconds>(FileTime::max()))
+            continue;
+        const auto base = time_point_cast<FileTime::duration>(file_seconds);
+        auto fractional_ns = time % 1'000'000'000;
+        if (fractional_ns < 0) fractional_ns += 1'000'000'000;
+        const auto fraction = duration_cast<FileTime::duration>(nanoseconds{fractional_ns});
+        if (base > FileTime::max() - fraction) continue;
+        fs::last_write_time(target, base + fraction);
     }
 }
 using Tree = std::map<std::string, fs::path>;

@@ -7,7 +7,7 @@ Whizzardry 8 is a **modernization and simplification** of
 The decompilation is a source of game logic and historical context, **not** an
 architecture, API, or binary-layout specification for the native program.
 
-The goal is clean, maintainable, idiomatic **C++23** that runs natively on
+The goal is clean, maintainable, idiomatic **C++26** that runs natively on
 64-bit Linux, macOS, and Windows. Preserve the game's behavior, content, visual
 identity, and compatibility with retail assets and save data. Do **not** preserve
 the original implementation's accidental complexity.

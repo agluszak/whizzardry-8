@@ -1,4 +1,3 @@
-#include "wiz8/design_rect.h"
 #ifndef WIZ8_UTILITY_H
 #define WIZ8_UTILITY_H
 
@@ -8,6 +7,7 @@
 #include <SDL3/SDL_rect.h>
 
 #include "wiz8/application.h"
+#include "wiz8/design_rect.h"
 #include "wiz8/dice.h"
 #include "wiz8/local_code/ControlsRect.h"
 

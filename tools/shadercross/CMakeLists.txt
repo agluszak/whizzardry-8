@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.24)
+cmake_minimum_required(VERSION 4.4.4)
 project(WhizzardryShaderTools LANGUAGES C CXX)
 # This standalone regeneration tool has a canonical Linux x86-64 host.
 # Normal macOS/Windows game builds use the checked-in offline outputs.

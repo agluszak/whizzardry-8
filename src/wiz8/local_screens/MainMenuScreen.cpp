@@ -35,7 +35,6 @@
 #include "wiz8/platform/input.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
-#include "wiz8/utility.h"
 #include "wiz8/version.h"
 #include "wiz8/xstatus.h"
 

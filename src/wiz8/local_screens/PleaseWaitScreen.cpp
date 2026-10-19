@@ -1,6 +1,7 @@
 #include "wiz8/local_screens/PleaseWaitScreen.h"
 
 #include <chrono>
+#include <cstdint>
 #include <exception>
 #include <memory>
 #include <optional>
@@ -12,7 +13,6 @@
 #include <fmt/format.h>
 
 #include "asset_paths.h"
-#include "compat/compiler.h"
 #include "compat/native.h"
 #include "layouts/levels.h"
 #include "surrender/srDebug.h"
@@ -48,7 +48,7 @@ struct W8LevelLoadDescriptor {
     std::string name; /* 0x0fd, bounded only by the next field */
     std::string previous_save_name;
     std::optional<W8SaveScreenshot> save_screenshot;
-    w8_ulong entered_tick;
+    std::uint64_t entered_tick;
     int caption_y;
 };
 
@@ -245,7 +245,7 @@ bool PleaseWaitScreenLeave(int leaving)
    and keep the animated please-wait glyph moving. */
 void UpdatePleaseWaitLoadFrame(void)
 {
-    w8_ulong tick;
+    std::uint64_t tick;
 
     wiz8::sound::service();
     ServiceMusicPlaylist();

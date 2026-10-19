@@ -1,5 +1,6 @@
-#include <vector>
 #pragma once
+
+#include <vector>
 
 #include "wiz8/layouts/targeting.h"
 #include "wiz8/local_code/Factions.h"

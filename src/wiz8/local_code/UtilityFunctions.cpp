@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <cstddef>
 #include <cstring>
 #include <string>
 #include <string_view>
@@ -14,7 +15,6 @@
 #include "dice.h"
 #include "surrender/srDebug.h"
 #include "wiz8/design_rect.h"
-#include "wiz8/engine_code/Video2.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"

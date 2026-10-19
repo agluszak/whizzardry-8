@@ -1,7 +1,10 @@
-#include <bit>
 #pragma once
 
+#include <bit>
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
+#include <iterator>
 #include <limits>
 #include <memory>
 #include <stdexcept>
@@ -673,6 +676,89 @@ template<> struct Record<W8MonsterRecord> {
               bytes.subspan(offsetof(Disk, unknown_273), sizeof(Disk::unknown_273)));
     }
 };
+template<> struct Record<W8CharacterSkill> {
+    using Disk = CharacterSkill;
+    template<class R, class B, class Value, class Text>
+    static void fields(R& runtime, B bytes, Value value, Text)
+    {
+        value(&runtime.active, bytes.subspan(offsetof(Disk, active), sizeof(Disk::active)));
+        value(&runtime.reset_flag,
+              bytes.subspan(offsetof(Disk, reset_flag), sizeof(Disk::reset_flag)));
+        value(&runtime.points, bytes.subspan(offsetof(Disk, points), sizeof(Disk::points)));
+        value(&runtime.level, bytes.subspan(offsetof(Disk, level), sizeof(Disk::level)));
+        value(&runtime.base_level,
+              bytes.subspan(offsetof(Disk, base_level), sizeof(Disk::base_level)));
+        value(&runtime.practice_count,
+              bytes.subspan(offsetof(Disk, practice_count), sizeof(Disk::practice_count)));
+        value(&runtime.improved, bytes.subspan(offsetof(Disk, improved), sizeof(Disk::improved)));
+        value(&runtime.available,
+              bytes.subspan(offsetof(Disk, available), sizeof(Disk::available)));
+        value(&runtime.unknown_14,
+              bytes.subspan(offsetof(Disk, unknown_14), sizeof(Disk::unknown_14)));
+    }
+};
+template<> struct Record<W8HandAttack> {
+    using Disk = HandAttack;
+    template<class R, class B, class Value, class Text>
+    static void fields(R& runtime, B bytes, Value value, Text)
+    {
+        value(&runtime.uiHolds, bytes.subspan(offsetof(Disk, uiHolds), sizeof(Disk::uiHolds)));
+        value(&runtime.in_play, bytes.subspan(offsetof(Disk, in_play), sizeof(Disk::in_play)));
+        value(&runtime.weapon_skill,
+              bytes.subspan(offsetof(Disk, weapon_skill), sizeof(Disk::weapon_skill)));
+        value(&runtime.combat_skill,
+              bytes.subspan(offsetof(Disk, combat_skill), sizeof(Disk::combat_skill)));
+        value(&runtime.combined_skill,
+              bytes.subspan(offsetof(Disk, combined_skill), sizeof(Disk::combined_skill)));
+        value(&runtime.attack_score,
+              bytes.subspan(offsetof(Disk, attack_score), sizeof(Disk::attack_score)));
+        value(&runtime.attacks, bytes.subspan(offsetof(Disk, attacks), sizeof(Disk::attacks)));
+        value(&runtime.swings, bytes.subspan(offsetof(Disk, swings), sizeof(Disk::swings)));
+        value(&runtime.damage_bonus,
+              bytes.subspan(offsetof(Disk, damage_bonus), sizeof(Disk::damage_bonus)));
+        value(&runtime.hit_bonus,
+              bytes.subspan(offsetof(Disk, hit_bonus), sizeof(Disk::hit_bonus)));
+        value(&runtime.attack_bonus,
+              bytes.subspan(offsetof(Disk, attack_bonus), sizeof(Disk::attack_bonus)));
+        value(&runtime.damage_percent,
+              bytes.subspan(offsetof(Disk, damage_percent), sizeof(Disk::damage_percent)));
+        value(&runtime.damage_dice,
+              bytes.subspan(offsetof(Disk, damage_dice), sizeof(Disk::damage_dice)));
+        value(&runtime.attack_flags,
+              bytes.subspan(offsetof(Disk, attack_flags), sizeof(Disk::attack_flags)));
+        value(&runtime.condition_chances,
+              bytes.subspan(offsetof(Disk, condition_chances), sizeof(Disk::condition_chances)));
+        value(&runtime.unknown_43,
+              bytes.subspan(offsetof(Disk, unknown_43), sizeof(Disk::unknown_43)));
+    }
+};
+template<> struct Record<W8CharacterConditionRecord> {
+    using Disk = CharacterConditionRecord;
+    template<class R, class B, class Value, class Text>
+    static void fields(R& runtime, B bytes, Value value, Text)
+    {
+        value(&runtime.level_acquired,
+              bytes.subspan(offsetof(Disk, level_acquired), sizeof(Disk::level_acquired)));
+        value(&runtime.source_monster,
+              bytes.subspan(offsetof(Disk, source_monster), sizeof(Disk::source_monster)));
+        value(&runtime.active, bytes.subspan(offsetof(Disk, active), sizeof(Disk::active)));
+        value(&runtime.unknown_09,
+              bytes.subspan(offsetof(Disk, unknown_09), sizeof(Disk::unknown_09)));
+    }
+};
+template<> struct Record<W8EffectSlot> {
+    using Disk = EffectSlot;
+    template<class R, class B, class Value, class Text>
+    static void fields(R& runtime, B bytes, Value value, Text)
+    {
+        value(&runtime.active, bytes.subspan(offsetof(Disk, active), sizeof(Disk::active)));
+        value(&runtime.effect_id,
+              bytes.subspan(offsetof(Disk, effect_id), sizeof(Disk::effect_id)));
+        value(&runtime.amount, bytes.subspan(offsetof(Disk, amount), sizeof(Disk::amount)));
+        value(&runtime.percent, bytes.subspan(offsetof(Disk, percent), sizeof(Disk::percent)));
+        value(&runtime.duration, bytes.subspan(offsetof(Disk, duration), sizeof(Disk::duration)));
+    }
+};
 template<> struct Record<W8Character> {
     using Disk = Character;
     template<class R, class B, class Value, class Text>
@@ -718,7 +804,12 @@ template<> struct Record<W8Character> {
         value(&runtime.attribute_point_deficit,
               bytes.subspan(offsetof(Disk, attribute_point_deficit),
                             sizeof(Disk::attribute_point_deficit)));
-        value(&runtime.skills, bytes.subspan(offsetof(Disk, skills), sizeof(Disk::skills)));
+        for (std::size_t index = 0; index < std::size(runtime.skills); ++index)
+            Record<W8CharacterSkill>::fields(
+                runtime.skills[index],
+                bytes.subspan(offsetof(Disk, skills) + index * sizeof(CharacterSkill),
+                              sizeof(CharacterSkill)),
+                value, text);
         value(&runtime.unknown_07b3,
               bytes.subspan(offsetof(Disk, unknown_07b3), sizeof(Disk::unknown_07b3)));
         value(&runtime.experience,
@@ -816,7 +907,12 @@ template<> struct Record<W8Character> {
         value(&runtime.backpack, bytes.subspan(offsetof(Disk, backpack), sizeof(Disk::backpack)));
         value(&runtime.unknown_1089,
               bytes.subspan(offsetof(Disk, unknown_1089), sizeof(Disk::unknown_1089)));
-        value(&runtime.Hand, bytes.subspan(offsetof(Disk, Hand), sizeof(Disk::Hand)));
+        for (std::size_t index = 0; index < std::size(runtime.Hand); ++index)
+            Record<W8HandAttack>::fields(
+                runtime.Hand[index],
+                bytes.subspan(offsetof(Disk, Hand) + index * sizeof(HandAttack),
+                              sizeof(HandAttack)),
+                value, text);
         value(&runtime.unknown_11ff,
               bytes.subspan(offsetof(Disk, unknown_11ff), sizeof(Disk::unknown_11ff)));
         value(&runtime.dual_wielding,
@@ -835,8 +931,12 @@ template<> struct Record<W8Character> {
                nullptr);
         value(&runtime.saved_level,
               bytes.subspan(offsetof(Disk, saved_level), sizeof(Disk::saved_level)));
-        value(&runtime.conditions,
-              bytes.subspan(offsetof(Disk, conditions), sizeof(Disk::conditions)));
+        for (std::size_t index = 0; index < std::size(runtime.conditions); ++index)
+            Record<W8CharacterConditionRecord>::fields(
+                runtime.conditions[index],
+                bytes.subspan(offsetof(Disk, conditions) + index * sizeof(CharacterConditionRecord),
+                              sizeof(CharacterConditionRecord)),
+                value, text);
         value(&runtime.deep_fatigue_applied, bytes.subspan(offsetof(Disk, deep_fatigue_applied),
                                                            sizeof(Disk::deep_fatigue_applied)));
         value(&runtime.skill_costs,
@@ -896,8 +996,12 @@ template<> struct Record<W8GlobalStatus> {
               bytes.subspan(offsetof(Disk, text_line_cursor), sizeof(Disk::text_line_cursor)));
         value(&runtime.legacy_text_box_lines, bytes.subspan(offsetof(Disk, legacy_text_box_lines),
                                                             sizeof(Disk::legacy_text_box_lines)));
-        value(&runtime.effect_slots,
-              bytes.subspan(offsetof(Disk, effect_slots), sizeof(Disk::effect_slots)));
+        for (std::size_t index = 0; index < std::size(runtime.effect_slots); ++index)
+            Record<W8EffectSlot>::fields(
+                runtime.effect_slots[index],
+                bytes.subspan(offsetof(Disk, effect_slots) + index * sizeof(EffectSlot),
+                              sizeof(EffectSlot)),
+                value, text);
         value(&runtime.unknown_187b,
               bytes.subspan(offsetof(Disk, unknown_187b), sizeof(Disk::unknown_187b)));
         value(&runtime.party_facing,

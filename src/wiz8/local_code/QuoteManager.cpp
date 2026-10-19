@@ -822,7 +822,7 @@ void DisablePartyPortraitEvent(unsigned int slot)
 }
 
 void BeginPortraitVoice(unsigned int party_slot, const wiz8::sound::Playback& voice,
-                        std::string_view voice_path, unsigned int unvoiced_ms)
+                        std::string_view voice_path, std::uint64_t unvoiced_ms)
 {
     W8MonsterManagerEntry& record = gXStatus.monster_manager_entries[party_slot];
     record.voice_sound_handle = voice;

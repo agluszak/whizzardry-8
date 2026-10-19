@@ -426,7 +426,7 @@ void FilterCampEffectList(void)
     W8CampScreenState* screen = g_camp_screen.get();
     screen->effect_visible_lines = 0;
     bool any_visible = false;
-    unsigned int count = screen->effect_list.size();
+    auto count = screen->effect_list.size();
     for (unsigned int pos = 0; pos < count; ++pos) {
         auto& entry = screen->effect_list[pos];
         entry.visible = false;
@@ -469,7 +469,7 @@ void DrawCampEffectList(void)
     SDL_Rect effect_clip{0, 0xbe, 0x280, 0xee};
     ScopedClipRect clipping(GetFrameBufferSurface(), effect_clip);
     int line = -screen->effect_scroll;
-    unsigned int count = screen->effect_list.size();
+    auto count = screen->effect_list.size();
     for (unsigned int pos = 0; pos < count; ++pos) {
         if (line > 0x10) {
             break;
