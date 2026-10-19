@@ -553,10 +553,10 @@ bool W8AssayDialog::PopulateRequirements()
     int tooltip_index;
 
     m_buttons[0].Configure(
-        ButtonGraphics::Load("Data\\Dialogs\\popup_iteminfo.sti", BUTTON_NO_IMAGE, 1, 1, 1, 1),
+        ButtonGraphics::Load("Data\\Dialogs\\popup_iteminfo.sti", std::nullopt, 1, 1, 1, 1),
         {.priority = UI_PRIORITY_LOWEST});
     m_buttons[1].Configure(
-        ButtonGraphics::Load("Data\\Dialogs\\popup_iteminfo.sti", BUTTON_NO_IMAGE, 2, 2, 2, 2),
+        ButtonGraphics::Load("Data\\Dialogs\\popup_iteminfo.sti", std::nullopt, 2, 2, 2, 2),
         {.priority = UI_PRIORITY_LOWEST});
     m_buttons[2].Configure(
         ButtonGraphics::Load("Data\\Dialogs\\iteminfo_tabbutton.sti", 3, 0, 1, 4, 2),
@@ -569,7 +569,7 @@ bool W8AssayDialog::PopulateRequirements()
          .policy = {.primary_toggle = ButtonToggle::Press},
          .tooltip = 0x116});
     m_buttons[4].Configure(
-        ButtonGraphics::Load("Data\\Dialogs\\popup_iteminfo.sti", BUTTON_NO_IMAGE, 3, 3, 3, 3),
+        ButtonGraphics::Load("Data\\Dialogs\\popup_iteminfo.sti", std::nullopt, 3, 3, 3, 3),
         {.priority = UI_PRIORITY_LOWEST});
     m_buttons[5].Configure(
         ButtonGraphics::Load("Data\\Dialogs\\popup_confirmationbuttons.sti", 3, 0, 1, 2, 2),
@@ -578,82 +578,82 @@ bool W8AssayDialog::PopulateRequirements()
        race row uses (see SetProfessionIconsVisible and the race table below),
        not to consecutive buttons. */
     m_buttons[14].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 1, 0,
-                                                 BUTTON_NO_IMAGE, 0, BUTTON_NO_IMAGE),
+                                                 std::nullopt, 0, std::nullopt),
                             {.tooltip = 0x2ad});
     m_buttons[9].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 3, 2,
-                                                BUTTON_NO_IMAGE, 2, BUTTON_NO_IMAGE),
+                                                std::nullopt, 2, std::nullopt),
                            {.tooltip = 0x2a7});
     m_buttons[17].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 5, 4,
-                                                 BUTTON_NO_IMAGE, 4, BUTTON_NO_IMAGE),
+                                                 std::nullopt, 4, std::nullopt),
                             {.tooltip = 0x2b0});
     m_buttons[15].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 7, 6,
-                                                 BUTTON_NO_IMAGE, 6, BUTTON_NO_IMAGE),
+                                                 std::nullopt, 6, std::nullopt),
                             {.tooltip = 0x2ac});
     m_buttons[8].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 9, 8,
-                                                BUTTON_NO_IMAGE, 8, BUTTON_NO_IMAGE),
+                                                std::nullopt, 8, std::nullopt),
                            {.tooltip = 0x2a6});
     m_buttons[6].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 0xb, 10,
-                                                BUTTON_NO_IMAGE, 10, BUTTON_NO_IMAGE),
+                                                std::nullopt, 10, std::nullopt),
                            {.tooltip = 0x2a4});
     m_buttons[12].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 0xd, 0xc,
-                                                 BUTTON_NO_IMAGE, 0xc, BUTTON_NO_IMAGE),
+                                                 std::nullopt, 0xc, std::nullopt),
                             {.tooltip = 0x2aa});
     m_buttons[19].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 0xf, 0xe,
-                                                 BUTTON_NO_IMAGE, 0xe, BUTTON_NO_IMAGE),
+                                                 std::nullopt, 0xe, std::nullopt),
                             {.tooltip = 0x2b1});
     m_buttons[10].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 0x11, 0x10,
-                                                 BUTTON_NO_IMAGE, 0x10, BUTTON_NO_IMAGE),
+                                                 std::nullopt, 0x10, std::nullopt),
                             {.tooltip = 0x2a8});
     m_buttons[16].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 0x13, 0x12,
-                                                 BUTTON_NO_IMAGE, 0x12, BUTTON_NO_IMAGE),
+                                                 std::nullopt, 0x12, std::nullopt),
                             {.tooltip = 0x2ae});
     m_buttons[11].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 0x15, 0x14,
-                                                 BUTTON_NO_IMAGE, 0x14, BUTTON_NO_IMAGE),
+                                                 std::nullopt, 0x14, std::nullopt),
                             {.tooltip = 0x2a9});
     m_buttons[20].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 0x17, 0x16,
-                                                 BUTTON_NO_IMAGE, 0x16, BUTTON_NO_IMAGE),
+                                                 std::nullopt, 0x16, std::nullopt),
                             {.tooltip = 0x2af});
     m_buttons[7].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 0x19, 0x18,
-                                                BUTTON_NO_IMAGE, 0x18, BUTTON_NO_IMAGE),
+                                                std::nullopt, 0x18, std::nullopt),
                            {.tooltip = 0x2a5});
     m_buttons[18].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 0x1b, 0x1a,
-                                                 BUTTON_NO_IMAGE, 0x1a, BUTTON_NO_IMAGE),
+                                                 std::nullopt, 0x1a, std::nullopt),
                             {.tooltip = 0x2b2});
     m_buttons[13].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_profession.sti", 0x1d, 0x1c,
-                                                 BUTTON_NO_IMAGE, 0x1c, BUTTON_NO_IMAGE),
+                                                 std::nullopt, 0x1c, std::nullopt),
                             {.tooltip = 0x2ab});
-    m_buttons[25].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti", 1, 0,
-                                                 BUTTON_NO_IMAGE, 0, BUTTON_NO_IMAGE),
-                            {.tooltip = 0x28a});
-    m_buttons[24].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti", 3, 2,
-                                                 BUTTON_NO_IMAGE, 2, BUTTON_NO_IMAGE),
-                            {.tooltip = 0x28c});
-    m_buttons[29].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti", 5, 4,
-                                                 BUTTON_NO_IMAGE, 4, BUTTON_NO_IMAGE),
-                            {.tooltip = 0x285});
-    m_buttons[26].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti", 7, 6,
-                                                 BUTTON_NO_IMAGE, 6, BUTTON_NO_IMAGE),
-                            {.tooltip = 0x28e});
-    m_buttons[21].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti", 9, 8,
-                                                 BUTTON_NO_IMAGE, 8, BUTTON_NO_IMAGE),
-                            {.tooltip = 0x284});
+    m_buttons[25].Configure(
+        ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti", 1, 0, std::nullopt, 0, std::nullopt),
+        {.tooltip = 0x28a});
+    m_buttons[24].Configure(
+        ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti", 3, 2, std::nullopt, 2, std::nullopt),
+        {.tooltip = 0x28c});
+    m_buttons[29].Configure(
+        ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti", 5, 4, std::nullopt, 4, std::nullopt),
+        {.tooltip = 0x285});
+    m_buttons[26].Configure(
+        ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti", 7, 6, std::nullopt, 6, std::nullopt),
+        {.tooltip = 0x28e});
+    m_buttons[21].Configure(
+        ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti", 9, 8, std::nullopt, 8, std::nullopt),
+        {.tooltip = 0x284});
     m_buttons[33].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti", 0xb, 10,
-                                                 BUTTON_NO_IMAGE, 10, BUTTON_NO_IMAGE),
+                                                 std::nullopt, 10, std::nullopt),
                             {.tooltip = 0x28b});
     m_buttons[22].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti", 0xd, 0xc,
-                                                 BUTTON_NO_IMAGE, 0xc, BUTTON_NO_IMAGE),
+                                                 std::nullopt, 0xc, std::nullopt),
                             {.tooltip = 0x286});
     m_buttons[23].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti", 0xf, 0xe,
-                                                 BUTTON_NO_IMAGE, 0xe, BUTTON_NO_IMAGE),
+                                                 std::nullopt, 0xe, std::nullopt),
                             {.tooltip = 0x288});
     m_buttons[30].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti", 0x11, 0x10,
-                                                 BUTTON_NO_IMAGE, 0x10, BUTTON_NO_IMAGE),
+                                                 std::nullopt, 0x10, std::nullopt),
                             {.tooltip = 0x287});
     m_buttons[32].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti", 0x13, 0x12,
-                                                 BUTTON_NO_IMAGE, 0x12, BUTTON_NO_IMAGE),
+                                                 std::nullopt, 0x12, std::nullopt),
                             {.tooltip = 0x28d});
     m_buttons[31].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti", 0x15, 0x14,
-                                                 BUTTON_NO_IMAGE, 0x14, BUTTON_NO_IMAGE),
+                                                 std::nullopt, 0x14, std::nullopt),
                             {.tooltip = 0x289});
 
     for (us_index = 0; us_index < NUM_RPC_RACES; ++us_index) {
@@ -709,8 +709,8 @@ bool W8AssayDialog::PopulateRequirements()
             break;
         }
         m_buttons[*button_index].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti",
-                                                                frame + 1, frame, BUTTON_NO_IMAGE,
-                                                                frame, BUTTON_NO_IMAGE),
+                                                                frame + 1, frame, std::nullopt,
+                                                                frame, std::nullopt),
                                            {.tooltip = tooltip_index});
         m_buttons[*button_index].SetVisible(false);
     }

@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -18,8 +19,6 @@ inline constexpr std::string_view DEFAULT_GENERIC_BUTTON_ON = "Data\\Message Box
 inline constexpr std::string_view DEFAULT_GENERIC_BUTTON_OFF_HI = "Data\\Message Box\\GENBUTN3.STI";
 inline constexpr std::string_view DEFAULT_GENERIC_BUTTON_ON_HI = "Data\\Message Box\\GENBUTN4.STI";
 
-inline constexpr int BUTTON_NO_IMAGE = -1;
-
 struct ButtonGraphics;
 struct GenericButtonImages;
 
@@ -33,7 +32,7 @@ struct ButtonAppearance {
     Font* usFont = nullptr;
     bool fMultiColor = false;
     std::int16_t sForeColor = 0;
-    std::int16_t sShadowColor = -1;
+    std::optional<std::int16_t> sShadowColor;
 };
 
 struct ButtonVisualState {
@@ -45,12 +44,15 @@ struct ButtonVisualState {
 };
 
 struct ButtonGraphics {
-    static ButtonImage Load(std::string_view filename, std::int32_t grayed, std::int32_t off_normal,
-                            std::int32_t off_hilite, std::int32_t on_normal,
-                            std::int32_t on_hilite);
-    static ButtonImage Load(std::shared_ptr<const SpriteSheet> sprites, std::int32_t grayed,
-                            std::int32_t off_normal, std::int32_t off_hilite,
-                            std::int32_t on_normal, std::int32_t on_hilite);
+    static ButtonImage Load(std::string_view filename, std::optional<std::int32_t> grayed,
+                            std::optional<std::int32_t> off_normal,
+                            std::optional<std::int32_t> off_hilite,
+                            std::optional<std::int32_t> on_normal,
+                            std::optional<std::int32_t> on_hilite);
+    static ButtonImage
+    Load(std::shared_ptr<const SpriteSheet> sprites, std::optional<std::int32_t> grayed,
+         std::optional<std::int32_t> off_normal, std::optional<std::int32_t> off_hilite,
+         std::optional<std::int32_t> on_normal, std::optional<std::int32_t> on_hilite);
 
     const SpriteSheet& object() const { return *sprites; }
 
@@ -58,11 +60,11 @@ private:
     std::shared_ptr<const SpriteSheet> sprites;
 
 public:
-    std::int32_t Grayed = BUTTON_NO_IMAGE;
-    std::int32_t OffNormal = BUTTON_NO_IMAGE;
-    std::int32_t OffHilite = BUTTON_NO_IMAGE;
-    std::int32_t OnNormal = BUTTON_NO_IMAGE;
-    std::int32_t OnHilite = BUTTON_NO_IMAGE;
+    std::optional<std::int32_t> Grayed;
+    std::optional<std::int32_t> OffNormal;
+    std::optional<std::int32_t> OffHilite;
+    std::optional<std::int32_t> OnNormal;
+    std::optional<std::int32_t> OnHilite;
     std::uint32_t MaxWidth = 0;
     std::uint32_t MaxHeight = 0;
 };

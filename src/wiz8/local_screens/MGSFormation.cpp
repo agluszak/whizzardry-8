@@ -255,7 +255,8 @@ static void CreateFormationPanel()
         auto& button = formation->actions[action];
         button = std::make_unique<W8ButtonWidget>(formation->input);
         button->Configure(
-            ButtonGraphics::Load(artwork.spriteSheet(), frame + 3, frame, frame + 1, -1, frame + 2),
+            ButtonGraphics::Load(artwork.spriteSheet(), frame + 3, frame, frame + 1, std::nullopt,
+                                 frame + 2),
             {.on_click = [action](W8ButtonWidget*) { AfterUiDispatch(actions[action]); },
              .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
              .tooltip = 1981 + action,

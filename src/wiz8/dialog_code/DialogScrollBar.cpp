@@ -38,8 +38,8 @@ W8DialogScrollBar::W8DialogScrollBar(UiLayer& layer, Resources resources)
                                  {.priority = UI_PRIORITY_HIGHEST - 2}) &&
         // FUNCTION: WIZ8 0x005e13d0
         m_track_button.Configure(
-            ButtonGraphics::Load(resources.track_path, BUTTON_NO_IMAGE, resources.track_frame,
-                                 BUTTON_NO_IMAGE, resources.track_frame, BUTTON_NO_IMAGE),
+            ButtonGraphics::Load(resources.track_path, std::nullopt, resources.track_frame,
+                                 std::nullopt, resources.track_frame, std::nullopt),
             {.on_click =
                  [this](W8ButtonWidget* button) { ScrollToMouse(button->GetMousePosition().y); },
              .priority = UI_PRIORITY_HIGHEST - 2});

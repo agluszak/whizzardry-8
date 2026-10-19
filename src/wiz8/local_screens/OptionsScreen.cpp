@@ -586,7 +586,7 @@ W8OptionsSaveRow::W8OptionsSaveRow(UiLayer& layer, W8OptionsSaveLoadPanel& owner
     auto art = CatalogArtwork::Load(0xf9, 0);
     const int normal = save_mode ? 0 : 2;
     button.Configure(
-        ButtonGraphics::Load(art.spriteSheet(), 4, normal, -1, normal + 1, -1),
+        ButtonGraphics::Load(art.spriteSheet(), 4, normal, std::nullopt, normal + 1, std::nullopt),
         {.on_click =
              [&owner, this, index, save_mode](auto*) {
                  AfterUiDispatch([&owner, this, index, save_mode] {
@@ -1226,19 +1226,20 @@ void W8OptionsScreen::CreateControls()
         const int frame = arrows.imageOffset() + direction * 4;
         auto& button = m_navigation[direction];
         button = std::make_unique<W8ButtonWidget>(m_menu_input);
-        button->Configure(
-            ButtonGraphics::Load(arrows.spriteSheet(), frame + 3, frame, frame + 1, frame + 2, -1),
-            {.on_click =
-                 [this, direction](W8ButtonWidget*) {
-                     AfterUiDispatch([this, direction] {
-                         if (m_selected_panel)
-                             m_panel[*m_selected_panel]->Scroll(direction == 0 ? -1 : 1);
-                         UpdateNavigation();
-                     });
-                 },
-             .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
-             .priority = UI_PRIORITY_LOWEST,
-             .menu_artwork = true});
+        button->Configure(ButtonGraphics::Load(arrows.spriteSheet(), frame + 3, frame, frame + 1,
+                                               frame + 2, std::nullopt),
+                          {.on_click =
+                               [this, direction](W8ButtonWidget*) {
+                                   AfterUiDispatch([this, direction] {
+                                       if (m_selected_panel)
+                                           m_panel[*m_selected_panel]->Scroll(direction == 0 ? -1
+                                                                                             : 1);
+                                       UpdateNavigation();
+                                   });
+                               },
+                           .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
+                           .priority = UI_PRIORITY_LOWEST,
+                           .menu_artwork = true});
         const auto size = arrows.size(direction * 4);
         button->Resize(size.x, size.y);
     }

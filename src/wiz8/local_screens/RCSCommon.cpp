@@ -907,8 +907,8 @@ int CreateCampButtonPanel(void)
     auto& exit = camp_buttons->pages[4];
     exit = button(0x106, 16, 0x254, 2368, false, DismissSelectedPartyCharacter);
     exit->Policy().primary_toggle = ButtonToggle::None;
-    exit->SetImage(
-        ButtonGraphics::Load(CatalogArtwork::Load(0x106, 0).spriteSheet(), 19, 16, 17, -1, 18));
+    exit->SetImage(ButtonGraphics::Load(CatalogArtwork::Load(0x106, 0).spriteSheet(), 19, 16, 17,
+                                        std::nullopt, 18));
     constexpr int action_frames[] = {0, 10, 5, 15, 20, 25, 30, 35};
     constexpr int action_x[] = {0, 44, 88, 132, 176, 308, 220, 264};
     const std::array actions{OnCampIdentifyItem,  OnCampMoveItem,          OnCampSplitStack,

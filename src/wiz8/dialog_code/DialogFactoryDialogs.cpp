@@ -202,8 +202,8 @@ void W8ListBoxDialog::Configure()
             {.on_click = [this](W8ButtonWidget*) { OnDown(); },
              .priority = UI_PRIORITY_HIGHEST - 1}) &&
         m_slider_button.Configure(ButtonGraphics::Load("Data\\Dialogs\\DialogSlideBar.STI",
-                                                       BUTTON_NO_IMAGE, 0, BUTTON_NO_IMAGE, 0,
-                                                       BUTTON_NO_IMAGE),
+                                                       std::nullopt, 0, std::nullopt, 0,
+                                                       std::nullopt),
                                   {.priority = UI_PRIORITY_HIGHEST - 2}) &&
         m_ok_button.Configure(
             ButtonGraphics::Load("Data\\Dialogs\\DialogConfirmation.STI", 3, 0, 1, 2, 2),
@@ -425,16 +425,15 @@ bool W8SplitAmountDialog::CreateButtons()
              .on_right_click = [this](W8ButtonWidget*) { IncreaseAmount(5); }})) {
         return false;
     }
-    m_frame.quick_image =
-        ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti", BUTTON_NO_IMAGE, 3,
-                             BUTTON_NO_IMAGE, 3, BUTTON_NO_IMAGE);
+    m_frame.quick_image = ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti", std::nullopt,
+                                               3, std::nullopt, 3, std::nullopt);
     if (!m_frame.quick_image) return false;
     m_frame_bounds = {m_x + g_split_amount_button_offsets[2].x,
                       m_y + g_split_amount_button_offsets[2].y, int(m_frame.quick_image->MaxWidth),
                       int(m_frame.quick_image->MaxHeight)};
     if (!m_buttons[2]->Configure(ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti",
-                                                      BUTTON_NO_IMAGE, 3, BUTTON_NO_IMAGE, 3,
-                                                      BUTTON_NO_IMAGE),
+                                                      std::nullopt, 3, std::nullopt, 3,
+                                                      std::nullopt),
                                  {.on_click = [this](W8ButtonWidget*) { ActivateField(); }})) {
         return false;
     }
@@ -651,14 +650,14 @@ bool W8TriggerItemPickerDialog::CreateButtons()
             {.on_click = [this](W8ButtonWidget*) { m_keep_open = false; }, .tooltip = 0x16}) &&
         configured;
     configured = m_buttons[4]->Configure(ButtonGraphics::Load("Data\\Dialogs\\popup_chest2.sti",
-                                                              BUTTON_NO_IMAGE, 0, BUTTON_NO_IMAGE,
-                                                              BUTTON_NO_IMAGE, BUTTON_NO_IMAGE),
+                                                              std::nullopt, 0, std::nullopt,
+                                                              std::nullopt, std::nullopt),
                                          {.priority = UI_PRIORITY_LOWEST}) &&
                  configured;
     configured =
         m_buttons[5]->Configure(
-            ButtonGraphics::Load("Data\\Dialogs\\popup_chest2.sti", BUTTON_NO_IMAGE, 1,
-                                 BUTTON_NO_IMAGE, 2, BUTTON_NO_IMAGE),
+            ButtonGraphics::Load("Data\\Dialogs\\popup_chest2.sti", std::nullopt, 1, std::nullopt,
+                                 2, std::nullopt),
             {.on_click = [this](W8ButtonWidget* button) { ToggleItem(m_first_item + 0, button); },
              .on_right_click = [this](W8ButtonWidget*) { ShowVisibleItemInfo(0); },
              .policy = {.primary_toggle = ButtonToggle::Press,
@@ -667,8 +666,8 @@ bool W8TriggerItemPickerDialog::CreateButtons()
         configured;
     configured =
         m_buttons[6]->Configure(
-            ButtonGraphics::Load("Data\\Dialogs\\popup_chest2.sti", BUTTON_NO_IMAGE, 1,
-                                 BUTTON_NO_IMAGE, 2, BUTTON_NO_IMAGE),
+            ButtonGraphics::Load("Data\\Dialogs\\popup_chest2.sti", std::nullopt, 1, std::nullopt,
+                                 2, std::nullopt),
             {.on_click = [this](W8ButtonWidget* button) { ToggleItem(m_first_item + 1, button); },
              .on_right_click = [this](W8ButtonWidget*) { ShowVisibleItemInfo(1); },
              .policy = {.primary_toggle = ButtonToggle::Press,
@@ -677,8 +676,8 @@ bool W8TriggerItemPickerDialog::CreateButtons()
         configured;
     configured =
         m_buttons[7]->Configure(
-            ButtonGraphics::Load("Data\\Dialogs\\popup_chest2.sti", BUTTON_NO_IMAGE, 1,
-                                 BUTTON_NO_IMAGE, 2, BUTTON_NO_IMAGE),
+            ButtonGraphics::Load("Data\\Dialogs\\popup_chest2.sti", std::nullopt, 1, std::nullopt,
+                                 2, std::nullopt),
             {.on_click = [this](W8ButtonWidget* button) { ToggleItem(m_first_item + 2, button); },
              .on_right_click = [this](W8ButtonWidget*) { ShowVisibleItemInfo(2); },
              .policy = {.primary_toggle = ButtonToggle::Press,
@@ -687,8 +686,8 @@ bool W8TriggerItemPickerDialog::CreateButtons()
         configured;
     configured =
         m_buttons[8]->Configure(
-            ButtonGraphics::Load("Data\\Dialogs\\popup_chest2.sti", BUTTON_NO_IMAGE, 1,
-                                 BUTTON_NO_IMAGE, 2, BUTTON_NO_IMAGE),
+            ButtonGraphics::Load("Data\\Dialogs\\popup_chest2.sti", std::nullopt, 1, std::nullopt,
+                                 2, std::nullopt),
             {.on_click = [this](W8ButtonWidget* button) { ToggleItem(m_first_item + 3, button); },
              .on_right_click = [this](W8ButtonWidget*) { ShowVisibleItemInfo(3); },
              .policy = {.primary_toggle = ButtonToggle::Press,
@@ -711,7 +710,7 @@ bool W8TriggerItemPickerDialog::CreateButtons()
                  configured;
     configured =
         m_buttons[12]->Configure(
-            ButtonGraphics::Load("Data\\Dialogs\\popup_chest2.sti", BUTTON_NO_IMAGE, 3, 3, 3, 3),
+            ButtonGraphics::Load("Data\\Dialogs\\popup_chest2.sti", std::nullopt, 3, 3, 3, 3),
             {.on_move = [this](W8ButtonWidget*) { ScrollItemsToMouse(); },
              .priority = UI_PRIORITY_HIGHEST - 1}) &&
         configured;

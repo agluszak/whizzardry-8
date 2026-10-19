@@ -638,7 +638,8 @@ void generic_button_images()
     auto menu_sprites = std::make_shared<SpriteSheet>(graphics->object());
     menu_sprites->frames[2].width = 3;
     menu_sprites->frames[2].indices.assign(3, 3);
-    ButtonAppearance menu{.quick_image = ButtonGraphics::Load(menu_sprites, 0, 1, 2, -1, -1)};
+    ButtonAppearance menu{
+        .quick_image = ButtonGraphics::Load(menu_sprites, 0, 1, 2, std::nullopt, std::nullopt)};
     SDL_FillSurfaceRect(&target, nullptr, 0);
     DrawButtonAppearance(target, menu, {1, 1, 1, 1}, {.hovered = true, .menu_artwork = true});
     const auto* menu_pixels = static_cast<const std::uint16_t*>(target.pixels);
@@ -652,7 +653,7 @@ void generic_button_images()
         UiLayer layer;
         W8ButtonWidget button(layer);
         REQUIRE(button.Configure(
-            ButtonGraphics::Load("button.sti", 0, 1, BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE),
+            ButtonGraphics::Load("button.sti", 0, 1, std::nullopt, 1, std::nullopt),
             {.priority = UI_PRIORITY_NORMAL}));
         button.SetPosition(2, 3);
         SDL_FillSurfaceRect(&target, nullptr, 0);
@@ -670,7 +671,7 @@ void generic_button_images()
         UiLayer layer;
         W8ButtonWidget button(layer);
         REQUIRE(button.Configure(
-            ButtonGraphics::Load("button.sti", 0, 1, BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE),
+            ButtonGraphics::Load("button.sti", 0, 1, std::nullopt, 1, std::nullopt),
             {.priority = UI_PRIORITY_NORMAL}));
         button.SetPosition(2, 3);
         const auto previous_upload = TakeUiUpload();
@@ -733,8 +734,9 @@ void generic_button_images()
         }
     }
     REQUIRE(!ButtonGraphics::Load("missing.sti", 0, 1, 2, 3, 4));
-    REQUIRE(!ButtonGraphics::Load("button.sti", -1, -1, -1, -1, -1));
-    REQUIRE(ButtonGraphics::Load("button.sti", -1, 0, -1, 1, -1));
+    REQUIRE(!ButtonGraphics::Load("button.sti", std::nullopt, std::nullopt, std::nullopt,
+                                  std::nullopt, std::nullopt));
+    REQUIRE(ButtonGraphics::Load("button.sti", std::nullopt, 0, std::nullopt, 1, std::nullopt));
     std::vector<ButtonImage> quick_images;
     for (unsigned index = 0; index < 300; ++index)
         quick_images.push_back(ButtonGraphics::Load("button.sti", 0, 1, 2, 3, 4));
@@ -746,11 +748,11 @@ void generic_button_images()
     {
         auto dialog = std::make_unique<W8ButtonWidget>(buttons);
         REQUIRE(dialog->Configure(
-            ButtonGraphics::Load("button.sti", 0, 1, BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE),
+            ButtonGraphics::Load("button.sti", 0, 1, std::nullopt, 1, std::nullopt),
             {.priority = UI_PRIORITY_NORMAL}));
         dialog->SetPosition(12, 13);
         REQUIRE(!dialog->Configure(
-            ButtonGraphics::Load("missing.sti", 0, 1, BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE),
+            ButtonGraphics::Load("missing.sti", 0, 1, std::nullopt, 1, std::nullopt),
             {.priority = UI_PRIORITY_NORMAL}));
         REQUIRE((dialog->Bounds().x == 12 && dialog->Bounds().y == 13 && dialog->Bounds().w == 1));
         REQUIRE(UiTargetAt({12, 13}) != nullptr);

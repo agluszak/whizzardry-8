@@ -802,7 +802,7 @@ unsigned char BuildKeyboardMenu(void)
         row.target->setTooltip([&row] { return KeyboardMenuTooltip(row); });
     }
     keyboard_menu->rows[12].appearance.quick_image = ButtonGraphics::Load(
-        CatalogArtwork::Load(0x89, 0).spriteSheet(), -1, 0xbd, 0xbf, 0xbd, 0xbf);
+        CatalogArtwork::Load(0x89, 0).spriteSheet(), std::nullopt, 0xbd, 0xbf, 0xbd, 0xbf);
     keyboard_menu->input.add(
         SDL_Rect{left + 0x17, top, 0x53, 0x4b}, [](const UiPointerEvent& event) {
             if (event.action == UiPointerAction::Up && event.button == UiPointerButton::Right)
