@@ -1254,25 +1254,32 @@ TEST_CASE_METHOD(LoaderFixture, "Particle record versions initialize omitted fie
         W8LevelParticleRecord record{};
         std::strcpy(record.name, "Emitter");
         record.rotation_axis = {0, 1, 0};
+        record.particle_count = 2;
         record.material.opacity = 1;
         record.attachment_key = 7;
         record.start_frame = 4;
         record.end_frame = 9;
         std::string bytes;
-        append(bytes, std::int32_t{1});
-        append(bytes, static_cast<std::uint8_t>(version));
-        bytes.append(reinterpret_cast<const char*>(&record), size);
+        append(bytes, std::int32_t{2});
+        // The packed stride is odd: the second record is not naturally aligned.
+        for (int index = 0; index < 2; ++index) {
+            append(bytes, static_cast<std::uint8_t>(version));
+            bytes.append(reinterpret_cast<const char*>(&record), size);
+        }
         store("particles.bin", bytes);
         auto file = wiz8::open_file(wiz8::asset_path("particles.bin"));
         W8ReadLevelInfo info{nullptr, file.get(), {}};
         srNode scene;
         std::vector<std::unique_ptr<stParticle>> particles;
         REQUIRE(ReadWorldParticles(&info, &scene, &particles));
-        REQUIRE(particles.size() == 1);
-        REQUIRE(particles.front()->getName() == "EMITTER");
-        REQUIRE(particles.front()->attachment_key == (version < 2 ? -1 : 7));
-        REQUIRE(particles.front()->start_frame == (version < 4 ? -1 : 4));
-        REQUIRE(particles.front()->end_frame == (version < 4 ? -1 : 9));
+        REQUIRE(particles.size() == 2);
+        for (const auto& particle : particles) {
+            REQUIRE(particle->particle_count == 2);
+            REQUIRE(particle->getName() == "EMITTER");
+            REQUIRE(particle->attachment_key == (version < 2 ? -1 : 7));
+            REQUIRE(particle->start_frame == (version < 4 ? -1 : 4));
+            REQUIRE(particle->end_frame == (version < 4 ? -1 : 9));
+        }
     }
 }
 

@@ -10,7 +10,7 @@ This repository does **not** include game assets. You'll need your own retail co
 
 ## Build on Linux
 
-You'll need Clang 23, GCC 16 (including libstdc++ development headers), CMake 4.4.4 or newer, Ninja, Python 3, [Conan 2](https://conan.io/) and a working Vulkan driver. Conan handles the C/C++ library dependencies.
+You'll need Clang 23, GCC 16 (including libstdc++ development headers), CMake 4.4.4 or newer, Ninja, Python 3.11 or newer, [Conan 2](https://conan.io/) and a working Vulkan driver. Conan handles the C/C++ library dependencies.
 
 From the repository root:
 
@@ -128,3 +128,9 @@ elapsed times, skips native jobs for documentation-only changes, and regenerates
 offline shaders when their sources, tools, dependencies or build settings change.
 Weekly/manual runs retain the full source scope; their integer-sanitizer job
 includes ASan and UBSan, replacing the duplicate ordinary sanitizer run.
+
+Analysis runs in four stable partitions so cold repository-wide checks also run
+concurrently. Header dependency discovery stays within each partition, and the
+required `clang-tidy` check aggregates all four results. The workflow's manual
+`full_scan` option bypasses the tidy cache for both regular and ownership checks;
+manual runs also include the compiler audit and integer-sanitizer build.

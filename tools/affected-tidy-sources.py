@@ -15,6 +15,7 @@ import subprocess
 import sys
 from tempfile import TemporaryDirectory
 
+from clang_tidy_shard import owns_source
 from clang_tidy_support import SOURCES, dependencies, is_first_party_source, source_path
 
 HEADERS = {".h", ".hh", ".hpp", ".hxx", ".inc", ".inl", ".ipp"}
@@ -26,7 +27,11 @@ def main():
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--compile-commands", type=Path, required=True)
     parser.add_argument("--changed-files", type=Path, required=True)
+    parser.add_argument("--shard-index", type=int, default=0)
+    parser.add_argument("--shard-count", type=int, default=1)
     args = parser.parse_args()
+    if args.shard_count < 1 or not 0 <= args.shard_index < args.shard_count:
+        parser.error("shard count must be positive and index must be within the shard count")
     root = args.root.resolve()
     names = [os.fsdecode(name) for name in args.changed_files.read_bytes().split(b"\0") if name]
 
@@ -51,6 +56,8 @@ def main():
             entries = [entry for entry in entries if is_first_party_source(root, source_path(entry))]
             if not entries:
                 raise RuntimeError("No first-party translation units in compilation database")
+            entries = [entry for entry in entries
+                       if owns_source(root, source_path(entry), args.shard_index, args.shard_count)]
             print(f"Scanning compiler dependencies for {len(entries)} translation units...", file=sys.stderr)
             with TemporaryDirectory() as directory:
                 with ThreadPoolExecutor(max_workers=max(1, int(os.environ.get("CLANG_TIDY_SCAN_JOBS", "4")))) as pool:
@@ -62,6 +69,8 @@ def main():
             print("FULL")
             return
 
+    changed_sources = {source for source in changed_sources
+                       if owns_source(root, source, args.shard_index, args.shard_count)}
     if changed_sources:
         print("^(?:" + "|".join(sorted(re.escape(str(path)) for path in changed_sources)) + ")$")
     else:

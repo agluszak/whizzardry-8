@@ -41,7 +41,6 @@
 #include "wiz8/platform/random.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/string_database.h"
-#include "wiz8/utility.h"
 
 static char g_record_mode_line[0x1000];
 static bool g_record_mode_active;

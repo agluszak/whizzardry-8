@@ -788,7 +788,9 @@ try {
         stParticle* particle;
         glm::dvec3 axis;
         glm::dvec3 location;
-        auto owned = std::make_unique<stParticle>(pScene, record.particle_count);
+        // Forwarding a packed member would bind a potentially unaligned reference.
+        const auto particle_count = record.particle_count;
+        auto owned = std::make_unique<stParticle>(pScene, particle_count);
         particle = owned.get();
 
         SDL_strupr(record.name);

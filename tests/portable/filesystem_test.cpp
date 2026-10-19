@@ -95,7 +95,7 @@ TEST_CASE("Save copies publish writable files and preserve the old save on failu
     }
     wiz8::copy_file(source, target);
     REQUIRE(wiz8::open_file(target)->read_text() == "replacement");
-    REQUIRE_FALSE(wiz8::file_status(target)->read_only);
+    REQUIRE_FALSE(wiz8::file_status(target).value().read_only);
     REQUIRE_THROWS(wiz8::copy_file(target, target));
     REQUIRE(wiz8::list_directory(temporary.path, "*.sav") ==
             std::vector<std::string>{"source.SAV", "target.SAV"});

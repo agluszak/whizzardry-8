@@ -14,6 +14,7 @@
 #include "slf.h"
 #include "temporary_directory.h"
 #include "wiz8/checked_integer.h"
+#include "wiz8/file_time.h"
 #include "wiz8/filesystem.h"
 
 namespace fs = std::filesystem;
@@ -25,7 +26,8 @@ void loose(const fs::path& path, std::string_view data)
     file.write(data.data(), data.size());
     REQUIRE(file.good());
 }
-void archive(const fs::path& path, const char* prefix, const char* name, std::string_view data)
+void archive(const fs::path& path, const char* prefix, const char* name, std::string_view data,
+             wiz8::DiskFileTime modified = {})
 {
     wiz8::SlfHeader header{};
     std::strcpy(header.sLibName, "fixture.slf");
@@ -33,6 +35,8 @@ void archive(const fs::path& path, const char* prefix, const char* name, std::st
     header.iEntries = header.iUsed = 1;
     wiz8::SlfEntry entry{};
     std::strcpy(entry.sFileName, name);
+    entry.sFileTime.low = modified.low;
+    entry.sFileTime.high = modified.high;
     entry.uiOffset = sizeof(header);
     entry.uiLength = wiz8::checked_integer<std::uint32_t>(data.size());
     std::string bytes(reinterpret_cast<const char*>(&header), sizeof(header));
@@ -60,11 +64,16 @@ struct Fixture {
 TEST_CASE_METHOD(Fixture, "Preparation applies archive, patch and loose precedence")
 {
     archive(install / "Data/Data.slf", "Data\\", "Sound\\Voice.WAV", "base");
-    archive(cd / "Data/Sound/Sound.slf", "Data\\Sound\\", "Voice.WAV", "sound");
+    constexpr std::int64_t modified = 1'700'000'000'123'456'700;
+    archive(cd / "Data/Sound/Sound.slf", "Data\\Sound\\", "Voice.WAV", "sound",
+            wiz8::file_time_from_sdl(modified));
     prepare();
     REQUIRE(read("data/sound/voice.wav") == "sound");
+    REQUIRE(wiz8::file_status(output / "data/sound/voice.wav").value().info.modify_time ==
+            modified);
     fs::remove_all(output);
-    archive(install / "Patches/Patch.000", "Data\\", "Sound\\Voice.WAV", "patch zero");
+    archive(install / "Patches/Patch.000", "Data\\", "Sound\\Voice.WAV", "patch zero",
+            wiz8::file_time_from_sdl(-5'000'000'000'000'000'000LL));
     archive(install / "Patches/Patch.049", "Data\\", "Sound\\Voice.WAV", "patch last");
     prepare();
     REQUIRE(read("data/sound/voice.wav") == "patch last");

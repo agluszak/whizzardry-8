@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      full_scan:
+        description: Run all diagnostics without reusing clean tidy results
+        type: boolean
+        default: false
   schedule:
     - cron: "17 4 * * 1"
 
@@ -260,11 +265,18 @@ jobs:
           ccache --show-stats 2>&1 | tee -a "$GITHUB_STEP_SUMMARY" || true
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
-  clang-tidy:
+  analysis:
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
     needs: scope
     if: needs.scope.outputs.checks == 'true'
     env:
       CLANG_TIDY_CACHE_DIR: ${{ github.workspace }}/build/tidy-cache
+      CLANG_TIDY_DISABLE_CACHE: ${{ inputs.full_scan || false }}
+      CLANG_TIDY_SHARD_INDEX: ${{ matrix.shard }}
+      CLANG_TIDY_SHARD_COUNT: "4"
     runs-on: ubuntu-26.04
     defaults:
       run:
@@ -314,7 +326,7 @@ jobs:
             -DWIZ8_PRECOMPILE_HEADERS=OFF -DWIZ8_SURRENDER_UNITY_BUILD=OFF
           cmake --build build/linux-tidy --target surrender_shader_headers
       - name: Verify offline Metal and Direct3D shaders
-        if: needs.scope.outputs.shaders == 'true'
+        if: matrix.shard == 0 && needs.scope.outputs.shaders == 'true'
         run: |
           source build/linux-tidy/conan/conanbuild.sh
           cmake -S tools/shadercross -B build/shadercross -G Ninja \
@@ -325,11 +337,13 @@ jobs:
           python3 tools/shadercross/generate.py --check \
             --shadercross build/shadercross/_deps/shadercross-build/shadercross
       - name: Restore successful static analyses
+        if: ${{ !inputs.full_scan }}
         uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
         with:
           path: ${{ env.CLANG_TIDY_CACHE_DIR }}
-          key: tidy-cxx26-clang23-cmake444-${{ github.run_id }}-${{ github.run_attempt }}
+          key: tidy-cxx26-clang23-cmake444-shard${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
+            tidy-cxx26-clang23-cmake444-shard${{ matrix.shard }}-
             tidy-cxx26-clang23-cmake444-
       - name: Run clang-tidy
         env:
@@ -338,8 +352,10 @@ jobs:
         run: |
           export CLANG_TIDY_JOBS="$(nproc)"
           clang-tidy-23 --verify-config --config-file=.clang-tidy-audit
-          python3 -m py_compile tools/run-diagnostic-audit.py tools/run-clang-tidy-cached.py tools/clang_tidy_support.py
-          python3 -m unittest discover -s tests/tools -p "*_test.py"
+          if [[ '${{ matrix.shard }}' == 0 ]]; then
+            python3 -m py_compile tools/run-diagnostic-audit.py tools/run-clang-tidy-cached.py tools/clang_tidy_support.py tools/clang_tidy_shard.py
+            python3 -m unittest discover -s tests/tools -p "*_test.py"
+          fi
           if [[ "${{ github.event_name }}" == pull_request ]]; then
             ./tools/run-clang-tidy.sh build/linux-tidy --changed-files "$RUNNER_TEMP/static-analysis-changed"
           else
@@ -355,10 +371,10 @@ jobs:
           CLANG_TIDY_JOBS: "2"
         run: ./tools/run-clang-tidy.sh build/linux-tidy
       - name: Audit strict lifetime, enums and parser buffers
-        if: always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        if: always() && matrix.shard == 0 && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
         run: python3 tools/run-diagnostic-audit.py build/linux-tidy --output build/diagnostic-audit.log
       - name: Upload experimental compiler diagnostics
-        if: always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        if: always() && matrix.shard == 0 && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: diagnostic-audit
@@ -367,8 +383,24 @@ jobs:
       # GitHub scopes PR caches to refs/pull/N/merge. They accelerate revisions
       # of that PR without becoming visible to main or unrelated PRs.
       - name: Save successful static analyses
-        if: always() && hashFiles('build/tidy-cache/*') != ''
+        if: always() && !inputs.full_scan && hashFiles('build/tidy-cache/*') != ''
         uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
         with:
           path: ${{ env.CLANG_TIDY_CACHE_DIR }}
-          key: tidy-cxx26-clang23-cmake444-${{ github.run_id }}-${{ github.run_attempt }}
+          key: tidy-cxx26-clang23-cmake444-shard${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+  # Keep the required check name stable while its work runs concurrently.
+  clang-tidy:
+    needs: [scope, analysis]
+    if: always()
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Check analysis results
+        env:
+          SCOPE_RESULT: ${{ needs.scope.result }}
+          CHECKS_REQUIRED: ${{ needs.scope.outputs.checks }}
+          ANALYSIS_RESULT: ${{ needs.analysis.result }}
+        run: |
+          if [[ "$SCOPE_RESULT" != success || ( "$CHECKS_REQUIRED" == true && "$ANALYSIS_RESULT" != success ) ]]; then
+            exit 1
+          fi
