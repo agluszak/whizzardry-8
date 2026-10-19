@@ -2105,9 +2105,19 @@ void Trace(Game& game, int location_id, int frames)
         game.frame();
         const W8Monster& body = *monster->p3D;
         const glm::vec3 at = monster->p3D->GetPosition();
+        const auto describe_query = [](std::optional<int> value) {
+            return value ? std::to_string(*value) : std::string("none");
+        };
+        const std::string cycle = describe_query(monster->p3D->Query(W8_MONSTER_QUERY_CYCLE));
+        const std::string current_frame =
+            describe_query(monster->p3D->Query(W8_MONSTER_QUERY_FRAME));
+        const std::string frame_count =
+            describe_query(monster->p3D->Query(W8_MONSTER_QUERY_FRAME_COUNT));
+        const std::string playback_end =
+            describe_query(monster->p3D->Query(W8_MONSTER_QUERY_AT_PLAYBACK_END));
         std::printf("  t%lu %d (%.0f %.0f) action=%d active=%d complete=%d stopped=%d halted=%d "
-                    "flags=%x progress=%g/%g speed=%g status=%d actor=%d cycle=%d frame=%d/%d "
-                    "end=%d\n",
+                    "flags=%x progress=%g/%g speed=%g status=%d actor=%d cycle=%s frame=%s/%s "
+                    "end=%s\n",
                     game.frames(), location_id, at.x, at.z, int(monster->action_kind),
                     monster->pCombat ? int(monster->pCombat->active) : -1,
                     int(body.movement_complete), int(body.movement_stopped), int(body.halted),
@@ -2117,10 +2127,8 @@ void Trace(Game& game, int location_id, int frames)
                     g_combat_state && g_combat_state->pActionMonsterInfo
                         ? g_combat_state->pActionMonsterInfo->location_id
                         : -1,
-                    monster->p3D->Query(W8_MONSTER_QUERY_CYCLE),
-                    monster->p3D->Query(W8_MONSTER_QUERY_FRAME),
-                    monster->p3D->Query(W8_MONSTER_QUERY_FRAME_COUNT),
-                    monster->p3D->Query(W8_MONSTER_QUERY_AT_PLAYBACK_END));
+                    cycle.c_str(), current_frame.c_str(), frame_count.c_str(),
+                    playback_end.c_str());
     }
 }
 
