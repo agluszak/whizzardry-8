@@ -112,8 +112,10 @@ static void CreateUseItemSelectControls(void);
 
 static void CreateUseItemSelectControls(void)
 {
-    const auto make_button = [](int artwork, int normal, int pressed, int hover, int pressed_hover,
-                                int disabled, SDL_Rect bounds, int help, void (*action)()) {
+    const auto make_button = [](int artwork, int normal, std::optional<int> pressed,
+                                std::optional<int> hover, std::optional<int> pressed_hover,
+                                std::optional<int> disabled, SDL_Rect bounds, int help,
+                                void (*action)()) {
         auto button = std::make_unique<W8ButtonWidget>(use_item->input);
         button->Configure(ButtonGraphics::Load(CatalogArtwork::Load(artwork, 0).spriteSheet(),
                                                disabled, normal, hover, pressed, pressed_hover),
@@ -141,8 +143,8 @@ static void CreateUseItemSelectControls(void)
         +[] { use_item->filter->SetPressed(true); });
     use_item->filter->Policy().primary_toggle = ButtonToggle::Release;
     use_item->filter->SetEnabled(false);
-    use_item->close =
-        make_button(0x8e, 4, -1, 5, 6, 7, {0x248, 0x16c, 27, 27}, 17, CloseUseItemSelection);
+    use_item->close = make_button(0x8e, 4, std::nullopt, 5, 6, 7, {0x248, 0x16c, 27, 27}, 17,
+                                  CloseUseItemSelection);
     use_item->caption.SetLayoutBounds(0x1b, 0x16a, 0xa0, 0x179);
     use_item->caption.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
     use_item->caption.SetText(g_localized_strings[0x77a], g_wiz_text_font_secondary);

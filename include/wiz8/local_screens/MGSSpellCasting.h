@@ -37,7 +37,7 @@ struct W8SpellCastingView {
     std::array<std::unique_ptr<W8ButtonWidget>, 6> realm_buttons;
     std::array<W8TextBuffer, 6> realm_text;
     std::array<std::unique_ptr<W8ButtonWidget>, 9> power_controls;
-    std::array<std::array<int, 5>, 9> power_frames;
+    std::array<std::array<std::optional<int>, 5>, 9> power_frames;
     std::unique_ptr<W8ButtonWidget> cancel;
     W8TextBuffer spell_name;
     std::array<bool, 3> dirty{true, true, true};

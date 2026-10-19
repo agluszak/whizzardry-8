@@ -111,8 +111,8 @@ void ShowSpellCastingError(int spell_id);
 // FUNCTION: WIZ8 0x0059E1F0
 static void CreateSpellCastingViewControls(void)
 {
-    const auto make_button = [](int artwork, const std::array<int, 5>& frames, SDL_Rect bounds,
-                                int help, std::function<void()> action,
+    const auto make_button = [](int artwork, const std::array<std::optional<int>, 5>& frames,
+                                SDL_Rect bounds, int help, std::function<void()> action,
                                 std::function<void(bool)> on_hover = {}) {
         auto button = std::make_unique<W8ButtonWidget>(gpSCSV->input);
 
@@ -203,8 +203,8 @@ static void CreateSpellCastingViewControls(void)
         gpSCSV->name_target->setPassive();
         gpSCSV->name_target->setTooltip([] { return std::string(g_localized_strings[55]); });
     }
-    gpSCSV->cancel =
-        make_button(0x8e, {7, 4, 5, -1, 6}, {0x23a, 0x16c, 27, 27}, 17, ResetSpellCastingSelection);
+    gpSCSV->cancel = make_button(0x8e, {7, 4, 5, std::nullopt, 6}, {0x23a, 0x16c, 27, 27}, 17,
+                                 ResetSpellCastingSelection);
     gpSCSV->cancel->Policy().primary_toggle = ButtonToggle::None;
     gpSCSV->dirty.fill(true);
 
