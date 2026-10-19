@@ -542,7 +542,7 @@ W8Missile* CreateMissile(unsigned int missile_table_index, glm::vec3* source, fl
     glm::vec3 end;
     glm::mat3 rotation;
     glm::mat3 aim;
-    float limit = -1.0f;
+    std::optional<float> limit;
 
     missile = AllocateMissile(missile_table_index);
     if (missile != 0) {
@@ -581,12 +581,14 @@ W8Missile* CreateMissile(unsigned int missile_table_index, glm::vec3* source, fl
         ai = new W8AIMissile{};
         ai->speed_per_step = flight_speed * 0.001f;
         ai->gravity = missile->gravity;
-        ai->limit = limit;
+        // W8AIMissile retains its fixed -1 ABI encoding for no early-impact
+        // limit; runtime calculation state above uses an optional value.
+        ai->limit = limit ? *limit : -1.0f;
         ai->last_half_tick = GameClockMilliseconds() >> 1;
         ai->missile = missile;
         missile->m_pAI.reset(ai);
         ai->fall_speed = static_cast<float>(sin(-pitch) * flight_speed * 0.001f);
-        ai->limit = limit;
+        ai->limit = limit ? *limit : -1.0f;
         missile->trace_mask = trace_mask;
         missile->duration = duration;
         missile->block_released = block_released;

@@ -1238,7 +1238,7 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
 
         if (version > 1) {
             char surface_id[0x40];
-            int id = -1;
+            std::optional<int> id;
 
             handle->read_exact(&minimum_range, 4);
             handle->read_exact(surface_id, sizeof(surface_id));
@@ -1251,10 +1251,9 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
                     surface_id[5] = 0;
                     id = atoi(surface_id + 1);
                 }
-            } else {
-                id = -1;
             }
-            trigger->surface_id = id;
+            // The trigger record retains retail's -1 storage encoding.
+            trigger->surface_id = id ? *id : -1;
         }
         if (version > 2) {
             unsigned char has_action_data;

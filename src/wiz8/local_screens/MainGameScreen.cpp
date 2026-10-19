@@ -4068,9 +4068,9 @@ void UpdateCombatPortraitStatus(void)
         W8Character* character = &g_status.buffers.Char[slot];
         W8CombatCharacterRow* combat_row = &g_combat_state->characters[slot];
         W8MonsterManagerEntry* entry = &gXStatus.monster_manager_entries[slot];
-        int image = -1;
-        int alternate = -1;
-        W8CombatPortraitStatus status = W8_COMBAT_PORTRAIT_EMPTY;
+        std::optional<int> image;
+        std::optional<int> alternate;
+        std::optional<W8CombatPortraitStatus> status;
 
         if (row->fOccupied && character->hp_current > 0 &&
             character->highest_condition <= W8_CONDITION_UNCONSCIOUS) {
@@ -4092,7 +4092,7 @@ void UpdateCombatPortraitStatus(void)
                 status = W8_COMBAT_PORTRAIT_ACTING;
             }
             image = GetCombatPortraitImage(row->committed_action.kind, row->committed_action.detail,
-                                           status, slot);
+                                           *status, slot);
             alternate = image;
             if (status == W8_COMBAT_PORTRAIT_ACTING) {
                 if (combat_row->combat_status == W8_COMBAT_PORTRAIT_ACTING) {
@@ -4116,15 +4116,17 @@ void UpdateCombatPortraitStatus(void)
                     entry->acting_portrait_pulse = 1;
                 }
             } else {
-                alternate = image + 10;
+                alternate = *image + 10;
             }
-            if (image != -1 && image != combat_row->portrait_image) {
+            if (image && *image != combat_row->portrait_image) {
                 entry->combat_portrait_dirty = true;
             }
         }
-        combat_row->combat_status = status;
-        combat_row->portrait_image = image;
-        combat_row->portrait_image_alternate = alternate;
+        // These rows keep their retail -1 encoding; the runtime calculation
+        // above represents absence with optionals until this storage boundary.
+        combat_row->combat_status = status ? static_cast<char>(*status) : W8_COMBAT_PORTRAIT_EMPTY;
+        combat_row->portrait_image = image ? *image : -1;
+        combat_row->portrait_image_alternate = alternate ? *alternate : -1;
     }
 }
 
