@@ -52,18 +52,6 @@
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 
-/* 0x0069C514/0x0069C518: the stats page's text origin, initialized by the
-   page renderer before every full redraw. */
-// GLOBAL: WIZ8 0x0069c514
-
-// GLOBAL: WIZ8 0x0069c518
-
-/* The skills page row the cursor last hovered, kept so the help
-   text only resets on a real change. */
-// GLOBAL: WIZ8 0x0069c524
-
-// GLOBAL: WIZ8 0x0069c528
-
 /* The five skill-category blocks shared by the camp skills page: (x, y)
    origins, the row count that bounds each region, and the catalog frame each
    header draws. Category 4 sits below the right-hand column; the others fill

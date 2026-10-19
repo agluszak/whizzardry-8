@@ -85,9 +85,6 @@ unsigned short g_equip_slot_label_ids[12] = {
     0x433, 0x434, 0x435, 0x436, 0x437, 0x438, 0x439, 0x43a, 0x43b, 0x43c, 0x43d, 0x43e,
 };
 
-/* The two page-tab primary callbacks: the Items and Character info buttons
-   created by CreateCampSecondaryPanel. */
-
 /* The items page swaps two control panels in and out: mode zero shows the
    item page, mode one the character page. */
 // FUNCTION: WIZ8 0x005B9FD0
@@ -360,8 +357,6 @@ bool CanSplitItemStack(const W8ItemInstance* item)
     }
     return record->quantity_kind == W8_ITEM_QUANTITY_STACK;
 }
-
-// FUNCTION: WIZ8 0x005BAA80
 
 /* Mode/tail bits the update pass keys on: the camp item_action byte at +0xd3f
    selects which use paths are live, and iTargetingMode selects what the item

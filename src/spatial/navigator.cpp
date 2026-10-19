@@ -635,7 +635,6 @@ void Navigator::ResetPathAI()
 const float g_navigator_default_turn_rate = 4.398229598999023f;
 
 const float g_navigator_snap_angle = 0.029999999329447746f;
-// GLOBAL: WIZ8 0x006081e4
 
 unsigned short Navigator::SetMovementTargetToNavigator(Navigator* target, double separation)
 {

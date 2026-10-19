@@ -604,10 +604,6 @@ void SwapFormationSlots(W8PartyFormationState* formation, int slot_a, int slot_b
     }
 }
 
-/* Unseat every formation position whose party row is no longer occupied; a
-   live load restores party_rows first and the formation record second, so a
-   slot the save marked vacant still carries its old seat. */
-// FUNCTION: WIZ8 0x00555FA0
 /* Whether the monster currently faces the party's own position, inside the
    usual facing tolerance - the mirror of IsPartyLookingAt. */
 int IsMonsterFacingParty(W8MonsterInfo* monster_info)

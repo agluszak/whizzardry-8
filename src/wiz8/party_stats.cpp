@@ -15,9 +15,9 @@
 #include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/party.h"
 
-/* Party encumbrance redistribution. Live query: 0x004ED9D0 is a gap between
-   Local Code\Combat.cpp (upper 0x004ED390) and Local Code\GameplayCode.cpp
-   (lower 0x004EE000). Not a Combat tail and not an invisible named unit. */
+/* Derived statistics and shared load. The retail code at 0x004ED9D0 sits in a gap
+   between Local Code\Combat.cpp (upper 0x004ED390) and Local Code\GameplayCode.cpp
+   (lower 0x004EE000); it is neither a Combat tail nor a separately named unit. */
 
 /* Calculate from resolved attributes, skills and equipment. Live equipment
    reconciliation and presentation are separate operations at the caller. */

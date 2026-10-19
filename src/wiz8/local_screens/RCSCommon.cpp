@@ -846,8 +846,3 @@ void W8CampScreenState::SelectCampPageButton(int button, W8CampPage page)
     camp_buttons.pages[button]->SetPressed(true);
 }
 
-/* Item-action button callbacks: while the button's secondary state is up the
-   click performs the held-item action or arms the button's targeting mode;
-   while it is down the click falls back to clearing the action mode. */
-
-// FUNCTION: WIZ8 0x005b5e60

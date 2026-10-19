@@ -536,19 +536,6 @@ bool CanEquipItemInSlot(W8Character* character, int item_id, unsigned char equip
                                  primary_main_hand_free, alternate_main_hand_free)) != 0;
 }
 
-/* The name-index pairs that may be held together; a zero first entry ends
-   the run. */
-// GLOBAL: WIZ8 0x00616e6c
-
-// FUNCTION: WIZ8 0x0051E980
-
-/* Whether an off-hand item may pair with a ranged item when the two are held
-   together. A handful of name indices name one partner directly, the
-   two-weapon name indices fall back to the pair table, and the specialised
-   ranged items carry their own accepted classes. Anything not named is
-   refused. */
-// FUNCTION: WIZ8 0x0051c8f0
-
 /* Whether two items may be held at the same time. Nothing pairs with a
    two-handed item. A weapon beside an off-hand item is decided by the weapon
    rule, which takes them in weapon-first order whichever way round they were
@@ -809,12 +796,6 @@ std::string GetItemDisplayName(const W8ItemInstance* item)
     }
     return g_generic_item_names[name_index];
 }
-
-/* Whether an item's generic name is one of five the callers single out. */
-// FUNCTION: WIZ8 0x0051cce0
-
-/* Whether the item counts its quantity in shots. */
-// FUNCTION: WIZ8 0x0051cdb0
 
 /* How the interface presents the spell an item carries, drawn from a per
    category table. Two particular spells are excluded and answer with nothing
@@ -1147,9 +1128,6 @@ bool ItemHasHiddenProperties(int item_id)
     }
     return false;
 }
-
-/* The skill an identify attempt practises, and the one whose level supplies
-   its strength - a sixth of it. */
 
 /* At what range an item's spell works. An item with no spell has no range at
    all, which is a different answer from touch. */

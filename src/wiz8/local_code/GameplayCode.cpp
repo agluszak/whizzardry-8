@@ -55,12 +55,7 @@
 #include "wiz8/world/level_session.h"
 #include "wiz8/xstatus.h"
 
-/* How much one level in a profession is worth towards physical combat
-   experience. The professions split three ways. */
-
 /* One entry per sex, race and profession together. */
-// GLOBAL: WIZ8 0x00616308
-
 static int g_character_table[480] = {
     3,  1,  0,  0,  3,  56, 4,  2,  1,  2,  5,  4,  24, 4,  5,  13, 12, 0,  12, 13, 56, 13, 12, 12,
     12, 14, 14, 14, 14, 14, 19, 19, 0,  19, 19, 56, 20, 20, 20, 20, 18, 18, 18, 18, 18, 24, 24, 0,
@@ -82,8 +77,6 @@ static int g_character_table[480] = {
     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0};
-
-// GLOBAL: WIZ8 0x006172F0
 
 /* Whether any monster is engaged with the party right now: in combat, in the
    engaged state, still alive and not yet on its way out. */
@@ -361,21 +354,6 @@ void HandleLevelOverride(float fall)
         ApplyRolledHealthChangeToParty(&dice, 0, 1);
     }
 }
-
-/* What the character's levels are worth towards physical combat. Every
-   profession they have ever held counts, weighted by how much fighting that
-   profession does. */
-// FUNCTION: WIZ8 0x004ee130
-
-/* Rebuild the character's initiative from level, speed and senses, with the
-   initiative skill and equipment/effect modifier applied before encumbrance. */
-// FUNCTION: WIZ8 0x004ee000
-
-// FUNCTION: WIZ8 0x004ee220
-
-/* Rebuild the thirteen shared and location-specific armor-class components,
-   then derive the unweighted and body-location-weighted summaries. */
-// FUNCTION: WIZ8 0x004ee9d0
 
 /* Personality and voice values by sex and profession class,
    two dwords per row. It ends exactly where the sex/race/profession table
