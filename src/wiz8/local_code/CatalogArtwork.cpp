@@ -17,7 +17,7 @@
 #include "wiz8/canvas/image_assets.h"
 #include "wiz8/canvas/sprite.h"
 #include "wiz8/catalog_artwork.h"
-#include "wiz8/engine_code/Video2.h"
+#include "wiz8/render/frame.h"
 
 // A catalog object names a run of entries; its image offset selects the first sprite frame.
 struct CatalogSlot {

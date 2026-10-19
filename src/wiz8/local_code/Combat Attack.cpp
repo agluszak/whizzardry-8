@@ -10,7 +10,6 @@
 #include <fmt/printf.h>
 #include <glm/geometric.hpp>
 
-#include "Navigator.h"
 #include "attack_modes.h"
 #include "dice.h"
 #include "equipment_slots.h"
@@ -23,22 +22,16 @@
 #include "local_code/SpellEffect.h"
 #include "monster_actions.h"
 #include "spell_ids.h"
-#include "surrender/srDebug.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/checked_integer.h"
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/conditions.h"
-#include "wiz8/engine_code/AnimRep.hpp"
-#include "wiz8/engine_code/Camera.h"
-#include "wiz8/engine_code/GDCamera.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/Missile.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/PolyPick.h"
-#include "wiz8/engine_code/stCube.h"
+#include "wiz8/entities/animation_types.h"
+#include "wiz8/entities/cursor_nodes.h"
+#include "wiz8/entities/missile.h"
+#include "wiz8/entities/monster.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
 #include "wiz8/gameplay_constants.h"
@@ -74,9 +67,15 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/monster_cycles.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/random.h"
+#include "wiz8/render/picking.h"
+#include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/spatial/navigator.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/utility.h"
+#include "wiz8/world/camera_paths.h"
+#include "wiz8/world/party_camera.h"
 #include "wiz8/xstatus.h"
 
 /* Shared combat attribute differential used by pre-hit and hit-location rolls. */
@@ -793,7 +792,7 @@ unsigned short g_special_category_name_ids[42] = {
    conditions against the target. An area effect instead reaches the whole
    party when a character was struck, or every active monster within the
    radius of the struck monster's position. */
-void ResolveSpellMissileHit(W8Missile* missile)
+void ResolveSpellMissileHit(Missile* missile)
 {
     W8TargetSource* source = &missile->m_Source;
     W8CombatSlot* target = &missile->combat_slot;
@@ -816,11 +815,11 @@ void ResolveSpellMissileHit(W8Missile* missile)
     if (definition->radius > 0.0f) {
         if (target->iType == W8_TARGET_KIND_MONSTER) {
             monster_info = FindMonster(target->iMonsterID);
-            DamageMonstersInRadius(monster_info->p3D->GetPosition(), definition->radius,
+            DamageMonstersInRadius(monster_info->p3D->nav.GetPosition(), definition->radius,
                                    &definition->magnitude, source, &missile->result);
             announce = g_settings.verbose_combat_messages != 0;
             verbose = g_settings.verbose_combat_messages != 0;
-            glm::vec3 center = monster_info->p3D->GetPosition();
+            glm::vec3 center = monster_info->p3D->nav.GetPosition();
             ResetCombatSlot(&struck);
             struck.iType = W8_TARGET_KIND_MONSTER;
             for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size();
@@ -913,7 +912,7 @@ static unsigned int RollCharacterHitLocation()
    modifier and 5 per point of armour class under 10. A penetrating shot
    rolls the effect size and, when it is not nothing, plays the hit sound,
    applies the damage and rolls the effect's conditions. */
-void ResolveMissileHit(W8Missile* missile, bool deflected)
+void ResolveMissileHit(Missile* missile, bool deflected)
 {
     W8TargetSource* source = &missile->m_Source;
     W8CombatSlot* target = &missile->combat_slot;
@@ -1698,7 +1697,7 @@ W8CombatActionStatus ContinueMonsterAttack(W8MonsterInfo* monster_info, W8Monste
                              "{:d}, cycle {:d}, pending {:d}",
                              monster_info->location_id,
                              monster_info->p3D->Query(W8_MONSTER_QUERY_CYCLE),
-                             monster_info->p3D->pending_cycle));
+                             monster_info->p3D->visual.pending_cycle));
         }
         if (g_combat_state->missile_hit_result == W8_MISSILE_HIT) {
             swing_missed = false;
@@ -3090,9 +3089,9 @@ void QueueFumbleReaction(int party_slot)
    resolves both endpoints' world positions, defers the target when a combat-
    ending missile is already engaged, folds the range category's base speed
    into the shot and fires through FireMissile. */
-W8Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W8CombatSlot* target,
-                                     W8SpellEffectDefinition* attack, bool use_default_accuracy,
-                                     W8RangeCategory range_category, int accuracy)
+Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W8CombatSlot* target,
+                                   W8SpellEffectDefinition* attack, bool use_default_accuracy,
+                                   W8RangeCategory range_category, int accuracy)
 {
     unsigned int target_flag;
     bool blind = false;
@@ -3102,8 +3101,8 @@ W8Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W
     glm::vec3 source_position;
     glm::vec3 target_position;
     W8MonsterInfo* monster_info;
-    W8Monster* monster;
-    W8Missile* missile;
+    Monster* monster;
+    Missile* missile;
     float speed;
     float base_speed;
     float radius;
@@ -3128,8 +3127,8 @@ W8Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W
     } else if (target->iType == W8_TARGET_KIND_MONSTER) {
         monster_info = FindMonster(target->iMonsterID);
         monster = monster_info->p3D;
-        target_position = monster->movement.position;
-        target_position.y += monster->movement.height_offset;
+        target_position = monster->nav.movement.position;
+        target_position.y += monster->nav.movement.height_offset;
     } else if (target->iType == W8_TARGET_KIND_PLACE) {
         target_position = target->point;
     } else {
@@ -3138,8 +3137,8 @@ W8Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W
     if (TargetSourceIsCharacter(source, 0)) {
         GetCharacterProjectilePosition(source->iChar, &source_position);
         if (target->iType == W8_TARGET_KIND_PLACE) {
-            if (GetWorldOctree()->TraceLineOfSight(&source_position, &target_position, true, -3, -3,
-                                                   true, 0) == 1) {
+            if (GetWorldSpatialIndex()->TraceLineOfSight(&source_position, &target_position, true,
+                                                         -3, -3, true, 0) == 1) {
                 source_position = cameraLocation();
             }
         } else if (target->iType == W8_TARGET_KIND_MONSTER) {
@@ -3172,9 +3171,9 @@ W8Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W
         }
         if (position_ok == 0) {
             source_position =
-                glm::vec3(monster->movement.position.x,
-                          monster->movement.position.y + monster->movement.height_offset,
-                          monster->movement.position.z);
+                glm::vec3(monster->nav.movement.position.x,
+                          monster->nav.movement.position.y + monster->nav.movement.height_offset,
+                          monster->nav.movement.position.z);
             monster->GetAnimationRadius(&radius);
             pitch = GetElevationAngle(&source_position, &target_position);
             yaw = GetHeadingAngle(&source_position, &target_position);

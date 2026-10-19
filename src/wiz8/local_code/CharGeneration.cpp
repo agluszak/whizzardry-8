@@ -9,7 +9,6 @@
 #include "layouts/game_status.h"
 #include "layouts/gameplay_databases.h"
 #include "layouts/item_instance.h"
-#include "surrender/srDebug.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/dialog_code/ProfRaceInfoDialog.h"
 #include "wiz8/layouts/character.h"
@@ -20,6 +19,8 @@
 #include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/party_encumbrance.h"
+#include "wiz8/platform/assertion.h"
+#include "wiz8/utility.h"
 
 /* Refund every spent skill point through the per-skill commit helper. */
 void RefundAllSkillPoints(W8Character* character, W8CharacterCreationState* creation_state)

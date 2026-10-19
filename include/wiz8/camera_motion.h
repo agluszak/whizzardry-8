@@ -1,6 +1,6 @@
 #pragma once
 
-/* Combined input masks consumed by W8GameData camera motion and 3dapi. */
+/* Combined input masks consumed by LevelSpatialIndex camera motion and 3dapi. */
 enum {
     W8_CAMERA_MOTION_STRAFE_LEFT = 0x0001u,
     W8_CAMERA_MOTION_STRAFE_RIGHT = 0x0002u,

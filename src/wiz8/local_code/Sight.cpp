@@ -8,25 +8,15 @@
 
 #include <glm/geometric.hpp>
 
-#include "World.h"
 #include "conditions.h"
 #include "gameplay_modifiers.h"
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/levels.h"
-#include "layouts/world.h"
 #include "local_code/Factions.h"
 #include "sight_state.h"
-#include "surrender/srDebug.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/Environment.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/Levels.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Navigator.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/PolyPick.h"
+#include "wiz8/entities/monster.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
 #include "wiz8/gameplay_constants.h"
@@ -49,12 +39,20 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
+#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/random.h"
+#include "wiz8/render/picking.h"
+#include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/spatial/navigator.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/utility.h"
+#include "wiz8/world/environment.h"
+#include "wiz8/world/level_session.h"
+#include "wiz8/world/update.h"
+#include "wiz8/world/world.h"
 #include "wiz8/xstatus.h"
 
-struct W8World;
+struct World;
 
 const float g_sight_default = 12.0f;
 
@@ -123,9 +121,9 @@ void RefreshAllSight(void)
 bool CanMonsterSeeMonster(W8MonsterInfo* source, W8MonsterInfo* target, W8VisibilityRecord* record)
 {
     W8MonsterRecord* target_record;
-    W8Monster* source_monster;
+    Monster* source_monster;
     glm::vec3 observer_position;
-    W8Monster* target_monster;
+    Monster* target_monster;
     glm::vec3 target_position;
     float observer_yaw;
     int penalty_modifier;
@@ -139,12 +137,12 @@ bool CanMonsterSeeMonster(W8MonsterInfo* source, W8MonsterInfo* target, W8Visibi
     }
     target_record = GetMonsterDataForInfo(target);
     source_monster = source->p3D;
-    observer_position = source_monster->movement.position;
-    observer_position.y += source_monster->movement.height_offset;
+    observer_position = source_monster->nav.movement.position;
+    observer_position.y += source_monster->nav.movement.height_offset;
     target_monster = target->p3D;
-    target_position = target_monster->movement.position;
-    target_position.y += target_monster->movement.height_offset;
-    observer_yaw = source_monster->GetYaw();
+    target_position = target_monster->nav.movement.position;
+    target_position.y += target_monster->nav.movement.height_offset;
+    observer_yaw = source_monster->nav.GetYaw();
     if (!target->pCombat) {
         penalty_modifier = target_record->camouflage0;
     } else {
@@ -181,7 +179,7 @@ float ComputeSightThreshold(glm::vec3 observer_position, glm::vec3 target_positi
                             int penalty_source, int penalty_modifier, int skip_field_of_view,
                             unsigned char sight_override, float distance)
 {
-    W8World* world;
+    World* world;
     double far_clip;
     float viewing_distance;
     float heading;
@@ -367,7 +365,7 @@ const float g_sight_threat_scale = 0.6667f;
 void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bounds)
 {
     W8MonsterRecord* record;
-    W8Monster* monster;
+    Monster* monster;
     glm::vec3 own_position;
     float viewing_distance;
     glm::vec3 camera_position;
@@ -384,8 +382,8 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
     }
     record = GetMonsterDataForInfo(monster_info);
     monster = monster_info->p3D;
-    own_position = monster->movement.position;
-    own_position.y += monster->movement.height_offset;
+    own_position = monster->nav.movement.position;
+    own_position.y += monster->nav.movement.height_offset;
 
     if (!direction) {
         unsigned int index;
@@ -401,11 +399,11 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                 auto* entry = &(*monster_info->monster_visibility)[other->location_id];
                 entry->about_location_id = other->location_id;
                 {
-                    W8Monster* other_monster = other->p3D;
+                    Monster* other_monster = other->p3D;
                     float distance;
 
-                    other_position = other_monster->movement.position;
-                    other_position.y += other_monster->movement.height_offset;
+                    other_position = other_monster->nav.movement.position;
+                    other_position.y += other_monster->nav.movement.height_offset;
                     entry->can_see = false;
                     entry->line_of_sight = false;
                     bool can_see = false;
@@ -447,7 +445,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                 Fail("fFoundMissileVertex");
                                 clear = false;
                             } else {
-                                short line = GetWorldOctree()->TraceLineOfSight(
+                                short line = GetWorldSpatialIndex()->TraceLineOfSight(
                                     &trace_position, &other_position, true,
                                     monster_info->location_id, other->location_id, true, 1);
 
@@ -462,7 +460,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                 Fail("fFoundSpellVertex");
                                 entry->los_flags[3] = false;
                             } else {
-                                short line = GetWorldOctree()->TraceLineOfSight(
+                                short line = GetWorldSpatialIndex()->TraceLineOfSight(
                                     &trace_position, &other_position, true, -3, -3, true, 0);
 
                                 entry->los_flags[3] = line != 1;
@@ -502,7 +500,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                 monster_info->highest_condition > W8_CONDITION_WEBBED) {
                 visible_to_player = false;
             } else {
-                float yaw = monster->GetYaw();
+                float yaw = monster->nav.GetYaw();
                 unsigned int sight_override;
                 unsigned int minimum_level = 9999;
                 unsigned char fade_flag;
@@ -572,9 +570,9 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                 Fail("fFoundMissileVertex");
                 clear = false;
             } else {
-                short line =
-                    GetWorldOctree()->TraceLineOfSight(&trace_position, &camera_position, true,
-                                                       monster_info->location_id, -1, true, 1);
+                short line = GetWorldSpatialIndex()->TraceLineOfSight(
+                    &trace_position, &camera_position, true, monster_info->location_id, -1, true,
+                    1);
 
                 clear = line == 0;
             }
@@ -587,8 +585,8 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                 Fail("fFoundSpellVertex");
                 monster_info->player_visibility.los_flags[3] = false;
             } else {
-                short line = GetWorldOctree()->TraceLineOfSight(&trace_position, &camera_position,
-                                                                true, -3, -3, true, 0);
+                short line = GetWorldSpatialIndex()->TraceLineOfSight(
+                    &trace_position, &camera_position, true, -3, -3, true, 0);
 
                 monster_info->player_visibility.los_flags[3] = line != 1;
             }
@@ -790,9 +788,9 @@ bool MonsterGroupCanSeeGroup(W8MonsterGroup* source, W8MonsterGroup* target)
     W8MonsterInfo* source_info;
     W8MonsterInfo* target_info;
     W8VisibilityRecord record;
-    W8Monster* source_monster;
-    W8Monster* target_monster;
-    W8World* world;
+    Monster* source_monster;
+    Monster* target_monster;
+    World* world;
     float distance;
     double far_clip;
 

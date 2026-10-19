@@ -10,7 +10,7 @@
 #include <SDL3/SDL_surface.h>
 
 #include "movie.h"
-#include "wiz8/engine_code/Video2.h"
+#include "wiz8/render/frame.h"
 #include "wiz8/runtime_test_hooks.h"
 
 namespace {

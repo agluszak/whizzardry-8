@@ -49,4 +49,3 @@ def dependencies(entry, index, temp):
         raise RuntimeError(f"Unexpected dependency output for {entry['file']}")
     names = shlex.split(output[len("deps:"):])
     return source_path(entry), {(directory / name).resolve() for name in names}
-

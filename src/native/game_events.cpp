@@ -5,9 +5,9 @@
 #include <SDL3/SDL_events.h>
 
 #include "wiz8/application.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/Video2.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/render/frame.h"
+#include "wiz8/spatial/level_spatial_index.h"
 
 bool gfLoadAtStartup = false;
 std::string gzStringDataOverride;

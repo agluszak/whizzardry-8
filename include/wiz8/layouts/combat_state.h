@@ -22,8 +22,8 @@ struct W8Character;
 struct W8MonsterInfo;
 
 struct W8SpellDamageReport;
-class W8Missile;
-class W8SpellVisual;
+class Missile;
+class SpellVisual;
 
 enum class W8CombatEquipPhase : unsigned char { action_selection, resolving };
 
@@ -227,7 +227,7 @@ struct W8CombatState {
     bool hit_sound_active;
     W8EffectSlot effect_slots[9];
     W8EffectSlot effect_slots0[6];
-    W8Missile* engaged_missile;
+    Missile* engaged_missile;
     /* Historical offset 0x8c4: staged hit result of the in-flight missile (0 = pending, 1 = hit, 2 = deflected) */
     W8MissileHitResult missile_hit_result;
     W8CombatSlot TargetHit;
@@ -262,7 +262,7 @@ struct W8CombatState {
     /* Historical offset 0xa4c: the in-flight breath visual for a character's special-attack
        action. The executor refuses while its `finished` flag is clear and
        hands the previous one to the world updater through `auto_release`. */
-    W8SpellVisual* breath_visual;
+    SpellVisual* breath_visual;
     /* Historical offset 0xa50: combat is in the equip/resolve phase the review screens key
        their captions and item actions on. */
     W8CombatEquipPhase equip_phase = W8CombatEquipPhase::action_selection;

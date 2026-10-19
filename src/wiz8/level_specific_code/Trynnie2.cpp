@@ -3,12 +3,11 @@
 #include <string>
 #include <vector>
 
-#include "Item.h"
 #include "conditions.h"
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/cursor.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/World.h"
+#include "wiz8/entities/monster.h"
+#include "wiz8/entities/world_item.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
 #include "wiz8/item_spawning.h"
@@ -26,6 +25,7 @@
 #include "wiz8/location_variables.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/string_database.h"
+#include "wiz8/world/world.h"
 
 class Trigger;
 

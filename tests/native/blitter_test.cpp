@@ -20,13 +20,12 @@
 #include "wiz8/canvas/image.h"
 #include "wiz8/canvas/shading.h"
 #include "wiz8/canvas/sprite.h"
-#include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_code/ControlsRect.h"
+#include "wiz8/render/compositor.h"
+#include "wiz8/render/frame.h"
 #include "wiz8/surface_storage.h"
 
 // Recovered helper used by UI overlays; retain its destination-first copy contract.
-unsigned char CopySurfaceWithBorder(SDL_Surface*, const W8ControlsRect*, SDL_Surface&, float*,
-                                    float*, float*, float*);
 
 namespace {
 using Surface = SDLSurfaceOwner;
@@ -321,25 +320,20 @@ TEST_CASE("shadow rectangles preserve inclusive legacy endpoints", "[blit]")
     REQUIRE(pixel(*target, 3, 4) == 0x1234);
 }
 
-TEST_CASE("Overlay border copies preserve offset source coordinates", "[blit]")
+TEST_CASE("Overlay crops preserve offset source pixels", "[blit]")
 {
     auto source = surface(6, 5);
     for (int y = 0; y < source->h; ++y)
         for (int x = 0; x < source->w; ++x) pixel(*source, x, y) = 0x8000 + y * 16 + x;
-    auto target = CreateCpuStorage(8, 8, SDL_PIXELFORMAT_ARGB1555);
-    for (int y = 0; y < 8; ++y)
-        for (int x = 0; x < 8; ++x) pixel(*target, x, y) = 0xeeee;
     const W8ControlsRect rect{2, 1, 5, 3};
-    float scale_x, scale_y, mapping_x, mapping_y;
-    REQUIRE(CopySurfaceWithBorder(target.get(), &rect, *source, &scale_x, &scale_y, &mapping_x,
-                                  &mapping_y));
-    for (int y = 0; y < 8; ++y)
-        for (int x = 0; x < 8; ++x) {
-            const unsigned expected = x < 5 && y < 4 ? pixel(*source, 2 + std::clamp(x - 1, 0, 2),
-                                                             1 + std::clamp(y - 1, 0, 1))
-                                                     : 0xeeee;
-            REQUIRE(pixel(*target, x, y) == expected);
-        }
+    auto quad = makeOverlayFromSurface(*source, &rect, false, true);
+    REQUIRE(quad);
+    auto* pixels = quad->texture->getSurfacePtr();
+    REQUIRE(pixels->w == 3);
+    REQUIRE(pixels->h == 2);
+    for (int y = 0; y < 2; ++y)
+        for (int x = 0; x < 3; ++x) REQUIRE(pixel(*pixels, x, y) == pixel(*source, x + 2, y + 1));
+    REQUIRE(pixel(*source, 0, 0) == 0x8000);
 }
 
 TEST_CASE("Sprite transparency preserves opaque RGB regardless of alpha bits", "[blit]")

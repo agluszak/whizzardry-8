@@ -1,7 +1,6 @@
 #include "wiz8/audio/SoundEvent.h"
 
-#include <cstdint>
-#include <memory>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -15,11 +14,11 @@
 #include "wiz8/audio/AmbientSound.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/checked_integer.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/Monster.h"
+#include "wiz8/entities/monster.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/platform/random.h"
+#include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/xstatus.h"
 
 // Looping events own the voice they start.
@@ -46,25 +45,24 @@ static int g_previous_footstep_variant;
 /* For every bit of the caller's mask, append the events of that kind whose
    own classification matches, then play one of them at random without
    repeating the previous choice for as long as a second candidate exists. */
-void UpdateSoundEvents(const std::vector<std::unique_ptr<W8SoundEvent>>& events,
-                       const glm::vec3& position, unsigned int event_mask, int cycle, int frame,
-                       int subcycle)
+void UpdateSoundEvents(std::span<W8SoundEvent> events, const glm::vec3& position,
+                       unsigned int event_mask, int cycle, int frame, int subcycle)
 {
     std::vector<W8SoundEvent*> candidates;
     for (unsigned int bit = 1; bit != 0; bit <<= 1) {
         if ((bit & event_mask) == 0) continue;
         candidates.clear();
-        for (const auto& event : events) {
-            const auto kind = event->kind;
+        for (auto& event : events) {
+            const auto kind = event.kind;
             if ((bit & kind) == 0) continue;
             if (kind == W8_SOUND_EVENT_FRAME || kind == W8_SOUND_EVENT_FOOTSTEP) {
-                if ((event->cycle != -1 && event->cycle != cycle) || event->frame != frame ||
-                    event->subcycle != subcycle)
+                if ((event.cycle != -1 && event.cycle != cycle) || event.frame != frame ||
+                    event.subcycle != subcycle)
                     continue;
             } else if (kind == W8_SOUND_EVENT_CYCLE) {
-                if (event->cycle != cycle || event->subcycle != subcycle) continue;
+                if (event.cycle != cycle || event.subcycle != subcycle) continue;
             }
-            candidates.push_back(event.get());
+            candidates.push_back(&event);
         }
         if (candidates.empty()) continue;
         int selected;
@@ -81,7 +79,7 @@ void UpdateSoundEvents(const std::vector<std::unique_ptr<W8SoundEvent>>& events,
    and let the ground/step branch rebuild the wave name before the play. */
 bool W8SoundEvent::Play(const glm::vec3& position, int cycle)
 {
-    W8Monster* monster = 0;
+    Monster* monster = 0;
     bool track_sound = false;
 
     if (IsSoundEffectsMuted() || !Chance(probability)) {
@@ -98,7 +96,7 @@ bool W8SoundEvent::Play(const glm::vec3& position, int cycle)
             track_sound = true;
             if (location_id != 0) {
                 monster = GetMonsterByLocationID(location_id);
-                if (gXStatus.fCombatMode || monster->nearest_to_party) {
+                if (gXStatus.fCombatMode || (monster && monster->nearest_to_party)) {
                     base_volume = footstep_combat_volume;
                 }
             }
@@ -157,4 +155,51 @@ bool W8SoundEvent::Play(const glm::vec3& position, int cycle)
         }
     }
     return true;
+}
+
+W8SoundEvent::W8SoundEvent(const W8SoundEvent& other)
+{
+    *this = other;
+}
+W8SoundEvent& W8SoundEvent::operator=(const W8SoundEvent& other)
+{
+    if (this == &other) return *this;
+    if (looping && sound_handle) wiz8::sound::stop(sound_handle);
+    sound_handle.reset();
+    kind = other.kind;
+    cycle = other.cycle;
+    frame = other.frame;
+    subcycle = other.subcycle;
+    wave_name = other.wave_name;
+    pitch = other.pitch;
+    volume_min = other.volume_min;
+    volume_max = other.volume_max;
+    probability = other.probability;
+    looping = other.looping;
+    location_id = other.location_id;
+    falloff = other.falloff;
+    footstep_volume = other.footstep_volume;
+    footstep_combat_volume = other.footstep_combat_volume;
+    return *this;
+}
+W8SoundEvent& W8SoundEvent::operator=(W8SoundEvent&& other) noexcept
+{
+    if (this == &other) return *this;
+    if (looping && sound_handle) wiz8::sound::stop(sound_handle);
+    kind = other.kind;
+    cycle = other.cycle;
+    frame = other.frame;
+    subcycle = other.subcycle;
+    wave_name = std::move(other.wave_name);
+    pitch = other.pitch;
+    volume_min = other.volume_min;
+    volume_max = other.volume_max;
+    probability = other.probability;
+    looping = other.looping;
+    location_id = other.location_id;
+    falloff = other.falloff;
+    footstep_volume = other.footstep_volume;
+    footstep_combat_volume = other.footstep_combat_volume;
+    sound_handle = std::move(other.sound_handle);
+    return *this;
 }

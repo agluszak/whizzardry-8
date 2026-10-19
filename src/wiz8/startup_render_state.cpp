@@ -2,14 +2,14 @@
 #include <memory>
 
 #include "compat/native.h"
-#include "glm/ext/vector_float3.hpp"
-#include "wiz8/engine_code/Environment.h"
+#include "wiz8/render/frame.h"
+#include "wiz8/render/gpu_renderer.h"
+#include "wiz8/world/environment.h"
 
-class W8Prop;
-class stTextureAnim;
+class Prop;
+class Texture;
 
-uint64_t g_frame_tick;
-float g_frame_elapsed;
+static uint64_t previous_render_tick;
 
 /* The renderer's shared millisecond delta. The constructor immediately before
    this body seeds the same clock; every consumer reads the single scaled
@@ -17,28 +17,18 @@ float g_frame_elapsed;
 void UpdateRenderElapsedTime(void)
 {
     uint64_t now = w8_get_ticks();
-    uint64_t elapsed = now - g_frame_tick;
-    g_frame_tick = now;
-    g_frame_elapsed = elapsed * 0.001f;
+    uint64_t elapsed = previous_render_tick ? now - previous_render_tick : 0;
+    previous_render_tick = now;
+    if (g_gerd) g_gerd->frame_time += elapsed * .001;
 }
 
-std::weak_ptr<stTextureAnim> g_sky_gradient_animations[3];
 bool g_environment_time_enabled = true;
-W8Prop* g_sun_prop;
-W8Prop* g_moon_prop;
-glm::vec3 g_celestial_origin;
 float g_view_distance = 12.0f;
-float g_celestial_orbit_radius = -1.0f;
-glm::vec3 g_light_direction{1.0f};
 
 unsigned char InitializeEnvironmentColours(void)
 {
-    g_sky_gradient_animations[0].reset();
-    g_sky_gradient_animations[1].reset();
+    ResetEnvironment();
     g_environment_time_enabled = false;
-    g_sun_prop = 0;
-    g_moon_prop = 0;
     g_view_distance = 12.0f;
-    g_sky_gradient_animations[2].reset();
     return 1;
 }

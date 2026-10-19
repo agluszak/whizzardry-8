@@ -4,11 +4,11 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "glm/ext/vector_int3.hpp"
-#include "surrender/srGERD.h"
-#include "surrender/srShader.h"
-#include "wiz8/engine_code/OctPath.h"
-#include "wiz8/engine_code/Octree.h"
 #include "wiz8/index_algorithms.h"
+#include "wiz8/render/draw_shader.h"
+#include "wiz8/render/gpu_renderer.h"
+#include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/spatial/navigation.h"
 
 static bool candidateOrdering()
 {
@@ -84,8 +84,8 @@ static bool pathPriorityOrder()
 
 static bool renderingIndexes()
 {
-    srGERD::Renderer::TextureSetCache cache;
-    const srGERD::Renderer::TextureSetKey first{nullptr, nullptr, srShader{}};
+    GpuRenderer::Renderer::TextureSetCache cache;
+    const GpuRenderer::Renderer::TextureSetKey first{nullptr, nullptr, DrawShader{}};
     auto second = first;
     second.shader.value = 1;
     REQUIRE(cache.intern(first) == 0); // zero is a real cached index

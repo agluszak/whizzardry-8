@@ -26,7 +26,6 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 
-#include "Item.h"
 #include "compat/native.h"
 #include "dice.h"
 #include "equipment_slots.h"
@@ -35,21 +34,15 @@
 #include "layouts/main_game_screen.h"
 #include "message_box.h"
 #include "retail_records.h"
-#include "surrender/srDebug.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/checked_integer.h"
 #include "wiz8/chunk.h"
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/conditions.h"
-#include "wiz8/engine_code/AnimRep.hpp"
-#include "wiz8/engine_code/GDCamera.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/Levels.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Navigator.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/World.h"
+#include "wiz8/entities/animation_types.h"
+#include "wiz8/entities/monster.h"
+#include "wiz8/entities/trigger.h"
+#include "wiz8/entities/world_item.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
@@ -88,10 +81,16 @@
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_items.h"
 #include "wiz8/npc_script_file.h"
+#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/retail_save_records.h"
 #include "wiz8/retail_text_records.h"
+#include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/spatial/navigator.h"
 #include "wiz8/unicode.h"
+#include "wiz8/world/level_session.h"
+#include "wiz8/world/party_camera.h"
+#include "wiz8/world/world.h"
 #include "wiz8/xstatus.h"
 
 static bool ProbeNpcPlacementNearParty(int party_slot, int mode, glm::vec3* position_out);
@@ -624,7 +623,7 @@ char g_substituted_npc_name[] = "RFS81B";
    renamed to RFS81B once the fix fact is set. */
 
 /* The engine object standing in the world for this NPC. */
-W8Monster* GetNpcMonster(W8NpcState* npc)
+Monster* GetNpcMonster(W8NpcState* npc)
 {
     W8MonsterInfo* monster_info;
 
@@ -1037,7 +1036,7 @@ void ChooseNewGameStartLocation(int* level, int* entrance)
    falls back to the kind-0x18 greeter. */
 static void SelectStartNpcGreeting(void)
 {
-    W8Monster* monster;
+    Monster* monster;
     W8NpcState* npc;
     W8MonsterInfo* monster_info;
     unsigned char value;
@@ -1065,10 +1064,10 @@ static void SelectStartNpcGreeting(void)
                 return;
             }
             monster = monster_info->p3D;
-            head = glm::vec3(monster->movement.position.x,
-                             monster->movement.position.y + monster->movement.height_offset,
-                             monster->movement.position.z);
-            PartyCamera().LookAt(&head, false);
+            head = glm::vec3(monster->nav.movement.position.x,
+                             monster->nav.movement.position.y + monster->nav.movement.height_offset,
+                             monster->nav.movement.position.z);
+            partyCamera().LookAt(&head, false);
             return;
         }
         npc = GetNpcStateByKind(0x18);
@@ -1211,7 +1210,7 @@ W8NpcState* CreateNpcRuntimeNode(int npc_id)
     return npc;
 }
 
-W8PreparedNpcBindings PrepareNpcBindings(W8World& world)
+W8PreparedNpcBindings PrepareNpcBindings(World& world)
 {
     W8PreparedNpcBindings pending;
     std::vector<bool> reserved(g_npc_states.size(), false);
@@ -1910,8 +1909,8 @@ static bool ProbeNpcPlacementNearParty(int /*party_slot*/, int /*mode*/, glm::ve
     party_position.y -= g_default_world_height;
     yaw = GetCameraYawRadians() + kTargetingQuarterPi;
     for (const int mode : {10, 20, 30}) {
-        const auto placement = GetWorldOctree()->navigatorPositions(party_position, yaw, 1000.0f, 1,
-                                                                    true, false, true, mode, false);
+        const auto placement = GetWorldSpatialIndex()->navigatorPositions(
+            party_position, yaw, 1000.0f, 1, true, false, true, mode, false);
         party_position = placement.source;
         if (!placement.positions.empty()) {
             *position_out = placement.positions.front();
@@ -1925,7 +1924,7 @@ static bool ProbeNpcPlacementNearParty(int /*party_slot*/, int /*mode*/, glm::ve
 /* The frame-0x10 callback the 0x1b6 NPC cycle installs: mark the monster,
    reset its navigator to the origin, and fire the VOC_BELA_CC voice event on
    the 0x89 NPC kind sharing the queue. */
-void TriggerBelaVoice(W8Monster* monster)
+void TriggerBelaVoice(Monster* monster)
 {
     glm::vec3 position;
 
@@ -2300,7 +2299,7 @@ void HandleMarkedNpcEvent(W8NpcState* npc, W8MarkedNpcEventMode mode)
 
         monster_info = GetNpcMonsterInfo(npc);
         if (monster_info != 0) {
-            position = monster_info->p3D->GetPosition();
+            position = monster_info->p3D->nav.GetPosition();
             W8WorldItem* item = AddWorldItem(
                 SpawnItem(0x1e6, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
 

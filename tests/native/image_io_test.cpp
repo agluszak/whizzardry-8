@@ -13,8 +13,8 @@
 
 #include "compat/compiler.h"
 #include "surface_pixels.h"
-#include "surrender/srIO.h"
-#include "surrender/srImageIO.h"
+#include "wiz8/platform/sdl_io.h"
+#include "wiz8/render/image_io.h"
 #include "wiz8/surface_storage.h"
 
 static const w8_ulong colors[] = {0xff123456, 0xffabcdef, 0xff2468ac, 0xfffedcba};
@@ -22,8 +22,8 @@ static const w8_ulong colors[] = {0xff123456, 0xffabcdef, 0xff2468ac, 0xfffedcba
 static void CheckImage(const char* name, const std::vector<unsigned char>& bytes,
                        const w8_ulong* expected = colors)
 {
-    auto stream = srIO::own(SDL_IOFromConstMem(bytes.data(), static_cast<w8_ulong>(bytes.size())));
-    auto surface = srImage::load(name, stream.get());
+    auto stream = sdlIO::own(SDL_IOFromConstMem(bytes.data(), static_cast<w8_ulong>(bytes.size())));
+    auto surface = imageIO::load(name, stream.get());
     REQUIRE((surface && surface->w == 2 && surface->h == 2));
     for (int y = 0; y < 2; ++y)
         for (int x = 0; x < 2; ++x) REQUIRE(ReadARGB(*surface, x, y) == expected[y * 2 + x]);
@@ -100,8 +100,8 @@ static void CheckJPEG()
     auto source = CreateCpuStorage(16, 16, SDL_PIXELFORMAT_RGB565);
     SDL_FillSurfaceRect(source.get(), nullptr, SDL_MapSurfaceRGB(source.get(), 248, 32, 16));
     const auto original = ReadARGB(*source, 0, 0);
-    auto output = srIO::own(SDL_IOFromDynamicMem());
-    srImage::save("screenshot.JPG", output.get(), *source);
+    auto output = sdlIO::own(SDL_IOFromDynamicMem());
+    imageIO::save("screenshot.JPG", output.get(), *source);
     REQUIRE(((SDL_GetIOStatus(output.get()) == SDL_IO_STATUS_READY) &&
              SDL_GetIOSize(output.get()) > 2));
     REQUIRE((static_cast<unsigned char*>(SDL_GetPointerProperty(
@@ -110,11 +110,11 @@ static void CheckJPEG()
              static_cast<unsigned char*>(SDL_GetPointerProperty(
                  SDL_GetIOProperties(output.get()), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER,
                  nullptr))[1] == 216));
-    auto input = srIO::own(SDL_IOFromConstMem(
+    auto input = sdlIO::own(SDL_IOFromConstMem(
         SDL_GetPointerProperty(SDL_GetIOProperties(output.get()),
                                SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr),
         SDL_GetIOSize(output.get())));
-    auto decoded = srImage::load("screenshot.jpeg", input.get());
+    auto decoded = imageIO::load("screenshot.jpeg", input.get());
     REQUIRE((decoded && decoded->w == 16 && decoded->h == 16));
     for (int y = 0; y < 16; ++y)
         for (int x = 0; x < 16; ++x) {
@@ -130,20 +130,20 @@ static void CheckLossless(const char* name)
     auto source = CreateCpuStorage(2, 2, SDL_PIXELFORMAT_BGRA32);
     for (int y = 0; y < 2; ++y)
         for (int x = 0; x < 2; ++x) WriteARGB(*source, x, y, colors[y * 2 + x]);
-    auto output = srIO::own(SDL_IOFromDynamicMem());
-    srImage::save(name, output.get(), *source);
+    auto output = sdlIO::own(SDL_IOFromDynamicMem());
+    imageIO::save(name, output.get(), *source);
     REQUIRE(
         ((SDL_GetIOStatus(output.get()) == SDL_IO_STATUS_READY) && SDL_GetIOSize(output.get())));
     const auto* bytes = static_cast<const unsigned char*>(SDL_GetPointerProperty(
         SDL_GetIOProperties(output.get()), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr));
     CheckImage(name, {bytes, bytes + SDL_GetIOSize(output.get())});
-    auto input = srIO::own(SDL_IOFromConstMem(
+    auto input = sdlIO::own(SDL_IOFromConstMem(
         SDL_GetPointerProperty(SDL_GetIOProperties(output.get()),
                                SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr),
         SDL_GetIOSize(output.get())));
     unsigned char signature = 0;
     SDL_SeekIO(input.get(), 0, SDL_IO_SEEK_SET);
-    srIO::readExact(input.get(), &signature, 1);
+    sdlIO::readExact(input.get(), &signature, 1);
     REQUIRE((SDL_GetIOStatus(input.get()) == SDL_IO_STATUS_READY));
     if (strstr(name, "PNG")) {
         REQUIRE(signature == 0x89);
@@ -158,10 +158,10 @@ static void CheckErrors()
     auto source = CreateCpuStorage(2, 2, SDL_PIXELFORMAT_BGR24);
     for (const char* path : {static_cast<const char*>(nullptr), "", "image.pcx", "image",
                              "dir.png/image", "dir\\name.jpg\\image"}) {
-        auto output = srIO::own(SDL_IOFromDynamicMem());
+        auto output = sdlIO::own(SDL_IOFromDynamicMem());
         bool rejected = false;
         try {
-            srImage::save(path, output.get(), *source);
+            imageIO::save(path, output.get(), *source);
         } catch (const std::runtime_error&) {
             rejected = true;
         }
@@ -169,10 +169,10 @@ static void CheckErrors()
     }
     for (const char* path : {static_cast<const char*>(nullptr), ""}) {
         auto bytes = Bitmap();
-        auto input = srIO::own(SDL_IOFromConstMem(bytes.data(), bytes.size()));
+        auto input = sdlIO::own(SDL_IOFromConstMem(bytes.data(), bytes.size()));
         bool rejected = false;
         try {
-            srImage::load(path, input.get());
+            imageIO::load(path, input.get());
         } catch (const std::runtime_error&) {
             rejected = true;
         }
@@ -208,8 +208,8 @@ TEST_CASE("image_io_test")
         CheckErrors();
         unsigned char corrupt[] = {1, 2, 3};
         for (const char* name : {"bad.jpg", "bad.tga", "bad.bmp", "bad.pcx"}) {
-            auto stream = srIO::own(SDL_IOFromConstMem(corrupt, sizeof(corrupt)));
-            REQUIRE(!srImage::load(name, stream.get()));
+            auto stream = sdlIO::own(SDL_IOFromConstMem(corrupt, sizeof(corrupt)));
+            REQUIRE(!imageIO::load(name, stream.get()));
         }
     }
     puts("ok: direct image loading and JPEG export without renderer initialization");

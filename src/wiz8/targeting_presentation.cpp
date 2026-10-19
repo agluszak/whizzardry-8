@@ -2,11 +2,9 @@
 
 #include <vector>
 
-#include "wiz8/engine_code/Cursor3d.h"
-#include "wiz8/engine_code/GDCamera.h"
-#include "wiz8/engine_code/Item.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/World.h"
+#include "wiz8/entities/cursor.h"
+#include "wiz8/entities/monster.h"
+#include "wiz8/entities/world_item.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -20,6 +18,8 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/world/party_camera.h"
+#include "wiz8/world/world.h"
 #include "wiz8/world_cursor.h"
 #include "wiz8/xstatus.h"
 
@@ -153,7 +153,7 @@ void ApplyTargetingPresentation(const W8TargetingPresentation& presentation)
                 SetMonsterPartySlotMarker(actor, info->location_id, targeted);
         }
         monster->UpdateAttachedObjects(mark.hovered);
-        monster->SetPresentationColour(monster->IsDying() ? glm::vec4{0} : mark.tint);
+        monster->visual.SetPresentationColour(monster->IsDying() ? glm::vec4{0} : mark.tint);
     }
     for (const auto& item : CurrentLevelPopulation().world_items) {
         if (item->fActive && item->p3D) {

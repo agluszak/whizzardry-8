@@ -20,7 +20,6 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 
-#include "Item.h"
 #include "camera_motion.h"
 #include "compat/native.h"
 #include "dialog_code/DialogBase.h"
@@ -33,19 +32,12 @@
 #include "layouts/main_game_screen.h"
 #include "layouts/npc_dialogue.h"
 #include "layouts/targeting.h"
-#include "layouts/world.h"
 #include "local_code/ControlsRect.h"
 #include "local_code/Factions.h"
 #include "local_code/RangeControl.h"
 #include "local_code/TextBuffer.h"
 #include "mgs_commands.h"
 #include "npc_trade_price.h"
-#include "surrender/srDebug.h"
-#include "surrender/srMaterial.h"
-#include "surrender/srMeshModel.h"
-#include "surrender/srNode.h"
-#include "surrender/srScene.h" // IWYU pragma: keep - complete scene type for conversion to srNode.
-#include "surrender/srShader.h"
 #include "texture_animation.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/button_interaction.h"
@@ -65,23 +57,12 @@
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/dialog_code/MonsterInfoDialog.h"
-#include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/3dapi.h"
-#include "wiz8/engine_code/Cursor3d.h"
-#include "wiz8/engine_code/Environment.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/Level.h"
-#include "wiz8/engine_code/Levels.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Navigator.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/Prop.h"
-#include "wiz8/engine_code/Spells.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/stModelInstance.h"
-#include "wiz8/engine_code/stTextureAnim.h" // IWYU pragma: keep - complete animation type used through the owned pointer.
+#include "wiz8/entities/cursor.h"
+#include "wiz8/entities/monster.h"
+#include "wiz8/entities/prop.h"
+#include "wiz8/entities/spell_visual.h"
+#include "wiz8/entities/trigger.h"
+#include "wiz8/entities/world_item.h"
 #include "wiz8/fonts.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
@@ -126,6 +107,7 @@
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/npc_story_events.h"
 #include "wiz8/local_code/party_encumbrance.h"
+#include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/MGSButtons.h"
@@ -146,20 +128,33 @@
 #include "wiz8/monster_generators.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_items.h"
-#include "wiz8/overlay_scenes.h"
+#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/platform/timer.h"
+#include "wiz8/render/compositor.h"
+#include "wiz8/render/draw_shader.h"
+#include "wiz8/render/frame.h"
+#include "wiz8/render/mesh_instance.h"
+#include "wiz8/render/texture.h"
+#include "wiz8/render/world_scene.h"
+#include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/spatial/navigator.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/string_database.h"
-#include "wiz8/surface2d.h"
 #include "wiz8/targeting_presentation.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/unicode.h"
 #include "wiz8/utility.h"
+#include "wiz8/world/camera_control.h"
+#include "wiz8/world/environment.h"
+#include "wiz8/world/level_session.h"
+#include "wiz8/world/party_camera.h"
+#include "wiz8/world/update.h"
+#include "wiz8/world/world.h"
 #include "wiz8/world_cursor.h"
 #include "wiz8/xstatus.h"
 
@@ -246,7 +241,6 @@ unsigned char HandleMouselookInput(const InputEvent* input);
 
 static bool IsPartyPortraitUnderCursor(unsigned int party_slot);
 void UpdateFormationPortraitRefresh(void);
-extern bool g_mouselook_manual;
 /* Insanity (spell 0x3c) world-cursor extent rows: six doubles per row.
    Three rows fill through 0x00616f40, immediately before the power index. */
 double g_world_cursor_extent_table[18] = {
@@ -2194,7 +2188,7 @@ bool MainGameScreenEnter(void)
     g_world_render_enabled = 1;
     g_monster_shadow_updates_enabled = 1;
     ClearPrimarySurface();
-    if (GetWorld() && GetWorld()->fog_enabled) {
+    if (GetWorld() && GetWorld()->environment.fog_enabled) {
         EnableSky();
     } else {
         DisableSky();
@@ -2321,7 +2315,7 @@ void SetMainGameMode(W8MainGameMode mode)
         break;
     case W8_MAIN_GAME_HIGHLIGHT_OVERLAY:
         if (g_level_block->highlight_graphic != 0) {
-            ReleaseObject(g_level_block->highlight_graphic);
+            g_level_block->highlight_graphic.reset();
             g_level_block->highlight_graphic = 0;
             if (g_main_game_mode != W8_MAIN_GAME_HIGHLIGHT_OVERLAY) {
                 break;
@@ -2423,7 +2417,7 @@ void MainGameScreenFrame(void)
         WorldUpdateProps(GetSecondaryWorld());
     }
     SDL_Point point;
-    SGPMouseGetPos(&point);
+    point = CursorPosition();
     if (!IsWorldCursorVisible()) {
         if (!g_modal_owner) {
             if ((!ShouldDeferCharacterEventForNpcScript(true) || !gXStatus.fNpcDialogueMode) &&
@@ -2900,7 +2894,6 @@ finish_mode_overlays:
 void DrawMainGameScreen(void)
 {
     int stopped_line;
-    srNode* node;
 
     SyncPartyFacingFromCamera();
     const auto presentation = BuildTargetingPresentation();
@@ -2912,7 +2905,6 @@ void DrawMainGameScreen(void)
         if (stopped_line != -1 && g_level_block->text_lines[4 + g_status.text_line_cursor] !=
                                       static_cast<unsigned int>(stopped_line)) {
             RequestRedraw(W8_MAIN_REDRAW_TEXT_BOX);
-            SetRendererModePair();
         }
     }
     const unsigned int requested = g_level_block->redraw_flags;
@@ -2969,23 +2961,12 @@ void DrawMainGameScreen(void)
             EnsureRadarMapOverlay();
         }
         if (g_node_cull_pending) {
-            for (node = GetWorld()->level->getChild(); node != 0; node = node->getNext()) {
-                if (dynamic_cast<stModelInstance*>(node)) {
-                    node->clearFlag(srNode::FLAG_DISABLE);
-                }
-            }
+            for (const auto& instance : GetWorld()->scene->static_meshes) instance->visible = true;
         }
         RenderFrame();
         if (g_node_cull_pending) {
-            for (node = GetWorld()->level->getChild(); node != 0; node = node->getNext()) {
-                if (dynamic_cast<stModelInstance*>(node)) {
-                    if (MeasureNodeRenderWithoutPositionalOption(node) == 0) {
-                        node->setFlag(srNode::FLAG_DISABLE);
-                    } else {
-                        node->clearFlag(srNode::FLAG_DISABLE);
-                    }
-                }
-            }
+            for (const auto& instance : GetWorld()->scene->static_meshes)
+                instance->visible = MeasureMeshRenderWithoutPositionalOption(instance.get()) != 0;
             g_node_cull_pending = false;
         }
         if (g_dev_mode) {
@@ -3245,7 +3226,7 @@ void RefreshSelectedPartyPortrait(unsigned int party_slot)
         CloseNpcDialogueIfActive();
     } else if (g_main_game_mode == W8_MAIN_GAME_HIGHLIGHT_OVERLAY) {
         if (g_level_block->highlight_graphic != 0) {
-            ReleaseObject(g_level_block->highlight_graphic);
+            g_level_block->highlight_graphic.reset();
             g_level_block->highlight_graphic = 0;
         }
         ClearSurfaceRect(g_level_block->dialogue_x, g_level_block->dialogue_y,
@@ -3274,7 +3255,7 @@ void RefreshSelectedPartyPortrait(unsigned int party_slot)
 void DismissHighlightOverlay(void)
 {
     if (g_level_block->highlight_graphic != 0) {
-        ReleaseObject(g_level_block->highlight_graphic);
+        g_level_block->highlight_graphic.reset();
         g_level_block->highlight_graphic = 0;
     }
     ClearHighlightOverlayRegion();
@@ -3413,16 +3394,14 @@ void DrawHighlightOverlay(unsigned int party_slot, int row_count, unsigned int m
     if (g_level_block->highlight_graphic == 0) {
         const auto artwork = CatalogArtwork::Load(0x72);
         if (auto surface = RenderSpriteToImage(*artwork.spriteSheet(), 0)) {
-            g_level_block->highlight_graphic = CreateSpriteFromSurface(*surface, 0, 0, 1);
+            g_level_block->highlight_graphic = makeOverlayFromSurface(*surface, 0, 0, 1);
         }
     }
     if (g_level_block->highlight_graphic == 0) {
         Fail("gpMGSV->pHighlightGraphic");
     }
-    g_level_block->highlight_graphic->render_state.display_state = 4;
-    Position2DNodeUnsnapped(g_level_block->highlight_graphic, g_level_block->dialogue_x + 7,
-                            g_level_block->dialogue_row_y - 1 +
-                                g_level_block->highlight_row * 0x12);
+    positionOverlay(g_level_block->highlight_graphic.get(), g_level_block->dialogue_x + 7,
+                    g_level_block->dialogue_row_y - 1 + g_level_block->highlight_row * 0x12, false);
     InvalidateRegion(g_level_block->dialogue_x, g_level_block->dialogue_y,
                      g_level_block->dialogue_x + g_level_block->dialogue_width,
                      g_level_block->dialogue_y + g_level_block->dialogue_height);
@@ -3433,7 +3412,7 @@ static void BeginPortraitOverlay(unsigned int party_slot, int row_count, unsigne
     g_level_block->highlight_row = 0;
     DrawHighlightOverlay(party_slot, row_count, width);
     if (g_level_block->highlight_graphic != 0) {
-        ClearNodeFlag(g_level_block->highlight_graphic);
+        g_level_block->highlight_graphic->visible = false;
     }
 }
 
@@ -4936,7 +4915,7 @@ static void StopWorldMouseLook()
     g_mouselook_active = false;
     g_mouselook_left_held = false;
     SetMouseMoveEventsEnabled(0);
-    g_mouselook_manual = false;
+    partyCamera().manual_mouse_input = false;
 }
 
 /* Region 23: the 3D world view. Mouse-move refreshes the combat hover, the
@@ -5041,13 +5020,13 @@ UiResult WorldViewInput(const UiPointerEvent& event)
             } else if (g_mouselook_active) {
                 return UiResult::Handled;
             }
-            SGPMouseGetPos(&g_mouselook_cursor_pos);
+            g_mouselook_cursor_pos = CursorPosition();
             DisableCursorScene();
             SetMouseCursorHotspot(0, 0);
             WarpSystemCursor(0x140, 0xf0);
             g_mouselook_active = true;
             g_mouselook_left_held = false;
-            g_mouselook_manual = true;
+            partyCamera().manual_mouse_input = true;
             SetMouseMoveEventsEnabled(1);
         }
         return UiResult::Handled;
@@ -5263,7 +5242,7 @@ void UpdateWorldViewCursor(const UiPointerEvent& event, W8TargetNeed target_need
             }
             int prop_index = GetSelectedPropIndex();
             if (prop_index > -1) {
-                W8Prop* prop = GetWorldProp(GetWorld(), prop_index);
+                Prop* prop = GetWorldProp(GetWorld(), prop_index);
                 if (!gXStatus.world_update_blocked) {
                     if (prop != 0) {
                         if (prop->TriggerRequiresItem() && g_status.item_in_cursor) {
@@ -5384,8 +5363,7 @@ static void ApplyPendingMouselook(void)
     float scale;
     float pitch_step;
     float yaw_step;
-    W8CameraAngleRecord yaw;
-    W8CameraAngleRecord pitch;
+    CameraOrientation orientation;
 
     if ((g_mouselook_tick_init & 1) == 0) {
         g_mouselook_tick_init = static_cast<unsigned char>(g_mouselook_tick_init | 1);
@@ -5420,12 +5398,12 @@ static void ApplyPendingMouselook(void)
             yaw_step = g_mouselook_pending_yaw * scale;
         }
     }
-    GetCameraOrientation(yaw, pitch);
-    yaw[0] += yaw_step;
-    pitch[0] += pitch_step;
+    orientation = cameraOrientation();
+    orientation.yaw += yaw_step;
+    orientation.pitch += pitch_step;
     g_mouselook_pending_pitch -= pitch_step;
     g_mouselook_pending_yaw -= yaw_step;
-    SetCameraOrientation(yaw, pitch, 0);
+    setCameraOrientation(orientation);
 }
 
 /* After the tooltip delay elapses, clear any previous highlight slots (and
@@ -5487,7 +5465,7 @@ void SetCombatSelection(int value)
             std::string text;
             std::string health;
 
-            SGPMouseGetPos(&point);
+            point = CursorPosition();
             W8MonsterInfo* monster_info = FindMonster(g_level_block->highlighted_item);
             if (monster_info != 0) {
                 text = GetMonsterName(monster_info, 0, 0);
@@ -5554,7 +5532,7 @@ void SetCombatTarget(int value)
         SDL_Point point;
         W8WorldItem* item;
 
-        SGPMouseGetPos(&point);
+        point = CursorPosition();
         item = ItemInfo(ItemIndex(g_level_block->selected_item));
         if (item != 0) {
             auto text = FormatItemDisplayName(&item->item, true);
@@ -5924,7 +5902,7 @@ void TryMGSActionKey(W8MGSAction command)
 /* The panel flags and the modal-dialog frame hooks. The gXStatus.world_update_blocked state
    is declared in MainGameScreen.h so the renderer consumes the same object. */
 
-/* Load each main-game cursor catalog entry into an stTextureAnim and record the
+/* Load each main-game cursor catalog entry into an Texture and record the
    ETRLE frame size onto the slot. Called once when the level block is first
    allocated. */
 void LoadMainGameCursorResources(void)
@@ -5943,7 +5921,7 @@ void LoadMainGameCursorResources(void)
         slot->object =
             VideoVObjectToTextureAnim(*sprites, static_cast<unsigned short>(frame),
                                       static_cast<unsigned short>(slot->frame_count), true);
-        slot->object->animation_mode = W8_TEXTURE_ANIM_MANUAL;
+        slot->object->playback->animation_mode = W8_TEXTURE_ANIM_MANUAL;
     }
 }
 
@@ -5999,7 +5977,7 @@ bool WorldAdvancementBlocked()
 // retain their existing clocks and frame-loop gates.
 void SyncWorldAdvancement()
 {
-    static W8World* applied_world = nullptr;
+    static World* applied_world = nullptr;
     static bool applied_environment_blocked = false;
     static bool applied_user_pause = false;
     const bool interaction_blocked = InteractionBlocksWorldAdvancement();
@@ -6612,8 +6590,8 @@ static std::uint64_t g_surprise_fade_tick_base;
 const float g_fade_resume_scale = -500.0f;
 static bool g_surprise_fade_in;
 static std::shared_ptr<SDL_Surface> g_surprise_snapshot_surface;
-static std::unique_ptr<stSurface2D> g_surprise_snapshot_overlay;
-static std::unique_ptr<stModelInstance2D> g_surprise_fade_node;
+static std::unique_ptr<OverlayQuad> g_surprise_snapshot_overlay;
+static std::unique_ptr<OverlayQuad> g_surprise_fade_node;
 
 void ResetMainGameMode(void)
 {
@@ -6634,19 +6612,17 @@ void ResetMainGameMode(void)
 
 void CreateSurpriseFade(void)
 {
-    srShader shader;
+    DrawShader shader;
     glm::vec4 color;
 
     SetFullscreenSceneLast(0);
     color = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
-    g_surprise_fade_node.reset(CreateColoredPolygonSprite(0x280, 0x1e0, &color, true));
-    Position2DNodeUnsnapped(g_surprise_fade_node.get(), 0, 0);
-    shader = static_cast<srMeshModel*>(g_surprise_fade_node->getModel())->getShader(0);
+    g_surprise_fade_node = makeColorOverlay(0x280, 0x1e0, color, true);
+    positionOverlay(g_surprise_fade_node.get(), 0, 0, false);
+    shader = g_surprise_fade_node->shader;
     shader.value = (shader.value & ~0x6040) | 0xa0;
-    static_cast<srMeshModel*>(g_surprise_fade_node->getModel())->setShader(shader, 0);
-    static_cast<srMaterial*>(static_cast<srMeshModel*>(g_surprise_fade_node->getModel())
-                                 ->getMaterial(0, srMeshModel::SIDE_FRONT))
-        ->setOpacity(0.0);
+    g_surprise_fade_node->shader = shader;
+    g_surprise_fade_node->color.a = 0.0;
     g_surprise_fade_tick_base = w8_get_ticks();
     g_surprise_fade_in = true;
 }
@@ -6654,10 +6630,9 @@ void CreateSurpriseFade(void)
 void ReverseSurpriseFade(void)
 {
     if (gXStatus.surprise_phase == W8SurprisePhase::fade_in) {
-        srMaterial* material =
-            static_cast<srMaterial*>(static_cast<srMeshModel*>(g_surprise_fade_node->getModel())
-                                         ->getMaterial(0, srMeshModel::SIDE_FRONT));
-        float opacity = material->parms.diffuse.w;
+        OverlayQuad* material = g_surprise_fade_node.get();
+        float opacity = material->color.a;
+
         std::uint64_t now = w8_get_ticks();
         g_surprise_fade_in = !g_surprise_fade_in;
         if (g_surprise_fade_in) {
@@ -6667,7 +6642,7 @@ void ReverseSurpriseFade(void)
             g_surprise_fade_tick_base = now + static_cast<int>(opacity * g_fade_resume_scale);
         }
     } else {
-        g_surprise_fade_node->clearFlag(srNode::FLAG_DISABLE);
+        g_surprise_fade_node->visible = true;
         g_surprise_fade_tick_base = w8_get_ticks();
         g_surprise_fade_in = true;
     }
@@ -6706,17 +6681,15 @@ unsigned char UpdateSurpriseFade(void)
         }
     }
 
-    static_cast<srMaterial*>(static_cast<srMeshModel*>(g_surprise_fade_node->getModel())
-                                 ->getMaterial(0, srMeshModel::SIDE_FRONT))
-        ->setOpacity(opacity);
+    g_surprise_fade_node->color.a = opacity;
 
     if (boundary) {
         if (gXStatus.surprise_phase == W8SurprisePhase::fade_in) {
             const auto snapshot = CatalogArtwork::Load(0x1e0).bitmap();
             g_surprise_snapshot_surface = snapshot;
-            g_surprise_snapshot_overlay = std::make_unique<stSurface2D>(
-                g_surprise_snapshot_surface, g_overlay_scenes.fullscreen.get());
-            g_surprise_snapshot_overlay->updateRectangle(g_gerd.get(), 0, 0, 0x280, 0x1e0);
+            g_surprise_snapshot_overlay = makeOverlayFromTexture(
+                std::make_shared<Texture>(g_surprise_snapshot_surface), 1, 1, false, false);
+            g_compositor.attach(*g_surprise_snapshot_overlay, OverlayLayer::Fullscreen);
             g_world_render_enabled = 0;
             g_surprise_fade_tick_base = w8_get_ticks();
         } else {
@@ -6728,7 +6701,8 @@ unsigned char UpdateSurpriseFade(void)
     }
     if (done) {
         if (gXStatus.surprise_phase == W8SurprisePhase::fade_in) {
-            g_surprise_fade_node->setFlag(srNode::FLAG_DISABLE);
+            g_surprise_fade_node->visible = false;
+
             return done;
         }
         g_surprise_fade_node.reset();

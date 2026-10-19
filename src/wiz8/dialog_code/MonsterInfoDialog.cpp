@@ -23,10 +23,9 @@
 #include "monster_actions.h"
 #include "wiz8/canvas/Font.h"
 #include "wiz8/dialog_code/SpellInfoDialog.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Navigator.h"
-#include "wiz8/engine_code/stCube.h"
-#include "wiz8/engine_code/stScript.h"
+#include "wiz8/entities/cursor_nodes.h"
+#include "wiz8/entities/monster.h"
+#include "wiz8/entities/script.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
@@ -41,6 +40,7 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/Strings.h"
+#include "wiz8/spatial/navigator.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/utility.h"
@@ -100,8 +100,8 @@ bool W8MonsterInfoDialog::PopulateText()
     int sight;
     W8MonsterGroup* group;
     W8MonsterInfo* leader_info;
-    W8Navigator* linked;
-    stScript* script;
+    Navigator* linked;
+    Script* script;
     W8NpcState* npc;
     W8MonsterAttack* attack;
     W8ConditionImmunity* immunity;
@@ -140,7 +140,7 @@ bool W8MonsterInfoDialog::PopulateText()
 
     if (g_dev_mode) {
         group = FindMonsterGroup(monster_info->monster_group_id);
-        linked = monster_info->p3D->linked_navigator;
+        linked = monster_info->p3D->nav.linked_navigator;
         if (linked == 0) {
             leader_location_id = m_location_id;
         } else {
@@ -405,7 +405,7 @@ bool W8MonsterInfoDialog::PopulateText()
     if (g_dev_mode) {
         m_text_area.AddEntry("Range (Combat/Ground)",
                              fmt::format("{:5.2f} / {:5.2f} M", combat_range * 0.002f,
-                                         glm::length((monster_info->p3D->GetPosition() -
+                                         glm::length((monster_info->p3D->nav.GetPosition() -
                                                       PartyNavigator()->GetPosition())) *
                                              g_world_cursor_scale),
                              5, 0xf, 0);

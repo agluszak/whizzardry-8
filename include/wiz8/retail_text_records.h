@@ -102,15 +102,17 @@ template<> struct Record<glm::vec3> {
     }
 };
 
-template<> struct Record<W8WorldCameraState> {
+template<> struct Record<CameraPose> {
     using Disk = CameraState;
     template<class Runtime, class Bytes, class Value, class Text>
     static void fields(Runtime& runtime, Bytes bytes, Value value, Text text)
     {
         nested(runtime.position, bytes.subspan(offsetof(Disk, position), sizeof(Disk::position)),
                value, text);
-        value(&runtime.pitch, bytes.subspan(offsetof(Disk, pitch), sizeof(Disk::pitch)));
-        value(&runtime.yaw, bytes.subspan(offsetof(Disk, yaw), sizeof(Disk::yaw)));
+        value(&runtime.orientation.pitch, bytes.subspan(offsetof(Disk, pitch), 4));
+        value(&runtime.retail.pitch, bytes.subspan(offsetof(Disk, pitch) + 4, 20));
+        value(&runtime.orientation.yaw, bytes.subspan(offsetof(Disk, yaw), 4));
+        value(&runtime.retail.yaw, bytes.subspan(offsetof(Disk, yaw) + 4, 20));
     }
 };
 template<> struct Record<W8TargetSource> {

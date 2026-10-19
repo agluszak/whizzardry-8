@@ -12,14 +12,11 @@
 #include "local_code/FormationAndFacing.h"
 #include "monster_spell_icons.h"
 #include "spell_ids.h"
-#include "surrender/srDebug.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/conditions.h"
-#include "wiz8/engine_code/AnimRep.hpp"
-#include "wiz8/engine_code/Levels.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Spells.h"
+#include "wiz8/entities/animation_types.h"
+#include "wiz8/entities/monster.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
@@ -43,12 +40,15 @@
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/party_encumbrance.h"
+#include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/monster_cycles.h"
+#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/utility.h"
+#include "wiz8/world/level_session.h"
 #include "wiz8/xstatus.h"
 
 /* Notice string ids for each condition row: the status label, the singular
@@ -554,7 +554,7 @@ void SetMonsterCondition(int location_id, W8Condition condition, int duration, i
                    fmt::format("{} {}!", name,
                                g_localized_strings[g_condition_notices[condition].singular]));
     }
-    if (monster_info->p3D->IsCycleInterruptable(monster_info->p3D->pending_cycle)) {
+    if (monster_info->p3D->IsCycleInterruptable(monster_info->p3D->visual.pending_cycle)) {
         StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_GET_HIT, W8_ANIMATION_PLAY_ONCE);
     }
 }

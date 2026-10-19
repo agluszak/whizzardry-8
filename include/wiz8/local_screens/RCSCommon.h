@@ -1,3 +1,5 @@
+#include "wiz8/render/frame.h"
+#include "wiz8/ui_layer.h"
 #pragma once
 
 #include <memory>

@@ -4,14 +4,10 @@
 #include <vector>
 
 #include "glm/ext/vector_float3.hpp"
-#include "layouts/world.h"
-#include "surrender/srCamera.h"
 #include "wiz8/audio/sound3d.h"
 #include "wiz8/cursor.h"
-#include "wiz8/engine_code/Prop.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/engine_code/World.h"
+#include "wiz8/entities/prop.h"
+#include "wiz8/entities/trigger.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
@@ -22,6 +18,9 @@
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/platform/IntervalGate.h"
+#include "wiz8/render/camera.h"
+#include "wiz8/render/frame.h"
+#include "wiz8/world/world.h"
 
 struct W8ItemInstance;
 struct W8NpcState;
@@ -34,7 +33,7 @@ struct W8NpcState;
    0x00613640 names this TU for 0x004DBEC0 and 0x004DC080. */
 
 static std::optional<W8IntervalGate> g_lift_gate;
-static W8Prop* g_lift_prop;
+static Prop* g_lift_prop;
 static Sound3D* g_mt_gigas_outer_alarm_sound;
 static std::optional<W8IntervalGate> g_mt_gigas_outer_alarm_gate;
 
@@ -70,7 +69,7 @@ bool OnCrankTriggerActivated(Trigger* trigger)
     glm::vec3 position;
     W8NpcState* npc;
     Trigger* pFlagTrigger;
-    W8Prop* prop;
+    Prop* prop;
     int value;
 
     if (g_status.item_in_cursor) {
@@ -201,7 +200,7 @@ bool ControlCampAlarm(int command)
     if (command != 0) {
         if (GetLocationVarIDByName("UmpaniCampAlarm") == -1)
             CreateLocationVar("UmpaniCampAlarm", 30);
-        position = glm::vec3(GetWorld()->camera->getLocation());
+        position = glm::vec3(GetWorld()->camera->transform.getLocation());
         if (static_cast<unsigned int>(command) > 0x1e) {
             command = 0x1e;
         }

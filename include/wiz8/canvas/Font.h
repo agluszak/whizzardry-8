@@ -71,7 +71,5 @@ struct TextOptions {
 
 void DrawText(SDL_Surface& target, Font& font, SDL_Point at, std::string_view text,
               TextOptions options = {});
-void DrawTextAndInvalidate(SDL_Surface& target, Font& font, SDL_Point at, std::string_view text,
-                           TextOptions options = {});
 
 std::int16_t GetIndex(char32_t siChar);

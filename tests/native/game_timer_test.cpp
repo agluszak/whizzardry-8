@@ -5,14 +5,14 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "save_payload.h"
-#include "surrender/srGERD.h"
 #include "temporary_directory.h"
-#include "wiz8/engine_code/stTextureAnim.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
 #include "wiz8/platform/IntervalGate.h"
 #include "wiz8/platform/game_timer.h"
+#include "wiz8/render/gpu_renderer.h"
+#include "wiz8/render/texture.h"
 #include "wiz8/runtime_test_hooks.h"
 
 W8RuntimeTestHooks g_runtime_test_hooks;
@@ -138,7 +138,7 @@ TEST_CASE_METHOD(TimerFixture, "Interval gates retain catch-up, one-shot and sav
 TEST_CASE_METHOD(TimerFixture, "Renderer statistics measure elapsed seconds without a clock owner",
                  "[timers][renderer]")
 {
-    srGERD renderer;
+    GpuRenderer renderer;
     renderer.resetStatistics();
     advance(250'000);
     REQUIRE(renderer.getStatistics().elapsed == Catch::Approx(0.25));

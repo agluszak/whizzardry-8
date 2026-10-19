@@ -17,8 +17,6 @@
 #include <fmt/printf.h>
 #include <glm/geometric.hpp>
 
-#include "GrCycle.h"
-#include "Navigator.h"
 #include "conditions.h"
 #include "dice.h"
 #include "gameplay_modifiers.h"
@@ -26,26 +24,19 @@
 #include "layouts/character.h"
 #include "layouts/levels.h"
 #include "layouts/main_game_screen.h"
-#include "layouts/world.h"
 #include "local_code/HealthStaminaMana.h"
 #include "local_code/MagicEffects.h"
 #include "monster_actions.h"
 #include "navigation_flags.h"
 #include "sight_state.h"
-#include "surrender/srDebug.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/containers.h"
 #include "wiz8/difficulty.h"
-#include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/AnimRep.hpp"
-#include "wiz8/engine_code/Levels.h"
-#include "wiz8/engine_code/Missile.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/PolyPick.h"
-#include "wiz8/engine_code/Quality.h"
-#include "wiz8/engine_code/Spells.h"
-#include "wiz8/engine_code/World.h"
+#include "wiz8/entities/animation_types.h"
+#include "wiz8/entities/cycle_player.h"
+#include "wiz8/entities/entity_assets.h"
+#include "wiz8/entities/missile.h"
+#include "wiz8/entities/monster.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
 #include "wiz8/gameplay_constants.h"
@@ -74,6 +65,7 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/ThingEditorShared.h"
 #include "wiz8/local_code/character_events.h"
+#include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/MGSPortraitCombat.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
@@ -81,10 +73,18 @@
 #include "wiz8/monster_runtime.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/notices.h"
+#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/platform/timer.h"
+#include "wiz8/render/picking.h"
+#include "wiz8/render/quality.h"
+#include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/spatial/navigator.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/utility.h"
+#include "wiz8/world/level_session.h"
+#include "wiz8/world/update.h"
+#include "wiz8/world/world.h"
 #include "wiz8/xstatus.h"
 
 const float g_monster_record_float_scale = 20.0f;
@@ -146,8 +146,8 @@ W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, W8MonsterRecord* record,
     group->monsters.push_back(monster_info->location_id);
 
     RequestRedrawParty();
-    GetWorldOctree()->VisitPointCopy(static_cast<unsigned short>(monster_info->location_id),
-                                     position);
+    GetWorldSpatialIndex()->VisitPointCopy(static_cast<unsigned short>(monster_info->location_id),
+                                           position);
     return monster_info;
 }
 
@@ -170,7 +170,7 @@ void ActivateMonsterInWorld(W8MonsterInfo* monster_info)
                      monster_info->location_id);
 }
 
-void PrepareMonsterInWorld(W8World& world, W8MonsterInfo& info, bool unborn)
+void PrepareMonsterInWorld(World& world, W8MonsterInfo& info, bool unborn)
 {
     auto* monster_info = &info;
     W8MonsterRecord* record;
@@ -194,22 +194,22 @@ void PrepareMonsterInWorld(W8World& world, W8MonsterInfo& info, bool unborn)
                 Fail("MonsterIsCycleSupported(pMonsterInfo->p3D, CYCLE_BIRTH)",
                      "Unborn monsters must have CYCLE_BIRTH!");
             }
-            monster_info->p3D->SetBehaviour(W8_ANIMATION_PLAY_ONCE);
+            monster_info->p3D->visual.SetBehaviour(W8_ANIMATION_PLAY_ONCE);
             monster_info->p3D->SetCycle(0);
             if (monster_info->p3D->Query(W8_MONSTER_QUERY_FRAME_COUNT) == -1) {
                 Fail("MonsterQuery(pMonsterInfo->p3D, QUERY_NUM_FRAMES) != -1");
             }
-            monster_info->p3D->SetSubCycle(0);
+            monster_info->p3D->visual.SetSubCycle(0);
             monster_info->p3D->SetAnimating(false);
-            monster_info->p3D->W8Navigator::active = false;
+            monster_info->p3D->nav.active = false;
             monster_info->p3D->inactive = true;
         } else {
             monster_info->p3D->SetCycle(1);
-            monster_info->p3D->SetBehaviour(W8_ANIMATION_NEVER_STOP);
+            monster_info->p3D->visual.SetBehaviour(W8_ANIMATION_NEVER_STOP);
             if (monster_info->p3D->Query(W8_MONSTER_QUERY_FRAME_COUNT) == -1) {
                 Fail("MonsterQuery(pMonsterInfo->p3D, QUERY_NUM_FRAMES) != -1");
             }
-            monster_info->p3D->SetSubCycle(
+            monster_info->p3D->visual.SetSubCycle(
                 Random(monster_info->p3D->Query(W8_MONSTER_QUERY_FRAME_COUNT)));
             monster_info->p3D->SetAnimating(!monster_info->fMotionless);
         }
@@ -217,7 +217,7 @@ void PrepareMonsterInWorld(W8World& world, W8MonsterInfo& info, bool unborn)
         world.active_monsters.push_back(monster_info->p3D);
         monster_info->p3D->SetFacing(monster_info->derived);
         RebuildMonsterDerivedStats(*monster_info);
-        monster_info->p3D->movement.leadership_rank =
+        monster_info->p3D->nav.movement.leadership_rank =
             static_cast<unsigned int>(record->effective_level) * 0x10000U +
             monster_info->location_id;
         monster_info->p3D->SetLocationId(monster_info->location_id);
@@ -228,10 +228,10 @@ void PrepareMonsterInWorld(W8World& world, W8MonsterInfo& info, bool unborn)
     }
 
     camera_position = cameraLocation(world);
-    monster_info->p3D->SelectLOD(&camera_position);
+    monster_info->p3D->visual.SelectLOD(&camera_position);
     monster_info->p3D->UpdateRepresentation(&world);
-    world.octree->VisitPointCopy(static_cast<unsigned short>(monster_info->location_id),
-                                 &monster_info->position);
+    world.compiledIndex()->VisitPointCopy(static_cast<unsigned short>(monster_info->location_id),
+                                          &monster_info->position);
     monster_info->fActive = true;
     if (monster_info->p3D != 0) {
         int damage_stage_count = monster_info->p3D->GetDamageStageCount();
@@ -248,37 +248,37 @@ void PrepareMonsterInWorld(W8World& world, W8MonsterInfo& info, bool unborn)
     }
     monster_info->monster_visibility = std::make_unique<W8MonsterVisibility>();
     if (record->can_open_doors) {
-        monster_info->p3D->movement.navigation_filter |= W8_NAV_THROUGH_DOORS;
+        monster_info->p3D->nav.movement.navigation_filter |= W8_NAV_THROUGH_DOORS;
     }
 }
 
 /* Activate the representation lazily. The mode selects whether all available
    cycles are loaded or only the startup cycle; both paths share the world
    context and preserve the loader's success result for the source assertion. */
-std::unique_ptr<W8Monster> ReadMonsterRepresentation(W8World& world, W8MonsterInfo* monster_info,
-                                                     W8MonsterActivationMode mode)
+std::unique_ptr<Monster> ReadMonsterRepresentation(World& world, W8MonsterInfo* monster_info,
+                                                   W8MonsterActivationMode mode)
 {
     W8MonsterRecord* record;
     record = GetMonsterDataForInfo(monster_info);
 
-    auto monster = W8Monster::ReadAllCycles(&world, record->cycle_name,
-                                            mode == W8_MONSTER_LOAD_ALL_CYCLES ? 1 : 0,
-                                            monster_info->location_id);
+    auto monster = Monster::ReadAllCycles(&world, record->cycle_name,
+                                          mode == W8_MONSTER_LOAD_ALL_CYCLES ? 1 : 0,
+                                          monster_info->location_id);
     if (!monster) {
         Fail("loaded monster", "ActivateMonster: MonsterReadAllCycles failed");
     }
     return monster;
 }
 
-void ConfigureMonsterRepresentation(W8World& world, W8MonsterInfo* monster_info)
+void ConfigureMonsterRepresentation(World& world, W8MonsterInfo* monster_info)
 {
     if (monster_info->scale < 0.0f || g_status.level_progress[world.level_id].visited == 0) {
-        monster_info->saved_mirror_x = monster_info->p3D->mirror_x;
+        monster_info->saved_mirror_x = monster_info->p3D->visual.mirror_x;
         monster_info->scale = CalculateMonsterScale(monster_info);
         monster_info->p3D->scale = monster_info->scale;
     } else {
         monster_info->p3D->scale = monster_info->scale;
-        monster_info->p3D->mirror_x = monster_info->saved_mirror_x;
+        monster_info->p3D->visual.mirror_x = monster_info->saved_mirror_x;
     }
 
     ApplyMonsterRepresentationScale(monster_info->p3D);
@@ -303,12 +303,12 @@ void ClearMonsterPathAndResume(W8MonsterInfo* monster_info)
     if (monster_info == 0) {
         Fail("pMonsterInfo != NULL");
     }
-    monster_info->p3D->ReplacePath(0);
-    monster_info->p3D->flags &= 0xdfffffff;
-    monster_info->p3D->ClearMovement();
+    monster_info->p3D->visual.m_pAI.reset();
+    monster_info->p3D->nav.flags &= 0xdfffffff;
+    monster_info->p3D->nav.ClearMovement();
     if (!monster_info->fMotionless) {
         result = monster_info->p3D->Query(W8_MONSTER_QUERY_CYCLE);
-        if (result != 1 && result != 2 && monster_info->p3D->pending_cycle == -1) {
+        if (result != 1 && result != 2 && monster_info->p3D->visual.pending_cycle == -1) {
             StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_IDLE, W8_ANIMATION_NEVER_STOP);
         }
     }
@@ -478,7 +478,7 @@ W8MonsterRecord* GetMonsterDataByLocationID(int location_id)
     return MonsterDBFromSpecies(monster->monster_species);
 }
 
-W8Monster* GetMonsterByLocationID(int location_id)
+Monster* GetMonsterByLocationID(int location_id)
 {
     if (location_id != -1) {
         if (W8MonsterInfo* monster_info = FindMonster(location_id, false)) {
@@ -508,7 +508,7 @@ float GetMonsterCombatMoveRange(W8MonsterInfo* monster_info)
 
 void UpdateMonsterDamageAppearance(W8MonsterInfo* monster_info)
 {
-    W8Monster* monster = monster_info->p3D;
+    Monster* monster = monster_info->p3D;
 
     if (monster != 0) {
         int count = monster->GetDamageStageCount();
@@ -529,7 +529,7 @@ int GetMonsterQuadrant(W8MonsterInfo* monster_info)
     if (monster_info == 0) {
         Fail("pMonsterInfo");
     }
-    return GetQuadrantForPosition(monster_info->p3D->GetPosition());
+    return GetQuadrantForPosition(monster_info->p3D->nav.GetPosition());
 }
 
 int GetMonsterCycleFallbackValue(unsigned int monster_species)
@@ -540,7 +540,7 @@ int GetMonsterCycleFallbackValue(unsigned int monster_species)
     if (record == 0) {
         return -1;
     }
-    if (FindFirstGrCycleByName(record->cycle_name) != 0) {
+    if (auto* world = GetWorld(); world && findMonsterAsset(*world, record->cycle_name)) {
         return 0;
     }
     if (GetRenderOptionState(W8_RENDER_OPTION_ADDITIONAL_ANIMATIONS) != 0) {
@@ -637,7 +637,7 @@ void ResetLivingMonstersAfterCombat(void)
         W8MonsterInfo* monster_info = GetMonsterListEntry(index);
 
         if (monster_info->hp_current > 0) {
-            monster_info->p3D->ResetMovementAndGroupState();
+            monster_info->p3D->nav.ResetMovementAndGroupState();
             if (monster_info->ai_mode > W8_RT_AI_IDLE &&
                 monster_info->ai_mode <= W8_RT_AI_APPROACH_PARTY) {
                 monster_info->ai_mode = W8_RT_AI_IDLE;
@@ -654,7 +654,7 @@ void DestroyUngroupedMonsters(void)
         W8MonsterInfo* monster_info = GetMonsterListEntry(index);
 
         if (monster_info->monster_group_id == 0) {
-            W8Monster* monster = monster_info->p3D;
+            Monster* monster = monster_info->p3D;
 
             if (monster != 0) {
                 if ((monster->runtime_flags & W8_MONSTER_REMOVE_AFTER_FADE) != 0 &&
@@ -677,8 +677,8 @@ void SetMonsterControlState(W8MonsterInfo* monster_info, W8MonsterControlState c
     case W8_MONSTER_CONTROL_NONE:
     case W8_MONSTER_CONTROL_RESISTED:
         if (monster_info->control_state == W8_MONSTER_CONTROL_LURED &&
-            monster_info->p3D->linked_navigator == 0) {
-            monster_info->p3D->ClearMovement();
+            monster_info->p3D->nav.linked_navigator == 0) {
+            monster_info->p3D->nav.ClearMovement();
             monster_info->ai_mode = W8_RT_AI_IDLE;
         }
         break;
@@ -692,18 +692,18 @@ void SetMonsterControlState(W8MonsterInfo* monster_info, W8MonsterControlState c
 void MonsterInfoSetMotionless(W8MonsterInfo* monster_info, bool motionless)
 {
     bool previous = monster_info->fMotionless;
-    W8Monster* monster = monster_info->p3D;
+    Monster* monster = monster_info->p3D;
 
     monster_info->fMotionless = motionless;
     if (!motionless) {
         if (previous) {
             monster->SetAnimating(true);
-            if (monster_info->p3D->pending_cycle == -1) {
+            if (monster_info->p3D->visual.pending_cycle == -1) {
                 StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_IDLE, W8_ANIMATION_NEVER_STOP);
             }
         }
     } else if (!previous) {
-        signed char cycle_value = monster->pending_cycle;
+        signed char cycle_value = monster->visual.pending_cycle;
 
         if (cycle_value != -1) {
             if (cycle_value == 0x14) {
@@ -725,14 +725,14 @@ void MoveMonsterToLiveList(W8MonsterInfo* monster_info)
     }
     if (monster_info->p3D->IsCycleSupported(0)) {
         monster_info->p3D->SetCycle(0);
-        monster_info->p3D->SetBehaviour(W8_ANIMATION_PLAY_ONCE);
+        monster_info->p3D->visual.SetBehaviour(W8_ANIMATION_PLAY_ONCE);
     } else {
         monster_info->p3D->SetCycle(1);
-        monster_info->p3D->SetBehaviour(W8_ANIMATION_NEVER_STOP);
+        monster_info->p3D->visual.SetBehaviour(W8_ANIMATION_NEVER_STOP);
     }
-    monster_info->p3D->SetSubCycle(0);
+    monster_info->p3D->visual.SetSubCycle(0);
     monster_info->p3D->SetAnimating(true);
-    monster_info->p3D->W8Navigator::active = true;
+    monster_info->p3D->nav.active = true;
     monster_info->p3D->inactive = false;
 }
 
@@ -751,7 +751,7 @@ W8MonsterInfo* FindNearestMonsterInfo(const glm::vec3* position, double maximum_
         for (const auto& monster_owner : *monsters) {
             auto* monster_info = monster_owner.get();
             const double distance =
-                DistanceBetweenPositions(position, monster_info->p3D->GetPosition());
+                DistanceBetweenPositions(position, monster_info->p3D->nav.GetPosition());
             if (distance < nearest_distance &&
                 (maximum_distance == 0.0 || distance < maximum_distance)) {
                 nearest = monster_info;
@@ -823,7 +823,7 @@ float CalculateMonsterScale(W8MonsterInfo* monster_info)
 }
 
 // FUNCTION: WIZ8 0x004e67a0
-void TryStartMonsterCycle2(W8MonsterInfo* monster_info, W8Monster* monster,
+void TryStartMonsterCycle2(W8MonsterInfo* monster_info, Monster* monster,
                            W8MonsterCycle query_state)
 {
     if (monster_info->fActive && monster_info->hp_current > 0 &&
@@ -834,7 +834,7 @@ void TryStartMonsterCycle2(W8MonsterInfo* monster_info, W8Monster* monster,
         if (result != 0 && !monster_info->fMotionless) {
             monster->runtime_flags |= 0x80;
             if (monster->IsCycleSupported(2)) {
-                signed char cycle = monster->pending_cycle;
+                signed char cycle = monster->visual.pending_cycle;
 
                 if (cycle == 2 || !monster->IsCycleInterruptable(cycle) ||
                     (gXStatus.fCombatMode &&
@@ -951,15 +951,15 @@ bool RemoveMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal)
     if (removal == W8MonsterRemoval::Deactivate) return true;
     if (monster_info->p3D) {
         if (removal == W8MonsterRemoval::Despawn)
-            monster_info->p3D->RetireParticles(*monster_info->p3D->owner_world);
+            monster_info->p3D->visual.RetireParticles(*monster_info->p3D->owner_world);
         DetachMonsterRepresentation(monster_info->p3D);
         DestroyWorldMonster(monster_info->p3D);
         monster_info->p3D = nullptr;
     }
     // Inactive and unborn records also own visibility/NPC relationships.
     ReleaseMonToMonVisibilityList(monster_info);
-    if (auto* world = GetWorld(); world && world->octree)
-        world->octree->UnregisterLocationObjects(
+    if (auto* world = GetWorld(); world && world->compiledIndex())
+        world->compiledIndex()->UnregisterLocationObjects(
             static_cast<unsigned short>(monster_info->location_id));
     ReleaseNpcBinding(monster_info->bound_npc_index);
     return roster.erase(monster_info);
@@ -986,8 +986,8 @@ void DeactivateMonster(W8MonsterInfo* monster_info)
         monster_info->highest_condition = W8_CONDITION_DEAD;
         monster_info->hp_current = 0;
         monster_info->stamina = 0;
-        monster_info->p3D->W8Navigator::active = false;
-        monster_info->p3D->flags = 0x200000;
+        monster_info->p3D->nav.active = false;
+        monster_info->p3D->nav.flags = 0x200000;
         ClearMonsterSpellIcons(monster_info->p3D);
         ReleaseMonToMonVisibilityList(monster_info);
         position = monster_info->p3D->GetRepresentationLocalLocation();
@@ -1022,7 +1022,7 @@ void MonsterInfoEnterCombat(W8MonsterInfo* monster_info)
         monster_info->player_visibility.last_seen_clock = g_status.world_clock;
     }
     ResetCombatSlot(&monster_info->Target);
-    monster_info->p3D->flags = 0;
+    monster_info->p3D->nav.flags = 0;
     if (monster_info->ubDisposition == W8_DISPOSITION_HOSTILE) {
         RefreshCombatEngagement();
     }
@@ -1117,7 +1117,7 @@ void ToggleCombatMode(void)
 {
     unsigned int group_list_index;
     W8MonsterGroup* monster_group;
-    W8Missile* missile;
+    Missile* missile;
 
     if (!gXStatus.fCombatMode) {
         StartCombat(1);
@@ -1175,7 +1175,7 @@ void ToggleCombatMode(void)
 // FUNCTION: WIZ8 0x004e4db0
 void StartMonsterCycle(W8MonsterInfo* monster_info, int cycle, W8AnimationBehaviour behavior)
 {
-    W8Monster* monster = monster_info->p3D;
+    Monster* monster = monster_info->p3D;
     unsigned char pending;
     std::string detail;
 
@@ -1183,7 +1183,7 @@ void StartMonsterCycle(W8MonsterInfo* monster_info, int cycle, W8AnimationBehavi
         !monster->IsCycleInterruptable(static_cast<signed char>(cycle))) {
         detail = "Trying to set a NEVER_STOP behaviour with an uninterruptable cycle!";
     } else {
-        pending = monster->pending_cycle;
+        pending = monster->visual.pending_cycle;
         if (gXStatus.fCombatMode) {
             monster->Query(W8_MONSTER_QUERY_CYCLE);
         }
@@ -1206,8 +1206,8 @@ void StartMonsterCycle(W8MonsterInfo* monster_info, int cycle, W8AnimationBehavi
             monster->SetAnimating(true);
             monster->SetRuntimeBehaviour(behavior);
             monster->SetPendingCycle(cycle);
-            monster->pending_subcycle = 0;
-            monster->SubmitTargetValue();
+            monster->visual.pending_subcycle = 0;
+            monster->visual.SubmitTargetValue();
             return;
         }
         detail.clear();
@@ -1228,7 +1228,7 @@ void ProcessMonsterManagerFrame(void)
          monster_list_index < CurrentLevelPopulation().monster_roster.live().size();
          ++monster_list_index) {
         W8MonsterInfo* monster_info = GetMonsterListEntry(monster_list_index);
-        W8Monster* monster = monster_info->p3D;
+        Monster* monster = monster_info->p3D;
 
         if ((monster->runtime_flags & W8_MONSTER_REMOVE_AFTER_FADE) != 0) {
             if (monster->fade_state == W8_MONSTER_FADE_IDLE) {
@@ -1275,7 +1275,7 @@ void ProcessMonsterManagerFrame(void)
                                unit and the representation compare the empty
                                slot to -1. W8_CYCLE_NONE is 0xff as int 255,
                                which a signed char never equals. */
-                            if (monster_info->p3D->pending_cycle == -1) {
+                            if (monster_info->p3D->visual.pending_cycle == -1) {
                                 StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_IDLE,
                                                   W8_ANIMATION_NEVER_STOP);
                             }

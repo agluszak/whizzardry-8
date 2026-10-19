@@ -3,17 +3,13 @@
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_int3.hpp"
 
-class W8Monster;
+class Monster;
 struct W8MonsterInfo;
-class stParticle;
-class srNode;
-class stLight;
+class Light;
 
 struct W8WorldCursorState {
     /* detached with the world when the cursor hides. */
-    W8Monster* monster = nullptr;
-    /* deactivated with a zero when the cursor hides. */
-    stParticle* particle = nullptr;
+    Monster* monster = nullptr;
     /* set by the right-button path while light exists; the group
        bind consumes and clears it. */
     bool group_bind_pending{};
@@ -25,7 +21,7 @@ struct W8WorldCursorState {
        position. */
     glm::vec3 cam_rel_offset{0};
     /* the light node the complete teardown removes from the world. */
-    stLight* light = nullptr;
+    Light* light = nullptr;
     /* read back by the path-visualization update as a world point. */
     glm::vec3 position{0};
     /* the last position published to the cursor's nodes and monster;
@@ -74,7 +70,7 @@ struct W8WorldCursorState {
     W8MonsterInfo* dragged_info = nullptr;
 };
 
-/* Build the 3D cursor, light, particle and initial camera-relative bounds. */
+/* Build the 3D cursor, light and initial camera-relative bounds. */
 void InitializeWorldCursor(void);
 bool IsWorldCursorVisible(void);
 void SetWorldCursorNodesVisible(bool visible);

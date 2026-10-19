@@ -2,16 +2,16 @@
 
 #include <memory>
 
-#include "wiz8/engine_code/AniMesh.h"
-#include "wiz8/engine_code/Environment.h"
-#include "wiz8/engine_code/Levels.h"
-#include "wiz8/engine_code/Navigator.h"
-#include "wiz8/engine_code/Quality.h"
+#include "wiz8/entities/animation_mesh.h"
 #include "wiz8/gameplay_constants.h"
+#include "wiz8/render/quality.h"
+#include "wiz8/spatial/navigator.h"
+#include "wiz8/world/environment.h"
+#include "wiz8/world/level_session.h"
 
-static std::unique_ptr<W8Navigator> party_navigator;
+static std::unique_ptr<Navigator> party_navigator;
 
-W8Navigator* PartyNavigator()
+Navigator* PartyNavigator()
 {
     return party_navigator.get();
 }
@@ -23,7 +23,7 @@ unsigned char InitializeStartupNavigation(void)
     InitializeRenderQuality();
     InitializeEnvironmentColours();
 
-    party_navigator = std::make_unique<W8Navigator>();
+    party_navigator = std::make_unique<Navigator>();
     auto* navigator = party_navigator.get();
     navigator->configureStartupRange(500.0f);
     navigator->configureStartupDepth(

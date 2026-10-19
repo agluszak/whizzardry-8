@@ -26,13 +26,11 @@
 #include "layouts/main_game_screen.h"
 #include "layouts/npc_state.h"
 #include "layouts/targeting.h"
-#include "layouts/world.h"
 #include "local_code/Factions.h"
 #include "local_screens/MGSPortraitCombat.h"
 #include "message_box.h"
 #include "monster_actions.h"
 #include "sight_state.h"
-#include "surrender/srDebug.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
@@ -40,21 +38,11 @@
 #include "wiz8/conditions.h"
 #include "wiz8/cursor.h"
 #include "wiz8/dice.h"
-#include "wiz8/engine_code/AnimRep.hpp"
-#include "wiz8/engine_code/Camera.h"
-#include "wiz8/engine_code/Cursor3d.h"
-#include "wiz8/engine_code/Environment.h"
-#include "wiz8/engine_code/GDCamera.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/Levels.h"
-#include "wiz8/engine_code/Missile.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Navigator.h"
-#include "wiz8/engine_code/OctPath.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/SpellVisual.h"
-#include "wiz8/engine_code/Spells.h"
-#include "wiz8/engine_code/Video2.h"
+#include "wiz8/entities/animation_types.h"
+#include "wiz8/entities/cursor.h"
+#include "wiz8/entities/missile.h"
+#include "wiz8/entities/monster.h"
+#include "wiz8/entities/spell_visual.h"
 #include "wiz8/fonts.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/character.h"
@@ -89,6 +77,7 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
+#include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/local_screens/MGSPartyMovement.h"
@@ -103,11 +92,21 @@
 #include "wiz8/monster_cycles.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/platform/timer.h"
+#include "wiz8/render/frame.h"
+#include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/spatial/navigation.h"
+#include "wiz8/spatial/navigator.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/string_database.h"
 #include "wiz8/utility.h"
+#include "wiz8/world/camera_paths.h"
+#include "wiz8/world/environment.h"
+#include "wiz8/world/level_session.h"
+#include "wiz8/world/party_camera.h"
+#include "wiz8/world/world.h"
 #include "wiz8/xstatus.h"
 
 constexpr unsigned int kFleeChance = 15;
@@ -933,7 +932,7 @@ void SetUpMonsterTurn(W8MonsterInfo* monster_info)
     float scale;
 
     if (monster_info->pCombat->turn_started) {
-        monster_info->p3D->movement_complete = false;
+        monster_info->p3D->nav.movement_complete = false;
         return;
     }
 
@@ -953,11 +952,11 @@ void SetUpMonsterTurn(W8MonsterInfo* monster_info)
         }
     }
 
-    monster_info->p3D->SetMonsterTurnSpeed(speed * scale * kMovementSpeedStep);
+    monster_info->p3D->nav.SetMonsterTurnSpeed(speed * scale * kMovementSpeedStep);
     /* Four bytes inside cycle eight's block, cleared together. */
-    monster_info->p3D->movement.callback_progress = 0.0f;
+    monster_info->p3D->nav.movement.callback_progress = 0.0f;
     monster_info->pCombat->turn_started = true;
-    monster_info->p3D->movement_complete = false;
+    monster_info->p3D->nav.movement_complete = false;
 }
 
 /* Finish one monster's attack: charge it the fatigue, drop the party's
@@ -970,7 +969,7 @@ void EndMonsterAttack(W8MonsterInfo* monster_info)
 
     GetMonsterDataForInfo(monster_info);
     FatigueMonster(monster_info, MonsterActionFatigueCost(monster_info), 0);
-    monster_info->p3D->SetHalted(true);
+    monster_info->p3D->nav.SetHalted(true);
     g_combat_state->action_status = W8CombatActionStatus::idle;
     g_combat_state->pActionMonsterInfo = 0;
 
@@ -1512,10 +1511,10 @@ void OrientMonsterTowardTarget(W8MonsterInfo* monster_info, bool alternate)
         point = monster_info->Target.point;
         if (!IsPartyLookingAt(monster_info, point)) {
             if (alternate) {
-                monster_info->p3D->SetFacingToward(&point);
+                monster_info->p3D->nav.SetFacingToward(&point);
                 return;
             }
-            monster_info->p3D->AimAtPosition(&point);
+            monster_info->p3D->nav.AimAtPosition(&point);
             return;
         }
     }
@@ -1528,7 +1527,7 @@ bool AnyCombatMonsterBusy(void)
     auto monster_count = CurrentLevelPopulation().monster_roster.live().size();
     for (unsigned int monster_index = 0; monster_index < monster_count; ++monster_index) {
         W8MonsterInfo* monster_info = GetMonsterListEntry(monster_index);
-        W8Monster* monster = monster_info->p3D;
+        Monster* monster = monster_info->p3D;
         W8MonsterCycle cycle = static_cast<W8MonsterCycle>(monster->Query(W8_MONSTER_QUERY_CYCLE));
         if (cycle == W8_MONSTER_CYCLE_DIE &&
             GetMonsterDataForInfo(monster_info)->record_id == 0x234) {
@@ -1558,7 +1557,7 @@ bool AnyCombatMonsterBusy(void)
                     return true;
                 }
             }
-            if (fabsf(monster->movement.target_yaw - monster->movement.yaw) >=
+            if (fabsf(monster->nav.movement.target_yaw - monster->nav.movement.yaw) >=
                     g_camera_transition_epsilon &&
                 monster_info->highest_condition < W8_CONDITION_WEBBED) {
                 return true;
@@ -2505,7 +2504,7 @@ void ExecuteMonsterAction(W8MonsterInfo* monster_info, W8MonsterRecord* record)
         if (result != 0) {
             if (monster_info->action_kind != W8_MONSTER_ACTION_WAIT &&
                 monster_info->action_kind != W8_MONSTER_ACTION_PROTECT) {
-                monster_info->p3D->SetHalted(false);
+                monster_info->p3D->nav.SetHalted(false);
             }
             break;
         }
@@ -2575,9 +2574,10 @@ bool MonsterFleeAction(W8MonsterInfo* monster_info, W8MonsterRecord* record)
    Self targets and empty slots leave the axis unchanged. */
 void AimMonsterBreathAtTarget(W8MonsterInfo* monster_info)
 {
+    if (!monster_info || !monster_info->p3D) return;
     glm::vec3 position;
     int location_id;
-    W8Monster* target_monster;
+    Monster* target_monster;
     bool no_target;
 
     switch (monster_info->Target.iType) {
@@ -2586,8 +2586,8 @@ void AimMonsterBreathAtTarget(W8MonsterInfo* monster_info)
         no_target = monster_info->location_id == location_id;
         break;
     case W8_TARGET_KIND_PLACE:
-        monster_info->p3D->m_axis = monster_info->Target.point;
-        monster_info->p3D->aim_set = true;
+        monster_info->p3D->visual.m_axis = monster_info->Target.point;
+        monster_info->p3D->visual.aim_set = true;
         return;
     case W8_TARGET_KIND_GROUP:
         location_id = FindNearestVisibleGroupMonster(monster_info, monster_info->Target.iGroupID,
@@ -2599,17 +2599,18 @@ void AimMonsterBreathAtTarget(W8MonsterInfo* monster_info)
         return;
     default:
         position = cameraLocation();
-        monster_info->p3D->m_axis = position;
-        monster_info->p3D->aim_set = true;
+        monster_info->p3D->visual.m_axis = position;
+        monster_info->p3D->visual.aim_set = true;
         return;
     }
     if (!no_target) {
         target_monster = GetMonsterByLocationID(location_id);
-        monster_info->p3D->m_axis.x = target_monster->movement.position.x;
-        monster_info->p3D->m_axis.y =
-            target_monster->movement.position.y + target_monster->movement.height_offset;
-        monster_info->p3D->m_axis.z = target_monster->movement.position.z;
-        monster_info->p3D->aim_set = true;
+        if (!target_monster) return;
+        monster_info->p3D->visual.m_axis.x = target_monster->nav.movement.position.x;
+        monster_info->p3D->visual.m_axis.y =
+            target_monster->nav.movement.position.y + target_monster->nav.movement.height_offset;
+        monster_info->p3D->visual.m_axis.z = target_monster->nav.movement.position.z;
+        monster_info->p3D->visual.aim_set = true;
     }
 }
 
@@ -2630,7 +2631,7 @@ W8CombatActionStatus ExecuteMonsterSpecialAttack(W8MonsterInfo* monster_info,
     }
     SetTargetSourceToMonster(monster_info, &source);
     if (g_special_attack_table[record->special_attack_kind][0] != 6) {
-        monster_info->p3D->aim_set = false;
+        monster_info->p3D->visual.aim_set = false;
         PointCameraAtCombatTarget(&source, &monster_info->Target);
         PopulateSpellTargetMarkers(W8_SPELL_SPECIAL_ATTACK_CONE, 0, &source, &monster_info->Target,
                                    monster_targets, char_targets,
@@ -2743,7 +2744,7 @@ void StepMonsterCombatAction(W8MonsterInfo* monster_info)
     int progress_pct;
     W8MonsterRecord* record;
     W8MonsterCombatState* combat;
-    W8Monster* monster;
+    Monster* monster;
     int action_kind;
 
     switch (monster_info->action_kind) {
@@ -2753,7 +2754,7 @@ void StepMonsterCombatAction(W8MonsterInfo* monster_info)
     case W8_MONSTER_ACTION_BACK_OFF:
     case W8_MONSTER_ACTION_CONTROLLED_MOVE:
         PointCameraAtMonster(monster_info, false, true);
-        if (!monster_info->p3D->movement_complete) {
+        if (!monster_info->p3D->nav.movement_complete) {
             outcome = W8CombatActionStatus::resolving;
             break;
         }
@@ -2772,16 +2773,16 @@ void StepMonsterCombatAction(W8MonsterInfo* monster_info)
         RefreshAllSight();
         monster = monster_info->p3D;
         combat = monster_info->pCombat.get();
-        if (static_cast<int>(
-                (monster->movement.callback_threshold <= 0.0f
-                     ? monster->movement.callback_progress / monster->movement.callback_threshold
-                     : 0.0f) *
-                g_octree_cell_scale) < 100) {
-            progress_pct = static_cast<int>(
-                (monster->movement.callback_threshold <= 0.0f
-                     ? monster->movement.callback_progress / monster->movement.callback_threshold
-                     : 0.0f) *
-                g_octree_cell_scale);
+        if (static_cast<int>((monster->nav.movement.callback_threshold <= 0.0f
+                                  ? monster->nav.movement.callback_progress /
+                                        monster->nav.movement.callback_threshold
+                                  : 0.0f) *
+                             g_octree_cell_scale) < 100) {
+            progress_pct = static_cast<int>((monster->nav.movement.callback_threshold <= 0.0f
+                                                 ? monster->nav.movement.callback_progress /
+                                                       monster->nav.movement.callback_threshold
+                                                 : 0.0f) *
+                                            g_octree_cell_scale);
         } else {
             progress_pct = 100;
         }
@@ -3011,7 +3012,7 @@ void UpdateCombat(void)
         }
     } else {
         AutoAdvanceSelectedCharacter();
-        if (PartyCamera().m_transition_active) {
+        if (partyCamera().m_transition_active) {
             return;
         }
         if (AnyCombatMonsterBusy()) {
@@ -3026,7 +3027,7 @@ void UpdateCombat(void)
         if (!AllSpellEffectsStillRunning()) {
             return;
         }
-        W8Missile* missile = NextMissile(true);
+        Missile* missile = NextMissile(true);
         while (missile != 0) {
             if ((missile == g_combat_state->engaged_missile ||
                  g_missile_table[missile->missile_table_index].spell_missile != 0) &&
@@ -3161,7 +3162,7 @@ void UpdateCombat(void)
         }
         GetMonsterDataForInfo(monster_info);
         FatigueMonster(monster_info, MonsterActionFatigueCost(monster_info), 0);
-        monster_info->p3D->SetHalted(true);
+        monster_info->p3D->nav.SetHalted(true);
         g_combat_state->action_status = W8CombatActionStatus::idle;
         g_combat_state->pActionMonsterInfo = 0;
         W8MonsterCombatState* combat = monster_info->pCombat.get();

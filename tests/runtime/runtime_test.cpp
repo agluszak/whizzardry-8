@@ -42,11 +42,12 @@
 #include <glm/ext/vector_float3.hpp>
 
 #include "../native/surface_pixels.h"
-#include "wiz8/engine_code/Levels.h"
 #include "wiz8/level_population.h"
 #include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/ui_layer.h"
+#include "wiz8/world/camera_pose.h"
+#include "wiz8/world/level_session.h"
 
 /* Runtime scenarios against installed retail assets.
 
@@ -68,15 +69,11 @@
 #include "layouts/gameplay_databases.h"
 #include "layouts/party_formation.h"
 #include "layouts/targeting.h"
-#include "layouts/world.h"
 #include "local_code/CharGeneration.h"
 #include "local_code/Factions.h"
 #include "local_code/SpellEffect.h"
 #include "mgs_commands.h"
 #include "scoped_asset_roots.h"
-#include "surrender/srGERD.h"
-#include "surrender/srModelInstance.h"
-#include "surrender/srNode.h"
 #include "temporary_directory.h"
 #include "wiz8/application.h"
 #include "wiz8/asset_paths.h"
@@ -85,15 +82,8 @@
 #include "wiz8/cursor.h"
 #include "wiz8/dialog_code/AssayDialog.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/Level.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/materials.h"
-#include "wiz8/engine_code/stMeshModel.h"
+#include "wiz8/entities/monster.h"
+#include "wiz8/entities/trigger.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/item_spawning.h"
@@ -143,10 +133,17 @@
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_script_file.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/render/frame.h"
+#include "wiz8/render/gpu_renderer.h"
+#include "wiz8/render/material_loader.h"
+#include "wiz8/render/mesh.h"
+#include "wiz8/render/mesh_instance.h"
 #include "wiz8/runtime_test_hooks.h"
+#include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"
+#include "wiz8/world/world.h"
 #include "wiz8/xstatus.h"
 
 W8RuntimeTestHooks g_runtime_test_hooks;
@@ -719,8 +716,8 @@ void StartGame(Game& game)
     }
     game.wait_screen("main-game", W8_SCREEN_MAIN_GAME, 60);
     REQUIRE(g_runtime_test_hooks.movie_frames_presented == 0);
-    W8World* world = GetWorld();
-    REQUIRE((world && world->octree && world->camera && world->level));
+    World* world = GetWorld();
+    REQUIRE((world && world->compiledIndex() && world->camera && world->scene));
     for (int i = 0; i < 30; ++i) game.frame();
     Snapshot("main-game", game.read_frame());
 }
@@ -729,7 +726,7 @@ void StartGame(Game& game)
 
 glm::vec3 PartyPosition()
 {
-    W8WorldCameraState state{};
+    CameraPose state{};
     state = cameraState(*GetWorld());
     return state.position;
 }
@@ -743,8 +740,8 @@ float HorizontalDistance(const glm::vec3& a, const glm::vec3& b)
 void WaitMainGame(Game& game, const char* step)
 {
     game.wait_screen(step, W8_SCREEN_MAIN_GAME, 60);
-    W8World* world = GetWorld();
-    REQUIRE((world && world->octree && world->camera && world->level));
+    World* world = GetWorld();
+    REQUIRE((world && world->compiledIndex() && world->camera && world->scene));
 }
 
 /* Steps until the party stops moving (gravity and settling after loads). */
@@ -955,11 +952,11 @@ void GameStartScenario()
 {
     Game game(false);
     StartGame(game);
-    W8WorldCameraState start{};
+    CameraPose start{};
     start = cameraState(*GetWorld());
     // Hold the forward key until the camera has moved, through the real binding.
     game.hold_key(SDLK_UP, true);
-    W8WorldCameraState now{};
+    CameraPose now{};
     game.wait(
         "walk",
         [&] {
@@ -1158,14 +1155,14 @@ void InventoryChestScenario()
         "walk-back-after-inventory", [&] { return HorizontalDistance(PartyPosition(), start) > 5; },
         20);
     game.hold_key(SDLK_DOWN, false);
-    W8WorldCameraState before{}, after{};
+    CameraPose before{}, after{};
     before = cameraState(*GetWorld());
     game.hold_key(SDLK_LEFT, true);
     game.wait(
         "turn-left-after-inventory",
         [&] {
             after = cameraState(*GetWorld());
-            return std::abs(after.yaw[0] - before.yaw[0]) > 0.1f;
+            return std::abs(after.orientation.yaw - before.orientation.yaw) > 0.1f;
         },
         20);
     game.hold_key(SDLK_LEFT, false);
@@ -1233,17 +1230,17 @@ void CampSpellsScenario()
 
 void CheckWorldRender(Game& game)
 {
-    W8World* world = GetWorld();
+    World* world = GetWorld();
     unsigned enabled = 0;
-    for (unsigned i = 0; i <= world->octree->GetMeshCount(); ++i)
-        if (world->psrMeshes[i] && !world->psrMeshes[i]->testFlag(srNode::FLAG_DISABLE)) ++enabled;
+    for (unsigned i = 0; i <= world->compiledIndex()->GetMeshCount(); ++i)
+        if (world->psrMeshes[i] && world->psrMeshes[i]->visible) ++enabled;
     REQUIRE(enabled > 0);
 
     // The same scene and UI with only the world pass switched off is the control.
     REQUIRE((g_world_render_enabled && !g_world_blacked_out));
     RenderFrame();
     const auto with_world = g_gerd->getStatistics();
-    const unsigned polygons = world->level->m_submitted_polygons;
+    const unsigned polygons = world->scene->submitted_polygons;
     const auto visible = game.read_frame();
     g_world_render_enabled = 0;
     RenderFrame();
@@ -1387,11 +1384,11 @@ void ResourceLifecycleScenario()
     Game game(false);
     StartPremadeGame(game);
     REQUIRE(g_gerd);
-    REQUIRE(srGERD::getActive() == g_gerd.get());
-    g_gerd->closeWindow(static_cast<srGERD::e_closeHint>(0));
-    REQUIRE(srGERD::getActive() == nullptr);
+    REQUIRE(GpuRenderer::getActive() == g_gerd.get());
+    g_gerd->closeWindow(static_cast<GpuRenderer::e_closeHint>(0));
+    REQUIRE(GpuRenderer::getActive() == nullptr);
     REQUIRE(OpenRendererWindow());
-    REQUIRE(srGERD::getActive() == g_gerd.get());
+    REQUIRE(GpuRenderer::getActive() == g_gerd.get());
     // Rendering must rebuild texture residency after reopening the same device.
     CheckWorldRender(game);
     CheckGameplayUi(game);
@@ -1471,19 +1468,19 @@ void ResourceLifecycleScenario()
     REQUIRE(g_settings.main_ui_mode == W8_MAIN_UI_MODE_RADAR);
     click_roof(0);
     REQUIRE(g_settings.main_ui_mode == W8_MAIN_UI_MODE_PORTRAITS);
-    REQUIRE((GetWorld() && GetWorld()->level));
+    REQUIRE((GetWorld() && GetWorld()->scene));
 
     const int level = GetLoadedLevelID();
     const auto anchor = Walk(game, "settle-before-save", 2.0f);
     QuickSave(game);
     { // One save/load cycle covers eviction, reconstruction and live teardown.
         auto* world = GetWorld();
-        REQUIRE((world && world->octree && world->level));
+        REQUIRE((world && world->compiledIndex() && world->scene));
         unsigned linked = 0, animated = 0;
-        for (unsigned i = 0; i <= world->octree->GetMeshCount(); ++i) {
+        for (unsigned i = 0; i <= world->compiledIndex()->GetMeshCount(); ++i) {
             auto* instance = world->psrMeshes[i];
             if (!instance) continue;
-            auto* model = static_cast<stMeshModel*>(instance->getModel());
+            auto* model = static_cast<Mesh*>(instance->getModel());
             if (model && !model->parts.empty()) ++linked;
             if (model && MeshHasAnimatedTexture(model)) ++animated;
         }
@@ -1493,12 +1490,12 @@ void ResourceLifecycleScenario()
         REQUIRE(animated > 0);
         for (int frame = 0; frame != 4; ++frame) game.frame();
         RenderFrame();
-        REQUIRE(world->level->m_submitted_polygons > 0);
+        REQUIRE(world->scene->submitted_polygons > 0);
         REQUIRE(g_gerd->getResidentTextureMemUsed() > 0);
         g_gerd->invalidateTextureCache();
         RenderFrame();
         REQUIRE(g_gerd->getResidentTextureMemUsed() > 0);
-        REQUIRE(world->level->m_submitted_polygons > 0);
+        REQUIRE(world->scene->submitted_polygons > 0);
         game.command(W8_MGS_COMMAND_QUICK_LOAD);
         bool loading = false;
         game.wait("reload-level", [&] {
@@ -1921,11 +1918,11 @@ void Approach(Game& game, int location_id, float stop)
         held = key;
     };
     for (int frame = 0; frame < 60 * 120 && !gXStatus.fCombatMode; ++frame) {
-        const W8WorldCameraState camera = cameraState(*GetWorld());
-        const glm::vec3 target = monster->p3D->GetPosition();
+        const CameraPose camera = cameraState(*GetWorld());
+        const glm::vec3 target = monster->p3D->nav.GetPosition();
         if (HorizontalDistance(target, camera.position) < stop) break;
         const float wanted = std::atan2(target.x - camera.position.x, target.z - camera.position.z);
-        const float turn = std::remainder(wanted - camera.yaw[0], 2 * glm::pi<float>());
+        const float turn = std::remainder(wanted - camera.orientation.yaw, 2 * glm::pi<float>());
         hold(std::abs(turn) < 0.15f ? SDLK_UP : turn > 0 ? SDLK_RIGHT : SDLK_LEFT);
         game.frame();
     }
@@ -1950,7 +1947,7 @@ float NearestCombatMonster()
     float nearest = std::numeric_limits<float>::max();
     for (W8MonsterInfo* monster : CombatMonsters())
         nearest =
-            std::min(nearest, HorizontalDistance(monster->p3D->GetPosition(), PartyPosition()));
+            std::min(nearest, HorizontalDistance(monster->p3D->nav.GetPosition(), PartyPosition()));
     return nearest;
 }
 
@@ -2080,14 +2077,15 @@ void PrintState(Game& game)
                         character.hp_current, character.experience, character.kill_count);
         }
     if (GetWorld()) {
-        const W8WorldCameraState camera = cameraState(*GetWorld());
+        const CameraPose camera = cameraState(*GetWorld());
         const glm::vec3 at = camera.position;
-        std::printf("  party at (%g %g %g) yaw %g\n", at.x, at.y, at.z, camera.yaw[0]);
+        std::printf("  party at (%g %g %g) yaw %g\n", at.x, at.y, at.z, camera.orientation.yaw);
         std::vector<std::pair<float, W8MonsterInfo*>> nearby;
         for (const auto& owner : CurrentLevelPopulation().monster_roster.live()) {
             auto* monster = owner.get();
             if (monster->fActive && monster->p3D && monster->hp_current)
-                nearby.emplace_back(HorizontalDistance(monster->p3D->GetPosition(), at), monster);
+                nearby.emplace_back(HorizontalDistance(monster->p3D->nav.GetPosition(), at),
+                                    monster);
         }
         std::ranges::sort(nearby, {}, &std::pair<float, W8MonsterInfo*>::first);
         if (nearby.size() > 6) nearby.resize(6);
@@ -2095,7 +2093,8 @@ void PrintState(Game& game)
             std::printf("  monster %d %s hp=%u disposition=%d combat=%d at %.0f (%g %g)\n",
                         monster->location_id, GetMonsterName(monster, nullptr, false).c_str(),
                         monster->hp_current, int(monster->ubDisposition), bool(monster->pCombat),
-                        distance, monster->p3D->GetPosition().x, monster->p3D->GetPosition().z);
+                        distance, monster->p3D->nav.GetPosition().x,
+                        monster->p3D->nav.GetPosition().z);
     }
     std::fflush(stdout);
 }
@@ -2107,17 +2106,18 @@ void Trace(Game& game, int location_id, int frames)
     if (!monster || !monster->p3D) FailStep("trace", "no monster " + std::to_string(location_id));
     for (int frame = 0; frame < frames; ++frame) {
         game.frame();
-        const W8Monster& body = *monster->p3D;
-        const glm::vec3 at = monster->p3D->GetPosition();
+        const Monster& body = *monster->p3D;
+        const glm::vec3 at = monster->p3D->nav.GetPosition();
         std::printf("  t%lu %d (%.0f %.0f) action=%d active=%d complete=%d stopped=%d halted=%d "
                     "flags=%x progress=%g/%g speed=%g status=%d actor=%d cycle=%d frame=%d/%d "
                     "end=%d\n",
                     game.frames(), location_id, at.x, at.z, int(monster->action_kind),
                     monster->pCombat ? int(monster->pCombat->active) : -1,
-                    int(body.movement_complete), int(body.movement_stopped), int(body.halted),
-                    unsigned(body.flags), body.movement.callback_progress,
-                    body.movement.callback_threshold, body.movement.movement_speed,
-                    g_combat_state ? static_cast<int>(g_combat_state->action_status) : -1,
+                    int(body.nav.movement_complete), int(body.nav.movement_stopped),
+                    int(body.nav.halted), unsigned(body.nav.flags),
+                    body.nav.movement.callback_progress, body.nav.movement.callback_threshold,
+                    body.nav.movement.movement_speed,
+                    g_combat_state ? int(g_combat_state->action_status) : -1,
                     g_combat_state && g_combat_state->pActionMonsterInfo
                         ? g_combat_state->pActionMonsterInfo->location_id
                         : -1,
@@ -2326,7 +2326,7 @@ void RunScenario(Scenario scenario)
     RequireAssets();
     scenario();
     REQUIRE(g_gerd == nullptr);
-    REQUIRE(srGERD::getActive() == nullptr);
+    REQUIRE(GpuRenderer::getActive() == nullptr);
     CheckGameErrors();
 }
 

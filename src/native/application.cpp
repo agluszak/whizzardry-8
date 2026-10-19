@@ -14,16 +14,15 @@
 #include <SDL3/SDL_stdinc.h>
 
 #include "asset_paths.h"
-#include "wiz8/audio/sound3d.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
-#include "wiz8/engine_code/Video2.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game_init.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/platform/random.h"
+#include "wiz8/render/frame.h"
 
 namespace {
 
@@ -131,13 +130,11 @@ void wiz8::Application::shutdown() noexcept
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Game shutdown: %s", failure.what());
         }
     }
-    Release3DSounds();
     ReleaseCatalogArtwork();
     ShutdownButtonImageManager();
     ReleaseMenuFonts();
     ShutdownVideoManager();
     SDL_ShowCursor();
-    VideoDumpMemoryLeaks();
     gfApplicationActive = false;
     SDL_Quit();
     sdl_initialized_ = false;

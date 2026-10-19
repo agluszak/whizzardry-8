@@ -4,7 +4,7 @@
 #include "wiz8/platform/game_timer.h"
 
 /* Address-qualified W8GameTimer specialization constructed beside the
-   canonical GDCamera owner in GameData.cpp. */
+   canonical PartyCamera owner in GameData.cpp. */
 class W8GameTimeAccumulator : public W8GameTimer {
 public:
     W8GameTimeAccumulator(); /* 0x0043A910 */

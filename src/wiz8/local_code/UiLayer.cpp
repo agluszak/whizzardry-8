@@ -15,10 +15,10 @@
 
 #include "wiz8/compat/native.h"
 #include "wiz8/cursor.h"
-#include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/timer.h"
+#include "wiz8/render/frame.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 
@@ -172,7 +172,7 @@ struct UiState {
         hideTooltip();
         VideoToolTip(text);
         SDL_Point anchor;
-        SGPMouseGetPos(&anchor);
+        anchor = CursorPosition();
         const int width = g_help_box_width + 2, height = g_help_box_height + 2;
         anchor.x = std::clamp(anchor.x, 2, std::max(2, 640 - width));
         anchor.y = std::clamp(anchor.y - height, 2, std::max(2, 480 - height));
@@ -487,7 +487,7 @@ bool PumpUiInput(const UiInputPolicy& policy)
         {
             const UiTransaction transaction;
             SDL_Point point;
-            SGPMouseGetPos(&point);
+            point = CursorPosition();
             UpdateUiPointer(point.x, point.y);
             changed = !pending_actions.empty();
         }

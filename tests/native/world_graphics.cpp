@@ -16,27 +16,14 @@
 
 #include "surface_pixels.h"
 #include "wiz8/level_population.h"
+#include "wiz8/world/camera_pose.h"
 
 /* Installed character and level assets through the recovered game loop. */
 #include <SDL3/SDL_surface.h>
 
 #include "layouts/targeting.h"
-#include "layouts/world.h"
-#include "surrender/srCamera.h"
-#include "surrender/srGERD.h"
-#include "surrender/srMeshModel.h"
-#include "surrender/srModelInstance.h"
-#include "surrender/srNode.h"
-#include "surrender/srScene.h"
-#include "surrender/srTexture.h"
 #include "temporary_directory.h"
 #include "wiz8/application.h"
-#include "wiz8/canvas/image.h"
-#include "wiz8/engine_code/GDCamera.h"
-#include "wiz8/engine_code/Level.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/engine_code/World.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -52,7 +39,17 @@
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/overlay_scenes.h"
+#include "wiz8/render/camera.h"
+#include "wiz8/render/compositor.h"
+#include "wiz8/render/frame.h"
+#include "wiz8/render/gpu_renderer.h"
+#include "wiz8/render/mesh.h"
+#include "wiz8/render/mesh_instance.h"
+#include "wiz8/render/texture.h"
+#include "wiz8/render/world_scene.h"
+#include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/world/party_camera.h"
+#include "wiz8/world/world.h"
 #include "wiz8/xstatus.h"
 
 static std::vector<unsigned int> ReadFrame()
@@ -127,7 +124,8 @@ TEST_CASE("world graphics")
     }
     REQUIRE(g_current_screen_state.id == W8_SCREEN_MAIN_GAME);
     auto world = GetWorld();
-    REQUIRE((world && world->octree && world->camera && world->level && !world->psrMeshes.empty()));
+    REQUIRE((world && world->compiledIndex() && world->camera && world->scene &&
+             !world->psrMeshes.empty()));
     if (mode && strcmp(mode, "ui") == 0) {
         SetMainUiPreference(W8_MAIN_UI_MODE_PORTRAITS);
         for (int frame = 0; frame < 100; ++frame) {
@@ -191,12 +189,8 @@ TEST_CASE("world graphics")
         VideoPositionToolTip(300, 200);
         RenderFrame();
         const auto tooltip = ReadFrame();
-        auto* node = g_overlay_scenes.cursor->findChild("Video2DRectToPolygon");
-        auto* tooltip_node = static_cast<srModelInstance*>(node);
-        REQUIRE(tooltip_node);
-        auto* mesh = static_cast<srMeshModel*>(tooltip_node->getModel());
-        auto* texture = static_cast<srTexture*>(mesh->getTexture(0, 0));
-        auto* surface = texture->getSurfacePtr();
+        REQUIRE_FALSE(g_compositor.frameQuads().empty());
+        auto* surface = g_compositor.frameQuads().back().texture->getSurfacePtr();
         REQUIRE(surface);
         for (int y = 0; y < g_help_box_height; ++y)
             for (int x = 0; x < g_help_box_width; ++x)
@@ -209,20 +203,20 @@ TEST_CASE("world graphics")
         VideoRemoveToolTip();
     }
 
-    W8WorldCameraState state{};
+    CameraPose state{};
     state = cameraState(*world);
     fprintf(stderr, "world: camera (%g %g %g) yaw %g pitch %g\n", state.position.x,
-            state.position.y, state.position.z, state.yaw[0], state.pitch[0]);
+            state.position.y, state.position.z, state.orientation.yaw, state.orientation.pitch);
     unsigned enabled = 0;
-    for (unsigned i = 0; i <= world->octree->GetMeshCount(); ++i)
-        if (world->psrMeshes[i] && !world->psrMeshes[i]->testFlag(srNode::FLAG_DISABLE)) ++enabled;
+    for (unsigned i = 0; i <= world->compiledIndex()->GetMeshCount(); ++i)
+        if (world->psrMeshes[i] && world->psrMeshes[i]->visible) ++enabled;
     REQUIRE(enabled > 0);
 
     // Same scene and UI, with only the actual world pass switched off.
     REQUIRE((g_world_render_enabled && !g_world_blacked_out));
     RenderFrame();
     const auto with_world = g_gerd->getStatistics();
-    unsigned polygons = world->level->m_submitted_polygons;
+    unsigned polygons = world->scene->submitted_polygons;
     auto visible = ReadFrame();
     g_world_render_enabled = 0;
     RenderFrame();
@@ -294,11 +288,11 @@ TEST_CASE("world graphics")
             // This diagnostic controls the actual render cameras. Scripted
             // tracking can reject SetOrientationImmediate, yielding identical
             // captures that never exercise the requested angles.
-            PartyCamera().SetOrientation(state.yaw[0] + angle * 1.5707963f,
+            partyCamera().SetOrientation(state.orientation.yaw + angle * 1.5707963f,
                                          angle < 2 ? -0.7f : 0.5f);
-            const auto rotation = PartyCamera().rotationMatrix();
-            world->camera->setRotation(rotation);
-            if (GetSecondaryWorld()) GetSecondaryWorld()->camera->setRotation(rotation);
+            const auto rotation = partyCamera().rotationMatrix();
+            world->camera->transform.setRotation(rotation);
+            if (GetSecondaryWorld()) GetSecondaryWorld()->camera->transform.setRotation(rotation);
             RenderFrame();
             auto pixels = ReadFrame();
             REQUIRE(pixels != previous);

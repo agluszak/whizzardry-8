@@ -7,7 +7,7 @@
 #include "wiz8/audio/mouth_gap.h"
 #include "wiz8/audio_resources.h"
 
-class W8Monster;
+class Monster;
 
 /* The NPC voice line being played, the hold that keeps a quote or portrait
    message on screen, and the mouth-gap track of an ungrouped speaker. */
@@ -31,4 +31,4 @@ int ComputePortraitMessageDuration(std::string_view text);
 void HoldNpcSpeech(W8NpcSpeech& speech, std::uint64_t hold_ms);
 bool IsNpcSpeechHoldOver(const W8NpcSpeech& speech);
 /* Advance the mouth-gap track and open or close the speaker's mouth. */
-void UpdateNpcMouth(W8NpcSpeech& speech, W8Monster* monster);
+void UpdateNpcMouth(W8NpcSpeech& speech, Monster* monster);

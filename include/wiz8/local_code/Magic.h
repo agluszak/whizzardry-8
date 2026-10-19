@@ -20,7 +20,7 @@ enum class W8SpellCastKind : unsigned char {
 
 struct W8ItemInstance;
 struct W8MonsterInfo;
-class W8Missile;
+class Missile;
 
 void TickSpellEffects(void);
 
@@ -161,7 +161,7 @@ void TrackItemSpellSource(W8Character* character, int spell_id);
 bool IsTeleportCastMissingAnchor(W8Character* character, int spell_id);
 extern unsigned short g_realm_message_offsets[W8_SPELL_REALM_COUNT];
 
-void DetachMissileReferences(W8Missile* missile);
+void DetachMissileReferences(Missile* missile);
 bool AllSpellEffectsStillRunning(void);
 
 #endif

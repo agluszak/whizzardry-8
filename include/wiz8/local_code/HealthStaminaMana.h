@@ -4,7 +4,7 @@
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/targeting.h"
 
-class W8Monster;
+class Monster;
 struct W8Character;
 struct W8CombatSlot;
 struct W8Dice;

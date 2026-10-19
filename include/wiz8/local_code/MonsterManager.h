@@ -12,7 +12,7 @@
 #include "layouts/targeting.h"
 #include "wiz8/audio_resources.h"
 
-class W8Monster;
+class Monster;
 enum W8AnimationBehaviour : unsigned char;
 struct W8MonsterGroup;
 struct W8MonsterInfo;
@@ -275,7 +275,7 @@ struct W8MonsterInfo {
     int location_id;
     int monster_group_id;
     unsigned int monster_species;
-    W8Monster* p3D;
+    Monster* p3D;
     /* Combat state exists only during the fight, and owns its action queue. */
     std::unique_ptr<W8MonsterCombatState> pCombat;
     bool fActive;
@@ -389,11 +389,11 @@ struct W8MonsterInfo {
     unsigned char unknown_37d[0xa8];
 };
 
-void PrepareMonsterInWorld(W8World& world, W8MonsterInfo& info, bool unborn);
+void PrepareMonsterInWorld(World& world, W8MonsterInfo& info, bool unborn);
 void ActivateMonsterInWorld(W8MonsterInfo* monster_info);
-std::unique_ptr<W8Monster> ReadMonsterRepresentation(W8World& world, W8MonsterInfo* monster_info,
-                                                     W8MonsterActivationMode mode);
-void ConfigureMonsterRepresentation(W8World& world, W8MonsterInfo* monster_info);
+std::unique_ptr<Monster> ReadMonsterRepresentation(World& world, W8MonsterInfo* monster_info,
+                                                   W8MonsterActivationMode mode);
+void ConfigureMonsterRepresentation(World& world, W8MonsterInfo* monster_info);
 void ActivateMonster(W8MonsterInfo* monster_info, W8MonsterActivationMode mode);
 void ClearMonsterPathAndResume(W8MonsterInfo* monster_info);
 void MonsterStartsDying(W8MonsterInfo* monster_info, bool display_message);
@@ -402,7 +402,7 @@ W8MonsterRecord* GetMonsterDataForInfo(W8MonsterInfo* monster_info);
 W8MonsterInfo* FindMonster(int location_id, bool assert_on_failure = true,
                            std::source_location caller = std::source_location::current());
 W8MonsterRecord* GetMonsterDataByLocationID(int location_id);
-W8Monster* GetMonsterByLocationID(int location_id);
+Monster* GetMonsterByLocationID(int location_id);
 float GetMonsterCombatMoveRange(W8MonsterInfo* monster_info);
 void UpdateMonsterDamageAppearance(W8MonsterInfo* monster_info);
 
@@ -419,7 +419,7 @@ void MoveMonsterToLiveList(W8MonsterInfo* monster_info);
 W8MonsterInfo* FindNearestMonsterInfo(const glm::vec3* position, double maximum_distance);
 void InitializeMonsterRuntimeStats(void);
 float CalculateMonsterScale(W8MonsterInfo* monster_info);
-void TryStartMonsterCycle2(W8MonsterInfo* monster_info, W8Monster* monster,
+void TryStartMonsterCycle2(W8MonsterInfo* monster_info, Monster* monster,
                            W8MonsterCycle query_state);
 void ProcessMonsterManagerFrame(void);
 std::string FormatMonsterHealth(W8MonsterInfo* monster_info);

@@ -7,7 +7,7 @@
 
 #include <fmt/format.h>
 
-#include "wiz8/engine_code/Monster.h"
+#include "wiz8/entities/monster.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_state.h"
@@ -112,7 +112,7 @@ void W8NpcDialogue::Speak(int script_line, bool force_npc_voice)
 {
     W8NpcScriptQuote* quote;
     W8NpcQuoteEntry* entry;
-    W8Monster* monster;
+    Monster* monster;
     W8NpcState* target;
     signed char faction;
     char response_count;

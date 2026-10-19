@@ -25,7 +25,6 @@
 #include <SDL3/SDL_time.h>
 #include <fmt/format.h>
 
-#include "Item.h"
 #include "asset_paths.h"
 #include "compat/native.h"
 #include "conditions.h"
@@ -37,11 +36,9 @@
 #include "layouts/item_instance.h"
 #include "layouts/levels.h"
 #include "layouts/targeting.h"
-#include "layouts/world.h"
 #include "monster_actions.h"
 #include "monster_spell_icons.h"
 #include "retail_records.h"
-#include "surrender/srDebug.h"
 #include "wiz8/audio/AmbientSound.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/character_event_queue.h"
@@ -49,18 +46,11 @@
 #include "wiz8/chunk.h"
 #include "wiz8/cursor.h"
 #include "wiz8/design_rect.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/Levels.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Navigator.h"
-#include "wiz8/engine_code/Spells.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/stCube.h"
-#include "wiz8/engine_code/stLight.hpp"
-#include "wiz8/engine_code/stParticle.h"
-#include "wiz8/engine_code/stScript.h" // IWYU pragma: keep - complete script type used through the owned pointer.
+#include "wiz8/entities/cursor_nodes.h"
+#include "wiz8/entities/monster.h"
+#include "wiz8/entities/script.h" // IWYU pragma: keep - complete script type used through the owned pointer.
+#include "wiz8/entities/trigger.h"
+#include "wiz8/entities/world_item.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/file_time.h"
 #include "wiz8/filesystem.h"
@@ -88,6 +78,7 @@
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/UtilityFunctions.h"
+#include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/local_screens/JournalScreen.h"
 #include "wiz8/local_screens/MGSTextBox.h"
@@ -97,13 +88,22 @@
 #include "wiz8/location_variables.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/game_timer.h"
+#include "wiz8/render/frame.h"
+#include "wiz8/render/light.h"
+#include "wiz8/render/particle_system.h"
 #include "wiz8/retail_geometry_types.h"
 #include "wiz8/retail_save_records.h"
 #include "wiz8/retail_text_records.h"
 #include "wiz8/save_game.h"
+#include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/spatial/navigator.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/unicode.h"
+#include "wiz8/utility.h"
+#include "wiz8/world/level_session.h"
+#include "wiz8/world/world.h"
 #include "wiz8/world_cursor.h"
 #include "wiz8/xstatus.h"
 
@@ -363,13 +363,13 @@ constexpr unsigned int kMonsterGroupRecordVersion = 3;
 constexpr unsigned int kMonsterHasMovement = 0x20000000;
 
 struct SavedMonsterScript {
-    std::shared_ptr<stScript> resource;
+    std::shared_ptr<Script> resource;
     char name[0x40]{};
     W8MonsterScriptCommand wait{};
     int line = 0;
     std::vector<unsigned char> conditions;
 
-    static SavedMonsterScript Capture(const W8Monster& monster)
+    static SavedMonsterScript Capture(const Monster& monster)
     {
         SavedMonsterScript script;
         const auto& name = monster.script->getName();
@@ -405,7 +405,7 @@ struct SavedMonsterScript {
         chunk.ReadBytes(script.conditions.data(), script.conditions.size());
         return script;
     }
-    void Apply(W8MonsterInfo& info, W8Monster& monster) const
+    void Apply(W8MonsterInfo& info, Monster& monster) const
     {
         if (name[0] == '\0') return;
         info.ai_mode |= W8_MONSTER_AI_RESTORE_SCRIPT;
@@ -423,10 +423,10 @@ struct SavedMonsterMovement {
     glm::vec3 patrol_home{0.0f};
     glm::vec3 target{0.0f};
 
-    static SavedMonsterMovement Capture(const W8Monster& monster)
+    static SavedMonsterMovement Capture(const Monster& monster)
     {
-        return {monster.minimum_height, monster.maximum_height, monster.patrol_home,
-                monster.movement.attachment->path_destination};
+        return {monster.nav.minimum_height, monster.nav.maximum_height, monster.nav.patrol_home,
+                monster.nav.movement.attachment->path_destination};
     }
     void Write(W8Chunk& chunk) const
     {
@@ -444,22 +444,23 @@ struct SavedMonsterMovement {
         wiz8::retail::read_exact(chunk, movement.target);
         return movement;
     }
-    void Apply(W8Monster& monster) const
+    void Apply(Monster& monster) const
     {
         auto target_point = target;
-        monster.minimum_height = minimum_height;
-        monster.maximum_height = maximum_height;
-        monster.patrol_home = patrol_home;
-        monster.movement.attachment->InitializeSegment(&monster.movement.position, &target_point);
-        monster.movement_target = target;
-        monster.flags |= kMonsterHasMovement;
-        monster.movement.attachment->flags |= W8_NAV_ATTACHMENT_IGNORE_LINKED_NAVIGATOR;
-        monster.movement.target_position = patrol_home;
-        if (monster.SetMovementTarget(&monster.movement_target, true)) {
-            monster.flags |= 0x6;
-            monster.ClearMovementStopped();
-            monster.halted = false;
-            monster.movement_target = monster.movement.attachment->path_destination;
+        monster.nav.minimum_height = minimum_height;
+        monster.nav.maximum_height = maximum_height;
+        monster.nav.patrol_home = patrol_home;
+        monster.nav.movement.attachment->InitializeSegment(&monster.nav.movement.position,
+                                                           &target_point);
+        monster.nav.movement_target = target;
+        monster.nav.flags |= kMonsterHasMovement;
+        monster.nav.movement.attachment->flags |= W8_NAV_ATTACHMENT_IGNORE_LINKED_NAVIGATOR;
+        monster.nav.movement.target_position = patrol_home;
+        if (monster.nav.SetMovementTarget(&monster.nav.movement_target, true)) {
+            monster.nav.flags |= 0x6;
+            monster.nav.ClearMovementStopped();
+            monster.nav.halted = false;
+            monster.nav.movement_target = monster.nav.movement.attachment->path_destination;
         }
     }
 };
@@ -479,7 +480,7 @@ struct SavedMonsterOrders {
     std::optional<bool> face_party;
     std::optional<bool> stay_home;
 
-    static SavedMonsterOrders Capture(const W8Monster& monster)
+    static SavedMonsterOrders Capture(const Monster& monster)
     {
         SavedMonsterOrders orders;
         orders.defining_orders = monster.defining_orders;
@@ -532,7 +533,7 @@ struct SavedMonsterOrders {
         if (version >= 7) orders.stay_home = chunk.ReadValue<unsigned char>() != 0;
         return orders;
     }
-    void Apply(W8MonsterInfo& info, W8Monster& monster) const
+    void Apply(W8MonsterInfo& info, Monster& monster) const
     {
         monster.defining_orders = defining_orders;
         monster.order_mode = order_mode;
@@ -555,7 +556,7 @@ struct SavedMonsterOrders {
 
 /* Rebuild the icons for the conditions, enchantments and effects a loaded
    monster carries. */
-void RestoreMonsterSpellIcons(W8World& world, const W8MonsterInfo& info, W8Monster* monster)
+void RestoreMonsterSpellIcons(World& world, const W8MonsterInfo& info, Monster* monster)
 {
     if (info.highest_condition != W8_CONDITION_NONE) {
         for (int index = 0; index < W8_CONDITION_COUNT; ++index) {
@@ -583,13 +584,13 @@ void RestoreMonsterSpellIcons(W8World& world, const W8MonsterInfo& info, W8Monst
 void WriteMonsterRecord(W8Chunk& chunk, const W8MonsterInfo* info)
 {
     if (!info || !info->p3D) throw std::runtime_error("missing monster");
-    W8Monster& monster = *info->p3D;
+    Monster& monster = *info->p3D;
     auto image = wiz8::retail::encode_image(*info);
     if (info->fActive) {
         auto position = monster.GetRepresentationLocation();
         position.y = probeGround(position).position.y;
         image.position = {position.x, position.y, position.z};
-        image.derived = monster.GetYaw();
+        image.derived = monster.nav.GetYaw();
     }
     chunk.WriteValue(kMonsterRecordVersion);
     chunk.WriteValue(static_cast<std::uint32_t>(sizeof(image)));
@@ -603,7 +604,7 @@ void WriteMonsterRecord(W8Chunk& chunk, const W8MonsterInfo* info)
     chunk.WriteValue(unborn);
 
     const unsigned char has_movement =
-        !monster.linked_navigator && (monster.flags & kMonsterHasMovement) != 0;
+        !monster.nav.linked_navigator && (monster.nav.flags & kMonsterHasMovement) != 0;
     chunk.WriteValue(has_movement);
     if (has_movement) SavedMonsterMovement::Capture(monster).Write(chunk);
 
@@ -687,7 +688,7 @@ struct W8LoadedLevelStatus::Data {
     std::vector<W8AmbientSoundState> ambient;
     std::vector<W8ParticleState> particles;
     std::vector<W8LightState> lights;
-    std::shared_ptr<stScript> default_script;
+    std::shared_ptr<Script> default_script;
     W8PreparedNpcBindings npc_bindings;
     std::vector<int> pending_deaths;
 };
@@ -697,7 +698,7 @@ W8LoadedLevelStatus::~W8LoadedLevelStatus() = default;
 
 namespace {
 /* Build the replacement's local state; decode gameplay records without registering them. */
-void ReadLevelSection(W8World& world, W8LoadedLevelStatus::Data& data, W8Chunk& chunk,
+void ReadLevelSection(World& world, W8LoadedLevelStatus::Data& data, W8Chunk& chunk,
                       unsigned int chunk_id, bool from_assets, bool baseline = false)
 {
     switch (chunk_id) {
@@ -1149,7 +1150,7 @@ try {
 }
 
 std::unique_ptr<W8LoadedLevelStatus>
-ReadLevelStatus(W8World& world, const std::filesystem::path& path, int level, bool from_assets)
+ReadLevelStatus(World& world, const std::filesystem::path& path, int level, bool from_assets)
 {
     W8Chunk chunk;
     if (!chunk.OpenRead(path)) return nullptr;
@@ -1209,7 +1210,7 @@ ReadLevelStatus(W8World& world, const std::filesystem::path& path, int level, bo
     return status;
 }
 
-void PrepareLevelPopulation(W8World& world, W8LoadedLevelStatus& status)
+void PrepareLevelPopulation(World& world, W8LoadedLevelStatus& status)
 {
     auto& data = *status.data;
     auto& population = *world.population;
@@ -1280,8 +1281,8 @@ void PrepareLevelPopulation(W8World& world, W8LoadedLevelStatus& status)
         if (!formation_leader) throw std::runtime_error("missing formation leader");
         for (int id : group->MemberIds()) {
             auto* member = population.findMonster(id)->p3D;
-            member->LinkGroupNavigator(
-                member == formation_leader->p3D ? nullptr : formation_leader->p3D, false);
+            member->nav.LinkGroupNavigator(
+                member == formation_leader->p3D ? nullptr : &formation_leader->p3D->nav, false);
         }
     }
     for (const auto& group : population.monster_groups) {
@@ -1289,10 +1290,11 @@ void PrepareLevelPopulation(W8World& world, W8LoadedLevelStatus& status)
         auto* leader = population.findMonster(group->leader_location_id)->p3D;
         // Restored levels start outside combat. Propagate the saved path using
         // this population, independently of the old world's combat clock.
-        leader->CopyPathToGroup();
-        if (!leader->movement_stopped) {
+        leader->nav.CopyPathToGroup();
+        if (!leader->nav.movement_stopped) {
             for (const auto& member : population.monster_roster.live())
-                if (member->p3D->linked_navigator == leader) member->p3D->movement_stopped = false;
+                if (member->p3D->nav.linked_navigator == &(leader)->nav)
+                    member->p3D->nav.movement_stopped = false;
         }
     }
     if (data.encounters) world.encounters = std::move(*data.encounters);
@@ -1304,7 +1306,7 @@ void PrepareLevelPopulation(W8World& world, W8LoadedLevelStatus& status)
 
 // Publish shared session references and scalar state only. The replacement
 // already owns every record, representation, membership and identity link.
-void InstallLevelSessionState(W8World& world, W8LoadedLevelStatus* status)
+void InstallLevelSessionState(World& world, W8LoadedLevelStatus* status)
 {
     g_status.next_group_id = g_status.next_monster_location_id = g_status.next_world_item_id = 1;
     g_status.next_trigger_id = world.next_trigger_id;
@@ -1316,7 +1318,7 @@ void InstallLevelSessionState(W8World& world, W8LoadedLevelStatus* status)
     InstallNpcBindings(std::move(data.npc_bindings));
 }
 
-void BeginRestoredLevelActivity(W8World& world, W8LoadedLevelStatus* status)
+void BeginRestoredLevelActivity(World& world, W8LoadedLevelStatus* status)
 {
     StartLevelEncounters(world);
     if (!status) return;

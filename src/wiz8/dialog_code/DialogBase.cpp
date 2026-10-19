@@ -14,11 +14,11 @@
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/DialogScrollBar.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
-#include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/modal_content.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/render/frame.h"
 #include "wiz8/ui_input.h"
 
 void W8DialogBase::CreateCloseButton(W8ButtonWidget& button, int left, int top)

@@ -13,21 +13,20 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "glm/ext/vector_float3.hpp"
-#include "surrender/srMeshModel.h"
-#include "surrender/srTexture.h"
-#include "wiz8/engine_code/stMeshModel.h"
+#include "wiz8/render/mesh.h"
+#include "wiz8/render/texture.h"
 
-static_assert(!std::is_copy_constructible_v<stMeshModel>);
-static_assert(!std::is_copy_assignable_v<stMeshModel>);
-static_assert(std::is_nothrow_move_constructible_v<stMeshModel::Frame>);
-static_assert(std::is_nothrow_move_constructible_v<stMeshModel::Skin>);
+static_assert(!std::is_copy_constructible_v<Mesh>);
+static_assert(!std::is_copy_assignable_v<Mesh>);
+static_assert(std::is_nothrow_move_constructible_v<Mesh::Frame>);
+static_assert(std::is_nothrow_move_constructible_v<Mesh::Skin>);
 
 static bool frame_storage()
 {
     const auto registered = g_mesh_models.size();
     const int initial_bytes = g_decompressed_mesh_bytes;
     {
-        stMeshModel mesh(1, 3);
+        Mesh mesh(1, 3);
         REQUIRE(mesh.frames.empty());
         REQUIRE(mesh.GetVertex(0) == nullptr);
         REQUIRE(mesh.GetVertexLocations(0, true, 0.5f) == nullptr);
@@ -132,7 +131,7 @@ static bool writable_and_empty_caches()
 {
     const int initial_bytes = g_decompressed_mesh_bytes;
     {
-        stMeshModel mesh(0, 1);
+        Mesh mesh(0, 1);
         mesh.InitializeVertexFrames(1);
         mesh.vertex_compression_scale = 0.25f;
         auto* source = mesh.GetVertex(0);
@@ -157,7 +156,7 @@ static bool writable_and_empty_caches()
         REQUIRE(!mesh.frames[0].polygon_normals);
     }
     {
-        stMeshModel empty(0, 0);
+        Mesh empty(0, 0);
         empty.InitializeVertexFrames(1);
         REQUIRE(empty.AllocateFrameBuffers(0, 7));
         REQUIRE((empty.frames[0].locations && empty.frames[0].locations.value().empty()));
@@ -175,7 +174,7 @@ static bool eviction_and_borrowed_outputs()
 {
     const int initial_bytes = g_decompressed_mesh_bytes;
     {
-        stMeshModel old_mesh(0, 1), recent_mesh(0, 1), drained_mesh(0, 1);
+        Mesh old_mesh(0, 1), recent_mesh(0, 1), drained_mesh(0, 1);
         old_mesh.InitializeVertexFrames(1);
         recent_mesh.InitializeVertexFrames(1);
         drained_mesh.InitializeVertexFrames(1);
@@ -196,7 +195,7 @@ static bool eviction_and_borrowed_outputs()
         // Two location frames and normals exceed the 8 MiB budget. Loading the
         // second frame or normals must not invalidate the first borrowed output.
         constexpr int vertices = 240000;
-        stMeshModel other(0, 1), mesh(0, vertices);
+        Mesh other(0, 1), mesh(0, vertices);
         other.InitializeVertexFrames(1);
         other.GetVertexLocations(0, true, 0.0f);
         mesh.InitializeVertexFrames(2);
@@ -223,16 +222,13 @@ static bool part_ownership()
     const auto registered = g_mesh_models.size();
     const int initial_bytes = g_decompressed_mesh_bytes;
     {
-        stMeshModel original(0, 1);
+        Mesh original(0, 1);
         original.InitializeVertexFrames(1);
         original.GetVertex(0)[0] = 3;
         original.GetVertexLocations(0, true, 0.0f);
-        original.AddPart(std::make_unique<stMeshModel>(0, 1));
+        original.AddPart(std::make_unique<Mesh>(0, 1));
         original.parts[0]->InitializeVertexFrames(1);
         original.parts[0]->GetVertexLocations(0, true, 0.0f);
-        REQUIRE((original.head == nullptr && original.parts[0]->head == &original));
-        REQUIRE(
-            (original.Next() == original.parts[0].get() && original.parts[0]->Next() == nullptr));
         REQUIRE(g_mesh_models.size() == registered + 2);
         REQUIRE(g_decompressed_mesh_bytes == initial_bytes + 2 * sizeof(glm::vec3));
     }
@@ -241,25 +237,26 @@ static bool part_ownership()
     return true;
 }
 
-class TestTexture : public srTexture {
-public:
-    inline static int destroyed = 0;
-    void invalidate() override {}
-    void setupDefaultValues() override {}
-    ~TestTexture() override { ++destroyed; }
-};
+static int destroyed_textures = 0;
+static std::shared_ptr<Texture> countingTexture()
+{
+    return {new Texture, [](Texture* texture) {
+                ++destroyed_textures;
+                delete texture;
+            }};
+}
 
 static bool skins_and_automap()
 {
-    const int destroyed = TestTexture::destroyed;
+    const int destroyed = destroyed_textures;
     {
-        std::shared_ptr<srTexture> blank = std::make_shared<TestTexture>();
-        std::shared_ptr<srTexture> visible = std::make_shared<TestTexture>();
+        std::shared_ptr<Texture> blank = countingTexture();
+        std::shared_ptr<Texture> visible = countingTexture();
         blank->setName("bLaNk-body");
         visible->setName(std::string(600, 'V')); // No fixed-size texture-name copies.
 
         {
-            stMeshModel mesh(3, 1);
+            Mesh mesh(3, 1);
             auto* base = mesh.getPolygonTextureTable(0, 0, true);
             base->set(0, blank);
             base->set(1, visible);
@@ -295,13 +292,6 @@ static bool skins_and_automap()
             REQUIRE(mesh.CreateSkinTable("", -1) == 3);
             REQUIRE(mesh.CreateSkinTable(cycle + '0', -1) == 4);
             REQUIRE(mesh.CreateSkinTable(cycle + '1', -1) == 5);
-            mesh.RemoveSkinTablesForCycle(cycle);
-            REQUIRE(
-                (mesh.FindSkinTable(cycle + '0') == -1 && mesh.FindSkinTable(cycle + '1') == -1));
-            REQUIRE(mesh.FindSkinTable("") ==
-                    3); // Empty names must not underflow during cycle removal.
-            REQUIRE(mesh.FindSkinTable("SECOND1") == second);
-
             const std::array<std::string_view, 1> excluded{visible->getName()};
             mesh.ApplyAutomapPolygonFilter(excluded);
             selection = mesh.GetActivePolygons(-1, false);
@@ -334,10 +324,20 @@ static bool skins_and_automap()
             mesh.SetMappedVertex(9, 10);
             REQUIRE((mesh.FindMappedIndex(10) == 9 && mesh.mapped_vertices.size() == 1));
             REQUIRE((mesh.FindMappedIndex(-1) == -1 && mesh.FindMappedIndex(11) == -1));
+            auto& part = *mesh.parts.emplace_back(std::make_unique<Mesh>(0, 1));
+            part.SetMappedVertex(0, 11);
+            const auto child_marker = findMappedVertex(&mesh, 11);
+            REQUIRE(child_marker);
+            REQUIRE(child_marker->mesh == &part);
+            REQUIRE(child_marker->index == 0);
+            const auto root_marker = findMappedVertex(&mesh, 10);
+            REQUIRE(root_marker);
+            REQUIRE(root_marker->mesh == &mesh);
+            REQUIRE_FALSE(findMappedVertex(&mesh, -1));
         }
         REQUIRE(blank.use_count() == 1);
     }
-    REQUIRE(TestTexture::destroyed == destroyed + 2);
+    REQUIRE(destroyed_textures == destroyed + 2);
     return true;
 }
 

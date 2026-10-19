@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "glm/ext/vector_float3.hpp"
+#include "wiz8/difficulty.h"
 struct W8MonsterGroup;
 struct W8MonsterInfo;
 struct W8WorldItem;

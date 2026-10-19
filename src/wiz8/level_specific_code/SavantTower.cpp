@@ -1,12 +1,11 @@
 #include "wiz8/level_specific_code/SavantTower.h"
 
-#include "wiz8/engine_code/Prop.h"
-#include "wiz8/engine_code/World.h"
+#include "wiz8/entities/prop.h"
 #include "wiz8/fact_state.h"
-#include "wiz8/layouts/world.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/location_variables.h"
+#include "wiz8/world/world.h"
 
 /* Level Specific Code\SavantTower.cpp (level 0x24, the Savant's tower on
    Ascension Peak).
@@ -20,7 +19,7 @@
 /* The ButtonBlocker prop tracks fact 0x156. */
 void SavantTowerSyncButtonBlocker(void)
 {
-    W8Prop* prop = FindPropByName(GetWorld(), "ButtonBlocker");
+    Prop* prop = FindPropByName(GetWorld(), "ButtonBlocker");
     if (prop != 0) {
         if (GetFact(W8_FACT_DS_BOMB_DEACTIVATED) != 0) {
             prop->SetActivationState(true);
@@ -45,7 +44,7 @@ bool SavantTowerShape(Trigger* pTrigger)
    script notice and latch fact 0x156. */
 bool SavantTowerButtonBlocker(Trigger* pTrigger)
 {
-    W8Prop* blocker = FindPropByName(GetWorld(), "ButtonBlocker");
+    Prop* blocker = FindPropByName(GetWorld(), "ButtonBlocker");
 
     if (blocker != 0) {
         blocker->SetActivationState(true);

@@ -12,8 +12,8 @@
 
 #include "wiz8/canvas/Font.h"
 #include "wiz8/canvas/image.h"
-#include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
+#include "wiz8/render/frame.h"
 
 extern const unsigned int g_W8TextBufferAlignLeft = 0x01;
 extern const unsigned int g_W8TextBufferAlignCenter = 0x02;

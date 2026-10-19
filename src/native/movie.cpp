@@ -11,11 +11,10 @@
 
 #include "asset_paths.h"
 #include "compat/native.h"
-#include "surrender/SDLGPUDevice.h"
-#include "surrender/srGERD.h"
 #include "wiz8/audio/movie_audio.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/surface2d.h"
+#include "wiz8/render/compositor.h"
+#include "wiz8/render/frame.h"
+#include "wiz8/render/gpu_renderer.h"
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -71,7 +70,7 @@ struct W8NativeVideo::State {
     std::deque<Frame> queued;
     Frame current{};
     std::shared_ptr<SDL_Surface> presentation_surface;
-    std::unique_ptr<stSurface2D> presentation_overlay;
+    std::unique_ptr<UiCanvasTexture> presentation_overlay;
     ~State()
     {
         voice.reset();
@@ -312,22 +311,22 @@ W8NativeVideo::Result W8NativeVideo::update_now()
 
 void W8NativeVideo::present(SDL_Surface* target)
 {
-    if (!g_gerd || !g_surface_node) return;
+    if (!g_gerd || !g_ui_canvas) return;
     const auto& description = *target;
     if (!state->presentation_surface || state->presentation_surface.get() != target) {
         ++target->refcount;
         state->presentation_surface = std::shared_ptr<SDL_Surface>(target, SDL_DestroySurface);
         state->presentation_overlay =
-            std::make_unique<stSurface2D>(state->presentation_surface, nullptr);
+            std::make_unique<UiCanvasTexture>(state->presentation_surface);
         state->presentation_overlay->setAlphaTestEnabled(false);
     }
     if (!description.pixels) throw std::runtime_error("Movie presentation surface has no pixels");
     state->presentation_overlay->updateRectangle(g_gerd.get(), 0, 0, description.w, description.h);
-    if (g_gerd->beginFrame() != srGERD::ERROR_NONE)
+    if (g_gerd->beginFrame() != GpuRenderer::ERROR_NONE)
         throw std::runtime_error("Cannot begin movie presentation");
     g_gerd->setClearColor(0, 0, 0, 1);
-    g_gerd->clear(SDLGPUDevice::BUFFER_COLOR | SDLGPUDevice::BUFFER_DEPTH);
-    g_gerd->matrixMode(srGERD::MATRIX_MODELVIEW);
+    g_gerd->clear(GpuRenderer::GPU_BUFFER_COLOR | GpuRenderer::GPU_BUFFER_DEPTH);
+    g_gerd->matrixMode(GpuRenderer::MATRIX_MODELVIEW);
     g_gerd->loadIdentity();
     state->presentation_overlay->draw(g_gerd.get());
     g_gerd->endFrame();

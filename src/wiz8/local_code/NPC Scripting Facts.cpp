@@ -5,22 +5,17 @@
 
 #include <fmt/format.h>
 
-#include "Item.h"
 #include "conditions.h"
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/targeting.h"
-#include "layouts/world.h"
 #include "message_box.h"
-#include "surrender/srDebug.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/engine_code/AnimRep.hpp"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/GrCycle.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/stParticle.h"
+#include "wiz8/entities/animation_types.h"
+#include "wiz8/entities/cycle_player.h"
+#include "wiz8/entities/monster.h"
+#include "wiz8/entities/trigger.h"
+#include "wiz8/entities/world_item.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
@@ -53,8 +48,13 @@
 #include "wiz8/monster_cycles.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_items.h"
+#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/random.h"
+#include "wiz8/render/camera_shake.h"
+#include "wiz8/render/particle_system.h"
+#include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/string_database.h"
+#include "wiz8/world/world.h"
 #include "xstatus.h"
 
 /* Potion explosion completion callback: retail stores this JMP thunk rather than
@@ -78,7 +78,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
     W8WorldItem* world_item;
     W8Character* character;
     Trigger* trigger;
-    stParticle* particle;
+    ParticleSystem* particle;
     W8MonsterInfo* monster_info;
     glm::vec3 position;
     unsigned char fact_value;
@@ -728,7 +728,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         if (monster_info == 0) {
             return;
         }
-        if (!monster_info->p3D->IsCycleInterruptable(monster_info->p3D->pending_cycle)) {
+        if (!monster_info->p3D->IsCycleInterruptable(monster_info->p3D->visual.pending_cycle)) {
             return;
         }
         StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_GET_HIT, W8_ANIMATION_PLAY_ONCE);

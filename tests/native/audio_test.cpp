@@ -42,12 +42,12 @@
 #include "wiz8/button_interaction.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
-#include "wiz8/layouts/world.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/CombatSound.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
+#include "wiz8/world/world.h"
 
 static unsigned callbacks = 0;
 static void word(std::vector<unsigned char>& data, unsigned value, int bytes)
@@ -790,21 +790,21 @@ TEST_CASE_METHOD(AudioFixture,
 {
     startOfflineAudio();
     std::ofstream(asset / "ambient.scf") << ".\nTone.wav 0 0 127 127 -1 -1 0\n";
-    W8World active;
+    World active;
     REQUIRE(ReadAmbientSoundListFile(active, "ambient.scf"));
-    REQUIRE(active.ambient_tracks.size() == 1);
-    REQUIRE_FALSE(active.ambient_tracks.front()->instance);
+    REQUIRE(active.audio.tracks.size() == 1);
+    REQUIRE_FALSE(active.audio.tracks.front()->instance);
     StartAmbientSoundList(active);
-    auto previous_voice = active.ambient_tracks.front()->instance;
+    auto previous_voice = active.audio.tracks.front()->instance;
     REQUIRE(wiz8::sound::is_playing(previous_voice));
     wiz8::sound::Playback candidate_voice;
     {
-        W8World pending;
+        World pending;
         REQUIRE(ReadAmbientSoundListFile(pending, "ambient.scf"));
-        REQUIRE_FALSE(pending.ambient_tracks.front()->instance);
+        REQUIRE_FALSE(pending.audio.tracks.front()->instance);
         REQUIRE(wiz8::sound::is_playing(previous_voice));
         StartAmbientSoundList(pending);
-        candidate_voice = pending.ambient_tracks.front()->instance;
+        candidate_voice = pending.audio.tracks.front()->instance;
         REQUIRE(wiz8::sound::is_playing(candidate_voice));
     }
     REQUIRE_FALSE(wiz8::sound::is_playing(candidate_voice));

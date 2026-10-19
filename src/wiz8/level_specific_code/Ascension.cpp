@@ -8,13 +8,10 @@
 
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/npc_state.h"
-#include "layouts/world.h"
 #include "local_code/Factions.h"
-#include "surrender/srCamera.h"
 #include "wiz8/audio/soundman.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/World.h"
+#include "wiz8/entities/monster.h"
+#include "wiz8/entities/trigger.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
@@ -29,6 +26,8 @@
 #include "wiz8/message_box.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/platform/IntervalGate.h"
+#include "wiz8/render/camera.h"
+#include "wiz8/world/world.h"
 #include "wiz8/xstatus.h"
 
 /* Level Specific Code\Ascension.cpp.
@@ -172,7 +171,7 @@ void AscensionAvalanche(bool command)
         glm::vec3 position;
         glm::vec3 trigger_position;
 
-        position = glm::vec3(GetWorld()->camera->getLocation());
+        position = glm::vec3(GetWorld()->camera->transform.getLocation());
         FindTriggerByName("ASC40")->GetPosition(&trigger_position);
         if (glm::length((position - trigger_position)) < 2500.0) {
             SetFact(W8_FACT_LANDSLIDE_RAPAX_SIDE, 1, false);

@@ -9,27 +9,19 @@
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/gtc/quaternion.hpp>
 
-#include "Navigator.h"
 #include "compat/compiler.h"
 #include "conditions.h"
 #include "dice.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/gameplay_databases.h"
-#include "layouts/world.h"
 #include "local_code/SpellEffect.h"
-#include "surrender/srMath.h"
 #include "wiz8/audio/sound3d.h"
 #include "wiz8/cursor.h"
-#include "wiz8/engine_code/Environment.h"
-#include "wiz8/engine_code/GDProp.h"
-#include "wiz8/engine_code/Missile.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/Prop.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/stParticle.h"
+#include "wiz8/entities/missile.h"
+#include "wiz8/entities/monster.h"
+#include "wiz8/entities/prop.h"
+#include "wiz8/entities/trigger.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/character.h"
@@ -46,9 +38,15 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/location_variables.h"
+#include "wiz8/math.h"
 #include "wiz8/platform/IntervalGate.h"
 #include "wiz8/platform/random.h"
+#include "wiz8/render/particle_system.h"
+#include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/spatial/navigator.h"
 #include "wiz8/string_database.h"
+#include "wiz8/world/environment.h"
+#include "wiz8/world/world.h"
 
 /* Level Specific Code\MartensBluff2.cpp (level 6).
 
@@ -77,11 +75,11 @@ static bool g_crusher_excluded_flag;
 static bool g_crusher_active;
 static std::optional<W8IntervalGate> g_spikeball_gate;
 static int g_spikeball_count;
-static W8Monster* g_crusher_excluded;
-static W8Prop* g_squisher3_prop;
-static W8Prop* g_squisher4_prop;
-static W8Prop* g_dummy_prop;
-static W8Prop* g_dummy_rope_prop;
+static Monster* g_crusher_excluded;
+static Prop* g_squisher3_prop;
+static Prop* g_squisher4_prop;
+static Prop* g_dummy_prop;
+static Prop* g_dummy_rope_prop;
 static Sound3D* g_crusher_sound;
 static W8CrusherState g_crusher_state = W8CrusherState::inactive;
 static std::optional<W8IntervalGate> g_idol_gas_gate;
@@ -162,7 +160,7 @@ static void FireTrapLauncher(const char* name, W8SpellEffectDefinition* effect)
     glm::vec3 direction;
     glm::mat3 rotation;
     float angle;
-    W8Missile* missile;
+    Missile* missile;
 
     if (FindEntityByName(name, &position, &angle, &direction)) {
         offset = glm::vec3(0.0, 0.0, 15000.0);
@@ -189,7 +187,7 @@ bool TriggerArrowTrap(Trigger* pTrigger)
     glm::vec3 direction;
     glm::mat3 rotation;
     float angle;
-    W8Missile* missile;
+    Missile* missile;
 
     ClearAttackBlock(&effect);
     effect.magnitude.base = 0;
@@ -238,7 +236,7 @@ bool MartensBluff2Spikeball(int command)
     glm::vec3 direction;
     glm::mat3 rotation;
     float angle;
-    W8Missile* missile;
+    Missile* missile;
 
     if (command != 0) {
         if (command == static_cast<int>(0xEFFFFFFF)) {
@@ -421,7 +419,7 @@ bool MartensBluff2MonsterCrusher(int command)
     std::size_t count;
     unsigned int i;
     W8MonsterInfo* info;
-    W8Monster* monster;
+    Monster* monster;
     float left;
     float right;
     float radius;
@@ -514,9 +512,9 @@ bool MartensBluff2MonsterCrusher(int command)
         g_crusher_state = W8CrusherState::waiting_for_dummies;
         return false;
     }
-    left = g_squisher3_prop->m_gd_prop->computeBounds().maximum.x;
-    right = g_squisher4_prop->m_gd_prop->computeBounds().minimum.x;
-    location_ids = GetWorldOctree()->locationsInBox({crusher_lower, crusher_upper}, 0);
+    left = g_squisher3_prop->computeBounds().maximum.x;
+    right = g_squisher4_prop->computeBounds().minimum.x;
+    location_ids = GetWorldSpatialIndex()->locationsInBox({crusher_lower, crusher_upper}, 0);
     count = location_ids.size();
     if (count == 0) {
         return false;
@@ -525,18 +523,18 @@ bool MartensBluff2MonsterCrusher(int command)
         info = FindMonster(location_ids[i]);
         if (info != 0 && info->p3D != 0 &&
             (!g_crusher_excluded_flag || info->p3D != g_crusher_excluded) &&
-            info->p3D->flags != 0x200000) {
+            info->p3D->nav.flags != 0x200000) {
             monster = info->p3D;
-            position = monster->GetPosition();
-            radius = monster->movement.alternate_radius;
+            position = monster->nav.GetPosition();
+            radius = monster->nav.movement.alternate_radius;
             if (left <= position.x - radius) {
                 if (right < position.x + radius) {
                     position.x = right - radius;
-                    monster->SetPositionInternal(&position);
+                    monster->nav.SetPositionInternal(&position);
                 }
             } else if (position.x + radius <= right || Random(100) < 0x24) {
                 position.x = left + radius;
-                monster->SetPositionInternal(&position);
+                monster->nav.SetPositionInternal(&position);
             } else {
                 MonsterStartsDying(info, true);
                 if (info->monster_species == 0x183) {
@@ -552,7 +550,7 @@ bool MartensBluff2MonsterCrusher(int command)
    text, activates the IdolGas particle and arms the IdolGas master function. */
 bool MartensBluff2StoneIdol(Trigger* pTrigger)
 {
-    stParticle* particle;
+    ParticleSystem* particle;
 
     if (g_status.item_in_cursor) {
         return false;
@@ -595,7 +593,7 @@ bool MartensBluff2BlueFlowers(Trigger* pTrigger)
    unregisters. */
 bool MartensBluff2IdolGas(int command)
 {
-    stParticle* particle;
+    ParticleSystem* particle;
 
     if (command != 0) {
         g_idol_gas_armed = true;

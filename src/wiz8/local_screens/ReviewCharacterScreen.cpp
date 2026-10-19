@@ -28,10 +28,6 @@
 #include "layouts/targeting.h"
 #include "local_code/ControlsRect.h"
 #include "local_screens/RCSStatsPage.h"
-#include "surrender/srDebug.h"
-#include "surrender/srMaterial.h"
-#include "surrender/srMeshModel.h"
-#include "surrender/srShader.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/canvas/Font.h"
@@ -47,9 +43,6 @@
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/dialog_code/SpellInfoDialog.h"
-#include "wiz8/engine_code/Levels.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
 #include "wiz8/gameplay_constants.h"
@@ -93,13 +86,18 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/platform/timer.h"
+#include "wiz8/render/compositor.h"
+#include "wiz8/render/draw_shader.h"
+#include "wiz8/render/frame.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/utility.h"
+#include "wiz8/world/level_session.h"
 #include "wiz8/xstatus.h"
 
 struct W8NpcState;
@@ -129,7 +127,7 @@ std::uint64_t g_fade_tick_base;
 void (*g_fade_callback)(void);
 unsigned char g_fade_flag;
 unsigned int g_fade_duration;
-std::unique_ptr<stModelInstance2D> g_fade_overlay;
+std::unique_ptr<OverlayQuad> g_fade_overlay;
 int g_fade_out;
 wiz8::sound::Playback g_ending_sound;
 bool g_ending_screen;
@@ -2311,7 +2309,7 @@ void BeginEndgameSequence(void)
 void BeginScreenFade(int fade_to_black, int fade_out, int duration, void (*callback)(void),
                      bool fullscreen_scene_last, char render_each_tick)
 {
-    srShader shader;
+    DrawShader shader;
     glm::vec4 color;
 
     g_fade_duration = duration;
@@ -2332,18 +2330,16 @@ void BeginScreenFade(int fade_to_black, int fade_out, int duration, void (*callb
         color.z = 0.0f;
     }
     color.w = 1.0f;
-    g_fade_overlay.reset(CreateColoredPolygonSprite(0x280, 0x1e0, &color, true));
-    Position2DNodeUnsnapped(g_fade_overlay.get(), 0, 0);
-    shader = static_cast<srMeshModel*>(g_fade_overlay->getModel())->getShader(0);
+    g_fade_overlay = makeColorOverlay(0x280, 0x1e0, color, true);
+    positionOverlay(g_fade_overlay.get(), 0, 0, false);
+    shader = g_fade_overlay->shader;
     if (fade_to_black == 0) {
         shader.value = (shader.value & ~0x6040) | 0xa0;
     } else {
         shader.value = (shader.value & ~0x20c0) | 0x4020;
     }
-    static_cast<srMeshModel*>(g_fade_overlay->getModel())->setShader(shader, 0);
-    static_cast<srMaterial*>(static_cast<srMeshModel*>(g_fade_overlay->getModel())
-                                 ->getMaterial(0, srMeshModel::SIDE_FRONT))
-        ->setOpacity(fade_out != 0 ? 1.0f : 0.0f);
+    g_fade_overlay->shader = shader;
+    g_fade_overlay->color.a = fade_out != 0 ? 1.0f : 0.0f;
     g_fade_tick_base = w8_get_ticks();
 }
 
@@ -2361,9 +2357,7 @@ unsigned char UpdateScreenFade(void)
     if (g_fade_duration < elapsed) {
         g_level_block->review_transition_done = false;
         if (g_fade_out == 0) {
-            static_cast<srMaterial*>(static_cast<srMeshModel*>(g_fade_overlay->getModel())
-                                         ->getMaterial(0, srMeshModel::SIDE_FRONT))
-                ->setOpacity(1.0f);
+            g_fade_overlay->color.a = 1.0f;
             RenderFrame();
             RenderFrame();
         }
@@ -2375,13 +2369,11 @@ unsigned char UpdateScreenFade(void)
         return g_fade_flag;
     }
     float progress = static_cast<float>(elapsed) / g_fade_duration;
-    srMaterial* material =
-        static_cast<srMaterial*>(static_cast<srMeshModel*>(g_fade_overlay->getModel())
-                                     ->getMaterial(0, srMeshModel::SIDE_FRONT));
+    OverlayQuad* material = g_fade_overlay.get();
     if (g_fade_out == 0) {
-        material->setOpacity(progress);
+        material->color.a = progress;
     } else {
-        material->setOpacity(1.0f - progress);
+        material->color.a = 1.0f - progress;
     }
     if (g_fade_flag != 0) {
         RenderFrame();

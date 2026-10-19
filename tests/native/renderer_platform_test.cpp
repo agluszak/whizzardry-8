@@ -3,30 +3,30 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "glm/ext/vector_float3.hpp"
-#include "surrender/srBoundingSphere.h"
-#include "surrender/srGERD.h"
+#include "wiz8/render/gpu_renderer.h"
+#include "wiz8/spatial/bounding_sphere.h"
 
 TEST_CASE("renderer platform")
 {
     for (int cycle = 0; cycle < 3; ++cycle) {
         {
-            srGERD gerd;
-            gerd.matrixMode(srGERD::MATRIX_MODELVIEW);
+            GpuRenderer gerd;
+            gerd.matrixMode(GpuRenderer::MATRIX_MODELVIEW);
             gerd.loadIdentity();
-            const auto sphere = gerd.eyeSpaceBounds(srBoundingSphere{{1, 2, 3}, 2});
+            const auto sphere = gerd.eyeSpaceBounds(BoundingSphere{{1, 2, 3}, 2});
             REQUIRE(sphere.center == glm::vec3(1, 2, 3));
             REQUIRE(sphere.radius == 2);
             gerd.translate(5, 6, 7);
             gerd.scale(2, -3, 4);
-            const auto scaled = gerd.eyeSpaceBounds(srBoundingSphere{{1, 2, 3}, 2});
+            const auto scaled = gerd.eyeSpaceBounds(BoundingSphere{{1, 2, 3}, 2});
             REQUIRE(scaled.center == glm::vec3(7, 0, 19));
             REQUIRE(scaled.radius == 8);
-            REQUIRE(gerd.eyeSpaceBounds(srBoundingSphere{{0, 0, 0}, 0}).radius == 0);
+            REQUIRE(gerd.eyeSpaceBounds(BoundingSphere{{0, 0, 0}, 0}).radius == 0);
             REQUIRE(sphere.center == glm::vec3(1, 2, 3));
             REQUIRE(sphere.radius == 2);
             gerd.loadIdentity();
             REQUIRE(gerd.lockBuffer() == nullptr);
-            REQUIRE(gerd.getError() == srGERD::ERROR_WINDOW_NOT_OPEN);
+            REQUIRE(gerd.getError() == GpuRenderer::ERROR_WINDOW_NOT_OPEN);
             auto* renderer = &gerd.batchRenderer();
             renderer->submit();
             auto statistics = renderer->getStatistics();
@@ -61,7 +61,7 @@ TEST_CASE("renderer platform")
             REQUIRE(gerd.getStatistics().sorted_triangles == 0);
             REQUIRE(combined.input_triangles == 7);
         }
-        REQUIRE(srGERD::getActive() == nullptr);
+        REQUIRE(GpuRenderer::getActive() == nullptr);
     }
 
     puts("ok: renderer submission and independent resource lifetimes");

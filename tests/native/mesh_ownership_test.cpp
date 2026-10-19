@@ -10,27 +10,24 @@
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_int3.hpp"
-#include "surrender/srGERD.h"
-#include "surrender/srMaterial.h"
-#include "surrender/srMath.h"
-#include "surrender/srMeshModel.h"
-#include "surrender/srShader.h"
-#include "surrender/srTexture.h"
-#include "surrender/srTriMeshPipeline.h"
-#include "surrender/srVertexPipe.h"
+#include "wiz8/math.h"
+#include "wiz8/render/draw_shader.h"
+#include "wiz8/render/material.h"
+#include "wiz8/render/mesh.h"
+#include "wiz8/render/mesh_draw.h"
+#include "wiz8/render/texture.h"
+#include "wiz8/render/vertex_shading.h"
 
-static_assert(std::is_same_v<decltype(srMeshModel::poly_vertices), std::vector<glm::ivec3>>);
-static_assert(std::is_same_v<decltype(srMeshModel::vertex_locations), std::vector<glm::vec3>>);
-static_assert(std::is_same_v<decltype(srTriMeshPipeline::vertex_pipe), srVertexPipe>);
-static_assert(!std::is_copy_constructible_v<srTriMeshPipeline>);
+static_assert(std::is_same_v<decltype(Mesh::poly_vertices), std::vector<glm::ivec3>>);
+static_assert(std::is_same_v<decltype(Mesh::vertex_locations), std::vector<glm::vec3>>);
 
 static bool defaults()
 {
     // The vector default constructors do not zero their components. Start on dirty storage so
     // aggregate/member initialization, not incidental stack contents, must initialize the view.
-    alignas(srMeshModel::TriMesh) std::array<std::byte, sizeof(srMeshModel::TriMesh)> storage;
+    alignas(Mesh::TriMesh) std::array<std::byte, sizeof(Mesh::TriMesh)> storage;
     storage.fill(std::byte{0xa5});
-    auto* mesh = std::construct_at(reinterpret_cast<srMeshModel::TriMesh*>(storage.data()));
+    auto* mesh = std::construct_at(reinterpret_cast<Mesh::TriMesh*>(storage.data()));
     REQUIRE((mesh->vertex_count == 0 && mesh->polygon_count == 0 && mesh->pass_count == 0));
     REQUIRE((mesh->control_flags == 0 && !mesh->active_polygons));
     REQUIRE((mesh->poly_vertices == nullptr && mesh->poly_equations == nullptr));
@@ -39,11 +36,11 @@ static bool defaults()
     REQUIRE(mesh->bounds_maximum == glm::vec3(0, 0, 0));
     REQUIRE(mesh->bounds_center == glm::vec3(0, 0, 0));
     REQUIRE((mesh->bounds_radius == 0 && mesh->sort_bias == 0));
-    for (int pass = 0; pass < srMeshModel::MAX_PASSES; ++pass) {
+    for (int pass = 0; pass < Mesh::MAX_PASSES; ++pass) {
         REQUIRE((mesh->dig[pass] == nullptr && mesh->dcg[pass] == nullptr &&
                  mesh->scg[pass] == nullptr));
         REQUIRE((mesh->poly_uv[pass] == nullptr && mesh->poly_shaders[pass] == nullptr));
-        REQUIRE(mesh->shaders[pass].value == srShader().value);
+        REQUIRE(mesh->shaders[pass].value == DrawShader().value);
         for (int side = 0; side < 2; ++side) {
             REQUIRE(
                 (mesh->texcoords[pass][side] == nullptr && mesh->materials[pass][side] == nullptr));
@@ -69,7 +66,7 @@ static bool zeroNormals()
 
 static bool lazyTables()
 {
-    srMeshModel empty;
+    Mesh empty;
     REQUIRE((empty.getPolyVertex() == nullptr && empty.getVertexLoc() == nullptr));
     REQUIRE((empty.getVertexNormal() == nullptr && empty.getPolyEq() == nullptr));
     REQUIRE((empty.getActivePolygonTable(1) == nullptr && empty.getVertexShadeIndex(1) == nullptr));
@@ -77,21 +74,21 @@ static bool lazyTables()
     REQUIRE((empty.getVertexTexCoords(0, 0, 1) == nullptr && empty.getVertexDIG(0, 1) == nullptr));
     REQUIRE((empty.getVertexDCG(0, 1) == nullptr && empty.getVertexSCG(0, 1) == nullptr));
     REQUIRE(empty.getPolygonTextureTable(0, 0, true) == nullptr);
-    REQUIRE(empty.getVertexMaterialTable(0, srMeshModel::SIDE_FRONT, true) == nullptr);
+    REQUIRE(empty.getVertexMaterialTable(0, Mesh::SIDE_FRONT, true) == nullptr);
 
-    srMeshModel mesh(2, 3);
+    Mesh mesh(2, 3);
     REQUIRE((mesh.poly_vertices.empty() && mesh.vertex_locations.empty() &&
              mesh.vertex_normals.empty()));
     REQUIRE((mesh.poly_equations.empty() && mesh.active_polygons.empty()));
-    for (int pass = 0; pass < srMeshModel::MAX_PASSES; ++pass) {
+    for (int pass = 0; pass < Mesh::MAX_PASSES; ++pass) {
         REQUIRE(
             (mesh.getPolyShader(pass, 0) == nullptr && mesh.getPolyUVIndex(pass, 0) == nullptr));
         REQUIRE((mesh.getVertexDIG(pass, 0) == nullptr && mesh.getVertexDCG(pass, 0) == nullptr));
         REQUIRE(mesh.getVertexSCG(pass, 0) == nullptr);
         for (int side = 0; side < 2; ++side) {
             REQUIRE(mesh.getPolygonTextureTable(pass, side, false) == nullptr);
-            REQUIRE(mesh.getVertexMaterialTable(pass, static_cast<srMeshModel::e_side>(side),
-                                                false) == nullptr);
+            REQUIRE(mesh.getVertexMaterialTable(pass, static_cast<Mesh::e_side>(side), false) ==
+                    nullptr);
             REQUIRE(mesh.getVertexTexCoords(pass, side, 0) == nullptr);
         }
     }
@@ -124,21 +121,21 @@ static bool lazyTables()
         REQUIRE((dcg.x == 1 && dcg.y == 1 && dcg.z == 1 && dcg.w == 1));
         REQUIRE((scg.x == 1 && scg.y == 1 && scg.z == 1 && scg.w == 1));
     }
-    REQUIRE(mesh.getPolyShader(3, 1)[0].value == srShader().value);
+    REQUIRE(mesh.getPolyShader(3, 1)[0].value == DrawShader().value);
     REQUIRE(mesh.getVertexShadeIndex(1)[0] == 0);
     REQUIRE((*mesh.getPolygonTextureTable(3, 1, true))[0].get() == nullptr);
-    REQUIRE((*mesh.getVertexMaterialTable(3, srMeshModel::SIDE_BACK, true))[0].get() == nullptr);
+    REQUIRE((*mesh.getVertexMaterialTable(3, Mesh::SIDE_BACK, true))[0].get() == nullptr);
     REQUIRE((mesh.getVertexDIG(-1, 1) == nullptr && mesh.getVertexDIG(4, 1) == nullptr));
     REQUIRE(mesh.getVertexTexCoords(0, 2, 1) == nullptr);
     REQUIRE((mesh.getPolygonTextureTable(4, 0, true) == nullptr &&
              mesh.getPolyShader(-1, 1) == nullptr));
-    REQUIRE(mesh.getVertexMaterialTable(0, static_cast<srMeshModel::e_side>(2), true) == nullptr);
+    REQUIRE(mesh.getVertexMaterialTable(0, static_cast<Mesh::e_side>(2), true) == nullptr);
     return true;
 }
 
 static bool uvGrowth()
 {
-    srMeshModel mesh(1, 3);
+    Mesh mesh(1, 3);
     auto* uv = mesh.getVertexTexCoords(1, 1, 1);
     uv[0] = glm::vec2(0.25f, 0.75f);
     mesh.getTriMesh();
@@ -155,7 +152,7 @@ static bool uvGrowth()
     for (int index = 3; index < 6; ++index) REQUIRE((uv[index].x == 0 && uv[index].y == 0));
 
     // A cleared table may still have allocation capacity; it is nevertheless absent/null.
-    srMeshModel no_vertices;
+    Mesh no_vertices;
     no_vertices.setUVCount(8);
     REQUIRE(no_vertices.getVertexTexCoords(0, 0, 1) != nullptr);
     no_vertices.setUVCount(0);
@@ -168,16 +165,16 @@ static bool uvGrowth()
 
 static bool reset()
 {
-    auto material = std::make_shared<srMaterial>();
-    auto texture = std::make_shared<srTexture>();
+    auto material = std::make_shared<Material>();
+    auto texture = std::make_shared<Texture>();
     {
-        srMeshModel mesh(1, 3);
+        Mesh mesh(1, 3);
         mesh.getVertexLoc()[1] = glm::vec3(1, 2, 3);
         mesh.setUVCount(7);
         mesh.getVertexTexCoords(2, 0, 1)[6] = glm::vec2(0.5f, 0.75f);
-        mesh.getVertexMaterialTable(1, srMeshModel::SIDE_BACK, true)->set(2, material);
+        mesh.getVertexMaterialTable(1, Mesh::SIDE_BACK, true)->set(2, material);
         mesh.getPolygonTextureTable(1, 0, true)->set(0, texture);
-        mesh.setMaterial(material, 0, srMeshModel::SIDE_FRONT);
+        mesh.setMaterial(material, 0, Mesh::SIDE_FRONT);
         mesh.setTexture(texture, 0, 0);
         mesh.setSortBias(0.25f);
         mesh.setPassCount(3);
@@ -187,12 +184,12 @@ static bool reset()
             (mesh.getVertexCount() == 4 && mesh.getUVCount() == 4 && mesh.getPolygonCount() == 2));
         REQUIRE((mesh.getPassCount() == 1 && mesh.getActivePolygonCount() == 2));
         REQUIRE((mesh.getSortBias() == 0.25f &&
-                 mesh.getMaterial(0, srMeshModel::SIDE_FRONT) == material.get()));
+                 mesh.getMaterial(0, Mesh::SIDE_FRONT) == material.get()));
         REQUIRE(mesh.getTexture(0, 0) == texture.get());
         REQUIRE((mesh.vertex_locations.empty() && mesh.vertex_locations.capacity() == 0));
         REQUIRE((mesh.texcoords[2][0].empty() && mesh.texcoords[2][0].capacity() == 0));
         REQUIRE((mesh.tri_mesh.positions == nullptr && mesh.tri_mesh.texcoords[2][0] == nullptr));
-        REQUIRE(mesh.getVertexMaterialTable(1, srMeshModel::SIDE_BACK, false) == nullptr);
+        REQUIRE(mesh.getVertexMaterialTable(1, Mesh::SIDE_BACK, false) == nullptr);
         REQUIRE((mesh.getPolygonTextureTable(1, 0, false) == nullptr &&
                  mesh.getActivePolygonTable(0) == nullptr));
         REQUIRE(mesh.getVertexLoc()[1] == glm::vec3(0, 0, 0));
@@ -201,81 +198,30 @@ static bool reset()
     return true;
 }
 
-static bool pipelineSlots()
+static bool meshPassViews()
 {
-    // Metadata-only GERD/device construction: no window, GPU context or rendering is requested.
-    srGERD renderer;
-    auto* pipeline = &renderer.meshPipeline();
-    REQUIRE((pipeline && !pipeline->active_triangles));
-    pipeline->triangle_count = 1;
-    pipeline->active_triangles.emplace();
-    pipeline->FlushSlots();
-    REQUIRE(pipeline->active_triangles.value().empty());
-    pipeline->Reset(&renderer);
-    REQUIRE_FALSE(pipeline->active_triangles);
-    srMeshModel mesh(1, 3);
+    // A pass borrows the source tables without mutating another pass's bindings.
+    Mesh mesh(1, 3);
     auto* uv = mesh.getVertexTexCoords(0, 0, 1);
     auto* textures = mesh.getPolygonTextureTable(0, 0, true);
     auto* indices = mesh.getPolyUVIndex(0, 1);
-    srShader shader;
+    DrawShader shader;
     auto submitted = mesh.getTriMesh();
     submitted.poly_shaders[0] = &shader;
-    for (unsigned slot = 0; slot < 96; ++slot) {
-        REQUIRE(pipeline->current_record == &pipeline->records[slot]);
-        REQUIRE(pipeline->current_pass == &pipeline->passes[slot]);
-        REQUIRE((pipeline->current_record->flags == 0 &&
-                 pipeline->current_record->st_source[0] == nullptr));
-        REQUIRE((pipeline->current_record->spec_for_diffuse == nullptr &&
-                 pipeline->current_record->alpha_source == nullptr));
-        REQUIRE(pipeline->current_pass->poly_uv == nullptr);
-        pipeline->AppendMeshPass(submitted, 0, srMeshModel::SIDE_FRONT, srShader());
-        for (unsigned previous = 0; previous <= slot; ++previous) {
-            REQUIRE(pipeline->records[previous].st_source[0] == uv);
-            REQUIRE(pipeline->passes[previous].poly_uv == indices);
-            REQUIRE(pipeline->passes[previous].texture_tables[0] == textures);
-            REQUIRE(pipeline->passes[previous].shaders == &shader);
-        }
-    }
-    // Another renderer can prepare and destroy its scratch without replacing this mesh's passes.
-    {
-        srGERD other;
-        auto& other_pipeline = other.meshPipeline();
-        other_pipeline.AppendMeshPass(submitted, 0, srMeshModel::SIDE_FRONT, srShader());
-        other_pipeline.Flush();
-    }
-    REQUIRE(pipeline->slot_count == 96);
-    // Zero triangles exercise the real Flush boundary without any device work.
-    pipeline->Flush();
-    REQUIRE((pipeline->records[0].st_source[0] == uv &&
-             pipeline->passes[0].texture_tables[0] == textures));
-    pipeline->Reset(&renderer);
-    REQUIRE((pipeline->slot_count == 0 && pipeline->current_record->st_source[0] == nullptr));
-    REQUIRE((pipeline->current_pass->texture_tables[0] == nullptr &&
-             pipeline->current_pass->shaders == nullptr));
-    REQUIRE(pipeline->current_record->materials == nullptr);
-    REQUIRE(pipeline->bounds_minimum == glm::vec3(0, 0, 0));
-    // A per-polygon shader table wins over the caller's uniform override.
-    srShader override_shader;
-    override_shader.value ^= srShader::PASS_MASK;
-    pipeline->AppendMeshPass(submitted, 0, srMeshModel::SIDE_FRONT, override_shader);
-    REQUIRE(pipeline->passes[0].shaders == &shader);
+    const auto first = makeMeshDrawPass(submitted, 0, Mesh::SIDE_FRONT);
+    REQUIRE(first.vertex.st_source[0] == uv);
+    REQUIRE(first.render.poly_uv == indices);
+    REQUIRE(first.render.texture_tables[0] == textures);
+    REQUIRE(first.render.shaders == &shader);
     submitted.poly_shaders[0] = nullptr;
-    pipeline->AppendMeshPass(submitted, 0, srMeshModel::SIDE_FRONT, override_shader);
-    REQUIRE(pipeline->passes[1].shaders == nullptr);
-    REQUIRE(pipeline->passes[1].shader.value == override_shader.value);
-
-    // Sphere bounds take precedence when both automatic bounds are enabled.
-    for (unsigned box = 0; box < 2; ++box) {
-        for (unsigned sphere = 0; sphere < 2; ++sphere) {
-            pipeline->Reset(&renderer);
-            submitted.control_flags = (box ? 0 : 1u << srMeshModel::CONTROL_SKIP_AUTO_BOX) |
-                                      (sphere ? 0 : 1u << srMeshModel::CONTROL_SKIP_AUTO_SPHERE);
-            pipeline->SetMeshBounds(submitted);
-            REQUIRE(pipeline->bounds_source == (sphere ? srTriMeshPipeline::BOUNDS_SPHERE
-                                                : box  ? srTriMeshPipeline::BOUNDS_BOX
-                                                       : srTriMeshPipeline::BOUNDS_FROM_VERTICES));
-        }
-    }
+    submitted.poly_textures[0][0] = nullptr;
+    submitted.shaders[0].value ^= DrawShader::PASS_MASK;
+    const auto next = makeMeshDrawPass(submitted, 0, Mesh::SIDE_FRONT);
+    REQUIRE(next.render.shaders == nullptr);
+    REQUIRE(next.render.shader.value == submitted.shaders[0].value);
+    REQUIRE(next.render.texture_tables[0] == nullptr);
+    REQUIRE(first.render.shaders == &shader);
+    REQUIRE(first.render.texture_tables[0] == textures);
     return true;
 }
 
@@ -286,22 +232,22 @@ TEST_CASE("mesh_ownership_test")
     REQUIRE(lazyTables());
     REQUIRE(uvGrowth());
     REQUIRE(reset());
-    REQUIRE(pipelineSlots());
+    REQUIRE(meshPassViews());
 }
 
 TEST_CASE("Mesh resource assignments retain one owner per resource and survive reindexing")
 {
-    srMeshModel mesh(3, 4);
-    auto material = std::make_shared<srMaterial>();
-    auto texture = std::make_shared<srTexture>();
-    auto* materials = mesh.getVertexMaterialTable(0, srMeshModel::SIDE_FRONT, true);
+    Mesh mesh(3, 4);
+    auto material = std::make_shared<Material>();
+    auto texture = std::make_shared<Texture>();
+    auto* materials = mesh.getVertexMaterialTable(0, Mesh::SIDE_FRONT, true);
     auto* textures = mesh.getPolygonTextureTable(0, 0, true);
     for (int vertex = 0; vertex < 4; ++vertex) materials->set(vertex, material);
     for (int polygon = 0; polygon < 3; ++polygon) textures->set(polygon, texture);
     REQUIRE(material.use_count() == 2);
     REQUIRE(texture.use_count() == 2);
     const auto borrowed = mesh.getTriMesh();
-    auto other = std::make_shared<srMaterial>();
+    auto other = std::make_shared<Material>();
     materials->set(2, other);
     materials->set(3, nullptr);
     // Growing the resource pool keeps the already published table view valid.
@@ -311,7 +257,7 @@ TEST_CASE("Mesh resource assignments retain one owner per resource and survive r
     REQUIRE((*materials)[0] == nullptr);
     REQUIRE((*materials)[1] == other);
     REQUIRE((*materials)[2] == material);
-    std::weak_ptr<srMaterial> lifetime = other;
+    std::weak_ptr<Material> lifetime = other;
     other.reset();
     materials->set(1, material);
     REQUIRE(lifetime.expired()); // Replacing the last assignment releases ownership.

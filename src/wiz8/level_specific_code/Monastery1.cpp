@@ -1,15 +1,14 @@
 #include "wiz8/level_specific_code/Monastery1.h"
 
 #include "glm/ext/vector_float3.hpp"
-#include "layouts/world.h"
-#include "surrender/srCamera.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/World.h"
+#include "wiz8/entities/trigger.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/location_variables.h"
+#include "wiz8/render/camera.h"
 #include "wiz8/spell_ids.h"
+#include "wiz8/world/world.h"
 
 /* Level Specific Code\Monastery1.cpp (level 8).
 
@@ -101,7 +100,7 @@ bool OnCoffinlidgActivated(Trigger* trigger)
 {
     glm::vec3 position;
 
-    position = glm::vec3(GetWorld()->camera->getLocation());
+    position = glm::vec3(GetWorld()->camera->transform.getLocation());
     PointCastSpell(position, W8_SPELL_NOXIOUS_FUMES, 3);
     return true;
 }

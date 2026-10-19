@@ -19,7 +19,6 @@
 #include "layouts/gameplay_databases.h"
 #include "layouts/item_instance.h"
 #include "layouts/main_game_screen.h"
-#include "surrender/srDebug.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/canvas/Font.h"
 #include "wiz8/canvas/himage.h"
@@ -31,7 +30,6 @@
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
-#include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/character.h"
@@ -62,6 +60,8 @@
 #include "wiz8/local_screens/RCSStatsPage.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/platform/assertion.h"
+#include "wiz8/render/frame.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
@@ -475,15 +475,15 @@ void UpdateRcsDismissPanel(void)
 void ReleaseFormationBoard(void)
 {
     if (g_level_block->formation_board_sprite != 0) {
-        ReleaseObject(g_level_block->formation_board_sprite);
+        g_level_block->formation_board_sprite.reset();
         g_level_block->formation_board_sprite = 0;
     }
     if (g_level_block->formation_compass_sprite != 0) {
-        ReleaseObject(g_level_block->formation_compass_sprite);
+        g_level_block->formation_compass_sprite.reset();
         g_level_block->formation_compass_sprite = 0;
     }
     if (g_level_block->formation_overlay_sprite != 0) {
-        ReleaseObject(g_level_block->formation_overlay_sprite);
+        g_level_block->formation_overlay_sprite.reset();
         g_level_block->formation_overlay_sprite = 0;
     }
 }

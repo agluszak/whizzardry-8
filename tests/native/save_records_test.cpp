@@ -15,14 +15,11 @@
 #include "layouts/levels.h"
 #include "layouts/npc_dialogue.h"
 #include "layouts/targeting.h"
-#include "layouts/world.h"
 #include "retail_records.h"
 #include "save_payload.h"
 #include "unicode.h"
 #include "wiz8/checked_integer.h"
 #include "wiz8/compat/native.h"
-#include "wiz8/engine_code/Quality.h"
-#include "wiz8/engine_code/stModelInstance.h" // IWYU pragma: keep - complete model type for unique_ptr destruction.
 #include "wiz8/fact_state.h"
 #include "wiz8/gameplay_modifiers.h"
 #include "wiz8/local_code/GameplayDatabase.h"
@@ -30,9 +27,12 @@
 #include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/render/mesh_instance.h" // IWYU pragma: keep - complete model type for unique_ptr destruction.
+#include "wiz8/render/quality.h"
 #include "wiz8/retail_save_records.h"
 #include "wiz8/retail_text_records.h"
 #include "wiz8/string_database.h"
+#include "wiz8/world/world.h"
 /* Exercise recovered NPCT loading with retail addresses and native handles as
    on-disk presence markers. No installed game data or display is required. */
 
@@ -64,16 +64,11 @@
 #include "temporary_directory.h"
 #include "wiz8/audio/SoundEvent.h"
 #include "wiz8/chunk.h"
-#include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/AniMesh.h"
-#include "wiz8/engine_code/AnimObj.h"
-#include "wiz8/engine_code/GDCamera.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/Levels.h"
-#include "wiz8/engine_code/Missile.h"
-#include "wiz8/engine_code/PathAI.h"
-#include "wiz8/engine_code/ReadLevel.h"
-#include "wiz8/engine_code/stScript.h"
+#include "wiz8/entities/animation.h"
+#include "wiz8/entities/animation_mesh.h"
+#include "wiz8/entities/keyframe_track.h"
+#include "wiz8/entities/missile.h"
+#include "wiz8/entities/script.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -85,7 +80,12 @@
 #include "wiz8/monster_generators.h"
 #include "wiz8/npc_script_file.h"
 #include "wiz8/platform/IntervalGate.h"
+#include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spell_ids.h"
+#include "wiz8/world/level_loader.h"
+#include "wiz8/world/level_session.h"
+#include "wiz8/world/party_camera.h"
+#include "wiz8/world/update.h"
 #include "wiz8/xstatus.h"
 
 extern std::vector<std::unique_ptr<W8NpcState>> g_npc_states;
@@ -485,30 +485,30 @@ static void path_record_contracts()
         REQUIRE((path->scales.size() == (version == 2 ? 2 : 0)));
         if (version == 2) REQUIRE((path->scales[1].y == 3));
         path->timed = true;
-        auto copy = std::make_unique<W8PathAI>(*path);
-        auto restarted = path->Clone();
-        REQUIRE((!static_cast<W8PathAI*>(restarted.get())->timed));
+        auto copy = std::optional<KeyframeTrack>(std::in_place, *path);
+        auto restarted = path->restarted();
+        REQUIRE((!restarted.timed));
         REQUIRE((copy->timed && copy->nodes.data() != path->nodes.data()));
         REQUIRE((copy->rotations.data() != path->rotations.data()));
         if (version == 2) REQUIRE((copy->scales.data() != path->scales.data()));
         copy->nodes[0].x = 99;
         REQUIRE((path->nodes[0].x == 0));
-        PathAIClearOwned(copy.get());
-        PathAIClearOwned(copy.get());
+        PathAIClearOwned((copy ? &*copy : nullptr));
+        PathAIClearOwned((copy ? &*copy : nullptr));
         REQUIRE((copy->nodes.empty() && copy->rotations.empty() && copy->scales.empty()));
         glm::vec3 point(7, 8, 9);
         PathAIPosition(nullptr, &point);
-        PathAIPosition(copy.get(), &point);
+        PathAIPosition((copy ? &*copy : nullptr), &point);
         REQUIRE(point == glm::vec3(7, 8, 9));
         copy->looping = true;
-        REQUIRE((!PathAINextPoint(copy.get(), &point)));
-        REQUIRE((PathAINextPoint(path.get(), &point) && point.x == 0));
-        REQUIRE((PathAINextPoint(path.get(), &point) && point.x == 500));
-        REQUIRE((!PathAINextPoint(path.get(), &point)));
+        REQUIRE((!PathAINextPoint((copy ? &*copy : nullptr), &point)));
+        REQUIRE((PathAINextPoint((path ? &*path : nullptr), &point) && point.x == 0));
+        REQUIRE((PathAINextPoint((path ? &*path : nullptr), &point) && point.x == 500));
+        REQUIRE((!PathAINextPoint((path ? &*path : nullptr), &point)));
         path->animated = true;
         path->point_index = 0;
         path->interpolation_fraction = 0.25f;
-        PathAIPosition(path.get(), &point);
+        PathAIPosition((path ? &*path : nullptr), &point);
         REQUIRE((point.x == 125));
     }
     for (int count : {-1, 0, 1, std::numeric_limits<int>::max()}) {
@@ -552,9 +552,9 @@ static void animation_record_contracts()
             file->write(&zero, 1); // Version 10's reserved byte.
         }
         auto file = wiz8::open_file(wiz8::user_path(filename));
-        W8ReadLevelInfo info{};
+        LevelLoadContext info{};
         info.hFile = file.get();
-        auto animation = std::make_unique<W8AnimObj>();
+        auto animation = std::make_unique<Animation>();
         REQUIRE((AnimObjReadFromFile(&info, animation.get(), 0, nullptr, 0)));
         REQUIRE((animation->animation_playing == (flag != 0)));
         REQUIRE((animation->random_play == (flag != 0)));
@@ -568,27 +568,31 @@ static void animation_record_contracts()
         REQUIRE_FALSE(AnimObjGetBounds(animation.get(), 3, 1));
         const auto wrapped_bounds = AnimObjGetBounds(animation.get(), 0, 0x101);
         REQUIRE(wrapped_bounds);
-        REQUIRE(wrapped_bounds.value().minimum == bounds.value().minimum);
-        REQUIRE(wrapped_bounds.value().maximum == bounds.value().maximum);
-        animation->path = std::make_unique<W8PathAI>();
+        REQUIRE(wrapped_bounds->minimum == bounds->minimum);
+        REQUIRE(wrapped_bounds->maximum == bounds->maximum);
+        animation->path = std::optional<KeyframeTrack>(std::in_place);
         PathAIAddPoint(*animation->path, glm::vec3(1, 2, 3));
-        animation->paths[0].push_back(std::make_unique<W8PathAI>(*animation->path));
-        animation->entries[0] = std::make_unique<W8AniMesh>();
+        animation->paths[0].push_back(animation->path);
+        animation->entries[0] = std::make_unique<AnimationMesh>();
         animation->entries[0]->source_file = std::string(300, 'x');
         animation->entries[0]->bitmap_directory = "Textures/";
         animation->entries[0]->meshes.resize(2); // Deferred frames have no instances yet.
-        animation->meshes[0].push_back(std::make_unique<W8AniMesh>(*animation->entries[0]));
-        auto copy = std::make_unique<W8AnimObj>(*animation);
+        animation->meshes[0].push_back(std::make_unique<AnimationMesh>(*animation->entries[0]));
+        auto copy = std::make_unique<Animation>(*animation);
         REQUIRE((copy->entries[0] != animation->entries[0]));
         REQUIRE((copy->meshes[0][0] != animation->meshes[0][0]));
         REQUIRE((copy->entries[0]->meshes.size() == 2));
         REQUIRE((copy->frame_bounds.data() != animation->frame_bounds.data()));
-        REQUIRE((copy->path != animation->path && copy->path->nodes[0].x == 1));
-        REQUIRE((copy->paths[0][0] != animation->paths[0][0]));
+        REQUIRE(copy->path);
+        copy->path->nodes[0].x = 9;
+        REQUIRE(animation->path->nodes[0].x == 1);
+        REQUIRE(copy->paths[0][0]);
+        copy->paths[0][0]->nodes[0].z = 7;
+        REQUIRE(animation->paths[0][0]->nodes[0].z == 3);
         animation.reset();
         REQUIRE((copy->entries[0]->source_file == std::string(300, 'x')));
         REQUIRE((copy->meshes[0][0]->bitmap_directory == "Textures/"));
-        REQUIRE((copy->paths[0][0]->nodes[0].z == 3));
+        REQUIRE((copy->paths[0][0]->nodes[0].z == 7));
         const auto copy_bounds = AnimObjGetBounds(copy.get(), 0, 0);
         REQUIRE(copy_bounds);
         REQUIRE((copy_bounds.value().minimum.x == -500 && copy_bounds.value().maximum.x == 500));
@@ -606,7 +610,7 @@ static void animated_mesh_cache_contracts()
     const int old_stamp = g_animesh_cache_stamp;
     REQUIRE_FALSE(GetAniMeshBounds(nullptr));
     {
-        W8AniMesh mesh;
+        AnimationMesh mesh;
         mesh.flags.radius_loaded = true;
         mesh.bounds_minimum = {-1, -2, -3};
         mesh.bounds_maximum = {4, 5, 6};
@@ -630,7 +634,7 @@ static void animated_mesh_cache_contracts()
         file->write(&frame_count, 1);
     }
     {
-        W8AniMesh mesh;
+        AnimationMesh mesh;
         mesh.source_file = wiz8::asset_path(filename);
         REQUIRE_FALSE(GetAniMeshBounds(&mesh));
         REQUIRE_FALSE(mesh.flags.radius_loaded);
@@ -639,7 +643,7 @@ static void animated_mesh_cache_contracts()
     REQUIRE(wiz8::remove_file(wiz8::asset_path(filename)));
     g_animesh_cache_stamp = old_stamp;
     {
-        W8AniMesh original;
+        AnimationMesh original;
         REQUIRE((original.meshes.empty() && original.source_file.empty()));
         REQUIRE((original.bounds_minimum == glm::vec3(0)));
         original.flags.loaded = true;
@@ -649,7 +653,7 @@ static void animated_mesh_cache_contracts()
         g_animesh_cache_bytes += 32;
         g_animesh_cache_list.push_back(&original);
         {
-            W8AniMesh copy(original);
+            AnimationMesh copy(original);
             REQUIRE((g_animesh_cache_bytes == old_bytes + 64));
             REQUIRE((g_animesh_cache_list.size() == 2));
             g_animesh_cache_limit = old_bytes;
@@ -668,34 +672,32 @@ static void animated_mesh_cache_contracts()
 
 static void graphical_object_ownership_contracts()
 {
-    W8Missile original;
-    original.m_pAI = std::make_unique<W8PathAI>();
-    PathAIAddPoint(*original.m_pAI, glm::vec3(1, 2, 3));
-    auto event = std::make_unique<W8SoundEvent>(W8_SOUND_EVENT_FRAME, 1, 2, 3, "step.wav", true);
-    auto* first = event.get();
-    original.AddSoundEvent(std::move(event));
+    Missile original;
+    original.visual.m_pAI = std::optional<KeyframeTrack>(std::in_place);
+    PathAIAddPoint(*original.visual.m_pAI, glm::vec3(1, 2, 3));
+    auto event = W8SoundEvent(W8_SOUND_EVENT_FRAME, 1, 2, 3, "step.wav", true);
+    event.pitch = 3;
+    original.visual.AddSoundEvent(std::move(event));
     for (int i = 0; i < 20; ++i) {
-        original.AddSoundEvent(
-            std::make_unique<W8SoundEvent>(W8_SOUND_EVENT_CYCLE, i, 0, 0, "other.wav", false));
+        original.visual.AddSoundEvent(
+            W8SoundEvent(W8_SOUND_EVENT_CYCLE, i, 0, 0, "other.wav", false));
     }
-    REQUIRE((original.sound_events.front().get() == first));
-    W8Missile copy(original);
-    REQUIRE((copy.m_pAI != original.m_pAI));
-    REQUIRE((copy.m_pAI->nodes[0].y == 2));
-    REQUIRE((copy.sound_events.size() == original.sound_events.size()));
-    REQUIRE((copy.sound_events.front().get() != first));
-    REQUIRE((copy.sound_events.front()->wave_name == "step.wav"));
-    REQUIRE((!copy.sound_events.front()->looping &&
-             copy.sound_events.front()->sound_handle == nullptr));
-    original.sound_events.clear();
-    REQUIRE((copy.sound_events.front()->wave_name == "step.wav"));
-    W8Missile missile;
-    auto* ai = new W8AIMissile{};
+    Missile copy(original);
+    REQUIRE((copy.visual.m_pAI->nodes.data() != original.visual.m_pAI->nodes.data()));
+    REQUIRE((copy.visual.m_pAI->nodes[0].y == 2));
+    REQUIRE((copy.visual.sound_events.size() == original.visual.sound_events.size()));
+    REQUIRE(copy.visual.sound_events.front().pitch == 3);
+    REQUIRE((copy.visual.sound_events.front().wave_name == "step.wav"));
+    REQUIRE((copy.visual.sound_events.front().looping &&
+             copy.visual.sound_events.front().sound_handle == nullptr));
+    original.visual.sound_events.clear();
+    REQUIRE((copy.visual.sound_events.front().wave_name == "step.wav"));
+    Missile missile;
+    auto* ai = &missile.flight_ai.emplace();
     ai->speed_per_step = 5;
-    missile.flight_ai.reset(ai);
-    W8Missile missile_copy(missile);
-    auto* cloned = missile_copy.flight_ai.get();
-    REQUIRE((cloned != ai && cloned->speed_per_step == 5 && !cloned->missile));
+    Missile missile_copy(missile);
+    auto* cloned = &*missile_copy.flight_ai;
+    REQUIRE((cloned != ai && cloned->speed_per_step == 5 && cloned->missile == &missile_copy));
 }
 
 static void script_record_contracts()
@@ -708,7 +710,7 @@ static void script_record_contracts()
                           "first:\nEND\n" + prefix + "second:\nFINAL";
         file->write(text.data(), text.size());
     }
-    stScript script;
+    Script script;
     REQUIRE((script.Load(path)));
     REQUIRE((script.lines.size() == 4 && script.labels.size() == 3));
     REQUIRE((script.lines[0].text == "  MOVE 10" && script.lines[3].text == "FINAL"));
@@ -1149,29 +1151,32 @@ static void global_status_record()
 static void camera_angles()
 {
     const struct RestoreCamera {
-        GDCamera previous = std::exchange(PartyCamera(), GDCamera{});
-        ~RestoreCamera() { PartyCamera() = previous; }
+        PartyCamera previous = std::exchange(partyCamera(), PartyCamera{});
+        ~RestoreCamera() { partyCamera() = previous; }
     } restore;
-    W8WorldCameraState state{};
-    GetCameraOrientation(state.yaw, state.pitch);
-    for (unsigned i = 0; i < 6; ++i) REQUIRE((state.yaw[i] == 0 && state.pitch[i] == 0));
+    CameraPose state{};
+    state.orientation = cameraOrientation();
+    REQUIRE(state.orientation.yaw == 0);
+    REQUIRE(state.orientation.pitch == 0);
     state.position = {1, 2, 3};
-    state.yaw[0] = 0.5f;
-    state.pitch[0] = 0.25f;
-    state.yaw[5] = 123.0f;
-    state.pitch[5] = 456.0f;
-    SetCameraOrientation(state.yaw, state.pitch, nullptr);
-    REQUIRE((PartyCamera().m_yaw == 0.5f && PartyCamera().m_pitch == 0.25f));
-    REQUIRE((state.yaw[0] == 0.5f && state.pitch[0] == 0.25f && state.yaw[5] == 123.0f &&
-             state.pitch[5] == 456.0f));
+    state.orientation.yaw = 0.5f;
+    state.orientation.pitch = 0.25f;
+    const float opaque_yaw = 123.0f, opaque_pitch = 456.0f;
+    std::memcpy(state.retail.yaw.data() + 16, &opaque_yaw, 4);
+    std::memcpy(state.retail.pitch.data() + 16, &opaque_pitch, 4);
+    state.orientation = setCameraOrientation(state.orientation);
+    REQUIRE((partyCamera().m_yaw == 0.5f && partyCamera().m_pitch == 0.25f));
+    REQUIRE((state.orientation.yaw == 0.5f && state.orientation.pitch == 0.25f));
     const auto encoded = wiz8::retail::encode(state);
     const std::array<float, 15> expected{1, 2, 3, .25f, 0, 0, 0, 0, 456, .5f, 0, 0, 0, 0, 123};
     REQUIRE(std::ranges::equal(encoded, std::as_bytes(std::span(expected))));
-    W8WorldCameraState decoded{};
+    CameraPose decoded{};
     wiz8::retail::decode(encoded, decoded);
     REQUIRE(decoded.position == state.position);
-    REQUIRE(std::ranges::equal(decoded.yaw, state.yaw));
-    REQUIRE(std::ranges::equal(decoded.pitch, state.pitch));
+    REQUIRE(decoded.orientation.yaw == state.orientation.yaw);
+    REQUIRE(decoded.retail.yaw == state.retail.yaw);
+    REQUIRE(decoded.orientation.pitch == state.orientation.pitch);
+    REQUIRE(decoded.retail.pitch == state.retail.pitch);
 }
 
 #include <catch2/generators/catch_generators.hpp>

@@ -7,8 +7,7 @@
 #include "wiz8/geometry.h"
 #include "wiz8/layouts/targeting.h"
 
-class stTextureAnim;
-class stModelInstance2D;
+class Texture;
 
 enum W8TextBoxArrowState : unsigned char {
     kTextBoxArrowUninitialized = 0,
@@ -24,12 +23,14 @@ static_assert(sizeof(W8TextBoxArrowState) == sizeof(unsigned char));
 
 #include <memory>
 
+#include "wiz8/render/compositor.h"
+
 /* One animated cursor resource the main-game / camp screens can install. The
-   object is an stTextureAnim; size and hotspot are the unsigned shorts
+   object is an Texture; size and hotspot are the unsigned shorts
    ApplyCurrentCursor feeds to the mouse-cursor surface helpers. */
 struct W8MainGameResourceSlot {
     int image_id;
-    std::shared_ptr<stTextureAnim> object;
+    std::shared_ptr<Texture> object;
     unsigned int frame_count;
     unsigned short size_x;
     unsigned short size_y;
@@ -187,10 +188,10 @@ struct W8LevelRuntimeBlock {
     int dialogue_width;
     int highlight_row = -1;
     /* The dialogue highlight sprite. DrawHighlightOverlay lazily creates it
-       from catalog object 0x72 through CreateSpriteFromSurface, and it is released
+       from catalog object 0x72 through makeOverlayFromSurface, and it is released
        through ReleaseObject whenever mode 6 ends or the tracked party
        slots change. */
-    stModelInstance2D* highlight_graphic;
+    std::unique_ptr<OverlayQuad> highlight_graphic;
     unsigned int world_update_flags;
     unsigned int camera_motion_flags;
     uint64_t character_update_timer;
@@ -211,14 +212,14 @@ struct W8LevelRuntimeBlock {
     int action_group = -1;
     /* Result of HighlightMonsterAsTarget for the current pick; [0]
        drives the group tint and the target cursor shape. */
-    /* The formation board's three stModelInstance2D-family
+    /* The formation board's three overlay
        sprites - the board art with slot markers baked in, the rotating compass
        needle tracking party_facing against party_heading, and a lazily
-       created overlay.  All are produced by CreateSpriteFromSurface in MGSFormation.cpp
-       and released through ReleaseObject. */
-    stModelInstance2D* formation_board_sprite;
-    stModelInstance2D* formation_compass_sprite;
-    stModelInstance2D* formation_overlay_sprite;
+       created overlay.  All are produced by makeOverlayFromSurface in MGSFormation.cpp
+       and owned by this runtime block. */
+    std::unique_ptr<OverlayQuad> formation_board_sprite;
+    std::unique_ptr<OverlayQuad> formation_compass_sprite;
+    std::unique_ptr<OverlayQuad> formation_overlay_sprite;
     unsigned char refresh_combat_panel;
     uint64_t combat_panel_timer;
     short combat_end_notification;

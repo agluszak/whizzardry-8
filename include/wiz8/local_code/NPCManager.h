@@ -2,10 +2,10 @@
 struct W8Chunk;
 #include <string_view>
 
-#include "surrender/srMath.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/layouts/npc_state.h"
+#include "wiz8/math.h"
 
 enum W8NpcPickpocketResult {
     W8_PICKPOCKET_ITEM_TAKEN = 0,
@@ -31,7 +31,7 @@ enum class W8MarkedNpcEventMode : unsigned char { arm_restore, release_companion
 
 void QueueNpcHeldItemNotice(int npc_kind);
 
-class W8Monster;
+class Monster;
 class Trigger;
 struct W8GameplayModifierBlock;
 struct W8MonsterInfo;
@@ -71,7 +71,7 @@ enum W8NpcServiceFlag {
     W8_NPC_SERVICE_MTN_PASS = 0x2000,
 };
 
-W8Monster* GetNpcMonster(W8NpcState* npc);
+Monster* GetNpcMonster(W8NpcState* npc);
 
 void ChooseNewGameStartLocation(int* level, int* entrance);
 int SelectNewGameStartLevel(void);
@@ -164,7 +164,7 @@ char AttemptNpcItemTheft(W8Character* character, W8NpcState* npc, int item_id, i
 void UpdateNpcPartyMember(int party_slot);
 bool QueueNpcDepartureEvents(int destination_level);
 
-struct W8World;
+struct World;
 struct W8PreparedNpcBinding {
     int slot;
     std::unique_ptr<W8NpcState> state;
@@ -172,5 +172,5 @@ struct W8PreparedNpcBinding {
 struct W8PreparedNpcBindings {
     std::vector<W8PreparedNpcBinding> records;
 };
-W8PreparedNpcBindings PrepareNpcBindings(W8World& world);
+W8PreparedNpcBindings PrepareNpcBindings(World& world);
 void InstallNpcBindings(W8PreparedNpcBindings pending);

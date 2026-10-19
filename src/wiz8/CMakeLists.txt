@@ -1,4 +1,4 @@
-add_library(WIZ8_GAME_CORE STATIC
+target_sources(wiz8_engine PRIVATE
     ../canvas/image.cpp
     ../canvas/sprite.cpp
     ../canvas/Font.cpp
@@ -6,7 +6,6 @@ add_library(WIZ8_GAME_CORE STATIC
     ../canvas/image_assets.cpp
     ../canvas/shading.cpp
     ../platform/input.cpp
-    ../platform/random.cpp
     ../platform/video.cpp
     ../platform/game_timer.cpp
     ../platform/GameTimeAccumulator.cpp
@@ -17,6 +16,7 @@ add_library(WIZ8_GAME_CORE STATIC
     ../audio/SoundEvent.cpp
     ../audio/AmbientSound.cpp
     ../audio/mouth_gap.cpp
+    ../entities/entity_assets.cpp
     dialog_code/ButtonAppearance.cpp
     "local_code/PC Item.cpp"
     local_code/FormationAndFacing.cpp
@@ -86,54 +86,55 @@ add_library(WIZ8_GAME_CORE STATIC
     dialog_code/StatInfoDialogs.cpp
     dialog_code/CharacterSummaryDialog.cpp
     dialog_code/ProfRaceInfoDialog.cpp
-    engine_code/GameData.cpp
-    engine_code/GDFileIO.cpp
-    engine_code/Octree.cpp
-    engine_code/OctPath.cpp
-    engine_code/Levels.cpp
-    engine_code/ReadLevel.cpp
-    engine_code/ReadMesh.cpp
-    engine_code/quad.cpp
-    engine_code/3dapi.cpp
-    engine_code/stMeshModel.cpp
-    engine_code/stModelInstance.cpp
-    engine_code/stTextureAnim.cpp
-    engine_code/stTextureFile.cpp
-    engine_code/stParticle.cpp
-    engine_code/OctSubMesh.cpp
-    engine_code/Trigger.cpp
-    engine_code/OctBuildTree.cpp
-    engine_code/Environment.cpp
-    engine_code/emitter_resources.cpp
-    engine_code/AnimObj.cpp
-    engine_code/AniMesh.cpp
-    engine_code/Item.cpp
-    engine_code/Missile.cpp
-    engine_code/PathAI.cpp
-    engine_code/Spells.cpp
-    engine_code/GDProp.cpp
-    engine_code/Prop.cpp
-    engine_code/Navigator.cpp
+    ../spatial/collision.cpp
+    ../spatial/level_spatial_index.cpp
+    ../spatial/navigation.cpp
+    ../world/level_session.cpp
+    ../world/level_loader.cpp
+    ../render/resources/mesh_loader.cpp
+    ../render/visibility_grid.cpp
+    ../world/world.cpp
+    ../render/effects/particle_system.cpp
+    ../render/resources/compiled_mesh.cpp
+    ../entities/trigger_actions.cpp
+    ../entities/trigger_io.cpp
+    ../entities/locks.cpp
+    ../spatial/surface_index.cpp
+    ../spatial/surface_trace.cpp
+    ../world/environment.cpp
+    ../entities/cycle_resources.cpp
+    ../entities/animation.cpp
+    ../entities/animation_mesh.cpp
+    ../entities/world_item.cpp
+    ../entities/missile.cpp
+    ../entities/keyframe_track.cpp
+    local_code/spell_database.cpp
+    ../entities/spell_visual.cpp
+    ../entities/prop_collision.cpp
+    ../entities/prop.cpp
+    ../spatial/navigator.cpp
     "local_code/Party Import.cpp"
     learned_spells.cpp
     packed_bits.cpp
     local_code/Noise.cpp
     local_code/chunk.cpp
     local_code/DifficultyScaling.cpp
-    engine_code/GrCycle.cpp
-    engine_code/UpdateMesh.cpp
-    engine_code/stGroundShadow.cpp
+    ../entities/cycle_player.cpp
+    ../render/mesh_updates.cpp
+    ../render/effects/ground_shadow.cpp
     local_code/GameplayDatabase.cpp
     "local_code/Gameplay Init.cpp"
     dialog_code/DialogInterface.cpp
     dialog_code/PortraitQuote.cpp
     local_code/ItemManager.cpp
-    engine_code/materials.cpp
-    engine_code/PolyPick.cpp
-    engine_code/Monster.cpp
-    engine_code/stScript.cpp
+    ../render/resources/material_loader.cpp
+    ../render/picking.cpp
+    ../entities/monster.cpp
+    ../entities/monster_script.cpp
+    ../entities/monster_loader.cpp
+    ../entities/script.cpp
     local_code/Targeting.cpp
-    engine_code/3d.cpp
+    ../world/update.cpp
     level_specific_code/MasterFunctionList.cpp
     level_specific_code/Monastery1.cpp
     level_specific_code/Monastery2.cpp
@@ -156,22 +157,20 @@ add_library(WIZ8_GAME_CORE STATIC
     level_specific_code/SavantTower.cpp
     level_specific_code/ConnectiveTissue.cpp
     level_specific_code/Arnika.cpp
-    engine_code/Quality.cpp
+    ../render/quality.cpp
     startup_render_state.cpp
     startup_world.cpp
     startup_subsystems.cpp
     startup_ui_state.cpp
-    surface2d.cpp
-    engine_code/Video2.cpp
+    ../render/frame.cpp
     character_skills.cpp
     fact_state.cpp
-    engine_code/MonsterLight.cpp
-    engine_code/GDCamera.cpp
-    engine_code/world_selection.cpp
-    engine_code/stCube.cpp
-    engine_code/Camera.cpp
-    engine_code/Cursor3d.cpp
-    engine_code/stLight.cpp
+    ../world/party_camera.cpp
+    ../world/party_motion.cpp
+    ../world/selection.cpp
+    ../entities/cursor_nodes.cpp
+    ../entities/cursor.cpp
+    ../render/effects/light_animation.cpp
     version.cpp
     local_code/party_encumbrance.cpp
     local_code/Search.cpp
@@ -204,7 +203,7 @@ add_library(WIZ8_GAME_CORE STATIC
     dialog_code/SplitItemDialog.cpp
     dialog_code/DialogScrollBar.cpp
     dialog_code/DialogNumericInput.cpp
-    engine_code/MonGen.cpp
+    ../world/encounters.cpp
     music_playlist.cpp
     targeting_presentation.cpp
     npc_items.cpp
@@ -215,22 +214,34 @@ add_library(WIZ8_GAME_CORE STATIC
     ../native/movie.cpp
     ../native/bink_video.cpp
 )
-target_link_libraries(WIZ8_GAME_CORE PRIVATE PkgConfig::FFMPEG)
-target_link_libraries(WIZ8_GAME_CORE PUBLIC wiz8_native_settings SURRENDER
+target_link_libraries(wiz8_engine PRIVATE PkgConfig::FFMPEG)
+target_link_libraries(wiz8_engine PUBLIC wiz8_native_settings
     ZLIB::ZLIB SDL3_image::SDL3_image SDL3_mixer::SDL3_mixer)
 
 # Keep focused integration tests able to discard unused recovered game functions.
 if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
-    target_compile_options(WIZ8_GAME_CORE PRIVATE /Gy /Gw)
+    target_compile_options(wiz8_engine PRIVATE /Gy /Gw)
 else()
-    target_compile_options(WIZ8_GAME_CORE PRIVATE -ffunction-sections -fdata-sections)
+    target_compile_options(wiz8_engine PRIVATE -ffunction-sections -fdata-sections)
 endif()
 
 if(WIZ8_PRECOMPILE_HEADERS)
-    target_precompile_headers(WIZ8_GAME_CORE PRIVATE
+    target_precompile_headers(wiz8_engine PRIVATE
         "$<$<COMPILE_LANGUAGE:CXX>:${PROJECT_SOURCE_DIR}/src/wiz8/pch.h>")
 endif()
 if(WIZ8_UNITY_BUILD)
-    set_target_properties(WIZ8_GAME_CORE PROPERTIES
+    set_target_properties(wiz8_engine PROPERTIES
         UNITY_BUILD ON UNITY_BUILD_BATCH_SIZE ${WIZ8_UNITY_BATCH_SIZE})
+endif()
+
+# The renderer's optional unity batches share one engine archive with the game.
+# Keep unrelated game files independent unless whole-engine unity was requested.
+if(WIZ8_RENDER_UNITY_BUILD AND NOT WIZ8_UNITY_BUILD)
+    get_target_property(engine_sources wiz8_engine SOURCES)
+    foreach(source IN LISTS engine_sources)
+        if(NOT source MATCHES "/src/render/")
+            set_source_files_properties("${source}" TARGET_DIRECTORY wiz8_engine
+                PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
+        endif()
+    endforeach()
 endif()

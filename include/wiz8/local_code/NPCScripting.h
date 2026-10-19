@@ -16,7 +16,7 @@ struct W8ItemInstance;
 struct W8Character;
 struct W8MonsterGroup;
 struct W8WorldItem;
-class W8Monster;
+class Monster;
 class W8DialogBase;
 
 /* Whether the conversation waits on the player: a queued options, keyword or
@@ -148,4 +148,4 @@ void QueueDialogueNpcRefusal(void);
 void AuditNpcScriptQuotes(void);
 /* The NPC-side rebinding pass; reloads the NPC's .nsf script
    file and rebuilds its runtime bindings. */
-void ReloadNpcScriptResources(W8NpcState* npc, W8Monster* monster);
+void ReloadNpcScriptResources(W8NpcState* npc, Monster* monster);
