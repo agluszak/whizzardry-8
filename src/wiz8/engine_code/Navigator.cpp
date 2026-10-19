@@ -995,7 +995,8 @@ W8Navigator* W8Navigator::ResolveBlockingNavigator(const glm::vec3* from, glm::v
 }
 
 // FUNCTION: WIZ8 0x00453300
-double W8Navigator::MeasurePathDistance(const glm::vec3* target, float max_range, int location_id)
+std::optional<double> W8Navigator::MeasurePathDistance(const glm::vec3* target, float max_range,
+                                                       int location_id)
 {
     static W8NavigatorMovementState movement;
     auto& attachment = *movement.attachment;
@@ -1017,19 +1018,15 @@ double W8Navigator::MeasurePathDistance(const glm::vec3* target, float max_range
         ((attachment.flags & W8_NAV_ATTACHMENT_FOLLOW_PATH) == 0 || (attachment.flags & 7) != 3)) {
         return attachment.MeasurePathLength();
     }
-    return -1.0;
+    return std::nullopt;
 }
 
 // FUNCTION: WIZ8 0x00453480
-int W8Navigator::FindNavigatorPathDistance(float max_range, float* out_distance)
+std::optional<float> W8Navigator::FindNavigatorPathDistance(float max_range)
 {
-    double distance = MeasurePathDistance(&PartyNavigator()->movement.position, max_range, 0);
-
-    *out_distance = static_cast<float>(distance);
-    if (distance != g_negative_one) {
-        return 1;
-    }
-    return 0;
+    const auto distance = MeasurePathDistance(&PartyNavigator()->movement.position, max_range, 0);
+    if (!distance) return std::nullopt;
+    return static_cast<float>(*distance);
 }
 
 // FUNCTION: WIZ8 0x00453520

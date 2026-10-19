@@ -5,6 +5,7 @@
 struct srBoundingBox;
 
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "compat/compiler.h"
@@ -256,11 +257,11 @@ public:
        movement target instead of skipping its location id. */
     W8Navigator* ResolveBlockingNavigator(const glm::vec3* from, glm::vec3* to,
                                           bool include_target); /* 0x00453230 */
-    /* Copies this navigator's movement state into a scratch probe, asks the
-       octree to route toward `target`, and returns the measured path length or
-       -1 when no route inside `max_range` exists. */
-    double MeasurePathDistance(const glm::vec3* target, float max_range,
-                               int location_id); /* 0x00453300 */
+    /* Copies this navigator's movement state into a scratch probe and asks
+       the octree to route toward `target`. No value means no route fits
+       inside `max_range`. */
+    std::optional<double> MeasurePathDistance(const glm::vec3* target, float max_range,
+                                              int location_id); /* 0x00453300 */
     /* Find the navigator occupying `to`; the move collides when both sides'
        OnCollision accept it. */
     bool CheckNavigatorCollision(const glm::vec3* from, const glm::vec3* to);
@@ -287,10 +288,9 @@ public:
     void SetPitch(float pitch);                                 /* 0x00453940 */
     float GetYaw();                                             /* 0x00453970 */
     float GetPitch();                                           /* 0x00453980 */
-    /* The world-path reachability probe the group engagement check runs:
-       fills `out_distance` with the route length and returns nonzero when a
-       route inside `max_range` exists. */
-    int FindNavigatorPathDistance(float max_range, float* out_distance);          /* 0x00453480 */
+    /* The world-path reachability probe the group engagement check runs.
+       No value means no route fits inside `max_range`. */
+    std::optional<float> FindNavigatorPathDistance(float max_range); /* 0x00453480 */
     void SetMovementScale(float value);                                           /* 0x00453C50 */
     float GetMovementScale();                                                     /* 0x00453C60 */
     void SetMonsterTurnSpeed(float speed);                                        /* 0x00453C70 */
