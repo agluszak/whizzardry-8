@@ -1,4 +1,3 @@
-#include "wiz8/cursor.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 
 #include <algorithm>
@@ -38,6 +37,7 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/character_stats.h"
 #include "wiz8/conditions.h"
+#include "wiz8/cursor.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
