@@ -397,9 +397,10 @@ void W8OptionsSaveLoadPanel::OnDialogClosed(bool accepted, int value)
             }
             selected_slot = m_current;
         } else if (value == 3) {
-            selected_slot = m_current * 5 + m_selected;
+            if (!m_selected) return;
+            selected_slot = m_current * 5 + *m_selected;
             (g_options_screen->m_save_slots[selected_slot])->name = m_previous_name;
-            W8OptionsSaveRow* row = m_rows[m_selected].get();
+            W8OptionsSaveRow* row = m_rows[*m_selected].get();
             row->SetSave(*g_options_screen->m_save_slots[selected_slot]);
             if (g_options_screen->m_text_editor != 0 || m_panel != 12 || m_selected != 0) {
                 return;
@@ -437,12 +438,13 @@ void W8OptionsSaveLoadPanel::OnDialogClosed(bool accepted, int value)
 void W8OptionsSaveLoadPanel::OnTextEditComplete(W8OptionsTextEditor* editor,
                                                 unsigned char cancelled)
 {
-    int selected_slot = m_current * 5 + m_selected;
     m_rows[m_editing_row]->m_editing = false;
     if (cancelled != 0) {
         m_rows[m_editing_row]->button.m_dirty = true;
         return;
     }
+    if (!m_selected) return;
+    const int selected_slot = m_current * 5 + *m_selected;
 
     W8SaveSlot& slot = *g_options_screen->m_save_slots[selected_slot];
     m_previous_name = slot.name;
@@ -454,7 +456,7 @@ void W8OptionsSaveLoadPanel::OnTextEditComplete(W8OptionsTextEditor* editor,
         return;
     }
 
-    W8OptionsSaveRow* row = m_rows[m_selected].get();
+    W8OptionsSaveRow* row = m_rows[*m_selected].get();
     row->SetSave(slot);
     if (m_current == 0 && m_selected == 0) {
         if (SaveSlotFileExists(slot.name) == 0) {
@@ -471,27 +473,29 @@ void W8OptionsSaveLoadPanel::OnTextEditComplete(W8OptionsTextEditor* editor,
 
 void W8OptionsSaveLoadPanel::OnEditSaveName()
 {
-    int selected_slot = m_current * 5 + m_selected;
-    g_options_screen->BeginSaveNameEdit(this, m_selected,
+    if (!m_selected) return;
+    const int selected_slot = m_current * 5 + *m_selected;
+    g_options_screen->BeginSaveNameEdit(this, *m_selected,
                                         g_options_screen->m_save_slots[selected_slot]->name);
-    m_editing_row = m_selected;
+    m_editing_row = *m_selected;
     m_rows[m_editing_row]->m_editing = true;
 }
 
-void W8OptionsSaveLoadPanel::SelectRow(int selected)
+void W8OptionsSaveLoadPanel::SelectRow(std::optional<int> selected)
 {
     if (m_selected == selected) return;
     m_selected = selected;
     for (int i = 0; i < static_cast<int>(m_rows.size()); ++i)
-        m_rows[i]->button.SetPressed(i == selected);
+        m_rows[i]->button.SetPressed(selected && i == *selected);
     FinishOptionsTextEdit(g_options_screen.get(), 1);
     if (m_panel == 12 && m_current == 0 && selected == 0) OnEditSaveName();
 }
 
 void W8OptionsSaveLoadPanel::DeleteSelectedSave()
 {
-    int selected_slot = m_current * 5 + 1 + m_selected;
-    W8SaveSlot& slot = *g_options_screen->m_save_slots[selected_slot];
+    if (!m_selected) return;
+    std::optional<int> selected_slot = m_current * 5 + 1 + *m_selected;
+    W8SaveSlot& slot = *g_options_screen->m_save_slots[*selected_slot];
     std::string path;
     path = fmt::format("{}\\{}.{}", "saves", slot.name, g_save_extension);
     bool removed = false;
@@ -507,15 +511,15 @@ void W8OptionsSaveLoadPanel::DeleteSelectedSave()
         return;
     }
 
-    g_options_screen->m_save_slots.erase(g_options_screen->m_save_slots.begin() + selected_slot);
+    g_options_screen->m_save_slots.erase(g_options_screen->m_save_slots.begin() + *selected_slot);
     if (static_cast<int>(g_options_screen->m_save_slots.size()) == 1) {
-        selected_slot = -1;
+        selected_slot.reset();
         if (m_panel == 11) {
             m_delete_button->SetEnabled(false);
             m_action_button->SetEnabled(false);
         }
-    } else if (selected_slot >= static_cast<int>(g_options_screen->m_save_slots.size())) {
-        --selected_slot;
+    } else if (*selected_slot >= static_cast<int>(g_options_screen->m_save_slots.size())) {
+        --*selected_slot;
         if (m_selected == 0) {
             --m_current;
         }
@@ -530,12 +534,13 @@ void W8OptionsSaveLoadPanel::DeleteSelectedSave()
     }
     g_options_screen->UpdateNavigation();
     SetCurrent(m_current);
-    SelectRow(selected_slot == -1 ? -1 : (selected_slot - 1) % 5);
+    SelectRow(selected_slot ? std::optional<int>{(*selected_slot - 1) % 5} : std::nullopt);
 }
 
 void W8OptionsSaveLoadPanel::LoadSelectedSave()
 {
-    int selected_slot = m_current * 5 + 1 + m_selected;
+    if (!m_selected) return;
+    int selected_slot = m_current * 5 + 1 + *m_selected;
     W8SaveSlot& slot = *g_options_screen->m_save_slots[selected_slot];
     if (slot.version_major + slot.version_minor * 0.1f + slot.version_patch * 0.01f <= 1.24f) {
         g_options_last_save_name = slot.name;
@@ -552,7 +557,8 @@ void W8OptionsSaveLoadPanel::LoadSelectedSave()
 
 void W8OptionsSaveLoadPanel::SaveSelectedSave(std::string_view previous_name)
 {
-    int selected_slot = m_current * 5 + m_selected;
+    if (!m_selected) return;
+    int selected_slot = m_current * 5 + *m_selected;
     W8SaveSlot& slot = *g_options_screen->m_save_slots[selected_slot];
     if (slot.name.size() == 0) {
         g_options_screen->ShowNotification(false, 0x82a,
@@ -1157,7 +1163,7 @@ void W8OptionsUnavailablePanel::Populate()
     m_text_buffers[0]->SetLineHeight(22);
 }
 
-W8OptionsScreen::W8OptionsScreen() : m_redraw_pending(1), m_selected_panel(-1), m_key_capture(0)
+W8OptionsScreen::W8OptionsScreen() : m_redraw_pending(1), m_key_capture(0)
 {
     auto& current = m_save_slots.emplace_back(std::make_unique<W8SaveSlot>());
     if (g_status.game_started) {
@@ -1225,7 +1231,8 @@ void W8OptionsScreen::CreateControls()
             {.on_click =
                  [this, direction](W8ButtonWidget*) {
                      AfterUiDispatch([this, direction] {
-                         m_panel[m_selected_panel]->Scroll(direction == 0 ? -1 : 1);
+                         if (m_selected_panel)
+                             m_panel[*m_selected_panel]->Scroll(direction == 0 ? -1 : 1);
                          UpdateNavigation();
                      });
                  },
@@ -1244,49 +1251,50 @@ void W8OptionsScreen::CreateControls()
 
 W8OptionsScreen::~W8OptionsScreen()
 {
-    SelectPanel(-1);
+    SelectPanel(std::nullopt);
 }
 
-void W8OptionsScreen::SelectPanel(int selected)
+void W8OptionsScreen::SelectPanel(std::optional<int> selected)
 {
     if (selected == m_selected_panel) {
         return;
     }
     FinishOptionsTextEdit(this, 1);
-    if (m_selected_panel != -1) {
-        W8OptionsPanelSet* previous = m_panel[m_selected_panel].get();
+    if (m_selected_panel) {
+        W8OptionsPanelSet* previous = m_panel[*m_selected_panel].get();
         previous->m_panels[previous->m_current]->SetActive(false);
         previous->m_active = false;
     }
     m_selected_panel = selected;
-    if (selected != -1) {
-        if (!m_panel[selected]) {
-            m_panel[selected] = std::make_unique<W8OptionsPanelSet>();
-            W8OptionsPanelSet* created = m_panel[m_selected_panel].get();
-            for (int index = g_options_panel_ranges[m_selected_panel].first;
-                 index <= g_options_panel_ranges[m_selected_panel].last; ++index) {
+    if (selected) {
+        const int panel_index = *selected;
+        if (!m_panel[panel_index]) {
+            m_panel[panel_index] = std::make_unique<W8OptionsPanelSet>();
+            W8OptionsPanelSet* created = m_panel[panel_index].get();
+            for (int index = g_options_panel_ranges[panel_index].first;
+                 index <= g_options_panel_ranges[panel_index].last; ++index) {
                 W8OptionsPanel* panel = CreateOptionsPanel(index, &created->m_compact_layout,
                                                            &created->m_hide_navigation);
                 panel->Populate();
                 created->m_panels.emplace_back(panel);
             }
         }
-        W8OptionsPanelSet* current = m_panel[m_selected_panel].get();
+        W8OptionsPanelSet* current = m_panel[panel_index].get();
         if (!current->m_active) {
             current->m_current = 0;
         }
         current->m_panels[current->m_current]->SetActive(true);
         current->m_active = true;
-        if (m_selected_panel == 4) {
+        if (panel_index == 4) {
             m_panel[4]->m_page_count = (static_cast<int>(m_save_slots.size()) - 2) / 5 + 1;
-        } else if (m_selected_panel == 5) {
+        } else if (panel_index == 5) {
             m_panel[5]->m_page_count = (static_cast<int>(m_save_slots.size()) - 1) / 5 + 1;
         }
         UpdateNavigation();
     }
     for (int item = 0; item < 6; ++item) m_menu_buttons[item]->SetPressed(item == selected);
-    if (m_selected_panel >= 0) {
-        g_last_options_panel = m_selected_panel;
+    if (m_selected_panel) {
+        g_last_options_panel = *m_selected_panel;
     }
 }
 
@@ -1349,8 +1357,8 @@ void W8OptionsScreen::Redraw()
         m_navigation_dirty = true;
         m_redraw_pending = false;
     }
-    if (m_selected_panel != -1) {
-        W8OptionsPanelSet* panel_set = m_panel[m_selected_panel].get();
+    if (m_selected_panel) {
+        W8OptionsPanelSet* panel_set = m_panel[*m_selected_panel].get();
         if (panel_set->m_active) {
             panel_set->m_panels[panel_set->m_current]->Redraw(GetFrameBufferSurface(), false);
         }
@@ -1705,7 +1713,14 @@ void W8OptionsPanelSet::Scroll(int delta)
 
 void W8OptionsScreen::UpdateNavigation()
 {
-    const auto& panels = *m_panel[m_selected_panel];
+    if (!m_selected_panel) {
+        m_navigation_visible = false;
+        for (auto& button : m_navigation)
+            if (button) button->SetEnabled(false);
+        m_navigation_dirty = true;
+        return;
+    }
+    const auto& panels = *m_panel[*m_selected_panel];
     const int current = panels.m_page_count ? panels.m_panels[0]->m_current : panels.m_current;
     const int count =
         panels.m_page_count ? panels.m_page_count : static_cast<int>(panels.m_panels.size());
@@ -1814,8 +1829,8 @@ void OptionsScreenFrame()
             active_modal.reset();
             if (closed) closed(accepted);
             screen->m_redraw_pending = true;
-            if (screen->m_selected_panel != -1) {
-                W8OptionsPanelSet* panel_set = screen->m_panel[screen->m_selected_panel].get();
+            if (screen->m_selected_panel) {
+                W8OptionsPanelSet* panel_set = screen->m_panel[*screen->m_selected_panel].get();
                 if (panel_set->m_active) {
                     panel_set->m_panels[panel_set->m_current]->InvalidateAll();
                 }

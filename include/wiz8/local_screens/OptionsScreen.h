@@ -3,6 +3,7 @@
 #include <array>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -255,13 +256,13 @@ public:
     void OnDialogClosed(bool accepted, int value);
     void OnTextEditComplete(W8OptionsTextEditor* editor, unsigned char cancelled);
     void OnEditSaveName();
-    void SelectRow(int selected);
+    void SelectRow(std::optional<int> selected);
     void DeleteSelectedSave();
     void LoadSelectedSave();
     void SaveSelectedSave(std::string_view previous_name = {});
     int m_panel;
     std::vector<std::unique_ptr<W8OptionsSaveRow>> m_rows;
-    int m_selected = -1;
+    std::optional<int> m_selected;
     W8ButtonWidget* m_delete_button = nullptr;
     W8ButtonWidget* m_action_button = nullptr;
     std::string m_previous_name;
@@ -290,7 +291,7 @@ class W8OptionsScreen final {
 public:
     W8OptionsScreen();
     ~W8OptionsScreen();
-    void SelectPanel(int selected);
+    void SelectPanel(std::optional<int> selected);
     void ActivateMenu(int item);
     void UpdateNavigation();
     void CreateControls();
@@ -303,7 +304,7 @@ public:
     std::vector<std::unique_ptr<W8SaveSlot>> m_save_slots;
     bool m_redraw_pending;
     std::function<void(bool)> m_notification_closed;
-    int m_selected_panel;
+    std::optional<int> m_selected_panel;
     std::array<std::unique_ptr<W8ButtonWidget>, 8> m_menu_buttons;
     std::array<std::unique_ptr<W8ButtonWidget>, 2> m_navigation;
     std::unique_ptr<W8TextBuffer> m_page_text;
