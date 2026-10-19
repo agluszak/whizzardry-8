@@ -254,7 +254,8 @@ bool StartCombat(int surprise)
             if (monster_info->hp_current > 0 &&
                 monster_info->highest_condition < W8_CONDITION_WEBBED &&
                 monster_info->uiCondition[W8_CONDITION_BLIND] == 0) {
-                MonsterChooseTarget(monster_info, &chosen, 3);
+                MonsterChooseTarget(monster_info, &chosen,
+                                    W8VisibilityCondition::ThirdLineOfSightFlag);
                 if (chosen.iType == W8_TARGET_KIND_PARTY) {
                     monster_info->p3D->ForwardReferencePosition(0);
                 } else if (chosen.iType == W8_TARGET_KIND_MONSTER) {
@@ -271,7 +272,7 @@ bool StartCombat(int surprise)
     gXStatus.edited_formation = g_status.formation;
     SaveCombatFormation();
     g_combat_state->search_mode_saved = g_status.search_mode;
-    if (g_status.search_mode != 0) {
+    if (g_status.search_mode) {
         ToggleSearchMode();
     }
     if (IsLevelFastMovement()) {
@@ -745,7 +746,7 @@ void BeginCombatRound(void)
             g_status.buffers.XChar[party_slot].pending_action = W8_ACTION_NONE;
         }
     }
-    g_combat_state->equip_phase = 0;
+    g_combat_state->equip_phase = W8CombatEquipPhase::action_selection;
     g_combat_state->equip_pending = 0;
 }
 
@@ -908,7 +909,7 @@ void EndMonsterTurn(W8MonsterInfo* monster_info)
 
     if (monster_info->hp_current != 0 && monster_info->highest_condition < W8_CONDITION_WEBBED &&
         monster_info->uiCondition[W8_CONDITION_BLIND] == 0) {
-        MonsterChooseTarget(monster_info, &chosen, 3);
+        MonsterChooseTarget(monster_info, &chosen, W8VisibilityCondition::ThirdLineOfSightFlag);
         if (chosen.iType == W8_TARGET_KIND_PARTY) {
             monster_info->p3D->ForwardReferencePosition(0);
             monster_info->death_processed = false;
@@ -1100,7 +1101,7 @@ void EndCombat(bool forced_cleanup)
     RestoreCombatFormation();
     ReconcilePartyEquipmentAfterCombat();
     gXStatus.fCombatMode = false;
-    if (g_combat_state->search_mode_saved != 0) {
+    if (g_combat_state->search_mode_saved) {
         ToggleSearchMode();
     }
     ZoomRadarMapOut();
@@ -1269,7 +1270,7 @@ void SetCharacterCombatAction(int party_slot, W8Action next, int notify)
     if (action_kind != W8_ACTION_ATTACK && action_kind != W8_ACTION_BERSERK &&
         action_kind != W8_ACTION_DEFEND && action_kind != W8_ACTION_PROTECT &&
         action_kind != W8_ACTION_WALK && action_kind != W8_ACTION_RUN)
-        g_status.buffers.XChar[party_slot].queued_action = static_cast<signed char>(action_kind);
+        g_status.buffers.XChar[party_slot].queued_action = action_kind;
     row->action_changed = true;
     W8Character* character = &g_status.buffers.Char[party_slot];
     if (character->hp_current != 0 && character->highest_condition < W8_CONDITION_TURNCOAT &&
@@ -1496,8 +1497,8 @@ void OrientMonsterTowardTarget(W8MonsterInfo* monster_info, bool alternate)
         }
         break;
     case W8_TARGET_KIND_GROUP:
-        location_id =
-            FindNearestVisibleGroupMonster(monster_info, monster_info->Target.iGroupID, 3);
+        location_id = FindNearestVisibleGroupMonster(monster_info, monster_info->Target.iGroupID,
+                                                     W8VisibilityCondition::ThirdLineOfSightFlag);
         if (location_id != -1) {
             target = FindMonster(location_id);
             if (IsMonsterFacingMonster(monster_info, target) == 0) {
@@ -1840,7 +1841,7 @@ void AdvanceCombatRound(void)
             monster_info->highest_condition < W8_CONDITION_WEBBED &&
             monster_info->uiCondition[W8_CONDITION_BLIND] == 0) {
             W8CombatSlot chosen;
-            MonsterChooseTarget(monster_info, &chosen, 3);
+            MonsterChooseTarget(monster_info, &chosen, W8VisibilityCondition::ThirdLineOfSightFlag);
             if (chosen.iType == W8_TARGET_KIND_PARTY) {
                 monster_info->p3D->ForwardReferencePosition(0);
             } else if (chosen.iType == W8_TARGET_KIND_MONSTER) {
@@ -1955,7 +1956,7 @@ void RollCombatSurprise(char party_cannot_be_surprised)
                     g_combat_state->party_surprised = true;
                     level_surprise = true;
                 }
-            } else if (g_status.search_mode != 0 && Random(100) < 0x14) {
+            } else if (g_status.search_mode && Random(100) < 0x14) {
                 g_combat_state->party_surprised = true;
                 search_surprise = true;
             }
@@ -2384,7 +2385,8 @@ void ExecuteMonsterAction(W8MonsterInfo* monster_info, W8MonsterRecord* record)
                     }
                     GetMonsterAttackSourceOffset(monster_info->p3D, sight, &position);
                     engage_distance = CalcRangeDistance(range);
-                    MonsterChooseTarget(monster_info, &monster_info->Target, 0);
+                    MonsterChooseTarget(monster_info, &monster_info->Target,
+                                        W8VisibilityCondition::SightState);
                     SetUpMonsterTurn(monster_info);
                     if (monster_info->Target.iType == W8_TARGET_KIND_MONSTER) {
                         target_info = FindMonster(monster_info->Target.iMonsterID);
@@ -2587,8 +2589,8 @@ void AimMonsterBreathAtTarget(W8MonsterInfo* monster_info)
         monster_info->p3D->aim_set = true;
         return;
     case W8_TARGET_KIND_GROUP:
-        location_id =
-            FindNearestVisibleGroupMonster(monster_info, monster_info->Target.iGroupID, 3);
+        location_id = FindNearestVisibleGroupMonster(monster_info, monster_info->Target.iGroupID,
+                                                     W8VisibilityCondition::ThirdLineOfSightFlag);
         no_target = location_id == -1;
         break;
     case W8_TARGET_KIND_NONE:
@@ -2757,7 +2759,7 @@ void StepMonsterCombatAction(W8MonsterInfo* monster_info)
             monster_info->hp_current != 0 &&
             monster_info->highest_condition < W8_CONDITION_WEBBED &&
             monster_info->uiCondition[W8_CONDITION_BLIND] == 0) {
-            MonsterChooseTarget(monster_info, &chosen, 3);
+            MonsterChooseTarget(monster_info, &chosen, W8VisibilityCondition::ThirdLineOfSightFlag);
             if (chosen.iType == W8_TARGET_KIND_PARTY) {
                 monster_info->p3D->ForwardReferencePosition(0);
             } else if (chosen.iType == W8_TARGET_KIND_MONSTER) {
@@ -3332,7 +3334,7 @@ void ScheduleCombatActor(void)
         if (g_combat_state->eCombatActionStatus != 0 || gXStatus.fPartyMovementMode || free_turn ||
             g_combat_state->round_counter > 0x64) {
             if (g_combat_state->round_counter > 0x64) {
-                g_combat_state->equip_phase = 0;
+                g_combat_state->equip_phase = W8CombatEquipPhase::action_selection;
                 g_combat_state->equip_pending = 0;
                 if (gXStatus.fCombatMode) {
                     for (unsigned int slot = 0; slot < 8; ++slot) {
@@ -3341,14 +3343,15 @@ void ScheduleCombatActor(void)
                             g_status.buffers.Char[slot].highest_condition < W8_CONDITION_TURNCOAT &&
                             g_status.buffers.XChar[slot].pending_action == W8_ACTION_EQUIP) {
                             ++g_combat_state->equip_pending;
-                            if (g_combat_state->equip_phase == 0) {
-                                g_combat_state->equip_phase = 1;
+                            if (g_combat_state->equip_phase ==
+                                W8CombatEquipPhase::action_selection) {
+                                g_combat_state->equip_phase = W8CombatEquipPhase::resolving;
                                 OpenCharacterScreenForPartySlot(slot, false);
                             }
                         }
                     }
                 }
-                if (g_combat_state->equip_phase == 0) {
+                if (g_combat_state->equip_phase == W8CombatEquipPhase::action_selection) {
                     AdvanceCombatRound();
                     if (CheckCombatEnd(1) == 0 && g_settings.continuous_combat != 0) {
                         BeginCombatExecution();

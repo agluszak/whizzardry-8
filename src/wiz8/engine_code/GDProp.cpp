@@ -153,7 +153,7 @@ void GDProp::Initialize(W8PathingService* pathing, srModelInstance* instance, bo
     if (owner != 0 && attach) {
         if (const auto* door = owner->doorData()) {
             unsigned int flags = W8_PATH_CELL_DOOR;
-            if ((owner->lock_state.lock_type != 0 &&
+            if ((owner->lock_state.lock_type != W8LockType::none &&
                  owner->lock_state.device_state.completed == 0) ||
                 (owner->flags & W8_TRIGGER_ENABLED) == 0 || door->open || door->locked) {
                 flags = W8_PATH_CELL_DOOR | W8_PATH_CELL_BLOCKED;
@@ -178,7 +178,8 @@ void GDProp::BindTrigger(Trigger* owner, W8PathingService* pathing)
     m_trigger = owner;
     if (const auto* door = owner->doorData()) {
         unsigned int path_flags = W8_PATH_CELL_DOOR;
-        if ((owner->lock_state.lock_type == 0 || owner->lock_state.device_state.completed != 0) &&
+        if ((owner->lock_state.lock_type == W8LockType::none ||
+             owner->lock_state.device_state.completed != 0) &&
             (owner->flags & W8_TRIGGER_ENABLED) != 0 && !door->open && !door->locked) {
         } else {
             path_flags = W8_PATH_CELL_DOOR | W8_PATH_CELL_BLOCKED;

@@ -29,6 +29,8 @@ struct W8WorldItem;
 struct W8MonsterGroup;
 struct W8WorldItem;
 
+enum class W8SurprisePhase : unsigned short { fade_in, hold, fade_out_and_resolve };
+
 // Live gameplay state, not a disk record.
 struct W8XStatus {
     W8MonsterManagerEntry monster_manager_entries[8];
@@ -53,8 +55,7 @@ struct W8XStatus {
     bool surprise_unengaged;
     /* uiTurnsElapsed deadline the phase-1 hold compares against. */
     unsigned int surprise_deadline_turns;
-    /* 0 = fade in, 1 = hold, 2 = fade out / resolve. */
-    unsigned short surprise_phase;
+    W8SurprisePhase surprise_phase = W8SurprisePhase::fade_in;
     bool fPartyMovementUi;
     bool fPartyMovementMode;
     float flPartyMoveDistLimit;
@@ -80,7 +81,7 @@ struct W8XStatus {
     bool world_paused;
     unsigned short review_character_slot;
     int held_item_source;
-    unsigned char held_item_origin;
+    W8ItemOrigin held_item_origin;
     unsigned short held_item_slot;
     std::array<std::unique_ptr<W8MonsterRecord>, 1000> monster_record_cache;
     std::unique_ptr<W8GameTimer> gameplay_timer;
@@ -98,11 +99,11 @@ struct W8XStatus {
     bool assay_professions_tab;
     bool item_drag_active;
     W8ItemInstance* dragged_item;
-    unsigned char dragged_item_origin;
+    W8ItemOrigin dragged_item_origin;
     signed char dragged_character_slot;
     uint64_t spell_cooldown_clocks[14];
     uint64_t combat_countdown;
-    unsigned char combat_difficulty;
+    W8Difficulty combat_difficulty = W8_DIFFICULTY_NOVICE;
     bool party_moving;
 };
 

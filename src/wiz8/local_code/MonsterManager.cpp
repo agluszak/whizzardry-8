@@ -34,6 +34,7 @@
 #include "surrender/srDebug.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/containers.h"
+#include "wiz8/difficulty.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/engine_code/Levels.h"
@@ -245,7 +246,7 @@ void PrepareMonsterInWorld(W8World& world, W8MonsterInfo& info, bool unborn)
         }
     }
     monster_info->monster_visibility = std::make_unique<W8MonsterVisibility>();
-    if (record->can_open_doors != 0) {
+    if (record->can_open_doors) {
         monster_info->p3D->movement.navigation_filter |= W8_NAV_THROUGH_DOORS;
     }
 }
@@ -820,11 +821,13 @@ float CalculateMonsterScale(W8MonsterInfo* monster_info)
     return result;
 }
 
-void TryStartMonsterCycle2(W8MonsterInfo* monster_info, W8Monster* monster, int query_state)
+// FUNCTION: WIZ8 0x004e67a0
+void TryStartMonsterCycle2(W8MonsterInfo* monster_info, W8Monster* monster,
+                           W8MonsterCycle query_state)
 {
     if (monster_info->fActive && monster_info->hp_current > 0 &&
         monster_info->uiCondition[W8_CONDITION_DEAD] == 0 &&
-        monster_info->within_viewing_distance && query_state == 1) {
+        monster_info->within_viewing_distance && query_state == W8_MONSTER_CYCLE_IDLE) {
         int result = monster->Query(W8_MONSTER_QUERY_AT_PLAYBACK_END);
 
         if (result != 0 && !monster_info->fMotionless) {
@@ -1239,20 +1242,21 @@ void ProcessMonsterManagerFrame(void)
             --monster_list_index;
         } else {
             if ((monster->runtime_flags & W8_MONSTER_PARKED) == 0) {
-                int query_state = monster->Query(W8_MONSTER_QUERY_CYCLE);
+                const auto query_state =
+                    static_cast<W8MonsterCycle>(monster->Query(W8_MONSTER_QUERY_CYCLE));
                 TryStartMonsterCycle2(monster_info, monster, query_state);
                 if (monster->Query(W8_MONSTER_QUERY_CYCLE_COMPLETE) != 0) {
-                    if (gXStatus.fCombatMode && query_state == 0x12) {
+                    if (gXStatus.fCombatMode && query_state == W8_MONSTER_CYCLE_ATTACK_SPECIAL) {
                         monster_info->pCombat->special_ready = true;
                     }
                     switch (query_state) {
-                    case 1:
-                    case 3:
-                    case 4:
-                    case 0x17:
-                    case 0x18:
+                    case W8_MONSTER_CYCLE_IDLE:
+                    case W8_MONSTER_CYCLE_TRANSITION:
+                    case W8_MONSTER_CYCLE_WALK:
+                    case W8_MONSTER_CYCLE_TALK_SPICE:
+                    case W8_MONSTER_CYCLE_TALK:
                         break;
-                    case 0x15:
+                    case W8_MONSTER_CYCLE_DIE:
                         if ((monster->runtime_flags & W8_MONSTER_REMOVE_AFTER_FADE) == 0) {
                             monster_info = GetMonsterListEntry(monster_list_index);
                             HandleScriptedNpcDeath(monster_list_index);
@@ -1565,23 +1569,23 @@ void EvaluateCombatDifficulty(void)
             party_levels / pow(static_cast<double>(eligible_count) * 6.0f, 0.5) + 0.5);
     }
     int relative_strength = static_cast<int>(party_power * 100 / threat_level) - 100;
-    unsigned char difficulty;
+    W8Difficulty difficulty;
     if (relative_strength >= 20) {
-        difficulty = 0;
+        difficulty = W8_DIFFICULTY_NOVICE;
     } else if (relative_strength <= -20) {
-        difficulty = 2;
+        difficulty = W8_DIFFICULTY_EXPERT;
     } else {
-        difficulty = 1;
+        difficulty = W8_DIFFICULTY_NORMAL;
     }
 
     switch (difficulty) {
-    case 0:
+    case W8_DIFFICULTY_NOVICE:
         StartMusicResource("CombatEasy.MPL", 0, 1);
         break;
-    case 1:
+    case W8_DIFFICULTY_NORMAL:
         StartMusicResource("Combat.MPL", 0, 1);
         break;
-    case 2:
+    case W8_DIFFICULTY_EXPERT:
         StartMusicResource("CombatLousy.MPL", 0, 1);
         break;
     }
@@ -1590,10 +1594,10 @@ void EvaluateCombatDifficulty(void)
         difficulty != gXStatus.combat_difficulty) {
         unsigned int event_type;
         switch (difficulty) {
-        case 0:
+        case W8_DIFFICULTY_NOVICE:
             event_type = 29;
             break;
-        case 1:
+        case W8_DIFFICULTY_NORMAL:
             event_type = 30;
             break;
         default:

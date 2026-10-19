@@ -729,7 +729,8 @@ static std::string KeyboardMenuTooltip(const KeyboardMenuRow& row)
     if (row.menu == W8_SUBMENU_ITEMS && row.item == 2) {
         if (!row.enabled) return g_localized_strings[0x5d];
         const auto& party = g_status.buffers.XChar[g_selected_party_slot];
-        auto* item = FindCharacterItemAt(g_selected_party_slot, party.item_origin, party.item_slot);
+        auto* item = FindCharacterItemAt(
+            g_selected_party_slot, static_cast<unsigned char>(party.item_origin), party.item_slot);
         return fmt::format("{}: {}", g_localized_strings[0x5d], FormatItemDisplayName(item, false));
     }
     return g_localized_strings[g_submenu_entry_help_ids[row.menu * 5 + row.item]];

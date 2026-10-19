@@ -66,6 +66,7 @@
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/save_screenshot.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
@@ -883,7 +884,7 @@ static std::unique_ptr<W8SaveSlot> ReadSaveSlot(const std::string& name,
     auto slot = std::make_unique<W8SaveSlot>();
     DetachedStatus saved;
     bool has_status = false;
-    slot->screenshot.capture_result = 0;
+    slot->screenshot.capture_result = W8ScreenshotCaptureResult::failed;
     slot->version_major = kUnversionedSave.major;
     slot->version_minor = kUnversionedSave.minor;
     slot->version_patch = kUnversionedSave.patch;
@@ -1497,7 +1498,9 @@ void CaptureSaveScreenshot(W8SaveScreenshot& screenshot)
     auto surface = CreateCpuStorage(80, 60, SDL_PIXELFORMAT_ARGB1555, screenshot.pixels, 160);
     SetRendererAutoFlipEnabled(false);
     ScopeExit restore([] { SetRendererAutoFlipEnabled(true); });
-    screenshot.capture_result = RenderWorldToSurface(surface.get(), &rect, true);
+    screenshot.capture_result = RenderWorldToSurface(surface.get(), &rect, true)
+                                    ? W8ScreenshotCaptureResult::succeeded
+                                    : W8ScreenshotCaptureResult::failed;
     RenderFrame();
 }
 
@@ -1652,12 +1655,11 @@ void LoadGameStatus(W8Chunk* chunks, W8GlobalStatus* status)
 
     for (int slot = 0; slot < 8; ++slot) {
         auto& party_row = party_rows[slot];
-        const auto origin = static_cast<signed char>(party_row.item_origin);
         const auto item_slot = static_cast<short>(party_row.item_slot);
         W8ItemInstance* item = nullptr;
-        if (party_row.fOccupied && party_row.pending_action == W8_ACTION_USE_ITEM && origin != -1 &&
-            item_slot != -1) {
-            item = FindCharacterItemAt(slot, static_cast<unsigned char>(origin),
+        if (party_row.fOccupied && party_row.pending_action == W8_ACTION_USE_ITEM &&
+            party_row.item_origin != W8_ITEM_ORIGIN_NONE && item_slot != -1) {
+            item = FindCharacterItemAt(slot, static_cast<unsigned char>(party_row.item_origin),
                                        static_cast<unsigned short>(item_slot));
         }
         party_row.pending_action_detail.item_use.item = item;

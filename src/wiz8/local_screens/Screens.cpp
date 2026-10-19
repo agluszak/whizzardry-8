@@ -309,9 +309,10 @@ void InitializeMainGameLevelBlock(void)
     g_level_block->condition_orb_party_slot = -1;
     g_level_block->enchantment_orb_party_slot = -1;
     g_level_block->condition_highlight_party_slot = -1;
-    g_level_block->text_content_region = CurrentTextLineHasContent() ? kUpArrowEnabled : -1;
+    g_level_block->text_content_region =
+        CurrentTextLineHasContent() ? kUpArrowEnabled : kTextBoxArrowNone;
     g_level_block->dialogue_content_region =
-        CurrentDialogueLineHasContent() ? kDownArrowEnabled : -1;
+        CurrentDialogueLineHasContent() ? kDownArrowEnabled : kTextBoxArrowNone;
     g_level_block->world_update_flags = 0;
     g_level_block->camera_motion_flags = 0;
     g_level_block->highlighted_item = -1;

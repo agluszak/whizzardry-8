@@ -112,7 +112,7 @@ static std::vector<W8Searchable> CollectSearchablesInView(W8World& world)
     };
     // Trigger definitions precede item records in level loading. Keep that search order.
     for (const auto& trigger : world.triggers)
-        if (trigger->trigger_kind == 1 && trigger->searchable == 1 &&
+        if (trigger->trigger_kind == W8TriggerKind::item && trigger->searchable == 1 &&
             (trigger->flags & W8_TRIGGER_SEARCHED) == 0)
             collect({nullptr, trigger.get()});
     for (const auto& group : CurrentLevelPopulation().world_items) {
@@ -158,7 +158,7 @@ void RunSearchPulse(void)
             !gXStatus.fSurprisePossible && !gXStatus.fLockInteractMode &&
             !LockInteractionSuspended() && !gXStatus.fTrapInteractMode &&
             !TrapInteractionSuspended()) {
-            if (IsLevelFastMovement() && g_status.search_mode != 0) {
+            if (IsLevelFastMovement() && g_status.search_mode) {
                 ShowNotice(W8_FONT_PALETTE_BEIGE,
                            g_localized_strings[W8_NOTICE_SEARCH_SPECIAL_LEVEL]);
             }
@@ -213,7 +213,7 @@ void RunSearchPulse(void)
                     }
                 }
             }
-            if (g_status.search_mode == 0 || IsLevelFastMovement()) {
+            if (!g_status.search_mode || IsLevelFastMovement()) {
                 /* Retail scans the party for a live member carrying the
                    Scouting skill and then discards the result. */
                 for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
@@ -225,7 +225,7 @@ void RunSearchPulse(void)
                     }
                 }
             }
-            if (g_status.search_mode != 0 && !IsLevelFastMovement() && !found && Random(100) == 0) {
+            if (g_status.search_mode && !IsLevelFastMovement() && !found && Random(100) == 0) {
                 ApplyItemEffectToRandomCharacter(g_container_event, -1, 0);
             }
         }
@@ -248,14 +248,14 @@ int W8Searchable::PickBestSearcher()
             character->highest_condition >= W8_CONDITION_TURNCOAT) {
             continue;
         }
-        if (CharacterHasTrait(character, W8_TRAIT_SEARCH) || g_status.search_mode != 0) {
+        if (CharacterHasTrait(character, W8_TRAIT_SEARCH) || g_status.search_mode) {
             unsigned int level = character->skills[W8_SKILL_SCOUTING].level;
             unsigned int base = level >> 1;
             if (IsLevelFastMovement()) {
                 base = level >> 2;
             }
             unsigned int score = 0;
-            if (base != 0 || (g_status.search_mode != 0 && !IsLevelFastMovement())) {
+            if (base != 0 || (g_status.search_mode && !IsLevelFastMovement())) {
                 unsigned int attribute = character->attributes[W8_ATTRIBUTE_SENSES].effective;
                 if (attribute < 0x33) {
                     score = base + attribute / 5;
@@ -308,13 +308,13 @@ int W8Searchable::PickBestSearcher()
    registry; combat blocks the toggle outright. */
 void ToggleSearchMode(void)
 {
-    if (g_status.search_mode != 0) {
-        g_status.search_mode = 0;
+    if (g_status.search_mode) {
+        g_status.search_mode = false;
         ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_SEARCH_MODE_OFF]);
         return;
     }
     if (!gXStatus.fCombatMode) {
-        g_status.search_mode = 1;
+        g_status.search_mode = true;
         ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_SEARCH_MODE_ON]);
         g_search_pulse_clock = w8_get_ticks() + (0x1f4);
         ClearActiveWorldCursorNode();

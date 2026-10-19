@@ -21,7 +21,7 @@ struct MonGen {
     int encounter_table_index; /* index into g_encounter_tables, -1 means none */
     W8IntervalGate timer;
     char name[32];
-    unsigned char generation_enabled; /* MIPE "Toggle Active"; gates CanGenerate */
+    bool generation_enabled; /* MIPE "Toggle Active"; gates CanGenerate */
 
     MonGen();
     void Reset(short default_interval);

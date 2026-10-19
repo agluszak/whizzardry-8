@@ -779,7 +779,7 @@ void FinishSpellEffect(W8SpellEffectEntry* effect)
         target.point = position;
         CastSpellFromSource(W8_SPELL_BOILING_BLOOD_EXPLOSION, &effect->Source, &target,
                             effect->definition.duration_scale, effect->definition.percent, 0, false,
-                            0, 0, 0, 0);
+                            0, W8SpellCastKind::Standard, 0, 0);
     }
 }
 
@@ -886,7 +886,7 @@ void StartCharacterItemUse(int party_slot)
     }
     ChooseAction(party_slot, W8_ACTION_USE_ITEM, -1, &row->item_detail, false, 1);
     AimAtTarget(party_slot, &saved_target, GetEditedActionContext(party_slot));
-    FindCharacterItemAt(party_slot, row->item_origin, row->item_slot);
+    FindCharacterItemAt(party_slot, static_cast<unsigned char>(row->item_origin), row->item_slot);
 
     if (IsSpellTargetStillValid(party_slot, GetItemSpell(row->item_detail.item_use.item),
                                 SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_ITEM))) {
@@ -1225,11 +1225,12 @@ bool CanPartySlotUseRecordedItem(int party_slot)
     int spell_id;
     bool normalize;
 
-    if (static_cast<signed char>(row->item_origin) < 0 || static_cast<short>(row->item_slot) < 0) {
+    if (row->item_origin == W8_ITEM_ORIGIN_NONE || static_cast<short>(row->item_slot) < 0) {
         return false;
     }
 
-    item = FindCharacterItemAt(party_slot, row->item_origin, row->item_slot);
+    item = FindCharacterItemAt(party_slot, static_cast<unsigned char>(row->item_origin),
+                               row->item_slot);
     row->item_detail.item_use.item = item;
 
     if (row->item_origin == W8_ITEM_ORIGIN_PARTY_POOL && gXStatus.fCombatMode) {
@@ -1403,7 +1404,8 @@ int PointCastSpell(glm::vec3 position, int spell_id, unsigned int power_level)
         break;
     }
 
-    CastSpellFromSource(spell_id, &source, &target, power_level, 0, 0, false, 0, 0, 0, 0);
+    CastSpellFromSource(spell_id, &source, &target, power_level, 0, 0, false, 0,
+                        W8SpellCastKind::Standard, 0, 0);
     return 1;
 }
 
@@ -1811,7 +1813,7 @@ static std::string SpellTargetString(const W8TargetSource* source, const W8Comba
         if (target->iChar == -1) {
             Fail("pTarget->iChar != BAD_INDEX");
         }
-        if (!TargetSourceIsCharacter(source, 0) || source->name_known != 0 ||
+        if (!TargetSourceIsCharacter(source, 0) || source->name_known ||
             source->iChar != target->iChar) {
             return fmt::sprintf(g_localized_strings[W8_MESSAGE_TARGET_AT / 4],
                                 g_status.buffers.Char[target->iChar].name);
@@ -1905,7 +1907,7 @@ unsigned int MonsterCastsSpell(W8MonsterInfo* monster_info, int spell_id, unsign
     failure = GetSpellFailureChance(budget, spell_id, static_cast<int>(power_level));
 
     CastSpellFromSource(spell_id, &source, &monster_info->Target, power_level, 0, failure, false,
-                        &result, 0, 0, 0);
+                        &result, W8SpellCastKind::Standard, 0, 0);
     return SpellCastFatigueCost(spell_id, result);
 }
 
@@ -2594,7 +2596,7 @@ finish_difficulty_adjustment:
     SpendCharacterSpellPoints(party_slot, realm, mana_cost);
     try {
         result = CastSpellFromSource(spell_id, &source, aim, power_level, power_cast_bonus, chance,
-                                     recast, &cast_result, 0, 0, 0);
+                                     recast, &cast_result, W8SpellCastKind::Standard, 0, 0);
     } catch (...) {
         RestoreCharacterRealmSpellPoints(party_slot, realm, mana_cost);
         throw;
@@ -2626,8 +2628,8 @@ finish_difficulty_adjustment:
    and 3 when it backfired. */
 int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* target,
                         unsigned int power_level, int power_cast_bonus, unsigned int failure_chance,
-                        bool recast, int* out_power, int cast_kind, std::vector<int>* party_targets,
-                        std::vector<int>* monster_targets)
+                        bool recast, int* out_power, W8SpellCastKind cast_kind,
+                        std::vector<int>* party_targets, std::vector<int>* monster_targets)
 {
     glm::vec3 point;
     bool fizzled;
@@ -2664,7 +2666,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
     unsigned int adjusted_power;
 
     fizzled = false;
-    quiet = cast_kind == 4;
+    quiet = cast_kind == W8SpellCastKind::ThrowingItemUse;
     forced = false;
     if (out_power != 0) {
         *out_power = 0;
@@ -2722,7 +2724,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
         }
     }
     if (!fizzled) {
-        if (!source->fBackfire && source->auto_cast == 0 && !source->fReflection &&
+        if (!source->fBackfire && !source->auto_cast && !source->fReflection &&
             g_spell_records[spell_id].realm != W8_SPELL_REALM_MENTAL &&
             spell_id != W8_SPELL_ROCKET_BLAST) {
             CheckSpellBackfire(spell_id, source, target);
@@ -2764,7 +2766,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
         }
         ClearAttackBlock(&block);
         if (TargetSourceIsCharacter(source, 1)) {
-            if (source->name_known == 0) {
+            if (!source->name_known) {
                 caster_figure = GetTotalCasterLevel(
                     &g_status.buffers.Char[source->iChar],
                     (g_spell_records[spell_id].psionics_spell != 0 ? 8 : 0) |
@@ -3074,17 +3076,17 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
     } else {
         message = 0;
         switch (cast_kind) {
-        case 2:
+        case W8SpellCastKind::MusicItemUse:
             if (source->iType != W8_TARGET_SOURCE_CHARACTER) {
                 Fail("pSource->iType == SOURCE_TYPE_CHAR");
             }
             message = 0x1aa;
             [[fallthrough]];
-        case 3:
+        case W8SpellCastKind::EngineeringItemUse:
             if (source->iType != W8_TARGET_SOURCE_CHARACTER) {
                 Fail("pSource->iType == SOURCE_TYPE_CHAR");
             }
-            if (cast_kind == 3) {
+            if (cast_kind == W8SpellCastKind::EngineeringItemUse) {
                 message = 0x1ab;
             }
             if (g_settings.verbose_combat_messages != 0) {
@@ -3172,7 +3174,7 @@ void RedirectBackfiredSpellTarget(W8TargetSource* source, W8CombatSlot* target)
         } else {
             Fail("FALSE");
         }
-        source->point_source = 1;
+        source->point_source = true;
         return;
     case W8_TARGET_KIND_GROUP:
         group = FindMonsterGroup(target_copy.iGroupID);
@@ -3188,7 +3190,7 @@ void RedirectBackfiredSpellTarget(W8TargetSource* source, W8CombatSlot* target)
         } else {
             Fail("FALSE");
         }
-        source->point_source = 1;
+        source->point_source = true;
         return;
     default:
         Fail("FALSE");
@@ -3203,7 +3205,7 @@ void RedirectBackfiredSpellTarget(W8TargetSource* source, W8CombatSlot* target)
     } else {
         Fail("FALSE");
     }
-    source->point_source = 1;
+    source->point_source = true;
 }
 
 /* Assert and route the source/target pair a cast is about to use. Target
@@ -3558,7 +3560,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
     } else if (direct_monster_source) {
         centre = monster->GetPosition();
         fVertextAvail = false;
-        if (source->point_source == 0 && spell_id != W8_SPELL_SPECIAL_ATTACK_CONE &&
+        if (!source->point_source && spell_id != W8_SPELL_SPECIAL_ATTACK_CONE &&
             monster_info->has_spell_origin) {
             fVertextAvail = monster->GetSpellPosition(&eye);
             if (!fVertextAvail) {

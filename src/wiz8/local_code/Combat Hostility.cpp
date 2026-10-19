@@ -451,7 +451,7 @@ int TurnUndead(int party_slot, int* out_cost, bool check)
     if (!check) {
         power = g_status.buffers.Char[party_slot].profession_levels[W8_PROFESSION_BISHOP] + 10 +
                 g_status.buffers.Char[party_slot].profession_levels[W8_PROFESSION_PRIEST];
-        source.auto_cast = 1;
+        source.auto_cast = true;
     } else {
         power = g_status.buffers.Char[party_slot].profession_levels[W8_PROFESSION_BISHOP] +
                 g_status.buffers.Char[party_slot].profession_levels[W8_PROFESSION_PRIEST];
@@ -475,8 +475,8 @@ int TurnUndead(int party_slot, int* out_cost, bool check)
     } else if (spell_power > 6) {
         spell_power = 7;
     }
-    CastSpellFromSource(W8_SPELL_DISPEL_UNDEAD, &source, &target, spell_power, 0, 0, false, 0, 0, 0,
-                        &monsters);
+    CastSpellFromSource(W8_SPELL_DISPEL_UNDEAD, &source, &target, spell_power, 0, 0, false, 0,
+                        W8SpellCastKind::Standard, 0, &monsters);
     if (out_cost != 0) {
         *out_cost = CharacterActionFatigueCost(party_slot, W8_ACTION_TURN_UNDEAD);
     }
@@ -545,7 +545,7 @@ int CharacterPrayAction(int party_slot)
         }
     }
     SetTargetSourceToCharacter(party_slot, &source);
-    source.auto_cast = 1;
+    source.auto_cast = true;
     source.aim_resolved = true;
     ResetCombatSlot(&target);
     PostCharacterNotice(party_slot, g_localized_strings[0x174]);
@@ -601,7 +601,7 @@ int CharacterPrayAction(int party_slot)
                     member->stamina < member->uiStaminaMax) {
                     AppendToLastTextLine(g_localized_strings[0x179], -1);
                     CastSpellFromSource(W8_SPELL_REST_ALL, &source, &target, 7, 0, 0, true,
-                                        &outcome, 0, 0, 0);
+                                        &outcome, W8SpellCastKind::Standard, 0, 0);
                     prayed = true;
                     break;
                 }
@@ -633,7 +633,7 @@ int CharacterPrayAction(int party_slot)
                         }
                         target.iChar = index;
                         CastSpellFromSource(W8_SPELL_GUARDIAN_ANGEL, &source, &target, power_level,
-                                            0, 0, false, &outcome, 0, 0, 0);
+                                            0, 0, false, &outcome, W8SpellCastKind::Standard, 0, 0);
                         prayed = true;
                         break;
                     }
@@ -668,7 +668,7 @@ int CharacterPrayAction(int party_slot)
                         }
                         target.iChar = index;
                         CastSpellFromSource(W8_SPELL_SANE_MIND, &source, &target, power_level, 0, 0,
-                                            capped, &outcome, 0, 0, 0);
+                                            capped, &outcome, W8SpellCastKind::Standard, 0, 0);
                         prayed = true;
                         break;
                     }
@@ -686,7 +686,7 @@ int CharacterPrayAction(int party_slot)
                 target.iType = W8_TARGET_KIND_PARTY;
                 AppendToLastTextLine(g_localized_strings[0x179], -1);
                 CastSpellFromSource(W8_SPELL_HEAL_ALL, &source, &target, power_level, 0, 0, true,
-                                    &outcome, 0, 0, 0);
+                                    &outcome, W8SpellCastKind::Standard, 0, 0);
                 prayed = true;
                 break;
             }
@@ -705,7 +705,7 @@ int CharacterPrayAction(int party_slot)
                 target.iChar = best;
                 AppendToLastTextLine(g_localized_strings[0x179], -1);
                 CastSpellFromSource(W8_SPELL_HEAL_WOUNDS, &source, &target, power_level, 0, 0,
-                                    false, &outcome, 0, 0, 0);
+                                    false, &outcome, W8SpellCastKind::Standard, 0, 0);
                 prayed = true;
             }
             break;
@@ -721,7 +721,7 @@ int CharacterPrayAction(int party_slot)
             if (!found) {
                 AppendToLastTextLine(g_localized_strings[0x17b], -1);
                 CastSpellFromSource(W8_SPELL_BLESS, &source, &target, power_level, 0, 0, false,
-                                    &outcome, 0, 0, 0);
+                                    &outcome, W8SpellCastKind::Standard, 0, 0);
                 prayed = true;
             }
             break;
@@ -758,7 +758,8 @@ int CharacterPrayAction(int party_slot)
                     }
                 }
                 CastSpellFromSource(W8_SPELL_MAGIC_MISSILES, &source, &target, power_level, 0, 0,
-                                    false, &outcome, 0, 0, &monster_targets);
+                                    false, &outcome, W8SpellCastKind::Standard, 0,
+                                    &monster_targets);
                 prayed = true;
             }
             break;
@@ -786,9 +787,9 @@ int CharacterPrayAction(int party_slot)
                 target.iChar = -1;
                 AppendToLastTextLine(g_localized_strings[0x17b], -1);
                 CastSpellFromSource(W8_SPELL_SOUL_SHIELD, &source, &target, power_level, 0, 0,
-                                    false, &outcome, 0, 0, 0);
+                                    false, &outcome, W8SpellCastKind::Standard, 0, 0);
                 CastSpellFromSource(W8_SPELL_ELEMENT_SHIELD, &source, &target, power_level, 0, 0,
-                                    false, &outcome, 0, 0, 0);
+                                    false, &outcome, W8SpellCastKind::Standard, 0, 0);
                 prayed = true;
             }
             break;
@@ -799,13 +800,13 @@ int CharacterPrayAction(int party_slot)
                 target.iChar = -1;
                 AppendToLastTextLine(g_localized_strings[0x17b], -1);
                 CastSpellFromSource(W8_SPELL_MAGIC_SCREEN, &source, &target, power_level, 0, 0,
-                                    false, &outcome, 0, 0, 0);
+                                    false, &outcome, W8SpellCastKind::Standard, 0, 0);
                 CastSpellFromSource(W8_SPELL_ENCHANTED_BLADE, &source, &target, power_level, 0, 0,
-                                    false, &outcome, 0, 0, 0);
+                                    false, &outcome, W8SpellCastKind::Standard, 0, 0);
                 CastSpellFromSource(W8_SPELL_ARMORPLATE, &source, &target, power_level, 0, 0, false,
-                                    &outcome, 0, 0, 0);
+                                    &outcome, W8SpellCastKind::Standard, 0, 0);
                 CastSpellFromSource(W8_SPELL_MISSILE_SHIELD, &source, &target, power_level, 0, 0,
-                                    false, &outcome, 0, 0, 0);
+                                    false, &outcome, W8SpellCastKind::Standard, 0, 0);
                 prayed = true;
             }
             break;
@@ -824,7 +825,7 @@ int CharacterPrayAction(int party_slot)
                         -1);
                     target.iType = W8_TARGET_KIND_ALL_ENEMIES;
                     CastSpellFromSource(W8_SPELL_ROUT, &source, &target, power_level, 0, 0, false,
-                                        &outcome, 0, 0, 0);
+                                        &outcome, W8SpellCastKind::Standard, 0, 0);
                     prayed = true;
                     break;
                 }
@@ -844,7 +845,7 @@ int CharacterPrayAction(int party_slot)
                         AppendToLastTextLine(g_localized_strings[0x179], -1);
                         ResetCombatSlot(&target);
                         CastSpellFromSource(W8_SPELL_FALLING_STARS, &source, &target, power_level,
-                                            0, 0, false, &outcome, 0, 0, 0);
+                                            0, 0, false, &outcome, W8SpellCastKind::Standard, 0, 0);
                         break;
                     }
                 }

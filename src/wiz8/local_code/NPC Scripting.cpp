@@ -716,7 +716,7 @@ void W8NpcDialogue::RunNextAction()
         }
         void operator()(W8NpcMarkMissing missing) const
         {
-            g_status.skip_next_condition_reaction = 1;
+            g_status.skip_next_condition_reaction = true;
             SetCharacterCondition(missing.party_slot, W8_CONDITION_MISSING, W8_CONDITION_INDEFINITE,
                                   0, 0, 0);
             g_status.condition13_clock = 1;

@@ -270,27 +270,30 @@ char GetMonsterSpellSightIndex(const W8MonsterInfo* monster)
 /* Read one flag out of a visibility record. Two of the seven kinds are pairs
    that the monster's missile and spell conditions choose between; the rest are
    fixed, and anything past the named kinds falls back to the last flag. */
-bool IsVisibleUnderConditions(const W8MonsterInfo* monster, const W8VisibilityRecord* row, int kind)
+// FUNCTION: WIZ8 0x00505dd0
+bool IsVisibleUnderConditions(const W8MonsterInfo* monster, const W8VisibilityRecord* row,
+                              W8VisibilityCondition condition)
 {
     if (row == 0) {
         return false;
     }
-    switch (kind) {
-    case 0:
+    switch (condition) {
+    case W8VisibilityCondition::SightState:
         return row->sight_state != W8_SIGHT_UNSEEN;
-    case 1:
+    case W8VisibilityCondition::CanSee:
         return row->can_see;
-    case 2:
+    case W8VisibilityCondition::FirstLineOfSightFlag:
         return row->los_flags[0];
-    case 3:
+    case W8VisibilityCondition::ThirdLineOfSightFlag:
         return row->los_flags[2];
-    case 4:
+    case W8VisibilityCondition::ProjectileOriginLineOfSight:
         return row->los_flags[monster->has_projectile_origin];
-    case 5:
+    case W8VisibilityCondition::SpellOriginLineOfSight:
         return row->los_flags[2 + (monster->has_spell_origin)];
-    default:
+    case W8VisibilityCondition::GeneralLineOfSight:
         return row->line_of_sight;
     }
+    return false;
 }
 
 /* Bring every monster's sight up to date with the clock, in whole two-minute
@@ -641,7 +644,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                             npc_fade_flag, static_cast<int>(monster_info->party_threat.sight_state),
                             g_status.party_modifiers.sight_override, distance);
 
-                        if (g_status.search_mode != 0) {
+                        if (g_status.search_mode) {
                             threshold *= g_sight_threat_scale;
                         }
                         if (threshold >= distance) {

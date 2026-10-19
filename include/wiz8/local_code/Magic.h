@@ -10,6 +10,14 @@
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/targeting.h"
 
+enum class W8SpellCastKind {
+    Standard = 0,
+    ItemUse = 1,
+    MusicItemUse = 2,
+    EngineeringItemUse = 3,
+    ThrowingItemUse = 4
+};
+
 struct W8ItemInstance;
 struct W8MonsterInfo;
 class W8Missile;
@@ -83,8 +91,8 @@ W8Skill GetBestSpellbookSkillForSpell(W8Character* character, int spell_id, bool
 
 int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* target,
                         unsigned int power_level, int power_cast_bonus, unsigned int failure_chance,
-                        bool recast, int* out_power, int cast_kind, std::vector<int>* party_targets,
-                        std::vector<int>* monster_targets);
+                        bool recast, int* out_power, W8SpellCastKind cast_kind,
+                        std::vector<int>* party_targets, std::vector<int>* monster_targets);
 /* Assert and route the source/target pair a cast is about to
    use; some target kinds have their own placement pass. */
 void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* target);

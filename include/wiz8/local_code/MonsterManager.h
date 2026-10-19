@@ -28,6 +28,7 @@ struct W8MonsterRecord;
 #include "wiz8/layouts/character.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/monster_actions.h"
+#include "wiz8/monster_cycles.h"
 #include "wiz8/portrait_animation.h"
 #include "wiz8/sight_state.h"
 
@@ -418,7 +419,8 @@ void MoveMonsterToLiveList(W8MonsterInfo* monster_info);
 W8MonsterInfo* FindNearestMonsterInfo(const glm::vec3* position, double maximum_distance);
 void InitializeMonsterRuntimeStats(void);
 float CalculateMonsterScale(W8MonsterInfo* monster_info);
-void TryStartMonsterCycle2(W8MonsterInfo* monster_info, W8Monster* monster, int query_state);
+void TryStartMonsterCycle2(W8MonsterInfo* monster_info, W8Monster* monster,
+                           W8MonsterCycle query_state);
 void ProcessMonsterManagerFrame(void);
 std::string FormatMonsterHealth(W8MonsterInfo* monster_info);
 unsigned int GetMonsterExperience(const W8MonsterRecord* record);

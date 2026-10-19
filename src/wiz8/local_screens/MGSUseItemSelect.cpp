@@ -243,8 +243,9 @@ void RefreshUseItemSelectionForSlot(int party_slot)
     }
     if (CanPartySlotUseRecordedItem(party_slot)) {
         gXStatus.dragged_item = 0;
-        item = FindCharacterItemAt(party_slot, g_status.buffers.XChar[party_slot].item_origin,
-                                   g_status.buffers.XChar[party_slot].item_slot);
+        item = FindCharacterItemAt(
+            party_slot, static_cast<unsigned char>(g_status.buffers.XChar[party_slot].item_origin),
+            g_status.buffers.XChar[party_slot].item_slot);
         if (CanUseItemForAction(use_item->owner, item)) {
             const bool party_pool =
                 g_status.buffers.XChar[party_slot].item_origin == W8_ITEM_ORIGIN_PARTY_POOL;

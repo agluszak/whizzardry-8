@@ -1132,7 +1132,8 @@ void W8GameData::ProcessCrossedSurface(W8GDSurface* surface)
     }
     if (direction != 0) {
         trigger->Run(direction);
-        if (trigger->action_state == 1 || trigger->action_state == 4) {
+        if (trigger->action_state == W8TriggerActionState::inactive ||
+            trigger->action_state == W8TriggerActionState::fallback_action) {
             ClearBit(active_trigger_bits, surface->trigger_index);
             ClearBit(pending_trigger_bits, surface->trigger_index);
         }
@@ -2165,7 +2166,7 @@ bool W8LevelDataRecord::UpdateFootstepFromMotion()
     distance = glm::length(movement) + footstep_accumulator;
     footstep_accumulator = distance;
     if (2e+03f < distance) {
-        if (g_status.search_mode == 0 && (flags & W8_LEVEL_FLAG_FAST_MOVEMENT) == 0) {
+        if (!g_status.search_mode && (flags & W8_LEVEL_FLAG_FAST_MOVEMENT) == 0) {
             large_radius = false;
         } else {
             large_radius = true;

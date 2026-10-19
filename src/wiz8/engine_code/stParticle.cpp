@@ -398,7 +398,7 @@ void stParticle::Update()
                 }
             }
 
-            if (has_acceleration == 1) {
+            if (has_acceleration) {
                 velocities[index] += acceleration_step;
             }
 
@@ -419,7 +419,7 @@ void stParticle::Update()
                 }
             }
 
-            if (los_check_enabled == 1) {
+            if (los_check_enabled) {
                 // The octree trace still accepts packed endpoint records.
                 const glm::vec3 from(particle_positions[index]);
                 glm::vec3 to(candidate);
@@ -437,7 +437,7 @@ void stParticle::Update()
 
     last_integration_tick = now;
 
-    if (emitting == 0 || emission_mode == W8_PARTICLE_EMISSION_NONE) {
+    if (!emitting || emission_mode == W8_PARTICLE_EMISSION_NONE) {
         return;
     }
 
@@ -464,7 +464,7 @@ void stParticle::Update()
         }
 
         const auto particle_index = *activated;
-        if (has_acceleration == 1) {
+        if (has_acceleration) {
             const auto scaled = glm::vec3(glm::dvec3(acceleration) * double(lag));
             velocities[particle_index] += glm::vec3(glm::dvec3(scaled) / 1000.0);
         }
@@ -496,7 +496,7 @@ void stParticle::traverse(srNode::TraverseInfo& info)
     }
 
     if (!testFlag(FLAG_DISABLE)) {
-        if ((emitting != 0 || active_particle_count != 0) && traversal_enabled) {
+        if ((emitting || active_particle_count != 0) && traversal_enabled) {
             info.entries.push_back({this, 0});
         }
     }
@@ -572,7 +572,7 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
     if (finished) {
         return;
     }
-    if (camera_relative == 1) {
+    if (camera_relative) {
         position = cameraLocation() + camera_offset;
 
         setLocation(glm::dvec3(position));
@@ -583,10 +583,10 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
     Update();
 
     if (emission_limit != 0 && emission_count >= emission_limit) {
-        emitting = 0;
+        emitting = false;
     }
 
-    if (emitting == 0 && active_particle_count == 0) {
+    if (!emitting && active_particle_count == 0) {
         if (auto completed = std::move(callback)) {
             completed->RestoreAnimation();
         }
@@ -706,9 +706,10 @@ void stParticle::SetTexture(std::shared_ptr<srTexture> texture)
     this->texture = std::move(texture);
 }
 
-void stParticle::SetActive(unsigned char active)
+// FUNCTION: WIZ8 0x0049acd0
+void stParticle::SetActive(bool active)
 {
-    if (active != 0 && emitting == 0) {
+    if (active && !emitting) {
         unsigned int now = GameClockMilliseconds();
         last_integration_tick = now;
         last_emission_tick = now;

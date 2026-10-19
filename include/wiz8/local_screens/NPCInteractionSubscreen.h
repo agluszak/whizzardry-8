@@ -34,7 +34,7 @@ class File;
 
 /* Usability filters and the exclusive equipment categories in the trade UI.
    The category bits use the same positions as W8ItemEquipSlotGroup. */
-enum W8NpcTradeFilter : int {
+enum W8NpcTradeFilter : unsigned char {
     W8_NPC_TRADE_FILTER_NONE = 0,
     W8_NPC_TRADE_USABLE_BY_CHARACTER = 0x01,
     W8_NPC_TRADE_HAND = 0x04,
@@ -111,7 +111,7 @@ extern W8PendingNotice g_pending_notice;
    "Give", "Sell", "Buy" and "Shoplift": mode 2 lists the party's items
    with the purse as row zero, mode 3 the character/party sell pools, and
    modes 4/5 the NPC's own inventory. 0 while no tab is selected. */
-enum W8NpcTradeMode {
+enum W8NpcTradeMode : unsigned char {
     W8_NPC_TRADE_NONE = 0,
     W8_NPC_TRADE_GIVE = 2,
     W8_NPC_TRADE_SELL = 3,

@@ -915,13 +915,15 @@ unsigned char TraceModeRejectsNoHit(int mode)
 /* Choose what one monster aims at: the player when it can see them, otherwise
    the nearest hostile visible monster. Answers the chosen distance and fills
    the target kind and monster id when applicable. */
-float MonsterChooseTarget(W8MonsterInfo* monster_info, W8CombatSlot* out, int kind)
+// FUNCTION: WIZ8 0x0051ac30
+float MonsterChooseTarget(W8MonsterInfo* monster_info, W8CombatSlot* out,
+                          W8VisibilityCondition condition)
 {
     float best = 999999.0f;
 
     out->iType = W8_TARGET_KIND_NONE;
     if (monster_info->ubDisposition == W8_DISPOSITION_HOSTILE &&
-        IsVisibleUnderConditions(monster_info, &monster_info->player_visibility, kind) &&
+        IsVisibleUnderConditions(monster_info, &monster_info->player_visibility, condition) &&
         (best = monster_info->p3D->GetDistanceToPlayer(), best < 999999.0f)) {
         out->iType = W8_TARGET_KIND_CHARACTER;
     }
@@ -934,7 +936,7 @@ float MonsterChooseTarget(W8MonsterInfo* monster_info, W8CombatSlot* out, int ki
             if (other != monster_info && other->fActive && other->hp_current != 0 &&
                 other->pCombat && MonsterHostility(monster_info, other) == W8_DISPOSITION_HOSTILE) {
                 W8VisibilityRecord* row = FindMonToMonVisibility(monster_info, other);
-                if (IsVisibleUnderConditions(monster_info, row, kind)) {
+                if (IsVisibleUnderConditions(monster_info, row, condition)) {
                     float distance = monster_info->p3D->GetDistanceToMonster(other->p3D);
                     if (distance < best) {
                         out->iType = W8_TARGET_KIND_MONSTER;
@@ -987,7 +989,9 @@ bool MonsterActionReachesTarget(W8MonsterInfo* monster_info, W8MonsterRecord* re
     return true;
 }
 
-int FindNearestVisibleGroupMonster(W8MonsterInfo* monster_info, int group_id, int kind)
+// FUNCTION: WIZ8 0x0051ad60
+int FindNearestVisibleGroupMonster(W8MonsterInfo* monster_info, int group_id,
+                                   W8VisibilityCondition condition)
 {
     int best_id = -1;
     float best = 999999.0f;
@@ -997,7 +1001,7 @@ int FindNearestVisibleGroupMonster(W8MonsterInfo* monster_info, int group_id, in
         W8MonsterInfo* target = FindMonster(location_id);
         if (target->fActive && target->hp_current != 0 && target->pCombat) {
             W8VisibilityRecord* row = FindMonToMonVisibility(monster_info, target);
-            if (IsVisibleUnderConditions(monster_info, row, kind)) {
+            if (IsVisibleUnderConditions(monster_info, row, condition)) {
                 float distance = monster_info->p3D->GetDistanceToMonster(target->p3D);
                 if (distance < best) {
                     best_id = target->location_id;

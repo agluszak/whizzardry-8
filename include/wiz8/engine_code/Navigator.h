@@ -20,7 +20,7 @@ namespace wiz8 {
 class File;
 }
 
-enum W8NavigatorMode : int {
+enum W8NavigatorMode : unsigned char {
     W8_NAVIGATOR_MODE_DEFAULT = 0,
     W8_NAVIGATOR_MODE_GROUNDED = 1,
     W8_NAVIGATOR_MODE_FLYING = 2,

@@ -740,8 +740,8 @@ void RenderFrame(void)
    caller-owned color surface. `rect` selects a logical 640x480 viewport; otherwise
    the stored game viewport applies. Saves use this for SHOT screenshots, and
    the automap uses it for its backdrop. */
-unsigned char RenderWorldToSurface(SDL_Surface* target, const DesignRect* rect,
-                                   bool render_secondary)
+// FUNCTION: WIZ8 0x00426f80
+bool RenderWorldToSurface(SDL_Surface* target, const DesignRect* rect, bool render_secondary)
 {
     srGERD* gerd = g_gerd.get();
     glm::vec3 clear_color{1.0f};
@@ -772,9 +772,9 @@ unsigned char RenderWorldToSurface(SDL_Surface* target, const DesignRect* rect,
     if (buffer != 0) {
         StretchCpuSurface(*buffer, *target, SDL_SCALEMODE_NEAREST);
         gerd->unlockBuffer();
-        return 1;
+        return true;
     }
-    return 0;
+    return false;
 }
 
 void InvalidateRendererTextureCache(void)

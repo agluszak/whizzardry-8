@@ -20,7 +20,7 @@ struct W8MonsterManagerEntry;
 extern int g_special_event13;
 extern int g_special_event14;
 extern int g_special_event17;
-int UpdateCharacterEventState(void);
+bool UpdateCharacterEventState(void);
 W8CharacterEvent* QueueCharacterEvent(W8Character* character, int event_type, unsigned int flags,
                                       unsigned int volume);
 

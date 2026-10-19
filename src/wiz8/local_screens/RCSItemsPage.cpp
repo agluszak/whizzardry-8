@@ -228,6 +228,7 @@ void OpenSplitStackDialog(W8ItemInstance* item)
 void UseCampItem(W8ItemInstance* item)
 {
     unsigned short slot;
+    unsigned char origin;
 
     if (ValidateItemSpellUse(giReviewCharSlot, item, 0)) {
         SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
@@ -240,7 +241,8 @@ void UseCampItem(W8ItemInstance* item)
             gXStatus.item_drag_active = true;
             gXStatus.dragged_item = item;
             gXStatus.dragged_character_slot = static_cast<char>(giReviewCharSlot);
-            GetOriginOfCharacterItem(giReviewCharSlot, item, &gXStatus.dragged_item_origin, &slot);
+            GetOriginOfCharacterItem(giReviewCharSlot, item, &origin, &slot);
+            gXStatus.dragged_item_origin = static_cast<W8ItemOrigin>(origin);
         } else {
             if (!g_status.item_in_cursor) {
                 MarkCampCharacterPending(item);
@@ -381,6 +383,7 @@ void SplitStackDialogResult(int count)
     W8Character* character;
     unsigned char remaining;
     unsigned char carried;
+    unsigned char origin;
 
     remaining = g_split_item_source->stack_count - static_cast<unsigned char>(count);
     carried = static_cast<unsigned char>(count);
@@ -440,8 +443,9 @@ void SplitStackDialogResult(int count)
             g_split_item_source->stack_count = remaining;
             CopyItemInstance(&g_status.item_in_hand, &split, 0, true);
             gXStatus.held_item_source = giReviewCharSlot;
-            GetOriginOfCharacterItem(giReviewCharSlot, g_split_item_source,
-                                     &gXStatus.held_item_origin, &gXStatus.held_item_slot);
+            GetOriginOfCharacterItem(giReviewCharSlot, g_split_item_source, &origin,
+                                     &gXStatus.held_item_slot);
+            gXStatus.held_item_origin = static_cast<W8ItemOrigin>(origin);
             carried = g_status.item_in_hand.stack_count;
         }
     }
@@ -502,7 +506,7 @@ void UpdateItemCursorForState(bool alternate, W8ItemInstance* item, int slot)
                 return;
             }
             if (gXStatus.fCombatMode && !IsEquippableItemClass(item) &&
-                (g_combat_state->equip_phase == 0 ||
+                (g_combat_state->equip_phase == W8CombatEquipPhase::action_selection ||
                  g_status.buffers.XChar[giReviewCharSlot].pending_action != W8_ACTION_EQUIP)) {
                 return;
             }
@@ -564,7 +568,7 @@ void UnequipBothHands(void)
     W8Character* character;
 
     if (gXStatus.fCombatMode && !g_combat_state->round_active && !gXStatus.fPartyMovementMode &&
-        g_combat_state->equip_phase == 0) {
+        g_combat_state->equip_phase == W8CombatEquipPhase::action_selection) {
         ShowCampNoticeLine(g_localized_strings[0x903], 0, true, false);
         return;
     }

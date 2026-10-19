@@ -687,7 +687,7 @@ W8Missile::~W8Missile()
    combat boundary consume the animation once its table flag is set. */
 void W8Missile::StartIfHostActive()
 {
-    if (rep_active == 0) {
+    if (!rep_active) {
         return;
     }
     if (GetAnimationState(W8_MISSILE_ANIMATION_AT_FINAL_SUBCYCLE) == 0 || !impacting) {
@@ -840,7 +840,8 @@ void W8Missile::DetonateMissileSpell()
     ResetCombatSlot(&target);
     target.iType = W8_TARGET_KIND_PLACE;
     target.point = position;
-    CastSpellFromSource(W8_SPELL_ROCKET_BLAST, &source, &target, 1, 0, 0, false, 0, 0, 0, 0);
+    CastSpellFromSource(W8_SPELL_ROCKET_BLAST, &source, &target, 1, 0, 0, false, 0,
+                        W8SpellCastKind::Standard, 0, 0);
 }
 
 /* Post "<source> hits <target>" to the notice box and colour the target's

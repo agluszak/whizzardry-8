@@ -20,7 +20,7 @@ struct W8Character;
 
 enum { W8_PARTY_SLOT_COUNT = 8 };
 
-enum W8GameWaitState : unsigned int {
+enum W8GameWaitState : unsigned char {
     W8_GAME_WAIT_STATE_MOVING = 0,
     W8_GAME_WAIT_STATE_FAST_MOVEMENT = 1,
     W8_GAME_WAIT_STATE_INITIAL_REST = 2,
@@ -101,7 +101,7 @@ struct W8GlobalStatus {
     unsigned int aging_accumulator;
     /* Retail offset 0x238f: search mode toggle. Mirrors the submenu search button, slows
        party movement, and scales the monster-sight threshold while set. */
-    unsigned char search_mode;
+    bool search_mode;
     /* Retail offset 0x2390: cleared by the main-game frame; HP/SP and condition updates
        skip work while it is set, and encounter culling treats it as the
        force-despawn gate. */
@@ -159,7 +159,7 @@ struct W8GlobalStatus {
     unsigned char condition13_clock;
     /* Retail offset 0x2488: one-shot gate; when set, the next condition-change and
        condition-cleared reaction is swallowed and the flag cleared. */
-    unsigned char skip_next_condition_reaction;
+    bool skip_next_condition_reaction;
     bool rpc_active;
     /* Retail offset 0x248a: armed by the long NPC reward event; the event also stamps
        0x2493 with the world clock. */

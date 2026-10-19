@@ -12,6 +12,7 @@
 #include "wiz8/equipment_slots.h"
 #include "wiz8/gameplay_modifiers.h"
 #include "wiz8/layouts/character.h"
+#include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/party_formation.h"
 #include "wiz8/layouts/targeting.h"
 #include "wiz8/local_code/SpellEffect.h"
@@ -23,6 +24,8 @@ struct W8MonsterInfo;
 struct W8SpellDamageReport;
 class W8Missile;
 class W8SpellVisual;
+
+enum class W8CombatEquipPhase : unsigned char { action_selection, resolving };
 
 /* OnCollision produces HIT or DEFLECTED; attack setup also seeds the result
    when collision is bypassed. The shared combat-state field remains one byte. */
@@ -52,11 +55,11 @@ struct W8PartySlotRow {
     W8ActionDetailBlock item_detail;
     W8CombatSlot item_target;
     int item_id;
-    unsigned char item_origin;
+    W8ItemOrigin item_origin = W8_ITEM_ORIGIN_NONE;
     unsigned short item_slot;
     /* Historical offset 0x0d0: the non-melee W8_ACTION_* code ChooseAction stored for the slot,
        -1 when none. */
-    signed char queued_action;
+    W8ActionKind queued_action = W8_ACTION_NONE;
     /* Historical offset 0x0d1: context-five breath target. */
     W8CombatSlot breath_target;
     /* Historical offset 0x0f1: the slot's place in the marching order, the index of its entry
@@ -260,7 +263,7 @@ struct W8CombatState {
     W8SpellVisual* breath_visual;
     /* Historical offset 0xa50: combat is in the equip/resolve phase the review screens key
        their captions and item actions on. */
-    unsigned char equip_phase;
+    W8CombatEquipPhase equip_phase = W8CombatEquipPhase::action_selection;
     /* Historical offset 0xa51: how many party slots still have a pending equip action. */
     unsigned char equip_pending;
     /* Historical offset 0xa52/0xa53: the side is surprised and cannot act this round - +0xa52
@@ -291,7 +294,7 @@ struct W8CombatState {
     bool pacing_latch;
     /* Historical offset 0xa61: remembered search-mode state; the combat teardown toggles search
        mode back on when it reads nonzero. */
-    unsigned char search_mode_saved;
+    bool search_mode_saved;
     bool combat_ready;
 };
 

@@ -1985,7 +1985,8 @@ int CollectConeMonsterTargets(const W8TargetSource* source, const glm::vec3* eye
 bool ItemUseNeedsTarget(int party_slot)
 {
     W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
-    W8ItemInstance* item = FindCharacterItemAt(party_slot, row->item_origin, row->item_slot);
+    W8ItemInstance* item = FindCharacterItemAt(
+        party_slot, static_cast<unsigned char>(row->item_origin), row->item_slot);
     bool normalize = ItemClassNormalizesTarget(&g_item_records[item->iItemNo]);
     switch (GetSpellTargetType(GetItemSpell(item), normalize)) {
     case 3:

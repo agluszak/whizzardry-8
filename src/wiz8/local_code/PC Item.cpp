@@ -1125,7 +1125,7 @@ unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_use
                 AimAtCharacter(party_slot, party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT);
             }
         }
-        target.name_known = 1;
+        target.name_known = true;
 
         if (static_cast<int>(record->category) >= W8_ITEM_USE_TYPE_COUNT) {
             Fail("pItemDB->ubUseType < USE_TYPE_COUNT");
@@ -2643,7 +2643,7 @@ void SwapItemInstances(W8ItemInstance* item, W8ItemInstance* destination, W8Char
             ClearHeldItemDisplay();
         } else {
             gXStatus.held_item_source = held_character;
-            gXStatus.held_item_origin = held_origin;
+            gXStatus.held_item_origin = static_cast<W8ItemOrigin>(held_origin);
             gXStatus.held_item_slot = held_slot;
             SetItemCursor(0);
         }
@@ -3449,7 +3449,9 @@ void StagePartySlotItemUse(int party_slot, W8ItemInstance* item, const W8CombatS
     row->item_detail.item_use.item = item;
     row->item_target = *target;
     row->item_id = item->iItemNo;
-    GetOriginOfCharacterItem(party_slot, item, &row->item_origin, &row->item_slot);
+    unsigned char item_origin;
+    GetOriginOfCharacterItem(party_slot, item, &item_origin, &row->item_slot);
+    row->item_origin = static_cast<W8ItemOrigin>(item_origin);
 }
 
 /* Take one of an item's uses away, and when that was the last one, empty the
@@ -3560,7 +3562,7 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
     W8Skill skill;
     int effect;
     int caster_figure;
-    int difficulty_kind;
+    W8SpellCastKind difficulty_kind;
 
     /* A record with no spell, an off-hand-only class and the two casting-aid
        classes are the ones the spell engine is told about rather than cast. */
@@ -3591,20 +3593,20 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
     }
 
     SetTargetSourceToCharacter(party_slot, &target);
-    target.item_cast = 1;
+    target.item_cast = true;
     TrackItemSpellSource(character, spell_id);
 
     if (skill == W8_SKILL_THROWING_SLING) {
-        difficulty_kind = 4;
+        difficulty_kind = W8SpellCastKind::ThrowingItemUse;
         caster_figure = character->uiExpLevel;
     } else if (skill == W8_SKILL_MUSIC) {
-        difficulty_kind = 2;
+        difficulty_kind = W8SpellCastKind::MusicItemUse;
         caster_figure = character->profession_levels[W8_CASTER_PROFESSION_INDEX_9];
     } else if (skill == W8_SKILL_ENGINEERING) {
-        difficulty_kind = 3;
+        difficulty_kind = W8SpellCastKind::EngineeringItemUse;
         caster_figure = character->profession_levels[W8_CASTER_PROFESSION_INDEX_8];
     } else {
-        difficulty_kind = 1;
+        difficulty_kind = W8SpellCastKind::ItemUse;
         caster_figure = character->uiExpLevel;
     }
     target.spell_difficulty =

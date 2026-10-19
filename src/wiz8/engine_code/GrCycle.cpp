@@ -424,7 +424,7 @@ void W8GrCycle::RetireParticles(W8World& world)
         auto owner = std::move(event.m_pstParticles);
         if (owner) owner->CancelAnimationCallback();
         if (owner && owner->active_particle_count != 0) {
-            owner->SetActive(1);
+            owner->SetActive(true);
             owner->emission_limit = 1;
             RetireParticle(world, std::move(owner));
         }
@@ -703,7 +703,7 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
     if (pWorld == 0) {
         Fail("pWorld");
     }
-    if (rep_active == 0) {
+    if (!rep_active) {
         return;
     }
     animation = GetCurrentAnimation();
@@ -912,7 +912,7 @@ void W8GrCycle::UpdateParticleAttachments()
     for (index = 0; index < count; ++index) {
         W8GrCycleParticleAttachment* attachment = &particles[index];
         stParticle* particle = attachment->m_pstParticles.get();
-        if (particle->emitting == 0) {
+        if (!particle->emitting) {
             continue;
         }
         if (pMeshModel != 0) {
@@ -1112,10 +1112,10 @@ void W8GrCycle::SetBehaviour(W8AnimationBehaviour bBehaviour)
 void W8GrCycleParticleAttachment::SelectCycle(signed char selected_cycle)
 {
     if (cycle == selected_cycle) {
-        m_pstParticles->SetActive(1);
+        m_pstParticles->SetActive(true);
         m_pstParticles->emission_count = 0;
     } else {
-        m_pstParticles->SetActive(0);
+        m_pstParticles->SetActive(false);
     }
 }
 

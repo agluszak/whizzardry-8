@@ -2628,7 +2628,7 @@ void FinishSpellEffectTargets(W8SpellEffectEntry* effect)
             source_copy.fReflection = true;
             CastSpellFromSource(effect->kind, &source_copy, &target_copy,
                                 effect->definition.duration_scale, effect->definition.percent, 0,
-                                false, 0, 0, 0, 0);
+                                false, 0, W8SpellCastKind::Standard, 0, 0);
             if (character == 0) {
                 if (monster_info != 0) {
                     PostMonsterNotice(monster_info, g_localized_strings[0x198]);
@@ -2995,7 +2995,7 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
         target_type != W8_TARGET_TYPE_PARTY) {
         return;
     }
-    if (effect->Source.auto_cast != 0 && spell_id != W8_SPELL_MAKE_WOUNDS) {
+    if (effect->Source.auto_cast && spell_id != W8_SPELL_MAKE_WOUNDS) {
         effect->reported = true;
     }
     switch (spell_id) {
@@ -3456,9 +3456,10 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
         effect->reported = true;
     }
     if (effect->recast && applied == 0) {
-        if (effect->Source.auto_cast != 0) {
+        if (effect->Source.auto_cast) {
             CastSpellFromSource(spell_id, &effect->Source, &effect->target,
-                                effect->definition.duration_scale, 0, 0, true, &cost, 0, 0, 0);
+                                effect->definition.duration_scale, 0, 0, true, &cost,
+                                W8SpellCastKind::Standard, 0, 0);
         } else if (TargetSourceIsCharacter(&effect->Source, 0)) {
             character = &g_status.buffers.Char[effect->Source.iChar];
             cost = SpellCastFatigueCost(spell_id, effect->definition.duration_scale);

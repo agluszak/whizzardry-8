@@ -168,7 +168,7 @@ public:
     unsigned char subcycle = 0;
     unsigned short pending_subcycle = 0xffff;
     unsigned int timer = 0;
-    unsigned char rep_active = 0;
+    bool rep_active = false;
     unsigned char animation_playing = 0;
     W8AnimationDirection frame_direction = W8_ANIMATION_DIRECTION_NONE;
     W8AnimationFrameMethod frame_method = W8_ANIMATION_FRAME_METHOD_NONE;

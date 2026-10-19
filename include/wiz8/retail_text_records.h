@@ -55,6 +55,32 @@ template<class Owner> void presence_slot(const Owner& live, std::span<std::byte>
 }
 template<class Owner> void presence_slot(Owner&, std::span<const std::byte>) {}
 
+template<class Raw, class Enum, class Bytes> void enum_value(Enum* value, Bytes bytes)
+{
+    static_assert(std::is_enum_v<std::remove_const_t<Enum>>);
+    if constexpr (std::is_const_v<Enum>) {
+        const Raw raw = static_cast<Raw>(*value);
+        std::memcpy(bytes.data(), &raw, sizeof(raw));
+    } else {
+        Raw raw{};
+        std::memcpy(&raw, bytes.data(), sizeof(raw));
+        *value = static_cast<std::remove_const_t<Enum>>(raw);
+    }
+}
+
+template<class Boolean, class Bytes> void byte_boolean(Boolean* value, Bytes bytes)
+{
+    static_assert(std::is_same_v<std::remove_const_t<Boolean>, bool>);
+    if constexpr (std::is_const_v<Boolean>) {
+        const unsigned char raw = *value ? 1 : 0;
+        std::memcpy(bytes.data(), &raw, sizeof(raw));
+    } else {
+        unsigned char raw{};
+        std::memcpy(&raw, bytes.data(), sizeof(raw));
+        *value = raw != 0;
+    }
+}
+
 /* A nested record with its own codec. */
 template<class Runtime, class Bytes, class Value, class Text>
 void nested(Runtime& runtime, Bytes bytes, Value value, Text text)
@@ -95,26 +121,26 @@ template<> struct Record<W8TargetSource> {
               bytes.subspan(offsetof(Disk, iMonsterID), sizeof(Disk::iMonsterID)));
         nested(runtime.point, bytes.subspan(offsetof(Disk, point), sizeof(Disk::point)), value,
                text);
-        value(&runtime.auto_cast,
-              bytes.subspan(offsetof(Disk, auto_cast), sizeof(Disk::auto_cast)));
-        value(&runtime.name_known,
-              bytes.subspan(offsetof(Disk, name_known), sizeof(Disk::name_known)));
+        byte_boolean(&runtime.auto_cast,
+                     bytes.subspan(offsetof(Disk, auto_cast), sizeof(Disk::auto_cast)));
+        byte_boolean(&runtime.name_known,
+                     bytes.subspan(offsetof(Disk, name_known), sizeof(Disk::name_known)));
         value(&runtime.aim_resolved,
               bytes.subspan(offsetof(Disk, aim_resolved), sizeof(Disk::aim_resolved)));
         value(&runtime.fReflection,
               bytes.subspan(offsetof(Disk, fReflection), sizeof(Disk::fReflection)));
         value(&runtime.fBackfire,
               bytes.subspan(offsetof(Disk, fBackfire), sizeof(Disk::fBackfire)));
-        value(&runtime.point_source,
-              bytes.subspan(offsetof(Disk, point_source), sizeof(Disk::point_source)));
-        value(&runtime.target_diverted,
-              bytes.subspan(offsetof(Disk, target_diverted), sizeof(Disk::target_diverted)));
+        byte_boolean(&runtime.point_source,
+                     bytes.subspan(offsetof(Disk, point_source), sizeof(Disk::point_source)));
+        byte_boolean(&runtime.target_diverted,
+                     bytes.subspan(offsetof(Disk, target_diverted), sizeof(Disk::target_diverted)));
         value(&runtime.spell_difficulty,
               bytes.subspan(offsetof(Disk, spell_difficulty), sizeof(Disk::spell_difficulty)));
         value(&runtime.unknown_20,
               bytes.subspan(offsetof(Disk, unknown_20), sizeof(Disk::unknown_20)));
-        value(&runtime.item_cast,
-              bytes.subspan(offsetof(Disk, item_cast), sizeof(Disk::item_cast)));
+        byte_boolean(&runtime.item_cast,
+                     bytes.subspan(offsetof(Disk, item_cast), sizeof(Disk::item_cast)));
         value(&runtime.unknown_22,
               bytes.subspan(offsetof(Disk, unknown_22), sizeof(Disk::unknown_22)));
     }
@@ -160,12 +186,12 @@ template<> struct Record<W8PartySlotRow> {
         value(&runtime.spell.detail,
               bytes.subspan(offsetof(Disk, spell_id), sizeof(Disk::spell_id)));
         value(&runtime.item_id, bytes.subspan(offsetof(Disk, item_id), sizeof(Disk::item_id)));
-        value(&runtime.item_origin,
-              bytes.subspan(offsetof(Disk, item_origin), sizeof(Disk::item_origin)));
+        enum_value<unsigned char>(&runtime.item_origin, bytes.subspan(offsetof(Disk, item_origin),
+                                                                      sizeof(Disk::item_origin)));
         value(&runtime.item_slot,
               bytes.subspan(offsetof(Disk, item_slot), sizeof(Disk::item_slot)));
-        value(&runtime.queued_action,
-              bytes.subspan(offsetof(Disk, queued_action), sizeof(Disk::queued_action)));
+        enum_value<signed char>(&runtime.queued_action, bytes.subspan(offsetof(Disk, queued_action),
+                                                                      sizeof(Disk::queued_action)));
         value(&runtime.party_order_index,
               bytes.subspan(offsetof(Disk, party_order_index), sizeof(Disk::party_order_index)));
         value(&runtime.item_action_pending, bytes.subspan(offsetof(Disk, item_action_pending),
@@ -519,8 +545,8 @@ template<> struct Record<W8MonsterRecord> {
              Encoding::utf16);
         text(runtime.name3, bytes.subspan(offsetof(Disk, name3), sizeof(Disk::name3)),
              Encoding::utf16);
-        value(&runtime.can_open_doors,
-              bytes.subspan(offsetof(Disk, can_open_doors), sizeof(Disk::can_open_doors)));
+        byte_boolean(&runtime.can_open_doors,
+                     bytes.subspan(offsetof(Disk, can_open_doors), sizeof(Disk::can_open_doors)));
         value(&runtime.group_size_dice,
               bytes.subspan(offsetof(Disk, group_size_dice), sizeof(Disk::group_size_dice)));
         value(&runtime.companions,
@@ -630,8 +656,8 @@ template<> struct Record<W8MonsterRecord> {
                                                             sizeof(Disk::alternate_model_index)));
         value(&runtime.hostility_radius,
               bytes.subspan(offsetof(Disk, hostility_radius), sizeof(Disk::hostility_radius)));
-        value(&runtime.faction_id,
-              bytes.subspan(offsetof(Disk, faction_id), sizeof(Disk::faction_id)));
+        enum_value<std::int32_t>(&runtime.faction_id, bytes.subspan(offsetof(Disk, faction_id),
+                                                                    sizeof(Disk::faction_id)));
         value(&runtime.material, bytes.subspan(offsetof(Disk, material), sizeof(Disk::material)));
         value(&runtime.deleted, bytes.subspan(offsetof(Disk, deleted), sizeof(Disk::deleted)));
         value(&runtime.significant_kill,
@@ -921,16 +947,16 @@ template<> struct Record<W8GlobalStatus> {
               bytes.subspan(offsetof(Disk, game_time_ms), sizeof(Disk::game_time_ms)));
         value(&runtime.aging_accumulator,
               bytes.subspan(offsetof(Disk, aging_accumulator), sizeof(Disk::aging_accumulator)));
-        value(&runtime.search_mode,
-              bytes.subspan(offsetof(Disk, search_mode), sizeof(Disk::search_mode)));
+        byte_boolean(&runtime.search_mode,
+                     bytes.subspan(offsetof(Disk, search_mode), sizeof(Disk::search_mode)));
         value(&runtime.world_suspended,
               bytes.subspan(offsetof(Disk, world_suspended), sizeof(Disk::world_suspended)));
         value(&runtime.real_elapsed,
               bytes.subspan(offsetof(Disk, real_elapsed), sizeof(Disk::real_elapsed)));
         value(&runtime.frame_elapsed,
               bytes.subspan(offsetof(Disk, frame_elapsed), sizeof(Disk::frame_elapsed)));
-        value(&runtime.wait_state,
-              bytes.subspan(offsetof(Disk, wait_state), sizeof(Disk::wait_state)));
+        enum_value<std::uint32_t>(&runtime.wait_state, bytes.subspan(offsetof(Disk, wait_state),
+                                                                     sizeof(Disk::wait_state)));
         value(&runtime.item_recharge_ms,
               bytes.subspan(offsetof(Disk, item_recharge_ms), sizeof(Disk::item_recharge_ms)));
         value(&runtime.formation,
@@ -982,9 +1008,9 @@ template<> struct Record<W8GlobalStatus> {
               bytes.subspan(offsetof(Disk, stamina_tick_ms), sizeof(Disk::stamina_tick_ms)));
         value(&runtime.condition13_clock,
               bytes.subspan(offsetof(Disk, condition13_clock), sizeof(Disk::condition13_clock)));
-        value(&runtime.skip_next_condition_reaction,
-              bytes.subspan(offsetof(Disk, skip_next_condition_reaction),
-                            sizeof(Disk::skip_next_condition_reaction)));
+        byte_boolean(&runtime.skip_next_condition_reaction,
+                     bytes.subspan(offsetof(Disk, skip_next_condition_reaction),
+                                   sizeof(Disk::skip_next_condition_reaction)));
         value(&runtime.rpc_active,
               bytes.subspan(offsetof(Disk, rpc_active), sizeof(Disk::rpc_active)));
         value(&runtime.fact_b8_pending,

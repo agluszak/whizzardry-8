@@ -1180,7 +1180,8 @@ bool CampScreenEnter(void)
         g_camp_screen->animation_frames[animation] =
             Random(g_spell_realm_animations[animation].frame_count);
     }
-    if (gXStatus.fCombatMode && g_combat_state->equip_phase) {
+    if (gXStatus.fCombatMode &&
+        g_combat_state->equip_phase != W8CombatEquipPhase::action_selection) {
         if (g_combat_state->equip_pending == 1) {
             for (int slot = 0; slot < 8; ++slot) {
                 if (g_status.buffers.XChar[slot].fOccupied && IsPartySlotEligible(slot) &&
@@ -2166,13 +2167,13 @@ bool IsCampActionAllowed(int party_slot)
         character->uiCondition[W8_CONDITION_UNCONSCIOUS] != 0 ||
         character->uiCondition[W8_CONDITION_PARALYZED] != 0 ||
         character->uiCondition[W8_CONDITION_ASLEEP] != 0) {
-        if (g_combat_state->equip_phase != 0) {
+        if (g_combat_state->equip_phase != W8CombatEquipPhase::action_selection) {
             return true;
         }
         message = g_localized_strings[0x90a];
     } else {
         row = &g_status.buffers.XChar[party_slot];
-        if (g_combat_state->equip_phase == 0) {
+        if (g_combat_state->equip_phase == W8CombatEquipPhase::action_selection) {
             if (g_combat_state->characters[party_slot].dead) {
                 if (row->pending_action == W8_ACTION_EQUIP) {
                     message = g_localized_strings[0x903];

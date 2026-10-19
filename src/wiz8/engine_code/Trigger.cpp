@@ -194,7 +194,8 @@ Trigger* FindTriggerForProp(W8World* world, W8Prop* prop)
         if (trigger->doorData() != nullptr) {
             return trigger;
         }
-        if (trigger->trigger_kind == 1 || trigger->trigger_kind == 2) {
+        if (trigger->trigger_kind == W8TriggerKind::item ||
+            trigger->trigger_kind == W8TriggerKind::prop) {
             int trigger_count = static_cast<int>(world->triggers.size());
 
             for (int index = 0; index < trigger_count; ++index) {
@@ -206,7 +207,8 @@ Trigger* FindTriggerForProp(W8World* world, W8Prop* prop)
                     continue;
                 }
                 while (hops < 5 && !other->recipients.empty() &&
-                       (other->trigger_kind == 1 || other->trigger_kind == 2)) {
+                       (other->trigger_kind == W8TriggerKind::item ||
+                        other->trigger_kind == W8TriggerKind::prop)) {
                     const char* recipient =
                         (other->recipients.empty() ? nullptr : other->recipients.c_str());
                     Trigger* linked;
@@ -239,7 +241,7 @@ void W8LockState::Reset()
 {
     int pins;
 
-    if (lock_type == 1) {
+    if (lock_type == W8LockType::pickable_lock) {
         for (int pin = 0; pin < 8; ++pin) {
             device_state.pins[pin] = static_cast<char>(Random(4));
         }
@@ -289,8 +291,10 @@ void SaveTriggerRuntimeStates(wiz8::File& handle)
 {
     const auto& triggers = GetWorld()->triggers;
     const int version = 2;
-    const int saved_count = static_cast<int>(std::ranges::count_if(
-        triggers, [](const auto& trigger) { return trigger->lock_state.lock_type != 0; }));
+    const int saved_count =
+        static_cast<int>(std::ranges::count_if(triggers, [](const auto& trigger) {
+            return trigger->lock_state.lock_type != W8LockType::none;
+        }));
     const int restoring = 0;
     handle.write(&version, sizeof(version));
     handle.write(&saved_count, sizeof(saved_count));
@@ -298,7 +302,7 @@ void SaveTriggerRuntimeStates(wiz8::File& handle)
 
     for (const auto& trigger : triggers) {
         auto& lock = trigger->lock_state;
-        if (lock.lock_type == 0) continue;
+        if (lock.lock_type == W8LockType::none) continue;
         handle.write(trigger->name, 0x80);
         handle.write(&version, sizeof(version));
         handle.write(&lock.device_state.completed, sizeof(lock.device_state.completed));
@@ -321,8 +325,10 @@ void W8LockState::ReadRuntimeRecord(W8Chunk& handle, int version, int restoring)
             handle.ReadBytes(&last_interaction_clock, sizeof(last_interaction_clock));
         }
     } else {
+        int serialized_lock_type;
         handle.ReadBytes(&record_version, sizeof(record_version));
-        handle.ReadBytes(&lock_type, sizeof(lock_type));
+        handle.ReadBytes(&serialized_lock_type, sizeof(serialized_lock_type));
+        lock_type = static_cast<W8LockType>(serialized_lock_type);
         handle.ReadBytes(&difficulty, sizeof(difficulty));
         handle.ReadBytes(&device_state.completed, sizeof(device_state.completed));
         handle.ReadBytes(device_state.pins, sizeof(device_state.pins));
@@ -710,7 +716,7 @@ void UpdateWorldTriggers(W8World* world)
                 OpenModal(std::move(dialog));
             }
         }
-        if (g_environment_load_flag != 0 && trigger->trigger_kind == 2 &&
+        if (g_environment_load_flag != 0 && trigger->trigger_kind == W8TriggerKind::prop &&
             (trigger->flags & W8_TRIGGER_ENABLED) != 0 &&
             (trigger->flags & W8_TRIGGER_POSITIONED) != 0 &&
             (trigger->flags & W8_TRIGGER_PLANE) == 0) {
@@ -795,7 +801,8 @@ void Trigger::CompleteItemInteraction()
 void Trigger::Activate()
 {
     if (const auto* door = doorData();
-        door && (lock_state.lock_type == 0 || lock_state.device_state.completed != 0) &&
+        door &&
+        (lock_state.lock_type == W8LockType::none || lock_state.device_state.completed != 0) &&
         !door->locked) {
         if (!door->open) {
             running = true;
@@ -981,7 +988,7 @@ void W8TriggerEvent::Update()
             stParticle* particle = FindParticleByName(recipient_name.c_str());
             if (particle != 0) {
                 particle->persisted = true;
-                particle->SetActive(0);
+                particle->SetActive(false);
             }
         }
         break;
@@ -1178,7 +1185,7 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
             handle->read_exact(&action_value, 4);
         }
 
-        trigger->trigger_kind = 1;
+        trigger->trigger_kind = W8TriggerKind::item;
         trigger->range_maximum = range * 500.0f;
         trigger->range_minimum = minimum_range * 500.0f;
         trigger->recipients = recipients;
@@ -1269,7 +1276,7 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
             }
         }
 
-        trigger->trigger_kind = 2;
+        trigger->trigger_kind = W8TriggerKind::prop;
         trigger->position = glm::vec3(x * 500.0f, y * 500.0f, z * 500.0f);
         trigger->range_maximum = range * 500.0f;
         trigger->m_bRepType = W8_TRIGGER_REP_POSITION;
@@ -1418,7 +1425,9 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
             handle->read_exact(&representation_scale, 4);
             handle->read_exact(&initial_location_value, 1);
             handle->read_exact(&flag0, 1);
-            handle->read_exact(&trigger->action_data_mode, 1);
+            signed char action_data_mode;
+            handle->read_exact(&action_data_mode, 1);
+            trigger->action_data_mode = static_cast<W8TriggerActionDataMode>(action_data_mode);
             handle->read_exact(&trigger->sound_volume, 1);
             int unused;
             handle->read_exact(&unused, 4);
@@ -1427,7 +1436,8 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
             handle->read_exact(&unused, 4);
         }
 
-        trigger->trigger_kind = ((packed_flags & 1) != 0 || searchable == 1) ? 1 : 2;
+        trigger->trigger_kind = ((packed_flags & 1) != 0 || searchable == 1) ? W8TriggerKind::item
+                                                                             : W8TriggerKind::prop;
         if ((packed_flags & 2) != 0) trigger->flags |= W8_TRIGGER_CAN_RUN_LINKED;
         if ((packed_flags & 4) != 0) trigger->flags |= W8_TRIGGER_ONCE;
         if ((packed_flags & 8) != 0) trigger->flags |= W8_TRIGGER_EXCLUSIVE;
@@ -1474,7 +1484,7 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
         }
         trigger->state_count = value_b0;
         trigger->cycle_bounce = value_b3;
-        trigger->state_mod_mode = value_b4;
+        trigger->state_mod_mode = static_cast<W8TriggerStateModificationMode>(value_b4);
         assignFlag(trigger->flags, W8_TRIGGER_ANIMATE_STATES, animate_states != 0);
 
         if (!trigger->state_to_modify.empty() &&
@@ -1609,7 +1619,7 @@ bool Trigger::RequiresItem()
 
 Trigger::Trigger(W8World* world)
 {
-    trigger_kind = 0;
+    trigger_kind = W8TriggerKind::none;
     trigger_id = 0;
     flags = 0;
     range_minimum = 0.0f;
@@ -1619,7 +1629,7 @@ Trigger::Trigger(W8World* world)
     state_index = 0;
     state_direction = 0;
     cycle_bounce = 0;
-    state_mod_mode = 0;
+    state_mod_mode = W8TriggerStateModificationMode::none;
     searchable = 0;
     angle = 0.0f;
     m_bRepType = W8_TRIGGER_REP_NONE;
@@ -1630,7 +1640,7 @@ Trigger::Trigger(W8World* world)
     alternate_action = 0;
     fallback_action = 0;
     action = 0;
-    action_state = 1;
+    action_state = W8TriggerActionState::inactive;
     world_item_group = 0;
     items_generated = 0;
     activation_callback = 0;
@@ -1642,7 +1652,7 @@ Trigger::Trigger(W8World* world)
     lock_state.device_id = -1;
     lock_state.key_id = -1;
     lock_state.last_interaction_clock = -1;
-    lock_state.lock_type = 0;
+    lock_state.lock_type = W8LockType::none;
     lock_state.difficulty = 0;
     lock_state.device_state.completed = 0;
     lock_state.lock_countdown = 0;
@@ -1652,6 +1662,7 @@ Trigger::Trigger(W8World* world)
     name[0] = 0;
     position = glm::vec3(0);
     action_data[0] = 0;
+    action_data_mode = W8TriggerActionDataMode::toggle_alternate;
     item_group_seed = static_cast<unsigned int>(w8_get_ticks() + Random(30000));
     gold = 0;
     uses_remaining = 0;
@@ -1666,19 +1677,20 @@ void Trigger::UpdateActionAnimation()
         return;
     }
     if ((flags & W8_TRIGGER_ALTERNATE_ACTION) != 0) {
-        if (action_data_mode == 0) {
+        if (action_data_mode == W8TriggerActionDataMode::toggle_alternate) {
             if ((flags & W8_TRIGGER_ALTERNATE_SELECTED) == 0) {
                 flags |= W8_TRIGGER_ALTERNATE_SELECTED;
             } else {
                 action_data = alternate_action_data;
                 flags &= ~W8_TRIGGER_ALTERNATE_SELECTED;
             }
-        } else if (action_data_mode == 1) {
+        } else if (action_data_mode == W8TriggerActionDataMode::alternate_action) {
             if (action == alternate_action) {
                 PlayActionSound(alternate_action_data, sound_volume);
                 return;
             }
-        } else if (action_data_mode == 2 && action == fallback_action) {
+        } else if (action_data_mode == W8TriggerActionDataMode::fallback_action &&
+                   action == fallback_action) {
             PlayActionSound(alternate_action_data, sound_volume);
             return;
         }
@@ -1694,7 +1706,7 @@ void Trigger::FinishAction()
 
     flags &= ~W8_TRIGGER_RUNNING;
 
-    if (trigger_kind == 1) {
+    if (trigger_kind == W8TriggerKind::item) {
         if (action != 0x39) {
             goto reactivate_linked_triggers;
         }
@@ -1705,7 +1717,7 @@ void Trigger::FinishAction()
         goto finish_linked_triggers;
     }
 
-    if (trigger_kind != 2) {
+    if (trigger_kind != W8TriggerKind::prop) {
         goto reactivate_linked_triggers;
     }
 
@@ -1823,13 +1835,13 @@ void Trigger::CommitActionResult(bool apply_state_changes)
         int state_id;
         int state_value;
 
-        if (state_mod_mode == 1) {
+        if (state_mod_mode == W8TriggerStateModificationMode::set) {
             state_id = FindModifiedLocationVar(state_to_modify.c_str());
             state_value = 1;
-        } else if (state_mod_mode == 2) {
+        } else if (state_mod_mode == W8TriggerStateModificationMode::clear) {
             state_id = FindModifiedLocationVar(state_to_modify.c_str());
             state_value = 0;
-        } else if (state_mod_mode == 3) {
+        } else if (state_mod_mode == W8TriggerStateModificationMode::toggle) {
             state_id = FindModifiedLocationVar(state_to_modify.c_str());
             state_value = location_variables[state_id].value == 0;
             state_id = FindModifiedLocationVar(state_to_modify.c_str());
@@ -1844,11 +1856,11 @@ show_action_message:
         const std::string_view level_folder = GetLevelFolderName(GetLoadedLevelID());
         int message_id;
 
-        if (action_state == 2) {
+        if (action_state == W8TriggerActionState::initial_action) {
             message_id = m_lData1;
-        } else if (action_state == 3) {
+        } else if (action_state == W8TriggerActionState::alternate_action) {
             message_id = m_lData2;
-        } else if (action_state == 4) {
+        } else if (action_state == W8TriggerActionState::fallback_action) {
             message_id = m_lData3;
         } else {
             goto action_complete;
@@ -2008,7 +2020,7 @@ void Trigger::Run(int source)
         return;
     }
 
-    if (trigger_kind == 2) {
+    if (trigger_kind == W8TriggerKind::prop) {
         switch (action) {
         case 0:
             goto commit_action;
@@ -2132,7 +2144,7 @@ void Trigger::Run(int source)
         }
     }
 
-    if (trigger_kind == 1) {
+    if (trigger_kind == W8TriggerKind::item) {
         switch (action) {
         case 1: {
             if (m_bRepType != W8_TRIGGER_REP_PROP || m_pProp == 0 || state_index != 0 ||
@@ -2322,7 +2334,7 @@ void Trigger::Run(int source)
                 action_succeeded = true;
             }
         }
-        if (trigger_kind == 2) {
+        if (trigger_kind == W8TriggerKind::prop) {
             flags |= W8_TRIGGER_RUNNING;
         }
         if (!action_succeeded) {
@@ -2502,7 +2514,8 @@ void Trigger::Run(int source)
         return;
 
     case 0x36:
-        if (action_state == 4 && action_data_mode == 2) {
+        if (action_state == W8TriggerActionState::fallback_action &&
+            action_data_mode == W8TriggerActionDataMode::fallback_action) {
             PlayActionSound(alternate_action_data, 0);
         } else {
             PlayActionSound(this->action_data, 0);
@@ -2524,7 +2537,7 @@ void Trigger::Run(int source)
         SetDice(&dice, static_cast<unsigned char>(m_lData1), static_cast<unsigned char>(m_lData2),
                 static_cast<short>(m_lData3));
         ApplyRolledHealthChangeToParty(&dice, 0, 1);
-        if (trigger_kind == 2) {
+        if (trigger_kind == W8TriggerKind::prop) {
             flags |= W8_TRIGGER_RUNNING;
         }
         break;
@@ -2554,7 +2567,7 @@ void Trigger::Run(int source)
         }
 
         group->members_active = true;
-        monster_info->p3D->rep_active = 1;
+        monster_info->p3D->rep_active = true;
         monster_info->p3D->animation_playing = 1;
         monster_info->p3D->timer = GameClockMilliseconds();
         monster_info->p3D->ResetRepresentation();
@@ -2598,7 +2611,7 @@ void Trigger::Run(int source)
 
         if ((flags & W8_TRIGGER_RUNNING) == 0) {
             m_pWorld->timed_events.push_back(m_pEvent.get());
-            if (trigger_kind == 2) {
+            if (trigger_kind == W8TriggerKind::prop) {
                 flags |= W8_TRIGGER_RUNNING;
             } else if (m_lData3 == -1) {
                 Fail("m_lData3!=-1", "Non-invisible triggers with shake camera must be timed");
@@ -2693,7 +2706,7 @@ void Trigger::Run(int source)
                 m_pWorld->timed_events.push_back(m_pEvent.get());
             }
         }
-        if (trigger_kind == 2) {
+        if (trigger_kind == W8TriggerKind::prop) {
             flags |= W8_TRIGGER_RUNNING;
         }
         break;
@@ -2725,7 +2738,7 @@ void Trigger::Run(int source)
         } else if (m_pEvent == 0) {
             float duration = abs(m_lData2) * 0.001f;
 
-            if (m_lData2 > 0 && trigger_kind != 2) {
+            if (m_lData2 > 0 && trigger_kind != W8TriggerKind::prop) {
                 Fail("0", "Continous firing missile must be invisible trigger.");
             }
             m_pEvent = std::make_unique<W8TriggerEvent>();
@@ -2770,7 +2783,7 @@ void Trigger::Run(int source)
             }
         }
         m_pWorld->timed_events.push_back(m_pEvent.get());
-        if (trigger_kind == 2) {
+        if (trigger_kind == W8TriggerKind::prop) {
             flags |= W8_TRIGGER_RUNNING;
         }
         break;
@@ -2833,11 +2846,11 @@ void Trigger::Run(int source)
             if (particle != 0) {
                 particle->persisted = true;
                 if (action == 0x44) {
-                    particle->SetActive(1);
+                    particle->SetActive(true);
                 } else if (action == 0x45) {
-                    particle->SetActive(0);
+                    particle->SetActive(false);
                 } else {
-                    particle->SetActive(particle->emitting == 0);
+                    particle->SetActive(!particle->emitting);
                 }
                 action_succeeded = true;
             }
@@ -2859,7 +2872,7 @@ void Trigger::Run(int source)
             stParticle* particle = FindParticleByName(NextTriggerRecipient(recipient).c_str());
             if (particle != 0) {
                 particle->persisted = true;
-                particle->SetActive(1);
+                particle->SetActive(true);
                 action_succeeded = true;
             }
         }
@@ -2984,7 +2997,7 @@ bool Trigger::SelectAction()
 
     if (((flags & W8_TRIGGER_RUNNING) != 0 && action != 0x39) || (flags & W8_TRIGGER_ON) == 0 ||
         ((flags & W8_TRIGGER_ONCE) != 0 && (flags & W8_TRIGGER_FIRED) != 0)) {
-        action_state = 1;
+        action_state = W8TriggerActionState::inactive;
         return false;
     }
 
@@ -2995,7 +3008,7 @@ bool Trigger::SelectAction()
             const int state_id = FindModifiedLocationVar(state_name.c_str());
             if (location_variables[state_id].value == 0) {
                 action = fallback_action;
-                action_state = 4;
+                action_state = W8TriggerActionState::fallback_action;
                 fallback_selected = true;
                 break;
             }
@@ -3014,7 +3027,7 @@ bool Trigger::SelectAction()
                     activation_callback(this);
                 }
                 action = fallback_action;
-                action_state = 4;
+                action_state = W8TriggerActionState::fallback_action;
                 fallback_selected = true;
             }
         }
@@ -3055,14 +3068,14 @@ bool Trigger::SelectAction()
                     activation_callback(this);
                 }
                 action = fallback_action;
-                action_state = 4;
+                action_state = W8TriggerActionState::fallback_action;
                 fallback_selected = true;
             } else {
                 lock_state.device_state.completed = 1;
                 action_data->locked = false;
                 if (action_data->linked_trigger[0] != '\0') {
                     Trigger* linked_trigger;
-                    action_state = 1;
+                    action_state = W8TriggerActionState::inactive;
                     result = false;
                     linked_trigger = FindTriggerByName(action_data->linked_trigger);
                     if (linked_trigger != 0) {
@@ -3076,13 +3089,14 @@ bool Trigger::SelectAction()
         }
     }
 
-    if (lock_state.lock_type != 0 && lock_state.device_state.completed == 0 && !running) {
-        if (lock_state.lock_type == 1) {
+    if (lock_state.lock_type != W8LockType::none && lock_state.device_state.completed == 0 &&
+        !running) {
+        if (lock_state.lock_type == W8LockType::pickable_lock) {
             g_trigger_feedback = true;
             OpenLockInteraction(this);
             return false;
         }
-        if (lock_state.lock_type == 2) {
+        if (lock_state.lock_type == W8LockType::trap) {
             g_trigger_feedback = true;
             OpenTrapInteraction(this);
             return false;
@@ -3092,19 +3106,19 @@ bool Trigger::SelectAction()
     if (!fallback_selected) {
         if ((flags & W8_TRIGGER_USE_ALTERNATE) == 0) {
             action = initial_action;
-            action_state = 2;
+            action_state = W8TriggerActionState::initial_action;
             if ((flags & W8_TRIGGER_HAS_ALTERNATE) != 0) {
                 flags |= W8_TRIGGER_USE_ALTERNATE;
             }
         } else {
             action = alternate_action;
-            action_state = 3;
+            action_state = W8TriggerActionState::alternate_action;
             if ((flags & W8_TRIGGER_ALTERNATE_TOGGLES) != 0) {
                 flags &= ~W8_TRIGGER_USE_ALTERNATE;
             }
         }
     } else if (action == 0) {
-        action_state = 1;
+        action_state = W8TriggerActionState::inactive;
         return false;
     }
     return result;

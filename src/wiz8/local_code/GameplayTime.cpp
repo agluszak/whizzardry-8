@@ -89,7 +89,7 @@ static void BeginPartyCamping()
     SetWorldResumeInput(true);
     gXStatus.surprise_deadline_turns = 0;
     CreateSurpriseFade();
-    gXStatus.surprise_phase = 0;
+    gXStatus.surprise_phase = W8SurprisePhase::fade_in;
     StartMusicResource("Camping.MPL", 0, 1);
     gXStatus.combat_countdown = 0;
 }
@@ -184,10 +184,11 @@ void UpdateGameClock(int elapsed)
     if (!gXStatus.fSurprisePossible) {
         return;
     }
-    if (gXStatus.surprise_unengaged && AnyCharacterEngaged() && gXStatus.surprise_phase == 1) {
+    if (gXStatus.surprise_unengaged && AnyCharacterEngaged() &&
+        gXStatus.surprise_phase == W8SurprisePhase::hold) {
         ResetSight();
         ReverseSurpriseFade();
-        gXStatus.surprise_phase = 2;
+        gXStatus.surprise_phase = W8SurprisePhase::fade_out_and_resolve;
         ReleaseMarkedNpcBindings();
         StartLevelMusic(1, 1);
     }
@@ -251,7 +252,7 @@ void UpdateSurpriseMode(void)
         return;
     }
     switch (gXStatus.surprise_phase) {
-    case 0:
+    case W8SurprisePhase::fade_in:
         if (UpdateSurpriseFade() != 0) {
             gXStatus.surprise_deadline_turns = g_status.world_clock + 0x7080;
             DestroyUngroupedMonsters();
@@ -261,22 +262,22 @@ void UpdateSurpriseMode(void)
             scale = 1.0f / level_scale;
             GameTimeAccumulator().SetTimeScale(scale);
             SetMonsterGeneratorDurationScale(scale);
-            gXStatus.surprise_phase = 1;
+            gXStatus.surprise_phase = W8SurprisePhase::hold;
         }
         break;
-    case 1:
+    case W8SurprisePhase::hold:
         if (!gXStatus.surprise_unengaged &&
             static_cast<unsigned int>(g_status.world_clock) >= gXStatus.surprise_deadline_turns) {
             ResetSight();
             UpdateEnvironmentLight();
             RefreshEnvironment();
             ReverseSurpriseFade();
-            gXStatus.surprise_phase = 2;
+            gXStatus.surprise_phase = W8SurprisePhase::fade_out_and_resolve;
             ReleaseMarkedNpcBindings();
             StartLevelMusic(1, 1);
         }
         break;
-    case 2:
+    case W8SurprisePhase::fade_out_and_resolve:
         if (UpdateSurpriseFade() != 0) {
             EndSurprise();
             if (gXStatus.fCombatMode) {
@@ -306,10 +307,10 @@ void AcknowledgeSurprise(void)
    music. */
 void ResolveSurpriseHold(void)
 {
-    if (gXStatus.surprise_phase == 1) {
+    if (gXStatus.surprise_phase == W8SurprisePhase::hold) {
         ResetSight();
         ReverseSurpriseFade();
-        gXStatus.surprise_phase = 2;
+        gXStatus.surprise_phase = W8SurprisePhase::fade_out_and_resolve;
         ReleaseMarkedNpcBindings();
         StartLevelMusic(1, 1);
     }
@@ -343,7 +344,7 @@ void EndSurprise(void)
     if (g_status.condition13_clock != 0 &&
         0x15180 < static_cast<unsigned int>(g_status.world_clock) - g_status.condition13_clock) {
         g_status.condition13_clock = 0;
-        g_status.skip_next_condition_reaction = 1;
+        g_status.skip_next_condition_reaction = true;
         int party_slot = g_status.pending_condition_party_slot;
         RemoveCharacterCondition(party_slot, W8_CONDITION_MISSING, false);
         QueueCharacterEvent(&g_status.buffers.Char[party_slot], 52, 0, kCharacterEventFullVolume);

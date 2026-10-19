@@ -282,7 +282,7 @@ static unsigned char WorldCursorNodeShowMessageOnce(int command, W8WorldCursorNo
     folder = GetLevelFolderName(GetLoadedLevelID());
     type = node->parameters[2];
     enabled = static_cast<unsigned char>(node->parameters[1]);
-    if (enabled != 0 && g_status.search_mode == 0 && g_status.party_modifiers.detect_secrets == 0) {
+    if (enabled != 0 && !g_status.search_mode && g_status.party_modifiers.detect_secrets == 0) {
         for (slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
             if (g_status.buffers.XChar[slot].fOccupied &&
                 CharacterHasTrait(g_status.buffers.Char + slot, W8_TRAIT_SEARCH)) {

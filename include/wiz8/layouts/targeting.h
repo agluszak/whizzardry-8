@@ -31,9 +31,9 @@ struct W8TargetSource {
     glm::vec3 point;
     /* 0x18: system-driven cast (retaliation/AI/trap): skips the backfire
        check and counts as already reported. */
-    unsigned char auto_cast;
+    bool auto_cast;
     /* 0x19: the name-known flag SpellTargetString reads. */
-    unsigned char name_known;
+    bool name_known;
     /* 0x1a: the cast's aim was already resolved; MonsterCanAimSpell retargeting
        is skipped. */
     bool aim_resolved;
@@ -41,18 +41,19 @@ struct W8TargetSource {
     bool fBackfire;   /* 0x1c */
     /* 0x1d: the cast's source was resolved to a point, not a creature;
        missile/spell paths then skip the monster's spell vertex. */
-    unsigned char point_source;
+    bool point_source;
     /* 0x1e: the attack's target ended up different from the one the slot row
        aimed at - a fumble reroll or a guardian interception replaced it. */
-    unsigned char target_diverted;
+    bool target_diverted;
     /* 0x1f: the precomputed cast difficulty item/tracked sources carry; the
        spell engine reads it back when name_known skips recomputation. */
     unsigned char spell_difficulty;
     unsigned char unknown_20;
     /* 0x21: set on sources the item-spell path builds. */
-    unsigned char item_cast;
+    bool item_cast;
     unsigned char unknown_22[0x12];
 }; /* 0x34 */
+static_assert(sizeof(W8TargetSource) == 0x34);
 
 /* The target-kind domain a combat slot's leading field takes. The kinds that
    name something put it in their own field, which is what pairs each kind with

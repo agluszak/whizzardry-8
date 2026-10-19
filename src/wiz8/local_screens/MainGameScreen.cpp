@@ -2088,7 +2088,7 @@ void ResetMainGameScreenState(void)
         unset = -1;
         gXStatus.review_character_slot = static_cast<unsigned short>(unset);
         gXStatus.held_item_source = unset;
-        gXStatus.held_item_origin = static_cast<unsigned char>(unset);
+        gXStatus.held_item_origin = W8_ITEM_ORIGIN_NONE;
         gXStatus.held_item_slot = static_cast<unsigned short>(unset);
         gXStatus.gameplay_timer->Restart();
         gXStatus.assay_professions_tab = true;
@@ -5901,6 +5901,8 @@ void RunMGSActionKey(unsigned short command)
         case W8_ACTION_EQUIP:
             RunMGSActionKey(W8_MGS_ACTION_EQUIP);
             break;
+        default:
+            break;
         }
         break;
     default:
@@ -6649,7 +6651,7 @@ void CreateSurpriseFade(void)
 
 void ReverseSurpriseFade(void)
 {
-    if (gXStatus.surprise_phase == 0) {
+    if (gXStatus.surprise_phase == W8SurprisePhase::fade_in) {
         srMaterial* material =
             static_cast<srMaterial*>(static_cast<srMeshModel*>(g_surprise_fade_node->getModel())
                                          ->getMaterial(0, srMeshModel::SIDE_FRONT));
@@ -6707,7 +6709,7 @@ unsigned char UpdateSurpriseFade(void)
         ->setOpacity(opacity);
 
     if (boundary) {
-        if (gXStatus.surprise_phase == 0) {
+        if (gXStatus.surprise_phase == W8SurprisePhase::fade_in) {
             const auto snapshot = CatalogArtwork::Load(0x1e0).bitmap();
             g_surprise_snapshot_surface = snapshot;
             g_surprise_snapshot_overlay = std::make_unique<stSurface2D>(
@@ -6723,7 +6725,7 @@ unsigned char UpdateSurpriseFade(void)
         return done;
     }
     if (done) {
-        if (gXStatus.surprise_phase == 0) {
+        if (gXStatus.surprise_phase == W8SurprisePhase::fade_in) {
             g_surprise_fade_node->setFlag(srNode::FLAG_DISABLE);
             return done;
         }
