@@ -1200,7 +1200,7 @@ unsigned char UseItem(W8Character* character, W8ItemInstance* item, std::optiona
         }
 
         if (g_settings.verbose_combat_messages == 0) {
-            SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
+            SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, std::nullopt);
         }
         if (record->spell_id == W8_SPELL_NONE) {
             std::string message = fmt::format(
@@ -3740,7 +3740,7 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
                                     g_spell_records[spell_id].display_name, power),
                        -1);
             if (g_settings.verbose_combat_messages == 0) {
-                SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
+                SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, std::nullopt);
             }
         }
         item->spell_hint = true;

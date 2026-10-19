@@ -966,18 +966,16 @@ UiResult HandleTextChannel(const UiPointerEvent& event, int channel)
 }
 
 /* The text box's mode, and the setter that also records a value when one is
-   given - passing -1 leaves the value alone. */
+   present. */
 W8TextBoxMode GetTextBoxMode(void)
 {
     return g_text_box_mode;
 }
 
-void SetTextBoxMode(W8TextBoxMode mode, int value)
+void SetTextBoxMode(W8TextBoxMode mode, std::optional<int> value)
 {
     g_text_box_mode = mode;
-    if (value != -1) {
-        g_text_box_value = value;
-    }
+    if (value) g_text_box_value = *value;
 }
 
 /* Draw clickable notice-word overlays for one painted line. */

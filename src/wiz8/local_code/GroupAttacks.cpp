@@ -439,11 +439,11 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                                             uiTotals[i] / uiHits[i], -1);
                         break;
                     default:
-                        SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
+                        SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, std::nullopt);
                         continue;
                     }
                     AppendToLastTextLine(text, std::nullopt);
-                    SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
+                    SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, std::nullopt);
                 }
             }
         }

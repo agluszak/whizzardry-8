@@ -115,7 +115,7 @@ W8NoticeWord* HitTestNoticeWord(int text_box, unsigned short x, unsigned short y
 std::string CopyNoticeWordText(const W8NoticeWord* word, int box, int line);
 void ScrollTextBoxToCursor(void);
 W8TextBoxMode GetTextBoxMode(void);
-void SetTextBoxMode(W8TextBoxMode mode, int value);
+void SetTextBoxMode(W8TextBoxMode mode, std::optional<int> value);
 /* Re-derive the text-box mode from the live screen state; 0xffff
    asks for the automatic choice. */
 void RefreshTextBoxMode(unsigned short mode);
