@@ -952,9 +952,8 @@ void Prop::AttachAnimationInstances(World* world)
         if (mesh != 0 && (mesh->flags & W8_MESH_SORTED_RENDERING) != 0 && trigger == 0) {
             instance->render_flags |= MeshInstance::RENDER_NO_PICK;
         }
-        if (this->animation->path.has_value()) {
-            (instance)->transform = sampleKeyframeTrack(
-                *((animation->path ? &*animation->path : nullptr)), (instance)->transform);
+        if (animation->path) {
+            instance->transform = sampleKeyframeTrack(*animation->path, instance->transform);
         } else {
             rep_position = this->GetLocation();
             rep_rotation = this->GetRotation();

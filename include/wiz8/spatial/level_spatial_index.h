@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include <cstddef>
 #include <map>
 #include <memory>
 #include <optional>
@@ -62,7 +63,7 @@ extern float g_default_momentum_scale;
    the record's destructor at 0x00421890 exists only to tear that member down.
    The bare `add ecx,0xc4` body is member teardown, not an adjustor thunk. */
 
-struct SurfaceIndex;
+class SurfaceIndex;
 class Trigger;
 class Camera3D;
 class MeshInstance;
@@ -267,7 +268,7 @@ struct W8OctreeView {
 
 // Runtime registration and visibility are separate from immutable level geometry.
 struct DynamicSpatialRegistry {
-    std::unordered_map<unsigned int, std::size_t> region_meshes;
+    std::unordered_map<std::size_t, std::size_t> region_meshes;
     std::unique_ptr<W8OctreeObjectRegistry> cells{};
     float maximum_navigation_radius = 500.0f;
     bool collecting_links{};
@@ -497,7 +498,7 @@ public:
     /* Refresh the pathing service's debug preview from the world cursor,
        falling back to the camera eye when the cursor is unset. */
     void UpdateCameraVisibility();
-    MeshInstance* meshForRegion(unsigned int region) const;
+    MeshInstance* meshForRegion(std::size_t region) const;
     void UpdateVisibility();
     /* Store `path` with its extension stripped into m_path_stem; the sibling
        data files are then derived from the stem. */

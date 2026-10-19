@@ -23,8 +23,8 @@ do not need the original compiler layout.
   scratch, fallback resources and GPU texture records. Indexed TGA decoding
   owns its palette; no SurRender core initialization or CPU texture-cache
   budget remains.
-- The complete engine replacement is implemented in draft PR #384; see
-  `ENGINE_MODERNIZATION.md` for its pending CI verification gate. SGP, SurRender
+- PR #384 replaces the legacy engine layers; see `ENGINE_MODERNIZATION.md`
+  for CI verification and the remaining modernization work. SGP, SurRender
   and `engine_code` source/include directories are removed. Concrete rendering
   resources, composed entities, per-query spatial/navigation scratch and
   world-owned environment/audio/camera state replace their engine layers.

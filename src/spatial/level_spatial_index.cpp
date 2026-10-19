@@ -115,7 +115,7 @@ void W8OctreeView::captureCamera(const Camera3D& camera)
     horizontal_fov_cosine = static_cast<float>(cos(horizontal_fov));
 }
 
-MeshInstance* LevelSpatialIndex::meshForRegion(unsigned int region) const
+MeshInstance* LevelSpatialIndex::meshForRegion(std::size_t region) const
 {
     if (!owner_world || region >= m_pSubmeshes.size()) return nullptr;
     const auto found = registry.region_meshes.find(region);
