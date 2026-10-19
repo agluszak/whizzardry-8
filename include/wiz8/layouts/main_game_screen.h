@@ -9,7 +9,7 @@
 
 class stTextureAnim;
 class stModelInstance2D;
-enum W8TextBoxArrowState : int;
+enum W8TextBoxArrowState : unsigned char;
 
 #include <memory>
 
@@ -36,7 +36,7 @@ enum W8MainUiMode {
     W8_MAIN_UI_MODE_RADAR = 2
 };
 
-enum W8ViewportMode : int {
+enum W8ViewportMode : unsigned char {
     W8_VIEWPORT_MODE_FULL = 0,
     W8_VIEWPORT_MODE_FULL_WITH_BOTTOM_PANEL = 1,
     W8_VIEWPORT_MODE_CENTERED_WITH_BOTTOM_PANEL = 2,
@@ -115,7 +115,7 @@ struct W8PortraitHighlight {
 static const unsigned int W8_MAIN_REDRAW_FRAME = 0x80000000U;
 static const unsigned int W8_MAIN_REDRAW_ALL = 0xffffffffU;
 
-enum W8PortraitAssayHoverMode : int {
+enum W8PortraitAssayHoverMode : unsigned char {
     W8_PORTRAIT_ASSAY_HOVER_NONE = 0,
     W8_PORTRAIT_ASSAY_HOVER_PRIMARY_WEAPON = 1,
     W8_PORTRAIT_ASSAY_HOVER_SECONDARY_WEAPON = 2,

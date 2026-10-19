@@ -72,8 +72,8 @@ enum class TextBoxRegion : std::size_t {
 };
 
 // Scroll-arrow visual states stored in text_content_region / dialogue_content_region.
-enum W8TextBoxArrowState : int {
-    kTextBoxArrowNone = -1,
+enum W8TextBoxArrowState : unsigned char {
+    kTextBoxArrowNone = 0xff,
     kUpArrowDisabled = 0x56,
     kUpArrowEnabled = 0x57,
     kUpArrowPressed = 0x58,
@@ -81,7 +81,7 @@ enum W8TextBoxArrowState : int {
     kDownArrowEnabled = 0x5a,
     kDownArrowPressed = 0x5b,
 };
-static_assert(sizeof(W8TextBoxArrowState) == sizeof(int));
+static_assert(sizeof(W8TextBoxArrowState) == sizeof(unsigned char));
 
 void InitTextBoxRegions();
 void ShutdownTextBoxRegions();
