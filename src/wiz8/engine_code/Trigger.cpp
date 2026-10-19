@@ -2158,7 +2158,7 @@ void Trigger::Run(int source)
             goto commit_action;
 
         case 0x0a: {
-            int camera = -1;
+            std::optional<int> camera;
             int switch0;
             int switch1;
             int switch2;
@@ -2203,10 +2203,10 @@ void Trigger::Run(int source)
                 }
             }
 
-            if (camera != -1) {
+            if (camera) {
                 char name[24];
 
-                snprintf(name, sizeof(name), "Camera0%d", camera);
+                snprintf(name, sizeof(name), "Camera0%d", *camera);
                 UpdateCameraPathStateByName(m_pWorld, name, 1);
             }
             FinishAction();
@@ -3407,10 +3407,10 @@ void ClearLocationVariables()
     location_variables.clear();
 }
 
-/* Index of the prop whose trigger last tested in view; -1 until a prop
+/* Index of the prop whose trigger last tested in view; empty until a prop
    matches. */
 // GLOBAL: WIZ8 0x00606998
-static int s_last_prop_index = -1;
+static std::optional<int> s_last_prop_index;
 
 /* Report whether any world prop's trigger representation is within its
    activation range and projects onto the screen. The remembered index is
@@ -3427,8 +3427,8 @@ bool AnyPropTriggerInView()
     }
     position = cameraLocation();
     prop_count = GetWorld()->plsProps.size();
-    if (0 <= s_last_prop_index && s_last_prop_index < static_cast<int>(prop_count)) {
-        W8Prop* prop = GetWorldProp(GetWorld(), s_last_prop_index);
+    if (s_last_prop_index && *s_last_prop_index < static_cast<int>(prop_count)) {
+        W8Prop* prop = GetWorldProp(GetWorld(), *s_last_prop_index);
 
         if (prop->IsTriggerInView(&position)) {
             return true;

@@ -371,8 +371,8 @@ std::unique_ptr<W8Monster> MonsterReadAllCycles(W8World* world, std::string_view
     float sound_falloff = -1.0f;
     float shadow_width = -1.0f;
     float shadow_depth = 0.0f;
-    int missile_start = -1;
-    int spell_start = -1;
+    std::optional<int> missile_start;
+    std::optional<int> spell_start;
     int footstep_volume = 0;
     int footstep_combat_volume = 0;
     glm::vec3 light_first;
@@ -435,9 +435,11 @@ std::unique_ptr<W8Monster> MonsterReadAllCycles(W8World* world, std::string_view
             } else if (SDL_strcasecmp(command.c_str(), "bobrangeend") == 0) {
                 fields >> bob_range_end;
             } else if (SDL_strcasecmp(command.c_str(), "missilestart") == 0) {
-                fields >> missile_start;
+                int frame;
+                if (fields >> frame) missile_start = frame;
             } else if (SDL_strcasecmp(command.c_str(), "spellstart") == 0) {
-                fields >> spell_start;
+                int frame;
+                if (fields >> frame) spell_start = frame;
             } else if (SDL_strcasecmp(command.c_str(), "flies") == 0) {
                 flies = true;
             } else if (SDL_strcasecmp(command.c_str(), "swims") == 0) {
@@ -694,8 +696,8 @@ std::unique_ptr<W8Monster> MonsterReadAllCycles(W8World* world, std::string_view
         representation->random_idle_fps_min = idle_fps_start;
         representation->random_idle_fps_max = idle_fps_end;
     }
-    if (missile_start > 0) monster->missile_frame = missile_start;
-    if (spell_start > 0) monster->spell_frame = spell_start;
+    if (missile_start && *missile_start > 0) monster->missile_frame = *missile_start;
+    if (spell_start && *spell_start > 0) monster->spell_frame = *spell_start;
     if (has_lod_range) {
         representation->lod_near = lod_range_start * kWorldScale;
         representation->lod_far = lod_range_end * kWorldScale;
@@ -2151,15 +2153,15 @@ void W8Monster::ProcessScript()
                 if (tokens && SDL_strcasecmp(token.c_str(), "PARTY") == 0) {
                     face_party = true;
                 } else if (tokens) {
-                    int direction = -1;
+                    std::optional<int> direction;
                     for (int index = MONSCR_EAST; index <= MONSCR_SOUTHEAST; ++index) {
                         if (SDL_strcasecmp(token.c_str(), g_monster_script_commands[index]) == 0) {
                             direction = index;
                             break;
                         }
                     }
-                    if (direction != -1) {
-                        double angle = (direction - MONSCR_EAST) * g_monster_script_direction_step;
+                    if (direction) {
+                        double angle = (*direction - MONSCR_EAST) * g_monster_script_direction_step;
                         order_mode = W8_MONSTER_ORDER_FACE_DIRECTION;
                         direction_x = static_cast<float>(cos(angle) * 500.0);
                         direction_y = 0.0f;
