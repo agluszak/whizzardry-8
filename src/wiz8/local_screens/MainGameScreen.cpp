@@ -3994,7 +3994,8 @@ void UpdateCombatPortraitStatus(void)
 
         if (row->fOccupied && character->hp_current > 0 &&
             character->highest_condition <= W8_CONDITION_UNCONSCIOUS) {
-            if (g_combat_state->eCombatActionStatus == 0 || g_combat_state->iActionChar != slot ||
+            if (g_combat_state->action_status == W8CombatActionStatus::idle ||
+                g_combat_state->iActionChar != slot ||
                 TimeUntilDeadline(g_combat_state->action_clock) > 800) {
                 if (IsPartySlotEligible(slot)) {
                     if (combat_row->dead) {

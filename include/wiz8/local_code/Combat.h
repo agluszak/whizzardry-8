@@ -5,6 +5,7 @@
 #include "wiz8/layouts/targeting.h"
 
 struct W8MonsterRecord;
+enum class W8CombatActionStatus : unsigned char;
 
 /* A friendly NPC's combat-entry script notice is still owed. */
 
@@ -65,12 +66,13 @@ int GetConditionInterrupt(W8TargetSource* source);
 bool MonsterFleeAction(W8MonsterInfo* monster_info, W8MonsterRecord* record);
 /* Run the monster's committed special attack against its marker
    lists and every monster hostile to it; returns the action outcome code. */
-int ExecuteMonsterSpecialAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record);
+W8CombatActionStatus ExecuteMonsterSpecialAttack(W8MonsterInfo* monster_info,
+                                                 W8MonsterRecord* record);
 /* The character's breathe/special-attack action step. */
 bool CreateCharacterBreathEffect(int party_slot);
 /* The character's committed breath attack against the marker
    lists plus every hostile monster; returns the action outcome code. */
-int ExecuteCharacterSpecialAttack(int party_slot);
+W8CombatActionStatus ExecuteCharacterSpecialAttack(int party_slot);
 void ApplyPartyCombatAction(int party_slot, W8ActionKind action, int detail,
                             const W8ActionDetailBlock* data, int notify);
 int IsPartyEngaged(void);

@@ -4053,7 +4053,8 @@ void BindCharacterItems(int party_slot, bool announce)
                        g_localized_strings[W8_NOTICE_WEAPON_SWAP_BLOCKED_COMBAT]);
             return;
         }
-        if (g_combat_state->iActionChar == party_slot && g_combat_state->eCombatActionStatus == 2 &&
+        if (g_combat_state->iActionChar == party_slot &&
+            g_combat_state->action_status == W8CombatActionStatus::resolving &&
             (g_status.buffers.XChar[party_slot].pending_action == W8_ACTION_ATTACK ||
              g_status.buffers.XChar[party_slot].pending_action == W8_ACTION_BERSERK)) {
             ShowNotice(W8_FONT_PALETTE_WHITE, fmt::sprintf(g_localized_strings[0x1f7],

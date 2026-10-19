@@ -231,7 +231,6 @@ struct W8LevelRuntimeBlock {
     Font* text_box_font;
     Palette16 palette;
     W8ActionKind selection_kind;
-    int pending_action;
     bool selection_settled;
     uint64_t tooltip_since;
     bool tooltip_pending;

@@ -1375,7 +1375,8 @@ void W8Monster::Update()
         (g_combat_state->round_active || gXStatus.fPartyMovementMode) &&
         (cycle == W8_MONSTER_CYCLE_IDLE || cycle == W8_MONSTER_CYCLE_SPICE) &&
         (pending_cycle == -1 || pending_cycle == 1 || pending_cycle == 2) &&
-        (g_combat_state->eCombatActionStatus != 2 || g_combat_state->pActionMonsterInfo == 0 ||
+        (g_combat_state->action_status != W8CombatActionStatus::resolving ||
+         g_combat_state->pActionMonsterInfo == 0 ||
          g_combat_state->pActionMonsterInfo->location_id != location_id)) {
         timer = GameClockMilliseconds();
     }
@@ -3501,7 +3502,7 @@ void W8Monster::HandleAnimationThreshold()
     record = GetMonsterDataForInfo(monster_info);
     SetTargetSourceToMonster(monster_info, &source);
 
-    if (gXStatus.fCombatMode && g_combat_state->eCombatActionStatus == 2 &&
+    if (gXStatus.fCombatMode && g_combat_state->action_status == W8CombatActionStatus::resolving &&
         g_combat_state->pActionMonsterInfo == monster_info) {
         attack_index = monster_info->pCombat->attack_index;
         selected_attack = true;

@@ -692,8 +692,10 @@ bool PreparePartyPortraitOverlay(unsigned int party_slot, unsigned int left, uns
         if (character->hp_current != 0) {
             int portrait = character->portrait_index;
             SpriteDraw draw{};
-            if ((g_portrait_descriptors[portrait].render_mode == 1 && (party_slot & 1) == 0) ||
-                (g_portrait_descriptors[portrait].render_mode == 2 && (party_slot & 1) != 0)) {
+            if ((g_portrait_descriptors[portrait].mirror_side == W8PortraitMirrorSide::left &&
+                 (party_slot & 1) == 0) ||
+                (g_portrait_descriptors[portrait].mirror_side == W8PortraitMirrorSide::right &&
+                 (party_slot & 1) != 0)) {
                 draw.mirror = true;
             }
             if (BlitPartyPortraitAnimation(GetFrameBufferSurface(), portrait, left, top, draw,
@@ -768,9 +770,11 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
         } else {
             portrait_catalog = character->portrait_index;
             portrait_draw = {};
-            if ((g_portrait_descriptors[portrait_catalog].render_mode == 1 &&
+            if ((g_portrait_descriptors[portrait_catalog].mirror_side ==
+                     W8PortraitMirrorSide::left &&
                  (party_slot & 1) == 0) ||
-                (g_portrait_descriptors[portrait_catalog].render_mode == 2 &&
+                (g_portrait_descriptors[portrait_catalog].mirror_side ==
+                     W8PortraitMirrorSide::right &&
                  (party_slot & 1) != 0)) {
                 portrait_draw.mirror = true;
             }

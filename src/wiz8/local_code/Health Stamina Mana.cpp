@@ -1089,7 +1089,7 @@ void CharacterDies(int party_slot)
 
     if (gXStatus.fCombatMode) {
         if (g_combat_state->iActionChar == party_slot) {
-            g_combat_state->eCombatActionStatus = 0;
+            g_combat_state->action_status = W8CombatActionStatus::idle;
             g_combat_state->iActionChar = -1;
         }
         row->pending_action = W8_ACTION_NONE;

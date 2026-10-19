@@ -730,7 +730,7 @@ void W8NpcDialogue::RunNextAction()
             }
             const int party_slot = leave.party_slot;
             if (g_combat_state->iActionChar == party_slot) {
-                g_combat_state->eCombatActionStatus = 0;
+                g_combat_state->action_status = W8CombatActionStatus::idle;
                 g_combat_state->iActionChar = -1;
             }
             ClearMainGameTargetState();
