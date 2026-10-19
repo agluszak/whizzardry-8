@@ -10,7 +10,7 @@
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/targeting.h"
 
-enum class W8SpellCastKind {
+enum class W8SpellCastKind : unsigned char {
     Standard = 0,
     ItemUse = 1,
     MusicItemUse = 2,

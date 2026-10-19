@@ -14,7 +14,7 @@
 #include "wiz8/unicode.h"
 
 namespace wiz8::retail {
-enum class Encoding { utf8, utf16 };
+enum class Encoding : unsigned char { utf8, utf16 };
 template<class T> struct Record;
 
 /* A disk pointer slot is a 32-bit presence word: writers store whether the
@@ -115,7 +115,8 @@ template<> struct Record<W8TargetSource> {
     template<class Runtime, class Bytes, class Value, class Text>
     static void fields(Runtime& runtime, Bytes bytes, Value value, Text text)
     {
-        value(&runtime.iType, bytes.subspan(offsetof(Disk, iType), sizeof(Disk::iType)));
+        enum_value<std::int32_t>(&runtime.iType,
+                                 bytes.subspan(offsetof(Disk, iType), sizeof(Disk::iType)));
         value(&runtime.iChar, bytes.subspan(offsetof(Disk, iChar), sizeof(Disk::iChar)));
         value(&runtime.iMonsterID,
               bytes.subspan(offsetof(Disk, iMonsterID), sizeof(Disk::iMonsterID)));
@@ -150,7 +151,7 @@ template<> struct Record<W8CombatSlot> {
     template<class Runtime, class Bytes, class Value, class Text>
     static void fields(Runtime& runtime, Bytes bytes, Value value, Text)
     {
-        value(&runtime.iType, bytes.subspan(offsetof(Disk, iType), 4));
+        enum_value<std::int32_t>(&runtime.iType, bytes.subspan(offsetof(Disk, iType), 4));
         value(&runtime.iChar, bytes.subspan(offsetof(Disk, iChar), 4));
         value(&runtime.iMonsterID, bytes.subspan(offsetof(Disk, iMonsterID), 4));
         value(&runtime.iGroupID, bytes.subspan(offsetof(Disk, iGroupID), 4));

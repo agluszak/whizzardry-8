@@ -8,7 +8,7 @@ struct W8Chunk;
 struct W8AutomapCells;
 struct W8World;
 
-enum class W8AutomapTool { Select = 0, AddNote = 2, EraseNote = 3 };
+enum class W8AutomapTool : unsigned char { Select = 0, AddNote = 2, EraseNote = 3 };
 
 #include <array>
 #include <memory>

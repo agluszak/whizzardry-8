@@ -20,8 +20,8 @@ namespace wiz8 {
 std::filesystem::path path_from_utf8(std::string_view text);
 std::string path_to_utf8(const std::filesystem::path& path);
 
-enum class OpenMode { read, update, replace, append };
-enum class SeekOrigin { begin, current, end };
+enum class OpenMode : unsigned char { read, update, replace, append };
+enum class SeekOrigin : unsigned char { begin, current, end };
 
 struct ReadResult {
     std::size_t bytes;

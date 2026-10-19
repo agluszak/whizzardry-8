@@ -132,7 +132,7 @@ struct PlaneSegment {
     float limit;
 };
 
-enum class PlaneContactMode { Collision, SurfaceCollision, Occlusion };
+enum class PlaneContactMode : unsigned char { Collision, SurfaceCollision, Occlusion };
 
 // Occlusion requires a full five-unit exit behind a plane. Collision accepts
 // the endpoint within its one-unit skin, unless a closer hit already exists.

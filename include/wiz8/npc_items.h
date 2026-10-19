@@ -8,7 +8,7 @@ struct W8ItemInstance;
 struct W8NpcItemEntry;
 struct W8NpcState;
 
-enum class W8TradeSource { Backpack, PartyPool, NpcStock, Gold };
+enum class W8TradeSource : unsigned char { Backpack, PartyPool, NpcStock, Gold };
 // A selection names a source location with expected contents. Replacing or
 // compacting its contents invalidates the choice instead of redirecting it.
 // Identical item stacks are fungible; no persistent item identity is invented.
@@ -20,7 +20,13 @@ struct W8TradeSelection {
     unsigned char stock_quantity = 0;
 };
 W8ItemInstance* ResolveTradeSelection(W8NpcState* npc, const W8TradeSelection& selection);
-enum class W8TradeOutcome { Complete, InvalidSelection, Refused, WantedByOwner, InsufficientGold };
+enum class W8TradeOutcome : unsigned char {
+    Complete,
+    InvalidSelection,
+    Refused,
+    WantedByOwner,
+    InsufficientGold
+};
 struct W8TradeResult {
     W8TradeOutcome outcome;
     bool accepted_topic = false;

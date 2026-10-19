@@ -79,7 +79,7 @@ void UpdateEnvironmentLighting(void);
 void SetSkyNodeVisible(bool visible);
 void SetCameraLightIntensity(float value);
 /* Camera light actions used by SetCameraLightMode. */
-enum class W8CameraLightMode { Increase, Decrease, Disable, Enable };
+enum class W8CameraLightMode : unsigned char { Increase, Decrease, Disable, Enable };
 void SetCameraLightMode(W8CameraLightMode mode);
 void RefreshFogRanges(W8World& world);
 
@@ -89,7 +89,7 @@ extern uint64_t g_frame_tick;
 extern float g_frame_elapsed;
 
 /* Whether day/night lighting is active, fading, or faded out. */
-enum class W8EnvironmentLightingMode { FadedOut, Transition, DayNight };
+enum class W8EnvironmentLightingMode : unsigned char { FadedOut, Transition, DayNight };
 extern W8EnvironmentLightingMode g_environment_lighting_mode;
 /* 1/duration while the lighting transition body at 0x00484300 runs, zero when
    idle: UpdateEnvironment hands off to that body while it is not zero. */

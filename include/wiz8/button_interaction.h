@@ -7,10 +7,10 @@
 // that button's release. PrimaryPressedState gates left release/repeat on the
 // pressed state, permits controller-driven right actions, only depresses
 // artwork on left press, and shares repeat suppression across both buttons.
-enum class ButtonInputRule { MatchingPress, PrimaryPressedState };
+enum class ButtonInputRule : unsigned char { MatchingPress, PrimaryPressedState };
 
-enum class ButtonActivation { Press, Release };
-enum class ButtonToggle { None, Press, Release, StayLatched };
+enum class ButtonActivation : unsigned char { Press, Release };
+enum class ButtonToggle : unsigned char { None, Press, Release, StayLatched };
 
 struct ButtonPolicy {
     ButtonToggle primary_toggle = ButtonToggle::None;
