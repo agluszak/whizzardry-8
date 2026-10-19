@@ -91,11 +91,12 @@ enum W8ItemQuantityKind : unsigned char {
     W8_ITEM_QUANTITY_SHOTS = 4
 };
 
-/* Item categories the usability rules distinguish. Three is the spell source
-   the magic code already names; six and eight both cast the record's spell but
-   read a different profession level to decide whether the caster is strong
-   enough for it. */
+/* Item categories the usability rules distinguish. Zero is empty; three is
+   the spell source the magic code already names; six and eight both cast the
+   record's spell but read a different profession level to decide whether the
+   caster is strong enough for it. */
 enum W8ItemCategory : unsigned char {
+    W8_ITEM_CATEGORY_NONE = 0,
     W8_ITEM_CATEGORY_SPELL_SOURCE = 3,
     W8_ITEM_CATEGORY_CASTER_ITEM_6 = 6,
     W8_ITEM_CATEGORY_CASTER_ITEM_8 = 8
