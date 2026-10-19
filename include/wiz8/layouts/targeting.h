@@ -119,13 +119,15 @@ enum W8PartyActionStatus : std::uint8_t {
 /* The two-word block an action carries beside itself. A spell's holds the
    power level and a spare word; an item use's holds the use kind and the item.
    Item references are borrowed only for the lifetime of the owning inventory. */
+enum class W8ItemUseDetailKind : int { none = -1 };
+
 union W8ActionDetailBlock {
     struct {
         int power_level;
         int unused;
     } spell;
     struct {
-        int kind;
+        W8ItemUseDetailKind kind;
         W8ItemInstance* item;
     } item_use;
 };
@@ -158,7 +160,7 @@ struct W8Action {
     W8ActionKind kind = W8_ACTION_NONE;
     int detail = -1;
     W8CombatSlot target{W8_TARGET_KIND_NONE, -1, -1, -1, {}, nullptr};
-    W8ActionDetailBlock detail_block{.item_use = {0, nullptr}};
+    W8ActionDetailBlock detail_block{.item_use = {W8ItemUseDetailKind::none, nullptr}};
 };
 
 enum class W8AreaSightRule : std::uint8_t { RequireLineOfSight, GeometryOnly };

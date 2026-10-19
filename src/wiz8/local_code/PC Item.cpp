@@ -3424,7 +3424,7 @@ void SetCharacterItemUse(int party_slot, const W8Action& action)
 {
     auto* item = action.detail_block.item_use.item;
     auto detail = action.detail_block;
-    detail.item_use.kind = -1;
+    detail.item_use.kind = W8ItemUseDetailKind::none;
     auto& row = g_status.buffers.XChar[party_slot];
     if (gXStatus.fCombatMode)
         row.committed_action.target = action.target;
@@ -3445,7 +3445,7 @@ void StagePartySlotItemUse(int party_slot, W8ItemInstance* item, const W8CombatS
 {
     W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
 
-    row->item_detail.item_use.kind = -1;
+    row->item_detail.item_use.kind = W8ItemUseDetailKind::none;
     row->item_detail.item_use.item = item;
     row->item_target = *target;
     row->item_id = item->iItemNo;
