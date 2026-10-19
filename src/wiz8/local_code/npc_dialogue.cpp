@@ -141,7 +141,7 @@ void W8NpcDialogue::Speak(int script_line, bool force_npc_voice)
                     if (entry->operand2 == 4) {
                         if (entry->operand1 != 2) {
                             QueueQuoteEntry(script_line, entry_index, 0, false);
-                            response.reset();
+                            response = {};
                             finished = true;
                             break;
                         }
