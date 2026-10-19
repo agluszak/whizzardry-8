@@ -84,7 +84,7 @@ void W8DialogTextArea::Paint(SDL_Surface& target)
                 const unsigned int height = *font_height;
                 bounds.bottom = bounds.top + VisibleEntry(index)->m_lineCount * height;
                 VisibleEntry(index)->SetLayoutBounds(&bounds, false);
-                bounds.top = bounds.bottom + m_entry_spacing_lines * font_height;
+                bounds.top = bounds.bottom + m_entry_spacing_lines * *font_height;
             }
             VisibleEntry(index)->Paint(target, index == m_selected_visible_entry,
                                        index == m_highlighted_entry);
