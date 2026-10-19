@@ -2,6 +2,14 @@
 
 class Trigger;
 
+enum class MartensBluff1TeleporterPad : int {
+    none = 0,
+    gigas = 1,
+    trang = 2,
+    rift = 3,
+    maten = 4,
+};
+
 /* Level 5 (MartensBluff1) master function and activation callbacks,
    registered by the case-5 block of InitializeLevelMasterFunctions. */
 void MartensBluff1Setup(void);
@@ -19,6 +27,6 @@ bool MartensBluff1ButtonGigas(Trigger* pTrigger);
 bool MartensBluff1ButtonTrang(Trigger* pTrigger);
 bool MartensBluff1ButtonRift(Trigger* pTrigger);
 bool MartensBluff1ButtonMaten(Trigger* pTrigger);
-bool MartensBluff1TeleportState(int new_state);
+bool MartensBluff1TeleportState(MartensBluff1TeleporterPad new_state);
 bool MartensBluff1WireTrigger(Trigger* pTrigger);
 bool MartensBluff1MartenBook(Trigger* pTrigger);
