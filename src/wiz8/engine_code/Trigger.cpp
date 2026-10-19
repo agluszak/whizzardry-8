@@ -1752,7 +1752,7 @@ Trigger::Trigger(W8World* world)
     alternate_action = 0;
     fallback_action = 0;
     action = 0;
-    action_state = 1;
+    action_state = W8TriggerActionState::inactive;
     world_item_group = 0;
     items_generated = 0;
     activation_callback = 0;
@@ -1973,11 +1973,11 @@ show_action_message:
         const char* level_folder = GetLevelFolderName(GetLoadedLevelID());
         int message_id;
 
-        if (action_state == 2) {
+        if (action_state == W8TriggerActionState::initial_action) {
             message_id = m_lData1;
-        } else if (action_state == 3) {
+        } else if (action_state == W8TriggerActionState::alternate_action) {
             message_id = m_lData2;
-        } else if (action_state == 4) {
+        } else if (action_state == W8TriggerActionState::fallback_action) {
             message_id = m_lData3;
         } else {
             goto action_complete;
@@ -2665,7 +2665,7 @@ void Trigger::Run(int source)
         return;
 
     case 0x36:
-        if (action_state == 4 && action_data_mode == 2) {
+        if (action_state == W8TriggerActionState::fallback_action && action_data_mode == 2) {
             PlayActionSound(alternate_action_data, 0);
         } else {
             PlayActionSound(this->action_data, 0);
@@ -3155,7 +3155,7 @@ bool Trigger::SelectAction()
 
     if (((flags & W8_TRIGGER_RUNNING) != 0 && action != 0x39) || (flags & W8_TRIGGER_ON) == 0 ||
         ((flags & W8_TRIGGER_ONCE) != 0 && (flags & W8_TRIGGER_FIRED) != 0)) {
-        action_state = 1;
+        action_state = W8TriggerActionState::inactive;
         return false;
     }
 
@@ -3166,7 +3166,7 @@ bool Trigger::SelectAction()
             const int state_id = FindModifiedLocationVar(state_name.c_str(), 4317);
             if (location_variables[state_id].value == 0) {
                 action = fallback_action;
-                action_state = 4;
+                action_state = W8TriggerActionState::fallback_action;
                 fallback_selected = true;
                 break;
             }
@@ -3185,7 +3185,7 @@ bool Trigger::SelectAction()
                     activation_callback(this);
                 }
                 action = fallback_action;
-                action_state = 4;
+                action_state = W8TriggerActionState::fallback_action;
                 fallback_selected = true;
             }
         }
@@ -3228,14 +3228,14 @@ bool Trigger::SelectAction()
                     activation_callback(this);
                 }
                 action = fallback_action;
-                action_state = 4;
+                action_state = W8TriggerActionState::fallback_action;
                 fallback_selected = true;
             } else {
                 lock_state.device_state.completed = 1;
                 action_data->locked = false;
                 if (action_data->linked_trigger[0] != '\0') {
                     Trigger* linked_trigger;
-                    action_state = 1;
+                    action_state = W8TriggerActionState::inactive;
                     result = false;
                     linked_trigger = FindTriggerByName(action_data->linked_trigger);
                     if (linked_trigger != 0) {
@@ -3266,19 +3266,19 @@ bool Trigger::SelectAction()
     if (!fallback_selected) {
         if ((flags & W8_TRIGGER_USE_ALTERNATE) == 0) {
             action = initial_action;
-            action_state = 2;
+            action_state = W8TriggerActionState::initial_action;
             if ((flags & W8_TRIGGER_HAS_ALTERNATE) != 0) {
                 flags |= W8_TRIGGER_USE_ALTERNATE;
             }
         } else {
             action = alternate_action;
-            action_state = 3;
+            action_state = W8TriggerActionState::alternate_action;
             if ((flags & W8_TRIGGER_ALTERNATE_TOGGLES) != 0) {
                 flags &= ~W8_TRIGGER_USE_ALTERNATE;
             }
         }
     } else if (action == 0) {
-        action_state = 1;
+        action_state = W8TriggerActionState::inactive;
         return false;
     }
     return result;

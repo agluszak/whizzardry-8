@@ -183,6 +183,12 @@ enum W8TriggerRepresentationKind : unsigned char {
 };
 
 enum class W8TriggerKind : int { none = 0, item = 1, prop = 2 };
+enum class W8TriggerActionState : unsigned char {
+    inactive = 1,
+    initial_action = 2,
+    alternate_action = 3,
+    fallback_action = 4
+};
 enum class W8TriggerStateModificationMode : unsigned char {
     none = 0,
     set = 1,
@@ -274,7 +280,7 @@ public:
     unsigned short alternate_action;
     unsigned short fallback_action;
     unsigned short action;
-    unsigned char action_state;
+    W8TriggerActionState action_state;
     unsigned char unknown_233;
     std::unique_ptr<W8TriggerActionData> m_pActionData;
     std::string recipients;
