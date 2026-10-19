@@ -370,7 +370,7 @@ unsigned int ApplyDamageToMonster(W8MonsterInfo* monster_info, unsigned int amou
                 }
             }
         }
-        if (!source->fBackfire && !source->fReflection && source->target_diverted == 0 && !quiet) {
+        if (!source->fBackfire && !source->fReflection && !source->target_diverted && !quiet) {
             monster_info->condition_target = *source;
             if (monster_info->pCombat && TargetSourceIsCharacter(source, 0) &&
                 source->iChar != -1) {
@@ -873,8 +873,8 @@ void MonsterReactsToBeingStruck(W8MonsterInfo* monster_info, W8TargetSource* att
     if (!TargetSourceIsCharacter(attacker, 0) && !TargetSourceIsMonster(attacker, 0)) {
         return;
     }
-    if (!attacker->fBackfire && !attacker->fReflection && attacker->target_diverted == 0 &&
-        !quiet && monster_info->uiCondition[W8_CONDITION_TURNCOAT] != 0) {
+    if (!attacker->fBackfire && !attacker->fReflection && !attacker->target_diverted && !quiet &&
+        monster_info->uiCondition[W8_CONDITION_TURNCOAT] != 0) {
         if (TargetSourceIsCharacter(attacker, 0)) {
             if (MonsterVsCharDisposition(attacker->iChar, monster_info) ==
                 W8_DISPOSITION_FRIENDLY) {

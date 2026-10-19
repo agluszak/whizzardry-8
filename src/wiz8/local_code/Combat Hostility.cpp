@@ -477,7 +477,7 @@ int TurnUndead(int party_slot, int* out_cost, bool check)
     if (!check) {
         power = g_status.buffers.Char[party_slot].profession_levels[W8_PROFESSION_BISHOP] + 10 +
                 g_status.buffers.Char[party_slot].profession_levels[W8_PROFESSION_PRIEST];
-        source.auto_cast = 1;
+        source.auto_cast = true;
     } else {
         power = g_status.buffers.Char[party_slot].profession_levels[W8_PROFESSION_BISHOP] +
                 g_status.buffers.Char[party_slot].profession_levels[W8_PROFESSION_PRIEST];
@@ -576,7 +576,7 @@ int CharacterPrayAction(int party_slot)
         }
     }
     SetTargetSourceToCharacter(party_slot, &source);
-    source.auto_cast = 1;
+    source.auto_cast = true;
     source.aim_resolved = true;
     ResetCombatSlot(&target);
     PostCharacterNotice(party_slot, g_localized_strings[0x174]);

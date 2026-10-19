@@ -1166,7 +1166,7 @@ unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_use
                 AimAtCharacter(party_slot, party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT);
             }
         }
-        target.name_known = 1;
+        target.name_known = true;
 
         if (static_cast<int>(record->category) >= W8_ITEM_USE_TYPE_COUNT) {
             srAssertFail("pItemDB->ubUseType < USE_TYPE_COUNT", PC_ITEM_CPP, 0x906, 0);
@@ -3704,7 +3704,7 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
     }
 
     SetTargetSourceToCharacter(party_slot, &target);
-    target.item_cast = 1;
+    target.item_cast = true;
     TrackItemSpellSource(character, spell_id);
 
     if (skill == W8_SKILL_THROWING_SLING) {

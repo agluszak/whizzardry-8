@@ -1244,7 +1244,7 @@ static std::string CombatTargetName(const W8TargetSource* source, const W8Combat
     if (target->iChar == -1) {
         srAssertFail("pTarget->iChar != BAD_INDEX", COMBAT_ATTACK_CPP, 0x19f6, 0);
     }
-    if (TargetSourceIsCharacter(source, 0) && source->name_known == 0 &&
+    if (TargetSourceIsCharacter(source, 0) && !source->name_known &&
         source->iChar == target->iChar) {
         return std::string(
             g_localized_strings
@@ -1780,7 +1780,7 @@ int ContinueMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record)
         if (!IsTargetStillPresent(&g_combat_state->TargetHit)) {
             goto invalid_target;
         }
-        if (!verbose && source.target_diverted != 0) {
+        if (!verbose && source.target_diverted) {
             local_report = {};
             report = &local_report;
         }
@@ -1968,7 +1968,7 @@ int ContinueMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record)
                 if (!repicked) {
                     StartMonsterAttackCycle(monster_info, action_detail);
                 }
-                if ((!verbose && fumbled) || source.target_diverted != 0) {
+                if ((!verbose && fumbled) || source.target_diverted) {
                     ReportMonsterAttackResult(monster_info, report);
                     PostMonsterNotice(
                         monster_info,
@@ -1981,7 +1981,7 @@ int ContinueMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record)
     }
     if (!verbose) {
         ReportMonsterAttackResult(monster_info, report);
-        if (fumbled || source.target_diverted != 0) {
+        if (fumbled || source.target_diverted) {
             PostMonsterNotice(monster_info,
                               fmt::sprintf(g_localized_strings[0x269],
                                            CombatTargetName(&source, &monster_info->Target)));
@@ -3235,7 +3235,7 @@ W8Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W
         monster = monster_info->p3D;
         if (!g_missile_table[missile_type].spell_missile) {
             position_ok = monster->GetProjectilePosition(&source_position);
-        } else if (source->point_source == 0) {
+        } else if (!source->point_source) {
             position_ok = monster->GetSpellPosition(&source_position);
         } else {
             position_ok = missile_type;
@@ -3814,7 +3814,7 @@ int ResolveCharacterAttack(int party_slot)
                 ReportInvalidAttackTarget(g_combat_state->TargetHit, source);
                 return 3;
             }
-            if (!verbose && source.target_diverted != 0) {
+            if (!verbose && source.target_diverted) {
                 local_report = {};
                 report = &local_report;
             }
@@ -4161,7 +4161,7 @@ int ResolveCharacterAttack(int party_slot)
             (target == party_row->target_out_of_combat) &&
             TargetIsInPlay(party_slot, hand,
                            SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT))) {
-            if (!verbose && (fumbled || source.target_diverted != 0)) {
+            if (!verbose && (fumbled || source.target_diverted)) {
                 ReportCharacterAttackResult(party_slot, report);
                 PostCharacterNotice(
                     party_slot,
@@ -4180,7 +4180,7 @@ int ResolveCharacterAttack(int party_slot)
     }
     if (!verbose && !special_item) {
         ReportCharacterAttackResult(party_slot, report);
-        if (fumbled || source.target_diverted != 0) {
+        if (fumbled || source.target_diverted) {
             PostCharacterNotice(
                 party_slot,
                 fmt::sprintf(g_localized_strings[0x269],

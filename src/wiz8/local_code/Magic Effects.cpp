@@ -3067,7 +3067,7 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
         target_type != W8_TARGET_TYPE_PARTY) {
         return;
     }
-    if (effect->Source.auto_cast != 0 && spell_id != W8_SPELL_MAKE_WOUNDS) {
+    if (effect->Source.auto_cast && spell_id != W8_SPELL_MAKE_WOUNDS) {
         effect->reported = true;
     }
     switch (spell_id) {
@@ -3528,7 +3528,7 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
         effect->reported = true;
     }
     if (effect->recast && applied == 0) {
-        if (effect->Source.auto_cast != 0) {
+        if (effect->Source.auto_cast) {
             CastSpellFromSource(spell_id, &effect->Source, &effect->target,
                                 effect->definition.duration_scale, 0, 0, true, &cost,
                                 W8SpellCastKind::Standard, 0, 0);

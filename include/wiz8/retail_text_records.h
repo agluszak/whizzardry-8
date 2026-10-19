@@ -121,26 +121,26 @@ template<> struct Record<W8TargetSource> {
               bytes.subspan(offsetof(Disk, iMonsterID), sizeof(Disk::iMonsterID)));
         nested(runtime.point, bytes.subspan(offsetof(Disk, point), sizeof(Disk::point)), value,
                text);
-        value(&runtime.auto_cast,
-              bytes.subspan(offsetof(Disk, auto_cast), sizeof(Disk::auto_cast)));
-        value(&runtime.name_known,
-              bytes.subspan(offsetof(Disk, name_known), sizeof(Disk::name_known)));
+        byte_boolean(&runtime.auto_cast,
+                     bytes.subspan(offsetof(Disk, auto_cast), sizeof(Disk::auto_cast)));
+        byte_boolean(&runtime.name_known,
+                     bytes.subspan(offsetof(Disk, name_known), sizeof(Disk::name_known)));
         value(&runtime.aim_resolved,
               bytes.subspan(offsetof(Disk, aim_resolved), sizeof(Disk::aim_resolved)));
         value(&runtime.fReflection,
               bytes.subspan(offsetof(Disk, fReflection), sizeof(Disk::fReflection)));
         value(&runtime.fBackfire,
               bytes.subspan(offsetof(Disk, fBackfire), sizeof(Disk::fBackfire)));
-        value(&runtime.point_source,
-              bytes.subspan(offsetof(Disk, point_source), sizeof(Disk::point_source)));
-        value(&runtime.target_diverted,
-              bytes.subspan(offsetof(Disk, target_diverted), sizeof(Disk::target_diverted)));
+        byte_boolean(&runtime.point_source,
+                     bytes.subspan(offsetof(Disk, point_source), sizeof(Disk::point_source)));
+        byte_boolean(&runtime.target_diverted,
+                     bytes.subspan(offsetof(Disk, target_diverted), sizeof(Disk::target_diverted)));
         value(&runtime.spell_difficulty,
               bytes.subspan(offsetof(Disk, spell_difficulty), sizeof(Disk::spell_difficulty)));
         value(&runtime.unknown_20,
               bytes.subspan(offsetof(Disk, unknown_20), sizeof(Disk::unknown_20)));
-        value(&runtime.item_cast,
-              bytes.subspan(offsetof(Disk, item_cast), sizeof(Disk::item_cast)));
+        byte_boolean(&runtime.item_cast,
+                     bytes.subspan(offsetof(Disk, item_cast), sizeof(Disk::item_cast)));
         value(&runtime.unknown_22,
               bytes.subspan(offsetof(Disk, unknown_22), sizeof(Disk::unknown_22)));
     }

@@ -553,7 +553,7 @@ void SetMonsterCondition(int location_id, W8Condition condition, int duration, i
         handled = false;
     }
     if (TargetSourceIsCharacter(target, 0) || TargetSourceIsMonster(target, 0)) {
-        if (!target->fBackfire && !target->fReflection && target->target_diverted == 0) {
+        if (!target->fBackfire && !target->fReflection && !target->target_diverted) {
             monster_info->condition_target = *target;
         }
     }

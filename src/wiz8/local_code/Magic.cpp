@@ -1873,7 +1873,7 @@ static std::string SpellTargetString(const W8TargetSource* source, const W8Comba
         if (target->iChar == -1) {
             srAssertFail("pTarget->iChar != BAD_INDEX", MAGIC_CPP, 0xad, 0);
         }
-        if (!TargetSourceIsCharacter(source, 0) || source->name_known != 0 ||
+        if (!TargetSourceIsCharacter(source, 0) || source->name_known ||
             source->iChar != target->iChar) {
             return fmt::sprintf(g_localized_strings[W8_MESSAGE_TARGET_AT / 4],
                                 g_status.buffers.Char[target->iChar].name);
@@ -2793,7 +2793,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
         }
     }
     if (!fizzled) {
-        if (!source->fBackfire && source->auto_cast == 0 && !source->fReflection &&
+        if (!source->fBackfire && !source->auto_cast && !source->fReflection &&
             g_spell_records[spell_id].realm != W8_SPELL_REALM_MENTAL &&
             spell_id != W8_SPELL_ROCKET_BLAST) {
             CheckSpellBackfire(spell_id, source, target);
@@ -2835,7 +2835,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
         }
         ClearAttackBlock(&block);
         if (TargetSourceIsCharacter(source, 1)) {
-            if (source->name_known == 0) {
+            if (!source->name_known) {
                 caster_figure = GetTotalCasterLevel(
                     &g_status.buffers.Char[source->iChar],
                     (g_spell_records[spell_id].psionics_spell != 0 ? 8 : 0) |
@@ -3244,7 +3244,7 @@ void RedirectBackfiredSpellTarget(W8TargetSource* source, W8CombatSlot* target)
         } else {
             srAssertFail("FALSE", MAGIC_CPP, 0xc2d, 0);
         }
-        source->point_source = 1;
+        source->point_source = true;
         return;
     case W8_TARGET_KIND_GROUP:
         group = FindMonsterGroup(target_copy.iGroupID);
@@ -3260,7 +3260,7 @@ void RedirectBackfiredSpellTarget(W8TargetSource* source, W8CombatSlot* target)
         } else {
             srAssertFail("FALSE", MAGIC_CPP, 0xc43, 0);
         }
-        source->point_source = 1;
+        source->point_source = true;
         return;
     default:
         srAssertFail("FALSE", MAGIC_CPP, 0xc52, 0);
@@ -3275,7 +3275,7 @@ void RedirectBackfiredSpellTarget(W8TargetSource* source, W8CombatSlot* target)
     } else {
         srAssertFail("FALSE", MAGIC_CPP, 0xc6b, 0);
     }
-    source->point_source = 1;
+    source->point_source = true;
 }
 
 /* Assert and route the source/target pair a cast is about to use. Target
@@ -3637,7 +3637,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
     } else if (direct_monster_source) {
         centre = monster->GetPosition();
         fVertextAvail = false;
-        if (source->point_source == 0 && spell_id != W8_SPELL_SPECIAL_ATTACK_CONE &&
+        if (!source->point_source && spell_id != W8_SPELL_SPECIAL_ATTACK_CONE &&
             monster_info->has_spell_origin) {
             fVertextAvail = monster->GetSpellPosition(&eye);
             if (!fVertextAvail) {
