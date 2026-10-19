@@ -72,7 +72,7 @@ jobs:
       CCACHE_DIR: ${{ github.workspace }}/build/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
       CCACHE_NOHASHDIR: "true"
-      CCACHE_MAXSIZE: 2G
+      CCACHE_MAXSIZE: 1G
       # Clang PCH can be cached only with these documented ccache settings.
       CCACHE_SLOPPINESS: pch_defines,time_macros
     steps:
@@ -147,8 +147,9 @@ jobs:
       # Publish the compiler cache as soon as main builds successfully;
       # frequent main pushes may cancel a run before its runtime tests finish.
       - uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
-        # PRs restore the latest main cache; avoid filling storage with PR snapshots.
-        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        # GitHub isolates PR snapshots to their merge ref. Revisions reuse
+        # compiled objects as well as tidy results; main seeds other PRs.
+        if: success()
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ccache-cxx26-gcc16-${{ matrix.preset }}-clang23-${{ github.run_id }}
