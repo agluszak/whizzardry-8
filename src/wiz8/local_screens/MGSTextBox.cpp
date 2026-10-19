@@ -1136,11 +1136,13 @@ void RedrawTextBoxScrollChrome(void)
             CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 1,
                                                g_level_block->text_box_right + 5, 0x16b);
             break;
-        case -1:
+        case kTextBoxArrowNone:
         case kUpArrowDisabled:
             CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 3,
                                                g_level_block->text_box_right + 5, 0x16b);
             g_level_block->text_content_region = kTextBoxArrowNone;
+            break;
+        default:
             break;
         }
 
@@ -1163,11 +1165,13 @@ void RedrawTextBoxScrollChrome(void)
             CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 9,
                                                g_level_block->text_box_right + 5, 0x1ad);
             break;
-        case -1:
+        case kTextBoxArrowNone:
         case kDownArrowDisabled:
             CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 0xb,
                                                g_level_block->text_box_right + 5, 0x1ad);
             g_level_block->dialogue_content_region = kTextBoxArrowNone;
+            break;
+        default:
             break;
         }
 
