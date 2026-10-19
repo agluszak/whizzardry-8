@@ -265,13 +265,11 @@ static char s_lock_picking_success[] = "Data\\Sound\\Misc\\Lock_Picking_Success.
 static char s_lock_pin_rising[] = "Data\\Sound\\Misc\\Lock_Pin_Rising.wav";
 static char s_lock_forcing_fail[] = "Data\\Sound\\Misc\\Lock_Forcing_Fail.wav";
 static char s_lock_forcing_success[] = "Data\\Sound\\Misc\\Lock_Forcing_Successful.wav";
-// GLOBAL: WIZ8 0x0068F2B4
-// GLOBAL: WIZ8 0x0068F2C0
 static W8LockInteraction* LockInteraction()
 {
     return g_main_game_state ? g_main_game_state->lock_interaction.get() : nullptr;
 }
-W8MainGameScreen* TrapInteraction()
+W8TrapInteraction* TrapInteraction()
 {
     return g_main_game_state ? g_main_game_state->trap_interaction.get() : nullptr;
 }
@@ -1364,7 +1362,7 @@ void W8MainGameStatusPanel::Redraw(SDL_Surface& target, bool full_redraw)
     m_dirty = false;
 }
 
-W8MainGameScreen::W8MainGameScreen(Trigger* owner)
+W8TrapInteraction::W8TrapInteraction(Trigger* owner)
     : m_owner(owner), m_disarm_state(W8_TRAP_DISARM_IDLE), m_target_difficulty(0), m_sound_handle()
 {
     m_device_id = owner->lock_state.device_id;
@@ -1401,7 +1399,7 @@ W8MainGameScreen::W8MainGameScreen(Trigger* owner)
     RefreshActionPanel();
 }
 
-void W8MainGameScreen::DrawActions(SDL_Surface& target)
+void W8TrapInteraction::DrawActions(SDL_Surface& target)
 {
     if (actions_dirty) {
         CatalogArtwork::Load(0x1b1, 0).drawAndInvalidate(target, 2, 0x1e7, 0x166);
@@ -1411,7 +1409,7 @@ void W8MainGameScreen::DrawActions(SDL_Surface& target)
     for (auto& button : m_action_controls) button->Refresh();
 }
 
-void W8MainGameScreen::SelectTextEntry(int index)
+void W8TrapInteraction::SelectTextEntry(int index)
 {
     int slot = g_status.selected_character;
     int skill;
@@ -1461,7 +1459,7 @@ void W8MainGameScreen::SelectTextEntry(int index)
     m_sound_handle = wiz8::sound::play(g_trap_sounds[index]);
 }
 
-int W8MainGameScreen::GetTrapInteractionChance() const
+int W8TrapInteraction::GetTrapInteractionChance() const
 {
     int chance;
     int skill;
@@ -1484,7 +1482,7 @@ int W8MainGameScreen::GetTrapInteractionChance() const
     return chance;
 }
 
-void W8MainGameScreen::OnPrimary(W8TrapInteractionAction action)
+void W8TrapInteraction::OnPrimary(W8TrapInteractionAction action)
 {
     int slot;
     int skill;
@@ -1533,7 +1531,7 @@ void W8MainGameScreen::OnPrimary(W8TrapInteractionAction action)
     m_sound_handle = wiz8::sound::stream(g_trap_inspection_sound);
 }
 
-void W8MainGameScreen::Update()
+void W8TrapInteraction::Update()
 {
     W8MainGameTextPanel* panel;
     int column;
@@ -1637,7 +1635,7 @@ void W8MainGameScreen::Update()
     }
 }
 
-void W8MainGameScreen::RefreshActionPanel()
+void W8TrapInteraction::RefreshActionPanel()
 {
     int slot = g_status.selected_character;
     int skill = GetPartySlotLocksTrapsLevel(slot);
@@ -1658,7 +1656,7 @@ void W8MainGameScreen::RefreshActionPanel()
     actions_dirty = true;
 }
 
-void W8MainGameScreen::EnablePanelInput(bool enable)
+void W8TrapInteraction::EnablePanelInput(bool enable)
 {
     W8MainGameTextPanel* panel = m_text_panel.get();
 
@@ -1667,7 +1665,7 @@ void W8MainGameScreen::EnablePanelInput(bool enable)
     input.setEnabled(enable);
 }
 
-void W8MainGameScreen::ApplyInspectSuccess()
+void W8TrapInteraction::ApplyInspectSuccess()
 {
     int chance;
     int column;
@@ -1691,7 +1689,7 @@ void W8MainGameScreen::ApplyInspectSuccess()
     m_text_panel->RefreshCellImages();
 }
 
-void W8MainGameScreen::CastTrapSpell()
+void W8TrapInteraction::CastTrapSpell()
 {
     const int slot = g_status.selected_character;
     if (!CanCastTrapSpell(slot)) {
@@ -1703,7 +1701,7 @@ void W8MainGameScreen::CastTrapSpell()
     BeginSpellCast(spell, -1, W8_DIALOGUE_LAYOUT_UNSET);
 }
 
-void W8MainGameScreen::UseTrapItem()
+void W8TrapInteraction::UseTrapItem()
 {
     EndTrapInteractMode(1);
     OpenUseItemSelectView(g_status.selected_character);
@@ -1754,7 +1752,7 @@ int OpenTrapInteraction(Trigger* trigger)
     if (trigger->lock_state.device_id == -1) {
         SelectTrapType(trigger);
     }
-    g_main_game_state->trap_interaction = std::make_unique<W8MainGameScreen>(trigger);
+    g_main_game_state->trap_interaction = std::make_unique<W8TrapInteraction>(trigger);
     if (trigger->lock_state.last_interaction_clock == -1 ||
         0x3840 < static_cast<unsigned int>(g_status.world_clock -
                                            trigger->lock_state.last_interaction_clock)) {
@@ -1769,7 +1767,7 @@ int OpenTrapInteraction(Trigger* trigger)
     return 1;
 }
 
-void UpdateMainGameScreen(void)
+void UpdateTrapInteraction(void)
 {
     TrapInteraction()->Update();
 }
@@ -2549,7 +2547,7 @@ void MainGameScreenFrame(void)
         if (ItemUseDraft()) CommitSelectedItemUse();
         if (gXStatus.fNpcDialogueMode) ServiceNpcDialogue();
         if (IsLockInteractionActive()) ProcessLockInteractMode();
-        if (IsTrapInteractionActive()) UpdateMainGameScreen();
+        if (IsTrapInteractionActive()) UpdateTrapInteraction();
         int active;
         if (!AnyPropTriggerInView() && !AnyMonsterVisible() && !AnyWorldItemVisible() &&
             !SelectWorldCursorNode()) {

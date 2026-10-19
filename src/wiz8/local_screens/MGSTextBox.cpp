@@ -1191,7 +1191,7 @@ void RedrawTextBoxScrollChrome(void)
 /* Invalidate the text and action panels around a status-panel text refresh. */
 void RedrawTextBoxComplete(void)
 {
-    W8MainGameScreen* screen = TrapInteraction();
+    W8TrapInteraction* screen = TrapInteraction();
 
     screen->m_text_panel->InvalidateAll();
     screen->m_status_panel->RefreshStatusTexts();
@@ -1244,7 +1244,7 @@ char TextBoxHandleKey(const InputEvent* event)
    and action panels go quiet for a 1.5 second timer. */
 void AttemptTrapDisarm(int level, int /*flag*/, char backfire)
 {
-    W8MainGameScreen* screen = TrapInteraction();
+    W8TrapInteraction* screen = TrapInteraction();
     int chance;
 
     if (backfire != 0) {
@@ -1266,7 +1266,7 @@ void AttemptTrapDisarm(int level, int /*flag*/, char backfire)
 
 void SetKnockKnockTarget(int target, int /*flag*/, int /*backfire*/)
 {
-    W8MainGameScreen* screen = TrapInteraction();
+    W8TrapInteraction* screen = TrapInteraction();
 
     if (!IsTrapInteractionActive()) {
         ShowNotice(W8_FONT_PALETTE_BEIGE, "You can't cast Knock Knock here!");
