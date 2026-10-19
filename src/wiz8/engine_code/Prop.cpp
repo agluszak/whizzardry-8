@@ -125,7 +125,7 @@ W8Prop* FindPropByName(W8World* world, std::string_view name)
     int index;
 
     if (world != 0 && !name.empty()) {
-        unsigned int count = world->plsProps.size();
+        const auto count = world->plsProps.size();
 
         for (index = 0; index < static_cast<int>(count); ++index) {
             W8Prop* prop = GetWorldProp(world, index);
