@@ -35,6 +35,7 @@
 #include "imgfmt.h"
 #include "input.h"
 #include "layouts/main_game_screen.h"
+#include "layouts/npc_dialogue.h"
 #include "layouts/screen_state.h"
 #include "local_code/RangeControl.h"
 #include "local_screens/RCSStatsPage.h"

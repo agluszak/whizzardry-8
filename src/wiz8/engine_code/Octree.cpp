@@ -42,6 +42,7 @@
 #include "index_algorithms.h"
 #include "input.h"
 #include "layouts/gameplay_databases.h"
+#include "layouts/main_game_screen.h"
 #include "layouts/world.h"
 #include "random.h"
 #include "surrender/plane_math.h"

@@ -44,6 +44,7 @@
 #include "wiz8/engine_code/GrObject.h"
 #include "wiz8/engine_code/Item.h"
 #include "wiz8/engine_code/Monster.h"
+#include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/PolyPick.h"
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/SoundEvent.h"

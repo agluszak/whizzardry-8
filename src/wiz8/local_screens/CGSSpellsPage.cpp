@@ -20,6 +20,7 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/RangeControl.h"
 #include "wiz8/local_code/Strings.h"

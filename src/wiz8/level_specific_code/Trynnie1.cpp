@@ -9,6 +9,7 @@
 #include "soundman.h"
 #include "surrender/srDebug.h"
 #include "wiz8/engine_code/World.h"
+#include "wiz8/local_code/Factions.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"

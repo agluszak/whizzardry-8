@@ -34,6 +34,7 @@
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/MonsterLight.h"
 #include "wiz8/engine_code/Navigator.h"
+#include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/Spells.h"

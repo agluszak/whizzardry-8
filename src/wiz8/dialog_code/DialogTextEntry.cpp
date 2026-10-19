@@ -13,6 +13,7 @@
 #include "image.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
+#include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"

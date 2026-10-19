@@ -11,6 +11,7 @@
 #include "layouts/encounter_tables.h"
 #include "layouts/gameplay_databases.h"
 #include "layouts/item_tables.h"
+#include "layouts/npc_dialogue.h"
 #include "layouts/levels.h"
 #include "layouts/targeting.h"
 #include "layouts/world.h"

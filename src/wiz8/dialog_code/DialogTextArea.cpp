@@ -12,6 +12,7 @@
 #include "dialog_code/DialogTextEntry.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/TextBuffer.h"
+#include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/unicode.h"
 
 /* Reconstructed logical owner; original translation-unit identity is unproven.

@@ -20,7 +20,6 @@
 
 #include "Font.h"
 #include "asset_paths.h"
-#include "compat/compiler.h"
 #include "difficulty.h"
 #include "file_time.h"
 #include "image.h"

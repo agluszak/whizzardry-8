@@ -10,7 +10,6 @@
 #include <fmt/format.h>
 
 #include "asset_paths.h"
-#include "compat/compiler.h"
 #include "input.h"
 #include "wiz8/bink_video.h"
 #include "wiz8/engine_code/Video2.h"
