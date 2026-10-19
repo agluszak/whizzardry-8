@@ -1162,7 +1162,8 @@ void W8GameData::ProcessCrossedSurface(W8GDSurface* surface)
     }
     if (direction != 0) {
         trigger->Run(direction);
-        if (trigger->action_state == 1 || trigger->action_state == 4) {
+        if (trigger->action_state == W8TriggerActionState::inactive ||
+            trigger->action_state == W8TriggerActionState::fallback_action) {
             ClearBit(active_trigger_bits, surface->trigger_index);
             ClearBit(pending_trigger_bits, surface->trigger_index);
         }
