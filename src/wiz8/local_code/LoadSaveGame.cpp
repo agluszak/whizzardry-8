@@ -617,7 +617,7 @@ void WriteWorldItems(W8Chunk& chunks)
     const unsigned int count = CurrentLevelPopulation().world_items.size();
     chunks.WriteValue(count);
     for (unsigned int index = 0; index < count; ++index)
-        RequireSection(SaveItemFile(chunks.WriteStream(), ItemInfo(index)), "world item");
+        SaveItemFile(chunks.WriteStream(), *ItemInfo(index));
 }
 
 struct SavedMonsterGroup {
@@ -729,7 +729,6 @@ void ReadLevelSection(W8World& world, W8LoadedLevelStatus::Data& data, W8Chunk& 
         items.reserve(items.size() + count);
         for (unsigned int index = 0; index < count; ++index) {
             auto item = LoadItem(chunk, from_assets);
-            RequireSection(item != nullptr, "world item");
             items.push_back(std::move(item));
         }
         break;
@@ -1372,14 +1371,13 @@ try {
 
 /* Write the container and its contents as the retail flat sequence. */
 // FUNCTION: WIZ8 0x00514be0
-bool SaveItemFile(wiz8::File& handle, const W8WorldItem* item_info)
-try {
-    if (!item_info) return true;
-    for (std::size_t index = 0; index <= item_info->contents.size(); ++index) {
-        const auto* item = index == 0 ? item_info : item_info->contents[index - 1].get();
+void SaveItemFile(wiz8::File& handle, const W8WorldItem& item_info)
+{
+    for (std::size_t index = 0; index <= item_info.contents.size(); ++index) {
+        const auto* item = index == 0 ? &item_info : item_info.contents[index - 1].get();
         auto image = wiz8::retail::encode_image(*item);
         image.saved_marker = 1;
-        image.next = index < item_info->contents.size() ? 1 : 0;
+        image.next = index < item_info.contents.size() ? 1 : 0;
         if (item->fActive) {
             const auto position = item->p3D->m_pRep->GetLocation();
             image.position = {position.x, position.y, position.z};
@@ -1387,9 +1385,6 @@ try {
         }
         handle.write(&image, sizeof(image));
     }
-    return true;
-} catch (const std::exception&) {
-    return false;
 }
 
 /* Read the retail flat sequence into a container and its owned contents.
@@ -1397,7 +1392,7 @@ try {
    are staged before publication to the item list and search registry. */
 // FUNCTION: WIZ8 0x00514c80
 std::unique_ptr<W8WorldItem> LoadItem(W8Chunk& handle, bool from_assets)
-try {
+{
     std::unique_ptr<W8WorldItem> head;
     bool has_next;
     do {
@@ -1415,8 +1410,6 @@ try {
             head->contents.push_back(std::move(entry));
     } while (has_next);
     return head;
-} catch (const std::exception&) {
-    return nullptr;
 }
 
 /* Whether any save other than CurrentGame exists. */
@@ -1738,7 +1731,6 @@ try {
             items.reserve(items.size() + count);
             for (unsigned int index = 0; index < count; ++index) {
                 auto item = LoadItem(chunk);
-                RequireSection(item != nullptr, "world item");
                 items.push_back(std::move(item));
             }
         });

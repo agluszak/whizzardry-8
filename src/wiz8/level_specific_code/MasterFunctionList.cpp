@@ -508,7 +508,7 @@ void LoadAwayCampChest(void)
     if (pContainer == 0) {
         srAssertFail("pContainer");
     }
-    LoadSavedLevelItems(0x26, items);
+    if (!LoadSavedLevelItems(0x26, items)) return;
     for (index = 0; index < static_cast<int>(items.size()); ++index) {
         auto item = std::move(items[index]);
         auto contents = std::move(item->contents);

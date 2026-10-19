@@ -203,7 +203,7 @@ public:
     void CommitActionResult(bool apply_state_changes);
     void CompleteItemInteraction();
     void Activate();
-    bool Save(wiz8::File& hFile);
+    void Save(wiz8::File& hFile);
     bool Load(W8Chunk& hFile, char version, bool from_assets = false);
     void RunLinkedTriggers();
     void FinishAction();

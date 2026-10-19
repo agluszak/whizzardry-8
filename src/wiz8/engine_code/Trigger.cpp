@@ -406,13 +406,12 @@ try {
 /* Serialize one trigger for the save file. The header carries a version byte
    and the action-state block; the action payload follows only when one is
    attached, with its flag bits packed and the timed-event delay resolved from
-   the live event queue. Returns whether the header went out completely. */
+   the live event queue. I/O failures propagate to the staged save. */
 // FUNCTION: WIZ8 0x0043BE60
-bool Trigger::Save(wiz8::File& hFile)
+void Trigger::Save(wiz8::File& hFile)
 {
     unsigned char version = 5;
     int trigger_count = static_cast<int>(GetWorld()->triggers.size());
-    bool header_ok;
     W8TriggerActionData* action_data;
     unsigned char has_action_data;
     unsigned char action_type;
@@ -421,14 +420,15 @@ bool Trigger::Save(wiz8::File& hFile)
     unsigned int progress_delay;
     unsigned char has_world_item;
 
-    header_ok = (hFile.write(&version, sizeof(version)), true) &&
-                (hFile.write(&trigger_count, sizeof(trigger_count)), true) &&
-                (hFile.write(name, 0x80), true) && (hFile.write(&flags, sizeof(flags)), true) &&
-                (hFile.write(&state_index, sizeof(state_index)), true) &&
-                (hFile.write(&state_direction, sizeof(state_direction)), true) &&
-                (hFile.write(&action, sizeof(action)), true) &&
-                (hFile.write(&action_state, sizeof(action_state)), true) &&
-                (hFile.write(&required_item_id, sizeof(required_item_id)), true);
+    hFile.write(&version, sizeof(version));
+    hFile.write(&trigger_count, sizeof(trigger_count));
+    hFile.write(name, 0x80);
+    hFile.write(&flags, sizeof(flags));
+    hFile.write(&state_index, sizeof(state_index));
+    hFile.write(&state_direction, sizeof(state_direction));
+    hFile.write(&action, sizeof(action));
+    hFile.write(&action_state, sizeof(action_state));
+    hFile.write(&required_item_id, sizeof(required_item_id));
     action_data = m_pActionData.get();
     has_action_data = action_data != 0;
     hFile.write(&has_action_data, sizeof(has_action_data));
@@ -471,13 +471,12 @@ bool Trigger::Save(wiz8::File& hFile)
     has_world_item = world_item_group != 0;
     hFile.write(&has_world_item, sizeof(has_world_item));
     if (has_world_item != 0) {
-        SaveItemFile(hFile, world_item_group.get());
+        SaveItemFile(hFile, *world_item_group);
     }
     hFile.write(&items_generated, sizeof(items_generated));
     hFile.write(&item_group_seed, sizeof(item_group_seed));
     hFile.write(&gold, sizeof(gold));
     hFile.write(&uses_remaining, sizeof(uses_remaining));
-    return header_ok;
 }
 
 /* One door flag is stored as a byte whose low bit is the flag. */
@@ -633,18 +632,11 @@ try {
     return false;
 }
 
-/* Write every trigger of a world for the save file's trigger chunk. A trigger
-   whose own serialization reports failure stops the walk. */
+/* Write each trigger; failures propagate to the staged save. */
 // FUNCTION: WIZ8 0x0043C810
 void SaveWorldTriggers(wiz8::File& hFile)
 {
-    auto* triggers = &GetWorld()->triggers;
-
-    for (int index = 0; index < static_cast<int>(triggers->size()); ++index) {
-        if (!((*triggers)[index])->Save(hFile)) {
-            return;
-        }
-    }
+    for (const auto& trigger : GetWorld()->triggers) trigger->Save(hFile);
 }
 
 // FUNCTION: WIZ8 0x0043d120
