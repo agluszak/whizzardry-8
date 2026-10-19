@@ -286,27 +286,29 @@ char GetMonsterSpellSightIndex(const W8MonsterInfo* monster)
    that the monster's missile and spell conditions choose between; the rest are
    fixed, and anything past the named kinds falls back to the last flag. */
 // FUNCTION: WIZ8 0x00505dd0
-bool IsVisibleUnderConditions(const W8MonsterInfo* monster, const W8VisibilityRecord* row, int kind)
+bool IsVisibleUnderConditions(const W8MonsterInfo* monster, const W8VisibilityRecord* row,
+                              W8VisibilityCondition condition)
 {
     if (row == 0) {
         return false;
     }
-    switch (kind) {
-    case 0:
+    switch (condition) {
+    case W8VisibilityCondition::SightState:
         return row->sight_state != W8_SIGHT_UNSEEN;
-    case 1:
+    case W8VisibilityCondition::CanSee:
         return row->can_see;
-    case 2:
+    case W8VisibilityCondition::FirstLineOfSightFlag:
         return row->los_flags[0];
-    case 3:
+    case W8VisibilityCondition::ThirdLineOfSightFlag:
         return row->los_flags[2];
-    case 4:
+    case W8VisibilityCondition::ProjectileOriginLineOfSight:
         return row->los_flags[monster->has_projectile_origin];
-    case 5:
+    case W8VisibilityCondition::SpellOriginLineOfSight:
         return row->los_flags[2 + (monster->has_spell_origin)];
-    default:
+    case W8VisibilityCondition::GeneralLineOfSight:
         return row->line_of_sight;
     }
+    return false;
 }
 
 /* Bring every monster's sight up to date with the clock, in whole two-minute

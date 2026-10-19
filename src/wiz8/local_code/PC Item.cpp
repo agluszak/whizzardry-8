@@ -3671,7 +3671,7 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
     W8Skill skill;
     int effect;
     int caster_figure;
-    int difficulty_kind;
+    W8SpellCastKind difficulty_kind;
 
     /* A record with no spell, an off-hand-only class and the two casting-aid
        classes are the ones the spell engine is told about rather than cast. */
@@ -3706,16 +3706,16 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
     TrackItemSpellSource(character, spell_id);
 
     if (skill == W8_SKILL_THROWING_SLING) {
-        difficulty_kind = 4;
+        difficulty_kind = W8SpellCastKind::ThrowingItemUse;
         caster_figure = character->uiExpLevel;
     } else if (skill == W8_SKILL_MUSIC) {
-        difficulty_kind = 2;
+        difficulty_kind = W8SpellCastKind::MusicItemUse;
         caster_figure = character->profession_levels[W8_CASTER_PROFESSION_INDEX_9];
     } else if (skill == W8_SKILL_ENGINEERING) {
-        difficulty_kind = 3;
+        difficulty_kind = W8SpellCastKind::EngineeringItemUse;
         caster_figure = character->profession_levels[W8_CASTER_PROFESSION_INDEX_8];
     } else {
-        difficulty_kind = 1;
+        difficulty_kind = W8SpellCastKind::ItemUse;
         caster_figure = character->uiExpLevel;
     }
     target.spell_difficulty =

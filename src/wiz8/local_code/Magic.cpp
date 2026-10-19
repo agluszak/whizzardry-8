@@ -812,7 +812,7 @@ void FinishSpellEffect(W8SpellEffectEntry* effect)
         target.point = position;
         CastSpellFromSource(W8_SPELL_BOILING_BLOOD_EXPLOSION, &effect->Source, &target,
                             effect->definition.duration_scale, effect->definition.percent, 0, false,
-                            0, 0, 0, 0);
+                            0, W8SpellCastKind::Standard, 0, 0);
     }
 }
 
@@ -1456,7 +1456,8 @@ int PointCastSpell(glm::vec3 position, int spell_id, unsigned int power_level)
         break;
     }
 
-    CastSpellFromSource(spell_id, &source, &target, power_level, 0, 0, false, 0, 0, 0, 0);
+    CastSpellFromSource(spell_id, &source, &target, power_level, 0, 0, false, 0,
+                        W8SpellCastKind::Standard, 0, 0);
     return 1;
 }
 
@@ -1967,7 +1968,7 @@ unsigned int MonsterCastsSpell(W8MonsterInfo* monster_info, int spell_id, unsign
     failure = GetSpellFailureChance(budget, spell_id, static_cast<int>(power_level));
 
     CastSpellFromSource(spell_id, &source, &monster_info->Target, power_level, 0, failure, false,
-                        &result, 0, 0, 0);
+                        &result, W8SpellCastKind::Standard, 0, 0);
     return SpellCastFatigueCost(spell_id, result);
 }
 
@@ -2662,7 +2663,7 @@ finish_difficulty_adjustment:
     SpendCharacterSpellPoints(party_slot, realm, mana_cost);
     try {
         result = CastSpellFromSource(spell_id, &source, aim, power_level, power_cast_bonus, chance,
-                                     recast, &cast_result, 0, 0, 0);
+                                     recast, &cast_result, W8SpellCastKind::Standard, 0, 0);
     } catch (...) {
         RestoreCharacterRealmSpellPoints(party_slot, realm, mana_cost);
         throw;
@@ -2695,8 +2696,8 @@ finish_difficulty_adjustment:
 // FUNCTION: WIZ8 0x004FB4C0
 int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* target,
                         unsigned int power_level, int power_cast_bonus, unsigned int failure_chance,
-                        bool recast, int* out_power, int cast_kind, std::vector<int>* party_targets,
-                        std::vector<int>* monster_targets)
+                        bool recast, int* out_power, W8SpellCastKind cast_kind,
+                        std::vector<int>* party_targets, std::vector<int>* monster_targets)
 {
     glm::vec3 point;
     bool fizzled;
@@ -2733,7 +2734,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
     unsigned int adjusted_power;
 
     fizzled = false;
-    quiet = cast_kind == 4;
+    quiet = cast_kind == W8SpellCastKind::ThrowingItemUse;
     forced = false;
     if (out_power != 0) {
         *out_power = 0;
@@ -3143,17 +3144,17 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
     } else {
         message = 0;
         switch (cast_kind) {
-        case 2:
+        case W8SpellCastKind::MusicItemUse:
             if (source->iType != W8_TARGET_SOURCE_CHARACTER) {
                 srAssertFail("pSource->iType == SOURCE_TYPE_CHAR", MAGIC_CPP, 0x8c2, 0);
             }
             message = 0x1aa;
             [[fallthrough]];
-        case 3:
+        case W8SpellCastKind::EngineeringItemUse:
             if (source->iType != W8_TARGET_SOURCE_CHARACTER) {
                 srAssertFail("pSource->iType == SOURCE_TYPE_CHAR", MAGIC_CPP, 0x8c6, 0);
             }
-            if (cast_kind == 3) {
+            if (cast_kind == W8SpellCastKind::EngineeringItemUse) {
                 message = 0x1ab;
             }
             if (g_settings.verbose_combat_messages != 0) {

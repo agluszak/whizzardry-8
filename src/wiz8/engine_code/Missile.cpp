@@ -916,7 +916,8 @@ void W8Missile::DetonateMissileSpell()
     ResetCombatSlot(&target);
     target.iType = W8_TARGET_KIND_PLACE;
     target.point = position;
-    CastSpellFromSource(W8_SPELL_ROCKET_BLAST, &source, &target, 1, 0, 0, false, 0, 0, 0, 0);
+    CastSpellFromSource(W8_SPELL_ROCKET_BLAST, &source, &target, 1, 0, 0, false, 0,
+                        W8SpellCastKind::Standard, 0, 0);
 }
 
 /* Post "<source> hits <target>" to the notice box and colour the target's

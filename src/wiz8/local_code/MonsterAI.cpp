@@ -828,7 +828,8 @@ void UpdateMonsterAI(W8MonsterInfo* monster_info)
     if (record->prefer_ranged_actions == 0 &&
         (range_category = GetBestMonsterAttackRange(record, true)) != W8_RANGE_NONE &&
         (monster_info->uiCondition[W8_CONDITION_BLIND] == 0 || record->kind == 0xc) &&
-        MonsterChooseTarget(monster_info, &chosen, 2) > CalcRangeDistance(range_category)) {
+        MonsterChooseTarget(monster_info, &chosen, W8VisibilityCondition::FirstLineOfSightFlag) >
+            CalcRangeDistance(range_category)) {
         record = GetMonsterDataForInfo(monster_info);
         hp_ratio = monster_info->hp_current / static_cast<float>(monster_info->uiHPMax);
         backs_off = hp_ratio <= 0.95f && record->prefer_ranged_actions == 0;
@@ -1019,7 +1020,8 @@ unsigned int MonsterAdvanceChance(W8MonsterInfo* monster_info, W8MonsterRecord* 
         return 100;
     }
     if (monster_info->pCombat->advancing) {
-        distance = MonsterChooseTarget(monster_info, &chosen, 2);
+        distance =
+            MonsterChooseTarget(monster_info, &chosen, W8VisibilityCondition::FirstLineOfSightFlag);
         if (CalcRangeDistance(W8_RANGE_SHORT) < distance) {
             result = 100;
         } else {
@@ -1849,7 +1851,7 @@ void CollectMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
     W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
     int saved_detail = monster_info->action_detail;
     W8MonsterActionKind saved_kind = monster_info->action_kind;
-    int sight_kind;
+    W8VisibilityCondition sight_kind;
     W8SpellTargetType target_type;
     W8CombatSlot slot;
     W8MonsterGroup* monster_group;
@@ -1857,10 +1859,10 @@ void CollectMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
     unsigned int index;
 
     if (spell_id == W8_SPELL_SPECIAL_ATTACK_CONE) {
-        sight_kind = 3;
+        sight_kind = W8VisibilityCondition::ThirdLineOfSightFlag;
         monster_info->action_kind = W8_MONSTER_ACTION_SPECIAL_ATTACK;
     } else {
-        sight_kind = 5;
+        sight_kind = W8VisibilityCondition::SpellOriginLineOfSight;
         monster_info->action_kind = W8_MONSTER_ACTION_SPELL;
         monster_info->action_detail = spell_id;
     }

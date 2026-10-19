@@ -296,7 +296,8 @@ static void DischargeTrapSpell(glm::vec3 point, int spell_id, unsigned int power
     if (GetSpellTargetType(spell_id, false) == W8_TARGET_TYPE_POINT) {
         target.iType = W8_TARGET_KIND_PLACE;
         target.point = PartyNavigator()->GetPosition();
-        CastSpellFromSource(spell_id, &source, &target, power_level, 0, 0, false, 0, 0, 0, 0);
+        CastSpellFromSource(spell_id, &source, &target, power_level, 0, 0, false, 0,
+                            W8SpellCastKind::Standard, 0, 0);
     } else {
         ResetCombatSlot(&target);
         target.iType = W8_TARGET_KIND_PARTY;
@@ -317,8 +318,8 @@ static void DischargeTrapSpell(glm::vec3 point, int spell_id, unsigned int power
                 targets.erase(targets.begin() + index);
             }
         }
-        CastSpellFromSource(spell_id, &source, &target, power_level, 0, 0, false, 0, 0, &targets,
-                            0);
+        CastSpellFromSource(spell_id, &source, &target, power_level, 0, 0, false, 0,
+                            W8SpellCastKind::Standard, &targets, 0);
     }
 }
 

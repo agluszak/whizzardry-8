@@ -258,7 +258,8 @@ bool StartCombat(int surprise)
             if (monster_info->hp_current > 0 &&
                 monster_info->highest_condition < W8_CONDITION_WEBBED &&
                 monster_info->uiCondition[W8_CONDITION_BLIND] == 0) {
-                MonsterChooseTarget(monster_info, &chosen, 3);
+                MonsterChooseTarget(monster_info, &chosen,
+                                    W8VisibilityCondition::ThirdLineOfSightFlag);
                 if (chosen.iType == W8_TARGET_KIND_PARTY) {
                     MonsterForwardReferencePosition(monster_info->p3D, 0);
                 } else if (chosen.iType == W8_TARGET_KIND_MONSTER) {
@@ -934,7 +935,7 @@ void EndMonsterTurn(W8MonsterInfo* monster_info)
 
     if (monster_info->hp_current != 0 && monster_info->highest_condition < W8_CONDITION_WEBBED &&
         monster_info->uiCondition[W8_CONDITION_BLIND] == 0) {
-        MonsterChooseTarget(monster_info, &chosen, 3);
+        MonsterChooseTarget(monster_info, &chosen, W8VisibilityCondition::ThirdLineOfSightFlag);
         if (chosen.iType == W8_TARGET_KIND_PARTY) {
             MonsterForwardReferencePosition(monster_info->p3D, 0);
             monster_info->death_processed = false;
@@ -1535,8 +1536,8 @@ void OrientMonsterTowardTarget(W8MonsterInfo* monster_info, bool alternate)
         }
         break;
     case W8_TARGET_KIND_GROUP:
-        location_id =
-            FindNearestVisibleGroupMonster(monster_info, monster_info->Target.iGroupID, 3);
+        location_id = FindNearestVisibleGroupMonster(monster_info, monster_info->Target.iGroupID,
+                                                     W8VisibilityCondition::ThirdLineOfSightFlag);
         if (location_id != -1) {
             target = FindMonster(location_id);
             if (IsMonsterFacingMonster(monster_info, target) == 0) {
@@ -1886,7 +1887,7 @@ void AdvanceCombatRound(void)
             monster_info->highest_condition < W8_CONDITION_WEBBED &&
             monster_info->uiCondition[W8_CONDITION_BLIND] == 0) {
             W8CombatSlot chosen;
-            MonsterChooseTarget(monster_info, &chosen, 3);
+            MonsterChooseTarget(monster_info, &chosen, W8VisibilityCondition::ThirdLineOfSightFlag);
             if (chosen.iType == W8_TARGET_KIND_PARTY) {
                 MonsterForwardReferencePosition(monster_info->p3D, 0);
             } else if (chosen.iType == W8_TARGET_KIND_MONSTER) {
@@ -2438,7 +2439,8 @@ void ExecuteMonsterAction(W8MonsterInfo* monster_info, W8MonsterRecord* record)
                     }
                     GetMonsterAttackSourceOffset(monster_info->p3D, sight, &position);
                     engage_distance = CalcRangeDistance(range);
-                    MonsterChooseTarget(monster_info, &monster_info->Target, 0);
+                    MonsterChooseTarget(monster_info, &monster_info->Target,
+                                        W8VisibilityCondition::SightState);
                     SetUpMonsterTurn(monster_info);
                     if (monster_info->Target.iType == W8_TARGET_KIND_MONSTER) {
                         target_info = FindMonster(monster_info->Target.iMonsterID);
@@ -2644,8 +2646,8 @@ void AimMonsterBreathAtTarget(W8MonsterInfo* monster_info)
         monster_info->p3D->aim_set = true;
         return;
     case W8_TARGET_KIND_GROUP:
-        location_id =
-            FindNearestVisibleGroupMonster(monster_info, monster_info->Target.iGroupID, 3);
+        location_id = FindNearestVisibleGroupMonster(monster_info, monster_info->Target.iGroupID,
+                                                     W8VisibilityCondition::ThirdLineOfSightFlag);
         no_target = location_id == -1;
         break;
     case W8_TARGET_KIND_NONE:
@@ -2818,7 +2820,7 @@ void StepMonsterCombatAction(W8MonsterInfo* monster_info)
             monster_info->hp_current != 0 &&
             monster_info->highest_condition < W8_CONDITION_WEBBED &&
             monster_info->uiCondition[W8_CONDITION_BLIND] == 0) {
-            MonsterChooseTarget(monster_info, &chosen, 3);
+            MonsterChooseTarget(monster_info, &chosen, W8VisibilityCondition::ThirdLineOfSightFlag);
             if (chosen.iType == W8_TARGET_KIND_PARTY) {
                 MonsterForwardReferencePosition(monster_info->p3D, 0);
             } else if (chosen.iType == W8_TARGET_KIND_MONSTER) {
