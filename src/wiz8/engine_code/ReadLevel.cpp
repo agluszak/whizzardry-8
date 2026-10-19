@@ -824,7 +824,7 @@ try {
         }
 
         if (record.initially_active == 0) {
-            particle->SetActive(0);
+            particle->SetActive(false);
         }
         particle->particle_size = record.particle_size;
         particle->expiry_mode =
@@ -836,7 +836,7 @@ try {
         particle->end_frame = record.end_frame;
 
         if (record.has_acceleration != 0) {
-            particle->has_acceleration = 1;
+            particle->has_acceleration = true;
             particle->acceleration =
                 glm::vec3(record.acceleration.x, record.acceleration.y, record.acceleration.z) *
                 kWorldScale;
@@ -912,8 +912,8 @@ try {
 
         if (strncmp(record.name, "CLOUD", 5) == 0) {
             particle->camera_offset = glm::vec3(particle->getLocation());
-            particle->camera_relative = 1;
-            particle->SetActive(1);
+            particle->camera_relative = true;
+            particle->SetActive(true);
         } else if (octree) {
             octree_particles.push_back(particle);
         }

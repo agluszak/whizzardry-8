@@ -95,7 +95,7 @@ void MartensBluff1Setup(void)
         particle = FindParticleByName("GasSpray-00");
         if (particle != 0) {
             if ((dial_state & 0xf0000000) == 0) {
-                particle->SetActive(0);
+                particle->SetActive(false);
             } else {
                 position = glm::vec3(particle->getLocation());
                 g_gas_sound0 = CreateAndPlaySoundNode(
@@ -105,7 +105,7 @@ void MartensBluff1Setup(void)
         particle = FindParticleByName("GasSpray-01");
         if (particle != 0) {
             if ((dial_state & 0xf0000000) == 0) {
-                particle->SetActive(0);
+                particle->SetActive(false);
             } else {
                 position = glm::vec3(particle->getLocation());
                 g_gas_sound1 = CreateAndPlaySoundNode(
@@ -194,11 +194,11 @@ bool MartensBluff1GasSwitch(Trigger* pTrigger)
     state = (state & 0xfff0fff) | 0x1000;
     particle = FindParticleByName("GasSpray-00");
     if (particle != 0) {
-        particle->SetActive(0);
+        particle->SetActive(false);
     }
     particle = FindParticleByName("GasSpray-01");
     if (particle != 0) {
-        particle->SetActive(0);
+        particle->SetActive(false);
     }
     if (g_gas_sound0 != 0) {
         g_gas_sound0->Stop();
@@ -234,14 +234,14 @@ bool MartensBluff1JDoorController(Trigger* pTrigger)
     g_trigger_feedback = true;
     particle = FindParticleByName("GasSpray-00");
     if (particle != 0) {
-        particle->SetActive(1);
+        particle->SetActive(true);
         position = glm::vec3(particle->getLocation());
         g_gas_sound0 = CreateAndPlaySoundNode("Data\\Sound\\Ambients\\Air_Escaping_Loop.wav",
                                               position, 0.3f, 30.0f, true);
     }
     particle = FindParticleByName("GasSpray-01");
     if (particle != 0) {
-        particle->SetActive(1);
+        particle->SetActive(true);
         position = glm::vec3(particle->getLocation());
         g_gas_sound1 = CreateAndPlaySoundNode("Data\\Sound\\Ambients\\Air_Escaping_Loop.wav",
                                               position, 0.3f, 30.0f, true);

@@ -145,7 +145,7 @@ void InitializeWorldCursor(void)
             cursor.particle->particle_size = 100.0;
             cursor.particle->emission_interval = 300;
             cursor.particle->acceleration = {0.0f, -1000.0f, 0.0f};
-            cursor.particle->has_acceleration = 1;
+            cursor.particle->has_acceleration = true;
             cursor.particle->initial_speed = 500.0f;
             cursor.particle->speed_mode = W8_PARTICLE_SPEED_RANDOM;
             cursor.particle->emission_mode = W8_PARTICLE_EMISSION_SINGLE;

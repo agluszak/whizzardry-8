@@ -713,10 +713,10 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         }
         particle = FindParticleByName("FuzzBlast");
         if (particle != 0) {
-            particle->SetActive(0);
+            particle->SetActive(false);
             particle->start_frame = 0;
             particle->emission_count = 0;
-            particle->SetActive(1);
+            particle->SetActive(true);
             particle->SetTraversalEnabled(true);
         }
         npc = GetNpcStateByKind(0x49);

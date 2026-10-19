@@ -548,7 +548,7 @@ bool MartensBluff2StoneIdol(Trigger* pTrigger)
     ShowString(g_localized_strings[0x71d]);
     particle = FindParticleByName("IdolGas");
     if (particle != 0) {
-        particle->SetActive(1);
+        particle->SetActive(true);
     }
     BeginSurprise();
     MartensBluff2IdolGas(1);
@@ -611,7 +611,7 @@ bool MartensBluff2IdolGas(int command)
     BeginWorldLightingFade(3000.0f);
     particle = FindParticleByName("IdolGas");
     if (particle != 0) {
-        particle->SetActive(0);
+        particle->SetActive(false);
     }
     return false;
 }

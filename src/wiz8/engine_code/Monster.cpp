@@ -2979,10 +2979,10 @@ void W8Monster::SetShakeEventVisibility(signed char cycle)
                     particle->start_frame != particle->end_frame) {
                     continue;
                 }
-                particle->SetActive(1);
+                particle->SetActive(true);
             }
         } else {
-            event->m_pstParticles->SetActive(0);
+            event->m_pstParticles->SetActive(false);
         }
     }
 }
@@ -3574,7 +3574,7 @@ void W8MonsterShakeCallback::RestoreAnimation()
         Fail("m_pParticles");
     }
 
-    m_pParticles->SetActive(0);
+    m_pParticles->SetActive(false);
     representation = m_pMonster;
     if (saved_behaviour < 1 || saved_behaviour > 3) {
         Fail("bBehaviour >= BEHAVIOUR_FIRST && bBehaviour <= BEHAVIOUR_LAST");
@@ -3615,7 +3615,7 @@ void W8Monster::UpdateShakeEvents(unsigned char previous_frame)
              particle->start_frame == particle->end_frame) &&
             previous_frame < animation->start_frame && animation->start_frame <= subcycle) {
             if (enabled) {
-                particle->SetActive(1);
+                particle->SetActive(true);
                 particle->emission_count = 0;
                 if (index == 0) {
                     auto callback = std::make_unique<W8MonsterShakeCallback>();
@@ -3648,12 +3648,12 @@ void W8Monster::UpdateShakeEvents(unsigned char previous_frame)
             if (static_cast<unsigned int>(previous_frame) ==
                 static_cast<unsigned int>(particle->start_frame)) {
                 if (enabled) {
-                    particle->SetActive(1);
+                    particle->SetActive(true);
                     particle->emission_count = 0;
                 }
             } else if (static_cast<unsigned int>(subcycle) ==
                        static_cast<unsigned int>(particle->end_frame)) {
-                particle->SetActive(0);
+                particle->SetActive(false);
             }
         }
     }
@@ -4200,7 +4200,7 @@ void W8Monster::SpawnDamageNumber(unsigned int amount)
             particle->cone_yaw = 1.5707963f;
             particle->cone_pitch = 1.5707963f;
             particle->emission_interval = 1;
-            particle->has_acceleration = 1;
+            particle->has_acceleration = true;
             particle->speed_mode = W8_PARTICLE_SPEED_RANDOM;
             particle->emission_mode = W8_PARTICLE_EMISSION_SINGLE;
             particle->lifetime_ms = 10000;
