@@ -2,6 +2,7 @@
 
 #include <cstring>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -547,7 +548,7 @@ bool W8AssayDialog::PopulateRequirements()
 {
     int index;
     unsigned short us_index;
-    int button_index;
+    std::optional<int> button_index;
     int frame;
     int tooltip_index;
 
@@ -676,10 +677,11 @@ bool W8AssayDialog::PopulateRequirements()
             button_index = 0x24;
             break;
         default:
-            button_index = -1;
+            button_index.reset();
             srAssertFail("iUnknownButtonIndex != MAXDWORD", ASSAY_DIALOG_CPP, 0x43f, 0);
             break;
         }
+        if (!button_index) return false;
         switch (g_status.rpc_races[us_index]) {
         case 0xd:
             frame = 0x16;
@@ -706,11 +708,11 @@ bool W8AssayDialog::PopulateRequirements()
             tooltip_index = 0x284;
             break;
         }
-        m_buttons[button_index].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti",
-                                                               frame + 1, frame, BUTTON_NO_IMAGE,
-                                                               frame, BUTTON_NO_IMAGE),
-                                          {.tooltip = tooltip_index});
-        m_buttons[button_index].SetVisible(false);
+        m_buttons[*button_index].Configure(ButtonGraphics::Load("Data\\Dialogs\\icons_race.sti",
+                                                                frame + 1, frame, BUTTON_NO_IMAGE,
+                                                                frame, BUTTON_NO_IMAGE),
+                                           {.tooltip = tooltip_index});
+        m_buttons[*button_index].SetVisible(false);
     }
 
     for (index = 0; index < W8_ASSAY_BUTTON_COUNT; ++index) {
@@ -761,7 +763,7 @@ void W8AssayDialog::CreateTextBuffers()
 void W8AssayDialog::SetProfessionIconsVisible(bool show)
 {
     unsigned int profession;
-    int button_index;
+    std::optional<int> button_index;
     const W8ItemDatabaseRecord* record = &g_item_records[m_item.iItemNo];
 
     for (profession = 0; profession < 15; ++profession) {
@@ -814,12 +816,12 @@ void W8AssayDialog::SetProfessionIconsVisible(bool show)
         default:
             continue;
         }
-        m_buttons[button_index].SetVisible(show);
+        m_buttons[*button_index].SetVisible(show);
         if (show) {
-            m_buttons[button_index].SetEnabled(
+            m_buttons[*button_index].SetEnabled(
                 (record->profession_mask & (1 << (profession & 0x1f))) != 0);
         }
-        m_buttons[button_index].m_dirty = true;
+        m_buttons[*button_index].m_dirty = true;
     }
 }
 
@@ -828,7 +830,7 @@ void W8AssayDialog::SetRaceIconsVisible(bool show)
 {
     unsigned int race;
     unsigned int us_index;
-    int button_index;
+    std::optional<int> button_index;
     const W8ItemDatabaseRecord* record = &g_item_records[m_item.iItemNo];
 
     for (race = 0; race < W8_RACE_COUNT; ++race) {
@@ -871,7 +873,7 @@ void W8AssayDialog::SetRaceIconsVisible(bool show)
         case 13:
         case 14:
         case 15:
-            button_index = -1;
+            button_index.reset();
             for (us_index = 0; us_index < NUM_RPC_RACES; ++us_index) {
                 if (race == g_status.rpc_races[us_index]) {
                     if (us_index >= NUM_RPC_RACES) {
@@ -897,18 +899,18 @@ void W8AssayDialog::SetRaceIconsVisible(bool show)
                     break;
                 }
             }
-            if (button_index == -1) {
+            if (!button_index) {
                 continue;
             }
             break;
         default:
             continue;
         }
-        m_buttons[button_index].SetVisible(show);
+        m_buttons[*button_index].SetVisible(show);
         if (show) {
-            m_buttons[button_index].SetEnabled((record->race_mask & (1 << (race & 0x1f))) != 0);
+            m_buttons[*button_index].SetEnabled((record->race_mask & (1 << (race & 0x1f))) != 0);
         }
-        m_buttons[button_index].m_dirty = true;
+        m_buttons[*button_index].m_dirty = true;
     }
 }
 

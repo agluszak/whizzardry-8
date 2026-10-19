@@ -93,7 +93,7 @@ static void CreateSpellCastingViewControls(void);
 static void SelectSpellPowerPip7(void);
 static void SelectSpellPowerPip8(void);
 static void SpellCastingDialogResult(bool accepted);
-static void PreviewSpellPowerPipHover(int power_level);
+static void PreviewSpellPowerPipHover(std::optional<int> power_level);
 void UpdateSpellRealmPointDisplays(void);
 static void UpdateSpellPowerPips(void);
 static void RefreshSpellPowerPip(int pip);
@@ -189,7 +189,9 @@ static void CreateSpellCastingViewControls(void)
                     }
                 }
             },
-            [pip](bool entered) { PreviewSpellPowerPipHover(entered ? pip : -1); });
+            [pip](bool entered) {
+                PreviewSpellPowerPipHover(entered ? std::optional<int>{pip} : std::nullopt);
+            });
         button->SetCircularHitArea({0x1a4 + pip_centers[pip].x, 0x166 + pip_centers[pip].y},
                                    radius);
     }
@@ -812,35 +814,33 @@ void SelectSpellPowerLevel(int power_level)
    cast cost for the hovered level (or restores the selected cost / empty
    label when the pointer leaves). Only power classes 0 and 1 participate. */
 // FUNCTION: WIZ8 0x005A0910
-static void PreviewSpellPowerPipHover(int power_level)
+static void PreviewSpellPowerPipHover(std::optional<int> power_level)
 {
     std::string text;
 
-    if (power_level < 7) {
-        if ((gpSCSV->PowerClass() == W8_SPELL_POWER_SELECTABLE ||
-             gpSCSV->PowerClass() == W8_SPELL_POWER_REPEAT_OUT_OF_COMBAT) &&
-            (power_level == -1 || (gpSCSV->power_controls[power_level]->IsVisible() &&
-                                   gpSCSV->power_controls[power_level]->IsEnabled()))) {
-            gpSCSV->dirty[2] = true;
-            if (power_level != -1) {
-                gpSCSV->spell_name.SetRenderMode(6);
+    if ((gpSCSV->PowerClass() == W8_SPELL_POWER_SELECTABLE ||
+         gpSCSV->PowerClass() == W8_SPELL_POWER_REPEAT_OUT_OF_COMBAT) &&
+        (!power_level || (*power_level >= 0 && *power_level < 7 &&
+                          gpSCSV->power_controls[*power_level]->IsVisible() &&
+                          gpSCSV->power_controls[*power_level]->IsEnabled()))) {
+        gpSCSV->dirty[2] = true;
+        if (power_level) {
+            gpSCSV->spell_name.SetRenderMode(6);
+            text = fmt::format("{:d}", (*power_level + 1) *
+                                           g_spell_records[gpSCSV->draft.detail].spell_point_cost);
+            gpSCSV->spell_name.SetText(text, g_wiz_text_font_secondary);
+            return;
+        }
+        if (gpSCSV->PowerClass() == W8_SPELL_POWER_SELECTABLE) {
+            gpSCSV->spell_name.SetRenderMode(4);
+            if (gpSCSV->draft.detail_block.spell.power_level != 0) {
                 text =
-                    fmt::format("{:d}", (power_level + 1) *
+                    fmt::format("{:d}", gpSCSV->draft.detail_block.spell.power_level *
                                             g_spell_records[gpSCSV->draft.detail].spell_point_cost);
                 gpSCSV->spell_name.SetText(text, g_wiz_text_font_secondary);
                 return;
             }
-            if (gpSCSV->PowerClass() == W8_SPELL_POWER_SELECTABLE) {
-                gpSCSV->spell_name.SetRenderMode(4);
-                if (gpSCSV->draft.detail_block.spell.power_level != 0) {
-                    text = fmt::format("{:d}",
-                                       gpSCSV->draft.detail_block.spell.power_level *
-                                           g_spell_records[gpSCSV->draft.detail].spell_point_cost);
-                    gpSCSV->spell_name.SetText(text, g_wiz_text_font_secondary);
-                    return;
-                }
-                gpSCSV->spell_name.SetText("", g_wiz_text_font_secondary);
-            }
+            gpSCSV->spell_name.SetText("", g_wiz_text_font_secondary);
         }
     }
 }

@@ -1265,21 +1265,22 @@ W8PreparedNpcBindings PrepareNpcBindings(W8World& world)
                 candidate->name_style == kind)
                 source = candidate;
         }
-        int slot = source ? source->partner_index : -1;
-        if (slot == -1) {
+        std::optional<int> slot;
+        if (source) slot = source->partner_index;
+        if (!slot) {
             for (size_t index = 0; index < reserved.size(); ++index) {
                 if (!reserved[index] && g_npc_states[index]->binding_unavailable) {
                     slot = static_cast<int>(index);
                     break;
                 }
             }
-            if (slot == -1) {
+            if (!slot) {
                 slot = static_cast<int>(reserved.size());
                 reserved.push_back(false);
             }
         }
-        if (slot > 255) throw std::runtime_error("too many NPC bindings");
-        auto existing = std::ranges::find(pending.records, slot, &W8PreparedNpcBinding::slot);
+        if (*slot > 255) throw std::runtime_error("too many NPC bindings");
+        auto existing = std::ranges::find(pending.records, *slot, &W8PreparedNpcBinding::slot);
         W8NpcState* npc;
         if (existing != pending.records.end())
             npc = existing->state.get();
@@ -1294,17 +1295,17 @@ W8PreparedNpcBindings PrepareNpcBindings(W8World& world)
             } else
                 owner = MakeNpcRuntimeNode(kind);
             npc = owner.get();
-            pending.records.push_back({slot, std::move(owner)});
+            pending.records.push_back({*slot, std::move(owner)});
         }
-        reserved[slot] = true;
-        npc->partner_index = static_cast<unsigned char>(slot);
+        reserved[*slot] = true;
+        npc->partner_index = static_cast<unsigned char>(*slot);
         npc->location_id = info.location_id;
         npc->is_present = true;
         npc->has_monster = true;
         npc->binding_unavailable = false;
         npc->level_band = GetLevelBand(world.level_id.value());
         npc->bound_level = static_cast<unsigned char>(world.level_id.value());
-        info.bound_npc_index = slot;
+        info.bound_npc_index = *slot;
         ReloadNpcScriptResources(npc, info.p3D);
     };
     for (const auto* list :
