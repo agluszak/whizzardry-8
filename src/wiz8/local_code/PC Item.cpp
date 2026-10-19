@@ -2774,7 +2774,7 @@ bool EquipHeldItemAndStowPartner(W8Character& character, W8EquipSlot slot)
     auto displaced = partner;
     displaced.bound = true;
     displaced.bind_announced = false;
-    const auto held_origin = replace ? slot : partner_slot;
+    const auto held_origin = replace ? slot : *partner_slot;
     const auto new_held = replace ? destination : displaced;
     destination = g_status.item_in_hand;
     destination.bind_announced = false;
