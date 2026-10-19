@@ -12,6 +12,7 @@
 #include "layouts/gameplay_databases.h"
 #include "layouts/item_tables.h"
 #include "layouts/levels.h"
+#include "layouts/npc_dialogue.h"
 #include "layouts/targeting.h"
 #include "layouts/world.h"
 #include "retail_records.h"
@@ -353,9 +354,9 @@ static void transcript_contracts()
     g_npc_interaction_state = &state;
     auto entry = std::make_unique<W8DialogueTranscriptRecord>();
     entry->text = "é中😀";
-    entry->category = 2;
+    entry->category = W8_DIALOGUE_CATEGORY_PLACES;
     state.dialogue_transcript.push_back(std::move(entry));
-    state.dialogue_category_filter = 3;
+    state.dialogue_category_filter = W8_DIALOGUE_CATEGORY_MISC;
     state.transcript_sorted = true;
     auto file = wiz8::open_file(wiz8::user_path("saves/transcript.bin"), wiz8::OpenMode::replace);
     REQUIRE(SaveNpcDialogueTranscript(*file));
@@ -372,8 +373,9 @@ static void transcript_contracts()
         ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadNpcDialogueTranscript(chunk); }));
     REQUIRE(state.dialogue_transcript.size() == 1);
     REQUIRE(state.dialogue_transcript[0]->text == "é中😀");
-    REQUIRE(state.dialogue_transcript[0]->category == 2);
-    REQUIRE((state.dialogue_category_filter == 3 && state.transcript_sorted));
+    REQUIRE(state.dialogue_transcript[0]->category == W8_DIALOGUE_CATEGORY_PLACES);
+    REQUIRE(
+        (state.dialogue_category_filter == W8_DIALOGUE_CATEGORY_MISC && state.transcript_sorted));
     ClearNpcDialogueTranscript();
     file->close();
     g_npc_interaction_state = previous;

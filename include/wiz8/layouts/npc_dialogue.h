@@ -13,3 +13,12 @@ enum W8NpcDialogueLayout {
     W8_DIALOGUE_LAYOUT_TRADE = 5,
     W8_DIALOGUE_LAYOUT_BARE = 6
 };
+
+/* Transcript keyword categories and the active category filter. */
+enum W8DialogueCategory : signed char {
+    W8_DIALOGUE_CATEGORY_ALL = -1,
+    W8_DIALOGUE_CATEGORY_ITEMS = 0,
+    W8_DIALOGUE_CATEGORY_PEOPLE = 1,
+    W8_DIALOGUE_CATEGORY_PLACES = 2,
+    W8_DIALOGUE_CATEGORY_MISC = 3
+};

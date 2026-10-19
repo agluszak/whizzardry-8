@@ -42,6 +42,7 @@
 #include "index_algorithms.h"
 #include "input.h"
 #include "layouts/gameplay_databases.h"
+#include "layouts/main_game_screen.h"
 #include "layouts/world.h"
 #include "random.h"
 #include "surrender/plane_math.h"
@@ -209,9 +210,10 @@ void W8Octree::UpdateVisibility()
             }
         }
         for (index = 0; index < m_props.size(); ++index) {
-            m_props[index]->SetActivationState(0);
+            m_props[index]->SetActivationState(false);
         }
-        for (const auto id : m_prop_links.alwaysVisible()) m_props[id - 1]->SetActivationState(1);
+        for (const auto id : m_prop_links.alwaysVisible())
+            m_props[id - 1]->SetActivationState(true);
         for (index = 0; index < m_particles.size(); ++index) {
             m_particles[index]->SetTraversalEnabled(false);
         }
@@ -290,9 +292,9 @@ void W8Octree::UpdateVisibility()
         for (const auto id : m_prop_links.alwaysVisible()) SetBit(m_linked_props, id - 1);
         for (std::size_t prop = 0; prop < m_linked_props.size(); ++prop) {
             if (m_linked_props[prop] && !m_visible_props[prop]) {
-                m_props[prop]->SetActivationState(1);
+                m_props[prop]->SetActivationState(true);
             } else if (!m_linked_props[prop] && m_visible_props[prop]) {
-                m_props[prop]->SetActivationState(0);
+                m_props[prop]->SetActivationState(false);
             }
         }
         m_visible_props = m_linked_props;
@@ -1049,12 +1051,12 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
     unsigned short rows =
         static_cast<unsigned short>(static_cast<int>(m_spatial.m_extent / stride));
     for (unsigned int prop = 0; prop < m_props.size(); ++prop) {
-        m_props[prop]->SetActivationState(0);
+        m_props[prop]->SetActivationState(false);
     }
     for (unsigned int particle = 0; particle < m_particles.size(); ++particle) {
         m_particles[particle]->SetTraversalEnabled(false);
     }
-    SetViewportMode(0);
+    SetViewportMode(W8_VIEWPORT_MODE_FULL);
     SetScaledViewport({0, 0, 0x140, 0xf0});
     glm::vec3 saved_location;
     glm::mat3 saved_rotation;
@@ -1062,7 +1064,7 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
     saved_rotation = world->camera->getRotation<glm::mat3>();
     g_light_update_flags &= ~1u;
     g_render_untextured = true;
-    SetCameraLightMode(2);
+    SetCameraLightMode(W8CameraLightMode::Disable);
     g_render_unlit = true;
     g_render_cull_front = true;
     double saved_width = world->camera->getHorizontalFOV();
@@ -1182,7 +1184,7 @@ void W8Octree::BuildRegionLinks(bool rebuild_all)
     world->camera->setLocation(restore_location);
     world->camera->setRotation(saved_rotation);
     g_light_update_flags |= 1u;
-    SetCameraLightMode(3);
+    SetCameraLightMode(W8CameraLightMode::Enable);
     g_render_unlit = false;
     g_render_cull_front = false;
     SetScaledViewport({0, 0, 0x280, 0x1e0});
@@ -2903,12 +2905,12 @@ unsigned int W8Octree::AdvanceNavigator(W8NavigatorMovementState* movement, floa
     bool reached = true;
 
     if (pathing != 0) {
-        if (g_navigator_link_mode == 0) {
+        if (g_navigator_link_mode == W8_NAVIGATOR_LINK_MODE_DEFAULT) {
             return pathing->StepAlongPath(movement, radius, separation);
         }
         return pathing->StepMonsterAlongPath(movement, radius, separation);
     }
-    if (g_navigator_link_mode != 0) {
+    if (g_navigator_link_mode != W8_NAVIGATOR_LINK_MODE_DEFAULT) {
         return 1;
     }
     vecDir = movement->target_position - movement->position;

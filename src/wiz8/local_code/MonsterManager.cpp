@@ -393,7 +393,7 @@ void RecordMonsterKill(W8MonsterInfo* monster_info, bool announce)
             goto done;
         }
     }
-    if (record->faction_id != 0 && record->faction_id != 1)
+    if (record->faction_id != W8_FACTION_UNALIGNED && record->faction_id != W8_FACTION_PARTY)
         RecordFactionOffense(static_cast<signed char>(record->faction_id), monster_info);
 done:
     MonsterKilled(record->record_id, killer_party_slot);

@@ -280,7 +280,7 @@ void RefreshMonsterGroupHostility(W8MonsterGroup* monster_group)
         return;
     }
     if (monster_group->ubDisposition != W8_DISPOSITION_HOSTILE &&
-        (record->flags & W8_MONSTER_FLAG_NPC) == 0 && record->faction_id == 0 &&
+        (record->flags & W8_MONSTER_FLAG_NPC) == 0 && record->faction_id == W8_FACTION_UNALIGNED &&
         record->hostility_radius != 0 && record->hostility_radius != -1 &&
         GetGroupNearestDistance(monster_group) <= record->hostility_radius * kWorldScale &&
         MonsterGroupHasVisibleTarget(monster_group, true, W8_VISIBLE_TARGET_ANY, false)) {
@@ -290,7 +290,7 @@ void RefreshMonsterGroupHostility(W8MonsterGroup* monster_group)
     if (monster_group->hostility_set_at != 0 &&
         static_cast<unsigned int>(g_status.world_clock - monster_group->hostility_set_at) <=
             static_cast<unsigned int>(cooldown)) {
-        if (record->faction_id == 0) {
+        if (record->faction_id == W8_FACTION_UNALIGNED) {
             return;
         }
         if (static_cast<unsigned int>(monster_group->hostility_set_at) >=

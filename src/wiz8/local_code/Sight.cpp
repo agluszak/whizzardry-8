@@ -66,7 +66,7 @@ const float g_sight_default = 12.0f;
 void ResetSight(void)
 {
     SetViewDistance(12.0f);
-    SetNavigatorLinkMode(0);
+    SetNavigatorLinkMode(W8_NAVIGATOR_LINK_MODE_DEFAULT);
     GameTimeAccumulator().ResetTimeScale();
     ResetMonsterGeneratorTimers();
 }

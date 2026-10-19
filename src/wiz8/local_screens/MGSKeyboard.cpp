@@ -283,13 +283,13 @@ void DispatchMGSCommand(W8MGSCommand command)
         break;
     case W8_MGS_COMMAND_LOAD_OPTIONS:
         if (IsScreenInputBlocked() == 0 && CanInterruptLevelMovement()) {
-            g_pending_screen_state.mode = 1;
+            g_pending_screen_state.mode = W8_OPTIONS_LOAD;
             g_pending_screen_state.id = W8_SCREEN_OPTIONS;
         }
         break;
     case W8_MGS_COMMAND_SAVE_OPTIONS:
         if (IsScreenInputBlocked() == 0 && CanInterruptLevelMovement()) {
-            g_pending_screen_state.mode = 2;
+            g_pending_screen_state.mode = W8_OPTIONS_SAVE;
             g_pending_screen_state.id = W8_SCREEN_OPTIONS;
         }
         break;

@@ -1014,13 +1014,16 @@ draw_condition_icons:
             int assay_y;
             int assay_catalog;
 
-            if (g_level_block->portrait_assay_hover_mode == 1) {
+            if (g_level_block->portrait_assay_hover_mode ==
+                W8_PORTRAIT_ASSAY_HOVER_PRIMARY_WEAPON) {
                 assay_y = menu_y + 0x15;
                 assay_catalog = 99;
-            } else if (g_level_block->portrait_assay_hover_mode == 2) {
+            } else if (g_level_block->portrait_assay_hover_mode ==
+                       W8_PORTRAIT_ASSAY_HOVER_SECONDARY_WEAPON) {
                 assay_y = menu_y + 0x2d;
                 assay_catalog = 99;
-            } else if (g_level_block->portrait_assay_hover_mode == 3) {
+            } else if (g_level_block->portrait_assay_hover_mode ==
+                       W8_PORTRAIT_ASSAY_HOVER_TWO_HANDED_WEAPON) {
                 assay_y = menu_y + 0x15;
                 assay_catalog = 0x73;
             } else {
@@ -1190,7 +1193,7 @@ void CreateLevelButtons()
                  [slot](auto*) {
                      AfterUiDispatch([slot] {
                          g_pending_screen_state.character = &g_status.buffers.Char[slot];
-                         g_pending_screen_state.mode = 2;
+                         g_pending_screen_state.mode = W8_CHARACTER_LEVEL_UP;
                          g_pending_screen_state.id = W8_SCREEN_CHARACTER;
                      });
                  },

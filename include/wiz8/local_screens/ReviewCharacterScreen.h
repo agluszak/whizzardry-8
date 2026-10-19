@@ -39,7 +39,7 @@ enum W8CampPage {
     W8_CAMP_PAGE_REGENERATION = 4
 };
 
-enum W8CampItemAction {
+enum W8CampItemAction : unsigned char {
     W8_CAMP_ITEM_ACTION_NONE = 0,
     W8_CAMP_ITEM_ACTION_MOVE = 1,
     W8_CAMP_ITEM_ACTION_IDENTIFY_SPELL = 2,
@@ -52,7 +52,10 @@ enum W8CampItemAction {
     W8_CAMP_ITEM_ACTION_USE_ON_CHARACTER = 9
 };
 
-enum W8CampInfoPage { W8_CAMP_INFO_PAGE_ITEMS = 0, W8_CAMP_INFO_PAGE_CHARACTER = 1 };
+enum W8CampInfoPage : unsigned char {
+    W8_CAMP_INFO_PAGE_ITEMS = 0,
+    W8_CAMP_INFO_PAGE_CHARACTER = 1
+};
 
 enum W8CampHeaderMode { W8_CAMP_HEADER_SUMMARY = 0, W8_CAMP_HEADER_PROFESSION_HISTORY = 1 };
 
@@ -175,12 +178,12 @@ struct W8CampScreenState {
     std::vector<W8CampEffectEntry> effect_list; /* W8CampEffectEntry rows */
     int selected_spell_row;
     unsigned char unknown_d38[7];
-    unsigned char item_action;
+    W8CampItemAction item_action;
     /* 0xd40[0]: mouse is over the reviewed portrait; drives the highlight
        frame and a redraw. */
     unsigned char portrait_hovered[4];
     std::unique_ptr<W8DialogBase> dialog;
-    unsigned char info_page;
+    W8CampInfoPage info_page;
     unsigned char padding_d49[3];
     std::unique_ptr<W8CampCharacterInfo> character_info;
     /* The camp item icons were drawn while the monster/combat

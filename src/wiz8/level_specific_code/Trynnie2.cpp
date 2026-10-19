@@ -123,7 +123,7 @@ bool Trynnie2MeatBox(Trigger* pTrigger)
     } else {
         info->p3D->SetScript("MoveHogarDrugged.msf", true);
         if (GetLocationVarIDByName("HogarDruggedGivenExp") == -1) {
-            AwardPartyExperience(500, 0);
+            AwardPartyExperience(500, false);
             CreateLocationVar("HogarDruggedGivenExp", 1);
         }
     }

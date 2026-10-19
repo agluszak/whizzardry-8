@@ -93,9 +93,9 @@ static W8NpcScriptRegionName g_npc_script_region_names[] = {{"Monastery", 1},
                                                             {"Cosmic Circle", 14},
                                                             {"", 0}};
 
-void ApplyScriptedDialogueKeyword(int kind, const char* text)
+void ApplyScriptedDialogueKeyword(W8NpcQuoteEntryKind kind, const char* text)
 {
-    signed char category;
+    W8DialogueCategory category;
     switch (kind) {
     case W8_NPC_ENTRY_PERSON_KEYWORD:
     case W8_NPC_ENTRY_PERSON_KEYWORD_ALT:
@@ -512,7 +512,7 @@ void W8NpcDialogue::RunQuoteEntry(W8NpcQuoteEntry* entry, int continuation_quote
         DisplayNpcQuote(notice_text, true);
         break;
     case W8_NPC_ENTRY_GIVE_EXPERIENCE:
-        AwardPartyExperience(entry->operand0, 0);
+        AwardPartyExperience(entry->operand0, false);
         break;
     default:
         break;
@@ -557,7 +557,7 @@ void W8NpcDialogue::RunNextAction()
                         const W8NpcScriptQuote& quote =
                             session_.npc->script_file->quotes[queued->quote_index];
                         if (std::ranges::none_of(quote.entries, [](const W8NpcQuoteEntry& entry) {
-                                return entry.kind == 0x1d;
+                                return entry.kind == W8_NPC_ENTRY_UNNAMED_29;
                             })) {
                             Speak(0x1f, false);
                             return;

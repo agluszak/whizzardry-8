@@ -1917,17 +1917,19 @@ void ResetLevelDataVectors(void)
 const double g_game_data_pi = 3.141592653589793;
 
 // FUNCTION: WIZ8 0x00420b40
-float MoveTimer(int value)
+float MoveTimer(W8MoveTimerAction action)
 {
     if (g_shared_timers_paused) {
-        if ((value == 8 && g_current_screen_state.id == W8_SCREEN_MAIN_GAME) || value == 4) {
+        if ((action == W8_MOVE_TIMER_RESUME_MAIN_GAME &&
+             g_current_screen_state.id == W8_SCREEN_MAIN_GAME) ||
+            action == W8_MOVE_TIMER_RESUME) {
             ResumeSharedGameTimers();
             g_shared_timers_paused = false;
         } else {
             return 0.0f;
         }
     }
-    if (value == 1) {
+    if (action == W8_MOVE_TIMER_SUSPEND) {
         PauseSharedGameTimers();
         g_shared_timers_paused = true;
     }

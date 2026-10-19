@@ -990,17 +990,17 @@ bool MonsterTargetMatchesSpell(W8MonsterInfo* monster_info, int spell_id)
 /* Map gXStatus.iTargetingMode to a cursor-table index for SetTargetCursor.
    Returned values are cursor slots (including 10..12), not W8TargetingContext. */
 // FUNCTION: WIZ8 0x0053A3D0
-int GetTargetingCursorForState(int alternate)
+int GetTargetingCursorForState(bool alternate)
 {
     switch (gXStatus.iTargetingMode) {
     case W8_TARGET_NEED_ALLY:
     case W8_TARGET_NEED_ITEM:
     case W8_TARGET_NEED_CHARACTER_INDIRECT:
-        return (alternate != 0) + 3;
+        return alternate + 3;
     case W8_TARGET_NEED_ENEMY:
-        return alternate != 0;
+        return alternate;
     case W8_TARGET_NEED_GROUP:
-        return alternate != 0 ? 10 : 11;
+        return alternate ? 10 : 11;
     case W8_TARGET_NEED_PLACE:
         return 2;
     case W8_TARGET_NEED_CONE:

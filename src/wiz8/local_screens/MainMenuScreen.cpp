@@ -110,7 +110,7 @@ void ActivateMainMenuItem(short item)
         break;
     case 2:
         if (g_main_menu_has_save_games) {
-            g_pending_screen_state.mode = 1;
+            g_pending_screen_state.mode = W8_OPTIONS_LOAD;
             g_pending_screen_state.id = W8_SCREEN_OPTIONS;
         }
         break;

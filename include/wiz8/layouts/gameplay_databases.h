@@ -14,6 +14,7 @@ struct W8NpcItemStockRule;
 #include "wiz8/attack_modes.h"
 #include "wiz8/dice.h"
 #include "wiz8/fact_state.h"
+#include "wiz8/local_code/Factions.h"
 #include "wiz8/spell_ids.h"
 
 /*
@@ -540,7 +541,7 @@ struct W8MonsterRecord {
     int model_index;
     int alternate_model_index;
     int hostility_radius;
-    int faction_id;
+    W8Faction faction_id;
     int material;
     unsigned char deleted;
     unsigned char significant_kill;

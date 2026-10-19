@@ -35,6 +35,17 @@ enum W8MainUiMode {
     W8_MAIN_UI_MODE_RADAR = 2
 };
 
+enum W8ViewportMode : int {
+    W8_VIEWPORT_MODE_FULL = 0,
+    W8_VIEWPORT_MODE_FULL_WITH_BOTTOM_PANEL = 1,
+    W8_VIEWPORT_MODE_CENTERED_WITH_BOTTOM_PANEL = 2,
+    W8_VIEWPORT_MODE_CENTERED_COMPACT = 3,
+    W8_VIEWPORT_MODE_CENTERED_FULL_HEIGHT = 4,
+    W8_VIEWPORT_MODE_CENTERED_TALL = 5,
+    W8_VIEWPORT_MODE_FULL_WIDTH_TALL = 6,
+    W8_VIEWPORT_MODE_UNINITIALIZED = 7
+};
+
 /* RequestRedraw requests main-game repaints with this mask. The low
    eight bits select party portraits; combinations remain unsigned mask words. */
 enum W8MainGameRedrawFlag {
@@ -103,11 +114,18 @@ struct W8PortraitHighlight {
 static const unsigned int W8_MAIN_REDRAW_FRAME = 0x80000000U;
 static const unsigned int W8_MAIN_REDRAW_ALL = 0xffffffffU;
 
+enum W8PortraitAssayHoverMode : int {
+    W8_PORTRAIT_ASSAY_HOVER_NONE = 0,
+    W8_PORTRAIT_ASSAY_HOVER_PRIMARY_WEAPON = 1,
+    W8_PORTRAIT_ASSAY_HOVER_SECONDARY_WEAPON = 2,
+    W8_PORTRAIT_ASSAY_HOVER_TWO_HANDED_WEAPON = 3
+};
+
 struct W8LevelRuntimeBlock {
     /* Owned notice/list paint scratch, reused by the monster-list formatter. */
     std::string text_paint_scratch;
     unsigned int redraw_flags;
-    int camera_mode;
+    W8ViewportMode camera_mode;
     unsigned char portrait_refresh_pending[8];
     int portrait_refresh_image[8];
     bool pick_changed;
@@ -115,7 +133,7 @@ struct W8LevelRuntimeBlock {
     bool formation_board_visible;
     unsigned char radar_map_visible;
     /* Portraits UI mode selected; picks the portrait-hover layout. */
-    unsigned char portrait_mode;
+    bool portrait_mode;
     unsigned char text_scroll_drag_idle;
     /* The x origin the mode-6 hover panel anchors the slot's portrait
        column position against. */
@@ -129,7 +147,7 @@ struct W8LevelRuntimeBlock {
     int combat_action_hover_party_slot = -1;
     /* PortraitAssaySidebarInput hover zone — 1 upper weapon
        row, 2 lower, 3 assayable item; Screens resets it to 0. */
-    int portrait_assay_hover_mode;
+    W8PortraitAssayHoverMode portrait_assay_hover_mode;
     int held_item_display = -1;
     int text_content_region;
     int dialogue_content_region;

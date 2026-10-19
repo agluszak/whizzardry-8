@@ -13,15 +13,21 @@
 #include "wiz8/dice.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/targeting.h"
+#include "wiz8/spell_ids.h"
 
 class W8SpellVisual;
 class W8Missile;
 
-/* One pending condition report. Kind 1 names a character by party slot and
-   carries no text; kind 3 carries its own inline text. The message pass
-   owns it until posting. */
+enum W8SpellDamageReportKind : int {
+    W8_SPELL_DAMAGE_REPORT_CHARACTER_DEATH = 1,
+    W8_SPELL_DAMAGE_REPORT_MONSTER_DEATH = 3
+};
+
+/* One pending death report. Character reports identify a party slot, while
+   monster reports carry their own inline text. The message pass owns each
+   report until posting. */
 struct W8SpellDamageReport {
-    int kind;
+    W8SpellDamageReportKind kind;
     int value;
     std::string text;
 };
@@ -78,7 +84,7 @@ struct W8SpellEffectEntry {
     /* OrigSource and OrigTarget are left for the caller to fill. */
     W8SpellEffectEntry()
     {
-        kind = 0;
+        kind = W8_SPELL_NONE;
         turns_remaining = 0;
         memset(&Source, 0, sizeof(Source));
         memset(&target, 0, sizeof(target));
@@ -92,7 +98,7 @@ struct W8SpellEffectEntry {
         result = {};
     }
 
-    int kind;
+    W8SpellId kind;
     int turns_remaining;
     /* The cast's original source. */
     W8TargetSource OrigSource;

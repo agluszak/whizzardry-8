@@ -2,6 +2,7 @@
 
 #include "compat/compiler.h"
 #include "input.h"
+#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/targeting.h"
 
@@ -13,7 +14,8 @@ void ReleaseConditionButtons(void);
 void CreateLevelButtons(void);
 /* Refresh cached HP/stamina/spell portrait bar widths; dirty + redraw when
    any slot's displayed fraction (or numeric HP) changes. */
-short GetCombatPortraitImage(W8ActionKind action, int detail, char status, short slot);
+short GetCombatPortraitImage(W8ActionKind action, int detail, W8CombatPortraitStatus status,
+                             short slot);
 void SyncPartyPortraitVitalsBars(void);
 void RecordCharacterDamage(int party_slot, unsigned int amount);
 /* Advance per-slot portrait FX counters on a 100ms clock and dirty redraw. */

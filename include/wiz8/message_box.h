@@ -10,7 +10,7 @@ struct W8NpcState;
    at 0x00553f10/0x005542e0 allocate 0x11 bytes with count/slot/skill columns. */
 struct W8ExperienceNoticePayload {
     unsigned int amount;
-    unsigned char alternate_message;
+    bool alternate_message;
 };
 
 struct W8SkillNoticePayload {

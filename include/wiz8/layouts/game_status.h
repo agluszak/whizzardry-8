@@ -20,6 +20,13 @@ struct W8Character;
 
 enum { W8_PARTY_SLOT_COUNT = 8 };
 
+enum W8GameWaitState : unsigned int {
+    W8_GAME_WAIT_STATE_MOVING = 0,
+    W8_GAME_WAIT_STATE_FAST_MOVEMENT = 1,
+    W8_GAME_WAIT_STATE_INITIAL_REST = 2,
+    W8_GAME_WAIT_STATE_RESTING = 3
+};
+
 /* The status block's version and the process-owned party buffers it points
    at; the pointers are never saved. */
 struct W8StatusBuffers {
@@ -104,7 +111,7 @@ struct W8GlobalStatus {
        pass sums them against zero. */
     float real_elapsed;
     float frame_elapsed;
-    unsigned int wait_state;
+    W8GameWaitState wait_state;
     unsigned int item_recharge_ms;
     W8PartyFormationState formation;
     int game_time_days;

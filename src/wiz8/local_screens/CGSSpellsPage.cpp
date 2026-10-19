@@ -20,6 +20,7 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/RangeControl.h"
 #include "wiz8/local_code/Strings.h"
@@ -153,7 +154,8 @@ void W8CharacterSpellList::Redraw(SDL_Surface& target, bool force)
 
 // FUNCTION: WIZ8 0x005c83d0
 void W8CharacterSpellsPage::SetCharacter(W8Character* character,
-                                         W8CharacterCreationState* creation_state, int mode)
+                                         W8CharacterCreationState* creation_state,
+                                         W8CharacterScreenMode mode)
 {
     W8CharacterPage::SetCharacter(character, creation_state, mode);
     for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {

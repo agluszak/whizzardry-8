@@ -705,7 +705,7 @@ W8LockInteraction::W8LockInteraction(Trigger* trigger) : m_timer()
     int i;
 
     m_trigger = trigger;
-    m_state = 0;
+    m_state = W8_LOCK_STATE_IDLE;
     m_tumbler_count = trigger->lock_state.difficulty;
     if (m_tumbler_count < 2) {
         m_tumbler_count = 2;
@@ -774,12 +774,12 @@ void W8LockInteraction::Process()
     int i;
     int dropped;
 
-    if (m_state == 8 && m_timer.GetProgress() >= 1.0f) {
+    if (m_state == W8_LOCK_STATE_WAIT_FOR_UNLOCK && m_timer.GetProgress() >= 1.0f) {
         m_trigger->CompleteItemInteraction();
         m_trigger->Run(-1);
-        m_state = 9;
+        m_state = W8_LOCK_STATE_EXIT;
     }
-    if (m_state == 9) {
+    if (m_state == W8_LOCK_STATE_EXIT) {
         EndLockInteractMode(0);
         return;
     }
@@ -788,28 +788,32 @@ void W8LockInteraction::Process()
         return;
     }
     switch (m_state) {
-    case 1:
-        m_state = 0;
+    case W8_LOCK_STATE_IDLE:
+    case W8_LOCK_STATE_WAIT_FOR_UNLOCK:
+    case W8_LOCK_STATE_EXIT:
+        break;
+    case W8_LOCK_STATE_PICK_TUMBLER:
+        m_state = W8_LOCK_STATE_IDLE;
         ResolvePick();
         return;
-    case 2:
-        m_state = 0;
+    case W8_LOCK_STATE_FORCE:
+        m_state = W8_LOCK_STATE_IDLE;
         AttemptForce();
         return;
-    case 3:
-        m_state = 4;
+    case W8_LOCK_STATE_PREPARE_SPELL:
+        m_state = W8_LOCK_STATE_RELEASE_FOR_SPELL;
         dropped = ReleaseOwnedTumblers(g_status.selected_character);
         goto lock_release_done;
-    case 4:
-        m_state = 0;
+    case W8_LOCK_STATE_RELEASE_FOR_SPELL:
+        m_state = W8_LOCK_STATE_IDLE;
         if (CanSelectedCharacterCastKnockKnock()) {
             EndLockInteractMode(1);
             BeginSpellCast(W8_SPELL_KNOCK_KNOCK, -1, W8_DIALOGUE_LAYOUT_UNSET);
             return;
         }
         break;
-    case 5:
-        m_state = 6;
+    case W8_LOCK_STATE_CANCEL:
+        m_state = W8_LOCK_STATE_RELEASE_FOR_ITEM;
         dropped = ReleaseOwnedTumblers(g_status.selected_character);
     lock_release_done:
         if (dropped) {
@@ -817,13 +821,13 @@ void W8LockInteraction::Process()
             return;
         }
         break;
-    case 6:
-        m_state = 0;
+    case W8_LOCK_STATE_RELEASE_FOR_ITEM:
+        m_state = W8_LOCK_STATE_IDLE;
         EndLockInteractMode(1);
         OpenUseItemSelectView(g_status.selected_character);
         return;
-    case 7:
-        m_state = 0;
+    case W8_LOCK_STATE_CHECK_PICK_SUCCESS:
+        m_state = W8_LOCK_STATE_IDLE;
         for (i = 0; i < m_tumbler_count; i++) {
             if (m_tumbler_owner[i] == -1) {
                 return;
@@ -872,7 +876,7 @@ void W8LockInteraction::OnTumblerPicked(int index)
         m_selected_slot = g_status.selected_character;
     }
     m_picked_tumbler = index;
-    m_state = 1;
+    m_state = W8_LOCK_STATE_PICK_TUMBLER;
     m_tumbler_panel->m_tumblers[index].m_hovered = false;
     m_tumbler_panel->m_tumblers[index].m_rising = true;
     m_tumbler_panel->m_animating = true;
@@ -882,18 +886,18 @@ void W8LockInteraction::OnTumblerPicked(int index)
 void W8LockInteraction::OnPrimary(W8ButtonWidget* control)
 {
     if (control == m_done_button) {
-        m_state = 9;
+        m_state = W8_LOCK_STATE_EXIT;
         return;
     }
-    if (m_tumbler_panel->m_animating && m_state != 0) {
+    if (m_tumbler_panel->m_animating && m_state != W8_LOCK_STATE_IDLE) {
         return;
     }
     if (control == m_force_button) {
-        m_state = 2;
+        m_state = W8_LOCK_STATE_FORCE;
     } else if (control == m_spell_button) {
-        m_state = 3;
+        m_state = W8_LOCK_STATE_PREPARE_SPELL;
     } else if (control == m_cancel_button) {
-        m_state = 5;
+        m_state = W8_LOCK_STATE_CANCEL;
     }
 }
 
@@ -1033,13 +1037,13 @@ void W8LockInteraction::ApplyKnockKnock(int level, int /*flag*/, char backfire)
         }
     }
     RefreshControls();
-    m_state = 7;
+    m_state = W8_LOCK_STATE_CHECK_PICK_SUCCESS;
 }
 
 void W8LockInteraction::BeginUnlock()
 {
     EnablePanels(0);
-    m_state = 8;
+    m_state = W8_LOCK_STATE_WAIT_FOR_UNLOCK;
     m_timer.SetDuration(1.0f);
     m_timer.Restart();
 }
@@ -1401,7 +1405,7 @@ void W8MainGameStatusPanel::Redraw(SDL_Surface& target, bool full_redraw)
 }
 
 W8MainGameScreen::W8MainGameScreen(Trigger* owner)
-    : m_owner(owner), m_disarm_state(0), m_target_difficulty(0), m_sound_handle()
+    : m_owner(owner), m_disarm_state(W8_TRAP_DISARM_IDLE), m_target_difficulty(0), m_sound_handle()
 {
     m_device_id = owner->lock_state.device_id;
     m_difficulty = owner->lock_state.difficulty;
@@ -1418,7 +1422,11 @@ W8MainGameScreen::W8MainGameScreen(Trigger* owner)
             ButtonGraphics::Load(CatalogArtwork::Load(i == 0 ? 0x8e : 0x1b0, 0).spriteSheet(),
                                  normal[i] + 3, normal[i], normal[i] + 1, normal[i] + 2,
                                  normal[i] + 2),
-            {.on_click = [this, i](auto*) { AfterUiDispatch([this, i] { OnPrimary(i); }); },
+            {.on_click =
+                 [this, i](auto*) {
+                     AfterUiDispatch(
+                         [this, i] { OnPrimary(static_cast<W8TrapInteractionAction>(i)); });
+                 },
              .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
              .tooltip = help[i],
              .priority = UI_PRIORITY_LOWEST,
@@ -1471,16 +1479,16 @@ void W8MainGameScreen::SelectTextEntry(int index)
         chance = 0x63;
     }
     if (GetTable650434Entry(m_device_id, index) == 0) {
-        m_disarm_state = 4;
+        m_disarm_state = W8_TRAP_DISARM_SPRUNG;
         duration = (Random(0x18) + 0x32) * kMovementSpeedStep;
     } else {
         roll = static_cast<int>(Random(0x64));
         if (roll < (chance * chance) / 100) {
             m_column_filled[index] = 1;
-            m_disarm_state = 2;
+            m_disarm_state = W8_TRAP_DISARM_COLUMN_SUCCESS;
             duration = 1.0f;
         } else {
-            m_disarm_state = 4;
+            m_disarm_state = W8_TRAP_DISARM_SPRUNG;
             duration = (Random(0x31) + 0x32) * kMovementSpeedStep;
         }
     }
@@ -1516,7 +1524,7 @@ int W8MainGameScreen::GetTrapInteractionChance() const
     return chance;
 }
 
-void W8MainGameScreen::OnPrimary(int action)
+void W8MainGameScreen::OnPrimary(W8TrapInteractionAction action)
 {
     int slot;
     int skill;
@@ -1525,21 +1533,21 @@ void W8MainGameScreen::OnPrimary(int action)
     float hold;
     float duration;
 
-    if (action == 0) {
-        m_disarm_state = 0xa;
+    if (action == W8_TRAP_ACTION_EXIT) {
+        m_disarm_state = W8_TRAP_DISARM_EXIT;
         return;
     }
-    if (action != 4) {
-        if (action == 2) {
-            m_disarm_state = 4;
+    if (action != W8_TRAP_ACTION_DISARM) {
+        if (action == W8_TRAP_ACTION_TRIGGER) {
+            m_disarm_state = W8_TRAP_DISARM_SPRUNG;
             return;
         }
-        if (action == 1) {
-            m_disarm_state = 5;
+        if (action == W8_TRAP_ACTION_CAST_SPELL) {
+            m_disarm_state = W8_TRAP_DISARM_CAST_SPELL;
             return;
         }
-        if (action == 3) {
-            m_disarm_state = 6;
+        if (action == W8_TRAP_ACTION_USE_ITEM) {
+            m_disarm_state = W8_TRAP_DISARM_USE_ITEM;
         }
         return;
     }
@@ -1550,10 +1558,10 @@ void W8MainGameScreen::OnPrimary(int action)
     chance = GetTrapInteractionChance();
     roll = static_cast<int>(Random(0x64));
     if (roll < chance) {
-        m_disarm_state = 1;
+        m_disarm_state = W8_TRAP_DISARM_INSPECT_SUCCESS;
         duration = 1.0f;
     } else {
-        m_disarm_state = 4;
+        m_disarm_state = W8_TRAP_DISARM_SPRUNG;
         duration = (Random(0x18) + 0x4b) * kMovementSpeedStep;
     }
     m_action_controls[1]->SetEnabled(false);
@@ -1572,11 +1580,12 @@ void W8MainGameScreen::Update()
     int elapsed;
     float progress;
 
-    if (m_disarm_state == 9 && m_timer.GetProgress() >= 1.0f && PartyPortraitEventsIdle() != 0) {
+    if (m_disarm_state == W8_TRAP_DISARM_WAIT_FOR_TRAP && m_timer.GetProgress() >= 1.0f &&
+        PartyPortraitEventsIdle() != 0) {
         m_owner->Run(-1);
-        m_disarm_state = 10;
+        m_disarm_state = W8_TRAP_DISARM_EXIT;
     }
-    if (m_disarm_state == 10) {
+    if (m_disarm_state == W8_TRAP_DISARM_EXIT) {
         EndTrapInteractMode(0);
         return;
     }
@@ -1607,12 +1616,16 @@ void W8MainGameScreen::Update()
     }
 
     switch (m_disarm_state) {
-    case 1:
-        m_disarm_state = 0;
+    case W8_TRAP_DISARM_IDLE:
+    case W8_TRAP_DISARM_WAIT_FOR_TRAP:
+    case W8_TRAP_DISARM_EXIT:
+        break;
+    case W8_TRAP_DISARM_INSPECT_SUCCESS:
+        m_disarm_state = W8_TRAP_DISARM_IDLE;
         ApplyInspectSuccess();
         return;
-    case 2:
-        m_disarm_state = 0;
+    case W8_TRAP_DISARM_COLUMN_SUCCESS:
+        m_disarm_state = W8_TRAP_DISARM_IDLE;
         m_sound_handle = nullptr;
         PracticeCharacterSkill(&g_status.buffers.Char[m_selected_character], W8_SKILL_LOCKS_TRAPS,
                                1, false);
@@ -1622,9 +1635,9 @@ void W8MainGameScreen::Update()
                 return;
             }
         }
-        m_disarm_state = 3;
+        m_disarm_state = W8_TRAP_DISARM_COMPLETE;
         return;
-    case 3:
+    case W8_TRAP_DISARM_COMPLETE:
         panel = m_text_panel.get();
         panel->EnableInput(false);
         panel->m_key_handler->m_range.SetActive(false);
@@ -1632,7 +1645,7 @@ void W8MainGameScreen::Update()
         CompleteTrapDisarm(m_owner);
         EndTrapInteractMode(0);
         return;
-    case 4:
+    case W8_TRAP_DISARM_SPRUNG:
         if (m_sound_handle != nullptr) {
             wiz8::sound::stop(m_sound_handle);
             m_sound_handle = nullptr;
@@ -1641,22 +1654,24 @@ void W8MainGameScreen::Update()
         wiz8::sound::play(g_trap_sprung_sound);
         EnablePanelInput(false);
         ResolveSprungTrap(m_owner);
-        m_disarm_state = 9;
+        m_disarm_state = W8_TRAP_DISARM_WAIT_FOR_TRAP;
         m_timer.SetDuration(2.0f);
         m_timer.Restart();
         return;
-    case 5:
-        m_disarm_state = 0;
+    case W8_TRAP_DISARM_CAST_SPELL:
+        m_disarm_state = W8_TRAP_DISARM_IDLE;
         CastTrapSpell();
         return;
-    case 6:
-        m_disarm_state = 0;
+    case W8_TRAP_DISARM_USE_ITEM:
+        m_disarm_state = W8_TRAP_DISARM_IDLE;
         UseTrapItem();
         return;
-    case 7:
-    case 8:
+    case W8_TRAP_DISARM_KNOCK_KNOCK_SUCCESS:
+    case W8_TRAP_DISARM_KNOCK_KNOCK_FAILURE:
         if (m_timer.GetProgress() >= 1.0f) {
-            m_disarm_state = (m_disarm_state != 7) + 3;
+            m_disarm_state = m_disarm_state == W8_TRAP_DISARM_KNOCK_KNOCK_SUCCESS
+                                 ? W8_TRAP_DISARM_COMPLETE
+                                 : W8_TRAP_DISARM_SPRUNG;
         }
         break;
     }
@@ -1747,7 +1762,7 @@ int OpenTrapInteraction(Trigger* trigger)
     }
     const bool resume = TrapInteractionSuspended();
     if (gXStatus.fTrapInteractMode || (resume && trigger != 0)) {
-        if (g_main_game_screen->m_disarm_state == 9) {
+        if (g_main_game_screen->m_disarm_state == W8_TRAP_DISARM_WAIT_FOR_TRAP) {
             return 1;
         }
         QueueInteractionNotice(g_trap_notice_event);
@@ -1896,7 +1911,8 @@ void W8NpcDialogueTextController::Redraw(SDL_Surface& target, bool full_redraw)
 }
 
 unsigned char W8NpcDialogueTextController::AddTranscriptEntry(std::string_view text,
-                                                              signed char category, char mark)
+                                                              W8DialogueCategory category,
+                                                              char mark)
 {
     int index;
     int added;
@@ -1906,7 +1922,7 @@ unsigned char W8NpcDialogueTextController::AddTranscriptEntry(std::string_view t
             return 0;
         }
     }
-    added = text_area.AddEntry({}, text, 0, 7, category);
+    added = text_area.AddEntry({}, text, 0, 7, static_cast<unsigned char>(category));
     InvalidateLayout();
     if (mark != 0) {
         text_area.SetEntryMarked(added, true);
@@ -2051,7 +2067,7 @@ bool W8NpcDialogueTextController::IsExpanded()
     return scroll_height == 0xff;
 }
 
-void W8NpcDialogueTextController::SetTranscriptCategoryFilter(signed char category)
+void W8NpcDialogueTextController::SetTranscriptCategoryFilter(W8DialogueCategory category)
 {
     text_area.SetCategoryFilter(category);
     Collapse();
@@ -2255,7 +2271,7 @@ bool MainGameScreenEnter(void)
                    fmt::sprintf(g_localized_strings[0x78c], g_localized_strings[display_mode]));
     }
     ResetTransientRenderScenes();
-    MoveTimer(4);
+    MoveTimer(W8_MOVE_TIMER_RESUME);
     SyncWorldAdvancement();
     {
         W8GameTimer* timer = gXStatus.gameplay_timer.get();
@@ -2658,7 +2674,7 @@ bool MainGameScreenLeave(int leaving)
     ReleaseConditionButtons();
     if (gXStatus.fPartyMovementUi) DisablePartyMovementRegions();
     RestoreCurrentNpcQuoteBubble();
-    MoveTimer(1);
+    MoveTimer(W8_MOVE_TIMER_SUSPEND);
 
     if (!gXStatus.gameplay_timer->m_flags.paused) {
         gXStatus.gameplay_timer->m_flags.paused = true;
@@ -2746,7 +2762,7 @@ void ApplyMainGameRedrawFlags(const W8TargetingPresentation& presentation)
     bool keyboard_menu_invalidate;
     int party_slot;
     int text_box_variant;
-    unsigned char text_box_mode;
+    W8TextBoxMode text_box_mode;
     bool show_portraits;
     SDL_Rect combat_clip;
     short health_percent;
@@ -2901,14 +2917,15 @@ void ApplyMainGameRedrawFlags(const W8TargetingPresentation& presentation)
             CatalogArtwork::Load(0x87, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0x80,
                                                             0x166);
             text_box_mode = GetTextBoxMode();
-            if (text_box_mode == 0 || text_box_mode == 1) {
+            if (text_box_mode == W8_TEXT_BOX_MODE_NOTICE ||
+                text_box_mode == W8_TEXT_BOX_MODE_APPEND) {
                 text_box_variant = text_box_mode;
-            } else if (text_box_mode == 3) {
+            } else if (text_box_mode == W8_TEXT_BOX_MODE_SPECIAL_PANEL) {
                 text_box_variant = 2;
             } else {
                 DebugMessage(
                     0, fmt::format("WARNING: Drawing text box while Text Buffer = {:d} (AlexP)",
-                                   text_box_mode));
+                                   static_cast<unsigned int>(text_box_mode)));
                 goto draw_formation_panel;
             }
             CatalogArtwork::Load(0x88, 0).drawAndInvalidate(GetFrameBufferSurface(),
@@ -3402,7 +3419,7 @@ void DrawHighlightOverlay(unsigned int party_slot, int row_count, unsigned int m
 
     unsigned int content_height = row_count * 9 + 0x12;
     int row_y = (party_slot >> 1) * 0x55;
-    int top = g_viewport_modes[g_level_block->camera_mode].top;
+    int top = g_viewport_modes[static_cast<unsigned int>(g_level_block->camera_mode)].top;
     int candidate = row_y - static_cast<int>(content_height) + 0x3c;
     if (candidate >= top) {
         if (candidate + content_height * 2 > 0x166) {
@@ -4000,14 +4017,14 @@ void RequestLevelTransition(int level, int entry, unsigned char flag)
 
 /* Switch the 3D view to another viewport mode: resize the view region to the
    inclusive rectangle and hand the renderer the exclusive one. */
-void SetViewportMode(int mode)
+void SetViewportMode(W8ViewportMode mode)
 {
     DesignRect* rect;
 
     if (mode == g_level_block->camera_mode) {
         return;
     }
-    rect = &g_viewport_modes[mode];
+    rect = &g_viewport_modes[static_cast<unsigned int>(mode)];
     g_main_game_state->world_view->setShape(
         SDL_Rect{rect->left, rect->top, rect->right - rect->left, rect->bottom - rect->top});
     W8MainGameInvalidateRect& viewport = g_main_game_invalidate_rects[15];
@@ -4058,7 +4075,7 @@ void UpdateCombatPortraitStatus(void)
         W8MonsterManagerEntry* entry = &gXStatus.monster_manager_entries[slot];
         int image = -1;
         int alternate = -1;
-        char status = -1;
+        W8CombatPortraitStatus status = W8_COMBAT_PORTRAIT_EMPTY;
 
         if (row->fOccupied && character->hp_current > 0 &&
             character->highest_condition <= W8_CONDITION_UNCONSCIOUS) {
@@ -4066,22 +4083,24 @@ void UpdateCombatPortraitStatus(void)
                 TimeUntilDeadline(g_combat_state->action_clock) > 800) {
                 if (IsPartySlotEligible(slot)) {
                     if (combat_row->dead) {
-                        status = 2;
+                        status = W8_COMBAT_PORTRAIT_INELIGIBLE;
                     } else {
-                        status = 1 - CharacterCanSwitchTo(slot, W8_TARGETING_CONTEXT_IN_COMBAT,
-                                                          false, false);
+                        status =
+                            CharacterCanSwitchTo(slot, W8_TARGETING_CONTEXT_IN_COMBAT, false, false)
+                                ? W8_COMBAT_PORTRAIT_READY
+                                : W8_COMBAT_PORTRAIT_CANNOT_SWITCH;
                     }
                 } else {
-                    status = 2;
+                    status = W8_COMBAT_PORTRAIT_INELIGIBLE;
                 }
             } else {
-                status = 3;
+                status = W8_COMBAT_PORTRAIT_ACTING;
             }
             image = GetCombatPortraitImage(row->committed_action.kind, row->committed_action.detail,
                                            status, slot);
             alternate = image;
-            if (status == 3) {
-                if (combat_row->combat_status == 3) {
+            if (status == W8_COMBAT_PORTRAIT_ACTING) {
+                if (combat_row->combat_status == W8_COMBAT_PORTRAIT_ACTING) {
                     if (TimeUntilDeadline(entry->acting_portrait_pulse_clock) == 0) {
                         ++entry->acting_portrait_pulse;
                         if (entry->acting_portrait_pulse == 0xc) {
@@ -4264,7 +4283,7 @@ void RefreshMainGameLayout()
         if (action) SetActionPanelVisible(true);
     }
     ClearUiHover();
-    if (g_level_block->portrait_mode == 0) {
+    if (!g_level_block->portrait_mode) {
         g_level_block->portrait_hover_x_origin = 0x69;
     } else {
         g_level_block->portrait_hover_x_origin = 0;
@@ -4577,7 +4596,7 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                             SetTargetCursor(4);
                             return UiResult::Pass;
                         }
-                        SetTargetCursor(GetTargetingCursorForState(0));
+                        SetTargetCursor(GetTargetingCursorForState(false));
                     }
                 } else {
                     if (g_level_block->portrait_refresh_pending[slot] == 0) {
@@ -4604,7 +4623,7 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                 g_level_block->portrait_right_hold_armed = false;
                 if (IsNpcDialogueCursorActive() == 0) {
                     SetTooltipSubject(W8_HIGHLIGHT_TARGET, -1);
-                    SetTargetCursor(GetTargetingCursorForState(0));
+                    SetTargetCursor(GetTargetingCursorForState(false));
                 }
                 if (g_level_block->portrait_overlay_party_slot == slot) {
                     g_level_block->portrait_overlay_party_slot = -1;
@@ -4731,7 +4750,7 @@ UiResult PortraitAssaySidebarInput(const UiPointerEvent& event, HitTarget& targe
     if (event.action != UiPointerAction::Enter &&
         (event.action != UiPointerAction::Up || event.captured_buttons))
         PlayButtonSound(event.action);
-    int previous_mode = g_level_block->portrait_assay_hover_mode;
+    W8PortraitAssayHoverMode previous_mode = g_level_block->portrait_assay_hover_mode;
     int slot = id;
     W8Character* character;
     W8ItemInstance* item;
@@ -4745,12 +4764,12 @@ UiResult PortraitAssaySidebarInput(const UiPointerEvent& event, HitTarget& targe
     item_id = character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo;
     if (item_id == -1 || (g_item_records[item_id].flags & W8_ITEM_FLAG_TWO_HANDED) == 0) {
         if (event.local.y < 0x19) {
-            g_level_block->portrait_assay_hover_mode = 1;
+            g_level_block->portrait_assay_hover_mode = W8_PORTRAIT_ASSAY_HOVER_PRIMARY_WEAPON;
         } else {
-            g_level_block->portrait_assay_hover_mode = 2;
+            g_level_block->portrait_assay_hover_mode = W8_PORTRAIT_ASSAY_HOVER_SECONDARY_WEAPON;
         }
     } else {
-        g_level_block->portrait_assay_hover_mode = 3;
+        g_level_block->portrait_assay_hover_mode = W8_PORTRAIT_ASSAY_HOVER_TWO_HANDED_WEAPON;
     }
 
     if (previous_mode != g_level_block->portrait_assay_hover_mode) {
@@ -4795,13 +4814,13 @@ UiResult PortraitAssaySidebarInput(const UiPointerEvent& event, HitTarget& targe
         return UiResult::Handled;
     }
     {
-        int mode = g_level_block->portrait_assay_hover_mode;
-        if (mode != 1) {
-            if (mode == 2) {
+        W8PortraitAssayHoverMode mode = g_level_block->portrait_assay_hover_mode;
+        if (mode != W8_PORTRAIT_ASSAY_HOVER_PRIMARY_WEAPON) {
+            if (mode == W8_PORTRAIT_ASSAY_HOVER_SECONDARY_WEAPON) {
                 item = &character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON];
                 goto open_assay;
             }
-            if (mode != 3) {
+            if (mode != W8_PORTRAIT_ASSAY_HOVER_TWO_HANDED_WEAPON) {
                 return UiResult::Handled;
             }
         }
@@ -5295,7 +5314,7 @@ void ClearCombatSelection(void)
     SetCombatSelection(-1);
     SetCombatTarget(-1);
     SetCombatAction(-1);
-    SetTargetCursor(GetTargetingCursorForState(0));
+    SetTargetCursor(GetTargetingCursorForState(false));
 }
 
 /* Refresh the target cursor as the mouse moves over the world view. A
@@ -6079,7 +6098,7 @@ void SyncWorldAdvancement()
     SetWorldResumeInput(gXStatus.world_paused && !interaction_blocked);
     if (applied_user_pause != gXStatus.world_paused) {
         applied_user_pause = gXStatus.world_paused;
-        MoveTimer(applied_user_pause ? 1 : 4);
+        MoveTimer(applied_user_pause ? W8_MOVE_TIMER_SUSPEND : W8_MOVE_TIMER_RESUME);
     }
     if (!world) return;
     if (blocked && changed && gXStatus.fPartyMovementUi) DisablePartyMovementRegions();
@@ -6169,7 +6188,7 @@ void OpenCharacterScreenForPartySlot(unsigned int party_slot, bool flag)
    full-3d while every overlay flag is clear and no main-game mode override is
    set, the plain mode when any of the board, radar or combat latches is still
    down, and otherwise the override field's own mapping. */
-short GetMainGameViewportMode(void)
+W8ViewportMode GetMainGameViewportMode(void)
 {
     if (!gpSCSV &&
         (!gXStatus.fNpcDialogueMode ||
@@ -6178,7 +6197,7 @@ short GetMainGameViewportMode(void)
         g_level_block->action_panel_visible == 0 && g_level_block->formation_board_visible &&
         g_level_block->radar_map_visible != 0 &&
         GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS) {
-        return 4;
+        return W8_VIEWPORT_MODE_CENTERED_FULL_HEIGHT;
     }
     if (!gpSCSV &&
         (!gXStatus.fNpcDialogueMode ||
@@ -6186,16 +6205,16 @@ short GetMainGameViewportMode(void)
         !gXStatus.fLockInteractMode && !gXStatus.fTrapInteractMode && !ItemUseDraft() &&
         (!g_level_block->formation_board_visible || g_level_block->radar_map_visible == 0 ||
          g_level_block->action_panel_visible == 0)) {
-        return 0;
+        return W8_VIEWPORT_MODE_FULL;
     }
     switch (g_settings.main_ui_mode) {
     case W8_MAIN_UI_MODE_RADAR:
-        return 0;
+        return W8_VIEWPORT_MODE_FULL;
     case W8_MAIN_UI_MODE_FORMATION:
-        return 1;
+        return W8_VIEWPORT_MODE_FULL_WITH_BOTTOM_PANEL;
     case W8_MAIN_UI_MODE_PORTRAITS:
     default:
-        return 2;
+        return W8_VIEWPORT_MODE_CENTERED_WITH_BOTTOM_PANEL;
     }
 }
 
@@ -6224,7 +6243,8 @@ void ClearHighlightOverlayRegion(void)
                          g_level_block->dialogue_x + g_level_block->dialogue_width,
                          g_level_block->dialogue_y + g_level_block->dialogue_height);
         if (g_level_block->dialogue_y <
-            static_cast<unsigned int>(g_viewport_modes[g_level_block->camera_mode].top)) {
+            static_cast<unsigned int>(
+                g_viewport_modes[static_cast<unsigned int>(g_level_block->camera_mode)].top)) {
             RequestRedrawCombatBar();
         }
         if (g_level_block->dialogue_y + g_level_block->dialogue_height > 0x166) {

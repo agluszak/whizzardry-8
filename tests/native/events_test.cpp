@@ -28,7 +28,7 @@ bool g_screenshot_pending = false;
 bool g_video_inspector_enabled = false;
 static int suspensions = 0, restorations = 0, resizes = 0;
 static std::thread::id dispatch_thread;
-static std::vector<int> clock_actions;
+static std::vector<W8MoveTimerAction> clock_actions;
 void SuspendVideoManager()
 {
     ++suspensions;
@@ -43,7 +43,7 @@ bool VideoResizeWindow()
     ++resizes;
     return true;
 }
-float MoveTimer(int action)
+float MoveTimer(W8MoveTimerAction action)
 {
     clock_actions.push_back(action);
     return 0;
@@ -369,7 +369,8 @@ TEST_CASE("events_test")
     focus(SDL_EVENT_WINDOW_FOCUS_GAINED);
     drain_events();
     REQUIRE((restorations == 1 && clock_actions.size() == 2));
-    REQUIRE((clock_actions[0] == TIMER_SUSPEND && clock_actions[1] == TIMER_RESUME));
+    REQUIRE((clock_actions[0] == W8_MOVE_TIMER_SUSPEND &&
+             clock_actions[1] == W8_MOVE_TIMER_RESUME_MAIN_GAME));
     SDL_Event resize{};
     resize.type = SDL_EVENT_WINDOW_RESIZED;
     resize.window.windowID = id;

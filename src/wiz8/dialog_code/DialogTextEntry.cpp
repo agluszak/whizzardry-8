@@ -13,6 +13,7 @@
 #include "image.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
+#include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
@@ -25,7 +26,7 @@ unsigned int g_dialog_text_layout_mask = g_W8TextBufferNoWrap;
 W8DialogTextEntry::W8DialogTextEntry(std::string_view prefix, std::string_view text,
                                      unsigned int prefix_palette, unsigned int text_palette,
                                      const W8ControlsRect* bounds, Font& font,
-                                     unsigned char category, unsigned int layout_mode,
+                                     W8DialogueCategory category, unsigned int layout_mode,
                                      unsigned char shorten)
 {
     m_prefix_palette = prefix_palette;

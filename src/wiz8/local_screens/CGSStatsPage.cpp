@@ -15,6 +15,7 @@
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/CharGeneration.h"
@@ -301,20 +302,20 @@ void W8CharacterStatsPage::UpdateRowValues()
 {
     unsigned char eligible[15];
 
-    if (m_mode == 0) {
+    if (m_mode == W8_CHARACTER_CREATE) {
         if (m_character->iProfession == W8_PROFESSION_VALKYRIE) {
             g_character_gender_records[0].enabled = 0;
         } else {
             g_character_gender_records[0].enabled = 1;
             g_character_gender_records[1].enabled = 1;
         }
-    } else if (m_mode == 2) {
+    } else if (m_mode == W8_CHARACTER_LEVEL_UP) {
         DetermineEligibleProfessions(m_character, m_creation_state, eligible);
     }
     for (int index = 0; index < 15; ++index) {
-        if (m_mode == 0) {
+        if (m_mode == W8_CHARACTER_CREATE) {
             g_character_profession_records[index].enabled = 1;
-        } else if (m_mode == 2) {
+        } else if (m_mode == W8_CHARACTER_LEVEL_UP) {
             g_character_profession_records[index].enabled = eligible[index];
         }
     }
@@ -508,7 +509,8 @@ void W8CharacterStatsPage::Prepare()
    corner controls, then the profession/race/sex list state. */
 // FUNCTION: WIZ8 0x005c9c80
 void W8CharacterStatsPage::SetCharacter(W8Character* character,
-                                        W8CharacterCreationState* creation_state, int mode)
+                                        W8CharacterCreationState* creation_state,
+                                        W8CharacterScreenMode mode)
 {
     W8CharacterPage::SetCharacter(character, creation_state, mode);
     m_profession_row = std::make_unique<W8CharacterStatsRow>(
@@ -521,15 +523,15 @@ void W8CharacterStatsPage::SetCharacter(W8Character* character,
         std::make_unique<W8CharacterStatsRow>(*this, 0x16, 0x70, 2, g_character_gender_records,
                                               &g_character_gender_default_record, 0xfd, 0xfc, 0xfe);
 
-    if (mode == 0) {
+    if (mode == W8_CHARACTER_CREATE) {
         m_profession_row->SetEnabled(true);
         m_race_row->SetEnabled(true);
         m_gender_row->SetEnabled(true);
-    } else if (mode == 1) {
+    } else if (mode == W8_CHARACTER_EDIT) {
         m_profession_row->SetEnabled(false);
         m_race_row->SetEnabled(false);
         m_gender_row->SetEnabled(false);
-    } else if (mode == 2) {
+    } else if (mode == W8_CHARACTER_LEVEL_UP) {
         if (character->iRace == W8_RACE_ANDROID) {
             m_profession_row->SetEnabled(false);
         } else {
@@ -811,7 +813,7 @@ void W8CharacterStatsPage::Redraw(SDL_Surface& target, bool full_redraw)
         text.SetClipBounds(bounds);
         text.SetLayoutBounds(&bounds, true);
         int text_id;
-        if (m_mode == 0) {
+        if (m_mode == W8_CHARACTER_CREATE) {
             text_id = 0xe5;
         } else if (m_character->iRace == W8_RACE_ANDROID) {
             text_id = 0xe7;

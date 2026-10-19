@@ -1483,13 +1483,13 @@ static void DrainCombatDeathReports(W8SpellEffectResult* report)
         auto entry = std::move(report->reports.front());
         report->reports.erase(report->reports.begin());
         if (entry != nullptr) {
-            if (entry->kind == 1) {
+            if (entry->kind == W8_SPELL_DAMAGE_REPORT_CHARACTER_DEATH) {
                 PostCharacterNotice(
                     entry->value,
                     fmt::format(
                         "{}!",
                         g_localized_strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
-            } else if (entry->kind == 3) {
+            } else if (entry->kind == W8_SPELL_DAMAGE_REPORT_MONSTER_DEATH) {
                 ShowNotice(
                     W8_FONT_PALETTE_RUST,
                     fmt::format(

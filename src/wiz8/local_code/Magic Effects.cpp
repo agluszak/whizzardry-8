@@ -730,7 +730,7 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
             PostCharacterNotice(effect->Source.iChar, g_localized_strings[0x1a8]);
         } else {
             AppendToLastTextLine(" -- ", -1);
-            SetTextBoxMode(1, -1);
+            SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
             AppendToLastTextLine(g_localized_strings[0x1a8], -1);
         }
         effect->reported = true;
@@ -1184,13 +1184,13 @@ static void ReportSpellDeaths(W8SpellEffectEntry* effect)
         auto report = std::move(effect->result.reports.front());
         effect->result.reports.erase(effect->result.reports.begin());
         if (report != 0) {
-            if (report->kind == 1) {
+            if (report->kind == W8_SPELL_DAMAGE_REPORT_CHARACTER_DEATH) {
                 PostCharacterNotice(
                     report->value,
                     fmt::format(
                         "{}!",
                         g_localized_strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
-            } else if (report->kind == 3) {
+            } else if (report->kind == W8_SPELL_DAMAGE_REPORT_MONSTER_DEATH) {
                 ShowNotice(
                     W8_FONT_PALETTE_RUST,
                     fmt::format(
@@ -1208,7 +1208,7 @@ static void ReportSpellDeaths(W8SpellEffectEntry* effect)
 // FUNCTION: WIZ8 0x0054e710
 void ReportSpellEffectResult(W8SpellEffectEntry* effect)
 {
-    unsigned char text_box_mode;
+    W8TextBoxMode text_box_mode;
     int condition;
     std::string condition_name;
 
@@ -1217,9 +1217,9 @@ void ReportSpellEffectResult(W8SpellEffectEntry* effect)
     }
     if (effect->result.count != 0) {
         text_box_mode = GetTextBoxMode();
-        if (text_box_mode != 0) {
+        if (text_box_mode != W8_TEXT_BOX_MODE_NOTICE) {
             AppendToLastTextLine(!effect->reported ? " -- " : ", ", -1);
-            SetTextBoxMode(1, -1);
+            SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
         }
         if (static_cast<int>(effect->target_indices.size()) +
                 static_cast<int>(effect->monster_ids.size()) ==
@@ -1231,16 +1231,16 @@ void ReportSpellEffectResult(W8SpellEffectEntry* effect)
                                               effect->result.amount / effect->result.count, -1),
                                  -1);
         }
-        SetTextBoxMode(1, -1);
+        SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
         effect->reported = true;
         effect->applied = true;
     }
     for (condition = 0; condition < W8_CONDITION_CLEARABLE_COUNT; ++condition) {
         if (effect->result.condition_counts[condition] != 0) {
             text_box_mode = GetTextBoxMode();
-            if (text_box_mode != 0) {
+            if (text_box_mode != W8_TEXT_BOX_MODE_NOTICE) {
                 AppendToLastTextLine(!effect->reported ? " -- " : ", ", -1);
-                SetTextBoxMode(1, -1);
+                SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
             }
             if (effect->result.condition_counts[condition] == 1) {
                 condition_name = g_localized_strings[g_condition_notices[condition].singular];
@@ -1250,7 +1250,7 @@ void ReportSpellEffectResult(W8SpellEffectEntry* effect)
             AppendToLastTextLine(
                 fmt::format("{:d} {}", effect->result.condition_counts[condition], condition_name),
                 -1);
-            SetTextBoxMode(1, -1);
+            SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
         }
     }
 
@@ -1395,9 +1395,9 @@ static char RestoreTargetResource(W8SpellEffectEntry* effect, RestoredResource r
     }
     if (!verbose && count != 0) {
         if (stamina) effect->applied = true;
-        if (GetTextBoxMode() != 0) {
+        if (GetTextBoxMode() != W8_TEXT_BOX_MODE_NOTICE) {
             AppendToLastTextLine(" -- ", -1);
-            SetTextBoxMode(1, -1);
+            SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
         }
         if (count == 1) {
             const std::string name = target_is_character
@@ -1411,7 +1411,7 @@ static char RestoreTargetResource(W8SpellEffectEntry* effect, RestoredResource r
             AppendToLastTextLine(
                 fmt::sprintf(g_localized_strings[format], count, total / count, -1), -1);
         }
-        SetTextBoxMode(1, -1);
+        SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
         effect->reported = true;
         if (!stamina) effect->applied = true;
     }
@@ -1709,9 +1709,9 @@ char TryCureConditionOnTargets(W8SpellEffectEntry* effect, W8Condition condition
         }
     }
     if (g_settings.verbose_combat_messages == 0 && remaining_count != 0) {
-        if (GetTextBoxMode() != 0) {
+        if (GetTextBoxMode() != W8_TEXT_BOX_MODE_NOTICE) {
             AppendToLastTextLine(!effect->reported ? " -- " : ", ", -1);
-            SetTextBoxMode(1, -1);
+            SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
         }
         if (remaining_count == 1) {
             if (effect->target.iType == W8_TARGET_KIND_CHARACTER) {
@@ -1841,9 +1841,9 @@ void InflictConditionAttack(W8SpellEffectEntry* effect, W8Condition condition, i
     if (verbose || affected == 0) {
         return;
     }
-    if (GetTextBoxMode() != 0) {
+    if (GetTextBoxMode() != W8_TEXT_BOX_MODE_NOTICE) {
         AppendToLastTextLine(!effect->reported ? " -- " : ", ", -1);
-        SetTextBoxMode(1, -1);
+        SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
     }
     if (static_cast<int>(effect->monster_ids.size()) +
             static_cast<int>(effect->target_indices.size()) !=
@@ -1854,7 +1854,7 @@ void InflictConditionAttack(W8SpellEffectEntry* effect, W8Condition condition, i
             notice = g_localized_strings[g_condition_notices[condition].plural];
         }
         AppendToLastTextLine(fmt::format("{:d} {}", affected, notice), -1);
-        SetTextBoxMode(1, -1);
+        SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
     } else {
         notice = g_localized_strings[g_condition_notices[condition].singular];
         if (target.iType == W8_TARGET_KIND_CHARACTER) {
@@ -1867,7 +1867,7 @@ void InflictConditionAttack(W8SpellEffectEntry* effect, W8Condition condition, i
         } else {
             AppendToLastTextLine(fmt::format("{:d} {}", affected, notice), -1);
         }
-        SetTextBoxMode(1, -1);
+        SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
     }
     effect->reported = true;
     effect->applied = true;
@@ -2025,9 +2025,9 @@ void ApplyCombatEffectSlot(W8SpellEffectEntry* effect)
         }
     }
     if (effect->result.count != 0) {
-        if (GetTextBoxMode() != 0) {
+        if (GetTextBoxMode() != W8_TEXT_BOX_MODE_NOTICE) {
             AppendToLastTextLine(!effect->reported ? " -- " : ", ", -1);
-            SetTextBoxMode(1, -1);
+            SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
         }
         AppendToLastTextLine(fmt::sprintf(g_localized_strings[0x1a4], effect->result.count, -1),
                              -1);
@@ -2230,9 +2230,9 @@ void DamageTargetsAndReport(W8SpellEffectEntry* effect)
     }
     if (!verbose) {
         if (hits != 0) {
-            if (GetTextBoxMode() != 0) {
+            if (GetTextBoxMode() != W8_TEXT_BOX_MODE_NOTICE) {
                 AppendToLastTextLine(!effect->reported ? " -- " : ", ", -1);
-                SetTextBoxMode(1, -1);
+                SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
             }
             if (static_cast<int>(effect->monster_ids.size()) +
                     static_cast<int>(effect->target_indices.size()) ==
@@ -2242,7 +2242,7 @@ void DamageTargetsAndReport(W8SpellEffectEntry* effect)
                 AppendToLastTextLine(
                     fmt::sprintf(g_localized_strings[0x1a7], hits, total / hits, -1), -1);
             }
-            SetTextBoxMode(1, -1);
+            SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
             effect->reported = true;
             effect->applied = true;
         }
@@ -2329,7 +2329,7 @@ void DestroyConsumablesOnTargets(W8SpellEffectEntry* effect)
                 if (!verbose) {
                     AppendToLastTextLine(!effect->reported ? " -- " : ", ", -1);
                 }
-                SetTextBoxMode(!verbose, -1);
+                SetTextBoxMode(verbose ? W8_TEXT_BOX_MODE_NOTICE : W8_TEXT_BOX_MODE_APPEND, -1);
                 if (index == 0) {
                     AppendToLastTextLine(fmt::sprintf(g_localized_strings[0x1fa], totals[0], -1),
                                          -1);
@@ -2341,7 +2341,7 @@ void DestroyConsumablesOnTargets(W8SpellEffectEntry* effect)
                                          -1);
                 }
                 if (!verbose) {
-                    SetTextBoxMode(1, -1);
+                    SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
                 }
                 effect->reported = true;
             }
@@ -2446,7 +2446,7 @@ char RevealItemBindingsToTarget(W8SpellEffectEntry* effect)
             if (!verbose) {
                 effect->applied = true;
                 AppendToLastTextLine(!effect->reported ? " -- " : ", ", -1);
-                SetTextBoxMode(1, -1);
+                SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
             }
             if (result == 2) {
                 AppendToLastTextLine(fmt::sprintf(g_localized_strings[0x1bc],
@@ -2747,7 +2747,7 @@ void TickRadiusBlastEffectSlots(W8EffectSlot* effect_slots)
             ShowNotice(W8_FONT_PALETTE_WHITE,
                        fmt::sprintf(g_localized_strings[0x1ae],
                                     g_spell_records[W8_SPELL_RING_OF_FIRE].display_name));
-            SetTextBoxMode(1, -1);
+            SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
             {
                 float reach = CalcRangeDistance(W8_RANGE_SHORT);
                 float radius = PartyNavigator()->radius;
@@ -2774,9 +2774,9 @@ void TickRadiusBlastEffectSlots(W8EffectSlot* effect_slots)
                 }
             }
             if (!verbose) {
-                if (GetTextBoxMode() != 0) {
+                if (GetTextBoxMode() != W8_TEXT_BOX_MODE_NOTICE) {
                     AppendToLastTextLine(" -- ", -1);
-                    SetTextBoxMode(1, -1);
+                    SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
                 }
                 if (local_result.count != 0) {
                     std::string line;
@@ -2794,14 +2794,14 @@ void TickRadiusBlastEffectSlots(W8EffectSlot* effect_slots)
                     auto report = std::move(local_result.reports.front());
                     local_result.reports.erase(local_result.reports.begin());
                     if (report != 0) {
-                        if (report->kind == 1) {
+                        if (report->kind == W8_SPELL_DAMAGE_REPORT_CHARACTER_DEATH) {
                             PostCharacterNotice(
                                 report->value,
                                 fmt::format(
                                     "{}!",
                                     g_localized_strings[g_condition_notices[W8_CONDITION_DEAD]
                                                             .singular]));
-                        } else if (report->kind == 3) {
+                        } else if (report->kind == W8_SPELL_DAMAGE_REPORT_MONSTER_DEATH) {
                             ShowNotice(
                                 W8_FONT_PALETTE_RUST,
                                 fmt::format(
@@ -3467,9 +3467,10 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
                 percent_roll = 100;
             }
             g_status.party_gold = g_status.party_gold - (percent_roll * g_status.party_gold) / 100;
-            if (g_settings.verbose_combat_messages == 0 && GetTextBoxMode() != 0) {
+            if (g_settings.verbose_combat_messages == 0 &&
+                GetTextBoxMode() != W8_TEXT_BOX_MODE_NOTICE) {
                 AppendToLastTextLine(" -- ", -1);
-                SetTextBoxMode(1, -1);
+                SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
             }
             if (percent_roll < 100) {
                 AppendToLastTextLine(g_localized_strings[0x1b5], -1);
@@ -3518,9 +3519,9 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
         break;
     }
     if (g_settings.verbose_combat_messages == 0 && !effect->reported && !effect->Source.fBackfire) {
-        if (GetTextBoxMode() != 0) {
+        if (GetTextBoxMode() != W8_TEXT_BOX_MODE_NOTICE) {
             AppendToLastTextLine(" -- ", -1);
-            SetTextBoxMode(1, -1);
+            SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
         }
         AppendToLastTextLine(
             effect->applied ? g_localized_strings[0x1b0] : g_localized_strings[0x1a5], -1);

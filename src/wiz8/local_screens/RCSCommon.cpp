@@ -272,7 +272,7 @@ static void OpenLevelUpCharacterScreen(void)
     g_current_screen_state.parameter_2 = giReviewCharSlot;
     g_current_screen_state.character = g_review_character;
     g_pending_screen_state.character = &g_status.buffers.Char[giReviewCharSlot];
-    g_pending_screen_state.mode = 2;
+    g_pending_screen_state.mode = W8_CHARACTER_LEVEL_UP;
     g_pending_screen_state.id = W8_SCREEN_CHARACTER;
 }
 
@@ -363,7 +363,7 @@ UiResult HandleCampCharacterHeader(const UiPointerEvent& event)
         AfterUiDispatch([] {
             g_current_screen_state.character = g_review_character;
             g_current_screen_state.parameter_2 = giReviewCharSlot;
-            g_pending_screen_state.mode = 1;
+            g_pending_screen_state.mode = W8_CHARACTER_EDIT;
             g_pending_screen_state.character = g_review_character;
             g_pending_screen_state.id = W8_SCREEN_CHARACTER;
         });
@@ -1056,9 +1056,9 @@ void RefreshCampItemActions(bool invalidate)
    cleared, the mode maps onto the targeting mode and the button it highlights,
    and mode zero also drops a held item cursor back into the pool. */
 // FUNCTION: WIZ8 0x005b59b0
-void SetCampItemActionMode(char mode)
+void SetCampItemActionMode(W8CampItemAction mode)
 {
-    short selected = W8_CAMP_ACTION_BUTTON_NONE;
+    W8CampItemActionButton selected = W8_CAMP_ACTION_BUTTON_NONE;
     W8TargetNeed targeting;
     for (const auto& control : camp_buttons->actions) control->SetPressed(false);
     g_camp_screen->item_action = mode;
@@ -1151,7 +1151,7 @@ static void OnCampMoveItem(void)
     if (camp_buttons->actions[W8_CAMP_ACTION_BUTTON_MOVE]->IsPressed()) {
         SetCampItemActionMode(W8_CAMP_ITEM_ACTION_MOVE);
         if (g_status.item_in_cursor) {
-            SetHandCursors(0);
+            SetHandCursors();
             g_camp_screen->item_redraw_flags |= W8_CAMP_ITEM_REDRAW_EQUIPMENT;
         }
         return;

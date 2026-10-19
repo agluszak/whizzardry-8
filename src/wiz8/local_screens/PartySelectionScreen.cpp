@@ -20,7 +20,6 @@
 
 #include "Font.h"
 #include "asset_paths.h"
-#include "compat/compiler.h"
 #include "difficulty.h"
 #include "file_time.h"
 #include "image.h"
@@ -748,7 +747,7 @@ void W8PartySelectionController::Setup()
                  [row](auto*) {
                      AfterUiDispatch([row] {
                          g_pending_screen_state.character = &g_status.buffers.Char[row + 2];
-                         g_pending_screen_state.mode = 2;
+                         g_pending_screen_state.mode = W8_CHARACTER_EDIT;
                          g_pending_screen_state.id = W8_SCREEN_CHARACTER;
                      });
                  },
@@ -1014,7 +1013,7 @@ void W8PartySelectionController::OnPrimary(W8ButtonWidget* control)
         return;
     }
     if (control == m_create_button) {
-        g_pending_screen_state.mode = 0;
+        g_pending_screen_state.mode = W8_CHARACTER_CREATE;
         g_pending_screen_state.character = nullptr;
         g_pending_screen_state.id = W8_SCREEN_CHARACTER;
         return;

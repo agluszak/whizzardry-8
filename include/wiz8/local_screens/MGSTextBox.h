@@ -15,10 +15,16 @@ namespace wiz8 {
 class File;
 }
 
-enum W8NoticeWordState {
+enum W8NoticeWordState : unsigned char {
     W8_NOTICE_WORD_NORMAL = 0,
     W8_NOTICE_WORD_HOVERED = 1,
     W8_NOTICE_WORD_SELECTED = 2
+};
+
+enum W8TextBoxMode : unsigned char {
+    W8_TEXT_BOX_MODE_NOTICE = 0,
+    W8_TEXT_BOX_MODE_APPEND = 1,
+    W8_TEXT_BOX_MODE_SPECIAL_PANEL = 3
 };
 
 struct W8NoticeWord {
@@ -26,7 +32,7 @@ struct W8NoticeWord {
     std::size_t end;
     short x_start;
     short x_end;
-    unsigned char keyword; /* 0 none, 1 keyword, 2 selected */
+    W8NoticeWordState keyword;
     bool redraw;           /* repaint once after deselection */
 };
 
@@ -107,8 +113,8 @@ W8NoticeWord* HitTestNoticeWord(int text_box, unsigned short x, unsigned short y
 /* Copy a word's text span out of its source line. */
 std::string CopyNoticeWordText(const W8NoticeWord* word, int box, int line);
 void ScrollTextBoxToCursor(void);
-unsigned char GetTextBoxMode(void);
-void SetTextBoxMode(unsigned char mode, int value);
+W8TextBoxMode GetTextBoxMode(void);
+void SetTextBoxMode(W8TextBoxMode mode, int value);
 /* Re-derive the text-box mode from the live screen state; 0xffff
    asks for the automatic choice. */
 void RefreshTextBoxMode(unsigned short mode);

@@ -141,7 +141,7 @@ unsigned int ApplyDamageToCharacter(int party_slot, unsigned int amount, bool qu
     } else {
         if (result_stats != 0) {
             auto report = std::make_unique<W8SpellDamageReport>();
-            report->kind = 1;
+            report->kind = W8_SPELL_DAMAGE_REPORT_CHARACTER_DEATH;
             report->value = party_slot;
             result_stats->reports.push_back(std::move(report));
         }
@@ -386,7 +386,7 @@ unsigned int ApplyDamageToMonster(W8MonsterInfo* monster_info, unsigned int amou
             monster_info->hp_current = 0;
             if (result_stats != 0) {
                 auto death_report = std::make_unique<W8SpellDamageReport>();
-                death_report->kind = 3;
+                death_report->kind = W8_SPELL_DAMAGE_REPORT_MONSTER_DEATH;
                 death_report->text = GetMonsterName(monster_info, 0, 0);
                 result_stats->reports.push_back(std::move(death_report));
             }

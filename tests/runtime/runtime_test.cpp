@@ -1367,7 +1367,7 @@ void CheckGameplayUi(Game& game)
     UpdatePortraitAdvanceButtons();
     game.click_at(((slot & 1) ? 0x23b : 0) + 0x22, (slot / 2) * 0x55 + 0x4f);
     game.wait_screen("level-up-character", W8_SCREEN_CHARACTER);
-    REQUIRE(g_character_screen->m_mode == 2);
+    REQUIRE(g_character_screen->m_mode == W8_CHARACTER_LEVEL_UP);
     REQUIRE(g_character_screen->m_original == &g_status.buffers.Char[slot]);
     game.key(SDLK_ESCAPE);
     game.key(SDLK_RETURN); // Confirm abandoning the level-up edit.

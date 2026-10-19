@@ -117,7 +117,7 @@ TEST_CASE("world graphics")
     REQUIRE(AddCharacterToParty(character, -1) == 2);
     RunNewGameOpeningSequence(false, {});
     // Bypass only the opening movie; use the normal new-game loading screen.
-    g_pending_screen_state.mode = 0;
+    g_pending_screen_state.mode = W8_PLEASE_WAIT_NEW_GAME;
     g_pending_screen_state.id = W8_SCREEN_PLEASE_WAIT;
     fprintf(stderr, "world: enter real new-game loader\n");
     for (int frame = 0; frame < 5; ++frame) {

@@ -44,6 +44,7 @@
 #include "wiz8/engine_code/GrObject.h"
 #include "wiz8/engine_code/Item.h"
 #include "wiz8/engine_code/Monster.h"
+#include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/PolyPick.h"
 #include "wiz8/engine_code/ReadLevel.h"
 #include "wiz8/engine_code/SoundEvent.h"
@@ -610,7 +611,7 @@ static W8SpellVisual* CreateSpellVisual(std::string_view name, W8SpellVisualMode
         if (!visual) {
             return nullptr;
         }
-        visual->SetNavigationMode(4);
+        visual->SetNavigationMode(W8_NAVIGATOR_MODE_PATH_ONLY);
         visual->active = false;
         visual->SetPitchRollEnabled(true, true);
         GetWorld()->spell_visuals.push_back(std::move(owner));

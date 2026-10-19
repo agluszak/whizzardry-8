@@ -411,7 +411,8 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
     UpdateGameDataRuntime();
     if (GetWorld()->fog_enabled) UpdateEnvironmentLight();
     ApplyCameraRotation(&GetWorld()->initial_camera_rotation);
-    SetCameraSwayMode(GetWorld()->camera, GetWorld()->initial_camera_sway ? 1 : -1);
+    SetCameraSwayMode(GetWorld()->camera, GetWorld()->initial_camera_sway ? W8CameraSwayMode::Start
+                                                                          : W8CameraSwayMode::Stop);
     SetSkyNodeVisible(false);
     ResetAutomapView();
     BeginRestoredLevelActivity(*GetWorld(), status);

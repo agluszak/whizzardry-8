@@ -241,7 +241,7 @@ DesignRect g_automap_viewport;
 // GLOBAL: WIZ8 0x0068f240
 glm::vec3 g_automap_grid_origin;
 // GLOBAL: WIZ8 0x0068f250
-int g_automap_tool;
+W8AutomapTool g_automap_tool = W8AutomapTool::Select;
 // GLOBAL: WIZ8 0x0068f254
 bool g_automap_cursor_inside;
 // GLOBAL: WIZ8 0x0068f25c
@@ -306,12 +306,13 @@ static void SetAutomapCursorImage(int tool)
 
 /* With no tool selected inside the map, use zoom-in only above the threshold.
    Retail's FNSTSW/TEST 0x41 also selects zoom-out for an unordered zoom. */
-void SetAutomapToolCursor(int tool)
+void SetAutomapToolCursor(W8AutomapTool tool)
 {
-    if (g_automap_tool == 0 && g_automap_cursor_inside) {
-        tool = g_automap_zoom > 2.5e+04f ? 1 : 4;
+    int cursor = static_cast<int>(tool);
+    if (tool == W8AutomapTool::Select && g_automap_cursor_inside) {
+        cursor = g_automap_zoom > 2.5e+04f ? 1 : 4;
     }
-    SetAutomapCursorImage(tool);
+    SetAutomapCursorImage(cursor);
 }
 
 bool HasAutomapLayer(int layer)
@@ -505,20 +506,20 @@ static void ZoomAutomapOut()
 
 void AutomapSelectNoteToolButton(void)
 {
-    if (g_automap_tool == 2) {
+    if (g_automap_tool == W8AutomapTool::AddNote) {
         return;
     }
-    g_automap_tool = 2;
-    SetAutomapToolCursor(2);
+    g_automap_tool = W8AutomapTool::AddNote;
+    SetAutomapToolCursor(W8AutomapTool::AddNote);
 }
 
 void AutomapSelectEraseToolButton(void)
 {
-    if (g_automap_tool == 3) {
+    if (g_automap_tool == W8AutomapTool::EraseNote) {
         return;
     }
-    g_automap_tool = 3;
-    SetAutomapToolCursor(3);
+    g_automap_tool = W8AutomapTool::EraseNote;
+    SetAutomapToolCursor(W8AutomapTool::EraseNote);
 }
 
 void AutomapCyclePageButton(void)
@@ -635,8 +636,8 @@ bool AutomapScreenEnter(void)
     }
     SetMouseMoveEventsEnabled(1);
     g_automap_cursor_inside = IsCursorInsideViewport();
-    g_automap_tool = 0;
-    SetAutomapToolCursor(0);
+    g_automap_tool = W8AutomapTool::Select;
+    SetAutomapToolCursor(W8AutomapTool::Select);
     CreateAutomapMarkerSprites();
     CreateAutomapButtons();
     g_automap_party_marker->setParent(0, 1);
@@ -763,7 +764,7 @@ void AutomapScreenFrame(void)
                 }
                 if (input.type == InputEventType::LeftButtonUp) {
                     glm::vec2 point;
-                    if (g_automap_tool == 2) {
+                    if (g_automap_tool == W8AutomapTool::AddNote) {
                         if (GetCursorPositionInViewport(&point)) {
                             int layer = g_automap_layer + 1;
                             if (HasAutomapLayer(layer)) {
@@ -774,7 +775,7 @@ void AutomapScreenFrame(void)
                                 CreateAutomapNote(&location, g_automap_layer, "_");
                             SetNativeTextInputEnabled(g_automap_editing_note != nullptr);
                         }
-                    } else if (g_automap_tool == 3) {
+                    } else if (g_automap_tool == W8AutomapTool::EraseNote) {
                         W8AutomapNote* note = FindAutomapNoteUnderCursor();
                         if (note) {
                             EraseAutomapNote(note);
@@ -784,11 +785,11 @@ void AutomapScreenFrame(void)
                         ZoomAutomapIn(&point);
                     }
                 } else if (input.type == InputEventType::RightButtonUp) {
-                    if (g_automap_tool == 0) {
+                    if (g_automap_tool == W8AutomapTool::Select) {
                         ZoomAutomapOut();
                     } else {
-                        g_automap_tool = 0;
-                        SetAutomapToolCursor(0);
+                        g_automap_tool = W8AutomapTool::Select;
+                        SetAutomapToolCursor(W8AutomapTool::Select);
                     }
                 } else if (input.type == InputEventType::MouseMove) {
                     W8AutomapNote* previous = g_automap_hovered_note;
@@ -802,7 +803,8 @@ void AutomapScreenFrame(void)
                         point.y = 0.0f;
                         glm::vec3 distance(point.x - g_automap_saved_camera.position.x, 0.0f,
                                            point.z - g_automap_saved_camera.position.z);
-                        if (glm::length(distance) < g_automap_zoom * 0.05f && g_automap_tool == 0 &&
+                        if (glm::length(distance) < g_automap_zoom * 0.05f &&
+                            g_automap_tool == W8AutomapTool::Select &&
                             g_automap_zoom_mode != AutomapZoomMode::ZoomOutOnly) {
                             DisableCursorScene();
                             glm::dvec3 scale(0.44f, 0.44f, 0.44f);
@@ -1828,8 +1830,8 @@ unsigned char HandleAutomapNoteInput(const InputEvent* input)
                 EraseAutomapNote(g_automap_editing_note);
                 g_automap_redraw = true;
             }
-            if (g_automap_tool != 0) {
-                g_automap_tool = 0;
+            if (g_automap_tool != W8AutomapTool::Select) {
+                g_automap_tool = W8AutomapTool::Select;
                 SetAutomapCursorImage(0);
             }
             g_automap_editing_note = 0;
@@ -1837,8 +1839,8 @@ unsigned char HandleAutomapNoteInput(const InputEvent* input)
         } else if (input->key == SDLK_ESCAPE) {
             EraseAutomapNote(g_automap_editing_note);
             g_automap_redraw = true;
-            if (g_automap_tool != 0) {
-                g_automap_tool = 0;
+            if (g_automap_tool != W8AutomapTool::Select) {
+                g_automap_tool = W8AutomapTool::Select;
                 SetAutomapCursorImage(0);
             }
         }
@@ -1848,8 +1850,8 @@ unsigned char HandleAutomapNoteInput(const InputEvent* input)
         return 1;
     }
     SetNativeTextInputEnabled(false);
-    if (g_automap_tool != 0) {
-        g_automap_tool = 0;
+    if (g_automap_tool != W8AutomapTool::Select) {
+        g_automap_tool = W8AutomapTool::Select;
         SetAutomapCursorImage(0);
     }
     return 1;
@@ -1901,12 +1903,12 @@ unsigned char HandleAutomapKey(const InputEvent* input)
     case SDLK_ESCAPE:
     drop_tool:
         /* Escape drops the tool, or leaves the screen when none is held. */
-        if (g_automap_tool == 0) {
+        if (g_automap_tool == W8AutomapTool::Select) {
             RequestScreenTransition();
             return 1;
         }
-        g_automap_tool = 0;
-        SetAutomapToolCursor(0);
+        g_automap_tool = W8AutomapTool::Select;
+        SetAutomapToolCursor(W8AutomapTool::Select);
         return 1;
     case SDLK_SPACE:
         AutomapCyclePageButton();
@@ -1929,18 +1931,18 @@ unsigned char HandleAutomapKey(const InputEvent* input)
         return 1;
     }
     case SDLK_INSERT:
-        if (g_automap_tool == 2) {
+        if (g_automap_tool == W8AutomapTool::AddNote) {
             return 1;
         }
-        g_automap_tool = 2;
-        SetAutomapToolCursor(2);
+        g_automap_tool = W8AutomapTool::AddNote;
+        SetAutomapToolCursor(W8AutomapTool::AddNote);
         return 1;
     case SDLK_DELETE:
-        if (g_automap_tool == 3) {
+        if (g_automap_tool == W8AutomapTool::EraseNote) {
             return 1;
         }
-        g_automap_tool = 3;
-        SetAutomapToolCursor(3);
+        g_automap_tool = W8AutomapTool::EraseNote;
+        SetAutomapToolCursor(W8AutomapTool::EraseNote);
         return 1;
     case SDLK_1:
     case SDLK_2:

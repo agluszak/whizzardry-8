@@ -2,6 +2,7 @@
 
 #include <optional>
 #include <string>
+#include <variant>
 
 #include "wiz8/layouts/save_screenshot.h"
 
@@ -32,6 +33,24 @@ enum W8PleaseWaitMode {
     W8_PLEASE_WAIT_CHANGE_LEVEL = 3
 };
 
+/* The destination-specific values carried by W8ScreenStateRuntime::mode. */
+enum W8OptionsMode {
+    W8_OPTIONS_DEFAULT = 0,
+    W8_OPTIONS_LOAD = 1,
+    W8_OPTIONS_SAVE = 2,
+    W8_OPTIONS_IN_GAME = 3
+};
+
+enum W8CharacterScreenMode {
+    W8_CHARACTER_CREATE = 0,
+    W8_CHARACTER_EDIT = 1,
+    W8_CHARACTER_LEVEL_UP = 2,
+    W8_CHARACTER_LEVEL_UP_NOTICE = 3
+};
+
+using W8ScreenMode =
+    std::variant<std::monostate, W8PleaseWaitMode, W8OptionsMode, W8CharacterScreenMode>;
+
 /* A screen's lifecycle hooks. Initialize, enter and leave report failure,
    which stops the program; absent optional hooks have nothing to do. */
 struct W8ScreenStateHandlers {
@@ -42,26 +61,21 @@ struct W8ScreenStateHandlers {
     void (*finalize)() = nullptr;
 };
 
-/* The current and pending screen records begin at the two globals whose first
-   dwords the reviewed setters address directly. One storage object preserves
-   that identity instead of mirroring the id into a synthetic runtime record. */
-/* The five leading dwords and the name are what lifecycle record 4's entry
-   handler reads out of this record to fill its own descriptor; the four bytes
-   before the name and everything past it stay positional, and the name's bound
-   is the record's end rather than a proved one. */
+/* Runtime transition state. The mode variant carries only the domain selected
+   by id, so consumers cannot interpret one screen's mode as another's. */
 struct W8ScreenStateRuntime {
-    W8ScreenId id;     /* 0x00 */
-    int mode;          /* 0x04 */
-    int parameter;     /* 0x08 */
-    int parameter_2;   /* 0x0c */
+    W8ScreenId id;
+    W8ScreenMode mode;
+    int parameter;
+    int parameter_2;
     /* The character the camp and review-character transitions hand to the
        character screen. */
     struct W8Character* character = nullptr;
     /* The screenshot the Please Wait screen's save mode hands to SaveGame. */
     std::optional<W8SaveScreenshot> save_screenshot;
-    /* 0x14: identifying PC for camp entry (gpIdentifyingPC); null when
-       camp opens without an identify/use-item handoff. Not the entry mode —
-       that lives on W8CampScreenState::item_action. */
+    /* Identifying PC for camp entry (gpIdentifyingPC); null when camp opens
+       without an identify/use-item handoff. Not the entry mode — that lives on
+       W8CampScreenState::item_action. */
     struct W8Character* parameter_4;
     std::string name;
     /* Previous user save slot, removed only after a successful renamed save. */

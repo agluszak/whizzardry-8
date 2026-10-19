@@ -35,6 +35,7 @@
 #include "imgfmt.h"
 #include "input.h"
 #include "layouts/main_game_screen.h"
+#include "layouts/npc_dialogue.h"
 #include "layouts/screen_state.h"
 #include "local_code/RangeControl.h"
 #include "local_screens/RCSStatsPage.h"
@@ -204,10 +205,10 @@ void camp_effects()
         REQUIRE(sibling.hitAt({0, 0}));
         state->scroll_input.remove(sibling);
         auto& range = *state->stats_range;
-        state->effect_list = {{false, false, true, false, 0, 0, 0, 3, 10},
-                              {false, false, false, true, 0, 1, 0, 3, 9},
-                              {true, false, true, false, 2, 2, 0, 9999, 3},
-                              {false, false, true, true, 0, 3, 0, 3, 2}};
+        state->effect_list = {{false, false, true, false, W8_CAMP_EFFECT_CONDITION, 0, 0, 3, 10},
+                              {false, false, false, true, W8_CAMP_EFFECT_CONDITION, 1, 0, 3, 9},
+                              {true, false, true, false, W8_CAMP_EFFECT_EQUIPMENT, 2, 0, 9999, 3},
+                              {false, false, true, true, W8_CAMP_EFFECT_CONDITION, 3, 0, 3, 2}};
         state->effect_filter = W8_CAMP_EFFECT_FILTER_ALL;
         state->effect_scroll = 100;
         FilterCampEffectList();
@@ -1768,7 +1769,7 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         area.AddEntry("", "Z", 0, 0, 0);
         area.AddEntry("", "A\nB", 0, 0, 1);
         area.AddEntry("", "C", 0, 0, 1);
-        area.SetCategoryFilter(1);
+        area.SetCategoryFilter(W8_DIALOGUE_CATEGORY_PEOPLE);
         REQUIRE(area.GetOwningEntryIndex(0) == 1);
         REQUIRE(area.UpdateSelectionFromPoint(1, 1));
         REQUIRE_FALSE(area.UpdateSelectionFromPoint(1, font.height() + 1));
@@ -1785,7 +1786,7 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         REQUIRE(area.HitTestEntry(1, 25) == 1);
         REQUIRE(area.ScrollUp(false));
         REQUIRE(area.HitTestEntry(1, 25) == 0);
-        area.SetCategoryFilter(-1);
+        area.SetCategoryFilter(W8_DIALOGUE_CATEGORY_ALL);
         area.SetSorted(true);
         REQUIRE(area.GetOwningEntryIndex(0) == 1);
         REQUIRE(area.GetOwningEntryIndex(2) == 0);

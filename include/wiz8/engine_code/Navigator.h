@@ -20,6 +20,21 @@ namespace wiz8 {
 class File;
 }
 
+enum W8NavigatorMode : int {
+    W8_NAVIGATOR_MODE_DEFAULT = 0,
+    W8_NAVIGATOR_MODE_GROUNDED = 1,
+    W8_NAVIGATOR_MODE_FLYING = 2,
+    W8_NAVIGATOR_MODE_SWIMMING = 3,
+    W8_NAVIGATOR_MODE_PATH_ONLY = 4,
+    W8_NAVIGATOR_MODE_QUADRUPED = 5,
+    W8_NAVIGATOR_MODE_CRAWLING = 6
+};
+
+enum W8NavigatorLinkMode : unsigned char {
+    W8_NAVIGATOR_LINK_MODE_DEFAULT = 0,
+    W8_NAVIGATOR_LINK_MODE_STOPPED = 1
+};
+
 /* W8NavigatorAttachment::flags bits with established meaning.
    - RESULT_MASK holds the last path-search result; the planners clear it before
      a search and store the result code there.
@@ -324,12 +339,12 @@ public:
     /* Modes 1 and 4 clear pitch/roll; 2, 3 and 5 enable pitch; 6 enables
        both. Mode 4 keeps the existing path; the other named modes build a
        fresh animated path. Later facing logic distinguishes 2/3 from 5/6. */
-    void SetNavigationMode(int mode); /* 0x00452E50 */
+    void SetNavigationMode(W8NavigatorMode mode); /* 0x00452E50 */
     void SetBounds(const srBoundingBox& bounds); /* 0x00452F10 */
     void SetTurnRate(float turn_rate);                /* 0x00453C90 */
 
 public:
-    int navigation_mode;
+    W8NavigatorMode navigation_mode;
     unsigned int flags;
     double collision_margin;
     /* Current 3D movement target. */
@@ -393,7 +408,7 @@ public:
     std::unique_ptr<srNode> node;
 }; /* 0x190 */
 
-void SetNavigatorLinkMode(unsigned char mode);
+void SetNavigatorLinkMode(W8NavigatorLinkMode mode);
 void StopAllNavigators(void);
 void ResumeAllNavigators(void);
 
@@ -402,7 +417,7 @@ void NavigatorDefaultCallback(W8Navigator* navigator);
 extern const float g_navigator_vertical_phase_step;
 extern const float g_navigator_snap_angle;
 extern unsigned char g_combat_inactive;
-extern unsigned char g_navigator_link_mode;
+extern W8NavigatorLinkMode g_navigator_link_mode;
 extern const float g_navigator_linked_radius_scale;
 extern std::vector<W8Navigator*> g_navigator_group;
 /* Runtime scale applied to the startup navigator's radius when the trace

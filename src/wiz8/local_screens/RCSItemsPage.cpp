@@ -122,7 +122,7 @@ void ShowCampCharacterPage(void)
 /* The items page swaps two control panels in and out: mode zero shows the
    item page, mode one the character page. */
 // FUNCTION: WIZ8 0x005B9FD0
-void SetCampInfoPageMode(char mode)
+void SetCampInfoPageMode(W8CampInfoPage mode)
 {
     int index;
 
@@ -488,7 +488,7 @@ void SplitStackDialogResult(int count)
    selects which use paths are live, and iTargetingMode selects what the item
    cursor is allowed to target. */
 // FUNCTION: WIZ8 0x005BAD20
-void UpdateItemCursorForState(int flag, W8ItemInstance* item, int slot)
+void UpdateItemCursorForState(bool alternate, W8ItemInstance* item, int slot)
 {
     if (g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_NONE) {
         return;
@@ -499,11 +499,11 @@ void UpdateItemCursorForState(int flag, W8ItemInstance* item, int slot)
              g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_USE_ON_CHARACTER) &&
             g_status.buffers.XChar[slot].fOccupied &&
             g_status.buffers.Char[slot].uiCondition[W8_CONDITION_MISSING] == 0) {
-            SetTargetCursor(GetTargetingCursorForState(flag));
+            SetTargetCursor(GetTargetingCursorForState(alternate));
             return;
         }
         if (CanPartySlotParticipate(slot)) {
-            SetTargetCursor(GetTargetingCursorForState(flag));
+            SetTargetCursor(GetTargetingCursorForState(alternate));
         }
         return;
     case W8_TARGET_NEED_ITEM:
@@ -517,12 +517,12 @@ void UpdateItemCursorForState(int flag, W8ItemInstance* item, int slot)
         if ((g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_IDENTIFY_SPELL ||
              g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_USE_ON_ITEM) &&
             CanItemLeaveItsSlot(item)) {
-            SetTargetCursor(GetTargetingCursorForState(flag));
+            SetTargetCursor(GetTargetingCursorForState(alternate));
             return;
         }
         if (g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_IDENTIFY ||
             g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_DROP) {
-            SetTargetCursor(GetTargetingCursorForState(flag));
+            SetTargetCursor(GetTargetingCursorForState(alternate));
             return;
         }
         if (g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_SPLIT_STACK) {
@@ -536,20 +536,20 @@ void UpdateItemCursorForState(int flag, W8ItemInstance* item, int slot)
                  g_status.buffers.XChar[giReviewCharSlot].pending_action != W8_ACTION_EQUIP)) {
                 return;
             }
-            SetTargetCursor(GetTargetingCursorForState(flag));
+            SetTargetCursor(GetTargetingCursorForState(alternate));
             return;
         }
         if (g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_USE) {
             if (CanCharacterActivateItem(g_review_character, item) ||
                 CanCastFromItem(g_review_character, item) || IsUsableItemClass(item)) {
-                SetTargetCursor(GetTargetingCursorForState(flag));
+                SetTargetCursor(GetTargetingCursorForState(alternate));
             }
             return;
         }
         if (g_camp_screen->item_action != W8_CAMP_ITEM_ACTION_MOVE || item->iItemNo == -1) {
             return;
         }
-        if (static_cast<char>(flag) == 0) {
+        if (!alternate) {
             if (!g_status.item_in_cursor) {
                 SetTargetCursor(3);
                 return;
@@ -567,7 +567,7 @@ void UpdateItemCursorForState(int flag, W8ItemInstance* item, int slot)
         return;
     case W8_TARGET_NEED_CHARACTER_INDIRECT:
         if (IsDeadCharacterTargetable(slot)) {
-            SetTargetCursor(GetTargetingCursorForState(flag));
+            SetTargetCursor(GetTargetingCursorForState(alternate));
         }
         return;
     default:
@@ -576,23 +576,14 @@ void UpdateItemCursorForState(int flag, W8ItemInstance* item, int slot)
 }
 
 // FUNCTION: WIZ8 0x005BAFC0
-void SetHandCursors(char mode)
+void SetHandCursors()
 {
-    if (mode == 0) {
-        if (g_status.item_in_cursor) {
-            SetTargetCursor(0xf);
-            SetItemCursor(0xe);
-            return;
-        }
-        SetTargetCursor(3);
-        return;
-    }
     if (g_status.item_in_cursor) {
-        SetTargetCursor(0xe);
-        SetItemCursor(0xf);
+        SetTargetCursor(0xf);
+        SetItemCursor(0xe);
         return;
     }
-    SetTargetCursor(4);
+    SetTargetCursor(3);
 }
 
 /* Unequips both weapon slots of the selected character; refused outright in

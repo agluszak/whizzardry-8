@@ -250,12 +250,12 @@ static float g_camera_sway_vertical_phase;
    active: both phases run in degrees per second, wrap at a full turn and
    offset the view plane through sine. */
 // FUNCTION: WIZ8 0x00450080
-void SetCameraSwayMode(srCamera* camera, int mode)
+void SetCameraSwayMode(srCamera* camera, W8CameraSwayMode mode)
 {
-    float elapsed = MoveTimer(2);
+    float elapsed = MoveTimer(W8_MOVE_TIMER_FRAME_DELTA);
 
-    if (mode != 0) {
-        if (mode > 0) {
+    if (mode != W8CameraSwayMode::Reset) {
+        if (mode == W8CameraSwayMode::Start) {
             g_camera_base_horizontal_fov =
                 static_cast<float>(camera->getHorizontalFOV() *
                                    (g_world_camera_half_turn_degrees / g_world_camera_pi));
@@ -433,7 +433,7 @@ void UpdateWorldCameraAndPaths(W8World* world, unsigned int flags)
     } else {
         world->camera->setRotation(s_saved_camera_rotation);
     }
-    SetCameraSwayMode(world->camera, 0);
+    SetCameraSwayMode(world->camera, W8CameraSwayMode::Reset);
     camera_count = static_cast<int>(world->plsCameras.size());
     if (camera_count != 0) {
         for (index = 0; index < camera_count; ++index) {

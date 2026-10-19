@@ -2614,7 +2614,8 @@ void CheckMonsterGroupsEnterCombat(void)
                 MonsterGroupEnterCombat(group);
                 if (group->ubDisposition == W8_DISPOSITION_NEUTRAL) {
                     record = MonsterGroupGetRecord(group);
-                    if ((record->flags & W8_MONSTER_FLAG_NPC) == 0 && record->faction_id == 0 &&
+                    if ((record->flags & W8_MONSTER_FLAG_NPC) == 0 &&
+                        record->faction_id == W8_FACTION_UNALIGNED &&
                         record->hostility_radius != 0 && record->hostility_radius != -1) {
                         SetMonsterGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
                     }

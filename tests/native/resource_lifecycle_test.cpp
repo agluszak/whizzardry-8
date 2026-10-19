@@ -50,6 +50,7 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/layouts/world.h"
 #include "wiz8/level_population.h"
 #include "wiz8/local_code/GameplayInit.h"
@@ -129,8 +130,8 @@ static void npc_script_teardown()
 
 static void queued_state_teardown()
 {
-    AddDialogueTranscriptKeyword("Monastery", 0);
-    AddDialogueTranscriptKeyword("Arnika", 0);
+    AddDialogueTranscriptKeyword("Monastery", W8_DIALOGUE_CATEGORY_PLACES);
+    AddDialogueTranscriptKeyword("Arnika", W8_DIALOGUE_CATEGORY_PLACES);
     REQUIRE((static_cast<int>(g_npc_interaction_state->dialogue_transcript.size()) == 2));
     ClearNpcDialogueTranscript();
     ClearNpcDialogueTranscript();

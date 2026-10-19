@@ -97,6 +97,14 @@ struct W8CombatHandRecord {
 };
 
 /* One combat participant's row, one per character. */
+enum W8CombatPortraitStatus : signed char {
+    W8_COMBAT_PORTRAIT_EMPTY = -1,
+    W8_COMBAT_PORTRAIT_READY = 0,
+    W8_COMBAT_PORTRAIT_CANNOT_SWITCH = 1,
+    W8_COMBAT_PORTRAIT_INELIGIBLE = 2,
+    W8_COMBAT_PORTRAIT_ACTING = 3
+};
+
 struct W8CombatCharacterRow {
     unsigned int phase;
     bool dead;
@@ -136,7 +144,7 @@ struct W8CombatCharacterRow {
     /* Historical offset 0x8c: the slot's combat-strip status recomputed each combat-mode frame:
        -1 slot empty or out of the fight, 0 ready, 1 cannot switch to combat,
        2 dead or ineligible, 3 the acting combatant (portrait pulses). */
-    char combat_status;
+    W8CombatPortraitStatus combat_status;
     /* Historical offset 0x90: how many times the character already rolled to notice an attacker
        this round; the first attempt always succeeds and each later one is 25
        points harder on the senses check. */

@@ -4,6 +4,7 @@
 
 #include "Font.h"
 #include "compat/compiler.h"
+#include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/local_code/TextBuffer.h"
 
 struct W8ControlsRect;
@@ -15,7 +16,7 @@ class W8DialogTextEntry : public W8TextBuffer {
 public:
     W8DialogTextEntry(std::string_view prefix, std::string_view text, unsigned int prefix_palette,
                       unsigned int text_palette, const W8ControlsRect* bounds, Font& font,
-                      unsigned char category, unsigned int layout_mode, unsigned char shorten);
+                      W8DialogueCategory category, unsigned int layout_mode, unsigned char shorten);
     void Paint(SDL_Surface& target, bool selected, bool highlighted);
 
 private:
@@ -27,7 +28,7 @@ private:
     unsigned int m_prefix_palette;
     unsigned int m_text_palette;
     int m_prefix_length; /* includes ": " */
-    unsigned char m_category;     /* text-area filter key */
+    W8DialogueCategory m_category;
     unsigned char m_shorten_mask; /* raw shortening bit from text-area behavior flags */
     bool m_marked;                /* marked transcript entry palette */
 };

@@ -1084,7 +1084,7 @@ TEST_CASE("Navigator releases replaced and cleared paths", "[geometry][navigatio
 
         navigator.SetPathAI(std::make_unique<TrackedPath>(releases));
         REQUIRE(releases == 1);
-        navigator.SetNavigationMode(1);
+        navigator.SetNavigationMode(W8_NAVIGATOR_MODE_GROUNDED);
         REQUIRE(releases == 2);
         REQUIRE(navigator.GetPathAI()->animated);
         navigator.SetPathAI(std::make_unique<TrackedPath>(releases));

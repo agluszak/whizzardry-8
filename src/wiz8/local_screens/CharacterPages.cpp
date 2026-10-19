@@ -15,6 +15,7 @@
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/character.h"
+#include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/ControlsRect.h"
@@ -242,7 +243,7 @@ void W8CharacterPage::SetActive(bool active)
 
 // FUNCTION: WIZ8 0x005aff00
 void W8CharacterPage::SetCharacter(W8Character* character, W8CharacterCreationState* creation_state,
-                                   int mode)
+                                   W8CharacterScreenMode mode)
 {
     m_character = character;
     m_creation_state = creation_state;

@@ -19,6 +19,14 @@ enum W8Attribute {
     W8_ATTRIBUTE_COUNT = 7
 };
 
+enum W8SkillCategory : int {
+    W8_SKILL_CATEGORY_WEAPON,
+    W8_SKILL_CATEGORY_MISCELLANEOUS,
+    W8_SKILL_CATEGORY_COMBAT,
+    W8_SKILL_CATEGORY_MAGIC,
+    W8_SKILL_CATEGORY_EXPERT
+};
+
 /* The 41 character skills in database/index order. The retail name table at 0x0061E454 indexes labels 738..778 in this
    order. This also agrees with the recovered 0x29-entry skill tables, the spellbook/realm boundaries at
    0x18/0x1c, the expert-skill run at 0x22..0x28, and the retail manual's skill

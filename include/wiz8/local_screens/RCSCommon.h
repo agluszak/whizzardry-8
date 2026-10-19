@@ -10,6 +10,8 @@
 #include "input.h"
 #include "wiz8/catalog_artwork.h"
 
+enum W8CampItemAction : unsigned char;
+
 /* Button order differs from W8CampItemAction's byte values. */
 enum W8CampItemActionButton {
     W8_CAMP_ACTION_BUTTON_NONE = -1,
@@ -68,7 +70,7 @@ void DrawCampHands(void);
 int CreateCampButtonPanel(void);
 void DestroyCampButtonPanel(void);
 void RefreshCampItemActions(bool invalidate);
-void SetCampItemActionMode(char mode);
+void SetCampItemActionMode(W8CampItemAction mode);
 void SelectCampCharacter(int slot);
 /* Right-click on a camp portrait while holding an item: refuse with a notice
    for dead/insane/stoned, else try AddItemToCharacter. */

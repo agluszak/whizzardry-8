@@ -491,7 +491,7 @@ int TurnUndead(int party_slot, int* out_cost, bool check)
     if (monsters.empty()) {
         return 0;
     }
-    SetTextBoxMode(1, -1);
+    SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
     unsigned int spell_power = power / static_cast<int>(monsters.size());
     if (spell_power == 0) {
         while (power < static_cast<int>(monsters.size())) {
@@ -587,9 +587,9 @@ int CharacterPrayAction(int party_slot)
         return cost;
     }
     if (g_settings.verbose_combat_messages == 0) {
-        SetTextBoxMode(1, -1);
+        SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
         AppendToLastTextLine(g_pray_dash, -1);
-        SetTextBoxMode(1, -1);
+        SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
     }
     roll = Random(g_pray_roll_sums[PRAY_ROLL_TIERS]);
     if (g_combat_state->round_count < 4) {
@@ -895,7 +895,7 @@ int CharacterPrayAction(int party_slot)
 void AlertSameFactionGroups(W8MonsterGroup* monster_group)
 {
     W8MonsterRecord* record = MonsterGroupGetRecord(monster_group);
-    if (record->faction_id != 0) {
+    if (record->faction_id != W8_FACTION_UNALIGNED) {
         for (unsigned int index = 0; index < CurrentLevelPopulation().monster_groups.size();
              ++index) {
             W8MonsterGroup* other = CurrentLevelPopulation().monster_groups[index].get();

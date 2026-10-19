@@ -267,8 +267,9 @@ void UpdateSedexusScene(void)
     if (!g_sedexus_scene.capture_pending && !g_sedexus_scene.release_pending) {
         return;
     }
-    const int environment = g_environment_lighting_mode;
-    if (environment != 0 && environment != 2) {
+    const W8EnvironmentLightingMode environment = g_environment_lighting_mode;
+    if (environment != W8EnvironmentLightingMode::FadedOut &&
+        environment != W8EnvironmentLightingMode::DayNight) {
         return;
     }
     g_npc_dialogue.ReleaseScene();

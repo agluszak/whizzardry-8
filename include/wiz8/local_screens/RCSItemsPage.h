@@ -5,6 +5,7 @@
 #include "input.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/dialog_code/DialogBase.h"
+#include "wiz8/local_screens/ReviewCharacterScreen.h"
 
 struct W8Character;
 struct W8ItemInstance;
@@ -26,7 +27,7 @@ extern int giCasterCharSlot;
    OpenSplitStackDialog and consumed by SplitStackDialogResult. */
 extern W8ItemInstance* g_split_item_source;
 
-void SetCampInfoPageMode(char mode);
+void SetCampInfoPageMode(W8CampInfoPage mode);
 /* Index-bound button callbacks stored by the camp panel creators in
    ReviewCharacterScreen.cpp. */
 void ShowCampItemsPage(void);
@@ -46,8 +47,8 @@ void TargetCharacterWithHeldItem(unsigned int uiTargetChar);
 int CanCharacterUseItemEntry(W8Character* character, W8ItemInstance* item);
 bool CanSplitItemStack(const W8ItemInstance* item);
 void SplitStackDialogResult(int count);
-void UpdateItemCursorForState(int flag, W8ItemInstance* item, int slot);
-void SetHandCursors(char mode);
+void UpdateItemCursorForState(bool alternate, W8ItemInstance* item, int slot);
+void SetHandCursors();
 void UnequipBothHands(void);
 void TogglePartyRowFlag(void);
 void ToggleCampHandItemFilter(void);

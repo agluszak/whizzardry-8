@@ -23,6 +23,17 @@ class stLight;
 class W8Missile;
 struct W8AnimObj;
 
+enum W8MissileAnimationStateQuery {
+    W8_MISSILE_ANIMATION_EMITTER_SETTING = 0,
+    W8_MISSILE_ANIMATION_TOTAL_COUNT = 1,
+    W8_MISSILE_ANIMATION_AT_FINAL_SUBCYCLE = 2,
+    W8_MISSILE_ANIMATION_AT_INITIAL_SUBCYCLE = 3,
+    W8_MISSILE_ANIMATION_SUBCYCLE_INDEX = 4,
+    W8_MISSILE_ANIMATION_HAS_EMITTER = 5,
+    W8_MISSILE_ANIMATION_CYCLE_INDEX = 6,
+    W8_MISSILE_ANIMATION_FINISHED = 7
+};
+
 /* The kind-3 record of the tagged AI family W8GrObject holds at +0x0c (the
    path record is kind 0). UpdateMissileAI ticks it: +0x04 is the
    per-step distance scale, +0x08 the remaining turn budget, +0x0c the missile
@@ -100,7 +111,7 @@ public:
        the hit to Combat Attack.cpp or leave it for the combat engine. */
     virtual bool OnCollision(W8Navigator* other) override; /* 0x004A4720 */
 
-    w8_ulong GetAnimationState(int mode);
+    w8_ulong GetAnimationState(W8MissileAnimationStateQuery query);
     void DetonateMissileSpell();
     void AnnounceCollisionTarget(); /* 0x004A4AC0 */
     /* Switch the representation to its impact cycle, or end the flight when the

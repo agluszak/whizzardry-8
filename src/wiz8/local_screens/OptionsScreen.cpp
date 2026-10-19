@@ -1759,6 +1759,7 @@ bool OptionsScreenLeave(int)
 bool OptionsScreenEnter()
 {
     int selected;
+    const W8OptionsMode mode = std::get<W8OptionsMode>(g_current_screen_state.mode);
 
     SetViewport({0, 0, 0x281, 0x1e1});
     SetPrimarySurfaceTextureHint2Enabled(false);
@@ -1769,11 +1770,11 @@ bool OptionsScreenEnter()
     g_options_screen = std::make_unique<W8OptionsScreen>();
     g_options_screen->CreateControls();
 
-    if (g_current_screen_state.mode == 1) {
+    if (mode == W8_OPTIONS_LOAD) {
         selected = 4;
-    } else if (g_current_screen_state.mode == 2) {
+    } else if (mode == W8_OPTIONS_SAVE) {
         selected = 5;
-    } else if (g_current_screen_state.mode == 3) {
+    } else if (mode == W8_OPTIONS_IN_GAME) {
         if (g_last_options_panel == 4) {
             selected = 5;
         } else {

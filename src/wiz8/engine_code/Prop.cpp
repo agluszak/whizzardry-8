@@ -212,14 +212,14 @@ Trigger* W8Prop::GetGDPropOwnerTrigger()
 }
 
 /* Store activation state, restarting the animation clock whenever the old
-   state is inactive. The raw byte is retained by save/load. */
+   state is inactive. */
 // FUNCTION: WIZ8 0x0044d4b0
-void W8Prop::SetActivationState(unsigned char value)
+void W8Prop::SetActivationState(bool active)
 {
     if (Rep()->active == 0) {
         timer.Restart();
     }
-    Rep()->active = value;
+    Rep()->active = active;
 }
 
 // FUNCTION: WIZ8 0x0044d5f0

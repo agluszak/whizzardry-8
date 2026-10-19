@@ -42,7 +42,7 @@ enum { W8_PHASES_PER_ROUND = 100 };
 void BeginPartyMovement(void)
 {
     gXStatus.party_moving = true;
-    MoveTimer(1);
+    MoveTimer(W8_MOVE_TIMER_SUSPEND);
 }
 
 /* Round one combatant's phase to the ten it belongs in and clamp it into the

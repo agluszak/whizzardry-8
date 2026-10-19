@@ -44,7 +44,7 @@
 #define ENVIRONMENT_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Environment.cpp"
 
 // GLOBAL: WIZ8 0x0060a3a8
-int g_environment_lighting_mode = 2;
+W8EnvironmentLightingMode g_environment_lighting_mode = W8EnvironmentLightingMode::DayNight;
 
 // GLOBAL: WIZ8 0x0065b9ae
 bool g_sky_enabled;
@@ -235,7 +235,7 @@ void UpdateEnvironment(void)
     if (!g_environment_time_enabled) {
         return;
     }
-    if (g_environment_lighting_mode == 2) {
+    if (g_environment_lighting_mode == W8EnvironmentLightingMode::DayNight) {
         if (g_sky_enabled) {
             UpdateEnvironmentLight();
         }
@@ -441,7 +441,7 @@ void BeginWorldLightingFade(float duration)
     glm::vec3 direction{1.0f};
 
     if (duration == 0.0f) {
-        g_environment_lighting_mode = 2;
+        g_environment_lighting_mode = W8EnvironmentLightingMode::DayNight;
         g_environment_transition_rate = 0.0f;
         g_world_render_enabled = 1;
         g_monster_shadow_updates_enabled = 1;
@@ -469,7 +469,7 @@ void BeginWorldLightingFade(float duration)
 
     g_environment_transition_rate = 1.0f / duration;
     g_environment_transition_tick = w8_get_ticks();
-    g_environment_lighting_mode = 1;
+    g_environment_lighting_mode = W8EnvironmentLightingMode::Transition;
     if (duration < 0.0f) {
         GetWorld()->environment_base_intensity = GetWorld()->environment_intensity;
         if (GetSecondaryWorld() != 0) {
@@ -525,7 +525,7 @@ void UpdateEnvironmentLighting(void)
     PublishLightDirection(&direction);
 
     if (intensity == 0.0f) {
-        g_environment_lighting_mode = 0;
+        g_environment_lighting_mode = W8EnvironmentLightingMode::FadedOut;
         g_world_render_enabled = 0;
         g_monster_shadow_updates_enabled = 0;
         g_world_blacked_out = true;
@@ -534,7 +534,7 @@ void UpdateEnvironmentLighting(void)
         return;
     }
     if (scale == 1.0f) {
-        g_environment_lighting_mode = 2;
+        g_environment_lighting_mode = W8EnvironmentLightingMode::DayNight;
         g_world_render_enabled = 1;
         g_monster_shadow_updates_enabled = 1;
         g_world_blacked_out = false;
@@ -544,7 +544,7 @@ void UpdateEnvironmentLighting(void)
     }
     g_world_blacked_out = false;
     g_environment_transition_tick = now;
-    g_environment_lighting_mode = 1;
+    g_environment_lighting_mode = W8EnvironmentLightingMode::Transition;
     g_world_render_enabled = 1;
     g_monster_shadow_updates_enabled = 1;
 }
@@ -697,19 +697,16 @@ void SetSkyNodeVisible(bool visible)
     }
 }
 
-/* Mode 0 raises the camera light's intensity by the step value, clamped to
-   the ceiling; mode 1 lowers it by the same step and, once it reaches the
-   floor, falls through to mode 2 which disables the node. Mode 3 re-enables
-   the node without touching the intensity. */
+/* Raise or lower the camera light by one step, disable it, or enable it. */
 // FUNCTION: WIZ8 0x00483E80
-void SetCameraLightMode(int mode)
+void SetCameraLightMode(W8CameraLightMode mode)
 {
     stLight* camera_light;
     float intensity;
 
     if (GetWorld() != 0 && (camera_light = GetWorld()->camera_light) != 0) {
         switch (mode) {
-        case 0:
+        case W8CameraLightMode::Increase:
             camera_light->clearFlag(srNode::FLAG_DISABLE);
             camera_light = GetWorld()->camera_light;
             intensity = 0.0f;
@@ -724,17 +721,17 @@ void SetCameraLightMode(int mode)
                 camera_light->intensity = intensity;
             }
             return;
-        case 1:
+        case W8CameraLightMode::Decrease:
             intensity = camera_light->intensity - 0.5f;
             if (0.0f < intensity) {
                 camera_light->intensity = intensity;
                 return;
             }
             [[fallthrough]];
-        case 2:
+        case W8CameraLightMode::Disable:
             camera_light->setFlag(srNode::FLAG_DISABLE);
             return;
-        case 3:
+        case W8CameraLightMode::Enable:
             camera_light->clearFlag(srNode::FLAG_DISABLE);
             return;
         }

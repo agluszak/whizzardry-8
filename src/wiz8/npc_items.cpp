@@ -571,7 +571,7 @@ int CalculateNpcTradeStackPrice(W8NpcState* npc, int item_id, W8TradePriceKind p
    the count, everything else prices the whole stack value, unidentified
    merchandise goes at quarter price, and no stack settles below 1. */
 // FUNCTION: WIZ8 0x0055b5e0
-int CalculateTradeStackPrice(W8NpcState* npc, W8ItemInstance* item, char price_kind)
+int CalculateTradeStackPrice(W8NpcState* npc, W8ItemInstance* item, W8TradePriceKind price_kind)
 {
     int stack_value = GetItemStackValue(item);
     unsigned int skill = GetBestPartySkillLevel(W8_SKILL_COMMUNICATION, 0);

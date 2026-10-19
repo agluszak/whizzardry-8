@@ -10,7 +10,8 @@
    status. Most actions map to a fixed base; attacks pick per weapon skill and
    spells per realm, and the status selects the frame variant beside it. */
 // FUNCTION: WIZ8 0x0059A180
-short GetCombatPortraitImage(W8ActionKind action, int detail, char status, short slot)
+short GetCombatPortraitImage(W8ActionKind action, int detail, W8CombatPortraitStatus status,
+                             short slot)
 {
     int image;
 
@@ -73,19 +74,19 @@ short GetCombatPortraitImage(W8ActionKind action, int detail, char status, short
         image = 0x16c;
         break;
     default:
-        if (status == 2) {
+        if (status == W8_COMBAT_PORTRAIT_INELIGIBLE) {
             return 0x17d;
         }
         return CanAnyHandReachTarget(slot) ? 0x17a : 0x17c;
     }
     switch (status) {
-    case 0:
+    case W8_COMBAT_PORTRAIT_READY:
         break;
-    case 1:
+    case W8_COMBAT_PORTRAIT_CANNOT_SWITCH:
         return image + 2;
-    case 2:
+    case W8_COMBAT_PORTRAIT_INELIGIBLE:
         return image + 3;
-    case 3:
+    case W8_COMBAT_PORTRAIT_ACTING:
         return image + 4;
     default:
         image = 0x17a;

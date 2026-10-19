@@ -45,7 +45,7 @@ struct W8NpcState;
    LazerScanner, ScannerDoor). */
 
 struct W8Elevator {
-    int state;                   /* 0x00: persisted as El0XState */
+    W8ArnikaElevatorState state; /* 0x00: persisted as El0XState */
     int moving;                  /* 0x04: persisted as El0XMoving */
     int button_down;             /* 0x08: persisted as Red/GreenButtonDown */
     Trigger* pElevator;          /* 0x0c */
@@ -115,8 +115,8 @@ static void CaptureWarningSound(W8SavedLocationState& state)
 }
 
 struct ElevatorStateBindings {
-    int which;
-    int initial_state;
+    W8ArnikaElevatorId which;
+    W8ArnikaElevatorState initial_state;
     const char* state_variable;
     const char* moving_variable;
     const char* button_variable;
@@ -127,26 +127,14 @@ struct ElevatorStateBindings {
     void (*button_state)(W8SavedLocationState&);
 };
 
-static constexpr ElevatorStateBindings g_el01_bindings{1,
-                                                       1,
-                                                       "El01State",
-                                                       "El01Moving",
-                                                       "RedButtonDown",
-                                                       ArnikaEl1Moving,
-                                                       ArnikaEl1Button,
-                                                       false,
-                                                       CaptureEl1Moving,
-                                                       CaptureEl1Button};
-static constexpr ElevatorStateBindings g_el02_bindings{2,
-                                                       7,
-                                                       "El02State",
-                                                       "El02Moving",
-                                                       "GreenButtonDown",
-                                                       ArnikaEl2Moving,
-                                                       ArnikaEl2Button,
-                                                       true,
-                                                       CaptureEl2Moving,
-                                                       CaptureEl2Button};
+static constexpr ElevatorStateBindings g_el01_bindings{
+    W8_ARNIKA_ELEVATOR_ONE, W8_ARNIKA_ELEVATOR_STEP_1, "El01State",     "El01Moving",
+    "RedButtonDown",        ArnikaEl1Moving,           ArnikaEl1Button, false,
+    CaptureEl1Moving,       CaptureEl1Button};
+static constexpr ElevatorStateBindings g_el02_bindings{
+    W8_ARNIKA_ELEVATOR_TWO, W8_ARNIKA_ELEVATOR_STEP_7, "El02State",     "El02Moving",
+    "GreenButtonDown",      ArnikaEl2Moving,           ArnikaEl2Button, true,
+    CaptureEl2Moving,       CaptureEl2Button};
 
 static void RestoreArnikaElevator(W8Elevator& elevator, const ElevatorStateBindings& bindings)
 {
@@ -160,7 +148,8 @@ static void RestoreArnikaElevator(W8Elevator& elevator, const ElevatorStateBindi
             elevator.pBottomDoorCollide->Run(-1);
         }
     } else {
-        elevator.state = GetLocationVarValueByName(bindings.state_variable);
+        elevator.state =
+            static_cast<W8ArnikaElevatorState>(GetLocationVarValueByName(bindings.state_variable));
     }
     if (GetLocationVarIDByName(bindings.moving_variable) == -1) {
         CreateLocationVar(bindings.moving_variable, elevator.moving);
@@ -175,16 +164,19 @@ static void RestoreArnikaElevator(W8Elevator& elevator, const ElevatorStateBindi
     }
     if (elevator.moving != 0) {
         switch (elevator.state) {
-        case 1:
-        case 5:
+        case W8_ARNIKA_ELEVATOR_STEP_3:
+        case W8_ARNIKA_ELEVATOR_STEP_7:
+            break;
+        case W8_ARNIKA_ELEVATOR_STEP_1:
+        case W8_ARNIKA_ELEVATOR_STEP_5:
             elevator.pProp = elevator.pLift->GetProp();
             break;
-        case 2:
-        case 4:
+        case W8_ARNIKA_ELEVATOR_STEP_2:
+        case W8_ARNIKA_ELEVATOR_STEP_4:
             elevator.pProp = elevator.pTopDoor->GetProp();
             break;
-        case 6:
-        case 8:
+        case W8_ARNIKA_ELEVATOR_STEP_6:
+        case W8_ARNIKA_ELEVATOR_STEP_8:
             elevator.pProp = elevator.pBottomDoor->GetProp();
             break;
         }
@@ -612,18 +604,18 @@ bool ArnikaRedButton(Trigger* pTrigger)
     SetFact(W8_FACT_ARNIKA_SAFETY_DEPOSIT_OPEN, 1, false);
     g_red_button_armed = true;
     g_trigger_feedback = true;
-    if (gEl01.state != 3) {
+    if (gEl01.state != W8_ARNIKA_ELEVATOR_STEP_3) {
         if (gEl01.button_down == 2) {
             g_trigger_feedback = true;
             g_red_button_armed = true;
             return false;
         }
-        if (gEl01.state != 1 && gEl01.state != 7) {
+        if (gEl01.state != W8_ARNIKA_ELEVATOR_STEP_1 && gEl01.state != W8_ARNIKA_ELEVATOR_STEP_7) {
             g_trigger_feedback = true;
             g_red_button_armed = true;
             return false;
         }
-        ArnikaElevatorAdvance(1);
+        ArnikaElevatorAdvance(W8_ARNIKA_ELEVATOR_ONE);
     }
     ArnikaEl1Button(static_cast<int>(0xEFFFFFFF));
     return true;
@@ -645,8 +637,10 @@ bool ArnikaEl1Button(int command)
 bool ArnikaEl1TopButtons(Trigger* pTrigger)
 {
     g_trigger_feedback = true;
-    if (gEl01.button_down != 2 && (gEl01.state == 1 || gEl01.state == 3 || gEl01.state == 7)) {
-        ArnikaElevatorAdvance(1);
+    if (gEl01.button_down != 2 &&
+        (gEl01.state == W8_ARNIKA_ELEVATOR_STEP_1 || gEl01.state == W8_ARNIKA_ELEVATOR_STEP_3 ||
+         gEl01.state == W8_ARNIKA_ELEVATOR_STEP_7)) {
+        ArnikaElevatorAdvance(W8_ARNIKA_ELEVATOR_ONE);
     }
     return true;
 }
@@ -698,7 +692,7 @@ bool ArnikaGreenButton(Trigger* pTrigger)
     }
     SetFactionDispositionBand(0xa, W8_FACTION_HOSTILE);
     g_trigger_feedback = true;
-    if (gEl02.state != 3) {
+    if (gEl02.state != W8_ARNIKA_ELEVATOR_STEP_3) {
         gEl02.pElevator->Run(-1);
     }
     ArnikaEl2Button(static_cast<int>(0xEFFFFFFF));
@@ -721,10 +715,11 @@ bool ArnikaElevator02Trigger(Trigger* pTrigger)
     if (gEl02.button_down == 2) {
         return false;
     }
-    if (gEl02.state != 1 && gEl02.state != 3 && gEl02.state != 7) {
+    if (gEl02.state != W8_ARNIKA_ELEVATOR_STEP_1 && gEl02.state != W8_ARNIKA_ELEVATOR_STEP_3 &&
+        gEl02.state != W8_ARNIKA_ELEVATOR_STEP_7) {
         return false;
     }
-    ArnikaElevatorAdvance(2);
+    ArnikaElevatorAdvance(W8_ARNIKA_ELEVATOR_TWO);
     return true;
 }
 
@@ -757,52 +752,52 @@ static W8Prop* RunElevatorLift(Trigger* lift)
    moving master will wait on. States 3 and 7 are the door-closed pauses that
    produce no prop. */
 // FUNCTION: WIZ8 0x004E2010
-void ArnikaElevatorAdvance(int which)
+void ArnikaElevatorAdvance(W8ArnikaElevatorId which)
 {
     W8Elevator* el;
     /* An invalid state runs nothing and leaves no prop to wait on. */
     W8Prop* prop = nullptr;
 
-    if (which == 1) {
+    if (which == W8_ARNIKA_ELEVATOR_ONE) {
         el = &gEl01;
     } else {
         el = &gEl02;
     }
     switch (el->state) {
-    case 1:
+    case W8_ARNIKA_ELEVATOR_STEP_1:
         prop = RunElevatorDoor(el->pTopDoor, el->pTopDoorCollide);
-        el->state = 2;
+        el->state = W8_ARNIKA_ELEVATOR_STEP_2;
         break;
-    case 2:
+    case W8_ARNIKA_ELEVATOR_STEP_2:
         prop = 0;
-        el->state = 3;
+        el->state = W8_ARNIKA_ELEVATOR_STEP_3;
         break;
-    case 3:
+    case W8_ARNIKA_ELEVATOR_STEP_3:
         prop = RunElevatorDoor(el->pTopDoor, el->pTopDoorCollide);
-        el->state = 4;
+        el->state = W8_ARNIKA_ELEVATOR_STEP_4;
         break;
-    case 4:
+    case W8_ARNIKA_ELEVATOR_STEP_4:
         prop = RunElevatorLift(el->pLift);
-        el->state = 5;
+        el->state = W8_ARNIKA_ELEVATOR_STEP_5;
         break;
-    case 5:
+    case W8_ARNIKA_ELEVATOR_STEP_5:
         prop = RunElevatorDoor(el->pBottomDoor, el->pBottomDoorCollide);
-        el->state = 6;
+        el->state = W8_ARNIKA_ELEVATOR_STEP_6;
         break;
-    case 6:
+    case W8_ARNIKA_ELEVATOR_STEP_6:
         prop = 0;
-        el->state = 7;
+        el->state = W8_ARNIKA_ELEVATOR_STEP_7;
         break;
-    case 7:
+    case W8_ARNIKA_ELEVATOR_STEP_7:
         prop = RunElevatorDoor(el->pBottomDoor, el->pBottomDoorCollide);
-        el->state = 8;
+        el->state = W8_ARNIKA_ELEVATOR_STEP_8;
         break;
-    case 8:
+    case W8_ARNIKA_ELEVATOR_STEP_8:
         prop = RunElevatorLift(el->pLift);
-        el->state = 1;
+        el->state = W8_ARNIKA_ELEVATOR_STEP_1;
         break;
     }
-    if (which == 1) {
+    if (which == W8_ARNIKA_ELEVATOR_ONE) {
         SetTriggerVariableByName("El01State", el->state);
         gEl01.pProp = prop;
         if (prop != 0) {
