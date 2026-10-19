@@ -31,8 +31,8 @@
 
 // FUNCTION: WIZ8 0x004b6e00
 GDProp::GDProp(W8PathingService* pathing, srModelInstance* instance, const char* path_name,
-               unsigned short prop_number, unsigned char footstep_surface,
-               unsigned char footstep_material)
+               unsigned short prop_number, W8FootstepSurface footstep_surface,
+               W8FootstepMaterial footstep_material)
 {
     m_flags = {};
     m_path_handle = 0;
@@ -79,8 +79,8 @@ void GDProp::PrepareGeometry(srModelInstance* instance)
    dominant axis, slope classification and caller-provided material bytes. */
 // FUNCTION: WIZ8 0x004b7060
 void GDProp::Initialize(W8PathingService* pathing, srModelInstance* instance, bool attach,
-                        unsigned short prop_number, unsigned char footstep_surface,
-                        unsigned char footstep_material)
+                        unsigned short prop_number, W8FootstepSurface footstep_surface,
+                        W8FootstepMaterial footstep_material)
 {
     if (!attach) {
         m_flags.unattached = true;

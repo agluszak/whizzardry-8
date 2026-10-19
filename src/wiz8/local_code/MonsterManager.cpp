@@ -196,7 +196,7 @@ void PrepareMonsterInWorld(W8World& world, W8MonsterInfo& info, bool unborn)
                 srAssertFail("MonsterIsCycleSupported(pMonsterInfo->p3D, CYCLE_BIRTH)",
                              MONSTER_MANAGER_CPP, 0x190, "Unborn monsters must have CYCLE_BIRTH!");
             }
-            MonsterSetCycleBehaviour(monster_info->p3D, 1);
+            MonsterSetCycleBehaviour(monster_info->p3D, W8_ANIMATION_PLAY_ONCE);
             MonsterSetCycle(monster_info->p3D, 0);
             if (MonsterQuery(monster_info->p3D, W8_MONSTER_QUERY_FRAME_COUNT) == -1) {
                 srAssertFail("MonsterQuery(pMonsterInfo->p3D, QUERY_NUM_FRAMES) != -1",
@@ -208,7 +208,7 @@ void PrepareMonsterInWorld(W8World& world, W8MonsterInfo& info, bool unborn)
             monster_info->p3D->inactive = true;
         } else {
             MonsterSetCycle(monster_info->p3D, 1);
-            MonsterSetCycleBehaviour(monster_info->p3D, 3);
+            MonsterSetCycleBehaviour(monster_info->p3D, W8_ANIMATION_NEVER_STOP);
             if (MonsterQuery(monster_info->p3D, W8_MONSTER_QUERY_FRAME_COUNT) == -1) {
                 srAssertFail("MonsterQuery(pMonsterInfo->p3D, QUERY_NUM_FRAMES) != -1",
                              MONSTER_MANAGER_CPP, 0x1a4, 0);
@@ -757,10 +757,10 @@ void MoveMonsterToLiveList(W8MonsterInfo* monster_info)
     }
     if (MonsterIsCycleSupported(monster_info->p3D, 0)) {
         MonsterSetCycle(monster_info->p3D, 0);
-        MonsterSetCycleBehaviour(monster_info->p3D, 1);
+        MonsterSetCycleBehaviour(monster_info->p3D, W8_ANIMATION_PLAY_ONCE);
     } else {
         MonsterSetCycle(monster_info->p3D, 1);
-        MonsterSetCycleBehaviour(monster_info->p3D, 3);
+        MonsterSetCycleBehaviour(monster_info->p3D, W8_ANIMATION_NEVER_STOP);
     }
     MonsterSetCycleSubCycle(monster_info->p3D, 0);
     MonsterSetAnimating(monster_info->p3D, true);
@@ -1216,7 +1216,7 @@ void ToggleCombatMode(void)
    The combat-mode query on the way in is made for its effect: its result is
    discarded here. */
 // FUNCTION: WIZ8 0x004e4db0
-void StartMonsterCycle(W8MonsterInfo* monster_info, int cycle, int behavior)
+void StartMonsterCycle(W8MonsterInfo* monster_info, int cycle, W8AnimationBehaviour behavior)
 {
     W8Monster* monster = monster_info->p3D;
     unsigned char pending;
@@ -1250,7 +1250,7 @@ void StartMonsterCycle(W8MonsterInfo* monster_info, int cycle, int behavior)
             static_cast<signed char>(cycle) == W8_CYCLE_DEATH ||
             static_cast<signed char>(cycle) == 0 || !monster_info->fMotionless) {
             MonsterSetAnimating(monster, true);
-            MonsterSetRuntimeBehaviour(monster, static_cast<signed char>(behavior));
+            MonsterSetRuntimeBehaviour(monster, behavior);
             MonsterSetPendingCycle(monster, cycle);
             monster->m_pRep->pending_subcycle = 0;
             MonsterSubmitTargetValue(monster);

@@ -25,6 +25,8 @@ class Trigger;
 class W8Prop;
 struct W8AIMissile;
 class W8GameTimer;
+enum W8FootstepSurface : unsigned char;
+enum W8FootstepMaterial : unsigned char;
 namespace wiz8 {
 class File;
 }
@@ -46,8 +48,9 @@ public:
     /* Default construction is inlined at Prop::Prop. */
     W8PropRepresentation()
         : animation_speed(0.0f), frame_index(0), animation_running(0), random_play(0),
-          play_chance(0.5f), saved_subcycle(0), frame_steps(0), slots(), footstep_surface(0xff),
-          footstep_material(0xff)
+          play_chance(0.5f), saved_subcycle(0), frame_steps(0), slots(),
+          footstep_surface(static_cast<W8FootstepSurface>(0xff)),
+          footstep_material(static_cast<W8FootstepMaterial>(0xff))
     {
     }
     W8PropRepresentation(const W8PropRepresentation& other);
@@ -75,8 +78,8 @@ public:
     unsigned char saved_subcycle; /* 0xac */
     unsigned char frame_steps;    /* 0xad */
     std::vector<W8PropAnimationSegment> slots; /* 0xb0 */
-    unsigned char footstep_surface;          /* 0xc0 */
-    unsigned char footstep_material;         /* 0xc1 */
+    W8FootstepSurface footstep_surface;      /* 0xc0 */
+    W8FootstepMaterial footstep_material;    /* 0xc1 */
 }; /* 0xc4 */
 
 /* Combined W8Prop::flags masks; these are distinct from representation flags. */
@@ -118,7 +121,9 @@ public:
        discarded byte, clamped to the loaded animation's frame count, with
        path values re-synced while a running animation is active. */
     struct SavedAnimationState {
-        unsigned char subcycle, first_frame, last_frame, frame_direction, animation_playing, unused;
+        unsigned char subcycle, first_frame, last_frame;
+        W8AnimationDirection frame_direction;
+        unsigned char animation_playing, unused;
     };
     void ApplyAnimationState(const SavedAnimationState& state,
                              W8PathingService* pathing);        /* 0x0044DBD0 */

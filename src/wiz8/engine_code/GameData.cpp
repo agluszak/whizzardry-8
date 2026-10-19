@@ -286,8 +286,8 @@ CameraMotion W8GameData::cameraMotion(unsigned int flags, const glm::vec3& posit
     level->motion_velocity = glm::vec3(0);
     level->motion_displacement = glm::vec3(0);
     level->motion_input = glm::vec3(0);
-    level->sound_environment = -1;
-    level->sound_environment_alt = -1;
+    level->sound_environment = W8_FOOTSTEP_SURFACE_UNSET;
+    level->sound_environment_alt = W8_FOOTSTEP_MATERIAL_UNSET;
 
     if (motion.camera_scale == 0.0f) {
         return result;
@@ -2103,8 +2103,8 @@ W8LevelDataRecord::W8LevelDataRecord()
 {
     flags = 0;
     camera_scale = 0;
-    sound_environment = 0;
-    sound_environment_alt = 0;
+    sound_environment = W8_FOOTSTEP_SURFACE_NONE;
+    sound_environment_alt = W8_FOOTSTEP_MATERIAL_NONE;
     residual_contact_length = 0.0f;
     contact_facing = 0.0f;
     speed = 0;
@@ -2253,7 +2253,8 @@ bool W8LevelDataRecord::UpdateFootstepFromMotion()
             large_radius = true;
         }
         AlertCombatNoise(large_radius);
-        if (sound_environment >= 0 && sound_environment_alt >= 0) {
+        if (sound_environment != W8_FOOTSTEP_SURFACE_UNSET &&
+            sound_environment_alt != W8_FOOTSTEP_MATERIAL_UNSET) {
             PlayFootstep(sound_environment, sound_environment_alt, W8_FOOTSTEP_KIND_STEP);
             while (2e+03f < footstep_accumulator) {
                 footstep_accumulator -= 2e+03f;

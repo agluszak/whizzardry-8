@@ -34,7 +34,8 @@ class File;
 
 /* Usability filters and the exclusive equipment categories in the trade UI.
    The category bits use the same positions as W8ItemEquipSlotGroup. */
-enum W8NpcTradeFilter {
+enum W8NpcTradeFilter : int {
+    W8_NPC_TRADE_FILTER_NONE = 0,
     W8_NPC_TRADE_USABLE_BY_CHARACTER = 0x01,
     W8_NPC_TRADE_HAND = 0x04,
     W8_NPC_TRADE_BODY = 0x08,
@@ -180,7 +181,7 @@ struct W8NpcInteractionState {
     int last_mouse_y;
     /* The text-box line the mouse/wheel handlers last selected, -1 for none. */
     int hovered_text_line;
-    int trade_filter; /* W8NpcTradeFilter bits */
+    W8NpcTradeFilter trade_filter = W8_NPC_TRADE_FILTER_NONE;
     W8NpcState* dialogue_npc;
     W8DialogueCategory dialogue_category_filter = W8_DIALOGUE_CATEGORY_ALL;
     /* Raised while the "Where Is" submit path runs, so the typed text is

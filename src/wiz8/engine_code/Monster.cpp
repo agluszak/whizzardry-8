@@ -3805,7 +3805,7 @@ void W8Monster::UpdateShakeEvents(unsigned char previous_frame)
 
                     m_pRep->pending_behaviour = W8_ANIMATION_NEVER_STOP;
                     if (animation->start_frame == animation->end_frame) {
-                        m_pRep->SetFrameMethod(4);
+                        m_pRep->SetFrameMethod(W8_ANIMATION_UNKNOWN_FRAME_METHOD);
                         m_pRep->frame_direction = W8_ANIMATION_FORWARD;
                     } else {
                         m_pRep->SetFrameMethod(W8_ANIMATION_PING_PONG);
@@ -4025,7 +4025,7 @@ void MonsterSetPendingCycle(W8Monster* monster, int cycle)
 }
 
 // FUNCTION: WIZ8 0x004c5e40
-void MonsterSetRuntimeBehaviour(W8Monster* monster, signed char behaviour)
+void MonsterSetRuntimeBehaviour(W8Monster* monster, W8AnimationBehaviour behaviour)
 {
     if (monster != 0) {
         if (behaviour < 1 || behaviour > 3) {
@@ -4159,7 +4159,7 @@ void MonsterClearMovement(W8Monster* monster)
    types the parameter as the cycle rather than as the opaque pointer the
    neighbouring forwarders take. */
 // FUNCTION: WIZ8 0x004c61a0
-void MonsterSetCycleBehaviour(W8GrCycle* cycle, signed char bBehaviour)
+void MonsterSetCycleBehaviour(W8GrCycle* cycle, W8AnimationBehaviour bBehaviour)
 {
     if (cycle != 0) {
         cycle->SetBehaviour(bBehaviour);

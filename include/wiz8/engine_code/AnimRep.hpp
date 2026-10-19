@@ -9,7 +9,7 @@
 /* Direction state at AnimRep+0x6e. Props record completion at either
    endpoint; GrCycle advances only the two running directions. Byte storage
    is retained because prop save data reads/writes this field directly. */
-enum W8AnimationDirection {
+enum W8AnimationDirection : unsigned char {
     W8_ANIMATION_DIRECTION_NONE = 0,
     W8_ANIMATION_FORWARD = 1,
     W8_ANIMATION_FORWARD_COMPLETE = 2,
@@ -19,10 +19,12 @@ enum W8AnimationDirection {
 
 /* Proven frame methods. The serialized domain also accepts four; its
    original name remains unknown. */
-enum W8AnimationFrameMethod {
+enum W8AnimationFrameMethod : unsigned char {
+    W8_ANIMATION_FRAME_METHOD_NONE = 0,
     W8_ANIMATION_WRAP = 1,
     W8_ANIMATION_PING_PONG = 2,
-    W8_ANIMATION_RANDOM_FRAME = 3
+    W8_ANIMATION_RANDOM_FRAME = 3,
+    W8_ANIMATION_UNKNOWN_FRAME_METHOD = 4
 };
 
 /* AdvanceAnimationFrame clamps PLAY_ONCE at an endpoint and repeats the other
@@ -30,7 +32,8 @@ enum W8AnimationFrameMethod {
    NEVER_STOP mode completes only when playback stops. NEVER_STOP is named by
    StartMonsterCycle's retail assertion. Representation and file fields stay
    byte-sized; pending_behaviour uses 0xff for no queued change. */
-enum W8AnimationBehaviour {
+enum W8AnimationBehaviour : unsigned char {
+    W8_ANIMATION_BEHAVIOUR_NONE = 0,
     W8_ANIMATION_PLAY_ONCE = 1,
     W8_ANIMATION_REPEAT = 2,
     W8_ANIMATION_NEVER_STOP = 3,
@@ -95,7 +98,7 @@ class W8AnimRep : public W8AnimRepBase {
 public:
     W8AnimRep();
     W8AnimRep(const W8AnimRep& other);
-    void SetFrameMethod(signed char method);
+    void SetFrameMethod(W8AnimationFrameMethod method);
 
 public:
     /* Current frame/subcycle. GrCycle advances it and all derived renderers
@@ -111,14 +114,14 @@ public:
     unsigned char
         animation_playing; /* bool-byte-ok: copied directly from file-backed W8AnimObj byte. */
     /* W8AnimationDirection, retained as a byte in the representation. */
-    unsigned char frame_direction;
+    W8AnimationDirection frame_direction;
     /* SetFrameMethod checks the retail DIR_FIRST..DIR_LAST range; endpoint
        behavior 1 wraps and 2 reverses in AdvanceAnimationFrame. */
-    unsigned char frame_method;
-    unsigned char animation_behaviour; /* W8AnimationBehaviour */
+    W8AnimationFrameMethod frame_method;
+    W8AnimationBehaviour animation_behaviour;
     /* 0xff means no pending change. ApplyPendingCycle applies it to the
        selected representation, then clears the old object's slot. */
-    unsigned char pending_behaviour;
+    W8AnimationBehaviour pending_behaviour;
     /* Prop computes this pair from the animation's bounds, and stores the
        scaled extent in +0x8c. Other representation families inherit the
        storage even when their own use is not yet established. */

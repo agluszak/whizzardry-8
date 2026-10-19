@@ -13,6 +13,7 @@
 #include "wiz8/audio_resources.h"
 
 class W8Monster;
+enum W8AnimationBehaviour : unsigned char;
 struct W8MonsterGroup;
 struct W8MonsterInfo;
 struct W8MonsterRecord;
@@ -427,7 +428,7 @@ float GetAveragePartyMemberLevel(void);
    `party_slot` receives the best member's slot. */
 unsigned int GetBestPartySkillLevel(W8Skill skill_index, int* party_slot);
 
-void StartMonsterCycle(W8MonsterInfo* monster_info, int cycle, int behavior);
+void StartMonsterCycle(W8MonsterInfo* monster_info, int cycle, W8AnimationBehaviour behavior);
 void MonsterInfoLeaveCombat(W8MonsterInfo* monster_info);
 void ShutdownMonsterManager(void);
 

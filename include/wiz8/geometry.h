@@ -13,6 +13,8 @@
 
 struct W8EnvironRecord;
 struct W8LevelDataRecord;
+enum W8FootstepSurface : unsigned char;
+enum W8FootstepMaterial : unsigned char;
 
 /* Physical-surface masks recovered from retail collision/build consumers.
    WALKABLE/PATHFINDING also agree with Cosmic Forge's face editor. */
@@ -59,8 +61,8 @@ struct W8GDSurface {
     float distance;
     /* Hit plane ProbePropsAlongMotion fills for ResolveCollision. */
     const W8Plane* hit_plane;
-    unsigned char footstep_surface;  /* W8FootstepSurface selector */
-    unsigned char footstep_material; /* W8FootstepMaterial selector */
+    W8FootstepSurface footstep_surface;
+    W8FootstepMaterial footstep_material;
     unsigned char positional[2];
     float contact_margin;
     unsigned int chance;

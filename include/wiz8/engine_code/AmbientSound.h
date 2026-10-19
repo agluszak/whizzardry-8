@@ -89,7 +89,7 @@ public:
 /* Reverb environment id indexing g_footstep_surfaces; retail's range
    check admits 9, one past the table's last entry (the ids are byte-sized in
    the record, so the parameters stay `char`). */
-enum W8FootstepSurface {
+enum W8FootstepSurface : unsigned char {
     W8_FOOTSTEP_SURFACE_NONE = 0,
     W8_FOOTSTEP_SURFACE_SMALL_CAVE = 1,
     W8_FOOTSTEP_SURFACE_MEDIUM_CAVE = 2,
@@ -100,12 +100,13 @@ enum W8FootstepSurface {
     W8_FOOTSTEP_SURFACE_OUTDOORS_FLAT = 7,
     W8_FOOTSTEP_SURFACE_OUTDOORS_CANYON = 8,
     W8_FOOTSTEP_SURFACE_MAX = 9,
+    W8_FOOTSTEP_SURFACE_UNSET = 0xff,
 };
 
 /* Step material id indexing g_footstep_names; ids at and above
    CLIMB_LADDER bypass the per-surface naming path and play a single
    "Step_<name>.WAV". */
-enum W8FootstepMaterial {
+enum W8FootstepMaterial : unsigned char {
     W8_FOOTSTEP_MATERIAL_NONE = 0,
     W8_FOOTSTEP_MATERIAL_GRITTY = 1,
     W8_FOOTSTEP_MATERIAL_GRASS = 2,
@@ -132,19 +133,21 @@ enum W8FootstepMaterial {
     W8_FOOTSTEP_MATERIAL_CRAWL = 23,
     W8_FOOTSTEP_MATERIAL_FLY = 24,
     W8_FOOTSTEP_MATERIAL_MAX = 25,
+    W8_FOOTSTEP_MATERIAL_UNSET = 0xff,
 };
 
 /* Which footstep wave shape PlayFootstep builds: an ordinary numbered step, a
    single jump, or a numbered scuff. */
-enum W8FootstepKind {
+enum W8FootstepKind : unsigned char {
     W8_FOOTSTEP_KIND_STEP = 0,
     W8_FOOTSTEP_KIND_JUMP = 1,
     W8_FOOTSTEP_KIND_SCUFF = 2,
 };
 
-void BuildFootstepPath(char* path, signed char surface, signed char material, char kind,
-                       int variant);
-wiz8::sound::Playback PlayFootstep(signed char surface, signed char material, W8FootstepKind kind);
+void BuildFootstepPath(char* path, W8FootstepSurface surface, W8FootstepMaterial material,
+                       W8FootstepKind kind, int variant);
+wiz8::sound::Playback PlayFootstep(W8FootstepSurface surface, W8FootstepMaterial material,
+                                   W8FootstepKind kind);
 void UpdateAmbientSounds(W8World* world);
 void RepositionAmbientSounds();
 unsigned char ReadAmbientSoundListFile(W8World& world, const char* filename);
@@ -174,8 +177,8 @@ bool IsSoundEffectsMuted(void);
 void SetSoundEffectsVolume(unsigned char volume);
 void SetSoundEffectsMuted(unsigned char muted);
 
-extern unsigned char g_default_footstep_surface;
-extern unsigned char g_default_footstep_material;
+extern W8FootstepSurface g_default_footstep_surface;
+extern W8FootstepMaterial g_default_footstep_material;
 extern bool g_footstep_alternate;
 extern int g_previous_ambient_footstep_variant;
 extern const char* g_footstep_names[];

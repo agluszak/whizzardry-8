@@ -457,10 +457,10 @@ void UpdateAmbientSounds(W8World* world)
 }
 
 // GLOBAL: WIZ8 0x0065a108
-unsigned char g_default_footstep_surface;
+W8FootstepSurface g_default_footstep_surface;
 
 // GLOBAL: WIZ8 0x0065a109
-unsigned char g_default_footstep_material;
+W8FootstepMaterial g_default_footstep_material;
 
 // GLOBAL: WIZ8 0x0065a10a
 bool g_footstep_alternate;
@@ -489,10 +489,11 @@ const char* g_footstep_scuff_name = "Scuff";
 /* Surface and material ids are range-checked against 1..9 / 1..25 before
    indexing the name tables. */
 // FUNCTION: WIZ8 0x0047a440
-wiz8::sound::Playback PlayFootstep(signed char surface, signed char material, W8FootstepKind kind)
+wiz8::sound::Playback PlayFootstep(W8FootstepSurface surface, W8FootstepMaterial material,
+                                   W8FootstepKind kind)
 {
-    signed char selected_surface;
-    signed char selected_material;
+    W8FootstepSurface selected_surface;
+    W8FootstepMaterial selected_material;
     char path[260];
     int attempts = 0;
 
@@ -525,8 +526,8 @@ wiz8::sound::Playback PlayFootstep(signed char surface, signed char material, W8
 }
 
 // FUNCTION: WIZ8 0x0047a540
-void BuildFootstepPath(char* path, signed char surface, signed char material, char kind,
-                       int variant)
+void BuildFootstepPath(char* path, W8FootstepSurface surface, W8FootstepMaterial material,
+                       W8FootstepKind kind, int variant)
 {
     if (kind == W8_FOOTSTEP_KIND_STEP) {
         sprintf(path, "Data\\Sound\\Footsteps\\%s\\Step_%s_%s_%.2d.WAV", g_footstep_names[material],

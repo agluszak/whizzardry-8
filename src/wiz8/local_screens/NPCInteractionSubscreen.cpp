@@ -771,7 +771,7 @@ static unsigned char OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item,
     state->last_mouse_x = -1;
     state->last_mouse_y = -1;
     state->hovered_text_line = -1;
-    state->trade_filter = 0;
+    state->trade_filter = W8_NPC_TRADE_FILTER_NONE;
     state->value_000 = 0;
     state->where_is_query = false;
     state->held_item_pending = false;
@@ -2337,7 +2337,7 @@ static void OpenNpcDialogueOptionLayout(void)
     if (!gXStatus.fCampMode) {
         ResetEditorStatusLine(2);
     }
-    g_npc_interaction_state->trade_filter = 0;
+    g_npc_interaction_state->trade_filter = W8_NPC_TRADE_FILTER_NONE;
     for (index = 0; index < 6; ++index) {
         SetNpcActionEnabled(W8_NPC_CONTROL_OPTION_BUTTONS + index, false);
     }
@@ -2712,7 +2712,7 @@ static void OpenNpcDialogueMode5Layout(void)
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_37].primary = RestockNpcTradeStock;
     SetNpcActionVisible(W8_NPC_CONTROL_TEXT_5, false);
     SetNpcActionVisible(W8_NPC_CONTROL_TEXT_6, false);
-    g_npc_interaction_state->trade_filter = 0;
+    g_npc_interaction_state->trade_filter = W8_NPC_TRADE_FILTER_NONE;
     for (index = 0; index < 6; ++index) {
         SetNpcActionEnabled(W8_NPC_CONTROL_OPTION_BUTTONS + index, false);
     }

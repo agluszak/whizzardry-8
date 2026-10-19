@@ -74,8 +74,8 @@ struct W8LevelDataRecord {
        flips setting-6e props referenced here. */
     int primary_contact_prop_id;   /* 0x04 */
     int secondary_contact_prop_id; /* 0x08 */
-    signed char sound_environment;
-    signed char sound_environment_alt;
+    W8FootstepSurface sound_environment;
+    W8FootstepMaterial sound_environment_alt;
     float footstep_accumulator; /* 0x10 */
     float camera_scale;         /* 0x14 */
     /* 0x18/0x1c: residual segment length and facing metric from the nearest
