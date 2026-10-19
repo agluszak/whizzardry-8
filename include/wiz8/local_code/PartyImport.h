@@ -6,6 +6,7 @@
 struct W8Character;
 
 enum class W8Wiz7CharacterStatus : unsigned char {
+    unknown = 0,
     dead_with_status_2 = 2,
     dead_with_status_3 = 3,
 };

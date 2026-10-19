@@ -918,7 +918,7 @@ void W8CharacterPersonalityPage::SetCharacter(W8Character* character,
                            .priority = UI_PRIORITY_LOWEST,
                            .menu_artwork = true});
 
-        button->SetPosition(0xc3 + positions[action].x, 0x2b + positions[action].y);
+        button->SetPosition(0xc3 + positions[button_index].x, 0x2b + positions[button_index].y);
     }
     character->voice = std::clamp(int(character->voice), 0, 1);
     for (int index = 0; index < 11; ++index) {
