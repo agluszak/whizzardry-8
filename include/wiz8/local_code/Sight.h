@@ -14,7 +14,7 @@ void RefreshOutwardSightForAllMonsters(void);
 void RefreshInwardSightForAllMonsters(void);
 void RefreshMonsterSight(W8MonsterInfo* monster_info);
 void ResetAndRefreshAllSight(void);
-unsigned int AgeAllMonsterSight(void);
+void AgeAllMonsterSight(void);
 void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bounds);
 
 /* Monster-to-monster sight after line of sight is already clear. */

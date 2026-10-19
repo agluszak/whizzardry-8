@@ -10,7 +10,7 @@ struct W8PortraitAnimation {
     int rendered_frame = -1;
     int frame = 6;
     uint64_t frame_clock = 0;
-    unsigned int voice_remaining_ms = 0;
+    std::uint64_t voice_remaining_ms = 0;
     int rendered_pose = -1;
     int pose = 1;
     int target_pose = 1;

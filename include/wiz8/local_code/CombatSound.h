@@ -1,5 +1,6 @@
-#include <string_view>
 #pragma once
+
+#include <string_view>
 
 #include "wiz8/attack_modes.h"
 

@@ -66,7 +66,7 @@ void UpdateWorldMonsters(W8World* world)
     glm::vec3 position;
     position = glm::vec3(camera_location);
 
-    unsigned int count = world->active_monsters.size();
+    auto count = world->active_monsters.size();
     UpdateNearestMonsterGroupMembers();
     for (int index = 0; index < static_cast<int>(count); ++index) {
         W8Monster* monster = world->active_monsters[index];
@@ -87,7 +87,7 @@ void DetachWorldItemMeshes(W8World* world)
     if (world == 0) {
         srAssertFail("pWorld", THREE_D_CPP, 0x135, 0);
     }
-    unsigned int count = world->plsItems.size();
+    auto count = world->plsItems.size();
     for (int index = 0; index < static_cast<int>(count); ++index) {
         W8Item* item = world->plsItems[index].get();
         if (item != 0) {

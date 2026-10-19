@@ -521,7 +521,7 @@ bool W8CharacterScreen::CommitCharacter()
         }
         m_character.fInParty = false;
         if (!SaveCharacter(&m_character, -1)) {
-            m_character = backup;
+            m_character = std::move(backup);
             ShowMessage(g_localized_strings[0xd4], 0, 0);
             return false;
         }

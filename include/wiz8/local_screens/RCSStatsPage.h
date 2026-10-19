@@ -1,4 +1,3 @@
-#include "wiz8/ui_layer.h"
 #pragma once
 
 #include <array>
@@ -10,6 +9,7 @@
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/RangeControl.h"
 #include "wiz8/ui_input.h"
+#include "wiz8/ui_layer.h"
 
 /* One row of the stats page's effect list: a character condition, an
    enchantment, or the modifiers of one equipped item. */

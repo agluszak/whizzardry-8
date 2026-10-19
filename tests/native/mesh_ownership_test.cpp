@@ -112,9 +112,9 @@ static bool lazyTables()
     REQUIRE(mesh.getPolyUVIndex(0, 0) == nullptr);
     auto* active = mesh.getActivePolygonTable(1);
     REQUIRE((active[0] == 0 && active[1] == 1));
-    REQUIRE(mesh.getTriMesh().active_polygons->data() == active);
+    REQUIRE(mesh.getTriMesh().active_polygons.value().data() == active);
     mesh.setActivePolygonCount(1);
-    REQUIRE(mesh.getTriMesh().active_polygons->size() == 1);
+    REQUIRE(mesh.getTriMesh().active_polygons.value().size() == 1);
     auto* dig = mesh.getVertexDIG(0, 1);
     REQUIRE(mesh.getTriMesh().dig[0] == dig);
     for (int index = 0; index < 3; ++index) {
@@ -210,7 +210,7 @@ static bool pipelineSlots()
     pipeline->triangle_count = 1;
     pipeline->active_triangles.emplace();
     pipeline->FlushSlots();
-    REQUIRE(pipeline->active_triangles->empty());
+    REQUIRE(pipeline->active_triangles.value().empty());
     pipeline->Reset(&renderer);
     REQUIRE_FALSE(pipeline->active_triangles);
     srMeshModel mesh(1, 3);

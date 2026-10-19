@@ -1,6 +1,7 @@
 #ifndef WIZ8_ENGINE_CODE_ANIM_OBJ_H
 #define WIZ8_ENGINE_CODE_ANIM_OBJ_H
 
+#include <cstddef>
 #include <memory>
 #include <optional>
 #include <vector>
@@ -60,7 +61,7 @@ bool AnimObjReadFromFile(W8ReadLevelInfo* info, W8AnimObj* animation, int load_a
 srModelInstance* AnimObjDispatch(W8AnimObj* animation, signed char list_index, unsigned char value);
 srModelInstance* AnimObjDispatchList(W8AnimObj* animation, signed char list_index,
                                      signed char entry_index);
-W8AniMesh* AnimObjEntry(W8AnimObj* animation, signed char list_index, unsigned int entry_index);
+W8AniMesh* AnimObjEntry(W8AnimObj* animation, signed char list_index, std::size_t entry_index);
 std::optional<srBoundingBox> AnimObjGetBounds(W8AnimObj* animation, signed char list_index,
                                               unsigned int frame);
 

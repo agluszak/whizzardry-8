@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <functional>
@@ -25,7 +26,6 @@
 #include "Item.h"
 #include "asset_paths.h"
 #include "camera_motion.h"
-#include "compat/compiler.h"
 #include "compat/native.h"
 #include "dialog_code/DialogBase.h"
 #include "dialog_code/DialogTextArea.h"
@@ -1918,7 +1918,7 @@ unsigned char W8NpcDialogueTextController::AddTranscriptEntry(std::string_view t
     int added;
 
     for (index = 0; index < static_cast<int>(text_area.m_all_lines.size()); ++index) {
-        if (CompareTextIgnoreAsciiCase(*text_area.GetEntryText(index), text) == 0) {
+        if (CompareTextIgnoreAsciiCase(text_area.GetEntryText(index).value(), text) == 0) {
             return 0;
         }
     }
@@ -1929,7 +1929,8 @@ unsigned char W8NpcDialogueTextController::AddTranscriptEntry(std::string_view t
     }
     if (text_area.m_all_lines.size() > 1) {
         for (index = 0; index < static_cast<int>(text_area.m_all_lines.size()); ++index) {
-            if (CompareTextIgnoreAsciiCase(*text_area.GetEntryText(index), " [No Keywords]") == 0) {
+            if (CompareTextIgnoreAsciiCase(text_area.GetEntryText(index).value(),
+                                           " [No Keywords]") == 0) {
                 text_area.RemoveEntry(index);
                 InvalidateAll();
                 break;
@@ -3117,7 +3118,7 @@ void RedrawCombatMonsterList(bool subject_valid)
     unsigned int group_list_index;
     unsigned int live_row_count;
     unsigned int max_text_width;
-    unsigned int list_length;
+    std::size_t list_length;
     int row_y;
     W8MonsterGroup* monster_group;
     short text_width;
@@ -3803,7 +3804,7 @@ void ShowMainGameNoticeLine(std::string_view text, std::function<void(bool)> cal
     dialog = CreateMessageDialog();
     dialog->SetClientExtent(0xfa, 200);
     dialog->SetMessage(text, 1, 0x32, confirmation, cancel, true, true, 0, 0x15e);
-    dialog->on_complete = callback;
+    dialog->on_complete = std::move(callback);
     OpenModal(std::unique_ptr<ModalContent>(dialog));
 }
 
@@ -6409,7 +6410,7 @@ void RebuildNpcTradeItemList(bool scroll_to_top)
     if (g_npc_interaction_state->trade_mode == W8_NPC_TRADE_BUY ||
         g_npc_interaction_state->trade_mode == W8_NPC_TRADE_SHOPLIFT) {
         unsigned int shown = 0;
-        unsigned int count = GetNpcItemCount(g_npc_interaction_state->dialogue_npc);
+        const auto count = GetNpcItemCount(g_npc_interaction_state->dialogue_npc);
         for (int index = 0; index < static_cast<int>(count); ++index) {
             W8NpcItemEntry* entry = GetNpcItemAt(g_npc_interaction_state->dialogue_npc, index);
             ++shown;
@@ -6692,7 +6693,7 @@ resume_world:
    a fight is on; the party half always. */
 
 // GLOBAL: WIZ8 0x0068edb8
-static w8_ulong g_surprise_fade_tick_base;
+static std::uint64_t g_surprise_fade_tick_base;
 // GLOBAL: WIZ8 0x005ee9a8
 const float g_fade_resume_scale = -500.0f;
 // GLOBAL: WIZ8 0x0068edca
@@ -6747,7 +6748,7 @@ void ReverseSurpriseFade(void)
             static_cast<srMaterial*>(static_cast<srMeshModel*>(g_surprise_fade_node->getModel())
                                          ->getMaterial(0, srMeshModel::SIDE_FRONT));
         float opacity = material->parms.diffuse.w;
-        w8_ulong now = w8_get_ticks();
+        std::uint64_t now = w8_get_ticks();
         g_surprise_fade_in = !g_surprise_fade_in;
         if (g_surprise_fade_in) {
             g_surprise_fade_tick_base =
@@ -6776,7 +6777,7 @@ unsigned char UpdateSurpriseFade(void)
     bool done = false;
     bool boundary = false;
     float opacity;
-    w8_ulong now = w8_get_ticks();
+    std::uint64_t now = w8_get_ticks();
 
     if (g_surprise_fade_tick_base + 500 < now) {
         if (!g_surprise_fade_in) {

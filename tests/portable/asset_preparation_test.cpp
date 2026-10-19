@@ -13,6 +13,7 @@
 #include "prepare.h"
 #include "slf.h"
 #include "temporary_directory.h"
+#include "wiz8/checked_integer.h"
 #include "wiz8/filesystem.h"
 
 namespace fs = std::filesystem;
@@ -33,7 +34,7 @@ void archive(const fs::path& path, const char* prefix, const char* name, std::st
     wiz8::SlfEntry entry{};
     std::strcpy(entry.sFileName, name);
     entry.uiOffset = sizeof(header);
-    entry.uiLength = data.size();
+    entry.uiLength = wiz8::checked_integer<std::uint32_t>(data.size());
     std::string bytes(reinterpret_cast<const char*>(&header), sizeof(header));
     bytes += data;
     bytes.append(reinterpret_cast<const char*>(&entry), sizeof(entry));

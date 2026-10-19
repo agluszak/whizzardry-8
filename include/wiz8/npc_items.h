@@ -1,6 +1,8 @@
 #ifndef WIZ8_NPC_ITEMS_H
 #define WIZ8_NPC_ITEMS_H
 
+#include <cstddef>
+
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/npc_trade_price.h"
 
@@ -44,7 +46,7 @@ unsigned char MaintainNpcStock(W8NpcState* npc, bool force);
 void MatureNpcDelayedItems(W8NpcState* npc);
 void RestockNpcInventory(W8NpcState* npc); /* 0x0055BCC0 */
 W8NpcItemEntry* GetNpcItemAt(W8NpcState* npc, int index);
-unsigned int GetNpcItemCount(W8NpcState* npc);
+std::size_t GetNpcItemCount(W8NpcState* npc);
 bool NpcAcceptsTradeItem(W8NpcState* npc, W8ItemInstance* item);
 bool NpcAcceptsTradeItemClass(const W8NpcState* npc, const W8ItemInstance* item); /* 0x0055B290 */
 int CalculateNpcTradeStackPrice(W8NpcState* npc, int item_id, W8TradePriceKind price_kind,

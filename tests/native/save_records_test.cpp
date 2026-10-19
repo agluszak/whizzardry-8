@@ -18,6 +18,7 @@
 #include "retail_records.h"
 #include "save_payload.h"
 #include "unicode.h"
+#include "wiz8/checked_integer.h"
 #include "wiz8/compat/native.h"
 #include "wiz8/engine_code/Quality.h"
 #include "wiz8/engine_code/stModelInstance.h" // IWYU pragma: keep - complete model type for unique_ptr destruction.
@@ -271,7 +272,7 @@ static void unicode_file_contracts()
         const unsigned char header[5] = {0, 0, 0, 0, static_cast<unsigned char>(encrypted)};
         file->write(header, sizeof(header));
         const auto bytes = retail_bytes(name, encrypted);
-        const int length = bytes.size() / 2;
+        const auto length = wiz8::checked_integer<int>(bytes.size() / 2);
         const unsigned first = 123, second = 456;
         file->write(&first, 4);
         file->write(&second, 4);
@@ -300,7 +301,7 @@ static void unicode_file_contracts()
         wiz8::open_file(wiz8::asset_path("Data/Strings/unicode.dat"), wiz8::OpenMode::replace);
     const int count = 1;
     const auto bytes = retail_bytes("é中😀 %S %hs %s", true);
-    const int length = bytes.size();
+    const auto length = wiz8::checked_integer<int>(bytes.size());
     file->write(&count, 4);
     file->write(&length, 4);
     file->write(bytes.data(), bytes.size());
@@ -534,14 +535,14 @@ static void animation_record_contracts()
         REQUIRE((animation->frame_bounds.size() == 2));
         const auto bounds = AnimObjGetBounds(animation.get(), 0, 1);
         REQUIRE(bounds);
-        REQUIRE((bounds->minimum.y == -1000 && bounds->maximum.z == 1500));
+        REQUIRE((bounds.value().minimum.y == -1000 && bounds.value().maximum.z == 1500));
         REQUIRE_FALSE(AnimObjGetBounds(nullptr, 0, 0));
         REQUIRE_FALSE(AnimObjGetBounds(animation.get(), -1, 1));
         REQUIRE_FALSE(AnimObjGetBounds(animation.get(), 3, 1));
         const auto wrapped_bounds = AnimObjGetBounds(animation.get(), 0, 0x101);
         REQUIRE(wrapped_bounds);
-        REQUIRE(wrapped_bounds->minimum == bounds->minimum);
-        REQUIRE(wrapped_bounds->maximum == bounds->maximum);
+        REQUIRE(wrapped_bounds.value().minimum == bounds.value().minimum);
+        REQUIRE(wrapped_bounds.value().maximum == bounds.value().maximum);
         animation->path = std::make_unique<W8PathAI>();
         PathAIAddPoint(*animation->path, glm::vec3(1, 2, 3));
         animation->paths[0].push_back(std::make_unique<W8PathAI>(*animation->path));
@@ -563,7 +564,7 @@ static void animation_record_contracts()
         REQUIRE((copy->paths[0][0]->nodes[0].z == 3));
         const auto copy_bounds = AnimObjGetBounds(copy.get(), 0, 0);
         REQUIRE(copy_bounds);
-        REQUIRE((copy_bounds->minimum.x == -500 && copy_bounds->maximum.x == 500));
+        REQUIRE((copy_bounds.value().minimum.x == -500 && copy_bounds.value().maximum.x == 500));
         copy->path_lists = true;
         REQUIRE((!AnimObjGetBounds(copy.get(), 0, 2)));
     }
@@ -584,15 +585,15 @@ static void animated_mesh_cache_contracts()
         mesh.bounds_maximum = {4, 5, 6};
         auto bounds = GetAniMeshBounds(&mesh);
         REQUIRE(bounds);
-        REQUIRE(bounds->minimum == glm::vec3(-1, -2, -3));
-        REQUIRE(bounds->maximum == glm::vec3(4, 5, 6));
+        REQUIRE(bounds.value().minimum == glm::vec3(-1, -2, -3));
+        REQUIRE(bounds.value().maximum == glm::vec3(4, 5, 6));
         REQUIRE(mesh.last_used == old_stamp);
         REQUIRE(g_animesh_cache_stamp == old_stamp + 1);
         REQUIRE_FALSE(mesh.flags.loaded);
-        bounds->minimum.x = -100;
+        bounds.value().minimum.x = -100;
         const auto snapshot = GetAniMeshBounds(&mesh);
         REQUIRE(snapshot);
-        REQUIRE(snapshot->minimum.x == -1);
+        REQUIRE(snapshot.value().minimum.x == -1);
         REQUIRE(mesh.last_used == old_stamp + 1);
     }
     constexpr auto filename = "Data/empty-animation-mesh.dat";
@@ -958,8 +959,10 @@ static void save_file_contracts(const std::filesystem::path& user)
     const auto oldest_status = wiz8::file_status(wiz8::user_path(oldest)),
                newest_status = wiz8::file_status(wiz8::user_path(newest));
     REQUIRE((oldest_status && newest_status));
-    const auto oldest_time = wiz8::file_time_from_sdl(oldest_status->info.modify_time).ticks();
-    const auto newest_time = wiz8::file_time_from_sdl(newest_status->info.modify_time).ticks();
+    const auto oldest_time =
+        wiz8::file_time_from_sdl(oldest_status.value().info.modify_time).ticks();
+    const auto newest_time =
+        wiz8::file_time_from_sdl(newest_status.value().info.modify_time).ticks();
     REQUIRE((oldest_time < newest_time && (newest_time - oldest_time) / 10000000 >= 3600));
     REQUIRE(!(newest_time < oldest_time));
     REQUIRE((newest_time - oldest_time) / 10000000 < 20000);
@@ -1265,7 +1268,7 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
             REQUIRE((npc->items.empty() && npc->script_file == 0));
             if (i < 2) {
                 REQUIRE(npc->character.has_value());
-                REQUIRE(npc->character->name[0] == static_cast<char>('A' + i));
+                REQUIRE(npc->character.value().name[0] == static_cast<char>('A' + i));
             } else {
                 REQUIRE(!npc->character);
             }
@@ -1311,7 +1314,7 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
             }
             REQUIRE((rejected && NpcStatePointers() == previous));
             REQUIRE(g_npc_states[0].get() == previous_npc);
-            REQUIRE(previous_npc->character->name[0] == L'A');
+            REQUIRE(previous_npc->character.value().name[0] == L'A');
             file.reset();
         }
         REQUIRE((!GetNpcState(-1) && !GetNpcState(3)));
@@ -1323,7 +1326,7 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
         auto* replacement = CreateNpcRuntimeNode(0);
         REQUIRE((g_npc_states.size() == 3 && GetNpcState(0) == replacement));
         REQUIRE((replacement->partner_index == 0 && GetNpcState(1) == kept));
-        REQUIRE((retired->binding_unavailable && retired->character->name[0] == L'A'));
+        REQUIRE((retired->binding_unavailable && retired->character.value().name[0] == L'A'));
         ReleaseNpcStates();
         ReleaseNpcStates();
         REQUIRE(g_npc_states.empty());

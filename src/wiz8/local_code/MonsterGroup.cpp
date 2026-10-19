@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <cstring>
 #include <memory>
 #include <source_location>
@@ -335,21 +336,11 @@ W8MonsterRecord* MonsterGroupGetRecord(W8MonsterGroup* monster_group)
 // FUNCTION: WIZ8 0x0050f5d0
 unsigned char RemoveAllGroupMembers(W8MonsterGroup* monster_group)
 {
-    unsigned int index;
-    bool removed;
-    int location_id;
-
-    index = monster_group->MemberIds().size();
-    do {
-        --index;
-        if (static_cast<int>(index) < 0) {
-            return 1;
-        }
-
-        location_id = monster_group->MemberLocationId(index);
-        removed = RemoveMonster(FindMonster(location_id), W8MonsterRemoval::Despawn);
-    } while (removed);
-    return 0;
+    for (auto index = monster_group->MemberIds().size(); index > 0; --index) {
+        const int location_id = monster_group->MemberLocationId(index - 1);
+        if (!RemoveMonster(FindMonster(location_id), W8MonsterRemoval::Despawn)) return 0;
+    }
+    return 1;
 }
 
 /* Brings every member of a group into the world. Front to back, and the list
@@ -471,7 +462,7 @@ unsigned char ApplyToMonsterGroupLeader(W8MonsterGroup* monster_group, const glm
 // FUNCTION: WIZ8 0x0050ff40
 void SetMonsterGroupFormation(W8MonsterGroup* monster_group, const glm::vec3* formation)
 {
-    unsigned int count;
+    std::size_t count;
     int index;
     W8Monster* monster;
 
@@ -702,7 +693,7 @@ bool MonsterGroupHasIncapacitatedMember(int group_id)
 // FUNCTION: WIZ8 0x0050ffd0
 void GetMonsterGroupCentre(W8MonsterGroup* monster_group, glm::vec3* centre)
 {
-    unsigned int count;
+    std::size_t count;
     unsigned int index;
     glm::vec3 position;
     float divisor;

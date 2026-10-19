@@ -24,6 +24,7 @@
 #include "soundman.h"
 #include "temporary_directory.h"
 #include "wiz8/bink_video.h"
+#include "wiz8/checked_integer.h"
 #include "wiz8/surface_storage.h"
 
 std::vector<unsigned char> read(const char* path)
@@ -76,7 +77,7 @@ static void exercise_movie(const char* retail_movie)
     wiz8::SlfEntry entries[2]{};
     strcpy(entries[0].sFileName, "packed.mkv");
     entries[0].uiOffset = sizeof(header);
-    entries[0].uiLength = encoded.size();
+    entries[0].uiLength = wiz8::checked_integer<std::uint32_t>(encoded.size());
     strcpy(entries[1].sFileName, "truncated.mkv");
     entries[1].uiOffset = sizeof(header);
     entries[1].uiLength = 16; // The rest of the valid movie must be inaccessible.

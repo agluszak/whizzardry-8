@@ -464,8 +464,8 @@ TEST_CASE("Proposed weapons use the same hand rules without changing equipment",
     character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON].iItemNo = 2;
     const auto choice = PlanWeaponSetSwap(character);
     REQUIRE(choice);
-    REQUIRE(choice->primary);
-    REQUIRE(choice->secondary);
+    REQUIRE(choice.value().primary);
+    REQUIRE(choice.value().secondary);
     const auto proposed =
         EvaluateWeaponHands(character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON],
                             character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON]);

@@ -1,5 +1,7 @@
-#include <string_view>
 #pragma once
+
+#include <string_view>
+
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/layouts/screen_state.h"
 

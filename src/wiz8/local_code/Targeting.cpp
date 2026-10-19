@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <cstring>
 #include <iterator>
 #include <optional>
@@ -1872,7 +1873,7 @@ bool AnyMonsterVisible(void)
 {
     glm::vec3 camera;
     float limit;
-    int count;
+    std::ptrdiff_t count;
     int index;
 
     limit = static_cast<float>(WorldGetFarClip(GetWorld())) * 1.5f;

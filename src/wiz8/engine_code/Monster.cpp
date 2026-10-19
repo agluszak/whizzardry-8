@@ -3375,7 +3375,7 @@ void W8Monster::UpdateAttachedObjects(bool hovered)
 {
     W8MonsterRep* representation = m_pRep.get();
     int attachment_layout = representation->icon_count;
-    unsigned int linked_count = representation->spell_icons.size();
+    const auto linked_count = representation->spell_icons.size();
     int poster_count = static_cast<int>(representation->linked_runtime_objects.size());
     glm::mat3 camera_rotation;
     glm::vec3 base_position;

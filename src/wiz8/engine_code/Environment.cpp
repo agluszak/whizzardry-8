@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 #include <exception>
 #include <memory>
@@ -49,7 +50,7 @@ W8EnvironmentLightingMode g_environment_lighting_mode = W8EnvironmentLightingMod
 // GLOBAL: WIZ8 0x0065b9ae
 bool g_sky_enabled;
 // GLOBAL: WIZ8 0x0065B9A8
-static w8_ulong g_tick;
+static std::uint64_t g_tick;
 /* 0x00659AB4: the world being rendered. Its sky node is the one field these
    two bodies reach, and it is the same W8World the 3d code walks. */
 
@@ -65,7 +66,7 @@ float g_environment_transition_rate;
 /* Tick baseline for the active lighting transition; rewritten every frame the
    transition body advances the light scale. */
 // GLOBAL: WIZ8 0x0065b9bc
-w8_ulong g_environment_transition_tick;
+std::uint64_t g_environment_transition_tick;
 // GLOBAL: WIZ8 0x0060a3ac
 
 // GLOBAL: WIZ8 0x0060a395
@@ -194,8 +195,8 @@ void AdvanceEnvironmentTime(int elapsed)
 static void AdvanceEnvironmentClock(void)
 {
     if (g_environment_time_enabled) {
-        w8_ulong now = w8_get_ticks();
-        w8_ulong elapsed = now - g_tick;
+        std::uint64_t now = w8_get_ticks();
+        std::uint64_t elapsed = now - g_tick;
         if (elapsed != 0) {
             AdvanceEnvironmentTime(
                 static_cast<int>(static_cast<double>(elapsed) * g_view_distance));
@@ -487,8 +488,8 @@ void BeginWorldLightingFade(float duration)
 // FUNCTION: WIZ8 0x00484300
 void UpdateEnvironmentLighting(void)
 {
-    w8_ulong now = w8_get_ticks();
-    w8_ulong elapsed = now - g_environment_transition_tick;
+    std::uint64_t now = w8_get_ticks();
+    std::uint64_t elapsed = now - g_environment_transition_tick;
     W8World* world;
     float scale;
     float intensity;

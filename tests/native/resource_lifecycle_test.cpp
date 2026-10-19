@@ -1,6 +1,7 @@
 #include <array>
 #include <cstddef>
 #include <filesystem>
+#include <limits>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -413,6 +414,17 @@ TEST_CASE("Shake instances retire before reentrant completion and can restart",
     REQUIRE_FALSE(system.IsActive(definition));
     REQUIRE(system.Update({0, 0, 0}) == 0);
     REQUIRE(shake_callbacks == 1);
+
+    definition.duration = std::numeric_limits<float>::infinity();
+    definition.completion_callback = {};
+    system.Start(definition, &definition);
+    for (int frame = 0; frame < 3; ++frame) {
+        REQUIRE(system.Update({0, 0, 0}) == 1);
+        REQUIRE(system.IsActive(definition));
+    }
+    system.Stop(definition);
+    REQUIRE_FALSE(system.IsActive(definition));
+    REQUIRE(system.Update({0, 0, 0}) == 0);
 }
 
 TEST_CASE_METHOD(SpellVisualFixture, "All emitter animations release before any cycle lights",
@@ -650,9 +662,9 @@ TEST_CASE("Ambient exchanges wait for completion and choose a different responde
     auto completed = std::move(queue.active_events.front());
     queue.active_events.clear();
     queue.RestartFollowUpClock(completed.get());
-    REQUIRE(queue.follow_up->ready_at >= now + 2000);
-    REQUIRE(queue.follow_up->ready_at <= w8_get_ticks() + 8000);
-    queue.follow_up->ready_at = 0; // Expire the response delay without sleeping.
+    REQUIRE(queue.follow_up.value().ready_at >= now + 2000);
+    REQUIRE(queue.follow_up.value().ready_at <= w8_get_ticks() + 8000);
+    queue.follow_up.value().ready_at = 0; // Expire the response delay without sleeping.
     queue.ProcessFollowUpEvents();
     REQUIRE(queue.pending_events.size() == 1);
     REQUIRE(queue.pending_events.back()->character != first);
@@ -661,11 +673,11 @@ TEST_CASE("Ambient exchanges wait for completion and choose a different responde
     completed = std::move(queue.pending_events.back());
     queue.pending_events.clear();
     queue.RestartFollowUpClock(completed.get());
-    REQUIRE(queue.follow_up->ready_at >= now + 300000);
-    REQUIRE(queue.follow_up->ready_at <= w8_get_ticks() + 360000);
+    REQUIRE(queue.follow_up.value().ready_at >= now + 300000);
+    REQUIRE(queue.follow_up.value().ready_at <= w8_get_ticks() + 360000);
     queue.ProcessFollowUpEvents();
     REQUIRE(queue.pending_events.empty());
-    queue.follow_up->ready_at = 0;
+    queue.follow_up.value().ready_at = 0;
     queue.ProcessFollowUpEvents();
     REQUIRE(queue.pending_events.size() == 1);
     queue.pending_events.clear(); // A discarded line does not leave a waiting latch behind.

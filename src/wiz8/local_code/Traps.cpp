@@ -89,7 +89,6 @@ void WriteRecordModeEntry(void)
     char location_code[32];
     std::string line;
     std::unique_ptr<wiz8::File> file;
-    unsigned int length;
 
     file = [&]() {
         try {
@@ -114,12 +113,8 @@ void WriteRecordModeEntry(void)
         if (GetLevelLocationCode(GetLoadedLevelID(), location_code) == 0) {
             strcpy(location_code, s_record_mode_default_location);
         }
-        length = strlen(location_code);
-        location_code[length] = '\n';
-        file->write(location_code, length + 1);
-        length = strlen(g_record_mode_line);
-        g_record_mode_line[length] = '\n';
-        file->write(g_record_mode_line, length + 1);
+        line = fmt::format("{}\n{}\n", location_code, g_record_mode_line);
+        file->write(line.data(), line.size());
         if (file) file->close();
         file.reset();
     }

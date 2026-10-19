@@ -33,7 +33,7 @@ bool g_ui_help_forced;
 
 namespace {
 unsigned transaction_depth = 0;
-std::vector<std::function<void()>> pending_actions;
+std::vector<std::move_only_function<void()>> pending_actions;
 std::vector<RetiredObject> retired_objects;
 InputEvent PointerMotion(SDL_Point point)
 {
@@ -211,8 +211,9 @@ UiTransaction::~UiTransaction() noexcept(false)
     }
 }
 
-void AfterUiDispatch(std::function<void()> action)
+void AfterUiDispatch(std::move_only_function<void()> action)
 {
+    if (!action) throw std::bad_function_call();
     if (transaction_depth) {
         pending_actions.push_back(std::move(action));
     } else
@@ -307,9 +308,8 @@ HitTarget& UiLayer::add(HitShape shape, HitTarget::Handler handler, int priority
 {
     auto target =
         std::unique_ptr<HitTarget>(new HitTarget(*this, shape, std::move(handler), priority));
-    auto& result = *target;
     targets_.push_back(std::move(target));
-    return result;
+    return *targets_.back();
 }
 void UiLayer::retire(std::unique_ptr<HitTarget> target)
 {

@@ -8,7 +8,6 @@
 #include <string>
 #include <vector>
 
-#include "compat/compiler.h"
 #include "compat/native.h"
 #include "glm/common.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -199,7 +198,7 @@ void stLight::Update()
         return;
     }
 
-    w8_ulong ticks = w8_get_ticks();
+    const auto ticks = w8_get_ticks();
     W8PathAI* path = path_ai.get();
     float seconds = ticks * 0.001f;
     stParametricLightDefinition* definition =

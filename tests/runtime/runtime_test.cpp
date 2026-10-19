@@ -1833,7 +1833,7 @@ void BuyAnswer(Game& game, const char* step, W8FactId fact)
         return g_modal_owner != nullptr && g_npc_dialogue.price_check().has_value();
     });
     const unsigned gold = g_status.party_gold;
-    const int price = g_npc_dialogue.price_check()->price;
+    const int price = g_npc_dialogue.price_check().value().price;
     CAPTURE(step, gold, price);
     REQUIRE((price > 0 && unsigned(price) <= gold));
     REQUIRE(GetFact(fact) == 0);

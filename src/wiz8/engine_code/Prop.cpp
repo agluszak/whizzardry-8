@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -23,7 +24,6 @@
 
 #include "application.h"
 #include "compat/compiler.h"
-#include "compat/native.h"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/fwd.hpp"
@@ -104,7 +104,7 @@ W8PropRepresentation::~W8PropRepresentation() = default;
 // FUNCTION: WIZ8 0x0044e010
 void UpdateWorldProps(W8World* world)
 {
-    unsigned int count;
+    std::size_t count;
     int index;
 
     if (world == 0) {
@@ -131,7 +131,7 @@ W8Prop* FindPropByName(W8World* world, const char* name)
     int index;
 
     if (world != 0 && name != 0) {
-        unsigned int count = world->plsProps.size();
+        const auto count = world->plsProps.size();
 
         for (index = 0; index < static_cast<int>(count); ++index) {
             W8Prop* prop = GetWorldProp(world, index);
@@ -243,7 +243,7 @@ bool ResolvePickedProp()
 {
     srModelInstance* selected;
     glm::vec3 camera_position;
-    unsigned int prop_count;
+    std::size_t prop_count;
     int prop_index;
     bool valid;
 
@@ -572,7 +572,7 @@ void W8Prop::UpdatePropAnimation()
 // FUNCTION: WIZ8 0x0044c200
 void W8Prop::ApplyAnimationPaths()
 {
-    unsigned int count;
+    std::size_t count;
     int index;
 
     if (GetWorld() == nullptr) {
@@ -615,7 +615,7 @@ void W8Prop::AdvanceAnimationValue(int frames, char total)
     W8AnimationFrameMethod behaviour = rep->frame_method;
     int end = rep->last_frame;
     int start = rep->first_frame;
-    unsigned int count;
+    std::size_t count;
     int index;
 
     if (behaviour == W8_ANIMATION_RANDOM_FRAME) {
@@ -823,10 +823,13 @@ bool W8Prop::CanBeUsedFrom(int path_x, int path_z, bool notify)
 // FUNCTION: WIZ8 0x0044c670
 void W8Prop::ApplyAnimationFrame(W8PathingService* pathing)
 {
-    unsigned int count;
+    auto* animation = Rep()->Animation();
+    if (!animation) return;
+
+    std::size_t count;
     int index;
 
-    if (Rep()->Animation()->path_lists != 1) {
+    if (animation->path_lists != 1) {
         W8PropRepresentation* rep = (&representation);
         unsigned char frame = rep->subcycle;
         srModelInstance* mesh;
@@ -840,24 +843,23 @@ void W8Prop::ApplyAnimationFrame(W8PathingService* pathing)
         if (mesh == 0) {
             srAssertFail("psrMesh", PROP_CPP, 0x581, 0);
         }
-        path = (&representation)->animation->path.get();
+        path = animation->path.get();
         if (path != 0) {
             PathAISetValue(path, static_cast<float>((&representation)->subcycle));
-            PathAIApply((&representation)->animation->path.get(), mesh);
+            PathAIApply(animation->path.get(), mesh);
         }
         return;
     }
 
-    count = AnimObjListCount(Rep()->Animation(), 2);
+    count = AnimObjListCount(animation, 2);
     for (index = 0; index < static_cast<int>(count); ++index) {
-        srModelInstance* mesh =
-            AnimObjDispatchList(Rep()->Animation(), 2, static_cast<signed char>(index));
+        srModelInstance* mesh = AnimObjDispatchList(animation, 2, static_cast<signed char>(index));
         W8PathAI* path;
 
         if (mesh == 0) {
             srAssertFail("psrMesh", PROP_CPP, 0x56f, 0);
         }
-        path = AnimObjListEntry(Rep()->Animation(), 2, static_cast<signed char>(index));
+        path = AnimObjListEntry(animation, 2, static_cast<signed char>(index));
         if (path != 0) {
             glm::vec3 location;
 
@@ -882,6 +884,9 @@ void W8Prop::ApplyAnimationFrame(W8PathingService* pathing)
 // FUNCTION: WIZ8 0x0044c830
 void W8Prop::AttachAnimationInstances(W8World* world)
 {
+    auto* animation = Rep()->Animation();
+    if (!animation) return;
+
     int index;
     int count;
     bool has_scales;
@@ -910,12 +915,12 @@ void W8Prop::AttachAnimationInstances(W8World* world)
     if (world == 0) {
         srAssertFail("pWorld", PROP_CPP, 0x5a1, 0);
     }
-    if (Rep()->Animation()->path_lists == 1) {
+    if (animation->path_lists == 1) {
         has_scales = false;
-        count = static_cast<int>(AnimObjListCount(Rep()->Animation(), 2));
+        count = static_cast<int>(AnimObjListCount(animation, 2));
         for (index = 0; index < count; ++index) {
             instance = static_cast<stModelInstance*>(
-                AnimObjDispatchList(Rep()->Animation(), 2, static_cast<signed char>(index)));
+                AnimObjDispatchList(animation, 2, static_cast<signed char>(index)));
             if (instance == 0) {
                 srAssertFail("psrMesh", PROP_CPP, 0x5b4, 0);
             }
@@ -931,7 +936,7 @@ void W8Prop::AttachAnimationInstances(W8World* world)
             if (mesh != 0 && (mesh->flags & W8_MESH_SORTED_RENDERING) != 0 && trigger == 0) {
                 instance->render_flags |= stModelInstance::RENDER_NO_PICK;
             }
-            path = AnimObjListEntry(Rep()->Animation(), 2, static_cast<signed char>(index));
+            path = AnimObjListEntry(animation, 2, static_cast<signed char>(index));
             if (path == 0) {
                 continue;
             }
@@ -1007,8 +1012,8 @@ void W8Prop::AttachAnimationInstances(W8World* world)
         if (mesh != 0 && (mesh->flags & W8_MESH_SORTED_RENDERING) != 0 && trigger == 0) {
             instance->render_flags |= stModelInstance::RENDER_NO_PICK;
         }
-        if (Rep()->animation->path != 0) {
-            PathAIApply(Rep()->animation->path.get(), instance);
+        if (animation->path != 0) {
+            PathAIApply(animation->path.get(), instance);
         } else {
             rep_position = Rep()->GetLocation();
             rep_rotation = Rep()->GetRotation();
@@ -1042,7 +1047,7 @@ void W8Prop::AttachAnimationInstances(W8World* world)
 void W8Prop::DetachAnimationInstances(W8World* world)
 {
     stModelInstance* instance;
-    unsigned int count;
+    std::size_t count;
     int index;
 
     if (world == 0) {
@@ -1082,7 +1087,7 @@ void W8Prop::DetachAnimationInstances(W8World* world)
 // FUNCTION: WIZ8 0x0044dbd0
 void W8Prop::ApplyAnimationState(const SavedAnimationState& state, W8PathingService* pathing)
 {
-    unsigned int count;
+    std::size_t count;
     int index;
     int total;
     W8PathAI* path;
@@ -1438,7 +1443,7 @@ try {
     this->animation_playing = animation->animation_playing;
     this->frame_direction = W8_ANIMATION_FORWARD;
     this->animation_speed = animation->playback_scale;
-    this->timer = w8_get_ticks();
+    this->timer = GameClockMilliseconds();
     if (this->animation_behaviour == W8_ANIMATION_PLAY_ONCE ||
         this->animation_behaviour == W8_ANIMATION_REPEAT) {
         this->animation_playing = 0;

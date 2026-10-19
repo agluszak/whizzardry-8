@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.21)
+cmake_minimum_required(VERSION 4.4.4)
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build configuration")
 endif()
@@ -15,9 +15,12 @@ endif()
 
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+# No C++ modules: avoid per-source scans and generated module response files
+# so the compilation database is also immediately usable by analysis tools.
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
@@ -28,6 +31,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 option(WIZ8_PRECOMPILE_HEADERS "Precompile stable C++ dependencies" ON)
 option(WIZ8_UNITY_BUILD "Compile game and renderer sources in batches" OFF)
 option(WIZ8_SURRENDER_UNITY_BUILD "Unity-build SurRender independently of the game" OFF)
+option(WIZ8_INTEGER_SANITIZER "Audit implicit integer truncation at data/image boundaries" OFF)
 option(WIZ8_WARNINGS_AS_ERRORS "Fail first-party compilation on warnings (CI enables this)" OFF)
 set(WIZ8_UNITY_BATCH_SIZE 4 CACHE STRING "Sources per unity compilation batch")
 if(WIZ8_UNITY_BUILD AND NOT WIZ8_UNITY_BATCH_SIZE MATCHES "^[1-9][0-9]*$")
@@ -44,13 +48,35 @@ endif()
 # defaults (UiInputPolicy, ButtonSetup), so omitting fields is intended.
 add_compile_options(-Wdeprecated -Wimplicit-fallthrough -Wno-unused-parameter
     $<$<COMPILE_LANGUAGE:CXX>:-Wsuggest-override>
+    $<$<COMPILE_LANGUAGE:CXX>:-Wshadow-field-in-constructor-modified>
+    $<$<COMPILE_LANGUAGE:CXX>:-Wshorten-64-to-32>
     $<$<CXX_COMPILER_ID:Clang,AppleClang>:-Wno-missing-designated-field-initializers>)
 # Clang 23's intra-procedural lifetime analysis: dangling and use-after-free.
 add_compile_options(
     $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:Clang>,$<VERSION_GREATER_EQUAL:$<CXX_COMPILER_VERSION>,23>>:-Wlifetime-safety-permissive>)
-# Check view bounds in Debug builds on libstdc++ versions that otherwise leave
-# these checks disabled. This does not change the container ABI.
-add_compile_definitions($<$<CONFIG:Debug>:_GLIBCXX_ASSERTIONS>)
+# Check standard-library bounds in development and sanitizer builds.
+# This does not change the container ABI.
+add_compile_definitions($<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:_GLIBCXX_ASSERTIONS>)
+
+# Fail at configure time if the selected standard library lacks the C++26
+# facilities used by the game (the language flag alone is insufficient).
+include(CheckCXXSourceCompiles)
+check_cxx_source_compiles("
+    #include <functional>
+    #include <inplace_vector>
+    #if __cpp_lib_function_ref < 202306L || __cpp_lib_inplace_vector < 202406L
+    #error Required C++26 library facilities are unavailable
+    #endif
+    int main() {
+        std::inplace_vector<int, 8> slots;
+        auto visit = [&] { slots.push_back(1); };
+        std::function_ref<void()> callback = visit;
+        callback();
+        return slots.front() - 1;
+    }" WIZ8_CXX26_LIBRARY)
+if(NOT WIZ8_CXX26_LIBRARY)
+    message(FATAL_ERROR "Whizzardry requires C++26 function_ref and inplace_vector (Linux: libstdc++ 16 or newer)")
+endif()
 
 find_package(SDL3 3.4 CONFIG REQUIRED)
 find_package(SDL3_image 3.4 CONFIG REQUIRED)
@@ -116,7 +142,7 @@ add_library(wiz8_filesystem STATIC
 )
 target_include_directories(wiz8_filesystem PUBLIC "${PROJECT_SOURCE_DIR}/include")
 target_link_libraries(wiz8_filesystem PUBLIC SDL3::SDL3 Threads::Threads fmt::fmt utf8proc)
-target_compile_features(wiz8_filesystem PUBLIC cxx_std_23)
+target_compile_features(wiz8_filesystem PUBLIC cxx_std_26)
 # SLF knowledge is confined to installation tooling, never linked into the game.
 add_library(wiz8_asset_preparation STATIC tools/assets/prepare.cpp)
 target_include_directories(wiz8_asset_preparation PUBLIC "${PROJECT_SOURCE_DIR}/tools/assets")
@@ -149,7 +175,7 @@ find_package(FFMPEG CONFIG REQUIRED)
 
 # Settings shared by every native component.
 add_library(wiz8_native_settings INTERFACE)
-target_compile_definitions(wiz8_native_settings INTERFACE NDEBUG GLM_ENABLE_EXPERIMENTAL)
+target_compile_definitions(wiz8_native_settings INTERFACE GLM_ENABLE_EXPERIMENTAL)
 # Keep the transitional source semantics with either Clang command-line frontend.
 if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
     set(WIZ8_COMPAT_OPTIONS
@@ -201,4 +227,27 @@ target_link_libraries(Wiz8Native PRIVATE WIZ8_GAME_CORE SDL3::SDL3)
 
 if(BUILD_TESTING)
     add_subdirectory(tests)
+endif()
+
+# Keep the noisy integer experiment at file and pixel boundaries. Gameplay
+# arithmetic has intentional narrowing and is covered by the normal UBSan run.
+if(WIZ8_INTEGER_SANITIZER)
+    # Every first-party executable links the platform library. Supply the
+    # runtime even when the option is enabled outside the sanitizer preset.
+    target_link_options(wiz8_filesystem INTERFACE -fsanitize=implicit-integer-truncation)
+    foreach(component WIZ8_GAME_CORE SURRENDER wiz8_filesystem wiz8_asset_preparation)
+        get_target_property(component_dir ${component} SOURCE_DIR)
+        get_target_property(component_sources ${component} SOURCES)
+        foreach(source IN LISTS component_sources)
+            string(TOLOWER "${source}" lower_source)
+            if(lower_source MATCHES "(image|pixel|blit|retail|chunk|loadsave|packed|readmesh|readlevel|npc_script|unicode|assets/prepare).*\\.cpp$")
+                cmake_path(ABSOLUTE_PATH source BASE_DIRECTORY "${component_dir}" OUTPUT_VARIABLE absolute_source)
+                set_property(SOURCE "${absolute_source}" TARGET_DIRECTORY ${component}
+                    PROPERTY SKIP_PRECOMPILE_HEADERS ON)
+                set_property(SOURCE "${absolute_source}" TARGET_DIRECTORY ${component}
+                    APPEND PROPERTY COMPILE_OPTIONS -fsanitize=implicit-integer-truncation
+                    -fno-sanitize-recover=implicit-integer-truncation)
+            endif()
+        endforeach()
+    endforeach()
 endif()

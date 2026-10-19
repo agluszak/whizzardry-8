@@ -1,6 +1,9 @@
 #include "wiz8/local_code/TextBuffer.h"
 
+#include <algorithm>
+#include <cstddef>
 #include <cstring>
+#include <limits>
 #include <string>
 #include <string_view>
 
@@ -176,7 +179,8 @@ void W8TextBuffer::UpdateLayout()
         }
         return;
     }
-    m_maxLineWidth = m_buffer.size();
+    m_maxLineWidth = static_cast<unsigned int>(
+        std::min(m_buffer.size(), std::size_t(std::numeric_limits<unsigned int>::max())));
 }
 
 /* Resolves one measured line against the horizontal alignment flags. */

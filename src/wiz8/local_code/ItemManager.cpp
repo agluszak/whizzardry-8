@@ -1,6 +1,7 @@
 #include "wiz8/local_code/ItemManager.h"
 
 #include <cmath>
+#include <cstddef>
 #include <memory>
 #include <optional>
 #include <string>
@@ -660,7 +661,7 @@ void UpdateNearbyWorldItems(void)
 {
     glm::vec3 camera;
     unsigned int index;
-    unsigned int count;
+    std::size_t count;
 
     camera = cameraLocation(*GetWorld());
     count = CurrentLevelPopulation().world_items.size();
@@ -862,7 +863,7 @@ static bool IsWorldItemMarkerVisible(W8WorldItem* item, const glm::vec3& camera)
 bool AnyWorldItemVisible(void)
 {
     glm::vec3 camera;
-    int count;
+    std::ptrdiff_t count;
     int index;
 
     if (GetWorld() == 0 || GetWorld()->camera == 0) {

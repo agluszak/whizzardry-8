@@ -38,6 +38,7 @@
 #include "surrender/srTriMeshPipeline.h"
 #include "surrender/srVertexPipe.h"
 #include "surrender/triangle_selection.h"
+#include "wiz8/checked_integer.h"
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/ReadLevel.h"
 
@@ -102,7 +103,7 @@ void stMeshModel::CalculateLinkedBounds()
         for (std::size_t frame = 0; frame < std::max(size_t{1}, model->frames.size()); ++frame) {
             srBoundingBox frame_box;
             if (model->flags & W8_MESH_HAS_FRAME_STORAGE)
-                frame_box = model->GetFrameBounds(frame);
+                frame_box = model->GetFrameBounds(wiz8::checked_integer<int>(frame));
             else
                 frame_box = model->srMeshModel::getBounds().box;
             if (has_vertices)
@@ -675,9 +676,9 @@ glm::vec3* stMeshModel::frameTable(unsigned int frame, bool load, unsigned char 
                                                          : storage.polygon_normals;
     if (!cache) {
         AllocateFrameBuffers(frame, kind);
-        if (load) DecompressFrame(frame, kind, *cache);
+        if (load) DecompressFrame(frame, kind, cache.value());
     }
-    return cache->data();
+    return cache.value().data();
 }
 
 stMeshModel::FrameGeometry stMeshModel::frameGeometry(unsigned int frame, float interpolation)

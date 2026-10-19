@@ -1,5 +1,6 @@
-#include "Font.h"
 #pragma once
+
+#include "Font.h"
 
 extern Font g_level_load_font; /* Font used for level-load and
                                         party-death/ending overlay text */

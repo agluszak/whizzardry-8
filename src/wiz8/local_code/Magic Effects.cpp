@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstdlib>
 #include <cstring>
 #include <iterator>
@@ -662,7 +663,7 @@ float HeadingTowardNearestMonster(glm::vec3 point, W8Disposition disposition, in
     double nearest_distance;
     float distance;
     float range;
-    unsigned int count;
+    std::size_t count;
     unsigned int index;
 
     nearest = 0;
@@ -2366,7 +2367,7 @@ void ApplyMonsterControlToNearbyMonsters(W8SpellEffectEntry* effect)
     glm::vec3 upper;
     glm::vec3 eye;
     std::vector<w8_ulong> location_ids;
-    unsigned int count;
+    std::size_t count;
     unsigned int index;
     float far_clip;
 

@@ -133,7 +133,7 @@ try {
     wiz8::retail::read_exact(*handle, loaded);
     for (auto* name : {&loaded.name0, &loaded.name1, &loaded.name2, &loaded.name3})
         StripMonsterNameSuffix(*name);
-    *record = loaded;
+    *record = std::move(loaded);
     return true;
 } catch (const std::exception&) {
     return false;

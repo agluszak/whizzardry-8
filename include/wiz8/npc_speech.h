@@ -16,7 +16,7 @@ struct W8NpcSpeech {
     /* The presentation is voiced; a notice bubble clears it to hold silently. */
     bool voice_playing = false;
     uint64_t voice_started_at = 0;
-    unsigned int hold_ms = 0;
+    std::uint64_t hold_ms = 0;
     uint64_t hold_started_at = 0;
     W8MouthGapTrack gap_track;
 };
@@ -28,7 +28,7 @@ bool PlayNpcVoice(W8NpcSpeech& speech, std::string_view path, std::function<void
 void StopNpcVoice(W8NpcSpeech& speech);
 /* How long a line of unvoiced text stays on screen. */
 int ComputePortraitMessageDuration(std::string_view text);
-void HoldNpcSpeech(W8NpcSpeech& speech, unsigned int hold_ms);
+void HoldNpcSpeech(W8NpcSpeech& speech, std::uint64_t hold_ms);
 bool IsNpcSpeechHoldOver(const W8NpcSpeech& speech);
 /* Advance the mouth-gap track and open or close the speaker's mouth. */
 void UpdateNpcMouth(W8NpcSpeech& speech, W8Monster* monster);

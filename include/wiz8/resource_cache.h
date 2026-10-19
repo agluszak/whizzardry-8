@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstddef>
+#include <functional>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -12,7 +14,7 @@ template<class T> class ResourceCache {
 public:
     std::shared_ptr<T> find(std::string_view name) const
     {
-        auto found = entries.find(std::string(name));
+        auto found = entries.find(name);
         return found == entries.end() ? nullptr : found->second.lock();
     }
 
@@ -21,8 +23,15 @@ public:
         entries.insert_or_assign(std::move(name), resource);
     }
 
-    void erase(std::string_view name) { entries.erase(std::string(name)); }
+    void erase(std::string_view name) { entries.erase(name); }
 
 private:
-    std::unordered_map<std::string, std::weak_ptr<T>> entries;
+    struct NameHash {
+        using is_transparent = void;
+        std::size_t operator()(std::string_view name) const noexcept
+        {
+            return std::hash<std::string_view>{}(name);
+        }
+    };
+    std::unordered_map<std::string, std::weak_ptr<T>, NameHash, std::equal_to<>> entries;
 };

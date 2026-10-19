@@ -999,11 +999,11 @@ TEST_CASE("Item bounds preserve local extents and report absent world items", "[
     REQUIRE(local.minimum == glm::vec3(-5, -3, -1));
     REQUIRE(local.maximum == glm::vec3(7, 9, 11));
     REQUIRE(radius == 12);
-    REQUIRE(world->minimum == glm::vec3(95, 197, 299));
-    REQUIRE(world->maximum == glm::vec3(107, 209, 311));
-    world->minimum = glm::vec3(0);
+    REQUIRE(world.value().minimum == glm::vec3(95, 197, 299));
+    REQUIRE(world.value().maximum == glm::vec3(107, 209, 311));
+    world.value().minimum = glm::vec3(0);
     REQUIRE(item.GetCachedLocalBounds().minimum == local.minimum);
-    REQUIRE(GetItemWorldBounds(&item)->minimum == glm::vec3(95, 197, 299));
+    REQUIRE(GetItemWorldBounds(&item).value().minimum == glm::vec3(95, 197, 299));
 
     const auto search = item.GetSearchPosition();
     REQUIRE(close(search, {100, 207.92f, 300}));
@@ -1167,7 +1167,7 @@ TEST_CASE("Prop position and delta queries preserve animation stepping", "[geome
 {
     W8Prop prop;
     prop.Rep()->animation.emplace();
-    auto& animation = *prop.Rep()->animation;
+    auto& animation = prop.Rep()->animation.value();
     prop.Rep()->location = {10, 20, 30};
     prop.animation_position = {3, 5, 7};
     prop.previous_animation_position = {1, 2, 3};
@@ -1223,21 +1223,21 @@ TEST_CASE("Animation bounds retain composite caching and path values", "[geometr
     }
     const auto bounds = AnimObjGetBounds(&animation, 0, 1);
     REQUIRE(bounds);
-    REQUIRE(bounds->minimum == glm::vec3(-4, -2, -3));
-    REQUIRE(bounds->maximum == glm::vec3(4, 8, 6));
+    REQUIRE(bounds.value().minimum == glm::vec3(-4, -2, -3));
+    REQUIRE(bounds.value().maximum == glm::vec3(4, 8, 6));
     REQUIRE(animation.frame_bounds[1].known);
     for (const auto& path : animation.paths[0]) REQUIRE(PathAIGetValue(path.get()) == 0.75f);
     const auto stamp = g_animesh_cache_stamp;
     animation.meshes[0][0]->bounds_minimum = {-10, -20, -30};
     const auto cached = AnimObjGetBounds(&animation, 0, 1);
     REQUIRE(cached);
-    REQUIRE(cached->minimum == bounds->minimum);
-    REQUIRE(cached->maximum == bounds->maximum);
+    REQUIRE(cached.value().minimum == bounds.value().minimum);
+    REQUIRE(cached.value().maximum == bounds.value().maximum);
     REQUIRE(g_animesh_cache_stamp == stamp);
     animation.frame_bounds[1].known = false;
     const auto refreshed = AnimObjGetBounds(&animation, 0, 1);
     REQUIRE(refreshed);
-    REQUIRE(refreshed->minimum == glm::vec3(-10, -20, -30));
+    REQUIRE(refreshed.value().minimum == glm::vec3(-10, -20, -30));
     for (const auto& path : animation.paths[0]) REQUIRE(PathAIGetValue(path.get()) == 0.75f);
 }
 
@@ -1246,7 +1246,7 @@ TEST_CASE("Prop bounds aggregate frames without changing the current frame",
 {
     W8Prop prop;
     prop.Rep()->animation.emplace();
-    auto& animation = *prop.Rep()->animation;
+    auto& animation = prop.Rep()->animation.value();
     animation.path_lists = true;
     animation.frame_count = 3;
     animation.frame_bounds = {{true, {-4, -2, -8}, {3, 5, 6}},
@@ -1255,11 +1255,11 @@ TEST_CASE("Prop bounds aggregate frames without changing the current frame",
     prop.Rep()->subcycle = 1;
     const auto center = prop.GetCenterPosition();
     REQUIRE(center);
-    REQUIRE(*center == glm::vec3(5.5f, -3.5f, 1));
+    REQUIRE(center.value() == glm::vec3(5.5f, -3.5f, 1));
     const auto bounds = prop.GetBounds();
     REQUIRE(bounds);
-    REQUIRE(bounds->minimum == glm::vec3(-4, -9, -8));
-    REQUIRE(bounds->maximum == glm::vec3(12, 8, 9));
+    REQUIRE(bounds.value().minimum == glm::vec3(-4, -9, -8));
+    REQUIRE(bounds.value().maximum == glm::vec3(12, 8, 9));
     REQUIRE(prop.Rep()->subcycle == 1);
     animation.frame_bounds[2].known = false;
     REQUIRE_FALSE(prop.GetBounds());
@@ -1267,7 +1267,7 @@ TEST_CASE("Prop bounds aggregate frames without changing the current frame",
     animation.frame_bounds[1].known = false;
     REQUIRE_FALSE(prop.GetFrameBounds());
     REQUIRE_FALSE(prop.GetCenterPosition());
-    REQUIRE(bounds->maximum == glm::vec3(12, 8, 9));
+    REQUIRE(bounds.value().maximum == glm::vec3(12, 8, 9));
 }
 
 TEST_CASE("Monster bounds scale and translate independent optional values", "[geometry][animation]")
@@ -1290,15 +1290,15 @@ TEST_CASE("Monster bounds scale and translate independent optional values", "[ge
     monster.movement.position = {10, 20, 30};
     const auto bounds = monster.GetAnimationBounds();
     REQUIRE(bounds);
-    REQUIRE(bounds->minimum == glm::vec3(-2, -4, -6));
-    REQUIRE(bounds->maximum == glm::vec3(8, 10, 12));
+    REQUIRE(bounds.value().minimum == glm::vec3(-2, -4, -6));
+    REQUIRE(bounds.value().maximum == glm::vec3(8, 10, 12));
     const auto world = MonsterGetWorldAnimationBounds(&monster);
     REQUIRE(world);
-    REQUIRE(world->minimum == bounds->minimum + monster.GetPosition());
-    REQUIRE(world->maximum == bounds->maximum + monster.GetPosition());
+    REQUIRE(world.value().minimum == bounds.value().minimum + monster.GetPosition());
+    REQUIRE(world.value().maximum == bounds.value().maximum + monster.GetPosition());
     const auto center = monster.GetAnimationCenter();
     REQUIRE(center);
-    REQUIRE(std::abs(center->y - monster.GetPosition().y - 14 * 0.66f) < 0.0001f);
+    REQUIRE(std::abs(center.value().y - monster.GetPosition().y - 14 * 0.66f) < 0.0001f);
     monster.detached = true;
     REQUIRE_FALSE(monster.GetAnimationBounds());
     REQUIRE_FALSE(monster.GetAnimationCenter());
@@ -1309,7 +1309,7 @@ TEST_CASE("Monster bounds scale and translate independent optional values", "[ge
     REQUIRE_FALSE(monster.GetAnimationCenter());
     REQUIRE_FALSE(MonsterGetWorldAnimationBounds(&monster));
     REQUIRE_FALSE(MonsterGetWorldAnimationBounds(nullptr));
-    REQUIRE(bounds->minimum == glm::vec3(-2, -4, -6));
+    REQUIRE(bounds.value().minimum == glm::vec3(-2, -4, -6));
     REQUIRE(animation.frame_bounds[0].minimum == glm::vec3(-1, -2, -3));
 }
 
@@ -1377,6 +1377,17 @@ TEST_CASE("Clip plane normalization preserves consumer transform ordering and de
     // GERD normalizes in object space before the inverse-transpose transform.
     REQUIRE(renderer.getClipPlanes().planes[6] == glm::vec4(0.5f, 0, 0, -1));
     renderer.popClipPlane();
+    // Extra pushes must balance without shifting past the 32-bit plane mask
+    // or dropping a stored plane. Six bits belong to the view frustum.
+    for (int index = 0; index < 40; ++index)
+        renderer.pushClipPlane({1, 0, 0, 0}, srGERD::CLIPMODE_POSITIONAL_0);
+    REQUIRE(renderer.getClipPlanes().mask == 0xffffffffu);
+    for (int index = 0; index < 14; ++index) renderer.popClipPlane();
+    REQUIRE(renderer.getClipPlanes().mask == 0xffffffffu);
+    renderer.popClipPlane();
+    REQUIRE(renderer.getClipPlanes().mask == 0x7fffffffu);
+    for (int index = 0; index < 25; ++index) renderer.popClipPlane();
+    REQUIRE(renderer.getClipPlanes().mask == 0x3fu);
     // The CPU culler normalizes after its supplied covector transform.
     const auto plane =
         srTriangleCuller::transformClipPlane({2, 0, 0, -2}, glm::transpose(glm::inverse(scale)));
@@ -1463,19 +1474,19 @@ TEST_CASE("Plane contacts retain collision skin and occluder clearance", "[geome
     for (auto mode : {PlaneContactMode::Collision, PlaneContactMode::Occlusion}) {
         const auto hit = planeContact(plane, crossing, mode);
         REQUIRE(hit.has_value());
-        REQUIRE(hit->point == glm::vec3(0, 4, 5));
-        REQUIRE(hit->distance == 3);
+        REQUIRE(hit.value().point == glm::vec3(0, 4, 5));
+        REQUIRE(hit.value().distance == 3);
     }
     const PlaneSegment skin{{3, 4, 5}, {0.5f, 4, 5}, {-1, 0, 0}, 2.5f, 4};
     const auto endpoint = planeContact(plane, skin, PlaneContactMode::Collision);
     REQUIRE(endpoint.has_value());
-    REQUIRE(endpoint->point == skin.end);
-    REQUIRE(endpoint->distance == skin.length);
+    REQUIRE(endpoint.value().point == skin.end);
+    REQUIRE(endpoint.value().distance == skin.length);
     REQUIRE_FALSE(planeContact(plane, skin, PlaneContactMode::Occlusion));
     const PlaneSegment nearer{{1.1f, 0, 0}, {-0.1f, 0, 0}, {-1, 0, 0}, 1.2f, 1.15f};
     const auto closest = planeContact(plane, nearer, PlaneContactMode::Collision);
     REQUIRE(closest.has_value());
-    REQUIRE(std::abs(closest->distance - 1.1f) < 1e-6f);
+    REQUIRE(std::abs(closest.value().distance - 1.1f) < 1e-6f);
     auto exit = crossing;
     exit.end.x = -5;
     exit.length = 8;
@@ -1486,12 +1497,12 @@ TEST_CASE("Plane contacts retain collision skin and occluder clearance", "[geome
     inside_skin.start.x = 0.5f;
     const auto start = planeContact(plane, inside_skin, PlaneContactMode::Collision);
     REQUIRE(start.has_value());
-    REQUIRE(start->point == inside_skin.start);
-    REQUIRE(start->distance == 0);
+    REQUIRE(start.value().point == inside_skin.start);
+    REQUIRE(start.value().distance == 0);
     const auto surface_start = planeContact(plane, inside_skin, PlaneContactMode::SurfaceCollision);
     REQUIRE(surface_start.has_value());
-    REQUIRE(surface_start->point == inside_skin.start);
-    REQUIRE(surface_start->distance == 0.5f);
+    REQUIRE(surface_start.value().point == inside_skin.start);
+    REQUIRE(surface_start.value().distance == 0.5f);
     inside_skin.start.x = 0;
     REQUIRE_FALSE(planeContact(plane, inside_skin, PlaneContactMode::Collision));
     REQUIRE_FALSE(planeContact(-plane, crossing, PlaneContactMode::Collision));
@@ -1509,11 +1520,11 @@ TEST_CASE("Surface triangles are complete values and reject invalid vertex indic
     const std::array<int, 3> indices{2, 0, 1};
     const auto triangle = surfaceTriangle(vertices, indices);
     REQUIRE(triangle);
-    REQUIRE((*triangle)[0] == glm::vec3(0, 0, 2));
-    REQUIRE((*triangle)[1] == glm::vec3(0));
-    REQUIRE((*triangle)[2] == glm::vec3(0, 2, 0));
+    REQUIRE((triangle.value())[0] == glm::vec3(0, 0, 2));
+    REQUIRE((triangle.value())[1] == glm::vec3(0));
+    REQUIRE((triangle.value())[2] == glm::vec3(0, 2, 0));
     vertices[2] = {99, 99, 99};
-    REQUIRE((*triangle)[0] == glm::vec3(0, 0, 2));
+    REQUIRE((triangle.value())[0] == glm::vec3(0, 0, 2));
     REQUIRE(!surfaceTriangle(vertices, std::array<int, 3>{0, 1, 3}));
     REQUIRE(!surfaceTriangle(vertices, std::array<int, 3>{0, -1, 2}));
     vertices.clear();
@@ -1530,13 +1541,13 @@ TEST_CASE("Particle activation values and billboard ordering", "[geometry]")
     particles.initial_speed = 5;
     const auto first = particles.activateParticle(false);
     REQUIRE(first);
-    REQUIRE(*first == 0);
-    REQUIRE(particles.velocities[*first] == glm::vec3(0, -5, 0));
+    REQUIRE(first.value() == 0);
+    REQUIRE(particles.velocities[first.value()] == glm::vec3(0, -5, 0));
     REQUIRE(particles.activateParticle(false));
     REQUIRE(!particles.activateParticle(false));
     const auto replaced = particles.activateParticle(true);
     REQUIRE(replaced);
-    REQUIRE(*replaced == 0);
+    REQUIRE(replaced.value() == 0);
     REQUIRE(particles.active_particle_count == 2);
     particles.emission_limit = particles.emission_count;
     REQUIRE(!particles.activateParticle(true));
@@ -2104,7 +2115,7 @@ TEST_CASE("Failed instance materials restore picking and lighting", "[geometry][
     REQUIRE_FALSE(renderer.isPickStackEmpty());
     const auto pick = renderer.popPick();
     REQUIRE(pick);
-    REQUIRE(pick->triangle_index == 7);
+    REQUIRE(pick.value().triangle_index == 7);
 }
 
 TEST_CASE("Model render scopes restore GLM transforms and exclusions after a failed draw",
@@ -2286,8 +2297,8 @@ TEST_CASE("Surface contacts return positions distances and edge limits without o
     const glm::vec3 from(3, .5f, .5f);
     const auto hit = surface.segmentContact(from, {-5, 0, 0}, triangle, false);
     REQUIRE(hit);
-    REQUIRE(glm::length(hit->point - glm::vec3(0, .5f, .5f)) < 1e-6f);
-    REQUIRE(std::abs(hit->distance - 3) < 1e-6f);
+    REQUIRE(glm::length(hit.value().point - glm::vec3(0, .5f, .5f)) < 1e-6f);
+    REQUIRE(std::abs(hit.value().distance - 3) < 1e-6f);
     REQUIRE(surface.distance == 0);
     surface.distance = 9;
     REQUIRE_FALSE(surface.segmentContact({3, 4, 4}, {-5, 0, 0}, triangle, false));
@@ -2295,22 +2306,22 @@ TEST_CASE("Surface contacts return positions distances and edge limits without o
     surface.flags = W8_GD_SURFACE_WALKABLE;
     const auto limit = surface.edgeContactLimit({0, .5f, -.2f}, triangle, 1);
     REQUIRE(limit);
-    REQUIRE(std::abs(*limit - std::sqrt(.96f)) < 1e-6f);
+    REQUIRE(std::abs(limit.value() - std::sqrt(.96f)) < 1e-6f);
     REQUIRE_FALSE(surface.edgeContactLimit({0, 4, 4}, triangle, 1));
 
     surface.flags = W8_GD_SURFACE_CROSSING;
     surface.contact_margin = 0;
     const auto crossing = surface.segmentContact(from, {-5, 0, 0}, triangle, false);
     REQUIRE(crossing);
-    REQUIRE(crossing->point == from);
-    REQUIRE(std::abs(crossing->distance - 3) < 1e-6f);
+    REQUIRE(crossing.value().point == from);
+    REQUIRE(std::abs(crossing.value().distance - 3) < 1e-6f);
     REQUIRE(surface.distance > 0);
     const glm::vec3 reverse_from(-2, .5f, .5f);
     const auto reverse = surface.segmentContact(reverse_from, {5, 0, 0}, triangle, false);
     REQUIRE(reverse);
-    REQUIRE(reverse->point == reverse_from);
+    REQUIRE(reverse.value().point == reverse_from);
     // Reverse crossings retain the full segment when the signed span is below one.
-    REQUIRE(std::abs(reverse->distance - 5) < 1e-6f);
+    REQUIRE(std::abs(reverse.value().distance - 5) < 1e-6f);
     REQUIRE(surface.distance < 0);
 }
 

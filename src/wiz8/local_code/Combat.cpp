@@ -1096,7 +1096,7 @@ void EndCombat(bool forced_cleanup)
     RemoveAllEnchantments();
     ResetCombatEffects();
     ProcessMonstersAtCombatEnd(forced_cleanup);
-    unsigned int group_count = CurrentLevelPopulation().monster_groups.size();
+    auto group_count = CurrentLevelPopulation().monster_groups.size();
     for (unsigned int group_index = 0; group_index < group_count; ++group_index) {
         W8MonsterGroup* group = CurrentLevelPopulation().monster_groups[group_index].get();
         if (group->fInCombat) {
@@ -1563,7 +1563,7 @@ void OrientMonsterTowardTarget(W8MonsterInfo* monster_info, bool alternate)
 // FUNCTION: WIZ8 0x004e8c30
 bool AnyCombatMonsterBusy(void)
 {
-    unsigned int monster_count = CurrentLevelPopulation().monster_roster.live().size();
+    auto monster_count = CurrentLevelPopulation().monster_roster.live().size();
     for (unsigned int monster_index = 0; monster_index < monster_count; ++monster_index) {
         W8MonsterInfo* monster_info = GetMonsterListEntry(monster_index);
         W8Monster* monster = monster_info->p3D;
@@ -1687,7 +1687,7 @@ void AssignCombatPhases(void)
     if (g_combat_state->uiCurrentPartyAction != W8_PARTY_ACTION_NONE) {
         InitializePartyMovementPhase();
     }
-    unsigned int monster_count = CurrentLevelPopulation().monster_roster.live().size();
+    auto monster_count = CurrentLevelPopulation().monster_roster.live().size();
     for (unsigned int monster_index = 0; monster_index < monster_count; ++monster_index) {
         W8MonsterInfo* monster_info = GetMonsterListEntry(monster_index);
         if (monster_info->pCombat) {

@@ -18,7 +18,7 @@ TEST_CASE("file_time_test")
     REQUIRE(file_time_from_sdl(-1).ticks() == 116444735999999999ULL);
     REQUIRE(file_time_from_sdl(-100).ticks() == 116444735999999999ULL);
     REQUIRE(file_time_from_sdl(199).ticks() == 116444736000000001ULL);
-    REQUIRE(*file_time_to_sdl(file_time_from_sdl(-1)) == -100);
+    REQUIRE(file_time_to_sdl(file_time_from_sdl(-1)).value() == -100);
     const auto last = DiskFileTime::from_ticks(2650467743999999999ULL);
     REQUIRE(!file_time_to_sdl(last));
     REQUIRE(!file_time_to_sdl(DiskFileTime{}));
@@ -30,7 +30,7 @@ TEST_CASE("file_time_test")
     REQUIRE(file_time_to_utc(max).year == 60056);
     const auto sdl_max = std::numeric_limits<SDL_Time>::max();
     const auto sdl_min = std::numeric_limits<SDL_Time>::min();
-    REQUIRE(*file_time_to_sdl(file_time_from_sdl(sdl_max)) == sdl_max / 100 * 100);
+    REQUIRE(file_time_to_sdl(file_time_from_sdl(sdl_max)).value() == sdl_max / 100 * 100);
     // Rounding the smallest SDL nanosecond down exceeds SDL's range.
     REQUIRE(!file_time_to_sdl(file_time_from_sdl(sdl_min)));
     const auto positive = file_time_with_legacy_local_bias(last, 19800);

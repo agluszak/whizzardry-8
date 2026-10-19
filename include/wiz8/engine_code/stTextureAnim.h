@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <vector>
 
@@ -37,7 +38,7 @@ public:
     W8TextureAnimationMode animation_mode = W8_TEXTURE_ANIM_LOOP;
     int initial_frame = 0;
     float frame_rate = 15.0f;
-    w8_ulong frame_tick;
+    std::uint64_t frame_tick;
     W8TextureTriggerMode trigger_mode = W8_TEXTURE_TRIGGER_CONTINUOUS;
     float probability = -1.0f;
     bool running = false;

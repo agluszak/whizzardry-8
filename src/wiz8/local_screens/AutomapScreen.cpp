@@ -51,6 +51,7 @@
 #include "surrender/srTexture.h"
 #include "wiz8/asset_paths.h"
 #include "wiz8/catalog_artwork.h"
+#include "wiz8/checked_integer.h"
 #include "wiz8/chunk.h"
 #include "wiz8/cursor.h"
 #include "wiz8/design_rect.h"
@@ -90,7 +91,6 @@
 #include "wiz8/surface_storage.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/unicode.h"
-#include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 
 /* Lifecycle record 8; the automap screen. Its original screen-class name is
@@ -626,7 +626,7 @@ bool AutomapScreenEnter(void)
         layer_name = fmt::format("LAYER {:d}", layer_number);
         layer = FindWorldNode<srClipPlane>(layer_name.c_str());
     }
-    unsigned int monster_count = CurrentLevelPopulation().monster_roster.live().size();
+    const auto monster_count = CurrentLevelPopulation().monster_roster.live().size();
     for (unsigned int index = 0; index < monster_count; ++index) {
         W8MonsterInfo* monster = GetMonsterListEntry(index);
         if (monster->p3D) monster->p3D->DetachRepresentation(GetWorld());
@@ -1322,7 +1322,8 @@ bool SaveAutomapNotes(wiz8::File& handle)
             bool ok = (handle.write(&note->position.x, 4), true) != 0 &&
                       (handle.write(&note->position.y, 4), true) != 0 &&
                       (handle.write(&note->layer, 4), true) != 0;
-            const std::uint32_t length = wiz8::text::to_utf16(note->text).size() + 1;
+            const auto length =
+                wiz8::checked_integer<std::uint32_t>(wiz8::text::to_utf16(note->text).size() + 1);
             std::vector<std::byte> bytes(length * 2);
             wiz8::text::to_utf16le(note->text, bytes);
             if (!ok) {
@@ -1538,7 +1539,7 @@ void RenderAutomapMarkers(void)
         g_automap_party_marker->setParent(0, 1);
         g_automap_party_marker->setParent(g_overlay_scenes.square.get(), 1);
     }
-    unsigned int count = CurrentLevelPopulation().monster_roster.live().size();
+    const auto count = CurrentLevelPopulation().monster_roster.live().size();
     for (unsigned int index = 0; index < count; ++index) {
         W8MonsterInfo* info = GetMonsterListEntry(index);
         W8Monster* monster = info->p3D;

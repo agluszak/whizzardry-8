@@ -2,6 +2,7 @@
 
 #include <functional>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -155,7 +156,9 @@ bool W8NpcDialog::Configure()
                                     m_selected_option = 1;
                                     m_keep_open = false;
                                 }});
-        line = fmt::sprintf(g_localized_strings[0x7e5], g_npc_dialogue.price_check()->price);
+        const auto& price_check = g_npc_dialogue.price_check();
+        if (!price_check) throw std::logic_error("NPC price dialogue has no active price check");
+        line = fmt::sprintf(g_localized_strings[0x7e5], price_check->price);
         bounds.left = m_bounds.x + 10;
         bounds.top = m_bounds.y + 10;
         bounds.right = m_bounds.x + m_bounds.w - 10;

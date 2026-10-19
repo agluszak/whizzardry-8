@@ -1,10 +1,10 @@
-#include <string>
 #ifndef WIZ8_CHARACTER_EVENT_QUEUE_H
 #define WIZ8_CHARACTER_EVENT_QUEUE_H
 
 #include <array>
 #include <memory>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <vector>
 

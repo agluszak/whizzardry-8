@@ -2,10 +2,13 @@ Checks: >-
   -*,
   clang-analyzer-core.*,
   clang-analyzer-cplusplus.NewDelete*,
+  clang-analyzer-unix.Malloc,
+  clang-analyzer-cplusplus.InnerPointer,
   performance-unnecessary-copy-initialization,
   performance-noexcept-move-constructor,
   performance-move-const-arg,
   performance-string-view-conversions,
+  performance-use-std-move,
   modernize-use-equals-default,
   modernize-use-emplace,
   modernize-use-scoped-lock,
@@ -17,6 +20,8 @@ Checks: >-
   readability-use-anyofallof,
   readability-redundant-smartptr-get,
   readability-duplicate-include,
+  bugprone-assignment-in-selection-statement,
+  bugprone-suspicious-stringview-data-usage,
   bugprone-virtual-near-miss,
   bugprone-suspicious-memset-usage,
   bugprone-sizeof-container,
@@ -36,9 +41,10 @@ Checks: >-
   misc-header-include-cycle,
   misc-static-initialization-cycle
 WarningsAsErrors: '*'
-HeaderFilterRegex: '(^|/)(include|src|tests)/'
+HeaderFilterRegex: '(^|/)(include|src|tests|tools)/'
 ExcludeHeaderFilterRegex: '(^|/)(build[^/]*|vendor)/'
 SystemHeaders: false
 InheritParentConfig: false
 CheckOptions:
+  bugprone-unchecked-optional-access.IgnoreValueCalls: 'true'
   misc-header-include-cycle.IgnoredFilesList: '(^|/)_deps/'

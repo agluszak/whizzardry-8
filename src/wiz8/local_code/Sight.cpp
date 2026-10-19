@@ -312,7 +312,7 @@ bool IsVisibleUnderConditions(const W8MonsterInfo* monster, const W8VisibilityRe
 /* Bring every monster's sight up to date with the clock, in whole two-minute
    steps - anything short of one step is left for next time. */
 // FUNCTION: WIZ8 0x00504930
-unsigned int AgeAllMonsterSight(void)
+void AgeAllMonsterSight(void)
 {
     unsigned int elapsed;
     unsigned int steps;
@@ -323,7 +323,7 @@ unsigned int AgeAllMonsterSight(void)
               g_status.level_progress[GetLoadedLevelID()].sight_clock * 1000;
     steps = elapsed / 120000;
     if (steps == 0) {
-        return 0;
+        return;
     }
     for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
         monster_info = GetMonsterListEntry(index);
@@ -331,7 +331,6 @@ unsigned int AgeAllMonsterSight(void)
             AgeMonsterSight(monster_info, steps, 1);
         }
     }
-    return CurrentLevelPopulation().monster_roster.live().size();
 }
 
 /* The map owns records and keeps their addresses stable while other entries

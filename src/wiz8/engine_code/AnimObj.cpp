@@ -12,6 +12,7 @@
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srBoundingBox.h"
 #include "surrender/srDebug.h"
+#include "wiz8/checked_integer.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/AniMesh.h"
 #include "wiz8/engine_code/PathAI.h"
@@ -398,7 +399,7 @@ unsigned int AnimObjValue(const W8AnimObj* animation, signed char index)
 // FUNCTION: WIZ8 0x004a1620
 unsigned int AnimObjListCount(W8AnimObj* animation, signed char index)
 {
-    return animation->meshes[index].size();
+    return wiz8::checked_integer<unsigned int>(animation->meshes[index].size());
 }
 
 // FUNCTION: WIZ8 0x004a16c0
@@ -461,7 +462,7 @@ srModelInstance* AnimObjDispatchList(W8AnimObj* animation, signed char list_inde
 }
 
 // FUNCTION: WIZ8 0x004a1660
-W8AniMesh* AnimObjEntry(W8AnimObj* animation, signed char list_index, unsigned int entry_index)
+W8AniMesh* AnimObjEntry(W8AnimObj* animation, signed char list_index, std::size_t entry_index)
 {
     if (animation == 0) {
         srAssertFail("pao", ANIM_OBJ_CPP, 0x2bd, 0);

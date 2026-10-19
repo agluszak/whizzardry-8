@@ -1,6 +1,7 @@
 #include "wiz8/level_specific_code/MartensBluff2.h"
 
 #include <cmath>
+#include <cstddef>
 #include <optional>
 #include <string>
 #include <vector>
@@ -259,8 +260,8 @@ bool MartensBluff2Spikeball(int command)
         }
     }
     if (g_spikeball_count < 0x10) {
-        if (g_spikeball_count == 0 || g_spikeball_gate->IsFinished() ||
-            (g_spikeball_gate->PollElapsedIntervals(), g_spikeball_gate->IsFinished())) {
+        if (!g_spikeball_gate) return true;
+        if (g_spikeball_count == 0 || g_spikeball_gate->PollFinished()) {
             g_spikeball_gate->Arm();
             ++g_spikeball_count;
             ClearAttackBlock(&effect);
@@ -430,7 +431,7 @@ bool MartensBluff2MonsterCrusher(int command)
     glm::vec3 centre;
     glm::vec3 position;
     std::vector<w8_ulong> location_ids;
-    unsigned int count;
+    std::size_t count;
     unsigned int i;
     W8MonsterInfo* info;
     W8Monster* monster;
@@ -629,6 +630,7 @@ bool MartensBluff2IdolGas(int command)
         ResolveSurpriseWake();
         return true;
     }
+    if (!g_idol_gas_gate) return true;
     if (!g_idol_gas_gate->PollFinished()) {
         return false;
     }

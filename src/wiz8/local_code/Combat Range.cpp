@@ -1,4 +1,5 @@
 #include <cmath>
+#include <cstddef>
 #include <optional>
 #include <span>
 #include <vector>
@@ -399,7 +400,7 @@ bool MonsterAttackReachesAnyone(W8MonsterInfo* monster_info, unsigned int attack
     W8Disposition disposition_needed;
     int party_slot;
     unsigned int index;
-    unsigned int count;
+    std::size_t count;
     W8MonsterInfo* other;
 
     if (!monster_info->pCombat || !monster_info->pCombat->berserk) {
@@ -958,7 +959,7 @@ float MonsterChooseTarget(W8MonsterInfo* monster_info, W8CombatSlot* out, int ki
         out->iType = W8_TARGET_KIND_CHARACTER;
     }
     if (out->iType == W8_TARGET_KIND_NONE || !monster_info->pCombat->reconsider_action) {
-        unsigned int count = CurrentLevelPopulation().monster_roster.live().size();
+        auto count = CurrentLevelPopulation().monster_roster.live().size();
 
         for (unsigned int index = 0; index < count; ++index) {
             W8MonsterInfo* other = GetMonsterListEntry(index);

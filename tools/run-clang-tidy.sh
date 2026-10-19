@@ -28,7 +28,7 @@ fi
 "$tidy" --verify-config --config-file="$config"
 
 # The full database remains the default, including pushes to main.
-pattern=$(python3 -c 'import re, sys; print("^" + re.escape(sys.argv[1]) + "/(src|tests)/")' "$root")
+pattern=$(python3 -c 'import re, sys; print("^" + re.escape(sys.argv[1]) + "/(src|tests|tools)/")' "$root")
 if [[ -n $changed_files ]]; then
     selection=$(python3 "$root/tools/affected-tidy-sources.py" \
         --root "$root" \
@@ -43,5 +43,14 @@ if [[ -n $changed_files ]]; then
         *) pattern=$selection ;;
     esac
 fi
-"$driver" -clang-tidy-binary "$tidy" -config-file "$config" \
-    -p "$build" -j "${CLANG_TIDY_JOBS:-4}" "$pattern" "$@"
+header_filter=$(python3 -c 'import re, sys; print("^" + re.escape(sys.argv[1]) + "/(include|src|tests|tools)/")' "$root")
+if [[ -n ${CLANG_TIDY_CACHE_DIR:-} ]]; then
+    python3 "$root/tools/run-clang-tidy-cached.py" \
+        --root "$root" --build "$build" --config "$config" \
+        --tidy "$tidy" --driver "$driver" --pattern "$pattern" \
+        --header-filter "$header_filter" --jobs "${CLANG_TIDY_JOBS:-4}" \
+        --cache "$CLANG_TIDY_CACHE_DIR" -- "$@"
+else
+    "$driver" -header-filter "$header_filter" -clang-tidy-binary "$tidy" -config-file "$config" \
+        -p "$build" -j "${CLANG_TIDY_JOBS:-4}" "$pattern" "$@"
+fi

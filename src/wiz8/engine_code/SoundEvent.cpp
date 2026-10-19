@@ -1,5 +1,6 @@
 #include "wiz8/engine_code/SoundEvent.h"
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <utility>
@@ -13,6 +14,7 @@
 #include "glm/ext/vector_float3.hpp"
 #include "random.h"
 #include "soundman.h"
+#include "wiz8/checked_integer.h"
 #include "wiz8/engine_code/AmbientSound.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Monster.h"
@@ -74,7 +76,8 @@ void UpdateSoundEvents(const std::vector<std::unique_ptr<W8SoundEvent>>& events,
         if (candidates.empty()) continue;
         int selected;
         do {
-            selected = static_cast<int>(Random(candidates.size()));
+            selected =
+                static_cast<int>(Random(wiz8::checked_integer<std::uint32_t>(candidates.size())));
         } while (candidates.size() > 1 && selected == g_last_sound_event);
         if (candidates[selected]->Play(position, cycle)) g_last_sound_event = selected;
     }

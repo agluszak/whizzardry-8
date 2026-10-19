@@ -1,4 +1,3 @@
-#include "wiz8/ui_layer.h"
 #pragma once
 
 #include <memory>
@@ -9,6 +8,7 @@
 #include "image.h"
 #include "input.h"
 #include "wiz8/catalog_artwork.h"
+#include "wiz8/ui_layer.h"
 
 enum W8CampItemAction : unsigned char;
 

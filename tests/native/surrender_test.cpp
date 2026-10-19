@@ -187,7 +187,7 @@ static bool interfaces()
         REQUIRE(glm::length(projected.position - glm::vec3(0.5f, 0.5f, 10)) < 1e-5f);
         const auto restored = camera.unproject({0.5, 0.5, 10});
         REQUIRE(restored.has_value());
-        REQUIRE(glm::length(*restored - glm::vec3(13, 4, 5)) < 1e-5f);
+        REQUIRE(glm::length(restored.value() - glm::vec3(13, 4, 5)) < 1e-5f);
         REQUIRE(camera.project({13, 4, -15}).result == srCamera::PROJECTION_RESULT_OUTSIDE_VIEW);
         const auto clipped = camera.project({203, 4, 5});
         REQUIRE(clipped.result == srCamera::PROJECTION_RESULT_OUTSIDE_CLIP_RANGE);
@@ -196,7 +196,7 @@ static bool interfaces()
         camera.flipHorizontal();
         const auto mirrored = camera.unproject({0.25, 0.5, 10});
         REQUIRE(mirrored.has_value());
-        const auto roundtrip = camera.project(glm::dvec3(*mirrored));
+        const auto roundtrip = camera.project(glm::dvec3(mirrored.value()));
         REQUIRE(roundtrip.result == srCamera::PROJECTION_RESULT_ACCEPTED);
         REQUIRE(std::abs(roundtrip.position.x - 0.25f) < 1e-5f);
         REQUIRE(!camera.projectsAny({}));

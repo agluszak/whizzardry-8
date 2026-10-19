@@ -1,6 +1,8 @@
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -176,7 +178,7 @@ void srGERD::resetStatistics()
 // FUNCTION: SURRENDER 0x1001ADD0
 void srGERD::toggle(e_enable option)
 {
-    enable_flags ^= 1UL << option;
+    enable_flags ^= 1u << option;
 }
 
 // FUNCTION: SURRENDER 0x1001AE60
@@ -190,7 +192,7 @@ void srGERD::popEnable()
     if (flags != enable_flags) {
         for (e_enable option = static_cast<e_enable>(0); static_cast<int>(option) < 7;
              option = static_cast<e_enable>(static_cast<int>(option) + 1)) {
-            w8_ulong bit = 1UL << option;
+            w8_ulong bit = 1u << option;
             if (((flags & bit) != 0) != ((enable_flags & bit) != 0)) {
                 toggle(option);
             }
@@ -549,7 +551,7 @@ void srGERD::flushImmediateRenderers()
 
 srGERD::Renderer& srGERD::batchRenderer()
 {
-    const bool sorted = (enable_flags & (1UL << ENABLE_SORTED_RENDERING)) != 0;
+    const bool sorted = (enable_flags & (1u << ENABLE_SORTED_RENDERING)) != 0;
     auto& renderer = renderers[sorted];
     if (!renderer) {
         renderer = std::make_unique<Renderer>(
@@ -572,7 +574,7 @@ srGERD::e_error srGERD::beginFrame()
         return ERROR_INVALID_WHANDLE;
     }
     if ((state_flags & STATE_FRAME_STARTED) == 0) {
-        if ((enable_flags & (1UL << ENABLE_AUTO_FLIP)) != 0 &&
+        if ((enable_flags & (1u << ENABLE_AUTO_FLIP)) != 0 &&
             (state_flags & STATE_FRAME_FLIPPED) == 0) {
             flipFrame();
         }
@@ -774,7 +776,7 @@ glm::mat4 srGERD::getNormalMatrix()
 {
     checkViewStateChanges();
     glm::mat4 matrix = state.normal_matrix;
-    if ((enable_flags & (1UL << ENABLE_REVERSE_NORMALS)) != 0)
+    if ((enable_flags & (1u << ENABLE_REVERSE_NORMALS)) != 0)
         matrix = glm::mat4(-glm::mat3(matrix));
     return matrix;
 }
@@ -1159,7 +1161,7 @@ void srGERD::pushClipPlane(const glm::vec4& plane, e_clipMode mode)
     if ((w8_ulong)state.clip_plane_count < 0x1a) {
         checkClipPlaneChanges();
         checkViewStateChanges();
-        w8_ulong bit = 1UL << (state.clip_plane_count + 6);
+        w8_ulong bit = 1u << (state.clip_plane_count + 6);
         state.clip_planes[state.clip_plane_count + 6] =
             glm::transpose(state.inverse_modelview) * srPlaneMath::normalized(plane);
         state.clip_mask |= bit;
@@ -1177,9 +1179,12 @@ void srGERD::popClipPlane()
 {
     if (state.clip_plane_count != 0) {
         state.clip_plane_count -= 1;
-        w8_ulong mask = ~(1UL << (state.clip_plane_count + 6));
-        state.clip_mask &= mask;
-        state.clip_mode1_mask &= mask;
+        // Excess pushes are counted, but have no stored plane to remove.
+        if (state.clip_plane_count < 26) {
+            w8_ulong mask = ~(1u << (state.clip_plane_count + 6));
+            state.clip_mask &= mask;
+            state.clip_mode1_mask &= mask;
+        }
     }
 }
 
@@ -1193,7 +1198,7 @@ srGERD::ClipPlanes srGERD::getClipPlanes()
     }
     if ((state.clip_mask & 0xffffffc0) != 0) {
         for (w8_ulong index = 6; index < 0x20; ++index) {
-            if ((state.clip_mask & (1UL << index)) != 0) {
+            if ((state.clip_mask & (1u << index)) != 0) {
                 planes.planes[index] = state.clip_planes[index];
             }
         }
@@ -1417,34 +1422,9 @@ namespace {
 
 w8_ulong nextTextureDimension(w8_ulong value)
 {
-    if (value < 2) {
-        return 1;
-    }
-    w8_ulong v = value - 1;
-    if (v == 0) {
-        return 1;
-    }
-    unsigned char shift = 0;
-    if ((v & 0xffff0000) != 0) {
-        shift = 16;
-        v >>= 16;
-    }
-    if ((v >> 8) != 0) {
-        shift += 8;
-        v >>= 8;
-    }
-    if ((v & 0xf0) != 0) {
-        shift += 4;
-        v >>= 4;
-    }
-    if ((v & 0xc) != 0) {
-        shift += 2;
-        v >>= 2;
-    }
-    if ((v & 2) != 0) {
-        shift += 1;
-    }
-    return 1UL << (shift + 1U & 0x1f);
+    // Preserve the historical wrap to one above the largest power of two;
+    // bit_ceil requires its result to be representable.
+    return value > (1u << 31) ? 1u : std::bit_ceil(value);
 }
 
 } // namespace
@@ -1621,7 +1601,7 @@ srGERD::e_error srGERD::openWindowInternal(const OpenInfo& info)
             state.view_top = 0;
             state.view_right = getWidth();
             state.view_bottom = getHeight();
-            if ((enable_flags & (1UL << ENABLE_CLEAR_ON_OPEN)) != 0) {
+            if ((enable_flags & (1u << ENABLE_CLEAR_ON_OPEN)) != 0) {
                 clear(SDLGPUDevice::BUFFER_COLOR | SDLGPUDevice::BUFFER_DEPTH |
                       SDLGPUDevice::BUFFER_STENCIL);
                 flipFrame();

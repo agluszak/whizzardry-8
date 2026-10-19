@@ -88,7 +88,8 @@ ShakeSystem& CameraShakes()
 }
 
 ShakeSystem::Instance::Instance(const ShakeDefinition& definition, const ShakeDefinition* key)
-    : definition(definition), timer(definition.duration, false), key(key)
+    : definition(definition),
+      timer(std::isfinite(definition.duration) ? definition.duration : 0.0f, false), key(key)
 {
     timer.Restart();
 }
@@ -120,10 +121,12 @@ bool ShakeSystem::IsActive(const ShakeDefinition& key) const
 
 bool ShakeSystem::Instance::Evaluate(const glm::vec3& camera, float& amount)
 {
-    if (definition.duration <= 0.0f) {
+    if (!(definition.duration > 0.0f)) {
         return false;
     }
-    const float progress = timer.GetProgress();
+    // An untimed trigger uses positive infinity. Never convert it into the
+    // finite game timer's integer tick count.
+    const float progress = std::isinf(definition.duration) ? 0.0f : timer.GetProgress();
     if (progress >= 1.0f) {
         return false;
     }

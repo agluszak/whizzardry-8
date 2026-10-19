@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <cstddef>
 #include <cstring>
 #include <memory>
 #include <new>
@@ -1691,7 +1692,7 @@ void EvaluateCombatDifficulty(void)
     }
 }
 
-W8MonsterInfo* GetMonsterListEntry(int index)
+W8MonsterInfo* GetMonsterListEntry(std::ptrdiff_t index)
 {
     if (!GetWorld() || index < 0 ||
         std::cmp_greater_equal(index, CurrentLevelPopulation().monster_roster.live().size())) {

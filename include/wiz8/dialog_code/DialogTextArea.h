@@ -1,4 +1,3 @@
-#include "Font.h"
 #pragma once
 
 #include <memory>
@@ -7,6 +6,7 @@
 #include <string_view>
 #include <vector>
 
+#include "Font.h"
 #include "compat/compiler.h"
 #include "wiz8/dialog_code/DialogTextEntry.h"
 #include "wiz8/local_code/ControlsRect.h"

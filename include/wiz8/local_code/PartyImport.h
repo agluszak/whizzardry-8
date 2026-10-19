@@ -1,6 +1,8 @@
-#include <string_view>
 #ifndef WIZ8_LOCAL_CODE_PARTYIMPORT_H
 #define WIZ8_LOCAL_CODE_PARTYIMPORT_H
+
+#include <string_view>
+
 #include "wiz8/character_skills.h"
 
 struct W8Character;

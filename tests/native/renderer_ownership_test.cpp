@@ -994,37 +994,37 @@ TEST_CASE("Picking honors counted selections, direct indices, nearest depth and 
     renderer.pushPick({{0, 0, 1}, nullptr, 0});
     renderer.pushPick({{2, 0, 1}, nullptr, 0});
     performPick();
-    const auto outside = renderer.popPick();
-    REQUIRE(outside->selected_model == nullptr);
-    REQUIRE(outside->position.z == 1);
-    const auto hit = renderer.popPick();
-    REQUIRE(hit->selected_model == &selected);
-    REQUIRE(hit->triangle_index == 1);
-    REQUIRE(std::abs(hit->position.z - .4f) < 1e-6f);
+    const auto outside = renderer.popPick().value();
+    REQUIRE(outside.selected_model == nullptr);
+    REQUIRE(outside.position.z == 1);
+    const auto hit = renderer.popPick().value();
+    REQUIRE(hit.selected_model == &selected);
+    REQUIRE(hit.triangle_index == 1);
+    REQUIRE(std::abs(hit.position.z - .4f) < 1e-6f);
 
     input.vertices = {};
     input.direct_vertex_indices = true;
     renderer.pushPick({{0, 0, .3f}, nullptr, 9});
     performPick();
-    const auto nearer = renderer.popPick();
-    REQUIRE(nearer->position.z == .3f);
-    REQUIRE(nearer->triangle_index == 9);
+    const auto nearer = renderer.popPick().value();
+    REQUIRE(nearer.position.z == .3f);
+    REQUIRE(nearer.triangle_index == 9);
     renderer.pushPick({{0, 0, 1}, nullptr, 0});
     performPick();
-    REQUIRE(renderer.popPick()->selected_model == &selected);
+    REQUIRE(renderer.popPick().value().selected_model == &selected);
 
     const std::array<w8_ulong, 2> invalid_selection{1, 2};
     input.indices = invalid_selection;
     renderer.pushPick({{0, 0, 1}, nullptr, 9});
     REQUIRE_THROWS_AS(performPick(), std::invalid_argument);
-    const auto unchanged = renderer.popPick();
-    REQUIRE(unchanged->position.z == 1);
-    REQUIRE(unchanged->triangle_index == 9);
+    const auto unchanged = renderer.popPick().value();
+    REQUIRE(unchanged.position.z == 1);
+    REQUIRE(unchanged.triangle_index == 9);
     input.indices = indices;
     input.vertex_count = 2;
     renderer.pushPick({{0, 0, 1}, nullptr, 9});
     REQUIRE_THROWS_AS(performPick(), std::invalid_argument);
-    REQUIRE(renderer.popPick()->triangle_index == 9);
+    REQUIRE(renderer.popPick().value().triangle_index == 9);
     REQUIRE_FALSE(renderer.popPick());
 }
 

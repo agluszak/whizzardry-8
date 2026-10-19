@@ -821,7 +821,10 @@ void W8TriggerShakeEvent::Update()
         if (intensity < 1.0f) {
             intensity = 1.0f;
         }
-        effect.emplace(m_pCountdown->m_duration_seconds, false, intensity, 0, nullptr);
+        // Invisible triggers may shake until deactivated, without a countdown.
+        const float duration = m_pCountdown ? m_pCountdown->m_duration_seconds
+                                            : std::numeric_limits<float>::infinity();
+        effect.emplace(duration, false, intensity, 0, nullptr);
         if (reverse) {
             effect->fade_out = true;
         }
@@ -899,7 +902,7 @@ bool Trigger::HasActorWithinRadius(float radius, bool include_party)
         upper = center + extent;
 
         locations = GetWorldOctree()->queryObjects({lower, upper}, W8_OCTREE_KIND_LOCATION, -1);
-        unsigned int count = locations.size();
+        auto count = locations.size();
         for (unsigned int index = 0; index < count; ++index) {
             int location_id = locations[index];
             if (location_id == 0) {
@@ -3417,7 +3420,7 @@ static int s_last_prop_index = -1;
 bool AnyPropTriggerInView()
 {
     glm::vec3 position;
-    unsigned int prop_count;
+    std::size_t prop_count;
     int index;
 
     if (GetWorld() == nullptr) {

@@ -17,6 +17,7 @@
 #include <SDL3/SDL_stdinc.h>
 
 #include "surrender/srIO.h"
+#include "wiz8/checked_integer.h"
 #include "wiz8/chunk.h"
 #include "wiz8/filesystem.h"
 
@@ -122,9 +123,9 @@ std::vector<unsigned char> EncodeWords(std::span<const std::uint32_t> words)
     }
 
     BitWriter output;
-    output.put(encodings.size(), 32);
+    output.put(wiz8::checked_integer<std::uint32_t>(encodings.size()), 32);
     output.put(code_width, 6);
-    output.put(words.size(), 32);
+    output.put(wiz8::checked_integer<std::uint32_t>(words.size()), 32);
     // Assign codes during the same traversal that serializes the complete tree.
     auto storeTree = [&](auto&& self, Node* node, std::uint32_t code, std::uint32_t depth) -> void {
         const bool leaf = node->children[0] == nullptr;

@@ -18,7 +18,6 @@
 
 #include "Font.h"
 #include "audio_resources.h"
-#include "compat/compiler.h"
 #include "compat/native.h"
 #include "dialog_code/DialogBase.h"
 #include "dice.h"
@@ -133,7 +132,7 @@ W8Character* g_camp_character;
 // GLOBAL: WIZ8 0x0069c104
 bool g_camp_character_pending;
 // GLOBAL: WIZ8 0x0069c10c
-w8_ulong g_fade_tick_base;
+std::uint64_t g_fade_tick_base;
 // GLOBAL: WIZ8 0x0069c110
 void (*g_fade_callback)(void);
 // GLOBAL: WIZ8 0x0069c114
@@ -371,7 +370,7 @@ void DrawCampResistances(void)
 
     CatalogArtwork::Load(0x140, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0x136, 0);
     text = g_localized_strings[0x8ca];
-    width = g_wiz_text_font_secondary.codepointPrefixWidth(text, text.size());
+    width = g_wiz_text_font_secondary.textWidth(text);
     DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
              {(0x134 - width) / 2 + 0x144, 0x1e}, text);
     for (index = 0; index < 6; ++index) {
@@ -1677,7 +1676,7 @@ void ShowCampNoticeLine(std::string_view text, std::function<void(bool)> callbac
 
     dialog->SetClientExtent(0xfa, 200);
     dialog->SetMessage(text, 1, 0x32, confirmation, cancel, true, true, 0, 0x15e);
-    dialog->on_complete = callback;
+    dialog->on_complete = std::move(callback);
     DisplayCampDialog(std::unique_ptr<W8DialogBase>(dialog));
 }
 
@@ -2377,7 +2376,7 @@ unsigned char UpdateScreenFade(void)
     if (!g_level_block->review_transition_done) {
         return 0;
     }
-    w8_ulong elapsed = w8_get_ticks() - g_fade_tick_base;
+    std::uint64_t elapsed = w8_get_ticks() - g_fade_tick_base;
     if (g_fade_duration < elapsed) {
         g_level_block->review_transition_done = false;
         if (g_fade_out == 0) {

@@ -2,7 +2,7 @@
 
 Whizzardry 8 is a work-in-progress port of [Wizardry 8](https://en.wikipedia.org/wiki/Wizardry_8) to modern, 64-bit Linux, macOS and Windows.
 
-It builds on the recovered source code from [Wizardry 8 Decomp](https://github.com/agluszak/wizardry-8-decomp), but has a different goal: **keep the game, replace the outdated machinery**. Instead of reproducing the original executable, we're simplifying the code and using C++23, SDL3 and other cross-platform libraries.
+It builds on the recovered source code from [Wizardry 8 Decomp](https://github.com/agluszak/wizardry-8-decomp), but has a different goal: **keep the game, replace the outdated machinery**. Instead of reproducing the original executable, we're simplifying the code and using C++26, SDL3 and other cross-platform libraries.
 
 Linux is the only platform currently tested in CI. macOS and Windows builds are not yet verified, and the game is still under development.
 
@@ -10,17 +10,16 @@ This repository does **not** include game assets. You'll need your own retail co
 
 ## Build on Linux
 
-You'll need Clang 23, CMake, Ninja, Python 3, [Conan 2](https://conan.io/) and a working Vulkan driver. Conan handles the C/C++ library dependencies.
+You'll need Clang 23, GCC 16 (including libstdc++ development headers), CMake 4.4.4 or newer, Ninja, Python 3, [Conan 2](https://conan.io/) and a working Vulkan driver. Conan handles the C/C++ library dependencies.
 
 From the repository root:
 
 ```sh
-python3 -m pip install 'conan==2.33.0'
-conan profile detect
+python3 -m pip install 'conan==2.33.0' 'cmake==4.4.4'
 conan export conan/recipes/libalsa
 
 CC=clang-23 CXX=clang++-23 conan install . \
-    -pr:h conan/profiles/linux-clang23 -pr:b default \
+    -pr:h conan/profiles/linux-clang23 -pr:b conan/profiles/linux-gcc16 \
     -s:h build_type=Release --build=missing -of build/linux/conan
 
 . build/linux/conan/conanbuild.sh
@@ -70,3 +69,61 @@ WIZ8_ASSET_ROOT=/path/to/prepared-assets ctest --preset linux -L runtime
 ```
 
 C and C++ changes should use the repository's `.clang-format` configuration (clang-format 23).
+
+## Diagnostics
+
+Linux uses Clang 23 with GCC 16's libstdc++ in C++26 mode. CMake checks for
+`std::function_ref` and `std::inplace_vector` during configuration; upgrading
+only the language flag is insufficient. macOS and Windows also need a standard
+library implementing both facilities and remain unverified.
+
+`linux-asan` combines ASan and UBSan with fatal undefined-behavior diagnostics.
+Debug and RelWithDebInfo enable `_GLIBCXX_ASSERTIONS`; ordinary assertions follow
+the build configuration. The game still uses `-fwrapv` while legacy arithmetic
+is audited; this does not disable UBSan's signed-overflow instrumentation.
+
+The normal tidy allowlist includes assignment-in-condition, string-view C API
+misuse, allocation ownership, dangling string buffers and last-use moves.
+Configure an analysis build with `WIZ8_PRECOMPILE_HEADERS=OFF` and
+`WIZ8_SURRENDER_UNITY_BUILD=OFF`, then run:
+
+```sh
+CLANG_TIDY=clang-tidy-23 RUN_CLANG_TIDY=run-clang-tidy-23 \
+    tools/run-clang-tidy.sh build/linux-tidy
+CLANG_TIDY_CONFIG="$PWD/.clang-tidy-audit" \
+    CLANG_TIDY=clang-tidy-23 RUN_CLANG_TIDY=run-clang-tidy-23 \
+    tools/run-clang-tidy.sh build/linux-tidy
+python3 tools/run-diagnostic-audit.py build/linux-tidy
+```
+
+The separate audit checks unchecked optional dereferences (intentional `.value()`
+exceptions are allowed), moved-from ownership, strict lifetime safety, exhaustive
+enum handling and buffer use at parser/image boundaries. Experimental compiler
+warnings are retained in `diagnostic-audit.log` for review. The optional-access
+and moved-from checks fail on findings. Weekly and manually dispatched CI runs
+include these audits and `linux-integer-audit`, which adds implicit truncation
+instrumentation to file/image boundaries. The ordinary ASan/UBSan jobs run on
+every PR. `-Wconversion` and `-Wsign-conversion` remain outside the global warning
+baseline, and `-fstrict-bool` is not enabled.
+
+`function_ref` is used only for borrowed synchronous callbacks; stored callbacks
+retain ownership. Fixed-capacity storage requires a proven bound. SIMD and hive
+need workload evidence before adoption; reflection and contracts remain limited
+by compiler support.
+
+CI reuses successful tidy results only after Clang rediscovers the current
+include graph and the contents of every dependency match, including system
+headers. Tool versions, compile commands and tidy configuration also invalidate
+the cache. Failed scans and analyses are always retried. To use this locally:
+
+```sh
+CLANG_TIDY_CACHE_DIR="$PWD/build/tidy-cache" \
+    CLANG_TIDY=clang-tidy-23 RUN_CLANG_TIDY=run-clang-tidy-23 \
+    tools/run-clang-tidy.sh build/linux-tidy
+```
+
+Unset `CLANG_TIDY_CACHE_DIR` for an uncached run. CI prints hit/miss counts and
+elapsed times, skips native jobs for documentation-only changes, and regenerates
+offline shaders when their sources, tools, dependencies or build settings change.
+Weekly/manual runs retain the full source scope; their integer-sanitizer job
+includes ASan and UBSan, replacing the duplicate ordinary sanitizer run.

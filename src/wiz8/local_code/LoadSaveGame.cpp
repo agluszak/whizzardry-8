@@ -41,6 +41,7 @@
 #include "soundman.h"
 #include "surrender/srDebug.h"
 #include "wiz8/character_event_queue.h"
+#include "wiz8/checked_integer.h"
 #include "wiz8/chunk.h"
 #include "wiz8/cursor.h"
 #include "wiz8/design_rect.h"
@@ -99,7 +100,6 @@
 #include "wiz8/save_game.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/unicode.h"
-#include "wiz8/utility.h"
 #include "wiz8/world_cursor.h"
 #include "wiz8/xstatus.h"
 
@@ -613,7 +613,8 @@ void WriteMonsterRecord(W8Chunk& chunk, const W8MonsterInfo* info)
 
 void WriteWorldItems(W8Chunk& chunks)
 {
-    const unsigned int count = CurrentLevelPopulation().world_items.size();
+    const auto count =
+        wiz8::checked_integer<std::uint32_t>(CurrentLevelPopulation().world_items.size());
     chunks.WriteValue(count);
     for (unsigned int index = 0; index < count; ++index)
         RequireSection(SaveItemFile(chunks.WriteStream(), ItemInfo(index)), "world item");
@@ -1141,12 +1142,13 @@ try {
 // FUNCTION: WIZ8 0x005145a0
 bool SaveMonsterStatus(W8Chunk* chunks)
 try {
-    const unsigned int group_count = CurrentLevelPopulation().monster_groups.size() +
-                                     CurrentLevelPopulation().encounter_groups.size();
+    const auto group_count =
+        wiz8::checked_integer<std::uint32_t>(CurrentLevelPopulation().monster_groups.size() +
+                                             CurrentLevelPopulation().encounter_groups.size());
     const auto persistent = [](const auto& monster) { return monster->monster_group_id != 0; };
-    const unsigned int monster_count =
+    const auto monster_count = wiz8::checked_integer<std::uint32_t>(
         std::ranges::count_if(CurrentLevelPopulation().monster_roster.live(), persistent) +
-        std::ranges::count_if(CurrentLevelPopulation().monster_roster.unborn(), persistent);
+        std::ranges::count_if(CurrentLevelPopulation().monster_roster.unborn(), persistent));
     chunks->WriteValue(group_count);
     chunks->WriteValue(monster_count);
     for (const auto* partition :
@@ -1155,7 +1157,8 @@ try {
         for (const auto& group : *partition) {
             auto image = wiz8::retail::encode_image(*group);
             image.version = kMonsterGroupRecordVersion;
-            image.active_member_count = CurrentLevelPopulation().activeMemberCount(*group);
+            image.active_member_count = wiz8::checked_integer<std::int32_t>(
+                CurrentLevelPopulation().activeMemberCount(*group));
             chunks->WriteValue(static_cast<std::uint32_t>(sizeof(image)));
             chunks->WriteBytes(&image, sizeof(image));
             chunks->WriteValue(encountered);
@@ -1621,6 +1624,7 @@ try {
         const auto ticks = wiz8::open_file(wiz8::user_path(path))->times().modified.ticks();
         if (!oldest || ticks < oldest->second) oldest.emplace(slot, ticks);
     }
+    if (!oldest) return {};
     return QuickSaveName(oldest->first);
 } catch (const std::exception&) {
     return {};
