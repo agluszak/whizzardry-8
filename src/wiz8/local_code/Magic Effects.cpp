@@ -2333,7 +2333,8 @@ void DestroyConsumablesOnTargets(W8SpellEffectEntry* effect)
                 if (!verbose) {
                     AppendToLastTextLine(!effect->reported ? " -- " : ", ", std::nullopt);
                 }
-                SetTextBoxMode(!verbose, std::nullopt);
+                SetTextBoxMode(verbose ? W8_TEXT_BOX_MODE_NOTICE : W8_TEXT_BOX_MODE_APPEND,
+                               std::nullopt);
                 if (index == 0) {
                     AppendToLastTextLine(fmt::sprintf(g_localized_strings[0x1fa], totals[0], -1),
                                          std::nullopt);
