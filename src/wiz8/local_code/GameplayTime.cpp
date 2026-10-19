@@ -85,7 +85,7 @@ static void BeginPartyCamping()
         gXStatus.surprise_unengaged = false;
         ShowNotice(W8_FONT_PALETTE_BEIGE, fmt::sprintf(g_localized_strings[0x790], 8));
     }
-    SetNpcQuoteBubbleVisible(false, {}, 0, -1, 0xffffffff);
+    SetNpcQuoteBubbleVisible(false, {}, 0, -1, std::nullopt);
     BeginSurprise();
     gXStatus.fSurprisePossible = true;
     SetWorldResumeInput(true);

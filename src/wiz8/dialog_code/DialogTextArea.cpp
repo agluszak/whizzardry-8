@@ -298,8 +298,7 @@ void W8DialogTextArea::RebuildVisibleEntries()
     ClearSelection();
     m_visible_lines.clear();
     for (int index = 0; index < static_cast<int>(m_all_lines.size()); ++index)
-        if (m_category_filter == W8_DIALOGUE_CATEGORY_ALL ||
-            m_all_lines[index]->m_category == m_category_filter)
+        if (!m_category_filter || m_all_lines[index]->m_category == *m_category_filter)
             m_visible_lines.push_back(index);
     if (m_sorted)
         std::stable_sort(m_visible_lines.begin(), m_visible_lines.end(), [this](int a, int b) {
@@ -311,7 +310,7 @@ void W8DialogTextArea::RebuildVisibleEntries()
 }
 
 // FUNCTION: WIZ8 0x005d2400
-void W8DialogTextArea::SetCategoryFilter(W8DialogueCategory category)
+void W8DialogTextArea::SetCategoryFilter(std::optional<W8DialogueCategory> category)
 {
     m_category_filter = category;
     RebuildVisibleEntries();
@@ -387,11 +386,10 @@ bool W8DialogTextArea::ScrollUp(bool check_only)
 // FUNCTION: WIZ8 0x005d14d0
 W8DialogTextArea::W8DialogTextArea()
 {
-    int invalid = -1;
     m_line_height_override.reset();
     m_selected_visible_entry.reset();
     m_highlighted_entry.reset();
-    m_category_filter = W8_DIALOGUE_CATEGORY_ALL;
+    m_category_filter.reset();
     m_first_visible_entry = 0;
     m_first_visible_line = 0;
     m_font = 0;

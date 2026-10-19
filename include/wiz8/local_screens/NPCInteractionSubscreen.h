@@ -1,5 +1,6 @@
 #pragma once
 struct W8Chunk;
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <string>
@@ -94,7 +95,7 @@ struct NpcDialogueUi {
 
 struct W8PendingNoticeLine {
     std::string text;
-    int npc_kind;
+    std::optional<int> npc_kind;
 };
 
 /* An NPC script notice waiting for DispatchPendingNpcScriptNotice. */
@@ -241,7 +242,7 @@ struct W8NpcInteractionState {
        fresh; cleared when the next transcript line scrolls. */
     bool text_box_collapsed;
     bool dialogue_panel_hidden;
-    int last_notice_npc_kind;
+    std::optional<int> last_notice_npc_kind;
 };
 
 extern W8NpcInteractionState* g_npc_interaction_state;
@@ -275,10 +276,10 @@ void SyncDialogueNpcState(void);
 /* Store a transcript keyword, inferring its category when category is -1. */
 void AddDialogueTranscriptKeyword(std::string_view name, W8DialogueCategory category);
 void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQuote* quote,
-                              int quote_id, unsigned int font_palette);
+                              int quote_id, std::optional<std::uint8_t> font_palette);
 void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQuote* quote,
-                              int quote_id, unsigned int font_palette, W8QuoteNotice notice,
-                              int npc_kind);
+                              int quote_id, std::optional<std::uint8_t> font_palette,
+                              W8QuoteNotice notice, std::optional<int> npc_kind);
 void DrawNpcQuoteBubble(void);
 void LookAtDialogueNpc(void);
 void CloseNpcDialogueLayout(void);

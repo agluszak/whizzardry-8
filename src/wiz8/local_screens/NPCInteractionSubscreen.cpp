@@ -3765,14 +3765,14 @@ void OpenNpcDialog(W8NpcQuoteEntry* request, int aux_data)
 }
 
 void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQuote* quote,
-                              int quote_id, unsigned int font_palette)
+                              int quote_id, std::optional<std::uint8_t> font_palette)
 {
-    SetNpcQuoteBubbleVisible(visible, text, quote, quote_id, font_palette, {}, -1);
+    SetNpcQuoteBubbleVisible(visible, text, quote, quote_id, font_palette, {}, std::nullopt);
 }
 
 void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQuote* quote,
-                              int quote_id, unsigned int font_palette, W8QuoteNotice notice,
-                              int npc_kind)
+                              int quote_id, std::optional<std::uint8_t> font_palette,
+                              W8QuoteNotice notice, std::optional<int> npc_kind)
 {
     if (visible == g_npc_interaction_state->quote_visible) {
         return;
@@ -3790,9 +3790,7 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQu
             normalized += text[index];
         }
         auto& bubble = g_npc_interaction_state->quote_bubble;
-        bubble = QuoteBubble::layout(
-            normalized, 280,
-            font_palette == 0xffffffff ? std::nullopt : std::optional<std::uint8_t>(font_palette));
+        bubble = QuoteBubble::layout(normalized, 280, font_palette);
         if (!bubble) {
             if (g_npc_interaction_state->dialogue_npc != 0) {
                 error_text = fmt::format(
@@ -3899,16 +3897,15 @@ void FlushPendingNoticeLines(void)
     for (index = 0; index < static_cast<int>(g_npc_interaction_state->pending_notice_lines.size());
          ++index) {
         const auto* line = &g_npc_interaction_state->pending_notice_lines[index];
-        if (line->npc_kind != -1 &&
-            line->npc_kind != g_npc_interaction_state->last_notice_npc_kind) {
-            W8NpcState* npc = GetNpcState(line->npc_kind);
+        if (line->npc_kind && *line->npc_kind != g_npc_interaction_state->last_notice_npc_kind) {
+            W8NpcState* npc = GetNpcState(*line->npc_kind);
             if (npc != 0) {
                 npc_name = npc->record->source_name;
                 ShowNotice(W8_FONT_PALETTE_GREEN, npc_name, 3);
-                g_npc_interaction_state->last_notice_npc_kind = line->npc_kind;
+                g_npc_interaction_state->last_notice_npc_kind = *line->npc_kind;
             }
         }
-        ShowNotice(line->npc_kind == -1 ? 0xb : 0xf, line->text, 3,
+        ShowNotice(line->npc_kind ? 0xf : 0xb, line->text, 3,
                    (g_level_block->text_box_right - g_level_block->text_box_left));
     }
     g_npc_interaction_state->pending_notice_lines.clear();

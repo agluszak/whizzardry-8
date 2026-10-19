@@ -51,7 +51,7 @@ public:
                  unsigned int text_palette, unsigned char category);
     void RemoveEntry(unsigned int index);
     void RebuildVisibleEntries();
-    void SetCategoryFilter(W8DialogueCategory category);
+    void SetCategoryFilter(std::optional<W8DialogueCategory> category);
     void SetSorted(bool sorted);
     bool ScrollDown(bool check_only);
     bool ScrollUp(bool check_only);
@@ -84,6 +84,6 @@ private:
     std::optional<int> m_selected_visible_entry;
     std::optional<int> m_highlighted_entry;
     bool m_relayout_needed;
-    W8DialogueCategory m_category_filter = W8_DIALOGUE_CATEGORY_ALL;
+    std::optional<W8DialogueCategory> m_category_filter;
     bool m_sorted;
 };

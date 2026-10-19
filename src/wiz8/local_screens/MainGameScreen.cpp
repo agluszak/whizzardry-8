@@ -2066,7 +2066,7 @@ bool W8NpcDialogueTextController::IsExpanded()
 
 void W8NpcDialogueTextController::SetTranscriptCategoryFilter(W8DialogueCategory category)
 {
-    text_area.SetCategoryFilter(category);
+    text_area.SetCategoryFilter(category < 0 ? std::nullopt : std::optional{category});
     Collapse();
     Expand();
     SyncNpcDialogueTranscriptScrollButtons();

@@ -148,7 +148,7 @@ W8NpcSubquoteOutcome SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char sub
         display_text = quote->subquotes[subquote_index];
         if (!notice_only) {
             g_presentation = W8NpcPresentation::portrait_message;
-            SetNpcQuoteBubbleVisible(true, display_text, 0, -1, -1);
+            SetNpcQuoteBubbleVisible(true, display_text, 0, -1, std::nullopt);
             HoldNpcSpeech(g_speech, wiz8::text::grapheme_count(display_text) * 60 + 2000);
             return W8NpcSubquoteOutcome::presented;
         }
@@ -208,8 +208,11 @@ W8NpcSubquoteOutcome SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char sub
                 prefixed_text = fmt::format("{}: {}", speaker->record->source_name, display_text);
                 display_text = prefixed_text;
             }
-            SetNpcQuoteBubbleVisible(true, display_text, 0, current_quote, -1, {},
-                                     speaker->partner_index);
+            const auto npc_kind = speaker->partner_index == 0xff
+                                      ? std::nullopt
+                                      : std::optional<int>{speaker->partner_index};
+            SetNpcQuoteBubbleVisible(true, display_text, 0, current_quote, std::nullopt, {},
+                                     npc_kind);
         }
         const bool voiced = PlayNpcVoice(g_speech, voice_path, NpcVoiceEosCallback);
         monster = GetNpcMonster(speaker);
@@ -227,7 +230,9 @@ W8NpcSubquoteOutcome SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char sub
             if (voiced) {
                 g_status.buffers.XChar[speaker->group_index].pending_event_type = current_quote;
                 entry->pending_event_type = current_quote;
-                g_npc_interaction_state->last_notice_npc_kind = speaker->partner_index;
+                g_npc_interaction_state->last_notice_npc_kind =
+                    speaker->partner_index == 0xff ? std::nullopt
+                                                   : std::optional<int>{speaker->partner_index};
             }
         } else if (voiced) {
             g_speech.gap_track = LoadMouthGapTrack(voice_path);
@@ -249,7 +254,7 @@ static void FinishNpcVoicePlayback(bool resume_script)
     const int current_quote = g_npc_dialogue.current_quote();
     if (g_presentation == W8NpcPresentation::portrait_message) {
         g_presentation = W8NpcPresentation::none;
-        SetNpcQuoteBubbleVisible(false, {}, 0, -1, -1);
+        SetNpcQuoteBubbleVisible(false, {}, 0, -1, std::nullopt);
         g_npc_dialogue.SpeechFinished();
         return;
     }
@@ -263,7 +268,7 @@ static void FinishNpcVoicePlayback(bool resume_script)
     }
     if (GetNpcGroupEntry(speaker) != 0) {
         FinishPortraitSpeech(speaker->group_index);
-        SetNpcQuoteBubbleVisible(false, {}, 0, -1, -1);
+        SetNpcQuoteBubbleVisible(false, {}, 0, -1, std::nullopt);
     }
     g_presentation = W8NpcPresentation::none;
     g_npc_dialogue.SpeechFinished();
@@ -271,7 +276,7 @@ static void FinishNpcVoicePlayback(bool resume_script)
         if (speaker != 0 && speaker->script_file != 0 &&
             current_quote < speaker->script_file->quote_count) {
             SetNpcQuoteBubbleVisible(false, {}, &speaker->script_file->quotes[current_quote],
-                                     current_quote, -1);
+                                     current_quote, std::nullopt);
             return;
         }
     }
@@ -295,7 +300,7 @@ void TryFinishNpcVoicePlayback(bool force)
 void ShowNpcPortraitMessage(std::string_view text, W8QuoteNotice notice)
 {
     g_presentation = W8NpcPresentation::portrait_message;
-    SetNpcQuoteBubbleVisible(true, text, 0, -1, -1, notice, -1);
+    SetNpcQuoteBubbleVisible(true, text, 0, -1, std::nullopt, notice, std::nullopt);
     HoldNpcSpeech(g_speech, ComputePortraitMessageDuration(text));
 }
 
@@ -309,10 +314,10 @@ void RestoreCurrentNpcQuoteBubble(void)
     W8NpcScriptFile* script_file = speaker != 0 ? speaker->script_file.get() : 0;
     if (script_file != 0 && current_quote < static_cast<int>(script_file->quote_count)) {
         SetNpcQuoteBubbleVisible(false, {}, script_file->quotes.data() + current_quote,
-                                 current_quote, 0xffffffff);
+                                 current_quote, std::nullopt);
         return;
     }
-    SetNpcQuoteBubbleVisible(false, {}, 0, -1, 0xffffffff);
+    SetNpcQuoteBubbleVisible(false, {}, 0, -1, std::nullopt);
 }
 
 /* Raise the quote bubble over `text` and, when `play_sound` is set, kick off

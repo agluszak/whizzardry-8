@@ -268,7 +268,7 @@ void dispatch_mouse(InputEventType event, std::uint16_t x, std::uint16_t y, bool
 struct UiStateSnapshot {
     int help_delay = g_ui_help_delay;
     bool force = g_ui_help_forced;
-    int owner = UiInputOwner();
+    std::optional<int> owner = UiInputOwner();
     UiStateSnapshot()
     {
         static int next_owner = 1000;
@@ -2129,8 +2129,9 @@ TEST_CASE("Main-game screen state owns HUD input through suspension and teardown
         dispatch_mouse(InputEventType::LeftButtonUp, 105, 105);
         REQUIRE(clicks == 1);
         // Another screen taking input leaves this screen's layers untouched.
-        const int screen_owner = UiInputOwner();
-        SelectUiInputOwner(screen_owner + 1);
+        const auto screen_owner = UiInputOwner();
+        REQUIRE(screen_owner);
+        SelectUiInputOwner(*screen_owner + 1);
         REQUIRE(UiTargetAt({105, 105}) == nullptr);
         SelectUiInputOwner(screen_owner);
         dispatch_mouse(InputEventType::LeftButtonDown, 105, 105, true);
