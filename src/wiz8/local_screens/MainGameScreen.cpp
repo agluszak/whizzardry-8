@@ -6915,7 +6915,7 @@ void SetTargetingMode(W8TargetNeed state)
 void ConfigureSpellTargetFilter(W8SpellTargetType target_type, W8TargetNeed needed_kind)
 {
     W8CombatSlot target;
-    int cursor = -1;
+    std::optional<int> cursor;
     int selected = g_status.selected_character;
 
     switch (target_type) {
@@ -6981,8 +6981,8 @@ aim_done:
     default:
         break;
     }
-    if (cursor != gXStatus.iCurrentCursor) {
-        SetTargetCursor(cursor);
+    if (cursor && *cursor != gXStatus.iCurrentCursor) {
+        SetTargetCursor(*cursor);
     }
     RequestRefreshPartyState();
     if (needed_kind == W8_TARGET_NEED_CONE) {

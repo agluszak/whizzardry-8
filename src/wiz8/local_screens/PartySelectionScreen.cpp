@@ -1193,7 +1193,7 @@ void W8PartySelectionController::ApplyPartySelectionConfirmation(W8PartyConfirma
     switch (m_confirmation_action) {
     case W8_PARTY_CONFIRM_DELETE_CHARACTER: {
         if (!m_selected_row) return;
-        const int selected = *m_selected_row;
+        int selected = *m_selected_row;
         W8Character* character = collection->GetCharacter(selected);
         if (character->fInParty) {
             collection->DetachFromParty(selected);
@@ -1275,7 +1275,7 @@ void W8PartySelectionController::TogglePartyMemberSelection()
     if (m_mode != W8_PARTY_SELECT_CHARACTERS || !m_selected_row) {
         return;
     }
-    const int selected = *m_selected_row;
+    int selected = *m_selected_row;
 
     W8PartySelectionCharacterCollection* collection = g_party_selection_character_collection.get();
     W8Character* character = collection->GetCharacter(selected);
@@ -1448,16 +1448,12 @@ void GameStartRouterFrame(void)
     if (!g_status.skip_loose_character_check) {
         code = W8_INTRO_VIDEO_VIRGIN;
     } else {
-        switch (g_wiz7_ending) {
-        case 1:
+        if (g_wiz7_ending && *g_wiz7_ending == 1) {
             code = W8_INTRO_VIDEO_UMPANI;
-            break;
-        case 2:
+        } else if (g_wiz7_ending && *g_wiz7_ending == 2) {
             code = W8_INTRO_VIDEO_TRANG;
-            break;
-        default:
+        } else {
             code = W8_INTRO_VIDEO_UNALIGNED;
-            break;
         }
     }
     SetIntroVideoIndex(code);

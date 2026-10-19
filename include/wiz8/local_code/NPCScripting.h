@@ -92,7 +92,7 @@ private:
     void QueueQuoteEntry(int quote, int entry, int continuation_quote, bool prepend);
     void RunNextAction();
     void RunQuoteEntry(W8NpcQuoteEntry* entry, int continuation_quote);
-    int SelectResponse(W8NpcQuoteEntry* entry, int quote, int entry_index);
+    std::optional<int> SelectResponse(W8NpcQuoteEntry* entry, int quote, int entry_index);
     std::optional<int> FindReplyQuote(std::string_view text) const;
     void RunDeclineActions(int quote);
 

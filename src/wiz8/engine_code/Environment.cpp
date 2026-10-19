@@ -299,10 +299,10 @@ void UpdateEnvironmentLight(void)
     if (!GetWorld()) return;
     AdvanceEnvironmentClock();
     unsigned int phase = ((g_status.game_time_ms / 1000U) << 8) / 86400U;
-    if (phase != static_cast<unsigned int>(GetWorld()->last_light_phase)) {
+    if (!GetWorld()->last_light_phase || phase != *GetWorld()->last_light_phase) {
         g_light_direction = GetWorld()->light_colours[phase];
         PublishLightDirection(&GetWorld()->light_colours[phase]);
-        GetWorld()->last_light_phase = static_cast<int>(phase);
+        GetWorld()->last_light_phase = phase;
     }
 }
 
@@ -378,10 +378,11 @@ void RefreshEnvironment(void)
     if (!GetWorld()) return;
     AdvanceEnvironmentClock();
     unsigned int phase = ((g_status.game_time_ms / 1000U) << 8) / 86400U;
-    if (phase != static_cast<unsigned int>(GetWorld()->last_environment_colour_phase)) {
+    if (!GetWorld()->last_environment_colour_phase ||
+        phase != *GetWorld()->last_environment_colour_phase) {
         glm::vec3 colour = GetWorld()->environment_colours[phase];
         SetWorldEnvironmentColour(colour);
-        GetWorld()->last_environment_colour_phase = static_cast<int>(phase);
+        GetWorld()->last_environment_colour_phase = phase;
     }
 }
 

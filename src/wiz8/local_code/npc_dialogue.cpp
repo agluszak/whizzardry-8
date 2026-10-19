@@ -34,10 +34,11 @@ constexpr int kWorldActionQuoteMin = 'F';
 /* Evaluate a kind-3 quote entry: each sub-entry pair is a (fact, expected)
    guard that must all hold, then the entry selects the response - operand0
    directly, randomly in [operand0, operand2] when operand1 is 2, or a
-   queued QUOTE_ENTRY continuation line when operand2 is 4. Returns the
-   response index, -1 when a guard fails, and -2 after queueing. */
+   queued QUOTE_ENTRY continuation line when operand2 is 4. Returns nullopt
+   when a guard fails and -2 after queueing. */
 // FUNCTION: WIZ8 0x005251F0
-int W8NpcDialogue::SelectResponse(W8NpcQuoteEntry* entry, int quote_index, int entry_index)
+std::optional<int> W8NpcDialogue::SelectResponse(W8NpcQuoteEntry* entry, int quote_index,
+                                                 int entry_index)
 {
     int index;
     unsigned char expected;
@@ -118,7 +119,7 @@ void W8NpcDialogue::Speak(int script_line, bool force_npc_voice)
     W8Monster* monster;
     W8NpcState* target;
     char response_count;
-    int response;
+    std::optional<int> response;
     int entry_index;
     bool finished;
 
@@ -131,7 +132,7 @@ void W8NpcDialogue::Speak(int script_line, bool force_npc_voice)
         if (session_.subquote_index == quote->subquote_count) {
             session_.subquote_index = 0;
         }
-        response = -1;
+        response.reset();
         finished = false;
         if (session_.subquote_index == quote->subquote_count - 1 && quote->entry_count != 0) {
             for (entry_index = 0; entry_index < quote->entry_count; entry_index++) {
@@ -141,7 +142,7 @@ void W8NpcDialogue::Speak(int script_line, bool force_npc_voice)
                     if (entry->operand2 == 4) {
                         if (entry->operand1 != 2) {
                             QueueQuoteEntry(script_line, entry_index, 0, false);
-                            response = -1;
+                            response.reset();
                             finished = true;
                             break;
                         }
@@ -156,7 +157,7 @@ void W8NpcDialogue::Speak(int script_line, bool force_npc_voice)
                     break;
                 case W8_NPC_ENTRY_FACT_CONDITIONAL_QUOTE:
                     response = SelectResponse(entry, script_line, entry_index);
-                    if (response != -1) {
+                    if (response && *response != -1) {
                         finished = true;
                         break;
                     }
@@ -259,8 +260,8 @@ void W8NpcDialogue::Speak(int script_line, bool force_npc_voice)
             cancelled_ = false;
             return;
         }
-        if (response >= 0) {
-            QueueQuote(response, false, false, false);
+        if (response && *response >= 0) {
+            QueueQuote(*response, false, false, false);
         }
         switch (SpeakNpcSubquote(quote, session_.subquote_index, false, force_npc_voice)) {
         case W8NpcSubquoteOutcome::presented:

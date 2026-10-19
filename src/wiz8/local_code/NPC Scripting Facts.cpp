@@ -1061,16 +1061,12 @@ void InitializeFactState(void)
     g_fact_notifications_suppressed = true;
     if (g_status.skip_loose_character_check) {
         SetFact(W8_FACT_IMPORT, 1, false);
-        switch (g_wiz7_ending) {
-        case 1:
+        if (g_wiz7_ending && *g_wiz7_ending == 1) {
             SetFact(W8_FACT_IMPORT_UMPANI, 1, false);
-            break;
-        case 2:
+        } else if (g_wiz7_ending && *g_wiz7_ending == 2) {
             SetFact(W8_FACT_IMPORT_TRANG, 1, false);
-            break;
-        default:
+        } else {
             SetFact(W8_FACT_IMPORT_NOALIGN, 1, false);
-            break;
         }
         if (g_import_flags[0xb]) {
             SetFact(W8_FACT_BARLONE_WAS_DEAD, 1, false);

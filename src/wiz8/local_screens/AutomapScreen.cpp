@@ -204,7 +204,7 @@ float g_automap_range = 10000.0f;
 // GLOBAL: WIZ8 0x0064b90d
 bool g_automap_developer_i_toggle = true;
 // GLOBAL: WIZ8 0x0064b918
-int g_automap_layer = -1;
+std::optional<int> g_automap_layer;
 // GLOBAL: WIZ8 0x0064b91c
 bool g_automap_bounds_dirty = true;
 // GLOBAL: WIZ8 0x0068f138
@@ -290,7 +290,7 @@ void ResetAutomapLighting(void);
 void LightAutomapCell(const glm::vec3* position);
 unsigned int LightPendingAutomapCells(unsigned int max_count);
 int RestoreAutomapRect(DesignRect* rect);
-void SetAutomapLayer(int layer);
+void SetAutomapLayer(std::optional<int> layer);
 stModelInstance2D* CreateAutomapItemMarker(int item_id);
 stModelInstance2D* CreateAutomapMonsterMarker(int type);
 stModelInstance2D* CreateAutomapTextMarker(void);
@@ -533,15 +533,15 @@ void AutomapCyclePageButton(void)
 
 void AutomapLayerDownButton(void)
 {
-    if (g_automap_layer > 0) {
-        SetAutomapLayer(g_automap_layer - 1);
+    if (g_automap_layer && *g_automap_layer > 0) {
+        SetAutomapLayer(*g_automap_layer - 1);
     }
 }
 
 void AutomapLayerUpButton(void)
 {
-    if (g_automap_layer < static_cast<int>(g_automap_layers.size())) {
-        SetAutomapLayer(g_automap_layer + 1);
+    if (g_automap_layer && *g_automap_layer < static_cast<int>(g_automap_layers.size())) {
+        SetAutomapLayer(*g_automap_layer + 1);
     }
 }
 
@@ -774,14 +774,10 @@ void AutomapScreenFrame(void)
                 if (input.type == InputEventType::LeftButtonUp) {
                     glm::vec2 point;
                     if (g_automap_tool == W8AutomapTool::AddNote) {
-                        if (GetCursorPositionInViewport(&point)) {
-                            int layer = g_automap_layer + 1;
-                            if (HasAutomapLayer(layer)) {
-                                g_automap_layers[layer]->getLocationY();
-                            }
+                        if (GetCursorPositionInViewport(&point) && g_automap_layer) {
                             const auto location = AutomapWorldPosition(point);
                             g_automap_editing_note =
-                                CreateAutomapNote(&location, g_automap_layer, "_");
+                                CreateAutomapNote(&location, *g_automap_layer, "_");
                             SetNativeTextInputEnabled(g_automap_editing_note != nullptr);
                         }
                     } else if (g_automap_tool == W8AutomapTool::EraseNote) {
@@ -956,13 +952,13 @@ void SetAutomapCameraPoint(glm::vec3* position)
 
 /* Select the automap layer, remember how far above it the camera floats and
    refresh the layer-up/layer-down buttons. */
-void SetAutomapLayer(int layer)
+void SetAutomapLayer(std::optional<int> layer)
 {
-    if (!HasAutomapLayer(layer)) {
+    if (!layer || !HasAutomapLayer(*layer)) {
         g_automap_near_clip = 1.0f;
     } else {
         float height =
-            g_automap_position.y - static_cast<float>(g_automap_layers[layer]->getLocation().y);
+            g_automap_position.y - static_cast<float>(g_automap_layers[*layer]->getLocation().y);
         if (height < 1.0f) {
             g_automap_near_clip = 1.0f;
         } else {
@@ -975,10 +971,10 @@ void SetAutomapLayer(int layer)
     if (g_automap_buttons) {
         if (g_automap_buttons->buttons[9] != 0) {
             g_automap_buttons->buttons[9]->SetEnabled(
-                layer != static_cast<int>(g_automap_layers.size()) - 1);
+                !layer || *layer != static_cast<int>(g_automap_layers.size()) - 1);
         }
         if (g_automap_buttons->buttons[8] != 0) {
-            g_automap_buttons->buttons[8]->SetEnabled(layer != 0);
+            g_automap_buttons->buttons[8]->SetEnabled(!layer || *layer != 0);
         }
     }
 }
@@ -1259,7 +1255,7 @@ unsigned char ShowAutomapNoteTooltip(W8AutomapNote* note)
         floor_y = static_cast<float>(g_automap_layers.front()->getLocationY());
     }
     int index = FindAutomapLayerAtHeight(floor_y);
-    if (index - 1 == g_automap_layer) {
+    if (g_automap_layer && index - 1 == *g_automap_layer) {
         float left = g_automap_position.x - g_automap_zoom * 0.5f;
         float bottom = g_automap_position.z - g_automap_zoom * 0.5f;
         if (left <= note->position.x && note->position.x <= left + g_automap_zoom &&
@@ -1402,10 +1398,11 @@ unsigned char GetAutomapPositionUnderCursor(glm::vec3* position)
     glm::vec2 point;
 
     if (GetCursorPositionInViewport(&point) != 0) {
-        int layer = g_automap_layer + 1;
+        const auto layer =
+            g_automap_layer ? std::optional<int>{*g_automap_layer + 1} : std::nullopt;
         float height;
-        if (HasAutomapLayer(layer)) {
-            height = static_cast<float>(g_automap_layers[layer]->getLocationY());
+        if (layer && HasAutomapLayer(*layer)) {
+            height = static_cast<float>(g_automap_layers[*layer]->getLocationY());
         } else {
             height = g_automap_grid_min.y;
         }
@@ -1425,14 +1422,10 @@ W8AutomapNote* FindAutomapNoteUnderCursor(void)
     glm::vec2 point;
 
     if (g_automap_page != 2 && GetCursorPositionInViewport(&point) != 0) {
-        int layer = g_automap_layer + 1;
-        if (HasAutomapLayer(layer)) {
-            g_automap_layers[layer]->getLocationY();
-        }
         const auto location = AutomapWorldPosition(point);
         for (const auto& automap_note : g_automap_notes) {
             W8AutomapNote* note = automap_note.get();
-            if (note->layer == g_automap_layer) {
+            if (g_automap_layer && note->layer == *g_automap_layer) {
                 // NOLINTNEXTLINE(misc-include-cleaner)
                 const float distance = glm::distance(location, note->position);
                 if (distance < best && distance < g_automap_zoom * 0.05) {
@@ -1597,7 +1590,7 @@ void RenderAutomapMarkers(void)
         if ((item->m_pRep->flags & W8_ITEM_ENTITY_NO_PICKUP) == 0 &&
             (detect_all || (item->m_pRep->flags & W8_ITEM_ENTITY_RADAR_SEEN) != 0 ||
              HasCameraLineOfSight(&location)) &&
-            layer - 1 == g_automap_layer) {
+            g_automap_layer && layer - 1 == *g_automap_layer) {
             left = g_automap_position.x - g_automap_zoom * 0.5f;
             top = g_automap_position.z - g_automap_zoom * 0.5f;
             if (location.x < left || left + g_automap_zoom < location.x || location.z < top ||
@@ -1624,9 +1617,6 @@ void RenderAutomapMarkers(void)
         for (unsigned int index = 0; index < count; ++index) {
             W8AutomapNote* note = g_automap_notes[index].get();
             int layer = note->layer + 1;
-            if (HasAutomapLayer(layer)) {
-                g_automap_layers[layer]->getLocationY();
-            }
             left = g_automap_position.x - g_automap_zoom * 0.5f;
             top = g_automap_position.z - g_automap_zoom * 0.5f;
             if (note->position.x < left || left + g_automap_zoom < note->position.x ||
@@ -1645,7 +1635,7 @@ void RenderAutomapMarkers(void)
                 y -= height >> 1;
                 Position2DNodeUnsnapped(marker, x, y);
                 marker->setParent(g_overlay_scenes.fullscreen.get(), 1);
-                if (note->layer == g_automap_layer && !note->text.empty() &&
+                if (g_automap_layer && note->layer == *g_automap_layer && !note->text.empty() &&
                     (g_automap_page == 0 || note == g_automap_hovered_note ||
                      note == g_automap_editing_note)) {
                     height = marker->GetScaledHeight();
@@ -1799,11 +1789,7 @@ unsigned char HandleAutomapNoteInput(const InputEvent* input)
         input->type != InputEventType::Text) {
         if (input->type == InputEventType::LeftButtonUp && IsCursorInsideViewport()) {
             glm::vec2 point;
-            if (GetCursorPositionInViewport(&point) != 0) {
-                int layer = g_automap_layer + 1;
-                if (HasAutomapLayer(layer)) {
-                    g_automap_layers[layer]->getLocationY();
-                }
+            if (GetCursorPositionInViewport(&point) != 0 && g_automap_layer) {
                 g_automap_editing_note->position = AutomapWorldPosition(point);
                 g_automap_redraw = true;
             }

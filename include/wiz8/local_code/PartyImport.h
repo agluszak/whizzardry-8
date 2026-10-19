@@ -1,3 +1,4 @@
+#include <optional>
 #include <string_view>
 #ifndef WIZ8_LOCAL_CODE_PARTYIMPORT_H
 #define WIZ8_LOCAL_CODE_PARTYIMPORT_H
@@ -56,7 +57,7 @@ unsigned char LoadWizardry7ImportFile(std::string_view path);
 unsigned char ImportWizardry7Party(std::string_view path);
 
 extern int g_import_character_count;
-extern int g_wiz7_ending; /* Ending selector */
+extern std::optional<int> g_wiz7_ending; /* Ending selector, absent if the file has none */
 /* The 96 file flags; index 5 doubles as the unsuppress byte and
    index 0xb as the loaded marker the fact seeder reads. */
 extern unsigned char g_import_flags[0x60];

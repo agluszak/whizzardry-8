@@ -3,6 +3,7 @@
 
 #include <array>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -104,8 +105,8 @@ struct W8World {
     bool initial_camera_sway = false;
     glm::mat3 initial_camera_rotation{1.0f};
     bool fog_enabled = false;
-    int last_light_phase = -1;
-    int last_environment_colour_phase = -1;
+    std::optional<unsigned int> last_light_phase;
+    std::optional<unsigned int> last_environment_colour_phase;
     float environment_range_start = 0.75f;
     float environment_range_end = 1.0f;
     float view_distance{};

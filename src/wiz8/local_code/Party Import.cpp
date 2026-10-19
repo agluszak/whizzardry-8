@@ -87,7 +87,7 @@ static std::optional<int> FindItemByLegacyNumber(short item_number)
 int g_import_character_count;
 
 // GLOBAL: WIZ8 0x0068DE50
-int g_wiz7_ending;
+std::optional<int> g_wiz7_ending;
 
 // GLOBAL: WIZ8 0x0068DE58
 unsigned char g_import_flags[0x60];
@@ -127,7 +127,7 @@ try {
     }
 
     const bool ending_record = party_block[0] == -1;
-    int ending = -1;
+    std::optional<int> ending;
     if (ending_record) {
         switch (characters[0].party_tag & 0xf0) {
         case 0x10:
@@ -181,7 +181,7 @@ unsigned char ImportWizardry7Party(std::string_view path)
                 return 1;
             }
         }
-        return (g_wiz7_ending != 3) - 1 & 2;
+        return (!g_wiz7_ending || *g_wiz7_ending != 3) - 1 & 2;
     }
     return 1;
 }
