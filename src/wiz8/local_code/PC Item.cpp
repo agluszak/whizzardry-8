@@ -2732,7 +2732,7 @@ void SwapItemInstances(W8ItemInstance* item, W8ItemInstance* destination, W8Char
             ClearHeldItemDisplay();
         } else {
             gXStatus.held_item_source = held_character;
-            gXStatus.held_item_origin = held_origin;
+            gXStatus.held_item_origin = static_cast<W8ItemOrigin>(held_origin);
             gXStatus.held_item_slot = held_slot;
             SetItemCursor(0);
         }
