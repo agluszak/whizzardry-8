@@ -434,10 +434,9 @@ void SplitStackDialogResult(int count)
            party pool, and as a last resort stays in hand. */
         destination = 0;
         character = 0;
-        if (gXStatus.held_item_source != -1 &&
-            (gXStatus.held_item_origin == W8_ITEM_ORIGIN_BACKPACK ||
-             gXStatus.held_item_origin == W8_ITEM_ORIGIN_EQUIPPED)) {
-            character = g_status.buffers.Char + gXStatus.held_item_source;
+        if (gXStatus.held_item_source && (gXStatus.held_item_origin == W8_ITEM_ORIGIN_BACKPACK ||
+                                          gXStatus.held_item_origin == W8_ITEM_ORIGIN_EQUIPPED)) {
+            character = g_status.buffers.Char + *gXStatus.held_item_source;
             if (gXStatus.held_item_origin == W8_ITEM_ORIGIN_EQUIPPED) {
                 if (character->EquippedItem[static_cast<short>(gXStatus.held_item_slot)].iItemNo ==
                         -1 &&

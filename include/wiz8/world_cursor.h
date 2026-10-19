@@ -1,5 +1,7 @@
 #pragma once
 
+#include <optional>
+
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_int3.hpp"
 
@@ -46,7 +48,7 @@ struct W8WorldCursorState {
        placement click. */
     bool left_held{};
     /* Selected monster group id, resolved in the owning population. */
-    int monster_group_id{};
+    std::optional<int> monster_group_id;
     /* when set the cursor is detached from the camera - input moves
        position directly and the placement update skips the
        camera-relative cam_rel_offset store. */

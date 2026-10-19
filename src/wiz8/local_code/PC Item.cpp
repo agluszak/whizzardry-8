@@ -1588,7 +1588,7 @@ static void DropUnstoredCharacterItem(W8ItemInstance* item)
     if (was_in_cursor) {
         saved_hand = g_status.item_in_hand;
     }
-    gXStatus.held_item_source = -1;
+    gXStatus.held_item_source.reset();
     gXStatus.held_item_origin = W8_ITEM_ORIGIN_NONE;
     gXStatus.held_item_slot = 0xffff;
     ClearHeldItemDisplay();
@@ -1682,7 +1682,7 @@ bool GiveHeldItemToCharacterOrParty(int uiChar, bool party_first)
 
     /* Only a stored item releases the cursor; a refused one stays held. */
     if (stored) {
-        gXStatus.held_item_source = -1;
+        gXStatus.held_item_source.reset();
         gXStatus.held_item_origin = W8_ITEM_ORIGIN_NONE;
         gXStatus.held_item_slot = 0xffff;
         ClearHeldItemDisplay();
@@ -1754,7 +1754,7 @@ void CreateItemIntoHandOrPool(int item_id, bool quality)
 {
     W8ItemInstance created;
 
-    gXStatus.held_item_source = -1;
+    gXStatus.held_item_source.reset();
     gXStatus.held_item_origin = W8_ITEM_ORIGIN_NONE;
     gXStatus.held_item_slot = 0xffff;
     ClearHeldItemDisplay();
@@ -2705,12 +2705,12 @@ void SwapItemInstances(W8ItemInstance* item, W8ItemInstance* destination, W8Char
     auto* held_source = item == &g_status.item_in_hand          ? destination
                         : destination == &g_status.item_in_hand ? item
                                                                 : nullptr;
-    unsigned int held_character = -1;
+    std::optional<unsigned int> held_character;
     unsigned char held_origin = W8_ITEM_ORIGIN_NONE;
     unsigned short held_slot = 0xffff;
     if (held_source && character) {
         held_character = CharacterPointerToPartySlot(character);
-        GetOriginOfCharacterItem(held_character, held_source, &held_origin, &held_slot);
+        GetOriginOfCharacterItem(*held_character, held_source, &held_origin, &held_slot);
     }
     std::swap(*item, *destination);
     item->bind_announced = false;
@@ -2728,7 +2728,7 @@ void SwapItemInstances(W8ItemInstance* item, W8ItemInstance* destination, W8Char
     RefreshChangedItems(character, std::array{item, destination}, refresh);
     if (held_source) {
         if (g_status.item_in_hand.iItemNo == -1) {
-            gXStatus.held_item_source = -1;
+            gXStatus.held_item_source.reset();
             gXStatus.held_item_origin = W8_ITEM_ORIGIN_NONE;
             gXStatus.held_item_slot = 0xffff;
             ClearHeldItemDisplay();
@@ -3008,7 +3008,7 @@ void EmptyItemRecord(W8ItemInstance* item, W8Character* character, bool refresh)
 {
 
     if (item == &g_status.item_in_hand) {
-        gXStatus.held_item_source = -1;
+        gXStatus.held_item_source.reset();
         gXStatus.held_item_origin = W8_ITEM_ORIGIN_NONE;
         gXStatus.held_item_slot = 0xffff;
         ClearHeldItemDisplay();

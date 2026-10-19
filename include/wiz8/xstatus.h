@@ -80,7 +80,7 @@ struct W8XStatus {
     /* Explicit user-pause choice; closing an interaction does not clear it. */
     bool world_paused;
     unsigned short review_character_slot;
-    int held_item_source;
+    std::optional<int> held_item_source;
     unsigned char held_item_origin;
     unsigned short held_item_slot;
     std::array<std::unique_ptr<W8MonsterRecord>, 1000> monster_record_cache;

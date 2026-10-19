@@ -2134,7 +2134,7 @@ void ResetMainGameScreenState(void)
         gXStatus.world_paused = false;
         unset = -1;
         gXStatus.review_character_slot = static_cast<unsigned short>(unset);
-        gXStatus.held_item_source = unset;
+        gXStatus.held_item_source.reset();
         gXStatus.held_item_origin = static_cast<unsigned char>(unset);
         gXStatus.held_item_slot = static_cast<unsigned short>(unset);
         gXStatus.gameplay_timer->Restart();

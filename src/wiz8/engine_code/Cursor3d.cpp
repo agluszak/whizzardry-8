@@ -81,10 +81,10 @@ static srNode* g_cursor_node0;
 // GLOBAL: WIZ8 0x0065ba98
 static bool g_cursor_pick_latch;
 
-/* 0x60ab44: the saved world-cursor monster group id; -1 until a cursor is
-   torn down. Seeds and restores monster_group_id. */
+/* 0x60ab44: the saved world-cursor monster group id. Seeds and restores
+   monster_group_id when a cursor has been torn down before. */
 // GLOBAL: WIZ8 0x0060ab44
-static int g_cursor_saved_group_id = -1;
+static std::optional<int> g_cursor_saved_group_id;
 
 // GLOBAL: WIZ8 0x0060ab48
 static float g_cursor_projection_distance = 4000.0f;
@@ -384,7 +384,8 @@ void BindCursorMonsterToGroup(void)
             cursor.particle->emission_interval = 300;
         }
         position = cursor.position;
-        monster_group = FindMonsterGroup(cursor.monster_group_id, false);
+        monster_group =
+            cursor.monster_group_id ? FindMonsterGroup(*cursor.monster_group_id, false) : nullptr;
         if (monster_group == 0) {
             if (CurrentLevelPopulation().monster_groups.empty()) {
                 return;

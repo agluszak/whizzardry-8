@@ -1990,7 +1990,7 @@ void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOr
                         }
                     }
                     if (g_status.item_in_cursor) {
-                        choose_character = gXStatus.held_item_source == -1;
+                        choose_character = !gXStatus.held_item_source;
                         DeliverExceptionalItemReaction(&g_status.item_in_hand, choose_character,
                                                        g_review_character);
                     }

@@ -666,7 +666,7 @@ W8TradeResult CompleteNpcItemPurchase(W8NpcState* npc, int index, unsigned char 
     if (held) {
         g_status.item_in_hand = *held;
         g_status.item_in_cursor = true;
-        gXStatus.held_item_source = -1;
+        gXStatus.held_item_source.reset();
         gXStatus.held_item_origin = W8_ITEM_ORIGIN_NONE;
         gXStatus.held_item_slot = 0xffff;
         SetItemCursor(0);
