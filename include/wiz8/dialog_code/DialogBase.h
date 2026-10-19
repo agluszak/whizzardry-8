@@ -7,7 +7,6 @@
 
 #include <SDL3/SDL_rect.h>
 
-#include "Font.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/modal_content.h"
