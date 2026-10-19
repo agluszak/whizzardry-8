@@ -9,7 +9,18 @@
 
 class stTextureAnim;
 class stModelInstance2D;
-enum W8TextBoxArrowState : unsigned char;
+
+enum W8TextBoxArrowState : unsigned char {
+    kTextBoxArrowUninitialized = 0,
+    kTextBoxArrowNone = 0xff,
+    kUpArrowDisabled = 0x56,
+    kUpArrowEnabled = 0x57,
+    kUpArrowPressed = 0x58,
+    kDownArrowDisabled = 0x59,
+    kDownArrowEnabled = 0x5a,
+    kDownArrowPressed = 0x5b,
+};
+static_assert(sizeof(W8TextBoxArrowState) == sizeof(unsigned char));
 
 #include <memory>
 
@@ -150,8 +161,8 @@ struct W8LevelRuntimeBlock {
        row, 2 lower, 3 assayable item; Screens resets it to 0. */
     W8PortraitAssayHoverMode portrait_assay_hover_mode;
     int held_item_display = -1;
-    W8TextBoxArrowState text_content_region;
-    W8TextBoxArrowState dialogue_content_region;
+    W8TextBoxArrowState text_content_region = kTextBoxArrowNone;
+    W8TextBoxArrowState dialogue_content_region = kTextBoxArrowNone;
     unsigned int text_lines[12];
     /* Wrapped-line starts for hover and selection highlighting.
        NPC dialogue uses box 2 for the hovered row and selected trade item. */
