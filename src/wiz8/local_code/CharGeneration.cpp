@@ -975,18 +975,21 @@ void RebuildLevelUpPoolsForProfession(W8Character* character,
 
 /* Assign the chosen race and rebuild the race/profession tables. */
 // FUNCTION: WIZ8 0x005571c0
-void SetCharacterRace(W8Character* character, W8CharacterCreationState* creation_state, W8Race race)
+void SetCharacterRace(W8Character* character, W8CharacterCreationState* creation_state,
+                      std::optional<W8Race> race)
 {
-    character->iRace = race;
+    // W8Character keeps this field in the game's fixed ABI layout.
+    character->iRace = race ? *race : W8_RACE_NONE;
     ApplyRaceProfessionTables(character, creation_state);
 }
 
 /* Assign the chosen sex and rebuild the race/profession tables. */
 // FUNCTION: WIZ8 0x005571e0
 void SetCharacterGender(W8Character* character, W8CharacterCreationState* creation_state,
-                        W8Gender gender)
+                        std::optional<W8Gender> gender)
 {
-    character->gender = gender;
+    // W8Character keeps this field in the game's fixed ABI layout.
+    character->gender = gender ? *gender : W8_GENDER_UNSET;
     ApplyRaceProfessionTables(character, creation_state);
 }
 

@@ -124,7 +124,7 @@ public:
     void CollapseIfNotHovered();
     void Invalidate() { m_dirty = true; }
     void BuildSubpanel();
-    void SetValue(int index);
+    void SetValue(std::optional<int> index);
     void SetEnabled(bool enabled);
     void Draw(SDL_Surface& target, bool force);
     void DrawChoices(SDL_Surface& target);
@@ -160,7 +160,7 @@ public:
     virtual void HandleInput(const InputEvent*) override;
     virtual void Refresh() override;
     virtual void Prepare() override;
-    void OnRowValueChanged(W8CharacterStatsRow* row, int value);
+    void OnRowValueChanged(W8CharacterStatsRow* row, std::optional<int> value);
     void OnRowExpanded(W8CharacterStatsRow* row);
     void OnRowCollapsed(W8CharacterStatsRow* row);
     void OnRowInfoRequested(W8CharacterStatsRow* row, int value);

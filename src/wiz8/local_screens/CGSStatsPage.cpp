@@ -159,7 +159,7 @@ void W8CharacterStatsRow::SetEnabled(bool enabled)
     m_dirty = true;
 }
 
-void W8CharacterStatsRow::SetValue(int index)
+void W8CharacterStatsRow::SetValue(std::optional<int> index)
 {
     const std::optional<int> previous = m_index;
     m_index = index;
@@ -321,19 +321,23 @@ void W8CharacterStatsPage::UpdateRowValues()
         }
     }
 
+    const auto row_index = [](int value, int count) -> std::optional<int> {
+        if (value < 0 || value >= count) return std::nullopt;
+        return value;
+    };
     W8Profession profession = m_character->iProfession;
     W8CharacterStatsRow* row = m_profession_row.get();
-    row->SetValue(profession);
+    row->SetValue(row_index(profession, 15));
     m_profession_row->Invalidate();
 
     W8Race race = m_character->iRace;
     row = m_race_row.get();
-    row->SetValue(race);
+    row->SetValue(row_index(race, W8_RACE_PLAYABLE_COUNT));
     m_race_row->Invalidate();
 
     W8Gender gender = m_character->gender;
     row = m_gender_row.get();
-    row->SetValue(gender);
+    row->SetValue(row_index(gender, W8_GENDER_COUNT));
     m_gender_row->Invalidate();
 }
 
@@ -433,17 +437,19 @@ void W8CharacterStatsPage::ShowEntryInfo(W8CharacterPageEntry* entry)
 /* A value row moved: rerun the whole creation rebuild for the new
    profession, race or sex, then refresh the row controls. */
 // FUNCTION: WIZ8 0x005ca800
-void W8CharacterStatsPage::OnRowValueChanged(W8CharacterStatsRow* row, int value)
+void W8CharacterStatsPage::OnRowValueChanged(W8CharacterStatsRow* row, std::optional<int> value)
 {
     if (row == m_profession_row.get()) {
         RebuildLevelUpPoolsForProfession(
             m_character, m_creation_state,
-            value < 0 ? std::nullopt
-                      : std::optional<W8Profession>{static_cast<W8Profession>(value)});
+            value ? std::optional<W8Profession>{static_cast<W8Profession>(*value)} : std::nullopt);
     } else if (row == m_race_row.get()) {
-        SetCharacterRace(m_character, m_creation_state, static_cast<W8Race>(value));
+        SetCharacterRace(m_character, m_creation_state,
+                         value ? std::optional<W8Race>{static_cast<W8Race>(*value)} : std::nullopt);
     } else {
-        SetCharacterGender(m_character, m_creation_state, static_cast<W8Gender>(value));
+        SetCharacterGender(m_character, m_creation_state,
+                           value ? std::optional<W8Gender>{static_cast<W8Gender>(*value)}
+                                 : std::nullopt);
     }
     m_contentDirty = true;
     m_screen->UpdateNavigation(this);
