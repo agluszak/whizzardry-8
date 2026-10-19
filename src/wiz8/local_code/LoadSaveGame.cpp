@@ -101,7 +101,6 @@
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/unicode.h"
-#include "wiz8/utility.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 #include "wiz8/world_cursor.h"

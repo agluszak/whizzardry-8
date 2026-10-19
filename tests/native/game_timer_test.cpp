@@ -1,5 +1,6 @@
 #include <array>
 #include <cstdint>
+#include <utility>
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -151,14 +152,15 @@ TEST_CASE_METHOD(TimerFixture, "Texture animations retain their clock after 32-b
                  "[timers]")
 {
     g_runtime_test_hooks.clock_us = ((std::uint64_t{1} << 32) + 250) * 1000;
-    stTextureAnim animation;
-    animation.textures.resize(3);
-    animation.frame_rate = 1.0f;
+    TexturePlayback playback;
+    playback.textures.resize(3);
+    playback.frame_rate = 1.0f;
+    Texture animation(std::move(playback));
     advance(1'000'000);
     animation.UpdateFrame();
-    REQUIRE(animation.frame == 1);
+    REQUIRE(animation.playback->frame == 1);
     animation.SetFrame(0);
     advance(1'000'000);
     animation.UpdateFrame();
-    REQUIRE(animation.frame == 1);
+    REQUIRE(animation.playback->frame == 1);
 }

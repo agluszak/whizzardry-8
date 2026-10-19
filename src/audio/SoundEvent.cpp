@@ -1,5 +1,6 @@
 #include "wiz8/audio/SoundEvent.h"
 
+#include <cstdint>
 #include <span>
 #include <string>
 #include <utility>

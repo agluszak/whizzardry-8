@@ -74,7 +74,6 @@
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/ui_input.h"
-#include "wiz8/utility.h"
 #include "wiz8/world/camera_control.h"
 #include "wiz8/world/environment.h"
 

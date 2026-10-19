@@ -79,7 +79,6 @@
 #include "wiz8/surface_storage.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/unicode.h"
-#include "wiz8/utility.h"
 #include "wiz8/world/camera_control.h"
 #include "wiz8/world/camera_pose.h"
 #include "wiz8/world/environment.h"

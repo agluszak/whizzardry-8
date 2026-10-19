@@ -1,4 +1,5 @@
 #include <array>
+#include <cstddef>
 #include <filesystem>
 #include <limits>
 #include <memory>
@@ -659,8 +660,8 @@ TEST_CASE_METHOD(SpellVisualFixture, "Target cone is removed through its world o
     auto& source = *world.spell_visuals.emplace_back(std::make_unique<SpellVisual>(&world));
     source.asset_name = "TargetCone";
     source.mode = W8_SPELL_VISUAL_CONE;
-    source.resources.cycles[W8_SPELL_VISUAL_CONE * SPELL_CYCLES_PER_GROUP].animation =
-        std::make_unique<Animation>();
+    source.resources.cycles[static_cast<int>(W8_SPELL_VISUAL_CONE) * SPELL_CYCLES_PER_GROUP]
+        .animation = std::make_unique<Animation>();
     for (int attempt = 0; attempt < 2; ++attempt) {
         SetTargetConeEnabled(true);
         REQUIRE(world.target_cone);
