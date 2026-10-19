@@ -45,6 +45,7 @@ private:
     std::function<void(W8NpcDialog&)> m_closed;
     std::array<std::unique_ptr<W8TextBuffer>, 2> m_text_buffers;
     std::array<std::unique_ptr<W8ButtonWidget>, 3> m_buttons;
+    std::optional<int> m_selected_option;
     bool m_cancelled = false;
     W8NpcQuoteEntry* m_message;
     bool m_compact_options = false; /* option list may size under 200 wide */

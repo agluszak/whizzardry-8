@@ -4075,8 +4075,9 @@ void OnNpcDialogClosed(W8NpcDialog& dialog)
         return;
     }
     if (request->kind == W8_NPC_ENTRY_OPTIONS) {
+        if (!npc_dialog->m_selected_option) return;
         for (index = 0; index < request->sub_entry_count; ++index) {
-            if (index == npc_dialog->m_selected_option) {
+            if (index == *npc_dialog->m_selected_option) {
                 entry_text = request->sub_entries[index].text.c_str();
                 if (!gXStatus.fNpcDialogueMode || g_npc_interaction_state->scripted_dialogue) {
                     HandleNpcDialogueReply(entry_text, false);
@@ -4092,7 +4093,8 @@ void OnNpcDialogClosed(W8NpcDialog& dialog)
         }
     } else if (request->kind == W8_NPC_ENTRY_PRICE_CHECK ||
                request->kind == W8_NPC_ENTRY_ALWAYS_PRICE_CHECK) {
-        if (npc_dialog->m_selected_option == 0) {
+        if (!npc_dialog->m_selected_option) return;
+        if (*npc_dialog->m_selected_option == 0) {
             entry_text = g_localized_strings[0x7df];
         } else {
             entry_text = g_localized_strings[0x7e0];
