@@ -273,7 +273,7 @@ public:
     void Setup();
     void SetMode(W8PartySelectionMode mode);
     void SetSelection(int selection, bool party_slot, bool refresh_other);
-    void SetSelectedRow(int selection);
+    void SetSelectedRow(std::optional<int> selection);
     void RefreshRows();
     void RefreshSlots();
     void OnPrimary(W8ButtonWidget* control);
@@ -301,7 +301,8 @@ public:
     bool m_redraw_backdrop = true;
     bool summary_dirty = true, rows_dirty = true, slots_dirty = true;
     bool list_dirty = true, options_dirty = true;
-    int m_selected_row = 0, import_selection = 0, import_first = 0;
+    std::optional<int> m_selected_row;
+    int import_selection = 0, import_first = 0;
     std::optional<int> selected_slot, hovered_row, hovered_slot, import_hovered;
     int difficulty = g_settings.difficulty;
     W8PartyCreationPage creation_page = W8_PARTY_CREATION_OPTIONS;
@@ -364,15 +365,19 @@ void W8PartySelectionController::RefreshSlots()
     slots_dirty = true;
 }
 
-void W8PartySelectionController::SetSelectedRow(int selection)
+void W8PartySelectionController::SetSelectedRow(std::optional<int> selection)
 {
     m_selected_row = selection;
+    if (!selection) {
+        RefreshRows();
+        return;
+    }
     auto& collection = *g_party_selection_character_collection;
-    const int visible = selection - collection.first_visible;
+    const int visible = *selection - collection.first_visible;
     if (visible < 0 || visible > 5 ||
         static_cast<int>(collection.characters.size()) < collection.first_visible + 6) {
         collection.first_visible =
-            std::max(0, std::min(selection, static_cast<int>(collection.characters.size()) - 6));
+            std::max(0, std::min(*selection, static_cast<int>(collection.characters.size()) - 6));
         m_range.SetValue(collection.first_visible);
     }
     RefreshRows();
@@ -710,7 +715,7 @@ void W8PartySelectionController::Setup()
                           event.button == UiPointerButton::Left && event.clicks == 2)) {
                     AfterUiDispatch([this, row, event] {
                         SetSelectedRow(g_party_selection_character_collection->first_visible + row);
-                        SetSelection(m_selected_row, false, true);
+                        SetSelection(*m_selected_row, false, true);
                         if (event.button == UiPointerButton::Right)
                             OnPrimary(m_review_button);
                         else if (event.action == UiPointerAction::Down)
@@ -933,7 +938,7 @@ void W8PartySelectionController::SetSelection(int selection, bool party_slot, bo
             selection = -1;
         }
         if (m_mode == W8_PARTY_SELECT_CHARACTERS) {
-            int character_index = -1;
+            std::optional<int> character_index;
             if (selection >= 0 && g_status.buffers.XChar[selection + 2].fOccupied) {
                 for (int index = 0;
                      index <
@@ -1187,7 +1192,8 @@ void W8PartySelectionController::ApplyPartySelectionConfirmation(W8PartyConfirma
     W8PartySelectionCharacterCollection* collection = g_party_selection_character_collection.get();
     switch (m_confirmation_action) {
     case W8_PARTY_CONFIRM_DELETE_CHARACTER: {
-        int selected = m_selected_row;
+        if (!m_selected_row) return;
+        const int selected = *m_selected_row;
         W8Character* character = collection->GetCharacter(selected);
         if (character->fInParty) {
             collection->DetachFromParty(selected);
@@ -1266,10 +1272,10 @@ void W8PartySelectionController::LoadImportedPartyFile(int selection)
 
 void W8PartySelectionController::TogglePartyMemberSelection()
 {
-    int selected = m_selected_row;
-    if (m_mode != W8_PARTY_SELECT_CHARACTERS || selected == -1) {
+    if (m_mode != W8_PARTY_SELECT_CHARACTERS || !m_selected_row) {
         return;
     }
+    const int selected = *m_selected_row;
 
     W8PartySelectionCharacterCollection* collection = g_party_selection_character_collection.get();
     W8Character* character = collection->GetCharacter(selected);
@@ -1405,17 +1411,18 @@ void PartySelectionScreenFrame(void)
                     break;
                 case SDLK_UP:
                     if (controller->m_mode == W8_PARTY_SELECT_CHARACTERS &&
-                        controller->m_selected_row > 0) {
-                        controller->SetSelection(controller->m_selected_row - 1, false, true);
+                        controller->m_selected_row && *controller->m_selected_row > 0) {
+                        controller->SetSelection(*controller->m_selected_row - 1, false, true);
                     }
                     break;
                 case SDLK_DOWN:
                     if (controller->m_mode == W8_PARTY_SELECT_CHARACTERS &&
-                        controller->m_selected_row <
+                        controller->m_selected_row &&
+                        *controller->m_selected_row <
                             static_cast<int>(
                                 g_party_selection_character_collection->characters.size()) -
                                 1) {
-                        controller->SetSelection(controller->m_selected_row + 1, false, true);
+                        controller->SetSelection(*controller->m_selected_row + 1, false, true);
                     }
                     break;
                 case SDLK_DELETE:
