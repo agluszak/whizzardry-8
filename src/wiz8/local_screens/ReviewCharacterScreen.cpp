@@ -384,434 +384,6 @@ void W8CampScreenState::OpenSpellInfoDialog(unsigned int spell_id)
     DisplayCampDialog(std::move(dialog));
 }
 
-/* The items-page redraw driver, run once per update: each pending group of
-   redraw flags is cleared by repainting that block, and the two bottom/right
-   panels repaint when their own bits are raised. */
-void W8CampScreenState::RedrawCampItemsPage(void)
-{
-    g_wiz_text_font_secondary.setShade(Font::kNormalShade);
-    if ((redraw_flags & W8_CAMP_REDRAW_CHARACTER_INFO) != 0) {
-        DrawCampCharacterInfo();
-    }
-    if ((item_redraw_flags & W8_CAMP_ITEM_REDRAW_BACKPACK) != 0) {
-        DrawCampBackpackItems();
-    }
-    if ((item_redraw_flags & W8_CAMP_ITEM_REDRAW_EQUIPMENT) != 0) {
-        DrawCampEquipmentItems();
-    }
-    if ((item_redraw_flags & W8_CAMP_ITEM_REDRAW_POOL) != 0) {
-        DrawCampItemPool();
-        item_range->Redraw(GetFrameBufferSurface(), true);
-    } else {
-        item_range->Redraw(GetFrameBufferSurface(), false);
-    }
-    RefreshCampActionPanel((redraw_flags & W8_CAMP_REDRAW_ACTION_PANEL) != 0);
-    RefreshItemsTabPanel((redraw_flags & W8_CAMP_REDRAW_REALM_TABS) != 0);
-}
-
-/* The character block of the items page: name-free value fields, the
-   experience bar, the six realm icons with their point pools, the attribute
-   rows and the armor summaries. */
-void W8CampScreenState::DrawCampCharacterInfo(void)
-{
-    W8Character* character = reviewed;
-    int index;
-    int realm;
-    int top;
-    unsigned int filled;
-    SDL_Rect clip;
-
-    if (info_page != W8_CAMP_INFO_PAGE_ITEMS) {
-        character_info->InvalidateAll();
-        item_controls.dirty = true;
-        return;
-    }
-    CatalogArtwork::Load(0x114, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0x136, 0);
-    if (character->experience != character->experience_previous_goal) {
-        if (character->experience < character->experience_goal) {
-            filled = (character->experience - character->experience_previous_goal) * 0x67 /
-                     (character->experience_goal - character->experience_previous_goal);
-        } else {
-            filled = 0x67;
-        }
-        if (filled != 0) {
-            clip = {0x1c0, 0, static_cast<int>(filled), 0x1e0};
-            ScopedClipRect clipped(GetFrameBufferSurface(), clip);
-            CatalogArtwork::Load(0x11d, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0x1c0,
-                                                             0x26);
-        }
-    }
-    DrawRcsText(g_localized_strings[0x91b], 0x159, 10, 0xce,
-                g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
-    DrawRcsText(g_localized_strings[0x91c], 0x15e, 0x18, 0x65,
-                g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
-    DrawRcsText(g_localized_strings[0x91d], 0x15e, 0x26, 0x65,
-                g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
-    text_buffer = FormatUnsignedIntegerWithCommas(character->experience);
-    DrawRcsText(text_buffer, 0x1c0, 0x18, 0x67,
-                g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
-    text_buffer = FormatUnsignedIntegerWithCommas(character->experience_goal);
-    DrawRcsText(text_buffer, 0x1c0, 0x26, 0x67,
-                g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
-    DrawRcsText(g_localized_strings[0x91e], 0x144, 0x3a, 0x45,
-                g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
-    DrawRcsText(g_localized_strings[0x91f], 0x144, 0x48, 0x45,
-                g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
-    DrawRcsText(g_localized_strings[0x920], 0x144, 0x56, 0x45,
-                g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
-    text_buffer = fmt::format("{:d}/{:d}", character->hp_current, character->uiHPMax);
-    DrawRcsText(text_buffer, 0x18d, 0x3a, 0x2c,
-                g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
-    text_buffer = fmt::format("{:d}/{:d}", character->stamina, character->uiStaminaMax);
-    DrawRcsText(text_buffer, 0x18d, 0x48, 0x2c,
-                g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
-    if (character->load_category != 0) {
-        g_wiz_text_font_secondary.setPalette(
-            g_font_state_palettes[g_load_category_palettes[character->load_category]]);
-    }
-    text_buffer = fmt::format("{:d}/{:d}", character->total_carried_weight / 10,
-                              character->carrying_capacity / 10);
-    DrawRcsTextJustified(text_buffer, 0x18d, 0x56, 0x2c, 0xc,
-                         g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
-    text_buffer = fmt::format("{}: {:d}, {}: {:d}", g_localized_strings[0x8c0],
-                              character->inventory_weight / 10, g_localized_strings[0x8c1],
-                              character->party_weight_share / 10);
-    item_controls.help_text = text_buffer;
-    g_wiz_text_font_secondary.resetPalette();
-    DrawRcsText(g_localized_strings[0x921], 0x144, 0x72, 0x75,
-                g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
-    top = 0x3a;
-    for (index = 0; index < 7; ++index) {
-        DrawRcsText(g_localized_strings[g_attribute_label_ids[index]], 0x1c2, top, 0x4c,
-                    g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
-        text_buffer = fmt::format("{:d}", character->attributes[index].effective);
-        DrawRcsText(text_buffer, 0x212, top, 0x14,
-                    g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
-        top += 0xe;
-    }
-    top = 0xd;
-    for (realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
-        unsigned int frame;
-        if (character->sp_max[realm] == 0) {
-            frame = g_spell_realm_animations[realm].frame_count;
-        } else {
-            text_buffer = fmt::format(
-                "{:d}/{:d}",
-                GetCharacterRealmSpellPoints(character, static_cast<W8SpellRealm>(realm)),
-                character->sp_max[realm]);
-            DrawTallRcsText(text_buffer, 0x242, top, 0x32,
-                            g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
-            frame = g_spell_realm_animations[realm].initial_frame;
-        }
-        CatalogArtwork::Load(g_character_resistance_images[realm], 0)
-            .drawAndInvalidate(GetFrameBufferSurface(), frame, 0x22d, top);
-        top += 0x18;
-    }
-    DrawRcsText(g_localized_strings[0x922], 0x144, 0x80, 0x45,
-                g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
-    text_buffer = fmt::format("{:d}", character->armor_class_total);
-    DrawRcsText(text_buffer, 0x18d, 0x80, 0x2c,
-                g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
-    DrawRcsText(g_localized_strings[0x923], 0x144, 0x8e, 0x45,
-                g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
-    text_buffer = fmt::format("{:d}", character->armor_class_average);
-    DrawRcsText(text_buffer, 0x18d, 0x8e, 0x2c,
-                g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
-    item_controls.dirty = true;
-}
-
-/* The eight backpack cells under the character block, flag bits 1..8 of
-   item_redraw_flags; bit 0 repaints the header strip and caption. */
-void W8CampScreenState::DrawCampBackpackItems(void)
-{
-    W8Character* character = reviewed;
-    unsigned int slot;
-    int left;
-    int top;
-    int right;
-    int bottom;
-    int item_id;
-
-    if ((item_redraw_flags & W8_CAMP_ITEM_REDRAW_BACKPACK_HEADER) != 0) {
-        CatalogArtwork::Load(0x114, 0).drawAndInvalidate(GetFrameBufferSurface(), 1, 0, 0xa5);
-        DrawRcsBoldText(g_localized_strings[0x92b], 0xc, 0xae, 0x5d,
-                        g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
-    }
-    for (slot = 0; slot < 8; ++slot) {
-        left = (slot & 1) * 0x31 + 0xb;
-        top = (slot >> 1) * 0x39 + 0xc0;
-        right = left + 0x2e;
-        bottom = top + 0x36;
-        if ((item_redraw_flags & (W8_CAMP_ITEM_REDRAW_BACKPACK_CELL_FIRST << slot)) == 0) {
-            continue;
-        }
-        InvalidateRegion(left, top, right, bottom);
-        item_id = character->backpack[slot].iItemNo;
-        if (item_id == -1 || CanCharacterUseItem(character, item_id)) {
-            CatalogArtwork::Load(0x1b6, 0).drawRect(
-                GetFrameBufferSurface(), SDL_Rect{0, 0, (right) - (left), (bottom) - (top)}, left,
-                top);
-        } else {
-            CatalogArtwork::Load(0x11a, 0).draw(GetFrameBufferSurface(), 0, left, top);
-        }
-        if (item_id != -1) {
-            DrawSprite(GetFrameBufferSurface(), *ItemSprites(item_id), 0, left + 1, top + 1);
-            DrawCampItemQuantity(&character->backpack[slot], left + 1, top + 0x28, 0x2c);
-            if (!character->backpack[slot].identified) {
-                CatalogArtwork::Load(0x11b, 0).draw(GetFrameBufferSurface(), 0, left, top);
-            }
-        }
-        if (item_id != -1 && g_item_records[item_id].binds_on_equip != 0 &&
-            character->backpack[slot].bound) {
-            CatalogArtwork::Load(0x115, 0).draw(GetFrameBufferSurface(), 0x32, left, top);
-        }
-        if (inventory_targets[slot]->hovered() &&
-            (item_id != -1 || ((g_status.party.held.item.iItemNo != -1) &&
-                               item_action != W8_CAMP_ITEM_ACTION_MOVE))) {
-            CatalogArtwork::Load(0x115, 0).draw(GetFrameBufferSurface(), 0x30, left, top);
-        }
-    }
-}
-
-/* The twelve equipment cells; bit 9 of item_redraw_flags repaints the paper
-   doll backdrop and race/gender portrait, bits 10..21 the slots. */
-void W8CampScreenState::DrawCampEquipmentItems(void)
-{
-    W8Character* character = reviewed;
-    const W8CampScreenRegion* region;
-    unsigned int slot;
-    int item_id;
-    int frame;
-
-    if ((item_redraw_flags & W8_CAMP_ITEM_REDRAW_PAPER_DOLL) != 0) {
-        CatalogArtwork::Load(0x114, 0).drawAndInvalidate(GetFrameBufferSurface(), 2, 0x71, 0xa5);
-        CatalogArtwork::Load(
-            g_race_portrait_images[character->iRace * W8_RACE_GNOME + character->gender], 0)
-            .drawAndInvalidate(GetFrameBufferSurface(), 0, 0xc2, 0xa5);
-        redraw_flags |= W8_CAMP_REDRAW_ACTION_PANEL;
-    }
-    for (slot = 0; slot < 12; ++slot) {
-        if ((item_redraw_flags & (W8_CAMP_ITEM_REDRAW_EQUIPMENT_CELL_FIRST << slot)) == 0) {
-            continue;
-        }
-        region = &g_camp_screen_regions[slot];
-        InvalidateRegion(region->x, region->y, region->x + region->width,
-                         region->y + region->height);
-        CatalogArtwork::Load(0x1b6, 0).drawRect(
-            GetFrameBufferSurface(),
-            SDL_Rect{0, 0, (region->x + region->width) - (region->x),
-                     (region->y + region->height) - (region->y)},
-            region->x, region->y);
-        item_id = character->EquippedItem[slot].iItemNo;
-        if (item_id == -1) {
-            if (slot == 7 || slot == 9) {
-                int paired =
-                    character->EquippedItem[GetPairedEquipSlot(static_cast<W8EquipSlot>(slot))]
-                        .iItemNo;
-                if (paired != -1 && (g_item_records[paired].flags & W8_ITEM_FLAG_TWO_HANDED) != 0) {
-                    CatalogArtwork::Load(0x146, 0).drawAndInvalidate(GetFrameBufferSurface(), 0,
-                                                                     region->x, region->y);
-                }
-            }
-        } else {
-            DrawSpriteAndInvalidate(GetFrameBufferSurface(), *ItemSprites(item_id), 1, region->x,
-                                    region->y);
-            DrawCampItemQuantity(&character->EquippedItem[slot], region->x + 2,
-                                 region->y + region->height - 0xd, region->width - 4);
-            if (!character->EquippedItem[slot].identified) {
-                CatalogArtwork::Load(0x11b, 0).draw(GetFrameBufferSurface(),
-                                                    static_cast<short>(region->unidentified_frame),
-                                                    region->x, region->y);
-            }
-        }
-        switch (slot) {
-        case W8_EQUIP_SLOT_HEAD:
-            frame = 0;
-            break;
-        case W8_EQUIP_SLOT_TORSO:
-            frame = 1;
-            break;
-        case W8_EQUIP_SLOT_HANDS:
-            frame = 3;
-            break;
-        case W8_EQUIP_SLOT_LEGS:
-            frame = 2;
-            break;
-        case 0xb:
-            frame = 4;
-            break;
-        default:
-            goto no_armor_label;
-        }
-        text_buffer = fmt::format("{:d}", character->armor_class_by_location[frame]);
-        CatalogArtwork::Load(0x11c, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, region->x + 2,
-                                                         region->y + 1);
-        DrawRcsText(text_buffer, region->x + 2, region->y + 2, 0x11,
-                    g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
-    no_armor_label:
-        CatalogArtwork::Load(0x115, 0).drawAndInvalidate(GetFrameBufferSurface(), region->frame + 3,
-                                                         region->x - 2, region->y - 2);
-        if (item_id != -1 && g_item_records[item_id].binds_on_equip != 0 &&
-            character->EquippedItem[slot].bound) {
-            CatalogArtwork::Load(0x115, 0).drawAndInvalidate(
-                GetFrameBufferSurface(), region->frame + 2, region->x - 2, region->y - 2);
-        }
-        if (inventory_targets[kCampEquipmentRegionOffset + slot]->hovered()) {
-            if (!(g_status.party.held.item.iItemNo != -1)) {
-                if (character->EquippedItem[slot].iItemNo == -1) {
-                    continue;
-                }
-            } else if (item_action == W8_CAMP_ITEM_ACTION_MOVE ||
-                       !CanEquipItemInSlot(character, g_status.party.held.item.iItemNo,
-                                           static_cast<unsigned char>(slot), true) ||
-                       !CanCharacterUseItem(character, g_status.party.held.item.iItemNo)) {
-                if (!(g_status.party.held.item.iItemNo != -1) ||
-                    item_action != W8_CAMP_ITEM_ACTION_MOVE) {
-                    continue;
-                }
-                if (character->EquippedItem[slot].iItemNo == -1) {
-                    continue;
-                }
-            }
-            frame = region->frame;
-        } else {
-            if (!(g_status.party.held.item.iItemNo != -1) ||
-                item_action == W8_CAMP_ITEM_ACTION_MOVE ||
-                !IsPartySlotEligible(ReviewedPartySlot()) ||
-                !CanEquipItemInSlot(character, g_status.party.held.item.iItemNo,
-                                    static_cast<unsigned char>(slot), true) ||
-                !CanCharacterUseItem(character, g_status.party.held.item.iItemNo)) {
-                continue;
-            }
-            frame = region->frame + 1;
-        }
-        CatalogArtwork::Load(0x115, 0).drawAndInvalidate(GetFrameBufferSurface(), frame,
-                                                         region->x - 2, region->y - 2);
-    }
-}
-
-/* The shared party item pool: the bottom-right grid of up to eight visible
-   cells, plus the header strip and the gold counter when bit 22 is raised. */
-void W8CampScreenState::DrawCampItemPool(void)
-{
-    W8Character* character = reviewed;
-    unsigned int visible;
-    unsigned int i;
-    int left;
-    int top;
-    int right;
-    int bottom;
-    W8ItemInstance* item;
-
-    if ((item_redraw_flags & W8_CAMP_ITEM_REDRAW_POOL_HEADER) != 0) {
-        CatalogArtwork::Load(0x114, 0).drawAndInvalidate(GetFrameBufferSurface(), 3, 0x1de, 0xa5);
-        CatalogArtwork::Load(0x118, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0x202, 0x1a6);
-        redraw_flags |= W8_CAMP_REDRAW_REALM_TABS;
-    }
-    if (!g_status.game_started) {
-        return;
-    }
-    if ((item_redraw_flags & W8_CAMP_ITEM_REDRAW_POOL_HEADER) != 0) {
-        DrawRcsBoldText(g_localized_strings[0x92c], 0x1e6, 0xae, 0x8d,
-                        g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
-        text_buffer = FormatUnsignedIntegerWithCommas(g_status.party.gold);
-        DrawRcsText(text_buffer, 0x229, 0x1a9, 0x30,
-                    g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
-    }
-    for (i = 0;; ++i) {
-        visible = item_list_count - item_scroll;
-        if (visible > 8) {
-            visible = 8;
-        }
-        if (i >= visible) {
-            break;
-        }
-        left = (i & 1) * 0x31 + 0x200;
-        top = (i >> 1) * 0x39 + 0xc0;
-        right = left + 0x2e;
-        bottom = top + 0x36;
-        item = &g_status.party.item_pool[item_list[item_scroll + i]];
-        if ((item_redraw_flags & (W8_CAMP_ITEM_REDRAW_POOL_CELL_FIRST << i)) == 0) {
-            continue;
-        }
-        InvalidateRegion(left, top, right, bottom);
-        if (!CanCharacterUseItem(character, item->iItemNo)) {
-            CatalogArtwork::Load(0x11a, 0).draw(GetFrameBufferSurface(), 0, left, top);
-        } else {
-            CatalogArtwork::Load(0x1b6, 0).drawRect(
-                GetFrameBufferSurface(), SDL_Rect{0, 0, (right) - (left), (bottom) - (top)}, left,
-                top);
-        }
-        DrawSprite(GetFrameBufferSurface(), *ItemSprites(item->iItemNo), 0, left + 1, top + 1);
-        DrawCampItemQuantity(item, left + 1, top + 0x28, 0x2c);
-        if (!item->identified) {
-            CatalogArtwork::Load(0x11b, 0).draw(GetFrameBufferSurface(), 0, left, top);
-        }
-        if (g_item_records[item->iItemNo].binds_on_equip != 0 && item->bound) {
-            CatalogArtwork::Load(0x115, 0).draw(GetFrameBufferSurface(), 0x32, left, top);
-        }
-        if (pool_targets[i]->hovered()) {
-            CatalogArtwork::Load(0x115, 0).draw(GetFrameBufferSurface(), 0x30, left, top);
-        }
-    }
-    for (i = item_list_count - item_scroll; i < 8; ++i) {
-        left = (i & 1) * 0x31 + 0x200;
-        top = (i >> 1) * 0x39 + 0xc0;
-        right = left + 0x2e;
-        bottom = top + 0x36;
-        if ((item_redraw_flags & (W8_CAMP_ITEM_REDRAW_POOL_CELL_FIRST << i)) != 0) {
-            InvalidateRegion(left, top, right, bottom);
-            CatalogArtwork::Load(0x1b6, 0).drawRect(
-                GetFrameBufferSurface(), SDL_Rect{0, 0, (right) - (left), (bottom) - (top)}, left,
-                top);
-            if (pool_targets[i]->hovered() && (g_status.party.held.item.iItemNo != -1) &&
-                item_action != W8_CAMP_ITEM_ACTION_MOVE) {
-                CatalogArtwork::Load(0x115, 0).draw(GetFrameBufferSurface(), 0x30, left, top);
-            }
-        }
-    }
-}
-
-/* The stack count or charge figure in a cell's bottom-right corner, keyed off
-   the item record's quantity kind; charge figures ride the alternate font
-   palettes and restore the default afterwards. */
-void W8CampScreenState::DrawCampItemQuantity(W8ItemInstance* item, int left, int top, int width)
-{
-    int height;
-
-    switch (g_item_records[item->iItemNo].quantity_kind) {
-    case W8_ITEM_QUANTITY_NONE:
-        break;
-    case W8_ITEM_QUANTITY_STACK:
-        if (item->stack_count > 1) {
-            text_buffer = fmt::format("{:d}", item->stack_count);
-            DrawRcsText(text_buffer, left, top, width,
-                        g_W8TextBufferAlignMiddle | g_W8TextBufferAlignRight);
-        }
-        break;
-    case W8_ITEM_QUANTITY_CHARGES:
-    case W8_ITEM_QUANTITY_USES:
-        g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_BLUE]);
-        if (!item->identified) {
-            text_buffer = "?";
-        } else {
-            text_buffer = fmt::format("{:d}", item->uses_or_charges);
-        }
-        height = g_wiz_text_font_secondary.height();
-        DrawRcsTextJustified(text_buffer, left, top, width, height,
-                             g_W8TextBufferAlignMiddle | g_W8TextBufferAlignRight);
-        break;
-    case W8_ITEM_QUANTITY_SHOTS:
-        g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_YELLOW]);
-        text_buffer = fmt::format("{:d}", item->uses_or_charges);
-        height = g_wiz_text_font_secondary.height();
-        DrawRcsTextJustified(text_buffer, left, top, width, height,
-                             g_W8TextBufferAlignMiddle | g_W8TextBufferAlignRight);
-        break;
-    }
-    g_wiz_text_font_secondary.resetPalette();
-}
-
 W8CampCharacterInfo::W8CampCharacterInfo(W8CampScreenState& screen) : screen(screen)
 {
     const auto button = [this](int frame, int help, bool combat) {
@@ -870,6 +442,7 @@ unsigned short g_camp_armor_class_labels[12] = {1052, 1053, 1054, 1055, 1056, 10
 
 void W8CampCharacterInfo::Redraw(SDL_Surface& target, bool full_redraw)
 {
+    std::string text;
     bool redraw = m_active && m_dirty;
     if (!m_combat_view &&
         ((screen.reviewed->armor_class_components[W8_AC_COMPONENT_REFLEXTION] > 0 &&
@@ -888,25 +461,22 @@ void W8CampCharacterInfo::Redraw(SDL_Surface& target, bool full_redraw)
     m_combat_tab->Refresh();
     if (!redraw) return;
     m_dirty = false;
-    screen.item_controls.dirty = true;
+    screen.items.InvalidateControls();
     DrawRcsText(g_localized_strings[0x935], 0x15e, 0x84, 0x4e,
                 g_W8TextBufferAlignMiddle | g_W8TextBufferAlignLeft);
-    screen.text_buffer = fmt::format("{:d}", screen.reviewed->kill_count);
-    DrawRcsText(screen.text_buffer, 0x1ae, 0x84, 0x20,
-                g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
+    text = fmt::format("{:d}", screen.reviewed->kill_count);
+    DrawRcsText(text, 0x1ae, 0x84, 0x20, g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
     DrawRcsText(g_localized_strings[0x936], 0x15e, 0x92, 0x4e,
                 g_W8TextBufferAlignMiddle | g_W8TextBufferAlignLeft);
-    screen.text_buffer = fmt::format("{:d}", screen.reviewed->death_count);
-    DrawRcsText(screen.text_buffer, 0x1ae, 0x92, 0x20,
-                g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
+    text = fmt::format("{:d}", screen.reviewed->death_count);
+    DrawRcsText(text, 0x1ae, 0x92, 0x20, g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
     if (m_combat_view) {
         DrawRcsText(g_localized_strings[0x8b0], 0x15b, 10, 0x11d,
                     g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
         DrawRcsText(g_localized_strings[0x8b1], 0x15e, 0x30, 0x4e,
                     g_W8TextBufferAlignMiddle | g_W8TextBufferAlignLeft);
-        screen.text_buffer = fmt::format("{:d}", screen.reviewed->initiative);
-        DrawRcsText(screen.text_buffer, 0x1ae, 0x30, 0x20,
-                    g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
+        text = fmt::format("{:d}", screen.reviewed->initiative);
+        DrawRcsText(text, 0x1ae, 0x30, 0x20, g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
         if (screen.reviewed->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo == -1 &&
             screen.reviewed->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo == -1) {
             DrawRcsText(g_localized_strings[0x8b5], 0x1d6, 0x22, 0x50,
@@ -950,18 +520,18 @@ void W8CampCharacterInfo::Redraw(SDL_Surface& target, bool full_redraw)
                     DrawRcsText("?", x, 0x30 + row * 14, 0x20,
                                 g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
                 }
-                screen.text_buffer = g_localized_strings[0x95c];
-                screen.text_buffer += "?";
-                screen.text_buffer += g_localized_strings[0x95b];
-                screen.text_buffer += "?";
-                screen.text_buffer += g_localized_strings[0x95a];
-                screen.text_buffer += "?";
-                m_help[hand + 2] = screen.text_buffer;
-                screen.text_buffer = g_localized_strings[0x959];
-                screen.text_buffer += "?";
-                screen.text_buffer += g_localized_strings[0x95a];
-                screen.text_buffer += "?";
-                m_help[hand] = screen.text_buffer;
+                text = g_localized_strings[0x95c];
+                text += "?";
+                text += g_localized_strings[0x95b];
+                text += "?";
+                text += g_localized_strings[0x95a];
+                text += "?";
+                m_help[hand + 2] = text;
+                text = g_localized_strings[0x959];
+                text += "?";
+                text += g_localized_strings[0x95a];
+                text += "?";
+                m_help[hand] = text;
                 continue;
             }
             W8Dice dice;
@@ -975,44 +545,34 @@ void W8CampCharacterInfo::Redraw(SDL_Surface& target, bool full_redraw)
             int skill_bonus =
                 (attack->attack_score < 0 ? attack->attack_score - 2 : attack->attack_score + 2) /
                 5;
-            screen.text_buffer =
-                fmt::format("{:+d}", attack->damage_bonus + screen.reviewed->bonus.damage_bonus);
-            DrawRcsText(screen.text_buffer, x, 0x30, 0x20,
-                        g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-            screen.text_buffer = fmt::format("{:d}-{:d}", minimum, maximum);
-            DrawRcsText(screen.text_buffer, x, 0x3e, 0x20,
-                        g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-            screen.text_buffer = g_localized_strings[0x95c];
-            screen.text_buffer += fmt::format(" {:d}, ", dice.Minimum());
-            screen.text_buffer += g_localized_strings[0x95b];
-            screen.text_buffer += fmt::format(" {:d}, ", dice.Maximum());
-            screen.text_buffer += g_localized_strings[0x95a];
-            screen.text_buffer += fmt::format(" {:+d}%", static_cast<int>(damage_bonus));
-            m_help[hand + 2] = screen.text_buffer;
-            screen.text_buffer = fmt::format("{:d}", skill_bonus + hit_bonus);
-            DrawRcsText(screen.text_buffer, x, 0x4c, 0x20,
-                        g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-            screen.text_buffer = g_localized_strings[0x959];
-            screen.text_buffer += fmt::format(" {:d}, ", skill_bonus);
-            screen.text_buffer += g_localized_strings[0x95a];
-            screen.text_buffer += fmt::format(" {:+d}", hit_bonus);
-            m_help[hand] = screen.text_buffer;
-            screen.text_buffer = fmt::format("{:d}", attack->attacks);
-            DrawRcsText(screen.text_buffer, x, 0x5a, 0x20,
-                        g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-            screen.text_buffer = fmt::format("{:d}", attack->swings);
-            DrawRcsText(screen.text_buffer, x, 0x68, 0x20,
-                        g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-            screen.text_buffer = fmt::format("{:+d}", hit_bonus);
-            DrawRcsText(screen.text_buffer, x, 0x76, 0x20,
-                        g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-            screen.text_buffer =
-                fmt::format("{:+d}", attack->attack_bonus + screen.reviewed->bonus.attack_bonus);
-            DrawRcsText(screen.text_buffer, x, 0x84, 0x20,
-                        g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-            screen.text_buffer = fmt::format("{:+d}%", static_cast<int>(damage_bonus));
-            DrawRcsText(screen.text_buffer, x, 0x92, 0x20,
-                        g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
+            text = fmt::format("{:+d}", attack->damage_bonus + screen.reviewed->bonus.damage_bonus);
+            DrawRcsText(text, x, 0x30, 0x20, g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
+            text = fmt::format("{:d}-{:d}", minimum, maximum);
+            DrawRcsText(text, x, 0x3e, 0x20, g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
+            text = g_localized_strings[0x95c];
+            text += fmt::format(" {:d}, ", dice.Minimum());
+            text += g_localized_strings[0x95b];
+            text += fmt::format(" {:d}, ", dice.Maximum());
+            text += g_localized_strings[0x95a];
+            text += fmt::format(" {:+d}%", static_cast<int>(damage_bonus));
+            m_help[hand + 2] = text;
+            text = fmt::format("{:d}", skill_bonus + hit_bonus);
+            DrawRcsText(text, x, 0x4c, 0x20, g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
+            text = g_localized_strings[0x959];
+            text += fmt::format(" {:d}, ", skill_bonus);
+            text += g_localized_strings[0x95a];
+            text += fmt::format(" {:+d}", hit_bonus);
+            m_help[hand] = text;
+            text = fmt::format("{:d}", attack->attacks);
+            DrawRcsText(text, x, 0x5a, 0x20, g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
+            text = fmt::format("{:d}", attack->swings);
+            DrawRcsText(text, x, 0x68, 0x20, g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
+            text = fmt::format("{:+d}", hit_bonus);
+            DrawRcsText(text, x, 0x76, 0x20, g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
+            text = fmt::format("{:+d}", attack->attack_bonus + screen.reviewed->bonus.attack_bonus);
+            DrawRcsText(text, x, 0x84, 0x20, g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
+            text = fmt::format("{:+d}%", static_cast<int>(damage_bonus));
+            DrawRcsText(text, x, 0x92, 0x20, g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
         }
     } else {
         DrawRcsText(g_localized_strings[0x8be], 0x15b, 10, 0x11d,
@@ -1028,23 +588,21 @@ void W8CampCharacterInfo::Redraw(SDL_Surface& target, bool full_redraw)
                         g_W8TextBufferAlignMiddle | g_W8TextBufferAlignLeft);
             int value = screen.reviewed->armor_class_components[component];
             if (value) {
-                screen.text_buffer = fmt::format("{:+d}", value);
-                DrawRcsText(screen.text_buffer, value_x, y, 0x20,
+                text = fmt::format("{:+d}", value);
+                DrawRcsText(text, value_x, y, 0x20,
                             g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
             }
         }
         DrawRcsText(g_localized_strings[0x8bf], 0x1da, 0x84, 0x7c,
                     g_W8TextBufferAlignMiddle | g_W8TextBufferAlignLeft);
-        screen.text_buffer = fmt::format("{:d}%", screen.reviewed->damage_reduction);
-        DrawRcsText(screen.text_buffer, 600, 0x84, 0x20,
-                    g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
+        text = fmt::format("{:d}%", screen.reviewed->damage_reduction);
+        DrawRcsText(text, 600, 0x84, 0x20, g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
     }
 }
 
 void W8CampScreenState::CreateCampInput()
 {
-    inventory_input.setEnabled(false);
-    pool_input.setEnabled(false);
+    items.CreateInput();
     spell_input.setEnabled(false);
     main_targets[0] =
         &main_input.add(SDL_Rect{164, 12, 91, 73}, [this](const UiPointerEvent& event) {
@@ -1065,24 +623,6 @@ void W8CampScreenState::CreateCampInput()
         main_targets[1 + slot] = &main_input.add(
             SDL_Rect{(slot & 1) * 48 + 6, (slot / 2) * 39 + 5, 46, 37},
             [this, slot](const UiPointerEvent& event) { return HandleCampPortrait(event, slot); });
-        inventory_targets[slot] =
-            &inventory_input.add(SDL_Rect{(slot & 1) * 49 + 11, (slot / 2) * 57 + 192, 47, 55},
-                                 [this, slot](const UiPointerEvent& event) {
-                                     return HandleCampItem(event, slot, W8ItemStorage::Backpack);
-                                 });
-        pool_targets[slot] =
-            &pool_input.add(SDL_Rect{(slot & 1) * 49 + 512, (slot / 2) * 57 + 192, 47, 55},
-                            [this, slot](const UiPointerEvent& event) {
-                                return HandleCampItem(event, slot, W8ItemStorage::Pool);
-                            });
-    }
-    for (int slot = 0; slot < 12; ++slot) {
-        const auto& bounds = g_camp_screen_regions[slot];
-        inventory_targets[8 + slot] =
-            &inventory_input.add(SDL_Rect{bounds.x, bounds.y, bounds.width + 1, bounds.height + 1},
-                                 [this, slot](const UiPointerEvent& event) {
-                                     return HandleCampItem(event, slot, W8ItemStorage::Equipment);
-                                 });
     }
     for (int realm = 0; realm < 6; ++realm) {
         spell_targets[realm] =
@@ -1101,41 +641,22 @@ bool CampScreenEnter()
 
 bool W8CampScreenState::Enter(const W8ScreenStateRuntime& request)
 {
+    std::string text;
 
     ClearPrimarySurface();
     reviewed = request.character;
-    W8CampItemAction initial_item_action;
-    if (request.parameter_4 == 0) {
-        pending_item_action.identifying_character = 0;
-        initial_item_action = W8_CAMP_ITEM_ACTION_NONE;
-    } else {
-        pending_item_action.identifying_character = request.parameter_4;
-        initial_item_action = W8_CAMP_ITEM_ACTION_IDENTIFY_SPELL;
+    if (request.parameter_4) {
         wiz8::sound::play(s_general_magic_sound);
         SetTargetingMode(W8_TARGET_NEED_ITEM);
     }
     gXStatus.item_drag.reset();
     CreatePartyPortraitEventRegions();
     CreateCampInput();
-    item_action = initial_item_action;
-    for (unsigned char& item_filter : item_filters) {
-        item_filter = 0;
-    }
-    item_timer_active = false;
-    item_timer_expired = false;
+    items.Reset(request.parameter_4);
     CreateCampButtonPanel();
-    CreateCampItemControls();
+    items.CreateCampItemControls();
     CreateCampHeaderButtons();
     page = W8_CAMP_PAGE_ITEMS;
-    info_page = W8_CAMP_INFO_PAGE_ITEMS;
-    item_range = std::make_unique<W8RangeControl>(scroll_input, 0x263, 0xc1, 0x275, 0x1a1);
-    item_range->on_change = [this](auto* range) {
-        item_scroll = range->m_value << 1;
-        if (((GetInputState().modifiers & CTRL_DOWN) != 0))
-            redraw_flags |= W8_CAMP_REDRAW_ALL;
-        else
-            item_redraw_flags |= W8_CAMP_ITEM_REDRAW_POOL;
-    };
     for (int range_index = 0; range_index < 6; ++range_index) {
         const int x = (range_index % 3) * 0xd5;
         const int y = (range_index / 3) * 0x8c;
@@ -1157,7 +678,6 @@ bool W8CampScreenState::Enter(const W8ScreenStateRuntime& request)
     };
     stats_controls = std::make_unique<W8CampStatsControls>(*this);
     character_info = std::make_unique<W8CampCharacterInfo>(*this);
-    item_icons_drawn = false;
     ActivateCampPage();
     animation_timer = w8_get_ticks() + (50);
     for (unsigned int animation = 0; animation < 6; ++animation) {
@@ -1169,8 +689,8 @@ bool W8CampScreenState::Enter(const W8ScreenStateRuntime& request)
             for (int slot = 0; slot < 8; ++slot) {
                 if (g_status.party.rows[slot].fOccupied && IsPartySlotEligible(slot) &&
                     g_status.party.rows[slot].pending_action == W8_ACTION_EQUIP) {
-                    text_buffer = fmt::format("{} {}", g_status.party.characters[slot].name,
-                                              g_localized_strings[0x919]);
+                    text = fmt::format("{} {}", g_status.party.characters[slot].name,
+                                       g_localized_strings[0x919]);
                     goto show_equip_message;
                 }
             }
@@ -1181,23 +701,23 @@ bool W8CampScreenState::Enter(const W8ScreenStateRuntime& request)
                     g_status.party.rows[slot].pending_action == W8_ACTION_EQUIP) {
                     ++count;
                     if (count == 1) {
-                        text_buffer = fmt::format("{}", g_status.party.characters[slot].name);
+                        text = fmt::format("{}", g_status.party.characters[slot].name);
                     } else {
                         if (count == g_combat.state()->equip_pending) {
-                            text_buffer += " ";
-                            text_buffer += fmt::sprintf(g_localized_strings[0x918],
-                                                        g_status.party.characters[slot].name);
+                            text += " ";
+                            text += fmt::sprintf(g_localized_strings[0x918],
+                                                 g_status.party.characters[slot].name);
                             goto show_equip_message;
                         }
-                        text_buffer += ", ";
-                        text_buffer += g_status.party.characters[slot].name;
+                        text += ", ";
+                        text += g_status.party.characters[slot].name;
                     }
                 }
             }
         }
         Fail("fFoundEquipChar");
     show_equip_message:
-        ShowNotice(text_buffer, 0, true, false);
+        ShowNotice(text, 0, true, false);
     }
     redraw_flags |= W8_CAMP_REDRAW_ALL;
     ResetTransientRenderScenes();
@@ -1235,10 +755,10 @@ void W8CampScreenState::Frame()
         PumpUiInput({.unhandled = [&](const InputEvent& input) {
             if (input.type == InputEventType::KeyDown) {
                 if (input.key == SDLK_ESCAPE) {
-                    if (item_action == W8_CAMP_ITEM_ACTION_NONE || page != W8_CAMP_PAGE_ITEMS) {
+                    if (items.action() == W8_CAMP_ITEM_ACTION_NONE || page != W8_CAMP_PAGE_ITEMS) {
                         DismissSelectedPartyCharacter();
                     } else {
-                        SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
+                        items.SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
                     }
                 } else if (input.key == SDLK_P) {
                     if (g_status.game_started) {
@@ -1262,11 +782,7 @@ void W8CampScreenState::Frame()
         animation_timer = w8_get_ticks() + (50);
         redraw_flags |= 0x10000;
     }
-    if (page == W8_CAMP_PAGE_ITEMS && item_timer_active && !item_timer_expired &&
-        !TimeUntilDeadline(item_timer)) {
-        item_timer_expired = true;
-        item_redraw_flags |= W8_CAMP_ITEM_REDRAW_EQUIPMENT;
-    }
+    if (page == W8_CAMP_PAGE_ITEMS) items.Tick();
     if (header_mode == W8_CAMP_HEADER_SUMMARY) {
         gXStatus.character_event_queue->ProcessDeferredCharacterEvents();
         UpdateCharacterEventState();
@@ -1295,48 +811,19 @@ bool CampScreenLeave(int)
    fresh combat round. */
 void W8CampScreenState::DismissSelectedPartyCharacter()
 {
-    if (!ResolvePendingCampCharacter(true)) return;
+    if (!items.ResolvePendingCampCharacter(true)) return;
     BeginCombatRound();
     ReturnToPreviousScreen();
-}
-
-/* The camp screen's per-frame update: on the first frame after combat mode
-   ends it re-raises every redraw flag, then repaints whichever page is active
-   together with the level-up/dismissal panels and the dialog on top of the
-   frame. */
-unsigned int W8CampScreenState::ChangedItemCells()
-{
-    auto& shown = shown_inventory;
-    unsigned int flags = 0;
-    const bool same_character = shown.character == reviewed;
-    for (unsigned int slot = 0; slot < 8; ++slot)
-        if (!same_character || shown.backpack[slot] != reviewed->backpack[slot])
-            flags |= W8_CAMP_ITEM_REDRAW_BACKPACK_CELL_FIRST << slot;
-    for (unsigned int slot = 0; slot < 12; ++slot)
-        if (!same_character || shown.equipment[slot] != reviewed->EquippedItem[slot])
-            flags |= W8_CAMP_ITEM_REDRAW_EQUIPMENT_CELL_FIRST << slot;
-    const auto pool = std::span{g_status.party.item_pool}.first(g_status.party.item_count);
-    if (!std::ranges::equal(shown.pool, pool)) flags |= W8_CAMP_ITEM_REDRAW_POOL;
-    shown.character = reviewed;
-    std::ranges::copy(reviewed->backpack, shown.backpack.begin());
-    std::ranges::copy(reviewed->EquippedItem, shown.equipment.begin());
-    shown.pool.assign(pool.begin(), pool.end());
-    return flags;
 }
 
 void W8CampScreenState::DrawCampScreen(void)
 {
     unsigned int index;
 
-    if (reviewed) item_redraw_flags |= ChangedItemCells();
-
-    if (((GetInputState().modifiers & CTRL_DOWN) == 0) && item_icons_drawn) {
-        redraw_flags |= W8_CAMP_REDRAW_ALL;
-        item_icons_drawn = false;
-    }
-    if (redraw_flags != 0 || item_redraw_flags != 0 || (g_status.party.held.item.iItemNo != -1)) {
+    items.BeginRedraw();
+    if (redraw_flags != 0 || items.RedrawPending() || (g_status.party.held.item.iItemNo != -1)) {
         if (redraw_flags == W8_CAMP_REDRAW_ALL) {
-            item_redraw_flags = 0xffffffff;
+            items.InvalidateAll();
             if (dialog != 0) {
                 dialog->m_dirty = true;
             }
@@ -1344,7 +831,7 @@ void W8CampScreenState::DrawCampScreen(void)
         DrawCampHeader();
         switch (page) {
         case W8_CAMP_PAGE_ITEMS:
-            RedrawCampItemsPage();
+            items.RedrawCampItemsPage();
             break;
         case W8_CAMP_PAGE_STATS:
             DrawCampStatsPage();
@@ -1359,21 +846,14 @@ void W8CampScreenState::DrawCampScreen(void)
             DrawCampRegenStats();
             break;
         }
-        RefreshCampItemActions((redraw_flags & W8_CAMP_REDRAW_ITEM_ACTIONS) != 0);
+        items.RefreshCampItemActions((redraw_flags & W8_CAMP_REDRAW_ITEM_ACTIONS) != 0);
         g_calligraphy_font.setShade(Font::kNormalShade);
-        item_redraw_flags = 0;
+        items.EndRedraw();
         redraw_flags = 0;
     }
     character_info->Redraw(GetFrameBufferSurface(), false);
     if (page == W8_CAMP_PAGE_ITEMS) {
-        RefreshCampActionPanel(false);
-        RefreshItemsTabPanel(false);
-        RefreshCampSecondaryPanel(false);
-        item_range->Redraw(GetFrameBufferSurface(), false);
-        if (((GetInputState().modifiers & CTRL_DOWN) != 0) && dialog == 0) {
-            DrawCampItemIcons();
-            item_icons_drawn = true;
-        }
+        items.DrawControls(dialog != nullptr);
     } else if (page == W8_CAMP_PAGE_STATS) {
         stats_range->Redraw(GetFrameBufferSurface(), false);
         stats_controls->Redraw(GetFrameBufferSurface(), false);
@@ -1382,7 +862,7 @@ void W8CampScreenState::DrawCampScreen(void)
             spell_ranges[index]->Redraw(GetFrameBufferSurface(), false);
         }
     }
-    RefreshCampItemActions(false);
+    items.RefreshCampItemActions(false);
     if (!g_combat.active()) {
         if (ReviewedPartySlot() != -1) {
             if (g_status.game_started ||
@@ -1433,7 +913,7 @@ void W8CampScreenState::ActivateCampPage(void)
 
     main_input.setEnabled(true);
     if (page != W8_CAMP_PAGE_ITEMS) {
-        SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
+        items.SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
     }
     if (ReviewedPartySlot() == -1) {
         for (index = 0; index < 8; ++index) {
@@ -1448,18 +928,8 @@ void W8CampScreenState::ActivateCampPage(void)
     redraw_flags |= 0x7ff;
     switch (page) {
     case W8_CAMP_PAGE_ITEMS:
-        inventory_input.setEnabled(true);
-        EnableCampActionButtons();
-        UpdateCampItemFilters();
-        EnableCampSecondaryPanel();
-        SetCampInfoPageMode(info_page);
-        item_range->SetActive(true);
-        if (g_status.game_started) {
-            pool_input.setEnabled(true);
-            item_scroll = 0;
-            RebuildCampItemList();
-            return;
-        }
+        items.Activate();
+        if (g_status.game_started) return;
         break;
     case W8_CAMP_PAGE_STATS:
         RebuildCampEffectList();
@@ -1490,16 +960,8 @@ void W8CampScreenState::DeactivateCampPage(void)
 
     switch (page) {
     case W8_CAMP_PAGE_ITEMS:
-        inventory_input.setEnabled(false);
-        DisableItemsRealmTabs();
-        DisableCampActionButtons();
-        DisableCampSecondaryPanel();
-        character_info->SetActive(false);
-        item_range->SetActive(false);
-        if (g_status.game_started) {
-            pool_input.setEnabled(false);
-            return;
-        }
+        items.Deactivate();
+        if (g_status.game_started) return;
         break;
     case W8_CAMP_PAGE_STATS:
         stats_range->SetActive(false);
@@ -1552,68 +1014,6 @@ void W8CampScreenState::DrawCampRegenStats(void)
     }
 }
 
-/* Equip-slot-group item filters are exclusive: selecting one clears the others. */
-void W8CampScreenState::ClearOtherCampItemGroupFilters(W8CampItemFilter filter)
-{
-    unsigned int index;
-
-    for (index = 2; index < 6; ++index) {
-        if (index != filter) {
-            item_filters[index] = 0;
-        }
-    }
-}
-
-/* Rebuild the visible item list from the party pool under the item filters:
-   flag 0 restricts to items the displayed character can use, flag 1 to
-   unidentified items, and flags 2-5 each admit one equip-slot group. The
-   scrollbar's range and value track the count; the scroll position snaps back
-   inside an emptied or shrunken list. */
-void W8CampScreenState::RebuildCampItemList(void)
-{
-    unsigned int index;
-    unsigned char filter;
-    W8ItemInstance* pool;
-    W8RangeControl* scrollbar;
-    int rows;
-
-    item_list_count = 0;
-    filter = 0;
-    for (index = 0; index < 6; ++index) {
-        if (index != 0 && index != 1 && item_filters[index] != 0) {
-            filter |= 1 << index;
-        }
-    }
-    pool = g_status.party.item_pool;
-    for (index = 0; index < g_status.party.item_count; ++index, ++pool) {
-        if (pool->iItemNo != -1 &&
-            (item_filters[W8_CAMP_ITEM_FILTER_USABLE] == 0 ||
-             CanCharacterUseItem(reviewed, pool->iItemNo)) &&
-            (item_filters[W8_CAMP_ITEM_FILTER_UNIDENTIFIED] == 0 || !pool->identified) &&
-            (filter == 0 || (filter & static_cast<unsigned char>(
-                                          1 << GetItemEquipSlotGroup(pool->iItemNo))) != 0)) {
-            item_list[item_list_count] = index;
-            ++item_list_count;
-        }
-    }
-    scrollbar = item_range.get();
-    scrollbar->SetEnabled(item_list_count > 8);
-    rows = item_list_count - 8;
-    if (rows > 0) {
-        scrollbar->SetRange(0, rows % 2 == 0 ? rows / 2 : rows / 2 + 1);
-    }
-    if (item_list_count == 0) {
-        item_scroll = 0;
-    } else if (item_list_count <= item_scroll) {
-        item_scroll = (item_list_count - 1) / 8 * 8;
-    }
-    if ((item_scroll & 1) == 0) {
-        scrollbar->SetValue(item_scroll >> 1);
-    } else {
-        scrollbar->SetValue((item_scroll >> 1) + 1);
-    }
-}
-
 void W8CampScreenState::SetCampHeaderMode(W8CampHeaderMode mode)
 {
     header_mode = mode;
@@ -1640,433 +1040,6 @@ void W8CampScreenState::ShowNotice(std::string_view text, std::function<void(boo
     dialog->SetMessage(text, 1, 0x32, confirmation, cancel, true, true, 0, 0x15e);
     dialog->on_complete = std::move(callback);
     DisplayCampDialog(std::unique_ptr<W8DialogBase>(dialog));
-}
-
-/* The shared click handler for the camp item regions: a backpack slot arrives
-   with origin 0, a worn slot with origin 1 and a party-pool row with origin
-   2. The screen's item_action picks the interpretation - plain handling,
-   identify, stack split, use, use held item on item - and the held item can
-   merge onto the clicked stack, swap with it, or drop into the pool. */
-void W8CampScreenState::SelectPendingCampCharacter()
-{
-    SelectCampCharacter(*g_status.party.companion_inventory);
-    if (IsPartySlotEligible(ReviewedPartySlot())) {
-        QueueCharacterEvent((&g_status.party.characters[*g_status.party.companion_inventory]), 109,
-                            0, kCharacterEventFullVolume);
-    } else {
-        std::string text =
-            fmt::sprintf(g_localized_strings[0x931],
-                         g_status.party.characters[*g_status.party.companion_inventory].name);
-        ShowNotice(text, 0, true, false);
-    }
-}
-
-void W8CampScreenState::HandleCampItemClick(W8ItemLocation location)
-{
-    W8ItemInstance* item = g_status.party.itemAt(location);
-    const auto origin = location.storage;
-    const unsigned int slot_index = location.slot;
-    W8CombatSlot target;
-    short related_kind;
-    bool changed = false;
-    bool merged = false;
-    bool partially_merged = false;
-    bool merge_tried = false;
-    bool same_kind = false;
-    bool choose_character;
-    unsigned int index;
-    unsigned int old_pool_count;
-    int result;
-    int party_slot;
-    W8EquipSlot paired_slot;
-    W8EquipSlot equip_slot = static_cast<W8EquipSlot>(slot_index);
-    bool reidentify;
-    W8ItemInstance* paired;
-    W8Character* character;
-    std::string text;
-
-    if (item == 0) {
-        Fail("pPCItem != NULL");
-    }
-
-    /* A held stackable whose name kind the clicked item merges with counts as
-       the same item for the use-merge path below. */
-    if ((g_status.party.held.item.iItemNo != -1) && item->iItemNo != -1 &&
-        GetItemMergeKind(item->iItemNo, &related_kind) &&
-        g_item_records[g_status.party.held.item.iItemNo].unidentified_name_index == related_kind) {
-        same_kind = true;
-    }
-    if (item->iItemNo == -1 && !(g_status.party.held.item.iItemNo != -1)) {
-        return;
-    }
-    if (origin == W8ItemStorage::Equipment && (g_status.party.held.item.iItemNo != -1) &&
-        item_action != W8_CAMP_ITEM_ACTION_MOVE) {
-        if (!same_kind &&
-            !CanEquipItemInSlot(reviewed, g_status.party.held.item.iItemNo, slot_index, true)) {
-            return;
-        }
-        if (!CanCharacterUseItem(reviewed, g_status.party.held.item.iItemNo)) {
-            return;
-        }
-    }
-    if (item_action == W8_CAMP_ITEM_ACTION_CAST_SPELL ||
-        item_action == W8_CAMP_ITEM_ACTION_USE_ON_CHARACTER) {
-        return;
-    }
-    if (!g_status.game_started) {
-        text = g_localized_strings[0x900];
-        ShowNotice(text, 0, true, false);
-        return;
-    }
-    character = &g_status.party.characters[ReviewedPartySlot()];
-    if (character->uiCondition[W8_CONDITION_MISSING] != 0 &&
-        (origin == W8ItemStorage::Equipment || origin == W8ItemStorage::Backpack)) {
-        text = g_localized_strings[0x907];
-        ShowNotice(text, 0, true, false);
-        return;
-    }
-    if (character->uiCondition[W8_CONDITION_WEBBED] != 0 &&
-        (origin == W8ItemStorage::Equipment || origin == W8ItemStorage::Backpack)) {
-        text = g_localized_strings[0x908];
-        ShowNotice(text, 0, true, false);
-        return;
-    }
-    if (character->uiCondition[W8_CONDITION_TURNCOAT] != 0 &&
-        (origin == W8ItemStorage::Equipment || origin == W8ItemStorage::Backpack)) {
-        text = g_localized_strings[0x909];
-        ShowNotice(text, 0, true, false);
-        return;
-    }
-    if (character->highest_condition >= W8_CONDITION_TURNCOAT && origin != W8ItemStorage::Pool &&
-        (g_status.party.held.item.iItemNo != -1) &&
-        g_status.party.held.actor != ReviewedPartySlot()) {
-        text = g_localized_strings[0x901];
-        ShowNotice(text, 0, true, false);
-        return;
-    }
-
-    /* In combat an item click spends the character's action allowance unless
-       it only touches a weapon-class slot or folds into the same-kind merge.
-       A weapon or shield being moved onto a slot it cannot pair with stays
-       gated as well. */
-    bool gated = true;
-    if (g_combat.active() && origin != W8ItemStorage::Pool) {
-        if (!(g_status.party.held.item.iItemNo != -1) ||
-            ((g_item_records[g_status.party.held.item.iItemNo].equip_class ==
-                  W8_ITEM_EQUIP_CLASS_THROWN_WEAPON ||
-              g_item_records[g_status.party.held.item.iItemNo].equip_class ==
-                  W8_ITEM_EQUIP_CLASS_AMMUNITION) &&
-             g_status.party.held.actor == ReviewedPartySlot() &&
-             (origin != W8ItemStorage::Equipment ||
-              HeldItemFitsPairedSlot(ReviewedPartySlot(), equip_slot)))) {
-            if (item->iItemNo == -1 ||
-                g_item_records[item->iItemNo].equip_class == W8_ITEM_EQUIP_CLASS_THROWN_WEAPON ||
-                g_item_records[item->iItemNo].equip_class == W8_ITEM_EQUIP_CLASS_AMMUNITION ||
-                same_kind) {
-                gated = false;
-            }
-        }
-    }
-    if (gated && !IsCampActionAllowed(ReviewedPartySlot())) {
-        return;
-    }
-    if (((GetInputState().modifiers & SHIFT_DOWN) != 0)) {
-        TakeItemUnitToHand(location);
-        return;
-    }
-    if (item_action == W8_CAMP_ITEM_ACTION_IDENTIFY_SPELL) {
-        party_slot = CharacterPointerToPartySlot(pending_item_action.identifying_character);
-        if (!CanItemLeaveItsSlot(item)) {
-            QueueCharacterEvent(&g_status.party.characters[party_slot], 0x35, 0,
-                                kCharacterEventFullVolume);
-            return;
-        }
-        if (pending_item_action.identifying_character == 0) {
-            Fail("gpIdentifyingPC != NULL");
-        }
-        old_pool_count = g_status.party.item_count;
-        reidentify = false;
-        ResetCombatSlot(&target);
-        target.iType = W8_TARGET_KIND_ITEM;
-        target.item = location;
-        StartBreathCycle(party_slot, false);
-        W8PartySlotRow* row = &g_status.party.rows[party_slot];
-        if (row->pending_action == W8_ACTION_USE_ITEM &&
-            g_item_records[g_status.party.itemAt(row->pending_action_detail.item_use.item)->iItemNo]
-                    .spell_id == W8_SPELL_IDENTIFY_ITEM) {
-            reidentify = true;
-            result = CommitPartySlotItemUse(
-                party_slot, g_status.party.itemAt(row->pending_action_detail.item_use.item),
-                &target);
-        } else {
-            result = CommitPartySlotSpell(party_slot, W8_SPELL_IDENTIFY_ITEM, 8, &target);
-        }
-        if (origin == W8ItemStorage::Pool && reidentify &&
-            old_pool_count != g_status.party.item_count) {
-            item =
-                &g_status.party.item_pool[g_status.party.item_count - old_pool_count + slot_index];
-            RebuildCampItemList();
-
-            redraw_flags |= W8_CAMP_REDRAW_CHARACTER_INFO;
-            item_redraw_flags |= W8_CAMP_ITEM_REDRAW_POOL;
-        }
-        if (result == 1 && item->iItemNo != -1) {
-            OpenItemInfoDialog(item);
-            if (!item->identified) {
-                QueueCharacterEvent(&g_status.party.characters[party_slot], 0x35, 0,
-                                    kCharacterEventFullVolume);
-            }
-        }
-        SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
-        return;
-    }
-    if (item_action == W8_CAMP_ITEM_ACTION_USE_ON_ITEM) {
-        UseHeldItemOnItem(item);
-        return;
-    }
-    if (item_action == W8_CAMP_ITEM_ACTION_IDENTIFY) {
-        IdentifyAndOpenItemInfo(item);
-        return;
-    }
-    if (item_action == W8_CAMP_ITEM_ACTION_SPLIT_STACK) {
-        if (item->iItemNo != -1) {
-            OpenSplitStackDialog(location);
-            return;
-        }
-    } else if (item_action == W8_CAMP_ITEM_ACTION_USE) {
-        if (CanCharacterUseItemEntry(reviewed, item) != 0) {
-            UseCampItem(location);
-        }
-        return;
-    } else if (item_action == W8_CAMP_ITEM_ACTION_MOVE) {
-        if ((g_status.party.held.item.iItemNo != -1)) {
-            if (item->iItemNo == -1) {
-                SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
-                return;
-            }
-            if (g_status.party.companion_inventory) {
-                SelectPendingCampCharacter();
-                return;
-            }
-            MergeItemStacksWithHeld(location);
-            return;
-        }
-        if (item->iItemNo == -1) {
-            SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
-            return;
-        }
-    }
-
-    /* Equipped items that may not be removed get one warning dialog and a
-       bound mark; the next click then unequips them. */
-    if (item->iItemNo != -1 && origin == W8ItemStorage::Equipment) {
-        if (!CanUnequipSlotItem(reviewed, equip_slot)) {
-            text = g_localized_strings[0x90b];
-            ShowNotice(text, 0, true, false);
-            if (item->bound) {
-                return;
-            }
-            BindEquippedItem(reviewed, equip_slot);
-            return;
-        }
-        item->bound = true;
-    }
-
-    // Changing a weapon hand here supersedes a weapon-set swap queued for the round.
-    const auto cancel_queued_swap = [&] {
-        if (origin == W8ItemStorage::Equipment &&
-            GetPairedEquipSlot(equip_slot) != W8_EQUIP_SLOT_NONE)
-            g_status.party.rows[ReviewedPartySlot()].weapon_swap_pending = false;
-    };
-    if (same_kind) {
-        MergeItemUses(ReviewedPartySlot(), location, {W8ItemStorage::Hand});
-        SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
-        changed = true;
-        cancel_queued_swap();
-        RebuildCampItemList();
-    } else {
-        /* Fold the held stack onto a matching stack; for the pool the scan
-           continues across every row until the held stack is consumed. */
-        if ((g_status.party.held.item.iItemNo != -1) &&
-            g_item_records[g_status.party.held.item.iItemNo].quantity_kind ==
-                W8_ITEM_QUANTITY_STACK) {
-            if (item->iItemNo != -1 && item->iItemNo == g_status.party.held.item.iItemNo) {
-                const auto outcome = MergeInventoryStacks(location, {W8ItemStorage::Hand});
-                merged = outcome.complete;
-                partially_merged = outcome.changed && !outcome.complete;
-                merge_tried = true;
-            }
-            if (!merged && origin == W8ItemStorage::Pool) {
-                for (index = 0; index < g_status.party.item_count; ++index) {
-                    const auto outcome = MergeInventoryStacks({W8ItemStorage::Pool, 0, index},
-                                                              {W8ItemStorage::Hand});
-                    partially_merged |= outcome.changed && !outcome.complete;
-                    if (outcome.complete) {
-                        merged = true;
-                        break;
-                    }
-                }
-            }
-        }
-        if (origin == W8ItemStorage::Pool) {
-            if (!merged) {
-                if ((g_status.party.held.item.iItemNo != -1)) {
-                    if (g_status.party.companion_inventory) {
-                        SelectPendingCampCharacter();
-                    } else if (InsertHeldItemInPool(slot_index)) {
-                        changed = true;
-                        RebuildCampItemList();
-                    } else {
-                        text = g_localized_strings[0x90c];
-                        ShowNotice(text, 0, true, false);
-                    }
-                } else if (slot_index < g_status.party.item_count) {
-                    /* An empty hand picks the clicked pool row up. */
-                    ExchangeInventoryItems(location, {W8ItemStorage::Hand},
-                                           static_cast<unsigned>(g_status.selected_character));
-                    changed = true;
-                    if (item_action == W8_CAMP_ITEM_ACTION_DROP) {
-                        DropHeldCampItem();
-                        RebuildCampItemList();
-                    } else if (item_action == W8_CAMP_ITEM_ACTION_MOVE) {
-                        SetHandCursors();
-                        RebuildCampItemList();
-                    } else {
-                        RebuildCampItemList();
-                    }
-                }
-            }
-        } else {
-            if (!merge_tried &&
-                ((!(g_status.party.held.item.iItemNo != -1) && item->iItemNo != -1) ||
-                 ((g_status.party.held.item.iItemNo != -1) && !merged))) {
-                if (!g_status.party.companion_inventory ||
-                    (&g_status.party.characters[*g_status.party.companion_inventory]) == reviewed) {
-                    MarkCampCharacterPending(item);
-                    if ((g_status.party.held.item.iItemNo != -1)) {
-                        choose_character = g_status.party.held.actor == -1;
-                        DeliverExceptionalItemReaction(&g_status.party.held.item, choose_character,
-                                                       reviewed);
-                    }
-                    if (origin == W8ItemStorage::Equipment &&
-                        (g_status.party.held.item.iItemNo != -1) &&
-                        !HeldItemFitsPairedSlot(ReviewedPartySlot(), equip_slot)) {
-                        paired_slot = GetPairedEquipSlot(equip_slot);
-                        paired = &reviewed->EquippedItem[paired_slot];
-                        if (!CanUnequipSlotItem(reviewed, paired_slot)) {
-                            text = g_localized_strings[0x916];
-                            ShowNotice(text, 0, true, false);
-                            if (paired->bound) {
-                                return;
-                            }
-                            BindEquippedItem(reviewed, paired_slot);
-                            return;
-                        }
-                        if (item->iItemNo == -1) {
-                            MarkCampCharacterPending(paired);
-                        }
-                        if (!EquipHeldItemAndStowPartner(ReviewedPartySlot(), equip_slot)) {
-                            ShowNotice(g_localized_strings[0x90c], 0, true, false);
-                            return;
-                        }
-                        changed = true;
-                    } else {
-                        ExchangeInventoryItems(location, W8ItemLocation{W8ItemStorage::Hand},
-                                               static_cast<unsigned>(ReviewedPartySlot()));
-                        changed = true;
-                        if (origin == W8ItemStorage::Backpack &&
-                            reviewed->backpack[slot_index].iItemNo != -1 && Random(100) < 5) {
-                            QueueCharacterEvent(reviewed, g_special_event14, 0,
-                                                kCharacterEventFullVolume);
-                        }
-                    }
-                } else {
-                    SelectPendingCampCharacter();
-                }
-            }
-            if (item_action == W8_CAMP_ITEM_ACTION_DROP &&
-                (g_status.party.held.item.iItemNo != -1)) {
-                DropHeldCampItem();
-            } else if (item_action == W8_CAMP_ITEM_ACTION_MOVE &&
-                       (g_status.party.held.item.iItemNo != -1)) {
-                SetHandCursors();
-            }
-            if (changed) {
-                cancel_queued_swap();
-                RebuildCampItemList();
-            }
-        }
-    }
-    if (!changed && !partially_merged && !merged) {
-        if (same_kind) {
-            redraw_flags |= W8_CAMP_REDRAW_ITEM_ACTIONS;
-        }
-        return;
-    }
-    redraw_flags |= W8_CAMP_REDRAW_ITEM_ACTIONS;
-    if (((GetInputState().modifiers & CTRL_DOWN) != 0)) {
-        redraw_flags |= W8_CAMP_REDRAW_ALL;
-    } else {
-        if (origin == W8ItemStorage::Backpack) {
-            if (partially_merged || merged) {
-                item_redraw_flags |= W8_CAMP_ITEM_REDRAW_BACKPACK;
-            } else {
-                item_redraw_flags |= W8_CAMP_ITEM_REDRAW_BACKPACK_CELL_FIRST << slot_index;
-            }
-        } else if (origin == W8ItemStorage::Equipment) {
-            if (partially_merged || merged) {
-                item_redraw_flags |= W8_CAMP_ITEM_REDRAW_EQUIPMENT_CELL_FIRST << slot_index;
-            } else {
-                redraw_flags |= W8_CAMP_REDRAW_CHARACTER_INFO;
-                redraw_flags |= W8_CAMP_REDRAW_PORTRAIT;
-            }
-        } else if (origin == W8ItemStorage::Pool) {
-            item_redraw_flags |= W8_CAMP_ITEM_REDRAW_POOL;
-        }
-        item_redraw_flags |= W8_CAMP_ITEM_REDRAW_EQUIPMENT_CELLS;
-    }
-    redraw_flags |= W8_CAMP_REDRAW_CHARACTER_INFO;
-    redraw_flags |= W8_CAMP_REDRAW_PORTRAIT;
-}
-
-void W8CampScreenState::TakeItemUnitToHand(W8ItemLocation source)
-{
-    const auto* item = g_status.party.itemAt(source);
-    if (!item) return;
-    if (item_action != W8_CAMP_ITEM_ACTION_NONE || !CanSplitItemStack(item)) return;
-    if (!SplitItemStack(source, 1, ReviewedPartySlot())) return;
-    RebuildCampItemList();
-    redraw_flags |= W8_CAMP_REDRAW_ALL;
-}
-
-/* Commits the pending companion swap left by MarkCampCharacterPending:
-   selects the new character and either queues its join event or opens the
-   refusal dialog. Returns zero when a swap was pending and consumed, one when
-   the caller may proceed. force ignores the same-character early out. */
-bool W8CampScreenState::ResolvePendingCampCharacter(bool force)
-{
-    if (g_status.party.companion_inventory &&
-        ((&g_status.party.characters[*g_status.party.companion_inventory]) != reviewed || force)) {
-        SelectPendingCampCharacter();
-        return false;
-    }
-    return true;
-}
-
-/* When the reviewed slot is one of the two companion slots and its bound NPC
-   wants the item being used, the current character is remembered as pending a
-   swap (cleared first so a failed attempt leaves none). */
-void W8CampScreenState::MarkCampCharacterPending(W8ItemInstance* item)
-{
-    W8NpcState* npc;
-
-    g_status.party.companion_inventory.reset();
-    if (item->iItemNo != -1 && (ReviewedPartySlot() == 0 || ReviewedPartySlot() == 1)) {
-        npc = GetNpcState(g_status.party.rows[ReviewedPartySlot()].npc_index);
-        if (npc != 0 && NpcWantsItem(npc, item)) {
-            g_status.party.companion_inventory = ReviewedPartySlot();
-        }
-    }
 }
 
 /* Whether the camp item action may proceed for the reviewed slot: outside

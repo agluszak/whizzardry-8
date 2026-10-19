@@ -174,6 +174,7 @@ void W8CampStatsControls::SelectFilter(int index)
 // FUNCTION: WIZ8 0x005c48b0
 void W8CampScreenState::DrawCampStatsPage(void)
 {
+    std::string formatted;
     if (redraw_flags == W8_CAMP_REDRAW_ALL) {
         CatalogArtwork::Load(0x142, 0).drawAndInvalidate(GetFrameBufferSurface(), 1, 0, 0xa5);
         constexpr int origin_x = 0;
@@ -193,12 +194,12 @@ void W8CampScreenState::DrawCampStatsPage(void)
                      label);
             unsigned int effective = reviewed->attributes[index].effective;
             DrawCampValueBar(effective, reviewed->attributes[index].base, 0x88, row_y);
-            text_buffer = fmt::format("{:d}", effective);
-            DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
-                     {origin_x + 0x108 +
-                          ((0x21 - g_wiz_text_font_secondary.textWidth(text_buffer)) >> 1),
-                      row_y - 0xa6 + origin_y},
-                     text_buffer);
+            formatted = fmt::format("{:d}", effective);
+            DrawText(
+                GetFrameBufferSurface(), g_wiz_text_font_secondary,
+                {origin_x + 0x108 + ((0x21 - g_wiz_text_font_secondary.textWidth(formatted)) >> 1),
+                 row_y - 0xa6 + origin_y},
+                formatted);
             row_y += 0xe;
         }
         text = g_localized_strings[0x938];
@@ -206,12 +207,12 @@ void W8CampScreenState::DrawCampStatsPage(void)
                  {origin_x + 10 + ((0x11f - g_wiz_text_font_secondary.textWidth(text)) >> 1),
                   origin_y + 0x8d},
                  text);
-        text_buffer = fmt::format(
+        formatted = fmt::format(
             "{} {}",
             g_localized_strings
                 [g_character_skill_name_ids[g_profession_bonus_skills[reviewed->iProfession]]],
             g_localized_strings[0x8c5]);
-        DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x10, 0x142}, text_buffer);
+        DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x10, 0x142}, formatted);
         int trait_count = 0;
         char traits[0x20];
         for (index = 0; index < 0x20; ++index) {
@@ -490,6 +491,7 @@ void W8CampScreenState::DrawCampEffectList(void)
 // FUNCTION: WIZ8 0x005c54a0
 void W8CampScreenState::DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out)
 {
+    std::string text;
     int index;
     int line = *line_out;
     if (entry->kind == W8_CAMP_EFFECT_CONDITION) {
@@ -551,20 +553,20 @@ void W8CampScreenState::DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_
         std::string value_text;
         for (index = 0; index < 0x10; ++index) {
             if (record->missile_values[index] != 0) {
-                text_buffer = "";
-                text_buffer += g_localized_strings[g_attack_effect_name_ids[index]];
-                text_buffer += " ";
+                text = "";
+                text += g_localized_strings[g_attack_effect_name_ids[index]];
+                text += " ";
                 value_text = fmt::format("{:d}%", record->missile_values[index]);
-                text_buffer += value_text;
+                text += value_text;
                 if (index == 2) {
-                    text_buffer += " (";
-                    text_buffer += g_localized_strings[0x8d5];
+                    text += " (";
+                    text += g_localized_strings[0x8d5];
                     value_text = fmt::format(" {:d})", record->missile_magnitude);
-                    text_buffer += value_text;
+                    text += value_text;
                 }
                 DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
                          {0x15e, line * 0xe + 0xbf},
-                         fmt::format("{}: {}", g_localized_strings[0x8d6], text_buffer));
+                         fmt::format("{}: {}", g_localized_strings[0x8d6], text));
                 ++line;
             }
         }

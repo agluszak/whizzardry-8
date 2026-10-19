@@ -1086,8 +1086,9 @@ void InventoryChestScenario()
     REQUIRE(g_camera_motion_divisor == motion_divisor);
     REQUIRE(g_pending_main_menu_message.empty());
     int potion_cell = -1;
-    for (unsigned i = 0; i < std::min(8u, g_camp_screen->item_list_count); ++i)
-        if (g_camp_screen->item_list[i] == potion_slot) potion_cell = i;
+    const auto listed = g_camp_screen->items.ListedPoolEntries();
+    for (unsigned i = 0; i < std::min<std::size_t>(8, listed.size()); ++i)
+        if (listed[i] == potion_slot) potion_cell = i;
     REQUIRE(potion_cell >= 0);
     game.click_at(535 + (potion_cell & 1) * 49, 219 + (potion_cell >> 1) * 57);
     REQUIRE((g_status.party.held.item.iItemNo != -1));
@@ -1139,7 +1140,7 @@ void InventoryChestScenario()
     g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_ALL;
     game.frame();
     game.click_at(145, 466);
-    REQUIRE(g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_USE);
+    REQUIRE(g_camp_screen->items.action() == W8_CAMP_ITEM_ACTION_USE);
     game.click_at(83, 219);
     game.wait_screen("use-potion-return", W8_SCREEN_MAIN_GAME);
     const bool healed = game.within_frames(600, [&] { return caster.hp_current > 1; });
@@ -1190,10 +1191,10 @@ void CampSpellsScenario()
     auto& sword = caster.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON];
     REQUIRE(sword.iItemNo >= 0);
     sword.identified = false;
-    g_camp_screen->RefreshCampItemActions(true);
+    g_camp_screen->items.RefreshCampItemActions(true);
     game.frame();
     game.click_at(240, 466); // Identify spell, not the artifacts-skill button.
-    REQUIRE(g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_USE_ON_ITEM);
+    REQUIRE(g_camp_screen->items.action() == W8_CAMP_ITEM_ACTION_USE_ON_ITEM);
     game.click_at(175, 360);
     CAPTURE(caster.profession_levels[W8_PROFESSION_BISHOP],
             caster.skills[W8_SKILL_SPELLBOOK_WIZARDRY].level,
@@ -1214,17 +1215,17 @@ void CampSpellsScenario()
     const auto curse_realm = g_spell_records[W8_SPELL_REMOVE_CURSE].realm;
     caster.sp_max[curse_realm] = caster.iSPLeft[curse_realm] = 100;
     caster.uiCondition[W8_CONDITION_HEXED] = 20;
-    g_camp_screen->RefreshCampItemActions(true);
+    g_camp_screen->items.RefreshCampItemActions(true);
     game.frame();
     // Fix the roll sequence so successful but insufficient attempts repeat.
     SeedRandom(1);
     game.click_at(286, 466);
-    REQUIRE(g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_USE_ON_CHARACTER);
+    REQUIRE(g_camp_screen->items.action() == W8_CAMP_ITEM_ACTION_USE_ON_CHARACTER);
     const auto slot = PremadeSlot();
     game.click_at((slot & 1) * 48 + 28, (slot / 2) * 39 + 23);
     REQUIRE(caster.iSPLeft[curse_realm] < 100);
     REQUIRE(caster.iSPLeft[curse_realm] >= 0);
-    REQUIRE(g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_NONE);
+    REQUIRE(g_camp_screen->items.action() == W8_CAMP_ITEM_ACTION_NONE);
     REQUIRE(g_status.party.rows[slot].spell.target.iType == W8_TARGET_KIND_CHARACTER);
     REQUIRE(g_status.party.rows[slot].spell.target.iChar == slot);
     caster.uiCondition[W8_CONDITION_HEXED] = 0;
@@ -2110,7 +2111,7 @@ void PrintState(Game& game)
     if (CurrentScreenState().id == W8_SCREEN_CAMP && g_camp_screen)
         std::printf(" camp_pc=%d page=%d item_action=%d camp_dialog=%d targeting=%d",
                     g_camp_screen->ReviewedPartySlot(), int(g_camp_screen->page),
-                    int(g_camp_screen->item_action), g_camp_screen->dialog != nullptr,
+                    int(g_camp_screen->items.action()), g_camp_screen->dialog != nullptr,
                     int(gXStatus.iTargetingMode));
     std::printf("\n");
     for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
