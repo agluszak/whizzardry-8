@@ -245,8 +245,6 @@ extern const double g_monster_light_color_scale = 0.00392156862745098;
 // GLOBAL: WIZ8 0x00682FD0
 static std::vector<stModelInstance*> g_monster_model_instances;
 
-#define MONSTER_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Monster.cpp"
-
 /* Highlight triangle bitmaps indexed by the slot's marching-order position:
    the marker SetMonsterPartySlotMarker hangs on a monster. */
 // GLOBAL: WIZ8 0x0060e938
@@ -329,7 +327,7 @@ std::unique_ptr<W8Monster> MonsterReadAllCycles(W8World* world, std::string_view
     if (shared != 0) {
         monster = std::make_unique<W8Monster>(*shared, world);
         if (!monster) {
-            srAssertFail("*ppMonster", MONSTER_CPP, 0x4d3, 0);
+            srAssertFail("*ppMonster");
         }
         monster->RandomizeAppearanceAndMotion();
         RegisterGrCycle(monster_name, monster.get());
@@ -392,7 +390,7 @@ std::unique_ptr<W8Monster> MonsterReadAllCycles(W8World* world, std::string_view
         }
     }();
     if (handle == 0) {
-        srAssertFail("hFile", MONSTER_CPP, 0x50f, fmt::format("Couldn't open {}", path));
+        srAssertFail("hFile", fmt::format("Couldn't open {}", path));
     }
     monster = std::make_unique<W8Monster>(world);
     monster->id = AllocateGrObjectId();
@@ -457,14 +455,14 @@ std::unique_ptr<W8Monster> MonsterReadAllCycles(W8World* world, std::string_view
             } else if (SDL_strcasecmp(command.c_str(), "pitch") == 0) {
                 int pitch = 0;
                 if (last_sound == 0) {
-                    srAssertFail("pSndEvent", MONSTER_CPP, 0x58e,
+                    srAssertFail("pSndEvent",
                                  "mls pitch: Must specify a sound before specifying parameters");
                 }
                 fields >> pitch;
                 last_sound->pitch = pitch;
             } else if (SDL_strcasecmp(command.c_str(), "volume") == 0) {
                 if (last_sound == 0) {
-                    srAssertFail("pSndEvent", MONSTER_CPP, 0x595,
+                    srAssertFail("pSndEvent",
                                  "mls volume: Must specify a sound before specifying parameters");
                 }
                 fields >> last_sound->volume_min >> last_sound->volume_max;
@@ -476,7 +474,7 @@ std::unique_ptr<W8Monster> MonsterReadAllCycles(W8World* world, std::string_view
                 int probability = 0;
                 if (last_sound == 0) {
                     srAssertFail(
-                        "pSndEvent", MONSTER_CPP, 0x5a5,
+                        "pSndEvent",
                         "mls frequency: Must specify a sound before specifying parameters");
                 }
                 fields >> probability;
@@ -633,7 +631,7 @@ std::unique_ptr<W8Monster> MonsterReadAllCycles(W8World* world, std::string_view
                         effect.subcycle = subcycle - 1;
                         monster->AddShakeEffect(effect);
                     } else {
-                        srAssertFail("FALSE", MONSTER_CPP, 0x636,
+                        srAssertFail("FALSE",
                                      fmt::format("Monster::ReadAllCycles: ERROR - Unrecognized MLS "
                                                  "string \"{}\" in {}",
                                                  command, path));
@@ -824,7 +822,7 @@ void W8Monster::RandomizeAppearanceAndMotion()
         float maximum = m_pRep->maximum_scale;
 
         if (minimum > maximum) {
-            srAssertFail("flStart <= flEnd", MONSTER_CPP, 0x2f5, 0);
+            srAssertFail("flStart <= flEnd");
         }
         random_value = Random(1000);
         m_pRep->scale = (maximum - minimum) * random_value * 0.001f + minimum;
@@ -890,7 +888,7 @@ W8MonsterCycle ParseMonsterCycleName(const char* name, signed char* subcycle)
     int index;
 
     if (name == 0) {
-        srAssertFail("pacName", MONSTER_CPP, 1937, 0);
+        srAssertFail("pacName");
     }
 
     cycle = W8_MONSTER_CYCLE_NONE;
@@ -949,8 +947,7 @@ unsigned char W8MonsterRep::ReadCycleData(W8ReadLevelInfo* info, W8Monster* mons
     int subcycle;
 
     if (info == 0 || info->hFile == 0 || monster == 0) {
-        srAssertFail("pInfo && pInfo->hFile && pMonster",
-                     "C:\\Projects\\Wizardry 8\\Engine Code\\Monster.cpp", 0x22d, 0);
+        srAssertFail("pInfo && pInfo->hFile && pMonster");
     }
 
     auto owner = std::make_unique<W8AnimObj>();
@@ -962,8 +959,7 @@ unsigned char W8MonsterRep::ReadCycleData(W8ReadLevelInfo* info, W8Monster* mons
     }
     cycle = static_cast<signed char>(cycle_index);
     if (cycle < W8_MONSTER_CYCLE_BIRTH || cycle >= W8_MONSTER_CYCLE_COUNT) {
-        srAssertFail("bCycle>=CYCLE_FIRST && bCycle<=CYCLE_LAST",
-                     "C:\\Projects\\Wizardry 8\\Engine Code\\Monster.cpp", 0xc35, 0);
+        srAssertFail("bCycle>=CYCLE_FIRST && bCycle<=CYCLE_LAST");
     }
 
     // Reserve before publishing either resource. Models must retain their lights
@@ -1120,7 +1116,7 @@ W8Monster::W8Monster(const W8Monster& rhs, W8World* owner)
     hostility_preserved = rhs.hostility_preserved;
 
     if (rhs.m_pRep == 0) {
-        srAssertFail("rhs.m_pRep", "C:\\Projects\\Wizardry 8\\Engine Code\\Monster.cpp", 1099, 0);
+        srAssertFail("rhs.m_pRep");
     }
     m_pRep = std::make_unique<W8MonsterRep>(*rhs.m_pRep);
     if (m_pRep->monster_light) m_pRep->monster_light->setParent(owner->dynamic_scene, 1);
@@ -1195,7 +1191,7 @@ void W8Monster::Update()
     int index;
 
     if (m_pRep == 0) {
-        srAssertFail("m_pRep", MONSTER_CPP, 0x7f9, 0);
+        srAssertFail("m_pRep");
     }
 
     party_position = cameraLocation();
@@ -1500,7 +1496,7 @@ bool W8Monster::EvaluateScriptCondition(std::string_view expression)
 
         party_position = cameraLocation();
         if (!parameter) {
-            srAssertFail("lsParmList.Length()", MONSTER_CPP, 7526,
+            srAssertFail("lsParmList.Length()",
                          fmt::format("Monscr {} line {:d}: PARTYNEAR expects 1 parameter",
                                      script->getName(), script_line));
             return false;
@@ -1515,7 +1511,7 @@ bool W8Monster::EvaluateScriptCondition(std::string_view expression)
         }
     } else if (CompareTextIgnoreAsciiCase(name.substr(0, 6), "RANDOM") == 0) {
         if (!parameter) {
-            srAssertFail("lsParmList.Length()", MONSTER_CPP, 7542,
+            srAssertFail("lsParmList.Length()",
                          fmt::format("Monscr {} line {:d}: RANDOM expects 1 parameter",
                                      script->getName(), script_line));
             return false;
@@ -1575,8 +1571,7 @@ bool W8Monster::GetProjectilePosition(glm::vec3* position)
     }
     if (IsCycleSupported(0x11) && IsCycleSupported(0x0d)) {
         srAssertFail("!(IsCycleSupported(CYCLE_ATTACK_SHOOT) && "
-                     "IsCycleSupported(CYCLE_ATTACK_THROW))",
-                     MONSTER_CPP, 0x18b1, 0);
+                     "IsCycleSupported(CYCLE_ATTACK_THROW))");
     }
     if (IsCycleSupported(0x0d)) {
         cycle = W8_MONSTER_CYCLE_ATTACK_THROW;
@@ -2502,7 +2497,7 @@ int W8Monster::IsFacingMonster(W8Monster* monster)
     glm::vec3 to;
 
     if (monster == 0) {
-        srAssertFail("pMonsterB", MONSTER_CPP, 3812, 0);
+        srAssertFail("pMonsterB");
     }
     to = monster->GetPosition();
     from = GetPosition();
@@ -2520,7 +2515,7 @@ int W8Monster::IsFacingPlayer()
     glm::vec3 to;
 
     if (PartyNavigator() == 0) {
-        srAssertFail("pPlayer", MONSTER_CPP, 3838, 0);
+        srAssertFail("pPlayer");
     }
     to = PartyNavigator()->GetPosition();
     from = GetPosition();
@@ -2838,7 +2833,7 @@ unsigned char W8Monster::CanEnterCycle(signed char cycle)
             if (!g_dev_mode) {
                 return 0;
             }
-            srAssertFail("FALSE", MONSTER_CPP, 0x97f, 0);
+            srAssertFail("FALSE");
             return 0;
         }
     } else {
@@ -2929,8 +2924,7 @@ void W8Monster::ApplyRemovalStateEffects()
 unsigned char W8MonsterRep::GetNumSubsPerCycle(signed char bCycle)
 {
     if (bCycle >= W8_MONSTER_CYCLE_COUNT) {
-        srAssertFail("bCycle < CYCLE_NUM_UNIQUE", MONSTER_CPP, 0x3c0,
-                     "GetNumSubsPerCycle() -> Invalid cycle num.");
+        srAssertFail("bCycle < CYCLE_NUM_UNIQUE", "GetNumSubsPerCycle() -> Invalid cycle num.");
     }
     if (bCycle == -1) {
         bCycle = current_cycle;
@@ -3137,7 +3131,7 @@ unsigned int W8MonsterRep::ApplyEmitterSetting(signed char cycle)
 {
     W8AnimObj* animation = animations[cycle][current_subcycle].get();
     if (animation == 0) {
-        srAssertFail("pao", "C:\\Projects\\Wizardry 8\\Engine Code\\Monster.cpp", 0x2de, 0);
+        srAssertFail("pao");
     }
     return AnimObjValue(animation, m_bLOD);
 }
@@ -3158,9 +3152,7 @@ signed char W8Monster::GetNumSubCycles()
 bool W8Monster::IsCycleSupported(signed char cycle)
 {
     if (cycle >= W8_MONSTER_CYCLE_COUNT) {
-        srAssertFail("bCycle < CYCLE_NUM_UNIQUE",
-                     "C:\\Projects\\Wizardry 8\\Engine Code\\Monster.cpp", 0xafc,
-                     "IsCycleSupported() -> Invalid cycle num.");
+        srAssertFail("bCycle < CYCLE_NUM_UNIQUE", "IsCycleSupported() -> Invalid cycle num.");
     }
     return static_cast<int>(m_pRep->animations[cycle].size()) != 0;
 }
@@ -3179,7 +3171,7 @@ void W8Monster::SetCycle(signed char cycle)
     int index;
 
     if (cycle < W8_MONSTER_CYCLE_BIRTH || cycle >= W8_MONSTER_CYCLE_COUNT) {
-        srAssertFail("bCycle >= CYCLE_FIRST && bCycle <= CYCLE_LAST", MONSTER_CPP, 0xb14, 0);
+        srAssertFail("bCycle >= CYCLE_FIRST && bCycle <= CYCLE_LAST");
     }
 
     animations = &m_pRep->animations[cycle];
@@ -3187,9 +3179,8 @@ void W8Monster::SetCycle(signed char cycle)
     if (count == 0) {
         if (static_cast<int>(m_pRep->animations[1].size()) < 1) {
             W8MonsterInfo* monster_info = owner_world->population->findMonster(location_id);
-            srAssertFail("FALSE", MONSTER_CPP, 0xb26,
-                         fmt::format("ERROR: Monster {} has no IDLE cycle!",
-                                     GetMonsterName(monster_info, 0, 0)));
+            srAssertFail("FALSE", fmt::format("ERROR: Monster {} has no IDLE cycle!",
+                                              GetMonsterName(monster_info, 0, 0)));
             return;
         }
 
@@ -3206,7 +3197,7 @@ void W8Monster::SetCycle(signed char cycle)
     if (count == 1) {
         subcycle = 0;
     } else if (count < 2) {
-        srAssertFail("0", MONSTER_CPP, 0xb43, 0);
+        srAssertFail("0");
         subcycle = 0;
     } else if (m_pRep->forced_subcycle == -1 || count <= m_pRep->forced_subcycle) {
         if ((runtime_flags & W8_MONSTER_KEEP_SUBCYCLE) == 0) {
@@ -3242,7 +3233,7 @@ void W8Monster::SetCycle(signed char cycle)
     m_pRep->current_subcycle = subcycle;
     animation = (*animations)[subcycle].get();
     if (animation == 0) {
-        srAssertFail("pao", MONSTER_CPP, 0xb51, 0);
+        srAssertFail("pao");
     }
     m_pRep->frame_method = animation->frame_method;
 
@@ -3706,7 +3697,7 @@ void W8Monster::HandleAnimationThreshold()
 
 prepare_attack:
     if (attack_index >= W8_MAX_MONSTER_ATTACKS) {
-        srAssertFail("uiAttack < MAX_MONSTER_ATTACKS", MONSTER_CPP, 0x1862, 0);
+        srAssertFail("uiAttack < MAX_MONSTER_ATTACKS");
     }
     attack = &record->attacks[attack_index];
     missile_type = attack->missile_type;
@@ -3744,17 +3735,16 @@ void W8MonsterShakeCallback::RestoreAnimation()
     W8MonsterRep* representation;
 
     if (m_pMonster == 0) {
-        srAssertFail("m_pMonster", MONSTER_CPP, 0x102, 0);
+        srAssertFail("m_pMonster");
     }
     if (m_pParticles == 0) {
-        srAssertFail("m_pParticles", MONSTER_CPP, 0x103, 0);
+        srAssertFail("m_pParticles");
     }
 
     m_pParticles->SetActive(0);
     representation = m_pMonster->m_pRep.get();
     if (saved_behaviour < 1 || saved_behaviour > 3) {
-        srAssertFail("bBehaviour >= BEHAVIOUR_FIRST && bBehaviour <= BEHAVIOUR_LAST",
-                     "..\\Engine Code\\Include\\AnimRep.hpp", 0x87, 0);
+        srAssertFail("bBehaviour >= BEHAVIOUR_FIRST && bBehaviour <= BEHAVIOUR_LAST");
     }
     representation->pending_behaviour = saved_behaviour;
     representation->SetFrameMethod(saved_frame_method);
@@ -3864,7 +3854,7 @@ W8AniMesh* W8Monster::GetCurrentAniMesh()
     W8AnimObj* animation =
         m_pRep->animations[m_pRep->current_cycle][m_pRep->current_subcycle].get();
     if (animation == 0) {
-        srAssertFail("pao", "C:\\Projects\\Wizardry 8\\Engine Code\\Monster.cpp", 0xc4e, 0);
+        srAssertFail("pao");
     }
     return AnimObjEntry(animation, m_pRep->m_bLOD, 0);
 }
@@ -4029,8 +4019,7 @@ void MonsterSetRuntimeBehaviour(W8Monster* monster, W8AnimationBehaviour behavio
 {
     if (monster != 0) {
         if (behaviour < 1 || behaviour > 3) {
-            srAssertFail("bBehaviour >= BEHAVIOUR_FIRST && bBehaviour <= BEHAVIOUR_LAST",
-                         "..\\Engine Code\\Include\\AnimRep.hpp", 0x87, 0);
+            srAssertFail("bBehaviour >= BEHAVIOUR_FIRST && bBehaviour <= BEHAVIOUR_LAST");
         }
         monster->m_pRep->pending_behaviour = behaviour;
     }

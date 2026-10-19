@@ -71,7 +71,6 @@ static int g_level_backdrops[W8_LEVEL_COUNT] = {
     0x1da, 0x1db, 0x1dc, 0xe4,  0,     0,     0,     0,     0,     0,     0,
 };
 /* The path the five assertions carry. */
-#define PLEASE_WAIT_SCREEN_CPP __FILE__
 
 bool PleaseWaitScreenInitialize(void)
 {
@@ -173,17 +172,17 @@ void PleaseWaitScreenFrame(void)
         int entrance;
         ChooseNewGameStartLocation(&level, &entrance);
         if (!LoadLevel(level, entrance, false)) {
-            srAssertFail("fVerify", PLEASE_WAIT_SCREEN_CPP, 279, 0);
+            srAssertFail("fVerify");
         }
         PostNewGameLoad();
 
         break;
     case W8_PLEASE_WAIT_LOAD_GAME:
         if (!LoadGame(g_load_descriptor->name)) {
-            srAssertFail("fVerify", PLEASE_WAIT_SCREEN_CPP, 293, 0);
+            srAssertFail("fVerify");
         }
         if (!LoadLevel(g_status.resume_level, -1, true)) {
-            srAssertFail("fVerify", PLEASE_WAIT_SCREEN_CPP, 296, 0);
+            srAssertFail("fVerify");
         }
 
         break;
@@ -213,13 +212,13 @@ void PleaseWaitScreenFrame(void)
     case W8_PLEASE_WAIT_CHANGE_LEVEL:
         if (!ReloadLevelPreservingCamera(g_load_descriptor->parameter,
                                          g_load_descriptor->parameter_2)) {
-            srAssertFail("fVerify", PLEASE_WAIT_SCREEN_CPP, 320, 0);
+            srAssertFail("fVerify");
         }
         AutoSaveIfAllowed(true);
     }
 
     if (!GetWorld()) {
-        srAssertFail("GetWorld()", PLEASE_WAIT_SCREEN_CPP, 332, 0);
+        srAssertFail("GetWorld()");
     }
     RequestScreenTransition();
     if (g_load_descriptor->mode == W8_PLEASE_WAIT_LOAD_GAME && g_status.intro_shown) {

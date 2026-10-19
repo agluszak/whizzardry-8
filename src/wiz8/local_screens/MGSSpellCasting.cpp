@@ -63,8 +63,6 @@
 
 struct W8NpcState;
 
-#define SPELLCASTING_CPP "C:\\Projects\\Wizardry 8\\Local Screens\\MGSSpellCasting.cpp"
-
 /* The first realm skill id; character->skill_unlocks[first + realm] counts
    the spells known in that realm. */
 
@@ -463,7 +461,7 @@ static void RefreshSpellPowerPip(int pip)
     int frame;
 
     if (gpSCSV->draft.detail == 0) {
-        srAssertFail("gpSCSV->draft.detail != SPELL_NONE", SPELLCASTING_CPP, 0x303, 0);
+        srAssertFail("gpSCSV->draft.detail != SPELL_NONE");
     }
     if (pip == 7 || pip == 8) {
         level = 8;
@@ -954,7 +952,7 @@ static void SelectSpellCastingListRow(int index)
     SetSpellListLineColor(gpSCSV->uiSpellIndex, 3);
     power_class = g_spell_records[spell_id].power_class;
     if (power_class == W8_SPELL_POWER_CLASS_NONE) {
-        srAssertFail("iSpellPowerClass != BAD_INDEX", SPELLCASTING_CPP, 0x834, 0);
+        srAssertFail("iSpellPowerClass != BAD_INDEX");
     }
     cost = g_spell_records[spell_id].spell_point_cost;
     levels = GetCharacterRealmSpellPoints(&g_status.buffers.Char[g_status.selected_character],

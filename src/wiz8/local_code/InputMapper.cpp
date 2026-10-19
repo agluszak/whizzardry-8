@@ -33,8 +33,7 @@ unsigned char MGSKeyboard::LoadDefaults(const char* path)
         }
     }();
     if (handle == 0) {
-        srAssertFail("hFile", "C:\\Projects\\Wizardry 8\\Local Code\\InputMapper.cpp", 478,
-                     fmt::format("Couldn't open keyboard init file {}", path));
+        srAssertFail("hFile", fmt::format("Couldn't open keyboard init file {}", path));
     }
 
     std::string line;

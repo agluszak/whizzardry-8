@@ -21,8 +21,6 @@
 #include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/filesystem.h"
 
-#define ANI_MESH_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\AniMesh.cpp"
-
 /* AniMesh cache: a generation stamp, the loaded-byte total, the 16 MiB primary
    limit, the unused 1 MiB secondary limit the initializer still writes, and
    the list EnforceAniMeshMemoryLimit walks. */
@@ -222,17 +220,17 @@ bool UnloadAniMesh(W8AniMesh* mesh, bool force)
 stModelInstance* GetAniMeshFrame(W8AniMesh* mesh, unsigned char frame)
 {
     if (!mesh) {
-        srAssertFail("mesh", ANI_MESH_CPP, 0x2e6, nullptr);
+        srAssertFail("mesh");
         return nullptr;
     }
     if (frame >= mesh->frame_count) {
         const auto message =
             fmt::format("AniMeshGetMeshForFrame error, frame {}, num {}", frame, mesh->frame_count);
-        srAssertFail("frame < mesh->frame_count", ANI_MESH_CPP, 0x2e6, message.c_str());
+        srAssertFail("frame < mesh->frame_count", message.c_str());
         return nullptr;
     }
     if (!mesh->flags.loaded && !ReloadAnimatedMesh(*mesh)) {
-        srAssertFail("0", ANI_MESH_CPP, 0x2ee, 0);
+        srAssertFail("0");
         return 0;
     }
     stModelInstance* instance;
@@ -251,12 +249,12 @@ stModelInstance* GetAniMeshFrame(W8AniMesh* mesh, unsigned char frame)
 unsigned char AniMeshValue(W8AniMesh* mesh)
 {
     if (mesh == 0) {
-        srAssertFail("pAniMesh", ANI_MESH_CPP, 0x2be, 0);
+        srAssertFail("pAniMesh");
         return 0xff;
     }
     if (!mesh->flags.frame_count_loaded) {
         if (!ReloadAnimatedMesh(*mesh)) {
-            srAssertFail("0", ANI_MESH_CPP, 0x2c6, 0);
+            srAssertFail("0");
             return 0xff;
         }
     }
@@ -267,12 +265,12 @@ unsigned char AniMeshValue(W8AniMesh* mesh)
 bool AniMeshRadius(W8AniMesh* mesh, float* radius)
 {
     if (mesh == 0 || radius == 0) {
-        srAssertFail("pAniMesh&&pflRadius", ANI_MESH_CPP, 0x348, 0);
+        srAssertFail("pAniMesh&&pflRadius");
     }
     if (mesh != 0 && radius != 0) {
         if (!mesh->flags.radius_loaded) {
             if (!ReloadAnimatedMesh(*mesh)) {
-                srAssertFail("0", ANI_MESH_CPP, 0x350, 0);
+                srAssertFail("0");
                 return false;
             }
         }
@@ -288,7 +286,7 @@ bool AniMeshRadius(W8AniMesh* mesh, float* radius)
 void SetAniMeshCacheProtected(W8AniMesh* mesh, bool enabled)
 {
     if (mesh == 0) {
-        srAssertFail("pAniMesh", ANI_MESH_CPP, 0x3b7, 0);
+        srAssertFail("pAniMesh");
     }
     if (enabled) {
         mesh->flags.cache_protected = true;

@@ -20,8 +20,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/xstatus.h"
 
-#define SOUNDEVENT_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\SoundEvent.cpp"
-
 // Looping events own the voice they start.
 // FUNCTION: WIZ8 0x004d5770
 W8SoundEvent::~W8SoundEvent()

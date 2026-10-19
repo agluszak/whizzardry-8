@@ -160,7 +160,7 @@ W8AniMesh* W8SpellVisual::GetCurrentAniMesh()
     W8AnimObj* emitter = this->host->resources.cycles[this->host->current_cycle].animation.get();
 
     if (emitter == 0) {
-        srAssertFail("pao", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x653, 0);
+        srAssertFail("pao");
     }
     return emitter->entries[this->host->m_bLOD].get();
 }
@@ -194,8 +194,7 @@ signed char W8SpellVisual::GetNumSubCycles()
 bool W8SpellVisual::IsCycleSupported(signed char cycle)
 {
     if (cycle >= SPELL_NUM_CYCLES) {
-        srAssertFail("bCycle<SPELL_NUM_CYCLES", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp",
-                     0x55a, 0);
+        srAssertFail("bCycle<SPELL_NUM_CYCLES");
     }
     return host->resources.cycles[cycle].animation != 0;
 }
@@ -220,8 +219,7 @@ void W8SpellVisual::SetCycle(signed char cycle)
     std::vector<std::unique_ptr<stLight>>* lights;
 
     if (cycle < SPELL_CYCLE_FIRST || cycle > SPELL_CYCLE_LAST) {
-        srAssertFail("bCycle >= SPELL_CYCLE_FIRST && bCycle <= SPELL_CYCLE_LAST",
-                     "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x5c1, 0);
+        srAssertFail("bCycle >= SPELL_CYCLE_FIRST && bCycle <= SPELL_CYCLE_LAST");
     }
 
     lights = host->resources.cycles[host->current_cycle].lightView();
@@ -351,7 +349,7 @@ static void DestroySpellVisual(W8World* world, W8SpellVisual* visual)
 void UpdateWorldSpellVisuals(W8World* world)
 {
     if (world == 0) {
-        srAssertFail("pWorld", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x130, 0);
+        srAssertFail("pWorld");
     }
     int index = 0;
     int count = static_cast<int>(world->spell_visuals.size());
@@ -392,8 +390,7 @@ unsigned char W8SpellEmitterHost::ReadCycleData(W8ReadLevelInfo* info, W8SpellVi
                                                 int emitter_index)
 {
     if (info == 0 || info->hFile == 0 || visual == 0) {
-        srAssertFail("pInfo && pInfo->hFile && pSpell",
-                     "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x25a, 0);
+        srAssertFail("pInfo && pInfo->hFile && pSpell");
     }
     return ReadEmitterCycle(*this, resources.cycles, info, *visual, emitter_index, true);
 }
@@ -401,7 +398,7 @@ unsigned char W8SpellEmitterHost::ReadCycleData(W8ReadLevelInfo* info, W8SpellVi
 static int FindSpellCycleByName(const char* name)
 {
     if (name == 0) {
-        srAssertFail("pacName", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x532, 0);
+        srAssertFail("pacName");
     }
     for (int index = 0; index < SPELL_NUM_CYCLES; ++index) {
         if (SDL_strncasecmp(name, g_spell_cycle_names[index], strlen(g_spell_cycle_names[index])) ==
@@ -425,10 +422,10 @@ std::unique_ptr<W8SpellVisual> LoadSpellVisualResource(W8World* world, std::stri
     if (shared != 0 && shared->mode == group) {
         auto spell = std::make_unique<W8SpellVisual>(*shared, world);
         if (spell == 0) {
-            srAssertFail("pSpell", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x406, 0);
+            srAssertFail("pSpell");
         }
         if (!spell) {
-            srAssertFail("*ppSpell", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x2f8, 0);
+            srAssertFail("*ppSpell");
         }
         RegisterGrCycle(name, spell.get());
         return spell;
@@ -510,9 +507,8 @@ std::unique_ptr<W8SpellVisual> LoadSpellVisualResource(W8World* world, std::stri
             }
         }
         if (!visual) {
-            srAssertFail(
-                "*ppSpell", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x365,
-                fmt::format("Spell {} missing cycle of type {:d}", name, fmt::underlying(group)));
+            srAssertFail("*ppSpell", fmt::format("Spell {} missing cycle of type {:d}", name,
+                                                 fmt::underlying(group)));
         }
         visual->host->billboard = false;
         visual->host->pending_behaviour = W8_ANIMATION_PLAY_ONCE;
@@ -648,8 +644,7 @@ W8SpellVisual* SpawnSpellEffect(const glm::vec3* position, std::string_view reso
                                 int power_level, int value, int flags)
 {
     if (resource_name.empty()) {
-        srAssertFail("pMLS && strlen(pMLS)", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp",
-                     0x8b4, 0);
+        srAssertFail("pMLS && strlen(pMLS)");
     }
     W8SpellVisual* visual =
         CreateSpellVisual(resource_name, W8_SPELL_VISUAL_EXPLOSION, power_level, value, flags);
@@ -668,8 +663,7 @@ W8SpellVisual* SpawnSpellEffect(const glm::vec3* position, std::string_view reso
 W8SpellVisual* SpawnCameraSpellEffect(std::string_view name, int power_level, int value, int flags)
 {
     if (name.empty()) {
-        srAssertFail("pMLS && strlen(pMLS)", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp",
-                     0x879, 0);
+        srAssertFail("pMLS && strlen(pMLS)");
     }
     W8SpellVisual* visual =
         CreateSpellVisual(name, W8_SPELL_VISUAL_FLASH, power_level, value, flags);
@@ -700,11 +694,10 @@ W8SpellVisual* CreateMonsterSpellEffect(std::string_view mls_name, int power_lev
                                         W8Monster* monster, int value, int flags)
 {
     if (mls_name.empty()) {
-        srAssertFail("pMLS && strlen(pMLS)", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp",
-                     0x8e9, 0);
+        srAssertFail("pMLS && strlen(pMLS)");
     }
     if (monster == 0) {
-        srAssertFail("pMonster", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x8ea, 0);
+        srAssertFail("pMonster");
     }
     const auto bounds = monster->GetAnimationBounds();
     if (!bounds) return nullptr;
@@ -741,8 +734,7 @@ W8SpellVisual* CreateAttachedSpellEffect(std::string_view mls_name, int power_le
                                          W8Monster* parent, int value, int flags)
 {
     if (mls_name.empty()) {
-        srAssertFail("pMLS && strlen(pMLS)", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp",
-                     0x93f, 0);
+        srAssertFail("pMLS && strlen(pMLS)");
     }
     const auto bounds = parent ? parent->GetAnimationBounds() : std::nullopt;
     if (parent && !bounds) return nullptr;
@@ -789,8 +781,7 @@ W8SpellVisual* CreateAimedSpellEffect(std::string_view mls_name, int power_level
                                       int flags)
 {
     if (mls_name.empty()) {
-        srAssertFail("pMLS && strlen(pMLS)", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp",
-                     0x991, 0);
+        srAssertFail("pMLS && strlen(pMLS)");
     }
     W8SpellVisual* visual =
         CreateSpellVisual(mls_name, W8_SPELL_VISUAL_CONE, power_level, value, flags);
@@ -840,7 +831,7 @@ unsigned int W8SpellEmitterHost::ApplyEmitterSetting(signed char emitter)
     W8AnimObj* target = this->resources.cycles[emitter].animation.get();
 
     if (target == 0) {
-        srAssertFail("pao", "C:\\Projects\\Wizardry 8\\Engine Code\\Spells.cpp", 0x200, 0);
+        srAssertFail("pao");
     }
     return AnimObjValue(target, this->m_bLOD);
 }
@@ -906,7 +897,7 @@ const char* g_monster_spell_icon_names[40] = {
 void AddMonsterSpellIcon(W8World& world, W8Monster* monster, W8MonsterSpellIconId icon)
 {
     if (!monster || !monster->m_pRep || icon < 0 || icon >= SPELL_NUM_ICONS)
-        srAssertFail("monster spell icon", __FILE__, __LINE__, nullptr);
+        srAssertFail("monster spell icon");
     auto& icons = monster->m_pRep->spell_icons;
     icons.reserve(icons.size() + 1);
     const auto path =
@@ -918,7 +909,7 @@ void AddMonsterSpellIcon(W8World& world, W8Monster* monster, W8MonsterSpellIconI
 void SetMonsterSpellIcon(W8Monster* monster, W8MonsterSpellIconId icon, bool add)
 {
     if (!monster || !monster->m_pRep || icon < 0 || icon >= SPELL_NUM_ICONS)
-        srAssertFail("monster spell icon", __FILE__, __LINE__, nullptr);
+        srAssertFail("monster spell icon");
     auto& icons = monster->m_pRep->spell_icons;
     if (add) {
         AddMonsterSpellIcon(*GetWorld(), monster, icon);
@@ -1067,8 +1058,7 @@ void Update3DSounds()
 // FUNCTION: WIZ8 0x004ACF90
 void ClearMonsterSpellIcons(W8Monster* monster)
 {
-    if (!monster || !monster->m_pRep)
-        srAssertFail("monster representation", __FILE__, __LINE__, nullptr);
+    if (!monster || !monster->m_pRep) srAssertFail("monster representation");
     for (const auto& entry : monster->m_pRep->spell_icons) {
         entry.item->DetachMesh();
     }

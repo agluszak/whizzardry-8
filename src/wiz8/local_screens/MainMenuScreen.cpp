@@ -204,8 +204,7 @@ bool MainMenuScreenEnter(void)
     CreateMainMenuInput();
 
     if (gXStatus.uiMonstersInDatabase > 1000) {
-        srAssertFail("gXStatus.uiMonstersInDatabase <= MAX_MONSTERS_IN_DATABASE", __FILE__, 0x87,
-                     0);
+        srAssertFail("gXStatus.uiMonstersInDatabase <= MAX_MONSTERS_IN_DATABASE");
     }
     if (g_previous_screen_id != W8_SCREEN_OPTIONS) {
         StartMusicResource("MainMenu.MPL", 0, 1);

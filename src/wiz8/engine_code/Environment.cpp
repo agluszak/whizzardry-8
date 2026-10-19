@@ -41,8 +41,6 @@
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/GameplayTime.h"
 
-#define ENVIRONMENT_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Environment.cpp"
-
 // GLOBAL: WIZ8 0x0060a3a8
 W8EnvironmentLightingMode g_environment_lighting_mode = W8EnvironmentLightingMode::DayNight;
 
@@ -393,7 +391,7 @@ void SetWorldEnvironmentIntensity(W8World* world, float value)
     glm::vec3 colour{1.0f};
 
     if (world == 0) {
-        srAssertFail("pWorld", ENVIRONMENT_CPP, 0x298, 0);
+        srAssertFail("pWorld");
     }
     if (1.0 <= value || 0.0 < value) {
         if (1.0 <= value) {
@@ -451,7 +449,7 @@ void BeginWorldLightingFade(float duration)
         world = GetWorld();
         intensity = world->environment_base_intensity;
         if (world == 0) {
-            srAssertFail("pWorld", ENVIRONMENT_CPP, 0x298, 0);
+            srAssertFail("pWorld");
         }
         intensity = ApplyWorldLightingIntensity(world, intensity);
 
@@ -509,7 +507,7 @@ void UpdateEnvironmentLighting(void)
     world = GetWorld();
     intensity = scale * world->environment_base_intensity;
     if (world == 0) {
-        srAssertFail("pWorld", ENVIRONMENT_CPP, 0x298, 0);
+        srAssertFail("pWorld");
     }
     intensity = ApplyWorldLightingIntensity(world, intensity);
 
@@ -599,10 +597,10 @@ void SetLightDirection(const glm::vec3* direction)
 void GetWorldLightValue(const W8World* world, glm::vec3* pLightValue)
 {
     if (world == 0) {
-        srAssertFail("pWorld", ENVIRONMENT_CPP, 616, 0);
+        srAssertFail("pWorld");
     }
     if (pLightValue == 0) {
-        srAssertFail("pLightValue", ENVIRONMENT_CPP, 617, 0);
+        srAssertFail("pLightValue");
     }
     if (world->static_scene != 0) {
         *pLightValue = world->environment_colour;
@@ -625,7 +623,7 @@ void GetWorldLightValue(const W8World* world, glm::vec3* pLightValue)
 void SetWorldEnvironmentColour(glm::vec3 colour)
 {
     if (GetWorld() == nullptr) {
-        srAssertFail("pWorld", ENVIRONMENT_CPP, 634, 0);
+        srAssertFail("pWorld");
     }
     ApplyEnvironmentColour(GetWorld(), GetWorld()->environment_intensity, &colour);
 }
@@ -641,7 +639,7 @@ const double g_half_day_ms = 43200000.0;
 void ApplyEnvironmentColour(W8World* world, float intensity, const glm::vec3* colour)
 {
     if (world == 0) {
-        srAssertFail("pWorld", ENVIRONMENT_CPP, 0x2b0, 0);
+        srAssertFail("pWorld");
     }
     if (world->static_scene != 0) {
         const auto ambient = glm::clamp(*colour * intensity, 0.0f, 1.0f);

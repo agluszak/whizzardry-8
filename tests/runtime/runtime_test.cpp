@@ -985,14 +985,14 @@ void InventoryChestScenario()
     for (const auto& trigger : GetWorld()->triggers)
         if (trigger->initial_action == 3 && trigger->inline_action_data[0]) {
             trigger->GenerateItemGroup();
-            if (trigger->world_item_group && trigger->world_item_group->next) {
+            if (trigger->world_item_group && !trigger->world_item_group->contents.empty()) {
                 chest = trigger.get();
                 break;
             }
         }
     REQUIRE(chest);
     // Loot is created at its owning chest, never at an uninitialized vector.
-    for (const auto* item = chest->world_item_group.get(); item; item = item->next.get()) {
+    for (const auto& item : chest->world_item_group->contents) {
         REQUIRE(item->position.x == chest->position.x);
         REQUIRE(std::isfinite(item->position.y));
         REQUIRE(item->position.z == chest->position.z);

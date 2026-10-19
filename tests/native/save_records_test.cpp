@@ -887,15 +887,11 @@ static void save_file_contracts(const std::filesystem::path& user)
     using namespace std::chrono;
     const auto epoch = wiz8::file_time_from_sdl(0);
     REQUIRE(epoch.ticks() == 116444736000000000ULL);
-    const auto utc = wiz8::file_time_to_utc(epoch);
-    REQUIRE((utc.year == 1970 && utc.month == 1 && utc.day == 1));
     REQUIRE(wiz8::file_time_from_sdl(-1).ticks() == epoch.ticks() - 1);
     REQUIRE(wiz8::file_time_with_legacy_local_bias(epoch, 19800).ticks() ==
             epoch.ticks() + 19800ULL * 10000000);
     REQUIRE(wiz8::file_time_with_legacy_local_bias(epoch, -18000).ticks() ==
             epoch.ticks() - 18000ULL * 10000000);
-    REQUIRE(wiz8::file_time_to_utc(wiz8::file_time_with_legacy_local_bias(epoch, -18000)).year ==
-            1969);
     REQUIRE(wiz8::file_time_with_legacy_local_bias({}, -1).ticks() == UINT64_MAX - 9999999);
 
     const auto path = wiz8::user_path("saves/timestamp.SAV");

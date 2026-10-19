@@ -82,8 +82,6 @@ constexpr double kAutomapRefreshDistanceSquared = 250000.0;
 
 class srModelInstance;
 
-#define THREE_D_API_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\3dapi.cpp"
-
 // GLOBAL: WIZ8 0x00659757
 bool g_world_cleanup_flag;
 W8GameData* GetWorldGameData()
@@ -166,11 +164,10 @@ std::unique_ptr<W8World> LoadWorld(int level_id, std::string source_path, bool u
     try {
         handle = wiz8::open_file(wiz8::asset_path(level_path), wiz8::OpenMode::read);
     } catch (const std::exception&) {
-        srAssertFail("hFile", THREE_D_API_CPP, 0x1d8, "Could not open level file.");
+        srAssertFail("hFile", "Could not open level file.");
     }
     if (!ReadLevel(world, handle.get(), use_octree, wiz8::asset_path(material_folder))) {
-        srAssertFail("fSuccess", THREE_D_API_CPP, 0x1dd,
-                     "Problem loading level, please check files and versions.");
+        srAssertFail("fSuccess", "Problem loading level, please check files and versions.");
     }
     return owner;
 }
@@ -506,7 +503,7 @@ void SetWorldScenePosition(W8World* world, const glm::vec3* location)
     glm::dvec3 render_position;
 
     if (!world) {
-        srAssertFail("pWorld", THREE_D_API_CPP, 1043, 0);
+        srAssertFail("pWorld");
     }
 
     position = *location;
@@ -534,14 +531,6 @@ void RefreshWorldView()
     RequestRefreshPartyState();
 }
 
-/* Report a failed assertion with no message of its own, so the expression and
-   the site are all the caller has to give. */
-// FUNCTION: WIZ8 0x00450780
-void ReportAssertion(const char* expression, const char* source_path, w8_long line)
-{
-    srAssertFail(expression, source_path, line, 0);
-}
-
 /* The camera's rotation basis, read straight back out of the renderer node.
    Both assertions belong to this body: 3dapi.cpp:975 names the world and
    3dapi.cpp:976 names its camera member pWorld->psrCamera, which is what puts
@@ -550,7 +539,7 @@ void ReportAssertion(const char* expression, const char* source_path, w8_long li
 glm::mat3 cameraRotation(const W8World& world)
 {
     if (!world.camera) {
-        srAssertFail("pWorld->psrCamera", THREE_D_API_CPP, 0x3d0, 0);
+        srAssertFail("pWorld->psrCamera");
     }
     return world.camera->getRotation<glm::mat3>();
 }
@@ -563,7 +552,7 @@ void WorldSetCameraLocation(const glm::vec3* location)
     glm::dvec3 position;
 
     if (!GetWorld()) {
-        srAssertFail("pWorld", THREE_D_API_CPP, 0x422, 0);
+        srAssertFail("pWorld");
     }
     if (GetWorld()->camera != 0) {
         position = glm::dvec3((*location));
@@ -583,13 +572,13 @@ void WorldSetCameraLocation(const glm::vec3* location)
 void SetWorldCameraState(W8World* world, W8World* source_world, W8WorldCameraState* state)
 {
     if (world == nullptr) {
-        srAssertFail("pWorld", THREE_D_API_CPP, 0x43f, 0);
+        srAssertFail("pWorld");
     }
     if (state == nullptr) {
-        srAssertFail("CamPos", THREE_D_API_CPP, 0x444, 0);
+        srAssertFail("CamPos");
     }
     if (world->camera == nullptr) {
-        srAssertFail("pWorld->pCamera", THREE_D_API_CPP, 0x444, 0);
+        srAssertFail("pWorld->pCamera");
     }
 
     glm::vec3 location = state->position;
@@ -615,7 +604,7 @@ void RestoreWorldCameraState(W8World* source_world, W8WorldCameraState* state)
     glm::vec3 navigator_position;
 
     if (GetWorld() == nullptr) {
-        srAssertFail("pWorld", THREE_D_API_CPP, 0x46b, 0);
+        srAssertFail("pWorld");
     }
     SetWorldCameraState(GetWorld(), source_world, state);
     navigator_position = glm::vec3(GetWorld()->camera->getLocation());
@@ -652,7 +641,7 @@ void ApplyWorldUpdateFlags(W8World* world, unsigned int flags)
     float scale;
 
     if (world == 0) {
-        srAssertFail("pWorld", THREE_D_API_CPP, 0x321, 0);
+        srAssertFail("pWorld");
     }
     if ((flags & W8_WORLD_INCREASE_FAR_CLIP) != 0) {
         WorldSetFarClip(world,

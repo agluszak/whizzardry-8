@@ -119,8 +119,7 @@ W8Disposition MonsterVsCharDisposition(int character_slot, W8MonsterInfo* monste
     case W8_DISPOSITION_FRIENDLY:
         return W8_DISPOSITION_HOSTILE;
     default:
-        srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Local Code\\Combat Hostility.cpp", 0x69,
-                     "MonsterVsCharDisposition: ERROR - Invalid attack mode");
+        srAssertFail("FALSE", "MonsterVsCharDisposition: ERROR - Invalid attack mode");
         return W8_DISPOSITION_NEUTRAL;
     }
 }
@@ -257,8 +256,7 @@ bool CharacterActionTargetsEnemies(W8Character* character, W8ActionKind action_k
         return true;
     case W8_ACTION_CAST_SPELL:
         if (action_detail > 0x95) {
-            srAssertFail("iType < SPELL_COUNT",
-                         "C:\\Projects\\Wizardry 8\\Local Code\\Combat Hostility.cpp", 0x1c2, 0);
+            srAssertFail("iType < SPELL_COUNT");
         }
         if (action_detail != 3 && action_detail != 0x29) {
             target_type = GetSpellTargetType(action_detail, false);
@@ -273,9 +271,7 @@ bool CharacterActionTargetsEnemies(W8Character* character, W8ActionKind action_k
             spell_id = g_item_records[item->iItemNo].spell_id;
             if (spell_id != W8_SPELL_NONE) {
                 if (spell_id > 0x95) {
-                    srAssertFail("iType < SPELL_COUNT",
-                                 "C:\\Projects\\Wizardry 8\\Local Code\\Combat Hostility.cpp",
-                                 0x1c2, 0);
+                    srAssertFail("iType < SPELL_COUNT");
                 }
                 if (spell_id != W8_SPELL_CHARM && spell_id != W8_SPELL_MINDREAD) {
                     target_type = GetSpellTargetType(spell_id, false);
@@ -304,8 +300,7 @@ bool MonsterActionTargetsEnemies(W8MonsterActionKind action_kind, int action_det
         return true;
     case W8_MONSTER_ACTION_SPELL:
         if (action_detail > 0x95) {
-            srAssertFail("iType < SPELL_COUNT",
-                         "C:\\Projects\\Wizardry 8\\Local Code\\Combat Hostility.cpp", 0x1c2, 0);
+            srAssertFail("iType < SPELL_COUNT");
         }
         if (action_detail != 3 && action_detail != 0x29) {
             target_type = GetSpellTargetType(action_detail, false);
@@ -327,8 +322,7 @@ bool MonsterActionTargetsEnemies(W8MonsterActionKind action_kind, int action_det
 bool MonsterCanAimSpell(int spell_id)
 {
     if (spell_id > 0x95) {
-        srAssertFail("iType < SPELL_COUNT",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\Combat Hostility.cpp", 0x1c2, 0);
+        srAssertFail("iType < SPELL_COUNT");
     }
     if (spell_id != W8_SPELL_CHARM && spell_id != W8_SPELL_MINDREAD) {
         W8SpellTargetType target_type = GetSpellTargetType(spell_id, false);

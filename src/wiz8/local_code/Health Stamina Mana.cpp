@@ -60,8 +60,6 @@
    slots, skip the empty ones, and hand each occupied slot to a per-character
    worker. */
 
-#define HEALTH_STAMINA_MANA_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Health Stamina Mana.cpp"
-
 // FUNCTION: WIZ8 0x0052A890
 unsigned int ApplyDamageToCharacter(int party_slot, unsigned int amount, bool quiet, bool announce,
                                     bool short_notice, W8SpellEffectResult* result_stats,
@@ -72,7 +70,7 @@ unsigned int ApplyDamageToCharacter(int party_slot, unsigned int amount, bool qu
     unsigned int applied;
 
     if (!g_status.buffers.XChar[party_slot].fOccupied) {
-        srAssertFail("fCHAR_OCCUPIED(uiChar)", HEALTH_STAMINA_MANA_CPP, 403, 0);
+        srAssertFail("fCHAR_OCCUPIED(uiChar)");
     }
     if (character->hp_current == 0) {
         return 0;
@@ -224,8 +222,7 @@ void SpendCharacterSpellPoints(int party_slot, W8SpellRealm realm, int amount)
 
     if (amount != 0) {
         if (character->iSPLeft[realm] < amount) {
-            srAssertFail("pPC->iSPLeft[uiRealm] >= (INT32) uiSPs", HEALTH_STAMINA_MANA_CPP, 1067,
-                         0);
+            srAssertFail("pPC->iSPLeft[uiRealm] >= (INT32) uiSPs");
         }
         character->iSPLeft[realm] -= amount;
         RequestPartySlotRedraw(party_slot);
@@ -465,9 +462,8 @@ int MonsterActionFatigueCost(const W8MonsterInfo* monster_info)
     case W8_MONSTER_ACTION_PROTECT:
         break;
     default:
-        srAssertFail("FALSE", HEALTH_STAMINA_MANA_CPP, 1774,
-                     fmt::format("MonsterActionFatigueCost: ERROR - Invalid action {:d}",
-                                 fmt::underlying(monster_info->action_kind)));
+        srAssertFail("FALSE", fmt::format("MonsterActionFatigueCost: ERROR - Invalid action {:d}",
+                                          fmt::underlying(monster_info->action_kind)));
         break;
     }
 
@@ -554,7 +550,7 @@ void HealCharacter(int party_slot, int amount, bool announce)
     unsigned int fraction;
 
     if (!g_status.buffers.XChar[party_slot].fOccupied) {
-        srAssertFail("fCHAR_OCCUPIED(uiChar)", HEALTH_STAMINA_MANA_CPP, 661, 0);
+        srAssertFail("fCHAR_OCCUPIED(uiChar)");
     }
 
     if (character->hp_current == 0) {
@@ -743,7 +739,7 @@ void DamageCharacter(int party_slot, unsigned int damage, bool announce)
     W8Character* character = &g_status.buffers.Char[party_slot];
 
     if (!g_status.buffers.XChar[party_slot].fOccupied) {
-        srAssertFail("fCHAR_OCCUPIED(uiChar)", HEALTH_STAMINA_MANA_CPP, 1186, 0);
+        srAssertFail("fCHAR_OCCUPIED(uiChar)");
     }
 
     if (character->uiHPMax != 0 && character->hp_current != 0) {
@@ -931,8 +927,7 @@ void FatigueCharacter(int party_slot, int amount, bool scale_by_load,
             load_percent = 200;
             break;
         default:
-            srAssertFail("FALSE", HEALTH_STAMINA_MANA_CPP, 813,
-                         "FatigueCharacter: ERROR - Invalid load category");
+            srAssertFail("FALSE", "FatigueCharacter: ERROR - Invalid load category");
             break;
         }
         if (character->uiCondition[W8_CONDITION_SLOWED] == 0) {
@@ -1101,7 +1096,7 @@ void CharacterDies(int party_slot)
     int animation;
 
     if (!row->fOccupied) {
-        srAssertFail("fCHAR_OCCUPIED(uiChar)", HEALTH_STAMINA_MANA_CPP, 561, 0);
+        srAssertFail("fCHAR_OCCUPIED(uiChar)");
     }
 
     ++character->death_count;

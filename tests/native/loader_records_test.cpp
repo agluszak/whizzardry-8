@@ -904,7 +904,7 @@ TEST_CASE_METHOD(LoaderFixture,
 TEST_CASE_METHOD(LoaderFixture, "World item groups transfer ownership and preserve save records",
                  "[loader][items]")
 {
-    wiz8::retail::WorldItem first{}, second{};
+    wiz8::retail::WorldItem first{}, second{}, third{};
     first.runtime_id = 17;
     first.position = {1, -2, 3};
     first.flags = W8_WORLD_ITEM_HIDDEN;
@@ -915,9 +915,14 @@ TEST_CASE_METHOD(LoaderFixture, "World item groups transfer ownership and preser
     first.unknown_3d[15] = 0xa5;
     second.runtime_id = 29;
     second.position = {4, 5, -6};
+    second.next = 1;
+    third = second;
+    third.runtime_id = 31;
+    third.next = 0;
     std::string bytes;
     append(bytes, first);
     append(bytes, second);
+    append(bytes, third);
     store("items.bin", bytes.substr(0, bytes.size() - 1));
     auto file = wiz8::open_file(wiz8::asset_path("items.bin"));
     REQUIRE_FALSE(ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadItem(chunk); }));
@@ -926,18 +931,23 @@ TEST_CASE_METHOD(LoaderFixture, "World item groups transfer ownership and preser
     file = wiz8::open_file(wiz8::asset_path("items.bin"));
     auto group = ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadItem(chunk); });
     REQUIRE(group);
-    REQUIRE(ItemInfoGetNumInGroup(group.get()) == 2);
-    auto detached = ItemInfoRemoveFromGroup(group.get(), group->next.get());
-    REQUIRE(detached->runtime_id == 29);
-    REQUIRE_FALSE(group->next);
-    ItemInfoAddToGroup(group.get(), std::move(detached));
+    REQUIRE(group->contents.size() == 2);
+    auto* first_address = group->contents[0].get();
+    auto* second_address = group->contents[1].get();
+    auto picked = std::move(group->contents);
+    group->contents.clear();
+    REQUIRE(picked[0]->runtime_id == 29);
+    REQUIRE(picked[1]->runtime_id == 31);
+    for (auto& item : picked) group->contents.push_back(std::move(item));
+    REQUIRE(group->contents[0].get() == first_address);
+    REQUIRE(group->contents[1].get() == second_address);
     const auto roundtrip_path = wiz8::user_path("items-roundtrip.bin");
     auto output = wiz8::open_file(roundtrip_path, wiz8::OpenMode::replace);
     group->saved_marker = 23;
-    group->next->saved_marker = 24;
+    group->contents.front()->saved_marker = 24;
     REQUIRE(SaveItemFile(*output, group.get()));
     REQUIRE(group->saved_marker == 23);
-    REQUIRE(group->next->saved_marker == 24);
+    REQUIRE(group->contents.front()->saved_marker == 24);
     output.reset();
     auto encoded = wiz8::open_file(roundtrip_path);
     std::string roundtrip(encoded->size(), '\0');
@@ -948,7 +958,7 @@ TEST_CASE_METHOD(LoaderFixture, "World item groups transfer ownership and preser
     auto defaults = ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadItem(chunk, true); });
     REQUIRE(defaults);
     REQUIRE((defaults->entity_flags & W8_ITEM_ENTITY_RADAR_SEEN) == 0);
-    REQUIRE((defaults->next->entity_flags & W8_ITEM_ENTITY_RADAR_SEEN) == 0);
+    REQUIRE((defaults->contents.front()->entity_flags & W8_ITEM_ENTITY_RADAR_SEEN) == 0);
 }
 
 TEST_CASE_METHOD(LoaderFixture, "Retail waypoint versions load without an editor writer",

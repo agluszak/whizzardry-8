@@ -20,8 +20,6 @@
 #define WIZ8_FILE_OPERATION(op) ((void)0)
 #endif
 #include <algorithm>
-#include <array>
-#include <limits>
 #include <random>
 #include <stdexcept>
 #include <system_error>
@@ -63,30 +61,6 @@ std::optional<FileStatus> physical_status(const fs::path& path)
         fs::perms::owner_write | fs::perms::group_write | fs::perms::others_write;
     return FileStatus{info, (status.permissions() & write_bits) == fs::perms::none};
 }
-char fold(char value)
-{
-    return value >= 'A' && value <= 'Z' ? char(value + ('a' - 'A')) : value;
-}
-bool matches(std::string_view name, std::string_view pattern)
-{
-    if (pattern == "*.*") pattern = "*";
-    std::size_t n = 0, p = 0, star = std::string_view::npos, retry = 0;
-    while (n < name.size()) {
-        if (p < pattern.size() && (pattern[p] == '?' || fold(pattern[p]) == fold(name[n]))) {
-            ++n;
-            ++p;
-        } else if (p < pattern.size() && pattern[p] == '*') {
-            star = p++;
-            retry = n;
-        } else if (star != std::string_view::npos) {
-            p = star + 1;
-            n = ++retry;
-        } else
-            return false;
-    }
-    while (p < pattern.size() && pattern[p] == '*') ++p;
-    return p == pattern.size();
-}
 struct StagingDirectory {
     fs::path path;
     explicit StagingDirectory(const fs::path& parent)
@@ -114,29 +88,6 @@ void publish_staged_file(const fs::path& temporary, const fs::path& destination)
     WIZ8_FILE_OPERATION(publish);
     if (!SDL_RenamePath(path_to_utf8(temporary).c_str(), path_to_utf8(destination).c_str()))
         sdl_failure("replace file");
-}
-void copy_physical(const fs::path& source, const fs::path& destination, CopyMode mode)
-{
-    if (fs::exists(destination) && fs::equivalent(source, destination))
-        throw std::invalid_argument("copy source and destination refer to the same file");
-    // A staging file leaves the old save untouched on read/write failure.
-    StagingDirectory staging(destination.parent_path());
-    const fs::path temporary = staging.path / "content";
-    auto input = open_file(source);
-    auto output = open_file(temporary, OpenMode::replace);
-    std::array<std::byte, 65536> buffer;
-    for (;;) {
-        const auto result = input->read(buffer.data(), buffer.size());
-        output->write(buffer.data(), result.bytes);
-        if (result.eof) break;
-    }
-    output->flush();
-    output->close();
-    input->close();
-    if (mode == CopyMode::fail_if_exists)
-        fs::copy_file(temporary, destination, fs::copy_options::none);
-    else
-        publish_staged_file(temporary, destination);
 }
 } // namespace
 
@@ -257,26 +208,23 @@ void File::write_padded(std::string_view text, std::size_t width)
 std::int64_t File::seek(std::int64_t offset, SeekOrigin origin)
 {
     WIZ8_FILE_OPERATION(seek);
-    std::int64_t base = 0;
+    SDL_IOWhence whence;
     switch (origin) {
     case SeekOrigin::begin:
+        whence = SDL_IO_SEEK_SET;
         break;
     case SeekOrigin::current:
-        base = tell();
+        whence = SDL_IO_SEEK_CUR;
         break;
     case SeekOrigin::end:
-        base = size();
+        whence = SDL_IO_SEEK_END;
         break;
     default:
         throw std::invalid_argument("invalid seek origin");
     }
-    if (offset < -base || offset > std::numeric_limits<std::int64_t>::max() - base)
-        throw std::out_of_range("seek outside signed file positions");
-    const auto destination = base + offset;
-    const auto physical = destination;
-    const auto position = SDL_SeekIO(require_stream(), physical, SDL_IO_SEEK_SET);
-    if (position != physical) sdl_failure("seek file");
-    return destination;
+    const auto position = SDL_SeekIO(require_stream(), offset, whence);
+    if (position < 0) sdl_failure("seek file");
+    return position;
 }
 std::int64_t File::tell() const
 {
@@ -362,16 +310,26 @@ void clear_read_only(const fs::path& path)
 std::vector<std::string> list_directory(const fs::path& directory, std::string_view pattern)
 {
     std::vector<std::string> entries;
-    for (const auto& entry : fs::directory_iterator(directory)) {
-        auto name = path_to_utf8(entry.path().filename());
-        if (matches(name, pattern)) entries.push_back(std::move(name));
-    }
+    const std::string glob(pattern);
+    const std::unique_ptr<char*, decltype(&SDL_free)> matches(
+        SDL_GlobDirectory(path_to_utf8(directory).c_str(), glob.c_str(), SDL_GLOB_CASEINSENSITIVE,
+                          nullptr),
+        SDL_free);
+    if (!matches) sdl_failure("list directory");
+    for (auto entry = matches.get(); *entry; ++entry) entries.emplace_back(*entry);
     std::sort(entries.begin(), entries.end());
     return entries;
 }
-void copy_file(const fs::path& source, const fs::path& destination, CopyMode mode)
+void copy_file(const fs::path& source, const fs::path& destination)
 {
-    copy_physical(source, destination, mode);
+    if (fs::exists(destination) && fs::equivalent(source, destination))
+        throw std::invalid_argument("copy source and destination refer to the same file");
+    StagingDirectory staging(destination.parent_path());
+    const auto temporary = staging.path / "content";
+    if (!SDL_CopyFile(path_to_utf8(source).c_str(), path_to_utf8(temporary).c_str()))
+        sdl_failure("copy file");
+    clear_read_only(temporary);
+    publish_staged_file(temporary, destination);
 }
 struct StagedFile::Impl {
     fs::path target;

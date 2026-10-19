@@ -56,7 +56,6 @@ constexpr float kParticleFlutterVelocityFloor = -1000.0f;
 constexpr float kParticleRandomUnitScale = 3.0517578125e-05f;
 
 // STRING: WIZ8 0x0060BF6C
-#define ST_PARTICLE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\stParticle.cpp"
 
 // VTABLE: WIZ8 0x005ECBD0
 // class stParticle
@@ -139,7 +138,7 @@ void ApplyParticleStates(W8World& world, std::span<const W8ParticleState> states
 void stParticle::AllocateParticles(unsigned int count)
 {
     if (count >= 10000) {
-        srAssertFail("cnt < 10000", ST_PARTICLE_CPP, 0x41, 0);
+        srAssertFail("cnt < 10000");
     }
     particle_count = count;
     particle_positions.assign(count, glm::vec3(0));

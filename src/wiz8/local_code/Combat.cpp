@@ -655,8 +655,7 @@ void BeginCombatExecution(void)
                     PostCharacterNotice(slot, fmt::sprintf(g_localized_strings[0x229],
                                                            GetMonsterName(target, 0, 0)));
                 } else {
-                    srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x5e6,
-                                 0);
+                    srAssertFail("FALSE");
                 }
             }
         }
@@ -680,7 +679,7 @@ void BeginCombatExecution(void)
                                   fmt::sprintf(g_localized_strings[0x229],
                                                g_status.buffers.Char[monster->Target.iChar].name));
             } else {
-                srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x60a, 0);
+                srAssertFail("FALSE");
             }
         }
     }
@@ -1056,8 +1055,7 @@ bool TryCharacterAction(int party_slot, W8ActionKind action, bool commit)
 void SwitchCharacterTo(int party_slot, W8ActionKind action)
 {
     if (action != W8_ACTION_DEFEND && action != W8_ACTION_PROTECT) {
-        srAssertFail("(iCharAction == CHAR_ACTION_DEFEND) || (iCharAction == CHAR_ACTION_PROTECT)",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x1686, 0);
+        srAssertFail("(iCharAction == CHAR_ACTION_DEFEND) || (iCharAction == CHAR_ACTION_PROTECT)");
     }
     W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
 
@@ -1298,8 +1296,7 @@ void SetCharacterCombatAction(int party_slot, W8Action next, int notify)
     W8CombatCharacterRow* row = &g_combat_state->characters[party_slot];
     SetTargetSourceToCharacter(party_slot, &source);
     if (action_kind > W8_ACTION_RUN) {
-        srAssertFail("iAction < CHAR_ACTION_COUNT",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x484, 0);
+        srAssertFail("iAction < CHAR_ACTION_COUNT");
     }
     committed = next;
     if (action_kind != W8_ACTION_ATTACK && action_kind != W8_ACTION_BERSERK &&
@@ -1625,8 +1622,7 @@ void AutoAdvanceSelectedCharacter(void)
         return;
     }
     if (selected == -1) {
-        srAssertFail("gStatus.iSelectedCharacter != BAD_INDEX",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x72d, 0);
+        srAssertFail("gStatus.iSelectedCharacter != BAD_INDEX");
     }
     int party_slot = selected + 1;
     if (party_slot > 7) {
@@ -1975,8 +1971,7 @@ void RollCombatSurprise(char party_cannot_be_surprised)
     W8MonsterInfo* monster_info;
 
     if (!gXStatus.fCombatMode) {
-        srAssertFail("gXStatus.fCombatMode", "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp",
-                     0x1552, 0);
+        srAssertFail("gXStatus.fCombatMode");
     }
     if (party_cannot_be_surprised == 0) {
         if (g_status.party_modifiers.sight_override == 0) {
@@ -2354,8 +2349,7 @@ void ExecuteMonsterAction(W8MonsterInfo* monster_info, W8MonsterRecord* record)
     W8TargetSource monster_source;
 
     if (!gXStatus.fCombatMode) {
-        srAssertFail("gXStatus.fCombatMode", "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp",
-                     0xe04, 0);
+        srAssertFail("gXStatus.fCombatMode");
     }
     if (g_combat_state->uiCurrentPartyActionStatus == W8_PARTY_ACTION_IN_PROGRESS) {
         EndPartyMovementPhase();
@@ -2864,8 +2858,7 @@ void StepMonsterCombatAction(W8MonsterInfo* monster_info)
         break;
     case W8_MONSTER_ACTION_SPELL:
         if (!monster_info->fSpellReleased) {
-            srAssertFail("pMonsterInfo->fSpellReleased",
-                         "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0xff2, 0);
+            srAssertFail("pMonsterInfo->fSpellReleased");
         }
         outcome = 2;
         break;
@@ -2907,8 +2900,7 @@ int GetConditionInterrupt(W8TargetSource* source)
     can_attack = false;
     if (source->iType == W8_TARGET_SOURCE_CHARACTER) {
         if (source->iChar == -1) {
-            srAssertFail("pSource->iChar != BAD_INDEX",
-                         "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x1193, 0);
+            srAssertFail("pSource->iChar != BAD_INDEX");
         }
         party_slot = source->iChar;
         character = &g_status.buffers.Char[party_slot];
@@ -2923,12 +2915,10 @@ int GetConditionInterrupt(W8TargetSource* source)
         controlled = false;
     } else {
         if (source->iType != W8_TARGET_SOURCE_MONSTER) {
-            srAssertFail("pSource->iType == SOURCE_TYPE_MONSTER",
-                         "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x11a8, 0);
+            srAssertFail("pSource->iType == SOURCE_TYPE_MONSTER");
         }
         if (source->iMonsterID == -1) {
-            srAssertFail("pSource->iMonsterID != BAD_INDEX",
-                         "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x11a9, 0);
+            srAssertFail("pSource->iMonsterID != BAD_INDEX");
         }
         monster_info = FindMonster(source->iMonsterID);
         moving = monster_info->action_kind == W8_MONSTER_ACTION_ADVANCE;
@@ -3028,14 +3018,12 @@ void PointCameraAtCombatTarget(W8TargetSource* source, const W8CombatSlot* targe
     }
     if (target->iType == W8_TARGET_KIND_MONSTER) {
         if (target->iMonsterID == -1) {
-            srAssertFail("pTarget->iMonsterID != -1",
-                         "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x13fe, 0);
+            srAssertFail("pTarget->iMonsterID != -1");
         }
         location_id = target->iMonsterID;
     } else if (target->iType == W8_TARGET_KIND_GROUP) {
         if (target->iGroupID == -1) {
-            srAssertFail("pTarget->iGroupID != -1",
-                         "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x140c, 0);
+            srAssertFail("pTarget->iGroupID != -1");
         }
         group = FindMonsterGroup(target->iGroupID);
         location_id = group->leader_location_id;
@@ -3141,12 +3129,10 @@ void UpdateCombat(void)
     switch (g_combat_state->eCombatActionStatus) {
     case 0:
         if (g_combat_state->iActionChar != -1) {
-            srAssertFail("gpCombat->iActionChar == BAD_INDEX",
-                         "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x7e1, 0);
+            srAssertFail("gpCombat->iActionChar == BAD_INDEX");
         }
         if (g_combat_state->pActionMonsterInfo != 0) {
-            srAssertFail("gpCombat->pActionMonsterInfo == NULL",
-                         "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x7e2, 0);
+            srAssertFail("gpCombat->pActionMonsterInfo == NULL");
         }
         if (!QueueNpcCombatScript()) {
             ScheduleCombatActor();
@@ -3167,7 +3153,7 @@ void UpdateCombat(void)
                                      GetMonsterDataForInfo(g_combat_state->pActionMonsterInfo));
                 return;
             }
-            srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x805, 0);
+            srAssertFail("FALSE");
             return;
         }
         break;
@@ -3178,7 +3164,7 @@ void UpdateCombat(void)
                 StepMonsterCombatAction(g_combat_state->pActionMonsterInfo);
                 return;
             }
-            srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x816, 0);
+            srAssertFail("FALSE");
             return;
         }
         W8ActionKind pending_action = g_status.buffers.XChar[slot].pending_action;
@@ -3224,7 +3210,7 @@ void UpdateCombat(void)
         }
         W8MonsterInfo* monster_info = g_combat_state->pActionMonsterInfo;
         if (monster_info == 0) {
-            srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x826, 0);
+            srAssertFail("FALSE");
             return;
         }
         GetMonsterDataForInfo(monster_info);
@@ -3257,8 +3243,7 @@ void UpdateCombat(void)
 void ScheduleCombatActor(void)
 {
     if (g_combat_state->eCombatActionStatus != 0) {
-        srAssertFail("gpCombat->eCombatActionStatus == COMBAT_ACTION_NONE",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp", 0x84f, 0);
+        srAssertFail("gpCombat->eCombatActionStatus == COMBAT_ACTION_NONE");
     }
     bool free_turn = false;
     for (;;) {
@@ -3441,8 +3426,7 @@ short GetCombatActionProgress(int* out_total)
     int total = 0;
     int completed = 0;
     if (!gXStatus.fCombatMode) {
-        srAssertFail("gXStatus.fCombatMode", "C:\\Projects\\Wizardry 8\\Local Code\\Combat.cpp",
-                     0x1244, 0);
+        srAssertFail("gXStatus.fCombatMode");
     }
     if (g_combat_state->uiCurrentPartyAction == W8_PARTY_ACTION_NONE ||
         g_combat_state->uiCurrentPartyActionStatus == W8_PARTY_ACTION_FINISHED) {

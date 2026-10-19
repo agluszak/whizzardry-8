@@ -66,8 +66,6 @@
 // GLOBAL: WIZ8 0x00659A64
 bool g_animated_prop_present;
 
-#define PROP_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Prop.cpp"
-
 // VTABLE: WIZ8 0x005ec1e0
 // class W8Prop
 // VTABLE: WIZ8 0x005ec1c8
@@ -108,7 +106,7 @@ void UpdateWorldProps(W8World* world)
     int index;
 
     if (world == 0) {
-        srAssertFail("pWorld", "C:\\Projects\\Wizardry 8\\Engine Code\\Prop.cpp", 0x969, 0);
+        srAssertFail("pWorld");
     }
     count = world->plsProps.size();
     for (index = 0; index < static_cast<int>(count); ++index) {
@@ -404,7 +402,7 @@ unsigned char W8PropRepresentation::AdvanceAnimationSegment()
         }
     }
     if (segment == -1) {
-        srAssertFail("lSegment!=(-1)", "C:\\Projects\\Wizardry 8\\Engine Code\\Prop.cpp", 0x2c3, 0);
+        srAssertFail("lSegment!=(-1)");
     }
     if (segment == count - 2) {
         segment = 0;
@@ -576,7 +574,7 @@ void W8Prop::ApplyAnimationPaths()
     int index;
 
     if (GetWorld() == nullptr) {
-        srAssertFail("pWorld", PROP_CPP, 0x3db, 0);
+        srAssertFail("pWorld");
     }
     if (Rep()->Animation()->path_lists == 1) {
         count = AnimObjListCount(Rep()->Animation(), 2);
@@ -586,7 +584,7 @@ void W8Prop::ApplyAnimationPaths()
             W8PathAI* path;
 
             if (mesh == 0) {
-                srAssertFail("psrMesh", PROP_CPP, 0x3ea, 0);
+                srAssertFail("psrMesh");
             }
             path = AnimObjListEntry(Rep()->Animation(), 2, static_cast<signed char>(index));
             if (path != 0) {
@@ -838,7 +836,7 @@ void W8Prop::ApplyAnimationFrame(W8PathingService* pathing)
             mesh = AnimObjDispatchList(rep->Animation(), 2, 0);
         }
         if (mesh == 0) {
-            srAssertFail("psrMesh", PROP_CPP, 0x581, 0);
+            srAssertFail("psrMesh");
         }
         path = (&representation)->animation->path.get();
         if (path != 0) {
@@ -855,7 +853,7 @@ void W8Prop::ApplyAnimationFrame(W8PathingService* pathing)
         W8PathAI* path;
 
         if (mesh == 0) {
-            srAssertFail("psrMesh", PROP_CPP, 0x56f, 0);
+            srAssertFail("psrMesh");
         }
         path = AnimObjListEntry(Rep()->Animation(), 2, static_cast<signed char>(index));
         if (path != 0) {
@@ -908,7 +906,7 @@ void W8Prop::AttachAnimationInstances(W8World* world)
         return;
     }
     if (world == 0) {
-        srAssertFail("pWorld", PROP_CPP, 0x5a1, 0);
+        srAssertFail("pWorld");
     }
     if (Rep()->Animation()->path_lists == 1) {
         has_scales = false;
@@ -917,7 +915,7 @@ void W8Prop::AttachAnimationInstances(W8World* world)
             instance = static_cast<stModelInstance*>(
                 AnimObjDispatchList(Rep()->Animation(), 2, static_cast<signed char>(index)));
             if (instance == 0) {
-                srAssertFail("psrMesh", PROP_CPP, 0x5b4, 0);
+                srAssertFail("psrMesh");
             }
             instance->clearFlag(srNode::FLAG_DISABLE);
             instance->setParent(world->dynamic_scene, 1);
@@ -993,7 +991,7 @@ void W8Prop::AttachAnimationInstances(W8World* world)
     } else {
         instance = static_cast<stModelInstance*>(Rep()->ToggleAnimation(Rep()->subcycle));
         if (instance == 0) {
-            srAssertFail("psrMesh", PROP_CPP, 0x624, 0);
+            srAssertFail("psrMesh");
         }
         instance->clearFlag(srNode::FLAG_DISABLE);
         instance->setParent(world->dynamic_scene, 1);
@@ -1046,7 +1044,7 @@ void W8Prop::DetachAnimationInstances(W8World* world)
     int index;
 
     if (world == 0) {
-        srAssertFail("pWorld", PROP_CPP, 0x66b, 0);
+        srAssertFail("pWorld");
     }
     Rep()->saved_subcycle = Rep()->subcycle;
     if (Rep()->Animation()->path_lists == 1) {
@@ -1055,7 +1053,7 @@ void W8Prop::DetachAnimationInstances(W8World* world)
             instance = static_cast<stModelInstance*>(
                 AnimObjDispatchList(Rep()->Animation(), 2, static_cast<signed char>(index)));
             if (instance == 0) {
-                srAssertFail("psrMesh", PROP_CPP, 0x678, 0);
+                srAssertFail("psrMesh");
             }
             instance->setFlag(srNode::FLAG_DISABLE);
             instance->setParent(0, 1);
@@ -1069,7 +1067,7 @@ void W8Prop::DetachAnimationInstances(W8World* world)
             instance = static_cast<stModelInstance*>(AnimObjDispatchList(Rep()->Animation(), 2, 0));
         }
         if (instance == 0) {
-            srAssertFail("psrMesh", PROP_CPP, 0x686, 0);
+            srAssertFail("psrMesh");
         }
         instance->setFlag(srNode::FLAG_DISABLE);
         instance->setParent(0, 1);
@@ -1152,7 +1150,7 @@ int W8Prop::BuildOrRefreshPathingRepresentation(W8PathingService* pathing)
     }
     instance = AnimObjDispatchList(Rep()->Animation(), 2, 0);
     if (instance == 0) {
-        srAssertFail("pstInstance", PROP_CPP, 0x939, 0);
+        srAssertFail("pstInstance");
     }
 
     if (m_gd_prop == 0) {
@@ -1260,10 +1258,9 @@ try {
     unsigned int flag_bits = 0;
     W8AnimObj* animation = 0;
     bool result = false;
-    w8_long fail_line;
 
     if (info == 0 || info->hFile == 0 || prop == 0) {
-        srAssertFail("pInfo && pInfo->hFile && pProp", PROP_CPP, 0xae, 0);
+        srAssertFail("pInfo && pInfo->hFile && pProp");
     }
     hFile = info->hFile;
     success = (hFile->read(&version, 1).bytes == static_cast<std::size_t>(1));
@@ -1285,24 +1282,20 @@ try {
         if (version < 2) {
             playback_scale = 15.0f;
             if (!ok) {
-                fail_line = 0xcb;
                 goto fail;
             }
         } else {
             if (!ok) {
-                fail_line = 0xcb;
                 goto fail;
             }
             success = (hFile->read(&playback_scale, 4).bytes == static_cast<std::size_t>(4));
             if (!success) {
-                fail_line = 0xcb;
                 goto fail;
             }
         }
         mesh = ReadAnimatedMesh(*hFile, info->bitmap_folder, true);
         result = mesh != nullptr;
         if (!result) {
-            fail_line = 0xd8;
             result = false;
             goto fail_with_result;
         }
@@ -1371,9 +1364,7 @@ try {
                 slot.tag = static_cast<unsigned char>(tag_tmp);
                 if (frame_count <= frame_tmp) {
                     srAssertFail(
-                        "(usTemp < (UINT16)ubNumFrames)", /* c-style-cast-ok: verbatim assert text
-                                                           */
-                        PROP_CPP, 0x11f,
+                        "(usTemp < (UINT16)ubNumFrames)",
                         fmt::format(
                             "{} Prop Error:Segment {:d} frame number is out of range ({:d})",
                             prop->name, static_cast<unsigned int>(tag_tmp),
@@ -1454,13 +1445,13 @@ try {
         unsigned int frame_i;
 
         if (frame == 0) {
-            srAssertFail("psrMesh", PROP_CPP, 0x182, 0);
+            srAssertFail("psrMesh");
         }
         auto box = frame->getModel()->getBounds().box;
         for (frame_i = 0; frame_i < value_count; ++frame_i) {
             frame = GetAniMeshFrame(mesh, frame_i);
             if (frame == 0) {
-                srAssertFail("psrMesh", PROP_CPP, 0x192, 0);
+                srAssertFail("psrMesh");
             }
             box.include(frame->getModel()->getBounds().box);
         }
@@ -1549,11 +1540,11 @@ try {
     return result;
 
 fail:
-    srAssertFail("fSuccess", PROP_CPP, fail_line, 0);
+    srAssertFail("fSuccess");
     return false;
 
 fail_with_result:
-    srAssertFail("fSuccess", PROP_CPP, fail_line, 0);
+    srAssertFail("fSuccess");
     return result;
 } catch (const std::exception&) {
     return false;

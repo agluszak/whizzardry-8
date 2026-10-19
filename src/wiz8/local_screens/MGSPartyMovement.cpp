@@ -40,8 +40,6 @@
 
 constexpr float kMovementFatigueTickScale = 0.0004f;
 
-#define PARTY_MOVEMENT_CPP __FILE__
-
 namespace {
 struct PartyMovementPanel {
     UiLayer input{UiLayerOrder::PartyMovement};
@@ -121,15 +119,14 @@ void DrawPartyMovementPanel(void)
     int image;
 
     if (!gXStatus.fCombatMode) {
-        srAssertFail("gXStatus.fCombatMode", PARTY_MOVEMENT_CPP, 0xf6, 0);
+        srAssertFail("gXStatus.fCombatMode");
     }
     if ((g_combat_state->uiCurrentPartyAction == W8_PARTY_ACTION_NONE ||
          g_combat_state->uiCurrentPartyActionStatus == W8_PARTY_ACTION_FINISHED) &&
         g_combat_state->uiNextPartyAction == W8_PARTY_ACTION_NONE) {
         srAssertFail("((gpCombat->uiCurrentPartyAction != PARTY_ACTION_NONE) && "
                      "(gpCombat->uiCurrentPartyActionStatus != ACTION_STATUS_FINISHED)) || "
-                     "(gpCombat->uiNextPartyAction != PARTY_ACTION_NONE)",
-                     PARTY_MOVEMENT_CPP, 0xfb, 0);
+                     "(gpCombat->uiNextPartyAction != PARTY_ACTION_NONE)");
     }
     const int visible = CanPartyMove() ? 1 : 0;
     movement->dirty |= visible != movement->visible_button;
@@ -289,8 +286,7 @@ unsigned char HandlePartyMovement(float* real_elapsed, float* frame_elapsed)
             multiplier = 3.0f;
             break;
         default:
-            srAssertFail("FALSE", PARTY_MOVEMENT_CPP, 0x2a9,
-                         "HandlePartyMovement: ERROR - Invalid load category");
+            srAssertFail("FALSE", "HandlePartyMovement: ERROR - Invalid load category");
         }
         if (gXStatus.fCombatMode) {
             multiplier += multiplier;

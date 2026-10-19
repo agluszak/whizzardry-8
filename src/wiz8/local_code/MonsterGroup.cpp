@@ -55,7 +55,6 @@ constexpr float kMonsterScatterHeadingRandomScale = 0.001600000075995922f;
 struct W8NpcState;
 
 // STRING: WIZ8 0x00619FDC
-#define MONSTER_GROUP_CPP "C:\\Projects\\Wizardry 8\\Local Code\\MonsterGroup.cpp"
 
 /* A group of one is named in the singular; any other count uses the plural
    form, which is the second entry of each name set. */
@@ -155,8 +154,7 @@ bool MonsterGroupAllMembersDying(W8MonsterGroup* monster_group)
     W8MonsterInfo* monster_info;
 
     if (monster_group == 0) {
-        srAssertFail("pMonsterGroup", "C:\\Projects\\Wizardry 8\\Local Code\\MonsterGroup.cpp",
-                     0x82b, 0);
+        srAssertFail("pMonsterGroup");
     }
     for (index = 0; index < monster_group->MemberIds().size(); ++index) {
         location_id = monster_group->MemberLocationId(index);
@@ -190,13 +188,13 @@ static W8Disposition MonsterGroupCalcDefaultDisposition(W8MonsterGroup* monster_
     W8Disposition disposition = W8_DISPOSITION_NEUTRAL;
 
     if (monster_group == 0) {
-        srAssertFail("pMonsterGroup != NULL", MONSTER_GROUP_CPP, 0x3bd, 0);
+        srAssertFail("pMonsterGroup != NULL");
     }
     record = MonsterDBFromSpecies(monster_group->monster_id);
     if ((record->flags & W8_MONSTER_FLAG_NPC) != 0) {
         npc_record = FindNpcBindingForMonster(FindMonster(monster_group->MemberLocationId(0)));
         if (npc_record == 0) {
-            srAssertFail("FALSE", MONSTER_GROUP_CPP, 0x75d,
+            srAssertFail("FALSE",
                          fmt::format("MonsterGroupCalcDefaultDisposition: Monster species {:d}({}) "
                                      "NPC data not found",
                                      monster_group->monster_id, record->name0));
@@ -211,7 +209,7 @@ static W8Disposition MonsterGroupCalcDefaultDisposition(W8MonsterGroup* monster_
                 disposition = W8_DISPOSITION_HOSTILE;
                 break;
             default:
-                srAssertFail("FALSE", MONSTER_GROUP_CPP, 0x769, 0);
+                srAssertFail("FALSE");
                 break;
             }
         }
@@ -234,7 +232,7 @@ static W8Disposition MonsterGroupCalcDefaultDisposition(W8MonsterGroup* monster_
                 disposition = W8_DISPOSITION_FRIENDLY;
                 break;
             default:
-                srAssertFail("FALSE", MONSTER_GROUP_CPP, 0x78d, 0);
+                srAssertFail("FALSE");
                 break;
             }
             break;
@@ -258,11 +256,11 @@ void RefreshMonsterGroupHostility(W8MonsterGroup* monster_group)
     int cooldown;
 
     if (monster_group == 0) {
-        srAssertFail("pMonsterGroup != NULL", MONSTER_GROUP_CPP, 0x3bd, 0);
+        srAssertFail("pMonsterGroup != NULL");
     }
     record = MonsterDBFromSpecies(monster_group->monster_id);
     if (monster_group == 0) {
-        srAssertFail("pMonsterGroup", MONSTER_GROUP_CPP, 0x82b, 0);
+        srAssertFail("pMonsterGroup");
     }
     index = 0;
     if (monster_group->MemberIds().empty()) {
@@ -309,9 +307,8 @@ W8MonsterGroup* FindMonsterGroup(int group_id, bool assert_on_failure, std::sour
     if (!GetWorld()) return nullptr;
     auto* group = CurrentLevelPopulation().findGroup(group_id);
     if (!group && assert_on_failure)
-        srAssertFail("group", MONSTER_GROUP_CPP, 0x3b2,
-                     fmt::format("Group ID {:d} not found ({} line {:d})", group_id,
-                                 caller.file_name(), caller.line()));
+        srAssertFail("group", fmt::format("Group ID {:d} not found ({} line {:d})", group_id,
+                                          caller.file_name(), caller.line()));
     return group;
 }
 
@@ -321,7 +318,7 @@ W8MonsterGroup* FindMonsterGroup(int group_id, bool assert_on_failure, std::sour
 W8MonsterRecord* MonsterGroupGetRecord(W8MonsterGroup* monster_group)
 {
     if (monster_group == 0) {
-        srAssertFail("pMonsterGroup != NULL", MONSTER_GROUP_CPP, 0x3bd, 0);
+        srAssertFail("pMonsterGroup != NULL");
     }
     return MonsterDBFromSpecies(monster_group->monster_id);
 }
@@ -371,7 +368,7 @@ void RefreshMonsterGroup(W8MonsterGroup* monster_group)
     unsigned int index;
 
     if (monster_group == 0) {
-        srAssertFail("pMonsterGroup", MONSTER_GROUP_CPP, 0x478, 0);
+        srAssertFail("pMonsterGroup");
     }
     if (monster_group->leader_group_id == 0) {
         leader = GetMonsterByLocationID(monster_group->leader_location_id);
@@ -381,7 +378,7 @@ void RefreshMonsterGroup(W8MonsterGroup* monster_group)
         leader = GetMonsterByLocationID(leader_group->leader_location_id);
     }
     if (leader == 0) {
-        srAssertFail("pLeader", MONSTER_GROUP_CPP, 0x482, 0);
+        srAssertFail("pLeader");
     }
     for (index = 0; index < monster_group->MemberIds().size(); ++index) {
         W8Monster* member = GetMonsterByLocationID(monster_group->MemberLocationId(index));
@@ -526,7 +523,7 @@ std::string GetMonsterGroupName(W8MonsterGroup* monster_group)
     unsigned int name_form;
 
     if (monster_group == 0) {
-        srAssertFail("pMonsterGroup != NULL", MONSTER_GROUP_CPP, 0x3eb, 0);
+        srAssertFail("pMonsterGroup != NULL");
     }
     record = MonsterGroupGetRecord(monster_group);
     name_form = monster_group->MemberCount() != W8_MONSTER_GROUP_SINGULAR;
@@ -553,10 +550,10 @@ void MonsterGroupLeaveCombat(W8MonsterGroup* monster_group)
     W8MonsterInfo* lead;
 
     if (!gXStatus.fCombatMode) {
-        srAssertFail("gXStatus.fCombatMode", MONSTER_GROUP_CPP, 0x1eb, 0);
+        srAssertFail("gXStatus.fCombatMode");
     }
     if (!monster_group->fInCombat) {
-        srAssertFail("pMonsterGroup->fInCombat", MONSTER_GROUP_CPP, 0x1ec, 0);
+        srAssertFail("pMonsterGroup->fInCombat");
     }
     for (index = 0; index < monster_group->MemberIds().size(); ++index) {
         MonsterInfoLeaveCombat(FindMonster(monster_group->MemberLocationId(index)));
@@ -919,12 +916,11 @@ W8MonsterGroup* FindNextExistingMonsterByID(int monster_id, W8MonsterGroup* prev
 void ElectGroupLeaderMember(W8MonsterGroup* monster_group)
 {
     if (monster_group == 0) {
-        srAssertFail("pMonsterGroup", MONSTER_GROUP_CPP, 0x438, 0);
+        srAssertFail("pMonsterGroup");
     }
     if (monster_group->MemberIds().empty()) {
         srAssertFail(
-            "(pMonsterGroup->plsMonsterIDList ? pMonsterGroup->plsMonsterIDList->size() : 0)",
-            MONSTER_GROUP_CPP, 0x439, 0);
+            "(pMonsterGroup->plsMonsterIDList ? pMonsterGroup->plsMonsterIDList->size() : 0)");
     }
     W8MonsterInfo* old_info = FindMonster(monster_group->leader_location_id);
     W8Monster* old_monster = old_info->p3D;
@@ -1012,14 +1008,14 @@ void MonsterGroupEnterCombat(W8MonsterGroup* monster_group)
             return;
         }
         if (monster_group == 0) {
-            srAssertFail("pMonsterGroup != NULL", MONSTER_GROUP_CPP, 0x3bd, 0);
+            srAssertFail("pMonsterGroup != NULL");
         }
         W8MonsterRecord* record = MonsterDBFromSpecies(monster_group->monster_id);
         if (record->untargetable != 0) {
             return;
         }
         if (monster_group == 0) {
-            srAssertFail("pMonsterGroup", MONSTER_GROUP_CPP, 0x511, 0);
+            srAssertFail("pMonsterGroup");
         }
         unsigned int index = 0;
         while (index < monster_group->MemberIds().size()) {
@@ -1034,7 +1030,7 @@ void MonsterGroupEnterCombat(W8MonsterGroup* monster_group)
             return;
         }
         if (monster_group == 0) {
-            srAssertFail("pMonsterGroup", MONSTER_GROUP_CPP, 0x8c9, 0);
+            srAssertFail("pMonsterGroup");
         }
         index = 0;
         while (index < monster_group->MemberIds().size()) {
@@ -1046,7 +1042,7 @@ void MonsterGroupEnterCombat(W8MonsterGroup* monster_group)
             ++index;
         }
         if (monster_group == 0) {
-            srAssertFail("pMonsterGroup", MONSTER_GROUP_CPP, 0x82b, 0);
+            srAssertFail("pMonsterGroup");
         }
         index = 0;
         if (monster_group->MemberIds().empty()) {
@@ -1216,7 +1212,7 @@ unsigned char GiveBirthToMonster(W8MonsterGroup* monster_group)
     int location_id;
 
     if (monster_group == 0) {
-        srAssertFail("pMonsterGroup", MONSTER_GROUP_CPP, 0x87a, 0);
+        srAssertFail("pMonsterGroup");
     }
     auto& encounters = CurrentLevelPopulation().encounter_groups;
     const auto found = std::ranges::find_if(

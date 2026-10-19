@@ -149,8 +149,6 @@ static float g_path_obstacle_steering_factor = 2.0f;
 // GLOBAL: WIZ8 0x0060fa14
 static float g_path_obstacle_braking_factor = 0.3f;
 
-#define OCTPATH_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\OctPath.cpp"
-
 bool LoadPathParameters();
 
 /* Mark a waypoint, growing the set with slack when the index is past its end. */
@@ -560,7 +558,7 @@ void W8PathingService::CheckConditionalWayPtStatus(std::span<const unsigned shor
 {
     for (const auto waypoint : waypoints) {
         if (waypoint >= static_cast<unsigned short>(m_waypoints.size())) {
-            srAssertFail("pusWayPts[i] < (UINT16)m_waypoints.size()", OCTPATH_CPP, 0x1a4e,
+            srAssertFail("pusWayPts[i] < (UINT16)m_waypoints.size()",
                          "Pathing::CheckConditionalWayPtStatus: WayPt Index out of range.");
         }
 
@@ -581,7 +579,7 @@ void W8PathingService::CheckConditionalLinkStatus(std::span<const unsigned short
 {
     for (const auto edge_index : edges) {
         if (edge_index >= static_cast<unsigned short>(m_pEdges.size())) {
-            srAssertFail("pusLinks[i] < (UINT16)m_pEdges.size()", OCTPATH_CPP, 0x1a6c,
+            srAssertFail("pusLinks[i] < (UINT16)m_pEdges.size()",
                          "Pathing::CheckConditionalLinkStatus: Link Index out of range.");
         }
 
@@ -784,13 +782,11 @@ unsigned short W8PathingService::FindPath(W8NavigatorAttachment* attachment, uns
     unsigned int start = usStartNode;
     unsigned short usEndNode = FindWaypoint(attachment->path_destination, false);
     if (m_waypoints.size() <= start) {
-        srAssertFail("usStartNode < m_waypoints.size()", OCTPATH_CPP, 0x1bdb,
-                     "Starting index out of range");
+        srAssertFail("usStartNode < m_waypoints.size()", "Starting index out of range");
     }
     unsigned int end = usEndNode;
     if (m_waypoints.size() <= end) {
-        srAssertFail("usEndNode < m_waypoints.size()", OCTPATH_CPP, 0x1bdc,
-                     "Last index out of range");
+        srAssertFail("usEndNode < m_waypoints.size()", "Last index out of range");
     }
     if (usEndNode == 0) {
         return 0;
@@ -805,21 +801,18 @@ unsigned short W8PathingService::FindPath(W8NavigatorAttachment* attachment, uns
         do {
             unsigned int current = usWayPt;
             if (m_waypoints.size() <= current) {
-                srAssertFail("usWayPt < m_waypoints.size()", OCTPATH_CPP, 0x1bea,
-                             "Waypoint index out of range (1)");
+                srAssertFail("usWayPt < m_waypoints.size()", "Waypoint index out of range (1)");
             }
             unsigned short usLink = m_waypoints[current].first_edge;
             unsigned int link = usLink;
             if (m_pEdges.size() <= link) {
-                srAssertFail("usLink < m_pEdges.size()", OCTPATH_CPP, 0x1bec,
-                             "Link index out of range (1)");
+                srAssertFail("usLink < m_pEdges.size()", "Link index out of range (1)");
             }
             bool settled = true;
             if (usLink != 0) {
                 do {
                     if (m_pEdges.size() <= link) {
-                        srAssertFail("usLink < m_pEdges.size()", OCTPATH_CPP, 0x1bf0,
-                                     "Link index out of range (2)");
+                        srAssertFail("usLink < m_pEdges.size()", "Link index out of range (2)");
                     }
                     unsigned int edge_flags = m_pEdges[link].flags;
                     unsigned int usNextNode = m_pEdges[link].destination;
@@ -839,7 +832,7 @@ unsigned short W8PathingService::FindPath(W8NavigatorAttachment* attachment, uns
                     unsigned short usNext = static_cast<unsigned short>(usNextNode);
                     unsigned short usCurrent = usWayPt;
                     if (m_waypoints.size() <= usNextNode) {
-                        srAssertFail("usNextNode < m_waypoints.size()", OCTPATH_CPP, 0x1bf5,
+                        srAssertFail("usNextNode < m_waypoints.size()",
                                      "Waypoint index out of range (2)");
                     }
                     if ((usNext != 0) && (usNext != usCurrent) &&
@@ -901,8 +894,7 @@ unsigned short W8PathingService::FindPath(W8NavigatorAttachment* attachment, uns
                     usLink = m_pEdges[link].next;
                     link = usLink;
                     if (m_pEdges.size() <= link) {
-                        srAssertFail("usLink < m_pEdges.size()", OCTPATH_CPP, 0x1c22,
-                                     "Link index out of range (3)");
+                        srAssertFail("usLink < m_pEdges.size()", "Link index out of range (3)");
                     }
                 } while (usLink != 0);
             }
@@ -919,8 +911,7 @@ unsigned short W8PathingService::FindPath(W8NavigatorAttachment* attachment, uns
             usWayPt = path_heap->root_node;
             current = usWayPt;
             if (m_waypoints.size() <= current) {
-                srAssertFail("usWayPt < m_waypoints.size()", OCTPATH_CPP, 0x1c2a,
-                             "Waypoint index out of range (3)");
+                srAssertFail("usWayPt < m_waypoints.size()", "Waypoint index out of range (3)");
             }
             if (usWayPt == 0) {
                 return 0;
@@ -963,7 +954,7 @@ bool W8PathingService::BuildAttachmentPath(W8NavigatorAttachment* attachment, un
                     break;
                 }
                 if (m_waypoints.size() <= count) {
-                    srAssertFail("i < m_waypoints.size()", OCTPATH_CPP, 0x1ba2, 0);
+                    srAssertFail("i < m_waypoints.size()");
                 }
                 m_path_scratch[count] = node;
                 node = m_waypoints[node].search_parent;
@@ -1057,7 +1048,7 @@ bool W8PathingService::LinkAttachmentTarget(W8NavigatorAttachment* attachment, u
             break;
         }
         if (m_waypoints.size() <= count) {
-            srAssertFail("i < m_waypoints.size()", OCTPATH_CPP, 0x1c97, 0);
+            srAssertFail("i < m_waypoints.size()");
         }
         m_path_scratch[count] = current;
         current = m_waypoints[current].search_parent;
@@ -1219,7 +1210,7 @@ bool W8PathingService::BuildPatrolPath(W8NavigatorAttachment* attachment, unsign
             break;
         }
         if (m_waypoints.size() <= count) {
-            srAssertFail("i < m_waypoints.size()", OCTPATH_CPP, 0x1d87, 0);
+            srAssertFail("i < m_waypoints.size()");
         }
         previous = static_cast<unsigned short>(current);
         m_path_scratch[count] = previous;
@@ -1253,8 +1244,7 @@ unsigned short W8PathingService::RecursePatrolLinks(unsigned short waypoint)
     if (link != 0) {
         do {
             if (m_pEdges.size() <= static_cast<unsigned int>(link)) {
-                srAssertFail("usLink < m_pEdges.size()", OCTPATH_CPP, 0x1dcf,
-                             "Link index out of range");
+                srAssertFail("usLink < m_pEdges.size()", "Link index out of range");
             }
             unsigned int edge_flags = m_pEdges[link].flags;
             unsigned short next = m_pEdges[link].destination;
@@ -1273,7 +1263,7 @@ unsigned short W8PathingService::RecursePatrolLinks(unsigned short waypoint)
                 (next != 0)) {
                 if (!TestBit(m_visited_path_nodes, next)) {
                     if (m_waypoints.size() <= static_cast<unsigned int>(next)) {
-                        srAssertFail("usNextNode < m_waypoints.size()", OCTPATH_CPP, 0x1dd9,
+                        srAssertFail("usNextNode < m_waypoints.size()",
                                      "Waypoint index out of range");
                     }
                     W8PathSurface* next_surface = &m_waypoints[next];
@@ -1305,7 +1295,7 @@ unsigned short W8PathingService::RecursePatrolLinks(unsigned short waypoint)
                             }
                         }
                         if (0x13 < count) {
-                            srAssertFail("ulLinkNum < 20", OCTPATH_CPP, 0x1e00,
+                            srAssertFail("ulLinkNum < 20",
                                          "Too many links for waypoint in RecursePatrolLinks");
                         }
                     }
@@ -1322,8 +1312,7 @@ unsigned short W8PathingService::RecursePatrolLinks(unsigned short waypoint)
     for (unsigned int index = 0; index < count; ++index) {
         unsigned short next = m_pEdges[links[index]].destination;
         if (m_waypoints.size() <= static_cast<unsigned int>(next)) {
-            srAssertFail("usNextNode < m_waypoints.size()", OCTPATH_CPP, 0x1e0f,
-                         "Waypoint index out of range (2)");
+            srAssertFail("usNextNode < m_waypoints.size()", "Waypoint index out of range (2)");
         }
         if (((m_patrol_distance < costs[index]) || (g_patrol_cost_limit < costs[index])) &&
             (m_patrol_min < distance)) {
@@ -1908,7 +1897,7 @@ unsigned short W8PathingService::PlanMovement(W8NavigatorMovementState* movement
         if (best_node > (m_search_nodes.size() - 1)) {
             char message[80];
             sprintf(message, "A*, Invalid node index %d from Queue", best_node);
-            srAssertFail("(ulBestNode <= m_ulSearchNodesUsed)", OCTPATH_CPP, 0x22ad, message);
+            srAssertFail("(ulBestNode <= m_ulSearchNodesUsed)", message);
         }
     }
 
@@ -3756,7 +3745,7 @@ unsigned short W8PathingService::FindWaypoint(const glm::vec3& position, bool ex
         return result;
     }
     if (static_cast<unsigned int>(count) >= 200) {
-        srAssertFail("ulCount<200", OCTPATH_CPP, 0xe0c, "Too many nodes in list");
+        srAssertFail("ulCount<200", "Too many nodes in list");
     }
 
     unsigned int distances[199];

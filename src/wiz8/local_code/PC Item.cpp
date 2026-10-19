@@ -593,8 +593,6 @@ bool CanEquipItemInSlot(W8Character* character, int item_id, unsigned char equip
                                  primary_main_hand_free, alternate_main_hand_free)) != 0;
 }
 
-#define PC_ITEM_CPP "C:\\Projects\\Wizardry 8\\Local Code\\PC Item.cpp"
-
 /* The name-index pairs that may be held together; a zero first entry ends
    the run. */
 // GLOBAL: WIZ8 0x00616e6c
@@ -626,12 +624,12 @@ bool GetItemMergeKind(int item_id, short* related_kind)
 bool CompatiblePartnerItems(int ranged_item_id, int other_item_id)
 {
     if (static_cast<unsigned int>(ranged_item_id) >= g_item_records.size()) {
-        srAssertFail("uiRangedItem < g_item_records.size()", PC_ITEM_CPP, 0x3fd,
+        srAssertFail("uiRangedItem < g_item_records.size()",
                      fmt::format("CompatiblePartnerItems: ERROR - Illegal RANGED item index {:d}",
                                  ranged_item_id));
     }
     if (static_cast<unsigned int>(other_item_id) >= g_item_records.size()) {
-        srAssertFail("uiOtherItem < g_item_records.size()", PC_ITEM_CPP, 0x3fe,
+        srAssertFail("uiOtherItem < g_item_records.size()",
                      fmt::format("CompatiblePartnerItems: ERROR - Illegal OTHER item index {:d}",
                                  other_item_id));
     }
@@ -759,9 +757,9 @@ static bool CanHoldItemsTogether(int first_item_id, int second_item_id)
 // FUNCTION: WIZ8 0x0051CDE0
 bool HeldItemFitsPairedSlot(int party_slot, W8EquipSlot equip_slot)
 {
-    if (party_slot == -1) srAssertFail("iChar != -1", PC_ITEM_CPP, 0x4e0, 0);
+    if (party_slot == -1) srAssertFail("iChar != -1");
     if (static_cast<unsigned int>(equip_slot) >= W8_EQUIP_SLOT_COUNT)
-        srAssertFail("uiSlot < SLOT_COUNT", PC_ITEM_CPP, 0x4e1, 0);
+        srAssertFail("uiSlot < SLOT_COUNT");
 
     W8EquipSlot paired_slot;
     switch (equip_slot) {
@@ -849,7 +847,7 @@ bool CanCharacterUseItem(const W8Character* character, int item_id)
     if (record->category == W8_ITEM_CATEGORY_SPELL_SOURCE) {
         spell_id = record->spell_id;
         if (spell_id == W8_SPELL_NONE) {
-            srAssertFail("uiSpell != SPELL_NONE", PC_ITEM_CPP, 1832, 0);
+            srAssertFail("uiSpell != SPELL_NONE");
         }
         if (character->spell_learned[spell_id] == 1) {
             return false;
@@ -858,7 +856,7 @@ bool CanCharacterUseItem(const W8Character* character, int item_id)
                record->category == W8_ITEM_CATEGORY_CASTER_ITEM_8) {
         spell_id = record->spell_id;
         if (spell_id == W8_SPELL_NONE) {
-            srAssertFail("uiSpell != SPELL_NONE", PC_ITEM_CPP, 1844, 0);
+            srAssertFail("uiSpell != SPELL_NONE");
         }
         minimum_caster_level = GetMinimumCasterLevelForSpell(spell_id);
         const int profession = record->category == W8_ITEM_CATEGORY_CASTER_ITEM_6
@@ -901,17 +899,17 @@ bool CanCharacterActivateItem(W8Character* character, const W8ItemInstance* item
     const W8ItemDatabaseRecord* record;
 
     if (character == 0) {
-        srAssertFail("pPC", PC_ITEM_CPP, 0x769, 0);
+        srAssertFail("pPC");
     }
     if (item == 0) {
-        srAssertFail("pPCItem", PC_ITEM_CPP, 0x76a, 0);
+        srAssertFail("pPCItem");
     }
     if (item->iItemNo < -1) {
-        srAssertFail("pPCItem->iItemNo >= -1", PC_ITEM_CPP, 0x76b, 0);
+        srAssertFail("pPCItem->iItemNo >= -1");
     }
     if (item->iItemNo >= static_cast<int>(g_item_records.size())) {
         // c-style-cast-ok: verbatim retail assert string
-        srAssertFail("pPCItem->iItemNo < (INT32) g_item_records.size()", PC_ITEM_CPP, 0x76c, 0);
+        srAssertFail("pPCItem->iItemNo < (INT32) g_item_records.size()");
     }
     if (item->iItemNo == -1) {
         return false;
@@ -1096,10 +1094,10 @@ unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_use
             W8NpcState* npc = GetNpcState(
                 g_status.buffers.XChar[CharacterPointerToPartySlot(character)].npc_index);
             if (npc == 0) {
-                srAssertFail("pNPC", PC_ITEM_CPP, 0x89d, 0);
+                srAssertFail("pNPC");
             }
             if (npc->name_style != W8_NPC_RFS81_A) {
-                srAssertFail("pNPC->ubNPCDBaseID == NPC_RFS81A", PC_ITEM_CPP, 0x89e, 0);
+                srAssertFail("pNPC->ubNPCDBaseID == NPC_RFS81A");
             }
             SetFact(W8_FACT_RFS81_HAS_BEEN_FIXED, 1, false);
             SetFact(W8_FACT_QUEST_ANDROID_BROKEN, 0, false);
@@ -1169,7 +1167,7 @@ unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_use
         target.name_known = 1;
 
         if (static_cast<int>(record->category) >= W8_ITEM_USE_TYPE_COUNT) {
-            srAssertFail("pItemDB->ubUseType < USE_TYPE_COUNT", PC_ITEM_CPP, 0x906, 0);
+            srAssertFail("pItemDB->ubUseType < USE_TYPE_COUNT");
         }
         /* A spell-carrying item the world-cursor handler refuses cannot be used
            at all, and the attempt is over before anything is announced. */
@@ -1194,7 +1192,7 @@ unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_use
                                    g_localized_strings[g_item_use_messages[record->category * 2]],
                                    GetItemDisplayName(item)));
         } else {
-            srAssertFail("FALSE", PC_ITEM_CPP, 0x924, 0);
+            srAssertFail("FALSE");
         }
 
         if (g_settings.verbose_combat_messages == 0) {
@@ -1203,7 +1201,7 @@ unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_use
         if (record->spell_id == W8_SPELL_NONE) {
             std::string message = fmt::format(
                 "UseItem: ERROR - Usable item {:d} doesn't do anything!", item->iItemNo);
-            srAssertFail("FALSE", PC_ITEM_CPP, 0x934, message);
+            srAssertFail("FALSE", message);
             used = 0;
             fatigue_cost = 0;
         } else {
@@ -1278,10 +1276,10 @@ bool MergeItems(W8Character* character, W8ItemInstance* destination)
     bool partially_merged = false;
 
     if (held->iItemNo == -1) {
-        srAssertFail("pMergePCItem->iItemNo != -1", PC_ITEM_CPP, 2922, 0);
+        srAssertFail("pMergePCItem->iItemNo != -1");
     }
     if (destination->iItemNo == -1) {
-        srAssertFail("pIntoPCItem->iItemNo != -1", PC_ITEM_CPP, 2923, 0);
+        srAssertFail("pIntoPCItem->iItemNo != -1");
     }
     if (!destination->identified || !held->identified) {
         ShowCampNoticeLine(g_localized_strings[0x163], 0, true, false);
@@ -1502,29 +1500,29 @@ W8ItemInstance* FindCharacterItemAt(int party_slot, unsigned char origin, unsign
     W8Character* character = &g_status.buffers.Char[party_slot];
 
     if (static_cast<signed char>(origin) < 0) {
-        srAssertFail("bSlotType >= 0", PC_ITEM_CPP, 0x14fd, 0);
+        srAssertFail("bSlotType >= 0");
     }
     if (origin >= W8_ITEM_ORIGIN_COUNT) {
-        srAssertFail("bSlotType < SLOT_TYPE_COUNT", PC_ITEM_CPP, 0x14fe, 0);
+        srAssertFail("bSlotType < SLOT_TYPE_COUNT");
     }
     if (static_cast<short>(slot) < 0) {
-        srAssertFail("sSlotIndex >= 0", PC_ITEM_CPP, 0x1500, 0);
+        srAssertFail("sSlotIndex >= 0");
     }
 
     switch (origin) {
     case W8_ITEM_ORIGIN_BACKPACK:
         if (slot >= 8) {
-            srAssertFail("sSlotIndex < MAX_CARRY_ITEM_SLOTS", PC_ITEM_CPP, 0x1505, 0);
+            srAssertFail("sSlotIndex < MAX_CARRY_ITEM_SLOTS");
         }
         return &character->backpack[slot];
     case W8_ITEM_ORIGIN_EQUIPPED:
         if (slot >= 12) {
-            srAssertFail("sSlotIndex < SLOT_COUNT", PC_ITEM_CPP, 0x1509, 0);
+            srAssertFail("sSlotIndex < SLOT_COUNT");
         }
         return &character->EquippedItem[slot];
     case W8_ITEM_ORIGIN_PARTY_POOL:
         if (slot >= 500) {
-            srAssertFail("sSlotIndex < MAX_PARTY_ITEM_SLOTS", PC_ITEM_CPP, 0x150d, 0);
+            srAssertFail("sSlotIndex < MAX_PARTY_ITEM_SLOTS");
         }
         return &g_status.party_item_pool[slot];
     }
@@ -1542,8 +1540,7 @@ void GetOriginOfCharacterItem(int character_index, W8ItemInstance* item, unsigne
     W8ItemInstance* cursor;
 
     if (item == 0) {
-        srAssertFail("pPCItem != NULL", "C:\\Projects\\Wizardry 8\\Local Code\\PC Item.cpp", 0x151b,
-                     0);
+        srAssertFail("pPCItem != NULL");
     }
 
     character = &g_status.buffers.Char[character_index];
@@ -1657,16 +1654,16 @@ bool GiveHeldItemToCharacterOrParty(int uiChar, bool party_first)
     W8ItemInstance* item = &g_status.item_in_hand;
     bool stored = party_first;
     if (!g_status.item_in_cursor) {
-        srAssertFail("gStatus.fItemInCursor", PC_ITEM_CPP, 376, 0);
+        srAssertFail("gStatus.fItemInCursor");
     }
 
     if (!item->identified) PartyAttemptsToIdentifyItem(item, 0);
 
     if (!g_status.game_started) {
-        srAssertFail("gStatus.fGameStarted", PC_ITEM_CPP, 0x194, 0);
+        srAssertFail("gStatus.fGameStarted");
     }
     if (!g_status.buffers.XChar[uiChar].fOccupied) {
-        srAssertFail("fCHAR_OCCUPIED(uiChar)", PC_ITEM_CPP, 0x195, 0);
+        srAssertFail("fCHAR_OCCUPIED(uiChar)");
     }
 
     if (IsPartySlotEligible(uiChar)) {
@@ -1706,10 +1703,10 @@ bool GiveItemToCharacterOrParty(int uiChar, W8ItemInstance* item, bool party_fir
     bool stored;
 
     if (!g_status.game_started) {
-        srAssertFail("gStatus.fGameStarted", PC_ITEM_CPP, 0x194, 0);
+        srAssertFail("gStatus.fGameStarted");
     }
     if (!g_status.buffers.XChar[uiChar].fOccupied) {
-        srAssertFail("fCHAR_OCCUPIED(uiChar)", PC_ITEM_CPP, 0x195, 0);
+        srAssertFail("fCHAR_OCCUPIED(uiChar)");
     }
 
     if (!IsPartySlotEligible(uiChar)) {
@@ -1870,7 +1867,7 @@ void ReplaceOrCreateItem(W8ItemInstance* item, int item_id, bool maximum_quantit
                          bool force_identified, bool mark_special)
 {
     if (static_cast<unsigned int>(item_id) >= g_item_records.size()) {
-        srAssertFail("uiItemNo < g_item_records.size()", PC_ITEM_CPP, 564,
+        srAssertFail("uiItemNo < g_item_records.size()",
                      fmt::format("InitNewItem: error, invalid item # {:d} specified", item_id));
     }
 
@@ -1881,7 +1878,7 @@ void ReplaceOrCreateItem(W8ItemInstance* item, int item_id, bool maximum_quantit
     if (record->quantity_kind != W8_ITEM_QUANTITY_NONE) {
         int maximum = record->initial_quantity.Maximum();
         if (maximum >= 256) {
-            srAssertFail("uiMAX_DICE(pMulti) < 256", PC_ITEM_CPP, 578, 0);
+            srAssertFail("uiMAX_DICE(pMulti) < 256");
         }
         unsigned char quantity =
             maximum_quantity ? static_cast<unsigned char>(maximum)
@@ -1892,7 +1889,7 @@ void ReplaceOrCreateItem(W8ItemInstance* item, int item_id, bool maximum_quantit
                    record->quantity_kind <= W8_ITEM_QUANTITY_SHOTS) {
             item->uses_or_charges = quantity;
         } else {
-            srAssertFail("FALSE", PC_ITEM_CPP, 599, "InitNewItem: ERROR - Invalid multi code");
+            srAssertFail("FALSE", "InitNewItem: ERROR - Invalid multi code");
         }
     }
     if (force_identified || (record->flags & W8_ITEM_FLAG_AUTO_IDENTIFY) != 0) {
@@ -1948,10 +1945,10 @@ int GetItemSpell(const W8ItemInstance* item)
         return 0;
     }
     if (item->iItemNo == -1) {
-        srAssertFail("pPCItem->iItemNo != -1", PC_ITEM_CPP, 4003, 0);
+        srAssertFail("pPCItem->iItemNo != -1");
     }
     if (item->iItemNo >= static_cast<int>(g_item_records.size())) {
-        srAssertFail("pPCItem->iItemNo < (INT32) g_item_records.size()", PC_ITEM_CPP, 4004, 0);
+        srAssertFail("pPCItem->iItemNo < (INT32) g_item_records.size()");
     }
     return g_item_records[item->iItemNo].spell_id;
 }
@@ -1993,7 +1990,7 @@ void ApplyIdentifyAttempt(W8ItemInstance* item, unsigned int strength, unsigned 
     AdjustIntegerByPercent(&score, percent);
     if (g_item_records[item->iItemNo].identify_difficulty <= score) {
         if (item == 0) {
-            srAssertFail("pPCItem", PC_ITEM_CPP, 2875, 0);
+            srAssertFail("pPCItem");
         }
         item->identified = true;
         item->spell_hint = true;
@@ -2013,7 +2010,7 @@ unsigned int CountIdentifyAttemptsNeeded(W8ItemInstance* item, unsigned int perc
     unsigned int score;
 
     if (item == 0) {
-        srAssertFail("pPCItem", PC_ITEM_CPP, 4113, 0);
+        srAssertFail("pPCItem");
     }
     if (item->iItemNo == -1) {
         return 1;
@@ -2163,7 +2160,7 @@ void EquipMatchingPartnerItem(W8Character* character, W8ItemInstance* item, int 
         return;
     }
     if (item->iItemNo == -1) {
-        srAssertFail("pPCItem->iItemNo != -1", PC_ITEM_CPP, 0xa52, 0);
+        srAssertFail("pPCItem->iItemNo != -1");
     }
 
     if (character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON].iItemNo != -1 &&
@@ -2443,7 +2440,7 @@ bool TryIdentifyItemFor(W8Character* character, W8ItemInstance* item)
     int margin;
 
     if (item == 0) {
-        srAssertFail("pPCItem", PC_ITEM_CPP, 4014, 0);
+        srAssertFail("pPCItem");
     }
     if (character->hp_current == 0 || character->highest_condition >= W8_CONDITION_INSANE) {
         return false;
@@ -2455,7 +2452,7 @@ bool TryIdentifyItemFor(W8Character* character, W8ItemInstance* item)
     }
 
     if (item == 0) {
-        srAssertFail("pPCItem", PC_ITEM_CPP, 2875, 0);
+        srAssertFail("pPCItem");
     }
     item->identified = true;
     item->spell_hint = true;
@@ -2506,10 +2503,10 @@ bool ItemPrecedesInPool(const W8ItemInstance& first, const W8ItemInstance& secon
     const W8ItemDatabaseRecord* rb;
 
     if (a->iItemNo == -1) {
-        srAssertFail("pPCItem1->iItemNo != BAD_INDEX", PC_ITEM_CPP, 3812, 0);
+        srAssertFail("pPCItem1->iItemNo != BAD_INDEX");
     }
     if (b->iItemNo == -1) {
-        srAssertFail("pPCItem2->iItemNo != BAD_INDEX", PC_ITEM_CPP, 3813, 0);
+        srAssertFail("pPCItem2->iItemNo != BAD_INDEX");
     }
     ra = &g_item_records[a->iItemNo];
     rb = &g_item_records[b->iItemNo];
@@ -2558,7 +2555,7 @@ bool ItemPrecedesInPool(const W8ItemInstance& first, const W8ItemInstance& secon
 void SortPartyItemPool(void)
 {
     if (!g_status.game_started) {
-        srAssertFail("gStatus.fGameStarted", PC_ITEM_CPP, 3795, 0);
+        srAssertFail("gStatus.fGameStarted");
     }
     if (g_status.party_item_count > 1) {
         std::sort(g_status.party_item_pool, g_status.party_item_pool + g_status.party_item_count,
@@ -2638,7 +2635,7 @@ bool MergeItemStacks(W8ItemInstance* destination, W8ItemInstance* source, bool* 
     }
     if (destination->stack_count > record->maximum_quantity) {
         srAssertFail(
-            "FALSE", PC_ITEM_CPP, 3371,
+            "FALSE",
             fmt::format(
                 "StackItemsIfPossible: ERROR - slot holds {:d} when max is {:d}, item {:d}({})",
                 destination->stack_count, record->maximum_quantity, destination->iItemNo,
@@ -2677,13 +2674,13 @@ void CopyItemInstance(W8ItemInstance* destination, W8ItemInstance* source, W8Cha
                       bool refresh)
 {
     if (destination == source) {
-        srAssertFail("pToPCItem != pFromPCItem", PC_ITEM_CPP, 3558, 0);
+        srAssertFail("pToPCItem != pFromPCItem");
     }
     if (destination->iItemNo != -1) {
-        srAssertFail("pToPCItem->iItemNo == -1", PC_ITEM_CPP, 3560, 0);
+        srAssertFail("pToPCItem->iItemNo == -1");
     }
     if (source->iItemNo == -1) {
-        srAssertFail("pFromPCItem->iItemNo != -1", PC_ITEM_CPP, 3561, 0);
+        srAssertFail("pFromPCItem->iItemNo != -1");
     }
     SwapItemInstances(source, destination, character, refresh);
 }
@@ -2697,8 +2694,7 @@ void SwapItemInstances(W8ItemInstance* item, W8ItemInstance* destination, W8Char
 {
     if (item == destination) return;
     if (item->iItemNo == -1 && destination->iItemNo == -1) {
-        srAssertFail("(pPCItem1->iItemNo != -1) || (pPCItem2->iItemNo != -1)", PC_ITEM_CPP, 0xdbc,
-                     0);
+        srAssertFail("(pPCItem1->iItemNo != -1) || (pPCItem2->iItemNo != -1)");
     }
     auto* held_source = item == &g_status.item_in_hand          ? destination
                         : destination == &g_status.item_in_hand ? item
@@ -2818,10 +2814,10 @@ bool EquipHeldItemAndStowPartner(W8Character& character, W8EquipSlot slot)
 void SetHandType(W8Character* character, W8EquipSlot slot)
 {
     if (character == 0) {
-        srAssertFail("pPC != NULL", PC_ITEM_CPP, 3676, 0);
+        srAssertFail("pPC != NULL");
     }
     if (static_cast<unsigned int>(slot) > W8_EQUIP_SLOT_FEET) {
-        srAssertFail("uiSlot < SLOT_COUNT", PC_ITEM_CPP, 3677, 0);
+        srAssertFail("uiSlot < SLOT_COUNT");
     }
     int hand;
     if (slot == W8_EQUIP_SLOT_PRIMARY_WEAPON) {
@@ -2831,7 +2827,7 @@ void SetHandType(W8Character* character, W8EquipSlot slot)
             std::string message =
                 fmt::format("SetHandType: ERROR: uiSlot {:d} is not a hand/weapon slot!",
                             fmt::underlying(slot));
-            srAssertFail("FALSE", PC_ITEM_CPP, 3690, message);
+            srAssertFail("FALSE", message);
             return;
         }
         hand = 1;
@@ -2872,7 +2868,7 @@ int WeaponHandKind(const W8ItemInstance& primary, const W8ItemInstance& secondar
             std::string message =
                 fmt::format("SetHandType: ERROR: invalid item {:d} type {:d} in hand {:d}!",
                             item_id, static_cast<int>(g_item_records[item_id].equip_class), hand);
-            srAssertFail("FALSE", PC_ITEM_CPP, 3731, message);
+            srAssertFail("FALSE", message);
             return 0;
         }
         }

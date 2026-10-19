@@ -35,8 +35,6 @@ class Trigger;
    location variable. The level-0x1a neighbors belong to Trynnie2.cpp
    (0x004D9E60 cites it). */
 
-#define TRYNNIE1_CPP "C:\\Projects\\Wizardry 8\\Level Specific Code\\Trynnie1.cpp"
-
 /* Item ids 0x1b3 and 0x1c3 route the use-item action down the origin/equip
    path instead of activating, the same as a non-usable equip class. */
 // FUNCTION: WIZ8 0x004DA0F0
@@ -59,14 +57,12 @@ void EnsureTrynnie1KilledVar(void)
         if (GetLocationVarIDByName("Trynnie1Killed") == -1) {
             KillTrynnieGroups();
             if (!FindEntityByName("VOC_SHAMAN_DYING", &vPos, 0, 0)) {
-                srAssertFail("WorldGetNamedPosition(\"VOC_SHAMAN_DYING\", vPos)", TRYNNIE1_CPP,
-                             0x12, 0);
+                srAssertFail("WorldGetNamedPosition(\"VOC_SHAMAN_DYING\", vPos)");
             }
             vPos2 = vPos;
             group = CreateGroup(0xcd, 1, &vPos2, true, false, true);
             if (group == 0) {
-                srAssertFail("CreateGroup(205, 1, vPos2, TRUE, FALSE, TRUE)", TRYNNIE1_CPP, 0x18,
-                             0);
+                srAssertFail("CreateGroup(205, 1, vPos2, TRUE, FALSE, TRUE)");
             }
             CreateLocationVar("Trynnie1Killed", 1);
         }
@@ -138,11 +134,10 @@ void KillTrynnieGroups(void)
     iOldTable = FindEncounterTableByName("Trynnies");
     iNewTable = FindEncounterTableByName("Dead Trynnies");
     if (iOldTable == -1) {
-        srAssertFail("iOldTable!=(-1)", TRYNNIE1_CPP, 0x68, "Can't find monster table 'Trynnies'");
+        srAssertFail("iOldTable!=(-1)", "Can't find monster table 'Trynnies'");
     }
     if (iNewTable == -1) {
-        srAssertFail("iNewTable!=(-1)", TRYNNIE1_CPP, 0x69,
-                     "Can't find monster table 'Dead Trynnies'");
+        srAssertFail("iNewTable!=(-1)", "Can't find monster table 'Dead Trynnies'");
     }
     for (index = 0; index < static_cast<int>(GetWorld()->encounters.generators.size()); ++index) {
         generator = GetWorld()->encounters.generators[index].get();

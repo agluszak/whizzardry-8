@@ -37,8 +37,7 @@ W8AnimRepBase::W8AnimRepBase()
 void W8AnimRep::SetFrameMethod(W8AnimationFrameMethod method)
 {
     if (method < W8_ANIMATION_WRAP || method > W8_ANIMATION_UNKNOWN_FRAME_METHOD) {
-        srAssertFail("bFrameMethod >= DIR_FIRST && bFrameMethod <= DIR_LAST",
-                     "C:\\Projects\\Wizardry 8\\Engine Code\\AnimRep.cpp", 0x6a, 0);
+        srAssertFail("bFrameMethod >= DIR_FIRST && bFrameMethod <= DIR_LAST");
     }
     frame_method = method;
 }

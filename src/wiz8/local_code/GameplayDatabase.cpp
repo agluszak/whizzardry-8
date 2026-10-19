@@ -52,7 +52,6 @@ std::string* g_item_table_category_names;
 // GLOBAL: WIZ8 0x0065BE1C
 std::vector<W8SpellRuntimeRecord> g_spell_records;
 // GLOBAL: WIZ8 0x0065BE18
-#define GAMEPLAY_DATABASE_CPP "C:\\Projects\\Wizardry 8\\Local Code\\GameplayDatabase.cpp"
 
 namespace {
 std::vector<std::string> item_table_categories;
@@ -122,8 +121,7 @@ try {
 bool LoadMonsterDatabaseRecord(unsigned int uiMonsterIndex, W8MonsterRecord* record)
 try {
     if (!(uiMonsterIndex < gXStatus.uiMonstersInDatabase)) {
-        srAssertFail("uiMonsterIndex < gXStatus.uiMonstersInDatabase", GAMEPLAY_DATABASE_CPP, 0x140,
-                     0);
+        srAssertFail("uiMonsterIndex < gXStatus.uiMonstersInDatabase");
     }
     auto handle =
         wiz8::open_file(wiz8::asset_path("Data\\Databases\\Monsters.DBS"), wiz8::OpenMode::read);
@@ -188,10 +186,10 @@ bool LoadMonsterDatabaseRange(unsigned int uiStartIndex, unsigned int uiEndIndex
                               W8MonsterRecord* records)
 try {
     if (!(uiEndIndex < gXStatus.uiMonstersInDatabase)) {
-        srAssertFail("uiEndIndex < gXStatus.uiMonstersInDatabase", GAMEPLAY_DATABASE_CPP, 0x17a, 0);
+        srAssertFail("uiEndIndex < gXStatus.uiMonstersInDatabase");
     }
     if (uiStartIndex > uiEndIndex) {
-        srAssertFail("uiStartIndex <= uiEndIndex", GAMEPLAY_DATABASE_CPP, 0x17b, 0);
+        srAssertFail("uiStartIndex <= uiEndIndex");
     }
     auto handle =
         wiz8::open_file(wiz8::asset_path("Data\\Databases\\Monsters.DBS"), wiz8::OpenMode::read);

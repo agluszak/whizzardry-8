@@ -412,8 +412,7 @@ short* stMeshModel::GetVertex(unsigned int frame)
 void stMeshModel::InitializeVertexFrames(int count)
 {
     if (count <= 0) {
-        srAssertFail("uiFrames", "C:\\Projects\\Wizardry 8\\Engine Code\\stMeshModel.cpp", 0x6e8,
-                     0);
+        srAssertFail("uiFrames");
         return;
     }
     // ReadMesh calls this for each frame; it must not discard earlier frames.

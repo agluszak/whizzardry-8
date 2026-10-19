@@ -21,7 +21,6 @@
 #include "Font.h"
 #include "asset_paths.h"
 #include "difficulty.h"
-#include "file_time.h"
 #include "image.h"
 #include "input.h"
 #include "sprite.h"
@@ -187,83 +186,22 @@ void W8PartySelectionCharacterCollection::LoadExternalCharacters()
     }
 }
 
-static void SortPartySelectionCharactersByTime(W8Character** characters, wiz8::DiskFileTime* times,
-                                               int first, int last)
-{
-    if (last - first < 9) {
-        for (int next = first + 1; next <= last; ++next) {
-            wiz8::DiskFileTime time = times[next];
-            W8Character* character = characters[next];
-            int insert = next;
-            while (insert > first && times[insert - 1].ticks() < time.ticks()) {
-                times[insert] = times[insert - 1];
-                characters[insert] = characters[insert - 1];
-                --insert;
-            }
-            times[insert] = time;
-            characters[insert] = character;
-        }
-        return;
-    }
-
-    wiz8::DiskFileTime pivot = times[last];
-    int left = first - 1;
-    int right = last;
-    for (;;) {
-        do {
-            ++left;
-        } while (left < last && times[left].ticks() > pivot.ticks());
-        do {
-            --right;
-        } while (right > first && times[right].ticks() < pivot.ticks());
-        if (left >= right) {
-            break;
-        }
-        wiz8::DiskFileTime time = times[left];
-        times[left] = times[right];
-        times[right] = time;
-        W8Character* character = characters[left];
-        characters[left] = characters[right];
-        characters[right] = character;
-    }
-    times[last] = times[left];
-    times[left] = pivot;
-    W8Character* character = characters[left];
-    characters[left] = characters[last];
-    characters[last] = character;
-    if (first < left - 1) {
-        SortPartySelectionCharactersByTime(characters, times, first, left - 1);
-    }
-    if (left + 1 < last) {
-        SortPartySelectionCharactersByTime(characters, times, left + 1, last);
-    }
-}
-
 void W8PartySelectionCharacterCollection::SortCharactersByWriteTime()
 {
-    if (static_cast<int>(characters.size()) <= 1) {
-        return;
-    }
-
-    std::vector<wiz8::DiskFileTime> times(characters.size());
-    for (int index = 0; index < static_cast<int>(characters.size()); ++index) {
-        std::string path;
-        path = BuildCharacterPath(characters[index]->name, -1);
-        std::unique_ptr<wiz8::File> handle = [&]() {
-            try {
-                return wiz8::open_file(wiz8::user_path(path), wiz8::OpenMode::read);
-            } catch (const std::exception&) {
-                return std::unique_ptr<wiz8::File>{};
-            }
-        }();
-        if (handle) {
-            times[index] = handle->times().modified;
-            if (handle) handle->close();
-            handle.reset();
+    std::vector<std::pair<SDL_Time, W8Character*>> dated;
+    dated.reserve(characters.size());
+    for (auto* character : characters) {
+        SDL_Time time = 0;
+        try {
+            const auto status =
+                wiz8::file_status(wiz8::user_path(BuildCharacterPath(character->name, -1)));
+            if (status) time = status->info.modify_time;
+        } catch (const std::exception&) {
         }
+        dated.emplace_back(time, character);
     }
-    SortPartySelectionCharactersByTime(characters.data(), times.data(), 0,
-                                       static_cast<int>(characters.size()) - 1);
+    std::ranges::sort(dated, std::greater{}, &decltype(dated)::value_type::first);
+    for (std::size_t i = 0; i < dated.size(); ++i) characters[i] = dated[i].second;
 }
 
 class W8PartySelectionController {
@@ -865,7 +803,7 @@ void W8PartySelectionController::SetMode(W8PartySelectionMode mode)
     RefreshRows();
     RefreshSlots();
     if (importing && g_party_selection_character_collection->names.empty()) {
-        for (const auto& entry : wiz8::list_directory(wiz8::user_path("saves\\import"), "*.*")) {
+        for (const auto& entry : wiz8::list_directory(wiz8::user_path("saves\\import"))) {
             const auto status = wiz8::file_status(wiz8::user_path("saves\\import\\" + entry));
             if (status && status->info.type == SDL_PATHTYPE_FILE)
                 g_party_selection_character_collection->names.push_back(entry);

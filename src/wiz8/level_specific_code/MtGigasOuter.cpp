@@ -26,8 +26,6 @@
 struct W8ItemInstance;
 struct W8NpcState;
 
-#define MTGIGASOUTER_CPP "C:\\Projects\\Wizardry 8\\Level Specific Code\\MtGigasOuter.cpp"
-
 /* Level Specific Code\MtGigasOuter.cpp (level 0x0e).
 
    Attribution evidence: 0x004DC080 is this TU's hard lower bound and

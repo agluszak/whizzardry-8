@@ -20,13 +20,11 @@
    blocks for four level TUs - MtGigasOuter (0xe), MtGigasTop (0xf),
    Monastery2 (9) and Monastery1 (8) - which are not recovered here. */
 
-#define MONASTERY2_CPP "C:\\Projects\\Wizardry 8\\Level Specific Code\\Monastery2.cpp"
-
 static void DisableBellTrigger(const char* name, int line)
 {
     Trigger* pPropTrigger = FindTriggerByName(name);
     if (pPropTrigger == 0) {
-        srAssertFail("pPropTrigger", MONASTERY2_CPP, line, 0);
+        srAssertFail("pPropTrigger");
     }
     pPropTrigger->flags &= ~W8_TRIGGER_ON;
 }
