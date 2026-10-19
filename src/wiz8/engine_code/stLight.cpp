@@ -10,7 +10,6 @@
 
 #include <glm/common.hpp>
 
-#include "compat/compiler.h"
 #include "compat/native.h"
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srMeshModel.h"
