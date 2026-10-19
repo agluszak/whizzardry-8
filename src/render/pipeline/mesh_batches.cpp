@@ -663,7 +663,7 @@ void clipMath::clipFlags(std::span<std::uint8_t> destination, std::span<const gl
         // Each axis owns two bits: the low side (below -w) and the high side (above w).
         // x uses 0x01/0x02, y 0x04/0x08, z 0x10/0x20.
         std::uint8_t flags = 0;
-        for (std::size_t axis = 0; axis < 3; ++axis) {
+        for (int axis = 0; axis < 3; ++axis) {
             const auto low = static_cast<std::uint8_t>(1u << (2 * axis));
             if (negative_w > point[axis]) flags |= low;
             if (point[axis] > point.w) flags |= static_cast<std::uint8_t>(low << 1);

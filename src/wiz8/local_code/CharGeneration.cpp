@@ -20,7 +20,6 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/party_encumbrance.h"
 #include "wiz8/platform/assertion.h"
-#include "wiz8/utility.h"
 
 /* Refund every spent skill point through the per-skill commit helper. */
 void RefundAllSkillPoints(W8Character* character, W8CharacterCreationState* creation_state)

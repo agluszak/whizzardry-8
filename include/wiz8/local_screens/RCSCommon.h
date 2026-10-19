@@ -10,7 +10,6 @@
 #include "wiz8/canvas/image.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/platform/input.h"
-#include "wiz8/ui_layer.h"
 
 enum W8CampItemAction : unsigned char;
 

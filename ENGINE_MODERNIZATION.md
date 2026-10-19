@@ -315,18 +315,19 @@ To execute this cleanly in a dedicated worktree without leaving transitional shi
 
 PR [#374](https://github.com/agluszak/whizzardry-8/pull/374), merged as
 `77e6e460`, established the foundation modules and initial entity flattening.
-The complete replacement continues in draft PR
+The replacement continues in PR
 [#384](https://github.com/agluszak/whizzardry-8/pull/384).
 
-All five architecture areas below have implementations on that branch. **The
-plan is not complete until the expanded rewrite passes CI.** The earlier #374
-results do not validate the continuation.
+This batch replaces the old engine layers across all five architecture areas.
+**The entire modernization plan is not complete.** The remaining API and
+ownership work is listed in section 7. The earlier #374 results do not validate
+the continuation.
 
 | Plan area | Implementation in #384 | Validation |
 | :--- | :--- | :--- |
 | Foundation modules | `canvas/` draws only to SDL surfaces; framebuffer integration lives in `render/frame`. SDL window/input/time services live in `platform/`. `AmbientAudioSystem` owns ambient schedules, stable script voices, transient voices and the footstep loop; sound events and mouth-gap data are values. | Pending complete CI |
 | Renderer and resources | `GpuRenderer` directly owns GPU resources and submissions. The device facade, mesh pipeline, vertex processor hierarchy and fixed state stacks are deleted. Vertex shading receives concrete draw inputs. `WorldScene` uses typed mesh/light/fog/particle/shadow/clip collections. `Mesh`, `MeshInstance`, `Texture`, `Material` and variant-animated `Light` are concrete resources. Mesh parts use standard ranges over owned children. One UI canvas texture and flat `OverlayQuad` values replace overlay scenes and tiled surfaces. | Pending complete CI |
-| Entities and animation | `Monster`, `Missile` and `SpellVisual` compose `CyclePlayer` and `Navigator`; all entity bases, representation classes and virtual animation getters are gone. Cycle slots own animations, lights and playback scale together. Prop owns its collision/path data. Keyframe tracks and missile flight are values. Trigger payloads use a variant; trigger I/O, actions and locks have separate implementations. Typed world asset lookup replaces the process-wide cycle registry. Nullable actor callers handle unloaded actors explicitly. | Pending complete CI |
+| Entities and animation | `Monster`, `Missile` and `SpellVisual` compose `CyclePlayer` and `Navigator`; all entity bases, representation classes and virtual animation getters are gone. Cycle slots own animations, lights and playback scale together. Prop owns its collision/path data. Keyframe tracks and missile flight are values. Trigger payloads use a variant; trigger I/O, actions and locks have separate implementations. Typed world asset lookup replaces the process-wide cycle registry. The reviewed actor lookup callers handle unloaded actors explicitly; the wider actor-reference audit remains open. | Pending complete CI |
 | Spatial and navigation | One world-owned `LevelSpatialIndex` owns compiled indexing and collision banks, including the raw-WGD fallback. `DynamicSpatialRegistry` owns registration and visibility; `CollisionRuntime` owns conditional switches and trigger state. Queries use local scratch and explicit geometry spans, without surface-bank swaps, shared visit bits or cached hit results. Motion contacts copy immutable geometry into a local contact cache. `SurfaceIndex` stores typed surface references and deduplicates locally. Navigation uses per-search graph/grid/patrol scratch and per-mesh settings; only movement updates patrol stamps. The obsolete region-link authoring pipeline is deleted; shipped `.rlk` files remain readable. | Pending complete CI |
 | World, environment, camera and loading | `World` owns scene, environment, spatial data, audio, population and entities. Member order replaces manual teardown phases. `EnvironmentState` owns authored ramps, fog, lighting transitions and sky references. `PartyCamera` owns orientation, transitions, `PartyMotion`, active physical environment, sway, input and footstep timing. Camera snapshots use typed poses with opaque retail bytes preserved by the codec. `world/level_loader` owns level/PVL/WGD decoding; `world/level_session` owns loading, transitions and save snapshots. All callers use the new modules. | Pending complete CI |
 
@@ -357,14 +358,41 @@ isolation, pending-world isolation, opaque camera/save records and trigger
 lifetimes. Inheritance-only fixtures were removed. An untimed-trigger regression
 covers continuous camera-shake cleanup without an absent countdown dereference.
 
-Checkpoint compile failures found in CI are being fixed on the continuation
-branch. GitHub Actions currently reports degraded availability and recent runs
-are queued. The PR remains a draft until the complete checks above pass on the
-final implementation. Historical green checks on #374 and the initial
-movement-only continuation cover those revisions only.
+CI fixes are being validated on the rebased continuation branch against the
+C++26 toolchain, stronger diagnostics and sanitizer configuration now on main.
+The PR remains a draft until the complete checks above pass on the final
+implementation. Historical green checks on #374 and the initial movement-only
+continuation cover those revisions only.
 
 ### Historical #374 validation
 
 The merged plan recorded 227 passing CTest cases in Release and AddressSanitizer,
 including 14 retail-asset scenarios, and targeted static analysis. Those results
 are retained here as history, not as evidence for #384's much larger replacement.
+
+## 7. Work Remaining After This Batch
+
+The new modules are the foundation for the following work; removing the old
+directories alone does not finish these goals.
+
+- **Finish spatial query value APIs.** `traceSurfaces` and `traceGeometry`
+  return typed hits, but `W8OctreeTrace`, line-of-sight and ground-probe callers
+  still use mutable output records and surface-zero sentinel conventions.
+  Convert these end to end to explicit inputs and optional typed results,
+  preserving world/prop filtering and gameplay behavior.
+- **Finish explicit renderer inputs.** The device/pipeline hierarchies and
+  fixed stacks are gone, but renderer matrix-mode/load operations and mutable
+  current draw state remain. Replace the remaining implicit state protocol
+  with explicit per-draw inputs and migrate its callers.
+- **Complete world/session ownership cleanup.** Review the remaining borrowed
+  camera/static-mesh aliases and active-session globals against their actual
+  owners. Move persistent cursor selection/projection state into the owning
+  world or session; retain borrowed views only where their lifetime is clear.
+- **Complete the nullable actor-reference audit.** The direct location-ID
+  lookup review fixed unloaded-actor cases, but metadata `p3D` consumers still
+  need a wider review, including trigger-driven actor reactivation. Exercise
+  meaningful unloaded/retired-actor regressions where the audit finds bugs.
+- **Validate each follow-up in CI.** Keep retail asset/save compatibility,
+  concrete ownership tests, sanitizer runtime scenarios and all required
+  analysis/format checks green. Record the final CI results for this batch
+  in section 6 before declaring it ready.

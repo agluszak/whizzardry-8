@@ -13,7 +13,6 @@
 #include "local_code/MonsterManager.h"
 #include "wiz8/audio/mouth_gap.h"
 #include "wiz8/audio/soundman.h"
-#include "wiz8/character_event_queue.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/combat_state.h"

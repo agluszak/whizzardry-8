@@ -37,7 +37,6 @@
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/string_database.h"
-#include "wiz8/utility.h"
 #include "wiz8/world/camera_pose.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/party_camera.h"
