@@ -11,6 +11,8 @@
 #include <vector>
 
 #include <SDL3/SDL_stdinc.h>
+#include <glm/geometric.hpp>
+#include <glm/matrix.hpp>
 
 #include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
@@ -18,8 +20,6 @@
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
-#include "glm/geometric.hpp"
-#include "glm/matrix.hpp"
 #include "layouts/world.h"
 #include "surrender/plane_math.h"
 #include "surrender/srBoundingBox.h"
@@ -53,11 +53,10 @@
 constexpr double kLightRangeAttenuationDenominator = 0.0019569471624266144;
 constexpr double kLightRangeAttenuationNumerator = 0.9980430528375734;
 
-// FUNCTION: WIZ8 0x0046DD70
 void UpdateWorldMonsters(W8World* world)
 {
     if (world == 0) {
-        srAssertFail("pWorld");
+        Fail("pWorld");
     }
 
     glm::dvec3 camera_location = world->camera->getLocation();
@@ -79,15 +78,14 @@ void UpdateWorldMonsters(W8World* world)
 
 /* Detach every item mesh in one world, refresh its animation, and reattach it
    to the world's dynamic scene before the renderer transition. */
-// FUNCTION: WIZ8 0x0046de40
 void DetachWorldItemMeshes(W8World* world)
 {
     if (world == 0) {
-        srAssertFail("pWorld");
+        Fail("pWorld");
     }
     unsigned int count = world->plsItems.size();
     for (int index = 0; index < static_cast<int>(count); ++index) {
-        W8Item* item = world->plsItems[index].get();
+        WorldItemEntity* item = world->plsItems[index].get();
         if (item != 0) {
             item->DetachMesh();
             item->UpdateAnimation();
@@ -100,7 +98,6 @@ void DetachWorldItemMeshes(W8World* world)
 
 /* Remove every light held in one world's list, drop it from the render update
    set, and release it. */
-// FUNCTION: WIZ8 0x0046e4a0
 void DestroyWorldLights(W8World* world)
 {
     world->transient_lights.clear();
@@ -108,7 +105,6 @@ void DestroyWorldLights(W8World* world)
 
 /* Put static-scene illuminators in group one and the world's camera light in
    group two.  The scene graph access is the ordinary srNode hierarchy API. */
-// FUNCTION: WIZ8 0x0046F3A0
 void FinalizeStaticScene(W8World& world)
 {
     auto* scene = world.static_scene.get();
@@ -131,7 +127,6 @@ void FinalizeStaticScene(W8World& world)
    faces the light accumulates diffuse attenuated by range into its vertex
    light. "Sun"-prefixed lights bake into the sunlight array instead and are
    skipped here. `walk_chain` limits the light walk to the first sibling. */
-// FUNCTION: WIZ8 0x0046E8A0
 unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* lights, bool walk_chain)
 {
     auto world = instance->getWorldSpaceMatrix<glm::mat4>();
@@ -193,7 +188,6 @@ unsigned char BakeInstanceVertexLighting(stModelInstance* instance, srNode* ligh
 /* Bake the dynamic scene's light children into every not-yet-lit model
    instance under one static-scene subtree. render_flags bit 1 is the instance's
    own lit marker; the child-chain exclusion update uses the shared helper. */
-// FUNCTION: WIZ8 0x0046F410
 unsigned char FinalizeWorldScenes(srNode* node, srNode* dynamic_scene)
 {
     for (; node != 0; node = node->getNext()) {
@@ -209,7 +203,6 @@ unsigned char FinalizeWorldScenes(srNode* node, srNode* dynamic_scene)
 
 /* Bake dynamic-scene lights into one not-yet-lit model instance. render_flags
    bit 1 is the lit marker. */
-// FUNCTION: WIZ8 0x0046F4A0
 unsigned char BakeInstanceVertexLightingIfNeeded(stModelInstance* instance, srNode* dynamic_scene)
 {
     srNode* lights = dynamic_scene->getChild();
@@ -225,7 +218,6 @@ unsigned char BakeInstanceVertexLightingIfNeeded(stModelInstance* instance, srNo
 /* Walk every live world mesh (octree mesh table, or the update-mesh chain when
    there is no octree) and point its vertex-light table index at `table`, then
    raise flags bit 1 so the next bake uses that table. */
-// FUNCTION: WIZ8 0x0046F760
 void SetWorldMeshVertexLightTable(int table)
 {
     if (GetWorld()->octree == 0) {
@@ -249,7 +241,6 @@ void SetWorldMeshVertexLightTable(int table)
 }
 
 /* Visibility queries share midpoint/corner generation and retain early-exit order. */
-// FUNCTION: WIZ8 0x0046F820
 bool targetMarkerVisible(const glm::vec3& eye, const srBoundingBox& bounds)
 {
     const glm::vec3 from(eye);
@@ -261,7 +252,6 @@ bool targetMarkerVisible(const glm::vec3& eye, const srBoundingBox& bounds)
     return false;
 }
 
-// FUNCTION: WIZ8 0x0046FAF0
 bool traceLineOfSightToBounds(const glm::vec3& origin, const srBoundingBox& bounds)
 {
     const glm::vec3 from(origin);
@@ -273,7 +263,6 @@ bool traceLineOfSightToBounds(const glm::vec3& origin, const srBoundingBox& boun
     return false;
 }
 
-// FUNCTION: WIZ8 0x0046FD70
 bool hasLineOfSightToBounds(const glm::vec3& origin, const srBoundingBox& bounds)
 {
     const glm::vec3 from(origin);
@@ -285,11 +274,10 @@ bool hasLineOfSightToBounds(const glm::vec3& origin, const srBoundingBox& bounds
 }
 
 /* Build the concrete first-party instance used for an already-created mesh. */
-// FUNCTION: WIZ8 0x0046F5C0
 std::unique_ptr<stModelInstance> CreateModelInstance(std::shared_ptr<stMeshModel> model)
 {
     if (model == nullptr) {
-        srAssertFail("pstMeshModel");
+        Fail("pstMeshModel");
     }
     auto instance = std::make_unique<stModelInstance>(nullptr);
     instance->setName("ST_CreateInstance");
@@ -297,7 +285,6 @@ std::unique_ptr<stModelInstance> CreateModelInstance(std::shared_ptr<stMeshModel
     return instance;
 }
 
-// FUNCTION: WIZ8 0x0046F680
 std::unique_ptr<stModelInstance> DuplicateModelInstance(const stModelInstance& instance)
 {
     auto copy = std::make_unique<stModelInstance>(nullptr);
@@ -306,16 +293,15 @@ std::unique_ptr<stModelInstance> DuplicateModelInstance(const stModelInstance& i
     return copy;
 }
 
-static void ConfigureLightDefaults(stLight& light, const char* name)
+static void ConfigureLightDefaults(stLight& light, std::string_view name)
 {
-    light.setName(name ? name : "");
+    light.setName(std::string(name));
     light.attenuation_model = srLight::ATTENUATION_3DSTUDIO_MAX;
     light.enable_flags |= (1UL << srLight::ENABLE_RANGE_FAR);
     light.enable_flags |= (1UL << srLight::ENABLE_BOUNDING_SPHERE);
 }
 
-// FUNCTION: WIZ8 0x0046DF90
-std::unique_ptr<stLight> CreateLight(srNode* parent, const char* name)
+std::unique_ptr<stLight> CreateLight(srNode* parent, std::string_view name)
 {
     auto light = std::make_unique<stLight>(parent);
     ConfigureLightDefaults(*light, name);
@@ -329,11 +315,10 @@ stLight* AddWorldLight(W8World* world, std::unique_ptr<stLight> light)
     return borrowed;
 }
 
-// FUNCTION: WIZ8 0x0046E030
-stLight* CreateWorldLight(W8World* world, const char* name)
+stLight* CreateWorldLight(W8World* world, std::string_view name)
 {
-    if (name == 0) {
-        srAssertFail("name");
+    if (name.empty()) {
+        Fail("name");
     }
 
     auto light = std::make_unique<stLight>(world->static_scene.get());
@@ -341,14 +326,13 @@ stLight* CreateWorldLight(W8World* world, const char* name)
     return AddWorldLight(world, std::move(light));
 }
 
-// FUNCTION: WIZ8 0x0046E140
-stLight* CreateRangedWorldLight(W8World* world, const char* name)
+stLight* CreateRangedWorldLight(W8World* world, std::string_view name)
 {
-    if (name == 0) {
-        srAssertFail("name");
+    if (name.empty()) {
+        Fail("name");
     }
     if (world == 0) {
-        srAssertFail("pWorld");
+        Fail("pWorld");
     }
 
     auto light = std::make_unique<stLight>(world->static_scene.get());
@@ -363,14 +347,13 @@ stLight* CreateRangedWorldLight(W8World* world, const char* name)
 }
 
 /* Take a light out of both world collections and release it. */
-// FUNCTION: WIZ8 0x0046e250
 void WorldRemoveLight(W8World* world, stLight* light)
 {
     if (world == 0) {
-        srAssertFail("pWorld");
+        Fail("pWorld");
     }
     if (light == 0) {
-        srAssertFail("pLight");
+        Fail("pLight");
     }
     std::erase(world->environment_lights, light);
     // The world owns the light: erasing it from the list destroys it.
@@ -378,7 +361,6 @@ void WorldRemoveLight(W8World* world, stLight* light)
                   [light](const std::unique_ptr<stLight>& owned) { return owned.get() == light; });
 }
 
-// FUNCTION: WIZ8 0x0046E300
 void ConfigureWorldLight(srLight* light, float range)
 {
     light->far_end = static_cast<double>(range);
@@ -391,7 +373,6 @@ void ConfigureWorldLight(srLight* light, float range)
 
 // Source unit is Engine Code\3d.cpp; the assertion at line 344 is what names
 // and types World::plsProps.
-// FUNCTION: WIZ8 0x0046ded0
 void WorldUpdateProps(W8World* world)
 {
     int count;
@@ -399,7 +380,7 @@ void WorldUpdateProps(W8World* world)
     W8Prop* prop;
 
     if (!world) {
-        srAssertFail("pWorld");
+        Fail("pWorld");
     }
     count = static_cast<int>(world->plsProps.size());
     for (index = 0; index < count; index++) {
@@ -412,7 +393,6 @@ void WorldUpdateProps(W8World* world)
     }
 }
 
-// FUNCTION: WIZ8 0x0046df50
 void WorldUpdateLights(W8World* world)
 {
     // Authored lights are owned by the world. Cycle lights remain owned by
@@ -432,13 +412,11 @@ void WorldUpdateLights(W8World* world)
     update_cycles(world->spell_visuals);
 }
 
-// FUNCTION: WIZ8 0x0046e860
 void SetWorldSceneMeshShaderLowBits(W8World* owner, int argument)
 {
     SetSceneMeshShaderLowBits(owner->static_scene.get(), argument);
 }
 
-// FUNCTION: WIZ8 0x0046e880
 void SetWorldSceneMeshShaderBit3(W8World* owner, int argument)
 {
     SetSceneMeshShaderBit3(owner->static_scene.get(), argument);
@@ -447,7 +425,6 @@ void SetWorldSceneMeshShaderBit3(W8World* owner, int argument)
 /* Walk one scene subtree and toggle shader DEPTH_WRITE on every mesh model of
    every model instance; the instance's flags bit zero selects the off
    state. */
-// FUNCTION: WIZ8 0x0046e640
 void SetSceneMeshShaderBit3(srNode* node, int argument)
 {
     srShader shader;
@@ -485,7 +462,6 @@ void SetSceneMeshShaderBit3(srNode* node, int argument)
 
 /* The sibling walker that leaves PASS bit 2 clear and writes the low three
    bits: PASS_ALWAYS when the argument is zero, otherwise PASS_LEQUAL. */
-// FUNCTION: WIZ8 0x0046e750
 void SetSceneMeshShaderLowBits(srNode* node, int argument)
 {
     srShader shader;
@@ -523,7 +499,6 @@ void SetSceneMeshShaderLowBits(srNode* node, int argument)
     }
 }
 
-// FUNCTION: WIZ8 0x0046f4f0
 void SetModelInstanceChainExclusionMask(srModelInstance* node, int value)
 {
     for (; node != 0; node = static_cast<srModelInstance*>(node->getChild())) {
@@ -535,11 +510,10 @@ void SetModelInstanceChainExclusionMask(srModelInstance* node, int value)
    argument, and only zero is rejected, so the guard is a "leave it alone"
    rather than a range check. The assertion at 3d.cpp:651 is what names the
    receiver pWorld. */
-// FUNCTION: WIZ8 0x0046e350
 void WorldSetRenderRange(W8World* world, float value)
 {
     if (!world) {
-        srAssertFail("pWorld");
+        Fail("pWorld");
     }
     if (value != 0.0f) {
         world->render_range = value;
@@ -550,11 +524,10 @@ void WorldSetRenderRange(W8World* world, float value)
    near plane is the fixed 62.5 the original materialises inline. The guard is
    against a denormal-scale epsilon rather than zero, so a distance that has
    collapsed leaves the camera as it was. */
-// FUNCTION: WIZ8 0x0046e3d0
 void WorldSetFarClip(W8World* world, float distance)
 {
     if (!world) {
-        srAssertFail("pWorld");
+        Fail("pWorld");
     }
     if (distance > 5.9604644775390625e-008) {
         world->camera->setClipRange(62.5, distance);
@@ -565,23 +538,20 @@ void WorldSetFarClip(W8World* world, float distance)
 /* The matching reader. Both planes come back, and only the far one is
    returned, which is the same asymmetry the setter has. A world without a
    camera answers zero rather than reading through it. */
-// FUNCTION: WIZ8 0x0046e440
 double WorldGetFarClip(W8World* world)
 {
     if (world != nullptr && world->camera != nullptr) return world->camera->getClipRange().second;
     return 0;
 }
 
-// FUNCTION: WIZ8 0x0046DC90
 void SetSceneAmbientLightWhite(srScene* scene)
 {
     if (scene == 0) {
-        srAssertFail("psrScene");
+        Fail("psrScene");
     }
     scene->setAmbientLight(1.0f, 1.0f, 1.0f);
 }
 
-// FUNCTION: WIZ8 0x0046d880
 bool PointInsideFrustum(const glm::vec3& point, std::span<const W8Plane, 6> planes)
 {
     return SphereInsideFrustum(point, 0.0f, planes);
@@ -592,7 +562,6 @@ bool PointInsideFrustum(const glm::vec3& point, std::span<const W8Plane, 6> plan
    triangle and query point, and each edge straddling the point's second
    coordinate toggles the inside flag when its interpolation crosses the
    first. */
-// FUNCTION: WIZ8 0x0046d530
 bool PointInsideTriangle(std::span<const glm::vec3, 3> vertices, unsigned axis,
                          const glm::vec3& point)
 {
@@ -600,7 +569,6 @@ bool PointInsideTriangle(std::span<const glm::vec3, 3> vertices, unsigned axis,
                                           srTriangleProjection::Boundary::visibility);
 }
 
-// FUNCTION: WIZ8 0x0046d7e0
 std::array<W8Plane, 6> BuildFrustumPlanes(std::span<const glm::vec3, 8> points)
 {
     constexpr std::array<std::array<unsigned, 3>, 6> corners{
@@ -614,7 +582,6 @@ std::array<W8Plane, 6> BuildFrustumPlanes(std::span<const glm::vec3, 8> points)
 }
 
 /* Return a canonical y/z/x corner ordering, preserving ties within each run. */
-// FUNCTION: WIZ8 0x0046da20
 std::array<glm::vec3, 8> sortedFrustumCorners(std::span<const glm::vec3, 8> points)
 {
     std::array<glm::vec3, 8> sorted;
@@ -627,7 +594,6 @@ std::array<glm::vec3, 8> sortedFrustumCorners(std::span<const glm::vec3, 8> poin
     return sorted;
 }
 
-// FUNCTION: WIZ8 0x0046d8d0
 bool SphereInsideFrustum(const glm::vec3& point, float radius, std::span<const W8Plane, 6> planes)
 {
     const auto coefficients = planes | std::views::transform([](const W8Plane& plane) {
@@ -636,7 +602,6 @@ bool SphereInsideFrustum(const glm::vec3& point, float radius, std::span<const W
     return srPlaneMath::containsSphere(coefficients, point, radius);
 }
 
-// FUNCTION: WIZ8 0x0046d920
 bool BoundsInsideFrustum(const W8OctRegionVolume& volume, const srBoundingBox& bounds)
 {
     for (unsigned corner = 0; corner < 8; ++corner)

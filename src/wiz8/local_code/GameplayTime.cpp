@@ -14,16 +14,14 @@
 #include "layouts/main_game_screen.h"
 #include "layouts/targeting.h"
 #include "monster_actions.h"
-#include "random.h"
-#include "soundman.h"
 #include "surrender/srDebug.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/conditions.h"
 #include "wiz8/dice.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/GameTimeAccumulator.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Navigator.h"
@@ -65,6 +63,8 @@
 #include "wiz8/monster_generators.h"
 #include "wiz8/monster_runtime.h"
 #include "wiz8/music_playlist.h"
+#include "wiz8/platform/GameTimeAccumulator.h"
+#include "wiz8/platform/random.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 
@@ -98,7 +98,6 @@ static void BeginPartyCamping()
    world clock, fires the 120-second aging tick, the hourly item recharge,
    the 2500ms camping-fatigue and 1400ms stamina ticks, and runs the surprise
    sequence entry/transition while the party is eligible. */
-// FUNCTION: WIZ8 0x00502010
 void UpdateGameClock(int elapsed)
 {
     g_status.world_clock += static_cast<int>((g_status.world_clock_ms + elapsed) / 1000);
@@ -147,7 +146,7 @@ void UpdateGameClock(int elapsed)
     if ((!gXStatus.fCombatMode || aging_ticks != 0) && g_camera_sway_active) {
         if (gXStatus.fCombatMode) {
             if (aging_ticks == 0) {
-                srAssertFail("uiTurnsElapsed > 0");
+                Fail("uiTurnsElapsed > 0");
             }
             g_status.camp_tick_ms -= 4 * 0x9c4;
             UpdateCampFatigue(4);
@@ -198,7 +197,6 @@ void UpdateGameClock(int elapsed)
 /* The Camp key/button requests the surprise-possible camp state. Camping is
    refused outright in combat and while a level vector or a level flag blocks
    it; a blocking world-cursor node or a busy screen declines silently. */
-// FUNCTION: WIZ8 0x00502460
 void RequestCamp(void)
 {
     if (gXStatus.fSurprisePossible) {
@@ -225,7 +223,6 @@ void RequestCamp(void)
    poses to the startled frame, take the menu button banks down and request a
    full redraw. The scripted ambush triggers call this to open the surprise
    sequence. */
-// FUNCTION: WIZ8 0x005025F0
 void BeginSurprise(void)
 {
     unsigned int i;
@@ -246,7 +243,6 @@ void BeginSurprise(void)
    world clock reaches the deadline (unless surprise started unengaged);
    phase 2 waits for the fade-out helper, then ends surprise and forwards
    combat if needed. */
-// FUNCTION: WIZ8 0x00502650
 void UpdateSurpriseMode(void)
 {
     float scale;
@@ -285,7 +281,7 @@ void UpdateSurpriseMode(void)
         if (UpdateSurpriseFade() != 0) {
             EndSurprise();
             if (gXStatus.fCombatMode) {
-                MonsterStopAllNavigators();
+                StopAllNavigators();
             }
         }
         break;
@@ -297,7 +293,6 @@ void UpdateSurpriseMode(void)
    has reached phase 1 it performs the same restore as UpdateSurpriseMode's
    deadline path - without the environment-light refresh - and moves the
    sequence to phase 2. */
-// FUNCTION: WIZ8 0x00502790
 void AcknowledgeSurprise(void)
 {
     if (gXStatus.surprise_unengaged && !gXStatus.fCombatMode) {
@@ -310,7 +305,6 @@ void AcknowledgeSurprise(void)
 /* While a surprise sequence is holding, end it for combat: restore the view,
    navigator and time-scale overrides, reverse the fade and restart the level
    music. */
-// FUNCTION: WIZ8 0x00502810
 void ResolveSurpriseHold(void)
 {
     if (gXStatus.surprise_phase == W8SurprisePhase::hold) {
@@ -325,7 +319,6 @@ void ResolveSurpriseHold(void)
 /* End the surprise sequence: post the outcome notice and, if the condition-13
    rest event armed condition13_clock more than a world-clock day ago, clear the
    condition and queue the rest-benefit event for that character. */
-// FUNCTION: WIZ8 0x00502860
 void EndSurprise(void)
 {
     gXStatus.fSurprisePossible = false;
@@ -362,7 +355,6 @@ void EndSurprise(void)
 /* Tear down the world-state overrides the surprise sequence installed:
    restore default view distance and navigator link mode, reset the time
    scale, restart the monster generator timers and release the fade overlay. */
-// FUNCTION: WIZ8 0x005029a0
 void RestoreSurpriseView(void)
 {
     gXStatus.fSurprisePossible = false;
@@ -375,7 +367,6 @@ void RestoreSurpriseView(void)
    character rolls against their senses attribute - failure applies the
    groggy condition, success posts a notice. Then every occupied portrait is
    posed awake with a randomized idle clock and the button banks re-enable. */
-// FUNCTION: WIZ8 0x005029e0
 void ResolveSurpriseWake(void)
 {
     if (g_combat_state != 0 && g_combat_state->party_surprised) {
@@ -418,7 +409,6 @@ void ResolveSurpriseWake(void)
    are one tick of the pool ceiling's share, twenty points of base and a
    twelveth of a minute each; the modifier block's three regeneration-boost flags
    raise their rate by half. */
-// FUNCTION: WIZ8 0x00502b50
 void RebuildCharacterRegenRates(W8Character* character)
 {
     float rate;
@@ -453,7 +443,6 @@ void RebuildCharacterRegenRates(W8Character* character)
 /* The monster counterpart of the character regen rebuild: the same pool-share
    rates plus the modifier block's two regen channels, raised by half while the corresponding
    regeneration-boost flags are set. */
-// FUNCTION: WIZ8 0x00502c50
 void RebuildMonsterRegenRates(W8MonsterInfo* monster_info)
 {
     float rate;
@@ -499,7 +488,6 @@ static bool AgePartyEffectSlot(W8EffectSlot* slot, unsigned int minutes)
     return true;
 }
 
-// FUNCTION: WIZ8 0x00502d00
 void AdvanceTimedEffects(unsigned int minutes)
 {
     if (g_status.real_elapsed + g_status.frame_elapsed == 0.0f) {
@@ -598,7 +586,6 @@ void AdvanceTimedEffects(unsigned int minutes)
    item-0x243/0x239 madness pair, the fractional health/stamina/spell-point
    regeneration accumulators, and the finite condition and enchantment
    countdowns. */
-// FUNCTION: WIZ8 0x00503100
 void GameTurnsPassedChar(int party_slot, unsigned int minutes)
 {
     W8Character* character = &g_status.buffers.Char[party_slot];
@@ -641,7 +628,7 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
                     condition = W8_CONDITION_PARALYZED;
                     break;
                 default:
-                    srAssertFail("FALSE", "GameTurnsPassedChar: ERROR - Invalid condition");
+                    Fail("FALSE", "GameTurnsPassedChar: ERROR - Invalid condition");
                     condition = minutes;
                     break;
                 }
@@ -936,7 +923,7 @@ static void AgeMonsterMovement(W8MonsterInfo* monster_info, unsigned int minutes
         glm::vec3 last_seen;
         glm::vec3 delta;
 
-        location = MonsterGetLocation(monster);
+        location = monster->GetRepresentationLocation();
         if (monster->formation.x == 0.0f && monster->formation.y == 0.0f &&
             monster->formation.z == 0.0f) {
             monster->formation = monster->GetPosition();
@@ -969,7 +956,7 @@ static void AgeMonsterMovement(W8MonsterInfo* monster_info, unsigned int minutes
         glm::vec3 delta;
         unsigned char cycle;
 
-        location = MonsterGetLocation(monster);
+        location = monster->GetRepresentationLocation();
         previous = monster_info->movement_watch_position;
         monster_info->position.y = location.y;
         cycle = monster_info->movement_stall_ticks;
@@ -1104,7 +1091,6 @@ static void AgeMonsterMovement(W8MonsterInfo* monster_info, unsigned int minutes
    look-around timers, the sight bookkeeping around its last-seen position,
    the per-turn regeneration and fatigue bookkeeping, condition, enchantment
    and effect countdowns, and finally the combat effect slots. */
-// FUNCTION: WIZ8 0x00503990
 void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                      unsigned char full_health_regeneration)
 {
@@ -1272,7 +1258,6 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
    the rest item rolls fatigue dice whose sides grow with camp_fatigue_count;
    stamina absorbs the roll first, overflow becomes damage. The first roll
    raises the fatigued flag and posts the notice once. */
-// FUNCTION: WIZ8 0x005044d0
 void UpdateCampFatigue(int ticks)
 {
     if (g_status.world_suspended) {
@@ -1325,7 +1310,6 @@ void UpdateCampFatigue(int ticks)
 /* The stamina-tick driver: refreshes the wait state from fast movement and
    motion in the last update, then ticks each eligible character. While the party is
    fatigued, characters lacking the rest item are skipped. */
-// FUNCTION: WIZ8 0x00504670
 void UpdatePartyStamina(int ticks)
 {
     if (IsLevelFastMovement()) {
@@ -1358,7 +1342,6 @@ void UpdatePartyStamina(int ticks)
    applied directly, then the fractional regen accumulator is scaled by the
    wait state (camp halved, resting states reduced, surprise full), frost
    quarters it and the trait rerolls it through the profession level. */
-// FUNCTION: WIZ8 0x00504730
 void RegenCharacterStamina(int party_slot, unsigned int elapsed)
 {
     W8Character* character = &g_status.buffers.Char[party_slot];

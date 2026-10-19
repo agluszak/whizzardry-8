@@ -11,7 +11,6 @@
 
 #include <fmt/format.h>
 
-#include "Font.h"
 #include "Video2.h"
 #include "compat/native.h"
 #include "conditions.h"
@@ -19,9 +18,9 @@
 #include "layouts/item_instance.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/targeting.h"
-#include "timer.h"
 #include "wiz8/assertions.h"
 #include "wiz8/button_interaction.h"
+#include "wiz8/canvas/Font.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/cursor.h"
@@ -52,11 +51,11 @@
 #include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/xstatus.h"
 
-// GLOBAL: WIZ8 0x0061e988
 unsigned short g_action_kind_message_ids[12] = {
     0x050f, 0x0510, 0x0511, 0x0512, 0x0513, 0x0514, 0x0515, 0x0516, 0x0517, 0x0518, 0x0519, 0x051a,
 };
@@ -68,7 +67,6 @@ void DestroySubMenuPanel()
 
 /* Five caption rows suffice: Berserk and Pray require mutually exclusive
    professions, leaving room for the cancel action. */
-// GLOBAL: WIZ8 0x0069B8EC
 
 static void SubMenuPanelCloseButton(W8ButtonWidget* button);
 static void SubMenuPanelFormationButton(W8ButtonWidget* button);
@@ -117,7 +115,6 @@ int GetAttackMenuWeaponOffset(W8Skill skill)
     return base;
 }
 
-// FUNCTION: WIZ8 0x005963E0
 void RefreshSubMenuPanel(bool invalidate)
 {
     auto& submenu = g_main_game_state->submenu;
@@ -140,83 +137,70 @@ static void ChooseSubMenuAction(W8ActionKind action)
     DestroySubMenuControls();
 }
 
-// FUNCTION: WIZ8 0x00596430
 void SubMenuSelectAttack(void)
 {
     ChooseSubMenuAction(W8_ACTION_ATTACK);
 }
 
-// FUNCTION: WIZ8 0x005964D0
 void SubMenuSelectBerserk(void)
 {
     ChooseSubMenuAction(W8_ACTION_BERSERK);
 }
 
-// FUNCTION: WIZ8 0x00596570
 void SubMenuSelectBreathe(void)
 {
     ChooseSubMenuAction(W8_ACTION_BREATHE);
 }
 
-// FUNCTION: WIZ8 0x00596610
 void SubMenuSelectTurnUndead(void)
 {
     ChooseSubMenuAction(W8_ACTION_TURN_UNDEAD);
 }
 
-// FUNCTION: WIZ8 0x005966B0
 void SubMenuSelectPray(void)
 {
     ChooseSubMenuAction(W8_ACTION_PRAY);
 }
 
-// FUNCTION: WIZ8 0x00596750
 void SubMenuSelectDefend(void)
 {
     ChooseSubMenuAction(W8_ACTION_DEFEND);
 }
 
-// FUNCTION: WIZ8 0x00596800
 void SubMenuSelectProtect(void)
 {
     ChooseSubMenuAction(W8_ACTION_PROTECT);
 }
 
-// FUNCTION: WIZ8 0x005968A0
 void SubMenuSelectEquip(void)
 {
     ChooseSubMenuAction(W8_ACTION_EQUIP);
 }
 
-// FUNCTION: WIZ8 0x00596940
 void SubMenuOpenUseItemView(void)
 {
     DestroySubMenuControls();
     OpenUseItemSelectView(g_status.selected_character);
 }
 
-// FUNCTION: WIZ8 0x005969D0
 void SubMenuUseRecordedItem(void)
 {
     DestroySubMenuControls();
     StartCharacterItemUse(g_status.selected_character);
 }
 
-// FUNCTION: WIZ8 0x00596A60
 void SubMenuOpenSpellView(void)
 {
     DestroySubMenuControls();
     OpenSpellCastingView(g_status.selected_character);
 }
 
-// FUNCTION: WIZ8 0x00596AF0
 void SubMenuCastRecordedSpell(void)
 {
     DestroySubMenuControls();
     StartCharacterSpellCast(g_status.selected_character, 0);
 }
 
-// FUNCTION: WIZ8 0x00596B90
 void SubMenuSelectRun(void)
 {
     if (!AnyCharacterEngaged()) {
@@ -225,7 +209,6 @@ void SubMenuSelectRun(void)
     ChooseSubMenuAction(W8_ACTION_RUN);
 }
 
-// FUNCTION: WIZ8 0x00596C40
 void SubMenuSelectWalk(void)
 {
     if (!AnyCharacterEngaged()) {
@@ -247,7 +230,6 @@ void OpenSubMenuPanel(short notification)
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
 }
 
-// FUNCTION: WIZ8 0x00596CF0
 void ResetSubMenuPanel(void)
 {
     short saved_notification;
@@ -257,7 +239,6 @@ void ResetSubMenuPanel(void)
     OpenSubMenuPanel(saved_notification);
 }
 
-// FUNCTION: WIZ8 0x00596EC0
 static void CreateSubMenuScrollButtons()
 {
     int i;
@@ -274,13 +255,11 @@ static void CreateSubMenuScrollButtons()
     }
 }
 
-// FUNCTION: WIZ8 0x005978D0
 static void SubMenuPanelCloseButton(W8ButtonWidget* button)
 {
     OpenSubMenuPanel(9);
 }
 
-// FUNCTION: WIZ8 0x00597A10
 static void SubMenuPanelFormationButton(W8ButtonWidget* button)
 {
     if (!gXStatus.fReviewCharacterMode) {
@@ -290,7 +269,6 @@ static void SubMenuPanelFormationButton(W8ButtonWidget* button)
     }
 }
 
-// FUNCTION: WIZ8 0x00597670
 static void CreateSubMenuPanelButtons()
 {
     int index;
@@ -309,7 +287,6 @@ static void CreateSubMenuPanelButtons()
     }
 }
 
-// FUNCTION: WIZ8 0x00597B70
 static void MainGameOptionsDiskButton(W8ButtonWidget* button)
 {
     if (CanInterruptLevelMovement()) {
@@ -318,7 +295,6 @@ static void MainGameOptionsDiskButton(W8ButtonWidget* button)
     }
 }
 
-// FUNCTION: WIZ8 0x00597A30
 static void CreateOptionsDiskButton()
 {
     g_main_game_state->hud_buttons.options_disk.Configure(
@@ -330,7 +306,6 @@ static void CreateOptionsDiskButton()
 
 /* Redraw the options-disk chrome and button; disabled under dialogue / lock /
    trap / camp interact modes. */
-// FUNCTION: WIZ8 0x00597AF0
 void RedrawOptionsDiskButton(void)
 {
     bool enabled;
@@ -349,7 +324,6 @@ void RedrawOptionsDiskButton(void)
 
 /* Pick which of the five combat-stance buttons is visible for the live combat
    / continuous-combat state, then enable and Draw that one. */
-// FUNCTION: WIZ8 0x00597D70
 void UpdateCombatStanceButtons(void)
 {
     unsigned int stance;
@@ -386,7 +360,6 @@ void UpdateCombatStanceButtons(void)
 }
 
 /* Dirties the five combat-stance buttons and refreshes which one is live. */
-// FUNCTION: WIZ8 0x00597D30
 void RedrawCombatStanceButtons(void)
 {
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 3, 0x262, 0x1c2);
@@ -396,7 +369,6 @@ void RedrawCombatStanceButtons(void)
     UpdateCombatStanceButtons();
 }
 
-// FUNCTION: WIZ8 0x00597E70
 static void MainGameCombatConfirmButton(W8ButtonWidget* button)
 {
     if (!gXStatus.fCombatMode) {
@@ -416,7 +388,6 @@ static void MainGameCombatConfirmButton(W8ButtonWidget* button)
     g_combat_state->combat_ui_timer = w8_get_ticks() + (0);
 }
 
-// FUNCTION: WIZ8 0x00597ED0
 static void MainGameCombatStanceSecondary(W8ButtonWidget* button)
 {
     if (gXStatus.fCombatMode) {
@@ -424,7 +395,6 @@ static void MainGameCombatStanceSecondary(W8ButtonWidget* button)
     }
 }
 
-// FUNCTION: WIZ8 0x00597B90
 static void CreateCombatStanceButtons()
 {
     int index;
@@ -460,28 +430,24 @@ static void CreateCombatStanceButtons()
     }
 }
 
-// FUNCTION: WIZ8 0x00598270
 static void MainGameRoofButton0(W8ButtonWidget* button)
 {
     SetMainUiPreference(W8_MAIN_UI_MODE_PORTRAITS);
     RequestRedraw(W8_MAIN_REDRAW_ROOF_AND_SPELL_ICONS | W8_MAIN_REDRAW_LAYOUT);
 }
 
-// FUNCTION: WIZ8 0x00598290
 static void MainGameRoofButton1(W8ButtonWidget* button)
 {
     SetMainUiPreference(W8_MAIN_UI_MODE_FORMATION);
     RequestRedraw(W8_MAIN_REDRAW_ROOF_AND_SPELL_ICONS | W8_MAIN_REDRAW_LAYOUT);
 }
 
-// FUNCTION: WIZ8 0x005982B0
 static void MainGameRoofButton2(W8ButtonWidget* button)
 {
     SetMainUiPreference(W8_MAIN_UI_MODE_RADAR);
     RequestRedraw(W8_MAIN_REDRAW_ROOF_AND_SPELL_ICONS | W8_MAIN_REDRAW_LAYOUT);
 }
 
-// FUNCTION: WIZ8 0x00597EE0
 static void CreateRoofButtons()
 {
     int index;
@@ -516,7 +482,6 @@ static void CreateRoofButtons()
 
 /* Draw the roof chrome strip, mark each roof button dirty, sync enable/press
    state, and raise redraw bit 0x100000 for the second pass. */
-// FUNCTION: WIZ8 0x00598060
 void RedrawRoofButtons(void)
 {
     CatalogArtwork::Load(0x85, 0).draw(GetFrameBufferSurface(), 0, 0, 0);
@@ -530,7 +495,6 @@ void RedrawRoofButtons(void)
 /* Visibility and enablement for the three roof buttons, then Draw. The third
    button (radar) hides under NPC/spell/item/lock/trap modes; the first two
    disable under NPC dialogue or camp. */
-// FUNCTION: WIZ8 0x005980B0
 void UpdateRoofButtons(void)
 {
     bool visible;
@@ -559,7 +523,6 @@ void UpdateRoofButtons(void)
 
 /* Mirror GetEffectiveMainUiMode() onto the three roof buttons' pressed
    state (portraits / formation / radar). */
-// FUNCTION: WIZ8 0x00598150
 void SyncRoofButtonPressedState(void)
 {
     if (GetEffectiveMainUiMode() == 0) {
@@ -595,7 +558,6 @@ void SyncRoofButtonPressedState(void)
     }
 }
 
-// FUNCTION: WIZ8 0x00598670
 static void MainGameLayoutRadarButton(W8ButtonWidget* button)
 {
     if (g_level_block->radar_map_visible != 0) {
@@ -617,7 +579,6 @@ static void MainGameLayoutRadarButton(W8ButtonWidget* button)
     RefreshMainGameLayout();
 }
 
-// FUNCTION: WIZ8 0x005986E0
 static void MainGameLayoutActionPanelButton(W8ButtonWidget* button)
 {
     if (g_level_block->action_panel_visible != 0) {
@@ -651,7 +612,6 @@ static void MainGameLayoutActionPanelButton(W8ButtonWidget* button)
     RefreshMainGameLayout();
 }
 
-// FUNCTION: WIZ8 0x005987A0
 static void MainGameLayoutFormationButton(W8ButtonWidget* button)
 {
     if (g_level_block->formation_board_visible) {
@@ -676,7 +636,6 @@ static void MainGameLayoutFormationButton(W8ButtonWidget* button)
 /* Draw the left layout-arrow strip, mark each arrow dirty, then raise/lower
    the paired arrows from the live action-panel / formation / radar flags.
    Modal NPC/spell/item/lock/trap modes hide the whole bank. */
-// FUNCTION: WIZ8 0x00598490
 void RedrawLayoutArrowButtons(void)
 {
     bool enabled;
@@ -735,7 +694,6 @@ void RedrawLayoutArrowButtons(void)
     g_main_game_state->hud_buttons.layout_arrows[5].Refresh();
 }
 
-// FUNCTION: WIZ8 0x005982D0
 static void CreateLayoutArrowButtons()
 {
     int index;
@@ -764,7 +722,6 @@ static void CreateLayoutArrowButtons()
     }
 }
 
-// FUNCTION: WIZ8 0x00598AB0
 void ConfigureMainGameHudButtons(void)
 {
     CreateSubMenuButtons();
@@ -792,20 +749,17 @@ static void SetMenuButtonBanksEnabled(bool enabled)
 }
 
 /* Re-enable the button banks the surprise sequence took down. */
-// FUNCTION: WIZ8 0x00598c10
 void EnableMenuButtonBanks(void)
 {
     SetMenuButtonBanksEnabled(true);
 }
 
 /* Disable the same button banks while the surprise sequence runs. */
-// FUNCTION: WIZ8 0x00598c70
 void DisableMenuButtonBanks(void)
 {
     SetMenuButtonBanksEnabled(false);
 }
 
-// FUNCTION: WIZ8 0x00596FE0
 void DrawSubMenuCharacterAction(void)
 {
     unsigned short slot;
@@ -915,7 +869,6 @@ void DrawSubMenuCharacterAction(void)
 
 /* Enable the fight/review panel buttons from combat engagement and mode
    flags, then Draw both. */
-// FUNCTION: WIZ8 0x00597790
 void UpdateSubMenuPanelButtons(void)
 {
     bool enabled;
@@ -964,7 +917,6 @@ static void UpdateSubMenuScrollButtons()
 
 /* Redraw the bottom sub-menu strip: bank chrome, the nine bank buttons, panel
    chrome/buttons, character-action caption, and the scroll arrows. */
-// FUNCTION: WIZ8 0x00598810
 void RedrawSubMenuButtons(void)
 {
     int index;
@@ -1005,7 +957,6 @@ void RedrawSubMenuButtons(void)
    slot to the edge, then wrapping from the far edge back to the current slot.
    The `slot != current` check inside the first half is unreachable for valid
    slots, but retail tests it anyway. */
-// FUNCTION: WIZ8 0x00597570
 void ScrollSubMenuCharacter(char direction)
 {
     short current;
@@ -1062,7 +1013,6 @@ done:
     RequestRedraw(W8_MAIN_REDRAW_CHARACTER_ACTION);
 }
 
-// FUNCTION: WIZ8 0x005990F0
 void SetSubMenuButtonTooltips(int enabled)
 {
     auto& hud = g_main_game_state->hud_buttons;
@@ -1081,7 +1031,6 @@ void SetSubMenuButtonTooltips(int enabled)
    bank buttons, gate the scroll arrows on an idle submenu, enable the
    options/disk button outside modal modes, then refresh the panel, stance,
    roof and layout-arrow sets. */
-// FUNCTION: WIZ8 0x005989B0
 void UpdateMainGameButtons(void)
 {
     int index;
@@ -1106,7 +1055,6 @@ void UpdateMainGameButtons(void)
 /* While the combat-end submenu is up and the cursor has left its row band,
    run a 500 ms countdown; once it lapses, tear the panel and rows down like
    the background right-click path. */
-// FUNCTION: WIZ8 0x00598FA0
 void UpdateSubMenuAutoClose(void)
 {
     auto& submenu = g_main_game_state->submenu;
@@ -1123,14 +1071,12 @@ void UpdateSubMenuAutoClose(void)
     }
 }
 
-// FUNCTION: WIZ8 0x005957E0
 void EnableSubMenuRegions(void)
 {
     auto& submenu = g_main_game_state->submenu;
     if (submenu) submenu->input.setEnabled(true);
 }
 
-// FUNCTION: WIZ8 0x00595850
 bool BuildSubMenuPanel(short notification)
 {
     auto& submenu = g_main_game_state->submenu;
@@ -1284,7 +1230,6 @@ bool BuildSubMenuPanel(short notification)
     return true;
 }
 
-// FUNCTION: WIZ8 0x00596360
 W8SubMenuEntryState CheckSubMenuActionUsable(int party_slot)
 {
     unsigned char matches;
@@ -1301,7 +1246,6 @@ W8SubMenuEntryState CheckSubMenuActionUsable(int party_slot)
     return static_cast<W8SubMenuEntryState>(matches + W8_SUBMENU_ENTRY_UNUSABLE);
 }
 
-// FUNCTION: WIZ8 0x00595FE0
 W8SubMenuEntryState GetSubMenuEntryState(short menu, short item, int party_slot)
 {
     W8SubMenuEntryState state;
@@ -1384,7 +1328,6 @@ W8SubMenuEntryState GetSubMenuEntryState(short menu, short item, int party_slot)
     return state;
 }
 
-// FUNCTION: WIZ8 0x00596240
 void MapSubMenuSelection(short menu, short item)
 {
     W8ActionKind action;

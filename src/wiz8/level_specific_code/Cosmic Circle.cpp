@@ -26,7 +26,6 @@ struct W8NpcState;
    "ARN11" trigger; it sits at the head of this unit between
    MasterFunctionList.cpp's template emissions and the CC callback. */
 
-// FUNCTION: WIZ8 0x004D9AC0
 bool CosmicCircleReturnFalse(Trigger* pTrigger)
 {
     return false;
@@ -34,7 +33,6 @@ bool CosmicCircleReturnFalse(Trigger* pTrigger)
 
 /* "CC_TRIGGERPLANE1HEDRA": stepping onto the arena trigger plane ends any
    running combat, posts the savant's script notice and starts CameraPath1. */
-// FUNCTION: WIZ8 0x004D9AD0
 bool CosmicCircleTriggerPlane1Hedra(Trigger* pTrigger)
 {
     W8NpcState* pNPC;
@@ -45,7 +43,7 @@ bool CosmicCircleTriggerPlane1Hedra(Trigger* pTrigger)
     BeginScriptedWorldAction();
     pNPC = GetNpcStateByKind(0x85);
     if (pNPC == 0) {
-        srAssertFail("pNPC", "Cannot find VOC_SAVANT_CC1");
+        Fail("pNPC", "Cannot find VOC_SAVANT_CC1");
     } else {
         QueueNpcScriptNotice(pNPC, 0, -1, false, 0);
     }
@@ -56,7 +54,6 @@ bool CosmicCircleTriggerPlane1Hedra(Trigger* pTrigger)
 /* Spawn the Cosmic Circle arena: Altheides and the dark savant on their named
    positions, Bela and Phoonzang as hostile adds, the two principals aimed at
    each other's start points and the remaining trigger planes switched off. */
-// FUNCTION: WIZ8 0x004D9B40
 void CosmicCircleSetup(void)
 {
     /* Retail dereferenced both monster infos unconditionally, leaving the
@@ -77,7 +74,7 @@ void CosmicCircleSetup(void)
             group = SpawnMonsters(0x1b3, 1, &positionAltheides, 0, true, false, false);
             uiMonsterID = group->MemberLocationId(0);
             if (uiMonsterID == 0) {
-                srAssertFail("uiMonsterID", "Invalid Monster ID for CC end");
+                Fail("uiMonsterID", "Invalid Monster ID for CC end");
             } else {
                 pMonsterInfoAltheides = FindMonster(uiMonsterID);
             }
@@ -86,7 +83,7 @@ void CosmicCircleSetup(void)
             group = SpawnMonsters(0x1b6, 1, &positionDs, 0, true, false, false);
             uiMonsterID = group->MemberLocationId(0);
             if (uiMonsterID == 0) {
-                srAssertFail("uiMonsterID", "Invalid Monster ID for CC end");
+                Fail("uiMonsterID", "Invalid Monster ID for CC end");
             } else {
                 pMonsterInfoDs = FindMonster(uiMonsterID);
             }

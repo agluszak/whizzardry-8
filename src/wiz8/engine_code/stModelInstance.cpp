@@ -7,9 +7,8 @@
 #include <memory>
 #include <span>
 #include <string>
+#include <string_view>
 #include <vector>
-
-#include <SDL3/SDL_stdinc.h>
 
 #include "AnimRep.hpp"
 #include "compat/native.h"
@@ -35,6 +34,7 @@
 #include "wiz8/engine_code/stTextureAnim.h"
 #include "wiz8/engine_code/stTextureFile.h"
 #include "wiz8/gameplay_constants.h"
+#include "wiz8/unicode.h"
 
 constexpr float kShadowExtrusionPitchScale = 1.0f / 1500.0f;
 
@@ -42,13 +42,11 @@ extern float g_monster_light_scale;
 
 /* Scratch vertex store shared by every highlight shell submission; grown
    on demand and kept between frames. */
-// GLOBAL: WIZ8 0x0065A148
 static std::vector<glm::vec3> g_vertex_scratch;
 
 /* Find the animated texture assigned to polygons whose runtime name begins
    with "mouth". Damage-stage instances use the stage-specific texture table;
    ordinary instances use the mesh's active polygon texture table. */
-// FUNCTION: WIZ8 0x00481080
 stTextureAnim* stModelInstance::FindMouthTexture()
 {
     stMeshModel* mesh = static_cast<stMeshModel*>(getModel());
@@ -59,8 +57,7 @@ stTextureAnim* stModelInstance::FindMouthTexture()
         if (textures != nullptr) {
             for (int polygon = 0; polygon < mesh->polygon_count; ++polygon) {
                 auto* animation = dynamic_cast<stTextureAnim*>((*textures)[polygon].get());
-                if (animation != nullptr &&
-                    SDL_strncasecmp(animation->getName().c_str(), "mouth", 5) == 0) {
+                if (animation != nullptr && animation->getName().starts_with("mouth")) {
                     return animation;
                 }
             }
@@ -70,8 +67,7 @@ stTextureAnim* stModelInstance::FindMouthTexture()
     return nullptr;
 }
 
-// FUNCTION: WIZ8 0x00480790
-int stModelInstance::FindDamageStage(const char* name)
+int stModelInstance::FindDamageStage(std::string_view name)
 {
     stMeshModel* mesh = static_cast<stMeshModel*>(getModel());
     return mesh->FindSkinTable(name);
@@ -81,7 +77,6 @@ int stModelInstance::FindDamageStage(const char* name)
    model, and after it for a model flagged W8_MESH_SORTED_RENDERING, so the
    sorted models are processed after every opaque sibling, in reverse sibling
    order. Children follow unless the node terminates. */
-// FUNCTION: WIZ8 0x004803F0
 void stModelInstance::traverse(TraverseInfo& info)
 {
     stMeshModel* model = static_cast<stMeshModel*>(getModel());
@@ -105,8 +100,7 @@ void stModelInstance::traverse(TraverseInfo& info)
 
 /* Add a stage by cloning the first stage's table across the complete linked
    mesh chain. The instance stores the table id shared by that chain. */
-// FUNCTION: WIZ8 0x00480560
-int stModelInstance::AddDamageStage(const char* name)
+int stModelInstance::AddDamageStage(std::string_view name)
 {
     stMeshModel* mesh = static_cast<stMeshModel*>(getModel());
 
@@ -123,8 +117,7 @@ int stModelInstance::AddDamageStage(const char* name)
     return stage;
 }
 
-// FUNCTION: WIZ8 0x00480670
-int stModelInstance::AddExistingDamageStage(const char* name)
+int stModelInstance::AddExistingDamageStage(std::string_view name)
 {
     stMeshModel* mesh = static_cast<stMeshModel*>(getModel());
     int table = mesh->FindSkinTable(name);
@@ -138,9 +131,8 @@ int stModelInstance::AddExistingDamageStage(const char* name)
     return stage;
 }
 
-// FUNCTION: WIZ8 0x004807b0
 unsigned char
-stModelInstance::ReplaceDamageStageTexture(int stage, const char* old_name,
+stModelInstance::ReplaceDamageStageTexture(int stage, std::string_view old_name,
                                            const std::shared_ptr<srTexture>& replacement)
 {
     stMeshModel* mesh = static_cast<stMeshModel*>(getModel());
@@ -162,7 +154,7 @@ stModelInstance::ReplaceDamageStageTexture(int stage, const char* old_name,
                 continue;
             }
 
-            if (SDL_strcasecmp(texture->getName().c_str(), old_name) == 0) {
+            if (CompareTextIgnoreAsciiCase(texture->getName(), old_name) == 0) {
                 replaced = true;
                 while (polygon < mesh->polygon_count && (*textures)[polygon].get() == texture) {
                     textures->set(polygon, replacement);
@@ -182,7 +174,6 @@ stModelInstance::ReplaceDamageStageTexture(int stage, const char* old_name,
 /* Retail's Video2, dialogue and radar callers all call this one emitted body,
    which precedes the rest of the stModelInstance2D lifecycle family. It is an
    ordinary stModelInstance.cpp definition, not a header/template emission. */
-// FUNCTION: WIZ8 0x0047F0F0
 stModelInstance2D::stModelInstance2D(srNode* parent) : srModelInstance(static_cast<srNode*>(0))
 {
     render_state.display_state = 0;
@@ -202,7 +193,6 @@ stModelInstance2D::stModelInstance2D(srNode* parent) : srModelInstance(static_ca
    copies the 2D fields around the parent/state work and leaves the upper two
    bytes of state untouched; GrCycle's separate whole-block copy is a
    different operation. */
-// FUNCTION: WIZ8 0x0047F290
 stModelInstance2D& stModelInstance2D::operator=(const stModelInstance2D& other)
 {
     srModelInstance::operator=(other);
@@ -226,7 +216,6 @@ stModelInstance2D& stModelInstance2D::operator=(const stModelInstance2D& other)
     return *this;
 }
 
-// FUNCTION: WIZ8 0x0047F3A0
 void stModelInstance2D::SetModel(std::shared_ptr<srModel> model)
 {
     setModel(model);
@@ -242,7 +231,6 @@ void stModelInstance2D::SetModel(std::shared_ptr<srModel> model)
    current view matrix's translation, scale and handedness. The optional glow
    path clones the mesh material once, oscillates between the two configured
    emissive colors, and overrides only this draw's material and first shader. */
-// FUNCTION: WIZ8 0x00480920
 void stModelInstance2D::process(const ProcessInfo& info, e_processType)
 {
     srGERD* renderer = info.renderer;
@@ -279,7 +267,6 @@ void stModelInstance2D::process(const ProcessInfo& info, e_processType)
 
 /* Disabling the glow releases the retained glow material; the render-state
    byte at 0x0d is the glow pass's enable flag. */
-// FUNCTION: WIZ8 0x00480EB0
 void stModelInstance2D::SetGlowEnabled(bool enable)
 {
     if (!enable) {
@@ -291,7 +278,6 @@ void stModelInstance2D::SetGlowEnabled(bool enable)
 /* Scaled 2D extent used by the tooltip and cursor placement code. A unit
    scale returns the stored screen extent directly; otherwise the matching
    axis scale from the node is applied and truncated. */
-// FUNCTION: WIZ8 0x00480EF0
 unsigned short stModelInstance2D::GetScaledWidth()
 {
     glm::dvec3 scale = getScale();
@@ -302,7 +288,6 @@ unsigned short stModelInstance2D::GetScaledWidth()
     return static_cast<unsigned short>(render_state.width * scale.x);
 }
 
-// FUNCTION: WIZ8 0x00480F70
 unsigned short stModelInstance2D::GetScaledHeight()
 {
     glm::dvec3 scale = getScale();
@@ -316,14 +301,12 @@ unsigned short stModelInstance2D::GetScaledHeight()
 
 /* The process pass blends between the two glow colors into the material's
    emissive term. */
-// FUNCTION: WIZ8 0x00480FF0
 void stModelInstance2D::SetGlowColors(const glm::vec4& first, const glm::vec4& second)
 {
     glow_color_base = first;
     glow_color_peak = second;
 }
 
-// FUNCTION: WIZ8 0x0047EC80
 stModelInstance::stModelInstance(srNode* parent) : srModelInstance(static_cast<srNode*>(nullptr))
 {
     highlight_colour = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
@@ -343,7 +326,6 @@ stModelInstance::stModelInstance(srNode* parent) : srModelInstance(static_cast<s
     frame_interpolation = 0.0f;
 }
 
-// FUNCTION: WIZ8 0x0047EDF0
 stModelInstance& stModelInstance::operator=(const stModelInstance& other)
 {
     srModelInstance::operator=(other);
@@ -369,7 +351,6 @@ stModelInstance& stModelInstance::operator=(const stModelInstance& other)
    the ordinary world-space matrix; aligned instances rebuild the model-view
    matrix from the camera basis so the model stays screen-facing while
    inheriting the view's translation, scale and handedness. */
-// FUNCTION: WIZ8 0x0047F560
 void stModelInstance::process(const ProcessInfo& info, e_processType)
 {
     const auto scope = scopedRender(*info.renderer);
@@ -383,7 +364,6 @@ void stModelInstance::process(const ProcessInfo& info, e_processType)
    RenderTriMeshWithEquations. When the highlight RGBA is configured
    the chain is submitted again inflated along its normals into a shared
    scratch buffer with reversed winding, skipping the linked "blank" skin. */
-// FUNCTION: WIZ8 0x0047F930
 void stModelInstance::RenderMeshes(srGERD& renderer)
 {
     srMeshModel::TriMesh mesh;
@@ -462,16 +442,6 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
             poly_normals = frame.polygon_normals;
         }
 
-        if (g_render_untextured) {
-            mesh.shaders[0].value &= 0xffff73ff;
-            mesh.poly_shaders[0] = 0;
-            mesh.poly_textures[0][0] = 0;
-            mesh.poly_uv[0] = 0;
-            mesh.texcoords[0][0] = 0;
-        }
-        if (g_render_unlit) {
-            mesh.dig[0] = 0;
-        }
         selectPolygons(*model, mesh, true);
 
         if (((highlight_colour.x == 0.0f) && (highlight_colour.y == 0.0f) &&
@@ -504,7 +474,7 @@ void stModelInstance::RenderMeshes(srGERD& renderer)
             if (((model->flags & W8_MESH_SORTED_RENDERING) == 0) || first_pass) {
                 if (mesh.poly_textures[0][0] != 0 ||
                     ((mesh.textures[0][0] != 0) &&
-                     (SDL_strncasecmp("blank", mesh.textures[0][0]->getName().c_str(), 5) != 0))) {
+                     (!mesh.textures[0][0]->getName().starts_with("blank")))) {
                     g_vertex_scratch.resize(mesh.vertex_count);
 
                     std::span<const glm::vec3> poly_normals;
@@ -572,7 +542,6 @@ static srMaterial& ShadowMaterial()
 /* Submit the shared shadow-quad mesh extruded over the source mesh's height:
    front-cull the pass, translate to the mesh's mid-height, scale the unit
    quad by a clamped pitch factor, then feed the pipeline slots directly. */
-// FUNCTION: WIZ8 0x004811D0
 void stModelInstance::RenderShadow(srGERD& renderer, srMeshModel::TriMesh& mesh)
 {
     float height = mesh.bounds_maximum.y - mesh.bounds_minimum.y;

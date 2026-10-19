@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -14,8 +15,6 @@
 #include "gameplay_modifiers.h"
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/item_instance.h"
-#include "random.h"
-#include "timer.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/engine_code/Camera.h"
@@ -42,6 +41,8 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/notices.h"
+#include "wiz8/platform/random.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/string_database.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
@@ -68,16 +69,12 @@ static uint64_t g_search_pulse_clock;
 
 /* 10000.0: the unit search radius PickBestSearcher scales by score, and the
    collector's outer range gate. */
-// GLOBAL: WIZ8 0x0061a364
 constexpr float g_search_radius = 10000.0f;
-// GLOBAL: WIZ8 0x0061a368
 constexpr float g_search_cone_angle = 3.1415925f;
 
 /* The view's own constructor: seeds the cursor ahead of the first element and
    builds the item vector with capacity five. */
-// FUNCTION: WIZ8 0x00517900
 /* Discovery changes the same state used to select the next pulse's candidates. */
-// FUNCTION: WIZ8 0x00516ad0
 void W8Searchable::Reveal()
 {
     if (world_item ? !ItemHasFlags(world_item, W8_WORLD_ITEM_HIDDEN) : trigger == nullptr) return;
@@ -93,7 +90,6 @@ void W8Searchable::Reveal()
 }
 
 /* Gather eligible candidates inside the radius and sight cone for one pulse. */
-// FUNCTION: WIZ8 0x00516ba0
 static std::vector<W8Searchable> CollectSearchablesInView(W8World& world)
 {
     std::vector<W8Searchable> found;
@@ -130,7 +126,6 @@ static std::vector<W8Searchable> CollectSearchablesInView(W8World& world)
 /* Resolve this searchable's world position: the item's rep midpoint when it
    has a live owner, the recorded position otherwise; prop searchables
    resolve through their trigger's prop. */
-// FUNCTION: WIZ8 0x00517080
 void W8Searchable::GetPosition(glm::vec3* position)
 {
     (*position) = glm::vec3(0);
@@ -152,12 +147,9 @@ void W8Searchable::GetPosition(glm::vec3* position)
     }
 }
 
-// FUNCTION: WIZ8 0x005171b0
-
 /* The 500ms search sweep: while nothing is interacting or surprising the
    party, walk the in-view searchables, pick the best searcher for each, queue
    the found event and turn the camera toward the find. */
-// FUNCTION: WIZ8 0x005171c0
 void RunSearchPulse(void)
 {
     if (TimeUntilDeadline(g_search_pulse_clock) == 0) {
@@ -187,12 +179,12 @@ void RunSearchPulse(void)
                                 int message = searchable->trigger->m_lData1;
                                 found = true;
                                 if (message >= 0) {
-                                    const char* folder = GetLevelFolderName(GetLoadedLevelID());
-                                    if (folder == 0) {
-                                        folder = "Test";
-                                    }
-                                    std::string path;
-                                    path = fmt::format("Data\\Messages\\{}.msg", folder);
+                                    const std::string_view level_folder =
+                                        GetLevelFolderName(GetLoadedLevelID());
+                                    const std::string folder =
+                                        level_folder.empty() ? "Test" : std::string(level_folder);
+                                    const std::string path =
+                                        fmt::format("Data\\Messages\\{}.msg", folder);
                                     std::string text;
                                     if ((!(text = GetStringFromStringDatabase(path, message, 0, 0))
                                               .empty()) != 0) {
@@ -245,7 +237,6 @@ void RunSearchPulse(void)
    plus a Senses-derived bonus; the detect-secrets party effect instead
    force-picks random eligible members without practicing the skill. The pick
    must also reach this searchable's position. */
-// FUNCTION: WIZ8 0x00517560
 int W8Searchable::PickBestSearcher()
 {
     unsigned int best_score = 0;
@@ -315,7 +306,6 @@ int W8Searchable::PickBestSearcher()
 /* Toggle the party's search mode: leaving it posts the off notice, entering it
    posts the on notice and arms the 500ms pulse that sweeps the searchable
    registry; combat blocks the toggle outright. */
-// FUNCTION: WIZ8 0x00517780
 void ToggleSearchMode(void)
 {
     if (g_status.search_mode) {

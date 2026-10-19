@@ -2,6 +2,7 @@
 
 #include <span>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -13,10 +14,10 @@ namespace wiz8 {
 class File;
 }
 
-int GetLocationVarIDByName(const char* name);
-void SetTriggerVariableByName(const char* name, int value);
-void CreateLocationVar(const char* name, int value); /* 0x00443DC0 */
-int GetLocationVarValueByName(const char* name);     /* 0x004440D0 */
+int GetLocationVarIDByName(std::string_view name);
+void SetTriggerVariableByName(std::string_view name, int value);
+void CreateLocationVar(std::string_view name, int value);
+int GetLocationVarValueByName(std::string_view name);
 void SaveLocationVariables(wiz8::File& handle,
                            std::span<const std::pair<std::string, int>> script_state = {});
 bool LoadLocationVariables(W8Chunk& chunk);

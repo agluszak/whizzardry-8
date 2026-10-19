@@ -5,8 +5,8 @@
 #include <string>
 #include <vector>
 
-#include "shading.h"
 #include "wiz8/application.h"
+#include "wiz8/canvas/shading.h"
 #include "wiz8/cursor.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/engine_code/Missile.h"
@@ -37,7 +37,6 @@
  * recovered elsewhere keep theirs.
  */
 
-// FUNCTION: WIZ8 0x004e2f40
 unsigned char InitializeGame(size_t& initialized_screens)
 {
     const auto version = FormatVersionBanner(true, true, true);

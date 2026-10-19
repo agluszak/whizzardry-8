@@ -22,60 +22,41 @@
 #include "wiz8/ui_input.h"
 #include "wiz8/xstatus.h"
 
-// GLOBAL: WIZ8 0x0064C238
 char g_submenu_icons_path[] = "Data\\Main Interface\\icons_standard.sti";
-// GLOBAL: WIZ8 0x0064C260
 char g_submenu_combat_icons_path[] = "Data\\Main Interface\\icon_combat_toggle.sti";
 /* The (x, y) of the nine bank buttons. */
-// GLOBAL: WIZ8 0x0064C290
 glm::ivec2 g_submenu_button_positions[9] = {
     {40, 452},  {70, 452},  {100, 452}, {130, 452}, {160, 452},
     {232, 452}, {262, 452}, {199, 452}, {200, 452},
 };
 /* The (x, y) of the two scroll arrows. */
-// GLOBAL: WIZ8 0x0064C330
 glm::ivec2 g_scroll_button_positions[2] = {{300, 456}, {323, 456}};
 /* The (x, y) of the two panel buttons (close and formation). */
-// GLOBAL: WIZ8 0x0064C378
 glm::ivec2 g_submenu_panel_button_positions[2] = {{541, 452}, {571, 452}};
-// GLOBAL: WIZ8 0x0064C388
 char g_options_disk_path[] = "Data\\Main Interface\\options_disk.sti";
-// GLOBAL: WIZ8 0x0064C3B0
 glm::ivec2 g_options_disk_position = {0, 450};
-// GLOBAL: WIZ8 0x0064C3B8
 char g_attack_confirm_path[] = "Data\\Main Interface\\attack_confirm.sti";
-// GLOBAL: WIZ8 0x0064C3E0
 char g_combat_stop_path[] = "Data\\Main Interface\\combat_stop.sti";
-// GLOBAL: WIZ8 0x0064C404
 char g_cont_start_path[] = "Data\\Main Interface\\cont_start.sti";
-// GLOBAL: WIZ8 0x0064C428
 char g_cont_toggle_path[] = "Data\\Main Interface\\cont_toggle.sti";
-// GLOBAL: WIZ8 0x0064C44C
 char g_cont_pending_path[] = "Data\\Main Interface\\cont_pending.sti";
 /* All five combat-stance buttons share the same screen origin. */
-// GLOBAL: WIZ8 0x0064C478
 glm::ivec2 g_combat_stance_positions[5] = {
     {610, 450}, {610, 450}, {610, 450}, {610, 450}, {610, 450},
 };
-// GLOBAL: WIZ8 0x0064C4A0
 char g_roof_buttons_path[] = "Data\\Main Interface\\main_roof_buttons.sti";
-// GLOBAL: WIZ8 0x0064C4D0
 glm::ivec2 g_roof_button_positions[3] = {{10, 1}, {39, 1}, {68, 1}};
-// GLOBAL: WIZ8 0x0064C4E8
 char g_layout_arrows_path[] = "Data\\Main Interface\\main_layout_arrows.sti";
 /* Left column then right column; both columns share the same x in retail. */
-// GLOBAL: WIZ8 0x0064C518
 glm::ivec2 g_layout_arrow_positions[6] = {
     {0, 371}, {0, 394}, {0, 417}, {0, 371}, {0, 394}, {0, 417},
 };
 /* The (menu, item) keyed message indexes both menus build rows from. */
-// GLOBAL: WIZ8 0x0064C548
 short g_submenu_entry_message_ids[25] = {
     0,  63, 70,  77,  84, 91, 98, -1,  -1,  -1, 154, 161, 168,
     -1, -1, 105, 112, -1, -1, -1, 175, 182, -1, -1,  -1,
 };
 /* The matching help indexes. */
-// GLOBAL: WIZ8 0x0064C57C
 int g_submenu_entry_help_ids[25] = {
     82, 83, 84, 85, 86, 87, 88, -1, -1, -1, 91, 92, -1,
     -1, -1, 89, -1, -1, -1, -1, 95, 94, -1, -1, -1,
@@ -90,7 +71,6 @@ static void SubMenuButtonOpenMenu0(W8ButtonWidget* button);
 static void SubMenuButtonOpenMenu1(W8ButtonWidget* button);
 static void SubMenuButtonToggleCombat(W8ButtonWidget* button);
 
-// FUNCTION: WIZ8 0x00594AF0
 void CreateSubMenuButtons()
 {
     int index;
@@ -134,7 +114,6 @@ void CreateSubMenuButtons()
     }
 }
 
-// FUNCTION: WIZ8 0x00594D20
 void UpdateSubMenuButton(int index)
 {
     switch (index) {
@@ -272,7 +251,6 @@ void UpdateSubMenuButton(int index)
     }
 }
 
-// FUNCTION: WIZ8 0x00595090
 static void SubMenuButtonPendingScreen(W8ButtonWidget* button)
 {
     button->SetPressed(false);
@@ -283,7 +261,6 @@ static void SubMenuButtonPendingScreen(W8ButtonWidget* button)
     g_pending_screen_state.id = W8_SCREEN_JOURNAL;
 }
 
-// FUNCTION: WIZ8 0x005950C0
 static void SubMenuButtonSurprise(W8ButtonWidget* button)
 {
     RequestCamp();
@@ -291,7 +268,6 @@ static void SubMenuButtonSurprise(W8ButtonWidget* button)
     DrawSubMenuCharacterAction();
 }
 
-// FUNCTION: WIZ8 0x005950E0
 static void SubMenuButtonToggleFlag(W8ButtonWidget* button)
 {
     ToggleSearchMode();
@@ -300,7 +276,6 @@ static void SubMenuButtonToggleFlag(W8ButtonWidget* button)
     DrawSubMenuCharacterAction();
 }
 
-// FUNCTION: WIZ8 0x00595110
 static void SubMenuButtonUseItem(W8ButtonWidget* button)
 {
     if (ItemUseDraft()) {
@@ -315,7 +290,6 @@ static void SubMenuButtonUseItem(W8ButtonWidget* button)
     OpenUseItemSelectView(g_status.selected_character);
 }
 
-// FUNCTION: WIZ8 0x00595280
 static void SubMenuButtonSpellView(W8ButtonWidget* button)
 {
     if (CharacterHasCastableSpell(&g_status.buffers.Char[g_status.selected_character])) {
@@ -327,19 +301,16 @@ static void SubMenuButtonSpellView(W8ButtonWidget* button)
     }
 }
 
-// FUNCTION: WIZ8 0x005952D0
 static void SubMenuButtonOpenMenu0(W8ButtonWidget* button)
 {
     OpenSubMenuPanel(6);
 }
 
-// FUNCTION: WIZ8 0x00595410
 static void SubMenuButtonOpenMenu1(W8ButtonWidget* button)
 {
     OpenSubMenuPanel(5);
 }
 
-// FUNCTION: WIZ8 0x00595550
 static void SubMenuButtonToggleCombat(W8ButtonWidget* button)
 {
     ToggleCombatMode();
@@ -350,7 +321,6 @@ static void SubMenuButtonToggleCombat(W8ButtonWidget* button)
 /* Drop the combat-end notification and tear down the panel and its rows.
    Retail expands this operation throughout the submenu callbacks; callers
    share this body and leave the inlining decision to the compiler. */
-// FUNCTION: WIZ8 0x00595570
 void DestroySubMenuControls(void)
 {
     SetSubMenuButtonTooltips(1);
@@ -359,7 +329,6 @@ void DestroySubMenuControls(void)
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
 }
 
-// FUNCTION: WIZ8 0x00595600
 void ReopenSubMenuPanel(void)
 {
     short notification = g_level_block->combat_end_notification;

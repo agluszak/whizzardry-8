@@ -18,7 +18,6 @@
    roach_trigger, spider_trigger, Bartrigger and Coffinlide callbacks. The
    function itself is bar-trigger housekeeping for that same set. */
 
-// FUNCTION: WIZ8 0x004DC8D0
 void ClearTextForBarTrigger(void)
 {
     Trigger* trigger = FindTriggerByName("Bartrigger");
@@ -33,7 +32,6 @@ void ClearTextForBarTrigger(void)
 /* Activation callback on roach_trigger: the first activation drops three
    roaches (kind 0x138) 1000 units above each roach location and records
    RoachesSpawned so later activations do nothing. */
-// FUNCTION: WIZ8 0x004DC910
 bool OnRoachTriggerActivated(Trigger* trigger)
 {
     glm::vec3 positions[3];
@@ -62,7 +60,6 @@ bool OnRoachTriggerActivated(Trigger* trigger)
 
 /* Activation callback on spider_trigger: every activation spawns six spiders
    (kind 0x19c) at the spiderman entity when it exists. */
-// FUNCTION: WIZ8 0x004DCA20
 bool OnSpiderTriggerActivated(Trigger* trigger)
 {
     glm::vec3 position;
@@ -75,7 +72,6 @@ bool OnSpiderTriggerActivated(Trigger* trigger)
 
 /* Activation callback on Bartrigger: clears the armed bit of the Textforbar
    trigger so the bar text stops repeating. */
-// FUNCTION: WIZ8 0x004DCAF0
 bool OnBarTriggerActivated(Trigger* trigger)
 {
     Trigger* textTrigger = FindTriggerByName("Textforbar");
@@ -88,7 +84,6 @@ bool OnBarTriggerActivated(Trigger* trigger)
 
 /* Activation callback on Coffinlide: the first activation spawns the head
    (kind 0x12d) at the Head entity and records HeadSpawned. */
-// FUNCTION: WIZ8 0x004DCA60
 bool OnCoffinlideActivated(Trigger* trigger)
 {
     glm::vec3 position;
@@ -102,7 +97,6 @@ bool OnCoffinlideActivated(Trigger* trigger)
 
 /* Activation callback on Coffinlidg: casts spell 0x2a at power 3 onto the
    camera position. */
-// FUNCTION: WIZ8 0x004DCAC0
 bool OnCoffinlidgActivated(Trigger* trigger)
 {
     glm::vec3 position;
@@ -115,7 +109,6 @@ bool OnCoffinlidgActivated(Trigger* trigger)
 /* Activation callback on wheel_star: consumes the held star key (item 0x24c);
    anything else in hand plays level message 0x22 and leaves the trigger
    armed. */
-// FUNCTION: WIZ8 0x004DCB10
 bool OnWheelStarActivated(Trigger* trigger)
 {
     if (GetItemInHand() != 0x24c) {

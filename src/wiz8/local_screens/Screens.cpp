@@ -6,12 +6,12 @@
 #include <string_view>
 #include <vector>
 
-#include "Font.h"
 #include "compat/native.h"
 #include "layouts/item_instance.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/targeting.h"
 #include "surrender/srDebug.h"
+#include "wiz8/canvas/Font.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/cursor.h"
 #include "wiz8/dialog_code/DialogBase.h"
@@ -213,7 +213,7 @@ void UpdateHeldItemCursor(void)
 void ApplyCurrentCursor(void)
 {
     if (gXStatus.iCurrentCursor == W8_CURSOR_NONE) {
-        srAssertFail("gXStatus.iCurrentCursor != -1");
+        Fail("gXStatus.iCurrentCursor != -1");
     }
     if (g_main_game_resource_slots[gXStatus.iCurrentCursor].object != 0) {
         ResizeMouseCursorSurface(g_main_game_resource_slots[gXStatus.iCurrentCursor].size_x,
@@ -250,7 +250,6 @@ void ClearHeldItemDisplay(void)
 
 /* Inline text colors selected by party order for skill and level-up notices. */
 
-// GLOBAL: WIZ8 0x00647ccc
 static unsigned char g_party_order_text_colors[8] = {7, 4, 6, 2, 5, 8, 9, 3};
 
 unsigned char GetPartyOrderTextColor(signed char party_order)

@@ -9,7 +9,6 @@
 
 unsigned char LoadMissileDatabase(void);
 
-#include "Emitter.h"
 #include "compat/compiler.h"
 #include "layouts/targeting.h"
 #include "wiz8/attack_modes.h"
@@ -34,15 +33,9 @@ enum W8MissileAnimationStateQuery {
     W8_MISSILE_ANIMATION_FINISHED = 7
 };
 
-/* The kind-3 record of the tagged AI family W8GrObject holds at +0x0c (the
-   path record is kind 0). UpdateMissileAI ticks it: +0x04 is the
-   per-step distance scale, +0x08 the remaining turn budget, +0x0c the missile
-   it steers (runtime clones start detached), +0x10 the
-   half-tick baseline, +0x14 the elapsed flight clock, +0x18 the early-impact
-   limit and +0x1c a trailing flag. */
-struct W8AIMissile : W8AIRecord {
-    W8AIMissile() : W8AIRecord(W8_AI_RECORD_MISSILE) {}
-    std::unique_ptr<W8AIRecord> Clone() const override;
+struct W8AIMissile {
+    W8AIMissile() = default;
+    std::unique_ptr<W8AIMissile> Clone() const;
 
     /* Gravity latch copied from the missile's gravity: when set, the
        vertical fall rate decays each step. */
@@ -64,26 +57,6 @@ struct W8AIMissile : W8AIRecord {
 unsigned char UpdateMissileAI(W8AIMissile* record);
 float AdvanceMissileAI(W8AIMissile* record, glm::vec3* out, unsigned int steps);
 
-/* The missile constructor allocates this complete 0x108-byte representation,
-   invokes W8EmitterHost on the same receiver, constructs the two light-list
-   vectors, and installs vtable 0x005ECDE0. Its copy constructor and destructor
-   at 0x004A2DB0 and 0x004A3230 own the same storage. */
-class W8MissileRep : public W8EmitterHost {
-public:
-    W8MissileRep();
-    W8MissileRep(const W8MissileRep& other);
-    virtual ~W8MissileRep() override;
-    virtual srModelInstance* SetCycleFrameLod(signed char cycle, signed char frame,
-                                              signed char lod) override;
-    virtual unsigned int ApplyEmitterSetting(signed char emitter) override;
-    virtual W8AniMesh* GetEmitterAniMesh(signed char emitter) override;
-    unsigned char ReadCycleData(W8ReadLevelInfo* info, W8Missile* missile, int cycle_index, int);
-
-    unsigned int value_0ac{};
-    unsigned int value_0b0{};
-    EmitterResources<2> resources;
-};
-
 /* The copy path allocates 0x328 bytes and invokes W8GrCycle's copy constructor
    on the same receiver before installing the missile's primary and navigator
    tables. The source assertion for its AI names the object `pMissile`. */
@@ -100,11 +73,15 @@ public:
     virtual bool IsCycleSupported(signed char cycle) override;
     virtual signed char GetTotalAnimationCount() override;
     virtual float GetCurrentAnimationScale() override;
-    virtual W8EmitterHost* GetRepresentation() override;
     virtual void SetCycle(signed char cycle) override;
     virtual W8AnimObj* GetCurrentAnimation() override;
     virtual void AdvanceAnimationFrame(int value, int flags) override;
     virtual W8AniMesh* GetCurrentAniMesh() override;
+    srModelInstance* SetCycleFrameLod(signed char emitter, signed char frame,
+                                      signed char lod) override;
+    unsigned int ApplyEmitterSetting(signed char emitter) override;
+    W8AniMesh* GetEmitterAniMesh(signed char emitter) override;
+    unsigned char ReadCycleData(W8ReadLevelInfo* info, int cycle_index, int);
     virtual void StartIfHostActive(); /* 0x004A4050 */
     /* Decide what the missile struck - the party or a live monster - record it
        in combat_slot, roll the target's missile deflection and either hand
@@ -124,7 +101,10 @@ public:
 
 public:
     int missile_table_index;
-    std::unique_ptr<W8MissileRep> m_pRep;
+    unsigned int value_0ac{};
+    unsigned int value_0b0{};
+    EmitterResources<2> resources;
+    std::unique_ptr<W8AIMissile> flight_ai;
     /* Flight exhausted its duration; the world updater destroys the missile
        once block_released is also set. */
     bool flight_done;

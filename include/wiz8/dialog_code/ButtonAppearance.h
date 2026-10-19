@@ -10,7 +10,7 @@
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 
-#include "Font.h"
+#include "wiz8/canvas/Font.h"
 
 struct SpriteSheet;
 inline constexpr std::string_view DEFAULT_GENERIC_BUTTON_OFF = "Data\\Message Box\\GENBUTN.STI";

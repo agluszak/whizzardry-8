@@ -51,12 +51,12 @@ public:
         m_path_bounds.max_x = 0;
         m_path_bounds.min_x = 0;
     }
-    GDProp(W8PathingService* pathing, srModelInstance* instance, const char* path_name,
+    GDProp(W8PathingService* pathing, srModelInstance* instance, std::string_view path_name,
            unsigned short prop_number, W8FootstepSurface footstep_surface,
            W8FootstepMaterial footstep_material); /* 0x004B6E00 */
     GDProp(GDProp&&) noexcept = default;
-    GDProp& operator=(GDProp&&) noexcept = default;
     GDProp(const GDProp&) = delete;
+    GDProp& operator=(GDProp&&) noexcept = default;
     GDProp& operator=(const GDProp&) = delete;
     void BindTrigger(Trigger* owner, W8PathingService* pathing);
     bool ContainsPathCoordinate(unsigned short x, unsigned short y) const;

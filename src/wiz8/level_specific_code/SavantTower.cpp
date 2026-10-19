@@ -18,7 +18,6 @@
    between Ascension.cpp's and the ConnectiveTissue Liche block's. */
 
 /* The ButtonBlocker prop tracks fact 0x156. */
-// FUNCTION: WIZ8 0x004E0510
 void SavantTowerSyncButtonBlocker(void)
 {
     W8Prop* prop = FindPropByName(GetWorld(), "ButtonBlocker");
@@ -33,7 +32,6 @@ void SavantTowerSyncButtonBlocker(void)
 
 /* The shape callback (Triangle/Circle/Square/Star): on the first step latch
    DeactivatingBomb and queue the NPC-0x46 script notice. */
-// FUNCTION: WIZ8 0x004E0560
 bool SavantTowerShape(Trigger* pTrigger)
 {
     if (GetLocationVarIDByName("DeactivatingBomb") == -1) {
@@ -45,7 +43,6 @@ bool SavantTowerShape(Trigger* pTrigger)
 
 /* The ButtonBlocker callback: pin the blocker prop, queue the NPC-0x46
    script notice and latch fact 0x156. */
-// FUNCTION: WIZ8 0x004E05A0
 bool SavantTowerButtonBlocker(Trigger* pTrigger)
 {
     W8Prop* blocker = FindPropByName(GetWorld(), "ButtonBlocker");

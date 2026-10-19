@@ -16,17 +16,16 @@
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
-#include "input.h"
 #include "layouts/targeting.h"
 #include "layouts/world.h"
 #include "particle_modes.h"
-#include "soundman.h"
 #include "surrender/srDebug.h"
 #include "surrender/srMaterial.h"
 #include "surrender/srNode.h"
 #include "surrender/srShader.h"
 #include "surrender/srTexture.h" // IWYU pragma: keep - complete texture type for shared_ptr base conversion.
 #include "wiz8/asset_paths.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/Camera.h"
@@ -48,6 +47,7 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/world_cursor.h"
 #include "wiz8/xstatus.h"
@@ -61,30 +61,24 @@ constexpr float kCursorSightProbeHeight = 750.0f;
 /* Engine Code\Cursor3d.cpp. The cursor state, its visibility query and the
    range reset the update path calls. */
 
-// GLOBAL: WIZ8 0x0065ba8c (gp3DCursor, now owned by the level world)
 static W8WorldCursorState* WorldCursor()
 {
     return GetWorld() ? GetWorld()->cursor.get() : nullptr;
 }
 
-// GLOBAL: WIZ8 0x0065ba94
 static srNode* g_cursor_value;
 
 /* The cursor scene node relocated to position on each move. */
-// GLOBAL: WIZ8 0x0065ba90
 static srNode* g_cursor_node0;
 
 /* Set when the cursor is opened while a shift key is held; while set the
    update keeps the latched dragged monster instead of re-picking. */
-// GLOBAL: WIZ8 0x0065ba98
 static bool g_cursor_pick_latch;
 
 /* 0x60ab44: the saved world-cursor monster group id; -1 until a cursor is
    torn down. Seeds and restores monster_group_id. */
-// GLOBAL: WIZ8 0x0060ab44
 static int g_cursor_saved_group_id = -1;
 
-// GLOBAL: WIZ8 0x0060ab48
 static float g_cursor_projection_distance = 4000.0f;
 
 /* Build the world cursor on demand: allocate and clear the state block, load
@@ -92,7 +86,6 @@ static float g_cursor_projection_distance = 4000.0f;
    probe box from the monster's animation bounds. The particle block is gated
    on particle which is never set here - it stays dormant until the cursor
    gains a particle. */
-// FUNCTION: WIZ8 0x00490210
 void InitializeWorldCursor(void)
 {
 
@@ -117,7 +110,7 @@ void InitializeWorldCursor(void)
         auto monster = LoadMonsterCycle(GetWorld(), "3DCursor", -1, 1);
         cursor.monster = monster.get();
         GetWorld()->monsters.push_back(std::move(monster));
-        MonsterSetCycle(cursor.monster, 0);
+        cursor.monster->SetCycle(0);
         cursor.last_published = glm::vec3(-100000000.0f);
         cursor.position = glm::vec3(0);
         cursor.cam_rel_offset = glm::vec3(0);
@@ -127,10 +120,10 @@ void InitializeWorldCursor(void)
         cursor.input_delta.y = 0;
         cursor.input_delta.z = 0;
         position = cursor.position;
-        MonsterSetAdjustedPosition(cursor.monster, &position);
+        cursor.monster->SetAdjustedPosition(&position);
         GetWorld()->active_monsters.push_back(cursor.monster);
         UpdateCycleRepresentation(cursor.monster);
-        MonsterSetActive(cursor.monster, false);
+        cursor.monster->SetActive(false);
         cursor.light = CreateRangedWorldLight(GetWorld(), "3D Cursor Light");
         cursor.light->intensity = 1.0f;
         ConfigureWorldLight(cursor.light, 2500.0f);
@@ -199,7 +192,6 @@ void InitializeWorldCursor(void)
    the retirement through the UI state. The shared camera-distance slot returns
    to the cursor's own last value and the cursor's vertical position is
    flattened before that distance is taken. */
-// FUNCTION: WIZ8 0x004909C0
 void ReleaseWorldCursor(void)
 {
     W8WorldCursorState* cursor = WorldCursor();
@@ -239,7 +231,6 @@ void ReleaseWorldCursor(void)
    poster-distance clamps, optionally marched to a ground/sight target. A
    changed position is republished to the cursor monster, the cursor nodes and
    the dragged monster. */
-// FUNCTION: WIZ8 0x00490C60
 void ApplyWorldCursorInput(void)
 {
     glm::mat3 rotation;
@@ -250,11 +241,11 @@ void ApplyWorldCursorInput(void)
     glm::vec3 clamped;
 
     if (WorldCursor() == 0) {
-        srAssertFail("gp3DCursor");
+        Fail("gp3DCursor");
     }
     auto& cursor = *WorldCursor();
     if (!cursor.enabled) {
-        srAssertFail("gp3DCursor->fEnabled");
+        Fail("gp3DCursor->fEnabled");
     }
     const float saved_y = cursor.position.y;
     delta = glm::vec3(cursor.input_delta.x * 1e+01f, cursor.input_delta.y * 1e+01f,
@@ -325,7 +316,7 @@ void ApplyWorldCursorInput(void)
     }
     if (!(cursor.last_published == cursor.position)) {
         lifted = cursor.position;
-        MonsterSetAdjustedPosition(cursor.monster, &lifted);
+        cursor.monster->SetAdjustedPosition(&lifted);
         if (g_cursor_node0 != 0) {
             node_location = glm::dvec3(cursor.position);
             g_cursor_node0->setLocation(node_location);
@@ -347,14 +338,13 @@ void ApplyWorldCursorInput(void)
             GetWorldOctree()->UpdateMonsterLocation(cursor.dragged_info->location_id,
                                                     &cursor.position);
             if (((GetInputState().modifiers & SHIFT_DOWN) != 0)) {
-                MonsterForwardReferencePosition(cursor.dragged_info->p3D, 1);
+                cursor.dragged_info->p3D->ForwardReferencePosition(1);
             }
         }
         cursor.last_published = cursor.position;
     }
 }
 
-// FUNCTION: WIZ8 0x004914C0
 bool IsWorldCursorVisible(void)
 {
     return WorldCursor() != 0 && WorldCursor()->enabled;
@@ -365,7 +355,6 @@ bool IsWorldCursorVisible(void)
    in the list as a fallback), walk up to the leader group, arm the located
    monster with the Test.msf script and move the group leader to the cursor
    point. */
-// FUNCTION: WIZ8 0x004914E0
 void BindCursorMonsterToGroup(void)
 {
     glm::vec3 position;
@@ -406,7 +395,6 @@ void BindCursorMonsterToGroup(void)
 /* Reset the cursor range to its default 4000 units. The cursor release path
    (ReleaseWorldCursor) writes the flattened camera distance to the
    same slot before the cursor is freed. */
-// FUNCTION: WIZ8 0x00492530
 void ResetWorldCursorRange(void)
 {
     g_cursor_projection_distance = 4000.0f;
@@ -415,7 +403,6 @@ void ResetWorldCursorRange(void)
 /* Install an action-range distance into the live cursor: subtract
    2e+03f / distance * world_scale, clamp to 50000, write range,
    and force last_published to the -1e8 republish sentinel. */
-// FUNCTION: WIZ8 0x00491650
 void SetWorldCursorRange(float distance)
 {
     if (auto* cursor = WorldCursor()) {
@@ -430,7 +417,6 @@ void SetWorldCursorRange(float distance)
 
 /* Toggle the 3D world cursor: release it if one exists, or initialize one
    if none does. Both branches tail-call into the respective functions. */
-// FUNCTION: WIZ8 0x00490af0
 void ToggleWorldCursor(void)
 {
     if (WorldCursor() != 0) {
@@ -456,7 +442,6 @@ void ToggleWorldCursor(void)
    selected character and resets the cursor, or plays the error beep. A moved
    cursor points the camera at it while detached and refreshes the target
    marker in place mode. */
-// FUNCTION: WIZ8 0x004916C0
 void UpdateWorldCursor(void)
 {
     SDL_Point cursor_point;
@@ -528,7 +513,6 @@ void UpdateWorldCursor(void)
     }
 }
 
-// FUNCTION: WIZ8 0x004919E0
 char MarchWorldCursorTarget(glm::vec3* target)
 {
     glm::vec3 trace_from;
@@ -626,7 +610,6 @@ char MarchWorldCursorTarget(glm::vec3* target)
 /* Update the world cursor's placement: derive a point g_cursor_projection_distance units
    in front of the yaw-rotated camera, resolve it through the cursor walk and
    store the result as the cursor position and camera-relative offset. */
-// FUNCTION: WIZ8 0x00491EC0
 void UpdateWorldCursorPlacement(void)
 {
     glm::vec3 camera(0.0f, 1.0f, 0.0f);
@@ -655,7 +638,6 @@ void UpdateWorldCursorPlacement(void)
 
 /* Arm the world cursor's footprint mode and install the two fixed probe
    offsets the target resolver probes in place of the probe box. */
-// FUNCTION: WIZ8 0x00492190
 void SetWorldCursorExtents(const glm::vec3* minimum, const glm::vec3* maximum)
 {
     if (auto* cursor = WorldCursor()) {
@@ -670,7 +652,6 @@ void SetWorldCursorExtents(const glm::vec3* minimum, const glm::vec3* maximum)
    the best settled height. With the fixed-offset flag the two stored offsets
    and their crossed corner combinations are probed instead, and a settled
    height too far from the input height fails the resolution. */
-// FUNCTION: WIZ8 0x004921E0
 int ResolveWorldCursorTarget(glm::vec3* position)
 {
     W8WorldCursorState* cursor = WorldCursor();
@@ -716,7 +697,6 @@ int ResolveWorldCursorTarget(glm::vec3* position)
     return 1;
 }
 
-// FUNCTION: WIZ8 0x00492500
 void GetWorldCursorTargetPosition(glm::vec3* position)
 {
     glm::vec3 resolved;

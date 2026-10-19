@@ -25,7 +25,6 @@
 #include "wiz8/engine_code/quad.h"
 
 /* Convert the mesh view half-angle from degrees to radians. */
-// GLOBAL: WIZ8 0x005ED168
 const float g_mesh_view_degrees_to_radians = 0.01745329424738884f;
 
 static bool AppendQuadRow(int left, int right, int max_x, int row, std::vector<glm::ivec2>& cells)
@@ -125,7 +124,6 @@ std::vector<glm::ivec2> rasterizeQuadTriangle(const glm::ivec2& dimensions,
 }
 
 // The camera cell is the apex; the far endpoints bound its yawed visibility wedge.
-// FUNCTION: WIZ8 0x004BA530
 std::vector<glm::ivec2> visibleQuadCells(const W8World& world)
 {
     const W8Quad& quad = *world.quads;
@@ -146,14 +144,13 @@ std::vector<glm::ivec2> visibleQuadCells(const W8World& world)
     return rasterizeQuadTriangle({quad.row_count, quad.column_count}, {camera_cell, left, right});
 }
 
-// FUNCTION: WIZ8 0x004BAD40
 void UpdateWorldMeshFromQuads(W8World* world)
 {
     if (world == 0) {
-        srAssertFail("pWorld");
+        Fail("pWorld");
     }
     if (world->quads == 0) {
-        srAssertFail("pWorld->Tree.pQuads");
+        Fail("pWorld->Tree.pQuads");
     }
     srMeshModel* mesh = static_cast<srMeshModel*>(world->update_mesh_source->getModel());
     W8Quad& quad = *world->quads;
@@ -170,13 +167,11 @@ void UpdateWorldMeshFromQuads(W8World* world)
     mesh->setDirty(srMeshModel::DIRTY_TRI_MESH);
 }
 
-// FUNCTION: WIZ8 0x004BAF50
 void UpdateWorldOctree(W8World* world)
 {
     world->octree->UpdateCameraVisibility();
 }
 
-// FUNCTION: WIZ8 0x004baf60
 void UpdateWorldMesh()
 {
     srModelInstance* source;
@@ -186,7 +181,7 @@ void UpdateWorldMesh()
     w8_ulong index;
 
     if (GetWorld() == nullptr) {
-        srAssertFail("pWorld");
+        Fail("pWorld");
     }
     source = GetWorld()->update_mesh_source;
     if (source != 0) {

@@ -15,20 +15,19 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 
-#include "Font.h"
 #include "conditions.h"
 #include "dialog_code/DialogBase.h"
 #include "equipment_slots.h"
-#include "input.h"
 #include "layouts/item_instance.h"
 #include "layouts/targeting.h"
 #include "local_code/ControlsRect.h"
 #include "local_code/RangeControl.h"
 #include "local_code/TextBuffer.h"
-#include "soundman.h"
 #include "surrender/srDebug.h"
 #include "ui_input.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/button_interaction.h"
+#include "wiz8/canvas/Font.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/cursor.h"
@@ -57,6 +56,7 @@
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/xstatus.h"
@@ -92,28 +92,23 @@ void SetCampItemHelp(std::string text)
 
 static void DrawCampItemLabel(W8ItemInstance* item, int left, int top, char flag);
 
-// GLOBAL: WIZ8 0x0069C0EC
 int giCasterCharSlot;
 
-// GLOBAL: WIZ8 0x0069C424
 W8ItemInstance* g_split_item_source;
 
 /* The twelve equip-slot label message ids indexed by region
    region id. */
-// GLOBAL: WIZ8 0x0061E7C4
 unsigned short g_equip_slot_label_ids[12] = {
     0x433, 0x434, 0x435, 0x436, 0x437, 0x438, 0x439, 0x43a, 0x43b, 0x43c, 0x43d, 0x43e,
 };
 
 /* The two page-tab primary callbacks: the Items and Character info buttons
    created by CreateCampSecondaryPanel. */
-// FUNCTION: WIZ8 0x005B9FB0
 void ShowCampItemsPage(void)
 {
     SetCampInfoPageMode(W8_CAMP_INFO_PAGE_ITEMS);
 }
 
-// FUNCTION: WIZ8 0x005B9FC0
 void ShowCampCharacterPage(void)
 {
     SetCampInfoPageMode(W8_CAMP_INFO_PAGE_CHARACTER);
@@ -128,7 +123,7 @@ void SetCampInfoPageMode(W8CampInfoPage mode)
 
     switch (mode) {
     default:
-        srAssertFail("FALSE", "Info toggle error");
+        Fail("FALSE", "Info toggle error");
         break;
     case W8_CAMP_INFO_PAGE_CHARACTER:
         item_controls->tabs[0]->SetPressed(false);
@@ -159,7 +154,6 @@ void SetCampInfoPageMode(W8CampInfoPage mode)
     g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_CHARACTER_INFO;
 }
 
-// FUNCTION: WIZ8 0x005BA110
 void OpenItemInfoDialog(W8ItemInstance* item)
 {
     W8DialogBase* dialog;
@@ -175,25 +169,21 @@ void OpenItemInfoDialog(W8ItemInstance* item)
     DisplayCampDialog(std::unique_ptr<W8DialogBase>(dialog));
 }
 
-// FUNCTION: WIZ8 0x005BA2A0
 void OpenSecondaryAttributeInfoDialog4(void)
 {
     OpenSecondaryAttributeInfoDialog(4);
 }
 
-// FUNCTION: WIZ8 0x005BA2B0
 void OpenAttributeInfoDialog(W8Attribute attribute)
 {
     DisplayCampDialog(std::make_unique<W8AttributeInfoDialog>(attribute));
 }
 
-// FUNCTION: WIZ8 0x005BA310
 void OpenSecondaryAttributeInfoDialog(unsigned int uiIndex)
 {
     DisplayCampDialog(std::make_unique<W8SecondaryAttributeInfoDialog>(uiIndex));
 }
 
-// FUNCTION: WIZ8 0x005BA370
 void IdentifyAndOpenItemInfo(W8ItemInstance* item)
 {
     if (CanItemLeaveItsSlot(item)) {
@@ -207,7 +197,6 @@ void IdentifyAndOpenItemInfo(W8ItemInstance* item)
     SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
 }
 
-// FUNCTION: WIZ8 0x005BA3D0
 void DropHeldCampItem(void)
 {
     if (ResolvePendingCampCharacter(true)) {
@@ -217,7 +206,6 @@ void DropHeldCampItem(void)
     }
 }
 
-// FUNCTION: WIZ8 0x005BA400
 void OpenSplitStackDialog(W8ItemInstance* item)
 {
     W8SplitItemDialog* dialog;
@@ -237,7 +225,6 @@ void OpenSplitStackDialog(W8ItemInstance* item)
     }
 }
 
-// FUNCTION: WIZ8 0x005BA4F0
 void UseCampItem(W8ItemInstance* item)
 {
     unsigned short slot;
@@ -269,7 +256,6 @@ void UseCampItem(W8ItemInstance* item)
     SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
 }
 
-// FUNCTION: WIZ8 0x005BA5D0
 void MergeItemStacksWithHeld(W8ItemInstance* item)
 {
     if (item->iItemNo != -1) {
@@ -281,7 +267,6 @@ void MergeItemStacksWithHeld(W8ItemInstance* item)
     }
 }
 
-// FUNCTION: WIZ8 0x005BA620
 void ReportCastResult(int party_slot)
 {
     std::string text;
@@ -308,19 +293,18 @@ void ReportCastResult(int party_slot)
     SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
 }
 
-// FUNCTION: WIZ8 0x005BA740
 void UseHeldItemOnItem(W8ItemInstance* item)
 {
     W8CombatSlot target;
 
     if (giCasterCharSlot < 0) {
-        srAssertFail("giCasterCharSlot >= 0");
+        Fail("giCasterCharSlot >= 0");
     }
     if (giCasterCharSlot > 7) {
-        srAssertFail("giCasterCharSlot < MAX_CHARS");
+        Fail("giCasterCharSlot < MAX_CHARS");
     }
     if (!g_status.buffers.XChar[giCasterCharSlot].fOccupied) {
-        srAssertFail("fCHAR_OCCUPIED(giCasterCharSlot)");
+        Fail("fCHAR_OCCUPIED(giCasterCharSlot)");
     }
     if (item->iItemNo != -1) {
         if (CanItemLeaveItsSlot(item)) {
@@ -345,25 +329,24 @@ void UseHeldItemOnItem(W8ItemInstance* item)
     }
 }
 
-// FUNCTION: WIZ8 0x005BA8E0
 void TargetCharacterWithHeldItem(unsigned int uiTargetChar)
 {
     W8CombatSlot target;
 
     if (uiTargetChar > 7) {
-        srAssertFail("uiTargetChar < MAX_CHARS");
+        Fail("uiTargetChar < MAX_CHARS");
     }
     if (!g_status.buffers.XChar[uiTargetChar].fOccupied) {
-        srAssertFail("fCHAR_OCCUPIED(uiTargetChar)");
+        Fail("fCHAR_OCCUPIED(uiTargetChar)");
     }
     if (giCasterCharSlot < 0) {
-        srAssertFail("giCasterCharSlot >= 0");
+        Fail("giCasterCharSlot >= 0");
     }
     if (giCasterCharSlot > 7) {
-        srAssertFail("giCasterCharSlot < MAX_CHARS");
+        Fail("giCasterCharSlot < MAX_CHARS");
     }
     if (!g_status.buffers.XChar[giCasterCharSlot].fOccupied) {
-        srAssertFail("fCHAR_OCCUPIED(giCasterCharSlot)");
+        Fail("fCHAR_OCCUPIED(giCasterCharSlot)");
     }
     ResetCombatSlot(&target);
     target.iType = W8_TARGET_KIND_CHARACTER;
@@ -375,7 +358,6 @@ void TargetCharacterWithHeldItem(unsigned int uiTargetChar)
     giCasterCharSlot = -1;
 }
 
-// FUNCTION: WIZ8 0x005BAA10
 int CanCharacterUseItemEntry(W8Character* character, W8ItemInstance* item)
 {
     if (CanCharacterActivateItem(character, item) || CanCastFromItem(character, item) ||
@@ -385,7 +367,6 @@ int CanCharacterUseItemEntry(W8Character* character, W8ItemInstance* item)
     return 0;
 }
 
-// FUNCTION: WIZ8 0x005BAA50
 bool CanSplitItemStack(const W8ItemInstance* item)
 {
     const W8ItemDatabaseRecord* record = &g_item_records[item->iItemNo];
@@ -395,7 +376,6 @@ bool CanSplitItemStack(const W8ItemInstance* item)
     return record->quantity_kind == W8_ITEM_QUANTITY_STACK;
 }
 
-// FUNCTION: WIZ8 0x005BAA80
 void SplitStackDialogResult(int count)
 {
     W8ItemInstance split;
@@ -503,7 +483,7 @@ void UpdateItemCursorForState(bool alternate, W8ItemInstance* item, int slot)
         return;
     case W8_TARGET_NEED_ITEM:
         if (item == 0) {
-            srAssertFail("pItem");
+            Fail("pItem");
         }
         if (item->iItemNo == -1) {
             return;
@@ -583,7 +563,6 @@ void SetHandCursors()
 /* Unequips both weapon slots of the selected character; refused outright in
    combat and while the party is moving, and per-slot when a bound item will
    not come off. */
-// FUNCTION: WIZ8 0x005BB010
 void UnequipBothHands(void)
 {
     W8Character* character;
@@ -611,7 +590,6 @@ void UnequipBothHands(void)
     ShowCampNoticeLine(g_localized_strings[0x916], 0, true, false);
 }
 
-// FUNCTION: WIZ8 0x005BB140
 void TogglePartyRowFlag(void)
 {
     if (item_controls->actions[1]->IsPressed()) {
@@ -625,43 +603,36 @@ void TogglePartyRowFlag(void)
     item_controls->actions[0]->m_dirty = true;
 }
 
-// FUNCTION: WIZ8 0x005BB1C0
 void ToggleCampHandItemFilter(void)
 {
     ToggleCampItemFilter(W8_CAMP_ITEM_FILTER_BUTTON_HAND);
 }
 
-// FUNCTION: WIZ8 0x005BB1D0
 void ToggleCampBodyItemFilter(void)
 {
     ToggleCampItemFilter(W8_CAMP_ITEM_FILTER_BUTTON_BODY);
 }
 
-// FUNCTION: WIZ8 0x005BB1E0
 void ToggleCampOtherItemFilter(void)
 {
     ToggleCampItemFilter(W8_CAMP_ITEM_FILTER_BUTTON_OTHER);
 }
 
-// FUNCTION: WIZ8 0x005BB1F0
 void ToggleCampAccessoryItemFilter(void)
 {
     ToggleCampItemFilter(W8_CAMP_ITEM_FILTER_BUTTON_ACCESSORY);
 }
 
-// FUNCTION: WIZ8 0x005BB200
 void ToggleCampUsabilityFilter(void)
 {
     ToggleCampItemFilter(W8_CAMP_ITEM_FILTER_BUTTON_USABLE);
 }
 
-// FUNCTION: WIZ8 0x005BB210
 void ToggleCampUnidentifiedItemFilter(void)
 {
     ToggleCampItemFilter(W8_CAMP_ITEM_FILTER_BUTTON_UNIDENTIFIED);
 }
 
-// FUNCTION: WIZ8 0x005BB220
 void SortCampItemPool(void)
 {
     SortPartyItemPool();
@@ -671,7 +642,6 @@ void SortCampItemPool(void)
 }
 
 /* UI button order differs from the item-filter order. */
-// FUNCTION: WIZ8 0x005BB250
 void ToggleCampItemFilter(W8CampItemFilterButton tab)
 {
     W8CampItemFilter filter;
@@ -823,7 +793,6 @@ UiResult HandleCampItem(const UiPointerEvent& event, int slot, int origin)
    four at 0x0d/0xc2), the visible pool rows (0x22c/0xc2), and the twelve
    equipment icons laid out by g_camp_screen_regions. Each occupied
    slot gets a hover label drawn by DrawCampItemLabel. */
-// FUNCTION: WIZ8 0x005bbe30
 void DrawCampItemIcons(void)
 {
     unsigned int index;
@@ -874,7 +843,6 @@ void DrawCampItemIcons(void)
    the box is left-shifted by its width for the pool column, then the filled
    background, the text and a one-pixel outline are painted straight into the
    locked primary surface. */
-// FUNCTION: WIZ8 0x005bbf40
 static void DrawCampItemLabel(W8ItemInstance* item, int left, int top, char flag)
 {
     std::string name;
@@ -995,7 +963,6 @@ void DestroyCampItemControls()
     item_controls.reset();
 }
 
-// FUNCTION: WIZ8 0x005b9270
 void EnableCampActionButtons(void)
 {
     item_controls->actions[0]->SetVisible(true);
@@ -1015,14 +982,12 @@ void EnableCampActionButtons(void)
     }
 }
 
-// FUNCTION: WIZ8 0x005b9310
 void DisableCampActionButtons(void)
 {
     item_controls->actions[0]->SetVisible(false);
     item_controls->actions[1]->SetVisible(false);
 }
 
-// FUNCTION: WIZ8 0x005b9330
 void RefreshCampActionPanel(bool invalidate)
 {
     for (const auto& button : item_controls->actions) {
@@ -1033,10 +998,8 @@ void RefreshCampActionPanel(bool invalidate)
 
 /* The right-hand panel of seven tabs: the six realm filters and the pool sort
    button. */
-// FUNCTION: WIZ8 0x005b9350
 /* Item filter buttons keep their secondary state when the corresponding
    filter is set. The sort button has no item-filter flag. */
-// FUNCTION: WIZ8 0x005b97b0
 void UpdateCampItemFilters(void)
 {
     int index;
@@ -1081,7 +1044,6 @@ void UpdateCampItemFilters(void)
     }
 }
 
-// FUNCTION: WIZ8 0x005b98c0
 void DisableItemsRealmTabs(void)
 {
     int index;
@@ -1091,7 +1053,6 @@ void DisableItemsRealmTabs(void)
     }
 }
 
-// FUNCTION: WIZ8 0x005b98e0
 void RefreshItemsTabPanel(bool invalidate)
 {
     for (const auto& button : item_controls->filters) {
@@ -1100,13 +1061,11 @@ void RefreshItemsTabPanel(bool invalidate)
     }
 }
 
-// FUNCTION: WIZ8 0x005b9ef0
 void InvalidateCampPanel(void)
 {
     item_controls->dirty = true;
 }
 
-// FUNCTION: WIZ8 0x005b9f00
 void EnableCampSecondaryPanel(void)
 {
     int index;
@@ -1123,7 +1082,6 @@ void EnableCampSecondaryPanel(void)
     SetCampInfoPageMode(W8_CAMP_INFO_PAGE_CHARACTER);
 }
 
-// FUNCTION: WIZ8 0x005b9f60
 void DisableCampSecondaryPanel(void)
 {
     int index;
@@ -1134,7 +1092,6 @@ void DisableCampSecondaryPanel(void)
     }
 }
 
-// FUNCTION: WIZ8 0x005b9f90
 void RefreshCampSecondaryPanel(bool invalidate)
 {
     if (invalidate) {

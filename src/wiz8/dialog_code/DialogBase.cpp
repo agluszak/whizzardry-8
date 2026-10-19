@@ -10,7 +10,6 @@
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 
-#include "input.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/DialogScrollBar.h"
@@ -19,6 +18,7 @@
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/modal_content.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/ui_input.h"
 
 void W8DialogBase::CreateCloseButton(W8ButtonWidget& button, int left, int top)
@@ -36,7 +36,6 @@ void W8DialogBase::ScrollTextArea(W8DialogTextArea& area, int first_visible_line
     m_dirty = true;
 }
 
-// FUNCTION: WIZ8 0x005dc7a0
 W8DialogBase::W8DialogBase()
 {
     m_dirty = false;
@@ -51,7 +50,6 @@ W8DialogBase::W8DialogBase()
         &m_input.add(SDL_Rect{m_x, m_y, m_width + 1, m_height + 1}, {}, UI_PRIORITY_BACKGROUND);
 }
 
-// FUNCTION: WIZ8 0x005dc860
 W8DialogBase::~W8DialogBase()
 {
     EndModalInput();
@@ -66,7 +64,6 @@ std::function<void()> W8DialogBase::TakeCompletion(bool)
     return std::exchange(on_close, {});
 }
 
-// FUNCTION: WIZ8 0x005dc890
 void ModalContent::RefreshModal()
 {
     DrawModal(GetFrameBufferSurface());
@@ -95,14 +92,12 @@ void W8DialogBase::Draw(SDL_Surface& target)
     DrawButtonAppearance(target, {.generic_image = m_border}, {m_x, m_y, m_width, m_height}, {});
 }
 
-// FUNCTION: WIZ8 0x005dc940
 void W8DialogBase::SetText(std::string_view text)
 {
     m_text.assign(text);
     m_dirty = true;
 }
 
-// FUNCTION: WIZ8 0x005dc9c0
 void W8DialogBase::SetOrigin(int x, int y)
 {
     m_x = x;
@@ -111,7 +106,6 @@ void W8DialogBase::SetOrigin(int x, int y)
     m_dirty = true;
 }
 
-// FUNCTION: WIZ8 0x005dc9f0
 void W8DialogBase::SetExtent(int width, int height)
 {
     m_width = width;
@@ -120,7 +114,6 @@ void W8DialogBase::SetExtent(int width, int height)
     m_dirty = true;
 }
 
-// FUNCTION: WIZ8 0x005dca70
 void W8DialogBase::SetBackground(const char* path, int flags)
 {
     m_background_path = path ? path : "";
@@ -132,7 +125,6 @@ void W8DialogBase::SetBackground(const char* path, int flags)
     if (!m_font->glyphs || !m_border) throw std::runtime_error("Cannot configure dialog backdrop");
 }
 
-// FUNCTION: WIZ8 0x005dcc30
 void W8DialogBase::BeginModalInput()
 {
     m_input.setModal(true);
@@ -143,7 +135,6 @@ void W8DialogBase::EndModalInput()
     m_input.setModal(false);
 }
 
-// FUNCTION: WIZ8 0x005dcce0
 bool W8DialogBase::ProcessInput()
 {
     BeginModalInput();

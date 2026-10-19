@@ -10,7 +10,7 @@ extern bool g_sea_caves_slope_override_enabled;
 
 struct W8MonsterInfo;
 struct W8MonsterGroup;
-class stSound3D;
+class Sound3D;
 
 /* One level-specific per-frame entry point, registered by the level's own
    master function and run every world update. */
@@ -41,5 +41,5 @@ unsigned char ShowLevelMessage(int message_id);
 void InitializeLevelMasterFunctions(int level);
 W8MonsterGroup* SpawnMonsters(int monster_id, int count, glm::vec3* position, int hostility,
                               bool settle, bool a, bool b); /* 0x004D8F00 */
-stSound3D* CreateAndPlaySoundNode(const char* sound_name, glm::vec3 position, float volume,
-                                  float scale, bool play_flag); /* 0x004D8F80 */
+Sound3D* CreateAndPlaySoundNode(const char* sound_name, glm::vec3 position, float volume,
+                                float scale, bool play_flag); /* 0x004D8F80 */

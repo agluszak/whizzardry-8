@@ -108,7 +108,6 @@ SDLSurfaceOwner loadImage(const char* path, SDL_IOStream* io)
 } // namespace
 
 namespace srImage {
-// FUNCTION: SURRENDER 0x1002DB20
 SDLSurfaceOwner load(const char* path, SDL_IOStream* stream)
 {
     return loadImage(path, stream);
@@ -132,7 +131,6 @@ SDLSurfaceOwner loadTga(wiz8::File& file)
     }
 }
 
-// FUNCTION: SURRENDER 0x1002DA00
 SDLSurfaceOwner load(const char* path)
 {
     extension(path);
@@ -142,7 +140,6 @@ SDLSurfaceOwner load(const char* path)
     return surface;
 }
 
-// FUNCTION: SURRENDER 0x1002DCD0
 void save(const char* path, SDL_IOStream* stream, SDL_Surface& surface, int quality)
 {
     saveImage(outputFormat(path), stream, surface, quality);
@@ -153,7 +150,6 @@ void save(const char* path, wiz8::File& file, SDL_Surface& surface, int quality)
     save(path, file.io(), surface, quality);
 }
 
-// FUNCTION: SURRENDER 0x1002DBC0
 void save(const char* path, SDL_Surface& surface, int quality)
 {
     const auto format = outputFormat(path);

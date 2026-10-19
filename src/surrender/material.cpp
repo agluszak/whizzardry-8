@@ -7,7 +7,6 @@
 #include "surrender/srVertexPipe.h"
 #include "surrender/srVertexProcessor.h"
 
-// FUNCTION: SURRENDER 0x100339B0
 void srMaterial::updateParms()
 {
     parms.disabled_channels = 0;
@@ -26,7 +25,6 @@ void srMaterial::updateParms()
     dirty = 0;
 }
 
-// FUNCTION: SURRENDER 0x10033A80
 srMaterial& srMaterial::operator=(const srMaterial& other)
 {
     if (&other != this) {
@@ -40,7 +38,6 @@ srMaterial& srMaterial::operator=(const srMaterial& other)
     return *this;
 }
 
-// FUNCTION: SURRENDER 0x10033B50
 srVertexProcessor::MaterialInfo srMaterial::getMaterialInfo()
 {
     if (dirty != 0) {
@@ -49,7 +46,6 @@ srVertexProcessor::MaterialInfo srMaterial::getMaterialInfo()
     return parms;
 }
 
-// FUNCTION: SURRENDER 0x10033C00
 void srMaterial::preProcess(srVertexPipe& pipe)
 {
     if ((operations & (1UL << OPER_DIFFUSE_SPECULAR)) != 0) {
@@ -74,7 +70,6 @@ void srMaterial::preProcess(srVertexPipe& pipe)
     }
 }
 
-// FUNCTION: SURRENDER 0x10033C90
 void srMaterial::postProcess(srVertexPipe& pipe)
 {
     if (mapper != nullptr && mapper->isActive(pipe)) {
@@ -125,7 +120,6 @@ void srMaterial::postProcess(srVertexPipe& pipe)
     }
 }
 
-// FUNCTION: SURRENDER 0x10033F60
 void srMaterial::reset()
 {
     parms.ambient = glm::vec4(0.2f, 0.2f, 0.2f, 1.0f);
@@ -142,27 +136,23 @@ void srMaterial::reset()
     mapper = 0;
 }
 
-// FUNCTION: SURRENDER 0x100346A0
 glm::vec4 srMaterial::getEmissive() const
 {
     return parms.emissive;
 }
 
-// FUNCTION: SURRENDER 0x10034AA0
 void srMaterial::setVector(glm::vec4& destination, const glm::vec4& source)
 {
     destination = source;
     dirty = 1;
 }
 
-// FUNCTION: SURRENDER 0x10034AD0
 void srMaterial::disable(e_oper operation)
 {
     operations &= ~(1 << (operation & 0x1f));
     dirty = 1;
 }
 
-// FUNCTION: SURRENDER 0x10034B00
 void srMaterial::enable(e_oper operation)
 {
     operations |= 1 << (operation & 0x1f);

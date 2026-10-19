@@ -57,19 +57,17 @@
 #include "file_faults.h"
 #include "scoped_asset_roots.h"
 #include "temporary_directory.h"
+#include "wiz8/audio/SoundEvent.h"
 #include "wiz8/chunk.h"
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/AniMesh.h"
 #include "wiz8/engine_code/AnimObj.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/GrObject.h"
-#include "wiz8/engine_code/IntervalGate.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Missile.h"
 #include "wiz8/engine_code/PathAI.h"
 #include "wiz8/engine_code/ReadLevel.h"
-#include "wiz8/engine_code/SoundEvent.h"
 #include "wiz8/engine_code/stScript.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
@@ -81,6 +79,7 @@
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/npc_script_file.h"
+#include "wiz8/platform/IntervalGate.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/xstatus.h"
 
@@ -641,9 +640,9 @@ static void animated_mesh_cache_contracts()
 
 static void graphical_object_ownership_contracts()
 {
-    W8GrObject original;
+    W8Missile original;
     original.m_pAI = std::make_unique<W8PathAI>();
-    PathAIAddPoint(*static_cast<W8PathAI*>(original.m_pAI.get()), glm::vec3(1, 2, 3));
+    PathAIAddPoint(*original.m_pAI, glm::vec3(1, 2, 3));
     auto event = std::make_unique<W8SoundEvent>(W8_SOUND_EVENT_FRAME, 1, 2, 3, "step.wav", true);
     auto* first = event.get();
     original.AddSoundEvent(std::move(event));
@@ -652,9 +651,9 @@ static void graphical_object_ownership_contracts()
             std::make_unique<W8SoundEvent>(W8_SOUND_EVENT_CYCLE, i, 0, 0, "other.wav", false));
     }
     REQUIRE((original.sound_events.front().get() == first));
-    W8GrObject copy(original);
+    W8Missile copy(original);
     REQUIRE((copy.m_pAI != original.m_pAI));
-    REQUIRE((static_cast<W8PathAI*>(copy.m_pAI.get())->nodes[0].y == 2));
+    REQUIRE((copy.m_pAI->nodes[0].y == 2));
     REQUIRE((copy.sound_events.size() == original.sound_events.size()));
     REQUIRE((copy.sound_events.front().get() != first));
     REQUIRE((copy.sound_events.front()->wave_name == "step.wav"));
@@ -662,13 +661,12 @@ static void graphical_object_ownership_contracts()
              copy.sound_events.front()->sound_handle == nullptr));
     original.sound_events.clear();
     REQUIRE((copy.sound_events.front()->wave_name == "step.wav"));
-    W8GrObject missile;
+    W8Missile missile;
     auto* ai = new W8AIMissile{};
-    REQUIRE((ai->kind == W8_AI_RECORD_MISSILE));
     ai->speed_per_step = 5;
-    missile.m_pAI.reset(ai);
-    W8GrObject missile_copy(missile);
-    auto* cloned = static_cast<W8AIMissile*>(missile_copy.m_pAI.get());
+    missile.flight_ai.reset(ai);
+    W8Missile missile_copy(missile);
+    auto* cloned = missile_copy.flight_ai.get();
     REQUIRE((cloned != ai && cloned->speed_per_step == 5 && !cloned->missile));
 }
 

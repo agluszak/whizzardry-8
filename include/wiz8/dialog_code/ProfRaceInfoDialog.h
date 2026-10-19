@@ -1,4 +1,4 @@
-#include "Font.h"
+#include "wiz8/canvas/Font.h"
 #pragma once
 
 #include <optional>
@@ -34,7 +34,6 @@ extern W8ProfRaceInfoRow g_race_info_rows[W8_RACE_COUNT];
 /* Shared shell of the profession and race information dialogs: the base fixes
    the popup frame and the derived dialogs fill the string ids, the attribute
    minimums and the header icon. */
-// VTABLE: WIZ8 0x005efbc0
 class W8ProfRaceInfoDialogBase : public W8DialogBase {
 public:
     W8ProfRaceInfoDialogBase();
@@ -65,7 +64,6 @@ protected:
     W8DialogTextArea m_text_area;
 };
 
-// VTABLE: WIZ8 0x005efbfc
 class W8ProfessionInfoDialog : public W8ProfRaceInfoDialogBase {
 public:
     W8ProfessionInfoDialog(W8Profession uiIndex);
@@ -76,7 +74,6 @@ private:
     W8Profession m_uiIndex;
 };
 
-// VTABLE: WIZ8 0x005efc38
 class W8RaceInfoDialog : public W8ProfRaceInfoDialogBase {
 public:
     W8RaceInfoDialog(W8Race uiIndex);

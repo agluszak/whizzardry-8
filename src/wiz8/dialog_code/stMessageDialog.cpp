@@ -11,15 +11,15 @@
 #include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
 
-#include "Font.h"
 #include "dialog_code/DialogBase.h"
-#include "input.h"
+#include "wiz8/canvas/Font.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/unicode.h"
 
@@ -32,13 +32,11 @@
 /* Dialog Code. The base dialog releases its graphics in its destructor;
    the message dialog's shared button and sprite resources are RAII members. */
 
-// FUNCTION: WIZ8 0x005d25b0
 W8MessageDialogBase::W8MessageDialogBase()
     : accepted(false), is_open(true), m_line_count(0), m_show_confirm(false), allow_cancel(false)
 {
 }
 
-// FUNCTION: WIZ8 0x005d2660
 void W8MessageDialogBase::Draw(SDL_Surface& target)
 {
     int y;
@@ -73,7 +71,6 @@ void W8MessageDialogBase::Draw(SDL_Surface& target)
     }
 }
 
-// FUNCTION: WIZ8 0x005d2800
 void W8MessageDialogBase::SetMessage(std::string_view message, int line_count,
                                      unsigned short characters_per_line, bool confirmation,
                                      bool cancel, bool size_to_message, bool wrap_message,
@@ -132,7 +129,6 @@ void W8MessageDialogBase::SetMessage(std::string_view message, int line_count,
     Configure();
 }
 
-// FUNCTION: WIZ8 0x005d2a50
 unsigned int W8MessageDialogBase::WrapMessage(std::string_view message)
 {
     const auto maximum_width = std::max(m_width + 15, 1);
@@ -160,7 +156,6 @@ unsigned int W8MessageDialogBase::WrapMessage(std::string_view message)
     return m_lines.size();
 }
 
-// FUNCTION: WIZ8 0x005d2cb0
 void W8MessageDialogBase::SetClientExtent(int width, int height)
 {
     int old_width = m_width;
@@ -170,7 +165,6 @@ void W8MessageDialogBase::SetClientExtent(int width, int height)
     SetOrigin(m_x + (old_width - width) / 2, m_y + (old_height - height) / 2);
 }
 
-// FUNCTION: WIZ8 0x005d2d00
 void W8MessageDialogBase::Configure()
 {
     if (!m_edge_image) {
@@ -207,8 +201,6 @@ void W8MessageDialogBase::Configure()
     throw std::runtime_error("Cannot configure message buttons");
 }
 
-// FUNCTION: WIZ8 0x005d2f40
-// FUNCTION: WIZ8 0x005d3020
 bool W8MessageDialogBase::HandleInput(const InputEvent* input)
 {
     if (input->type != InputEventType::KeyDown) {
@@ -232,7 +224,6 @@ bool W8MessageDialogBase::HandleInput(const InputEvent* input)
     return false;
 }
 
-// FUNCTION: WIZ8 0x005d3080
 bool W8MessageDialogBase::ProcessInput()
 {
     BeginModalInput();

@@ -29,7 +29,6 @@
 
 struct W8NpcState;
 
-// GLOBAL: WIZ8 0x006834e4
 static W8Monster* g_swamp_spawned_monster;
 
 /* Level Specific Code\Swamp.cpp (level 0x18).
@@ -42,7 +41,6 @@ static W8Monster* g_swamp_spawned_monster;
 /* "oil_pool": item 0x2d0 held over the pool is converted to item 0x15e and the
    shared item-consumed flag is raised. Always returns 0, so the trigger stays
    armed for another try. */
-// FUNCTION: WIZ8 0x004DA960
 bool SwampOilPool(Trigger* pTrigger)
 {
     if (g_status.item_in_cursor && GetItemInHand() == 0x2d0) {
@@ -75,7 +73,6 @@ static bool CastSwampPlaneSpell(Trigger* pTrigger, int spell_id)
 /* "gas_trig_plane01-07": while fact 0x16d is unset the trigger defers to the
    one-shot spawner; once set, it casts spell 0x2a at power 4 on the camera
    position. */
-// FUNCTION: WIZ8 0x004DA9B0
 bool SwampGasPlane(Trigger* pTrigger)
 {
     return CastSwampPlaneSpell(pTrigger, W8_SPELL_NOXIOUS_FUMES);
@@ -83,7 +80,6 @@ bool SwampGasPlane(Trigger* pTrigger)
 
 /* "fire_trig_plane01-07": same fact gate as the gas planes, but casts spell
    0x24. */
-// FUNCTION: WIZ8 0x004DAA10
 bool SwampFirePlane(Trigger* pTrigger)
 {
     return CastSwampPlaneSpell(pTrigger, W8_SPELL_FIREBALL);
@@ -96,7 +92,6 @@ bool SwampFirePlane(Trigger* pTrigger)
 /* 0x004DAA8A is a split entry Ghidra carved out of this body: it resumes at
    the SetFact call after the fact-0x16d early return, not a separate
    authored function. */
-// FUNCTION: WIZ8 0x004DAA70
 static bool SwampGasFireSpawn(Trigger* pTrigger)
 {
     glm::vec3 center;
@@ -130,8 +125,8 @@ static bool SwampGasFireSpawn(Trigger* pTrigger)
         monster_info = FindMonster(index);
         if (monster_info != 0) {
             g_swamp_spawned_monster = monster_info->p3D;
-            monster_info->p3D->m_pRep->instance_scale = 1.0f;
-            monster_info->p3D->m_pRep->apply_instance_scale = true;
+            monster_info->p3D->instance_scale = 1.0f;
+            monster_info->p3D->apply_instance_scale = true;
             g_swamp_spawned_monster->BeginFadeIn(2.0f);
             g_swamp_spawned_monster->GetMappedPosition(&mapped);
             look_target = monster_info->p3D->movement.position;
@@ -150,7 +145,6 @@ static bool SwampGasFireSpawn(Trigger* pTrigger)
    the notice flag; each zero tick waits for g_npc_dialogue_closed - raised when the
    queued NPC script notice completes - then drops an unidentified item 0x264
    at the spawned monster and fades it out for removal. */
-// FUNCTION: WIZ8 0x004DACD0
 static bool SwampGasFireItemDrop(int command)
 {
     glm::vec3 position;
@@ -181,7 +175,6 @@ static bool SwampGasFireItemDrop(int command)
 
 /* "onelid": once fact 0x33 is set and an npc of kind 0x1e exists, advance the
    script facts - set 0x39 and clear 0x33. */
-// FUNCTION: WIZ8 0x004DADF0
 bool SwampOnelid(Trigger* pTrigger)
 {
     if (GetFact(W8_FACT_CROCK_KIDNAPPED_PLAYER) != 0 && FindNpcOfKind(0x1e) != 0) {

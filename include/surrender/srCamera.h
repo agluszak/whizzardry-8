@@ -11,8 +11,6 @@
 
 class srGERD;
 
-// VTABLE: SURRENDER 0x10076E40 srCamera
-// class srCamera
 class srCamera : public srNode {
 public:
     enum e_project { PROJECT_PERSPECTIVE = 0, PROJECT_ORTHOGRAPHIC = 1 };

@@ -6,7 +6,6 @@
 #include "surrender/srIlluminator.h"
 #include "surrender/srNode.h"
 
-// FUNCTION: SURRENDER 0x1004C7D0
 srIlluminator::srIlluminator(srNode* parent) : srNode(static_cast<srNode*>(nullptr))
 {
     if (parent != 0) {
@@ -16,7 +15,6 @@ srIlluminator::srIlluminator(srNode* parent) : srNode(static_cast<srNode*>(nullp
     group_mask = 0x80000000;
 }
 
-// FUNCTION: SURRENDER 0x1004C8D0
 srIlluminator& srIlluminator::operator=(const srIlluminator& other)
 {
     if (this != &other) {
@@ -26,7 +24,6 @@ srIlluminator& srIlluminator::operator=(const srIlluminator& other)
     return *this;
 }
 
-// FUNCTION: SURRENDER 0x1004C900
 void srIlluminator::process(const ProcessInfo& info, e_processType type)
 {
     srGERD* renderer = info.renderer;
@@ -44,19 +41,16 @@ void srIlluminator::process(const ProcessInfo& info, e_processType type)
     }
 }
 
-// FUNCTION: SURRENDER 0x1004C9E0
 void srIlluminator::traverse(TraverseInfo& info)
 {
     traverseEffect(info);
 }
 
-// FUNCTION: SURRENDER 0x1004CAF0
 void srIlluminator::setGroupMask(w8_ulong mask)
 {
     group_mask = mask;
 }
 
-// FUNCTION: SURRENDER 0x1004CB00
 w8_ulong srIlluminator::getGroupMask() const
 {
     return group_mask;

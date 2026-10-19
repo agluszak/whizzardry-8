@@ -9,10 +9,8 @@
 #include "layouts/main_game_screen.h"
 #include "layouts/targeting.h"
 #include "local_code/Targeting.h"
-#include "random.h"
-#include "soundman.h"
 #include "surrender/srDebug.h"
-#include "timer.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/fonts.h"
 #include "wiz8/gameplay_constants.h"
@@ -29,6 +27,8 @@
 #include "wiz8/local_screens/MGSPartyMovement.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/platform/random.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 
@@ -36,7 +36,6 @@
 enum { W8_PHASES_PER_ROUND = 100 };
 
 /* Note that the party has started moving. */
-// FUNCTION: WIZ8 0x004efbe0
 void BeginPartyMovement(void)
 {
     gXStatus.party_moving = true;
@@ -45,7 +44,6 @@ void BeginPartyMovement(void)
 
 /* Round one combatant's phase to the ten it belongs in and clamp it into the
    round. The assertion names the bound as PHASES_PER_ROUND. */
-// FUNCTION: WIZ8 0x004f0480
 void RoundPhaseToStep(unsigned int* phase, unsigned int base)
 {
     if (g_combat_state->uiCurrentPartyAction != W8_PARTY_ACTION_NONE) {
@@ -57,14 +55,13 @@ void RoundPhaseToStep(unsigned int* phase, unsigned int base)
             *phase > W8_PHASES_PER_ROUND ? W8_PHASES_PER_ROUND : std::max<unsigned>(*phase, base);
     }
     if (*phase == 0 || *phase > W8_PHASES_PER_ROUND) {
-        srAssertFail("( *puiPhase > 0 ) && ( *puiPhase <= PHASES_PER_ROUND )");
+        Fail("( *puiPhase > 0 ) && ( *puiPhase <= PHASES_PER_ROUND )");
     }
 }
 
 /* Advance the movement gauge from real world motion. Continuous-combat mode
    supplies a bounded synthetic step while the world is stationary. Emptying
    the gauge completes the action and synchronizes every combatant/UI owner. */
-// FUNCTION: WIZ8 0x004f01d0
 void UpdateActivePartyMovement(void)
 {
     float real_elapsed;
@@ -82,7 +79,7 @@ void UpdateActivePartyMovement(void)
     }
 
     if (gXStatus.flPartyMoveDistLimit <= 0.0f) {
-        srAssertFail("gXStatus.flPartyMoveDistLimit > 0.0f");
+        Fail("gXStatus.flPartyMoveDistLimit > 0.0f");
     }
     g_level_block->move_percent = static_cast<int>(
         100.0f - gXStatus.party_move_distance * 100.0f / gXStatus.flPartyMoveDistLimit + 0.5);
@@ -103,7 +100,6 @@ check_completion:
 
 /* One or ten, depending on whether the party is moving under combat rules -
    the step the phase counter advances by. */
-// FUNCTION: WIZ8 0x004f0500
 int GetPhaseStep(void)
 {
     return g_combat_state->uiCurrentPartyAction != W8_PARTY_ACTION_NONE ? 10 : 1;
@@ -111,11 +107,10 @@ int GetPhaseStep(void)
 
 /* Note what kind of move is pending. Only one value is singled out; everything
    else counts as the other kind. */
-// FUNCTION: WIZ8 0x004f0520
 void SetPendingMoveKind(W8ActionKind kind)
 {
     if (!gXStatus.fCombatMode) {
-        srAssertFail("gXStatus.fCombatMode");
+        Fail("gXStatus.fCombatMode");
     }
     g_combat_state->uiNextPartyAction =
         kind == W8_ACTION_WALK ? W8_PARTY_ACTION_WALK : W8_PARTY_ACTION_RUN;
@@ -124,11 +119,10 @@ void SetPendingMoveKind(W8ActionKind kind)
 /* Drop a queued party move and rebuild every other switchable character's
    combat target. The excluded slot is the character currently being edited;
    -1 refreshes the whole party. */
-// FUNCTION: WIZ8 0x004f0560
 void ClearPendingPartyMovement()
 {
     if (!gXStatus.fCombatMode) {
-        srAssertFail("gXStatus.fCombatMode");
+        Fail("gXStatus.fCombatMode");
     }
     g_combat_state->uiNextPartyAction = W8_PARTY_ACTION_NONE;
     UpdatePartyMovementControl();
@@ -137,7 +131,6 @@ void ClearPendingPartyMovement()
 /* Hand movement back to the party, or take it away and fill both budgets. The
    party has its own movement only out of combat mode, or in the free phase,
    and only with nothing pending. */
-// FUNCTION: WIZ8 0x004f0aa0
 void UpdatePartyMovementControl(void)
 {
     if ((g_combat_state->uiCurrentPartyAction == W8_PARTY_ACTION_NONE ||
@@ -154,13 +147,12 @@ void UpdatePartyMovementControl(void)
 /* Whether the party may move at all right now. Out of combat mode, or in the
    free phase, it comes down to whether a move is already pending; in the
    opening phase it is always allowed. */
-// FUNCTION: WIZ8 0x004f0800
 bool CanPartyMove(void)
 {
     W8PartyActionStatus status;
 
     if (!gXStatus.fCombatMode) {
-        srAssertFail("gXStatus.fCombatMode");
+        Fail("gXStatus.fCombatMode");
     }
     status = g_combat_state->uiCurrentPartyActionStatus;
     if (g_combat_state->uiCurrentPartyAction == W8_PARTY_ACTION_NONE ||
@@ -180,7 +172,6 @@ bool CanPartyMove(void)
    free of the sixth condition or carry the sixth enchantment, else there is no
    bonus at all. Each contributing slot adds ten steps per point of power,
    adjusted by the enchantment's percentage. */
-// FUNCTION: WIZ8 0x004f0010
 std::optional<unsigned int> GetPartyHasteSteps()
 {
     unsigned int total = 0;
@@ -212,7 +203,6 @@ std::optional<unsigned int> GetPartyHasteSteps()
 
 /* How fast the party moves. The second combat mode is half again as fast, and
    whatever the step count adds is scaled by the same world constant. */
-// FUNCTION: WIZ8 0x004effa0
 float GetPartyMovementSpeed(void)
 {
     float speed = 1.0f;
@@ -228,14 +218,13 @@ float GetPartyMovementSpeed(void)
 /* Reconcile character turns after the party finishes moving. Characters that
    pass the remaining-movement roll catch up to the combat clock; the rest are
    marked finished for this round and have their queued portrait event reset. */
-// FUNCTION: WIZ8 0x004f06b0
 void CompletePartyMovementTurns(void)
 {
     if (g_level_block->move_percent < 0) {
-        srAssertFail("gpMGSV->iPartyMovementPercent >= 0");
+        Fail("gpMGSV->iPartyMovementPercent >= 0");
     }
     if (g_level_block->move_percent > 100) {
-        srAssertFail("gpMGSV->iPartyMovementPercent <= 100");
+        Fail("gpMGSV->iPartyMovementPercent <= 100");
     }
 
     unsigned int remaining = 100 - g_level_block->move_percent;
@@ -269,7 +258,6 @@ void CompletePartyMovementTurns(void)
 /* Choose the party's phase from the best living character initiative, with
    the retail four-point random tie break. Party movement uses ten-step phase
    boundaries. */
-// FUNCTION: WIZ8 0x004efe70
 void InitializePartyMovementPhase(void)
 {
     int minimum_initiative = 90;
@@ -292,14 +280,13 @@ void InitializePartyMovementPhase(void)
     }
     if (g_combat_state->uiPartyActionPhase == 0 ||
         g_combat_state->uiPartyActionPhase > W8_PHASES_PER_ROUND) {
-        srAssertFail("( gpCombat->uiPartyActionPhase > 0 ) && "
-                     "( gpCombat->uiPartyActionPhase <= PHASES_PER_ROUND )");
+        Fail("( gpCombat->uiPartyActionPhase > 0 ) && "
+             "( gpCombat->uiPartyActionPhase <= PHASES_PER_ROUND )");
     }
 }
 
 /* Bring every not-yet-active combatant onto the ten-step schedule used by a
    party movement action. */
-// FUNCTION: WIZ8 0x004f0c80
 void AlignCombatantsToPartyMovementPhase(void)
 {
     RoundPhaseToStep(&g_combat_state->uiPartyActionPhase, g_combat_state->round_counter);
@@ -323,11 +310,10 @@ void AlignCombatantsToPartyMovementPhase(void)
 
 /* Start one of the two party movement actions and synchronize the world,
    party and monster combat clocks around its movement limit. */
-// FUNCTION: WIZ8 0x004f0af0
 void StartPartyMovementAction(W8PartyAction move_kind)
 {
     if (move_kind == W8_PARTY_ACTION_NONE) {
-        srAssertFail("uiPartyAction != PARTY_ACTION_NONE");
+        Fail("uiPartyAction != PARTY_ACTION_NONE");
     }
     if (g_combat_state->uiCurrentPartyAction == move_kind) {
         return;
@@ -350,7 +336,6 @@ void StartPartyMovementAction(W8PartyAction move_kind)
 /* End the party's movement phase. Outside the two combat modes there is
    nothing to unwind; inside them the notice is posted unless the level says
    otherwise, and everything that watched the party move is told. */
-// FUNCTION: WIZ8 0x004efd30
 void EndPartyMovementPhase(void)
 {
     if (g_combat_state->uiCurrentPartyAction != W8_PARTY_ACTION_WALK &&
@@ -370,7 +355,6 @@ void EndPartyMovementPhase(void)
 
 /* Enter the free phase: everything that was waiting on the party is released,
    the monsters are told, and movement control is settled. */
-// FUNCTION: WIZ8 0x004f0630
 void BeginFreeTurnPhase(void)
 {
     ResetLevelDataVectors();
@@ -385,11 +369,10 @@ void BeginFreeTurnPhase(void)
 /* Cancel the pending movement action. An action that is already entering its
    first phase is handed to the phase-settling path; otherwise the queued
    action is cleared and every eligible party target highlight is rebuilt. */
-// FUNCTION: WIZ8 0x004f0860
 void CancelPartyMovement(void)
 {
     if (!gXStatus.fCombatMode) {
-        srAssertFail("gXStatus.fCombatMode");
+        Fail("gXStatus.fCombatMode");
     }
     if (g_combat_state->uiCurrentPartyAction != W8_PARTY_ACTION_NONE &&
         g_combat_state->uiCurrentPartyActionStatus != W8_PARTY_ACTION_FINISHED) {
@@ -407,11 +390,10 @@ void CancelPartyMovement(void)
 /* Interrupt a move that has entered its first phase. Bring every unfinished
    party member forward to the combat clock, then retire any phase that moved
    beyond this round before handing movement control back to the UI. */
-// FUNCTION: WIZ8 0x004f0990
 void InterruptActivePartyMovement(void)
 {
     if (!gXStatus.fCombatMode) {
-        srAssertFail("gXStatus.fCombatMode");
+        Fail("gXStatus.fCombatMode");
     }
     g_combat_state->uiCurrentPartyAction = W8_PARTY_ACTION_NONE;
     for (int party_slot = 0; party_slot < W8_PARTY_SLOT_COUNT; ++party_slot) {
@@ -434,7 +416,6 @@ void InterruptActivePartyMovement(void)
     UpdatePartyMovementControl();
 }
 
-// FUNCTION: WIZ8 0x004efda0
 void FinishPartyMovementAction(void)
 {
     if (g_combat_state->uiCurrentPartyAction != W8_PARTY_ACTION_WALK &&
@@ -460,7 +441,6 @@ void FinishPartyMovementAction(void)
     g_combat_state->uiCurrentPartyActionStatus = W8_PARTY_ACTION_IN_PROGRESS;
 }
 
-// FUNCTION: WIZ8 0x004efc00
 void BeginPartyMovementPhase(void)
 {
     if (g_combat_state->uiCurrentPartyAction == W8_PARTY_ACTION_WALK ||
@@ -473,22 +453,21 @@ void BeginPartyMovementPhase(void)
     g_combat_state->passive_round = 0;
 }
 
-// FUNCTION: WIZ8 0x004f00c0
 bool PartyMovementReachedPhaseLimit(void)
 {
     if (g_combat_state->uiCurrentPartyActionStatus != W8_PARTY_ACTION_IN_PROGRESS) {
-        srAssertFail("gpCombat->uiCurrentPartyActionStatus == ACTION_STATUS_IN_PROGRESS");
+        Fail("gpCombat->uiCurrentPartyActionStatus == ACTION_STATUS_IN_PROGRESS");
     }
     if (!gXStatus.fPartyMovementMode) {
-        srAssertFail("gXStatus.fPartyMovementMode");
+        Fail("gXStatus.fPartyMovementMode");
     }
     if (gXStatus.flPartyMoveDistLimit <= 0.0f) {
-        srAssertFail("gXStatus.flPartyMoveDistLimit > 0");
+        Fail("gXStatus.flPartyMoveDistLimit > 0");
     }
     float moved_fraction = gXStatus.party_move_distance / gXStatus.flPartyMoveDistLimit;
     int remaining_phases = 101 - g_combat_state->uiPartyActionPhase;
     if (remaining_phases == 0) {
-        srAssertFail("uiTotalMovementPhases > 0");
+        Fail("uiTotalMovementPhases > 0");
     }
     unsigned int elapsed_phases =
         g_combat_state->round_counter - g_combat_state->uiPartyActionPhase +

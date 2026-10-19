@@ -12,7 +12,6 @@
 #include "layouts/gameplay_databases.h"
 #include "layouts/targeting.h"
 #include "local_code/Factions.h"
-#include "random.h"
 #include "sight_state.h"
 #include "surrender/srDebug.h"
 #include "wiz8/engine_code/PolyPick.h"
@@ -31,11 +30,11 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/platform/random.h"
 #include "wiz8/utility.h"
 
 /* The per-special-attack condition each attack slot tries to inflict, indexing the same
    rows as g_condition_notices. */
-// GLOBAL: WIZ8 0x0061EFFC
 static W8Condition g_special_attack_condition_table[32][2] = {
     {W8_CONDITION_NONE, W8_CONDITION_NONE},        {W8_CONDITION_BLIND, W8_CONDITION_NONE},
     {W8_CONDITION_BLIND, W8_CONDITION_NONE},       {W8_CONDITION_NONE, W8_CONDITION_NONE},
@@ -57,7 +56,6 @@ static W8Condition g_special_attack_condition_table[32][2] = {
 
 /* The per-special-attack realm/effect id handed to ApplyEffectAndAnnounce and the
    realm drain. */
-// GLOBAL: WIZ8 0x0061F0FC
 static W8SpellRealm g_special_attack_realm_table[32] = {
     W8_SPELL_REALM_FIRE,   W8_SPELL_REALM_WATER,  W8_SPELL_REALM_WATER,  W8_SPELL_REALM_DIVINE,
     W8_SPELL_REALM_WATER,  W8_SPELL_REALM_MENTAL, W8_SPELL_REALM_DIVINE, W8_SPELL_REALM_MENTAL,
@@ -71,7 +69,6 @@ static W8SpellRealm g_special_attack_realm_table[32] = {
 
 /* Whether a special attack kind still fires while the attacker's spellcasting
    is blocked: kinds 5-7 and 0x19-0x1d minus 0x1b ignore the block. */
-// FUNCTION: WIZ8 0x00556050
 bool MonsterSpecialAttackHonorsCastingBlock(int special_attack_kind)
 {
     switch (special_attack_kind) {
@@ -100,7 +97,6 @@ static unsigned int RollSpecialAttackSum(unsigned int bound)
    stamina fraction - a character source scales off level and stamina, a
    monster source off its missile value and current runtime stat - and a kind
    five table doubles it. Kind six delegates to the summon. */
-// FUNCTION: WIZ8 0x005560A0
 void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                                W8CombatSlot* pAttackerSlot, std::vector<int> char_targets,
                                std::vector<int> monster_targets)
@@ -191,7 +187,7 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
         for (iTarget = 0; iTarget < static_cast<int>(char_targets.size()); ++iTarget) {
             iChar = char_targets[iTarget];
             if (iChar == -1) {
-                srAssertFail("iTargetChar != BAD_INDEX");
+                Fail("iTargetChar != BAD_INDEX");
             }
             ResetCombatSlot(&target);
             target.iType = W8_TARGET_KIND_CHARACTER;
@@ -297,7 +293,7 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
         for (iTarget = 0; iTarget < static_cast<int>(monster_targets.size()); ++iTarget) {
             iMonsterID = monster_targets[iTarget];
             if (iMonsterID == -1) {
-                srAssertFail("iTargetMonsterID != BAD_INDEX");
+                Fail("iTargetMonsterID != BAD_INDEX");
             }
             ResetCombatSlot(&target);
             target.iType = W8_TARGET_KIND_MONSTER;
@@ -454,7 +450,6 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
    when the attacker is unseen, otherwise up to three camera-near placements.
    Kinds 0x18..0x1d and 0x1f map to fixed species; anything else keeps the
    kind id. */
-// FUNCTION: WIZ8 0x00556B10
 void SpawnSummonedMonsterGroup(int special_attack_kind, W8TargetSource* pSource,
                                W8CombatSlot* pAttackerSlot)
 {
@@ -498,7 +493,7 @@ void SpawnSummonedMonsterGroup(int special_attack_kind, W8TargetSource* pSource,
     position = &pAttackerSlot->point;
     group = CreateGroup(special_attack_kind, count, position, false, false, true);
     if (group == 0) {
-        srAssertFail("pGroup");
+        Fail("pGroup");
     }
     FindMonster(group->leader_location_id);
     monster_info = FindMonster(pAttackerSlot->iMonsterID);

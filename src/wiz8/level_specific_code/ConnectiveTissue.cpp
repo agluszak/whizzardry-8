@@ -29,7 +29,6 @@ static void EnableMonGenerator(const char* name)
    trigger's action has fired it only answers with level message 6. Otherwise
    it answers with message 7, marks the lich dead (1000 experience the first
    time) and enables the six UNDEAD spawn generators. */
-// FUNCTION: WIZ8 0x004E05F0
 bool ConnectiveTissueLiche(Trigger* pTrigger)
 {
 

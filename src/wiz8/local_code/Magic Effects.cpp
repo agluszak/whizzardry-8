@@ -23,9 +23,8 @@
 #include "local_code/UtilityFunctions.h"
 #include "monster_actions.h"
 #include "monster_spell_icons.h"
-#include "random.h"
-#include "soundman.h"
 #include "surrender/srDebug.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/conditions.h"
 #include "wiz8/engine_code/3d.h"
@@ -75,6 +74,7 @@
 #include "wiz8/local_screens/MGSSpellIcons.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/platform/random.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/utility.h"
@@ -87,7 +87,6 @@ constexpr float kCameraShakeIntensityBase = 0.7900000214576721f;
    dword is the visual resource SetMonsterSpellIcon attaches to the monster.
    The array fills the region between g_spellbook_name_ids and
    g_spell_usage_name_ids exactly. */
-// GLOBAL: WIZ8 0x0060cff8
 W8EffectVisual g_effect_visual_table[150] = {
     {-1, SPELL_ICON_NONE},
     {-1, SPELL_ICON_NONE},
@@ -244,7 +243,6 @@ W8EffectVisual g_effect_visual_table[150] = {
 /* The monster group Summon Elemental summons - one row of four
    per power level, the column the elemental realm the caster's realm skills
    weighted the roll toward. */
-// GLOBAL: WIZ8 0x00616f4c
 int g_elemental_summon_group_ids[8][4] = {
     {24, 23, 21, 22}, {24, 23, 21, 22}, {28, 27, 25, 26}, {32, 31, 29, 30},
     {36, 35, 33, 34}, {40, 39, 37, 38}, {44, 43, 41, 42}, {48, 47, 45, 46},
@@ -252,14 +250,12 @@ int g_elemental_summon_group_ids[8][4] = {
 
 /* The affliction spell's weighted pick - the index is the
    condition id, the value its share of a fifty-point roll. */
-// GLOBAL: WIZ8 0x0061e208
 int g_affliction_condition_weights[W8_CONDITION_COUNT] = {
     0, 0, 0, 0, 10, 0, 10, 0, 0, 5, 0, 5, 5, 1, 0, 10, 3, 0, 1, 0,
 };
 
 /* How big the effect lands. A permanent magnitude is taken as it is; anything
    else is scaled by the definition's percentage. */
-// FUNCTION: WIZ8 0x00551a20
 unsigned int RollEffectMagnitude(W8SpellEffectDefinition* definition)
 {
     unsigned int magnitude = RollDice(&definition->magnitude);
@@ -297,7 +293,6 @@ static unsigned int RollEffectDuration(int per_power, int scale, int base, unsig
    the permanent marker, one is added for the turn it starts on. A four-way
    roll then adds one more turn on a 0 when the duration is above one, or on
    a 1 when it is at most two, before the definition's percentage scales it. */
-// FUNCTION: WIZ8 0x005519c0
 unsigned int RollEffectDuration(W8SpellEffectDefinition* definition)
 {
     return RollEffectDuration(definition->duration_per_power, definition->duration_scale,
@@ -306,7 +301,6 @@ unsigned int RollEffectDuration(W8SpellEffectDefinition* definition)
 
 /* Take the named effect off a monster: say so, lower the flag, and drop the
    visual. */
-// FUNCTION: WIZ8 0x005523d0
 void ClearMonsterCharm(W8MonsterInfo* monster_info)
 {
     if (monster_info->charm_strength != 0) {
@@ -321,7 +315,6 @@ void ClearMonsterCharm(W8MonsterInfo* monster_info)
    otherwise the roll pits effective level against the incoming power, scaled
    by three and boosted by the magic resistance bonus and the stored
    resistance, clamped to the 5..95 band. */
-// FUNCTION: WIZ8 0x00552410
 bool MonsterResistsSpellEffect(const W8CombatSlot* target, int power)
 {
     W8MonsterInfo* monster_info;
@@ -345,7 +338,6 @@ bool MonsterResistsSpellEffect(const W8CombatSlot* target, int power)
 /* Empty one effect slot, dropping its visual first if it was running. The
    clear is written field by field rather than as a block, which is what leaves
    the four bytes at 0x09 untouched. */
-// FUNCTION: WIZ8 0x005524e0
 void ClearEffectSlot(W8MonsterInfo* monster_info, W8EffectSlot* slot)
 {
     if (slot->active) {
@@ -360,7 +352,6 @@ void ClearEffectSlot(W8MonsterInfo* monster_info, W8EffectSlot* slot)
    field-by-field wipe plus the rebuild/HUD/redraw trio, and each active
    in-combat monster loses the matching mirrored slot, its visual and a
    derived-stat rebuild. */
-// FUNCTION: WIZ8 0x00552530
 void ResetCombatEffects(void)
 {
     W8MonsterInfo* monster_info;
@@ -399,7 +390,6 @@ void ResetCombatEffects(void)
 }
 
 /* Wipe the party-wide effect block and tell the three displays that read it. */
-// FUNCTION: WIZ8 0x005524b0
 void ResetPartyEffectBlock(W8EffectSlot* slot)
 {
     slot->Reset();
@@ -410,7 +400,6 @@ void ResetPartyEffectBlock(W8EffectSlot* slot)
 
 /* How much harder each condition is to shrug off, added to the
    saving throw. */
-// GLOBAL: WIZ8 0x006172a0
 int g_condition_resist_base[W8_CONDITION_COUNT] = {0, 1,  2,  3,  4,  4,  5,  6,  7,  8,
                                                    9, 10, 12, 14, 16, 20, 18, 22, 24, 22};
 
@@ -418,7 +407,6 @@ int g_condition_resist_base[W8_CONDITION_COUNT] = {0, 1,  2,  3,  4,  4,  5,  6,
    monster's own figure plus its gameplay-modifier bonus. The saving throw and
    the magnitude reduction both start from it, with the target's level set
    against the effect's power level three points a level. */
-// FUNCTION: WIZ8 0x00552250
 void ReduceMagnitudeByResistance(unsigned int* magnitude, W8CombatSlot* target, W8SpellRealm realm,
                                  int power_level)
 {
@@ -460,7 +448,6 @@ void ReduceMagnitudeByResistance(unsigned int* magnitude, W8CombatSlot* target, 
    condition's own figure plus three a level over the effect's power level,
    scaled for difficulty and held between 5 and 95. A character who knows the
    resistance skill practises it on a success. */
-// FUNCTION: WIZ8 0x005520d0
 bool TargetResistsCondition(W8CombatSlot* target, W8SpellRealm realm, unsigned int power_level,
                             W8Condition condition_id)
 {
@@ -480,10 +467,10 @@ bool TargetResistsCondition(W8CombatSlot* target, W8SpellRealm realm, unsigned i
         highest_condition = monster_info->highest_condition;
     } else {
         if (target->iType != W8_TARGET_KIND_CHARACTER) {
-            srAssertFail("pTarget->iType == TARGET_TYPE_CHAR");
+            Fail("pTarget->iType == TARGET_TYPE_CHAR");
         }
         if (target->iChar == -1) {
-            srAssertFail("pTarget->iChar != BAD_INDEX");
+            Fail("pTarget->iChar != BAD_INDEX");
         }
         character = &g_status.buffers.Char[target->iChar];
         resistance = character->resistances[realm].total;
@@ -519,7 +506,6 @@ bool TargetResistsCondition(W8CombatSlot* target, W8SpellRealm realm, unsigned i
    announced as absorbed if the slot swallows all of it. A single turn is
    raised to two. Monsters always count as hit; a character's answer comes from
    SetCharacterCondition. */
-// FUNCTION: WIZ8 0x00551eb0
 char InflictConditionOnTarget(W8CombatSlot* target, W8Condition condition_id, W8SpellRealm realm,
                               unsigned int power_level, int argument, unsigned int magnitude,
                               int source_character, int duration, bool announce)
@@ -594,7 +580,6 @@ char InflictConditionOnTarget(W8CombatSlot* target, W8Condition condition_id, W8
 /* Say that whoever was aimed at shrugged the effect off. A monster target is
    told through the monster notice path and anything else through the
    character one, which is what splits the two here. */
-// FUNCTION: WIZ8 0x00552070
 void AnnounceEffectResisted(W8CombatSlot* target)
 {
     if (g_settings.verbose_combat_messages == 0) {
@@ -609,7 +594,6 @@ void AnnounceEffectResisted(W8CombatSlot* target)
 
 /* Apply an effect and say so if it did not take. Only a zero result counts as
    shrugged off. */
-// FUNCTION: WIZ8 0x00552340
 void ApplyEffectAndAnnounce(unsigned int* result, W8CombatSlot* target, W8SpellRealm realm,
                             int power_level)
 {
@@ -621,7 +605,6 @@ void ApplyEffectAndAnnounce(unsigned int* result, W8CombatSlot* target, W8SpellR
 
 /* Which of the seven enchantment slots one spell owns. Anything not among the
    seven is a caller error rather than a missing slot. */
-// FUNCTION: WIZ8 0x00551900
 W8EnchantmentSlot GetConditionDisplaySlot(int spell_id)
 {
     switch (spell_id) {
@@ -640,7 +623,7 @@ W8EnchantmentSlot GetConditionDisplaySlot(int spell_id)
     case W8_SPELL_HASTE:
         return W8_ENCHANTMENT_HASTE;
     default:
-        srAssertFail("FALSE");
+        Fail("FALSE");
         return W8_ENCHANTMENT_NONE;
     }
 }
@@ -648,7 +631,6 @@ W8EnchantmentSlot GetConditionDisplaySlot(int spell_id)
 /* A heading from a world point toward the nearest live monster, or the
    camera-facing yaw for a hostile disposition - which is also the fallback
    when the extreme-range box query turns up no monster at all. */
-// FUNCTION: WIZ8 0x0054ff20
 float HeadingTowardNearestMonster(glm::vec3 point, W8Disposition disposition, int exclusion)
 {
     W8Monster* nearest;
@@ -703,7 +685,6 @@ float HeadingTowardNearestMonster(glm::vec3 point, W8Disposition disposition, in
    character caster's realm skills. An existing bound summon prevents a new
    one; turncoat and backfire flip its disposition. A secondary roll grants
    the new group a matching enchantment. */
-// FUNCTION: WIZ8 0x005500c0
 void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
 {
     W8MonsterInfo* source_monster = nullptr;
@@ -780,7 +761,7 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
     group = CreateGroup(g_elemental_summon_group_ids[effect->definition.duration_scale][tier], 1,
                         &effect->target.point, true, false, true);
     if (group == 0) {
-        srAssertFail("pGroup");
+        Fail("pGroup");
     }
     summon = FindMonster(group->leader_location_id);
     summon->p3D->SetAngles(
@@ -790,7 +771,7 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
                                                                        : W8_MONSTER_SUMMON_HOSTILE;
     for (index = 0; index < group->MemberCount(); ++index) {
         member = FindMonster(group->MemberLocationId(index));
-        if (member == 0) srAssertFail("pMonsterInfo");
+        if (member == 0) Fail("pMonsterInfo");
         if (member->summoned == W8_MONSTER_SUMMON_NONE) {
             member->summoned = summoned_state;
             SetMonsterSpellIcon(member->p3D, SPELL_ICON_SUMMONED, true);
@@ -855,7 +836,7 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
                 slot = W8_ENCHANTMENT_HASTE;
                 break;
             default:
-                srAssertFail("FALSE");
+                Fail("FALSE");
                 slot = W8_ENCHANTMENT_NONE;
                 break;
             }
@@ -873,14 +854,13 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
    happens unless the anchor was ever set. On the same level RestoreWorldCameraState
    applies the full pose and the renderer is told to catch up; on any other
    level the 0x3c-byte record is staged into pending_move_location for LoadLevel. */
-// FUNCTION: WIZ8 0x005507d0
 void RecallCasterToSavedLocation(W8SpellEffectEntry* pQueue)
 {
     W8Character* caster;
     glm::vec3 point;
 
     if (!TargetSourceIsCharacter(&pQueue->Source, 0)) {
-        srAssertFail("SourceIsCharacter(&(pQueue->Source))");
+        Fail("SourceIsCharacter(&(pQueue->Source))");
     }
     caster = &g_status.buffers.Char[pQueue->Source.iChar];
     if (caster->has_saved_location) {
@@ -897,28 +877,6 @@ void RecallCasterToSavedLocation(W8SpellEffectEntry* pQueue)
     }
 }
 
-/* Whether anything holds the screen busy: combat, a modal, the trigger flag,
-   or a current state past the idle slot all answer yes; otherwise the idle
-   check decides. */
-// FUNCTION: WIZ8 0x00554540
-bool IsScreenBusy(void)
-{
-    if (gXStatus.fCombatMode) {
-        return true;
-    }
-    if (IsModalOpen()) {
-        return true;
-    }
-    if (gXStatus.item_pick_pending) {
-        return true;
-    }
-    if (g_current_screen_state.id != W8_SCREEN_MAIN_GAME) {
-        return true;
-    }
-    return !IsScreenIdle();
-}
-
-// FUNCTION: WIZ8 0x00551a60
 void RecalculateCharacterResistances(W8Character* character)
 {
     unsigned int index;
@@ -979,7 +937,6 @@ void RecalculateCharacterResistances(W8Character* character)
     }
 }
 
-// FUNCTION: WIZ8 0x00551BA0
 bool ResolveAttackOnTarget(const W8TargetSource* source, W8CombatSlot* target,
                            W8Condition condition_id, W8SpellRealm realm, unsigned int power_level,
                            int argument, int magnitude, bool announce_resistance,
@@ -1093,7 +1050,6 @@ bool ResolveAttackOnTarget(const W8TargetSource* source, W8CombatSlot* target,
 /* Give every listed target the enchantment for a rolled duration. A target
    already carrying condition five first spends the new duration against the
    turns it has left, and only the remainder is applied again. */
-// FUNCTION: WIZ8 0x0054e3f0
 void ApplyConditionToTargets(W8SpellEffectEntry* effect, W8EnchantmentSlot slot)
 {
     W8MonsterInfo* monster_info;
@@ -1106,7 +1062,7 @@ void ApplyConditionToTargets(W8SpellEffectEntry* effect, W8EnchantmentSlot slot)
     for (index = 0; index < static_cast<int>(effect->target_indices.size()); ++index) {
         character_index = effect->target_indices[index];
         if (character_index == -1) {
-            srAssertFail("iChar != -1");
+            Fail("iChar != -1");
         }
         if (slot == W8_ENCHANTMENT_HASTE &&
             g_status.buffers.Char[character_index].uiCondition[W8_CONDITION_SLOWED] != 0) {
@@ -1126,7 +1082,7 @@ void ApplyConditionToTargets(W8SpellEffectEntry* effect, W8EnchantmentSlot slot)
     for (index = 0; index < static_cast<int>(effect->monster_ids.size()); ++index) {
         monster_info = FindMonster(effect->monster_ids[index]);
         if (monster_info == 0) {
-            srAssertFail("pMonsterInfo");
+            Fail("pMonsterInfo");
         }
         if (slot == W8_ENCHANTMENT_HASTE && monster_info->uiCondition[W8_CONDITION_SLOWED] != 0) {
             remaining = duration - monster_info->uiCondition[W8_CONDITION_SLOWED];
@@ -1147,14 +1103,13 @@ void ApplyConditionToTargets(W8SpellEffectEntry* effect, W8EnchantmentSlot slot)
 /* Roll the duration, then pick one of the afflictions at random: mostly a
    guaranteed condition attack, sometimes a stamina refill or a settled
    condition. Only a single character target ever reaches here. */
-// FUNCTION: WIZ8 0x0054e610
 void ApplyRandomAfflictionToTarget(W8SpellEffectEntry* effect)
 {
     unsigned int roll;
 
     RollEffectDuration(&effect->definition);
     if (effect->target.iType != W8_TARGET_KIND_CHARACTER) {
-        srAssertFail("(pQueue->Target.iType == TARGET_TYPE_CHAR)");
+        Fail("(pQueue->Target.iType == TARGET_TYPE_CHAR)");
     }
     roll = Random(100);
     if (roll < 0x28) {
@@ -1203,7 +1158,6 @@ static void ReportSpellDeaths(W8SpellEffectEntry* effect)
    "<amount>" line for a lone hit or "<count> <average>" for several, each
    nonzero condition adds its own "<count> <name>", and the queued report
    records are then drained the same way the verbose pass drains them. */
-// FUNCTION: WIZ8 0x0054e710
 void ReportSpellEffectResult(W8SpellEffectEntry* effect)
 {
     W8TextBoxMode text_box_mode;
@@ -1261,7 +1215,7 @@ static W8MonsterInfo* GetEffectMonsterTarget(int location_id, int lookup_line, i
 {
     W8MonsterInfo* monster_info = FindMonster(location_id);
     if (monster_info == 0) {
-        srAssertFail("pMonsterInfo");
+        Fail("pMonsterInfo");
     }
     return monster_info;
 }
@@ -1269,7 +1223,6 @@ static W8MonsterInfo* GetEffectMonsterTarget(int location_id, int lookup_line, i
 /* How long the target's own copy of the condition still runs; condition
    seven also hands back the argument it was set with. Any other target kind
    is a caller error. */
-// FUNCTION: WIZ8 0x00553910
 unsigned int GetTargetConditionTurns(W8SpellEffectEntry* effect, W8Condition condition,
                                      int* argument)
 {
@@ -1288,13 +1241,12 @@ unsigned int GetTargetConditionTurns(W8SpellEffectEntry* effect, W8Condition con
         }
         return monster_info->uiCondition[condition];
     }
-    srAssertFail("0");
+    Fail("0");
     return 0;
 }
 
 /* Wear the listed targets down: each one with any stamina left takes a fresh
    rolled magnitude of fatigue. */
-// FUNCTION: WIZ8 0x0054f8c0
 void FatigueTargets(W8SpellEffectEntry* effect)
 {
     W8MonsterInfo* monster_info;
@@ -1305,7 +1257,7 @@ void FatigueTargets(W8SpellEffectEntry* effect)
     for (index = 0; index < static_cast<int>(effect->target_indices.size()); ++index) {
         character_index = effect->target_indices[index];
         if (character_index == -1) {
-            srAssertFail("iChar != -1");
+            Fail("iChar != -1");
         }
         if (g_status.buffers.Char[character_index].stamina != 0) {
             magnitude = RollEffectMagnitude(&effect->definition);
@@ -1343,7 +1295,7 @@ static char RestoreTargetResource(W8SpellEffectEntry* effect, RestoredResource r
 
     for (int character_index : effect->target_indices) {
         if (character_index == -1) {
-            srAssertFail("iChar != -1");
+            Fail("iChar != -1");
         }
         W8Character* character = &g_status.buffers.Char[character_index];
         unsigned int missing = stamina ? 0 : character->uiHPMax - character->hp_current;
@@ -1417,14 +1369,12 @@ static char RestoreTargetResource(W8SpellEffectEntry* effect, RestoredResource r
 }
 
 /* Put stamina back into the listed targets, capped at what each one is missing. */
-// FUNCTION: WIZ8 0x0054f520
 char RestoreTargetsStamina(W8SpellEffectEntry* effect)
 {
     return RestoreTargetResource(effect, RestoredResource::stamina);
 }
 
 /* Heal the listed targets, capped at what each one is missing. */
-// FUNCTION: WIZ8 0x0054f190
 char HealTargets(W8SpellEffectEntry* effect)
 {
     return RestoreTargetResource(effect, RestoredResource::health);
@@ -1433,7 +1383,6 @@ char HealTargets(W8SpellEffectEntry* effect)
 /* Roll a magnitude per listed target, cut it by the target's resistance in
    the spell's realm, and apply what is left as damage. A fully resisted hit
    is only announced; a monster's soak bookkeeping still runs on it. */
-// FUNCTION: WIZ8 0x0054e950
 void ApplyDamageToTargets(W8SpellEffectEntry* effect)
 {
     W8MonsterInfo* monster_info;
@@ -1453,7 +1402,7 @@ void ApplyDamageToTargets(W8SpellEffectEntry* effect)
     for (index = 0; index < static_cast<int>(effect->target_indices.size()); ++index) {
         character_index = effect->target_indices[index];
         if (character_index == -1) {
-            srAssertFail("iChar != -1");
+            Fail("iChar != -1");
         }
         magnitude = RollEffectMagnitude(&effect->definition);
         target.iType = W8_TARGET_KIND_CHARACTER;
@@ -1496,7 +1445,6 @@ void ApplyDamageToTargets(W8SpellEffectEntry* effect)
    taken as damage, never more than the target has left, and the total dealt
    is handed back to the caster - as healing for spell 0x52, as spell points
    for spell 0x54. */
-// FUNCTION: WIZ8 0x0054ec80
 void DrainTargetsLife(W8SpellEffectEntry* effect)
 {
     W8MonsterInfo* monster_info;
@@ -1518,7 +1466,7 @@ void DrainTargetsLife(W8SpellEffectEntry* effect)
     for (index = 0; index < static_cast<int>(effect->target_indices.size()); ++index) {
         character_index = effect->target_indices[index];
         if (character_index == -1) {
-            srAssertFail("iChar != -1");
+            Fail("iChar != -1");
         }
         magnitude = RollEffectMagnitude(&effect->definition);
         target.iType = W8_TARGET_KIND_CHARACTER;
@@ -1565,7 +1513,7 @@ void DrainTargetsLife(W8SpellEffectEntry* effect)
         if (TargetSourceIsMonster(&effect->Source, 0)) {
             monster_info = FindMonster(effect->Source.iMonsterID);
             if (monster_info == 0) {
-                srAssertFail("pMonsterInfo");
+                Fail("pMonsterInfo");
             }
             if (effect->kind == W8_SPELL_LIFESTEAL) {
                 HealMonster(monster_info, (drained * 7) / 10, announce);
@@ -1598,7 +1546,6 @@ void DrainTargetsLife(W8SpellEffectEntry* effect)
    leaves the character barely alive and may queue the revive event. A
    condition the roll fails simply ticks down by the squared power and counts
    toward the resisted report. */
-// FUNCTION: WIZ8 0x0054df00
 char TryCureConditionOnTargets(W8SpellEffectEntry* effect, W8Condition condition, bool force)
 {
     W8NpcState* npc_state;
@@ -1619,7 +1566,7 @@ char TryCureConditionOnTargets(W8SpellEffectEntry* effect, W8Condition condition
     for (index = 0; index < static_cast<int>(effect->target_indices.size()); ++index) {
         character_index = effect->target_indices[index];
         if (character_index == -1) {
-            srAssertFail("iChar != -1");
+            Fail("iChar != -1");
         }
         W8Character* character = &g_status.buffers.Char[character_index];
         if (character->uiCondition[condition] != 0) {
@@ -1792,7 +1739,6 @@ static bool ApplyConditionAttackToTarget(W8SpellEffectEntry* effect, W8CombatSlo
    against enchantment slot five, and the elemental spells 0xe and 0x1e strike
    a monster a second time at half strength. Quiet mode counts the targets the
    attack landed on and reports the tally. */
-// FUNCTION: WIZ8 0x0054d5c0
 void InflictConditionAttack(W8SpellEffectEntry* effect, W8Condition condition, int chance,
                             int argument)
 {
@@ -1814,7 +1760,7 @@ void InflictConditionAttack(W8SpellEffectEntry* effect, W8Condition condition, i
         duration = RollEffectDuration(&effect->definition);
         character_index = effect->target_indices[index];
         if (character_index == -1) {
-            srAssertFail("iChar != -1");
+            Fail("iChar != -1");
         }
         target.iType = W8_TARGET_KIND_CHARACTER;
         target.iChar = character_index;
@@ -1874,7 +1820,6 @@ void InflictConditionAttack(W8SpellEffectEntry* effect, W8Condition condition, i
 /* Install the spell's being-effect slot on the party and on every listed
    monster. The slot index is the spell's place in the being table; a slot
    that was not already running this spell drops the old visual first. */
-// FUNCTION: WIZ8 0x0054cbf0
 void ApplyBeingEffectSlot(W8SpellEffectEntry* effect)
 {
     W8MonsterInfo* monster_info;
@@ -1891,7 +1836,7 @@ void ApplyBeingEffectSlot(W8SpellEffectEntry* effect)
         ++table;
         ++slot_index;
         if (g_combat_effect_slot_spells <= table) {
-            srAssertFail("fFound");
+            Fail("fFound");
             return;
         }
     }
@@ -1918,7 +1863,6 @@ void ApplyBeingEffectSlot(W8SpellEffectEntry* effect)
 /* Roll for each listed target: the attack condition goes out against a
    chance, and a target that shakes it off still takes the second condition
    the effect carries. */
-// FUNCTION: WIZ8 0x0054dbe0
 void AttackThenInflictCondition(W8SpellEffectEntry* effect, W8Condition attack_condition,
                                 W8Condition condition, int chance, int attack_argument,
                                 int condition_argument)
@@ -1935,7 +1879,7 @@ void AttackThenInflictCondition(W8SpellEffectEntry* effect, W8Condition attack_c
         const unsigned int duration = RollEffectDuration(&effect->definition);
         if (index < character_count) {
             const int character_index = effect->target_indices[index];
-            if (character_index == -1) srAssertFail("iChar != -1");
+            if (character_index == -1) Fail("iChar != -1");
             target.iType = W8_TARGET_KIND_CHARACTER;
             target.iChar = character_index;
         } else {
@@ -1958,7 +1902,6 @@ void AttackThenInflictCondition(W8SpellEffectEntry* effect, W8Condition attack_c
    every listed monster. A monster not yet in combat has its group pulled in
    first; one that already fights takes the slot straight away and, when the
    source is a character, hates them a little more for it. */
-// FUNCTION: WIZ8 0x0054cdd0
 void ApplyCombatEffectSlot(W8SpellEffectEntry* effect)
 {
     W8MonsterInfo* monster_info;
@@ -1972,7 +1915,7 @@ void ApplyCombatEffectSlot(W8SpellEffectEntry* effect)
 
     spell_id = effect->kind;
     if (!gXStatus.fCombatMode) {
-        srAssertFail("gXStatus.fCombatMode");
+        Fail("gXStatus.fCombatMode");
     }
     duration = RollEffectDuration(&effect->definition);
     if (TargetSourceIsCharacter(&effect->Source, 1)) {
@@ -1988,7 +1931,7 @@ void ApplyCombatEffectSlot(W8SpellEffectEntry* effect)
         }
     }
     if (spell_id != *table) {
-        srAssertFail("fFound");
+        Fail("fFound");
     } else {
         if (!effect->target_indices.empty()) {
             slot = &g_combat_state->effect_slots[slot_index];
@@ -2035,7 +1978,6 @@ void ApplyCombatEffectSlot(W8SpellEffectEntry* effect)
 
 /* The second combat-effect block: the six defensive slots past the offensive
    nine. Same dance as ApplyCombatEffectSlot, minus the hate and the report. */
-// FUNCTION: WIZ8 0x0054d380
 void ApplyDefenseEffectSlot(W8SpellEffectEntry* effect)
 {
     W8MonsterInfo* monster_info;
@@ -2048,7 +1990,7 @@ void ApplyDefenseEffectSlot(W8SpellEffectEntry* effect)
 
     spell_id = effect->kind;
     if (!gXStatus.fCombatMode) {
-        srAssertFail("gXStatus.fCombatMode");
+        Fail("gXStatus.fCombatMode");
     }
     duration = RollEffectDuration(&effect->definition);
     slot_index = 0;
@@ -2057,7 +1999,7 @@ void ApplyDefenseEffectSlot(W8SpellEffectEntry* effect)
         ++table;
         ++slot_index;
         if (table >= g_combat_effect_slot_spells_and_cast_success + 9) {
-            srAssertFail("fFound");
+            Fail("fFound");
             return;
         }
     }
@@ -2136,7 +2078,6 @@ static void ResolveAfflictionForTarget(W8SpellEffectEntry* effect, W8CombatSlot*
 /* The affliction spells: each listed target takes either a weighted-random
    condition attack or a straight damage roll, about a coin flip each. With
    verbose reporting off the accumulated result is flushed at the end. */
-// FUNCTION: WIZ8 0x0054fa30
 void ResolveAfflictionAgainstTargets(W8SpellEffectEntry* effect)
 {
     W8SpellRealm realm;
@@ -2155,7 +2096,7 @@ void ResolveAfflictionAgainstTargets(W8SpellEffectEntry* effect)
         unsigned int duration = RollEffectDuration(&effect->definition);
         party_slot = effect->target_indices[index];
         if (party_slot == -1) {
-            srAssertFail("iChar != -1");
+            Fail("iChar != -1");
         }
         target.iType = W8_TARGET_KIND_CHARACTER;
         target.iChar = party_slot;
@@ -2179,7 +2120,6 @@ void ResolveAfflictionAgainstTargets(W8SpellEffectEntry* effect)
    resistance. The monster pass reuses the character target slot, so a
    resisted monster reports under the last character's name. With verbose
    reporting off the totals go out as one line and the report queue drains. */
-// FUNCTION: WIZ8 0x00550c10
 void DamageTargetsAndReport(W8SpellEffectEntry* effect)
 {
     W8SpellEffectResult* result;
@@ -2199,7 +2139,7 @@ void DamageTargetsAndReport(W8SpellEffectEntry* effect)
     for (index = 0; index < static_cast<int>(effect->target_indices.size()); ++index) {
         party_slot = effect->target_indices[index];
         if (party_slot == -1) {
-            srAssertFail("iChar != -1");
+            Fail("iChar != -1");
         }
         ResetCombatSlot(&target);
         target.iType = W8_TARGET_KIND_CHARACTER;
@@ -2284,7 +2224,6 @@ static void DestroyItemConsumables(W8ItemInstance* item, W8Character* owner, uns
    the listed characters or sitting in the party pool. Roll `argument * 10`
    percent per unit and sheds what fails. The three class totals each get
    their own summary line. */
-// FUNCTION: WIZ8 0x005510b0
 void DestroyConsumablesOnTargets(W8SpellEffectEntry* effect)
 {
     W8Character* character;
@@ -2303,7 +2242,7 @@ void DestroyConsumablesOnTargets(W8SpellEffectEntry* effect)
     for (index = 0; index < static_cast<int>(effect->target_indices.size()); ++index) {
         int party_slot = effect->target_indices[index];
         if (party_slot == -1) {
-            srAssertFail("iChar != -1");
+            Fail("iChar != -1");
         }
         character = &g_status.buffers.Char[party_slot];
         for (slot = 0; slot < 12; ++slot) {
@@ -2354,7 +2293,6 @@ void DestroyConsumablesOnTargets(W8SpellEffectEntry* effect)
    controlled state - its whole group when the party is out of combat, just
    itself in combat - and one that resists is switched the other way. The
    0x400-byte query buffer is not freed, matching retail. */
-// FUNCTION: WIZ8 0x00551500
 void ApplyMonsterControlToNearbyMonsters(W8SpellEffectEntry* effect)
 {
     W8MonsterInfo* monster_info;
@@ -2425,7 +2363,6 @@ void ApplyMonsterControlToNearbyMonsters(W8SpellEffectEntry* effect)
    cure pass first, then the binding reveal. Only a character target produces
    bindings to report; a result of one or two appends the matching line and,
    on the partial answer, clears the applied flag. */
-// FUNCTION: WIZ8 0x005517c0
 char RevealItemBindingsToTarget(W8SpellEffectEntry* effect)
 {
     bool verbose;
@@ -2468,7 +2405,6 @@ char RevealItemBindingsToTarget(W8SpellEffectEntry* effect)
    beats the stored effect strength and raises it. A charm that lands also
    gets its "<name> <effect>" line into the NPC quote bubble. A resisting or
    backfiring monster answers with a refusal quote instead. */
-// FUNCTION: WIZ8 0x00550a00
 void ApplyCharmToMonsterTarget(W8SpellEffectEntry* effect)
 {
     W8CombatSlot* target;
@@ -2481,10 +2417,10 @@ void ApplyCharmToMonsterTarget(W8SpellEffectEntry* effect)
 
     target = &effect->target;
     if (target->iType != W8_TARGET_KIND_MONSTER) {
-        srAssertFail("pQueue->Target.iType == TARGET_TYPE_MONSTER");
+        Fail("pQueue->Target.iType == TARGET_TYPE_MONSTER");
     }
     if (target->iMonsterID == -1) {
-        srAssertFail("pQueue->Target.iMonsterID != -1");
+        Fail("pQueue->Target.iMonsterID != -1");
     }
     monster_info = FindMonster(target->iMonsterID);
     if (effect->Source.fBackfire) {
@@ -2526,7 +2462,6 @@ void ApplyCharmToMonsterTarget(W8SpellEffectEntry* effect)
 /* The tame/refuse spell: a monster target that fails its resistance check
    answers with a refusal quote, and a backfired cast asks for one outright.
    Otherwise the dialogue NPC's staged refusal runs. */
-// FUNCTION: WIZ8 0x005508e0
 void ResolveCharmRefusal(W8SpellEffectEntry* effect)
 {
     W8MonsterInfo* monster_info;
@@ -2535,10 +2470,10 @@ void ResolveCharmRefusal(W8SpellEffectEntry* effect)
 
     realm = g_spell_records[effect->kind].realm;
     if (!TargetSourceIsCharacter(&effect->Source, 0)) {
-        srAssertFail("SourceIsCharacter(&(pQueue->Source))");
+        Fail("SourceIsCharacter(&(pQueue->Source))");
     }
     if (effect->target.iType != W8_TARGET_KIND_MONSTER) {
-        srAssertFail("pQueue->Target.iType == TARGET_TYPE_MONSTER");
+        Fail("pQueue->Target.iType == TARGET_TYPE_MONSTER");
     }
     monster_info = FindMonster(effect->target.iMonsterID);
     if (!effect->Source.fBackfire) {
@@ -2564,7 +2499,6 @@ void ResolveCharmRefusal(W8SpellEffectEntry* effect)
    same way a fresh application would be, plus the level gap between the
    reference spell and the spell in the slot. A slot that runs out is
    dropped and rebuilt. */
-// FUNCTION: WIZ8 0x0054d100
 void ReduceCombatEffectDurations(W8SpellEffectEntry* effect)
 {
     W8MonsterInfo* monster_info;
@@ -2576,7 +2510,7 @@ void ReduceCombatEffectDurations(W8SpellEffectEntry* effect)
     int index;
 
     if (!gXStatus.fCombatMode) {
-        srAssertFail("gXStatus.fCombatMode");
+        Fail("gXStatus.fCombatMode");
     }
     duration = effect->definition.duration_scale;
     if (duration != W8_CONDITION_INDEFINITE) {
@@ -2637,7 +2571,6 @@ void ReduceCombatEffectDurations(W8SpellEffectEntry* effect)
    the source was not already a bounce, the strongest reflection enchantment
    among the targets soaks the cast - the effect re-targets at a clamped
    power, the reflector is charged one use, and the notice goes out. */
-// FUNCTION: WIZ8 0x0054c930
 void FinishSpellEffectTargets(W8SpellEffectEntry* effect)
 {
     W8Character* character;
@@ -2671,7 +2604,7 @@ void FinishSpellEffectTargets(W8SpellEffectEntry* effect)
                 continue;
             }
             if (info == 0) {
-                srAssertFail("pMonsterInfo");
+                Fail("pMonsterInfo");
             }
             if (info->highest_condition < W8_CONDITION_DEAD &&
                 info->enchantments[W8_ENCHANTMENT_EYE_FOR_AN_EYE].turns != 0 &&
@@ -2721,7 +2654,6 @@ void FinishSpellEffectTargets(W8SpellEffectEntry* effect)
    resistance-checked dice roll scaled by the slot's stored magnitude.  In
    verbose mode each damage line goes straight out; otherwise the results
    accumulate and print as one summary plus per-target condition reports. */
-// FUNCTION: WIZ8 0x00552ef0
 void TickRadiusBlastEffectSlots(W8EffectSlot* effect_slots)
 {
     std::vector<int> found;
@@ -2756,7 +2688,7 @@ void TickRadiusBlastEffectSlots(W8EffectSlot* effect_slots)
             for (index = 0; index < static_cast<int>(found.size()); ++index) {
                 monster_info = FindMonster(found[index]);
                 if (monster_info == 0) {
-                    srAssertFail("pMonsterInfo");
+                    Fail("pMonsterInfo");
                 }
                 dice = g_spell_records[W8_SPELL_RING_OF_FIRE].effect_dice;
                 dice.count = static_cast<char>(effect_slots->amount) * dice.count;
@@ -2824,7 +2756,6 @@ void TickRadiusBlastEffectSlots(W8EffectSlot* effect_slots)
    target: the damage spells roll fresh dice every tick, the 0x5d sleep
    effect retries the condition instead, and 0x4c additionally rolls the
    shared 4/7/0x11 condition bundle on whatever survived the first checks. */
-// FUNCTION: WIZ8 0x005526f0
 void TickCombatEffectSlots(W8EffectSlot* effect_slots, W8CombatSlot* target)
 {
     W8TargetSource source;
@@ -3015,7 +2946,7 @@ void TickCombatEffectSlots(W8EffectSlot* effect_slots, W8CombatSlot* target)
                     }
                 }
             } else {
-                srAssertFail("0");
+                Fail("0");
             }
         }
     next_slot:
@@ -3033,7 +2964,6 @@ void TickCombatEffectSlots(W8EffectSlot* effect_slots, W8CombatSlot* target)
    become attacks on the caster's side. After the dispatch the unreported
    effect gets its summary line, the caster is charged (repeatedly, while
    stamina and realm spell points hold out), and the reflection pass runs. */
-// FUNCTION: WIZ8 0x0054ba00
 void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
 {
     W8WorldCameraState* camera_state;
@@ -3177,7 +3107,7 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
                 enchantment = W8_ENCHANTMENT_DRACON_BREATH;
                 break;
             default:
-                srAssertFail("FALSE");
+                Fail("FALSE");
                 enchantment = W8_ENCHANTMENT_NONE;
                 break;
             case W8_SPELL_GUARDIAN_ANGEL:
@@ -3215,7 +3145,7 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
         break;
     case W8_SPELL_IDENTIFY_ITEM:
         if (!TargetSourceIsCharacter(&effect->Source, 0)) {
-            srAssertFail("SourceIsCharacter(&(pQueue->Source))");
+            Fail("SourceIsCharacter(&(pQueue->Source))");
         }
         ApplyIdentifyAttempt(effect->target.pPCItem, effect->definition.duration_scale,
                              effect->definition.percent);
@@ -3341,7 +3271,7 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
         break;
     case W8_SPELL_SET_PORTAL:
         if (!TargetSourceIsCharacter(&effect->Source, 0)) {
-            srAssertFail("SourceIsCharacter(&(pQueue->Source))");
+            Fail("SourceIsCharacter(&(pQueue->Source))");
         }
         camera_state = &g_status.buffers.Char[effect->Source.iChar].saved_location;
         world = GetWorld();
@@ -3441,7 +3371,7 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
             for (index = 0; index < count; ++index) {
                 int iChar = effect->target_indices[index];
                 if (iChar == -1) {
-                    srAssertFail("iChar != -1");
+                    Fail("iChar != -1");
                 }
                 amount = RollEffectMagnitude(&effect->definition);
                 RestoreCharacterSpellPointsEvenly(iChar, amount);
@@ -3563,7 +3493,6 @@ static void QueueCombatDamageReports(W8SpellEffectResult* result)
    spell record's dice, the reduced roll is applied to the character, the
    result's amount feeds the running combat total at +0xa1a, and the reports
    queue on the combat state for the message pass. */
-// FUNCTION: WIZ8 0x00553350
 void ApplyDiceDamageToCharacter(int party_slot, W8TargetSource* source, W8Enchantment* enchantment)
 {
     bool verbose = g_settings.verbose_combat_messages != 0;
@@ -3587,7 +3516,6 @@ void ApplyDiceDamageToCharacter(int party_slot, W8TargetSource* source, W8Enchan
 
 /* The monster-side counterpart: the same enchantment-scaled dice roll feeds
    ApplyDamageToMonster and the running total, with no report queueing. */
-// FUNCTION: WIZ8 0x00553540
 void ApplyDiceDamageToMonster(W8MonsterInfo* monster_info, W8TargetSource* source,
                               W8Enchantment* enchantment)
 {
@@ -3614,7 +3542,6 @@ void ApplyDiceDamageToMonster(W8MonsterInfo* monster_info, W8TargetSource* sourc
 /* Flat-amount damage to a character: when the combat log is quiet the applied
    amount feeds the running total at +0xa1e and the reports queue up; when it
    is verbose the damage is applied with the announced flags instead. */
-// FUNCTION: WIZ8 0x005535D0
 void ApplyDirectDamageToCharacter(int party_slot, W8TargetSource* source, int damage)
 {
     bool verbose = g_settings.verbose_combat_messages != 0;
@@ -3637,7 +3564,6 @@ void ApplyDirectDamageToCharacter(int party_slot, W8TargetSource* source, int da
 /* The monster-side counterpart: the flat amount reduced by the monster's own
    reduction is applied, feeding the running total and report queue in quiet
    mode or the announced apply in verbose mode. */
-// FUNCTION: WIZ8 0x00553770
 void ApplyDirectDamageToMonster(W8MonsterInfo* monster_info, W8TargetSource* source, int damage)
 {
     bool verbose = g_settings.verbose_combat_messages != 0;

@@ -24,13 +24,10 @@
 #include <fmt/printf.h>
 #include <wiz8/filesystem.h>
 
-#include "Font.h"
 #include "asset_paths.h"
 #include "compat/native.h"
 #include "dialog_code/DialogBase.h"
 #include "glm/ext/vector_float3.hpp"
-#include "image.h"
-#include "input.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/npc_dialogue.h"
 #include "local_code/ControlsRect.h"
@@ -39,9 +36,10 @@
 #include "message_box.h"
 #include "mgs_commands.h"
 #include "npc_trade_price.h"
-#include "random.h"
-#include "soundman.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/button_interaction.h"
+#include "wiz8/canvas/Font.h"
+#include "wiz8/canvas/image.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
@@ -95,6 +93,8 @@
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_items.h"
 #include "wiz8/npc_script_file.h"
+#include "wiz8/platform/input.h"
+#include "wiz8/platform/random.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"
@@ -204,45 +204,33 @@ static void ConfirmNpcTradePurchase(void);
 static unsigned char AcceptNpcDialogueItem(W8NpcState* npc, W8ItemInstance* item, int mode);
 void OnNpcDialogClosed(W8NpcDialog& dialog);
 
-// GLOBAL: WIZ8 0x0068ee90
 static W8NpcInteractionState g_npc_interaction_storage;
 /* The global object's implicit constructor and destructor; 0x0056B930 is the
    retail static initializer that runs the former and registers the latter. */
 
-// GLOBAL: WIZ8 0x00649f1c
 W8NpcInteractionState* g_npc_interaction_state = &g_npc_interaction_storage;
 /* The dialogue keyword tables. Element zero is the English file
    list and element one the translated one; each file list holds one line list
    per line and each line list one word per field. */
-// GLOBAL: WIZ8 0x0068EE80
 std::vector<KeywordFile> g_keyword_lists;
 /* Both keyword files are loaded and the tables are usable. */
-// GLOBAL: WIZ8 0x0068F0F8
 bool g_keyword_lists_loaded;
 /* The keyword subsystem's active flag, written absolutely by the
    screen reset and by the keyword panel helpers. */
-// GLOBAL: WIZ8 0x0068F0F9
 bool g_pending_notice_queued;
 /* Empty wide string used to clear dialogue editor text. */
 /* The queued NPC script notice; see the type comment in the
    header. */
-// GLOBAL: WIZ8 0x0068EE60
 W8PendingNotice g_pending_notice;
 /* w8_get_ticks sample for the trade-item highlight timeout. */
-// GLOBAL: WIZ8 0x0068EE78
 static uint64_t g_trade_highlight_tick;
 
-// GLOBAL: WIZ8 0x00649f20
 static int g_dialogue_place_keyword_count = 15;
-// GLOBAL: WIZ8 0x00649f24
 static int g_dialogue_place_keyword_ids[15] = {0x751, 0x752, 0x753, 0x754, 0x755,
                                                0x756, 0x757, 0x758, 0x759, 0x75a,
                                                0x75b, 0x75c, 0x75d, 0x75e, 0x75f};
-// GLOBAL: WIZ8 0x00649F64
 static int g_dialogue_fallback_ids0[5] = {0x760, 0x761, 0x762, 0x763, 0x764};
-// GLOBAL: WIZ8 0x00649F78
 static int g_dialogue_fallback_ids1[5] = {0x765, 0x766, 0x767, 0x768, 0x769};
-// GLOBAL: WIZ8 0x00649f8c
 const char* g_dialogue_person_keywords[] = {"BALBRAK", "BILDUBLU", "EWAXX",  "KUNAR",
                                             "PANRACK", "RODAN",    "RUBBLE", "SAXX",
                                             "SPARKLE", "YAMIR",    ""};
@@ -698,7 +686,7 @@ static void BeginNpcDialogueInternal(W8NpcState* npc, W8ItemInstance* item, int 
     if (selected->name_style != 0x84 && selected->name_style != 0x85) {
         info = GetNpcMonsterInfo(selected);
         if (info != 0) {
-            MonsterForwardReferencePosition(info->p3D, 0);
+            info->p3D->ForwardReferencePosition(0);
         }
     }
     state = g_npc_interaction_state;
@@ -848,7 +836,7 @@ static unsigned char OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item,
             position.y += dialogue_info->p3D->movement.height_offset;
             PartyCamera().LookAt(&position, false);
         }
-        MonsterForwardReferencePosition(info->p3D, 0);
+        info->p3D->ForwardReferencePosition(0);
     }
     SyncWorldAdvancement();
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);

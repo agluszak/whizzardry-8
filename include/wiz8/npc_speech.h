@@ -4,8 +4,8 @@
 #include <functional>
 #include <string_view>
 
+#include "wiz8/audio/mouth_gap.h"
 #include "wiz8/audio_resources.h"
-#include "wiz8/mouth_gap.h"
 
 class W8Monster;
 

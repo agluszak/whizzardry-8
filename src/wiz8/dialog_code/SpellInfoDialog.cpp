@@ -8,14 +8,13 @@
 #include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
 
-#include "Font.h"
 #include "dialog_code/DialogScrollBar.h"
 #include "dialog_code/DialogTextArea.h"
 #include "dice.h"
-#include "game_timer.h"
 #include "layouts/gameplay_databases.h"
 #include "local_code/ControlsRect.h"
 #include "surrender/srDebug.h"
+#include "wiz8/canvas/Font.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/engine_code/Spells.h"
@@ -23,47 +22,30 @@
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/CharacterScreen.h"
+#include "wiz8/platform/game_timer.h"
 #include "wiz8/string_database.h"
 
-// GLOBAL: WIZ8 0x0064fccc
 const char* g_spell_info_background_path = "Data\\Dialogs\\popup_spellinfo.sti";
-// GLOBAL: WIZ8 0x0064fcd0
 const char* g_spell_effect_database_path = "Data\\Databases\\SpellEffect.dbs";
-// GLOBAL: WIZ8 0x0064fcd4
 const char* g_spell_desc_database_path = "Data\\Databases\\SpellDesc.dbs";
-// GLOBAL: WIZ8 0x00619794
 char g_comma_space[] = ", ";
-// GLOBAL: WIZ8 0x0060cff0
 static unsigned short g_spellbook_name_ids[4] = {791, 792, 793, 794};
-// GLOBAL: WIZ8 0x0060d4a8
 static unsigned short g_spell_usage_name_ids[5] = {795, 797, 796, 796, 796};
-// GLOBAL: WIZ8 0x0060d4b4
 static unsigned short g_spell_target_type_name_ids[11] = {798, 799, 800, 801, 802, 803,
                                                           804, 805, 806, 807, 807};
-// GLOBAL: WIZ8 0x0060d4cc
 static char g_spell_target_mark4[] = "\xef\xbf\xb4";
-// GLOBAL: WIZ8 0x0060d4d0
 static char g_spell_target_mark0[] = "\xef\xbf\xb0";
-// GLOBAL: WIZ8 0x0060d4d4
 static char g_spell_target_mark1[] = "\xef\xbf\xb1";
-// GLOBAL: WIZ8 0x0060d4d8
 static char g_spell_target_mark2[] = "\xef\xbf\xb2";
-// GLOBAL: WIZ8 0x0060d4dc
 static char g_spell_target_mark3[] = "\xef\xbf\xb3";
-// GLOBAL: WIZ8 0x0060d4e0
 const char* g_spell_target_parentheticals[11] = {
     g_spell_target_mark4, g_spell_target_mark2, g_spell_target_mark4, g_spell_target_mark2,
     g_spell_target_mark3, g_spell_target_mark1, g_spell_target_mark0, g_spell_target_mark4,
     g_spell_target_mark0, g_spell_target_mark4, g_spell_target_mark4,
 };
-// GLOBAL: WIZ8 0x0061e9a0
 unsigned short g_spell_range_name_ids[4] = {1307, 1308, 1309, 1310};
-// GLOBAL: WIZ8 0x0064fdc4
 static char g_plus_space[] = "+ ";
 
-// STRING: WIZ8 0x0064FD54
-
-// FUNCTION: WIZ8 0x005dbb60
 W8SpellInfoDialog::W8SpellInfoDialog(unsigned int spell)
     : m_spell(spell), m_timer(0.05f, 1), m_animation_frame(0)
 {
@@ -82,8 +64,6 @@ W8SpellInfoDialog::W8SpellInfoDialog(unsigned int spell)
     CreateCloseButton(m_button, 0x11a, 0x104);
 }
 
-// FUNCTION: WIZ8 0x005dbcf0
-// FUNCTION: WIZ8 0x005dbe00
 void W8SpellInfoDialog::Draw(SDL_Surface& target)
 {
     W8DialogBase::Draw(target);
@@ -95,7 +75,6 @@ void W8SpellInfoDialog::Draw(SDL_Surface& target)
     CatalogArtwork::Load(animation.image, 0).draw(target, m_animation_frame, m_x + 0xe, m_y + 0xe);
 }
 
-// FUNCTION: WIZ8 0x005dbee0
 bool W8SpellInfoDialog::PopulateText()
 {
     W8ControlsRect bounds;
@@ -211,9 +190,9 @@ bool W8SpellInfoDialog::PopulateText()
                 ui_units_lvl = 0x127;
             }
             if (duration_per_level != 0 && ui_units != ui_units_lvl) {
-                srAssertFail("uiUnits == uiUnitsLvl",
-                             fmt::format("Spell {} duration has mismatched base & per-lvl units",
-                                         record->display_name));
+                Fail("uiUnits == uiUnitsLvl",
+                     fmt::format("Spell {} duration has mismatched base & per-lvl units",
+                                 record->display_name));
             }
             text += fmt::format("{:d} ", display_base);
         }
@@ -249,7 +228,6 @@ bool W8SpellInfoDialog::PopulateText()
     return true;
 }
 
-// FUNCTION: WIZ8 0x005dc490
 void W8SpellInfoDialog::DrawLabels(SDL_Surface& target)
 {
     std::string text;

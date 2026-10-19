@@ -14,7 +14,7 @@
 #include "compat/compiler.h"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float4.hpp"
-#include "himage.h"
+#include "wiz8/canvas/himage.h"
 /* Modified for the Wizardry 8 reconstruction, 2026-09-10.
    Reconstructed Wizardry Video2 interface.
    Remove the artificial SGP C boundary and unused local configuration include, 2026-10-04.

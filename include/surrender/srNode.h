@@ -12,7 +12,6 @@
 #include "srClass.h"
 #include "srMath.h"
 
-// VTABLE: SURRENDER 0x100771D0 srNode
 class srNode : public srClass {
 public:
     class TraverseInfo {
@@ -113,7 +112,6 @@ public:
     srNode* getChild() const;
     w8_long getChildCount() const;
     srNode* getNext() const;
-    // FUNCTION: SURRENDER 0x10051A40 SYMBOL
     // RECOMP: ?getParent@srNode@@QBEPAV1@XZ
     srNode* getParent() const { return parent_; }
     int isChildOf(const srNode& node) const;

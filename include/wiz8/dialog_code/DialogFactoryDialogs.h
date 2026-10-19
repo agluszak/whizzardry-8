@@ -1,6 +1,6 @@
 #include <deque>
 
-#include "Font.h"
+#include "wiz8/canvas/Font.h"
 #pragma once
 
 #include <array>
@@ -13,11 +13,11 @@
 #include <SDL3/SDL_rect.h>
 
 #include "compat/compiler.h"
-#include "input.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/ControlsRect.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/text_input.h"
 
 struct W8WorldItem;
@@ -59,7 +59,6 @@ public:
     std::function<void(int)> m_on_change;
 };
 
-// VTABLE: WIZ8 0x005ef7c8
 class W8ListBoxDialog : public W8DialogBase {
 public:
     bool TakeDirty() override;
@@ -109,7 +108,6 @@ public:
     short flags;
 };
 
-// VTABLE: WIZ8 0x005ef9f0
 class W8SplitAmountDialog : public W8DialogBase {
 public:
     bool TakeDirty() override;
@@ -158,7 +156,6 @@ private:
 
 /* The trigger-owned item picker. The item group is what the trigger hands in
    and the completion callback receives. */
-// VTABLE: WIZ8 0x005ef810
 class W8TriggerItemPickerDialog : public W8DialogBase {
 public:
     bool TakeDirty() override;
@@ -208,7 +205,6 @@ public:
 };
 
 /* The item-split dialog returns the confirmed count to its owner. */
-// VTABLE: WIZ8 0x005efb78
 class W8SplitItemDialog : public W8DialogBase {
 public:
     bool TakeDirty() override;

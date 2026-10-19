@@ -9,7 +9,6 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 
-#include "Font.h"
 #include "character_skills.h"
 #include "dialog_code/DialogBase.h"
 #include "dialog_code/DialogScrollBar.h"
@@ -17,6 +16,7 @@
 #include "layouts/gameplay_databases.h"
 #include "local_code/ControlsRect.h"
 #include "surrender/srDebug.h"
+#include "wiz8/canvas/Font.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/character.h"
@@ -27,7 +27,6 @@
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 
-// GLOBAL: WIZ8 0x00614cf0
 W8AttributeMinimums g_race_attribute_minimums[W8_RACE_PLAYABLE_COUNT] = {
     {{45, 45, 45, 45, 45, 45, 45}}, {{35, 50, 50, 35, 50, 45, 40}}, {{55, 30, 50, 60, 35, 35, 35}},
     {{35, 50, 40, 50, 50, 35, 45}}, {{40, 40, 30, 45, 55, 50, 50}}, {{25, 55, 35, 30, 50, 60, 45}},
@@ -35,7 +34,6 @@ W8AttributeMinimums g_race_attribute_minimums[W8_RACE_PLAYABLE_COUNT] = {
     {{40, 30, 55, 50, 40, 40, 50}}, {{50, 50, 25, 50, 35, 35, 55}},
 };
 
-// GLOBAL: WIZ8 0x00614e24
 W8AttributeMinimums g_profession_attribute_minimums[W8_PROFESSION_COUNT] = {
     {{55, 0, 0, 50, 50, 0, 0}},   {{55, 0, 55, 55, 50, 50, 0}}, {{50, 0, 55, 55, 50, 50, 0}},
     {{50, 50, 0, 50, 55, 0, 55}}, {{50, 55, 0, 50, 55, 55, 0}}, {{50, 50, 0, 50, 55, 55, 50}},
@@ -51,9 +49,6 @@ W8AttributeMinimums g_profession_attribute_minimums[W8_PROFESSION_COUNT] = {
    which also supplies the parameter name uiIndex and pins PROF_COUNT to fifteen
    and RACE_COUNT to sixteen. */
 
-// STRING: WIZ8 0x00650168
-
-// GLOBAL: WIZ8 0x00650124
 static const char* g_popup_race_profession_path = "Data\\Dialogs\\popup_race_profession.sti";
 
 enum { ATTR_COUNT = 7 };
@@ -61,21 +56,18 @@ enum { ATTR_COUNT = 7 };
 /* Only the first eleven races have their own minimums; the rest are shown as
    -1, which is the dialog's "no requirement" marker. */
 
-// GLOBAL: WIZ8 0x0064ffb0
 W8ProfRaceInfoRow g_profession_info_rows[W8_PROFESSION_COUNT] = {
     {676, 691, 10}, {677, 692, 24}, {678, 693, 8},  {679, 694, 2},  {680, 695, 16},
     {681, 696, 20}, {682, 697, 12}, {683, 698, 28}, {684, 699, 6},  {685, 700, 0},
     {686, 701, 18}, {687, 702, 22}, {688, 703, 4},  {689, 704, 14}, {690, 705, 26},
 };
 
-// GLOBAL: WIZ8 0x00650064
 W8ProfRaceInfoRow g_race_info_rows[W8_RACE_COUNT] = {
     {644, 660, 8},  {645, 661, 4},  {646, 662, 12}, {647, 663, 16}, {648, 664, 14}, {649, 665, 20},
     {650, 666, 0},  {651, 667, 10}, {652, 668, 2},  {653, 669, 18}, {654, 670, 6},  {655, 671, 30},
     {656, 672, 24}, {657, 673, 22}, {658, 674, 26}, {659, 675, 28},
 };
 
-// FUNCTION: WIZ8 0x005DEAF0
 W8ProfRaceInfoDialogBase::W8ProfRaceInfoDialogBase()
 {
     SetOrigin(0x85, 0x69);
@@ -84,7 +76,6 @@ W8ProfRaceInfoDialogBase::W8ProfRaceInfoDialogBase()
     UseInfoPopup({m_text_area, m_scroll_bar, &m_button});
 }
 
-// FUNCTION: WIZ8 0x005DEC40
 void W8ProfRaceInfoDialogBase::Configure()
 {
     if (!PopulateText()) {
@@ -99,7 +90,6 @@ void W8ProfRaceInfoDialogBase::Configure()
     return;
 }
 
-// FUNCTION: WIZ8 0x005DED60
 void W8ProfRaceInfoDialogBase::Draw(SDL_Surface& target)
 {
 
@@ -130,7 +120,6 @@ void W8ProfRaceInfoDialogBase::Draw(SDL_Surface& target)
     m_button.Draw(target);
 }
 
-// FUNCTION: WIZ8 0x005DEEE0
 void W8ProfRaceInfoDialogBase::DrawTextLine(SDL_Surface& target, unsigned int layout_mode, int left,
                                             int top, int width, int height, std::string_view text,
                                             Font& font)
@@ -145,7 +134,6 @@ void W8ProfRaceInfoDialogBase::DrawTextLine(SDL_Surface& target, unsigned int la
     buffer.RenderString(&bounds, text, font, false, target);
 }
 
-// FUNCTION: WIZ8 0x005DEFB0
 bool W8ProfRaceInfoDialogBase::PopulateText()
 {
     W8ControlsRect bounds;
@@ -160,11 +148,10 @@ bool W8ProfRaceInfoDialogBase::PopulateText()
 
 /* Copies the row straight out of the table: every profession has minimums, so
    there is no per-entry test the way the race dialog needs one. */
-// FUNCTION: WIZ8 0x005df0d0
 W8ProfessionInfoDialog::W8ProfessionInfoDialog(W8Profession uiIndex)
 {
     if (uiIndex >= W8_PROFESSION_COUNT) {
-        srAssertFail("uiIndex < PROF_COUNT");
+        Fail("uiIndex < PROF_COUNT");
     }
     m_uiIndex = uiIndex;
     m_uiArtwork = CatalogArtwork::Load(0x10b);
@@ -178,7 +165,6 @@ W8ProfessionInfoDialog::W8ProfessionInfoDialog(W8Profession uiIndex)
     Configure();
 }
 
-// FUNCTION: WIZ8 0x005DF250
 bool W8ProfessionInfoDialog::PopulateText()
 {
     W8ProfRaceInfoDialogBase::PopulateText();
@@ -244,11 +230,10 @@ bool W8ProfessionInfoDialog::PopulateText()
 /* The same shape, except that only the first eleven races have minimums and the
    rest show -1, so the copy is a counted loop with the test inside it rather
    than the profession dialog's straight block move. */
-// FUNCTION: WIZ8 0x005df570
 W8RaceInfoDialog::W8RaceInfoDialog(W8Race uiIndex)
 {
     if (uiIndex >= W8_RACE_COUNT) {
-        srAssertFail("uiIndex < RACE_COUNT");
+        Fail("uiIndex < RACE_COUNT");
     }
     m_uiIndex = uiIndex;
     m_uiArtwork = CatalogArtwork::Load(0x10c);
@@ -266,7 +251,6 @@ W8RaceInfoDialog::W8RaceInfoDialog(W8Race uiIndex)
     Configure();
 }
 
-// FUNCTION: WIZ8 0x005DF6F0
 bool W8RaceInfoDialog::PopulateText()
 {
     W8ProfRaceInfoDialogBase::PopulateText();

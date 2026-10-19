@@ -256,7 +256,7 @@ TEST_CASE("imports_test")
     }
     const auto location = std::source_location::current();
     try {
-        srAssertFail("native probe", fmt::format("value {}", 7));
+        Fail("native probe", fmt::format("value {}", 7));
         FAIL("assertion must throw");
     } catch (const std::runtime_error& error) {
         const std::string diagnostic = error.what();

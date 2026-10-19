@@ -18,12 +18,12 @@ enum {
 /* A world item. Saves store it as wiz8::retail::WorldItem. */
 struct W8WorldItem {
     int runtime_id;      /* 0x00 */
-    W8Item* p3D; // Scene entity, deactivated before removing the world record.
+    WorldItemEntity* p3D; // Scene entity, deactivated before removing the world record.
     bool fActive;        /* 0x08: assertion-proven pItemInfo->fActive */
     W8ItemInstance item; /* 0x09 */
     glm::vec3 position; /* 0x15 */
     unsigned char unknown_21[4];
-    /* Saved W8ItemRep flag word; level restore clears RADAR_SEEN. */
+    /* Saved world item flag word; level restore clears RADAR_SEEN. */
     int entity_flags;
     unsigned int flags; /* 0x29: W8_WORLD_ITEM_* masks */
     int saved_marker;

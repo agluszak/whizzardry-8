@@ -3,7 +3,7 @@
 unsigned char InitializeMenuFonts(void);
 void ReleaseMenuFonts();
 
-#include "Font.h"
+#include "wiz8/canvas/Font.h"
 
 /* Game-specific bitmap font roles and owned notice palettes. */
 extern Font ghTinyMonoFont;

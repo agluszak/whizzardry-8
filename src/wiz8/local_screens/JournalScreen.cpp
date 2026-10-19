@@ -13,14 +13,13 @@
 #include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
 
-#include "Font.h"
 #include "difficulty.h"
-#include "himage.h"
-#include "image.h"
-#include "input.h"
 #include "message_box.h"
-#include "soundman.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/button_interaction.h"
+#include "wiz8/canvas/Font.h"
+#include "wiz8/canvas/himage.h"
+#include "wiz8/canvas/image.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/chunk.h"
 #include "wiz8/cursor.h"
@@ -42,6 +41,7 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/Screens.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/xstatus.h"
@@ -67,37 +67,23 @@ private:
 };
 } // namespace
 
-// GLOBAL: WIZ8 0x0064df38
 int g_journal_page = -1;
-// GLOBAL: WIZ8 0x0069c4e0
 bool g_journal_show_all;
-// GLOBAL: WIZ8 0x0064d7b8
 char g_default_level[] = "Default Level";
-// GLOBAL: WIZ8 0x0064df40
 signed char g_journal_factions[12] = {4, 5, 6, 7, 8, 9, 12, 11, 13, 15, 16, 0};
-// GLOBAL: WIZ8 0x0064df4c
 int g_journal_faction_name_indices[11] = {
     0x6e0, 0x6e1, 0x6e2, 0x6e3, 0x6e4, 0x6e5, 0x6e6, 0x6e7, 0x6e8, 0x6e9, 0x6ea,
 };
-// GLOBAL: WIZ8 0x0064df78
 char g_journal_alternate_page[] = "1 / 1";
-// GLOBAL: WIZ8 0x0064df3c
 int g_journal_page_count = -1;
-// GLOBAL: WIZ8 0x0069C4CC
 Font g_journal_font;
-// GLOBAL: WIZ8 0x0069C4D0
 Palette16 g_journal_font_palette;
-// GLOBAL: WIZ8 0x0069C4D4
 static std::unique_ptr<JournalScreen> g_journal_panel;
-// GLOBAL: WIZ8 0x0069C4E4
 std::vector<W8JournalEntry> g_journal_entries;
-// GLOBAL: WIZ8 0x0068de40
 std::vector<W8JournalEntry> g_fact_journal_entries;
 
-// GLOBAL: WIZ8 0x0068de44
 bool g_fact_notifications_suppressed;
 
-// FUNCTION: WIZ8 0x00558820
 void InitializeFactJournal(void)
 {
     g_fact_journal_entries.clear();
@@ -106,7 +92,6 @@ void InitializeFactJournal(void)
 /* Append one changed fact to the journal and, when notices are not suppressed
    and the fact is visible at the current notice setting, post the fact's own
    description through the notice pane with its sound. */
-// FUNCTION: WIZ8 0x005588f0
 void RecordFactChangeForJournal(W8FactId fact_id)
 {
     W8JournalEntry entry;
@@ -160,7 +145,6 @@ static_assert(sizeof(JournalEntryRecord) == 12);
 }
 
 /* Write the JRNL format dword, entry count, then each 0x0c-byte entry. */
-// FUNCTION: WIZ8 0x00558A90
 void SaveFactJournal(wiz8::File& file)
 {
     int format = 1;
@@ -177,7 +161,6 @@ void SaveFactJournal(wiz8::File& file)
 }
 
 /* Resize the live journal entries before reading the JRNL records. */
-// FUNCTION: WIZ8 0x00558B20
 void LoadJournalEntries(W8Chunk& file)
 {
     int format;
@@ -197,7 +180,6 @@ void LoadJournalEntries(W8Chunk& file)
     }
 }
 
-// FUNCTION: WIZ8 0x005bdd00
 void DrawJournalLine(SDL_Surface& target, std::string_view text, int column, int y, int palette,
                      bool centered)
 {
@@ -230,7 +212,6 @@ void DrawJournalLine(SDL_Surface& target, std::string_view text, int column, int
     DrawText(target, g_journal_font, {left + x, y}, text);
 }
 
-// FUNCTION: WIZ8 0x005bd860
 void JournalScreen::Refresh()
 {
     if (!m_alternate_mode) {
@@ -406,7 +387,6 @@ void JournalScreen::Activate(JournalAction action)
    palette back and releases the one it took. The two together are the second
    proof that a record's fifth slot is its finalizer rather than a second
    initializer - record 10's allocate/free pair is the first. */
-// FUNCTION: WIZ8 0x005bddd0
 bool JournalScreenInitialize(void)
 {
     if (!g_journal_font.load("Data\\Journal\\journal_font.sti")) return 0;
@@ -414,14 +394,12 @@ bool JournalScreenInitialize(void)
     return 1;
 }
 
-// FUNCTION: WIZ8 0x005bde10
 void JournalScreenFinalize(void)
 {
     g_journal_font.clear();
     g_journal_font_palette = {};
 }
 
-// FUNCTION: WIZ8 0x005bde40
 bool JournalScreenEnter(void)
 {
     int maximum_visibility;
@@ -459,7 +437,6 @@ bool JournalScreenEnter(void)
     return 1;
 }
 
-// FUNCTION: WIZ8 0x005be0b0
 bool JournalScreenLeave(int)
 {
     if (!g_journal_panel) return 1; // Already released when it was suspended.
@@ -471,7 +448,6 @@ bool JournalScreenLeave(int)
     return 1;
 }
 
-// FUNCTION: WIZ8 0x005be110
 void JournalScreenFrame(void)
 {
 

@@ -24,41 +24,29 @@
 
 /* 0x0054B300 resets one of eight slots. */
 /* The gStatus object owned by GameplayDatabase.cpp. */
-// GLOBAL: WIZ8 0x00685170
 W8GlobalStatus g_status;
 /* Packed gXStatus named by the database and manager assertions. Record
    arrays remain separate roots at their own addresses. */
-// GLOBAL: WIZ8 0x006836B8
 W8XStatus gXStatus;
 /* Persistent database roots owned by this translation unit.  Leaving these as
    unresolved externals made the runnable image relocate every load/store to
    the PE image base; the first four-byte count read consequently targeted a
    read-only header instead of game state. */
-// GLOBAL: WIZ8 0x006836AC
 std::vector<W8FactDatabaseRecord> g_fact_records;
-// GLOBAL: WIZ8 0x0068516C
 std::vector<W8ItemDatabaseRecord> g_item_records;
 /* The six item stacks granted by the new-game status reset. */
-// GLOBAL: WIZ8 0x006164DC
 unsigned int g_starting_item_ids[6] = {0x14f, 0x14f, 0x15a, 0x15a, 0x15b, 0x155};
-// GLOBAL: WIZ8 0x006836A4
 std::vector<W8LevelDatabaseRecord> g_level_records;
-// GLOBAL: WIZ8 0x006836A0
 std::vector<W8NpcDatabaseRecord> g_npc_records;
-// GLOBAL: WIZ8 0x006836B0
 W8ItemTableRecord* g_item_tables;
-// GLOBAL: WIZ8 0x006836B4
 std::string* g_item_table_category_names;
-// GLOBAL: WIZ8 0x0065BE1C
 std::vector<W8SpellRuntimeRecord> g_spell_records;
-// GLOBAL: WIZ8 0x0065BE18
 
 namespace {
 std::vector<std::string> item_table_categories;
 std::vector<W8ItemTableRecord> item_tables;
 }
 
-// FUNCTION: WIZ8 0x0054a400
 bool InitializeItemDatabase(void)
 try {
     auto handle =
@@ -71,7 +59,6 @@ try {
 
 /* ItemTables.DBS carries fixed 0x100-byte category names, then table records.
    The exported views borrow contiguous storage owned here. */
-// FUNCTION: WIZ8 0x0054a510
 bool InitializeItemTables(void)
 try {
     auto handle =
@@ -117,11 +104,10 @@ try {
 }
 
 /* Seeks straight to one record and strips the four name suffixes. */
-// FUNCTION: WIZ8 0x0054a8a0
 bool LoadMonsterDatabaseRecord(unsigned int uiMonsterIndex, W8MonsterRecord* record)
 try {
     if (!(uiMonsterIndex < gXStatus.uiMonstersInDatabase)) {
-        srAssertFail("uiMonsterIndex < gXStatus.uiMonstersInDatabase");
+        Fail("uiMonsterIndex < gXStatus.uiMonstersInDatabase");
     }
     auto handle =
         wiz8::open_file(wiz8::asset_path("Data\\Databases\\Monsters.DBS"), wiz8::OpenMode::read);
@@ -137,13 +123,11 @@ try {
     return false;
 }
 
-// FUNCTION: WIZ8 0x0054a4f0
 void DestroyItemDatabase(void)
 {
     g_item_records = {};
 }
 
-// FUNCTION: WIZ8 0x0054a6e0
 void DestroyItemTables(void)
 {
     decltype(item_table_categories){}.swap(item_table_categories);
@@ -157,7 +141,6 @@ void DestroyItemTables(void)
 /* Reads MONSTERS.DBS whole: the count into gXStatus, then - only when the
    caller wants them - every record into one allocation handed back through the
    out-parameter. InitializeGame calls it with null just to publish the count. */
-// FUNCTION: WIZ8 0x0054a760
 bool LoadMonsterDatabase(std::unique_ptr<W8MonsterRecord[]>* records)
 try {
     auto handle =
@@ -181,15 +164,14 @@ try {
 }
 
 /* The range sibling of LoadMonsterDatabaseRecord reads an inclusive span. */
-// FUNCTION: WIZ8 0x0054a9a0
 bool LoadMonsterDatabaseRange(unsigned int uiStartIndex, unsigned int uiEndIndex,
                               W8MonsterRecord* records)
 try {
     if (!(uiEndIndex < gXStatus.uiMonstersInDatabase)) {
-        srAssertFail("uiEndIndex < gXStatus.uiMonstersInDatabase");
+        Fail("uiEndIndex < gXStatus.uiMonstersInDatabase");
     }
     if (uiStartIndex > uiEndIndex) {
-        srAssertFail("uiStartIndex <= uiEndIndex");
+        Fail("uiStartIndex <= uiEndIndex");
     }
     auto handle =
         wiz8::open_file(wiz8::asset_path("Data\\Databases\\Monsters.DBS"), wiz8::OpenMode::read);

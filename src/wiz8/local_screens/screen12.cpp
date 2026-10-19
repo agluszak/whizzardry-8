@@ -2,15 +2,15 @@
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 
-#include "himage.h"
-#include "input.h"
 #include "wiz8/application.h"
+#include "wiz8/canvas/himage.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_screens/Screens.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/ui_input.h"
 
 /* Lifecycle record 12 is the exit screen selected by Main Menu's Exit row and
@@ -18,10 +18,8 @@
    Local Screens\PleaseWaitScreen.cpp (upper 0x00590FA0) and
    Local Screens\MGSKeyboard.cpp (lower 0x00591960). */
 
-// GLOBAL: WIZ8 0x0064c1c8
 int g_selected_party_slot = -1;
 
-// FUNCTION: WIZ8 0x00591780
 void RequestExitScreen(void)
 {
     g_pending_screen_state.id = W8_SCREEN_EXIT;
@@ -30,7 +28,6 @@ void RequestExitScreen(void)
 /* Lifecycle record 12's entry handler. It paints the whole 640x480 frame in the
    near-black 0x010101 and puts one video-object frame over it, which is the
    shape record 1's much larger main-menu entry starts with too. */
-// FUNCTION: WIZ8 0x00591790
 bool ExitScreenEnter(void)
 {
     unsigned short colour;
@@ -50,7 +47,6 @@ bool ExitScreenEnter(void)
    0x006F0628; the screen then tears down unless that flag is still set and
    neither mouse-button latch is. The two trailing repeats of 0x00426790 are
    the original's own. */
-// FUNCTION: WIZ8 0x005917e0
 void ExitScreenFrame(void)
 {
     RenderFrame();

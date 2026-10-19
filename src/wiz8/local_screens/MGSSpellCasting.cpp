@@ -21,7 +21,6 @@
 #include "layouts/npc_dialogue.h"
 #include "local_code/HealthStaminaMana.h"
 #include "surrender/srDebug.h"
-#include "timer.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
@@ -55,6 +54,7 @@
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/utility.h"
@@ -67,10 +67,8 @@ struct W8NpcState;
    the spells known in that realm. */
 
 /* Realm-name string ids for the spell-casting realm-button tooltips. */
-// GLOBAL: WIZ8 0x0064C840
 static int g_spell_realm_help_string_ids[6] = {0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2c};
 
-// GLOBAL: WIZ8 0x0069BF3C
 std::unique_ptr<W8SpellCastingView> gpSCSV;
 
 W8SpellPowerClass W8SpellCastingView::PowerClass() const
@@ -106,7 +104,6 @@ void ShowSpellCastingError(int spell_id);
 /* Builds the three spell-casting panels and all of their controls: the six
    realm buttons with their animated icons, the nine power-level pips, the
    spell-name label and the cancel button. */
-// FUNCTION: WIZ8 0x0059E1F0
 static void CreateSpellCastingViewControls(void)
 {
     const auto make_button = [](int artwork, const std::array<int, 5>& frames, SDL_Rect bounds,
@@ -217,7 +214,6 @@ static void CreateSpellCastingViewControls(void)
 /* Opens the spell-casting view for one party slot: allocates and clears the
    view state, swaps the game mode, builds the panels and redirects the region
    sets the view takes over. */
-// FUNCTION: WIZ8 0x0059F0E0
 unsigned char OpenSpellCastingView(int party_slot)
 {
 
@@ -253,7 +249,6 @@ unsigned char OpenSpellCastingView(int party_slot)
 
 /* Discard the picker, recompute layout and advancement policy, and resume
    its suspended NPC interaction when one exists. */
-// FUNCTION: WIZ8 0x0059F2B0
 void CloseSpellCastingView(void)
 {
     int location_id;
@@ -296,7 +291,6 @@ void CloseSpellCastingView(void)
 }
 
 /* Re-enables the region set and inputs the spell-casting view owns. */
-// FUNCTION: WIZ8 0x0059F440
 void RestoreSpellCastingRegions(void)
 {
     SetTextBoxEnabled(true);
@@ -323,7 +317,6 @@ static void ClearSpellCastingChoice()
 /* Points the view at a new caster: rebuilds the learned-spell buckets and the
    realm/power displays, then either restores the pending cast's realm and
    list or clears a realm the new caster has no spell points in. */
-// FUNCTION: WIZ8 0x0059F490
 void SelectSpellCastingCharacter(int party_slot)
 {
     W8SpellRealm realm;
@@ -363,7 +356,6 @@ void SelectSpellCastingCharacter(int party_slot)
 
 /* Writes each realm's "current/max" spell-point caption and enables the realm
    button and icon for the pools the caster actually has. */
-// FUNCTION: WIZ8 0x0059F660
 void UpdateSpellRealmPointDisplays(void)
 {
     int realm;
@@ -399,7 +391,6 @@ static void RefreshAvailableSpellPowerPips()
     }
 }
 
-// FUNCTION: WIZ8 0x0059F710
 static void UpdateSpellPowerPips(void)
 {
     const auto levels = gpSCSV->AffordablePowerLevels();
@@ -453,7 +444,6 @@ static void UpdateSpellPowerPips(void)
 
 /* Recomputes one pip's four sprite frames from the spell's safety rating at
    the level the pip stands for; pips seven and eight price the max cast. */
-// FUNCTION: WIZ8 0x0059F9D0
 static void RefreshSpellPowerPip(int pip)
 {
     W8SpellCastRating rating;
@@ -461,7 +451,7 @@ static void RefreshSpellPowerPip(int pip)
     int frame;
 
     if (gpSCSV->draft.detail == 0) {
-        srAssertFail("gpSCSV->draft.detail != SPELL_NONE");
+        Fail("gpSCSV->draft.detail != SPELL_NONE");
     }
     if (pip == 7 || pip == 8) {
         level = 8;
@@ -530,7 +520,6 @@ static void RebuildSpellCastingList(int spell_id)
 
 /* Recolours one spell-list line; -1 keeps the row's own color, or the
    selected-row color when the row is the selected spell. */
-// FUNCTION: WIZ8 0x0059FFA0
 static void SetSpellListLineColor(int index, char color)
 {
     W8MessageStorageRecord* line;
@@ -552,7 +541,6 @@ static void SetSpellListLineColor(int index, char color)
 
 /* Marks one spell-list row as selected, restoring the previous row's own
    color first; -1 just clears the selection. */
-// FUNCTION: WIZ8 0x005A0040
 static void SelectSpellCastingRow(int index)
 {
     int previous;
@@ -578,7 +566,6 @@ static void SelectSpellCastingRow(int index)
 /* Opens the spell-casting view when needed and selects the given spell's
    realm and list row. The interact and location ids ride along so a pending
    interaction can resume after the cast. */
-// FUNCTION: WIZ8 0x005A0110
 void BeginSpellCast(int spell_id, int location_id, W8NpcDialogueLayout interact_id)
 {
     W8SpellRealm realm;
@@ -632,7 +619,6 @@ void BeginSpellCast(int spell_id, int location_id, W8NpcDialogueLayout interact_
 
 /* Redraws every live spell-casting panel; the middle panel's pending text
    update is flushed through the message storage. */
-// FUNCTION: WIZ8 0x005A0270
 void SetSpellCastingPanelsActive(bool active)
 {
     auto& view = *gpSCSV;
@@ -676,7 +662,6 @@ void SetSpellCastingPanelsActive(bool active)
     }
 }
 
-// FUNCTION: WIZ8 0x005A02F0
 void SpellCastingNoticeClosed(bool)
 {
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
@@ -685,7 +670,6 @@ void SpellCastingNoticeClosed(bool)
 /* Switches the view to another realm: the old realm's icon returns to its
    first frame and the new one starts its frame timer, then the whole
    selection state resets. */
-// FUNCTION: WIZ8 0x005A0380
 static void SelectSpellCastingRealm(W8SpellRealm realm)
 {
     W8SpellRealm previous;
@@ -713,7 +697,6 @@ static void SelectSpellCastingRealm(W8SpellRealm realm)
 /* The seventh power pip: while its secondary state is lit it clears the lower
    pips and prices the name label with the max cast, otherwise it empties the
    label. */
-// FUNCTION: WIZ8 0x005A0570
 static void SelectSpellPowerPip7(void)
 {
     int pip;
@@ -739,7 +722,6 @@ static void SelectSpellPowerPip7(void)
 
 /* The max-power pip: while its secondary state is lit it prices the name
    label with the max cast, otherwise it relights and repaints the label. */
-// FUNCTION: WIZ8 0x005A0660
 static void SelectSpellPowerPip8(void)
 {
     if (gpSCSV->power_controls[8]->IsPressed()) {
@@ -755,7 +737,6 @@ static void SelectSpellPowerPip8(void)
 
 /* Records the chosen power level: pips through the level light, pips above it
    go dark, and the name label shows the cast's total cost. */
-// FUNCTION: WIZ8 0x005A06F0
 void SelectSpellPowerLevel(int power_level)
 {
     int pip;
@@ -809,7 +790,6 @@ void SelectSpellPowerLevel(int power_level)
 /* Hover preview for a power pip: clears the spell-name plate and shows the
    cast cost for the hovered level (or restores the selected cost / empty
    label when the pointer leaves). Only power classes 0 and 1 participate. */
-// FUNCTION: WIZ8 0x005A0910
 static void PreviewSpellPowerPipHover(int power_level)
 {
     std::string text;
@@ -845,7 +825,6 @@ static void PreviewSpellPowerPipHover(int power_level)
 
 /* The confirmation dialog's destroy callback: a cancelled dialog unwinds the
    whole spell selection. */
-// FUNCTION: WIZ8 0x005A0AE0
 static void SpellCastingDialogResult(bool accepted)
 {
     int index;
@@ -859,7 +838,6 @@ static void SpellCastingDialogResult(bool accepted)
     SetSpellListLineColor(index, -1);
 }
 
-// FUNCTION: WIZ8 0x005A0B90
 void ResetSpellCastingSelection(void)
 {
     if (gXStatus.fCampMode) {
@@ -870,7 +848,6 @@ void ResetSpellCastingSelection(void)
 
 /* Per-frame spell-casting pump: advances the selected realm's icon animation
    on its own clock, then lets a ready cast commit. */
-// FUNCTION: WIZ8 0x005A0BC0
 void CommitSpellCastingSelection(void)
 {
     if (gpSCSV->iSpellRealm != W8_SPELL_REALM_NONE) {
@@ -916,7 +893,6 @@ UiResult HandleSpellTextBox(const UiPointerEvent& event)
 
 /* The spell-list row click: re-colors the rows, remembers the spell, then
    either prices its power levels or reports why it cannot be cast. */
-// FUNCTION: WIZ8 0x005A1150
 static void SelectSpellCastingListRow(int index)
 {
     char color;
@@ -952,7 +928,7 @@ static void SelectSpellCastingListRow(int index)
     SetSpellListLineColor(gpSCSV->uiSpellIndex, 3);
     power_class = g_spell_records[spell_id].power_class;
     if (power_class == W8_SPELL_POWER_CLASS_NONE) {
-        srAssertFail("iSpellPowerClass != BAD_INDEX");
+        Fail("iSpellPowerClass != BAD_INDEX");
     }
     cost = g_spell_records[spell_id].spell_point_cost;
     levels = GetCharacterRealmSpellPoints(&g_status.buffers.Char[g_status.selected_character],
@@ -974,7 +950,6 @@ static void SelectSpellCastingListRow(int index)
 
 /* Lets a fully priced spell commit once its target is valid; spells 0x49 and
    0x4b first raise a confirmation notice unless one was already answered. */
-// FUNCTION: WIZ8 0x005A1370
 void TryCommitSpellCast(void)
 {
     bool ready;
@@ -1008,7 +983,6 @@ void TryCommitSpellCast(void)
 }
 
 /* Shows why the supplied spell cannot be cast without editing the draft. */
-// FUNCTION: WIZ8 0x005A14D0
 void ShowSpellCastingError(int spell_id)
 {
     if (!SpellUsableNow(spell_id, false)) {

@@ -13,18 +13,18 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 
-#include "Font.h"
 #include "conditions.h"
 #include "dialog_code/DialogBase.h"
 #include "equipment_slots.h"
-#include "himage.h"
-#include "image.h"
 #include "layouts/gameplay_databases.h"
 #include "layouts/item_instance.h"
 #include "layouts/main_game_screen.h"
-#include "sprite.h"
 #include "surrender/srDebug.h"
 #include "wiz8/button_interaction.h"
+#include "wiz8/canvas/Font.h"
+#include "wiz8/canvas/himage.h"
+#include "wiz8/canvas/image.h"
+#include "wiz8/canvas/sprite.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/cursor.h"
@@ -67,25 +67,14 @@
 #include "wiz8/ui_layer.h"
 #include "wiz8/xstatus.h"
 
-// GLOBAL: WIZ8 0x0069c3c4
-
-// GLOBAL: WIZ8 0x0069c3c8
-
 /* The eight item-page action buttons, indexed by the mode SetCampItemActionMode
    arms: one control per actionable entry-mode, cleared before each reselection. */
-// GLOBAL: WIZ8 0x0069c3cc
 
 /* Five page buttons (help 2364-2368) packed immediately before the dismiss
    button; CreateCampButtonPanel allocates them on the shared bottom Controls panel. */
-// GLOBAL: WIZ8 0x0069c3ec
-
-// GLOBAL: WIZ8 0x0069c3c0
-
-// GLOBAL: WIZ8 0x0069c400
 
 /* The shared bottom panel CreateCampButtonPanel parents the five page
    buttons and the eight item-action controls to. */
-// GLOBAL: WIZ8 0x0069c404
 namespace {
 struct CampHeaderButtons {
     UiLayer input{UiLayerOrder::GameplayOverlays};
@@ -122,7 +111,6 @@ static void OnDismissCharacterDialogClosed(bool accepted);
 
 /* Swap the reviewed party member: rebuild the item list or learned-spell
    scratch for the new character and repaint whichever page is showing. */
-// FUNCTION: WIZ8 0x005B6B30
 void SelectCampCharacter(int slot)
 {
     giReviewCharSlot = slot;
@@ -158,7 +146,6 @@ void SelectCampCharacter(int slot)
 /* Give the held item to a camp portrait on right-click: refuse dead/insane/
    stoned with a notice, check eligibility and combat action allowance, then
    AddItemToCharacter. */
-// FUNCTION: WIZ8 0x005B6C10
 void TryGiveHeldItemToCampPortrait(int slot)
 {
     W8Character* character;
@@ -189,11 +176,10 @@ void TryGiveHeldItemToCampPortrait(int slot)
     AddItemToCharacter(character, &g_status.item_in_hand, false, false, false);
 }
 
-// FUNCTION: WIZ8 0x005b6d20
 bool CanSelectRcsPartySlot(int ui_slot)
 {
     if (!g_status.buffers.XChar[ui_slot].fOccupied) {
-        srAssertFail("gStatus.XChar[uiSlot].fOccupied");
+        Fail("gStatus.XChar[uiSlot].fOccupied");
     }
 
     W8Character* character = &g_status.buffers.Char[ui_slot];
@@ -220,7 +206,6 @@ bool CanSelectRcsPartySlot(int ui_slot)
     return true;
 }
 
-// FUNCTION: WIZ8 0x005b6df0
 void DrawRcsText(std::string_view text, int left, int top, int width, unsigned int layout_mode)
 {
     W8ControlsRect bounds = {left, top, left + width, top + 12};
@@ -228,7 +213,6 @@ void DrawRcsText(std::string_view text, int left, int top, int width, unsigned i
     buffer.RenderToTarget(0, false, GetFrameBufferSurface());
 }
 
-// FUNCTION: WIZ8 0x005b6e90
 void DrawRcsBoldText(std::string_view text, int left, int top, int width, unsigned int layout_mode)
 {
     W8ControlsRect bounds = {left, top, left + width, top + 12};
@@ -236,7 +220,6 @@ void DrawRcsBoldText(std::string_view text, int left, int top, int width, unsign
     buffer.RenderToTarget(0, false, GetFrameBufferSurface());
 }
 
-// FUNCTION: WIZ8 0x005b6f30
 void DrawTallRcsText(std::string_view text, int left, int top, int width, unsigned int layout_mode)
 {
     W8ControlsRect bounds = {left, top, left + width, top + 18};
@@ -248,7 +231,6 @@ void DrawTallRcsText(std::string_view text, int left, int top, int width, unsign
    above, through gprintfDirty with the current font: the centered and right
    masks shift the start by the measured string length and the baseline is
    centered on the caller-provided height. */
-// FUNCTION: WIZ8 0x005b6fd0
 void DrawRcsTextJustified(std::string_view text, int left, int top, int width, int height,
                           unsigned int layout_mode)
 {
@@ -261,11 +243,10 @@ void DrawRcsTextJustified(std::string_view text, int left, int top, int width, i
     DrawTextAndInvalidate(GetFrameBufferSurface(), g_wiz_text_font_secondary, {left, top}, text);
 }
 
-// FUNCTION: WIZ8 0x005b6630
 static void OpenLevelUpCharacterScreen(void)
 {
     if (!g_status.buffers.XChar[giReviewCharSlot].fOccupied) {
-        srAssertFail("fCHAR_OCCUPIED(giReviewCharSlot)");
+        Fail("fCHAR_OCCUPIED(giReviewCharSlot)");
     }
     g_current_screen_state.parameter_2 = giReviewCharSlot;
     g_current_screen_state.character = g_review_character;
@@ -423,7 +404,6 @@ void RedrawRcsDismissPanel()
     header_buttons->dismiss->m_dirty = true;
 }
 
-// FUNCTION: WIZ8 0x005b65a0
 void UpdateRcsLevelUpPanel(void)
 {
     bool enabled = IsCharacterReadyToAdvance(giReviewCharSlot);
@@ -440,11 +420,10 @@ void UpdateRcsLevelUpPanel(void)
     header_buttons->level_up->Refresh();
 }
 
-// FUNCTION: WIZ8 0x005b6950
 static void ShowDismissCharacterDialog(void)
 {
     if (!g_status.buffers.XChar[giReviewCharSlot].fOccupied) {
-        srAssertFail("fCHAR_OCCUPIED(giReviewCharSlot)");
+        Fail("fCHAR_OCCUPIED(giReviewCharSlot)");
     }
 
     W8MessageDialogBase* dialog = CreateMessageDialog();
@@ -467,7 +446,6 @@ static void ShowDismissCharacterDialog(void)
     DisplayCampDialog(std::unique_ptr<W8DialogBase>(dialog));
 }
 
-// FUNCTION: WIZ8 0x005b6a60
 static void OnDismissCharacterDialogClosed(bool accepted)
 {
     if (accepted && g_status.buffers.XChar[giReviewCharSlot].npc_index != -1) {
@@ -479,7 +457,6 @@ static void OnDismissCharacterDialogClosed(bool accepted)
 /* Bring the second panel up to date. Its widget is available only for the first
    two party slots, out of combat and out of camp; enabling it also invalidates the
    panel, disabling it does not. Either way the panel is then updated. */
-// FUNCTION: WIZ8 0x005b68e0
 void UpdateRcsDismissPanel(void)
 {
     if ((giReviewCharSlot == 0 || giReviewCharSlot == 1) && !gXStatus.fCombatMode &&
@@ -495,7 +472,6 @@ void UpdateRcsDismissPanel(void)
 }
 
 /* Release the formation board, compass and overlay sprites. */
-// FUNCTION: WIZ8 0x005B1C00
 void ReleaseFormationBoard(void)
 {
     if (g_level_block->formation_board_sprite != 0) {
@@ -516,7 +492,6 @@ void ReleaseFormationBoard(void)
    reviewed character's professions and their levels instead of the portrait;
    otherwise it repaints the portrait and vitals, the name/gender/profession
    caption, and the eight-slot party strip. */
-// FUNCTION: WIZ8 0x005b4000
 void DrawCampHeader(void)
 {
     W8CampScreenState* state = g_camp_screen.get();
@@ -686,7 +661,6 @@ void DrawCampHeader(void)
 /* The health/stamina/spell bars beside the portrait: the three frame images,
    the shaded depletion on each, the current-profession label and, under the
    numeric-hit-points option, the raw hit-point value. */
-// FUNCTION: WIZ8 0x005b4790
 void DrawCampVitals(void)
 {
     int image;
@@ -737,11 +711,11 @@ void DrawCampVitals(void)
         spell_frame = 0x54;
     }
     if (g_review_character->uiHPMax == 0) {
-        srAssertFail("gpReviewPC->uiHPMax");
+        Fail("gpReviewPC->uiHPMax");
     }
     hp_fill = g_review_character->hp_current * 0x2d / g_review_character->uiHPMax;
     if (g_review_character->uiStaminaMax == 0) {
-        srAssertFail("gpReviewPC->uiStaminaMax");
+        Fail("gpReviewPC->uiStaminaMax");
     }
     stamina_fill = (g_review_character->stamina < 0 ? 0 : g_review_character->stamina) * 0x2d /
                    g_review_character->uiStaminaMax;
@@ -831,7 +805,6 @@ static void DrawCampHand(W8EquipSlot slot, int hand_index, int top, int count_ce
    race's empty-hand image), the stack count when the item has one, and the
    armor-class line under the left hand in the load-category palette. The
    off-hand is skipped while a two-handed item fills the primary slot. */
-// FUNCTION: WIZ8 0x005b4bd0
 void DrawCampHands(void)
 {
     bool two_handed;
@@ -868,7 +841,6 @@ void DrawCampHands(void)
 /* The shared bottom panel the five page buttons and the eight item-action
    controls live on; it is created with the camp screen and torn down by
    DestroyCampButtonPanel. Returns 0 when any allocation fails. */
-// FUNCTION: WIZ8 0x005b4eb0
 int CreateCampButtonPanel(void)
 {
     camp_buttons = std::make_unique<CampButtons>();
@@ -925,7 +897,6 @@ void DestroyCampButtonPanel()
    per-button cases then gate on the held item, combat, the reviewed slot's
    eligibility and the relevant item/spell tests. When invalidate is set the
    whole panel is additionally marked dirty before it is redrawn. */
-// FUNCTION: WIZ8 0x005b5670
 void RefreshCampItemActions(bool invalidate)
 {
     int index;
@@ -1125,7 +1096,6 @@ static void SelectCampPageButton(int button, W8CampPage page)
 /* Item-action button callbacks: while the button's secondary state is up the
    click performs the held-item action or arms the button's targeting mode;
    while it is down the click falls back to clearing the action mode. */
-// FUNCTION: WIZ8 0x005b5c30
 static void OnCampIdentifyItem(void)
 {
     if (camp_buttons->actions[W8_CAMP_ACTION_BUTTON_IDENTIFY]->IsPressed()) {
@@ -1140,7 +1110,6 @@ static void OnCampIdentifyItem(void)
     SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
 }
 
-// FUNCTION: WIZ8 0x005b5c80
 static void OnCampMoveItem(void)
 {
     if (camp_buttons->actions[W8_CAMP_ACTION_BUTTON_MOVE]->IsPressed()) {
@@ -1154,7 +1123,6 @@ static void OnCampMoveItem(void)
     SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
 }
 
-// FUNCTION: WIZ8 0x005b5cd0
 static void OnCampSplitStack(void)
 {
     if (camp_buttons->actions[W8_CAMP_ACTION_BUTTON_SPLIT_STACK]->IsPressed()) {
@@ -1168,7 +1136,6 @@ static void OnCampSplitStack(void)
     SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
 }
 
-// FUNCTION: WIZ8 0x005b5d10
 static void OnCampUseItem(void)
 {
     if (camp_buttons->actions[W8_CAMP_ACTION_BUTTON_USE]->IsPressed()) {
@@ -1182,7 +1149,6 @@ static void OnCampUseItem(void)
     SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
 }
 
-// FUNCTION: WIZ8 0x005b5d50
 static void OnCampDropItem(void)
 {
     if (camp_buttons->actions[W8_CAMP_ACTION_BUTTON_DROP]->IsPressed()) {
@@ -1198,7 +1164,6 @@ static void OnCampDropItem(void)
     SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
 }
 
-// FUNCTION: WIZ8 0x005b5d90
 static void OnCampCastSpell(void)
 {
     bool eligible;
@@ -1220,7 +1185,6 @@ static void OnCampCastSpell(void)
     SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
 }
 
-// FUNCTION: WIZ8 0x005b5df0
 static void OnCampUseItemOnItem(void)
 {
     if (camp_buttons->actions[W8_CAMP_ACTION_BUTTON_USE_ON_ITEM]->IsPressed()) {
@@ -1237,7 +1201,6 @@ static void OnCampUseItemOnItem(void)
     SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
 }
 
-// FUNCTION: WIZ8 0x005b5e60
 static void OnCampUseItemOnCharacter(void)
 {
     if (camp_buttons->actions[W8_CAMP_ACTION_BUTTON_USE_ON_CHARACTER]->IsPressed()) {
