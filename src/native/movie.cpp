@@ -39,6 +39,7 @@ extern "C" {
 #include <cstdio>
 #include <deque>
 #include <new>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -61,7 +62,7 @@ struct W8NativeVideo::State {
     AVFrame* decoded = nullptr;
     SwsContext* scale = nullptr;
     SwrContext* resample = nullptr;
-    int video_index = -1, audio_index = -1;
+    std::optional<int> video_index, audio_index;
     double origin = 0, frame_duration = 0, last_video_time = 0, end_time = 0;
     unsigned video_frames = 0;
     uint64_t audio_frames = 0;
@@ -156,19 +157,23 @@ struct W8NativeVideo::State {
         format->flags |= AVFMT_FLAG_CUSTOM_IO;
         check(avformat_open_input(&format, nullptr, nullptr, nullptr), "Movie container");
         check(avformat_find_stream_info(format, nullptr), "Movie streams");
-        video_index = av_find_best_stream(format, AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
-        check(video_index, "Movie video stream");
-        codec(video_index);
+        const int found_video_index =
+            av_find_best_stream(format, AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
+        check(found_video_index, "Movie video stream");
+        video_index = found_video_index;
+        codec(*video_index);
         if (video->width <= 0 || video->width > 640 || video->height <= 0 || video->height > 480)
             throw std::runtime_error("Movie exceeds the 640x480 presentation surface");
-        auto rate = av_guess_frame_rate(format, format->streams[video_index], nullptr);
+        auto rate = av_guess_frame_rate(format, format->streams[*video_index], nullptr);
         if (!rate.num || !rate.den) throw std::runtime_error("Movie has no frame rate");
         frame_duration = av_q2d(av_inv_q(rate));
         if (format->start_time != AV_NOPTS_VALUE)
             origin = double(format->start_time) / AV_TIME_BASE;
-        audio_index = av_find_best_stream(format, AVMEDIA_TYPE_AUDIO, -1, -1, nullptr, 0);
-        if (audio_index >= 0) {
-            codec(audio_index);
+        const int found_audio_index =
+            av_find_best_stream(format, AVMEDIA_TYPE_AUDIO, -1, -1, nullptr, 0);
+        if (found_audio_index >= 0) {
+            audio_index = found_audio_index;
+            codec(*audio_index);
             AVChannelLayout stereo = AV_CHANNEL_LAYOUT_STEREO;
             check(swr_alloc_set_opts2(&resample, &stereo, AV_SAMPLE_FMT_FLT, 44100,
                                       &audio->ch_layout, audio->sample_fmt, audio->sample_rate, 0,
@@ -200,7 +205,8 @@ struct W8NativeVideo::State {
         double time =
             decoded->best_effort_timestamp == AV_NOPTS_VALUE
                 ? video_frames * frame_duration
-                : decoded->best_effort_timestamp * av_q2d(format->streams[video_index]->time_base) -
+                : decoded->best_effort_timestamp *
+                      av_q2d(format->streams[*video_index]->time_base) -
                       origin;
         Frame frame{decoded->width, decoded->height, std::max(0.0, time), frame_duration, {}};
         frame.pixels.resize(size_t(frame.width) * frame.height);
@@ -249,9 +255,9 @@ struct W8NativeVideo::State {
                 break;
             }
             check(result, "Movie demux");
-            if (packet->stream_index == video_index)
+            if (packet->stream_index == *video_index)
                 decode(video, packet);
-            else if (packet->stream_index == audio_index)
+            else if (audio_index && packet->stream_index == *audio_index)
                 decode(audio, packet);
             av_packet_unref(packet);
             if (queued.size() > 64)
