@@ -69,11 +69,16 @@
 namespace {
 std::unique_ptr<W8World> primary_world;
 std::unique_ptr<W8World> sky_world;
+W8World* loading_world;
 }
 
 W8World* GetWorld()
 {
-    return primary_world.get();
+    return loading_world ? loading_world : primary_world.get();
+}
+W8World* ExchangeWorldLoadContext(W8World* world)
+{
+    return std::exchange(loading_world, world);
 }
 W8World* GetSecondaryWorld()
 {
@@ -81,16 +86,18 @@ W8World* GetSecondaryWorld()
 }
 std::optional<int> GetLoadedLevelID()
 {
-    if (!primary_world) return std::nullopt;
-    return primary_world->level_id;
+    const auto* world = GetWorld();
+    if (!world) return std::nullopt;
+    return world->level_id;
 }
 
 int GetRequiredLoadedLevelID(std::source_location caller)
 {
-    if (!primary_world) {
+    const auto* world = GetWorld();
+    if (!world) {
         srAssertFail("primary_world", caller.file_name(), static_cast<int>(caller.line()), 0);
     }
-    return primary_world->level_id;
+    return world->level_id;
 }
 
 std::unique_ptr<W8World> ReplaceWorld(std::unique_ptr<W8World> world)

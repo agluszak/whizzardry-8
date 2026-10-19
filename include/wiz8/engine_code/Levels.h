@@ -6,10 +6,13 @@
 
 #include "wiz8/layouts/levels.h"
 
-// The level id of the published world, if one is loaded.
+struct W8World;
+
+// The level id of the current world context, if one exists.
 std::optional<int> GetLoadedLevelID(void);
-// Use only in paths whose contract requires a published world.
+// Use only in paths whose contract requires a world context.
 int GetRequiredLoadedLevelID(std::source_location caller = std::source_location::current());
+W8World* ExchangeWorldLoadContext(W8World* world);
 
 extern W8LevelFolderRecord g_level_folders[W8_LEVEL_COUNT];
 const char* GetLevelFolderName(int level_id);

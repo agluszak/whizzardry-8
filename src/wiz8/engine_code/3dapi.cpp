@@ -80,6 +80,17 @@
 
 constexpr double kAutomapRefreshDistanceSquared = 250000.0;
 
+namespace {
+class ScopedWorldLoadContext {
+public:
+    explicit ScopedWorldLoadContext(W8World* world) : previous_(ExchangeWorldLoadContext(world)) {}
+    ~ScopedWorldLoadContext() { ExchangeWorldLoadContext(previous_); }
+
+private:
+    W8World* previous_;
+};
+}
+
 class srModelInstance;
 
 #define THREE_D_API_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\3dapi.cpp"
@@ -168,7 +179,12 @@ std::unique_ptr<W8World> LoadWorld(int level_id, std::string source_path, bool u
     } catch (const std::exception&) {
         srAssertFail("hFile", THREE_D_API_CPP, 0x1d8, "Could not open level file.");
     }
-    if (!ReadLevel(world, handle.get(), use_octree, wiz8::asset_path(material_folder))) {
+    bool success;
+    {
+        ScopedWorldLoadContext load_context(world);
+        success = ReadLevel(world, handle.get(), use_octree, wiz8::asset_path(material_folder));
+    }
+    if (!success) {
         srAssertFail("fSuccess", THREE_D_API_CPP, 0x1dd,
                      "Problem loading level, please check files and versions.");
     }
