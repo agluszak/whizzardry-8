@@ -1137,7 +1137,7 @@ void RemoveCharacterFromParty(int party_slot)
         RefreshPartySlotRegions();
     }
     if (g_status.selected_character == party_slot) {
-        const auto next = GetNextCharacter(1, 1, -1);
+        const auto next = GetNextCharacter(1, 1);
         g_status.selected_character = next ? *next : -1;
     }
 }

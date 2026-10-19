@@ -10,7 +10,8 @@
 struct W8MonsterManagerEntry;
 struct W8Character;
 
-std::optional<int> GetNextCharacter(int require_primary, int require_secondary, int previous_slot);
+std::optional<int> GetNextCharacter(int require_primary, int require_secondary,
+                                    std::optional<int> previous_slot = std::nullopt);
 int RPCPtrToPCSlot(const W8MonsterManagerEntry* rpc);
 void StripMonsterNameSuffix(std::string& name);
 unsigned int CharacterPointerToPartySlot(const W8Character* character);

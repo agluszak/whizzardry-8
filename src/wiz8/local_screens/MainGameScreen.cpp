@@ -2625,7 +2625,7 @@ update_screen:
             RefreshLevelUpReadyNotices();
         }
         if (g_status.selected_character == -1) {
-            const auto next = GetNextCharacter(1, 1, -1);
+            const auto next = GetNextCharacter(1, 1);
             if (!next) {
                 srAssertFail("iNextChar != BAD_INDEX", __FILE__, 0x1047, 0);
             }
