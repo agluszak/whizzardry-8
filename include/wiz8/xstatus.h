@@ -80,7 +80,7 @@ struct W8XStatus {
     bool world_paused;
     unsigned short review_character_slot;
     int held_item_source;
-    unsigned char held_item_origin;
+    W8ItemOrigin held_item_origin;
     unsigned short held_item_slot;
     std::array<std::unique_ptr<W8MonsterRecord>, 1000> monster_record_cache;
     std::unique_ptr<W8GameTimer> gameplay_timer;
@@ -98,7 +98,7 @@ struct W8XStatus {
     bool assay_professions_tab;
     bool item_drag_active;
     W8ItemInstance* dragged_item;
-    unsigned char dragged_item_origin;
+    W8ItemOrigin dragged_item_origin;
     signed char dragged_character_slot;
     uint64_t spell_cooldown_clocks[14];
     uint64_t combat_countdown;

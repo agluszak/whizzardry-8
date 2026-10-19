@@ -2141,7 +2141,7 @@ void ResetMainGameScreenState(void)
         unset = -1;
         gXStatus.review_character_slot = static_cast<unsigned short>(unset);
         gXStatus.held_item_source = unset;
-        gXStatus.held_item_origin = static_cast<unsigned char>(unset);
+        gXStatus.held_item_origin = W8_ITEM_ORIGIN_NONE;
         gXStatus.held_item_slot = static_cast<unsigned short>(unset);
         gXStatus.gameplay_timer->Restart();
         gXStatus.assay_professions_tab = true;
