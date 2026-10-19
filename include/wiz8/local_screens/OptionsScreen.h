@@ -31,7 +31,7 @@ struct W8SaveSlot;
 class W8OptionsSaveLoadPanel;
 class W8OptionsKeyboardPanel;
 
-enum class W8OptionsCameraRotation : int { selected_character, all_targets, disabled };
+enum class W8OptionsCameraRotation : int { snap, smooth, disabled };
 
 struct W8OptionsTextEditor {
     W8OptionsSaveLoadPanel* owner;
