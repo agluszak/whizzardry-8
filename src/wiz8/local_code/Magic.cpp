@@ -446,23 +446,12 @@ bool PartyHasCondition(int effect_id)
    Both tables are searched, the party's first. */
 bool CombatHasCondition(int effect_id)
 {
-    W8EffectSlot* slot;
-    unsigned int index;
-
-    if (g_combat_state != 0) {
-        slot = g_combat_state->effect_slots;
-        for (index = 0; index < W8_COMBAT_CONDITION_SLOTS; ++index, ++slot) {
-            if (slot->active && slot->effect_id == effect_id) {
-                return true;
-            }
+    if (g_combat_state) {
+        for (const auto& slot : g_combat_state->effect_slots) {
+            if (slot.active && slot.effect_id == effect_id) return true;
         }
-        /* Bug: effect_slots0 holds only six slots; the last three reads
-           run into the fields after it. */
-        for (index = 0; index < W8_COMBAT_CONDITION_SLOTS; ++index) {
-            slot = g_combat_state->effect_slots0 + index;
-            if (slot->active && slot->effect_id == effect_id) {
-                return true;
-            }
+        for (const auto& slot : g_combat_state->effect_slots0) {
+            if (slot.active && slot.effect_id == effect_id) return true;
         }
     }
     return false;

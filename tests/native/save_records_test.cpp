@@ -26,6 +26,7 @@
 #include "wiz8/fact_state.h"
 #include "wiz8/gameplay_modifiers.h"
 #include "wiz8/local_code/GameplayDatabase.h"
+#include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/MGSTextBox.h"
@@ -1281,6 +1282,27 @@ TEST_CASE("Radius-effect updates accept empty and short effect arrays", "[effect
     std::array<W8EffectSlot, 6> effects{};
     REQUIRE_NOTHROW(TickRadiusBlastEffectSlots({}));
     REQUIRE_NOTHROW(TickRadiusBlastEffectSlots(effects));
+}
+
+TEST_CASE("Combat condition queries stay within both effect arrays", "[effects]")
+{
+    // NOLINTNEXTLINE(cppcoreguidelines-special-member-functions): local scope guard
+    struct RestoreCombat {
+        std::unique_ptr<W8CombatState> previous = std::move(g_combat_state);
+        ~RestoreCombat() { g_combat_state = std::move(previous); }
+    } restore;
+    REQUIRE_FALSE(CombatHasCondition(0x3e));
+    g_combat_state = std::make_unique<W8CombatState>();
+    g_combat_state->effect_slots[8].Activate(0x3e, 1, 1);
+    REQUIRE(CombatHasCondition(0x3e));
+    g_combat_state->effect_slots[8].Reset();
+    g_combat_state->effect_slots0[5].Activate(0x3e, 1, 1);
+    REQUIRE(CombatHasCondition(0x3e));
+    g_combat_state->effect_slots0[5].Reset();
+    // In-flight missile state next to the short array is not an effect slot.
+    g_combat_state->missile_hit_result = W8_MISSILE_HIT_DEFLECTED;
+    g_combat_state->TargetHit.iMonsterID = 2;
+    REQUIRE_FALSE(CombatHasCondition(0x3e));
 }
 
 TEST_CASE("Global status record", "[save][records]")
