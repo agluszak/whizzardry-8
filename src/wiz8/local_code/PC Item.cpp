@@ -1168,7 +1168,7 @@ unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_use
         }
         target.name_known = 1;
 
-        if (record->category >= W8_ITEM_USE_TYPE_COUNT) {
+        if (static_cast<int>(record->category) >= W8_ITEM_USE_TYPE_COUNT) {
             srAssertFail("pItemDB->ubUseType < USE_TYPE_COUNT", PC_ITEM_CPP, 0x906, 0);
         }
         /* A spell-carrying item the world-cursor handler refuses cannot be used
@@ -2871,7 +2871,7 @@ int WeaponHandKind(const W8ItemInstance& primary, const W8ItemInstance& secondar
         default: {
             std::string message =
                 fmt::format("SetHandType: ERROR: invalid item {:d} type {:d} in hand {:d}!",
-                            item_id, g_item_records[item_id].equip_class, hand);
+                            item_id, static_cast<int>(g_item_records[item_id].equip_class), hand);
             srAssertFail("FALSE", PC_ITEM_CPP, 3731, message);
             return 0;
         }
@@ -3472,6 +3472,8 @@ W8EquipSlot ChooseCharacterEquipSlot(W8Character* character, int item_id)
             return W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON;
         }
         return W8_EQUIP_SLOT_NONE;
+    default:
+        break;
     }
     return slot;
 }

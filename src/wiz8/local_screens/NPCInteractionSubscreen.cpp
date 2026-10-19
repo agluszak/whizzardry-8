@@ -771,7 +771,7 @@ static unsigned char OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item,
     state->last_mouse_x = -1;
     state->last_mouse_y = -1;
     state->hovered_text_line = -1;
-    state->trade_filter = 0;
+    state->trade_filter = W8_NPC_TRADE_FILTER_NONE;
     state->value_000 = 0;
     state->where_is_query = false;
     state->held_item_pending = false;
@@ -2337,7 +2337,7 @@ static void OpenNpcDialogueOptionLayout(void)
     if (!gXStatus.fCampMode) {
         ResetEditorStatusLine(2);
     }
-    g_npc_interaction_state->trade_filter = 0;
+    g_npc_interaction_state->trade_filter = W8_NPC_TRADE_FILTER_NONE;
     for (index = 0; index < 6; ++index) {
         SetNpcActionEnabled(W8_NPC_CONTROL_OPTION_BUTTONS + index, false);
     }
@@ -2712,7 +2712,7 @@ static void OpenNpcDialogueMode5Layout(void)
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_37].primary = RestockNpcTradeStock;
     SetNpcActionVisible(W8_NPC_CONTROL_TEXT_5, false);
     SetNpcActionVisible(W8_NPC_CONTROL_TEXT_6, false);
-    g_npc_interaction_state->trade_filter = 0;
+    g_npc_interaction_state->trade_filter = W8_NPC_TRADE_FILTER_NONE;
     for (index = 0; index < 6; ++index) {
         SetNpcActionEnabled(W8_NPC_CONTROL_OPTION_BUTTONS + index, false);
     }
@@ -2755,6 +2755,13 @@ void EnableNpcTradeFilterButtons(void)
    secondary state is raised it becomes the exclusive slot-group bit in
    trade_filter (the previously active sibling is dimmed and cleared), and when it
    is lowered the bit comes off again; RebuildNpcTradeItemList(1) refreshes the list. */
+static void UpdateNpcTradeFilterBits(int clear_mask, int set_mask = 0)
+{
+    const int bits = static_cast<int>(g_npc_interaction_state->trade_filter);
+    g_npc_interaction_state->trade_filter =
+        static_cast<W8NpcTradeFilter>((bits & ~clear_mask) | set_mask);
+}
+
 static void ToggleNpcTradeCategory(int button, W8NpcTradeFilter filter)
 {
     const auto& control =
@@ -2782,12 +2789,12 @@ static void ToggleNpcTradeCategory(int button, W8NpcTradeFilter filter)
             }
             if (previous_button != -1) {
                 SetNpcActionPressed(W8_NPC_CONTROL_OPTION_BUTTONS + previous_button, false);
-                g_npc_interaction_state->trade_filter &= ~previous;
+                UpdateNpcTradeFilterBits(previous);
             }
         }
-        g_npc_interaction_state->trade_filter |= filter;
+        UpdateNpcTradeFilterBits(0, filter);
     } else {
-        g_npc_interaction_state->trade_filter &= ~filter;
+        UpdateNpcTradeFilterBits(filter);
     }
     RebuildNpcTradeItemList(true);
 }
@@ -2800,12 +2807,11 @@ static void ToggleNpcCharacterUsabilityFilter(void)
     if (g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_OPTION_BUTTONS + 2]
             .interaction.selected) {
         SetNpcActionPressed(W8_NPC_CONTROL_OPTION_BUTTONS + 5, false);
-        g_npc_interaction_state->trade_filter &= ~W8_NPC_TRADE_USABLE_BY_PARTY;
-        g_npc_interaction_state->trade_filter |= W8_NPC_TRADE_USABLE_BY_CHARACTER;
+        UpdateNpcTradeFilterBits(W8_NPC_TRADE_USABLE_BY_PARTY, W8_NPC_TRADE_USABLE_BY_CHARACTER);
         RebuildNpcTradeItemList(true);
         return;
     }
-    g_npc_interaction_state->trade_filter &= ~W8_NPC_TRADE_USABLE_BY_CHARACTER;
+    UpdateNpcTradeFilterBits(W8_NPC_TRADE_USABLE_BY_CHARACTER);
     RebuildNpcTradeItemList(true);
 }
 
@@ -2814,12 +2820,11 @@ static void ToggleNpcPartyUsabilityFilter(void)
     if (g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_OPTION_BUTTONS + 5]
             .interaction.selected) {
         SetNpcActionPressed(W8_NPC_CONTROL_OPTION_BUTTONS + 2, false);
-        g_npc_interaction_state->trade_filter &= ~W8_NPC_TRADE_USABLE_BY_CHARACTER;
-        g_npc_interaction_state->trade_filter |= W8_NPC_TRADE_USABLE_BY_PARTY;
+        UpdateNpcTradeFilterBits(W8_NPC_TRADE_USABLE_BY_CHARACTER, W8_NPC_TRADE_USABLE_BY_PARTY);
         RebuildNpcTradeItemList(true);
         return;
     }
-    g_npc_interaction_state->trade_filter &= ~W8_NPC_TRADE_USABLE_BY_PARTY;
+    UpdateNpcTradeFilterBits(W8_NPC_TRADE_USABLE_BY_PARTY);
     RebuildNpcTradeItemList(true);
 }
 

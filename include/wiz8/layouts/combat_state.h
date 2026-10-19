@@ -26,7 +26,7 @@ class W8SpellVisual;
 
 /* OnCollision produces HIT or DEFLECTED; attack setup also seeds the result
    when collision is bypassed. The shared combat-state field remains one byte. */
-enum W8MissileHitResult {
+enum W8MissileHitResult : signed char {
     W8_MISSILE_HIT_NONE = 0,
     W8_MISSILE_HIT = 1,
     W8_MISSILE_HIT_DEFLECTED = 2
@@ -224,7 +224,7 @@ struct W8CombatState {
     W8EffectSlot effect_slots0[6];
     W8Missile* engaged_missile;
     /* Historical offset 0x8c4: staged hit result of the in-flight missile (0 = pending, 1 = hit, 2 = deflected) */
-    char missile_hit_result; /* W8MissileHitResult */
+    W8MissileHitResult missile_hit_result;
     W8CombatSlot TargetHit;
     int pending_death_count;
     W8PartyAction uiNextPartyAction;

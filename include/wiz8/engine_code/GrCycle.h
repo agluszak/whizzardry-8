@@ -9,6 +9,8 @@
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srBoundingBox.h"
 
+enum W8AnimationBehaviour : unsigned char;
+
 /* Engine Code\GrCycle.cpp owns these declarations. The two bases keep their
    original relative order: W8GrObject is
    W8GrCycle's first base and W8Navigator its second. */
@@ -127,7 +129,7 @@ public:
     virtual W8AniMesh* GetCurrentAniMesh() = 0;
 
     void SetSubCycle(unsigned char subcycle);
-    void SetBehaviour(signed char bBehaviour);
+    void SetBehaviour(W8AnimationBehaviour bBehaviour);
     void SetLights(std::vector<std::unique_ptr<stLight>>* lights);
     void DetachCycleLights(std::vector<std::unique_ptr<stLight>>* lights);
     void AttachCycleLights(std::vector<std::unique_ptr<stLight>>* lights);

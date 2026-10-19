@@ -10,6 +10,7 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/item_tables.h"
+#include "wiz8/local_code/Factions.h"
 #include "wiz8/retail_geometry_types.h"
 
 namespace wiz8::retail {
@@ -445,7 +446,7 @@ struct MonsterRecord {
     int model_index;           /* 0x253 */
     int alternate_model_index; /* 0x257: alternate selected value */
     int hostility_radius;      /* 0x25b: Minimal Neutrality Distance / Hostility Radius */
-    int faction_id;            /* 0x25f: W8Faction value, domain 0..20 */
+    W8Faction faction_id;      /* 0x25f: W8Faction value, domain 0..20 */
     int material;              /* 0x263: Monster Editor Material selector */
     unsigned char deleted;     /* 0x267: LoadMonsterGroup skips the record */
     unsigned char significant_kill;

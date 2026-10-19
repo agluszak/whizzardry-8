@@ -34,9 +34,9 @@ W8AnimRepBase::W8AnimRepBase()
 }
 
 // FUNCTION: WIZ8 0x004b55c0
-void W8AnimRep::SetFrameMethod(signed char method)
+void W8AnimRep::SetFrameMethod(W8AnimationFrameMethod method)
 {
-    if (method < 1 || method > 4) {
+    if (method < W8_ANIMATION_WRAP || method > W8_ANIMATION_UNKNOWN_FRAME_METHOD) {
         srAssertFail("bFrameMethod >= DIR_FIRST && bFrameMethod <= DIR_LAST",
                      "C:\\Projects\\Wizardry 8\\Engine Code\\AnimRep.cpp", 0x6a, 0);
     }
@@ -92,9 +92,10 @@ glm::mat3 W8AnimRepBase::GetRotation() const
 // FUNCTION: WIZ8 0x004b53d0
 W8AnimRep::W8AnimRep()
     : subcycle(0), pending_subcycle(0xffff), timer(0), active(0), animation_playing(0),
-      frame_direction(W8_ANIMATION_DIRECTION_NONE), frame_method(0), animation_behaviour(0),
-      pending_behaviour(-1), bounds_min(0.0f, 0.0f, 0.0f), bounds_max(0.0f, 0.0f, 0.0f),
-      bounds_extent(0), value(0), first_frame(0xff), last_frame(0xff)
+      frame_direction(W8_ANIMATION_DIRECTION_NONE), frame_method(W8_ANIMATION_FRAME_METHOD_NONE),
+      animation_behaviour(W8_ANIMATION_BEHAVIOUR_NONE),
+      pending_behaviour(W8_ANIMATION_NO_PENDING_BEHAVIOUR), bounds_min(0.0f, 0.0f, 0.0f),
+      bounds_max(0.0f, 0.0f, 0.0f), bounds_extent(0), value(0), first_frame(0xff), last_frame(0xff)
 {
     timer = GameClockMilliseconds();
 }

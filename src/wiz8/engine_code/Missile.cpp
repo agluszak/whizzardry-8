@@ -982,7 +982,7 @@ void W8Missile::EnterImpactCycle()
 // FUNCTION: WIZ8 0x004a4720
 bool W8Missile::OnCollision(W8Navigator* other)
 {
-    char hit_result;
+    W8MissileHitResult hit_result;
     unsigned char deflect_chance;
 
     if (PartyNavigator() == other) {

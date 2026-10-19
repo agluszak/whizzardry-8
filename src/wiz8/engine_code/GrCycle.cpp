@@ -481,8 +481,8 @@ unsigned char W8GrCycle::ApplyPendingCycle()
             representation->pending_subcycle = 0xffff;
         }
 
-        if (static_cast<signed char>(representation->pending_behaviour) != -1) {
-            signed char behaviour = static_cast<signed char>(representation->pending_behaviour);
+        if (representation->pending_behaviour != W8_ANIMATION_NO_PENDING_BEHAVIOUR) {
+            W8AnimationBehaviour behaviour = representation->pending_behaviour;
             W8EmitterHost* current = GetRepresentation();
 
             if (behaviour < BEHAVIOUR_FIRST || behaviour > BEHAVIOUR_LAST) {
@@ -1122,7 +1122,7 @@ void W8GrCycle::SetSubCycle(unsigned char subcycle)
 }
 
 // FUNCTION: WIZ8 0x004a8460
-void W8GrCycle::SetBehaviour(signed char bBehaviour)
+void W8GrCycle::SetBehaviour(W8AnimationBehaviour bBehaviour)
 {
     W8EmitterHost* target = GetRepresentation();
 

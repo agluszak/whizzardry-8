@@ -13,6 +13,8 @@
 #include "wiz8/audio_resources.h"
 
 class srNode;
+enum W8AnimationBehaviour : unsigned char;
+enum W8AnimationFrameMethod : unsigned char;
 struct W8AIRecord;
 struct W8PathAI;
 struct W8World;
@@ -363,7 +365,7 @@ unsigned short MonsterConfigureMovementToMonster(W8Monster* monster, W8Monster* 
 void MonsterAimAtMonster(W8Monster* monster, W8Monster* target, bool alternate);
 void MonsterSetCycle(W8Monster* monster, signed char cycle);
 void MonsterSetActive(W8Monster* monster, bool state); /* 0x004C6160 */
-void MonsterSetCycleBehaviour(W8GrCycle* cycle, signed char behaviour);
+void MonsterSetCycleBehaviour(W8GrCycle* cycle, W8AnimationBehaviour behaviour);
 void MonsterSetCycleSubCycle(W8GrCycle* cycle, unsigned char subcycle);
 void SetCombatInactiveFlag(unsigned char value);
 void UpdateNearestMonsterGroupMembers();
@@ -376,8 +378,8 @@ struct W8MonsterShakeCallback {
     void RestoreAnimation();
     W8Monster* m_pMonster = nullptr;
     stParticle* m_pParticles = nullptr;
-    unsigned char saved_behaviour{};
-    signed char saved_frame_method{};
+    W8AnimationBehaviour saved_behaviour{};
+    W8AnimationFrameMethod saved_frame_method{};
 };
 
 void MonsterStopAllNavigators(void);
@@ -389,7 +391,7 @@ bool MonsterIsScalingY(W8Monster* monster);      /* 0x004C5EE0 */
 void MonsterSetPendingCycle(W8Monster* monster, int cycle);
 int MonsterQuery(W8Monster* monster, W8MonsterQueryKind query);
 void MonsterClearMovement(W8Monster* monster);
-void MonsterSetRuntimeBehaviour(W8Monster* monster, signed char behaviour);
+void MonsterSetRuntimeBehaviour(W8Monster* monster, W8AnimationBehaviour behaviour);
 void MonsterSubmitTargetValue(W8Monster* monster);
 void DetachMonsterRepresentation(W8Monster* monster);
 void DestroyWorldMonster(W8Monster* monster);

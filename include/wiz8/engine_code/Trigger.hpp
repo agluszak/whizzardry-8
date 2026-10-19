@@ -41,7 +41,7 @@ public:
 void UpdateTimedTriggerEvents(void);
 
 /* Payload tags remain signed bytes in the common prefix and on disk. */
-enum W8TriggerPayloadKind {
+enum W8TriggerPayloadKind : signed char {
     W8_TRIGGER_PAYLOAD_NONE = -1,
     W8_TRIGGER_PAYLOAD_ENVIRONMENT = 5,
     W8_TRIGGER_PAYLOAD_STRING = 6,
@@ -54,7 +54,7 @@ public:
     W8TriggerActionData();
     virtual ~W8TriggerActionData();
 
-    signed char type; /* W8TriggerPayloadKind */
+    W8TriggerPayloadKind type;
 };
 
 /* Type 5 installs its own final table and retains the previous environment value. */

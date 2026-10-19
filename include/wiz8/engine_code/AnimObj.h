@@ -14,6 +14,8 @@ struct W8PathAI;
 struct W8ReadLevelInfo;
 class stLight;
 class srModelInstance;
+enum W8AnimationFrameMethod : unsigned char;
+enum W8AnimationBehaviour : unsigned char;
 
 struct W8FrameBounds {
     bool known = false;
@@ -29,8 +31,8 @@ struct W8AnimObj {
 
     unsigned char group_count{};       // mesh/list group count, max 3
     bool animation_playing{}; // copied onto monster/prop animation_playing
-    unsigned char frame_method{};      // copied onto frame_method
-    unsigned char behaviour{};         // copied onto animation_behaviour
+    W8AnimationFrameMethod frame_method{}; // copied onto frame_method
+    W8AnimationBehaviour behaviour{};     // copied onto animation_behaviour
     unsigned char cycle{};             // default cycle/emitter index
     bool path_lists{};        // 0 = mesh entries, nonzero = path lists
     float playback_scale{};

@@ -21,6 +21,7 @@
 #include "surrender/srDebug.h"
 #include "wiz8/binary_reader.h"
 #include "wiz8/engine_code/3d.h"
+#include "wiz8/engine_code/AmbientSound.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/OctBuildTree.h"
@@ -213,8 +214,8 @@ unsigned char W8GameData::ReadWGDList(wiz8::File& file, int poly_type)
         surface.contact_margin = data.contact_margin;
         surface.slope = data.slope;
         surface.chance = data.chance;
-        surface.footstep_material = data.material;
-        surface.footstep_surface = data.surface;
+        surface.footstep_material = static_cast<W8FootstepMaterial>(data.material);
+        surface.footstep_surface = static_cast<W8FootstepSurface>(data.surface);
         surface.flags = data.type == 1 ? W8_GD_SURFACE_WALKABLE | W8_GD_SURFACE_PATHFINDING : 0;
         unsigned axis = 0;
         for (unsigned candidate = 1; candidate < 3; ++candidate)

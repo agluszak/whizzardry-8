@@ -304,6 +304,9 @@ void W8AssayDialog::PopulateText()
         m_text_area.AddEntry(g_localized_strings[0x8e7],
                              g_localized_strings[g_spell_range_name_ids[record->range_category]],
                              10, 0xf, 0);
+        break;
+    default:
+        break;
     }
     W8Skill presentation_skill = GetItemSpellPresentation(record);
     if (presentation_skill == W8_SKILL_NONE) {

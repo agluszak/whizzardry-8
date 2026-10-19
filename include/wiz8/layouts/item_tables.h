@@ -34,7 +34,7 @@ struct W8ItemTableRecord {
 
 /* Equipment classes. Labels 1087..1112 name classes 0..25; labels
    1114..1119 name classes 26..31. Stored as a byte. */
-enum W8ItemEquipClass {
+enum W8ItemEquipClass : unsigned char {
     W8_ITEM_EQUIP_CLASS_SHORT_WEAPON = 0,
     W8_ITEM_EQUIP_CLASS_EXTENDED_WEAPON = 1,
     W8_ITEM_EQUIP_CLASS_THROWN_WEAPON = 2,
@@ -83,7 +83,7 @@ enum W8ItemFlag {
 
 /* Assay quantity labels 1264..1268. Value 5 has no label; the database
    domain is kept open rather than assigning it an inferred meaning. */
-enum W8ItemQuantityKind {
+enum W8ItemQuantityKind : unsigned char {
     W8_ITEM_QUANTITY_NONE = 0,
     W8_ITEM_QUANTITY_STACK = 1,
     W8_ITEM_QUANTITY_CHARGES = 2,
@@ -91,11 +91,12 @@ enum W8ItemQuantityKind {
     W8_ITEM_QUANTITY_SHOTS = 4
 };
 
-/* Item categories the usability rules distinguish. Three is the spell source
-   the magic code already names; six and eight both cast the record's spell but
-   read a different profession level to decide whether the caster is strong
-   enough for it. */
-enum W8ItemCategory {
+/* Item categories the usability rules distinguish. Zero is empty; three is
+   the spell source the magic code already names; six and eight both cast the
+   record's spell but read a different profession level to decide whether the
+   caster is strong enough for it. */
+enum W8ItemCategory : unsigned char {
+    W8_ITEM_CATEGORY_NONE = 0,
     W8_ITEM_CATEGORY_SPELL_SOURCE = 3,
     W8_ITEM_CATEGORY_CASTER_ITEM_6 = 6,
     W8_ITEM_CATEGORY_CASTER_ITEM_8 = 8

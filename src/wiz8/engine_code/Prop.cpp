@@ -612,7 +612,7 @@ void W8Prop::AdvanceAnimationValue(int frames, char total)
 {
     W8PropRepresentation* rep = Rep();
     unsigned int frame = rep->subcycle;
-    char behaviour = rep->frame_method;
+    W8AnimationFrameMethod behaviour = rep->frame_method;
     int end = rep->last_frame;
     int start = rep->first_frame;
     unsigned int count;
@@ -735,7 +735,7 @@ void W8Prop::AdvanceAnimationValue(int frames, char total)
 char W8Prop::NextAnimationValue()
 {
     W8PropRepresentation* rep = Rep();
-    char direction = rep->frame_direction;
+    W8AnimationDirection direction = rep->frame_direction;
 
     if (rep->animation_behaviour == W8_ANIMATION_PLAY_ONCE) {
         if (direction == W8_ANIMATION_FORWARD) {
@@ -1310,8 +1310,8 @@ try {
         animation->entries[2] = std::move(mesh);
         animation->group_count = 1;
         animation->animation_playing = b0;
-        animation->frame_method = b1;
-        animation->behaviour = b2;
+        animation->frame_method = static_cast<W8AnimationFrameMethod>(b1);
+        animation->behaviour = static_cast<W8AnimationBehaviour>(b2);
         animation->cycle = 0;
         animation->path_lists = 0;
         animation->playback_scale = playback_scale;

@@ -7,6 +7,9 @@
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/audio_resources.h"
 
+enum W8FootstepSurface : unsigned char;
+enum W8FootstepMaterial : unsigned char;
+
 /* Engine Code\SoundEvent.cpp. The unit's assertion-backed interval starts at
    the factory below. */
 
@@ -62,7 +65,7 @@ void UpdateSoundEvents(const std::vector<std::unique_ptr<W8SoundEvent>>& events,
    lives here. */
 struct GroundSurfaceInfo {
     float height;
-    char surface;
-    char material;
+    W8FootstepSurface surface;
+    W8FootstepMaterial material;
 };
 GroundSurfaceInfo groundSurfaceInfo(const glm::vec3& position); /* 0x00420CA0 */

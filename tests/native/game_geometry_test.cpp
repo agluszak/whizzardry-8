@@ -55,6 +55,7 @@
 #include "wiz8/design_rect.h"
 #include "wiz8/direction_angles.h"
 #include "wiz8/engine_code/3d.h"
+#include "wiz8/engine_code/AmbientSound.h"
 #include "wiz8/engine_code/AniMesh.h"
 #include "wiz8/engine_code/AnimObj.h"
 #include "wiz8/engine_code/AnimRep.hpp"
@@ -1893,7 +1894,7 @@ TEST_CASE("Prop bounds return complete boxes and register inclusive octree cells
     mesh->getPolyVertex()[0] = {0, 1, 2};
     srModelInstance instance;
     instance.setModel(mesh);
-    GDProp prop(nullptr, &instance, "", 4, 0, 0);
+    GDProp prop(nullptr, &instance, "", 4, W8_FOOTSTEP_SURFACE_NONE, W8_FOOTSTEP_MATERIAL_NONE);
     const auto bounds = prop.computeBounds();
     REQUIRE(bounds.minimum == glm::vec3(-2, -3, -7));
     REQUIRE(bounds.maximum == glm::vec3(5, 6, 4));

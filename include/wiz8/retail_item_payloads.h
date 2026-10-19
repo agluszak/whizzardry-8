@@ -5,6 +5,10 @@
 #include "wiz8/attack_modes.h"
 #include "wiz8/dice.h"
 
+enum W8ItemEquipClass : unsigned char;
+enum W8ItemCategory : unsigned char;
+enum W8ItemQuantityKind : unsigned char;
+
 namespace wiz8::retail {
 // Unchanged numeric portions of Items.dbs. These contain no runtime ownership
 // or handles, so the same checked, trivially copyable payload is shared by the
@@ -17,10 +21,10 @@ struct ItemProperties {
     /* 0x03c: the item number the Wizardry 7 import matches imported item ids
        against (Party Import.cpp). */
     short legacy_item_number;
-    unsigned char equip_class;              /* 0x03e: W8ItemEquipClass */
+    W8ItemEquipClass equip_class;           /* 0x03e */
     unsigned short unidentified_name_index; /* 0x03f */
     unsigned char flags;                    /* 0x041: W8ItemFlag bits */
-    unsigned char category;                 /* 0x042: W8ItemCategory */
+    W8ItemCategory category;                /* 0x042 */
     unsigned char unknown_043[3];
     signed char weapon_skill; /* 0x046: -1 when the item grants none */
     /* 0x047: the W8RangeCategory band the weapon attacks at. GetCharAttackRange
@@ -48,7 +52,7 @@ struct ItemProperties {
        use path consumes it as the casting power. */
     unsigned char spell_power;
     unsigned char unknown_065;
-    unsigned char quantity_kind; /* 0x066: W8ItemQuantityKind */
+    W8ItemQuantityKind quantity_kind; /* 0x066 */
     W8Dice initial_quantity;     /* 0x067 */
     /* The stack merge path clamps quantity-kind 1 items to this byte. */
     unsigned char maximum_quantity; /* 0x06b */
