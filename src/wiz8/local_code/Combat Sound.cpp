@@ -94,17 +94,21 @@ try {
     }
     if (row != attacks.size()) return false;
     row = 0;
-    int column = -1;
+    std::optional<int> column;
     while (std::getline(input, line)) {
         if (line.find('#') != line.npos) {
-            ++column;
+            if (column) {
+                ++*column;
+            } else {
+                column = 0;
+            }
             row = 0;
             continue;
         }
         trim();
         if (line.empty()) continue;
-        if (row >= impacts.size() || column < 0 || column >= 12) return false;
-        impacts[row++][column] = line;
+        if (row >= impacts.size() || !column || *column >= 12) return false;
+        impacts[row++][*column] = line;
     }
     g_weapon_attack_sounds = std::move(attacks);
     g_material_impact_sounds = std::move(impacts);

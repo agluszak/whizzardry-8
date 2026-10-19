@@ -7,6 +7,7 @@
 #include <cstring>
 #include <exception>
 #include <memory>
+#include <optional>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -672,13 +673,19 @@ bool AutomapScreenEnter(void)
     if (script.Load("Data\\Automap\\MapFilters.txt")) {
         std::vector<std::string_view> excluded_textures;
         int line = 0;
-        int section = -1;
-        while (section < GetRequiredLoadedLevelID() &&
-               line < static_cast<int>(script.lines.size())) {
-            if (script.lines[line].text.contains('[')) ++section;
+        std::optional<int> section;
+        const int level_id = GetRequiredLoadedLevelID();
+        while ((!section || *section < level_id) && line < static_cast<int>(script.lines.size())) {
+            if (script.lines[line].text.contains('[')) {
+                if (section) {
+                    ++*section;
+                } else {
+                    section = 0;
+                }
+            }
             ++line;
         }
-        if (line < static_cast<int>(script.lines.size()) && section == GetRequiredLoadedLevelID()) {
+        if (line < static_cast<int>(script.lines.size()) && section && *section == level_id) {
             for (; line < static_cast<int>(script.lines.size()); ++line) {
                 const auto& text = script.lines[line].text;
                 if (text.contains('[')) break;
