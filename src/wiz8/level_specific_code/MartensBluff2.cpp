@@ -59,6 +59,7 @@
    PerfumeBox, StoneIdol, BlueFlowers, SquisherControls, DoorControls). */
 
 enum class RavenQuestState : int { not_started, dummy_activated, perfume_used, rapax_scripted };
+enum class W8CrusherState : int { inactive, moving, waiting_for_dummies };
 
 static RavenQuestState GetRavenQuestState()
 {
@@ -81,7 +82,7 @@ static W8Prop* g_squisher4_prop;
 static W8Prop* g_dummy_prop;
 static W8Prop* g_dummy_rope_prop;
 static Sound3D* g_crusher_sound;
-static int g_crusher_state;
+static W8CrusherState g_crusher_state = W8CrusherState::inactive;
 static std::optional<W8IntervalGate> g_idol_gas_gate;
 
 /* Level init: creates the RavenQuest location variable, fires the Dummy
@@ -393,7 +394,7 @@ bool MartensBluff2SquisherControls(Trigger* pTrigger)
 
 static void CaptureCrusher(W8SavedLocationState& state)
 {
-    state.emplace_back("MonsterCrusher", g_crusher_state);
+    state.emplace_back("MonsterCrusher", static_cast<int>(g_crusher_state));
 }
 
 /* The MonsterCrusher master function. A nonzero command looks up the two
@@ -438,7 +439,7 @@ bool MartensBluff2MonsterCrusher(int command)
             g_squisher4_prop = pTrigger->GetProp();
         }
         if (command != static_cast<int>(0xEFFFFFFF)) {
-            g_crusher_state = command;
+            g_crusher_state = static_cast<W8CrusherState>(command);
         }
         if (g_squisher3_prop != 0 && g_squisher4_prop != 0) {
             const auto crusher_bounds = g_squisher3_prop->GetFrameBounds();
@@ -461,7 +462,7 @@ bool MartensBluff2MonsterCrusher(int command)
                                            centre, 0.7f, 30.0f, true);
             }
             g_crusher_active = true;
-            g_crusher_state = 1;
+            g_crusher_state = W8CrusherState::moving;
             g_master_functions.push_back({MartensBluff2MonsterCrusher, CaptureCrusher});
         }
         if (command != 1 && GetRavenQuestState() != RavenQuestState::not_started) {
@@ -487,7 +488,7 @@ bool MartensBluff2MonsterCrusher(int command)
         }
 
         g_crusher_active = false;
-        g_crusher_state = 0;
+        g_crusher_state = W8CrusherState::inactive;
         return true;
     }
     if (g_squisher3_prop->animation_playing == 0) {
@@ -499,7 +500,7 @@ bool MartensBluff2MonsterCrusher(int command)
         if (GetRavenQuestState() == RavenQuestState::not_started) {
 
             g_crusher_active = false;
-            g_crusher_state = 0;
+            g_crusher_state = W8CrusherState::inactive;
             return true;
         }
         g_running_trigger_from_script = true;
@@ -509,7 +510,7 @@ bool MartensBluff2MonsterCrusher(int command)
         pTrigger->Run(-1);
         g_dummy_rope_prop = pTrigger->GetProp();
         g_running_trigger_from_script = false;
-        g_crusher_state = 2;
+        g_crusher_state = W8CrusherState::waiting_for_dummies;
         return false;
     }
     left = g_squisher3_prop->m_gd_prop->computeBounds().maximum.x;
