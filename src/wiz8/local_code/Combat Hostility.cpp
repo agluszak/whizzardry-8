@@ -168,7 +168,7 @@ W8Disposition GetOppositeDisposition(W8TargetSource* source)
 // FUNCTION: WIZ8 0x00547120
 void ProvokeListedMonsterGroups(W8TargetSource* source, const std::vector<int>& monsters)
 {
-    int own_monster_id = -1;
+    std::optional<int> own_monster_id;
     if (GetOppositeDisposition(source) == W8_DISPOSITION_NEUTRAL) {
         return;
     }
@@ -179,7 +179,7 @@ void ProvokeListedMonsterGroups(W8TargetSource* source, const std::vector<int>& 
     ResetCombatSlot(&target);
     target.iType = W8_TARGET_KIND_MONSTER;
     for (int monster_id : monsters) {
-        if (monster_id == own_monster_id) {
+        if (own_monster_id && monster_id == *own_monster_id) {
             continue;
         }
         W8MonsterInfo* monster_info = FindMonster(monster_id);
