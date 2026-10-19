@@ -1301,9 +1301,31 @@ void W8CampScreenState::DismissSelectedPartyCharacter()
    ends it re-raises every redraw flag, then repaints whichever page is active
    together with the level-up/dismissal panels and the dialog on top of the
    frame. */
+unsigned int W8CampScreenState::ChangedItemCells()
+{
+    auto& shown = shown_inventory;
+    unsigned int flags = 0;
+    const bool same_character = shown.character == reviewed;
+    for (unsigned int slot = 0; slot < 8; ++slot)
+        if (!same_character || shown.backpack[slot] != reviewed->backpack[slot])
+            flags |= W8_CAMP_ITEM_REDRAW_BACKPACK_CELL_FIRST << slot;
+    for (unsigned int slot = 0; slot < 12; ++slot)
+        if (!same_character || shown.equipment[slot] != reviewed->EquippedItem[slot])
+            flags |= W8_CAMP_ITEM_REDRAW_EQUIPMENT_CELL_FIRST << slot;
+    const auto pool = std::span{g_status.party.item_pool}.first(g_status.party.item_count);
+    if (!std::ranges::equal(shown.pool, pool)) flags |= W8_CAMP_ITEM_REDRAW_POOL;
+    shown.character = reviewed;
+    std::ranges::copy(reviewed->backpack, shown.backpack.begin());
+    std::ranges::copy(reviewed->EquippedItem, shown.equipment.begin());
+    shown.pool.assign(pool.begin(), pool.end());
+    return flags;
+}
+
 void W8CampScreenState::DrawCampScreen(void)
 {
     unsigned int index;
+
+    if (reviewed) item_redraw_flags |= ChangedItemCells();
 
     if (((GetInputState().modifiers & CTRL_DOWN) == 0) && item_icons_drawn) {
         redraw_flags |= W8_CAMP_REDRAW_ALL;

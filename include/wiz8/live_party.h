@@ -10,6 +10,11 @@ struct InventoryWeightChange;
 CharacterStatRules CaptureLiveCharacterStatRules(const W8Character& character);
 PartyStatRules CaptureLivePartyStatRules();
 
+// A recalculated hit-point ceiling that exhausts a member's pool kills the member.
+void RecalculateHitPoints(W8Character& character);
+// Armor class under the active session's combat action.
+void RecalculateArmorClass(W8Character& character);
+
 // Present calculation results on the active screen.
 void PresentInventoryWeightChange(W8Character& character, InventoryWeightChange change);
 void PresentPartyLoadChange(bool redistributed);

@@ -1435,9 +1435,6 @@ static std::optional<W8ItemLocation> StoreWithCharacter(W8Character* character,
         placed = true;
     }
 
-    if (CurrentScreenState().id == W8_SCREEN_CAMP && g_camp_screen) {
-        g_camp_screen->item_redraw_flags |= W8_CAMP_ITEM_REDRAW_BACKPACK_CELL_FIRST << stored_index;
-    }
     if (announce) {
         PostCharacterNotice(CharacterPointerToPartySlot(character),
                             fmt::sprintf(g_localized_strings[0x1e8], display_name));
@@ -2429,10 +2426,6 @@ bool EquipHeldItemAndStowPartner(unsigned actor, W8EquipSlot slot)
         const bool pool = storage.storage == W8ItemStorage::Pool;
         UpdateFactsAfterAcquiringItem(stored);
         DeliverExceptionalItemReaction(stored, pool, pool ? nullptr : &character);
-        if (CurrentScreenState().id == W8_SCREEN_CAMP && g_camp_screen)
-            g_camp_screen->item_redraw_flags |= pool ? W8_CAMP_ITEM_REDRAW_POOL
-                                                     : W8_CAMP_ITEM_REDRAW_BACKPACK_CELL_FIRST
-                                                           << storage.slot;
     }
     FinishInventoryEdit({{W8ItemStorage::Hand},
                          {W8ItemStorage::Equipment, actor, static_cast<unsigned>(slot)},
@@ -2761,9 +2754,6 @@ static std::optional<W8ItemLocation> StoreInPool(W8ItemInstance* item, bool anno
         party.insertIntoPool(0, entry);
     }
 
-    if (CurrentScreenState().id == W8_SCREEN_CAMP && g_camp_screen) {
-        g_camp_screen->item_redraw_flags |= W8_CAMP_ITEM_REDRAW_POOL;
-    }
     if (announce) {
         ShowNotice(W8_FONT_PALETTE_WHITE, fmt::sprintf(g_localized_strings[0x1e9], display_name));
     }

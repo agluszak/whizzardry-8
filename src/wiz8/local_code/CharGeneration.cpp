@@ -158,13 +158,10 @@ void InitializeCharacterLevelUp(W8Character* character, W8CharacterCreationState
         PayDownAttributeDebt(character, creation_state);
     }
     CalcCharacterLevelBand(character);
-    if (RecalculateCharacterHitPoints(character)) {
-        if (const auto slot = g_status.party.slotOf(*character))
-            SetCharacterCondition(*slot, W8_CONDITION_DEAD, W8_CONDITION_INDEFINITE, 0, 0, 1);
-    }
+    RecalculateHitPoints(*character);
     RecalculateCharacterStamina(character);
     RecalculateRealmSpellPoints(character);
-    CalcArmorClasses(character, CaptureLiveCharacterStatRules(*character).defensive_action);
+    RecalculateArmorClass(*character);
     FinalizeSpellPointPool(character, creation_state);
 }
 
@@ -483,15 +480,12 @@ void AdjustAllocatedAttribute(W8Character* character, W8CharacterCreationState* 
     }
     creation_state->attributes_complete = true;
 complete:
-    if (RecalculateCharacterHitPoints(character)) {
-        if (const auto slot = g_status.party.slotOf(*character))
-            SetCharacterCondition(*slot, W8_CONDITION_DEAD, W8_CONDITION_INDEFINITE, 0, 0, 1);
-    }
+    RecalculateHitPoints(*character);
     RecalculateCharacterStamina(character);
     RecalculateCarryingCapacity(character);
     PresentInventoryWeightChange(*character, RecalculateInventoryWeight(*character));
     RecalculateRealmSpellPoints(character);
-    CalcArmorClasses(character, CaptureLiveCharacterStatRules(*character).defensive_action);
+    RecalculateArmorClass(*character);
     RecalculateCharacterResistances(character);
     if (character->uiExpLevel == 1) {
         RebuildSkillAllocations(character, creation_state);
@@ -1011,15 +1005,12 @@ void ApplyRaceProfessionTables(W8Character* character, W8CharacterCreationState*
                 character->attributes[index].effective = character->attributes[index].base;
             }
         }
-        if (RecalculateCharacterHitPoints(character)) {
-            if (const auto slot = g_status.party.slotOf(*character))
-                SetCharacterCondition(*slot, W8_CONDITION_DEAD, W8_CONDITION_INDEFINITE, 0, 0, 1);
-        }
+        RecalculateHitPoints(*character);
         RecalculateCharacterStamina(character);
         RecalculateCarryingCapacity(character);
         PresentInventoryWeightChange(*character, RecalculateInventoryWeight(*character));
         RecalculateRealmSpellPoints(character);
-        CalcArmorClasses(character, CaptureLiveCharacterStatRules(*character).defensive_action);
+        RecalculateArmorClass(*character);
     }
     RecalculateCharacterResistances(character);
     if (character->uiExpLevel == 1) {

@@ -188,6 +188,14 @@ struct W8CampScreenState {
     CampItemControls item_controls;
     W8Character* reviewed = nullptr;
     int ReviewedPartySlot() const;
+    // What the item cells last showed. Any inventory change, whatever its source,
+    // repaints the cells that show it.
+    struct ShownInventory {
+        const W8Character* character = nullptr;
+        std::array<W8ItemInstance, 8> backpack{};
+        std::array<W8ItemInstance, 12> equipment{};
+        std::vector<W8ItemInstance> pool;
+    } shown_inventory;
     struct PendingItemAction {
         int caster_slot = -1;
         W8Character* identifying_character = nullptr;
@@ -280,6 +288,7 @@ private:
     void DrawCampItemQuantity(W8ItemInstance* item, int left, int top, int width);
     void CreateCampInput();
     void DrawCampScreen();
+    unsigned int ChangedItemCells();
     void SyncReviewCharInputRegion();
     void SwitchCampPage(W8CampPage page);
     void ActivateCampPage();

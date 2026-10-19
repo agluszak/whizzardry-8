@@ -579,7 +579,7 @@ void BeginCombatExecution(void)
                 character->hp_current == 0 || character->highest_condition >= W8_CONDITION_ASLEEP;
             row->phase_clock_stamp = 0;
             row->defend_switched = false;
-            CalcArmorClasses(character, CaptureLiveCharacterStatRules(*character).defensive_action);
+            RecalculateArmorClass(*character);
         }
     }
     RepickInvalidCombatTargets();
@@ -1133,9 +1133,7 @@ void W8CombatLifecycle::End(bool forced_cleanup)
     ResetLivingMonstersAfterCombat();
     for (int slot = 0; slot < 8; ++slot) {
         if (g_status.party.rows[slot].fOccupied) {
-            CalcArmorClasses(
-                &g_status.party.characters[slot],
-                CaptureLiveCharacterStatRules(g_status.party.characters[slot]).defensive_action);
+            RecalculateArmorClass(g_status.party.characters[slot]);
         }
     }
     if (gXStatus.world_update_blocked) {
@@ -1304,7 +1302,7 @@ void SetCharacterCombatAction(int party_slot, W8Action next, int notify)
                  g_status.party.rows[party_slot].pending_action == W8_ACTION_EQUIP)) {
         PostCharacterNotice(party_slot, g_localized_strings[0x226]);
     }
-    CalcArmorClasses(character, CaptureLiveCharacterStatRules(*character).defensive_action);
+    RecalculateArmorClass(*character);
 }
 
 /* Ask the slot's currently selected action which context its outputs hold:
@@ -1780,7 +1778,7 @@ void AdvanceCombatRound(void)
                 (character->hp_current == 0 || character->highest_condition > W8_CONDITION_WEBBED)
                     ? 1
                     : 0;
-            CalcArmorClasses(character, CaptureLiveCharacterStatRules(*character).defensive_action);
+            RecalculateArmorClass(*character);
         }
     }
     index = 0;

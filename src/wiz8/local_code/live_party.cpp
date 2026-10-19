@@ -1,6 +1,8 @@
 #include "wiz8/live_party.h"
 
 #include "wiz8/character_stat_rules.h"
+#include "wiz8/character_stats.h"
+#include "wiz8/conditions.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/character.h"
@@ -13,6 +15,7 @@
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/layouts/targeting.h"
 #include "wiz8/local_code/Combat.h"
+#include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/character_events.h"
@@ -36,6 +39,18 @@ CharacterStatRules CaptureLiveCharacterStatRules(const W8Character& character)
             npc && npc->name_style == W8_NPC_RFS81_A && !GetFact(W8_FACT_RFS81_HAS_BEEN_FIXED);
     }
     return rules;
+}
+
+void RecalculateHitPoints(W8Character& character)
+{
+    if (!RecalculateCharacterHitPoints(&character)) return;
+    if (const auto slot = g_status.party.slotOf(character))
+        SetCharacterCondition(*slot, W8_CONDITION_DEAD, W8_CONDITION_INDEFINITE, 0, 0, 1);
+}
+
+void RecalculateArmorClass(W8Character& character)
+{
+    CalcArmorClasses(&character, CaptureLiveCharacterStatRules(character).defensive_action);
 }
 
 PartyStatRules CaptureLivePartyStatRules()

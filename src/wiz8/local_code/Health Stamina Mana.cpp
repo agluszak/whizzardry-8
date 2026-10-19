@@ -611,7 +611,7 @@ void RestoreCharacterStamina(int party_slot, int amount, bool announce)
                                static_cast<unsigned int>(character->uiStaminaMax)));
     character->fatigue_band = band;
     if (band != previous_band) {
-        CalcArmorClasses(character, CaptureLiveCharacterStatRules(*character).defensive_action);
+        RecalculateArmorClass(*character);
     }
     if (character->uiCondition[W8_CONDITION_UNCONSCIOUS] == W8_CONDITION_INDEFINITE &&
         character->stamina > W8_STAMINA_TO_SHAKE_OFF_EXHAUSTION) {
@@ -730,10 +730,7 @@ void DamageCharacter(int party_slot, unsigned int damage, bool announce)
             ShowNotice(W8_FONT_PALETTE_WHITE, fmt::sprintf(g_localized_strings[0x1c4], damage));
         }
         character->hp_adjustment -= damage;
-        if (RecalculateCharacterHitPoints(character)) {
-            if (const auto slot = g_status.party.slotOf(*character))
-                SetCharacterCondition(*slot, W8_CONDITION_DEAD, W8_CONDITION_INDEFINITE, 0, 0, 1);
-        }
+        RecalculateHitPoints(*character);
         if (character->uiCondition[W8_CONDITION_DRAINED] == 0) {
             SetCharacterCondition(party_slot, W8_CONDITION_DRAINED, W8_CONDITION_INDEFINITE, 0, 0,
                                   0);
@@ -934,7 +931,7 @@ void FatigueCharacter(int party_slot, int amount, bool scale_by_load,
                                static_cast<unsigned int>(character->uiStaminaMax)));
     character->fatigue_band = band;
     if (band != previous_band) {
-        CalcArmorClasses(character, CaptureLiveCharacterStatRules(*character).defensive_action);
+        RecalculateArmorClass(*character);
     }
 
     if (character->stamina < 1) {
