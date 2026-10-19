@@ -7,16 +7,20 @@ struct BoundingBox;
 
 #include <functional>
 #include <memory>
+#include <optional>
+#include <span>
 #include <vector>
 
 #include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/geometric.hpp"
+#include "wiz8/spatial/bounding_sphere.h"
 
 class LevelSpatialIndex;
 class Monster;
 struct World;
+struct W8PathSurface;
 #include "wiz8/entities/keyframe_track.h"
 namespace wiz8 {
 class File;
@@ -116,10 +120,12 @@ struct NavigatorRoute {
     bool AdvanceAlongPathPositions(float distance, glm::vec3* position); /* 0x00456830 */
     /* Whether `position`'s plan-view distance to the hop leaving the current
        index stays under the path height interpolated along that segment. */
-    bool checkPositionHopHeight(const glm::vec3& position) const; /* 0x00456CB0 */
+    bool checkPositionHopHeight(std::span<const W8PathSurface> surfaces,
+                                const glm::vec3& position) const; /* 0x00456CB0 */
     /* The two-segment form of the hop-height check used on predicted
        positions: the nearer of the current or following segment wins. */
-    bool checkPredictedHopHeight(const glm::vec3& position) const; /* 0x00456DD0 */
+    bool checkPredictedHopHeight(std::span<const W8PathSurface> surfaces,
+                                 const glm::vec3& position) const; /* 0x00456DD0 */
     /* Move `position` toward the route's next waypoint by up to `distance`,
        spilling into the following segment; returns nonzero once `distance`
        exceeded the remainder of the live segment. */
@@ -137,7 +143,8 @@ struct NavigatorRoute {
                                       glm::vec3* direction); /* 0x00457150 */
 
 private:
-    bool withinHopHeight(const glm::vec2& point, unsigned base, bool include_next) const;
+    bool withinHopHeight(std::span<const W8PathSurface> surfaces, const glm::vec2& point,
+                         unsigned base, bool include_next) const;
 };
 
 struct NavigatorMovement {
@@ -272,7 +279,8 @@ public:
 
     glm::vec3 GetPosition() const;
     bool UpdateTrackedPosition();                               /* 0x00454950 */
-    void UpdateNavigation(unsigned char value, bool condition); /* 0x004553A0 */
+    void UpdateNavigation(unsigned char value, bool condition,
+                          std::optional<BoundingSphere> player); /* 0x004553A0 */
     void SetAngles(float angle);                                /* 0x004538F0 */
     void SetPitch(float pitch);                                 /* 0x00453940 */
     float GetYaw() const;                                             /* 0x00453970 */
@@ -319,11 +327,11 @@ public:
                               const glm::vec3* previous,
                               LevelSpatialIndex& octree); /* 0x00454440 */
     void UpdateFacing(bool immediate);                                    /* 0x00454780 */
-    void UpdateLinkedNavigator();                                         /* 0x00454D70 */
-    bool UpdateLinkedPosition();
-    void CollectGroupNavigators(std::vector<Navigator*>& navigators);      /* 0x00455140 */
-    int ResolveMovement();                                                   /* 0x00455CC0 */
-    void ClearMovement();                                                    /* 0x004537E0 */
+    void UpdateLinkedNavigator(std::optional<BoundingSphere> player); /* 0x00454D70 */
+    bool UpdateLinkedPosition(std::optional<BoundingSphere> player);
+    std::vector<Navigator*> CollectGroupNavigators() const; /* 0x00455140 */
+    int ResolveMovement(); /* 0x00455CC0 */
+    void ClearMovement(); /* 0x004537E0 */
     /* Modes 1 and 4 clear pitch/roll; 2, 3 and 5 enable pitch; 6 enables
        both. Mode 4 keeps the existing path; the other named modes build a
        fresh animated path. Later facing logic distinguishes 2/3 from 5/6. */
@@ -402,7 +410,6 @@ void NavigatorDefaultCallback(Navigator* navigator);
 
 extern const float g_navigator_vertical_phase_step;
 extern const float g_navigator_snap_angle;
-extern unsigned char g_combat_inactive;
 extern W8NavigatorLinkMode g_navigator_link_mode;
 extern const float g_navigator_linked_radius_scale;
 /* Runtime scale applied to the startup navigator's radius when the trace

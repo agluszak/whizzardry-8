@@ -72,7 +72,7 @@ bool OnCrankTriggerActivated(Trigger* trigger)
     Prop* prop;
     int value;
 
-    if (g_status.item_in_cursor) {
+    if ((g_status.party.held.item.iItemNo != -1)) {
         return false;
     }
     if (GetLocationVarIDByName("FlagPosition") == -1) {
@@ -97,7 +97,7 @@ bool OnCrankTriggerActivated(Trigger* trigger)
         position.y = LIFT_PARKED_Y;
         prop->SetPosition(&position);
         SetTriggerVariableByName("FlagPosition", 1000);
-        ReplaceOrCreateItem(&g_status.item_in_hand, 0x290, false, false, false);
+        ReplaceHeldItem(g_status.party, MakeItem(0x290, false, false, false));
         SetItemCursor(0);
         npc = GetNpcStateByKind(0x2a);
         QueueNpcScriptNotice(npc, 0, 0x18, true, 0);
@@ -239,7 +239,7 @@ bool OnSentryTriggerActivated(Trigger* trigger)
    item in the 0x268-0x26e key range sits in the player's hand. */
 bool OnEwaxxDoor03Activated(Trigger* trigger)
 {
-    if (g_status.item_in_cursor) {
+    if ((g_status.party.held.item.iItemNo != -1)) {
         int item_id = GetItemInHand();
         if (item_id >= 0x268 && item_id <= 0x26e) {
             return true;

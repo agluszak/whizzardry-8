@@ -13,6 +13,7 @@
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/fact_state.h"
+#include "wiz8/layouts/combat_state.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/Combat.h"
@@ -371,8 +372,8 @@ bool AscensionPath1Camera(Trigger* pTrigger)
             MonsterStartsDying(info, true);
         }
     }
-    if (gXStatus.fCombatMode) {
-        EndCombat(true);
+    if (g_combat.active()) {
+        g_combat.End(true);
     }
     BeginScriptedWorldAction();
     pTrigger->flags &= ~W8_TRIGGER_ON;

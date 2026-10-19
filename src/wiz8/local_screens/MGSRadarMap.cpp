@@ -24,6 +24,7 @@
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/party_slot.h"
 #include "wiz8/level_population.h"
 #include "wiz8/local_code/CombatRange.h"
 #include "wiz8/local_code/ControlsRect.h"
@@ -193,8 +194,8 @@ void RefreshRadarMap(void)
     if (!map_surface) return;
     if (g_radar_zoomed) {
         for (int slot = 0; slot < 8; ++slot) {
-            W8PartySlotRow* row = &g_status.buffers.XChar[slot];
-            W8PartyFormationPosition* position = &g_status.formation.positions[slot];
+            W8PartySlotRow* row = &g_status.party.rows[slot];
+            W8PartyFormationPosition* position = &g_status.party.formation.positions[slot];
 
             if (row->fOccupied && position->bQuadrant != -1) {
                 int cell = position->bQuadrant * 3 + position->bQuadrantSlot;
@@ -287,9 +288,9 @@ void UpdateRadarBlips(const W8TargetingPresentation& presentation)
             bool hostile = false;
 
             const auto mark = presentation.monsters.find(info->location_id);
-            if (gXStatus.fCombatMode && g_status.selected_character != -1 &&
+            if (g_combat.active() && g_status.selected_character != -1 &&
                 mark != presentation.monsters.end() &&
-                g_status.buffers.XChar[g_status.selected_character].fOccupied != 0 &&
+                g_status.party.rows[g_status.selected_character].fOccupied != 0 &&
                 (static_cast<unsigned char>(1 << g_status.selected_character) &
                  mark->second.party_targets) != 0) {
                 hostile = true;

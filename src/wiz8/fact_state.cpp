@@ -114,9 +114,9 @@ unsigned char EvaluateFact(W8FactId fact_id)
             return CountLeadingPartySlots() == 2;
         case W8_FACT_MOOK_MOOK_IN_PARTY: {
             unsigned int slot = 0;
-            while (!g_status.buffers.XChar[slot].fOccupied ||
-                   g_status.buffers.Char[slot].iRace != W8_RACE_MOOK ||
-                   g_status.buffers.Char[slot].highest_condition > W8_CONDITION_WEBBED) {
+            while (!g_status.party.rows[slot].fOccupied ||
+                   g_status.party.characters[slot].iRace != W8_RACE_MOOK ||
+                   g_status.party.characters[slot].highest_condition > W8_CONDITION_WEBBED) {
                 if (slot >= 7) {
                     return 0;
                 }
@@ -195,7 +195,7 @@ unsigned char EvaluateFact(W8FactId fact_id)
         case W8_FACT_FATHER_IN_PARTY:
             if (g_status.rpc_active) {
                 for (unsigned int slot = 0; slot < 8; ++slot) {
-                    if (g_status.buffers.XChar[slot].fOccupied &&
+                    if (g_status.party.rows[slot].fOccupied &&
                         slot == static_cast<unsigned int>(g_status.sedexus_party_slot)) {
                         return 1;
                     }
@@ -235,8 +235,8 @@ unsigned char EvaluateFact(W8FactId fact_id)
                 return g_fact_values[fact_id];
             }
             W8NpcState* npc = GetNpcStateByKind(0x18);
-            if (npc != 0 &&
-                g_status.buffers.Char[npc->group_index].highest_condition >= W8_CONDITION_ASLEEP) {
+            if (npc != 0 && g_status.party.characters[npc->group_index].highest_condition >=
+                                W8_CONDITION_ASLEEP) {
                 return 1;
             }
             return 0;

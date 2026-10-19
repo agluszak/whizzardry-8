@@ -128,13 +128,13 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
         unsigned int stamina_max;
 
         iChar = pSource->iChar;
-        level = g_status.buffers.Char[iChar].uiExpLevel;
+        level = g_status.party.characters[iChar].uiExpLevel;
         bound = 0xf;
         if (level < 0x10) {
             bound = level;
         }
-        stamina = g_status.buffers.Char[iChar].stamina;
-        stamina_max = g_status.buffers.Char[iChar].uiStaminaMax;
+        stamina = g_status.party.characters[iChar].stamina;
+        stamina_max = g_status.party.characters[iChar].uiStaminaMax;
         uiMinRoll = (stamina * (level + bound)) / stamina_max;
         if (uiMinRoll == 0) {
             uiMinRoll = 1;

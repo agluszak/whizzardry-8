@@ -10,6 +10,7 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/item_instance.h"
+#include "wiz8/layouts/party_slot.h"
 #include "wiz8/level_population.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Factions.h"
@@ -89,7 +90,7 @@ bool Trynnie1FountRandomFX(Trigger* pTrigger)
         return true;
     } else if (roll < 75) {
         for (i = 0; i < W8_PARTY_SLOT_COUNT; ++i) {
-            if (g_status.buffers.XChar[i].fOccupied) {
+            if (g_status.party.rows[i].fOccupied) {
                 HealCharacter(i, 100, false);
             }
         }
@@ -97,7 +98,7 @@ bool Trynnie1FountRandomFX(Trigger* pTrigger)
         return true;
     } else {
         for (i = 0; i < W8_PARTY_SLOT_COUNT; ++i) {
-            if (g_status.buffers.XChar[i].fOccupied) {
+            if (g_status.party.rows[i].fOccupied) {
                 RestoreCharacterStamina(i, 100, false);
             }
         }

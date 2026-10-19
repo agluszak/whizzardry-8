@@ -1,6 +1,5 @@
 #pragma once
 
-#include <array>
 #include <memory>
 #include <optional>
 #include <string>
@@ -32,26 +31,16 @@ extern W8Skill g_item_spell_presentation[11];
 extern int g_equip_slot_icons[12];
 int GetItemInHand(void);
 
-// The equipment-dependent inputs shared by committed and hypothetical attacks.
-struct W8HandAttack;
-std::array<W8HandAttack, 2> EvaluateWeaponHands(const W8ItemInstance& primary,
-                                                const W8ItemInstance& secondary);
-int WeaponHandKind(const W8ItemInstance& primary, const W8ItemInstance& secondary,
-                   unsigned int hand);
 struct W8WeaponSwap {
     bool primary;
     bool secondary;
 };
 std::optional<W8WeaponSwap> PlanWeaponSetSwap(const W8Character& character);
-void CommitWeaponSetSwap(int party_slot, W8WeaponSwap choice, bool refresh);
+void CommitWeaponSetSwap(int party_slot, W8WeaponSwap choice);
 void SetHandType(W8Character* character, W8EquipSlot equip_slot);
 unsigned int GetEquipmentBindingDifficulty(int character_index);
-bool CompatiblePartnerItems(int weapon_item_id, int off_hand_item_id);
-bool ItemUsesShots(int item_id);
 W8EquipSlot GetPairedEquipSlot(W8EquipSlot equip_slot);
 std::string GetItemDisplayName(const W8ItemInstance* item);
-
-bool ItemHasSingledOutGenericName(int item_id);
 
 enum { W8_GENERIC_ITEM_NAME_COUNT = 147 };
 /* The per-item-class notice index. */
@@ -67,11 +56,7 @@ bool AddItemToParty(W8ItemInstance* item, bool announce, bool skip_stacking);
 bool AddItemToPartyOrDrop(W8ItemInstance* item, bool announce);
 bool AddItemToCharacter(W8Character* character, W8ItemInstance* item, bool equip_if_possible,
                         bool announce, bool skip_stacking);
-void GetOriginOfCharacterItem(int character_index, W8ItemInstance* item, unsigned char* origin,
-                              unsigned short* slot);
 
-void UnequipUnusableItems(W8Character* character);
-void EmptyItemRecord(W8ItemInstance* item, W8Character* character, bool refresh);
 void EmptyAllCarriedItems(W8Character* character);
 bool TryIdentifyItemFor(W8Character* character, W8ItemInstance* item);
 int GetItemSpell(const W8ItemInstance* item);
@@ -96,7 +81,6 @@ unsigned int CountItemOnParty(int item_id, W8ItemInstance** found, W8Character**
 /* Whether every occupied party slot carries one item. */
 bool EveryCharacterHasItem(int item_id, int include_backpack);
 unsigned int GetItemUnitWeight(const W8ItemInstance* item);
-unsigned int GetItemStackWeight(const W8ItemInstance* item);
 unsigned char GetItemEquipClass(const W8ItemInstance* item);
 W8EquipSlot GetItemDefaultEquipSlot(int item_id);
 W8Skill GetItemSpellPresentation(const W8ItemDatabaseRecord* record);
@@ -106,20 +90,16 @@ unsigned short GetItemEquipSlotMask(int item_id, bool primary_off_hand_free,
 void CreateItemIntoHandOrPool(int item_id, bool quality);
 void AddPartyGold(int amount, bool announce);
 
-void CopyItemInstance(W8ItemInstance* destination, W8ItemInstance* source, W8Character* character,
-                      bool refresh);
 void SortPartyItemPool(void);
-void RefreshAfterItemRecordChange(W8ItemInstance* item, W8Character* character, bool refresh);
-void ReplaceOrCreateItem(W8ItemInstance* item, int item_id, bool maximum_quantity,
-                         bool force_identified, bool mark_special);
+W8ItemInstance MakeItem(int item_id, bool maximum_quantity, bool force_identified,
+                        bool mark_special);
+void ReplaceHeldItem(W8Party& party, W8ItemInstance item);
 bool PlaceItemOnCursor(int item_id, bool maximum_quantity, bool force_identified,
                        bool mark_special);
-void SwapItemInstances(W8ItemInstance* item, W8ItemInstance* destination, W8Character* character,
-                       bool refresh);
-bool EquipHeldItemAndStowPartner(W8Character& character, W8EquipSlot slot);
-void NormalizeItemStack(W8ItemInstance* item);
-bool MergeItemStacks(W8ItemInstance* destination, W8ItemInstance* source, bool* partially_merged);
-void MergeItemUses(W8Character* character, W8ItemInstance* into, W8ItemInstance* from);
+bool EquipHeldItemAndStowPartner(W8Party& party, unsigned actor, W8EquipSlot slot);
+struct W8GameplayModifierBlock;
+void ApplyPartyModifiers(W8GameplayModifierBlock modifiers);
+void MergeItemUses(unsigned actor, W8ItemLocation destination, W8ItemLocation source);
 void UpdateFactsAfterAcquiringItem(const W8ItemInstance* item);
 void DeliverExceptionalItemReaction(W8ItemInstance* item, bool choose_character,
                                     W8Character* character);
@@ -144,7 +124,7 @@ bool CanEquipItemInSlot(W8Character* character, int item_id, unsigned char equip
                         bool ignore_worn_items);
 /* Merges the held stack into one existing stack, announcing on
    refusal. */
-bool MergeItems(W8Character* character, W8ItemInstance* item);
+bool MergeItems(unsigned actor, W8ItemLocation target);
 
 /* Same equipment class, and same unidentified display name. */
 bool ItemsShareEquipClass(const W8ItemInstance* first, const W8ItemInstance* second);
@@ -191,18 +171,13 @@ void BindCharacterItems(int party_slot, bool announce);
 /* Whether an item is bound to whoever is wearing it, which is what stops it
    being taken off or swapped away. */
 bool IsItemBoundToWearer(const W8ItemInstance* item);
-W8ItemInstance* FindCharacterItemAt(int party_slot, unsigned char origin, unsigned short slot);
-void RemoveCharacterItem(W8Character* character, W8ItemInstance* item, bool remove_exhausted);
 bool RemovePartyItemByID(int item_id, bool remove_all);
 
 bool CanUseItemForAction(int party_slot, const W8ItemInstance* item);
 
 /* Camp item operations: paired hand compatibility, merge-kind lookup, and
    insertion into the party's item pool. */
-bool GetItemMergeKind(int item_id, short* related_kind);
 bool HeldItemFitsPairedSlot(int party_slot, W8EquipSlot equip_slot);
-bool InsertItemIntoPartyPool(W8ItemInstance* item, int index);
-W8EquipSlot ChooseCharacterEquipSlot(W8Character* character, int item_id);
 
 /* Fill an equipment slot from the item that pairs with the given
    one - the alternate hand when its own item is compatible, otherwise the
@@ -222,7 +197,7 @@ bool GiveHeldItemToCharacterOrParty(int uiChar, bool party_first);
 
 /* Use one item as a character's action. `out_uses` receives the
    fatigue cost of the attempt, or -1 when nothing was attempted. */
-unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_uses);
+unsigned char UseItem(unsigned actor, W8ItemLocation item, int* out_uses);
 
 /* How hard one attempt at an item's spell is for a character of this skill
    level. */
@@ -232,13 +207,9 @@ unsigned int GetItemUseDifficulty(const W8Character* character, W8Skill skill,
 int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int power);
 
 void SetCharacterItemUse(int party_slot, const W8Action& action);
-bool SwapWeaponSetSlots(int party_slot, bool announce, bool refresh);
-void SplitThrowableStackBetweenHands(W8Character* character, W8EquipSlot equip_slot);
-void RemovePartyPoolEntry(unsigned int index);
+bool SwapWeaponSetSlots(int party_slot, bool announce);
 bool FindItemByDatabaseKindOnParty(unsigned short item_kind, W8ItemInstance** found,
                                    W8Character** found_character, int include_backpack);
-void EmptyBackpackSlot(W8Character* character, int slot);
-void EmptyPartyPoolEntry(int index);
 void UpgradeProfessionClassItem(W8Character* character);
 
 bool ItemPrecedesInPool(const W8ItemInstance& first, const W8ItemInstance& second);
@@ -255,3 +226,22 @@ int CountUsableCharacterItems(W8Character* character);
 void SpendPartyGold(unsigned int amount);
 /* Add recharge uses to a stackable item (hourly tick, item 0x266). */
 void AddItemUses(W8ItemInstance* item, char uses);
+
+// Split or pick up a stack. Refusal leaves inventory unchanged.
+bool SplitItemStack(W8Party& party, W8ItemLocation source, unsigned amount, unsigned actor);
+
+bool ExchangeInventoryItems(W8Party&, W8ItemLocation first, W8ItemLocation second, unsigned actor);
+W8ItemInstance TakeInventoryItem(W8Party&, W8ItemLocation);
+bool ReceiveItemInHand(W8Party&, W8ItemInstance&);
+
+// Consume ammunition and replenish the weapon as one completed attack consequence.
+bool ConsumeAttackItems(unsigned actor, unsigned hand, W8EquipSlot used, W8EquipSlot paired);
+
+struct StackMergeResult {
+    bool complete = false;
+    bool changed = false;
+};
+StackMergeResult MergeInventoryStacks(W8Party&, W8ItemLocation destination, W8ItemLocation source);
+bool InsertHeldItemInPool(W8Party&, unsigned index);
+
+void RemoveInventoryQuantity(W8Party&, W8ItemLocation, unsigned amount);

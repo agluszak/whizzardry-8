@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <bit>
 #include <cstddef>
 #include <cstdint>
@@ -12,6 +13,7 @@
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/chunk.h"
 #include "wiz8/filesystem.h"
+#include "wiz8/item_location.h"
 #include "wiz8/retail_geometry_types.h"
 #include "wiz8/retail_records.h"
 #include "wiz8/unicode.h"
@@ -166,7 +168,7 @@ template<> struct Record<W8CombatSlot> {
         if constexpr (std::is_const_v<Runtime>)
             std::fill_n(bytes.begin() + offsetof(Disk, item_marker), 4, std::byte{});
         else
-            runtime.pPCItem = nullptr;
+            runtime.item = {};
     }
 };
 template<> struct Record<W8PartySlotRow> {
@@ -192,10 +194,23 @@ template<> struct Record<W8PartySlotRow> {
         value(&runtime.spell.detail,
               bytes.subspan(offsetof(Disk, spell_id), sizeof(Disk::spell_id)));
         value(&runtime.item_id, bytes.subspan(offsetof(Disk, item_id), sizeof(Disk::item_id)));
-        enum_value<unsigned char>(&runtime.item_origin, bytes.subspan(offsetof(Disk, item_origin),
-                                                                      sizeof(Disk::item_origin)));
-        value(&runtime.item_slot,
-              bytes.subspan(offsetof(Disk, item_slot), sizeof(Disk::item_slot)));
+        constexpr W8ItemStorage storage_kinds[] = {W8ItemStorage::Backpack,
+                                                   W8ItemStorage::Equipment, W8ItemStorage::Pool};
+        auto& location = runtime.item_detail.item_use.item;
+        if constexpr (std::is_const_v<Runtime>) {
+            const auto found = std::ranges::find(storage_kinds, location.storage);
+            const unsigned char origin =
+                found == std::end(storage_kinds) ? 0xff : found - std::begin(storage_kinds);
+            const unsigned short slot = location.slot;
+            value(&origin, bytes.subspan(offsetof(Disk, item_origin), 1));
+            value(&slot, bytes.subspan(offsetof(Disk, item_slot), 2));
+        } else {
+            unsigned char origin;
+            unsigned short slot;
+            value(&origin, bytes.subspan(offsetof(Disk, item_origin), 1));
+            value(&slot, bytes.subspan(offsetof(Disk, item_slot), 2));
+            location = {origin < 3 ? storage_kinds[origin] : W8ItemStorage::None, 0, slot};
+        }
         enum_value<signed char>(&runtime.queued_action, bytes.subspan(offsetof(Disk, queued_action),
                                                                       sizeof(Disk::queued_action)));
         value(&runtime.party_order_index,
@@ -217,14 +232,14 @@ template<> struct Record<W8PartySlotRow> {
         value(&runtime.weapon_swap_pending, bytes.subspan(offsetof(Disk, weapon_swap_pending),
                                                           sizeof(Disk::weapon_swap_pending)));
         auto detail = [&](auto& live, auto field, bool item_use) {
-            value(&live, field);
-            // An item's saved address is transient. Preserve the kind word;
-            // loading global status rebuilds the pending item from origin/slot.
             if (item_use) {
+                value(&live.item_use.kind, field.first(4));
+                // Retail stores an address here; locations are reconstructed from provenance.
                 if constexpr (std::is_const_v<Runtime>)
                     std::fill(field.begin() + 4, field.end(), std::byte{});
-                else
-                    live.item_use.item = nullptr;
+            } else {
+                value(&live.spell.power_level, field.first(4));
+                value(&live.spell.unused, field.subspan(4, 4));
             }
         };
         detail(runtime.pending_action_detail,
@@ -975,25 +990,36 @@ template<> struct Record<W8GlobalStatus> {
     template<class R, class B, class Value, class Text>
     static void fields(R& runtime, B bytes, Value value, Text text)
     {
-        value(&runtime.buffers.save_version, bytes.subspan(offsetof(Disk, buffers.save_version),
-                                                           sizeof(Disk::buffers.save_version)));
-        pointer_slot(runtime.buffers.Char, bytes.subspan(offsetof(Disk, buffers.characters), 4));
-        pointer_slot(runtime.buffers.XChar, bytes.subspan(offsetof(Disk, buffers.party_rows), 4));
+        value(&runtime.save_version, bytes.subspan(offsetof(Disk, buffers.save_version),
+                                                   sizeof(Disk::buffers.save_version)));
+        std::uint32_t party_present = 1;
+        value(&party_present, bytes.subspan(offsetof(Disk, buffers.characters), 4));
+        party_present = 1;
+        value(&party_present, bytes.subspan(offsetof(Disk, buffers.party_rows), 4));
         value(&runtime.game_started,
               bytes.subspan(offsetof(Disk, game_started), sizeof(Disk::game_started)));
-        value(&runtime.regular_member_count, bytes.subspan(offsetof(Disk, regular_member_count),
-                                                           sizeof(Disk::regular_member_count)));
-        value(&runtime.auxiliary_member_count, bytes.subspan(offsetof(Disk, auxiliary_member_count),
-                                                             sizeof(Disk::auxiliary_member_count)));
-        value(&runtime.total_member_count,
-              bytes.subspan(offsetof(Disk, total_member_count), sizeof(Disk::total_member_count)));
-        value(&runtime.party_gold,
+        // Retail stores three counters; runtime membership has one source of truth.
+        if constexpr (std::is_const_v<R>) {
+            int regular = 0, auxiliary = 0;
+            for (const auto& row : runtime.party.rows) {
+                if (!row.fOccupied) continue;
+                if (row.npc_index == -1)
+                    ++regular;
+                else
+                    ++auxiliary;
+            }
+            const int total_count = regular + auxiliary;
+            value(&regular, bytes.subspan(offsetof(Disk, regular_member_count), 4));
+            value(&auxiliary, bytes.subspan(offsetof(Disk, auxiliary_member_count), 4));
+            value(&total_count, bytes.subspan(offsetof(Disk, total_member_count), 4));
+        }
+        value(&runtime.party.gold,
               bytes.subspan(offsetof(Disk, party_gold), sizeof(Disk::party_gold)));
         value(&runtime.selected_character,
               bytes.subspan(offsetof(Disk, selected_character), sizeof(Disk::selected_character)));
-        value(&runtime.party_item_pool,
+        value(&runtime.party.item_pool,
               bytes.subspan(offsetof(Disk, party_item_pool), sizeof(Disk::party_item_pool)));
-        value(&runtime.party_item_count,
+        value(&runtime.party.item_count,
               bytes.subspan(offsetof(Disk, party_item_count), sizeof(Disk::party_item_count)));
         value(&runtime.text_line_cursor,
               bytes.subspan(offsetof(Disk, text_line_cursor), sizeof(Disk::text_line_cursor)));
@@ -1015,7 +1041,7 @@ template<> struct Record<W8GlobalStatus> {
               bytes.subspan(offsetof(Disk, world_clock), sizeof(Disk::world_clock)));
         value(&runtime.world_clock_ms,
               bytes.subspan(offsetof(Disk, world_clock_ms), sizeof(Disk::world_clock_ms)));
-        value(&runtime.party_order_slots,
+        value(&runtime.party.order_slots,
               bytes.subspan(offsetof(Disk, party_order_slots), sizeof(Disk::party_order_slots)));
         value(&runtime.resume_level,
               bytes.subspan(offsetof(Disk, current_level), sizeof(Disk::current_level)));
@@ -1034,7 +1060,7 @@ template<> struct Record<W8GlobalStatus> {
               bytes.subspan(offsetof(Disk, unknown_2013), sizeof(Disk::unknown_2013)));
         value(&runtime.pending_move_location, bytes.subspan(offsetof(Disk, pending_move_location),
                                                             sizeof(Disk::pending_move_location)));
-        value(&runtime.party_modifiers,
+        value(&runtime.party.modifiers,
               bytes.subspan(offsetof(Disk, party_modifiers), sizeof(Disk::party_modifiers)));
         value(&runtime.next_group_id,
               bytes.subspan(offsetof(Disk, next_group_id), sizeof(Disk::next_group_id)));
@@ -1045,9 +1071,10 @@ template<> struct Record<W8GlobalStatus> {
               bytes.subspan(offsetof(Disk, next_world_item_id), sizeof(Disk::next_world_item_id)));
         value(&runtime.next_trigger_id,
               bytes.subspan(offsetof(Disk, next_trigger_id), sizeof(Disk::next_trigger_id)));
-        value(&runtime.item_in_cursor,
+        bool held_present = runtime.party.held.item.iItemNo != -1;
+        value(&held_present,
               bytes.subspan(offsetof(Disk, item_in_cursor), sizeof(Disk::item_in_cursor)));
-        value(&runtime.item_in_hand,
+        value(&runtime.party.held.item,
               bytes.subspan(offsetof(Disk, item_in_hand), sizeof(Disk::item_in_hand)));
         value(&runtime.flags, bytes.subspan(offsetof(Disk, flags), sizeof(Disk::flags)));
         value(&runtime.game_time_ms,
@@ -1066,7 +1093,7 @@ template<> struct Record<W8GlobalStatus> {
                                                                      sizeof(Disk::wait_state)));
         value(&runtime.item_recharge_ms,
               bytes.subspan(offsetof(Disk, item_recharge_ms), sizeof(Disk::item_recharge_ms)));
-        value(&runtime.formation,
+        value(&runtime.party.formation,
               bytes.subspan(offsetof(Disk, formation), sizeof(Disk::formation)));
         value(&runtime.game_time_days,
               bytes.subspan(offsetof(Disk, game_time_days), sizeof(Disk::game_time_days)));

@@ -475,11 +475,12 @@ public:
        flatten every accepted position back to the source height. */
     std::vector<glm::vec3> scatterPositions(const glm::vec3& position, float yaw, float spacing,
                                             unsigned int count, bool proximity_check,
-                                            bool flatten_y);
+                                            bool flatten_y, std::optional<BoundingSphere> player);
     NavigatorPlacement navigatorPositions(const glm::vec3& source, float yaw, float radius,
                                           unsigned int count, bool first_only,
                                           bool settle_any_height, bool avoid_triggers, int mode,
-                                          bool require_waypoint_span);
+                                          bool require_waypoint_span,
+                                          std::optional<BoundingSphere> player);
     unsigned int AdvanceNavigator(NavigatorMovement* movement, float radius, float separation);
     unsigned char PrepareNavigatorTarget(NavigatorMovement* movement, float radius,
                                          float separation);

@@ -17,8 +17,6 @@ extern const float g_facing_tolerance0;
 
 signed char DecideFacingForPosition(int position, int target_position);
 
-void RebuildPartyStatus(W8PartyFormationState* status, const W8PartySlotRow* party_rows);
-
 /* Turn the position's formation facing toward the second position
    the way DecideFacingForPosition resolved it. */
 void FacePositionAsDecided(int position, int target_position);
@@ -44,7 +42,6 @@ void SetFormationPosition(W8PartyFormationState* formation, int slot, signed cha
                           signed char new_column, bool announce, bool detach, bool update_facing);
 /* Re-place the positions left in a row after one moved out: a
    single occupant goes to column 0, two pack toward column 2. */
-void CompactFormationRow(W8PartyFormationState* formation, unsigned char row);
 
 void InitializePartyFormation(W8PartyFormationState* state);
 /* Remember the formation combat started with. */

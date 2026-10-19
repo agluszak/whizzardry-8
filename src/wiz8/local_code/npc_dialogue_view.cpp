@@ -220,7 +220,7 @@ W8NpcSubquoteOutcome SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char sub
             BeginPortraitVoice(speaker->group_index, g_speech.voice_handle, voice_path,
                                g_speech.hold_ms);
             if (voiced) {
-                g_status.buffers.XChar[speaker->group_index].pending_event_type = current_quote;
+                g_status.party.rows[speaker->group_index].pending_event_type = current_quote;
                 entry->pending_event_type = current_quote;
                 g_npc_interaction_state->last_notice_npc_kind = speaker->partner_index;
             }

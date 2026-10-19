@@ -22,6 +22,7 @@
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/party_slot.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/FormationAndFacing.h"
@@ -90,8 +91,8 @@ void DrawFormationSlotMarkers(SDL_Surface& target)
     int slot;
 
     for (slot = 0; slot < 8; ++slot) {
-        W8PartySlotRow* row = &g_status.buffers.XChar[slot];
-        W8PartyFormationPosition* position = &g_status.formation.positions[slot];
+        W8PartySlotRow* row = &g_status.party.rows[slot];
+        W8PartyFormationPosition* position = &g_status.party.formation.positions[slot];
         int left;
         int top;
         int image;
@@ -184,8 +185,8 @@ UiResult HandleFormationBoard(const UiPointerEvent& event)
 
     hit = -1;
     for (slot = 0; slot < 8; ++slot) {
-        W8PartySlotRow* row = &g_status.buffers.XChar[slot];
-        W8PartyFormationPosition* position = &g_status.formation.positions[slot];
+        W8PartySlotRow* row = &g_status.party.rows[slot];
+        W8PartyFormationPosition* position = &g_status.party.formation.positions[slot];
         int cell;
 
         if (!row->fOccupied || position->bQuadrant == -1) {
@@ -272,10 +273,10 @@ void RefreshFormationPanel(bool force)
                           (disabled                         ? 2
                            : formation->cells[cell].pressed ? 1
                                                             : 0);
-        const int chip = g_status.buffers.XChar[slot].party_order_index * 3 +
-                         (disabled                       ? 2
-                          : formation->highlighted[cell] ? 1
-                                                         : 0);
+        const int chip =
+            g_status.party.rows[slot].party_order_index * 3 + (disabled                       ? 2
+                                                               : formation->highlighted[cell] ? 1
+                                                                                              : 0);
         arrows.draw(target, arrow, 0xd6 + position.x, 0x3c + position.y);
         chips.draw(target, chip, 0xd6 + position.x, 0x3c + position.y);
     }
@@ -295,7 +296,7 @@ void OpenFormationPanel(void)
     g_formation_drag_clock = w8_get_ticks() + (0);
     gXStatus.fReviewCharacterMode = true;
     RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
-    gXStatus.edited_formation = g_status.formation;
+    gXStatus.edited_formation = g_status.party.formation;
     SyncWorldAdvancement();
     UpdateFormationCells();
 }
@@ -307,7 +308,7 @@ static void UpdateFormationCells(void)
     for (auto& slot : g_formation_cell_slots) slot = -1;
     for (int slot = 0; slot < 8; ++slot) {
         const auto& position = gXStatus.edited_formation.positions[slot];
-        if (g_status.buffers.XChar[slot].fOccupied && position.bQuadrant != -1)
+        if (g_status.party.rows[slot].fOccupied && position.bQuadrant != -1)
             g_formation_cell_slots[position.bQuadrant * 3 + position.bQuadrantSlot] = slot;
     }
     SelectFormationSlotCell(g_status.selected_character);
@@ -332,15 +333,15 @@ static void AcceptFormationChanges(void)
     unsigned int slot;
 
     for (slot = 0; slot < 8; ++slot) {
-        if (g_status.buffers.XChar[slot].fOccupied && CanHoldFormationPlace(slot) &&
+        if (g_status.party.rows[slot].fOccupied && CanHoldFormationPlace(slot) &&
             gXStatus.edited_formation.positions[slot].bQuadrant !=
-                g_status.formation.positions[slot].bQuadrant) {
+                g_status.party.formation.positions[slot].bQuadrant) {
             StartBreathCycle(slot, false);
         }
     }
-    if (!gXStatus.fCombatMode) {
-        ReconcilePartyFormation(&gXStatus.edited_formation, &g_status.formation);
-    } else if (memcmp(&g_status.formation, &gXStatus.edited_formation,
+    if (!g_combat.active()) {
+        ReconcilePartyFormation(&gXStatus.edited_formation, &g_status.party.formation);
+    } else if (memcmp(&g_status.party.formation, &gXStatus.edited_formation,
                       sizeof(W8PartyFormationState)) != 0) {
         ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x7d9]);
     }
@@ -352,7 +353,7 @@ static void AcceptFormationChanges(void)
 /* The reset button: throw the staged edits away and rebuild the cells. */
 static void ResetFormationPanel(void)
 {
-    gXStatus.edited_formation = g_status.formation;
+    gXStatus.edited_formation = g_status.party.formation;
     UpdateFormationCells();
 }
 
@@ -474,7 +475,7 @@ static void BeginFormationDrag()
     const auto overlay_artwork = CatalogArtwork::Load(0xa0);
     const auto overlay = static_cast<std::uint16_t>(
         overlay_artwork.imageOffset() +
-        g_status.buffers.XChar[g_formation_drag_slot].party_order_index * 3 + 1);
+        g_status.party.rows[g_formation_drag_slot].party_order_index * 3 + 1);
     BlitToMouseCursor(*overlay_artwork.spriteSheet(), overlay, 0, 0);
     WarpSystemCursor(point.x - 0x10, point.y - 0x10);
     RefreshMouseCursorTexture();

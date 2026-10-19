@@ -15,8 +15,8 @@
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
+#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/UtilityFunctions.h"
-#include "wiz8/local_code/party_encumbrance.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/environment.h"
 #include "wiz8/world/level_session.h"
@@ -28,25 +28,25 @@
    byte. */
 void RebuildPartyEffectBlock(void)
 {
-    memset(&g_status.party_modifiers, 0, sizeof(W8GameplayModifierBlock));
-    ApplyPartyEffectSlots(g_status.effect_slots, &g_status.party_modifiers);
-    if (gXStatus.fCombatMode) {
-        unsigned char value = g_status.party_modifiers.armor_matchup;
+    W8GameplayModifierBlock modifiers{};
+    ApplyPartyEffectSlots(g_status.effect_slots, &modifiers);
+    if (g_combat.active()) {
+        unsigned char value = modifiers.armor_matchup;
 
-        for (auto& effect_slot : g_combat_state->effect_slots) {
+        for (auto& effect_slot : g_combat.state()->effect_slots) {
             W8EffectSlot* slot = &effect_slot;
             if (slot->active && slot->effect_id == 0x31) {
                 value -= slot->amount;
-                g_status.party_modifiers.armor_matchup = value;
+                modifiers.armor_matchup = value;
             }
         }
-        ApplyCombatEffectSlots(g_combat_state->effect_slots0, &g_status.party_modifiers);
+        ApplyCombatEffectSlots(g_combat.state()->effect_slots0, &modifiers);
     }
     int active = 0;
     unsigned int slot_byte = 0;
     while (slot_byte <= 0x82f) {
-        W8Character* character = &g_status.buffers.Char[active];
-        if (g_status.buffers.XChar[active].fOccupied && character->hp_current != 0 &&
+        W8Character* character = &g_status.party.characters[active];
+        if (g_status.party.rows[active].fOccupied && character->hp_current != 0 &&
             character->highest_condition == W8_CONDITION_NONE &&
             CharacterHasTrait(character, W8_TRAIT_CAMP_RECOVERY_BONUS)) {
             break;
@@ -55,23 +55,17 @@ void RebuildPartyEffectBlock(void)
         ++active;
     }
     if (slot_byte < 0x830) {
-        g_status.party_modifiers.boost_health_regen = 1;
-        g_status.party_modifiers.boost_stamina_regen = 1;
-        g_status.party_modifiers.boost_spell_regen = 1;
+        modifiers.boost_health_regen = 1;
+        modifiers.boost_stamina_regen = 1;
+        modifiers.boost_spell_regen = 1;
     }
-    for (int party_slot = 0; party_slot < 8; ++party_slot) {
-        if (g_status.buffers.XChar[party_slot].fOccupied) {
-            W8Character* character = &g_status.buffers.Char[party_slot];
-            RebuildCharacterModifierBlock(character);
-            RecalculateCharacterDerivedStats(character);
-        }
-    }
-    if (g_status.party_modifiers.light == 0) {
+    ApplyPartyModifiers(modifiers);
+    if (modifiers.light == 0) {
         SetSkyNodeVisible(false);
         return;
     }
     SetSkyNodeVisible(true);
-    SetCameraLightIntensity(g_status.party_modifiers.light + kEnvironmentNearScale);
+    SetCameraLightIntensity(modifiers.light + kEnvironmentNearScale);
 }
 
 /* Fold the worn items into one character's equipment bonus block: the twelve
@@ -266,33 +260,13 @@ void ApplyCombatEffectSlots(const W8EffectSlot* source, W8GameplayModifierBlock*
 
 /* Rebuild one character's derived modifier block from the equipment,
    condition and party blocks without rerunning the derived stats. */
-void RebuildCharacterModifierBlock(W8Character* character)
+void RebuildCharacterModifierBlock(W8Character* character,
+                                   const W8GameplayModifierBlock* party_modifiers)
 {
     memset(&character->bonus, 0, sizeof(W8GameplayModifierBlock));
     ApplyModifierBlock(&character->bonus, &character->equipment_bonus);
     ApplyModifierBlock(&character->bonus, &character->condition_modifiers);
-    if (character->fInParty) {
-        ApplyModifierBlock(&character->bonus, &g_status.party_modifiers);
-    }
-}
-
-/* Rebuild one character's equipment bonus block from its worn items, then its
-   derived block from the equipment, condition and party blocks, and
-   recompute the derived stats. The standalone form character creation runs. */
-void RebuildEquipmentAndDerivedStats(W8Character* character)
-{
-    memset(&character->equipment_bonus, 0, sizeof(W8GameplayModifierBlock));
-    AccumulateEquipmentModifiers(character, &character->equipment_bonus);
-    RebuildCharacterModifierBlock(character);
-    RecalculateCharacterDerivedStats(character);
-}
-
-/* The party-slot counterpart of RebuildEquipmentAndDerivedStats: refill the
-   member's equipment bonus block from its worn items, then its derived block
-   and stats. */
-void RebuildEquipmentAndDerivedStatsForSlot(int party_slot)
-{
-    RebuildEquipmentAndDerivedStats(&g_status.buffers.Char[party_slot]);
+    if (party_modifiers) ApplyModifierBlock(&character->bonus, party_modifiers);
 }
 
 /* Rebuild one party member's condition/enchantment modifier block from the
@@ -301,15 +275,16 @@ void RebuildEquipmentAndDerivedStatsForSlot(int party_slot)
    funnels through it. */
 void RebuildConditionsAndDerivedStats(int party_slot)
 {
-    W8Character* character = &g_status.buffers.Char[party_slot];
+    W8Character* character = &g_status.party.characters[party_slot];
 
     memset(&character->condition_modifiers, 0, sizeof(W8GameplayModifierBlock));
     ApplyConditionModifiers(character, character->uiCondition, character->condition_argument,
                             &character->condition_modifiers);
     ApplyEnchantmentModifiers(character->enchantments, &character->condition_modifiers);
     ApplyBoundNpcPenalty(character, &character->condition_modifiers);
-    RebuildCharacterModifierBlock(character);
-    RecalculateCharacterDerivedStats(character);
+    RebuildCharacterModifierBlock(character,
+                                  character->fInParty ? &g_status.party.modifiers : nullptr);
+    RecalculateCharacterDerivedStats(*character);
 }
 
 /* The monster-side rebuild: refill the monster's modifier block from its

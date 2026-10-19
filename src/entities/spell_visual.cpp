@@ -20,6 +20,7 @@
 #include "glm/ext/vector_float3.hpp"
 #include "monster_cycles.h"
 #include "retail_records.h"
+#include "spell_ids.h"
 #include "wiz8/audio/AmbientSound.h"
 #include "wiz8/audio/SoundEvent.h"
 #include "wiz8/entities/animation.h"
@@ -40,8 +41,10 @@
 #include "wiz8/render/light.h"
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/picking.h"
+#include "wiz8/retail_text_records.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
+#include "wiz8/startup_world.h"
 #include "wiz8/world/level_loader.h"
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/update.h"
@@ -255,7 +258,12 @@ void UpdateWorldSpellVisuals(World* world)
             if (!visual->finished || !visual->auto_release) {
                 visual->StartIfHostActive();
                 visual->UpdateRepresentation(world);
-                visual->nav.UpdateNavigation(0, false);
+                visual->nav.UpdateNavigation(
+                    0, false,
+                    world == GetWorld()
+                        ? std::optional{BoundingSphere{PartyNavigator()->movement.position,
+                                                       PartyNavigator()->movement.alternate_radius}}
+                        : std::nullopt);
             } else {
                 DestroySpellVisual(world, visual);
                 --index;

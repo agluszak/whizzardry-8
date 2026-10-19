@@ -102,13 +102,17 @@ bool MoveMonsterGroupToPosition(W8MonsterGroup* group, const glm::vec3* position
     }
     glm::vec3 target = *position;
     if (alternate_radius) {
-        positions = GetWorldSpatialIndex()
-                        ->navigatorPositions(target, yaw, radius + radius, count, proximity_check,
-                                             flatten_y, false, 5, true)
-                        .positions;
+        positions =
+            GetWorldSpatialIndex()
+                ->navigatorPositions(target, yaw, radius + radius, count, proximity_check,
+                                     flatten_y, false, 5, true,
+                                     BoundingSphere{PartyNavigator()->movement.position,
+                                                    PartyNavigator()->movement.alternate_radius})
+                .positions;
     } else {
-        positions = GetWorldSpatialIndex()->scatterPositions(target, yaw, radius + radius, count,
-                                                             proximity_check, flatten_y);
+        positions = GetWorldSpatialIndex()->scatterPositions(
+            target, yaw, radius + radius, count, proximity_check, flatten_y,
+            BoundingSphere{PartyNavigator()->movement.position, PartyNavigator()->radius});
     }
     const auto found = positions.size();
     if (found == 0) {
@@ -355,7 +359,7 @@ void RefreshMonsterGroup(W8MonsterGroup* monster_group)
     }
     if (monster_group->leader_group_id == 0) {
         leader = GetMonsterByLocationID(monster_group->leader_location_id);
-        if (leader) leader->nav.LinkGroupNavigator(nullptr, g_combat_inactive == 0);
+        if (leader) leader->nav.LinkGroupNavigator(nullptr, g_combat.engineActive());
     } else {
         W8MonsterGroup* leader_group = FindMonsterGroup(monster_group->leader_group_id);
         leader = GetMonsterByLocationID(leader_group->leader_location_id);
@@ -365,7 +369,7 @@ void RefreshMonsterGroup(W8MonsterGroup* monster_group)
         Monster* member = GetMonsterByLocationID(monster_group->MemberLocationId(index));
 
         if (member && member != leader) {
-            member->nav.LinkGroupNavigator(&leader->nav, g_combat_inactive == 0);
+            member->nav.LinkGroupNavigator(&leader->nav, g_combat.engineActive());
         }
     }
 }
@@ -503,7 +507,7 @@ std::string GetMonsterGroupName(W8MonsterGroup* monster_group)
     name_form = monster_group->MemberCount() != W8_MONSTER_GROUP_SINGULAR;
     if (record->record_id == W8_MONSTER_RECORD_ALTERNATE_NAME) {
         g_status.monster_name_buffer =
-            fmt::format("Al-{}", g_status.buffers.Char[g_status.sedexus_party_slot].name);
+            fmt::format("Al-{}", g_status.party.characters[g_status.sedexus_party_slot].name);
         return g_status.monster_name_buffer;
     }
     if (monster_group->alternate_name) {
@@ -522,8 +526,8 @@ void MonsterGroupLeaveCombat(W8MonsterGroup* monster_group)
     unsigned int index;
     W8MonsterInfo* lead;
 
-    if (!gXStatus.fCombatMode) {
-        Fail("gXStatus.fCombatMode");
+    if (!g_combat.active()) {
+        Fail("g_combat.active()");
     }
     if (!monster_group->fInCombat) {
         Fail("pMonsterGroup->fInCombat");
@@ -962,7 +966,7 @@ void MonsterGroupEnterCombat(W8MonsterGroup* monster_group)
 {
     while (true) {
         if (g_status.world_suspended && monster_group->ubDisposition == W8_DISPOSITION_HOSTILE &&
-            !gXStatus.fCombatMode) {
+            !g_combat.active()) {
             return;
         }
 
@@ -1030,8 +1034,8 @@ void MonsterGroupEnterCombat(W8MonsterGroup* monster_group)
                 ++index;
             }
             monster_group->fInCombat = true;
-            if (monster_group->ubDisposition == W8_DISPOSITION_HOSTILE && gXStatus.fCombatMode &&
-                g_combat_state->round_count != 0) {
+            if (monster_group->ubDisposition == W8_DISPOSITION_HOSTILE && g_combat.active() &&
+                g_combat.state()->round_count != 0) {
                 unsigned int live_groups = 0;
                 unsigned int group_list_index = 0;
                 while (group_list_index < CurrentLevelPopulation().monster_groups.size()) {

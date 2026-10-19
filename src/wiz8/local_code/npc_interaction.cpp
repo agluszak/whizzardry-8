@@ -28,10 +28,10 @@ bool IsPartySlotEligible(int slot)
     if (slot >= 8) {
         return false;
     }
-    if (!g_status.buffers.XChar[slot].fOccupied) {
+    if (!g_status.party.rows[slot].fOccupied) {
         return false;
     }
-    character = &g_status.buffers.Char[slot];
+    character = &g_status.party.characters[slot];
     if (character->hp_current == 0) {
         return false;
     }

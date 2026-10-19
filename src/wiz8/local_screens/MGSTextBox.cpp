@@ -60,8 +60,6 @@
 #include "wiz8/unicode.h"
 #include "wiz8/xstatus.h"
 
-std::unique_ptr<W8MainGameScreen> g_main_game_screen;
-
 namespace {
 struct MessageBoxInput {
     UiLayer body{UiLayerOrder::MessageBox}, tabs{UiLayerOrder::MessageBox};
@@ -201,7 +199,7 @@ static short ResolveNoticeTextBox(short text_box)
             return IsNpcDialogueTextBoxActive() ? 0 : 2;
         }
 
-        return gXStatus.fCombatMode;
+        return g_combat.active();
     }
     return text_box;
 }
@@ -210,10 +208,10 @@ static void AppendNoticeLine(unsigned char font_palette, std::string_view text, 
                              int wrapped_line)
 {
     text_box = ResolveNoticeTextBox(text_box);
-    if (g_current_screen_state.id != W8_SCREEN_MAIN_GAME &&
-        g_current_screen_state.id != W8_SCREEN_CAMP &&
-        g_current_screen_state.id != W8_SCREEN_PLEASE_WAIT &&
-        g_current_screen_state.id != W8_SCREEN_CHARACTER) {
+    if (CurrentScreenState().id != W8_SCREEN_MAIN_GAME &&
+        CurrentScreenState().id != W8_SCREEN_CAMP &&
+        CurrentScreenState().id != W8_SCREEN_PLEASE_WAIT &&
+        CurrentScreenState().id != W8_SCREEN_CHARACTER) {
         return;
     }
     if (g_status.text_box_lines_used[text_box] == 350) {
@@ -240,7 +238,7 @@ static void AppendNoticeLine(unsigned char font_palette, std::string_view text, 
     record->link = wrapped_line;
     record->length = -1;
     ++g_notice_line_count;
-    if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_status.text_line_cursor == text_box) {
+    if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME && g_status.text_line_cursor == text_box) {
         AdvanceNoticeLine(text_box);
     } else if (text_box == 3) {
         g_status.text_box_lines_shown[3] = g_status.text_box_lines_used[3];
@@ -337,10 +335,10 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view, short tex
 {
     const std::string owned_text(text_view);
     const std::string_view text = owned_text;
-    if (g_level_block != 0 && (g_current_screen_state.id == W8_SCREEN_MAIN_GAME ||
-                               (g_current_screen_state.id == W8_SCREEN_CAMP && !force_dialog) ||
-                               g_current_screen_state.id == W8_SCREEN_PLEASE_WAIT ||
-                               g_current_screen_state.id == W8_SCREEN_CHARACTER)) {
+    if (g_level_block != 0 && (CurrentScreenState().id == W8_SCREEN_MAIN_GAME ||
+                               (CurrentScreenState().id == W8_SCREEN_CAMP && !force_dialog) ||
+                               CurrentScreenState().id == W8_SCREEN_PLEASE_WAIT ||
+                               CurrentScreenState().id == W8_SCREEN_CHARACTER)) {
         if (font_palette >= W8_FONT_PALETTE_COUNT) {
             Fail("uiFontPaletteIndex <= FONT_PALETTE_COUNT");
         }
@@ -479,7 +477,7 @@ try {
     ReleaseMessageStorage();
     file.ReadBytes(&format, 4);
     for (region = 0; region < 4; ++region) {
-        if (g_status.buffers.save_version < g_prepath_link_height && region == 3) {
+        if (g_status.save_version < g_prepath_link_height && region == 3) {
             g_status.text_box_lines_used[3] = 0;
         } else {
             file.ReadBytes(&g_status.text_box_lines_used[region], 4);
@@ -597,7 +595,7 @@ void HighlightTextBoxRange(unsigned char color, std::size_t start, std::size_t s
     if (!(stop >= start)) {
         Fail("ubStopChar >= ubStartChar");
     }
-    if (g_current_screen_state.id != W8_SCREEN_MAIN_GAME) {
+    if (CurrentScreenState().id != W8_SCREEN_MAIN_GAME) {
         return;
     }
     text_box = ResolveNoticeTextBox(text_box);
@@ -641,8 +639,8 @@ void HighlightTextBoxRange(unsigned char color, std::size_t start, std::size_t s
    line instead. A -1 box means the one the current game mode posts to. */
 void AppendToLastTextLine(std::string_view text, short text_box)
 {
-    if (g_current_screen_state.id != W8_SCREEN_MAIN_GAME &&
-        g_current_screen_state.id != W8_SCREEN_CAMP) {
+    if (CurrentScreenState().id != W8_SCREEN_MAIN_GAME &&
+        CurrentScreenState().id != W8_SCREEN_CAMP) {
         return;
     }
     if (g_text_box_mode == W8_TEXT_BOX_MODE_NOTICE) {
@@ -710,16 +708,16 @@ void PostCharacterNotice(int party_slot, std::string_view text, int context)
     const std::string_view separator =
         (text.starts_with("'") || text.starts_with(":")) ? std::string_view{} : g_W8TextSeparator;
     ShowNotice(W8_FONT_PALETTE_WHITE,
-               fmt::format("{}{}{}", g_status.buffers.Char[party_slot].name, separator, text),
+               fmt::format("{}{}{}", g_status.party.characters[party_slot].name, separator, text),
                context);
-    auto stop = g_status.buffers.Char[party_slot].name.size();
+    auto stop = g_status.party.characters[party_slot].name.size();
     if (text.starts_with("'")) {
         ++stop;
         if (text.starts_with("'s")) {
             ++stop;
         }
     }
-    HighlightTextBoxRange(g_status.buffers.XChar[party_slot].party_order_index, 0, stop, context);
+    HighlightTextBoxRange(g_status.party.rows[party_slot].party_order_index, 0, stop, context);
 }
 
 bool CurrentDialogueLineHasContent(void)
@@ -753,9 +751,9 @@ void AdvanceNoticeLine(short text_box)
             g_npc_interaction_state->text_box_collapsed = false;
         } else if (!gpSCSV && !gXStatus.fNpcDialogueMode && !ItemUseDraft() &&
                    !gXStatus.fCampMode) {
-            if (gXStatus.fCombatMode && g_combat_state->notice_scroll_pending) {
+            if (g_combat.active() && g_combat.state()->notice_scroll_pending) {
                 ScrollTextBoxTo(shown);
-                g_combat_state->notice_scroll_pending = false;
+                g_combat.state()->notice_scroll_pending = false;
             } else if (shown == 350) {
                 unsigned int scroll = g_level_block->text_lines[text_box];
                 if (scroll >= 344) {
@@ -1193,7 +1191,7 @@ void RedrawTextBoxScrollChrome(void)
 /* Invalidate the text and action panels around a status-panel text refresh. */
 void RedrawTextBoxComplete(void)
 {
-    W8MainGameScreen* screen = g_main_game_screen.get();
+    W8MainGameScreen* screen = TrapInteraction();
 
     screen->m_text_panel->InvalidateAll();
     screen->m_status_panel->RefreshStatusTexts();
@@ -1222,7 +1220,7 @@ int FindStoppedTextLine(void)
    is followed by the two calls that settle it; a key that did not is not. */
 char TextBoxHandleKey(const InputEvent* event)
 {
-    W8MainGameTextPanel* panel = g_main_game_screen->m_text_panel.get();
+    W8MainGameTextPanel* panel = TrapInteraction()->m_text_panel.get();
     int before = panel->m_selection;
     char handled;
 
@@ -1246,7 +1244,7 @@ char TextBoxHandleKey(const InputEvent* event)
    and action panels go quiet for a 1.5 second timer. */
 void AttemptTrapDisarm(int level, int /*flag*/, char backfire)
 {
-    W8MainGameScreen* screen = g_main_game_screen.get();
+    W8MainGameScreen* screen = TrapInteraction();
     int chance;
 
     if (backfire != 0) {
@@ -1268,9 +1266,9 @@ void AttemptTrapDisarm(int level, int /*flag*/, char backfire)
 
 void SetKnockKnockTarget(int target, int /*flag*/, int /*backfire*/)
 {
-    W8MainGameScreen* screen = g_main_game_screen.get();
+    W8MainGameScreen* screen = TrapInteraction();
 
-    if (!gXStatus.fTrapInteractMode) {
+    if (!IsTrapInteractionActive()) {
         ShowNotice(W8_FONT_PALETTE_BEIGE, "You can't cast Knock Knock here!");
         return;
     }
@@ -1468,8 +1466,8 @@ void RefreshTextBoxMode(unsigned short mode)
     unsigned int index;
     size_t length;
 
-    if (g_current_screen_state.id != W8_SCREEN_MAIN_GAME &&
-        g_current_screen_state.id != W8_SCREEN_CAMP) {
+    if (CurrentScreenState().id != W8_SCREEN_MAIN_GAME &&
+        CurrentScreenState().id != W8_SCREEN_CAMP) {
         return;
     }
     if (mode == 0xffff) {
@@ -1477,7 +1475,7 @@ void RefreshTextBoxMode(unsigned short mode)
              (gXStatus.fNpcDialogueMode && g_npc_interaction_state->scripted_dialogue)) &&
             !gXStatus.fCampMode) {
 
-            mode = gXStatus.fCombatMode;
+            mode = g_combat.active();
 
         } else {
             mode = IsNpcDialogueTextBoxActive() ? 0 : 2;

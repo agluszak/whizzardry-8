@@ -36,6 +36,7 @@
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/party_slot.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ButtonWidget.h"
@@ -102,10 +103,10 @@ void W8PartySelectionCharacterCollection::ClearCharacters()
 void W8PartySelectionCharacterCollection::ReloadCharacters()
 {
     ClearCharacters();
-    W8PartySlotRow* rows = g_status.buffers.XChar;
+    W8PartySlotRow* rows = g_status.party.rows;
     for (int slot = 2; slot < 8; ++slot) {
         if (rows[slot].fOccupied) {
-            characters.push_back(&g_status.buffers.Char[slot]);
+            characters.push_back(&g_status.party.characters[slot]);
         }
     }
     LoadExternalCharacters();
@@ -139,9 +140,9 @@ int W8PartySelectionCharacterCollection::FindPartySlot(int index)
 {
     W8Character* character = GetCharacter(index);
     if (character && character->fInParty) {
-        W8PartySlotRow* rows = g_status.buffers.XChar;
+        W8PartySlotRow* rows = g_status.party.rows;
         for (int slot = 0; slot < 6; ++slot) {
-            if (rows[slot + 2].fOccupied && &g_status.buffers.Char[slot + 2] == character) {
+            if (rows[slot + 2].fOccupied && &g_status.party.characters[slot + 2] == character) {
                 return slot;
             }
         }
@@ -173,8 +174,8 @@ void W8PartySelectionCharacterCollection::LoadExternalCharacters()
         } else {
             int slot;
             for (slot = 2; slot < 8; ++slot) {
-                if (g_status.buffers.XChar[slot].fOccupied &&
-                    strcmp(g_status.buffers.Char[slot].name.c_str(), character->name.c_str()) ==
+                if (g_status.party.rows[slot].fOccupied &&
+                    strcmp(g_status.party.characters[slot].name.c_str(), character->name.c_str()) ==
                         0) {
                     break;
                 }
@@ -269,7 +270,7 @@ static SDL_Point PartySlotPosition(int row)
 void RefreshPartySelectionPortrait(unsigned int party_slot)
 {
     const int row = party_slot >= 2 && party_slot < 8 ? party_slot - 2 : 0;
-    const int portrait = g_status.buffers.Char[row + 2].portrait_index;
+    const int portrait = g_status.party.characters[row + 2].portrait_index;
     const auto position = PartySlotPosition(row);
     SpriteDraw draw{};
     draw.mirror = g_portrait_descriptors[portrait].mirror_side ==
@@ -295,7 +296,7 @@ void W8PartySelectionController::RefreshRows()
 void W8PartySelectionController::RefreshSlots()
 {
     for (int slot = 0; slot < 6; ++slot) {
-        const bool occupied = g_status.buffers.XChar[slot + 2].fOccupied;
+        const bool occupied = g_status.party.rows[slot + 2].fOccupied;
         slots[slot]->setEnabled(m_mode <= W8_PARTY_SELECT_IMPORT && occupied);
         advance[slot]->SetVisible(m_mode == W8_PARTY_SELECT_IMPORT && occupied &&
                                   IsCharacterReadyToAdvance(slot + 2));
@@ -356,10 +357,10 @@ void W8PartySelectionController::DrawSlots(SDL_Surface& target)
         const auto size = CatalogArtwork::Load(0x101, 0).size(0);
         const SDL_Rect area{left, top, size.x, size.y};
         const W8Character* character = nullptr;
-        if (!g_status.buffers.XChar[row + 2].fOccupied)
+        if (!g_status.party.rows[row + 2].fOccupied)
             SDL_FillSurfaceRect(&target, &area, 0x8000);
         else {
-            character = &g_status.buffers.Char[row + 2];
+            character = &g_status.party.characters[row + 2];
             const int portrait = character->portrait_index;
             SpriteDraw draw{};
             draw.mirror = g_portrait_descriptors[portrait].mirror_side ==
@@ -688,9 +689,9 @@ void W8PartySelectionController::Setup()
             {.on_click =
                  [row](auto*) {
                      AfterUiDispatch([row] {
-                         g_pending_screen_state.character = &g_status.buffers.Char[row + 2];
-                         g_pending_screen_state.mode = W8_CHARACTER_EDIT;
-                         g_pending_screen_state.id = W8_SCREEN_CHARACTER;
+                         RequestScreen({.id = W8_SCREEN_CHARACTER,
+                                        .mode = W8_CHARACTER_EDIT,
+                                        .character = &g_status.party.characters[row + 2]});
                      });
                  },
              .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
@@ -847,8 +848,8 @@ void W8PartySelectionController::SetSelection(int selection, bool party_slot, bo
             int selected_slot = -1;
             if (m_character && m_character->fInParty) {
                 for (int slot = 0; slot < 6; ++slot) {
-                    if (g_status.buffers.XChar[slot + 2].fOccupied &&
-                        &g_status.buffers.Char[slot + 2] == m_character) {
+                    if (g_status.party.rows[slot + 2].fOccupied &&
+                        &g_status.party.characters[slot + 2] == m_character) {
                         selected_slot = slot;
                         break;
                     }
@@ -861,14 +862,14 @@ void W8PartySelectionController::SetSelection(int selection, bool party_slot, bo
             }
         }
     } else {
-        m_character = &g_status.buffers.Char[selection + 2];
+        m_character = &g_status.party.characters[selection + 2];
         if (!m_character->fInParty) {
             m_character = 0;
             selection = -1;
         }
         if (m_mode == W8_PARTY_SELECT_CHARACTERS) {
             int character_index = -1;
-            if (selection >= 0 && g_status.buffers.XChar[selection + 2].fOccupied) {
+            if (selection >= 0 && g_status.party.rows[selection + 2].fOccupied) {
                 for (int index = 0;
                      index <
                      static_cast<int>(g_party_selection_character_collection->characters.size());
@@ -918,7 +919,7 @@ void W8PartySelectionController::OnPrimary(W8ButtonWidget* control)
                 OpenNotification(g_localized_strings[0x6d3], true, W8_PARTY_CONFIRM_LEAVE);
                 return;
             }
-            RequestScreenTransition();
+            ReturnToPreviousScreen();
             return;
         case W8_PARTY_SELECT_OPTIONS:
         case W8_PARTY_SELECT_CREATION_NOTICE:
@@ -942,22 +943,12 @@ void W8PartySelectionController::OnPrimary(W8ButtonWidget* control)
         return;
     }
     if (control == m_review_button) {
-        int slot;
-        for (slot = 0; slot < 6; ++slot) {
-            if (g_status.buffers.XChar[slot + 2].fOccupied &&
-                &g_status.buffers.Char[slot + 2] == m_character) {
-                break;
-            }
-        }
-        g_pending_screen_state.parameter_2 = slot < 6 ? slot + 2 : -1;
-        g_pending_screen_state.character = m_character;
-        g_pending_screen_state.id = W8_SCREEN_CAMP;
+        RequestScreen({.id = W8_SCREEN_CAMP, .character = m_character});
         return;
     }
     if (control == m_create_button) {
-        g_pending_screen_state.mode = W8_CHARACTER_CREATE;
-        g_pending_screen_state.character = nullptr;
-        g_pending_screen_state.id = W8_SCREEN_CHARACTER;
+        RequestScreen(
+            {.id = W8_SCREEN_CHARACTER, .mode = W8_CHARACTER_CREATE, .character = nullptr});
         return;
     }
 
@@ -1040,7 +1031,7 @@ void W8PartySelectionController::OnDecision(bool accepted)
         case W8_PARTY_SELECT_CHARACTERS:
         case W8_PARTY_SELECT_IMPORT:
             if (CountActiveCharacters() == 0) {
-                RequestScreenTransition();
+                ReturnToPreviousScreen();
                 return;
             }
             OpenNotification(g_localized_strings[0x6d3], true, W8_PARTY_CONFIRM_LEAVE);
@@ -1167,7 +1158,7 @@ void W8PartySelectionController::ApplyPartySelectionConfirmation(W8PartyConfirma
         return;
     }
     case W8_PARTY_CONFIRM_LEAVE:
-        RequestScreenTransition();
+        ReturnToPreviousScreen();
         return;
     default:
         break;
@@ -1209,7 +1200,7 @@ void W8PartySelectionController::TogglePartyMemberSelection()
         int slot = AddCharacterToParty(*character, -1);
         if (slot != -1) {
             delete character;
-            collection->characters[selected] = &g_status.buffers.Char[slot];
+            collection->characters[selected] = &g_status.party.characters[slot];
         }
         if (selected < static_cast<int>(collection->characters.size()) - 1) {
             ++selected;
@@ -1228,7 +1219,7 @@ void W8PartySelectionController::TogglePartyMemberSelection()
                     break;
                 }
             }
-            if (g_status.buffers.XChar[next_slot + 2].fOccupied) {
+            if (g_status.party.rows[next_slot + 2].fOccupied) {
                 found = true;
                 break;
             }
@@ -1267,7 +1258,7 @@ bool PartySelectionScreenEnter(void)
         g_party_selection_controller = std::make_unique<W8PartySelectionController>();
         g_party_selection_controller->Setup();
     } else {
-        if (g_previous_screen_id == W8_SCREEN_CHARACTER &&
+        if (PreviousScreen() == W8_SCREEN_CHARACTER &&
             g_party_selection_controller->m_mode != W8_PARTY_SELECT_IMPORT) {
             collection->ReloadCharacters();
             g_party_selection_controller->SetSelection(0, false, true);
@@ -1318,7 +1309,7 @@ void PartySelectionScreenFrame(void)
                     case W8_PARTY_SELECT_CHARACTERS:
                     case W8_PARTY_SELECT_IMPORT:
                         if (CountActiveCharacters() == 0) {
-                            RequestScreenTransition();
+                            ReturnToPreviousScreen();
                         } else {
                             controller->OpenNotification(g_localized_strings[0x6d3], true,
                                                          W8_PARTY_CONFIRM_LEAVE);
@@ -1367,7 +1358,7 @@ void GameStartRouterFrame(void)
 {
     W8IntroVideo code;
 
-    RequestScreenTransition();
+    ReturnToPreviousScreen();
     if (!g_status.skip_loose_character_check) {
         code = W8_INTRO_VIDEO_VIRGIN;
     } else {
@@ -1384,7 +1375,7 @@ void GameStartRouterFrame(void)
         }
     }
     SetIntroVideoIndex(code);
-    g_pending_screen_state.id = W8_SCREEN_INTRO;
+    RequestScreen({.id = W8_SCREEN_INTRO});
 }
 
 bool GameStartRouterLeave(int leaving)

@@ -533,7 +533,7 @@ void DeactivateWorldItem(W8WorldItem* item)
         Fail("pItemInfo->p3D != NULL");
     }
 
-    if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_level_block != 0 &&
+    if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME && g_level_block != 0 &&
         g_level_block->selected_item == item->runtime_id) {
         g_level_block->selected_item = -1;
     }
@@ -668,7 +668,7 @@ std::optional<glm::vec3> FindItemDropPosition()
 void DropHeldItem(int)
 {
     if (const auto position = FindItemDropPosition()) {
-        AddWorldItem(CreateWorldItem(&g_status.item_in_hand, &*position,
+        AddWorldItem(CreateWorldItem(&g_status.party.held.item, &*position,
                                      W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
     } else
         wiz8::sound::play("Data\\Sound\\Misc\\CantDrop.WAV");
@@ -735,7 +735,7 @@ unsigned char InteractWithWorldItem(int runtime_id)
         }
     }
     if ((item->p3D->flags & W8_ITEM_ENTITY_NO_PICKUP) == 0) {
-        CopyItemInstance(&g_status.item_in_hand, &item->item, 0, true);
+        ReceiveItemInHand(g_status.party, *(&item->item));
     }
     index = ItemIndex(runtime_id);
     item = ItemInfo(index);
@@ -920,7 +920,7 @@ void RebuildAllWorldItemInstances(void)
 
     for (index = 0; index < CurrentLevelPopulation().world_items.size(); ++index) {
         item = ItemInfo(index);
-        ReplaceOrCreateItem(&item->item, item->item.iItemNo, false, false, false);
+        item->item = MakeItem(item->item.iItemNo, false, false, false);
     }
 }
 
@@ -928,13 +928,13 @@ std::unique_ptr<W8WorldItem> CreateWorldItem(W8ItemInstance* item, const glm::ve
                                              int entity_flags)
 {
     auto result = std::make_unique<W8WorldItem>();
-    EmptyItemRecord(&result->item, 0, true);
+    *(&result->item) = W8ItemInstance{.iItemNo = -1};
     result->runtime_id = g_status.next_world_item_id++;
     result->position = *position;
     result->sector_id = -1;
     SettleWorldItem(result.get());
     result->entity_flags = entity_flags;
-    if (item) CopyItemInstance(&result->item, item, 0, true);
+    if (item) *(&result->item) = std::exchange(*(item), W8ItemInstance{.iItemNo = -1});
     return result;
 }
 
@@ -954,7 +954,7 @@ std::unique_ptr<W8WorldItem> SpawnItem(int item_id, const glm::vec3* position, i
     if (item_id == -1) {
         item = 0;
     } else {
-        ReplaceOrCreateItem(&local_item, item_id, false, false, false);
+        local_item = MakeItem(item_id, false, false, false);
         item = &local_item;
     }
 

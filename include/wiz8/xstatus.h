@@ -39,17 +39,13 @@ struct W8XStatus {
     unsigned int uiItemTablesInDatabase;
     unsigned int uiItemTableCategories;
     unsigned int uiMonstersInDatabase;
-    bool fCombatMode;
     bool fNpcDialogueMode;
-    bool fLockInteractMode;
-    bool fTrapInteractMode;
     bool fReviewCharacterMode;
     bool fCampMode;
     /* Dialogue NPC state needs re-syncing once the frame settles. */
     bool dialogue_sync_pending;
     /* Re-check level-up notices when the UI is idle again. */
     bool level_up_notice;
-    bool fEncumbranceDirty; /* Pending party-weight recalc */
     int item_manager_pending;
     bool fSurprisePossible;
     /* Set when surprise starts with no character engaged; phase 1 waits
@@ -82,9 +78,6 @@ struct W8XStatus {
     /* Explicit user-pause choice; closing an interaction does not clear it. */
     bool world_paused;
     unsigned short review_character_slot;
-    int held_item_source;
-    W8ItemOrigin held_item_origin;
-    unsigned short held_item_slot;
     std::array<std::unique_ptr<W8MonsterRecord>, 1000> monster_record_cache;
     std::unique_ptr<W8GameTimer> gameplay_timer;
     bool save_notice_shown;

@@ -93,22 +93,20 @@ void ActivateMainMenuItem(short item)
 {
     switch (item) {
     case 0:
-        RequestScreenTransition();
         g_settings.intro_seen = false;
         SetIntroVideoIndex(W8_INTRO_VIDEO_WIZARDRY);
-        g_pending_screen_state.id = W8_SCREEN_INTRO;
+        RequestScreen({.id = W8_SCREEN_INTRO}, ScreenDeparture::Discard);
         break;
     case 1:
-        g_pending_screen_state.id = W8_SCREEN_PARTY_SELECTION;
+        RequestScreen({.id = W8_SCREEN_PARTY_SELECTION});
         break;
     case 2:
         if (g_main_menu_has_save_games) {
-            g_pending_screen_state.mode = W8_OPTIONS_LOAD;
-            g_pending_screen_state.id = W8_SCREEN_OPTIONS;
+            RequestScreen({.id = W8_SCREEN_OPTIONS, .mode = W8_OPTIONS_LOAD});
         }
         break;
     case 3:
-        g_pending_screen_state.id = W8_SCREEN_CREDITS;
+        RequestScreen({.id = W8_SCREEN_CREDITS});
         break;
     case 4:
         ClearScreenWait();
@@ -199,7 +197,7 @@ bool MainMenuScreenEnter(void)
     if (gXStatus.uiMonstersInDatabase > 1000) {
         Fail("gXStatus.uiMonstersInDatabase <= MAX_MONSTERS_IN_DATABASE");
     }
-    if (g_previous_screen_id != W8_SCREEN_OPTIONS) {
+    if (PreviousScreen() != W8_SCREEN_OPTIONS) {
         StartMusicResource("MainMenu.MPL", 0, 1);
     }
     UpdateHeldItemCursor();

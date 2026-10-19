@@ -147,13 +147,9 @@ bool CanPartySlotTurnUndead(int party_slot);
 bool CanPartySlotPray(int party_slot);
 float ScaleValueByProfessionLevel(W8Character* character, W8Trait trait, float base);
 float ScaleValueByMonsterLevel(W8MonsterRecord* record, int trait, float base);
-/* 0x005539E0: rebuild the effective attributes from the modifier block's
-   seven adjustment bytes and every skill's base level from the attribute
-   pair g_skill_attributes names. */
-void ResetCharacterAttributes(W8Character* character);
-/* 0x00553A60: rebuild every skill level from its base, the profession bonus
-   and the race and profession skill adjustments. */
-void ResetCharacterSkills(W8Character* character);
+// Complete live operation: reconcile effective attributes, skills and equipment,
+// calculate once, apply life state and present the changes.
+void RecalculateCharacterDerivedStats(W8Character& character);
 bool IsCharacterSkillAvailable(W8Character* character, W8Skill skill_id,
                                const bool* expert_realm_flags);
 void InvalidateAndRecalculateCharacterClassData(W8Character* character);
@@ -168,3 +164,11 @@ void ApplySkillChange(W8Character* character, W8Skill skill_id);
 void InitializeSkillBaseLevels(W8Character* character);
 void RefreshCharacterSkillAvailability(W8Character* character);
 unsigned int GetSkillQuarterValue(W8Character* character, W8Skill skill_id);
+
+struct W8Party;
+struct W8GameplayModifierBlock;
+void EvaluateCharacterInputs(W8Character&, const W8GameplayModifierBlock*);
+void ResolveCharacterEquipment(W8Party&, unsigned slot);
+
+// Complete character changes across the live party, including equipment and shared load.
+void ResolveLivePartyCharacterChanges();

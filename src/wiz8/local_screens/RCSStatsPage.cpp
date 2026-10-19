@@ -54,13 +54,15 @@
 
 /* 0x0069C514/0x0069C518: the stats page's text origin, initialized by the
    page renderer before every full redraw. */
-static int g_camp_stats_origin_y;
-static int g_camp_stats_origin_x;
+// GLOBAL: WIZ8 0x0069c514
+
+// GLOBAL: WIZ8 0x0069c518
+
 /* The skills page row the cursor last hovered, kept so the help
    text only resets on a real change. */
-static int g_camp_skill_hover_row;
-void DrawCampEffectList(void);
-void DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out);
+// GLOBAL: WIZ8 0x0069c524
+
+// GLOBAL: WIZ8 0x0069c528
 
 /* The five skill-category blocks shared by the camp skills page: (x, y)
    origins, the row count that bounds each region, and the catalog frame each
@@ -100,7 +102,8 @@ static W8PortraitGroup g_portrait_groups[12] = {
     {2, {56, 57}},
 };
 
-W8CampStatsControls::W8CampStatsControls()
+// FUNCTION: WIZ8 0x005c4540
+W8CampStatsControls::W8CampStatsControls(W8CampScreenState& owner) : screen(owner)
 {
     constexpr int y[] = {0xbe, 0xd6, 0xf3};
     for (int index = 0; index < 3; ++index) {
@@ -121,10 +124,10 @@ W8CampStatsControls::W8CampStatsControls()
 
         button->SetPosition(0x13c, y[index]);
     }
-    m_buttons[2]->SetPressed(g_camp_screen->effect_items_only);
-    input.add(SDL_Rect{0x15d, 0xbe, 260, 248}, [](const UiPointerEvent& event) {
+    m_buttons[2]->SetPressed(screen.effect_items_only);
+    input.add(SDL_Rect{0x15d, 0xbe, 260, 248}, [this](const UiPointerEvent& event) {
         if (event.action != UiPointerAction::Wheel) return UiResult::Pass;
-        g_camp_screen->stats_range->AdjustValue(event.wheel);
+        screen.stats_range->AdjustValue(event.wheel);
         return UiResult::Handled;
     });
 }
@@ -147,77 +150,72 @@ void W8CampStatsControls::SelectFilter(int index)
     if (index == 0) {
         if (m_buttons[0]->IsPressed()) {
             m_buttons[1]->SetPressed(false);
-            g_camp_screen->effect_filter = W8_CAMP_EFFECT_FILTER_BENEFICIAL;
+            screen.effect_filter = W8_CAMP_EFFECT_FILTER_BENEFICIAL;
         } else {
-            g_camp_screen->effect_filter = W8_CAMP_EFFECT_FILTER_ALL;
+            screen.effect_filter = W8_CAMP_EFFECT_FILTER_ALL;
         }
     } else if (index == 1) {
         if (m_buttons[1]->IsPressed()) {
             m_buttons[0]->SetPressed(false);
-            g_camp_screen->effect_filter = W8_CAMP_EFFECT_FILTER_DETRIMENTAL;
+            screen.effect_filter = W8_CAMP_EFFECT_FILTER_DETRIMENTAL;
         } else {
-            g_camp_screen->effect_filter = W8_CAMP_EFFECT_FILTER_ALL;
+            screen.effect_filter = W8_CAMP_EFFECT_FILTER_ALL;
         }
     } else {
-        g_camp_screen->effect_items_only = m_buttons[2]->IsPressed();
+        screen.effect_items_only = m_buttons[2]->IsPressed();
     }
-    FilterCampEffectList();
-    g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_EFFECT_LIST;
+    screen.FilterCampEffectList();
+    screen.redraw_flags |= W8_CAMP_REDRAW_EFFECT_LIST;
 }
 
 /* The stats page's full redraw: attribute rows with their base/effective
    delta bars, the profession's bonus skill, the trait grid, then the effect
    list region when its redraw flag is up. */
-void DrawCampStatsPage(void)
+// FUNCTION: WIZ8 0x005c48b0
+void W8CampScreenState::DrawCampStatsPage(void)
 {
-    if (g_camp_screen->redraw_flags == W8_CAMP_REDRAW_ALL) {
+    if (redraw_flags == W8_CAMP_REDRAW_ALL) {
         CatalogArtwork::Load(0x142, 0).drawAndInvalidate(GetFrameBufferSurface(), 1, 0, 0xa5);
-        g_camp_stats_origin_x = 0;
-        g_camp_stats_origin_y = 0xa5;
+        constexpr int origin_x = 0;
+        constexpr int origin_y = 0xa5;
         int index;
         std::string text = g_localized_strings[0x937];
         DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
-                 {g_camp_stats_origin_x + 10 +
-                      ((0x11f - g_wiz_text_font_secondary.textWidth(text)) >> 1),
-                  g_camp_stats_origin_y + 10},
+                 {origin_x + 10 + ((0x11f - g_wiz_text_font_secondary.textWidth(text)) >> 1),
+                  origin_y + 10},
                  text);
         int row_y = 0xbf;
         for (index = 0; index < 7; ++index) {
             const std::string& label = g_localized_strings[g_attribute_label_ids[index]];
             DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
-                     {g_camp_stats_origin_x + 10 +
-                          ((0x7b - g_wiz_text_font_secondary.textWidth(label)) >> 1),
-                      row_y - 0xa6 + g_camp_stats_origin_y},
+                     {origin_x + 10 + ((0x7b - g_wiz_text_font_secondary.textWidth(label)) >> 1),
+                      row_y - 0xa6 + origin_y},
                      label);
-            unsigned int effective = g_review_character->attributes[index].effective;
-            DrawCampValueBar(effective, g_review_character->attributes[index].base, 0x88, row_y);
-            g_camp_screen->text_buffer = fmt::format("{:d}", effective);
-            DrawText(
-                GetFrameBufferSurface(), g_wiz_text_font_secondary,
-                {g_camp_stats_origin_x + 0x108 +
-                     ((0x21 - g_wiz_text_font_secondary.textWidth(g_camp_screen->text_buffer)) >>
-                      1),
-                 row_y - 0xa6 + g_camp_stats_origin_y},
-                g_camp_screen->text_buffer);
+            unsigned int effective = reviewed->attributes[index].effective;
+            DrawCampValueBar(effective, reviewed->attributes[index].base, 0x88, row_y);
+            text_buffer = fmt::format("{:d}", effective);
+            DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
+                     {origin_x + 0x108 +
+                          ((0x21 - g_wiz_text_font_secondary.textWidth(text_buffer)) >> 1),
+                      row_y - 0xa6 + origin_y},
+                     text_buffer);
             row_y += 0xe;
         }
         text = g_localized_strings[0x938];
         DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
-                 {g_camp_stats_origin_x + 10 +
-                      ((0x11f - g_wiz_text_font_secondary.textWidth(text)) >> 1),
-                  g_camp_stats_origin_y + 0x8d},
+                 {origin_x + 10 + ((0x11f - g_wiz_text_font_secondary.textWidth(text)) >> 1),
+                  origin_y + 0x8d},
                  text);
-        g_camp_screen->text_buffer = fmt::format(
+        text_buffer = fmt::format(
             "{} {}",
-            g_localized_strings[g_character_skill_name_ids
-                                    [g_profession_bonus_skills[g_review_character->iProfession]]],
+            g_localized_strings
+                [g_character_skill_name_ids[g_profession_bonus_skills[reviewed->iProfession]]],
             g_localized_strings[0x8c5]);
-        DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x10, 0x142},
-                 g_camp_screen->text_buffer);
+        DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x10, 0x142}, text_buffer);
         int trait_count = 0;
         char traits[0x20];
         for (index = 0; index < 0x20; ++index) {
-            if (CharacterHasTrait(g_review_character, static_cast<W8Trait>(index))) {
+            if (CharacterHasTrait(reviewed, static_cast<W8Trait>(index))) {
                 traits[index] = 1;
                 ++trait_count;
             } else {
@@ -235,30 +233,30 @@ void DrawCampStatsPage(void)
         }
         text = g_localized_strings[0x939];
         DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
-                 {g_camp_stats_origin_x + 0x13b +
-                      ((0x13b - g_wiz_text_font_secondary.textWidth(text)) >> 1),
-                  g_camp_stats_origin_y + 10},
+                 {origin_x + 0x13b + ((0x13b - g_wiz_text_font_secondary.textWidth(text)) >> 1),
+                  origin_y + 10},
                  text);
-        g_camp_screen->stats_controls->InvalidateAll();
-        g_camp_screen->stats_range->InvalidateAll();
+        stats_controls->InvalidateAll();
+        stats_range->InvalidateAll();
     }
-    if ((g_camp_screen->redraw_flags & W8_CAMP_REDRAW_EFFECT_LIST) != 0) {
+    if ((redraw_flags & W8_CAMP_REDRAW_EFFECT_LIST) != 0) {
         InvalidateRegion(0x15d, 0xbe, 0x260, 0x1b5);
         CatalogArtwork::Load(0x1b6, 0).drawRect(GetFrameBufferSurface(),
                                                 SDL_Rect{0, 0, (0x260) - (0x15d), (0x1b5) - (0xbe)},
                                                 0x15d, 0xbe);
         DrawCampEffectList();
     }
-    g_camp_screen->stats_range->Redraw(GetFrameBufferSurface(), false);
+    stats_range->Redraw(GetFrameBufferSurface(), false);
 }
 
 /* 0x005C4D40/0x005C4E20: how many beneficial/detrimental lines the equipped
    item in `slot` contributes to its effect-list entry. The armor-class bonus
    counts only on slots that actually take armor (not the two weapon/shield
    rows, 0 and 4/5 and 10/11) and never on equip-class 5 items. */
-unsigned int CountEquipItemBenefits(int slot)
+// FUNCTION: WIZ8 0x005c4d40
+unsigned int W8CampScreenState::CountEquipItemBenefits(int slot)
 {
-    W8ItemDatabaseRecord* record = &g_item_records[g_review_character->EquippedItem[slot].iItemNo];
+    W8ItemDatabaseRecord* record = &g_item_records[reviewed->EquippedItem[slot].iItemNo];
     unsigned int count = record->attack_damage_bonus > 0;
     int index;
     for (index = 0; index < 0x10; ++index) {
@@ -299,9 +297,10 @@ unsigned int CountEquipItemBenefits(int slot)
     return count;
 }
 
-unsigned int CountEquipItemPenalties(int slot)
+// FUNCTION: WIZ8 0x005c4e20
+unsigned int W8CampScreenState::CountEquipItemPenalties(int slot)
 {
-    W8ItemDatabaseRecord* record = &g_item_records[g_review_character->EquippedItem[slot].iItemNo];
+    W8ItemDatabaseRecord* record = &g_item_records[reviewed->EquippedItem[slot].iItemNo];
     unsigned int count = record->attack_damage_bonus < 0;
     int index;
     if (record->attack_hit_bonus < 0) {
@@ -330,7 +329,7 @@ unsigned int CountEquipItemPenalties(int slot)
     if (record->modifier_0b1_index != -1 && record->modifier_0b1_value < 0) {
         ++count;
     }
-    if (record->binds_on_equip != 0 && g_review_character->EquippedItem[slot].bound) {
+    if (record->binds_on_equip != 0 && reviewed->EquippedItem[slot].bound) {
         ++count;
     }
     return count;
@@ -352,17 +351,17 @@ static void AddCampEffectEntry(W8CampScreenState* screen, W8CampEffectEntry* ent
     }
 }
 
-void RebuildCampEffectList(void)
+// FUNCTION: WIZ8 0x005c4ee0
+void W8CampScreenState::RebuildCampEffectList(void)
 {
-    W8CampScreenState* screen = g_camp_screen.get();
-    screen->effect_list.clear();
-    screen->effect_beneficial_count = 0;
-    screen->effect_detrimental_count = 0;
-    screen->effect_first_visible = 0;
-    screen->effect_last_visible = 0;
-    screen->effect_visible_lines = 0;
-    screen->effect_scroll = 0;
-    W8Character* character = g_review_character;
+    effect_list.clear();
+    effect_beneficial_count = 0;
+    effect_detrimental_count = 0;
+    effect_first_visible = 0;
+    effect_last_visible = 0;
+    effect_visible_lines = 0;
+    effect_scroll = 0;
+    W8Character* character = reviewed;
     for (int condition = 0x13; condition >= 0; --condition) {
         if (character->uiCondition[condition] != 0) {
             W8CampEffectEntry entry{};
@@ -382,7 +381,7 @@ void RebuildCampEffectList(void)
                 }
             }
             entry.index = condition;
-            AddCampEffectEntry(screen, &entry);
+            AddCampEffectEntry(this, &entry);
         }
     }
     for (int index = 7; index >= 0; --index) {
@@ -394,11 +393,11 @@ void RebuildCampEffectList(void)
             entry.turns = character->enchantments[index].turns;
             entry.lines = 2;
             entry.index = index;
-            AddCampEffectEntry(screen, &entry);
+            AddCampEffectEntry(this, &entry);
         }
     }
     for (int slot = 0; slot < 12; ++slot) {
-        W8ItemInstance* item = &g_review_character->EquippedItem[slot];
+        W8ItemInstance* item = &reviewed->EquippedItem[slot];
         if (slot != 8 && slot != 9 && item->identified && item->iItemNo != -1) {
             int beneficial = CountEquipItemBenefits(slot);
             int detrimental = CountEquipItemPenalties(slot);
@@ -411,7 +410,7 @@ void RebuildCampEffectList(void)
                 entry.kind = W8_CAMP_EFFECT_EQUIPMENT;
                 entry.turns = W8_CONDITION_INDEFINITE;
                 entry.index = slot;
-                AddCampEffectEntry(screen, &entry);
+                AddCampEffectEntry(this, &entry);
             }
         }
     }
@@ -421,32 +420,32 @@ void RebuildCampEffectList(void)
 /* Remarks each list entry against the current tab and beneficial/detrimental
    filter, tracks the first/last visible rows, and reprograms the scrollbar to
    the visible line total. */
-void FilterCampEffectList(void)
+// FUNCTION: WIZ8 0x005c5240
+void W8CampScreenState::FilterCampEffectList(void)
 {
-    W8CampScreenState* screen = g_camp_screen.get();
-    screen->effect_visible_lines = 0;
+    effect_visible_lines = 0;
     bool any_visible = false;
-    auto count = screen->effect_list.size();
+    auto count = effect_list.size();
     for (unsigned int pos = 0; pos < count; ++pos) {
-        auto& entry = screen->effect_list[pos];
+        auto& entry = effect_list[pos];
         entry.visible = false;
-        if (entry.items == screen->effect_items_only &&
-            (screen->effect_filter == W8_CAMP_EFFECT_FILTER_ALL ||
-             (screen->effect_filter == W8_CAMP_EFFECT_FILTER_BENEFICIAL && entry.beneficial) ||
-             (screen->effect_filter == W8_CAMP_EFFECT_FILTER_DETRIMENTAL && entry.detrimental))) {
+        if (entry.items == effect_items_only &&
+            (effect_filter == W8_CAMP_EFFECT_FILTER_ALL ||
+             (effect_filter == W8_CAMP_EFFECT_FILTER_BENEFICIAL && entry.beneficial) ||
+             (effect_filter == W8_CAMP_EFFECT_FILTER_DETRIMENTAL && entry.detrimental))) {
             entry.visible = true;
             if (!any_visible) {
-                screen->effect_first_visible = pos;
+                effect_first_visible = pos;
                 any_visible = true;
             }
-            screen->effect_last_visible = pos;
+            effect_last_visible = pos;
         }
         if (entry.visible) {
-            screen->effect_visible_lines += entry.lines + 1;
+            effect_visible_lines += entry.lines + 1;
         }
     }
-    int second = screen->effect_visible_lines - 0x11;
-    W8RangeControl* range = screen->stats_range.get();
+    int second = effect_visible_lines - 0x11;
+    W8RangeControl* range = stats_range.get();
     if (second < 1) {
         second = 0;
         range->SetEnabled(false);
@@ -454,27 +453,27 @@ void FilterCampEffectList(void)
         range->SetEnabled(true);
         range->SetRange(0, second);
     }
-    if (screen->effect_scroll > second) {
-        screen->effect_scroll = second;
+    if (effect_scroll > second) {
+        effect_scroll = second;
     }
-    range->SetValue(screen->effect_scroll);
+    range->SetValue(effect_scroll);
     range->InvalidateAll();
 }
 
 /* Draws the visible slice of the effect list into the page's clipping
    window, skipping entries that sit entirely above the scrolled view. */
-void DrawCampEffectList(void)
+// FUNCTION: WIZ8 0x005c53c0
+void W8CampScreenState::DrawCampEffectList(void)
 {
-    W8CampScreenState* screen = g_camp_screen.get();
     SDL_Rect effect_clip{0, 0xbe, 0x280, 0xee};
     ScopedClipRect clipping(GetFrameBufferSurface(), effect_clip);
-    int line = -screen->effect_scroll;
-    auto count = screen->effect_list.size();
+    int line = -effect_scroll;
+    auto count = effect_list.size();
     for (unsigned int pos = 0; pos < count; ++pos) {
         if (line > 0x10) {
             break;
         }
-        auto& entry = screen->effect_list[pos];
+        auto& entry = effect_list[pos];
         if (entry.visible) {
             if (line + entry.lines < 0) {
                 line += entry.lines + 1;
@@ -489,7 +488,7 @@ void DrawCampEffectList(void)
    y 0xbf) and advances the counter past its height plus one row of spacing.
    The kind selects conditions, enchantments or equipped items. */
 // FUNCTION: WIZ8 0x005c54a0
-void DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out)
+void W8CampScreenState::DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out)
 {
     int index;
     int line = *line_out;
@@ -507,18 +506,17 @@ void DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out)
         }
         line = next;
         if (entry->index == 1) {
-            if (g_review_character->hp_adjustment != 0) {
-                DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
-                         {0x15e, line * 0xe + 0xbf},
-                         fmt::format("{}: {:+d}", g_localized_strings[0x8da],
-                                     g_review_character->hp_adjustment));
+            if (reviewed->hp_adjustment != 0) {
+                DrawText(
+                    GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x15e, line * 0xe + 0xbf},
+                    fmt::format("{}: {:+d}", g_localized_strings[0x8da], reviewed->hp_adjustment));
                 ++line;
             }
-            if (g_review_character->fatigue_penalty != 0) {
+            if (reviewed->fatigue_penalty != 0) {
                 DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
                          {0x15e, line * 0xe + 0xbf},
                          fmt::format("{}: {:+d}", g_localized_strings[0x8dc],
-                                     -static_cast<int>(g_review_character->fatigue_penalty)));
+                                     -static_cast<int>(reviewed->fatigue_penalty)));
                 ++line;
             }
         }
@@ -536,10 +534,10 @@ void DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out)
         return;
     } else if (entry->kind == W8_CAMP_EFFECT_EQUIPMENT) {
         W8ItemDatabaseRecord* record =
-            &g_item_records[g_review_character->EquippedItem[entry->index].iItemNo];
+            &g_item_records[reviewed->EquippedItem[entry->index].iItemNo];
         g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_GREEN]);
         DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x15e, line * 0xe + 0xbf},
-                 GetItemDisplayName(&g_review_character->EquippedItem[entry->index]));
+                 GetItemDisplayName(&reviewed->EquippedItem[entry->index]));
         g_wiz_text_font_secondary.resetPalette();
         int next = line + 1;
         if (record->attack_damage_bonus != 0) {
@@ -553,20 +551,20 @@ void DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out)
         std::string value_text;
         for (index = 0; index < 0x10; ++index) {
             if (record->missile_values[index] != 0) {
-                g_camp_screen->text_buffer = "";
-                g_camp_screen->text_buffer += g_localized_strings[g_attack_effect_name_ids[index]];
-                g_camp_screen->text_buffer += " ";
+                text_buffer = "";
+                text_buffer += g_localized_strings[g_attack_effect_name_ids[index]];
+                text_buffer += " ";
                 value_text = fmt::format("{:d}%", record->missile_values[index]);
-                g_camp_screen->text_buffer += value_text;
+                text_buffer += value_text;
                 if (index == 2) {
-                    g_camp_screen->text_buffer += " (";
-                    g_camp_screen->text_buffer += g_localized_strings[0x8d5];
+                    text_buffer += " (";
+                    text_buffer += g_localized_strings[0x8d5];
                     value_text = fmt::format(" {:d})", record->missile_magnitude);
-                    g_camp_screen->text_buffer += value_text;
+                    text_buffer += value_text;
                 }
-                DrawText(
-                    GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x15e, line * 0xe + 0xbf},
-                    fmt::format("{}: {}", g_localized_strings[0x8d6], g_camp_screen->text_buffer));
+                DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
+                         {0x15e, line * 0xe + 0xbf},
+                         fmt::format("{}: {}", g_localized_strings[0x8d6], text_buffer));
                 ++line;
             }
         }
@@ -654,8 +652,7 @@ void DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out)
                 ++line;
             }
         }
-        if (record->binds_on_equip != 0 &&
-            g_review_character->EquippedItem[entry->index].bound != 0) {
+        if (record->binds_on_equip != 0 && reviewed->EquippedItem[entry->index].bound != 0) {
             DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x15e, line * 0xe + 0xbf},
                      g_localized_strings[0x8e1]);
             *line_out = line + 2;
@@ -670,10 +667,13 @@ void DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out)
 /* Creates the five skill-category regions once per camp session and points
    them at the list handler. Category 4 is the overflow block under the right
    column. */
-void CreateCampSkillRegions(void)
+// FUNCTION: WIZ8 0x005c5cd0
+void W8CampScreenState::CreateCampSkillRegions(void)
 {
-    g_camp_screen->skill_input = std::make_unique<UiLayer>();
-    for (W8SkillCategory category : g_camp_skill_categories) {
+    skill_input = std::make_unique<UiLayer>();
+    for (auto category :
+         {W8_SKILL_CATEGORY_WEAPON, W8_SKILL_CATEGORY_MISCELLANEOUS, W8_SKILL_CATEGORY_COMBAT,
+          W8_SKILL_CATEGORY_MAGIC, W8_SKILL_CATEGORY_EXPERT}) {
         const auto category_index = static_cast<unsigned int>(category);
         int x = g_camp_skill_category_positions[category_index].x;
         int y = g_camp_skill_category_positions[category_index].y;
@@ -682,19 +682,20 @@ void CreateCampSkillRegions(void)
         } else {
             y += 0xa5;
         }
-        auto& target = g_camp_screen->skill_input->add(
+        auto& target = skill_input->add(
             SDL_Rect{x, y, 110, g_camp_skill_category_rows[category_index] * 14 + 1},
-            [category](const UiPointerEvent& event) {
+            [this, category](const UiPointerEvent& event) {
                 return HandleCampSkillList(event, category);
             });
         target.setTooltip(
-            [] { return g_camp_skill_hover_row < 0 ? std::string{} : g_localized_strings[0x958]; });
+            [this] { return skill_hover_row < 0 ? std::string{} : g_localized_strings[0x958]; });
     }
 }
 
-void DisableCampSkillRegions(void)
+// FUNCTION: WIZ8 0x005c5d70
+void W8CampScreenState::DisableCampSkillRegions(void)
 {
-    g_camp_screen->skill_input.reset();
+    skill_input.reset();
 }
 
 /* Unlike the gameplay best-skill query, the camp display includes every
@@ -702,8 +703,8 @@ void DisableCampSkillRegions(void)
 static bool IsBestCampSkillLevel(W8Skill skill, unsigned int level)
 {
     for (int slot = 0; slot < 8; ++slot) {
-        if (g_status.buffers.XChar[slot].fOccupied &&
-            level < g_status.buffers.Char[slot].skills[skill].level) {
+        if (g_status.party.rows[slot].fOccupied &&
+            level < g_status.party.characters[slot].skills[skill].level) {
             return false;
         }
     }
@@ -713,14 +714,14 @@ static bool IsBestCampSkillLevel(W8Skill skill, unsigned int level)
 /* The skills page's full redraw: the two column panels, the five category
    headers, then every known skill's name and level with the base/current
    delta bar. */
-void DrawCampSkillsPage(void)
+// FUNCTION: WIZ8 0x005c5d80
+void W8CampScreenState::DrawCampSkillsPage(void)
 {
-    if (g_camp_screen->redraw_flags == W8_CAMP_REDRAW_ALL) {
+    if (redraw_flags == W8_CAMP_REDRAW_ALL) {
         bool has_fifth = false;
         int skill;
         for (skill = 0; skill < 0x29; ++skill) {
-            if ((g_review_character->skills[skill].active ||
-                 g_review_character->skills[skill].level != 0) &&
+            if ((reviewed->skills[skill].active || reviewed->skills[skill].level != 0) &&
                 g_skill_attributes[skill].category == W8_SKILL_CATEGORY_EXPERT) {
                 has_fifth = true;
                 break;
@@ -747,7 +748,7 @@ void DrawCampSkillsPage(void)
         }
         int category_count[5] = {0, 0, 0, 0, 0};
         for (skill = 0; skill < 0x29; ++skill) {
-            W8CharacterSkill* value = &g_review_character->skills[skill];
+            W8CharacterSkill* value = &reviewed->skills[skill];
             if (value->active || value->points != 0 || value->level != 0) {
                 W8SkillCategory category = g_skill_attributes[skill].category;
                 const int category_index = static_cast<int>(category);
@@ -846,15 +847,15 @@ void DrawCampSkillsPage(void)
    dialog's second argument is raised when the character's level is the best
    among the occupied party slots. */
 // FUNCTION: WIZ8 0x005c6230
-UiResult HandleCampSkillList(const UiPointerEvent& event, W8SkillCategory category)
+UiResult W8CampScreenState::HandleCampSkillList(const UiPointerEvent& event,
+                                                W8SkillCategory category)
 {
     int row = (event.local.y - 1) / 0xe;
     int skill = -1;
     int occurrence = 0;
     for (int index = 0; index < 0x29; ++index) {
         if (g_skill_attributes[index].category == category &&
-            (g_review_character->skills[index].active ||
-             g_review_character->skills[index].level != 0)) {
+            (reviewed->skills[index].active || reviewed->skills[index].level != 0)) {
             if (occurrence == row) {
                 skill = index;
                 break;
@@ -866,23 +867,23 @@ UiResult HandleCampSkillList(const UiPointerEvent& event, W8SkillCategory catego
     if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Move ||
         event.action == UiPointerAction::Leave) {
         const int hover = event.inside && skill != -1 ? row : -1;
-        if (hover != g_camp_skill_hover_row) {
+        if (hover != skill_hover_row) {
             ResetUiHelp(true);
-            g_camp_skill_hover_row = hover;
+            skill_hover_row = hover;
         }
     }
     if (event.action == UiPointerAction::Up && event.inside &&
         event.button == UiPointerButton::Right && (event.captured_buttons & SDL_BUTTON_RMASK) &&
         skill != -1) {
-        AfterUiDispatch([skill] {
+        AfterUiDispatch([this, skill] {
             bool best = false;
-            if (g_status.game_started && g_review_character->skills[skill].level != 0) {
+            if (g_status.game_started && reviewed->skills[skill].level != 0) {
                 best = IsBestCampSkillLevel(static_cast<W8Skill>(skill),
-                                            g_review_character->skills[skill].level);
+                                            reviewed->skills[skill].level);
             }
             auto dialog = std::make_unique<W8SkillInfoDialog>(
-                static_cast<W8Skill>(skill), best, !g_review_character->skills[skill].active,
-                skill == g_profession_bonus_skills[g_review_character->iProfession]);
+                static_cast<W8Skill>(skill), best, !reviewed->skills[skill].active,
+                skill == g_profession_bonus_skills[reviewed->iProfession]);
             DisplayCampDialog(std::move(dialog));
         });
     }

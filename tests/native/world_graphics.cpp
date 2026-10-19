@@ -15,6 +15,7 @@
 #include <wiz8/filesystem.h>
 
 #include "surface_pixels.h"
+#include "wiz8/layouts/party_slot.h"
 #include "wiz8/level_population.h"
 #include "wiz8/world/camera_pose.h"
 
@@ -114,15 +115,14 @@ TEST_CASE("world graphics")
     REQUIRE(AddCharacterToParty(character, -1) == 2);
     RunNewGameOpeningSequence(false, {});
     // Bypass only the opening movie; use the normal new-game loading screen.
-    g_pending_screen_state.mode = W8_PLEASE_WAIT_NEW_GAME;
-    g_pending_screen_state.id = W8_SCREEN_PLEASE_WAIT;
+    RequestScreen({.id = W8_SCREEN_PLEASE_WAIT, .mode = W8_PLEASE_WAIT_NEW_GAME});
     fprintf(stderr, "world: enter real new-game loader\n");
     for (int frame = 0; frame < 5; ++frame) {
         GameLoop();
         fprintf(stderr, "world: frame %d screen %d pending %d\n", frame,
-                int(g_current_screen_state.id), int(g_pending_screen_state.id));
+                int(CurrentScreenState().id), int(RequestedScreen()));
     }
-    REQUIRE(g_current_screen_state.id == W8_SCREEN_MAIN_GAME);
+    REQUIRE(CurrentScreenState().id == W8_SCREEN_MAIN_GAME);
     auto world = GetWorld();
     REQUIRE((world && world->compiledIndex() && world->camera && world->scene &&
              !world->psrMeshes.empty()));
@@ -133,7 +133,7 @@ TEST_CASE("world graphics")
             GameLoop();
         }
         int slot = 0;
-        while (!g_status.buffers.XChar[slot].fOccupied) ++slot;
+        while (!g_status.party.rows[slot].fOccupied) ++slot;
         auto& portrait = gXStatus.monster_manager_entries[slot];
         portrait.portrait_event_active = false;
         portrait.damage_splat_active = portrait.effect_icon_active = false;
@@ -163,9 +163,9 @@ TEST_CASE("world graphics")
             REQUIRE(portrait.portrait.rendered_pose == portrait.portrait.pose);
         }
         REQUIRE(portrait.portrait.rendered_pose == 1);
-        if (!gXStatus.fCombatMode) StartCombat(0);
+        if (!g_combat.active()) g_combat.Start(0);
         GameLoop();
-        REQUIRE(gXStatus.fCombatMode);
+        REQUIRE(g_combat.active());
         DrawSubMenuCharacterAction();
         const auto& framebuffer = GetFrameBufferSurface();
         const auto caption = [&] {
@@ -256,19 +256,19 @@ TEST_CASE("world graphics")
         REQUIRE(monster);
         fprintf(stderr, "regression: kill monster %d species %u HP %u\n", monster->location_id,
                 monster->monster_species, monster->hp_current);
-        if (!gXStatus.fCombatMode) {
+        if (!g_combat.active()) {
             for (int frame = 0; frame < 90; ++frame) {
                 SDL_Delay(16);
                 GameLoop();
             }
         }
-        if (!gXStatus.fCombatMode) REQUIRE(StartCombat(0));
+        if (!g_combat.active()) REQUIRE(g_combat.Start(0));
         if (!monster->pCombat) MonsterInfoEnterCombat(monster);
         W8TargetSource attacker{};
         attacker.iType = W8_TARGET_SOURCE_CHARACTER;
         attacker.iChar = 0;
         while (attacker.iChar < W8_PARTY_SLOT_COUNT &&
-               !g_status.buffers.XChar[attacker.iChar].fOccupied)
+               !g_status.party.rows[attacker.iChar].fOccupied)
             ++attacker.iChar;
         REQUIRE(attacker.iChar < W8_PARTY_SLOT_COUNT);
         attacker.iMonsterID = -1;

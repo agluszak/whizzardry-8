@@ -170,7 +170,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         return;
     case W8_FACT_CROCK_PLAYER_RETURNED_TO_PARTY:
         if (value != 0 &&
-            g_status.buffers.Char[g_status.party_slot].uiCondition[W8_CONDITION_MISSING] != 0) {
+            g_status.party.characters[g_status.party_slot].uiCondition[W8_CONDITION_MISSING] != 0) {
             RemoveCharacterCondition(g_status.party_slot, W8_CONDITION_MISSING, true);
         }
         return;
@@ -204,8 +204,8 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
     case W8_FACT_UMISSION_TRAIN_COVERT_ASSIGN:
         if (value != 0) {
             for (slot = 0; slot < 8; ++slot) {
-                character = &g_status.buffers.Char[slot];
-                if (g_status.buffers.XChar[slot].fOccupied &&
+                character = &g_status.party.characters[slot];
+                if (g_status.party.rows[slot].fOccupied &&
                     character->highest_condition < W8_CONDITION_DEAD &&
                     g_profession_skill_availability[7][character->iProfession] != 0 &&
                     character->skills[W8_SKILL_MODERN_WEAPONS].points < 10) {
@@ -446,7 +446,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
             return;
         }
         for (slot = 0; slot < 8; ++slot) {
-            character = &g_status.buffers.Char[slot];
+            character = &g_status.party.characters[slot];
             if (CanPartySlotParticipate(slot)) {
                 added = 100 - character->attributes[W8_ATTRIBUTE_INTELLIGENCE].base;
                 if (added > 5) {
@@ -869,8 +869,8 @@ void HandleScriptedNpcDeath(unsigned int monster_list_index)
     unsigned int index;
     int pick;
     for (slot = 0; slot < 8; ++slot) {
-        W8Character* character = &g_status.buffers.Char[slot];
-        if (g_status.buffers.XChar[slot].fOccupied && character->hp_current != 0 &&
+        W8Character* character = &g_status.party.characters[slot];
+        if (g_status.party.rows[slot].fOccupied && character->hp_current != 0 &&
             character->highest_condition < W8_CONDITION_ASLEEP) {
             eligible_slots[eligible_count] = slot;
             ++eligible_count;
@@ -878,7 +878,7 @@ void HandleScriptedNpcDeath(unsigned int monster_list_index)
     }
     for (index = 0; index < eligible_count; ++index) {
         if (eligible_slots[index] == lead_index) {
-            QueueCharacterEvent(&g_status.buffers.Char[eligible_slots[index]], 36,
+            QueueCharacterEvent(&g_status.party.characters[eligible_slots[index]], 36,
                                 kCharacterEventNoNpcDefer, kCharacterEventFullVolume);
         }
     }
@@ -886,12 +886,12 @@ void HandleScriptedNpcDeath(unsigned int monster_list_index)
         do {
             pick = Random(eligible_count);
         } while (eligible_slots[pick] == lead_index);
-        QueueCharacterEvent(&g_status.buffers.Char[eligible_slots[pick]], 36,
+        QueueCharacterEvent(&g_status.party.characters[eligible_slots[pick]], 36,
                             kCharacterEventNoNpcDefer, kCharacterEventFullVolume);
     }
     for (slot = 0; slot < 8; ++slot) {
-        W8Character* character = &g_status.buffers.Char[slot];
-        if (g_status.buffers.XChar[slot].fOccupied && character->hp_current != 0 &&
+        W8Character* character = &g_status.party.characters[slot];
+        if (g_status.party.rows[slot].fOccupied && character->hp_current != 0 &&
             character->highest_condition < W8_CONDITION_ASLEEP) {
             QueueCharacterEvent(character, 42, kCharacterEventNoNpcDefer,
                                 kCharacterEventFullVolume);
@@ -946,12 +946,12 @@ void MonsterKilled(int record_id, int killer_party_slot)
                 SetFact(W8_FACT_QUEST_KILL_ALSEDEXUS, 0, false);
             }
             if (g_status.rpc_active) {
-                if (g_status.buffers.Char[g_status.sedexus_party_slot]
+                if (g_status.party.characters[g_status.sedexus_party_slot]
                         .uiCondition[W8_CONDITION_INFATUATED] > 0) {
                     RemoveCharacterCondition(g_status.sedexus_party_slot, W8_CONDITION_INFATUATED,
                                              false);
                 }
-                QueueCharacterEvent(&g_status.buffers.Char[g_status.sedexus_party_slot], 131, 0,
+                QueueCharacterEvent(&g_status.party.characters[g_status.sedexus_party_slot], 131, 0,
                                     kCharacterEventFullVolume);
             }
             SetFact(W8_FACT_RAPAX_ALSEDEXUS_DEAD, 1, false);

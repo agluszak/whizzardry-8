@@ -22,7 +22,7 @@ int g_selected_party_slot = -1;
 
 void RequestExitScreen(void)
 {
-    g_pending_screen_state.id = W8_SCREEN_EXIT;
+    RequestScreen({.id = W8_SCREEN_EXIT});
 }
 
 /* Lifecycle record 12's entry handler. It paints the whole 640x480 frame in the

@@ -160,7 +160,7 @@ unsigned char ImportWizardry7Party(std::string_view path)
         return 1;
     }
     ResetForNewGame();
-    g_status.party_gold = 2500;
+    g_status.party.gold = 2500;
     g_status.skip_loose_character_check = 1;
     if (g_import_character_count < 7) {
         for (index = 0; index < g_import_character_count; ++index) {
@@ -262,7 +262,7 @@ void ImportWizardry7Character(W8Character* character, W8Wiz7Character* imported)
     DeriveCharacterPersonality(character);
     EnsureUniquePartyVoice(character);
     CalcCharacterLevelBand(character);
-    RecalculateCharacterDerivedStats(character);
+    RecalculateCharacterDerivedStats(*character);
     character->stamina = character->uiStaminaMax;
     character->hp_current = character->uiHPMax;
     for (skill_id = 0; skill_id < 6; ++skill_id) {
@@ -481,7 +481,7 @@ void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
                             continue;
                         }
                     }
-                    ReplaceOrCreateItem(&item, item_index, true, true, true);
+                    item = MakeItem(item_index, true, true, true);
                     if (g_item_records[item_index].binds_on_equip == 0) {
                         StoreItemWithCharacterOrParty(character, &item, false, false,
                                                       static_cast<unsigned int>(slot == 0));
@@ -521,7 +521,7 @@ void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
             }
             if (best_index != -1) {
                 item_index = FindItemByLegacyNumber(candidates[slot][best_index].item_number);
-                ReplaceOrCreateItem(&item, item_index, true, true, true);
+                item = MakeItem(item_index, true, true, true);
                 if (g_item_records[item_index].binds_on_equip == 0) {
                     StoreItemWithCharacterOrParty(character, &item, false, false, true);
                 } else {
@@ -539,7 +539,7 @@ void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
     for (slot = 0; slot < 6; ++slot) {
         item_id = g_starting_equipment[profession][slot];
         if (item_id != -1) {
-            ReplaceOrCreateItem(&item, item_id, true, true, true);
+            item = MakeItem(item_id, true, true, true);
             equip_slot = GetItemDefaultEquipSlot(item_id);
             if (equip_slot == W8_EQUIP_SLOT_NONE) {
                 if (!FindCharacterItemByDatabaseKind(
@@ -574,11 +574,11 @@ void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
             }
         }
         if (give != -1) {
-            ReplaceOrCreateItem(&item, give, true, true, true);
+            item = MakeItem(give, true, true, true);
             AddItemToCharacter(character, &item, true, false, false);
         }
     }
-    RebuildEquipmentAndDerivedStats(character);
+    RecalculateCharacterDerivedStats(*(character));
 }
 
 /* Retail fell through the failed assert and read `imported->skills` by

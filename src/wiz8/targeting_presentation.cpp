@@ -61,10 +61,10 @@ W8TargetingPresentation BuildTargetingPresentation()
         (gXStatus.iTargetingMode == W8_TARGET_NEED_CONE ||
          (gXStatus.iTargetingMode == W8_TARGET_NEED_PLACE && IsWorldCursorVisible()))) {
         const auto action = SelectCombatAction(selected, GetEditedActionContext(selected));
-        const auto spell = GetActionSpellLikeId(action);
+        const auto spell = GetActionSpellLikeId(g_status.party, action);
         if (spell != 0) {
             area_preview = true;
-            W8CombatSlot target{W8_TARGET_KIND_PLACE, -1, -1, -1, {}, nullptr};
+            W8CombatSlot target{W8_TARGET_KIND_PLACE, -1, -1, -1, {}, {}};
             if (gXStatus.iTargetingMode == W8_TARGET_NEED_CONE)
                 GetCameraForwardPoint(GetGroundTargetRange(), &target.point);
             else
@@ -79,7 +79,7 @@ W8TargetingPresentation BuildTargetingPresentation()
     }
     const auto add_targets = [&](int actor, W8Action action) {
         std::vector<int> targets;
-        const auto spell = GetActionSpellLikeId(action);
+        const auto spell = GetActionSpellLikeId(g_status.party, action);
         if (actor == selected && area_preview) {
             targets = result.area_targets;
         } else if (spell != 0) {
@@ -116,7 +116,8 @@ W8TargetingPresentation BuildTargetingPresentation()
         const auto action = selected == -1
                                 ? W8Action{}
                                 : SelectCombatAction(selected, GetEditedActionContext(selected));
-        if (selected != -1 && GetTargetNeededForAction(action) == W8_TARGET_NEED_GROUP) {
+        if (selected != -1 &&
+            GetTargetNeededForAction(g_status.party, action) == W8_TARGET_NEED_GROUP) {
             if (auto* group = FindMonsterGroup(info->monster_group_id, false))
                 for (int id : group->MemberIds()) result.monsters[id].tint = tint;
         } else
@@ -125,7 +126,8 @@ W8TargetingPresentation BuildTargetingPresentation()
         const auto action = selected == -1
                                 ? W8Action{}
                                 : SelectCombatAction(selected, GetEditedActionContext(selected));
-        if (selected != -1 && GetTargetNeededForAction(action) == W8_TARGET_NEED_GROUP) {
+        if (selected != -1 &&
+            GetTargetNeededForAction(g_status.party, action) == W8_TARGET_NEED_GROUP) {
             for (int id : group->MemberIds()) result.monsters[id].tint = tint;
         } else if (selected != -1) {
             const auto id = PickNextTargetableGroupMember(selected, group, action,

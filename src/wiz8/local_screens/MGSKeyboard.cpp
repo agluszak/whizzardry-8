@@ -210,7 +210,7 @@ unsigned char HandleMainGameInputEvent(const InputEvent* input)
         return 1;
     }
     if ((input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) &&
-        gXStatus.fTrapInteractMode && TextBoxHandleKey(input) != 0) {
+        IsTrapInteractionActive() && TextBoxHandleKey(input) != 0) {
         return 1;
     }
 
@@ -236,7 +236,7 @@ void DispatchMGSCommand(W8MGSCommand command)
             AcknowledgeSurprise();
         } else if (gpSCSV) {
             ResetSpellCastingSelection();
-        } else if (gXStatus.fLockInteractMode) {
+        } else if (IsLockInteractionActive()) {
             EndLockInteractMode(0);
         } else if (ItemUseDraft()) {
             CloseUseItemSelection();
@@ -249,9 +249,9 @@ void DispatchMGSCommand(W8MGSCommand command)
         } else if (gXStatus.character_event_queue->HasActiveEvents()) {
             gXStatus.character_event_queue->CompleteFirstActiveEvent();
         } else {
-            if (gXStatus.fCombatMode) {
+            if (g_combat.active()) {
                 ToggleCombatMode();
-                if (!gXStatus.fCombatMode) {
+                if (!g_combat.active()) {
                     InvalidateRegion(0xa8, 0x16e, 0x1c4, 0x1ba);
                     return;
                 }
@@ -270,14 +270,12 @@ void DispatchMGSCommand(W8MGSCommand command)
         break;
     case W8_MGS_COMMAND_LOAD_OPTIONS:
         if (IsScreenInputBlocked() == 0 && CanInterruptLevelMovement()) {
-            g_pending_screen_state.mode = W8_OPTIONS_LOAD;
-            g_pending_screen_state.id = W8_SCREEN_OPTIONS;
+            RequestScreen({.id = W8_SCREEN_OPTIONS, .mode = W8_OPTIONS_LOAD});
         }
         break;
     case W8_MGS_COMMAND_SAVE_OPTIONS:
         if (IsScreenInputBlocked() == 0 && CanInterruptLevelMovement()) {
-            g_pending_screen_state.mode = W8_OPTIONS_SAVE;
-            g_pending_screen_state.id = W8_SCREEN_OPTIONS;
+            RequestScreen({.id = W8_SCREEN_OPTIONS, .mode = W8_OPTIONS_SAVE});
         }
         break;
     case W8_MGS_COMMAND_COMBAT_DELAY_UP: {
@@ -389,7 +387,7 @@ void DispatchMGSCommand(W8MGSCommand command)
     case W8_MGS_COMMAND_OPTIONS:
         if (gXStatus.fNpcDialogueMode ||
             (gXStatus.fNpcDialogueMode && g_npc_interaction_state->scripted_dialogue) ||
-            gXStatus.fLockInteractMode || gXStatus.fTrapInteractMode || gXStatus.fCampMode ||
+            IsLockInteractionActive() || IsTrapInteractionActive() || gXStatus.fCampMode ||
             LockInteractionSuspended() || TrapInteractionSuspended()) {
             break;
         }
@@ -443,9 +441,9 @@ void DispatchMGSCommand(W8MGSCommand command)
             ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x82c]);
             break;
         }
-        if (gXStatus.fCombatMode) {
+        if (g_combat.active()) {
             if (g_dev_mode) {
-                EndCombat(false);
+                g_combat.End(false);
             } else {
                 ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x774]);
                 break;
@@ -471,12 +469,14 @@ void DispatchMGSCommand(W8MGSCommand command)
         if (const auto slot_name = FindStartupQuickSave()) {
             g_options_last_save_name = (*slot_name);
             ClearHeldItemDisplay();
-            g_pending_screen_state.mode = W8_PLEASE_WAIT_LOAD_GAME;
-            g_pending_screen_state.name = *slot_name;
-            g_pending_screen_state.parameter = GetSaveGameLevel(g_pending_screen_state.name);
+            W8ScreenStateRuntime request;
+            request.mode = W8_PLEASE_WAIT_LOAD_GAME;
+            request.name = *slot_name;
+            request.parameter = GetSaveGameLevel(request.name);
             CloseMainGameOverlays();
             SetMainGameMode(W8_MAIN_GAME_DEFAULT);
-            g_pending_screen_state.id = W8_SCREEN_PLEASE_WAIT;
+            request.id = W8_SCREEN_PLEASE_WAIT;
+            RequestScreen(std::move(request));
         } else {
             ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x786]);
         }
@@ -509,7 +509,7 @@ void DispatchMGSCommand(W8MGSCommand command)
     case W8_MGS_COMMAND_SELECT_PC_5:
     case W8_MGS_COMMAND_SELECT_PC_6: {
         int slot = command - W8_MGS_COMMAND_SELECT_RECRUITED_1;
-        if (!g_status.buffers.XChar[slot].fOccupied) {
+        if (!g_status.party.rows[slot].fOccupied) {
             break;
         }
         if (g_status.selected_character != slot) {
@@ -545,10 +545,10 @@ void DispatchMGSCommand(W8MGSCommand command)
         }
         break;
     case W8_MGS_COMMAND_START_COMBAT_ROUND:
-        if (!gXStatus.fCombatMode || gpSCSV || ItemUseDraft()) {
+        if (!g_combat.active() || gpSCSV || ItemUseDraft()) {
             break;
         }
-        if (g_combat_state->execution_active == 0) {
+        if (g_combat.state()->execution_active == 0) {
             BeginCombatExecution();
         } else if (gXStatus.fPartyMovementUi && !CanPartyMove() && !IsLevelMovementStopped()) {
             BeginFreeTurnPhase();
@@ -700,7 +700,7 @@ void CloseKeyboardMenu(void)
     g_level_block->hover_combat_slot = g_selected_party_slot;
     g_level_block->cursor_grace = 0;
     RefreshPartySlotRegions();
-    if (gXStatus.fCombatMode) {
+    if (g_combat.active()) {
         g_main_game_state->combat.setEnabled(true);
     } else {
         g_main_game_state->combat.setEnabled(false);
@@ -721,15 +721,14 @@ static std::string KeyboardMenuTooltip(const KeyboardMenuRow& row)
     if (row.menu == W8_SUBMENU_SPELLS && row.item == 1) {
         if (!row.enabled) return g_localized_strings[0x5a];
         const auto& spell =
-            g_spell_records[g_status.buffers.XChar[g_selected_party_slot].spell.detail];
+            g_spell_records[g_status.party.rows[g_selected_party_slot].spell.detail];
         return fmt::format("{}: {} ({:d})", g_localized_strings[0x5a], spell.display_name,
                            GetAffordableSpellPowerLevel(g_selected_party_slot));
     }
     if (row.menu == W8_SUBMENU_ITEMS && row.item == 2) {
         if (!row.enabled) return g_localized_strings[0x5d];
-        const auto& party = g_status.buffers.XChar[g_selected_party_slot];
-        auto* item = FindCharacterItemAt(
-            g_selected_party_slot, static_cast<unsigned char>(party.item_origin), party.item_slot);
+        const auto& party = g_status.party.rows[g_selected_party_slot];
+        auto* item = g_status.party.itemAt(party.item_detail.item_use.item);
         return fmt::format("{}: {}", g_localized_strings[0x5d], FormatItemDisplayName(item, false));
     }
     return g_localized_strings[g_submenu_entry_help_ids[row.menu * 5 + row.item]];
@@ -842,11 +841,10 @@ void RefreshKeyboardMenuRows(void)
         int offset = 0;
         if (row.menu == W8_SUBMENU_SPELLS && row.item == 1)
             offset =
-                g_spell_records[g_status.buffers.XChar[g_selected_party_slot].spell.detail].realm *
-                7;
+                g_spell_records[g_status.party.rows[g_selected_party_slot].spell.detail].realm * 7;
         else if (row.menu == W8_SUBMENU_ATTACK && row.item == 0)
             offset = GetAttackMenuWeaponOffset(
-                         g_status.buffers.Char[g_selected_party_slot].Hand[0].weapon_skill) *
+                         g_status.party.characters[g_selected_party_slot].Hand[0].weapon_skill) *
                      7;
         row.appearance.quick_image =
             ButtonGraphics::Load(art.spriteSheet(), base + 6, normal + offset, hover + offset,

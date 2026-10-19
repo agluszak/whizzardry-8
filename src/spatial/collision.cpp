@@ -1531,7 +1531,7 @@ float MoveTimer(W8MoveTimerAction action)
 {
     if (g_shared_timers_paused) {
         if ((action == W8_MOVE_TIMER_RESUME_MAIN_GAME &&
-             g_current_screen_state.id == W8_SCREEN_MAIN_GAME) ||
+             CurrentScreenState().id == W8_SCREEN_MAIN_GAME) ||
             action == W8_MOVE_TIMER_RESUME) {
             ResumeSharedGameTimers();
             g_shared_timers_paused = false;

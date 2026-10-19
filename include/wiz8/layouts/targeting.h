@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "glm/ext/vector_float3.hpp"
+#include "wiz8/item_location.h"
 
 struct W8ItemInstance;
 struct W8MonsterInfo;
@@ -96,7 +97,7 @@ struct W8CombatSlot {
     int iGroupID;   /* -1 when empty */
     glm::vec3 point;
     /* The item aimed at, for the one kind that aims at one. */
-    W8ItemInstance* pPCItem;
+    W8ItemLocation item;
 
     bool operator==(const W8CombatSlot&) const = default;
 };
@@ -116,20 +117,17 @@ enum W8PartyActionStatus : std::uint8_t {
     W8_PARTY_ACTION_FINISHED = 3
 };
 
-/* The two-word block an action carries beside itself. A spell's holds the
-   power level and a spare word; an item use's holds the use kind and the item.
-   Item references are borrowed only for the lifetime of the owning inventory. */
-enum class W8ItemUseDetailKind : int { none = -1 };
-
-union W8ActionDetailBlock {
+/* Action-specific inputs, independent of their two-word retail encoding.
+   Item relationships are locations resolved against the operation's party. */
+struct W8ActionDetailBlock {
     struct {
         int power_level;
         int unused;
-    } spell;
+    } spell{};
     struct {
-        W8ItemUseDetailKind kind;
-        W8ItemInstance* item;
-    } item_use;
+        int kind;
+        W8ItemLocation item;
+    } item_use{};
 };
 
 /* The combat actions a party slot row's action and the level block's
@@ -159,8 +157,8 @@ enum W8ActionKind {
 struct W8Action {
     W8ActionKind kind = W8_ACTION_NONE;
     int detail = -1;
-    W8CombatSlot target{W8_TARGET_KIND_NONE, -1, -1, -1, {}, nullptr};
-    W8ActionDetailBlock detail_block{.item_use = {W8ItemUseDetailKind::none, nullptr}};
+    W8CombatSlot target{W8_TARGET_KIND_NONE, -1, -1, -1, {}, {}};
+    W8ActionDetailBlock detail_block{.item_use = {-1, {}}};
 };
 
 enum class W8AreaSightRule : std::uint8_t { RequireLineOfSight, GeometryOnly };

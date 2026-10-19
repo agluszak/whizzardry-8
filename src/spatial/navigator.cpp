@@ -4,6 +4,7 @@
 #include <cmath>
 #include <memory>
 #include <optional>
+#include <span>
 #include <utility>
 #include <vector>
 
@@ -17,6 +18,7 @@
 #include "wiz8/entities/keyframe_track.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/gameplay_constants.h"
+#include "wiz8/layouts/combat_state.h"
 #include "wiz8/level_population.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/MonsterGroup.h"
@@ -43,7 +45,7 @@
 namespace {
 bool NavigationCombatActive(const Navigator& navigator)
 {
-    return g_combat_inactive == 0 &&
+    return g_combat.engineActive() &&
            (!navigator.owner_world || navigator.owner_world == GetWorld());
 }
 
@@ -207,11 +209,9 @@ void SetNavigatorLinkMode(W8NavigatorLinkMode mode)
                                                   group, 0.0f, navigator->movement.yaw, false)) &&
                         (MoveMonsterGroupToPosition(group, &position, navigator->movement.yaw,
                                                     false, true, false, false),
-                         g_combat_inactive != 0)) {
+                         (!g_combat.engineActive()) != 0)) {
                         navigator->linked_update_time = 0;
-                        std::vector<Navigator*> group;
-                        navigator->CollectGroupNavigators(group);
-                        for (auto group_navigator : group) {
+                        for (auto* group_navigator : navigator->CollectGroupNavigators()) {
                             group_navigator->movement.attachment->CopyPathFrom(
                                 navigator->movement.attachment.get());
                             group_navigator->patrol_home = navigator->patrol_home;
@@ -533,10 +533,8 @@ void Navigator::ClearMovementStopped()
 {
     movement_stopped = false;
     if (!NavigationCombatActive(*this) && linked_navigator == 0) {
-        std::vector<Navigator*> group;
-        CollectGroupNavigators(group);
-        for (auto& index : group) {
-            index->movement_stopped = false;
+        for (auto* navigator : CollectGroupNavigators()) {
+            navigator->movement_stopped = false;
         }
     }
 }
@@ -544,9 +542,7 @@ void Navigator::ClearMovementStopped()
 void Navigator::CopyPathToGroup()
 {
     linked_update_time = 0;
-    std::vector<Navigator*> group;
-    CollectGroupNavigators(group);
-    for (Navigator* navigator : group) {
+    for (auto* navigator : CollectGroupNavigators()) {
         navigator->movement.attachment->CopyPathFrom(movement.attachment.get());
         navigator->patrol_home = patrol_home;
         navigator->movement.attachment->flags &=
@@ -638,7 +634,7 @@ void Navigator::ResetPathAI()
 const float g_navigator_default_turn_rate = 4.398229598999023f;
 
 const float g_navigator_snap_angle = 0.029999999329447746f;
-unsigned char g_combat_inactive = 1;
+// GLOBAL: WIZ8 0x006081e4
 
 unsigned short Navigator::SetMovementTargetToNavigator(Navigator* target, double separation)
 {
@@ -698,7 +694,8 @@ static const float NAVIGATOR_MAXIMUM_DROP = 1500.0f;
 float g_navigator_gravity = 187.5f;
 static const float NAVIGATOR_LINK_DISTANCE_SQUARED = 400.0f;
 
-void Navigator::UpdateLinkedNavigator()
+// FUNCTION: WIZ8 0x00454d70
+void Navigator::UpdateLinkedNavigator(std::optional<BoundingSphere> player)
 {
     PathSearchScratch path_search;
     if (linked_navigator == 0) {
@@ -714,7 +711,7 @@ void Navigator::UpdateLinkedNavigator()
     if ((!monster_owner || monster_owner->IsWithinWorldRange() == 0) &&
         (!linked_navigator->monster_owner ||
          linked_navigator->monster_owner->IsWithinWorldRange() == 0)) {
-        UpdateLinkedPosition();
+        UpdateLinkedPosition(player);
         return;
     }
     int tick = static_cast<int>(GameTimeAccumulator().GetElapsed());
@@ -736,7 +733,7 @@ void Navigator::UpdateLinkedNavigator()
             goto follow_path;
         }
     }
-    if (UpdateLinkedPosition()) {
+    if (UpdateLinkedPosition(player)) {
         return;
     }
 follow_path:
@@ -750,7 +747,8 @@ follow_path:
     }
 }
 
-bool Navigator::UpdateLinkedPosition()
+// FUNCTION: WIZ8 0x00454fe0
+bool Navigator::UpdateLinkedPosition(std::optional<BoundingSphere> player)
 {
     if (linked_navigator == 0) {
         return false;
@@ -759,7 +757,8 @@ bool Navigator::UpdateLinkedPosition()
     if (linked_navigator->movement_stopped) {
         const auto placement = NavigationOctree()->navigatorPositions(
             linked_navigator->movement.position, linked_navigator->movement.yaw,
-            movement.collision_radius + movement.collision_radius, 1, true, false, false, 5, true);
+            movement.collision_radius + movement.collision_radius, 1, true, false, false, 5, true,
+            player);
         linked_navigator->movement.position = placement.source;
         if (placement.positions.empty()) return false;
         position = placement.positions.front();
@@ -1093,7 +1092,8 @@ bool NavigatorRoute::AdvanceAlongPathPositions(float distance, glm::vec3* positi
     return on_path;
 }
 
-bool NavigatorRoute::withinHopHeight(const glm::vec2& point, unsigned base, bool include_next) const
+bool NavigatorRoute::withinHopHeight(std::span<const W8PathSurface> surfaces,
+                                     const glm::vec2& point, unsigned base, bool include_next) const
 {
     auto projection =
         segmentMath::project(point, glm::vec2(path[base].position.x, path[base].position.z),
@@ -1107,23 +1107,26 @@ bool NavigatorRoute::withinHopHeight(const glm::vec2& point, unsigned base, bool
             projection = next;
         }
     }
-    const auto* surfaces = GetWorldSpatialIndex()->pathing->m_waypoints.data();
     float height = (surfaces[path[base].value].flags >> 0xc) * kWorldScale;
     const float next_height = (surfaces[path[base + 1].value].flags >> 0xc) * kWorldScale;
     if (height != next_height) height = (next_height - height) * projection.fraction + height;
     return projection.distance <= height;
 }
 
-bool NavigatorRoute::checkPositionHopHeight(const glm::vec3& position) const
+// FUNCTION: WIZ8 0x00456CB0
+bool NavigatorRoute::checkPositionHopHeight(std::span<const W8PathSurface> surfaces,
+                                            const glm::vec3& position) const
 {
     const unsigned base = path_cursor == 1 ? 1 : path_cursor - 1;
     if (path_position_index < base + 1) return false;
-    return withinHopHeight({position.x, position.z}, base, false);
+    return withinHopHeight(surfaces, {position.x, position.z}, base, false);
 }
 
-bool NavigatorRoute::checkPredictedHopHeight(const glm::vec3& position) const
+// FUNCTION: WIZ8 0x00456DD0
+bool NavigatorRoute::checkPredictedHopHeight(std::span<const W8PathSurface> surfaces,
+                                             const glm::vec3& position) const
 {
-    return withinHopHeight({position.x, position.z}, path_cursor - 1, true);
+    return withinHopHeight(surfaces, {position.x, position.z}, path_cursor - 1, true);
 }
 
 bool NavigatorRoute::AdvancePositionTowardWaypoint(glm::vec3* position, float distance)
@@ -1543,7 +1546,7 @@ void Navigator::UpdateAngles()
     float reverse_distance;
     float direction;
 
-    if (!gXStatus.fCombatMode) {
+    if (!g_combat.active()) {
         step = movement.turn_rate;
     }
     step *= g_rate * GameTimeAccumulator().GetFrameDelta();
@@ -1627,24 +1630,26 @@ void Navigator::AimAtPosition(const glm::vec3* target)
     }
 }
 
-void Navigator::CollectGroupNavigators(std::vector<Navigator*>& navigators)
+// FUNCTION: WIZ8 0x00455140
+std::vector<Navigator*> Navigator::CollectGroupNavigators() const
 {
+    std::vector<Navigator*> navigators;
     W8MonsterInfo* monster_info;
     W8MonsterGroup* group;
     unsigned int member;
     int ally;
 
     if (linked_navigator != 0) {
-        return;
+        return navigators;
     }
 
     auto* world = owner_world ? owner_world : GetWorld();
-    if (!world) return;
+    if (!world) return navigators;
     const auto& population = *world->population;
     monster_info = population.findMonster(movement.location_id);
-    if (!monster_info) return;
+    if (!monster_info) return navigators;
     group = population.findGroup(monster_info->monster_group_id);
-    if (!group) return;
+    if (!group) return navigators;
 
     for (member = 0; member < group->MemberCount(); ++member) {
         int location_id = group->MemberLocationId(member);
@@ -1665,9 +1670,12 @@ void Navigator::CollectGroupNavigators(std::vector<Navigator*>& navigators)
             }
         }
     }
+    return navigators;
 }
 
-void Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
+// FUNCTION: WIZ8 0x004553a0
+void Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed,
+                                 std::optional<BoundingSphere> player)
 {
     glm::vec3 previous = movement.position;
     glm::vec3 adjusted;
@@ -1801,17 +1809,14 @@ void Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed)
                 if (movement_stopped) {
                     movement_stopped = false;
                     if (!NavigationCombatActive(*this) && linked_navigator == 0) {
-                        int index;
-                        std::vector<Navigator*> group;
-                        CollectGroupNavigators(group);
-                        for (index = 0; index < static_cast<int>(group.size()); ++index) {
-                            group[index]->movement_stopped = false;
+                        for (auto* navigator : CollectGroupNavigators()) {
+                            navigator->movement_stopped = false;
                         }
                     }
                 }
                 NavigationOctree()->AdvanceNavigator(&movement, radius, linked_navigator->radius);
             }
-            UpdateLinkedNavigator();
+            UpdateLinkedNavigator(player);
         }
         break;
 
@@ -1922,14 +1927,10 @@ int Navigator::ResolveMovement()
 
             if (target->radius + radius + collision_margin <
                 glm::length((target->movement.position - movement.position))) {
-                int index;
-
                 movement_stopped = false;
                 if (linked_navigator == 0) {
-                    std::vector<Navigator*> group;
-                    CollectGroupNavigators(group);
-                    for (index = 0; index < static_cast<int>(group.size()); ++index) {
-                        group[index]->movement_stopped = false;
+                    for (auto* navigator : CollectGroupNavigators()) {
+                        navigator->movement_stopped = false;
                     }
                 }
                 halted = false;

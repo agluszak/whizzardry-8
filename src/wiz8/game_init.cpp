@@ -3,7 +3,6 @@
 #include <cstring>
 #include <optional>
 #include <string>
-#include <vector>
 
 #include "wiz8/application.h"
 #include "wiz8/canvas/shading.h"
@@ -37,18 +36,18 @@
  * recovered elsewhere keep theirs.
  */
 
-unsigned char InitializeGame(size_t& initialized_screens)
+// FUNCTION: WIZ8 0x004e2f40
+unsigned char InitializeGame(size_t& initialized_screens, bool load_at_startup,
+                             const std::string& string_data_override)
 {
     const auto version = FormatVersionBanner(true, true, true);
 
-    LoadLocalizedStrings(!gzStringDataOverride.empty() ? gzStringDataOverride.c_str()
+    LoadLocalizedStrings(!string_data_override.empty() ? string_data_override.c_str()
                                                        : "Data\\Strings\\StringData.DAT");
     const auto& framebuffer = GetFrameBufferSurface();
     memset(framebuffer.pixels, 0, framebuffer.pitch * framebuffer.h);
     LoadGameConfiguration();
-    g_current_screen_state.id = W8_SCREEN_NONE;
-    g_pending_screen_state.id = W8_SCREEN_NONE;
-    g_screen_return_stack.clear();
+    ResetScreenRouting();
     for (int screen = 0; screen < W8_SCREEN_COUNT; ++screen) {
         initialized_screens = screen + 1;
         const auto initialize = g_screen_handlers[screen].initialize;
@@ -86,12 +85,13 @@ unsigned char InitializeGame(size_t& initialized_screens)
     if (!InitializeLevelDatabase()) {
         return 0;
     }
-    g_pending_screen_state.id = W8_SCREEN_INTRO;
-    if (const auto save = gfLoadAtStartup ? FindStartupQuickSave() : std::nullopt) {
-        g_pending_screen_state.name = *save;
-        g_pending_screen_state.mode = W8_PLEASE_WAIT_LOAD_GAME;
-        g_pending_screen_state.parameter = GetSaveGameLevel(g_pending_screen_state.name);
-        g_pending_screen_state.id = W8_SCREEN_PLEASE_WAIT;
+    if (const auto save = load_at_startup ? FindStartupQuickSave() : std::nullopt) {
+        RequestScreen({.id = W8_SCREEN_PLEASE_WAIT,
+                       .mode = W8_PLEASE_WAIT_LOAD_GAME,
+                       .parameter = GetSaveGameLevel(*save),
+                       .name = *save});
+    } else {
+        RequestScreen({.id = W8_SCREEN_INTRO});
     }
     InitializeEncounterTables();
     if (!LoadMissileDatabase()) {

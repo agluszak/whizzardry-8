@@ -372,7 +372,7 @@ void JournalScreen::Activate(JournalAction action)
         }
         break;
     case Close:
-        RequestScreenTransition();
+        ReturnToPreviousScreen();
         break;
     case Mode:
         m_alternate_mode = m_buttons[Mode]->IsPressed();
@@ -455,7 +455,7 @@ void JournalScreenFrame(void)
     PumpUiInput({.unhandled = [&](const InputEvent& input) {
         if (input.type == InputEventType::KeyDown) {
             if (input.key == SDLK_ESCAPE) {
-                AfterUiDispatch([] { RequestScreenTransition(); });
+                AfterUiDispatch([] { ReturnToPreviousScreen(); });
             } else if (input.key == SDLK_LEFT && g_journal_page > 0) {
                 --g_journal_page;
                 g_journal_panel->Refresh();

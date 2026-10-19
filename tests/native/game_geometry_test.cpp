@@ -638,6 +638,32 @@ TEST_CASE("navigator route growth, copying and movement")
     REQUIRE((aliased.path[9].position == end && aliased.path[9].value == 7));
 }
 
+TEST_CASE("Route hop heights use supplied surfaces with independent waypoint indices",
+          "[geometry][navigation][ownership]")
+{
+    std::array<W8PathSurface, 4> low_surfaces{}, high_surfaces{};
+    for (auto& surface : low_surfaces) surface.flags = 1 << 12;
+    for (auto& surface : high_surfaces) surface.flags = 2 << 12;
+    NavigatorRoute route;
+    route.path[1] = {{0, 0, 0}, 1};
+    route.path[2] = {{1000, 0, 0}, 2};
+    route.path_position_index = 2;
+    route.path_cursor = 2;
+    const glm::vec3 position{500, 0, 750};
+    REQUIRE_FALSE(route.checkPositionHopHeight(low_surfaces, position));
+    REQUIRE(route.checkPositionHopHeight(high_surfaces, position));
+    REQUIRE_FALSE(route.checkPositionHopHeight(low_surfaces, position));
+    REQUIRE_FALSE(route.checkPredictedHopHeight(low_surfaces, position));
+    REQUIRE(route.checkPredictedHopHeight(high_surfaces, position));
+
+    // Prediction still chooses the nearer following segment when available.
+    route.path[3] = {{1000, 0, 1000}, 3};
+    route.path_position_index = 3;
+    const glm::vec3 following{1000, 0, 750};
+    REQUIRE_FALSE(route.checkPositionHopHeight(low_surfaces, following));
+    REQUIRE(route.checkPredictedHopHeight(low_surfaces, following));
+}
+
 TEST_CASE("Inclusive cell boxes retain order clipping and extreme endpoints", "[geometry][octree]")
 {
     std::vector<glm::ivec3> cells;

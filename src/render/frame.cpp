@@ -569,8 +569,7 @@ void RenderFrame(void)
 
     g_gerd->beginFrame();
 #ifdef WIZ8_RUNTIME_TESTS
-    RuntimeObserve(RUNTIME_FRAME_BEGIN, g_fps_frame_count, g_current_screen_state.id,
-                   g_video_active);
+    RuntimeObserve(RUNTIME_FRAME_BEGIN, g_fps_frame_count, CurrentScreenState().id, g_video_active);
 #endif
     UpdateRenderElapsedTime();
 
@@ -647,7 +646,7 @@ void RenderFrame(void)
         }
     g_gerd->endFrame();
 #ifdef WIZ8_RUNTIME_TESTS
-    RuntimeObserve(RUNTIME_FRAME_SUBMITTED, g_fps_frame_count, g_current_screen_state.id, 0);
+    RuntimeObserve(RUNTIME_FRAME_SUBMITTED, g_fps_frame_count, CurrentScreenState().id, 0);
 #endif
 
     if (g_screenshot_pending) {

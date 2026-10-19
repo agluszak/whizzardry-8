@@ -241,7 +241,7 @@ std::shared_ptr<Texture> LoadAnimatedTexture(const std::filesystem::path& path,
 std::shared_ptr<Texture> LoadTextureFromPath(const std::filesystem::path& path,
                                              const W8MaterialRecord* source, bool required)
 {
-    if (g_current_screen_state.id == W8_SCREEN_PLEASE_WAIT) UpdatePleaseWaitLoadFrame();
+    if (CurrentScreenState().id == W8_SCREEN_PLEASE_WAIT) UpdatePleaseWaitLoadFrame();
     if (path.extension() == ".ifl") return LoadAnimatedTexture(path, source, required);
     // The authored basename is also used by skin-replacement scripts. Keep it
     // in the resource identity; two aliases may need different runtime names.

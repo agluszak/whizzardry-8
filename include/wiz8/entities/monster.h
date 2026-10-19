@@ -368,7 +368,6 @@ unsigned short ChooseDifferentMonsterDirection(unsigned short previous_direction
 std::unique_ptr<Monster> LoadMonsterCycle(World* world, std::string_view mon_name, int cycle,
                                           int value);
 
-void SetCombatInactiveFlag(unsigned char value);
 void UpdateNearestMonsterGroupMembers();
 void ApplyMonsterRepresentationScale(Monster* monster);
 

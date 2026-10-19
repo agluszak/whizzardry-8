@@ -42,9 +42,12 @@
 #include <glm/ext/vector_float3.hpp>
 
 #include "../native/surface_pixels.h"
+#include "wiz8/layouts/party_slot.h"
 #include "wiz8/level_population.h"
 #include "wiz8/local_screens/MGSUseItemSelect.h"
+#include "wiz8/party_presentation.h"
 #include "wiz8/platform/random.h"
+#include "wiz8/startup_world.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/world/camera_pose.h"
 #include "wiz8/world/level_session.h"
@@ -110,7 +113,6 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/npc_dialogue_view.h"
-#include "wiz8/local_code/party_encumbrance.h"
 #include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/JournalScreen.h"
@@ -125,7 +127,6 @@
 #include "wiz8/local_screens/MainMenuScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/OptionsScreen.h"
-#include "wiz8/local_screens/RCSCommon.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/message_box.h"
@@ -274,8 +275,8 @@ public:
         while (!ready()) {
             if (Clock::now() > deadline)
                 FailStep(step, "timed out after " + std::to_string(frames_) + " frames on screen " +
-                                   std::string(ScreenName(g_current_screen_state.id)) +
-                                   " pending " + ScreenName(g_pending_screen_state.id));
+                                   std::string(ScreenName(CurrentScreenState().id)) + " pending " +
+                                   ScreenName(RequestedScreen()));
             frame();
         }
     }
@@ -290,12 +291,12 @@ public:
 
     bool settled() const
     {
-        return g_pending_screen_state.id == W8_SCREEN_NONE && !IsScreenTransitionPending();
+        return RequestedScreen() == W8_SCREEN_NONE && !IsScreenTransitionPending();
     }
 
     void wait_screen(const char* step, W8ScreenId screen, double seconds = 30)
     {
-        wait(step, [&] { return g_current_screen_state.id == screen && settled(); }, seconds);
+        wait(step, [&] { return CurrentScreenState().id == screen && settled(); }, seconds);
     }
 
     void click(const char* step, SDL_Point point)
@@ -554,10 +555,10 @@ void MainMenuUiScenario()
     verify_controls();
     REQUIRE(!g_main_menu_has_save_games);
     game.click("disabled-load", MainMenuRegion(2));
-    REQUIRE(g_current_screen_state.id == W8_SCREEN_MAIN_MENU);
+    REQUIRE(CurrentScreenState().id == W8_SCREEN_MAIN_MENU);
     REQUIRE(game.settled());
     game.release_outside(MainMenuRegion(1));
-    REQUIRE(g_current_screen_state.id == W8_SCREEN_MAIN_MENU);
+    REQUIRE(CurrentScreenState().id == W8_SCREEN_MAIN_MENU);
     REQUIRE(game.settled());
     game.click("credits", MainMenuRegion(3));
     game.wait_screen("credits", W8_SCREEN_CREDITS);
@@ -633,14 +634,14 @@ std::string CreateCharacter(Game& game)
     ReachMainMenu(game);
     game.click("new-game", MainMenuRegion(1));
     game.wait("party-selection", [&] {
-        return g_current_screen_state.id == W8_SCREEN_PARTY_SELECTION && game.settled() &&
+        return CurrentScreenState().id == W8_SCREEN_PARTY_SELECTION && game.settled() &&
                UiTargetAt(kCreateCharacterButton) != nullptr;
     });
     Snapshot("party-selection", game.read_frame());
     ExpectPartyActionLabels("party-selection labels", game, 2);
     game.click("create-character", kCreateCharacterButton);
     game.wait("character-screen", [&] {
-        return g_current_screen_state.id == W8_SCREEN_CHARACTER && game.settled() && StatsPage() &&
+        return CurrentScreenState().id == W8_SCREEN_CHARACTER && game.settled() && StatsPage() &&
                g_character_screen->m_page_index == 0;
     });
 
@@ -709,7 +710,7 @@ void StartGame(Game& game)
     /* Confirm walks the screen's own steps: a party of fewer than six asks
        for confirmation, then the options page's Confirm runs the opening. */
     for (int press = 0;
-         press < 3 && g_current_screen_state.id == W8_SCREEN_PARTY_SELECTION && game.settled();
+         press < 3 && CurrentScreenState().id == W8_SCREEN_PARTY_SELECTION && game.settled();
          ++press) {
         game.click_at(430, 447);
         if (UiModalActive()) game.key(SDLK_RETURN);
@@ -773,8 +774,8 @@ int PremadeSlot()
 {
     REQUIRE(CountActiveCharacters() == 1);
     for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
-        if (g_status.buffers.XChar[slot].fOccupied) {
-            REQUIRE(g_status.buffers.Char[slot].fInParty);
+        if (g_status.party.rows[slot].fOccupied) {
+            REQUIRE(g_status.party.characters[slot].fInParty);
             return slot;
         }
     FailStep("party", "no occupied slot");
@@ -833,7 +834,7 @@ void FormationUiScenario()
     const auto center = [&](int cell) {
         return SDL_Point{214 + cell_offsets[cell].x + 16, 60 + cell_offsets[cell].y + 16};
     };
-    const int original_row = g_status.formation.positions[slot].bQuadrant;
+    const int original_row = g_status.party.formation.positions[slot].bQuadrant;
     const int destination_row = (original_row + 1) % 5;
     const auto destination = center(destination_row * 3);
     const auto begin_drag = [&] {
@@ -856,7 +857,7 @@ void FormationUiScenario()
     begin_drag();
     drop_at(destination);
     REQUIRE(gXStatus.edited_formation.positions[slot].bQuadrant == destination_row);
-    REQUIRE(g_status.formation.positions[slot].bQuadrant == original_row);
+    REQUIRE(g_status.party.formation.positions[slot].bQuadrant == original_row);
 
     // Reset preserves the live formation; dropping on the panel edge cancels.
     game.click_at(242, 278);
@@ -869,7 +870,7 @@ void FormationUiScenario()
     drop_at(destination);
     game.click_at(360, 276); // Accept, with teardown deferred past button dispatch.
     REQUIRE_FALSE(gXStatus.fReviewCharacterMode);
-    REQUIRE(g_status.formation.positions[slot].bQuadrant == destination_row);
+    REQUIRE(g_status.party.formation.positions[slot].bQuadrant == destination_row);
     REQUIRE(g_ui.captured == 0);
 
     OpenFormationPanel();
@@ -879,7 +880,7 @@ void FormationUiScenario()
     game.click_at(394, 276); // Cancel after re-entry.
     REQUIRE_FALSE(gXStatus.fReviewCharacterMode);
     REQUIRE(!OverlayPixel({320, 180})); // Closing erases the panel.
-    REQUIRE(g_status.formation.positions[slot].bQuadrant == destination_row);
+    REQUIRE(g_status.party.formation.positions[slot].bQuadrant == destination_row);
 }
 
 std::vector<fs::path> SaveFiles(const fs::path& user)
@@ -925,7 +926,7 @@ void VideoScenario(bool intro_seen)
     g_settings.intro_seen = intro_seen;
     // The startup logo movie plays on the intro screen.
     game.wait("logo", [] { return g_runtime_test_hooks.movie_frames_presented >= 1; });
-    REQUIRE(g_current_screen_state.id == W8_SCREEN_INTRO);
+    REQUIRE(CurrentScreenState().id == W8_SCREEN_INTRO);
     unsigned lit = 0;
     game.wait("logo-content", [&] {
         if (g_runtime_test_hooks.movie_frames_presented > 150)
@@ -939,7 +940,7 @@ void VideoScenario(bool intro_seen)
         // On a first launch, skipping the logo starts the title movie.
         game.wait("title",
                   [&] { return g_runtime_test_hooks.movie_frames_presented >= logo_frames + 5; });
-        REQUIRE(g_current_screen_state.id == W8_SCREEN_INTRO);
+        REQUIRE(CurrentScreenState().id == W8_SCREEN_INTRO);
         game.key(SDLK_ESCAPE);
     }
     game.wait_screen("main-menu", W8_SCREEN_MAIN_MENU);
@@ -1019,9 +1020,9 @@ void InventoryChestScenario()
     };
     // A full pool can still absorb part of an ammunition stack. The picker
     // must retain only the remainder, including after a second failed attempt.
-    const auto pool = std::vector<W8ItemInstance>(std::begin(g_status.party_item_pool),
-                                                  std::end(g_status.party_item_pool));
-    const auto pool_count = g_status.party_item_count;
+    const auto pool = std::vector<W8ItemInstance>(std::begin(g_status.party.item_pool),
+                                                  std::end(g_status.party.item_pool));
+    const auto pool_count = g_status.party.item_count;
     const auto original_item = picker->entries.front().item->item;
     const auto picker_count = picker->entries.size();
     int stack_id = -1, nonstack_id = -1;
@@ -1036,27 +1037,27 @@ void InventoryChestScenario()
     REQUIRE(stack_id >= 0);
     REQUIRE(nonstack_id >= 0);
     auto& remainder = picker->entries.front().item->item;
-    ReplaceOrCreateItem(&remainder, stack_id, true, false, false);
+    remainder = MakeItem(stack_id, true, false, false);
     remainder.stack_count = 5;
     W8ItemInstance filler{};
-    ReplaceOrCreateItem(&filler, nonstack_id, true, false, false);
-    std::fill(std::begin(g_status.party_item_pool), std::end(g_status.party_item_pool), filler);
-    g_status.party_item_count = 500;
-    g_status.party_item_pool[0] = remainder;
+    filler = MakeItem(nonstack_id, true, false, false);
+    std::fill(std::begin(g_status.party.item_pool), std::end(g_status.party.item_pool), filler);
+    g_status.party.item_count = 500;
+    g_status.party.item_pool[0] = remainder;
     const auto maximum = g_item_records[stack_id].maximum_quantity;
-    g_status.party_item_pool[0].stack_count = maximum - 2;
+    g_status.party.item_pool[0].stack_count = maximum - 2;
     for (auto& entry : picker->entries) entry.selected = false;
     picker->entries.front().selected = true;
     click_button(1);
     REQUIRE(picker->entries.size() == picker_count);
-    REQUIRE(g_status.party_item_count == 500);
-    REQUIRE(g_status.party_item_pool[0].stack_count == maximum);
+    REQUIRE(g_status.party.item_count == 500);
+    REQUIRE(g_status.party.item_pool[0].stack_count == maximum);
     REQUIRE(remainder.stack_count == 3);
     click_button(1);
     REQUIRE(remainder.stack_count == 3);
     remainder = original_item;
-    std::copy(pool.begin(), pool.end(), std::begin(g_status.party_item_pool));
-    g_status.party_item_count = pool_count;
+    std::copy(pool.begin(), pool.end(), std::begin(g_status.party.item_pool));
+    g_status.party.item_count = pool_count;
     RedistributePartyEncumbrance();
     for (auto& entry : picker->entries) entry.selected = false;
     click_button(0); // Select all.
@@ -1070,14 +1071,14 @@ void InventoryChestScenario()
     Walk(game, "walk-after-chest", 5);
     int potion_slot = -1;
     for (int i = 0; i < 500; ++i)
-        if (g_status.party_item_pool[i].iItemNo >= 0 &&
-            g_item_records[g_status.party_item_pool[i].iItemNo].unidentified_name_index == 102) {
+        if (g_status.party.item_pool[i].iItemNo >= 0 &&
+            g_item_records[g_status.party.item_pool[i].iItemNo].unidentified_name_index == 102) {
             potion_slot = i;
             break;
         }
     REQUIRE(potion_slot >= 0);
     // Exercise the purple-potion icon with the unidentified overlay as well.
-    g_status.party_item_pool[potion_slot].identified = false;
+    g_status.party.item_pool[potion_slot].identified = false;
     game.command(W8_MGS_COMMAND_INVENTORY);
     game.wait_screen("inventory", W8_SCREEN_CAMP);
     REQUIRE(g_camera_motion_clamp == motion_clamp);
@@ -1088,9 +1089,9 @@ void InventoryChestScenario()
         if (g_camp_screen->item_list[i] == potion_slot) potion_cell = i;
     REQUIRE(potion_cell >= 0);
     game.click_at(535 + (potion_cell & 1) * 49, 219 + (potion_cell >> 1) * 57);
-    REQUIRE(g_status.item_in_cursor);
+    REQUIRE((g_status.party.held.item.iItemNo != -1));
     game.click_at(34, 219);
-    REQUIRE_FALSE(g_status.item_in_cursor);
+    REQUIRE_FALSE((g_status.party.held.item.iItemNo != -1));
     game.click_at(320, 170); // Keep the cursor outside the grids for pixel comparisons.
     const auto rendered = game.read_frame();
     const auto& surface = GetFrameBufferSurface();
@@ -1117,7 +1118,7 @@ void InventoryChestScenario()
     REQUIRE(game.within_frames(4, [] { return g_camp_screen->dialog == nullptr; }));
 
     const auto slot = PremadeSlot();
-    auto& caster = g_status.buffers.Char[slot];
+    auto& caster = g_status.party.characters[slot];
 
     // Use a real healing consumable through inventory. It must reach gameplay,
     // heal the user and consume exactly one unit from the carried stack.
@@ -1131,7 +1132,7 @@ void InventoryChestScenario()
         }
     REQUIRE(healing_potion >= 0);
     auto& potion = caster.backpack[1];
-    ReplaceOrCreateItem(&potion, healing_potion, true, true, false);
+    potion = MakeItem(healing_potion, true, true, false);
     potion.stack_count = 2;
     caster.hp_current = 1;
     g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_ALL;
@@ -1141,8 +1142,8 @@ void InventoryChestScenario()
     game.click_at(83, 219);
     game.wait_screen("use-potion-return", W8_SCREEN_MAIN_GAME);
     const bool healed = game.within_frames(600, [&] { return caster.hp_current > 1; });
-    CAPTURE(ItemUseDraft(), gXStatus.iTargetingMode, g_status.item_in_cursor, potion.stack_count,
-            g_status.buffers.XChar[slot].pending_action);
+    CAPTURE(ItemUseDraft(), gXStatus.iTargetingMode, (g_status.party.held.item.iItemNo != -1),
+            potion.stack_count, g_status.party.rows[slot].pending_action);
     Snapshot("potion-use", game.read_frame());
     REQUIRE(healed);
     REQUIRE(potion.iItemNo == healing_potion);
@@ -1176,7 +1177,7 @@ void CampSpellsScenario()
     game.wait_screen("camp-spells", W8_SCREEN_CAMP);
     // Identify from the inventory action strip must cast on the clicked item,
     // spend mana and show its information, rather than book an empty target.
-    auto& caster = g_status.buffers.Char[PremadeSlot()];
+    auto& caster = g_status.party.characters[PremadeSlot()];
     caster.iProfession = W8_PROFESSION_BISHOP;
     caster.uiExpLevel = 4;
     caster.profession_levels[W8_PROFESSION_BISHOP] = 4;
@@ -1188,7 +1189,7 @@ void CampSpellsScenario()
     auto& sword = caster.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON];
     REQUIRE(sword.iItemNo >= 0);
     sword.identified = false;
-    RefreshCampItemActions(true);
+    g_camp_screen->RefreshCampItemActions(true);
     game.frame();
     game.click_at(240, 466); // Identify spell, not the artifacts-skill button.
     REQUIRE(g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_USE_ON_ITEM);
@@ -1212,7 +1213,7 @@ void CampSpellsScenario()
     const auto curse_realm = g_spell_records[W8_SPELL_REMOVE_CURSE].realm;
     caster.sp_max[curse_realm] = caster.iSPLeft[curse_realm] = 100;
     caster.uiCondition[W8_CONDITION_HEXED] = 20;
-    RefreshCampItemActions(true);
+    g_camp_screen->RefreshCampItemActions(true);
     game.frame();
     // Fix the roll sequence so successful but insufficient attempts repeat.
     SeedRandom(1);
@@ -1223,8 +1224,8 @@ void CampSpellsScenario()
     REQUIRE(caster.iSPLeft[curse_realm] < 100);
     REQUIRE(caster.iSPLeft[curse_realm] >= 0);
     REQUIRE(g_camp_screen->item_action == W8_CAMP_ITEM_ACTION_NONE);
-    REQUIRE(g_status.buffers.XChar[slot].spell.target.iType == W8_TARGET_KIND_CHARACTER);
-    REQUIRE(g_status.buffers.XChar[slot].spell.target.iChar == slot);
+    REQUIRE(g_status.party.rows[slot].spell.target.iType == W8_TARGET_KIND_CHARACTER);
+    REQUIRE(g_status.party.rows[slot].spell.target.iChar == slot);
     caster.uiCondition[W8_CONDITION_HEXED] = 0;
 }
 
@@ -1270,10 +1271,10 @@ void CheckWorldRender(Game& game)
 void CheckGameplayUi(Game& game)
 {
     const int slot = PremadeSlot();
-    const auto original_formation = g_status.formation;
+    const auto original_formation = g_status.party.formation;
     OpenFormationPanel();
     game.frame();
-    const auto position = g_status.formation.positions[slot];
+    const auto position = g_status.party.formation.positions[slot];
     const int source = position.bQuadrant * 3 + position.bQuadrantSlot;
     REQUIRE((source >= 0 && source < 15));
     const int destination = ((position.bQuadrant + 1) % 5) * 3;
@@ -1299,13 +1300,13 @@ void CheckGameplayUi(Game& game)
     REQUIRE(gXStatus.edited_formation.positions[slot].bQuadrant == destination / 3);
     game.click_at(360, 276);
     REQUIRE_FALSE(gXStatus.fReviewCharacterMode);
-    REQUIRE(g_status.formation.positions[slot].bQuadrant == destination / 3);
-    g_status.formation = original_formation;
+    REQUIRE(g_status.party.formation.positions[slot].bQuadrant == destination / 3);
+    g_status.party.formation = original_formation;
     RefreshFormationBoard();
 
     // Give the fixture a real learned spell and mana; exercise pointer routing,
     // realm tooltips and power selection with the licensed spell data.
-    auto& character = g_status.buffers.Char[slot];
+    auto& character = g_status.party.characters[slot];
     const auto original_character = character;
     character.iProfession = W8_PROFESSION_MAGE;
     character.skills[W8_SKILL_FIRE_MAGIC].level = 100;
@@ -1334,8 +1335,8 @@ void CheckGameplayUi(Game& game)
         REQUIRE(!gpSCSV);
     } else {
         // Target-free spells may commit in the same frame as power selection.
-        REQUIRE(g_status.buffers.XChar[slot].spell.detail == W8_SPELL_LIGHT);
-        REQUIRE(g_status.buffers.XChar[slot].spell.detail_block.spell.power_level == 2);
+        REQUIRE(g_status.party.rows[slot].spell.detail == W8_SPELL_LIGHT);
+        REQUIRE(g_status.party.rows[slot].spell.detail_block.spell.power_level == 2);
     }
     REQUIRE(gXStatus.world_paused);
     REQUIRE(WorldAdvancementBlocked());
@@ -1359,20 +1360,20 @@ void CheckGameplayUi(Game& game)
     RefreshSpellIconHudRows();
 
     const auto original_experience = character.experience;
-    const auto original_notice = g_status.buffers.XChar[slot].portrait_advance;
+    const auto original_notice = g_status.party.rows[slot].portrait_advance;
     character.experience = character.experience_goal;
-    g_status.buffers.XChar[slot].portrait_advance = true;
+    g_status.party.rows[slot].portrait_advance = true;
     EnablePortraitAdvanceRegions();
     UpdatePortraitAdvanceButtons();
     game.click_at(((slot & 1) ? 0x23b : 0) + 0x22, (slot / 2) * 0x55 + 0x4f);
     game.wait_screen("level-up-character", W8_SCREEN_CHARACTER);
     REQUIRE(g_character_screen->m_mode == W8_CHARACTER_LEVEL_UP);
-    REQUIRE(g_character_screen->m_original == &g_status.buffers.Char[slot]);
+    REQUIRE(g_character_screen->m_original == &g_status.party.characters[slot]);
     game.key(SDLK_ESCAPE);
     game.key(SDLK_RETURN); // Confirm abandoning the level-up edit.
     game.wait_screen("cancel-level-up", W8_SCREEN_MAIN_GAME);
     character.experience = original_experience;
-    g_status.buffers.XChar[slot].portrait_advance = original_notice;
+    g_status.party.rows[slot].portrait_advance = original_notice;
     UpdatePortraitAdvanceButtons();
 }
 
@@ -1422,25 +1423,25 @@ void ResourceLifecycleScenario()
     REQUIRE(g_options_screen->m_selected_panel == 2);
     game.click_at(30, 60); // Artwork hotspot selects the same panel as its button.
     REQUIRE(g_options_screen->m_selected_panel == 0);
-    const float combat_speed = g_options_values.combat_speed;
+    const float combat_speed = g_options_screen->values.combat_speed;
     game.click_at(480, 50);
-    const float clicked_speed = g_options_values.combat_speed;
+    const float clicked_speed = g_options_screen->values.combat_speed;
     REQUIRE(clicked_speed < 0.5f);
     game.press_at(480, 50);
     game.move_pointer(520, 50);
-    REQUIRE(g_options_values.combat_speed > clicked_speed);
+    REQUIRE(g_options_screen->values.combat_speed > clicked_speed);
     game.release_at(200, 190); // Captured release outside ends the drag.
-    const float released_speed = g_options_values.combat_speed;
+    const float released_speed = g_options_screen->values.combat_speed;
     game.move_pointer(490, 50);
-    REQUIRE(g_options_values.combat_speed == released_speed);
+    REQUIRE(g_options_screen->values.combat_speed == released_speed);
     game.click_at(30, 250); // An inactive panel must not retain slider input.
     game.click_at(480, 50);
-    REQUIRE(g_options_values.combat_speed == released_speed);
-    g_options_values.combat_speed = combat_speed;
+    REQUIRE(g_options_screen->values.combat_speed == released_speed);
+    g_options_screen->values.combat_speed = combat_speed;
     game.click_at(20, 445);
     game.wait_screen("options-menu-return", W8_SCREEN_MAIN_GAME);
     // Exercise a second screen's input, teardown and return-stack lifecycle.
-    const std::size_t return_depth = g_screen_return_stack.size();
+    const std::size_t return_depth = SuspendedScreenCount();
     // Retail saves can retain entries whose fact no longer exists. Opening,
     // painting and toggling the journal must ignore them without deleting them.
     const auto journal_size = g_fact_journal_entries.size();
@@ -1448,14 +1449,14 @@ void ResourceLifecycleScenario()
     g_fact_journal_entries.push_back({GetLoadedLevelID(), invalid_fact, false});
     game.command(W8_MGS_COMMAND_JOURNAL);
     game.wait_screen("journal", W8_SCREEN_JOURNAL);
-    REQUIRE(g_screen_return_stack.size() == return_depth + 1);
-    REQUIRE(g_screen_return_stack.back().id == W8_SCREEN_MAIN_GAME);
+    REQUIRE(SuspendedScreenCount() == return_depth + 1);
+    REQUIRE(GetPendingScreenState() == W8_SCREEN_MAIN_GAME);
     // Exercise the ordinary toggle and close buttons.
     game.click_at(540, 450);
     game.click_at(540, 450);
     game.click_at(600, 450);
     game.wait_screen("journal-return", W8_SCREEN_MAIN_GAME);
-    REQUIRE(g_screen_return_stack.size() == return_depth);
+    REQUIRE(SuspendedScreenCount() == return_depth);
     REQUIRE(g_fact_journal_entries.size() == journal_size + 1);
     REQUIRE(g_fact_journal_entries.back().fact == invalid_fact);
     g_fact_journal_entries.pop_back();
@@ -1499,8 +1500,8 @@ void ResourceLifecycleScenario()
         game.command(W8_MGS_COMMAND_QUICK_LOAD);
         bool loading = false;
         game.wait("reload-level", [&] {
-            loading = loading || g_current_screen_state.id == W8_SCREEN_PLEASE_WAIT;
-            return loading && g_current_screen_state.id == W8_SCREEN_MAIN_GAME && game.settled();
+            loading = loading || CurrentScreenState().id == W8_SCREEN_PLEASE_WAIT;
+            return loading && CurrentScreenState().id == W8_SCREEN_MAIN_GAME && game.settled();
         });
         Settle(game, "reload-level");
         REQUIRE(GetLoadedLevelID() == level);
@@ -1519,8 +1520,8 @@ void WriteSaveFixture(const fs::path& output, const fs::path& save, const glm::v
     std::ofstream metadata(output / "fixture.txt");
     metadata << std::setprecision(std::numeric_limits<float>::max_digits10) << anchor.x << ' '
              << anchor.y << ' ' << anchor.z << ' ' << GetLoadedLevelID() << ' '
-             << g_status.buffers.Char[PremadeSlot()].experience << ' '
-             << g_status.buffers.Char[PremadeSlot()].hp_current << '\n';
+             << g_status.party.characters[PremadeSlot()].experience << ' '
+             << g_status.party.characters[PremadeSlot()].hp_current << '\n';
     metadata.close();
     REQUIRE(metadata);
     std::printf("save-fixture: wrote %s (%ju bytes)\n", (output / "fixture.SAV").string().c_str(),
@@ -1532,8 +1533,8 @@ void WriteSaveFixture(const fs::path& output, const fs::path& save, const glm::v
 W8MonsterInfo* EnterCombat(Game& game)
 {
     game.command(W8_MGS_COMMAND_TOGGLE_COMBAT);
-    REQUIRE(game.within_frames(4, [] { return gXStatus.fCombatMode != 0; }));
-    REQUIRE(g_combat_state);
+    REQUIRE(game.within_frames(4, [] { return g_combat.active() != 0; }));
+    REQUIRE(g_combat.state());
     W8MonsterInfo* monster = nullptr;
     for (const auto& candidate : CurrentLevelPopulation().monster_roster.live()) {
         if (candidate->fActive && candidate->p3D && candidate->hp_current &&
@@ -1555,8 +1556,8 @@ void QuickSaveScenario()
     StartPremadeGame(game);
     const glm::vec3 anchor = Walk(game, "walk", 2.0f);
     const int level = GetLoadedLevelID();
-    const unsigned experience = g_status.buffers.Char[PremadeSlot()].experience;
-    const auto health = g_status.buffers.Char[PremadeSlot()].hp_current;
+    const unsigned experience = g_status.party.characters[PremadeSlot()].experience;
+    const auto health = g_status.party.characters[PremadeSlot()].hp_current;
     REQUIRE(health > 1);
     const fs::path save = QuickSave(game);
     WriteSaveFixture(WIZ8_RUNTIME_SAVE_FIXTURE, save, anchor);
@@ -1564,8 +1565,8 @@ void QuickSaveScenario()
     REQUIRE(HorizontalDistance(PartyPosition(), anchor) > 2.0f);
     // Change a persistent field as well as the camera: loading must replace
     // the character record, not just reposition the party.
-    g_status.buffers.Char[PremadeSlot()].experience = experience + 123;
-    g_status.buffers.Char[PremadeSlot()].hp_current = health - 1;
+    g_status.party.characters[PremadeSlot()].experience = experience + 123;
+    g_status.party.characters[PremadeSlot()].hp_current = health - 1;
     // Loading ends the fight while the main game is suspended.
     EnterCombat(game);
     /* With the pointer over the world view, re-entering the main game hit-tests
@@ -1576,16 +1577,16 @@ void QuickSaveScenario()
     game.command(W8_MGS_COMMAND_QUICK_LOAD);
     bool loading = false;
     game.wait("quick-load", [&] {
-        loading = loading || g_current_screen_state.id == W8_SCREEN_PLEASE_WAIT;
-        return loading && g_current_screen_state.id == W8_SCREEN_MAIN_GAME && game.settled();
+        loading = loading || CurrentScreenState().id == W8_SCREEN_PLEASE_WAIT;
+        return loading && CurrentScreenState().id == W8_SCREEN_MAIN_GAME && game.settled();
     });
     Settle(game, "quick-load");
     ExpectAt("quick-load", anchor);
     REQUIRE(CountActiveCharacters() == 1);
     REQUIRE(GetLoadedLevelID() == level);
-    REQUIRE(g_status.buffers.Char[PremadeSlot()].experience == experience);
-    REQUIRE(g_status.buffers.Char[PremadeSlot()].hp_current == health);
-    REQUIRE(!gXStatus.fCombatMode);
+    REQUIRE(g_status.party.characters[PremadeSlot()].experience == experience);
+    REQUIRE(g_status.party.characters[PremadeSlot()].hp_current == health);
+    REQUIRE(!g_combat.active());
     std::printf("quick-save: %s round-tripped after %lu frames\n", save.filename().string().c_str(),
                 game.frames());
 }
@@ -1598,8 +1599,8 @@ void LoadFromMenu(Game& game, const fs::path& save)
     game.click("load-game", MainMenuRegion(2));
     W8OptionsSaveLoadPanel* panel = nullptr;
     game.wait("load-panel", [&] {
-        if (g_current_screen_state.id != W8_SCREEN_OPTIONS || !game.settled() ||
-            !g_options_screen || g_options_screen->m_selected_panel != 4)
+        if (CurrentScreenState().id != W8_SCREEN_OPTIONS || !game.settled() || !g_options_screen ||
+            g_options_screen->m_selected_panel != 4)
             return false;
         // Panel set 4 holds the single load panel (W8OptionsSaveLoadPanel 11).
         W8OptionsPanelSet* set = g_options_screen->m_panel[4].get();
@@ -1635,8 +1636,8 @@ void LoadGameScenario(const fs::path& fixture)
     ExpectAt("loaded", anchor);
     REQUIRE(CountActiveCharacters() == 1);
     REQUIRE(GetLoadedLevelID() == level);
-    REQUIRE(g_status.buffers.Char[PremadeSlot()].experience == experience);
-    REQUIRE(g_status.buffers.Char[PremadeSlot()].hp_current == health);
+    REQUIRE(g_status.party.characters[PremadeSlot()].experience == experience);
+    REQUIRE(g_status.party.characters[PremadeSlot()].hp_current == health);
     std::printf("load-game: loaded the fixture after %lu frames\n", game.frames());
 }
 
@@ -1648,13 +1649,13 @@ void MenuSaveScenario()
     StartPremadeGame(game);
     const auto anchor = Settle(game, "menu-save-settle");
     const int slot = PremadeSlot();
-    g_status.buffers.Char[slot].experience = 123;
+    g_status.party.characters[slot].experience = 123;
     const auto click = [&](const W8ButtonWidget& button) {
         const auto bounds = button.Bounds();
         game.click_at(bounds.x + bounds.w / 2, bounds.y + bounds.h / 2);
     };
     const auto open = [&](bool save) -> W8OptionsSaveLoadPanel& {
-        if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
+        if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
             game.command(W8_MGS_COMMAND_OPTIONS);
             game.wait_screen("save-options", W8_SCREEN_OPTIONS);
         }
@@ -1679,7 +1680,7 @@ void MenuSaveScenario()
     const auto original_bytes = wiz8::open_file(save)->read_text();
     REQUIRE_FALSE(original_bytes.empty());
 
-    g_status.buffers.Char[slot].experience = 456;
+    g_status.party.characters[slot].experience = 456;
     auto& overwrite = open(true);
     click(overwrite.m_rows[1]->button);
     REQUIRE(overwrite.m_selected == 1);
@@ -1724,13 +1725,13 @@ void MenuSaveScenario()
     save = saves.front();
     REQUIRE(save.stem() == "MenuRenamed");
 
-    g_status.buffers.Char[slot].experience = 999;
+    g_status.party.characters[slot].experience = 999;
     auto& load = open(false);
     click(load.m_rows[0]->button);
     click(*load.m_action_button);
     WaitMainGame(game, "menu-save-loaded");
     Settle(game, "menu-save-loaded");
-    REQUIRE(g_status.buffers.Char[slot].experience == 456);
+    REQUIRE(g_status.party.characters[slot].experience == 456);
     ExpectAt("menu-save-loaded", anchor);
 
     auto& remove = open(false);
@@ -1831,14 +1832,14 @@ void BuyAnswer(Game& game, const char* step, W8FactId fact)
     WaitDialogue(game, step, [] {
         return g_modal_owner != nullptr && g_npc_dialogue.price_check().has_value();
     });
-    const unsigned gold = g_status.party_gold;
+    const unsigned gold = g_status.party.gold;
     const int price = g_npc_dialogue.price_check().value().price;
     CAPTURE(step, gold, price);
     REQUIRE((price > 0 && unsigned(price) <= gold));
     REQUIRE(GetFact(fact) == 0);
     ChooseFirstReply(game, step);
     WaitDialogue(game, step, DialogueAwaitingPlayer);
-    REQUIRE(g_status.party_gold == gold - unsigned(price));
+    REQUIRE(g_status.party.gold == gold - unsigned(price));
     REQUIRE(GetFact(fact) != 0);
 }
 
@@ -1867,7 +1868,7 @@ void NpcDialogueScenario()
     Settle(game, "settle");
     W8NpcState* burz = FindNpcStateByName("Burz");
     REQUIRE(burz);
-    g_status.party_gold = 200;
+    g_status.party.gold = 200;
 
     StartConversation(game, "greeting", burz);
     Ask(game, "messenger");
@@ -1917,7 +1918,7 @@ void Approach(Game& game, int location_id, float stop)
         if (key != SDLK_UNKNOWN) game.hold_key(key, true);
         held = key;
     };
-    for (int frame = 0; frame < 60 * 120 && !gXStatus.fCombatMode; ++frame) {
+    for (int frame = 0; frame < 60 * 120 && !g_combat.active(); ++frame) {
         const CameraPose camera = cameraState(*GetWorld());
         const glm::vec3 target = monster->p3D->nav.GetPosition();
         if (HorizontalDistance(target, camera.position) < stop) break;
@@ -1970,9 +1971,9 @@ void CombatScenario()
     game.key(SDLK_ESCAPE);
     REQUIRE(game.within_frames(4, [] { return !g_modal_owner && !OverlayPixel({320, 240}); }));
 
-    const W8Character& fighter = g_status.buffers.Char[PremadeSlot()];
+    const W8Character& fighter = g_status.party.characters[PremadeSlot()];
     Approach(game, kBeachCrab, 700);
-    REQUIRE(gXStatus.fCombatMode);
+    REQUIRE(g_combat.active());
     const std::vector<W8MonsterInfo*> crabs = CombatMonsters();
     REQUIRE(!crabs.empty());
     std::vector<int> crab_ids;
@@ -1994,11 +1995,12 @@ void CombatScenario()
     const int kills = fighter.kill_count;
     CAPTURE(crab_ids, start_distance, health);
 
-    for (int round = 0; round < 8 && gXStatus.fCombatMode &&
+    for (int round = 0; round < 8 && g_combat.active() &&
                         !(fighter.hp_current < health && remaining_health() < crab_health);
          ++round) {
         game.command(W8_MGS_COMMAND_START_COMBAT_ROUND);
-        game.wait("round", [] { return !g_combat_state || !g_combat_state->execution_active; }, 60);
+        game.wait(
+            "round", [] { return !g_combat.state() || !g_combat.state()->execution_active; }, 60);
         closest = std::min(closest, NearestCombatMonster());
     }
     CAPTURE(fighter.hp_current, remaining_health(), closest, game.frames());
@@ -2022,26 +2024,65 @@ void CombatScenario()
         REQUIRE((dead && !dead->fActive && dead->hp_current == 0 &&
                  dead->uiCondition[W8_CONDITION_DEAD] != 0));
     }
-    if (gXStatus.fCombatMode && !g_combat_state->execution_active)
+    if (g_combat.active() && !g_combat.state()->execution_active)
         game.command(W8_MGS_COMMAND_START_COMBAT_ROUND);
-    game.wait("leave-combat", [] { return gXStatus.fCombatMode == 0; }, 60);
-    REQUIRE(!g_combat_state);
+    game.wait("leave-combat", [] { return g_combat.active() == 0; }, 60);
+    REQUIRE(!g_combat.state());
     CHECK(fighter.experience == experience + reward);
     CHECK(fighter.kill_count == kills + int(crab_ids.size()));
     game.command(W8_MGS_COMMAND_TOGGLE_COMBAT);
-    REQUIRE(game.within_frames(4, [] { return gXStatus.fCombatMode != 0; }));
-    REQUIRE((g_combat_state && g_combat_state->round_count == 0));
-    REQUIRE(g_combat_state->attack_report.reports.empty());
+    REQUIRE(game.within_frames(4, [] { return g_combat.active() != 0; }));
+    REQUIRE((g_combat.state() && g_combat.state()->round_count == 0));
+    REQUIRE(g_combat.state()->attack_report.reports.empty());
+    auto& member = g_status.party.characters[PremadeSlot()];
+    member.party_weight_share = 123456;
+    RedistributePartyEncumbrance();
+    REQUIRE(g_status.party.redistribution_pending);
     game.command(W8_MGS_COMMAND_TOGGLE_COMBAT);
-    game.wait("leave-combat-again", [] { return gXStatus.fCombatMode == 0; }, 10);
-    REQUIRE(!g_combat_state);
+    game.wait("leave-combat-again", [] { return g_combat.active() == 0; }, 10);
+    REQUIRE(!g_combat.state());
+    REQUIRE_FALSE(g_status.party.redistribution_pending);
+    REQUIRE(member.party_weight_share != 123456);
+
+    // Placement consumes the supplied player exclusion, including its absence.
+    auto& octree = *GetWorld()->spatial;
+    const auto origin = PartyNavigator()->movement.position;
+    const auto available =
+        octree.navigatorPositions(origin, 0, 100, 1, true, false, false, 5, false, std::nullopt);
+    REQUIRE_FALSE(available.positions.empty());
+    const BoundingSphere excluded{origin, 1e9f};
+    REQUIRE(octree.navigatorPositions(origin, 0, 100, 1, true, false, false, 5, false, excluded)
+                .positions.empty());
+    const auto scattered = octree.scatterPositions(origin, 0, 200, 1, true, false, std::nullopt);
+    REQUIRE_FALSE(scattered.empty());
+    REQUIRE(octree.scatterPositions(origin, 0, 200, 1, true, false, excluded).empty());
+    {
+        // Keep the queried world alive while another, empty world is active.
+        // Ground probes and monster lookups must still use the queried octree.
+        struct RestoreWorld {
+            std::unique_ptr<World> previous = ReplaceWorld(std::make_unique<World>());
+            ~RestoreWorld() { ReplaceWorld(std::move(previous)); }
+        } restore;
+        REQUIRE(
+            octree.navigatorPositions(origin, 0, 100, 1, true, false, false, 5, false, std::nullopt)
+                .positions == available.positions);
+        REQUIRE(octree.scatterPositions(origin, 0, 200, 1, true, false, std::nullopt) == scattered);
+    }
     /* Shutting down mid-fight ends it before the interface is released, also
        while the inventory has suspended the main game and released its
        portrait controls. */
     EnterCombat(game);
     game.command(W8_MGS_COMMAND_INVENTORY);
     game.wait_screen("inventory-in-combat", W8_SCREEN_CAMP);
-    REQUIRE(gXStatus.fCombatMode);
+    REQUIRE(g_combat.active());
+    // HP exhaustion from the full live operation must apply death, not lose the result
+    // to an earlier duplicate calculation. Teardown still ends combat from camp.
+    member.uiHPMax = 100000;
+    member.hp_current = 1;
+    RecalculateCharacterDerivedStats(member);
+    REQUIRE(member.hp_current == 0);
+    REQUIRE(member.uiCondition[W8_CONDITION_DEAD] != 0);
+    REQUIRE(member.highest_condition >= W8_CONDITION_DEAD);
     std::printf("combat: fight, kills and exit after %lu frames\n", game.frames());
 }
 
@@ -2060,19 +2101,20 @@ void CombatScenario()
 void PrintState(Game& game)
 {
     std::printf("[%lu] screen=%s pending=%s modal=%d combat=%d ui=%d", game.frames(),
-                ScreenName(g_current_screen_state.id), ScreenName(g_pending_screen_state.id),
-                g_modal_owner != nullptr, int(gXStatus.fCombatMode), int(g_settings.main_ui_mode));
-    if (g_combat_state)
-        std::printf(" round=%u executing=%d", g_combat_state->round_count,
-                    int(g_combat_state->execution_active));
-    if (g_current_screen_state.id == W8_SCREEN_CAMP && g_camp_screen)
+                ScreenName(CurrentScreenState().id), ScreenName(RequestedScreen()),
+                g_modal_owner != nullptr, int(g_combat.active()), int(g_settings.main_ui_mode));
+    if (g_combat.state())
+        std::printf(" round=%u executing=%d", g_combat.state()->round_count,
+                    int(g_combat.state()->execution_active));
+    if (CurrentScreenState().id == W8_SCREEN_CAMP && g_camp_screen)
         std::printf(" camp_pc=%d page=%d item_action=%d camp_dialog=%d targeting=%d",
-                    giReviewCharSlot, int(g_camp_screen->page), int(g_camp_screen->item_action),
-                    g_camp_screen->dialog != nullptr, int(gXStatus.iTargetingMode));
+                    g_camp_screen->ReviewedPartySlot(), int(g_camp_screen->page),
+                    int(g_camp_screen->item_action), g_camp_screen->dialog != nullptr,
+                    int(gXStatus.iTargetingMode));
     std::printf("\n");
     for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
-        if (g_status.buffers.XChar[slot].fOccupied) {
-            const auto& character = g_status.buffers.Char[slot];
+        if (g_status.party.rows[slot].fOccupied) {
+            const auto& character = g_status.party.characters[slot];
             std::printf("  pc %d %s hp=%u xp=%u kills=%d\n", slot, character.name.c_str(),
                         character.hp_current, character.experience, character.kill_count);
         }
@@ -2117,9 +2159,9 @@ void Trace(Game& game, int location_id, int frames)
                     int(body.nav.halted), unsigned(body.nav.flags),
                     body.nav.movement.callback_progress, body.nav.movement.callback_threshold,
                     body.nav.movement.movement_speed,
-                    g_combat_state ? int(g_combat_state->action_status) : -1,
-                    g_combat_state && g_combat_state->pActionMonsterInfo
-                        ? g_combat_state->pActionMonsterInfo->location_id
+                    g_combat.state() ? int(g_combat.state()->action_status) : -1,
+                    g_combat.state() && g_combat.state()->pActionMonsterInfo
+                        ? g_combat.state()->pActionMonsterInfo->location_id
                         : -1,
                     monster->p3D->Query(W8_MONSTER_QUERY_CYCLE),
                     monster->p3D->Query(W8_MONSTER_QUERY_FRAME),
@@ -2130,7 +2172,7 @@ void Trace(Game& game, int location_id, int frames)
 
 void PrintItems(int slot)
 {
-    const W8Character& character = g_status.buffers.Char[slot];
+    const W8Character& character = g_status.party.characters[slot];
     const auto describe = [](const W8ItemInstance& item) {
         return item.iItemNo > 0 ? g_item_records[item.iItemNo].display_name + "(" +
                                       std::to_string(item.iItemNo) + ")"
@@ -2243,12 +2285,13 @@ bool RunScriptCommand(Game& game, const std::string& line)
                 std::printf("  journal entry level %d fact %d alternate %d out of range\n",
                             entry.level, int(entry.fact), entry.alternate_text);
     } else if (op == "items" || op == "spells") {
-        const int slot = g_current_screen_state.id == W8_SCREEN_CAMP ? giReviewCharSlot
-                                                                     : g_status.selected_character;
+        const int slot = CurrentScreenState().id == W8_SCREEN_CAMP
+                             ? g_camp_screen->ReviewedPartySlot()
+                             : g_status.selected_character;
         if (op == "items") {
             PrintItems(slot);
         } else {
-            const auto& character = g_status.buffers.Char[slot];
+            const auto& character = g_status.party.characters[slot];
             std::printf("  spells of %d %s:\n", slot, character.name.c_str());
             for (std::size_t id = 0; id < std::size(character.spell_learned); ++id) {
                 if (!character.spell_learned[id]) continue;

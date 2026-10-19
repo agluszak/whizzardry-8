@@ -22,6 +22,7 @@
 #include "wiz8/text_input.h"
 #include "wiz8/ui_layer.h"
 
+class W8OptionsScreen;
 class W8OptionsPanel;
 struct W8OptionsSaveRow;
 class W8MessageDialogBase;
@@ -88,8 +89,6 @@ struct W8OptionsValues {
     bool pc_subtitles;
     bool applying;
 };
-
-extern W8OptionsValues g_options_values;
 
 /* A set of option panels; it owns the panels in its vector. */
 class W8OptionsPanelSet {
@@ -171,24 +170,36 @@ public:
 };
 
 class W8OptionsGamePanel : public W8OptionsPanel {
+    W8OptionsValues& values;
+
 public:
+    explicit W8OptionsGamePanel(W8OptionsValues& values) : values(values) {}
     virtual void Populate() override;
 };
 
 class W8OptionsMousePanel : public W8OptionsPanel {
+    W8OptionsValues& values;
+
 public:
+    explicit W8OptionsMousePanel(W8OptionsValues& values) : values(values) {}
     virtual void Populate() override;
 };
 
 class W8OptionsInterfacePanel : public W8OptionsPanel {
+    W8OptionsValues& values;
+
 public:
+    explicit W8OptionsInterfacePanel(W8OptionsValues& values) : values(values) {}
     virtual void Populate() override;
     void OnPrimary(W8ButtonWidget* control);
     W8OptionsSlider* m_tooltip_delay;
 };
 
 class W8OptionsAudioPanel : public W8OptionsPanel {
+    W8OptionsValues& values;
+
 public:
+    explicit W8OptionsAudioPanel(W8OptionsValues& values) : values(values) {}
     virtual void Populate() override;
     void OnPrimary(W8ButtonWidget* control);
     void ChangeVolume(int index, float value);
@@ -198,12 +209,18 @@ public:
 };
 
 class W8OptionsGraphicsPanel : public W8OptionsPanel {
+    W8OptionsValues& values;
+
 public:
+    explicit W8OptionsGraphicsPanel(W8OptionsValues& values) : values(values) {}
     virtual void Populate() override;
 };
 
 class W8OptionsAdvancedGraphicsPanel : public W8OptionsPanel {
+    W8OptionsValues& values;
+
 public:
+    explicit W8OptionsAdvancedGraphicsPanel(W8OptionsValues& values) : values(values) {}
     virtual void Populate() override;
 };
 
@@ -218,8 +235,10 @@ struct W8OptionsKeyButton {
 };
 
 class W8OptionsKeyboardPanel : public W8OptionsPanel {
+    W8OptionsScreen& screen;
+
 public:
-    explicit W8OptionsKeyboardPanel(int panel);
+    W8OptionsKeyboardPanel(W8OptionsScreen& screen, int panel);
     void Populate() override;
     void Redraw(SDL_Surface& target, bool full_redraw) override;
     void SetActive(bool active) override;
@@ -241,8 +260,10 @@ public:
 };
 
 class W8OptionsSaveLoadPanel : public W8OptionsPanel {
+    W8OptionsScreen& screen;
+
 public:
-    explicit W8OptionsSaveLoadPanel(int panel);
+    W8OptionsSaveLoadPanel(W8OptionsScreen& screen, int panel);
     void Populate() override;
     void Redraw(SDL_Surface& target, bool full_redraw) override;
     void SetActive(bool active) override;
@@ -296,6 +317,7 @@ public:
     void BeginSaveNameEdit(W8OptionsSaveLoadPanel* owner, int row, std::string_view text);
     void OnDialogClosed(bool accepted, int value);
 
+    W8OptionsValues values{};
     std::vector<std::unique_ptr<W8SaveSlot>> m_save_slots;
     bool m_redraw_pending;
     std::function<void(bool)> m_notification_closed;

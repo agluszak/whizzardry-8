@@ -42,9 +42,9 @@ static Monster* g_swamp_spawned_monster;
    armed for another try. */
 bool SwampOilPool(Trigger* pTrigger)
 {
-    if (g_status.item_in_cursor && GetItemInHand() == 0x2d0) {
-        ClearHeldItemDisplay();
-        ReplaceOrCreateItem(&g_status.item_in_hand, 0x15e, false, true, false);
+    if ((g_status.party.held.item.iItemNo != -1) && GetItemInHand() == 0x2d0) {
+        (void)TakeInventoryItem(g_status.party, {W8ItemStorage::Hand});
+        ReplaceHeldItem(g_status.party, MakeItem(0x15e, false, true, false));
         SetItemCursor(0);
         g_trigger_feedback = true;
     }

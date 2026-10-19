@@ -19,6 +19,7 @@
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/party_slot.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Combat.h"
@@ -88,7 +89,7 @@ unsigned char CreatePartyMovementPanel(void)
 
 void ReleasePartyMovement(void)
 {
-    if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
+    if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
         EraseRegion(0xb1, 0x13f, 0x1cf, 0x153);
     }
     RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
@@ -118,12 +119,12 @@ void DrawPartyMovementPanel(void)
     short right;
     int image;
 
-    if (!gXStatus.fCombatMode) {
-        Fail("gXStatus.fCombatMode");
+    if (!g_combat.active()) {
+        Fail("g_combat.active()");
     }
-    if ((g_combat_state->uiCurrentPartyAction == W8_PARTY_ACTION_NONE ||
-         g_combat_state->uiCurrentPartyActionStatus == W8_PARTY_ACTION_FINISHED) &&
-        g_combat_state->uiNextPartyAction == W8_PARTY_ACTION_NONE) {
+    if ((g_combat.state()->uiCurrentPartyAction == W8_PARTY_ACTION_NONE ||
+         g_combat.state()->uiCurrentPartyActionStatus == W8_PARTY_ACTION_FINISHED) &&
+        g_combat.state()->uiNextPartyAction == W8_PARTY_ACTION_NONE) {
         Fail("((gpCombat->uiCurrentPartyAction != PARTY_ACTION_NONE) && "
              "(gpCombat->uiCurrentPartyActionStatus != ACTION_STATUS_FINISHED)) || "
              "(gpCombat->uiNextPartyAction != PARTY_ACTION_NONE)");
@@ -132,7 +133,7 @@ void DrawPartyMovementPanel(void)
     movement->dirty |= visible != movement->visible_button;
     movement->visible_button = visible;
     for (int index = 0; index < 2; ++index) movement->buttons[index]->SetVisible(index == visible);
-    if (visible == 1) movement->buttons[1]->SetEnabled(g_combat_state->round_active);
+    if (visible == 1) movement->buttons[1]->SetEnabled(g_combat.state()->round_active);
     panel_live = movement->dirty || movement->buttons[visible]->m_dirty;
     if (panel_live) {
         CatalogArtwork::Load(0x93, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0xb1, 0x13f);
@@ -150,10 +151,10 @@ void DrawPartyMovementPanel(void)
         }
     } else {
         image = 0;
-        if (g_combat_state->execution_active != 0 && IsPartyEngaged() == 0) {
-            caption = (g_combat_state->uiCurrentPartyAction != W8_PARTY_ACTION_RUN) + 0x77b;
+        if (g_combat.state()->execution_active != 0 && IsPartyEngaged() == 0) {
+            caption = (g_combat.state()->uiCurrentPartyAction != W8_PARTY_ACTION_RUN) + 0x77b;
         } else {
-            caption = (g_combat_state->uiNextPartyAction != W8_PARTY_ACTION_RUN) + 0x77b;
+            caption = (g_combat.state()->uiNextPartyAction != W8_PARTY_ACTION_RUN) + 0x77b;
         }
     }
     if (panel_live) {
@@ -199,10 +200,10 @@ void DrawPartyMovementGauge(short right, short image, bool panel_live, int capti
         frame = 0;
     }
     W8PartyAction action;
-    if (!CanPartyMove() || (g_combat_state->execution_active != 0 && IsPartyEngaged() == 0)) {
-        action = g_combat_state->uiCurrentPartyAction;
+    if (!CanPartyMove() || (g_combat.state()->execution_active != 0 && IsPartyEngaged() == 0)) {
+        action = g_combat.state()->uiCurrentPartyAction;
     } else {
-        action = g_combat_state->uiNextPartyAction;
+        action = g_combat.state()->uiNextPartyAction;
     }
     if (action == W8_PARTY_ACTION_RUN) {
         timer_length = 0x32;
@@ -259,14 +260,14 @@ unsigned char HandlePartyMovement(float* real_elapsed, float* frame_elapsed)
         return 0;
     }
     for (party_slot = 0; party_slot < W8_PARTY_SLOT_COUNT; ++party_slot) {
-        W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
-        W8Character* character = &g_status.buffers.Char[party_slot];
+        W8PartySlotRow* row = &g_status.party.rows[party_slot];
+        W8Character* character = &g_status.party.characters[party_slot];
         if (!row->fOccupied || character->stamina <= 0 ||
             character->highest_condition >= W8_CONDITION_ASLEEP) {
             continue;
         }
         amount = *frame_elapsed;
-        if (g_status.search_mode || gXStatus.fCombatMode) {
+        if (g_status.search_mode || g_combat.active()) {
             amount = *real_elapsed * 0.5f + amount;
         }
         switch (character->load_category) {
@@ -288,7 +289,7 @@ unsigned char HandlePartyMovement(float* real_elapsed, float* frame_elapsed)
         default:
             Fail("FALSE", "HandlePartyMovement: ERROR - Invalid load category");
         }
-        if (gXStatus.fCombatMode) {
+        if (g_combat.active()) {
             multiplier += multiplier;
         }
         if (character->uiCondition[W8_CONDITION_DISEASED] != 0) {

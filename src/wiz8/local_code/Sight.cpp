@@ -25,6 +25,7 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/npc_state.h"
+#include "wiz8/layouts/party_slot.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/level_population.h"
 #include "wiz8/local_code/Gameloop.h"
@@ -88,7 +89,7 @@ void RefreshOutwardSightForAllMonsters(void)
     for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
         UpdateMonsterSight(GetMonsterListEntry(index), true, false);
     }
-    if (gXStatus.fCombatMode) {
+    if (g_combat.active()) {
         RefreshFlaggedMainGameState();
         RefreshAllPartyTargets();
     }
@@ -343,7 +344,7 @@ void ResetAndRefreshAllSight(void)
     for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
         UpdateMonsterSight(GetMonsterListEntry(index), true, false);
     }
-    if (gXStatus.fCombatMode) {
+    if (g_combat.active()) {
         RefreshFlaggedMainGameState();
         RefreshAllPartyTargets();
     }
@@ -372,7 +373,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
     glm::vec3 other_position;
     glm::vec3 trace_position;
 
-    if (g_current_screen_state.id != W8_SCREEN_MAIN_GAME || !monster_info->fActive ||
+    if (CurrentScreenState().id != W8_SCREEN_MAIN_GAME || !monster_info->fActive ||
         monster_info->hp_current == 0) {
         return;
     }
@@ -388,7 +389,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
     if (!direction) {
         unsigned int index;
 
-        if (!gXStatus.fCombatMode) {
+        if (!g_combat.active()) {
             return;
         }
         for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
@@ -506,14 +507,14 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                 unsigned char fade_flag;
                 float player_distance;
 
-                if (!gXStatus.fCombatMode) {
-                    sight_override = g_status.party_modifiers.sight_override;
+                if (!g_combat.active()) {
+                    sight_override = g_status.party.modifiers.sight_override;
                 } else {
                     sight_override = 0;
                 }
                 for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-                    W8PartySlotRow* row = &g_status.buffers.XChar[slot];
-                    W8Character* character = &g_status.buffers.Char[slot];
+                    W8PartySlotRow* row = &g_status.party.rows[slot];
+                    W8Character* character = &g_status.party.characters[slot];
 
                     if (row->fOccupied && character->hp_current != 0 &&
                         character->highest_condition < W8_CONDITION_ASLEEP &&
@@ -622,8 +623,8 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                 }
                 seen_by_party = false;
                 for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-                    W8PartySlotRow* row = &g_status.buffers.XChar[slot];
-                    W8Character* character = &g_status.buffers.Char[slot];
+                    W8PartySlotRow* row = &g_status.party.rows[slot];
+                    W8Character* character = &g_status.party.characters[slot];
 
                     if (row->fOccupied && character->hp_current != 0 &&
                         character->highest_condition < W8_CONDITION_ASLEEP) {
@@ -639,7 +640,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                             character->uiCondition[W8_CONDITION_BLIND] != 0,
                             character->iProfession == W8_PROFESSION_MONK, record->effective_level,
                             npc_fade_flag, static_cast<int>(monster_info->party_threat.sight_state),
-                            g_status.party_modifiers.sight_override, distance);
+                            g_status.party.modifiers.sight_override, distance);
 
                         if (g_status.search_mode) {
                             threshold *= g_sight_threat_scale;
@@ -677,7 +678,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                         effect = 0x44;
                                     }
                                     W8CharacterEvent* notice =
-                                        QueueCharacterEvent(&g_status.buffers.Char[party_slot],
+                                        QueueCharacterEvent(&g_status.party.characters[party_slot],
                                                             effect, 0, kCharacterEventFullVolume);
 
                                     if (notice != 0) {
@@ -707,7 +708,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                             effect = 0x39;
                                         }
                                         W8CharacterEvent* notice = QueueCharacterEvent(
-                                            &g_status.buffers.Char[party_slot], effect, 0,
+                                            &g_status.party.characters[party_slot], effect, 0,
                                             kCharacterEventFullVolume);
 
                                         if (notice != 0) {

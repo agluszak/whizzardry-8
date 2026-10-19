@@ -109,8 +109,6 @@
 
 struct W8NpcState;
 
-int g_combat_round_counter;
-
 float g_monster_light_scale = 1.0f;
 
 unsigned char g_monster_shadow_updates_enabled;
@@ -572,14 +570,19 @@ void Monster::Update()
         nav.flags |= 0x100000;
     }
 
+    const auto player =
+        owner_world == GetWorld()
+            ? std::optional{BoundingSphere{PartyNavigator()->movement.position,
+                                           PartyNavigator()->movement.alternate_radius}}
+            : std::nullopt;
     if (monster_info == 0) {
-        nav.UpdateNavigation(0, false);
+        nav.UpdateNavigation(0, false, player);
     } else {
         nav.UpdateNavigation(monster_info->highest_condition >= W8_CONDITION_WEBBED,
-                             monster_info->uiCondition[W8_CONDITION_SLOWED] != 0);
+                             monster_info->uiCondition[W8_CONDITION_SLOWED] != 0, player);
     }
 
-    if (cycle != W8_MONSTER_CYCLE_DIE && script != 0 && !gXStatus.fCombatMode) {
+    if (cycle != W8_MONSTER_CYCLE_DIE && script != 0 && !g_combat.active()) {
         ProcessScript();
         cycle = Query(W8_MONSTER_QUERY_CYCLE);
     }
@@ -709,13 +712,13 @@ void Monster::Update()
 
     UpdateAttachedObjects();
     cycle = Query(W8_MONSTER_QUERY_CYCLE);
-    if (((GetInputState().modifiers & CTRL_DOWN) != 0) && g_combat_state != 0 &&
-        (g_combat_state->round_active || gXStatus.fPartyMovementMode) &&
+    if (((GetInputState().modifiers & CTRL_DOWN) != 0) && g_combat.state() != 0 &&
+        (g_combat.state()->round_active || gXStatus.fPartyMovementMode) &&
         (cycle == W8_MONSTER_CYCLE_IDLE || cycle == W8_MONSTER_CYCLE_SPICE) &&
         (visual.pending_cycle == -1 || visual.pending_cycle == 1 || visual.pending_cycle == 2) &&
-        (g_combat_state->action_status != W8CombatActionStatus::resolving ||
-         g_combat_state->pActionMonsterInfo == 0 ||
-         g_combat_state->pActionMonsterInfo->location_id != location_id)) {
+        (g_combat.state()->action_status != W8CombatActionStatus::resolving ||
+         g_combat.state()->pActionMonsterInfo == 0 ||
+         g_combat.state()->pActionMonsterInfo->location_id != location_id)) {
         visual.timer = GameClockMilliseconds();
     }
 
@@ -1057,9 +1060,9 @@ void SetMonsterPartySlotMarker(int party_slot, int location_id, char on)
         }
     } else {
         if (rep->objects[party_slot] == 0) {
-            path = fmt::format("Data\\Monsters\\Bitmaps\\{}",
-                               g_party_target_marker_bitmaps[g_status.buffers.XChar[party_slot]
-                                                                 .party_order_index]);
+            path = fmt::format(
+                "Data\\Monsters\\Bitmaps\\{}",
+                g_party_target_marker_bitmaps[g_status.party.rows[party_slot].party_order_index]);
             rep->objects[party_slot] = CreateMonsterIconItem(*info->p3D->owner_world, path.c_str());
             ++rep->icon_count;
         }
@@ -1313,7 +1316,7 @@ unsigned char Monster::CanEnterCycle(signed char cycle)
 {
     W8MonsterInfo* monster_info = FindMonster(location_id);
 
-    if (gXStatus.fCombatMode && partyCamera().m_transition_active) {
+    if (g_combat.active() && partyCamera().m_transition_active) {
         return 0;
     }
     if (visual.animation_playing == 0) {
@@ -2116,8 +2119,8 @@ void Monster::HandleAnimationThreshold()
     record = GetMonsterDataForInfo(monster_info);
     SetTargetSourceToMonster(monster_info, &source);
 
-    if (gXStatus.fCombatMode && g_combat_state->action_status == W8CombatActionStatus::resolving &&
-        g_combat_state->pActionMonsterInfo == monster_info) {
+    if (g_combat.active() && g_combat.state()->action_status == W8CombatActionStatus::resolving &&
+        g_combat.state()->pActionMonsterInfo == monster_info) {
         attack_index = monster_info->pCombat->attack_index;
         selected_attack = true;
         goto prepare_attack;
@@ -2983,12 +2986,6 @@ void RefreshMonsterStandingHeight(Monster* monster)
     if (monster != 0) {
         monster->RefreshStandingHeight();
     }
-}
-
-void SetCombatInactiveFlag(unsigned char value)
-{
-    g_combat_inactive = value;
-    g_combat_round_counter = 0;
 }
 
 void Monster::TickAnimation(float time_scale)

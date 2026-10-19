@@ -64,10 +64,10 @@ struct W8ScreenStateHandlers {
 /* Runtime transition state. The mode variant carries only the domain selected
    by id, so consumers cannot interpret one screen's mode as another's. */
 struct W8ScreenStateRuntime {
-    W8ScreenId id;
+    W8ScreenId id = W8_SCREEN_NONE;
     W8ScreenMode mode;
-    int parameter;
-    int parameter_2;
+    int parameter = 0;
+    int parameter_2 = 0;
     /* The character the camp and review-character transitions hand to the
        character screen. */
     struct W8Character* character = nullptr;
@@ -76,7 +76,7 @@ struct W8ScreenStateRuntime {
     /* Identifying PC for camp entry (gpIdentifyingPC); null when camp opens
        without an identify/use-item handoff. Not the entry mode — that lives on
        W8CampScreenState::item_action. */
-    struct W8Character* parameter_4;
+    struct W8Character* parameter_4 = nullptr;
     std::string name;
     /* Previous user save slot, removed only after a successful renamed save. */
     std::string previous_save_name;

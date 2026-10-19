@@ -11,15 +11,23 @@
 #include "wiz8/audio_resources.h"
 #include "wiz8/design_rect.h"
 #include "wiz8/dialog_code/DialogBase.h"
+#include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/modal_content.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/ui_input.h"
 
 class Trigger;
+class W8LockInteraction;
+class W8MainGameScreen;
 
 struct MainGameScreenState {
     MainGameScreenState();
+    ~MainGameScreenState();
+    std::unique_ptr<W8LockInteraction> lock_interaction;
+    std::unique_ptr<W8MainGameScreen> trap_interaction;
+    bool lock_active = false;
+    bool trap_active = false;
     bool resume_world = false;
     MainGameHudButtons hud_buttons;
     std::unique_ptr<MainGameSubMenu> submenu;
@@ -52,7 +60,6 @@ extern unsigned short g_trap_name_string_ids[];
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/ControlsRect.h"
-#include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/RangeControl.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/Screens.h"
@@ -192,7 +199,7 @@ struct W8LockTumbler {
     bool m_pin_set = false, m_rising = false, m_falling = false, m_at_top = false;
     bool m_hovered = false, m_enabled = true, m_dirty = true;
     int m_pin_index = 0, m_pin_height = 0x22;
-    void Redraw(SDL_Surface& target, bool full_redraw);
+    void Redraw(SDL_Surface& target, bool full_redraw, int phase);
 };
 
 class W8LockTumblerPanel {
@@ -332,7 +339,9 @@ public:
 };
 
 extern std::unique_ptr<W8LevelRuntimeBlock> g_level_block;
-extern std::unique_ptr<W8MainGameScreen> g_main_game_screen;
+W8MainGameScreen* TrapInteraction();
+bool IsLockInteractionActive();
+bool IsTrapInteractionActive();
 
 /* Insanity (spell 0x3c) world-cursor extent rows and the per spell-power
    index into them; CastSpellFromSource scans the same extents when it
@@ -434,8 +443,7 @@ void ClearPortraitRefreshSlot(int slot);
 /* Clear whatever the screen was waiting on and open the options screen. */
 inline void ClearScreenWait(void)
 {
-    g_pending_screen_state.mode = W8_OPTIONS_DEFAULT;
-    g_pending_screen_state.id = W8_SCREEN_OPTIONS;
+    RequestScreen({.id = W8_SCREEN_OPTIONS, .mode = W8_OPTIONS_DEFAULT});
 }
 /* Portrait condition / enchantment orbs (help 25 / 26): hold opens the
    mode-6 hover overlay; leave and release tear it down. */

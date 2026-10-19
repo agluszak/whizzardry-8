@@ -17,16 +17,19 @@
 #include "layouts/targeting.h"
 #include "retail_records.h"
 #include "save_payload.h"
+#include "scoped_combat.h"
 #include "unicode.h"
 #include "wiz8/checked_integer.h"
 #include "wiz8/compat/native.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/gameplay_modifiers.h"
+#include "wiz8/layouts/item_instance.h"
 #include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/party.h"
 #include "wiz8/render/mesh_instance.h" // IWYU pragma: keep - complete model type for unique_ptr destruction.
 #include "wiz8/render/quality.h"
 #include "wiz8/retail_save_records.h"
@@ -356,7 +359,7 @@ static void unicode_file_contracts()
     REQUIRE(line.saved_remaining_ms == 87);
     file->close();
     ReleaseMessageStorage();
-    g_status.buffers.save_version = 9.0f;
+    g_status.save_version = 9.0f;
     file = wiz8::open_file(wiz8::user_path("saves/text.bin"));
     // The fixed record starts after format and region count; its obsolete
     // pointer word must never contain a live allocation address.
@@ -967,15 +970,7 @@ static void save_file_contracts(const std::filesystem::path& user)
     const unsigned epoch_masked[] = {epoch.low ^ masks[0], epoch.high ^ masks[1]};
     REQUIRE((epoch_masked[0] == 0xbe1a69f0u && epoch_masked[1] == 0xe6e1991fu));
 
-    W8Character characters[8]{};
-    W8PartySlotRow rows[8]{};
     W8GlobalStatus status{};
-    status.buffers.Char = characters;
-    status.buffers.XChar = rows;
-    for (auto& position : status.formation.positions) {
-        position.bQuadrant = -1;
-        position.bQuadrantSlot = -1;
-    }
     const auto now = std::filesystem::file_time_type::clock::from_sys(
         sys_days{year{2024} / January / 15} + hours{12});
     for (int slot = 1; slot <= 3; ++slot) {
@@ -1037,17 +1032,15 @@ static void save_file_contracts(const std::filesystem::path& user)
 
 static void global_status_record()
 {
-    W8Character characters[8] = {};
-    W8PartySlotRow rows[8] = {};
-    W8GlobalStatus status = {};
-    status.buffers.Char = characters;
-    status.buffers.XChar = rows;
+    W8GlobalStatus status{};
+    auto& rows = status.party.rows;
     for (int slot = 0; slot < 8; ++slot) {
         rows[slot].fOccupied = true;
+        rows[slot].npc_index = slot < 2 ? slot : -1;
         rows[slot].pending_action = W8_ACTION_ATTACK;
         rows[slot].committed_action = {W8_ACTION_CAST_SPELL, 20 + slot};
         rows[slot].committed_action.detail_block.spell.power_level = slot % 7 + 1;
-        rows[slot].committed_action.target = {W8_TARGET_KIND_CHARACTER, slot, -1, -1, {}, nullptr};
+        rows[slot].committed_action.target = {W8_TARGET_KIND_CHARACTER, slot, -1, -1, {}, {}};
         rows[slot].spell = {W8_ACTION_CAST_SPELL, 40 + slot};
         rows[slot].spell.detail_block.spell.power_level = 7;
         rows[slot].attack_mode[0] = 100 + slot;
@@ -1055,8 +1048,12 @@ static void global_status_record()
         rows[slot].party_order_index = slot;
         rows[slot].weapon_swap_pending = slot % 2;
     }
+    rows[0].pending_action = W8_ACTION_USE_ITEM;
+    rows[0].item_detail.item_use.item = {W8ItemStorage::Backpack, 0, 3};
     status.serialized = {0xa5, {0x5a, 0x17}};
-    status.party_gold = 0x12345678;
+    status.party.gold = 0x12345678;
+    status.party.item_pool[0] = {.iItemNo = 12, .stack_count = 3};
+    status.party.item_count = 1;
     status.uiTurnsElapsed = 0x87654321;
     status.pending_move_location.position = glm::vec3(1, 2, 3);
     for (const int level : {0, W8_LEVEL_COUNT - 1}) {
@@ -1096,6 +1093,9 @@ static void global_status_record()
         REQUIRE(bytes[0x242f] == 0xa5);
         REQUIRE(bytes[0x49be] == 0x5a);
         REQUIRE(bytes[0x49bf] == 0x17);
+        std::array<int, 3> members;
+        memcpy(members.data(), bytes + 0x0d, sizeof(members));
+        REQUIRE((members == std::array<int, 3>{6, 2, 8}));
         unsigned gold, turns;
         memcpy(&gold, bytes + 0x19, sizeof(gold));
         memcpy(&turns, bytes + 0x19d8, sizeof(turns));
@@ -1120,13 +1120,21 @@ static void global_status_record()
             REQUIRE(party_bytes[0x105] == std::byte(slot % 2));
         }
     });
-    W8Character restored_characters[8]{};
-    W8PartySlotRow restored_rows[8]{};
     W8GlobalStatus restored{};
-    restored.buffers.Char = restored_characters;
-    restored.buffers.XChar = restored_rows;
-    read_status_chunk([&] { LoadGameStatus(&chunks, &restored); });
-    REQUIRE(restored.party_gold == status.party_gold);
+    auto& restored_rows = restored.party.rows;
+    const auto live_name = g_status.party.characters[0].name;
+    read_status_chunk([&] { restored = DecodeGameStatus(chunks); });
+    REQUIRE(g_status.party.characters[0].name == live_name);
+    auto independent = restored;
+    independent.party.characters[0].name = "independent party";
+    independent.party.rows[0].attack_mode[0] = -123;
+    independent.party.item_pool[0].stack_count = 9;
+    independent.party.gold = 1;
+    REQUIRE(restored.party.characters[0].name != independent.party.characters[0].name);
+    REQUIRE(restored.party.rows[0].attack_mode[0] == 100);
+    REQUIRE(restored.party.gold == status.party.gold);
+    REQUIRE(restored.party.item_pool[0].stack_count == 3);
+    REQUIRE(restored.party.item_count == 1);
     const auto restored_image = wiz8::retail::encode(restored);
     REQUIRE(std::equal(status_image.begin() + 0x1a04, status_image.begin() + 0x2013,
                        restored_image.begin() + 0x1a04));
@@ -1146,6 +1154,14 @@ static void global_status_record()
         REQUIRE(restored_rows[slot].movement_fatigue == 1.25f + slot);
         REQUIRE(restored_rows[slot].weapon_swap_pending == bool(slot % 2));
     }
+    struct RestoreStatus {
+        W8GlobalStatus previous = g_status;
+        ~RestoreStatus() { g_status = std::move(previous); }
+    } restore;
+    const auto location = restored.party.rows[0].pending_action_detail.item_use.item;
+    REQUIRE(restored.party.itemAt(location) == &restored.party.characters[0].backpack[3]);
+    ActivateGameStatus(std::move(restored));
+    REQUIRE(g_status.party.itemAt(location) == &g_status.party.characters[0].backpack[3]);
 }
 
 static void camera_angles()
@@ -1195,12 +1211,12 @@ struct NpcGlobalGuard {
 // NOLINTNEXTLINE(cppcoreguidelines-special-member-functions): local scope guard
 struct CombatRecordGuard {
     std::vector<W8SpellRuntimeRecord> previous_spells = std::exchange(g_spell_records, {});
-    decltype(g_status.buffers.Char) previous_characters = g_status.buffers.Char;
+    W8Party previous_party = std::exchange(g_status.party, W8Party{});
 
     ~CombatRecordGuard()
     {
         g_spell_records = std::move(previous_spells);
-        g_status.buffers.Char = previous_characters;
+        g_status.party = std::move(previous_party);
     }
 };
 
@@ -1291,22 +1307,17 @@ TEST_CASE("Radius-effect updates accept empty and short effect arrays", "[effect
 
 TEST_CASE("Combat condition queries stay within both effect arrays", "[effects]")
 {
-    // NOLINTNEXTLINE(cppcoreguidelines-special-member-functions): local scope guard
-    struct RestoreCombat {
-        std::unique_ptr<W8CombatState> previous = std::move(g_combat_state);
-        ~RestoreCombat() { g_combat_state = std::move(previous); }
-    } restore;
+    ScopedCombat combat;
     REQUIRE_FALSE(CombatHasCondition(0x3e));
-    g_combat_state = std::make_unique<W8CombatState>();
-    g_combat_state->effect_slots[8].Activate(0x3e, 1, 1);
+    g_combat.state()->effect_slots[8].Activate(0x3e, 1, 1);
     REQUIRE(CombatHasCondition(0x3e));
-    g_combat_state->effect_slots[8].Reset();
-    g_combat_state->effect_slots0[5].Activate(0x3e, 1, 1);
+    g_combat.state()->effect_slots[8].Reset();
+    g_combat.state()->effect_slots0[5].Activate(0x3e, 1, 1);
     REQUIRE(CombatHasCondition(0x3e));
-    g_combat_state->effect_slots0[5].Reset();
+    g_combat.state()->effect_slots0[5].Reset();
     // In-flight missile state next to the short array is not an effect slot.
-    g_combat_state->missile_hit_result = W8_MISSILE_HIT_DEFLECTED;
-    g_combat_state->TargetHit.iMonsterID = 2;
+    g_combat.state()->missile_hit_result = W8_MISSILE_HIT_DEFLECTED;
+    g_combat.state()->TargetHit.iMonsterID = 2;
     REQUIRE_FALSE(CombatHasCondition(0x3e));
 }
 
@@ -1521,10 +1532,10 @@ TEST_CASE_METHOD(SaveFixture, "AI conditions and save slot naming", "[save][reco
 {
     CombatRecordGuard globals;
     // The AI used to decay the odd-offset condition array into unsigned int*.
-    alignas(16) W8Character character = {};
+    auto& character = g_status.party.characters[0];
+    character = {};
     g_spell_records.resize(W8_SPELL_COUNT);
     g_spell_records[W8_SPELL_SLEEP].target_type = W8_TARGET_TYPE_ENEMY;
-    g_status.buffers.Char = &character;
     W8CombatSlot target = {};
     target.iType = W8_TARGET_KIND_CHARACTER;
     target.iChar = 0;
@@ -1532,7 +1543,6 @@ TEST_CASE_METHOD(SaveFixture, "AI conditions and save slot naming", "[save][reco
     REQUIRE(MonsterSpellTargetOK(nullptr, W8_SPELL_SLEEP, &target));
     character.uiCondition[W8_CONDITION_ASLEEP] = 1;
     REQUIRE(!MonsterSpellTargetOK(nullptr, W8_SPELL_SLEEP, &target));
-    g_status.buffers.Char = nullptr;
     REQUIRE(BuildLevelStatusPath(56) == "Levels\\Test\\DefaultLevel.STS");
     for (int index = 0; index < 10; ++index) {
         const auto name = index == 0 ? std::string("Ending") : "Ending" + std::to_string(index);

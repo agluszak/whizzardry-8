@@ -16,7 +16,6 @@
 #include "cursor.h"
 #include "layouts/item_instance.h"
 #include "layouts/npc_dialogue.h"
-#include "layouts/screen_state.h"
 #include "layouts/targeting.h"
 #include "local_code/Factions.h"
 #include "local_code/MonsterManager.h"
@@ -261,35 +260,26 @@ void RemoveNpcScriptItem(W8ItemInstance* item, int match_item_id, int item_id)
     W8ItemInstance* slot_item;
 
     for (slot = 0; slot < 8; ++slot) {
-        if (!g_status.buffers.XChar[slot].fOccupied) {
+        if (!g_status.party.rows[slot].fOccupied) {
             continue;
         }
         for (index = 0; index < 8; ++index) {
-            slot_item = &g_status.buffers.Char[slot].backpack[index];
+            slot_item = &g_status.party.characters[slot].backpack[index];
             if (slot_item->iItemNo != -1 &&
                 (slot_item == item || (match_item_id != 0 && slot_item->iItemNo == item_id))) {
-                if (slot_item->stack_count != 0) {
-                    --slot_item->stack_count;
-                }
-                if (slot_item->stack_count == 0) {
-                    EmptyItemRecord(slot_item, &g_status.buffers.Char[slot], true);
-                }
-                text = fmt::sprintf(g_localized_strings[0x7ec], g_status.buffers.Char[slot].name);
+                RemoveInventoryQuantity(g_status.party, {W8ItemStorage::Backpack, slot, index}, 1);
+                text =
+                    fmt::sprintf(g_localized_strings[0x7ec], g_status.party.characters[slot].name);
                 ShowConsumedItemQuote(text);
                 return;
             }
         }
     }
-    for (slot = 0; slot < g_status.party_item_count; ++slot) {
-        slot_item = &g_status.party_item_pool[slot];
+    for (slot = 0; slot < g_status.party.item_count; ++slot) {
+        slot_item = &g_status.party.item_pool[slot];
         if (slot_item->iItemNo != -1 &&
             (slot_item == item || (match_item_id != 0 && slot_item->iItemNo == item_id))) {
-            if (slot_item->stack_count != 0) {
-                --slot_item->stack_count;
-            }
-            if (slot_item->stack_count == 0) {
-                EmptyPartyPoolEntry(slot);
-            }
+            RemoveInventoryQuantity(g_status.party, {W8ItemStorage::Pool, 0, slot}, 1);
             text = g_localized_strings[0x7ed];
             ShowConsumedItemQuote(text);
             return;
@@ -303,7 +293,7 @@ void RemoveNpcScriptItem(W8ItemInstance* item, int match_item_id, int item_id)
         if (item->stack_count == 0) {
             g_npc_interaction_state->held_item_pending = false;
             if (!gXStatus.fNpcDialogueMode) {
-                ClearHeldItemDisplay();
+                (void)TakeInventoryItem(g_status.party, {W8ItemStorage::Hand});
             }
         }
     }
@@ -471,10 +461,10 @@ void W8NpcDialogue::RunQuoteEntry(W8NpcQuoteEntry* entry, int continuation_quote
         OpenNpcDialog(entry, continuation_quote);
         break;
     case W8_NPC_ENTRY_GIVE_ITEM:
-        ReplaceOrCreateItem(&item, entry->operand0, true, true, false);
+        item = MakeItem(entry->operand0, true, true, false);
         notice_text = fmt::sprintf(g_localized_strings[0x7ea], GetItemDisplayName(&item));
         if (!gXStatus.fNpcDialogueMode) {
-            g_status.item_in_hand = item;
+            g_status.party.held.item = item;
             SetItemCursor(0);
         } else {
             AddItemToPartyOrDrop(&item, false);
@@ -501,7 +491,7 @@ void W8NpcDialogue::RunQuoteEntry(W8NpcQuoteEntry* entry, int continuation_quote
         break;
     }
     if (session_.npc->character.has_value() && session_.npc->group_index != -1) {
-        g_status.buffers.XChar[session_.npc->group_index].pending_event_type = 0;
+        g_status.party.rows[session_.npc->group_index].pending_event_type = 0;
     }
 }
 
@@ -604,7 +594,7 @@ void W8NpcDialogue::RunNextAction()
                     return;
                 }
             } else if (const auto* level_up = std::get_if<W8LevelUpNotice>(&message.notice)) {
-                g_status.buffers.XChar[level_up->party_slot].portrait_advance = 1;
+                g_status.party.rows[level_up->party_slot].portrait_advance = 1;
                 if (g_settings.skill_increase_messages == 0) {
                     wiz8::sound::play("Data\\Sound\\Misc\\GainLevel.wav");
                     return;
@@ -652,12 +642,12 @@ void W8NpcDialogue::RunNextAction()
                 BeginScriptedWorldAction();
                 break;
             case W8NpcCommand::reset_level_data_vectors:
-                if (!gXStatus.fCombatMode || gXStatus.fPartyMovementMode) {
+                if (!g_combat.active() || gXStatus.fPartyMovementMode) {
                     ResetLevelDataVectors();
                 }
                 break;
             case W8NpcCommand::clear_level_movement_stopped:
-                if (!gXStatus.fCombatMode || gXStatus.fPartyMovementMode) {
+                if (!g_combat.active() || gXStatus.fPartyMovementMode) {
                     ClearLevelMovementStopped();
                 }
                 break;
@@ -679,7 +669,7 @@ void W8NpcDialogue::RunNextAction()
             DismissNpcFromParty(dismiss.party_slot, 0, false, false);
             if (g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_TRANSCRIPT) {
                 for (int party_slot = 0; party_slot < 8; ++party_slot) {
-                    if (g_status.buffers.XChar[party_slot].fOccupied) {
+                    if (g_status.party.rows[party_slot].fOccupied) {
                         DisableMainGamePortraitSlot(party_slot);
                     }
                 }
@@ -691,7 +681,7 @@ void W8NpcDialogue::RunNextAction()
                 PickRandomPartySpeaker(event.event_type, g_status.selected_party_member);
             if (party_slot != -1) {
                 g_status.selected_party_member = static_cast<unsigned char>(party_slot);
-                QueueCharacterEvent(&g_status.buffers.Char[party_slot], event.event_type,
+                QueueCharacterEvent(&g_status.party.characters[party_slot], event.event_type,
                                     kCharacterEventNoNpcDefer, kCharacterEventFullVolume);
                 SetNpcDialoguePanelVisible(0);
                 if (g_npc_interaction_state->modal_dialog_open) {
@@ -701,12 +691,12 @@ void W8NpcDialogue::RunNextAction()
         }
         void operator()(W8NpcLevelUpReaction reaction) const
         {
-            QueueCharacterEvent(&g_status.buffers.Char[reaction.party_slot], 1,
+            QueueCharacterEvent(&g_status.party.characters[reaction.party_slot], 1,
                                 kCharacterEventNoNpcDefer, kCharacterEventFullVolume);
         }
         void operator()(W8NpcPartyScriptLine line) const
         {
-            QueueCharacterEvent(&g_status.buffers.Char[line.party_slot], 0x18,
+            QueueCharacterEvent(&g_status.party.characters[line.party_slot], 0x18,
                                 kCharacterEventNpcScript | kCharacterEventNoNpcDefer,
                                 kCharacterEventFullVolume);
         }
@@ -725,18 +715,18 @@ void W8NpcDialogue::RunNextAction()
         }
         void operator()(W8NpcLeaveCombat leave) const
         {
-            if (g_combat_state == 0) {
+            if (g_combat.state() == 0) {
                 return;
             }
             const int party_slot = leave.party_slot;
-            if (g_combat_state->iActionChar == party_slot) {
-                g_combat_state->action_status = W8CombatActionStatus::idle;
-                g_combat_state->iActionChar = -1;
+            if (g_combat.state()->iActionChar == party_slot) {
+                g_combat.state()->action_status = W8CombatActionStatus::idle;
+                g_combat.state()->iActionChar = -1;
             }
             ClearMainGameTargetState();
             DismissNpcFromParty(party_slot, 0, false, true);
             SetTargetToCharacter(party_slot, false);
-            g_combat_state->npc_combat_script_pending[party_slot] = false;
+            g_combat.state()->npc_combat_script_pending[party_slot] = false;
         }
         void operator()(W8NpcTravelConfirm travel) const
         {

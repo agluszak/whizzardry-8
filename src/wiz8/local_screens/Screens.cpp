@@ -4,7 +4,6 @@
 #include <functional>
 #include <memory>
 #include <string_view>
-#include <vector>
 
 #include "compat/native.h"
 #include "layouts/item_instance.h"
@@ -25,7 +24,6 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/PartySelectionScreen.h"
-#include "wiz8/local_screens/RCSCommon.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/xstatus.h"
@@ -53,38 +51,13 @@ bool W8NpcDialogueTextController::HandleScrollUpCommand(bool check_only)
     return false;
 }
 
-/* Return the requested screen id, falling back to the state at the top of the
-   return stack when there is no explicit pending state. */
-W8ScreenId GetPendingScreenState(void)
-{
-    if (g_pending_screen_state.id != W8_SCREEN_NONE) {
-        return g_pending_screen_state.id;
-    }
-    if (!g_screen_return_stack.empty()) {
-        return g_screen_return_stack.back().id;
-    }
-    return W8_SCREEN_NONE;
-}
-void RequestScreenTransition(void)
-{
-    g_screen_return_requested = true;
-}
-
-bool IsScreenTransitionPending(void)
-{
-    if (g_pending_screen_state.id == W8_SCREEN_NONE && !g_screen_return_requested) {
-        return false;
-    }
-    return true;
-}
-
 /* Route one redraw bit to the active camp or main-game screen state. The slot
    travels as an int: the body only ever reads its low byte for the shift. */
 void RequestPartySlotRedraw(int bit)
 {
-    if (g_current_screen_state.id == W8_SCREEN_CAMP) {
+    if (CurrentScreenState().id == W8_SCREEN_CAMP) {
         g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_PORTRAIT;
-    } else if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
+    } else if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
         RequestRedraw(1 << (bit & 31));
     }
 }
@@ -98,7 +71,7 @@ void RefreshPartySlotDisplay(unsigned int party_slot)
     bool overlay_ready;
     bool highlighted;
 
-    switch (g_current_screen_state.id) {
+    switch (CurrentScreenState().id) {
     case W8_SCREEN_CHARACTER:
         return;
     case W8_SCREEN_PLEASE_WAIT:
@@ -107,15 +80,15 @@ void RefreshPartySlotDisplay(unsigned int party_slot)
         RefreshPartySelectionPortrait(party_slot);
         break;
     case W8_SCREEN_CAMP:
-        if (giReviewCharSlot == static_cast<int>(party_slot) &&
+        if (g_camp_screen->ReviewedPartySlot() == static_cast<int>(party_slot) &&
             g_camp_screen->header_mode == W8_CAMP_HEADER_SUMMARY) {
-            if (g_camp_screen->portrait_hovered[0] != 0) {
+            if (g_camp_screen->portrait_hovered != 0) {
                 g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_PORTRAIT;
                 return;
             }
             g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_PORTRAIT;
-            RedrawRcsLevelUpPanel();
-            RedrawRcsDismissPanel();
+            g_camp_screen->RedrawRcsLevelUpPanel();
+            g_camp_screen->RedrawRcsDismissPanel();
             return;
         }
         break;
@@ -181,12 +154,12 @@ void SetTargetCursor(int cursor)
 
 void UpdateHeldItemCursor(void)
 {
-    if ((g_current_screen_state.id == W8_SCREEN_MAIN_GAME ||
-         g_current_screen_state.id == W8_SCREEN_CAMP) &&
-        g_status.item_in_cursor) {
-        if (g_status.item_in_hand.iItemNo != -1) {
-            g_status.item_in_cursor = true;
-            const auto sprites = ItemSprites(g_status.item_in_hand.iItemNo);
+    if ((CurrentScreenState().id == W8_SCREEN_MAIN_GAME ||
+         CurrentScreenState().id == W8_SCREEN_CAMP) &&
+        (g_status.party.held.item.iItemNo != -1)) {
+        if (g_status.party.held.item.iItemNo != -1) {
+
+            const auto sprites = ItemSprites(g_status.party.held.item.iItemNo);
             SetMouseCursorFromVideoObject(*sprites, 0, 0, 0);
             const auto cursor = CatalogArtwork::Load(0);
             BlitToMouseCursor(*cursor.spriteSheet(), cursor.imageOffset(), 0, 0);
@@ -227,14 +200,12 @@ void ApplyCurrentCursor(void)
     }
 }
 
-/* Empty the item-in-hand record and restore the normal cursor. The held item is
-   the 0x0c-byte record at g_status.item_in_hand; the
-   byte directly before it is item_in_cursor. */
+/* Restore the normal cursor. Inventory operations own the held item. */
 void ClearHeldItemDisplay(void)
 {
-    memset(&g_status.item_in_hand, 0, sizeof(g_status.item_in_hand));
-    g_status.item_in_cursor = false;
-    g_status.item_in_hand.iItemNo = -1;
+    memset(&g_status.party.held.item, 0, sizeof(g_status.party.held.item));
+
+    g_status.party.held.item.iItemNo = -1;
 
     if (gXStatus.iCurrentCursor != W8_CURSOR_NONE) {
         const auto cursor = CatalogArtwork::Load(0);
@@ -259,9 +230,9 @@ unsigned char GetPartyOrderTextColor(signed char party_order)
    object over it. A negative held item id leaves the cursor unchanged. */
 void SetItemCursor(int overlay_video_object)
 {
-    if (g_status.item_in_hand.iItemNo != -1) {
-        g_status.item_in_cursor = true;
-        const auto sprites = ItemSprites(g_status.item_in_hand.iItemNo);
+    if (g_status.party.held.item.iItemNo != -1) {
+
+        const auto sprites = ItemSprites(g_status.party.held.item.iItemNo);
         SetMouseCursorFromVideoObject(*sprites, 0, 0, 0);
         const auto overlay = CatalogArtwork::Load(overlay_video_object);
         BlitToMouseCursor(*overlay.spriteSheet(), overlay.imageOffset(), 0, 0);
@@ -274,7 +245,7 @@ void SetItemCursor(int overlay_video_object)
 void ShowNoticeLine(std::string_view text, std::function<void(bool)> callback, bool confirmation,
                     bool cancel)
 {
-    switch (g_current_screen_state.id) {
+    switch (CurrentScreenState().id) {
     case W8_SCREEN_CAMP:
         ShowCampNoticeLine(text, callback, confirmation, cancel);
         break;
@@ -293,7 +264,7 @@ void InitializeMainGameLevelBlock(void)
 {
     int slot;
 
-    if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_level_block != 0) {
+    if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME && g_level_block != 0) {
         g_level_block->redraw_flags = static_cast<unsigned int>(-1);
     }
     g_level_block->camera_mode = W8_VIEWPORT_MODE_UNINITIALIZED;

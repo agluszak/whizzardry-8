@@ -17,6 +17,7 @@
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/party_slot.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/platform/assertion.h"
@@ -157,7 +158,7 @@ unsigned int CharacterPointerToPartySlot(const W8Character* character)
         Fail("pPC->fInParty", "PCPtrToPCSlot: ERROR - called for non-party character");
     }
 
-    party_character = g_status.buffers.Char;
+    party_character = g_status.party.characters;
     for (slot = 0; slot < 8; ++slot, ++party_character) {
         if (character == party_character) {
             return slot;
@@ -171,7 +172,7 @@ unsigned int CharacterPointerToPartySlot(const W8Character* character)
 
 bool IsPartyCharacterPointer(const W8Character* character)
 {
-    W8Character* party_character = g_status.buffers.Char;
+    W8Character* party_character = g_status.party.characters;
     unsigned int slot;
 
     for (slot = 0; slot < 8; ++slot, ++party_character) {
@@ -211,8 +212,8 @@ unsigned int GetRandomPartySlots(int require_primary, int require_secondary,
     if (count != 0) {
         for (relaxed = false; !relaxed;) {
             for (slot = skip_first_two ? 2u : 0u; slot < 8; ++slot) {
-                W8Character* character = &g_status.buffers.Char[slot];
-                if (g_status.buffers.XChar[slot].fOccupied && slot != excluded_slot &&
+                W8Character* character = &g_status.party.characters[slot];
+                if (g_status.party.rows[slot].fOccupied && slot != excluded_slot &&
                     claimed[slot] == 0 && (character->hp_current != 0 || require_primary == 2) &&
                     (character->highest_condition < W8_CONDITION_DEAD || require_secondary == 2)) {
                     eligible[found] = slot;
@@ -270,8 +271,8 @@ retry:
     slot = 0;
     do {
         matched = false;
-        if (g_status.buffers.XChar[slot].fOccupied && static_cast<int>(slot) != excluded_slot) {
-            character = &g_status.buffers.Char[slot];
+        if (g_status.party.rows[slot].fOccupied && static_cast<int>(slot) != excluded_slot) {
+            character = &g_status.party.characters[slot];
             if ((character->hp_current > 0 && character->highest_condition < W8_CONDITION_DEAD) ||
                 require_primary == 2) {
                 if (excluded_gender == -1 || excluded_gender != character->gender) {
@@ -311,8 +312,8 @@ retry:
 int GetNextCharacter(int require_primary, int require_secondary, int previous_slot)
 {
     int start_slot = (previous_slot + 1) % 8;
-    W8Character* characters = g_status.buffers.Char;
-    W8PartySlotRow* rows = g_status.buffers.XChar;
+    W8Character* characters = g_status.party.characters;
+    W8PartySlotRow* rows = g_status.party.rows;
     int slot;
     unsigned int scanned;
 

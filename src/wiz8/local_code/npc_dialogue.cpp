@@ -418,7 +418,7 @@ void W8NpcDialogue::Answer(std::string_view text)
     } else {
         const W8NpcPriceCheck check = *price_check_;
         if (CompareTextIgnoreAsciiCase(text, g_localized_strings[0x7df]) == 0) {
-            if (static_cast<unsigned int>(check.price) > g_status.party_gold) {
+            if (static_cast<unsigned int>(check.price) > g_status.party.gold) {
                 Speak(0x14, false);
             } else {
                 SpendPartyGold(check.price);

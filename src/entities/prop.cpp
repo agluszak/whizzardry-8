@@ -35,6 +35,7 @@
 #include "wiz8/entities/trigger.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/gameplay_constants.h"
+#include "wiz8/layouts/combat_state.h"
 #include "wiz8/legacy_prop_save_ids.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/platform/assertion.h"
@@ -278,7 +279,7 @@ bool ResolvePickedProp()
             if (trigger != 0 && (trigger->flags & W8_TRIGGER_ENABLED) != 0 &&
                 ((trigger->flags & W8_TRIGGER_ONCE) == 0 ||
                  (trigger->flags & W8_TRIGGER_FIRED) == 0) &&
-                (g_combat_inactive ||
+                ((!g_combat.engineActive()) ||
                  (trigger->doorData() != nullptr && !trigger->doorData()->open)) &&
                 representation->active != 0) {
                 if (const auto bounds = prop->GetFrameBounds()) {

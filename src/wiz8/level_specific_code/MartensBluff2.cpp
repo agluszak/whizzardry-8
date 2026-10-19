@@ -337,14 +337,14 @@ bool MartensBluff2PerfumeBox(Trigger* pTrigger)
 
     RavenQuestState quest_state;
 
-    if (!g_status.item_in_cursor) {
+    if (!(g_status.party.held.item.iItemNo != -1)) {
         return false;
     }
     if (GetItemInHand() != 0x2ea) {
         return false;
     }
     g_trigger_feedback = true;
-    ClearHeldItemDisplay();
+    (void)TakeInventoryItem(g_status.party, {W8ItemStorage::Hand});
     pTrigger->flags &= ~W8_TRIGGER_ENABLED;
     quest_state = RavenQuestState::perfume_used;
     if (FindEntityByName("Ravenz", &position, 0, 0)) {
@@ -552,10 +552,10 @@ bool MartensBluff2StoneIdol(Trigger* pTrigger)
 {
     ParticleSystem* particle;
 
-    if (g_status.item_in_cursor) {
+    if ((g_status.party.held.item.iItemNo != -1)) {
         return false;
     }
-    ReplaceOrCreateItem(&g_status.item_in_hand, 0x291, false, false, false);
+    ReplaceHeldItem(g_status.party, MakeItem(0x291, false, false, false));
     SetItemCursor(0);
     ShowString(g_localized_strings[0x71d]);
     particle = FindParticleByName("IdolGas");
@@ -576,10 +576,10 @@ bool MartensBluff2StoneIdol(Trigger* pTrigger)
 bool MartensBluff2BlueFlowers(Trigger* pTrigger)
 {
     if (!g_running_trigger_from_script) {
-        if (g_status.item_in_cursor) {
+        if ((g_status.party.held.item.iItemNo != -1)) {
             return false;
         }
-        ReplaceOrCreateItem(&g_status.item_in_hand, 0x2eb, false, false, false);
+        ReplaceHeldItem(g_status.party, MakeItem(0x2eb, false, false, false));
         SetItemCursor(0);
     }
     g_running_trigger_from_script = false;
@@ -646,10 +646,10 @@ void MartensBluff2IdolGasVictim(void)
 
     lowest = 10;
     for (slot = 0; slot < 8; slot++) {
-        if (!g_status.buffers.XChar[slot].fOccupied || slot < 2) {
+        if (!g_status.party.rows[slot].fOccupied || slot < 2) {
             severities[slot] = 10;
         } else {
-            switch (g_status.buffers.Char[slot].iProfession) {
+            switch (g_status.party.characters[slot].iProfession) {
             case W8_PROFESSION_FIGHTER:
                 severities[slot] = 2;
                 break;
@@ -680,8 +680,8 @@ void MartensBluff2IdolGasVictim(void)
         }
         if (count == 0) {
             slot = 0;
-            while (!g_status.buffers.XChar[slot].fOccupied ||
-                   g_status.buffers.Char[slot].highest_condition != W8_CONDITION_DEAD) {
+            while (!g_status.party.rows[slot].fOccupied ||
+                   g_status.party.characters[slot].highest_condition != W8_CONDITION_DEAD) {
                 slot++;
                 if (slot > 7) {
                     return;
