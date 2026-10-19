@@ -112,13 +112,14 @@ void extract(const Archive& archive, const fs::path& output)
         if (file_time_from_sdl(time).ticks() != entry.modified.ticks()) continue;
         using namespace std::chrono;
         using FileTime = fs::file_time_type;
+        using FileSeconds = duration<FileTime::rep>;
         const sys_time<nanoseconds> system_time{nanoseconds{time}};
         const auto seconds_time = floor<seconds>(system_time);
         const auto file_seconds = FileTime::clock::from_sys(seconds_time);
         // Check in seconds first: from_sys at nanosecond precision can overflow
         // even when SDL's system time itself is representable.
-        if (file_seconds < ceil<seconds>(FileTime::min()) ||
-            file_seconds > floor<seconds>(FileTime::max()))
+        if (file_seconds < ceil<FileSeconds>(FileTime::min()) ||
+            file_seconds > floor<FileSeconds>(FileTime::max()))
             continue;
         const auto base = time_point_cast<FileTime::duration>(file_seconds);
         auto fractional_ns = time % 1'000'000'000;

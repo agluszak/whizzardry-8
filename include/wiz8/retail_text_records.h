@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <iterator>
 #include <limits>
 #include <memory>
 #include <stdexcept>
@@ -675,6 +676,27 @@ template<> struct Record<W8MonsterRecord> {
               bytes.subspan(offsetof(Disk, unknown_273), sizeof(Disk::unknown_273)));
     }
 };
+template<> struct Record<W8CharacterSkill> {
+    using Disk = CharacterSkill;
+    template<class R, class B, class Value, class Text>
+    static void fields(R& runtime, B bytes, Value value, Text)
+    {
+        value(&runtime.active, bytes.subspan(offsetof(Disk, active), sizeof(Disk::active)));
+        value(&runtime.reset_flag,
+              bytes.subspan(offsetof(Disk, reset_flag), sizeof(Disk::reset_flag)));
+        value(&runtime.points, bytes.subspan(offsetof(Disk, points), sizeof(Disk::points)));
+        value(&runtime.level, bytes.subspan(offsetof(Disk, level), sizeof(Disk::level)));
+        value(&runtime.base_level,
+              bytes.subspan(offsetof(Disk, base_level), sizeof(Disk::base_level)));
+        value(&runtime.practice_count,
+              bytes.subspan(offsetof(Disk, practice_count), sizeof(Disk::practice_count)));
+        value(&runtime.improved, bytes.subspan(offsetof(Disk, improved), sizeof(Disk::improved)));
+        value(&runtime.available,
+              bytes.subspan(offsetof(Disk, available), sizeof(Disk::available)));
+        value(&runtime.unknown_14,
+              bytes.subspan(offsetof(Disk, unknown_14), sizeof(Disk::unknown_14)));
+    }
+};
 template<> struct Record<W8Character> {
     using Disk = Character;
     template<class R, class B, class Value, class Text>
@@ -720,7 +742,12 @@ template<> struct Record<W8Character> {
         value(&runtime.attribute_point_deficit,
               bytes.subspan(offsetof(Disk, attribute_point_deficit),
                             sizeof(Disk::attribute_point_deficit)));
-        value(&runtime.skills, bytes.subspan(offsetof(Disk, skills), sizeof(Disk::skills)));
+        for (std::size_t index = 0; index < std::size(runtime.skills); ++index)
+            Record<W8CharacterSkill>::fields(
+                runtime.skills[index],
+                bytes.subspan(offsetof(Disk, skills) + index * sizeof(CharacterSkill),
+                              sizeof(CharacterSkill)),
+                value, text);
         value(&runtime.unknown_07b3,
               bytes.subspan(offsetof(Disk, unknown_07b3), sizeof(Disk::unknown_07b3)));
         value(&runtime.experience,

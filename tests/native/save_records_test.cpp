@@ -117,6 +117,21 @@ static void character_file_contracts(const std::filesystem::path& assets,
         wiz8::retail::decode<W8Character>(bytes, character);
         REQUIRE((character.name == "vi" && character.name_part_2 == "probe"));
         REQUIRE(wiz8::retail::encode(character) == bytes);
+        // Native skills have padding; the retail stride and unknown bytes must
+        // remain exact across both adjacent records.
+        constexpr std::uint32_t points = 0x12345678, level = 0x23456789;
+        character.skills[0].points = points;
+        character.skills[1].level = level;
+        character.skills[0].unknown_14[0] = 0xa5;
+        auto expected = bytes;
+        std::memcpy(expected.data() + 0x19d + 2, &points, sizeof(points));
+        std::memcpy(expected.data() + 0x19d + 0x26 + 6, &level, sizeof(level));
+        expected[0x19d + 0x14] = std::byte{0xa5};
+        REQUIRE(wiz8::retail::encode(character) == expected);
+        wiz8::retail::decode<W8Character>(expected, character);
+        REQUIRE(character.skills[0].points == points);
+        REQUIRE(character.skills[1].level == level);
+        REQUIRE(character.skills[0].unknown_14[0] == 0xa5);
         character.name = "改名";
         const auto edited = wiz8::retail::encode(character);
         REQUIRE(std::equal(bytes.begin() + 0x25, bytes.begin() + 0x69, edited.begin() + 0x25));

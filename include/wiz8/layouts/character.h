@@ -47,7 +47,6 @@ struct W8CharacterAttribute {
 
 /* One skill record, indexed directly by skill id. The leading flag is set
    when a skill first becomes available. */
-#pragma pack(push, 1)
 struct W8CharacterSkill {
     bool active;
     /* Retail offset 0x01: set by ResetSkillContribution; never read. */
@@ -71,7 +70,6 @@ struct W8CharacterSkill {
     bool available;
     unsigned char unknown_14[0x12];
 };
-#pragma pack(pop)
 
 /* One resistance channel. Recalculation rebuilds `base` from scratch each time
    and then derives `total` from it, so the two are a computed pair rather than

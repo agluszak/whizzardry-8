@@ -473,6 +473,16 @@ static_assert(offsetof(MonsterRecord, attack_body_part_chances) == 0x157,
               "MonsterRecord_attack_body_part_chances");
 static_assert(offsetof(MonsterRecord, effective_level) == 0x24f, "MonsterRecord_effective_level");
 static_assert(offsetof(MonsterRecord, display_level) == 0x251, "MonsterRecord_display_level");
+// Skill images retain the retail stride; live skills use native alignment.
+struct CharacterSkill {
+    std::uint8_t active, reset_flag;
+    std::uint32_t points, level, base_level, practice_count;
+    std::uint8_t improved, available;
+    std::uint8_t unknown_14[0x12];
+};
+static_assert(sizeof(CharacterSkill) == 0x26);
+static_assert(offsetof(CharacterSkill, points) == 0x02);
+static_assert(offsetof(CharacterSkill, level) == 0x06);
 struct Character {
     /* 0x0000: SaveCharacter stamps 1 here before writing the record, so the
        leading dword is a saved-record version rather than runtime state. */
@@ -517,7 +527,7 @@ struct Character {
        profession's minimums. It accumulates as a negative debt and is drawn
        back down one point at a time once the pool is positive. */
     int attribute_point_deficit;
-    W8CharacterSkill skills[0x29]; /* 0x019d, indexed by skill_id */
+    CharacterSkill skills[0x29]; /* 0x019d, indexed by skill_id */
     unsigned char unknown_07b3[0x23a];
     /* 0x09ed..0x09f8: experience, the goal for the next level, and the goal
        the previous level had. A character is ready to advance once the first
