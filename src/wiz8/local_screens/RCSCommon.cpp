@@ -804,7 +804,7 @@ void DrawCampVitals(void)
         bounds.bottom = 0x51;
         text.SetClipBounds(bounds);
         text.SetLayoutBounds(&bounds, false);
-        text.SetFontStateIndex(-1);
+        text.SetFontStateIndex(std::nullopt);
         formatted = fmt::format("{:d}", g_review_character->hp_current);
         text.RenderString(formatted, g_smfnt_font, false, GetFrameBufferSurface());
     }

@@ -43,7 +43,7 @@ W8TextBuffer::W8TextBuffer()
     m_lineHeight = 0;
     m_renderMode = 4;
     m_alternateRenderer = 0;
-    m_fontStateIndex = -1;
+    m_fontStateIndex.reset();
     m_highlighted = false;
     m_layoutBounds.left = 0;
     m_layoutBounds.top = 0;
@@ -77,7 +77,7 @@ W8TextBuffer::W8TextBuffer(const W8ControlsRect* bounds, std::string_view text, 
     m_alternateRenderer = 0;
     SetLayoutMode(layout_mode);
     m_renderMode = render_mode;
-    m_fontStateIndex = -1;
+    m_fontStateIndex.reset();
     m_highlighted = false;
     m_layoutBounds = *bounds;
     m_clipBounds = *bounds;
@@ -288,8 +288,8 @@ void W8TextBuffer::PaintLines(SDL_Surface& target, SDL_Point offset, bool highli
                   m_clipBounds.bottom - m_clipBounds.top};
     ScopedClipRect clipping(target, clip);
     const auto previous_state = m_font->palette();
-    if (m_fontStateIndex != -1) {
-        m_font->setPalette(g_font_state_palettes[m_fontStateIndex]);
+    if (m_fontStateIndex) {
+        m_font->setPalette(g_font_state_palettes[*m_fontStateIndex]);
     }
     if (highlighted) {
         m_font->setPalette(g_font_state_palettes[W8_FONT_PALETTE_GREEN]);

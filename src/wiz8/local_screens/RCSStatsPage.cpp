@@ -1445,8 +1445,9 @@ void W8CharacterSkillsPage::UpdateEntries()
             entry->SetContent(skill, g_localized_strings[g_character_skill_name_ids[skill]],
                               &value->points, &m_creation_state->skill_points_spent[skill],
                               &m_creation_state->skill_limits[skill], 0x101);
-            entry->SetLabelFontState(
-                skill == g_profession_bonus_skills[m_character->iProfession] ? 3 : -1);
+            entry->SetLabelFontState(skill == g_profession_bonus_skills[m_character->iProfession]
+                                         ? std::optional<int>{3}
+                                         : std::nullopt);
         }
     }
 }

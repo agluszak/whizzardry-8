@@ -373,7 +373,8 @@ void UpdateSpellRealmPointDisplays(void)
     for (realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
         bool has_realm = gpSCSV->caster->sp_max[realm] != 0;
         gpSCSV->realm_buttons[realm]->SetEnabled(has_realm);
-        gpSCSV->realm_text[realm].SetFontStateIndex(has_realm ? -1 : 0);
+        gpSCSV->realm_text[realm].SetFontStateIndex(has_realm ? std::nullopt
+                                                              : std::optional<int>{0});
         gpSCSV->dirty[0] = true;
         gpSCSV->realm_text[realm].SetText(
             fmt::format(

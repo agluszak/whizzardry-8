@@ -193,7 +193,7 @@ void W8CharacterPageEntry::Redraw(SDL_Surface& target)
 }
 
 // FUNCTION: WIZ8 0x005afbf0
-void W8CharacterPageEntry::SetLabelFontState(int state)
+void W8CharacterPageEntry::SetLabelFontState(std::optional<int> state)
 {
     m_label.SetFontStateIndex(state);
 }

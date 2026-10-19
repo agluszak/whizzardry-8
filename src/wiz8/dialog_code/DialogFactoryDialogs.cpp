@@ -517,7 +517,7 @@ void W8SplitAmountDialog::UpdateTextBuffers()
     if (Remaining() < 0) {
         m_text_buffers[2]->SetFontStateIndex(0);
     } else {
-        m_text_buffers[2]->SetFontStateIndex(-1);
+        m_text_buffers[2]->SetFontStateIndex(std::nullopt);
     }
     m_split_input->SetValue(m_taken);
     m_buttons[2]->m_dirty = true;

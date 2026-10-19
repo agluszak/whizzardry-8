@@ -470,9 +470,10 @@ static std::optional<int> PercentOrNothing(std::optional<int> value)
 }
 
 /* Show a percentage in an info line, or the dimmed dash when there is none. */
-static void ShowPercent(W8TextBuffer& line, std::optional<int> percent, int font_state = -1)
+static void ShowPercent(W8TextBuffer& line, std::optional<int> percent,
+                        std::optional<int> font_state = std::nullopt)
 {
-    line.SetFontStateIndex(percent ? font_state : 0);
+    line.SetFontStateIndex(percent ? font_state : std::optional<int>{0});
     line.SetText(percent ? fmt::format("{:d}%", *percent) : std::string(g_dash),
                  g_wiz_text_font_secondary);
 }
@@ -2161,13 +2162,13 @@ MainGameScreenState::MainGameScreenState()
         portraits[slot] = std::make_unique<UiLayer>(UiLayerOrder::PortraitSlots);
         auto& input = *portraits[slot];
         auto& targets = portrait_targets[slot];
-        const auto add = [&](int index, HitShape shape, auto handler, int help = -1) {
+        const auto add = [&](int index, HitShape shape, auto handler,
+                             std::optional<int> help = std::nullopt) {
             targets[index] =
                 &input.add(shape, [this, slot, index, handler](const UiPointerEvent& event) {
                     return handler(event, *portrait_targets[slot][index], slot);
                 });
-            if (help != -1)
-                targets[index]->setTooltip([help] { return g_localized_strings[help]; });
+            if (help) targets[index]->setTooltip([help] { return g_localized_strings[*help]; });
         };
         constexpr int orb_y[] = {27, 112, 198, 283};
         constexpr int portrait_y[] = {18, 103, 189, 274};

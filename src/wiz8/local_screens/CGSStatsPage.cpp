@@ -232,7 +232,8 @@ static void DrawStatRecord(SDL_Surface& target, const W8CharacterStatsRecord& re
     W8TextBuffer text;
     text.SetLayoutBounds(x + 0x19, y, x + 0x7e, y + 0x16);
     text.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignLeft);
-    text.SetFontStateIndex(enabled ? (hovered ? 0xd : -1) : 0);
+    text.SetFontStateIndex(enabled ? (hovered ? std::optional<int>{0xd} : std::nullopt)
+                                   : std::optional<int>{0});
     text.SetText(g_localized_strings[record.name_id], g_options_detail_font);
     text.RenderToTarget(0, true, target);
     CatalogArtwork::Load(record.object, 0)

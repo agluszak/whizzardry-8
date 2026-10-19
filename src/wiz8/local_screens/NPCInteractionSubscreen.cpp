@@ -1740,7 +1740,8 @@ void ResetNpcDialogueItemEditor(void)
     SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_31, false);
     g_npc_interaction_state->selected_trade_row.reset();
     g_npc_interaction_state->trade_quantity = 1;
-    g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_37].text.SetFontStateIndex(-1);
+    g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_37].text.SetFontStateIndex(
+        std::nullopt);
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_37].text.SetGeometryDirty();
 }
 
@@ -2336,7 +2337,7 @@ static void SelectNpcTradePoolControls(W8NpcDialogueControlSlot previous,
                                        W8NpcDialogueControlSlot selected)
 {
     SetNpcActionPressed(previous, false);
-    g_npc_interaction_state->ui->actions[previous].text.SetFontStateIndex(-1);
+    g_npc_interaction_state->ui->actions[previous].text.SetFontStateIndex(std::nullopt);
     g_npc_interaction_state->ui->actions[previous].text.SetGeometryDirty();
     SetNpcActionPressed(selected, true);
     g_npc_interaction_state->ui->actions[selected].text.SetFontStateIndex(3);
@@ -2428,11 +2429,11 @@ void CloseNpcDialogueOptionLayout(void)
     SetNpcActionPressed(W8_NPC_CONTROL_TEXT_4, false);
     SetNpcActionPressed(W8_NPC_CONTROL_TEXT_5, false);
     text = &g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_5].text;
-    text->SetFontStateIndex(-1);
+    text->SetFontStateIndex(std::nullopt);
     text->SetGeometryDirty();
     SetNpcActionPressed(W8_NPC_CONTROL_TEXT_6, false);
     text = &g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_6].text;
-    text->SetFontStateIndex(-1);
+    text->SetFontStateIndex(std::nullopt);
     text->SetGeometryDirty();
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_1].policy.primary_toggle =
         ButtonToggle::None;
