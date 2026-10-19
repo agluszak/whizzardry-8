@@ -3,6 +3,7 @@
 #include <array>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -68,7 +69,7 @@ private:
 } // namespace
 
 // GLOBAL: WIZ8 0x0064df38
-int g_journal_page = -1;
+std::optional<int> g_journal_page;
 // GLOBAL: WIZ8 0x0069c4e0
 bool g_journal_show_all;
 // GLOBAL: WIZ8 0x0064d7b8
@@ -82,7 +83,7 @@ int g_journal_faction_name_indices[11] = {
 // GLOBAL: WIZ8 0x0064df78
 char g_journal_alternate_page[] = "1 / 1";
 // GLOBAL: WIZ8 0x0064df3c
-int g_journal_page_count = -1;
+std::optional<int> g_journal_page_count;
 // GLOBAL: WIZ8 0x0069C4CC
 Font g_journal_font;
 // GLOBAL: WIZ8 0x0069C4D0
@@ -236,14 +237,19 @@ void JournalScreen::Refresh()
     if (!m_alternate_mode) {
         const int last_page = (static_cast<int>(g_journal_entries.size()) - 1) / 12;
         const int page_count = last_page + 1;
-        if (page_count != g_journal_page_count || g_journal_page < 0 ||
-            g_journal_page >= page_count) {
+        if (page_count == 0) {
+            g_journal_page_count = 0;
+            g_journal_page.reset();
+        } else if (!g_journal_page_count || *g_journal_page_count != page_count ||
+                   !g_journal_page || *g_journal_page >= page_count) {
             g_journal_page_count = page_count;
             g_journal_page = last_page;
         }
-        m_buttons[Next]->SetEnabled(g_journal_page < last_page);
-        m_buttons[Previous]->SetEnabled(g_journal_page > 0);
-        m_page_text->SetText(fmt::format("{:d} / {:d}", g_journal_page + 1, page_count),
+        m_buttons[Next]->SetEnabled(g_journal_page && *g_journal_page < last_page);
+        m_buttons[Previous]->SetEnabled(g_journal_page && *g_journal_page > 0);
+        m_page_text->SetText(g_journal_page
+                                 ? fmt::format("{:d} / {:d}", *g_journal_page + 1, page_count)
+                                 : fmt::format("0 / {:d}", page_count),
                              g_options_detail_font);
     } else {
         m_buttons[Next]->SetEnabled(false);
@@ -260,7 +266,7 @@ void JournalScreen::DrawContent(SDL_Surface& target)
         DrawJournalLine(target, g_localized_strings[0x6db], 0, 0x19, 0, true);
         DrawJournalLine(target, g_localized_strings[0x6dc], 1, 0x19, 0, true);
 
-        int first = g_journal_page * 12;
+        int first = g_journal_page ? *g_journal_page * 12 : 0;
         int last = first + 11;
         if (last >= static_cast<int>(g_journal_entries.size())) {
             last = static_cast<int>(g_journal_entries.size()) - 1;
@@ -378,14 +384,15 @@ void JournalScreen::Activate(JournalAction action)
 {
     switch (action) {
     case Previous:
-        if (g_journal_page > 0) {
-            --g_journal_page;
+        if (g_journal_page && *g_journal_page > 0) {
+            --*g_journal_page;
             Refresh();
         }
         break;
     case Next:
-        if (g_journal_page < (static_cast<int>(g_journal_entries.size()) - 1) / 12) {
-            ++g_journal_page;
+        if (g_journal_page &&
+            *g_journal_page < (static_cast<int>(g_journal_entries.size()) - 1) / 12) {
+            ++*g_journal_page;
             Refresh();
         }
         break;
@@ -479,12 +486,12 @@ void JournalScreenFrame(void)
         if (input.type == InputEventType::KeyDown) {
             if (input.key == SDLK_ESCAPE) {
                 AfterUiDispatch([] { RequestScreenTransition(); });
-            } else if (input.key == SDLK_LEFT && g_journal_page > 0) {
-                --g_journal_page;
+            } else if (input.key == SDLK_LEFT && g_journal_page && *g_journal_page > 0) {
+                --*g_journal_page;
                 g_journal_panel->Refresh();
-            } else if (input.key == SDLK_RIGHT &&
-                       g_journal_page < (static_cast<int>(g_journal_entries.size()) - 1) / 12) {
-                ++g_journal_page;
+            } else if (input.key == SDLK_RIGHT && g_journal_page &&
+                       *g_journal_page < (static_cast<int>(g_journal_entries.size()) - 1) / 12) {
+                ++*g_journal_page;
                 g_journal_panel->Refresh();
             }
         }
