@@ -909,15 +909,17 @@ bool CanAffordStartingEquipment(W8Character* character)
 // FUNCTION: WIZ8 0x00557060
 void RebuildLevelUpPoolsForProfession(W8Character* character,
                                       W8CharacterCreationState* creation_state,
-                                      W8Profession profession)
+                                      std::optional<W8Profession> profession)
 {
     int index;
 
     if (character->iProfession != W8_PROFESSION_NONE) {
         --character->profession_levels[character->iProfession];
     }
-    ++character->profession_levels[profession];
-    character->iProfession = profession;
+    if (profession) {
+        ++character->profession_levels[*profession];
+    }
+    character->iProfession = profession.value_or(W8_PROFESSION_NONE);
 
     if (profession == W8_PROFESSION_VALKYRIE) {
         if (character->gender == W8_GENDER_MALE) {
@@ -947,22 +949,24 @@ void RebuildLevelUpPoolsForProfession(W8Character* character,
                 creation_state->skill_baselines[index] = 0;
             }
         }
-        W8Skill bonus_skill = g_profession_bonus_skills[character->iProfession];
-        int base = character->skills[bonus_skill].points;
-        int missing = (creation_state->skill_points_spent[bonus_skill] - base) + 5;
-        if (missing > 0) {
-            character->skills[bonus_skill].points = base + missing;
-            character->skills[bonus_skill].level += missing;
-            creation_state->skill_baselines[bonus_skill] += missing;
-        }
-        for (index = 0; index < 4; ++index) {
-            W8Skill skill = g_profession_skills[character->iProfession][index];
-            int value = character->skills[skill].points;
-            int missing = (creation_state->skill_points_spent[skill] - value) + 5;
+        if (profession) {
+            W8Skill bonus_skill = g_profession_bonus_skills[*profession];
+            int base = character->skills[bonus_skill].points;
+            int missing = (creation_state->skill_points_spent[bonus_skill] - base) + 5;
             if (missing > 0) {
-                character->skills[skill].points = value + missing;
-                character->skills[skill].level += missing;
-                creation_state->skill_baselines[skill] += missing;
+                character->skills[bonus_skill].points = base + missing;
+                character->skills[bonus_skill].level += missing;
+                creation_state->skill_baselines[bonus_skill] += missing;
+            }
+            for (index = 0; index < 4; ++index) {
+                W8Skill skill = g_profession_skills[*profession][index];
+                int value = character->skills[skill].points;
+                int missing = (creation_state->skill_points_spent[skill] - value) + 5;
+                if (missing > 0) {
+                    character->skills[skill].points = value + missing;
+                    character->skills[skill].level += missing;
+                    creation_state->skill_baselines[skill] += missing;
+                }
             }
         }
     }

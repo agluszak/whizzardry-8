@@ -436,8 +436,10 @@ void W8CharacterStatsPage::ShowEntryInfo(W8CharacterPageEntry* entry)
 void W8CharacterStatsPage::OnRowValueChanged(W8CharacterStatsRow* row, int value)
 {
     if (row == m_profession_row.get()) {
-        RebuildLevelUpPoolsForProfession(m_character, m_creation_state,
-                                         static_cast<W8Profession>(value));
+        RebuildLevelUpPoolsForProfession(
+            m_character, m_creation_state,
+            value < 0 ? std::nullopt
+                      : std::optional<W8Profession>{static_cast<W8Profession>(value)});
     } else if (row == m_race_row.get()) {
         SetCharacterRace(m_character, m_creation_state, static_cast<W8Race>(value));
     } else {
