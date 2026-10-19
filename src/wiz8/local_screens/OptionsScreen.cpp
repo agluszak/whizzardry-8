@@ -281,17 +281,19 @@ void W8OptionsSaveLoadPanel::Populate()
     }
 
     if (m_panel == 11) {
-        m_delete_button = AddButton(0xd, 0x1b0, 0xf8, 6, 8, 7, -1, -1, [this](auto* button) {
-            AfterUiDispatch([this, button] { OnPrimary(button); });
-        });
+        m_delete_button =
+            AddButton(0xd, 0x1b0, 0xf8, 6, 8, 7, std::nullopt, std::nullopt, [this](auto* button) {
+                AfterUiDispatch([this, button] { OnPrimary(button); });
+            });
     } else {
         m_delete_button = 0;
     }
 
     int first_sprite = m_panel == 11 ? 3 : 0;
-    m_action_button =
-        AddButton(0xf5, 0x1b0, 0xf8, first_sprite, first_sprite + 2, first_sprite + 1, -1, -1,
-                  [this](auto* button) { AfterUiDispatch([this, button] { OnPrimary(button); }); });
+    m_action_button = AddButton(0xf5, 0x1b0, 0xf8, first_sprite, first_sprite + 2, first_sprite + 1,
+                                std::nullopt, std::nullopt, [this](auto* button) {
+                                    AfterUiDispatch([this, button] { OnPrimary(button); });
+                                });
 
     if (m_panel == 11 && static_cast<int>(g_options_screen->m_save_slots.size()) == 1) {
         m_delete_button->SetEnabled(false);
@@ -1178,8 +1180,8 @@ void W8OptionsScreen::CreateControls()
     for (int item = 0; item < 8; ++item) {
         const auto& row = g_options_menu_rows[item];
         const auto& frames = row.image_indices;
-        const auto frame = [&](int index) {
-            return index < 0 ? -1 : index + artwork.imageOffset();
+        const auto frame = [&](int index) -> std::optional<int> {
+            return index < 0 ? std::nullopt : std::optional<int>{index + artwork.imageOffset()};
         };
         auto& button = m_menu_buttons[item];
         button = std::make_unique<W8ButtonWidget>(m_menu_input);
@@ -1581,8 +1583,9 @@ void W8OptionsSlider::Redraw(SDL_Surface& target, bool full_redraw)
 }
 
 W8ButtonWidget* W8OptionsPanel::AddButton(int x, int y, int artwork, int normal, int pressed,
-                                          int hover, int pressed_hover, int disabled,
-                                          W8ButtonCallback callback)
+                                          std::optional<int> hover,
+                                          std::optional<int> pressed_hover,
+                                          std::optional<int> disabled, W8ButtonCallback callback)
 {
     const auto art = CatalogArtwork::Load(artwork, 0);
     auto& button = m_buttons.emplace_back(std::make_unique<W8ButtonWidget>(m_input));
@@ -1613,7 +1616,7 @@ static void AddOptionsLabel(W8OptionsPanel& panel, int label)
 void W8OptionsPanel::AddCheckbox(int label, int* value)
 {
     AddOptionsLabel(*this, label);
-    auto* checkbox = AddButton(0x14d, m_content_top - 2, 0xf1, 2, 0, 3, 1, -1,
+    auto* checkbox = AddButton(0x14d, m_content_top - 2, 0xf1, 2, 0, 3, 1, std::nullopt,
                                [value](auto* button) { *value = button->IsPressed() ? 2 : 0; });
     checkbox->Policy().primary_toggle = ButtonToggle::Release;
     checkbox->SetPressed(*value != 0);
@@ -1627,7 +1630,8 @@ W8ButtonWidget* W8OptionsPanel::AddChoiceButton(int label, W8ButtonCallback call
     m_text_buffers.emplace_back(
         std::make_unique<W8TextBuffer>(&bounds, g_localized_strings[label], g_options_detail_font,
                                        g_W8TextBufferAlignTop | g_W8TextBufferAlignRight, 4));
-    auto* button = AddButton(0x151, m_content_top + 1, 0xf1, 4, 6, 5, 7, -1, std::move(callback));
+    auto* button =
+        AddButton(0x151, m_content_top + 1, 0xf1, 4, 6, 5, 7, std::nullopt, std::move(callback));
     button->Policy().primary_toggle = ButtonToggle::Release;
     m_content_top += 22;
     return button;

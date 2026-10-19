@@ -146,8 +146,10 @@ protected:
     bool m_active = false;
     bool m_dirty = true;
     SDL_Rect m_bounds;
-    W8ButtonWidget* AddButton(int x, int y, int artwork, int normal, int pressed, int hover = -1,
-                              int pressed_hover = -1, int disabled = -1,
+    W8ButtonWidget* AddButton(int x, int y, int artwork, int normal, int pressed,
+                              std::optional<int> hover = std::nullopt,
+                              std::optional<int> pressed_hover = std::nullopt,
+                              std::optional<int> disabled = std::nullopt,
                               W8ButtonCallback callback = {});
 
 public:

@@ -338,8 +338,8 @@ JournalScreen::JournalScreen()
         const SDL_Rect bounds{origin.x, origin.y, size.x, size.y};
         auto& button = m_buttons[action];
         button = std::make_unique<W8ButtonWidget>(m_input);
-        const auto frame = [&](int index) {
-            return index < 0 ? -1 : index + artwork.imageOffset();
+        const auto frame = [&](int index) -> std::optional<int> {
+            return index < 0 ? std::nullopt : std::optional<int>{index + artwork.imageOffset()};
         };
         button->Configure(ButtonGraphics::Load(artwork.spriteSheet(), frame(frames[4]),
                                                frame(frames[0]), frame(frames[2]), frame(frames[1]),

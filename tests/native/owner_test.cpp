@@ -1790,7 +1790,7 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         REQUIRE(area.HitTestEntry(1, 25) == 1);
         REQUIRE(area.ScrollUp(false));
         REQUIRE(area.HitTestEntry(1, 25) == 0);
-        area.SetCategoryFilter(W8_DIALOGUE_CATEGORY_ALL);
+        area.SetCategoryFilter(std::nullopt);
         area.SetSorted(true);
         REQUIRE(area.GetOwningEntryIndex(0) == 1);
         REQUIRE(area.GetOwningEntryIndex(2) == 0);
