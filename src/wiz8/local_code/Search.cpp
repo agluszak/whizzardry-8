@@ -164,7 +164,7 @@ void RunSearchPulse(void)
             !gXStatus.fSurprisePossible && !gXStatus.fLockInteractMode &&
             !LockInteractionSuspended() && !gXStatus.fTrapInteractMode &&
             !TrapInteractionSuspended()) {
-            if (IsLevelFastMovement() && g_status.search_mode != 0) {
+            if (IsLevelFastMovement() && g_status.search_mode) {
                 ShowNotice(W8_FONT_PALETTE_BEIGE,
                            g_localized_strings[W8_NOTICE_SEARCH_SPECIAL_LEVEL]);
             }
@@ -219,7 +219,7 @@ void RunSearchPulse(void)
                     }
                 }
             }
-            if (g_status.search_mode == 0 || IsLevelFastMovement()) {
+            if (!g_status.search_mode || IsLevelFastMovement()) {
                 /* Retail scans the party for a live member carrying the
                    Scouting skill and then discards the result. */
                 for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
@@ -231,7 +231,7 @@ void RunSearchPulse(void)
                     }
                 }
             }
-            if (g_status.search_mode != 0 && !IsLevelFastMovement() && !found && Random(100) == 0) {
+            if (g_status.search_mode && !IsLevelFastMovement() && !found && Random(100) == 0) {
                 ApplyItemEffectToRandomCharacter(g_container_event, -1, 0);
             }
         }
@@ -255,14 +255,14 @@ int W8Searchable::PickBestSearcher()
             character->highest_condition >= W8_CONDITION_TURNCOAT) {
             continue;
         }
-        if (CharacterHasTrait(character, W8_TRAIT_SEARCH) || g_status.search_mode != 0) {
+        if (CharacterHasTrait(character, W8_TRAIT_SEARCH) || g_status.search_mode) {
             unsigned int level = character->skills[W8_SKILL_SCOUTING].level;
             unsigned int base = level >> 1;
             if (IsLevelFastMovement()) {
                 base = level >> 2;
             }
             unsigned int score = 0;
-            if (base != 0 || (g_status.search_mode != 0 && !IsLevelFastMovement())) {
+            if (base != 0 || (g_status.search_mode && !IsLevelFastMovement())) {
                 unsigned int attribute = character->attributes[W8_ATTRIBUTE_SENSES].effective;
                 if (attribute < 0x33) {
                     score = base + attribute / 5;
@@ -316,13 +316,13 @@ int W8Searchable::PickBestSearcher()
 // FUNCTION: WIZ8 0x00517780
 void ToggleSearchMode(void)
 {
-    if (g_status.search_mode != 0) {
-        g_status.search_mode = 0;
+    if (g_status.search_mode) {
+        g_status.search_mode = false;
         ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_SEARCH_MODE_OFF]);
         return;
     }
     if (!gXStatus.fCombatMode) {
-        g_status.search_mode = 1;
+        g_status.search_mode = true;
         ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_SEARCH_MODE_ON]);
         g_search_pulse_clock = w8_get_ticks() + (0x1f4);
         ClearActiveWorldCursorNode();

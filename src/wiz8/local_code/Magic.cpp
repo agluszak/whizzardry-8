@@ -924,7 +924,7 @@ void StartCharacterItemUse(int party_slot)
     }
     ChooseAction(party_slot, W8_ACTION_USE_ITEM, -1, &row->item_detail, false, 1);
     AimAtTarget(party_slot, &saved_target, GetEditedActionContext(party_slot));
-    FindCharacterItemAt(party_slot, row->item_origin, row->item_slot);
+    FindCharacterItemAt(party_slot, static_cast<unsigned char>(row->item_origin), row->item_slot);
 
     if (IsSpellTargetStillValid(party_slot, GetItemSpell(row->item_detail.item_use.item),
                                 SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_ITEM))) {
@@ -1275,11 +1275,12 @@ bool CanPartySlotUseRecordedItem(int party_slot)
     int spell_id;
     bool normalize;
 
-    if (static_cast<signed char>(row->item_origin) < 0 || static_cast<short>(row->item_slot) < 0) {
+    if (row->item_origin == W8_ITEM_ORIGIN_NONE || static_cast<short>(row->item_slot) < 0) {
         return false;
     }
 
-    item = FindCharacterItemAt(party_slot, row->item_origin, row->item_slot);
+    item = FindCharacterItemAt(party_slot, static_cast<unsigned char>(row->item_origin),
+                               row->item_slot);
     row->item_detail.item_use.item = item;
 
     if (row->item_origin == W8_ITEM_ORIGIN_PARTY_POOL && gXStatus.fCombatMode) {

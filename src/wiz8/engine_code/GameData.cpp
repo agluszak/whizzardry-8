@@ -2248,7 +2248,7 @@ bool W8LevelDataRecord::UpdateFootstepFromMotion()
     distance = glm::length(movement) + footstep_accumulator;
     footstep_accumulator = distance;
     if (2e+03f < distance) {
-        if (g_status.search_mode == 0 && (flags & W8_LEVEL_FLAG_FAST_MOVEMENT) == 0) {
+        if (!g_status.search_mode && (flags & W8_LEVEL_FLAG_FAST_MOVEMENT) == 0) {
             large_radius = false;
         } else {
             large_radius = true;

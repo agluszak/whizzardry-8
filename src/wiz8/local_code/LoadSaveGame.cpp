@@ -1694,12 +1694,11 @@ void LoadGameStatus(W8Chunk* chunks, W8GlobalStatus* status)
 
     for (int slot = 0; slot < 8; ++slot) {
         auto& party_row = party_rows[slot];
-        const auto origin = static_cast<signed char>(party_row.item_origin);
         const auto item_slot = static_cast<short>(party_row.item_slot);
         W8ItemInstance* item = nullptr;
-        if (party_row.fOccupied && party_row.pending_action == W8_ACTION_USE_ITEM && origin != -1 &&
-            item_slot != -1) {
-            item = FindCharacterItemAt(slot, static_cast<unsigned char>(origin),
+        if (party_row.fOccupied && party_row.pending_action == W8_ACTION_USE_ITEM &&
+            party_row.item_origin != W8_ITEM_ORIGIN_NONE && item_slot != -1) {
+            item = FindCharacterItemAt(slot, static_cast<unsigned char>(party_row.item_origin),
                                        static_cast<unsigned short>(item_slot));
         }
         party_row.pending_action_detail.item_use.item = item;

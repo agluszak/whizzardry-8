@@ -55,6 +55,32 @@ template<class Owner> void presence_slot(const Owner& live, std::span<std::byte>
 }
 template<class Owner> void presence_slot(Owner&, std::span<const std::byte>) {}
 
+template<class Raw, class Enum, class Bytes> void enum_value(Enum* value, Bytes bytes)
+{
+    static_assert(std::is_enum_v<std::remove_const_t<Enum>>);
+    if constexpr (std::is_const_v<Enum>) {
+        const Raw raw = static_cast<Raw>(*value);
+        std::memcpy(bytes.data(), &raw, sizeof(raw));
+    } else {
+        Raw raw{};
+        std::memcpy(&raw, bytes.data(), sizeof(raw));
+        *value = static_cast<std::remove_const_t<Enum>>(raw);
+    }
+}
+
+template<class Boolean, class Bytes> void byte_boolean(Boolean* value, Bytes bytes)
+{
+    static_assert(std::is_same_v<std::remove_const_t<Boolean>, bool>);
+    if constexpr (std::is_const_v<Boolean>) {
+        const unsigned char raw = *value ? 1 : 0;
+        std::memcpy(bytes.data(), &raw, sizeof(raw));
+    } else {
+        unsigned char raw{};
+        std::memcpy(&raw, bytes.data(), sizeof(raw));
+        *value = raw != 0;
+    }
+}
+
 /* A nested record with its own codec. */
 template<class Runtime, class Bytes, class Value, class Text>
 void nested(Runtime& runtime, Bytes bytes, Value value, Text text)
@@ -160,12 +186,12 @@ template<> struct Record<W8PartySlotRow> {
         value(&runtime.spell.detail,
               bytes.subspan(offsetof(Disk, spell_id), sizeof(Disk::spell_id)));
         value(&runtime.item_id, bytes.subspan(offsetof(Disk, item_id), sizeof(Disk::item_id)));
-        value(&runtime.item_origin,
-              bytes.subspan(offsetof(Disk, item_origin), sizeof(Disk::item_origin)));
+        enum_value<unsigned char>(&runtime.item_origin, bytes.subspan(offsetof(Disk, item_origin),
+                                                                      sizeof(Disk::item_origin)));
         value(&runtime.item_slot,
               bytes.subspan(offsetof(Disk, item_slot), sizeof(Disk::item_slot)));
-        value(&runtime.queued_action,
-              bytes.subspan(offsetof(Disk, queued_action), sizeof(Disk::queued_action)));
+        enum_value<signed char>(&runtime.queued_action, bytes.subspan(offsetof(Disk, queued_action),
+                                                                      sizeof(Disk::queued_action)));
         value(&runtime.party_order_index,
               bytes.subspan(offsetof(Disk, party_order_index), sizeof(Disk::party_order_index)));
         value(&runtime.item_action_pending, bytes.subspan(offsetof(Disk, item_action_pending),
@@ -921,8 +947,8 @@ template<> struct Record<W8GlobalStatus> {
               bytes.subspan(offsetof(Disk, game_time_ms), sizeof(Disk::game_time_ms)));
         value(&runtime.aging_accumulator,
               bytes.subspan(offsetof(Disk, aging_accumulator), sizeof(Disk::aging_accumulator)));
-        value(&runtime.search_mode,
-              bytes.subspan(offsetof(Disk, search_mode), sizeof(Disk::search_mode)));
+        byte_boolean(&runtime.search_mode,
+                     bytes.subspan(offsetof(Disk, search_mode), sizeof(Disk::search_mode)));
         value(&runtime.world_suspended,
               bytes.subspan(offsetof(Disk, world_suspended), sizeof(Disk::world_suspended)));
         value(&runtime.real_elapsed,

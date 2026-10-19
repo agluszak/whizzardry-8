@@ -211,7 +211,7 @@ bool CanSelectRcsPartySlot(int ui_slot)
         return false;
     }
     if (gXStatus.fCombatMode) {
-        if (!g_combat_state->equip_phase) {
+        if (g_combat_state->equip_phase == W8CombatEquipPhase::action_selection) {
             return false;
         }
         if (g_status.buffers.XChar[ui_slot].pending_action != W8_ACTION_EQUIP) {
@@ -957,7 +957,7 @@ void RefreshCampItemActions(bool invalidate)
                     continue;
                 }
                 if (!gXStatus.fCombatMode ||
-                    (g_combat_state->equip_phase != 0 &&
+                    (g_combat_state->equip_phase != W8CombatEquipPhase::action_selection &&
                      g_status.buffers.XChar[giReviewCharSlot].pending_action == W8_ACTION_EQUIP)) {
                     control->SetEnabled(true);
                     continue;

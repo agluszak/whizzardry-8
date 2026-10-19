@@ -276,7 +276,7 @@ bool StartCombat(int surprise)
     gXStatus.edited_formation = g_status.formation;
     SaveCombatFormation();
     g_combat_state->search_mode_saved = g_status.search_mode;
-    if (g_status.search_mode != 0) {
+    if (g_status.search_mode) {
         ToggleSearchMode();
     }
     if (IsLevelFastMovement()) {
@@ -764,7 +764,7 @@ void BeginCombatRound(void)
             g_status.buffers.XChar[party_slot].pending_action = W8_ACTION_NONE;
         }
     }
-    g_combat_state->equip_phase = 0;
+    g_combat_state->equip_phase = W8CombatEquipPhase::action_selection;
     g_combat_state->equip_pending = 0;
 }
 
@@ -1133,7 +1133,7 @@ void EndCombat(bool forced_cleanup)
     RestoreCombatFormation();
     ReconcilePartyEquipmentAfterCombat();
     gXStatus.fCombatMode = false;
-    if (g_combat_state->search_mode_saved != 0) {
+    if (g_combat_state->search_mode_saved) {
         ToggleSearchMode();
     }
     ZoomRadarMapOut();
@@ -1306,7 +1306,7 @@ void SetCharacterCombatAction(int party_slot, W8Action next, int notify)
     if (action_kind != W8_ACTION_ATTACK && action_kind != W8_ACTION_BERSERK &&
         action_kind != W8_ACTION_DEFEND && action_kind != W8_ACTION_PROTECT &&
         action_kind != W8_ACTION_WALK && action_kind != W8_ACTION_RUN)
-        g_status.buffers.XChar[party_slot].queued_action = static_cast<signed char>(action_kind);
+        g_status.buffers.XChar[party_slot].queued_action = action_kind;
     row->action_changed = true;
     W8Character* character = &g_status.buffers.Char[party_slot];
     if (character->hp_current != 0 && character->highest_condition < W8_CONDITION_TURNCOAT &&
@@ -2006,7 +2006,7 @@ void RollCombatSurprise(char party_cannot_be_surprised)
                     g_combat_state->party_surprised = true;
                     level_surprise = true;
                 }
-            } else if (g_status.search_mode != 0 && Random(100) < 0x14) {
+            } else if (g_status.search_mode && Random(100) < 0x14) {
                 g_combat_state->party_surprised = true;
                 search_surprise = true;
             }
@@ -3409,7 +3409,7 @@ void ScheduleCombatActor(void)
         if (g_combat_state->eCombatActionStatus != 0 || gXStatus.fPartyMovementMode || free_turn ||
             g_combat_state->round_counter > 0x64) {
             if (g_combat_state->round_counter > 0x64) {
-                g_combat_state->equip_phase = 0;
+                g_combat_state->equip_phase = W8CombatEquipPhase::action_selection;
                 g_combat_state->equip_pending = 0;
                 if (gXStatus.fCombatMode) {
                     for (unsigned int slot = 0; slot < 8; ++slot) {
@@ -3418,14 +3418,15 @@ void ScheduleCombatActor(void)
                             g_status.buffers.Char[slot].highest_condition < W8_CONDITION_TURNCOAT &&
                             g_status.buffers.XChar[slot].pending_action == W8_ACTION_EQUIP) {
                             ++g_combat_state->equip_pending;
-                            if (g_combat_state->equip_phase == 0) {
-                                g_combat_state->equip_phase = 1;
+                            if (g_combat_state->equip_phase ==
+                                W8CombatEquipPhase::action_selection) {
+                                g_combat_state->equip_phase = W8CombatEquipPhase::resolving;
                                 OpenCharacterScreenForPartySlot(slot, false);
                             }
                         }
                     }
                 }
-                if (g_combat_state->equip_phase == 0) {
+                if (g_combat_state->equip_phase == W8CombatEquipPhase::action_selection) {
                     AdvanceCombatRound();
                     if (CheckCombatEnd(1) == 0 && g_settings.continuous_combat != 0) {
                         BeginCombatExecution();

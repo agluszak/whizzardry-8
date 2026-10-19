@@ -667,7 +667,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                             npc_fade_flag, static_cast<int>(monster_info->party_threat.sight_state),
                             g_status.party_modifiers.sight_override, distance);
 
-                        if (g_status.search_mode != 0) {
+                        if (g_status.search_mode) {
                             threshold *= g_sight_threat_scale;
                         }
                         if (threshold >= distance) {

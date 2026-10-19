@@ -536,7 +536,7 @@ void UpdateItemCursorForState(bool alternate, W8ItemInstance* item, int slot)
                 return;
             }
             if (gXStatus.fCombatMode && !IsEquippableItemClass(item) &&
-                (g_combat_state->equip_phase == 0 ||
+                (g_combat_state->equip_phase == W8CombatEquipPhase::action_selection ||
                  g_status.buffers.XChar[giReviewCharSlot].pending_action != W8_ACTION_EQUIP)) {
                 return;
             }
@@ -599,7 +599,7 @@ void UnequipBothHands(void)
     W8Character* character;
 
     if (gXStatus.fCombatMode && !g_combat_state->round_active && !gXStatus.fPartyMovementMode &&
-        g_combat_state->equip_phase == 0) {
+        g_combat_state->equip_phase == W8CombatEquipPhase::action_selection) {
         ShowCampNoticeLine(g_localized_strings[0x903], 0, true, false);
         return;
     }

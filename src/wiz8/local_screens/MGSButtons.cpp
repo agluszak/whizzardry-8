@@ -1260,7 +1260,8 @@ bool BuildSubMenuPanel(short notification)
                 if (!CanPartySlotUseRecordedItem(slot))
                     return std::string(g_localized_strings[0x5d]);
                 const auto& row = g_status.buffers.XChar[slot];
-                const auto* item = FindCharacterItemAt(slot, row.item_origin, row.item_slot);
+                const auto* item = FindCharacterItemAt(
+                    slot, static_cast<unsigned char>(row.item_origin), row.item_slot);
                 return fmt::format("{}: {}", g_localized_strings[0x5d],
                                    FormatItemDisplayName(item, false));
             });

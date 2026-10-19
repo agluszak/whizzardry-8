@@ -101,7 +101,7 @@ struct W8GlobalStatus {
     unsigned int aging_accumulator;
     /* Retail offset 0x238f: search mode toggle. Mirrors the submenu search button, slows
        party movement, and scales the monster-sight threshold while set. */
-    unsigned char search_mode;
+    bool search_mode;
     /* Retail offset 0x2390: cleared by the main-game frame; HP/SP and condition updates
        skip work while it is set, and encounter culling treats it as the
        force-despawn gate. */

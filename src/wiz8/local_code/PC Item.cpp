@@ -3556,7 +3556,9 @@ void StagePartySlotItemUse(int party_slot, W8ItemInstance* item, const W8CombatS
     row->item_detail.item_use.item = item;
     row->item_target = *target;
     row->item_id = item->iItemNo;
-    GetOriginOfCharacterItem(party_slot, item, &row->item_origin, &row->item_slot);
+    unsigned char item_origin;
+    GetOriginOfCharacterItem(party_slot, item, &item_origin, &row->item_slot);
+    row->item_origin = static_cast<W8ItemOrigin>(item_origin);
 }
 
 /* Take one of an item's uses away, and when that was the last one, empty the
