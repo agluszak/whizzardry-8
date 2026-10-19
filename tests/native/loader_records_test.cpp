@@ -11,6 +11,7 @@
 #include <iterator>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <type_traits>

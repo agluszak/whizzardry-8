@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <initializer_list>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <utility>

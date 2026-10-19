@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <optional>
 
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_rect.h>

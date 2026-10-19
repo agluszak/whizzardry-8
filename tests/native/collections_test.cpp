@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -7,6 +8,7 @@
 #include <iterator> // IWYU pragma: keep - public header for std::istreambuf_iterator.
 #include <limits>
 #include <memory>
+#include <optional>
 #include <span>
 #include <unordered_map>
 #include <utility>

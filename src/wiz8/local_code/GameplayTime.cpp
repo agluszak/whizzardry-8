@@ -1,6 +1,7 @@
 #include "wiz8/local_code/GameplayTime.h"
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 

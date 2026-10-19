@@ -1,5 +1,6 @@
 #include "wiz8/local_code/GroupAttacks.h"
 
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <vector>

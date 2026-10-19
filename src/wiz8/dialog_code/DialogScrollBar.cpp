@@ -1,6 +1,7 @@
 #include "wiz8/dialog_code/DialogScrollBar.h"
 
 #include <algorithm>
+#include <optional>
 #include <stdexcept>
 #include <utility>
 

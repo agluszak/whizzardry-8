@@ -1,5 +1,6 @@
 #include "wiz8/level_specific_code/Trynnie2.h"
 
+#include <optional>
 #include <string>
 #include <vector>
 

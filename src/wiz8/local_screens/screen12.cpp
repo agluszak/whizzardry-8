@@ -1,3 +1,5 @@
+#include <optional>
+
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>

@@ -4,6 +4,7 @@
 #include <exception>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <string_view>

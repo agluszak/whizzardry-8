@@ -6,6 +6,7 @@
 #include <cstring>
 #include <exception>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 

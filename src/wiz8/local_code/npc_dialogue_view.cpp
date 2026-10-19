@@ -1,5 +1,6 @@
 #include "wiz8/local_code/npc_dialogue_view.h"
 
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>

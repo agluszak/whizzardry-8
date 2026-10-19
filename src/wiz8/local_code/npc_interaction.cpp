@@ -1,5 +1,6 @@
-
 #include "wiz8/npc_interaction.h"
+
+#include <optional>
 
 #include "conditions.h"
 #include "wiz8/layouts/character.h"

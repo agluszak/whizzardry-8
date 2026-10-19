@@ -4,6 +4,7 @@
 #include <array>
 #include <cstring>
 #include <functional>
+#include <optional>
 
 #include "conditions.h"
 #include "layouts/game_status.h"

@@ -1,3 +1,4 @@
+#include <optional>
 #include <vector>
 
 #include <SDL3/SDL_rect.h>

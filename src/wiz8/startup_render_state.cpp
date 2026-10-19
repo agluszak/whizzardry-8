@@ -1,5 +1,6 @@
 #include <cstdint>
 #include <memory>
+#include <optional>
 
 #include "compat/native.h"
 #include "glm/ext/vector_float3.hpp"

@@ -1,6 +1,7 @@
 #include "wiz8/local_code/npc_story_events.h"
 
 #include <cstdint>
+#include <optional>
 #include <string>
 
 #include <fmt/chrono.h> // IWYU pragma: keep - std::tm formatter specialization.

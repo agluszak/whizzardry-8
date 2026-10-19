@@ -7,7 +7,6 @@
 #include <memory>
 #include <optional>
 #include <string>
-#include <utility>
 
 #include <SDL3/SDL_endian.h>
 #include <SDL3/SDL_keycode.h>

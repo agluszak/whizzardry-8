@@ -1,5 +1,6 @@
 #include "wiz8/level_specific_code/Swamp.h"
 
+#include <optional>
 #include <vector>
 
 #include "Item.h"
