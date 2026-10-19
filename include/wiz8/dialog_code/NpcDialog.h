@@ -5,6 +5,7 @@ class TextFieldGroup;
 #include <array>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 
 #include "compat/compiler.h"
@@ -44,12 +45,11 @@ private:
     std::function<void(W8NpcDialog&)> m_closed;
     std::array<std::unique_ptr<W8TextBuffer>, 2> m_text_buffers;
     std::array<std::unique_ptr<W8ButtonWidget>, 3> m_buttons;
-    signed char m_selected_option = -1;
     bool m_cancelled = false;
     W8NpcQuoteEntry* m_message;
     bool m_compact_options = false; /* option list may size under 200 wide */
     unsigned short m_text_width; /* widest option text + 6 */
-    int m_input_field = -1;
+    std::optional<int> m_input_field;
     std::unique_ptr<TextFieldGroup> m_input_group;
     std::string m_input_text; /* fills the 0x270-byte allocation */
 };

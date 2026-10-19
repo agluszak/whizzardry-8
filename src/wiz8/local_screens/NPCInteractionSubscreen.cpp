@@ -265,7 +265,8 @@ static void SetNpcActionVisible(int index, bool visible)
     auto& action = ui.actions[index];
     action.visible = visible;
     action.dirty = true;
-    if (action.target) action.target->setEnabled(visible && ui.panels[action.panel].active);
+    if (action.target && action.panel)
+        action.target->setEnabled(visible && ui.panels[*action.panel].active);
 }
 
 static void SetNpcActionEnabled(int index, bool enabled)
@@ -274,7 +275,7 @@ static void SetNpcActionEnabled(int index, bool enabled)
     if (action.enabled == enabled) return;
     action.enabled = enabled;
     action.dirty = true;
-    if (action.frames[4] != -1) action.text.SetRenderMode(enabled ? 4 : 7);
+    if (action.frames[4]) action.text.SetRenderMode(enabled ? 4 : 7);
 }
 
 static void SetNpcActionPressed(int index, bool selected)
@@ -322,8 +323,8 @@ static void SetNpcPanelActive(int index, bool active)
     }
 }
 
-static void AddNpcAction(int index, int panel, SDL_Rect bounds, int catalog,
-                         std::array<int, 5> frames)
+static void AddNpcAction(int index, int panel, SDL_Rect bounds, std::optional<int> catalog,
+                         std::array<std::optional<int>, 5> frames)
 {
     auto& ui = *g_npc_interaction_state->ui;
     auto& action = ui.actions[index];
@@ -332,8 +333,8 @@ static void AddNpcAction(int index, int panel, SDL_Rect bounds, int catalog,
     action.panel = panel;
     action.bounds = bounds;
     action.frames = frames;
-    if (catalog != -1) {
-        const auto art = CatalogArtwork::Load(catalog, 0);
+    if (catalog) {
+        const auto art = CatalogArtwork::Load(*catalog, 0);
         action.sprites = art.spriteSheet();
         action.image_offset = art.imageOffset();
     }
@@ -341,10 +342,12 @@ static void AddNpcAction(int index, int panel, SDL_Rect bounds, int catalog,
     action.text.SetLayoutBounds(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h);
     action.text.MarkGeometryDirty(checkbox ? 9 : 10);
     if (checkbox) {
-        const auto [width, height] =
-            GetSpriteSize(*action.sprites, action.image_offset + frames[0]);
-        action.text.SetLayoutBounds(bounds.x + width + 2, bounds.y, bounds.x + bounds.w,
-                                    bounds.y + bounds.h);
+        if (action.sprites && frames[0]) {
+            const int width =
+                GetSpriteSize(*action.sprites, action.image_offset + *frames[0]).first;
+            action.text.SetLayoutBounds(bounds.x + width + 2, bounds.y, bounds.x + bounds.w,
+                                        bounds.y + bounds.h);
+        }
         action.policy.primary_toggle =
             index == 15 ? ButtonToggle::Release : ButtonToggle::StayLatched;
     }
@@ -432,31 +435,31 @@ static void PaintNpcPanel(int index, SDL_Surface& target, bool force)
         const bool checkbox = id == 15 || (id >= 17 && id <= 21);
         const bool hover = action.target && action.target->hovered();
         const bool pressed = action.interaction.pressed;
-        int frame = !action.enabled ? action.frames[4] : action.frames[pressed ? 1 : 0];
-        if (action.enabled && hover && action.frames[pressed ? 3 : 2] != -1)
+        auto frame = !action.enabled ? action.frames[4] : action.frames[pressed ? 1 : 0];
+        if (action.enabled && hover && action.frames[pressed ? 3 : 2])
             frame = action.frames[pressed ? 3 : 2];
         const auto& sprites = id == 24 ? ui.item_preview : action.sprites;
         if (id == 24 && sprites) frame = 0;
         const auto bounds = action.bounds;
-        if (sprites && frame != -1) {
-            const int measured = id == 24                 ? 0
-                                 : action.frames[0] != -1 ? action.frames[0]
-                                                          : action.frames[1];
+        if (sprites && frame) {
+            const auto measured = id == 24           ? std::optional<int>{0}
+                                  : action.frames[0] ? action.frames[0]
+                                                     : action.frames[1];
             const auto [width, height] =
-                measured < 0 ? std::pair{bounds.w, bounds.h}
-                             : GetSpriteSize(*sprites, action.image_offset + measured);
+                !measured ? std::pair{bounds.w, bounds.h}
+                          : GetSpriteSize(*sprites, action.image_offset + *measured);
             int x = checkbox || id == 24 ? bounds.x : bounds.x + bounds.w - width;
             int y = id == 24 ? bounds.y : bounds.y + (bounds.h - height) / 2;
             if (hover) {
-                const auto [w, h] = GetSpriteSize(*sprites, action.image_offset + frame);
+                const auto [w, h] = GetSpriteSize(*sprites, action.image_offset + *frame);
                 x += std::max(0, w - bounds.w) / 2;
                 y += std::max(0, h - bounds.h) / 2;
             }
-            DrawSpriteAndInvalidate(target, *sprites, action.image_offset + frame, x, y);
+            DrawSpriteAndInvalidate(target, *sprites, action.image_offset + *frame, x, y);
         }
         action.text.RenderToTarget(pressed && !checkbox ? 1 : 0, true, target);
         action.text.m_geometryDirty = false;
-        if (!action.enabled && sprites && frame == -1)
+        if (!action.enabled && sprites && !frame)
             ShadowRect(target, {bounds.x, bounds.y, bounds.w + 1, bounds.h + 1});
         action.dirty = false;
     }
@@ -929,22 +932,22 @@ static void CreateNpcDialogueControls()
     state->ui = std::make_unique<NpcDialogueUi>();
     auto& ui = *state->ui;
     ui.transcript = std::make_unique<W8NpcDialogueTextController>();
-    AddNpcAction(W8_NPC_CONTROL_NPC_NAME, 0, {5, 2, (0x89) - (5), (0x12) - (2)}, -1,
-                 {-1, -1, -1, -1, -1});
-    AddNpcAction(W8_NPC_CONTROL_TEXT_38, 0, {5, 0x47, (0x89) - (5), (0x57) - (0x47)}, -1,
-                 {-1, -1, -1, -1, -1});
+    AddNpcAction(W8_NPC_CONTROL_NPC_NAME, 0, {5, 2, (0x89) - (5), (0x12) - (2)}, std::nullopt,
+                 {std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt});
+    AddNpcAction(W8_NPC_CONTROL_TEXT_38, 0, {5, 0x47, (0x89) - (5), (0x57) - (0x47)}, std::nullopt,
+                 {std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt});
     AddNpcAction(W8_NPC_CONTROL_TEXT_1, 0, {2, 0x11, (0x45) - (2), (0x21) - (0x11)}, 0x1a9,
-                 {-1, 0xc, 10, 0xb, -1});
+                 {std::nullopt, 0xc, 10, 0xb, std::nullopt});
     AddNpcAction(W8_NPC_CONTROL_TEXT_2, 0, {0x44, 0x11, (0x87) - (0x44), (0x21) - (0x11)}, 0x1a9,
-                 {-1, 0xc, 10, 0xb, -1});
+                 {std::nullopt, 0xc, 10, 0xb, std::nullopt});
     AddNpcAction(W8_NPC_CONTROL_TEXT_3, 0, {2, 0x21, (0x45) - (2), (0x31) - (0x21)}, 0x1a9,
-                 {-1, 0xc, 10, 0xb, -1});
+                 {std::nullopt, 0xc, 10, 0xb, std::nullopt});
     AddNpcAction(W8_NPC_CONTROL_TEXT_4, 0, {0x44, 0x21, (0x87) - (0x44), (0x31) - (0x21)}, 0x1a9,
-                 {-1, 0xc, 10, 0xb, -1});
+                 {std::nullopt, 0xc, 10, 0xb, std::nullopt});
     AddNpcAction(W8_NPC_CONTROL_TEXT_5, 0, {2, 0x31, (0x45) - (2), (0x41) - (0x31)}, 0x1a9,
-                 {-1, 0xc, 10, 0xb, -1});
+                 {std::nullopt, 0xc, 10, 0xb, std::nullopt});
     AddNpcAction(W8_NPC_CONTROL_TEXT_6, 0, {0x44, 0x31, (0x87) - (0x44), (0x41) - (0x31)}, 0x1a9,
-                 {-1, 0xc, 10, 0xb, -1});
+                 {std::nullopt, 0xc, 10, 0xb, std::nullopt});
     AddNpcAction(W8_NPC_CONTROL_TEXT_7, 0, {0x72, 0x47, (0x89) - (0x72), (0x57) - (0x47)}, 0x1aa,
                  {0, 4, 1, 2, 3});
     AddNpcAction(W8_NPC_CONTROL_OPTION_BUTTONS + 0, 0, {7, 0x46, (0x17) - (7), (0x56) - (0x46)},
@@ -962,10 +965,10 @@ static void CreateNpcDialogueControls()
     AddNpcAction(W8_NPC_CONTROL_OPTION_BUTTONS + 5, 0,
                  {0x62, 0x46, (0x72) - (0x62), (0x56) - (0x46)}, 0x1ab,
                  {0x19, 0x1a, 0x1b, 0x1d, 0x1c});
-    AddNpcAction(W8_NPC_CONTROL_WIDGET, 1, {2, 4, (0x136) - (2), (0x57) - (4)}, -1,
-                 {-1, -1, -1, -1, -1});
-    AddNpcAction(W8_NPC_CONTROL_SCROLL, 2, {6, 6, (0x7c) - (6), (0x11) - (6)}, -1,
-                 {-1, -1, -1, -1, -1});
+    AddNpcAction(W8_NPC_CONTROL_WIDGET, 1, {2, 4, (0x136) - (2), (0x57) - (4)}, std::nullopt,
+                 {std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt});
+    AddNpcAction(W8_NPC_CONTROL_SCROLL, 2, {6, 6, (0x7c) - (6), (0x11) - (6)}, std::nullopt,
+                 {std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt});
     AddNpcAction(W8_NPC_CONTROL_SCROLL_UP_BUTTON, 2, {0x7e, 3, (0x88) - (0x7e), (0xb) - (3)}, 0x1aa,
                  {0x14, 0x18, 0x15, 0x16, 0x17});
     AddNpcAction(W8_NPC_CONTROL_SCROLL_DOWN_BUTTON, 2, {0x7e, 0xc, (0x88) - (0x7e), (0x14) - (0xc)},
@@ -975,35 +978,38 @@ static void CreateNpcDialogueControls()
     AddNpcAction(W8_NPC_CONTROL_TEXT_13, 6, {0x26, 0x23, (0x37) - (0x26), (0x30) - (0x23)}, 0x1aa,
                  {10, 0xe, 0xb, 0xc, 0xd});
     AddNpcAction(W8_NPC_CONTROL_TEXT_23, 6, {9, 0x33, (0x84) - (9), (0x44) - (0x33)}, 0x1a9,
-                 {-1, -1, 0xe, 0xf, -1});
+                 {std::nullopt, std::nullopt, 0xe, 0xf, std::nullopt});
     AddNpcAction(W8_NPC_CONTROL_TEXT_22, 6, {9, 0x43, (0x84) - (9), (0x52) - (0x43)}, 0x1a9,
-                 {-1, -1, 0xe, 0xf, -1});
+                 {std::nullopt, std::nullopt, 0xe, 0xf, std::nullopt});
     AddNpcAction(W8_NPC_CONTROL_SORT_BUTTON, 3, {6, 2, (0x89) - (6), (0xe) - (2)}, 0x1a9,
-                 {8, 9, -1, -1, -1});
+                 {8, 9, std::nullopt, std::nullopt, std::nullopt});
     AddNpcAction(W8_NPC_CONTROL_PEOPLE_BUTTON, 3, {6, 0xf, (0x41) - (6), (0x1b) - (0xf)}, 0x1a9,
-                 {8, 9, -1, -1, -1});
+                 {8, 9, std::nullopt, std::nullopt, std::nullopt});
     AddNpcAction(W8_NPC_CONTROL_PLACES_BUTTON, 3, {0x43, 0xf, (0x89) - (0x43), (0x1b) - (0xf)},
-                 0x1a9, {8, 9, -1, -1, -1});
+                 0x1a9, {8, 9, std::nullopt, std::nullopt, std::nullopt});
     AddNpcAction(W8_NPC_CONTROL_ITEMS_BUTTON, 3, {6, 0x1b, (0x41) - (6), (0x27) - (0x1b)}, 0x1a9,
-                 {8, 9, -1, -1, -1});
+                 {8, 9, std::nullopt, std::nullopt, std::nullopt});
     AddNpcAction(W8_NPC_CONTROL_MISC_BUTTON, 3, {0x43, 0x1b, (0x89) - (0x43), (0x27) - (0x1b)},
-                 0x1a9, {8, 9, -1, -1, -1});
+                 0x1a9, {8, 9, std::nullopt, std::nullopt, std::nullopt});
     AddNpcAction(W8_NPC_CONTROL_ALL_BUTTON, 3, {6, 0x27, (0x41) - (6), (0x33) - (0x27)}, 0x1a9,
-                 {8, 9, -1, -1, -1});
-    AddNpcAction(W8_NPC_CONTROL_TEXT_24, 5, {5, 0x14, (0x32) - (5), (0x49) - (0x14)}, -1,
-                 {-1, -1, -1, -1, -1});
+                 {8, 9, std::nullopt, std::nullopt, std::nullopt});
+    AddNpcAction(W8_NPC_CONTROL_TEXT_24, 5, {5, 0x14, (0x32) - (5), (0x49) - (0x14)}, std::nullopt,
+                 {std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt});
     AddNpcAction(W8_NPC_CONTROL_TEXT_31, 5, {0x35, 0x36, (0x51) - (0x35), (0x46) - (0x36)}, 0x1aa,
                  {0x1e, 0x22, 0x1f, 0x20, 0x21});
-    AddNpcAction(W8_NPC_CONTROL_TEXT_33, 5, {0x53, 0x4d, (0x86) - (0x53), (0x58) - (0x4d)}, -1,
-                 {-1, -1, -1, -1, -1});
-    AddNpcAction(W8_NPC_CONTROL_TEXT_34, 5, {5, 0x4d, (0x51) - (5), (0x58) - (0x4d)}, -1,
-                 {-1, -1, -1, -1, -1});
-    AddNpcAction(W8_NPC_CONTROL_TEXT_35, 5, {0x53, 0x3a, (0x86) - (0x53), (0x45) - (0x3a)}, -1,
-                 {-1, -1, -1, -1, -1});
-    AddNpcAction(W8_NPC_CONTROL_TEXT_36, 5, {4, 4, (0x88) - (4), (0x11) - (4)}, -1,
-                 {-1, -1, -1, -1, -1});
-    AddNpcAction(W8_NPC_CONTROL_TEXT_37, 5, {0x38, 0x22, (0x88) - (0x38), (0x34) - (0x22)}, -1,
-                 {-1, -1, -1, -1, -1});
+    AddNpcAction(W8_NPC_CONTROL_TEXT_33, 5, {0x53, 0x4d, (0x86) - (0x53), (0x58) - (0x4d)},
+                 std::nullopt,
+                 {std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt});
+    AddNpcAction(W8_NPC_CONTROL_TEXT_34, 5, {5, 0x4d, (0x51) - (5), (0x58) - (0x4d)}, std::nullopt,
+                 {std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt});
+    AddNpcAction(W8_NPC_CONTROL_TEXT_35, 5, {0x53, 0x3a, (0x86) - (0x53), (0x45) - (0x3a)},
+                 std::nullopt,
+                 {std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt});
+    AddNpcAction(W8_NPC_CONTROL_TEXT_36, 5, {4, 4, (0x88) - (4), (0x11) - (4)}, std::nullopt,
+                 {std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt});
+    AddNpcAction(W8_NPC_CONTROL_TEXT_37, 5, {0x38, 0x22, (0x88) - (0x38), (0x34) - (0x22)},
+                 std::nullopt,
+                 {std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt});
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_NPC_NAME].text.SetLayoutMode(
         g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_38].text.SetLayoutMode(

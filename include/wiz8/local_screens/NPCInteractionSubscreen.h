@@ -75,11 +75,11 @@ struct NpcDialogueUi {
                                  {{0x1dc, 0x166}, 6},
                                  {{0x1dc, 0x166}, 13}}};
     struct Action {
-        int panel = -1;
+        std::optional<int> panel;
         SDL_Rect bounds{};
         std::shared_ptr<const SpriteSheet> sprites;
         int image_offset = 0;
-        std::array<int, 5> frames{-1, -1, -1, -1, -1};
+        std::array<std::optional<int>, 5> frames{};
         HitTarget* target = nullptr;
         W8TextBuffer text;
         ButtonInteraction interaction;
