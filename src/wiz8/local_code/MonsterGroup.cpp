@@ -307,8 +307,7 @@ W8MonsterGroup* FindMonsterGroup(int group_id, bool assert_on_failure, std::sour
     if (!GetWorld()) return nullptr;
     auto* group = CurrentLevelPopulation().findGroup(group_id);
     if (!group && assert_on_failure)
-        srAssertFail("group", fmt::format("Group ID {:d} not found ({} line {:d})", group_id,
-                                          caller.file_name(), caller.line()));
+        srAssertFail("group", fmt::format("Group ID {:d} not found", group_id), caller);
     return group;
 }
 

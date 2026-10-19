@@ -471,8 +471,7 @@ W8MonsterInfo* FindMonster(int location_id, bool assert_on_failure, std::source_
         }
     }
     if (monster == 0 && assert_on_failure) {
-        srAssertFail("FALSE", fmt::format("FindMonster: ID {:d} not found ({} line {:d})",
-                                          location_id, caller.file_name(), caller.line()));
+        srAssertFail("FALSE", fmt::format("FindMonster: ID {:d} not found", location_id), caller);
     }
     return monster;
 }
