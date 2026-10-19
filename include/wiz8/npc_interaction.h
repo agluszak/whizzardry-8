@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <string>
 
 #include "wiz8/local_code/NPCScripting.h"
@@ -18,7 +19,7 @@ bool ShouldDeferCharacterEventForNpcScript(bool require_group_entry);
    output. */
 std::string GetNpcQuoteText(W8NpcState* npc, int type);
 
-bool IsPartySlotEligible(int slot);
+bool IsPartySlotEligible(std::optional<int> slot);
 void ClearNpcMessageQueue(void); /* 0x00524C50 */
 
 std::string FormatNpcVoiceSoundPath(W8NpcState* npc);

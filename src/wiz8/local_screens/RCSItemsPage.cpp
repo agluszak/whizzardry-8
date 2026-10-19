@@ -243,7 +243,7 @@ void UseCampItem(W8ItemInstance* item)
 {
     unsigned short slot;
 
-    if (ValidateItemSpellUse(giReviewCharSlot, item, 0)) {
+    if (ValidateItemSpellUse(giReviewCharSlot.value(), item, 0)) {
         SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
         return;
     }
@@ -252,8 +252,9 @@ void UseCampItem(W8ItemInstance* item)
     } else {
         if (!IsUsableItemClass(item) || IsSpecialItemId(item)) {
             gXStatus.dragged_item = item;
-            gXStatus.dragged_character_slot = giReviewCharSlot;
-            GetOriginOfCharacterItem(giReviewCharSlot, item, &gXStatus.dragged_item_origin, &slot);
+            gXStatus.dragged_character_slot = giReviewCharSlot.value();
+            GetOriginOfCharacterItem(giReviewCharSlot.value(), item, &gXStatus.dragged_item_origin,
+                                     &slot);
         } else {
             if (!g_status.item_in_cursor) {
                 MarkCampCharacterPending(item);
@@ -286,8 +287,8 @@ void ReportCastResult(int party_slot)
     W8Character* character;
     int result;
 
-    StartBreathCycle(giReviewCharSlot, false);
-    result = RevealCharacterItemBindingsByProfession(giReviewCharSlot, party_slot);
+    StartBreathCycle(giReviewCharSlot.value(), false);
+    result = RevealCharacterItemBindingsByProfession(giReviewCharSlot.value(), party_slot);
     character = g_status.buffers.Char + party_slot;
     if (result == 0) {
         wiz8::sound::play("Data\\Sound\\Misc\\Spell Fizzle 01.wav");
@@ -474,16 +475,16 @@ void SplitStackDialogResult(int count)
             split.stack_count = static_cast<unsigned char>(count);
             g_split_item_source->stack_count = remaining;
             CopyItemInstance(&g_status.item_in_hand, &split, 0, true);
-            gXStatus.held_item_source = giReviewCharSlot;
-            GetOriginOfCharacterItem(giReviewCharSlot, g_split_item_source,
+            gXStatus.held_item_source = giReviewCharSlot.value();
+            GetOriginOfCharacterItem(giReviewCharSlot.value(), g_split_item_source,
                                      &gXStatus.held_item_origin, &gXStatus.held_item_slot);
             carried = g_status.item_in_hand.stack_count;
         }
     }
     g_status.item_in_hand.stack_count = carried;
-    RebuildEquipmentAndDerivedStatsForSlot(giReviewCharSlot);
+    RebuildEquipmentAndDerivedStatsForSlot(giReviewCharSlot.value());
     RebuildCampItemList();
-    RecalculateCharacterDerivedStats(g_status.buffers.Char + giReviewCharSlot);
+    RecalculateCharacterDerivedStats(g_status.buffers.Char + giReviewCharSlot.value());
     RecalculateCarriedWeight(g_review_character);
     RedistributePartyEncumbrance();
     SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
@@ -539,7 +540,8 @@ void UpdateItemCursorForState(bool alternate, W8ItemInstance* item, int slot)
             }
             if (gXStatus.fCombatMode && !IsEquippableItemClass(item) &&
                 (g_combat_state->equip_phase == 0 ||
-                 g_status.buffers.XChar[giReviewCharSlot].pending_action != W8_ACTION_EQUIP)) {
+                 g_status.buffers.XChar[giReviewCharSlot.value()].pending_action !=
+                     W8_ACTION_EQUIP)) {
                 return;
             }
             SetTargetCursor(GetTargetingCursorForState(alternate));
@@ -609,12 +611,12 @@ void UnequipBothHands(void)
         ShowCampNoticeLine(g_localized_strings[0x917], 0, true, false);
         return;
     }
-    character = g_status.buffers.Char + giReviewCharSlot;
+    character = g_status.buffers.Char + giReviewCharSlot.value();
     BindEquippedItem(character, W8_EQUIP_SLOT_PRIMARY_WEAPON);
     BindEquippedItem(character, W8_EQUIP_SLOT_SECONDARY_WEAPON);
     if (CanUnequipSlotItem(character, W8_EQUIP_SLOT_PRIMARY_WEAPON) &&
         CanUnequipSlotItem(character, W8_EQUIP_SLOT_SECONDARY_WEAPON)) {
-        SwapWeaponSetSlots(giReviewCharSlot, false, true);
+        SwapWeaponSetSlots(giReviewCharSlot.value(), false, true);
         g_camp_screen->item_redraw_flags |= W8_CAMP_ITEM_REDRAW_EQUIPMENT;
         g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_PORTRAIT;
         g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_CHARACTER_INFO;
@@ -627,12 +629,12 @@ void UnequipBothHands(void)
 void TogglePartyRowFlag(void)
 {
     if (item_controls->actions[1]->IsPressed()) {
-        g_status.buffers.XChar[giReviewCharSlot].item_action_pending = true;
+        g_status.buffers.XChar[giReviewCharSlot.value()].item_action_pending = true;
         item_controls->actions[0]->SetEnabled(false);
         item_controls->actions[0]->m_dirty = true;
         return;
     }
-    g_status.buffers.XChar[giReviewCharSlot].item_action_pending = false;
+    g_status.buffers.XChar[giReviewCharSlot.value()].item_action_pending = false;
     item_controls->actions[0]->SetEnabled(true);
     item_controls->actions[0]->m_dirty = true;
 }
@@ -1014,7 +1016,7 @@ void EnableCampActionButtons(void)
     item_controls->actions[1]->SetVisible(true);
     if (g_status.game_started) {
         item_controls->actions[1]->SetEnabled(true);
-        if (g_status.buffers.XChar[giReviewCharSlot].item_action_pending) {
+        if (g_status.buffers.XChar[giReviewCharSlot.value()].item_action_pending) {
             item_controls->actions[1]->SetPressed(true);
             item_controls->actions[0]->SetEnabled(false);
         } else {

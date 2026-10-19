@@ -1026,7 +1026,7 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
             quote->height =
                 static_cast<unsigned short>(quote->bubble ? quote->bubble->height() : 0);
             if (g_current_screen_state.id == W8_SCREEN_CAMP) {
-                if (static_cast<int>(party_slot) == giReviewCharSlot) {
+                if (giReviewCharSlot == static_cast<int>(party_slot)) {
                     quote->x = 10;
                     quote->y = 8;
                 } else {

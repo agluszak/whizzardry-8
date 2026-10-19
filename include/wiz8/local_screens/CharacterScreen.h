@@ -130,7 +130,7 @@ public:
     void DrawChoices(SDL_Surface& target);
     void Step(int direction);
 
-    int m_index = -1;
+    std::optional<int> m_index;
     int m_count;
     int m_x;
     int m_y;
@@ -331,7 +331,7 @@ public:
     void DrawNavigation(SDL_Surface& target);
 
     W8CharacterScreenMode m_mode;
-    int m_page_index = -1;
+    std::optional<int> m_page_index;
     bool m_header_dirty;
     unsigned char pad_011[3];
     W8Character* m_original;

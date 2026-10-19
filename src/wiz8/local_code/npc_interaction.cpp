@@ -19,21 +19,18 @@ W8NpcDialogue g_npc_dialogue;
 /* Report whether a party slot can be picked: in range, occupied, still on its
    feet, and not Turncoat or a more severe condition. */
 // FUNCTION: WIZ8 0x00524a10
-bool IsPartySlotEligible(int slot)
+bool IsPartySlotEligible(std::optional<int> slot)
 {
     W8Character* character;
     bool eligible;
 
-    if (slot < 0) {
+    if (!slot || *slot < 0 || *slot >= 8) {
         return false;
     }
-    if (slot >= 8) {
+    if (!g_status.buffers.XChar[*slot].fOccupied) {
         return false;
     }
-    if (!g_status.buffers.XChar[slot].fOccupied) {
-        return false;
-    }
-    character = &g_status.buffers.Char[slot];
+    character = &g_status.buffers.Char[*slot];
     if (character->hp_current == 0) {
         return false;
     }

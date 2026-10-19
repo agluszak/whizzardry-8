@@ -199,7 +199,7 @@ struct W8CampScreenState {
 };
 
 extern std::unique_ptr<W8CampScreenState> g_camp_screen;
-extern int giReviewCharSlot;
+extern std::optional<int> giReviewCharSlot;
 extern W8Character* g_review_character;
 extern W8Character* g_camp_identifying_character; /* gpIdentifyingPC */
 extern W8Character* g_camp_character;
@@ -250,7 +250,7 @@ bool ResolvePendingCampCharacter(bool force);
 void MarkCampCharacterPending(W8ItemInstance* item);
 /* Whether an item click fits the character's remaining action allowance in
    combat. */
-bool IsCampActionAllowed(int party_slot);
+bool IsCampActionAllowed(std::optional<int> party_slot);
 int CommitPartySlotSpell(int party_slot, int spell_id, int power_level, W8CombatSlot* target);
 int CommitPartySlotItemUse(int party_slot, W8ItemInstance* item, W8CombatSlot* target);
 

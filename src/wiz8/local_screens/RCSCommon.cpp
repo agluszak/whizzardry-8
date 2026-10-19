@@ -265,13 +265,13 @@ void DrawRcsTextJustified(std::string_view text, int left, int top, int width, i
 // FUNCTION: WIZ8 0x005b6630
 static void OpenLevelUpCharacterScreen(void)
 {
-    if (!g_status.buffers.XChar[giReviewCharSlot].fOccupied) {
-        srAssertFail("fCHAR_OCCUPIED(giReviewCharSlot)",
+    if (!g_status.buffers.XChar[giReviewCharSlot.value()].fOccupied) {
+        srAssertFail("fCHAR_OCCUPIED(giReviewCharSlot.value())",
                      "C:\\Projects\\Wizardry 8\\Local Screens\\RCSCommon.cpp", 0x888, 0);
     }
-    g_current_screen_state.parameter_2 = giReviewCharSlot;
+    g_current_screen_state.parameter_2 = giReviewCharSlot.value();
     g_current_screen_state.character = g_review_character;
-    g_pending_screen_state.character = &g_status.buffers.Char[giReviewCharSlot];
+    g_pending_screen_state.character = &g_status.buffers.Char[giReviewCharSlot.value()];
     g_pending_screen_state.mode = W8_CHARACTER_LEVEL_UP;
     g_pending_screen_state.id = W8_SCREEN_CHARACTER;
 }
@@ -313,13 +313,13 @@ UiResult HandleCampPortrait(const UiPointerEvent& event, int target_slot)
                     (g_camp_screen->item_action != W8_CAMP_ITEM_ACTION_CAST_SPELL &&
                      g_camp_screen->item_action != W8_CAMP_ITEM_ACTION_USE_ON_CHARACTER)) {
                     if (!CanPartySlotParticipate(target_slot)) {
-                        QueueCharacterEvent(&g_status.buffers.Char[giReviewCharSlot], 0x35, 0,
-                                            kCharacterEventFullVolume);
+                        QueueCharacterEvent(&g_status.buffers.Char[giReviewCharSlot.value()], 0x35,
+                                            0, kCharacterEventFullVolume);
                         return;
                     }
-                    AimAtCharacter(giReviewCharSlot, target_slot,
-                                   GetEditedActionContext(giReviewCharSlot));
-                    StartBreathCycle(giReviewCharSlot, false);
+                    AimAtCharacter(giReviewCharSlot.value(), target_slot,
+                                   GetEditedActionContext(giReviewCharSlot.value()));
+                    StartBreathCycle(giReviewCharSlot.value(), false);
                     return;
                 }
                 if (g_status.buffers.Char[target_slot].uiCondition[W8_CONDITION_MISSING] == 0) {
@@ -333,16 +333,16 @@ UiResult HandleCampPortrait(const UiPointerEvent& event, int target_slot)
             } else {
                 if (gXStatus.iTargetingMode == W8_TARGET_NEED_CHARACTER_INDIRECT) {
                     if (!IsDeadCharacterTargetable(target_slot)) {
-                        QueueCharacterEvent(&g_status.buffers.Char[giReviewCharSlot], 0x35, 0,
-                                            kCharacterEventFullVolume);
+                        QueueCharacterEvent(&g_status.buffers.Char[giReviewCharSlot.value()], 0x35,
+                                            0, kCharacterEventFullVolume);
                         return;
                     }
-                    AimAtCharacterIndirect(giReviewCharSlot, target_slot,
-                                           GetEditedActionContext(giReviewCharSlot));
-                    StartBreathCycle(giReviewCharSlot, false);
+                    AimAtCharacterIndirect(giReviewCharSlot.value(), target_slot,
+                                           GetEditedActionContext(giReviewCharSlot.value()));
+                    StartBreathCycle(giReviewCharSlot.value(), false);
                     return;
                 }
-                if (giReviewCharSlot != target_slot) {
+                if (giReviewCharSlot.value() != target_slot) {
                     SelectCampCharacter(target_slot);
                     return;
                 }
@@ -362,7 +362,7 @@ UiResult HandleCampCharacterHeader(const UiPointerEvent& event)
         event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK)) {
         AfterUiDispatch([] {
             g_current_screen_state.character = g_review_character;
-            g_current_screen_state.parameter_2 = giReviewCharSlot;
+            g_current_screen_state.parameter_2 = giReviewCharSlot.value();
             g_pending_screen_state.mode = W8_CHARACTER_EDIT;
             g_pending_screen_state.character = g_review_character;
             g_pending_screen_state.id = W8_SCREEN_CHARACTER;
@@ -428,9 +428,10 @@ void RedrawRcsDismissPanel()
 // FUNCTION: WIZ8 0x005b65a0
 void UpdateRcsLevelUpPanel(void)
 {
-    bool enabled = IsCharacterReadyToAdvance(giReviewCharSlot);
+    bool enabled = IsCharacterReadyToAdvance(giReviewCharSlot.value());
     if (!enabled || gXStatus.fCombatMode ||
-        (!g_status.buffers.XChar[giReviewCharSlot].portrait_advance && g_status.game_started) ||
+        (!g_status.buffers.XChar[giReviewCharSlot.value()].portrait_advance &&
+         g_status.game_started) ||
         gXStatus.fCampMode) {
         if (header_buttons->level_up->IsVisible()) {
             header_buttons->level_up->SetVisible(false);
@@ -445,15 +446,15 @@ void UpdateRcsLevelUpPanel(void)
 // FUNCTION: WIZ8 0x005b6950
 static void ShowDismissCharacterDialog(void)
 {
-    if (!g_status.buffers.XChar[giReviewCharSlot].fOccupied) {
-        srAssertFail("fCHAR_OCCUPIED(giReviewCharSlot)",
+    if (!g_status.buffers.XChar[giReviewCharSlot.value()].fOccupied) {
+        srAssertFail("fCHAR_OCCUPIED(giReviewCharSlot.value())",
                      "C:\\Projects\\Wizardry 8\\Local Screens\\RCSCommon.cpp", 0x90a, 0);
     }
 
     W8MessageDialogBase* dialog = CreateMessageDialog();
     dialog->SetClientExtent(0xfa, 200);
 
-    W8Character* character = &g_status.buffers.Char[giReviewCharSlot];
+    W8Character* character = &g_status.buffers.Char[giReviewCharSlot.value()];
     std::string format;
     if (character->uiCondition[W8_CONDITION_MISSING] == 0) {
         if (character->uiCondition[W8_CONDITION_DEAD] == 0) {
@@ -473,8 +474,8 @@ static void ShowDismissCharacterDialog(void)
 // FUNCTION: WIZ8 0x005b6a60
 static void OnDismissCharacterDialogClosed(bool accepted)
 {
-    if (accepted && g_status.buffers.XChar[giReviewCharSlot].npc_index != -1) {
-        gXStatus.review_character_slot = static_cast<unsigned short>(giReviewCharSlot);
+    if (accepted && g_status.buffers.XChar[giReviewCharSlot.value()].npc_index != -1) {
+        gXStatus.review_character_slot = static_cast<unsigned short>(giReviewCharSlot.value());
         DismissSelectedPartyCharacter();
     }
 }
@@ -485,7 +486,7 @@ static void OnDismissCharacterDialogClosed(bool accepted)
 // FUNCTION: WIZ8 0x005b68e0
 void UpdateRcsDismissPanel(void)
 {
-    if ((giReviewCharSlot == 0 || giReviewCharSlot == 1) && !gXStatus.fCombatMode &&
+    if ((giReviewCharSlot.value() == 0 || giReviewCharSlot.value() == 1) && !gXStatus.fCombatMode &&
         !gXStatus.fCampMode) {
         if (!header_buttons->dismiss->IsVisible()) {
             header_buttons->dismiss->SetVisible(true);
@@ -583,7 +584,7 @@ void DrawCampHeader(void)
                 .draw(GetFrameBufferSurface(), 0, 0xa4, 0xc);
         } else {
             RenderPartyPortrait(GetFrameBufferSurface(), character->portrait_index, 0xa4, 0xc, {},
-                                1, giReviewCharSlot);
+                                1, giReviewCharSlot.value());
         }
         CatalogArtwork::Load(0x10f, 0).draw(GetFrameBufferSurface(), 9, 0xa4, 0xc);
         if (state->portrait_hovered[0] != 0) {
@@ -656,7 +657,7 @@ void DrawCampHeader(void)
             band_x = (slot & 1) * 0x30;
             left = band_x + 6;
             top = band_y + 5;
-            if (giReviewCharSlot == -1 || !g_status.buffers.XChar[slot].fOccupied) {
+            if (!giReviewCharSlot.has_value() || !g_status.buffers.XChar[slot].fOccupied) {
                 CatalogArtwork::Load(0x10f, 0).draw(GetFrameBufferSurface(), slot + 1, band_x + 5,
                                                     band_y + 4);
             } else {
@@ -677,7 +678,7 @@ void DrawCampHeader(void)
                 }
                 if (state->main_targets[kCampPartyPortraitRegionOffset + slot]->hovered()) {
                     CatalogArtwork::Load(0x117, 0).draw(GetFrameBufferSurface(), 0, left, top);
-                } else if (static_cast<int>(slot) == giReviewCharSlot) {
+                } else if (static_cast<int>(slot) == giReviewCharSlot.value()) {
                     CatalogArtwork::Load(0x117, 0).draw(GetFrameBufferSurface(), 1, left, top);
                 }
             }
@@ -791,7 +792,7 @@ void DrawCampVitals(void)
     if (!g_status.game_started) {
         text.SetFontStateIndex(8);
     } else {
-        text.SetFontStateIndex(g_status.buffers.XChar[giReviewCharSlot].party_order_index);
+        text.SetFontStateIndex(g_status.buffers.XChar[giReviewCharSlot.value()].party_order_index);
     }
     text.RenderString(
         g_localized_strings[g_profession_name_message_ids[g_review_character->iProfession + 0x10]],
@@ -958,11 +959,13 @@ void RefreshCampItemActions(bool invalidate)
                 }
                 if (!gXStatus.fCombatMode ||
                     (g_combat_state->equip_phase != 0 &&
-                     g_status.buffers.XChar[giReviewCharSlot].pending_action == W8_ACTION_EQUIP)) {
+                     g_status.buffers.XChar[giReviewCharSlot.value()].pending_action ==
+                         W8_ACTION_EQUIP)) {
                     control->SetEnabled(true);
                     continue;
                 }
-                if (IsEquippableItemClass(held) && gXStatus.held_item_source == giReviewCharSlot) {
+                if (IsEquippableItemClass(held) &&
+                    gXStatus.held_item_source == giReviewCharSlot.value()) {
                     control->SetEnabled(true);
                     continue;
                 }
@@ -1229,8 +1232,8 @@ static void OnCampCastSpell(void)
 static void OnCampUseItemOnItem(void)
 {
     if (camp_buttons->actions[W8_CAMP_ACTION_BUTTON_USE_ON_ITEM]->IsPressed()) {
-        if (giReviewCharSlot >= 0) {
-            giCasterCharSlot = giReviewCharSlot;
+        if (giReviewCharSlot.has_value()) {
+            giCasterCharSlot = giReviewCharSlot.value();
         } else {
             giCasterCharSlot.reset();
         }
@@ -1250,8 +1253,8 @@ static void OnCampUseItemOnItem(void)
 static void OnCampUseItemOnCharacter(void)
 {
     if (camp_buttons->actions[W8_CAMP_ACTION_BUTTON_USE_ON_CHARACTER]->IsPressed()) {
-        if (giReviewCharSlot >= 0) {
-            giCasterCharSlot = giReviewCharSlot;
+        if (giReviewCharSlot.has_value()) {
+            giCasterCharSlot = giReviewCharSlot.value();
         } else {
             giCasterCharSlot.reset();
         }

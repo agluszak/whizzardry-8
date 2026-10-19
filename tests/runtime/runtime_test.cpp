@@ -2065,9 +2065,16 @@ void PrintState(Game& game)
         std::printf(" round=%u executing=%d", g_combat_state->round_count,
                     int(g_combat_state->execution_active));
     if (g_current_screen_state.id == W8_SCREEN_CAMP && g_camp_screen)
-        std::printf(" camp_pc=%d page=%d item_action=%d camp_dialog=%d targeting=%d",
-                    giReviewCharSlot, int(g_camp_screen->page), int(g_camp_screen->item_action),
-                    g_camp_screen->dialog != nullptr, int(gXStatus.iTargetingMode));
+        if (giReviewCharSlot) {
+            std::printf(" camp_pc=%d page=%d item_action=%d camp_dialog=%d targeting=%d",
+                        *giReviewCharSlot, int(g_camp_screen->page),
+                        int(g_camp_screen->item_action), g_camp_screen->dialog != nullptr,
+                        int(gXStatus.iTargetingMode));
+        } else {
+            std::printf(" camp_pc=none page=%d item_action=%d camp_dialog=%d targeting=%d",
+                        int(g_camp_screen->page), int(g_camp_screen->item_action),
+                        g_camp_screen->dialog != nullptr, int(gXStatus.iTargetingMode));
+        }
     std::printf("\n");
     for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
         if (g_status.buffers.XChar[slot].fOccupied) {
@@ -2249,8 +2256,9 @@ bool RunScriptCommand(Game& game, const std::string& line)
                             int(entry.fact), entry.alternate_text);
         }
     } else if (op == "items" || op == "spells") {
-        const int slot = g_current_screen_state.id == W8_SCREEN_CAMP ? giReviewCharSlot
-                                                                     : g_status.selected_character;
+        const int slot = g_current_screen_state.id == W8_SCREEN_CAMP && giReviewCharSlot
+                             ? *giReviewCharSlot
+                             : g_status.selected_character;
         if (op == "items") {
             PrintItems(slot);
         } else {

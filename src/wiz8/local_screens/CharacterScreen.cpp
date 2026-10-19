@@ -142,7 +142,7 @@ W8CharacterScreen::W8CharacterScreen(W8CharacterScreenMode mode, W8Character* ch
 
 W8CharacterScreen::~W8CharacterScreen()
 {
-    if (m_page_index >= 0 && m_pages[m_page_index]) m_pages[m_page_index]->Deactivate();
+    if (m_page_index && m_pages[*m_page_index]) m_pages[*m_page_index]->Deactivate();
 }
 
 // FUNCTION: WIZ8 0x005b0140
@@ -163,11 +163,11 @@ void W8CharacterScreen::BuildControls()
     };
     m_next = button(0x254, 8, 0xdc, [this] { AdvancePage(false); });
     m_previous = button(0x228, 0xc, 0xdd, [this] {
-        int index = m_page_index - 1;
+        int index = m_page_index.value() - 1;
         while (index >= 0 && !m_page_enabled[index]) --index;
         if (index >= 0) SelectPage(index);
     });
-    m_exit = button(0x1fc, 0x14, 0xde, [this] { m_pages[m_page_index]->Accept(); });
+    m_exit = button(0x1fc, 0x14, 0xde, [this] { m_pages[m_page_index.value()]->Accept(); });
     m_accept = button(0x1d0, 4, 0xdf, [this] {
         if (m_mode == W8_CHARACTER_EDIT && !m_exit->IsEnabled())
             RequestScreenTransition();
@@ -192,12 +192,11 @@ void W8CharacterScreen::BuildControls()
         }
     }
 
-    m_page_index = -1;
     int index = 0;
     while (index < 4 && !m_page_enabled[index]) {
         ++index;
     }
-    SelectPage(index < 4 ? index : -1);
+    if (index < 4) SelectPage(index);
 }
 
 // FUNCTION: WIZ8 0x005b04b0
@@ -206,7 +205,7 @@ void W8CharacterScreen::UpdateDialog()
     if (m_dialog != 0) {
         if (!m_dialog->ProcessInput()) {
             m_navigation_dirty = true;
-            m_pages[m_page_index]->Prepare();
+            m_pages[m_page_index.value()]->Prepare();
             m_header_dirty = true;
             bool accepted = false;
             if (m_capture_dialog_result) {
@@ -329,7 +328,7 @@ void W8CharacterScreen::ShowCharacterSummary()
 void W8CharacterScreen::AdvancePage(bool forward)
 {
     if (!forward || (m_page_index != 3 && m_next->IsEnabled())) {
-        int index = m_page_index;
+        int index = m_page_index.value();
         if (index == 1 && m_creation_state.spell_points_remaining > 0 && !m_block_advance) {
             ShowMessage(g_localized_strings[0xc4], 1, 3);
             return;
@@ -386,9 +385,9 @@ void W8CharacterScreen::AdvancePage(bool forward)
 // FUNCTION: WIZ8 0x005b0d50
 void W8CharacterScreen::SelectPage(int index)
 {
-    if (m_page_index >= 0) {
-        m_pages[m_page_index]->SetActive(false);
-        m_pages[m_page_index]->Deactivate();
+    if (m_page_index) {
+        m_pages[*m_page_index]->SetActive(false);
+        m_pages[*m_page_index]->Deactivate();
     }
     SyncCharacterForPage(index);
     if (!m_pages[index]) {
@@ -434,7 +433,7 @@ void W8CharacterScreen::SelectPage(int index)
 // FUNCTION: WIZ8 0x005b0f30
 void W8CharacterScreen::SyncCharacterForPage(int index)
 {
-    if (m_page_index > index) return;
+    if (m_page_index && *m_page_index > index) return;
     if (index == 0) {
         if (m_mode == W8_CHARACTER_CREATE)
             InitializeCharacterCreation(&m_character, &m_creation_state);
@@ -454,7 +453,8 @@ void W8CharacterScreen::DrawHeader()
     W8TextBuffer text;
     CatalogArtwork::Load(0x107, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0xc3, 0);
     W8ControlsRect bounds = {0xc3, 0, 0x285, 0x2c};
-    text.RenderString(&bounds, g_localized_strings[g_character_page_title_ids[m_page_index]],
+    text.RenderString(&bounds,
+                      g_localized_strings[g_character_page_title_ids[m_page_index.value()]],
                       g_options_detail_font, true, GetFrameBufferSurface());
     CatalogArtwork::Load(0x107, 0).drawAndInvalidate(GetFrameBufferSurface(), 1, 0, 0);
 
@@ -699,7 +699,7 @@ void CharacterScreenFrame(void)
         PumpUiInput({
             .before =
                 [screen](const InputEvent& input) {
-                    screen->m_pages[screen->m_page_index]->HandleInput(&input);
+                    screen->m_pages[screen->m_page_index.value()]->HandleInput(&input);
                     return InputRoute::Pass;
                 },
             .unhandled =
@@ -717,7 +717,7 @@ void CharacterScreenFrame(void)
                             }
                         } else if ((input.key == SDLK_LEFT || input.key == SDLK_B) &&
                                    screen->m_page_index != 3) {
-                            int index = screen->m_page_index - 1;
+                            int index = screen->m_page_index.value() - 1;
                             while (index >= 0 && !screen->m_page_enabled[index]) --index;
                             if (index != -1) screen->SelectPage(index);
                         }
@@ -726,7 +726,7 @@ void CharacterScreenFrame(void)
                 },
         });
     if (screen->m_header_dirty) screen->DrawHeader();
-    screen->m_pages[screen->m_page_index]->Redraw(GetFrameBufferSurface(), false);
+    screen->m_pages[screen->m_page_index.value()]->Redraw(GetFrameBufferSurface(), false);
     screen->DrawNavigation(GetFrameBufferSurface());
     if (screen->m_dialog != 0) screen->m_dialog->RefreshModal();
     RenderFrame();

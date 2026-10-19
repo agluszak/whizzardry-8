@@ -123,7 +123,7 @@ W8CampScreenState::~W8CampScreenState()
     character_info.reset();
 }
 // GLOBAL: WIZ8 0x0064cbe8
-int giReviewCharSlot = -1;
+std::optional<int> giReviewCharSlot;
 // GLOBAL: WIZ8 0x0069c0f8
 W8Character* g_review_character;
 // GLOBAL: WIZ8 0x0069c0fc
@@ -1426,7 +1426,7 @@ void DrawCampScreen(void)
     }
     RefreshCampItemActions(false);
     if (!gXStatus.fCombatMode) {
-        if (giReviewCharSlot != -1) {
+        if (giReviewCharSlot.has_value()) {
             if (g_status.game_started || (g_previous_screen_id == W8_SCREEN_PARTY_SELECTION &&
                                           PartySelectionInReviewMode())) {
                 UpdateRcsLevelUpPanel();
@@ -1449,7 +1449,8 @@ done:
 
 void SyncReviewCharInputRegion(void)
 {
-    if (giReviewCharSlot != -1 && g_status.buffers.XChar[giReviewCharSlot].npc_index != -1) {
+    if (giReviewCharSlot.has_value() &&
+        g_status.buffers.XChar[giReviewCharSlot.value()].npc_index != -1) {
         g_camp_screen->main_targets[kCampCharacterHeaderRegionOffset]->setEnabled(false);
         return;
     }
@@ -1478,11 +1479,11 @@ void ActivateCampPage(void)
     if (state->page != W8_CAMP_PAGE_ITEMS) {
         SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
     }
-    if (giReviewCharSlot == -1) {
+    if (!giReviewCharSlot.has_value()) {
         for (index = 0; index < 8; ++index) {
             g_camp_screen->main_targets[kCampPartyPortraitRegionOffset + index]->setEnabled(false);
         }
-    } else if (g_status.buffers.XChar[giReviewCharSlot].npc_index == -1) {
+    } else if (g_status.buffers.XChar[giReviewCharSlot.value()].npc_index == -1) {
         g_camp_screen->main_targets[kCampCharacterHeaderRegionOffset]->setEnabled(true);
     } else {
         g_camp_screen->main_targets[kCampCharacterHeaderRegionOffset]->setEnabled(false);
@@ -1702,13 +1703,13 @@ static void SelectPendingCampCharacter()
 static void RefreshCampItemOrigin(W8ItemOrigin origin, W8EquipSlot equip_slot)
 {
     if (origin == W8_ITEM_ORIGIN_EQUIPPED) {
-        RebuildEquipmentAndDerivedStatsForSlot(giReviewCharSlot);
+        RebuildEquipmentAndDerivedStatsForSlot(giReviewCharSlot.value());
         if (GetPairedEquipSlot(equip_slot)) {
-            g_status.buffers.XChar[giReviewCharSlot].weapon_swap_pending = false;
+            g_status.buffers.XChar[giReviewCharSlot.value()].weapon_swap_pending = false;
         }
         RebuildCampItemList();
     } else if (origin == W8_ITEM_ORIGIN_BACKPACK) {
-        RecalculateCharacterDerivedStats(&g_status.buffers.Char[giReviewCharSlot]);
+        RecalculateCharacterDerivedStats(&g_status.buffers.Char[giReviewCharSlot.value()]);
     } else {
         RebuildCampItemList();
     }
@@ -1772,7 +1773,7 @@ void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOr
         ShowCampNoticeLine(text, 0, true, false);
         return;
     }
-    character = &g_status.buffers.Char[giReviewCharSlot];
+    character = &g_status.buffers.Char[giReviewCharSlot.value()];
     if (character->uiCondition[W8_CONDITION_MISSING] != 0 &&
         (origin == W8_ITEM_ORIGIN_EQUIPPED || origin == W8_ITEM_ORIGIN_BACKPACK)) {
         text = g_localized_strings[0x907];
@@ -1793,7 +1794,7 @@ void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOr
     }
     if (character->highest_condition >= W8_CONDITION_TURNCOAT &&
         origin != W8_ITEM_ORIGIN_PARTY_POOL && g_status.item_in_cursor &&
-        gXStatus.held_item_source != giReviewCharSlot) {
+        gXStatus.held_item_source != giReviewCharSlot.value()) {
         text = g_localized_strings[0x901];
         ShowCampNoticeLine(text, 0, true, false);
         return;
@@ -1810,9 +1811,9 @@ void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOr
                   W8_ITEM_EQUIP_CLASS_THROWN_WEAPON ||
               g_item_records[g_status.item_in_hand.iItemNo].equip_class ==
                   W8_ITEM_EQUIP_CLASS_AMMUNITION) &&
-             gXStatus.held_item_source == giReviewCharSlot &&
+             gXStatus.held_item_source == giReviewCharSlot.value() &&
              (origin != W8_ITEM_ORIGIN_EQUIPPED ||
-              HeldItemFitsPairedSlot(giReviewCharSlot, equip_slot)))) {
+              HeldItemFitsPairedSlot(giReviewCharSlot.value(), equip_slot)))) {
             if (item->iItemNo == -1 ||
                 g_item_records[item->iItemNo].equip_class == W8_ITEM_EQUIP_CLASS_THROWN_WEAPON ||
                 g_item_records[item->iItemNo].equip_class == W8_ITEM_EQUIP_CLASS_AMMUNITION ||
@@ -1927,7 +1928,8 @@ void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOr
     }
 
     if (same_kind) {
-        MergeItemUses(&g_status.buffers.Char[giReviewCharSlot], item, &g_status.item_in_hand);
+        MergeItemUses(&g_status.buffers.Char[giReviewCharSlot.value()], item,
+                      &g_status.item_in_hand);
         SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
         changed = true;
         RefreshCampItemOrigin(origin, equip_slot);
@@ -1982,8 +1984,10 @@ void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOr
                                  (g_status.item_in_cursor && !merged))) {
                 if (!g_camp_character_pending || g_camp_character == g_review_character) {
                     g_camp_character_pending = false;
-                    if (item->iItemNo != -1 && (giReviewCharSlot == 0 || giReviewCharSlot == 1)) {
-                        npc = GetNpcState(g_status.buffers.XChar[giReviewCharSlot].npc_index);
+                    if (item->iItemNo != -1 &&
+                        (giReviewCharSlot.value() == 0 || giReviewCharSlot.value() == 1)) {
+                        npc =
+                            GetNpcState(g_status.buffers.XChar[giReviewCharSlot.value()].npc_index);
                         if (npc != 0 && NpcWantsItem(npc, item)) {
                             g_camp_character_pending = true;
                             g_camp_character = g_review_character;
@@ -1995,7 +1999,7 @@ void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOr
                                                        g_review_character);
                     }
                     if (origin == W8_ITEM_ORIGIN_EQUIPPED && g_status.item_in_cursor &&
-                        !HeldItemFitsPairedSlot(giReviewCharSlot, equip_slot)) {
+                        !HeldItemFitsPairedSlot(giReviewCharSlot.value(), equip_slot)) {
                         const auto paired_slot_result = GetPairedEquipSlot(equip_slot);
                         if (!paired_slot_result) {
                             ShowCampNoticeLine(g_localized_strings[0x90c], 0, true, false);
@@ -2014,9 +2018,9 @@ void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOr
                         }
                         if (item->iItemNo == -1) {
                             g_camp_character_pending = false;
-                            if (paired->iItemNo != -1 && giReviewCharSlot < 2) {
-                                npc =
-                                    GetNpcState(g_status.buffers.XChar[giReviewCharSlot].npc_index);
+                            if (paired->iItemNo != -1 && giReviewCharSlot.value() < 2) {
+                                npc = GetNpcState(
+                                    g_status.buffers.XChar[giReviewCharSlot.value()].npc_index);
                                 if (npc && NpcWantsItem(npc, paired)) {
                                     g_camp_character_pending = true;
                                     g_camp_character = g_review_character;
@@ -2109,7 +2113,7 @@ void TakeItemUnitToHand(W8ItemInstance* item, unsigned short slot, W8ItemOrigin 
         --item->stack_count;
         if (origin == W8_ITEM_ORIGIN_EQUIPPED || origin == W8_ITEM_ORIGIN_BACKPACK) {
             CopyItemInstance(&g_status.item_in_hand, &single,
-                             &g_status.buffers.Char[giReviewCharSlot], true);
+                             &g_status.buffers.Char[giReviewCharSlot.value()], true);
             gXStatus.held_item_origin = origin;
             gXStatus.held_item_slot = slot;
         } else {
@@ -2128,9 +2132,9 @@ void TakeItemUnitToHand(W8ItemInstance* item, unsigned short slot, W8ItemOrigin 
     } else if (!moved) {
         return;
     }
-    RebuildEquipmentAndDerivedStatsForSlot(giReviewCharSlot);
+    RebuildEquipmentAndDerivedStatsForSlot(giReviewCharSlot.value());
     RebuildCampItemList();
-    RecalculateCharacterDerivedStats(&g_status.buffers.Char[giReviewCharSlot]);
+    RecalculateCharacterDerivedStats(&g_status.buffers.Char[giReviewCharSlot.value()]);
     RecalculateCarriedWeight(g_review_character);
     RedistributePartyEncumbrance();
     g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_ALL;
@@ -2167,8 +2171,8 @@ void MarkCampCharacterPending(W8ItemInstance* item)
     W8NpcState* npc;
 
     g_camp_character_pending = false;
-    if (item->iItemNo != -1 && (giReviewCharSlot == 0 || giReviewCharSlot == 1)) {
-        npc = GetNpcState(g_status.buffers.XChar[giReviewCharSlot].npc_index);
+    if (item->iItemNo != -1 && (giReviewCharSlot.value() == 0 || giReviewCharSlot.value() == 1)) {
+        npc = GetNpcState(g_status.buffers.XChar[giReviewCharSlot.value()].npc_index);
         if (npc != 0 && NpcWantsItem(npc, item)) {
             g_camp_character_pending = true;
             g_camp_character = g_review_character;
@@ -2179,16 +2183,19 @@ void MarkCampCharacterPending(W8ItemInstance* item)
 /* Whether the camp item action may proceed for the reviewed slot: outside
    combat always; in combat the sleeping/paralyzed/unconscious/dead conditions
    and the equip-in-progress actions each carry their own refusal message. */
-bool IsCampActionAllowed(int party_slot)
+bool IsCampActionAllowed(std::optional<int> party_slot)
 {
     std::string message;
     W8PartySlotRow* row;
     W8Character* character;
 
+    if (!party_slot || *party_slot < 0 || *party_slot >= 8) {
+        return false;
+    }
     if (!gXStatus.fCombatMode) {
         return true;
     }
-    character = &g_status.buffers.Char[party_slot];
+    character = &g_status.buffers.Char[*party_slot];
     if (character->uiCondition[W8_CONDITION_DEAD] != 0 ||
         character->uiCondition[W8_CONDITION_UNCONSCIOUS] != 0 ||
         character->uiCondition[W8_CONDITION_PARALYZED] != 0 ||
@@ -2198,9 +2205,9 @@ bool IsCampActionAllowed(int party_slot)
         }
         message = g_localized_strings[0x90a];
     } else {
-        row = &g_status.buffers.XChar[party_slot];
+        row = &g_status.buffers.XChar[*party_slot];
         if (g_combat_state->equip_phase == 0) {
-            if (g_combat_state->characters[party_slot].dead) {
+            if (g_combat_state->characters[*party_slot].dead) {
                 if (row->pending_action == W8_ACTION_EQUIP) {
                     message = g_localized_strings[0x903];
                 } else if (row->committed_action.kind == W8_ACTION_EQUIP) {

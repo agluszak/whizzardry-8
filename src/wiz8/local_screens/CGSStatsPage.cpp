@@ -131,8 +131,8 @@ W8CharacterStatsRow::W8CharacterStatsRow(W8CharacterStatsPage& owner, int x, int
             if ((m_enabled) && (event.action != UiPointerAction::Up || event.captured_buttons))
                 PlayButtonSound(event.action);
             if (event.action == UiPointerAction::Up && event.inside && event.captured_buttons) {
-                if (event.button == UiPointerButton::Right && m_index >= 0)
-                    AfterUiDispatch([this] { m_owner.OnRowInfoRequested(this, m_index); });
+                if (event.button == UiPointerButton::Right && m_index)
+                    AfterUiDispatch([this] { m_owner.OnRowInfoRequested(this, *m_index); });
                 else if (event.button == UiPointerButton::Left && m_enabled)
                     AfterUiDispatch([this] {
                         if (m_choices)
@@ -161,7 +161,7 @@ void W8CharacterStatsRow::SetEnabled(bool enabled)
 
 void W8CharacterStatsRow::SetValue(int index)
 {
-    const int previous = m_index;
+    const std::optional<int> previous = m_index;
     m_index = index;
     m_dirty = true;
     if (previous != index) m_owner.OnRowValueChanged(this, index);
@@ -170,8 +170,8 @@ void W8CharacterStatsRow::SetValue(int index)
 void W8CharacterStatsRow::Step(int direction)
 {
     for (int step = 1; step <= m_count; ++step) {
-        const int index = m_index < 0 ? (direction > 0 ? step - 1 : m_count - step)
-                                      : (m_index + direction * step + m_count * 2) % m_count;
+        const int index = !m_index ? (direction > 0 ? step - 1 : m_count - step)
+                                   : (*m_index + direction * step + m_count * 2) % m_count;
         if (m_table[index].enabled) {
             SetValue(index);
             return;
@@ -249,7 +249,7 @@ void W8CharacterStatsRow::Draw(SDL_Surface& target, bool force)
                                                          : m_value->hovered() ? 2
                                                                               : 1,
                                                          m_x + 0x1c, m_y + 4);
-        DrawStatRecord(target, m_index < 0 ? *m_default_record : m_table[m_index], m_x + 0x1c,
+        DrawStatRecord(target, !m_index ? *m_default_record : m_table[*m_index], m_x + 0x1c,
                        m_y + 4, m_enabled, false);
     }
     m_decrement->m_dirty |= force;
