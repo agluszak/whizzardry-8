@@ -114,7 +114,8 @@ by compiler support.
 CI reuses successful tidy results only after Clang rediscovers the current
 include graph and the contents of every dependency match, including system
 headers. Tool versions, compile commands and tidy configuration also invalidate
-the cache. Failed scans and analyses are always retried. To use this locally:
+the cache. Failed scans and analyses are always retried; clean files remain
+cached when another file fails. To use this locally:
 
 ```sh
 CLANG_TIDY_CACHE_DIR="$PWD/build/tidy-cache" \

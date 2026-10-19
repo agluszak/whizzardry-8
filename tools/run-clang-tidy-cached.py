@@ -6,7 +6,7 @@ headers. Failed scans and failed tidy runs never create cache entries.
 """
 
 import argparse
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import hashlib
 import json
 import os
@@ -114,17 +114,43 @@ def main():
 
     with TemporaryDirectory() as directory, ThreadPoolExecutor(max_workers=args.jobs) as pool:
         results = list(pool.map(lambda item: fingerprint(item, Path(directory)), enumerate(entries)))
-    misses = [(source, marker) for source, marker, hit in results if not hit]
-    print(f'clang-tidy cache: {len(results) - len(misses)} hits, {len(misses)} misses '
+    grouped = {}
+    for source, marker, hit in results:
+        grouped.setdefault(source, []).append((marker, hit))
+    misses = {source: [marker for marker, _ in variants]
+              for source, variants in grouped.items() if not all(hit for _, hit in variants)}
+    print(f'clang-tidy cache: {len(grouped) - len(misses)} hits, {len(misses)} misses '
           f'({time.monotonic() - started:.1f}s dependency scan)', flush=True)
     if not misses:
         return 0
-    pattern = '^(?:' + '|'.join(re.escape(str(source)) for source, _ in misses) + ')$'
-    result = run_driver(pattern)
+
+    def analyze(source):
+        began = time.monotonic()
+        result = subprocess.run([args.tidy, '-p', str(args.build),
+                                 '--config-file=' + str(args.config),
+                                 '--header-filter=' + args.header_filter, str(source)],
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                                check=False)
+        return result, time.monotonic() - began
+
+    clean = []
+    failures = 0
+    with ThreadPoolExecutor(max_workers=args.jobs) as pool:
+        pending = {pool.submit(analyze, source): source for source in misses}
+        for index, future in enumerate(as_completed(pending), 1):
+            source = pending[future]
+            result, elapsed = future.result()
+            print(f'[{index}/{len(misses)}][{elapsed:.1f}s] {source}', flush=True)
+            if result.stdout:
+                print(result.stdout, end='', flush=True)
+            if result.returncode == 0:
+                clean.extend(misses[source])
+            else:
+                failures += 1
     # A developer may edit files during an analysis. Never label the earlier
     # fingerprint clean when tidy might have read different contents.
     stable = True
-    if result.returncode == 0:
+    if clean:
         for path, before in hashes.items():
             try:
                 with path.open('rb') as stream:
@@ -134,13 +160,13 @@ def main():
             if not stable:
                 print('Inputs changed during analysis; not saving clean results.', flush=True)
                 break
-    if result.returncode == 0 and stable:
+    if clean and stable:
         args.cache.mkdir(parents=True, exist_ok=True)
-        for _, marker in misses:
+        for marker in clean:
             if marker is not None:
                 marker.touch()
     print(f'clang-tidy completed in {time.monotonic() - started:.1f}s', flush=True)
-    return result.returncode
+    return int(failures != 0)
 
 
 if __name__ == '__main__':

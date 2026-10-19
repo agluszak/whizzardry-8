@@ -34,13 +34,18 @@ class TidyCacheTest(unittest.TestCase):
             database = build / 'compile_commands.json'
             database.write_text(json.dumps([entry]))
             tidy = root / 'tidy'
-            tidy.write_text('#!/usr/bin/env python3\nprint("test tidy version 1")\n')
+            analysis = ('#!/usr/bin/env python3\nimport os, sys\nfrom pathlib import Path\n'
+                        'if "--version" in sys.argv:\n'
+                        '    print("test tidy version 1"); raise SystemExit(0)\n'
+                        'if os.environ.get("TIDY_TEST_EDIT"):\n'
+                        '    p = Path(os.environ["TIDY_TEST_EDIT"]); p.write_text(p.read_text() + "// edited\\n")\n'
+                        'if os.environ.get("TIDY_TEST_FAIL_FILE") == Path(sys.argv[-1]).name:\n'
+                        '    raise SystemExit(1)\n'
+                        'raise SystemExit(int(os.environ.get("TIDY_TEST_FAIL", "0")))\n')
+            tidy.write_text(analysis)
             tidy.chmod(0o755)
             driver = root / 'driver'
-            driver.write_text('#!/usr/bin/env python3\nimport os, sys\nfrom pathlib import Path\n'
-                              'if os.environ.get("TIDY_TEST_EDIT"):\n'
-                              '    p = Path(os.environ["TIDY_TEST_EDIT"]); p.write_text(p.read_text() + "// edited\\n")\n'
-                              'raise SystemExit(int(os.environ.get("TIDY_TEST_FAIL", "0")))\n')
+            driver.write_text(analysis)
             driver.chmod(0o755)
             command = [sys.executable, str(RUNNER), '--root', str(root), '--build', str(build),
                        '--config', str(config), '--tidy', str(tidy), '--driver', str(driver),
@@ -100,6 +105,23 @@ class TidyCacheTest(unittest.TestCase):
                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
             self.assertEqual(extra.returncode, 0, extra.stdout)
             self.assertIn('running uncached', extra.stdout)
+
+            # Keep clean results from other files when one file has a finding.
+            leaf.write_text('#define VALUE 4\n')
+            other = source.with_name('other.cpp')
+            other.write_text('int other;\n')
+            second = {**entry, 'file': str(other),
+                      'arguments': [COMPILER, '-Werror', '-c', str(other)]}
+            database.write_text(json.dumps([entry, second]))
+            for expected in ('0 hits, 2 misses', '1 hits, 1 misses'):
+                mixed = subprocess.run(command, env={**os.environ, 'TIDY_TEST_FAIL_FILE': other.name},
+                                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                self.assertEqual(mixed.returncode, 1, mixed.stdout)
+                self.assertIn(expected, mixed.stdout)
+            recovered = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            self.assertEqual(recovered.returncode, 0, recovered.stdout)
+            self.assertIn('1 hits, 1 misses', recovered.stdout)
+
 
 
 
