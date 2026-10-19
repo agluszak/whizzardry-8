@@ -32,8 +32,6 @@
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 
-#define COMBAT_MOVEMENT_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Combat Party Movement.cpp"
-
 /* PHASES_PER_ROUND, named by the assertion that bounds the phase. */
 enum { W8_PHASES_PER_ROUND = 100 };
 
@@ -59,8 +57,7 @@ void RoundPhaseToStep(unsigned int* phase, unsigned int base)
             *phase > W8_PHASES_PER_ROUND ? W8_PHASES_PER_ROUND : std::max<unsigned>(*phase, base);
     }
     if (*phase == 0 || *phase > W8_PHASES_PER_ROUND) {
-        srAssertFail("( *puiPhase > 0 ) && ( *puiPhase <= PHASES_PER_ROUND )", COMBAT_MOVEMENT_CPP,
-                     410, 0);
+        srAssertFail("( *puiPhase > 0 ) && ( *puiPhase <= PHASES_PER_ROUND )");
     }
 }
 
@@ -85,7 +82,7 @@ void UpdateActivePartyMovement(void)
     }
 
     if (gXStatus.flPartyMoveDistLimit <= 0.0f) {
-        srAssertFail("gXStatus.flPartyMoveDistLimit > 0.0f", COMBAT_MOVEMENT_CPP, 359, 0);
+        srAssertFail("gXStatus.flPartyMoveDistLimit > 0.0f");
     }
     g_level_block->move_percent = static_cast<int>(
         100.0f - gXStatus.party_move_distance * 100.0f / gXStatus.flPartyMoveDistLimit + 0.5);
@@ -118,7 +115,7 @@ int GetPhaseStep(void)
 void SetPendingMoveKind(W8ActionKind kind)
 {
     if (!gXStatus.fCombatMode) {
-        srAssertFail("gXStatus.fCombatMode", COMBAT_MOVEMENT_CPP, 435, 0);
+        srAssertFail("gXStatus.fCombatMode");
     }
     g_combat_state->uiNextPartyAction =
         kind == W8_ACTION_WALK ? W8_PARTY_ACTION_WALK : W8_PARTY_ACTION_RUN;
@@ -131,7 +128,7 @@ void SetPendingMoveKind(W8ActionKind kind)
 void ClearPendingPartyMovement()
 {
     if (!gXStatus.fCombatMode) {
-        srAssertFail("gXStatus.fCombatMode", COMBAT_MOVEMENT_CPP, 470, 0);
+        srAssertFail("gXStatus.fCombatMode");
     }
     g_combat_state->uiNextPartyAction = W8_PARTY_ACTION_NONE;
     UpdatePartyMovementControl();
@@ -163,7 +160,7 @@ bool CanPartyMove(void)
     W8PartyActionStatus status;
 
     if (!gXStatus.fCombatMode) {
-        srAssertFail("gXStatus.fCombatMode", COMBAT_MOVEMENT_CPP, 613, 0);
+        srAssertFail("gXStatus.fCombatMode");
     }
     status = g_combat_state->uiCurrentPartyActionStatus;
     if (g_combat_state->uiCurrentPartyAction == W8_PARTY_ACTION_NONE ||
@@ -235,10 +232,10 @@ float GetPartyMovementSpeed(void)
 void CompletePartyMovementTurns(void)
 {
     if (g_level_block->move_percent < 0) {
-        srAssertFail("gpMGSV->iPartyMovementPercent >= 0", COMBAT_MOVEMENT_CPP, 547, 0);
+        srAssertFail("gpMGSV->iPartyMovementPercent >= 0");
     }
     if (g_level_block->move_percent > 100) {
-        srAssertFail("gpMGSV->iPartyMovementPercent <= 100", COMBAT_MOVEMENT_CPP, 548, 0);
+        srAssertFail("gpMGSV->iPartyMovementPercent <= 100");
     }
 
     unsigned int remaining = 100 - g_level_block->move_percent;
@@ -296,8 +293,7 @@ void InitializePartyMovementPhase(void)
     if (g_combat_state->uiPartyActionPhase == 0 ||
         g_combat_state->uiPartyActionPhase > W8_PHASES_PER_ROUND) {
         srAssertFail("( gpCombat->uiPartyActionPhase > 0 ) && "
-                     "( gpCombat->uiPartyActionPhase <= PHASES_PER_ROUND )",
-                     COMBAT_MOVEMENT_CPP, 186, 0);
+                     "( gpCombat->uiPartyActionPhase <= PHASES_PER_ROUND )");
     }
 }
 
@@ -331,7 +327,7 @@ void AlignCombatantsToPartyMovementPhase(void)
 void StartPartyMovementAction(W8PartyAction move_kind)
 {
     if (move_kind == W8_PARTY_ACTION_NONE) {
-        srAssertFail("uiPartyAction != PARTY_ACTION_NONE", COMBAT_MOVEMENT_CPP, 759, 0);
+        srAssertFail("uiPartyAction != PARTY_ACTION_NONE");
     }
     if (g_combat_state->uiCurrentPartyAction == move_kind) {
         return;
@@ -393,7 +389,7 @@ void BeginFreeTurnPhase(void)
 void CancelPartyMovement(void)
 {
     if (!gXStatus.fCombatMode) {
-        srAssertFail("gXStatus.fCombatMode", COMBAT_MOVEMENT_CPP, 0x283, 0);
+        srAssertFail("gXStatus.fCombatMode");
     }
     if (g_combat_state->uiCurrentPartyAction != W8_PARTY_ACTION_NONE &&
         g_combat_state->uiCurrentPartyActionStatus != W8_PARTY_ACTION_FINISHED) {
@@ -415,7 +411,7 @@ void CancelPartyMovement(void)
 void InterruptActivePartyMovement(void)
 {
     if (!gXStatus.fCombatMode) {
-        srAssertFail("gXStatus.fCombatMode", COMBAT_MOVEMENT_CPP, 674, 0);
+        srAssertFail("gXStatus.fCombatMode");
     }
     g_combat_state->uiCurrentPartyAction = W8_PARTY_ACTION_NONE;
     for (int party_slot = 0; party_slot < W8_PARTY_SLOT_COUNT; ++party_slot) {
@@ -481,19 +477,18 @@ void BeginPartyMovementPhase(void)
 bool PartyMovementReachedPhaseLimit(void)
 {
     if (g_combat_state->uiCurrentPartyActionStatus != W8_PARTY_ACTION_IN_PROGRESS) {
-        srAssertFail("gpCombat->uiCurrentPartyActionStatus == ACTION_STATUS_IN_PROGRESS",
-                     COMBAT_MOVEMENT_CPP, 0x112, 0);
+        srAssertFail("gpCombat->uiCurrentPartyActionStatus == ACTION_STATUS_IN_PROGRESS");
     }
     if (!gXStatus.fPartyMovementMode) {
-        srAssertFail("gXStatus.fPartyMovementMode", COMBAT_MOVEMENT_CPP, 0x113, 0);
+        srAssertFail("gXStatus.fPartyMovementMode");
     }
     if (gXStatus.flPartyMoveDistLimit <= 0.0f) {
-        srAssertFail("gXStatus.flPartyMoveDistLimit > 0", COMBAT_MOVEMENT_CPP, 0x114, 0);
+        srAssertFail("gXStatus.flPartyMoveDistLimit > 0");
     }
     float moved_fraction = gXStatus.party_move_distance / gXStatus.flPartyMoveDistLimit;
     int remaining_phases = 101 - g_combat_state->uiPartyActionPhase;
     if (remaining_phases == 0) {
-        srAssertFail("uiTotalMovementPhases > 0", COMBAT_MOVEMENT_CPP, 0x120, 0);
+        srAssertFail("uiTotalMovementPhases > 0");
     }
     unsigned int elapsed_phases =
         g_combat_state->round_counter - g_combat_state->uiPartyActionPhase +

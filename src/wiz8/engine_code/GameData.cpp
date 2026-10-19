@@ -840,8 +840,7 @@ unsigned char W8GameData::AdvanceEnvironmentMotion()
                 collisions[collision_count] = nearest_surface;
                 ++collision_count;
                 if (99 < collision_count) {
-                    srAssertFail("lCollisions < 100",
-                                 "C:\\Projects\\Wizardry 8\\Engine Code\\GameData.cpp", 0x253, 0);
+                    srAssertFail("lCollisions < 100");
                 }
                 if (g_environment_motion_active == 0) {
                     hit_count = 0;
@@ -1092,14 +1091,12 @@ char W8GameData::SetInterfaceState(int iID, int state)
     int* polys;
 
     if (iID == 0 || InterfacesCount() <= iID) {
-        srAssertFail("iID && iID < InterfacesCount()",
-                     "C:\\Projects\\Wizardry 8\\Engine Code\\GameData.cpp", 0x4e0, 0);
+        srAssertFail("iID && iID < InterfacesCount()");
     }
     interface_rec = m_pInterfaces.data() + iID;
     iStates = interface_rec->state_count;
     if (StatesCount() < interface_rec->iStates + iStates) {
-        srAssertFail("(m_pInterfaces[iID].iStates + iStates) <= StatesCount()",
-                     "C:\\Projects\\Wizardry 8\\Engine Code\\GameData.cpp", 0x4e2, 0);
+        srAssertFail("(m_pInterfaces[iID].iStates + iStates) <= StatesCount()");
     }
     states = m_pStates.data() + interface_rec->iStates;
     for (; iStates != 0; --iStates) {

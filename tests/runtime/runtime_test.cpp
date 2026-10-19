@@ -985,18 +985,20 @@ void InventoryChestScenario()
     for (const auto& trigger : GetWorld()->triggers)
         if (trigger->initial_action == 3 && trigger->inline_action_data[0]) {
             trigger->GenerateItemGroup();
-            if (trigger->world_item_group && trigger->world_item_group->next) {
+            if (trigger->world_item_group && !trigger->world_item_group->contents.empty()) {
                 chest = trigger.get();
                 break;
             }
         }
     REQUIRE(chest);
     // Loot is created at its owning chest, never at an uninitialized vector.
-    for (const auto* item = chest->world_item_group.get(); item; item = item->next.get()) {
-        REQUIRE(item->position.x == chest->position.x);
-        REQUIRE(std::isfinite(item->position.y));
-        REQUIRE(item->position.z == chest->position.z);
-    }
+    const auto check_position = [&](const W8WorldItem& item) {
+        REQUIRE(item.position.x == chest->position.x);
+        REQUIRE(std::isfinite(item.position.y));
+        REQUIRE(item.position.z == chest->position.z);
+    };
+    check_position(*chest->world_item_group);
+    for (const auto& item : chest->world_item_group->contents) check_position(*item);
     // Request the same picker that an opened chest raises. This isolates loot
     // handling from the chest's lock/trap skill rolls and prop animation.
     chest->flags |= W8_TRIGGER_ITEM_PICKER;

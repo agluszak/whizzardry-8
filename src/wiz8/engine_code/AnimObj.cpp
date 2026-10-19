@@ -22,8 +22,6 @@
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/retail_text_records.h"
 
-#define ANIM_OBJ_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\AnimObj.cpp"
-
 // FUNCTION: WIZ8 0x004a01a0
 W8AnimObj::W8AnimObj() = default;
 W8AnimObj::~W8AnimObj() = default;
@@ -40,7 +38,7 @@ try {
     int index;
 
     if (info == 0 || info->hFile == 0 || animation == 0) {
-        srAssertFail("pInfo && pInfo->hFile && pao", ANIM_OBJ_CPP, 0xef, 0);
+        srAssertFail("pInfo && pInfo->hFile && pao");
     }
     handle = info->hFile;
     const auto read_flag = [handle](bool& flag) {
@@ -186,8 +184,7 @@ try {
             }
 
             if (light_list == 0) {
-                srAssertFail("0", ANIM_OBJ_CPP, 0x1b2,
-                             "AnimObjReadFromFile: Where is the light list?");
+                srAssertFail("0", "AnimObjReadFromFile: Where is the light list?");
             } else {
                 auto light = CreateLight(nullptr, "MonsterLight");
                 light->diffuse = color;
@@ -243,7 +240,7 @@ try {
             int entry;
             success = (handle->read(&entry_count, 1).bytes == static_cast<std::size_t>(1));
             if (!success) {
-                srAssertFail("fSuccess", ANIM_OBJ_CPP, 0x200, 0);
+                srAssertFail("fSuccess");
             }
             for (entry = 0; entry < entry_count; ++entry) {
                 signed char channel;
@@ -387,7 +384,7 @@ void TransformBounds(const glm::mat3* rotation, const glm::vec3* translation,
 unsigned int AnimObjValue(const W8AnimObj* animation, signed char index)
 {
     if (animation == 0) {
-        srAssertFail("pao", ANIM_OBJ_CPP, 0x291, 0);
+        srAssertFail("pao");
     }
     if (!animation->path_lists) {
         return AniMeshValue(animation->entries[index].get());
@@ -405,7 +402,7 @@ unsigned int AnimObjListCount(W8AnimObj* animation, signed char index)
 W8PathAI* AnimObjListEntry(W8AnimObj* animation, signed char list_index, signed char entry_index)
 {
     if (animation == 0) {
-        srAssertFail("pao", ANIM_OBJ_CPP, 0x2d3, 0);
+        srAssertFail("pao");
     }
     if (!animation->path_lists) {
         return 0;
@@ -423,7 +420,7 @@ srModelInstance* AnimObjDispatch(W8AnimObj* animation, signed char list_index, u
     W8AniMesh* entry;
 
     if (animation == 0) {
-        srAssertFail("pao", ANIM_OBJ_CPP, 0x243, 0);
+        srAssertFail("pao");
     }
     if (!animation->path_lists) {
         entry = animation->entries[list_index].get();
@@ -446,7 +443,7 @@ srModelInstance* AnimObjDispatchList(W8AnimObj* animation, signed char list_inde
     W8AniMesh* entry;
 
     if (animation == 0) {
-        srAssertFail("pao", ANIM_OBJ_CPP, 0x26c, 0);
+        srAssertFail("pao");
     }
     if (animation->path_lists) {
         const auto& list = animation->meshes[list_index];
@@ -464,7 +461,7 @@ srModelInstance* AnimObjDispatchList(W8AnimObj* animation, signed char list_inde
 W8AniMesh* AnimObjEntry(W8AnimObj* animation, signed char list_index, unsigned int entry_index)
 {
     if (animation == 0) {
-        srAssertFail("pao", ANIM_OBJ_CPP, 0x2bd, 0);
+        srAssertFail("pao");
     }
     if (!animation->path_lists) {
         return animation->entries[list_index].get();

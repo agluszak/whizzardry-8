@@ -312,7 +312,6 @@ void W8GameData::AddTriggerPlane(const glm::vec3* trigger_vertices, Trigger* tri
         }
         if (g_integrated_trigger_count >= m_iNumTriggers) {
             srAssertFail("(iTriggerCount < m_iNumTriggers)",
-                         "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0x259,
                          "AddTriggerPlane: Too many triggers for trigger array.");
         }
         m_ppTriggers[g_integrated_trigger_count++] = trigger;
@@ -320,8 +319,7 @@ void W8GameData::AddTriggerPlane(const glm::vec3* trigger_vertices, Trigger* tri
     }
 
     if (TrigSurfacesCount() >= 500) {
-        srAssertFail("(TrigSurfacesCount() < MAX_TRIG_SURFACES)",
-                     "C:\\Projects\\Wizardry 8\\Engine Code\\GDFileIO.cpp", 0x26c, 0);
+        srAssertFail("(TrigSurfacesCount() < MAX_TRIG_SURFACES)");
     }
 
     for (index = 0; index < m_iNumTriggers && trigger_index == 0; ++index) {

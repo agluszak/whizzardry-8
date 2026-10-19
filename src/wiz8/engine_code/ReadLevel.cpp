@@ -81,8 +81,6 @@
 
 class srTexture;
 
-#define READ_LEVEL_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\ReadLevel.cpp"
-
 // FUNCTION: WIZ8 0x004B9C00
 stLevel::stLevel(srNode* parent) : srNode(static_cast<srNode*>(0))
 {
@@ -250,7 +248,7 @@ try {
     success = (hFile->read(&light_count, sizeof(light_count)).bytes ==
                static_cast<std::size_t>(sizeof(light_count)));
     if (!success) {
-        srAssertFail("fSuccess", READ_LEVEL_CPP, 486, "Couldn't read number of lights");
+        srAssertFail("fSuccess", "Couldn't read number of lights");
     }
 
     for (index = 0; index < light_count; ++index) {
@@ -322,7 +320,7 @@ try {
             }
             light = world->dynamic_scene->adoptChild(CreateLight(nullptr, name));
             if (light == 0) {
-                srAssertFail("pstLight", READ_LEVEL_CPP, 593, 0);
+                srAssertFail("pstLight");
             }
             light->setGroupMask(1);
         }
@@ -460,19 +458,19 @@ try {
     unsigned char success;
 
     if (pInfo == 0) {
-        srAssertFail("pInfo", READ_LEVEL_CPP, 0x59b, 0);
+        srAssertFail("pInfo");
     }
     if (pInfo->hFile == 0) {
-        srAssertFail("pInfo->hFile", READ_LEVEL_CPP, 0x59c, 0);
+        srAssertFail("pInfo->hFile");
     }
     if (pWorld == 0) {
-        srAssertFail("pWorld", READ_LEVEL_CPP, 0x59d, 0);
+        srAssertFail("pWorld");
     }
 
     success = (pInfo->hFile->read(&count, sizeof(count)).bytes ==
                static_cast<std::size_t>(sizeof(count)));
     if (!success) {
-        srAssertFail("fSuccess", READ_LEVEL_CPP, 0x5a2, "Error reading num clipping planes");
+        srAssertFail("fSuccess", "Error reading num clipping planes");
         return 0;
     }
     if (count == 0) {
@@ -484,8 +482,7 @@ try {
     for (index = 0; index < count; ++index) {
         clip_plane = pWorld->static_scene->adoptChild(std::make_unique<srClipPlane>());
         if (clip_plane == 0) {
-            srAssertFail("psrClipPlane", READ_LEVEL_CPP, 0x5ae,
-                         "out of memory creating clip plane");
+            srAssertFail("psrClipPlane", "out of memory creating clip plane");
         }
 
         pInfo->hFile->read(name, sizeof(name));
@@ -1108,7 +1105,7 @@ try {
 
     success = ReadWorldClipPlanes(&info, world);
     if (!success) {
-        srAssertFail("fSuccess", READ_LEVEL_CPP, 0x15c, 0);
+        srAssertFail("fSuccess");
     }
     CHECK_PVL_OFFSET("Wrong offset in .pvl file after Clipping Planes.");
 

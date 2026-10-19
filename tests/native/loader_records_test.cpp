@@ -12,6 +12,7 @@
 #include <limits>
 #include <memory>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <type_traits>
 #include <unordered_map>
@@ -19,15 +20,18 @@
 #include <vector>
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers.hpp>
 
 #include "GDFileIO.h"
 #include "Item.h"
 #include "asset_paths.h"
 #include "file_faults.h"
+#include "file_operations.h"
 #include "geometry.h"
 #include "glm/ext/vector_float3.hpp"
 #include "save_payload.h"
 #include "scoped_asset_roots.h"
+#include "scoped_records.h"
 #include "surrender/srNode.h"
 #include "temporary_directory.h"
 #include "wiz8/chunk.h"
@@ -904,7 +908,7 @@ TEST_CASE_METHOD(LoaderFixture,
 TEST_CASE_METHOD(LoaderFixture, "World item groups transfer ownership and preserve save records",
                  "[loader][items]")
 {
-    wiz8::retail::WorldItem first{}, second{};
+    wiz8::retail::WorldItem first{}, second{}, third{};
     first.runtime_id = 17;
     first.position = {1, -2, 3};
     first.flags = W8_WORLD_ITEM_HIDDEN;
@@ -915,29 +919,32 @@ TEST_CASE_METHOD(LoaderFixture, "World item groups transfer ownership and preser
     first.unknown_3d[15] = 0xa5;
     second.runtime_id = 29;
     second.position = {4, 5, -6};
+    second.next = 1;
+    third = second;
+    third.runtime_id = 31;
+    third.next = 0;
     std::string bytes;
     append(bytes, first);
     append(bytes, second);
+    append(bytes, third);
     store("items.bin", bytes.substr(0, bytes.size() - 1));
     auto file = wiz8::open_file(wiz8::asset_path("items.bin"));
-    REQUIRE_FALSE(ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadItem(chunk); }));
+    REQUIRE_THROWS(ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadItem(chunk); }));
     file.reset();
     store("items.bin", bytes);
     file = wiz8::open_file(wiz8::asset_path("items.bin"));
     auto group = ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadItem(chunk); });
     REQUIRE(group);
-    REQUIRE(ItemInfoGetNumInGroup(group.get()) == 2);
-    auto detached = ItemInfoRemoveFromGroup(group.get(), group->next.get());
-    REQUIRE(detached->runtime_id == 29);
-    REQUIRE_FALSE(group->next);
-    ItemInfoAddToGroup(group.get(), std::move(detached));
+    REQUIRE(group->contents.size() == 2);
+    REQUIRE(group->contents[0]->runtime_id == 29);
+    REQUIRE(group->contents[1]->runtime_id == 31);
     const auto roundtrip_path = wiz8::user_path("items-roundtrip.bin");
     auto output = wiz8::open_file(roundtrip_path, wiz8::OpenMode::replace);
     group->saved_marker = 23;
-    group->next->saved_marker = 24;
-    REQUIRE(SaveItemFile(*output, group.get()));
+    group->contents.front()->saved_marker = 24;
+    REQUIRE_NOTHROW(SaveItemFile(*output, *group));
     REQUIRE(group->saved_marker == 23);
-    REQUIRE(group->next->saved_marker == 24);
+    REQUIRE(group->contents.front()->saved_marker == 24);
     output.reset();
     auto encoded = wiz8::open_file(roundtrip_path);
     std::string roundtrip(encoded->size(), '\0');
@@ -948,7 +955,121 @@ TEST_CASE_METHOD(LoaderFixture, "World item groups transfer ownership and preser
     auto defaults = ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadItem(chunk, true); });
     REQUIRE(defaults);
     REQUIRE((defaults->entity_flags & W8_ITEM_ENTITY_RADAR_SEEN) == 0);
-    REQUIRE((defaults->next->entity_flags & W8_ITEM_ENTITY_RADAR_SEEN) == 0);
+    REQUIRE((defaults->contents.front()->entity_flags & W8_ITEM_ENTITY_RADAR_SEEN) == 0);
+}
+
+TEST_CASE_METHOD(LoaderFixture, "Trigger rejects an incomplete saved item group",
+                 "[loader][trigger][items]")
+{
+    std::string bytes;
+    append(bytes, 0u); // flags
+    append(bytes, std::uint8_t{0}); // state index
+    append(bytes, std::uint8_t{0}); // state direction
+    append(bytes, std::uint16_t{0}); // action
+    append(bytes, std::uint8_t{0}); // action state
+    append(bytes, -1); // required item
+    append(bytes, std::uint8_t{0}); // no action payload
+    append(bytes, std::uint8_t{1}); // an item group must follow
+    // Enough bytes for the four trailing fields, but no complete item record.
+    bytes.append(13, '\0');
+    store("truncated-trigger.bin", bytes);
+    auto file = wiz8::open_file(wiz8::asset_path("truncated-trigger.bin"));
+    Trigger trigger;
+    REQUIRE_FALSE(
+        ReadSavePayload(*file, [&](W8Chunk& chunk) { return trigger.Load(chunk, 5, false); }));
+}
+
+TEST_CASE_METHOD(LoaderFixture, "Nested item write failure aborts a staged trigger save",
+                 "[loader][trigger][items]")
+{
+    const struct WorldScope {
+        std::unique_ptr<W8World> previous = ReplaceWorld(std::make_unique<W8World>());
+        ~WorldScope() { ReplaceWorld(std::move(previous)); }
+    } scope;
+    auto trigger = std::make_unique<Trigger>(GetWorld());
+    trigger->world_item_group = std::make_unique<W8WorldItem>();
+    GetWorld()->triggers.push_back(std::move(trigger));
+    const auto path = wiz8::user_path("trigger-save.bin");
+    wiz8::open_file(path, wiz8::OpenMode::replace)->write("old", 3);
+    {
+        wiz8::StagedFile staged(path);
+        static wiz8::File* writer;
+        static bool fired;
+        writer = staged.file().get();
+        fired = false;
+        const auto previous = wiz8::testing::set_file_operation_hook([](auto operation) {
+            // Version 5's first item follows the 148-byte trigger header.
+            if (!fired && operation == wiz8::testing::FileOperation::write &&
+                writer->tell() == 148) {
+                fired = true;
+                throw std::runtime_error("fixture item write failure");
+            }
+        });
+        const struct RestoreHook {
+            wiz8::testing::FileOperationHook previous;
+            ~RestoreHook() { wiz8::testing::set_file_operation_hook(previous); }
+        } restore{previous};
+        REQUIRE_THROWS_WITH(SaveWorldTriggers(*writer), "fixture item write failure");
+        REQUIRE(fired);
+    }
+    REQUIRE(wiz8::open_file(path)->read_text() == "old");
+}
+
+// Level-script entry point; exercise its saved-item transfer without loading a level.
+void LoadAwayCampChest();
+
+TEST_CASE_METHOD(LoaderFixture, "Camp chest retains every item from saved flat groups",
+                 "[loader][items]")
+{
+    const struct WorldScope {
+        std::unique_ptr<W8World> previous = ReplaceWorld(std::make_unique<W8World>());
+        ~WorldScope() { ReplaceWorld(std::move(previous)); }
+    } scope;
+    const ScopedRecords records(g_item_records, 2);
+    g_item_records[0].flags = W8_ITEM_FLAG_CONTAINER;
+    Trigger trigger(GetWorld());
+    trigger.world_item_group = std::make_unique<W8WorldItem>();
+    auto prop = std::make_unique<W8Prop>();
+    prop->name = "AwayCampChest";
+    prop->trigger = &trigger;
+    GetWorld()->plsProps.push_back(std::move(prop));
+
+    std::filesystem::create_directory(wiz8::user_path("saves"));
+    const auto write_items = [&](bool truncated) {
+        W8Chunk chunks;
+        REQUIRE(chunks.OpenWrite(wiz8::user_path("saves/CurrentGame.SAV")));
+        chunks.WriteGroup(W8ChunkId("LVLS"), [&] {
+            chunks.WriteValue(0x26);
+            chunks.WriteChunk(W8ChunkId("ITEM"), [&] {
+                chunks.WriteValue(2u);
+                // The container itself stays in the old level, while its loot is recovered.
+                // A non-container head transfers together with all of its following records.
+                for (const auto [id, kind, next] : {std::array{10, 0, 1}, std::array{11, 1, 0},
+                                                    std::array{20, 1, 1}, std::array{21, 1, 0}}) {
+                    wiz8::retail::WorldItem image{};
+                    image.runtime_id = id;
+                    image.item.iItemNo = kind;
+                    image.next = next;
+                    if (truncated && id == 21)
+                        chunks.WriteBytes(&image, 13);
+                    else
+                        chunks.WriteValue(image);
+                }
+            });
+        });
+        chunks.Close();
+    };
+    write_items(true);
+    LoadAwayCampChest();
+    REQUIRE(trigger.world_item_group->contents.empty());
+    write_items(false);
+    LoadAwayCampChest();
+    const auto& contents = trigger.world_item_group->contents;
+    REQUIRE(contents.size() == 3);
+    REQUIRE(contents[0]->runtime_id == 20);
+    REQUIRE(contents[1]->runtime_id == 21);
+    REQUIRE(contents[2]->runtime_id == 11);
+    for (const auto& item : contents) REQUIRE(item->contents.empty());
 }
 
 TEST_CASE_METHOD(LoaderFixture, "Retail waypoint versions load without an editor writer",

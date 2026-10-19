@@ -71,8 +71,6 @@ constexpr float kCharacterProjectileHeight = 81.25f;
 constexpr float kCharacterProjectileHeightStep = 32.5f;
 constexpr double kMissileGravityAcceleration = 0.009800000000000001;
 
-#define MISSILE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Missile.cpp"
-
 // FUNCTION: WIZ8 0x004a53a0
 std::unique_ptr<W8AIRecord> W8AIMissile::Clone() const
 {
@@ -332,7 +330,7 @@ W8Missile* NextMissile(bool restart)
 void UpdateWorldMissiles(W8World* world)
 {
     if (world == 0) {
-        srAssertFail("pWorld", MISSILE_CPP, 200, 0);
+        srAssertFail("pWorld");
     }
     int index = 0;
     int count = static_cast<int>(world->missiles.size());
@@ -409,8 +407,7 @@ std::unique_ptr<W8Missile> LoadMissileCycle(W8World* world, std::string_view nam
     if (auto* found = FindFirstGrCycleByName(name)) {
         auto missile = std::make_unique<W8Missile>(*static_cast<W8Missile*>(found), world);
         auto* ai = static_cast<W8AIMissile*>(missile->m_pAI.get());
-        if (ai->kind != W8_AI_RECORD_MISSILE)
-            srAssertFail("missile AI", MISSILE_CPP, __LINE__, nullptr);
+        if (ai->kind != W8_AI_RECORD_MISSILE) srAssertFail("missile AI");
         ai->missile = missile.get();
         RegisterGrCycle(name, missile.get());
         return missile;
@@ -616,7 +613,7 @@ unsigned int W8MissileRep::ApplyEmitterSetting(signed char emitter)
     W8AnimObj* target = resources.cycles[emitter].animation.get();
 
     if (target == 0) {
-        srAssertFail("pao", MISSILE_CPP, 0x7e, 0);
+        srAssertFail("pao");
     }
     return AnimObjValue(target, m_bLOD);
 }
@@ -638,7 +635,7 @@ unsigned char W8MissileRep::ReadCycleData(W8ReadLevelInfo* info, W8Missile* miss
                                           int cycle_index, int)
 {
     if (info == 0 || info->hFile == 0 || missile == 0) {
-        srAssertFail("pInfo && pInfo->hFile && pMissile", MISSILE_CPP, 0x1df, 0);
+        srAssertFail("pInfo && pInfo->hFile && pMissile");
     }
     return ReadEmitterCycle(*this, resources.cycles, info, *missile, cycle_index,
                             missile->m_pRep != nullptr);
@@ -662,7 +659,7 @@ W8Missile::W8Missile(W8World* owner)
 
     m_pRep = std::make_unique<W8MissileRep>();
     if (m_pRep == 0) {
-        srAssertFail("m_pRep", MISSILE_CPP, 0x38e, 0);
+        srAssertFail("m_pRep");
     }
 
     memset(&definition, 0, sizeof(definition));
@@ -800,7 +797,7 @@ W8AniMesh* W8Missile::GetCurrentAniMesh()
     W8AnimObj* animation = m_pRep->resources.cycles[m_pRep->current_cycle].animation.get();
 
     if (animation == 0) {
-        srAssertFail("pao", MISSILE_CPP, 0x55e, 0);
+        srAssertFail("pao");
     }
     return animation->entries[m_pRep->m_bLOD].get();
 }
@@ -842,7 +839,7 @@ signed char W8Missile::GetNumSubCycles()
 bool W8Missile::IsCycleSupported(signed char cycle)
 {
     if (cycle >= 2) {
-        srAssertFail("bCycle<MISSILE_NUM_CYCLES", MISSILE_CPP, 0x4bf, 0);
+        srAssertFail("bCycle<MISSILE_NUM_CYCLES");
     }
     return m_pRep->resources.cycles[cycle].animation != 0;
 }
@@ -858,8 +855,7 @@ void W8Missile::SetCycle(signed char cycle)
     std::vector<std::unique_ptr<stLight>>* lights;
 
     if (cycle < 0 || cycle >= 2) {
-        srAssertFail("bCycle >= MISSILE_CYCLE_FIRST && bCycle <= MISSILE_CYCLE_LAST", MISSILE_CPP,
-                     0x4d6, 0);
+        srAssertFail("bCycle >= MISSILE_CYCLE_FIRST && bCycle <= MISSILE_CYCLE_LAST");
     }
 
     lights = m_pRep->resources.cycles[m_pRep->current_cycle].lightView();
@@ -905,7 +901,7 @@ void W8Missile::DetonateMissileSpell()
     glm::vec3 position;
 
     if (m_Source.iType != W8_TARGET_SOURCE_CHARACTER) {
-        srAssertFail("m_Source.iType == SOURCE_TYPE_CHAR", MISSILE_CPP, 0x6c5, 0);
+        srAssertFail("m_Source.iType == SOURCE_TYPE_CHAR");
     }
     position = GetPosition();
     ResetTargetSource(&source);

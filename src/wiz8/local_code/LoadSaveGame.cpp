@@ -18,8 +18,11 @@
 #include <utility>
 #include <vector>
 
+#include <SDL3/SDL_error.h>
 #include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_time.h>
 #include <fmt/format.h>
 
 #include "Item.h"
@@ -103,8 +106,6 @@
 #include "wiz8/utility.h"
 #include "wiz8/world_cursor.h"
 #include "wiz8/xstatus.h"
-
-#define LOADSAVEGAME_CPP "C:\\Projects\\Wizardry 8\\Local Code\\LoadSaveGame.cpp"
 
 // GLOBAL: WIZ8 0x00689f98
 bool g_save_pending;
@@ -617,7 +618,7 @@ void WriteWorldItems(W8Chunk& chunks)
     const unsigned int count = CurrentLevelPopulation().world_items.size();
     chunks.WriteValue(count);
     for (unsigned int index = 0; index < count; ++index)
-        RequireSection(SaveItemFile(chunks.WriteStream(), ItemInfo(index)), "world item");
+        SaveItemFile(chunks.WriteStream(), *ItemInfo(index));
 }
 
 struct SavedMonsterGroup {
@@ -729,7 +730,6 @@ void ReadLevelSection(W8World& world, W8LoadedLevelStatus::Data& data, W8Chunk& 
         items.reserve(items.size() + count);
         for (unsigned int index = 0; index < count; ++index) {
             auto item = LoadItem(chunk, from_assets);
-            RequireSection(item != nullptr, "world item");
             items.push_back(std::move(item));
         }
         break;
@@ -877,14 +877,7 @@ void FillCurrentSaveSlot(W8SaveSlot& slot)
     slot.game_time_days = g_status.game_time_days;
     slot.iron_man = g_status.iron_man;
     const auto now = wiz8::current_local_time();
-    slot.timestamp = {now.year,
-                      static_cast<unsigned>(now.month),
-                      static_cast<unsigned>(now.day),
-                      static_cast<unsigned>(now.hour),
-                      static_cast<unsigned>(now.minute),
-                      static_cast<unsigned>(now.second),
-                      static_cast<unsigned>(now.nanosecond / 100),
-                      static_cast<unsigned>(now.day_of_week)};
+    slot.timestamp = now;
     CaptureSaveScreenshot(slot.screenshot);
     slot.version_major = kCurrentSaveVersion.major;
     slot.version_minor = kCurrentSaveVersion.minor;
@@ -894,7 +887,7 @@ void FillCurrentSaveSlot(W8SaveSlot& slot)
 /* Read one save's listing entry: its status, version and screenshot. Saves
    without a status, flagged saves and saves past the endgame are not listed. */
 static std::unique_ptr<W8SaveSlot> ReadSaveSlot(const std::string& name,
-                                                const wiz8::FileStatus& metadata, int utc_offset)
+                                                const wiz8::FileStatus& metadata)
 {
     W8Chunk chunks;
     if (!chunks.OpenRead(wiz8::user_path("saves\\" + name))) return nullptr;
@@ -926,9 +919,9 @@ static std::unique_ptr<W8SaveSlot> ReadSaveSlot(const std::string& name,
     const auto& status = saved.status;
     if (!has_status || status.flag || status.endgame_started) return nullptr;
     slot->name = name.substr(0, name.find_last_of('.'));
-    slot->local_write_time = wiz8::file_time_with_legacy_local_bias(
-        wiz8::file_time_from_sdl(metadata.info.modify_time), utc_offset);
-    slot->timestamp = wiz8::file_time_to_utc(slot->local_write_time);
+    slot->write_time = metadata.info.modify_time;
+    if (!SDL_TimeToDateTime(slot->write_time, &slot->timestamp, true))
+        throw std::runtime_error(SDL_GetError());
     slot->level_id = status.resume_level;
     slot->game_time_ms = status.game_time_ms;
     slot->iron_man = status.iron_man;
@@ -942,7 +935,6 @@ bool EnumerateSaveSlots(std::vector<std::unique_ptr<W8SaveSlot>>& slots)
 try {
     if (!wiz8::file_status(wiz8::user_path("saves"))) return true;
     const auto first = static_cast<std::ptrdiff_t>(slots.size());
-    const auto utc_offset = wiz8::current_utc_offset_seconds();
     for (const auto& name :
          wiz8::list_directory(wiz8::user_path("saves"), std::string("*.") + g_save_extension)) {
         const auto metadata = wiz8::file_status(wiz8::user_path("saves\\" + name));
@@ -950,16 +942,15 @@ try {
         if (IsCurrentGameFileName(name) || name.size() >= kCharacterNameBytes) continue;
         std::unique_ptr<W8SaveSlot> slot;
         try {
-            slot = ReadSaveSlot(name, *metadata, utc_offset);
+            slot = ReadSaveSlot(name, *metadata);
         } catch (const std::exception&) {
             continue; // An unreadable save is left out of the list.
         }
         if (!slot) continue;
-        const auto ticks = slot->local_write_time.ticks();
+        const auto ticks = slot->write_time;
         const auto position =
-            std::find_if(slots.begin() + first, slots.end(), [&](const auto& listed) {
-                return ticks > listed->local_write_time.ticks();
-            });
+            std::find_if(slots.begin() + first, slots.end(),
+                         [&](const auto& listed) { return ticks > listed->write_time; });
         slots.insert(position, std::move(slot));
     }
     return true;
@@ -1379,13 +1370,15 @@ try {
     return false;
 }
 
-/* Write an item and its siblings, each with its live position and flags. */
+/* Write the container and its contents as the retail flat sequence. */
 // FUNCTION: WIZ8 0x00514be0
-bool SaveItemFile(wiz8::File& handle, const W8WorldItem* item_info)
-try {
-    for (const auto* item = item_info; item; item = item->next.get()) {
+void SaveItemFile(wiz8::File& handle, const W8WorldItem& item_info)
+{
+    for (std::size_t index = 0; index <= item_info.contents.size(); ++index) {
+        const auto* item = index == 0 ? &item_info : item_info.contents[index - 1].get();
         auto image = wiz8::retail::encode_image(*item);
         image.saved_marker = 1;
+        image.next = index < item_info.contents.size() ? 1 : 0;
         if (item->fActive) {
             const auto position = item->p3D->m_pRep->GetLocation();
             image.position = {position.x, position.y, position.z};
@@ -1393,34 +1386,31 @@ try {
         }
         handle.write(&image, sizeof(image));
     }
-    return true;
-} catch (const std::exception&) {
-    return false;
 }
 
-/* Read an item chain. A saved next pointer only marks that another record
-   follows. The whole chain is staged before it is published to the item list
-   and the search registry. */
+/* Read the retail flat sequence into a container and its owned contents.
+   A saved next pointer only marks that another record follows. All records
+   are staged before publication to the item list and search registry. */
 // FUNCTION: WIZ8 0x00514c80
 std::unique_ptr<W8WorldItem> LoadItem(W8Chunk& handle, bool from_assets)
-try {
+{
     std::unique_ptr<W8WorldItem> head;
-    auto* link = &head;
     bool has_next;
     do {
         const auto image = wiz8::retail::read_image<W8WorldItem>(handle);
         has_next = image.next != 0;
-        *link = std::make_unique<W8WorldItem>();
-        auto& item = **link;
+        auto entry = std::make_unique<W8WorldItem>();
+        auto& item = *entry;
         wiz8::retail::decode_image(image, item);
         item.sector_id = -2;
         item.fActive = false;
         if (from_assets) item.entity_flags &= ~W8_ITEM_ENTITY_RADAR_SEEN;
-        link = &item.next;
+        if (!head)
+            head = std::move(entry);
+        else
+            head->contents.push_back(std::move(entry));
     } while (has_next);
     return head;
-} catch (const std::exception&) {
-    return nullptr;
 }
 
 /* Whether any save other than CurrentGame exists. */
@@ -1603,7 +1593,7 @@ void ProcessMainGameAutoSave(void)
 void SaveMonsterControlSpellEffect(W8Chunk* chunks)
 {
     W8SpellEffectEntry* lure = FindMonsterControlSpellEffect();
-    if (!lure) srAssertFail("pLure", LOADSAVEGAME_CPP, 0xdb3, 0);
+    if (!lure) srAssertFail("pLure");
     ForEachMonsterControlField(*lure, [&]<class Field>(const Field& field) {
         if constexpr (std::is_same_v<Field, W8CombatSlot> || std::is_same_v<Field, W8TargetSource>)
             wiz8::retail::write(*chunks, field);
@@ -1617,11 +1607,12 @@ void SaveMonsterControlSpellEffect(W8Chunk* chunks)
 // FUNCTION: WIZ8 0x00516670
 std::optional<std::string> SelectQuickSaveSlotForWrite()
 try {
-    std::optional<std::pair<int, std::uint64_t>> oldest;
+    std::optional<std::pair<int, SDL_Time>> oldest;
     for (int slot = 1; slot <= 3; ++slot) {
         const auto path = SaveSlotPath(QuickSaveName(slot));
-        if (!wiz8::file_status(wiz8::user_path(path))) return QuickSaveName(slot);
-        const auto ticks = wiz8::open_file(wiz8::user_path(path))->times().modified.ticks();
+        const auto metadata = wiz8::file_status(wiz8::user_path(path));
+        if (!metadata) return QuickSaveName(slot);
+        const auto ticks = metadata->info.modify_time;
         if (!oldest || ticks < oldest->second) oldest.emplace(slot, ticks);
     }
     return QuickSaveName(oldest->first);
@@ -1634,11 +1625,12 @@ try {
 // FUNCTION: WIZ8 0x00516740
 std::optional<std::string> FindStartupQuickSave()
 try {
-    std::optional<std::pair<int, std::uint64_t>> newest;
+    std::optional<std::pair<int, SDL_Time>> newest;
     for (int slot = 1; slot <= 3; ++slot) {
         const auto path = SaveSlotPath(QuickSaveName(slot));
-        if (!IsRegularFile(path)) continue;
-        const auto ticks = wiz8::open_file(wiz8::user_path(path))->times().modified.ticks();
+        const auto metadata = wiz8::file_status(wiz8::user_path(path));
+        if (!metadata || metadata->info.type != SDL_PATHTYPE_FILE) continue;
+        const auto ticks = metadata->info.modify_time;
         if (!newest || ticks > newest->second) newest.emplace(slot, ticks);
     }
     if (newest) return QuickSaveName(newest->first);
@@ -1741,7 +1733,6 @@ try {
             items.reserve(items.size() + count);
             for (unsigned int index = 0; index < count; ++index) {
                 auto item = LoadItem(chunk);
-                RequireSection(item != nullptr, "world item");
                 items.push_back(std::move(item));
             }
         });
@@ -1772,8 +1763,7 @@ try {
 bool LoadGame(std::string_view slot_name)
 try {
     ResetLiveSessionForLoad();
-    wiz8::copy_file(wiz8::user_path(SaveSlotPath(slot_name)), wiz8::user_path(kCurrentGamePath),
-                    wiz8::CopyMode::replace);
+    wiz8::copy_file(wiz8::user_path(SaveSlotPath(slot_name)), wiz8::user_path(kCurrentGamePath));
     W8Chunk chunks;
     if (!chunks.OpenRead(wiz8::user_path(kCurrentGamePath))) return false;
     chunks.ForEachChunk([&](unsigned int id) {

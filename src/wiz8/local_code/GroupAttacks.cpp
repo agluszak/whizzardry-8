@@ -33,8 +33,6 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/utility.h"
 
-#define GROUP_ATTACKS_CPP "C:\\Projects\\Wizardry 8\\Local Code\\GroupAttacks.cpp"
-
 /* The per-special-attack condition each attack slot tries to inflict, indexing the same
    rows as g_condition_notices. */
 // GLOBAL: WIZ8 0x0061EFFC
@@ -193,7 +191,7 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
         for (iTarget = 0; iTarget < static_cast<int>(char_targets.size()); ++iTarget) {
             iChar = char_targets[iTarget];
             if (iChar == -1) {
-                srAssertFail("iTargetChar != BAD_INDEX", GROUP_ATTACKS_CPP, 0xdc, 0);
+                srAssertFail("iTargetChar != BAD_INDEX");
             }
             ResetCombatSlot(&target);
             target.iType = W8_TARGET_KIND_CHARACTER;
@@ -299,7 +297,7 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
         for (iTarget = 0; iTarget < static_cast<int>(monster_targets.size()); ++iTarget) {
             iMonsterID = monster_targets[iTarget];
             if (iMonsterID == -1) {
-                srAssertFail("iTargetMonsterID != BAD_INDEX", GROUP_ATTACKS_CPP, 0x169, 0);
+                srAssertFail("iTargetMonsterID != BAD_INDEX");
             }
             ResetCombatSlot(&target);
             target.iType = W8_TARGET_KIND_MONSTER;
@@ -500,7 +498,7 @@ void SpawnSummonedMonsterGroup(int special_attack_kind, W8TargetSource* pSource,
     position = &pAttackerSlot->point;
     group = CreateGroup(special_attack_kind, count, position, false, false, true);
     if (group == 0) {
-        srAssertFail("pGroup", GROUP_ATTACKS_CPP, 600, 0);
+        srAssertFail("pGroup");
     }
     FindMonster(group->leader_location_id);
     monster_info = FindMonster(pAttackerSlot->iMonsterID);

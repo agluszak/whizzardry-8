@@ -43,8 +43,6 @@
 #include "wiz8/string_database.h"
 #include "wiz8/utility.h"
 
-#define TRAPS_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Traps.cpp"
-
 // GLOBAL: WIZ8 0x0069ca68
 static char g_record_mode_line[0x1000];
 // GLOBAL: WIZ8 0x0069da6c
@@ -288,7 +286,7 @@ static void DischargeTrapSpell(glm::vec3 point, int spell_id, unsigned int power
     W8TargetSource source;
 
     if (num_targets < 1) {
-        srAssertFail("iNumTargets > 0", "C:\\Projects\\Wizardry 8\\Local Code\\Traps.cpp", 0x94, 0);
+        srAssertFail("iNumTargets > 0");
     }
     ResetTargetSource(&source);
     source.iType = W8_TARGET_SOURCE_INDIRECT;

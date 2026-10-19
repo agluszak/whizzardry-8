@@ -213,7 +213,7 @@ void UpdateHeldItemCursor(void)
 void ApplyCurrentCursor(void)
 {
     if (gXStatus.iCurrentCursor == W8_CURSOR_NONE) {
-        srAssertFail("gXStatus.iCurrentCursor != -1", __FILE__, 0x18d, 0);
+        srAssertFail("gXStatus.iCurrentCursor != -1");
     }
     if (g_main_game_resource_slots[gXStatus.iCurrentCursor].object != 0) {
         ResizeMouseCursorSurface(g_main_game_resource_slots[gXStatus.iCurrentCursor].size_x,

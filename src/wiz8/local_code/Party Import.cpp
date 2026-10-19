@@ -33,8 +33,6 @@
 /* Retail Local Code\Party Import.cpp: converts imported Wizardry 7
    characters into the Wizardry 8 layout. */
 
-#define PARTY_IMPORT_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Party Import.cpp"
-
 /* The three bonus attributes each profession grants on top of the imported
    values. */
 // GLOBAL: WIZ8 0x00614FC8
@@ -323,8 +321,7 @@ void ConvertAttribute(W8Character* character, const W8Wiz7Character* imported)
             case 6:
                 break;
             default:
-                srAssertFail("FALSE", PARTY_IMPORT_CPP, 0x462,
-                             "ConvertAttribute: ERROR - Invalid attribute");
+                srAssertFail("FALSE", "ConvertAttribute: ERROR - Invalid attribute");
             }
             imported_values[mapped] = imported->attributes[i];
             switch (i) {
@@ -349,8 +346,7 @@ void ConvertAttribute(W8Character* character, const W8Wiz7Character* imported)
             case 6:
                 break;
             default:
-                srAssertFail("FALSE", PARTY_IMPORT_CPP, 0x462,
-                             "ConvertAttribute: ERROR - Invalid attribute");
+                srAssertFail("FALSE", "ConvertAttribute: ERROR - Invalid attribute");
             }
             total += imported_values[mapped];
         }
@@ -789,13 +785,12 @@ unsigned int ConvertSkill(W8Skill skill_id, W8Character* character, const W8Wiz7
             }
             break;
         default:
-            srAssertFail("FALSE", PARTY_IMPORT_CPP, 0x56c,
-                         "ConvertSkill: ERROR - Invalid NEW skill");
+            srAssertFail("FALSE", "ConvertSkill: ERROR - Invalid NEW skill");
             break;
         }
         break;
     default:
-        srAssertFail("FALSE", PARTY_IMPORT_CPP, 0x4b3, "ConvertSkill: ERROR - Invalid skill");
+        srAssertFail("FALSE", "ConvertSkill: ERROR - Invalid skill");
         break;
     }
     if (!routed) {

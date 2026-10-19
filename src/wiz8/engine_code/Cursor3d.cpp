@@ -58,8 +58,6 @@ constexpr float kCursorGroundStepThreshold = 83.333335876464844f;
 constexpr double kCursorProbeShrinkScale = 0.97;
 constexpr float kCursorSightProbeHeight = 750.0f;
 
-#define CURSOR3D_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Cursor3d.cpp"
-
 /* Engine Code\Cursor3d.cpp. The cursor state, its visibility query and the
    range reset the update path calls. */
 
@@ -252,11 +250,11 @@ void ApplyWorldCursorInput(void)
     glm::vec3 clamped;
 
     if (WorldCursor() == 0) {
-        srAssertFail("gp3DCursor", CURSOR3D_CPP, 0x188, 0);
+        srAssertFail("gp3DCursor");
     }
     auto& cursor = *WorldCursor();
     if (!cursor.enabled) {
-        srAssertFail("gp3DCursor->fEnabled", CURSOR3D_CPP, 0x189, 0);
+        srAssertFail("gp3DCursor->fEnabled");
     }
     const float saved_y = cursor.position.y;
     delta = glm::vec3(cursor.input_delta.x * 1e+01f, cursor.input_delta.y * 1e+01f,

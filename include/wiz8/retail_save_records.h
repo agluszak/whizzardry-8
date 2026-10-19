@@ -457,7 +457,8 @@ template<> struct Record<W8WorldItem> {
         value(&runtime.flags, field(offsetof(Disk, flags), sizeof(Disk::flags)));
         value(&runtime.saved_marker,
               field(offsetof(Disk, saved_marker), sizeof(Disk::saved_marker)));
-        pointer_slot(runtime.next, field(offsetof(Disk, next), sizeof(Disk::next)));
+        // SaveItemFile supplies sibling link presence for the flat sequence.
+        presence_slot(runtime.contents, field(offsetof(Disk, next), sizeof(Disk::next)));
         value(&runtime.vertical_velocity,
               field(offsetof(Disk, vertical_velocity), sizeof(Disk::vertical_velocity)));
         value(&runtime.sector_id, field(offsetof(Disk, sector_id), sizeof(Disk::sector_id)));

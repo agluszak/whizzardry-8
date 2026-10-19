@@ -143,14 +143,10 @@ void RemoveCharacterCondition(int party_slot, W8Condition condition, bool announ
 
     if (character->uiCondition[condition] != 0 || !g_status.world_suspended) {
         if (!row->fOccupied) {
-            srAssertFail("fCHAR_OCCUPIED(uiChar)",
-                         "C:\\Projects\\Wizardry 8\\Local Code\\Conditions & Enchantments.cpp",
-                         0xf4, 0);
+            srAssertFail("fCHAR_OCCUPIED(uiChar)");
         }
         if (character->uiCondition[condition] == 0) {
-            srAssertFail("gStatus.Char[uiChar].uiCondition[uiCondition] > 0",
-                         "C:\\Projects\\Wizardry 8\\Local Code\\Conditions & Enchantments.cpp",
-                         0xf5, 0);
+            srAssertFail("gStatus.Char[uiChar].uiCondition[uiCondition] > 0");
         }
         if (condition == W8_CONDITION_HEXED) {
             if (character->uiCondition[W8_CONDITION_INFATUATED] != 0 &&
@@ -215,8 +211,6 @@ void RemoveCharacterCondition(int party_slot, W8Condition condition, bool announ
  * between the two, lift them one at a time or all at once, and keep the
  * highest enchantment slot in use up to date as slots empty.
  */
-
-#define CONDITIONS_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Conditions & Enchantments.cpp"
 
 /* Keep the live quantity in the byte selected by the database record. Stack
    items use stack_count; charge and use-count items use uses_or_charges. */
@@ -332,7 +326,7 @@ W8ConditionImmunity g_condition_immunities[3] = {
 void RecomputeCharacterHighestCondition(int party_slot)
 {
     if (!g_status.buffers.XChar[party_slot].fOccupied) {
-        srAssertFail("fCHAR_OCCUPIED(uiChar)", CONDITIONS_CPP, 0x183, 0);
+        srAssertFail("fCHAR_OCCUPIED(uiChar)");
     }
     W8Character* character = &g_status.buffers.Char[party_slot];
     W8Condition previous = character->highest_condition;
@@ -423,14 +417,10 @@ void TickCharacterCondition(unsigned int party_slot, W8Condition condition, unsi
     W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
 
     if (!row->fOccupied) {
-        srAssertFail("fCHAR_OCCUPIED(uiSlot)",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\Conditions & Enchantments.cpp", 0x158,
-                     0);
+        srAssertFail("fCHAR_OCCUPIED(uiSlot)");
     }
     if (g_status.buffers.Char[party_slot].uiCondition[condition] == 0) {
-        srAssertFail("gStatus.Char[uiSlot].uiCondition[uiCondition] > 0",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\Conditions & Enchantments.cpp", 0x159,
-                     0);
+        srAssertFail("gStatus.Char[uiSlot].uiCondition[uiCondition] > 0");
     }
     if (g_status.buffers.Char[party_slot].uiCondition[condition] <= minutes) {
         RemoveCharacterCondition(party_slot, condition, true);
@@ -482,9 +472,7 @@ void SetMonsterCondition(int location_id, W8Condition condition, int duration, i
     bool handled;
 
     if (poison_strength != 0 && condition != W8_CONDITION_POISONED) {
-        srAssertFail("(uiPoisonStrength == 0) || (uiCondition == COND_POISONED)",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\Conditions & Enchantments.cpp", 0x220,
-                     0);
+        srAssertFail("(uiPoisonStrength == 0) || (uiCondition == COND_POISONED)");
     }
     if (condition == W8_CONDITION_POISONED && poison_strength == 0) {
         return;
@@ -594,9 +582,7 @@ void ClearMonsterCondition(int location_id, W8Condition condition)
     monster_info = FindMonster(location_id);
     if (monster_info->hp_current != 0) {
         if (monster_info->uiCondition[condition] == 0) {
-            srAssertFail("pMonsterInfo->uiCondition[uiCondition] > 0",
-                         "C:\\Projects\\Wizardry 8\\Local Code\\Conditions & Enchantments.cpp",
-                         0x2d8, 0);
+            srAssertFail("pMonsterInfo->uiCondition[uiCondition] > 0");
         }
         if (condition == W8_CONDITION_TURNCOAT &&
             monster_info->uiCondition[W8_CONDITION_TURNCOAT] != 0) {
@@ -648,7 +634,7 @@ void TickMonsterCondition(int location_id, W8Condition condition, unsigned int m
         return;
     }
     if (monster_info->uiCondition[condition] == 0) {
-        srAssertFail("pMonsterInfo->uiCondition[uiCondition] > 0", CONDITIONS_CPP, 0x31b, 0);
+        srAssertFail("pMonsterInfo->uiCondition[uiCondition] > 0");
     }
     if (monster_info->uiCondition[condition] <= minutes) {
         ClearMonsterCondition(location_id, condition);
@@ -682,14 +668,10 @@ unsigned char SetCharacterCondition(int party_slot, W8Condition condition, int d
     bool handled;
 
     if (!row->fOccupied) {
-        srAssertFail("fCHAR_OCCUPIED(uiChar)",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\Conditions & Enchantments.cpp", 0x2a,
-                     0);
+        srAssertFail("fCHAR_OCCUPIED(uiChar)");
     }
     if (poison_strength != 0 && condition != W8_CONDITION_POISONED) {
-        srAssertFail("(uiPoisonStrength == 0) || (uiCondition == COND_POISONED)",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\Conditions & Enchantments.cpp", 0x2d,
-                     0);
+        srAssertFail("(uiPoisonStrength == 0) || (uiCondition == COND_POISONED)");
     }
     if (condition == W8_CONDITION_POISONED && poison_strength == 0) {
         return 0;
@@ -1046,13 +1028,13 @@ void BindMonsterToCharacterDependence(unsigned int party_slot, unsigned int depe
     W8MonsterInfo* monster_info;
 
     if (party_slot >= 8) {
-        srAssertFail("uiChar < MAX_CHARS", CONDITIONS_CPP, 0x447, 0);
+        srAssertFail("uiChar < MAX_CHARS");
     }
     if (dependence_slot >= W8_DEPENDENCE_COUNT) {
-        srAssertFail("uiDependence < DEPEND_COND_COUNT", CONDITIONS_CPP, 0x448, 0);
+        srAssertFail("uiDependence < DEPEND_COND_COUNT");
     }
     if (monster_id == -1) {
-        srAssertFail("iMonsterID != -1", CONDITIONS_CPP, 0x449, 0);
+        srAssertFail("iMonsterID != -1");
     }
 
     monster_info = FindMonster(monster_id);

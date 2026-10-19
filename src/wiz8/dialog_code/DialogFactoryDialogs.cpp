@@ -929,7 +929,8 @@ bool W8TriggerItemPickerDialog::HandleInputEvent(const InputEvent* input)
 void W8TriggerItemPickerDialog::SetItemGroup(W8WorldItem* group)
 {
     m_item_group = group;
-    while (group->next) AddItem(ItemInfoRemoveFromGroup(group, group->next.get()));
+    for (auto& item : group->contents) AddItem(std::move(item));
+    group->contents.clear();
     UpdateLayout();
 }
 
@@ -938,7 +939,7 @@ void W8TriggerItemPickerDialog::SetItemGroup(W8WorldItem* group)
 // FUNCTION: WIZ8 0x005cf110
 W8WorldItem* W8TriggerItemPickerDialog::ReturnItemsToGroup()
 {
-    for (auto& entry : entries) ItemInfoAddToGroup(m_item_group, std::move(entry.item));
+    for (auto& entry : entries) m_item_group->contents.push_back(std::move(entry.item));
     entries.clear();
     return m_item_group;
 }

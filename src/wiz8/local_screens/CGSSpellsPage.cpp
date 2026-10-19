@@ -363,8 +363,7 @@ void W8CharacterSpellsPage::GetNavigationState(bool* next_enabled, bool* exit_en
 void W8CharacterSpellsPage::SelectSpell(unsigned int uiSelected)
 {
     if (!m_SpellData[uiSelected].fSelectable) {
-        srAssertFail("m_SpellData[uiSelected].fSelectable",
-                     "C:\\Projects\\Wizardry 8\\Local Screens\\CGSSpellsPage.cpp", 0x252, 0);
+        srAssertFail("m_SpellData[uiSelected].fSelectable");
     }
     if (m_SpellData[uiSelected].selected) {
         m_SpellData[uiSelected].selected = false;

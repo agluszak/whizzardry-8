@@ -50,8 +50,6 @@
 // GLOBAL: WIZ8 0x0068C518
 int g_event_sight_blocked = kFirstRemappedEvent + 30;
 
-#define COMBAT_RANGE_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Combat Range.cpp"
-
 /* The range categories are W8RangeCategory, declared with the spell record
    that shares the domain. Above W8_RANGE_SHORT an attack is out of the
    close-quarters band the melee rule restricts itself to. */
@@ -172,7 +170,7 @@ bool CharacterActionReachesTarget(int party_slot, int hand, const W8Action& sele
         point = target->point;
         unsigned int spell_id = GetActionSpellLikeId(selected);
         if (spell_id == W8_SPELL_NONE) {
-            srAssertFail("uiSpell != SPELL_NONE", COMBAT_RANGE_CPP, 0xee, 0);
+            srAssertFail("uiSpell != SPELL_NONE");
         }
         W8SpellTargetType target_type = GetSpellTargetType(spell_id, false);
         if (target_type == W8_TARGET_TYPE_CONE) {
@@ -180,7 +178,7 @@ bool CharacterActionReachesTarget(int party_slot, int hand, const W8Action& sele
             distance = 1.25e+04f;
         } else {
             if (target_type != W8_TARGET_TYPE_RADIUS && target_type != W8_TARGET_TYPE_POINT) {
-                srAssertFail("FALSE", COMBAT_RANGE_CPP, 0x101, 0);
+                srAssertFail("FALSE");
                 return false;
             }
 
@@ -206,7 +204,7 @@ bool CharacterActionReachesTarget(int party_slot, int hand, const W8Action& sele
             return false;
         }
         if (group == 0) {
-            srAssertFail("pMonsterGroup != NULL", COMBAT_RANGE_CPP, 0x1a0, 0);
+            srAssertFail("pMonsterGroup != NULL");
         }
         W8TargetSource source;
         SetTargetSourceToCharacter(party_slot, &source);
@@ -331,7 +329,7 @@ W8RangeCategory GetCharAttackRange(const W8Character* character, unsigned int ha
 
     if (hand >= 2) {
         if (hand != 2) {
-            srAssertFail("uiHand == HAND_ANY", COMBAT_RANGE_CPP, 0x1f2, 0);
+            srAssertFail("uiHand == HAND_ANY");
         }
         best = W8_RANGE_NONE;
         for (index = 0; index < 2; ++index) {
@@ -647,10 +645,10 @@ W8RangeCategory GetMonsterActionRangeCategory(const W8MonsterInfo* monster_info,
     }
 
     if (attack >= W8_MAX_MONSTER_ATTACKS) {
-        srAssertFail("uiAttack < MAX_MONSTER_ATTACKS", COMBAT_RANGE_CPP, 949, 0);
+        srAssertFail("uiAttack < MAX_MONSTER_ATTACKS");
     }
     if (record->attacks[attack].fHasAttack == 0) {
-        srAssertFail("pMonsterDB->Attack[uiAttack].fHasAttack", COMBAT_RANGE_CPP, 950, 0);
+        srAssertFail("pMonsterDB->Attack[uiAttack].fHasAttack");
     }
     return static_cast<W8RangeCategory>(record->attacks[attack].range_category);
 }
@@ -679,8 +677,7 @@ float CalcRangeDistance(W8RangeCategory range_category)
         steps = 50;
         break;
     default:
-        srAssertFail("FALSE", COMBAT_RANGE_CPP, 1123,
-                     "CalcRangeDistance: ERROR - Invalid range category");
+        srAssertFail("FALSE", "CalcRangeDistance: ERROR - Invalid range category");
     }
     return steps * kWorldScale;
 }
@@ -697,7 +694,7 @@ float CalcRangeDistance(W8RangeCategory range_category, W8TargetSource* source)
     }
     if (TargetSourceIsMonster(source, 0)) {
         if (source->iMonsterID == -1) {
-            srAssertFail("pSource->iMonsterID != -1", COMBAT_RANGE_CPP, 0x483, 0);
+            srAssertFail("pSource->iMonsterID != -1");
         }
         W8MonsterInfo* monster_info = FindMonster(source->iMonsterID);
         return monster_info->p3D->movement.alternate_radius + distance;
@@ -788,7 +785,7 @@ char CountRowsBetween(int party_slot, W8MonsterInfo* monster_info)
     }
 
     if (monster_quadrant == 4) {
-        srAssertFail("ubMonsterQuadrant != QUADRANT_CENTER", COMBAT_RANGE_CPP, 0x598, 0);
+        srAssertFail("ubMonsterQuadrant != QUADRANT_CENTER");
     }
     if (party_quadrant == 4) {
         return rows;
@@ -1068,7 +1065,7 @@ void GetMonsterAttackSourceOffset(W8Monster* monster, int kind, glm::vec3* out)
             return;
         }
     }
-    srAssertFail("FALSE", COMBAT_RANGE_CPP, 0x646, 0);
+    srAssertFail("FALSE");
 }
 
 // FUNCTION: WIZ8 0x0051b4e0

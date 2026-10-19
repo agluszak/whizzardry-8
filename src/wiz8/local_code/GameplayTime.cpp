@@ -70,8 +70,6 @@
 
 constexpr float kFastMagicRecoveryScale = 1.25f;
 
-#define GAMEPLAYTIME_CPP "C:\\Projects\\Wizardry 8\\Local Code\\GameplayTime.cpp"
-
 static void BeginPartyCamping()
 {
     gXStatus.world_paused = false;
@@ -149,7 +147,7 @@ void UpdateGameClock(int elapsed)
     if ((!gXStatus.fCombatMode || aging_ticks != 0) && g_camera_sway_active) {
         if (gXStatus.fCombatMode) {
             if (aging_ticks == 0) {
-                srAssertFail("uiTurnsElapsed > 0", GAMEPLAYTIME_CPP, 0x6d, 0);
+                srAssertFail("uiTurnsElapsed > 0");
             }
             g_status.camp_tick_ms -= 4 * 0x9c4;
             UpdateCampFatigue(4);
@@ -643,8 +641,7 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
                     condition = W8_CONDITION_PARALYZED;
                     break;
                 default:
-                    srAssertFail("FALSE", GAMEPLAYTIME_CPP, 0x333,
-                                 "GameTurnsPassedChar: ERROR - Invalid condition");
+                    srAssertFail("FALSE", "GameTurnsPassedChar: ERROR - Invalid condition");
                     condition = minutes;
                     break;
                 }

@@ -1233,7 +1233,7 @@ bool CampScreenEnter(void)
                 }
             }
         }
-        srAssertFail("fFoundEquipChar", __FILE__, 0x16f, 0);
+        srAssertFail("fFoundEquipChar");
     show_equip_message:
         ShowCampNoticeLine(g_camp_screen->text_buffer, 0, true, false);
     }
@@ -1736,10 +1736,10 @@ void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOr
     std::string text;
 
     if (item == 0) {
-        srAssertFail("pPCItem != NULL", __FILE__, 0x4e5, 0);
+        srAssertFail("pPCItem != NULL");
     }
     if (static_cast<unsigned int>(origin) >= W8_ITEM_ORIGIN_COUNT) {
-        srAssertFail("uiSlotType < SLOT_TYPE_COUNT", __FILE__, 0x4e6, 0);
+        srAssertFail("uiSlotType < SLOT_TYPE_COUNT");
     }
 
     /* A held stackable whose name kind the clicked item merges with counts as
@@ -1835,7 +1835,7 @@ void HandleCampItemClick(W8ItemInstance* item, unsigned int slot_index, W8ItemOr
             return;
         }
         if (g_camp_identifying_character == 0) {
-            srAssertFail("gpIdentifyingPC != NULL", __FILE__, 0x553, 0);
+            srAssertFail("gpIdentifyingPC != NULL");
         }
         old_pool_count = g_status.party_item_count;
         reidentify = false;

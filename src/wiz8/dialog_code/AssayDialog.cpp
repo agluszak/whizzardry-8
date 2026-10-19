@@ -94,7 +94,6 @@ static unsigned short g_quantity_kind_name_ids[7] = {
 static std::string g_assay_entry_text;
 
 // STRING: WIZ8 0x0064FAE4
-#define ASSAY_DIALOG_CPP "C:\\Projects\\Wizardry 8\\Dialog Code\\AssayDialog.cpp"
 
 enum { NUM_RPC_RACES = 5 };
 
@@ -460,7 +459,7 @@ void W8AssayDialog::PopulateText()
     if (record->category == W8_ITEM_CATEGORY_CASTER_ITEM_6 ||
         record->category == W8_ITEM_CATEGORY_CASTER_ITEM_8) {
         if (record->spell_id == W8_SPELL_NONE) {
-            srAssertFail("uiSpell != SPELL_NONE", ASSAY_DIALOG_CPP, 0x390, 0);
+            srAssertFail("uiSpell != SPELL_NONE");
         }
         if (count != 0) {
             AppendAssayEntryText(g_comma_space);
@@ -657,7 +656,7 @@ bool W8AssayDialog::PopulateRequirements()
 
     for (us_index = 0; us_index < NUM_RPC_RACES; ++us_index) {
         if (us_index >= NUM_RPC_RACES) {
-            srAssertFail("usIndex < NUM_RPC_RACES", ASSAY_DIALOG_CPP, 1681, 0);
+            srAssertFail("usIndex < NUM_RPC_RACES");
         }
         switch (us_index) {
         case 0:
@@ -677,7 +676,7 @@ bool W8AssayDialog::PopulateRequirements()
             break;
         default:
             button_index = -1;
-            srAssertFail("iUnknownButtonIndex != MAXDWORD", ASSAY_DIALOG_CPP, 0x43f, 0);
+            srAssertFail("iUnknownButtonIndex != MAXDWORD");
             break;
         }
         switch (g_status.rpc_races[us_index]) {
@@ -875,7 +874,7 @@ void W8AssayDialog::SetRaceIconsVisible(bool show)
             for (us_index = 0; us_index < NUM_RPC_RACES; ++us_index) {
                 if (race == g_status.rpc_races[us_index]) {
                     if (us_index >= NUM_RPC_RACES) {
-                        srAssertFail("usIndex < NUM_RPC_RACES", ASSAY_DIALOG_CPP, 0x691, 0);
+                        srAssertFail("usIndex < NUM_RPC_RACES");
                     }
                     switch (us_index) {
                     case 0:

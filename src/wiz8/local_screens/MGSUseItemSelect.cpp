@@ -57,8 +57,6 @@
 
 struct W8NpcState;
 
-#define MGSUSEITEMSELECT_CPP "C:\\Projects\\Wizardry 8\\Local Screens\\MGSUseItemSelect.cpp"
-
 namespace {
 enum class ItemPool { Character, Party, Hand };
 struct UseItemView {
@@ -233,15 +231,14 @@ void RefreshUseItemSelectionForSlot(int party_slot)
     if (gXStatus.item_drag_active) {
         if (!g_status.item_in_cursor) {
             const bool party_pool = gXStatus.dragged_item_origin == W8_ITEM_ORIGIN_PARTY_POOL;
-            if (party_pool && gXStatus.fCombatMode)
-                srAssertFail("!gXStatus.fCombatMode", MGSUSEITEMSELECT_CPP, 0x1f0, 0);
+            if (party_pool && gXStatus.fCombatMode) srAssertFail("!gXStatus.fCombatMode");
             RebuildUseItemSelectList(party_pool ? ItemPool::Party : ItemPool::Character,
                                      gXStatus.dragged_item);
         } else {
             RebuildUseItemSelectList(ItemPool::Hand, &g_status.item_in_hand);
         }
         if (use_item->selected_line == -1) {
-            srAssertFail("giReuseItemLineNumber != -1", MGSUSEITEMSELECT_CPP, 0x1fe, 0);
+            srAssertFail("giReuseItemLineNumber != -1");
         }
         ScrollTextBoxTo(use_item->selected_line);
         gXStatus.item_drag_active = false;
@@ -255,11 +252,10 @@ void RefreshUseItemSelectionForSlot(int party_slot)
         if (CanUseItemForAction(use_item->owner, item)) {
             const bool party_pool =
                 g_status.buffers.XChar[party_slot].item_origin == W8_ITEM_ORIGIN_PARTY_POOL;
-            if (party_pool && gXStatus.fCombatMode)
-                srAssertFail("!gXStatus.fCombatMode", MGSUSEITEMSELECT_CPP, 0x216, 0);
+            if (party_pool && gXStatus.fCombatMode) srAssertFail("!gXStatus.fCombatMode");
             RebuildUseItemSelectList(party_pool ? ItemPool::Party : ItemPool::Character, item);
             if (use_item->selected_line == -1) {
-                srAssertFail("giReuseItemLineNumber != -1", MGSUSEITEMSELECT_CPP, 0x221, 0);
+                srAssertFail("giReuseItemLineNumber != -1");
             }
             ScrollTextBoxTo(use_item->selected_line);
             SetHoveredTextLine(use_item->selected_line, 2);
@@ -562,11 +558,11 @@ void SelectUseItemLine(int iTextLine)
     W8SpellTargetType target_type;
 
     if (iTextLine < 0) {
-        srAssertFail("iTextLine >= 0", MGSUSEITEMSELECT_CPP, 0x61d, 0);
+        srAssertFail("iTextLine >= 0");
     }
     if (iTextLine >= static_cast<int>(use_item->rows.size())) {
         // c-style-cast-ok: the assertion text itself spells (INT32)
-        srAssertFail("iTextLine < (INT32) guiNumItemsInList", MGSUSEITEMSELECT_CPP, 0x61e, 0);
+        srAssertFail("iTextLine < (INT32) guiNumItemsInList");
     }
     SetTargetingMode(W8_TARGET_NEED_NONE);
     UpdateUseItemDetailPanel(use_item->rows[iTextLine].item);
@@ -673,7 +669,7 @@ void TakeUseItemIntoHand(void)
         return;
     }
     if (use_item->owner == -1) {
-        srAssertFail("giUseItemChar != BAD_INDEX", MGSUSEITEMSELECT_CPP, 0x6c1, 0);
+        srAssertFail("giUseItemChar != BAD_INDEX");
     }
     old_count = g_status.party_item_count;
     GiveItemToCharacterOrParty(use_item->owner, &g_status.item_in_hand, true);

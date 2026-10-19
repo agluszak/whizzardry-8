@@ -96,8 +96,7 @@ int GetProfessionCasterLevel(const W8Character* character, W8Profession professi
     if (profession_id == W8_PROFESSION_NONE) {
         profession_id = character->iProfession;
         if (profession_id == W8_PROFESSION_NONE) {
-            srAssertFail("iProfession != -1", "C:\\Projects\\Wizardry 8\\Local Code\\Magic.cpp",
-                         0xe13, 0);
+            srAssertFail("iProfession != -1");
         }
     }
 
@@ -146,8 +145,6 @@ bool CanCastFromItem(const W8Character* caster, const W8ItemInstance* item)
     }
     return CanCharacterUseItem(caster, item->iItemNo);
 }
-
-#define MAGIC_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Magic.cpp"
 
 /* The three monster kinds whose alchemy survives a spellcasting block. */
 enum {
@@ -203,7 +200,7 @@ bool MonsterOKToCastSpell(W8MonsterInfo* monster_info, int spell_id, int)
     unsigned char kind;
 
     if (g_spell_records[spell_id].monster_castable == 0) {
-        srAssertFail("FALSE", MAGIC_CPP, 1132,
+        srAssertFail("FALSE",
                      fmt::format("MonsterOKToCastSpell: ERROR - spell not monster castable: {}",
                                  g_spell_records[spell_id].display_name));
         return false;
@@ -252,11 +249,11 @@ bool SpellUsableNow(int spell_id, bool allow_out_of_combat)
     bool lock_or_trap;
 
     if (spell_id >= W8_SPELL_COUNT) {
-        srAssertFail("uiSpell < SPELL_COUNT", MAGIC_CPP, 4179, 0);
+        srAssertFail("uiSpell < SPELL_COUNT");
     }
     usable_when = g_spell_records[spell_id].usable_when;
     if (usable_when >= W8_SPELL_USAGE_COUNT) {
-        srAssertFail("uiSpellUsableWhen < SPELL_USAGE_COUNT", MAGIC_CPP, 4182, 0);
+        srAssertFail("uiSpellUsableWhen < SPELL_USAGE_COUNT");
     }
 
     if (g_current_screen_state.id == W8_SCREEN_CAMP && !gXStatus.fCombatMode &&
@@ -294,7 +291,7 @@ bool SpellUsableNow(int spell_id, bool allow_out_of_combat)
         }
         return TrapInteractionSuspended();
     default:
-        srAssertFail("FALSE", MAGIC_CPP, 4228, "SpellUsableNow: ERROR - Invalid uiSpellUsableWhen");
+        srAssertFail("FALSE", "SpellUsableNow: ERROR - Invalid uiSpellUsableWhen");
         return allow_out_of_combat;
     }
 
@@ -338,7 +335,7 @@ W8TargetNeed GetTargetNeededForSpellFriendly(int spell_id, bool normalize, bool 
             break;
         default:
             srAssertFail(
-                "FALSE", MAGIC_CPP, 4851,
+                "FALSE",
                 fmt::format(
                     "GetTargetNeededForSpellFriendly: ERROR - Invalid spell target for {:d}",
                     spell_id));
@@ -371,7 +368,7 @@ W8TargetNeed GetTargetNeededForSpellHostile(int spell_id)
         break;
     default:
         srAssertFail(
-            "FALSE", MAGIC_CPP, 4889,
+            "FALSE",
             fmt::format("GetTargetNeededForSpellHostile: ERROR - Invalid spell target for {:d}",
                         spell_id));
         break;
@@ -527,7 +524,7 @@ void StartCharacterBreathAttack(int party_slot)
     W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
 
     if (!CanCharReBreathe(party_slot)) {
-        srAssertFail("CanCharReBreathe(uiChar)", MAGIC_CPP, 5320, 0);
+        srAssertFail("CanCharReBreathe(uiChar)");
     }
     ChooseAction(party_slot, W8_ACTION_BREATHE, -1, 0, false, 1);
     AimAtTarget(party_slot, &row->breath_target, GetEditedActionContext(party_slot));
@@ -653,7 +650,7 @@ void UpdateSpellEffects(void)
                 ProcessSpellEffectTargets(&effect);
                 if (TargetSourceIsMonster(&effect.OrigSource, 0)) {
                     if (effect.OrigSource.iMonsterID == -1) {
-                        srAssertFail("pOrigSource->iMonsterID != -1", MAGIC_CPP, 0x1504, 0);
+                        srAssertFail("pOrigSource->iMonsterID != -1");
                     }
                     W8MonsterInfo* monster_info = FindMonster(effect.OrigSource.iMonsterID);
                     if (gXStatus.fCombatMode && g_combat_state->eCombatActionStatus != 0 &&
@@ -840,7 +837,7 @@ void ScaleByCombatPace(int party_slot, unsigned int* value)
         pace = 0x28;
         break;
     default:
-        srAssertFail("FALSE", MAGIC_CPP, 5352, 0);
+        srAssertFail("FALSE");
         return;
     }
 
@@ -1130,8 +1127,7 @@ void LearnSpellFromItem(W8Character* character, W8ItemInstance* item)
     unsigned int skill_id;
 
     if (g_item_records[item->iItemNo].spell_id == W8_SPELL_NONE) {
-        srAssertFail("gpItemDB[pPCItem->iItemNo].ubSpellNumber != SPELL_NONE", MAGIC_CPP, 0x101f,
-                     0);
+        srAssertFail("gpItemDB[pPCItem->iItemNo].ubSpellNumber != SPELL_NONE");
     }
     spell_id = g_item_records[item->iItemNo].spell_id;
 
@@ -1392,7 +1388,7 @@ unsigned int ChooseMonsterSpellPowerLevel(W8MonsterInfo* monster_info, W8Monster
     }
 
     if (power_level == 0 || power_level > W8_SPELL_POWER_MAX) {
-        srAssertFail("( uiPowerLevel >= 1 ) && ( uiPowerLevel <= 7 )", MAGIC_CPP, 0x10bf, 0);
+        srAssertFail("( uiPowerLevel >= 1 ) && ( uiPowerLevel <= 7 )");
     }
     return power_level;
 }
@@ -1451,9 +1447,8 @@ int PointCastSpell(glm::vec3 position, int spell_id, unsigned int power_level)
         target.iType = W8_TARGET_KIND_PARTY;
         break;
     default:
-        srAssertFail(
-            "FALSE", MAGIC_CPP, 0x56d,
-            fmt::format("PointCastSpell: ERROR - Invalid spell target for {:d}", spell_id));
+        srAssertFail("FALSE", fmt::format("PointCastSpell: ERROR - Invalid spell target for {:d}",
+                                          spell_id));
         break;
     }
 
@@ -1532,7 +1527,7 @@ W8Skill GetBestSpellbookSkillForSpell(W8Character* character, int spell_id, bool
     }
 
     if (best_skill == W8_SKILL_NONE) {
-        srAssertFail("(iHighestSkill != SKILL_NONE)", MAGIC_CPP, 0xf29,
+        srAssertFail("(iHighestSkill != SKILL_NONE)",
                      fmt::format("Failed on spell {:d}, usability byte {:d}", spell_id, book));
     }
     return best_skill;
@@ -1860,7 +1855,7 @@ static std::string SpellTargetString(const W8TargetSource* source, const W8Comba
     unsigned short name_prefix;
 
     if (target == 0) {
-        srAssertFail("pTarget != NULL", MAGIC_CPP, 0xa4, 0);
+        srAssertFail("pTarget != NULL");
     }
 
     switch (target->iType) {
@@ -1871,7 +1866,7 @@ static std::string SpellTargetString(const W8TargetSource* source, const W8Comba
     case 1:
     case 9:
         if (target->iChar == -1) {
-            srAssertFail("pTarget->iChar != BAD_INDEX", MAGIC_CPP, 0xad, 0);
+            srAssertFail("pTarget->iChar != BAD_INDEX");
         }
         if (!TargetSourceIsCharacter(source, 0) || source->name_known ||
             source->iChar != target->iChar) {
@@ -1889,7 +1884,7 @@ static std::string SpellTargetString(const W8TargetSource* source, const W8Comba
         W8MonsterRecord* record;
 
         if (target->iMonsterID == -1) {
-            srAssertFail("pTarget->iMonsterID != BAD_INDEX", MAGIC_CPP, 0xbd, 0);
+            srAssertFail("pTarget->iMonsterID != BAD_INDEX");
         }
         monster_info = FindMonster(target->iMonsterID);
         record = GetMonsterDataForInfo(monster_info);
@@ -1916,9 +1911,8 @@ static std::string SpellTargetString(const W8TargetSource* source, const W8Comba
         return g_localized_strings[W8_MESSAGE_TARGET_DIRECTION / 4];
 
     default:
-        srAssertFail("FALSE", MAGIC_CPP, 0xde,
-                     fmt::format("SpellTargetString: ERROR - Invalid target type {:d}",
-                                 fmt::underlying(target->iType)));
+        srAssertFail("FALSE", fmt::format("SpellTargetString: ERROR - Invalid target type {:d}",
+                                          fmt::underlying(target->iType)));
         return g_localized_strings[W8_MESSAGE_TARGET_UNKNOWN / 4];
     }
 
@@ -2527,7 +2521,7 @@ int ExecuteCharacterSpellCast(int party_slot, int spell_id, unsigned int power_l
     case W8_SPELL_POWER_CLASS_NONE:
         return 0;
     default:
-        srAssertFail("Unsupported spell power class", MAGIC_CPP, __LINE__, nullptr);
+        srAssertFail("Unsupported spell power class");
     }
     if (clamp_power) {
         sp_needed = sp_cost * power_level;
@@ -2625,7 +2619,7 @@ int ExecuteCharacterSpellCast(int party_slot, int spell_id, unsigned int power_l
             morale = 0x3c;
         } else {
             if (g_settings.difficulty != W8_DIFFICULTY_EXPERT) {
-                srAssertFail("FALSE", MAGIC_CPP, 0x14e8, 0);
+                srAssertFail("FALSE");
                 goto finish_difficulty_adjustment;
             }
             morale = 0x28;
@@ -2674,7 +2668,7 @@ finish_difficulty_adjustment:
         if (affected) {
             index = record->spell_level + cast_result;
             if (index < 2) {
-                srAssertFail("uiUsagePoints >= 2", MAGIC_CPP, 0x3d5, 0);
+                srAssertFail("uiUsagePoints >= 2");
             }
             PracticeCharacterSkill(character, best_skill, (index + 2) >> 2, false);
             PracticeCharacterSkill(character, realm_skill, index, false);
@@ -2853,7 +2847,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
             caster_figure = GetSpellDifficulty(record_data->effective_level, spell_id, power_level);
         } else {
             if (source->iType != W8_TARGET_SOURCE_INDIRECT) {
-                srAssertFail("pSource->iType == SOURCE_TYPE_3D_POINT", MAGIC_CPP, 0x6b2, 0);
+                srAssertFail("pSource->iType == SOURCE_TYPE_3D_POINT");
             }
             caster_figure = (g_spell_records[spell_id].spell_point_cost / 2 +
                              g_spell_records[spell_id].spell_level) /
@@ -3147,13 +3141,13 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
         switch (cast_kind) {
         case W8SpellCastKind::MusicItemUse:
             if (source->iType != W8_TARGET_SOURCE_CHARACTER) {
-                srAssertFail("pSource->iType == SOURCE_TYPE_CHAR", MAGIC_CPP, 0x8c2, 0);
+                srAssertFail("pSource->iType == SOURCE_TYPE_CHAR");
             }
             message = 0x1aa;
             [[fallthrough]];
         case W8SpellCastKind::EngineeringItemUse:
             if (source->iType != W8_TARGET_SOURCE_CHARACTER) {
-                srAssertFail("pSource->iType == SOURCE_TYPE_CHAR", MAGIC_CPP, 0x8c6, 0);
+                srAssertFail("pSource->iType == SOURCE_TYPE_CHAR");
             }
             if (cast_kind == W8SpellCastKind::EngineeringItemUse) {
                 message = 0x1ab;
@@ -3179,7 +3173,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
     if (fizzled) {
         if (TargetSourceIsMonster(&owner.Source, 0)) {
             if (owner.Source.iMonsterID == -1) {
-                srAssertFail("pOrigSource->iMonsterID != -1", MAGIC_CPP, 0x1504, 0);
+                srAssertFail("pOrigSource->iMonsterID != -1");
             }
             monster_info = FindMonster(owner.Source.iMonsterID);
             if (gXStatus.fCombatMode && g_combat_state->eCombatActionStatus != 0 &&
@@ -3210,7 +3204,7 @@ void RedirectBackfiredSpellTarget(W8TargetSource* source, W8CombatSlot* target)
     int slot;
 
     if (source->fBackfire) {
-        srAssertFail("!pSource->fBackfire", MAGIC_CPP, 0xbf7, 0);
+        srAssertFail("!pSource->fBackfire");
     }
     source_copy = *source;
     target_copy = *target;
@@ -3230,7 +3224,7 @@ void RedirectBackfiredSpellTarget(W8TargetSource* source, W8CombatSlot* target)
             }
         }
         if (slot >= 8) {
-            srAssertFail("FALSE", MAGIC_CPP, 0xc1b, 0);
+            srAssertFail("FALSE");
             return;
         }
         SetTargetSourceToCharacter(slot, source);
@@ -3242,7 +3236,7 @@ void RedirectBackfiredSpellTarget(W8TargetSource* source, W8CombatSlot* target)
             monster_info = FindMonster(source_copy.iMonsterID);
             target->iGroupID = monster_info->monster_group_id;
         } else {
-            srAssertFail("FALSE", MAGIC_CPP, 0xc2d, 0);
+            srAssertFail("FALSE");
         }
         source->point_source = true;
         return;
@@ -3258,12 +3252,12 @@ void RedirectBackfiredSpellTarget(W8TargetSource* source, W8CombatSlot* target)
             monster_info = FindMonster(source_copy.iMonsterID);
             target->iGroupID = monster_info->monster_group_id;
         } else {
-            srAssertFail("FALSE", MAGIC_CPP, 0xc43, 0);
+            srAssertFail("FALSE");
         }
         source->point_source = true;
         return;
     default:
-        srAssertFail("FALSE", MAGIC_CPP, 0xc52, 0);
+        srAssertFail("FALSE");
         return;
     }
     if (TargetSourceIsCharacter(&source_copy, 0)) {
@@ -3273,7 +3267,7 @@ void RedirectBackfiredSpellTarget(W8TargetSource* source, W8CombatSlot* target)
         target->iType = W8_TARGET_KIND_MONSTER;
         target->iMonsterID = source_copy.iMonsterID;
     } else {
-        srAssertFail("FALSE", MAGIC_CPP, 0xc6b, 0);
+        srAssertFail("FALSE");
     }
     source->point_source = true;
 }
@@ -3293,15 +3287,13 @@ void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targ
     W8SpellTargetType target_type;
 
     if (source->iType <= W8_TARGET_SOURCE_NONE || source->iType >= W8_TARGET_SOURCE_COUNT) {
-        srAssertFail("(pSource->iType > SOURCE_TYPE_NONE) && (pSource->iType < SOURCE_TYPE_COUNT)",
-                     MAGIC_CPP, 0xc78, 0);
+        srAssertFail("(pSource->iType > SOURCE_TYPE_NONE) && (pSource->iType < SOURCE_TYPE_COUNT)");
     }
     if (target->iType <= W8_TARGET_KIND_NONE || target->iType >= W8_TARGET_KIND_COUNT) {
-        srAssertFail("(pTarget->iType > TARGET_TYPE_NONE) && (pTarget->iType < TARGET_TYPE_COUNT)",
-                     MAGIC_CPP, 0xc79, 0);
+        srAssertFail("(pTarget->iType > TARGET_TYPE_NONE) && (pTarget->iType < TARGET_TYPE_COUNT)");
     }
     if (source->fBackfire) {
-        srAssertFail("!pSource->fBackfire", MAGIC_CPP, 0xc7c, 0);
+        srAssertFail("!pSource->fBackfire");
     }
     const bool monster_source = TargetSourceIsMonster(source, 0);
     monster_info = 0;
@@ -3356,7 +3348,7 @@ void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targ
     case 6:
         break;
     default:
-        srAssertFail("FALSE", MAGIC_CPP, 0xd04,
+        srAssertFail("FALSE",
                      fmt::format("SpellBackfires: ERROR - Invalid spell target type for spell {:d}",
                                  spell_id));
         return;
@@ -3462,7 +3454,7 @@ void ScatterSpellPointTarget(int spell_id, W8TargetSource* source, W8CombatSlot*
     navigator = PartyNavigator();
     if (source->iType != W8_TARGET_SOURCE_CHARACTER) {
         if (source->iType != W8_TARGET_SOURCE_MONSTER) {
-            srAssertFail("pSource->iType == SOURCE_TYPE_MONSTER", MAGIC_CPP, 0xd80, 0);
+            srAssertFail("pSource->iType == SOURCE_TYPE_MONSTER");
         }
         monster_info = FindMonster(source->iMonsterID);
         navigator = monster_info->p3D;
@@ -3641,7 +3633,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
             monster_info->has_spell_origin) {
             fVertextAvail = monster->GetSpellPosition(&eye);
             if (!fVertextAvail) {
-                srAssertFail("fVertextAvail", MAGIC_CPP, 0x951, 0);
+                srAssertFail("fVertextAvail");
             }
         }
         if (fVertextAvail) {

@@ -94,8 +94,6 @@ std::unique_ptr<W8World> ReplaceSkyWorld(std::unique_ptr<W8World> world)
     return std::exchange(sky_world, std::move(world));
 }
 
-#define LEVELS_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Levels.cpp"
-
 // GLOBAL: WIZ8 0x00604478
 W8LevelFolderRecord g_level_folders[W8_LEVEL_COUNT] = {
     {"Arnika", "Arnika2", "ARN", 1, 2},
@@ -540,8 +538,7 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
     W8LevelInfo level_info;
 
     if (level >= 57) {
-        srAssertFail("iLevel < TEST_LEVEL_COUNT",
-                     "C:\\Projects\\Wizardry 8\\Engine Code\\Levels.cpp", 385, 0);
+        srAssertFail("iLevel < TEST_LEVEL_COUNT");
     }
     if (!LevelBuildInfoByID(level, &level_info)) {
         return 0;

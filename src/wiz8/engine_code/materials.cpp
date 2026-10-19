@@ -45,8 +45,6 @@
 #include "wiz8/packed_bits.h"
 #include "wiz8/resource_cache.h"
 
-#define MATERIALS_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\materials.cpp"
-
 /* The global at 0x0065BEA8 is a real zero-storage srVertexProcessor subclass:
    its non-template process body establishes the boundary independently of its
    constructor and vtable, and that body maps eye-space normals into the first

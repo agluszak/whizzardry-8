@@ -38,8 +38,6 @@
 
 constexpr float kShadowExtrusionPitchScale = 1.0f / 1500.0f;
 
-#define ST_MODEL_INSTANCE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\stModelInstance.cpp"
-
 extern float g_monster_light_scale;
 
 /* Scratch vertex store shared by every highlight shell submission; grown

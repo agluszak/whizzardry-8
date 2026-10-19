@@ -193,8 +193,7 @@ void TryGiveHeldItemToCampPortrait(int slot)
 bool CanSelectRcsPartySlot(int ui_slot)
 {
     if (!g_status.buffers.XChar[ui_slot].fOccupied) {
-        srAssertFail("gStatus.XChar[uiSlot].fOccupied",
-                     "C:\\Projects\\Wizardry 8\\Local Screens\\RCSCommon.cpp", 0x9ac, 0);
+        srAssertFail("gStatus.XChar[uiSlot].fOccupied");
     }
 
     W8Character* character = &g_status.buffers.Char[ui_slot];
@@ -266,8 +265,7 @@ void DrawRcsTextJustified(std::string_view text, int left, int top, int width, i
 static void OpenLevelUpCharacterScreen(void)
 {
     if (!g_status.buffers.XChar[giReviewCharSlot].fOccupied) {
-        srAssertFail("fCHAR_OCCUPIED(giReviewCharSlot)",
-                     "C:\\Projects\\Wizardry 8\\Local Screens\\RCSCommon.cpp", 0x888, 0);
+        srAssertFail("fCHAR_OCCUPIED(giReviewCharSlot)");
     }
     g_current_screen_state.parameter_2 = giReviewCharSlot;
     g_current_screen_state.character = g_review_character;
@@ -446,8 +444,7 @@ void UpdateRcsLevelUpPanel(void)
 static void ShowDismissCharacterDialog(void)
 {
     if (!g_status.buffers.XChar[giReviewCharSlot].fOccupied) {
-        srAssertFail("fCHAR_OCCUPIED(giReviewCharSlot)",
-                     "C:\\Projects\\Wizardry 8\\Local Screens\\RCSCommon.cpp", 0x90a, 0);
+        srAssertFail("fCHAR_OCCUPIED(giReviewCharSlot)");
     }
 
     W8MessageDialogBase* dialog = CreateMessageDialog();
@@ -740,13 +737,11 @@ void DrawCampVitals(void)
         spell_frame = 0x54;
     }
     if (g_review_character->uiHPMax == 0) {
-        srAssertFail("gpReviewPC->uiHPMax",
-                     "C:\\Projects\\Wizardry 8\\Local Screens\\RCSCommon.cpp", 0x373, 0);
+        srAssertFail("gpReviewPC->uiHPMax");
     }
     hp_fill = g_review_character->hp_current * 0x2d / g_review_character->uiHPMax;
     if (g_review_character->uiStaminaMax == 0) {
-        srAssertFail("gpReviewPC->uiStaminaMax",
-                     "C:\\Projects\\Wizardry 8\\Local Screens\\RCSCommon.cpp", 0x377, 0);
+        srAssertFail("gpReviewPC->uiStaminaMax");
     }
     stamina_fill = (g_review_character->stamina < 0 ? 0 : g_review_character->stamina) * 0x2d /
                    g_review_character->uiStaminaMax;

@@ -1362,7 +1362,7 @@ void BindNpcToMonster(unsigned char npc_id, bool has_monster, int location_id)
     }
 
     if (npc == 0) {
-        srAssertFail("npc", __FILE__, __LINE__, 0);
+        srAssertFail("npc");
     }
     npc->location_id = location_id;
     npc->is_present = has_monster;
@@ -1908,7 +1908,7 @@ W8NpcPickpocketResult AttemptNpcPickpocket(W8Character* character, W8NpcState* n
         return W8_PICKPOCKET_FAILED;
     }
     if (npc == 0) {
-        srAssertFail("npc", __FILE__, __LINE__, 0);
+        srAssertFail("npc");
     }
     short item_id = npc->item_ids[picked & 0xff];
     if (item_id != -1) {
@@ -1985,7 +1985,7 @@ void TriggerBelaVoice(W8Monster* monster)
         QueueNpcScriptNotice(npc, 0, -1, false, 0);
         return;
     }
-    srAssertFail("npc", __FILE__, __LINE__, "Cannot find VOC_BELA_CC");
+    srAssertFail("npc", "Cannot find VOC_BELA_CC");
 }
 
 /* The NPC side of the global frame. Two timed world events first: one retires
@@ -2482,7 +2482,7 @@ void RebindNpcLevelTriggers(void)
 bool ClearNpcScheduledItem(W8NpcState* npc, int item_id, W8ItemInstance* out)
 {
     if (npc == 0) {
-        srAssertFail("npc", __FILE__, __LINE__, 0);
+        srAssertFail("npc");
     }
     for (int index = 0; index < 40; ++index) {
         if (npc->item_ids[index] == item_id) {
@@ -2658,7 +2658,7 @@ void ClearNpcItemId(W8NpcState* npc, int item_id)
     for (index = 0; index < 40; ++index) {
         if (npc->item_ids[index] == item_id) {
             if (npc == 0) {
-                srAssertFail("npc", __FILE__, __LINE__, 0);
+                srAssertFail("npc");
             }
             slot = index;
             if (npc->item_ids[slot] != -1) {

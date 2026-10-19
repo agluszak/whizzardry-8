@@ -128,8 +128,7 @@ void SetCampInfoPageMode(W8CampInfoPage mode)
 
     switch (mode) {
     default:
-        srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Local Screens\\RCSItemsPage.cpp", 0x544,
-                     "Info toggle error");
+        srAssertFail("FALSE", "Info toggle error");
         break;
     case W8_CAMP_INFO_PAGE_CHARACTER:
         item_controls->tabs[0]->SetPressed(false);
@@ -315,16 +314,13 @@ void UseHeldItemOnItem(W8ItemInstance* item)
     W8CombatSlot target;
 
     if (giCasterCharSlot < 0) {
-        srAssertFail("giCasterCharSlot >= 0",
-                     "C:\\Projects\\Wizardry 8\\Local Screens\\RCSItemsPage.cpp", 0x668, 0);
+        srAssertFail("giCasterCharSlot >= 0");
     }
     if (giCasterCharSlot > 7) {
-        srAssertFail("giCasterCharSlot < MAX_CHARS",
-                     "C:\\Projects\\Wizardry 8\\Local Screens\\RCSItemsPage.cpp", 0x669, 0);
+        srAssertFail("giCasterCharSlot < MAX_CHARS");
     }
     if (!g_status.buffers.XChar[giCasterCharSlot].fOccupied) {
-        srAssertFail("fCHAR_OCCUPIED(giCasterCharSlot)",
-                     "C:\\Projects\\Wizardry 8\\Local Screens\\RCSItemsPage.cpp", 0x66a, 0);
+        srAssertFail("fCHAR_OCCUPIED(giCasterCharSlot)");
     }
     if (item->iItemNo != -1) {
         if (CanItemLeaveItsSlot(item)) {
@@ -355,24 +351,19 @@ void TargetCharacterWithHeldItem(unsigned int uiTargetChar)
     W8CombatSlot target;
 
     if (uiTargetChar > 7) {
-        srAssertFail("uiTargetChar < MAX_CHARS",
-                     "C:\\Projects\\Wizardry 8\\Local Screens\\RCSItemsPage.cpp", 0x692, 0);
+        srAssertFail("uiTargetChar < MAX_CHARS");
     }
     if (!g_status.buffers.XChar[uiTargetChar].fOccupied) {
-        srAssertFail("fCHAR_OCCUPIED(uiTargetChar)",
-                     "C:\\Projects\\Wizardry 8\\Local Screens\\RCSItemsPage.cpp", 0x693, 0);
+        srAssertFail("fCHAR_OCCUPIED(uiTargetChar)");
     }
     if (giCasterCharSlot < 0) {
-        srAssertFail("giCasterCharSlot >= 0",
-                     "C:\\Projects\\Wizardry 8\\Local Screens\\RCSItemsPage.cpp", 0x694, 0);
+        srAssertFail("giCasterCharSlot >= 0");
     }
     if (giCasterCharSlot > 7) {
-        srAssertFail("giCasterCharSlot < MAX_CHARS",
-                     "C:\\Projects\\Wizardry 8\\Local Screens\\RCSItemsPage.cpp", 0x695, 0);
+        srAssertFail("giCasterCharSlot < MAX_CHARS");
     }
     if (!g_status.buffers.XChar[giCasterCharSlot].fOccupied) {
-        srAssertFail("fCHAR_OCCUPIED(giCasterCharSlot)",
-                     "C:\\Projects\\Wizardry 8\\Local Screens\\RCSItemsPage.cpp", 0x696, 0);
+        srAssertFail("fCHAR_OCCUPIED(giCasterCharSlot)");
     }
     ResetCombatSlot(&target);
     target.iType = W8_TARGET_KIND_CHARACTER;
@@ -512,8 +503,7 @@ void UpdateItemCursorForState(bool alternate, W8ItemInstance* item, int slot)
         return;
     case W8_TARGET_NEED_ITEM:
         if (item == 0) {
-            srAssertFail("pItem", "C:\\Projects\\Wizardry 8\\Local Screens\\RCSItemsPage.cpp",
-                         0x763, 0);
+            srAssertFail("pItem");
         }
         if (item->iItemNo == -1) {
             return;

@@ -119,9 +119,11 @@ static std::vector<W8Searchable> CollectSearchablesInView(W8World& world)
         if (trigger->trigger_kind == W8TriggerKind::item && trigger->searchable == 1 &&
             (trigger->flags & W8_TRIGGER_SEARCHED) == 0)
             collect({nullptr, trigger.get()});
-    for (const auto& group : CurrentLevelPopulation().world_items)
-        for (auto* item = group.get(); item; item = item->next.get())
-            if (ItemHasFlags(item, W8_WORLD_ITEM_HIDDEN)) collect({item, nullptr});
+    for (const auto& group : CurrentLevelPopulation().world_items) {
+        if (ItemHasFlags(group.get(), W8_WORLD_ITEM_HIDDEN)) collect({group.get(), nullptr});
+        for (const auto& item : group->contents)
+            if (ItemHasFlags(item.get(), W8_WORLD_ITEM_HIDDEN)) collect({item.get(), nullptr});
+    }
     return found;
 }
 

@@ -63,8 +63,6 @@
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 
-#define GAMEPLAY_CODE_CPP "C:\\Projects\\Wizardry 8\\Local Code\\GameplayCode.cpp"
-
 /* How much one level in a profession is worth towards physical combat
    experience. The professions split three ways. */
 enum {
@@ -174,15 +172,14 @@ void CalcXPGoal(W8Character* character)
     unsigned int value;
 
     if (character == 0) {
-        srAssertFail("pPC != NULL", GAMEPLAY_CODE_CPP, 0x725, 0);
+        srAssertFail("pPC != NULL");
     }
     if (character->uiExpLevel == 0) {
-        srAssertFail("pPC->uiExpLevel > 0", GAMEPLAY_CODE_CPP, 0x726, 0);
+        srAssertFail("pPC->uiExpLevel > 0");
     }
     if (character->iProfession < W8_PROFESSION_FIGHTER ||
         character->iProfession >= W8_PROFESSION_COUNT) {
-        srAssertFail("(pPC->iProfession >= 0) && (pPC->iProfession < PROF_COUNT)",
-                     GAMEPLAY_CODE_CPP, 0x727, 0);
+        srAssertFail("(pPC->iProfession >= 0) && (pPC->iProfession < PROF_COUNT)");
     }
     switch (character->iProfession) {
     case W8_PROFESSION_FIGHTER:
@@ -209,7 +206,7 @@ void CalcXPGoal(W8Character* character)
         weight = 0x640;
         break;
     default:
-        srAssertFail("FALSE", GAMEPLAY_CODE_CPP, 0x74c, "CalcXPGoal: ERROR - Invalid profession");
+        srAssertFail("FALSE", "CalcXPGoal: ERROR - Invalid profession");
         return;
     }
 
@@ -367,7 +364,7 @@ void CalcCharacterLevelBand(W8Character* character)
 void CalcCharacterTableValue(W8Character* character)
 {
     if (character->iRace > W8_RACE_MOOK) {
-        srAssertFail("pPC->iRace < PC_RACE_COUNT", GAMEPLAY_CODE_CPP, 2359, 0);
+        srAssertFail("pPC->iRace < PC_RACE_COUNT");
     }
     character->portrait_index =
         g_character_table[(character->gender * 0x10 + character->iRace) * W8_PROFESSION_COUNT +
@@ -410,12 +407,11 @@ int CalcPhysCombatExperience(W8Character* character)
         return 0;
     }
     if (character == 0) {
-        srAssertFail("pPC != NULL", GAMEPLAY_CODE_CPP, 398, 0);
+        srAssertFail("pPC != NULL");
     }
     if (character->iProfession < W8_PROFESSION_FIGHTER ||
         character->iProfession > W8_PROFESSION_MAGE) {
-        srAssertFail("(pPC->iProfession >= 0) && (pPC->iProfession < PROF_COUNT)",
-                     GAMEPLAY_CODE_CPP, 399, 0);
+        srAssertFail("(pPC->iProfession >= 0) && (pPC->iProfession < PROF_COUNT)");
     }
 
     for (profession = 0; profession < W8_PROFESSION_COUNT; ++profession) {
@@ -444,8 +440,7 @@ int CalcPhysCombatExperience(W8Character* character)
                 weight = W8_PHYS_COMBAT_WEIGHT_CASTER;
                 break;
             default:
-                srAssertFail("FALSE", GAMEPLAY_CODE_CPP, 444,
-                             "CalcPhysCombatExperience: ERROR - Invalid profession");
+                srAssertFail("FALSE", "CalcPhysCombatExperience: ERROR - Invalid profession");
             }
             total += levels * weight;
         }
@@ -483,8 +478,7 @@ void CalcInitiative(W8Character* character)
         character->initiative -= 8;
         break;
     default:
-        srAssertFail("FALSE", GAMEPLAY_CODE_CPP, 380,
-                     "CalcInitiative: ERROR - Invalid load category");
+        srAssertFail("FALSE", "CalcInitiative: ERROR - Invalid load category");
         break;
     }
 }
@@ -632,8 +626,7 @@ void CalcAttacks(W8Character* character)
             load_penalty = -120;
             break;
         default:
-            srAssertFail("FALSE", GAMEPLAY_CODE_CPP, 715,
-                         "CalcAttacks: ERROR - Invalid load category");
+            srAssertFail("FALSE", "CalcAttacks: ERROR - Invalid load category");
         }
         if (attack->weapon_skill == W8_SKILL_MODERN_WEAPONS) {
             load_penalty /= 2;
@@ -932,8 +925,7 @@ void CalcArmorClasses(W8Character* character)
             location_slot = 11;
             break;
         default:
-            srAssertFail("FALSE", GAMEPLAY_CODE_CPP, 0x5a1,
-                         "CalcArmorClasses: ERROR - Invalid AC location");
+            srAssertFail("FALSE", "CalcArmorClasses: ERROR - Invalid AC location");
         }
         int item_id = character->EquippedItem[location_slot].iItemNo;
         if (item_id != -1) {
@@ -1189,7 +1181,7 @@ unsigned char RecruitCharacterIntoParty(W8Character* character, W8Character* rec
     if (buy_equipment) {
         unsigned int cost = ComputeStartingEquipmentCost(character);
         if (g_status.party_gold < cost) {
-            srAssertFail("uiValue <= gStatus.uiPartyGold", GAMEPLAY_CODE_CPP, 0x922, 0);
+            srAssertFail("uiValue <= gStatus.uiPartyGold");
         }
         g_status.party_gold -= cost;
         AddCharacterStartingEquipment(character);

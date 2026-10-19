@@ -53,13 +53,11 @@
 constexpr double kLightRangeAttenuationDenominator = 0.0019569471624266144;
 constexpr double kLightRangeAttenuationNumerator = 0.9980430528375734;
 
-#define THREE_D_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\3d.cpp"
-
 // FUNCTION: WIZ8 0x0046DD70
 void UpdateWorldMonsters(W8World* world)
 {
     if (world == 0) {
-        srAssertFail("pWorld", THREE_D_CPP, 0x10d, 0);
+        srAssertFail("pWorld");
     }
 
     glm::dvec3 camera_location = world->camera->getLocation();
@@ -85,7 +83,7 @@ void UpdateWorldMonsters(W8World* world)
 void DetachWorldItemMeshes(W8World* world)
 {
     if (world == 0) {
-        srAssertFail("pWorld", THREE_D_CPP, 0x135, 0);
+        srAssertFail("pWorld");
     }
     unsigned int count = world->plsItems.size();
     for (int index = 0; index < static_cast<int>(count); ++index) {
@@ -291,7 +289,7 @@ bool hasLineOfSightToBounds(const glm::vec3& origin, const srBoundingBox& bounds
 std::unique_ptr<stModelInstance> CreateModelInstance(std::shared_ptr<stMeshModel> model)
 {
     if (model == nullptr) {
-        srAssertFail("pstMeshModel", THREE_D_CPP, 0x5bf, 0);
+        srAssertFail("pstMeshModel");
     }
     auto instance = std::make_unique<stModelInstance>(nullptr);
     instance->setName("ST_CreateInstance");
@@ -335,7 +333,7 @@ stLight* AddWorldLight(W8World* world, std::unique_ptr<stLight> light)
 stLight* CreateWorldLight(W8World* world, const char* name)
 {
     if (name == 0) {
-        srAssertFail("name", THREE_D_CPP, 570, 0);
+        srAssertFail("name");
     }
 
     auto light = std::make_unique<stLight>(world->static_scene.get());
@@ -347,10 +345,10 @@ stLight* CreateWorldLight(W8World* world, const char* name)
 stLight* CreateRangedWorldLight(W8World* world, const char* name)
 {
     if (name == 0) {
-        srAssertFail("name", THREE_D_CPP, 603, 0);
+        srAssertFail("name");
     }
     if (world == 0) {
-        srAssertFail("pWorld", THREE_D_CPP, 604, 0);
+        srAssertFail("pWorld");
     }
 
     auto light = std::make_unique<stLight>(world->static_scene.get());
@@ -369,10 +367,10 @@ stLight* CreateRangedWorldLight(W8World* world, const char* name)
 void WorldRemoveLight(W8World* world, stLight* light)
 {
     if (world == 0) {
-        srAssertFail("pWorld", THREE_D_CPP, 0x278, 0);
+        srAssertFail("pWorld");
     }
     if (light == 0) {
-        srAssertFail("pLight", THREE_D_CPP, 0x279, 0);
+        srAssertFail("pLight");
     }
     std::erase(world->environment_lights, light);
     // The world owns the light: erasing it from the list destroys it.
@@ -401,7 +399,7 @@ void WorldUpdateProps(W8World* world)
     W8Prop* prop;
 
     if (!world) {
-        srAssertFail("pWorld", "C:\\Projects\\Wizardry 8\\Engine Code\\3d.cpp", 0x158, 0);
+        srAssertFail("pWorld");
     }
     count = static_cast<int>(world->plsProps.size());
     for (index = 0; index < count; index++) {
@@ -541,7 +539,7 @@ void SetModelInstanceChainExclusionMask(srModelInstance* node, int value)
 void WorldSetRenderRange(W8World* world, float value)
 {
     if (!world) {
-        srAssertFail("pWorld", THREE_D_CPP, 0x28b, 0);
+        srAssertFail("pWorld");
     }
     if (value != 0.0f) {
         world->render_range = value;
@@ -556,7 +554,7 @@ void WorldSetRenderRange(W8World* world, float value)
 void WorldSetFarClip(W8World* world, float distance)
 {
     if (!world) {
-        srAssertFail("pWorld", THREE_D_CPP, 0x29e, 0);
+        srAssertFail("pWorld");
     }
     if (distance > 5.9604644775390625e-008) {
         world->camera->setClipRange(62.5, distance);
@@ -578,7 +576,7 @@ double WorldGetFarClip(W8World* world)
 void SetSceneAmbientLightWhite(srScene* scene)
 {
     if (scene == 0) {
-        srAssertFail("psrScene", THREE_D_CPP, 0xf1, 0);
+        srAssertFail("psrScene");
     }
     scene->setAmbientLight(1.0f, 1.0f, 1.0f);
 }

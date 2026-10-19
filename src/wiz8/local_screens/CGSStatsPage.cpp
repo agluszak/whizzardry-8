@@ -26,8 +26,6 @@
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 
-#define CGS_STATS_PAGE_CPP "C:\\Projects\\Wizardry 8\\Local Screens\\CGSStatsPage.cpp"
-
 // GLOBAL: WIZ8 0x0064f028
 static W8CharacterStatsRecord g_character_profession_records[15] = {
     {0x0000010b, 0x0000000a, 0x0000000b, 0x02a4, 0, 0},
