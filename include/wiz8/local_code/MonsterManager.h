@@ -28,6 +28,7 @@ struct W8MonsterRecord;
 #include "wiz8/layouts/character.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/monster_actions.h"
+#include "wiz8/monster_cycles.h"
 #include "wiz8/portrait_animation.h"
 #include "wiz8/sight_state.h"
 
