@@ -107,7 +107,7 @@ W8MeshMaterial LoadMaterial(const std::filesystem::path& texture_directory,
     std::shared_ptr<srTexture>& texture = result.texture;
     srShader* render_flags = &result.render_flags;
     std::filesystem::path texture_path;
-    int texture_index = -1;
+    std::optional<int> texture_index;
     bool has_alpha = false;
     int index;
 
@@ -146,8 +146,9 @@ W8MeshMaterial LoadMaterial(const std::filesystem::path& texture_directory,
             if (animation->Prepare()) {
                 has_alpha = true;
             }
-            if (source->version > 3 && source->texture_modes[texture_index] > 0.0f) {
-                float mode = source->texture_modes[texture_index];
+            if (texture_index && source->version > 3 &&
+                source->texture_modes[*texture_index] > 0.0f) {
+                float mode = source->texture_modes[*texture_index];
                 if (mode <= 1.0f) {
                     animation->trigger_mode = W8_TEXTURE_TRIGGER_RANDOM_FRAME;
                 } else {
@@ -160,9 +161,9 @@ W8MeshMaterial LoadMaterial(const std::filesystem::path& texture_directory,
     }
 
     if (source->opacity < 1.0f || has_alpha) {
-        if (texture_index == 0 || texture_index == 1) {
+        if (texture_index && (*texture_index == 0 || *texture_index == 1)) {
             render_flags->value = (render_flags->value & 0xffffdfbfUL) | 0x40a0;
-        } else if (texture_index == 2 || texture_index == 3) {
+        } else if (texture_index && (*texture_index == 2 || *texture_index == 3)) {
             render_flags->value = (render_flags->value & 0xffffdc3fUL) | 0x4020;
         }
         render_flags->value &= ~8UL;
