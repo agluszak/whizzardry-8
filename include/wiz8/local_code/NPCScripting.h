@@ -77,6 +77,11 @@ public:
     void Reset();
 
 private:
+    struct ResponseSelection {
+        std::optional<int> quote;
+        bool continuation_queued{};
+    };
+
     /* A conversation position. Begin can suspend one and Advance resumes it. */
     struct Session {
         W8NpcState* npc;
@@ -92,7 +97,7 @@ private:
     void QueueQuoteEntry(int quote, int entry, int continuation_quote, bool prepend);
     void RunNextAction();
     void RunQuoteEntry(W8NpcQuoteEntry* entry, int continuation_quote);
-    std::optional<int> SelectResponse(W8NpcQuoteEntry* entry, int quote, int entry_index);
+    ResponseSelection SelectResponse(W8NpcQuoteEntry* entry, int quote, int entry_index);
     std::optional<int> FindReplyQuote(std::string_view text) const;
     void RunDeclineActions(int quote);
 

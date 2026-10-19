@@ -34,11 +34,10 @@ constexpr int kWorldActionQuoteMin = 'F';
 /* Evaluate a kind-3 quote entry: each sub-entry pair is a (fact, expected)
    guard that must all hold, then the entry selects the response - operand0
    directly, randomly in [operand0, operand2] when operand1 is 2, or a
-   queued QUOTE_ENTRY continuation line when operand2 is 4. Returns nullopt
-   when a guard fails and -2 after queueing. */
+   queued QUOTE_ENTRY continuation line when operand2 is 4. */
 // FUNCTION: WIZ8 0x005251F0
-std::optional<int> W8NpcDialogue::SelectResponse(W8NpcQuoteEntry* entry, int quote_index,
-                                                 int entry_index)
+W8NpcDialogue::ResponseSelection W8NpcDialogue::SelectResponse(W8NpcQuoteEntry* entry,
+                                                               int quote_index, int entry_index)
 {
     int index;
     unsigned char expected;
@@ -52,19 +51,19 @@ std::optional<int> W8NpcDialogue::SelectResponse(W8NpcQuoteEntry* entry, int quo
         expected = static_cast<unsigned char>(
             entry->sub_entries[index + 1].operand) /* c-style-cast-ok: packed byte operand */;
         if (GetFact(static_cast<W8FactId>(entry->sub_entries[index].operand)) != expected) {
-            return -1;
+            return {};
         }
         index += 2;
     }
     if (entry->operand2 == 4 && entry->operand1 != 2) {
         QueueQuoteEntry(quote_index, entry_index, 0, false);
-        return -2;
+        return {.continuation_queued = true};
     }
     if (entry->operand1 == 2) {
         response_count = entry->operand2 - entry->operand0 + 1;
-        return Random(response_count) + entry->operand0;
+        return {.quote = Random(response_count) + entry->operand0};
     }
-    return entry->operand0;
+    return {.quote = entry->operand0};
 }
 
 /* Kind-4 entries carry the keyword strings a dialogue keyword can select;
@@ -119,7 +118,7 @@ void W8NpcDialogue::Speak(int script_line, bool force_npc_voice)
     W8Monster* monster;
     W8NpcState* target;
     char response_count;
-    std::optional<int> response;
+    ResponseSelection response;
     int entry_index;
     bool finished;
 
@@ -132,7 +131,7 @@ void W8NpcDialogue::Speak(int script_line, bool force_npc_voice)
         if (session_.subquote_index == quote->subquote_count) {
             session_.subquote_index = 0;
         }
-        response.reset();
+        response = {};
         finished = false;
         if (session_.subquote_index == quote->subquote_count - 1 && quote->entry_count != 0) {
             for (entry_index = 0; entry_index < quote->entry_count; entry_index++) {
@@ -147,17 +146,17 @@ void W8NpcDialogue::Speak(int script_line, bool force_npc_voice)
                             break;
                         }
                     } else if (entry->operand1 != 2) {
-                        response = entry->operand0;
+                        response.quote = entry->operand0;
                         finished = true;
                         break;
                     }
                     response_count = static_cast<char>(entry->operand2 - entry->operand0 + 1);
-                    response = Random(response_count) + entry->operand0;
+                    response.quote = Random(response_count) + entry->operand0;
                     finished = true;
                     break;
                 case W8_NPC_ENTRY_FACT_CONDITIONAL_QUOTE:
                     response = SelectResponse(entry, script_line, entry_index);
-                    if (response && *response != -1) {
+                    if (response.quote || response.continuation_queued) {
                         finished = true;
                         break;
                     }
@@ -260,8 +259,8 @@ void W8NpcDialogue::Speak(int script_line, bool force_npc_voice)
             cancelled_ = false;
             return;
         }
-        if (response && *response >= 0) {
-            QueueQuote(*response, false, false, false);
+        if (response.quote && *response.quote >= 0) {
+            QueueQuote(*response.quote, false, false, false);
         }
         switch (SpeakNpcSubquote(quote, session_.subquote_index, false, force_npc_voice)) {
         case W8NpcSubquoteOutcome::presented:
