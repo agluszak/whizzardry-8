@@ -123,7 +123,7 @@ void WriteRecordModeEntry(void)
         if (file) file->close();
         file.reset();
     }
-    ResetEditorStatusLine(-1);
+    ResetEditorStatusLine(std::nullopt);
 }
 
 /* The ENTER-key apply callback: an ordinary line is appended to the log, while
@@ -138,10 +138,10 @@ void ApplyRecordModeLine(void)
         return;
     }
     if (wiz8::remove_file(wiz8::user_path(s_data_notes_txt)) == 0) {
-        ResetEditorStatusLine(-1);
+        ResetEditorStatusLine(std::nullopt);
         strcpy(message, s_error_deleting_log_file);
     } else {
-        ResetEditorStatusLine(-1);
+        ResetEditorStatusLine(std::nullopt);
         strcpy(message, s_log_file_deleted);
     }
     ShowNotice(W8_FONT_PALETTE_PINK, message);
@@ -159,7 +159,7 @@ void PromptRecordModeEntry(void)
 {
     char message[100];
 
-    ResetEditorStatusLine(-1);
+    ResetEditorStatusLine(std::nullopt);
     strcpy(message, s_record_mode_prompt);
     ShowNotice(W8_FONT_PALETTE_PINK, message);
 }
@@ -205,7 +205,7 @@ char HandleRecordModeKey(const InputEvent* input, void (*prompt)(void))
         g_record_mode_line[g_record_mode_length] = 0;
         g_record_mode_length = 0;
         g_record_mode_active = false;
-        ResetEditorStatusLine(-1);
+        ResetEditorStatusLine(std::nullopt);
         return -1;
     } else {
         text = &character;

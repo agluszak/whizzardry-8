@@ -405,14 +405,14 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
         }
         if (!announce) {
             if (uiHits[0] == 0) {
-                AppendToLastTextLine(g_localized_strings[0x1a5], -1);
+                AppendToLastTextLine(g_localized_strings[0x1a5], std::nullopt);
             } else {
                 for (i = 0; i < 2; ++i) {
                     if (uiHits[i] == 0) {
                         continue;
                     }
                     if (i == 1 && uiHits[0] != 0) {
-                        AppendToLastTextLine(",", -1);
+                        AppendToLastTextLine(",", std::nullopt);
                     }
                     switch (g_special_attack_table[special_attack_kind][i]) {
                     case 1:
@@ -442,7 +442,7 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                         SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
                         continue;
                     }
-                    AppendToLastTextLine(text, -1);
+                    AppendToLastTextLine(text, std::nullopt);
                     SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
                 }
             }

@@ -135,16 +135,15 @@ void W8ButtonWidget::SetTooltip(std::function<std::string()> text)
 void W8ButtonWidget::SetTooltipEnabled(bool enabled)
 {
     if (!m_target) return;
-    const bool show_tooltip =
-        enabled && m_setup.tooltip != W8_DIALOG_BUTTON_NO_TOOLTIP && g_settings.tooltips_enabled;
+    const bool show_tooltip = enabled && m_setup.tooltip && g_settings.tooltips_enabled;
     if (show_tooltip)
-        m_target->setTooltip([index = m_setup.tooltip] { return g_localized_strings[index]; });
+        m_target->setTooltip([index = *m_setup.tooltip] { return g_localized_strings[index]; });
     else
         m_target->setTooltip({});
 }
 
 // FUNCTION: WIZ8 0x005dbac0
-void W8ButtonWidget::SetTooltipIndex(int tooltip_index)
+void W8ButtonWidget::SetTooltipIndex(std::optional<int> tooltip_index)
 {
     m_setup.tooltip = tooltip_index;
     SetTooltipEnabled(true);

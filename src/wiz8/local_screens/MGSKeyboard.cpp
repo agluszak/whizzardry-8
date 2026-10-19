@@ -548,7 +548,7 @@ void DispatchMGSCommand(W8MGSCommand command)
         break;
     case W8_MGS_COMMAND_TEXTBOX_CLEAR:
         if (!gpSCSV && !ItemUseDraft()) {
-            ResetEditorStatusLine(-1);
+            ResetEditorStatusLine(std::nullopt);
         }
         break;
     case W8_MGS_COMMAND_START_COMBAT_ROUND:

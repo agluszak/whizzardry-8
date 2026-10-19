@@ -175,20 +175,19 @@ static void ReleaseMessageRow(int row)
     }
 }
 
-void ResetEditorStatusLine(short line)
+void ResetEditorStatusLine(std::optional<short> line)
 {
-    if (line == -1) {
-        line = g_status.text_line_cursor;
-    }
-    ReleaseMessageRow(line);
-    g_status.text_box_lines_used[line] = 0;
-    g_status.text_box_lines_shown[line] = 0;
+    if (!line) line = g_status.text_line_cursor;
+    const short line_index = *line;
+    ReleaseMessageRow(line_index);
+    g_status.text_box_lines_used[line_index] = 0;
+    g_status.text_box_lines_shown[line_index] = 0;
     if (!IsNpcDialogueTextInputActive()) {
-        g_level_block->text_lines[line] = 0;
+        g_level_block->text_lines[line_index] = 0;
     }
     g_level_block->stopped_text_line.reset();
-    g_level_block->hovered_text_lines[line].reset();
-    g_level_block->selected_text_lines[line].reset();
+    g_level_block->hovered_text_lines[line_index].reset();
+    g_level_block->selected_text_lines[line_index].reset();
     g_level_block->text_content_region = kUpArrowDisabled;
     g_level_block->dialogue_content_region = kDownArrowDisabled;
     RedrawTextBox();
@@ -197,9 +196,9 @@ void ResetEditorStatusLine(short line)
 /* Shared default-box selection in notice formatting, wrapping and line
    updates. The descriptive name covers the repeated operation; explicit box
    numbers pass through unchanged. */
-static short ResolveNoticeTextBox(short text_box)
+static short ResolveNoticeTextBox(std::optional<short> text_box)
 {
-    if (text_box == W8_NOTICE_TEXT_BOX_AUTOMATIC) {
+    if (!text_box) {
         if ((gXStatus.fNpcDialogueMode &&
              !(gXStatus.fNpcDialogueMode && g_npc_interaction_state->scripted_dialogue)) ||
             gXStatus.fCampMode) {
@@ -208,7 +207,7 @@ static short ResolveNoticeTextBox(short text_box)
 
         return gXStatus.fCombatMode;
     }
-    return text_box;
+    return *text_box;
 }
 
 static void AppendNoticeLine(unsigned char font_palette, std::string_view text, short text_box,
@@ -337,8 +336,8 @@ void SetTextBoxRegionBounds(int left, int top, int right, int bottom)
     targets[2]->setShape(SDL_Rect{right + 9, 379, 8, 50});
 }
 
-void ShowNotice(unsigned int font_palette, std::string_view text_view, short text_box,
-                unsigned int wrap_width, bool force_dialog)
+void ShowNotice(unsigned int font_palette, std::string_view text_view,
+                std::optional<short> text_box, unsigned int wrap_width, bool force_dialog)
 {
     const std::string owned_text(text_view);
     const std::string_view text = owned_text;
@@ -567,10 +566,9 @@ void ScrollTextBoxToCursor(void)
     ScrollTextBoxTo(0);
 }
 
-/* Append text onto a box's current line, growing its string in place; the
-   optional second argument is the box, -1 for the one the current game mode
-   posts to. */
-void AppendTextBoxLine(std::string_view text, short text_box)
+/* Append text onto a box's current line, growing its string in place; an
+   empty optional selects the box the current game mode posts to. */
+void AppendTextBoxLine(std::string_view text, std::optional<short> text_box)
 {
     text_box = ResolveNoticeTextBox(text_box);
     auto& line = g_message_storage[text_box][g_status.text_box_lines_used[text_box] - 1];
@@ -594,11 +592,12 @@ void ScrollDialogueTextBoxToLine(void)
 }
 
 /* Recolour the character span [start, stop) of the most recent line of one
-   text box. A -1 box means the one the current game mode posts to. When the
+   text box. An empty optional means the one the current game mode posts to. When the
    line was wrapped, the box's split position says where the second row
    begins: a span ending before it recolours the previous row alone, one
    crossing it is cut in two, and one past it moves down by the split. */
-void HighlightTextBoxRange(unsigned char color, std::size_t start, std::size_t stop, short text_box)
+void HighlightTextBoxRange(unsigned char color, std::size_t start, std::size_t stop,
+                           std::optional<short> text_box)
 {
     W8MessageStorageRecord* line;
     W8MessageStorageRecord* previous;
@@ -646,8 +645,8 @@ void HighlightTextBoxRange(unsigned char color, std::size_t start, std::size_t s
    removed and the combined string posted again so wrapping, the shown count
    and the continuation links rebuild, while the line keeps its channel,
    highlight span and clock. With the merge mode off the text posts as a new
-   line instead. A -1 box means the one the current game mode posts to. */
-void AppendToLastTextLine(std::string_view text, short text_box)
+   line instead. An empty optional selects the current mode's box. */
+void AppendToLastTextLine(std::string_view text, std::optional<short> text_box)
 {
     if (g_current_screen_state.id != W8_SCREEN_MAIN_GAME &&
         g_current_screen_state.id != W8_SCREEN_CAMP) {
@@ -714,7 +713,7 @@ int GetTextBoxVisibleLineCount(void)
     return 7;
 }
 
-void PostCharacterNotice(int party_slot, std::string_view text, int context)
+void PostCharacterNotice(int party_slot, std::string_view text, std::optional<short> context)
 {
     const std::string_view separator =
         (text.starts_with("'") || text.starts_with(":")) ? std::string_view{} : g_W8TextSeparator;
@@ -741,9 +740,6 @@ bool CurrentDialogueLineHasContent(void)
 
 void AdvanceNoticeLine(short text_box)
 {
-    if (text_box == W8_NOTICE_TEXT_BOX_AUTOMATIC) {
-        text_box = g_status.text_line_cursor;
-    }
     if (g_status.text_box_lines_shown[text_box] >= 350) {
         srAssertFail("gStatus.uiTextBoxLinesShown[iTextBuffer] < MAX_TEXT_BOX_LINES",
                      MGS_TEXT_BOX_CPP, 0x2a5, 0);

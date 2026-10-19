@@ -867,11 +867,9 @@ void AuditNpcScriptQuotes(void)
         file->close();
         log_file->close();
         ShowNotice(W8_FONT_PALETTE_RED, "Quote test complete. See log file for results",
-                   W8_NOTICE_TEXT_BOX_AUTOMATIC,
-                   (g_level_block->text_box_right - g_level_block->text_box_left));
+                   std::nullopt, (g_level_block->text_box_right - g_level_block->text_box_left));
     } catch (const std::exception&) {
-        ShowNotice(W8_FONT_PALETTE_RED, "Quote test failed. Could not write report",
-                   W8_NOTICE_TEXT_BOX_AUTOMATIC,
+        ShowNotice(W8_FONT_PALETTE_RED, "Quote test failed. Could not write report", std::nullopt,
                    (g_level_block->text_box_right - g_level_block->text_box_left));
     }
     g_status.quote_audit = 0;

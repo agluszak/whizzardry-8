@@ -91,8 +91,8 @@ void SetTextBoxScrollInput(bool enabled);
 void SetTextBoxChannelTabInput(bool enabled);
 void SetTextBoxMuteInput(bool enabled);
 
-/* Reset one editor status line; -1 selects the current line. */
-void ResetEditorStatusLine(short line);
+/* Reset one editor status line; an empty line selects the current line. */
+void ResetEditorStatusLine(std::optional<short> line);
 
 void ReleaseMessageStorage(void);
 char TextBoxHandleKey(const InputEvent* event);
@@ -128,13 +128,14 @@ void SetKnockKnockTarget(int target, int flag, int backfire);
 void AttemptTrapDisarm(int level, int flag, char backfire);
 
 /* Merge text onto a box's last used line, re-posting the combined
-   line so wrapping, highlighting and the link counts rebuild; -1 picks the box
-   the current game mode writes to. */
-void AppendToLastTextLine(std::string_view text, short text_box);
+   line so wrapping, highlighting and the link counts rebuild; an empty box
+   selects the one the current game mode writes to. */
+void AppendToLastTextLine(std::string_view text, std::optional<short> text_box);
 /* Wrapped line count of the notice ShowNotice last displayed;
    only maintained while game_status.quote_audit is raised. */
 extern int g_notice_line_count;
-void PostCharacterNotice(int party_slot, std::string_view text, int context = -1);
+void PostCharacterNotice(int party_slot, std::string_view text,
+                         std::optional<short> context = std::nullopt);
 void PostMonsterNotice(W8MonsterInfo* monster_info, std::string_view text);
 void ScrollTextBoxTo(int line);
 void ScrollDialogueTextBoxToLine(void);
@@ -143,9 +144,9 @@ void ScrollTextBoxDown(int lines);
 int GetTextBoxVisibleLineCount(void);
 
 /* Recolour the character span [start, stop) of the most recent
-   line in one text box; -1 picks the box the current game mode writes to. */
+   line in one text box; an empty box selects the current mode's box. */
 void HighlightTextBoxRange(unsigned char color, std::size_t start, std::size_t stop,
-                           short text_box);
+                           std::optional<short> text_box);
 
 void SelectTextBox(short value);
 /* Ask for the text box to be redrawn without changing anything. */
@@ -156,7 +157,7 @@ void RedrawTextBoxBody(bool skip_invalidate);
 /* Redraw text-box scroll up/down buttons and thumb, then body. */
 void RedrawTextBoxScrollChrome(void);
 /* Append text to a box's current line; the box argument is optional. */
-void AppendTextBoxLine(std::string_view text, short text_box = -1);
+void AppendTextBoxLine(std::string_view text, std::optional<short> text_box = std::nullopt);
 
 bool CurrentTextLineHasContent(void);
 bool CurrentDialogueLineHasContent(void);
@@ -168,11 +169,10 @@ unsigned char SaveMessageStorage(wiz8::File& file);
 /* Rebuild the four message runs from the open TEXT chunk. */
 unsigned char LoadMessageStorage(W8Chunk& file);
 /* Defaults select the live mode's text box and its available line width. */
-const short W8_NOTICE_TEXT_BOX_AUTOMATIC = -1;
 const unsigned int W8_NOTICE_WRAP_AUTOMATIC = ~0U;
 
 void ShowNotice(unsigned int font_palette, std::string_view text,
-                short text_box = W8_NOTICE_TEXT_BOX_AUTOMATIC,
+                std::optional<short> text_box = std::nullopt,
                 unsigned int wrap_width = W8_NOTICE_WRAP_AUTOMATIC, bool force_dialog = false);
 
 void HighlightNoticeRow(int line);

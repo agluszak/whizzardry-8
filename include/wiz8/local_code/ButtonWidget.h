@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include <optional>
 #include <string_view>
 #include <utility>
 
@@ -11,9 +12,6 @@
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
-
-/* Tooltip string-table sentinel; independent of the five frame indices. */
-enum { W8_DIALOG_BUTTON_NO_TOOLTIP = -1 };
 
 class W8ButtonWidget;
 
@@ -29,7 +27,7 @@ struct ButtonSetup {
     W8ButtonCallback on_double_click = {};
     std::function<void(bool)> on_hover = {};
     ButtonPolicy policy{};
-    int tooltip = W8_DIALOG_BUTTON_NO_TOOLTIP;
+    std::optional<int> tooltip;
     int priority = UI_PRIORITY_HIGHEST;
     bool menu_artwork = false;
 };
@@ -89,7 +87,7 @@ public:
 
     /* Store the tooltip string-table index and, when tooltips are
        enabled, push its text onto the input target. */
-    void SetTooltipIndex(int tooltip_index);
+    void SetTooltipIndex(std::optional<int> tooltip_index);
 
 private:
     UiLayer& m_layer;

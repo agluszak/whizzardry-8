@@ -241,7 +241,7 @@ unsigned char OpenSpellCastingView(int party_slot)
     RestoreSpellCastingRegions();
     gpSCSV->input.setEnabled(true);
     SelectTextBox(2);
-    ResetEditorStatusLine(-1);
+    ResetEditorStatusLine(std::nullopt);
     g_level_block->text_box_visible = false;
     SetTextBoxRegionBounds(0xea, 0x16e, 0x18c, 0x1ba);
     gpSCSV->iSpellRealm = W8_SPELL_REALM_NONE;
@@ -270,7 +270,7 @@ void CloseSpellCastingView(void)
     g_level_block->action_panel_visible = 0;
     SetTargetingMode(W8_TARGET_NEED_NONE);
     if (!gXStatus.fCampMode) {
-        ResetEditorStatusLine(-1);
+        ResetEditorStatusLine(std::nullopt);
     }
     g_level_block->text_box_visible = true;
     SelectTextBox(gXStatus.fCombatMode);
@@ -334,7 +334,7 @@ void SelectSpellCastingCharacter(int party_slot)
 
     if (!CharacterHasCastableSpell(&g_status.buffers.Char[party_slot]) ||
         !IsPartySlotEligible(party_slot)) {
-        ResetEditorStatusLine(-1);
+        ResetEditorStatusLine(std::nullopt);
         CloseSpellCastingView();
         return;
     }
@@ -359,7 +359,7 @@ void SelectSpellCastingCharacter(int party_slot)
     if (gpSCSV->caster->sp_max[realm] == 0) {
         gpSCSV->dirty[0] = true;
         gpSCSV->iSpellRealm = W8_SPELL_REALM_NONE;
-        ResetEditorStatusLine(-1);
+        ResetEditorStatusLine(std::nullopt);
         return;
     }
     RebuildSpellCastingList(W8_SPELL_NONE);
@@ -488,7 +488,7 @@ static void RefreshSpellPowerPip(int pip)
    retaining learned order within each category. The rows own their metadata. */
 static void RebuildSpellCastingList(int spell_id)
 {
-    ResetEditorStatusLine(-1);
+    ResetEditorStatusLine(std::nullopt);
     gpSCSV->uiSpellIndex.reset();
     gpSCSV->selected_spell_index.reset();
     auto& rows = gpSCSV->spells;
@@ -863,7 +863,7 @@ static void SpellCastingDialogResult(bool accepted)
 void ResetSpellCastingSelection(void)
 {
     if (gXStatus.fCampMode) {
-        ResetEditorStatusLine(-1);
+        ResetEditorStatusLine(std::nullopt);
     }
     CloseSpellCastingView();
 }
@@ -996,7 +996,7 @@ void TryCommitSpellCast(void)
     if (ready && !IsModalOpen()) {
         if (gpSCSV->draft.detail != 0x17) {
             if (gXStatus.fCampMode) {
-                ResetEditorStatusLine(-1);
+                ResetEditorStatusLine(std::nullopt);
             }
             SetCharacterSpell(gpSCSV->caster, gpSCSV->draft);
             CloseSpellCastingView();

@@ -395,7 +395,7 @@ int OpenLockInteraction(Trigger* trigger)
     CloseMainGameOverlays();
     RefreshMainGameLayout();
     SelectTextBox(2);
-    ResetEditorStatusLine(-1);
+    ResetEditorStatusLine(std::nullopt);
     ResetLevelDataVectors();
     RequestRedrawCombatBar();
     RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
@@ -1778,7 +1778,7 @@ int OpenTrapInteraction(Trigger* trigger)
     CloseMainGameOverlays();
     RefreshMainGameLayout();
     SelectTextBox(2);
-    ResetEditorStatusLine(-1);
+    ResetEditorStatusLine(std::nullopt);
     ResetLevelDataVectors();
     RequestRedrawCombatBar();
     RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);

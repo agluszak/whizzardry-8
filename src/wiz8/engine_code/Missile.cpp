@@ -954,7 +954,7 @@ void W8Missile::AnnounceCollisionTarget()
     text += g_localized_strings[0x1c0];
     ShowNotice(source_color, text);
     if (target_color != source_color) {
-        HighlightTextBoxRange(target_color, target_start, target_stop, -1);
+        HighlightTextBoxRange(target_color, target_start, target_stop, std::nullopt);
     }
 }
 

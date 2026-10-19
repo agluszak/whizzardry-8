@@ -176,7 +176,7 @@ unsigned char OpenUseItemSelectView(int slot)
     RefreshMainGameLayout();
     RestoreSpellCastingRegions();
     SelectTextBox(2);
-    ResetEditorStatusLine(-1);
+    ResetEditorStatusLine(std::nullopt);
     g_level_block->text_box_visible = false;
     CreateUseItemSelectControls();
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
@@ -196,7 +196,7 @@ void CloseUseItemSelectView(void)
         SetTextBoxEnabled(false);
         g_level_block->action_panel_visible = 0;
         SetTargetingMode(W8_TARGET_NEED_NONE);
-        ResetEditorStatusLine(-1);
+        ResetEditorStatusLine(std::nullopt);
         g_level_block->text_box_visible = true;
         SelectTextBox(gXStatus.fCombatMode);
         use_item.reset();

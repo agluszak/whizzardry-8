@@ -590,7 +590,7 @@ int CharacterPrayAction(int party_slot)
     }
     if (g_settings.verbose_combat_messages == 0) {
         SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
-        AppendToLastTextLine(g_pray_dash, -1);
+        AppendToLastTextLine(g_pray_dash, std::nullopt);
         SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
     }
     roll = Random(g_pray_roll_sums[PRAY_ROLL_TIERS]);
@@ -619,10 +619,10 @@ int CharacterPrayAction(int party_slot)
         switch (action) {
         case 0:
             if (Random(2) == 0) {
-                AppendToLastTextLine(g_localized_strings[0x178], -1);
+                AppendToLastTextLine(g_localized_strings[0x178], std::nullopt);
                 g_combat_state->experience_bonus += 10;
             } else {
-                AppendToLastTextLine(g_localized_strings[0x177], -1);
+                AppendToLastTextLine(g_localized_strings[0x177], std::nullopt);
                 AddPartyGold(100, true);
             }
             prayed = true;
@@ -632,7 +632,7 @@ int CharacterPrayAction(int party_slot)
                 W8Character* member = &g_status.buffers.Char[index];
                 if (g_status.buffers.XChar[index].fOccupied && member->hp_current != 0 &&
                     member->stamina < member->uiStaminaMax) {
-                    AppendToLastTextLine(g_localized_strings[0x179], -1);
+                    AppendToLastTextLine(g_localized_strings[0x179], std::nullopt);
                     CastSpellFromSource(W8_SPELL_REST_ALL, &source, &target, 7, 0, 0, true,
                                         &outcome, 0, 0, 0);
                     prayed = true;
@@ -659,7 +659,8 @@ int CharacterPrayAction(int party_slot)
                         member->enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL].power == 0 &&
                         --pick == 0) {
                         AppendToLastTextLine(
-                            fmt::sprintf(g_localized_strings[0x17a], member->name, -1), -1);
+                            fmt::sprintf(g_localized_strings[0x17a], member->name, -1),
+                            std::nullopt);
                         target.iType = W8_TARGET_KIND_CHARACTER;
                         if (power_level > 6) {
                             power_level = 7;
@@ -693,7 +694,7 @@ int CharacterPrayAction(int party_slot)
                         (member->uiCondition[W8_CONDITION_INSANE] != 0 ||
                          member->uiCondition[W8_CONDITION_TURNCOAT] != 0) &&
                         --pick == 0) {
-                        AppendToLastTextLine(g_localized_strings[0x179], -1);
+                        AppendToLastTextLine(g_localized_strings[0x179], std::nullopt);
                         target.iType = W8_TARGET_KIND_CHARACTER;
                         const bool capped = power_level > 7;
                         if (capped) {
@@ -717,7 +718,7 @@ int CharacterPrayAction(int party_slot)
                 }
                 ResetCombatSlot(&target);
                 target.iType = W8_TARGET_KIND_PARTY;
-                AppendToLastTextLine(g_localized_strings[0x179], -1);
+                AppendToLastTextLine(g_localized_strings[0x179], std::nullopt);
                 CastSpellFromSource(W8_SPELL_HEAL_ALL, &source, &target, power_level, 0, 0, true,
                                     &outcome, 0, 0, 0);
                 prayed = true;
@@ -736,7 +737,7 @@ int CharacterPrayAction(int party_slot)
                 ResetCombatSlot(&target);
                 target.iType = W8_TARGET_KIND_CHARACTER;
                 target.iChar = *best;
-                AppendToLastTextLine(g_localized_strings[0x179], -1);
+                AppendToLastTextLine(g_localized_strings[0x179], std::nullopt);
                 CastSpellFromSource(W8_SPELL_HEAL_WOUNDS, &source, &target, power_level, 0, 0,
                                     false, &outcome, 0, 0, 0);
                 prayed = true;
@@ -752,7 +753,7 @@ int CharacterPrayAction(int party_slot)
                 }
             }
             if (!found) {
-                AppendToLastTextLine(g_localized_strings[0x17b], -1);
+                AppendToLastTextLine(g_localized_strings[0x17b], std::nullopt);
                 CastSpellFromSource(W8_SPELL_BLESS, &source, &target, power_level, 0, 0, false,
                                     &outcome, 0, 0, 0);
                 prayed = true;
@@ -780,7 +781,7 @@ int CharacterPrayAction(int party_slot)
                         monster->ubDisposition == W8_DISPOSITION_HOSTILE &&
                         monster->hp_current != 0 && monster->p3D->GetDistanceToPlayer() <= range &&
                         --pick == 0) {
-                        AppendToLastTextLine(g_localized_strings[0x179], -1);
+                        AppendToLastTextLine(g_localized_strings[0x179], std::nullopt);
                         target.iType = W8_TARGET_KIND_MONSTER;
                         target.iMonsterID = monster->location_id;
                         if (power_level > 6) {
@@ -800,7 +801,7 @@ int CharacterPrayAction(int party_slot)
             prayed = TurnUndead(party_slot, 0, false) > 0;
             break;
         case 8:
-            AppendToLastTextLine(g_localized_strings[0x179], -1);
+            AppendToLastTextLine(g_localized_strings[0x179], std::nullopt);
             for (index = 0; index < 0x12; ++index) {
                 RemoveConditionFromParty(static_cast<W8Condition>(index));
             }
@@ -817,7 +818,7 @@ int CharacterPrayAction(int party_slot)
             if (!CombatHasCondition(0x3b) || !CombatHasCondition(0x35)) {
                 target.iType = W8_TARGET_KIND_PARTY;
                 target.iChar = -1;
-                AppendToLastTextLine(g_localized_strings[0x17b], -1);
+                AppendToLastTextLine(g_localized_strings[0x17b], std::nullopt);
                 CastSpellFromSource(W8_SPELL_SOUL_SHIELD, &source, &target, power_level, 0, 0,
                                     false, &outcome, 0, 0, 0);
                 CastSpellFromSource(W8_SPELL_ELEMENT_SHIELD, &source, &target, power_level, 0, 0,
@@ -830,7 +831,7 @@ int CharacterPrayAction(int party_slot)
                 !PartyHasCondition(0x1a)) {
                 target.iType = W8_TARGET_KIND_PARTY;
                 target.iChar = -1;
-                AppendToLastTextLine(g_localized_strings[0x17b], -1);
+                AppendToLastTextLine(g_localized_strings[0x17b], std::nullopt);
                 CastSpellFromSource(W8_SPELL_MAGIC_SCREEN, &source, &target, power_level, 0, 0,
                                     false, &outcome, 0, 0, 0);
                 CastSpellFromSource(W8_SPELL_ENCHANTED_BLADE, &source, &target, power_level, 0, 0,
@@ -854,7 +855,7 @@ int CharacterPrayAction(int party_slot)
                             g_localized_strings[0x17c],
                             g_localized_strings[g_gender_name_message_rows[character->gender][2]],
                             -1),
-                        -1);
+                        std::nullopt);
                     target.iType = W8_TARGET_KIND_ALL_ENEMIES;
                     CastSpellFromSource(W8_SPELL_ROUT, &source, &target, power_level, 0, 0, false,
                                         &outcome, 0, 0, 0);
@@ -874,7 +875,7 @@ int CharacterPrayAction(int party_slot)
                     if (monster->fActive && monster->pCombat &&
                         monster->ubDisposition == W8_DISPOSITION_HOSTILE &&
                         monster->hp_current != 0 && monster->p3D->GetDistanceToPlayer() <= range) {
-                        AppendToLastTextLine(g_localized_strings[0x179], -1);
+                        AppendToLastTextLine(g_localized_strings[0x179], std::nullopt);
                         ResetCombatSlot(&target);
                         CastSpellFromSource(W8_SPELL_FALLING_STARS, &source, &target, power_level,
                                             0, 0, false, &outcome, 0, 0, 0);
@@ -884,7 +885,7 @@ int CharacterPrayAction(int party_slot)
             }
             break;
         default:
-            AppendToLastTextLine(g_localized_strings[0x176], -1);
+            AppendToLastTextLine(g_localized_strings[0x176], std::nullopt);
             prayed = true;
             break;
         }

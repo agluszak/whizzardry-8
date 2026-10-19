@@ -985,7 +985,7 @@ void ResolveMissileHit(W8Missile* missile, bool deflected)
     target_color = GetTargetNoticeColor(source, target);
     ShowNotice(source_color, text);
     if (target_color != source_color) {
-        HighlightTextBoxRange(target_color, target_start, target_stop, -1);
+        HighlightTextBoxRange(target_color, target_start, target_stop, std::nullopt);
     }
     if (deflected) {
         ShowNotice(source_color, g_localized_strings[0x214]);
@@ -2261,7 +2261,7 @@ void AnnounceMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record,
     }
     ShowNotice(W8_FONT_PALETTE_RUST, g_combat_state->attack_message);
     if (palette != 9) {
-        HighlightTextBoxRange(palette, highlight_start, highlight_end, -1);
+        HighlightTextBoxRange(palette, highlight_start, highlight_end, std::nullopt);
     }
     OrientMonsterTowardTarget(monster_info, false);
 }
@@ -3125,7 +3125,7 @@ void AnnounceAccidentalStrike(W8TargetSource* source, W8CombatSlot* target)
     }
     ShowNotice(source_color, message);
     if (source_color != color) {
-        HighlightTextBoxRange(color, highlight_start, highlight_stop, -1);
+        HighlightTextBoxRange(color, highlight_start, highlight_stop, std::nullopt);
     }
 }
 

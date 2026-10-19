@@ -1196,7 +1196,7 @@ void ToggleCombatMode(void)
     }
     if (g_combat_state->execution_active != 0) {
         ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_COMBAT_CANNOT_END_PENDING],
-                   W8_NOTICE_TEXT_BOX_AUTOMATIC, W8_NOTICE_WRAP_AUTOMATIC, true);
+                   std::nullopt, W8_NOTICE_WRAP_AUTOMATIC, true);
         return;
     }
     EndCombat(false);

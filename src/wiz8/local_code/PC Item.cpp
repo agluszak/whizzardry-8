@@ -4121,7 +4121,8 @@ std::optional<W8WeaponSwap> PlanWeaponSetSwap(const W8Character& value)
 bool SwapWeaponSetSlots(int party_slot, bool announce, bool refresh)
 {
     W8Character* character = &g_status.buffers.Char[party_slot];
-    int notice_context = gXStatus.fNpcDialogueMode ? 0 : -1;
+    std::optional<short> notice_context =
+        gXStatus.fNpcDialogueMode ? std::optional<short>{0} : std::nullopt;
 
     if (character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo == -1 &&
         character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo == -1 &&
