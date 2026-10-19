@@ -823,6 +823,8 @@ void DrawCampItemQuantity(W8ItemInstance* item, int left, int top, int width)
     int height;
 
     switch (g_item_records[item->iItemNo].quantity_kind) {
+    case W8_ITEM_QUANTITY_NONE:
+        break;
     case W8_ITEM_QUANTITY_STACK:
         if (item->stack_count > 1) {
             state->text_buffer = fmt::format("{:d}", item->stack_count);
