@@ -2278,7 +2278,7 @@ int CommitPartySlotSpell(int party_slot, int spell_id, int power_level, W8Combat
    magic otherwise. */
 int CommitPartySlotItemUse(int party_slot, W8ItemInstance* item, W8CombatSlot* target)
 {
-    int uses;
+    std::optional<int> uses;
     int result;
     W8PartySlotRow* row;
     W8ItemInstance* used;
@@ -2293,10 +2293,10 @@ int CommitPartySlotItemUse(int party_slot, W8ItemInstance* item, W8CombatSlot* t
     row->target_out_of_combat = *target;
     result = UseItem(&g_status.buffers.Char[party_slot], item, &uses);
     StagePartySlotItemUse(party_slot, item, target);
-    if (uses == -1) {
+    if (!uses) {
         uses = CharacterActionFatigueCost(party_slot, W8_ACTION_USE_ITEM);
     }
-    FatigueCharacter(party_slot, uses, true, 0);
+    FatigueCharacter(party_slot, *uses, true, 0);
     if (result == 1) {
         used = target->pPCItem;
         if (g_item_records[used->iItemNo].spell_id == W8_SPELL_IDENTIFY_ITEM && used->identified) {

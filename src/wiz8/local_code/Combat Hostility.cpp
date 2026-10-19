@@ -458,10 +458,11 @@ bool CanPartySlotTurnUndead(int party_slot)
 }
 
 // FUNCTION: WIZ8 0x00547cb0
-int TurnUndead(int party_slot, int* out_cost, bool check)
+int TurnUndead(int party_slot, std::optional<int>* out_cost, bool check)
 {
     std::vector<int> monsters;
     std::vector<int> party;
+    if (out_cost) *out_cost = std::nullopt;
     if (check) {
         if (!CanPartySlotTurnUndead(party_slot)) {
             PostCharacterNotice(

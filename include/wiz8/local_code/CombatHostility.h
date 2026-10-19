@@ -1,6 +1,8 @@
 #include <vector>
 #pragma once
 
+#include <optional>
+
 #include "wiz8/layouts/targeting.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/monster_actions.h"
@@ -48,9 +50,9 @@ void AlertSameFactionGroups(W8MonsterGroup* monster_group);
 void MakeTargetGroupHostile(W8TargetSource* source, W8CombatSlot* target);
 /* SetMonsterGroupHostility looked up by group id. */
 void SetMonsterGroupHostilityByID(int group_id, W8Disposition hostility, bool recurse);
-/* Write the fatigue the slot's pending pray costs, or -1 when it
-   cannot be paid; the flag picks the check flavor. */
-int TurnUndead(int party_slot, int* out_cost, bool check);
+/* Write the fatigue cost when the turn-undead action affects a target; leave
+   it empty when the action cannot be carried out. */
+int TurnUndead(int party_slot, std::optional<int>* out_cost, bool check);
 /* The fatigue the slot's pending turn-undead costs, zero when it
    cannot be carried out. */
 int CharacterPrayAction(int party_slot);

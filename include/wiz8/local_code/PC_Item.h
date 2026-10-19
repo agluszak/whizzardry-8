@@ -221,8 +221,8 @@ bool GiveItemToCharacterOrParty(int uiChar, W8ItemInstance* item, bool party_fir
 bool GiveHeldItemToCharacterOrParty(int uiChar, bool party_first);
 
 /* Use one item as a character's action. `out_uses` receives the
-   fatigue cost of the attempt, or -1 when nothing was attempted. */
-unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_uses);
+   fatigue cost of the attempt, or is empty when nothing was attempted. */
+unsigned char UseItem(W8Character* character, W8ItemInstance* item, std::optional<int>* out_uses);
 
 /* How hard one attempt at an item's spell is for a character of this skill
    level. */

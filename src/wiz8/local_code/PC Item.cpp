@@ -1044,11 +1044,11 @@ W8Skill GetItemSpellPresentation(const W8ItemDatabaseRecord* record)
    under, and the one item that resolves to an NPC fact instead of a spell.
    Everything else aims the item and casts the spell it carries, which is where
    the spell's presentation skill and the character's own level in it decide how
-   hard the attempt is. `out_uses` receives the fatigue cost of the attempt, and
-   stays -1 when nothing was attempted; a casting aid's attempt costs eight per
+   hard the attempt is. `out_uses` receives the fatigue cost of the attempt,
+   and remains empty when nothing was attempted; a casting aid's attempt costs eight per
    level of its spell plus twenty, even when it fails. */
 // FUNCTION: WIZ8 0x0051dde0
-unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_uses)
+unsigned char UseItem(W8Character* character, W8ItemInstance* item, std::optional<int>* out_uses)
 {
     const W8ItemDatabaseRecord* record = &g_item_records[item->iItemNo];
     unsigned int party_slot = CharacterPointerToPartySlot(character);
@@ -1056,21 +1056,23 @@ unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_use
     unsigned int chance;
     W8Skill skill;
     int event_type;
-    int fatigue_cost = -1;
+    std::optional<int> fatigue_cost;
     W8TargetSource target;
     // Retail returned an unset byte for a spent item; nothing was used.
     unsigned char used = 0;
 
+    *out_uses = std::nullopt;
+
     if (!CanCharacterUseItem(character, item->iItemNo)) {
         PostCharacterNotice(party_slot,
                             fmt::sprintf(g_localized_strings[0x164], GetItemDisplayName(item)));
-        *out_uses = -1;
+        *out_uses = std::nullopt;
         return 0;
     }
     if (!CanCharacterActivateItem(character, item)) {
         PostCharacterNotice(party_slot,
                             fmt::sprintf(g_localized_strings[0x165], GetItemDisplayName(item)));
-        *out_uses = -1;
+        *out_uses = std::nullopt;
         return 0;
     }
 
@@ -1086,7 +1088,7 @@ unsigned char UseItem(W8Character* character, W8ItemInstance* item, int* out_use
         if (record->equip_class == W8_ITEM_EQUIP_CLASS_INSTRUMENT &&
             character->uiCondition[W8_CONDITION_SILENCED] != 0) {
             PostCharacterNotice(party_slot, g_localized_strings[0x166]);
-            *out_uses = -1;
+            *out_uses = std::nullopt;
             return 0;
         }
 

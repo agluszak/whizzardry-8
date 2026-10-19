@@ -2063,7 +2063,7 @@ void ExecuteCharacterAction(int party_slot)
     W8TargetSource source;
     W8TargetSource enemy_source;
     std::optional<int> interrupt;
-    int fatigue_cost = -1;
+    std::optional<int> fatigue_cost;
     unsigned char result = 1;
     bool saved_dead = false; /* only combat tracks whether the slot already acted */
     W8ActionKind action;
@@ -2183,9 +2183,9 @@ void ExecuteCharacterAction(int party_slot)
             if (step == 0) {
                 result = 0;
             }
-            fatigue_cost += step_cost;
+            *fatigue_cost += step_cost;
         } while (step == 2 && power == 8 &&
-                 SpellCastFatigueCost(detail, 1) + fatigue_cost <= character->stamina &&
+                 SpellCastFatigueCost(detail, 1) + *fatigue_cost <= character->stamina &&
                  g_spell_records[detail].spell_point_cost <=
                      character->iSPLeft[g_spell_records[detail].realm]);
         break;
@@ -2204,7 +2204,7 @@ void ExecuteCharacterAction(int party_slot)
             result = 0;
         } else {
             TurnUndead(party_slot, &fatigue_cost, true);
-            if (fatigue_cost == -1) {
+            if (!fatigue_cost) {
                 result = 0;
             }
         }
@@ -2266,10 +2266,10 @@ void ExecuteCharacterAction(int party_slot)
         }
     }
     if (action != W8_ACTION_ATTACK && action != W8_ACTION_BERSERK) {
-        if (fatigue_cost == -1) {
+        if (!fatigue_cost) {
             fatigue_cost = CharacterActionFatigueCost(party_slot, action);
         }
-        FatigueCharacter(party_slot, fatigue_cost, true, nullptr);
+        FatigueCharacter(party_slot, *fatigue_cost, true, nullptr);
     }
     if (gXStatus.fCombatMode) {
         g_combat_state->eCombatActionStatus = 2;
