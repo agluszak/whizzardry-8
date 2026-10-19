@@ -1402,21 +1402,19 @@ float GetAveragePartyMemberLevel(void)
 }
 
 // FUNCTION: WIZ8 0x00554490
-unsigned int GetBestPartySkillLevel(W8Skill skill_index, int* party_slot)
+BestPartySkill GetBestPartySkillLevel(W8Skill skill_index)
 {
-    unsigned int best_level = 0;
-    int best_slot = -1;
+    BestPartySkill best;
     for (int index = 0; index < 8; ++index) {
         W8Character* character = &g_status.buffers.Char[index];
         if (g_status.buffers.XChar[index].fOccupied && character->hp_current != 0 &&
             character->highest_condition < W8_CONDITION_TURNCOAT &&
-            (character->skills[skill_index].level > best_level || best_slot == -1)) {
-            best_level = character->skills[skill_index].level;
-            best_slot = index;
+            (character->skills[skill_index].level > best.level || !best.party_slot)) {
+            best.level = character->skills[skill_index].level;
+            best.party_slot = index;
         }
     }
-    if (party_slot != 0) *party_slot = best_slot;
-    return best_level;
+    return best;
 }
 
 /* Format the health knowledge the party has earned for one monster. NPC-backed
@@ -1446,12 +1444,11 @@ std::string FormatMonsterHealth(W8MonsterInfo* monster_info)
     } else {
         float average_party_level = GetAveragePartyMemberLevel();
         W8MonsterRecord* record;
-        int best_party_slot;
         int monster_level;
 
         record = GetMonsterDataForInfo(monster_info);
         monster_level = record->display_level;
-        health_knowledge = GetBestPartySkillLevel(W8_SKILL_MYTHOLOGY, &best_party_slot);
+        health_knowledge = GetBestPartySkillLevel(W8_SKILL_MYTHOLOGY).level;
         if (static_cast<int>(average_party_level) < monster_level) {
             float adjusted_knowledge =
                 health_knowledge - (monster_level - average_party_level) * 3.0f + 0.5f;

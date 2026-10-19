@@ -425,9 +425,13 @@ std::string FormatMonsterHealth(W8MonsterInfo* monster_info);
 unsigned int GetMonsterExperience(const W8MonsterRecord* record);
 bool AnyMonsterDying(void);
 float GetAveragePartyMemberLevel(void);
-/* The highest `skills[skill_index].level` among live party members;
-   `party_slot` receives the best member's slot. */
-unsigned int GetBestPartySkillLevel(W8Skill skill_index, int* party_slot);
+struct BestPartySkill {
+    unsigned int level = 0;
+    std::optional<int> party_slot;
+};
+/* The highest `skills[skill_index].level` among live party members, with the
+   member's slot when one is available. */
+BestPartySkill GetBestPartySkillLevel(W8Skill skill_index);
 
 void StartMonsterCycle(W8MonsterInfo* monster_info, int cycle, W8AnimationBehaviour behavior);
 void MonsterInfoLeaveCombat(W8MonsterInfo* monster_info);

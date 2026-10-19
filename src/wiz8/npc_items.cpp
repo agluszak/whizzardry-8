@@ -541,7 +541,7 @@ int CalculateNpcTradeStackPrice(W8NpcState* npc, int item_id, W8TradePriceKind p
 int CalculateTradeStackPrice(W8NpcState* npc, W8ItemInstance* item, W8TradePriceKind price_kind)
 {
     int stack_value = GetItemStackValue(item);
-    unsigned int skill = GetBestPartySkillLevel(W8_SKILL_COMMUNICATION, 0);
+    unsigned int skill = GetBestPartySkillLevel(W8_SKILL_COMMUNICATION).level;
     W8NpcDatabaseRecord* record = npc->record;
     float scale = skill * 0.002f;
     if (scale > fabs(record->sell_price_factor - record->buy_price_factor) * 0.5) {

@@ -271,7 +271,7 @@ void JournalScreen::DrawContent(SDL_Surface& target)
         if (last >= static_cast<int>(g_journal_entries.size())) {
             last = static_cast<int>(g_journal_entries.size()) - 1;
         }
-        int previous_level = -1;
+        std::optional<int> previous_level;
         int y = 0x39;
         for (int index = first; index <= last; ++index, y += 0x1e) {
             const W8JournalEntry* entry = &g_journal_entries[index];
@@ -287,7 +287,7 @@ void JournalScreen::DrawContent(SDL_Surface& target)
             } else {
                 level_name = g_localized_strings[g_level_name_indices[entry->level]];
             }
-            if (entry->level != previous_level) {
+            if (!previous_level || entry->level != *previous_level) {
                 DrawJournalLine(target, level_name, 0, y, 0, true);
             }
             DrawJournalLine(target, description, 1, y, active, false);

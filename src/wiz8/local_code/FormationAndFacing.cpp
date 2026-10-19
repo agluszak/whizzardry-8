@@ -498,7 +498,7 @@ void PlaceCharacterInFormation(W8PartyFormationState* formation, int slot)
 // FUNCTION: WIZ8 0x00554dd0
 void CompactFormationRow(W8PartyFormationState* formation, unsigned char row)
 {
-    signed char last_free = -1;
+    std::optional<signed char> last_free;
     signed char column;
     int slot;
 
@@ -517,8 +517,8 @@ void CompactFormationRow(W8PartyFormationState* formation, unsigned char row)
             slot = formation->bOccupantChar[row][column];
             if (slot == -1) {
                 last_free = column;
-            } else if (last_free != -1) {
-                SetFormationPosition(formation, slot, row, last_free, false, false, true);
+            } else if (last_free) {
+                SetFormationPosition(formation, slot, row, *last_free, false, false, true);
                 last_free = column;
             }
         }

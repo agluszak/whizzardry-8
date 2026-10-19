@@ -105,7 +105,6 @@ bool W8MonsterInfoDialog::PopulateText()
     float combat_range;
     float average_level;
     int monster_level;
-    int best_party_slot;
     int sight;
     W8MonsterGroup* group;
     W8MonsterInfo* leader_info;
@@ -134,7 +133,7 @@ bool W8MonsterInfoDialog::PopulateText()
     if (monster_info->summoned == W8_MONSTER_SUMMON_FRIENDLY) {
         knowledge = 0x7d;
     } else {
-        knowledge = GetBestPartySkillLevel(W8_SKILL_MYTHOLOGY, &best_party_slot);
+        knowledge = GetBestPartySkillLevel(W8_SKILL_MYTHOLOGY).level;
         if (static_cast<int>(average_level) < monster_level) {
             float adjusted_knowledge = knowledge - (monster_level - average_level) * 3.0f + 0.5f;
             if (adjusted_knowledge < 0.0f) {

@@ -3754,7 +3754,7 @@ void OpenNpcDialog(W8NpcQuoteEntry* request, int aux_data)
         if (monster_info != 0) {
             price -= static_cast<int>(monster_info->charm_strength * 0.01f * price);
         }
-        price -= GetBestPartySkillLevel(W8_SKILL_COMMUNICATION, 0) * price / 500;
+        price -= GetBestPartySkillLevel(W8_SKILL_COMMUNICATION).level * price / 500;
         if (price < 1) {
             price = 1;
         }

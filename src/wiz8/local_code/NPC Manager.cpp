@@ -1659,7 +1659,7 @@ static void AdjustNpcDisposition(W8NpcState* npc, signed char delta)
 
 static void DebitNpcTradePool(W8NpcState* npc, unsigned int price)
 {
-    int level = static_cast<int>(GetBestPartySkillLevel(W8_SKILL_COMMUNICATION, 0));
+    int level = static_cast<int>(GetBestPartySkillLevel(W8_SKILL_COMMUNICATION).level);
     unsigned int adjusted = price + level * (static_cast<int>(price & 0xffff) / 5) / 100;
     if (static_cast<int>(npc->trade_pool - (adjusted & 0xffff)) < 0) {
         npc->trade_pool = 0;
@@ -1686,9 +1686,7 @@ static void DebitNpcTradePool(W8NpcState* npc, unsigned int price)
    talking and the level-scaled charm shift disposition through the record's
    signed scale bytes, paying gold and selling an item draw the record's trade
    pool down by the party's Communication-adjusted price, and the scripted
-   kind adds its operand straight to disposition. Kinds 0 and 1 reuse an
-   argument's stack slot as the best-skill out-parameter; kind 2 and 3 fall
-   into the shared disposition refresh at the tail. */
+   kind adds its operand straight to disposition. */
 // FUNCTION: WIZ8 0x0050A570
 void ApplyNpcInteraction(W8NpcState* npc, int kind, int value, W8ItemInstance* item,
                          unsigned int gold)
@@ -1702,16 +1700,19 @@ void ApplyNpcInteraction(W8NpcState* npc, int kind, int value, W8ItemInstance* i
 
         npc->talk_cooldown_active = true;
         npc->talk_cooldown_clock = g_status.world_clock;
+        const BestPartySkill best_skill = GetBestPartySkillLevel(W8_SKILL_COMMUNICATION);
+        level = static_cast<int>(best_skill.level);
         if (scale < 1) {
-            level = static_cast<int>(GetBestPartySkillLevel(W8_SKILL_COMMUNICATION, &kind));
             quotient = -scale / 5;
         } else {
-            level = static_cast<int>(GetBestPartySkillLevel(W8_SKILL_COMMUNICATION, &kind));
             quotient = scale / 5;
         }
         delta = scale + level * quotient / 100;
         AdjustNpcDisposition(npc, static_cast<signed char>(delta));
-        PracticeCharacterSkill(&g_status.buffers.Char[kind], W8_SKILL_COMMUNICATION, 8, false);
+        if (best_skill.party_slot) {
+            PracticeCharacterSkill(&g_status.buffers.Char[*best_skill.party_slot],
+                                   W8_SKILL_COMMUNICATION, 8, false);
+        }
         GetNpcDisposition(npc);
         return;
     }
@@ -1754,11 +1755,11 @@ void ApplyNpcInteraction(W8NpcState* npc, int kind, int value, W8ItemInstance* i
             average_level = total_level / count;
         }
         scale = npc->record->charm_scale;
+        const BestPartySkill best_skill = GetBestPartySkillLevel(W8_SKILL_COMMUNICATION);
+        level = static_cast<int>(best_skill.level);
         if (scale < 1) {
-            level = static_cast<int>(GetBestPartySkillLevel(W8_SKILL_COMMUNICATION, &value));
             quotient = -scale / 5;
         } else {
-            level = static_cast<int>(GetBestPartySkillLevel(W8_SKILL_COMMUNICATION, &value));
             quotient = scale / 5;
         }
         delta = scale + level * quotient / 100;
@@ -1766,7 +1767,10 @@ void ApplyNpcInteraction(W8NpcState* npc, int kind, int value, W8ItemInstance* i
             delta = static_cast<int>(average_level * delta / monster_level);
         }
         AdjustNpcDisposition(npc, static_cast<signed char>(delta));
-        PracticeCharacterSkill(&g_status.buffers.Char[value], W8_SKILL_COMMUNICATION, 5, false);
+        if (best_skill.party_slot) {
+            PracticeCharacterSkill(&g_status.buffers.Char[*best_skill.party_slot],
+                                   W8_SKILL_COMMUNICATION, 5, false);
+        }
         GetNpcDisposition(npc);
         return;
     }
