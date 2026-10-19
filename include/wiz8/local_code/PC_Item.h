@@ -1,6 +1,7 @@
 #pragma once
 
 #include <bitset>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -12,6 +13,7 @@ std::shared_ptr<const SpriteSheet> ItemSprites(int item_id);
 
 #include "wiz8/character_skills.h"
 #include "wiz8/dialog_code/DialogBase.h"
+#include "wiz8/item_location.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/npc_trade_price.h"
@@ -68,19 +70,32 @@ void ApplyIdentifyAttempt(W8ItemInstance* item, unsigned int strength, unsigned 
 int RevealCharacterItemBindings(unsigned int party_slot, int strength, unsigned int percent);
 std::string FormatItemDisplayName(const W8ItemInstance* item, bool include_quantity);
 unsigned int GetItemStackValue(const W8ItemInstance* item);
-bool FindItemOnCharacter(W8Character* character, int item_id, W8ItemInstance** found,
-                         int include_backpack, const W8ItemInstance* resume_after);
-/* The whole-party counterpart. It tests the item in hand and the
-   party item pool as well as the character slots, and reports which character
-   held the match through the second output. */
-bool FindItemOnParty(int item_id, W8ItemInstance** found, W8Character** found_character,
-                     int include_backpack, const W8ItemInstance* resume_after);
-/* The whole-party item count; the pool joins the scan when the
-   caller asks for it. */
-unsigned int CountItemOnParty(int item_id, W8ItemInstance** found, W8Character** first_holder,
-                              int include_backpack);
-/* Whether every occupied party slot carries one item. */
-bool EveryCharacterHasItem(int item_id, int include_backpack);
+/* What an item search covers: worn equipment, also the backpack, and for the party
+   also the shared pool. */
+enum class W8ItemReach { Worn, Carried, Party };
+using W8ItemMatch = std::function_ref<bool(const W8ItemInstance&)>;
+inline auto ItemWithId(int item_id)
+{
+    return [item_id](const W8ItemInstance& item) { return item.iItemNo == item_id; };
+}
+// Items whose records share an unidentified name kind, such as every class item tier.
+bool ItemIsOfKind(const W8ItemInstance& item, short item_kind);
+inline auto ItemOfKind(short item_kind)
+{
+    return [item_kind](const W8ItemInstance& item) { return ItemIsOfKind(item, item_kind); };
+}
+// The first match in equipment slot order, then in backpack order.
+W8ItemInstance* FindCharacterItem(W8Character& character, W8ItemMatch match, W8ItemReach reach);
+// The first match on the active party: the hand, each occupied member, then the pool.
+W8ItemLocation FindPartyItem(W8ItemMatch match, W8ItemReach reach);
+inline bool PartyHasItem(int item_id, W8ItemReach reach = W8ItemReach::Party)
+{
+    return FindPartyItem(ItemWithId(item_id), reach).storage != W8ItemStorage::None;
+}
+// Units of one item on the active party, a stack counting its size.
+unsigned int CountPartyItem(int item_id);
+// Whether every occupied member has one item.
+bool EveryCharacterHasItem(int item_id, W8ItemReach reach);
 unsigned int GetItemUnitWeight(const W8ItemInstance* item);
 unsigned char GetItemEquipClass(const W8ItemInstance* item);
 W8EquipSlot GetItemDefaultEquipSlot(int item_id);
@@ -105,9 +120,8 @@ void UpdateFactsAfterAcquiringItem(const W8ItemInstance* item);
 void DeliverExceptionalItemReaction(W8ItemInstance* item, bool choose_character,
                                     W8Character* character);
 /* How many of one item a character holds, counting a stack as its count and
-   anything else as one, and optionally reporting the first slot it is in. */
-int CountItemOnCharacter(W8Character* character, int item_id, W8ItemInstance** first,
-                         int include_backpack);
+   anything else as one. */
+unsigned int CountCharacterItem(const W8Character& character, int item_id, W8ItemReach reach);
 /* Move the departing character's soul-bound equipment to the
    party pool or the held-item display before the slot is released. */
 void StashDepartingCharacterItems(W8Character* character);
@@ -151,10 +165,6 @@ bool ItemClassNormalizesTarget(const W8ItemDatabaseRecord* record);
 bool StoreItemWithCharacterOrParty(W8Character* character, W8ItemInstance* item, bool party_first,
                                    bool announce, bool equip_if_possible);
 bool ItemHasHiddenProperties(int item_id);
-/* Find the first equipped, or optionally carried, item with a matching
-   unidentified database name kind. */
-bool FindCharacterItemByDatabaseKind(W8Character* character, short item_kind, W8ItemInstance** out,
-                                     int include_backpack);
 
 /* Per-item-class notice index into g_localized_strings used for the
    unidentified ("Uncursed item" style) display name. */
@@ -199,8 +209,6 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
 
 void SetCharacterItemUse(int party_slot, const W8Action& action);
 bool SwapWeaponSetSlots(int party_slot, bool announce);
-bool FindItemByDatabaseKindOnParty(unsigned short item_kind, W8ItemInstance** found,
-                                   W8Character** found_character, int include_backpack);
 void UpgradeProfessionClassItem(W8Character* character);
 
 bool ItemPrecedesInPool(const W8ItemInstance& first, const W8ItemInstance& second);

@@ -3494,7 +3494,7 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
     } else {
         row->paired_item_id = character->EquippedItem[row->paired_equip_slot].iItemNo;
     }
-    FindItemOnCharacter(character, row->weapon_item_id, &found, 0, nullptr);
+    found = FindCharacterItem(*character, ItemWithId(row->weapon_item_id), W8ItemReach::Worn);
     if (found == nullptr) {
         DebugMessage(1, fmt::format("ERROR: {} does not have a {}!", character->name,
                                     g_item_records[row->weapon_item_id].display_name));

@@ -318,7 +318,7 @@ bool ArnikaLaserScanMaster(int command)
 /* ScannerDoor trigger: the 0x27b key item opens the HLL door once. */
 bool ArnikaScannerDoor(Trigger* pTrigger)
 {
-    if (!FindItemOnParty(0x27b, 0, 0, 2, 0)) {
+    if (!PartyHasItem(0x27b)) {
         return false;
     }
     if (GetLocationVarIDByName("HLLDoorOpen") == -1) {

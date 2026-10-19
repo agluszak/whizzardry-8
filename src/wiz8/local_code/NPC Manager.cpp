@@ -413,8 +413,8 @@ bool NpcWantsItem(W8NpcState* npc, W8ItemInstance* item)
     if (index == 3) {
         return false;
     }
-    if (npc->is_grouped && CountItemOnCharacter(&g_status.party.characters[npc->group_index],
-                                                item->iItemNo, 0, 2) > 1) {
+    if (npc->is_grouped && CountCharacterItem(g_status.party.characters[npc->group_index],
+                                              item->iItemNo, W8ItemReach::Carried) > 1) {
         return false;
     }
     return true;

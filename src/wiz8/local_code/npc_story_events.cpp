@@ -169,7 +169,6 @@ void BeginNpcScriptedScene(void)
    facts 0x1c1 or 0x227. The party-member region sets reopen on the way out. */
 void EndScriptedPortraitPick(int party_slot)
 {
-    W8ItemInstance* found;
     W8Character* character;
     /* 0x00529EDC compares the slot counter as slot - 7 against 8 with a
        signed jump, so the counter is not unsigned. */
@@ -211,9 +210,9 @@ void EndScriptedPortraitPick(int party_slot)
     }
     if (g_status.party.rows[party_slot].npc_index == -1 &&
         character->highest_condition < W8_CONDITION_ASLEEP) {
-        if (FindItemOnCharacter(character, 0x1fd, &found, 0, 0) &&
-            FindItemOnCharacter(character, 0x1fe, &found, 0, 0) &&
-            FindItemOnCharacter(character, 0x1ff, &found, 0, 0)) {
+        if (FindCharacterItem(*character, ItemWithId(0x1fd), W8ItemReach::Worn) &&
+            FindCharacterItem(*character, ItemWithId(0x1fe), W8ItemReach::Worn) &&
+            FindCharacterItem(*character, ItemWithId(0x1ff), W8ItemReach::Worn)) {
             SetFact(W8_FACT_ALSEDEXUS_SACRIFICE_NOT_DRESSED, 0, false);
             g_status.monster_name_buffer = fmt::format("Al-{}", character->name);
             g_status.sedexus_party_slot = party_slot;

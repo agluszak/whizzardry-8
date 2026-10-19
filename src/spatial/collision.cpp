@@ -1025,7 +1025,7 @@ bool W8GDSurface::ResolveCollision(PartyMotion& level, LevelEnvironment& environ
     glm::vec3 crease_a(0);
     if ((flags & W8_GD_SURFACE_WALKABLE) != 0) {
         if ((flags & W8_GD_SURFACE_EXPLICIT_SLOPE) != 0 && g_sea_caves_slope_override_enabled &&
-            FindItemOnParty(kSlopeOverrideItem, nullptr, nullptr, 0, nullptr)) {
+            PartyHasItem(kSlopeOverrideItem, W8ItemReach::Worn)) {
             environ.motion_factor = 1.0f;
         } else if (environ.motion_factor < slope) {
             environ.motion_factor = slope;

@@ -722,13 +722,10 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
         }
     }
 
-    W8ItemInstance* found;
-    W8Character* holder;
-    if (FindItemOnParty(0x243, &found, &holder, 2, static_cast<W8ItemInstance*>(0)) &&
-        found != &g_status.party.held.item) {
-        if (holder == static_cast<W8Character*>(0) ||
-            !FindItemOnCharacter(holder, 0x239, static_cast<W8ItemInstance**>(0), 0,
-                                 static_cast<W8ItemInstance*>(0))) {
+    if (const auto found = FindPartyItem(ItemWithId(0x243), W8ItemReach::Party);
+        found.storage != W8ItemStorage::None && found.storage != W8ItemStorage::Hand) {
+        auto* holder = g_status.party.holderOf(found);
+        if (!holder || !FindCharacterItem(*holder, ItemWithId(0x239), W8ItemReach::Worn)) {
             if (character->uiCondition[W8_CONDITION_INSANE] < W8_CONDITION_INDEFINITE) {
                 SetCharacterCondition(party_slot, W8_CONDITION_INSANE, W8_CONDITION_INDEFINITE, 0,
                                       0, 1);
@@ -1269,8 +1266,7 @@ void UpdateCampFatigue(int ticks)
     for (unsigned int slot = 0; slot < 8; ++slot) {
         W8Character* character = &g_status.party.characters[slot];
         if (CanPartySlotParticipate(slot) && character->iRace != W8_RACE_ANDROID &&
-            !FindItemOnCharacter(character, 0x1e5, static_cast<W8ItemInstance**>(0), 0,
-                                 static_cast<W8ItemInstance*>(0))) {
+            !FindCharacterItem(*character, ItemWithId(0x1e5), W8ItemReach::Worn)) {
             W8Dice dice;
             dice.count = static_cast<unsigned char>(ticks);
             dice.sides = static_cast<unsigned char>(g_status.camp_fatigue_count / 6) + 2;
@@ -1332,8 +1328,7 @@ void UpdatePartyStamina(int ticks)
             continue;
         }
         if (g_status.party_fatigued &&
-            !FindItemOnCharacter(character, 0x1e5, static_cast<W8ItemInstance**>(0), 0,
-                                 static_cast<W8ItemInstance*>(0))) {
+            !FindCharacterItem(*character, ItemWithId(0x1e5), W8ItemReach::Worn)) {
             continue;
         }
         RegenCharacterStamina(slot, static_cast<unsigned int>(ticks));

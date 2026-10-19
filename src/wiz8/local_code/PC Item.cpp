@@ -2039,7 +2039,7 @@ void MergeItemUses(unsigned actor, W8ItemLocation destination, W8ItemLocation so
 static W8ItemLocation EquipPartner(W8Character* character, W8ItemInstance* item, int item_id,
                                    W8EquipSlot equip_slot)
 {
-    W8ItemInstance* pair;
+    W8ItemInstance* pair = nullptr;
 
     if (!ItemHasSingledOutGenericName(item->iItemNo)) {
         return {};
@@ -2053,7 +2053,10 @@ static W8ItemLocation EquipPartner(W8Character* character, W8ItemInstance* item,
             item->iItemNo,
             character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON].iItemNo)) {
         pair = &character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON];
-    } else if (item_id == -1 || !FindItemOnCharacter(character, item_id, &pair, 1, 0)) {
+    } else if (item_id != -1) {
+        pair = FindCharacterItem(*character, ItemWithId(item_id), W8ItemReach::Carried);
+    }
+    if (!pair) {
         QueueCharacterEvent(character, 39, 0, kCharacterEventFullVolume);
         return {};
     }
@@ -2065,240 +2068,77 @@ static W8ItemLocation EquipPartner(W8Character* character, W8ItemInstance* item,
     return from;
 }
 
-/* Where one item id sits on a character. The worn slots are searched first and
-   the carried ones only when asked for; a starting slot makes the search
-   resume after it rather than from the front. */
-bool FindItemOnCharacter(W8Character* character, int item_id, W8ItemInstance** found,
-                         int include_backpack, const W8ItemInstance* resume_after)
+bool ItemIsOfKind(const W8ItemInstance& item, short item_kind)
 {
-    unsigned int slot = 0;
-
-    if (resume_after != 0) {
-        for (slot = 0; slot < 12; ++slot) {
-            if (&character->EquippedItem[slot] == resume_after) {
-                ++slot;
-                break;
-            }
-        }
-    }
-    for (; slot < 12; ++slot) {
-        if (character->EquippedItem[slot].iItemNo == item_id) {
-            if (found != 0) {
-                *found = &character->EquippedItem[slot];
-            }
-            return true;
-        }
-    }
-
-    if (include_backpack == 0) {
-        return false;
-    }
-
-    slot = 0;
-    if (resume_after != 0) {
-        for (slot = 0; slot < 8; ++slot) {
-            if (&character->backpack[slot] == resume_after) {
-                ++slot;
-                break;
-            }
-        }
-    }
-    for (; slot < 8; ++slot) {
-        if (character->backpack[slot].iItemNo == item_id) {
-            if (found != 0) {
-                *found = &character->backpack[slot];
-            }
-            return true;
-        }
-    }
-    if (found != 0) {
-        *found = 0;
-    }
-    return false;
+    return item.iItemNo != -1 && g_item_records[item.iItemNo].unidentified_name_index == item_kind;
 }
 
-/* The whole-party find for one item: the item in hand first, then every
-   occupied slot, and - when the caller asks for the pool - the party item
-   pool. The resume item skips everything up to and including itself, which
-   is how a caller walks a stack of matches. */
-bool FindItemOnParty(int item_id, W8ItemInstance** found, W8Character** found_character,
-                     int include_backpack, const W8ItemInstance* resume_after)
+W8ItemInstance* FindCharacterItem(W8Character& character, W8ItemMatch match, W8ItemReach reach)
 {
-    if (found_character != 0) {
-        *found_character = 0;
-    }
-    if ((resume_after == 0 || resume_after == &g_status.party.held.item) &&
-        (g_status.party.held.item.iItemNo != -1) && g_status.party.held.item.iItemNo == item_id) {
-        if (found != 0) {
-            *found = &g_status.party.held.item;
-        }
-        return true;
-    }
+    if (auto* item = std::ranges::find_if(character.EquippedItem, match);
+        item != std::end(character.EquippedItem))
+        return item;
+    if (reach == W8ItemReach::Worn) return nullptr;
+    auto* item = std::ranges::find_if(character.backpack, match);
+    return item != std::end(character.backpack) ? item : nullptr;
+}
 
-    for (int party_slot = 0; party_slot < 8; ++party_slot) {
-        if (g_status.party.rows[party_slot].fOccupied &&
-            FindItemOnCharacter(&g_status.party.characters[party_slot], item_id, found,
-                                include_backpack, resume_after)) {
-            if (found_character != 0) {
-                *found_character = &g_status.party.characters[party_slot];
-            }
-            return true;
-        }
-    }
-
-    if (include_backpack == 2) {
-        unsigned int index = 0;
-        if (resume_after != 0) {
-            while (index < g_status.party.item_count &&
-                   &g_status.party.item_pool[index] != resume_after) {
-                ++index;
-            }
-            ++index;
-        }
-        for (; index < g_status.party.item_count; ++index) {
-            W8ItemInstance* item = &g_status.party.item_pool[index];
-            if (item->iItemNo == item_id) {
-                if (found != 0) {
-                    *found = item;
-                }
-                return true;
-            }
-        }
-    }
-
-    if (found != 0) {
-        *found = 0;
-    }
-    return false;
+W8ItemLocation FindPartyItem(W8ItemMatch match, W8ItemReach reach)
+{
+    auto& party = g_status.party;
+    if (party.held.item.iItemNo != -1 && match(party.held.item)) return {W8ItemStorage::Hand};
+    for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
+        if (party.rows[slot].fOccupied)
+            if (const auto* item = FindCharacterItem(party.characters[slot], match, reach))
+                return party.locateItem(item);
+    if (reach != W8ItemReach::Party) return {};
+    const auto pool = std::span{party.item_pool}.first(party.item_count);
+    const auto found = std::ranges::find_if(pool, match);
+    if (found == pool.end()) return {};
+    return {W8ItemStorage::Pool, 0, static_cast<unsigned int>(found - pool.begin())};
 }
 
 /* How many of one item a character holds, counting a stack as its count and
-   anything else as one, and optionally reporting the first slot it is in. */
-int CountItemOnCharacter(W8Character* character, int item_id, W8ItemInstance** first,
-                         int include_backpack)
+   anything else as one. */
+unsigned int CountCharacterItem(const W8Character& character, int item_id, W8ItemReach reach)
 {
-    int total = 0;
-    int slot;
-
-    for (slot = 0; slot < 12; ++slot) {
-        if (character->EquippedItem[slot].iItemNo == item_id) {
-            total += character->EquippedItem[slot].stack_count == 0
-                         ? 1
-                         : character->EquippedItem[slot].stack_count;
-            if (first != 0 && *first == 0) {
-                *first = &character->EquippedItem[slot];
-            }
-        }
-    }
-    if (include_backpack != 0) {
-        for (slot = 0; slot < 8; ++slot) {
-            if (character->backpack[slot].iItemNo == item_id) {
-                /* Bug: this counts the equipped slot with the same index. */
-                total += character->EquippedItem[slot].stack_count == 0
-                             ? 1
-                             : character->EquippedItem[slot].stack_count;
-                if (first != 0 && *first == 0) {
-                    *first = &character->backpack[slot];
-                }
-            }
-        }
-    }
-    return total;
-}
-
-/* The whole-party counterpart of the count: the item in hand, every occupied
-   slot, and the party item pool when the caller asks for it. */
-unsigned int CountItemOnParty(int item_id, W8ItemInstance** found, W8Character** first_holder,
-                              int include_backpack)
-{
+    const auto units = [](const W8ItemInstance& item) {
+        return item.stack_count == 0 ? 1u : item.stack_count;
+    };
     unsigned int total = 0;
-
-    if (first_holder != 0) {
-        *first_holder = 0;
-    }
-    if (found != 0) {
-        *found = 0;
-    }
-    if ((g_status.party.held.item.iItemNo != -1) && g_status.party.held.item.iItemNo == item_id) {
-        total = g_status.party.held.item.stack_count;
-        if (found != 0 && *found == 0) {
-            *found = &g_status.party.held.item;
-        }
-    }
-
-    for (unsigned int party_slot = 0; party_slot < 8; ++party_slot) {
-        if (g_status.party.rows[party_slot].fOccupied) {
-            int count = CountItemOnCharacter(&g_status.party.characters[party_slot], item_id, found,
-                                             include_backpack);
-            if (count != 0) {
-                total += count;
-                if (first_holder != 0 && *first_holder == 0) {
-                    *first_holder = &g_status.party.characters[party_slot];
-                }
-            }
-        }
-    }
-
-    if (include_backpack == 2) {
-        for (unsigned int index = 0; index < g_status.party.item_count; ++index) {
-            W8ItemInstance* item = &g_status.party.item_pool[index];
-            if (item->iItemNo == item_id) {
-                total += item->stack_count == 0 ? 1 : item->stack_count;
-                if (found != 0 && *found == 0) {
-                    *found = item;
-                }
-            }
-        }
-    }
+    for (const auto& item : character.EquippedItem)
+        if (item.iItemNo == item_id) total += units(item);
+    if (reach == W8ItemReach::Worn) return total;
+    for (unsigned int slot = 0; slot < 8; ++slot)
+        if (character.backpack[slot].iItemNo == item_id)
+            /* Bug: this counts the equipped slot with the same index. */
+            total += units(character.EquippedItem[slot]);
     return total;
 }
 
-/* Whether every occupied party slot holds one item. The first character who
-   does not settles it. */
-bool EveryCharacterHasItem(int item_id, int include_backpack)
+/* The whole-party counterpart: the item in hand, every occupied slot's carried
+   items, and the party item pool. The held stack counts its size as stored. */
+unsigned int CountPartyItem(int item_id)
 {
-    unsigned int party_slot;
-
-    for (party_slot = 0; party_slot < 8; ++party_slot) {
-        if (g_status.party.rows[party_slot].fOccupied) {
-            if (!FindItemOnCharacter(&g_status.party.characters[party_slot], item_id, 0,
-                                     include_backpack, 0)) {
-                return false;
-            }
-        }
-    }
-    return true;
+    const auto& party = g_status.party;
+    unsigned int total = 0;
+    if (party.held.item.iItemNo != -1 && party.held.item.iItemNo == item_id)
+        total = party.held.item.stack_count;
+    for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
+        if (party.rows[slot].fOccupied)
+            total += CountCharacterItem(party.characters[slot], item_id, W8ItemReach::Carried);
+    for (const auto& item : std::span{party.item_pool}.first(party.item_count))
+        if (item.iItemNo == item_id) total += item.stack_count == 0 ? 1 : item.stack_count;
+    return total;
 }
 
-bool FindCharacterItemByDatabaseKind(W8Character* character, short item_kind, W8ItemInstance** out,
-                                     int include_backpack)
+bool EveryCharacterHasItem(int item_id, W8ItemReach reach)
 {
-    for (int slot = 0; slot < 12; ++slot) {
-        W8ItemInstance* item = &character->EquippedItem[slot];
-        if (item->iItemNo != -1 &&
-            g_item_records[item->iItemNo].unidentified_name_index == item_kind) {
-            if (out != 0) {
-                *out = item;
-            }
-            return true;
-        }
-    }
-    if (include_backpack != 0) {
-        for (int slot = 0; slot < 8; ++slot) {
-            W8ItemInstance* item = &character->backpack[slot];
-            if (item->iItemNo != -1 &&
-                g_item_records[item->iItemNo].unidentified_name_index == item_kind) {
-                if (out != 0) {
-                    *out = item;
-                }
-                return true;
-            }
-        }
-    }
-    if (out != 0) {
-        *out = 0;
-    }
-    return false;
+    for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
+        if (g_status.party.rows[slot].fOccupied &&
+            !FindCharacterItem(g_status.party.characters[slot], ItemWithId(item_id), reach))
+            return false;
+    return true;
 }
 
 /* At what range an item's spell works. An item with no spell has no range at
@@ -3146,7 +2986,6 @@ static bool ConsumeItemUse(W8ItemInstance* item, bool remove_exhausted)
    when its uses ran out. */
 static W8ItemLocation MergePartnerUses(W8Character* character, W8ItemInstance* item)
 {
-    W8ItemInstance* partner;
     int item_id = item->iItemNo;
     short related_kind;
 
@@ -3156,7 +2995,8 @@ static W8ItemLocation MergePartnerUses(W8Character* character, W8ItemInstance* i
 
     if (!GetItemMergeKind(item_id, &related_kind)) return {};
 
-    if (FindCharacterItemByDatabaseKind(character, related_kind, &partner, 1)) {
+    if (auto* partner =
+            FindCharacterItem(*character, ItemOfKind(related_kind), W8ItemReach::Carried)) {
         const auto location = g_status.party.locateItem(partner);
         const bool emptied = MergeUses(item, partner);
         PostCharacterNotice(CharacterPointerToPartySlot(character), g_localized_strings[0x1d4]);
@@ -3331,57 +3171,6 @@ static void SplitThrowableStack(W8Character* character, W8EquipSlot equip_slot)
     MoveItem(&character->EquippedItem[equip_slot], &created);
 }
 
-/* The whole-party counterpart of FindCharacterItemByDatabaseKind: the item in
-   hand first, then every occupied slot, then the party pool when the caller asks
-   for it. The character that held the match comes back through the third
-   output. */
-bool FindItemByDatabaseKindOnParty(unsigned short item_kind, W8ItemInstance** found,
-                                   W8Character** found_character, int include_backpack)
-{
-    if (found_character != 0) {
-        *found_character = 0;
-    }
-
-    if ((g_status.party.held.item.iItemNo != -1) &&
-        g_item_records[g_status.party.held.item.iItemNo].unidentified_name_index == item_kind) {
-        if (found != 0) {
-            *found = &g_status.party.held.item;
-        }
-        return true;
-    }
-
-    for (unsigned int slot = 0; slot < 8; ++slot) {
-        if (!g_status.party.rows[slot].fOccupied) {
-            continue;
-        }
-        W8Character* character = &g_status.party.characters[slot];
-        if (FindCharacterItemByDatabaseKind(character, item_kind, found, include_backpack)) {
-            if (found_character != 0) {
-                *found_character = character;
-            }
-            return true;
-        }
-    }
-
-    if (include_backpack == 2) {
-        for (unsigned int index = 0; index < g_status.party.item_count; ++index) {
-            W8ItemInstance* entry = &g_status.party.item_pool[index];
-            if (entry->iItemNo != -1 &&
-                g_item_records[entry->iItemNo].unidentified_name_index == item_kind) {
-                if (found != 0) {
-                    *found = entry;
-                }
-                return true;
-            }
-        }
-    }
-
-    if (found != 0) {
-        *found = 0;
-    }
-    return false;
-}
-
 /* Give the character the class item their current profession level earns. The
    ladder answers with the item id and the notice to show; the first tier hands
    over the welcome item outright, the top tier replaces nothing, and an item
@@ -3398,7 +3187,7 @@ static W8ItemLocation UpgradeClassItem(W8Character* character)
     case 2:
         return {};
     case 1: {
-        if (FindCharacterItemByDatabaseKind(character, 0x83, &found, 1)) {
+        if (FindCharacterItem(*character, ItemOfKind(0x83), W8ItemReach::Carried)) {
             return {};
         }
         created = MakeItem(599, false, true, true);
@@ -3472,9 +3261,9 @@ static W8ItemLocation UpgradeClassItem(W8Character* character)
         break;
     }
 
-    if ((FindCharacterItemByDatabaseKind(character, 0x83, &found, 1) ||
-         FindItemByDatabaseKindOnParty(0x83, &found, 0, 2)) &&
-        found != 0 && found->iItemNo < item_id) {
+    found = FindCharacterItem(*character, ItemOfKind(0x83), W8ItemReach::Carried);
+    if (!found) found = g_status.party.itemAt(FindPartyItem(ItemOfKind(0x83), W8ItemReach::Party));
+    if (found && found->iItemNo < item_id) {
         found->iItemNo = item_id;
         PostCharacterNotice(
             CharacterPointerToPartySlot(character),
@@ -3513,8 +3302,9 @@ bool RemovePartyItemByID(int item_id, bool remove_all)
         if (!party.rows[slot].fOccupied) {
             continue;
         }
-        W8ItemInstance* found = 0;
-        if (!FindItemOnCharacter(&party.characters[slot], item_id, &found, 1, 0)) {
+        const auto* found =
+            FindCharacterItem(party.characters[slot], ItemWithId(item_id), W8ItemReach::Carried);
+        if (!found) {
             continue;
         }
         removed.push_back(party.locateItem(found));

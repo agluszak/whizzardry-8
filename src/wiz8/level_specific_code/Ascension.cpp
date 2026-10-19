@@ -50,13 +50,13 @@ int CountAscensionPeakItems(void)
 {
     int count = 0;
 
-    if (FindItemOnParty(0x242, 0, 0, 2, 0)) {
+    if (PartyHasItem(0x242)) {
         count = 1;
     }
-    if (FindItemOnParty(0x243, 0, 0, 2, 0)) {
+    if (PartyHasItem(0x243)) {
         ++count;
     }
-    if (FindItemOnParty(0x244, 0, 0, 2, 0)) {
+    if (PartyHasItem(0x244)) {
         ++count;
     }
     return count;
@@ -135,7 +135,7 @@ static void spawnAlfieAt(const char* entity, int monster_id)
    party carries the Astral Dominae (0x244). */
 unsigned char SpawnAlfieChaos(int)
 {
-    if (!FindItemOnParty(0x244, 0, 0, 2, 0)) {
+    if (!PartyHasItem(0x244)) {
         return 0;
     }
     spawnAlfieAt("NP_AlfieChaos", 0xae);
@@ -272,7 +272,7 @@ static bool answerAletheides(Trigger* pTrigger, const char* active_var, int reli
     }
     g_npc_dialogue.Queue(W8NpcCommand::begin_scripted_world_action);
     g_npc_dialogue.Queue(W8NpcPortraitString{0x71e});
-    if (!FindItemOnParty(relic_item, 0, 0, 2, 0)) {
+    if (!PartyHasItem(relic_item)) {
         g_npc_dialogue.Queue(W8NpcPortraitString{0x71f});
     } else {
         SetTriggerVariableByName(active_var, 1);

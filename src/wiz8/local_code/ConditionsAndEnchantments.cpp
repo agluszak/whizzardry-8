@@ -134,9 +134,6 @@ void RemoveCharacterCondition(int party_slot, W8Condition condition, bool announ
 {
     W8Character* character = &g_status.party.characters[party_slot];
     W8PartySlotRow* row = &g_status.party.rows[party_slot];
-    W8ItemInstance* found_item;
-    W8Character* found_character;
-
     if (character->uiCondition[condition] != 0 || !g_status.world_suspended) {
         if (!row->fOccupied) {
             Fail("fCHAR_OCCUPIED(uiChar)");
@@ -150,15 +147,15 @@ void RemoveCharacterCondition(int party_slot, W8Condition condition, bool announ
                 GetLevelBand(GetLoadedLevelID()) != '\n') {
                 return;
             }
-        } else if (condition == W8_CONDITION_INSANE &&
-                   FindItemOnParty(0x243, &found_item, &found_character, 2, 0) &&
-                   found_item != &g_status.party.held.item) {
-            if (found_character == 0) {
-                found_character = FindPartyMemberWithLowestResistance4();
+        } else if (const auto found = FindPartyItem(ItemWithId(0x243), W8ItemReach::Party);
+                   condition == W8_CONDITION_INSANE && found.storage != W8ItemStorage::None &&
+                   found.storage != W8ItemStorage::Hand) {
+            W8Character* holder = g_status.party.holderOf(found);
+            if (!holder) {
+                holder = FindPartyMemberWithLowestResistance4();
             }
-            if (CharacterPointerToPartySlot(found_character) ==
-                    static_cast<unsigned int>(party_slot) &&
-                !FindItemOnCharacter(found_character, 0x239, 0, 0, 0)) {
+            if (CharacterPointerToPartySlot(holder) == static_cast<unsigned int>(party_slot) &&
+                !FindCharacterItem(*holder, ItemWithId(0x239), W8ItemReach::Worn)) {
                 return;
             }
         }

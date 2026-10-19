@@ -40,6 +40,8 @@ struct W8Party {
     W8ItemInstance* itemAt(W8ItemLocation location);
     const W8ItemInstance* itemAt(W8ItemLocation location) const;
     std::optional<unsigned int> slotOf(const W8Character& character) const;
+    // The member whose equipment or backpack a location names; none for the hand or pool.
+    W8Character* holderOf(W8ItemLocation location);
 
     // Storage only: no legality checks and no gameplay consequences. An emptied pool
     // entry closes up; an emptied hand forgets where its item came from.

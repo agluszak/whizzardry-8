@@ -53,6 +53,14 @@ std::optional<unsigned int> W8Party::slotOf(const W8Character& character) const
     return {};
 }
 
+W8Character* W8Party::holderOf(W8ItemLocation location)
+{
+    const bool carried =
+        location.storage == W8ItemStorage::Equipment || location.storage == W8ItemStorage::Backpack;
+    return carried && location.character < W8_PARTY_SLOT_COUNT ? &characters[location.character]
+                                                               : nullptr;
+}
+
 W8ItemInstance W8Party::take(W8ItemLocation location)
 {
     auto* item = itemAt(location);

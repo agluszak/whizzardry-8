@@ -1180,7 +1180,7 @@ void Trigger::Run(int source)
             }
             W8DoorTriggerActionData* action_data = doorData();
             if (action_data != 0 && action_data->locked && action_data->item != -1) {
-                if (!FindItemOnParty(action_data->item, 0, 0, 2, 0)) {
+                if (!PartyHasItem(action_data->item)) {
                     ShowNotice(W8_FONT_PALETTE_BLUE, "Your party doesn't have required key.");
                     break;
                 }
@@ -1245,7 +1245,7 @@ void Trigger::Run(int source)
             bool was_active;
 
             if (action_data != 0 && action_data->locked && action_data->item != -1) {
-                if (!FindItemOnParty(action_data->item, 0, 0, 2, 0)) {
+                if (!PartyHasItem(action_data->item)) {
                     ShowNotice(W8_FONT_PALETTE_BLUE, "Your party doesn't have required key.");
                     break;
                 }
