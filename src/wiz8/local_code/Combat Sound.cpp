@@ -180,21 +180,21 @@ void MakePCAttackSound(W8CombatCharacterRow* row, const W8HandAttack* hand_attac
     PlayCombatSound(g_weapon_attack_sounds[weapon_class], 1, store_handle, volume);
 }
 
-static int GetCombatTargetMaterial(W8CombatSlot* target, int hit_location, int assertion_line)
+static std::optional<int> GetCombatTargetMaterial(W8CombatSlot* target, int hit_location,
+                                                  int assertion_line)
 {
-    int target_material = -1;
     if (target->iType == W8_TARGET_KIND_CHARACTER) {
         const W8Character* character = &g_status.buffers.Char[target->iChar];
         int item = PCItemInACSlot(character, hit_location);
-        target_material = item == -1 ? 0 : g_item_records[item].material;
+        return item == -1 ? 0 : g_item_records[item].material;
     } else if (target->iType == W8_TARGET_KIND_MONSTER) {
         const W8MonsterRecord* record = GetMonsterDataByLocationID(target->iMonsterID);
-        target_material = record == 0 ? 0 : record->material;
+        return record == 0 ? 0 : record->material;
     } else {
         srAssertFail("FALSE", COMBAT_SOUND_CPP, assertion_line,
                      "MakePCHitSound : Unknown target type");
+        return std::nullopt;
     }
-    return target_material;
 }
 
 // FUNCTION: WIZ8 0x00549F50
@@ -209,8 +209,8 @@ void MakePCMeleeHitSound(int iChar, const W8HandAttack* hand_attack, W8CombatSlo
         weapon_class =
             g_item_records[g_combat_state->characters[iChar].paired_item_id].weapon_sound_class;
     }
-    int target_material = GetCombatTargetMaterial(target, hit_location, 415);
-    PlayCombatSound(GetMaterialImpactSound(weapon_class, target_material), 1, true, volume);
+    if (const auto target_material = GetCombatTargetMaterial(target, hit_location, 415))
+        PlayCombatSound(GetMaterialImpactSound(weapon_class, *target_material), 1, true, volume);
 }
 
 // FUNCTION: WIZ8 0x0054A0E0
@@ -218,8 +218,8 @@ void MakePCHitSound(W8Missile* missile, W8CombatSlot* target, int hit_location, 
 {
     int weapon_class = g_missile_table[missile->missile_table_index].weapon_sound_class;
 
-    int target_material = GetCombatTargetMaterial(target, hit_location, 465);
-    PlayCombatSound(GetMaterialImpactSound(weapon_class, target_material), 1, true, volume);
+    if (const auto target_material = GetCombatTargetMaterial(target, hit_location, 465))
+        PlayCombatSound(GetMaterialImpactSound(weapon_class, *target_material), 1, true, volume);
 }
 
 // FUNCTION: WIZ8 0x0054A270
@@ -235,6 +235,6 @@ void MakeMonsterHitSound(const W8MonsterAttack* attack, W8CombatSlot* target, in
         return;
     }
     weapon_class = attack->weapon_class;
-    int target_material = GetCombatTargetMaterial(target, hit_location, 504);
-    PlayCombatSound(GetMaterialImpactSound(weapon_class, target_material), 1, true, volume);
+    if (const auto target_material = GetCombatTargetMaterial(target, hit_location, 504))
+        PlayCombatSound(GetMaterialImpactSound(weapon_class, *target_material), 1, true, volume);
 }
