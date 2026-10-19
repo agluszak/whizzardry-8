@@ -526,7 +526,6 @@ void PartyCamera::SetManualControlActive(bool enabled)
     m_orientation_flags &= ~W8_CAMERA_MANUAL_INPUT;
 }
 
-constexpr float kCameraRadiansToDegrees = 57.295784f;
 CameraRotation PartyCamera::cameraRotation(unsigned int flags, const glm::mat3& rotation)
 {
     CameraRotation result{rotation, rotation};

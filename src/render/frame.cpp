@@ -77,14 +77,11 @@
 #include "wiz8/world/camera_control.h"
 #include "wiz8/world/environment.h"
 
-constexpr double kInverseScreenHeight = 0.0020833333333333333;
-constexpr double kInverseScreenWidth = 0.0015625;
-
 void SaveJpegScreenshot(void);
 static void FlushUiUpload();
 
 /* The CPU frame buffer is the game-space UI canvas and g_ui_canvas's
-   persistent tile textures mirror it on the GPU. Invalidation accumulates one
+   streaming texture mirrors it on the GPU. Invalidation accumulates one
    bounding rectangle, uploaded once per frame before composition. */
 static SDL_Rect g_ui_upload{};
 
