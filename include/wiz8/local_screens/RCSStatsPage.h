@@ -13,7 +13,7 @@
 
 /* One row of the stats page's effect list: a character condition, an
    enchantment, or the modifiers of one equipped item. */
-enum W8CampEffectKind : int {
+enum W8CampEffectKind : unsigned char {
     W8_CAMP_EFFECT_CONDITION,
     W8_CAMP_EFFECT_ENCHANTMENT,
     W8_CAMP_EFFECT_EQUIPMENT
