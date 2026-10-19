@@ -1,9 +1,6 @@
 #include <cstdint>
-#include <limits>
-#include <optional>
 
 #include <SDL3/SDL_init.h>
-#include <SDL3/SDL_stdinc.h>
 #include <catch2/catch_test_macros.hpp>
 
 #include "wiz8/file_time.h"

@@ -20,7 +20,6 @@
 
 #include "asset_paths.h"
 #include "camera_motion.h"
-#include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"

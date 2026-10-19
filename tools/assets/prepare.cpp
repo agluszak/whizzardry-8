@@ -16,6 +16,8 @@
 #include <string_view>
 #include <vector>
 
+#include <SDL3/SDL_time.h>
+
 #include "slf.h"
 #include "wiz8/asset_paths.h"
 #include "wiz8/file_time.h"

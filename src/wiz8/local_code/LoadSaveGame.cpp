@@ -18,8 +18,11 @@
 #include <utility>
 #include <vector>
 
+#include <SDL3/SDL_error.h>
 #include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_time.h>
 #include <fmt/format.h>
 
 #include "Item.h"

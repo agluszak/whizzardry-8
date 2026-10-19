@@ -2,8 +2,10 @@
 #include <fstream>
 #include <memory>
 #include <stdexcept>
+#include <string>
 #include <string_view>
 #include <system_error>
+#include <vector>
 
 #include <catch2/catch_test_macros.hpp>
 #include <wiz8/filesystem.h>
@@ -75,6 +77,10 @@ TEST_CASE("Save copies publish writable files and preserve the old save on failu
     std::ofstream(target) << "old";
     fs::permissions(source, fs::perms::owner_read, fs::perm_options::replace);
     REQUIRE_THROWS(wiz8::copy_file(temporary.path / "missing", target));
+    REQUIRE(wiz8::open_file(target)->read_text() == "old");
+    const auto directory = temporary.path / "directory";
+    fs::create_directory(directory);
+    REQUIRE_THROWS(wiz8::copy_file(directory, target));
     REQUIRE(wiz8::open_file(target)->read_text() == "old");
     {
         struct RestoreHook {

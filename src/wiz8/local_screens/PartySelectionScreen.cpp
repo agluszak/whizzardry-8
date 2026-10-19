@@ -4,6 +4,7 @@
 #include <array>
 #include <cstring>
 #include <exception>
+#include <functional>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -14,6 +15,7 @@
 #include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
 #include <fmt/printf.h>

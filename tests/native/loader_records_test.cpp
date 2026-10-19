@@ -28,6 +28,7 @@
 #include "glm/ext/vector_float3.hpp"
 #include "save_payload.h"
 #include "scoped_asset_roots.h"
+#include "scoped_records.h"
 #include "surrender/srNode.h"
 #include "temporary_directory.h"
 #include "wiz8/chunk.h"
@@ -932,15 +933,8 @@ TEST_CASE_METHOD(LoaderFixture, "World item groups transfer ownership and preser
     auto group = ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadItem(chunk); });
     REQUIRE(group);
     REQUIRE(group->contents.size() == 2);
-    auto* first_address = group->contents[0].get();
-    auto* second_address = group->contents[1].get();
-    auto picked = std::move(group->contents);
-    group->contents.clear();
-    REQUIRE(picked[0]->runtime_id == 29);
-    REQUIRE(picked[1]->runtime_id == 31);
-    for (auto& item : picked) group->contents.push_back(std::move(item));
-    REQUIRE(group->contents[0].get() == first_address);
-    REQUIRE(group->contents[1].get() == second_address);
+    REQUIRE(group->contents[0]->runtime_id == 29);
+    REQUIRE(group->contents[1]->runtime_id == 31);
     const auto roundtrip_path = wiz8::user_path("items-roundtrip.bin");
     auto output = wiz8::open_file(roundtrip_path, wiz8::OpenMode::replace);
     group->saved_marker = 23;
@@ -959,6 +953,54 @@ TEST_CASE_METHOD(LoaderFixture, "World item groups transfer ownership and preser
     REQUIRE(defaults);
     REQUIRE((defaults->entity_flags & W8_ITEM_ENTITY_RADAR_SEEN) == 0);
     REQUIRE((defaults->contents.front()->entity_flags & W8_ITEM_ENTITY_RADAR_SEEN) == 0);
+}
+
+// Level-script entry point; exercise its saved-item transfer without loading a level.
+void LoadAwayCampChest();
+
+TEST_CASE_METHOD(LoaderFixture, "Camp chest retains every item from saved flat groups",
+                 "[loader][items]")
+{
+    const struct WorldScope {
+        std::unique_ptr<W8World> previous = ReplaceWorld(std::make_unique<W8World>());
+        ~WorldScope() { ReplaceWorld(std::move(previous)); }
+    } scope;
+    const ScopedRecords records(g_item_records, 2);
+    g_item_records[0].flags = W8_ITEM_FLAG_CONTAINER;
+    Trigger trigger(GetWorld());
+    trigger.world_item_group = std::make_unique<W8WorldItem>();
+    auto prop = std::make_unique<W8Prop>();
+    prop->name = "AwayCampChest";
+    prop->trigger = &trigger;
+    GetWorld()->plsProps.push_back(std::move(prop));
+
+    std::filesystem::create_directory(wiz8::user_path("saves"));
+    W8Chunk chunks;
+    REQUIRE(chunks.OpenWrite(wiz8::user_path("saves/CurrentGame.SAV")));
+    chunks.WriteGroup(W8ChunkId("LVLS"), [&] {
+        chunks.WriteValue(0x26);
+        chunks.WriteChunk(W8ChunkId("ITEM"), [&] {
+            chunks.WriteValue(2u);
+            // The container itself stays in the old level, while its loot is recovered.
+            // A non-container head transfers together with all of its following records.
+            for (const auto [id, kind, next] : {std::array{10, 0, 1}, std::array{11, 1, 0},
+                                                std::array{20, 1, 1}, std::array{21, 1, 0}}) {
+                wiz8::retail::WorldItem image{};
+                image.runtime_id = id;
+                image.item.iItemNo = kind;
+                image.next = next;
+                chunks.WriteValue(image);
+            }
+        });
+    });
+    chunks.Close();
+    LoadAwayCampChest();
+    const auto& contents = trigger.world_item_group->contents;
+    REQUIRE(contents.size() == 3);
+    REQUIRE(contents[0]->runtime_id == 20);
+    REQUIRE(contents[1]->runtime_id == 21);
+    REQUIRE(contents[2]->runtime_id == 11);
+    for (const auto& item : contents) REQUIRE(item->contents.empty());
 }
 
 TEST_CASE_METHOD(LoaderFixture, "Retail waypoint versions load without an editor writer",
