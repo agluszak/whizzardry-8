@@ -62,7 +62,6 @@ unsigned short g_spell_range_name_ids[4] = {1307, 1308, 1309, 1310};
 static char g_plus_space[] = "+ ";
 
 // STRING: WIZ8 0x0064FD54
-#define SPELL_INFO_DIALOG_CPP "C:\\Projects\\Wizardry 8\\Dialog Code\\SpellInfoDialog.cpp"
 
 // FUNCTION: WIZ8 0x005dbb60
 W8SpellInfoDialog::W8SpellInfoDialog(unsigned int spell)
@@ -212,7 +211,7 @@ bool W8SpellInfoDialog::PopulateText()
                 ui_units_lvl = 0x127;
             }
             if (duration_per_level != 0 && ui_units != ui_units_lvl) {
-                srAssertFail("uiUnits == uiUnitsLvl", SPELL_INFO_DIALOG_CPP, 0xc5,
+                srAssertFail("uiUnits == uiUnitsLvl",
                              fmt::format("Spell {} duration has mismatched base & per-lvl units",
                                          record->display_name));
             }

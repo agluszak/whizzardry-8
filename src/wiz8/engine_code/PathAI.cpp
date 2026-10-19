@@ -28,8 +28,6 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/gameplay_constants.h"
 
-#define PATH_AI_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\PathAI.CPP"
-
 // FUNCTION: WIZ8 0x004a9260
 bool PathAIUpdate(W8AIRecord* record, signed char direction)
 {
@@ -105,7 +103,7 @@ void PathAIApplyToRep(W8AIRecord* record, W8AnimRepBase* representation)
     }
     W8PathAI* path = static_cast<W8PathAI*>(record);
     if (path == 0 || representation == 0) {
-        srAssertFail("pPathAI&&pRep", PATH_AI_CPP, 0x595, 0);
+        srAssertFail("pPathAI&&pRep");
     }
     auto position = representation->parent_location;
     PathAIPosition(path, &position);
@@ -208,7 +206,7 @@ bool PathAIIsComplete(W8PathAI* path)
 void PathAISetValue(W8PathAI* path, float value)
 {
     if (path == 0) {
-        srAssertFail("pPathAI", PATH_AI_CPP, 0x46e, 0);
+        srAssertFail("pPathAI");
     }
     if (path->animated) {
         path->position = 0.0f;
@@ -315,7 +313,7 @@ bool PathAITick(W8PathAI* path, signed char direction)
     float point_count;
 
     if (path == 0) {
-        srAssertFail("pPathAI", PATH_AI_CPP, 0x520, 0);
+        srAssertFail("pPathAI");
     }
     now = w8_get_ticks();
     if (!path->discrete_mode && path->animated) {

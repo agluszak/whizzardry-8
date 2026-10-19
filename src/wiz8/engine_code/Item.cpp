@@ -34,8 +34,6 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/utility.h"
 
-#define ITEM_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\Item.cpp"
-
 // VTABLE: WIZ8 0x005ECD78 W8Item
 // class W8Item
 
@@ -50,7 +48,7 @@ void W8Item::DetachMesh()
 
     mesh = m_pRep->m_psrMesh.get();
     if (mesh == 0) {
-        srAssertFail("psrMesh", "C:\\Projects\\Wizardry 8\\Engine Code\\Item.cpp", 0x24f, 0);
+        srAssertFail("psrMesh");
     }
     mesh->setFlag(srNode::FLAG_DISABLE);
     mesh->setParent(0, 0);
@@ -67,8 +65,7 @@ void W8Item::ApplyRepTransform()
     srNode* mesh;
 
     if (m_pRep->m_psrMesh == 0) {
-        srAssertFail("m_pRep->m_psrMesh", "C:\\Projects\\Wizardry 8\\Engine Code\\Item.cpp", 0x266,
-                     0);
+        srAssertFail("m_pRep->m_psrMesh");
     }
     mesh = m_pRep->m_psrMesh.get();
     location = m_pRep->GetLocation();
@@ -88,14 +85,14 @@ void W8Item::AttachMesh(W8World* world)
     glm::mat3 rotation;
 
     if (world == 0) {
-        srAssertFail("pWorld", "C:\\Projects\\Wizardry 8\\Engine Code\\Item.cpp", 0x211, 0);
+        srAssertFail("pWorld");
     }
     if ((m_pRep->flags & W8_ITEM_ENTITY_MESH_LOADED) == 0) {
         return;
     }
     mesh = m_pRep->m_psrMesh.get();
     if (mesh == 0) {
-        srAssertFail("psrMesh", "C:\\Projects\\Wizardry 8\\Engine Code\\Item.cpp", 0x219, 0);
+        srAssertFail("psrMesh");
     }
     if (mesh->getChild() == 0) {
         mesh->clearFlag(srNode::FLAG_DISABLE);
@@ -206,7 +203,7 @@ try {
 void W8Item::UpdateAnimation()
 {
     if (m_pRep == 0) {
-        srAssertFail("m_pRep", ITEM_CPP, 0x1ca, 0);
+        srAssertFail("m_pRep");
     }
     W8ItemRep* rep = m_pRep.get();
     if ((rep->flags & W8_ITEM_ENTITY_MESH_LOADED) == 0) {

@@ -65,8 +65,6 @@
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 
-#define TARGETING_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Targeting.cpp"
-
 constexpr int BAD_INDEX = -1;
 
 /* Point a source at one party character. Everything is cleared first and the
@@ -76,7 +74,7 @@ constexpr int BAD_INDEX = -1;
 void SetTargetSourceToCharacter(int party_slot, W8TargetSource* source)
 {
     if (source == 0) {
-        srAssertFail("pSource != NULL", TARGETING_CPP, 0xcc9, 0);
+        srAssertFail("pSource != NULL");
     }
     memset(source, 0, sizeof(W8TargetSource));
     source->iMonsterID = BAD_INDEX;
@@ -93,7 +91,7 @@ void SetTargetSourceToCharacter(int party_slot, W8TargetSource* source)
 void SetTargetSourceToMonster(const W8MonsterInfo* monster_info, W8TargetSource* source)
 {
     if (source == 0) {
-        srAssertFail("pSource != NULL", TARGETING_CPP, 0xcd5, 0);
+        srAssertFail("pSource != NULL");
     }
     memset(source, 0, sizeof(W8TargetSource));
     source->iMonsterID = BAD_INDEX;
@@ -107,14 +105,14 @@ bool TargetSourceIsCharacter(const W8TargetSource* source, int allow_indirect)
 {
     if (source->iType == W8_TARGET_SOURCE_CHARACTER) {
         if (source->iChar == BAD_INDEX) {
-            srAssertFail("pSource->iChar != BAD_INDEX", TARGETING_CPP, 0xce3, 0);
+            srAssertFail("pSource->iChar != BAD_INDEX");
         }
         return true;
     }
     if (allow_indirect == 1 && source->iType == W8_TARGET_SOURCE_INDIRECT &&
         source->iChar != BAD_INDEX) {
         if (!source->fBackfire && !source->fReflection) {
-            srAssertFail("pSource->fBackfire || pSource->fReflection", TARGETING_CPP, 0xceb, 0);
+            srAssertFail("pSource->fBackfire || pSource->fReflection");
         }
         return true;
     }
@@ -126,14 +124,14 @@ bool TargetSourceIsMonster(const W8TargetSource* source, int allow_indirect)
 {
     if (source->iType == W8_TARGET_SOURCE_MONSTER) {
         if (source->iMonsterID == BAD_INDEX) {
-            srAssertFail("pSource->iMonsterID != BAD_INDEX", TARGETING_CPP, 0xcf8, 0);
+            srAssertFail("pSource->iMonsterID != BAD_INDEX");
         }
         return true;
     }
     if (allow_indirect == 1 && source->iType == W8_TARGET_SOURCE_INDIRECT &&
         source->iMonsterID != BAD_INDEX) {
         if (!source->fBackfire && !source->fReflection) {
-            srAssertFail("pSource->fBackfire || pSource->fReflection", TARGETING_CPP, 0xd00, 0);
+            srAssertFail("pSource->fBackfire || pSource->fReflection");
         }
         return true;
     }
@@ -180,17 +178,17 @@ bool ShouldClearAimForAppliedTarget(W8TargetSource* source, W8CombatSlot* target
     }
     if (source->iType == W8_TARGET_SOURCE_CHARACTER) {
         if (source->iChar == BAD_INDEX) {
-            srAssertFail("pSource->iChar != BAD_INDEX", TARGETING_CPP, 0xce3, 0);
+            srAssertFail("pSource->iChar != BAD_INDEX");
         }
         source_hostile =
             g_status.buffers.Char[source->iChar].uiCondition[W8_CONDITION_TURNCOAT] != 0;
     } else {
         if (source->iType != W8_TARGET_SOURCE_MONSTER) {
-            srAssertFail("FALSE", TARGETING_CPP, 0xdf9, 0);
+            srAssertFail("FALSE");
             return false;
         }
         if (source->iMonsterID == BAD_INDEX) {
-            srAssertFail("pSource->iMonsterID != BAD_INDEX", TARGETING_CPP, 0xcf8, 0);
+            srAssertFail("pSource->iMonsterID != BAD_INDEX");
         }
         source_hostile = FindMonster(source->iMonsterID)->ubDisposition == W8_DISPOSITION_HOSTILE;
     }
@@ -203,7 +201,7 @@ bool ShouldClearAimForAppliedTarget(W8TargetSource* source, W8CombatSlot* target
         target_hostile =
             FindMonsterGroup(target->iGroupID)->ubDisposition == W8_DISPOSITION_HOSTILE;
     } else {
-        srAssertFail("FALSE", TARGETING_CPP, 0xe11, 0);
+        srAssertFail("FALSE");
         return false;
     }
     if (source_hostile == target_hostile) {
@@ -548,7 +546,7 @@ unsigned char ShowMonsterTargetMarker(W8MonsterInfo* monster_info)
     glm::vec3 eye;
 
     if (monster_info == 0) {
-        srAssertFail("pMonsterInfo", TARGETING_CPP, 2040, 0);
+        srAssertFail("pMonsterInfo");
     }
     eye = cameraLocation();
     const auto bounds = MonsterGetWorldAnimationBounds(monster_info->p3D);
@@ -806,7 +804,7 @@ static int ChooseMonsterTarget(int party_slot, const W8Action& action,
                 quadrant == 2 || (!AnyoneStandsAhead(quadrant) && AnyoneStandsAhead(4));
         }
         if (monster_info->uiHPMax == 0) {
-            srAssertFail("pMonsterInfo->uiHPMax > 0", TARGETING_CPP, 0xeac, 0);
+            srAssertFail("pMonsterInfo->uiHPMax > 0");
         }
         if (!best || priority(candidate) < priority(*best)) best = candidate;
     }
@@ -836,7 +834,7 @@ bool IsTargetStillPresent(const W8CombatSlot* target)
     switch (target->iType) {
     case W8_TARGET_KIND_CHARACTER:
         if (target->iChar == BAD_INDEX) {
-            srAssertFail("pTarget->iChar != BAD_INDEX", TARGETING_CPP, 0x6c, 0);
+            srAssertFail("pTarget->iChar != BAD_INDEX");
         }
         if (!CanPartySlotParticipate(target->iChar)) {
             return false;
@@ -845,7 +843,7 @@ bool IsTargetStillPresent(const W8CombatSlot* target)
 
     case W8_TARGET_KIND_CHARACTER_INDIRECT:
         if (target->iChar == BAD_INDEX) {
-            srAssertFail("pTarget->iChar != BAD_INDEX", TARGETING_CPP, 0x75, 0);
+            srAssertFail("pTarget->iChar != BAD_INDEX");
         }
         if (g_status.buffers.XChar[target->iChar].fOccupied == 0 ||
             g_status.buffers.Char[target->iChar].hp_current != 0 ||
@@ -860,14 +858,14 @@ bool IsTargetStillPresent(const W8CombatSlot* target)
         W8MonsterInfo* monster_info;
 
         if (target->iMonsterID == BAD_INDEX) {
-            srAssertFail("pTarget->iMonsterID != BAD_INDEX", TARGETING_CPP, 0x7e, 0);
+            srAssertFail("pTarget->iMonsterID != BAD_INDEX");
         }
         monster_info = FindMonster(target->iMonsterID, false);
         if (monster_info == 0) {
             return false;
         }
         if (monster_info == 0) {
-            srAssertFail("pMonsterInfo != NULL", TARGETING_CPP, 0x88, 0);
+            srAssertFail("pMonsterInfo != NULL");
         }
         if (monster_info->hp_current == 0 ||
             monster_info->uiCondition[W8_CONDITION_REACHABLE_WHEN_DOWN] != 0 ||
@@ -881,14 +879,14 @@ bool IsTargetStillPresent(const W8CombatSlot* target)
         W8MonsterGroup* group;
 
         if (target->iGroupID == BAD_INDEX) {
-            srAssertFail("pTarget->iGroupID != BAD_INDEX", TARGETING_CPP, 0x99, 0);
+            srAssertFail("pTarget->iGroupID != BAD_INDEX");
         }
         group = FindMonsterGroup(target->iGroupID, false);
         if (group == nullptr) {
             return false;
         }
         if (group == 0) {
-            srAssertFail("pMonsterGroup != NULL", TARGETING_CPP, 0xa3, 0);
+            srAssertFail("pMonsterGroup != NULL");
         }
         if (group->MemberCount() == 0 || !group->members_active) {
             return false;
@@ -898,7 +896,7 @@ bool IsTargetStillPresent(const W8CombatSlot* target)
 
     case W8_TARGET_KIND_ITEM:
         if (target->pPCItem == 0) {
-            srAssertFail("pTarget->pPCItem != NULL", TARGETING_CPP, 0xb4, 0);
+            srAssertFail("pTarget->pPCItem != NULL");
         }
         if (target->pPCItem->iItemNo == BAD_INDEX) {
             return false;
@@ -1101,18 +1099,18 @@ bool IsTargetSourceInRangeOfGroup(const W8TargetSource* source, W8MonsterGroup* 
     source_monster = 0;
     if (source->iType == W8_TARGET_SOURCE_CHARACTER) {
         if (source->iChar == BAD_INDEX) {
-            srAssertFail("pSource->iChar != BAD_INDEX", TARGETING_CPP, 0xce3, 0);
+            srAssertFail("pSource->iChar != BAD_INDEX");
         }
     } else {
         if (source->iType != W8_TARGET_SOURCE_MONSTER) {
-            srAssertFail("FALSE", TARGETING_CPP, 0x34b, 0);
+            srAssertFail("FALSE");
             return false;
         }
         if (source->iMonsterID == BAD_INDEX) {
-            srAssertFail("pSource->iMonsterID != BAD_INDEX", TARGETING_CPP, 0xcf8, 0);
+            srAssertFail("pSource->iMonsterID != BAD_INDEX");
         }
         if (source->iMonsterID == BAD_INDEX) {
-            srAssertFail("pSource->iMonsterID != -1", TARGETING_CPP, 0x343, 0);
+            srAssertFail("pSource->iMonsterID != -1");
         }
         monster_info = FindMonster(source->iMonsterID);
         source_monster = GetMonsterByLocationID(source->iMonsterID);
@@ -1125,12 +1123,12 @@ bool IsTargetSourceInRangeOfGroup(const W8TargetSource* source, W8MonsterGroup* 
 
         if (source->iType == W8_TARGET_SOURCE_CHARACTER) {
             if (source->iChar == BAD_INDEX) {
-                srAssertFail("pSource->iChar != BAD_INDEX", TARGETING_CPP, 0xce3, 0);
+                srAssertFail("pSource->iChar != BAD_INDEX");
             }
             distance = member->GetDistanceToPlayer();
         } else if (source->iType == W8_TARGET_SOURCE_MONSTER) {
             if (source->iMonsterID == BAD_INDEX) {
-                srAssertFail("pSource->iMonsterID != BAD_INDEX", TARGETING_CPP, 0xcf8, 0);
+                srAssertFail("pSource->iMonsterID != BAD_INDEX");
             }
             distance = member->GetDistanceToMonster(source_monster);
         }
@@ -1252,7 +1250,7 @@ bool RepickActionTarget(int party_slot, W8TargetingContext context, int arg)
     const auto kind = selected_action.kind;
     const auto* target = &selected_action.target;
     if (target == 0) {
-        srAssertFail("pTarget", TARGETING_CPP, 0xfc, 0);
+        srAssertFail("pTarget");
     }
     needed = GetTargetNeededForAction(selected_action);
     previous_kind = target->iType;
@@ -1825,7 +1823,7 @@ void RefreshMonsterTargetCounts(void)
                 continue;
             }
             if (monster_info == 0) {
-                srAssertFail("pMonsterInfo", TARGETING_CPP, 0x7f8, 0);
+                srAssertFail("pMonsterInfo");
             }
             camera = cameraLocation();
             const auto bounds = MonsterGetWorldAnimationBounds(monster_info->p3D);
@@ -1959,16 +1957,16 @@ unsigned char SourceCanSeeMonster(const W8TargetSource* source, W8MonsterInfo* m
 {
     if (source->iType == W8_TARGET_SOURCE_CHARACTER) {
         if (source->iChar == -1) {
-            srAssertFail("pSource->iChar != BAD_INDEX", TARGETING_CPP, 0xce3, 0);
+            srAssertFail("pSource->iChar != BAD_INDEX");
         }
         return monster_info->party_threat.los_flags[flag_index];
     }
     if (source->iType == W8_TARGET_SOURCE_MONSTER) {
         if (source->iMonsterID == -1) {
-            srAssertFail("pSource->iMonsterID != BAD_INDEX", TARGETING_CPP, 0xcf8, 0);
+            srAssertFail("pSource->iMonsterID != BAD_INDEX");
         }
         if (source->iMonsterID == -1) {
-            srAssertFail("pSource->iMonsterID != -1", TARGETING_CPP, 0x84c, 0);
+            srAssertFail("pSource->iMonsterID != -1");
         }
         W8MonsterInfo* source_info = FindMonster(source->iMonsterID);
         W8VisibilityRecord* visibility = FindMonToMonVisibility(source_info, monster_info);
@@ -1978,7 +1976,7 @@ unsigned char SourceCanSeeMonster(const W8TargetSource* source, W8MonsterInfo* m
         return 0;
     }
     if (source->iType != W8_TARGET_SOURCE_INDIRECT) {
-        srAssertFail("pSource->iType == SOURCE_TYPE_3D_POINT", TARGETING_CPP, 0x854, 0);
+        srAssertFail("pSource->iType == SOURCE_TYPE_3D_POINT");
     }
     return monster_info->p3D->HasLineOfSightFromPoint(source->point);
 }

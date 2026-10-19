@@ -183,8 +183,8 @@ Trigger* FindRequiredTriggerByName(const char* name, std::source_location caller
 {
     Trigger* trigger = FindTriggerByName(name);
     if (trigger == nullptr) {
-        srAssertFail("required trigger", caller.file_name(), caller.line(),
-                     fmt::format("Missing trigger '{}'! It's not in the LVL file!", name));
+        srAssertFail("required trigger",
+                     fmt::format("Missing trigger '{}'! It's not in the LVL file!", name), caller);
     }
     return trigger;
 }
@@ -406,13 +406,12 @@ try {
 /* Serialize one trigger for the save file. The header carries a version byte
    and the action-state block; the action payload follows only when one is
    attached, with its flag bits packed and the timed-event delay resolved from
-   the live event queue. Returns whether the header went out completely. */
+   the live event queue. I/O failures propagate to the staged save. */
 // FUNCTION: WIZ8 0x0043BE60
-bool Trigger::Save(wiz8::File& hFile)
+void Trigger::Save(wiz8::File& hFile)
 {
     unsigned char version = 5;
     int trigger_count = static_cast<int>(GetWorld()->triggers.size());
-    bool header_ok;
     W8TriggerActionData* action_data;
     unsigned char has_action_data;
     unsigned char action_type;
@@ -421,14 +420,15 @@ bool Trigger::Save(wiz8::File& hFile)
     unsigned int progress_delay;
     unsigned char has_world_item;
 
-    header_ok = (hFile.write(&version, sizeof(version)), true) &&
-                (hFile.write(&trigger_count, sizeof(trigger_count)), true) &&
-                (hFile.write(name, 0x80), true) && (hFile.write(&flags, sizeof(flags)), true) &&
-                (hFile.write(&state_index, sizeof(state_index)), true) &&
-                (hFile.write(&state_direction, sizeof(state_direction)), true) &&
-                (hFile.write(&action, sizeof(action)), true) &&
-                (hFile.write(&action_state, sizeof(action_state)), true) &&
-                (hFile.write(&required_item_id, sizeof(required_item_id)), true);
+    hFile.write(&version, sizeof(version));
+    hFile.write(&trigger_count, sizeof(trigger_count));
+    hFile.write(name, 0x80);
+    hFile.write(&flags, sizeof(flags));
+    hFile.write(&state_index, sizeof(state_index));
+    hFile.write(&state_direction, sizeof(state_direction));
+    hFile.write(&action, sizeof(action));
+    hFile.write(&action_state, sizeof(action_state));
+    hFile.write(&required_item_id, sizeof(required_item_id));
     action_data = m_pActionData.get();
     has_action_data = action_data != 0;
     hFile.write(&has_action_data, sizeof(has_action_data));
@@ -471,13 +471,12 @@ bool Trigger::Save(wiz8::File& hFile)
     has_world_item = world_item_group != 0;
     hFile.write(&has_world_item, sizeof(has_world_item));
     if (has_world_item != 0) {
-        SaveItemFile(hFile, world_item_group.get());
+        SaveItemFile(hFile, *world_item_group);
     }
     hFile.write(&items_generated, sizeof(items_generated));
     hFile.write(&item_group_seed, sizeof(item_group_seed));
     hFile.write(&gold, sizeof(gold));
     hFile.write(&uses_remaining, sizeof(uses_remaining));
-    return header_ok;
 }
 
 /* One door flag is stored as a byte whose low bit is the flag. */
@@ -522,8 +521,7 @@ try {
             unsigned short item;
 
             if (pDoor == 0) {
-                srAssertFail("pDoor", "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0x20b,
-                             0);
+                srAssertFail("pDoor");
             }
             m_pActionData = std::move(pDoorOwner);
             pDoor->type = W8_TRIGGER_PAYLOAD_DOOR;
@@ -634,18 +632,11 @@ try {
     return false;
 }
 
-/* Write every trigger of a world for the save file's trigger chunk. A trigger
-   whose own serialization reports failure stops the walk. */
+/* Write each trigger; failures propagate to the staged save. */
 // FUNCTION: WIZ8 0x0043C810
 void SaveWorldTriggers(wiz8::File& hFile)
 {
-    auto* triggers = &GetWorld()->triggers;
-
-    for (int index = 0; index < static_cast<int>(triggers->size()); ++index) {
-        if (!((*triggers)[index])->Save(hFile)) {
-            return;
-        }
-    }
+    for (const auto& trigger : GetWorld()->triggers) trigger->Save(hFile);
 }
 
 // FUNCTION: WIZ8 0x0043d120
@@ -1085,8 +1076,7 @@ void InitializeStateDrivenPropVariables(Trigger* trigger)
         char name[132];
 
         if (trigger->m_bRepType != W8_TRIGGER_REP_PROP) {
-            srAssertFail("m_bRepType == TRIGGER_REP_PROP", "..\\Engine Code\\Include\\Trigger.hpp",
-                         0x3ed, 0);
+            srAssertFail("m_bRepType == TRIGGER_REP_PROP");
         }
         snprintf(name, sizeof(name), "%s%d", trigger->state_to_modify.c_str(), slot);
         CreateLocationVar(name, slot == 0);
@@ -1097,7 +1087,7 @@ void InitializeStateDrivenPropVariables(Trigger* trigger)
 void SetTriggerVariableByName(const char* name, int value)
 {
     const int index = GetLocationVarIDByName(name);
-    if (index < 0) srAssertFail("Unknown location variable", __FILE__, __LINE__, "%s", name);
+    if (index < 0) srAssertFail("Unknown location variable", name);
     location_variables[index].value = value;
 }
 
@@ -1185,7 +1175,7 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
     unsigned char record_version = 0;
     unsigned char record_type = 0;
     if (handle == 0) {
-        srAssertFail("hFile", "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0xca3, 0);
+        srAssertFail("hFile");
     }
     handle->read_exact(&record_version, 1);
     handle->read_exact(&record_type, 1);
@@ -1664,14 +1654,12 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, W8World* world)
                 trigger->m_lData1 >= static_cast<int>(g_missile_table.size())) {
                 srAssertFail("((pTrigger->m_lData1 >= 0) && (pTrigger->m_lData1 < "
                              "Missile::GetNumTypes()))",
-                             "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0xf14,
                              fmt::format("Trigger {}: You must enter a valid missile number",
                                          trigger->name));
             }
             if (trigger->m_lData2 == -1) {
                 srAssertFail(
                     "(pTrigger->m_lData2!=(-1))",
-                    "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0xf15,
                     fmt::format("Trigger {}: You must enter a time value in Data2", trigger->name));
             }
             if (trigger->m_lData2 < 0) {
@@ -1871,8 +1859,7 @@ void Trigger::FinishAction()
             }
         } else if (action == 0x22) {
             if (m_pActionData == 0) {
-                srAssertFail("m_pActionData", "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp",
-                             2822, "Trigger.cpp: Dark Area doesn't have action data");
+                srAssertFail("m_pActionData", "Trigger.cpp: Dark Area doesn't have action data");
             }
             SetWorldEnvironmentIntensity(
                 GetWorld(), static_cast<W8EnvironmentTriggerActionData*>(m_pActionData.get())
@@ -1912,12 +1899,11 @@ reactivate_linked_triggers:
 
 // FUNCTION: WIZ8 0x00445480
 /* The location variable a state-changing action writes. A missing variable is a retail assert. */
-static int FindModifiedLocationVar(const char* name, int line)
+static int FindModifiedLocationVar(const char* name)
 {
     const int id = GetLocationVarIDByName(name);
     if (id == -1) {
-        srAssertFail("iVar != BAD_INDEX", "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp",
-                     line, 0);
+        srAssertFail("iVar != BAD_INDEX");
     }
     return id;
 }
@@ -1948,15 +1934,15 @@ void Trigger::CommitActionResult(bool apply_state_changes)
         int state_value;
 
         if (state_mod_mode == 1) {
-            state_id = FindModifiedLocationVar(state_to_modify.c_str(), 4297);
+            state_id = FindModifiedLocationVar(state_to_modify.c_str());
             state_value = 1;
         } else if (state_mod_mode == 2) {
-            state_id = FindModifiedLocationVar(state_to_modify.c_str(), 4297);
+            state_id = FindModifiedLocationVar(state_to_modify.c_str());
             state_value = 0;
         } else if (state_mod_mode == 3) {
-            state_id = FindModifiedLocationVar(state_to_modify.c_str(), 4317);
+            state_id = FindModifiedLocationVar(state_to_modify.c_str());
             state_value = location_variables[state_id].value == 0;
-            state_id = FindModifiedLocationVar(state_to_modify.c_str(), 4297);
+            state_id = FindModifiedLocationVar(state_to_modify.c_str());
         } else {
             goto show_action_message;
         }
@@ -2092,7 +2078,7 @@ void Trigger::GenerateItemGroup()
         world_item_group = SpawnItem(0x23c, &position, 0);
     }
     for (index = 0; index < static_cast<int>(items.size()); ++index) {
-        ItemInfoAddToGroup(world_item_group.get(), std::move(items[index]));
+        world_item_group->contents.push_back(std::move(items[index]));
     }
     gold = RollDice(&g_item_tables[table_id].gold_dice);
     items_generated = 1;
@@ -2248,8 +2234,7 @@ void Trigger::Run(int source)
                 m_pEvent->timer.SetDuration(0.5f);
             } else {
                 if (std::ranges::contains(m_pWorld->timed_events, m_pEvent.get())) {
-                    srAssertFail("glsTimedEvents.Find(m_pEvent) == -1",
-                                 "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0x603, 0);
+                    srAssertFail("glsTimedEvents.Find(m_pEvent) == -1");
                 }
             }
             m_pEvent->timer.Restart();
@@ -2412,8 +2397,7 @@ void Trigger::Run(int source)
                 int index;
 
                 if (m_pProp == 0 || m_bRepType != W8_TRIGGER_REP_PROP) {
-                    srAssertFail("m_pProp && m_bRepType == TRIGGER_REP_PROP",
-                                 "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0x592, 0);
+                    srAssertFail("m_pProp && m_bRepType == TRIGGER_REP_PROP");
                 }
                 animation = m_pProp->Rep()->Animation();
                 if (animation->path_lists == 1) {
@@ -2536,7 +2520,7 @@ void Trigger::Run(int source)
                         glm::vec3 group_position;
                         world_item_group = SpawnItem(0x23c, &group_position, 0);
                     }
-                    ItemInfoAddToGroup(world_item_group.get(), std::move(item));
+                    world_item_group->contents.push_back(std::move(item));
                 }
                 g_trigger_feedback = true;
                 return;
@@ -2550,23 +2534,19 @@ void Trigger::Run(int source)
                 GenerateItemGroup();
             }
             if (world_item_group != 0) {
-                int item_count = ItemInfoGetNumInGroup(world_item_group.get()) - 1;
+                int item_count = static_cast<int>(world_item_group->contents.size());
                 W8WorldItem* item;
-                int contained_items = 0;
 
                 if (item_count != 0 && m_pProp->Rep()->subcycle != 0) {
                     action_succeeded = false;
                 }
 
-                item = world_item_group->next.get();
-                while (item != 0) {
-                    ++contained_items;
-                    if (!item->item.identified) {
-                        PartyAttemptsToIdentifyItem(&item->item, 0);
+                for (const auto& contained : world_item_group->contents) {
+                    if (!contained->item.identified) {
+                        PartyAttemptsToIdentifyItem(&contained->item, 0);
                     }
-                    item = item->next.get();
                 }
-                if (contained_items > 1) {
+                if (item_count > 1) {
                     gXStatus.item_pick_pending = true;
                 }
 
@@ -2581,9 +2561,9 @@ void Trigger::Run(int source)
                             Random(2) != 0 ? g_container_event : g_container_event_alt, -1, 0);
                     }
                 } else if (item_count == 1 && !g_status.item_in_cursor) {
-                    item = world_item_group->next.get();
+                    item = world_item_group->contents.front().get();
                     CopyItemInstance(&g_status.item_in_hand, &item->item, 0, true);
-                    ItemInfoRemoveFromGroup(world_item_group.get(), item);
+                    world_item_group->contents.clear();
                     if (m_pProp->Rep()->subcycle != 0) {
                         goto toggle_item_prop;
                     }
@@ -2730,8 +2710,7 @@ void Trigger::Run(int source)
             m_pEvent = std::make_unique<W8TriggerShakeEvent>();
             event = static_cast<W8TriggerShakeEvent*>(m_pEvent.get());
             if (m_pEvent == 0) {
-                srAssertFail("m_pEvent", "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp",
-                             0x7c4, 0);
+                srAssertFail("m_pEvent");
             }
             event->trigger = this;
             event->action = static_cast<short>(action);
@@ -2760,8 +2739,8 @@ void Trigger::Run(int source)
             if (trigger_kind == 2) {
                 flags |= W8_TRIGGER_RUNNING;
             } else if (m_lData3 == -1) {
-                srAssertFail("m_lData3!=-1", "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp",
-                             0x7e4, "Non-invisible triggers with shake camera must be timed");
+                srAssertFail("m_lData3!=-1",
+                             "Non-invisible triggers with shake camera must be timed");
             }
         }
         break;
@@ -2886,8 +2865,7 @@ void Trigger::Run(int source)
             float duration = abs(m_lData2) * 0.001f;
 
             if (m_lData2 > 0 && trigger_kind != 2) {
-                srAssertFail("0", "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0x87f,
-                             "Continous firing missile must be invisible trigger.");
+                srAssertFail("0", "Continous firing missile must be invisible trigger.");
             }
             m_pEvent = std::make_unique<W8TriggerEvent>();
             m_pEvent->action = static_cast<short>(action);
@@ -2923,8 +2901,7 @@ void Trigger::Run(int source)
             m_pEvent->repeat = true;
         } else {
             if (std::ranges::contains(m_pWorld->timed_events, m_pEvent.get())) {
-                srAssertFail("glsTimedEvents.Find(m_pEvent) == -1",
-                             "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0x8ae, 0);
+                srAssertFail("glsTimedEvents.Find(m_pEvent) == -1");
             }
             m_pEvent->timer.Restart();
             if (m_pEvent->m_pCountdown.has_value()) {
@@ -3158,7 +3135,7 @@ bool Trigger::SelectAction()
         const char* cursor = required_states.c_str();
         while (cursor) {
             const auto state_name = NextTriggerRecipient(cursor);
-            const int state_id = FindModifiedLocationVar(state_name.c_str(), 4317);
+            const int state_id = FindModifiedLocationVar(state_name.c_str());
             if (location_variables[state_id].value == 0) {
                 action = fallback_action;
                 action_state = 4;
@@ -3331,7 +3308,7 @@ void CreateLocationVar(const char* name, int value)
 int GetLocationVarValueByName(const char* name)
 {
     const int index = GetLocationVarIDByName(name);
-    if (index < 0) srAssertFail("Unknown location variable", __FILE__, __LINE__, "%s", name);
+    if (index < 0) srAssertFail("Unknown location variable", name);
     return location_variables[index].value;
 }
 
@@ -3421,7 +3398,7 @@ bool AnyPropTriggerInView()
     int index;
 
     if (GetWorld() == nullptr) {
-        srAssertFail("pWorld", "C:\\Projects\\Wizardry 8\\Engine Code\\Trigger.cpp", 0x1395, 0);
+        srAssertFail("pWorld");
     }
     position = cameraLocation();
     prop_count = GetWorld()->plsProps.size();

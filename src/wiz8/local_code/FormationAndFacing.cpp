@@ -39,8 +39,6 @@
    quadrant is centred on its facing rather than starting at it. */
 enum { W8_DEGREES_PER_TURN = 360, W8_DEGREES_PER_QUADRANT = 90 };
 
-#define FORMATION_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Formation & Facing.cpp"
-
 extern char g_formation_row_names[5][20];
 
 /* Reconcile an edited formation against the live one. Characters still able
@@ -111,7 +109,7 @@ void ReconcilePartyFormation(W8PartyFormationState* edited, W8PartyFormationStat
                     }
                 }
                 if (column == -1) {
-                    srAssertFail("bQuadrantSlot != -1", FORMATION_CPP, 0xbe, 0);
+                    srAssertFail("bQuadrantSlot != -1");
                 }
             }
             SetFormationPosition(&working, slot, row, column, false, false, false);
@@ -138,7 +136,7 @@ void ReconcilePartyFormation(W8PartyFormationState* edited, W8PartyFormationStat
                 }
             }
             if (!placed) {
-                srAssertFail("bQuadrantSlot != -1", FORMATION_CPP, 0xe1, 0);
+                srAssertFail("bQuadrantSlot != -1");
             }
         }
     }
@@ -207,7 +205,7 @@ bool CanHoldFormationPlace(int party_slot)
 void SaveCombatFormation(void)
 {
     if (!gXStatus.fCombatMode) {
-        srAssertFail("gXStatus.fCombatMode", FORMATION_CPP, 258, 0);
+        srAssertFail("gXStatus.fCombatMode");
     }
     memcpy(&g_combat_state->saved_formation, &g_status.formation, sizeof(W8PartyFormationState));
 }
@@ -218,7 +216,7 @@ void SaveCombatFormation(void)
 void RestoreCombatFormation(void)
 {
     if (!gXStatus.fCombatMode) {
-        srAssertFail("gXStatus.fCombatMode", FORMATION_CPP, 266, 0);
+        srAssertFail("gXStatus.fCombatMode");
     }
 
     if (memcmp(&g_combat_state->saved_formation, &g_status.formation,
@@ -391,7 +389,7 @@ signed char DecideFacingForPosition(int position, int target_position)
     signed char target = g_status.formation.positions[target_position].bQuadrant;
 
     if (source == -1) {
-        srAssertFail("bSourceQuadrant != -1", FORMATION_CPP, 0x40d, 0);
+        srAssertFail("bSourceQuadrant != -1");
     }
     if (target == -1 || source == target) {
         return 4;
@@ -418,7 +416,7 @@ signed char DecideFacingForPosition(int position, int target_position)
         }
         break;
     }
-    srAssertFail("FALSE", FORMATION_CPP, 0x43a, 0);
+    srAssertFail("FALSE");
     return 4;
 }
 
@@ -452,14 +450,14 @@ static signed char MakeRoomInFormationRow(W8PartyFormationState* formation, int 
     case 1: {
         signed char leader = formation->bOccupantChar[row][0];
         if (leader == -1) {
-            srAssertFail("iChar != -1", FORMATION_CPP, 0x159, 0);
+            srAssertFail("iChar != -1");
         }
         SetFormationPosition(formation, leader, row, 1, false, false, true);
         return 2;
     }
     case 2:
         if (formation->bOccupantChar[row][0] != -1) {
-            srAssertFail("iChar == -1", FORMATION_CPP, 0x172, 0);
+            srAssertFail("iChar == -1");
         }
         return 0;
     default:
@@ -536,12 +534,10 @@ void SetFormationPosition(W8PartyFormationState* formation, int slot, signed cha
     if (old_row != -1) {
         signed char* occupant = &formation->bOccupantChar[old_row][old_column];
         if (*occupant == -1) {
-            srAssertFail("pFormation->bOccupantChar[bOldQuadrant][bOldSlot] != -1", FORMATION_CPP,
-                         0x18e, 0);
+            srAssertFail("pFormation->bOccupantChar[bOldQuadrant][bOldSlot] != -1");
         }
         if (formation->ubQuadrantOccupants[old_row] == 0) {
-            srAssertFail("pFormation->ubQuadrantOccupants[bOldQuadrant] > 0", FORMATION_CPP, 0x18f,
-                         0);
+            srAssertFail("pFormation->ubQuadrantOccupants[bOldQuadrant] > 0");
         }
         *occupant = -1;
         --formation->ubQuadrantOccupants[old_row];
@@ -551,12 +547,10 @@ void SetFormationPosition(W8PartyFormationState* formation, int slot, signed cha
     if (new_row != -1) {
         signed char* occupant = &formation->bOccupantChar[new_row][new_column];
         if (*occupant != -1) {
-            srAssertFail("pFormation->bOccupantChar[bNewQuadrant][bNewSlot] == -1", FORMATION_CPP,
-                         0x19d, 0);
+            srAssertFail("pFormation->bOccupantChar[bNewQuadrant][bNewSlot] == -1");
         }
         if (formation->ubQuadrantOccupants[new_row] >= 3) {
-            srAssertFail("pFormation->ubQuadrantOccupants[bNewQuadrant] < MAX_CHARS_PER_QUADRANT",
-                         FORMATION_CPP, 0x19e, 0);
+            srAssertFail("pFormation->ubQuadrantOccupants[bNewQuadrant] < MAX_CHARS_PER_QUADRANT");
         }
         *occupant = static_cast<signed char>(slot);
         ++formation->ubQuadrantOccupants[new_row];
@@ -678,7 +672,7 @@ void SwapFormationSlots(W8PartyFormationState* formation, int slot_a, int slot_b
     W8PartyFormationPosition* position_b = &formation->positions[slot_b];
 
     if (slot_a == slot_b) {
-        srAssertFail("uiChar1 != uiChar2", FORMATION_CPP, 0x296, 0);
+        srAssertFail("uiChar1 != uiChar2");
     }
     if (position_b->bQuadrant != -1) {
         signed char row_a = position_a->bQuadrant;
@@ -780,7 +774,7 @@ bool IsCharacterFacingMonster(int party_slot, W8MonsterInfo* monster_info)
         side = 3;
         break;
     default:
-        srAssertFail("FALSE", FORMATION_CPP, 0x456, 0);
+        srAssertFail("FALSE");
         return true;
     }
     return side == g_status.formation.positions[party_slot].facing;
@@ -807,7 +801,7 @@ void TurnCharacterTowardMonster(int party_slot, W8MonsterInfo* monster_info)
         side = 3;
         break;
     default:
-        srAssertFail("FALSE", FORMATION_CPP, 0x456, 0);
+        srAssertFail("FALSE");
         return;
     }
     if (g_status.formation.positions[party_slot].facing != side) {
@@ -839,7 +833,7 @@ int IsMonsterBehindCharacter(W8MonsterInfo* monster_info, int party_slot)
         side = 3;
         break;
     default:
-        srAssertFail("FALSE", FORMATION_CPP, 0x456, 0);
+        srAssertFail("FALSE");
         return 0;
     }
     difference = side - g_status.formation.positions[party_slot].facing;
@@ -860,7 +854,7 @@ void FaceCharacterTowardCombatTarget(int party_slot, W8CombatSlot* target)
     case W8_TARGET_KIND_CHARACTER:
     case W8_TARGET_KIND_CHARACTER_INDIRECT:
         if (target->iChar == -1) {
-            srAssertFail("pTarget->iChar != BAD_INDEX", FORMATION_CPP, 0x33a, 0);
+            srAssertFail("pTarget->iChar != BAD_INDEX");
         }
         facing = DecideFacingForPosition(party_slot, target->iChar);
         if (facing == W8_FACING_ANY) {
@@ -869,7 +863,7 @@ void FaceCharacterTowardCombatTarget(int party_slot, W8CombatSlot* target)
         break;
     case W8_TARGET_KIND_MONSTER:
         if (target->iMonsterID == -1) {
-            srAssertFail("pTarget->iMonsterID != BAD_INDEX", FORMATION_CPP, 0x33f, 0);
+            srAssertFail("pTarget->iMonsterID != BAD_INDEX");
         }
         position = GetMonsterByLocationID(target->iMonsterID)->GetPosition();
         has_position = true;
@@ -896,7 +890,7 @@ void FaceCharacterTowardCombatTarget(int party_slot, W8CombatSlot* target)
             facing = 3;
             break;
         default:
-            srAssertFail("FALSE", FORMATION_CPP, 0x456, 0);
+            srAssertFail("FALSE");
             return;
         }
     }

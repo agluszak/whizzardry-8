@@ -498,27 +498,25 @@ void LoadAwayCampChest(void)
 
     pChest = FindPropByName(GetWorld(), "AwayCampChest");
     if (pChest == 0) {
-        srAssertFail("pChest", __FILE__, __LINE__, 0);
+        srAssertFail("pChest");
     }
     pTrigger = pChest->GetTrigger();
     if (pTrigger == 0) {
-        srAssertFail("pTrigger", __FILE__, __LINE__, 0);
+        srAssertFail("pTrigger");
     }
     pContainer = pTrigger->GetOrCreateItemGroup(true);
     if (pContainer == 0) {
-        srAssertFail("pContainer", __FILE__, __LINE__, 0);
+        srAssertFail("pContainer");
     }
-    LoadSavedLevelItems(0x26, items);
+    if (!LoadSavedLevelItems(0x26, items)) return;
     for (index = 0; index < static_cast<int>(items.size()); ++index) {
         auto item = std::move(items[index]);
+        auto contents = std::move(item->contents);
         if (ItemInfoIsWorldPersistent(item.get())) {
-            while (item->next) {
-                auto next = std::move(item->next);
-                item->next = std::move(next->next);
-                items.push_back(std::move(next));
-            }
+            for (auto& contained : contents) items.push_back(std::move(contained));
         } else {
-            ItemInfoAddToGroup(pContainer, std::move(item));
+            pContainer->contents.push_back(std::move(item));
+            for (auto& contained : contents) pContainer->contents.push_back(std::move(contained));
         }
     }
 }

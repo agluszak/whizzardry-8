@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstdint>
-#include <optional>
 
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_time.h>
@@ -19,21 +18,8 @@ struct DiskFileTime {
     }
 };
 
-struct CivilTime {
-    int year;
-    unsigned month, day, hour, minute, second;
-    unsigned fraction_100ns;
-    unsigned day_of_week; // Sunday = 0.
-};
-
 // 1601-based 100ns ticks. Sub-100ns SDL times round down, including before 1970.
 DiskFileTime file_time_from_sdl(SDL_Time time) noexcept;
-// Out-of-range disk values do not silently narrow through SDL's nanosecond range.
-std::optional<SDL_Time> file_time_to_sdl(DiskFileTime time) noexcept;
-// Full uint64 disk range, with all 100ns digits retained (years 1601..60056).
-// Chrono calendar arithmetic is used in 400-year eras, not nanosecond durations.
-CivilTime file_time_to_utc(DiskFileTime time) noexcept;
-
 SDL_DateTime current_local_time();
 int current_utc_offset_seconds(); // SDL local offset, seconds EAST of UTC.
 // FileMan's historical boundary shifts UTC ticks using CURRENT timezone/DST,

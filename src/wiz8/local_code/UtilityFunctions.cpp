@@ -114,8 +114,7 @@ char* TitleCaseString(char* string)
 float NormalizeAngle(float angle)
 {
     if (!std::isfinite(angle)) {
-        srAssertFail("std::isfinite(flAngle)",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\UtilityFunctions.cpp", 0x13b, 0);
+        srAssertFail("std::isfinite(flAngle)");
     }
 
     angle += 6.2831852;
@@ -166,8 +165,7 @@ unsigned int CharacterPointerToPartySlot(const W8Character* character)
     const W8Character* party_character;
 
     if (!character->fInParty) {
-        srAssertFail("pPC->fInParty", "C:\\Projects\\Wizardry 8\\Local Code\\UtilityFunctions.cpp",
-                     0x1c8, "PCPtrToPCSlot: ERROR - called for non-party character");
+        srAssertFail("pPC->fInParty", "PCPtrToPCSlot: ERROR - called for non-party character");
     }
 
     party_character = g_status.buffers.Char;
@@ -177,9 +175,8 @@ unsigned int CharacterPointerToPartySlot(const W8Character* character)
         }
     }
 
-    srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Local Code\\UtilityFunctions.cpp", 0x1d1,
-                 fmt::format("PCPtrToPCSlot: ERROR - no match on ptr {}",
-                             static_cast<const void*>(character)));
+    srAssertFail("FALSE", fmt::format("PCPtrToPCSlot: ERROR - no match on ptr {}",
+                                      static_cast<const void*>(character)));
     return 0;
 }
 
@@ -388,9 +385,8 @@ int RPCPtrToPCSlot(const W8MonsterManagerEntry* rpc)
         }
         ++slot;
     }
-    srAssertFail(
-        "FALSE", "C:\\Projects\\Wizardry 8\\Local Code\\UtilityFunctions.cpp", 0x385,
-        fmt::format("RPCPtrToPCSlot: ERROR - no match on ptr {}", static_cast<const void*>(rpc)));
+    srAssertFail("FALSE", fmt::format("RPCPtrToPCSlot: ERROR - no match on ptr {}",
+                                      static_cast<const void*>(rpc)));
     return 0;
 }
 

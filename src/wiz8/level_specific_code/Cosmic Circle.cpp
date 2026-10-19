@@ -17,8 +17,6 @@
 
 struct W8NpcState;
 
-#define COSMIC_CIRCLE_CPP "C:\\Projects\\Wizardry 8\\Level Specific Code\\Cosmic Circle.cpp"
-
 /* Level Specific Code\Cosmic Circle.cpp (level 4).
 
    Attribution evidence: 0x004D9AD0 and 0x004D9B40 carry this file's path in
@@ -47,7 +45,7 @@ bool CosmicCircleTriggerPlane1Hedra(Trigger* pTrigger)
     BeginScriptedWorldAction();
     pNPC = GetNpcStateByKind(0x85);
     if (pNPC == 0) {
-        srAssertFail("pNPC", COSMIC_CIRCLE_CPP, 0x19, "Cannot find VOC_SAVANT_CC1");
+        srAssertFail("pNPC", "Cannot find VOC_SAVANT_CC1");
     } else {
         QueueNpcScriptNotice(pNPC, 0, -1, false, 0);
     }
@@ -79,8 +77,7 @@ void CosmicCircleSetup(void)
             group = SpawnMonsters(0x1b3, 1, &positionAltheides, 0, true, false, false);
             uiMonsterID = group->MemberLocationId(0);
             if (uiMonsterID == 0) {
-                srAssertFail("uiMonsterID", COSMIC_CIRCLE_CPP, 0x41,
-                             "Invalid Monster ID for CC end");
+                srAssertFail("uiMonsterID", "Invalid Monster ID for CC end");
             } else {
                 pMonsterInfoAltheides = FindMonster(uiMonsterID);
             }
@@ -89,8 +86,7 @@ void CosmicCircleSetup(void)
             group = SpawnMonsters(0x1b6, 1, &positionDs, 0, true, false, false);
             uiMonsterID = group->MemberLocationId(0);
             if (uiMonsterID == 0) {
-                srAssertFail("uiMonsterID", COSMIC_CIRCLE_CPP, 0x53,
-                             "Invalid Monster ID for CC end");
+                srAssertFail("uiMonsterID", "Invalid Monster ID for CC end");
             } else {
                 pMonsterInfoDs = FindMonster(uiMonsterID);
             }

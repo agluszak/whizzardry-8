@@ -22,8 +22,6 @@
 #include "wiz8/local_code/party_encumbrance.h"
 #include "wiz8/utility.h"
 
-#define CHAR_GENERATION_CPP "C:\\Projects\\Wizardry 8\\Local Code\\CharGeneration.cpp"
-
 /* Refund every spent skill point through the per-skill commit helper. */
 // FUNCTION: WIZ8 0x00557F90
 void RefundAllSkillPoints(W8Character* character, W8CharacterCreationState* creation_state)
@@ -471,7 +469,7 @@ void AdjustAllocatedAttribute(W8Character* character, W8CharacterCreationState* 
     int value = creation_state->attribute_values[attribute];
     if (value + modifier < 0) {
         if (modifier >= 0) {
-            srAssertFail("iModifier < 0", CHAR_GENERATION_CPP, 0x380, 0);
+            srAssertFail("iModifier < 0");
         }
         modifier = -value;
     }
@@ -1066,7 +1064,7 @@ void InitializeLevelUpAttributePool(W8Character* character,
     int spent = creation_state->skill_points_spent[skill];
     if (spent + modifier < 0) {
         if (modifier >= 0) {
-            srAssertFail("iModifier < 0", CHAR_GENERATION_CPP, 0x448, 0);
+            srAssertFail("iModifier < 0");
         }
         modifier = -spent;
     }

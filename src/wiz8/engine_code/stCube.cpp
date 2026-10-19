@@ -46,8 +46,6 @@
 #include "wiz8/unicode.h"
 #include "wiz8/world_cursor.h"
 
-#define ST_CUBE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\stCube.cpp"
-
 // The scene node unlinks itself from the world when it is destroyed.
 // FUNCTION: WIZ8 0x0048da80
 W8WorldCursorNode::~W8WorldCursorNode() = default;
@@ -128,7 +126,7 @@ std::unique_ptr<W8WorldCursorNode> CreateWorldCursorCube()
     auto surface = std::shared_ptr<SDL_Surface>(
         CreateCpuStorage(0x20UL, 0x20UL, SDL_PIXELFORMAT_ARGB1555).release(), SDL_DestroySurface);
     if (surface == 0) {
-        srAssertFail("psrSurface", ST_CUBE_CPP, 0xac, 0);
+        srAssertFail("psrSurface");
     }
 
     w8_ulong pixel;
@@ -168,15 +166,15 @@ static void DrawWorldCursorNodeLabel(W8WorldCursorNode& entry)
 {
     stModelInstance* instance = entry.node.get();
     if (instance == 0) {
-        srAssertFail("pstModelInstance", ST_CUBE_CPP, 0x124, 0);
+        srAssertFail("pstModelInstance");
     }
     stMeshModel* mesh = static_cast<stMeshModel*>(instance->getModel());
     if (mesh == 0) {
-        srAssertFail("pstMeshModel", ST_CUBE_CPP, 0x127, 0);
+        srAssertFail("pstMeshModel");
     }
     srTexture* texture = static_cast<srTexture*>(mesh->getTexture(0, 0));
     if (texture == 0) {
-        srAssertFail("psrTexture", ST_CUBE_CPP, 0x12a, 0);
+        srAssertFail("psrTexture");
     }
     SDL_Surface* surface = texture->getSurfacePtr();
     SDL_FillSurfaceRect(surface, nullptr,
@@ -185,7 +183,7 @@ static void DrawWorldCursorNodeLabel(W8WorldCursorNode& entry)
                                            entry.color >> 24));
     unsigned char* data = static_cast<unsigned char*>(surface->pixels);
     if (data == 0) {
-        srAssertFail("pBuffer", ST_CUBE_CPP, 0x130, 0);
+        srAssertFail("pBuffer");
     }
     {
         g_smfnt_font.resetPalette();

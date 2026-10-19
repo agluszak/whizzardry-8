@@ -56,8 +56,6 @@
 
 struct W8World;
 
-#define SIGHT_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Sight.cpp"
-
 // GLOBAL: WIZ8 0x005ec254
 const float g_sight_default = 12.0f;
 
@@ -204,7 +202,7 @@ float ComputeSightThreshold(glm::vec3 observer_position, glm::vec3 target_positi
     far_clip = WorldGetFarClip(world);
     viewing_distance = static_cast<float>(far_clip);
     if (viewing_distance <= 0.0f) {
-        srAssertFail("flViewingDistance > 0", SIGHT_CPP, 0x30c, 0);
+        srAssertFail("flViewingDistance > 0");
     }
     heading = GetHeadingAngle(&observer_position, &target_position);
     angle_delta = ShortestAngleDistance(observer_yaw, heading);
@@ -402,7 +400,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
     }
     viewing_distance = static_cast<float>(WorldGetFarClip(GetWorld()));
     if (viewing_distance <= 0.0f) {
-        srAssertFail("flViewingDistance > 0", SIGHT_CPP, 0x5e, 0);
+        srAssertFail("flViewingDistance > 0");
     }
     record = GetMonsterDataForInfo(monster_info);
     monster = monster_info->p3D;
@@ -466,7 +464,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                             bool clear;
 
                             if (!found) {
-                                srAssertFail("fFoundMissileVertex", SIGHT_CPP, 0x1f5, 0);
+                                srAssertFail("fFoundMissileVertex");
                                 clear = false;
                             } else {
                                 short line = GetWorldOctree()->TraceLineOfSight(
@@ -481,7 +479,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                             bool found = monster->GetSpellPosition(&trace_position);
 
                             if (!found) {
-                                srAssertFail("fFoundSpellVertex", SIGHT_CPP, 0x1fd, 0);
+                                srAssertFail("fFoundSpellVertex");
                                 entry->los_flags[3] = false;
                             } else {
                                 short line = GetWorldOctree()->TraceLineOfSight(
@@ -591,7 +589,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
             bool clear;
 
             if (!found) {
-                srAssertFail("fFoundMissileVertex", SIGHT_CPP, 0x9b, 0);
+                srAssertFail("fFoundMissileVertex");
                 clear = false;
             } else {
                 short line =
@@ -606,7 +604,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
             bool found = monster->GetSpellPosition(&trace_position);
 
             if (!found) {
-                srAssertFail("fFoundSpellVertex", SIGHT_CPP, 0xa3, 0);
+                srAssertFail("fFoundSpellVertex");
                 monster_info->player_visibility.los_flags[3] = false;
             } else {
                 short line = GetWorldOctree()->TraceLineOfSight(&trace_position, &camera_position,
@@ -713,7 +711,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                             W8NpcState* npc = GetNpcStateByKind(record->npc_kind);
 
                             if (npc == 0) {
-                                srAssertFail("pNPC != NULL", SIGHT_CPP, 0xe9, 0);
+                                srAssertFail("pNPC != NULL");
                             } else if (!npc->party_noticed && npc->record->monster_bound == 0 &&
                                        ShowMonsterTargetMarker(monster_info) != 0) {
                                 glm::vec3 delta;
@@ -786,7 +784,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                 W8NpcState* npc = GetNpcStateByKind(record->npc_kind);
 
                 if (npc == 0) {
-                    srAssertFail("pNPC != NULL", SIGHT_CPP, 0x15b, 0);
+                    srAssertFail("pNPC != NULL");
                 } else if (npc->event_pending != 0) {
                     HandleMarkedNpcEvent(npc, 0);
                 }

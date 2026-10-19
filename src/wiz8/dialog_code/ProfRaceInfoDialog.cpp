@@ -52,7 +52,6 @@ W8AttributeMinimums g_profession_attribute_minimums[W8_PROFESSION_COUNT] = {
    and RACE_COUNT to sixteen. */
 
 // STRING: WIZ8 0x00650168
-#define PROF_RACE_INFO_DIALOG_CPP "C:\\Projects\\Wizardry 8\\Dialog Code\\ProfRaceInfoDialog.cpp"
 
 // GLOBAL: WIZ8 0x00650124
 static const char* g_popup_race_profession_path = "Data\\Dialogs\\popup_race_profession.sti";
@@ -165,7 +164,7 @@ bool W8ProfRaceInfoDialogBase::PopulateText()
 W8ProfessionInfoDialog::W8ProfessionInfoDialog(W8Profession uiIndex)
 {
     if (uiIndex >= W8_PROFESSION_COUNT) {
-        srAssertFail("uiIndex < PROF_COUNT", PROF_RACE_INFO_DIALOG_CPP, 0x123, 0);
+        srAssertFail("uiIndex < PROF_COUNT");
     }
     m_uiIndex = uiIndex;
     m_uiArtwork = CatalogArtwork::Load(0x10b);
@@ -249,7 +248,7 @@ bool W8ProfessionInfoDialog::PopulateText()
 W8RaceInfoDialog::W8RaceInfoDialog(W8Race uiIndex)
 {
     if (uiIndex >= W8_RACE_COUNT) {
-        srAssertFail("uiIndex < RACE_COUNT", PROF_RACE_INFO_DIALOG_CPP, 0x199, 0);
+        srAssertFail("uiIndex < RACE_COUNT");
     }
     m_uiIndex = uiIndex;
     m_uiArtwork = CatalogArtwork::Load(0x10c);

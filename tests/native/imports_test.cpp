@@ -9,12 +9,15 @@
 #include <iterator>
 #include <limits>
 #include <memory>
+#include <source_location>
+#include <stdexcept>
+#include <string>
 #include <utility>
 
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_surface.h>
 #include <catch2/catch_test_macros.hpp>
-#include <catch2/matchers/catch_matchers.hpp>
+#include <fmt/format.h>
 
 #include "glm/ext/vector_float3.hpp"
 #include "surrender/srDebug.h"
@@ -251,8 +254,16 @@ TEST_CASE("imports_test")
                  sibling->getParent() == parent));
         delete parent; // Recursively releases the sibling and copied light.
     }
-    REQUIRE_THROWS_WITH(srAssertFail("native probe", "imports_test.cpp", 42, "value %d", 7),
-                        "Debug assertion in module imports_test.cpp line 42 failed:\n\n"
-                        "Expression [ native probe ] evaluates to false.\n\nvalue 7\n");
-    puts("ok: native renderer consumer imports, generated special members and variadic assertion");
+    const auto location = std::source_location::current();
+    try {
+        srAssertFail("native probe", fmt::format("value {}", 7));
+        FAIL("assertion must throw");
+    } catch (const std::runtime_error& error) {
+        const std::string diagnostic = error.what();
+        REQUIRE(diagnostic.find(location.file_name()) != std::string::npos);
+        REQUIRE(diagnostic.find(std::to_string(location.line() + 2)) != std::string::npos);
+        REQUIRE(diagnostic.find("native probe\nvalue 7") != std::string::npos);
+    }
+    puts("ok: native renderer consumer imports, generated special members and assertion "
+         "diagnostics");
 }

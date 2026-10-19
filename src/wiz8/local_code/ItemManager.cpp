@@ -68,7 +68,6 @@ class W8DialogBase;
 
 /* The level runtime block, which also carries the interface
    selection the item manager resets. */
-#define ITEM_MANAGER_CPP "C:\\Projects\\Wizardry 8\\Local Code\\ItemManager.cpp"
 
 /* Camera distance inside which inactive world items are activated. */
 // GLOBAL: WIZ8 0x005ed7b8
@@ -79,22 +78,13 @@ const float g_item_camera_cull_distance = 20000.0f;
 // GLOBAL: WIZ8 0x0064a1cd
 bool g_hide_invisible_items = true;
 
-// Tear down long saved groups without recursing through unique_ptr links.
-W8WorldItem::~W8WorldItem()
-{
-    while (next) {
-        auto entry = std::move(next);
-        next = std::move(entry->next);
-    }
-}
-
 // FUNCTION: WIZ8 0x004f69f0
 
 // FUNCTION: WIZ8 0x004f8130
 bool ItemHasFlags(const W8WorldItem* item, unsigned int mask)
 {
     if (item == 0) {
-        srAssertFail("pItemInfo", ITEM_MANAGER_CPP, 998, 0);
+        srAssertFail("pItemInfo");
     }
     return (item->flags & mask) != 0;
 }
@@ -103,7 +93,7 @@ bool ItemHasFlags(const W8WorldItem* item, unsigned int mask)
 void SetItemFlags(W8WorldItem* item, unsigned int mask, bool enabled)
 {
     if (item == 0) {
-        srAssertFail("pItemInfo", ITEM_MANAGER_CPP, 1004, 0);
+        srAssertFail("pItemInfo");
     }
     if (enabled) {
         item->flags |= mask;
@@ -116,7 +106,7 @@ void SetItemFlags(W8WorldItem* item, unsigned int mask, bool enabled)
 void SetItemAndEntityFlags(W8WorldItem* item, unsigned int mask, bool enabled)
 {
     if (item == 0) {
-        srAssertFail("pItemInfo", ITEM_MANAGER_CPP, 1019, 0);
+        srAssertFail("pItemInfo");
     }
     if (enabled) {
         item->entity_flags |= mask;
@@ -126,29 +116,6 @@ void SetItemAndEntityFlags(W8WorldItem* item, unsigned int mask, bool enabled)
     if (item->p3D != 0) {
         item->p3D->m_pRep->SetFlags(mask, enabled);
     }
-}
-
-// FUNCTION: WIZ8 0x004f8300
-int ItemInfoGetNumInGroup(W8WorldItem* item)
-{
-    if (item == 0) {
-        srAssertFail("pItemInfo", ITEM_MANAGER_CPP, 1115,
-                     "Bad ITEM_STRUCT in ItemInfoGetNumInGroup");
-    }
-    item = item->next.get();
-    int count = 1;
-    while (item != 0) {
-        item = item->next.get();
-        ++count;
-    }
-    return count;
-}
-
-// FUNCTION: WIZ8 0x004f8340
-void ItemInfoAddToGroup(W8WorldItem* group, std::unique_ptr<W8WorldItem> item)
-{
-    while (group->next) group = group->next.get();
-    group->next = std::move(item);
 }
 
 struct W8ItemLevelScaleRange {
@@ -278,20 +245,6 @@ int FindItemRecordByName(const char* name)
     return -1;
 }
 
-/* Take one item out of the group chained onto another. Unlinking the head
-   promotes whatever followed it; unlinking anything else just closes the gap.
-   Answers the group's head afterwards. */
-// FUNCTION: WIZ8 0x004f83a0
-std::unique_ptr<W8WorldItem> ItemInfoRemoveFromGroup(W8WorldItem* head, W8WorldItem* item)
-{
-    auto* link = &head->next;
-    while (*link && link->get() != item) link = &(*link)->next;
-    if (!*link) return nullptr;
-    auto result = std::move(*link);
-    *link = std::move(result->next);
-    return result;
-}
-
 // FUNCTION: WIZ8 0x004f91e0
 bool ItemInfoIsWorldPersistent(const W8WorldItem* item)
 {
@@ -319,12 +272,11 @@ W8WorldItem* ItemInfo(unsigned int item_list_index)
     W8WorldItem* item;
 
     if (item_list_index >= CurrentLevelPopulation().world_items.size()) {
-        srAssertFail("uiItemListIndex < (UINT32) CurrentLevelPopulation().world_items.size()",
-                     ITEM_MANAGER_CPP, 961, 0);
+        srAssertFail("uiItemListIndex < (UINT32) CurrentLevelPopulation().world_items.size()");
     }
     item = GetWorldItemListEntry(item_list_index);
     if (item == 0) {
-        srAssertFail("pItemInfo != NULL", ITEM_MANAGER_CPP, 965,
+        srAssertFail("pItemInfo != NULL",
                      fmt::format("ItemInfo: ERROR - missing entry, index {:d}, pList {}",
                                  item_list_index,
                                  static_cast<const void*>(&CurrentLevelPopulation().world_items)));
@@ -342,8 +294,7 @@ unsigned int ItemIndex(int runtime_id)
             return index;
         }
     }
-    srAssertFail("FALSE", ITEM_MANAGER_CPP, 992,
-                 fmt::format("ItemIndex: ERROR - ItemID {:d} not found", runtime_id));
+    srAssertFail("FALSE", fmt::format("ItemIndex: ERROR - ItemID {:d} not found", runtime_id));
     return 0;
 }
 
@@ -514,10 +465,10 @@ void ActivateItem(W8WorldItem* item)
     stModelInstance* mesh;
 
     if (item == 0) {
-        srAssertFail("pItemInfo != NULL", ITEM_MANAGER_CPP, 0x1d4, 0);
+        srAssertFail("pItemInfo != NULL");
     }
     if (item->fActive) {
-        srAssertFail("!pItemInfo->fActive", ITEM_MANAGER_CPP, 0x1d5, 0);
+        srAssertFail("!pItemInfo->fActive");
     }
 
     name = g_item_records[item->item.iItemNo].internal_name;
@@ -544,7 +495,6 @@ void ActivateItem(W8WorldItem* item)
             srAssertFail("[&]() { const auto status = "
                          "wiz8::file_status(wiz8::asset_path(zItemFullPath)); return "
                          "status && status->info.type == SDL_PATHTYPE_FILE; }()",
-                         ITEM_MANAGER_CPP, 0x1ed,
                          fmt::format("ActivateItem: ERROR - missing ITM file {}, item {:d}",
                                      zItemFullPath, item->item.iItemNo));
         }
@@ -553,7 +503,7 @@ void ActivateItem(W8WorldItem* item)
     auto entity = LoadItemFromFile(zItemName);
     item->p3D = entity.get();
     if (!entity) {
-        srAssertFail("fSuccess", ITEM_MANAGER_CPP, 0x1f2,
+        srAssertFail("fSuccess",
                      fmt::format("ActivateItem: ERROR - ItemRead {} failed", zItemName));
     }
     if (ItemHasFlags(item, W8_WORLD_ITEM_RADAR_BLIP_LIT)) {
@@ -592,13 +542,13 @@ void DeactivateWorldItem(W8WorldItem* item)
     glm::vec3 position;
 
     if (item == 0) {
-        srAssertFail("pItemInfo != NULL", ITEM_MANAGER_CPP, 554, 0);
+        srAssertFail("pItemInfo != NULL");
     }
     if (!item->fActive) {
-        srAssertFail("pItemInfo->fActive", ITEM_MANAGER_CPP, 555, 0);
+        srAssertFail("pItemInfo->fActive");
     }
     if (item->p3D == 0) {
-        srAssertFail("pItemInfo->p3D != NULL", ITEM_MANAGER_CPP, 556, 0);
+        srAssertFail("pItemInfo->p3D != NULL");
     }
 
     if (g_current_screen_state.id == W8_SCREEN_MAIN_GAME && g_level_block != 0 &&
@@ -678,7 +628,7 @@ void UpdateNearbyWorldItems(void)
             if (glm::distance(item->position, camera) < g_item_camera_cull_distance) {
                 if (g_hide_invisible_items) {
                     if (item == 0) {
-                        srAssertFail("pItemInfo != NULL", ITEM_MANAGER_CPP, 0x3e6, 0);
+                        srAssertFail("pItemInfo != NULL");
                     }
                     if (ItemHasFlags(item, W8_WORLD_ITEM_HIDDEN)) {
                         goto next_item;
@@ -745,7 +695,7 @@ void DropHeldItem(int)
         wiz8::sound::play("Data\\Sound\\Misc\\CantDrop.WAV");
 }
 
-/* The item picker returns its remaining items as a group chain. A two-item group returns the picked
+/* The item picker returns its remaining items as group contents. A two-item group returns the picked
    extra to the world at the group's position; a lone item is simply dropped.
    Either way the group's own world entry is found by runtime id, pulled out
    of its sector, deactivated, freed and removed from the list. */
@@ -755,14 +705,15 @@ static void OnItemPickerClosed(W8WorldItem* group)
     W8WorldItem* item;
     unsigned int index;
 
-    if (ItemInfoGetNumInGroup(group) == 2) {
-        item = group->next.get();
+    if (group->contents.size() == 1) {
+        item = group->contents.front().get();
         item->position = group->position;
         if (item->p3D == 0) {
             ActivateItem(item);
         }
-        AddWorldItem(std::move(group->next));
-    } else if (ItemInfoGetNumInGroup(group) != 1) {
+        AddWorldItem(std::move(group->contents.front()));
+        group->contents.clear();
+    } else if (!group->contents.empty()) {
         return;
     }
     index = ItemIndex(group->runtime_id);
@@ -789,7 +740,7 @@ unsigned char InteractWithWorldItem(int runtime_id)
     W8WorldItem* item = ItemInfo(index);
 
     if (item == 0) {
-        srAssertFail("pItemInfo != NULL", ITEM_MANAGER_CPP, 857, 0);
+        srAssertFail("pItemInfo != NULL");
     }
     if (g_item_records[item->item.iItemNo].flags & W8_ITEM_FLAG_CONTAINER) {
         W8TriggerItemPickerDialog* dialog = new W8TriggerItemPickerDialog;
@@ -1040,8 +991,7 @@ std::unique_ptr<W8WorldItem> SpawnItem(int item_id, const glm::vec3* position, i
 
     result = CreateWorldItem(item, position, entity_flags);
     if (result == 0) {
-        srAssertFail("pItemInfo", "C:\\Projects\\Wizardry 8\\Local Code\\ItemManager.cpp", 0x18e,
-                     0);
+        srAssertFail("pItemInfo");
     }
     return result;
 }
@@ -1053,7 +1003,7 @@ std::unique_ptr<W8WorldItem> SpawnItem(int item_id, const glm::vec3* position, i
    list instead: every zero-weight slot drops outright, then a weighted pick
    rolls item_count_dice items out of what remains; the NPC's gold field
    pays out directly. One drop is adopted into plsItemList at the death
-   position; two or more are chained onto a container spawned with
+   position; two or more are owned by a container spawned with
    SpawnItem - 0x23c by default, or value when the caller names one. */
 // FUNCTION: WIZ8 0x004f8cb0
 void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
@@ -1094,9 +1044,8 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
         } else {
             W8NpcState* npc = GetNpcStateForMonsterInfo(monster_info, true);
             if (npc == 0) {
-                srAssertFail(
-                    "pNPC", ITEM_MANAGER_CPP, 1459,
-                    fmt::format("Monster {} marked as NPC with no NPC data", record->name0));
+                srAssertFail("pNPC", fmt::format("Monster {} marked as NPC with no NPC data",
+                                                 record->name0));
             }
             for (index = 0; index < 40; ++index) {
                 if (npc->item_ids[index] != -1 && npc->item_weights[index] == 0) {
@@ -1151,16 +1100,13 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
             dropped->position = position;
         } else if (items.size() > 1) {
             W8WorldItem* container;
-            int item_index;
             if (value == -1) {
                 container = AddWorldItem(SpawnItem(0x23c, &position, W8_ITEM_ENTITY_ROTATE));
             } else {
                 container = AddWorldItem(
                     SpawnItem(value, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
             }
-            for (item_index = 0; item_index < static_cast<int>(items.size()); ++item_index) {
-                ItemInfoAddToGroup(container, std::move(items[item_index]));
-            }
+            container->contents = std::move(items);
         }
     }
 }

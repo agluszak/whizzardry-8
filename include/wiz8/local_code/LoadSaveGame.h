@@ -7,8 +7,9 @@
 #include <string_view>
 #include <vector>
 
+#include <SDL3/SDL_time.h>
+
 #include "compat/compiler.h"
-#include "wiz8/file_time.h"
 #include "wiz8/layouts/save_screenshot.h"
 
 bool VerifyDataSubdirs(void);
@@ -19,8 +20,8 @@ int GetSaveGameLevel(std::string_view slot_name);
    the Options controller. The SHOT chunk occupies the embedded screenshot. */
 struct W8SaveSlot {
     std::string name;
-    wiz8::DiskFileTime local_write_time;
-    wiz8::CivilTime timestamp;
+    SDL_Time write_time;
+    SDL_DateTime timestamp;
     int game_time_days;
     unsigned int game_time_ms;
     int level_id;

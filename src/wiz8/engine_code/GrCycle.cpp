@@ -213,8 +213,7 @@ try {
     bool success;
 
     if (mon_name.empty() || cycle == 0) {
-        srAssertFail("pacName && ppCycle", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp",
-                     0x176, 0);
+        srAssertFail("pacName && ppCycle");
     }
 
     const auto mon_path = fmt::format("{}/{}.mon", directory, mon_name);
@@ -246,9 +245,8 @@ try {
 
     handle.reset();
     if (!success) {
-        srAssertFail(
-            "fSuccess", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x198,
-            fmt::format("GrCycle::Read: ERROR - Read {} in {} failed", mon_path, bitmap_path));
+        srAssertFail("fSuccess", fmt::format("GrCycle::Read: ERROR - Read {} in {} failed",
+                                             mon_path, bitmap_path));
     }
     return success;
 } catch (const std::exception&) {
@@ -268,7 +266,7 @@ try {
     unsigned char success = 0;
 
     if (info == 0) {
-        srAssertFail("pInfo", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x1ba, 0);
+        srAssertFail("pInfo");
     }
 
     info->hFile->read(&has_path, 1);
@@ -486,8 +484,7 @@ unsigned char W8GrCycle::ApplyPendingCycle()
             W8EmitterHost* current = GetRepresentation();
 
             if (behaviour < BEHAVIOUR_FIRST || behaviour > BEHAVIOUR_LAST) {
-                srAssertFail("(bBehaviour >= BEHAVIOUR_FIRST) && (bBehaviour <= BEHAVIOUR_LAST)",
-                             "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x63e, 0);
+                srAssertFail("(bBehaviour >= BEHAVIOUR_FIRST) && (bBehaviour <= BEHAVIOUR_LAST)");
             }
             current->animation_behaviour = behaviour;
             representation->pending_behaviour = W8_ANIMATION_NO_PENDING_BEHAVIOUR;
@@ -576,7 +573,7 @@ unsigned char W8GrCycle::GetAnimationRadius(float* arg_radius)
     W8AniMesh* mesh = GetCurrentAniMesh();
 
     if (mesh == 0) {
-        srAssertFail("0", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x541, 0);
+        srAssertFail("0");
         return 0;
     }
     return AniMeshRadius(mesh, arg_radius);
@@ -648,7 +645,7 @@ void W8GrCycle::ResetRepresentation()
     W8EmitterHost* target = GetRepresentation();
 
     if (target == 0) {
-        srAssertFail("pRep", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x3ae, 0);
+        srAssertFail("pRep");
     }
     PathAIResetRecord(m_pAI.get());
     target->frame_direction = W8_ANIMATION_FORWARD;
@@ -694,7 +691,7 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
     int index;
 
     if (pWorld == 0) {
-        srAssertFail("pWorld", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x3d1, 0);
+        srAssertFail("pWorld");
     }
     if (pRep->active == 0) {
         return;
@@ -710,8 +707,7 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
             glm::mat3 current;
 
             if (psrMesh == 0) {
-                srAssertFail("psrMesh", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x3e4,
-                             0);
+                srAssertFail("psrMesh");
             }
             psrMesh->highlight_colour = pRep->highlight_colour;
             if (pRep->apply_instance_scale) {
@@ -744,7 +740,7 @@ void W8GrCycle::UpdateRepresentation(W8World* pWorld)
         srNode* child;
 
         if (psrMesh == 0) {
-            srAssertFail("psrMesh", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x40f, 0);
+            srAssertFail("psrMesh");
         }
         SetAniMeshCacheProtected(pRep->GetEmitterAniMesh(pRep->current_cycle), true);
         psrMesh->highlight_colour = pRep->highlight_colour;
@@ -821,8 +817,7 @@ void W8GrCycle::DetachRepresentation(W8World* world)
             srModelInstance* mesh = AnimObjDispatchList(animation, representation->m_bLOD,
                                                         static_cast<signed char>(index));
             if (mesh == 0) {
-                srAssertFail("psrMesh", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x476,
-                             0);
+                srAssertFail("psrMesh");
             }
             W8AniMesh* ani_mesh = representation->GetEmitterAniMesh(representation->current_cycle);
             if (ani_mesh != 0) {
@@ -833,7 +828,7 @@ void W8GrCycle::DetachRepresentation(W8World* world)
         }
     } else if (current_model_instance != 0) {
         if (world == 0) {
-            srAssertFail("pWorld", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x484, 0);
+            srAssertFail("pWorld");
         }
         W8AniMesh* ani_mesh = representation->GetEmitterAniMesh(representation->current_cycle);
         SetAniMeshCacheProtected(ani_mesh, false);
@@ -1070,14 +1065,13 @@ srModelInstance* W8GrCycle::SelectCycleFrameLod(signed char cycle, signed char f
     W8EmitterHost* target;
 
     if (lod < 0 || lod >= 3) {
-        srAssertFail("bLOD >= 0 && bLOD < NUM_LODS",
-                     "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x5f1, 0);
+        srAssertFail("bLOD >= 0 && bLOD < NUM_LODS");
     }
     if (frame < 0) {
-        srAssertFail("bFrame >= 0", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x5f2, 0);
+        srAssertFail("bFrame >= 0");
     }
     if (cycle < 0) {
-        srAssertFail("bCycle >= 0", "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x5f3, 0);
+        srAssertFail("bCycle >= 0");
     }
     if (m_pAI != 0) {
         target = GetRepresentation();
@@ -1127,8 +1121,7 @@ void W8GrCycle::SetBehaviour(W8AnimationBehaviour bBehaviour)
     W8EmitterHost* target = GetRepresentation();
 
     if (bBehaviour < BEHAVIOUR_FIRST || bBehaviour > BEHAVIOUR_LAST) {
-        srAssertFail("(bBehaviour >= BEHAVIOUR_FIRST) && (bBehaviour <= BEHAVIOUR_LAST)",
-                     "C:\\Projects\\Wizardry 8\\Engine Code\\GrCycle.cpp", 0x63e, 0);
+        srAssertFail("(bBehaviour >= BEHAVIOUR_FIRST) && (bBehaviour <= BEHAVIOUR_LAST)");
     }
     target->animation_behaviour = bBehaviour;
 }

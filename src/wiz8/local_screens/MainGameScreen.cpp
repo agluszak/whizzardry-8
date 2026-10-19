@@ -2631,7 +2631,7 @@ update_screen:
         if (g_status.selected_character == -1) {
             int next = GetNextCharacter(1, 1, -1);
             if (next == -1) {
-                srAssertFail("iNextChar != BAD_INDEX", __FILE__, 0x1047, 0);
+                srAssertFail("iNextChar != BAD_INDEX");
             }
             SelectPartyCharacter(next);
         }
@@ -3107,8 +3107,6 @@ void RequestRedrawParty(void)
     RequestRedraw(W8_MAIN_REDRAW_MONSTER_LIST);
 }
 
-#define MAIN_GAME_SCREEN_CPP __FILE__
-
 /* Redraw the combat monster-group list at the left edge of the main screen:
    clear the previous rows, walk live groups, format each line, tint the
    hovered action group and current target, and resize input region 0xe5. */
@@ -3231,7 +3229,7 @@ void SelectPartyCharacter(int party_slot)
     int previous;
 
     if (!g_status.buffers.XChar[party_slot].fOccupied) {
-        ReportAssertion("gStatus.XChar[uiChar].fOccupied", __FILE__, 0x1053);
+        srAssertFail("gStatus.XChar[uiChar].fOccupied");
     }
     character = &g_status.buffers.Char[party_slot];
     if (character->highest_condition >= W8_CONDITION_MISSING) {
@@ -3499,7 +3497,7 @@ void DrawHighlightOverlay(unsigned int party_slot, int row_count, unsigned int m
         }
     }
     if (g_level_block->highlight_graphic == 0) {
-        ReportAssertion("gpMGSV->pHighlightGraphic", __FILE__, 0xd84);
+        srAssertFail("gpMGSV->pHighlightGraphic");
     }
     g_level_block->highlight_graphic->render_state.display_state = 4;
     Position2DNodeUnsnapped(g_level_block->highlight_graphic, g_level_block->dialogue_x + 7,
@@ -5246,7 +5244,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
         }
         if (assign) {
             if (g_status.selected_character == -1) {
-                srAssertFail("gStatus.iSelectedCharacter != -1", MAIN_GAME_SCREEN_CPP, 0x16db, 0);
+                srAssertFail("gStatus.iSelectedCharacter != -1");
             }
             AimAtMonsterLocation(g_status.selected_character, g_level_block->highlighted_item,
                                  true);
@@ -5872,13 +5870,12 @@ bool IsMGSActionKeyEnabled(unsigned short command)
                 return false;
             }
         default:
-            srAssertFail("FALSE", __FILE__, 0x207d,
-                         "Error with handling main game action keyboard equivalent");
+            srAssertFail("FALSE", "Error with handling main game action keyboard equivalent");
             break;
         }
     }
     if (state == -1) {
-        srAssertFail("iActionState != -1", __FILE__, 0x20aa,
+        srAssertFail("iActionState != -1",
                      "Error with handling main game action keyboard equivalent");
     }
     if (!IsPartySlotEligible(g_status.selected_character)) {
@@ -5991,7 +5988,7 @@ void RunMGSActionKey(unsigned short command)
         }
         break;
     default:
-        srAssertFail("FALSE", __FILE__, 0x2151, "Error executing main game screen action");
+        srAssertFail("FALSE", "Error executing main game screen action");
         break;
     }
 }

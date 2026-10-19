@@ -25,7 +25,6 @@
 #include "asset_paths.h"
 #include "dialog_code/MessageDialogBase.h"
 #include "difficulty.h"
-#include "file_time.h"
 #include "himage.h"
 #include "input.h"
 #include "mgs_commands.h"

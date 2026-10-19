@@ -62,8 +62,6 @@
 // GLOBAL: WIZ8 0x0068f2d4
 std::unique_ptr<W8MainGameScreen> g_main_game_screen;
 
-#define MGS_TEXT_BOX_CPP __FILE__
-
 namespace {
 struct MessageBoxInput {
     UiLayer body{UiLayerOrder::MessageBox}, tabs{UiLayerOrder::MessageBox};
@@ -346,7 +344,7 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view, short tex
                                g_current_screen_state.id == W8_SCREEN_PLEASE_WAIT ||
                                g_current_screen_state.id == W8_SCREEN_CHARACTER)) {
         if (font_palette >= W8_FONT_PALETTE_COUNT) {
-            srAssertFail("uiFontPaletteIndex <= FONT_PALETTE_COUNT", MGS_TEXT_BOX_CPP, 0x15c, 0);
+            srAssertFail("uiFontPaletteIndex <= FONT_PALETTE_COUNT");
         }
         if (wrap_width == W8_NOTICE_WRAP_AUTOMATIC) {
             wrap_width = g_level_block->text_box_right - g_level_block->text_box_left - 10;
@@ -597,14 +595,14 @@ void HighlightTextBoxRange(unsigned char color, std::size_t start, std::size_t s
     W8MessageStorageRecord* previous;
 
     if (!(stop >= start)) {
-        srAssertFail("ubStopChar >= ubStartChar", MGS_TEXT_BOX_CPP, 0x247, 0);
+        srAssertFail("ubStopChar >= ubStartChar");
     }
     if (g_current_screen_state.id != W8_SCREEN_MAIN_GAME) {
         return;
     }
     text_box = ResolveNoticeTextBox(text_box);
     if (!(g_status.text_box_lines_used[text_box] > 0)) {
-        srAssertFail("gStatus.uiTextBoxLinesUsed[iTextBuffer] > 0", MGS_TEXT_BOX_CPP, 0x261, 0);
+        srAssertFail("gStatus.uiTextBoxLinesUsed[iTextBuffer] > 0");
     }
     line = &g_message_storage[text_box][g_status.text_box_lines_used[text_box] - 1];
     if (g_level_block->text_lines[8 + text_box] == static_cast<unsigned int>(-1)) {
@@ -617,7 +615,7 @@ void HighlightTextBoxRange(unsigned char color, std::size_t start, std::size_t s
         return;
     }
     if (!(g_status.text_box_lines_used[text_box] >= 2)) {
-        srAssertFail("gStatus.uiTextBoxLinesUsed[iTextBuffer] >= 2", MGS_TEXT_BOX_CPP, 0x277, 0);
+        srAssertFail("gStatus.uiTextBoxLinesUsed[iTextBuffer] >= 2");
     }
     previous = &g_message_storage[text_box][g_status.text_box_lines_used[text_box] - 2];
     if (start >= g_level_block->text_lines[8 + text_box]) {
@@ -654,7 +652,7 @@ void AppendToLastTextLine(std::string_view text, short text_box)
     text_box = ResolveNoticeTextBox(text_box);
     w8_unaligned_uint* lines_used = &g_status.text_box_lines_used[text_box];
     if (!(*lines_used > 0)) {
-        srAssertFail("gStatus.uiTextBoxLinesUsed[iTextBuffer] > 0", MGS_TEXT_BOX_CPP, 0xf92, 0);
+        srAssertFail("gStatus.uiTextBoxLinesUsed[iTextBuffer] > 0");
     }
     W8MessageStorageRecord* line = &g_message_storage[text_box][*lines_used - 1];
     const auto merged = fmt::format("{}{}", line->text, text);
@@ -667,8 +665,7 @@ void AppendToLastTextLine(std::string_view text, short text_box)
     line->entries.clear();
     if (g_status.text_box_lines_shown[text_box] == *lines_used) {
         if (!(g_status.text_box_lines_shown[text_box] > 0)) {
-            srAssertFail("gStatus.uiTextBoxLinesShown[iTextBuffer] > 0", MGS_TEXT_BOX_CPP, 0xfa9,
-                         0);
+            srAssertFail("gStatus.uiTextBoxLinesShown[iTextBuffer] > 0");
         }
         --g_status.text_box_lines_shown[text_box];
     }
@@ -739,8 +736,7 @@ void AdvanceNoticeLine(short text_box)
         text_box = g_status.text_line_cursor;
     }
     if (g_status.text_box_lines_shown[text_box] >= 350) {
-        srAssertFail("gStatus.uiTextBoxLinesShown[iTextBuffer] < MAX_TEXT_BOX_LINES",
-                     MGS_TEXT_BOX_CPP, 0x2a5, 0);
+        srAssertFail("gStatus.uiTextBoxLinesShown[iTextBuffer] < MAX_TEXT_BOX_LINES");
     }
     W8MessageStorageRecord* record =
         &g_message_storage[text_box][g_status.text_box_lines_shown[text_box]];
@@ -1485,12 +1481,12 @@ void RefreshTextBoxMode(unsigned short mode)
     }
     int text_box = static_cast<short>(mode);
     if (g_status.text_box_lines_used[text_box] == 0) {
-        srAssertFail("gStatus.uiTextBoxLinesUsed[iTextBuffer] > 0", MGS_TEXT_BOX_CPP, 0x109e, 0);
+        srAssertFail("gStatus.uiTextBoxLinesUsed[iTextBuffer] > 0");
     }
     last_line = g_status.text_box_lines_used[text_box] - 1;
     group_lines = g_message_storage[text_box][last_line].link;
     if (last_line < group_lines) {
-        srAssertFail("uiLastLineIndex >= uiGroupLine", MGS_TEXT_BOX_CPP, 0x10a6, 0);
+        srAssertFail("uiLastLineIndex >= uiGroupLine");
     }
     first_line = last_line - group_lines;
     line = &g_message_storage[text_box][first_line];

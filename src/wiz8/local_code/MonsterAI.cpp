@@ -60,8 +60,6 @@ constexpr float kGroupEngagementProbeScale = 333.33333f;
 constexpr float kMonsterEngagementRangeFloor = 7500.0f;
 constexpr float kReinforcementDistanceSlack = 1.15f;
 
-#define MONSTER_AI_CPP "C:\\Projects\\Wizardry 8\\Local Code\\MonsterAI.cpp"
-
 /* The special-attack table row value that marks a summon; flee and control
    rules treat those rows differently. */
 enum { W8_SPECIAL_ATTACK_EFFECT_SUMMON = 6 };
@@ -239,7 +237,7 @@ void UpdateMonsterGroups(bool staggered)
         }
         if (g_out_of_combat_rtai_enabled && !gXStatus.fCombatMode) {
             if (monster_group == 0) {
-                srAssertFail("pMonsterGroup", MONSTER_AI_CPP, 207, 0);
+                srAssertFail("pMonsterGroup");
             }
             if (monster_group->leader_group_id == 0) {
                 monster_info = FindMonster(monster_group->leader_location_id);
@@ -317,7 +315,7 @@ void DoMonsterRTAI(W8MonsterInfo* monster_info, bool engage)
             return;
         }
         if (monster_info == 0) {
-            srAssertFail("pMonsterInfo", MONSTER_AI_CPP, 0x479, 0);
+            srAssertFail("pMonsterInfo");
         }
         record = GetMonsterDataForInfo(monster_info);
         best_range = 0;
@@ -388,8 +386,7 @@ void DoMonsterRTAI(W8MonsterInfo* monster_info, bool engage)
                     }
                     break;
                 default:
-                    srAssertFail("FALSE", MONSTER_AI_CPP, 0x185,
-                                 "DoMonsterRTAI: ERROR - Invalid disposition");
+                    srAssertFail("FALSE", "DoMonsterRTAI: ERROR - Invalid disposition");
                     return;
                 }
             }
@@ -414,7 +411,7 @@ void DoMonsterRTAI(W8MonsterInfo* monster_info, bool engage)
         monster_info->p3D->script_wait != MONSCR_WALKTO || decision != W8_RT_AI_IDLE) {
         if (decision != monster_info->ai_mode || update) {
             if (!engage && decision == W8_RT_AI_CHARGE_PARTY) {
-                srAssertFail("ubAIDecision != RT_AI_MODE_CHARGE_PARTY", MONSTER_AI_CPP, 0x1c9, 0);
+                srAssertFail("ubAIDecision != RT_AI_MODE_CHARGE_PARTY");
             }
             ApplyMonsterRTAIDecision(monster_info, decision);
         }
@@ -653,7 +650,7 @@ void ApplyMonsterRTAIDecision(W8MonsterInfo* monster_info, unsigned char decisio
     case W8_RT_AI_CHARGE_PARTY:
         best_range = 0;
         if (monster_info == 0) {
-            srAssertFail("pMonsterInfo", MONSTER_AI_CPP, 1145, 0);
+            srAssertFail("pMonsterInfo");
         }
         record = GetMonsterDataForInfo(monster_info);
         for (attack = 0; attack < 3; ++attack) {
@@ -680,7 +677,7 @@ void ApplyMonsterRTAIDecision(W8MonsterInfo* monster_info, unsigned char decisio
         break;
     case W8_RT_AI_APPROACH_PARTY:
         if (monster_info->ubDisposition == W8_DISPOSITION_HOSTILE) {
-            srAssertFail("pMonsterInfo->ubDisposition != DISP_HOSTILE", MONSTER_AI_CPP, 810, 0);
+            srAssertFail("pMonsterInfo->ubDisposition != DISP_HOSTILE");
         }
         MonsterApproachStartupNavigator(monster, 3000.0);
         break;
@@ -850,7 +847,7 @@ void UpdateMonsterAI(W8MonsterInfo* monster_info)
                     monster_info->Target.iType = W8_TARGET_KIND_PLACE;
                     monster_info->Target.point = position;
                 } else if (!AimMonsterAtSpellTarget(monster_info, W8_SPELL_SPECIAL_ATTACK_CONE)) {
-                    srAssertFail("fSuccess", MONSTER_AI_CPP, 1052, 0);
+                    srAssertFail("fSuccess");
                 }
                 goto validate;
             }
@@ -876,7 +873,7 @@ void UpdateMonsterAI(W8MonsterInfo* monster_info)
                                     ChooseMonsterSpell(monster_info, record);
                                 if (!AimMonsterAtSpellTarget(monster_info,
                                                              monster_info->action_detail)) {
-                                    srAssertFail("fSuccess", MONSTER_AI_CPP, 1076, 0);
+                                    srAssertFail("fSuccess");
                                 }
                                 goto validate;
                             }
@@ -932,7 +929,7 @@ bool MonsterGroupCanEngage(W8MonsterGroup* monster_group)
     glm::vec3 destination;
 
     if (monster_group == 0) {
-        srAssertFail("pMonsterGroup", MONSTER_AI_CPP, 1178, 0);
+        srAssertFail("pMonsterGroup");
     }
     if (monster_group->ubDisposition == W8_DISPOSITION_HOSTILE) {
         for (index = 0; index < monster_group->MemberIds().size(); ++index) {
@@ -1012,7 +1009,7 @@ unsigned int MonsterAdvanceChance(W8MonsterInfo* monster_info, W8MonsterRecord* 
 
     hp_percent = monster_info->hp_current * 100 / monster_info->uiHPMax;
     if (!monster_info->pCombat) {
-        srAssertFail("pMonsterInfo->pCombat", MONSTER_AI_CPP, 1272, 0);
+        srAssertFail("pMonsterInfo->pCombat");
     }
     if ((record->flags & W8_MONSTER_FLAG_NPC) != 0 &&
         monster_info->ubDisposition != W8_DISPOSITION_HOSTILE && hp_percent <= 33) {
@@ -1126,14 +1123,14 @@ void BuildMonsterActionQueue(W8MonsterInfo* monster_info, bool target_locked, bo
         }
         if (monster_info->Target.iType == W8_TARGET_KIND_CHARACTER) {
             if (monster_info->Target.iChar == -1) {
-                srAssertFail("pTarget->iChar != BAD_INDEX", MONSTER_AI_CPP, 1510, 0);
+                srAssertFail("pTarget->iChar != BAD_INDEX");
             }
             char_lo = monster_info->Target.iChar;
             char_hi = char_lo + 1;
             scan_chars = true;
         } else if (monster_info->Target.iType == W8_TARGET_KIND_MONSTER) {
             if (monster_info->Target.iMonsterID == -1) {
-                srAssertFail("pTarget->iMonsterID != BAD_INDEX", MONSTER_AI_CPP, 1519, 0);
+                srAssertFail("pTarget->iMonsterID != BAD_INDEX");
             }
             scan_monsters = true;
             locked_monster = FindMonster(monster_info->Target.iMonsterID);
@@ -1801,7 +1798,7 @@ int ChooseMonsterSpell(W8MonsterInfo* monster_info, W8MonsterRecord* record)
         }
     }
     if (count == 0) {
-        srAssertFail("uiCastableSpellCnt > 0", MONSTER_AI_CPP, 0xa03, 0);
+        srAssertFail("uiCastableSpellCnt > 0");
     }
     roll = Random(total);
     index = 0;
@@ -2051,7 +2048,7 @@ void CheckMonsterGroupsLeaveCombat(void)
             continue;
         }
         if (group == 0) {
-            srAssertFail("pMonsterGroup", MONSTER_AI_CPP, 0xc06, 0);
+            srAssertFail("pMonsterGroup");
         }
         for (index = 0; index < group->MemberIds().size(); ++index) {
             member = FindMonster(group->MemberLocationId(index));
@@ -2078,7 +2075,7 @@ void CheckMonsterGroupsLeaveCombat(void)
                 }
             }
             if (group == 0) {
-                srAssertFail("pMonsterGroup", MONSTER_AI_CPP, 0xc06, 0);
+                srAssertFail("pMonsterGroup");
             }
             for (member_index = 0; member_index < group->MemberIds().size(); ++member_index) {
                 other = FindMonster(group->MemberLocationId(member_index));
@@ -2153,7 +2150,7 @@ bool MonsterGroupHasVisibleTarget(W8MonsterGroup* monster_group, bool party_only
     W8MonsterInfo* member;
 
     if (monster_group == 0) {
-        srAssertFail("pMonsterGroup", MONSTER_AI_CPP, 0xc7f, 0);
+        srAssertFail("pMonsterGroup");
     }
     for (index = 0; index < monster_group->MemberIds().size(); ++index) {
         member = GetGroupMemberInfo(monster_group, index);
@@ -2355,7 +2352,7 @@ float GetGroupNearestDistance(W8MonsterGroup* group)
     float distance;
 
     if (group == 0) {
-        srAssertFail("pMonsterGroup", MONSTER_AI_CPP, 1840, 0);
+        srAssertFail("pMonsterGroup");
     }
 
     for (index = 0; index < group->MemberIds().size(); ++index) {
@@ -2414,7 +2411,7 @@ bool MonsterGroupHalfSpellTargetsValid(W8MonsterInfo* monster_info, int spell_id
     W8CombatSlot slot;
 
     if (target_group == 0) {
-        srAssertFail("pTargetMonsterGroup", MONSTER_AI_CPP, 0xdc4, 0);
+        srAssertFail("pTargetMonsterGroup");
     }
     for (index = 0; index < target_group->MemberIds().size(); ++index) {
         int location_id = target_group->MemberLocationId(index);
@@ -2514,7 +2511,7 @@ bool MonsterGroupHasReinforcement(W8MonsterGroup* monster_group)
 static W8MonsterInfo* GetGroupMemberInfo(W8MonsterGroup* group, unsigned int index)
 {
     if (group == 0) {
-        srAssertFail("pMonsterGroup", MONSTER_AI_CPP, 3199, 0);
+        srAssertFail("pMonsterGroup");
     }
     return FindMonster(group->MemberLocationId(index));
 }

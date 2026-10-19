@@ -32,7 +32,6 @@
    though it is only ever a base subobject. */
 
 // STRING: WIZ8 0x006501D8
-#define STAT_INFO_DIALOGS_CPP "C:\\Projects\\Wizardry 8\\Dialog Code\\StatInfoDialogs.cpp"
 
 enum { ATTR_COUNT = 7 };
 enum { SKILL_COUNT = 0x29 };
@@ -111,7 +110,7 @@ bool W8StatInfoDialogBase::PopulateText()
 W8AttributeInfoDialog::W8AttributeInfoDialog(W8Attribute uiIndex)
 {
     if (static_cast<unsigned int>(uiIndex) >= ATTR_COUNT) {
-        srAssertFail("uiIndex < ATTR_COUNT", STAT_INFO_DIALOGS_CPP, 204, 0);
+        srAssertFail("uiIndex < ATTR_COUNT");
     }
     m_uiIndex = uiIndex;
     m_title_id = g_character_description_first_ids[uiIndex];
@@ -123,7 +122,7 @@ W8AttributeInfoDialog::W8AttributeInfoDialog(W8Attribute uiIndex)
 W8SkillInfoDialog::W8SkillInfoDialog(W8Skill skill, bool first, bool second, bool bonus)
 {
     if (static_cast<unsigned int>(skill) >= SKILL_COUNT) {
-        srAssertFail("uiIndex < SKILL_COUNT", STAT_INFO_DIALOGS_CPP, 227, 0);
+        srAssertFail("uiIndex < SKILL_COUNT");
     }
     m_skill = skill;
     m_title_id = g_character_skill_name_ids[skill];
@@ -166,7 +165,7 @@ bool W8SkillInfoDialog::PopulateText()
 W8SecondaryAttributeInfoDialog::W8SecondaryAttributeInfoDialog(unsigned int uiIndex)
 {
     if (uiIndex >= ATTR_COUNT) {
-        srAssertFail("uiIndex < ATTR_COUNT", STAT_INFO_DIALOGS_CPP, 278, 0);
+        srAssertFail("uiIndex < ATTR_COUNT");
     }
     m_uiIndex = uiIndex;
     m_title_id = g_character_description_first_ids[16 + uiIndex];

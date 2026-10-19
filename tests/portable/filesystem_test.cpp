@@ -1,12 +1,16 @@
 #include <filesystem>
 #include <fstream>
 #include <memory>
+#include <stdexcept>
+#include <string>
 #include <string_view>
 #include <system_error>
+#include <vector>
 
 #include <catch2/catch_test_macros.hpp>
 #include <wiz8/filesystem.h>
 
+#include "file_operations.h"
 #include "temporary_directory.h"
 #include "wiz8/asset_paths.h"
 
@@ -62,4 +66,43 @@ TEST_CASE("Explicit roots isolate assets and atomic user saves")
     if (!error) REQUIRE_THROWS(wiz8::user_path("alias/data/item.bin"));
     REQUIRE_THROWS(w8_native::configure_paths(
         {wiz8::path_to_utf8(base / "assets"), wiz8::path_to_utf8(base / "assets/nested")}));
+}
+
+TEST_CASE("Save copies publish writable files and preserve the old save on failure")
+{
+    ScopedTemporaryDirectory temporary{"wiz8-copy"};
+    const auto source = temporary.path / "source.SAV";
+    const auto target = temporary.path / "target.SAV";
+    std::ofstream(source) << "replacement";
+    std::ofstream(target) << "old";
+    fs::permissions(source, fs::perms::owner_read, fs::perm_options::replace);
+    REQUIRE_THROWS(wiz8::copy_file(temporary.path / "missing", target));
+    REQUIRE(wiz8::open_file(target)->read_text() == "old");
+    const auto directory = temporary.path / "directory";
+    fs::create_directory(directory);
+    REQUIRE_THROWS(wiz8::copy_file(directory, target));
+    REQUIRE(wiz8::open_file(target)->read_text() == "old");
+    {
+        struct RestoreHook {
+            wiz8::testing::FileOperationHook previous;
+            ~RestoreHook() { wiz8::testing::set_file_operation_hook(previous); }
+        } restore{wiz8::testing::set_file_operation_hook([](wiz8::testing::FileOperation op) {
+            if (op == wiz8::testing::FileOperation::publish)
+                throw std::runtime_error("publication failed");
+        })};
+        REQUIRE_THROWS(wiz8::copy_file(source, target));
+        REQUIRE(wiz8::open_file(target)->read_text() == "old");
+    }
+    wiz8::copy_file(source, target);
+    REQUIRE(wiz8::open_file(target)->read_text() == "replacement");
+    REQUIRE_FALSE(wiz8::file_status(target)->read_only);
+    REQUIRE_THROWS(wiz8::copy_file(target, target));
+    REQUIRE(wiz8::list_directory(temporary.path, "*.sav") ==
+            std::vector<std::string>{"source.SAV", "target.SAV"});
+    auto file = wiz8::open_file(target);
+    REQUIRE(file->seek(3, wiz8::SeekOrigin::begin) == 3);
+    REQUIRE(file->seek(2, wiz8::SeekOrigin::current) == 5);
+    REQUIRE(file->seek(-2, wiz8::SeekOrigin::end) == 9);
+    REQUIRE_THROWS(file->seek(-20, wiz8::SeekOrigin::begin));
+    REQUIRE(file->tell() == 9);
 }

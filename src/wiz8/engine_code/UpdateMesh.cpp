@@ -150,11 +150,10 @@ std::vector<glm::ivec2> visibleQuadCells(const W8World& world)
 void UpdateWorldMeshFromQuads(W8World* world)
 {
     if (world == 0) {
-        srAssertFail("pWorld", "C:\\Projects\\Wizardry 8\\Engine Code\\UpdateMesh.cpp", 0x21f, 0);
+        srAssertFail("pWorld");
     }
     if (world->quads == 0) {
-        srAssertFail("pWorld->Tree.pQuads", "C:\\Projects\\Wizardry 8\\Engine Code\\UpdateMesh.cpp",
-                     0x220, 0);
+        srAssertFail("pWorld->Tree.pQuads");
     }
     srMeshModel* mesh = static_cast<srMeshModel*>(world->update_mesh_source->getModel());
     W8Quad& quad = *world->quads;
@@ -187,7 +186,7 @@ void UpdateWorldMesh()
     w8_ulong index;
 
     if (GetWorld() == nullptr) {
-        srAssertFail("pWorld", "C:\\Projects\\Wizardry 8\\Engine Code\\UpdateMesh.cpp", 0x2a2, 0);
+        srAssertFail("pWorld");
     }
     source = GetWorld()->update_mesh_source;
     if (source != 0) {

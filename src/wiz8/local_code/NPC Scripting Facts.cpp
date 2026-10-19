@@ -140,7 +140,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         }
         npc = GetNpcStateByKind(0x48);
         if (npc == 0) {
-            srAssertFail("npc", __FILE__, __LINE__, 0);
+            srAssertFail("npc");
         }
         ClearNpcScheduledItem(npc, 0x242, 0);
         return;
@@ -223,7 +223,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         }
         npc = GetNpcStateByKind(0x29);
         if (npc == 0) {
-            srAssertFail("npc", __FILE__, __LINE__, 0);
+            srAssertFail("npc");
         }
         MarkNpcOfKind(0x29);
         return;
@@ -643,7 +643,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         }
         npc = GetNpcStateByKind(0x29);
         if (npc == 0) {
-            srAssertFail("npc", __FILE__, __LINE__, 0);
+            srAssertFail("npc");
         }
         MarkNpcOfKind(0x29);
         return;

@@ -20,8 +20,6 @@
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/octree_spatial.h"
 
-#define OCT_BUILD_TREE_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\OctBuildTree.cpp"
-
 // GLOBAL: WIZ8 0x005ec188
 const float g_octree_cell_extent_scale = 1.000100016593933f;
 

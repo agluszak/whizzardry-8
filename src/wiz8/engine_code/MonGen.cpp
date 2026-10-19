@@ -131,7 +131,6 @@ try {
 }
 
 // STRING: WIZ8 0x0060A6E0
-#define MON_GEN_CPP "C:\\Projects\\Wizardry 8\\Engine Code\\MonGen.cpp"
 
 /* Flag bits on a generator: bit 0 suppresses spawning, bit 2 is armed, bit 3
    selects the shared default chance and interval, and bit 5 adds the
@@ -292,7 +291,7 @@ unsigned char MonGen::GenerateEncounter(const glm::vec3* position)
     spawn_position = *position;
     record = MonsterDBFromSpecies(species);
     if (record == 0) {
-        srAssertFail("pMonsterDB", MON_GEN_CPP, 0x146,
+        srAssertFail("pMonsterDB",
                      fmt::format("MonsterDBFromSpecies failed for species {:d}", species));
     }
     if (record->deleted != 0) {
@@ -324,7 +323,7 @@ unsigned char MonGen::GenerateEncounter(const glm::vec3* position)
 
     int count = RollEncounterGroupSize(record);
     if (count == 0) {
-        srAssertFail("ulNumMonsters", MON_GEN_CPP, 0x17b,
+        srAssertFail("ulNumMonsters",
                      fmt::format("Error in Monster DB: zero group size ({})", record->name0));
     }
 
@@ -346,9 +345,8 @@ unsigned char MonGen::GenerateEncounter(const glm::vec3* position)
             static_cast<unsigned short>(companion_records[index].species);
         W8MonsterRecord* companion_record = MonsterDBFromSpecies(companion_species);
         if (companion_record == 0) {
-            srAssertFail(
-                "pMonsterDB", MON_GEN_CPP, 0x193,
-                fmt::format("MonsterDBFromSpecies failed for species {:d}", companion_species));
+            srAssertFail("pMonsterDB", fmt::format("MonsterDBFromSpecies failed for species {:d}",
+                                                   companion_species));
         }
         if (companion_record->deleted != 0) {
             DebugMessage(1,
