@@ -474,7 +474,7 @@ void W8SpellVisual::StartIfHostActive()
     if (!this->rep_active) {
         return;
     }
-    if (QueryHostStateByKind(7) != 0) {
+    if (QueryHostState(W8SpellVisualHostStateQuery::AnimationStopped) != 0) {
         this->finished = true;
         return;
     }
@@ -495,26 +495,25 @@ int W8SpellVisual::FindSupportedCycle(int group, int subcycle)
     return -1;
 }
 
-/* Kind-indexed query over the host's emitter state; the only call site asks
-   kind 7. */
-int W8SpellVisual::QueryHostStateByKind(int arg_kind)
+/* Query one host-side property of the spell visual. */
+int W8SpellVisual::QueryHostState(W8SpellVisualHostStateQuery query)
 {
-    switch (arg_kind) {
-    case 0:
+    switch (query) {
+    case W8SpellVisualHostStateQuery::EmitterSetting:
         return this->ApplyEmitterSetting(this->current_cycle);
-    case 1:
+    case W8SpellVisualHostStateQuery::AnimationCount:
         return GetTotalAnimationCount();
-    case 2:
+    case W8SpellVisualHostStateQuery::AtLastSubcycle:
         return this->subcycle == this->ApplyEmitterSetting(this->current_cycle) - 1;
-    case 3:
+    case W8SpellVisualHostStateQuery::IsFirstSubcycle:
         return this->subcycle == 0;
-    case 4:
+    case W8SpellVisualHostStateQuery::Subcycle:
         return this->subcycle;
-    case 5:
+    case W8SpellVisualHostStateQuery::HasEmitterSetting:
         return this->ApplyEmitterSetting(this->current_cycle) != 0xffffffff;
-    case 6:
+    case W8SpellVisualHostStateQuery::CurrentCycle:
         return this->current_cycle;
-    case 7:
+    case W8SpellVisualHostStateQuery::AnimationStopped:
         return this->animation_playing == 0;
     default:
         return -1;

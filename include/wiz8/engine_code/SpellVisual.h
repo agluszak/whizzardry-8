@@ -29,6 +29,17 @@ enum {
     SPELL_CYCLES_PER_GROUP = 7
 };
 
+enum class W8SpellVisualHostStateQuery : int {
+    EmitterSetting,
+    AnimationCount,
+    AtLastSubcycle,
+    IsFirstSubcycle,
+    Subcycle,
+    HasEmitterSetting,
+    CurrentCycle,
+    AnimationStopped,
+};
+
 /* Engine Code\Spells.cpp's 0x1f8-byte GrCycle specialization.  Construction
    installs the primary 0x005ECF40 table and the ordinary W8Navigator secondary
    table at +0x18, then owns one 0x37c-byte emitter host at +0x1e0. */
@@ -63,9 +74,8 @@ public:
     /* Search backward from a subcycle for the first cycle this visual
        supports; returns -1 when none does. */
     virtual int FindSupportedCycle(int group, int subcycle);
-    /* Kind-indexed query over the emitter host's current state; only ever
-       called with kind 7 by StartIfHostActive. */
-    int QueryHostStateByKind(int kind);
+    /* Typed query over the emitter host's current state. */
+    int QueryHostState(W8SpellVisualHostStateQuery query);
 
     /* Selects the update mode and the cycle group the resource loader
        matches shared visuals by. */
