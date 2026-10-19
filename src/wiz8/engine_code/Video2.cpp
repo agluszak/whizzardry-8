@@ -1612,7 +1612,7 @@ unsigned char InitializeRendererSceneObjects(void)
     g_primary_color_surface = primarySurface;
 
     g_surface_node = g_overlay_scenes.frame[0]->adoptChild(
-        std::make_unique<stSurface2D>(g_primary_color_surface, 640, 480, nullptr, 128));
+        std::make_unique<stSurface2D>(g_primary_color_surface, nullptr));
     if (!g_surface_node) return 0;
 
     return 1;

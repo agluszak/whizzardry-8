@@ -425,9 +425,7 @@ void srGERD::setTextureSubImage(srTexture* texture, w8_long mipmap, w8_long x, w
     const SDL_Rect bounds{0, 0, static_cast<int>(level_width), static_cast<int>(level_height)};
     if (!SDL_GetRectIntersection(&region, &bounds, &region)) return;
     auto destination = CreateCpuStorage(level_width, level_height, resident.pixel_format);
-    const SDL_Rect source{region.x + texture->source_region.x, region.y + texture->source_region.y,
-                          region.w, region.h};
-    if (!SDL_BlitSurface(pixels, &source, destination.get(), &region))
+    if (!SDL_BlitSurface(pixels, &region, destination.get(), &region))
         throw std::runtime_error(SDL_GetError());
     const auto* data = static_cast<const unsigned char*>(destination->pixels);
     device.gpu.uploadTexture(resident.device.gpu, mipmap,
@@ -1653,6 +1651,12 @@ void srGERD::initTexCache()
 void srGERD::evaluateTextureDimensions(TextureCacheData& device,
                                        const srTexture::Dimensions& dimensions)
 {
+    if (dimensions.native_size) {
+        device.width = dimensions.width;
+        device.height = dimensions.height;
+        device.first_level = device.last_level = 0;
+        return;
+    }
     w8_ulong min_dim = SDLGPUDevice::texture_min_dim;
     const auto reduction = texture_reduction;
     w8_ulong width = nextTextureDimension(dimensions.width) >> (reduction & 0x1f);
@@ -1703,31 +1707,26 @@ srGERD::Texture* srGERD::createNewTexture(srTexture* texture)
     auto* result = &entry->second;
     if (!inserted) return result;
     try {
-        evaluateTextureDimensions(result->device, texture->getDimensions());
+        const auto dimensions = texture->getDimensions();
+        evaluateTextureDimensions(result->device, dimensions);
         SDL_Surface* source = texture->getSurfacePtr();
-        SDLSurfaceOwner region{nullptr, SDL_DestroySurface};
-        if (source && texture->source_region.w > 0 && texture->source_region.h > 0) {
-            const auto& rect = texture->source_region;
-            region = CreateCpuStorage(rect.w, rect.h, source->format);
-            if (!SDL_BlitSurface(source, &rect, region.get(), nullptr))
-                throw std::runtime_error(SDL_GetError());
-            source = region.get();
-        }
         result->device.gpu = device.gpu.createTexture(result->device.width, result->device.height,
                                                       result->device.last_level + 1);
         if (!result->device.gpu.handle) throw std::runtime_error("Cannot create GPU texture");
-        SDLSurfaceOwner previous{nullptr, SDL_DestroySurface};
-        for (unsigned level = 0; source && level <= result->device.last_level; ++level) {
-            const auto w = result->device.width >> level;
-            const auto h = result->device.height >> level;
+        if (source) {
+            const auto w = result->device.width;
+            const auto h = result->device.height;
             auto destination = CreateCpuStorage(w, h, result->pixel_format);
-            StretchCpuSurface(*source, *destination, SDL_SCALEMODE_LINEAR);
+            if (dimensions.native_size) {
+                if (!SDL_BlitSurface(source, nullptr, destination.get(), nullptr))
+                    throw std::runtime_error(SDL_GetError());
+            } else {
+                StretchCpuSurface(*source, *destination, SDL_SCALEMODE_LINEAR);
+            }
             const auto* data = static_cast<const unsigned char*>(destination->pixels);
-            device.gpu.uploadTexture(result->device.gpu, level, {0, 0, w, h},
+            device.gpu.uploadTexture(result->device.gpu, 0, {0, 0, w, h},
                                      {data, std::size_t(destination->pitch) * h},
                                      destination->pitch);
-            previous = std::move(destination);
-            source = previous.get();
         }
         ++statistics.textures_created;
         return result;

@@ -35,7 +35,6 @@ srTexture& srTexture::operator=(const srTexture& other)
         texture_dimensions_ = other.texture_dimensions_;
         texture_flags_ = other.texture_flags_;
         surface = other.surface;
-        source_region = other.source_region;
     }
     return *this;
 }

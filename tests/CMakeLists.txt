@@ -191,6 +191,14 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         ENVIRONMENT "SDL_VIDEODRIVER=offscreen" TIMEOUT 30)
 endif()
 
+add_executable(native_surface_rendering_test native/surface_rendering_test.cpp)
+target_link_libraries(native_surface_rendering_test PRIVATE WIZ8_GAME_CORE SDL3::SDL3)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_test(NAME native_surface_rendering COMMAND native_surface_rendering_test)
+    set_tests_properties(native_surface_rendering PROPERTIES
+        ENVIRONMENT "SDL_VIDEODRIVER=offscreen" TIMEOUT 30)
+endif()
+
 add_executable(native_movie_test "${PROJECT_SOURCE_DIR}/tests/native/movie_test.cpp")
 target_compile_definitions(native_movie_test PRIVATE
     WIZ8_MOVIE_FIXTURE="${PROJECT_SOURCE_DIR}/tests/native/movie.mkv"
