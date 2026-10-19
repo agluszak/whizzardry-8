@@ -165,6 +165,8 @@ void InitializeSkillBaseLevels(W8Character* character);
 void RefreshCharacterSkillAvailability(W8Character* character);
 unsigned int GetSkillQuarterValue(W8Character* character, W8Skill skill_id);
 
+// Profession, race and gender are set; nothing is derived for a character without them.
+bool IsCharacterDefined(const W8Character& character);
 struct W8GameplayModifierBlock;
 // Rebuild modifier blocks, effective attributes, skill levels and hand kinds from the
 // character's equipment, conditions and the supplied party modifiers.

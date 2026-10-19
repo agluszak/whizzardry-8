@@ -483,11 +483,15 @@ void EvaluateCharacterInputs(W8Character& character, const W8GameplayModifierBlo
     SetHandType(&character, W8_EQUIP_SLOT_SECONDARY_WEAPON);
 }
 
+bool IsCharacterDefined(const W8Character& character)
+{
+    return character.iProfession < W8_PROFESSION_COUNT && character.iRace < W8_RACE_COUNT &&
+           character.gender != W8_GENDER_UNSET;
+}
+
 void RecalculateCharacterDerivedStats(W8Character& character)
 {
-    if (character.iProfession >= W8_PROFESSION_COUNT || character.iRace >= W8_RACE_COUNT ||
-        character.gender == W8_GENDER_UNSET)
-        return;
+    if (!IsCharacterDefined(character)) return;
     if (character.uiExpLevel > 50) character.uiExpLevel = 50;
     for (auto& level : character.profession_levels)
         if (static_cast<unsigned int>(level) > 50) level = 50;

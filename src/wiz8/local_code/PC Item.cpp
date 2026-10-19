@@ -210,7 +210,9 @@ void SettleActiveParty(std::bitset<W8_PARTY_SLOT_COUNT> changed_hands)
 {
     auto& party = g_status.party;
     for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
-        if (party.rows[slot].fOccupied && UnequipUnusableItems(slot)) changed_hands.set(slot);
+        if (party.rows[slot].fOccupied && IsCharacterDefined(party.characters[slot]) &&
+            UnequipUnusableItems(slot))
+            changed_hands.set(slot);
     const auto stats = party.updateStats(CaptureLivePartyStatRules());
     for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
         if (!party.rows[slot].fOccupied) continue;

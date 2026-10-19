@@ -31,10 +31,6 @@ static CharacterStatsUpdate RecalculateCharacterStatsFromAttributes(W8Character&
                                                                     CharacterStatRules rules)
 {
     auto* character = &subject;
-    if (character->iProfession >= W8_PROFESSION_COUNT || character->iRace >= W8_RACE_COUNT ||
-        character->gender == W8_GENDER_UNSET) {
-        return {};
-    }
     const bool hp_exhausted = RecalculateCharacterHitPoints(character);
     RecalculateCharacterStamina(character);
     RecalculateRealmSpellPoints(character);
@@ -201,9 +197,9 @@ bool W8Party::refreshLoad(const PartyStatRules& rules)
 CharacterStatsUpdate UpdateStandaloneCharacterStats(W8Character& character,
                                                     CharacterStatRules rules)
 {
+    if (!IsCharacterDefined(character)) return {};
     EvaluateCharacterInputs(character, nullptr);
     auto update = RecalculateCharacterStatsFromAttributes(character, rules);
-    if (!update.valid) return update;
     character.party_weight_share = 0;
     RecalculateCharacterLoadStats(character, rules);
     return update;
@@ -214,7 +210,7 @@ W8PartyStats W8Party::updateStats(const PartyStatRules& rules)
     W8PartyStats result;
     // Establish every capacity and inventory weight before allocating the shared pool.
     for (unsigned slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-        if (!rows[slot].fOccupied) continue;
+        if (!rows[slot].fOccupied || !IsCharacterDefined(characters[slot])) continue;
         EvaluateCharacterInputs(characters[slot], characters[slot].fInParty ? &modifiers : nullptr);
         result.characters[slot] =
             RecalculateCharacterStatsFromAttributes(characters[slot], rules.characters[slot]);
