@@ -1,6 +1,7 @@
 #include "wiz8/engine_code/SoundEvent.h"
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -42,7 +43,7 @@ W8SoundEvent::W8SoundEvent(W8SoundEventKind kind, int cycle, int frame, int subc
 }
 
 // GLOBAL: WIZ8 0x0061095c
-static int g_last_sound_event = -1;
+static std::optional<int> g_last_sound_event;
 
 // GLOBAL: WIZ8 0x00683420
 static int g_previous_footstep_variant;
@@ -75,7 +76,7 @@ void UpdateSoundEvents(const std::vector<std::unique_ptr<W8SoundEvent>>& events,
         int selected;
         do {
             selected = static_cast<int>(Random(candidates.size()));
-        } while (candidates.size() > 1 && selected == g_last_sound_event);
+        } while (candidates.size() > 1 && g_last_sound_event && selected == *g_last_sound_event);
         if (candidates[selected]->Play(position, cycle)) g_last_sound_event = selected;
     }
 }
