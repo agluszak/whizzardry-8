@@ -131,8 +131,8 @@ static int g_text_box_value = W8_FONT_PALETTE_BEIGE;
 // GLOBAL: WIZ8 0x0068f2d8
 W8MessageStorageRecord g_message_storage[4][0x15e];
 
-static void AppendNoticeLine(unsigned char font_palette, std::string_view text, short text_box,
-                             int wrapped_line);
+static void AppendNoticeLine(unsigned char font_palette, std::string_view text,
+                             std::optional<short> text_box, int wrapped_line);
 
 // Rebuild byte ranges and pixel hit boxes when the text or font changes.
 void W8MessageStorageRecord::RebuildEntries()
