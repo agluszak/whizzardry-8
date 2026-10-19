@@ -12,7 +12,7 @@ struct W8AmbientTrack;
 struct W8LevelPopulation;
 struct W8WorldCursorState;
 struct W8WorldCursorNode;
-struct W8Item;
+struct WorldItemEntity;
 class W8Monster;
 class W8Prop;
 class srNode;
@@ -87,7 +87,7 @@ struct W8World {
     std::vector<std::unique_ptr<W8Monster>> monsters;
     // Update membership borrows loaded monsters, including the visible cursor.
     std::vector<W8Monster*> active_monsters;
-    std::vector<std::unique_ptr<W8Item>> plsItems;
+    std::vector<std::unique_ptr<WorldItemEntity>> plsItems;
     std::vector<std::unique_ptr<W8Prop>> plsProps;
     std::vector<std::unique_ptr<W8CameraPath>> plsCameras;
     std::vector<std::unique_ptr<W8AmbientSound>> plsAmbientSounds;

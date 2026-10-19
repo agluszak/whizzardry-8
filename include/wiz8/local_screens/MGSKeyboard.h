@@ -8,8 +8,8 @@ struct W8Chunk;
 #include <SDL3/SDL_keycode.h>
 
 #include "compat/compiler.h"
-#include "input.h"
 #include "wiz8/mgs_commands.h"
+#include "wiz8/platform/input.h"
 
 namespace wiz8 {
 class File;
@@ -24,7 +24,6 @@ struct MGSKeyBinding {
     std::uint16_t unmapped_retail_key = 0;
 };
 
-// VTABLE: WIZ8 0x005ee8f0
 class MGSKeyboard {
 public:
     int FindBinding(W8MGSCommand command) const;

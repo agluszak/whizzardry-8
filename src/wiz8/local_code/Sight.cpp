@@ -15,7 +15,6 @@
 #include "layouts/levels.h"
 #include "layouts/world.h"
 #include "local_code/Factions.h"
-#include "random.h"
 #include "sight_state.h"
 #include "surrender/srDebug.h"
 #include "wiz8/character_event_queue.h"
@@ -23,7 +22,6 @@
 #include "wiz8/engine_code/3d.h"
 #include "wiz8/engine_code/Environment.h"
 #include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/GameTimeAccumulator.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Navigator.h"
@@ -50,17 +48,17 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/monster_generators.h"
+#include "wiz8/platform/GameTimeAccumulator.h"
+#include "wiz8/platform/random.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 
 struct W8World;
 
-// GLOBAL: WIZ8 0x005ec254
 const float g_sight_default = 12.0f;
 
 /* Put the sight subsystem back to its starting state. */
-// FUNCTION: WIZ8 0x005048e0
 void ResetSight(void)
 {
     SetViewDistance(12.0f);
@@ -70,14 +68,12 @@ void ResetSight(void)
 }
 
 /* Whether the view distance has been moved off its default. */
-// FUNCTION: WIZ8 0x00504910
 bool IsSightRangeOverridden(void)
 {
     return GetViewDistance() != g_sight_default;
 }
 
 /* Re-run both directions of the sight update for one monster. */
-// FUNCTION: WIZ8 0x00505760
 void RefreshMonsterSight(W8MonsterInfo* monster_info)
 {
     UpdateMonsterSight(monster_info, true, false);
@@ -87,7 +83,6 @@ void RefreshMonsterSight(W8MonsterInfo* monster_info)
 /* Re-run the outward direction over every live monster, and tell the combat
    display about it if a fight is on. The count is re-read every step because
    the update can remove a monster. */
-// FUNCTION: WIZ8 0x00505780
 void RefreshOutwardSightForAllMonsters(void)
 {
     unsigned int index;
@@ -102,7 +97,6 @@ void RefreshOutwardSightForAllMonsters(void)
 }
 
 /* The inward direction on its own, with nothing to tell the display. */
-// FUNCTION: WIZ8 0x005057d0
 void RefreshInwardSightForAllMonsters(void)
 {
     unsigned int index;
@@ -115,7 +109,6 @@ void RefreshInwardSightForAllMonsters(void)
 /* Both directions over every monster, in two separate passes rather than one
    pass doing both - the outward pass and its display notification have to
    finish before the inward pass starts. */
-// FUNCTION: WIZ8 0x00505810
 void RefreshAllSight(void)
 {
     unsigned int index;
@@ -127,7 +120,6 @@ void RefreshAllSight(void)
 }
 
 /* Whether one monster can see another in combat once line of sight is clear. */
-// FUNCTION: WIZ8 0x005058a0
 bool CanMonsterSeeMonster(W8MonsterInfo* source, W8MonsterInfo* target, W8VisibilityRecord* record)
 {
     W8MonsterRecord* target_record;
@@ -183,7 +175,6 @@ bool CanMonsterSeeMonster(W8MonsterInfo* source, W8MonsterInfo* target, W8Visibi
 }
 
 /* Maximum distance at which the observer can perceive the target. */
-// FUNCTION: WIZ8 0x00505a40
 float ComputeSightThreshold(glm::vec3 observer_position, glm::vec3 target_position,
                             float observer_yaw, unsigned int perception_attribute,
                             unsigned char ranged_bonus, bool blinded, bool extended_sight_active,
@@ -202,7 +193,7 @@ float ComputeSightThreshold(glm::vec3 observer_position, glm::vec3 target_positi
     far_clip = WorldGetFarClip(world);
     viewing_distance = static_cast<float>(far_clip);
     if (viewing_distance <= 0.0f) {
-        srAssertFail("flViewingDistance > 0");
+        Fail("flViewingDistance > 0");
     }
     heading = GetHeadingAngle(&observer_position, &target_position);
     angle_delta = ShortestAngleDistance(observer_yaw, heading);
@@ -234,7 +225,6 @@ float ComputeSightThreshold(glm::vec3 observer_position, glm::vec3 target_positi
 }
 
 /* Drop every visibility record anyone held about one departing monster. */
-// FUNCTION: WIZ8 0x00505ba0
 void ReleaseMonToMonVisibilityInfoAbout(int location_id)
 {
     for (const auto& monster_owner : CurrentLevelPopulation().monster_roster.live()) {
@@ -247,7 +237,6 @@ void ReleaseMonToMonVisibilityInfoAbout(int location_id)
 
 /* Empty and destroy one monster's whole visibility list, then drop what
    everybody else held about it. */
-// FUNCTION: WIZ8 0x00505c80
 void ReleaseMonToMonVisibilityList(W8MonsterInfo* monster_info)
 {
     monster_info->monster_visibility.reset();
@@ -256,7 +245,6 @@ void ReleaseMonToMonVisibilityList(W8MonsterInfo* monster_info)
 
 /* Whether a monster group still has anybody in it worth seeing: alive, not
    dying, not too far gone, and marked as a threat. */
-// FUNCTION: WIZ8 0x00505ea0
 bool MonsterGroupHasVisibleThreat(W8MonsterGroup* group)
 {
     unsigned int index;
@@ -274,7 +262,6 @@ bool MonsterGroupHasVisibleThreat(W8MonsterGroup* group)
 }
 
 /* Spell visibility occupies entry two or three, depending on launch origin. */
-// FUNCTION: WIZ8 0x00505e80
 char GetMonsterSpellSightIndex(const W8MonsterInfo* monster)
 {
     return (monster->has_spell_origin) + 2;
@@ -283,7 +270,6 @@ char GetMonsterSpellSightIndex(const W8MonsterInfo* monster)
 /* Read one flag out of a visibility record. Two of the seven kinds are pairs
    that the monster's missile and spell conditions choose between; the rest are
    fixed, and anything past the named kinds falls back to the last flag. */
-// FUNCTION: WIZ8 0x00505dd0
 bool IsVisibleUnderConditions(const W8MonsterInfo* monster, const W8VisibilityRecord* row, int kind)
 {
     if (row == 0) {
@@ -309,7 +295,6 @@ bool IsVisibleUnderConditions(const W8MonsterInfo* monster, const W8VisibilityRe
 
 /* Bring every monster's sight up to date with the clock, in whole two-minute
    steps - anything short of one step is left for next time. */
-// FUNCTION: WIZ8 0x00504930
 unsigned int AgeAllMonsterSight(void)
 {
     unsigned int elapsed;
@@ -334,7 +319,6 @@ unsigned int AgeAllMonsterSight(void)
 
 /* The map owns records and keeps their addresses stable while other entries
    are inserted or removed. A missing list or target has no visibility record. */
-// FUNCTION: WIZ8 0x00505d20
 W8VisibilityRecord* FindMonToMonVisibility(W8MonsterInfo* source, W8MonsterInfo* target)
 {
     if (!source->monster_visibility) return nullptr;
@@ -346,7 +330,6 @@ W8VisibilityRecord* FindMonToMonVisibility(W8MonsterInfo* source, W8MonsterInfo*
 /* Bring every monster's sight up to date from a cleared starting state: the
    two per-monster sight blocks are emptied first, then the outward pass, the
    combat display notification it feeds, and finally the inward pass. */
-// FUNCTION: WIZ8 0x005060c0
 void ResetAndRefreshAllSight(void)
 {
     unsigned int index;
@@ -369,21 +352,16 @@ void ResetAndRefreshAllSight(void)
     }
 }
 
-// GLOBAL: WIZ8 0x00689b6c
 static int g_sight_marker_tick;
-// GLOBAL: WIZ8 0x00689b70
 static int g_sight_fade_in_tick;
-// GLOBAL: WIZ8 0x00689b74
 static int g_sight_fade_out_tick;
 
-// GLOBAL: WIZ8 0x005ed7f8
 const float g_sight_threat_scale = 0.6667f;
 
 /* Recompute one monster's sight state. Direction zero is the monster-to-
    monster pass, which revisits every other monster's per-monster record;
    nonzero is the player pass, which refreshes the party-facing record, stamps
    the notice and fade state, and ends in the player-to-monster flag pass. */
-// FUNCTION: WIZ8 0x005049c0
 void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bounds)
 {
     W8MonsterRecord* record;
@@ -400,7 +378,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
     }
     viewing_distance = static_cast<float>(WorldGetFarClip(GetWorld()));
     if (viewing_distance <= 0.0f) {
-        srAssertFail("flViewingDistance > 0");
+        Fail("flViewingDistance > 0");
     }
     record = GetMonsterDataForInfo(monster_info);
     monster = monster_info->p3D;
@@ -464,7 +442,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                             bool clear;
 
                             if (!found) {
-                                srAssertFail("fFoundMissileVertex");
+                                Fail("fFoundMissileVertex");
                                 clear = false;
                             } else {
                                 short line = GetWorldOctree()->TraceLineOfSight(
@@ -479,7 +457,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                             bool found = monster->GetSpellPosition(&trace_position);
 
                             if (!found) {
-                                srAssertFail("fFoundSpellVertex");
+                                Fail("fFoundSpellVertex");
                                 entry->los_flags[3] = false;
                             } else {
                                 short line = GetWorldOctree()->TraceLineOfSight(
@@ -589,7 +567,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
             bool clear;
 
             if (!found) {
-                srAssertFail("fFoundMissileVertex");
+                Fail("fFoundMissileVertex");
                 clear = false;
             } else {
                 short line =
@@ -604,7 +582,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
             bool found = monster->GetSpellPosition(&trace_position);
 
             if (!found) {
-                srAssertFail("fFoundSpellVertex");
+                Fail("fFoundSpellVertex");
                 monster_info->player_visibility.los_flags[3] = false;
             } else {
                 short line = GetWorldOctree()->TraceLineOfSight(&trace_position, &camera_position,
@@ -711,7 +689,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                             W8NpcState* npc = GetNpcStateByKind(record->npc_kind);
 
                             if (npc == 0) {
-                                srAssertFail("pNPC != NULL");
+                                Fail("pNPC != NULL");
                             } else if (!npc->party_noticed && npc->record->monster_bound == 0 &&
                                        ShowMonsterTargetMarker(monster_info) != 0) {
                                 glm::vec3 delta;
@@ -784,7 +762,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                 W8NpcState* npc = GetNpcStateByKind(record->npc_kind);
 
                 if (npc == 0) {
-                    srAssertFail("pNPC != NULL");
+                    Fail("pNPC != NULL");
                 } else if (npc->event_pending != 0) {
                     HandleMarkedNpcEvent(npc, 0);
                 }
@@ -805,7 +783,6 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
    of combat the sight check is distance-gated by the world far clip and runs
    CanMonsterSeeMonster plus the 3D line-of-sight test; in combat the source's
    mon-to-mon visibility list is consulted directly. */
-// FUNCTION: WIZ8 0x00505F30
 bool MonsterGroupCanSeeGroup(W8MonsterGroup* source, W8MonsterGroup* target)
 {
     W8MonsterInfo* source_info;

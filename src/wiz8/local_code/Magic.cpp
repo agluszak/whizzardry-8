@@ -15,10 +15,10 @@
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/geometric.hpp>
 #include <glm/gtc/quaternion.hpp>
+#include <glm/matrix.hpp>
 
 #include "Monster.h"
 #include "Navigator.h"
-#include "SpellEmitterHost.h"
 #include "Video2.h"
 #include "compat/native.h"
 #include "dice.h"
@@ -26,15 +26,12 @@
 #include "gameplay_modifiers.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
-#include "glm/matrix.hpp"
 #include "layouts/item_instance.h"
 #include "layouts/targeting.h"
 #include "local_code/Factions.h"
 #include "monster_actions.h"
-#include "random.h"
-#include "soundman.h"
 #include "surrender/srDebug.h"
-#include "timer.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/conditions.h"
@@ -81,6 +78,8 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
+#include "wiz8/platform/random.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/utility.h"
@@ -88,7 +87,6 @@
 
 constexpr float kGroundSettleFail = -1000000.0f;
 
-// FUNCTION: WIZ8 0x004ff3b0
 int GetProfessionCasterLevel(const W8Character* character, W8Profession profession_id)
 {
     int magic_level_offset;
@@ -96,7 +94,7 @@ int GetProfessionCasterLevel(const W8Character* character, W8Profession professi
     if (profession_id == W8_PROFESSION_NONE) {
         profession_id = character->iProfession;
         if (profession_id == W8_PROFESSION_NONE) {
-            srAssertFail("iProfession != -1");
+            Fail("iProfession != -1");
         }
     }
 
@@ -115,7 +113,6 @@ int GetProfessionCasterLevel(const W8Character* character, W8Profession professi
    together - so the point cost counts a quarter and the level a half. One
    target type is three easier than the rest, and the answer never goes below
    zero. */
-// FUNCTION: WIZ8 0x004ff790
 int GetSpellDifficulty(unsigned int caster_figure, int spell_id, int bonus)
 {
     int difficulty =
@@ -134,7 +131,6 @@ int GetSpellDifficulty(unsigned int caster_figure, int spell_id, int bonus)
 
 /* Whether one carried item can be cast from. It has to be of the spell-source
    kind, it has to be identified, and the caster has to be able to use it. */
-// FUNCTION: WIZ8 0x00500010
 bool CanCastFromItem(const W8Character* caster, const W8ItemInstance* item)
 {
     if (g_item_records[item->iItemNo].category != W8_ITEM_CATEGORY_SPELL_SOURCE) {
@@ -156,7 +152,6 @@ enum {
 /* Whether a spellcasting block stops this character casting this spell. The
    block stops everything except alchemy in the hands of someone who has the
    skill for it. */
-// FUNCTION: WIZ8 0x004fae70
 bool IsSpellBlockedForCharacter(const W8Character* character, int spell_id)
 {
     if (character->uiCondition[W8_CONDITION_SILENCED] != 0) {
@@ -170,7 +165,6 @@ bool IsSpellBlockedForCharacter(const W8Character* character, int spell_id)
 
 /* The same question for a monster. The block stops everything except alchemy
    from the three kinds that keep it. */
-// FUNCTION: WIZ8 0x004fb1d0
 bool IsSpellBlockedForMonster(W8MonsterInfo* monster_info, int spell_id)
 {
     unsigned char kind;
@@ -192,7 +186,6 @@ bool IsSpellBlockedForMonster(W8MonsterInfo* monster_info, int spell_id)
    has to be one monsters can cast at all, the monster has to be in a state to
    cast it, it has to have somewhere to aim, it has to be able to act, and the
    two combat gates have to agree. */
-// FUNCTION: WIZ8 0x004fb0a0
 bool MonsterOKToCastSpell(W8MonsterInfo* monster_info, int spell_id, int)
 {
     W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
@@ -200,9 +193,8 @@ bool MonsterOKToCastSpell(W8MonsterInfo* monster_info, int spell_id, int)
     unsigned char kind;
 
     if (g_spell_records[spell_id].monster_castable == 0) {
-        srAssertFail("FALSE",
-                     fmt::format("MonsterOKToCastSpell: ERROR - spell not monster castable: {}",
-                                 g_spell_records[spell_id].display_name));
+        Fail("FALSE", fmt::format("MonsterOKToCastSpell: ERROR - spell not monster castable: {}",
+                                  g_spell_records[spell_id].display_name));
         return false;
     }
 
@@ -242,18 +234,17 @@ bool MonsterOKToCastSpell(W8MonsterInfo* monster_info, int spell_id, int)
    record's usable-when value picks which of camp, combat and the shop admit
    it. The second parameter doubles as the out-of-combat override and the
    default-case return. */
-// FUNCTION: WIZ8 0x005001e0
 bool SpellUsableNow(int spell_id, bool allow_out_of_combat)
 {
     W8SpellUsage usable_when;
     bool lock_or_trap;
 
     if (spell_id >= W8_SPELL_COUNT) {
-        srAssertFail("uiSpell < SPELL_COUNT");
+        Fail("uiSpell < SPELL_COUNT");
     }
     usable_when = g_spell_records[spell_id].usable_when;
     if (usable_when >= W8_SPELL_USAGE_COUNT) {
-        srAssertFail("uiSpellUsableWhen < SPELL_USAGE_COUNT");
+        Fail("uiSpellUsableWhen < SPELL_USAGE_COUNT");
     }
 
     if (g_current_screen_state.id == W8_SCREEN_CAMP && !gXStatus.fCombatMode &&
@@ -291,7 +282,7 @@ bool SpellUsableNow(int spell_id, bool allow_out_of_combat)
         }
         return TrapInteractionSuspended();
     default:
-        srAssertFail("FALSE", "SpellUsableNow: ERROR - Invalid uiSpellUsableWhen");
+        Fail("FALSE", "SpellUsableNow: ERROR - Invalid uiSpellUsableWhen");
         return allow_out_of_combat;
     }
 
@@ -305,7 +296,6 @@ bool SpellUsableNow(int spell_id, bool allow_out_of_combat)
    be cast. Nine target types map onto seven answers; the one that depends on
    the selection owner only needs a pick when there is nothing selected already
    and the caller is not in one of the two contexts that supply it. */
-// FUNCTION: WIZ8 0x005010f0
 W8TargetNeed GetTargetNeededForSpellFriendly(int spell_id, bool normalize, bool needs_item_target)
 {
     if (spell_id != W8_SPELL_NONE) {
@@ -334,11 +324,10 @@ W8TargetNeed GetTargetNeededForSpellFriendly(int spell_id, bool normalize, bool 
         case W8_TARGET_TYPE_LOCK_OR_TRAP:
             break;
         default:
-            srAssertFail(
-                "FALSE",
-                fmt::format(
-                    "GetTargetNeededForSpellFriendly: ERROR - Invalid spell target for {:d}",
-                    spell_id));
+            Fail("FALSE",
+                 fmt::format(
+                     "GetTargetNeededForSpellFriendly: ERROR - Invalid spell target for {:d}",
+                     spell_id));
             break;
         }
     }
@@ -347,7 +336,6 @@ W8TargetNeed GetTargetNeededForSpellFriendly(int spell_id, bool normalize, bool 
 
 /* The same question for a hostile spell, which has fewer answers because a
    hostile spell never targets the party's own belongings. */
-// FUNCTION: WIZ8 0x005011c0
 W8TargetNeed GetTargetNeededForSpellHostile(int spell_id)
 {
     switch (GetSpellTargetType(spell_id, false)) {
@@ -367,10 +355,9 @@ W8TargetNeed GetTargetNeededForSpellHostile(int spell_id)
     case W8_TARGET_TYPE_POINT:
         break;
     default:
-        srAssertFail(
-            "FALSE",
-            fmt::format("GetTargetNeededForSpellHostile: ERROR - Invalid spell target for {:d}",
-                        spell_id));
+        Fail("FALSE",
+             fmt::format("GetTargetNeededForSpellHostile: ERROR - Invalid spell target for {:d}",
+                         spell_id));
         break;
     }
     return W8_TARGET_NEED_NONE;
@@ -379,7 +366,6 @@ W8TargetNeed GetTargetNeededForSpellHostile(int spell_id)
 /* Forwarder that narrows CanCharReBreathe's answer to a flag. Its argument is
    a party slot, not a spell - which is only visible once the underlying
    predicate is named. */
-// FUNCTION: WIZ8 0x00501860
 bool CanPartySlotReBreathe(int party_slot)
 {
     if (!CanCharReBreathe(party_slot)) {
@@ -392,14 +378,11 @@ bool CanPartySlotReBreathe(int party_slot)
    distinguished only by its kind; the effect body itself lives elsewhere. */
 enum { W8_PARTY_CONDITION_SLOTS = 12, W8_COMBAT_CONDITION_SLOTS = 9 };
 
-// GLOBAL: WIZ8 0x00689B58
 std::vector<std::unique_ptr<W8SpellEffectEntry>> g_spell_effects;
 /* Debug switch: when set, every cast except 0x76 fizzles on a forced 100
    percent failure chance. */
-// GLOBAL: WIZ8 0x00689b68
 bool g_force_spell_failure;
 /* Whether every queued effect still has time left on it. */
-// FUNCTION: WIZ8 0x00500e50
 bool AllSpellEffectsStillRunning(void)
 {
     int index;
@@ -412,7 +395,6 @@ bool AllSpellEffectsStillRunning(void)
     return true;
 }
 
-// FUNCTION: WIZ8 0x00500f30
 W8SpellEffectEntry* FindMonsterControlSpellEffect(void)
 {
     for (const auto& owned : g_spell_effects) {
@@ -436,7 +418,6 @@ static void ReleaseHypnoticLureControl()
     }
 }
 
-// FUNCTION: WIZ8 0x00500e90
 void TickSpellEffects(void)
 {
     for (const auto& effect : g_spell_effects) {
@@ -448,7 +429,6 @@ void TickSpellEffects(void)
     }
 }
 
-// FUNCTION: WIZ8 0x005012b0
 bool PartyHasCondition(int effect_id)
 {
     W8EffectSlot* slot = g_status.effect_slots;
@@ -464,7 +444,6 @@ bool PartyHasCondition(int effect_id)
 
 /* Whether either side of the current fight is under one particular condition.
    Both tables are searched, the party's first. */
-// FUNCTION: WIZ8 0x00501250
 bool CombatHasCondition(int effect_id)
 {
     W8EffectSlot* slot;
@@ -489,7 +468,6 @@ bool CombatHasCondition(int effect_id)
     return false;
 }
 
-// FUNCTION: WIZ8 0x004f9aa0
 void SetPartySlotSpell(int party_slot, int spell_id, int power_level, const W8CombatSlot* target)
 {
     W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
@@ -501,7 +479,6 @@ void SetPartySlotSpell(int party_slot, int spell_id, int power_level, const W8Co
     row->spell.target = *target;
 }
 
-// FUNCTION: WIZ8 0x004f9a20
 void SetCharacterSpell(const W8Character* character, const W8Action& spell)
 {
     const int party_slot = CharacterPointerToPartySlot(character);
@@ -518,13 +495,12 @@ void SetCharacterSpell(const W8Character* character, const W8Action& spell)
 
 /* Start one character's breath attack; the character must be able to
    breathe again. */
-// FUNCTION: WIZ8 0x00501880
 void StartCharacterBreathAttack(int party_slot)
 {
     W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
 
     if (!CanCharReBreathe(party_slot)) {
-        srAssertFail("CanCharReBreathe(uiChar)");
+        Fail("CanCharReBreathe(uiChar)");
     }
     ChooseAction(party_slot, W8_ACTION_BREATHE, -1, 0, false, 1);
     AimAtTarget(party_slot, &row->breath_target, GetEditedActionContext(party_slot));
@@ -539,7 +515,6 @@ void StartCharacterBreathAttack(int party_slot)
 /* Fold one missile's accumulated damage and reports into the queued effect
    that owns it. The owning effect is the one whose missile list still names
    the missile; nothing happens if it has already been detached. */
-// FUNCTION: WIZ8 0x00500460
 void AbsorbMissileDamage(W8Missile* missile)
 {
     for (const auto& effect : g_spell_effects) {
@@ -575,7 +550,6 @@ void FinishSpellEffect(W8SpellEffectEntry* effect);
    run out is finalized: a spell that needed aiming and is not in the singled
    out set reports itself, its visuals and missiles are released, and the entry
    is removed from the queue and deleted. */
-// FUNCTION: WIZ8 0x00500930
 void UpdateSpellEffects(void)
 {
     bool handled = false;
@@ -650,7 +624,7 @@ void UpdateSpellEffects(void)
                 ProcessSpellEffectTargets(&effect);
                 if (TargetSourceIsMonster(&effect.OrigSource, 0)) {
                     if (effect.OrigSource.iMonsterID == -1) {
-                        srAssertFail("pOrigSource->iMonsterID != -1");
+                        Fail("pOrigSource->iMonsterID != -1");
                     }
                     W8MonsterInfo* monster_info = FindMonster(effect.OrigSource.iMonsterID);
                     if (gXStatus.fCombatMode && g_combat_state->eCombatActionStatus != 0 &&
@@ -702,7 +676,6 @@ void UpdateSpellEffects(void)
 
 /* Take one missile back off the spell effect that owns it. The first effect
    whose missile list contains it drops the entry and stops the walk. */
-// FUNCTION: WIZ8 0x005019a0
 void DetachMissileReferences(W8Missile* missile)
 {
     for (const auto& effect : g_spell_effects) {
@@ -715,7 +688,6 @@ void DetachMissileReferences(W8Missile* missile)
 
 /* Which spell a missile type carries, for the missile kinds that are spells
    at all. Anything else carries no spell. */
-// FUNCTION: WIZ8 0x00501a60
 int MissileSpellId(int missile_type)
 {
     switch (missile_type) {
@@ -764,7 +736,6 @@ int MissileSpellId(int missile_type)
 
 /* The 0x49 teleport lands on the character's saved anchor, so without an
    anchor set it cannot run. Every other spell id clears this block. */
-// FUNCTION: WIZ8 0x00501D00
 bool IsTeleportCastMissingAnchor(W8Character* character, int spell_id)
 {
     if (spell_id != W8_SPELL_RETURN_TO_PORTAL) {
@@ -778,7 +749,6 @@ bool IsTeleportCastMissingAnchor(W8Character* character, int spell_id)
    character's notice for a character whose row is empty. A text box is only
    opened when the detailed combat messages are off, matching the ordinary
    damage path. */
-// FUNCTION: WIZ8 0x00500F70
 void FinishSpellEffect(W8SpellEffectEntry* effect)
 {
     W8MonsterInfo* monster_info = 0;
@@ -816,7 +786,6 @@ void FinishSpellEffect(W8SpellEffectEntry* effect)
 /* Scale a value by how far ahead of the difficulty's own pace one combatant
    is. Out of combat nothing is scaled; in combat a combatant slower than the
    pace is left alone too, and so is every value under an unknown difficulty. */
-// FUNCTION: WIZ8 0x00501910
 void ScaleByCombatPace(int party_slot, unsigned int* value)
 {
     unsigned int pace;
@@ -837,7 +806,7 @@ void ScaleByCombatPace(int party_slot, unsigned int* value)
         pace = 0x28;
         break;
     default:
-        srAssertFail("FALSE");
+        Fail("FALSE");
         return;
     }
 
@@ -851,7 +820,6 @@ void ScaleByCombatPace(int party_slot, unsigned int* value)
    difficulty off a seventeen-entry table, scaled by the caller's factor and
    divided by seven; a caster already at or past that has no chance of failing
    at all, and the rest is the shortfall as a percentage capped at a hundred. */
-// FUNCTION: WIZ8 0x004ff410
 unsigned int GetSpellFailureChance(unsigned int skill, int spell_id, int factor)
 {
     int band =
@@ -878,14 +846,12 @@ unsigned int GetSpellFailureChance(unsigned int skill, int spell_id, int factor)
     return chance;
 }
 
-// GLOBAL: WIZ8 0x0061634c
 unsigned char g_profession_spellbooks[15] = {
     0, 2, 2, 4, 1, 4, 8, 0, 0, 0, 2, 4, 15, 8, 1,
 };
 
 /* Repeat the remembered choice. A power override belongs to this cast;
    it does not rewrite the remembered power. */
-// FUNCTION: WIZ8 0x00501590
 void StartCharacterSpellCast(int party_slot, int power_level)
 {
     W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
@@ -910,7 +876,6 @@ void StartCharacterSpellCast(int party_slot, int power_level)
 /* The same for using an item. The item's own spell decides whether the target
    still holds, and where the item came from is recorded before the check so a
    failed use can put it back. */
-// FUNCTION: WIZ8 0x00501790
 void StartCharacterItemUse(int party_slot)
 {
     W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
@@ -936,7 +901,6 @@ void StartCharacterItemUse(int party_slot)
    that shares the book. Only positive contributions count, and a caster level
    of nothing at all short-circuits unless the caller asks for the sum
    anyway. */
-// FUNCTION: WIZ8 0x004ffbd0
 int GetTotalCasterLevel(const W8Character* character, int spellbook, bool include_all)
 {
     int total = GetProfessionCasterLevel(character, W8_PROFESSION_NONE);
@@ -978,7 +942,6 @@ static unsigned char SpellbookMaskForSpell(int spell_id)
 /* Recount the learned spells into the six per-realm slots (0x1c..0x21 of
    skill_unlocks), where the expert-skill gate and the spell-point ceiling
    both read them. */
-// FUNCTION: WIZ8 0x004f96a0
 void RecountLearnedSpellsByRealm(W8Character* character)
 {
     for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
@@ -993,7 +956,6 @@ void RecountLearnedSpellsByRealm(W8Character* character)
 
 /* Whether the character knows any spell whose realm's remaining points still
    cover that spell's cost. */
-// FUNCTION: WIZ8 0x004f96f0
 bool CharacterHasCastableSpell(W8Character* character)
 {
     int spell_id;
@@ -1015,7 +977,6 @@ bool CharacterHasCastableSpell(W8Character* character)
 
    The two ceilings are computed even when the first alone would settle it,
    which is what shows them as one rule rather than two guards. */
-// FUNCTION: WIZ8 0x004ffcb0
 bool CanCharacterLearnSpell(W8Character* character, int spell_id)
 {
     unsigned char book = SpellbookMaskForSpell(spell_id);
@@ -1074,7 +1035,6 @@ bool CanCharacterLearnSpell(W8Character* character, int spell_id)
 }
 
 /* One message-table index per realm, for the realm's name. */
-// GLOBAL: WIZ8 0x0061E518
 // offset alias of the tail of g_attr_table1; shared retail storage.
 unsigned short g_realm_message_offsets[W8_SPELL_REALM_COUNT] = {
     0x30b, 0x30c, 0x30d, 0x30e, 0x30f, 0x310,
@@ -1087,7 +1047,6 @@ unsigned short g_realm_message_offsets[W8_SPELL_REALM_COUNT] = {
 
    The line is assembled twice over: once only to measure the three pieces so
    the buffer can be allocated, and once into it. */
-// FUNCTION: WIZ8 0x004ffe70
 void LearnSpell(W8Character* character, int spell_id, bool announce)
 {
     W8SpellRealm realm;
@@ -1110,7 +1069,6 @@ void LearnSpell(W8Character* character, int spell_id, bool announce)
     ShowNoticeLine(line, 0, true, false);
 }
 
-// GLOBAL: WIZ8 0x0068c510
 int g_learn_sound = kFirstRemappedEvent + 16;
 /* Learn the spell a scroll or book teaches, and consume it. The item has to
    carry a spell and the character has to be able to take it on; failing that the item is left alone
@@ -1119,7 +1077,6 @@ int g_learn_sound = kFirstRemappedEvent + 16;
    Learning practises three things at once: the learning skill at twice the
    spell's level, the spell's own realm skill at its level, and every spellbook
    skill the spell belongs to at the same. */
-// FUNCTION: WIZ8 0x00500060
 void LearnSpellFromItem(W8Character* character, W8ItemInstance* item)
 {
     unsigned int spell_id;
@@ -1127,7 +1084,7 @@ void LearnSpellFromItem(W8Character* character, W8ItemInstance* item)
     unsigned int skill_id;
 
     if (g_item_records[item->iItemNo].spell_id == W8_SPELL_NONE) {
-        srAssertFail("gpItemDB[pPCItem->iItemNo].ubSpellNumber != SPELL_NONE");
+        Fail("gpItemDB[pPCItem->iItemNo].ubSpellNumber != SPELL_NONE");
     }
     spell_id = g_item_records[item->iItemNo].spell_id;
 
@@ -1164,7 +1121,6 @@ enum { W8_SPELL_POWER_AS_AFFORDABLE = 8, W8_SPELL_POWER_MAX = 7 };
    A spell asking for the affordable power level is priced at one here, so this
    answers whether the cast is possible at all rather than at the level the
    player picked. */
-// FUNCTION: WIZ8 0x005012e0
 bool CanPartySlotCastRecordedSpell(int party_slot)
 {
     const W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
@@ -1209,7 +1165,6 @@ bool CanPartySlotCastRecordedSpell(int party_slot)
    the one it asked for. Zero means the cast cannot happen at all - either
    because the spell fails the same checks as above, or because even one level
    is more than the pool holds. */
-// FUNCTION: WIZ8 0x00501400
 int GetAffordableSpellPowerLevel(int party_slot)
 {
     const W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
@@ -1263,7 +1218,6 @@ int GetAffordableSpellPowerLevel(int party_slot)
 
    A spell whose target type is not the self-only one may be aimed anywhere; the
    self-only one has to be aimed at the user. */
-// FUNCTION: WIZ8 0x00501660
 bool CanPartySlotUseRecordedItem(int party_slot)
 {
     W8PartySlotRow* row = &g_status.buffers.XChar[party_slot];
@@ -1331,7 +1285,6 @@ static unsigned int MonsterSpellPointBudget(W8MonsterInfo* monster_info,
 
    The budget is the monster's database base plus its own runtime bonus; a base
    of zero is a data error the monster is named in. */
-// FUNCTION: WIZ8 0x00500330
 unsigned int ChooseMonsterSpellPowerLevel(W8MonsterInfo* monster_info, W8MonsterRecord*,
                                           int spell_id)
 {
@@ -1387,7 +1340,7 @@ unsigned int ChooseMonsterSpellPowerLevel(W8MonsterInfo* monster_info, W8Monster
     }
 
     if (power_level == 0 || power_level > W8_SPELL_POWER_MAX) {
-        srAssertFail("( uiPowerLevel >= 1 ) && ( uiPowerLevel <= 7 )");
+        Fail("( uiPowerLevel >= 1 ) && ( uiPowerLevel <= 7 )");
     }
     return power_level;
 }
@@ -1402,7 +1355,6 @@ unsigned int ChooseMonsterSpellPowerLevel(W8MonsterInfo* monster_info, W8Monster
 
    A power level outside one through seven is silently taken as one, which is
    what makes a caller passing zero cast nothing at all rather than cast weakly. */
-// FUNCTION: WIZ8 0x004fb220
 int PointCastSpell(glm::vec3 position, int spell_id, unsigned int power_level)
 {
     W8TargetSource source;
@@ -1446,8 +1398,8 @@ int PointCastSpell(glm::vec3 position, int spell_id, unsigned int power_level)
         target.iType = W8_TARGET_KIND_PARTY;
         break;
     default:
-        srAssertFail("FALSE", fmt::format("PointCastSpell: ERROR - Invalid spell target for {:d}",
-                                          spell_id));
+        Fail("FALSE",
+             fmt::format("PointCastSpell: ERROR - Invalid spell target for {:d}", spell_id));
         break;
     }
 
@@ -1463,7 +1415,6 @@ unsigned int GetSpellCastingSkillLevel(const W8Character* character, W8Skill spe
            5;
 }
 
-// FUNCTION: WIZ8 0x004ff7f0
 W8Skill GetBestSpellbookSkillForSpell(W8Character* character, int spell_id, bool pricing,
                                       bool prefer_unlocked, unsigned int power_level)
 {
@@ -1525,8 +1476,8 @@ W8Skill GetBestSpellbookSkillForSpell(W8Character* character, int spell_id, bool
     }
 
     if (best_skill == W8_SKILL_NONE) {
-        srAssertFail("(iHighestSkill != SKILL_NONE)",
-                     fmt::format("Failed on spell {:d}, usability byte {:d}", spell_id, book));
+        Fail("(iHighestSkill != SKILL_NONE)",
+             fmt::format("Failed on spell {:d}, usability byte {:d}", spell_id, book));
     }
     return best_skill;
 }
@@ -1573,7 +1524,6 @@ static unsigned int GetCastFailureChance(W8Character* character, int spell_id,
    Power level eight is the request to cast as high as affordable rather than a
    level, so it has no rating of its own. The power-level choosers carry the
    unbanded percentage from GetCastFailureChance rather than calling this. */
-// FUNCTION: WIZ8 0x004ff4b0
 W8SpellCastRating GetSpellCastRating(W8Character* character, int spell_id, unsigned int power_level)
 {
     if (power_level == W8_SPELL_POWER_AS_AFFORDABLE) {
@@ -1625,7 +1575,6 @@ enum { W8_SPELL_FAILURE_ACCEPTABLE = 10 };
 
    A condition that never runs out cannot be out-waited, so it is answered with
    the lowest power level rather than the cheapest. */
-// FUNCTION: WIZ8 0x004fdf30
 unsigned int ChoosePowerLevelForDuration(W8Character* character, int spell_id,
                                          unsigned int turns_needed)
 {
@@ -1677,7 +1626,6 @@ unsigned int ChoosePowerLevelForDuration(W8Character* character, int spell_id,
    Which pool is missing comes from the spell: one restores hit points, one
    stamina, and one takes hit points first and falls back to stamina when they
    are already full. */
-// FUNCTION: WIZ8 0x004fe1c0
 unsigned int ChoosePowerLevelToRestore(W8Character* character, int spell_id,
                                        const W8Character* target)
 {
@@ -1736,7 +1684,6 @@ static unsigned int worstCondition(const w8_unaligned_uint* conditions,
 
 /* Pick automatic power from this cast's target. Zero means that no viable
    power was found; the caller must not turn that into a minimum-power cast. */
-// FUNCTION: WIZ8 0x004fe480
 static unsigned int ChooseSpellPowerLevelForTarget(W8Character* caster, int spell_id,
                                                    const W8CombatSlot& target, int identify_context)
 {
@@ -1838,7 +1785,6 @@ enum {
 };
 /* The name-prefix table, holding message-table indexes. A character indexes
    it by sex and a monster by its name group. */
-// GLOBAL: WIZ8 0x0061E436
 // offset alias of g_gender_name_message_rows; shared retail storage.
 unsigned short g_name_prefix_messages[15] = {
     0x2da, 0x2d2, 0x2d5, 0x2d8, 0x2db, 0x2d3, 0x2d6, 0x2d9,
@@ -1847,13 +1793,12 @@ unsigned short g_name_prefix_messages[15] = {
 /* Say in words what a spell is aimed at. A character or a monster whose name
    the party does not have is described by its name prefix instead. Everything
    else is a fixed word. */
-// FUNCTION: WIZ8 0x004f97a0
 static std::string SpellTargetString(const W8TargetSource* source, const W8CombatSlot* target)
 {
     unsigned short name_prefix;
 
     if (target == 0) {
-        srAssertFail("pTarget != NULL");
+        Fail("pTarget != NULL");
     }
 
     switch (target->iType) {
@@ -1864,7 +1809,7 @@ static std::string SpellTargetString(const W8TargetSource* source, const W8Comba
     case 1:
     case 9:
         if (target->iChar == -1) {
-            srAssertFail("pTarget->iChar != BAD_INDEX");
+            Fail("pTarget->iChar != BAD_INDEX");
         }
         if (!TargetSourceIsCharacter(source, 0) || source->name_known != 0 ||
             source->iChar != target->iChar) {
@@ -1882,7 +1827,7 @@ static std::string SpellTargetString(const W8TargetSource* source, const W8Comba
         W8MonsterRecord* record;
 
         if (target->iMonsterID == -1) {
-            srAssertFail("pTarget->iMonsterID != BAD_INDEX");
+            Fail("pTarget->iMonsterID != BAD_INDEX");
         }
         monster_info = FindMonster(target->iMonsterID);
         record = GetMonsterDataForInfo(monster_info);
@@ -1909,8 +1854,8 @@ static std::string SpellTargetString(const W8TargetSource* source, const W8Comba
         return g_localized_strings[W8_MESSAGE_TARGET_DIRECTION / 4];
 
     default:
-        srAssertFail("FALSE", fmt::format("SpellTargetString: ERROR - Invalid target type {:d}",
-                                          fmt::underlying(target->iType)));
+        Fail("FALSE", fmt::format("SpellTargetString: ERROR - Invalid target type {:d}",
+                                  fmt::underlying(target->iType)));
         return g_localized_strings[W8_MESSAGE_TARGET_UNKNOWN / 4];
     }
 
@@ -1930,7 +1875,6 @@ enum { W8_MESSAGE_MONSTER_CAST_VERBOSE = 0x638, W8_MESSAGE_MONSTER_CAST = 0x63c 
    Its failure chance is the same rule the party's is, with the monster's
    spell-point budget standing in for a caster's spellbook skill, which is what
    makes the two one rule rather than a monster-specific one. */
-// FUNCTION: WIZ8 0x004faec0
 unsigned int MonsterCastsSpell(W8MonsterInfo* monster_info, int spell_id, unsigned int power_level)
 {
     W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
@@ -1976,7 +1920,6 @@ void W8SpellEffectEntry::AddVisual(W8SpellVisual* visual)
 /* Put the lure's two effects a thousand units below the target. The target
    point itself moves down, so subsequent users see the lowered position.
    Only the named companion effect has its mode set. */
-// FUNCTION: WIZ8 0x004fb360
 void SpawnLureEffects(W8SpellEffectEntry* owner, int argument, W8CombatSlot* target)
 {
     glm::vec3 position;
@@ -1993,7 +1936,7 @@ void SpawnLureEffects(W8SpellEffectEntry* owner, int argument, W8CombatSlot* tar
     effect = SpawnSpellEffect(&position, "hyp_lure2", argument, 0, 0);
     if (effect != 0) {
         effect->auto_release = false;
-        effect->host->pending_behaviour = W8_ANIMATION_NEVER_STOP;
+        effect->pending_behaviour = W8_ANIMATION_NEVER_STOP;
         owner->spell_visuals.push_back(effect);
     }
 }
@@ -2008,7 +1951,6 @@ void SpawnLureEffects(W8SpellEffectEntry* owner, int argument, W8CombatSlot* tar
    character's notice, a text record formats its own "%s %s" line, and the box
    is reset around each. With nothing reported at all the effect reports that
    its target took no damage. */
-// FUNCTION: WIZ8 0x005005c0
 void ReportSpellResult(W8SpellEffectEntry* effect)
 {
 
@@ -2090,7 +2032,6 @@ void ReportSpellResult(W8SpellEffectEntry* effect)
     }
 }
 
-// FUNCTION: WIZ8 0x004fac40
 bool ValidateSpellTarget(int party_slot, int spell_id, unsigned int power, bool item_cast,
                          bool skip_world_cursor)
 {
@@ -2136,7 +2077,6 @@ bool ValidateSpellTarget(int party_slot, int spell_id, unsigned int power, bool 
 
 /* The spells whose casts share one three-minute cooldown slot each; the
    shared slot lives in the status block's clock array. */
-// GLOBAL: WIZ8 0x00616E34
 int g_cooldown_gated_spells[14] = {30, 38, 75, 73, 32, 33, 17, 20, 8, 40, 26, 45, 64, 58};
 
 /* A failed check still restarts the slot. */
@@ -2157,7 +2097,6 @@ static bool CheckAndRestartSpellCooldown(int spell_id)
 
 /* Whether the spell's current target would actually be affected by it - the
    per-spell rules the cast path checks before it spends the points. */
-// FUNCTION: WIZ8 0x004F9AE0
 bool SpellAffectedTarget(W8Character* character, int spell_id, W8CombatSlot* aim,
                          unsigned int power)
 {
@@ -2459,7 +2398,6 @@ bool SpellAffectedTarget(W8Character* character, int spell_id, W8CombatSlot* aim
    notices, the success-chance figure, the point spend and the skill practice
    all happen here. Answers the cast step's status; out_points gets the
    fatigue cost. */
-// FUNCTION: WIZ8 0x004FA4D0
 int ExecuteCharacterSpellCast(int party_slot, int spell_id, unsigned int power_level,
                               int* out_points, bool continue_cast)
 {
@@ -2519,7 +2457,7 @@ int ExecuteCharacterSpellCast(int party_slot, int spell_id, unsigned int power_l
     case W8_SPELL_POWER_CLASS_NONE:
         return 0;
     default:
-        srAssertFail("Unsupported spell power class");
+        Fail("Unsupported spell power class");
     }
     if (clamp_power) {
         sp_needed = sp_cost * power_level;
@@ -2617,7 +2555,7 @@ int ExecuteCharacterSpellCast(int party_slot, int spell_id, unsigned int power_l
             morale = 0x3c;
         } else {
             if (g_settings.difficulty != W8_DIFFICULTY_EXPERT) {
-                srAssertFail("FALSE");
+                Fail("FALSE");
                 goto finish_difficulty_adjustment;
             }
             morale = 0x28;
@@ -2666,7 +2604,7 @@ finish_difficulty_adjustment:
         if (affected) {
             index = record->spell_level + cast_result;
             if (index < 2) {
-                srAssertFail("uiUsagePoints >= 2");
+                Fail("uiUsagePoints >= 2");
             }
             PracticeCharacterSkill(character, best_skill, (index + 2) >> 2, false);
             PracticeCharacterSkill(character, realm_skill, index, false);
@@ -2686,7 +2624,6 @@ finish_difficulty_adjustment:
    lists instead of the aimed collection. Returns 0 when the effect could
    not be allocated, 1 on a normal cast, 2 when a fizzle consumed the cast
    and 3 when it backfired. */
-// FUNCTION: WIZ8 0x004FB4C0
 int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* target,
                         unsigned int power_level, int power_cast_bonus, unsigned int failure_chance,
                         bool recast, int* out_power, int cast_kind, std::vector<int>* party_targets,
@@ -2845,7 +2782,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
             caster_figure = GetSpellDifficulty(record_data->effective_level, spell_id, power_level);
         } else {
             if (source->iType != W8_TARGET_SOURCE_INDIRECT) {
-                srAssertFail("pSource->iType == SOURCE_TYPE_3D_POINT");
+                Fail("pSource->iType == SOURCE_TYPE_3D_POINT");
             }
             caster_figure = (g_spell_records[spell_id].spell_point_cost / 2 +
                              g_spell_records[spell_id].spell_level) /
@@ -3139,13 +3076,13 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
         switch (cast_kind) {
         case 2:
             if (source->iType != W8_TARGET_SOURCE_CHARACTER) {
-                srAssertFail("pSource->iType == SOURCE_TYPE_CHAR");
+                Fail("pSource->iType == SOURCE_TYPE_CHAR");
             }
             message = 0x1aa;
             [[fallthrough]];
         case 3:
             if (source->iType != W8_TARGET_SOURCE_CHARACTER) {
-                srAssertFail("pSource->iType == SOURCE_TYPE_CHAR");
+                Fail("pSource->iType == SOURCE_TYPE_CHAR");
             }
             if (cast_kind == 3) {
                 message = 0x1ab;
@@ -3171,7 +3108,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
     if (fizzled) {
         if (TargetSourceIsMonster(&owner.Source, 0)) {
             if (owner.Source.iMonsterID == -1) {
-                srAssertFail("pOrigSource->iMonsterID != -1");
+                Fail("pOrigSource->iMonsterID != -1");
             }
             monster_info = FindMonster(owner.Source.iMonsterID);
             if (gXStatus.fCombatMode && g_combat_state->eCombatActionStatus != 0 &&
@@ -3192,7 +3129,6 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
    the concrete thing to aim back at is resolved here - the caster for a
    character target, the first live party member for a party target, and so
    on. */
-// FUNCTION: WIZ8 0x004FE740
 void RedirectBackfiredSpellTarget(W8TargetSource* source, W8CombatSlot* target)
 {
     W8TargetSource source_copy;
@@ -3202,7 +3138,7 @@ void RedirectBackfiredSpellTarget(W8TargetSource* source, W8CombatSlot* target)
     int slot;
 
     if (source->fBackfire) {
-        srAssertFail("!pSource->fBackfire");
+        Fail("!pSource->fBackfire");
     }
     source_copy = *source;
     target_copy = *target;
@@ -3222,7 +3158,7 @@ void RedirectBackfiredSpellTarget(W8TargetSource* source, W8CombatSlot* target)
             }
         }
         if (slot >= 8) {
-            srAssertFail("FALSE");
+            Fail("FALSE");
             return;
         }
         SetTargetSourceToCharacter(slot, source);
@@ -3234,7 +3170,7 @@ void RedirectBackfiredSpellTarget(W8TargetSource* source, W8CombatSlot* target)
             monster_info = FindMonster(source_copy.iMonsterID);
             target->iGroupID = monster_info->monster_group_id;
         } else {
-            srAssertFail("FALSE");
+            Fail("FALSE");
         }
         source->point_source = 1;
         return;
@@ -3250,12 +3186,12 @@ void RedirectBackfiredSpellTarget(W8TargetSource* source, W8CombatSlot* target)
             monster_info = FindMonster(source_copy.iMonsterID);
             target->iGroupID = monster_info->monster_group_id;
         } else {
-            srAssertFail("FALSE");
+            Fail("FALSE");
         }
         source->point_source = 1;
         return;
     default:
-        srAssertFail("FALSE");
+        Fail("FALSE");
         return;
     }
     if (TargetSourceIsCharacter(&source_copy, 0)) {
@@ -3265,7 +3201,7 @@ void RedirectBackfiredSpellTarget(W8TargetSource* source, W8CombatSlot* target)
         target->iType = W8_TARGET_KIND_MONSTER;
         target->iMonsterID = source_copy.iMonsterID;
     } else {
-        srAssertFail("FALSE");
+        Fail("FALSE");
     }
     source->point_source = 1;
 }
@@ -3274,7 +3210,6 @@ void RedirectBackfiredSpellTarget(W8TargetSource* source, W8CombatSlot* target)
    kinds that aim at a single combatant re-resolve both ends through
    RedirectBackfiredSpellTarget; the point kinds trace the aim to where the
    spell actually lands and turn the source into a point. */
-// FUNCTION: WIZ8 0x004FEA50
 void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* target)
 {
     glm::vec3 from;
@@ -3285,13 +3220,13 @@ void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targ
     W8SpellTargetType target_type;
 
     if (source->iType <= W8_TARGET_SOURCE_NONE || source->iType >= W8_TARGET_SOURCE_COUNT) {
-        srAssertFail("(pSource->iType > SOURCE_TYPE_NONE) && (pSource->iType < SOURCE_TYPE_COUNT)");
+        Fail("(pSource->iType > SOURCE_TYPE_NONE) && (pSource->iType < SOURCE_TYPE_COUNT)");
     }
     if (target->iType <= W8_TARGET_KIND_NONE || target->iType >= W8_TARGET_KIND_COUNT) {
-        srAssertFail("(pTarget->iType > TARGET_TYPE_NONE) && (pTarget->iType < TARGET_TYPE_COUNT)");
+        Fail("(pTarget->iType > TARGET_TYPE_NONE) && (pTarget->iType < TARGET_TYPE_COUNT)");
     }
     if (source->fBackfire) {
-        srAssertFail("!pSource->fBackfire");
+        Fail("!pSource->fBackfire");
     }
     const bool monster_source = TargetSourceIsMonster(source, 0);
     monster_info = 0;
@@ -3346,9 +3281,9 @@ void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targ
     case 6:
         break;
     default:
-        srAssertFail("FALSE",
-                     fmt::format("SpellBackfires: ERROR - Invalid spell target type for spell {:d}",
-                                 spell_id));
+        Fail("FALSE",
+             fmt::format("SpellBackfires: ERROR - Invalid spell target type for spell {:d}",
+                         spell_id));
         return;
     }
     saved = source->point;
@@ -3370,7 +3305,6 @@ void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targ
 /* Pick one random in-combat participant other than the source and write it as
    the backfired spell's new target. A single-target spell keeps it a single
    slot; a group spell takes the whole monster group or the party instead. */
-// FUNCTION: WIZ8 0x004FEDC0
 int PickBackfireTarget(int spell_id, W8TargetSource* source, W8CombatSlot* target)
 {
     W8MonsterInfo* monster_info;
@@ -3437,7 +3371,6 @@ int PickBackfireTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targe
    spell's range around its source: random offsets off the source's position,
    line of sight traced, the result settled onto the ground and clamped back
    inside range. */
-// FUNCTION: WIZ8 0x004FEF90
 void ScatterSpellPointTarget(int spell_id, W8TargetSource* source, W8CombatSlot* target)
 {
     glm::vec3 origin;
@@ -3452,7 +3385,7 @@ void ScatterSpellPointTarget(int spell_id, W8TargetSource* source, W8CombatSlot*
     navigator = PartyNavigator();
     if (source->iType != W8_TARGET_SOURCE_CHARACTER) {
         if (source->iType != W8_TARGET_SOURCE_MONSTER) {
-            srAssertFail("pSource->iType == SOURCE_TYPE_MONSTER");
+            Fail("pSource->iType == SOURCE_TYPE_MONSTER");
         }
         monster_info = FindMonster(source->iMonsterID);
         navigator = monster_info->p3D;
@@ -3483,7 +3416,6 @@ void ScatterSpellPointTarget(int spell_id, W8TargetSource* source, W8CombatSlot*
    confusion condition: a trait save can skip it, then roughly one cast in
    five has its target re-picked at random or scattered to a random point,
    with a notice to whoever the source is. */
-// FUNCTION: WIZ8 0x004FF220
 void CheckSpellBackfire(int spell_id, W8TargetSource* source, W8CombatSlot* target)
 {
     W8Character* character;
@@ -3564,7 +3496,6 @@ static void ReportInvalidMagicReference(const char* type, int spell_id,
    caller's vectors. The source's position and eye are picked per source kind,
    then the spell's target type decides whether the single aimed slot, a
    radius, a cone or a whole side goes into the vectors. */
-// FUNCTION: WIZ8 0x004FD030
 void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* source,
                                 W8CombatSlot* target, std::vector<int>& monster_markers,
                                 std::vector<int>& party_markers, W8AreaSightRule sight_rule)
@@ -3631,7 +3562,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
             monster_info->has_spell_origin) {
             fVertextAvail = monster->GetSpellPosition(&eye);
             if (!fVertextAvail) {
-                srAssertFail("fVertextAvail");
+                Fail("fVertextAvail");
             }
         }
         if (fVertextAvail) {
@@ -3860,7 +3791,6 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
 
 /* Drop every marker that no longer names a live, targetable monster. Spells
    0x16, 0x4d and 0x81 also drop markers whose monster kind they do not affect. */
-// FUNCTION: WIZ8 0x00501B70
 void PruneSpellTargetMarkers(int spell_id, std::vector<int>& monster_markers)
 {
     std::erase_if(monster_markers, [spell_id](int monster_id) {
@@ -3884,7 +3814,6 @@ void PruneSpellTargetMarkers(int spell_id, std::vector<int>& monster_markers)
     });
 }
 
-// FUNCTION: WIZ8 0x00501D20
 void TrackItemSpellSource(W8Character* character, int spell_id)
 {
     bool has_spell[0x96] = {false};

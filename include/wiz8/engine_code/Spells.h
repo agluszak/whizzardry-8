@@ -11,10 +11,6 @@
 class W8Monster;
 struct W8World;
 
-/* Walks every registered stSound3D each audio update: releases finished
-   auto-release nodes and re-aims/re-volumes playing voices relative to the
-   camera. */
-void Update3DSounds(); /* 0x004AEFD0 */
 W8SpellVisual* CreateMonsterSpellEffect(std::string_view mls_name, int power_level,
                                         W8Monster* monster, int value, int flags); /* 0x004AD630 */
 W8SpellVisual* CreateAttachedSpellEffect(std::string_view mls_name, int power_level,

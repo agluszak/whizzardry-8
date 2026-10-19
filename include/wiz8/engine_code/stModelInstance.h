@@ -20,7 +20,6 @@ class stTextureAnim;
 class srNode;
 
 /* Engine Code\stModelInstance.cpp. */
-// VTABLE: WIZ8 0x005ec7d0 stModelInstance
 /* The following are the construction-phase tables for the support base. */
 class stModelInstance : public srModelInstance {
 public:
@@ -41,10 +40,10 @@ public:
     void RenderShadow(srGERD& renderer, srMeshModel::TriMesh& mesh);
 
     stTextureAnim* FindMouthTexture(); /* 0x00481080 */
-    int AddDamageStage(const char* name);
-    int AddExistingDamageStage(const char* name);
-    int FindDamageStage(const char* name);
-    unsigned char ReplaceDamageStageTexture(int stage, const char* old_name,
+    int AddDamageStage(std::string_view name);
+    int AddExistingDamageStage(std::string_view name);
+    int FindDamageStage(std::string_view name);
+    unsigned char ReplaceDamageStageTexture(int stage, std::string_view old_name,
                                             const std::shared_ptr<srTexture>& replacement);
 
 public:

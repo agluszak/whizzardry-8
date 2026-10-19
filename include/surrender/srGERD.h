@@ -29,7 +29,6 @@ class srModelInstance;
 class srVertexProcessor;
 struct srVertexArray;
 
-// VTABLE: SURRENDER 0x100766B0 srGERD
 class srGERD : public srClass {
 public:
     struct Pick {
@@ -391,7 +390,6 @@ public:
     std::pair<float, float> getEnvironmentScaleFactor() const;
     w8_ulong getExclusionMask() const;
     void setExclusionMask(w8_ulong mask);
-    // FUNCTION: SURRENDER 0x1001BB70 SYMBOL
     // RECOMP: ?getMaxTextureStages@srGERD@@QBEJXZ
     w8_long getMaxTextureStages() const { return SDLGPUDevice::max_texture_stages; }
     bool pushMatrix();
@@ -452,15 +450,12 @@ public:
     e_error getError();
     void setClearStencil(w8_ulong stencil);
 
-    // FUNCTION: SURRENDER 0x1001BB80 SYMBOL
     // RECOMP: ?isPickStackEmpty@srGERD@@QBEHXZ
     int isPickStackEmpty() const { return pick.pick_depth == 0; }
 
-    // FUNCTION: SURRENDER 0x1001BAE0 SYMBOL
     // RECOMP: ?isEnabled@srGERD@@QBEHW4e_enable@1@@Z
     int isEnabled(e_enable option) const { return (enable_flags & (1UL << option)) != 0; }
 
-    // FUNCTION: SURRENDER 0x1001BB90 SYMBOL
     // RECOMP: ?setCullMode@srGERD@@QAEXW4e_cullMode@1@@Z
     void setCullMode(e_cullMode mode)
     {
@@ -470,7 +465,6 @@ public:
         }
     }
 
-    // FUNCTION: SURRENDER 0x1001BB40 SYMBOL
     // RECOMP: ?setShader@srGERD@@QAEXABVsrShader@@@Z
     void setShader(const srShader& shader)
     {
@@ -480,17 +474,14 @@ public:
         }
     }
 
-    // FUNCTION: SURRENDER 0x1001BEF0 SYMBOL
     void setVertexArrayMask(std::uint32_t mask)
     {
         vertex_arrays.mask = mask;
         vertex_arrays_dirty |= DIRTY_VERTEX_ARRAY_INFO;
     }
 
-    // FUNCTION: SURRENDER 0x1001BEE0 SYMBOL
     std::uint32_t getVertexArrayMask() const { return vertex_arrays.mask; }
 
-    // FUNCTION: SURRENDER 0x1001BFD0 SYMBOL
     // RECOMP: ?setTexCoordPointer@srGERD@@QAEXJW4e_type@srRendererDefs@@KPBXK@Z
     void setTexCoordPointer(w8_long components, srRendererDefs::e_type type, w8_ulong stride,
                             const void* values, w8_ulong layer)
@@ -503,7 +494,6 @@ public:
         vertex_arrays_dirty |= DIRTY_VERTEX_ARRAY_INFO;
     }
 
-    // FUNCTION: SURRENDER 0x1001BE90 SYMBOL
     // RECOMP: ?setVertexPointer@srGERD@@QAEXJW4e_type@srRendererDefs@@KPBXJ@Z
     void setVertexPointer(w8_long primitive, srRendererDefs::e_type type, w8_ulong stride,
                           const void* values, w8_long count)

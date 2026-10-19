@@ -50,22 +50,17 @@
    constructor and vtable, and that body maps eye-space normals into the first
    texture-coordinate set. No source or export name survives, so the class
    keeps a descriptive name anchored at its constructor address. */
-// VTABLE: WIZ8 0x005ED0D0
-// class W8NormalTexcoordMapper
 class W8NormalTexcoordMapper : public srVertexProcessor {
 public:
-    // FUNCTION: WIZ8 0x004D6190
     virtual int isActive(srVertexPipe&) override { return 1; }
     virtual void process(srVertexPipe& pipe) override;
 };
 
-// GLOBAL: WIZ8 0x0065BEA8
 static W8NormalTexcoordMapper g_normal_texcoord_mapper;
 
 /* Convert eye-space normals to the material's first texture-coordinate set.
    The exported srVertexPipe queries preserve the closed renderer's ownership
    of its internal workspace while expressing every operation in this body. */
-// FUNCTION: WIZ8 0x004B89B0
 void W8NormalTexcoordMapper::process(srVertexPipe& pipe)
 {
     glm::vec2* coordinates;
@@ -223,10 +218,8 @@ W8MeshMaterial LoadMaterial(const std::filesystem::path& texture_directory,
     return result;
 }
 
-// STRING: WIZ8 0x0060e0f4
 #define DEFAULT_MATERIAL_NAME "Default Material"
 
-// FUNCTION: WIZ8 0x004B9280
 W8MeshMaterial CreateDefaultMaterial()
 {
     W8MeshMaterial result;
@@ -316,7 +309,6 @@ std::shared_ptr<srTexture> LoadTextureFromPath(const std::filesystem::path& path
 
 /* getPolyTexture selects the layer and table up front, then returns one smart
    pointer per polygon. Report whether any selected texture is animated. */
-// FUNCTION: WIZ8 0x004b9aa0
 bool MeshHasAnimatedTexture(srMeshModel* model)
 {
     if (model != 0) {
@@ -337,7 +329,6 @@ bool MeshHasAnimatedTexture(srMeshModel* model)
 
 /* The model instance supplies its mesh model. The first
    polygon texture is the shared animation object whose frame is restarted. */
-// FUNCTION: WIZ8 0x004b9b00
 void SetModelAnimatedTextureFrame(srModelInstance* instance, int frame)
 {
     if (instance != 0) {
@@ -355,7 +346,6 @@ void SetModelAnimatedTextureFrame(srModelInstance* instance, int frame)
     }
 }
 
-// FUNCTION: WIZ8 0x004B9B50
 stTextureAnim* GetModelAnimatedTexture(srModelInstance* instance)
 {
     if (instance != 0) {

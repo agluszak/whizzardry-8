@@ -3,8 +3,6 @@
 #include "srNode.h"
 #include "srVertexProcessor.h"
 
-// VTABLE: SURRENDER 0x10077068 srVertexProcessor
-// class srIlluminator
 class srIlluminator : public srNode, public srVertexProcessor {
 public:
     using srVertexProcessor::process;

@@ -20,7 +20,6 @@ struct W8World;
    coordinate set of the sky's AnimatedCloudMaterial by a fixed per-frame
    rate. No authored name survives, so the constructor address names the
    class; the global instance 0x00659738 is defined by the level loader. */
-// VTABLE: WIZ8 0x005EC8F8
 class W8MaterialMapper : public srVertexProcessor {
 public:
     W8MaterialMapper();

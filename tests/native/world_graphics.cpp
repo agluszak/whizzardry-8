@@ -20,7 +20,6 @@
 /* Installed character and level assets through the recovered game loop. */
 #include <SDL3/SDL_surface.h>
 
-#include "image.h"
 #include "layouts/targeting.h"
 #include "layouts/world.h"
 #include "surrender/srCamera.h"
@@ -32,6 +31,7 @@
 #include "surrender/srTexture.h"
 #include "temporary_directory.h"
 #include "wiz8/application.h"
+#include "wiz8/canvas/image.h"
 #include "wiz8/engine_code/GDCamera.h"
 #include "wiz8/engine_code/Level.h"
 #include "wiz8/engine_code/Octree.h"

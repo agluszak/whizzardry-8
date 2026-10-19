@@ -16,10 +16,10 @@
 #include <SDL3/SDL_surface.h>
 #include <catch2/catch_test_macros.hpp>
 
-#include "himage.h"
-#include "image.h"
-#include "shading.h"
-#include "sprite.h"
+#include "wiz8/canvas/himage.h"
+#include "wiz8/canvas/image.h"
+#include "wiz8/canvas/shading.h"
+#include "wiz8/canvas/sprite.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/surface_storage.h"

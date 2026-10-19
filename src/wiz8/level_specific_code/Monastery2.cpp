@@ -3,8 +3,8 @@
 #include "Item.h"
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/world.h"
-#include "soundman.h"
 #include "surrender/srDebug.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
@@ -24,12 +24,11 @@ static void DisableBellTrigger(const char* name, int line)
 {
     Trigger* pPropTrigger = FindTriggerByName(name);
     if (pPropTrigger == 0) {
-        srAssertFail("pPropTrigger");
+        Fail("pPropTrigger");
     }
     pPropTrigger->flags &= ~W8_TRIGGER_ON;
 }
 
-// FUNCTION: WIZ8 0x004dc7a0
 bool Monastery2BellButton(Trigger* pTrigger)
 {
     W8Prop* prop;
@@ -37,7 +36,7 @@ bool Monastery2BellButton(Trigger* pTrigger)
 
     prop = FindPropByName(GetWorld(), "dial1");
     if (prop != 0) {
-        slot = prop->Rep()->FindCurrentAnimationSlot();
+        slot = prop->FindCurrentAnimationSlot();
         if (slot == 0) {
             wiz8::sound::play("Data\\Sound\\Ambients\\Mon2Bell1.wav");
         } else if (slot == 1) {
@@ -53,7 +52,6 @@ bool Monastery2BellButton(Trigger* pTrigger)
     return true;
 }
 
-// FUNCTION: WIZ8 0x004dc880
 bool Monastery2MicroDoor2(Trigger* pTrigger)
 {
     glm::vec3 position;

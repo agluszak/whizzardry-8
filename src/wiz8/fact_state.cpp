@@ -21,7 +21,6 @@
 /* Runs once the new-game level has finished loading: records the two starting
    transcript keywords from string-table entries 0x7e7/0x7e8 and
    seeds the starting fact set, all with notifications suppressed. */
-// FUNCTION: WIZ8 0x005063e0
 void PostNewGameLoad(void)
 {
     g_fact_notifications_suppressed = true;
@@ -39,7 +38,6 @@ void PostNewGameLoad(void)
 
 /* Reads the fact array back, then re-applies the consequences that do not
    survive a save. */
-// FUNCTION: WIZ8 0x005064a0
 void LoadFactState(W8Chunk& save_handle)
 {
     W8NpcState* npc;
@@ -67,7 +65,6 @@ void LoadFactState(W8Chunk& save_handle)
    the hard-coded rules below are the original's. The helper evaluates
    recursively for the combined facts and logs each dependency when the
    fact-check log is enabled. */
-// FUNCTION: WIZ8 0x005080f0
 unsigned char EvaluateFact(W8FactId fact_id)
 {
     unsigned char value;

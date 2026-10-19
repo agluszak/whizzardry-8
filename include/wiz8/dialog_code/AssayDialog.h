@@ -18,7 +18,6 @@ enum { W8_ASSAY_BUTTON_COUNT = 0x25, W8_ASSAY_TEXT_BUFFER_COUNT = 5 };
 
 /* The item information dialog. It keeps the inspected item and the character
    whose stats the requirement lines compare against. */
-// VTABLE: WIZ8 0x005ef988
 class W8AssayDialog : public W8DialogBase {
 public:
     bool TakeDirty() override;

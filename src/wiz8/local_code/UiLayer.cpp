@@ -13,12 +13,12 @@
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_rect.h>
 
-#include "input.h"
-#include "timer.h"
 #include "wiz8/compat/native.h"
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_code/Configuration.h"
+#include "wiz8/platform/input.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 

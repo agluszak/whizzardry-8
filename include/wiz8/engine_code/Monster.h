@@ -13,9 +13,6 @@
 #include "wiz8/audio_resources.h"
 
 class srNode;
-enum W8AnimationBehaviour : unsigned char;
-enum W8AnimationFrameMethod : unsigned char;
-struct W8AIRecord;
 struct W8PathAI;
 struct W8World;
 
@@ -23,23 +20,22 @@ struct W8World;
 #include <string>
 #include <vector>
 
-#include "wiz8/engine_code/Emitter.h"
 #include "wiz8/engine_code/GrCycle.h"
 #include "wiz8/engine_code/emitter_resources.h"
-#include "wiz8/engine_code/game_timer.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/monster_actions.h"
 #include "wiz8/monster_cycles.h"
 #include "wiz8/monster_spell_icons.h"
+#include "wiz8/platform/game_timer.h"
 
 struct W8AnimObj;
 struct W8ReadLevelInfo;
-struct W8Item;
+struct WorldItemEntity;
 class stModelInstance;
 class stLight;
 class stParticle;
 class stScript;
-class stSound3D;
+class Sound3D;
 class Trigger;
 class W8Monster;
 
@@ -74,62 +70,7 @@ extern float g_monster_light_scale;
    billboard from the scene before it is destroyed. */
 struct W8MonsterSpellIcon {
     W8MonsterSpellIconId icon;
-    std::unique_ptr<W8Item> item;
-};
-
-struct W8MonsterRep : public W8EmitterHost {
-    W8MonsterRep();
-    W8MonsterRep(const W8MonsterRep& other);
-    virtual ~W8MonsterRep() override;
-    W8MonsterRep& operator=(const W8MonsterRep&) = delete;
-    virtual srModelInstance* SetCycleFrameLod(signed char cycle, signed char frame,
-                                              signed char lod) override;  /* 0x004BF8C0 */
-    virtual unsigned int ApplyEmitterSetting(signed char cycle) override; /* 0x004BF970 */
-    virtual W8AniMesh* GetEmitterAniMesh(signed char cycle) override;     /* 0x004BF920 */
-    virtual void CopyCycle(signed char cycle, const W8MonsterRep* other, signed char other_cycle);
-    unsigned char ReadCycleData(W8ReadLevelInfo* info, W8Monster* monster, int cycle_index,
-                                int value);
-
-    // Animation models must disappear before any cycle's registered lights.
-    std::deque<EmitterLights> light_lists[W8_MONSTER_CYCLE_COUNT];
-    std::vector<std::unique_ptr<W8AnimObj>> animations[W8_MONSTER_CYCLE_COUNT];
-    std::vector<float> animation_scales[W8_MONSTER_CYCLE_COUNT];
-    /* 0x5bc: per-party-member highlight bitmask - bit N set while party
-       member N has the monster highlighted/targeted. */
-    std::string name;
-    /* 0x5c4: number of populated party-icon entries in objects; the
-       attachment layout read by UpdateAttachedObjects. */
-    int icon_count;
-    std::unique_ptr<W8Item> objects[8];
-    std::vector<W8MonsterSpellIcon> spell_icons;
-    float standing_height;
-    float scale;
-    float minimum_scale;
-    float maximum_scale;
-    /* 0x5fc: death shrink factor multiplying scale on the death path. */
-    float death_scale;
-    /* 0x600: the rep carries a random idle cycle - animations[1] gets a
-       per-update random playback scale. */
-    bool random_idle;
-    /* 0x601: flies, swims or full-transitions - suppresses the grounded
-       transition check at 0x004C0000. */
-    bool special_movement;
-    /* 0x604: the idle cycle's own playback scale, added to the per-update
-       random roll. */
-    float idle_playback_scale;
-    float random_idle_fps_min;
-    float random_idle_fps_max;
-    /* 0x610: left-handed strike chance percent; Random(100) is rolled
-       against it for the mirrored attack anim. */
-    int left_handed;
-    std::vector<std::unique_ptr<stModelInstance>> linked_runtime_objects;
-    std::unique_ptr<class MonsterLight> monster_light;
-
-    unsigned char GetNumSubsPerCycle(signed char bCycle);
-    /* 0x004C4660. A method, not the free function an earlier reading assumed:
-       it takes its receiver in ECX and IsDying calls it without reloading ECX
-       at all, relying on `this` already being there. The query selector is
-       bounded at nine by the body's own `ja` against the jump table. */
+    std::unique_ptr<WorldItemEntity> item;
 };
 
 /* The constructor at 0x004BEA20 initializes through 0x624; the observed
@@ -155,7 +96,6 @@ public:
     virtual bool IsCycleSupported(signed char cycle) override;
     virtual signed char GetTotalAnimationCount() override;
     virtual float GetCurrentAnimationScale() override;
-    virtual W8EmitterHost* GetRepresentation() override;
     virtual std::optional<srBoundingBox> GetAnimationBounds() override;
     virtual unsigned char GetAnimationRadius(float* radius) override;
     virtual void SetCycle(signed char cycle) override;
@@ -163,12 +103,86 @@ public:
     virtual void AdvanceAnimationFrame(int value, int flags) override;
     virtual W8AniMesh* GetCurrentAniMesh() override;
     virtual void Update();
-    virtual void SetCurrentAnimationScale(float scale);
     virtual void GetMappedPosition(glm::vec3* position);
     virtual std::optional<glm::vec3> GetAnimationCenter();
     virtual void SetPosition(const glm::vec3* position) override;
 
+    // Representation state that used to live in a separate W8Monster.
+    virtual srModelInstance* SetCycleFrameLod(signed char cycle, signed char frame,
+                                              signed char lod) override;  /* 0x004BF8C0 */
+    virtual unsigned int ApplyEmitterSetting(signed char cycle) override; /* 0x004BF970 */
+    virtual W8AniMesh* GetEmitterAniMesh(signed char cycle) override;     /* 0x004BF920 */
+    void CopyCycle(signed char cycle, const W8Monster* other, signed char other_cycle);
+    unsigned char ReadCycleData(W8ReadLevelInfo* info, int cycle_index, int load_all);
+
+    // Animation models must disappear before any cycle's registered lights.
+    std::deque<EmitterLights> light_lists[W8_MONSTER_CYCLE_COUNT];
+    std::vector<std::unique_ptr<W8AnimObj>> animations[W8_MONSTER_CYCLE_COUNT];
+    std::vector<float> animation_scales[W8_MONSTER_CYCLE_COUNT];
+    /* 0x5bc: per-party-member highlight bitmask - bit N set while party
+       member N has the monster highlighted/targeted. */
+    std::string name;
+    /* 0x5c4: number of populated party-icon entries in objects; the
+       attachment layout read by UpdateAttachedObjects. */
+    int icon_count = 0;
+    std::unique_ptr<WorldItemEntity> objects[8];
+    std::vector<W8MonsterSpellIcon> spell_icons;
+    float standing_height = 0.0f;
+    float scale = 1.0f;
+    float minimum_scale = 0.0f;
+    float maximum_scale = 0.0f;
+    /* 0x5fc: death shrink factor multiplying scale on the death path. */
+    float death_scale = 1.0f;
+    /* 0x600: the rep carries a random idle cycle - animations[1] gets a
+       per-update random playback scale. */
+    bool random_idle = false;
+    /* 0x601: flies, swims or full-transitions - suppresses the grounded
+       transition check at 0x004C0000. */
+    bool special_movement = false;
+    /* 0x604: the idle cycle's own playback scale, added to the per-update
+       random roll. */
+    float idle_playback_scale = 10.0f;
+    float random_idle_fps_min = 0.0f;
+    float random_idle_fps_max = 0.0f;
+    /* 0x610: left-handed strike chance percent; Random(100) is rolled
+       against it for the mirrored attack anim. */
+    int left_handed = 0;
+    std::vector<std::unique_ptr<stModelInstance>> linked_runtime_objects;
+    std::unique_ptr<class MonsterLight> monster_light;
+
+    unsigned char GetNumSubsPerCycle(signed char bCycle);
+    /* 0x004C4660. A method, not the free function an earlier reading assumed:
+       it takes its receiver in ECX and IsDying calls it without reloading ECX
+       at all, relying on `this` already being there. The query selector is
+       bounded at nine by the body's own `ja` against the jump table. */
     int Query(W8MonsterQueryKind query);         /* 0x004C4660 */
+    // Monster operations that were free Monster* wrappers around this object.
+    static std::unique_ptr<W8Monster> ReadAllCycles(W8World* world, std::string_view monster_name,
+                                                    int load_value, int location_id);
+    std::optional<srBoundingBox> GetWorldAnimationBounds();
+    glm::vec3 GetRepresentationLocation() const;
+    glm::vec3 GetRepresentationLocalLocation() const;
+    void SetFacing(float angle);
+    void GetScaleRange(float* minimum, float* maximum);
+    void SetAdjustedPosition(const glm::vec3* position);
+    unsigned short ApproachStartupNavigator(double separation);
+    unsigned char LinkToStartupNavigator();
+    unsigned short ConfigureMovementToPlayer(float separation, float maximum_distance,
+                                             glm::vec3 position, int trace_mode,
+                                             unsigned char* probe_result);
+    unsigned short ConfigureMovementToMonster(W8Monster* target, float separation,
+                                              float maximum_distance, glm::vec3 position,
+                                              int trace_mode, unsigned char* probe_result);
+    void AimAtMonster(W8Monster* target, bool alternate);
+    void SetActive(bool state);
+    unsigned char SetAnimating(bool animating);
+    unsigned char IsAnimating();
+    bool HasPendingCycle();
+    bool IsScalingY();
+    void SetPendingCycle(int cycle);
+    void SetRuntimeBehaviour(W8AnimationBehaviour behaviour);
+    void SetLocationId(int value);
+    void ForwardReferencePosition(char alternate);
     void SpawnDamageNumber(unsigned int amount); /* 0x004C6C30 */
     bool IsDying();                              /* 0x004CA4C0 */
     bool IsCycleInterruptable(signed char cycle);
@@ -177,7 +191,7 @@ public:
     void RefreshModelLightScale();
     void SetDamageStage(int stage);
     int GetDamageStageCount();
-    bool ReplaceSkinTexture(int stage, const char* old_name, const char* new_name);
+    bool ReplaceSkinTexture(int stage, std::string_view old_name, std::string_view new_name);
     int AddDamageStage(std::string_view base_name, int stage);
     void RemoveCycleSkinTables();
     void RandomizeAppearanceAndMotion();
@@ -204,13 +218,13 @@ public:
     bool SetScript(std::string script_name, bool reset_orders);
     void UseScript(std::shared_ptr<stScript> loaded, bool reset_orders);
     void ProcessScript();
-    bool ResolveScriptPosition(const char* name, glm::vec3* position);
+    bool ResolveScriptPosition(std::string_view name, glm::vec3* position);
     bool GetProjectilePosition(glm::vec3* position);
     bool GetSpellPosition(glm::vec3* position);
     bool GetCycleMappedPosition(signed char cycle, int mapped_index, glm::vec3* position);
     bool EvaluateScriptCondition(std::string_view expression);
     bool CanContinueScript();
-    bool SetScriptLabel(const char* label);
+    bool SetScriptLabel(std::string_view label);
     bool IsPendingFinalize() const;
     bool IsWithinWorldRange();
     bool CheckLineOfSightToPlayer();
@@ -226,7 +240,6 @@ public:
     void RefreshStandingHeight();
 
 public:
-    std::unique_ptr<W8MonsterRep> m_pRep;
     unsigned int runtime_flags;
     int value_1e0;
     /* 0x1e4: the monster's location id, stored by MonsterSetLocationId and
@@ -328,45 +341,16 @@ public:
     /* 0x332: copied from the source monster; blocks hostility recompute in
        Targeting and Combat Hostility. */
     bool hostility_preserved;
-    stSound3D* sound;
+    std::unique_ptr<Sound3D> sound;
     std::vector<wiz8::sound::Playback> sounds;
 };
 
-W8MonsterCycle ParseMonsterCycleName(const char* name, signed char* subcycle = 0);
-std::unique_ptr<W8Monster> MonsterReadAllCycles(W8World* world, std::string_view monster_name,
-                                                int load_value, int location_id);
+W8MonsterCycle ParseMonsterCycleName(std::string_view name, signed char* subcycle = nullptr);
 unsigned short ChooseDifferentMonsterDirection(unsigned short previous_direction);
 
-std::optional<srBoundingBox> MonsterGetWorldAnimationBounds(W8Monster* monster);
 std::unique_ptr<W8Monster> LoadMonsterCycle(W8World* world, std::string_view mon_name, int cycle,
                                             int value);
 
-bool MonsterUsesCurrentModelInstance(W8GrCycle* cycle);
-glm::vec3 MonsterGetLocation(const W8Monster* monster);
-/* Expose the first Navigator angle through the enclosing Monster. */
-float MonsterGetYaw(W8Monster* monster); /* 0x004C5770 */
-glm::vec3 MonsterGetLocalLocation(const W8Monster* monster);
-void UpdateMonster(W8Monster* monster);
-bool MonsterIsCycleSupported(W8Monster* monster, signed char cycle);
-unsigned char MonsterReplacePath(W8Monster* monster, W8PathAI* path);
-unsigned char MonsterGetAnimationRadius(W8Monster* monster, float* radius);
-void MonsterSetFacing(W8Monster* monster, float angle);
-void MonsterGetScaleRange(W8Monster* monster, float* minimum, float* maximum);
-void MonsterSetAdjustedPosition(W8Monster* monster, const glm::vec3* position);
-unsigned short MonsterApproachStartupNavigator(W8Monster* monster, double separation);
-unsigned char MonsterLinkToStartupNavigator(W8Monster* monster);
-unsigned short MonsterConfigureMovementToPlayer(W8Monster* monster, float separation,
-                                                float maximum_distance, glm::vec3 position,
-                                                int trace_mode, unsigned char* probe_result);
-unsigned short MonsterConfigureMovementToMonster(W8Monster* monster, W8Monster* target,
-                                                 float separation, float maximum_distance,
-                                                 glm::vec3 position, int trace_mode,
-                                                 unsigned char* probe_result);
-void MonsterAimAtMonster(W8Monster* monster, W8Monster* target, bool alternate);
-void MonsterSetCycle(W8Monster* monster, signed char cycle);
-void MonsterSetActive(W8Monster* monster, bool state); /* 0x004C6160 */
-void MonsterSetCycleBehaviour(W8GrCycle* cycle, W8AnimationBehaviour behaviour);
-void MonsterSetCycleSubCycle(W8GrCycle* cycle, unsigned char subcycle);
 void SetCombatInactiveFlag(unsigned char value);
 void UpdateNearestMonsterGroupMembers();
 void ApplyMonsterRepresentationScale(W8Monster* monster);
@@ -382,35 +366,17 @@ struct W8MonsterShakeCallback {
     W8AnimationFrameMethod saved_frame_method{};
 };
 
-void MonsterStopAllNavigators(void);
-
-unsigned char MonsterSetAnimating(W8Monster* monster, bool animating);
-unsigned char MonsterIsAnimating(W8Monster* monster);
-bool MonsterHasPendingCycle(W8Monster* monster); /* 0x004C5710 */
-bool MonsterIsScalingY(W8Monster* monster);      /* 0x004C5EE0 */
-void MonsterSetPendingCycle(W8Monster* monster, int cycle);
-int MonsterQuery(W8Monster* monster, W8MonsterQueryKind query);
-void MonsterClearMovement(W8Monster* monster);
-void MonsterSetRuntimeBehaviour(W8Monster* monster, W8AnimationBehaviour behaviour);
-void MonsterSubmitTargetValue(W8Monster* monster);
 void DetachMonsterRepresentation(W8Monster* monster);
 void DestroyWorldMonster(W8Monster* monster);
 void RefreshMonsterStandingHeight(W8Monster* monster);
-void MonsterSetLocationId(W8Monster* monster, int value);
-void MonsterSelectLOD(W8Monster* monster, const glm::vec3* position);
 /* The shared forwarder four call sites use to advance a cycle's
    representation; it stays free because its callers pass the object on the
    stack. */
 void UpdateCycleRepresentation(W8GrCycle* cycle);
-void MonsterSetNavigatorHalted(W8Monster* monster, bool value);
-unsigned char MonsterConfigureMovementToPosition(W8Monster* monster,
-                                                 const glm::vec3* position); /* 0x004C5F90 */
-void MonsterResumeAllNavigators(void);
 
 void SetMonsterPartySlotMarker(int party_slot, int location_id, char on);
-void MonsterForwardReferencePosition(W8Monster* monster, char alternate); /* 0x004C6240 */
 
-std::unique_ptr<W8Item> CreateMonsterIconItem(W8World& world, const char* path);
+std::unique_ptr<WorldItemEntity> CreateMonsterIconItem(W8World& world, std::string_view path);
 /* A Monster script by name, shared through the script cache; null when missing. */
 std::shared_ptr<stScript> LoadMonsterScript(std::string_view name);
 /* One eight-byte row per animation cycle at 0x0060EA08. The parser at

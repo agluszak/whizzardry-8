@@ -12,11 +12,11 @@
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 
-#include "Font.h"
-#include "image.h"
-#include "input.h"
 #include "local_code/ControlsRect.h"
+#include "wiz8/canvas/Font.h"
+#include "wiz8/canvas/image.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"

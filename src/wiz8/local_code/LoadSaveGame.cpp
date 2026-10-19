@@ -41,13 +41,13 @@
 #include "monster_actions.h"
 #include "monster_spell_icons.h"
 #include "retail_records.h"
-#include "soundman.h"
 #include "surrender/srDebug.h"
+#include "wiz8/audio/AmbientSound.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/chunk.h"
 #include "wiz8/cursor.h"
 #include "wiz8/design_rect.h"
-#include "wiz8/engine_code/AmbientSound.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Monster.h"
@@ -56,7 +56,6 @@
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/game_timer.h"
 #include "wiz8/engine_code/stCube.h"
 #include "wiz8/engine_code/stLight.hpp"
 #include "wiz8/engine_code/stParticle.h"
@@ -96,6 +95,7 @@
 #include "wiz8/location_variables.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/platform/game_timer.h"
 #include "wiz8/retail_geometry_types.h"
 #include "wiz8/retail_save_records.h"
 #include "wiz8/retail_text_records.h"
@@ -106,11 +106,9 @@
 #include "wiz8/world_cursor.h"
 #include "wiz8/xstatus.h"
 
-// GLOBAL: WIZ8 0x00689f98
 bool g_save_pending;
 
 /* The save-file extension. Retail keeps it in writable .data. */
-// GLOBAL: WIZ8 0x0061A144
 char g_save_extension[] = "SAV";
 
 namespace {
@@ -581,17 +579,16 @@ void RestoreMonsterSpellIcons(W8World& world, const W8MonsterInfo& info, W8Monst
 /* One monster record: the version, the size-prefixed W8MonsterInfo image with
    position and yaw refreshed while the monster is live, then the script,
    unborn, movement and order sections. */
-// FUNCTION: WIZ8 0x005147a0
 void WriteMonsterRecord(W8Chunk& chunk, const W8MonsterInfo* info)
 {
     if (!info || !info->p3D) throw std::runtime_error("missing monster");
     W8Monster& monster = *info->p3D;
     auto image = wiz8::retail::encode_image(*info);
     if (info->fActive) {
-        auto position = MonsterGetLocation(&monster);
+        auto position = monster.GetRepresentationLocation();
         position.y = probeGround(position).position.y;
         image.position = {position.x, position.y, position.z};
-        image.derived = MonsterGetYaw(&monster);
+        image.derived = monster.GetYaw();
     }
     chunk.WriteValue(kMonsterRecordVersion);
     chunk.WriteValue(static_cast<std::uint32_t>(sizeof(image)));
@@ -778,7 +775,6 @@ void ReadLevelSection(W8World& world, W8LoadedLevelStatus::Data& data, W8Chunk& 
 
 /* Copy the CHAR chunks and the other levels' LVLS groups from the running
    CurrentGame save into a new save. */
-// FUNCTION: WIZ8 0x00514d50
 void CopyCurrentGameChunks(W8Chunk& source, W8Chunk& destination)
 {
     source.ForEachChunk([&](unsigned int id) {
@@ -816,16 +812,13 @@ void ShowMainGameNotice(int string_id)
 
 /* 0x0061A134/0x0061A138: the masks an iron-man save XORs its file's creation
    time with before storing it in the status block. */
-// GLOBAL: WIZ8 0x0061A134
 static unsigned int g_save_filetime_xor_low = 0x6b24e9f0;
-// GLOBAL: WIZ8 0x0061A138
 static unsigned int g_save_filetime_xor_high = 0xe77c28c1;
 
 /* The path of a loose character file. Before the game starts characters live
    under Saves\Characters (slot -1) or Saves\NPCs; in a started game, a slot
    whose flag is clear still reads Saves\NPCs and every other name is a CHAR
    record of the current save. */
-// FUNCTION: WIZ8 0x00514fa0
 std::string BuildCharacterFilePath(std::string_view filename, int slot)
 {
     if (!g_status.game_started)
@@ -834,7 +827,6 @@ std::string BuildCharacterFilePath(std::string_view filename, int slot)
     return std::string(filename);
 }
 
-// FUNCTION: WIZ8 0x00514ec0
 std::string BuildCharacterPath(std::string_view name, int slot)
 {
     return BuildCharacterFilePath(fmt::format("{}.CHR", name), slot);
@@ -842,7 +834,6 @@ std::string BuildCharacterPath(std::string_view name, int slot)
 
 /* Load one character record from its loose file, or from the current save's
    CHAR chunks in a started game. A failure clears the record. */
-// FUNCTION: WIZ8 0x005152b0
 bool LoadCharacter(std::string_view name, W8Character* character, int slot)
 try {
     bool loaded = false;
@@ -867,7 +858,6 @@ try {
     return false;
 }
 
-// FUNCTION: WIZ8 0x00511df0
 void FillCurrentSaveSlot(W8SaveSlot& slot)
 {
     slot.name.clear();
@@ -929,7 +919,6 @@ static std::unique_ptr<W8SaveSlot> ReadSaveSlot(const std::string& name,
 }
 
 /* Append every readable save after the slots already present, newest first. */
-// FUNCTION: WIZ8 0x00511e70
 bool EnumerateSaveSlots(std::vector<std::unique_ptr<W8SaveSlot>>& slots)
 try {
     if (!wiz8::file_status(wiz8::user_path("saves"))) return true;
@@ -959,7 +948,6 @@ try {
 
 /* The level a save was made on, read from its status chunk alone; 0 when the
    save cannot be read. */
-// FUNCTION: WIZ8 0x00512290
 int GetSaveGameLevel(std::string_view slot_name)
 try {
     W8Chunk chunks;
@@ -1046,7 +1034,6 @@ static void WriteGame(std::string_view name, const W8SaveScreenshot* screenshot,
     RequireSection(SaveStatusHeader(&chunks), "level status");
 }
 
-// FUNCTION: WIZ8 0x005123F0
 bool SaveGame(std::string_view name, const W8SaveScreenshot* screenshot)
 try {
     if (name.empty()) return false;
@@ -1063,7 +1050,6 @@ try {
    table; retail's table has 47 entries, so levels 47-55 read past it exactly
    as the original does. Level 56 is the default test level and later levels
    are lettered test levels. */
-// FUNCTION: WIZ8 0x00512e80
 std::string BuildLevelStatusPath(unsigned int level)
 {
     if (level == 56) return "Levels\\Test\\DefaultLevel.STS";
@@ -1075,7 +1061,6 @@ std::string BuildLevelStatusPath(unsigned int level)
 
 /* Rewrite a status file with the current level's group replaced and every
    other level's group kept. */
-// FUNCTION: WIZ8 0x00513160
 bool SaveLevelStatus(const char* path)
 try {
     if (!path) return false;
@@ -1098,7 +1083,6 @@ try {
 
 /* Write the current level's LVLS group: the level number, STAT, MONS and ITEM,
    then the world sections a save keeps. */
-// FUNCTION: WIZ8 0x00513260
 bool SaveStatusHeader(W8Chunk* chunks)
 try {
     auto& file = chunks->WriteStream();
@@ -1129,7 +1113,6 @@ try {
 /* The MONS section: group and monster counts, every group record (stamped
    version 3) with its encounter-list flag, then every monster record. Live
    list entries come first, then encounter groups and unborn monsters. */
-// FUNCTION: WIZ8 0x005145a0
 bool SaveMonsterStatus(W8Chunk* chunks)
 try {
     const unsigned int group_count = CurrentLevelPopulation().monster_groups.size() +
@@ -1339,7 +1322,6 @@ void BeginRestoredLevelActivity(W8World& world, W8LoadedLevelStatus* status)
 }
 
 /* Tear down the live session before a new game or a save load replaces it. */
-// FUNCTION: WIZ8 0x00512c40
 void ResetLiveSessionForLoad(void)
 {
     if (GetLoadedLevelID() != -1) {
@@ -1356,7 +1338,6 @@ void ResetLiveSessionForLoad(void)
 }
 
 /* Create the writable save directories in the user directory. */
-// FUNCTION: WIZ8 0x00512d00
 bool VerifyDataSubdirs(void)
 try {
     const char* directories[]{"saves", "saves\\characters", "saves\\npcs"};
@@ -1379,9 +1360,9 @@ void SaveItemFile(wiz8::File& handle, const W8WorldItem& item_info)
         image.saved_marker = 1;
         image.next = index < item_info.contents.size() ? 1 : 0;
         if (item->fActive) {
-            const auto position = item->p3D->m_pRep->GetLocation();
+            const auto position = item->p3D->GetLocation();
             image.position = {position.x, position.y, position.z};
-            image.entity_flags = item->p3D->m_pRep->flags;
+            image.entity_flags = item->p3D->flags;
         }
         handle.write(&image, sizeof(image));
     }
@@ -1413,7 +1394,6 @@ std::unique_ptr<W8WorldItem> LoadItem(W8Chunk& handle, bool from_assets)
 }
 
 /* Whether any save other than CurrentGame exists. */
-// FUNCTION: WIZ8 0x00512fb0
 bool SaveGameExists(void)
 {
     const auto saves =
@@ -1424,7 +1404,6 @@ bool SaveGameExists(void)
 
 /* Write a character record. Before the game starts it is a loose file (its
    read-only bit cleared first); afterwards a CHAR chunk of the current save. */
-// FUNCTION: WIZ8 0x00515090
 bool SaveCharacter(const W8Character* character, int slot)
 try {
     auto snapshot = *character;
@@ -1452,7 +1431,6 @@ try {
 
 /* Replace every CHAR chunk with this name in the current save by one new
    record. Malformed CHAR payloads are skipped by loading and can be replaced. */
-// FUNCTION: WIZ8 0x005155b0
 bool SaveCharacterToCurrentGame(std::string_view path, int /*slot*/, const W8Character* character)
 try {
     if (path.empty() || !character || path.size() >= kCharacterNameBytes) return false;
@@ -1480,7 +1458,6 @@ try {
 }
 
 /* Load the last complete CHAR record with this name from the current save. */
-// FUNCTION: WIZ8 0x005156c0
 bool LoadCharacterFromCurrentGame(std::string_view path, W8Character* character)
 try {
     if (path.empty() || !character) return false;
@@ -1509,7 +1486,6 @@ try {
 /* Render the world into the screenshot's 80x60 ARGB1555 pixels. Auto-flip is
    suspended so the capture is never presented, and the frame is redrawn
    afterwards. */
-// FUNCTION: WIZ8 0x00515840
 void CaptureSaveScreenshot(W8SaveScreenshot& screenshot)
 {
     screenshot.version = 1.0f;
@@ -1526,7 +1502,6 @@ void CaptureSaveScreenshot(W8SaveScreenshot& screenshot)
 }
 
 /* Delete the last-used slot and the CurrentGame save. */
-// FUNCTION: WIZ8 0x00515920
 void DeleteCurrentSaveFiles(void)
 {
     wiz8::remove_file(wiz8::user_path(SaveSlotPath(GetLastSaveName())));
@@ -1535,7 +1510,6 @@ void DeleteCurrentSaveFiles(void)
 
 /* Save now if autosaving is enabled (or the game is Iron Man) and the moment
    allows it. A declined autosave counts as success. */
-// FUNCTION: WIZ8 0x005159e0
 bool AutoSaveIfAllowed(bool forced)
 {
     gXStatus.save_notice_shown = false;
@@ -1545,20 +1519,17 @@ bool AutoSaveIfAllowed(bool forced)
 }
 
 /* Take the pending-save flag, clearing it. */
-// FUNCTION: WIZ8 0x00515910
 bool TakePendingSaveFlag(void)
 {
     return std::exchange(g_save_pending, false);
 }
 
-// FUNCTION: WIZ8 0x00512f70
 unsigned char SaveSlotFileExists(std::string_view slot_name)
 {
     return IsRegularFile(SaveSlotPath(slot_name));
 }
 
 /* Announce an autosave; the next ProcessMainGameAutoSave tick performs it. */
-// FUNCTION: WIZ8 0x00515ac0
 void ReportSaveFailed(bool quiet)
 {
     if (quiet && !g_status.iron_man) return;
@@ -1569,7 +1540,6 @@ void ReportSaveFailed(bool quiet)
 /* The timed main-game autosave runs over two frames: once the gameplay timer
    has elapsed the first eligible frame announces it, and the next eligible
    frame saves and reports the result. */
-// FUNCTION: WIZ8 0x00515b00
 void ProcessMainGameAutoSave(void)
 {
     if ((g_settings.auto_save == 0 && !g_status.iron_man) || !CanAutoSaveNow()) return;
@@ -1586,11 +1556,10 @@ void ProcessMainGameAutoSave(void)
 }
 
 /* Write the live monster-control effect as the HYPN record. */
-// FUNCTION: WIZ8 0x00516580
 void SaveMonsterControlSpellEffect(W8Chunk* chunks)
 {
     W8SpellEffectEntry* lure = FindMonsterControlSpellEffect();
-    if (!lure) srAssertFail("pLure");
+    if (!lure) Fail("pLure");
     ForEachMonsterControlField(*lure, [&]<class Field>(const Field& field) {
         if constexpr (std::is_same_v<Field, W8CombatSlot> || std::is_same_v<Field, W8TargetSource>)
             wiz8::retail::write(*chunks, field);
@@ -1601,7 +1570,6 @@ void SaveMonsterControlSpellEffect(W8Chunk* chunks)
 
 /* The quick-save slot to write next: the first missing one, otherwise the
    one written longest ago. */
-// FUNCTION: WIZ8 0x00516670
 std::optional<std::string> SelectQuickSaveSlotForWrite()
 try {
     std::optional<std::pair<int, SDL_Time>> oldest;
@@ -1619,7 +1587,6 @@ try {
 
 /* The newest numbered quick save, for command-line startup. The unnumbered
    Quick slot is used only when none of the numbered ones exists. */
-// FUNCTION: WIZ8 0x00516740
 std::optional<std::string> FindStartupQuickSave()
 try {
     std::optional<std::pair<int, SDL_Time>> newest;
@@ -1642,7 +1609,6 @@ try {
    Old status blocks get the message-box migration, pre-v2 characters their
    profession repair, and the live party rows rebuild their item pointers
    rather than trusting saved addresses. */
-// FUNCTION: WIZ8 0x00515cf0
 void LoadGameStatus(W8Chunk* chunks, W8GlobalStatus* status)
 {
     W8Character* characters = status->buffers.Char;
@@ -1704,7 +1670,6 @@ void LoadGameStatus(W8Chunk* chunks, W8GlobalStatus* status)
 }
 
 /* Write the GSTA section; see LoadGameStatus. */
-// FUNCTION: WIZ8 0x00515fa0
 void SaveGlobalStatus(W8Chunk* chunks, const W8GlobalStatus* status)
 {
     chunks->WriteChunk(W8_CHUNK_GAME_STATUS, [&] {
@@ -1717,7 +1682,6 @@ void SaveGlobalStatus(W8Chunk* chunks, const W8GlobalStatus* status)
 }
 
 /* Load one level's world items from the current save without listing them. */
-// FUNCTION: WIZ8 0x00516070
 bool LoadSavedLevelItems(int level, std::vector<std::unique_ptr<W8WorldItem>>& items)
 try {
     W8Chunk chunk;
@@ -1742,7 +1706,6 @@ try {
 }
 
 /* The first free name of Ending, Ending1 ... Ending20. */
-// FUNCTION: WIZ8 0x00516890
 std::optional<std::string> FindFreeEndingSaveName()
 try {
     for (int index = 0; index <= 20; ++index) {
@@ -1757,7 +1720,6 @@ try {
 /* Load a save slot: tear down the live session, make the slot the new
    CurrentGame, apply each section, then re-arm the message countdowns, the
    gameplay timer and the held-item cursor and normalize the loaded items. */
-// FUNCTION: WIZ8 0x00512920
 bool LoadGame(std::string_view slot_name)
 try {
     ResetLiveSessionForLoad();
@@ -1812,7 +1774,6 @@ try {
 }
 
 /* Read the HYPN record into a new spell effect. */
-// FUNCTION: WIZ8 0x00516310
 void LoadMonsterControlSpellEffect(W8Chunk* chunks)
 {
     auto effect = std::make_unique<W8SpellEffectEntry>();

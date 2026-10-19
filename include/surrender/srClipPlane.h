@@ -2,8 +2,6 @@
 
 #include "srNode.h"
 
-// VTABLE: SURRENDER 0x10076EC0 srClipPlane
-// class srClipPlane
 class srClipPlane : public srNode {
 public:
     enum e_clip { CLIP_POSITIONAL_0 = 0 };

@@ -6,106 +6,74 @@
 #include <memory>
 #include <optional>
 
+#include <glm/common.hpp>
+#include <glm/geometric.hpp>
 #include <glm/gtx/rotate_vector.hpp>
 
-#include "glm/common.hpp"
 #include "glm/ext/vector_float3.hpp"
-#include "glm/geometric.hpp"
 #include "layouts/main_game_screen.h"
 #include "wiz8/direction_angles.h"
 #include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/IntervalGate.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/platform/IntervalGate.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 
-// GLOBAL: WIZ8 0x005ec538
 extern const double g_camera_view_factor1 = 3.141592653589793;
-// GLOBAL: WIZ8 0x005ec568
 extern const double g_camera_view_factor2 = 90.0;
-// GLOBAL: WIZ8 0x005ebc38
 extern const float g_negative_one = -1.0f;
-// GLOBAL: WIZ8 0x005ebc84
 extern const float g_camera_transition_epsilon = 0.0010000000474974513f;
-// GLOBAL: WIZ8 0x005ec54c
 extern const float g_camera_angle_period0 = 6.2831854820251465f;
-// GLOBAL: WIZ8 0x005ec550
 extern const float g_camera_pitch_upper = 0.7853981852531433f;
-// GLOBAL: WIZ8 0x005ec554
 extern const float g_camera_pitch_lower = -0.7853981852531433f;
-// GLOBAL: WIZ8 0x005ec558
 extern const float g_camera_transition_duration_factor = 10.0f;
-// GLOBAL: WIZ8 0x005ec560
 extern const float g_camera_forced_speed = 6.2831854820251465f;
-// GLOBAL: WIZ8 0x005ec564
 extern const float g_camera_half_period = 3.1415927410125732f;
-// GLOBAL: WIZ8 0x005ec578
 extern const float g_camera_angle_dead_zone = 0.03141592815518379f;
-// GLOBAL: WIZ8 0x005ec57c
 extern const float g_camera_transition_duration_scale = 0.31830987334251404f;
-// GLOBAL: WIZ8 0x005ec580
 extern const double g_camera_smoothing_scale = 0.31830989161357204;
 /* Ten degrees a second, the turn deceleration and the pitch speed limit.
    Retail stores it as an immediate where it is assigned and compares with
    the constants below. */
 #define CAMERA_TURN_RATE 0.1745329350233078f
 
-// GLOBAL: WIZ8 0x005ec590
 extern const float g_camera_input_deceleration = 0.1745329350233078f;
-// GLOBAL: WIZ8 0x005ec58c
 extern const float g_camera_negative_input_deceleration = -0.1745329350233078f;
-// GLOBAL: WIZ8 0x005ec588
 extern const float g_camera_velocity_stop_scale = 5.729577541351318f;
-// GLOBAL: WIZ8 0x005ec594
 extern const float g_camera_negative_velocity_epsilon = -0.0010000000474974513f;
-// GLOBAL: WIZ8 0x005ec55c
 extern const float g_camera_velocity_factor = 2.0f;
-// GLOBAL: WIZ8 0x005ec2a0
 extern const double g_camera_pi = 3.1415926;
-// GLOBAL: WIZ8 0x005ec574
 extern const float g_camera_horizontal_margin = 0.5563237071037292f;
-// GLOBAL: WIZ8 0x005ec570
 extern const float g_camera_vertical_margin = 0.2168571501970291f;
 /* Retail emits a dynamic initializer (0x00476120): the transition speed is
    the half-period divided by the duration factor, so the plain constant
    initializer would under-produce the .data bytes. */
-// GLOBAL: WIZ8 0x0065a0f4
 static float g_camera_transition_speed = g_camera_half_period / g_camera_transition_duration_factor;
-// GLOBAL: WIZ8 0x00609ea4
 float g_camera_max_yaw_velocity = 0.3490658700466156f;
-// GLOBAL: WIZ8 0x00603aac
 float g_camera_level_forward_scale = 375.0f;
-// GLOBAL: WIZ8 0x00603ab0
 float g_camera_default_forward_scale = 750.0f;
-// GLOBAL: WIZ8 0x00603ab4
 float g_camera_forward_scale = 750.0f;
 
-// GLOBAL: WIZ8 0x0065A0FC
-
-// GLOBAL: WIZ8 0x0065a0f8
 GDCamera& PartyCamera()
 {
     static GDCamera camera;
     return camera;
 }
 
-// FUNCTION: WIZ8 0x00421150
 void GetCameraForwardPoint(float distance, glm::vec3* output)
 {
     PartyCamera().GetForwardPoint(distance, output);
 }
 
 /* Accumulate a forward offset rotated by yaw and pitch. */
-// FUNCTION: WIZ8 0x00421170
 void OffsetPositionByYawPitch(float distance, glm::vec3* position, float yaw, float pitch)
 {
     *position += glm::rotateY(glm::rotateX(glm::vec3(0, 0, distance), pitch), yaw);
 }
 
-// FUNCTION: WIZ8 0x00476140
 GDCamera::GDCamera()
 {
     m_orientation_flags = 0;
@@ -137,9 +105,7 @@ GDCamera::GDCamera()
 /* Creates the game camera when a parent is supplied, otherwise installs or
    updates a caller-provided camera. Both paths finish by applying the game
    camera owner's current rotation. */
-// FUNCTION: WIZ8 0x00476440
 
-// FUNCTION: WIZ8 0x00476610
 void GDCamera::ApplyRotationMatrix(glm::mat3* rotation, W8LevelDataRecord* context)
 {
     const auto forward = (*rotation)[2];
@@ -170,7 +136,6 @@ static std::optional<DirectionAngles> aimAngles(const glm::vec3& target, const g
     return angles;
 }
 
-// FUNCTION: WIZ8 0x00476950
 void GDCamera::SnapToTarget(const glm::vec3* target)
 {
     if (!CanTrackTarget()) return;
@@ -182,7 +147,6 @@ void GDCamera::SnapToTarget(const glm::vec3* target)
     SetOrientationImmediate(aim->pitch, aim->yaw);
 }
 
-// FUNCTION: WIZ8 0x00476C30
 void GDCamera::SetOrientationImmediate(float pitch, float angle)
 {
     if (!CanTrackTarget()) return;
@@ -197,7 +161,6 @@ void GDCamera::SetOrientationImmediate(float pitch, float angle)
     m_yaw_velocity = 0.0f;
 }
 
-// FUNCTION: WIZ8 0x00476F90
 unsigned char GDCamera::LookAt(const glm::vec3* target, bool preserve_pitch)
 {
     if (!CanTrackTarget()) return 0;
@@ -207,7 +170,6 @@ unsigned char GDCamera::LookAt(const glm::vec3* target, bool preserve_pitch)
     return BeginOrientationTransition(preserve_pitch ? m_pitch : aim->pitch, aim->yaw, false);
 }
 
-// FUNCTION: WIZ8 0x00477180
 unsigned char GDCamera::ComputeTrackingOrientation(const glm::vec3* target, float* angle,
                                                    float* pitch)
 {
@@ -250,7 +212,6 @@ unsigned char GDCamera::ComputeTrackingOrientation(const glm::vec3* target, floa
     return 1;
 }
 
-// FUNCTION: WIZ8 0x00477440
 unsigned char GDCamera::BeginOrientationTransition(float target_pitch, float target_angle,
                                                    bool force)
 {
@@ -288,7 +249,6 @@ unsigned char GDCamera::BeginOrientationTransition(float target_pitch, float tar
     return m_transition_active;
 }
 
-// FUNCTION: WIZ8 0x004776A0
 void GDCamera::Update(float elapsed)
 {
     m_frame_elapsed = elapsed;
@@ -338,7 +298,6 @@ void GDCamera::Update(float elapsed)
     SetPitch(m_pitch);
 }
 
-// FUNCTION: WIZ8 0x00477B90
 void GDCamera::ApplyYawInput(float input)
 {
     if (input != 0.0f) {
@@ -386,7 +345,6 @@ void GDCamera::ApplyYawInput(float input)
     }
 }
 
-// FUNCTION: WIZ8 0x00477EB0
 void GDCamera::ApplyPitchInput(float input)
 {
     if (input != 0.0f && !gXStatus.fNpcDialogueMode && g_status.world_cursor_gate == 0) {
@@ -463,7 +421,6 @@ void GDCamera::ApplyPitchInput(float input)
     SetPitch(m_pitch);
 }
 
-// FUNCTION: WIZ8 0x00478290
 void GDCamera::BrakePitchAtLimit()
 {
     if ((m_orientation_flags & W8_CAMERA_BRAKING_PITCH) == 0) {
@@ -494,7 +451,6 @@ void GDCamera::BrakePitchAtLimit()
     SetPitch(m_pitch);
 }
 
-// FUNCTION: WIZ8 0x004788E0
 void GDCamera::SetOrientation(float angle, float pitch)
 {
     SetYaw(angle);
@@ -502,21 +458,18 @@ void GDCamera::SetOrientation(float angle, float pitch)
     m_rotation = m_yaw_rotation * m_pitch_rotation;
 }
 
-// FUNCTION: WIZ8 0x00478BD0
 glm::mat3 GDCamera::rotationMatrix()
 {
     m_rotation = m_yaw_rotation * m_pitch_rotation;
     return m_rotation;
 }
 
-// FUNCTION: WIZ8 0x00478CC0
 void GDCamera::BeginLeveling()
 {
     m_orientation_flags |= W8_CAMERA_LEVELING;
     BeginOrientationTransition(0.0f, m_yaw, false);
 }
 
-// FUNCTION: WIZ8 0x00478CE0
 void GDCamera::GetForwardPoint(float distance, glm::vec3* output)
 {
     m_rotation = m_yaw_rotation * m_pitch_rotation;
@@ -524,7 +477,6 @@ void GDCamera::GetForwardPoint(float distance, glm::vec3* output)
     *output = m_position + m_direction * distance;
 }
 
-// FUNCTION: WIZ8 0x00478E00
 void GDCamera::SetManualControlActive(bool enabled)
 {
     if (enabled && !gXStatus.fNpcDialogueMode && g_status.world_cursor_gate == 0) {

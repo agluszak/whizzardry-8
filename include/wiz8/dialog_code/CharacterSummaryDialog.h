@@ -3,17 +3,16 @@
 #include <cstdint>
 #include <memory>
 
-#include "input.h"
+#include "wiz8/audio/mouth_gap.h"
 #include "wiz8/audio_resources.h"
 #include "wiz8/dialog_code/DialogBase.h"
-#include "wiz8/mouth_gap.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/portrait_animation.h"
 
 class W8TextBuffer;
 struct W8Character;
 
 /* A character preview owns its voice and portrait animation. */
-// VTABLE: WIZ8 0x005efdc0
 class W8CharacterSummaryDialog : public W8DialogBase {
 public:
     explicit W8CharacterSummaryDialog(W8Character* character);

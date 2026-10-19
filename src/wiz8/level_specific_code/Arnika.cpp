@@ -7,16 +7,15 @@
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/item_instance.h"
 #include "monster_actions.h"
-#include "soundman.h"
+#include "wiz8/audio/sound3d.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/cursor.h"
 #include "wiz8/engine_code/GDCamera.h"
-#include "wiz8/engine_code/IntervalGate.h"
 #include "wiz8/engine_code/Monster.h"
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/engine_code/Prop.h"
 #include "wiz8/engine_code/Trigger.hpp"
 #include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/stSound3D.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
@@ -29,6 +28,7 @@
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/platform/IntervalGate.h"
 #include "wiz8/xstatus.h"
 
 struct W8NpcState;
@@ -58,33 +58,20 @@ struct W8Elevator {
     W8Prop* pProp;               /* 0x28: rep the moving master waits on */
 };
 
-// GLOBAL: WIZ8 0x00683570
 static W8Elevator gEl01;
-// GLOBAL: WIZ8 0x006835A0
 static W8Elevator gEl02;
 
-// GLOBAL: WIZ8 0x00613DCC
 static bool g_red_button_armed = true;
-// GLOBAL: WIZ8 0x006835EC
 static W8Prop* g_el01_button_prop;
-// GLOBAL: WIZ8 0x006835F0
 static W8Prop* g_el02_button_prop;
 
-// GLOBAL: WIZ8 0x006835CC
 static W8Prop* g_lazer_prop;
-// GLOBAL: WIZ8 0x006835D0
 static W8Prop* g_exit_door_prop;
-// GLOBAL: WIZ8 0x006835D4
 static Trigger* g_exit_door_trigger;
-// GLOBAL: WIZ8 0x006835D8
 static int g_laser_scanning;
-// GLOBAL: WIZ8 0x006835DC
-static stSound3D* g_warning_loop;
-// GLOBAL: WIZ8 0x006835E0
-static stSound3D* g_warning_oneshot;
-// GLOBAL: WIZ8 0x006835E4
+static Sound3D* g_warning_loop;
+static Sound3D* g_warning_oneshot;
 static std::optional<W8IntervalGate> g_warning_gate;
-// GLOBAL: WIZ8 0x006835E8
 static W8Monster* g_mookholo_monster;
 
 static void CaptureEl1Moving(W8SavedLocationState& state)
@@ -206,7 +193,7 @@ static bool RunArnikaElevatorButton(W8Elevator& elevator, W8Prop*& button_prop,
     if (button_prop == 0) {
         return true;
     }
-    if (button_prop->Rep()->animation_playing != 0) {
+    if (button_prop->animation_playing != 0) {
         return false;
     }
     if (elevator.button_down == 1) {
@@ -226,7 +213,7 @@ static bool RunArnikaElevatorMoving(W8Elevator& elevator, const ElevatorStateBin
     if (elevator.pProp == 0) {
         return true;
     }
-    if (elevator.pProp->Rep()->animation_playing != 0) {
+    if (elevator.pProp->animation_playing != 0) {
         return false;
     }
 
@@ -239,7 +226,6 @@ static bool RunArnikaElevatorMoving(W8Elevator& elevator, const ElevatorStateBin
    Screg flag and the inside-the-inn NPC teleport from the persisted
    location variables and fact 0xc1.  An active Screg ambush whose monster
    is still present ends setup before the teleport. */
-// FUNCTION: WIZ8 0x004E06D0
 void ArnikaLevelSetup(void)
 {
     glm::vec3 position;
@@ -291,11 +277,10 @@ void ArnikaLevelSetup(void)
 
 /* LazerScanner trigger: caches the scanner prop, refuses while its rep is
    still animating or the HLL door is already open, then arms the scan. */
-// FUNCTION: WIZ8 0x004E0880
 bool ArnikaLazerScanner(Trigger* pTrigger)
 {
     g_lazer_prop = pTrigger->GetProp();
-    if (g_lazer_prop->Rep()->animation_playing != 0) {
+    if (g_lazer_prop->animation_playing != 0) {
         return false;
     }
     if (GetLocationVarIDByName("HLLDoorOpen") != -1) {
@@ -309,7 +294,6 @@ bool ArnikaLazerScanner(Trigger* pTrigger)
 
 /* Laser-scan master: a positive command re-arms the scan; a zero tick drops it once the prop's
    rep stops animating. */
-// FUNCTION: WIZ8 0x004E0960
 bool ArnikaLaserScanMaster(int command)
 {
     if (command != 0) {
@@ -321,7 +305,7 @@ bool ArnikaLaserScanMaster(int command)
     if (g_lazer_prop == 0) {
         return true;
     }
-    if (g_lazer_prop->Rep()->animation_playing != 0) {
+    if (g_lazer_prop->animation_playing != 0) {
         return false;
     }
 
@@ -331,7 +315,6 @@ bool ArnikaLaserScanMaster(int command)
 }
 
 /* ScannerDoor trigger: the 0x27b key item opens the HLL door once. */
-// FUNCTION: WIZ8 0x004E0A80
 bool ArnikaScannerDoor(Trigger* pTrigger)
 {
     if (!FindItemOnParty(0x27b, 0, 0, 2, 0)) {
@@ -346,7 +329,6 @@ bool ArnikaScannerDoor(Trigger* pTrigger)
 /* Warning-sound master: a positive command starts the ULLspawn alarm for
    that many seconds (or just the one-shot above 0x1e); a zero tick runs the countdown and
    stops the looped VOC when it expires. */
-// FUNCTION: WIZ8 0x004E0AC0
 bool ArnikaWarningSound(int command)
 {
     glm::vec3 position;
@@ -396,7 +378,6 @@ bool ArnikaWarningSound(int command)
 /* Mookholo trigger: spawns the Screg ambush once while neither ScregActive
    nor MookDoorOpen is set, then hands the spawned monster to the fade-out
    watch and queues the NPC notice. */
-// FUNCTION: WIZ8 0x004E0DC0
 bool ArnikaMookholo(Trigger* pTrigger)
 {
     glm::vec3 position;
@@ -440,7 +421,6 @@ bool ArnikaMookholo(Trigger* pTrigger)
 /* Mookholo watch: the 0xEFFFFFFF toggle re-arms the wait, and a zero tick
    fades the spawned monster out once g_npc_dialogue_closed signals the NPC notice
    finished. */
-// FUNCTION: WIZ8 0x004E0F70
 bool ArnikaMookholoWatch(int command)
 {
     if (command != 0) {
@@ -462,7 +442,6 @@ bool ArnikaMookholoWatch(int command)
 
 /* MookFrontDoor trigger: asserts the Mookholo trigger exists and opens the
    Mook door by latching MookDoorOpen. */
-// FUNCTION: WIZ8 0x004E1040
 bool ArnikaMookFrontDoor(Trigger* pTrigger)
 {
     FindRequiredTriggerByName("Mookholo");
@@ -476,7 +455,6 @@ bool ArnikaMookFrontDoor(Trigger* pTrigger)
 
 /* YellowButton trigger: raises the "nothing happened" flag, spawns the
    bank guards at Bguards and puts the first on the guard script. */
-// FUNCTION: WIZ8 0x004E10A0
 bool ArnikaYellowButton(Trigger* pTrigger)
 {
     glm::vec3 position;
@@ -496,7 +474,6 @@ bool ArnikaYellowButton(Trigger* pTrigger)
 
 /* Vaultalarmdoor trigger: raises the "nothing happened" flag, plays the
    vault alarm, turns every guard group hostile and records fact 0xe0. */
-// FUNCTION: WIZ8 0x004E1120
 bool ArnikaVaultAlarmDoor(Trigger* pTrigger)
 {
     W8MonsterGroup* group;
@@ -515,7 +492,6 @@ bool ArnikaVaultAlarmDoor(Trigger* pTrigger)
 /* Exitbutton trigger: caches the exit-door trigger and prop, toggles the
    Teleporting location variable, arms the teleport watch when a teleport
    starts and records facts 0xcd and 0xe0. */
-// FUNCTION: WIZ8 0x004E1180
 bool ArnikaExitButton(Trigger* pTrigger)
 {
     g_exit_door_trigger = pTrigger;
@@ -539,10 +515,9 @@ bool ArnikaExitButton(Trigger* pTrigger)
 
 /* Teleport watch: once the exit-door prop's rep finishes animating, runs
    the cached trigger and teleports the party to ARN11. */
-// FUNCTION: WIZ8 0x004E1300
 bool ArnikaTeleportWatch(int command)
 {
-    if (g_exit_door_prop->Rep()->animation_playing != 0) {
+    if (g_exit_door_prop->animation_playing != 0) {
         return false;
     }
 
@@ -553,7 +528,6 @@ bool ArnikaTeleportWatch(int command)
 
 /* GenVault-2-door trigger: spawns the vault golem once at the Golem
    entity. */
-// FUNCTION: WIZ8 0x004E1340
 bool ArnikaGenVaultDoor(Trigger* pTrigger)
 {
     glm::vec3 position;
@@ -573,7 +547,6 @@ bool ArnikaGenVaultDoor(Trigger* pTrigger)
    El01Moving and RedButtonDown from the location variables, re-arms the
    moving master against the door or lift prop that was mid-flight and
    re-arms the button master when the red button was down. */
-// FUNCTION: WIZ8 0x004E13B0
 void ArnikaElevator1Setup(void)
 {
     gEl01.pElevator = FindRequiredTriggerByName("Elevator-1");
@@ -588,7 +561,6 @@ void ArnikaElevator1Setup(void)
 
 /* "RedButton": while the button press is armed it stamps the pressed fact,
    then either starts the lift (states 1/7) or re-arms the button master. */
-// FUNCTION: WIZ8 0x004E1740
 bool ArnikaRedButton(Trigger* pTrigger)
 {
     if (!g_red_button_armed) {
@@ -625,7 +597,6 @@ bool ArnikaRedButton(Trigger* pTrigger)
    persists the button state, 0xEFFFFFFF presses the button, and any other
    value is the pending press. The command-0 run waits for the button prop's
    rep to finish, then runs the button trigger once and clears the press. */
-// FUNCTION: WIZ8 0x004E17C0
 bool ArnikaEl1Button(int command)
 {
     return RunArnikaElevatorButton(gEl01, g_el01_button_prop, g_el01_bindings, command);
@@ -633,7 +604,6 @@ bool ArnikaEl1Button(int command)
 
 /* "El1-TopButtons": advances the lift while no button run is pending and the
    elevator is in a callable state; always reports handled. */
-// FUNCTION: WIZ8 0x004E1930
 bool ArnikaEl1TopButtons(Trigger* pTrigger)
 {
     g_trigger_feedback = true;
@@ -646,7 +616,6 @@ bool ArnikaEl1TopButtons(Trigger* pTrigger)
 }
 
 /* "El1-BottomButtons": same advance as the top call buttons. */
-// FUNCTION: WIZ8 0x004E1970
 bool ArnikaEl1BottomButtons(Trigger* pTrigger)
 {
     return ArnikaEl1TopButtons(pTrigger);
@@ -655,7 +624,6 @@ bool ArnikaEl1BottomButtons(Trigger* pTrigger)
 /* The El01Moving master function: -1 stamps the location variable, and the
    command-0 run advances the elevator once the watched door or lift prop's
    rep has finished playing. */
-// FUNCTION: WIZ8 0x004E19B0
 bool ArnikaEl1Moving(int command)
 {
     return RunArnikaElevatorMoving(gEl01, g_el01_bindings, command);
@@ -664,7 +632,6 @@ bool ArnikaEl1Moving(int command)
 /* Elevator-02 setup: resolves its triggers, restores El02State, El02Moving
    and GreenButtonDown, opens the bottom doors on a fresh level and re-arms
    the moving and button masters. */
-// FUNCTION: WIZ8 0x004E1A10
 void ArnikaElevator2Setup(void)
 {
     gEl02.pElevator = FindRequiredTriggerByName("Elevator-02");
@@ -681,7 +648,6 @@ void ArnikaElevator2Setup(void)
 /* "GreenButton": while no press is pending it plays the acknowledgement,
    runs the elevator unless it is already at the top, and re-arms the button
    master. */
-// FUNCTION: WIZ8 0x004E1DC0
 bool ArnikaGreenButton(Trigger* pTrigger)
 {
     if (gEl02.button_down == 2) {
@@ -701,7 +667,6 @@ bool ArnikaGreenButton(Trigger* pTrigger)
 
 /* The elevator-2 button master function, mirroring ArnikaEl1Button
    against GreenButtonDown. */
-// FUNCTION: WIZ8 0x004E1E10
 bool ArnikaEl2Button(int command)
 {
     return RunArnikaElevatorButton(gEl02, g_el02_button_prop, g_el02_bindings, command);
@@ -709,7 +674,6 @@ bool ArnikaEl2Button(int command)
 
 /* "Elevator-02": steps the lift while no button run is pending and the
    elevator is in a callable state; answers false otherwise. */
-// FUNCTION: WIZ8 0x004E1F80
 bool ArnikaElevator02Trigger(Trigger* pTrigger)
 {
     if (gEl02.button_down == 2) {
@@ -724,7 +688,6 @@ bool ArnikaElevator02Trigger(Trigger* pTrigger)
 }
 
 /* The El02Moving master function, mirroring ArnikaEl1Moving. */
-// FUNCTION: WIZ8 0x004E1FB0
 bool ArnikaEl2Moving(int command)
 {
     return RunArnikaElevatorMoving(gEl02, g_el02_bindings, command);
@@ -815,7 +778,6 @@ void ArnikaElevatorAdvance(W8ArnikaElevatorId which)
 /* "ChaosMolori": rejects the activation when an item is on the cursor and
    the shared callback flag is clear; accepts when the cursor is empty or the
    flag is raised. */
-// FUNCTION: WIZ8 0x004E2340
 bool ArnikaChaosMolori(Trigger* pTrigger)
 {
     if (!g_running_trigger_from_script && g_status.item_in_cursor) {
@@ -826,7 +788,6 @@ bool ArnikaChaosMolori(Trigger* pTrigger)
 
 /* "Maddmook": the first time the party has been warned, posts the mook's
    script notice and drops the faction band. */
-// FUNCTION: WIZ8 0x004E2360
 bool ArnikaMaddmook(Trigger* pTrigger)
 {
     if (GetLocationVarIDByName("WarnedAboutEntry") != -1 &&
@@ -843,7 +804,6 @@ bool ArnikaMaddmook(Trigger* pTrigger)
 
 /* "AstralDominae": same cursor/flag gate as ChaosMolori, then forwards the
    activation to the CMBox trigger. */
-// FUNCTION: WIZ8 0x004E23C0
 bool ArnikaAstralDominae(Trigger* pTrigger)
 {
     if (!g_running_trigger_from_script && g_status.item_in_cursor) {
@@ -857,7 +817,6 @@ bool ArnikaAstralDominae(Trigger* pTrigger)
 /* "CMbox": places the held relic on the pedestal through
    ArnikaPedestalItem, then runs the matching trigger inside the
    shared callback flag so the pedestal callbacks stay quiet. */
-// FUNCTION: WIZ8 0x004E2420
 bool ArnikaCMbox(Trigger* pTrigger)
 {
     int previous = -1;
@@ -888,7 +847,6 @@ bool ArnikaCMbox(Trigger* pTrigger)
    comes back to the cursor; on the first exchange it also aims the camera at
    the mook and posts the entry notice. Answers the item placed, -1 when the
    pedestal already held one, or -2 when the cursor item was not a relic. */
-// FUNCTION: WIZ8 0x004E24E0
 int ArnikaPedestalItem(int* previous_item)
 {
     W8NpcState* npc;
@@ -959,7 +917,6 @@ int ArnikaPedestalItem(int* previous_item)
 
 /* The "BallSlot" activation callback: on the first ball insert it creates
    item 0x240 and hands it to the kind-0x16 NPC's script notice queue. */
-// FUNCTION: WIZ8 0x004E26F0
 bool ArnikaBallSlot(Trigger* pTrigger)
 {
     W8ItemInstance item;
@@ -978,7 +935,6 @@ bool ArnikaBallSlot(Trigger* pTrigger)
 /* The "Flightrecordertrigger" activation callback: outside NPC dialogue it
    queues the kind-0x14 NPC's script notice, passing the held item when the
    cursor holds one. */
-// FUNCTION: WIZ8 0x004E2760
 bool ArnikaFlightRecorder(Trigger* pTrigger)
 {
     W8ItemInstance* item;

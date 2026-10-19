@@ -67,7 +67,6 @@ void LearnSpellFromItem(W8Character* character, W8ItemInstance* item);
 void RecountLearnedSpellsByRealm(W8Character* character);
 /* Learned, and the remaining points in the spell's realm cover its cost.
    CharacterHasCastableSpell expands this body for every spell. */
-// FUNCTION: WIZ8 0x004f9750
 inline bool CanCharacterCastSpell(W8Character* character, int spell_id)
 {
     if (spell_id != W8_SPELL_NONE && character->spell_learned[spell_id] == 1 &&

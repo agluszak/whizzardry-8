@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <span>
+#include <string_view>
 
 #include "geometry.h"
 #include "glm/ext/matrix_float4x3.hpp"
@@ -29,8 +30,7 @@
 #include "wiz8/engine_code/stMeshModel.h"
 #include "wiz8/layouts/world.h"
 
-// FUNCTION: WIZ8 0x004b6e00
-GDProp::GDProp(W8PathingService* pathing, srModelInstance* instance, const char* path_name,
+GDProp::GDProp(W8PathingService* pathing, srModelInstance* instance, std::string_view path_name,
                unsigned short prop_number, W8FootstepSurface footstep_surface,
                W8FootstepMaterial footstep_material)
 {
@@ -77,7 +77,6 @@ void GDProp::PrepareGeometry(srModelInstance* instance)
    publish the corresponding conditional path state. Vertices are transformed
    into world space before each accumulated triangle receives its plane,
    dominant axis, slope classification and caller-provided material bytes. */
-// FUNCTION: WIZ8 0x004b7060
 void GDProp::Initialize(W8PathingService* pathing, srModelInstance* instance, bool attach,
                         unsigned short prop_number, W8FootstepSurface footstep_surface,
                         W8FootstepMaterial footstep_material)
@@ -152,14 +151,11 @@ void GDProp::Initialize(W8PathingService* pathing, srModelInstance* instance, bo
 
     Trigger* owner = m_trigger;
     if (owner != 0 && attach) {
-        W8TriggerActionData* action = owner->m_pActionData.get();
-        if (action != 0 && action->type == W8_TRIGGER_PAYLOAD_DOOR) {
+        if (const auto* door = owner->doorData()) {
             unsigned int flags = W8_PATH_CELL_DOOR;
             if ((owner->lock_state.lock_type != 0 &&
                  owner->lock_state.device_state.completed == 0) ||
-                ((owner->flags & W8_TRIGGER_ENABLED) == 0 ||
-                 static_cast<W8DoorTriggerActionData*>(action)->open ||
-                 static_cast<W8DoorTriggerActionData*>(action)->locked)) {
+                (owner->flags & W8_TRIGGER_ENABLED) == 0 || door->open || door->locked) {
                 flags = W8_PATH_CELL_DOOR | W8_PATH_CELL_BLOCKED;
             }
             if (pathing != 0) {
@@ -177,33 +173,24 @@ void GDProp::Initialize(W8PathingService* pathing, srModelInstance* instance, bo
 
 /* Attach the product-side prop owner and immediately mirror its active state
    into both the local GD flags and the conditional path table. */
-// FUNCTION: WIZ8 0x004b7470
 void GDProp::BindTrigger(Trigger* owner, W8PathingService* pathing)
 {
     m_trigger = owner;
-    W8TriggerActionData* action = owner->m_pActionData.get();
-    if (action != 0 && action->type == W8_TRIGGER_PAYLOAD_DOOR) {
-        if (action != 0) {
-            unsigned int path_flags = W8_PATH_CELL_DOOR;
-            if ((owner->lock_state.lock_type == 0 ||
-                 owner->lock_state.device_state.completed != 0) &&
-                (owner->flags & W8_TRIGGER_ENABLED) != 0 &&
-                !static_cast<W8DoorTriggerActionData*>(action)->open &&
-                !static_cast<W8DoorTriggerActionData*>(action)->locked) {
-            } else {
-                path_flags = W8_PATH_CELL_DOOR | W8_PATH_CELL_BLOCKED;
-            }
-
-            if (pathing != 0) {
-                pathing->UpdateConditionalPathFlags(m_path_handle, m_prop_number, path_flags);
-            }
+    if (const auto* door = owner->doorData()) {
+        unsigned int path_flags = W8_PATH_CELL_DOOR;
+        if ((owner->lock_state.lock_type == 0 || owner->lock_state.device_state.completed != 0) &&
+            (owner->flags & W8_TRIGGER_ENABLED) != 0 && !door->open && !door->locked) {
+        } else {
+            path_flags = W8_PATH_CELL_DOOR | W8_PATH_CELL_BLOCKED;
+        }
+        if (pathing != 0) {
+            pathing->UpdateConditionalPathFlags(m_path_handle, m_prop_number, path_flags);
         }
     }
 }
 
 /* Scan the transformed vertices for the axis-aligned bounds. The cached box
    feeds the path bookkeeping range/sentinel and is returned as a native value. */
-// FUNCTION: WIZ8 0x004b7500
 srBoundingBox GDProp::computeBounds()
 {
     const auto bounds = boundingBox(std::span<const glm::vec3>(m_pVertices));
@@ -219,7 +206,6 @@ srBoundingBox GDProp::computeBounds()
 
 /* The pathing record supplies inclusive unsigned coordinate bounds at
    +0x4c..+0x52. */
-// FUNCTION: WIZ8 0x004B75F0
 bool GDProp::ContainsPathCoordinate(unsigned short x, unsigned short y) const
 {
     if (x >= m_path_bounds.min_x && x <= m_path_bounds.max_x && y >= m_path_bounds.min_z &&
@@ -232,7 +218,6 @@ bool GDProp::ContainsPathCoordinate(unsigned short x, unsigned short y) const
 /* Record a waypoint index for a grid point that lies inside the path bounds.
    The prop owns a counted waypoint list consumed by
    CheckConditionalWayPtStatus. */
-// FUNCTION: WIZ8 0x004b7730
 unsigned char GDProp::RegisterPathSurface(unsigned int index, const glm::ivec2& point)
 {
     if (static_cast<unsigned short>(point.x) < m_path_bounds.min_x ||
@@ -251,7 +236,6 @@ unsigned char GDProp::RegisterPathSurface(unsigned int index, const glm::ivec2& 
    minor bound interpolates the other coordinate, which must land within one
    cell of the rectangle. The vertical branch re-tests its first crossing
    instead of interpolating the second — a faithful retail oddity. */
-// FUNCTION: WIZ8 0x004b7830
 unsigned char GDProp::RegisterPathVertex(unsigned int index, const glm::ivec2& point,
                                          const glm::ivec2& second)
 {
@@ -277,7 +261,6 @@ unsigned char GDProp::RegisterPathVertex(unsigned int index, const glm::ivec2& p
 
 /* Register the item on the collidable prop's sector list, building the path
    representation and the list itself on first use. */
-// FUNCTION: WIZ8 0x004b7ad0
 void AddItemToSector(int sector, W8WorldItem* item)
 {
     if (item != 0 && sector >= 0) {
@@ -297,7 +280,6 @@ void AddItemToSector(int sector, W8WorldItem* item)
 }
 
 /* Drop the item from the collidable prop's sector list when both exist. */
-// FUNCTION: WIZ8 0x004b7b50
 void RemoveItemFromSector(int sector, W8WorldItem* item)
 {
     if (item != 0 && sector >= 0) {
@@ -309,7 +291,6 @@ void RemoveItemFromSector(int sector, W8WorldItem* item)
 }
 
 /* Whether any world items are supported by this prop. */
-// FUNCTION: WIZ8 0x004B7BA0
 bool GDProp::HasSupportedItems()
 {
     return !m_supported_items.empty();

@@ -27,13 +27,7 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 
-#include "Font.h"
 #include "application.h"
-#include "himage.h"
-#include "image.h"
-#include "image_assets.h"
-#include "imgfmt.h"
-#include "input.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/npc_dialogue.h"
 #include "layouts/screen_state.h"
@@ -49,6 +43,11 @@
 #include "wiz8/assertions.h"
 #include "wiz8/asset_paths.h"
 #include "wiz8/button_interaction.h"
+#include "wiz8/canvas/Font.h"
+#include "wiz8/canvas/himage.h"
+#include "wiz8/canvas/image.h"
+#include "wiz8/canvas/image_assets.h"
+#include "wiz8/canvas/imgfmt.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/cursor.h"
@@ -82,6 +81,7 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/modal_content.h"
 #include "wiz8/overlay_scenes.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"

@@ -4,9 +4,9 @@
 struct W8Chunk;
 
 #include "glm/ext/vector_float3.hpp"
-#include "wiz8/engine_code/IntervalGate.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/geometry.h"
+#include "wiz8/platform/IntervalGate.h"
 
 struct W8EncounterTableRuntime;
 struct W8EncounterEntry;

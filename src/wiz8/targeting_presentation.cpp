@@ -149,7 +149,7 @@ void ApplyTargetingPresentation(const W8TargetingPresentation& presentation)
         for (int actor = 0; actor < 8; ++actor) {
             const bool targeted = (mark.party_targets & (1u << actor)) != 0;
             // Marker objects are a replaceable render cache, never selection input.
-            if (targeted != (monster->m_pRep->objects[actor] != nullptr))
+            if (targeted != (monster->objects[actor] != nullptr))
                 SetMonsterPartySlotMarker(actor, info->location_id, targeted);
         }
         monster->UpdateAttachedObjects(mark.hovered);

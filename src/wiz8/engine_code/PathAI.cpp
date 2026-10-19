@@ -10,6 +10,7 @@
 #include <glm/ext/quaternion_common.hpp>
 #include <glm/ext/quaternion_geometric.hpp>
 #include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/geometric.hpp>
 #include <glm/gtc/quaternion.hpp>
 
 #include "GrCycle.h"
@@ -17,34 +18,22 @@
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/fwd.hpp"
-#include "glm/geometric.hpp"
 #include "surrender/srDebug.h"
 #include "surrender/srMath.h"
 #include "surrender/srNode.h"
-#include "wiz8/engine_code/AnimRep.hpp"
 #include "wiz8/engine_code/GDCamera.h"
-#include "wiz8/engine_code/Missile.h"
 #include "wiz8/engine_code/OctPath.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/gameplay_constants.h"
 
-// FUNCTION: WIZ8 0x004a9260
-bool PathAIUpdate(W8AIRecord* record, signed char direction)
+bool PathAIUpdate(W8PathAI* record, signed char direction)
 {
     if (record == 0) {
         return false;
     }
-    switch (record->kind) {
-    case W8_AI_RECORD_PATH:
-        return PathAITick(static_cast<W8PathAI*>(record), direction);
-    case W8_AI_RECORD_MISSILE:
-        return UpdateMissileAI(static_cast<W8AIMissile*>(record));
-    default:
-        return false;
-    }
+    return PathAITick(record, direction);
 }
 
-// FUNCTION: WIZ8 0x004a92a0
 std::unique_ptr<W8PathAI> LoadPathAI(wiz8::File& file)
 {
     unsigned char version;
@@ -87,23 +76,17 @@ std::unique_ptr<W8PathAI> LoadPathAI(wiz8::File& file)
     return path;
 }
 
-// FUNCTION: WIZ8 0x004a9720
-void PathAIResetRecord(W8AIRecord* record)
+void PathAIResetRecord(W8PathAI* record)
 {
-    if (record && record->kind == W8_AI_RECORD_PATH) {
-        static_cast<W8PathAI*>(record)->position = 0;
+    if (record) {
+        record->position = 0;
     }
 }
 
-// FUNCTION: WIZ8 0x004a91f0
-void PathAIApplyToRep(W8AIRecord* record, W8AnimRepBase* representation)
+void PathAIApplyToRep(W8PathAI* path, W8GrCycle* representation)
 {
-    if (record->kind != W8_AI_RECORD_PATH) {
-        return;
-    }
-    W8PathAI* path = static_cast<W8PathAI*>(record);
     if (path == 0 || representation == 0) {
-        srAssertFail("pPathAI&&pRep");
+        Fail("pPathAI&&pRep");
     }
     auto position = representation->parent_location;
     PathAIPosition(path, &position);
@@ -111,14 +94,13 @@ void PathAIApplyToRep(W8AIRecord* record, W8AnimRepBase* representation)
     representation->location = representation->parent_location;
 }
 
-std::unique_ptr<W8AIRecord> W8PathAI::Clone() const
+std::unique_ptr<W8PathAI> W8PathAI::Clone() const
 {
     auto copy = std::make_unique<W8PathAI>(*this);
     copy->timed = false;
     return copy;
 }
 
-// FUNCTION: WIZ8 0x004a9bb0
 void PathAIClearOwned(W8PathAI* path)
 {
     if (path) {
@@ -128,7 +110,6 @@ void PathAIClearOwned(W8PathAI* path)
     }
 }
 
-// FUNCTION: WIZ8 0x004a9c30
 void PathAIAddPoint(W8PathAI& path, const glm::vec3& point)
 {
     if (path.nodes.empty()) {
@@ -153,20 +134,17 @@ void PathAIAddPoint(W8PathAI& path, const glm::vec3& point)
     }
 }
 
-// FUNCTION: WIZ8 0x004a9ba0
 void PathAIEnableTimedMode(W8PathAI* path)
 {
     path->animated = true;
     path->timed = true;
 }
 
-// FUNCTION: WIZ8 0x004a9c20
 void PathAIResetTick(W8PathAI* path)
 {
     path->last_update_tick = w8_get_ticks();
 }
 
-// FUNCTION: WIZ8 0x004a9e70
 float PathAIGetValue(W8PathAI* path)
 {
     if (path == 0) {
@@ -175,7 +153,6 @@ float PathAIGetValue(W8PathAI* path)
     return path->position;
 }
 
-// FUNCTION: WIZ8 0x004a9e90
 bool PathAINextPoint(W8PathAI* path, glm::vec3* point)
 {
     if (path == 0 || path->nodes.empty()) {
@@ -192,7 +169,6 @@ bool PathAINextPoint(W8PathAI* path, glm::vec3* point)
     return true;
 }
 
-// FUNCTION: WIZ8 0x004a9ef0
 bool PathAIIsComplete(W8PathAI* path)
 {
     if (path != 0 && !path->nodes.empty() &&
@@ -202,11 +178,10 @@ bool PathAIIsComplete(W8PathAI* path)
     return true;
 }
 
-// FUNCTION: WIZ8 0x004a9f60
 void PathAISetValue(W8PathAI* path, float value)
 {
     if (path == 0) {
-        srAssertFail("pPathAI");
+        Fail("pPathAI");
     }
     if (path->animated) {
         path->position = 0.0f;
@@ -226,7 +201,6 @@ void PathAISetValue(W8PathAI* path, float value)
 /* Advance the timed path by `distance` world units: fold it into the elapsed
    accumulator, then walk the node chain past every segment the distance
    covers, ending with the in-segment fraction in interpolation_fraction. */
-// FUNCTION: WIZ8 0x004a9fe0
 void PathAIAdvanceByDistance(W8PathAI* path, float distance)
 {
     glm::vec3 position(0);
@@ -276,7 +250,6 @@ void PathAIAdvanceByDistance(W8PathAI* path, float distance)
     path->interpolation_fraction = (segment * path->interpolation_fraction + remaining) / segment;
 }
 
-// FUNCTION: WIZ8 0x004aa160
 void PathAIAdvanceNormalized(W8PathAI* path, float amount)
 {
     unsigned int index;
@@ -304,7 +277,6 @@ void PathAIAdvanceNormalized(W8PathAI* path, float amount)
     path->point_index = 0;
 }
 
-// FUNCTION: WIZ8 0x004aa1f0
 bool PathAITick(W8PathAI* path, signed char direction)
 {
     uint64_t now;
@@ -313,7 +285,7 @@ bool PathAITick(W8PathAI* path, signed char direction)
     float point_count;
 
     if (path == 0) {
-        srAssertFail("pPathAI");
+        Fail("pPathAI");
     }
     now = w8_get_ticks();
     if (!path->discrete_mode && path->animated) {
@@ -361,7 +333,6 @@ bool PathAITick(W8PathAI* path, signed char direction)
     return true;
 }
 
-// FUNCTION: WIZ8 0x004aa370
 void PathAIPosition(W8PathAI* path, glm::vec3* value)
 {
     if (!path || path->nodes.empty()) return;
@@ -383,7 +354,6 @@ void PathAIPosition(W8PathAI* path, glm::vec3* value)
     }
 }
 
-// FUNCTION: WIZ8 0x004aa520
 void PathAIApply(W8PathAI* path, srNode* target)
 {
     int index;

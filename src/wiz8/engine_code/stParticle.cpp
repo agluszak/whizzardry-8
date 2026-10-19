@@ -11,8 +11,9 @@
 #include <utility>
 #include <vector>
 
-#include <SDL3/SDL_stdinc.h>
+#include <glm/geometric.hpp>
 #include <glm/gtc/matrix_access.hpp>
+#include <glm/matrix.hpp>
 
 #include "glm/ext/matrix_double4x4.hpp"
 #include "glm/ext/matrix_float3x3.hpp"
@@ -22,12 +23,9 @@
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "glm/ext/vector_int3.hpp"
-#include "glm/geometric.hpp"
 #include "glm/gtx/rotate_vector.hpp"
-#include "glm/matrix.hpp"
 #include "layouts/world.h"
 #include "particle_modes.h"
-#include "random.h"
 #include "surrender/mesh_submission.h"
 #include "surrender/srBoundingBox.h"
 #include "surrender/srDebug.h"
@@ -44,29 +42,24 @@
 #include "wiz8/engine_code/Octree.h"
 #include "wiz8/engine_code/PolyPick.h"
 #include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/game_timer.h"
 #include "wiz8/engine_code/stTextureAnim.h"
 #include "wiz8/engine_code/stTextureFile.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/gameplay_constants.h"
+#include "wiz8/platform/game_timer.h"
+#include "wiz8/platform/random.h"
+#include "wiz8/unicode.h"
 
 constexpr float kParticleFlutterAngleRandomScale = 0.00019174758926965296f;
 constexpr float kParticleFlutterDisplacementScale = -0.0010000000474974513f;
 constexpr float kParticleFlutterVelocityFloor = -1000.0f;
 constexpr float kParticleRandomUnitScale = 3.0517578125e-05f;
 
-// STRING: WIZ8 0x0060BF6C
-
-// VTABLE: WIZ8 0x005ECBD0
-// class stParticle
-
-// FUNCTION: WIZ8 0x004925A0
 void stParticle::SetRenderFlags(srShader flags)
 {
     render_flags = flags;
 }
 
-// FUNCTION: WIZ8 0x0049AE90
 void stParticle::SetParticleScale(float scale)
 {
     float inverse_scale = 1.0f / size_scale;
@@ -79,7 +72,6 @@ void stParticle::SetParticleScale(float scale)
     lifetime_maximum = (lifetime_maximum - offset) * scale + offset;
 }
 
-// FUNCTION: WIZ8 0x0049B150
 void SaveParticleStates(wiz8::File& handle)
 {
     unsigned char version = 1;
@@ -104,7 +96,6 @@ void SaveParticleStates(wiz8::File& handle)
     }
 }
 
-// FUNCTION: WIZ8 0x0049B3B0
 std::vector<W8ParticleState> ReadParticleStates(W8Chunk& file)
 {
     unsigned char version;
@@ -138,7 +129,7 @@ void ApplyParticleStates(W8World& world, std::span<const W8ParticleState> states
 void stParticle::AllocateParticles(unsigned int count)
 {
     if (count >= 10000) {
-        srAssertFail("cnt < 10000");
+        Fail("cnt < 10000");
     }
     particle_count = count;
     particle_positions.assign(count, glm::vec3(0));
@@ -161,7 +152,6 @@ void stParticle::AllocateParticles(unsigned int count)
     }
 }
 
-// FUNCTION: WIZ8 0x00497AF0
 stParticle::~stParticle() = default;
 
 void stParticle::CancelAnimationCallback()
@@ -182,7 +172,6 @@ stParticle::stParticle(srNode* parent, int count) : srNode(static_cast<srNode*>(
 
 /* A copy shares material and static texture, but starts with no live
    particles, fresh animation frames and fresh timing. */
-// FUNCTION: WIZ8 0x00498180
 stParticle::stParticle(const stParticle& other) : srNode(static_cast<srNode*>(0))
 {
     persisted = other.persisted;
@@ -246,7 +235,6 @@ stParticle::stParticle(const stParticle& other) : srNode(static_cast<srNode*>(0)
     setWorldSpaceMatrix(world);
 }
 
-// FUNCTION: WIZ8 0x00499A50
 std::optional<unsigned int> stParticle::activateParticle(bool replaceWhenFull)
 {
     if (particle_count == 0 || (emission_limit != 0 && emission_count >= emission_limit)) {
@@ -346,7 +334,6 @@ std::optional<unsigned int> stParticle::activateParticle(bool replaceWhenFull)
     return index;
 }
 
-// FUNCTION: WIZ8 0x00499F70
 void stParticle::DeactivateParticle(unsigned int index)
 {
     if (particle_active[index]) {
@@ -356,7 +343,6 @@ void stParticle::DeactivateParticle(unsigned int index)
     }
 }
 
-// FUNCTION: WIZ8 0x00499FA0
 void stParticle::Update()
 {
     unsigned int now = GameClockMilliseconds();
@@ -493,7 +479,6 @@ void stParticle::Update()
     }
 }
 
-// FUNCTION: WIZ8 0x0049A990
 glm::vec3 stParticle::emissionPosition()
 {
     // Braced initialization preserves the x, y, z random draw order.
@@ -504,7 +489,6 @@ glm::vec3 stParticle::emissionPosition()
     return getRotation<glm::mat3>() * offset + glm::vec3(getLocation());
 }
 
-// FUNCTION: WIZ8 0x00498C40
 void stParticle::traverse(srNode::TraverseInfo& info)
 {
     if (next_sibling_ != 0) {
@@ -524,7 +508,6 @@ void stParticle::traverse(srNode::TraverseInfo& info)
 
 /* Traversal is gated separately from particle activity.  Starting a new
    enabled interval resets the update timestamp; repeated enables do not. */
-// FUNCTION: WIZ8 0x00498D90
 void stParticle::SetTraversalEnabled(bool enabled)
 {
     if (enabled && !traversal_enabled) {
@@ -533,7 +516,6 @@ void stParticle::SetTraversalEnabled(bool enabled)
     traversal_enabled = enabled;
 }
 
-// FUNCTION: WIZ8 0x00498D60
 void stParticle::process(const ProcessInfo& info, e_processType)
 {
     info.renderer->pushMatrix();
@@ -543,7 +525,6 @@ void stParticle::process(const ProcessInfo& info, e_processType)
 
 /* Build the four camera-facing offsets once per call, then expand every
    particle center into a quad. */
-// FUNCTION: WIZ8 0x00498DD0
 void stParticle::PrepareRenderer(const glm::mat4& view)
 {
     static const std::array<glm::vec3, 4> corners{
@@ -584,7 +565,6 @@ void stParticle::PrepareRenderer(const glm::mat4& view)
    The retired path is the only one that can drop the system: a particle whose
    activity has run out notifies its shake callback and, when release_when_done marks
    it as self-owned, marks itself finished for its owner to destroy. */
-// FUNCTION: WIZ8 0x004994D0
 void stParticle::SubmitToRenderer(srGERD* renderer)
 {
     glm::vec3 position;
@@ -712,7 +692,6 @@ void stParticle::SubmitToRenderer(srGERD* renderer)
     renderer->popEnable();
 }
 
-// FUNCTION: WIZ8 0x0049AB00
 void stParticle::SetTexture(std::shared_ptr<srTexture> texture)
 {
     texture_frames = {};
@@ -727,7 +706,6 @@ void stParticle::SetTexture(std::shared_ptr<srTexture> texture)
     this->texture = std::move(texture);
 }
 
-// FUNCTION: WIZ8 0x0049acd0
 void stParticle::SetActive(unsigned char active)
 {
     if (active != 0 && emitting == 0) {
@@ -738,26 +716,23 @@ void stParticle::SetActive(unsigned char active)
     emitting = active;
 }
 
-// FUNCTION: WIZ8 0x0049ac30
-unsigned char stParticle::ReplaceTexture(const char* old_name,
+unsigned char stParticle::ReplaceTexture(std::string_view old_name,
                                          std::shared_ptr<srTexture> replacement)
 {
     if ((dynamic_cast<stTextureFile*>(texture.get()) ||
          dynamic_cast<stTextureAnim*>(texture.get())) &&
-        SDL_strcasecmp(texture->getName().c_str(), old_name) == 0) {
+        CompareTextIgnoreAsciiCase(texture->getName(), old_name) == 0) {
         SetTexture(std::move(replacement));
         return 1;
     }
     return 0;
 }
 
-// FUNCTION: WIZ8 0x0049ACA0
 void stParticle::SetMaterial(std::shared_ptr<srMaterial> new_material)
 {
     material = std::move(new_material);
 }
 
-// FUNCTION: WIZ8 0x0049AD10
 void stParticle::SetFlutter(W8ParticleFlutterMode mode)
 {
     flutter_mode = mode;

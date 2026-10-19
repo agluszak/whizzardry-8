@@ -19,7 +19,7 @@ class srLight;
 class stLight;
 class stMeshModel;
 class stModelInstance;
-struct W8Item;
+struct WorldItemEntity;
 struct W8GameData;
 struct W8OctRegionVolume;
 struct W8Plane;
@@ -73,11 +73,11 @@ void WorldUpdateLights(W8World* world);
 double WorldGetFarClip(W8World* world);
 void WorldSetFarClip(W8World* world, float distance);
 void WorldSetRenderRange(W8World* world, float value);
-std::unique_ptr<stLight> CreateLight(srNode* parent, const char* name);
-stLight* CreateWorldLight(W8World* world, const char* name);
+std::unique_ptr<stLight> CreateLight(srNode* parent, std::string_view name);
+stLight* CreateWorldLight(W8World* world, std::string_view name);
 // The world takes ownership; the returned pointer is a borrowed handle until WorldRemoveLight.
 stLight* AddWorldLight(W8World* world, std::unique_ptr<stLight> light);
-stLight* CreateRangedWorldLight(W8World* world, const char* name);
+stLight* CreateRangedWorldLight(W8World* world, std::string_view name);
 void ConfigureWorldLight(srLight* light, float range);
 void WorldRemoveLight(W8World* world, stLight* light); /* 0x0046E250 */
 void DestroyWorldLights(W8World* world);

@@ -7,13 +7,13 @@
 #include <SDL3/SDL_keycode.h>
 
 #include "compat/compiler.h"
-#include "input.h"
 #include "layouts/targeting.h"
 #include "wiz8/audio_resources.h"
 #include "wiz8/design_rect.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/modal_content.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/ui_input.h"
 
 class Trigger;
@@ -48,7 +48,6 @@ extern DesignRect g_viewport_modes[];
    trigger's trap type for the disarm/spring notices. */
 extern unsigned short g_trap_name_string_ids[];
 #include "wiz8/dialog_code/DialogTextArea.h"
-#include "wiz8/engine_code/game_timer.h"
 #include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/ButtonWidget.h"
@@ -57,6 +56,7 @@ extern unsigned short g_trap_name_string_ids[];
 #include "wiz8/local_code/RangeControl.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/Screens.h"
+#include "wiz8/platform/game_timer.h"
 #include "wiz8/ui_layer.h"
 
 class W8MainGameScreen;
@@ -132,7 +132,6 @@ private:
 };
 
 /* The NPC dialogue keyword transcript. */
-// VTABLE: WIZ8 0x005ee920
 class W8NpcDialogueTextController {
 public:
     W8NpcDialogueTextController();
@@ -399,8 +398,6 @@ enum W8MainGameMode {
 extern W8MainGameMode g_main_game_mode;
 extern int g_selected_party_slot;
 void RequestLevelTransition(int level, int entry, unsigned char flag);
-extern bool g_build_level_links;
-extern int g_next_link_level;
 extern bool g_navigator_position_changed;
 void BeginLevelTransition(void);
 void SetViewportMode(W8ViewportMode mode);
@@ -435,7 +432,6 @@ void OpenAutomapScreen(void);
    portrait mode, and disable that slot's portrait region set. */
 void ClearPortraitRefreshSlot(int slot);
 /* Clear whatever the screen was waiting on and open the options screen. */
-// FUNCTION: WIZ8 0x00565970
 inline void ClearScreenWait(void)
 {
     g_pending_screen_state.mode = W8_OPTIONS_DEFAULT;

@@ -48,17 +48,14 @@ public:
 
 /* Type 1: a light animated from parameters (flicker chance, colour and
    intensity ranges, period and rate) over a subcycle window. */
-// VTABLE: WIZ8 0x005ecdbc
 class stParametricLightDefinition : public stLightDefinition {
 public:
     stParametricLightDefinition() { kind = W8_LIGHT_DEFINITION_PARAMETRIC; }
-    // FUNCTION: WIZ8 0x004A2140
     virtual std::unique_ptr<stLightDefinition> Clone() const override
     {
         return std::make_unique<stParametricLightDefinition>(*this);
     }
 
-    // FUNCTION: WIZ8 0x004A21E0
     virtual bool IsEnabledForSubcycle(unsigned char subcycle) override
     {
         if (subcycle >= subcycle_min && subcycle <= subcycle_max) {
@@ -91,7 +88,6 @@ public:
 };
 
 /* Type 2: a light driven by keyframe tables stepped by keyframe_index. */
-// VTABLE: WIZ8 0x005ecda0
 class stKeyframedLightDefinition : public stLightDefinition {
 public:
     stKeyframedLightDefinition() : keyframe_index(0), time(0.0f)
@@ -111,8 +107,6 @@ public:
     float end_frame;
 };
 
-// VTABLE: WIZ8 0x005ecc64 stLight
-// VTABLE: WIZ8 0x005ecc58 srVertexProcessor
 class stLight : public srLight {
     friend class W8GrCycle;
     friend class Trigger;

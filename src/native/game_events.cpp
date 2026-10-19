@@ -4,24 +4,17 @@
 
 #include <SDL3/SDL_events.h>
 
-#include "input.h"
 #include "wiz8/application.h"
 #include "wiz8/engine_code/GameData.h"
 #include "wiz8/engine_code/Video2.h"
+#include "wiz8/platform/input.h"
 
-// GLOBAL: WIZ8 0x006505a0
 bool gfLoadAtStartup = false;
-// GLOBAL: WIZ8 0x006505a4
 std::string gzStringDataOverride;
-// GLOBAL: WIZ8 0x006505a8
-// GLOBAL: WIZ8 0x006f0630
 bool gfApplicationActive = false;
-// GLOBAL: WIZ8 0x006f0628
 bool gfProgramIsRunning = false;
-// GLOBAL: WIZ8 0x006505a9
 bool gfGameInitialized = false;
 
-// FUNCTION: WIZ8 0x00401920
 [[noreturn]] void ShutdownWithErrorBox(std::string_view message)
 {
     throw std::runtime_error(std::string(message));

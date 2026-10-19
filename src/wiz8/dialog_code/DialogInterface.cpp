@@ -6,7 +6,6 @@
 #include "wiz8/dialog_code/CharacterSummaryDialog.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 
-// FUNCTION: WIZ8 0x005cf280
 W8DialogBase* CreateCharacterSummaryDialog(W8Character* character)
 {
     W8DialogBase* dialog = new W8CharacterSummaryDialog(character);
@@ -15,7 +14,6 @@ W8DialogBase* CreateCharacterSummaryDialog(W8Character* character)
     return dialog;
 }
 
-// FUNCTION: WIZ8 0x005cf300
 W8MessageDialogBase* CreateMessageDialog()
 {
     auto* dialog = new W8MessageDialogBase;
@@ -25,8 +23,6 @@ W8MessageDialogBase* CreateMessageDialog()
     return dialog;
 }
 
-// FUNCTION: WIZ8 0x005cf250
-// FUNCTION: WIZ8 0x005CF4F0
 void SetDialogPrompt(W8MessageDialogBase* dialog, std::string_view text)
 {
     dialog->SetMessage(text, 1, 0x32, true, true, true, false, 0, 0);

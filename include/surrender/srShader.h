@@ -7,8 +7,6 @@
    DITHER_ENABLE. */
 class srShader {
 public:
-    // FUNCTION: SURRENDER 0x100199F0
-    // FUNCTION: WIZ8 0x00424A40
     // NAME: srShader::srShader
     // RECOMP: ??0srShader@@QAE@XZ
     srShader() : value(0x0100241b) {}

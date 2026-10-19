@@ -1,6 +1,5 @@
 #include "wiz8/local_code/HealthStaminaMana.h"
 
-// FUNCTION: WIZ8 0x0052A780
 int CalculateMonsterFatigueBand(int current, int maximum)
 {
     int percentage_lost = 100 - current * 100 / static_cast<unsigned int>(maximum);

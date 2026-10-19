@@ -9,13 +9,12 @@
 
 #include "compat/native.h"
 #include "conditions.h"
-#include "image.h"
 #include "layouts/character.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/targeting.h"
 #include "surrender/srDebug.h"
-#include "timer.h"
 #include "wiz8/button_interaction.h"
+#include "wiz8/canvas/image.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/engine_code/GameData.h"
@@ -34,6 +33,7 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/xstatus.h"
@@ -119,14 +119,14 @@ void DrawPartyMovementPanel(void)
     int image;
 
     if (!gXStatus.fCombatMode) {
-        srAssertFail("gXStatus.fCombatMode");
+        Fail("gXStatus.fCombatMode");
     }
     if ((g_combat_state->uiCurrentPartyAction == W8_PARTY_ACTION_NONE ||
          g_combat_state->uiCurrentPartyActionStatus == W8_PARTY_ACTION_FINISHED) &&
         g_combat_state->uiNextPartyAction == W8_PARTY_ACTION_NONE) {
-        srAssertFail("((gpCombat->uiCurrentPartyAction != PARTY_ACTION_NONE) && "
-                     "(gpCombat->uiCurrentPartyActionStatus != ACTION_STATUS_FINISHED)) || "
-                     "(gpCombat->uiNextPartyAction != PARTY_ACTION_NONE)");
+        Fail("((gpCombat->uiCurrentPartyAction != PARTY_ACTION_NONE) && "
+             "(gpCombat->uiCurrentPartyActionStatus != ACTION_STATUS_FINISHED)) || "
+             "(gpCombat->uiNextPartyAction != PARTY_ACTION_NONE)");
     }
     const int visible = CanPartyMove() ? 1 : 0;
     movement->dirty |= visible != movement->visible_button;
@@ -286,7 +286,7 @@ unsigned char HandlePartyMovement(float* real_elapsed, float* frame_elapsed)
             multiplier = 3.0f;
             break;
         default:
-            srAssertFail("FALSE", "HandlePartyMovement: ERROR - Invalid load category");
+            Fail("FALSE", "HandlePartyMovement: ERROR - Invalid load category");
         }
         if (gXStatus.fCombatMode) {
             multiplier += multiplier;

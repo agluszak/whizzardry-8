@@ -20,8 +20,6 @@ unsigned int RollEffectMagnitude(W8SpellEffectDefinition* definition);
 unsigned int RollEffectDuration(W8SpellEffectDefinition* definition);
 W8EnchantmentSlot GetConditionDisplaySlot(int spell_id);
 
-bool IsScreenBusy(void);
-
 /* Shrink a rolled magnitude by the share of it the target's
    resistance in the realm turns aside; a permanent magnitude is left alone. */
 void ReduceMagnitudeByResistance(unsigned int* magnitude, W8CombatSlot* target, W8SpellRealm realm,

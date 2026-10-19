@@ -6,13 +6,13 @@
 #include <vector>
 
 #include "compat/compiler.h"
-#include "input.h"
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/learned_spells.h"
 #include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/TextBuffer.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/ui_layer.h"
 
 struct W8Character;

@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <functional>
 
-#include "input.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/ui_layer.h"
 
 inline constexpr int UI_PRIORITY_BACKGROUND = -1;

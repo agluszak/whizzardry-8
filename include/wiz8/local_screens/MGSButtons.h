@@ -8,8 +8,8 @@
 
 #include <SDL3/SDL_rect.h>
 
-#include "input.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/platform/input.h"
 
 /* Local Screens\MGSButtons.cpp. The combat sub-menu's panel, its five text
    rows and the two scroll-arrow buttons: construction, teardown and the

@@ -12,10 +12,9 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 
-#include "Font.h"
-#include "input.h"
 #include "local_code/ControlsRect.h"
 #include "npc_script_file.h"
+#include "wiz8/canvas/Font.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
@@ -25,6 +24,7 @@
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
@@ -33,7 +33,6 @@
    request-buffer layout. The option-list strings and the two price-check
    strings live in the g_localized_strings message table. */
 
-// FUNCTION: WIZ8 0x005DA6B0
 W8NpcDialog::W8NpcDialog(W8NpcQuoteEntry* message, int aux_data,
                          std::function<void(W8NpcDialog&)> closed)
     : m_closed(std::move(closed))
@@ -84,10 +83,8 @@ W8NpcDialog::W8NpcDialog(W8NpcQuoteEntry* message, int aux_data,
     }
 }
 
-// FUNCTION: WIZ8 0x005DA860
 W8NpcDialog::~W8NpcDialog() = default;
 
-// FUNCTION: WIZ8 0x005DA8B0
 bool W8NpcDialog::Configure()
 {
     int index;
@@ -187,7 +184,6 @@ bool W8NpcDialog::Configure()
     return true;
 }
 
-// FUNCTION: WIZ8 0x005DAE00
 void W8NpcDialog::DrawModal(SDL_Surface& target)
 {
     if (!m_keep_open) return;
@@ -210,7 +206,6 @@ void W8NpcDialog::RefreshModal()
     InvalidateRegion(m_bounds);
 }
 
-// FUNCTION: WIZ8 0x005DAE90
 bool W8NpcDialog::ProcessInput()
 {
     m_input.setModal(true);

@@ -348,10 +348,10 @@ static void geometry()
         REQUIRE(hits.size() == 1);
         REQUIRE((hits[0] == data.m_pSurfaces.data()));
         W8OctreeTrace trace(start, end);
-        REQUIRE((data.TestTraceResult(1, nullptr, &trace, 0, 0)));
-        REQUIRE((trace.end.z == 0 && data.last_hit_surface == 0));
+        REQUIRE((data.TestTraceResult(1, nullptr, &trace, 0, 0, false)));
+        REQUIRE((trace.end.z == 0 && trace.hit_surface == 0));
         W8OctreeTrace skin_trace({0.25f, 0.25f, 0.5f}, {0.25f, 0.25f, -2});
-        REQUIRE(data.TestTraceResult(1, nullptr, &skin_trace, 0, 0));
+        REQUIRE(data.TestTraceResult(1, nullptr, &skin_trace, 0, 0, false));
         REQUIRE(skin_trace.end.z == 0.5f);
         REQUIRE(skin_trace.hit_limit == 0.5f);
         REQUIRE(skin_trace.length == 0.5f);
@@ -857,54 +857,6 @@ TEST_CASE("Collision disk codecs retain vector components and unknown bytes", "[
     REQUIRE(std::memcmp(encoded_region.data(), &region, sizeof(region)) == 0);
 }
 
-TEST_CASE_METHOD(LoaderFixture,
-                 "Octree sample points transfer float triples independently of GLM layout",
-                 "[loader][records]")
-{
-    W8Octree tree(nullptr, nullptr);
-    tree.m_sample_points = {{1, -2, 3.5f}, {4, 5, -6}};
-    REQUIRE(tree.SavePoints("sample-fixture.lvl"));
-    auto file = wiz8::open_file(wiz8::user_path("sample-fixture.pts"));
-    REQUIRE(file->size() == 4 + 6 * sizeof(float));
-    unsigned int count = 0;
-    file->read_exact(&count, sizeof(count));
-    REQUIRE(count == 2);
-    std::array<float, 6> coordinates{};
-    file->read_exact(coordinates.data(), coordinates.size() * sizeof(float));
-    REQUIRE(coordinates == std::array<float, 6>{1, -2, 3.5f, 4, 5, -6});
-    file->close();
-    std::filesystem::copy_file(wiz8::user_path("sample-fixture.pts"),
-                               wiz8::asset_path("sample-fixture.pts"));
-    tree.m_sample_points.clear();
-    REQUIRE(tree.LoadPointFiles("sample-fixture.lvl"));
-    REQUIRE(tree.m_sample_points == std::vector<glm::vec3>{{1, -2, 3.5f}, {4, 5, -6}});
-    REQUIRE_FALSE(tree.m_points_dirty);
-
-    // Matching files replace rather than concatenate, in filename order.
-    // Keep the directory prefix separate from the wildcard, including retail separators.
-    std::filesystem::create_directory(fixture_root / "points");
-    std::string bytes;
-    append(bytes, 1u);
-    append(bytes, wiz8::retail::Vec3f{7, 8, 9});
-    store("points/sample-2.pts", bytes);
-    std::filesystem::copy_file(wiz8::asset_path("sample-fixture.pts"),
-                               fixture_root / "points" / "sample-1.pts");
-    REQUIRE(tree.LoadPointFiles("points\\sample.lvl"));
-    REQUIRE(tree.m_sample_points == std::vector<glm::vec3>{{7, 8, 9}});
-    REQUIRE(tree.m_points_dirty);
-
-    // A later truncated file must not publish partial data or retain iterator state.
-    tree.m_points_dirty = false;
-    store("points/sample-3.pts", std::string(1, '\0'));
-    REQUIRE_FALSE(tree.LoadPointFiles("points/sample.lvl"));
-    REQUIRE(tree.m_sample_points == std::vector<glm::vec3>{{7, 8, 9}});
-    REQUIRE_FALSE(tree.m_points_dirty);
-    REQUIRE(tree.LoadPointFiles("sample-fixture.lvl"));
-    REQUIRE(tree.m_sample_points == std::vector<glm::vec3>{{1, -2, 3.5f}, {4, 5, -6}});
-    REQUIRE_FALSE(tree.LoadPointFiles("missing.lvl"));
-    REQUIRE(tree.m_sample_points == std::vector<glm::vec3>{{1, -2, 3.5f}, {4, 5, -6}});
-}
-
 TEST_CASE_METHOD(LoaderFixture, "World item groups transfer ownership and preserve save records",
                  "[loader][items]")
 {
@@ -1075,7 +1027,7 @@ TEST_CASE_METHOD(LoaderFixture, "Camp chest retains every item from saved flat g
 TEST_CASE_METHOD(LoaderFixture, "Retail waypoint versions load without an editor writer",
                  "[loader][pathing]")
 {
-    W8Octree tree(nullptr, nullptr);
+    W8Octree tree("", nullptr);
     tree.object_registry = std::make_unique<W8OctreeObjectRegistry>();
     tree.m_spatial.m_bounds.minimum = glm::vec3(0);
     tree.m_spatial.m_node_extent = 1;
@@ -1379,7 +1331,7 @@ TEST_CASE_METHOD(LoaderFixture, "Malformed particle sections publish no scene ob
 TEST_CASE("Octree particle registration checks the whole batch before publishing",
           "[loader][records]")
 {
-    W8Octree octree(nullptr, nullptr);
+    W8Octree octree("", nullptr);
     octree.m_fAccumulating = true;
     octree.m_ulNumParticles = 1;
     stParticle first(nullptr, 0), second(nullptr, 0);
@@ -1444,7 +1396,7 @@ TEST_CASE_METHOD(LoaderFixture, "Prop loader rejects an unterminated asset name"
     info.hFile = file.get();
     W8Prop prop;
     prop.name = "previous";
-    REQUIRE_FALSE(prop.Rep()->LoadProp(&info, &prop));
+    REQUIRE_FALSE(prop.LoadProp(&info, &prop));
     REQUIRE(prop.name == "previous");
 }
 
@@ -1478,9 +1430,12 @@ TEST_CASE_METHOD(LoaderFixture, "Prop save records decode missing entries within
         ~WorldScope() { ReplaceWorld(std::move(previous)); }
     } scope;
     W8World& world = *GetWorld();
+    W8Prop first;
+    WorldItemEntity item; // Items consume the same legacy sequence as props.
     auto prop = std::make_unique<W8Prop>();
+    REQUIRE(prop->legacy_save_id == first.legacy_save_id + 2);
+    const int saved_id = prop->legacy_save_id;
     prop->name = "Present";
-    prop->id = 42;
     auto* present = prop.get();
     world.plsProps.push_back(std::move(prop));
     for (bool named : {false, true}) {
@@ -1496,7 +1451,7 @@ TEST_CASE_METHOD(LoaderFixture, "Prop save records decode missing entries within
                 std::strcpy(name.data(), known ? "Present" : "Missing");
                 append(bytes, name);
             } else {
-                append(bytes, known ? 42 : 99);
+                append(bytes, known ? saved_id : saved_id + 1000);
             }
             append(bytes, std::array<unsigned char, 6>{7, 2, 9, 1, 1, 0});
         }
@@ -1511,10 +1466,10 @@ TEST_CASE_METHOD(LoaderFixture, "Prop save records decode missing entries within
             REQUIRE(chunk.RemainingBytes() == 0);
         });
         chunk.Close();
-        REQUIRE(present->Rep()->subcycle == 7);
-        REQUIRE(present->Rep()->first_frame == 2);
-        REQUIRE(present->Rep()->last_frame == 9);
-        present->Rep()->subcycle = 3;
+        REQUIRE(present->subcycle == 7);
+        REQUIRE(present->first_frame == 2);
+        REQUIRE(present->last_frame == 9);
+        present->subcycle = 3;
         bytes.pop_back();
         REQUIRE(chunk.OpenWrite(path));
         chunk.WriteChunk(W8ChunkId("APST"), [&] { chunk.WriteBytes(bytes.data(), bytes.size()); });
@@ -1525,6 +1480,6 @@ TEST_CASE_METHOD(LoaderFixture, "Prop save records decode missing entries within
             REQUIRE_THROWS(LoadWorldProps(GetWorld(), chunk));
             return false;
         });
-        REQUIRE(present->Rep()->subcycle == 3);
+        REQUIRE(present->subcycle == 3);
     }
 }

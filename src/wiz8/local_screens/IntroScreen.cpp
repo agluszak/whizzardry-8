@@ -10,7 +10,6 @@
 #include <fmt/format.h>
 
 #include "asset_paths.h"
-#include "input.h"
 #include "wiz8/bink_video.h"
 #include "wiz8/engine_code/Video2.h"
 #include "wiz8/filesystem.h"
@@ -18,6 +17,7 @@
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/music_playlist.h"
+#include "wiz8/platform/input.h"
 
 /* The canonical state-zero row owns this enter/frame/leave bundle. */
 
@@ -33,15 +33,12 @@ static constexpr std::array<std::string_view, 7> g_intro_video_names = {
     "virgin.bik",    "darkend.bik",   "sirtech.bik",
 };
 
-// FUNCTION: WIZ8 0x005AE770
 void ContinueAfterDarkEndingVideo(void)
 {
     BeginEndgameSequence();
 }
-// GLOBAL: WIZ8 0x0069C258
 static std::unique_ptr<W8BinkVideo> g_intro_video;
 
-// FUNCTION: WIZ8 0x005ae510
 bool IntroScreenEnter(void)
 {
     std::string path;
@@ -73,7 +70,6 @@ bool IntroScreenEnter(void)
 
 static void AdvanceIntroScreen(void);
 
-// FUNCTION: WIZ8 0x005ae6f0
 void IntroScreenFrame(void)
 {
 
@@ -97,7 +93,6 @@ void IntroScreenFrame(void)
     }
 }
 
-// FUNCTION: WIZ8 0x005ae780
 static void AdvanceIntroScreen(void)
 {
     std::string path;
@@ -147,7 +142,6 @@ static void AdvanceIntroScreen(void)
     EnableCursorScene();
 }
 
-// FUNCTION: WIZ8 0x005ae940
 bool IntroScreenLeave(int)
 {
     if (g_intro_video) {

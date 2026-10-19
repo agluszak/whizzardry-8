@@ -12,10 +12,10 @@
 #include "wiz8/audio_resources.h"
 #include "wiz8/camera_motion.h"
 #include "wiz8/engine_code/GDCamera.h"
-#include "wiz8/engine_code/IntervalGate.h"
 #include "wiz8/engine_code/Levels.h"
 #include "wiz8/engine_code/Navigator.h"
 #include "wiz8/ground_probe.h"
+#include "wiz8/platform/IntervalGate.h"
 #include "wiz8/retail_opaque_records.h"
 
 namespace wiz8 {
@@ -261,7 +261,6 @@ struct W8GameData {
     std::vector<W8GDSurface> m_pTrigSurfaces;
     std::vector<glm::vec3> m_pTrigVertices;
     std::vector<Trigger*> m_ppTriggers;
-    int last_hit_surface;
     std::vector<bool> pending_trigger_bits;
     std::vector<bool> active_trigger_bits;
     std::vector<W8GDInterface> m_pInterfaces;
@@ -282,36 +281,31 @@ struct W8GameData {
     W8LevelDataRecord motion;
     bool motion_started = false;
     bool LiftsCrossings() const { return (motion.flags & W8_LEVEL_FLAG_NO_SOUND_ENVIRONMENT) != 0; }
-    /* Set by W8Octree::settleToGround around its TestTraceResult calls: while
-       set, only flag-4 surfaces are admitted by the surface trace. */
-    bool trace_flag4_gate;
-
     /* Descriptive name for appending a plane's classified trigger triangle. */
     void AddTriggerTriangle(int trigger_index, int vertex_0, int vertex_1, int vertex_2);
     void IntegrateTriggers();
     void AddTriggerPlane(const glm::vec3* vertices, Trigger* trigger);
     /* 1-based ordinal of the interface_names entry whose name matches, else -1. */
-    int FindPointerByName(const char* name); /* 0x004482A0 */
+    int FindPointerByName(std::string_view name);
     /* Loop the buffered prop ids through TestProp and return the id of the
        last prop that reported a hit, or -1. */
     int TestPropSurfaces(int count, w8_ulong* ids, W8OctreeTrace* trace, char skip_flag,
                          char gate); /* 0x0041C0D0 */
-    /* Ray-test one collidable prop: swaps the prop's surface/vertex arrays
-       into this context, traces in prop-local space through the prop's
-       position delta (reseeding the caller's record
-       to the world-space hit), and restores the arrays. `gate` skips flag-4
-       props when set. */
+    /* Ray-test one collidable prop: traces its surface and vertex arrays in
+       prop-local space through the prop's position delta, reseeding the
+       caller's record to the world-space hit on a hit. `gate` skips props
+       that are not attached. */
     bool TestProp(int prop_id, W8OctreeTrace* trace, char skip_flag, char gate); /* 0x0041C140 */
     /* Ray-test `count` surfaces - all of m_pSurfaces when `surface_ids` is
        null, else the listed surface indexes - against the trace record.
-       trace_flag4_gate, flag and mode filters apply; a closer hit stores index
-       into last_hit_surface, the contact into the record's end and the distance
-       into hit_limit. */
+       `walkable_only` admits walkable surfaces only, and the skip and mode filters
+       apply; a closer hit stores its index in the record's surface and the
+       contact in its end, and the distance in hit_limit. */
     bool TestGeometryTrace(std::span<W8GDSurface> surfaces, std::span<const glm::vec3> vertices,
                            int count, w8_ulong* surface_ids, W8OctreeTrace* trace, char skip_flag,
-                           int mode);
+                           int mode, bool walkable_only);
     bool TestTraceResult(int count, w8_ulong* surface_ids, W8OctreeTrace* trace, char skip_flag,
-                         int mode); /* 0x0041C330 */
+                         int mode, bool walkable_only); /* 0x0041C330 */
 };
 
 /* The published level's movement tracker and active environment, or null

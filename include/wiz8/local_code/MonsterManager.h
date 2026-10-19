@@ -21,13 +21,13 @@ struct W8MonsterRecord;
 #include <unordered_map>
 #include <vector>
 
+#include "wiz8/audio/mouth_gap.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/dialog_code/PortraitQuote.h"
 #include "wiz8/gameplay_modifiers.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/monster_actions.h"
-#include "wiz8/mouth_gap.h"
 #include "wiz8/portrait_animation.h"
 #include "wiz8/sight_state.h"
 

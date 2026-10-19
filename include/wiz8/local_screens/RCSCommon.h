@@ -6,9 +6,9 @@
 
 #include <SDL3/SDL_rect.h>
 
-#include "image.h"
-#include "input.h"
+#include "wiz8/canvas/image.h"
 #include "wiz8/catalog_artwork.h"
+#include "wiz8/platform/input.h"
 
 enum W8CampItemAction : unsigned char;
 
