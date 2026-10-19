@@ -809,7 +809,7 @@ void W8LockInteraction::Process()
         m_state = W8_LOCK_STATE_IDLE;
         if (CanSelectedCharacterCastKnockKnock()) {
             EndLockInteractMode(1);
-            BeginSpellCast(W8_SPELL_KNOCK_KNOCK, -1, std::nullopt);
+            BeginSpellCast(W8_SPELL_KNOCK_KNOCK, std::nullopt, std::nullopt);
             return;
         }
         break;
@@ -1737,7 +1737,7 @@ void W8MainGameScreen::CastTrapSpell()
     const int spell =
         CanCharacterCastSpell(&g_status.buffers.Char[slot], W8_SPELL_DIVINE_TRAP) ? 0x12 : 0x27;
     EndTrapInteractMode(1);
-    BeginSpellCast(spell, -1, std::nullopt);
+    BeginSpellCast(spell, std::nullopt, std::nullopt);
 }
 
 void W8MainGameScreen::UseTrapItem()

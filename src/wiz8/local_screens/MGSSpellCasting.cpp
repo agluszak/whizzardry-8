@@ -231,7 +231,7 @@ unsigned char OpenSpellCastingView(int party_slot)
     if (g_level_block->combat_end_notification) {
         DestroySubMenuControls();
     }
-    gpSCSV->location_id = -1;
+    gpSCSV->location_id.reset();
     gpSCSV->interact_id.reset();
     CloseMainGameOverlays();
     RefreshMainGameLayout();
@@ -258,7 +258,7 @@ unsigned char OpenSpellCastingView(int party_slot)
 // FUNCTION: WIZ8 0x0059F2B0
 void CloseSpellCastingView(void)
 {
-    int location_id;
+    std::optional<int> location_id;
     std::optional<W8NpcDialogueLayout> interact_id;
     W8NpcState* npc;
 
@@ -290,8 +290,8 @@ void CloseSpellCastingView(void)
     if (TrapInteractionSuspended() && !IsScreenTransitionPending()) {
         OpenTrapInteraction(0);
     }
-    if (interact_id && !IsScreenTransitionPending()) {
-        npc = FindNpcBindingForMonster(FindMonster(location_id));
+    if (interact_id && location_id && !IsScreenTransitionPending()) {
+        npc = FindNpcBindingForMonster(FindMonster(*location_id));
         BeginNpcDialogue(npc, 0, std::nullopt, 0, 1);
         SwitchNpcDialogueLayout(*interact_id);
     }
@@ -580,7 +580,8 @@ static void SelectSpellCastingRow(std::optional<int> index)
    realm and list row. The interact and location ids ride along so a pending
    interaction can resume after the cast. */
 // FUNCTION: WIZ8 0x005A0110
-void BeginSpellCast(int spell_id, int location_id, std::optional<W8NpcDialogueLayout> interact_id)
+void BeginSpellCast(int spell_id, std::optional<int> location_id,
+                    std::optional<W8NpcDialogueLayout> interact_id)
 {
     W8SpellRealm realm;
 
