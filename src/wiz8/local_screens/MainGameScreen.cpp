@@ -4125,7 +4125,7 @@ void UpdateCombatPortraitStatus(void)
         }
         // These rows keep their retail -1 encoding; the runtime calculation
         // above represents absence with optionals until this storage boundary.
-        combat_row->combat_status = status ? static_cast<char>(*status) : W8_COMBAT_PORTRAIT_EMPTY;
+        combat_row->combat_status = status ? *status : W8_COMBAT_PORTRAIT_EMPTY;
         combat_row->portrait_image = image ? *image : -1;
         combat_row->portrait_image_alternate = alternate ? *alternate : -1;
     }
