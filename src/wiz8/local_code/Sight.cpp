@@ -767,7 +767,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                 if (npc == 0) {
                     Fail("pNPC != NULL");
                 } else if (npc->event_pending != 0) {
-                    HandleMarkedNpcEvent(npc, 0);
+                    HandleMarkedNpcEvent(npc, W8MarkedNpcEventMode::arm_restore);
                 }
             }
         }

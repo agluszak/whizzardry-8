@@ -27,6 +27,8 @@ enum W8NpcDispositionBand {
     W8_NPC_BAND_HOSTILE = 2
 };
 
+enum class W8MarkedNpcEventMode : unsigned char { arm_restore, release_companion };
+
 void QueueNpcHeldItemNotice(int npc_kind);
 
 class W8Monster;
@@ -105,7 +107,7 @@ W8NpcState* CreateNpcRuntimeNode(int npc_id);
 
 /* The NPC-side consequence pass the sight code runs when a marked NPC's
    binding is released. */
-void HandleMarkedNpcEvent(W8NpcState* npc, char mode);
+void HandleMarkedNpcEvent(W8NpcState* npc, W8MarkedNpcEventMode mode);
 /* The bound-NPC penalty the condition/enchantment rebuild folds
    into the character's modifier block while the slot's flag_fe is set. */
 void ApplyBoundNpcPenalty(W8Character* character, W8GameplayModifierBlock* target);

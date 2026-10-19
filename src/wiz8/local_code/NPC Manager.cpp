@@ -2237,7 +2237,7 @@ static bool RestoreNpcMonster(W8NpcState* npc, const char* entity_name)
    Glumph's mission item - then mode 0 arms the one-shot event pass while any
    other mode releases the companion monster binding, and the NPC's own
    restore is scheduled last. */
-void HandleMarkedNpcEvent(W8NpcState* npc, char mode)
+void HandleMarkedNpcEvent(W8NpcState* npc, W8MarkedNpcEventMode mode)
 {
     W8MonsterInfo* monster_info = GetNpcMonsterInfo(npc);
 
@@ -2302,7 +2302,7 @@ void HandleMarkedNpcEvent(W8NpcState* npc, char mode)
             }
         }
     }
-    if (mode != 0) {
+    if (mode == W8MarkedNpcEventMode::release_companion) {
         W8NpcState* companion = GetNpcStateByKind(npc->name_style);
         ReleaseNpcCompanionMonster(companion);
     } else {
@@ -2331,7 +2331,7 @@ void ReleaseMarkedNpcBindings(void)
         auto* npc = g_npc_states[index].get();
         if (npc->binding_unavailable == 0) {
             if (npc->event_pending != 0) {
-                HandleMarkedNpcEvent(npc, 1);
+                HandleMarkedNpcEvent(npc, W8MarkedNpcEventMode::release_companion);
             }
             if (npc->pending_restore) {
                 W8NpcState* companion = GetNpcStateByKind(npc->name_style);
