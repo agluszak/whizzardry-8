@@ -564,7 +564,8 @@ void ResetMainScreenStateBlock(void)
 
 /* Forward a monster-script notice to the targeting layer unless the screen is
    busy or this NPC kind suppresses it. */
-void ForwardNpcScriptNotice(W8NpcState* npc, W8ItemInstance* item, int line, bool suppress)
+void ForwardNpcScriptNotice(W8NpcState* npc, W8ItemInstance* item, std::optional<int> line,
+                            bool suppress)
 {
     if (!gXStatus.fNpcDialogueMode && !gXStatus.fCombatMode &&
         (npc->record->kind != 7 || GetFact(W8_FACT_ARNIKA_MYLES_MEET_ONCE) != 1)) {
@@ -578,8 +579,8 @@ void ForwardNpcScriptNotice(W8NpcState* npc, W8ItemInstance* item, int line, boo
    takes none, and a pending notice blocks the next until it drains. Kind
    0x10/0x11 NPCs with fact 0xbf substitute their own notice line and raise
    the flag byte. */
-void QueueNpcScriptNotice(W8NpcState* npc, W8ItemInstance* item, int line, bool suppress,
-                          unsigned char arg)
+void QueueNpcScriptNotice(W8NpcState* npc, W8ItemInstance* item, std::optional<int> line,
+                          bool suppress, unsigned char arg)
 {
     W8MonsterInfo* info;
     bool flag;
@@ -622,8 +623,9 @@ void QueueNpcScriptNotice(W8NpcState* npc, W8ItemInstance* item, int line, bool 
    between the item/quote branch and the plain quote branch; both end by
    pausing the world, raising the dialogue flags and pointing the camera at
    the NPC's monster. */
-static void BeginNpcDialogueInternal(W8NpcState* npc, W8ItemInstance* item, int quote,
-                                     unsigned char flags, unsigned char force)
+static void BeginNpcDialogueInternal(W8NpcState* npc, W8ItemInstance* item,
+                                     std::optional<int> quote, unsigned char flags,
+                                     unsigned char force)
 {
     W8NpcInteractionState* state;
     W8MonsterInfo* info;
@@ -684,16 +686,13 @@ static void BeginNpcDialogueInternal(W8NpcState* npc, W8ItemInstance* item, int 
                 state->held_item_pending = true;
             }
             HandleNpcDialogueItem(&state->pending_item);
-        } else if (quote == -1) {
+        } else if (!quote) {
             HandleNpcDialogueDeparture(1);
         } else {
-            g_npc_dialogue.QueueQuote(quote, false, false, false);
+            g_npc_dialogue.QueueQuote(*quote, false, false, false);
         }
     } else {
-        if (quote == -1) {
-            quote = 0;
-        }
-        g_npc_dialogue.QueueQuote(quote, false, false, false);
+        g_npc_dialogue.QueueQuote(quote.value_or(0), false, false, false);
     }
     selected = g_npc_interaction_state->dialogue_npc;
     if (selected->name_style != 0x84 && selected->name_style != 0x85) {
@@ -716,8 +715,8 @@ static void BeginNpcDialogueInternal(W8NpcState* npc, W8ItemInstance* item, int 
     PartyCamera().LookAt(&position, false);
 }
 
-void BeginNpcDialogue(W8NpcState* npc, W8ItemInstance* item, int quote, unsigned char flags,
-                      unsigned char force)
+void BeginNpcDialogue(W8NpcState* npc, W8ItemInstance* item, std::optional<int> quote,
+                      unsigned char flags, unsigned char force)
 {
     BeginNpcDialogueInternal(npc, item, quote, flags, force);
 }
@@ -4146,7 +4145,7 @@ void SyncDialogueNpcStateAndMarkPending(void)
 
 void SyncDialogueNpcState(void)
 {
-    BeginNpcDialogueInternal(g_npc_interaction_state->dialogue_npc, 0, -1, 0, 1);
+    BeginNpcDialogueInternal(g_npc_interaction_state->dialogue_npc, 0, std::nullopt, 0, 1);
     g_npc_interaction_state->pending_layout = g_npc_interaction_state->previous_dialogue_layout;
 }
 

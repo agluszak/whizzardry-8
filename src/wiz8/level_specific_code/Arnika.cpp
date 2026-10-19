@@ -427,8 +427,8 @@ bool ArnikaMookholo(Trigger* pTrigger)
                 g_npc_dialogue_closed = false;
                 g_master_functions.push_back({ArnikaMookholoWatch});
             }
-            QueueNpcScriptNotice(FindNpcBindingForMonster(FindMonster(location_id)), 0, -1, false,
-                                 0);
+            QueueNpcScriptNotice(FindNpcBindingForMonster(FindMonster(location_id)), 0,
+                                 std::nullopt, false, 0);
         }
     }
     return true;
@@ -967,7 +967,7 @@ bool ArnikaBallSlot(Trigger* pTrigger)
         CreateLocationVar("BallInserted", 1);
         npc = GetNpcStateByKind(0x16);
         ReplaceOrCreateItem(&item, 0x240, true, true, false);
-        QueueNpcScriptNotice(npc, &item, -1, false, 0);
+        QueueNpcScriptNotice(npc, &item, std::nullopt, false, 0);
     }
     g_trigger_feedback = true;
     return true;
@@ -991,6 +991,6 @@ bool ArnikaFlightRecorder(Trigger* pTrigger)
     if (g_status.item_in_cursor) {
         item = &g_status.item_in_hand;
     }
-    QueueNpcScriptNotice(npc, item, -1, false, 0);
+    QueueNpcScriptNotice(npc, item, std::nullopt, false, 0);
     return false;
 }

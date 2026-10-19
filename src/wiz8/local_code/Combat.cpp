@@ -160,7 +160,7 @@ bool StartCombat(int surprise)
                 monster_info->highest_condition < W8_CONDITION_PARALYZED) {
                 npc = GetNpcStateForMonsterInfo(monster_info, false);
                 if (npc != 0 && npc->record->combat_script_notice_enabled != 0) {
-                    QueueNpcScriptNotice(npc, 0, -1, false, 0);
+                    QueueNpcScriptNotice(npc, 0, std::nullopt, false, 0);
                     gXStatus.npc_combat_notice_pending = true;
                     BeginScriptedWorldAction();
                     break;

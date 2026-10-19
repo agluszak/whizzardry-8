@@ -49,7 +49,7 @@ bool CosmicCircleTriggerPlane1Hedra(Trigger* pTrigger)
     if (pNPC == 0) {
         srAssertFail("pNPC", COSMIC_CIRCLE_CPP, 0x19, "Cannot find VOC_SAVANT_CC1");
     } else {
-        QueueNpcScriptNotice(pNPC, 0, -1, false, 0);
+        QueueNpcScriptNotice(pNPC, 0, std::nullopt, false, 0);
     }
     UpdateCameraPathStateByName(GetWorld(), "CameraPath1", 1);
     return true;

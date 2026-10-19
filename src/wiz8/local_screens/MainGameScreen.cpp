@@ -5218,7 +5218,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
                         if (monster_info->highest_condition < W8_CONDITION_ASLEEP) {
                             W8NpcState* npc = FindNpcBindingForMonster(
                                 FindMonster(*g_level_block->highlighted_item));
-                            QueueNpcScriptNotice(npc, item, -1, false, 0);
+                            QueueNpcScriptNotice(npc, item, std::nullopt, false, 0);
                             SetCombatSelection(std::nullopt);
                         } else {
                             ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x7de]);

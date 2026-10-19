@@ -142,7 +142,7 @@ static bool SwampGasFireSpawn(Trigger* pTrigger)
         }
     }
     npc = FindNpcBindingForMonster(FindMonster(index));
-    QueueNpcScriptNotice(npc, 0, -1, false, 0);
+    QueueNpcScriptNotice(npc, 0, std::nullopt, false, 0);
     return true;
 }
 

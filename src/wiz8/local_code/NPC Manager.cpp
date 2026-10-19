@@ -115,7 +115,7 @@ void QueueNpcHeldItemNotice(int npc_kind)
 {
     auto* npc = GetNpcStateByKind(npc_kind);
     auto* item = g_status.item_in_cursor ? &g_status.item_in_hand : nullptr;
-    QueueNpcScriptNotice(npc, item, -1, false, 0);
+    QueueNpcScriptNotice(npc, item, std::nullopt, false, 0);
 }
 
 // FUNCTION: WIZ8 0x0050aa00
@@ -1102,7 +1102,7 @@ static void SelectStartNpcGreeting(void)
         npc = GetNpcStateByKind(0x18);
     }
     if (npc != 0) {
-        QueueNpcScriptNotice(npc, 0, -1, false, 0);
+        QueueNpcScriptNotice(npc, 0, std::nullopt, false, 0);
     }
 }
 
@@ -1988,7 +1988,7 @@ void TriggerBelaVoice(W8Monster* monster)
 
     npc = GetNpcStateByKind(0x89);
     if (npc != 0) {
-        QueueNpcScriptNotice(npc, 0, -1, false, 0);
+        QueueNpcScriptNotice(npc, 0, std::nullopt, false, 0);
         return;
     }
     srAssertFail("npc", __FILE__, __LINE__, "Cannot find VOC_BELA_CC");
@@ -2433,7 +2433,7 @@ bool NotifyNpcTriggerActivation(Trigger* trigger)
                 item = &g_status.item_in_hand;
             }
         }
-        QueueNpcScriptNotice(npc, item, -1, false, 0);
+        QueueNpcScriptNotice(npc, item, std::nullopt, false, 0);
     }
     return false;
 }

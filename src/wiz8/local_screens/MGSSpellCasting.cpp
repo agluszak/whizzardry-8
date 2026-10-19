@@ -292,7 +292,7 @@ void CloseSpellCastingView(void)
     }
     if (interact_id != W8_DIALOGUE_LAYOUT_UNSET && !IsScreenTransitionPending()) {
         npc = FindNpcBindingForMonster(FindMonster(location_id));
-        BeginNpcDialogue(npc, 0, -1, 0, 1);
+        BeginNpcDialogue(npc, 0, std::nullopt, 0, 1);
         SwitchNpcDialogueLayout(interact_id);
     }
 }

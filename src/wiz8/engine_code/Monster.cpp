@@ -1842,7 +1842,7 @@ void W8Monster::ProcessScript()
             }
             case MONSCR_SAY:
             case MONSCR_NPCINTERACTION: {
-                int line_number = -1;
+                std::optional<int> line_number;
                 bool suppress = false;
                 tokens >> token;
                 if (tokens) {

@@ -1789,7 +1789,7 @@ void WaitDialogue(Game& game, const char* step, const std::function<bool()>& rea
 void StartConversation(Game& game, const char* step, W8NpcState* npc)
 {
     REQUIRE(!gXStatus.fNpcDialogueMode);
-    ForwardNpcScriptNotice(npc, nullptr, -1, false);
+    ForwardNpcScriptNotice(npc, nullptr, std::nullopt, false);
     WaitDialogue(game, step, [&] {
         return g_npc_interaction_state->dialogue_npc == npc && DialogueAwaitingPlayer();
     });

@@ -124,7 +124,7 @@ static void NpcScriptQueueEndgame(void)
         (g_status.endgame3_queued != 0 && FindNpcOfKind(W8_NPC_PHOONZANG))) {
         W8NpcState* npc = GetNpcStateByKind(W8_NPC_ENDGAME2);
         if (npc != 0) {
-            QueueNpcScriptNotice(npc, 0, -1, false, 0);
+            QueueNpcScriptNotice(npc, 0, std::nullopt, false, 0);
         }
     }
 }
@@ -376,7 +376,7 @@ static void NpcScriptHenchmanArrives(W8Monster* monster)
             if (monster_info != 0) {
                 W8NpcState* npc = GetNpcStateForMonsterInfo(monster_info, false);
                 if (npc != 0) {
-                    QueueNpcScriptNotice(npc, 0, -1, false, 0);
+                    QueueNpcScriptNotice(npc, 0, std::nullopt, false, 0);
                 }
             }
         }
@@ -421,7 +421,7 @@ void RunNpcStoryAction(W8NpcStoryAction action)
     case W8NpcStoryAction::phoonzang_notice:
         npc = GetNpcStateByKind(0x87);
         if (npc != 0) {
-            QueueNpcScriptNotice(npc, 0, -1, false, 0);
+            QueueNpcScriptNotice(npc, 0, std::nullopt, false, 0);
         }
         break;
     case W8NpcStoryAction::move_gari: {
@@ -605,7 +605,7 @@ void RunNpcStoryAction(W8NpcStoryAction action)
             }
             npc = GetNpcStateByKind(0x84);
             if (npc != 0) {
-                QueueNpcScriptNotice(npc, 0, -1, false, 0);
+                QueueNpcScriptNotice(npc, 0, std::nullopt, false, 0);
             }
         }
         break;

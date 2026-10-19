@@ -109,7 +109,7 @@ bool MtGigas2Train(Trigger* pTrigger)
         item = &g_status.item_in_hand;
         item_id = GetItemInHand();
     }
-    QueueNpcScriptNotice(npc, item, -1, false, 0);
+    QueueNpcScriptNotice(npc, item, std::nullopt, false, 0);
     g_trigger_feedback = true;
     value = GetLocationVarValueByName("WirePanel");
     if (value == 3) {
