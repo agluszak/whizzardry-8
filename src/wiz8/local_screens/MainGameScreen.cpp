@@ -6930,10 +6930,12 @@ void ConfigureSpellTargetFilter(W8SpellTargetType target_type, W8TargetNeed need
         break;
     case W8_TARGET_TYPE_ENEMY:
         if (gXStatus.fCampMode) {
-            ResetCombatSlot(&target);
-            target.iType = W8_TARGET_KIND_MONSTER;
-            target.iMonsterID = g_npc_interaction_state->target_location_id;
-            AimAtTarget(selected, &target, GetEditedActionContext(selected));
+            if (const auto location_id = g_npc_interaction_state->target_location_id) {
+                ResetCombatSlot(&target);
+                target.iType = W8_TARGET_KIND_MONSTER;
+                target.iMonsterID = *location_id;
+                AimAtTarget(selected, &target, GetEditedActionContext(selected));
+            }
             needed_kind = W8_TARGET_NEED_NONE;
         } else if (g_settings.autotarget_spells != 0 &&
                    RepickActionTarget(selected, W8_TARGETING_CONTEXT_SHARED, 0)) {
