@@ -9,6 +9,7 @@
 
 class stTextureAnim;
 class stModelInstance2D;
+enum W8TextBoxArrowState : int;
 
 #include <memory>
 
@@ -149,8 +150,8 @@ struct W8LevelRuntimeBlock {
        row, 2 lower, 3 assayable item; Screens resets it to 0. */
     W8PortraitAssayHoverMode portrait_assay_hover_mode;
     int held_item_display = -1;
-    int text_content_region;
-    int dialogue_content_region;
+    W8TextBoxArrowState text_content_region;
+    W8TextBoxArrowState dialogue_content_region;
     unsigned int text_lines[12];
     /* Wrapped-line starts for hover and selection highlighting.
        NPC dialogue uses box 2 for the hovered row and selected trade item. */

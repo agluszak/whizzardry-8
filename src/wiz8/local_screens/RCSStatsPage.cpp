@@ -69,6 +69,13 @@ void DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out);
 static glm::ivec2 g_camp_skill_category_positions[5] = {
     {0x160, 0x8}, {0x160, 0xcc}, {0x22, 0x9}, {0x22, 0x86}, {0x2a, 0x21},
 };
+static constexpr std::array<W8SkillCategory, 5> g_camp_skill_categories = {
+    W8_SKILL_CATEGORY_WEAPON,
+    W8_SKILL_CATEGORY_MISCELLANEOUS,
+    W8_SKILL_CATEGORY_COMBAT,
+    W8_SKILL_CATEGORY_MAGIC,
+    W8_SKILL_CATEGORY_EXPERT,
+};
 static int g_camp_skill_category_rows[5] = {0xb, 5, 8, 0xa, 7};
 static int g_camp_skill_category_images[5] = {2, 3, 0, 1, 4};
 
@@ -669,9 +676,7 @@ void DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out)
 void CreateCampSkillRegions(void)
 {
     g_camp_screen->skill_input = std::make_unique<UiLayer>();
-    for (auto category :
-         {W8_SKILL_CATEGORY_WEAPON, W8_SKILL_CATEGORY_MISCELLANEOUS, W8_SKILL_CATEGORY_COMBAT,
-          W8_SKILL_CATEGORY_MAGIC, W8_SKILL_CATEGORY_EXPERT}) {
+    for (W8SkillCategory category : g_camp_skill_categories) {
         const auto category_index = static_cast<unsigned int>(category);
         int x = g_camp_skill_category_positions[category_index].x;
         int y = g_camp_skill_category_positions[category_index].y;
@@ -727,18 +732,20 @@ void DrawCampSkillsPage(void)
         CatalogArtwork::Load(0x141, 0).drawAndInvalidate(GetFrameBufferSurface(), has_fifth, 0x136,
                                                          0);
         CatalogArtwork::Load(0x141, 0).drawAndInvalidate(GetFrameBufferSurface(), 2, 0, 0xa5);
-        for (int category = 0; category < 5; ++category) {
-            if (category != 4 || has_fifth) {
-                int x = g_camp_skill_category_positions[category].x;
-                int y = g_camp_skill_category_positions[category].y;
-                if (category == 4) {
+        for (W8SkillCategory category : g_camp_skill_categories) {
+            const auto category_index = static_cast<std::size_t>(category);
+            if (category != W8_SKILL_CATEGORY_EXPERT || has_fifth) {
+                int x = g_camp_skill_category_positions[category_index].x;
+                int y = g_camp_skill_category_positions[category_index].y;
+                if (category == W8_SKILL_CATEGORY_EXPERT) {
                     x += 0x136;
                 } else {
                     y += 0xa5;
                 }
                 CatalogArtwork::Load(0x144, 0).draw(
                     GetFrameBufferSurface(),
-                    static_cast<short>(g_camp_skill_category_images[category]), x - 0x16, y - 3);
+                    static_cast<short>(g_camp_skill_category_images[category_index]), x - 0x16,
+                    y - 3);
             }
         }
         int category_count[5] = {0, 0, 0, 0, 0};
