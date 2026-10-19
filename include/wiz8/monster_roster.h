@@ -6,7 +6,7 @@
 #include <utility>
 #include <vector>
 
-enum class W8MonsterRemoval;
+enum class W8MonsterRemoval : unsigned char;
 
 #include "wiz8/local_code/MonsterManager.h"
 
