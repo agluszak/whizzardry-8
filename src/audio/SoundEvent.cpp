@@ -21,7 +21,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/spatial/level_spatial_index.h"
-#include "wiz8/xstatus.h"
 
 // Looping events own the voice they start.
 W8SoundEvent::~W8SoundEvent()

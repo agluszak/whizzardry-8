@@ -147,9 +147,6 @@ bool CanPartySlotTurnUndead(int party_slot);
 bool CanPartySlotPray(int party_slot);
 float ScaleValueByProfessionLevel(W8Character* character, W8Trait trait, float base);
 float ScaleValueByMonsterLevel(W8MonsterRecord* record, int trait, float base);
-// Live command: an occupied member settles the active party (equipment, statistics,
-// shared load and death); any other character is calculated on its own.
-void RecalculateCharacterDerivedStats(W8Character& character);
 bool IsCharacterSkillAvailable(W8Character* character, W8Skill skill_id,
                                const bool* expert_realm_flags);
 void InvalidateAndRecalculateCharacterClassData(W8Character* character);

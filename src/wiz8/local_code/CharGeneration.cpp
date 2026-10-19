@@ -12,6 +12,7 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/character_stats.h"
 #include "wiz8/dialog_code/ProfRaceInfoDialog.h"
+#include "wiz8/inventory.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/live_party.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
@@ -21,9 +22,8 @@
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/party_encumbrance.h"
+#include "wiz8/party_stats.h"
 #include "wiz8/platform/assertion.h"
-#include "wiz8/utility.h"
 
 /* Refund every spent skill point through the per-skill commit helper. */
 void RefundAllSkillPoints(W8Character* character, W8CharacterCreationState* creation_state)

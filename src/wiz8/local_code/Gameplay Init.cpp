@@ -21,6 +21,7 @@
 #include "wiz8/character_event_queue.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/filesystem.h"
+#include "wiz8/inventory.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"

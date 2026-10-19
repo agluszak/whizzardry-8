@@ -5,6 +5,9 @@
 #include <cstring>
 #include <exception>
 
+#include "wiz8/inventory.h"
+#include "wiz8/live_party.h"
+#include "wiz8/spatial/bounding_sphere.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/world/party_camera.h"
 // Some libstdc++ 16 releases use deprecated is_trivial_v in _M_init.
@@ -92,7 +95,6 @@
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/unicode.h"
 #include "wiz8/world/level_session.h"
-#include "wiz8/world/party_camera.h"
 #include "wiz8/world/world.h"
 #include "wiz8/xstatus.h"
 

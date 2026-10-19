@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstring>
 #include <memory>
 #include <stdexcept>
 #include <string_view>
@@ -21,7 +20,6 @@
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/gameplay_databases.h"
-#include "layouts/item_instance.h"
 #include "layouts/levels.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/npc_state.h"
@@ -46,6 +44,7 @@
 #include "wiz8/entities/spell_visual.h"
 #include "wiz8/fonts.h"
 #include "wiz8/gameplay_constants.h"
+#include "wiz8/inventory.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"

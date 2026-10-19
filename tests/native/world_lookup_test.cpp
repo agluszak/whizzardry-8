@@ -21,6 +21,7 @@
 #include "temporary_directory.h"
 #include "wiz8/chunk.h"
 #include "wiz8/entities/trigger.h"
+#include "wiz8/inventory.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"

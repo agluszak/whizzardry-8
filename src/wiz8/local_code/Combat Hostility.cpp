@@ -13,6 +13,7 @@
 #include "local_code/HealthStaminaMana.h"
 #include "monster_actions.h"
 #include "wiz8/entities/monster.h"
+#include "wiz8/inventory.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"

@@ -44,7 +44,6 @@
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/unicode.h"
 #include "wiz8/world/world.h"
-#include "wiz8/xstatus.h"
 
 static constexpr float g_ambient_sound_inner_radius_scale = 0.6000000238418579f;
 

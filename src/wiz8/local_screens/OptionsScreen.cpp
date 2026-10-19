@@ -62,7 +62,6 @@
 #include "wiz8/ui_layer.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
-#include "wiz8/xstatus.h"
 
 /* Shared zero-initialized wide string: binary-wide DATA references read it as
    empty text and as a sprintf format argument. No recovered writer exists. */

@@ -8,7 +8,6 @@
 
 #include "compat/native.h"
 #include "glm/ext/vector_float3.hpp"
-#include "layouts/item_instance.h"
 #include "layouts/screen_state.h"
 #include "layouts/targeting.h"
 #include "local_code/Gameloop.h"
@@ -25,6 +24,7 @@
 #include "wiz8/entities/trigger.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/gameplay_constants.h"
+#include "wiz8/inventory.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"

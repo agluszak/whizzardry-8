@@ -56,6 +56,7 @@
 #include "wiz8/render/light.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/retail_text_records.h"
+#include "wiz8/spatial/bounding_sphere.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/spell_ids.h"

@@ -13,12 +13,13 @@
 #include "gameplay_modifiers.h"
 #include "layouts/item_instance.h"
 #include "local_code/ConditionsAndEnchantments.h"
+#include "wiz8/equipment_slots.h"
 #include "wiz8/gameplay_constants.h"
+#include "wiz8/inventory.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/layouts/item_tables.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/live_party.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
@@ -30,12 +31,12 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/UtilityFunctions.h"
-#include "wiz8/local_code/party_encumbrance.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/message_box.h"
+#include "wiz8/party_stats.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/unicode.h"
 #include "wiz8/xstatus.h"
@@ -487,20 +488,6 @@ bool IsCharacterDefined(const W8Character& character)
 {
     return character.iProfession < W8_PROFESSION_COUNT && character.iRace < W8_RACE_COUNT &&
            character.gender != W8_GENDER_UNSET;
-}
-
-void RecalculateCharacterDerivedStats(W8Character& character)
-{
-    if (!IsCharacterDefined(character)) return;
-    if (character.uiExpLevel > 50) character.uiExpLevel = 50;
-    for (auto& level : character.profession_levels)
-        if (static_cast<unsigned int>(level) > 50) level = 50;
-    if (const auto member = g_status.party.slotOf(character);
-        member && g_status.party.rows[*member].fOccupied) {
-        SettleActiveParty();
-        return;
-    }
-    UpdateStandaloneCharacterStats(character, {});
 }
 
 /* An attribute's base value changed: flip the at-maximum flag on the

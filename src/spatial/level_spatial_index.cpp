@@ -72,6 +72,7 @@
 #include "wiz8/retail_geometry_types.h"
 #include "wiz8/retail_text_records.h"
 #include "wiz8/spatial/bounding_box.h"
+#include "wiz8/spatial/bounding_sphere.h"
 #include "wiz8/spatial/mesh_links.h"
 #include "wiz8/spatial/navigation.h"
 #include "wiz8/spatial/navigator.h"

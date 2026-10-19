@@ -7,7 +7,6 @@ struct BoundingBox;
 
 #include <functional>
 #include <memory>
-#include <optional>
 #include <span>
 #include <vector>
 

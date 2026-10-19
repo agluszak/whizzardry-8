@@ -31,6 +31,7 @@
 #include "wiz8/entities/cursor.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
+#include "wiz8/inventory.h"
 #include "wiz8/key_bindings.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"

@@ -47,6 +47,7 @@
 #include "wiz8/live_party.h"
 #include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/platform/random.h"
+#include "wiz8/spatial/bounding_sphere.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/world/camera_pose.h"

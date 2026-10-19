@@ -52,7 +52,6 @@
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/location_variables.h"

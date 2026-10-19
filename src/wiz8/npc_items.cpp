@@ -16,6 +16,7 @@
 #include "wiz8/cursor.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/fact_state.h"
+#include "wiz8/inventory.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -31,7 +32,7 @@
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/party_encumbrance.h"
+#include "wiz8/party_stats.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/xstatus.h"
 

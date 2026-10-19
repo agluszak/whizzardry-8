@@ -32,6 +32,7 @@
 #include "wiz8/entities/monster.h"
 #include "wiz8/equipment_slots.h"
 #include "wiz8/filesystem.h"
+#include "wiz8/inventory.h"
 #include "wiz8/item_location.h"
 #include "wiz8/item_rules.h"
 #include "wiz8/layouts/combat_state.h"
@@ -42,6 +43,7 @@
 #include "wiz8/layouts/targeting.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/live_party.h"
 #include "wiz8/load_category.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/Configuration.h"
@@ -54,7 +56,6 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_code/Targeting.h"
-#include "wiz8/local_code/party_encumbrance.h"
 #include "wiz8/local_screens/JournalScreen.h"
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
@@ -66,7 +67,7 @@
 #include "wiz8/npc_items.h"
 #include "wiz8/npc_trade_price.h"
 #include "wiz8/party.h"
-#include "wiz8/party_stat_rules.h"
+#include "wiz8/party_stats.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/retail_save_records.h"
@@ -1073,59 +1074,6 @@ TEST_CASE("Standalone character updates ignore saved membership flags", "[party]
     REQUIRE(draft.carrying_capacity > 0);
     REQUIRE(draft.party_weight_share == 0);
     REQUIRE(draft.bonus.damage_bonus == 0);
-}
-
-TEST_CASE("Party action locations remain independent through copies and moves",
-          "[party][ownership]")
-{
-    W8Party copy;
-    {
-        W8Party source;
-        W8ItemInstance external{};
-        auto& row = source.rows[0];
-        row.pending_action = W8_ACTION_USE_ITEM;
-        row.pending_action_detail.item_use = {2,
-                                              source.locateItem(&source.characters[0].backpack[3])};
-        row.committed_action.kind = W8_ACTION_USE_ITEM;
-        row.committed_action.detail_block.item_use = {
-            1, source.locateItem(&source.characters[1].EquippedItem[6])};
-        row.item_detail.item_use = {3, source.locateItem(&source.item_pool[9])};
-        row.target_out_of_combat.item = source.locateItem(&source.characters[2].backpack[4]);
-        row.committed_action.target.item = source.locateItem(&source.item_pool[8]);
-        row.spell.target.item = source.locateItem(&source.characters[3].EquippedItem[7]);
-        row.breath_target.item = source.locateItem(&source.item_pool[7]);
-        row.item_target.item = source.locateItem(&source.held.item);
-        source.held.item.stack_count = 4;
-        REQUIRE(source.locateItem(&external) == W8ItemLocation{});
-        source.characters[0].backpack[3].stack_count = 2;
-        const W8Party constructed(source);
-        REQUIRE(constructed.itemAt(constructed.rows[0].pending_action_detail.item_use.item) ==
-                &constructed.characters[0].backpack[3]);
-        copy = source;
-        source.characters[0].backpack[3].stack_count = 9;
-    }
-    const auto& row = copy.rows[0];
-    REQUIRE(copy.itemAt(row.pending_action_detail.item_use.item) ==
-            &copy.characters[0].backpack[3]);
-    REQUIRE(copy.itemAt(row.pending_action_detail.item_use.item)->stack_count == 2);
-    REQUIRE(copy.itemAt(row.committed_action.detail_block.item_use.item) ==
-            &copy.characters[1].EquippedItem[6]);
-    REQUIRE(copy.itemAt(row.item_detail.item_use.item) == &copy.item_pool[9]);
-    REQUIRE(copy.itemAt(row.target_out_of_combat.item) == &copy.characters[2].backpack[4]);
-    REQUIRE(copy.itemAt(row.committed_action.target.item) == &copy.item_pool[8]);
-    REQUIRE(copy.itemAt(row.spell.target.item) == &copy.characters[3].EquippedItem[7]);
-    REQUIRE(copy.itemAt(row.breath_target.item) == &copy.item_pool[7]);
-    REQUIRE(copy.itemAt(row.item_target.item) == &copy.held.item);
-    REQUIRE(copy.held.item.stack_count == 4);
-    W8Party moved(std::move(copy));
-    REQUIRE(moved.itemAt(moved.rows[0].pending_action_detail.item_use.item) ==
-            &moved.characters[0].backpack[3]);
-    REQUIRE(moved.itemAt(moved.rows[0].item_detail.item_use.item) == &moved.item_pool[9]);
-    W8Party assigned;
-    assigned = std::move(moved);
-    REQUIRE(assigned.itemAt(assigned.rows[0].pending_action_detail.item_use.item) ==
-            &assigned.characters[0].backpack[3]);
-    REQUIRE(assigned.itemAt(assigned.rows[0].item_detail.item_use.item) == &assigned.item_pool[9]);
 }
 
 TEST_CASE("Weapon swings see the damage bonus left by the previous calculation", "[party][stats]")

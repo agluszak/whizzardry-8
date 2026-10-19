@@ -23,6 +23,7 @@
 #include "wiz8/compat/native.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/gameplay_modifiers.h"
+#include "wiz8/item_location.h"
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/Magic.h"

@@ -28,6 +28,7 @@
 #include "wiz8/render/picking.h"
 #include "wiz8/render/segment_math.h"
 #include "wiz8/spatial/bounding_box.h"
+#include "wiz8/spatial/bounding_sphere.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigation.h"
 #include "wiz8/startup_world.h"

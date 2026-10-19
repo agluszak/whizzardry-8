@@ -1,15 +1,11 @@
-#include "wiz8/local_code/party_encumbrance.h"
+#include "wiz8/party_stats.h"
 
-#include <optional>
 #include <span>
-#include <stdexcept>
 
 #include "conditions.h"
 #include "gameplay_modifiers.h"
-#include "layouts/gameplay_databases.h"
 #include "load_category.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/character_stat_rules.h"
 #include "wiz8/character_stats.h"
 #include "wiz8/item_rules.h"
 #include "wiz8/layouts/character.h"
@@ -18,7 +14,6 @@
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/party.h"
-#include "wiz8/party_stat_rules.h"
 
 /* Party encumbrance redistribution. Live query: 0x004ED9D0 is a gap between
    Local Code\Combat.cpp (upper 0x004ED390) and Local Code\GameplayCode.cpp

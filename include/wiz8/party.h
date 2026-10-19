@@ -9,7 +9,7 @@
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/party_formation.h"
 #include "wiz8/layouts/party_slot.h"
-#include "wiz8/local_code/party_encumbrance.h"
+#include "wiz8/party_stats.h"
 
 struct PartyStatRules;
 

@@ -25,6 +25,7 @@
 #include "wiz8/entities/cursor.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/gameplay_constants.h"
+#include "wiz8/inventory.h"
 #include "wiz8/item_rules.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
