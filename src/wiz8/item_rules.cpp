@@ -15,6 +15,10 @@ static const short g_compatible_partner_pairs[6][2] = {
     {114, 113}, {110, 132}, {104, 132}, {144, 143}, {145, 146}, {0, 0},
 };
 
+/* What a whole stack weighs. An empty slot weighs nothing, and a slot holding
+   an item that does not stack still weighs one of it - the count is zero for
+   every quantity kind but the stacking one. */
+// FUNCTION: WIZ8 0x0051bfd0
 unsigned int GetItemStackWeight(const W8ItemInstance* item)
 {
     unsigned int weight;

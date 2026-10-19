@@ -24,6 +24,7 @@
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_population.h"
+#include "wiz8/live_party.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -31,7 +32,6 @@
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/party_encumbrance.h"
-#include "wiz8/party_presentation.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/xstatus.h"
 
@@ -511,7 +511,7 @@ W8TradeResult CompleteNpcTrade(W8NpcState* npc, const W8TradeSelection& selectio
     if (!NpcAcceptsTradeItem(npc, item)) return {W8TradeOutcome::Refused};
     const bool wanted = NpcHasTopic(npc, item->iItemNo);
     if (!SellItemToNpc(npc, item, quantity, wanted)) return {W8TradeOutcome::Refused};
-    RemoveInventoryQuantity(g_status.party, g_status.party.locateItem(item), quantity);
+    RemoveInventoryQuantity(g_status.party.locateItem(item), quantity);
     wiz8::sound::play(g_sound_cash_transaction);
     return {W8TradeOutcome::Complete, wanted};
 }

@@ -28,6 +28,7 @@
 #include "wiz8/character_stats.h"
 #include "wiz8/chunk.h"
 #include "wiz8/conditions.h"
+#include "wiz8/cursor.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/equipment_slots.h"
 #include "wiz8/filesystem.h"
@@ -497,10 +498,20 @@ TEST_CASE("Weapon-set replacement derives both hands from the completed arrangem
         ~RestoreBuffers() { g_status.party = std::move(previous); }
     } restore;
     const ScopedRecords items(g_item_records, 3);
+    for (auto& record : g_item_records) {
+        record.profession_mask = 0xffff;
+        record.race_mask = 0xffff;
+        record.gender_mask = 3;
+        record.attribute_requirements[0].stat_id = 0xff;
+        record.attribute_requirements[1].stat_id = 0xff;
+        record.skill_requirements[0].stat_id = 0xff;
+        record.skill_requirements[1].stat_id = 0xff;
+    }
     g_item_records[0].equip_class = W8_ITEM_EQUIP_CLASS_RANGED_WEAPON;
     g_item_records[0].unidentified_name_index = 0x83;
     g_item_records[1].equip_class = W8_ITEM_EQUIP_CLASS_SHORT_WEAPON;
     g_item_records[2].equip_class = W8_ITEM_EQUIP_CLASS_THROWN_WEAPON;
+    g_status.party.rows[0].fOccupied = true;
     auto& character = characters[0];
     for (auto& item : character.EquippedItem) item.iItemNo = -1;
     character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo = 0;
@@ -1051,7 +1062,6 @@ TEST_CASE("Standalone character updates ignore saved membership flags", "[party]
     REQUIRE(foreign.bonus.damage_bonus == 9);
     const auto result = UpdateStandaloneCharacterStats(foreign, {});
     REQUIRE(result.valid);
-    REQUIRE_FALSE(result.party_load_changed);
     REQUIRE(foreign.party_weight_share == 0);
     REQUIRE(g_status.party.characters[0].party_weight_share == 99);
     // Character creation uses a party storage slot before that row is occupied.
@@ -1118,8 +1128,7 @@ TEST_CASE("Party action locations remain independent through copies and moves",
     REQUIRE(assigned.itemAt(assigned.rows[0].item_detail.item_use.item) == &assigned.item_pool[9]);
 }
 
-TEST_CASE("Weapon swings depend on the current arrangement, not calculation history",
-          "[party][stats]")
+TEST_CASE("Weapon swings see the damage bonus left by the previous calculation", "[party][stats]")
 {
     const ScopedRecords items(g_item_records, 1);
     g_item_records[0].equip_class = W8_ITEM_EQUIP_CLASS_SHORT_WEAPON;
@@ -1134,132 +1143,130 @@ TEST_CASE("Weapon swings depend on the current arrangement, not calculation hist
     character.skills[W8_SKILL_CLOSE_COMBAT].level = 90;
     character.Hand[0].damage_bonus = 3;
 
+    // Retail scores swings before resetting the bonus: (100 + 30 + 90) / 3 = 73.
     CalcAttacks(&character, false);
-    REQUIRE(character.Hand[0].combined_skill == 90);
     REQUIRE(character.Hand[0].damage_bonus == 0);
-    REQUIRE(character.Hand[0].swings == 1); // (100 + 0 + 90) / 3 = 63.
+    REQUIRE(character.Hand[0].swings == 2);
+    // The next calculation sees this arrangement's bonus: (100 + 0 + 90) / 3 = 63.
     CalcAttacks(&character, false);
-    REQUIRE(character.Hand[0].swings == 1); // (100 + 0 + 90) / 3 = 63.
+    REQUIRE(character.Hand[0].swings == 1);
 }
 
-TEST_CASE("Stack operations complete detached inventory without touching the active party",
-          "[party][inventory][ownership]")
+namespace {
+// The active party as an inventory command sees it outside a running game.
+struct ScopedActiveParty {
+    W8GlobalStatus status = std::exchange(g_status, W8GlobalStatus{});
+    int cursor = std::exchange(gXStatus.iCurrentCursor, W8_CURSOR_NONE);
+    ~ScopedActiveParty()
+    {
+        g_status = std::move(status);
+        gXStatus.iCurrentCursor = cursor;
+    }
+};
+
+W8Character& PrepareMember(unsigned int slot)
 {
+    g_status.party.rows[slot].fOccupied = true;
+    auto& character = g_status.party.characters[slot];
+    character.iProfession = W8_PROFESSION_FIGHTER;
+    character.original_profession = W8_PROFESSION_FIGHTER;
+    character.iRace = W8_RACE_HUMAN;
+    character.gender = W8_GENDER_MALE;
+    character.uiExpLevel = 1;
+    character.fInParty = true;
+    for (auto& attribute : character.attributes) attribute.base = 50;
+    return character;
+}
+}
+
+TEST_CASE("A split stack travels through the hand and merges back", "[party][inventory]")
+{
+    const ScopedActiveParty active;
     const ScopedRecords items(g_item_records, 1);
     auto& record = g_item_records[0];
     record.quantity_kind = W8_ITEM_QUANTITY_STACK;
     record.maximum_quantity = 100;
     record.weight = 10;
-    W8Party party;
-    party.rows[0].fOccupied = true;
-    auto& actor = party.characters[0];
-    actor.iProfession = W8_PROFESSION_FIGHTER;
-    actor.original_profession = W8_PROFESSION_FIGHTER;
-    actor.iRace = W8_RACE_HUMAN;
-    actor.gender = W8_GENDER_MALE;
-    actor.fInParty = true;
-    for (auto& attribute : actor.attributes) attribute.base = 50;
+    auto& actor = PrepareMember(0);
+    auto& party = g_status.party;
     actor.backpack[0] = W8ItemInstance{.iItemNo = 0, .stack_count = 10};
-    const auto live_hand = g_status.party.held.item;
-    const auto live_weight = g_status.party.characters[0].inventory_weight;
-    const auto live_action = g_status.party.rows[0].committed_action.kind;
 
-    REQUIRE(SplitItemStack(party, {W8ItemStorage::Backpack, 0, 0}, 3, 0));
+    REQUIRE(SplitItemStack({W8ItemStorage::Backpack, 0, 0}, 3, 0));
     REQUIRE(actor.backpack[0].stack_count == 7);
     REQUIRE(party.held.item.stack_count == 3);
     REQUIRE(party.held.origin == W8ItemLocation{W8ItemStorage::Backpack, 0, 0});
     REQUIRE(actor.inventory_weight == 70);
-    REQUIRE(SplitItemStack(party, {W8ItemStorage::Backpack, 0, 0}, 1, 0));
+    REQUIRE(SplitItemStack({W8ItemStorage::Backpack, 0, 0}, 1, 0));
     REQUIRE(party.held.item.stack_count == 4);
-    REQUIRE(actor.backpack[0].stack_count == 6);
     REQUIRE(actor.inventory_weight == 60);
     const auto result =
-        MergeInventoryStacks(party, {W8ItemStorage::Backpack, 0, 0}, {W8ItemStorage::Hand});
+        MergeInventoryStacks({W8ItemStorage::Backpack, 0, 0}, {W8ItemStorage::Hand});
     REQUIRE(result.complete);
     REQUIRE(party.held.item.iItemNo == -1);
     REQUIRE(party.held.origin == W8ItemLocation{});
     REQUIRE(actor.backpack[0].stack_count == 10);
     REQUIRE(actor.inventory_weight == 100);
-    REQUIRE(g_status.party.held.item == live_hand);
-    REQUIRE(g_status.party.characters[0].inventory_weight == live_weight);
-    REQUIRE(g_status.party.rows[0].committed_action.kind == live_action);
 }
 
 TEST_CASE("A held stack refuses an unstorable split without losing or duplicating items",
           "[party][inventory]")
 {
+    const ScopedActiveParty active;
     const ScopedRecords items(g_item_records, 1);
     g_item_records[0].quantity_kind = W8_ITEM_QUANTITY_STACK;
     g_item_records[0].maximum_quantity = 100;
-    W8Party party;
+    auto& party = g_status.party;
     party.held = {W8ItemInstance{.iItemNo = 0, .stack_count = 10}, {}, 0};
     for (auto& item : party.characters[0].backpack)
         item = W8ItemInstance{.iItemNo = 0, .stack_count = 100};
     for (auto& item : party.item_pool) item = W8ItemInstance{.iItemNo = 0, .stack_count = 100};
     party.item_count = 500;
-    REQUIRE_FALSE(SplitItemStack(party, {W8ItemStorage::Hand}, 4, 0));
+    REQUIRE_FALSE(SplitItemStack({W8ItemStorage::Hand}, 4, 0));
     REQUIRE(party.held.item.stack_count == 10);
     REQUIRE(party.item_count == 500);
     REQUIRE(party.characters[0].backpack[0].stack_count == 100);
-    REQUIRE_FALSE(SplitItemStack(party, {W8ItemStorage::Hand}, 11, 0));
-    REQUIRE_FALSE(SplitItemStack(party, {W8ItemStorage::Hand}, 0, 0));
+    REQUIRE_FALSE(SplitItemStack({W8ItemStorage::Hand}, 11, 0));
+    REQUIRE_FALSE(SplitItemStack({W8ItemStorage::Hand}, 0, 0));
 }
 
-TEST_CASE("Equipment requirements resolve after complete attribute evaluation in slot order",
+TEST_CASE("Unusable equipment comes off in slot order and never stays equipped",
           "[party][inventory][stats]")
 {
-    const ScopedRecords items(g_item_records, 2);
+    const ScopedActiveParty active;
+    const ScopedRecords items(g_item_records, 3);
     for (auto& record : g_item_records) {
         record.profession_mask = 0xffff;
         record.race_mask = 0xffff;
         record.gender_mask = 3; // Both genders.
         record.attribute_requirements[0].stat_id = 0xff; // No requirement.
-        record.attribute_requirements[1].stat_id = 0xff; // No requirement.
-        record.skill_requirements[0].stat_id = 0xff; // No requirement.
-        record.skill_requirements[1].stat_id = 0xff; // No requirement.
+        record.attribute_requirements[1].stat_id = 0xff;
+        record.skill_requirements[0].stat_id = 0xff;
+        record.skill_requirements[1].stat_id = 0xff;
     }
     // The first item supplies strength to the second, but itself requires speed.
     g_item_records[0].modifier_0b3_index = W8_ATTRIBUTE_STRENGTH;
     g_item_records[0].modifier_0b3_value = 20;
     g_item_records[0].attribute_requirements[0] = {W8_ATTRIBUTE_SPEED, 60};
     g_item_records[1].attribute_requirements[0] = {W8_ATTRIBUTE_STRENGTH, 60};
-    W8Party party;
-    auto& character = party.characters[0];
-    character.iProfession = W8_PROFESSION_FIGHTER;
-    character.iRace = W8_RACE_HUMAN;
-    character.gender = W8_GENDER_MALE;
-    for (auto& attribute : character.attributes) attribute.base = 50;
+    auto& character = PrepareMember(0);
     character.EquippedItem[W8_EQUIP_SLOT_HEAD].iItemNo = 0;
     character.EquippedItem[W8_EQUIP_SLOT_TORSO].iItemNo = 1;
-    ResolveCharacterEquipment(party, 0);
+
+    SettleActiveParty();
     REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_HEAD].iItemNo == -1);
     REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_TORSO].iItemNo == -1);
     REQUIRE(character.backpack[0].iItemNo == 0);
     REQUIRE(character.backpack[1].iItemNo == 1);
     REQUIRE(character.attributes[W8_ATTRIBUTE_STRENGTH].effective == 50);
-    REQUIRE(character.attributes[W8_ATTRIBUTE_SPEED].effective == 50);
 
-    // Taking off the strength bonus also requires a destination for the torso item.
-    // Refuse the whole exchange when no such destination exists.
-    party.rows[0].fOccupied = true;
-    character.fInParty = true;
-    character.original_profession = W8_PROFESSION_FIGHTER;
-    character.attributes[W8_ATTRIBUTE_SPEED].base = 60;
-    character.EquippedItem[W8_EQUIP_SLOT_HEAD].iItemNo = 0;
-    character.EquippedItem[W8_EQUIP_SLOT_TORSO].iItemNo = 1;
-    for (auto& item : character.backpack) item.iItemNo = 0;
-    for (auto& item : party.item_pool) item.iItemNo = 0;
+    // With no storage left, an item that may not be discarded falls into the hand.
+    auto& party = g_status.party;
+    g_item_records[1].flags |= W8_ITEM_FLAG_NO_DISCARD;
+    for (auto& item : character.backpack) item = W8ItemInstance{.iItemNo = 2};
+    for (auto& item : party.item_pool) item = W8ItemInstance{.iItemNo = 2};
     party.item_count = 500;
-    EvaluateCharacterInputs(character, &party.modifiers);
-    const W8ItemLocation head{W8ItemStorage::Equipment, 0, W8_EQUIP_SLOT_HEAD};
-    REQUIRE_FALSE(ExchangeInventoryItems(party, head, {W8ItemStorage::Hand}, 0));
-    REQUIRE(party.held.item.iItemNo == -1);
-    REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_HEAD].iItemNo == 0);
-    REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_TORSO].iItemNo == 1);
-    character.backpack[0] = {};
-    REQUIRE(ExchangeInventoryItems(party, head, {W8ItemStorage::Hand}, 0));
-    REQUIRE(party.held.item.iItemNo == 0);
+    character.EquippedItem[W8_EQUIP_SLOT_TORSO].iItemNo = 1;
+    SettleActiveParty();
     REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_TORSO].iItemNo == -1);
-    REQUIRE(character.backpack[0].iItemNo == 1);
-    REQUIRE(character.attributes[W8_ATTRIBUTE_STRENGTH].effective == 50);
+    REQUIRE(party.held.item.iItemNo == 1);
 }

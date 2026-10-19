@@ -1095,7 +1095,7 @@ void LearnSpellFromItem(W8Character* character, W8ItemInstance* item)
             PracticeCharacterSkill(character, static_cast<W8Skill>(skill_id), usage_points, false);
         }
     }
-    (void)TakeInventoryItem(g_status.party, g_status.party.locateItem(item));
+    (void)TakeInventoryItem(g_status.party.locateItem(item));
     QueueCharacterEvent(character, g_learn_sound, 0, kCharacterEventFullVolume);
 }
 

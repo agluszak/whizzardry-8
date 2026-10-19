@@ -2,6 +2,8 @@
 
 extern bool g_npc_dialogue_closed;
 extern bool g_sea_caves_slope_override_enabled;
+// Worn or held by the party, this item ignores the Sea Caves' explicit slopes.
+inline constexpr int kSlopeOverrideItem = 0x254;
 
 #include <vector>
 

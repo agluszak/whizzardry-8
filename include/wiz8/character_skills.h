@@ -147,8 +147,8 @@ bool CanPartySlotTurnUndead(int party_slot);
 bool CanPartySlotPray(int party_slot);
 float ScaleValueByProfessionLevel(W8Character* character, W8Trait trait, float base);
 float ScaleValueByMonsterLevel(W8MonsterRecord* record, int trait, float base);
-// Complete live operation: reconcile effective attributes, skills and equipment,
-// calculate once, apply life state and present the changes.
+// Live command: an occupied member settles the active party (equipment, statistics,
+// shared load and death); any other character is calculated on its own.
 void RecalculateCharacterDerivedStats(W8Character& character);
 bool IsCharacterSkillAvailable(W8Character* character, W8Skill skill_id,
                                const bool* expert_realm_flags);
@@ -165,10 +165,7 @@ void InitializeSkillBaseLevels(W8Character* character);
 void RefreshCharacterSkillAvailability(W8Character* character);
 unsigned int GetSkillQuarterValue(W8Character* character, W8Skill skill_id);
 
-struct W8Party;
 struct W8GameplayModifierBlock;
+// Rebuild modifier blocks, effective attributes, skill levels and hand kinds from the
+// character's equipment, conditions and the supplied party modifiers.
 void EvaluateCharacterInputs(W8Character&, const W8GameplayModifierBlock*);
-void ResolveCharacterEquipment(W8Party&, unsigned slot);
-
-// Complete character changes across the live party, including equipment and shared load.
-void ResolveLivePartyCharacterChanges();

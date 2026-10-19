@@ -864,7 +864,7 @@ int ArnikaPedestalItem(int* previous_item)
     }
     FindRequiredTriggerByName("ChaosMolori");
     if (item > -1) {
-        (void)TakeInventoryItem(g_status.party, {W8ItemStorage::Hand});
+        (void)TakeInventoryItem({W8ItemStorage::Hand});
     }
     if (GetLocationVarIDByName("PedestalItem") != -1 &&
         GetLocationVarIDByName("WarnedAboutEntry") != -1 &&
@@ -884,7 +884,7 @@ int ArnikaPedestalItem(int* previous_item)
         CreateLocationVar("PedestalItem", -1);
         previous = 0x244;
         if (item == -1) {
-            ReplaceHeldItem(g_status.party, MakeItem(previous, false, false, false));
+            ReplaceHeldItem(MakeItem(previous, false, false, false));
         }
     } else {
         previous = GetLocationVarValueByName("PedestalItem");
@@ -893,7 +893,7 @@ int ArnikaPedestalItem(int* previous_item)
                 return -2;
             }
         } else if (item == -1) {
-            ReplaceHeldItem(g_status.party, MakeItem(previous, false, false, false));
+            ReplaceHeldItem(MakeItem(previous, false, false, false));
         }
     }
     SetItemCursor(0);

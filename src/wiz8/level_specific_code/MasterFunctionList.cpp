@@ -737,7 +737,6 @@ void InitializeLevelMasterFunctions(int level)
         return;
     case 0x16:
         g_sea_caves_slope_override_enabled = true;
-        g_party_has_slope_override_item = FindItemOnParty(0x254, 0, 0, 0, 0);
         BindLevelTrigger("HigardiChest01", SeaCavesHigardiChest01);
         BindLevelTrigger("HigardiChest02", SeaCavesHigardiChest02);
         BindLevelTrigger("HigardiChest03", SeaCavesHigardiChest03);

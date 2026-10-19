@@ -50,7 +50,7 @@ bool RapaxUpperFloorAirBox(Trigger* pTrigger)
         if (item_id == 0x1cb || item_id == 0x1cd || item_id == 0x1cc || item_id == 0x1ce) {
             SetFact(W8_FACT_RAPAX_TREASURY_RAIDED, 1, false);
             SetFactionDispositionBand(0x12, W8_FACTION_HOSTILE);
-            (void)TakeInventoryItem(g_status.party, {W8ItemStorage::Hand});
+            (void)TakeInventoryItem({W8ItemStorage::Hand});
             if (item_id == 0x1cb) {
                 item_id = 0x1c7;
             } else if (item_id == 0x1cd) {

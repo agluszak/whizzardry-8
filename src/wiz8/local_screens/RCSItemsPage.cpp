@@ -40,6 +40,7 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/item_tables.h"
+#include "wiz8/live_party.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Configuration.h"
@@ -53,7 +54,6 @@
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/npc_interaction.h"
-#include "wiz8/party_presentation.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/render/frame.h"
@@ -182,7 +182,7 @@ void W8CampScreenState::OpenSplitStackDialog(W8ItemInstance* item)
         dialog->on_complete = [screen = this, source = g_status.party.locateItem(item),
                                actor = ReviewedPartySlot()](int count) {
             if (count <= 0) return;
-            if (!SplitItemStack(g_status.party, source, static_cast<unsigned>(count), actor)) {
+            if (!SplitItemStack(source, static_cast<unsigned>(count), actor)) {
                 screen->ShowNotice(g_localized_strings[0x915], 0, true, false);
                 return;
             }
@@ -218,8 +218,7 @@ void W8CampScreenState::UseCampItem(W8ItemInstance* item)
         } else {
             if (!(g_status.party.held.item.iItemNo != -1)) {
                 MarkCampCharacterPending(item);
-                ExchangeInventoryItems(g_status.party, g_status.party.locateItem(item),
-                                       {W8ItemStorage::Hand},
+                ExchangeInventoryItems(g_status.party.locateItem(item), {W8ItemStorage::Hand},
                                        static_cast<unsigned>(g_status.selected_character));
             }
         }

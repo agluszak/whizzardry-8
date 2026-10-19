@@ -57,6 +57,7 @@
 #include "wiz8/layouts/party_slot.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/learned_spells.h"
+#include "wiz8/live_party.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatAttack.h"
@@ -89,7 +90,6 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/npc_interaction.h"
-#include "wiz8/party_presentation.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/random.h"
@@ -1848,10 +1848,17 @@ void W8CampScreenState::HandleCampItemClick(W8ItemInstance* item, unsigned int s
         item->bound = true;
     }
 
+    // Changing a weapon hand here supersedes a weapon-set swap queued for the round.
+    const auto cancel_queued_swap = [&] {
+        if (origin == W8_ITEM_ORIGIN_EQUIPPED &&
+            GetPairedEquipSlot(equip_slot) != W8_EQUIP_SLOT_NONE)
+            g_status.party.rows[ReviewedPartySlot()].weapon_swap_pending = false;
+    };
     if (same_kind) {
         MergeItemUses(ReviewedPartySlot(), g_status.party.locateItem(item), {W8ItemStorage::Hand});
         SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
         changed = true;
+        cancel_queued_swap();
         RebuildCampItemList();
     } else {
         /* Fold the held stack onto a matching stack; for the pool the scan
@@ -1860,16 +1867,16 @@ void W8CampScreenState::HandleCampItemClick(W8ItemInstance* item, unsigned int s
             g_item_records[g_status.party.held.item.iItemNo].quantity_kind ==
                 W8_ITEM_QUANTITY_STACK) {
             if (item->iItemNo != -1 && item->iItemNo == g_status.party.held.item.iItemNo) {
-                const auto outcome = MergeInventoryStacks(
-                    g_status.party, g_status.party.locateItem(item), {W8ItemStorage::Hand});
+                const auto outcome =
+                    MergeInventoryStacks(g_status.party.locateItem(item), {W8ItemStorage::Hand});
                 merged = outcome.complete;
                 partially_merged = outcome.changed && !outcome.complete;
                 merge_tried = true;
             }
             if (!merged && origin == W8_ITEM_ORIGIN_PARTY_POOL) {
                 for (index = 0; index < g_status.party.item_count; ++index) {
-                    const auto outcome = MergeInventoryStacks(
-                        g_status.party, {W8ItemStorage::Pool, 0, index}, {W8ItemStorage::Hand});
+                    const auto outcome = MergeInventoryStacks({W8ItemStorage::Pool, 0, index},
+                                                              {W8ItemStorage::Hand});
                     partially_merged |= outcome.changed && !outcome.complete;
                     if (outcome.complete) {
                         merged = true;
@@ -1883,7 +1890,7 @@ void W8CampScreenState::HandleCampItemClick(W8ItemInstance* item, unsigned int s
                 if ((g_status.party.held.item.iItemNo != -1)) {
                     if (g_status.party.companion_inventory) {
                         SelectPendingCampCharacter();
-                    } else if (InsertHeldItemInPool(g_status.party, slot_index)) {
+                    } else if (InsertHeldItemInPool(slot_index)) {
                         changed = true;
                         RebuildCampItemList();
                     } else {
@@ -1892,8 +1899,7 @@ void W8CampScreenState::HandleCampItemClick(W8ItemInstance* item, unsigned int s
                     }
                 } else if (slot_index < g_status.party.item_count) {
                     /* An empty hand picks the clicked pool row up. */
-                    ExchangeInventoryItems(g_status.party, g_status.party.locateItem(item),
-                                           {W8ItemStorage::Hand},
+                    ExchangeInventoryItems(g_status.party.locateItem(item), {W8ItemStorage::Hand},
                                            static_cast<unsigned>(g_status.selected_character));
                     changed = true;
                     if (item_action == W8_CAMP_ITEM_ACTION_DROP) {
@@ -1936,14 +1942,13 @@ void W8CampScreenState::HandleCampItemClick(W8ItemInstance* item, unsigned int s
                         if (item->iItemNo == -1) {
                             MarkCampCharacterPending(paired);
                         }
-                        if (!EquipHeldItemAndStowPartner(g_status.party, ReviewedPartySlot(),
-                                                         equip_slot)) {
+                        if (!EquipHeldItemAndStowPartner(ReviewedPartySlot(), equip_slot)) {
                             ShowNotice(g_localized_strings[0x90c], 0, true, false);
                             return;
                         }
                         changed = true;
                     } else {
-                        ExchangeInventoryItems(g_status.party, g_status.party.locateItem(item),
+                        ExchangeInventoryItems(g_status.party.locateItem(item),
                                                g_status.party.locateItem(&g_status.party.held.item),
                                                static_cast<unsigned>(ReviewedPartySlot()));
                         changed = true;
@@ -1965,6 +1970,7 @@ void W8CampScreenState::HandleCampItemClick(W8ItemInstance* item, unsigned int s
                 SetHandCursors();
             }
             if (changed) {
+                cancel_queued_swap();
                 RebuildCampItemList();
             }
         }
@@ -2006,7 +2012,7 @@ void W8CampScreenState::TakeItemUnitToHand(W8ItemLocation source)
     const auto* item = g_status.party.itemAt(source);
     if (!item) return;
     if (item_action != W8_CAMP_ITEM_ACTION_NONE || !CanSplitItemStack(item)) return;
-    if (!SplitItemStack(g_status.party, source, 1, ReviewedPartySlot())) return;
+    if (!SplitItemStack(source, 1, ReviewedPartySlot())) return;
     RebuildCampItemList();
     redraw_flags |= W8_CAMP_REDRAW_ALL;
 }

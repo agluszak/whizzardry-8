@@ -121,7 +121,7 @@ bool Trynnie2MeatBox(Trigger* pTrigger)
             CreateLocationVar("HogarDruggedGivenExp", 1);
         }
     }
-    (void)TakeInventoryItem(g_status.party, {W8ItemStorage::Hand});
+    (void)TakeInventoryItem({W8ItemStorage::Hand});
     BeginScriptedWorldAction();
     return true;
 }
@@ -160,7 +160,7 @@ bool Trynnie2UseItem(W8ItemInstance* item)
         }
     }
     destination.iItemNo = -1;
-    destination = TakeInventoryItem(g_status.party, g_status.party.locateItem(item));
+    destination = TakeInventoryItem(g_status.party.locateItem(item));
     return true;
 }
 

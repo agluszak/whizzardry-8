@@ -7,17 +7,15 @@ struct InventoryWeightChange {
     bool changed = false;
     bool became_overloaded = false;
 };
+// Derived values are written to the character; transitions they imply are reported.
 struct CharacterStatsUpdate {
     bool valid = false;
-    bool capacity_changed = false;
     InventoryWeightChange weight;
+    // A lowered hit-point ceiling exhausted the current pool.
     bool hp_exhausted = false;
-    bool party_load_changed = false;
 };
 InventoryWeightChange RecalculateInventoryWeight(W8Character& character);
 bool RecalculateCarryingCapacity(W8Character* character);
-// Evaluate the character's own equipment and invested attributes/skills, then apply
-// resource and load changes without live reconciliation.
-// Standalone calculation has no party capability, regardless of saved membership flags.
+// A character outside any party: no party modifiers and no shared load.
 CharacterStatsUpdate UpdateStandaloneCharacterStats(W8Character& character,
                                                     CharacterStatRules rules);

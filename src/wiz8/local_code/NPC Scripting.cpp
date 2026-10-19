@@ -267,7 +267,7 @@ void RemoveNpcScriptItem(W8ItemInstance* item, int match_item_id, int item_id)
             slot_item = &g_status.party.characters[slot].backpack[index];
             if (slot_item->iItemNo != -1 &&
                 (slot_item == item || (match_item_id != 0 && slot_item->iItemNo == item_id))) {
-                RemoveInventoryQuantity(g_status.party, {W8ItemStorage::Backpack, slot, index}, 1);
+                RemoveInventoryQuantity({W8ItemStorage::Backpack, slot, index}, 1);
                 text =
                     fmt::sprintf(g_localized_strings[0x7ec], g_status.party.characters[slot].name);
                 ShowConsumedItemQuote(text);
@@ -279,7 +279,7 @@ void RemoveNpcScriptItem(W8ItemInstance* item, int match_item_id, int item_id)
         slot_item = &g_status.party.item_pool[slot];
         if (slot_item->iItemNo != -1 &&
             (slot_item == item || (match_item_id != 0 && slot_item->iItemNo == item_id))) {
-            RemoveInventoryQuantity(g_status.party, {W8ItemStorage::Pool, 0, slot}, 1);
+            RemoveInventoryQuantity({W8ItemStorage::Pool, 0, slot}, 1);
             text = g_localized_strings[0x7ed];
             ShowConsumedItemQuote(text);
             return;
@@ -293,7 +293,7 @@ void RemoveNpcScriptItem(W8ItemInstance* item, int match_item_id, int item_id)
         if (item->stack_count == 0) {
             g_npc_interaction_state->held_item_pending = false;
             if (!gXStatus.fNpcDialogueMode) {
-                (void)TakeInventoryItem(g_status.party, {W8ItemStorage::Hand});
+                (void)TakeInventoryItem({W8ItemStorage::Hand});
             }
         }
     }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <bitset>
 #include <memory>
 #include <optional>
 #include <string>
@@ -93,10 +94,10 @@ void AddPartyGold(int amount, bool announce);
 void SortPartyItemPool(void);
 W8ItemInstance MakeItem(int item_id, bool maximum_quantity, bool force_identified,
                         bool mark_special);
-void ReplaceHeldItem(W8Party& party, W8ItemInstance item);
+void ReplaceHeldItem(W8ItemInstance item);
 bool PlaceItemOnCursor(int item_id, bool maximum_quantity, bool force_identified,
                        bool mark_special);
-bool EquipHeldItemAndStowPartner(W8Party& party, unsigned actor, W8EquipSlot slot);
+bool EquipHeldItemAndStowPartner(unsigned actor, W8EquipSlot slot);
 struct W8GameplayModifierBlock;
 void ApplyPartyModifiers(W8GameplayModifierBlock modifiers);
 void MergeItemUses(unsigned actor, W8ItemLocation destination, W8ItemLocation source);
@@ -165,8 +166,6 @@ int CalculateTradeStackPrice(W8NpcState* npc, W8ItemInstance* item, W8TradePrice
 /* Whether any occupied, conscious party member can use the item. */
 bool AnyPartyMemberCanUseItem(int item_id);
 
-extern unsigned char g_party_has_slope_override_item;
-
 void BindCharacterItems(int party_slot, bool announce);
 /* Whether an item is bound to whoever is wearing it, which is what stops it
    being taken off or swapped away. */
@@ -175,16 +174,8 @@ bool RemovePartyItemByID(int item_id, bool remove_all);
 
 bool CanUseItemForAction(int party_slot, const W8ItemInstance* item);
 
-/* Camp item operations: paired hand compatibility, merge-kind lookup, and
-   insertion into the party's item pool. */
+/* Whether the held item can share a hand pair with what the other hand holds. */
 bool HeldItemFitsPairedSlot(int party_slot, W8EquipSlot equip_slot);
-
-/* Fill an equipment slot from the item that pairs with the given
-   one - the alternate hand when its own item is compatible, otherwise the
-   named item found anywhere on the character. */
-void EquipMatchingPartnerItem(W8Character* character, W8ItemInstance* item, int item_id,
-                              W8EquipSlot equip_slot);
-void MergeMatchingPartnerItem(W8Character* character, W8ItemInstance* item);
 
 /* Hand one item to a party member, preferring the character or the
    party pool according to the flag exactly as StoreItemWithCharacterOrParty
@@ -227,21 +218,32 @@ void SpendPartyGold(unsigned int amount);
 /* Add recharge uses to a stackable item (hourly tick, item 0x266). */
 void AddItemUses(W8ItemInstance* item, char uses);
 
+/* Live inventory commands on the active party. Each one finishes its own
+   consequences: settled statistics and equipment, combat choices that follow a
+   change of weapons, and the held-item cursor. */
+
 // Split or pick up a stack. Refusal leaves inventory unchanged.
-bool SplitItemStack(W8Party& party, W8ItemLocation source, unsigned amount, unsigned actor);
+bool SplitItemStack(W8ItemLocation source, unsigned amount, unsigned actor);
 
-bool ExchangeInventoryItems(W8Party&, W8ItemLocation first, W8ItemLocation second, unsigned actor);
-W8ItemInstance TakeInventoryItem(W8Party&, W8ItemLocation);
-bool ReceiveItemInHand(W8Party&, W8ItemInstance&);
+bool ExchangeInventoryItems(W8ItemLocation first, W8ItemLocation second, unsigned actor);
+W8ItemInstance TakeInventoryItem(W8ItemLocation location);
+bool ReceiveItemInHand(W8ItemInstance& item);
 
-// Consume ammunition and replenish the weapon as one completed attack consequence.
+// Spend what one attack used and ready the weapon again.
 bool ConsumeAttackItems(unsigned actor, unsigned hand, W8EquipSlot used, W8EquipSlot paired);
+// Equip the primary weapon's off-hand partner and refill its shots before attacking.
+void ReadyPrimaryWeapon(unsigned party_slot);
 
 struct StackMergeResult {
     bool complete = false;
     bool changed = false;
 };
-StackMergeResult MergeInventoryStacks(W8Party&, W8ItemLocation destination, W8ItemLocation source);
-bool InsertHeldItemInPool(W8Party&, unsigned index);
+StackMergeResult MergeInventoryStacks(W8ItemLocation destination, W8ItemLocation source);
+bool InsertHeldItemInPool(unsigned index);
 
-void RemoveInventoryQuantity(W8Party&, W8ItemLocation, unsigned amount);
+void RemoveInventoryQuantity(W8ItemLocation location, unsigned amount);
+
+// Bring the active party's equipment, statistics and shared load in line with its
+// current state, and apply what follows: unusable equipment comes off, a member
+// whose hit points run out dies, and combat choices follow changed weapon hands.
+void SettleActiveParty(std::bitset<W8_PARTY_SLOT_COUNT> changed_hands = {});

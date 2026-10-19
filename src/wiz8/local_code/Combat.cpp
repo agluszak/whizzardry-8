@@ -52,7 +52,7 @@
 #include "wiz8/layouts/party_slot.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/level_population.h"
-#include "wiz8/live_character_rules.h"
+#include "wiz8/live_party.h"
 #include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/CombatPartyMovement.h"
@@ -95,7 +95,6 @@
 #include "wiz8/monster_cycles.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/npc_interaction.h"
-#include "wiz8/party_presentation.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/platform/timer.h"
@@ -1384,17 +1383,7 @@ bool CharacterCanSwitchTo(int party_slot, W8TargetingContext context, bool allow
             if (!allow_equipment_changes) {
                 return false;
             }
-            if (character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo != -1) {
-                if (character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo == -1) {
-                    EquipMatchingPartnerItem(character,
-                                             &character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON],
-                                             -1, W8_EQUIP_SLOT_SECONDARY_WEAPON);
-                }
-                if (character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].uses_or_charges == 0) {
-                    MergeMatchingPartnerItem(
-                        character, &character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON]);
-                }
-            }
+            ReadyPrimaryWeapon(party_slot);
             if (!CanAnyHandReachTarget(party_slot)) {
                 return false;
             }
@@ -1405,17 +1394,7 @@ bool CharacterCanSwitchTo(int party_slot, W8TargetingContext context, bool allow
             if (!allow_equipment_changes) {
                 return false;
             }
-            if (character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo != -1) {
-                if (character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo == -1) {
-                    EquipMatchingPartnerItem(character,
-                                             &character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON],
-                                             -1, W8_EQUIP_SLOT_SECONDARY_WEAPON);
-                }
-                if (character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].uses_or_charges == 0) {
-                    MergeMatchingPartnerItem(
-                        character, &character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON]);
-                }
-            }
+            ReadyPrimaryWeapon(party_slot);
             if (!CanCharacterBerserk(party_slot)) {
                 return false;
             }

@@ -43,8 +43,8 @@ static Monster* g_swamp_spawned_monster;
 bool SwampOilPool(Trigger* pTrigger)
 {
     if ((g_status.party.held.item.iItemNo != -1) && GetItemInHand() == 0x2d0) {
-        (void)TakeInventoryItem(g_status.party, {W8ItemStorage::Hand});
-        ReplaceHeldItem(g_status.party, MakeItem(0x15e, false, true, false));
+        (void)TakeInventoryItem({W8ItemStorage::Hand});
+        ReplaceHeldItem(MakeItem(0x15e, false, true, false));
         SetItemCursor(0);
         g_trigger_feedback = true;
     }

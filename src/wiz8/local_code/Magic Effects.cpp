@@ -2216,7 +2216,7 @@ static void DestroyItemConsumables(W8ItemInstance* item, W8Character* owner, uns
         } else if (equip_class == W8_ITEM_EQUIP_CLASS_SCROLL) {
             totals[1] += destroyed;
         }
-        RemoveInventoryQuantity(g_status.party, g_status.party.locateItem(item), destroyed);
+        RemoveInventoryQuantity(g_status.party.locateItem(item), destroyed);
     }
 }
 

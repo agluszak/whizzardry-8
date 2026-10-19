@@ -20,7 +20,7 @@
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/layouts/screen_state.h"
-#include "wiz8/live_character_rules.h"
+#include "wiz8/live_party.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/GameplayCode.h"
@@ -36,7 +36,6 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/message_box.h"
-#include "wiz8/party_presentation.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/unicode.h"
 #include "wiz8/xstatus.h"
@@ -484,7 +483,6 @@ void EvaluateCharacterInputs(W8Character& character, const W8GameplayModifierBlo
     SetHandType(&character, W8_EQUIP_SLOT_SECONDARY_WEAPON);
 }
 
-// A character change owns equipment reconciliation before applying resource transitions.
 void RecalculateCharacterDerivedStats(W8Character& character)
 {
     if (character.iProfession >= W8_PROFESSION_COUNT || character.iRace >= W8_RACE_COUNT ||
@@ -495,7 +493,7 @@ void RecalculateCharacterDerivedStats(W8Character& character)
         if (static_cast<unsigned int>(level) > 50) level = 50;
     if (const auto member = g_status.party.slotOf(character);
         member && g_status.party.rows[*member].fOccupied) {
-        ResolveLivePartyCharacterChanges();
+        SettleActiveParty();
         return;
     }
     UpdateStandaloneCharacterStats(character, {});

@@ -786,7 +786,7 @@ static unsigned char OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item,
         state->pending_item = *item;
         if ((g_status.party.held.item.iItemNo != -1)) {
             state->held_item_pending = true;
-            (void)TakeInventoryItem(g_status.party, {W8ItemStorage::Hand});
+            (void)TakeInventoryItem({W8ItemStorage::Hand});
         }
         if (npc->record->merchant != 0) {
             if (HandleNpcDialogueItem(&state->pending_item) == 0) {
@@ -3585,7 +3585,7 @@ static unsigned char HandleNpcDialogueItem(W8ItemInstance* item)
                     g_npc_interaction_state->pending_item.iItemNo == item->iItemNo) {
                     g_npc_interaction_state->held_item_pending = false;
                     AddItemToParty(&g_npc_interaction_state->pending_item, true, false);
-                    (void)TakeInventoryItem(g_status.party, {W8ItemStorage::Hand});
+                    (void)TakeInventoryItem({W8ItemStorage::Hand});
                     return 0;
                 }
             }

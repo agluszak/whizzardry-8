@@ -177,8 +177,7 @@ target_sources(wiz8_engine PRIVATE
     party.cpp
     character_stats.cpp
     item_rules.cpp
-    local_code/party_presentation.cpp
-    local_code/live_character_rules.cpp
+    local_code/live_party.cpp
     local_code/Search.cpp
     local_code/npc_interaction.cpp
     local_code/npc_dialogue.cpp

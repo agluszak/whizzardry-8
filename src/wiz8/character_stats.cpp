@@ -219,6 +219,22 @@ void CalcAttacks(W8Character* character, bool damaged_android)
             attack->attacks = 2;
         }
 
+        /* Retail reads damage_bonus here before it is reset below, so the swing score sees the
+           value left by the previous CalcAttacks pass (0x004ee5ef). */
+        score = (character->attributes[W8_ATTRIBUTE_SPEED].effective + attack->damage_bonus * 10 +
+                 dual_penalty + physical_experience + load_penalty + attack->combined_skill) /
+                3;
+        attack->swings = 1;
+        if (score > 66) {
+            attack->swings = 2;
+            if (score > 99) {
+                attack->swings = 3;
+            }
+        }
+        if (records[0] != 0 && records[0]->unidentified_name_index == 0x90) {
+            attack->swings = 1;
+        }
+
         attack->damage_bonus = 0;
         attack->hit_bonus = 0;
         attack->attack_bonus = 0;
@@ -251,21 +267,6 @@ void CalcAttacks(W8Character* character, bool damaged_android)
                 attack->condition_chances[W8_ATTACK_EFFECT_KNOCK_OUT] =
                     (character->attributes[W8_ATTRIBUTE_STRENGTH].effective - 50) / 5;
             }
-        }
-
-        // Swings are derived from this arrangement, independent of prior evaluations.
-        score = (character->attributes[W8_ATTRIBUTE_SPEED].effective + attack->damage_bonus * 10 +
-                 dual_penalty + physical_experience + load_penalty + attack->combined_skill) /
-                3;
-        attack->swings = 1;
-        if (score > 66) {
-            attack->swings = 2;
-            if (score > 99) {
-                attack->swings = 3;
-            }
-        }
-        if (records[0] != 0 && records[0]->unidentified_name_index == 0x90) {
-            attack->swings = 1;
         }
 
         divisor = 1;

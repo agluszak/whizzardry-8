@@ -33,7 +33,7 @@
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/layouts/party_slot.h"
 #include "wiz8/level_population.h"
-#include "wiz8/live_character_rules.h"
+#include "wiz8/live_party.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"

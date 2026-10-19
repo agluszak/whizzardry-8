@@ -640,8 +640,7 @@ void TakeUseItemIntoHand(void)
     unsigned int old_count;
 
     if (!(g_status.party.held.item.iItemNo != -1)) {
-        ExchangeInventoryItems(g_status.party,
-                               g_status.party.locateItem(g_status.party.itemAt(
+        ExchangeInventoryItems(g_status.party.locateItem(g_status.party.itemAt(
                                    use_item->draft.detail_block.item_use.item)),
                                {W8ItemStorage::Hand},
                                static_cast<unsigned>(g_status.selected_character));
@@ -659,8 +658,7 @@ void TakeUseItemIntoHand(void)
                 &g_status.party.item_pool[i]) {
                 use_item->draft.detail_block.item_use.item =
                     g_status.party.locateItem(&g_status.party.item_pool[i + 1]);
-                ExchangeInventoryItems(g_status.party,
-                                       g_status.party.locateItem(g_status.party.itemAt(
+                ExchangeInventoryItems(g_status.party.locateItem(g_status.party.itemAt(
                                            use_item->draft.detail_block.item_use.item)),
                                        {W8ItemStorage::Hand},
                                        static_cast<unsigned>(g_status.selected_character));
@@ -668,8 +666,7 @@ void TakeUseItemIntoHand(void)
             }
         }
     }
-    ExchangeInventoryItems(g_status.party,
-                           g_status.party.locateItem(
+    ExchangeInventoryItems(g_status.party.locateItem(
                                g_status.party.itemAt(use_item->draft.detail_block.item_use.item)),
                            {W8ItemStorage::Hand},
                            static_cast<unsigned>(g_status.selected_character));

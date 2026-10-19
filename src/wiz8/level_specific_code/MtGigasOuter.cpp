@@ -97,7 +97,7 @@ bool OnCrankTriggerActivated(Trigger* trigger)
         position.y = LIFT_PARKED_Y;
         prop->SetPosition(&position);
         SetTriggerVariableByName("FlagPosition", 1000);
-        ReplaceHeldItem(g_status.party, MakeItem(0x290, false, false, false));
+        ReplaceHeldItem(MakeItem(0x290, false, false, false));
         SetItemCursor(0);
         npc = GetNpcStateByKind(0x2a);
         QueueNpcScriptNotice(npc, 0, 0x18, true, 0);

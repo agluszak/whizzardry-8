@@ -1463,7 +1463,7 @@ void Trigger::Run(int source)
                     }
                 } else if (item_count == 1 && !(g_status.party.held.item.iItemNo != -1)) {
                     item = world_item_group->contents.front().get();
-                    ReceiveItemInHand(g_status.party, *(&item->item));
+                    ReceiveItemInHand(item->item);
                     world_item_group->contents.clear();
                     if (m_pProp->subcycle != 0) {
                         goto toggle_item_prop;

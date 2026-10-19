@@ -55,8 +55,8 @@ static CharacterStatsUpdate RecalculateCharacterStatsFromAttributes(W8Character&
     character->damage_reduction += character->bonus.damage_reduction_adjustment;
     RecalculateCharacterResistances(character);
 
-    const bool capacity_changed = RecalculateCarryingCapacity(character);
-    return {true, capacity_changed, RecalculateInventoryWeight(*character), hp_exhausted};
+    RecalculateCarryingCapacity(character);
+    return {true, RecalculateInventoryWeight(*character), hp_exhausted};
 }
 
 namespace {
@@ -126,9 +126,10 @@ InventoryWeightChange RecalculateInventoryWeight(W8Character& subject)
 }
 
 /* Split the supplied pool weight across eligible members by remaining
-   capacity, retaining slot order for ties and the original half-unit rounding. */
+   capacity, retaining slot order for ties and the original half-unit rounding.
+   Only the shares are assigned; load bands are the caller's to update. */
 // FUNCTION: WIZ8 0x004edd20
-static void DistributePartyWeight(W8Party& party, const PartyStatRules& rules)
+static void DistributePartyWeight(W8Party& party)
 {
     int capacity[8];
     int unassigned[8];
@@ -169,33 +170,31 @@ static void DistributePartyWeight(W8Party& party, const PartyStatRules& rules)
         --unassigned[best_slot];
         load_ratio[best_slot] = unassigned[best_slot] * 100.0f / capacity[best_slot];
     }
-
-    for (slot = 0; slot < 8; ++slot) {
-        if (!active[slot].fOccupied) {
-            continue;
-        }
-        W8Character* character = &characters[slot];
-        if (UpdateCharacterLoad(*character))
-            RecalculateLoadModifiers(*character, rules.characters[slot]);
-    }
 }
 
-std::optional<unsigned int> W8Party::slotOf(const W8Character& character) const
+// Apply the load timing: false when shared weight was not redistributed now.
+static bool AssignPartyLoad(W8Party& party, const PartyStatRules& rules)
 {
-    for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
-        if (&characters[slot] == &character) return slot;
-    return {};
+    switch (rules.load_timing) {
+    case PartyLoadTiming::Disabled:
+        return false;
+    case PartyLoadTiming::AfterCombat:
+        party.redistribution_pending = true;
+        return false;
+    case PartyLoadTiming::Immediate:
+        break;
+    }
+    DistributePartyWeight(party);
+    party.redistribution_pending = false;
+    return true;
 }
 
 bool W8Party::refreshLoad(const PartyStatRules& rules)
 {
-    if (rules.load_timing == PartyLoadTiming::Disabled) return false;
-    if (rules.load_timing == PartyLoadTiming::AfterCombat) {
-        redistribution_pending = true;
-        return false;
-    }
-    DistributePartyWeight(*this, rules);
-    redistribution_pending = false;
+    if (!AssignPartyLoad(*this, rules)) return false;
+    for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
+        if (rows[slot].fOccupied && UpdateCharacterLoad(characters[slot]))
+            RecalculateLoadModifiers(characters[slot], rules.characters[slot]);
     return true;
 }
 
@@ -210,40 +209,20 @@ CharacterStatsUpdate UpdateStandaloneCharacterStats(W8Character& character,
     return update;
 }
 
-CharacterStatsUpdate W8Party::updateCharacterStats(unsigned int slot, const PartyStatRules& rules)
+W8PartyStats W8Party::updateStats(const PartyStatRules& rules)
 {
-    if (slot >= W8_PARTY_SLOT_COUNT) throw std::out_of_range("invalid party slot");
-    auto& character = characters[slot];
-    const auto character_rules = rules.characters[slot];
-    EvaluateCharacterInputs(character, character.fInParty ? &modifiers : nullptr);
-    auto update = RecalculateCharacterStatsFromAttributes(character, character_rules);
-    if (!update.valid) return update;
-    if (rules.load_timing == PartyLoadTiming::Disabled) {
-        character.party_weight_share = 0;
-    } else if (update.capacity_changed || update.weight.changed) {
-        update.party_load_changed = refreshLoad(rules);
-    }
-    RecalculateCharacterLoadStats(character, character_rules);
-    return update;
-}
-
-std::array<CharacterStatsUpdate, W8_PARTY_SLOT_COUNT>
-W8Party::updateStats(const PartyStatRules& rules)
-{
-    std::array<CharacterStatsUpdate, W8_PARTY_SLOT_COUNT> updates{};
+    W8PartyStats result;
     // Establish every capacity and inventory weight before allocating the shared pool.
     for (unsigned slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
         if (!rows[slot].fOccupied) continue;
         EvaluateCharacterInputs(characters[slot], characters[slot].fInParty ? &modifiers : nullptr);
-        updates[slot] =
+        result.characters[slot] =
             RecalculateCharacterStatsFromAttributes(characters[slot], rules.characters[slot]);
         if (rules.load_timing == PartyLoadTiming::Disabled) characters[slot].party_weight_share = 0;
     }
-    const bool load_changed = refreshLoad(rules);
-    for (unsigned slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-        if (!updates[slot].valid) continue;
-        updates[slot].party_load_changed = load_changed;
-        RecalculateCharacterLoadStats(characters[slot], rules.characters[slot]);
-    }
-    return updates;
+    result.load_redistributed = AssignPartyLoad(*this, rules);
+    for (unsigned slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
+        if (result.characters[slot].valid)
+            RecalculateCharacterLoadStats(characters[slot], rules.characters[slot]);
+    return result;
 }

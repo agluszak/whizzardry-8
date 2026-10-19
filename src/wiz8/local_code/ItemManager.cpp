@@ -735,7 +735,7 @@ unsigned char InteractWithWorldItem(int runtime_id)
         }
     }
     if ((item->p3D->flags & W8_ITEM_ENTITY_NO_PICKUP) == 0) {
-        ReceiveItemInHand(g_status.party, *(&item->item));
+        ReceiveItemInHand(item->item);
     }
     index = ItemIndex(runtime_id);
     item = ItemInfo(index);

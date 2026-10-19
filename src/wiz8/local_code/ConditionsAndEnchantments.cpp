@@ -27,6 +27,7 @@
 #include "wiz8/layouts/party_slot.h"
 #include "wiz8/layouts/screen_state.h"
 #include "wiz8/level_population.h"
+#include "wiz8/live_party.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/Gameloop.h"
@@ -46,7 +47,6 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/monster_cycles.h"
-#include "wiz8/party_presentation.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/utility.h"
@@ -256,11 +256,7 @@ void SanitizeLoadedItems(void)
     unsigned int index;
     W8Character* character;
 
-    for (slot = 0; slot < 8; ++slot) {
-        if (g_status.party.rows[slot].fOccupied) {
-            ResolveCharacterEquipment(g_status.party, slot);
-        }
-    }
+    SettleActiveParty();
     for (slot = 0; slot < 8; ++slot) {
         if (!g_status.party.rows[slot].fOccupied) {
             continue;
