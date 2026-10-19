@@ -511,10 +511,12 @@ void LoadAwayCampChest(void)
     LoadSavedLevelItems(0x26, items);
     for (index = 0; index < static_cast<int>(items.size()); ++index) {
         auto item = std::move(items[index]);
+        auto contents = std::move(item->contents);
         if (ItemInfoIsWorldPersistent(item.get())) {
-            for (auto& contained : item->contents) items.push_back(std::move(contained));
+            for (auto& contained : contents) items.push_back(std::move(contained));
         } else {
             pContainer->contents.push_back(std::move(item));
+            for (auto& contained : contents) pContainer->contents.push_back(std::move(contained));
         }
     }
 }
