@@ -618,6 +618,8 @@ void UpdateUseItemDetailPanel(W8ItemInstance* item)
     use_item->item_image = ItemSprites(item->iItemNo);
     count = 0;
     switch (g_item_records[item->iItemNo].quantity_kind) {
+    case W8_ITEM_QUANTITY_NONE:
+        break;
     case W8_ITEM_QUANTITY_STACK:
         count = item->stack_count;
         break;

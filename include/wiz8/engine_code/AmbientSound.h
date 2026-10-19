@@ -86,9 +86,8 @@ public:
     W8GameTimer fade_timer;          /* 0x108 */
 };
 
-/* Reverb environment id indexing g_footstep_surfaces; retail's range
-   check admits 9, one past the table's last entry (the ids are byte-sized in
-   the record, so the parameters stay `char`). */
+/* Reverb environment id indexing g_footstep_surfaces. The serialized selector
+   is a byte, so the enum keeps that underlying type. */
 enum W8FootstepSurface : unsigned char {
     W8_FOOTSTEP_SURFACE_NONE = 0,
     W8_FOOTSTEP_SURFACE_SMALL_CAVE = 1,
