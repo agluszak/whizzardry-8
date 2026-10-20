@@ -214,6 +214,9 @@ struct W8CombatState {
     /* Historical offset 0x91c: countdown used to pace synthetic movement progress when
        continuous combat is enabled and the world did not advance this frame. */
     uint64_t party_movement_clock;
+    /* How much of the party's move is left, in percent. It falls as the party walks, and
+       when the move ends it decides which members still act this round. */
+    int party_move_percent = 0;
     W8PartyFormationState saved_formation;
     /* Historical offset 0x9a4: the running attack's target did not see it coming - the monster
        stands behind the character or the target monster is looking away. The

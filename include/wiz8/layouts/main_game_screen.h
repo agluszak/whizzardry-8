@@ -195,15 +195,12 @@ struct W8LevelRuntimeBlock {
     unsigned int camera_motion_flags;
     uint64_t countdown0;
     uint64_t countdown1;
-    bool transition_active;
     int highlighted_item = -1;
     int selected_item = -1;
     /* Text box visible; toggled by the keyboard shortcut and raised
        by spell/item/dialogue screens that need it. */
     bool text_box_visible;
     uint64_t tick;
-    int pending_level;
-    int pending_entry_id;
     int group_list_rows;
     int group_list_width;
     int action_group = -1;
@@ -224,7 +221,7 @@ struct W8LevelRuntimeBlock {
     int text_box_top;
     int text_box_right;
     int text_box_bottom;
-    int move_percent;
+    // The party's remaining move, in percent, as the gauge last showed it.
     int move_percent_shown;
     Font* text_box_font;
     Palette16 palette;
