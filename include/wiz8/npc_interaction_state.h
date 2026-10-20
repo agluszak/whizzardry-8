@@ -34,7 +34,7 @@ struct W8PendingNoticeLine {
 
 /* An NPC script notice waiting for DispatchPendingNpcScriptNotice. */
 struct W8PendingNotice {
-    W8NpcState* npc;
+    std::shared_ptr<W8NpcState> npc;
     W8ItemInstance item;
     int line;
     bool flag;
@@ -87,7 +87,7 @@ struct W8NpcInteractionState {
     /* The text-box line the mouse/wheel handlers last selected, -1 for none. */
     int hovered_text_line{};
     W8NpcTradeFilter trade_filter = W8_NPC_TRADE_FILTER_NONE;
-    W8NpcState* dialogue_npc{};
+    std::shared_ptr<W8NpcState> dialogue_npc{};
     W8DialogueCategory dialogue_category_filter = W8_DIALOGUE_CATEGORY_ALL;
     /* Raised while the "Where Is" submit path runs, so the typed text is
        wrapped in the "Where is %s" template instead of a plain keyword lookup. */

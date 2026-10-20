@@ -373,7 +373,7 @@ void W8NpcDialogue::Begin(W8NpcState* npc, bool suspend_current)
         BindNpcToMonster(npc->name_style, false, -1);
     }
     session_.finished_quote_index = -1;
-    session_.npc = npc;
+    session_.npc = npc->shared_from_this();
 }
 
 bool ShouldDeferCharacterEventForNpcScript(bool require_group_entry)
@@ -460,7 +460,7 @@ void W8NpcDialogue::RunQuoteEntry(const ScriptContext& context, W8NpcQuoteEntry*
         [[fallthrough]];
     case W8_NPC_ENTRY_PRICE_CHECK:
     case W8_NPC_ENTRY_ALWAYS_PRICE_CHECK:
-        OpenNpcDialog(entry, continuation_quote);
+        OpenNpcDialog(session_.npc->script_file, entry, continuation_quote);
         break;
     case W8_NPC_ENTRY_GIVE_ITEM:
         item = MakeItem(Data(), context.game.rng, entry->operand0, true, true, false);
@@ -472,7 +472,7 @@ void W8NpcDialogue::RunQuoteEntry(const ScriptContext& context, W8NpcQuoteEntry*
             if (item.iItemNo != -1) break;
             if (context.activity.conversation) DisplayNpcQuote(notice_text, true);
         }
-        ClearNpcItemId(session_.npc, entry->operand0);
+        ClearNpcItemId(session_.npc.get(), entry->operand0);
         if (CurrentGame().npc_interaction.dialogue_layout == W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX) {
             RebuildNpcTradeItemList(false);
         }
@@ -514,7 +514,7 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
     W8MessageBoxLine& line = *current;
     npc = line.npc_kind != -1 ? GetNpcStateByKind(line.npc_kind) : 0;
     if (auto* quote_line = std::get_if<W8NpcQueuedQuote>(&line.action)) {
-        if (npc != 0 && npc != session_.npc) {
+        if (npc != 0 && npc != session_.npc.get()) {
             Begin(npc, true);
         }
         if (queue_idle_) {
@@ -554,7 +554,7 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
                 W8NpcQuoteEntryKind kind = quote->entries[index].kind;
                 if ((kind == W8_NPC_ENTRY_PRICE_CHECK || kind == W8_NPC_ENTRY_ALWAYS_PRICE_CHECK) &&
                     (kind == W8_NPC_ENTRY_ALWAYS_PRICE_CHECK ||
-                     !NpcKnowsFact(session_.npc, static_cast<W8FactId>(quote_index)))) {
+                     !NpcKnowsFact(session_.npc.get(), static_cast<W8FactId>(quote_index)))) {
                     Speak(context, 0x12, false);
                     reply_ = W8NpcReplyState::pending;
                     QueueQuoteEntry(quote_index, index, quote_index, true);
@@ -619,7 +619,7 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
             case W8NpcCommand::close_and_resume_npc:
                 CloseNpcDialogueIfActive();
                 if (CurrentGame().npc_interaction.dialogue_npc != 0) {
-                    ResumeNpc(CurrentGame().npc_interaction.dialogue_npc, 1);
+                    ResumeNpc(CurrentGame().npc_interaction.dialogue_npc.get(), 1);
                 }
                 break;
             case W8NpcCommand::reopen_transcript:
@@ -635,7 +635,7 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
                 break;
             case W8NpcCommand::remove_speaking_npc: {
                 EndNpcDialogueSession(false);
-                Monster* monster = GetNpcMonster(dialogue.session_.npc);
+                Monster* monster = GetNpcMonster(dialogue.session_.npc.get());
                 if (monster != 0) {
                     monster->BeginFadeOutAndRemove(W8_MONSTER_REMOVAL_NONE);
                 }
