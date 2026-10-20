@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <string>
 #include <string_view>
 #include <variant>
 
@@ -186,7 +187,7 @@ bool Game::beginCombat(int surprise)
                   W8_MAIN_REDRAW_PORTRAIT_6 | W8_MAIN_REDRAW_PORTRAIT_7 |
                   W8_MAIN_REDRAW_SUBMENU_BUTTONS | W8_MAIN_REDRAW_COMBAT_STANCE);
     CheckMonsterGroupsEnterCombat();
-    ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x224], 1);
+    events.push(TextNotice{W8_FONT_PALETTE_BEIGE, Data().strings[0x224], 1});
     RollCombatSurprise(static_cast<char>(surprise));
 
     nearest_distance = 999999.0f;
@@ -501,9 +502,10 @@ void BeginCombatExecution(void)
     ResetRoundPartyMovement();
     CurrentGame().combat->round_counter = GetPhaseStep();
     if (CombatMayAdvanceContinuously()) {
-        ShowNotice(W8_FONT_PALETTE_BEIGE, "");
-        ShowNotice(W8_FONT_PALETTE_BEIGE,
-                   fmt::sprintf(Data().strings[0x227], CurrentGame().combat->round_count));
+        CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_BEIGE, {}});
+        CurrentGame().events.push(
+            TextNotice{W8_FONT_PALETTE_BEIGE,
+                       fmt::sprintf(Data().strings[0x227], CurrentGame().combat->round_count)});
     }
 
     for (slot = 0; slot < 8; ++slot) {
@@ -574,19 +576,21 @@ void BeginCombatExecution(void)
                 continue;
             }
             if (party->committed.kind == W8_ACTION_DEFEND) {
-                PostCharacterNotice(slot, Data().strings[0x228]);
+                CurrentGame().events.push(
+                    CharacterNotice{static_cast<unsigned int>(slot), Data().strings[0x228]});
             }
             if (party->committed.kind == W8_ACTION_PROTECT) {
                 if (party->committed.target.iType == W8_TARGET_KIND_CHARACTER) {
-                    PostCharacterNotice(
-                        slot,
+                    CurrentGame().events.push(CharacterNotice{
+                        static_cast<unsigned int>(slot),
                         fmt::sprintf(
                             Data().strings[0x229],
-                            CurrentGame().party.characters[party->committed.target.iChar].name));
+                            CurrentGame().party.characters[party->committed.target.iChar].name)});
                 } else if (party->committed.target.iType == W8_TARGET_KIND_MONSTER) {
                     W8MonsterInfo* target = FindMonster(party->committed.target.iMonsterID);
-                    PostCharacterNotice(
-                        slot, fmt::sprintf(Data().strings[0x229], GetMonsterName(target, 0, 0)));
+                    CurrentGame().events.push(CharacterNotice{
+                        static_cast<unsigned int>(slot),
+                        fmt::sprintf(Data().strings[0x229], GetMonsterName(target, 0, 0))});
                 } else {
                     Fail("FALSE");
                 }
@@ -665,7 +669,8 @@ void RecordCharacterDeath(int party_slot)
    formatted whether or not it will be shown. */
 void CombatLog(std::string_view text)
 {
-    if (g_combat_log_enabled) ShowNotice(W8_FONT_PALETTE_BROWN, text);
+    if (g_combat_log_enabled)
+        CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_BROWN, std::string(text)});
 }
 
 /* Start a fresh round: lift the one action that does not survive it and clear
@@ -1009,7 +1014,7 @@ void Game::endCombat(bool forced_cleanup)
         group_count = CurrentLevelPopulation().monster_groups.size();
     }
     if (combat->enemies_engaged) {
-        ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x233], 1);
+        events.push(TextNotice{W8_FONT_PALETTE_BEIGE, Data().strings[0x233], 1});
     }
     unsigned int active = CountActiveCharacters();
     if (active != 0 && combat->experience_pool != 0) {
@@ -1214,11 +1219,13 @@ void SetCharacterCombatAction(int party_slot, W8Action next, int notify)
     RequestRedraw(1 << (party_slot & 0x1f));
     CurrentGame().combat->target_picked = false;
     if (action_kind == W8_ACTION_EQUIP) {
-        PostCharacterNotice(party_slot, Data().strings[0x225]);
+        CurrentGame().events.push(
+            CharacterNotice{static_cast<unsigned int>(party_slot), Data().strings[0x225]});
     } else if (previous_action == W8_ACTION_EQUIP &&
                !(CurrentGame().combat->actingSlot() == party_slot &&
                  CurrentGame().party.rows[party_slot].executing.kind == W8_ACTION_EQUIP)) {
-        PostCharacterNotice(party_slot, Data().strings[0x226]);
+        CurrentGame().events.push(
+            CharacterNotice{static_cast<unsigned int>(party_slot), Data().strings[0x226]});
     }
     SettleActiveParty(CurrentGame());
 }
@@ -1559,8 +1566,9 @@ void AdvanceCombatRound(void)
     }
     ReconcilePartyFormation(&CurrentGame().planned_formation, &CurrentGame().party.formation);
     if (CurrentLevelPopulation().monster_roster.hostileCombatCount() != 0) {
-        ShowNotice(W8_FONT_PALETTE_BEIGE,
-                   fmt::sprintf(Data().strings[0x22b], CurrentGame().combat->round_count));
+        CurrentGame().events.push(
+            TextNotice{W8_FONT_PALETTE_BEIGE,
+                       fmt::sprintf(Data().strings[0x22b], CurrentGame().combat->round_count)});
         wiz8::sound::play("Data\\Sound\\Misc\\EndTurnChime.wav");
     }
     CurrentGame().combat->party_surprised = false;
@@ -1686,7 +1694,7 @@ int CheckCombatEnd(unsigned int end_if_no_hostiles)
     bool any_active = AnyCharacterActive();
     RefreshCombatEngagement();
     if (!any_active) {
-        ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x230], 0);
+        CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_BEIGE, Data().strings[0x230], 0});
         for (int party_slot = 0; party_slot < 8; ++party_slot) {
             W8Character* character = &CurrentGame().party.characters[party_slot];
             if (CurrentGame().party.rows[party_slot].fOccupied &&
@@ -1707,9 +1715,10 @@ int CheckCombatEnd(unsigned int end_if_no_hostiles)
                 CurrentGame().endCombat(false);
                 return 1;
             }
-            ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x22e], 0);
+            CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_BEIGE, Data().strings[0x22e], 0});
             if (CombatHasContinuingEffects()) {
-                ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x22f], 0);
+                CurrentGame().events.push(
+                    TextNotice{W8_FONT_PALETTE_BEIGE, Data().strings[0x22f], 0});
                 StartLevelMusic(1, 1);
                 CurrentGame().endCombat(false);
                 return 1;
@@ -1717,11 +1726,12 @@ int CheckCombatEnd(unsigned int end_if_no_hostiles)
         } else {
             unsigned int party_slot;
             W8CharacterEvent* event;
-            ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x22c], 0);
-            ShowNotice(W8_FONT_PALETTE_BEIGE,
-                       fmt::sprintf(Data().strings[0x22d], CurrentGame().combat->combat_result,
-                                    CurrentGame().combat->combat_result == 1 ? "kill" : "kills"),
-                       0);
+            CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_BEIGE, Data().strings[0x22c], 0});
+            CurrentGame().events.push(TextNotice{
+                W8_FONT_PALETTE_BEIGE,
+                fmt::sprintf(Data().strings[0x22d], CurrentGame().combat->combat_result,
+                             CurrentGame().combat->combat_result == 1 ? "kill" : "kills"),
+                0});
             StartMusicResource("CombatWin.MPL", 0, 1);
             ServiceMusicPlaylist();
             StartLevelMusic(1, 0);
@@ -1810,20 +1820,20 @@ void RollCombatSurprise(char party_cannot_be_surprised)
     }
     if (!CurrentGame().combat->party_surprised) {
         if (CurrentGame().combat->monsters_surprised) {
-            ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x241]);
+            CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_BEIGE, Data().strings[0x241]});
         }
         return;
     }
     CurrentGame().combat->round_active = false;
     if (level_surprise) {
-        ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x23e]);
+        CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_BEIGE, Data().strings[0x23e]});
         return;
     }
     if (!search_surprise) {
-        ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x240]);
+        CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_BEIGE, Data().strings[0x240]});
         return;
     }
-    ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x23f]);
+    CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_BEIGE, Data().strings[0x23f]});
 }
 
 /* Condition interrupt rolled before an actor's committed action runs: a
@@ -1924,7 +1934,8 @@ int GetConditionInterrupt(W8TargetSource* source)
                 SwapWeaponSetSlots(CurrentGame(), party_slot, false);
                 if (CanAnyHandReachTarget(party_slot) &&
                     CanPartySlotAttackAnyTarget(party_slot, 1, false)) {
-                    PostCharacterNotice(party_slot, Data().strings[0x23d]);
+                    CurrentGame().events.push(CharacterNotice{static_cast<unsigned int>(party_slot),
+                                                              Data().strings[0x23d]});
                     return 9;
                 }
                 SwapWeaponSetSlots(CurrentGame(), party_slot, false);

@@ -23,11 +23,11 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_screens/MGSPartyMovement.h"
-#include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/load_category.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
@@ -424,7 +424,7 @@ void EndPartyMovementPhase(void)
         return;
     }
     if (!IsLevelMovementStopped()) {
-        ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[0x21c]);
+        CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_WHITE, Data().strings[0x21c]});
     }
     ResetLevelDataVectors();
     DisableFreeTurnButton();
@@ -505,7 +505,7 @@ void FinishPartyMovementAction(void)
     }
     if (IsLevelMovementStopped() &&
         CurrentGame().combat->uiCurrentPartyActionStatus == W8_PARTY_ACTION_PHASE_ENDED) {
-        ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[0x21d]);
+        CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_WHITE, Data().strings[0x21d]});
     }
     wiz8::sound::play("Data\\Sound\\Misc\\Movement_Bar_Pop_Up.wav");
     ClearLevelMovementStopped();
@@ -526,7 +526,7 @@ void BeginPartyMovementPhase(void)
     if (CurrentGame().combat->uiCurrentPartyAction == W8_PARTY_ACTION_WALK ||
         CurrentGame().combat->uiCurrentPartyAction == W8_PARTY_ACTION_RUN) {
         CurrentGame().party_movement_mode = true;
-        ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[0x21b]);
+        CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_WHITE, Data().strings[0x21b]});
         party_move_distance = 0.0f;
     }
     FinishPartyMovementAction();

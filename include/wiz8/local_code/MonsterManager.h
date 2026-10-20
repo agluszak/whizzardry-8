@@ -22,6 +22,7 @@ struct W8MonsterInfo;
 struct World;
 struct W8MonsterRecord;
 
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -454,6 +455,9 @@ void ShutdownMonsterManager(void);
 
 std::string GetMonsterName(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
                            unsigned char name_form);
+/* Report the monster's line, "Name text" in the monster colour; text that opens with a
+   quote or a colon follows the name directly. */
+void PostMonsterNotice(W8MonsterInfo* monster_info, std::string_view text);
 enum class W8MonsterRemoval : unsigned char { Deactivate, Despawn, Unload };
 bool RemoveMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal);
 void MonsterInfoEnterCombat(W8MonsterInfo* monster_info);

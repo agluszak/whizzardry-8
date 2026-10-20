@@ -18,7 +18,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_code/Targeting.h"
-#include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/monster_actions.h"
@@ -27,6 +26,7 @@
 #include "wiz8/platform/assertion.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -120,7 +120,7 @@ void Combat::beginScheduledAction(Game& game, const CombatActor& actor)
         ExecuteCharacterAction(game, party->slot);
         return;
     }
-    executeMonsterAction(*FindMonster(std::get<MonsterActor>(actor).location_id));
+    executeMonsterAction(game, *FindMonster(std::get<MonsterActor>(actor).location_id));
 }
 
 /* Step the resolving actor's action and move its turn to what the step reports. */
@@ -252,7 +252,7 @@ void Combat::step(Game& game)
 void Combat::scheduleNextActor(Game& game)
 {
     if (actor()) {
-        Fail("!CurrentGame().combat->actor()");
+        Fail("!actor()");
     }
     bool free_turn = false;
     for (;;) {
@@ -319,7 +319,7 @@ void Combat::scheduleNextActor(Game& game)
             if (slot < 8) {
                 BeginPartyMovementPhase();
             } else {
-                ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x22a]);
+                game.events.push(TextNotice{W8_FONT_PALETTE_BEIGE, Data().strings[0x22a]});
                 BeginFreeTurnPhase();
             }
             free_turn = true;
@@ -382,7 +382,7 @@ void Combat::scheduleNextActor(Game& game)
                 if (slot < 8) {
                     FinishPartyMovementAction();
                 } else {
-                    ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x22a]);
+                    game.events.push(TextNotice{W8_FONT_PALETTE_BEIGE, Data().strings[0x22a]});
                     BeginFreeTurnPhase();
                 }
             }

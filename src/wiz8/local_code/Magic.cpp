@@ -764,10 +764,11 @@ void FinishSpellEffect(W8SpellEffectEntry* effect)
         } else {
             position = cameraLocation();
             position.y -= g_default_world_height;
-            PostCharacterNotice(effect->target.iChar, Data().strings[0x195]);
+            CurrentGame().events.push(CharacterNotice{
+                static_cast<unsigned int>(effect->target.iChar), Data().strings[0x195]});
         }
         if (g_settings.verbose_combat_messages == 0) {
-            SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
+            CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
         }
         target.point = position;
         CastSpellFromSource(W8_SPELL_BOILING_BLOOD_EXPLOSION, &effect->Source, &target,
@@ -1860,18 +1861,18 @@ unsigned int MonsterCastsSpell(W8MonsterInfo* monster_info, int spell_id, unsign
     SetTargetSourceToMonster(monster_info, &source);
 
     if (g_settings.verbose_combat_messages == 0) {
-        ShowNotice(W8_FONT_PALETTE_RUST,
-                   fmt::sprintf(Data().strings[W8_MESSAGE_MONSTER_CAST / 4],
-                                GetMonsterName(monster_info, record, 0),
-                                Data().spells[spell_id].display_name,
-                                SpellTargetString(&source, &monster_info->Target)));
-        SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, 9);
+        CurrentGame().events.push(TextNotice{
+            W8_FONT_PALETTE_RUST, fmt::sprintf(Data().strings[W8_MESSAGE_MONSTER_CAST / 4],
+                                               GetMonsterName(monster_info, record, 0),
+                                               Data().spells[spell_id].display_name,
+                                               SpellTargetString(&source, &monster_info->Target))});
+        CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, 9});
     } else {
-        ShowNotice(W8_FONT_PALETTE_RUST,
-                   fmt::sprintf(Data().strings[W8_MESSAGE_MONSTER_CAST_VERBOSE / 4],
-                                GetMonsterName(monster_info, record, 0),
-                                Data().spells[spell_id].display_name, power_level,
-                                SpellTargetString(&source, &monster_info->Target)));
+        CurrentGame().events.push(TextNotice{
+            W8_FONT_PALETTE_RUST, fmt::sprintf(Data().strings[W8_MESSAGE_MONSTER_CAST_VERBOSE / 4],
+                                               GetMonsterName(monster_info, record, 0),
+                                               Data().spells[spell_id].display_name, power_level,
+                                               SpellTargetString(&source, &monster_info->Target))});
     }
 
     record = GetMonsterDataForInfo(monster_info);
@@ -1930,7 +1931,7 @@ void ReportSpellResult(W8SpellEffectEntry* effect)
 
     if (GetTextBoxMode() != W8_TEXT_BOX_MODE_NOTICE) {
         AppendToLastTextLine(!effect->reported ? " -- " : ", ", -1);
-        SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
+        CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
     }
     if (effect->result.amount != 0) {
         if (effect->result.count == 1) {
@@ -1939,16 +1940,16 @@ void ReportSpellResult(W8SpellEffectEntry* effect)
             AppendToLastTextLine(fmt::sprintf(Data().strings[0x199], effect->result.count,
                                               effect->result.amount / effect->result.count, -1),
                                  -1);
-            SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
+            CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
         }
-        SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
+        CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
         effect->reported = true;
     }
     for (int condition = W8_CONDITION_DRAINED; condition < W8_CONDITION_COUNT; ++condition) {
         if (effect->result.condition_counts[condition] != 0) {
             if (effect->reported && GetTextBoxMode() != W8_TEXT_BOX_MODE_NOTICE) {
                 AppendToLastTextLine(", ", -1);
-                SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
+                CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
             }
             if (effect->result.condition_counts[condition] == 1) {
                 if (effect->target.iType == W8_TARGET_KIND_CHARACTER) {
@@ -1972,7 +1973,7 @@ void ReportSpellResult(W8SpellEffectEntry* effect)
                                 Data().strings[g_condition_notices[condition].plural]),
                     -1);
             }
-            SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
+            CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
             effect->reported = true;
         }
     }
@@ -1982,18 +1983,18 @@ void ReportSpellResult(W8SpellEffectEntry* effect)
         effect->result.reports.erase(effect->result.reports.begin());
         if (report != 0) {
             if (report->kind == W8_SPELL_DAMAGE_REPORT_CHARACTER_DEATH) {
-                SetTextBoxMode(W8_TEXT_BOX_MODE_NOTICE, -1);
-                PostCharacterNotice(
-                    report->value,
+                CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_NOTICE, -1});
+                CurrentGame().events.push(CharacterNotice{
+                    static_cast<unsigned int>(report->value),
                     fmt::format("{}!",
-                                Data().strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
+                                Data().strings[g_condition_notices[W8_CONDITION_DEAD].singular])});
                 effect->reported = true;
             } else if (report->kind == W8_SPELL_DAMAGE_REPORT_MONSTER_DEATH) {
-                SetTextBoxMode(W8_TEXT_BOX_MODE_NOTICE, -1);
-                ShowNotice(
+                CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_NOTICE, -1});
+                CurrentGame().events.push(TextNotice{
                     W8_FONT_PALETTE_RUST,
                     fmt::format("{} {}!", report->text,
-                                Data().strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
+                                Data().strings[g_condition_notices[W8_CONDITION_DEAD].singular])});
                 effect->reported = true;
             }
         }
@@ -2023,10 +2024,12 @@ bool ValidateSpellTarget(int party_slot, int spell_id, unsigned int power, bool 
     }
     if (!has_targets) {
         if (!item_cast) {
-            PostCharacterNotice(party_slot, fmt::sprintf(Data().strings[0x1b7],
-                                                         Data().spells[spell_id].display_name));
+            CurrentGame().events.push(CharacterNotice{
+                static_cast<unsigned int>(party_slot),
+                fmt::sprintf(Data().strings[0x1b7], Data().spells[spell_id].display_name)});
         } else {
-            PostCharacterNotice(party_slot, Data().strings[0x1b8]);
+            CurrentGame().events.push(
+                CharacterNotice{static_cast<unsigned int>(party_slot), Data().strings[0x1b8]});
         }
         valid = false;
     } else if (!skip_world_cursor && DispatchWorldCursorNodeCommand(0, 4, 1)) {
@@ -2446,11 +2449,15 @@ int ExecuteCharacterSpellCast(int party_slot, int spell_id, unsigned int power_l
             power_level = character->iSPLeft[realm] / sp_cost;
         }
     } else if (character->iSPLeft[realm] < static_cast<int>(sp_cost)) {
-        PostCharacterNotice(party_slot, fmt::sprintf(Data().strings[0x18a], record->display_name));
+        CurrentGame().events.push(
+            CharacterNotice{static_cast<unsigned int>(party_slot),
+                            fmt::sprintf(Data().strings[0x18a], record->display_name)});
         return 0;
     }
     if (power_level == 0) {
-        PostCharacterNotice(party_slot, fmt::sprintf(Data().strings[0x18a], record->display_name));
+        CurrentGame().events.push(
+            CharacterNotice{static_cast<unsigned int>(party_slot),
+                            fmt::sprintf(Data().strings[0x18a], record->display_name)});
         return 0;
     }
     if (!ValidateSpellTarget(party_slot, spell_id, power_level, false, false)) {
@@ -2479,17 +2486,21 @@ int ExecuteCharacterSpellCast(int party_slot, int spell_id, unsigned int power_l
     }
     if (g_settings.verbose_combat_messages == 0) {
         if (!continue_cast) {
-            PostCharacterNotice(party_slot,
+            CurrentGame().events.push(
+                CharacterNotice{static_cast<unsigned int>(party_slot),
                                 fmt::sprintf(Data().strings[0x18c], record->display_name,
-                                             SpellTargetString(&source, aim)));
-            SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, 8);
+                                             SpellTargetString(&source, aim))});
+            CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, 8});
         } else {
-            PostCharacterNotice(party_slot, Data().strings[0x18d]);
-            SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, 8);
+            CurrentGame().events.push(
+                CharacterNotice{static_cast<unsigned int>(party_slot), Data().strings[0x18d]});
+            CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, 8});
         }
     } else {
-        PostCharacterNotice(party_slot, fmt::sprintf(Data().strings[0x18b], record->display_name,
-                                                     power_level, SpellTargetString(&source, aim)));
+        CurrentGame().events.push(
+            CharacterNotice{static_cast<unsigned int>(party_slot),
+                            fmt::sprintf(Data().strings[0x18b], record->display_name, power_level,
+                                         SpellTargetString(&source, aim))});
     }
     best_skill = GetBestSpellbookSkillForSpell(character, spell_id, true, true, power_level);
     realm_skill = static_cast<W8Skill>(realm + 0x1c);
@@ -3041,7 +3052,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
             if (quiet) {
                 owner.reported = true;
             } else if (g_settings.verbose_combat_messages != 0) {
-                ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x197]);
+                CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_BEIGE, Data().strings[0x197]});
             } else {
                 AppendToLastTextLine(fmt::format(" -- {}", Data().strings[0x197]), -1);
                 owner.reported = true;
@@ -3072,14 +3083,15 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                 message = 0x1ab;
             }
             if (g_settings.verbose_combat_messages != 0) {
-                PostCharacterNotice(source->iChar, Data().strings[message]);
+                CurrentGame().events.push(CharacterNotice{static_cast<unsigned int>(source->iChar),
+                                                          Data().strings[message]});
             } else {
                 AppendToLastTextLine(fmt::format(" -- {}", Data().strings[message]), -1);
             }
             break;
         default:
             if (g_settings.verbose_combat_messages != 0) {
-                ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x196]);
+                CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_BEIGE, Data().strings[0x196]});
             } else {
                 AppendToLastTextLine(fmt::format(" -- {}", Data().strings[0x196]), -1);
             }
@@ -3455,7 +3467,8 @@ void CheckSpellBackfire(int spell_id, W8TargetSource* source, W8CombatSlot* targ
         return;
     }
     if (TargetSourceIsCharacter(source, 0)) {
-        PostCharacterNotice(source->iChar, Data().strings[0x191]);
+        CurrentGame().events.push(
+            CharacterNotice{static_cast<unsigned int>(source->iChar), Data().strings[0x191]});
         return;
     }
     if (TargetSourceIsMonster(source, 0)) {

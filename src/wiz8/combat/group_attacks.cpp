@@ -434,11 +434,11 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                                             uiTotals[i] / uiHits[i], -1);
                         break;
                     default:
-                        SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
+                        CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
                         continue;
                     }
                     AppendToLastTextLine(text, -1);
-                    SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
+                    CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
                 }
             }
         }
@@ -518,7 +518,7 @@ void SpawnSummonedMonsterGroup(int special_attack_kind, W8TargetSource* pSource,
     }
     if (!placed) {
         RemoveAllGroupMembers(group);
-        ShowNotice(W8_FONT_PALETTE_RUST, Data().strings[0x26a]);
+        CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_RUST, Data().strings[0x26a]});
         return;
     }
     RefreshAllSight();

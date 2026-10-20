@@ -70,6 +70,7 @@
 #include "wiz8/rules/character_stats.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_rules.h"
@@ -646,7 +647,9 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
                 CurrentGame().combat->attack_message =
                     fmt::sprintf(Data().strings[0x219], target_name);
                 if (candidate->iType == W8_TARGET_SOURCE_CHARACTER) {
-                    PostCharacterNotice(candidate->iChar, CurrentGame().combat->attack_message);
+                    CurrentGame().events.push(
+                        CharacterNotice{static_cast<unsigned int>(candidate->iChar),
+                                        CurrentGame().combat->attack_message});
                 } else if (candidate->iType == W8_TARGET_SOURCE_MONSTER) {
                     W8MonsterInfo* defender = FindMonster(candidate->iMonsterID);
                     PostMonsterNotice(defender, CurrentGame().combat->attack_message);
@@ -663,7 +666,8 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
     CurrentGame().combat->attack_message = fmt::sprintf(Data().strings[0x21a], target_name);
     if (interposer->iType == W8_TARGET_SOURCE_CHARACTER) {
         int slot = interposer->iChar;
-        PostCharacterNotice(slot, CurrentGame().combat->attack_message);
+        CurrentGame().events.push(
+            CharacterNotice{static_cast<unsigned int>(slot), CurrentGame().combat->attack_message});
         ResetCombatSlot(target);
         target->iType = W8_TARGET_KIND_CHARACTER;
         target->iChar = slot;
@@ -949,12 +953,13 @@ void ResolveMissileHit(Missile* missile, bool deflected)
     target_stop = text.size();
     source_color = GetSourceNoticeColor(source);
     target_color = GetTargetNoticeColor(source, target);
-    ShowNotice(source_color, text);
+    CurrentGame().events.push(TextNotice{static_cast<unsigned int>(source_color), text});
     if (target_color != source_color) {
         HighlightTextBoxRange(target_color, target_start, target_stop, -1);
     }
     if (deflected) {
-        ShowNotice(source_color, Data().strings[0x214]);
+        CurrentGame().events.push(
+            TextNotice{static_cast<unsigned int>(source_color), Data().strings[0x214]});
         return;
     }
 
@@ -972,7 +977,8 @@ void ResolveMissileHit(Missile* missile, bool deflected)
         location_name = Data().strings[g_pc_hit_location_labels[hit_location][0]];
     }
     if (g_settings.verbose_combat_messages != 0) {
-        ShowNotice(source_color, fmt::sprintf(Data().strings[0x20c], location_name));
+        CurrentGame().events.push(TextNotice{static_cast<unsigned int>(source_color),
+                                             fmt::sprintf(Data().strings[0x20c], location_name)});
     }
 
     attack_mode = Data().missiles[missile->missile_table_index].attack_mode;
@@ -991,10 +997,12 @@ void ResolveMissileHit(Missile* missile, bool deflected)
             }
             ApplyEffectConditions(source, target, &missile->definition, true, false, 0);
         } else if (g_settings.verbose_combat_messages != 0) {
-            ShowNotice(source_color, Data().strings[0x20e]);
+            CurrentGame().events.push(
+                TextNotice{static_cast<unsigned int>(source_color), Data().strings[0x20e]});
         }
     } else {
-        ShowNotice(source_color, Data().strings[0x20f]);
+        CurrentGame().events.push(
+            TextNotice{static_cast<unsigned int>(source_color), Data().strings[0x20f]});
         MakePCHitSound(missile, target, hit_location, -1);
     }
 }
@@ -1312,7 +1320,8 @@ bool BlockedForSpecialReason(int weapon_class, W8CombatSlot* target, int attack_
         return false;
     }
     if (g_settings.verbose_combat_messages != 0) {
-        ShowNotice(palette, Data().strings[0x213]);
+        CurrentGame().events.push(
+            TextNotice{static_cast<unsigned int>(palette), Data().strings[0x213]});
     }
     PlayCombatSound(GetMaterialImpactSound(weapon_class, material), 1, true, -1);
     return true;
@@ -1438,15 +1447,15 @@ static void DrainCombatDeathReports(W8SpellEffectResult* report)
         report->reports.erase(report->reports.begin());
         if (entry != nullptr) {
             if (entry->kind == W8_SPELL_DAMAGE_REPORT_CHARACTER_DEATH) {
-                PostCharacterNotice(
-                    entry->value,
+                CurrentGame().events.push(CharacterNotice{
+                    static_cast<unsigned int>(entry->value),
                     fmt::format("{}!",
-                                Data().strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
+                                Data().strings[g_condition_notices[W8_CONDITION_DEAD].singular])});
             } else if (entry->kind == W8_SPELL_DAMAGE_REPORT_MONSTER_DEATH) {
-                ShowNotice(
+                CurrentGame().events.push(TextNotice{
                     W8_FONT_PALETTE_RUST,
                     fmt::format("{} {}!", entry->text,
-                                Data().strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
+                                Data().strings[g_condition_notices[W8_CONDITION_DEAD].singular])});
             }
         }
     }
@@ -1459,10 +1468,12 @@ static void AnnounceCombatTargetCondition(const W8SpellEffectResult* report, uns
 {
     const std::string& name = Data().strings[g_condition_notices[condition].singular];
     if (report->target.iType == W8_TARGET_KIND_MONSTER) {
-        ShowNotice(W8_FONT_PALETTE_RUST,
-                   fmt::format("{} {}!", GetMonsterName(monster_info, nullptr, 0), name));
+        CurrentGame().events.push(
+            TextNotice{W8_FONT_PALETTE_RUST,
+                       fmt::format("{} {}!", GetMonsterName(monster_info, nullptr, 0), name)});
     } else if (report->target.iType == W8_TARGET_KIND_CHARACTER) {
-        PostCharacterNotice(report->target.iChar, fmt::format("{}!", name));
+        CurrentGame().events.push(CharacterNotice{static_cast<unsigned int>(report->target.iChar),
+                                                  fmt::format("{}!", name)});
     }
 }
 
@@ -1479,7 +1490,8 @@ static void ReportAttackResult(int party_slot, W8MonsterInfo* attacker, W8SpellE
         if (monster_attacker)
             PostMonsterNotice(attacker, message);
         else
-            PostCharacterNotice(party_slot, message);
+            CurrentGame().events.push(
+                CharacterNotice{static_cast<unsigned int>(party_slot), std::string(message)});
     };
     auto postNoticeValue = [&](int index, int text_id) {
         if (report->notice_values[index] > 0)
@@ -1488,11 +1500,13 @@ static void ReportAttackResult(int party_slot, W8MonsterInfo* attacker, W8SpellE
 
     if (report->condition_counts[W8_CONDITION_DEAD] == 0) {
         if (report->count == 0) {
-            ShowNotice(palette, Data().strings[report->missed ? 0x20b : 0x209]);
+            CurrentGame().events.push(TextNotice{static_cast<unsigned int>(palette),
+                                                 Data().strings[report->missed ? 0x20b : 0x209]});
             return;
         }
         if (report->amount == 0) {
-            ShowNotice(palette, Data().strings[0x20e]);
+            CurrentGame().events.push(
+                TextNotice{static_cast<unsigned int>(palette), Data().strings[0x20e]});
         } else if (report->count == 1) {
             post(fmt::sprintf(Data().strings[0x265], report->amount));
         } else if (report->count > 1) {
@@ -1515,8 +1529,10 @@ static void ReportAttackResult(int party_slot, W8MonsterInfo* attacker, W8SpellE
             for (int index = 0; index < 3; ++index) {
                 static constexpr int text_ids[] = {0x1a6, 0x264, 0x261};
                 if (report->notice_values[index] > 0)
-                    ShowNotice(palette, fmt::sprintf(Data().strings[text_ids[index]],
-                                                     report->notice_values[index]));
+                    CurrentGame().events.push(
+                        TextNotice{static_cast<unsigned int>(palette),
+                                   fmt::sprintf(Data().strings[text_ids[index]],
+                                                report->notice_values[index])});
             }
             if (!monster_attacker && report->notice_values[5] > 0) {
                 const W8Character& character = CurrentGame().party.characters[party_slot];
@@ -1531,7 +1547,9 @@ static void ReportAttackResult(int party_slot, W8MonsterInfo* attacker, W8SpellE
                 if (condition == W8_CONDITION_MISSING) {
                     if (monster_attacker && report->target.iType == W8_TARGET_KIND_CHARACTER &&
                         GetConditionRecordFlag(report->target.iChar, W8_DEPENDENCE_SWALLOWED))
-                        PostCharacterNotice(report->target.iChar, Data().strings[0x1d5]);
+                        CurrentGame().events.push(
+                            CharacterNotice{static_cast<unsigned int>(report->target.iChar),
+                                            Data().strings[0x1d5]});
                     continue;
                 }
                 AnnounceCombatTargetCondition(report, condition, target_monster);
@@ -1715,14 +1733,14 @@ ActionStep ContinueMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRec
     }
     if (swing_missed) {
         if (g_settings.verbose_combat_messages != 0) {
-            ShowNotice(W8_FONT_PALETTE_RUST, Data().strings[0x209]);
+            CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_RUST, Data().strings[0x209]});
         }
         ResetCombatSlot(&CurrentGame().combat->TargetHit);
     } else if (deflected) {
         if (g_settings.verbose_combat_messages == 0) {
             report->missed = true;
         } else {
-            ShowNotice(W8_FONT_PALETTE_RUST, Data().strings[0x20a]);
+            CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_RUST, Data().strings[0x20a]});
         }
         ResetCombatSlot(&CurrentGame().combat->TargetHit);
     } else {
@@ -1779,7 +1797,8 @@ ActionStep ContinueMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRec
             if (!BlockedForSpecialReason(attack->weapon_class, &CurrentGame().combat->TargetHit,
                                          roll, to_hit, 9)) {
                 if (verbose) {
-                    ShowNotice(W8_FONT_PALETTE_RUST, Data().strings[0x209]);
+                    CurrentGame().events.push(
+                        TextNotice{W8_FONT_PALETTE_RUST, Data().strings[0x209]});
                 }
                 if (!TryPanicWoundedCharacter(&CurrentGame().combat->TargetHit) &&
                     CurrentGame().combat->TargetHit.iType == W8_TARGET_KIND_CHARACTER &&
@@ -1801,8 +1820,8 @@ ActionStep ContinueMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRec
             if (g_settings.verbose_combat_messages == 0) {
                 report->target = CurrentGame().combat->TargetHit;
             } else {
-                ShowNotice(W8_FONT_PALETTE_RUST,
-                           fmt::sprintf(Data().strings[0x20c], location_name));
+                CurrentGame().events.push(TextNotice{
+                    W8_FONT_PALETTE_RUST, fmt::sprintf(Data().strings[0x20c], location_name)});
             }
             queued_fatigue = 2;
             int penetration =
@@ -1833,8 +1852,8 @@ ActionStep ContinueMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRec
                     if (fumbled) {
                         damage = CapAttackDamageByTargetHealth(damage);
                     } else if (dice_count > 1 && verbose) {
-                        ShowNotice(W8_FONT_PALETTE_RUST,
-                                   fmt::sprintf(Data().strings[0x20d], dice_count));
+                        CurrentGame().events.push(TextNotice{
+                            W8_FONT_PALETTE_RUST, fmt::sprintf(Data().strings[0x20d], dice_count)});
                     }
                     MakeMonsterHitSound(attack, &CurrentGame().combat->TargetHit, hit_location, -1);
                     if (CurrentGame().combat->TargetHit.iType == W8_TARGET_KIND_CHARACTER) {
@@ -1876,7 +1895,8 @@ ActionStep ContinueMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRec
                 if (!verbose) {
                     ++report->count;
                 } else {
-                    ShowNotice(W8_FONT_PALETTE_RUST, Data().strings[message_id]);
+                    CurrentGame().events.push(
+                        TextNotice{W8_FONT_PALETTE_RUST, Data().strings[message_id]});
                 }
             }
             if (range < W8_RANGE_LONG) {
@@ -2205,7 +2225,8 @@ void AnnounceMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* r
         (record->attack_multiple_targets == 0 || range > W8_RANGE_SHORT)) {
         CurrentGame().combat->attack_message += fmt::format(" {:d}x", combat->uiSwingsRemaining);
     }
-    ShowNotice(W8_FONT_PALETTE_RUST, CurrentGame().combat->attack_message);
+    CurrentGame().events.push(
+        TextNotice{W8_FONT_PALETTE_RUST, CurrentGame().combat->attack_message});
     if (palette != 9) {
         HighlightTextBoxRange(palette, highlight_start, highlight_end, -1);
     }
@@ -2750,7 +2771,8 @@ void ApplyEffectConditions(W8TargetSource* source, W8CombatSlot* target,
                                                      0, W8_CONDITION_INDEFINITE, verbose, false, 0);
                     if (!resisted) {
                         if (source->iType == W8_TARGET_SOURCE_CHARACTER) {
-                            ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[0x17f]);
+                            CurrentGame().events.push(
+                                TextNotice{W8_FONT_PALETTE_WHITE, Data().strings[0x17f]});
                             if (CurrentGame().rng.below(100) < 0x32) {
                                 QueueCharacterEvent(&CurrentGame().party.characters[source->iChar],
                                                     g_learn_sound, 0, kCharacterEventFullVolume);
@@ -2762,15 +2784,15 @@ void ApplyEffectConditions(W8TargetSource* source, W8CombatSlot* target,
                                 event->DelayDispatch(800);
                             }
                         } else {
-                            ShowNotice(W8_FONT_PALETTE_RUST, Data().strings[0x17f]);
+                            CurrentGame().events.push(
+                                TextNotice{W8_FONT_PALETTE_RUST, Data().strings[0x17f]});
                         }
                         if (target->iType == W8_TARGET_KIND_CHARACTER) {
-                            PostCharacterNotice(
-                                target->iChar,
-                                fmt::format(
-                                    "{}!",
-                                    Data()
-                                        .strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
+                            CurrentGame().events.push(CharacterNotice{
+                                static_cast<unsigned int>(target->iChar),
+                                fmt::format("{}!",
+                                            Data().strings[g_condition_notices[W8_CONDITION_DEAD]
+                                                               .singular])});
                         }
                         if (accumulator != nullptr) {
                             accumulator->condition_counts[W8_CONDITION_DEAD]++;
@@ -3072,7 +3094,7 @@ void AnnounceAccidentalStrike(W8TargetSource* source, W8CombatSlot* target)
     if (!TargetSourceIsCharacter(source, 0)) {
         highlight_stop = static_cast<unsigned char>(message.size());
     }
-    ShowNotice(source_color, message);
+    CurrentGame().events.push(TextNotice{static_cast<unsigned int>(source_color), message});
     if (source_color != color) {
         HighlightTextBoxRange(color, highlight_start, highlight_stop, -1);
     }
@@ -3489,7 +3511,8 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
     if (row->extra_swings[0] != 0 && hand == 0) {
         if (character->Hand[0].weapon_skill == W8_SKILL_SWORD &&
             character->uiCondition[W8_CONDITION_SLOWED] == 0) {
-            PostCharacterNotice(party_slot, Data().strings[0x203]);
+            CurrentGame().events.push(
+                CharacterNotice{static_cast<unsigned int>(party_slot), Data().strings[0x203]});
             if (CurrentGame().rng.below(0xb) +
                     character->profession_levels[character->iProfession] <
                 0x14) {
@@ -3600,7 +3623,8 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
     if (row->uiSwingsRemaining > 1) {
         CurrentGame().combat->attack_message += fmt::format(" {:d}x", row->uiSwingsRemaining);
     }
-    PostCharacterNotice(party_slot, CurrentGame().combat->attack_message);
+    CurrentGame().events.push(CharacterNotice{static_cast<unsigned int>(party_slot),
+                                              CurrentGame().combat->attack_message});
     ResetCombatSlot(&CurrentGame().combat->TargetHit);
     row->attack_sound_played = false;
     if (range >= W8_RANGE_LONG) {
@@ -3661,7 +3685,7 @@ ActionStep ResolveCharacterAttack(int party_slot)
             if (!verbose) {
                 report->missed = true;
             } else {
-                ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[0x20a]);
+                CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_WHITE, Data().strings[0x20a]});
             }
             ResetCombatSlot(&CurrentGame().combat->TargetHit);
             outcome = 1;
@@ -3749,7 +3773,7 @@ ActionStep ResolveCharacterAttack(int party_slot)
         }
         if (swing_missed) {
             if (g_settings.verbose_combat_messages != 0) {
-                ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[0x209]);
+                CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_WHITE, Data().strings[0x209]});
             }
             ResetCombatSlot(&CurrentGame().combat->TargetHit);
         } else if (!staged_miss) {
@@ -3798,7 +3822,8 @@ ActionStep ResolveCharacterAttack(int party_slot)
                 if (!BlockedForSpecialReason(weapon_class, &CurrentGame().combat->TargetHit, roll,
                                              to_hit, 8)) {
                     if (g_settings.verbose_combat_messages != 0) {
-                        ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[0x209]);
+                        CurrentGame().events.push(
+                            TextNotice{W8_FONT_PALETTE_WHITE, Data().strings[0x209]});
                     }
                     if (character->hp_current / static_cast<float>(character->uiHPMax) <
                         kNavigatorMode3Scale) {
@@ -3820,8 +3845,8 @@ ActionStep ResolveCharacterAttack(int party_slot)
                 if (g_settings.verbose_combat_messages == 0) {
                     report->target = CurrentGame().combat->TargetHit;
                 } else {
-                    ShowNotice(W8_FONT_PALETTE_WHITE,
-                               fmt::sprintf(Data().strings[0x20c], location_name));
+                    CurrentGame().events.push(TextNotice{
+                        W8_FONT_PALETTE_WHITE, fmt::sprintf(Data().strings[0x20c], location_name)});
                 }
                 outcome = 2;
                 queued_fatigue = 2;
@@ -3848,8 +3873,9 @@ ActionStep ResolveCharacterAttack(int party_slot)
                             damage = CapAttackDamageByTargetHealth(damage);
                         } else if (dice_count > 1) {
                             if (verbose) {
-                                ShowNotice(W8_FONT_PALETTE_WHITE,
-                                           fmt::sprintf(Data().strings[0x20d], dice_count));
+                                CurrentGame().events.push(
+                                    TextNotice{W8_FONT_PALETTE_WHITE,
+                                               fmt::sprintf(Data().strings[0x20d], dice_count)});
                             }
                             outcome = 5;
                         }
@@ -4001,7 +4027,8 @@ ActionStep ResolveCharacterAttack(int party_slot)
                     if (!verbose) {
                         ++report->count;
                     } else {
-                        ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[message_id]);
+                        CurrentGame().events.push(
+                            TextNotice{W8_FONT_PALETTE_WHITE, Data().strings[message_id]});
                     }
                 }
                 if (range < W8_RANGE_LONG) {
@@ -4017,7 +4044,7 @@ ActionStep ResolveCharacterAttack(int party_slot)
             if (!verbose) {
                 report->missed = true;
             } else {
-                ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[0x20a]);
+                CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_WHITE, Data().strings[0x20a]});
             }
             ResetCombatSlot(&CurrentGame().combat->TargetHit);
         }
@@ -4073,10 +4100,10 @@ ActionStep ResolveCharacterAttack(int party_slot)
                            SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT))) {
             if (!verbose && (fumbled || source.target_diverted)) {
                 ReportCharacterAttackResult(party_slot, report);
-                PostCharacterNotice(
-                    party_slot,
+                CurrentGame().events.push(CharacterNotice{
+                    static_cast<unsigned int>(party_slot),
                     fmt::sprintf(Data().strings[0x269],
-                                 CombatTargetName(&source, &party_row->executing.target)));
+                                 CombatTargetName(&source, &party_row->executing.target))});
             }
             ResetCombatSlot(&CurrentGame().combat->TargetHit);
             row->attack_sound_played = false;
@@ -4091,9 +4118,10 @@ ActionStep ResolveCharacterAttack(int party_slot)
     if (!verbose && !special_item) {
         ReportCharacterAttackResult(party_slot, report);
         if (fumbled || source.target_diverted) {
-            PostCharacterNotice(
-                party_slot, fmt::sprintf(Data().strings[0x269],
-                                         CombatTargetName(&source, &party_row->executing.target)));
+            CurrentGame().events.push(CharacterNotice{
+                static_cast<unsigned int>(party_slot),
+                fmt::sprintf(Data().strings[0x269],
+                             CombatTargetName(&source, &party_row->executing.target))});
             if (CurrentGame().combat->attack_report.deferred) {
                 ReportCharacterAttackResult(party_slot, &CurrentGame().combat->attack_report);
             }

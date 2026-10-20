@@ -12,7 +12,6 @@ struct W8Chunk;
 #include "wiz8/rules/events.h"
 #include "wiz8/ui_input.h"
 
-struct W8MonsterInfo;
 namespace wiz8 {
 class File;
 }
@@ -82,7 +81,6 @@ void AppendToLastTextLine(std::string_view text, short text_box);
    only maintained while game_status.quote_audit is raised. */
 extern int g_notice_line_count;
 void PostCharacterNotice(int party_slot, std::string_view text, int context = -1);
-void PostMonsterNotice(W8MonsterInfo* monster_info, std::string_view text);
 void ScrollTextBoxTo(int line);
 void ScrollDialogueTextBoxToLine(void);
 void ScrollTextBoxUp(int lines);

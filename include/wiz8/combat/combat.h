@@ -375,7 +375,7 @@ struct Combat {
 
     /* Run a monster's committed action: the monster-side counterpart of
        ExecuteCharacterAction. */
-    void executeMonsterAction(W8MonsterInfo& monster);
+    void executeMonsterAction(Game& game, W8MonsterInfo& monster);
     /* Step the acting monster's resolving action and move its turn to what it reports. */
     void stepMonsterAction(Game& game, W8MonsterInfo& monster);
     /* Start a party slot's breath: face the target and build the breath visual. */

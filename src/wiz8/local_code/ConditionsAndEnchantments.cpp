@@ -37,7 +37,6 @@
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/spell_database.h"
-#include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/monster_cycles.h"
@@ -45,6 +44,7 @@
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/conditions.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/party_slot.h"
@@ -162,9 +162,10 @@ void RemoveCharacterCondition(int party_slot, W8Condition condition, bool announ
             }
         }
         if (announce) {
-            PostCharacterNotice(party_slot,
+            CurrentGame().events.push(
+                CharacterNotice{static_cast<unsigned int>(party_slot),
                                 fmt::sprintf(Data().strings[0x243],
-                                             Data().strings[g_condition_notices[condition].name]));
+                                             Data().strings[g_condition_notices[condition].name])});
         }
         character->uiCondition[condition] = 0;
         RecomputeCharacterHighestCondition(party_slot);
@@ -552,9 +553,9 @@ void SetMonsterCondition(int location_id, W8Condition condition, int duration, i
     if (announce &&
         (CurrentGame().combat.has_value() || monster_info->party_threat.visible_to_player)) {
         auto name = GetMonsterName(monster_info, 0, 0);
-        ShowNotice(
+        CurrentGame().events.push(TextNotice{
             W8_FONT_PALETTE_RUST,
-            fmt::format("{} {}!", name, Data().strings[g_condition_notices[condition].singular]));
+            fmt::format("{} {}!", name, Data().strings[g_condition_notices[condition].singular])});
     }
     if (monster_info->p3D->IsCycleInterruptable(monster_info->p3D->visual.pending_cycle)) {
         StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_GET_HIT, W8_ANIMATION_PLAY_ONCE);
@@ -578,9 +579,10 @@ void ClearMonsterCondition(int location_id, W8Condition condition)
             SetMonsterHostility(monster_info, monster_group->ubDisposition);
         }
         if (CurrentGame().combat.has_value() || monster_info->party_threat.visible_to_player) {
-            ShowNotice(W8_FONT_PALETTE_RUST,
-                       fmt::sprintf(Data().strings[0x244], GetMonsterName(monster_info, 0, 0),
-                                    Data().strings[g_condition_notices[condition].name]));
+            CurrentGame().events.push(
+                TextNotice{W8_FONT_PALETTE_RUST,
+                           fmt::sprintf(Data().strings[0x244], GetMonsterName(monster_info, 0, 0),
+                                        Data().strings[g_condition_notices[condition].name])});
         }
         monster_info->uiCondition[condition] = 0;
         RefreshMonsterConditionState(monster_info);
@@ -680,15 +682,17 @@ bool SetCharacterCondition(int party_slot, W8Condition condition, int duration, 
         break;
     }
     if (CurrentGame().status.world_suspended) {
-        PostCharacterNotice(party_slot,
+        CurrentGame().events.push(
+            CharacterNotice{static_cast<unsigned int>(party_slot),
                             fmt::sprintf(Data().strings[0x242],
-                                         Data().strings[g_condition_notices[condition].name]));
+                                         Data().strings[g_condition_notices[condition].name])});
         return false;
     }
     switch (condition) {
     case W8_CONDITION_AFRAID:
         if (CharacterHasTrait(character, W8_TRAIT_FEARLESS)) {
-            PostCharacterNotice(party_slot, Data().strings[0x180]);
+            CurrentGame().events.push(
+                CharacterNotice{static_cast<unsigned int>(party_slot), Data().strings[0x180]});
             return false;
         }
         [[fallthrough]];
@@ -708,7 +712,8 @@ bool SetCharacterCondition(int party_slot, W8Condition condition, int duration, 
         [[fallthrough]];
     case W8_CONDITION_TURNCOAT:
         if (CharacterHasTrait(character, W8_TRAIT_MENTAL_CONDITION_IMMUNITY)) {
-            PostCharacterNotice(party_slot, Data().strings[0x181]);
+            CurrentGame().events.push(
+                CharacterNotice{static_cast<unsigned int>(party_slot), Data().strings[0x181]});
             return false;
         }
         break;
@@ -751,11 +756,12 @@ bool SetCharacterCondition(int party_slot, W8Condition condition, int duration, 
     }
     if (announce != 0) {
         if (condition == W8_CONDITION_MISSING && alternate_missing_notice != 0) {
-            PostCharacterNotice(party_slot, Data().strings[0x1d5]);
+            CurrentGame().events.push(
+                CharacterNotice{static_cast<unsigned int>(party_slot), Data().strings[0x1d5]});
         } else {
-            PostCharacterNotice(
-                party_slot,
-                fmt::format("{}!", Data().strings[g_condition_notices[condition].singular]));
+            CurrentGame().events.push(CharacterNotice{
+                static_cast<unsigned int>(party_slot),
+                fmt::format("{}!", Data().strings[g_condition_notices[condition].singular])});
         }
     }
 

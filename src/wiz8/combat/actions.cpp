@@ -42,13 +42,13 @@
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_screens/MGSButtons.h"
-#include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/monster_actions.h"
 #include "wiz8/monster_cycles.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -127,16 +127,18 @@ bool StartMonsterSpecialAttack(W8MonsterInfo* monster_info, const W8MonsterRecor
     monster_info->pCombat->special_ready = false;
     StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_ATTACK_SPECIAL, W8_ANIMATION_PLAY_ONCE);
     if (g_settings.verbose_combat_messages != 0) {
-        ShowNotice(
-            9, fmt::format(
-                   "{} {}!", GetMonsterName(monster_info, nullptr, 0),
-                   Data().strings[g_monster_special_attack_name_ids[record->special_attack_kind]]));
+        CurrentGame().events.push(TextNotice{
+            9,
+            fmt::format(
+                "{} {}!", GetMonsterName(monster_info, nullptr, 0),
+                Data().strings[g_monster_special_attack_name_ids[record->special_attack_kind]])});
         return true;
     }
-    ShowNotice(W8_FONT_PALETTE_RUST,
-               fmt::format(
-                   "{} {}", GetMonsterName(monster_info, nullptr, 0),
-                   Data().strings[g_monster_special_attack_name_ids[record->special_attack_kind]]));
+    CurrentGame().events.push(TextNotice{
+        W8_FONT_PALETTE_RUST,
+        fmt::format(
+            "{} {}", GetMonsterName(monster_info, nullptr, 0),
+            Data().strings[g_monster_special_attack_name_ids[record->special_attack_kind]])});
     return true;
 }
 
@@ -230,8 +232,9 @@ void ExecuteCharacterAction(Game& game, int party_slot)
         interrupt = GetConditionInterrupt(&source);
         if (interrupt != -1) {
             W8Disposition relationship = W8_DISPOSITION_NEUTRAL;
-            PostCharacterNotice(party_slot,
-                                Data().strings[g_condition_interrupt_notices[interrupt]]);
+            game.events.push(
+                CharacterNotice{static_cast<unsigned int>(party_slot),
+                                Data().strings[g_condition_interrupt_notices[interrupt]]});
             switch (interrupt) {
             case 0:
             case 1:
@@ -343,7 +346,8 @@ void ExecuteCharacterAction(Game& game, int party_slot)
     case W8_ACTION_DEFEND:
         if (game.combat->characters[party_slot].defend_switched &&
             g_settings.verbose_combat_messages != 0) {
-            PostCharacterNotice(party_slot, Data().strings[0x234]);
+            game.events.push(
+                CharacterNotice{static_cast<unsigned int>(party_slot), Data().strings[0x234]});
         }
         break;
     case W8_ACTION_PROTECT:
@@ -372,7 +376,8 @@ void ExecuteCharacterAction(Game& game, int party_slot)
             action = W8_ACTION_DEFEND;
             slot->executing.kind = W8_ACTION_DEFEND;
             if (g_settings.verbose_combat_messages != 0) {
-                PostCharacterNotice(party_slot, Data().strings[0x234]);
+                game.events.push(
+                    CharacterNotice{static_cast<unsigned int>(party_slot), Data().strings[0x234]});
             }
         } else {
             slot->executing.kind = W8_ACTION_NONE;
@@ -456,7 +461,7 @@ void Combat::settleCharacterPhase(Game& game, int party_slot)
    action first (berserk forces a fresh random choice); the action-kind
    switch executes it and a failed action loops back through the AI for a
    repick until something commits or the monster holds. */
-void Combat::executeMonsterAction(W8MonsterInfo& monster)
+void Combat::executeMonsterAction(Game& game, W8MonsterInfo& monster)
 {
     W8MonsterInfo* monster_info = &monster;
     const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
@@ -481,9 +486,10 @@ void Combat::executeMonsterAction(W8MonsterInfo& monster)
     SetTargetSourceToMonster(monster_info, &source);
     interrupt = GetConditionInterrupt(&source);
     if (interrupt != -1) {
-        ShowNotice(W8_FONT_PALETTE_RUST,
-                   fmt::format("{} {}", GetMonsterName(monster_info, nullptr, 0),
-                               Data().strings[g_condition_interrupt_notices[interrupt]]));
+        game.events.push(
+            TextNotice{W8_FONT_PALETTE_RUST,
+                       fmt::format("{} {}", GetMonsterName(monster_info, nullptr, 0),
+                                   Data().strings[g_condition_interrupt_notices[interrupt]])});
         switch (interrupt) {
         case 0:
         case 1:
@@ -609,18 +615,18 @@ void Combat::executeMonsterAction(W8MonsterInfo& monster)
             if (monster_info->summoned != W8_MONSTER_SUMMON_NONE ||
                 (monster_info->ubDisposition == W8_DISPOSITION_FRIENDLY &&
                  CurrentLevelPopulation().monster_roster.hostileCombatCount() == 0)) {
-                ShowNotice(
+                game.events.push(TextNotice{
                     W8_FONT_PALETTE_RUST,
-                    fmt::sprintf(Data().strings[0x23c], GetMonsterName(monster_info, nullptr, 0)));
+                    fmt::sprintf(Data().strings[0x23c], GetMonsterName(monster_info, nullptr, 0))});
                 monster_info->action_kind = W8_MONSTER_ACTION_WAIT;
                 continue;
             }
             SetUpMonsterTurn(monster_info);
             result = monster_info->p3D->LinkToStartupNavigator() != 0;
             if (result != 0) {
-                ShowNotice(
+                game.events.push(TextNotice{
                     W8_FONT_PALETTE_RUST,
-                    fmt::sprintf(Data().strings[0x23a], GetMonsterName(monster_info, nullptr, 0)));
+                    fmt::sprintf(Data().strings[0x23a], GetMonsterName(monster_info, nullptr, 0))});
             }
             break;
         case W8_MONSTER_ACTION_ADVANCE:
@@ -629,10 +635,10 @@ void Combat::executeMonsterAction(W8MonsterInfo& monster)
             if (result != 0) {
                 monster_info->pCombat->advancing = true;
                 if (interrupt != 0xc) {
-                    ShowNotice(
+                    game.events.push(TextNotice{
                         9, fmt::sprintf(
                                Data().strings[0x23b], GetMonsterName(monster_info, nullptr, 0),
-                               Data().strings[g_gender_name_message_rows[record->name_group][2]]));
+                               Data().strings[g_gender_name_message_rows[record->name_group][2]])});
                 }
             }
             break;
@@ -688,9 +694,9 @@ void Combat::executeMonsterAction(W8MonsterInfo& monster)
             monster_info->action_kind = W8_MONSTER_ACTION_WAIT;
         }
         if (monster_info->action_kind == W8_MONSTER_ACTION_WAIT) {
-            ShowNotice(
+            game.events.push(TextNotice{
                 W8_FONT_PALETTE_RUST,
-                fmt::sprintf(Data().strings[0x23c], GetMonsterName(monster_info, nullptr, 0)));
+                fmt::sprintf(Data().strings[0x23c], GetMonsterName(monster_info, nullptr, 0))});
             break;
         }
     }
@@ -758,9 +764,10 @@ bool Combat::startCharacterBreath(Game& game, int party_slot)
     PopulateSpellTargetMarkers(W8_SPELL_SPECIAL_ATTACK_CONE, 0, &source, target, monster_targets,
                                char_targets, W8AreaSightRule::RequireLineOfSight);
     if (monster_targets.empty()) {
-        PostCharacterNotice(party_slot,
+        game.events.push(
+            CharacterNotice{static_cast<unsigned int>(party_slot),
                             fmt::sprintf(Data().strings[0x1b7],
-                                         Data().spells[W8_SPELL_DRACON_BREATH].display_name));
+                                         Data().spells[W8_SPELL_DRACON_BREATH].display_name)});
         return false;
     }
     FaceCharacterTowardCombatTarget(party_slot, target);
@@ -780,9 +787,11 @@ bool Combat::startCharacterBreath(Game& game, int party_slot)
         return false;
     }
     if (g_settings.verbose_combat_messages != 0) {
-        PostCharacterNotice(party_slot, fmt::format("{}!", Data().strings[kBreathNoticeId]));
+        game.events.push(CharacterNotice{static_cast<unsigned int>(party_slot),
+                                         fmt::format("{}!", Data().strings[kBreathNoticeId])});
     } else {
-        PostCharacterNotice(party_slot, fmt::format("{} -- ", Data().strings[kBreathNoticeId]));
+        game.events.push(CharacterNotice{static_cast<unsigned int>(party_slot),
+                                         fmt::format("{} -- ", Data().strings[kBreathNoticeId])});
     }
     breath_visual->auto_release = false;
     PointCameraAtCombatTarget(&source, target);
