@@ -17,6 +17,7 @@
 #include <memory>
 #include <optional>
 #include <random>
+#include <span>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -40,6 +41,10 @@
 #include <catch2/catch_test_macros.hpp>
 #include <glm/ext/scalar_constants.hpp>
 #include <glm/ext/vector_float3.hpp>
+#include <glm/ext/vector_float4.hpp>
+#include <vsg/core/Array.h>
+#include <vsg/maths/vec3.h>
+#include <vsg/nodes/VertexIndexDraw.h>
 
 #include "../native/surface_pixels.h"
 #include "wiz8/data/fact_ids.h"

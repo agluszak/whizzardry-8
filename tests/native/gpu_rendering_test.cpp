@@ -2,6 +2,7 @@
 #include <array>
 #include <initializer_list>
 #include <memory>
+#include <span>
 #include <utility>
 #include <vector>
 
@@ -14,7 +15,9 @@
 #include <catch2/catch_test_macros.hpp>
 #include <glm/ext/vector_float3.hpp>
 #include <glm/ext/vector_float4.hpp>
+#include <vsg/core/Array.h>
 #include <vsg/io/write.h>
+#include <vsg/maths/vec3.h>
 #include <vsg/maths/vec4.h>
 #include <vsg/nodes/VertexIndexDraw.h>
 #include <vsg/state/ViewportState.h>

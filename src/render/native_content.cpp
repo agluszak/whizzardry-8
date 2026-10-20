@@ -1,20 +1,32 @@
 #include "wiz8/render/native_content.h"
 
-#include <algorithm>
 #include <array>
+#include <cstddef>
+#include <filesystem>
+#include <memory>
 #include <stdexcept>
 #include <utility>
 
+#include <glm/common.hpp>
+#include <glm/ext/vector_float3.hpp>
 #include <glm/geometric.hpp>
+#include <vsg/core/Array.h>
 #include <vsg/core/ConstVisitor.h>
+#include <vsg/core/Object.h>
+#include <vsg/core/ref_ptr.h>
 #include <vsg/io/read.h>
+#include <vsg/maths/mat4.h>
 #include <vsg/state/BufferInfo.h>
 #include <vsg/state/ViewDependentState.h>
+#include <vulkan/vulkan_core.h>
 
+#include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/material.h"
 #include "wiz8/render/render_mesh.h"
 #include "wiz8/render/texture.h"
+#include "wiz8/render/vsg_material.h"
+#include "wiz8/render/vsg_scene.h"
 
 namespace render {
 
