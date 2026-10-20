@@ -14,19 +14,6 @@ T orientedArea(const glm::vec<2, T, Q>& first, const glm::vec<2, T, Q>& second,
     return glm::determinant(glm::mat<2, 2, T, Q>(second - first, point - first));
 }
 
-inline bool containsClosed(std::span<const glm::vec2, 3> vertices, const glm::vec2& point)
-{
-    for (unsigned opposite = 0; opposite < vertices.size(); ++opposite) {
-        const auto& first = vertices[(opposite + 1) % vertices.size()];
-        const auto& second = vertices[(opposite + 2) % vertices.size()];
-        if (!(orientedArea(first, second, point) *
-                  orientedArea(first, second, vertices[opposite]) >=
-              0))
-            return false;
-    }
-    return true;
-}
-
 inline glm::vec2 coordinates(const glm::vec3& point, unsigned axis)
 {
     return {point[(axis + 1) % 3], point[(axis + 2) % 3]};

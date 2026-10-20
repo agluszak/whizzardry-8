@@ -18,7 +18,6 @@
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_int3.hpp"
 #include "wiz8/math.h"
-#include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/material.h"
 #include "wiz8/render/mesh_resources.h"
@@ -125,7 +124,6 @@ public:
     Mesh& operator=(const Mesh&) = delete;
 
     Bounds getBounds();
-    bool isVisible(const DrawTransform& transform);
     void reindexPolygons(std::span<const std::uint32_t> indices);
     void reindexVertices(std::span<const std::uint32_t> indices);
     TriMesh getTriMesh();
@@ -241,10 +239,6 @@ public:
        to each mesh via Mesh::setBounds. */
     void calculateCompoundBounds();                 /* 0x00471e10 */
     void RevealVerticesNear(const glm::vec3& position, float range, const glm::mat4& world);
-    static std::vector<std::uint32_t> facingPolygons(const TriMesh& mesh,
-                                                     std::span<const glm::vec3> normals,
-                                                     const glm::vec3& eye, bool positive_winding,
-                                                     float threshold);
 
     int FindMappedIndex(short key) const; /* 0x004712D0 */
     void SetMappedVertex(int vertex, short key);

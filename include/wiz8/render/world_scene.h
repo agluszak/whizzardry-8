@@ -1,13 +1,13 @@
 #pragma once
 
-#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <span>
 #include <vector>
 
 #include <glm/glm.hpp>
-#include <vsg/all.h>
+#include <vsg/core/ref_ptr.h>
+#include <vsg/nodes/Group.h>
 
 #include "wiz8/render/camera.h"
 #include "wiz8/render/draw_inputs.h"
@@ -20,6 +20,11 @@ class FogParams;
 class ClipPlane;
 namespace render {
 class RenderContext;
+}
+namespace vsg {
+class View;
+class Camera;
+class ViewportState;
 }
 
 class WorldScene {
@@ -62,7 +67,6 @@ public:
                                        vsg::ref_ptr<vsg::ViewportState>,
                                        std::uint64_t frame_number);
     void pick(const vsg::Camera&, std::span<Pick>) const;
-    std::size_t renderableCount() const;
 
     glm::vec3 getAmbientLight() const { return ambient_light; }
     glm::vec3 getFogColor() const { return fog_color; }

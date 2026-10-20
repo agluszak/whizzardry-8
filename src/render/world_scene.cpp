@@ -44,7 +44,7 @@
 #include <vsg/utils/LineSegmentIntersector.h>
 #include <vsg/vk/CommandBuffer.h>
 #include <vsg/vk/Context.h>
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 
 #include "glm/common.hpp"
 #include "glm/ext/matrix_double4x4.hpp"
@@ -52,6 +52,7 @@
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
+#include "glm/geometric.hpp"
 #include "glm/matrix.hpp"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/clip_plane.h"
@@ -463,10 +464,6 @@ MeshInstance* WorldScene::addStaticMesh(std::unique_ptr<MeshInstance> mesh)
     mesh->render_parent_ = objects;
     static_meshes.push_back(std::move(mesh));
     return result;
-}
-std::size_t WorldScene::renderableCount() const
-{
-    return objects->children.size() + root->children.size() - 1;
 }
 void WorldScene::prepare(render::RenderContext& context, const SceneFrame& frame,
                          std::uint64_t frame_number)

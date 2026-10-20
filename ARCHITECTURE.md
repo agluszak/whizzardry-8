@@ -93,7 +93,9 @@ Unlayered code may use the layers.
   textures while updating, rather than freezing their initial frame.
 - **Materials.** Wizardry lighting, fog, material operations and generated UVs
   run in shaders. The descriptor layout is scoped to Wizardry geometry.
-  Translucent triangles retain the game's global ordering rule. Resource counts
+  Animated retail faces retain their authored integer-frame polygon normals
+  for face selection. Translucent triangles retain the game's global ordering
+  rule. Resource counts
   follow the content rather than the evaluation prototype's fixed limits.
 - **Effects.** Particle integration and completion callbacks run in the game
   update, preserving visibility and activation gates. Render traversal consumes

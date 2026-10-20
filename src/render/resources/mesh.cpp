@@ -18,7 +18,6 @@
 #include "glm/geometric.hpp"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/bounding_radius.h"
-#include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/material.h"
 #include "wiz8/render/texture.h"
@@ -564,19 +563,6 @@ glm::vec4* Mesh::getVertexSCG(std::int32_t vertex, int table)
 glm::vec4* Mesh::getVertexDCG(std::int32_t vertex, int table)
 {
     return GetVertexColorTable(*this, dcg, vertex, table);
-}
-
-bool Mesh::isVisible(const DrawTransform& transform)
-{
-    const bool test_sphere = (render_control & (1UL << CONTROL_SKIP_AUTO_SPHERE)) == 0;
-    const bool test_box =
-        (render_control & (1UL << CONTROL_SKIP_AUTO_BOX)) == 0 && vertex_location_count >= 8;
-    if (!test_sphere && !test_box) return true;
-    const auto bounds = getBounds();
-    if (test_sphere && !transform.sphereVisible(bounds.sphere.center, bounds.sphere.radius))
-        return false;
-    if (test_box && !transform.boxVisible(bounds.box.minimum, bounds.box.maximum)) return false;
-    return true;
 }
 
 void Mesh::reindexPolygons(std::span<const std::uint32_t> indices)

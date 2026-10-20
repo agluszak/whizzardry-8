@@ -62,7 +62,6 @@
 #include "wiz8/render/material.h"
 #include "wiz8/render/material_loader.h"
 #include "wiz8/render/mesh.h"
-#include "wiz8/render/mesh_culling.h"
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/mesh_loader.h"
 #include "wiz8/render/mesh_resources.h"
@@ -399,30 +398,6 @@ static void renderer_bounds()
     REQUIRE(empty_bounds.sphere.center == glm::vec3(0));
     REQUIRE(empty_bounds.sphere.radius == 0);
 
-    Mesh mesh(0, 8);
-    mesh.setBounds({2, 2, 2}, {3, 3, 3}, {0, 0, 0}, 0.1f);
-    mesh.render_control = 0;
-    REQUIRE_FALSE(mesh.isVisible(view)); // Visible sphere, rejected box.
-    mesh.enable(Mesh::CONTROL_SKIP_AUTO_BOX);
-    REQUIRE(mesh.isVisible(view));
-    mesh.setBounds({-0.5f, -0.5f, -0.5f}, {0.5f, 0.5f, 0.5f}, {3, 0, 0}, 0.1f);
-    mesh.render_control = 0;
-    REQUIRE_FALSE(mesh.isVisible(view)); // Rejected sphere, visible box.
-    mesh.enable(Mesh::CONTROL_SKIP_AUTO_SPHERE);
-    REQUIRE(mesh.isVisible(view));
-    mesh.setBounds({2, 2, 2}, {3, 3, 3}, {3, 0, 0}, 0.1f);
-    mesh.enable(Mesh::CONTROL_SKIP_AUTO_BOX);
-    REQUIRE(mesh.isVisible(view));
-    mesh.disable(Mesh::CONTROL_SKIP_AUTO_BOX);
-    mesh.vertex_location_count = 7;
-    REQUIRE(mesh.isVisible(view)); // Small meshes bypass box culling.
-
-    const DrawTransform scaled{
-        .model_view =
-            glm::scale(glm::translate(glm::mat4(1), glm::vec3(1, 2, 3)), glm::vec3(-2, 3, 4))};
-    const auto sphere = scaled.eyeSpaceBounds({{2, 3, 4}, 2});
-    REQUIRE(sphere.center == glm::vec3(-3, 11, 19));
-    REQUIRE(sphere.radius == 8);
     const std::array user_planes{eyeSpaceClipPlane(glm::mat4(1), {1, 0, 0, 0})};
     const DrawTransform clipped{.user_clip_planes = user_planes};
     REQUIRE_FALSE(clipped.sphereVisible({-0.5f, 0, 0}, 0.1f));
@@ -438,51 +413,6 @@ static void renderer_bounds()
     REQUIRE_FALSE(perspective.sphereVisible({0, 0, -0.5f}, 0.1f));
     REQUIRE_FALSE(perspective.sphereVisible({0, 0, -12}, 0.1f));
     REQUIRE_FALSE(perspective.sphereVisible({8, 0, -4}, 0.1f));
-}
-
-static void triangle_visibility()
-{
-    const std::array<glm::vec3, 9> positions{{{-0.5f, -0.5f, 0},
-                                              {0.5f, -0.5f, 0},
-                                              {0, 0.5f, 0},
-                                              {2, -0.5f, 0},
-                                              {3, -0.5f, 0},
-                                              {2.5f, 0.5f, 0},
-                                              {0, 0.25f, 0},
-                                              {2.5f, 0, 0},
-                                              {0, -0.25f, 0}}};
-    const std::array<glm::ivec3, 3> triangles{{{0, 1, 2}, {3, 4, 5}, {6, 7, 8}}};
-    const std::array<glm::vec4, 6> planes{
-        {{1, 0, 0, 1}, {-1, 0, 0, 1}, {0, 1, 0, 1}, {0, -1, 0, 1}, {0, 0, 1, 1}, {0, 0, -1, 1}}};
-    const glm::mat4 identity(1);
-    std::array<std::uint32_t, 3> indices;
-    meshCulling::Input input(identity, identity);
-    input.cull_mode = 2;
-    input.triangles = triangles;
-    input.vertices = positions;
-    input.clip_planes = planes;
-    input.clip_mask = 0x3f;
-    auto output = meshCulling::cull(input);
-    REQUIRE((output.indices == std::vector<std::uint32_t>{0, 2}));
-    REQUIRE((output.vertexCount() == 6));
-    const std::array<std::uint32_t, 6> expected{{0, 1, 2, 6, 7, 8}};
-    for (unsigned i = 0; i < expected.size(); ++i)
-        REQUIRE((output.avt[i] == expected[i] && output.vertex_remap[expected[i]] == i));
-    // Active triangle filtering must keep source order without changing the input list.
-    indices = {2, 1, 0};
-    const std::array<glm::vec4, 3> facing{{{0, 0, 0, 1}, {0, 0, 0, -1}, {0, 0, 0, 1}}};
-    input.active_triangles = indices;
-    input.polygon_planes = facing;
-    input.cull_mode = 0;
-    input.clip_mask = 0;
-    output = meshCulling::cull(input);
-    REQUIRE((output.indices == std::vector<std::uint32_t>{2, 0}));
-    REQUIRE((indices == std::array<std::uint32_t, 3>{2, 1, 0}));
-    input.active_triangles = std::span<const std::uint32_t>{};
-    output = meshCulling::cull(input);
-    REQUIRE((output.indices.empty() && output.avt.empty() && output.vertex_remap.empty()));
-    const auto clip = meshCulling::getClipMask({1, 0, 0}, 0, planes, 0x3f);
-    REQUIRE((clip.mask == (1u << 1) && std::isfinite(clip.depth)));
 }
 
 TEST_CASE("World cursor meshes preserve face winding and UV seams", "[geometry]")
@@ -523,11 +453,6 @@ TEST_CASE("World cursor meshes preserve face winding and UV seams", "[geometry]"
 TEST_CASE("Renderer bounds", "[geometry]")
 {
     renderer_bounds();
-}
-
-TEST_CASE("Triangle visibility", "[geometry]")
-{
-    triangle_visibility();
 }
 
 TEST_CASE("Bounding volumes", "[geometry]")
@@ -1251,30 +1176,6 @@ TEST_CASE("Quad visibility owns ordered cells without a fixed capacity", "[geome
     REQUIRE(rasterizeQuadTriangle({0, 0}, {{{0, 0}, {10, 2}, {3, 20}}}).empty());
 }
 
-TEST_CASE("Software backface selection preserves thresholds and active order", "[geometry]")
-{
-    std::array<glm::vec3, 3> positions{{{0, 0, 0}, {0, 0, 2}, {0, 0, -2}}};
-    std::array<glm::ivec3, 3> triangles{{{0, 0, 0}, {1, 1, 1}, {2, 2, 2}}};
-    const std::array<glm::vec3, 3> normals{{{0, 0, 1}, {0, 0, 1}, {0, 0, 1}}};
-    Mesh::TriMesh mesh;
-    mesh.polygon_count = triangles.size();
-    mesh.positions = positions.data();
-    mesh.poly_vertices = triangles.data();
-    const auto positive = Mesh::facingPolygons(mesh, normals, glm::vec3(0), true, 0);
-    REQUIRE(positive == std::vector<std::uint32_t>{0, 2});
-    REQUIRE(Mesh::facingPolygons(mesh, normals, glm::vec3(0), false, 0) ==
-            std::vector<std::uint32_t>{0, 1});
-    REQUIRE(Mesh::facingPolygons(mesh, normals, glm::vec3(0), true, 1) ==
-            std::vector<std::uint32_t>{2});
-    std::array<std::uint32_t, 4> active{2, 1, 0, 2};
-    mesh.active_polygons = std::span<const std::uint32_t>(active);
-    REQUIRE(Mesh::facingPolygons(mesh, normals, glm::vec3(0), true, 0) ==
-            std::vector<std::uint32_t>{2, 0, 2});
-    REQUIRE(positive == std::vector<std::uint32_t>{0, 2});
-    mesh.active_polygons = std::span<const std::uint32_t>{};
-    REQUIRE(Mesh::facingPolygons(mesh, normals, glm::vec3(0), true, 0).empty());
-}
-
 TEST_CASE("Clip plane normalization preserves consumer transform ordering and degenerate planes",
           "[geometry][rendering]")
 {
@@ -1289,11 +1190,6 @@ TEST_CASE("Clip plane normalization preserves consumer transform ordering and de
     REQUIRE(DrawTransform{.user_clip_planes = std::span(planes).first(25)}.clipPlanes().mask ==
             0x7fffffffu);
     REQUIRE(DrawTransform{}.clipPlanes().mask == 0x3fu);
-    // The CPU culler normalizes after its supplied covector transform.
-    const auto plane =
-        meshCulling::transformClipPlane({2, 0, 0, -2}, glm::transpose(glm::inverse(scale)));
-    REQUIRE(plane == glm::vec4(1, 0, 0, -2));
-    REQUIRE(meshCulling::transformClipPlane({0, 0, 0, 4}, glm::mat4(1)) == glm::vec4(0, 0, 0, 4));
 }
 
 TEST_CASE("Plane contacts retain collision skin and occluder clearance", "[geometry]")

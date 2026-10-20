@@ -9,7 +9,6 @@
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "wiz8/math.h"
-#include "wiz8/spatial/bounding_sphere.h"
 
 class FogParams;
 class Light;
@@ -42,9 +41,7 @@ struct DrawTransform {
     // The projection rescaled for clipping against the near plane.
     glm::mat4 projectClipNear() const;
     ClipPlanes clipPlanes() const;
-    BoundingSphere eyeSpaceBounds(const BoundingSphere& sphere) const;
     bool sphereVisible(const glm::vec3& center, float radius) const;
-    bool boxVisible(const glm::vec3& minimum, const glm::vec3& maximum) const;
 };
 
 // Brings an object-space plane into the eye space of `model_view`.
@@ -84,7 +81,7 @@ struct SceneFrame {
 };
 
 // The scene-pass inputs of one submission: frame inputs, lighting, fog colour,
-// depth cue, light exclusion and picking. A scene pass builds one and each
+// depth cue and light exclusion. A scene pass builds one and each
 // drawable adjusts its own copy; the renderer keeps none of it.
 struct ScenePass {
     SceneFrame frame;
@@ -96,8 +93,4 @@ struct ScenePass {
     DepthCue depth_cue;
     // Light and fog groups the submission ignores.
     std::uint32_t exclusion_mask = 0;
-    // Picks the submitted triangles are tested against, borrowed from the
-    // pass's caller. A hit records `pick_owner`; empty disables picking.
-    std::span<Pick> picks;
-    MeshInstance* pick_owner = nullptr;
 };

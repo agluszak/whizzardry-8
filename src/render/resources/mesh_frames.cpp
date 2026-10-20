@@ -6,7 +6,6 @@
 #include <iterator>
 #include <memory>
 #include <optional>
-#include <ranges>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -30,7 +29,6 @@
 #include "wiz8/render/mesh_math.h"
 #include "wiz8/render/mesh_resources.h"
 #include "wiz8/render/texture.h"
-#include "wiz8/render/triangle_selection.h"
 #include "wiz8/spatial/bounding_box.h"
 
 class Material;
@@ -171,28 +169,6 @@ void Mesh::updateBakedLighting()
         if (light_scale != 1) color = light_scale == 0 ? glm::vec3(0) : color * light_scale;
         destination[vertex] = color;
     }
-}
-
-std::vector<std::uint32_t> Mesh::facingPolygons(const TriMesh& mesh,
-                                                std::span<const glm::vec3> normals,
-                                                const glm::vec3& eye, bool positive_winding,
-                                                float threshold)
-{
-    const auto available = mesh.active_polygons ? mesh.active_polygons->size() : mesh.polygon_count;
-    if (available <= 0) return {};
-    const auto count = static_cast<std::uint32_t>(available);
-    std::vector<std::uint32_t> polygons(count);
-    const auto keep = [&](std::uint32_t polygon) {
-        const auto position = mesh.positions[mesh.poly_vertices[polygon].y];
-        const float facing = glm::dot(eye - position, normals[polygon]);
-        return positive_winding ? threshold <= facing : facing <= threshold;
-    };
-    const auto kept =
-        mesh.active_polygons
-            ? clipMath::selectTriangles(polygons, *mesh.active_polygons, keep)
-            : clipMath::selectTriangles(polygons, std::views::iota(std::uint32_t{0}, count), keep);
-    polygons.resize(kept);
-    return polygons;
 }
 
 /* Copy or translate `count` vertices: a zero offset is a plain copy and a

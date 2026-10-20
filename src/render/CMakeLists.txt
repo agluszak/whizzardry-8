@@ -14,7 +14,6 @@ set(NATIVE_RENDER_SOURCES
     resources/material.cpp
     resources/mesh.cpp
     resources/mesh_frames.cpp
-    pipeline/mesh_culling.cpp
     resources/mesh_instance.cpp
     world_scene.cpp
     resources/texture.cpp

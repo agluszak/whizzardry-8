@@ -1,12 +1,18 @@
+#include <algorithm>
+#include <array>
 #include <memory>
 #include <utility>
+#include <vector>
 
 #include <SDL3/SDL_hints.h>
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_surface.h>
 #include <SDL3/SDL_video.h>
+#include <catch2/catch_message.hpp>
 #include <catch2/catch_test_macros.hpp>
+#include <glm/ext/vector_float3.hpp>
+#include <glm/ext/vector_float4.hpp>
 #include <vsg/maths/vec4.h>
 #include <vsg/state/ViewportState.h>
 #include <vsg/utils/Builder.h>
@@ -14,10 +20,18 @@
 #include "surface_pixels.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/compositor.h"
+#include "wiz8/render/draw_inputs.h"
+#include "wiz8/render/draw_shader.h"
+#include "wiz8/render/fog.h"
+#include "wiz8/render/light.h"
+#include "wiz8/render/material.h"
+#include "wiz8/render/mesh.h"
+#include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/renderer.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/render/world_scene.h"
 #include "wiz8/surface_storage.h"
+#include "wiz8/texture_animation.h"
 
 namespace {
 struct Fixture {
@@ -107,4 +121,109 @@ TEST_CASE("Two VSG views render an ordinary subgraph from one world")
     REQUIRE((left_pixel & 0xffff) == 0);
     REQUIRE(fixture.pixel(48, 32) == left_pixel);
     REQUIRE(scene.root->children.back() == ordinary);
+}
+
+TEST_CASE("Wizardry shaders retain live lighting, fog and animated textures across views")
+{
+    Fixture fixture;
+    WorldScene scene;
+    scene.ambient_light = glm::vec3(.25f);
+    scene.fog_color = {0, 0, 1};
+    scene.camera.setProjectionType(Camera3D::PROJECT_ORTHOGRAPHIC);
+    scene.camera.setClipRange(1, 10);
+    scene.camera.setViewPlane(Camera3D::Rect{-1, -1, 1, 1}, 1);
+    auto second_camera = scene.camera;
+    second_camera.transform.setLocation(.25, 0, 0);
+
+    auto material = std::make_shared<Material>();
+    material->setAmbient(glm::vec4(1));
+    material->setDiffuse(glm::vec4(1));
+    material->setSpecular(glm::vec4(0));
+    material->setEmissive(glm::vec4(0));
+    TexturePlayback playback;
+    playback.animation_mode = W8_TEXTURE_ANIM_MANUAL;
+    playback.textures = {solidTexture(0xffff0000), solidTexture(0xff00ff00)};
+    auto animated_texture = std::make_shared<Texture>(std::move(playback));
+
+    auto mesh = std::make_shared<Mesh>(2, 4);
+    mesh->getPolyVertex()[0] = {0, 2, 1};
+    mesh->getPolyVertex()[1] = {0, 3, 2};
+    mesh->InitializeVertexFrames(2);
+    const std::array<short, 12> first{-1, -1, 3, 1, -1, 3, 1, 1, 3, -1, 1, 3};
+    const std::array<short, 12> next{0, -1, 3, 2, -1, 3, 2, 1, 3, 0, 1, 3};
+    std::ranges::copy(first, mesh->GetVertex(0));
+    std::ranges::copy(next, mesh->GetVertex(1));
+    mesh->FinalizeVertexFrame(0);
+    mesh->FinalizeVertexFrame(1);
+    mesh->setMaterial(material, 0, Mesh::SIDE_FRONT);
+    mesh->setTexture(animated_texture, 0, 0);
+    DrawShader shader;
+    shader.value |= DrawShader::MASK_TEXTURING | (DrawShader::FOG_ENABLE << DrawShader::FOG_SHIFT);
+    mesh->setShader(shader, 0);
+    MeshInstance instance(&scene);
+    instance.setModel(mesh);
+    instance.frame_index = 0;
+    instance.frame_interpolation = .25f;
+    const auto sampled = instance.sampledPosition(*mesh, 0);
+    REQUIRE(sampled == glm::vec3(-.75f, -1, 3));
+
+    // Thirty-three active lights exercise the real shader beyond the former
+    // prototype's limit. Their sum is exactly 33/64 in binary floating point.
+    std::vector<std::unique_ptr<Light>> lights;
+    for (int index = 0; index < 33; ++index) {
+        auto light = std::make_unique<Light>(&scene, Light::PRESET_DIRECTIONAL);
+        light->ambient = glm::vec3(0);
+        light->diffuse = glm::vec3(1.f / 64);
+        light->specular = glm::vec3(0);
+        light->derived_flags = 0x1234;
+        light->eye_location = {7, 8, 9};
+        light->scaled_diffuse = glm::vec4(6);
+        lights.push_back(std::move(light));
+    }
+    FogParams fog(&scene);
+    fog.setRange(0, 1);
+    fog.setDensity(.25f);
+
+    const auto render = [&](const SceneFrame& frame) {
+        fixture.renderer->beginFrame({0, 0, 0, 1});
+        const auto number = fixture.renderer->frameNumber();
+        fixture.renderer->addView(scene.createView(fixture.renderer->context(), &scene.camera,
+                                                   frame, vsg::ViewportState::create(0, 0, 32, 64),
+                                                   number));
+        fixture.renderer->addView(scene.createView(fixture.renderer->context(), &second_camera,
+                                                   frame, vsg::ViewportState::create(32, 0, 32, 64),
+                                                   number));
+        fixture.renderer->endFrame(false, true);
+    };
+    const auto expect = [&](unsigned expected) {
+        for (int x : {16, 48}) {
+            const auto actual = fixture.pixel(x, 32);
+            INFO("pixel " << x << " RGB " << actual << ", expected " << expected);
+            for (unsigned shift : {0u, 8u, 16u}) {
+                const auto channel = static_cast<int>((actual >> shift) & 255u);
+                const auto target = static_cast<int>((expected >> shift) & 255u);
+                REQUIRE(channel >= target - 2);
+                REQUIRE(channel <= target + 2);
+            }
+        }
+    };
+    render({});
+    // (ambient 1/4 + diffuse 33/64) * red, then 1/4 blue fog.
+    // Fog must survive even though the secondary RGB gradient is disabled.
+    expect(0x920040);
+    animated_texture->SetFrame(1);
+    material->setDiffuse(glm::vec4(.5f, .5f, .5f, 1));
+    render({.environment_offset = glm::vec3(.125f), .brightness = .5f});
+    // Ambient = (1/4 + 1/8)/2; diffuse = (33/64)/2 * 1/2.
+    // Green texture and 1/4 blue fog produce RGB (0, 61, 64).
+    expect(0x003d40);
+    REQUIRE(animated_texture->playback->frame == 1);
+    REQUIRE(instance.frame_index == 0);
+    REQUIRE(instance.frame_interpolation == .25f);
+    REQUIRE(instance.sampledPosition(*mesh, 0) == sampled);
+    for (const auto& light : lights) {
+        REQUIRE(light->derived_flags == 0x1234);
+        REQUIRE(light->eye_location == glm::vec3(7, 8, 9));
+        REQUIRE(light->scaled_diffuse == glm::vec4(6));
+    }
 }
