@@ -107,6 +107,6 @@ void Game::advance(milliseconds elapsed, StepHold hold)
     // Particle clocks keep running while world advancement is held; additional
     // camera views consume these results without advancing them again.
     if (level.sky && g_render_mesh_sky && g_monster_shadow_updates_enabled)
-        AdvanceWorldParticles(*level.sky);
-    if (level.primary && g_world_render_enabled) AdvanceWorldParticles(*level.primary);
+        AdvanceWorldParticles(*level.sky, time);
+    if (level.primary && g_world_render_enabled) AdvanceWorldParticles(*level.primary, time);
 }

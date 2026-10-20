@@ -248,6 +248,9 @@ Texture::Texture(const Texture& other) : Texture()
         playback->direction = 1;
         playback->elapsed = {};
         playback->last_update.reset();
+        // Playback is per owner; immutable pixel frames remain shared.
+        for (auto& frame : playback->textures)
+            if (frame && frame->playback) frame = std::make_shared<Texture>(*frame);
     }
 }
 void Texture::releaseSurface()

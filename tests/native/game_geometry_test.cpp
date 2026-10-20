@@ -1444,21 +1444,21 @@ TEST_CASE("Particle simulation respects activation and completes without a view"
     particles.speed_mode = W8_PARTICLE_SPEED_FIXED;
     particles.initial_speed = 0;
     particles.visible = false;
-    particles.AdvanceSimulation();
+    particles.AdvanceSimulation(std::chrono::milliseconds{0});
     REQUIRE(particles.emission_count == 0);
     particles.visible = true;
     particles.SetTraversalEnabled(false);
-    particles.AdvanceSimulation();
+    particles.AdvanceSimulation(std::chrono::milliseconds{0});
     REQUIRE(particles.emission_count == 0);
 
     particles.SetTraversalEnabled(true);
-    particles.AdvanceSimulation();
+    particles.AdvanceSimulation(std::chrono::milliseconds{0});
     REQUIRE(particles.emission_count == 1);
-    particles.AdvanceSimulation();
+    particles.AdvanceSimulation(std::chrono::milliseconds{0});
     REQUIRE(particles.active_particle_count == 2);
     particles.DeactivateParticle(0);
     particles.SetActive(false);
-    particles.AdvanceSimulation();
+    particles.AdvanceSimulation(std::chrono::milliseconds{0});
     REQUIRE_FALSE(particles.particle_active[0]);
     REQUIRE(particles.particle_active[1]);
 
@@ -1503,7 +1503,7 @@ TEST_CASE("Particle simulation respects activation and completes without a view"
     particles.release_when_done = true;
     particles.lifetime_ms = 0;
     game.game.time += std::chrono::milliseconds{1};
-    particles.AdvanceSimulation();
+    particles.AdvanceSimulation(std::chrono::milliseconds{0});
     REQUIRE(particles.active_particle_count == 0);
     REQUIRE(particles.finished);
     particles.updateRenderNode(*context, {}, 2);
@@ -1531,14 +1531,17 @@ TEST_CASE("Particle simulation resolves nested animation before views consume it
     particles.speed_mode = W8_PARTICLE_SPEED_FIXED;
     particles.SetTexture(outer);
     REQUIRE(particles.activateParticle(false));
-    inner->playback->elapsed = std::chrono::milliseconds{1000};
+    auto& prepared = *particles.texture_frames.front()->playback->textures.front();
+    REQUIRE(&prepared != inner.get());
+    prepared.playback->elapsed = std::chrono::milliseconds{1000};
     REQUIRE(particles.texture_frames.front()->currentFrame() == first.get());
-    particles.AdvanceSimulation();
+    particles.AdvanceSimulation(std::chrono::milliseconds{0});
     REQUIRE(particles.texture_frames.front()->currentFrame() == last.get());
 
     // Time may elapse before another view. Only simulation advances playback.
-    inner->SetFrame(0);
-    inner->playback->elapsed = std::chrono::milliseconds{1000};
+    REQUIRE(inner->currentFrame() == first.get());
+    prepared.SetFrame(0);
+    prepared.playback->elapsed = std::chrono::milliseconds{1000};
     render::RenderContext context({640, 480});
     particles.updateRenderNode(context, {}, 0);
     particles.updateRenderNode(context, {}, 1);

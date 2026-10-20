@@ -20,7 +20,7 @@ enum W8TextureTriggerMode {
     W8_TEXTURE_TRIGGER_RANDOM_START = 2
 };
 
-enum class TextureClock { World, Presentation };
+enum class TextureClock { Game, World, Presentation };
 
 class Texture;
 struct TexturePlayback {
