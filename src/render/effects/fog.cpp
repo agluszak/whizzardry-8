@@ -1,7 +1,5 @@
 #include "wiz8/render/fog.h"
 
-#include "wiz8/render/gpu_renderer.h"
-
 void FogParams::setDensity(float density)
 {
     if (density <= 0.0f) {
