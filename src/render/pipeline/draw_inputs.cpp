@@ -3,16 +3,20 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 
 #include "glm/common.hpp"
 #include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/matrix_float4x4.hpp"
+#include "glm/ext/vector_float3.hpp"
 #include "glm/geometric.hpp"
 #include "glm/matrix.hpp"
 #include "wiz8/render/clip.h"
 #include "wiz8/render/plane_math.h"
 #include "wiz8/render/vertex_stream.h"
 #include "wiz8/spatial/bounding_box.h"
+#include "wiz8/spatial/bounding_sphere.h"
 
 DrawTransform DrawTransform::withModel(const glm::mat4& model) const
 {
