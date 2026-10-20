@@ -14,7 +14,6 @@
 #include <utility>
 #include <vector>
 
-#include <fmt/format.h>
 #include <fmt/printf.h>
 
 #include "wiz8/data/character_tables.h"
