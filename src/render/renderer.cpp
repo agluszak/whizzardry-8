@@ -137,7 +137,8 @@ struct Renderer::Impl {
     void syncTargets();
     vsg::ref_ptr<vsg::View> overlayView();
     vsg::ref_ptr<vsg::BindGraphicsPipeline> overlayPipeline(DrawShader shader);
-    void capture(vsg::ref_ptr<vsg::Image> image, VkImageLayout layout);
+    void capture(vsg::ref_ptr<vsg::Image> image, VkFormat format, VkExtent2D extent,
+                 VkImageLayout layout);
 
     SDL_Window* platform_window;
     vsg::ref_ptr<vsg::Instance> instance;
@@ -187,7 +188,8 @@ Renderer::Impl::Impl(SDL_Window* platform_window) : platform_window(platform_win
         throw std::runtime_error(SDL_GetError());
     window = vsg::WindowAdapter::create(vsg::Surface::create(surface, instance), traits);
     window->windowValid = window->windowVisible = true;
-    VkSurfaceCapabilitiesKHR capabilities{};
+    VkSurfaceCapabilitiesKHR capabilities{.currentTransform =
+                                              VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR};
     if (vkGetPhysicalDeviceSurfaceCapabilitiesKHR(window->getOrCreatePhysicalDevice()->vk(),
                                                   surface, &capabilities) != VK_SUCCESS)
         throw std::runtime_error("Cannot query Vulkan window capabilities");
@@ -483,17 +485,13 @@ void Renderer::drawOverlayQuad(const OverlayQuad& quad)
     impl->overlayView()->children.front().cast<vsg::Group>()->addChild(state);
 }
 
-void Renderer::Impl::capture(vsg::ref_ptr<vsg::Image> image, VkImageLayout layout)
+void Renderer::Impl::capture(vsg::ref_ptr<vsg::Image> image, VkFormat image_format,
+                             VkExtent2D extent, VkImageLayout layout)
 {
+    if (!image) throw std::runtime_error("Rendered frame image is unavailable");
     auto device = window->getOrCreateDevice();
     const auto device_id = device->deviceID;
-    // Swapchain wrappers leave Image::format and extent undefined; their
-    // metadata belongs to the window. Owned offscreen images carry both.
-    const bool swapchain = image->format == VK_FORMAT_UNDEFINED;
-    const auto extent =
-        swapchain ? window->extent2D() : VkExtent2D{image->extent.width, image->extent.height};
-    const auto format =
-        readbackFormat(swapchain ? window->imageView(window->imageIndex())->format : image->format);
+    const auto format = readbackFormat(image_format);
     const auto row_bytes = VkDeviceSize(extent.width) * SDL_BYTESPERPIXEL(format);
     const VkDeviceSize bytes = row_bytes * extent.height;
     auto next =
@@ -572,11 +570,21 @@ try {
             impl->offscreen_viewer->recordAndSubmit();
             impl->offscreen_viewer->deviceWaitIdle();
         }
-        const bool window_capture = present && impl->capture_window;
-        impl->capture(window_capture ? impl->window->imageView(impl->window->imageIndex())->image
-                                     : impl->offscreen_color,
-                      window_capture ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
-                                     : VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+        if (present && impl->capture_window) {
+            const auto index = impl->window->imageIndex();
+            if (index >= impl->window->numFrames())
+                throw std::runtime_error("Rendered window image is unavailable");
+            const auto view = impl->window->imageView(index);
+            if (!view) throw std::runtime_error("Rendered window image is unavailable");
+            // Swapchain Image wrappers omit metadata; take it from the actual
+            // ImageView and window, independently of the offscreen target.
+            impl->capture(view->image, view->format, impl->window->extent2D(),
+                          VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+        } else {
+            const auto image = impl->offscreen_color;
+            impl->capture(image, image->format, {image->extent.width, image->extent.height},
+                          VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+        }
     }
     if (present) viewer->present();
     viewer->deviceWaitIdle();
