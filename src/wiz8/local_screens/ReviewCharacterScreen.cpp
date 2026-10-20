@@ -83,7 +83,6 @@
 #include "wiz8/platform/random.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/compositor.h"
-#include "wiz8/render/draw_shader.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/activity.h"
 #include "wiz8/rules/character.h"

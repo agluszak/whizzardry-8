@@ -1635,38 +1635,17 @@ OverlayQuad* CreateAutomapItemMarker(int item_id)
    register the clone for release after the pass. */
 OverlayQuad* CreateAutomapMonsterMarker(int type)
 {
-    auto owned = std::make_unique<OverlayQuad>();
+    const std::array prototypes{g_automap_friendly_marker.get(), g_automap_neutral_marker.get(),
+                                g_automap_hostile_marker.get()};
+    if (type < 0 || type >= static_cast<int>(prototypes.size())) return nullptr;
+    const auto& prototype = *prototypes[type];
+    auto owned = makeOverlayFromTexture(prototype.texture, prototype.size.x / 640.0,
+                                        prototype.size.y / 480.0, true, false);
     auto* marker = owned.get();
     marker->detach();
-    switch (type) {
-    case 0: {
-        glm::vec4 first;
-        glm::vec4 second;
-        *marker = *g_automap_friendly_marker;
-        second = glm::vec4(0.0f, 0.5f, 0.0f, 1.0f);
-        first = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
-        marker->glow_colors = {first, second};
-        break;
-    }
-    case 1: {
-        glm::vec4 first;
-        glm::vec4 second;
-        *marker = *g_automap_neutral_marker;
-        second = glm::vec4(0.25f, 0.25f, 0.0f, 1.0f);
-        first = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
-        marker->glow_colors = {first, second};
-        break;
-    }
-    case 2: {
-        glm::vec4 first;
-        glm::vec4 second;
-        *marker = *g_automap_hostile_marker;
-        second = glm::vec4(0.5f, 0.0f, 0.0f, 1.0f);
-        first = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
-        marker->glow_colors = {first, second};
-        break;
-    }
-    }
+    const std::array colors{glm::vec4(0, .5f, 0, 1), glm::vec4(.25f, .25f, 0, 1),
+                            glm::vec4(.5f, 0, 0, 1)};
+    marker->glow_colors = {glm::vec4(0, 0, 0, 1), colors[type]};
     g_automap_markers.push_back(std::move(owned));
     marker->glow_enabled = true;
     marker->glow_period = 2000;
@@ -1682,9 +1661,10 @@ OverlayQuad* CreateAutomapMonsterMarker(int type)
    pass. */
 OverlayQuad* CreateAutomapTextMarker(void)
 {
-    auto owned = std::make_unique<OverlayQuad>();
+    const auto& prototype = *g_automap_text_marker;
+    auto owned = makeOverlayFromTexture(prototype.texture, prototype.size.x / 640.0,
+                                        prototype.size.y / 480.0, true, false);
     auto* marker = owned.get();
-    *marker = *g_automap_text_marker;
     marker->detach();
     g_automap_markers.push_back(std::move(owned));
     float factor = (1.0f / (g_automap_zoom * 0.00004f)) * 0.44f * 0.5f;

@@ -128,7 +128,6 @@
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/compositor.h"
-#include "wiz8/render/draw_shader.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/texture.h"
