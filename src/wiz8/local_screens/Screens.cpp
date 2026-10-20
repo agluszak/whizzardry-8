@@ -351,17 +351,20 @@ struct GameEventPresentation {
         else
             RefundCharacterScreenSkill(change.skill);
     }
-    // Shown at once only over the idle exploring main game; otherwise it waits.
     void operator()(const SkillImproved& improved) const
     {
         auto& game = CurrentGame();
-        const bool now = !game.combat.active() && !IsModalOpen() && !game.item_pick_pending &&
-                         CurrentScreenState().id == W8_SCREEN_MAIN_GAME && IsScreenIdle() &&
-                         !improved.quiet;
-        AnnounceSkillIncrease(game, improved.party_slot, improved.skill, now);
+        AnnounceSkillIncrease(game, improved.party_slot, improved.skill,
+                              !improved.quiet && SkillIncreasesShownNow(game));
     }
 };
 } // namespace
+
+bool SkillIncreasesShownNow(const Game& game)
+{
+    return !game.combat.active() && !IsModalOpen() && !game.item_pick_pending &&
+           CurrentScreenState().id == W8_SCREEN_MAIN_GAME && IsScreenIdle();
+}
 
 void PresentGameEvent(const Event& event)
 {

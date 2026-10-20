@@ -767,6 +767,11 @@ bool CampScreen::leave(ScreenDeparture)
     g_calligraphy_shadow_font.resetPalette();
     g_wiz_text_font.resetPalette();
     state.reset();
+    // A conversation set aside for the camp resumes once the main game runs again.
+    if (auto* main_game = MainGame();
+        main_game && GameInProgress() && CurrentGame().activity.conversation_aside) {
+        main_game->resume_conversation = true;
+    }
     return true;
 }
 
