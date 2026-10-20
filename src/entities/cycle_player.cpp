@@ -852,8 +852,8 @@ void CyclePlayer::UpdateParticleAttachments()
         }
         auto offset = attachment.position;
         if (const auto mapped = findMappedVertex(psrMesh->getModel(), particle->attachment_key)) {
-            const auto vertex = mapped->index < mapped->mesh->vertex_location_count
-                                    ? mapped->index : 0;
+            const auto vertex =
+                mapped->index < mapped->mesh->vertex_location_count ? mapped->index : 0;
             if (const auto sampled = psrMesh->sampledPosition(*mapped->mesh, vertex))
                 offset = *sampled;
         }

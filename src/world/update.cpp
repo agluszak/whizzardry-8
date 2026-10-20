@@ -240,12 +240,15 @@ bool hasLineOfSightToBounds(const glm::vec3& origin, const BoundingBox& bounds)
     });
 }
 
-/* Build the concrete first-party instance used for an already-created mesh. */
+/* Finish the retail render representation before publishing its first instance.
+   All frames, material partitions, owned parts and compound bounds are ready
+   here; building ordinary VSG arrays does not require a graphics device. */
 std::unique_ptr<MeshInstance> CreateModelInstance(std::shared_ptr<Mesh> model)
 {
     if (model == nullptr) {
         Fail("pstMeshModel");
     }
+    for (auto* part : meshParts(model.get())) part->renderAsset();
     auto instance = std::make_unique<MeshInstance>(nullptr);
     instance->setName("ST_CreateInstance");
     instance->setModel(model);

@@ -12,7 +12,6 @@
 #include <utility>
 #include <vector>
 
-#include <glm/common.hpp>
 #include <glm/geometric.hpp>
 #include <glm/matrix.hpp>
 #include <vsg/core/Array.h>
@@ -597,10 +596,7 @@ void ParticleSystem::updateRenderNode(render::RenderContext& context, const Scen
     }
     data.cull->bound = vsg::dsphere(center.x, center.y, center.z, radius);
     render::InstanceBlock instance;
-    if (scene)
-        instance.ambient = glm::clamp(
-            glm::vec4((scene->ambient_light + frame.environment_offset) * frame.brightness, 0),
-            0.0f, 1.0f);
+    if (scene) instance.ambient = glm::vec4(scene->ambient_light, 0);
     instance.bounds = glm::vec4(center, radius);
     render::store(*data.geometry.instance, instance);
     render::store(*data.geometry.pass, render::packPass(std::array{material},

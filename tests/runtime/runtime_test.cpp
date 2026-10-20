@@ -74,6 +74,8 @@
 
    Run under SDL's X11 video driver under Xvfb (no host input) with
    movies skipped through WIZ8_TEST_HOOK. Exit code 77 means assets are absent. */
+#include <vsg/state/ViewportState.h>
+
 #include "catch2/catch_message.hpp"
 #include "mgs_commands.h"
 #include "scoped_asset_roots.h"
@@ -133,14 +135,14 @@
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_script_file.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/material_loader.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/particle_system.h"
-#include "wiz8/render/world_scene.h"
-#include <vsg/state/ViewportState.h>
 #include "wiz8/render/renderer.h"
+#include "wiz8/render/world_scene.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
@@ -1295,14 +1297,16 @@ void CheckTwoWorldViews(GameHarness& game)
     const auto stamp = g_renderer->frameNumber();
     const SceneFrame frame{.time = RenderClockSeconds()};
     for (int x : {0, SCREEN_WIDTH / 2})
-        g_renderer->addView(scene.createView(g_renderer->context(), GetWorld()->camera, frame,
-                            vsg::ViewportState::create(x, 0, SCREEN_WIDTH / 2, SCREEN_HEIGHT), stamp));
+        g_renderer->addView(scene.createView(
+            g_renderer->context(), GetWorld()->camera, frame,
+            vsg::ViewportState::create(x, 0, SCREEN_WIDTH / 2, SCREEN_HEIGHT), stamp));
     g_renderer->endFrame(false, true);
     const auto pixels = game.read_frame();
     unsigned colored = 0;
     for (int y = 0; y < SCREEN_HEIGHT; ++y)
         for (int x = 0; x < SCREEN_WIDTH / 2; ++x) {
-            REQUIRE(pixels[y * SCREEN_WIDTH + x] == pixels[y * SCREEN_WIDTH + x + SCREEN_WIDTH / 2]);
+            REQUIRE(pixels[y * SCREEN_WIDTH + x] ==
+                    pixels[y * SCREEN_WIDTH + x + SCREEN_WIDTH / 2]);
             colored += pixels[y * SCREEN_WIDTH + x] != 0;
         }
     REQUIRE(colored > SCREEN_WIDTH * SCREEN_HEIGHT / 16);

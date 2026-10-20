@@ -21,9 +21,9 @@
 #include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/rules/random.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/render/texture.h"
+#include "wiz8/rules/random.h"
 
 namespace {
 // The drawing function's bare name: GCC spells the whole signature, Clang only the name.

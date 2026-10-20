@@ -111,7 +111,7 @@ private:
 
 std::shared_ptr<MeshAsset> makeMeshAsset(Mesh& mesh);
 bool authoredFaceVisible(const vsg::vec3Array& normals, const vsg::vec3Array& positions,
-                         const vsg::uintArray& indices, std::uint32_t first,
-                         const glm::vec3& eye, bool positive_winding);
+                         const vsg::uintArray& indices, std::uint32_t first, const glm::vec3& eye,
+                         bool positive_winding);
 
 } // namespace render

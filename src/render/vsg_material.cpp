@@ -18,6 +18,7 @@
 #include <glm/ext/vector_float4.hpp>
 #include <glm/ext/vector_uint4.hpp>
 #include <vsg/core/Array.h>
+#include <vsg/core/Array2D.h>
 #include <vsg/core/Data.h>
 #include <vsg/core/ref_ptr.h>
 #include <vsg/maths/vec3.h>
@@ -40,8 +41,9 @@
 #include <vsg/state/ShaderStage.h>
 #include <vsg/state/VertexInputState.h>
 #include <vsg/state/ViewportState.h>
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 
+#include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/fog.h"
 #include "wiz8/render/light.h"
@@ -353,8 +355,7 @@ void store(vsg::vec4Array& destination, std::span<const glm::vec4> values)
 
 vsg::ref_ptr<vsg::vec4Array> makeInstanceArray(const InstanceBlock& block)
 {
-    auto result =
-        vsg::vec4Array::create(static_cast<std::uint32_t>(sizeof(block) / sizeof(glm::vec4)));
+    auto result = vsg::vec4Array::create(4);
     result->properties.dataVariance = vsg::DYNAMIC_DATA;
     store(*result, block);
     return result;

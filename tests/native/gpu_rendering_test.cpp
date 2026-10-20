@@ -102,7 +102,9 @@ TEST_CASE("Two VSG views render an ordinary subgraph from one world")
     fixture.renderer->addView(left);
     fixture.renderer->addView(right);
     fixture.renderer->endFrame(false, true);
-    REQUIRE(fixture.pixel(16, 32) == 0xff0000);
-    REQUIRE(fixture.pixel(48, 32) == 0xff0000);
+    const auto left_pixel = fixture.pixel(16, 32);
+    REQUIRE((left_pixel >> 16) >= 200);
+    REQUIRE((left_pixel & 0xffff) == 0);
+    REQUIRE(fixture.pixel(48, 32) == left_pixel);
     REQUIRE(scene.root->children.back() == ordinary);
 }

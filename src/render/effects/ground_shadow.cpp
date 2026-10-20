@@ -7,7 +7,6 @@
 #include <string>
 #include <vector>
 
-#include <glm/common.hpp>
 #include <glm/ext/vector_float3.hpp>
 #include <vsg/core/Array.h>
 #include <vsg/core/ref_ptr.h>
@@ -115,10 +114,7 @@ void GroundShadow::updateRenderNode(render::RenderContext& context, const SceneF
 
     const GroundShadowProjection projection(position, width, depth, angle);
     render::InstanceBlock instance;
-    if (scene)
-        instance.ambient = glm::clamp(
-            glm::vec4((scene->ambient_light + frame.environment_offset) * frame.brightness, 0),
-            0.0f, 1.0f);
+    if (scene) instance.ambient = glm::vec4(scene->ambient_light, 0);
     instance.bounds = glm::vec4(position, radius);
     for (std::size_t first = 0; first < polygons.size();) {
         const auto mesh_index = polygons[first] >> 16;

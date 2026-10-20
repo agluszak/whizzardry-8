@@ -21,7 +21,7 @@
 #include <vsg/state/PipelineLayout.h>
 #include <vsg/state/ShaderStage.h>
 #include <vsg/state/ViewportState.h>
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 
 #include "wiz8/render/draw_inputs.h"
 
