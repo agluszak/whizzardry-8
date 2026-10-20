@@ -71,6 +71,13 @@
 #include "wiz8/world/world.h"
 
 namespace {
+/* Path cells key Z in the high half and X in the low half, modulo 2^32 like
+   retail, so out-of-grid coordinates still produce a (missing) key. */
+unsigned int pathCellKey(int x, int z)
+{
+    return static_cast<unsigned int>(z) * 0x10000u + static_cast<unsigned int>(x);
+}
+
 Monster* navigationMonster(const NavigationMesh& navigation, int location)
 {
     const auto* world = navigation.owner_octree ? navigation.owner_octree->owner_world : nullptr;
@@ -379,7 +386,7 @@ PathCellCoordinates NavigationMesh::pathCell(const glm::vec3& position) const
     const glm::ivec2 cell((glm::vec2(position.x, position.z) -
                            glm::vec2(level_bounds.minimum.x, level_bounds.minimum.z)) /
                           grid_scale);
-    return {cell, static_cast<unsigned>(cell.y) * 0x10000u + static_cast<unsigned>(cell.x)};
+    return {cell, pathCellKey(cell.x, cell.y)};
 }
 
 /* Offer every flagged surface to the path builder.
@@ -3130,7 +3137,7 @@ bool NavigationMesh::ProbeWaypointSegment(PathSearchScratch& path_search, const 
     int iteration = 0;
 
     while (iteration < walk.count && !blocked) {
-        unsigned int cell_key = cell.y * 0x10000 + cell.x;
+        unsigned int cell_key = pathCellKey(cell.x, cell.y);
         std::unordered_map<unsigned int, int>* visited_index = &path_search.visited_cells;
         unsigned int visited = LookupIndexValue(*visited_index, cell_key);
 
@@ -3252,7 +3259,7 @@ unsigned int NavigationMesh::ComputeWaypointNeighborMask(const glm::ivec2* cell,
                 --neighbor.y;
             }
 
-            unsigned int key = neighbor.y * 0x10000 + neighbor.x;
+            unsigned int key = pathCellKey(neighbor.x, neighbor.y);
             auto* index = &cells;
             auto slot = index->equal_range(key).first;
             bool found = false;
@@ -3423,7 +3430,7 @@ PathSpanResult NavigationMesh::tracePathSpan(const glm::vec3& source, const glm:
         } else if (error < 0 && !blocked) {
             cell[walk.minor_axis0] += walk.step[walk.minor_axis0];
             error += walk.error_reset0;
-            if (static_cast<unsigned int>(cell.y * 0x10000 + cell.x) == destination_key) {
+            if (pathCellKey(cell.x, cell.y) == destination_key) {
                 --iteration;
                 direction = directions[1];
             } else {
@@ -3448,7 +3455,7 @@ PathSpanResult NavigationMesh::tracePathSpan(const glm::vec3& source, const glm:
             blocked = true;
         }
 
-        cell_key = cell.y * 0x10000 + cell.x;
+        cell_key = pathCellKey(cell.x, cell.y);
         ++iteration;
     }
 
@@ -3593,7 +3600,7 @@ float NavigationMesh::MeasureDirectionalPath(const glm::ivec2* cell, int directi
     while (grid_scale < remaining) {
         cell_x += step_x;
         cell_z += step_z;
-        unsigned int key = cell_z * 0x10000 + cell_x;
+        unsigned int key = pathCellKey(cell_x, cell_z);
         auto* index = &cells;
         auto slot = index->equal_range(key).first;
         unsigned int path_value;

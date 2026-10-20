@@ -1,5 +1,6 @@
 #include "wiz8/platform/GameTimeAccumulator.h"
 
+#include <cstdint>
 #include <optional>
 
 #include "wiz8/platform/game_timer.h"
@@ -60,8 +61,8 @@ float W8GameTimeAccumulator::Update()
     if (m_flags.paused || (g_shared_timer_paused && !m_flags.raw_time) || g_shared_timer_flag0) {
         m_frame_delta = 0.0f;
     } else {
-        int sample = ReadClock();
-        m_elapsed_ticks = static_cast<unsigned int>(sample - m_start);
+        const std::uint32_t sample = ReadClock();
+        m_elapsed_ticks = sample - m_start;
         m_start = sample;
         m_frame_delta = m_elapsed_ticks / static_cast<float>(static_cast<unsigned int>(m_duration));
         if (m_frame_delta > m_max_frame_delta) {

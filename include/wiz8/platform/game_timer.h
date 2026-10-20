@@ -7,8 +7,8 @@ namespace wiz8 {
 class File;
 }
 
-extern int g_shared_timer_pause_base;
-extern int g_shared_timer_pause_time;
+extern std::uint32_t g_shared_timer_pause_base;
+extern std::uint32_t g_shared_timer_pause_time;
 extern bool g_shared_timer_paused;
 extern bool g_shared_timer_flag0;
 extern bool g_level_motion_resume_pending;
@@ -41,8 +41,10 @@ public:
 
     W8GameTimer();
     W8GameTimer(float duration, bool raw_time);
-    int ReadClock() const;
-    int GetTime();
+    /* Clock samples and stamps are modulo 2^32 ticks: intervals are measured
+       as unsigned differences, so the clock may wrap. */
+    std::uint32_t ReadClock() const;
+    std::uint32_t GetTime();
     void SetMode(W8TimerClock mode);
     void SetDuration(float duration);
     void Restart();
@@ -55,8 +57,8 @@ public:
 
     W8TimerClock m_clock_mode; /* 1 reads the game clock */
     Flags m_flags;             /* runtime clock state; save/load uses progress and scale */
-    int m_start;
-    int m_end;                 /* start + duration */
+    std::uint32_t m_start;
+    std::uint32_t m_end;       /* start + duration */
     int m_duration;            /* 10000 */
     float m_duration_seconds;
     float m_duration_scale;

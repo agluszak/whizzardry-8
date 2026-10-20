@@ -1,5 +1,6 @@
 #include "wiz8/platform/IntervalGate.h"
 
+#include <cstdint>
 #include <exception>
 
 #include "wiz8/chunk.h"
@@ -28,8 +29,7 @@ unsigned int W8IntervalGate::PollElapsedIntervals()
     if (m_finished) {
         return 1;
     }
-    unsigned int intervals = static_cast<unsigned int>(ReadClock() - m_start) /
-                             static_cast<unsigned int>(m_end - m_start);
+    unsigned int intervals = (ReadClock() - m_start) / (m_end - m_start);
     if (static_cast<int>(intervals) > 0) {
         if (m_flags.one_shot) {
             m_finished = true;
@@ -61,9 +61,8 @@ bool W8IntervalGate::SaveState(wiz8::File& handle)
 {
     float elapsed;
     if (!m_flags.one_shot) {
-        int sample = ReadClock();
-        float progress = static_cast<unsigned int>(sample - m_start) /
-                         static_cast<float>(static_cast<unsigned int>(m_end - m_start));
+        const std::uint32_t sample = ReadClock();
+        float progress = (sample - m_start) / static_cast<float>(m_end - m_start);
         // The on-disk pair and its OR-combined result mirror W8GameTimer::Load.
         bool saved = (handle.write(&progress, sizeof(progress)), true);
         saved |= (handle.write(&m_duration_scale, sizeof(m_duration_scale)), true);

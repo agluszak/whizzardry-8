@@ -73,8 +73,11 @@ TEST_CASE_METHOD(TimerFixture, "Clock lifetime is independent of timers and game
 TEST_CASE_METHOD(TimerFixture, "Game-day time and accelerated frame deltas keep separate clocks",
                  "[timers]")
 {
+    // Thirty game days put the tick clock past 2^32, so it has wrapped.
+    CurrentGame().status.game_time_days = 30;
     W8GameTimer game(2.0f, false);
     game.SetMode(W8_TIMER_CLOCK_GAME);
+    REQUIRE(game.ReadClock() == static_cast<std::uint32_t>(30ull * 864'000'000));
     advance(250'000);
     REQUIRE(game.GetProgress() == 0);
     CurrentGame().status.game_time_ms = 250;
