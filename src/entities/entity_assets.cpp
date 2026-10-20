@@ -4,19 +4,10 @@
 #include <string_view>
 
 #include "wiz8/entities/missile.h"
-#include "wiz8/entities/monster.h"
 #include "wiz8/entities/spell_visual.h"
 #include "wiz8/unicode.h"
 #include "wiz8/world/world.h"
 
-Monster* findMonsterAsset(const World& world, std::string_view name)
-{
-    const auto found =
-        std::find_if(world.monsters.begin(), world.monsters.end(), [&](const auto& monster) {
-            return CompareTextIgnoreAsciiCase(monster->asset_name, name) == 0;
-        });
-    return found == world.monsters.end() ? nullptr : found->get();
-}
 Missile* findMissileAsset(const World& world, std::string_view name)
 {
     const auto found =
