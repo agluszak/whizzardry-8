@@ -2886,11 +2886,8 @@ CombatWait CombatWaitFor(Game& game)
     if (AnyCombatMonsterBusy()) {
         return CombatWait::monster;
     }
-    if (state.hit_sound_active) {
-        if (wiz8::sound::is_playing(state.hit_sound)) {
-            return CombatWait::hit_sound;
-        }
-        state.hit_sound_active = false;
+    if (state.hit_sound) {
+        return CombatWait::hit_sound;
     }
     if (!AllSpellEffectsStillRunning()) {
         return CombatWait::spell_effect;

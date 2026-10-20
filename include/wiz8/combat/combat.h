@@ -197,8 +197,9 @@ struct Combat {
     /* Historical offset 0x7ac: the pacing clock the scheduler arms as a MonotonicMilliseconds deadline
        before the scheduled actor's action may execute. */
     uint64_t action_clock;
+    /* The hit sound the turn waits on; its completion releases it (an empty playback
+       when none is held). */
     wiz8::sound::Playback hit_sound;
-    bool hit_sound_active;
     W8EffectSlot effect_slots[9];
     W8EffectSlot effect_slots0[6];
     Missile* engaged_missile;

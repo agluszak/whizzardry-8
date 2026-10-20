@@ -35,6 +35,17 @@
 static std::array<std::string, 38> g_weapon_attack_sounds;
 static std::array<std::array<std::string, 12>, 28> g_material_impact_sounds;
 
+/* A held combat sound finished. The fight stops waiting once the hit sound it holds is
+   no longer playing; an earlier one finishing leaves a newer one held. */
+static void ReleaseFinishedHitSound()
+{
+    if (!GameInProgress()) return;
+    auto& combat = CurrentGame().combat;
+    if (combat && combat->hit_sound && !wiz8::sound::is_playing(combat->hit_sound)) {
+        combat->hit_sound = {};
+    }
+}
+
 /* Build the selected variant without modifying the borrowed sound name.
    Positive volume is scaled by the effects setting; other values use the default. */
 void PlayCombatSound(std::string_view sound_name, unsigned int variant_count, bool store_handle,
@@ -56,17 +67,14 @@ void PlayCombatSound(std::string_view sound_name, unsigned int variant_count, bo
              "&& status->info.type == SDL_PATHTYPE_FILE; }()",
              fmt::format("CombatSound: ERROR - Sound file {} not found", zSoundFileName));
     }
+    wiz8::sound::PlayOptions options;
     if (volume > 0) {
-        handle = wiz8::sound::play(
-            zSoundFileName,
-            {.volume = static_cast<unsigned int>(g_settings.sound_effects_volume * volume) / 127});
-    } else {
-        handle = wiz8::sound::play(zSoundFileName);
+        options.volume = static_cast<unsigned int>(g_settings.sound_effects_volume * volume) / 127;
     }
-    if (handle != nullptr && CurrentGame().combat.has_value() && store_handle) {
-        CurrentGame().combat->hit_sound = handle;
-        CurrentGame().combat->hit_sound_active = true;
-    }
+    const bool held = store_handle && CurrentGame().combat.has_value();
+    if (held) options.on_finished = ReleaseFinishedHitSound;
+    handle = wiz8::sound::play(zSoundFileName, std::move(options));
+    if (handle != nullptr && held) CurrentGame().combat->hit_sound = handle;
 }
 
 unsigned char LoadHitSoundDatabase(void)

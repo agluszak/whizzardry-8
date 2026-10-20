@@ -19,8 +19,7 @@ enum class CombatWait : unsigned char {
     npc_script,   // a conscious NPC party slot's combat script is still queued
 };
 
-/* The first thing combat waits on this frame. A hit sound that has finished
-   is retired as it is checked. */
+/* The first thing combat waits on this frame. */
 CombatWait CombatWaitFor(Game& game);
 
 void ChooseAction(int party_slot, W8ActionKind action, int detail, const W8ActionDetailBlock* data,
