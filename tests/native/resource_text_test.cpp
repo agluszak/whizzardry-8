@@ -7,6 +7,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include "scoped_game.h"
 #include "temporary_directory.h"
 #include "wiz8/asset_paths.h"
 #include "wiz8/entities/monster.h"
@@ -49,6 +50,7 @@ TEST_CASE("resource_text_test")
     REQUIRE((!script.Load("data/missing.txt")));
 
     {
+        const ScopedGame game; // Script conditions draw from the game's stream.
         Monster monster;
         REQUIRE((monster.EvaluateScriptCondition("random(100)")));
         REQUIRE((!monster.EvaluateScriptCondition("RANDOM(0)")));

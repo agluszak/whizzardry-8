@@ -195,8 +195,8 @@ Unlayered code may use the layers.
     draw follows from the reseed.
   - Presentation draws from its own stream, `PresentationRng()` (`platform/random.h`),
     seeded from the clock: sound variants, pitch and volume, ambient sound and music,
-    particles, animated textures and lights, prop animation, camera shake, damage
-    splats and portrait and spell-page flourishes. In retail they shared the game's
+    particles, animated textures and lights, prop animation, the world-item pulse, camera
+    shake, damage splats and portrait and spell-page flourishes. In retail they shared the game's
     stream, so frame timing and the sound settings moved game draws; now they cannot.
     The game's sequence is retail's with those draws removed.
   - `tests/native/random_test.cpp` traces a seeded game's draws (`Rng::trace` records

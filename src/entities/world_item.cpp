@@ -17,10 +17,10 @@
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/game.h"
 #include "wiz8/legacy_prop_save_ids.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/platform/random.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/mesh.h"
@@ -36,7 +36,7 @@ static constexpr float kItemBoundsVerticalFactor = 0.66f;
 WorldItemEntity::WorldItemEntity()
 {
     flags = W8_ITEM_ENTITY_PULSE_INCREASING;
-    pulse_level = static_cast<float>(CurrentGame().rng.below(20) * 0.05);
+    pulse_level = static_cast<float>(PresentationRng().below(20) * 0.05);
     trigger = nullptr;
     AllocateLegacyPropSaveId();
     countdown = MonotonicMilliseconds();

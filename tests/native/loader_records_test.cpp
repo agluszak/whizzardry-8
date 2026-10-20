@@ -913,6 +913,7 @@ TEST_CASE_METHOD(LoaderFixture, "Trigger rejects an incomplete saved item group"
     bytes.append(13, '\0');
     store("truncated-trigger.bin", bytes);
     auto file = wiz8::open_file(wiz8::asset_path("truncated-trigger.bin"));
+    const ScopedGame game; // A new trigger draws its item group's seed from the game.
     Trigger trigger;
     REQUIRE_FALSE(
         ReadSavePayload(*file, [&](W8Chunk& chunk) { return trigger.Load(chunk, 5, false); }));
