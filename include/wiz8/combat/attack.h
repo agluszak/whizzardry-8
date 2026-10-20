@@ -111,7 +111,6 @@ void GetCharacterHandDamageDice(const W8Character* character, int hand, W8Dice* 
 int GetCharacterHandDamageBonus(const W8Character* character, int hand);
 
 int GetHandAttackValue(int party_slot, unsigned int hand);
-W8MonsterCycle NormalizeMonsterCycle(W8MonsterCycle attack_mode);
 W8AttackMode ChooseAttackMode(unsigned int attack_modes);
 
 /* How much of a hit a monster actually takes - its own adjustment

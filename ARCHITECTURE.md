@@ -324,7 +324,8 @@ Unlayered code may use the layers.
   steps it once per frame after `Combat::waitingOn` reports nothing to wait on (camera,
   monster animation, hit sound, retiring spell effect, missile, queued NPC script, in
   that order). The held hit sound is released by its completion callback; the camera,
-  monsters and missiles are read as they are. The scheduler and the actions it runs are
+  monsters and missiles are read as they are, the monsters through
+  `Monster::HoldsCombatTurn`, so their cycles and frame thresholds stay in the entity. The scheduler and the actions it runs are
   `Combat` members that take the game (`combat/actions.cpp`); a party member's action
   is `ExecuteCharacterAction(game, slot)`, because members also act outside a fight.
   Outside code changes the turn only through `endTurnOf` and `setStepOf`, which leave

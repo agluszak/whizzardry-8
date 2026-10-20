@@ -266,13 +266,13 @@ the licensed runtime scenarios after every step.
        operations in `combat/fight.cpp` (rounds, surprise, the end check, action
        choices). They should take the game, then a `RuleContext`, and return what
        happened instead of reporting it.
-     - `Combat::waitingOn` still polls presentation each step: the camera's
-       transition, each combat monster's cycle, frame and facing, and the missiles in
-       flight (`BlocksEndingCombat`, which `Combat::step` also polls to release the
-       engaged missile). A monster is busy until its attack cycle passes half its
-       frames or its yaw comes within an epsilon of its target, and a missile until its
-       impact cycle starts. The renderer migration that this waited for has landed:
-       grow the entity-to-game signal boundary (`SimulationSink`) with the transitions
+     - `Combat::waitingOn` still polls each step: the camera's transition, each combat
+       monster (`Monster::HoldsCombatTurn`, which keeps the cycle, frame-threshold and
+       facing rules inside the entity) and the missiles in flight (`BlocksEndingCombat`,
+       which `Combat::step` also polls to release the engaged missile). Combat no longer
+       reads cycle indices or frame counts, but it still asks every step rather than
+       hearing when an actor becomes ready. The renderer migration that this waited for
+       has landed: grow the entity-to-game signal boundary (`SimulationSink`) with the transitions
        combat needs (an attack reaches its release point, a missile impacts, an actor
        becomes ready, a camera cue completes), raised from inside the entity's animation
        and navigation update, including transitions the monster manager causes earlier
