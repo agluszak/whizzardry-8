@@ -20,10 +20,6 @@ a requirement); entities compose `CyclePlayer`, `Navigator` and other values; sp
 and navigation queries take explicit inputs; and `Game::level` owns the worlds, which
 own their resources and entities. Its ownership and API tail:
 
-- **World-cursor state.** The cursor's pick latch, saved monster group and projection
-  distance (`g_cursor_pick_latch`, `g_cursor_saved_group_id`,
-  `g_cursor_projection_distance` in `entities/cursor.cpp`) are process statics copied
-  into and out of the cursor the world owns. Make them members of that cursor.
 - **Actor entity links.** A monster record reaches its scene entity through
   `W8MonsterInfo::p3D` (about 500 uses) and a world item through `W8WorldItem::p3D`.
   These links stay within one world and are kept in step with the entities ("Worlds and

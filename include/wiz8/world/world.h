@@ -25,6 +25,7 @@
 #include "wiz8/world/camera_pose.h"
 #include "wiz8/world/environment.h"
 #include "wiz8/world/party_camera.h"
+#include "wiz8/world_cursor.h"
 
 class LevelScript;
 class W8AmbientSound;
@@ -112,6 +113,7 @@ struct World {
     std::vector<std::unique_ptr<WorldItemEntity>> plsItems;
     std::vector<std::unique_ptr<W8WorldCursorNode>> cursor_nodes;
     std::unique_ptr<W8WorldCursorState> cursor;
+    W8WorldCursorRecall cursor_recall;
     std::vector<std::unique_ptr<Monster>> monsters;
     std::vector<std::unique_ptr<SpellVisual>> spell_visuals;
     std::vector<std::unique_ptr<Missile>> missiles;
