@@ -95,7 +95,7 @@ static W8PortraitGroup g_portrait_groups[12] = {
 };
 
 // FUNCTION: WIZ8 0x005c4540
-W8CampStatsControls::W8CampStatsControls(W8CampScreenState& owner) : screen(owner)
+W8CampStatsControls::W8CampStatsControls(W8CampStatsPage& owner) : page(owner)
 {
     constexpr int y[] = {0xbe, 0xd6, 0xf3};
     for (int index = 0; index < 3; ++index) {
@@ -116,10 +116,10 @@ W8CampStatsControls::W8CampStatsControls(W8CampScreenState& owner) : screen(owne
 
         button->SetPosition(0x13c, y[index]);
     }
-    m_buttons[2]->SetPressed(screen.stats.effect_items_only);
+    m_buttons[2]->SetPressed(page.effect_items_only);
     input.add(SDL_Rect{0x15d, 0xbe, 260, 248}, [this](const UiPointerEvent& event) {
         if (event.action != UiPointerAction::Wheel) return UiResult::Pass;
-        screen.stats.stats_range->AdjustValue(event.wheel);
+        page.stats_range->AdjustValue(event.wheel);
         return UiResult::Handled;
     });
 }
@@ -142,32 +142,32 @@ void W8CampStatsControls::SelectFilter(int index)
     if (index == 0) {
         if (m_buttons[0]->IsPressed()) {
             m_buttons[1]->SetPressed(false);
-            screen.stats.effect_filter = W8_CAMP_EFFECT_FILTER_BENEFICIAL;
+            page.effect_filter = W8_CAMP_EFFECT_FILTER_BENEFICIAL;
         } else {
-            screen.stats.effect_filter = W8_CAMP_EFFECT_FILTER_ALL;
+            page.effect_filter = W8_CAMP_EFFECT_FILTER_ALL;
         }
     } else if (index == 1) {
         if (m_buttons[1]->IsPressed()) {
             m_buttons[0]->SetPressed(false);
-            screen.stats.effect_filter = W8_CAMP_EFFECT_FILTER_DETRIMENTAL;
+            page.effect_filter = W8_CAMP_EFFECT_FILTER_DETRIMENTAL;
         } else {
-            screen.stats.effect_filter = W8_CAMP_EFFECT_FILTER_ALL;
+            page.effect_filter = W8_CAMP_EFFECT_FILTER_ALL;
         }
     } else {
-        screen.stats.effect_items_only = m_buttons[2]->IsPressed();
+        page.effect_items_only = m_buttons[2]->IsPressed();
     }
-    screen.stats.FilterCampEffectList();
-    screen.redraw_flags |= W8_CAMP_REDRAW_EFFECT_LIST;
+    page.FilterCampEffectList();
+    page.InvalidateEffectList();
 }
 
 /* The stats page's full redraw: attribute rows with their base/effective
    delta bars, the profession's bonus skill, the trait grid, then the effect
    list region when its redraw flag is up. */
 // FUNCTION: WIZ8 0x005c48b0
-void W8CampStatsPage::DrawCampStatsPage(void)
+void W8CampStatsPage::DrawCampStatsPage(bool full)
 {
     std::string formatted;
-    if (screen.redraw_flags == W8_CAMP_REDRAW_ALL) {
+    if (full) {
         CatalogArtwork::Load(0x142, 0).drawAndInvalidate(GetFrameBufferSurface(), 1, 0, 0xa5);
         constexpr int origin_x = 0;
         constexpr int origin_y = 0xa5;
@@ -232,7 +232,7 @@ void W8CampStatsPage::DrawCampStatsPage(void)
         stats_controls->InvalidateAll();
         stats_range->InvalidateAll();
     }
-    if ((screen.redraw_flags & W8_CAMP_REDRAW_EFFECT_LIST) != 0) {
+    if (full || effect_list_dirty) {
         InvalidateRegion(0x15d, 0xbe, 0x260, 0x1b5);
         CatalogArtwork::Load(0x1b6, 0).drawRect(GetFrameBufferSurface(),
                                                 SDL_Rect{0, 0, (0x260) - (0x15d), (0x1b5) - (0xbe)},
@@ -700,9 +700,9 @@ static bool IsBestCampSkillLevel(W8Skill skill, unsigned int level)
    headers, then every known skill's name and level with the base/current
    delta bar. */
 // FUNCTION: WIZ8 0x005c5d80
-void W8CampSkillsPage::DrawCampSkillsPage(void)
+void W8CampSkillsPage::DrawCampSkillsPage(bool full)
 {
-    if (screen.redraw_flags == W8_CAMP_REDRAW_ALL) {
+    if (full) {
         bool has_fifth = false;
         int skill;
         for (skill = 0; skill < 0x29; ++skill) {
@@ -1401,9 +1401,9 @@ void W8CampStatsPage::CreateControls()
     stats_range = std::make_unique<W8RangeControl>(screen.scroll_input, 0x264, 0xbe, 0x276, 0x1b5);
     stats_range->on_change = [this](auto* range) {
         effect_scroll = range->m_value;
-        screen.redraw_flags |= W8_CAMP_REDRAW_EFFECT_LIST;
+        effect_list_dirty = true;
     };
-    stats_controls = std::make_unique<W8CampStatsControls>(screen);
+    stats_controls = std::make_unique<W8CampStatsControls>(*this);
 }
 
 void W8CampStatsPage::Activate()

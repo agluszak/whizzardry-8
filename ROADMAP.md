@@ -131,11 +131,12 @@ the licensed runtime scenarios after every step.
    - `g_level_block`, the cursor, the targeting mode, `edited_formation` and `item_drag`
      become screen members. `gXStatus` is deleted. `Game::aging_held` mirrors a pending
      `item_drag`; the screen that owns the drag sets it.
-   - Camp, character and options state folds into their screens, and the HUD panels
-     receive explicit inputs.
-   - Redraw bitmasks give way to invalidation by events.
-   - Camp pages take explicit inputs instead of reaching back through `screen.`, and
-     the item-action buttons belong to the items page.
+   - The HUD panels receive explicit inputs.
+   - The main game's redraw bitmask gives way to invalidation by events, as the camp's
+     per-page invalidation already does.
+   - Camp pages take the reviewed character and the camp's dialogs as explicit inputs
+     instead of reaching back through `screen.`; the items page's cell bitmask becomes
+     per-cell invalidation.
    - The held-item cursor is derived every frame from the hand and the interaction
      mode, replacing `UpdateHeldItemCursor`/`SetItemCursor` calls after commands.
 6. **Conditions, magic and combat in `rules`.**

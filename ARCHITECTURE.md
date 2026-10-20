@@ -257,10 +257,14 @@ widget tree.
   current screen and resumes the top of the stack; returning with nothing
   suspended ends the program. `CreateScreen` builds a screen when it is first
   requested and the router destroys it when it is discarded, so a suspended
-  main game keeps its level block and HUD while the camp, character and options
-  screens rebuild their per-visit state on every entry. Other modules reach a
-  screen through `FindScreen<T>()` or the named accessors (`MainGame()`,
-  `CampScreenState()`, …), never through a global slot. The intro film,
+  main game keeps its level block and HUD. The camp, character and options
+  screens are rebuilt on every visit: their `rebuildRequest` makes the router
+  destroy them when they are suspended and enter a new one with that request
+  in place of resuming them (a rebuilt camp reviews the character it showed).
+  They hold their per-visit state as members and exist only while current.
+- Other modules reach a screen through `FindScreen<T>()` (or `MainGame()`),
+  never through a global slot: `PresentGameEvent` hands an event to the screen
+  that shows it, and UI code calls a screen's own methods. The intro film,
   loading mode, options page and character-screen mode travel in the request's
   mode variant.
 
@@ -326,9 +330,14 @@ widget tree.
   them on destruction.
 - `MainGameScreenState` owns its HUD buttons, input layer and active submenu as
   values. Suspension disables their input; full game exit destroys them.
-- The camp screen owns routing, the header, portraits and dialogs. Its items,
-  stats, skills and spells pages own their state and controls behind a small
-  lifecycle, and the items page repaints cells from what they last showed.
+- The camp screen owns routing, the header, portraits, the page buttons and
+  dialogs. Its items, stats, skills and spells pages own their state and
+  controls behind a small lifecycle; the items page owns the item-action
+  buttons and repaints cells from what they last showed.
+- Camp invalidation is per part: the header and each page record what the next
+  draw repaints, `CampScreen::InvalidateAll` repaints everything, and each draw
+  receives whether it is a full repaint. Everything recorded is cleared after
+  the draw.
 
 ## Tests
 

@@ -34,13 +34,13 @@ struct W8CampEffectEntry {
    list: button 0 selects beneficial rows, button 1 detrimental rows and
    button 2 switches the list to equipped items. */
 
-struct W8CampScreenState;
+class W8CampStatsPage;
 
 class W8CampStatsControls {
-    W8CampScreenState& screen;
+    W8CampStatsPage& page;
 
 public:
-    explicit W8CampStatsControls(W8CampScreenState& screen);
+    explicit W8CampStatsControls(W8CampStatsPage& page);
     void Redraw(SDL_Surface& target, bool force);
     void InvalidateAll();
     void SelectFilter(int index);
