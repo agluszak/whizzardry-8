@@ -4552,14 +4552,16 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
     return UiResult::Handled;
 }
 
-/* Both portrait orbs share this event policy. Member pointers retain their
-   distinct enum fields and reload the live overlay owner after callbacks. */
+/* Both portrait orbs share this event policy. Member pointers pick each orb's
+   effect field and its overlay slot in the HUD. */
 template<class Effect>
 static UiResult DispatchPortraitOrbInput(const UiPointerEvent& event, HitTarget& target, int id,
                                          Effect W8Character::* effect, Effect none,
                                          int W8LevelRuntimeBlock::* selection,
                                          W8PortraitHighlightKind tooltip_kind)
 {
+    W8LevelRuntimeBlock* hud = MainGameHud();
+    if (hud == nullptr) return UiResult::Pass;
     int slot = id;
     W8Character* character = &CurrentGame().party.characters[slot];
 
@@ -4575,8 +4577,8 @@ static UiResult DispatchPortraitOrbInput(const UiPointerEvent& event, HitTarget&
             }
             if (event.action == UiPointerAction::Leave) {
                 SetTooltipSubject(tooltip_kind, -1);
-                if ((MainGameHud()->*selection) != -1) {
-                    (MainGameHud()->*selection) = -1;
+                if ((hud->*selection) != -1) {
+                    (hud->*selection) = -1;
                     DismissHighlightOverlay();
                     RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
                 }
@@ -4585,11 +4587,9 @@ static UiResult DispatchPortraitOrbInput(const UiPointerEvent& event, HitTarget&
                     if ((character->*effect) != none) {
                         SetTooltipSubject(tooltip_kind, slot);
                         if (IsLeftButtonHeld() && (character->*effect) != none) {
-                            (MainGameHud()->*selection) = slot;
-                            if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME &&
-                                MainGameHud() != nullptr) {
+                            (hud->*selection) = slot;
+                            if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME)
                                 RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
-                            }
                         }
                         target.setTooltip(
                             [tooltip_kind] { return Data().strings[24 + tooltip_kind]; });
@@ -4602,10 +4602,10 @@ static UiResult DispatchPortraitOrbInput(const UiPointerEvent& event, HitTarget&
             target.setTooltip({});
             return UiResult::Pass;
         }
-        if ((MainGameHud()->*selection) == -1) {
+        if ((hud->*selection) == -1) {
             return UiResult::Handled;
         }
-        (MainGameHud()->*selection) = -1;
+        (hud->*selection) = -1;
         DismissHighlightOverlay();
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
         return UiResult::Handled;
@@ -4614,7 +4614,7 @@ static UiResult DispatchPortraitOrbInput(const UiPointerEvent& event, HitTarget&
     if ((character->*effect) == none) {
         return UiResult::Handled;
     }
-    (MainGameHud()->*selection) = slot;
+    (hud->*selection) = slot;
     RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
     return UiResult::Handled;
 }
