@@ -275,7 +275,7 @@ template<> struct Record<W8MonsterInfo> {
               field(offsetof(Disk, monster_group_id), sizeof(Disk::monster_group_id)));
         value(&runtime.monster_species,
               field(offsetof(Disk, monster_species), sizeof(Disk::monster_species)));
-        pointer_slot(runtime.p3D, field(offsetof(Disk, p3D), sizeof(Disk::p3D)));
+        pointer_slot(runtime.entity, field(offsetof(Disk, p3D), sizeof(Disk::p3D)));
         pointer_slot(runtime.pCombat, field(offsetof(Disk, pCombat), sizeof(Disk::pCombat)));
         value(&runtime.fActive, field(offsetof(Disk, fActive), sizeof(Disk::fActive)));
         // Saved combat state is transient; loading never reconstructs a fight.
@@ -461,7 +461,7 @@ template<> struct Record<W8WorldItem> {
             return bytes.subspan(offset, size);
         };
         value(&runtime.runtime_id, field(offsetof(Disk, runtime_id), sizeof(Disk::runtime_id)));
-        pointer_slot(runtime.p3D, field(offsetof(Disk, p3D), sizeof(Disk::p3D)));
+        pointer_slot(runtime.entity, field(offsetof(Disk, p3D), sizeof(Disk::p3D)));
         value(&runtime.fActive, field(offsetof(Disk, fActive), sizeof(Disk::fActive)));
         nested(runtime.item, field(offsetof(Disk, item), sizeof(Disk::item)), value, text);
         nested(runtime.position, field(offsetof(Disk, position), sizeof(Disk::position)), value,

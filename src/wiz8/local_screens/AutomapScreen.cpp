@@ -572,10 +572,10 @@ bool AutomapScreen::enter(const ScreenRequest&)
     const auto monster_count = CurrentLevelPopulation().monster_roster.live().size();
     for (unsigned int index = 0; index < monster_count; ++index) {
         W8MonsterInfo* monster = GetMonsterListEntry(index);
-        if (monster->p3D) monster->p3D->visual.DetachRepresentation(GetWorld());
+        if (monster->entity.find()) monster->entity->visual.DetachRepresentation(GetWorld());
     }
     for (const auto& item : CurrentLevelPopulation().world_items) {
-        if (item->p3D) item->p3D->DetachMesh();
+        if (item->entity.find()) item->entity->DetachMesh();
     }
     SetMouseMoveEventsEnabled(1);
     g_automap_cursor_inside = IsCursorInsideViewport();
@@ -1459,7 +1459,7 @@ void RenderAutomapMarkers(void)
     const auto count = CurrentLevelPopulation().monster_roster.live().size();
     for (unsigned int index = 0; index < count; ++index) {
         W8MonsterInfo* info = GetMonsterListEntry(index);
-        Monster* monster = info->p3D;
+        Monster* monster = info->entity.find();
         glm::vec3 location;
         location = monster->visual.GetLocation();
         FindAutomapLayerAtHeight(location.y);
@@ -1496,7 +1496,7 @@ void RenderAutomapMarkers(void)
         }
     }
     for (const auto& world_item : CurrentLevelPopulation().world_items) {
-        WorldItemEntity* item = world_item->p3D;
+        WorldItemEntity* item = world_item->entity.find();
         if (item == 0) {
             continue;
         }

@@ -20,14 +20,12 @@ a requirement); entities compose `CyclePlayer`, `Navigator` and other values; sp
 and navigation queries take explicit inputs; and `Game::level` owns the worlds, which
 own their resources and entities. Its ownership and API tail:
 
-- **Actor entity links.** A monster record reaches its scene entity through
-  `W8MonsterInfo::p3D` (about 500 uses) and a world item through `W8WorldItem::p3D`.
-  These links stay within one world and are kept in step with the entities ("Worlds and
-  levels"), but only an active record is sure to have one, and most callers dereference
-  `p3D` without checking. Give the records a checked accessor for their entity (or let
-  the record own it) and migrate the callers, starting outside the combat files, so
-  each caller says whether it looks an entity up if active or requires one (combat
-  reads `monster_info->p3D` directly).
+- **Actor entity links.** Records reach their entities through `EntityLink`
+  (ARCHITECTURE.md, "Worlds and levels"), but the migration was mechanical: callers that
+  dereferenced the link now require an entity, and those that passed it on look it up.
+  About 105 `entity.find()` calls hand a possibly null entity to helpers such as
+  `SetMonsterSpellIcon` or `AimAtMonster`; each such helper should take the record or a
+  reference, as its callers' guarantees allow.
 
 ## Target architecture
 

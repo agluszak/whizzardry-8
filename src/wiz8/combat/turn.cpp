@@ -42,7 +42,7 @@ bool AnyCombatMonsterBusy(const Combat& fight)
     auto monster_count = CurrentLevelPopulation().monster_roster.live().size();
     for (unsigned int monster_index = 0; monster_index < monster_count; ++monster_index) {
         W8MonsterInfo* monster_info = GetMonsterListEntry(monster_index);
-        Monster* monster = monster_info->p3D;
+        Monster* monster = monster_info->entity.find();
         W8MonsterCycle cycle = static_cast<W8MonsterCycle>(monster->Query(W8_MONSTER_QUERY_CYCLE));
         if (cycle == W8_MONSTER_CYCLE_DIE &&
             GetMonsterDataForInfo(monster_info)->record_id == 0x234) {

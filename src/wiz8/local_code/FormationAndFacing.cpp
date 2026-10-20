@@ -345,10 +345,10 @@ bool PositionFacesOppositeToDecided(int target_position, int position)
    facing it, measured as the shortest way round. */
 bool IsPartyLookingAwayFrom(int, W8MonsterInfo* monster_info)
 {
-    glm::vec3 monster_position = monster_info->p3D->nav.GetPosition();
+    glm::vec3 monster_position = monster_info->entity->nav.GetPosition();
     glm::vec3 party_position = PartyNavigator()->GetPosition();
     float bearing = NormalizeAngle(GetHeadingAngle(&monster_position, &party_position));
-    float facing = monster_info->p3D->nav.GetYaw();
+    float facing = monster_info->entity->nav.GetYaw();
 
     return ShortestAngleDistance(bearing, facing) >= g_facing_tolerance1;
 }
@@ -396,10 +396,10 @@ signed char DecideFacingForPosition(int position, int target_position)
    answers no. */
 bool IsPartyLookingAt(W8MonsterInfo* monster_info, glm::vec3 point)
 {
-    glm::vec3 monster_position = monster_info->p3D->nav.GetPosition();
+    glm::vec3 monster_position = monster_info->entity->nav.GetPosition();
     float bearing = NormalizeAngle(GetHeadingAngle(&monster_position, &point));
 
-    return fabsf(bearing - monster_info->p3D->nav.GetYaw()) <= g_facing_tolerance0;
+    return fabsf(bearing - monster_info->entity->nav.GetYaw()) <= g_facing_tolerance0;
 }
 
 /* The five formation rows' display names, indexed by row. */
@@ -595,7 +595,7 @@ int IsMonsterFacingParty(W8MonsterInfo* monster_info)
 /* Whether the first monster faces the second, inside the usual tolerance. */
 int IsMonsterFacingMonster(W8MonsterInfo* first, W8MonsterInfo* second)
 {
-    glm::vec3 second_position = second->p3D->nav.GetPosition();
+    glm::vec3 second_position = second->entity->nav.GetPosition();
     return IsPartyLookingAt(first, second_position);
 }
 
@@ -603,10 +603,10 @@ int IsMonsterFacingMonster(W8MonsterInfo* first, W8MonsterInfo* second)
    shortest way round like IsPartyLookingAwayFrom. */
 bool IsMonsterLookingAwayFrom(W8MonsterInfo* first, W8MonsterInfo* second)
 {
-    glm::vec3 first_position = first->p3D->nav.GetPosition();
-    glm::vec3 second_position = second->p3D->nav.GetPosition();
+    glm::vec3 first_position = first->entity->nav.GetPosition();
+    glm::vec3 second_position = second->entity->nav.GetPosition();
     float bearing = NormalizeAngle(GetHeadingAngle(&second_position, &first_position));
-    float facing = second->p3D->nav.GetYaw();
+    float facing = second->entity->nav.GetYaw();
 
     if (static_cast<float>(g_facing_tolerance1) <= ShortestAngleDistance(bearing, facing)) {
         return true;
@@ -620,7 +620,7 @@ bool IsMonsterLookingAwayFrom(W8MonsterInfo* first, W8MonsterInfo* second)
    invalid-quadrant assertion. */
 bool IsCharacterFacingMonster(int party_slot, W8MonsterInfo* monster_info)
 {
-    glm::vec3 monster_position = monster_info->p3D->nav.GetPosition();
+    glm::vec3 monster_position = monster_info->entity->nav.GetPosition();
     signed char side;
 
     switch (GetQuadrantForPosition(monster_position)) {
@@ -645,7 +645,7 @@ bool IsCharacterFacingMonster(int party_slot, W8MonsterInfo* monster_info)
 /* Turn the character's formation facing toward the side the monster is on. */
 void TurnCharacterTowardMonster(int party_slot, W8MonsterInfo* monster_info)
 {
-    glm::vec3 monster_position = monster_info->p3D->nav.GetPosition();
+    glm::vec3 monster_position = monster_info->entity->nav.GetPosition();
     signed char side;
 
     switch (GetQuadrantForPosition(monster_position)) {
@@ -674,7 +674,7 @@ void TurnCharacterTowardMonster(int party_slot, W8MonsterInfo* monster_info)
    the being-snuck-up-on test. */
 bool IsMonsterBehindCharacter(W8MonsterInfo* monster_info, int party_slot)
 {
-    glm::vec3 monster_position = monster_info->p3D->nav.GetPosition();
+    glm::vec3 monster_position = monster_info->entity->nav.GetPosition();
     signed char side;
     int difference;
 

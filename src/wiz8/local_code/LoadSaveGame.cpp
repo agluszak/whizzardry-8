@@ -593,8 +593,8 @@ void RestoreMonsterSpellIcons(World& world, const W8MonsterInfo& info, Monster* 
    unborn, movement and order sections. */
 void WriteMonsterRecord(W8Chunk& chunk, const W8MonsterInfo* info)
 {
-    if (!info || !info->p3D) throw std::runtime_error("missing monster");
-    Monster& monster = *info->p3D;
+    if (!info || !info->entity) throw std::runtime_error("missing monster");
+    Monster& monster = *info->entity;
     auto image = wiz8::retail::encode_image(*info);
     if (info->fActive) {
         auto position = monster.GetRepresentationLocation();
@@ -666,7 +666,7 @@ SavedMonster ReadMonster(W8Chunk& chunk)
     auto& script = saved.script;
     if (chunk.ReadValue<unsigned char>()) script = SavedMonsterScript::Read(chunk);
     info.fActive = false;
-    info.p3D = nullptr;
+    info.entity.detach();
     info.pCombat = nullptr;
     saved.unborn = version >= 5 && chunk.ReadValue<unsigned char>() != 0;
     auto& movement = saved.movement;
@@ -1208,11 +1208,11 @@ ReadLevelStatus(World& world, const std::filesystem::path& path, int level, bool
         if (group == data.groups.end() || MonsterDBFromSpecies(group->group->monster_id)->deleted)
             throw std::runtime_error("missing saved monster group");
         auto model = ReadMonsterRepresentation(world, &info, W8_MONSTER_LOAD_ALL_CYCLES);
-        info.p3D = model.get();
+        info.entity.attach(*model);
         world.monsters.push_back(std::move(model));
-        RestoreMonsterSpellIcons(world, info, info.p3D);
+        RestoreMonsterSpellIcons(world, info, info.entity.find());
         // Keep the encounter default script cached until activation assigns it.
-        if (group->group->encounter_registered && !info.p3D->script && !data.default_script)
+        if (group->group->encounter_registered && !info.entity->script && !data.default_script)
             data.default_script = LoadMonsterScript("Default.MSF");
         if (saved.script && saved.script->name[0] != '\0')
             saved.script->resource = LoadMonsterScript(saved.script->name);
@@ -1263,9 +1263,9 @@ void PrepareLevelPopulation(World& world, W8LoadedLevelStatus& status)
         auto* info = records[index];
         if (!info) continue;
         auto& saved = data.monsters[index];
-        if (saved.movement) saved.movement->Apply(*info->p3D);
-        if (saved.orders) saved.orders->Apply(*info, *info->p3D);
-        if (saved.script) saved.script->Apply(*info, *info->p3D);
+        if (saved.movement) saved.movement->Apply(*info->entity);
+        if (saved.orders) saved.orders->Apply(*info, *info->entity);
+        if (saved.script) saved.script->Apply(*info, *info->entity);
         if (info->hp_current == 0) data.pending_deaths.push_back(info->location_id);
     }
     // Resolve durable links against this population, preserving stored member order.
@@ -1278,7 +1278,7 @@ void PrepareLevelPopulation(World& world, W8LoadedLevelStatus& status)
             group->leader_group_id = 0;
         for (int& ally : group->allied_group_ids)
             if (ally == group->group_id || (ally && !population.findGroup(ally))) ally = 0;
-        auto* leader = population.findMonster(group->leader_location_id)->p3D;
+        auto* leader = population.findMonster(group->leader_location_id)->entity.find();
         leader->formation = group->formation;
         if (group->encounter_registered && !leader->script)
             leader->UseScript(data.default_script, true);
@@ -1292,21 +1292,23 @@ void PrepareLevelPopulation(World& world, W8LoadedLevelStatus& status)
         auto* formation_leader = population.findMonster(lead_group->leader_location_id);
         if (!formation_leader) throw std::runtime_error("missing formation leader");
         for (int id : group->MemberIds()) {
-            auto* member = population.findMonster(id)->p3D;
-            member->nav.LinkGroupNavigator(
-                member == formation_leader->p3D ? nullptr : &formation_leader->p3D->nav, false);
+            auto* member = population.findMonster(id)->entity.find();
+            member->nav.LinkGroupNavigator(member == formation_leader->entity.find()
+                                               ? nullptr
+                                               : &formation_leader->entity->nav,
+                                           false);
         }
     }
     for (const auto& group : population.monster_groups) {
         if (group->leader_group_id) continue;
-        auto* leader = population.findMonster(group->leader_location_id)->p3D;
+        auto* leader = population.findMonster(group->leader_location_id)->entity.find();
         // Restored levels start outside combat. Propagate the saved path using
         // this population, independently of the old world's combat clock.
         leader->nav.CopyPathToGroup();
         if (!leader->nav.movement_stopped) {
             for (const auto& member : population.monster_roster.live())
-                if (member->p3D->nav.linked_navigator == &(leader)->nav)
-                    member->p3D->nav.movement_stopped = false;
+                if (member->entity->nav.linked_navigator == &(leader)->nav)
+                    member->entity->nav.movement_stopped = false;
         }
     }
     if (data.encounters) world.encounters = std::move(*data.encounters);
@@ -1362,9 +1364,9 @@ void SaveItemFile(wiz8::File& handle, const W8WorldItem& item_info)
         image.saved_marker = 1;
         image.next = index < item_info.contents.size() ? 1 : 0;
         if (item->fActive) {
-            const auto position = item->p3D->GetLocation();
+            const auto position = item->entity->GetLocation();
             image.position = {position.x, position.y, position.z};
-            image.entity_flags = item->p3D->flags;
+            image.entity_flags = item->entity->flags;
         }
         handle.write(&image, sizeof(image));
     }

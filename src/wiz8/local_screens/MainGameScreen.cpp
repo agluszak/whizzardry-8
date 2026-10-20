@@ -5480,8 +5480,8 @@ void SetCombatSelection(int value)
     MainGameHud()->highlighted_item = -1;
     if (value != -1) {
         auto* info = FindMonster(value, false);
-        if (info && info->p3D) {
-            const auto bounds = info->p3D->GetWorldAnimationBounds();
+        if (info && info->entity.find()) {
+            const auto bounds = info->entity->GetWorldAnimationBounds();
             if (bounds && traceLineOfSightToBounds(cameraLocation(), *bounds))
                 MainGameHud()->highlighted_item = value;
         }
@@ -5509,7 +5509,7 @@ void SetCombatTarget(int value)
         } else {
             W8WorldItem* item = ItemInfo(ItemIndex(value));
             if (item != 0) {
-                if (const auto bounds = GetItemWorldBounds(item->p3D)) {
+                if (const auto bounds = GetItemWorldBounds(item->entity.find())) {
                     const glm::vec3 camera(cameraLocation());
                     if (traceLineOfSightToBounds(camera, *bounds) != 0) {
                         MainGameHud()->selected_item = value;
@@ -6007,7 +6007,8 @@ void ToggleMainGamePause()
 void OpenMonsterInfoDialog(int location_id)
 {
     W8MonsterInfo* monster_info = FindMonster(location_id);
-    if (!monster_info->fActive || monster_info->p3D->IsDying() || monster_info->hp_current == 0) {
+    if (!monster_info->fActive || monster_info->entity->IsDying() ||
+        monster_info->hp_current == 0) {
         return;
     }
     W8MonsterInfoDialog* dialog = new W8MonsterInfoDialog(location_id);

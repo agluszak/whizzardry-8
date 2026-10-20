@@ -903,7 +903,7 @@ TEST_CASE("Allied leader election preserves one encounter with zero leadership r
         monster = std::make_unique<Monster>(GetWorld());
         monster->location_id = index + 1;
         monster->nav.movement.leadership_rank = 0;
-        record->p3D = monster.get();
+        record->entity.attach(*monster);
         population.monster_roster.add(std::move(record), false);
     }
     auto* old = population.monster_groups[0].get();

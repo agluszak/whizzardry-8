@@ -389,7 +389,7 @@ static void ReleaseHypnoticLureControl()
     for (unsigned int index = 0; index < CurrentLevelPopulation().monster_roster.live().size();
          ++index) {
         W8MonsterInfo* monster = GetMonsterListEntry(index);
-        if (monster && !monster->p3D->IsDying())
+        if (monster && !monster->entity->IsDying())
             SetMonsterControlState(monster, W8_MONSTER_CONTROL_NONE);
     }
 }
@@ -724,7 +724,7 @@ void FinishSpellEffect(W8SpellEffectEntry* effect)
          CurrentGame().party.characters[effect->target.iChar].hp_current == 0)) {
         target.iType = W8_TARGET_KIND_PLACE;
         if (effect->target.iType == W8_TARGET_KIND_MONSTER) {
-            NavigatorMovement* movement = &monster_info->p3D->nav.movement;
+            NavigatorMovement* movement = &monster_info->entity->nav.movement;
             position = movement->position;
             position.y += movement->height_offset;
             position.y = probeGround(position).position.y;
@@ -3166,8 +3166,8 @@ void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targ
         if (TargetSourceIsCharacter(source, 0)) {
             from = cameraLocation();
         } else if (monster_source) {
-            if (!monster_info->p3D->GetSpellPosition(&from)) {
-                monster_info->p3D->GetMappedPosition(&from);
+            if (!monster_info->entity->GetSpellPosition(&from)) {
+                monster_info->entity->GetMappedPosition(&from);
             }
         } else {
             from = source->point;
@@ -3181,7 +3181,7 @@ void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targ
             from = cameraLocation();
             target->point = from;
         } else if (monster_source) {
-            navigator = &(monster_info->p3D)->nav;
+            navigator = &monster_info->entity->nav;
             target->point = navigator->movement.position;
             target->point.y += navigator->movement.height_offset;
         } else {
@@ -3199,7 +3199,7 @@ void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targ
     if (TargetSourceIsCharacter(source, 0)) {
         navigator = PartyNavigator();
     } else if (monster_source) {
-        navigator = &(monster_info->p3D)->nav;
+        navigator = &monster_info->entity->nav;
     } else {
         target->point = saved;
         source->iType = W8_TARGET_SOURCE_INDIRECT;
@@ -3294,7 +3294,7 @@ void ScatterSpellPointTarget(int spell_id, W8TargetSource* source, W8CombatSlot*
     if (source->iType != W8_TARGET_SOURCE_CHARACTER) {
         assert(source->iType == W8_TARGET_SOURCE_MONSTER);
         monster_info = FindMonster(source->iMonsterID);
-        navigator = &(monster_info->p3D)->nav;
+        navigator = &monster_info->entity->nav;
     }
     origin = navigator->GetPosition();
     for (attempt = 0; attempt < 5; ++attempt) {
@@ -3455,7 +3455,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
             return;
         }
         GetMonsterDataForInfo(monster_info);
-        monster = monster_info->p3D;
+        monster = monster_info->entity.find();
     }
     /* A monster source, direct or (for backfire and reflection) indirect, was
        resolved above; a direct one is also where the spell starts from. */

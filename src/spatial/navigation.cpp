@@ -85,7 +85,7 @@ Monster* navigationMonster(const NavigationMesh& navigation, int location)
     const auto* world = navigation.owner_octree ? navigation.owner_octree->owner_world : nullptr;
     if (!world || !world->population) return nullptr;
     auto* info = world->population->findMonster(location);
-    return info ? info->p3D : nullptr;
+    return info ? info->entity.find() : nullptr;
 }
 class SteeringStep {
 public:
@@ -1468,10 +1468,10 @@ void NavigationMesh::AdjustFinalPathEndpoint(NavigatorMovement* movement, float 
             (owner_octree->owner_world
                  ? owner_octree->owner_world->population->findMonster(target_location)
                  : nullptr);
-        if (info == nullptr || info->p3D == nullptr) {
+        if (info == nullptr || !info->entity) {
             return;
         }
-        target = &(info->p3D)->nav;
+        target = &info->entity->nav;
     }
     const float target_radius = target->movement.alternate_radius;
     const glm::vec3 target_position = target->GetPosition();
@@ -1608,8 +1608,8 @@ unsigned int NavigationMesh::CollectPathProbes(PathSearchScratch& path_search,
                                    ? owner_octree->owner_world->population->findMonster(location_id)
                                    : nullptr);
         if (info != 0) {
-            if (info != 0 && info->p3D != 0 && info->p3D->nav.active) {
-                Monster* monster = info->p3D;
+            if (info != 0 && info->entity && info->entity->nav.active) {
+                Monster* monster = info->entity.find();
                 glm::vec3 monster_position = monster->nav.GetPosition();
                 glm::vec3 monster_delta = monster_position - movement->position;
                 distance = glm::length(monster_delta);
@@ -2141,11 +2141,11 @@ unsigned short NavigationMesh::ResolveSearchNodeCollisions(PathSearchScratch& pa
         if (probe_index < path_search.probe_count) {
             continue;
         }
-        if (info->p3D == 0 || !info->p3D->nav.active) {
+        if (!info->entity || !info->entity->nav.active) {
             continue;
         }
 
-        Monster* monster = info->p3D;
+        Monster* monster = info->entity.find();
         glm::vec3 monster_position = monster->nav.GetPosition();
         glm::vec3 delta = node->position - monster_position;
         float distance = glm::length(delta);
@@ -2633,7 +2633,7 @@ unsigned int NavigationMesh::StepMonsterAlongPath(NavigatorMovement* movement, f
         owner_octree->owner_world->population->findMonster(movement->location_id);
     W8MonsterGroup* group =
         owner_octree->owner_world->population->findGroup(monster_info->monster_group_id);
-    monster_info->p3D->nav.group_linked = true;
+    monster_info->entity->nav.group_linked = true;
     float remaining = g_rate * GameTimeAccumulator().GetFrameDelta();
     do {
         if (remaining <= 0.0f) {

@@ -37,7 +37,7 @@ void AlertMonsterGroupsToNoise(const glm::vec3* position, int radius, int flag)
          ++group_index) {
         W8MonsterGroup* group = CurrentLevelPopulation().monster_groups[group_index].get();
         W8MonsterInfo* info = FindMonster(group->leader_location_id);
-        if (info->p3D->deaf) {
+        if (info->entity->deaf) {
             continue;
         }
         if (flag == 1) {
@@ -48,7 +48,7 @@ void AlertMonsterGroupsToNoise(const glm::vec3* position, int radius, int flag)
             continue;
         }
         const W8MonsterRecord* record = GetMonsterDataForInfo(info);
-        glm::vec3 monster_position = info->p3D->nav.GetPosition();
+        glm::vec3 monster_position = info->entity->nav.GetPosition();
         int remaining = radius - static_cast<int>(glm::length((monster_position - noise_position)));
         if (remaining <= 0) {
             continue;
@@ -60,7 +60,7 @@ void AlertMonsterGroupsToNoise(const glm::vec3* position, int radius, int flag)
         if (group->leader_group_id != 0) {
             W8MonsterGroup* leader = FindMonsterGroup(group->leader_group_id);
             info = FindMonster(leader->leader_location_id);
-            if (info->p3D->deaf) {
+            if (info->entity->deaf) {
                 continue;
             }
         }

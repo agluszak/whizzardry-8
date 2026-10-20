@@ -15,6 +15,7 @@
 
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/chunk.h"
+#include "wiz8/entity_link.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/retail_geometry_types.h"
 #include "wiz8/retail_records.h"
@@ -39,6 +40,17 @@ template<class T> void pointer_slot(T* const& live, std::span<std::byte> bytes)
 template<class T> void pointer_slot(T*& live, std::span<const std::byte>)
 {
     live = nullptr;
+}
+
+/* A record's scene entity is runtime state; its slot says whether the record had one. */
+template<class T> void pointer_slot(const EntityLink<T>& live, std::span<std::byte> bytes)
+{
+    const std::uint32_t present = static_cast<bool>(live);
+    std::memcpy(bytes.data(), &present, sizeof(present));
+}
+template<class T> void pointer_slot(EntityLink<T>& live, std::span<const std::byte>)
+{
+    live.detach();
 }
 
 /* Runtime-exclusive resources use the same on-disk pointer-presence word.

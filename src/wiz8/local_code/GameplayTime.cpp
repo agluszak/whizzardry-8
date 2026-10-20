@@ -942,7 +942,7 @@ static void AgeMonsterMovement(W8MonsterInfo* monster_info, unsigned int minutes
         TickCombatEffectSlots(monster_info->pCombat->combat_effects, &target);
         return;
     }
-    monster = monster_info->p3D;
+    monster = monster_info->entity.find();
     if (monster->stay_home) {
         glm::vec3 location;
         glm::vec3 last_seen;
@@ -1088,7 +1088,7 @@ static void AgeMonsterMovement(W8MonsterInfo* monster_info, unsigned int minutes
         if (minutes < monster_info->look_time) {
             monster_info->look_time -= static_cast<unsigned char>(minutes);
         } else {
-            int duration = monster_info->p3D->look_duration;
+            int duration = monster_info->entity->look_duration;
 
             monster_info->look_time = 0;
             monster_info->pause_time = static_cast<unsigned char>(
@@ -1101,7 +1101,7 @@ static void AgeMonsterMovement(W8MonsterInfo* monster_info, unsigned int minutes
         if (minutes < monster_info->pause_time) {
             monster_info->pause_time -= static_cast<unsigned char>(minutes);
         } else {
-            int frequency = monster_info->p3D->look_frequency;
+            int frequency = monster_info->entity->look_frequency;
 
             monster_info->pause_time = 0;
             monster_info->look_time = static_cast<unsigned char>(

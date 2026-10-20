@@ -507,7 +507,7 @@ unsigned char ShowMonsterTargetMarker(W8MonsterInfo* monster_info)
 
     assert(monster_info != 0);
     eye = cameraLocation();
-    const auto bounds = monster_info->p3D->GetWorldAnimationBounds();
+    const auto bounds = monster_info->entity->GetWorldAnimationBounds();
     return bounds && targetMarkerVisible(eye, *bounds);
 }
 
@@ -632,15 +632,15 @@ bool IsItemTargetOfNeededKind(const W8CombatSlot* target, const W8ItemInstance* 
 
 static bool IsMonsterHoverSelectable(W8MonsterInfo* monster_info)
 {
-    if (!monster_info->fActive || monster_info->p3D->IsDying() ||
-        monster_info->p3D->hostility_preserved ||
-        monster_info->p3D->visual.GetCurrentModelInstance() != g_current_model_instance) {
+    if (!monster_info->fActive || monster_info->entity->IsDying() ||
+        monster_info->entity->hostility_preserved ||
+        monster_info->entity->visual.GetCurrentModelInstance() != g_current_model_instance) {
         return false;
     }
     if (!monster_info->party_threat.use_bounds) {
         UpdateMonsterSight(monster_info, true, true);
     }
-    return monster_info->p3D->IsRenderable(true);
+    return monster_info->entity->IsRenderable(true);
 }
 
 /* The location id of the nearest live monster whose current model instance is
@@ -662,7 +662,7 @@ int PickNearestMonsterUnderCursor(int cursor_x, int cursor_y)
         if (!IsMonsterHoverSelectable(monster_info)) {
             continue;
         }
-        distance = MonsterDistanceToCamera(monster_info->p3D);
+        distance = MonsterDistanceToCamera(monster_info->entity.find());
         if (distance < best_distance) {
             result = monster_info->location_id;
             best_distance = distance;
@@ -676,7 +676,7 @@ int PickNearestMonsterUnderCursor(int cursor_x, int cursor_y)
             if (!IsMonsterHoverSelectable(monster_info)) {
                 continue;
             }
-            distance = MonsterDistanceToCamera(monster_info->p3D);
+            distance = MonsterDistanceToCamera(monster_info->entity.find());
             if (distance < best_distance) {
                 result = monster_info->location_id;
                 best_distance = distance;
@@ -749,7 +749,7 @@ static int ChooseMonsterTarget(int party_slot, const W8Action& action,
         }
         W8MonsterTargetCandidate candidate{monster_info->location_id,
                                            monster_info->highest_condition, false,
-                                           monster_info->p3D->GetDistanceToPlayer()};
+                                           monster_info->entity->GetDistanceToPlayer()};
         const auto* record = GetMonsterDataForInfo(monster_info);
         if (GetBestMonsterAttackRange(record, true) != -1) {
             const auto quadrant = static_cast<unsigned char>(GetMonsterQuadrant(monster_info));
@@ -872,7 +872,7 @@ void CollectMonstersWithinRadius(const glm::vec3* centre, const glm::vec3* eye,
 
     for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
         W8MonsterInfo* monster_info = GetMonsterListEntry(index);
-        Monster* monster = monster_info->p3D;
+        Monster* monster = monster_info->entity.find();
         const W8MonsterRecord* record;
         glm::vec3 position;
 
@@ -893,7 +893,7 @@ void CollectMonstersWithinRadius(const glm::vec3* centre, const glm::vec3* eye,
             continue;
         }
         if (sight_rule == W8AreaSightRule::GeometryOnly ||
-            monster_info->p3D->HasLineOfSightFromPoint(*eye)) {
+            monster_info->entity->HasLineOfSightFromPoint(*eye)) {
             found.push_back(monster_info->location_id);
         }
     }
@@ -1462,7 +1462,7 @@ static int SelectNextGroupMemberByAngle(const std::vector<int>& candidates, int 
     for (index = 0; index < count; ++index) {
         int location_id = candidates[static_cast<int>(index)];
         W8MonsterInfo* monster_info = FindMonster(location_id);
-        glm::vec3 position = monster_info->p3D->nav.GetPosition();
+        glm::vec3 position = monster_info->entity->nav.GetPosition();
 
         sorted[index].location_id = location_id;
         /* Whole degrees: sorting on the radian heading would leave seven buckets. */
@@ -1722,12 +1722,12 @@ void RefreshMonsterTargetCounts(void)
             int location_id = group->MemberLocationId(index);
             W8MonsterInfo* monster_info = FindMonster(location_id);
 
-            if (!monster_info->p3D->IsWithinWorldRange()) {
+            if (!monster_info->entity->IsWithinWorldRange()) {
                 continue;
             }
             assert(monster_info != 0);
             camera = cameraLocation();
-            const auto bounds = monster_info->p3D->GetWorldAnimationBounds();
+            const auto bounds = monster_info->entity->GetWorldAnimationBounds();
             if (bounds && targetMarkerVisible(camera, *bounds) != 0) {
                 on_screen_count += 1;
             }
@@ -1780,16 +1780,16 @@ bool AnyMonsterVisible(void)
     count = CurrentLevelPopulation().monster_roster.live().size();
     if (0 <= g_last_visible_monster && g_last_visible_monster < count) {
         W8MonsterInfo* monster_info = GetMonsterListEntry(g_last_visible_monster);
-        if (monster_info->p3D != 0 &&
-            IsMonsterVisibleWithinDistance(monster_info->p3D, &camera, limit)) {
+        if (monster_info->entity &&
+            IsMonsterVisibleWithinDistance(monster_info->entity.find(), &camera, limit)) {
             return true;
         }
     }
     for (index = 0; index < count; ++index) {
         W8MonsterInfo* monster_info = GetMonsterListEntry(index);
 
-        if (monster_info->p3D != 0 &&
-            IsMonsterVisibleWithinDistance(monster_info->p3D, &camera, limit)) {
+        if (monster_info->entity &&
+            IsMonsterVisibleWithinDistance(monster_info->entity.find(), &camera, limit)) {
             g_last_visible_monster = index;
             return true;
         }
@@ -1867,7 +1867,7 @@ unsigned char SourceCanSeeMonster(const W8TargetSource* source, W8MonsterInfo* m
         return 0;
     }
     assert(source->iType == W8_TARGET_SOURCE_INDIRECT);
-    return monster_info->p3D->HasLineOfSightFromPoint(source->point);
+    return monster_info->entity->HasLineOfSightFromPoint(source->point);
 }
 
 /* Whether `target` is inside the aim cone: within `bonus` + `eye_radius` of
@@ -1907,7 +1907,7 @@ int CollectConeMonsterTargets(const W8TargetSource* source, const glm::vec3* eye
         radius = PartyNavigator()->radius;
     } else if (source->iType == W8_TARGET_SOURCE_MONSTER) {
         W8MonsterInfo* source_info = FindMonster(source->iMonsterID);
-        radius = source_info->p3D->nav.radius;
+        radius = source_info->entity->nav.radius;
     } else {
         radius = 0.0f;
     }
@@ -1918,7 +1918,7 @@ int CollectConeMonsterTargets(const W8TargetSource* source, const glm::vec3* eye
             const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
             if (record->untargetable == 0 &&
                 (monster_info->ubDisposition == disposition || disposition == 3)) {
-                Monster* monster = monster_info->p3D;
+                Monster* monster = monster_info->entity.find();
                 glm::vec3 point;
                 point = glm::vec3(monster->nav.movement.position.x,
                                   monster->nav.movement.position.y +

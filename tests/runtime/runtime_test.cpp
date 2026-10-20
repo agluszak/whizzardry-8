@@ -1608,7 +1608,7 @@ W8MonsterInfo* EnterCombat(GameHarness& game)
     REQUIRE(CurrentGame().combat);
     W8MonsterInfo* monster = nullptr;
     for (const auto& candidate : CurrentLevelPopulation().monster_roster.live()) {
-        if (candidate->fActive && candidate->p3D && candidate->hp_current &&
+        if (candidate->fActive && candidate->entity.find() && candidate->hp_current &&
             candidate->ubDisposition == W8_DISPOSITION_HOSTILE) {
             monster = candidate.get();
             break;
@@ -2001,7 +2001,7 @@ void NpcDialogueScenario()
 void Approach(GameHarness& game, int location_id, float stop)
 {
     W8MonsterInfo* monster = FindMonster(location_id, false);
-    if (!monster || !monster->p3D)
+    if (!monster || !monster->entity)
         FailStep("approach", "no monster " + std::to_string(location_id));
     SDL_Keycode held = SDLK_UNKNOWN;
     const auto hold = [&](SDL_Keycode key) {
@@ -2012,7 +2012,7 @@ void Approach(GameHarness& game, int location_id, float stop)
     };
     for (int frame = 0; frame < 60 * 120 && !CurrentGame().combat.has_value(); ++frame) {
         const CameraPose camera = cameraState(*GetWorld());
-        const glm::vec3 target = monster->p3D->nav.GetPosition();
+        const glm::vec3 target = monster->entity->nav.GetPosition();
         if (HorizontalDistance(target, camera.position) < stop) break;
         const float wanted = std::atan2(target.x - camera.position.x, target.z - camera.position.z);
         const float turn = std::remainder(wanted - camera.orientation.yaw, 2 * glm::pi<float>());
@@ -2029,7 +2029,7 @@ std::vector<W8MonsterInfo*> CombatMonsters()
     std::vector<W8MonsterInfo*> monsters;
     for (const auto& owner : CurrentLevelPopulation().monster_roster.live()) {
         auto* monster = owner.get();
-        if (monster->fActive && monster->pCombat && monster->p3D && monster->hp_current)
+        if (monster->fActive && monster->pCombat && monster->entity.find() && monster->hp_current)
             monsters.push_back(monster);
     }
     return monsters;
@@ -2039,8 +2039,8 @@ float NearestCombatMonster()
 {
     float nearest = std::numeric_limits<float>::max();
     for (W8MonsterInfo* monster : CombatMonsters())
-        nearest =
-            std::min(nearest, HorizontalDistance(monster->p3D->nav.GetPosition(), PartyPosition()));
+        nearest = std::min(nearest,
+                           HorizontalDistance(monster->entity->nav.GetPosition(), PartyPosition()));
     return nearest;
 }
 
@@ -2227,8 +2227,8 @@ void PrintState(GameHarness& game)
         std::vector<std::pair<float, W8MonsterInfo*>> nearby;
         for (const auto& owner : CurrentLevelPopulation().monster_roster.live()) {
             auto* monster = owner.get();
-            if (monster->fActive && monster->p3D && monster->hp_current)
-                nearby.emplace_back(HorizontalDistance(monster->p3D->nav.GetPosition(), at),
+            if (monster->fActive && monster->entity.find() && monster->hp_current)
+                nearby.emplace_back(HorizontalDistance(monster->entity->nav.GetPosition(), at),
                                     monster);
         }
         std::ranges::sort(nearby, {}, &std::pair<float, W8MonsterInfo*>::first);
@@ -2237,8 +2237,8 @@ void PrintState(GameHarness& game)
             std::printf("  monster %d %s hp=%u disposition=%d combat=%d at %.0f (%g %g)\n",
                         monster->location_id, GetMonsterName(monster, nullptr, false).c_str(),
                         monster->hp_current, int(monster->ubDisposition), bool(monster->pCombat),
-                        distance, monster->p3D->nav.GetPosition().x,
-                        monster->p3D->nav.GetPosition().z);
+                        distance, monster->entity->nav.GetPosition().x,
+                        monster->entity->nav.GetPosition().z);
     }
     std::fflush(stdout);
 }
@@ -2247,11 +2247,12 @@ void PrintState(GameHarness& game)
 void Trace(GameHarness& game, int location_id, int frames)
 {
     W8MonsterInfo* monster = FindMonster(location_id, false);
-    if (!monster || !monster->p3D) FailStep("trace", "no monster " + std::to_string(location_id));
+    if (!monster || !monster->entity)
+        FailStep("trace", "no monster " + std::to_string(location_id));
     for (int frame = 0; frame < frames; ++frame) {
         game.frame();
-        const Monster& body = *monster->p3D;
-        const glm::vec3 at = monster->p3D->nav.GetPosition();
+        const Monster& body = *monster->entity;
+        const glm::vec3 at = monster->entity->nav.GetPosition();
         std::printf("  t%lu %d (%.0f %.0f) action=%d active=%d complete=%d stopped=%d halted=%d "
                     "flags=%x progress=%g/%g speed=%g status=%d actor=%d cycle=%d frame=%d/%d "
                     "end=%d\n",
@@ -2263,10 +2264,10 @@ void Trace(GameHarness& game, int location_id, int frames)
                     body.nav.movement.movement_speed,
                     CurrentGame().combat ? int(CurrentGame().combat->turn().index()) : -1,
                     CurrentGame().combat ? CurrentGame().combat->actingMonster().value_or(-1) : -1,
-                    monster->p3D->Query(W8_MONSTER_QUERY_CYCLE),
-                    monster->p3D->Query(W8_MONSTER_QUERY_FRAME),
-                    monster->p3D->Query(W8_MONSTER_QUERY_FRAME_COUNT),
-                    monster->p3D->Query(W8_MONSTER_QUERY_AT_PLAYBACK_END));
+                    monster->entity->Query(W8_MONSTER_QUERY_CYCLE),
+                    monster->entity->Query(W8_MONSTER_QUERY_FRAME),
+                    monster->entity->Query(W8_MONSTER_QUERY_FRAME_COUNT),
+                    monster->entity->Query(W8_MONSTER_QUERY_AT_PLAYBACK_END));
     }
 }
 

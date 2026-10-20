@@ -346,7 +346,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         if (monster_info == 0) {
             return;
         }
-        monster_info->p3D->SetScript("Guard.msf", true);
+        monster_info->entity->SetScript("Guard.msf", true);
         return;
     case W8_FACT_MURAL_OPEN:
         if (value != 0) {
@@ -727,7 +727,8 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         if (monster_info == 0) {
             return;
         }
-        if (!monster_info->p3D->IsCycleInterruptable(monster_info->p3D->visual.pending_cycle)) {
+        if (!monster_info->entity->IsCycleInterruptable(
+                monster_info->entity->visual.pending_cycle)) {
             return;
         }
         StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_GET_HIT, W8_ANIMATION_PLAY_ONCE);
@@ -813,7 +814,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         group = FindFirstMonsterByID(0xc2);
         if (group != 0) {
             monster_info = FindMonster(group->leader_location_id);
-            monster_info->p3D->SetScript("MoveSavantBoffo.msf", true);
+            monster_info->entity->SetScript("MoveSavantBoffo.msf", true);
         }
         wiz8::sound::stream("Data\\Sound\\Misc\\Earthquake End.wav");
         {
@@ -906,7 +907,7 @@ void HandleScriptedNpcDeath(const ScriptContext& context, unsigned int monster_l
          entry_index < CurrentLevelPopulation().monster_roster.live().size(); ++entry_index) {
         W8MonsterInfo* entry = GetMonsterListEntry(entry_index);
         if (entry->fActive && entry->ubDisposition == W8_DISPOSITION_HOSTILE &&
-            !entry->p3D->IsDying()) {
+            !entry->entity->IsDying()) {
 
             MonsterStartsDying(entry, true);
         }

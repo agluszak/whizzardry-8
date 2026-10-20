@@ -255,13 +255,13 @@ void ApplyWorldCursorInput(void)
         }
         // The dragged monster may have been removed or unloaded since the drag began.
         const auto* dragged = FindMonster(cursor.dragged_location_id, false);
-        if (dragged == nullptr || dragged->p3D == nullptr) {
+        if (dragged == nullptr || !dragged->entity) {
             cursor.dragged_location_id = 0;
         } else {
-            dragged->p3D->nav.SetPositionInternal(&cursor.position);
+            dragged->entity->nav.SetPositionInternal(&cursor.position);
             GetWorldSpatialIndex()->UpdateMonsterLocation(dragged->location_id, cursor.position);
             if (((GetInputState().modifiers & SHIFT_DOWN) != 0)) {
-                dragged->p3D->ForwardReferencePosition(1);
+                dragged->entity->ForwardReferencePosition(1);
             }
         }
         cursor.last_published = cursor.position;
@@ -301,8 +301,8 @@ void BindCursorMonsterToGroup(void)
                 monster_group = FindMonsterGroup(monster_group->leader_group_id);
             }
             monster_info = FindMonster(monster_group->leader_location_id);
-            if (monster_info != 0 && monster_info->p3D != 0 &&
-                !monster_info->p3D->SetScript("Test.msf", true)) {
+            if (monster_info != 0 && monster_info->entity &&
+                !monster_info->entity->SetScript("Test.msf", true)) {
                 ApplyToMonsterGroupLeader(monster_group, &position, true);
             }
         }

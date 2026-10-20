@@ -305,8 +305,8 @@ void SetMonsterCondition(int location_id, W8Condition condition, int duration, i
            three later uses of condition in this function already carry. */
         unsigned int condition_index = static_cast<unsigned int>(condition);
         if (old_duration == 0 && condition_index != 0 && condition_index <= 0x12) {
-            SetMonsterSpellIcon(monster_info->p3D, static_cast<W8MonsterSpellIconId>(condition - 1),
-                                true);
+            SetMonsterSpellIcon(monster_info->entity.find(),
+                                static_cast<W8MonsterSpellIconId>(condition - 1), true);
         }
         if (monster_info->pCombat && TargetSourceIsCharacter(target, 0) && target->iChar != -1) {
             int* hate = &monster_info->pCombat->character_hate[target->iChar];
@@ -345,7 +345,7 @@ void SetMonsterCondition(int location_id, W8Condition condition, int duration, i
             W8_FONT_PALETTE_RUST,
             fmt::format("{} {}!", name, Data().strings[kConditionNotices[condition].singular])});
     }
-    if (monster_info->p3D->IsCycleInterruptable(monster_info->p3D->visual.pending_cycle)) {
+    if (monster_info->entity->IsCycleInterruptable(monster_info->entity->visual.pending_cycle)) {
         StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_GET_HIT, W8_ANIMATION_PLAY_ONCE);
     }
 }
@@ -373,8 +373,8 @@ void ClearMonsterCondition(int location_id, W8Condition condition)
         monster_info->uiCondition[condition] = 0;
         RefreshMonsterConditionState(monster_info);
         if (condition != W8_CONDITION_NONE && condition < W8_CONDITION_MISSING) {
-            SetMonsterSpellIcon(monster_info->p3D, static_cast<W8MonsterSpellIconId>(condition - 1),
-                                false);
+            SetMonsterSpellIcon(monster_info->entity.find(),
+                                static_cast<W8MonsterSpellIconId>(condition - 1), false);
         }
         switch (condition) {
         case W8_CONDITION_HEXED:
@@ -500,8 +500,8 @@ void ApplyMonsterCondition(int location_id, W8EnchantmentSlot slot, int argument
                 static_cast<short>(roll * argument);
         }
         if (previous == 0) {
-            SetMonsterSpellIcon(monster_info->p3D, static_cast<W8MonsterSpellIconId>(slot + 0x10),
-                                true);
+            SetMonsterSpellIcon(monster_info->entity.find(),
+                                static_cast<W8MonsterSpellIconId>(slot + 0x10), true);
         }
         RebuildMonsterDerivedStats(location_id);
         if (slot == W8_ENCHANTMENT_SUPERMAN) {
@@ -517,7 +517,8 @@ void ClearMonsterEnchantmentSlot(int location_id, W8EnchantmentSlot slot)
     W8MonsterInfo* monster_info = FindMonster(location_id);
 
     monster_info->enchantments[slot] = {};
-    SetMonsterSpellIcon(monster_info->p3D, static_cast<W8MonsterSpellIconId>(slot + 0x10), false);
+    SetMonsterSpellIcon(monster_info->entity.find(), static_cast<W8MonsterSpellIconId>(slot + 0x10),
+                        false);
     RebuildMonsterDerivedStats(location_id);
     if (slot == W8_ENCHANTMENT_SUPERMAN) {
         RefreshMonsterSight(monster_info);

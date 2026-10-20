@@ -289,7 +289,7 @@ void DamageMonstersInRadius(const glm::vec3& center, float radius, const W8Dice*
     for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
         monster_info = GetMonsterListEntry(index);
         if (monster_info->fActive) {
-            location = monster_info->p3D->GetRepresentationLocation();
+            location = monster_info->entity->GetRepresentationLocation();
             offset = glm::vec3(center.x - location.x, center.y - location.y, center.z - location.z);
             if (glm::length(offset) <= radius) {
                 damage = RollDice(dice);
@@ -378,8 +378,8 @@ unsigned int ApplyDamageToMonster(W8MonsterInfo* monster_info, unsigned int amou
         }
         ClearHighlightIfItIs(&monster_info->location_id);
         UpdateMonsterDamageAppearance(monster_info);
-        if (monster_info->p3D != 0) {
-            monster_info->p3D->SpawnDamageNumber(amount);
+        if (monster_info->entity) {
+            monster_info->entity->SpawnDamageNumber(amount);
         }
     }
     return amount;
