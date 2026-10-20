@@ -10,4 +10,3 @@ void ShowNpcScriptNoticeBubble(std::string_view text);
 void ShowNpcPortraitMessage(std::string_view text, W8QuoteNotice notice = {});
 bool IsNpcVoicePlaying(void);
 /* Stop the voice and drop whatever is on screen without reporting it. */
-void ResetNpcPresentation(void);

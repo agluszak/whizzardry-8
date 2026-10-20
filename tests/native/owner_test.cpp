@@ -100,7 +100,7 @@ struct StubScreen final : Screen {
         return true;
     }
 };
-std::unique_ptr<Screen> stub_factory(W8ScreenId)
+std::unique_ptr<Screen> stub_factory(W8ScreenId, GameSession&)
 {
     return std::make_unique<StubScreen>();
 }
@@ -122,7 +122,7 @@ struct RebuiltScreen final : Screen {
     }
     int entered_with = 0;
 };
-std::unique_ptr<Screen> rebuilding_factory(W8ScreenId id)
+std::unique_ptr<Screen> rebuilding_factory(W8ScreenId id, GameSession&)
 {
     if (id == RebuiltScreen::id) return std::make_unique<RebuiltScreen>();
     return std::make_unique<StubScreen>();
@@ -140,8 +140,8 @@ void initialize_test_framebuffer()
 
 void screen_stack()
 {
-    const ScopedGame game;
-    ResetScreenRouting(stub_factory);
+    ScopedGame game;
+    ResetScreenRouting(game.session, stub_factory);
     REQUIRE(PendingScreen() == W8_SCREEN_NONE);
     W8Character payload{};
     for (int index = 0; index < 40; ++index) {
@@ -181,7 +181,7 @@ void screen_stack()
     REQUIRE((!gfProgramIsRunning && CurrentScreenState().id == W8_SCREEN_NONE));
 
     // A rebuilt screen exists only while current; a return enters a new one.
-    ResetScreenRouting(rebuilding_factory);
+    ResetScreenRouting(game.session, rebuilding_factory);
     gfProgramIsRunning = true;
     RequestScreen({.id = W8_SCREEN_CAMP, .parameter = 1});
     GameLoop();
@@ -198,7 +198,7 @@ void screen_stack()
     GameLoop();
     GameloopExit();
     REQUIRE(CurrentScreenState().id == W8_SCREEN_NONE);
-    ResetScreenRouting();
+    ResetScreenRouting(game.session);
 }
 
 void camp_effects()

@@ -17,18 +17,19 @@ The decompiled program's architecture is partly migrated (see "Migration"). What
 of it:
 
 - **Shared mutable state.** About 250 mutable `extern` globals remain, and unlayered code
-  reaches the game through `CurrentGame()` (about 3,500 uses). The game's state has moved
-  into `Game`; the main game's HUD is `MainGameScreen::hud`, which the main game's own
-  free functions reach through `MainGameHud()`, and `g_localized_strings` (about 1,080
-  uses) is now `Data().strings`.
+  reaches the game through `CurrentGame()` (about 4,500 uses) and the data through
+  `Data()` (about 1,650). The Application owns both; the game's state has moved into
+  `Game`; the main game's HUD is `MainGameScreen::hud`, reached through `MainGameHud()`,
+  and `g_localized_strings` is now `Data().strings`.
 - **The step still reads the clock.** `Game::advance(elapsed)` is the one step, but the
   code it calls still keeps its own deadlines on the monotonic clock.
 - **Rules drive presentation directly.** Inventory and party report events, but other
-  rules still call presentation (notices, targeting, the combat panel, screen ids), and
-  33 of the 56 `local_code` files include screen headers.
-- **Some resets remain.** A game is an object, but leaving one still clears session
-  state it does not own yet (`LeaveGameSession`, `ResetForNewGame`,
-  `ResetMainGameScreenState`).
+  rules still call presentation (notices, targeting, the combat panel, screen ids), and 33 of the 57
+  `local_code` files include screen headers.
+- **The level's module state outlives the game.** Destroying a game does no departure
+  bookkeeping: the main game, discarded before its game ends or is replaced, leaves the
+  level (`LeaveLevel`), which releases the monster manager, item lists, world cursor, sky,
+  camera sway and game-time accumulator that live outside `Game`.
 - **Combat waits on presentation.** Each step, combat reads the camera, monster
   animations and missiles in flight to decide whether its turn may advance.
 
@@ -45,11 +46,14 @@ The target is five layers. Each may depend only on the layers listed above it.
 The decisions behind it:
 
 1. **A game is an object.**
-   - A new game is `Game(data, PartyDraft)`, a load is `Game(data, SaveFile)`, and
-     quitting to the menu destroys it.
-   - The reset functions disappear, along with every `Clear*`/`Release*` they call.
+   - The Application owns the session's game. A new game begins in party creation with
+     the starting party, a load begins one from the save, and quitting to the menu
+     destroys it. Nothing is reset field by field: what belongs to a play-through is a
+     member of `Game`.
    - Party selection, import and character creation edit the party of a game still in
      party creation, so menus outside a game never touch live state.
+   - A load decodes the save into values (`GameState`, step 8) and constructs the game
+     from them, instead of filling a begun game section by section.
 2. **Rules emit events; the UI presents them.**
    - Rules append, in order:
      - domain facts (`ItemReceived`, `ConditionChanged`, `CharacterDied`,
@@ -97,20 +101,33 @@ reaches the game through `CurrentGame()`. That accessor throws `std::logic_error
 exists, `rules` and `game` may not call it, and it is deleted with its last caller. Run
 the licensed runtime scenarios after every step.
 
-1. **Finish the game object.** `Game` exists (ARCHITECTURE.md, "The game").
-   - Its slot is a static in `game.cpp`. The Application should own it once screens
-     receive the game instead of calling `CurrentGame()`.
-   - Fold in the reset functions that still clear per-game state:
-     `LeaveGameSession` and `ResetMainScreenStateBlock`. Each goes when its state
-     moves into the game.
+1. **Finish the game object.** The Application owns the game through a `GameSession`, and
+   no reset function remains (ARCHITECTURE.md, "The game"). What remains:
+   - `CurrentGame()` reads the one live session, which registers itself. It has about
+     4,520 uses in 101 files: 2,370 in 40 `local_code` files, 1,890 in 26
+     `local_screens` files, and the rest in `src/wiz8` (77), `world` (68), `entities`
+     (62), `dialog_code` (18), `spatial` (13), `combat` (13), `level_specific_code`,
+     `platform` and `audio`. The router hands the session to every screen it builds, but
+     only the main menu, party selection and the Please Wait screen keep it; the other
+     screens should take the game from it, and the code below them the game or a
+     `RuleContext` (steps 3, 6 and 7).
+   - `Game` holds interface state of the main game screen, because the screen outlives a
+     load: `npc_interaction` (the dialogue's layouts, trade tables, quote bubble and
+     `NpcDialogueUi`; its transcript and staged notice are game state),
+     `npc_presentation` and `npc_speech`, and the portrait animation in
+     `monster_manager_entries`. Move them to the screen with step 5.
+   - The main game's first entry starts the world running, restarts the gameplay timer,
+     clears the aging hold and readies the portrait slots (`ResetTargetingState`, whose
+     idle timers draw from `Game::rng`). Those belong to the game's own start once the
+     portraits are the screen's.
 2. **Finish `GameData`.** The databases and the string table are one immutable value
-   (ARCHITECTURE.md, "Layers").
-   - The Application should own it and hand `const GameData&` to screens and rules,
-     deleting the slot behind `Data()`. What blocks it: about 1,640 `Data()` calls in 90
-     unlayered files (37 in `local_code`, 25 in `local_screens`, 11 in `dialog_code`)
-     reach the data from code that receives neither the data nor the game. They go as
-     screens receive it from the router and rules receive a `RuleContext` (steps 3 and
-     6); until then `InstallGameData` fills the one slot.
+   (ARCHITECTURE.md, "Layers"), which the Application owns.
+   - `Data()` reads the data the Application installs (`InstallGameData`). It has about
+     1,650 uses in 92 unlayered files: 758 in 37 `local_code` files, 535 in 25
+     `local_screens` files, 198 in 11 `dialog_code` files, 122 in `src/wiz8`, and the rest
+     in `level_specific_code`, `entities`, `world` and `combat`. They reach the data from
+     code that receives neither the data nor the game, and go as screens receive it
+     from the router and rules receive a `RuleContext` (steps 3 and 6).
    - Give message ids names.
 3. **Inventory and party in `rules`.** They take the `Game` and report through its
    events (ARCHITECTURE.md, "The game"); what remains is moving them behind the boundary.

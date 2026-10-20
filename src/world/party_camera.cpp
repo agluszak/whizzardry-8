@@ -778,8 +778,8 @@ void UpdateCameraPathState(World* world, W8CameraPath* path, int active)
     SetEnvironmentLoadFlag(world->party_camera.saved_environment_flag);
     if (GetLoadedLevelID() == 1) {
         if (SDL_strcasecmp(path->name0, "Camera01") == 0) {
-            g_npc_dialogue.Queue(W8NpcPortraitString{0x721});
-            g_npc_dialogue.Queue(W8NpcStoryAction::path2_trigger);
+            CurrentGame().npc_dialogue.Queue(W8NpcPortraitString{0x721});
+            CurrentGame().npc_dialogue.Queue(W8NpcStoryAction::path2_trigger);
             return;
         }
         if (SDL_strcasecmp(path->name0, "Camera02") == 0) {

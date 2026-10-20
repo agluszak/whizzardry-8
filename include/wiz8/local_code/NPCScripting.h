@@ -76,7 +76,6 @@ public:
     void AbandonReply();
     void HoldForScene();
     void ReleaseScene();
-    void Reset();
 
 private:
     /* A conversation position. Begin can suspend one and Advance resumes it. */
@@ -111,8 +110,6 @@ private:
     bool cancelled_ = false;
     bool held_by_scene_ = false;
 };
-
-extern W8NpcDialogue g_npc_dialogue;
 
 std::string GetNpcScriptRegionName(int region);
 void StripNpcKeywordPunctuation(std::string& text);

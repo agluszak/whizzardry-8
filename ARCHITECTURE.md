@@ -33,9 +33,9 @@ are enforced:
   the string table, the item, item-table, spell, NPC, fact, level, monster and missile
   databases, the encounter tables and the dialogue keyword lists. `LoadGameData` reads
   all of it once at startup, and a malformed database throws; missing or malformed
-  keyword lists leave keywords untranslated. Unlayered code reads the installed data
-  through `Data()`; a test installs a small `GameData` it builds for itself with
-  `ScopedGameData`.
+  keyword lists leave keywords untranslated. The Application owns the loaded data and
+  installs it; unlayered code reads it through `Data()`. A test owns and installs a small
+  `GameData` it builds for itself with `ScopedGameData`.
 - **`rules`** (`include/wiz8/rules/`, `src/rules/`): the character and party model,
   party storage (`W8Party`, formation), item rules, character derivation (modifier
   blocks, effective attributes and skills, statistics and the party's shared load) and
@@ -192,6 +192,11 @@ Unlayered code may use the layers.
   - the activity and the world's advancement;
   - the camping surprise sequence, the search sweep's deadline and the autosave notice;
   - the speech queue;
+  - the NPC conversation: its progress (`npc_dialogue`), its interface state and saved
+    transcript (`npc_interaction`, which also stages the next script notice), the quote
+    or portrait message on screen and the NPC voice (`npc_presentation`, `npc_speech`)
+    and the Al-Sedexus scene;
+  - the shared spell cooldowns;
   - the gameplay timer;
   - the monster-manager entries;
   - the gameplay flags;
@@ -199,11 +204,17 @@ Unlayered code may use the layers.
   - the level, `level`: the primary and sky worlds ("Worlds and levels"). It is
     declared last, so its worlds are destroyed first, while combat and speech still
     exist.
-- **Its lifetime.** A game begins when the player chooses a new game, before party
-  selection, or when a save is loaded; either replaces any game in progress. It ends when
-  the main menu is entered and at shutdown. Ending or replacing a game first leaves its level
-  and clears the session state it does not own yet (`LeaveGameSession`); destroying
-  the game then does no departure bookkeeping. Nothing is reset field by field.
+- **Its lifetime.** The Application owns a `GameSession`: the game in progress, if any,
+  the random stream the next game continues and the event presenter. The router hands the
+  session to the screens it builds; the ones that begin and end games keep it. A game
+  begins in party creation (`BeginNewGame`: party selection's entry, reset and import) or
+  when a save is loaded (`LoadGame`); either replaces any game in progress. It ends when
+  the main menu is entered and at shutdown. Nothing is reset field by field: a new game
+  starts every member afresh, and the destructor stops the NPC voice and the Al-Sedexus
+  ambience. Destroying a game does no departure bookkeeping, so the level is left by the
+  main game, which belongs to one game: it is discarded before its game ends (quitting
+  returns to the menu) or is replaced (a load first discards the suspended screens above
+  the menu, `DiscardSuspendedScreensAbove`), and a fresh one is built for the next.
 - **A new game's story.** Factions start from their starting dispositions and relations;
   the other story parts start empty. The opening sequence creates the starting NPC states
   (`CreateNewGameNpcStates`), and the new-game loading screen seeds the starting facts
@@ -219,7 +230,7 @@ Unlayered code may use the layers.
   - A session draws one sequence from one seed, as retail did. The stream starts from
     the clock, and a game continues the stream of the game it replaces or that ended
     before it, so party selection, which begins a new game each time it is entered,
-    keeps retail's draw order into play. `SeedGameRandom` fixes the seed (the runtime
+    keeps retail's draw order into play. `GameSession::seed` fixes the seed (the runtime
     scenarios use Catch's seed).
   - Loot and NPC theft reseed the stream from saved values: a trigger's item group from
     its persistent seed, a theft from the party's experience spun by the NPC's naming
@@ -304,8 +315,9 @@ Unlayered code may use the layers.
   delay, a continuous-combat move's pacing) run down by the step's elapsed time
   (`Combat::passTime`), not by the clock. Combat is not saved.
 - **Transitional access.** Code that does not yet receive the game reaches it through
-  `CurrentGame()`, which throws when no game is in progress. Menus check
-  `GameInProgress()`.
+  `CurrentGame()`, which reads the one live `GameSession` (it registers itself) and
+  throws when no game is in progress. Menus check `GameInProgress()`. Tests own a session
+  of their own (`ScopedGame`).
 - **Events.** `Events` is the game's ordered log of what happened: notices
   (`TextNotice`, a member's `CharacterNotice`, a `NoticeDialog`), text-box mode changes,
   display changes (`PartySlotChanged`, `PartyLoadChanged`, `CombatPanelChanged`,
@@ -317,8 +329,7 @@ Unlayered code may use the layers.
   ask for repaints. An installed observer receives each event as it is pushed, so
   presentation keeps its place among the screen calls that unmigrated code still
   makes; a game without one keeps them pending, which is how tests inspect them.
-  `SetGameEventObserver` (called once by `InitializeGame`) gives every game begun by
-  `BeginGame` the UI's presenter, `PresentGameEvent` in `Screens.cpp`, which maps each
+  `GameSession::observe` (called once by `InitializeGame`) gives every game the session begins the UI's presenter, `PresentGameEvent` in `Screens.cpp`, which maps each
   event to the active screen's notice, repaint or character-screen call (the main game's
   repaints only while it is shown) and decides there whether a skill increase is shown
   at once.

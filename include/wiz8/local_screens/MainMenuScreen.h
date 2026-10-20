@@ -6,6 +6,7 @@
 #include "wiz8/screen.h"
 #include "wiz8/ui_layer.h"
 
+class GameSession;
 class W8MessageDialogBase;
 
 /* A notice the main menu shows in a dialog the next time it opens, such as
@@ -16,7 +17,7 @@ class MainMenuScreen final : public Screen {
 public:
     static constexpr W8ScreenId id = W8_SCREEN_MAIN_MENU;
 
-    MainMenuScreen();
+    explicit MainMenuScreen(GameSession& games);
     ~MainMenuScreen() override;
     bool enter(const ScreenRequest& request) override;
     void frame() override;
@@ -32,6 +33,8 @@ private:
     void activateItem(short item);
     UiResult handleItem(short item, const UiPointerEvent& event);
 
+    // Entering the menu ends the game in progress.
+    GameSession& games_;
     bool redraw_ = false;
     short selected_item_ = 0;
     /* The six item targets, registered while the menu is open. */

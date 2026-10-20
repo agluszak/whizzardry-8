@@ -32,7 +32,6 @@
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Targeting.h"
-#include "wiz8/npc_interaction.h"
 #include "wiz8/render/camera_shake.h"
 #include "wiz8/render/clip_plane.h"
 #include "wiz8/render/light.h"
@@ -307,9 +306,6 @@ TEST_CASE("Reward accounting follows the owned world, not a pending save destina
     GameData data{.strings = std::vector<std::string>(0x233)};
     data.strings[0x232] = "%d";
     const ScopedGameData installed(std::move(data));
-    struct Restore {
-        ~Restore() { ClearNpcMessageQueue(); }
-    } restore;
     auto& characters = CurrentGame().party.characters;
     auto& rows = CurrentGame().party.rows;
     rows[0].fOccupied = true;

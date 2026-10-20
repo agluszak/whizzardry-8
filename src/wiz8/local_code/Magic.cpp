@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
-#include <cstdint>
 #include <initializer_list>
 #include <iterator>
 #include <memory>
@@ -2051,14 +2050,8 @@ bool ValidateSpellTarget(int party_slot, int spell_id, unsigned int power, bool 
 }
 
 /* The spells whose casts share one three-minute cooldown slot each; the
-   shared slot lives in the status block's clock array. */
+   slot's deadline is the game's (`Game::spell_cooldowns`). */
 int g_cooldown_gated_spells[14] = {30, 38, 75, 73, 32, 33, 17, 20, 8, 40, 26, 45, 64, 58};
-static std::array<std::uint64_t, 14> g_spell_cooldown_clocks{};
-
-void ResetSpellCooldowns()
-{
-    g_spell_cooldown_clocks = {};
-}
 
 /* A failed check still restarts the slot. */
 static bool CheckAndRestartSpellCooldown(int spell_id)
@@ -2066,10 +2059,10 @@ static bool CheckAndRestartSpellCooldown(int spell_id)
     bool affected = true;
     for (unsigned int index = 0; index < 14; ++index) {
         if (g_cooldown_gated_spells[index] == spell_id) {
-            if (TimeUntilDeadline(g_spell_cooldown_clocks[index]) != 0) {
+            if (TimeUntilDeadline(CurrentGame().spell_cooldowns[index]) != 0) {
                 affected = false;
             }
-            g_spell_cooldown_clocks[index] = MonotonicMilliseconds() + (180000);
+            CurrentGame().spell_cooldowns[index] = MonotonicMilliseconds() + (180000);
             break;
         }
     }

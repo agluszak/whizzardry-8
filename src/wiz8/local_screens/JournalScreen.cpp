@@ -122,7 +122,7 @@ void RecordFactChangeForJournal(W8FactId fact_id)
         return;
     }
     if (CurrentGame().activity.conversation) {
-        g_npc_dialogue.Queue(W8NpcCommand::journal_quote);
+        CurrentGame().npc_dialogue.Queue(W8NpcCommand::journal_quote);
         return;
     }
     int range = (MainGameHud()->text_box_right - MainGameHud()->text_box_left);

@@ -153,7 +153,7 @@ bool W8NpcDialog::Configure()
                                     m_selected_option = 1;
                                     m_keep_open = false;
                                 }});
-        const auto& price_check = g_npc_dialogue.price_check();
+        const auto& price_check = CurrentGame().npc_dialogue.price_check();
         if (!price_check) throw std::logic_error("NPC price dialogue has no active price check");
         line = fmt::sprintf(Data().strings[0x7e5], price_check->price);
         bounds.left = m_bounds.x + 10;

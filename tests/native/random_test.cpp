@@ -84,12 +84,12 @@ TEST_CASE("Random covers the whole requested range", "[random]")
 TEST_CASE("A new game continues the previous game's stream", "[random]")
 {
     ScopedGame scope;
-    SeedGameRandom(1);
+    scope.session.seed(1);
     REQUIRE(CurrentGame().rng.next() == 41);
-    BeginGame();
+    scope.session.begin();
     REQUIRE(CurrentGame().rng.next() == 18467);
-    EndGame();
-    BeginGame();
+    scope.session.end();
+    scope.session.begin();
     REQUIRE(CurrentGame().rng.next() == 6334);
 }
 

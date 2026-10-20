@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <exception>
+#include <memory>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -16,9 +17,11 @@
 #include "asset_paths.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/catalog_artwork.h"
+#include "wiz8/data/game_data.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/game_init.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/screen.h"
@@ -79,8 +82,10 @@ wiz8::Application::Application(std::span<const std::string_view> arguments)
         if (!InitializeVideoManager()) throw std::runtime_error("Video initialization failed");
         if (!wiz8::sound::initialize(options.sound && !SetupDisablesAudio()))
             throw std::runtime_error("Sound initialization failed");
+        data_ = std::make_unique<GameData>();
+        games_ = std::make_unique<GameSession>();
         game_started_ = true;
-        if (!InitializeGame(options.load_at_startup, options.string_data))
+        if (!InitializeGame(*data_, *games_, options.load_at_startup, options.string_data))
             throw std::runtime_error("Game initialization failed");
         gfGameInitialized = gfApplicationActive = gfProgramIsRunning = true;
     } catch (...) {
@@ -121,7 +126,7 @@ void wiz8::Application::shutdown() noexcept
     wiz8::sound::shutdown();
     if (game_started_) {
         try {
-            ShutdownGame(complete);
+            ShutdownGame(*games_, complete);
         } catch (const std::exception& failure) {
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Game shutdown: %s", failure.what());
         }

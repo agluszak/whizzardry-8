@@ -157,7 +157,7 @@ try {
    mark the imported-party path and convert each record into a regular member.
    Reports 1 when the file does not load or a slot cannot take the character,
    2 when the ending selector holds the value three, 0 otherwise. */
-unsigned char ImportWizardry7Party(std::string_view path)
+unsigned char ImportWizardry7Party(GameSession& games, std::string_view path)
 {
     W8Character scratch;
     int index;
@@ -165,9 +165,9 @@ unsigned char ImportWizardry7Party(std::string_view path)
     if (LoadWizardry7ImportFile(path) == 0) {
         return 1;
     }
-    ResetForNewGame();
-    CurrentGame().party.gold = 2500;
-    CurrentGame().status.skip_loose_character_check = 1;
+    auto& game = BeginNewGame(games);
+    game.party.gold = 2500;
+    game.status.skip_loose_character_check = 1;
     if (g_import_character_count < 7) {
         for (index = 0; index < g_import_character_count; ++index) {
             ImportWizardry7Character(&scratch, &g_imported_characters[index]);

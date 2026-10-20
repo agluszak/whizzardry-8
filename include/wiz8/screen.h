@@ -8,6 +8,7 @@
 
 #include "wiz8/layouts/save_screenshot.h"
 
+class GameSession;
 struct W8Character;
 
 enum W8ScreenId {
@@ -119,9 +120,9 @@ public:
     }
 };
 
-using ScreenFactory = std::unique_ptr<Screen> (*)(W8ScreenId id);
-/* The game's screens, by id. */
-std::unique_ptr<Screen> CreateScreen(W8ScreenId id);
+using ScreenFactory = std::unique_ptr<Screen> (*)(W8ScreenId id, GameSession& games);
+/* The game's screens, by id. The screens that begin and end games keep `games`. */
+std::unique_ptr<Screen> CreateScreen(W8ScreenId id, GameSession& games);
 
 /* Screen routing. Requests and returns take effect on the next GameLoop step:
    the current screen leaves, then the destination enters. A request suspends
@@ -129,9 +130,15 @@ std::unique_ptr<Screen> CreateScreen(W8ScreenId id);
    return discards the current screen and resumes the most recently suspended
    one. Returning with nothing suspended, or a request that fails to enter, ends
    the program. */
-void ResetScreenRouting(ScreenFactory factory = CreateScreen);
+/* Routing starts afresh, building screens with `factory` and handing them `games`, which
+   the caller keeps alive while it routes. */
+void ResetScreenRouting(GameSession& games, ScreenFactory factory = CreateScreen);
 void RequestScreen(ScreenRequest request, ScreenDeparture departure = ScreenDeparture::Suspend);
 void ReturnToPreviousScreen();
+/* Discard, now and without resuming them, the suspended screens above the most recently
+   suspended one with `id`, or all of them when none has it. Each leaves while it is still
+   suspended, so its teardown can find it. */
+void DiscardSuspendedScreensAbove(W8ScreenId id);
 /* The request the current screen was entered with. */
 const ScreenRequest& CurrentScreenState();
 Screen* CurrentScreen();
