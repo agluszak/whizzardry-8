@@ -34,7 +34,6 @@
 #include "wiz8/ui_layer.h"
 #include "wiz8/xstatus.h"
 
-
 namespace {
 struct PartyMovementPanel {
     UiLayer input{UiLayerOrder::PartyMovement};
@@ -241,4 +240,3 @@ void EnableFreeTurnButton(void)
 {
     movement->buttons[0]->SetEnabled(true);
 }
-
