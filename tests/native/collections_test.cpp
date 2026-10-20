@@ -28,7 +28,6 @@
 #include "temporary_directory.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/chunk.h"
-#include "wiz8/cursor.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
