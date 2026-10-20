@@ -7,7 +7,6 @@ class TextFieldGroup;
 #include <memory>
 #include <string>
 
-#include "compat/compiler.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/modal_content.h"
 #include "wiz8/ui_layer.h"

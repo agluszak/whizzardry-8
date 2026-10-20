@@ -2,6 +2,7 @@
 
 #include <array>
 #include <compare>
+#include <cstddef>
 #include <cstdint>
 #include <map>
 #include <memory>
@@ -37,32 +38,32 @@ public:
     // Backend identity only. Cache policy and CPU mip storage belong to GERD.
     struct NativeTexture {
         SDL_GPUTexture* handle = nullptr;
-        w8_ulong size = 0;
+        std::uint32_t size = 0;
         uint32_t width = 0, height = 0, levels = 0;
     };
     struct GpuTextureRegion {
-        w8_ulong x, y, width, height;
+        std::uint32_t x, y, width, height;
     };
-    static constexpr w8_ulong max_back_buffer_width = 8192;
-    static constexpr w8_ulong max_back_buffer_height = 8192;
-    static constexpr w8_ulong texture_min_dim = 1;
-    static constexpr w8_ulong texture_max_dim = 4096;
-    static constexpr w8_ulong texture_max_aspect = 4096;
-    static constexpr w8_ulong max_texture_stages = 2;
-    static constexpr w8_ulong renderer_batch_limit = 256;
+    static constexpr std::uint32_t max_back_buffer_width = 8192;
+    static constexpr std::uint32_t max_back_buffer_height = 8192;
+    static constexpr std::uint32_t texture_min_dim = 1;
+    static constexpr std::uint32_t texture_max_dim = 4096;
+    static constexpr std::uint32_t texture_max_aspect = 4096;
+    static constexpr std::uint32_t max_texture_stages = 2;
+    static constexpr std::uint32_t renderer_batch_limit = 256;
     // CPU accumulation remains in GERD; the backend clears color, depth and stencil.
     struct GpuClearValues {
         glm::vec4 color;
         float depth;
-        w8_ulong stencil;
+        std::uint32_t stencil;
     };
     /* Scissor rectangle {left, top, right, bottom}. */
     struct GpuScissor {
-        w8_ulong left, top, right, bottom;
+        std::uint32_t left, top, right, bottom;
     };
     // View rectangle and depth range used by SDL GPU.
     struct GpuViewPort {
-        w8_long x, y, width, height;
+        std::int32_t x, y, width, height;
         /* Depth range forwarded by applyViewStateChanges. */
         float min_depth, max_depth;
     };
@@ -86,14 +87,14 @@ public:
         vertexStream::e_primitive primitive = vertexStream::PRIMITIVE_TRIANGLES;
         // Non-indexed draws read vertices [0, vertices.count).
         vertexStream::VertexArrayInfo vertices{};
-        std::span<const w8_ulong> indices;
+        std::span<const std::uint32_t> indices;
         // Applied by the vertex shader to the supplied positions.
         glm::mat4 clip_transform{1};
         DrawShader shader;
         // A null stage samples the missing-texture pattern when texturing.
         std::array<Texture*, 2> textures{};
         glm::vec4 fog_color{0};
-        w8_long polygon_offset = 0;
+        std::int32_t polygon_offset = 0;
     };
     // A draw stage resolved to a device texture and its sampler settings.
     struct GpuStage {
@@ -143,10 +144,10 @@ private:
     struct GpuPipelineKey {
         static constexpr uint32_t STENCIL_REPLACE = 1u << 30;
         uint32_t value = 0;
-        w8_long offset = 0;
+        std::int32_t offset = 0;
 
         GpuPipelineKey() = default;
-        GpuPipelineKey(const DrawShader& shader, GpuPrimitiveClass primitive, w8_long bias)
+        GpuPipelineKey(const DrawShader& shader, GpuPrimitiveClass primitive, std::int32_t bias)
         {
             offset = bias;
             const uint32_t packed_shader =
@@ -192,7 +193,7 @@ private:
     };
 
 public:
-    bool gpuOpenWindow(w8_ulong target_width, w8_ulong target_height);
+    bool gpuOpenWindow(std::uint32_t target_width, std::uint32_t target_height);
 
     void gpuCloseWindow();
 
@@ -206,7 +207,7 @@ public:
 
     void gpuUnlockBuffer(bool modified = false);
 
-    void gpuSetSwapInterval(w8_ulong interval);
+    void gpuSetSwapInterval(std::uint32_t interval);
 
     void gpuSetScissor(const GpuScissor& value);
 
@@ -221,10 +222,11 @@ public:
 
     void gpuDeleteTexture(NativeTexture& texture);
 
-    NativeTexture gpuCreateTexture(w8_ulong width, w8_ulong height, w8_ulong levels);
+    NativeTexture gpuCreateTexture(std::uint32_t width, std::uint32_t height, std::uint32_t levels);
 
-    void gpuUploadTexture(const NativeTexture& texture, w8_ulong level, GpuTextureRegion region,
-                          std::span<const unsigned char> pixels, w8_ulong pitch);
+    void gpuUploadTexture(const NativeTexture& texture, std::uint32_t level,
+                          GpuTextureRegion region, std::span<const unsigned char> pixels,
+                          std::uint32_t pitch);
 
     bool gpuCreateContext(SDL_Window* target_window);
 
@@ -304,28 +306,31 @@ public:
     class Renderer {
     public:
         struct TriInput {
-            w8_ulong record_count;
-            w8_ulong vertex_count;
-            std::span<const w8_ulong> indices;
+            std::uint32_t record_count;
+            std::uint32_t vertex_count;
+            std::span<const std::uint32_t> indices;
             std::span<const glm::ivec3> triangles;
-            std::span<const w8_ulong> vertices;
+            std::span<const std::uint32_t> vertices;
             const MeshPass* passes;
             int direct_vertex_indices;
             const glm::mat4* project_clip_near;
             float sort_bias;
             // Depth bias recorded with the triangles' texture sets.
-            w8_long polygon_offset = 0;
+            std::int32_t polygon_offset = 0;
             // Picks tested against the surviving triangles; a hit records pick_owner.
             std::span<Pick> picks;
             MeshInstance* pick_owner = nullptr;
-            w8_ulong triangleCount() const { return static_cast<w8_ulong>(indices.size()); }
+            std::uint32_t triangleCount() const
+            {
+                return static_cast<std::uint32_t>(indices.size());
+            }
         };
 
         struct Parameters {
             GpuRenderer* gerd;
-            w8_long sorted;
-            w8_long batch_limit;
-            w8_ulong texture_stages;
+            std::int32_t sorted;
+            std::int32_t batch_limit;
+            std::uint32_t texture_stages;
         };
 
         /* The draw state of one triangle run. The interned record additionally carries a blend
@@ -335,7 +340,7 @@ public:
             Texture* texture0;
             Texture* texture1;
             DrawShader shader;
-            w8_long polygon_offset = 0;
+            std::int32_t polygon_offset = 0;
 
             bool operator==(const TextureSetKey& other) const
             {
@@ -349,20 +354,20 @@ public:
             {
                 return std::hash<Texture*>{}(key.texture0) ^
                        (std::hash<Texture*>{}(key.texture1) << 1) ^
-                       (std::hash<w8_ulong>{}(key.shader.value) << 2) ^
-                       (std::hash<w8_long>{}(key.polygon_offset) << 3);
+                       (std::hash<std::uint32_t>{}(key.shader.value) << 2) ^
+                       (std::hash<std::int32_t>{}(key.polygon_offset) << 3);
             }
         };
         struct TextureSet {
             Texture* texture0;
             Texture* texture1;
             DrawShader shader;
-            w8_ulong blend;
-            w8_long polygon_offset;
+            std::uint32_t blend;
+            std::int32_t polygon_offset;
         };
         /* GpuTexture-set interning cache; the map's value is the index into sets. */
         struct TextureSetCache {
-            std::unordered_map<TextureSetKey, w8_ulong, TextureSetHash> map;
+            std::unordered_map<TextureSetKey, std::uint32_t, TextureSetHash> map;
             std::vector<TextureSet> sets;
 
             void clear()
@@ -370,26 +375,26 @@ public:
                 map.clear();
                 sets.clear();
             }
-            w8_ulong intern(const TextureSetKey& key);
+            std::uint32_t intern(const TextureSetKey& key);
         };
         /* Write pointers alloc() returns for the reserved triangle range. */
         struct IndexWrite {
             glm::ivec3* triangles;
-            w8_ulong* texture_set;
-            w8_ulong* sort_key;
-            w8_ulong* aux;
+            std::uint32_t* texture_set;
+            std::uint32_t* sort_key;
+            std::uint32_t* aux;
         };
         /* Accumulated primitive work. alloc() reserves count entries plus 0x40 headroom across all
            four streams; reset() always clears the count and only frees when asked. */
         struct IndexBatch {
             std::vector<glm::ivec3> triangles;
-            std::vector<w8_ulong> texture_set;
-            std::vector<w8_ulong> sort_key;
-            std::vector<w8_ulong> aux;
-            w8_ulong count;
+            std::vector<std::uint32_t> texture_set;
+            std::vector<std::uint32_t> sort_key;
+            std::vector<std::uint32_t> aux;
+            std::uint32_t count;
 
             IndexBatch() : count(0) {}
-            IndexWrite alloc(w8_ulong count);
+            IndexWrite alloc(std::uint32_t count);
             void reset(int release);
         };
         /* Accumulated vertex streams. alloc() grows all streams and default-fills the new range
@@ -403,21 +408,22 @@ public:
             std::vector<float> q[2];
             std::vector<unsigned char> attributes;
             /* isBatchFull compares this signed against batch_limit. */
-            w8_long count;
+            std::int32_t count;
 
             VertexArrays() : count(0) {}
-            ShadedVertexArrays alloc(w8_ulong count);
-            ShadedVertexArrays bind(w8_ulong base);
+            ShadedVertexArrays alloc(std::uint32_t count);
+            ShadedVertexArrays bind(std::uint32_t base);
             void reset(int release);
         };
 
         Renderer(const Parameters& parameters);
-        ShadedVertexArrays allocVertexArray(w8_ulong count);
+        ShadedVertexArrays allocVertexArray(std::uint32_t count);
         /* intern the pass's {texture0,texture1,shader} key into
            texture_set, folding per-vertex texture/shader table transitions
            into the output ids. */
-        void assignTextureSets(w8_ulong* texture_set, const w8_ulong* indices, w8_ulong count,
-                               const MeshPass* pass, w8_long polygon_offset);
+        void assignTextureSets(std::uint32_t* texture_set, const std::uint32_t* indices,
+                               std::uint32_t count, const MeshPass* pass,
+                               std::int32_t polygon_offset);
         /* expands/dedups the input triangles into the index and
            vertex batches, per record. */
         void expandTriangles(const TriInput& input, int sorted);
@@ -436,45 +442,45 @@ public:
            sorted draw paths over the accumulated index batch. */
         void drawImmediate(const vertexStream::VertexArrayInfo& arrays);
         void drawSorted(const vertexStream::VertexArrayInfo& arrays);
-        void drawTriangleRuns(std::span<const w8_ulong> order,
+        void drawTriangleRuns(std::span<const std::uint32_t> order,
                               const vertexStream::VertexArrayInfo& arrays);
         /* The GPU vertex streams of the bound batch: positions plus the
            per-stage texture coordinate and Q streams its attributes use. */
         vertexStream::VertexArrayInfo vertexArrays(const ShadedVertexArrays& arrays,
-                                                   w8_ulong count) const;
+                                                   std::uint32_t count) const;
         /* discard accumulated state; nonzero also releases
            the backing arrays. */
         void reset(int release_buffers);
         struct Statistics {
-            w8_ulong triangle_chunks = 0;
-            w8_ulong input_triangles = 0;
-            w8_ulong clipped_triangles = 0;
-            w8_ulong input_vertices = 0;
-            w8_ulong device_calls = 0;
-            w8_ulong device_vertices = 0;
-            w8_ulong device_vertex_indices = 0;
+            std::uint32_t triangle_chunks = 0;
+            std::uint32_t input_triangles = 0;
+            std::uint32_t clipped_triangles = 0;
+            std::uint32_t input_vertices = 0;
+            std::uint32_t device_calls = 0;
+            std::uint32_t device_vertices = 0;
+            std::uint32_t device_vertex_indices = 0;
         };
         void resetStatistics();
         Statistics getStatistics() const;
 
         /* CPU scratch streams owned by the renderer. */
         std::vector<unsigned char> bytes;
-        std::vector<w8_ulong> dwords;
+        std::vector<std::uint32_t> dwords;
         /* render()'s per-corner dedup scratch (six slots per triangle). */
-        std::vector<w8_ulong> remap;
+        std::vector<std::uint32_t> remap;
         Statistics statistics;
         TextureSetCache texture_sets;
         IndexBatch indices;
         VertexArrays vertices;
         /* allocVertexArray() snapshots the vertex count here so render() can
            offset indices into the reserved range. */
-        w8_long first_vertex;
+        std::int32_t first_vertex;
         GpuRenderer* gerd;
         /* flushSort flushes entries where this is 1, flushImmediateRenderers
            where it is 0. */
-        w8_long sorted;
-        w8_long batch_limit;
-        w8_ulong texture_stages;
+        std::int32_t sorted;
+        std::int32_t batch_limit;
+        std::uint32_t texture_stages;
     };
 
     enum e_error {
@@ -495,7 +501,8 @@ public:
     GpuRenderer();
     ~GpuRenderer();
 
-    void submitMesh(const Mesh::TriMesh& mesh, const MeshState& state, w8_long material_side = 0);
+    void submitMesh(const Mesh::TriMesh& mesh, const MeshState& state,
+                    std::int32_t material_side = 0);
 
     // The open native renderer, borrowed only while its window remains open.
     static GpuRenderer* getActive();
@@ -504,14 +511,14 @@ public:
     /* openWindowInternal parameter block: the current client size and the
        requested backbuffer size. */
     struct OpenInfo {
-        w8_long window_width;
-        w8_long window_height;
-        w8_long width;
-        w8_long height;
+        std::int32_t window_width;
+        std::int32_t window_height;
+        std::int32_t width;
+        std::int32_t height;
     };
     /* Number of back buffers in the swap chain (1, 2 or 3). */
     e_error openWindow();
-    e_error openWindow(w8_long width, w8_long height);
+    e_error openWindow(std::int32_t width, std::int32_t height);
     void closeWindow(e_closeHint hint);
     int isWindowOpen() const;
     e_error beginFrame();
@@ -520,8 +527,8 @@ public:
     void flushRenderers();
     void flushImmediateRenderers();
     void clear(std::uint32_t buffers);
-    w8_long getHeight() const;
-    w8_long getWidth() const;
+    std::int32_t getHeight() const;
+    std::int32_t getWidth() const;
     void resetStatistics();
     struct Statistics {
         /* Epoch written by resetStatistics; getStatistics returns the
@@ -530,56 +537,56 @@ public:
         /* Device texture bytes transferred. */
         double texture_transfer;
         double pixels_drawn;
-        w8_ulong value_18;
-        w8_ulong value_1c;
-        w8_ulong device_triangles;
-        w8_ulong device_vertices;
-        w8_ulong device_vertex_indices;
+        std::uint32_t value_18;
+        std::uint32_t value_1c;
+        std::uint32_t device_triangles;
+        std::uint32_t device_vertices;
+        std::uint32_t device_vertex_indices;
         /* Frames presented: flipFrame increments once per call. */
-        w8_ulong frames;
-        w8_ulong triangle_chunks;
-        w8_ulong input_triangles;
+        std::uint32_t frames;
+        std::uint32_t triangle_chunks;
+        std::uint32_t input_triangles;
         /* getStatistics accumulates this only for sorted renderers. */
-        w8_ulong sorted_triangles;
-        w8_ulong input_vertices;
+        std::uint32_t sorted_triangles;
+        std::uint32_t input_vertices;
         /* Texture changes between consecutive replayed draws; the debug
            overlay prints it as "TC". */
-        w8_ulong texture_binds;
+        std::uint32_t texture_binds;
         /* createNewTexture increments this created-texture count. */
-        w8_ulong textures_created;
+        std::uint32_t textures_created;
         /* draw increments this draw-call count. */
-        w8_ulong draw_calls;
-        w8_ulong clipped_triangles;
-        w8_ulong device_calls;
+        std::uint32_t draw_calls;
+        std::uint32_t clipped_triangles;
+        std::uint32_t device_calls;
     };
     Statistics getStatistics();
-    w8_ulong getResidentTextureMemUsed() const;
+    std::uint32_t getResidentTextureMemUsed() const;
     void setClearColor(const glm::vec4& color);
     void setClearColor(float red, float green, float blue, float alpha);
     void setClearDepth(double depth);
     void setFogColor(const glm::vec4& color);
-    void setScissor(w8_ulong x, w8_ulong y, w8_ulong width, w8_ulong height);
+    void setScissor(std::uint32_t x, std::uint32_t y, std::uint32_t width, std::uint32_t height);
     /* Dirty-rectangle pair handed to flipFrame in {x,y,width,height} form;
        GERD converts each to GpuScissor left/top/right/bottom. */
     struct Rectangle {
-        w8_long x, y, width, height;
+        std::int32_t x, y, width, height;
     };
     void flipFrame();
-    void flipFrame(const Rectangle* first, const Rectangle* second, w8_ulong count);
-    void setTextureReduction(w8_long reduction);
-    void setViewPort(w8_ulong x, w8_ulong y, w8_ulong width, w8_ulong height);
+    void flipFrame(const Rectangle* first, const Rectangle* second, std::uint32_t count);
+    void setTextureReduction(std::int32_t reduction);
+    void setViewPort(std::uint32_t x, std::uint32_t y, std::uint32_t width, std::uint32_t height);
     // Rendering and resource updates run on the main thread.
     Renderer& batchRenderer(bool sorted);
     SDL_Surface* lockBuffer();
     void unlockBuffer(bool modified = false);
     glm::vec4 getFogColor() const;
     // RECOMP: ?getMaxTextureStages@GpuRenderer@@QBEJXZ
-    w8_long getMaxTextureStages() const { return max_texture_stages; }
+    std::int32_t getMaxTextureStages() const { return max_texture_stages; }
     void setTextureDefaultMagFilter(Texture::e_filter filter);
     void setTextureDefaultMinFilter(Texture::e_filter filter);
     void setTextureDefaultMipmap(Texture::e_mipmap mipmap);
-    void setTextureSubImage(Texture* texture, w8_long mipmap, w8_long x, w8_long y, w8_long width,
-                            w8_long height);
+    void setTextureSubImage(Texture* texture, std::int32_t mipmap, std::int32_t x, std::int32_t y,
+                            std::int32_t width, std::int32_t height);
     // Resolves the texture and makes its device copy resident before any draw needs it.
     void prepareTexture(Texture* texture);
     void draw(const DrawCall& call);
@@ -587,11 +594,11 @@ public:
     void invalidateResidentTextures();
     void invalidateTextureCache();
     void invalidateTexture(Texture* texture);
-    void setSwapInterval(w8_ulong interval);
+    void setSwapInterval(std::uint32_t interval);
 
     /* Releases every GERD on the global list. */
     e_error getError();
-    void setClearStencil(w8_ulong stencil);
+    void setClearStencil(std::uint32_t stencil);
 
     // RECOMP: ?isEnabled@GpuRenderer@@QBEHW4e_enable@1@@Z
     int isEnabled(e_enable option) const { return (enable_flags & (1UL << option)) != 0; }
@@ -599,7 +606,7 @@ public:
 private:
     struct TextureCacheData {
         NativeTexture gpu;
-        w8_ulong width = 0, height = 0, first_level = 0, last_level = 0;
+        std::uint32_t width = 0, height = 0, first_level = 0, last_level = 0;
     };
     struct GpuTexture {
         explicit GpuTexture(GpuRenderer& owner) : owner(owner) {}
@@ -614,10 +621,10 @@ private:
     /* Pick batch view: indices selects triangles out of the caller's stream, vertices remaps each
        corner to a position index, positions is the renderer's vec4 stream base. */
     struct PickInput {
-        std::span<const w8_ulong> indices;
+        std::span<const std::uint32_t> indices;
         std::span<const glm::ivec3> triangles;
         // Empty means direct corner indices; otherwise this is the full vertex map.
-        std::span<const w8_ulong> vertices;
+        std::span<const std::uint32_t> vertices;
         std::span<const glm::vec4> positions;
         std::span<Pick> picks;
         MeshInstance* owner = nullptr;
@@ -668,23 +675,23 @@ private:
         double depth_min;
         double depth_max;
         GpuScissor scissor;
-        w8_ulong view_left;
-        w8_ulong view_top;
-        w8_ulong view_right;
-        w8_ulong view_bottom;
+        std::uint32_t view_left;
+        std::uint32_t view_top;
+        std::uint32_t view_right;
+        std::uint32_t view_bottom;
         /* Bit 1: recalcScissor marks the scissor as the full view. */
-        w8_ulong scissor_flags;
+        std::uint32_t scissor_flags;
     };
 
     struct Display {
-        w8_ulong swap_interval;
+        std::uint32_t swap_interval;
     };
 
     struct ClearState {
         struct {
             glm::vec4 color;
             double depth;
-            w8_ulong stencil;
+            std::uint32_t stencil;
         } clear_values;
         unsigned char unknown_2c_[4];
     };
@@ -711,7 +718,7 @@ private:
         DIRTY_FRAME_STATE = DIRTY_SWAP_INTERVAL,
         DIRTY_VIEW_STATE = DIRTY_SCISSOR | DIRTY_VIEWPORT | DIRTY_DEPTH_RANGE
     };
-    w8_ulong dirty;
+    std::uint32_t dirty;
     enum {
         STATE_CONTEXT_CREATED = 0x01u,
         STATE_WINDOW_OPEN = 0x02u,
@@ -719,7 +726,7 @@ private:
         STATE_FRAME_FLIPPED = 0x08u,
         STATE_CLOSING_WINDOW = 0x10u
     };
-    w8_ulong state_flags;
+    std::uint32_t state_flags;
     e_error last_error;
     State state;
     Display display;
@@ -733,7 +740,7 @@ private:
     Texture fallback_texture;
     std::unordered_map<Texture*, GpuTexture> textures;
     GpuTexture* texture_default;
-    w8_long texture_reduction;
+    std::int32_t texture_reduction;
     unsigned char unknown_2045_[3];
 
 public:

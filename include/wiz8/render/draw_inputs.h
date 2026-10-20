@@ -18,7 +18,7 @@ class MeshInstance;
 // Eye-space planes: [0, 6) bound the view frustum and [6, 32) are user planes.
 struct ClipPlanes {
     std::array<glm::vec4, 32> planes{};
-    w8_ulong mask = 0;
+    std::uint32_t mask = 0;
 };
 
 // The transforms one mesh submission, visibility query or light pass uses.
@@ -60,7 +60,7 @@ struct Pick {
     // coordinates; z starts at the far value 1.0 and keeps the nearest hit.
     glm::vec3 position{0, 0, 1};
     MeshInstance* selected_model{};
-    w8_ulong triangle_index{};
+    std::uint32_t triangle_index{};
 };
 
 // Distances and clamped amplitudes of the camera's depth cue.
@@ -80,7 +80,7 @@ struct ScenePass {
     std::span<FogParams* const> fogs;
     DepthCue depth_cue;
     // Light and fog groups the submission ignores.
-    w8_ulong exclusion_mask = 0;
+    std::uint32_t exclusion_mask = 0;
     // Picks the submitted triangles are tested against, borrowed from the
     // pass's caller. A hit records `pick_owner`; empty disables picking.
     std::span<Pick> picks;
@@ -96,6 +96,6 @@ struct MeshState {
     bool reverse_normals = false;
     // Queues the triangles for the depth-sorted pass instead of drawing them in order.
     bool sorted = false;
-    w8_long polygon_offset = 0;
+    std::int32_t polygon_offset = 0;
     ScenePass scene;
 };

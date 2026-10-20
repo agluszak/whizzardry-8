@@ -1,10 +1,11 @@
+#include "wiz8/platform/timer.h"
+
 #include <chrono>
 #include <cstdint>
 
-#include "wiz8/compat/native.h"
 #include "wiz8/runtime_test_hooks.h"
 
-std::uint64_t w8_clock_us()
+std::uint64_t MonotonicMicroseconds()
 {
     WIZ8_TEST_HOOK(if (g_runtime_test_hooks.virtual_clock) return g_runtime_test_hooks.clock_us;)
     using namespace std::chrono;
@@ -12,7 +13,7 @@ std::uint64_t w8_clock_us()
         duration_cast<microseconds>(steady_clock::now().time_since_epoch()).count());
 }
 
-std::uint64_t w8_get_ticks()
+std::uint64_t MonotonicMilliseconds()
 {
-    return w8_clock_us() / 1000;
+    return MonotonicMicroseconds() / 1000;
 }

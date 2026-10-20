@@ -13,7 +13,6 @@
 #include <catch2/catch_test_macros.hpp>
 #include <glm/ext/matrix_transform.hpp>
 
-#include "compat/compiler.h"
 #include "glm/ext/vector_double2.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float2.hpp"
@@ -154,7 +153,7 @@ TEST_CASE("Bounds radii preserve scalar precision and caller-selected centers")
 }
 TEST_CASE("Triangle texture runs follow depth order and retain submission limits")
 {
-    const std::array<w8_ulong, 5> textures{7, 7, 8, 7, 7};
+    const std::array<std::uint32_t, 5> textures{7, 7, 8, 7, 7};
     std::vector<TriangleRun> runs;
     const auto record = [&](const TriangleRun& run) { runs.push_back(run); };
     visitTriangleRuns(textures, {}, textures.size(), record);
@@ -162,17 +161,17 @@ TEST_CASE("Triangle texture runs follow depth order and retain submission limits
     REQUIRE((runs[0].first == 0 && runs[0].count == 2 && runs[0].texture_set == 7));
     REQUIRE((runs[1].first == 2 && runs[1].count == 1 && runs[1].texture_set == 8));
     REQUIRE((runs[2].first == 3 && runs[2].count == 2 && runs[2].texture_set == 7));
-    std::array<w8_ulong, 5> keys{0xffffffffu, 0, 128, 0, 0};
+    std::array<std::uint32_t, 5> keys{0xffffffffu, 0, 128, 0, 0};
     const auto order = sortedTriangleOrder(keys);
-    REQUIRE(order == std::vector<w8_ulong>{1, 3, 4, 2, 0});
-    REQUIRE(keys == std::array<w8_ulong, 5>{0, 0, 0, 128, 0xffffffffu});
+    REQUIRE(order == std::vector<std::uint32_t>{1, 3, 4, 2, 0});
+    REQUIRE(keys == std::array<std::uint32_t, 5>{0, 0, 0, 128, 0xffffffffu});
     runs.clear();
     visitTriangleRuns(textures, order, 512, record);
     REQUIRE(runs.size() == 3);
     REQUIRE((runs[0].count == 3 && runs[0].texture_set == 7));
     REQUIRE((runs[1].count == 1 && runs[1].texture_set == 8));
     REQUIRE((runs[2].count == 1 && runs[2].texture_set == 7));
-    std::vector<w8_ulong> uniform(1025, 7), uniform_keys(1025, 0);
+    std::vector<std::uint32_t> uniform(1025, 7), uniform_keys(1025, 0);
     const auto uniform_order = sortedTriangleOrder(uniform_keys);
     runs.clear();
     visitTriangleRuns(uniform, uniform_order, 512, record);

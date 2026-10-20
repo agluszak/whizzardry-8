@@ -1,42 +1,58 @@
-# Roadmap
+#Roadmap
 
-The goal is a clean architecture: gameplay rules that read like the game, owned
-state with obvious lifetimes, presentation that consumes outcomes, and retail
-formats confined to codecs. [AGENTS.md](AGENTS.md) states the principles;
-[ARCHITECTURE.md](ARCHITECTURE.md) describes what exists now. This file is the
-single list of remaining work. Delete an item when it is done, rather than
-marking it.
+The goal is a clean architecture
+    : gameplay rules that read like the game,
+      owned state with obvious lifetimes,
+      presentation that consumes outcomes,
+      and retail formats confined to codecs.[AGENTS.md](AGENTS.md) states the principles;
+[ARCHITECTURE.md](ARCHITECTURE.md) describes what exists now
+    .This file is the single list of remaining work.Delete an item when it is done,
+    rather than marking it.
 
-The target architecture and its migration come first; the steps are ordered so
-that no code is rewritten twice. Contained follow-ups and research questions
-follow.
+    The target architecture and its migration come first;
+the steps are ordered so that no code is rewritten twice.Contained follow -
+    ups and research questions follow.
 
-## Target architecture
+        ##Target architecture
 
-The decompiled program's architecture is partly migrated (see "Migration"). What remains
-of it:
+            The decompiled
+                program's architecture is partly migrated (see "Migration"). What remains of it :
 
-- **Shared mutable state.** About 250 mutable `extern` globals remain, and unlayered code
-  reaches the game through `CurrentGame()` (about 3,500 uses). The game's state has moved
-  into `Game`; the main game's HUD is `MainGameScreen::hud`, reached through
-  `MainGameHud()`, and `g_localized_strings` (about 1,080 uses) is now `Data().strings`.
-- **The step is driven by a screen.** `Game::advance` runs the simulation, but only the
-  main game screen calls it, and the screen router still sets `Activity::place`.
-- **Rules drive presentation directly.** Inventory and party report events, but other
-  rules still call presentation (notices, redraws, cursor, screen ids), and 33 of the 57
-  `local_code` files include screen headers.
-- **Some resets remain.** A game is an object, but leaving one still clears session
-  state it does not own yet (`LeaveGameSession`, `ResetForNewGame`,
-  `ResetMainGameScreenState`).
-- **Combat is driven by animation.** Combat polls animation state, and missile and
-  monster entities resolve attacks themselves.
+    -**Shared mutable state.*
+        *About 250 mutable `extern` globals remain,
+    and unlayered code reaches the game through `CurrentGame()` (about 3, 500 uses)
+            .The game's state has moved into `Game`;
+the main game's HUD is `MainGameScreen::hud`, reached through
+  `MainGameHud()`,
+    and `g_localized_strings` (about 1, 080 uses)is now `Data().strings`.-
+        **The step is driven by a screen.** `Game::advance` runs the simulation,
+    but only the main game screen calls it,
+    and the screen router still sets `Activity::place`.-
+        **Rules drive presentation directly.**Inventory and party report events,
+    but other rules still call presentation(notices, redraws, cursor, screen ids), and 33 of the 57
+  `local_code` files include screen headers.- **Some resets remain.**A game is an object,
+    but leaving one still clears session state it does not own
+        yet(`LeaveGameSession`, `ResetForNewGame`,
+  `ResetMainGameScreenState`)
+            .-
+        **Combat is driven by animation.**Combat polls animation state,
+    and missile and monster entities resolve attacks themselves
+            .
 
-The target is five layers. Each may depend only on the layers listed above it.
+        The target is five layers.Each may depend only on the layers listed above it.
 
-| Layer | Owns | May not |
-|---|---|---|
-| `data` | `GameData`: the string table; item, spell, monster, NPC, fact and level databases; missile and encounter tables; profession, race and skill tables. Immutable after loading. Retail record codecs. | change after loading |
-| `rules` | Functions over explicit state: inventory, character derivation and settlement, conditions, spell and attack resolution, facts, factions, trade, NPC script evaluation. They take a `RuleContext` (`const GameData&`, the state they change, `Rng&`, `Events&`), return values, and report refusals as `std::expected`. | include SDL, render, audio, world or screen headers; touch a mutable namespace-scope variable |
+        | Layer | Owns | May not| | -- -| -- -| -- -| | `data` | `GameData`: the string table;
+item, spell, monster, NPC, fact and level databases;
+missile and encounter tables;
+profession,
+    race and skill tables.Immutable after loading.Retail record codecs.| change after loading |
+        | `rules` | Functions over explicit state : inventory,
+    character derivation and settlement, conditions, spell and attack resolution, facts, factions,
+    trade,
+    NPC script evaluation.They take a `RuleContext` (`const GameData&`,
+                                                     the state they change, `Rng&`, `Events&`),
+    return values,
+    and report refusals as `std::expected`.| include SDL, render, audio, world or screen headers; touch a mutable namespace-scope variable |
 | `game` | `Game`, one play-through. It owns the saved `GameState` value (party, story, clock, message log, level progress), `Rng`, the `Level` (primary and sky worlds, monsters, triggers, encounters), `std::optional<Combat>`, the `Activity`, the speech scheduler and the event log. Commands are its member functions. `Game::advance(elapsed)` is the only simulation step. | include screen headers or call presentation |
 | `ui` | The router and screens. A screen borrows `const GameData&` and `Game*`. It draws from state, issues commands and presents events (notices, voices, portrait flashes, camera cues). It owns all presentation state: the main game's HUD (today's `g_level_block`), text boxes, cursor, targeting mode, the edited formation and the item drag. | change game state except through commands |
 | `app` | The platform (window, GPU, audio device, input), `GameData`, `std::optional<Game>` and the UI. | |
@@ -49,74 +65,85 @@ The decisions behind it:
    - The reset functions disappear, along with every `Clear*`/`Release*` they call.
    - Party selection, import and character creation edit the party of a game still in
      party creation, so menus outside a game never touch live state.
-2. **Rules emit events; the UI presents them.**
-   - Rules append, in order:
-     - domain facts (`ItemReceived`, `ConditionChanged`, `CharacterDied`,
+2. **Rules emit events;
+the UI presents them.**-Rules append,
+    in order : -domain facts(`ItemReceived`, `ConditionChanged`, `CharacterDied`,
        `RoundStarted`, `GoldChanged`);
-     - narration (`Message{text, speaker}`);
-     - speech requests.
-   - The UI drains the log after each command and each step, and presents it in that
-     order.
-   - `RequestRedraw` and redraw bitmasks disappear: screens repaint what an event
-     invalidated.
-   - The retail order of messages and voices and every random draw are preserved.
-3. **An activity replaces UI modes.**
-   - `Game::activity` says where the party is (the world or camp) and whether it is
-     talking, has set a conversation aside or is in a scripted scene. Combat stays
-     `Game::combat`, because a fight goes on in any of them.
-   - Rules branch on the activity: Identify works only while camping, and time passes
-     while the party is in the world.
-   - Rules never branch on a screen id or on `fCampMode`/`fNpcDialogueMode`-style
-     flags. Screens follow the activity.
-4. **The simulation steps in one place.**
-   - `Game::advance` runs, in a fixed order, what `MainGameScreen::frame` runs today:
-     speech, surprise, autosave pacing, monsters, movement fatigue, search, combat,
-     sight, groups, worlds, the environment clock and NPC events.
-   - The screen decides only whether to step (pause, an open modal).
-5. **Combat advances on explicit signals.**
-   - `Combat` owns its participants' choices and its pacing, and steps when the
-     presentation reports its actors idle.
-   - Animation frames and missile impacts post simulation events (`SpellReleased`,
-     `MissileHit`) to combat. Entities no longer resolve attacks themselves.
-6. **Saves are codecs over values.**
-   - A save is `GameState` plus one `LevelState` per visited level.
-   - `W8GlobalStatus` and the other retail records exist only inside the codec.
-   - A save snapshot is a copy of `GameState`.
-7. **The boundaries are enforced.**
-   - `data` and `rules` build as a library without the engine or SDL, and `game` does
-     not link `ui`.
-   - A checker limits each layer's includes. CI applies
-     `cppcoreguidelines-avoid-non-const-global-variables` to the layers.
+- narration(`Message { text, speaker }`);
+- speech requests.- The UI drains the log after each command and each step,
+    and presents it in that order.- `RequestRedraw` and redraw bitmasks
+    disappear:screens repaint what an event invalidated.- The retail order of messages and
+                  voices and
+                  every random draw are preserved.3. *
+                      *An activity replaces UI modes.*
+                          *- `Game::activity` says where the party is(the world or camp)and
+                  whether it is talking,
+              has set a conversation aside or is in a scripted scene.Combat stays
+     `Game::combat`, because a fight goes on in any of them.- Rules branch on the
+     activity:Identify works only while camping,
+              and time passes while the party is in the world.- Rules never branch on a screen id
+                  or on `fCampMode`/`fNpcDialogueMode`-
+                         style flags.Screens follow the activity.4. *
+                             *The simulation steps in one place.**- `Game::advance` runs,
+              in a fixed order, what `MainGameScreen::frame` runs
+        today:
+            speech, surprise, autosave pacing, monsters, movement fatigue, search, combat, sight,
+            groups, worlds,
+            the environment clock and NPC events.-
+                    The screen decides only whether to step(pause, an open modal).5. *
+                        *Combat advances on explicit signals.*
+                            *- `Combat` owns its
+                               participants' choices and its pacing, and steps when the presentation
+                               reports its actors idle.-
+                    Animation frames and missile impacts post simulation events(`SpellReleased`,
+     `MissileHit`)to combat.Entities no longer resolve attacks themselves.6. *
+                        *Saves are codecs over values.*
+                            *-A save is `GameState` plus one `LevelState` per visited
+                              level.- `W8GlobalStatus` and the other retail records exist only
+                                      inside the codec.-
+                    A save snapshot is a copy of `GameState`.7. *
+                        *The boundaries are enforced.**- `data` and `rules` build as a library
+                                                       without the engine
+                or SDL,
+            and `game` does not link `ui`.- A checker limits each layer's includes. CI applies
+     `cppcoreguidelines - avoid - non - const - global -
+                    variables` to the layers.
 
-## Migration
+                    ##Migration
 
-Each step lands one subsystem in its final shape and moves its code behind the enforced
-boundary (ARCHITECTURE.md, "Layers"), so a step cannot regress. Code not yet migrated
-reaches the game through `CurrentGame()`. That accessor returns null while no game
-exists, `rules` and `game` may not call it, and it is deleted with its last caller. Run
-the licensed runtime scenarios after every step.
+                    Each step lands one subsystem in its final shape
+                and moves its code behind the enforced boundary(ARCHITECTURE.md, "Layers"),
+            so a step cannot regress.Code not yet migrated reaches the game through `CurrentGame()`.That accessor returns null while no game exists, `rules`
+                and `game` may not call it,
+            and it is deleted with its last
+                    caller.Run the licensed runtime scenarios after every step.
 
-1. **Finish the game object.** `Game` exists (ARCHITECTURE.md, "The game").
-   - Its slot is a static in `game.cpp`. The Application should own it once screens
-     receive the game instead of calling `CurrentGame()`.
-   - Move the random stream into the game. Party creation draws from the same stream
-     today, so settle the random-stream research item first.
-   - Fold in the reset functions that still clear per-game state:
-     `LeaveGameSession` and `ResetMainScreenStateBlock`. Each goes when its state
-     moves into the game.
-2. **Finish `GameData`.** The databases and the string table are one immutable value
-   (ARCHITECTURE.md, "Layers").
-   - The Application should own it once screens receive it instead of calling `Data()`.
-   - Tests should build small `GameData` fixtures instead of swapping vectors with
-     `ScopedRecords`.
-   - Give message ids names.
-   - Still outside it: the monster database (read per record), encounter tables (reloaded
-     per level), NPC keyword lists and the generic item name cache.
-3. **Inventory and party in `rules`.** They take the `Game` and report through its
-   events (ARCHITECTURE.md, "The game"); what remains is moving them behind the boundary.
-   - Replace `Game&` with a `RuleContext` once the random stream is in the game, and
-     take the calls they still make into unmigrated code (conditions, combat targeting,
-     NPC states, facts, world drops, sounds) as explicit inputs or events.
+                    1. *
+                    *Finish the game object.** `Game` exists(ARCHITECTURE.md, "The game").-
+                Its slot is a static in `game.cpp`
+                    .The Application should own it once screens receive the game instead of
+                calling `CurrentGame()`.-
+                Move the random stream into the game.Party creation draws from the same stream today
+            ,
+            so settle the random - stream research item first.-
+                Fold in the reset functions that still clear per - game
+        state:
+     `LeaveGameSession` and `ResetMainScreenStateBlock`
+                .Each goes when its state moves into the game.2. *
+            *Finish `GameData`.**The databases and the string table are one immutable
+                                 value(ARCHITECTURE.md, "Layers")
+                                     .-
+        The Application should own it once screens receive it instead of calling `Data()`.-
+        Tests should build small `GameData` fixtures instead of swapping vectors with
+     `ScopedRecords`.- Give message ids names.- Still outside
+           it:the monster database(read per record), encounter tables(reloaded per level),
+              NPC keyword lists and the generic item name cache.3. *
+                  *Inventory and party in `rules`.**They take the `Game` and report through its
+                                                   events(ARCHITECTURE.md, "The game");
+what remains is moving them behind the boundary.-
+    Replace `Game &` with a `RuleContext` once the random stream is in the game,
+    and take the calls they still make into unmigrated code(conditions, combat targeting,
+                                                            NPC states, facts, world drops, sounds) as explicit inputs or events.
    - Presentation is synchronous: the observer shows each event as it is pushed, to keep
      its order among the direct screen calls of unmigrated code. When those are gone,
      the UI drains the log after each command and step instead.
@@ -125,9 +152,9 @@ the licensed runtime scenarios after every step.
    "Stepping").
    - Speech and the portrait voice state machine (`ProcessDeferredCharacterEvents`,
      `UpdateCharacterEventState`) still run from the frame, mixed with portrait
-     presentation; split them and move the speech part into the step.
-   - The step reads the clock itself (`w8_get_ticks`, the level's elapsed-time
-     accumulators); pass the elapsed time in (`advance(elapsed)`) so that tests can step
+     presentation;
+split them and move the speech part into the step.-
+    The step reads the clock itself(`w8_get_ticks`, the level's elapsed-time accumulators); pass the elapsed time in (`advance(elapsed)`) so that tests can step
      a game deterministically.
    - Game time follows the activity, not the screen: camp commands set `Activity::place`
      instead of the screen router, and `Place::Menu` goes because a covered screen does
@@ -144,28 +171,28 @@ the licensed runtime scenarios after every step.
      them through it.
    - The shown cursor (`Screens.cpp`) and
      the targeting mode (`TargetingMode()`) are module state of the UI code that sets
-     them; they become members of the screens that show them once camp and main game
-     share a pointer owner.
-   - The HUD panels receive explicit inputs.
-   - The main game's redraw bitmask gives way to invalidation by events, as the camp's
-     per-page invalidation already does.
-   - Camp pages take the reviewed character and the camp's dialogs as explicit inputs
-     instead of reaching back through `screen.`; the items page's cell bitmask becomes
-     per-cell invalidation.
-   - The held-item cursor is derived every frame from the hand and the interaction
-     mode, replacing `UpdateHeldItemCursor`/`SetItemCursor` calls after commands.
-6. **Conditions, magic and combat in `rules`.**
-   - Conditions, spells and attack resolution return results and emit events.
-   - `Combat` becomes an owned turn system, signalled by animation and missile events.
-     The turn and its waits are values, and missiles and monster animations report hits
-     and release frames through the world's `SimulationSink` (ARCHITECTURE.md, "The
-     game"). `CombatWaitFor` still polls animation, sound and missiles each frame,
-     `monster_script.cpp` and `trigger_actions.cpp` still call combat and magic
-     directly, and actions still resolve inside `local_code`.
-7. **Story state.** `Game::story` and `Game::message_log` hold it (ARCHITECTURE.md,
-   "The game").
-   - NPC scripting and level scripts take a context (the world, the party, story state,
-     events) instead of reaching globals, and level-script statics become per-level
+     them;
+they become members of the screens that show them once camp and main game share a pointer owner.-
+    The HUD panels receive explicit inputs.-
+    The main game 's redraw bitmask gives way to invalidation by events, as the camp' s per -
+    page invalidation already does.-
+    Camp pages take the reviewed character and the camp's dialogs as explicit inputs instead of
+        reaching back through `screen.`;
+the items page's cell bitmask becomes per - cell invalidation.- The held -
+    item cursor is derived every frame from the hand and the interaction mode,
+    replacing `UpdateHeldItemCursor`/`SetItemCursor` calls after commands.6. * *Conditions,
+    magic and combat in `rules`.**-Conditions,
+    spells and attack resolution return results and
+        emit events.- `Combat` becomes an owned turn system,
+    signalled by animation and missile events.The turn and its waits are values,
+    and missiles and monster animations report hits and
+            release frames through the world's `SimulationSink` (ARCHITECTURE.md, "The game
+        "). `CombatWaitFor` still polls animation, sound and missiles each frame,
+     `monster_script.cpp` and `trigger_actions.cpp` still call combat and magic directly,
+    and actions still resolve inside `local_code`.7. *
+            *Story state.*
+                * `Game::story` and `Game::message_log` hold it(ARCHITECTURE.md, "The game").-
+        NPC scripting and level scripts take a context(the world, the party, story state, events) instead of reaching globals, and level-script statics become per-level
      script objects.
 8. **Saves over values.** Save and load become `encode(GameState, LevelState…)` and
    `decode(...)`. Then delete `W8GlobalStatus` as a runtime type.
@@ -182,20 +209,24 @@ each.
   `ApplyPartyModifiers`, direct `CalcInitiative` and `CalcAttacks` calls), so
   different callers see different subsets updated.
   - Make derived values (effective attributes, skills, ceilings, armor, attacks,
-    load) a pure function of explicit inputs, recomputed in one place.
-  - Apply resource transitions (current HP/stamina/spell points following a new
-    ceiling, death) as named transitions of the operation that caused them; today
-    they happen inside the statistics calculation.
-  - Make the retail previous-pass damage bonus used by swings an explicit history
-    input, so that a different number of passes cannot change combat results.
-- **The party and actions model.** (After step 1; choices move with `Combat` in
-  step 6.) A `W8PartySlotRow` groups a member's action state into named parts
-  (`remembered` choices, the `committed` action, the action `executing`), but it still
-  mixes them with persistent membership, NPC binding and marching order, UI flags
-  (`item_action_pending`, `portrait_advance`) and accumulators (`movement_fatigue`).
-  Split these by owner:
-  - membership in the party, and the action parts in a turn/combat model;
-  - presentation in the screens.
+    load)
+a pure function of explicit inputs,
+    recomputed in one place.-
+        Apply resource transitions(current HP / stamina / spell points following a new ceiling,
+                                   death)
+as named transitions of the operation that caused them;
+today they happen inside the statistics calculation.- Make the retail previous -
+    pass damage bonus used by swings an explicit history input,
+    so that a different number of passes cannot change combat results.-
+        **The party and actions model.*
+            *(After step 1; choices move with `Combat` in step 6.)A `W8PartySlotRow` groups a
+            member's action state into named parts (`remembered` choices, the `committed` action,
+                                                    the action `executing`),
+    but it still mixes them with persistent membership, NPC binding and marching order,
+    UI flags(`item_action_pending`, `portrait_advance`) and
+        accumulators(`movement_fatigue`).Split these by owner : -membership in the party,
+    and the action parts in a turn / combat model;
+- presentation in the screens.
 
   Replace `fOccupied` arrays with real optional members, so that no code asks "is
   this character an occupied member" by address (`slotOf`).
@@ -208,15 +239,10 @@ each.
   Committed and pending item uses should record the expected item contents, as
   trade rows do, and abandon on mismatch, because pool compaction can silently
   retarget a location.
-- **Runtime types with semantic shape; retail layout only in codecs.** (Finished
-  by step 8.) `W8Character`, `W8PartySlotRow`, `W8ItemInstance` and formation
-  state still carry retail field names and sizes: about 1,230 uses of Hungarian
-  names such as `iItemNo`, `fOccupied`, `uiHPMax` and `uiCondition`, plus size
-  `static_assert`s. Twenty-eight `wiz8::retail::Record` codecs already exist.
-  Finish the move:
-  - semantic names, enums, `std::array`/`std::optional`/`inplace_vector` members,
-    and no runtime size asserts;
-  - codecs own every byte, including unknown fields;
+- **Runtime types with semantic shape;
+retail layout only in codecs.**(Finished by step 8.) `W8Character`, `W8PartySlotRow`, `W8ItemInstance` and formation state still carry retail field names and sizes : about 1, 230 uses of Hungarian names such as `iItemNo`, `fOccupied`, `uiHPMax` and `uiCondition`, plus size
+  `static_assert`s.Twenty - eight `wiz8::retail::Record` codecs already exist.Finish the move : -semantic names, enums, `std::array`/`std::optional`/`inplace_vector` members, and no runtime size asserts;
+- codecs own every byte, including unknown fields;
   - the remaining numeric save records and engine resource identifiers get the
     same treatment.
 - **Actor references.** About 500
@@ -236,11 +262,6 @@ Substantial but contained work.
   hits, but `W8OctreeTrace`, line-of-sight and ground-probe callers still use
   mutable output records and surface-zero sentinels. Convert them end to end to
   explicit inputs and optional typed results, preserving world/prop filtering.
-- **Delete the compatibility layer.** `include/wiz8/compat/` (`compiler.h` is
-  force-included into every game source, plus `native.h`, `unaligned.h` and
-  `video.h`) and `src/compat/native_helpers.cpp` should go. Replace them with
-  native filesystem, SDL event and loop facilities, and explicit byte decoding at
-  the file boundaries.
 - **Remove `-fwrapv` and `-fno-strict-aliasing`.** Fix the arithmetic and aliasing
   assumptions these flags protect, using the integer-sanitizer audit job, then drop
   them from `WIZ8_GAME_OPTIONS`.

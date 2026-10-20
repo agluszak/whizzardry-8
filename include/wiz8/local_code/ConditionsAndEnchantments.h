@@ -1,5 +1,4 @@
 #pragma once
-#include "compat/compiler.h"
 #include "wiz8/rules/conditions.h"
 
 struct W8ItemInstance;

@@ -12,7 +12,6 @@
 #include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
 
-#include "compat/native.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/npc_dialogue.h"
 #include "local_code/ControlsRect.h"
@@ -226,7 +225,7 @@ void RecordCharacterDamage(int party_slot, unsigned int amount)
         entry->damage_splat_frame = -1;
         return;
     }
-    entry->portrait_fx_clock = w8_get_ticks() + (100);
+    entry->portrait_fx_clock = MonotonicMilliseconds() + (100);
 }
 
 /* Draw the slot's floating damage-number splat over the portrait: the picked
@@ -347,7 +346,7 @@ void TickPartyPortraitFx(void)
             }
         }
         if (clock_expired) {
-            entry->portrait_fx_clock = w8_get_ticks() + (100);
+            entry->portrait_fx_clock = MonotonicMilliseconds() + (100);
         }
         if (dirty && !entry->keyboard_menu_open) {
             RequestRedraw(1u << (slot & 0x1f));
@@ -375,7 +374,7 @@ void ResetPartyPortraitFx(void)
         entry->damage_splat_death_variant = false;
         entry->dead_portrait_revealed = false;
         entry->damage_splat_frame = -1;
-        entry->portrait_fx_clock = w8_get_ticks() + (0);
+        entry->portrait_fx_clock = MonotonicMilliseconds() + (0);
     }
 }
 
@@ -673,7 +672,7 @@ void StageMonsterCastIcon(unsigned int party_slot, W8SpellRealm realm, bool alte
         RequestRedraw(1 << (party_slot & 0x1f));
     }
     if (!entry->damage_splat_active) {
-        entry->portrait_fx_clock = w8_get_ticks() + (100);
+        entry->portrait_fx_clock = MonotonicMilliseconds() + (100);
         return;
     }
     entry->effect_icon_frame = -1;

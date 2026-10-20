@@ -23,7 +23,6 @@
 #include "navigation_flags.h"
 #include "sight_state.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/compat/native.h"
 #include "wiz8/containers.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/faction_ids.h"
@@ -446,7 +445,7 @@ std::unique_ptr<W8MonsterRecord>& CachedMonsterRecord(unsigned int monster_speci
 
 void RecordCombatStart()
 {
-    recent_combat.until = w8_get_ticks() + 120000;
+    recent_combat.until = MonotonicMilliseconds() + 120000;
 }
 
 void ForgetRecentCombat()

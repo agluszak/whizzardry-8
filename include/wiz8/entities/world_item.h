@@ -5,7 +5,6 @@
 #include <optional>
 #include <string_view>
 
-#include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"

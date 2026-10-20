@@ -1,5 +1,6 @@
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <cstdlib>
 #include <limits>
 #include <numbers>
@@ -13,7 +14,6 @@
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/mat3x3.hpp> // IWYU pragma: keep - public generic-matrix entry point.
 
-#include "compat/compiler.h"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_int3.hpp"
@@ -209,25 +209,25 @@ TEST_CASE("Triangle culling owns ordered indices and vertex remapping", "[render
     input.cull_mode = 0;
     input.clip_mask = 1u << 7;
     auto result = meshCulling::cull(input);
-    REQUIRE(result.indices == std::vector<w8_ulong>{0, 2});
-    REQUIRE(result.avt == std::vector<w8_ulong>{1, 3, 4, 5});
-    REQUIRE(result.vertex_remap == std::vector<w8_ulong>{0, 0, 0, 1, 2, 3});
+    REQUIRE(result.indices == std::vector<std::uint32_t>{0, 2});
+    REQUIRE(result.avt == std::vector<std::uint32_t>{1, 3, 4, 5});
+    REQUIRE(result.vertex_remap == std::vector<std::uint32_t>{0, 0, 0, 1, 2, 3});
 
     // Active lists retain their order and bypass the already-applied clip test.
-    const std::array<w8_ulong, 3> active{3, 1, 3};
+    const std::array<std::uint32_t, 3> active{3, 1, 3};
     input.active_triangles = active;
     input.cull_mode = 2;
     const auto active_result = meshCulling::cull(input);
-    REQUIRE(active_result.indices == std::vector<w8_ulong>{3, 1, 3});
-    REQUIRE(active_result.avt == std::vector<w8_ulong>{0, 2, 4, 5});
-    REQUIRE(result.indices == std::vector<w8_ulong>{0, 2});
+    REQUIRE(active_result.indices == std::vector<std::uint32_t>{3, 1, 3});
+    REQUIRE(active_result.avt == std::vector<std::uint32_t>{0, 2, 4, 5});
+    REQUIRE(result.indices == std::vector<std::uint32_t>{0, 2});
 
     input.active_triangles.reset();
     input.cull_mode = 1;
     const auto opposite = meshCulling::cull(input);
-    REQUIRE(opposite.indices == std::vector<w8_ulong>{3});
+    REQUIRE(opposite.indices == std::vector<std::uint32_t>{3});
     input.clip_mask = 0;
-    REQUIRE(meshCulling::cull(input).indices == std::vector<w8_ulong>{1, 3});
+    REQUIRE(meshCulling::cull(input).indices == std::vector<std::uint32_t>{1, 3});
     input.triangles = {};
     const auto empty = meshCulling::cull(input);
     REQUIRE(empty.indices.empty());
@@ -239,11 +239,12 @@ TEST_CASE("Renderer triangle clipping uses direct and remapped vertices", "[rend
 {
     const std::array<glm::ivec3, 3> triangles{{{0, 1, 2}, {1, 2, 3}, {3, 4, 5}}};
     const std::array<unsigned char, 6> flags{1, 1, 1, 2, 2, 2};
-    const std::array<w8_ulong, 6> remap{3, 4, 5, 0, 1, 2};
-    std::array<w8_ulong, 4> indices{2, 0, 1, 2};
-    const auto count = clipMath::selectTriangles(indices, std::span{indices}, [&](w8_ulong index) {
-        return clipMath::triangleVisible(triangles[index], flags.data(), remap.data());
-    });
+    const std::array<std::uint32_t, 6> remap{3, 4, 5, 0, 1, 2};
+    std::array<std::uint32_t, 4> indices{2, 0, 1, 2};
+    const auto count =
+        clipMath::selectTriangles(indices, std::span{indices}, [&](std::uint32_t index) {
+            return clipMath::triangleVisible(triangles[index], flags.data(), remap.data());
+        });
     REQUIRE(count == 1);
     REQUIRE(indices[0] == 1);
     REQUIRE_FALSE(clipMath::triangleVisible(triangles[0], flags.data()));
@@ -266,11 +267,11 @@ TEST_CASE("Triangle culling rejects inconsistent spans and retains empty selecti
     REQUIRE_THROWS_AS(meshCulling::cull(input), std::invalid_argument);
     REQUIRE_THROWS_AS(meshCulling::getClipMask({0, 0, 0}, 1, planes, 1u << 31),
                       std::invalid_argument);
-    const std::array<w8_ulong, 1> active{0};
+    const std::array<std::uint32_t, 1> active{0};
     input.active_triangles = active;
     // Explicit selections have already been clipped, so the unused plane mask is ignored.
-    REQUIRE(meshCulling::cull(input).indices == std::vector<w8_ulong>{0});
-    const std::array<w8_ulong, 1> invalid{1};
+    REQUIRE(meshCulling::cull(input).indices == std::vector<std::uint32_t>{0});
+    const std::array<std::uint32_t, 1> invalid{1};
     input.active_triangles = invalid;
     REQUIRE_THROWS_AS(meshCulling::cull(input), std::invalid_argument);
     input.active_triangles = active;
@@ -279,12 +280,12 @@ TEST_CASE("Triangle culling rejects inconsistent spans and retains empty selecti
     triangles[0].x = 0;
     input.cull_mode = 0;
     REQUIRE_THROWS_AS(meshCulling::cull(input), std::invalid_argument);
-    input.active_triangles = std::span<const w8_ulong>{};
+    input.active_triangles = std::span<const std::uint32_t>{};
     REQUIRE(meshCulling::cull(input).indices.empty());
     input.active_triangles.reset();
     input.clip_mask = 0;
     input.cull_mode = 2;
-    REQUIRE(meshCulling::cull(input).indices == std::vector<w8_ulong>{0});
+    REQUIRE(meshCulling::cull(input).indices == std::vector<std::uint32_t>{0});
 }
 
 TEST_CASE("Triangle clipping retains high plane bits across large meshes", "[render][culling]")
@@ -306,8 +307,8 @@ TEST_CASE("Triangle clipping retains high plane bits across large meshes", "[ren
     input.cull_mode = 2;
     input.clip_mask = (1u << 31) | (1u << 5);
     const auto result = meshCulling::cull(input);
-    std::vector<w8_ulong> expected;
-    for (w8_ulong index = 0; index < triangles.size(); ++index) {
+    std::vector<std::uint32_t> expected;
+    for (std::uint32_t index = 0; index < triangles.size(); ++index) {
         const auto& triangle = triangles[index];
         if (vertices[triangle.x].x >= 0 || vertices[triangle.y].x >= 0 ||
             vertices[triangle.z].x >= 0)

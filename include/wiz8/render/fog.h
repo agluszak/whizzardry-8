@@ -1,6 +1,7 @@
 #pragma once
 class WorldScene;
 class GpuRenderer;
+#include <cstdint>
 #include <string>
 #include <utility>
 
@@ -32,8 +33,8 @@ public:
     bool visible = true;
     WorldScene* scene = nullptr; // Borrowed typed render membership.
     void setScene(WorldScene* value);
-    w8_ulong group_mask = 0x80000000u;
+    std::uint32_t group_mask = 0x80000000u;
     glm::vec3 eye_location{0};
-    void setGroupMask(w8_ulong value) { group_mask = value; }
-    w8_ulong getGroupMask() const { return group_mask; }
+    void setGroupMask(std::uint32_t value) { group_mask = value; }
+    std::uint32_t getGroupMask() const { return group_mask; }
 };

@@ -9,7 +9,6 @@
 
 #include <SDL3/SDL_time.h>
 
-#include "compat/compiler.h"
 #include "wiz8/layouts/save_screenshot.h"
 
 bool VerifyDataSubdirs(void);

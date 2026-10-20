@@ -1,10 +1,10 @@
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
 #include <memory>
 #include <string_view>
 
-#include "compat/compiler.h"
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/vertex_channels.h"
 #include "wiz8/retail_geometry_types.h"
@@ -40,7 +40,7 @@ struct W8MaterialRecord {
     W8TextureAnimationMode animation_mode; /* 0x10d */
     int animation_frame;                   /* 0x10e */
     float animation_rate;                  /* 0x112 */
-    w8_ulong surface_flags;           /* 0x116 */
+    std::uint32_t surface_flags;           /* 0x116 */
     float texture_modes[4];                /* 0x11a */
 };
 

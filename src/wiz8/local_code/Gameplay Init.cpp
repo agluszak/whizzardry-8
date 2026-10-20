@@ -3,7 +3,6 @@
 
 #include "retail_records.h"
 #include "wiz8/character_event_queue.h"
-#include "wiz8/compat/native.h"
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/difficulty.h"
 #include "wiz8/game.h"
@@ -25,6 +24,7 @@
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/platform/random.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/render/quality.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
@@ -131,11 +131,11 @@ void ResetGameplaySlot(unsigned int slot)
     record->portrait.rendered_pose = -1;
     record->portrait.pose_dirty = false;
     record->portrait.frame_dirty = false;
-    record->portrait.frame_clock = w8_get_ticks() + (0);
+    record->portrait.frame_clock = MonotonicMilliseconds() + (0);
     record->portrait.voice_remaining_ms = 0;
-    record->portrait.pose_clock = w8_get_ticks() + (0);
-    record->portrait.idle_clock = w8_get_ticks() + (Random(5000) + 5000);
-    record->portrait_fx_clock = w8_get_ticks() + (0);
+    record->portrait.pose_clock = MonotonicMilliseconds() + (0);
+    record->portrait.idle_clock = MonotonicMilliseconds() + (Random(5000) + 5000);
+    record->portrait_fx_clock = MonotonicMilliseconds() + (0);
     record->damage_splat_active = false;
     record->damage_splat_death_variant = false;
     record->dead_portrait_revealed = false;
@@ -159,7 +159,7 @@ void ResetGameplaySlot(unsigned int slot)
     record->combat_portrait_dirty = false;
     record->acting_portrait_pulse = 0;
     record->level_up_ready = false;
-    record->acting_portrait_pulse_clock = w8_get_ticks() + (0);
+    record->acting_portrait_pulse_clock = MonotonicMilliseconds() + (0);
 }
 
 /* The static initializer constructs the manager's entries and vector before

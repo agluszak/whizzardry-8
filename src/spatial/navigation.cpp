@@ -28,7 +28,6 @@
 #include <glm/vector_relational.hpp> // NOLINT(misc-include-cleaner)
 #include <wiz8/filesystem.h>
 
-#include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -148,7 +147,7 @@ private:
     float radius;
     bool nearby_queried;
     bool blocked;
-    std::vector<w8_ulong> nearby_locations;
+    std::vector<std::uint32_t> nearby_locations;
     Monster* monster;
 };
 
@@ -728,7 +727,7 @@ bool NavigationMesh::TestAttachmentHopDoor(NavigatorRoute* attachment) const
             (m_pEdges[edge_index].flags & W8_PATH_EDGE_DISABLED) != 0) {
             BoundingBox bounds{source_surface->position, source_surface->position};
             bounds.include(m_waypoints[destination].position);
-            std::vector<w8_ulong> candidates;
+            std::vector<std::uint32_t> candidates;
             Trigger* selected = 0;
             candidates = owner_octree->queryObjects(bounds, W8_OCTREE_KIND_PROP, -1);
             const auto count = std::ssize(candidates);
@@ -1082,7 +1081,7 @@ unsigned short NavigationMesh::RecurseTargetLinks(PathSearchScratch& path_search
     unsigned short edge;
     unsigned short destination;
     unsigned short candidates[20];
-    w8_ulong keys[20];
+    std::uint32_t keys[20];
     float distances[20];
     unsigned int count = 0;
     unsigned int index;
@@ -1125,7 +1124,7 @@ unsigned short NavigationMesh::RecurseTargetLinks(PathSearchScratch& path_search
                             m_waypoints[destination].position - m_waypoints[waypoint].position;
                         link_direction = normalizedOrZero(link_direction);
                         *slot = edge;
-                        keys[count] = static_cast<w8_ulong>(
+                        keys[count] = static_cast<std::uint32_t>(
                             g_path_link_cost_base -
                             glm::dot(link_direction, (to_target / distance)) * 1e+03f);
                         ++count;
@@ -1249,7 +1248,7 @@ unsigned short NavigationMesh::RecursePatrolLinks(PathSearchScratch& path_search
     path_search.graph.resize(m_waypoints.size());
     path_search.route.resize(m_waypoints.size() + 1);
     unsigned short links[20];
-    w8_ulong keys[20];
+    std::uint32_t keys[20];
     float costs[20];
     unsigned int count = 0;
     float distance;
@@ -1730,7 +1729,7 @@ unsigned short NavigationMesh::PlanMovement(PathSearchScratch& path_search,
         if (movement->target_location_id < 1) {
             path_search.candidates.clear();
         } else {
-            path_search.candidates = {static_cast<w8_ulong>(movement->target_location_id)};
+            path_search.candidates = {static_cast<std::uint32_t>(movement->target_location_id)};
         }
     }
 

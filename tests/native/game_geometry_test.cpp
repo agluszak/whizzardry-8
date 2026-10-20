@@ -2,6 +2,7 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <limits>
 #include <memory>
@@ -19,7 +20,6 @@
 #include <glm/gtc/constants.hpp>
 #include <glm/gtx/euler_angles.hpp>
 
-#include "compat/compiler.h"
 #include "geometry.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_double3.hpp"
@@ -457,7 +457,7 @@ static void triangle_visibility()
     const std::array<glm::vec4, 6> planes{
         {{1, 0, 0, 1}, {-1, 0, 0, 1}, {0, 1, 0, 1}, {0, -1, 0, 1}, {0, 0, 1, 1}, {0, 0, -1, 1}}};
     const glm::mat4 identity(1);
-    std::array<w8_ulong, 3> indices;
+    std::array<std::uint32_t, 3> indices;
     meshCulling::Input input(identity, identity);
     input.cull_mode = 2;
     input.triangles = triangles;
@@ -465,9 +465,9 @@ static void triangle_visibility()
     input.clip_planes = planes;
     input.clip_mask = 0x3f;
     auto output = meshCulling::cull(input);
-    REQUIRE((output.indices == std::vector<w8_ulong>{0, 2}));
+    REQUIRE((output.indices == std::vector<std::uint32_t>{0, 2}));
     REQUIRE((output.vertexCount() == 6));
-    const std::array<w8_ulong, 6> expected{{0, 1, 2, 6, 7, 8}};
+    const std::array<std::uint32_t, 6> expected{{0, 1, 2, 6, 7, 8}};
     for (unsigned i = 0; i < expected.size(); ++i)
         REQUIRE((output.avt[i] == expected[i] && output.vertex_remap[expected[i]] == i));
     // Active triangle filtering must keep source order without changing the input list.
@@ -478,9 +478,9 @@ static void triangle_visibility()
     input.cull_mode = 0;
     input.clip_mask = 0;
     output = meshCulling::cull(input);
-    REQUIRE((output.indices == std::vector<w8_ulong>{2, 0}));
-    REQUIRE((indices == std::array<w8_ulong, 3>{2, 1, 0}));
-    input.active_triangles = std::span<const w8_ulong>{};
+    REQUIRE((output.indices == std::vector<std::uint32_t>{2, 0}));
+    REQUIRE((indices == std::array<std::uint32_t, 3>{2, 1, 0}));
+    input.active_triangles = std::span<const std::uint32_t>{};
     output = meshCulling::cull(input);
     REQUIRE((output.indices.empty() && output.avt.empty() && output.vertex_remap.empty()));
     const auto clip = meshCulling::getClipMask({1, 0, 0}, 0, planes, 0x3f);
@@ -1263,16 +1263,17 @@ TEST_CASE("Software backface selection preserves thresholds and active order", "
     mesh.positions = positions.data();
     mesh.poly_vertices = triangles.data();
     const auto positive = Mesh::facingPolygons(mesh, normals, glm::vec3(0), true, 0);
-    REQUIRE(positive == std::vector<w8_ulong>{0, 2});
+    REQUIRE(positive == std::vector<std::uint32_t>{0, 2});
     REQUIRE(Mesh::facingPolygons(mesh, normals, glm::vec3(0), false, 0) ==
-            std::vector<w8_ulong>{0, 1});
-    REQUIRE(Mesh::facingPolygons(mesh, normals, glm::vec3(0), true, 1) == std::vector<w8_ulong>{2});
-    std::array<w8_ulong, 4> active{2, 1, 0, 2};
-    mesh.active_polygons = std::span<const w8_ulong>(active);
+            std::vector<std::uint32_t>{0, 1});
+    REQUIRE(Mesh::facingPolygons(mesh, normals, glm::vec3(0), true, 1) ==
+            std::vector<std::uint32_t>{2});
+    std::array<std::uint32_t, 4> active{2, 1, 0, 2};
+    mesh.active_polygons = std::span<const std::uint32_t>(active);
     REQUIRE(Mesh::facingPolygons(mesh, normals, glm::vec3(0), true, 0) ==
-            std::vector<w8_ulong>{2, 0, 2});
-    REQUIRE(positive == std::vector<w8_ulong>{0, 2});
-    mesh.active_polygons = std::span<const w8_ulong>{};
+            std::vector<std::uint32_t>{2, 0, 2});
+    REQUIRE(positive == std::vector<std::uint32_t>{0, 2});
+    mesh.active_polygons = std::span<const std::uint32_t>{};
     REQUIRE(Mesh::facingPolygons(mesh, normals, glm::vec3(0), true, 0).empty());
 }
 
@@ -1542,7 +1543,7 @@ TEST_CASE("Static and frame normals share area weighting across shade seams", "[
     const std::array<glm::ivec3, 3> triangles{{{0, 1, 2}, {4, 3, 1}, {2, 2, 2}}};
     std::ranges::copy(triangles, mesh.getPolyVertex());
     auto* shades = mesh.getVertexShadeIndex(1);
-    for (w8_ulong vertex = 0; vertex < positions.size(); ++vertex) shades[vertex] = vertex;
+    for (std::uint32_t vertex = 0; vertex < positions.size(); ++vertex) shades[vertex] = vertex;
     shades[4] = 0;
     const auto* normals = mesh.getVertexNormal();
     REQUIRE(close(normals[0], {0, 0.8f, 0.6f}));
@@ -1724,8 +1725,8 @@ TEST_CASE("Mesh permutations keep GLM channels corners shades and active polygon
                 mesh.getVertexTexCoords(pass, layer, 1)[i] = glm::vec2(40 * pass + 5 * layer + i);
         }
     }
-    const std::array<w8_ulong, 2> polygon_order{1, 0};
-    const std::array<w8_ulong, 3> vertex_order{2, 0, 1};
+    const std::array<std::uint32_t, 2> polygon_order{1, 0};
+    const std::array<std::uint32_t, 3> vertex_order{2, 0, 1};
     mesh.reindexPolygons(polygon_order);
     mesh.reindexVertices(vertex_order);
     REQUIRE(mesh.getActivePolygonTable(0)[0] == 1);
@@ -1753,7 +1754,7 @@ TEST_CASE("Mesh permutations keep GLM channels corners shades and active polygon
                         glm::vec2(40 * pass + 5 * layer + vertex_order[i]));
         }
     }
-    const std::array<w8_ulong, 3> duplicate{0, 0, 2};
+    const std::array<std::uint32_t, 3> duplicate{0, 0, 2};
     REQUIRE_THROWS_AS(mesh.reindexVertices(duplicate), std::invalid_argument);
     REQUIRE_THROWS_AS(mesh.reindexVertices(polygon_order), std::invalid_argument);
     REQUIRE_THROWS_AS(mesh.reindexPolygons(vertex_order), std::invalid_argument);

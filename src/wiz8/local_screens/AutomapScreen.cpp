@@ -23,7 +23,6 @@
 #include <fmt/format.h>
 #include <glm/geometric.hpp> // NOLINT(misc-include-cleaner)
 
-#include "compat/native.h"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float2.hpp"
@@ -62,6 +61,7 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/packed_bits.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/clip_plane.h"
 #include "wiz8/render/compositor.h"
@@ -555,7 +555,7 @@ bool AutomapScreen::enter(const ScreenRequest&)
     if (!g_automap_state) {
         g_automap_state = std::make_unique<W8AutomapState>();
     }
-    g_automap_state->blink_time = w8_get_ticks();
+    g_automap_state->blink_time = MonotonicMilliseconds();
     g_automap_viewport.left = 12;
     g_automap_viewport.top = 32;
     g_automap_viewport.right = 467;
@@ -783,9 +783,9 @@ void AutomapScreen::frame()
         moved = true;
     }
     if (moved) SetAutomapCameraPoint(&g_automap_position);
-    if (w8_get_ticks() - g_automap_state->blink_time > 500) {
+    if (MonotonicMilliseconds() - g_automap_state->blink_time > 500) {
         if (g_automap_state->blink_enabled) DrawVideoInspector(0xdc, 0x32);
-        g_automap_state->blink_time = w8_get_ticks();
+        g_automap_state->blink_time = MonotonicMilliseconds();
     }
     RenderAutomapFrame();
 }

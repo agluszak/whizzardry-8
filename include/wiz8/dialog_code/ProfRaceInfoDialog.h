@@ -3,7 +3,6 @@
 
 #include <string_view>
 
-#include "compat/compiler.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/data/records.h"
 #include "wiz8/dialog_code/DialogBase.h"

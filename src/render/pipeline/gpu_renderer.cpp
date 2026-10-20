@@ -24,12 +24,11 @@
 #include <SDL3/SDL_surface.h>
 #include <SDL3/SDL_video.h>
 
-#include "compat/compiler.h"
 #include "glm/common.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "glm/fwd.hpp"
 #include "glm/vector_relational.hpp"
-#include "wiz8/compat/native.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/picking_math.h"
 #include "wiz8/render/texture.h"
@@ -67,9 +66,9 @@ GpuRenderer::~GpuRenderer()
     gpuDeleteContext();
 }
 
-void GpuRenderer::setTextureReduction(w8_long reduction)
+void GpuRenderer::setTextureReduction(std::int32_t reduction)
 {
-    texture_reduction = std::clamp(reduction, w8_long{0}, w8_long{7});
+    texture_reduction = std::clamp(reduction, std::int32_t{0}, std::int32_t{7});
 }
 
 GpuRenderer::Statistics GpuRenderer::getStatistics()
@@ -93,7 +92,7 @@ GpuRenderer::Statistics GpuRenderer::getStatistics()
         }
     }
     auto result = this->statistics;
-    result.elapsed = static_cast<double>(w8_clock_us()) / 1'000'000 - result.elapsed;
+    result.elapsed = static_cast<double>(MonotonicMicroseconds()) / 1'000'000 - result.elapsed;
     return result;
 }
 
@@ -101,7 +100,7 @@ void GpuRenderer::resetStatistics()
 {
     statistics = {};
     drainRenderers(RendererDrain::statistics);
-    statistics.elapsed = static_cast<double>(w8_clock_us()) / 1'000'000;
+    statistics.elapsed = static_cast<double>(MonotonicMicroseconds()) / 1'000'000;
 }
 
 void GpuRenderer::toggle(e_enable option)
@@ -109,7 +108,7 @@ void GpuRenderer::toggle(e_enable option)
     enable_flags ^= 1u << option;
 }
 
-void GpuRenderer::setSwapInterval(w8_ulong interval)
+void GpuRenderer::setSwapInterval(std::uint32_t interval)
 {
     if (interval != display.swap_interval) {
         display.swap_interval = interval;
@@ -170,15 +169,15 @@ void GpuRenderer::invalidateResidentTextures()
     invalidateTextureCache();
 }
 
-void GpuRenderer::setTextureSubImage(Texture* texture, w8_long mipmap, w8_long x, w8_long y,
-                                     w8_long width, w8_long height)
+void GpuRenderer::setTextureSubImage(Texture* texture, std::int32_t mipmap, std::int32_t x,
+                                     std::int32_t y, std::int32_t width, std::int32_t height)
 {
     if (!isWindowOpen() || !texture || mipmap < 0) return;
     texture = texture->resolve();
     const auto entry = textures.find(texture);
     if (entry == textures.end()) return;
     auto& resident = entry->second;
-    if (static_cast<w8_ulong>(mipmap) > resident.device.last_level) return;
+    if (static_cast<std::uint32_t>(mipmap) > resident.device.last_level) return;
     auto* pixels = texture->getSurfacePtr();
     if (!pixels) return;
     const auto level_width = resident.device.width >> mipmap;
@@ -191,8 +190,8 @@ void GpuRenderer::setTextureSubImage(Texture* texture, w8_long mipmap, w8_long x
         throw std::runtime_error(SDL_GetError());
     const auto* data = static_cast<const unsigned char*>(destination->pixels);
     gpuUploadTexture(resident.device.gpu, mipmap,
-                     {static_cast<w8_ulong>(region.x), static_cast<w8_ulong>(region.y),
-                      static_cast<w8_ulong>(region.w), static_cast<w8_ulong>(region.h)},
+                     {static_cast<std::uint32_t>(region.x), static_cast<std::uint32_t>(region.y),
+                      static_cast<std::uint32_t>(region.w), static_cast<std::uint32_t>(region.h)},
                      {data, std::size_t(destination->pitch) * level_height}, destination->pitch);
 }
 
@@ -201,9 +200,9 @@ void GpuRenderer::invalidateTextureCache()
     std::erase_if(textures, [this](const auto& entry) { return &entry.second != texture_default; });
 }
 
-w8_ulong GpuRenderer::getResidentTextureMemUsed() const
+std::uint32_t GpuRenderer::getResidentTextureMemUsed() const
 {
-    w8_ulong used = 0;
+    std::uint32_t used = 0;
     for (const auto& [id, record] : textures) {
         const auto* texture = &record;
         if (texture->device.gpu.handle != 0 && texture->device.gpu.size > 0) {
@@ -312,7 +311,7 @@ void GpuRenderer::flipFrame()
     flipFrame(0, 0, 0);
 }
 
-void GpuRenderer::flipFrame(const Rectangle* first, const Rectangle* second, w8_ulong count)
+void GpuRenderer::flipFrame(const Rectangle* first, const Rectangle* second, std::uint32_t count)
 {
     if (isWindowOpen() == 0) {
         setError(ERROR_WINDOW_NOT_OPEN);
@@ -338,12 +337,12 @@ void GpuRenderer::flush()
     gpuFlushFrame();
 }
 
-w8_long GpuRenderer::getWidth() const
+std::int32_t GpuRenderer::getWidth() const
 {
     return device.open_info.width;
 }
 
-w8_long GpuRenderer::getHeight() const
+std::int32_t GpuRenderer::getHeight() const
 {
     return device.open_info.height;
 }
@@ -353,7 +352,8 @@ int GpuRenderer::isWindowOpen() const
     return (state_flags >> 1) & 1;
 }
 
-void GpuRenderer::setViewPort(w8_ulong x, w8_ulong y, w8_ulong width, w8_ulong height)
+void GpuRenderer::setViewPort(std::uint32_t x, std::uint32_t y, std::uint32_t width,
+                              std::uint32_t height)
 {
     if (width < 1) {
         width = 1;
@@ -365,16 +365,16 @@ void GpuRenderer::setViewPort(w8_ulong x, w8_ulong y, w8_ulong width, w8_ulong h
     state.view_left = x;
     state.view_bottom = y + height;
     state.view_right = x + width;
-    if (state.view_left >= (w8_ulong)getWidth()) {
+    if (state.view_left >= (std::uint32_t)getWidth()) {
         state.view_left = getWidth();
     }
-    if (state.view_top >= (w8_ulong)getHeight()) {
+    if (state.view_top >= (std::uint32_t)getHeight()) {
         state.view_top = getHeight();
     }
-    if (state.view_right >= (w8_ulong)getWidth()) {
+    if (state.view_right >= (std::uint32_t)getWidth()) {
         state.view_right = getWidth();
     }
-    if (state.view_bottom >= (w8_ulong)getHeight()) {
+    if (state.view_bottom >= (std::uint32_t)getHeight()) {
         state.view_bottom = getHeight();
     }
     dirty |= DIRTY_VIEWPORT;
@@ -383,12 +383,12 @@ void GpuRenderer::setViewPort(w8_ulong x, w8_ulong y, w8_ulong width, w8_ulong h
 void GpuRenderer::performPickTest(const PickInput& input)
 {
     if (input.picks.empty()) return;
-    const auto vertexIndex = [&](int vertex) -> w8_ulong {
+    const auto vertexIndex = [&](int vertex) -> std::uint32_t {
         if (vertex < 0 ||
             (!input.vertices.empty() && static_cast<std::size_t>(vertex) >= input.vertices.size()))
             throw std::invalid_argument("Invalid picking vertex index");
         const auto mapped =
-            input.vertices.empty() ? static_cast<w8_ulong>(vertex) : input.vertices[vertex];
+            input.vertices.empty() ? static_cast<std::uint32_t>(vertex) : input.vertices[vertex];
         if (mapped >= input.positions.size())
             throw std::invalid_argument("Invalid picking position index");
         return mapped;
@@ -451,22 +451,23 @@ void GpuRenderer::applyViewStateChanges()
     dirty &= ~DIRTY_VIEW_STATE;
 }
 
-void GpuRenderer::setScissor(w8_ulong x, w8_ulong y, w8_ulong width, w8_ulong height)
+void GpuRenderer::setScissor(std::uint32_t x, std::uint32_t y, std::uint32_t width,
+                             std::uint32_t height)
 {
     state.scissor.left = x;
     state.scissor.right = x + width;
     state.scissor.top = y;
     state.scissor.bottom = y + height;
-    if (state.scissor.left >= (w8_ulong)getWidth()) {
+    if (state.scissor.left >= (std::uint32_t)getWidth()) {
         state.scissor.left = getWidth();
     }
-    if (state.scissor.top >= (w8_ulong)getHeight()) {
+    if (state.scissor.top >= (std::uint32_t)getHeight()) {
         state.scissor.top = getHeight();
     }
-    if (state.scissor.right >= (w8_ulong)getWidth()) {
+    if (state.scissor.right >= (std::uint32_t)getWidth()) {
         state.scissor.right = getWidth();
     }
-    if (state.scissor.bottom >= (w8_ulong)getHeight()) {
+    if (state.scissor.bottom >= (std::uint32_t)getHeight()) {
         state.scissor.bottom = getHeight();
     }
     recalcScissor();
@@ -475,8 +476,8 @@ void GpuRenderer::setScissor(w8_ulong x, w8_ulong y, w8_ulong width, w8_ulong he
 
 void GpuRenderer::recalcScissor()
 {
-    if (state.scissor.left == 0 && state.scissor.right == (w8_ulong)getWidth() &&
-        state.scissor.top == 0 && state.scissor.bottom == (w8_ulong)getHeight()) {
+    if (state.scissor.left == 0 && state.scissor.right == (std::uint32_t)getWidth() &&
+        state.scissor.top == 0 && state.scissor.bottom == (std::uint32_t)getHeight()) {
         state.scissor_flags |= 2;
     } else {
         state.scissor_flags &= ~2UL;
@@ -554,7 +555,7 @@ void GpuRenderer::prepareTexture(Texture* texture)
 
 namespace {
 
-w8_ulong nextTextureDimension(w8_ulong value)
+std::uint32_t nextTextureDimension(std::uint32_t value)
 {
     // Preserve the historical wrap to one above the largest power of two;
     // bit_ceil requires its result to be representable.
@@ -643,7 +644,7 @@ GpuRenderer::e_error GpuRenderer::openWindow()
     return openWindow(width, height);
 }
 
-GpuRenderer::e_error GpuRenderer::openWindow(w8_long width, w8_long height)
+GpuRenderer::e_error GpuRenderer::openWindow(std::int32_t width, std::int32_t height)
 {
     if ((state_flags & STATE_CONTEXT_CREATED) == 0) {
         return ERROR_NO_CONTEXT;
@@ -660,8 +661,8 @@ GpuRenderer::e_error GpuRenderer::openWindow(w8_long width, w8_long height)
 
 GpuRenderer::e_error GpuRenderer::openWindowInternal(const OpenInfo& info)
 {
-    if ((w8_ulong)info.width > (w8_ulong)info.window_width ||
-        (w8_ulong)info.height > (w8_ulong)info.window_height) {
+    if ((std::uint32_t)info.width > (std::uint32_t)info.window_width ||
+        (std::uint32_t)info.height > (std::uint32_t)info.window_height) {
         return ERROR_INVALID_VALUE;
     }
     if ((state_flags & STATE_CONTEXT_CREATED) == 0) {
@@ -672,14 +673,14 @@ GpuRenderer::e_error GpuRenderer::openWindowInternal(const OpenInfo& info)
         if (device.window == nullptr) {
             return ERROR_INVALID_WHANDLE;
         }
-        if (GpuRenderer::max_back_buffer_width < (w8_ulong)info.width ||
-            GpuRenderer::max_back_buffer_height < (w8_ulong)info.height) {
+        if (GpuRenderer::max_back_buffer_width < (std::uint32_t)info.width ||
+            GpuRenderer::max_back_buffer_height < (std::uint32_t)info.height) {
             return ERROR_INVALID_VALUE;
         }
         device.open_info = {};
         if (gpuOpenWindow(info.width, info.height)) {
             device.open_info = info;
-            w8_ulong flags = state_flags & ~4UL;
+            std::uint32_t flags = state_flags & ~4UL;
             active = this;
             state_flags |= STATE_WINDOW_OPEN;
             state_flags = flags | STATE_WINDOW_OPEN;
@@ -728,15 +729,15 @@ void GpuRenderer::evaluateTextureDimensions(TextureCacheData& device,
         device.first_level = device.last_level = 0;
         return;
     }
-    w8_ulong min_dim = GpuRenderer::texture_min_dim;
+    std::uint32_t min_dim = GpuRenderer::texture_min_dim;
     const auto reduction = texture_reduction;
-    w8_ulong width = nextTextureDimension(dimensions.width) >> (reduction & 0x1f);
-    w8_ulong height = nextTextureDimension(dimensions.height) >> (reduction & 0x1f);
-    w8_ulong device_width = min_dim;
+    std::uint32_t width = nextTextureDimension(dimensions.width) >> (reduction & 0x1f);
+    std::uint32_t height = nextTextureDimension(dimensions.height) >> (reduction & 0x1f);
+    std::uint32_t device_width = min_dim;
     if (min_dim <= width && width <= GpuRenderer::texture_max_dim) {
         device_width = width;
     }
-    w8_ulong device_height = min_dim;
+    std::uint32_t device_height = min_dim;
     if (min_dim <= height && height <= GpuRenderer::texture_max_dim) {
         device_height = height;
     }
@@ -804,7 +805,7 @@ GpuRenderer::GpuTexture* GpuRenderer::createNewTexture(Texture* texture)
     }
 }
 
-void GpuRenderer::setClearStencil(w8_ulong stencil)
+void GpuRenderer::setClearStencil(std::uint32_t stencil)
 {
     clear_state.clear_values.stencil = stencil;
 }

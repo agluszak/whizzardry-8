@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <memory>
 #include <ranges>
 #include <span>
@@ -14,7 +15,6 @@
 #include <glm/geometric.hpp>
 #include <glm/matrix.hpp>
 
-#include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_double3.hpp"
@@ -413,11 +413,11 @@ void SetSceneMeshShaderBit3(WorldScene* scene, int argument)
                     }
                     mesh->setShader(shader, 0);
                 } else if (clear) {
-                    for (w8_long index = 0; index < mesh->polygon_count; ++index) {
+                    for (std::int32_t index = 0; index < mesh->polygon_count; ++index) {
                         polygon_shader[index].value &= ~DrawShader::MASK_DEPTH_WRITE;
                     }
                 } else {
-                    for (w8_long index = 0; index < mesh->polygon_count; ++index) {
+                    for (std::int32_t index = 0; index < mesh->polygon_count; ++index) {
                         polygon_shader[index].value |= DrawShader::MASK_DEPTH_WRITE;
                     }
                 }
@@ -449,11 +449,11 @@ void SetSceneMeshShaderLowBits(WorldScene* scene, int argument)
                     }
                     mesh->setShader(shader, 0);
                 } else if (argument == 0) {
-                    for (w8_long index = 0; index < mesh->polygon_count; ++index) {
+                    for (std::int32_t index = 0; index < mesh->polygon_count; ++index) {
                         polygon_shader[index].value |= DrawShader::PASS_ALWAYS;
                     }
                 } else {
-                    for (w8_long index = 0; index < mesh->polygon_count; ++index) {
+                    for (std::int32_t index = 0; index < mesh->polygon_count; ++index) {
                         polygon_shader[index].value =
                             (polygon_shader[index].value & 0xfffffffb) | DrawShader::PASS_LEQUAL;
                     }

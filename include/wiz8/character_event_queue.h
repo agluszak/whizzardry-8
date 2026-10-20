@@ -2,6 +2,7 @@
 #define WIZ8_CHARACTER_EVENT_QUEUE_H
 
 #include <array>
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <string>
@@ -65,7 +66,7 @@ struct W8CharacterEvent {
        the allocation gave them, exactly as before. */
     W8ItemInstance item;
     /* 0x30/0x34: ProcessDeferredCharacterEvents delays dispatch until this many
-       milliseconds have elapsed since the queued w8_get_ticks stamp. */
+       milliseconds have elapsed since the queued MonotonicMilliseconds stamp. */
     int dispatch_delay_ms;
     uint64_t dispatch_delay_start;
 
@@ -76,7 +77,7 @@ struct W8CharacterEvent {
     void DelayDispatch(int milliseconds)
     {
         dispatch_delay_ms = milliseconds;
-        dispatch_delay_start = w8_get_ticks();
+        dispatch_delay_start = MonotonicMilliseconds();
     }
 
     bool IsAmbientExchange() const

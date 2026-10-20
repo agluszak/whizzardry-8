@@ -69,7 +69,7 @@
    happens on the frame it is requested or never. Wall-clock limits only guard
    against hangs; synchronous UI effects use small frame budgets instead.
 
-   Every game clock reads w8_clock_us, which WIZ8_TEST_HOOK replaces with a
+   Every game clock reads MonotonicMicroseconds, which WIZ8_TEST_HOOK replaces with a
    virtual clock advanced one 60 Hz frame per GameLoop: game time, movement and
    animation are the same on every run, and nothing waits for real time.
 

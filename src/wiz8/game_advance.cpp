@@ -1,6 +1,5 @@
 #include <cstdint>
 
-#include "wiz8/compat/native.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/game.h"
 #include "wiz8/layouts/combat_state.h"
@@ -54,7 +53,7 @@ void Game::advance(StepHold hold)
     if (IsSightRangeOverridden() && HostilesEngage(*this)) combat.Start(0);
     if (!TimeUntilDeadline(sight_deadline)) {
         UpdateMonsterSight();
-        sight_deadline = w8_get_ticks() + kSightIntervalMs;
+        sight_deadline = MonotonicMilliseconds() + kSightIntervalMs;
     }
     if (!advancement.held) {
         UpdateMonsterGroups(true);
@@ -68,7 +67,7 @@ void Game::advance(StepHold hold)
     if (!TimeUntilDeadline(world_items_deadline)) {
         UpdateNearbyWorldItems();
         DetachAllWorldItems();
-        world_items_deadline = w8_get_ticks() + kWorldItemsIntervalMs;
+        world_items_deadline = MonotonicMilliseconds() + kWorldItemsIntervalMs;
     }
     if (!advancement.paused || combat.active()) UpdateWorlds();
 }

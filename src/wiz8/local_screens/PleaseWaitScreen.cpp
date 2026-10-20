@@ -13,7 +13,6 @@
 #include <fmt/format.h>
 
 #include "asset_paths.h"
-#include "compat/native.h"
 #include "layouts/levels.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/canvas/Font.h"
@@ -30,6 +29,7 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/platform/assertion.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/screen.h"
 #include "wiz8/world/level_session.h"
@@ -108,7 +108,7 @@ bool PleaseWaitScreen::resume(const ScreenRequest&)
     SetPrimarySurfaceTextureHint2Enabled(false);
     DisableCursorScene();
     caption_y = 0;
-    entered_tick = w8_get_ticks();
+    entered_tick = MonotonicMilliseconds();
     return true;
 }
 
@@ -191,7 +191,7 @@ void PleaseWaitScreen::frame()
         }
         ShowNotice(W8_FONT_PALETTE_BEIGE, saved ? Data().strings[0x6f4] : Data().strings[0x6f6]);
         // Keep the saving notice up for at least half a second, without spinning.
-        if (const auto shown = w8_get_ticks() - entered_tick; shown < 500)
+        if (const auto shown = MonotonicMilliseconds() - entered_tick; shown < 500)
             std::this_thread::sleep_for(std::chrono::milliseconds(500 - shown));
         break;
     }
@@ -223,7 +223,7 @@ bool PleaseWaitScreen::leave(ScreenDeparture)
 
 void PleaseWaitScreen::animate()
 {
-    const std::uint64_t tick = w8_get_ticks();
+    const std::uint64_t tick = MonotonicMilliseconds();
     if (tick - entered_tick > 499) {
         caption_y = (caption_y + 1) % 0x18;
         entered_tick = tick;

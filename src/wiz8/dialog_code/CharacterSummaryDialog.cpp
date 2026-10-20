@@ -5,7 +5,6 @@
 #include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_surface.h>
 
-#include "compat/native.h"
 #include "dialog_code/DialogBase.h"
 #include "local_code/ControlsRect.h"
 #include "wiz8/audio/mouth_gap.h"
@@ -18,6 +17,7 @@
 #include "wiz8/npc_speech.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/random.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/portrait_animation.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/character.h"
@@ -42,7 +42,7 @@ W8CharacterSummaryDialog::W8CharacterSummaryDialog(W8Character* character)
 
     m_portrait.pose = m_portrait.target_pose =
         m_character->highest_condition >= W8_CONDITION_ASLEEP ? 2 : 1;
-    m_portrait.idle_clock = w8_get_ticks() + Random(5000) + 5000;
+    m_portrait.idle_clock = MonotonicMilliseconds() + Random(5000) + 5000;
 }
 
 W8CharacterSummaryDialog::~W8CharacterSummaryDialog()
@@ -99,10 +99,10 @@ bool W8CharacterSummaryDialog::ProcessInput()
 {
     if (!m_portrait_clock_started) {
         m_portrait_clock_started = true;
-        m_portrait_clock = w8_get_ticks();
+        m_portrait_clock = MonotonicMilliseconds();
     }
     BeginModalInput();
-    if (!m_voice_started && m_portrait_clock + 750 < w8_get_ticks()) {
+    if (!m_voice_started && m_portrait_clock + 750 < MonotonicMilliseconds()) {
         m_voice_started = true;
         const auto path = GetCharacterVoicePath(*m_character, 0);
         m_voice = wiz8::sound::play(path, {.volume = g_settings.voice_volume & 0xffu});
@@ -116,7 +116,7 @@ bool W8CharacterSummaryDialog::ProcessInput()
                 .total_ms;
         m_portrait.frame = 7;
         m_portrait.frame_dirty = true;
-        m_portrait.frame_clock = w8_get_ticks() + 120;
+        m_portrait.frame_clock = MonotonicMilliseconds() + 120;
         m_portrait.target_pose = m_character->highest_condition >= W8_CONDITION_ASLEEP ? 2 : 1;
     }
     if (m_voice_started) {

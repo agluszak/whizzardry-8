@@ -15,7 +15,6 @@
 #include <SDL3/SDL_video.h>
 #include <catch2/catch_test_macros.hpp>
 
-#include "compat/native.h"
 #include "wiz8/application.h"
 #include "wiz8/key_bindings.h"
 #include "wiz8/platform/input.h"
@@ -257,7 +256,7 @@ TEST_CASE("events_test")
     REQUIRE(events[0].buttons == 0);
     REQUIRE(events[1].buttons == SDL_BUTTON_LMASK);
     REQUIRE(events[1].clicks == 1);
-    GetInputState().left_repeat_at = w8_get_ticks() - 1;
+    GetInputState().left_repeat_at = MonotonicMilliseconds() - 1;
     events = input();
     REQUIRE(events.size() == 1);
     expect(events[0], InputEventType::LeftButtonRepeat, 0);
@@ -350,12 +349,12 @@ TEST_CASE("events_test")
     expect(events[0], InputEventType::KeyDown, SDLK_F);
     expect(events[1], InputEventType::KeyUp, SDLK_F);
 
-    uint64_t countdown = w8_get_ticks() + 100;
+    uint64_t countdown = MonotonicMilliseconds() + 100;
     REQUIRE((TimeUntilDeadline(countdown) <= 100 && TimeUntilDeadline(countdown) > 0));
-    REQUIRE(TimeUntilDeadline(w8_get_ticks() - 1) == 0);
+    REQUIRE(TimeUntilDeadline(MonotonicMilliseconds() - 1) == 0);
     /* 64-bit deadlines never wrap: far-future stamps honestly report their
        remaining time instead of aliasing into the past. */
-    countdown = w8_get_ticks() + 0xfffffff0u;
+    countdown = MonotonicMilliseconds() + 0xfffffff0u;
     REQUIRE((TimeUntilDeadline(countdown) > 0 && TimeUntilDeadline(countdown) <= 0xfffffff0u));
 
     suspensions = restorations = 0;

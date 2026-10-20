@@ -15,7 +15,6 @@
 #include "scoped_game.h"
 #include "unicode.h"
 #include "wiz8/checked_integer.h"
-#include "wiz8/compat/native.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/faction_ids.h"
 #include "wiz8/data/item_records.h"
@@ -32,6 +31,7 @@
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/message_log.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/render/mesh_instance.h" // IWYU pragma: keep - complete model type for unique_ptr destruction.
 #include "wiz8/render/quality.h"
 #include "wiz8/retail_save_records.h"
@@ -351,7 +351,7 @@ static void unicode_file_contracts()
     auto& line = CurrentGame().message_log[0][0];
     line.text = message;
     CurrentGame().status.text_box_lines_shown[0] = 1;
-    line.clock = w8_get_ticks() + 600000;
+    line.clock = MonotonicMilliseconds() + 600000;
     line.saved_remaining_ms = 87;
     line.entries.push_back({0, 1, 0, 5, W8_NOTICE_WORD_SELECTED, true});
     line.length = 6; // Prefix through 中, stored as three UTF-16 units.

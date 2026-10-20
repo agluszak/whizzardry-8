@@ -13,7 +13,6 @@
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_rect.h>
 
-#include "wiz8/compat/native.h"
 #include "wiz8/cursor.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/platform/input.h"
@@ -150,7 +149,7 @@ struct UiState {
         if (contains(*target, input.position) && g_ui.hover != target) {
             g_ui.hover = target;
             send(*target, input, UiPointerAction::Enter);
-            g_ui_help_clock = w8_get_ticks() + g_ui_help_delay;
+            g_ui_help_clock = MonotonicMilliseconds() + g_ui_help_delay;
 
         } else
             send(*target, input, UiPointerAction::Move);
@@ -406,7 +405,7 @@ bool DispatchUiInput(const InputEvent* input)
     auto* target = state.live(g_ui.captured) ? g_ui.captured : state.at(input->position);
     if (!target) return false;
     state.hideTooltip();
-    g_ui_help_clock = w8_get_ticks() + g_ui_help_delay;
+    g_ui_help_clock = MonotonicMilliseconds() + g_ui_help_delay;
     const auto mask = button == UiPointerButton::Left ? SDL_BUTTON_LMASK : SDL_BUTTON_RMASK;
     if (action == UiPointerAction::Down) {
         if (!target->passive_) {
@@ -455,7 +454,7 @@ void ResetUiHelp(bool delayed)
 {
     State().hideTooltip();
     if (delayed)
-        g_ui_help_clock = w8_get_ticks() + g_ui_help_delay;
+        g_ui_help_clock = MonotonicMilliseconds() + g_ui_help_delay;
     else
         State().showTooltip();
 }

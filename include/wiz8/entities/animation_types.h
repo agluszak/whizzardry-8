@@ -1,7 +1,5 @@
 #ifndef WIZ8_ENGINE_CODE_ANIM_REP_H
 #define WIZ8_ENGINE_CODE_ANIM_REP_H
-
-#include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"

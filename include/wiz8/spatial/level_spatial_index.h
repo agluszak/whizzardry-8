@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <optional>
@@ -9,7 +10,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -140,7 +140,7 @@ struct OctreeScratch {
         : visited_polygons(polygon_bits, false), visited_objects(object_bits, false)
     {
     }
-    std::vector<w8_ulong> keys;
+    std::vector<std::uint32_t> keys;
     std::vector<bool> visited_polygons;
     std::vector<bool> visited_objects;
 };
@@ -187,11 +187,11 @@ struct SightHit {
    mesh back. Field +0 carries the render flags the visibility update sets and
    clears. */
 struct W8OctSubmesh {
-    w8_ulong flags;
+    std::uint32_t flags;
     int mesh;
     /* The same-chain successor's record index (the build record's
        m_next_link). */
-    w8_ulong next_link;
+    std::uint32_t next_link;
     /* Reader max-scans this to size the g_octree_storage identity table. */
     unsigned int polygon_count;
 };
@@ -256,18 +256,18 @@ struct W8OctPreTreeBranch {
     /* The region/owner id VerifyPolygonRegions and the runtime region reads
        compare against a polygon's region. */
     unsigned short region;
-    w8_ulong children[8];
+    std::uint32_t children[8];
 };
 
 struct W8OctPreTreeLeaf {
     /* Bit 0 is a runtime flag WriteOctFile clears before serialization. */
-    w8_ulong flags;
-    w8_ulong region_offset;
-    w8_ulong polygon_offset;
-    w8_ulong gd_polygon_offset;
+    std::uint32_t flags;
+    std::uint32_t region_offset;
+    std::uint32_t polygon_offset;
+    std::uint32_t gd_polygon_offset;
     /* Stream offsets for object kinds 4-9: QueryKinds indexes the leaf as a
        flat ten-dword table (kind + leaf_index * 10). */
-    w8_ulong kind_offsets[6];
+    std::uint32_t kind_offsets[6];
 };
 
 /* Native camera snapshot and visibility frustum. */
@@ -384,7 +384,7 @@ public:
     /* Ray-test the listed collidable props in order (0x0041C0D0, 0x0041C140).
        Each hit shortens the segment, so the last prop that hits is the
        nearest; its contact is in world space. */
-    std::optional<PropTraceHit> tracePropList(std::span<const w8_ulong> ids,
+    std::optional<PropTraceHit> tracePropList(std::span<const std::uint32_t> ids,
                                               const PlaneSegment& segment,
                                               PropTraceFilter filter) const;
     std::optional<SurfaceRayHit>
@@ -414,7 +414,7 @@ public:
     void VisitPointCopy(unsigned short location_id, glm::vec3* position);
     /* Quantize relative to the spatial minimum, truncating toward zero. */
     glm::ivec3 cellAt(const glm::vec3& position) const; /* 0x00431440 */
-    w8_ulong FindLeaf(const glm::ivec3& point) const;
+    std::uint32_t FindLeaf(const glm::ivec3& point) const;
     void UpdateMonsterLocation(unsigned short location_id, const glm::vec3* position);
     /* Object-kind values the query machinery dispatches on: 3 = GD triangle,
        8 = collidable-prop polygon reference, 9 = path waypoint, 12 = location entry,
@@ -424,11 +424,11 @@ public:
     void UnregisterLocationObjects(unsigned int location_id); /* 0x0042E650 */
     void UnregisterLocationObject(unsigned int location_id,
                                   W8OctreeObjectKind kind); /* 0x0042E880 */
-    std::vector<w8_ulong> queryAlongSegment(const glm::vec3& origin, const glm::vec3& delta,
-                                            float extent, unsigned short kind) const;
+    std::vector<std::uint32_t> queryAlongSegment(const glm::vec3& origin, const glm::vec3& delta,
+                                                 float extent, unsigned short kind) const;
     /* Kind-12 box query; `exclusion` 0 maps to none. */
-    std::vector<w8_ulong> locationsInBox(const BoundingBox& bounds,
-                                         unsigned short exclusion) const; /* 0x0042EF00 */
+    std::vector<std::uint32_t> locationsInBox(const BoundingBox& bounds,
+                                              unsigned short exclusion) const; /* 0x0042EF00 */
     /* AABB occupancy test: GD triangles, kind-12 location objects (with each
        monster's navigator radius) and collidable-prop surfaces. */
     unsigned char TestBoxOccupied(const glm::vec3* lower,
@@ -465,13 +465,13 @@ public:
        (mapped through m_aulPolyLookup into (mesh<<16)|polygon keys). */
     std::size_t ProbeCellForBlockers(const glm::ivec3& cell,
                                      OctreeScratch& scratch) const; /* 0x00435C40 */
-    void AppendBlockerStream(const w8_ulong* stream, OctreeScratch& scratch) const;
+    void AppendBlockerStream(const std::uint32_t* stream, OctreeScratch& scratch) const;
     std::size_t ProbeCellForBlockersAppend(const glm::ivec3& cell,
                                            OctreeScratch& scratch) const; /* 0x00435DA0 */
     /* Whether the segment meets any visible (mesh<<16)|polygon key's
        triangle. */
     bool meshPolygonsBlock(const PlaneSegment& segment,
-                           std::span<const w8_ulong> keys) const; /* 0x00435F00 */
+                           std::span<const std::uint32_t> keys) const; /* 0x00435F00 */
     // The nearest collidable prop along the segment's walked cells.
     std::optional<PropTraceHit> traceProps(const glm::vec3& from, const glm::vec3& to,
                                            PropTraceFilter filter) const;
@@ -516,9 +516,9 @@ public:
     void RegisterNavigatorCell(int id, const glm::vec3* position);
     /* Owned query results remain valid across subsequent octree queries.
        IDs retain cell traversal order and the existing 10,000-entry limit. */
-    std::vector<w8_ulong> queryObjects(const BoundingBox& bounds, unsigned short kind,
-                                       int excluded) const; /* 0x0042F280 */
-    std::vector<w8_ulong> nearbyLocations(const glm::vec3& position, float spacing);
+    std::vector<std::uint32_t> queryObjects(const BoundingBox& bounds, unsigned short kind,
+                                            int excluded) const; /* 0x0042F280 */
+    std::vector<std::uint32_t> nearbyLocations(const glm::vec3& position, float spacing);
     /* Refresh the pathing service's debug preview from the world cursor,
        falling back to the camera eye when the cursor is unset. */
     void UpdateCameraVisibility();
@@ -530,8 +530,8 @@ public:
     bool ReadRegionLinkFile(std::string_view level_name);
     /* Collect the live (mesh<<16)|polygon keys whose triangles overlap the
        (x±radius, y-height..y, z±radius) box, sorted in an owned result. */
-    std::vector<w8_ulong> polygonsNearPoint(const glm::vec3& center, float radius,
-                                            float height) const; /* 0x00438780 */
+    std::vector<std::uint32_t> polygonsNearPoint(const glm::vec3& center, float radius,
+                                                 float height) const; /* 0x00438780 */
     void MarkMeshLinksVisible(unsigned int mesh);
     /* Collect the model instances whose bounds reach within `radius` of
        `point`, through the region cells and volumes the sphere touches. */
@@ -549,7 +549,7 @@ public:
                                           unsigned short* region_list); /* 0x00431050 */
 
     bool HasLoadError() const { return (m_spatial.flags & 0x80000000) != 0; }
-    w8_ulong GetMeshCount() const { return m_spatial.submesh_count; }
+    std::uint32_t GetMeshCount() const { return m_spatial.submesh_count; }
 
 public:
     // Shared spatial queries borrow region volumes owned by this tree.
@@ -558,35 +558,35 @@ public:
     std::vector<W8OctPreTreeBranch> m_branches;
     std::vector<W8OctPreTreeLeaf> m_leaves;
     glm::uvec3 m_leaf_grid_dimensions;
-    std::vector<w8_ulong> m_leaf_lookup;
-    w8_ulong m_branch_count;
-    w8_ulong m_leaf_count;
+    std::vector<std::uint32_t> m_leaf_lookup;
+    std::uint32_t m_branch_count;
+    std::uint32_t m_leaf_count;
     std::string m_path_stem;
-    w8_ulong m_vertex_count;
-    w8_ulong m_leaf_polygon_stream_len;
-    std::vector<w8_ulong> m_polygon_index_stream;
+    std::uint32_t m_vertex_count;
+    std::uint32_t m_leaf_polygon_stream_len;
+    std::vector<std::uint32_t> m_polygon_index_stream;
     /* ReadOctFile's allocation assertion calls this the "Poly Lookup table":
        polygon index to (kind<<16)|id object key. */
-    std::vector<w8_ulong> m_aulPolyLookup;
+    std::vector<std::uint32_t> m_aulPolyLookup;
     std::vector<W8OctSubmesh> m_pSubmeshes;
     /* Retail m_pAlphaBits; empty without a mesh count. Link tables retain
        unsigned-short disk records but use native owned containers. */
     std::vector<bool> m_alpha_bits;
     OctreeMeshLinks m_particle_links;
     OctreeMeshLinks m_prop_links;
-    w8_ulong m_ulNumParticles;
-    w8_ulong m_gd_surface_stream_len;
-    w8_ulong m_trigger_count;
-    std::vector<w8_ulong> m_gd_surface_index_stream;
+    std::uint32_t m_ulNumParticles;
+    std::uint32_t m_gd_surface_stream_len;
+    std::uint32_t m_trigger_count;
+    std::vector<std::uint32_t> m_gd_surface_index_stream;
     /* Trigger list: serialized as 2-byte elements (ReadOctFile allocates
        count * 2 + 4) even though WriteOctFile emits them four bytes wide. */
     std::vector<unsigned short> m_trigger_indices;
-    w8_ulong m_region_list_len;
+    std::uint32_t m_region_list_len;
     /* The leaf-level mask: VerifyPolygonRegions rebuilds it as
        (1 << m_leaf_level) - 1 and the packed-cell writers emit it as the top
        byte of each (mask<<24 | x<<16 | y<<8 | z) key. */
-    w8_ulong m_region_mask;
-    w8_ulong m_depth_mask;
+    std::uint32_t m_region_mask;
+    std::uint32_t m_depth_mask;
     std::vector<unsigned short> m_region_index_stream;
     std::unordered_multimap<unsigned int, unsigned short> m_region_links;
     bool m_region_links_ready;
@@ -594,16 +594,16 @@ public:
     std::unique_ptr<NavigationMesh> pathing;
     int prop_sun_base; /* 0x184: this octree's base index into the shared
                               prop-sunlight bit stream */
-    w8_ulong m_ulNumProps;
+    std::uint32_t m_ulNumProps;
     /* Retail m_pPropSunBits, named by ReadOctFile's assertion at 0x0042CAA4. */
     std::vector<bool> m_sunlit_props; /* empty when the level has none */
     /* Sizes of the per-query dedupe sets; fixed once the level is loaded. */
     std::size_t m_polygon_bit_count = 0;
     std::size_t m_object_bit_count = 0;
-    w8_ulong m_root_mesh_count;
-    w8_ulong m_kind1_submesh_count;
-    w8_ulong m_alpha_polygon_count;
-    w8_ulong m_meshCount;
+    std::uint32_t m_root_mesh_count;
+    std::uint32_t m_kind1_submesh_count;
+    std::uint32_t m_alpha_polygon_count;
+    std::uint32_t m_meshCount;
     /* The build's directional-sun count: the driver stores the light total
        and CreateSubMeshes emits it as each CompiledMesh's version and
        sizes the per-sun vertex light arrays from it. */
@@ -618,7 +618,8 @@ extern const float g_octree_cell_scale;
 
 int CheckLevelAssetSet(std::string_view level_path);
 
-w8_ulong* PackColourToLong(w8_ulong* color, double alpha, double red, double green, double blue);
+std::uint32_t* PackColourToLong(std::uint32_t* color, double alpha, double red, double green,
+                                double blue);
 
 /* The published level's movement tracker and active environment, or null
    when no level with game data is loaded. */

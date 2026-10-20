@@ -12,7 +12,7 @@
 #include <glm/gtc/quaternion.hpp>
 
 /* Float-to-int through the FPU's current rounding mode (round to nearest, not truncation). */
-inline w8_long roundedInt32(double value)
+inline std::int32_t roundedInt32(double value)
 {
     const double rounded = rint(value);
     // Retail FISTP stores a signed dword. LP64 lrint instead has a 64-bit
@@ -21,10 +21,10 @@ inline w8_long roundedInt32(double value)
         feraiseexcept(FE_INVALID);
         return (-2147483647 - 1);
     }
-    return static_cast<w8_long>(rounded);
+    return static_cast<std::int32_t>(rounded);
 }
 
-inline w8_long roundedInt32(float value)
+inline std::int32_t roundedInt32(float value)
 {
     return roundedInt32(static_cast<double>(value));
 }

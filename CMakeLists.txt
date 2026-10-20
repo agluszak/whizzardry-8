@@ -178,17 +178,9 @@ add_library(wiz8_native_settings INTERFACE)
 target_compile_definitions(wiz8_native_settings INTERFACE GLM_ENABLE_EXPERIMENTAL)
 # Keep the transitional source semantics with either Clang command-line frontend.
 if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
-    set(WIZ8_COMPAT_OPTIONS
-        "/FI${PROJECT_SOURCE_DIR}/include/wiz8/compat/compiler.h"
-        /clang:-fsigned-char)
-    set(WIZ8_GAME_OPTIONS
-        ${WIZ8_COMPAT_OPTIONS} /clang:-fwrapv /clang:-fno-strict-aliasing)
+    set(WIZ8_GAME_OPTIONS /clang:-fsigned-char /clang:-fwrapv /clang:-fno-strict-aliasing)
 else()
-    set(WIZ8_COMPAT_OPTIONS
-        "SHELL:-include ${PROJECT_SOURCE_DIR}/include/wiz8/compat/compiler.h"
-        -fsigned-char)
-    set(WIZ8_GAME_OPTIONS
-        ${WIZ8_COMPAT_OPTIONS} -fwrapv -fno-strict-aliasing)
+    set(WIZ8_GAME_OPTIONS -fsigned-char -fwrapv -fno-strict-aliasing)
 endif()
 target_compile_options(wiz8_native_settings INTERFACE ${WIZ8_GAME_OPTIONS})
 if(WIZ8_WARNINGS_AS_ERRORS)
@@ -202,26 +194,19 @@ target_include_directories(wiz8_native_settings INTERFACE
     "${PROJECT_SOURCE_DIR}/include"
     "${PROJECT_SOURCE_DIR}/include/wiz8"
 )
-target_link_libraries(wiz8_native_settings INTERFACE glm::glm-header-only Threads::Threads ${CMAKE_DL_LIBS})
+target_link_libraries(wiz8_native_settings INTERFACE glm::glm-header-only Threads::Threads ${CMAKE_DL_LIBS}
+    wiz8_filesystem SDL3::SDL3)
 
-# Shared platform helpers and the SDL CPU surface backend used by SGP and SurRender.
-add_library(wiz8_compat STATIC
-    src/compat/native_helpers.cpp
+# The game clock, the seeded RNG and the SDL CPU surface backend.
+add_library(wiz8_platform STATIC
+    src/platform/random.cpp
+    src/platform/timer.cpp
     src/native/surface_storage.cpp
 )
-target_compile_options(wiz8_compat PRIVATE ${WIZ8_COMPAT_OPTIONS})
-target_include_directories(wiz8_compat PRIVATE "${PROJECT_SOURCE_DIR}/include/wiz8" "${PROJECT_SOURCE_DIR}/include")
-target_link_libraries(wiz8_compat PUBLIC wiz8_filesystem SDL3::SDL3)
-if(UNIX AND NOT APPLE)
-    target_link_options(wiz8_compat PRIVATE -Wl,--no-undefined)
-endif()
-target_link_libraries(wiz8_native_settings INTERFACE wiz8_compat)
-
-add_library(wiz8_platform STATIC src/platform/random.cpp)
 target_link_libraries(wiz8_platform PUBLIC wiz8_native_settings)
 
 # The architecture's lower layers: game data and rules. They build without the
-# compatibility layer, SDL or the engine, so the linker enforces what
+# platform library, SDL or the engine, so the linker enforces what
 # tools/check_layers.py checks in their includes.
 add_library(wiz8_rules STATIC
     src/data/character_tables.cpp

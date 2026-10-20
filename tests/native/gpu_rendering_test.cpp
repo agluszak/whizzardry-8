@@ -11,13 +11,12 @@
 #include <SDL3/SDL_surface.h>
 #include <catch2/catch_test_macros.hpp>
 
-#include "compat/compiler.h"
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/vertex_stream.h"
 
 namespace {
-vertexStream::VertexArrayInfo float_vertex_arrays(std::uint32_t mask, w8_ulong count)
+vertexStream::VertexArrayInfo float_vertex_arrays(std::uint32_t mask, std::uint32_t count)
 {
     return {.mask = mask, .count = count, .components = {}};
 }
@@ -26,7 +25,7 @@ struct Fixture {
     std::unique_ptr<GpuRenderer> device;
     // Inputs of the next draw; each draw records its own copy.
     DrawShader shader;
-    w8_long polygon_offset = 0;
+    std::int32_t polygon_offset = 0;
     std::array<GpuRenderer::GpuStage, 2> stages{};
     Fixture()
     {
@@ -43,7 +42,8 @@ struct Fixture {
         device.reset();
         SDL_Quit();
     }
-    void draw(const vertexStream::VertexArrayInfo& arrays, std::span<const w8_ulong> indices = {})
+    void draw(const vertexStream::VertexArrayInfo& arrays,
+              std::span<const std::uint32_t> indices = {})
     {
         device->gpuDraw({.vertices = arrays,
                          .indices = indices,
@@ -196,7 +196,7 @@ TEST_CASE("Indexed draws reuse corners and snapshot mutable source streams")
         {{-1, -1, 0, 1}, {-1, 1, 0, 1}, {1, -1, 0, 1}, {1, 1, 0, 1}}};
     std::array<std::array<float, 4>, 4> colors;
     colors.fill({1, 0, 0, 1});
-    const std::array<w8_ulong, 6> indices{0, 1, 2, 2, 1, 3};
+    const std::array<std::uint32_t, 6> indices{0, 1, 2, 2, 1, 3};
     auto arrays = float_vertex_arrays((1 << vertexStream::VERTEX_ARRAY_POSITIONS) |
                                           (1 << vertexStream::VERTEX_ARRAY_DIFFUSE),
                                       positions.size());

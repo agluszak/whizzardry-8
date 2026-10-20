@@ -3,8 +3,6 @@
 #include <array>
 #include <cstdint>
 
-#include "compat/compiler.h"
-
 namespace vertexStream {
 enum e_scaleType { SCALE_TYPE_UNIT, SCALE_TYPE_UNIFORM, SCALE_TYPE_NON_UNIFORM };
 enum e_matrixType {
@@ -48,11 +46,11 @@ enum e_vertexArray {
 /* The vertex streams one GpuRenderer::DrawCall reads. */
 struct VertexArrayInfo {
     std::uint32_t mask = 0;
-    w8_ulong count = 0;
-    w8_long components[6];
+    std::uint32_t count = 0;
+    std::int32_t components[6];
     std::array<e_type, 6> types{TYPE_FLOAT, TYPE_FLOAT, TYPE_FLOAT,
                                 TYPE_FLOAT, TYPE_FLOAT, TYPE_FLOAT};
-    w8_ulong strides[6];
+    std::uint32_t strides[6];
     const void* arrays[6];
     const float* texture_weights[2]{};
 };

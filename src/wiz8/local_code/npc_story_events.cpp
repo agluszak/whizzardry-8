@@ -13,7 +13,6 @@
 #include "wiz8/audio_resources.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/compat/native.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/records.h"
 #include "wiz8/dialog_code/DialogInterface.h"
@@ -47,6 +46,7 @@
 #include "wiz8/message_box.h"
 #include "wiz8/monster_cycles.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/party_slot.h"
@@ -389,7 +389,7 @@ static void NpcScriptHenchmanDeparted(Monster* monster)
    UpdateNpcEvents retire NPC group 0x1b3 fifty ticks later. */
 static void NpcScriptSavantHackDone(Monster* monster)
 {
-    CurrentGame().status.savant_hack_tick = int(uint32_t(w8_get_ticks()));
+    CurrentGame().status.savant_hack_tick = int(uint32_t(MonotonicMilliseconds()));
 }
 
 void RunNpcStoryAction(W8NpcStoryAction action)

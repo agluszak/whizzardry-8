@@ -8,7 +8,6 @@
 
 #include <math.h>
 
-#include "compat/compiler.h"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "wiz8/entities/animation_types.h"
@@ -34,12 +33,12 @@ public:
     void setModel(std::shared_ptr<Mesh> model) { model_ = std::move(model); }
 
     glm::vec3 getAlignAxis() const;
-    w8_ulong getExclusionMask() const;
+    std::uint32_t getExclusionMask() const;
     int isAligned() const;
     void setAlignAngle(double angle);
     void setAlignAxis(const glm::vec3& axis);
     void setAlignment(int enabled);
-    void setExclusionMask(w8_ulong mask);
+    void setExclusionMask(std::uint32_t mask);
 
     std::uint32_t alignment_flags = 0;
 
@@ -52,7 +51,7 @@ private:
 
     glm::vec3 align_axis;
     float align_angle;
-    w8_ulong exclusion_mask;
+    std::uint32_t exclusion_mask;
 
 private:
     std::shared_ptr<Mesh> model_;
@@ -83,8 +82,8 @@ public:
     /* Lazily built highlight material; RenderMeshes fills it from the
        render-state RGBA and installs it as the pass material. */
     std::shared_ptr<Material> highlight_material;
-    w8_ulong render_flags;
-    w8_long mesh_index;
+    std::uint32_t render_flags;
+    std::int32_t mesh_index;
     unsigned int frame_index;
     int damage_stage;
     std::vector<int> damage_stage_tables;

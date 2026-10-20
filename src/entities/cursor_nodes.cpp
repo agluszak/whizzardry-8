@@ -18,7 +18,6 @@
 #include <fmt/format.h>
 #include <glm/geometric.hpp>
 
-#include "compat/compiler.h"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -121,7 +120,7 @@ std::unique_ptr<W8WorldCursorNode> CreateWorldCursorCube()
         Fail("psrSurface");
     }
 
-    w8_ulong pixel;
+    std::uint32_t pixel;
     unsigned char* bytes =
         reinterpret_cast<unsigned char*>(&pixel); // reinterpret-ok: packed colour storage
     bytes[3] = static_cast<unsigned char>(roundedInt32(255.0));
@@ -144,7 +143,7 @@ std::unique_ptr<W8WorldCursorNode> CreateWorldCursorCube()
     model->setName("stCube");
     entry->node->setModel(model);
 
-    w8_ulong packed;
+    std::uint32_t packed;
     PackColourToLong(&packed, 1.0, 0.0, 0.0, 0.5);
     entry->color = packed;
     DrawWorldCursorNodeLabel(*entry);

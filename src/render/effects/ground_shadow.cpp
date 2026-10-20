@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <span>
 #include <string>
@@ -9,7 +10,6 @@
 
 #include <glm/ext/vector_float3.hpp>
 
-#include "compat/compiler.h"
 #include "glm/ext/vector_float2.hpp"
 #include "wiz8/asset_paths.h"
 #include "wiz8/gameplay_constants.h"
@@ -82,7 +82,7 @@ void GroundShadow::draw(GpuRenderer& renderer, const DrawTransform& view, const 
     MeshState state{.transform = view, .polygon_offset = 2, .scene = pass};
     state.scene.picks = {};
     const GroundShadowProjection projection(position, width, depth, angle);
-    std::vector<w8_ulong> selected;
+    std::vector<std::uint32_t> selected;
     std::vector<glm::vec2> coordinates;
 
     for (std::size_t first = 0; first < polygons.size();) {
@@ -93,7 +93,7 @@ void GroundShadow::draw(GpuRenderer& renderer, const DrawTransform& view, const 
         do {
             selected.push_back(polygons[first++] & 0xffff);
         } while (first < polygons.size() && (polygons[first] >> 16) == mesh_index);
-        mesh.active_polygons = std::span<const w8_ulong>(selected);
+        mesh.active_polygons = std::span<const std::uint32_t>(selected);
         mesh.materials[0][0] = g_ground_shadow_material;
         mesh.poly_textures[0][0] = nullptr;
         mesh.textures[0][0] = g_ground_shadow_texture;

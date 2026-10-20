@@ -6,7 +6,6 @@
 #include <string>
 #include <vector>
 
-#include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/fwd.hpp"

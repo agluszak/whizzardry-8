@@ -22,8 +22,6 @@
 #include "wiz8/audio/soundman.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/compat/native.h"
-#include "wiz8/compat/unaligned.h"
 #include "wiz8/cursor.h"
 #include "wiz8/data/attack_modes.h"
 #include "wiz8/data/character_tables.h"
@@ -206,7 +204,7 @@ bool W8CombatLifecycle::Start(int surprise)
     state_->enemies_engaged = CurrentLevelPopulation().monster_roster.hostileCombatCount() > 0;
     state_->execution_active = 0;
     state_->round_active = true;
-    state_->action_clock = w8_get_ticks();
+    state_->action_clock = MonotonicMilliseconds();
     state_->hit_sound_active = false;
     state_->engaged_missile = 0;
     state_->uiNextPartyAction = W8_PARTY_ACTION_NONE;
@@ -284,7 +282,8 @@ bool W8CombatLifecycle::Start(int surprise)
         ClearLevelFastMovement();
     }
     if (g_settings.continuous_combat != 0 && !state_->party_surprised) {
-        state_->combat_ui_timer = w8_get_ticks() + (g_settings.continuous_combat_start_delay_ms);
+        state_->combat_ui_timer =
+            MonotonicMilliseconds() + (g_settings.continuous_combat_start_delay_ms);
     }
     wiz8::sound::play("Data\\Sound\\Misc\\Ready Weapons.wav");
     return true;
@@ -1059,8 +1058,8 @@ void W8CombatLifecycle::End(bool forced_cleanup)
         }
         state_->experience_pool /= active;
         AwardPartyExperience(state_->experience_bonus + state_->experience_pool, true);
-        w8_unaligned_int* entry = CurrentGame().status.status_ints;
-        w8_unaligned_int* end = entry + 1000;
+        int* entry = CurrentGame().status.status_ints;
+        int* end = entry + 1000;
         while (entry < end) {
             if (*entry == 1) {
                 *entry = 2;
@@ -2757,7 +2756,7 @@ int GetConditionInterrupt(W8TargetSource* source)
     int party_slot;
     W8Character* character;
     W8MonsterInfo* monster_info;
-    w8_unaligned_uint* condition_turns;
+    unsigned int* condition_turns;
     bool secondary_flag;
     unsigned int attribute;
     bool moving;
@@ -3209,7 +3208,7 @@ void ScheduleCombatActor(void)
                     (g_settings.continuous_combat == 0 || !free_turn) && delay > 0x31f) {
                     delay = 0x320;
                 }
-                CurrentGame().combat.state()->action_clock = w8_get_ticks() + (delay);
+                CurrentGame().combat.state()->action_clock = MonotonicMilliseconds() + (delay);
             }
             CurrentGame().combat.state()->pacing_latch = false;
         } else {

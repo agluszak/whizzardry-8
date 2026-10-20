@@ -1,6 +1,7 @@
 #include "wiz8/render/frame.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -28,9 +29,6 @@
 #include <wiz8/filesystem.h>
 
 #include "asset_paths.h"
-#include "compat/compiler.h"
-#include "compat/native.h"
-#include "compat/video.h"
 #include "glm/common.hpp" // IWYU pragma: keep
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -51,6 +49,8 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/platform/timer.h"
+#include "wiz8/platform/window.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/compositor.h"
 #include "wiz8/render/draw_inputs.h"
@@ -164,7 +164,7 @@ bool InitializeVideoManager(void)
     g_world_pick_enabled = true;
     g_current_model_instance = 0;
     g_fps_frame_count = 0;
-    g_fps_window_tick = w8_get_ticks();
+    g_fps_window_tick = MonotonicMilliseconds();
     if (!CreateWizardryWindow()) {
         return 0;
     }
@@ -219,7 +219,7 @@ void ShutdownVideoManager(void)
         g_flush_pending = false;
         g_gerd.reset();
     }
-    W8DestroyGameWindow(native_window);
+    DestroyGameWindow(native_window);
 }
 
 /* Releases the renderer scene graph and 2D objects created by the video
@@ -245,7 +245,7 @@ void ShutdownVideoScenes(void)
    the outer window rectangle before CreateWindowEx. */
 unsigned char CreateWizardryWindow(void)
 {
-    ghWindow = W8CreateGameWindow(g_screen_width, g_screen_height, g_fullscreen != 0);
+    ghWindow = CreateGameWindow(g_screen_width, g_screen_height, g_fullscreen != 0);
     return ghWindow != 0;
 }
 
@@ -330,7 +330,7 @@ try {
    mode in fullscreen operation, and opens the renderer output window. */
 unsigned char OpenRendererWindow(void)
 {
-    if (!W8ConfigureGameWindow(ghWindow, g_fullscreen != 0, g_screen_width, g_screen_height))
+    if (!ConfigureGameWindow(ghWindow, g_fullscreen != 0, g_screen_width, g_screen_height))
         return 0;
     if (g_gerd->openWindow(g_screen_width, g_screen_height) != GpuRenderer::ERROR_NONE) return 0;
     g_flush_pending = true;
@@ -451,8 +451,8 @@ void RenderScene(WorldScene* scene, Camera3D* camera, const DesignRect* viewport
     g_gerd->environment_offset = CurrentEnvironmentOffset();
     g_gerd->scene_brightness = g_monster_light_scale;
 
-    w8_ulong width = g_gerd->getWidth();
-    w8_ulong height = g_gerd->getHeight();
+    std::uint32_t width = g_gerd->getWidth();
+    std::uint32_t height = g_gerd->getHeight();
 
     if (scene == 0 || scene->renderableCount() == 0) {
         return;
@@ -527,8 +527,8 @@ void RenderFrame(void)
     } else if (g_world_blacked_out || !g_render_mesh_sky || GetSecondaryWorld() == 0) {
     clear_viewport:
         {
-            w8_ulong height = g_gerd->getHeight();
-            w8_ulong width = g_gerd->getWidth();
+            std::uint32_t height = g_gerd->getHeight();
+            std::uint32_t width = g_gerd->getWidth();
             const auto rect = ToSurfaceRect(g_viewport, width, height);
             g_gerd->setScissor(rect.x, rect.y, rect.w, rect.h);
             g_gerd->clear(GpuRenderer::GPU_BUFFER_COLOR | GpuRenderer::GPU_BUFFER_DEPTH);
@@ -585,11 +585,11 @@ void RenderFrame(void)
 
     ++g_fps_frame_count;
 
-    now = w8_get_ticks();
+    now = MonotonicMilliseconds();
     elapsed = static_cast<float>(now - g_fps_window_tick);
     frames_per_second = g_fps_frame_count / elapsed * 1000.0f;
     if (g_fps_frame_count > 50) {
-        g_fps_window_tick = w8_get_ticks();
+        g_fps_window_tick = MonotonicMilliseconds();
         g_fps_frame_count = 0;
     }
     g_frames_per_second = frames_per_second;
@@ -925,7 +925,7 @@ void PositionMouseCursor(int width, int height, bool reset_tick)
     g_cursor_height = std::min(height, 480);
     if (g_cursor_node) {
         g_cursor_node->position = {g_cursor_width, g_cursor_height};
-        if (reset_tick) g_cursor_move_tick = w8_get_ticks();
+        if (reset_tick) g_cursor_move_tick = MonotonicMilliseconds();
     }
 }
 
@@ -933,7 +933,7 @@ void PositionMouseCursor(int width, int height, bool reset_tick)
    reset-tick arm). */
 std::uint64_t GetMillisecondsSinceCursorMove(void)
 {
-    return w8_get_ticks() - g_cursor_move_tick;
+    return MonotonicMilliseconds() - g_cursor_move_tick;
 }
 
 /* The tracked cursor as viewport-relative 0..1 coordinates, or zero when it
@@ -1382,7 +1382,7 @@ void VideoToolTip(std::string_view text)
         SDL_CreateSurfaceFrom(surface->w, surface->h, SDL_PIXELFORMAT_RGB565, data, surface->pitch),
         SDL_DestroySurface};
     if (text_surface) buffer->RenderText(*text_surface, 2, 1, true);
-    w8_ulong border_colour;
+    std::uint32_t border_colour;
     PackColourToLong(&border_colour, 1.0, 0.93, 0.6, 0.33);
     const SDL_Rect edges[]{{0, 0, g_help_box_width, 1},
                            {0, g_help_box_height - 1, g_help_box_width, 1},
@@ -1443,7 +1443,7 @@ std::shared_ptr<Texture> VideoVObjectToTextureAnim(const SpriteSheet& sprites,
 {
     unsigned short frame;
     unsigned short end_frame;
-    w8_ulong extent;
+    std::uint32_t extent;
     unsigned short largest;
 
     auto animation = std::make_shared<Texture>(TexturePlayback{});
@@ -1474,7 +1474,7 @@ std::shared_ptr<Texture> VideoVObjectToTextureAnim(const SpriteSheet& sprites,
                     extent = 0x100;
                 }
             } else {
-                extent = static_cast<w8_ulong>(-1);
+                extent = static_cast<std::uint32_t>(-1);
             }
 
             std::shared_ptr<SDL_Surface> surface;

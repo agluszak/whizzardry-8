@@ -19,7 +19,6 @@
 #include "wiz8/button_interaction.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/checked_integer.h"
-#include "wiz8/compat/native.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/data/spell_ids.h"
@@ -692,7 +691,7 @@ static void SelectSpellCastingRealm(W8SpellRealm realm)
         gpSCSV->iSpellRealm = realm;
         gpSCSV->realm_anim_frame = g_spell_realm_animations[gpSCSV->iSpellRealm].initial_frame;
         gpSCSV->dirty[0] = true;
-        gpSCSV->realm_anim_timer = w8_get_ticks() + (0x32);
+        gpSCSV->realm_anim_timer = MonotonicMilliseconds() + (0x32);
         RebuildSpellCastingList(W8_SPELL_NONE);
         ClearSpellCastingChoice();
     }
@@ -866,7 +865,7 @@ void CommitSpellCastingSelection(void)
                 gpSCSV->realm_anim_frame = 0;
             }
             gpSCSV->dirty[0] = true;
-            gpSCSV->realm_anim_timer = w8_get_ticks() + (0x32);
+            gpSCSV->realm_anim_timer = MonotonicMilliseconds() + (0x32);
             RequestRedraw(W8_MAIN_REDRAW_FRAME);
         }
     }

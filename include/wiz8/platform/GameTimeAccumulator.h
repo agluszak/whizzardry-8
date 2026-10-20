@@ -1,6 +1,4 @@
 #pragma once
-
-#include "compat/compiler.h"
 #include "wiz8/platform/game_timer.h"
 
 /* Address-qualified W8GameTimer specialization constructed beside the

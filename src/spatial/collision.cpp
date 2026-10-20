@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <map>
 #include <memory>
@@ -16,7 +17,6 @@
 #include <glm/vector_relational.hpp>
 
 #include "audio_resources.h"
-#include "compat/compiler.h"
 #include "geometry.h"
 #include "glm/ext/matrix_float2x2.hpp"
 #include "glm/ext/matrix_float3x3.hpp"
@@ -261,7 +261,7 @@ W8GDSurface* LevelSpatialIndex::ProbePropsAlongMotion(
 unsigned char LevelSpatialIndex::ProbeMonstersAlongMotion(glm::vec3* direction, glm::vec3* position,
                                                           int)
 {
-    std::vector<w8_ulong> objects;
+    std::vector<std::uint32_t> objects;
     std::size_t count;
     unsigned int index;
     W8MonsterInfo* monster_info;
@@ -356,7 +356,7 @@ unsigned char LevelSpatialIndex::AdvanceEnvironmentMotion(PartyMotion& motion,
     W8GDSurface* nearest_surface;
     W8GDSurface* surface;
     W8GDSurface* collisions[101];
-    std::vector<w8_ulong> octree_hits;
+    std::vector<std::uint32_t> octree_hits;
     std::vector<const W8GDSurface*> geometry_hits;
     std::ptrdiff_t hit_count = 0;
     int collision_count;
@@ -689,7 +689,7 @@ unsigned char LevelSpatialIndex::AdvanceEnvironmentMotion(PartyMotion& motion,
    prop's position delta. Only the segment's end moves into prop space; the
    start stays in world space, as in retail. */
 std::optional<LevelSpatialIndex::PropTraceHit>
-LevelSpatialIndex::tracePropList(std::span<const w8_ulong> ids, const PlaneSegment& segment,
+LevelSpatialIndex::tracePropList(std::span<const std::uint32_t> ids, const PlaneSegment& segment,
                                  PropTraceFilter filter) const
 {
     std::optional<PropTraceHit> nearest;

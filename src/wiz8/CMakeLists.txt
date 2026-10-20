@@ -6,7 +6,7 @@ target_sources(wiz8_engine PRIVATE
     ../canvas/image_assets.cpp
     ../canvas/shading.cpp
     ../platform/input.cpp
-    ../platform/video.cpp
+    ../platform/window.cpp
     ../platform/game_timer.cpp
     ../platform/GameTimeAccumulator.cpp
     ../platform/IntervalGate.cpp

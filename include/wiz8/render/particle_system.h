@@ -1,13 +1,13 @@
 #pragma once
 struct W8Chunk;
 
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <span>
 #include <string>
 #include <vector>
 
-#include "compat/compiler.h"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -77,7 +77,7 @@ public:
     MeshResources<Texture> texture_frames;
     /* Two triangle indices per still-active particle, rebuilt whenever
        update_flags carries W8_PARTICLE_ACTIVE_TRIANGLES_DIRTY. */
-    std::vector<w8_ulong> active_triangles;
+    std::vector<std::uint32_t> active_triangles;
     /* Both unsigned: 0x004994D0 gates the particle off with the unsigned
        `emission_limit != 0 && emission_limit <= emission_count` pair. */
     unsigned int emission_limit = 0;

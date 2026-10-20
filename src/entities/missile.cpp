@@ -1,6 +1,7 @@
 #include "wiz8/entities/missile.h"
 
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 #include <exception>
 #include <memory>
@@ -19,7 +20,6 @@
 #include <glm/gtx/rotate_vector.hpp>
 
 #include "asset_paths.h"
-#include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "retail_records.h"
@@ -628,7 +628,7 @@ Missile::Missile(const Missile& other, World* owner)
 /* Mode-keyed query over the representation's emitter/cycle state; used by the
    missile script handlers. */
 // FUNCTION: WIZ8 0x004A4640
-w8_ulong Missile::GetAnimationState(W8MissileAnimationStateQuery query)
+std::uint32_t Missile::GetAnimationState(W8MissileAnimationStateQuery query)
 {
     switch (query) {
     case W8_MISSILE_ANIMATION_EMITTER_SETTING:

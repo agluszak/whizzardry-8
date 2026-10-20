@@ -4,20 +4,20 @@
 #include <exception>
 
 #include "wiz8/chunk.h"
-#include "wiz8/compat/native.h"
 #include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
+#include "wiz8/platform/timer.h"
 
 std::uint32_t GameClockTicks()
 {
-    return static_cast<std::uint32_t>(w8_clock_us() /
+    return static_cast<std::uint32_t>(MonotonicMicroseconds() /
                                       (1'000'000 / W8_SHARED_TIMER_TICKS_PER_SECOND));
 }
 
 std::uint32_t GameClockMilliseconds()
 {
-    return static_cast<std::uint32_t>(w8_get_ticks());
+    return static_cast<std::uint32_t>(MonotonicMilliseconds());
 }
 
 int g_shared_timer_pause_base;

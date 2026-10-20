@@ -14,7 +14,6 @@
 #include <utility>
 #include <vector>
 
-#include "compat/compiler.h"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_int3.hpp"
@@ -53,7 +52,7 @@ public:
     void setName(std::string value) { name = std::move(value); }
 
 public:
-    using PolygonSelection = std::optional<std::span<const w8_ulong>>;
+    using PolygonSelection = std::optional<std::span<const std::uint32_t>>;
     /* Front/back table indices, corresponding to CONTROL_FRONT/BACK. */
     enum e_side : int { SIDE_FRONT = 0, SIDE_BACK = 1 };
     /* Bit indices into dirty_flags. calculateBounds, calculatePolygonNormals,
@@ -80,10 +79,10 @@ public:
     /* Borrowed triangle-mesh view: updateTriMesh fills it from the live tables. Keep the model
        and its table storage unchanged until submitMesh finishes submission. */
     struct TriMesh {
-        w8_long vertex_count = 0;
-        w8_long polygon_count = 0;
-        w8_long pass_count = 0;
-        w8_ulong control_flags = 0;
+        std::int32_t vertex_count = 0;
+        std::int32_t polygon_count = 0;
+        std::int32_t pass_count = 0;
+        std::uint32_t control_flags = 0;
         const glm::ivec3* poly_vertices = nullptr;
         const glm::vec4* poly_equations = nullptr;
         const glm::vec2* texcoords[4][2]{};
@@ -110,61 +109,62 @@ public:
         std::span<const float> vertex_alpha;
     };
 
-    Mesh(w8_long polygons = 0, w8_long vertices = 0);
+    Mesh(std::int32_t polygons = 0, std::int32_t vertices = 0);
     Mesh(const Mesh&) = delete;
 
-    void reset(w8_long polygons, w8_long vertices);
+    void reset(std::int32_t polygons, std::int32_t vertices);
     void scale(const glm::vec3& scale);
     void relocateVertices(const glm::vec3& offset);
     double getAverageRadius();
     double getMaxRadius();
     void scaleToAverageRadius(double radius);
     void scaleToMaxRadius(double radius);
-    w8_long findClosestVertex(const glm::vec3& point);
+    std::int32_t findClosestVertex(const glm::vec3& point);
     Mesh& operator=(const Mesh&) = delete;
 
     Bounds getBounds();
     bool isVisible(const DrawTransform& transform);
-    void reindexPolygons(std::span<const w8_ulong> indices);
-    void reindexVertices(std::span<const w8_ulong> indices);
+    void reindexPolygons(std::span<const std::uint32_t> indices);
+    void reindexVertices(std::span<const std::uint32_t> indices);
     TriMesh getTriMesh();
     void renderTriMesh(class GpuRenderer& renderer, const TriMesh& mesh, MeshState state);
-    MeshResources<Texture>* getPolygonTextureTable(w8_long pass, w8_long layer, bool create);
+    MeshResources<Texture>* getPolygonTextureTable(std::int32_t pass, std::int32_t layer,
+                                                   bool create);
     glm::ivec3* getPolyVertex();
-    glm::ivec3* getPolyUVIndex(w8_long layer, int table);
-    glm::vec2* getVertexTexCoords(w8_long vertex, w8_long layer, int table);
-    MeshResources<Material>* getVertexMaterialTable(w8_long pass, e_side side, bool create);
-    w8_ulong* getVertexShadeIndex(int table);
+    glm::ivec3* getPolyUVIndex(std::int32_t layer, int table);
+    glm::vec2* getVertexTexCoords(std::int32_t vertex, std::int32_t layer, int table);
+    MeshResources<Material>* getVertexMaterialTable(std::int32_t pass, e_side side, bool create);
+    std::uint32_t* getVertexShadeIndex(int table);
     glm::vec3* getVertexNormal();
     glm::vec4* getPolyEq();
-    glm::vec3* getVertexDIG(w8_long vertex, int table);
-    glm::vec4* getVertexSCG(w8_long vertex, int table);
-    glm::vec4* getVertexDCG(w8_long vertex, int table);
-    Material* getMaterial(w8_long polygon, e_side side) const;
-    Texture* getTexture(w8_long polygon, w8_long layer) const;
-    void setMaterial(std::shared_ptr<Material> material, w8_long polygon, e_side side);
-    void setTexture(std::shared_ptr<Texture> texture, w8_long polygon, w8_long layer);
+    glm::vec3* getVertexDIG(std::int32_t vertex, int table);
+    glm::vec4* getVertexSCG(std::int32_t vertex, int table);
+    glm::vec4* getVertexDCG(std::int32_t vertex, int table);
+    Material* getMaterial(std::int32_t polygon, e_side side) const;
+    Texture* getTexture(std::int32_t polygon, std::int32_t layer) const;
+    void setMaterial(std::shared_ptr<Material> material, std::int32_t polygon, e_side side);
+    void setTexture(std::shared_ptr<Texture> texture, std::int32_t polygon, std::int32_t layer);
     // RECOMP: ?setDirty@Mesh@@QAEXW4e_flags@1@@Z
     void setDirty(e_flags flag)
     {
-        w8_ulong mask = 1 << flag;
+        std::uint32_t mask = 1 << flag;
         if ((dirty_flags & mask) == 0) {
             dirty_flags |= mask | (1u << DIRTY_TRI_MESH);
         }
     }
     // RECOMP: ?clearDirty@Mesh@@QAEXW4e_flags@1@@Z
     void clearDirty(e_flags flag) { dirty_flags &= ~(1u << flag); }
-    DrawShader* getPolyShader(w8_long polygon, int layer);
-    DrawShader getShader(w8_long polygon) const;
-    void setShader(DrawShader shader, w8_long pass);
-    void setUVCount(w8_long count);
-    w8_long getUVCount() const;
-    void setActivePolygonCount(w8_long count);
-    w8_long getActivePolygonCount();
-    w8_long getPassCount() const;
-    w8_long getPolygonCount() const;
-    w8_long getVertexCount() const;
-    void setPassCount(w8_long count);
+    DrawShader* getPolyShader(std::int32_t polygon, int layer);
+    DrawShader getShader(std::int32_t polygon) const;
+    void setShader(DrawShader shader, std::int32_t pass);
+    void setUVCount(std::int32_t count);
+    std::int32_t getUVCount() const;
+    void setActivePolygonCount(std::int32_t count);
+    std::int32_t getActivePolygonCount();
+    std::int32_t getPassCount() const;
+    std::int32_t getPolygonCount() const;
+    std::int32_t getVertexCount() const;
+    void setPassCount(std::int32_t count);
     void setSortBias(float bias)
     {
         sort_bias = bias;
@@ -184,7 +184,7 @@ public:
         setDirty(DIRTY_VERTEX_NORMALS);
         setDirty(DIRTY_TRI_MESH);
     }
-    w8_ulong* getActivePolygonTable(int table);
+    std::uint32_t* getActivePolygonTable(int table);
     glm::vec3* getVertexLoc();
     /* Fills the cached AABB/sphere (bounds_minimum..bounds_radius)
        from the supplied box and center/radius. */
@@ -216,17 +216,17 @@ public:
     std::array<std::vector<glm::vec4>, MAX_PASSES> scg;
     std::vector<glm::vec3> vertex_locations;
     std::vector<glm::vec3> vertex_normals;
-    std::vector<w8_ulong> vertex_shade_indices;
-    std::vector<w8_ulong> active_polygons;
-    w8_long active_polygon_count = 0;
+    std::vector<std::uint32_t> vertex_shade_indices;
+    std::vector<std::uint32_t> active_polygons;
+    std::int32_t active_polygon_count = 0;
     glm::vec3 bounds_minimum{0.0f, 0.0f, 0.0f};
     glm::vec3 bounds_maximum{0.0f, 0.0f, 0.0f};
     glm::vec3 bounds_center{0.0f, 0.0f, 0.0f};
     float bounds_radius = 0.0f;
-    w8_long pass_count = 1;
-    w8_long vertex_location_count = 0;
-    w8_long polygon_count = 0;
-    w8_long uv_count = 0;
+    std::int32_t pass_count = 1;
+    std::int32_t vertex_location_count = 0;
+    std::int32_t polygon_count = 0;
+    std::int32_t uv_count = 0;
     float sort_bias = 0.0f;
     TriMesh tri_mesh;
     std::uint32_t dirty_flags = 0;
@@ -244,10 +244,10 @@ public:
     void RenderTriMeshWithEquations(class GpuRenderer& renderer, const TriMesh& mesh,
                                     std::span<const glm::vec3> poly_normals,
                                     const MeshState& state); /* 0x00470380 */
-    static std::vector<w8_ulong> facingPolygons(const TriMesh& mesh,
-                                                std::span<const glm::vec3> normals,
-                                                const glm::vec3& eye, bool positive_winding,
-                                                float threshold);
+    static std::vector<std::uint32_t> facingPolygons(const TriMesh& mesh,
+                                                     std::span<const glm::vec3> normals,
+                                                     const glm::vec3& eye, bool positive_winding,
+                                                     float threshold);
 
     int FindMappedIndex(short key) const; /* 0x004712D0 */
     void SetMappedVertex(int vertex, short key);
@@ -312,7 +312,7 @@ public:
         MeshResources<Texture> textures;
         // An absent selection draws all polygons; an engaged empty selection
         // draws none. The checked bit distinguishes that from a pending scan.
-        std::optional<std::vector<w8_ulong>> active_polygons;
+        std::optional<std::vector<std::uint32_t>> active_polygons;
         bool blanking_checked = false;
     };
     unsigned int flags;
@@ -334,7 +334,7 @@ public:
     float vertex_compression_scale;
     // m_pLerpBuffer: stable interpolation scratch, outside the cache budget.
     std::vector<glm::vec3> lerp_buffer;
-    std::optional<std::vector<w8_ulong>> automap_polygons;
+    std::optional<std::vector<std::uint32_t>> automap_polygons;
     bool automap_filter_active;
 
 private:

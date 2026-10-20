@@ -15,7 +15,6 @@
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/checked_integer.h"
-#include "wiz8/compat/unaligned.h"
 #include "wiz8/data/attack_modes.h"
 #include "wiz8/data/character_tables.h"
 #include "wiz8/data/dice.h"
@@ -1511,7 +1510,7 @@ static void ReportAttackResult(int party_slot, W8MonsterInfo* attacker, W8SpellE
 
     if (report->condition_counts[W8_CONDITION_DEAD] == 0) {
         W8MonsterInfo* target_monster = nullptr;
-        w8_unaligned_uint* condition_turns;
+        unsigned int* condition_turns;
         if (report->target.iType == W8_TARGET_KIND_MONSTER) {
             target_monster = FindMonster(report->target.iMonsterID);
             condition_turns = target_monster->uiCondition;

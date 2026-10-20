@@ -12,7 +12,6 @@
 #include <glm/gtx/euler_angles.hpp>
 
 #include "asset_paths.h"
-#include "compat/native.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -40,7 +39,7 @@ WorldItemEntity::WorldItemEntity()
     pulse_level = static_cast<float>(Random(20) * 0.05);
     trigger = nullptr;
     AllocateLegacyPropSaveId();
-    countdown = w8_get_ticks();
+    countdown = MonotonicMilliseconds();
 }
 
 WorldItemEntity::~WorldItemEntity() = default;
@@ -214,7 +213,7 @@ bool WorldItemEntity::IsSelected()
 
 void WorldItemEntity::LightRadarBlip()
 {
-    countdown = w8_get_ticks() + 10000;
+    countdown = MonotonicMilliseconds() + 10000;
 }
 
 unsigned char RunItemTrigger(WorldItemEntity* item)

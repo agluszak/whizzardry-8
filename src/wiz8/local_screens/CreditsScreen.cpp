@@ -13,7 +13,6 @@
 #include <vector>
 
 #include "asset_paths.h"
-#include "compat/native.h"
 #include "wiz8/canvas/Font.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/checked_integer.h"
@@ -21,6 +20,7 @@
 #include "wiz8/fonts.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/screen.h"
 #include "wiz8/unicode.h"
@@ -127,7 +127,7 @@ try {
     lines_.swap(pending);
     elapsed_steps_ = 0;
     y_ = 0x1df;
-    started_at_ = w8_get_ticks();
+    started_at_ = MonotonicMilliseconds();
     redraw_ = true;
     return true;
 } catch (const std::exception&) {
@@ -156,7 +156,7 @@ void CreditsScreen::frame()
             ReturnToPreviousScreen();
     }
 
-    const auto steps = (w8_get_ticks() - started_at_) / 35 - elapsed_steps_;
+    const auto steps = (MonotonicMilliseconds() - started_at_) / 35 - elapsed_steps_;
     if (steps >= 1) {
         elapsed_steps_ += steps;
         redraw_ = true;

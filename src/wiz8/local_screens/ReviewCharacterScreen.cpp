@@ -30,7 +30,6 @@
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/compat/native.h"
 #include "wiz8/cursor.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/fact_ids.h"
@@ -1174,7 +1173,7 @@ void BeginScreenFade(int fade_to_black, int fade_out, int duration, void (*callb
     }
     g_fade_overlay->shader = shader;
     g_fade_overlay->color.a = fade_out != 0 ? 1.0f : 0.0f;
-    g_fade_tick_base = w8_get_ticks();
+    g_fade_tick_base = MonotonicMilliseconds();
 }
 
 /* Advance the pending screen fade: interpolate the overlay's opacity over
@@ -1187,7 +1186,7 @@ unsigned char UpdateScreenFade(void)
     if (!MainGameHud()->screen_fade_running) {
         return 0;
     }
-    std::uint64_t elapsed = w8_get_ticks() - g_fade_tick_base;
+    std::uint64_t elapsed = MonotonicMilliseconds() - g_fade_tick_base;
     if (g_fade_duration < elapsed) {
         MainGameHud()->screen_fade_running = false;
         if (g_fade_out == 0) {
@@ -1420,7 +1419,7 @@ void W8CampSpellsPage::CreateControls()
             realms_dirty.set(range_index);
         };
     }
-    animation_timer = w8_get_ticks() + (50);
+    animation_timer = MonotonicMilliseconds() + (50);
     for (unsigned int animation = 0; animation < 6; ++animation) {
         animation_frames[animation] = Random(g_spell_realm_animations[animation].frame_count);
     }
@@ -1454,7 +1453,7 @@ void W8CampSpellsPage::Tick()
             animation_frames[realm] = 0;
         }
     }
-    animation_timer = w8_get_ticks() + (50);
+    animation_timer = MonotonicMilliseconds() + (50);
     animation_dirty = true;
 }
 

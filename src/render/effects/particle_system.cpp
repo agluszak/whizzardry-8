@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <span>
@@ -15,7 +16,6 @@
 #include <glm/gtc/matrix_access.hpp>
 #include <glm/matrix.hpp>
 
-#include "compat/compiler.h"
 #include "glm/ext/matrix_double4x4.hpp"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
@@ -624,9 +624,9 @@ void ParticleSystem::SubmitToRenderer(GpuRenderer* renderer, const DrawTransform
     Mesh::TriMesh mesh;
     mesh.active_polygons = std::span(active_triangles).first(active_particle_count * 2);
     mesh.poly_vertices = triangles.data();
-    mesh.polygon_count = wiz8::checked_integer<w8_long>(triangles.size());
+    mesh.polygon_count = wiz8::checked_integer<std::int32_t>(triangles.size());
     mesh.positions = vertex_positions.data();
-    mesh.vertex_count = wiz8::checked_integer<w8_long>(vertex_positions.size());
+    mesh.vertex_count = wiz8::checked_integer<std::int32_t>(vertex_positions.size());
     mesh.pass_count = 1;
     mesh.control_flags =
         (1u << Mesh::CONTROL_SKIP_AUTO_BOX) | (1u << Mesh::CONTROL_SKIP_AUTO_SPHERE);

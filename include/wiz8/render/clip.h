@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 #include "wiz8/math.h"
 
 // CPU visibility algorithms use the renderer's homogeneous clip coordinates.

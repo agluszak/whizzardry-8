@@ -23,9 +23,6 @@
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/checked_integer.h"
 #include "wiz8/chunk.h"
-#include "wiz8/compat/compiler.h"
-#include "wiz8/compat/native.h"
-#include "wiz8/compat/unaligned.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/filesystem.h"
@@ -76,7 +73,7 @@ UiResult HandleTextChannel(const UiPointerEvent& event, int channel);
    its first word is a UTF-16 unit count. The obsolete list-pointer word
    remains reserved on disk and is always written as zero. */
 struct W8MessageStorageDiskRecord {
-    w8_ulong character_count;
+    std::uint32_t character_count;
     unsigned char font_palette;
     unsigned char highlight_color;
     unsigned char highlight_start;
@@ -85,7 +82,7 @@ struct W8MessageStorageDiskRecord {
     std::uint32_t saved_remaining_ms;
     int link;
     int length;
-    w8_ulong serialized_entries_18_bits;
+    std::uint32_t serialized_entries_18_bits;
     unsigned char trailing_bytes[8];
 };
 
@@ -109,7 +106,7 @@ static_assert(offsetof(W8MessageStorageDiskRecord, serialized_entries_18_bits) =
               "W8MessageStorageDiskRecord_entries_bits_offset");
 static_assert(offsetof(W8MessageStorageDiskRecord, trailing_bytes) == 0x1c,
               "W8MessageStorageDiskRecord_trailing_offset");
-static_assert(sizeof(w8_ulong) == 4, "W8MessageStorageDiskRecord_requires_32_bit_words");
+static_assert(sizeof(std::uint32_t) == 4, "W8MessageStorageDiskRecord_requires_32_bit_words");
 // GLOBAL: WIZ8 0x0069b7b8
 static W8TextBoxMode g_text_box_mode;
 // GLOBAL: WIZ8 0x0069b7bc
@@ -238,7 +235,7 @@ static void AppendNoticeLine(unsigned char font_palette, std::string_view text, 
         if (delay > 60000) {
             delay = 60000;
         }
-        last->clock = w8_get_ticks() + (delay);
+        last->clock = MonotonicMilliseconds() + (delay);
     }
 }
 
@@ -400,7 +397,7 @@ unsigned char SaveMessageStorage(wiz8::File& file)
             live_record = &CurrentGame().message_log[region][index];
             disk_record.character_count =
                 !live_record->text.empty()
-                    ? static_cast<w8_ulong>(wiz8::text::to_utf16(live_record->text).size() + 1)
+                    ? static_cast<std::uint32_t>(wiz8::text::to_utf16(live_record->text).size() + 1)
                     : 0;
             disk_record.font_palette = live_record->font_palette;
             disk_record.highlight_color = live_record->highlight_color;
@@ -633,7 +630,7 @@ void AppendToLastTextLine(std::string_view text, short text_box)
         return;
     }
     text_box = ResolveNoticeTextBox(text_box);
-    w8_unaligned_uint* lines_used = &CurrentGame().status.text_box_lines_used[text_box];
+    unsigned int* lines_used = &CurrentGame().status.text_box_lines_used[text_box];
     if (!(*lines_used > 0)) {
         Fail("gStatus.uiTextBoxLinesUsed[iTextBuffer] > 0");
     }
@@ -729,7 +726,7 @@ void AdvanceNoticeLine(short text_box)
     if (delay > 60000) {
         delay = 60000;
     }
-    record->clock = w8_get_ticks() + (delay);
+    record->clock = MonotonicMilliseconds() + (delay);
     unsigned int shown = ++CurrentGame().status.text_box_lines_shown[text_box];
     if (MainGameHud()->text_scroll_drag_idle) {
         if (CurrentGame().activity.conversation && g_npc_interaction_state->text_box_collapsed) {

@@ -2,6 +2,7 @@
 #include <cctype>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <iterator>
 #include <memory>
 #include <optional>
@@ -16,8 +17,6 @@
 #include <glm/common.hpp>
 #include <glm/geometric.hpp>
 
-#include "compat/compiler.h"
-#include "compat/native.h"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
@@ -25,6 +24,7 @@
 #include "wiz8/checked_integer.h"
 #include "wiz8/math.h"
 #include "wiz8/platform/assertion.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/material.h"
@@ -177,15 +177,16 @@ void Mesh::updateBakedLighting()
     }
 }
 
-std::vector<w8_ulong> Mesh::facingPolygons(const TriMesh& mesh, std::span<const glm::vec3> normals,
-                                           const glm::vec3& eye, bool positive_winding,
-                                           float threshold)
+std::vector<std::uint32_t> Mesh::facingPolygons(const TriMesh& mesh,
+                                                std::span<const glm::vec3> normals,
+                                                const glm::vec3& eye, bool positive_winding,
+                                                float threshold)
 {
     const auto available = mesh.active_polygons ? mesh.active_polygons->size() : mesh.polygon_count;
     if (available <= 0) return {};
-    const auto count = static_cast<w8_ulong>(available);
-    std::vector<w8_ulong> polygons(count);
-    const auto keep = [&](w8_ulong polygon) {
+    const auto count = static_cast<std::uint32_t>(available);
+    std::vector<std::uint32_t> polygons(count);
+    const auto keep = [&](std::uint32_t polygon) {
         const auto position = mesh.positions[mesh.poly_vertices[polygon].y];
         const float facing = glm::dot(eye - position, normals[polygon]);
         return positive_winding ? threshold <= facing : facing <= threshold;
@@ -193,7 +194,7 @@ std::vector<w8_ulong> Mesh::facingPolygons(const TriMesh& mesh, std::span<const 
     const auto kept =
         mesh.active_polygons
             ? clipMath::selectTriangles(polygons, *mesh.active_polygons, keep)
-            : clipMath::selectTriangles(polygons, std::views::iota(w8_ulong{0}, count), keep);
+            : clipMath::selectTriangles(polygons, std::views::iota(std::uint32_t{0}, count), keep);
     polygons.resize(kept);
     return polygons;
 }
@@ -207,7 +208,7 @@ void Mesh::RenderTriMeshWithEquations(GpuRenderer& renderer, const TriMesh& mesh
 {
     if (arg_poly_equations.empty()) {
         renderTriMesh(renderer, mesh, state);
-        last_decompress_release_tick = w8_get_ticks();
+        last_decompress_release_tick = MonotonicMilliseconds();
         return;
     }
     if (arg_poly_equations.size() < static_cast<std::size_t>(mesh.polygon_count))
@@ -223,11 +224,11 @@ void Mesh::RenderTriMeshWithEquations(GpuRenderer& renderer, const TriMesh& mesh
         if (!software_polygons.empty()) {
             auto submitted = mesh;
             submitted.poly_equations = nullptr;
-            submitted.active_polygons = std::span<const w8_ulong>(software_polygons);
+            submitted.active_polygons = std::span<const std::uint32_t>(software_polygons);
             meshSubmission::drawSides(renderer, submitted, culled,
-                                      [](w8_long side, MeshState&) { return side; });
+                                      [](std::int32_t side, MeshState&) { return side; });
         }
-        last_decompress_release_tick = w8_get_ticks();
+        last_decompress_release_tick = MonotonicMilliseconds();
     }
 }
 
@@ -244,7 +245,7 @@ static bool MeshNameEquals(std::string_view left, std::string_view right)
 
 void Mesh::ApplyAutomapPolygonFilter(std::span<const std::string_view> excluded_textures)
 {
-    std::vector<w8_ulong> active;
+    std::vector<std::uint32_t> active;
     active.reserve(polygon_count);
     auto* textures = getPolygonTextureTable(0, 0, false);
     if (textures != nullptr) {
@@ -284,7 +285,7 @@ Mesh::PolygonSelection Mesh::GetActivePolygons(int table, bool check_blanking)
     auto& selection = skin != skins.end() ? skin->active_polygons : automap_polygons;
     auto& checked = skin != skins.end() ? skin->blanking_checked : automap_filter_active;
     if (!checked && check_blanking) {
-        std::vector<w8_ulong> active;
+        std::vector<std::uint32_t> active;
         active.reserve(polygon_count);
         auto* textures =
             skin != skins.end() ? &skin->textures : getPolygonTextureTable(0, 0, false);
@@ -306,7 +307,7 @@ Mesh::PolygonSelection Mesh::GetActivePolygons(int table, bool check_blanking)
     if (!selection) {
         return std::nullopt;
     }
-    return std::span<const w8_ulong>(*selection);
+    return std::span<const std::uint32_t>(*selection);
 }
 
 void Mesh::SetMappedVertex(int vertex, short key)
@@ -380,7 +381,7 @@ int Mesh::ReleaseDecompressedFrames()
             }
         }
     }
-    last_decompress_release_tick = w8_get_ticks();
+    last_decompress_release_tick = MonotonicMilliseconds();
     g_decompressed_mesh_bytes -= released;
     return released;
 }
@@ -542,7 +543,7 @@ unsigned char Mesh::AllocateFrameBuffers(unsigned int uiFrame, unsigned char fla
     allocate(frame.locations, vertex_location_count, W8_MESH_FRAME_LOCATIONS);
     allocate(frame.vertex_normals, vertex_location_count, W8_MESH_FRAME_VERTEX_NORMALS);
     allocate(frame.polygon_normals, polygon_count, W8_MESH_FRAME_POLYGON_NORMALS);
-    last_decompress_release_tick = w8_get_ticks();
+    last_decompress_release_tick = MonotonicMilliseconds();
     return 1;
 }
 
@@ -678,8 +679,8 @@ void Mesh::ComputeFrameNormals(int frame)
     const auto vnorm = meshMath::vertexNormalSums(
         std::span<const glm::ivec3>(poly_vertex, polygon_count), std::span<const glm::vec3>(pnorm),
         vertex_location_count,
-        shade_index ? std::span<const w8_ulong>(shade_index, vertex_location_count)
-                    : std::span<const w8_ulong>{});
+        shade_index ? std::span<const std::uint32_t>(shade_index, vertex_location_count)
+                    : std::span<const std::uint32_t>{});
 
     CompressMeshNormals(vnorm, storage.compressed_vertex_normals);
     CompressMeshNormals(pnorm, storage.compressed_polygon_normals);

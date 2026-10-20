@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include <span>
 #include <vector>
@@ -12,12 +13,12 @@
 
 namespace meshCulling {
 struct Output {
-    std::vector<w8_ulong> indices;
-    std::vector<w8_ulong> avt;
-    std::vector<w8_ulong> vertex_remap;
+    std::vector<std::uint32_t> indices;
+    std::vector<std::uint32_t> avt;
+    std::vector<std::uint32_t> vertex_remap;
 
-    w8_ulong triangleCount() const { return static_cast<w8_ulong>(indices.size()); }
-    w8_ulong vertexCount() const { return static_cast<w8_ulong>(avt.size()); }
+    std::uint32_t triangleCount() const { return static_cast<std::uint32_t>(indices.size()); }
+    std::uint32_t vertexCount() const { return static_cast<std::uint32_t>(avt.size()); }
 };
 
 struct Input {
@@ -32,21 +33,21 @@ struct Input {
     std::span<const glm::vec4> polygon_planes;
     std::span<const glm::vec4> clip_planes;
     // Absent draws every triangle; engaged empty draws none.
-    std::optional<std::span<const w8_ulong>> active_triangles;
+    std::optional<std::span<const std::uint32_t>> active_triangles;
     int cull_mode = 0;
-    w8_ulong clip_mask = 0;
+    std::uint32_t clip_mask = 0;
 };
 
 /* Apply a covector transform and normalize the plane normal. */
 glm::vec4 transformClipPlane(const glm::vec4& plane, const glm::mat4& plane_matrix);
 struct ClipMask {
-    w8_ulong mask;
+    std::uint32_t mask;
     float depth;
 };
 /* Sphere-vs-plane-mask test over active clip planes, including the
        0..1 penetration fraction across side planes. */
 ClipMask getClipMask(const glm::vec3& center, float radius, std::span<const glm::vec4> planes,
-                     w8_ulong mask);
+                     std::uint32_t mask);
 // Owns the surviving triangle indices, ordered active vertices and inverse remap.
 Output cull(const Input& input);
 } // namespace meshCulling

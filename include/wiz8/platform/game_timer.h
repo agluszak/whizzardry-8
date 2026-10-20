@@ -16,7 +16,7 @@ extern bool g_level_motion_resume_pending;
 /* The shared game timer counts in 1/10000-second units. */
 inline constexpr std::uint32_t W8_SHARED_TIMER_TICKS_PER_SECOND = 10000;
 
-// Both units share w8_clock_us's monotonic epoch, including its virtual test clock.
+// Both units share MonotonicMicroseconds's monotonic epoch, including its virtual test clock.
 std::uint32_t GameClockTicks();
 std::uint32_t GameClockMilliseconds();
 

@@ -22,8 +22,8 @@ struct DrawMaterial {
         HAS_TEXCOORD1 = 0x20u,
         HAS_VERTEX_MATERIALS = 0x40u
     };
-    w8_ulong flags = 0;
-    w8_ulong channels = 0;
+    std::uint32_t flags = 0;
+    std::uint32_t channels = 0;
     Material* material = nullptr;
     std::optional<float> diffuse_scale;
     std::optional<float> emissive_override;
@@ -32,7 +32,7 @@ struct DrawMaterial {
         const void* colors = nullptr;
         e_format format = FORMAT_VECTOR4;
 
-        glm::vec4 colorAt(w8_ulong index) const;
+        glm::vec4 colorAt(std::uint32_t index) const;
     };
     ColorSource color_source{};
     const glm::vec4* spec_for_diffuse = nullptr;
@@ -47,7 +47,7 @@ struct VertexShadingInput {
     {
     }
 
-    std::span<const w8_ulong> active_vertices;
+    std::span<const std::uint32_t> active_vertices;
     bool direct_vertex_indices = false;
     std::span<const glm::vec3> positions;
     std::span<const glm::vec3> normals;
@@ -55,7 +55,7 @@ struct VertexShadingInput {
     const glm::mat4& model_view;
     const glm::mat4& normal_matrix;
     std::span<ShadedVertexArrays> vertex_arrays;
-    w8_ulong exclusion_mask = 0;
+    std::uint32_t exclusion_mask = 0;
     glm::vec4 ambient_light{0};
     std::span<const DrawMaterial> records;
     std::span<Light* const> lights;
@@ -66,13 +66,13 @@ struct VertexShadingInput {
     float environment_scale = 0;
     float environment_inverse_scale = 0;
 
-    w8_ulong geometryIndex(w8_ulong processed_index) const
+    std::uint32_t geometryIndex(std::uint32_t processed_index) const
     {
         return direct_vertex_indices ? processed_index : active_vertices[processed_index];
     }
 };
 
 std::uint32_t shaderDisabledChannels(const DrawShader& shader);
-std::uint32_t shaderDisabledChannels(const DrawShader* shaders, const w8_ulong* indices,
-                                     w8_ulong count);
+std::uint32_t shaderDisabledChannels(const DrawShader* shaders, const std::uint32_t* indices,
+                                     std::uint32_t count);
 void shadeVertices(const VertexShadingInput& input);

@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -11,18 +12,18 @@
 #include <SDL3/SDL_surface.h>
 #include <catch2/catch_test_macros.hpp>
 
-#include "compat/compiler.h"
 #include "surface_pixels.h"
 #include "wiz8/platform/sdl_io.h"
 #include "wiz8/render/image_io.h"
 #include "wiz8/surface_storage.h"
 
-static const w8_ulong colors[] = {0xff123456, 0xffabcdef, 0xff2468ac, 0xfffedcba};
+static const std::uint32_t colors[] = {0xff123456, 0xffabcdef, 0xff2468ac, 0xfffedcba};
 
 static void CheckImage(const char* name, const std::vector<unsigned char>& bytes,
-                       const w8_ulong* expected = colors)
+                       const std::uint32_t* expected = colors)
 {
-    auto stream = sdlIO::own(SDL_IOFromConstMem(bytes.data(), static_cast<w8_ulong>(bytes.size())));
+    auto stream =
+        sdlIO::own(SDL_IOFromConstMem(bytes.data(), static_cast<std::uint32_t>(bytes.size())));
     auto surface = imageIO::load(name, stream.get());
     REQUIRE((surface && surface->w == 2 && surface->h == 2));
     for (int y = 0; y < 2; ++y)
@@ -187,7 +188,7 @@ TEST_CASE("image_io_test")
             for (bool rle : {false, true}) CheckImage("test.TGA", Targa(top, rle, false));
         auto alpha = Targa(true, false, true);
         alpha[21] = 64;
-        w8_ulong transparent[] = {0x40123456, colors[1], colors[2], colors[3]};
+        std::uint32_t transparent[] = {0x40123456, colors[1], colors[2], colors[3]};
         CheckImage("alpha.tga", alpha, transparent);
         CheckImage("test.bmp", Bitmap());
         CheckImage("test.pcx", PCX(false));
@@ -200,7 +201,7 @@ TEST_CASE("image_io_test")
         indexed[16] = 8;
         indexed[17] = 0x20;
         indexed.insert(indexed.end(), {0, 209, 210, 255});
-        const w8_ulong indexed_colors[]{0xff000033, 0xffffffcc, 0xff000000, 0xffffffff};
+        const std::uint32_t indexed_colors[]{0xff000033, 0xffffffcc, 0xff000000, 0xffffffff};
         CheckImage("default-palette.tga", indexed, indexed_colors);
         CheckJPEG();
         CheckLossless("dir.jpg/lossless.PNG");

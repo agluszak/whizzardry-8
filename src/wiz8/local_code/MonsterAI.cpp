@@ -16,7 +16,6 @@
 #include "sight_state.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/checked_integer.h"
-#include "wiz8/compat/unaligned.h"
 #include "wiz8/data/faction_ids.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
@@ -1312,7 +1311,7 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
     int hp_max = 0;
     int stat = 0;
     int stat_max = 0;
-    w8_unaligned_uint* condition_turns = 0;
+    unsigned int* condition_turns = 0;
     W8Enchantment* enchantments = 0;
     /* 0x00532EE3 and 0x00532F38 test the marker count signed and 0x00532F89
        compares the index signed. */

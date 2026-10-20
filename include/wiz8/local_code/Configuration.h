@@ -1,6 +1,4 @@
 #pragma once
-
-#include "compat/compiler.h"
 #include "wiz8/difficulty.h"
 #include "wiz8/layouts/main_game_screen.h"
 

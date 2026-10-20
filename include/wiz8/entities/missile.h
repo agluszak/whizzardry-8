@@ -1,10 +1,10 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <string_view>
 #include <vector>
 
-#include "compat/compiler.h"
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/data/attack_modes.h"
 #include "wiz8/data/missile_records.h"
@@ -90,7 +90,7 @@ public:
        the hit to Combat Attack.cpp or leave it for the combat engine. */
     bool OnCollision(Navigator* other); /* 0x004A4720 */
 
-    w8_ulong GetAnimationState(W8MissileAnimationStateQuery query);
+    std::uint32_t GetAnimationState(W8MissileAnimationStateQuery query);
     void DetonateMissileSpell();
     void AnnounceCollisionTarget(); /* 0x004A4AC0 */
     /* Switch the representation to its impact cycle, or end the flight when the

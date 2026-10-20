@@ -1,6 +1,7 @@
 #pragma once
 struct W8Chunk;
 
+#include <cstddef>
 #include <string>
 
 #include "glm/ext/vector_float3.hpp"

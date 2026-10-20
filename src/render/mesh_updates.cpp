@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -9,7 +10,6 @@
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/gtc/quaternion.hpp>
 
-#include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -154,10 +154,10 @@ void UpdateWorldMeshFromQuads(World* world)
     Mesh* mesh = static_cast<Mesh*>(world->update_mesh_source->getModel());
     MeshVisibilityGrid& quad = *world->quads;
     const auto cells = visibleQuadCells(*world);
-    w8_long polygon_count = 0;
+    std::int32_t polygon_count = 0;
     for (const auto& cell : cells) polygon_count += quad.Cell(cell.x, cell.y).size();
     mesh->setActivePolygonCount(polygon_count);
-    w8_ulong* table = mesh->getActivePolygonTable(1);
+    std::uint32_t* table = mesh->getActivePolygonTable(1);
     for (const auto& cell : cells) {
         for (int polygon : quad.Cell(cell.x, cell.y)) {
             *table++ = polygon;
@@ -175,9 +175,9 @@ void UpdateWorldMesh()
 {
     MeshInstance* source;
     Mesh* mesh;
-    w8_ulong* table;
-    w8_long polygon_count;
-    w8_ulong index;
+    std::uint32_t* table;
+    std::int32_t polygon_count;
+    std::uint32_t index;
 
     if (GetWorld() == nullptr) {
         Fail("pWorld");
@@ -188,7 +188,7 @@ void UpdateWorldMesh()
         polygon_count = mesh->polygon_count;
         mesh->setActivePolygonCount(polygon_count);
         table = mesh->getActivePolygonTable(1);
-        for (index = 0; static_cast<w8_long>(index) < polygon_count; ++index) {
+        for (index = 0; static_cast<std::int32_t>(index) < polygon_count; ++index) {
             table[index] = index;
         }
         mesh->setDirty(Mesh::DIRTY_TRI_MESH);

@@ -21,7 +21,6 @@
 #include "scoped_game.h"
 #include "temporary_directory.h"
 #include "wiz8/character_event_queue.h"
-#include "wiz8/compat/native.h"
 #include "wiz8/data/records.h"
 #include "wiz8/entities/animation.h"
 #include "wiz8/entities/animation_mesh.h"
@@ -46,6 +45,7 @@
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_script_file.h"
 #include "wiz8/platform/game_timer.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/render/camera_shake.h"
 #include "wiz8/render/light.h"
 #include "wiz8/render/mesh.h"
@@ -579,12 +579,12 @@ TEST_CASE("Ambient exchanges wait for completion and choose a different responde
     active.event_type = 10; // Coalescing changes the spoken line, not the exchange.
     queue.ProcessFollowUpEvents();
     REQUIRE(queue.pending_events.empty());
-    const auto now = w8_get_ticks();
+    const auto now = MonotonicMilliseconds();
     auto completed = std::move(queue.active_events.front());
     queue.active_events.clear();
     queue.RestartFollowUpClock(completed.get());
     REQUIRE(queue.follow_up.value().ready_at >= now + 2000);
-    REQUIRE(queue.follow_up.value().ready_at <= w8_get_ticks() + 8000);
+    REQUIRE(queue.follow_up.value().ready_at <= MonotonicMilliseconds() + 8000);
     queue.follow_up.value().ready_at = 0; // Expire the response delay without sleeping.
     queue.ProcessFollowUpEvents();
     REQUIRE(queue.pending_events.size() == 1);
@@ -595,7 +595,7 @@ TEST_CASE("Ambient exchanges wait for completion and choose a different responde
     queue.pending_events.clear();
     queue.RestartFollowUpClock(completed.get());
     REQUIRE(queue.follow_up.value().ready_at >= now + 300000);
-    REQUIRE(queue.follow_up.value().ready_at <= w8_get_ticks() + 360000);
+    REQUIRE(queue.follow_up.value().ready_at <= MonotonicMilliseconds() + 360000);
     queue.ProcessFollowUpEvents();
     REQUIRE(queue.pending_events.empty());
     queue.follow_up.value().ready_at = 0;

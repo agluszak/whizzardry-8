@@ -1,5 +1,6 @@
 #include <cassert>
 #include <cfenv>
+#include <cstdint>
 #include <cstdio>
 #include <limits>
 #include <memory>
@@ -17,7 +18,6 @@
 #include "wiz8/platform/assertion.h"
 /* Native consumer-side linking and lifetime for the renderer contracts used
    by the game, including compiler-generated members imported on Windows. */
-#include "compat/compiler.h"
 #include "glm/ext/vector_float4.hpp"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/clip_plane.h"
@@ -85,10 +85,10 @@ TEST_CASE("imports_test")
                                  std::numeric_limits<double>::quiet_NaN()};
         for (volatile double input : inputs) {
             feclearexcept(FE_ALL_EXCEPT);
-            const w8_long actual = roundedInt32(input);
+            const std::int32_t actual = roundedInt32(input);
             const bool invalid = fetestexcept(FE_INVALID);
 #if defined(__i386__) || defined(__x86_64__)
-            w8_long retail;
+            std::int32_t retail;
             unsigned short saved_control, status;
             asm volatile("fnstcw %0" : "=m"(saved_control));
             const unsigned rounding = mode == FE_DOWNWARD     ? 1

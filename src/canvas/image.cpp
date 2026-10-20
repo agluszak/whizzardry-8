@@ -1,6 +1,7 @@
 #include "wiz8/canvas/image.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <span>

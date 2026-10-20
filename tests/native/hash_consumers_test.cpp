@@ -1,8 +1,8 @@
+#include <cstdint>
 #include <cstdio>
 
 #include <catch2/catch_test_macros.hpp>
 
-#include "compat/compiler.h"
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/texture.h"
@@ -14,11 +14,11 @@ static void checkConsumers()
     GpuRenderer::Renderer::TextureSetCache cache;
     Texture textures[2];
     GpuRenderer::Renderer::TextureSetKey key{nullptr, nullptr, {}};
-    for (w8_ulong i = 0; i < 512; ++i) {
+    for (std::uint32_t i = 0; i < 512; ++i) {
         key.shader.value = i;
         REQUIRE(cache.intern(key) == i);
     }
-    for (w8_ulong i = 0; i < 512; ++i) {
+    for (std::uint32_t i = 0; i < 512; ++i) {
         key.shader.value = i;
         REQUIRE(cache.intern(key) == i);
         REQUIRE(cache.sets[i].shader.value == i);

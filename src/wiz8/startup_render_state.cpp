@@ -1,7 +1,7 @@
 #include <cstdint>
 #include <memory>
 
-#include "compat/native.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/gpu_renderer.h"
 #include "wiz8/world/environment.h"
@@ -16,7 +16,7 @@ static uint64_t previous_render_tick;
    elapsed value rather than maintaining a parallel frame timer. */
 void UpdateRenderElapsedTime(void)
 {
-    uint64_t now = w8_get_ticks();
+    uint64_t now = MonotonicMilliseconds();
     uint64_t elapsed = previous_render_tick ? now - previous_render_tick : 0;
     previous_render_tick = now;
     if (g_gerd) g_gerd->frame_time += elapsed * .001;

@@ -3,6 +3,7 @@
 /* The .wgd game-data surface record. Live surfaces carry a hit-plane
    pointer; on disk that slot is a presence word. */
 
+#include <cstddef>
 #include <cstdint>
 #include <type_traits>
 

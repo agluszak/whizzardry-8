@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <string>
 
 #include "wiz8/audio_resources.h"
@@ -195,7 +196,7 @@ struct W8CombatState {
     /* Historical offset 0x7a8: continuous-combat UI pacing; the confirm button resets it while
        TimeUntilDeadline reports it still running. */
     uint64_t combat_ui_timer;
-    /* Historical offset 0x7ac: the pacing clock the scheduler arms as a w8_get_ticks deadline
+    /* Historical offset 0x7ac: the pacing clock the scheduler arms as a MonotonicMilliseconds deadline
        before the scheduled actor's action may execute. */
     uint64_t action_clock;
     wiz8::sound::Playback hit_sound;

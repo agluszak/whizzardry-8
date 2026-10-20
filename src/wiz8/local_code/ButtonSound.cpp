@@ -2,7 +2,6 @@
 
 #include <cstdint>
 
-#include "compat/native.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/platform/timer.h"
@@ -17,7 +16,7 @@ void PlayButtonSound(UiPointerAction action)
     switch (action) {
     case UiPointerAction::Enter:
         if (TimeUntilDeadline(g_button_sound_cooldown) != 0) return;
-        g_button_sound_cooldown = w8_get_ticks() + 200;
+        g_button_sound_cooldown = MonotonicMilliseconds() + 200;
         path = "Data\\Sound\\Misc\\Interface Whoosh 01 Soft.wav";
         break;
     case UiPointerAction::Down:

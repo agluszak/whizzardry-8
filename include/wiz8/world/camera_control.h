@@ -1,6 +1,4 @@
 #pragma once
-
-#include "compat/compiler.h"
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/world/party_camera.h"
 
