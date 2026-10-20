@@ -415,7 +415,8 @@ before the related refactoring changes behavior.
   not a rendering-performance project. The Platforms workflow (manual and weekly) checks
   the first requirement, a standard library with `std::function_ref` and
   `std::inplace_vector`, with Xcode clang, Homebrew LLVM, clang-cl and MSVC. In October
-  2026 none of them ships `<inplace_vector>` (Apple clang 17, Homebrew LLVM 23's libc++,
-  clang-cl 20 and MSVC 19.51 with the MSVC STL), so neither platform can configure yet.
+  2026 none of them ships `std::function_ref` or `<inplace_vector>` (Apple clang 17,
+  Homebrew LLVM 23's libc++, clang-cl 20 and MSVC 19.51 with the MSVC STL), so neither
+  platform can configure yet.
   The game uses it once (`NPC Manager.cpp`) and `std::function_ref` five times; decide
   whether to wait for the libraries or replace those uses.
