@@ -6,6 +6,7 @@
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <vsg/core/Array.h>
+#include <vsg/utils/LineSegmentIntersector.h>
 
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
@@ -68,9 +69,34 @@ TEST_CASE("Animated instances share topology and keep independent CPU poses", "[
     lead.update(mesh, 0, .25f, 1);
     REQUIRE(lead.passes[0].positions == positions);
     REQUIRE(lead.positions == original);
+    auto hit =
+        vsg::LineSegmentIntersector::create(vsg::dvec3(.75, .25, -1), vsg::dvec3(.75, .25, 1));
+    lead.passes[0].draws[0]->accept(*hit);
+    REQUIRE_FALSE(hit->intersections.empty());
     lead.update(mesh, 1, 0, 2);
+    auto moved =
+        vsg::LineSegmentIntersector::create(vsg::dvec3(.75, .25, -1), vsg::dvec3(.75, .25, 1));
+    lead.passes[0].draws[0]->accept(*moved);
+    REQUIRE(moved->intersections.empty());
     REQUIRE(lead.normals[0] == glm::vec3(0, 1, 0));
     REQUIRE(follower.positions[0].x == Catch::Approx(1.5f));
+}
+
+TEST_CASE("Static instances share ordinary position and normal arrays", "[renderer][ownership]")
+{
+    Mesh mesh(1, 3);
+    mesh.getPolyVertex()[0] = {0, 1, 2};
+    auto* positions = mesh.getVertexLoc();
+    positions[0] = {0, 0, 0};
+    positions[1] = {1, 0, 0};
+    positions[2] = {0, 1, 0};
+    render::MeshPose first(mesh), second(mesh);
+    first.update(mesh, 0, 0, 1);
+    second.update(mesh, 0, 0, 1);
+    REQUIRE_FALSE(first.passes.empty());
+    REQUIRE(first.asset == second.asset);
+    REQUIRE(first.passes[0].positions == second.passes[0].positions);
+    REQUIRE(first.passes[0].normals == second.passes[0].normals);
 }
 
 TEST_CASE("Scene membership retains entity ownership and ordinary VSG subgraphs",

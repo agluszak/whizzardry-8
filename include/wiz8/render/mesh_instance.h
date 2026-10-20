@@ -6,8 +6,8 @@
 #include <utility>
 #include <vector>
 
-#include <vsg/core/ref_ptr.h>
 #include <vsg/core/observer_ptr.h>
+#include <vsg/core/ref_ptr.h>
 #include <vsg/nodes/Group.h>
 
 #include "glm/ext/vector_float3.hpp"
@@ -18,7 +18,10 @@
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/transform.h"
 
-namespace render { class InstanceNode; class VertexAttachment; }
+namespace render {
+class InstanceNode;
+class VertexAttachment;
+}
 class WorldScene;
 class Texture;
 
@@ -27,6 +30,7 @@ class MeshInstance {
 public:
     ~MeshInstance();
     MeshInstance(WorldScene* scene = nullptr);
+    MeshInstance(const MeshInstance& other);
 
     MeshInstance& operator=(const MeshInstance& other);
 
@@ -35,6 +39,7 @@ public:
     void setModel(std::shared_ptr<Mesh> model);
 
     vsg::ref_ptr<render::InstanceNode> renderNode() const;
+    glm::dmat4 worldMatrix() const;
     void attachTo(MeshInstance& parent, std::optional<short> mapped_key = {});
     std::optional<glm::vec3> sampledPosition(const Mesh& mesh, std::size_t index) const;
 

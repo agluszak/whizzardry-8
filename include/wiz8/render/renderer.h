@@ -4,13 +4,15 @@
 #include <memory>
 
 #include <glm/vec4.hpp>
-#include <vsg/core/ref_ptr.h>
 #include <vsg/app/View.h>
+#include <vsg/core/ref_ptr.h>
 
 struct SDL_Window;
 struct SDL_Surface;
 struct OverlayQuad;
-namespace render { class RenderContext; }
+namespace render {
+class RenderContext;
+}
 
 // SDL owns the platform window. VSG owns its Vulkan surface, device, views,
 // graphics resources and presentation. A completed frame is the retirement

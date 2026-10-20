@@ -767,11 +767,15 @@ void CyclePlayer::UpdateRepresentation(World* pWorld, const Navigator& nav)
         rot = GetRotation();
         for (index = 0; index < count; ++index) {
             Light* light = (*m_plsLights)[index].get();
-            glm::vec3 offset = light->m_position;
-
-            glm::vec3 placed = rot * offset + origin;
-            loc = glm::dvec3(placed);
-            light->transform.setLocation(loc);
+            if (animation->path_lists != 1 && current_model_instance) {
+                // The light is a child of the visual. VSG composes it for
+                // rendering; the bake query reads that same parentage.
+                light->transform.setLocation(glm::dvec3(light->m_position));
+                if (light->scene) light->attachTo(*current_model_instance);
+            } else {
+                const auto placed = rot * light->m_position + origin;
+                light->transform.setLocation(glm::dvec3(placed));
+            }
         }
     }
 }

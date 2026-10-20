@@ -39,9 +39,9 @@
 #include "wiz8/render/camera.h"
 #include "wiz8/render/compositor.h"
 #include "wiz8/render/frame.h"
-#include "wiz8/render/renderer.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
+#include "wiz8/render/renderer.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/render/world_scene.h"
 #include "wiz8/rules/character.h"
@@ -229,7 +229,8 @@ TEST_CASE("world graphics")
             if (restored[index] != control[index]) ++recovered;
         }
     fprintf(stderr,
-            "world: %u enabled meshes, %u submitted polygons; viewport pixels %u changed, %u restored\n",
+            "world: %u enabled meshes, %u submitted polygons; viewport pixels %u changed, %u "
+            "restored\n",
             enabled, polygons, changed, recovered);
     REQUIRE(polygons > 0);
     REQUIRE((changed > 1000 && recovered > 1000));

@@ -1,22 +1,19 @@
 #include "wiz8/render/compositor.h"
 
 #include <algorithm>
-#include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <memory>
 #include <utility>
 
 #include <SDL3/SDL_surface.h>
 
-#include "glm/ext/matrix_clip_space.hpp"
-#include "glm/ext/vector_float3.hpp"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/renderer.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/surface_storage.h"
-#include <cstring>
 
 OverlayQuad::OverlayQuad(const OverlayQuad& other)
 {
@@ -90,11 +87,14 @@ void Compositor::draw(Renderer& renderer, OverlayLayer layer)
 }
 
 UiCanvasTexture::UiCanvasTexture(std::shared_ptr<SDL_Surface> surface)
-    : source(std::move(surface)),
-      published(CreateCpuStorage(source->w, source->h, source->format)),
+    : source(std::move(surface)), published(CreateCpuStorage(source->w, source->h, source->format)),
       texture(std::make_shared<Texture>(published))
 {
-    std::memcpy(published->pixels, source->pixels, std::size_t(source->pitch) * source->h);
+    const auto bytes = SDL_BYTESPERPIXEL(source->format);
+    for (int row = 0; row < source->h; ++row)
+        std::memcpy(static_cast<std::uint8_t*>(published->pixels) + row * published->pitch,
+                    static_cast<const std::uint8_t*>(source->pixels) + row * source->pitch,
+                    std::size_t(source->w) * bytes);
     auto dimensions = texture->getDimensions();
     dimensions.native_size = true;
     texture->setDimensions(dimensions);

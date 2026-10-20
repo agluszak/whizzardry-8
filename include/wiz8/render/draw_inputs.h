@@ -102,16 +102,3 @@ struct ScenePass {
     std::span<Pick> picks;
     MeshInstance* pick_owner = nullptr;
 };
-
-// The caller-supplied inputs of one mesh submission.
-struct MeshState {
-    DrawTransform transform;
-    FaceCull cull = FaceCull::Back;
-    Winding winding = Winding::Standard;
-    // Lights back faces with negated normals.
-    bool reverse_normals = false;
-    // Queues the triangles for the depth-sorted pass instead of drawing them in order.
-    bool sorted = false;
-    std::int32_t polygon_offset = 0;
-    ScenePass scene;
-};

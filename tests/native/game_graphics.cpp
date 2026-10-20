@@ -38,8 +38,8 @@
 #include "wiz8/render/compositor.h"
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/frame.h"
-#include "wiz8/render/renderer.h"
 #include "wiz8/render/image_io.h"
+#include "wiz8/render/renderer.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/surface_storage.h"
 

@@ -15,6 +15,7 @@
 #include <glm/geometric.hpp>
 #include <glm/matrix.hpp>
 
+#include "effect_geometry.h"
 #include "glm/ext/matrix_double4x4.hpp"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
@@ -43,8 +44,6 @@
 #include "wiz8/unicode.h"
 #include "wiz8/world/world.h"
 
-#include "effect_geometry.h"
-
 constexpr float kParticleFlutterAngleRandomScale = 0.00019174758926965296f;
 constexpr float kParticleFlutterDisplacementScale = -0.0010000000474974513f;
 constexpr float kParticleFlutterVelocityFloor = -1000.0f;
@@ -62,13 +61,11 @@ struct ParticleRenderData {
     ParticleRenderData(render::RenderContext& context, const ParticleSystem& source)
         : context(&context),
           geometry(context, source.particle_count * 4, source.material,
-                   render::HasAlpha | render::HasTexcoord0 | render::ParticleBillboard,
-                   false, 0)
+                   render::HasAlpha | render::HasTexcoord0 | render::ParticleBillboard, false, 0)
     {
         cull = vsg::CullNode::create(vsg::dsphere(), particles);
         root->addChild(cull);
-        static constexpr std::array<glm::vec2, 4> uv{
-            {{0, 0}, {1, 0}, {1, 1}, {0, 1}}};
+        static constexpr std::array<glm::vec2, 4> uv{{{0, 0}, {1, 0}, {1, 1}, {0, 1}}};
         for (std::uint32_t particle = 0; particle < source.particle_count; ++particle) {
             const auto first = particle * 4;
             for (std::uint32_t corner = 0; corner < 4; ++corner)
@@ -411,7 +408,6 @@ void ParticleSystem::Update()
                     }
                 } else {
                     auto* animation = texture_frames[index].get();
-                    animation->UpdateFrame();
                     if (animation->IsFinished() != 0) {
                         DeactivateParticle(index);
                         continue;
@@ -534,6 +530,8 @@ void ParticleSystem::AdvanceSimulation()
         transform.setLocation(glm::dvec3(cameraLocation() + camera_offset));
     }
 
+    for (unsigned index = 0; index < texture_frames.size(); ++index)
+        if (particle_active[index]) texture_frames[index]->UpdateFrame();
     Update();
 
     if (emission_limit != 0 && emission_count >= emission_limit) {
@@ -554,6 +552,11 @@ vsg::ref_ptr<vsg::Node> ParticleSystem::renderNode(render::RenderContext& contex
     if (!render_data || render_data->context != &context)
         render_data = std::make_unique<ParticleRenderData>(context, *this);
     return render_data->root;
+}
+
+vsg::ref_ptr<vsg::Node> ParticleSystem::renderNode() const
+{
+    return render_data ? render_data->root : vsg::ref_ptr<vsg::Node>{};
 }
 
 void ParticleSystem::updateRenderNode(render::RenderContext& context, const SceneFrame& frame,
@@ -591,11 +594,10 @@ void ParticleSystem::updateRenderNode(render::RenderContext& context, const Scen
             0.0f, 1.0f);
     instance.bounds = glm::vec4(center, radius);
     render::store(*data.geometry.instance, instance);
-    render::store(*data.geometry.pass,
-                   render::packPass(std::array{material},
-                                    render::HasAlpha | render::HasTexcoord0 |
-                                        render::ParticleBillboard,
-                                    false, frame.time));
+    render::store(*data.geometry.pass, render::packPass(std::array{material},
+                                                        render::HasAlpha | render::HasTexcoord0 |
+                                                            render::ParticleBillboard,
+                                                        false, frame.time));
 
     float phase = 0;
     if (flutter_mode != W8_PARTICLE_FLUTTER_NONE && flutter_period != 0)
@@ -614,8 +616,8 @@ void ParticleSystem::updateRenderNode(render::RenderContext& context, const Scen
             if (flutter_mode == W8_PARTICLE_FLUTTER_VELOCITY_SCALED)
                 amount *= std::max(kParticleFlutterVelocityFloor, velocities[index].y) *
                           kParticleFlutterDisplacementScale;
-            center += glm::vec3(
-                glm::rotateY(glm::dvec3(amount, 0, 0), double(flutter_angles[index])));
+            center +=
+                glm::vec3(glm::rotateY(glm::dvec3(amount, 0, 0), double(flutter_angles[index])));
         }
         for (unsigned corner = 0; corner < 4; ++corner) {
             const auto vertex = index * 4 + corner;
@@ -626,10 +628,11 @@ void ParticleSystem::updateRenderNode(render::RenderContext& context, const Scen
                 vsg::vec4(0, 1, alphas[index], float(particle_size) * size_scale);
         }
         auto* image = texture_frames.empty() ? texture.get() : texture_frames[index].get();
-        draw.stateCommands = {context.pipeline(render_flags.value, FaceCull::None),
-                                data.geometry.instance_bind, data.geometry.pass_bind,
-                                context.batchSet(render_flags.value,
-                                                 context.texture(image, frame.texture_reduction))};
+        if (image) image = image->currentFrame();
+        draw.stateCommands = {
+            context.pipeline(render_flags.value, FaceCull::None), data.geometry.instance_bind,
+            data.geometry.pass_bind,
+            context.batchSet(render_flags.value, context.texture(image, frame.texture_reduction))};
     }
     data.geometry.dirty();
 }

@@ -28,6 +28,7 @@ struct TexturePlayback {
     int initial_frame = 0;
     float frame_rate = 15.0f;
     std::uint64_t frame_tick = 0;
+    std::optional<std::uint64_t> visual_frame;
     W8TextureTriggerMode trigger_mode = W8_TEXTURE_TRIGGER_CONTINUOUS;
     float probability = -1.0f;
     bool running = false;
@@ -76,7 +77,10 @@ public:
     Texture(const Texture& other);
 
     Texture& operator=(const Texture& other);
-    Texture* resolve();
+    Texture* resolve(std::optional<std::uint64_t> visual_frame = {});
+    // The current animation snapshot, without advancing its clock or random
+    // triggers. Particle simulation advances before any views consume it.
+    Texture* currentFrame();
     Dimensions getDimensions();
     void setDimensions(const Dimensions& dimensions);
     Parameters getParameters();
@@ -90,7 +94,8 @@ public:
     void invalidate();
     // The texture owns its graphics representation. Animated textures resolve
     // their current image here rather than freezing a frame at asset load time.
-    vsg::ref_ptr<vsg::ImageInfo> imageInfo(int reduction = 0);
+    vsg::ref_ptr<vsg::ImageInfo> imageInfo(int reduction = 0,
+                                           std::optional<std::uint64_t> visual_frame = {});
     // Publish CPU canvas pixels explicitly; ordinary drawing does not upload.
     void publish();
     void setSurfacePtr(std::shared_ptr<SDL_Surface> pixels);
@@ -121,7 +126,7 @@ public:
     void AddTexture(std::shared_ptr<Texture> texture);
     int IsFinished() const;
     unsigned char Prepare();
-    void UpdateFrame();
+    void UpdateFrame(std::optional<std::uint64_t> visual_frame = {});
     int isSurfaceLoaded() const { return surface != nullptr; }
     SDL_Surface* getSurface() const { return surface.get(); }
     bool hasAlpha();

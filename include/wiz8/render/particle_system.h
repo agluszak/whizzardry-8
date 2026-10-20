@@ -25,7 +25,9 @@ struct W8Chunk;
 #include "wiz8/render/transform.h"
 
 struct W8MonsterShakeCallback;
-namespace render { class RenderContext; }
+namespace render {
+class RenderContext;
+}
 struct ParticleRenderData;
 class WorldScene;
 namespace wiz8 {
@@ -51,6 +53,7 @@ public:
     // Called once by the game update, independent of the number of views.
     void AdvanceSimulation();
     vsg::ref_ptr<vsg::Node> renderNode(render::RenderContext& context);
+    vsg::ref_ptr<vsg::Node> renderNode() const;
     void updateRenderNode(render::RenderContext& context, const SceneFrame& frame,
                           std::uint64_t frame_number);
     unsigned char ReplaceTexture(std::string_view old_name, std::shared_ptr<Texture> replacement);

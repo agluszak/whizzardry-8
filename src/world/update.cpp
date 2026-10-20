@@ -145,7 +145,7 @@ unsigned char BakeInstanceVertexLighting(MeshInstance* instance, std::span<Light
             const float range = static_cast<float>(
                 kLightRangeAttenuationNumerator /
                 (light->opengl_attenuation.y * kLightRangeAttenuationDenominator));
-            const auto position = glm::vec3(light->transform.getLocation());
+            const auto position = glm::vec3(light->worldMatrix()[3]);
             if (!box.overlaps({position - range, position + range})) continue;
             mesh->flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
             for (int i = 0; i < count; ++i) {

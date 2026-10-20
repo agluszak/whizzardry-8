@@ -52,8 +52,6 @@ TEST_CASE("CPU canvas publication preserves alpha holes and unpublished painting
         // Refresh publishes these two regions. Ordinary Draw calls may also
         // paint elsewhere; uploading a full live surface would publish them early.
         const SDL_Rect update{125, 125, 8, 8}, edge{635, 475, 15, 15};
-        REQUIRE(SDL_FillSurfaceRect(pixels.get(), &update, 0x83e0));
-        REQUIRE(SDL_FillSurfaceRect(pixels.get(), &edge, 0x83e0));
         REQUIRE(SDL_FillSurfaceRect(pixels.get(), nullptr, 0xfc00));
         REQUIRE(SDL_FillSurfaceRect(pixels.get(), &update, 0x83e0));
         REQUIRE(SDL_FillSurfaceRect(pixels.get(), &edge, 0x83e0));

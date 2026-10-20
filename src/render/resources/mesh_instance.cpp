@@ -6,10 +6,12 @@
 #include <iterator>
 #include <memory>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <vector>
 
+#include "../effects/effect_geometry.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/matrix_transform.hpp"
@@ -23,15 +25,15 @@
 #include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/frame.h"
-#include "wiz8/render/vsg_scene.h"
-#include "wiz8/render/vsg_material.h"
-#include "wiz8/render/render_mesh.h"
-#include "wiz8/render/world_scene.h"
 #include "wiz8/render/material.h"
 #include "wiz8/render/material_loader.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_resources.h"
+#include "wiz8/render/render_mesh.h"
 #include "wiz8/render/texture.h"
+#include "wiz8/render/vsg_material.h"
+#include "wiz8/render/vsg_scene.h"
+#include "wiz8/render/world_scene.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/unicode.h"
 #include "wiz8/world/level_loader.h"
@@ -102,8 +104,6 @@ void MeshInstance::setExclusionMask(std::uint32_t mask)
 {
     exclusion_mask = mask;
 }
-
-
 
 /* Scratch vertex store shared by every highlight shell submission; grown
    on demand and kept between frames. */
@@ -241,6 +241,11 @@ MeshInstance::MeshInstance(WorldScene* scene)
     frame_interpolation = 0.0f;
 }
 
+MeshInstance::MeshInstance(const MeshInstance& other) : MeshInstance()
+{
+    *this = other;
+}
+
 MeshInstance& MeshInstance::operator=(const MeshInstance& other)
 {
     if (this == &other) return *this;
@@ -249,7 +254,7 @@ MeshInstance& MeshInstance::operator=(const MeshInstance& other)
     visible = other.visible;
     draw_parts = other.draw_parts;
     alignment_flags = other.alignment_flags;
-    model_ = other.model_;
+    setModel(other.model_);
     align_angle = other.align_angle;
     align_axis = other.align_axis;
     exclusion_mask = other.exclusion_mask;
@@ -270,7 +275,6 @@ MeshInstance& MeshInstance::operator=(const MeshInstance& other)
     frame_interpolation = 0.0f;
     return *this;
 }
-
 
 vsg::ref_ptr<render::InstanceNode> MeshInstance::renderNode() const
 {
@@ -307,7 +311,7 @@ void MeshInstance::attachTo(MeshInstance& parent, std::optional<short> mapped_ke
         attachment_ = render::VertexAttachment::create(parent.node_, *mapped_key);
         attachment_->addChild(node_);
         parent.node_->addChild(attachment_);
-        render_parent_ = attachment_;
+        render_parent_ = parent.node_;
     } else {
         parent.node_->addChild(node_);
         render_parent_ = parent.node_;
@@ -360,6 +364,45 @@ std::optional<glm::vec3> InstanceNode::sampledPosition(const Mesh& mesh, std::si
     return {};
 }
 
+namespace {
+
+vsg::ref_ptr<vsg::Node> extrusionShadow(RenderContext& context, const MeshInstance& instance,
+                                        Mesh& mesh, const ScenePass& pass)
+{
+    const auto bounds = mesh.getTriMesh();
+    const float height = bounds.bounds_maximum.y - bounds.bounds_minimum.y;
+    const auto material = std::make_shared<Material>();
+    material->setAmbient(glm::vec4(1));
+    material->setSpecular(glm::vec4(0));
+    material->setEmissive(glm::vec4(0));
+    material->setDiffuse(glm::vec4(1, 1, 1, 0));
+    material->parms.shininess = 1;
+    EffectGeometry geometry(context, 6, material, 0, false, pass.frame.time);
+    static constexpr std::array<glm::vec3, 6> positions{
+        {{-250, 250, 0}, {0, -250, 0}, {250, 250, 0}, {0, 250, -250}, {0, -250, 0}, {0, 250, 250}}};
+    auto indices = vsg::uintArray::create(6);
+    for (std::uint32_t vertex = 0; vertex < positions.size(); ++vertex) {
+        const auto& point = positions[vertex];
+        geometry.positions->at(vertex) = {point.x, point.y, point.z};
+        indices->at(vertex) = vertex;
+    }
+    auto node = geometry.draw(indices, true);
+    node->pickable = true;
+    constexpr std::uint32_t shader = 0x44b3;
+    node->add(context.pipeline(shader, FaceCull::None));
+    store(*geometry.instance, packInstance(instance, mesh, pass));
+    node->add(geometry.instance_bind);
+    node->add(geometry.pass_bind);
+    node->add(context.batchSet(shader, context.texture(nullptr)));
+    const auto matrix = vsg::translate(0.0, static_cast<double>(height * .5f), 0.0) *
+                        vsg::scale(static_cast<double>(std::max(height / 1500.f, .5f)));
+    auto transform = vsg::MatrixTransform::create(matrix);
+    transform->addChild(node);
+    return transform;
+}
+
+} // namespace
+
 void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
                            std::uint64_t frame_number, bool static_geometry)
 {
@@ -374,7 +417,7 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
     for (auto* mesh : meshParts(instance->getModel(), instance->draw_parts)) models.push_back(mesh);
     if (parts.size() != models.size() ||
         !std::equal(models.begin(), models.end(), parts.begin(),
-                     [](const auto* mesh, const auto& part) { return mesh == part->mesh; })) {
+                    [](const auto* mesh, const auto& part) { return mesh == part->mesh; })) {
         parts.clear();
         for (auto* mesh : models) parts.push_back(std::make_unique<Part>(*mesh));
     }
@@ -389,12 +432,15 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
         }
         instance->highlight_material->setEmissive(instance->highlight_colour);
     }
-    const int skin = instance->damage_stage >= 0
-                         ? instance->damage_stage_tables.at(instance->damage_stage) : -1;
+    const int skin =
+        instance->damage_stage >= 0 ? instance->damage_stage_tables.at(instance->damage_stage) : -1;
+    if (instance->render_flags & MeshInstance::RENDER_SHADOW)
+        geometry->addChild(render_mask | pick_mask,
+                           extrusionShadow(context, *instance, *instance->getModel(), pass));
     for (auto& part : parts) {
         auto& mesh = *part->mesh;
         mesh.SetAmbientColor(glm::vec3(pass.ambient_light), pass.frame.environment_offset,
-                              pass.frame.brightness);
+                             pass.frame.brightness);
         part->pose.update(mesh, instance->frame_index, instance->frame_interpolation,
                           pass.frame.time, skin, !static_geometry);
         auto& pose = part->pose;
@@ -406,19 +452,18 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
             auto materials = source.materials;
             if (highlighted && instance->highlight_pass_mode == 1)
                 std::ranges::fill(materials, instance->highlight_material);
-            const auto pass_data = makeArray(packPass(materials, source.draw_flags,
-                                                        !pose.normals.empty(), pass.frame.time));
+            const auto pass_data = makeArray(
+                packPass(materials, source.draw_flags, !pose.normals.empty(), pass.frame.time));
             auto body = vsg::Group::create();
             for (std::size_t batch_index = 0; batch_index < source.batches.size(); ++batch_index) {
                 const auto& batch = source.batches[batch_index];
                 auto shader = effectiveShader(*instance, batch.shader.value);
-                const auto cull = source.cull
-                                      ? (source.side ? FaceCull::Front : FaceCull::Back)
-                                      : FaceCull::None;
+                const auto cull =
+                    source.cull ? (source.side ? FaceCull::Front : FaceCull::Back) : FaceCull::None;
                 const auto sorted = asset.sorted || drawsSorted(*instance);
-                auto leaf = DrawNode::create(sampled.draws[batch_index], sampled.positions,
-                                              sorted, asset.sort_bias,
-                                              asset.offset_pass_keys ? source.pass : 0);
+                auto leaf =
+                    DrawNode::create(sampled.draws[batch_index], sampled.positions, sorted,
+                                     asset.sort_bias, asset.offset_pass_keys ? source.pass : 0);
                 leaf->cull = cull;
                 leaf->pickable = !(instance->render_flags & MeshInstance::RENDER_NO_PICK) &&
                                  !(static_geometry && asset.sorted);
@@ -427,21 +472,23 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
                 leaf->add(context.descriptor(2, pass_data));
                 auto texture = pose.texture(mesh, pass_index, batch_index, skin);
                 auto texture2 = pose.texture(mesh, pass_index, batch_index, skin, 1);
-                leaf->add(context.batchSet(shader,
-                                           context.texture(texture.get(), pass.frame.texture_reduction),
-                                           context.texture(texture2.get(), pass.frame.texture_reduction)));
+                leaf->add(context.batchSet(
+                    shader, context.texture(texture.get(), pass.frame.texture_reduction),
+                    context.texture(texture2.get(), pass.frame.texture_reduction)));
                 body->addChild(leaf);
 
                 if (highlighted && (source.side == 0) &&
                     (!texture || !texture->getName().starts_with("blank"))) {
                     auto expanded = vsg::vec3Array::create(sampled.positions->size());
                     const auto scale_y = instance->transform.getScale().y;
-                    const float amount = scale_y != 0
-                        ? static_cast<float>((asset.bounds_radius * scale_y * .001 + 1) *
-                                             15.625 / scale_y) : 0;
+                    const float amount =
+                        scale_y != 0
+                            ? static_cast<float>((asset.bounds_radius * scale_y * .001 + 1) *
+                                                 15.625 / scale_y)
+                            : 0;
                     for (std::size_t vertex = 0; vertex < expanded->size(); ++vertex)
-                        expanded->at(vertex) = sampled.positions->at(vertex) +
-                                                sampled.normals->at(vertex) * amount;
+                        expanded->at(vertex) =
+                            sampled.positions->at(vertex) + sampled.normals->at(vertex) * amount;
                     auto draw = vsg::VertexIndexDraw::create(*sampled.draws[batch_index]);
                     vsg::DataList arrays;
                     arrays.push_back(expanded);
@@ -449,20 +496,22 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
                         arrays.push_back(draw->arrays[binding]->data);
                     draw->assignArrays(arrays);
                     auto shell = DrawNode::create(draw, expanded, true, asset.sort_bias,
-                                                   asset.offset_pass_keys ? source.pass : 0);
+                                                  asset.offset_pass_keys ? source.pass : 0);
                     shell->pickable = leaf->pickable;
                     const auto shell_shader = (shader & 0xffff5cb7u) | 0x40a0u;
-                    const auto winding = instance->highlight_pass_mode == 0
-                                             ? Winding::Reversed : Winding::Standard;
+                    const auto winding =
+                        instance->highlight_pass_mode == 0 ? Winding::Reversed : Winding::Standard;
                     shell->cull = cull;
                     shell->winding = winding;
                     shell->add(context.pipeline(shell_shader, cull, winding));
                     shell->add(context.descriptor(1, instance_data));
                     std::vector<std::shared_ptr<Material>> shell_materials(
                         source.materials.size(), instance->highlight_material);
-                    shell->add(context.descriptor(2, makeArray(packPass(shell_materials,
-                        source.draw_flags & ~static_cast<std::uint32_t>(HasVertexMaterials),
-                        !pose.normals.empty(), pass.frame.time))));
+                    shell->add(context.descriptor(
+                        2, makeArray(packPass(shell_materials,
+                                              source.draw_flags &
+                                                  ~static_cast<std::uint32_t>(HasVertexMaterials),
+                                              !pose.normals.empty(), pass.frame.time))));
                     shell->add(context.batchSet(shell_shader, context.texture(nullptr)));
                     body->addChild(shell);
                 }
@@ -475,7 +524,7 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
 }
 
 VertexAttachment::VertexAttachment(vsg::ref_ptr<InstanceNode> parent, short mapped_key,
-                                     const glm::vec3& fallback)
+                                   const glm::vec3& fallback)
     : parent(parent), key(mapped_key), fallback(fallback)
 {
 }
@@ -486,11 +535,25 @@ vsg::dmat4 VertexAttachment::transform(const vsg::dmat4& model_view) const
     if (source && source->instance && source->instance->getModel()) {
         const auto mapped = findMappedVertex(source->instance->getModel(), key);
         if (mapped)
-            if (auto position = source->sampledPosition(*mapped->mesh, mapped->index)) offset = *position;
+            if (auto position = source->sampledPosition(*mapped->mesh, mapped->index))
+                offset = *position;
     }
-    return model_view * vsg::translate(static_cast<double>(offset.x),
-                                       static_cast<double>(offset.y),
+    return model_view * vsg::translate(static_cast<double>(offset.x), static_cast<double>(offset.y),
                                        static_cast<double>(offset.z));
 }
 
 } // namespace render
+
+glm::dmat4 MeshInstance::worldMatrix() const
+{
+    glm::dmat4 parent_matrix(1);
+    if (auto parent = render_parent_.ref_ptr())
+        if (const auto* ancestor = dynamic_cast<const render::InstanceNode*>(parent.get());
+            ancestor && ancestor->instance)
+            parent_matrix = ancestor->instance->worldMatrix();
+    if (attachment_) {
+        const auto attached = attachment_->transform(render::toVsg(parent_matrix));
+        parent_matrix = glm::dmat4(render::toGlm(attached));
+    }
+    return parent_matrix * transform.matrix();
+}

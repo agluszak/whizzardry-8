@@ -26,8 +26,8 @@ struct EffectGeometry {
     vsg::ref_ptr<vsg::BindDescriptorSet> pass_bind;
 
     EffectGeometry(RenderContext& context, std::uint32_t count,
-                   const std::shared_ptr<Material>& material, std::uint32_t flags,
-                   bool has_normals, double time)
+                   const std::shared_ptr<Material>& material, std::uint32_t flags, bool has_normals,
+                   double time)
         : positions(vsg::vec3Array::create(count)), normals(vsg::vec3Array::create(count)),
           instance(makeInstanceArray({})),
           pass(makeArray(packPass(std::array{material}, flags, has_normals, time)))
@@ -53,10 +53,13 @@ struct EffectGeometry {
     {
         auto geometry = vsg::VertexIndexDraw::create();
         geometry->assignArrays(vsg::DataList{positions, normals, attributes[0], attributes[1],
-                                              attributes[2], attributes[3], attributes[4]});
+                                             attributes[2], attributes[3], attributes[4]});
         geometry->assignIndices(indices);
         geometry->indexCount = static_cast<std::uint32_t>(indices->size());
-        return DrawNode::create(geometry, positions, sorted);
+        auto node = DrawNode::create(geometry, positions, sorted);
+        node->cull = FaceCull::None;
+        node->pickable = false;
+        return node;
     }
 
     void dirty()

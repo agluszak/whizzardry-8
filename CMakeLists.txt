@@ -136,9 +136,13 @@ FetchContent_MakeAvailable(utf8proc)
 wiz8_system_headers(fmt::fmt utf8proc)
 
 # SDL owns platform windows and Vulkan surfaces. VSG owns the render graph,
-# graphics resources and presentation; shaders are compiled at build time.
+# graphics resources and presentation. Wizardry shaders compile at build time.
 set(VSG_SUPPORTS_Windowing OFF CACHE BOOL "" FORCE)
-set(VSG_SUPPORTS_ShaderCompiler OFF CACHE BOOL "" FORCE)
+# Require runtime compilation so standard VSG subgraphs can request ordinary
+# ShaderSet variants beyond the combinations shipped as embedded SPIR-V.
+find_package(glslang CONFIG REQUIRED)
+set(VSG_SUPPORTS_ShaderCompiler ON CACHE BOOL "" FORCE)
+set(VSG_SUPPORTS_ShaderOptimizer OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(vsg
     GIT_REPOSITORY https://github.com/vsg-dev/VulkanSceneGraph.git
     GIT_TAG 77839c704362d832c027cc878e5496a14972e83d # v1.1.16

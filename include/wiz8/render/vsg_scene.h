@@ -28,14 +28,13 @@ glm::mat4 toGlm(const vsg::dmat4& matrix);
 // geometry. Sorted leaves join the view's final global triangle ordering.
 class DrawNode : public vsg::Inherit<vsg::StateGroup, DrawNode> {
 public:
-    DrawNode(vsg::ref_ptr<vsg::VertexIndexDraw> geometry,
-             vsg::ref_ptr<vsg::vec3Array> positions, bool sorted = false,
-             float sort_bias = 0, std::uint32_t pass_key = 0);
+    DrawNode(vsg::ref_ptr<vsg::VertexIndexDraw> geometry, vsg::ref_ptr<vsg::vec3Array> positions,
+             bool sorted = false, float sort_bias = 0, std::uint32_t pass_key = 0);
     void accept(vsg::RecordTraversal& traversal) const override;
     void traverse(vsg::Visitor& visitor) override;
     void traverse(vsg::ConstVisitor& visitor) const override;
-    void recordSorted(vsg::RecordTraversal&, const vsg::BindIndexBuffer&,
-                      std::uint32_t first, std::uint32_t count) const;
+    void recordSorted(vsg::RecordTraversal&, const vsg::BindIndexBuffer&, std::uint32_t first,
+                      std::uint32_t count) const;
 
     vsg::ref_ptr<vsg::VertexIndexDraw> draw;
     vsg::ref_ptr<vsg::vec3Array> positions;

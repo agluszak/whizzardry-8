@@ -1,8 +1,8 @@
 #include "wiz8/render/texture.h"
 
 #include <algorithm>
-#include <exception>
 #include <cstring>
+#include <exception>
 #include <memory>
 #include <utility>
 
@@ -17,9 +17,8 @@
 #include "wiz8/surface_storage.h"
 #include "wiz8/texture_animation.h"
 
-Texture::Parameters Texture::defaults{.mag = FILTER_GOOD,
-                                      .min = FILTER_GOOD,
-                                      .mipmap = MIPMAP_FASTEST};
+Texture::Parameters Texture::defaults{
+    .mag = FILTER_GOOD, .min = FILTER_GOOD, .mipmap = MIPMAP_FASTEST};
 
 Texture::Texture(std::shared_ptr<SDL_Surface> pixels) : surface(std::move(pixels))
 {
@@ -98,13 +97,25 @@ void Texture::setWrapT(e_wrap value)
     parameters.wrap_t = value;
 }
 
-Texture* Texture::resolve()
+Texture* Texture::resolve(std::optional<std::uint64_t> visual_frame)
 {
     if (playback) {
-        UpdateFrame();
-        return playback->textures.empty() ? nullptr
-                                          : playback->textures.at(playback->frame)->resolve();
+        UpdateFrame(visual_frame);
+        return playback->textures.empty()
+                   ? nullptr
+                   : playback->textures.at(playback->frame)->resolve(visual_frame);
     }
+    if (!source_path.empty() && !surface &&
+        !(texture_flags_ & (1u << FLAG_GENERATESURFACE_FAILURE)))
+        loadSurface();
+    return source_path.empty() || surface ? this : nullptr;
+}
+
+Texture* Texture::currentFrame()
+{
+    if (playback)
+        return playback->textures.empty() ? nullptr
+                                          : playback->textures.at(playback->frame)->currentFrame();
     if (!source_path.empty() && !surface &&
         !(texture_flags_ & (1u << FLAG_GENERATESURFACE_FAILURE)))
         loadSurface();
@@ -136,27 +147,30 @@ void Texture::invalidate()
     image_reduction = -1;
 }
 
-vsg::ref_ptr<vsg::ImageInfo> Texture::imageInfo(int reduction)
+vsg::ref_ptr<vsg::ImageInfo> Texture::imageInfo(int reduction,
+                                                std::optional<std::uint64_t> visual_frame)
 {
-    auto* current = resolve();
+    auto* current = resolve(visual_frame);
     if (!current) return {};
-    if (current != this) return current->imageInfo(reduction);
+    if (current != this) return current->imageInfo(reduction, visual_frame);
     auto effective = parameters;
     if (effective.mag == FILTER_DEFAULT) effective.mag = defaults.mag;
     if (effective.min == FILTER_DEFAULT) effective.min = defaults.min;
     if (effective.mipmap == MIPMAP_DEFAULT) effective.mipmap = defaults.mipmap;
     const auto dimensions = getDimensions();
     reduction = dimensions.native_size ? 0 : std::clamp(reduction, 0, 16);
-    if (image_info && reduction == image_reduction && effective == image_parameters)
-        return image_info;
-    if (!surface) return {};
     const auto width = std::max(1u, dimensions.width >> reduction);
     const auto height = std::max(1u, dimensions.height >> reduction);
-    auto rgba = CreateCpuStorage(static_cast<int>(width), static_cast<int>(height),
-                                  SDL_PIXELFORMAT_RGBA32);
+    if (image_info && reduction == image_reduction && effective == image_parameters &&
+        image_info->imageView->image->extent.width == width &&
+        image_info->imageView->image->extent.height == height)
+        return image_info;
+    if (!surface) return {};
+    auto rgba =
+        CreateCpuStorage(static_cast<int>(width), static_cast<int>(height), SDL_PIXELFORMAT_RGBA32);
     StretchCpuSurface(*surface, *rgba, SDL_SCALEMODE_LINEAR);
-    auto pixels = vsg::ubvec4Array2D::create(width, height,
-        vsg::Data::Properties{VK_FORMAT_R8G8B8A8_UNORM});
+    auto pixels =
+        vsg::ubvec4Array2D::create(width, height, vsg::Data::Properties{VK_FORMAT_R8G8B8A8_UNORM});
     for (std::uint32_t y = 0; y < height; ++y)
         std::memcpy(pixels->data() + std::size_t(y) * width,
                     static_cast<const std::uint8_t*>(rgba->pixels) + std::size_t(y) * rgba->pitch,
@@ -189,7 +203,7 @@ void Texture::publish()
     auto pixels = image_info->imageView->image->data.cast<vsg::ubvec4Array2D>();
     if (!pixels) return;
     auto rgba = CreateCpuStorage(static_cast<int>(pixels->width()),
-                                  static_cast<int>(pixels->height()), SDL_PIXELFORMAT_RGBA32);
+                                 static_cast<int>(pixels->height()), SDL_PIXELFORMAT_RGBA32);
     StretchCpuSurface(*surface, *rgba, SDL_SCALEMODE_NEAREST);
     for (std::uint32_t y = 0; y < pixels->height(); ++y)
         std::memcpy(pixels->data() + std::size_t(y) * pixels->width(),
@@ -235,6 +249,7 @@ Texture::Texture(const Texture& other) : Texture()
         playback->frame = 0;
         playback->direction = 1;
         playback->frame_tick = MonotonicMilliseconds();
+        playback->visual_frame.reset();
     }
 }
 void Texture::releaseSurface()
@@ -257,7 +272,7 @@ void Texture::loadSurface()
 }
 bool Texture::hasAlpha()
 {
-    auto* texture = resolve();
+    auto* texture = currentFrame();
     return texture && texture->surface && SDL_ISPIXELFORMAT_ALPHA(texture->surface->format);
 }
 unsigned char Texture::Prepare()
@@ -276,10 +291,16 @@ void Texture::AddTexture(std::shared_ptr<Texture> texture)
     playback->textures.push_back(std::move(texture));
     texture_flags_ |= 1u << FLAG_DIRTY_DEFAULTS;
 }
-void Texture::UpdateFrame()
+void Texture::UpdateFrame(std::optional<std::uint64_t> visual_frame)
 {
     if (!playback) return;
     auto& state = *playback;
+    // A texture can occur in many batches and views. Its animation, including
+    // random triggers, advances only once for an explicitly stamped frame.
+    if (visual_frame) {
+        if (state.visual_frame == visual_frame) return;
+        state.visual_frame = visual_frame;
+    }
     const int count = static_cast<int>(state.textures.size());
 
     if (count == 0) return;

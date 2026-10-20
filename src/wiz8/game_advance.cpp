@@ -1,4 +1,5 @@
 #include <chrono>
+#include <initializer_list>
 
 #include "wiz8/entities/prop.h"
 #include "wiz8/game.h"

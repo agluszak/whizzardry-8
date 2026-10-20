@@ -1,16 +1,24 @@
 #pragma once
 class WorldScene;
-class GpuRenderer;
 #include <cmath>
+#include <cstdint>
+#include <memory>
 #include <string>
 #include <utility>
+
+#include <vsg/core/ref_ptr.h>
+#include <vsg/nodes/Node.h>
 
 #include "glm/ext/matrix_float2x2.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/render/draw_inputs.h"
-#include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/transform.h"
+
+namespace render {
+class RenderContext;
+}
+struct ShadowRenderData;
 
 struct GroundShadowProjection {
     glm::mat2 matrix;
@@ -47,10 +55,14 @@ public:
     float depth;
     float width;
 
-private:
 public:
-    void draw(GpuRenderer& renderer, const DrawTransform& view,
-              const ScenePass& pass); /* 0x004D66A0 */
+    vsg::ref_ptr<vsg::Node> renderNode(render::RenderContext& context);
+    vsg::ref_ptr<vsg::Node> renderNode() const;
+    void updateRenderNode(render::RenderContext& context, const SceneFrame& frame,
+                          std::uint64_t frame_number);
+
+private:
+    std::unique_ptr<ShadowRenderData> render_data;
 
 public:
     std::string name = "anonymous";

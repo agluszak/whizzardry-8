@@ -25,8 +25,8 @@ struct Fixture {
     {
         SDL_SetHint(SDL_HINT_SHUTDOWN_DBUS_ON_QUIT, "1");
         REQUIRE(SDL_Init(SDL_INIT_VIDEO));
-        window.reset(SDL_CreateWindow("VSG rendering", 64, 64,
-                                      SDL_WINDOW_HIDDEN | SDL_WINDOW_VULKAN));
+        window.reset(
+            SDL_CreateWindow("VSG rendering", 64, 64, SDL_WINDOW_HIDDEN | SDL_WINDOW_VULKAN));
         REQUIRE(window);
         renderer = std::make_unique<Renderer>(window.get());
     }
@@ -81,7 +81,7 @@ TEST_CASE("Two VSG views render an ordinary subgraph from one world")
     auto builder = vsg::Builder::create();
     vsg::GeometryInfo geometry;
     geometry.position = {0, 0, 3};
-    geometry.dx = {2, 0, 0};
+    geometry.dx = {-2, 0, 0};
     geometry.dy = {0, 2, 0};
     geometry.color = {1, 0, 0, 1};
     vsg::StateInfo material;

@@ -18,7 +18,9 @@ class ParticleSystem;
 class GroundShadow;
 class FogParams;
 class ClipPlane;
-namespace render { class RenderContext; }
+namespace render {
+class RenderContext;
+}
 
 class WorldScene {
 public:
@@ -57,8 +59,8 @@ public:
     void detach(FogParams&);
     MeshInstance* addStaticMesh(std::unique_ptr<MeshInstance> mesh);
     vsg::ref_ptr<vsg::View> createView(render::RenderContext&, Camera3D*, const SceneFrame&,
-                                      vsg::ref_ptr<vsg::ViewportState>,
-                                      std::uint64_t frame_number);
+                                       vsg::ref_ptr<vsg::ViewportState>,
+                                       std::uint64_t frame_number);
     void pick(const vsg::Camera&, std::span<Pick>) const;
     std::size_t renderableCount() const;
 

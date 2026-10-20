@@ -13,6 +13,7 @@ class WhizzardryDependencies(ConanFile):
 
     # glslangValidator does not optimize the generated shaders. Avoid building
     # SPIRV-Tools (and its build dependencies) only for this optional feature.
+    default_options = {"glslang/*:enable_optimizer": False}
     default_build_options = {"glslang/*:enable_optimizer": False}
 
     def requirements(self):
@@ -24,6 +25,9 @@ class WhizzardryDependencies(ConanFile):
         self.requires("zlib/1.3.1")
         self.requires("glm/1.0.3")
         self.requires("fmt/11.2.0")
+        # VSG compiles shader variants for ordinary imported/Builder subgraphs.
+        # The build-context requirement below also provides glslangValidator.
+        self.requires("glslang/1.4.313.0")
 
     def build_requirements(self):
         self.tool_requires("glslang/1.4.313.0")

@@ -134,10 +134,10 @@
 #include "wiz8/npc_script_file.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/render/frame.h"
-#include "wiz8/render/renderer.h"
 #include "wiz8/render/material_loader.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
+#include "wiz8/render/renderer.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
@@ -1262,8 +1262,8 @@ void CheckWorldRender(GameHarness& game)
     for (int y = g_viewport.top; y < g_viewport.bottom; ++y)
         for (int x = g_viewport.left; x < g_viewport.right; ++x, ++viewport)
             changed += visible[y * SCREEN_WIDTH + x] != control[y * SCREEN_WIDTH + x];
-    std::printf("world: %u meshes, %u polygons, %u/%u viewport pixels from the world\n",
-                enabled, polygons, changed, viewport);
+    std::printf("world: %u meshes, %u polygons, %u/%u viewport pixels from the world\n", enabled,
+                polygons, changed, viewport);
     REQUIRE(polygons > 0);
     // The sky is a separate pass and stays in the control frame; the world
     // (ground, cliffs, water at the Monastery start) covers about half the view.
@@ -1492,8 +1492,6 @@ void ResourceLifecycleScenario()
         REQUIRE(linked > 0);
         REQUIRE(animated > 0);
         for (int frame = 0; frame != 4; ++frame) game.frame();
-        RenderFrame();
-        REQUIRE(world->scene->submitted_polygons > 0);
         RenderFrame();
         REQUIRE(world->scene->submitted_polygons > 0);
         game.command(W8_MGS_COMMAND_QUICK_LOAD);

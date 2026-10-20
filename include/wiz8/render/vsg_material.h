@@ -24,6 +24,7 @@ namespace render {
 class RenderContext {
 public:
     explicit RenderContext(VkExtent2D extent);
+    std::uint64_t frame_number = 0;
 
     vsg::ref_ptr<vsg::PipelineLayout> layout;
     vsg::ref_ptr<vsg::DescriptorSetLayout> view_layout;
@@ -33,19 +34,21 @@ public:
 
     vsg::ref_ptr<vsg::BindGraphicsPipeline> pipeline(std::uint32_t shader,
                                                      FaceCull cull = FaceCull::Back,
-                                                     Winding winding = Winding::Standard);
+                                                     Winding winding = Winding::Standard,
+                                                     std::int32_t polygon_offset = 0);
     vsg::ref_ptr<vsg::ImageInfo> texture(Texture* source, int reduction = 0);
     vsg::ref_ptr<vsg::BindDescriptorSet> descriptor(std::uint32_t set,
                                                     vsg::ref_ptr<vsg::Data> data);
     vsg::ref_ptr<vsg::BindDescriptorSet> batchSet(std::uint32_t shader,
-                                                 vsg::ref_ptr<vsg::ImageInfo> image,
-                                                 vsg::ref_ptr<vsg::ImageInfo> detail_image = {});
+                                                  vsg::ref_ptr<vsg::ImageInfo> image,
+                                                  vsg::ref_ptr<vsg::ImageInfo> detail_image = {});
 
 private:
     vsg::ShaderStages stages;
     vsg::ref_ptr<vsg::ViewportState> viewport;
-    std::map<std::tuple<std::uint32_t, FaceCull, Winding>,
-             vsg::ref_ptr<vsg::BindGraphicsPipeline>> pipelines;
+    std::map<std::tuple<std::uint32_t, FaceCull, Winding, std::int32_t>,
+             vsg::ref_ptr<vsg::BindGraphicsPipeline>>
+        pipelines;
     vsg::ref_ptr<vsg::ImageInfo> white;
 };
 
@@ -62,14 +65,14 @@ struct InstanceBlock {
 // limits on lights, fog layers or materials. Build the array before compilation;
 // update the existing array after traversal when collecting graph lights.
 std::vector<glm::vec4> packView(const ScenePass& pass,
-                               std::span<const glm::vec4> eye_clip_planes = {});
+                                std::span<const glm::vec4> eye_clip_planes = {});
 std::vector<glm::vec4> packPass(std::span<const std::shared_ptr<Material>> materials,
-                               std::uint32_t draw_flags, bool has_normals, double time);
+                                std::uint32_t draw_flags, bool has_normals, double time);
 InstanceBlock packInstance(const MeshInstance& instance, const Mesh& mesh, const ScenePass& pass,
                            bool reverse_normals = false);
 
 vsg::ref_ptr<vsg::vec4Array> makeArray(std::span<const glm::vec4> values,
-                                      vsg::DataVariance variance = vsg::DYNAMIC_DATA);
+                                       vsg::DataVariance variance = vsg::DYNAMIC_DATA);
 void store(vsg::vec4Array& destination, std::span<const glm::vec4> values);
 vsg::ref_ptr<vsg::vec4Array> makeInstanceArray(const InstanceBlock& block);
 void store(vsg::vec4Array& destination, const InstanceBlock& block);

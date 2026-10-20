@@ -65,17 +65,17 @@ MeshAsset::Pass buildPass(const Mesh& mesh, const Mesh::TriMesh& view, int pass,
         if (vertex < 0 || vertex >= view.vertex_count)
             throw std::invalid_argument("Invalid mesh position index");
         const bool mapped = !uv_table || uv == vertex;
-        const auto [entry, inserted] = vertices.try_emplace(
-            std::pair{vertex, mapped ? -1 : uv},
-            wiz8::checked_integer<std::uint32_t>(attributes.size()));
+        const auto [entry, inserted] =
+            vertices.try_emplace(std::pair{vertex, mapped ? -1 : uv},
+                                 wiz8::checked_integer<std::uint32_t>(attributes.size()));
         if (!inserted) return entry->second;
         if (uv < 0 || uv >= mesh.uv_count)
             throw std::invalid_argument("Invalid mesh texture-coordinate index");
-        const auto uv0 = view.texcoords[pass][0]
-                             ? view.texcoords[pass][0][mapped ? vertex : uv]
-                             : glm::vec2(0);
+        const auto uv0 =
+            view.texcoords[pass][0] ? view.texcoords[pass][0][mapped ? vertex : uv] : glm::vec2(0);
         const auto uv1 = view.texcoords[pass][1] ? view.texcoords[pass][1][vertex] : glm::vec2(0);
-        const auto material = vertex_materials ? slotOf((*vertex_materials)[vertex]) : pass_material;
+        const auto material =
+            vertex_materials ? slotOf((*vertex_materials)[vertex]) : pass_material;
         const auto alpha = view.vertex_alpha.empty() ? 1.f : view.vertex_alpha[vertex];
         attributes.push_back(
             {glm::vec4(uv0, uv1),
@@ -103,8 +103,8 @@ MeshAsset::Pass buildPass(const Mesh& mesh, const Mesh::TriMesh& view, int pass,
             indices.push_back(renderVertex(triangle[corner], uv[corner]));
         result.polygons.push_back(static_cast<std::uint32_t>(polygon));
         const std::array textures{textureAt(polygon, 0), textureAt(polygon, 1)};
-        const auto shader = view.poly_shaders[pass] ? view.poly_shaders[pass][polygon]
-                                                  : view.shaders[pass];
+        const auto shader =
+            view.poly_shaders[pass] ? view.poly_shaders[pass][polygon] : view.shaders[pass];
         if (!result.batches.empty()) {
             auto& previous = result.batches.back();
             if (previous.textures == textures && previous.shader.value == shader.value &&
@@ -203,8 +203,8 @@ void MeshPose::makeDraws()
     selection_initialized_ = false;
 }
 
-void MeshPose::update(Mesh& mesh, unsigned frame, float interpolation, double visual_time,
-                      int skin, bool check_blanking)
+void MeshPose::update(Mesh& mesh, unsigned frame, float interpolation, double visual_time, int skin,
+                      bool check_blanking)
 {
     // Baking may allocate its first colour table and invalidate the asset.
     // Complete that work before testing whether the topology is still shared.
@@ -231,7 +231,8 @@ void MeshPose::update(Mesh& mesh, unsigned frame, float interpolation, double vi
             const auto geometry = mesh.frameGeometry(frame, interpolation);
             positions.assign(geometry.positions.begin(), geometry.positions.end());
             normals.assign(geometry.normals.begin(), geometry.normals.end());
-            polygon_normals.assign(geometry.polygon_normals.begin(), geometry.polygon_normals.end());
+            polygon_normals.assign(geometry.polygon_normals.begin(),
+                                   geometry.polygon_normals.end());
         }
         positions.resize(count, glm::vec3(0));
         normals.resize(count, glm::vec3(0));
@@ -258,8 +259,8 @@ void MeshPose::update(Mesh& mesh, unsigned frame, float interpolation, double vi
 void MeshPose::selectPolygons(Mesh& mesh, int skin, bool check_blanking)
 {
     const auto view = mesh.getTriMesh();
-    const auto selection = view.active_polygons ? view.active_polygons
-                                               : mesh.GetActivePolygons(skin, check_blanking);
+    const auto selection =
+        view.active_polygons ? view.active_polygons : mesh.GetActivePolygons(skin, check_blanking);
     std::vector<std::uint32_t> selected;
     if (selection)
         selected.assign(selection->begin(), selection->end());
@@ -313,13 +314,13 @@ void MeshPose::refreshColors(const Mesh& mesh)
 }
 
 std::shared_ptr<Texture> MeshPose::texture(const Mesh& mesh, std::size_t pass, std::size_t batch,
-                                          int skin, unsigned layer) const
+                                           int skin, unsigned layer) const
 {
     const auto& source = asset->passes.at(pass);
     const auto& draw = source.batches.at(batch);
     if (source.pass == 0 && layer == 0 && skin >= 0) {
         const auto found = std::find_if(mesh.skins.begin(), mesh.skins.end(),
-                                       [skin](const auto& table) { return table.id == skin; });
+                                        [skin](const auto& table) { return table.id == skin; });
         if (found != mesh.skins.end() && !found->textures.empty())
             return found->textures[draw.first_polygon];
     }

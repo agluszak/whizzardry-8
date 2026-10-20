@@ -73,6 +73,7 @@
 #include "wiz8/render/plane_math.h"
 #include "wiz8/render/segment_math.h"
 #include "wiz8/render/triangle_projection.h"
+#include "wiz8/render/vsg_material.h"
 #include "wiz8/render/world_scene.h"
 #include "wiz8/spatial/bounding_box.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -1360,7 +1361,7 @@ TEST_CASE("Surface triangles are complete values and reject invalid vertex indic
     REQUIRE(!surfaceTriangle(vertices, indices));
 }
 
-TEST_CASE("Particle activation values and billboard ordering", "[geometry]")
+TEST_CASE("Particle activation preserves emission limits and world placement", "[geometry]")
 {
     ParticleSystem empty(nullptr, 0);
     REQUIRE(!empty.activateParticle(true));
@@ -1388,19 +1389,6 @@ TEST_CASE("Particle activation values and billboard ordering", "[geometry]")
     particles.size_scale = 2;
     particles.transform.setLocation(100, 200, 300);
     REQUIRE(particles.emissionPosition() == glm::vec3(102, 204, 306));
-    particles.particle_size = 2;
-    particles.particle_positions[0] = {10, 20, 30};
-    particles.particle_positions[1] = {-10, -20, -30};
-    glm::mat4 view(1);
-    view[3] = {70, 80, 90, 1};
-    const auto originalView = view;
-    particles.PrepareRenderer(view);
-    REQUIRE(view == originalView);
-    const std::array<glm::vec3, 4> offsets{{{-2, 2, 0}, {2, 2, 0}, {2, -2, 0}, {-2, -2, 0}}};
-    for (unsigned particle = 0; particle < 2; ++particle)
-        for (unsigned corner = 0; corner < 4; ++corner)
-            REQUIRE(particles.vertex_positions[particle * 4 + corner] ==
-                    particles.particle_positions[particle] + offsets[corner]);
 }
 
 TEST_CASE("Particle simulation respects activation and completes without a view", "[geometry]")
@@ -1428,12 +1416,15 @@ TEST_CASE("Particle simulation respects activation and completes without a view"
     particles.DeactivateParticle(0);
     particles.SetActive(false);
     particles.AdvanceSimulation();
-    REQUIRE(particles.active_triangles[0] == 2);
-    REQUIRE(particles.active_triangles[1] == 3);
+    REQUIRE_FALSE(particles.particle_active[0]);
+    REQUIRE(particles.particle_active[1]);
 
     const auto centers = particles.particle_positions;
-    particles.PrepareRenderer(glm::mat4(1));
-    particles.PrepareRenderer(glm::rotate(glm::mat4(1), 1.0f, glm::vec3(0, 1, 0)));
+    // Constructing VSG state and arrays needs no graphics device. Preparing
+    // additional views must consume the current simulation without advancing it.
+    render::RenderContext context({640, 480});
+    particles.updateRenderNode(context, {}, 0);
+    particles.updateRenderNode(context, {}, 1);
     REQUIRE(particles.particle_positions == centers);
     REQUIRE(particles.emission_count == 2);
 

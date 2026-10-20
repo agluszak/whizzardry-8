@@ -34,15 +34,17 @@ std::uint32_t disabledChannels(std::uint32_t shader)
         disabled |= (1u << CHANNEL_DIFFUSE) | (1u << CHANNEL_ALPHA);
     } else if (!(shader & DrawShader::MASK_ALPHATEST) &&
                ((shader >> DrawShader::DSTBLEND_SHIFT) & 7) != DrawShader::DSTBLEND_SRC_ALPHA &&
-               ((shader >> DrawShader::DSTBLEND_SHIFT) & 7) != DrawShader::DSTBLEND_ONE_MINUS_SRC_ALPHA &&
+               ((shader >> DrawShader::DSTBLEND_SHIFT) & 7) !=
+                   DrawShader::DSTBLEND_ONE_MINUS_SRC_ALPHA &&
                ((shader >> DrawShader::SRCBLEND_SHIFT) & 3) != DrawShader::SRCBLEND_SRC_ALPHA &&
-               ((shader >> DrawShader::SRCBLEND_SHIFT) & 3) != DrawShader::SRCBLEND_ONE_MINUS_SRC_ALPHA) {
+               ((shader >> DrawShader::SRCBLEND_SHIFT) & 3) !=
+                   DrawShader::SRCBLEND_ONE_MINUS_SRC_ALPHA) {
         disabled |= 1u << CHANNEL_ALPHA;
     }
     if (!(shader & DrawShader::MASK_SECONDARY_GRADIENT)) disabled |= 1u << CHANNEL_SPECULAR;
     if (!(shader & DrawShader::MASK_TEXTURING)) {
-        disabled |= (1u << CHANNEL_ST0) | (1u << CHANNEL_ST1) | (1u << CHANNEL_Q0) |
-                    (1u << CHANNEL_Q1);
+        disabled |=
+            (1u << CHANNEL_ST0) | (1u << CHANNEL_ST1) | (1u << CHANNEL_Q0) | (1u << CHANNEL_Q1);
     } else if (!(shader & (DrawShader::MASK_DETAILCOLOR0 | DrawShader::MASK_DETAILALPHA0 |
                            DrawShader::MASK_DETAILCOLOR1 | DrawShader::MASK_DETAILALPHA1))) {
         disabled |= (1u << CHANNEL_ST1) | (1u << CHANNEL_Q1);
@@ -97,13 +99,14 @@ RenderContext::RenderContext(VkExtent2D extent) : viewport(vsg::ViewportState::c
     constexpr auto fragment = VK_SHADER_STAGE_FRAGMENT_BIT;
     constexpr auto uniform = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     constexpr auto storage = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    view_layout = vsg::DescriptorSetLayout::create(Bindings{{0, storage, 1, vertex | fragment, nullptr}});
+    view_layout =
+        vsg::DescriptorSetLayout::create(Bindings{{0, storage, 1, vertex | fragment, nullptr}});
     instance_layout = vsg::DescriptorSetLayout::create(Bindings{{0, uniform, 1, vertex, nullptr}});
     pass_layout = vsg::DescriptorSetLayout::create(Bindings{{0, storage, 1, vertex, nullptr}});
-    batch_layout = vsg::DescriptorSetLayout::create(Bindings{
-        {0, uniform, 1, vertex | fragment, nullptr},
-        {1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, fragment, nullptr},
-        {2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, fragment, nullptr}});
+    batch_layout = vsg::DescriptorSetLayout::create(
+        Bindings{{0, uniform, 1, vertex | fragment, nullptr},
+                 {1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, fragment, nullptr},
+                 {2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, fragment, nullptr}});
     layout = vsg::PipelineLayout::create(
         vsg::DescriptorSetLayouts{view_layout, instance_layout, pass_layout, batch_layout},
         vsg::PushConstantRanges{{vertex, 0, 128}});
@@ -117,37 +120,45 @@ RenderContext::RenderContext(VkExtent2D extent) : viewport(vsg::ViewportState::c
     white = vsg::ImageInfo::create(vsg::Sampler::create(), pixel);
 }
 
-vsg::ref_ptr<vsg::BindGraphicsPipeline> RenderContext::pipeline(std::uint32_t shader,
-                                                               FaceCull cull, Winding winding)
+vsg::ref_ptr<vsg::BindGraphicsPipeline> RenderContext::pipeline(std::uint32_t shader, FaceCull cull,
+                                                                Winding winding,
+                                                                std::int32_t polygon_offset)
 {
-    auto& found = pipelines[{shader, cull, winding}];
+    auto& found = pipelines[{shader, cull, winding, polygon_offset}];
     if (found) return found;
     static constexpr std::array source{VK_BLEND_FACTOR_ZERO, VK_BLEND_FACTOR_ONE,
-                                       VK_BLEND_FACTOR_SRC_ALPHA, VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA};
+                                       VK_BLEND_FACTOR_SRC_ALPHA,
+                                       VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA};
     static constexpr std::array destination{
-        VK_BLEND_FACTOR_ZERO, VK_BLEND_FACTOR_ONE, VK_BLEND_FACTOR_SRC_COLOR,
-        VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR, VK_BLEND_FACTOR_SRC_ALPHA,
-        VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA, VK_BLEND_FACTOR_ONE, VK_BLEND_FACTOR_ONE};
+        VK_BLEND_FACTOR_ZERO,      VK_BLEND_FACTOR_ONE,
+        VK_BLEND_FACTOR_SRC_COLOR, VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR,
+        VK_BLEND_FACTOR_SRC_ALPHA, VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+        VK_BLEND_FACTOR_ONE,       VK_BLEND_FACTOR_ONE};
     vsg::VertexInputState::Bindings bindings;
     vsg::VertexInputState::Attributes attributes;
     for (std::uint32_t location = 0; location < 7; ++location) {
         const bool geometry = location < 2;
-        bindings.push_back({location, static_cast<std::uint32_t>(geometry ? sizeof(vsg::vec3) : sizeof(vsg::vec4)),
-                            VK_VERTEX_INPUT_RATE_VERTEX});
-        attributes.push_back({location, location, geometry ? VK_FORMAT_R32G32B32_SFLOAT
-                                                           : VK_FORMAT_R32G32B32A32_SFLOAT, 0});
+        bindings.push_back(
+            {location, static_cast<std::uint32_t>(geometry ? sizeof(vsg::vec3) : sizeof(vsg::vec4)),
+             VK_VERTEX_INPUT_RATE_VERTEX});
+        attributes.push_back({location, location,
+                              geometry ? VK_FORMAT_R32G32B32_SFLOAT : VK_FORMAT_R32G32B32A32_SFLOAT,
+                              0});
     }
     auto rasterization = vsg::RasterizationState::create();
-    rasterization->cullMode = cull == FaceCull::None ? VK_CULL_MODE_NONE
-                             : cull == FaceCull::Back ? VK_CULL_MODE_BACK_BIT
-                                                      : VK_CULL_MODE_FRONT_BIT;
-    rasterization->frontFace = winding == Winding::Standard ? VK_FRONT_FACE_CLOCKWISE
-                                                           : VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    rasterization->cullMode = cull == FaceCull::None   ? VK_CULL_MODE_NONE
+                              : cull == FaceCull::Back ? VK_CULL_MODE_BACK_BIT
+                                                       : VK_CULL_MODE_FRONT_BIT;
+    rasterization->depthBiasEnable = polygon_offset != 0;
+    rasterization->depthBiasConstantFactor = -static_cast<float>(polygon_offset);
+    rasterization->depthBiasSlopeFactor = -static_cast<float>(polygon_offset);
+    rasterization->frontFace =
+        winding == Winding::Standard ? VK_FRONT_FACE_CLOCKWISE : VK_FRONT_FACE_COUNTER_CLOCKWISE;
     VkPipelineColorBlendAttachmentState blend{};
     const auto source_index = (shader >> DrawShader::SRCBLEND_SHIFT) & 3u;
     const auto destination_index = (shader >> DrawShader::DSTBLEND_SHIFT) & 7u;
-    blend.blendEnable = source_index != DrawShader::SRCBLEND_ONE ||
-                        destination_index != DrawShader::DSTBLEND_ZERO;
+    blend.blendEnable =
+        source_index != DrawShader::SRCBLEND_ONE || destination_index != DrawShader::DSTBLEND_ZERO;
     blend.srcColorBlendFactor = blend.srcAlphaBlendFactor = source[source_index];
     blend.dstColorBlendFactor = blend.dstAlphaBlendFactor = destination[destination_index];
     blend.colorBlendOp = blend.alphaBlendOp = VK_BLEND_OP_ADD;
@@ -158,48 +169,60 @@ vsg::ref_ptr<vsg::BindGraphicsPipeline> RenderContext::pipeline(std::uint32_t sh
     auto depth = vsg::DepthStencilState::create();
     depth->depthWriteEnable = (shader & DrawShader::MASK_DEPTH_WRITE) != 0;
     depth->depthCompareOp = static_cast<VkCompareOp>(shader & DrawShader::PASS_MASK);
-    depth->depthTestEnable = depth->depthCompareOp != VK_COMPARE_OP_ALWAYS || depth->depthWriteEnable;
+    depth->depthTestEnable =
+        depth->depthCompareOp != VK_COMPARE_OP_ALWAYS || depth->depthWriteEnable;
     vsg::GraphicsPipelineStates states{
-        vsg::VertexInputState::create(bindings, attributes), vsg::InputAssemblyState::create(),
-        rasterization, vsg::MultisampleState::create(),
-        vsg::ColorBlendState::create(vsg::ColorBlendState::ColorBlendAttachments{blend}), depth, viewport};
-    found = vsg::BindGraphicsPipeline::create(vsg::GraphicsPipeline::create(layout, stages, states));
+        vsg::VertexInputState::create(bindings, attributes),
+        vsg::InputAssemblyState::create(),
+        rasterization,
+        vsg::MultisampleState::create(),
+        vsg::ColorBlendState::create(vsg::ColorBlendState::ColorBlendAttachments{blend}),
+        depth,
+        viewport};
+    found =
+        vsg::BindGraphicsPipeline::create(vsg::GraphicsPipeline::create(layout, stages, states));
     return found;
 }
 
 vsg::ref_ptr<vsg::ImageInfo> RenderContext::texture(Texture* source, int reduction)
 {
-    return source ? source->imageInfo(reduction) : white;
+    return source ? source->imageInfo(reduction, frame_number) : white;
 }
 
 vsg::ref_ptr<vsg::BindDescriptorSet> RenderContext::descriptor(std::uint32_t set,
-                                                              vsg::ref_ptr<vsg::Data> data)
+                                                               vsg::ref_ptr<vsg::Data> data)
 {
-    const auto descriptor_layout = set == 0 ? view_layout : set == 1 ? instance_layout : pass_layout;
-    const auto type = set == 1 ? VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER : VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    const auto descriptor_layout = set == 0   ? view_layout
+                                   : set == 1 ? instance_layout
+                                              : pass_layout;
+    const auto type =
+        set == 1 ? VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER : VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     return vsg::BindDescriptorSet::create(
         VK_PIPELINE_BIND_POINT_GRAPHICS, layout, set,
-        vsg::DescriptorSet::create(descriptor_layout,
-                                   vsg::Descriptors{vsg::DescriptorBuffer::create(data, 0, 0, type)}));
+        vsg::DescriptorSet::create(
+            descriptor_layout, vsg::Descriptors{vsg::DescriptorBuffer::create(data, 0, 0, type)}));
 }
 
-vsg::ref_ptr<vsg::BindDescriptorSet> RenderContext::batchSet(std::uint32_t shader,
-                                                            vsg::ref_ptr<vsg::ImageInfo> image,
-                                                            vsg::ref_ptr<vsg::ImageInfo> detail_image)
+vsg::ref_ptr<vsg::BindDescriptorSet>
+RenderContext::batchSet(std::uint32_t shader, vsg::ref_ptr<vsg::ImageInfo> image,
+                        vsg::ref_ptr<vsg::ImageInfo> detail_image)
 {
     const std::array values{
         glm::vec4(static_cast<float>(~disabledChannels(shader) & 0xffffu), 0, 0, 0),
-        glm::vec4((shader & DrawShader::MASK_TEXTURING) ? 1.f : 0.f,
-                   static_cast<float>((shader & DrawShader::MASK_GRADIENT) >> DrawShader::GRADIENT_SHIFT),
-                   (shader & DrawShader::MASK_SECONDARY_GRADIENT) ? 1.f : 0.f,
-                   static_cast<float>((shader & DrawShader::MASK_FOG) >> DrawShader::FOG_SHIFT)),
+        glm::vec4(
+            (shader & DrawShader::MASK_TEXTURING) ? 1.f : 0.f,
+            static_cast<float>((shader & DrawShader::MASK_GRADIENT) >> DrawShader::GRADIENT_SHIFT),
+            (shader & DrawShader::MASK_SECONDARY_GRADIENT) ? 1.f : 0.f,
+            static_cast<float>((shader & DrawShader::MASK_FOG) >> DrawShader::FOG_SHIFT)),
         glm::vec4((shader & DrawShader::MASK_ALPHATEST) ? 1.f : 0.f, 0, 0, 0)};
     return vsg::BindDescriptorSet::create(
         VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 3,
-        vsg::DescriptorSet::create(batch_layout,
-            vsg::Descriptors{vsg::DescriptorBuffer::create(makeArray(values, vsg::STATIC_DATA), 0),
-                              vsg::DescriptorImage::create(image ? image : white, 1),
-                              vsg::DescriptorImage::create(detail_image ? detail_image : white, 2)}));
+        vsg::DescriptorSet::create(
+            batch_layout,
+            vsg::Descriptors{
+                vsg::DescriptorBuffer::create(makeArray(values, vsg::STATIC_DATA), 0),
+                vsg::DescriptorImage::create(image ? image : white, 1),
+                vsg::DescriptorImage::create(detail_image ? detail_image : white, 2)}));
 }
 
 std::vector<glm::vec4> packView(const ScenePass& pass, std::span<const glm::vec4> eye_clip_planes)
@@ -207,28 +230,30 @@ std::vector<glm::vec4> packView(const ScenePass& pass, std::span<const glm::vec4
     const auto fog_base = 3 + pass.lights.size() * light_vectors;
     const auto clip_base = fog_base + pass.fogs.size() * fog_vectors;
     std::vector<glm::vec4> result(clip_base + eye_clip_planes.size());
-    result[0] = {pass.depth_cue.minimum, pass.depth_cue.maximum,
-                  pass.depth_cue.near_scale, pass.depth_cue.far_scale};
+    result[0] = {pass.depth_cue.minimum, pass.depth_cue.maximum, pass.depth_cue.near_scale,
+                 pass.depth_cue.far_scale};
     result[1] = pass.fog_color;
     result[2] = {static_cast<float>(pass.lights.size()), static_cast<float>(pass.fogs.size()),
-                  static_cast<float>(eye_clip_planes.size()), static_cast<float>(fog_base)};
+                 static_cast<float>(eye_clip_planes.size()), static_cast<float>(fog_base)};
     for (std::size_t light = 0; light < pass.lights.size(); ++light)
-        packLight(*pass.lights[light], std::span(result).subspan(3 + light * light_vectors, light_vectors));
+        packLight(*pass.lights[light],
+                  std::span(result).subspan(3 + light * light_vectors, light_vectors));
     for (std::size_t layer = 0; layer < pass.fogs.size(); ++layer) {
         const auto& fog = *pass.fogs[layer];
         const float normalization = fog.fog_end == fog.fog_start
                                         ? 1e8f
                                         : static_cast<float>(1.0 / (fog.fog_end - fog.fog_start));
         result[fog_base + layer * fog_vectors] = {static_cast<float>(fog.fog_start), normalization,
-                                                   fog.density, static_cast<float>(fog.fog_end)};
-        result[fog_base + layer * fog_vectors + 1] = {std::bit_cast<float>(fog.group_mask), 0, 0, 0};
+                                                  fog.density, static_cast<float>(fog.fog_end)};
+        result[fog_base + layer * fog_vectors + 1] = {std::bit_cast<float>(fog.group_mask), 0, 0,
+                                                      0};
     }
     std::ranges::copy(eye_clip_planes, result.begin() + static_cast<std::ptrdiff_t>(clip_base));
     return result;
 }
 
 std::vector<glm::vec4> packPass(std::span<const std::shared_ptr<Material>> materials,
-                               std::uint32_t draw_flags, bool has_normals, double time)
+                                std::uint32_t draw_flags, bool has_normals, double time)
 {
     // A default slot also supports effects with no authored material table.
     const auto count = std::max(std::size_t{1}, materials.size());
@@ -236,8 +261,10 @@ std::vector<glm::vec4> packPass(std::span<const std::shared_ptr<Material>> mater
     result[0] = {static_cast<float>(draw_flags), has_normals ? 1.f : 0.f, 0, 0};
     Material fallback;
     for (std::size_t slot = 0; slot < count; ++slot) {
-        auto* material = slot < materials.size() && materials[slot] ? materials[slot].get() : &fallback;
-        packMaterial(*material, time, std::span(result).subspan(1 + slot * material_vectors, material_vectors));
+        auto* material =
+            slot < materials.size() && materials[slot] ? materials[slot].get() : &fallback;
+        packMaterial(*material, time,
+                     std::span(result).subspan(1 + slot * material_vectors, material_vectors));
     }
     return result;
 }
@@ -246,17 +273,22 @@ InstanceBlock packInstance(const MeshInstance& instance, const Mesh& mesh, const
                            bool reverse_normals)
 {
     const auto ambient = mesh.vertex_lighting_ready
-        ? glm::vec4(0)
-        : glm::vec4((glm::vec3(pass.ambient_light) * instance.light_scale + pass.frame.environment_offset) *
-                        pass.frame.brightness, 1);
+                             ? glm::vec4(0)
+                             : glm::vec4((glm::vec3(pass.ambient_light) * instance.light_scale +
+                                          pass.frame.environment_offset) *
+                                             pass.frame.brightness,
+                                         1);
     return {.ambient = ambient,
             .bounds = glm::vec4(mesh.bounds_center, mesh.bounds_radius),
             .overrides = {instance.diffuse_scale_enabled ? 1.f : 0.f, instance.diffuse_scale,
-                           instance.emissive_override_enabled ? 1.f : 0.f, instance.emissive_override},
-            .masks = {instance.getExclusionMask() | pass.exclusion_mask, reverse_normals ? 1u : 0u, 0, 0}};
+                          instance.emissive_override_enabled ? 1.f : 0.f,
+                          instance.emissive_override},
+            .masks = {instance.getExclusionMask() | pass.exclusion_mask, reverse_normals ? 1u : 0u,
+                      0, 0}};
 }
 
-vsg::ref_ptr<vsg::vec4Array> makeArray(std::span<const glm::vec4> values, vsg::DataVariance variance)
+vsg::ref_ptr<vsg::vec4Array> makeArray(std::span<const glm::vec4> values,
+                                       vsg::DataVariance variance)
 {
     auto result = vsg::vec4Array::create(static_cast<std::uint32_t>(values.size()));
     result->properties.dataVariance = variance;
@@ -266,18 +298,20 @@ vsg::ref_ptr<vsg::vec4Array> makeArray(std::span<const glm::vec4> values, vsg::D
 
 void store(vsg::vec4Array& destination, std::span<const glm::vec4> values)
 {
-    if (values.size() > destination.size()) throw std::length_error("Render state exceeds compiled buffer");
+    if (values.size() > destination.size())
+        throw std::length_error("Render state exceeds compiled buffer");
     std::memcpy(destination.dataPointer(), values.data(), values.size_bytes());
     // View light collection may use fewer records than the preallocated count.
     if (values.size() < destination.size())
         std::memset(destination.data() + values.size(), 0,
-                     (destination.size() - values.size()) * sizeof(vsg::vec4));
+                    (destination.size() - values.size()) * sizeof(vsg::vec4));
     destination.dirty();
 }
 
 vsg::ref_ptr<vsg::vec4Array> makeInstanceArray(const InstanceBlock& block)
 {
-    auto result = vsg::vec4Array::create(static_cast<std::uint32_t>(sizeof(block) / sizeof(glm::vec4)));
+    auto result =
+        vsg::vec4Array::create(static_cast<std::uint32_t>(sizeof(block) / sizeof(glm::vec4)));
     result->properties.dataVariance = vsg::DYNAMIC_DATA;
     store(*result, block);
     return result;
@@ -285,7 +319,8 @@ vsg::ref_ptr<vsg::vec4Array> makeInstanceArray(const InstanceBlock& block)
 
 void store(vsg::vec4Array& destination, const InstanceBlock& block)
 {
-    if (destination.dataSize() < sizeof(block)) throw std::length_error("Instance state buffer too small");
+    if (destination.dataSize() < sizeof(block))
+        throw std::length_error("Instance state buffer too small");
     std::memcpy(destination.dataPointer(), &block, sizeof(block));
     destination.dirty();
 }

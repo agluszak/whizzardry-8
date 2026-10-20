@@ -1,5 +1,9 @@
 #pragma once
 class WorldScene;
+class MeshInstance;
+namespace render {
+class VertexAttachment;
+}
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -7,7 +11,10 @@ class WorldScene;
 #include <string>
 #include <variant>
 #include <vector>
+
+#include <vsg/core/observer_ptr.h>
 #include <vsg/core/ref_ptr.h>
+#include <vsg/nodes/Group.h>
 #include <vsg/nodes/Node.h>
 
 #include "wiz8/entities/keyframe_track.h"
@@ -201,6 +208,10 @@ public:
     Transform3D transform;
     WorldScene* scene = nullptr; // Borrowed world for animation and named queries.
     vsg::ref_ptr<vsg::Node> render_node;
+    vsg::observer_ptr<vsg::Group> render_parent;
+    vsg::ref_ptr<render::VertexAttachment> render_attachment;
+    void attachTo(MeshInstance&, std::optional<short> mapped_key = {});
+    glm::dmat4 worldMatrix() const;
     void setScene(WorldScene* value);
     std::uint32_t group_mask = 0x80000000u;
     glm::vec3 eye_location{0};

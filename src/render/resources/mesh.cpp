@@ -126,7 +126,8 @@ std::int32_t Mesh::getActivePolygonCount()
 void Mesh::setActivePolygonCount(std::int32_t count)
 {
     active_polygon_count = count;
-    setDirty(DIRTY_TRI_MESH);
+    // Visibility selects existing triangles; it never changes render topology.
+    dirty_flags |= 1u << DIRTY_TRI_MESH;
 }
 
 void Mesh::setUVCount(std::int32_t count)
@@ -205,7 +206,7 @@ std::uint32_t* Mesh::getActivePolygonTable(int table)
         for (std::int32_t index = 0; index < polygon_count; ++index) {
             active_polygons[index] = index;
         }
-        setDirty(DIRTY_TRI_MESH);
+        dirty_flags |= 1u << DIRTY_TRI_MESH;
     }
     return active_polygons.empty() ? nullptr : active_polygons.data();
 }
