@@ -20,12 +20,14 @@
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
+#include "wiz8/difficulty.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/game.h"
 #include "wiz8/layouts/encounter_tables.h"
 #include "wiz8/layouts/levels.h"
 #include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/loaded_game_data.h"
+#include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_code/MonsterGroup.h"
@@ -1360,6 +1362,26 @@ TEST_CASE("Monster-control sections keep the retail record", "[save][records]")
     REQUIRE(wiz8::save::encode(decoded) == payload);
     REQUIRE_THROWS(
         wiz8::save::decode_monster_control(std::span(payload).first(payload.size() - 1)));
+}
+
+TEST_CASE("Settings records keep the retail layout and unnamed bytes", "[save][configuration]")
+{
+    W8GameSettings settings{};
+    settings.tooltips_enabled = true;
+    settings.difficulty = W8_DIFFICULTY_EXPERT;
+    settings.music_volume = 77;
+    settings.intro_seen = true;
+    settings.unknown_051[0] = 0x5a;
+    const auto record = EncodeGameSettings(settings);
+    REQUIRE(record.size() == 0xa4);
+    REQUIRE((record[0x0c] == std::byte{1} && record[0x0d] == std::byte{W8_DIFFICULTY_EXPERT} &&
+             record[0x2f] == std::byte{77} && record[0x46] == std::byte{1} &&
+             record[0x51] == std::byte{0x5a}));
+    const auto decoded = DecodeGameSettings(record);
+    REQUIRE((decoded.difficulty == W8_DIFFICULTY_EXPERT && decoded.music_volume == 77 &&
+             decoded.intro_seen && decoded.unknown_051[0] == 0x5a));
+    REQUIRE(EncodeGameSettings(decoded) == record);
+    REQUIRE_THROWS(DecodeGameSettings(std::span(record).first(0xa3)));
 }
 
 TEST_CASE("Radius-effect updates accept empty and short effect arrays", "[effects]")
