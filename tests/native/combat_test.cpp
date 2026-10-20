@@ -106,3 +106,31 @@ TEST_CASE_METHOD(CombatFixture, "Combat waits on a conscious NPC's queued combat
     game.party.characters[1].highest_condition = W8_CONDITION_ASLEEP;
     REQUIRE(CombatWaitFor(game) == CombatWait::none);
 }
+
+#include "mutable_game_data.h"
+#include "scoped_records.h"
+#include "wiz8/entities/missile.h"
+#include "wiz8/platform/random.h"
+#include <cstdio>
+TEST_CASE("GOLDEN capture")
+{
+    ScopedWorld world;
+    ScopedSettings settings;
+    ScopedGame game_scope;
+    ScopedCombat combat_scope{false};
+    Game& game = game_scope.game;
+    const ScopedRecords strings(MutableData().strings, 0x220);
+    const ScopedRecords missiles(MutableData().missiles, 1);
+    game.party.rows[0].fOccupied = true;
+    game.party.characters[0].hp_current = 10;
+    game.party.characters[0].bonus.missile_deflect_chance = 100;
+    Missile missile;
+    missile.missile_table_index = 0;
+    missile.m_Source.iType = W8_TARGET_SOURCE_MONSTER;
+    missile.m_Source.iMonsterID = 7;
+    missile.combat_slot.iType = W8_TARGET_KIND_CHARACTER;
+    missile.combat_slot.iChar = 0;
+    SeedRandom(1234);
+    REQUIRE(missile.OnCollision(nullptr));
+    std::printf("GOLDEN outside next=%u\n", Random15());
+}
