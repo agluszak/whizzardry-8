@@ -648,7 +648,6 @@ Trigger::Trigger(World* world)
     angle = 0.0f;
     m_bRepType = W8_TRIGGER_REP_NONE;
     m_pProp = 0;
-    rep_item = 0;
     m_pWorld = world;
     initial_action = 0;
     alternate_action = 0;
@@ -1015,6 +1014,30 @@ void Trigger::PrintNothingHappenedOrSpecialItemRequired()
    kinds in one dispatcher: kind two handles invisible/timed actions first,
    kind one handles Prop-backed actions, and everything else falls through to
    the common action table. */
+/* Wake the first placed group of `monster_id` and restart its first member's animation
+   and pathing. The member is looked up when the trigger fires: it may have left the
+   group, and an unloaded one has no representation to restart until it loads. */
+void WakeMonsterGroup(int monster_id)
+{
+    const auto& groups = CurrentLevelPopulation().monster_groups;
+    const auto found = std::ranges::find_if(
+        groups, [monster_id](const auto& group) { return group->monster_id == monster_id; });
+    if (found == groups.end()) return;
+    W8MonsterGroup& group = **found;
+    W8MonsterInfo* monster_info = FindMonster(group.MemberLocationId(0), false);
+    if (monster_info == nullptr) return;
+
+    group.members_active = true;
+    Monster* monster = monster_info->p3D;
+    if (monster == nullptr) return;
+    monster->visual.rep_active = true;
+    monster->visual.animation_playing = 1;
+    monster->visual.timer = GameClockMilliseconds();
+    monster->visual.ResetRepresentation();
+    monster->nav.ResetPathAI();
+    monster->nav.reactivated = true;
+}
+
 void Trigger::Run(int source)
 {
     ActivationCallback callback = activation_callback;
@@ -1554,38 +1577,9 @@ void Trigger::Run(int source)
         break;
     }
 
-    case 0x0b: {
-        W8MonsterGroup* group = 0;
-        W8MonsterInfo* monster_info = 0;
-        int monster_id;
-        int index;
-
-        if (recipients.empty()) {
-            return;
-        }
-        monster_id = atoi(recipients.c_str());
-        for (index = 0; index < static_cast<int>(CurrentLevelPopulation().monster_groups.size());
-             ++index) {
-            group = CurrentLevelPopulation().monster_groups[index].get();
-            if (group->monster_id == monster_id) {
-                int location_id = group->MemberLocationId(0);
-                monster_info = FindMonster(location_id);
-                break;
-            }
-        }
-        if (group == 0 || monster_info == 0) {
-            return;
-        }
-
-        group->members_active = true;
-        monster_info->p3D->visual.rep_active = true;
-        monster_info->p3D->visual.animation_playing = 1;
-        monster_info->p3D->visual.timer = GameClockMilliseconds();
-        monster_info->p3D->visual.ResetRepresentation();
-        monster_info->p3D->nav.ResetPathAI();
-        monster_info->p3D->nav.reactivated = true;
+    case 0x0b:
+        if (!recipients.empty()) WakeMonsterGroup(atoi(recipients.c_str()));
         return;
-    }
 
     case 0x39: {
         glm::vec3 party_position;

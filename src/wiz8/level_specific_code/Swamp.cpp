@@ -68,7 +68,8 @@ private:
     bool gasFireSpawn(Trigger* pTrigger);
     bool gasFireItemDrop(int command);
 
-    Monster* spawned_monster_ = nullptr;
+    // Resolved when used: the monster can be killed or removed while the party talks to it.
+    int spawned_monster_id_ = 0;
 };
 
 void SwampScript::enter()
@@ -165,11 +166,11 @@ bool SwampScript::gasFireSpawn(Trigger* pTrigger)
     if (index != 0) {
         monster_info = FindMonster(index);
         if (monster_info != 0) {
-            spawned_monster_ = monster_info->p3D;
+            spawned_monster_id_ = index;
             monster_info->p3D->visual.instance_scale = 1.0f;
             monster_info->p3D->visual.apply_instance_scale = true;
-            spawned_monster_->BeginFadeIn(2.0f);
-            spawned_monster_->GetMappedPosition(&mapped);
+            monster_info->p3D->BeginFadeIn(2.0f);
+            monster_info->p3D->GetMappedPosition(&mapped);
             look_target = monster_info->p3D->nav.movement.position;
             look_target.y += monster_info->p3D->nav.movement.height_offset;
             partyCamera().LookAt(&look_target, false);
@@ -200,14 +201,14 @@ bool SwampScript::gasFireItemDrop(int command)
         return false;
     }
     if (npc_dialogue_closed) {
-        if (spawned_monster_ != 0) {
-            position = spawned_monster_->nav.GetPosition();
+        if (Monster* spawned = GetMonsterByLocationID(spawned_monster_id_)) {
+            position = spawned->nav.GetPosition();
             drop_position = position;
             item = AddWorldItem(
                 SpawnItem(0x264, &drop_position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
             item->item.identified = false;
             ActivateItem(item);
-            spawned_monster_->BeginFadeOutAndRemove(W8_MONSTER_REMOVAL_NONE);
+            spawned->BeginFadeOutAndRemove(W8_MONSTER_REMOVAL_NONE);
         }
         return true;
     }

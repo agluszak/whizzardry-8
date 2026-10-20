@@ -8,6 +8,8 @@
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/rules/item_instance.h"
 
+class Trigger;
+
 /* Bit masks in W8WorldItem::flags; preserve combinations in unsigned int. */
 enum {
     W8_WORLD_ITEM_HIDDEN = 0x01u,
@@ -19,6 +21,10 @@ enum {
 struct W8WorldItem {
     int runtime_id;      /* 0x00 */
     WorldItemEntity* p3D; // Scene entity, deactivated before removing the world record.
+    /* The level trigger placed with this item. The record keeps it, not the scene entity,
+       because the entity is rebuilt each time the item comes back into range. The trigger
+       belongs to the same world and outlives the record. */
+    Trigger* trigger = nullptr;
     bool fActive;        /* 0x08: assertion-proven pItemInfo->fActive */
     W8ItemInstance item; /* 0x09 */
     glm::vec3 position; /* 0x15 */

@@ -35,6 +35,7 @@
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/entities/monster.h"
+#include "wiz8/entities/trigger.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
@@ -955,6 +956,29 @@ TEST_CASE("Allied leader election preserves one encounter with zero leadership r
     REQUIRE(first->allied_group_ids[0] == 3);
     REQUIRE(second->leader_group_id == 2);
     REQUIRE(representations[2]->nav.linked_navigator == &(representations[1].get())->nav);
+}
+
+TEST_CASE_METHOD(LevelWorldFixture,
+                 "A trigger wakes a placed group whose member is unloaded or gone",
+                 "[groups][triggers]")
+{
+    auto& population = CurrentLevelPopulation();
+    auto group = std::make_unique<W8MonsterGroup>();
+    group->monster_id = 7;
+    group->monsters = {3};
+    auto* placed = group.get();
+    population.monster_groups.push_back(std::move(group));
+    auto record = std::make_unique<W8MonsterInfo>();
+    record->location_id = 3; // Not loaded yet, so it has no representation.
+    population.monster_roster.add(std::move(record), false);
+
+    WakeMonsterGroup(7);
+    REQUIRE(placed->members_active);
+
+    placed->members_active = false;
+    placed->monsters.clear(); // Its member has left.
+    WakeMonsterGroup(7);
+    REQUIRE_FALSE(placed->members_active);
 }
 
 TEST_CASE_METHOD(LevelWorldFixture,

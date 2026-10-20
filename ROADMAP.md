@@ -254,11 +254,12 @@ each.
   - a disk record and codec for each embedded runtime type;
   - the remaining numeric save records and engine resource identifiers get the
     same treatment.
-- **Actor references.** About 500
-  uses of raw `p3D` actor pointers survive. The location-ID review fixed some
-  unloaded-actor cases. Replace borrowed pointers with world-owned handles or
-  explicit lookups resolved at use, including trigger-driven reactivation, and add
-  regressions for each bug the audit finds.
+- **Actor entity links.** A monster record reaches its scene entity through
+  `W8MonsterInfo::p3D` (about 500 uses) and a world item through `W8WorldItem::p3D`.
+  These links stay within one world and are kept in step with the entities ("Worlds and
+  levels"), but only an active record is sure to have one, and most callers dereference
+  `p3D` without checking. Give the records a checked accessor for their entity (or let
+  the record own it) and migrate the callers, starting outside the combat files.
 
 ## Remaining follow-ups
 
