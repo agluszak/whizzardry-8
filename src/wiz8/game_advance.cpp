@@ -60,6 +60,7 @@ void Game::advance(milliseconds elapsed, StepHold hold)
     search_sweep_due -= elapsed;
     sight_due -= elapsed;
     world_items_due -= elapsed;
+    if (combat) combat->passTime(elapsed);
     UpdateSurpriseMode();
     ProcessMainGameAutoSave();
     GameTimeAccumulator().Update(elapsed);

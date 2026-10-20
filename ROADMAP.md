@@ -123,9 +123,8 @@ the licensed runtime scenarios after every step.
 4. **One step.** `Game::advance(elapsed)` is the game's step (ARCHITECTURE.md,
    "Stepping"); its own countdowns, the frame delta and the environment clock take the
    elapsed time it is given. What it calls still reads the monotonic clock: the surprise
-   fade, autosave pacing, the combat turn's `action_clock` and waits, the monster
-   manager, props and monster generators (`W8GameTimer`/`W8IntervalGate` on the shared
-   clock), missiles, and speech's dispatch delays, recent-event window and mouth frames.
+   fade, autosave pacing, the monster manager, props and monster generators
+   (`W8GameTimer`/`W8IntervalGate` on the shared clock), missiles, and speech's dispatch delays, recent-event window and mouth frames.
    Move each onto the elapsed time the step passes down so that a test can step a game
    deterministically; then add a test that steps a small game with explicit times.
 5. **Presentation owned by screens.**

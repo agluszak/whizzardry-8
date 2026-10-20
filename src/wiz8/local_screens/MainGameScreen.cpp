@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -3974,7 +3975,7 @@ void UpdateCombatPortraitStatus(void)
         if (row->fOccupied && character->hp_current > 0 &&
             character->highest_condition <= W8_CONDITION_UNCONSCIOUS) {
             if (CurrentGame().combat->actingSlot() != slot ||
-                TimeUntilDeadline(CurrentGame().combat->action_clock) > 800) {
+                CurrentGame().combat->action_delay > std::chrono::milliseconds{800}) {
                 if (IsPartySlotEligible(slot)) {
                     if (combat_row->dead) {
                         status = W8_COMBAT_PORTRAIT_INELIGIBLE;

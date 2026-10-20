@@ -284,8 +284,10 @@ Unlayered code may use the layers.
   missiles are read as they are.
   Outside code changes the turn only through `endTurnOf` and `setStepOf`, which leave
   a turn the actor no longer holds alone, so an actor that dies or leaves while its
-  action runs is not given its turn back. `action_clock` paces the scheduled actor and
-  outlives the turn. Combat is not saved.
+  action runs is not given its turn back. `action_delay` paces the scheduled actor and
+  outlives the turn. It and the fight's other countdowns (continuous combat's start
+  delay, a continuous-combat move's pacing) run down by the step's elapsed time
+  (`Combat::passTime`), not by the clock. Combat is not saved.
 - **Transitional access.** Code that does not yet receive the game reaches it through
   `CurrentGame()`, which throws when no game is in progress. Menus check
   `GameInProgress()`.

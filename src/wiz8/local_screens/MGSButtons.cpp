@@ -1,6 +1,7 @@
 #include "wiz8/local_screens/MGSButtons.h"
 
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -335,7 +336,7 @@ void UpdateCombatStanceButtons(void)
 
     if (g_settings.continuous_combat == 0) {
         stance = CurrentGame().combat->execution_active != 0 ? 3U : 0U;
-    } else if ((TimeUntilDeadline(CurrentGame().combat->combat_ui_timer) == 0 &&
+    } else if ((CurrentGame().combat->continuous_start_delay == std::chrono::milliseconds::zero() &&
                 CombatMayAdvanceContinuously()) ||
                CurrentGame().combat->party_surprised) {
         stance = CurrentGame().combat->round_active ? 1U : 4U;
@@ -378,10 +379,7 @@ static void MainGameCombatConfirmButton(W8ButtonWidget* button)
     if (g_settings.continuous_combat == 0) {
         return;
     }
-    if (TimeUntilDeadline(CurrentGame().combat->combat_ui_timer) == 0) {
-        return;
-    }
-    CurrentGame().combat->combat_ui_timer = MonotonicMilliseconds() + (0);
+    CurrentGame().combat->continuous_start_delay = std::chrono::milliseconds::zero();
 }
 
 static void MainGameCombatStanceSecondary(W8ButtonWidget* button)

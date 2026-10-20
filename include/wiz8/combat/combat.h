@@ -1,7 +1,7 @@
 #pragma once
 
 #include <algorithm>
-#include <cstdint>
+#include <chrono>
 #include <optional>
 #include <string>
 #include <type_traits>
@@ -191,12 +191,14 @@ struct Combat {
     /* Historical offset 0x6b8: the attack announcement the monster-attack message builder
        sprintf's into and ShowNotice displays; 0x78 wide chars. */
     std::string attack_message;
-    /* Historical offset 0x7a8: continuous-combat UI pacing; the confirm button resets it while
-       TimeUntilDeadline reports it still running. */
-    uint64_t combat_ui_timer;
-    /* Historical offset 0x7ac: the pacing clock the scheduler arms as a MonotonicMilliseconds deadline
-       before the scheduled actor's action may execute. */
-    uint64_t action_clock;
+    /* The step runs these countdowns down by its elapsed time (`passTime`); one at zero
+       is due. `continuous_start_delay` holds continuous combat back after the fight
+       starts; `action_delay` paces the scheduled actor, whose action starts when it is
+       due; `party_movement_delay` paces the synthetic progress of a continuous-combat
+       move while the world stands still. */
+    std::chrono::milliseconds continuous_start_delay{};
+    std::chrono::milliseconds action_delay{};
+    std::chrono::milliseconds party_movement_delay{};
     /* The hit sound the turn waits on; its completion releases it (an empty playback
        when none is held). */
     wiz8::sound::Playback hit_sound;
@@ -211,9 +213,6 @@ struct Combat {
     W8PartyAction uiCurrentPartyAction;
     unsigned int uiPartyActionPhase;
     W8PartyActionStatus uiCurrentPartyActionStatus;
-    /* Historical offset 0x91c: countdown used to pace synthetic movement progress when
-       continuous combat is enabled and the world did not advance this frame. */
-    uint64_t party_movement_clock;
     /* How much of the party's move is left, in percent. It falls as the party walks, and
        when the move ends it decides which members still act this round. */
     int party_move_percent = 0;
@@ -280,6 +279,17 @@ struct Combat {
        mode back on when it reads nonzero. */
     bool search_mode_saved;
     bool combat_ready;
+
+    /* Run the countdowns down by the time the step passed. */
+    void passTime(std::chrono::milliseconds elapsed)
+    {
+        const auto run_down = [elapsed](std::chrono::milliseconds& countdown) {
+            countdown = std::max(countdown - elapsed, std::chrono::milliseconds::zero());
+        };
+        run_down(continuous_start_delay);
+        run_down(action_delay);
+        run_down(party_movement_delay);
+    }
 
     const CombatTurn& turn() const { return turn_; }
     /* The actor holding the turn, null while it is idle. */

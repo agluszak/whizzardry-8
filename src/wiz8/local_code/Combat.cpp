@@ -1,6 +1,7 @@
 #include "wiz8/local_code/Combat.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <optional>
 #include <string_view>
@@ -88,7 +89,6 @@
 #include "wiz8/music_playlist.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/platform/assertion.h"
-#include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
@@ -195,7 +195,6 @@ bool Game::beginCombat(int surprise)
     Combat& fight = combat.emplace();
     fight.enemies_engaged = CurrentLevelPopulation().monster_roster.hostileCombatCount() > 0;
     fight.round_active = true;
-    fight.action_clock = MonotonicMilliseconds();
     ApplyWorldAdvancement(*this, advancement.hold);
     if (auto* main_game = MainGame()) main_game->party_movement_panel = false;
     party_movement_mode = false;
@@ -264,8 +263,8 @@ bool Game::beginCombat(int surprise)
         ClearLevelFastMovement();
     }
     if (g_settings.continuous_combat != 0 && !fight.party_surprised) {
-        fight.combat_ui_timer =
-            MonotonicMilliseconds() + (g_settings.continuous_combat_start_delay_ms);
+        fight.continuous_start_delay =
+            std::chrono::milliseconds{g_settings.continuous_combat_start_delay_ms};
     }
     wiz8::sound::play("Data\\Sound\\Misc\\Ready Weapons.wav");
     return true;
@@ -3022,7 +3021,7 @@ void UpdateCombat(void)
             return;
         }
         if ((g_settings.continuous_combat == 0 ||
-             TimeUntilDeadline(CurrentGame().combat->combat_ui_timer) != 0 ||
+             CurrentGame().combat->continuous_start_delay > std::chrono::milliseconds::zero() ||
              !CombatMayAdvanceContinuously()) &&
             !CurrentGame().combat->party_surprised) {
             return;
@@ -3037,7 +3036,7 @@ void UpdateCombat(void)
             ScheduleCombatActor();
         }
     } else if (const auto* scheduled = std::get_if<TurnScheduled>(&turn)) {
-        if (TimeUntilDeadline(CurrentGame().combat->action_clock) == 0) {
+        if (CurrentGame().combat->action_delay == std::chrono::milliseconds::zero()) {
             if (g_settings.autoscroll_combat_messages != 0) {
                 CurrentGame().combat->notice_scroll_pending = true;
             }
@@ -3171,7 +3170,7 @@ void ScheduleCombatActor(void)
                     (g_settings.continuous_combat == 0 || !free_turn) && delay > 0x31f) {
                     delay = 0x320;
                 }
-                CurrentGame().combat->action_clock = MonotonicMilliseconds() + (delay);
+                CurrentGame().combat->action_delay = std::chrono::milliseconds{delay};
             }
             CurrentGame().combat->pacing_latch = false;
         } else {
