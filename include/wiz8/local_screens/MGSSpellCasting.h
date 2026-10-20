@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "compat/compiler.h"
-#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/data/records.h"
 #include "wiz8/layouts/learned_spells.h"
 #include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/layouts/npc_dialogue.h"

@@ -1,7 +1,7 @@
 #include <cstring>
 
-#include "layouts/party_formation.h"
 #include "wiz8/local_code/FormationAndFacing.h"
+#include "wiz8/rules/party_formation.h"
 
 /* This initializer lies in the reviewed attribution gap between Magic
    Effects.cpp and Formation & Facing.cpp, 0x70 below the anchored Formation

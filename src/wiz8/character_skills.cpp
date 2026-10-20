@@ -9,20 +9,18 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 
-#include "conditions.h"
-#include "gameplay_modifiers.h"
-#include "layouts/item_instance.h"
 #include "local_code/ConditionsAndEnchantments.h"
-#include "wiz8/equipment_slots.h"
+#include "wiz8/data/character_tables.h"
+#include "wiz8/data/records.h"
+#include "wiz8/data/skills.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
-#include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/live_party.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/GameplayCode.h"
+#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCScripting.h"
@@ -36,6 +34,11 @@
 #include "wiz8/message_box.h"
 #include "wiz8/party_stats.h"
 #include "wiz8/platform/random.h"
+#include "wiz8/rules/character.h"
+#include "wiz8/rules/conditions.h"
+#include "wiz8/rules/equipment_slots.h"
+#include "wiz8/rules/gameplay_modifiers.h"
+#include "wiz8/rules/item_instance.h"
 #include "wiz8/screen.h"
 #include "wiz8/unicode.h"
 #include "wiz8/xstatus.h"
@@ -140,69 +143,6 @@ void InvalidateAndRecalculateCharacterClassData(W8Character* character)
     DeriveCharacterPersonality(character);
     CalcCharacterTableValue(character);
 }
-
-/* Profession and race trait-id sets. Values are the retail table contents at
-   0x0061507C (fifteen triples) and 0x00615130 (sixteen quintuples); -1 is no
-   trait. */
-W8ProfessionAbilitySet g_profession_abilities[15] = {
-    {{W8_TRAIT_STAMINA_REGENERATION, W8_TRAIT_KNOCKOUT, W8_TRAIT_BERSERK}},
-    {{W8_TRAIT_HEALTH_REGENERATION, W8_TRAIT_NONE, W8_TRAIT_NONE}},
-    {{W8_TRAIT_CHEAT_DEATH, W8_TRAIT_NONE, W8_TRAIT_NONE}},
-    {{W8_TRAIT_RANGED_CRITICALS, W8_TRAIT_SEARCH, W8_TRAIT_NONE}},
-    {{W8_TRAIT_FEARLESS, W8_TRAIT_LIGHTNING_STRIKE, W8_TRAIT_NONE}},
-    {{W8_TRAIT_THROWN_CRITICALS, W8_TRAIT_THROWN_AUTO_PENETRATE, W8_TRAIT_NONE}},
-    {{W8_TRAIT_MONK_DAMAGE_RESISTANCE, W8_TRAIT_EFFECTIVE_WHILE_BLIND, W8_TRAIT_NONE}},
-    {{W8_TRAIT_BACKSTAB, W8_TRAIT_NONE, W8_TRAIT_NONE}},
-    {{W8_TRAIT_MERGE_GADGETS, W8_TRAIT_NONE, W8_TRAIT_NONE}},
-    {{W8_TRAIT_CAMP_RECOVERY_BONUS, W8_TRAIT_NONE, W8_TRAIT_NONE}},
-    {{W8_TRAIT_PRAY, W8_TRAIT_TURN_UNDEAD, W8_TRAIT_NONE}},
-    {{W8_TRAIT_MAKE_POTIONS, W8_TRAIT_NONE, W8_TRAIT_NONE}},
-    {{W8_TRAIT_REMOVE_CURSED_ITEMS, W8_TRAIT_TURN_UNDEAD, W8_TRAIT_NONE}},
-    {{W8_TRAIT_FEARLESS, W8_TRAIT_MENTAL_CONDITION_IMMUNITY, W8_TRAIT_NONE}},
-    {{W8_TRAIT_MAGIC_RESISTANCE_BONUS, W8_TRAIT_NONE, W8_TRAIT_NONE}},
-};
-
-W8RaceAbilitySet g_race_abilities[W8_RACE_COUNT] = {
-    {{W8_TRAIT_NONE, W8_TRAIT_NONE, W8_TRAIT_NONE, W8_TRAIT_NONE, W8_TRAIT_NONE}},
-    {{W8_TRAIT_NONE, W8_TRAIT_NONE, W8_TRAIT_NONE, W8_TRAIT_NONE, W8_TRAIT_NONE}},
-    {{W8_TRAIT_DWARF_DAMAGE_RESISTANCE, W8_TRAIT_NONE, W8_TRAIT_NONE, W8_TRAIT_NONE,
-      W8_TRAIT_NONE}},
-    {{W8_TRAIT_NONE, W8_TRAIT_NONE, W8_TRAIT_NONE, W8_TRAIT_NONE, W8_TRAIT_NONE}},
-    {{W8_TRAIT_NONE, W8_TRAIT_NONE, W8_TRAIT_NONE, W8_TRAIT_NONE, W8_TRAIT_NONE}},
-    {{W8_TRAIT_FAERIE_BASE_ARMOR_CLASS, static_cast<W8Trait>(26), static_cast<W8Trait>(23),
-      static_cast<W8Trait>(25), W8_TRAIT_FAERIE_REDUCED_CARRY_CAPACITY}},
-    {{W8_TRAIT_LIZARDMAN_SLOW_MAGIC_RECOVERY, W8_TRAIT_NONE, W8_TRAIT_NONE, W8_TRAIT_NONE,
-      W8_TRAIT_NONE}},
-    {{W8_TRAIT_BREATHE, W8_TRAIT_NONE, W8_TRAIT_NONE, W8_TRAIT_NONE, W8_TRAIT_NONE}},
-    {{W8_TRAIT_NONE, W8_TRAIT_NONE, W8_TRAIT_NONE, W8_TRAIT_NONE, W8_TRAIT_NONE}},
-    {{W8_TRAIT_NONE, W8_TRAIT_NONE, W8_TRAIT_NONE, W8_TRAIT_NONE, W8_TRAIT_NONE}},
-    {{W8_TRAIT_NONE, W8_TRAIT_NONE, W8_TRAIT_NONE, W8_TRAIT_NONE, W8_TRAIT_NONE}},
-    {{W8_TRAIT_NONE, W8_TRAIT_NONE, W8_TRAIT_NONE, W8_TRAIT_NONE, W8_TRAIT_NONE}},
-    {{W8_TRAIT_NONE, W8_TRAIT_NONE, W8_TRAIT_NONE, W8_TRAIT_NONE, W8_TRAIT_NONE}},
-    {{W8_TRAIT_NONE, W8_TRAIT_NONE, W8_TRAIT_NONE, W8_TRAIT_NONE, W8_TRAIT_NONE}},
-    {{W8_TRAIT_NONE, W8_TRAIT_NONE, W8_TRAIT_NONE, W8_TRAIT_NONE, W8_TRAIT_NONE}},
-    {{static_cast<W8Trait>(30), W8_TRAIT_CANNOT_LEARN, W8_TRAIT_NONE, W8_TRAIT_NONE,
-      W8_TRAIT_NONE}},
-};
-
-W8RaceResistanceProfile g_race_resistance_profiles[W8_RACE_COUNT] = {
-    {{{-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}}},
-    {{{4, 20}, {2, 10}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}}},
-    {{{0, 1003}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}}},
-    {{{4, 1003}, {3, 10}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}}},
-    {{{3, 1003}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}}},
-    {{{2, 15}, {3, 15}, {4, 15}, {5, 15}, {-1, 0}, {-1, 0}}},
-    {{{1, 10}, {3, 10}, {0, 15}, {5, -10}, {4, -10}, {-1, 0}}},
-    {{{1, 15}, {2, 5}, {5, -5}, {4, -5}, {-1, 0}, {-1, 0}}},
-    {{{1, -15}, {3, 10}, {2, 10}, {4, 10}, {-1, 0}, {-1, 0}}},
-    {{{1, 10}, {3, 5}, {5, 15}, {-1, 0}, {-1, 0}, {-1, 0}}},
-    {{{5, 10}, {1, 15}, {4, 15}, {-1, 0}, {-1, 0}, {-1, 0}}},
-    {{{3, 20}, {2, 20}, {4, -10}, {-1, 0}, {-1, 0}, {-1, 0}}},
-    {{{4, 15}, {1, 15}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}}},
-    {{{3, 15}, {2, 15}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}}},
-    {{{0, 45}, {4, -20}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}}},
-    {{{4, 75}, {5, -25}, {-1, 0}, {-1, 0}, {-1, 0}, {-1, 0}}},
-};
 
 /* Whether the character has the trait through profession, race, or - for
    trait 0x1c - a set second enchantment slot. Profession id -1 and race id
@@ -677,172 +617,3 @@ void PracticeCharacterSkill(W8Character* character, W8Skill skill_id, int usage_
         }
     }
 }
-
-/* The profession databases and per-skill attribute records. Contents are the
-   retail tables at 0x00615570..0x0061634c; the five profession arrays share
-   one contiguous block with the skill-attribute records. -1 in a skill slot
-   means no skill, and -255 in a magic offset means the profession casts no
-   spells at all. */
-float g_profession_hit_point_factors[15] = {
-    9.0f, 7.5f, 7.5f, 6.5f, 7.0f, 6.5f, 6.5f, 6.0f, 5.5f, 6.0f, 5.0f, 4.5f, 4.0f, 3.5f, 3.0f,
-};
-W8SkillAttributes g_skill_attributes[0x29] = {
-    {W8_SKILL_CATEGORY_WEAPON, W8_SKILL_IMPORT_POLICY_1, W8_ATTRIBUTE_STRENGTH,
-     W8_ATTRIBUTE_DEXTERITY},
-    {W8_SKILL_CATEGORY_WEAPON, W8_SKILL_IMPORT_POLICY_1, W8_ATTRIBUTE_STRENGTH,
-     W8_ATTRIBUTE_DEXTERITY},
-    {W8_SKILL_CATEGORY_WEAPON, W8_SKILL_IMPORT_POLICY_1, W8_ATTRIBUTE_STRENGTH,
-     W8_ATTRIBUTE_DEXTERITY},
-    {W8_SKILL_CATEGORY_WEAPON, W8_SKILL_IMPORT_POLICY_1, W8_ATTRIBUTE_STRENGTH,
-     W8_ATTRIBUTE_DEXTERITY},
-    {W8_SKILL_CATEGORY_WEAPON, W8_SKILL_IMPORT_POLICY_1, W8_ATTRIBUTE_DEXTERITY,
-     W8_ATTRIBUTE_SPEED},
-    {W8_SKILL_CATEGORY_WEAPON, W8_SKILL_IMPORT_POLICY_0, W8_ATTRIBUTE_STRENGTH,
-     W8_ATTRIBUTE_DEXTERITY},
-    {W8_SKILL_CATEGORY_WEAPON, W8_SKILL_IMPORT_POLICY_1, W8_ATTRIBUTE_STRENGTH,
-     W8_ATTRIBUTE_DEXTERITY},
-    {W8_SKILL_CATEGORY_WEAPON, W8_SKILL_IMPORT_POLICY_1, W8_ATTRIBUTE_DEXTERITY,
-     W8_ATTRIBUTE_SPEED},
-    {W8_SKILL_CATEGORY_WEAPON, W8_SKILL_IMPORT_POLICY_1, W8_ATTRIBUTE_DEXTERITY,
-     W8_ATTRIBUTE_STRENGTH},
-    {W8_SKILL_CATEGORY_WEAPON, W8_SKILL_IMPORT_POLICY_0, W8_ATTRIBUTE_DEXTERITY,
-     W8_ATTRIBUTE_STRENGTH},
-    {W8_SKILL_CATEGORY_MISCELLANEOUS, W8_SKILL_IMPORT_POLICY_1, W8_ATTRIBUTE_DEXTERITY,
-     W8_ATTRIBUTE_INTELLIGENCE},
-    {W8_SKILL_CATEGORY_MISCELLANEOUS, W8_SKILL_IMPORT_POLICY_1, W8_ATTRIBUTE_DEXTERITY,
-     W8_ATTRIBUTE_INTELLIGENCE},
-    {W8_SKILL_CATEGORY_MISCELLANEOUS, W8_SKILL_IMPORT_PROFESSION, W8_ATTRIBUTE_DEXTERITY,
-     W8_ATTRIBUTE_INTELLIGENCE},
-    {W8_SKILL_CATEGORY_MISCELLANEOUS, W8_SKILL_IMPORT_POLICY_1, W8_ATTRIBUTE_DEXTERITY,
-     W8_ATTRIBUTE_SPEED},
-    {W8_SKILL_CATEGORY_WEAPON, W8_SKILL_IMPORT_POLICY_1, W8_ATTRIBUTE_DEXTERITY,
-     W8_ATTRIBUTE_SPEED},
-    {W8_SKILL_CATEGORY_MISCELLANEOUS, W8_SKILL_IMPORT_PROFESSION, W8_ATTRIBUTE_SENSES,
-     W8_ATTRIBUTE_INTELLIGENCE},
-    {W8_SKILL_CATEGORY_COMBAT, W8_SKILL_IMPORT_POLICY_0, W8_ATTRIBUTE_SENSES,
-     W8_ATTRIBUTE_INTELLIGENCE},
-    {W8_SKILL_CATEGORY_COMBAT, W8_SKILL_IMPORT_POLICY_0, W8_ATTRIBUTE_SENSES,
-     W8_ATTRIBUTE_INTELLIGENCE},
-    {W8_SKILL_CATEGORY_COMBAT, W8_SKILL_IMPORT_POLICY_1, W8_ATTRIBUTE_DEXTERITY,
-     W8_ATTRIBUTE_SENSES},
-    {W8_SKILL_CATEGORY_COMBAT, W8_SKILL_IMPORT_POLICY_1, W8_ATTRIBUTE_SENSES, W8_ATTRIBUTE_SPEED},
-    {W8_SKILL_CATEGORY_COMBAT, W8_SKILL_IMPORT_POLICY_0, W8_ATTRIBUTE_INTELLIGENCE,
-     W8_ATTRIBUTE_SENSES},
-    {W8_SKILL_CATEGORY_COMBAT, W8_SKILL_IMPORT_POLICY_0, W8_ATTRIBUTE_SENSES,
-     W8_ATTRIBUTE_INTELLIGENCE},
-    {W8_SKILL_CATEGORY_COMBAT, W8_SKILL_IMPORT_POLICY_0, W8_ATTRIBUTE_INTELLIGENCE,
-     W8_ATTRIBUTE_SENSES},
-    {W8_SKILL_CATEGORY_COMBAT, W8_SKILL_IMPORT_PROFESSION, W8_ATTRIBUTE_INTELLIGENCE,
-     W8_ATTRIBUTE_DEXTERITY},
-    {W8_SKILL_CATEGORY_MAGIC, W8_SKILL_IMPORT_POLICY_1, W8_ATTRIBUTE_INTELLIGENCE,
-     W8_ATTRIBUTE_INTELLIGENCE},
-    {W8_SKILL_CATEGORY_MAGIC, W8_SKILL_IMPORT_POLICY_1, W8_ATTRIBUTE_PIETY, W8_ATTRIBUTE_PIETY},
-    {W8_SKILL_CATEGORY_MAGIC, W8_SKILL_IMPORT_POLICY_1, W8_ATTRIBUTE_DEXTERITY,
-     W8_ATTRIBUTE_INTELLIGENCE},
-    {W8_SKILL_CATEGORY_MAGIC, W8_SKILL_IMPORT_POLICY_1, W8_ATTRIBUTE_SENSES,
-     W8_ATTRIBUTE_INTELLIGENCE},
-    {W8_SKILL_CATEGORY_MAGIC, W8_SKILL_IMPORT_POLICY_1, W8_ATTRIBUTE_INTELLIGENCE,
-     W8_ATTRIBUTE_PIETY},
-    {W8_SKILL_CATEGORY_MAGIC, W8_SKILL_IMPORT_POLICY_1, W8_ATTRIBUTE_INTELLIGENCE,
-     W8_ATTRIBUTE_PIETY},
-    {W8_SKILL_CATEGORY_MAGIC, W8_SKILL_IMPORT_POLICY_1, W8_ATTRIBUTE_INTELLIGENCE,
-     W8_ATTRIBUTE_PIETY},
-    {W8_SKILL_CATEGORY_MAGIC, W8_SKILL_IMPORT_POLICY_1, W8_ATTRIBUTE_INTELLIGENCE,
-     W8_ATTRIBUTE_PIETY},
-    {W8_SKILL_CATEGORY_MAGIC, W8_SKILL_IMPORT_POLICY_1, W8_ATTRIBUTE_INTELLIGENCE,
-     W8_ATTRIBUTE_PIETY},
-    {W8_SKILL_CATEGORY_MAGIC, W8_SKILL_IMPORT_POLICY_1, W8_ATTRIBUTE_INTELLIGENCE,
-     W8_ATTRIBUTE_PIETY},
-    {W8_SKILL_CATEGORY_EXPERT, W8_SKILL_IMPORT_DISABLED, W8_ATTRIBUTE_STRENGTH,
-     W8_ATTRIBUTE_STRENGTH},
-    {W8_SKILL_CATEGORY_EXPERT, W8_SKILL_IMPORT_DISABLED, W8_ATTRIBUTE_INTELLIGENCE,
-     W8_ATTRIBUTE_INTELLIGENCE},
-    {W8_SKILL_CATEGORY_EXPERT, W8_SKILL_IMPORT_DISABLED, W8_ATTRIBUTE_PIETY, W8_ATTRIBUTE_PIETY},
-    {W8_SKILL_CATEGORY_EXPERT, W8_SKILL_IMPORT_DISABLED, W8_ATTRIBUTE_VITALITY,
-     W8_ATTRIBUTE_VITALITY},
-    {W8_SKILL_CATEGORY_EXPERT, W8_SKILL_IMPORT_DISABLED, W8_ATTRIBUTE_DEXTERITY,
-     W8_ATTRIBUTE_DEXTERITY},
-    {W8_SKILL_CATEGORY_EXPERT, W8_SKILL_IMPORT_DISABLED, W8_ATTRIBUTE_SPEED, W8_ATTRIBUTE_SPEED},
-    {W8_SKILL_CATEGORY_EXPERT, W8_SKILL_IMPORT_DISABLED, W8_ATTRIBUTE_SENSES, W8_ATTRIBUTE_SENSES},
-};
-int g_profession_skill_availability[0x29][15] = {
-    {1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0},
-    {1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-    {1, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0},
-    {1, 1, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1, 0, 0},
-    {1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1},
-    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-    {1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0},
-    {1, 1, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0},
-    {1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0},
-    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-    {0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0},
-    {0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0},
-    {0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0},
-    {0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0},
-    {0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0},
-    {0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0},
-    {0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0},
-    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-    {0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0},
-    {0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1},
-    {0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0},
-    {0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0},
-    {0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 0},
-    {0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1},
-    {0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1},
-    {0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1},
-    {0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1},
-    {0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1},
-    {0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1},
-    {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-    {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-    {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-    {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-    {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-    {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-    {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-};
-W8Skill g_profession_bonus_skills[15] = {
-    W8_SKILL_CLOSE_COMBAT,
-    W8_SKILL_DUAL_WEAPONS,
-    W8_SKILL_POLEARM,
-    W8_SKILL_RANGED_COMBAT,
-    W8_SKILL_SWORD,
-    W8_SKILL_CRITICAL_STRIKE,
-    W8_SKILL_MARTIAL_ARTS,
-    W8_SKILL_LOCKS_TRAPS,
-    W8_SKILL_MODERN_WEAPONS,
-    W8_SKILL_COMMUNICATION,
-    W8_SKILL_SPELLBOOK_DIVINITY,
-    W8_SKILL_SPELLBOOK_ALCHEMY,
-    W8_SKILL_ARTIFACTS,
-    W8_SKILL_SPELLBOOK_PSIONICS,
-    W8_SKILL_SPELLBOOK_WIZARDRY,
-};
-W8Skill g_profession_skills[15][4] = {
-    {W8_SKILL_RANGED_COMBAT, W8_SKILL_SWORD, W8_SKILL_AXE, W8_SKILL_SHIELD},
-    {W8_SKILL_CLOSE_COMBAT, W8_SKILL_SWORD, W8_SKILL_DAGGER, W8_SKILL_NONE},
-    {W8_SKILL_CLOSE_COMBAT, W8_SKILL_MYTHOLOGY, W8_SKILL_AXE, W8_SKILL_NONE},
-    {W8_SKILL_SCOUTING, W8_SKILL_BOW, W8_SKILL_MYTHOLOGY, W8_SKILL_NONE},
-    {W8_SKILL_CLOSE_COMBAT, W8_SKILL_DUAL_WEAPONS, W8_SKILL_CRITICAL_STRIKE, W8_SKILL_NONE},
-    {W8_SKILL_CLOSE_COMBAT, W8_SKILL_MARTIAL_ARTS, W8_SKILL_THROWING_SLING, W8_SKILL_STEALTH},
-    {W8_SKILL_CLOSE_COMBAT, W8_SKILL_CRITICAL_STRIKE, W8_SKILL_STAFF_WAND, W8_SKILL_STEALTH},
-    {W8_SKILL_DAGGER, W8_SKILL_DUAL_WEAPONS, W8_SKILL_PICKPOCKET, W8_SKILL_STEALTH},
-    {W8_SKILL_RANGED_COMBAT, W8_SKILL_ENGINEERING, W8_SKILL_LOCKS_TRAPS, W8_SKILL_NONE},
-    {W8_SKILL_MUSIC, W8_SKILL_MYTHOLOGY, W8_SKILL_ARTIFACTS, W8_SKILL_NONE},
-    {W8_SKILL_MACE_FLAIL, W8_SKILL_STAFF_WAND, W8_SKILL_COMMUNICATION, W8_SKILL_NONE},
-    {W8_SKILL_MYTHOLOGY, W8_SKILL_THROWING_SLING, W8_SKILL_NONE, W8_SKILL_NONE},
-    {W8_SKILL_SPELLBOOK_ALCHEMY, W8_SKILL_SPELLBOOK_WIZARDRY, W8_SKILL_SPELLBOOK_DIVINITY,
-     W8_SKILL_SPELLBOOK_PSIONICS},
-    {W8_SKILL_COMMUNICATION, W8_SKILL_MYTHOLOGY, W8_SKILL_MENTAL_MAGIC, W8_SKILL_NONE},
-    {W8_SKILL_FIRE_MAGIC, W8_SKILL_WATER_MAGIC, W8_SKILL_AIR_MAGIC, W8_SKILL_MENTAL_MAGIC},
-};
-int g_profession_magic_level_offsets[15] = {
-    -255, -4, -4, -4, -4, -4, -4, -255, -255, -255, 0, 0, 0, 0, 0,
-};

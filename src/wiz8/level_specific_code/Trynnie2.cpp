@@ -3,17 +3,15 @@
 #include <string>
 #include <vector>
 
-#include "conditions.h"
 #include "glm/ext/vector_float3.hpp"
+#include "wiz8/data/fact_ids.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
 #include "wiz8/inventory.h"
-#include "wiz8/item_location.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/item_instance.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/Trynnie1.h"
 #include "wiz8/local_code/GameplayCode.h"
@@ -24,6 +22,9 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/rules/conditions.h"
+#include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_location.h"
 #include "wiz8/string_database.h"
 #include "wiz8/world/world.h"
 

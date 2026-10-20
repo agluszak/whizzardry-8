@@ -4,13 +4,13 @@
 #include <iterator>
 #include <vector>
 
-#include "conditions.h"
 #include "wiz8/chunk.h"
+#include "wiz8/data/fact_ids.h"
+#include "wiz8/data/faction_ids.h"
+#include "wiz8/data/records.h"
 #include "wiz8/inventory.h"
-#include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/local_code/Factions.h"
@@ -19,6 +19,8 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
+#include "wiz8/rules/character.h"
+#include "wiz8/rules/conditions.h"
 
 /* Runs once the new-game level has finished loading: records the two starting
    transcript keywords from string-table entries 0x7e7/0x7e8 and

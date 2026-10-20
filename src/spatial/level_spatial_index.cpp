@@ -36,7 +36,7 @@
 #include "glm/ext/vector_int3_sized.hpp"
 #include "ground_probe.h"
 #include "index_algorithms.h"
-#include "layouts/gameplay_databases.h"
+#include "wiz8/data/records.h"
 #include "wiz8/entities/cursor_nodes.h"
 #include "wiz8/entities/keyframe_track.h"
 #include "wiz8/entities/monster.h"

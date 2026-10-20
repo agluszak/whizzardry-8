@@ -2,7 +2,7 @@
 
 #include <optional>
 
-#include "wiz8/layouts/targeting.h"
+#include "wiz8/rules/targeting.h"
 
 void SetPendingMoveKind(W8ActionKind kind);
 std::optional<unsigned int> GetPartyHasteSteps();

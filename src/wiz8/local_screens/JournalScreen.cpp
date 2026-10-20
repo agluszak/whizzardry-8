@@ -13,7 +13,6 @@
 #include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
 
-#include "difficulty.h"
 #include "message_box.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/button_interaction.h"
@@ -23,15 +22,18 @@
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/chunk.h"
 #include "wiz8/cursor.h"
+#include "wiz8/data/fact_ids.h"
+#include "wiz8/data/records.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
+#include "wiz8/difficulty.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
-#include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/Factions.h"
+#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"

@@ -7,9 +7,10 @@
 #include <fmt/printf.h>
 
 #include "wiz8/chunk.h"
+#include "wiz8/data/faction_ids.h"
+#include "wiz8/data/records.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/MGSTextBox.h"

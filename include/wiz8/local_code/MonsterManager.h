@@ -7,17 +7,18 @@
 #include <source_location>
 #include <string>
 
-#include "conditions.h"
 #include "glm/ext/vector_float3.hpp"
-#include "layouts/targeting.h"
 #include "wiz8/audio_resources.h"
 #include "wiz8/difficulty.h"
 #include "wiz8/local_code/GameplayDatabase.h"
+#include "wiz8/rules/conditions.h"
+#include "wiz8/rules/targeting.h"
 
 class Monster;
 enum W8AnimationBehaviour : unsigned char;
 struct W8MonsterGroup;
 struct W8MonsterInfo;
+struct World;
 struct W8MonsterRecord;
 
 #include <unordered_map>
@@ -26,12 +27,12 @@ struct W8MonsterRecord;
 #include "wiz8/audio/mouth_gap.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/dialog_code/PortraitQuote.h"
-#include "wiz8/gameplay_modifiers.h"
-#include "wiz8/layouts/character.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/monster_actions.h"
 #include "wiz8/monster_cycles.h"
 #include "wiz8/portrait_animation.h"
+#include "wiz8/rules/character.h"
+#include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/sight_state.h"
 
 struct W8CharacterEvent;

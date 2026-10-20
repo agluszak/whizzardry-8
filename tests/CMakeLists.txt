@@ -1,5 +1,14 @@
 link_libraries(Catch2::Catch2WithMain wiz8_asset_preparation)
 
+# The architecture's layers include only what they may depend on (tools/check_layers.py).
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+add_test(NAME layer_boundaries
+    COMMAND Python3::Interpreter "${PROJECT_SOURCE_DIR}/tools/check_layers.py")
+
+add_executable(native_party_storage_test native/party_storage_test.cpp)
+target_link_libraries(native_party_storage_test PRIVATE wiz8_rules)
+catch_discover_tests(native_party_storage_test TEST_PREFIX "native_party_storage/")
+
 # Reuse the runtime clock hook for deterministic timer checks without game assets.
 add_executable(native_game_timer_test native/game_timer_test.cpp
     "${PROJECT_SOURCE_DIR}/src/compat/native_helpers.cpp")

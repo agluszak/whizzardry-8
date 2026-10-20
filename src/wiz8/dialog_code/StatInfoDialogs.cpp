@@ -8,15 +8,15 @@
 #include <SDL3/SDL_surface.h>
 #include <fmt/printf.h>
 
-#include "character_skills.h"
 #include "dialog_code/DialogBase.h"
 #include "dialog_code/DialogScrollBar.h"
 #include "dialog_code/DialogTextArea.h"
 #include "local_code/ControlsRect.h"
 #include "wiz8/canvas/Font.h"
+#include "wiz8/data/character_tables.h"
+#include "wiz8/data/skills.h"
 #include "wiz8/dialog_code/MonsterInfoDialog.h"
 #include "wiz8/fonts.h"
-#include "wiz8/layouts/character.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/CharacterScreen.h"
@@ -126,7 +126,7 @@ bool W8SkillInfoDialog::PopulateText()
 {
     W8StatInfoDialogBase::PopulateText();
     textarea.AddEntry(g_localized_strings[0x156], "", 10, 0xf, 0);
-    W8SkillAttributes* skill = &g_skill_attributes[m_skill];
+    const W8SkillAttributes* skill = &g_skill_attributes[m_skill];
     textarea.AddEntry(
         {}, g_localized_strings[g_character_description_first_ids[skill->attribute_1]], 10, 0xf, 0);
     if (skill->attribute_1 != skill->attribute_2) {

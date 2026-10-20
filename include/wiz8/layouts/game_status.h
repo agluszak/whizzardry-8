@@ -5,15 +5,15 @@
 
 #include <stddef.h>
 
+#include "wiz8/data/records.h"
 #include "wiz8/difficulty.h"
-#include "wiz8/gameplay_modifiers.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/levels.h"
-#include "wiz8/layouts/party_formation.h"
-#include "wiz8/party.h"
 #include "wiz8/retail_opaque_records.h"
+#include "wiz8/rules/character.h"
+#include "wiz8/rules/gameplay_modifiers.h"
+#include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/party.h"
+#include "wiz8/rules/party_formation.h"
 #include "wiz8/world/world.h"
 
 struct W8PartySlotRow;

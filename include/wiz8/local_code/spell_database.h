@@ -4,8 +4,8 @@
 
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
+#include "wiz8/data/records.h"
 #include "wiz8/entities/spell_visual.h"
-#include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/monster_spell_icons.h"
 
 class Monster;

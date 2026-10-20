@@ -11,17 +11,17 @@
 #include <SDL3/SDL_rect.h>
 #include <fmt/format.h>
 
-#include "conditions.h"
-#include "dice.h"
+#include "wiz8/data/dice.h"
 #include "wiz8/design_rect.h"
-#include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/party_slot.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/random.h"
+#include "wiz8/rules/character.h"
+#include "wiz8/rules/conditions.h"
+#include "wiz8/rules/party_slot.h"
 #include "wiz8/utility.h"
 #include "wiz8/xstatus.h"
 

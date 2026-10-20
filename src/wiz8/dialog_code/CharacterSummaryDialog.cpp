@@ -7,12 +7,10 @@
 
 #include "compat/native.h"
 #include "dialog_code/DialogBase.h"
-#include "layouts/character.h"
 #include "local_code/ControlsRect.h"
 #include "wiz8/audio/mouth_gap.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/catalog_artwork.h"
-#include "wiz8/conditions.h"
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/TextBuffer.h"
@@ -22,6 +20,8 @@
 #include "wiz8/platform/random.h"
 #include "wiz8/portrait_animation.h"
 #include "wiz8/render/frame.h"
+#include "wiz8/rules/character.h"
+#include "wiz8/rules/conditions.h"
 #include "wiz8/ui_input.h"
 
 /* The bodies from 0x005E0320 through 0x005E0C30 form one dialog lifecycle

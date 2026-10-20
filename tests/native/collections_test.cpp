@@ -15,7 +15,6 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "fact_state.h"
-#include "layouts/item_instance.h"
 #include "layouts/npc_state.h"
 #include "mgs_commands.h"
 #include "save_payload.h"
@@ -27,28 +26,25 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/character_stats.h"
 #include "wiz8/chunk.h"
-#include "wiz8/conditions.h"
 #include "wiz8/cursor.h"
+#include "wiz8/data/records.h"
+#include "wiz8/data/skills.h"
 #include "wiz8/entities/monster.h"
-#include "wiz8/equipment_slots.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/inventory.h"
-#include "wiz8/item_location.h"
 #include "wiz8/item_rules.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/layouts/main_game_screen.h"
-#include "wiz8/layouts/targeting.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/live_party.h"
-#include "wiz8/load_category.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/GameplayCode.h"
+#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/MonsterGenerator.h"
 #include "wiz8/local_code/MonsterGroup.h"
@@ -66,12 +62,18 @@
 #include "wiz8/monster_roster.h"
 #include "wiz8/npc_items.h"
 #include "wiz8/npc_trade_price.h"
-#include "wiz8/party.h"
 #include "wiz8/party_stats.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/retail_save_records.h"
 #include "wiz8/retail_text_records.h"
+#include "wiz8/rules/conditions.h"
+#include "wiz8/rules/equipment_slots.h"
+#include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_location.h"
+#include "wiz8/rules/load_category.h"
+#include "wiz8/rules/party.h"
+#include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/world/world.h"
 #include "wiz8/xstatus.h"
@@ -935,13 +937,13 @@ TEST_CASE("Detached party weight uses stable slot ties and drops the odd half-un
     }
     party.item_pool[0] = {.iItemNo = 0, .stack_count = 1};
     party.item_count = 1;
-    REQUIRE(party.refreshLoad({}));
+    REQUIRE(RefreshPartyLoad(party, {}));
     REQUIRE(party.characters[0].party_weight_share == 2);
     REQUIRE(party.characters[1].party_weight_share == 1);
     REQUIRE(party.characters[0].total_carried_weight == 2);
     REQUIRE(party.characters[1].total_carried_weight == 1);
     party.rows[0].fOccupied = false;
-    REQUIRE(party.refreshLoad({}));
+    REQUIRE(RefreshPartyLoad(party, {}));
     REQUIRE(party.characters[0].party_weight_share == 0);
     REQUIRE(party.characters[1].party_weight_share == 3);
 }
@@ -991,12 +993,12 @@ TEST_CASE("Party load follows supplied rules independently of the live combat an
     party.item_count = 1;
     PartyStatRules rules;
     rules.load_timing = PartyLoadTiming::AfterCombat;
-    REQUIRE_FALSE(party.refreshLoad(rules));
+    REQUIRE_FALSE(RefreshPartyLoad(party, rules));
     REQUIRE(party.redistribution_pending);
     REQUIRE(character.party_weight_share == 4);
     rules.load_timing = PartyLoadTiming::Immediate;
     rules.characters[0].defensive_action = true;
-    REQUIRE(party.refreshLoad(rules));
+    REQUIRE(RefreshPartyLoad(party, rules));
     REQUIRE_FALSE(party.redistribution_pending);
     REQUIRE(character.party_weight_share == 9);
     REQUIRE(character.armor_class_components[W8_AC_COMPONENT_DEFENSIVE_ACTION] == 2);

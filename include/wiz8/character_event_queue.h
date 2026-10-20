@@ -10,9 +10,9 @@
 
 #include "wiz8/audio_resources.h"
 #include "wiz8/gameplay_constants.h"
-#include "wiz8/layouts/item_instance.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/platform/timer.h"
+#include "wiz8/rules/item_instance.h"
 
 struct W8Character;
 

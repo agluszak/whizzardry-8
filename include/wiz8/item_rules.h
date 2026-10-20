@@ -2,8 +2,8 @@
 
 #include <array>
 
-#include "wiz8/layouts/character.h"
-#include "wiz8/layouts/item_instance.h"
+#include "wiz8/rules/character.h"
+#include "wiz8/rules/item_instance.h"
 
 unsigned int GetItemStackWeight(const W8ItemInstance* item);
 int WeaponHandKind(const W8ItemInstance& primary, const W8ItemInstance& secondary,

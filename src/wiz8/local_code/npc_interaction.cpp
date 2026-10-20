@@ -1,13 +1,13 @@
 
 #include "wiz8/npc_interaction.h"
 
-#include "conditions.h"
-#include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/npc_dialogue_view.h"
 #include "wiz8/local_code/npc_story_events.h"
+#include "wiz8/rules/character.h"
+#include "wiz8/rules/conditions.h"
 
 W8NpcDialogue g_npc_dialogue;
 

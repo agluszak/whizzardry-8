@@ -356,6 +356,7 @@ jobs:
           if [[ '${{ matrix.shard }}' == 0 ]]; then
             python3 -m py_compile tools/run-diagnostic-audit.py tools/run-clang-tidy-cached.py tools/clang_tidy_support.py tools/clang_tidy_shard.py
             python3 -m unittest discover -s tests/tools -p "*_test.py"
+            python3 tools/check_layers.py --clang-tidy clang-tidy-23 -p build/linux-tidy
           fi
           if [[ "${{ github.event_name }}" == pull_request ]]; then
             ./tools/run-clang-tidy.sh build/linux-tidy --changed-files "$RUNNER_TEMP/static-analysis-changed"

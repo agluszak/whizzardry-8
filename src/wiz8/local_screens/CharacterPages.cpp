@@ -13,7 +13,6 @@
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/fonts.h"
-#include "wiz8/layouts/character.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/ControlsRect.h"
@@ -21,6 +20,7 @@
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/rules/character.h"
 #include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
@@ -35,49 +35,6 @@ template<class T> T ReadStatValue(const void* address)
     return value;
 }
 }
-
-W8PortraitDescriptor g_portrait_descriptors[80] = {
-    {0, 0, 0, W8PortraitMirrorSide::left},   {0, 0, 1, W8PortraitMirrorSide::none},
-    {0, 0, 2, W8PortraitMirrorSide::right},  {0, 0, 3, W8PortraitMirrorSide::none},
-    {0, 0, 3, W8PortraitMirrorSide::left},   {0, 0, 3, W8PortraitMirrorSide::right},
-    {0, 1, 0, W8PortraitMirrorSide::right},  {0, 1, 1, W8PortraitMirrorSide::none},
-    {0, 1, 2, W8PortraitMirrorSide::none},   {0, 1, 3, W8PortraitMirrorSide::left},
-    {0, 1, 3, W8PortraitMirrorSide::none},   {0, 1, 3, W8PortraitMirrorSide::none},
-    {1, 0, 0, W8PortraitMirrorSide::left},   {1, 0, 1, W8PortraitMirrorSide::left},
-    {1, 0, 2, W8PortraitMirrorSide::right},  {1, 1, 0, W8PortraitMirrorSide::left},
-    {1, 1, 1, W8PortraitMirrorSide::left},   {1, 1, 2, W8PortraitMirrorSide::none},
-    {2, 0, 0, W8PortraitMirrorSide::left},   {2, 0, 1, W8PortraitMirrorSide::right},
-    {2, 0, 2, W8PortraitMirrorSide::left},   {2, 1, 0, W8PortraitMirrorSide::left},
-    {2, 1, 1, W8PortraitMirrorSide::left},   {2, 1, 2, W8PortraitMirrorSide::right},
-    {3, 0, 1, W8PortraitMirrorSide::left},   {3, 0, 2, W8PortraitMirrorSide::right},
-    {3, 1, 0, W8PortraitMirrorSide::none},   {3, 1, 1, W8PortraitMirrorSide::left},
-    {4, 0, 0, W8PortraitMirrorSide::left},   {4, 0, 1, W8PortraitMirrorSide::left},
-    {4, 1, 0, W8PortraitMirrorSide::left},   {4, 1, 1, W8PortraitMirrorSide::none},
-    {5, 0, 0, W8PortraitMirrorSide::none},   {5, 0, 2, W8PortraitMirrorSide::left},
-    {5, 1, 0, W8PortraitMirrorSide::left},   {5, 1, 1, W8PortraitMirrorSide::none},
-    {6, 0, 0, W8PortraitMirrorSide::left},   {6, 0, 1, W8PortraitMirrorSide::right},
-    {6, 1, 0, W8PortraitMirrorSide::none},   {6, 1, 1, W8PortraitMirrorSide::right},
-    {7, 0, 0, W8PortraitMirrorSide::none},   {7, 0, 1, W8PortraitMirrorSide::right},
-    {7, 1, 0, W8PortraitMirrorSide::right},  {7, 1, 1, W8PortraitMirrorSide::right},
-    {8, 0, 0, W8PortraitMirrorSide::none},   {8, 0, 1, W8PortraitMirrorSide::right},
-    {8, 1, 0, W8PortraitMirrorSide::right},  {8, 1, 1, W8PortraitMirrorSide::left},
-    {9, 0, 1, W8PortraitMirrorSide::right},  {9, 0, 2, W8PortraitMirrorSide::left},
-    {9, 1, 0, W8PortraitMirrorSide::left},   {9, 1, 1, W8PortraitMirrorSide::left},
-    {10, 0, 0, W8PortraitMirrorSide::right}, {10, 0, 1, W8PortraitMirrorSide::left},
-    {10, 1, 0, W8PortraitMirrorSide::right}, {10, 1, 1, W8PortraitMirrorSide::left},
-    {11, 0, 4, W8PortraitMirrorSide::none},  {11, 1, 4, W8PortraitMirrorSide::right},
-    {10, 0, 3, W8PortraitMirrorSide::right}, {11, 0, 1, W8PortraitMirrorSide::left},
-    {11, 0, 0, W8PortraitMirrorSide::none},  {11, 0, 1, W8PortraitMirrorSide::none},
-    {12, 0, 3, W8PortraitMirrorSide::right}, {13, 0, 3, W8PortraitMirrorSide::left},
-    {13, 0, 3, W8PortraitMirrorSide::left},  {13, 0, 3, W8PortraitMirrorSide::right},
-    {13, 0, 3, W8PortraitMirrorSide::right}, {13, 0, 3, W8PortraitMirrorSide::left},
-    {13, 0, 3, W8PortraitMirrorSide::none},  {13, 0, 3, W8PortraitMirrorSide::left},
-    {13, 0, 3, W8PortraitMirrorSide::left},  {13, 0, 3, W8PortraitMirrorSide::right},
-    {13, 0, 3, W8PortraitMirrorSide::none},  {13, 0, 3, W8PortraitMirrorSide::left},
-    {13, 0, 3, W8PortraitMirrorSide::none},  {13, 0, 3, W8PortraitMirrorSide::none},
-    {0, 0, 3, W8PortraitMirrorSide::none},   {0, 1, 3, W8PortraitMirrorSide::right},
-    {1, 0, 3, W8PortraitMirrorSide::left},   {1, 1, 3, W8PortraitMirrorSide::none},
-};
 
 W8CharacterPageEntry::W8CharacterPageEntry(UiLayer& input, int x, int y, bool compact)
     : m_input(input), m_first(0), m_second(0), m_third(0), m_id(-1), m_draw_background(compact),

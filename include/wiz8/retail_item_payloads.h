@@ -2,8 +2,8 @@
 #include <cstddef>
 #include <type_traits>
 
-#include "wiz8/attack_modes.h"
-#include "wiz8/dice.h"
+#include "wiz8/data/attack_modes.h"
+#include "wiz8/data/dice.h"
 
 enum W8ItemEquipClass : unsigned char;
 enum W8ItemCategory : unsigned char;

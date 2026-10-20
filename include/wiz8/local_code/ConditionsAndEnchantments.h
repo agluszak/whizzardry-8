@@ -1,6 +1,6 @@
 #pragma once
 #include "compat/compiler.h"
-#include "wiz8/conditions.h"
+#include "wiz8/rules/conditions.h"
 
 struct W8ItemInstance;
 struct W8TargetSource;

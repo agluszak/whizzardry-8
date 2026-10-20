@@ -1,13 +1,13 @@
-#include "wiz8/party.h"
+#include "wiz8/rules/party.h"
 
 #include <algorithm>
 #include <iterator>
 #include <optional>
 #include <utility>
 
-#include "wiz8/item_location.h"
-#include "wiz8/layouts/item_instance.h"
-#include "wiz8/layouts/party_slot.h"
+#include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_location.h"
+#include "wiz8/rules/party_slot.h"
 
 W8ItemLocation W8Party::locateItem(const W8ItemInstance* item) const
 {

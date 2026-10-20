@@ -1,8 +1,8 @@
 #pragma once
 
 #include "glm/ext/vector_float3.hpp"
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/layouts/targeting.h"
+#include "wiz8/data/records.h"
+#include "wiz8/rules/targeting.h"
 
 class Monster;
 struct W8Character;

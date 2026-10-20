@@ -5,18 +5,18 @@
 #include <cstring>
 #include <functional>
 
-#include "conditions.h"
 #include "layouts/game_status.h"
-#include "layouts/gameplay_databases.h"
-#include "layouts/item_instance.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/character_stats.h"
+#include "wiz8/data/character_tables.h"
+#include "wiz8/data/records.h"
+#include "wiz8/data/skills.h"
 #include "wiz8/dialog_code/ProfRaceInfoDialog.h"
 #include "wiz8/inventory.h"
-#include "wiz8/layouts/character.h"
 #include "wiz8/live_party.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/GameplayCode.h"
+#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/Magic.h"
@@ -24,6 +24,9 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/party_stats.h"
 #include "wiz8/platform/assertion.h"
+#include "wiz8/rules/character.h"
+#include "wiz8/rules/conditions.h"
+#include "wiz8/rules/item_instance.h"
 
 /* Refund every spent skill point through the per-skill commit helper. */
 void RefundAllSkillPoints(W8Character* character, W8CharacterCreationState* creation_state)

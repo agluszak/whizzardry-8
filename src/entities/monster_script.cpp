@@ -13,9 +13,7 @@
 #include <glm/geometric.hpp>
 
 #include "application.h"
-#include "conditions.h"
 #include "glm/ext/vector_float3.hpp"
-#include "layouts/targeting.h"
 #include "monster_actions.h"
 #include "monster_cycles.h"
 #include "wiz8/audio/sound3d.h"
@@ -55,6 +53,8 @@
 #include "wiz8/render/material_loader.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/resource_cache.h"
+#include "wiz8/rules/conditions.h"
+#include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/startup_world.h"

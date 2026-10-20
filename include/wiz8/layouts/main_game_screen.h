@@ -5,7 +5,7 @@
 
 #include "wiz8/camera_motion.h"
 #include "wiz8/geometry.h"
-#include "wiz8/layouts/targeting.h"
+#include "wiz8/rules/targeting.h"
 
 class Texture;
 

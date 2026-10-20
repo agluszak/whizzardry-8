@@ -3,12 +3,12 @@
 #include <span>
 
 #include "glm/ext/vector_float3.hpp"
-#include "wiz8/conditions.h"
-#include "wiz8/dice.h"
-#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/data/dice.h"
+#include "wiz8/data/records.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/monster_spell_icons.h"
+#include "wiz8/rules/conditions.h"
 
 struct W8CombatSlot;
 struct W8MonsterInfo;

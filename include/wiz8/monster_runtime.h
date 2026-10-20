@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <vector>
 
-#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/data/records.h"
 
 extern const float g_monster_record_float_scale; /* 0x005ED4F0 */
 

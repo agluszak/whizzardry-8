@@ -2,7 +2,7 @@
 
 #include <string_view>
 
-#include "wiz8/layouts/targeting.h"
+#include "wiz8/rules/targeting.h"
 
 struct W8MonsterRecord;
 enum class W8CombatActionStatus : unsigned char;

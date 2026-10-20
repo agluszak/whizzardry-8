@@ -7,8 +7,8 @@
 #include <SDL3/SDL_rect.h>
 
 #include "wiz8/application.h"
+#include "wiz8/data/dice.h"
 #include "wiz8/design_rect.h"
-#include "wiz8/dice.h"
 #include "wiz8/local_code/ControlsRect.h"
 
 void SetDice(W8Dice* dice, unsigned char count, unsigned char sides, short base);

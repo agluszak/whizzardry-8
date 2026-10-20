@@ -14,17 +14,16 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 
-#include "conditions.h"
 #include "glm/ext/vector_float3.hpp"
 #include "monster_actions.h"
+#include "wiz8/data/faction_ids.h"
+#include "wiz8/data/records.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/script.h"
 #include "wiz8/fonts.h"
 #include "wiz8/gameplay_constants.h"
-#include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/level_population.h"
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/Factions.h"
@@ -41,6 +40,8 @@
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/render/picking.h"
+#include "wiz8/rules/character.h"
+#include "wiz8/rules/conditions.h"
 #include "wiz8/spatial/bounding_sphere.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"

@@ -10,16 +10,16 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 
-#include "character_skills.h"
 #include "dialog_code/DialogBase.h"
 #include "dialog_code/DialogScrollBar.h"
 #include "dialog_code/DialogTextArea.h"
-#include "layouts/gameplay_databases.h"
 #include "local_code/ControlsRect.h"
 #include "wiz8/canvas/Font.h"
 #include "wiz8/catalog_artwork.h"
+#include "wiz8/data/character_tables.h"
+#include "wiz8/data/records.h"
+#include "wiz8/data/skills.h"
 #include "wiz8/fonts.h"
-#include "wiz8/layouts/character.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/CharGeneration.h"

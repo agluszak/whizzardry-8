@@ -7,11 +7,11 @@ void ResetTargetPicks(void);
 #include <vector>
 
 #include "glm/ext/vector_float3.hpp"
+#include "wiz8/data/records.h"
 #include "wiz8/inventory.h"
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/layouts/targeting.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/PC_Item.h"
+#include "wiz8/rules/targeting.h"
 
 struct W8Party;
 struct W8MonsterInfo;

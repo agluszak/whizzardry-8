@@ -1,7 +1,7 @@
 #pragma once
 
-#include "wiz8/layouts/item_instance.h"
-#include "wiz8/layouts/targeting.h"
+#include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/targeting.h"
 
 enum { W8_PARTY_SLOT_COUNT = 8 };
 

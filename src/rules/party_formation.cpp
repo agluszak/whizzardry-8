@@ -1,11 +1,11 @@
-#include "wiz8/layouts/party_formation.h"
+#include "wiz8/rules/party_formation.h"
 
 #include <algorithm>
 #include <iterator>
 #include <span>
+#include <stdexcept>
 
-#include "wiz8/layouts/party_slot.h"
-#include "wiz8/platform/assertion.h"
+#include "wiz8/rules/party_slot.h"
 
 W8PartyFormationState::W8PartyFormationState()
     : bOccupantChar{}, ubQuadrantOccupants{}, positions{}, unknown_74{}
@@ -59,10 +59,10 @@ void W8PartyFormationState::setPosition(int slot, signed char new_row, signed ch
     if (old_row != -1) {
         signed char* occupant = &bOccupantChar[old_row][old_column];
         if (*occupant == -1) {
-            Fail("pFormation->bOccupantChar[bOldQuadrant][bOldSlot] != -1");
+            throw std::logic_error("A formation member left an empty cell");
         }
         if (ubQuadrantOccupants[old_row] == 0) {
-            Fail("pFormation->ubQuadrantOccupants[bOldQuadrant] > 0");
+            throw std::logic_error("A formation member left an empty row");
         }
         *occupant = -1;
         --ubQuadrantOccupants[old_row];
@@ -72,10 +72,10 @@ void W8PartyFormationState::setPosition(int slot, signed char new_row, signed ch
     if (new_row != -1) {
         signed char* occupant = &bOccupantChar[new_row][new_column];
         if (*occupant != -1) {
-            Fail("pFormation->bOccupantChar[bNewQuadrant][bNewSlot] == -1");
+            throw std::logic_error("A formation member entered an occupied cell");
         }
         if (ubQuadrantOccupants[new_row] >= 3) {
-            Fail("pFormation->ubQuadrantOccupants[bNewQuadrant] < MAX_CHARS_PER_QUADRANT");
+            throw std::logic_error("A formation member entered a full row");
         }
         *occupant = static_cast<signed char>(slot);
         ++ubQuadrantOccupants[new_row];

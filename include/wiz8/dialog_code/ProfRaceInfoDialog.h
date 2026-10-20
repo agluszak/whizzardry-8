@@ -5,10 +5,10 @@
 
 #include "compat/compiler.h"
 #include "wiz8/catalog_artwork.h"
+#include "wiz8/data/records.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/DialogScrollBar.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
-#include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/local_code/ButtonWidget.h"
 
 enum { W8_DIALOG_ATTRIBUTE_COUNT = 7 };

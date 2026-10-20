@@ -3,7 +3,7 @@
 
 #include <cstddef>
 
-#include "wiz8/layouts/item_instance.h"
+#include "wiz8/rules/item_instance.h"
 
 enum class W8NpcStockChanceTier : signed char {
     never = 0,
