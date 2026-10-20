@@ -172,14 +172,12 @@ each.
   - Make the retail previous-pass damage bonus used by swings an explicit history
     input, so that a different number of passes cannot change combat results.
 - **The party and actions model.** (After step 1; choices move with `Combat` in
-  step 6.) `W8PartySlotRow` mixes several unrelated kinds of state:
-  - persistent membership, NPC binding and marching order;
-  - combat choices (pending, committed, remembered and spell actions, targets);
-  - UI flags (`item_action_pending`, `portrait_advance`) and accumulators
-    (`movement_fatigue`).
-
+  step 6.) A `W8PartySlotRow` groups a member's action state into named parts
+  (`remembered` choices, the `committed` action, the action `executing`), but it still
+  mixes them with persistent membership, NPC binding and marching order, UI flags
+  (`item_action_pending`, `portrait_advance`) and accumulators (`movement_fatigue`).
   Split these by owner:
-  - membership in the party, and choices in a turn/combat model;
+  - membership in the party, and the action parts in a turn/combat model;
   - presentation in the screens.
 
   Replace `fOccupied` arrays with real optional members, so that no code asks "is

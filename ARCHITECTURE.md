@@ -220,8 +220,13 @@ Unlayered code may use the layers.
 ## Gameplay operations
 
 - **Actions.** Spell and item pickers own an action draft while open; cancelling
-  discards it, and committing copies the completed draft. Committed and remembered
-  choices own action values. Target preview and execution share target geometry
+  discards it, and committing copies the completed draft. A party row holds three
+  independent parts (`action_choices.h`): the member's `remembered` choices (basic
+  action, last spell, item use, breath target, the repeat key's action), the action
+  `committed` for this turn, and the action `executing`. A berserk choice yields to
+  attack while the member cannot berserk and returns when they can
+  (`ReconcileBerserkChoice`, a rule); in combat a weapon-hand change also re-aims an
+  attack and flips the alternate hand (`ReconcileCombatHandChange`). Target preview and execution share target geometry
   and sight rules but never share random power or damage results.
 - **Trade.** Trade rows keep a source location and the expected item contents;
   compaction or changed contents invalidates the selection. Identical stacks are

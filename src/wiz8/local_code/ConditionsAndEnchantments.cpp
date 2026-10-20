@@ -187,7 +187,7 @@ void RemoveCharacterCondition(int party_slot, W8Condition condition, bool announ
         case W8_CONDITION_INSANE:
             if (CurrentGame().combat.active() &&
                 CurrentGame().combat.state()->characters[party_slot].berserk) {
-                row->target_out_of_combat = row->committed_action.target;
+                row->executing.target = row->committed.target;
             }
             break;
         case W8_CONDITION_TURNCOAT:

@@ -1041,19 +1041,19 @@ static void global_status_record()
     for (int slot = 0; slot < 8; ++slot) {
         rows[slot].fOccupied = true;
         rows[slot].npc_index = slot < 2 ? slot : -1;
-        rows[slot].pending_action = W8_ACTION_ATTACK;
-        rows[slot].committed_action = {W8_ACTION_CAST_SPELL, 20 + slot};
-        rows[slot].committed_action.detail_block.spell.power_level = slot % 7 + 1;
-        rows[slot].committed_action.target = {W8_TARGET_KIND_CHARACTER, slot, -1, -1, {}, {}};
-        rows[slot].spell = {W8_ACTION_CAST_SPELL, 40 + slot};
-        rows[slot].spell.detail_block.spell.power_level = 7;
-        rows[slot].attack_mode[0] = 100 + slot;
+        rows[slot].executing.kind = W8_ACTION_ATTACK;
+        rows[slot].committed = {W8_ACTION_CAST_SPELL, 20 + slot};
+        rows[slot].committed.detail_block.spell.power_level = slot % 7 + 1;
+        rows[slot].committed.target = {W8_TARGET_KIND_CHARACTER, slot, -1, -1, {}, {}};
+        rows[slot].remembered.spell = {W8_ACTION_CAST_SPELL, 40 + slot};
+        rows[slot].remembered.spell.detail_block.spell.power_level = 7;
+        rows[slot].executing.attack_mode[0] = 100 + slot;
         rows[slot].movement_fatigue = 1.25f + slot;
         rows[slot].party_order_index = slot;
         rows[slot].weapon_swap_pending = slot % 2;
     }
-    rows[0].pending_action = W8_ACTION_USE_ITEM;
-    rows[0].item_detail.item_use.item = {W8ItemStorage::Backpack, 0, 3};
+    rows[0].executing.kind = W8_ACTION_USE_ITEM;
+    rows[0].remembered.item_detail.item_use.item = {W8ItemStorage::Backpack, 0, 3};
     status.serialized = {0xa5, {0x5a, 0x17}};
     party.gold = 0x12345678;
     party.item_pool[0] = {.iItemNo = 12, .stack_count = 3};
@@ -1129,11 +1129,11 @@ static void global_status_record()
     read_status_chunk([&] { restored = DecodeGameStatus(chunks); });
     auto independent = restored;
     independent.party.characters[0].name = "independent party";
-    independent.party.rows[0].attack_mode[0] = -123;
+    independent.party.rows[0].executing.attack_mode[0] = -123;
     independent.party.item_pool[0].stack_count = 9;
     independent.party.gold = 1;
     REQUIRE(restored.party.characters[0].name != independent.party.characters[0].name);
-    REQUIRE(restored.party.rows[0].attack_mode[0] == 100);
+    REQUIRE(restored.party.rows[0].executing.attack_mode[0] == 100);
     REQUIRE(restored.party.gold == party.gold);
     REQUIRE(restored.party.item_pool[0].stack_count == 3);
     REQUIRE(restored.party.item_count == 1);
@@ -1144,19 +1144,19 @@ static void global_status_record()
         REQUIRE(restored_image[offset] == status_image[offset]);
     for (int slot = 0; slot < 8; ++slot) {
         REQUIRE(restored_rows[slot].fOccupied);
-        const auto& action = restored_rows[slot].committed_action;
+        const auto& action = restored_rows[slot].committed;
         REQUIRE(action.kind == W8_ACTION_CAST_SPELL);
         REQUIRE(action.detail == 20 + slot);
         REQUIRE(action.detail_block.spell.power_level == slot % 7 + 1);
         REQUIRE(action.target.iType == W8_TARGET_KIND_CHARACTER);
         REQUIRE(action.target.iChar == slot);
-        REQUIRE(restored_rows[slot].spell.detail == 40 + slot);
-        REQUIRE(restored_rows[slot].spell.detail_block.spell.power_level == 7);
-        REQUIRE(restored_rows[slot].attack_mode[0] == 100 + slot);
+        REQUIRE(restored_rows[slot].remembered.spell.detail == 40 + slot);
+        REQUIRE(restored_rows[slot].remembered.spell.detail_block.spell.power_level == 7);
+        REQUIRE(restored_rows[slot].executing.attack_mode[0] == 100 + slot);
         REQUIRE(restored_rows[slot].movement_fatigue == 1.25f + slot);
         REQUIRE(restored_rows[slot].weapon_swap_pending == bool(slot % 2));
     }
-    const auto location = restored.party.rows[0].pending_action_detail.item_use.item;
+    const auto location = restored.party.rows[0].executing.detail_block.item_use.item;
     REQUIRE(restored.party.itemAt(location) == &restored.party.characters[0].backpack[3]);
 }
 

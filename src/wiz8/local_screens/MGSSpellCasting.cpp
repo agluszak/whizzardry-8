@@ -339,7 +339,7 @@ void SelectSpellCastingCharacter(int party_slot)
     UpdateSpellRealmPointDisplays();
     ClearSpellCastingChoice();
     if (GetAffordableSpellPowerLevel(party_slot) != 0) {
-        int spell_id = CurrentGame().party.rows[party_slot].spell.detail;
+        int spell_id = CurrentGame().party.rows[party_slot].remembered.spell.detail;
         SelectSpellCastingRealm(Data().spells[spell_id].realm);
         if (spell_id == W8_SPELL_IDENTIFY_ITEM) {
             gpSCSV->uiSpellIndex = -1;

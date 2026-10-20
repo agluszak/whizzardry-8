@@ -19,6 +19,7 @@
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
+#include "wiz8/rules/action_choices.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/character_stats.h"
@@ -90,46 +91,6 @@ void RedistributePartyEncumbrance(Game& game)
         game.events.push(PartyLoadChanged{});
 }
 
-/* Combat choices that depend on the weapons in hand follow a change of them: berserk
-   follows its eligibility, an attack keeps a reachable target, and the hand-attack
-   values are rebuilt through the alternate-hand toggle. */
-static void ReconcileHandChange(Game& game, unsigned int party_slot)
-{
-    W8PartySlotRow* row = &game.party.rows[party_slot];
-    W8ActionKind action_kind = row->action_kind;
-    if (action_kind == W8_ACTION_BERSERK) {
-        if (!CanCharacterBerserk(party_slot)) {
-            row->action_kind = W8_ACTION_ATTACK;
-            if (row->committed_action.kind == W8_ACTION_BERSERK) {
-                row->committed_action.kind = W8_ACTION_ATTACK;
-            }
-        }
-    } else if (action_kind == W8_ACTION_ATTACK && row->action_is_berserk &&
-               CanCharacterBerserk(party_slot)) {
-        row->action_kind = W8_ACTION_BERSERK;
-        if (row->committed_action.kind == W8_ACTION_ATTACK) {
-            row->committed_action.kind = W8_ACTION_BERSERK;
-        }
-    }
-
-    if (game.combat.active()) {
-        W8ActionKind action = row->committed_action.kind;
-        if (action == W8_ACTION_ATTACK || action == W8_ACTION_BERSERK) {
-            if (!CharacterCanSwitchTo(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, true, false)) {
-                AimByKind(party_slot, W8_TARGET_KIND_NONE, W8_TARGETING_CONTEXT_IN_COMBAT);
-            } else if (!TargetIsInPlay(
-                           party_slot, 2,
-                           SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT))) {
-                RepickActionTarget(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, 0);
-            }
-        }
-        game.combat.state()->characters[party_slot].alternate_hand ^= 1;
-        if (party_slot == static_cast<unsigned int>(game.status.selected_character))
-            game.events.push(CombatPanelChanged{});
-    }
-    game.events.push(PartySlotChanged{party_slot});
-}
-
 void SettleActiveParty(Game& game, std::bitset<W8_PARTY_SLOT_COUNT> changed_hands)
 {
     auto& party = game.party;
@@ -141,8 +102,13 @@ void SettleActiveParty(Game& game, std::bitset<W8_PARTY_SLOT_COUNT> changed_hand
     for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
         if (!party.rows[slot].fOccupied) continue;
         auto& character = party.characters[slot];
-        if (changed_hands[slot] && character.fInParty && game.status.game_started)
-            ReconcileHandChange(game, slot);
+        // Combat choices that depend on the weapons in hand follow a change of them.
+        if (changed_hands[slot] && character.fInParty && game.status.game_started) {
+            auto& row = party.rows[slot];
+            ReconcileBerserkChoice(row.remembered, row.committed, CanCharacterBerserk(slot));
+            ReconcileCombatHandChange(game, slot);
+            game.events.push(PartySlotChanged{slot});
+        }
         PresentInventoryWeightChange(character, stats.characters[slot].weight);
         if (character.fInParty) game.events.push(PartySlotChanged{slot});
     }

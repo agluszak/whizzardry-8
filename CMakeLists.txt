@@ -225,6 +225,7 @@ target_link_libraries(wiz8_platform PUBLIC wiz8_native_settings)
 # tools/check_layers.py checks in their includes.
 add_library(wiz8_rules STATIC
     src/data/character_tables.cpp
+    src/rules/action_choices.cpp
     src/rules/character_derivation.cpp
     src/rules/character_stats.cpp
     src/rules/events.cpp
