@@ -96,6 +96,7 @@
 #include "wiz8/rules/equipment_slots.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/gameplay_modifiers.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
@@ -2807,8 +2808,8 @@ int GetConditionInterrupt(W8TargetSource* source)
     if (source->iType == W8_TARGET_SOURCE_CHARACTER) {
         if (!can_attack) {
             if (!AreAllHandSlotsEmpty(&CurrentGame().party.characters[party_slot]) &&
-                CanUnequipSlotItem(character, W8_EQUIP_SLOT_PRIMARY_WEAPON) &&
-                CanUnequipSlotItem(character, W8_EQUIP_SLOT_SECONDARY_WEAPON)) {
+                CanUnequipSlotItem(Data(), character, W8_EQUIP_SLOT_PRIMARY_WEAPON) &&
+                CanUnequipSlotItem(Data(), character, W8_EQUIP_SLOT_SECONDARY_WEAPON)) {
                 SwapWeaponSetSlots(CurrentGame(), party_slot, false);
                 if (CanAnyHandReachTarget(party_slot) &&
                     CanPartySlotAttackAnyTarget(party_slot, 1, false)) {

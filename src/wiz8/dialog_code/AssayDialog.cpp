@@ -187,7 +187,7 @@ void W8AssayDialog::PopulateText()
         m_text_area.AddEntry(Data().strings[0x8b1],
                              fmt::format("{:+d}", record->attack_damage_bonus), 10, 0xf, 0);
     }
-    slot_mask = GetItemEquipSlotMask(m_item.iItemNo, true, true, true, true);
+    slot_mask = GetItemEquipSlotMask(Data(), m_item.iItemNo, true, true, true, true);
     count = 0;
     for (bit = 0; bit < 12; ++bit) {
         if (bit != 8 && bit != 9 && (slot_mask & (1 << bit)) != 0) {
@@ -204,7 +204,7 @@ void W8AssayDialog::PopulateText()
     if (count != 0) {
         m_text_area.AddEntry(Data().strings[0x8e5], g_assay_entry_text, 10, 0xf, 0);
     }
-    if (GetItemDefaultEquipSlot(m_item.iItemNo) != -1 &&
+    if (GetItemDefaultEquipSlot(Data(), m_item.iItemNo, GameStarted()) != -1 &&
         Data().items[m_item.iItemNo].equip_class != W8_ITEM_EQUIP_CLASS_AMMUNITION) {
         unsigned int palette;
         if (!m_item.bound) {
@@ -727,7 +727,8 @@ void W8AssayDialog::CreateTextBuffers()
             g_wiz_text_font_secondary, g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
     }
 
-    m_text_buffers[0]->SetText(FormatItemDisplayName(&m_item, false), g_wiz_text_font_secondary);
+    m_text_buffers[0]->SetText(FormatItemDisplayName(Data(), &m_item, false),
+                               g_wiz_text_font_secondary);
     equip_class = GetItemEquipClass(&m_item);
     m_text_buffers[2]->SetText(Data().strings[g_equip_class_name_ids[equip_class]],
                                g_wiz_text_font_secondary);

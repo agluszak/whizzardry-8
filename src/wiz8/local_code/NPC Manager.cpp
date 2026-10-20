@@ -12,6 +12,7 @@
 #include "wiz8/live_party.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/platform/timer.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/spatial/bounding_sphere.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/world/party_camera.h"
@@ -425,7 +426,8 @@ static void ReturnDismissedNpcItems(W8NpcState* npc, W8Character& character)
     unsigned int slot;
     for (slot = 0; slot < 12; ++slot) {
         W8ItemInstance* item = &character.EquippedItem[slot];
-        if (item->iItemNo != -1 && CanUnequipSlotItem(&character, static_cast<W8EquipSlot>(slot)) &&
+        if (item->iItemNo != -1 &&
+            CanUnequipSlotItem(Data(), &character, static_cast<W8EquipSlot>(slot)) &&
             !NpcWantsItem(npc, item)) {
             if (AddItemToPartyOrDrop(CurrentGame(), item, false)) {
                 returned = true;
@@ -1382,13 +1384,15 @@ static bool InitializeNpcCharacter(W8NpcState* npc, W8Character& character)
     }
     for (index = 0; index < 12; ++index) {
         if (source->equipment_present[index] != 0 && source->equipment_ids[index] != 0xffff) {
-            item = MakeItem(static_cast<short>(source->equipment_ids[index]), true, true, false);
+            item = MakeItem(Data(), CurrentGame().rng,
+                            static_cast<short>(source->equipment_ids[index]), true, true, false);
             character.EquippedItem[index] = item;
         }
     }
     for (index = 0; index < 8; ++index) {
         if (source->backpack_present[index] != 0 && source->backpack_ids[index] != 0xffff) {
-            item = MakeItem(static_cast<short>(source->backpack_ids[index]), true, true, false);
+            item = MakeItem(Data(), CurrentGame().rng,
+                            static_cast<short>(source->backpack_ids[index]), true, true, false);
             character.backpack[index] = item;
         }
     }
@@ -1772,7 +1776,7 @@ static char ScoreNpcTheft(W8Character* character, W8NpcState* npc, int item_id, 
     score += (character->uiExpLevel - record->effective_level) * 5;
     if (item_id != -1) {
         unsigned int weight = Data().items[item_id].weight * count;
-        item = MakeItem(item_id, false, false, false);
+        item = MakeItem(Data(), CurrentGame().rng, item_id, false, false, false);
         item.stack_count = static_cast<unsigned char>(count);
         penalty = penalty - weight / 10 - GetItemStackValue(&item) / 100;
     }
@@ -1832,7 +1836,7 @@ W8NpcPickpocketResult AttemptNpcPickpocket(W8Character* character, W8NpcState* n
     } else {
         W8ItemInstance item;
         picked = candidates[CurrentGame().rng.below(static_cast<int>(candidates.size()))];
-        item = MakeItem(npc->item_ids[picked], true, true, false);
+        item = MakeItem(Data(), CurrentGame().rng, npc->item_ids[picked], true, true, false);
         score = ScoreNpcTheft(character, npc, item.iItemNo, 1);
     }
     if (static_cast<signed char>(npc->suspicion) < 'd') {
@@ -1870,7 +1874,7 @@ W8NpcPickpocketResult AttemptNpcPickpocket(W8Character* character, W8NpcState* n
     short item_id = npc->item_ids[picked & 0xff];
     if (item_id != -1) {
         if (item_out != 0) {
-            *item_out = MakeItem(item_id, true, true, false);
+            *item_out = MakeItem(Data(), CurrentGame().rng, item_id, true, true, false);
         }
         npc->item_ids[picked & 0xff] = -1;
         PracticeCharacterSkill(CurrentGame(), character, W8_SKILL_PICKPOCKET, 5, false);
@@ -2424,7 +2428,7 @@ bool ClearNpcScheduledItem(W8NpcState* npc, int item_id, W8ItemInstance* out)
     for (int index = 0; index < 40; ++index) {
         if (npc->item_ids[index] == item_id) {
             if (out != 0) {
-                *out = MakeItem(npc->item_ids[index], true, true, false);
+                *out = MakeItem(Data(), CurrentGame().rng, npc->item_ids[index], true, true, false);
             }
             npc->item_ids[index] = -1;
             return true;

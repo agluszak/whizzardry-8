@@ -25,13 +25,13 @@
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/PartyImport.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party_stats.h"
 #include "wiz8/utility.h"
 
@@ -486,7 +486,7 @@ void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
                             continue;
                         }
                     }
-                    item = MakeItem(item_index, true, true, true);
+                    item = MakeItem(Data(), CurrentGame().rng, item_index, true, true, true);
                     if (Data().items[item_index].binds_on_equip == 0) {
                         StoreItemWithCharacterOrParty(CurrentGame(), character, &item, false, false,
                                                       static_cast<unsigned int>(slot == 0));
@@ -515,7 +515,7 @@ void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
                 if (0 < entry->item_number) {
                     item_index = FindItemByLegacyNumber(entry->item_number);
                     price = Data().items[item_index].value;
-                    if (!ItemHasHiddenProperties(item_index)) {
+                    if (!ItemHasHiddenProperties(Data(), item_index)) {
                         price /= 2;
                     }
                     if (best_value < price) {
@@ -526,7 +526,7 @@ void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
             }
             if (best_index != -1) {
                 item_index = FindItemByLegacyNumber(candidates[slot][best_index].item_number);
-                item = MakeItem(item_index, true, true, true);
+                item = MakeItem(Data(), CurrentGame().rng, item_index, true, true, true);
                 if (Data().items[item_index].binds_on_equip == 0) {
                     StoreItemWithCharacterOrParty(CurrentGame(), character, &item, false, false,
                                                   true);
@@ -545,8 +545,8 @@ void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
     for (slot = 0; slot < 6; ++slot) {
         item_id = g_starting_equipment[profession][slot];
         if (item_id != -1) {
-            item = MakeItem(item_id, true, true, true);
-            equip_slot = GetItemDefaultEquipSlot(item_id);
+            item = MakeItem(Data(), CurrentGame().rng, item_id, true, true, true);
+            equip_slot = GetItemDefaultEquipSlot(Data(), item_id, GameStarted());
             if (equip_slot == W8_EQUIP_SLOT_NONE) {
                 if (!FindCharacterItem(*character,
                                        ItemOfKind(Data().items[item_id].unidentified_name_index),
@@ -581,7 +581,7 @@ void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
             }
         }
         if (give != -1) {
-            item = MakeItem(give, true, true, true);
+            item = MakeItem(Data(), CurrentGame().rng, give, true, true, true);
             AddItemToCharacter(CurrentGame(), character, &item, true, false, false);
         }
     }

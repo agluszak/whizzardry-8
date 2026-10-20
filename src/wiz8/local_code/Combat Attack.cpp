@@ -53,7 +53,6 @@
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/UtilityFunctions.h"
@@ -1194,8 +1193,9 @@ static std::string CombatTargetName(const W8TargetSource* source, const W8Combat
     case W8_TARGET_KIND_EIGHT:
         return Data().strings[0x1e5];
     case W8_TARGET_KIND_ITEM:
-        return fmt::sprintf(Data().strings[0x1e6],
-                            FormatItemDisplayName(CurrentGame().party.itemAt(target->item), false));
+        return fmt::sprintf(
+            Data().strings[0x1e6],
+            FormatItemDisplayName(Data(), CurrentGame().party.itemAt(target->item), false));
     default:
         Fail("FALSE", fmt::format("SpellTargetString: ERROR - Invalid target type {:d}",
                                   fmt::underlying(target->iType)));
@@ -3525,7 +3525,7 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
         CurrentGame().combat->attack_message = verb;
         CurrentGame().combat->attack_message += " ";
         if (character->Hand[hand].uiHolds != HOLDS_NOTHING) {
-            name = GetItemDisplayName(found);
+            name = GetItemDisplayName(Data(), found);
             AppendAttackWeaponName(name, mode);
             AppendAttackMessageSuffix(mode);
         } else {
@@ -3587,7 +3587,7 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
             Fail("pPC->Hand[uiHand].uiHolds != HOLDS_NOTHING");
         }
         if (character->Hand[hand].uiHolds != HOLDS_NOTHING) {
-            name = GetItemDisplayName(found);
+            name = GetItemDisplayName(Data(), found);
             AppendAttackWeaponName(name, mode);
             AppendAttackMessageSuffix(mode);
         }

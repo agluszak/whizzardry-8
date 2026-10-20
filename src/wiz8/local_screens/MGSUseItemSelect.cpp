@@ -50,6 +50,7 @@
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
 #include "wiz8/script_context.h"
@@ -410,7 +411,7 @@ static void ShowUseItemList(W8ItemInstance* select)
             const bool silenced =
                 Data().items[item->iItemNo].equip_class == W8_ITEM_EQUIP_CLASS_INSTRUMENT &&
                 CurrentGame().party.characters[use_item->owner].uiCondition[W8_CONDITION_SILENCED];
-            ShowNotice(silenced ? 4 : 0, FormatItemDisplayName(item, true), 2);
+            ShowNotice(silenced ? 4 : 0, FormatItemDisplayName(Data(), item, true), 2);
             continue;
         }
         int count = 0;
@@ -422,7 +423,8 @@ static void ShowUseItemList(W8ItemInstance* select)
         case W8_ITEM_QUANTITY_CHARGES:
         case W8_ITEM_QUANTITY_USES:
             if (!item->identified) {
-                ShowNotice(0xf, fmt::format("{} (?)", FormatItemDisplayName(item, false)), 2);
+                ShowNotice(0xf, fmt::format("{} (?)", FormatItemDisplayName(Data(), item, false)),
+                           2);
                 continue;
             }
             [[fallthrough]];
@@ -433,7 +435,7 @@ static void ShowUseItemList(W8ItemInstance* select)
         default:
             break;
         }
-        auto text = FormatItemDisplayName(item, false);
+        auto text = FormatItemDisplayName(Data(), item, false);
         if (count == -1)
             text = fmt::format("{} (?)", text);
         else if (count > 1 || charged)

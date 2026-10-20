@@ -11,6 +11,7 @@
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/main_game_screen.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/FormationAndFacing.h"
@@ -18,7 +19,6 @@
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
@@ -28,6 +28,7 @@
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
@@ -49,7 +50,7 @@ void ResetForNewGame(void)
     CurrentGame().party.held.item = W8ItemInstance{.iItemNo = -1};
     std::ranges::fill(CurrentGame().party.item_pool, W8ItemInstance{.iItemNo = -1});
     for (const auto id : starting_items) {
-        auto item = MakeItem(id, true, true, true);
+        auto item = MakeItem(Data(), CurrentGame().rng, id, true, true, true);
         item.stack_count = 1;
         AddItemToParty(CurrentGame(), &item, false, false);
     }

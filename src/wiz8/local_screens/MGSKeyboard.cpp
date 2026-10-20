@@ -65,6 +65,7 @@
 #include "wiz8/platform/input.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/character.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -733,7 +734,8 @@ static std::string KeyboardMenuTooltip(const KeyboardMenuRow& row)
         if (!row.enabled) return Data().strings[0x5d];
         const auto& party = CurrentGame().party.rows[g_selected_party_slot];
         auto* item = CurrentGame().party.itemAt(party.remembered.item_detail.item_use.item);
-        return fmt::format("{}: {}", Data().strings[0x5d], FormatItemDisplayName(item, false));
+        return fmt::format("{}: {}", Data().strings[0x5d],
+                           FormatItemDisplayName(Data(), item, false));
     }
     return Data().strings[g_submenu_entry_help_ids[row.menu * 5 + row.item]];
 }

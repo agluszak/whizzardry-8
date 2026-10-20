@@ -80,6 +80,7 @@
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/bounding_sphere.h"
@@ -144,7 +145,7 @@ bool CanCastFromItem(const W8Character* caster, const W8ItemInstance* item)
     if (!item->identified) {
         return false;
     }
-    return CanCharacterUseItem(caster, item->iItemNo);
+    return CanCharacterUseItem(Data(), caster, item->iItemNo);
 }
 
 /* The three monster kinds whose alchemy survives a spellcasting block. */
@@ -1822,8 +1823,9 @@ static std::string SpellTargetString(const W8TargetSource* source, const W8Comba
         return Data().strings[W8_MESSAGE_TARGET_PLACE / 4];
 
     case 7:
-        return fmt::sprintf(Data().strings[W8_MESSAGE_TARGET_ITEM / 4],
-                            FormatItemDisplayName(CurrentGame().party.itemAt(target->item), false));
+        return fmt::sprintf(
+            Data().strings[W8_MESSAGE_TARGET_ITEM / 4],
+            FormatItemDisplayName(Data(), CurrentGame().party.itemAt(target->item), false));
 
     case W8_TARGET_KIND_EIGHT:
         return Data().strings[W8_MESSAGE_TARGET_DIRECTION / 4];

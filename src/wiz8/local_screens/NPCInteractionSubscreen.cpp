@@ -94,6 +94,7 @@
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/screen.h"
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -1588,8 +1589,9 @@ void UpdateNpcTradeSelection(int index, int increment, int commit)
             W8_ITEM_EQUIP_CLASS_AMMUNITION) {
             SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_31, false);
         }
-        text = ShortenTextToWidth(FormatItemDisplayName(g_npc_interaction_state->trade_item, false),
-                                  0x7d, g_wiz_text_font_secondary);
+        text = ShortenTextToWidth(
+            FormatItemDisplayName(Data(), g_npc_interaction_state->trade_item, false), 0x7d,
+            g_wiz_text_font_secondary);
         g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_36].text.SetText(
             text, g_wiz_text_font_secondary);
         g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_37].text.SetFontStateIndex(1);
@@ -2580,6 +2582,7 @@ bool NpcTradeItemAllowed(W8ItemInstance* item)
             }
         } else {
             if (!CanCharacterUseItem(
+                    Data(),
                     &CurrentGame().party.characters[CurrentGame().status.selected_character],
                     item->iItemNo)) {
                 return true;
@@ -3938,7 +3941,8 @@ static void ResolveNpcPickpocket(int party_slot)
 
     switch (AttemptNpcPickpocket(character, g_npc_interaction_state->dialogue_npc, &item, &gold)) {
     case W8_PICKPOCKET_ITEM_TAKEN:
-        text = fmt::sprintf(Data().strings[0x74d], character->name, GetItemDisplayName(&item));
+        text =
+            fmt::sprintf(Data().strings[0x74d], character->name, GetItemDisplayName(Data(), &item));
         for (slot = 0; slot < 8; ++slot) {
             if (character->backpack[slot].iItemNo == -1) {
                 AddItemToCharacter(CurrentGame(), character, &item, false, false, false);

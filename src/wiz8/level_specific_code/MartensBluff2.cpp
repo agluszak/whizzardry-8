@@ -39,7 +39,6 @@
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/math.h"
 #include "wiz8/platform/IntervalGate.h"
@@ -47,6 +46,7 @@
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/item_location.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -603,7 +603,7 @@ bool MartensBluff2Script::stoneIdol(Trigger* pTrigger)
     if ((ctx.party.held.item.iItemNo != -1)) {
         return false;
     }
-    ReplaceHeldItem(ctx.game, MakeItem(0x291, false, false, false));
+    ReplaceHeldItem(ctx.game, MakeItem(Data(), ctx.game.rng, 0x291, false, false, false));
     SetItemCursor(0);
     ShowString(Data().strings[0x71d]);
     particle = FindParticleByName("IdolGas");
@@ -627,7 +627,7 @@ bool MartensBluff2Script::blueFlowers(Trigger* pTrigger)
         if ((ctx.party.held.item.iItemNo != -1)) {
             return false;
         }
-        ReplaceHeldItem(ctx.game, MakeItem(0x2eb, false, false, false));
+        ReplaceHeldItem(ctx.game, MakeItem(Data(), ctx.game.rng, 0x2eb, false, false, false));
         SetItemCursor(0);
     }
     running_trigger_from_script_ = false;

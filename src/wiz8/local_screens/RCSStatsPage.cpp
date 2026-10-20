@@ -38,7 +38,6 @@
 #include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/ControlsRect.h"
-#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/CharacterScreen.h"
@@ -51,6 +50,7 @@
 #include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/screen.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"
@@ -507,7 +507,7 @@ static void DrawCampEffectEntry(const W8Character& character, const W8CampEffect
             &Data().items[character.EquippedItem[entry->index].iItemNo];
         g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_GREEN]);
         DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x15e, line * 0xe + 0xbf},
-                 GetItemDisplayName(&character.EquippedItem[entry->index]));
+                 GetItemDisplayName(Data(), &character.EquippedItem[entry->index]));
         g_wiz_text_font_secondary.resetPalette();
         int next = line + 1;
         if (record->attack_damage_bonus != 0) {

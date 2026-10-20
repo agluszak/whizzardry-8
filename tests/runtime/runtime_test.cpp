@@ -52,6 +52,7 @@
 #include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/spatial/bounding_sphere.h"
 #include "wiz8/startup_world.h"
@@ -110,7 +111,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
-#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/local_code/npc_dialogue_view.h"
 #include "wiz8/local_screens/AutomapScreen.h"
@@ -1038,10 +1038,10 @@ void InventoryChestScenario()
     REQUIRE(stack_id >= 0);
     REQUIRE(nonstack_id >= 0);
     auto& remainder = picker->entries.front().item->item;
-    remainder = MakeItem(stack_id, true, false, false);
+    remainder = MakeItem(Data(), CurrentGame().rng, stack_id, true, false, false);
     remainder.stack_count = 5;
     W8ItemInstance filler{};
-    filler = MakeItem(nonstack_id, true, false, false);
+    filler = MakeItem(Data(), CurrentGame().rng, nonstack_id, true, false, false);
     std::fill(std::begin(CurrentGame().party.item_pool), std::end(CurrentGame().party.item_pool),
               filler);
     CurrentGame().party.item_count = 500;
@@ -1137,7 +1137,7 @@ void InventoryChestScenario()
         }
     REQUIRE(healing_potion >= 0);
     auto& potion = caster.backpack[1];
-    potion = MakeItem(healing_potion, true, true, false);
+    potion = MakeItem(Data(), CurrentGame().rng, healing_potion, true, true, false);
     potion.stack_count = 2;
     caster.hp_current = 1;
     FindScreen<CampScreen>()->InvalidateAll();

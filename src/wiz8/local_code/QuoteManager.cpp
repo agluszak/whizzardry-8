@@ -43,7 +43,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
-#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/npc_story_events.h"
@@ -63,6 +62,7 @@
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/screen.h"
 #include "wiz8/script_context.h"
@@ -485,8 +485,8 @@ void W8CharacterEvent::Complete()
             if (item.iItemNo == -1) {
                 PostCharacterNotice(party_slot, Data().strings[0x771]);
             } else {
-                PostCharacterNotice(party_slot,
-                                    fmt::sprintf(Data().strings[0x772], GetItemDisplayName(&item)));
+                PostCharacterNotice(party_slot, fmt::sprintf(Data().strings[0x772],
+                                                             GetItemDisplayName(Data(), &item)));
             }
         }
     } else if (event_type == 51) {

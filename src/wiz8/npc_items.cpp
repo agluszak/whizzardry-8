@@ -36,13 +36,14 @@
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_rules.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
 
 static W8NpcItemEntry MakeNpcItemEntry(int item_id)
 {
     W8NpcItemEntry entry{};
-    entry.item = MakeItem(item_id, true, true, false);
+    entry.item = MakeItem(Data(), CurrentGame().rng, item_id, true, true, false);
     entry.item.stack_count = 0;
     return entry;
 }
@@ -618,7 +619,7 @@ W8TradeResult CompleteNpcItemPurchase(W8NpcState* npc, int index, unsigned char 
     unsigned int moved = 0;
     while (moved < quantity) {
         W8ItemInstance hand;
-        hand = MakeItem(stock.iItemNo, true, true, false);
+        hand = MakeItem(Data(), CurrentGame().rng, stock.iItemNo, true, true, false);
         unsigned int unit = 1;
         if (record.quantity_kind == W8_ITEM_QUANTITY_STACK) {
             if (record.maximum_quantity == 0) return {W8TradeOutcome::Refused};

@@ -41,6 +41,7 @@
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/utility.h"
 
@@ -1007,11 +1008,11 @@ void W8TriggerItemPickerDialog::Draw(SDL_Surface& target)
         DrawSprite(target, *ItemSprites(item->iItemNo), 0, button->Bounds().x + 2,
                    button->Bounds().y + 2);
         if (item->stack_count > 1) {
-            auto name = GetItemDisplayName(item);
+            auto name = GetItemDisplayName(Data(), item);
             DrawText(target, g_wiz_text_font, {button->Bounds().x + 0x3c, button->Bounds().y + 6},
                      fmt::format("{}({:d})", name, item->stack_count));
         } else {
-            auto name = GetItemDisplayName(item);
+            auto name = GetItemDisplayName(Data(), item);
             DrawText(target, g_wiz_text_font, {button->Bounds().x + 0x3c, button->Bounds().y + 6},
                      name);
         }

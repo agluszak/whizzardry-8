@@ -17,9 +17,10 @@
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/game.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/PC_Item.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/random.h"
 
 namespace {
@@ -114,7 +115,7 @@ TEST_CASE("Rules draw from the game's stream in retail order", "[random]")
     REQUIRE(created->voice == 1);
 
     // Loot: a new stack rolls its quantity.
-    REQUIRE(MakeItem(0, false, false, false).stack_count == 7);
+    REQUIRE(MakeItem(Data(), game.rng, 0, false, false, false).stack_count == 7);
 
     // Practice rolls every usage point.
     auto& sword = created->skills[W8_SKILL_SWORD];

@@ -19,6 +19,7 @@
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/party_slot.h"
+#include "wiz8/rules/random.h"
 #include "wiz8/utility.h"
 
 void SetDice(W8Dice* dice, unsigned char count, unsigned char sides, short base)
@@ -30,13 +31,7 @@ void SetDice(W8Dice* dice, unsigned char count, unsigned char sides, short base)
 
 int RollDice(const W8Dice* dice)
 {
-    unsigned int roll;
-    int result = dice->base;
-
-    for (roll = 0; roll < dice->count; ++roll) {
-        result += CurrentGame().rng.below(dice->sides) + 1;
-    }
-    return result;
+    return RollDice(CurrentGame().rng, *dice);
 }
 
 int RollDice(const W8Dice* dice, unsigned int rolls)

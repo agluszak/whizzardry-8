@@ -31,6 +31,7 @@
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party_stats.h"
 #include "wiz8/screen.h"
 #include "wiz8/unicode.h"
@@ -229,13 +230,14 @@ void BrewAlchemistPotion(Game& game, W8Character* character)
              alchemy < recipe[-1] || (recipe[0] != -1 && recipe[0] < alchemy) || --pick != 0;
              recipe += 3) {
         }
-        item = MakeItem(recipe[-2], false, true, true);
+        item = MakeItem(Data(), game.rng, recipe[-2], false, true, true);
         if (item.stack_count > 1) {
             item.stack_count = 1;
         }
         // Retail shows the notice in the palette numbered like the brewer's slot.
-        game.events.push(TextNotice{slot, fmt::sprintf(Data().strings[0x183], character->name,
-                                                       FormatItemDisplayName(&item, true))});
+        game.events.push(
+            TextNotice{slot, fmt::sprintf(Data().strings[0x183], character->name,
+                                          FormatItemDisplayName(Data(), &item, true))});
         StoreItemWithCharacterOrParty(game, character, &item, false, false, false);
         made = 1;
     }

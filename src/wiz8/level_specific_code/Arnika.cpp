@@ -15,15 +15,16 @@
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/fact_state.h"
+#include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/level_script.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/npc_interaction.h"
@@ -31,6 +32,7 @@
 #include "wiz8/rules/activity.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/navigator.h"
@@ -994,7 +996,8 @@ int ArnikaScript::pedestalItem(int* previous_item)
         CreateLocationVar("PedestalItem", -1);
         previous = 0x244;
         if (item == -1) {
-            ReplaceHeldItem(ctx.game, MakeItem(previous, false, false, false));
+            ReplaceHeldItem(ctx.game,
+                            MakeItem(Data(), ctx.game.rng, previous, false, false, false));
         }
     } else {
         previous = GetLocationVarValueByName("PedestalItem");
@@ -1003,7 +1006,8 @@ int ArnikaScript::pedestalItem(int* previous_item)
                 return -2;
             }
         } else if (item == -1) {
-            ReplaceHeldItem(ctx.game, MakeItem(previous, false, false, false));
+            ReplaceHeldItem(ctx.game,
+                            MakeItem(Data(), ctx.game.rng, previous, false, false, false));
         }
     }
     SetItemCursor(0);
@@ -1036,7 +1040,7 @@ bool ArnikaScript::ballSlot(Trigger* pTrigger)
     if (GetLocationVarIDByName("BallInserted") == -1) {
         CreateLocationVar("BallInserted", 1);
         npc = GetNpcStateByKind(0x16);
-        item = MakeItem(0x240, true, true, false);
+        item = MakeItem(Data(), ctx.game.rng, 0x240, true, true, false);
         QueueNpcScriptNotice(npc, &item, -1, false, 0);
     }
     g_trigger_feedback = true;

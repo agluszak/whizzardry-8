@@ -29,6 +29,7 @@
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/utility.h"
 
@@ -197,7 +198,7 @@ void W8SplitItemDialog::CreateTextBuffers()
         }
         m_texts[0]->SetText(header, g_wiz_text_font_secondary);
     }
-    m_texts[3]->SetText(FormatItemDisplayName(m_item, false), g_wiz_text_font_secondary);
+    m_texts[3]->SetText(FormatItemDisplayName(Data(), m_item, false), g_wiz_text_font_secondary);
     m_texts[5]->SetText(
         fmt::format(
             "{} ({})", Data().strings[g_equip_class_name_ids[GetItemEquipClass(m_item)]],

@@ -137,6 +137,7 @@
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/party_stats.h"
 #include "wiz8/rules/targeting.h"
@@ -4864,6 +4865,7 @@ UiResult PartyCombatActionInput(const UiPointerEvent& event, HitTarget& target, 
                     [text = fmt::format(
                          "{}: {}", Data().strings[0x69],
                          FormatItemDisplayName(
+                             Data(),
                              CurrentGame().party.itemAt(row->committed.detail_block.item_use.item),
                              false))] { return std::string(text); });
                 return UiResult::Pass;
@@ -5552,7 +5554,7 @@ void SetCombatTarget(int value)
         point = CursorPosition();
         item = ItemInfo(ItemIndex(MainGameHud()->selected_item));
         if (item != 0) {
-            auto text = FormatItemDisplayName(&item->item, true);
+            auto text = FormatItemDisplayName(Data(), &item->item, true);
 
             VideoToolTip(text);
             PositionSelectionToolTip(point);
@@ -6266,11 +6268,11 @@ void ShowNpcTradeItemNotice(W8ItemInstance* item)
     }
     mode = g_npc_interaction_state->trade_mode;
     if (mode != W8_NPC_TRADE_SELL && mode != W8_NPC_TRADE_BUY && mode != W8_NPC_TRADE_SHOPLIFT) {
-        ShowNotice(font_palette, FormatItemDisplayName(item, true), 2);
+        ShowNotice(font_palette, FormatItemDisplayName(Data(), item, true), 2);
         return;
     }
     MainGameHud()->text_paint_scratch = fmt::format("{:d}{}", price, Data().strings[0x797]);
-    ShowNotice(font_palette, FormatItemDisplayName(item, true), 2,
+    ShowNotice(font_palette, FormatItemDisplayName(Data(), item, true), 2,
                (MainGameHud()->text_box_right - MainGameHud()->text_box_left) -
                    (*MainGameHud()->text_box_font).textWidth(MainGameHud()->text_paint_scratch));
     AppendTextBoxLine(MainGameHud()->text_paint_scratch, 2);
@@ -6326,12 +6328,12 @@ static void ShowNpcPlayerTradeItem(W8ItemInstance* item, bool acceptable, unsign
             MainGameHud()->text_paint_scratch = "---";
         }
         ShowNotice(
-            font_palette, FormatItemDisplayName(item, true), 2,
+            font_palette, FormatItemDisplayName(Data(), item, true), 2,
             (MainGameHud()->text_box_right - MainGameHud()->text_box_left) -
                 (*MainGameHud()->text_box_font).textWidth(MainGameHud()->text_paint_scratch));
         AppendTextBoxLine(MainGameHud()->text_paint_scratch, 2);
     } else {
-        ShowNotice(font_palette, FormatItemDisplayName(item, true), 2);
+        ShowNotice(font_palette, FormatItemDisplayName(Data(), item, true), 2);
     }
 }
 
@@ -6471,7 +6473,8 @@ bool AttemptNpcItemTrade(W8ItemInstance* item, unsigned char quantity, int index
     result = AttemptNpcItemTheft(character, g_npc_interaction_state->dialogue_npc, item->iItemNo,
                                  quantity);
     if (result == W8_ITEM_THEFT_SUCCEEDED) {
-        text = fmt::sprintf(Data().strings[0x74d], character->name, GetItemDisplayName(item));
+        text =
+            fmt::sprintf(Data().strings[0x74d], character->name, GetItemDisplayName(Data(), item));
         DisplayNpcQuote(text, true);
         if (Data().items[item->iItemNo].identify_difficulty != 0 && quantity == 1) {
             AddNpcTopic(g_npc_interaction_state->dialogue_npc, item->iItemNo);

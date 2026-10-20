@@ -47,6 +47,7 @@
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
@@ -1212,7 +1213,7 @@ bool BuildSubMenuPanel(short notification)
                 const auto* item =
                     CurrentGame().party.itemAt(row.remembered.item_detail.item_use.item);
                 return fmt::format("{}: {}", Data().strings[0x5d],
-                                   FormatItemDisplayName(item, false));
+                                   FormatItemDisplayName(Data(), item, false));
             });
         }
         submenu->buttons.push_back(std::move(button));

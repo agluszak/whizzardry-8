@@ -8,19 +8,21 @@
 #include "wiz8/cursor.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/MtGigas1.h"
 #include "wiz8/level_specific_code/level_script.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/platform/IntervalGate.h"
 #include "wiz8/render/camera.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/script_context.h"
 #include "wiz8/world/world.h"
@@ -154,7 +156,7 @@ bool MtGigasOuterScript::crank(Trigger* trigger)
         position.y = kLiftParkedY;
         prop->SetPosition(&position);
         SetTriggerVariableByName("FlagPosition", 1000);
-        ReplaceHeldItem(ctx.game, MakeItem(0x290, false, false, false));
+        ReplaceHeldItem(ctx.game, MakeItem(Data(), ctx.game.rng, 0x290, false, false, false));
         SetItemCursor(0);
         npc = GetNpcStateByKind(0x2a);
         QueueNpcScriptNotice(npc, 0, 0x18, true, 0);

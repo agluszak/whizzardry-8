@@ -13,8 +13,6 @@
 #include "wiz8/canvas/image_assets.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/combat/combat.h"
-#include "wiz8/data/character_tables.h"
-#include "wiz8/data/dice.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/faction_ids.h"
 #include "wiz8/data/item_payloads.h"
@@ -95,69 +93,6 @@ unsigned int GetItemStackValue(const W8ItemInstance* item)
     return Data().items[item->iItemNo].value;
 }
 
-/* Where an item of this kind wants to go. Two of the thirteen equipment
-   classes answer differently once play has started: the one-handed weapon and
-   the off-hand class move from the primary pair of hand slots to the alternate
-   pair, which the character-creation screens do not fill. */
-W8EquipSlot GetItemDefaultEquipSlot(int item_id)
-{
-    switch (Data().items[item_id].equip_class) {
-    case W8_ITEM_EQUIP_CLASS_SHORT_WEAPON:
-    case W8_ITEM_EQUIP_CLASS_EXTENDED_WEAPON:
-        return W8_EQUIP_SLOT_PRIMARY_WEAPON;
-    case W8_ITEM_EQUIP_CLASS_RANGED_WEAPON:
-        return GameStarted() ? W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON
-                             : W8_EQUIP_SLOT_PRIMARY_WEAPON;
-    case W8_ITEM_EQUIP_CLASS_AMMUNITION:
-        return GameStarted() ? W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON
-                             : W8_EQUIP_SLOT_SECONDARY_WEAPON;
-    case W8_ITEM_EQUIP_CLASS_THROWN_WEAPON:
-        return W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON;
-    case W8_ITEM_EQUIP_CLASS_MISC:
-        return W8_EQUIP_SLOT_MISC_1;
-    case W8_ITEM_EQUIP_CLASS_HEAD:
-        return W8_EQUIP_SLOT_HEAD;
-    case W8_ITEM_EQUIP_CLASS_TORSO:
-        return W8_EQUIP_SLOT_TORSO;
-    case W8_ITEM_EQUIP_CLASS_LEGS:
-        return W8_EQUIP_SLOT_LEGS;
-    case W8_ITEM_EQUIP_CLASS_HANDS:
-        return W8_EQUIP_SLOT_HANDS;
-    case W8_ITEM_EQUIP_CLASS_FEET:
-        return W8_EQUIP_SLOT_FEET;
-    case W8_ITEM_EQUIP_CLASS_CLOAK:
-        return W8_EQUIP_SLOT_CLOAK;
-    case W8_ITEM_EQUIP_CLASS_SHIELD:
-        return W8_EQUIP_SLOT_SECONDARY_WEAPON;
-    default:
-        return W8_EQUIP_SLOT_NONE;
-    }
-}
-
-/* The hand opposite the one given. Anything that is not a hand has no
-   opposite. */
-W8EquipSlot GetPairedEquipSlot(W8EquipSlot equip_slot)
-{
-    switch (equip_slot) {
-    case W8_EQUIP_SLOT_PRIMARY_WEAPON:
-        return W8_EQUIP_SLOT_SECONDARY_WEAPON;
-    case W8_EQUIP_SLOT_SECONDARY_WEAPON:
-        return W8_EQUIP_SLOT_PRIMARY_WEAPON;
-    case W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON:
-        return W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON;
-    case W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON:
-        return W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON;
-    default:
-        return W8_EQUIP_SLOT_NONE;
-    }
-}
-
-/* Which slot each bit of an equip-slot mask stands for: bit N is slot N. */
-#define W8_EQUIP_SLOT_BIT(slot) ((unsigned short)(1 << (slot)))
-
-/* No weapon skill at all, which GetItemEquipSlotMask treats as a data error. */
-enum { W8_WEAPON_SKILL_NONE = -1 };
-
 /* The Data().strings message each item use kind shows for whatever the item
    was used on, read at every other entry. The last six ids, from
    W8_ITEM_PROPERTY_MESSAGE_FIRST, are the item property labels. */
@@ -169,26 +104,6 @@ W8Skill g_item_spell_presentation[11] = {
     W8_SKILL_NONE,        W8_SKILL_ARTIFACTS,      W8_SKILL_ARTIFACTS, W8_SKILL_NONE,
     W8_SKILL_NONE,        W8_SKILL_NONE,           W8_SKILL_MUSIC,     W8_SKILL_THROWING_SLING,
     W8_SKILL_ENGINEERING, W8_SKILL_MODERN_WEAPONS, W8_SKILL_SWORD};
-/* The twelve slots' paper-doll icons: the two alternate-set hand slots have
-   none, which is the value the bound-item predicates refuse a binding behind. */
-int g_equip_slot_icons[12] = {0, 0, 0, 0, 0, 0, 0, 0, -1, -1, 0, 0};
-/* The notice each generic name index formats from. */
-// offset alias of the tail of g_equip_class_name_ids; shared retail
-unsigned short g_generic_item_name_notice[W8_GENERIC_ITEM_NAME_COUNT] = {
-    0x45a, 0x45b, 0x45c, 0x45d, 0x45e, 0x45f, 0x460, 0x461, 0x462, 0x463, 0x464, 0x465, 0x466,
-    0x467, 0x468, 0x469, 0x46a, 0x46b, 0x46c, 0x46d, 0x46e, 0x46f, 0x470, 0x471, 0x472, 0x473,
-    0x474, 0x475, 0x476, 0x477, 0x478, 0x479, 0x47a, 0x47b, 0x47c, 0x47d, 0x47e, 0x47f, 0x480,
-    0x481, 0x482, 0x483, 0x484, 0x485, 0x486, 0x487, 0x488, 0x489, 0x48a, 0x48b, 0x48c, 0x48d,
-    0x48e, 0x48f, 0x490, 0x491, 0x492, 0x493, 0x494, 0x495, 0x496, 0x497, 0x498, 0x499, 0x49a,
-    0x49b, 0x49c, 0x49d, 0x49e, 0x49f, 0x4a0, 0x4a1, 0x4a2, 0x4a3, 0x4a4, 0x4a5, 0x4a6, 0x4a7,
-    0x4a8, 0x4a9, 0x4aa, 0x4ab, 0x4ac, 0x4ad, 0x4ae, 0x4af, 0x4b0, 0x4b1, 0x4b2, 0x4b3, 0x4b4,
-    0x4b5, 0x4b6, 0x4b7, 0x4b8, 0x4b9, 0x4ba, 0x4bb, 0x4bc, 0x4bd, 0x4be, 0x4bf, 0x4c0, 0x4c1,
-    0x4c2, 0x4c3, 0x4c4, 0x4c5, 0x4c6, 0x4c7, 0x4c8, 0x4c9, 0x4ca, 0x4cb, 0x4cc, 0x4cd, 0x4ce,
-    0x4cf, 0x4d0, 0x459, 0x4d1, 0x4d2, 0x4d3, 0x4d4, 0x4d5, 0x4ab, 0x46f, 0x459, 0x46c, 0x4c1,
-    0x4d6, 0x4d7, 0x4d8, 0x4d9, 0x4da, 0x4db, 0x4dc, 0x4dd, 0x4de, 0x4df, 0x4e0, 0x4e1, 0x4e2,
-    0x4e3, 0x4e4, 0x4e5, 0x4e6,
-};
-/* Shared scratch returned by the item-name formatter. */
 
 static const std::array<std::string_view, 145> g_item_video_object_fallback_names = {
     "Dagger.sti",
@@ -351,18 +266,6 @@ std::shared_ptr<const SpriteSheet> ItemSprites(int item_id)
     return image;
 }
 
-/* The display form used by notices and inventory controls, with the stack
-   count when asked for. */
-std::string FormatItemDisplayName(const W8ItemInstance* item, bool include_quantity)
-{
-    const auto name = GetItemDisplayName(item);
-    if (include_quantity && item->stack_count > 1) {
-        return fmt::format("{} ({:d})", name, static_cast<unsigned int>(item->stack_count));
-    } else {
-        return fmt::format("{}", name);
-    }
-}
-
 /* The equipment class an item belongs to, or zero when the caller has no
    item - which is indistinguishable from the first real class, so callers
    test the item themselves. */
@@ -413,146 +316,6 @@ bool IsItemBoundToWearer(const W8ItemInstance* item)
     return false;
 }
 
-/* Every slot this item could be placed in, as a bit per slot.
-
-   Weapons are the interesting case. A two-handed weapon needs the hand
-   opposite it free, so each of the two weapon sets contributes its main hand
-   only when its off hand is empty. A one-handed weapon can always take either
-   main hand, and additionally takes an off hand when the item allows it and
-   the main hand of that set is not already holding something two-handed.
-   Everything else has exactly one home. */
-unsigned short GetItemEquipSlotMask(int item_id, bool primary_off_hand_free,
-                                    bool alternate_off_hand_free, bool primary_main_hand_free,
-                                    bool alternate_main_hand_free)
-{
-    unsigned short slots = 0;
-
-    switch (Data().items[item_id].equip_class) {
-    case W8_ITEM_EQUIP_CLASS_SHORT_WEAPON:
-    case W8_ITEM_EQUIP_CLASS_EXTENDED_WEAPON:
-    case W8_ITEM_EQUIP_CLASS_THROWN_WEAPON:
-    case W8_ITEM_EQUIP_CLASS_RANGED_WEAPON:
-        if (Data().items[item_id].weapon_skill == W8_WEAPON_SKILL_NONE) {
-            DebugMessage(
-                0, fmt::format("ERROR - Item {} is a weapon without a skill specified -> Charles",
-                               Data().items[item_id].display_name));
-            return 0;
-        }
-        if ((Data().items[item_id].flags & W8_ITEM_FLAG_TWO_HANDED) != 0) {
-            if (primary_off_hand_free) {
-                slots = W8_EQUIP_SLOT_BIT(W8_EQUIP_SLOT_PRIMARY_WEAPON);
-            }
-            if (alternate_off_hand_free) {
-                return slots | W8_EQUIP_SLOT_BIT(W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON);
-            }
-            return slots;
-        }
-        slots = W8_EQUIP_SLOT_BIT(W8_EQUIP_SLOT_PRIMARY_WEAPON) |
-                W8_EQUIP_SLOT_BIT(W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON);
-        if ((Data().items[item_id].flags & W8_ITEM_FLAG_OFF_HAND_ALLOWED) == 0) {
-            return slots;
-        }
-        if (primary_main_hand_free) {
-            slots |= W8_EQUIP_SLOT_BIT(W8_EQUIP_SLOT_SECONDARY_WEAPON);
-        }
-        break;
-    case W8_ITEM_EQUIP_CLASS_AMMUNITION:
-    case W8_ITEM_EQUIP_CLASS_SHIELD:
-        if (primary_main_hand_free) {
-            slots = W8_EQUIP_SLOT_BIT(W8_EQUIP_SLOT_SECONDARY_WEAPON);
-        }
-        break;
-    case W8_ITEM_EQUIP_CLASS_TORSO:
-        return W8_EQUIP_SLOT_BIT(W8_EQUIP_SLOT_TORSO);
-    case W8_ITEM_EQUIP_CLASS_LEGS:
-        return W8_EQUIP_SLOT_BIT(W8_EQUIP_SLOT_LEGS);
-    case W8_ITEM_EQUIP_CLASS_HEAD:
-        return W8_EQUIP_SLOT_BIT(W8_EQUIP_SLOT_HEAD);
-    case W8_ITEM_EQUIP_CLASS_HANDS:
-        return W8_EQUIP_SLOT_BIT(W8_EQUIP_SLOT_HANDS);
-    case W8_ITEM_EQUIP_CLASS_FEET:
-        return W8_EQUIP_SLOT_BIT(W8_EQUIP_SLOT_FEET);
-    case W8_ITEM_EQUIP_CLASS_MISC:
-        return W8_EQUIP_SLOT_BIT(W8_EQUIP_SLOT_MISC_1) | W8_EQUIP_SLOT_BIT(W8_EQUIP_SLOT_MISC_2);
-    case W8_ITEM_EQUIP_CLASS_CLOAK:
-        return W8_EQUIP_SLOT_BIT(W8_EQUIP_SLOT_CLOAK);
-    default:
-        return 0;
-    }
-
-    if (alternate_main_hand_free) {
-        return slots | W8_EQUIP_SLOT_BIT(W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON);
-    }
-    return slots;
-}
-
-/* Whether one character could put this item in one particular slot. The four
-   hand slots are read first: a hand counts as available when it is empty, and
-   a main hand also counts when whatever it holds is not two-handed. Asking to
-   ignore what is worn answers for an empty character instead. */
-bool CanEquipItemInSlot(W8Character* character, int item_id, unsigned char equip_slot,
-                        bool ignore_worn_items)
-{
-    bool primary_off_hand_free;
-    bool alternate_off_hand_free;
-    bool primary_main_hand_free;
-    bool alternate_main_hand_free;
-
-    primary_off_hand_free =
-        character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo == -1 || ignore_worn_items;
-    alternate_off_hand_free =
-        character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON].iItemNo == -1 ||
-        ignore_worn_items;
-    primary_main_hand_free =
-        character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo == -1 ||
-        (Data().items[character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo].flags &
-         W8_ITEM_FLAG_TWO_HANDED) == 0 ||
-        ignore_worn_items;
-    alternate_main_hand_free =
-        character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON].iItemNo == -1 ||
-        (Data()
-             .items[character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON].iItemNo]
-             .flags &
-         W8_ITEM_FLAG_TWO_HANDED) == 0 ||
-        ignore_worn_items;
-
-    return (W8_EQUIP_SLOT_BIT(equip_slot) &
-            GetItemEquipSlotMask(item_id, primary_off_hand_free, alternate_off_hand_free,
-                                 primary_main_hand_free, alternate_main_hand_free)) != 0;
-}
-
-/* Whether two items may be held at the same time. Nothing pairs with a
-   two-handed item. A weapon beside an off-hand item is decided by the weapon
-   rule, which takes them in weapon-first order whichever way round they were
-   passed. Two things that are not both weapons always agree, and two weapons
-   have to belong to the same wield group. */
-bool CanHoldItemsTogether(int first_item_id, int second_item_id)
-{
-    if (first_item_id == -1 || second_item_id == -1) {
-        return true;
-    }
-    if ((Data().items[first_item_id].flags & W8_ITEM_FLAG_TWO_HANDED) != 0 ||
-        (Data().items[second_item_id].flags & W8_ITEM_FLAG_TWO_HANDED) != 0) {
-        return false;
-    }
-    if (Data().items[first_item_id].equip_class == W8_ITEM_EQUIP_CLASS_RANGED_WEAPON ||
-        Data().items[second_item_id].equip_class == W8_ITEM_EQUIP_CLASS_AMMUNITION) {
-        return CompatiblePartnerItems(Data(), first_item_id, second_item_id);
-    }
-    if (Data().items[second_item_id].equip_class == W8_ITEM_EQUIP_CLASS_RANGED_WEAPON ||
-        Data().items[first_item_id].equip_class == W8_ITEM_EQUIP_CLASS_AMMUNITION) {
-        return CompatiblePartnerItems(Data(), second_item_id, first_item_id);
-    }
-    if (Data().items[first_item_id].equip_class >= W8_ITEM_EQUIP_CLASS_AMMUNITION) {
-        return true;
-    }
-    if (Data().items[second_item_id].equip_class < W8_ITEM_EQUIP_CLASS_AMMUNITION) {
-        return Data().items[first_item_id].range_category ==
-               Data().items[second_item_id].range_category;
-    }
-    return true;
-}
-
 bool HeldItemFitsPairedSlot(int party_slot, W8EquipSlot equip_slot)
 {
     if (party_slot == -1) Fail("iChar != -1");
@@ -576,88 +339,8 @@ bool HeldItemFitsPairedSlot(int party_slot, W8EquipSlot equip_slot)
         return true;
     }
     return CanHoldItemsTogether(
-        CurrentGame().party.held.item.iItemNo,
+        Data(), CurrentGame().party.held.item.iItemNo,
         CurrentGame().party.characters[party_slot].EquippedItem[paired_slot].iItemNo);
-}
-
-/* The sex mask value that admits either sex rather than the one bit a
-   restrictive record names. */
-enum { W8_ITEM_GENDER_MASK_ANY = 3 };
-
-/* An unused requirement slot. */
-enum { W8_ITEM_REQUIREMENT_NONE = 0xff };
-
-/* Return the first unmet item attribute or skill requirement, optionally
-   identifying the corresponding localized attribute or skill name. */
-bool FindUnmetItemRequirement(const W8Character* character, const W8ItemDatabaseRecord* record,
-                              unsigned short* message_id)
-{
-    for (unsigned int index = 0; index < 2; ++index) {
-        const int stat = static_cast<signed char>(record->attribute_requirements[index].stat_id);
-        if (record->attribute_requirements[index].stat_id != W8_ITEM_REQUIREMENT_NONE &&
-            character->attributes[stat].effective < record->attribute_requirements[index].minimum) {
-            if (message_id) *message_id = g_character_description_first_ids[stat];
-            return true;
-        }
-    }
-    for (unsigned int index = 0; index < 2; ++index) {
-        const int stat = static_cast<signed char>(record->skill_requirements[index].stat_id);
-        if (record->skill_requirements[index].stat_id != W8_ITEM_REQUIREMENT_NONE &&
-            character->skills[stat].level < record->skill_requirements[index].minimum) {
-            if (message_id) *message_id = g_character_skill_name_ids[stat];
-            return true;
-        }
-    }
-    return false;
-}
-
-/* Whether one character is allowed to use one item at all: profession, race
-   and faction have to admit them, every attribute and skill floor has to be
-   met, and a spell-bearing item additionally has to be one they have not
-   already learned or are strong enough to trigger. */
-bool CanCharacterUseItem(const W8Character* character, int item_id)
-{
-    const W8ItemDatabaseRecord* record = &Data().items[item_id];
-    unsigned int spell_id;
-    unsigned int minimum_caster_level;
-
-    if ((record->profession_mask & (W8_PROFESSION_LORD << character->iProfession)) == 0) {
-        return false;
-    }
-    if ((record->race_mask & (W8_RACE_ELF << character->iRace)) == 0) {
-        return false;
-    }
-    if (record->gender_mask != W8_ITEM_GENDER_MASK_ANY &&
-        (record->gender_mask & (W8_GENDER_FEMALE << character->gender)) == 0) {
-        return false;
-    }
-
-    if (FindUnmetItemRequirement(character, record, nullptr)) return false;
-
-    if (record->category == W8_ITEM_CATEGORY_SPELL_SOURCE) {
-        spell_id = record->spell_id;
-        if (spell_id == W8_SPELL_NONE) {
-            Fail("uiSpell != SPELL_NONE");
-        }
-        if (character->spell_learned[spell_id] == 1) {
-            return false;
-        }
-    } else if (record->category == W8_ITEM_CATEGORY_CASTER_ITEM_6 ||
-               record->category == W8_ITEM_CATEGORY_CASTER_ITEM_8) {
-        spell_id = record->spell_id;
-        if (spell_id == W8_SPELL_NONE) {
-            Fail("uiSpell != SPELL_NONE");
-        }
-        minimum_caster_level = GetMinimumCasterLevelForSpell(spell_id);
-        const int profession = record->category == W8_ITEM_CATEGORY_CASTER_ITEM_6
-                                   ? W8_PROFESSION_BARD
-                                   : W8_PROFESSION_GADGETEER;
-        if (static_cast<unsigned int>(character->profession_levels[profession]) <
-            minimum_caster_level) {
-            return false;
-        }
-    }
-    return true;
 }
 
 /* Whether anybody in the party could use this item. Only occupied slots with a
@@ -668,7 +351,7 @@ bool AnyPartyMemberCanUseItem(int item_id)
 
     for (slot = 0; slot < 8; ++slot) {
         if (CanPartySlotParticipate(slot)) {
-            if (CanCharacterUseItem(&CurrentGame().party.characters[slot], item_id)) {
+            if (CanCharacterUseItem(Data(), &CurrentGame().party.characters[slot], item_id)) {
                 return true;
             }
         }
@@ -702,13 +385,13 @@ bool CanCharacterActivateItem(W8Character* character, const W8ItemInstance* item
     if (item->iItemNo == -1) {
         return false;
     }
-    if (!CanCharacterUseItem(character, item->iItemNo)) {
+    if (!CanCharacterUseItem(Data(), character, item->iItemNo)) {
         return false;
     }
 
     record = &Data().items[item->iItemNo];
     if ((record->flags & W8_ITEM_FLAG_MUST_EQUIP_TO_USE) != 0 ||
-        GetItemDefaultEquipSlot(item->iItemNo) != W8_EQUIP_SLOT_NONE) {
+        GetItemDefaultEquipSlot(Data(), item->iItemNo, GameStarted()) != W8_EQUIP_SLOT_NONE) {
         if (!IsItemWornByCharacter(character, item)) {
             return false;
         }
@@ -739,7 +422,7 @@ bool AreAllHandSlotsEmpty(const W8Character* character)
    share one group and the rest split two ways. */
 W8ItemEquipSlotGroup GetItemEquipSlotGroup(int item_id)
 {
-    switch (GetItemDefaultEquipSlot(item_id)) {
+    switch (GetItemDefaultEquipSlot(Data(), item_id, GameStarted())) {
     case W8_EQUIP_SLOT_PRIMARY_WEAPON:
     case W8_EQUIP_SLOT_SECONDARY_WEAPON:
     case W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON:
@@ -760,18 +443,6 @@ W8ItemEquipSlotGroup GetItemEquipSlotGroup(int item_id)
     }
 }
 
-/* What to call an item: an identified one by its own name, an unidentified one
-   by the generic name of its unidentified-name index. */
-std::string GetItemDisplayName(const W8ItemInstance* item)
-{
-    const auto& record = Data().items[item->iItemNo];
-    if (item->identified) {
-        return record.display_name;
-    }
-    return fmt::sprintf(Data().strings[0x1e7],
-                        Data().strings[g_generic_item_name_notice[record.unidentified_name_index]]);
-}
-
 /* How the interface presents the spell an item carries, drawn from a per
    category table. Two particular spells are excluded and answer with nothing
    at all. */
@@ -783,21 +454,6 @@ W8Skill GetItemSpellPresentation(const W8ItemDatabaseRecord* record)
     return W8_SKILL_NONE;
 }
 
-/* Whether the item worn in one slot may be taken off. A binding that has not
-   yet been announced holds it in place, unless the slot is not a real
-   equipment slot or the character is under the influence that overrides it. */
-bool CanUnequipSlotItem(const W8Character* character, W8EquipSlot equip_slot)
-{
-    const W8ItemInstance* item = &character->EquippedItem[equip_slot];
-
-    if (item->iItemNo != -1 && Data().items[item->iItemNo].binds_on_equip != 0 &&
-        !item->bind_announced && g_equip_slot_icons[equip_slot] != -1 &&
-        character->uiCondition[W8_CONDITION_DEAD] == 0) {
-        return false;
-    }
-    return true;
-}
-
 /* Whether an item may be picked up out of wherever it is sitting. An
    unidentified item always may; an identified one only when it belongs in an
    equipment slot at all and has not bound itself to its wearer. */
@@ -807,7 +463,7 @@ bool CanItemLeaveItsSlot(const W8ItemInstance* item)
         if (!item->identified) {
             return true;
         }
-        if (GetItemDefaultEquipSlot(item->iItemNo) != W8_EQUIP_SLOT_NONE) {
+        if (GetItemDefaultEquipSlot(Data(), item->iItemNo, GameStarted()) != W8_EQUIP_SLOT_NONE) {
             return !item->bound;
         }
     }
@@ -884,46 +540,6 @@ bool IsItemCarriedByCharacter(W8Character* character, const W8ItemInstance* item
     return false;
 }
 
-// Construct an item value. Inventory placement is a separate gameplay operation.
-W8ItemInstance MakeItem(int item_id, bool maximum_quantity, bool force_identified,
-                        bool mark_special)
-{
-    if (static_cast<unsigned int>(item_id) >= Data().items.size()) {
-        Fail("uiItemNo < Data().items.size()",
-             fmt::format("InitNewItem: error, invalid item # {:d} specified", item_id));
-    }
-
-    W8ItemInstance result;
-    auto* item = &result;
-
-    item->iItemNo = item_id;
-    const W8ItemDatabaseRecord* record = &Data().items[item_id];
-    if (record->quantity_kind != W8_ITEM_QUANTITY_NONE) {
-        int maximum = record->initial_quantity.Maximum();
-        if (maximum >= 256) {
-            Fail("uiMAX_DICE(pMulti) < 256");
-        }
-        unsigned char quantity =
-            maximum_quantity ? static_cast<unsigned char>(maximum)
-                             : static_cast<unsigned char>(RollDice(&record->initial_quantity));
-        if (record->quantity_kind == W8_ITEM_QUANTITY_STACK) {
-            item->stack_count = quantity;
-        } else if (record->quantity_kind >= W8_ITEM_QUANTITY_CHARGES &&
-                   record->quantity_kind <= W8_ITEM_QUANTITY_SHOTS) {
-            item->uses_or_charges = quantity;
-        } else {
-            Fail("FALSE", "InitNewItem: ERROR - Invalid multi code");
-        }
-    }
-    if (force_identified || (record->flags & W8_ITEM_FLAG_AUTO_IDENTIFY) != 0) {
-        item->identified = true;
-    }
-    if (mark_special) {
-        item->bound = true;
-    }
-    return result;
-}
-
 /* Bind one worn item to its wearer. A binding that has not been announced yet
    is announced as it takes hold; one already announced just takes hold. A slot
    with no interface position binds nothing. */
@@ -935,15 +551,15 @@ void BindEquippedItem(W8Character* character, W8EquipSlot equip_slot)
         return;
     }
     if (Data().items[item->iItemNo].binds_on_equip == 0 || item->bind_announced) {
-        if (g_equip_slot_icons[equip_slot] != -1 && !item->bound) {
+        if (HasPaperDollPosition(equip_slot) && !item->bound) {
             item->bound = true;
         }
         return;
     }
-    if (g_equip_slot_icons[equip_slot] != -1 && !item->bound) {
+    if (HasPaperDollPosition(equip_slot) && !item->bound) {
         item->bound = true;
         ShowNotice(W8_FONT_PALETTE_WHITE,
-                   fmt::sprintf(Data().strings[0x1ea], FormatItemDisplayName(item, true)));
+                   fmt::sprintf(Data().strings[0x1ea], FormatItemDisplayName(Data(), item, true)));
     }
 }
 
@@ -1068,34 +684,6 @@ int RevealCharacterItemBindings(unsigned int party_slot, int strength, unsigned 
         return (still_hidden == 0) + 1;
     }
     return 0;
-}
-
-/* Whether an item still has anything worth identifying: any of the nine bits
-   of the mask at 0x04e, or - with the flag at 0x062 clear - any of the six
-   bytes at 0x06f, the spell-bearing byte at 0x08c or the three at 0x06c. */
-bool ItemHasHiddenProperties(int item_id)
-{
-    const W8ItemDatabaseRecord* record = &Data().items[item_id];
-    unsigned int index;
-
-    for (index = 0; index < 9; ++index) {
-        if ((record->attack_flags & (1 << index)) != 0) {
-            return true;
-        }
-    }
-    if (record->armor_class_bonus != 0) {
-        return true;
-    }
-    for (index = 0; index < 6; ++index) {
-        if (record->resistance_bonus[index] != 0) {
-            return true;
-        }
-    }
-    if (record->binds_on_equip != 0 || record->health_regen_bonus != 0 ||
-        record->stamina_regen_bonus != 0 || record->spell_regen_bonus != 0) {
-        return true;
-    }
-    return false;
 }
 
 /* At what range an item's spell works. An item with no spell has no range at
@@ -1291,7 +879,7 @@ void DeliverExceptionalItemReaction(W8ItemInstance* item, bool choose_character,
         return;
     }
     default:
-        if (choose_character || !CanCharacterUseItem(character, item->iItemNo) ||
+        if (choose_character || !CanCharacterUseItem(Data(), character, item->iItemNo) ||
             Data().items[item->iItemNo].value / character->uiExpLevel <= 500 || !item->identified) {
             return;
         }
@@ -1574,7 +1162,7 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
     if (effect == 1) {
         if (g_settings.verbose_combat_messages != 0 || !item->identified) {
             ShowNotice(W8_FONT_PALETTE_WHITE,
-                       fmt::sprintf(Data().strings[0x1f4], GetItemDisplayName(item),
+                       fmt::sprintf(Data().strings[0x1f4], GetItemDisplayName(Data(), item),
                                     Data().spells[spell_id].display_name, power),
                        -1);
             if (g_settings.verbose_combat_messages == 0) {
@@ -1583,8 +1171,8 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
         }
         item->spell_hint = true;
     } else if (effect == 3) {
-        PostCharacterNotice(
-            party_slot, fmt::sprintf(Data().strings[0x1a9], FormatItemDisplayName(item, false)));
+        PostCharacterNotice(party_slot, fmt::sprintf(Data().strings[0x1a9],
+                                                     FormatItemDisplayName(Data(), item, false)));
     }
 
     if (skill != W8_SKILL_NONE) {

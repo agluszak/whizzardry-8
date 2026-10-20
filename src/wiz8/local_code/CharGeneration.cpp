@@ -26,6 +26,7 @@
 #include "wiz8/rules/character_stats.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_rules.h"
 
 /* Refund every spent skill point through the per-skill commit helper. */
 void RefundAllSkillPoints(W8Character* character, W8CharacterCreationState* creation_state)
@@ -1165,7 +1166,8 @@ void AddCharacterStartingEquipment(W8Character* character)
         if (g_starting_equipment[set][slot] == -1) {
             continue;
         }
-        item = MakeItem(g_starting_equipment[set][slot], true, true, true);
+        item =
+            MakeItem(Data(), CurrentGame().rng, g_starting_equipment[set][slot], true, true, true);
         AddItemToCharacter(CurrentGame(), character, &item, true, false, false);
     }
 
@@ -1173,23 +1175,23 @@ void AddCharacterStartingEquipment(W8Character* character)
     case W8_PROFESSION_PRIEST:
         if (character->skills[W8_SKILL_MACE_FLAIL].level >
             character->skills[W8_SKILL_STAFF_WAND].level) {
-            item = MakeItem(0x16, true, true, true);
+            item = MakeItem(Data(), CurrentGame().rng, 0x16, true, true, true);
         } else {
-            item = MakeItem(0x52, true, true, true);
+            item = MakeItem(Data(), CurrentGame().rng, 0x52, true, true, true);
         }
         break;
     case W8_PROFESSION_FIGHTER:
         if (character->skills[W8_SKILL_AXE].level > character->skills[W8_SKILL_SWORD].level) {
-            item = MakeItem(0x12, true, true, true);
+            item = MakeItem(Data(), CurrentGame().rng, 0x12, true, true, true);
         } else {
-            item = MakeItem(7, true, true, true);
+            item = MakeItem(Data(), CurrentGame().rng, 7, true, true, true);
         }
         break;
     case W8_PROFESSION_GADGETEER:
-        item = MakeItem(599, true, true, true);
+        item = MakeItem(Data(), CurrentGame().rng, 599, true, true, true);
         break;
     case W8_PROFESSION_BARD:
-        item = MakeItem(0x144, true, true, true);
+        item = MakeItem(Data(), CurrentGame().rng, 0x144, true, true, true);
         break;
     default:
         RecalculateCharacterDerivedStats(CurrentGame(), *(character));
