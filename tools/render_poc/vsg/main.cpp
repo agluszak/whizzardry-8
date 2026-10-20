@@ -1,18 +1,16 @@
 // VulkanSceneGraph prototype.
 //
 // SDL3 owns the window, its events and the VkSurfaceKHR. VSG adopts the surface
-// through vsg::WindowAdapter and owns the rest of what the native GpuRenderer,
-// mesh batches and vertex streams do today: device and swapchain, buffers and
-// images with their uploads, descriptor sets, pipelines, transforms and command
-// recording. The Wizardry-specific parts are the shared shaders (the GLSL port
-// of shadeVertices) and the per-frame plan.
+// through vsg::WindowAdapter and owns the rest: device and swapchain, buffers,
+// images, descriptor sets, pipelines, and the scene graph itself (world.h).
+// The game objects live in DemoScene; this file only attaches them to the
+// world and runs the frame loop.
 
-#include <array>
+#include <chrono>
 #include <cstdio>
 #include <cstring>
 #include <exception>
-#include <map>
-#include <span>
+#include <optional>
 #include <stdexcept>
 #include <vector>
 
@@ -23,119 +21,46 @@
 #include "demo_scene.h"
 #include "lighting_check.h"
 #include "poc_app.h"
-#include "resident_mesh.h"
-#include "shading_block.h"
-#include "wiz8/render/draw_shader.h"
-#include "wiz8/render/texture.h"
-#include "wizardry_frag.spv.h"
-#include "wizardry_vert.spv.h"
+#include "wiz8/render/fog.h"
+#include "wiz8/render/light.h"
+#include "wiz8/render/mesh_instance.h"
+#include "world.h"
 
 namespace {
 using namespace render_poc;
 
-vsg::dmat4 toVsg(const glm::mat4& matrix)
-{
-    vsg::dmat4 result;
-    for (int column = 0; column < 4; ++column)
-        for (int row = 0; row < 4; ++row) result[column][row] = matrix[column][row];
-    return result;
-}
+// Spawning and despawning a creature of a new kind, once per cycle of frames.
+constexpr int kVisitorCycle = 120;
+constexpr int kVisitorArrives = 20;
+constexpr int kVisitorLeaves = 80;
+// The probe target: every probed vertex's diffuse and specular, one pixel each.
+constexpr int kProbeHeight = 128;
 
-// The plan's matrices as VSG camera inputs.
-class PlanProjection : public vsg::Inherit<vsg::ProjectionMatrix, PlanProjection> {
+class Renderer {
 public:
-    vsg::dmat4 matrix;
-    vsg::dmat4 transform() const override { return matrix; }
-};
-
-class PlanView : public vsg::Inherit<vsg::ViewMatrix, PlanView> {
-public:
-    vsg::dmat4 matrix;
-    vsg::dmat4 transform(const vsg::dvec3& = {}) const override { return matrix; }
-};
-
-// The game's projection follows OpenGL clip conventions; Vulkan's y points down
-// and its depth range is [0, 1].
-glm::mat4 vulkanProjection(const glm::mat4& projection)
-{
-    glm::mat4 clip(1);
-    clip[1][1] = -1;
-    clip[2][2] = .5f;
-    clip[3][2] = .5f;
-    return clip * projection;
-}
-
-template<std::size_t N> vsg::ref_ptr<vsg::vec4Array> dynamicArray()
-{
-    auto array = vsg::vec4Array::create(N);
-    array->properties.dataVariance = vsg::DYNAMIC_DATA;
-    return array;
-}
-
-template<std::size_t N>
-void store(vsg::vec4Array& destination, const std::array<glm::vec4, N>& values)
-{
-    std::memcpy(destination.dataPointer(), values.data(), sizeof(values));
-    destination.dirty();
-}
-
-class VsgRenderer {
-public:
-    VsgRenderer(SDL_Window* window, DemoScene& scene, const Options& options,
-                const ProbePlan* probes);
-    ~VsgRenderer();
+    Renderer(SDL_Window* window, const Options& options, DemoScene& scene);
+    ~Renderer();
 
     // Records and presents one frame. With `readback`, the top-left
     // width x height pixels of the frame are returned as RGBA8.
-    void frame(const FramePlan& plan, bool probes, std::vector<std::uint8_t>* readback = nullptr,
-               int width = 0, int height = 0);
+    void frame(std::vector<std::uint8_t>* readback = nullptr, int width = 0, int height = 0);
+    void showProbes(bool probes);
+
+    RenderContext context;
+    WorldGraph world;
+    vsg::ref_ptr<vsg::Viewer> viewer = vsg::Viewer::create();
+    vsg::ref_ptr<vsg::View> main_view;
+    vsg::ref_ptr<vsg::View> probe_view;
 
 private:
-    struct PassResources {
-        vsg::ref_ptr<vsg::vec4Array> shading = dynamicArray<kShadingVec4s>();
-        vsg::ref_ptr<vsg::BindDescriptorSet> bind_pass;
-        vsg::ref_ptr<vsg::BindVertexBuffers> vertices;
-        vsg::ref_ptr<vsg::BindIndexBuffer> indices;
-        std::vector<vsg::ref_ptr<vsg::vec4Array>> draws;
-        std::vector<vsg::ref_ptr<vsg::BindDescriptorSet>> bind_batches;
-    };
-    struct InstanceResources {
-        vsg::ref_ptr<vsg::MatrixTransform> transform = vsg::MatrixTransform::create();
-        std::vector<PassResources> passes;
-    };
-
-    vsg::ref_ptr<vsg::BindGraphicsPipeline> pipeline(std::uint32_t shader);
-    vsg::ref_ptr<vsg::BindGraphicsPipeline> makePipeline(std::uint32_t shader, bool points,
-                                                         vsg::ref_ptr<vsg::ViewportState> viewport);
-    vsg::ref_ptr<vsg::ImageInfo> texture(Texture* source);
-    vsg::ref_ptr<vsg::BindDescriptorSet> batchSet(vsg::ref_ptr<vsg::vec4Array> draw,
-                                                  vsg::ref_ptr<vsg::ImageInfo> image);
-    vsg::ref_ptr<vsg::Node> probeNodes(const ProbePlan& probes);
     std::vector<std::uint8_t> readFrame(int width, int height);
 
     vsg::ref_ptr<vsg::Instance> instance;
     vsg::ref_ptr<vsg::WindowAdapter> window;
-    vsg::ref_ptr<vsg::Viewer> viewer = vsg::Viewer::create();
-    vsg::ref_ptr<PlanProjection> projection = PlanProjection::create();
-    vsg::ref_ptr<PlanView> view = PlanView::create();
     vsg::ref_ptr<vsg::Switch> views = vsg::Switch::create();
-    vsg::ref_ptr<vsg::Group> transparent = vsg::Group::create();
-    vsg::ref_ptr<vsg::uintArray> transparent_indices;
-    vsg::ref_ptr<vsg::BindIndexBuffer> bind_transparent_indices;
-
-    vsg::ref_ptr<vsg::DescriptorSetLayout> pass_layout;
-    vsg::ref_ptr<vsg::DescriptorSetLayout> batch_layout;
-    vsg::ref_ptr<vsg::PipelineLayout> layout;
-    vsg::ShaderStages stages;
-    vsg::ref_ptr<vsg::ViewportState> viewport;
-    std::map<std::uint32_t, vsg::ref_ptr<vsg::BindGraphicsPipeline>> pipelines;
-    std::map<Texture*, vsg::ref_ptr<vsg::ImageInfo>> textures;
-    vsg::ref_ptr<vsg::ImageInfo> white;
-    std::map<const DemoInstance*, InstanceResources> instances;
 };
 
-VsgRenderer::VsgRenderer(SDL_Window* sdl_window, DemoScene& scene, const Options& options,
-                         const ProbePlan* probes)
+vsg::ref_ptr<vsg::WindowTraits> windowTraits(const Options& options)
 {
     auto traits = vsg::WindowTraits::create();
     traits->width = static_cast<std::uint32_t>(options.width);
@@ -145,7 +70,15 @@ VsgRenderer::VsgRenderer(SDL_Window* sdl_window, DemoScene& scene, const Options
                                                   VK_COLOR_SPACE_SRGB_NONLINEAR_KHR};
     traits->swapchainPreferences.imageUsage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
     if (options.frames) traits->swapchainPreferences.presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+    return traits;
+}
 
+Renderer::Renderer(SDL_Window* sdl_window, const Options& options, DemoScene& scene)
+    : context(
+          {static_cast<std::uint32_t>(options.width), static_cast<std::uint32_t>(options.height)}),
+      world(context, scene.camera, scene.environment, scene.fog_color)
+{
+    auto traits = windowTraits(options);
     Uint32 count = 0;
     const auto* names = SDL_Vulkan_GetInstanceExtensions(&count);
     if (!names) throw std::runtime_error(SDL_GetError());
@@ -160,142 +93,30 @@ VsgRenderer::VsgRenderer(SDL_Window* sdl_window, DemoScene& scene, const Options
     window->windowVisible = true;
     viewer->addWindow(window);
 
-    pass_layout = vsg::DescriptorSetLayout::create(vsg::DescriptorSetLayoutBindings{
-        {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr},
-        {1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr}});
-    batch_layout = vsg::DescriptorSetLayout::create(vsg::DescriptorSetLayoutBindings{
-        {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1,
-         VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
-        {1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr}});
-    layout =
-        vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{pass_layout, batch_layout},
-                                    vsg::PushConstantRanges{{VK_SHADER_STAGE_VERTEX_BIT, 0, 128}});
-    const auto module = [](std::span<const std::uint32_t> code) {
-        return vsg::ShaderModule::create(vsg::ShaderModule::SPIRV(code.begin(), code.end()));
-    };
-    stages = {
-        vsg::ShaderStage::create(VK_SHADER_STAGE_VERTEX_BIT, "main", module(wizardry_vert)),
-        vsg::ShaderStage::create(VK_SHADER_STAGE_FRAGMENT_BIT, "main", module(wizardry_frag))};
-    viewport = vsg::ViewportState::create(window->extent2D());
-
-    auto white_pixel =
-        vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R8G8B8A8_UNORM});
-    white_pixel->at(0, 0) = vsg::ubvec4(255, 255, 255, 255);
-    white = vsg::ImageInfo::create(vsg::Sampler::create(), white_pixel);
-
-    auto geometry_sampler = vsg::Sampler::create();
-    geometry_sampler->minFilter = geometry_sampler->magFilter = VK_FILTER_NEAREST;
-    geometry_sampler->maxLod = 0;
-
-    auto opaque = vsg::Group::create();
-    std::size_t transparent_capacity = 0;
-    for (const auto& instance_source : scene.instances) {
-        const auto& resident = instance_source.resident;
-        auto& resources = instances[&instance_source];
-        auto geometry =
-            vsg::vec4Array2D::create(static_cast<std::uint32_t>(resident.geometry.width),
-                                     static_cast<std::uint32_t>(resident.geometry.height),
-                                     vsg::Data::Properties{VK_FORMAT_R32G32B32A32_SFLOAT});
-        std::memcpy(geometry->dataPointer(), resident.geometry.texels.data(),
-                    resident.geometry.texels.size() * sizeof(glm::vec4));
-        auto geometry_image = vsg::ImageInfo::create(geometry_sampler, geometry);
-
-        for (const auto& pass : resident.passes) {
-            PassResources pass_resources;
-            std::array<vsg::ref_ptr<vsg::vec4Array>, 5> attributes;
-            for (auto& array : attributes)
-                array = vsg::vec4Array::create(static_cast<std::uint32_t>(pass.vertices.size()));
-            for (std::size_t index = 0; index < pass.vertices.size(); ++index) {
-                const auto& vertex = pass.vertices[index];
-                const std::array values{vertex.index_material_alpha, vertex.texcoords, vertex.color,
-                                        vertex.diffuse_multiplier, vertex.specular_multiplier};
-                for (std::size_t attribute = 0; attribute < values.size(); ++attribute) {
-                    const auto& value = values[attribute];
-                    attributes[attribute]->at(index) =
-                        vsg::vec4(value.x, value.y, value.z, value.w);
-                }
-            }
-            pass_resources.vertices = vsg::BindVertexBuffers::create(
-                0, vsg::DataList(attributes.begin(), attributes.end()));
-            auto indices = vsg::uintArray::create(static_cast<std::uint32_t>(pass.indices.size()));
-            std::ranges::copy(pass.indices, indices->begin());
-            pass_resources.indices = vsg::BindIndexBuffer::create(indices);
-            pass_resources.bind_pass = vsg::BindDescriptorSet::create(
-                VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0,
-                vsg::DescriptorSet::create(
-                    pass_layout,
-                    vsg::Descriptors{vsg::DescriptorBuffer::create(pass_resources.shading, 0),
-                                     vsg::DescriptorImage::create(geometry_image, 1)}));
-
-            auto pass_group = vsg::StateGroup::create();
-            pass_group->add(pass_resources.bind_pass);
-            for (const auto& batch : pass.batches) {
-                auto draw = dynamicArray<kDrawVec4s>();
-                auto bind = batchSet(draw, texture(batch.texture));
-                pass_resources.draws.push_back(draw);
-                pass_resources.bind_batches.push_back(bind);
-                // Translucent runs bind their pipeline per frame; create it now
-                // so that it is compiled with the scene.
-                pipeline(batch.shader.value);
-                if (resident.sorted) continue;
-                auto batch_group = vsg::StateGroup::create();
-                batch_group->add(pipeline(batch.shader.value));
-                batch_group->add(bind);
-                auto commands = vsg::Commands::create();
-                commands->addChild(pass_resources.vertices);
-                commands->addChild(pass_resources.indices);
-                commands->addChild(
-                    vsg::DrawIndexed::create(batch.index_count, 1, batch.first_index, 0, 0));
-                batch_group->addChild(commands);
-                pass_group->addChild(batch_group);
-            }
-            if (resident.sorted)
-                transparent_capacity += pass.indices.size();
-            else
-                resources.transform->addChild(pass_group);
-            resources.passes.push_back(std::move(pass_resources));
-        }
-        if (!resident.sorted) opaque->addChild(resources.transform);
+    // The game's objects join the graph; nothing is copied out of them.
+    for (const auto& mesh_instance : scene.instances) {
+        if (mesh_instance.get() == scene.lantern)
+            world.attach(*scene.lantern, *scene.herd.front(), DemoScene::kHandKey);
+        else
+            world.attach(*mesh_instance);
     }
-    // One index buffer, rewritten every frame, holds the ordered translucent runs.
-    transparent_indices = vsg::uintArray::create(
-        static_cast<std::uint32_t>(std::max<std::size_t>(transparent_capacity, 3)));
-    transparent_indices->properties.dataVariance = vsg::DYNAMIC_DATA;
-    bind_transparent_indices = vsg::BindIndexBuffer::create(transparent_indices);
-
-    // Recording follows child order: opaque meshes in scene order, then the
-    // globally sorted translucent runs. VSG does not regroup by state.
-    auto scene_group = vsg::Group::create();
-    scene_group->addChild(opaque);
-    scene_group->addChild(transparent);
-    // Everything the per-frame translucent runs bind is compiled up front.
-    auto compiled = vsg::StateGroup::create();
-    for (const auto& [shader, bind] : pipelines) compiled->add(bind);
-    auto bind_buffers = vsg::Commands::create();
-    bind_buffers->addChild(bind_transparent_indices);
-    for (const auto& [source, resources] : instances) {
-        if (!source->resident.sorted) continue;
-        for (const auto& pass : resources.passes) {
-            compiled->add(pass.bind_pass);
-            for (const auto& bind : pass.bind_batches) compiled->add(bind);
-            bind_buffers->addChild(pass.vertices);
-        }
+    for (const auto& light : scene.lights) {
+        if (light.get() == scene.lamp)
+            world.attach(*light, scene.lantern);
+        else
+            world.attach(*light);
     }
-    compiled->addChild(bind_buffers);
-    auto scene_root = vsg::Group::create();
-    scene_root->addChild(scene_group);
-    scene_root->addChild(compiled);
-    auto camera = vsg::Camera::create(projection, view, viewport);
+    for (const auto& fog : scene.fogs) world.attach(*fog);
+
+    main_view = world.createView(vsg::ViewportState::create(window->extent2D()));
     // VSG applies a view's camera viewport to its pipelines, so the probes get
     // their own view with a probe-sized viewport.
-    views->addChild(true, vsg::View::create(camera, scene_root));
-    if (probes) {
-        auto probe_camera = vsg::Camera::create(
-            projection, view,
-            vsg::ViewportState::create(0, 0, static_cast<std::uint32_t>(probes->width),
-                                       static_cast<std::uint32_t>(probes->height)));
-        views->addChild(false, vsg::View::create(probe_camera, probeNodes(*probes)));
-    }
+    probe_view = world.createView(vsg::ViewportState::create(
+        0, 0, static_cast<std::uint32_t>(ProbePlan{}.width), kProbeHeight));
+    // Both views are on while the viewer sets up its compile contexts, which
+    // only visit enabled views.
+    views->addChild(true, main_view);
+    views->addChild(true, probe_view);
     auto render_graph = vsg::RenderGraph::create(window);
     render_graph->addChild(views);
     const auto& clear = scene.clear_color;
@@ -304,132 +125,34 @@ VsgRenderer::VsgRenderer(SDL_Window* sdl_window, DemoScene& scene, const Options
     command_graph->addChild(render_graph);
     viewer->assignRecordAndSubmitTaskAndPresentation({command_graph});
     viewer->compile();
+    showProbes(false);
 }
 
-VsgRenderer::~VsgRenderer()
+Renderer::~Renderer()
 {
     viewer->deviceWaitIdle();
 }
 
-vsg::ref_ptr<vsg::BindGraphicsPipeline> VsgRenderer::pipeline(std::uint32_t shader)
+void Renderer::showProbes(bool probes)
 {
-    auto& found = pipelines[shader];
-    if (!found) found = makePipeline(shader, false, viewport);
-    return found;
+    views->children[0].mask = vsg::boolToMask(!probes);
+    views->children[1].mask = vsg::boolToMask(probes);
 }
 
-vsg::ref_ptr<vsg::BindGraphicsPipeline>
-VsgRenderer::makePipeline(std::uint32_t shader, bool points, vsg::ref_ptr<vsg::ViewportState> area)
+void Renderer::frame(std::vector<std::uint8_t>* readback, int width, int height)
 {
-    static constexpr std::array source{VK_BLEND_FACTOR_ZERO, VK_BLEND_FACTOR_ONE,
-                                       VK_BLEND_FACTOR_SRC_ALPHA,
-                                       VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA};
-    static constexpr std::array destination{
-        VK_BLEND_FACTOR_ZERO,      VK_BLEND_FACTOR_ONE,
-        VK_BLEND_FACTOR_SRC_COLOR, VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR,
-        VK_BLEND_FACTOR_SRC_ALPHA, VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-        VK_BLEND_FACTOR_ONE,       VK_BLEND_FACTOR_ONE};
-    const auto raster = rasterState(shader);
-
-    vsg::VertexInputState::Bindings bindings;
-    vsg::VertexInputState::Attributes attributes;
-    for (std::uint32_t location = 0; location < 5; ++location) {
-        bindings.push_back({location, sizeof(glm::vec4), VK_VERTEX_INPUT_RATE_VERTEX});
-        attributes.push_back({location, location, VK_FORMAT_R32G32B32A32_SFLOAT, 0});
+    world.compile(*viewer);
+    if (!viewer->advanceToNextFrame()) throw std::runtime_error("VSG viewer closed");
+    viewer->update();
+    viewer->recordAndSubmit();
+    if (readback) {
+        viewer->deviceWaitIdle();
+        *readback = readFrame(width, height);
     }
-    auto assembly = vsg::InputAssemblyState::create();
-    assembly->topology =
-        points ? VK_PRIMITIVE_TOPOLOGY_POINT_LIST : VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    // The native mesh path culls in software and rasterizes without culling.
-    auto rasterization = vsg::RasterizationState::create();
-    rasterization->cullMode = VK_CULL_MODE_NONE;
-    VkPipelineColorBlendAttachmentState blend{};
-    blend.blendEnable = raster.blend;
-    blend.srcColorBlendFactor = blend.srcAlphaBlendFactor = source[raster.source];
-    blend.dstColorBlendFactor = blend.dstAlphaBlendFactor = destination[raster.destination];
-    blend.colorBlendOp = blend.alphaBlendOp = VK_BLEND_OP_ADD;
-    blend.colorWriteMask = raster.color_write
-                               ? VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
-                                     VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT
-                               : 0;
-    auto depth = vsg::DepthStencilState::create();
-    depth->depthTestEnable = raster.depth_test;
-    depth->depthWriteEnable = raster.depth_write;
-    // DrawShader's PASS_* values use Vulkan's compare-op order.
-    depth->depthCompareOp = static_cast<VkCompareOp>(raster.depth_compare);
-
-    vsg::GraphicsPipelineStates states{
-        vsg::VertexInputState::create(bindings, attributes),
-        assembly,
-        rasterization,
-        vsg::MultisampleState::create(),
-        vsg::ColorBlendState::create(vsg::ColorBlendState::ColorBlendAttachments{blend}),
-        depth,
-        area};
-    return vsg::BindGraphicsPipeline::create(vsg::GraphicsPipeline::create(layout, stages, states));
+    viewer->present();
 }
 
-vsg::ref_ptr<vsg::ImageInfo> VsgRenderer::texture(Texture* source)
-{
-    if (!source) return white;
-    auto& found = textures[source];
-    if (found) return found;
-    auto& surface = *source->getSurface();
-    const auto pixels = rgba8Pixels(surface);
-    auto image = vsg::ubvec4Array2D::create(static_cast<std::uint32_t>(surface.w),
-                                            static_cast<std::uint32_t>(surface.h),
-                                            vsg::Data::Properties{VK_FORMAT_R8G8B8A8_UNORM});
-    std::memcpy(image->dataPointer(), pixels.data(), pixels.size());
-    auto sampler = vsg::Sampler::create();
-    sampler->addressModeU = sampler->addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    sampler->mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-    sampler->maxLod = 16; // VSG generates the mip chain on upload
-    found = vsg::ImageInfo::create(sampler, image);
-    return found;
-}
-
-vsg::ref_ptr<vsg::BindDescriptorSet> VsgRenderer::batchSet(vsg::ref_ptr<vsg::vec4Array> draw,
-                                                           vsg::ref_ptr<vsg::ImageInfo> image)
-{
-    return vsg::BindDescriptorSet::create(
-        VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 1,
-        vsg::DescriptorSet::create(batch_layout,
-                                   vsg::Descriptors{vsg::DescriptorBuffer::create(draw, 0),
-                                                    vsg::DescriptorImage::create(image, 1)}));
-}
-
-vsg::ref_ptr<vsg::Node> VsgRenderer::probeNodes(const ProbePlan& probes)
-{
-    // Every vertex becomes one point at its own pixel; no depth test, no blending.
-    auto group = vsg::Group::create();
-    constexpr std::uint32_t unblended_always =
-        DrawShader::PASS_ALWAYS | DrawShader::MASK_COLOR_WRITE |
-        DrawShader::SRCBLEND_ONE << DrawShader::SRCBLEND_SHIFT;
-    auto points = makePipeline(unblended_always, true, viewport);
-    for (const auto& probe : probes.cases) {
-        for (int mode = 1; mode <= 2; ++mode) {
-            auto draw = dynamicArray<kDrawVec4s>();
-            store(*draw, probeDrawBlock(probes, probe, mode));
-            auto transform = vsg::MatrixTransform::create(
-                toVsg(probe.draw->instance->transform.matrix<glm::mat4>()));
-            const auto& pass = instances.at(probe.draw->instance).passes[probe.pass];
-            auto state = vsg::StateGroup::create();
-            state->add(points);
-            state->add(pass.bind_pass);
-            state->add(batchSet(draw, white));
-            auto commands = vsg::Commands::create();
-            commands->addChild(pass.vertices);
-            commands->addChild(vsg::Draw::create(
-                static_cast<std::uint32_t>(probe.expected_diffuse.size()), 1, 0, 0));
-            state->addChild(commands);
-            transform->addChild(state);
-            group->addChild(transform);
-        }
-    }
-    return group;
-}
-
-std::vector<std::uint8_t> VsgRenderer::readFrame(int width, int height)
+std::vector<std::uint8_t> Renderer::readFrame(int width, int height)
 {
     // Copy the presented image to host memory before it is handed to the presentation engine.
     auto device = window->getOrCreateDevice();
@@ -483,57 +206,71 @@ std::vector<std::uint8_t> VsgRenderer::readFrame(int width, int height)
     return pixels;
 }
 
-void VsgRenderer::frame(const FramePlan& plan, bool probes, std::vector<std::uint8_t>* readback,
-                        int width, int height)
+WorldViewState& viewState(vsg::View& view)
 {
-    projection->matrix = toVsg(vulkanProjection(plan.camera.projection));
-    view->matrix = toVsg(plan.camera.view);
+    return static_cast<WorldViewState&>(*view.viewDependentState);
+}
 
-    const auto update = [&](const PlannedDraw& draw) {
-        auto& resources = instances.at(draw.instance);
-        resources.transform->matrix = toVsg(draw.instance->transform.matrix<glm::mat4>());
-        for (std::size_t pass = 0; pass < resources.passes.size(); ++pass) {
-            store(*resources.passes[pass].shading, draw.shading[pass]);
-            for (std::size_t batch = 0; batch < resources.passes[pass].draws.size(); ++batch)
-                store(*resources.passes[pass].draws[batch], draw.draw_blocks[pass][batch]);
-        }
-    };
-    for (const auto& draw : plan.opaque) update(draw);
-    for (const auto& draw : plan.sorted) update(draw);
+// GPU lighting against shadeVertices, over what the probe view saw.
+bool verifyLighting(Renderer& renderer, DemoScene& scene)
+{
+    auto& probes = viewState(*renderer.probe_view);
+    probes.probing = true;
+    renderer.showProbes(true);
+    renderer.frame(); // collects the visible instances and the view's lights
+    auto plan =
+        planProbes(probes.probe_sources, probes.lights, renderer.world.fogs, scene.environment);
+    if (plan.height > kProbeHeight) throw std::length_error("Probe target too small");
+    plan.height = kProbeHeight;
+    renderer.world.setProbePlan(probes, plan, *renderer.viewer);
+    std::vector<std::uint8_t> pixels;
+    renderer.frame(&pixels, plan.width, plan.height);
+    renderer.showProbes(false);
+    const auto report = compareProbes(plan, pixels);
+    std::printf("VulkanSceneGraph vertex stage vs shadeVertices: %s, %zu lights collected\n",
+                report.summary.c_str(), probes.lights.size());
+    return report.passed();
+}
 
-    // The translucent runs: lightweight per-frame nodes over compiled state.
-    std::ranges::copy(plan.transparent.indices, transparent_indices->begin());
-    transparent_indices->dirty();
-    transparent->children.clear();
-    for (const auto& run : plan.transparent.runs) {
-        const auto& draw = plan.sorted[run.draw];
-        const auto& pass = instances.at(draw.instance).passes[run.pass];
-        const auto& batch = draw.instance->resident.passes[run.pass].batches[run.batch];
-        auto state = vsg::StateGroup::create();
-        state->add(pipeline(batch.shader.value));
-        state->add(pass.bind_pass);
-        state->add(pass.bind_batches[run.batch]);
-        auto commands = vsg::Commands::create();
-        commands->addChild(pass.vertices);
-        commands->addChild(bind_transparent_indices);
-        commands->addChild(vsg::DrawIndexed::create(run.index_count, 1, run.first_index, 0, 0));
-        state->addChild(commands);
-        auto transform =
-            vsg::MatrixTransform::create(toVsg(draw.instance->transform.matrix<glm::mat4>()));
-        transform->addChild(state);
-        transparent->addChild(transform);
+// Picks at the screen position of an instance's origin.
+WorldGraph::Pick pickAt(Renderer& renderer, const DemoScene& scene, const MeshInstance& target,
+                        const Options& options, double* target_distance)
+{
+    const auto camera = cameraMatrices(scene.camera);
+    const auto world_at = glm::vec4(target.transform.matrix<glm::mat4>()[3]);
+    const auto eye = camera.view * world_at;
+    *target_distance = glm::length(glm::vec3(eye));
+    auto clip = camera.projection * eye;
+    clip /= clip.w;
+    // Window y points down; the game's projection has y up.
+    const int x = static_cast<int>((clip.x * .5f + .5f) * float(options.width));
+    const int y = static_cast<int>((.5f - clip.y * .5f) * float(options.height));
+    return renderer.world.pick(*renderer.main_view->camera, x, y);
+}
+
+bool verifyPicking(Renderer& renderer, const DemoScene& scene, const Options& options)
+{
+    // Each creature is picked at its centre unless something nearer covers
+    // it; the lantern is RENDER_NO_PICK and never picked.
+    int direct = 0;
+    bool passed = true;
+    for (const auto* creature : scene.herd) {
+        double distance = 0;
+        const auto picked = pickAt(renderer, scene, *creature, options, &distance);
+        if (picked.instance == creature)
+            ++direct;
+        else
+            passed &= picked.instance && picked.distance < distance;
     }
-    views->children[0].mask = vsg::boolToMask(!probes);
-    if (views->children.size() > 1) views->children[1].mask = vsg::boolToMask(probes);
-
-    if (!viewer->advanceToNextFrame()) throw std::runtime_error("VSG viewer closed");
-    viewer->update();
-    viewer->recordAndSubmit();
-    if (readback) {
-        viewer->deviceWaitIdle();
-        *readback = readFrame(width, height);
-    }
-    viewer->present();
+    double lantern_distance = 0;
+    const auto at_lantern = pickAt(renderer, scene, *scene.lantern, options, &lantern_distance);
+    passed &= at_lantern.instance != scene.lantern && direct > 0;
+    std::printf("Picking: %d of %zu creatures picked at their centre, the rest behind nearer "
+                "instances; the lantern's centre picks %s: %s\n",
+                direct, scene.herd.size(),
+                at_lantern.instance ? at_lantern.instance->getName().c_str() : "nothing",
+                passed ? "ok" : "FAILED");
+    return passed;
 }
 
 int run(int argc, char** argv)
@@ -547,40 +284,53 @@ int run(int argc, char** argv)
 
     int status = 0;
     {
-        DemoScene scene;
-        std::optional<ProbePlan> probes;
-        std::optional<FramePlan> probe_frame;
+        DemoScene scene(options.herd);
+        Renderer renderer(window, options, scene);
         if (options.verify) {
             scene.update(options.time.value_or(1.3));
-            probe_frame = planFrame(scene);
-            probes = planProbes(scene, *probe_frame);
+            if (!verifyLighting(renderer, scene)) status = 1;
+            if (!verifyPicking(renderer, scene, options)) status = 1;
         }
-        VsgRenderer renderer(window, scene, options, probes ? &*probes : nullptr);
-        if (probes) {
-            std::vector<std::uint8_t> pixels;
-            renderer.frame(*probe_frame, true, &pixels, probes->width, probes->height);
-            const auto report = compareProbes(*probes, pixels);
-            std::printf("VulkanSceneGraph vertex stage vs shadeVertices: %s\n",
-                        report.summary.c_str());
-            if (!report.passed()) status = 1;
-        }
+
         FrameClock clock;
-        for (int frame = 0; !options.frames || frame < *options.frames; ++frame) {
+        MeshInstance* visitor = nullptr;
+        std::size_t drawn = 0;
+        int frame = 0;
+        for (; !options.frames || frame < *options.frames; ++frame) {
             bool quit = false;
-            for (SDL_Event event; SDL_PollEvent(&event);)
+            for (SDL_Event event; SDL_PollEvent(&event);) {
                 quit |= event.type == SDL_EVENT_QUIT ||
                         (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_ESCAPE);
+                if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
+                    const auto picked = renderer.world.pick(
+                        *renderer.main_view->camera, int(event.button.x), int(event.button.y));
+                    std::printf("Picked %s\n",
+                                picked.instance ? picked.instance->getName().c_str() : "nothing");
+                }
+            }
             if (quit) break;
             scene.update(clock.sceneTime(options));
+            // A creature of a new kind arrives and leaves while the world runs.
+            if (frame % kVisitorCycle == kVisitorArrives) {
+                visitor = &scene.addVisitor();
+                renderer.world.attach(*visitor);
+            } else if (frame % kVisitorCycle == kVisitorLeaves && visitor) {
+                renderer.world.detach(*visitor);
+                scene.removeVisitor(*visitor); // safe at once: the world keeps GPU resources
+                visitor = nullptr;
+            }
             const bool last = options.frames && frame + 1 == *options.frames;
             std::vector<std::uint8_t> pixels;
             const bool capture = last && !options.screenshot.empty();
-            renderer.frame(planFrame(scene), false, capture ? &pixels : nullptr, options.width,
-                           options.height);
+            renderer.frame(capture ? &pixels : nullptr, options.width, options.height);
             if (capture) savePng(options.screenshot, pixels, options.width, options.height, false);
+            drawn += viewState(*renderer.main_view).drawn_instances;
             clock.frameDone();
         }
-        std::printf("VulkanSceneGraph: %s\n", clock.summary().c_str());
+        std::printf("VulkanSceneGraph: %s; %zu instances attached, %.1f drawn per frame after "
+                    "culling, %zu meshes resident\n",
+                    clock.summary().c_str(), renderer.world.instanceCount(),
+                    frame ? double(drawn) / frame : 0.0, renderer.world.assetCount());
     }
     SDL_DestroyWindow(window);
     SDL_Quit();

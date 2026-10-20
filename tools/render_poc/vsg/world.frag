@@ -2,11 +2,18 @@
 #extension GL_GOOGLE_include_directive : require
 
 #include "wizardry_layout.glsl"
+#include "world_blocks.glsl"
 
-layout(std140, set = 1, binding = 0) uniform Draw { vec4 values[WZ_DRAW_VEC4S]; } draw;
-layout(set = 1, binding = 1) uniform sampler2D material_texture;
+layout(set = 3, binding = 1) uniform sampler2D material_texture;
 
-vec4 wzDraw(int index) { return draw.values[index]; }
+vec4 wzDraw(int index)
+{
+    if (index == 2) return batch.modes;
+    if (index == 3) return view.fog_color;
+    if (index == 4) return batch.alpha_test;
+    if (index == 5) return batch.probe;
+    return vec4(0.0);
+}
 
 #include "wizardry_fragment.glsl"
 

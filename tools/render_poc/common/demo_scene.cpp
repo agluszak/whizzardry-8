@@ -193,6 +193,8 @@ std::shared_ptr<Mesh> makeCreature(std::shared_ptr<Texture> skin)
         }
         mesh->FinalizeVertexFrame(frame);
     }
+    // The "hand": a mapped vertex on the equator that attachments follow.
+    mesh->SetMappedVertex((rings / 2) * (segments + 1) + segments / 4, DemoScene::kHandKey);
     mesh->setMaterial(
         makeMaterial({.8f, .55f, .45f, 1}, {.5f, .4f, .35f, 1}, {.9f, .9f, .8f, 1}, 24), 0,
         Mesh::SIDE_FRONT);
@@ -276,9 +278,43 @@ std::shared_ptr<Mesh> makeFalls(std::shared_ptr<Texture> water)
     return mesh;
 }
 
+// A small glowing lamp body, emissive so it reads as the light's source.
+std::shared_ptr<Mesh> makeLantern()
+{
+    constexpr int rings = 4, segments = 6;
+    auto mesh = std::make_shared<Mesh>(rings * segments * 2, (rings + 1) * (segments + 1));
+    mesh->setName("lantern");
+    auto* positions = mesh->getVertexLoc();
+    for (int ring = 0; ring <= rings; ++ring)
+        for (int segment = 0; segment <= segments; ++segment) {
+            const float theta = pi * float(ring) / rings;
+            const float phi = 2 * pi * float(segment % segments) / segments;
+            positions[ring * (segments + 1) + segment] =
+                glm::vec3(std::sin(theta) * std::cos(phi), std::cos(theta),
+                          std::sin(theta) * std::sin(phi)) *
+                .25f;
+        }
+    auto* triangles = mesh->getPolyVertex();
+    int polygon = 0;
+    for (int ring = 0; ring < rings; ++ring)
+        for (int segment = 0; segment < segments; ++segment) {
+            const int a = ring * (segments + 1) + segment;
+            const int b = a + segments + 1;
+            triangles[polygon++] = {a, b, a + 1};
+            triangles[polygon++] = {a + 1, b, b + 1};
+        }
+    orientOutward(*mesh, glm::vec3(0));
+    auto material = makeMaterial({.2f, .2f, .1f, 1}, {.1f, .1f, .1f, 1});
+    material->setEmissive({1, .85f, .5f, 1});
+    mesh->setMaterial(material, 0, Mesh::SIDE_FRONT);
+    auto shader = shaderWord(false, false) & ~DrawShader::MASK_TEXTURING;
+    mesh->setShader(shaderOf(shader), 0);
+    return mesh;
+}
+
 } // namespace
 
-DemoScene::DemoScene()
+DemoScene::DemoScene(int herd_size)
 {
     const auto checker = [](glm::vec4 a, glm::vec4 b) {
         return [=](int x, int y) { return ((x / 8 + y / 8) % 2) ? a : b; };
@@ -301,19 +337,33 @@ DemoScene::DemoScene()
 
     const auto add = [this](std::string name, std::shared_ptr<Mesh> mesh, glm::dvec3 at,
                             double yaw) {
-        DemoInstance instance;
-        instance.name = std::move(name);
-        instance.resident = buildResidentMesh(*mesh);
-        instance.mesh = std::move(mesh);
-        instance.transform.setLocation(at);
-        instance.transform.setRotation(0, yaw, 0);
+        auto instance = std::make_unique<MeshInstance>();
+        instance->setName(std::move(name));
+        instance->setModel(std::move(mesh));
+        instance->transform.setLocation(at);
+        instance->transform.setRotation(0, yaw, 0);
         instances.push_back(std::move(instance));
+        return instances.back().get();
     };
-    add("floor", makeFloor(light_tiles, dark_tiles), {0, 0, 0}, 0);
-    add("creature", makeCreature(skin), {-2.5, 1.8, 1}, 0);
-    add("falls", makeFalls(water), {5, 0, -4}, 0);
+    floor = add("floor", makeFloor(light_tiles, dark_tiles), {0, 0, 0}, 0);
+    floor->setExclusionMask(kWardGroup); // the ward light never reaches the floor
+    // Every creature shares one Mesh, as monsters of one kind share a model.
+    const auto creature = makeCreature(skin);
+    for (int index = 0; index < herd_size; ++index) {
+        const int row = (index - 1) / 8, column = (index - 1) % 8;
+        const glm::dvec3 at = index == 0 ? glm::dvec3(-2.5, 1.8, 1)
+                                         : glm::dvec3(-12 + column * 3.5, 1.8, -8 - row * 3.5);
+        herd.push_back(add(index == 0 ? "creature" : "creature " + std::to_string(index), creature,
+                           at, index * .7));
+    }
+    falls = add("falls", makeFalls(water), {5, 0, -4}, 0);
     add("red pane", makePane(glass, {1, .35f, .3f, .55f}), {1.5, 0, 3}, .35);
     add("blue pane", makePane(glass, {.3f, .5f, 1, .5f}), {1.5, 0, 3}, -.45);
+    // Placed at the leader's hand; its pose relative to that vertex.
+    lantern = add("lantern", makeLantern(), {0, 0, 0}, 0);
+    lantern->transform.setLocation(.3, .1, 0);
+    lantern->render_flags |= MeshInstance::RENDER_NO_PICK;
+    if (herd.size() > 1) fading = herd[1];
 
     auto lamp = std::make_unique<Light>(nullptr, Light::PRESET_POINT);
     lamp->setName("lamp");
@@ -323,6 +373,8 @@ DemoScene::DemoScene()
     lamp->diffuse = {1, .8f, .55f};
     lamp->specular = {1, 1, .9f};
     lamp->ambient = {.05f, .04f, .03f};
+    lamp->transform.setLocation(0, .3, 0); // above the lantern body
+    this->lamp = lamp.get();
     lights.push_back(std::move(lamp));
 
     auto spot = std::make_unique<Light>(nullptr, Light::PRESET_SPOT);
@@ -343,6 +395,18 @@ DemoScene::DemoScene()
     sun->specular = glm::vec3(0);
     lights.push_back(std::move(sun));
 
+    // A green ward light in a group the floor excludes.
+    auto ward = std::make_unique<Light>(nullptr, Light::PRESET_POINT);
+    ward->setName("ward");
+    ward->setGroupMask(kWardGroup);
+    ward->attenuation_model = Light::ATTENUATION_3DSTUDIO_MAX;
+    ward->far_start = 2;
+    ward->far_end = 9;
+    ward->diffuse = {.2f, .9f, .3f};
+    ward->specular = glm::vec3(0);
+    ward->transform.setLocation(-6, 1, -3);
+    lights.push_back(std::move(ward));
+
     auto fog = std::make_unique<FogParams>();
     fog->setName("mist");
     fog->setRange(12, 42);
@@ -359,6 +423,25 @@ DemoScene::DemoScene()
 
 DemoScene::~DemoScene() = default;
 
+MeshInstance& DemoScene::addVisitor()
+{
+    // A new Mesh, not a shared one: its renderer resources do not exist yet.
+    auto mesh = makeCreature(textures[2]);
+    auto instance = std::make_unique<MeshInstance>();
+    instance->setName("visitor");
+    instance->setModel(std::move(mesh));
+    instance->transform.setLocation(4, 1.8, 4);
+    instance->emissive_override_enabled = true;
+    instance->emissive_override = .35f;
+    instances.push_back(std::move(instance));
+    return *instances.back();
+}
+
+void DemoScene::removeVisitor(MeshInstance& visitor)
+{
+    std::erase_if(instances, [&](const auto& instance) { return instance.get() == &visitor; });
+}
+
 void DemoScene::update(double seconds)
 {
     const double orbit = seconds * .25;
@@ -366,14 +449,23 @@ void DemoScene::update(double seconds)
     camera.transform.setLocation(eye);
     camera.transform.setRotation(glm::dvec3(0, 1.2, 0) - eye, 0);
 
-    lights[0]->transform.setLocation(-2.5 + std::cos(seconds * 1.3) * 3.5, 2.5,
-                                     1 + std::sin(seconds * 1.3) * 3.5);
-
-    for (auto& instance : instances) {
-        if (instance.resident.geometry.frame_count < 2) continue;
-        const double frames = seconds * 5;
-        instance.frame = static_cast<unsigned>(frames) % instance.resident.geometry.frame_count;
-        instance.interpolation = static_cast<float>(frames - std::floor(frames));
+    // The leader walks a small circle; the lantern and its light follow through
+    // the attachment, not through code that recomputes their poses.
+    herd.front()->transform.setLocation(-2.5 + std::cos(seconds * .6) * 1.5, 1.8,
+                                        1 + std::sin(seconds * .6) * 1.5);
+    herd.front()->transform.setRotation(0, -seconds * .6, 0);
+    for (std::size_t index = 0; index < herd.size(); ++index) {
+        auto& creature = *herd[index];
+        const auto frames = static_cast<unsigned>(creature.getModel()->frames.size());
+        const double frame = seconds * 5 + double(index) * 1.37;
+        creature.frame_index = static_cast<unsigned>(frame) % frames;
+        creature.frame_interpolation = static_cast<float>(frame - std::floor(frame));
+    }
+    if (fading) {
+        // A creature fading out switches to sorted, blended rendering.
+        const double phase = std::fmod(seconds * .4, 2.0);
+        fading->diffuse_scale_enabled = phase > 1;
+        fading->diffuse_scale = static_cast<float>(1 - std::abs(phase - 1.5) * 2);
     }
 
     const auto [near_range, far_range] = camera.getEnvironmentRange();
@@ -398,77 +490,6 @@ CameraMatrices cameraMatrices(const Camera3D& camera)
                      float(rectangle.bottom * scale), float(rectangle.top * scale),
                      float(near_plane), float(far_plane));
     return {glm::mat4(view), projection};
-}
-
-FramePlan planFrame(DemoScene& scene)
-{
-    FramePlan plan;
-    plan.camera = cameraMatrices(scene.camera);
-    plan.clear_color = scene.clear_color;
-    std::vector<Light*> lights;
-    for (auto& light : scene.lights) {
-        prepareLight(*light, plan.camera.view);
-        lights.push_back(light.get());
-    }
-    std::vector<FogParams*> fogs;
-    for (auto& fog : scene.fogs) fogs.push_back(fog.get());
-
-    std::vector<std::vector<glm::vec3>> sort_positions;
-    std::vector<SortedDraw> sorted_draws;
-    for (const auto& instance : scene.instances) {
-        const auto& resident = instance.resident;
-        PlannedDraw draw;
-        draw.instance = &instance;
-        draw.model_view = plan.camera.view * instance.transform.matrix<glm::mat4>();
-        // GpuRenderer::applyViewStateChanges: lighting removes model scaling.
-        glm::mat3 basis(draw.model_view);
-        const glm::vec3 lengths(glm::length(basis[0]), glm::length(basis[1]),
-                                glm::length(basis[2]));
-        for (int column = 0; column < 3; ++column) basis[column] /= lengths[column];
-        draw.normal_matrix = glm::transpose(glm::inverse(basis));
-
-        InstanceShading shading;
-        shading.eye_bounds = {glm::vec3(draw.model_view * glm::vec4(resident.bounds_center, 1)),
-                              resident.bounds_radius * std::max({lengths.x, lengths.y, lengths.z})};
-        shading.exclusion_mask = instance.exclusion_mask;
-
-        const auto frames = selectFrame(resident.geometry, instance.frame, instance.interpolation);
-        draw.draw_blocks.resize(resident.passes.size());
-        for (std::uint32_t pass = 0; pass < resident.passes.size(); ++pass) {
-            const auto& resident_pass = resident.passes[pass];
-            draw.shading.push_back(
-                packShading(scene.environment, shading, lights, fogs, resident_pass.materials));
-            for (std::uint32_t batch = 0; batch < resident_pass.batches.size(); ++batch) {
-                const auto& source = resident_pass.batches[batch];
-                const auto block = packDraw({.final_channels = source.final_channels,
-                                             .draw_flags = resident_pass.draw_flags,
-                                             .has_normals = resident.geometry.has_normals,
-                                             .position_count = resident.geometry.position_count,
-                                             .frame = frames.frame,
-                                             .next_frame = frames.next,
-                                             .interpolation = frames.interpolation,
-                                             .frame_count = resident.geometry.frame_count,
-                                             .shader = source.shader.value,
-                                             .fog_color = scene.fog_color});
-                draw.draw_blocks[pass].push_back(block);
-                draw.batches.push_back({pass, batch, block});
-            }
-        }
-        if (!resident.sorted) {
-            plan.opaque.push_back(std::move(draw));
-            continue;
-        }
-        sort_positions.push_back(
-            framePositions(resident.geometry, instance.frame, instance.interpolation));
-        plan.sorted.push_back(std::move(draw));
-    }
-    const auto projection = projectClipNear(plan.camera.projection);
-    for (std::size_t index = 0; index < plan.sorted.size(); ++index) {
-        sorted_draws.push_back({&plan.sorted[index].instance->resident,
-                                plan.sorted[index].model_view, projection, sort_positions[index]});
-    }
-    plan.transparent = orderTransparent(sorted_draws);
-    return plan;
 }
 
 std::vector<std::uint8_t> rgba8Pixels(SDL_Surface& surface)

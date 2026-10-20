@@ -1,62 +1,67 @@
 #pragma once
 
-// A deterministic scene built through the game's own render types, and the
-// library-neutral per-frame plan every backend consumes.
+// A deterministic scene made of the game's own objects: MeshInstances sharing
+// Mesh models, Lights, FogParams and a Camera3D. The scene owns them as the
+// game's World does; a renderer only borrows them.
 //
-// The scene covers what the renderer evaluation has to preserve:
+// It covers what a renderer replacement has to preserve:
 //  - a floor with per-polygon textures and baked vertex light (DIG colours);
-//  - a creature animated through the mesh's compressed frame codec,
-//    interpolated between frames, with specular highlights;
-//  - two crossing translucent meshes whose triangles must interleave, which
-//    only a global triangle sort can draw correctly;
+//  - a herd of creatures of any size sharing one Mesh, animated through its
+//    compressed frame codec and interpolated between frames, with specular
+//    highlights;
+//  - a lantern attached to the lead creature's mapped "hand" vertex, carrying
+//    the point light, so both follow the animation;
+//  - a creature that fades out, which switches it to sorted, blended drawing;
+//  - two crossing translucent panes whose triangles must interleave;
 //  - a scrolling material whose UV-seam corners keep their raw coordinates;
-//  - point (3ds Max ranges), spot and directional lights, fog and depth cue.
+//  - point (3ds Max ranges), spot and directional lights, a light whose group
+//    the floor excludes, fog and depth cue.
 
+#include <cstdint>
 #include <memory>
-#include <optional>
 #include <string>
 #include <vector>
 
 #include <glm/glm.hpp>
 
-#include "resident_mesh.h"
 #include "shading_block.h"
-#include "transparent_order.h"
 #include "wiz8/render/camera.h"
-#include "wiz8/render/transform.h"
+#include "wiz8/render/mesh_instance.h"
 
 class FogParams;
 class Light;
-class Mesh;
 class Texture;
 struct SDL_Surface;
 
 namespace render_poc {
 
-struct DemoInstance {
-    std::string name;
-    std::shared_ptr<Mesh> mesh;
-    ResidentMesh resident;
-    Transform3D transform;
-    unsigned frame = 0;
-    float interpolation = 0;
-    std::uint32_t exclusion_mask = 0;
-};
-
 class DemoScene {
 public:
-    DemoScene();
+    static constexpr short kHandKey = 7;
+    static constexpr std::uint32_t kWardGroup = 0x2;
+
+    explicit DemoScene(int herd_size = 1);
     ~DemoScene();
     DemoScene(const DemoScene&) = delete;
     DemoScene& operator=(const DemoScene&) = delete;
 
-    // Advances camera, lights, scrolling and animation to `seconds`.
+    // Advances camera, the leader's walk, animation frames and fading to `seconds`.
     void update(double seconds);
 
-    std::vector<DemoInstance> instances;
-    std::vector<std::unique_ptr<Light>> lights;
-    std::vector<std::unique_ptr<FogParams>> fogs;
+    // A creature of a kind not loaded at start-up, for runtime attach and detach.
+    MeshInstance& addVisitor();
+    void removeVisitor(MeshInstance& visitor);
+
     std::vector<std::shared_ptr<Texture>> textures;
+    std::vector<std::unique_ptr<MeshInstance>> instances;
+    MeshInstance* floor = nullptr;
+    MeshInstance* falls = nullptr;
+    MeshInstance* lantern = nullptr;  // attached to herd.front() at kHandKey
+    MeshInstance* fading = nullptr;   // a herd member that fades in and out
+    std::vector<MeshInstance*> herd;  // herd.front() is the leader
+    std::vector<std::unique_ptr<Light>> lights;
+    Light* lamp = nullptr; // attached to the lantern
+    std::vector<std::unique_ptr<FogParams>> fogs;
     Camera3D camera;
     ShadingEnvironment environment;
     glm::vec4 fog_color{0.25f, 0.3f, 0.4f, 1};
@@ -69,36 +74,6 @@ struct CameraMatrices {
     glm::mat4 projection; // OpenGL clip conventions, as glm::frustum
 };
 CameraMatrices cameraMatrices(const Camera3D& camera);
-
-// Everything one draw of one batch needs.
-struct PlannedBatch {
-    std::uint32_t pass = 0;
-    std::uint32_t batch = 0;
-    DrawBlock draw{};
-};
-
-struct PlannedDraw {
-    const DemoInstance* instance = nullptr;
-    glm::mat4 model_view{1};
-    glm::mat3 normal_matrix{1};
-    // One shading block per pass (material tables differ per pass).
-    std::vector<ShadingBlock> shading;
-    std::vector<PlannedBatch> batches;
-    // Draw block per (pass, batch) for the ordered transparent runs.
-    std::vector<std::vector<DrawBlock>> draw_blocks;
-};
-
-struct FramePlan {
-    CameraMatrices camera;
-    std::vector<PlannedDraw> opaque;
-    std::vector<PlannedDraw> sorted;
-    TransparentOrder transparent; // runs index into `sorted`
-    glm::vec4 clear_color{0};
-};
-
-// Per-object CPU work that remains in any library: light/fog selection,
-// material packing and the global transparent order.
-FramePlan planFrame(DemoScene& scene);
 
 // Textures are SDL surfaces owned by game Texture objects; backends upload them
 // as RGBA8 (R first in memory).

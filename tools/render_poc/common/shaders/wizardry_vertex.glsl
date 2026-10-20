@@ -2,9 +2,15 @@
 // vertex of one pass, plus frame interpolation from resident frame data.
 //
 // The host defines, before this source:
-//   vec4 wzShading(int index);  // ShadingBlock (shading_block.h)
-//   vec4 wzDraw(int index);     // DrawBlock
-//   vec4 wzGeometry(int texel); // ResidentGeometry texels
+//   vec4 wzShading(int index);      // the flat shading index space (shading_block.h);
+//                                   // fog layers return (start, 1/(end-start),
+//                                   // density, 1 when the object is in the ramp)
+//   vec4 wzDraw(int index);         // 0 (channels, draw flags, has normals, positions),
+//                                   // 1 (frame, next, interpolation, frame count),
+//                                   // 2 modes, 3 fog colour, 4 alpha test, 5 probe
+//   vec4 wzGeometry(int texel);     // ResidentGeometry texels
+//   bool wzLightActive(int light);  // shadeVertices' per-object light test
+//   bool wzFogActive(int layer);    // and fog test
 // The statement order follows the C++ so that accumulation rounds alike.
 
 const int WZ_DIFFUSE = 1 << 1;
@@ -169,6 +175,7 @@ WzVertex wzShadeVertex(mat4 model_view, mat3 normal_matrix, vec4 index_material_
     int light_count = int(wzShading(2).x);
     for (int light = 0; light < WZ_MAX_LIGHTS; ++light) {
         if (light >= light_count) break;
+        if (!wzLightActive(light)) continue;
         int light_base = WZ_LIGHT_BASE + light * WZ_LIGHT_VEC4S;
         vec4 location = wzShading(light_base);
         int flags = int(location.w);
@@ -216,7 +223,8 @@ WzVertex wzShadeVertex(mat4 model_view, mat3 normal_matrix, vec4 index_material_
         int fog_count = int(wzShading(2).y);
         for (int layer = 0; layer < WZ_MAX_FOGS; ++layer) {
             if (layer >= fog_count) break;
-            vec4 parameters = wzShading(WZ_FOG_BASE + layer); // start, 1/(end-start), density, ramped
+            if (!wzFogActive(layer)) continue;
+            vec4 parameters = wzShading(WZ_FOG_BASE + layer);
             float density = parameters.w != 0.0
                                 ? wzRamp(eye_distance, parameters.x, parameters.y, parameters.z, false)
                                 : parameters.z;

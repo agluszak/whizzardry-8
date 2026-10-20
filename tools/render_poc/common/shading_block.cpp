@@ -3,14 +3,16 @@
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>
-#include <vector>
 
 #include "wiz8/math.h"
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/fog.h"
 #include "wiz8/render/light.h"
 #include "wiz8/render/material.h"
+#include "wiz8/render/mesh.h"
+#include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/vertex_channels.h"
+#include "wiz8/render/vertex_shading.h"
 
 namespace render_poc {
 namespace {
@@ -26,33 +28,6 @@ constexpr char fragment_source[] = {
     , 0};
 #pragma clang diagnostic pop
 
-// The same per-object rejections shadeVertices applies before its vertex loop.
-bool lightAffects(const Light& light, const InstanceShading& instance)
-{
-    if (light.group_mask & instance.exclusion_mask) return false;
-    const auto offset = instance.eye_bounds.center - light.eye_location;
-    const float distance_squared = glm::dot(offset, offset);
-    const float radius = instance.eye_bounds.radius;
-    if ((light.derived_flags & Light::DERIVED_RANGE_CULL) &&
-        (light.attenuation_range + radius) * (light.attenuation_range + radius) <= distance_squared)
-        return false;
-    if ((light.derived_flags & Light::DERIVED_SPOT) && radius * radius < distance_squared &&
-        glm::dot(offset, light.spot_direction_eye) / std::sqrt(distance_squared) +
-                radius / std::sqrt(radius * radius + distance_squared) <
-            light.spot_cutoff)
-        return false;
-    return true;
-}
-
-bool fogAffects(const FogParams& fog, const InstanceShading& instance)
-{
-    if ((fog.group_mask & instance.exclusion_mask) || fog.density <= 0) return false;
-    const auto& sphere = instance.eye_bounds;
-    return !(sphere.radius <= fog.fog_start &&
-             glm::dot(sphere.center, sphere.center) <
-                 (fog.fog_start - sphere.radius) * (fog.fog_start - sphere.radius));
-}
-
 float lightFlags(const Light& light)
 {
     using enum VertexChannels::e_channel;
@@ -66,87 +41,133 @@ float lightFlags(const Light& light)
     return static_cast<float>(flags);
 }
 
+void packLight(const Light& light, std::span<glm::vec4> out)
+{
+    out[0] = glm::vec4(light.eye_location, lightFlags(light));
+    out[1] = light.scaled_ambient;
+    out[2] = light.scaled_diffuse;
+    out[3] = light.scaled_specular;
+    out[4] = glm::vec4(light.spot_direction_eye, light.spot_cutoff);
+    // The range cull of a 3ds Max light uses attenuation_range, its scaled far end.
+    out[5] = {light.scaled_near_start, light.near_attenuation, light.scaled_far_end,
+              light.far_attenuation};
+    out[6] = glm::vec4(light.opengl_attenuation, light.spot_exponent);
+}
+
+void packMaterial(Material& material, double frame_time, std::span<glm::vec4> out)
+{
+    const auto info = material.getMaterialInfo();
+    // Scrolling is evaluated in double precision, then added in float.
+    const auto scroll = glm::vec2(glm::fract(glm::dvec2(material.uv_velocity) * frame_time));
+    out[0] = info.diffuse;
+    out[1] = info.ambient;
+    out[2] = info.specular;
+    out[3] = info.emissive;
+    out[4] = {info.shininess, info.fog_scale, float(material.operations),
+              float(info.disabled_channels)};
+    out[5] = {float(static_cast<int>(material.uv_mapping)), scroll.x, scroll.y, 0};
+}
+
 } // namespace
 
-ShadingBlock packShading(const ShadingEnvironment& environment, const InstanceShading& instance,
-                         std::span<Light* const> lights, std::span<FogParams* const> fogs,
-                         std::span<Material* const> materials)
+ViewBlock packView(const ShadingEnvironment& environment, std::span<Light* const> lights,
+                   std::span<FogParams* const> fogs, const glm::vec4& fog_color)
 {
-    ShadingBlock block{};
-    block[0] = environment.ambient_light;
-    block[1] = {environment.environment_minimum, environment.environment_maximum,
-                environment.environment_scale, environment.environment_inverse_scale};
-
-    int light_count = 0;
-    for (auto* light : lights) {
-        if (!lightAffects(*light, instance)) continue;
-        if (light_count == kMaxLights) throw std::length_error("Too many lights for one draw");
-        auto* out = &block[kLightBase + light_count++ * kLightVec4s];
-        out[0] = glm::vec4(light->eye_location, lightFlags(*light));
-        out[1] = light->scaled_ambient;
-        out[2] = light->scaled_diffuse;
-        out[3] = light->scaled_specular;
-        out[4] = glm::vec4(light->spot_direction_eye, light->spot_cutoff);
-        out[5] = {light->scaled_near_start, light->near_attenuation, light->scaled_far_end,
-                  light->far_attenuation};
-        out[6] = glm::vec4(light->opengl_attenuation, light->spot_exponent);
+    if (lights.size() > static_cast<std::size_t>(kMaxLights))
+        throw std::length_error("Too many lights for one view");
+    if (fogs.size() > static_cast<std::size_t>(kMaxFogs))
+        throw std::length_error("Too many fog layers for one view");
+    ViewBlock block;
+    block.values[1] = {environment.environment_minimum, environment.environment_maximum,
+                       environment.environment_scale, environment.environment_inverse_scale};
+    block.values[2] = {float(lights.size()), float(fogs.size()), 0, 0};
+    for (std::size_t slot = 0; slot < lights.size(); ++slot) {
+        packLight(*lights[slot],
+                  std::span(&block.values[kLightBase + slot * kLightVec4s], kLightVec4s));
+        block.masks[slot].x = lights[slot]->group_mask;
     }
-
-    int fog_count = 0;
-    for (auto* fog : fogs) {
-        if (!fogAffects(*fog, instance)) continue;
-        if (fog_count == kMaxFogs) throw std::length_error("Too many fog layers for one draw");
-        // Range limits and normalization are double-precision on the CPU.
-        const double limit = instance.eye_bounds.radius + fog->fog_end;
-        const bool ramped =
-            glm::dot(instance.eye_bounds.center, instance.eye_bounds.center) <= limit * limit;
-        const float normalization = fog->fog_end == fog->fog_start
+    for (std::size_t slot = 0; slot < fogs.size(); ++slot) {
+        const auto& fog = *fogs[slot];
+        // The normalization is computed in double precision, as on the CPU.
+        const float normalization = fog.fog_end == fog.fog_start
                                         ? 1e8f
-                                        : static_cast<float>(1.f / (fog->fog_end - fog->fog_start));
-        block[kFogBase + fog_count++] = {static_cast<float>(fog->fog_start), normalization,
-                                         fog->density, ramped ? 1.f : 0.f};
+                                        : static_cast<float>(1.f / (fog.fog_end - fog.fog_start));
+        block.values[kFogBase + slot] = {static_cast<float>(fog.fog_start), normalization,
+                                         fog.density, static_cast<float>(fog.fog_end)};
+        block.masks[kMaxLights + slot].x = fog.group_mask;
     }
-    block[2] = {float(light_count), float(fog_count), 0, 0};
-
-    if (materials.size() > static_cast<std::size_t>(kMaxMaterials))
-        throw std::length_error("Too many materials for one draw");
-    Material default_material;
-    for (std::size_t slot = 0; slot < materials.size(); ++slot) {
-        auto* material = materials[slot] ? materials[slot] : &default_material;
-        auto info = material->getMaterialInfo();
-        if (instance.diffuse_scale) info.diffuse.w *= *instance.diffuse_scale;
-        if (instance.emissive_override)
-            info.emissive = glm::vec4(glm::vec3(*instance.emissive_override), 1);
-        // Scrolling is evaluated in double precision, then added in float.
-        const auto scroll =
-            glm::vec2(glm::fract(glm::dvec2(material->uv_velocity) * environment.frame_time));
-        auto* out = &block[kMaterialBase + slot * kMaterialVec4s];
-        out[0] = info.diffuse;
-        out[1] = info.ambient;
-        out[2] = info.specular;
-        out[3] = info.emissive;
-        out[4] = {info.shininess, info.fog_scale, float(material->operations),
-                  float(info.disabled_channels)};
-        out[5] = {float(static_cast<int>(material->uv_mapping)), scroll.x, scroll.y, 0};
-    }
+    block.fog_color = fog_color;
     return block;
 }
 
-DrawBlock packDraw(const DrawState& state)
+InstanceBlock packInstance(const MeshInstance& instance, const ResidentMesh& mesh,
+                           const glm::vec4& scene_ambient)
 {
-    const auto shader = state.shader;
+    const auto frames =
+        selectFrame(mesh.geometry, instance.frame_index, instance.frame_interpolation);
+    return {.ambient = instanceAmbient(instance, scene_ambient),
+            .frames = {float(frames.frame), float(frames.next), frames.interpolation, 0},
+            .bounds = glm::vec4(mesh.bounds_center, mesh.bounds_radius),
+            .overrides = {instance.diffuse_scale_enabled ? 1.f : 0.f, instance.diffuse_scale,
+                          instance.emissive_override_enabled ? 1.f : 0.f,
+                          instance.emissive_override},
+            .masks = {instance.getExclusionMask(), 0, 0, 0}};
+}
+
+PassBlock packPass(const ResidentMesh& mesh, std::size_t pass, double frame_time)
+{
+    const auto& resident = mesh.passes[pass];
+    if (resident.materials.size() > static_cast<std::size_t>(kMaxMaterials))
+        throw std::length_error("Too many materials for one pass");
+    PassBlock block;
+    Material default_material;
+    for (std::size_t slot = 0; slot < resident.materials.size(); ++slot) {
+        auto* material = resident.materials[slot] ? resident.materials[slot] : &default_material;
+        packMaterial(*material, frame_time,
+                     std::span(&block.materials[slot * kMaterialVec4s], kMaterialVec4s));
+    }
+    block.mesh = {float(mesh.geometry.position_count), float(mesh.geometry.frame_count),
+                  mesh.geometry.has_normals ? 1.f : 0.f, float(resident.draw_flags)};
+    return block;
+}
+
+BatchBlock packBatch(std::uint32_t shader)
+{
+    DrawShader decoded;
+    decoded.value = shader;
     const bool texturing = (shader & DrawShader::MASK_TEXTURING) != 0;
-    return {glm::vec4(float(state.final_channels & 0xffffu), float(state.draw_flags),
-                      state.has_normals ? 1.f : 0.f, float(state.position_count)),
-            glm::vec4(float(state.frame), float(state.next_frame), state.interpolation,
-                      float(state.frame_count)),
-            glm::vec4(texturing ? 1.f : 0.f,
+    return {.channels = {float(~shaderDisabledChannels(decoded) & 0xffffu), 0, 0, 0},
+            .modes = {texturing ? 1.f : 0.f,
                       float((shader & DrawShader::MASK_GRADIENT) >> DrawShader::GRADIENT_SHIFT),
                       (shader & DrawShader::MASK_SECONDARY_GRADIENT) ? 1.f : 0.f,
-                      float((shader & DrawShader::MASK_FOG) >> DrawShader::FOG_SHIFT)),
-            state.fog_color,
-            glm::vec4((shader & DrawShader::MASK_ALPHATEST) ? 1.f : 0.f, 0, 0, 0),
-            glm::vec4(0)};
+                      float((shader & DrawShader::MASK_FOG) >> DrawShader::FOG_SHIFT)},
+            .alpha_test = {(shader & DrawShader::MASK_ALPHATEST) ? 1.f : 0.f, 0, 0, 0}};
+}
+
+glm::vec4 instanceAmbient(const MeshInstance& instance, const glm::vec4& scene_ambient)
+{
+    // MeshInstance::RenderMeshes: baked models take their ambient from the
+    // baked colours; others scale the scene ambient (alpha 1).
+    if (instance.getModel()->vertex_lighting_ready) return glm::vec4(0);
+    return glm::vec4(glm::vec3(scene_ambient) * instance.light_scale, 1);
+}
+
+std::uint32_t effectiveShader(const MeshInstance& instance, std::uint32_t shader)
+{
+    return instance.diffuse_scale_enabled ? fadingShader(shader) : shader;
+}
+
+std::uint32_t fadingShader(std::uint32_t shader)
+{
+    // MeshInstance::RenderMeshes: a diffuse-scaled instance alpha-blends.
+    return (shader & 0xffffd7bfu) | 0x44a0u;
+}
+
+bool drawsSorted(const MeshInstance& instance)
+{
+    const auto* model = instance.getModel();
+    return instance.diffuse_scale_enabled ||
+           (model->render_control & (1u << Mesh::CONTROL_SORTED_RENDERING)) != 0;
 }
 
 RasterState rasterState(std::uint32_t shader)
@@ -174,9 +195,8 @@ std::string_view wizardryFragmentGlsl()
     return fragment_source;
 }
 
-void prepareLight(Light& light, const glm::mat4& view, float scene_brightness)
+void prepareLightAt(Light& light, const glm::mat4& model_view, float scene_brightness)
 {
-    const glm::mat4 model_view = view * light.transform.matrix<glm::mat4>();
     light.derived_flags = Light::DERIVED_ACTIVE;
     light.channel_mask = 0;
     const struct Channel {

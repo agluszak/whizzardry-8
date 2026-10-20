@@ -167,26 +167,25 @@ FrameSelection selectFrame(const ResidentGeometry& geometry, unsigned frame, flo
     return {static_cast<int>(frame), -1, 0};
 }
 
+glm::vec3 framePosition(const ResidentGeometry& geometry, const FrameSelection& selection,
+                        std::size_t vertex)
+{
+    const auto count = static_cast<std::size_t>(geometry.position_count);
+    const auto at = [&](int selected) {
+        return glm::vec3(geometry.texels[static_cast<std::size_t>(selected) * count + vertex]);
+    };
+    if (selection.next < 0) return at(selection.frame);
+    if (selection.interpolation == 1.0f) return at(selection.next);
+    return glm::mix(at(selection.frame), at(selection.next), selection.interpolation);
+}
+
 std::vector<glm::vec3> framePositions(const ResidentGeometry& geometry, unsigned frame,
                                       float interpolation)
 {
     const auto selection = selectFrame(geometry, frame, interpolation);
-    const auto count = static_cast<std::size_t>(geometry.position_count);
-    const auto at = [&](int selected, std::size_t vertex) {
-        return glm::vec3(geometry.texels[static_cast<std::size_t>(selected) * count + vertex]);
-    };
-    std::vector<glm::vec3> positions(count);
-    for (std::size_t vertex = 0; vertex < count; ++vertex) {
-        const auto current = at(selection.frame, vertex);
-        if (selection.next < 0) {
-            positions[vertex] = current;
-        } else if (selection.interpolation == 1.0f) {
-            positions[vertex] = at(selection.next, vertex);
-        } else {
-            positions[vertex] =
-                glm::mix(current, at(selection.next, vertex), selection.interpolation);
-        }
-    }
+    std::vector<glm::vec3> positions(static_cast<std::size_t>(geometry.position_count));
+    for (std::size_t vertex = 0; vertex < positions.size(); ++vertex)
+        positions[vertex] = framePosition(geometry, selection, vertex);
     return positions;
 }
 

@@ -29,6 +29,9 @@ Options parseOptions(int argc, char** argv)
             options.screenshot = value();
         } else if (argument == "--verify") {
             options.verify = true;
+        } else if (argument == "--herd") {
+            options.herd = std::stoi(std::string(value()));
+            if (options.herd < 1) throw std::invalid_argument("--herd needs at least 1");
         } else if (argument == "--hidden") {
             options.hidden = true;
         } else if (argument == "--size") {

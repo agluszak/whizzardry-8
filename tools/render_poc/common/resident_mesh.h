@@ -100,5 +100,8 @@ struct FrameSelection {
     float interpolation = 0;
 };
 FrameSelection selectFrame(const ResidentGeometry& geometry, unsigned frame, float interpolation);
+// One vertex of framePositions, such as a mapped vertex that attachments follow.
+glm::vec3 framePosition(const ResidentGeometry& geometry, const FrameSelection& selection,
+                        std::size_t vertex);
 
 } // namespace render_poc

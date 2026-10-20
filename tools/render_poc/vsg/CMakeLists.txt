@@ -1,5 +1,6 @@
 # VulkanSceneGraph prototype (WIZ8_RENDER_POC_VSG): SDL3 owns the window and its
-# Vulkan surface; VSG owns the device, swapchain, resources and recording.
+# Vulkan surface; VSG owns the device, swapchain, resources, the scene graph and
+# recording.
 option(WIZ8_RENDER_POC_VSG "Build the VulkanSceneGraph prototype" ON)
 if(NOT WIZ8_RENDER_POC_VSG)
     return()
@@ -29,19 +30,21 @@ add_custom_command(OUTPUT "${shader_dir}/wizardry_layout.glsl"
     DEPENDS wiz8_render_poc_glsl_layout VERBATIM)
 set(vsg_shader_headers)
 foreach(stage vert frag)
-    set(header "${shader_dir}/wizardry_${stage}.spv.h")
+    set(header "${shader_dir}/world_${stage}.spv.h")
     add_custom_command(OUTPUT "${header}"
         COMMAND "${GLSLANG_VALIDATOR}" -V --target-env vulkan1.0
-            "-I${shader_dir}" "-I${CMAKE_CURRENT_SOURCE_DIR}/../common/shaders"
-            --vn wizardry_${stage} -o "${header}" "${CMAKE_CURRENT_SOURCE_DIR}/wizardry.${stage}"
-        DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/wizardry.${stage}" "${shader_dir}/wizardry_layout.glsl"
+            "-I${shader_dir}" "-I${CMAKE_CURRENT_SOURCE_DIR}"
+            "-I${CMAKE_CURRENT_SOURCE_DIR}/../common/shaders"
+            --vn world_${stage} -o "${header}" "${CMAKE_CURRENT_SOURCE_DIR}/world.${stage}"
+        DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/world.${stage}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/world_blocks.glsl" "${shader_dir}/wizardry_layout.glsl"
             "${CMAKE_CURRENT_SOURCE_DIR}/../common/shaders/wizardry_vertex.glsl"
             "${CMAKE_CURRENT_SOURCE_DIR}/../common/shaders/wizardry_fragment.glsl"
         VERBATIM)
     list(APPEND vsg_shader_headers "${header}")
 endforeach()
 
-add_executable(wiz8_render_poc_vsg main.cpp ${vsg_shader_headers})
+add_executable(wiz8_render_poc_vsg main.cpp world.cpp ${vsg_shader_headers})
 target_include_directories(wiz8_render_poc_vsg PRIVATE "${shader_dir}")
 target_link_libraries(wiz8_render_poc_vsg PRIVATE wiz8_render_poc vsg::vsg)
 set_target_properties(wiz8_render_poc_vsg PROPERTIES CXX_STANDARD 26)

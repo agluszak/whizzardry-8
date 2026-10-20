@@ -8,6 +8,7 @@
 //   --verify          compare the GPU vertex stage against shadeVertices
 //   --size WxH        window size (default 960x720)
 //   --hidden          do not show the window (CI and headless runs)
+//   --herd N          number of creatures sharing one mesh (default 12)
 
 #include <chrono>
 #include <cstdint>
@@ -26,6 +27,7 @@ struct Options {
     std::filesystem::path screenshot;
     bool verify = false;
     bool hidden = false;
+    int herd = 12;
 };
 
 Options parseOptions(int argc, char** argv);
